@@ -155,3 +155,53 @@ authz-edge-matrix · верифицируй матрицу verb×role×scope new
 **no-region-from-zone-name** — прежняя редакция:
 
 no-region-from-zone-name · бери ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием · red: отрезание суффикса, срез по дефису, префиксное сравнение имён; предикат, истинный на пустой строке
+
+## Снято 2026-09-26 (ws#786): сжатие корпуса под потолок check-06 на сведении 786 с 771
+
+Сведённое дерево `786` × `771` (волна-0 в волну-3) дало 208 847 знаков при потолке 200 000
+(решение владельца 2026-09-19); потолок не поднимался. Нормы каскада закрытия и снятия влитых
+веток (786) и требования волны-0 (771) сохранены под теми же id; ниже — ПРЕЖНИЕ редакции строк,
+сжатых этим изменением, дословно (редакция сведения до сжатия).
+
+arch-db-invariant-only · выражай DB-конструкцией, не software Get→check→Update · mapRepoErr + integration-тест на гонку · red: check-then-act в сервис-слое перед UPDATE
+sqlstate-to-grpc · маппь только в сервис-слое: 23503→FailedPrecondition · 23505→AlreadyExists/FailedPrecondition · 23514→InvalidArgument · 23P01→FailedPrecondition · sqlstatehome_test.go · red: решение о классе отказа вне единственного дома
+concurrent-integration-test · закрой integration-тестом (testcontainers) с параллельными горутинами: проходит ровно одна TX, прочие получают ожидаемый sentinel · ЗАВЕСТИ · red: мёрж с unit-тестом вместо него
+single-owner-per-type · держи ровно одного владельца с каноническим CRUD/read-API · ЗАВЕСТИ · red: mirror-строка или cross-service FK у потребителя
+consumer-validates-by-owner · храни TEXT без FK и валидируй через API владельца на Create/Update · вызов клиента в use-case · red: ссылка принята без проверки у владельца
+typed-client-layering · ходи типизированным клиентом `internal/clients/<owner>_client.go`, port в use-case · usecaselayout_test.go · red: http/grpc-вызов из слоя репозитория
+mirror-output-only · держи output-only, с пометкой source of truth, обновляй на чтении · ЗАВЕСТИ · red: зеркало на входе Create/Update
+delete-no-cascade · не спрашивай потребителей; потребитель переживает dangling-ref деградированным статусом · тест на dangling-ref · red: паника или cross-service cascade
+owner-map · Region/Zone→geo · Account/Project/User/SA/Group/Role/AccessBinding→iam · Network/Subnet/SG/RouteTable/Address/Gateway/NIC→vpc · Instance/MachineType→compute · Volume/Snapshot/Image/DiskType→storage · LB/Listener/TargetGroup→nlb · Registry/Repository/Tag→registry · Operation — per-service · ЗАВЕСТИ · red: второй владелец типа
+compensation-outbox-initiator · компенсируй у инициатора: `<svc>.compensation_outbox` в том же writer-TX ДО пометки Operation error, at-least-once drainer, идемпотентно · тест kill-worker · red: best-effort горутина после fail
+sweeper-backstop · держи sweeper-backstop: освобождай lease/Volume с DETACHED/dangling Referrer дольше TTL · reconciler владельца · red: backstop как первичный путь или его отсутствие
+compensation-kill-test · докажи тестом: kill worker между alloc и Volume-Create → lease реклеймится, пул не течёт · integration-тест · red: зелёный без убийства worker'а
+lease-recycle-every-path · возвращай в free-list на КАЖДОМ пути высвобождения одним оператором под row-lock, в той же TX, что ownership-CAS · `DELETE … RETURNING` / `UPDATE pool …` · red: «прочитал → вернул»
+lease-test · докажи concurrent alloc/free (один writer берёт slot) + N alloc → N delete → N alloc снова проходит · integration + e2e-guard · red: тест без параллелизма
+materialization-async · эмить intent'ом в writer-TX → sync-registrar (best-effort) + `fga_outbox` → drainer + reconciler · outboxeventdictionary_test.go · red: синхронный dual-write в FGA на create-path
+fga-write-atomic-per-object · пиши весь verb-набор объекта одним Write, all-or-nothing, идемпотентно (read-delta пишет только missing) · v_update visible ⟹ набор visible · red: частично записанный набор глаголов
+role-rule-selectors-all · проецируй в `role_rule_selectors` миграцией + boot-backfill `SyncAllSystemRoleSelectors` · ЗАВЕСТИ · red: binding невидим discovery, creator получает 403 на своём ресурсе
+edit-comaterializes-delete · co-материализуй `v_delete` вместе с `v_update`, но НЕ на hierarchy-scope · ЗАВЕСТИ authz-edge-matrix · red: delete на account/project-scope
+containment-transitive · считай транзитивным: account-scoped binding матчит объект в project ∈ account; mirror несёт `parent_project_id` · резолв на read-boundary · red: binding не матчит вложенный объект
+group-member-ec · эмить intent'ом в `fga_outbox` в writer-TX членства → at-least-once drainer → reconciler; слово «co-commit» запрещено · Operation.done члена не ждёт видимость · red: sync dual-write в FGA из tx группы
+grant-by-email-pending · храни pending email-grant intent, ремапь в `usr-<id>` reconciler-ом на первом OIDC-login · conformance: grant→login→доступ, revoke-before-login чистит intent · red: tuple на email либо серверный confirm-барьер
+grant-to-group · выдавай ГРУППЕ, людей и SA добавляй в группу; перечисление субъектов законно только при единственном неизменном получателе · ЗАВЕСТИ · red: перечисление субъектов в привязке
+partition-head-claim · не клейми, пока в партиции есть доставляемый предшественник: `NOT EXISTS` неотправленной строки той же `<part>` с меньшим id и `attempt_count < MaxAttempts`, плюс partial-index `((<part>), id) WHERE sent_at IS NULL` · `outboxorderinggate_test.go`, `outboxpendingindexperservice_test.go` · red: claim без предиката головы партиции
+wedge-observability · обязателен per-partition WARN + table-wide oldest-pending gauge · outboxobservedgate_test.go · red: застрявший revoke без сигнала
+crossbatch-ordering-test · делай CROSS-BATCH: bumped-WRITE (attempt=5) + fresh-DELETE (attempt=0) + ≥ApplyConcurrency filler'ов · RED без фикса, GREEN с фиксом · red: внутрибатчевый тест
+placement-coherent · делай placement-coherent · ЗАВЕСТИ · red: связь ресурсов из разных зоны/региона
+anycast-exception · исключай из зональной проверки by construction (`zone_id=''`), оставляй региональную · ветка anycast в тесте · red: зональная проверка на anycast
+coherence-enforce-db · энфорси когерентность на DB-уровне внутри attach/link-CAS: `… AND (peer.placement_type='REGIONAL' OR peer.zone_id = $my_zone) …` · ЗАВЕСТИ · red: software check-then-act
+zone-existence-peer · валидируй peer-вызовом `geo.v1.ZoneService.Get` / `RegionService.Get`, fail-closed · вызов в Create/Update · red: локальная проверка или её пропуск
+no-region-from-zone-name · регион бери ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием · red: срез суффикса или по дефису, префиксное сравнение имён; предикат, истинный на пустой строке
+instance-nic-same-zone · требуй ту же зону для подсети каждого интерфейса (исключение — REGIONAL-подсеть) на пути запроса Create/Update · negative-кейс · red: проверка отложена в сагу запуска
+intent-closed-set · гейть закрытым набором принимаемых отношений ДО записи; отношение вне набора отвергай целиком; набор сверяй со списком принимающей стороны, а не с соседом · ЗАВЕСТИ · red: отношение вне набора в очереди
+intent-test-receiver · утверждай контракт ПРИНИМАЮЩЕЙ стороны — что эмитировано отношение, которое владелец ПРИМЕТ · ЗАВЕСТИ · red: зелёное «намерение эмитировано»
+permission-denied-terminal · классифицируй терминальным, не transient · ЗАВЕСТИ · red: повтор до MaxAttempts блокирует партицию навсегда
+intent-verify-set · набор отношений нового ресурса сверяй со списком принимающей стороны (`intent-closed-set`) · ЗАВЕСТИ · red: набор скопирован у соседа без сверки
+counter-in-insert-tx · списывай в ТОЙ ЖЕ транзакции, что вставка ресурсной строки; распределённой транзакции в стеке нет · ЗАВЕСТИ · red: «спросить» и «списать» разведены по сети
+stand-data-by-seed · заводи посевом при подъёме стенда, в миграцию — никогда · git grep -ln 'INSERT INTO' -- 'services/*/internal/migrations/*.sql': каждое попадание — справочник продукта · red: данные окружения в миграции
+seed-predicate · суди попадание вопросом «обязана ли строка существовать у арендатора, развернувшего продукт у себя» — нет значит посев · ЗАВЕСТИ · red: строка окружения принята за справочник без ответа на предикат
+seed-guard-occupancy · ограждай вставку проверкой занятости · ЗАВЕСТИ · red: строка появилась, а её содержимое нет
+seed-verbatim-identity · бери идентичность строки дословно у соседнего посева · `standanycastpoolidentity_test.go`, `seedaddressplanparity_test.go` · red: два автора у одного слота
+seed-parity-gate · держи гейтом, не комментарием · seedaddressplanparity_test.go · red: расхождение блоков, не покрывающих друг друга
+seed-asserts-capability · утверждай СПОСОБНОСТЬ, а не существование строки · .github/workflows/console-e2e.yml:693 · red: пул существует с пустым списком свободных адресов

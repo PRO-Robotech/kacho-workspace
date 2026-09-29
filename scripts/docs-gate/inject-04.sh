@@ -30,6 +30,12 @@ OLD="check-01-acceptance-verdict.py"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Подпись синтетического дерева — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "[VOID] inject-04 — корневой подписи нет: синтетическому дереву не с чего взять подпись" >&2; exit 2; }
+
 probes=0
 failed=0
 
@@ -67,8 +73,7 @@ mkmono() {
         shift 2
     done
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -qm 'синтетическое дерево продукта' >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -qm 'синтетическое дерево продукта' >/dev/null 2>&1
     git -C "$dir" update-ref refs/remotes/origin/main HEAD
     printf '%s' "$dir"
 }

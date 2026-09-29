@@ -1,0 +1,178 @@
+# Ревью ВОЛНЫ: роль wave-reviewer. Волна-0 цели identity-own. Проход по дельте B5.
+# Имя файла — content_digest. Предмет прохода — ТОЛЬКО дельта ab1ad6ee88a→bdac9a1f8d1
+# (правка текстов по блокеру посадочного B5): не расходятся ли новые тексты о
+# выходе с тем, что о том же говорят другие полосы волны — консоль, профили, край.
+# Прежняя запись: эта же ветка, коммит dc11378e,
+# docs/changes/wave-identity-own-w0/reviews/wave/wave-reviewer/3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef.yaml.
+# Сборка и конвейер здесь не судятся.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 3        # третий проход роли; собственных возвратов после круга 2 — 0; предмет задан чужим блокером (B5, landing-reviewer)
+previous_record: {commit: dc11378e, digest: 3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef, verdict: 'принято', blocking: []}
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: bdac9a1f8d1e937c2b079810fcf25de34e7907e4
+  previous_head: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+  commits: 89        # git rev-list --count base..head (78 обычных и 11 слияний)
+  files: 69          # git diff --name-status -M base...head → A 24, M 45
+  lines: 11695       # git diff --numstat base...head: +11292 −403
+content_digest: sha256:64de754dba9883632fd703fc2284e6777fc8108587e12db7d29c27d4d704421f
+digest_definition: 'git -C project/kacho diff bec320cf47d...bdac9a1f8d1 | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой: 64de754dba98…421f, совпадает с объявленным. Прежняя
+    голова ab1ad6ee88a той же командой даёт 3c93ec1382f0…ba8ef, совпадает с
+    дайджестом прежней записи.
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → bdac9a1f8d1, совпадает. gh pr view 2787 → OPEN, headRefOid bdac9a1f8d1, base main, метка release:identity-own.'
+  merge_base: 'git rev-list --count bec320cf47d..origin/main → 0: ствол от базы не ушёл.'
+  delta_from_previous: >-
+    merge-base --is-ancestor ab1ad6ee88a bdac9a1f8d1 → да. Дельта — два коммита:
+    ea02df843bc «docs(gateway): тексты о гашении при выходе сужены до сделанного»
+    и слияние bdac9a1f8d1. 7 файлов, +84 −28 (112 строк). Дифф ea02df843bc^..ea02df843bc
+    и дифф ab1a..bdac дают один sha256 (f5e9b60f788ea11c…): слияние ничего не добавило.
+  identity: 'Автор и коммитер обоих коммитов — pointpu <pointpu@prorobotech.ru>; трейлеров атрибуции в телах нет (grep co-authored|claude|generated → 0).'
+  worktree: 'Судился detached worktree tmp/wr-w0-bdac на голове; git status --porcelain → 0.'
+
+# ── ДЕЛЬТА: ЗАЯВЛЕНИЕ «ИСПОЛНЯЕМАЯ ЧАСТЬ НЕ МЕНЯЛАСЬ» ПРОВЕРЕНО РАЗБОРОМ ───────
+comments_only:
+  claim: 'ea02df843bc: «разбор без комментариев у всех шести файлов Go совпадает с прежним, на странице правлены только строки комментариев примера».'
+  go: >-
+    Каждый из 6 Go-файлов дельты разобран go/parser без ParseComments и
+    напечатан go/printer на ab1a и на bdac; прибор собран заново в чистом
+    каталоге. Совпали 6 из 6 (login_lane_relay.go 162 строки · logout_carrier_states_test.go 61 ·
+    logout_exits_census_test.go 299 · logout_handler.go 192 · auth.go 869 ·
+    session_carrier_names.go 37). Контроль в обе стороны: символ, внесённый в
+    литерал "kaname_session", даёт различие в 2 строках; символ, внесённый в
+    комментарий, различия не даёт.
+  mdx: >-
+    gateway/docs/content/install/configuration.mdx: 15 изменённых строк из 15 —
+    строки-комментарии YAML («#»), все внутри <CodeBlock language="yaml">
+    строк 162–277. Прочих изменённых строк 0.
+  verdict: подтверждено
+
+# ── ПРАВДА НОВЫХ ТЕКСТОВ: КАЖДОЕ УТВЕРЖДЕНИЕ ДЕЛЬТЫ СВЕРЕНО С КОДОМ И РЕНДЕРОМ ──
+truth_of_new_text:
+  - 'Гашение края идёт без Domain: SessionCarrierEndings (session_carrier_names.go:119-132) ставит Path=/, MaxAge=-1, HttpOnly, Secure, SameSite=Lax, Domain не ставит.'
+  - 'Край о домене печенья не знает: ручек cookie-domain в gateway/internal/config, gateway/cmd, gateway/deploy/values.yaml и шаблонах — 0. Отсюда верно «Страж старта его не сверяет».'
+  - 'Наше печенье выдаётся без Domain на каждой цепочке, где оно выдаётся. Рендер 7 цепочек deploy/stacks.txt: identity-provider own только у цепочки own, и там login.cookie-domain: none. На prod и fe3455 none тоже объявлен, но под external не читается; у dev-цепочек и a8f60d ключа нет.'
+  - 'Поставщик ставит Domain = global.kacho.identity.cookieDomain, по умолчанию домен личности (_kratos-identity.tpl:131, :503-505). Рендер session.cookie.domain: own, prod, fe3455 → api.kacho.cloud; dev, dev-prod, prorobotech → kacho.local; a8f60d (domainless: true) → ключа нет. «На посадке без доменного имени» — это a8f60d.'
+  - 'Служба гасит только своё имя, край дополняет остальные: endEveryCarrierOnLogout пропускает имена, уже погашенные ответом службы (login_lane_relay.go, карта already).'
+  - '/oauth/logout выдаёт гашение по всему перечню: logout_handler.go:217 EndSessionCarriers(w). Сессию поставщика личности край при выходе на его стороне не снимает: зовутся только отзыв службы и Hydra admin (logout_handler.go:73-77, killHydraSession). Поэтому предусловие несущее.'
+  - '«Эта ветка живёт лишь в состоянии „оба“» (auth.go:1292-1295): ветка исполняется при !transitionalWindowAdmits, а он при нулевом окне пропускает всё (auth.go:1118-1121). Окно обязательно ровно при own,external и запрещено вне его (session_carrier_validation.go:177-187).'
+  - 'Предикат снятия: S3, kacho#1276 — gh issue view 1276 → OPEN, «deploy: снятие компонента — чарты, база, 17 гейтов, 14 спек».'
+tests_at_head: 'go test -count=1 ./internal/handler/ ./internal/middleware/ в gateway @bdac → код 0 в обоих. handler: 21 тест и 15 подслучаев PASS; middleware: 617 тестов и 327 подслучаев PASS; FAIL 0, SKIP 0. Исполнились пробы, чьи шапки правлены: TestLogout_EndsEveryCarrierNameInEveryCarrierState, TestLogoutExits_EveryExitReachableThroughTheEdgeEndsEveryName, TestTransitionalWindow_* (7), TestBothCarriers* (7).'
+
+residual_census:
+  by_wording:
+    predicate: "git grep -P 'гасит ОБА имени|гашение НЕ зависит|ОБОИМ именам\\.?$|ВЫХОД ГАСИТ|выход гасит оба|гасит оба имени|вход вернулся|вход обратно от отката|стоит откатить профиль|откатить профиль на одно|Clear the client session cookie|оставляет у браузера целое|both (carrier )?names in (all|every)|ends both names' по 6691 отслеживаемым файлам"
+    control_ab1a: '12 совпадений; все 6 файлов дельты с прежними утверждениями находятся'
+    head: 0
+  by_subject:
+    predicate: "git grep -P 'печенья больше нет|печенье (снято|стёрто|удалено)|браузер исполнил|носитель уже погашен|исполнивший гашение|browser (drops|deletes|removes) the cookie|cookie is (gone|removed|deleted)|стёртое у клиента|оставляет человека вошедшим|оставит человека вошедшим|оставило бы человека вошедшим' @bdac — утверждение, что после гашения печенья у браузера нет"
+    head: '10 совпадений в 5 файлах. 6 говорят о расхождении ПУТИ (гашение с другим путём не находит печенье): logout_exits_census_test.go:58,196 · session_carrier_names.go:90,109 · session_carrier_readers_gate_test.go:336,394. Это то же рассуждение, что у дельты. session_carrier_names.go:56 — о гейте производителя имени, не о выходе. auth.go:1301 «носитель уже погашен» стоит сразу под абзацем дельты :1292-1295, и этот абзац его оговаривает. session_carrier_precedence_test.go:794,804 опирается на предусловие, не ссылаясь на него — замечание R5.'
+
+# ── СВЕРКА С ДРУГИМИ ПОЛОСАМИ: КОНСОЛЬ · ПРОФИЛИ · КРАЙ ────────────────────────
+lanes_compared:
+  console: >-
+    Расхождения нет. Строки волны в ui-future (configmap-nginx.yaml, values.yaml,
+    pages/auth/README.md, identity-ceremony-carriers-rendered.test.ts) о гашении и
+    Domain ничего не утверждают. Собственный выход консоли — поток выхода самого
+    поставщика (ui-future/shared/src/contexts/AuthContext.tsx:140-153, в волне не
+    тронут). Перепись выходов края прямо выводит его за свои границы
+    (logout_exits_census_test.go:20-24), и дельта этой границы не меняет.
+  edge: >-
+    Расхождения в утверждениях нет. login_lane_paths.go:110-114 («выход снова
+    гасил бы одно имя из двух») говорит о выдаче гашения, как и новая шапка.
+    logout_exits_census_test.go:52-58 и session_carrier_readers_gate_test.go:336
+    говорят о совпадении по пути — это не спорит с Domain. Одно окно опирается на
+    предусловие без ссылки на него — R5.
+  profiles: 'Утверждения дельты сходятся с рендером 7 из 7 цепочек (см. truth_of_new_text). Предусловие B5 расходится с тем, что профиль и чарт края говорят о переходном состоянии, — C3.'
+
+collision_C3:
+  kind: 'столкновение ожиданий (.claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений», вторая строка): одна работа изменила смысл, соседние тексты написаны под прежний'
+  lanes: ['F7 — доливка B5 (ea02df843bc)', 'F5 (466b8e2cf63; 1dce8b7ddeb)', 'L5 gateway-session-carrier-set (ac386660388, c7f0683f4dc, af56ce5d19e)']
+  subject: 'где можно объявить переходное состояние own,external'
+  b5_says: 'session_carrier_names.go:48-51; configuration.mdx:246-252 — own,external не объявляется на цепочке, где поставщик ставит Domain.'
+  measured: >-
+    По предусловию B5 own,external объявим на 0 цепочках из 7. Наш читатель вне
+    посадки own — отказ старта (session_carrier_validation.go:118-125). Посадка
+    own объявлена только на цепочке own (values.own.yaml:37,82), а там поставщик
+    ставит Domain api.kacho.cloud (рендер). Единственная цепочка без Domain —
+    a8f60d, и её посадка external.
+  others_say:
+    - 'deploy/helm/umbrella/values.own.yaml:69-72 и :108-111 (F5, 466b8e2cf63): чтобы объявить own,external на ЭТОЙ цепочке, адрес поставщика надо вернуть. Об условии, которое исключает цепочку own целиком, не сказано.'
+    - 'deploy/helm/umbrella/values.own.yaml:73-74 (1dce8b7ddeb): «административный адрес поставщика … рвёт живые чужие сессии при выходе». У края это Hydra admin (config.go:442-455, logout_handler.go:75-77); печенье ory_kratos_session и его сессию край при выходе не снимает. Кто прочтёт профиль один, решит, что предусловие не нужно.'
+    - 'gateway/deploy/values.yaml:303-308 (L5, ac386660388), configuration.mdx:215-220 (L5, af56ce5d19e), session_carrier_names.go:24-27 (L5, c7f0683f4dc): own,external — путь перевода стенда с людьми. Каждый такой стенд цепочек дерева выдаёт печенье поставщика с Domain.'
+  whose_is_right: 'Верен B5: в коде гашения Domain нет, рендер показывает Domain у поставщика на 6 цепочках из 7, при выходе край не снимает сессию поставщика. Соседние тексты не лгут о поведении, но не называют условия, которое делает их путь недоступным.'
+  blocks: false
+  why_not_blocking: >-
+    Критерий ban19: ни один оставшийся текст не утверждает о поведении выхода
+    ложного (перепись по формулировкам @bdac — 0, по предмету — 0 ложных).
+    Состояние не объявлено ни на одной цепочке (переменной
+    KACHO_API_GATEWAY_SESSION_CARRIERS нет в рендере 7 из 7). Предусловие стоит на
+    странице настроек края рядом с примером ручки и в каноничной шапке. Тексты F5
+    и L5 неполны, а не ложны. По core-no-prod переходные режимы не нужны. Прочее —
+    задача.
+  task: >-
+    Одно из двух, выбор за диспетчером: (а) по core-no-prod снять переходное
+    состояние целиком (own,external, момент окна, их стражи и тексты) — тогда
+    расхождение исчезает с предметом; (б) внести предусловие в
+    values.own.yaml:69-74,108-111 и gateway/deploy/values.yaml:303-308.
+
+remark_R5:
+  where: 'gateway/internal/middleware/session_carrier_precedence_test.go:794-806 (L5, 81259e8cfbf)'
+  what: 'Третья половина пробы окна моделирует браузер, исполнивший гашение («Браузер исполнил Set-Cookie: печенья больше нет»), и Domain не учитывает. Верно это только при предусловии B5, а шапка пробы на него не ссылается, в отличие от двух проб выхода, чьи шапки дельта сузила.'
+  blocks: false
+  task: 'та же задача, что у C3'
+
+remarks_not_in_delta:
+  - 'R2 (gateway/deploy/values.yaml:483-484) и R3 (values.own.yaml:10-11, stack-secrets.sh:11) в дельту не входили и не пересматривались. Статус прежний: не блокируют.'
+
+adding_into_removed: 'Не применимо, число 0: git diff --name-status -M base...head → A 24, M 45, удалённых и переименованных путей 0.'
+two_solutions_one_task: 'В дельте нет: 7 файлов одного писателя, один предмет.'
+
+# ── ВЕРДИКТ ПО ПОЛОСАМ ───────────────────────────────────────────────────────
+verdicts:
+  - 'полоса deploy-own-posture-cutover (L1) · вердикт принято · координата — · требование — · чем доказано прежняя запись dc11378e; дельта путей L1 не трогает'
+  - 'полоса deploy-issuer-census-merged (L2) · вердикт принято · координата — · требование — · чем доказано прежняя запись dc11378e; дельта путей L2 не трогает'
+  - 'полоса issue-2724 (L3) · вердикт принято · координата — · требование — · чем доказано прежняя запись dc11378e; дельта путей L3 не трогает'
+  - 'полоса foreign-idp-name-in-probes (L4) · вердикт принято · координата — · требование — · чем доказано прежняя запись dc11378e; исполняемая часть дельты равна прежней (6 из 6)'
+  - 'полоса gateway-session-carrier-set (L5) · вердикт принято · координата gateway/deploy/values.yaml:303-308; configuration.mdx:215-220; session_carrier_names.go:24-27; session_carrier_precedence_test.go:794-806 · требование §14 «Классы столкновений» (C3, R5 — не блокируют) · чем доказано рендер 7 цепочек, session_carrier_validation.go:118-125, go test ./internal/middleware/ @bdac код 0'
+  - 'доливки F1–F6 · вердикт принято · координата F5: values.own.yaml:69-74,108-111 (C3, не блокирует) · требование §14 «Классы столкновений» · чем доказано рендер 7 цепочек; прежняя запись dc11378e'
+  - 'доливка B5 (F7, ea02df843bc; слияние bdac9a1f8d1) · вердикт принято · координата 7 файлов дельты · требование заявление не шире сделанного; arch-doc-truthfulness · чем доказано разбор без комментариев 6 из 6 и контроль в обе стороны; 15 из 15 строк страницы — комментарии внутри CodeBlock; 8 утверждений сверены с кодом и рендером; перепись прежних формулировок 12 → 0; go test handler+middleware @bdac код 0'
+
+facts:
+  - 'Вердикт прибора снят после последней правки: все прогоны и рендеры — на bdac9a1f8d1, это голова origin.'
+  - 'Рендер: helm template (v4.2.4) умбреллы из git archive @bdac, подчарты file:// упакованы из того же архива, цепочки взяты из deploy/tests/helm/stacks.sh --args; 7 из 7 цепочек, код 0.'
+
+on_the_way:
+  - 'Не изменилось с прежнего круга: .claude/agents/wave-reviewer.md:128 ссылается на .claude/rules/multi-agent-flow-orchestration.md §14, а файл лежит в .claude/backup/multi-agent-flow-orchestration.md (§14 — строка 20). Предмет tooling-maintainer.'
+
+# ── ОБЪЁМ ОСМОТРЕННОГО ───────────────────────────────────────────────────────
+census:
+  diffs_inspected: 2           # ea02df843bc^..ea02df843bc и ab1a..bdac (слияние); один sha256
+  delta_lines: 112             # numstat ab1a..bdac: +84 −28, прочитаны все
+  windows_read: 14             # login_lane_paths.go:100-125 · precedence_test.go:1-60,160-190,680-815 · values.own.yaml:1-140 · own-stand:1-120 · gateway values.yaml:286-335 · deployment.yaml:222-256 · auth.go:1255-1320 · relay.go:170-260 · logout_handler.go:55-100 · census_test.go:1-80 · configuration.mdx:205-236 · kaname configmap.yaml:290-335
+  chains_rendered: 7           # own · prod · fe3455 · dev · dev-prod · prorobotech · a8f60d
+  files_scanned_by_predicates: 6691   # git ls-tree -r @bdac
+  code_read: 'session_carrier_names.go:1-150 · session_carrier_validation.go:94-190 · auth.go:1118-1124 · _kratos-identity.tpl:100-135,495-512 · kaname values.yaml:560-612 · AuthContext.tsx:140-153'
+
+checks_run:
+  green: 2        # go test -count=1 @bdac: ./internal/handler (21+15) · ./internal/middleware (617+327); код 0
+  red: 0
+  not_run: 0
+  models: 3       # разбор Go без комментариев (6/6 + контроль в обе стороны) · страница (15/15 в CodeBlock) · рендер 7/7 цепочек
+
+verdict: ✅ принято
+blocks_landing: false
+blocking: []
+non_blocking: [C3, R5]
+head_judged: bdac9a1f8d1e937c2b079810fcf25de34e7907e4
+digest_judged: 64de754dba9883632fd703fc2284e6777fc8108587e12db7d29c27d4d704421f

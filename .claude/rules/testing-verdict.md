@@ -7,57 +7,57 @@ description: "Чтение вердикта прогона"
 
 ## 0. Чтение вердикта: сначала ОБЛАСТЬ, потом причина
 
-scope-before-cause-revision · установи РЕВИЗИЮ проверяемого — провенанс по образу запущенного контейнера · docker inspect образа стенда · red: причина названа без ревизии
-scope-before-cause-branch-touched · спроси, тронуты ли твоей веткой упавшие пробы · git diff origin/main...HEAD -- <файл пробы> · red: регрессию ищут там, где её не могло быть
-scope-before-cause-what-it-calls · прочитай, к чему обращается упавшее утверждение — край, консоль, база · ЗАВЕСТИ · red: «правил вёрстку, а падал запрос к API»
+scope-before-cause-revision · РЕВИЗИЯ проверяемого — провенанс по образу запущенного контейнера · docker inspect образа стенда · red: причина названа без ревизии
+scope-before-cause-branch-touched · тронуты ли твоей веткой упавшие пробы · git diff origin/main...HEAD -- <файл пробы> · red: регрессию ищут там, где её не могло быть
+scope-before-cause-what-it-calls · к чему обращается упавшее утверждение — край, консоль, база · ЗАВЕСТИ · red: «правил вёрстку, а падал запрос к API»
 second-hypothesis-without-measurement · запрещена без замера по первой; не спускайся уровнем ниже, не исчерпав верхний · ЗАВЕСТИ · red: две гипотезы, ноль замеров
 red-report-names-revision · назови в нём ревизию проверяемого · ЗАВЕСТИ · red: область не установлена — сказанное о причине про неизвестно что
 
 ## 1. Диагноз ставится по ТЕКСТУ отказа
 
-diagnosis-from-refusal-text · ставь по run.failures[].error.message и executions[].response.stream в out/<коллекция>.json; перечень имён шагов диагнозом не является · вниманием (цитата из out/<коллекция>.json) · red: фикс по названию шага, число падений не изменилось
-precondition-guard-names-subject · ставь страж предусловия: не отправляй запрос и назови предмет · TestNewmanPrecondMark_ProvenByInjection · red: дефект проявляется отказом уборки по фантому на три шага позже
+diagnosis-from-refusal-text · по run.failures[].error.message и executions[].response.stream в out/<коллекция>.json; перечень имён шагов — не диагноз · вниманием (цитата из out/<коллекция>.json) · red: фикс по названию шага, число падений не изменилось
+precondition-guard-names-subject · страж предусловия: запрос не отправлен, предмет назван · TestNewmanPrecondMark_ProvenByInjection · red: дефект проявляется отказом уборки по фантому на три шага позже
 quote-refusal-text-in-report · процитируй текст отказа · ЗАВЕСТИ · red: не можешь процитировать — значит не читал
 artifact-read-its-text-first · прочитай текст НА нём, потом объясняй картинку · ЗАВЕСТИ · red: вывод сделан из вида, цитат ноль
 
 ## Прогон на исчерпанном ресурсе — третья категория
 
-exhausted-run-is-third-category · считай прогон НЕДЕЙСТВИТЕЛЬНЫМ: вердикта нет ни у одной пробы, перепрогони целиком · scripts/ci-local.sh код 3 · red: «0 находок» при ненулевом коде прочитано как зелёное
-exhaustion-corrupts-inflight-git · после срыва сделай перепись: размер .git/index, git ls-files · wc -l против git ls-tree -r HEAD · red: эти команды | дерево выглядит исправным, неверен только граф
-local-runner-exit-code-3 · различай коды 0 / 1 / 3 (недействителен); исчерпание распознавай по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
+exhausted-run-is-third-category · прогон НЕДЕЙСТВИТЕЛЕН: вердикта нет ни у одной пробы, перепрогон целиком · scripts/ci-local.sh код 3 · red: «0 находок» при ненулевом коде прочитано как зелёное
+exhaustion-corrupts-inflight-git · после срыва — перепись: размер .git/index, git ls-files · wc -l против git ls-tree -r HEAD · red: эти команды | дерево выглядит исправным, неверен только граф
+local-runner-exit-code-3 · коды 0 / 1 / 3 (недействителен) различаются; исчерпание — по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
-busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину; вход, бюджеты, ожидание и коды — шапка скрипта); 75 и 76 — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «машина занята» без кода 75; код 76 прочитан красным
-heavy-guard-is-reminder · страж heavy-guard — напоминание против случайных форм, не барьер: предел держит cgroup; граница стража — перечень `BOUNDARY` в guard.py · .claude/hooks/heavy-guard/prove.sh: граница — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
-session-memcap · потолок сессии (MemoryMax её scope по формуле шапки `scripts/session-memcap.sh`) и метку oomd ставит хук SessionStart и сверяет чтением cgroup; сессию с потолком запускают `scripts/session-memcap.sh --launch -- claude`; убийцу в пробе называет журнал oomd по имени unit, не код 137 · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — OOM снимает всю сессию; потолок или метка без сверки по cgroup; 137 от ядра засчитан oomd
+busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину; коды — шапка скрипта); 75 и 76 — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «машина занята» без кода 75; код 76 прочитан красным
+heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница стража — `BOUNDARY` в guard.py · .claude/hooks/heavy-guard/prove.sh: граница — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
+session-memcap · потолок сессии (MemoryMax её scope, формула — шапка `scripts/session-memcap.sh`) и метку oomd ставит хук SessionStart и сверяет чтением cgroup; запуск с потолком — `scripts/session-memcap.sh --launch -- claude`; убийцу называет журнал oomd по имени unit, не код 137 · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — OOM снимает всю сессию; потолок или метка без сверки по cgroup; 137 от ядра засчитан oomd
 
 ## Кэш: сохраняй только на доказанно полном исходе
 
-cache-saved-only-on-proven-complete · сохраняй только при доказанно ПОЛНОМ исходе шага; условие шага проверяй по наличию предмета, не по попаданию в кэш · TestCacheFillsOnTheRunThatPaidForIt · red: шаг пропущен «кэш попал», следующий падает «файла нет»
-cache-restore-save-split-paid-run · разделяй cache/restore и cache/save; сохраняй по признаку полноты от самого шага · TestCacheFillsOnTheRunThatPaidForIt · red: кэш наполняется только прогоном, которому он не был нужен
+cache-saved-only-on-proven-complete · сохраняй только при доказанно ПОЛНОМ исходе шага; условие шага — наличие предмета, не попадание в кэш · TestCacheFillsOnTheRunThatPaidForIt · red: шаг пропущен «кэш попал», следующий падает «файла нет»
+cache-restore-save-split-paid-run · cache/restore и cache/save раздельно; save — по признаку полноты от самого шага · TestCacheFillsOnTheRunThatPaidForIt · red: кэш наполняется только прогоном, которому он не был нужен
 cache-condition-carries-state-function · несёт функцию состояния: always(), !cancelled(), failure(); save-always не годится · TestCacheFillsOnTheRunThatPaidForIt · red: условие без функции состояния — подразумевается success()
-remedy-tested-on-its-own-failure · проверь на том исходе, ради которого заведено, — в том числе на своём отказе · ЗАВЕСТИ · red: мера переворачивается ровно на нужном исходе
+remedy-tested-on-its-own-failure · проверено на том исходе, ради которого заведено, и на своём отказе · ЗАВЕСТИ · red: мера переворачивается ровно на нужном исходе
 
 ## 4. Проба не имеет права падать на ДОСТИЖЕНИИ СВОЕЙ ЦЕЛИ
 
 probe-passes-on-empty-ledger · на ПУСТОМ перечне проходи, объявляя перепись «записей 0», а не падай · TestBakedLedgerInjection_AnEmptyLedgerIsTheGoalNotAFailure · red: текст отказа «ведомость пуста — проверять нечего»
-fail-ability-proven-on-synthetic · доказывай ОТДЕЛЬНОЙ пробой на синтетике, объём — переписью · *_injection_test.go · red: «ноль находок» неотличимо от «ноль прочитанного»
+fail-ability-proven-on-synthetic · ОТДЕЛЬНОЙ пробой на синтетике, объём — переписью · *_injection_test.go · red: «ноль находок» неотличимо от «ноль прочитанного»
 
 ## 5. Фикстура пробы, привязанная к снимаемому предмету, истекает вместе с ним
 
-twin-fixture-independent-of-subject · привязывай к тому, что живёт НЕЗАВИСИМО от предмета запрета · TestCarrierPredicateSeesTheSubjectAndSpacesTheTwin · red: проба краснеет на исчезновении своей фикстуры
+twin-fixture-independent-of-subject · к тому, что живёт НЕЗАВИСИМО от предмета запрета · TestCarrierPredicateSeesTheSubjectAndSpacesTheTwin · red: проба краснеет на исчезновении своей фикстуры
 
 ## Локальный прогон: тот же инструмент, версия и подготовка
 
-local-run-same-tool-and-version · значит что-то лишь при том же инструменте, той же версии (пин workflow, go.mod) и воспроизведённой подготовке шага · scripts/ci-local.sh · red: локально зелено, в конвейере красно на том же коммите
-ci-local-installs-like-workflow · ставь инструменты теми же командами, что workflow; расхождение — находка · сверка ci-local.sh с .github/workflows · red: плагин из системы вместо модуля
-render-provenance-of-dependencies · собирай зависимости в ЭТОМ клоне, не копируй из соседнего · ЗАВЕСТИ · red: проба падает на утверждении, которое ты минуту назад видел выполненным
-runner-takes-all-arguments · бери ВСЕ аргументы; сверь число исполненных проверок с числом запрошенных групп · TestNewmanRunnerDerivesItsCollectionSet · red: «исполнено 3, отказов 0» вместо 20
+local-run-same-tool-and-version · значим лишь при том же инструменте и версии (пин workflow, go.mod) и воспроизведённой подготовке шага · scripts/ci-local.sh · red: локально зелено, в конвейере красно на том же коммите
+ci-local-installs-like-workflow · инструменты — теми же командами, что workflow; расхождение — находка · сверка ci-local.sh с .github/workflows · red: плагин из системы вместо модуля
+render-provenance-of-dependencies · зависимости — в ЭТОМ клоне, не копией из соседнего · ЗАВЕСТИ · red: проба падает на утверждении, которое ты минуту назад видел выполненным
+runner-takes-all-arguments · берёт ВСЕ аргументы; число исполненных проверок сверено с числом запрошенных групп · TestNewmanRunnerDerivesItsCollectionSet · red: «исполнено 3, отказов 0» вместо 20
 job-composition-count-run-steps · не равно «прогнал джобу»: открой объявление и посчитай шаги run: · подсчёт run: в .github/workflows · red: падает последний шаг, а имя джобы называет первый предмет
 runner-prints-what-it-ran · печатай ЧТО прогнал, а не только сколько · TestNewmanRunnerDerivesItsCollectionSet · red: малое число исполненного не замечено
 
 ## Фильтр лога проверяется на одном известном падении
 
-log-filter-verified-on-known-failure · проверь на ОДНОМ заведомо упавшем шаге, что видна хотя бы одна строка текста отказа · ЗАВЕСТИ · red: видны имена упавших шагов и ни одной строки причины
+log-filter-verified-on-known-failure · на ОДНОМ заведомо упавшем шаге видна хотя бы одна строка текста отказа · ЗАВЕСТИ · red: видны имена упавших шагов и ни одной строки причины
 read-the-file-not-the-command-output · открывай файл целиком (wc -l), а не улучшай выражение · ЗАВЕСТИ · red: префикс имени задания, tail, фоновый вызов, якорь ^ съели диагностику
 pipestatus-not-pipe-exit-code · tail · читай ${PIPESTATUS[0]} либо пиши в файл и бери код напрямую · red: TestPipefailVerdictNeverComesFromAPipe | «код 0» после трубы прочитан как успех
 ask-which-step-failed · спроси имя упавшего шага: gh api repos/<o>/<r>/actions/jobs/<id> -q '.steps[] · select(.conclusion=="failure") · red: .name' | эта команда | локально перебраны шесть зелёных шагов
@@ -70,20 +70,20 @@ columns-by-name-not-position · проси поля по имени (-o jsonpath
 
 pr-red-belongs-to-revision-headsha · сверяй headSha прогона с головой ветки, а не имя проверки с состоянием · TestWorkflowRunUsesTheSubjectCommit · red: прежние проверки висят красными после отправки починки
 delta-gate-asks-the-commit · спрашивай о коммите (origin/main...HEAD); закоммить, потом прогоняй · git diff --name-only --diff-filter=A origin/main...HEAD · red: пусто при непустом рабочем дереве
-asm-verdict-runs-on-head · вердикт сборки и её задач — последний прогон КАЖДОГО процесса PR сборки при headSha = голова; своего прогона у задачи нет (решение владельца 2026-09-24); `gh pr checks` ручного запуска не видит · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят поштучным или локальным прогоном; «no checks reported» прочитано как отсутствие прогона
+asm-verdict-runs-on-head · вердикт сборки и её задач — последний прогон КАЖДОГО процесса PR сборки на headSha головы; у задачи своего прогона нет (решение владельца 2026-09-24); `gh pr checks` ручного запуска не видит · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят поштучным или локальным прогоном; «no checks reported» прочитано как отсутствие прогона
 no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай прибором `asm-verdict-runs-on-head` · `gh run list` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»
 
 ## Расхождение двух прогонов — разные предметы
 
-two-runs-different-subjects · сперва установи, ЧТО мерил каждый (множество пакетов), потом спрашивай, кто прав · ЗАВЕСТИ · red: расхождение объяснено чужой ошибкой
+two-runs-different-subjects · сперва — ЧТО мерил каждый (множество пакетов), потом — кто прав · ЗАВЕСТИ · red: расхождение объяснено чужой ошибкой
 
 ## Фоновая команда сообщает код обёртки
 
-background-task-exit-code-is-wrapper · читай исход из её собственного вывода, не из уведомления о завершении; предел ставь по длительности предмета · grep Terminated/143/137 в файле · red: «exit code 0» при SIGTERM внутри
+background-task-exit-code-is-wrapper · исход — из её собственного вывода, не из уведомления о завершении; предел — по длительности предмета · grep Terminated/143/137 в файле · red: «exit code 0» при SIGTERM внутри
 
 ## 12. Правило берётся из КАНОНА, а не из формы соседних файлов
 
-form-from-canon-not-neighbours · бери из документа, её объявляющего; канона нет — скажи это в отчёте · TestNewMigrationOutranksEveryAppliedOne · red: на «почему так названо» ответ «как у соседних»
+form-from-canon-not-neighbours · из документа, её объявляющего; канона нет — сказано в отчёте · TestNewMigrationOutranksEveryAppliedOne · red: на «почему так названо» ответ «как у соседних»
 
 ## Чужой предикат прогоняется дословно
 
@@ -91,21 +91,21 @@ foreign-predicate-run-verbatim · исполняй ДОСЛОВНО, копие�
 
 ## 14. Твой СОБСТВЕННЫЙ разборщик — тоже распознаватель
 
-own-parser-knows-all-forms · подчиняй тому же требованию, что гейт: знать все законные формы · ЗАВЕСТИ · red: твоё число меньше чужого
-count-forms-before-naming-number · спроси, в скольких формах предмет записывается законно и знает ли о них твоё выражение · ЗАВЕСТИ · red: пропущена многострочная метка или голое число в ряду
+own-parser-knows-all-forms · то же требование, что к гейту: знать все законные формы · ЗАВЕСТИ · red: твоё число меньше чужого
+count-forms-before-naming-number · в скольких формах предмет записывается законно и знает ли о них твоё выражение · ЗАВЕСТИ · red: пропущена многострочная метка или голое число в ряду
 
 ### Это не редкость, а РУТИНА
 
-divergence-check-own-parser-first · проверяй СВОЙ разборщик первым, а не чужую работу · ЗАВЕСТИ · red: расхождение объяснено ошибкой автора
-same-method-twice-is-not-evidence · считай свидетельством только при РАЗНЫХ выражениях · ЗАВЕСТИ · red: «посчитали дважды» названо проверкой
+divergence-check-own-parser-first · СВОЙ разборщик — первым, не чужую работу · ЗАВЕСТИ · red: расхождение объяснено ошибкой автора
+same-method-twice-is-not-evidence · свидетельство — только при РАЗНЫХ выражениях · ЗАВЕСТИ · red: «посчитали дважды» названо проверкой
 task-gives-question-not-number · давай вопросом и требуй «перемерь» · ЗАВЕСТИ · red: число дано фактом — исполнитель разбирается с ним после выбора направления
-parser-discards-known-form · сперва проверь, знает ли он её и ОТБРАСЫВАЕТ · ЗАВЕСТИ · red: пополнение словаря закрыло экземпляр, отбрасывание осталось
+parser-discards-known-form · сперва — знает ли он её и ОТБРАСЫВАЕТ · ЗАВЕСТИ · red: пополнение словаря закрыло экземпляр, отбрасывание осталось
 ask-parser-directly-about-input · спроси распознаватель НАПРЯМУЮ о входе, а не о его исходе · python3 -c 'import mod; print(mod.direction(...))' · red: «не читается» при живом слове словаря = прочитано и погашено
-fix-the-guard-measure-its-radius · чини охрану, не словарь, и мерь её радиус по дереву ДО правки · ЗАВЕСТИ · red: «сузил» неотличимо от «сузил слишком сильно»
+fix-the-guard-measure-its-radius · чини охрану, не словарь; её радиус по дереву — ДО правки · ЗАВЕСТИ · red: «сузил» неотличимо от «сузил слишком сильно»
 
 ## Предикат снятия обещания знает все его формулировки
 
-promise-removal-knows-all-forms · ищи по ВСЕМ формулировкам; в отчёте назови перечень форм и счёт по каждой · internal/repohygiene/deferredwork_test.go · red: «исправлено 4» без перечня форм
+promise-removal-knows-all-forms · по ВСЕМ формулировкам; в отчёте — перечень форм и счёт по каждой · internal/repohygiene/deferredwork_test.go · red: «исправлено 4» без перечня форм
 
 ## Флаг принадлежит своей программе
 

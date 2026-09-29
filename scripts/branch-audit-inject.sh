@@ -11,8 +11,8 @@
 # показано, что на настоящей находке она краснеет И называет имя.
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
-# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ; что
-# держит каждая —
+# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
+# EW1–EW16, OR1–OR10; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -27,6 +27,24 @@
 #   L. законный близнец к K: тот же силуэт, но содержимого ствол не видел →
 #      ОСТАЁТСЯ находкой с именем (иначе шестой глушил бы настоящую работу);
 #   M. работа влита в накопительную origin/release/* → не находка, источник назван;
+#   EW. волна влита в ветку эпика (`--no-ff`), её локальной ветки на origin нет →
+#      «ВЛИТЫ» с источником origin/<эпик>; близнец — волна, в эпик не влитая, и
+#      ветка задачи — «единственный экземпляр»; шапка называет эпик среди стволов,
+#      а ветку задачи — нет (ws#821). Эпик выводится как база PR, не по имени;
+#   EW5–EW12. ЦЕЛИ КАСКАДА — СТВОЛЫ (сведение ws#821 и ws#847): база PR — ствол и
+#      цель каскада, её копия не снята (EW5); свежая ветка задачи от волны без
+#      своего коммита держится первой линией волны (EW6); волна без PR из
+#      BRANCH_AUDIT_KEEP — ствол, сведённая в неё задача снята (EW7), без перечня
+#      — единственный экземпляр (EW8, близнец); цель каскада на origin без
+#      запроса — не сирота (EW13, близнец — BE); база, чей свой PR влит, — не
+#      ствол, и тревога о работе вне ствола звучит (EW15, близнец — EW5); мутанты
+#      EW9–EW12, EW14, EW16 красят EW5, EW7, EW4, EW6, EW13, EW15;
+#   OR1–OR10. ВЕТКИ ORIGIN — ТЕМ ЖЕ ПРЕДИКАТОМ (ws#821, норма ws#847): пустая
+#      дельта по стволу волны (OR1); влитая release/* судится, с открытым PR в неё
+#      — держится (OR2); местная копия с работой держит ветку origin (OR3); живая
+#      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
+#      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
+#      OR4, OR1, OR3, OR2;
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -98,6 +116,21 @@
 #      вердикт держит BV); незаписавшийся ответ истории (BV); пути истории и
 #      касания — сами, с -z (BW, BX); перечень ствола не ASCII (BY, предпосылка —
 #      BZ).
+#   CA–CH. ЦЕЛИ КАСКАДА И ВЕТКА БЕЗ СВОЕГО КОММИТА (ws#847, круг 2): со стволом
+#      эпика `--prune-merged` оставляет волну без своего коммита (CA), снимает
+#      задачу, влитую в эпик коммитом слияния, — законный близнец (CB),
+#      оставляет цель из BRANCH_AUDIT_KEEP (CC) и ветку по умолчанию, чья
+#      голова — второй родитель догона (CD); итог считает «к снятию» за вычетом
+#      целей и веток без своего коммита (CE); мутация исключения по первой
+#      линии и мутация исключения целей красят свои утверждения (CF, CG); на
+#      origin та же пометка у волны и у ветки по умолчанию (CH).
+#   CI–CN. КРУГ 3 (ws#847): исключение без своего коммита истекает — только
+#      локальная ветка без копии, чья ссылка не двигалась в окне, снимается (CI),
+#      а та же ветка со свежим журналом ссылки на том же давнем коммите держится
+#      окном (CJ); снятие переписью судит байты, а не предка: исходник местного
+#      переноса, не предок цели, снят по пустой дельте слияния (CM); мутации —
+#      бессрочное исключение (CK), окно по времени коммита (CL), снятие, суженное
+#      до предков (CN), — красят каждая своё утверждение.
 #
 # ЗАЧЕМ W и X. Первая редакция починки #257 давала переписи решать ОБА вопроса,
 # и ветка «пропущенная проверка ошибки» — работа в единственном экземпляре, чьи
@@ -120,13 +153,19 @@ AUDIT="${1:-$HERE/branch-audit.sh}"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# Синтетический «origin» + рабочая копия. Личность задаётся ЛОКАЛЬНО, только
-# для этого одноразового репозитория, — настройки машины не трогаются.
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785): правило подписи
+# действует и на одноразовый репозиторий. Весь посев идёт через эту функцию;
+# перепись — дочерний процесс, её не видит и HOME вызывающего не теряет.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "inject: корневой подписи нет — песочнице не с чего взять подпись" >&2; exit 2; }
+git() { sandbox_git "$@"; }
+
+# Синтетический «origin» + рабочая копия; настройки машины не трогаются.
 git init -q --bare "$TMP/origin.git"
 git init -q -b main "$TMP/work"
 cd "$TMP/work"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/origin.git"
 
@@ -237,6 +276,29 @@ git checkout -qb release/accum main
 git merge -q --squash work-in-accum
 git commit -qm "схлопнуто в накопительную ветку"
 git push -qu origin release/accum >/dev/null 2>&1
+git checkout -q main
+
+# --- EW. ЭПИК И ВОЛНА — стволы по РОЛИ (ws#821) ----------------------------------
+# Все три ветки дерева эпик → волна → задача называются числом, поэтому имя не
+# признак: эпик становится стволом как база PR волны. Волна 901 влита в эпик 900
+# коммитом слияния и на origin не отправлялась; 902 — близнец, в эпик не влитая;
+# 903 — задача волны 901, не влитая никуда.
+git checkout -qb 900 main
+echo "эпик" > epic.txt
+git add epic.txt && git commit -qm "ветка эпика"
+git push -qu origin 900 >/dev/null 2>&1
+git checkout -qb 901 900
+echo "работа волны" > wave.txt
+git add wave.txt && git commit -qm "работа волны"
+git checkout -q 900
+git merge -q --no-ff -m "влить волну 901 в эпик" 901
+git push -q origin 900 >/dev/null 2>&1
+git checkout -qb 902 900
+echo "работа волны, в эпик не влитой" > wave2.txt
+git add wave2.txt && git commit -qm "волна-близнец"
+git checkout -qb 903 901
+echo "работа задачи" > task.txt
+git add task.txt && git commit -qm "задача волны, не влитая"
 git checkout -q main
 
 # --- R. ТРЕТИЙ ЗАМЕР, сторона МОЛЧАНИЯ ------------------------------------------
@@ -351,6 +413,9 @@ printf 'pr-merged-early-draft\t102\tMERGED\n' >> "$PRFILE"
 # между ними перестаёт быть различием ДЕЛЬТЫ — а проверяется именно оно.
 printf 'gen-only-delta\t103\tMERGED\n'  >> "$PRFILE"
 printf 'gen-plus-author\t104\tMERGED\n' >> "$PRFILE"
+# Пятая колонка — база PR: так ветка эпика становится стволом (ws#821); она
+# требует четвёртой — признака чужого репозитория.
+printf '901\t105\tMERGED\tfalse\t900\n' >> "$PRFILE"
 export BRANCH_AUDIT_PR_STATE_FILE="$PRFILE"
 
 # --- AA/AB/AC/AD/AE. ЛОКАЛЬ: `comm` из PATH может ошибаться НЕЗАВИСИМО от -----
@@ -635,6 +700,29 @@ if grep -qE 'отсеяно машинно собираемых файлов [1-
   say "✅ Y2" "число отсеянного напечатано — отсев отличим от «находок не было»"
 else
   say "❌ Y2" "отсев молчит: ноль находок неотличим от ноля прочитанного"; fail=1
+fi
+
+# --- EW1–EW4. эпик и волна как стволы, ветка задачи — нет (ws#821) -------------
+if awk '/^── ВЛИТЫ/,/^── НА ORIGIN/' <<<"$OUT" | grep -c '^   901 .*относительно origin/900' >/dev/null; then
+  say "✅ EW1" "волна, влитая в эпик, — в «ВЛИТЫ», источник origin/900 назван"
+else
+  say "❌ EW1" "волна 901, влитая в эпик, не отнесена к влитым с источником origin/900"; fail=1
+fi
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c '^   902 ' >/dev/null; then
+  say "✅ EW2" "близнец: волна, в эпик не влитая, — единственный экземпляр"
+else
+  say "❌ EW2" "волна 902, в эпик не влитая, не названа единственным экземпляром"; fail=1
+fi
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c '^   903 ' >/dev/null &&
+   ! grep -E '^branch-audit: стволов в сверке' <<<"$OUT" | grep -c 'origin/903' >/dev/null; then
+  say "✅ EW3" "ветка задачи, не влитая никуда, — единственный экземпляр, а не ствол"
+else
+  say "❌ EW3" "ветка задачи 903 стала стволом либо выпала из единственного экземпляра"; fail=1
+fi
+if grep -E '^branch-audit: стволов в сверке' <<<"$OUT" | grep -c 'origin/900 (база PR' >/dev/null; then
+  say "✅ EW4" "шапка называет ветку эпика среди стволов сверки"
+else
+  say "❌ EW4" "шапка не называет origin/900 среди стволов сверки"; fail=1
 fi
 
 # --- AA. ветка с триггерным содержимым классифицирована ВЕРНО ------------------
@@ -964,6 +1052,7 @@ git -C "$TMP/work" branch -D locale-comm-census-work >/dev/null
 # не маска: снятие этой ветки И ЕСТЬ проверяемое свойство.
 git -C "$TMP/work" branch -D gen-only-delta >/dev/null 2>&1 || true
 git -C "$TMP/work" branch -D gen-plus-author >/dev/null
+git -C "$TMP/work" branch -D 902 903 >/dev/null
 set +e
 OUT2=$("$AUDIT" "$TMP/work" 2>&1); RC2=$?
 set -e
@@ -998,8 +1087,6 @@ PB="$TMP/probe"
 git init -q --bare "$TMP/probe-origin.git"
 git init -q -b main "$PB"
 cd "$PB"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/probe-origin.git"
 mkdir -p lib df mv-src dirren ren-src wren
@@ -1288,8 +1375,6 @@ PQ="$TMP/pq"
 git init -q --bare "$TMP/pq-origin.git"
 git init -q -b main "$PQ"
 cd "$PQ"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git config core.quotePath false
 git remote add origin "$TMP/pq-origin.git"
@@ -1342,8 +1427,6 @@ FO="$TMP/forms"
 git init -q --bare "$TMP/forms-origin.git"
 git init -q -b main "$FO"
 cd "$FO"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/forms-origin.git"
 # Имена ниже — предмет, а не образцы: посев сам обязан звать их буквально.
@@ -1593,6 +1676,401 @@ else
   say "❌ BJ" "путь рабочей копии обрезан на пробеле — живая копия подана брошенной или безымянной"; fail=1
   grep -F 'f-wt-live' <<<"$BJ_OUT" | head -3 || true
 fi
+
+# --- CA–CH. ЦЕЛИ КАСКАДА И ВЕТКА БЕЗ СВОЕГО КОММИТА (ws#847, круг 2) ---------
+# Предок ствола — не то же, что «влита». Живая волна до первой сборки лежит на
+# первой линии ствола эпика, и `--prune-merged` со стволом эпика её снимала
+# (замер 2026-09-26: origin/786 = origin/771). Репозиторий свой, по пробе —
+# заново: снятие необратимо, и вторая проба на остатке первой судила бы другое.
+ct_build() { # $1 = каталог → эпик на origin; task и named влиты в эпик; wave — без
+  #          своего коммита; main догнан эпиком (голова main — второй родитель);
+  #          stale-local и fresh-local — без своего коммита, только локально, на
+  #          ДАВНЕМ стволовом коммите, журнал ссылки давний и свежий; leak —
+  #          исходник местного переноса: не предок, его дельту внёс transfer
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    echo ствол > t.txt && git add t.txt
+    GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb epic && echo эпик > e.txt && git add e.txt && git commit -qm "работа эпика"
+    git checkout -qb task epic && echo задача > task.txt && git add task.txt && git commit -qm "работа задачи"
+    git checkout -q epic && git merge -q --no-ff -m "влить task" task
+    git checkout -qb named epic && echo цель > named.txt && git add named.txt && git commit -qm "работа цели"
+    git checkout -q epic && git merge -q --no-ff -m "влить named" named
+    git branch wave epic
+    git push -q origin wave
+    GIT_COMMITTER_DATE=$old git branch stale-local main
+    git branch fresh-local main
+    git checkout -qb leak epic && echo раскрытое > leak.txt && git add leak.txt && git commit -qm "раскрывающее"
+    echo ещё >> leak.txt && git commit -qam "раскрывающее ещё"
+    git checkout -qb transfer epic && git diff --binary epic...leak | git apply --index
+    git commit -qm "перенос одним коммитом" && git rev-parse leak > "$d.leak-sha"
+    git checkout -q epic && git merge -q --no-ff -m "влить transfer" transfer && git branch -q -D transfer
+    git checkout -q main && echo дальше > m.txt && git add m.txt && git commit -qm "ствол ушёл"
+    git push -q origin main
+    git checkout -q epic && git merge -q --no-ff -m "эпик догоняет main" main
+    git push -qu origin epic
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+}
+ct_run() { # $1 = исполняемый → CT_OUT; каталог — $CT; окно — CT_FRESH (умолчание 0)
+  ct_build "$CT"
+  set +e
+  CT_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN="${CT_FRESH:-0}" BRANCH_AUDIT_TRUNK=origin/epic \
+    BRANCH_AUDIT_KEEP="named" "$1" --prune-merged "$CT" 2>&1)
+  set -e
+}
+ct_ref() { git -C "$CT" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+CT="$TMP/cascade"
+ct_run "$AUDIT"; CT_BASE=$CT_OUT
+
+if grep -qF 'оставлена wave — своего коммита нет' <<<"$CT_BASE" && ct_ref wave &&
+   f_has "$CT_BASE" "ВЛИТЫ" "wave —" 'СВОЕГО КОММИТА НЕТ'; then
+  say "✅ CA" "волна без своего коммита на первой линии ствола эпика помечена и не снята"
+else
+  say "❌ CA" "волна без своего коммита снята либо не помечена переписью со стволом эпика"; fail=1
+  grep -F 'wave' <<<"$CT_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА task' <<<"$CT_BASE" && ! ct_ref task; then
+  say "✅ CB" "задача, влитая в эпик коммитом слияния, снята — законный близнец волны"
+else
+  say "❌ CB" "задача, влитая в эпик, не снята — исключение накрыло влитую работу"; fail=1
+  grep -F 'task' <<<"$CT_BASE" | head -3 || true
+fi
+if grep -qF 'оставлена named — цель каскада' <<<"$CT_BASE" && ct_ref named; then
+  say "✅ CC" "цель из BRANCH_AUDIT_KEEP оставлена, хотя влита"
+else
+  say "❌ CC" "цель из BRANCH_AUDIT_KEEP снята"; fail=1
+fi
+if grep -qF 'оставлена main — цель каскада' <<<"$CT_BASE" && ct_ref main; then
+  say "✅ CD" "ветка по умолчанию, догнанная эпиком, оставлена без перечня"
+else
+  say "❌ CD" "ветка по умолчанию снята переписью со стволом эпика"; fail=1
+fi
+if grep -qF 'влитых 7 (к снятию 4, из них без своего коммита, только локально и вне окна 2; целей каскада 2, своего коммита нет 1)' <<<"$CT_BASE"; then
+  say "✅ CE" "итог «к снятию» считает влитые за вычетом целей и веток без своего коммита"
+else
+  say "❌ CE" "итог влитых не отделяет цели и ветки без своего коммита: $(grep -o 'влитых [^)]*)' <<<"$CT_BASE" | head -1)"; fail=1
+fi
+
+# CH — раздел origin «без предмета» зовёт проверить ветку перед снятием, и живая
+# волна там без пометки выглядела бы мусором ровно так же, как в «ВЛИТЫ».
+if f_has "$CT_BASE" "НА ORIGIN" "wave —" 'СВОЕГО КОММИТА НЕТ' &&
+   f_has "$CT_BASE" "НА ORIGIN" "main —" 'ЦЕЛЬ КАСКАДА'; then
+  say "✅ CH" "на origin волна без своего коммита и ветка по умолчанию помечены так же, как локально"
+else
+  say "❌ CH" "раздел origin без предмета не метит цели каскада и ветки без своего коммита"; fail=1
+  f_sec "$CT_BASE" "НА ORIGIN" | head -4 || true
+fi
+
+# CI — исключение без своего коммита ИСТЕКАЕТ (ws#847, круг 3): ветка, которой
+# нет на origin, без копии, чья ссылка не двигалась в окне, в счёт «к снятию»
+# идёт и снимается — иначе исключение держало бы её вечно. Силуэт волны тот же,
+# разница одна — ветки нет на origin.
+if grep -qF 'СНЯТА stale-local' <<<"$CT_BASE" && ! ct_ref stale-local &&
+   f_has "$CT_BASE" "ВЛИТЫ" "stale-local —" 'только локально, без копии и вне окна свежести — к снятию'; then
+  say "✅ CI" "ветка без своего коммита, только локально и вне окна, помечена к снятию и снята"
+else
+  say "❌ CI" "исключение без своего коммита не истекает: только локальная давняя ветка оставлена"; fail=1
+  grep -F 'stale-local' <<<"$CT_BASE" | head -3 || true
+fi
+
+# CM — предикат снятия переписью — байты, а не предок (круг 3,
+# `gi-prune-census-predicate`): исходник местного переноса (leak) не предок
+# эпика — это предпосылка, проверенная по sha до снятия, — а его дельту внёс
+# transfer, и дельта слияния пуста. Перепись относит его к «ВЛИТЫ» и снимает.
+CT_LEAK=$(cat "$CT.leak-sha" 2>/dev/null || true)
+if [ -n "$CT_LEAK" ] && ! git -C "$CT" merge-base --is-ancestor "$CT_LEAK" origin/epic 2>/dev/null &&
+   f_has "$CT_BASE" "ВЛИТЫ" "leak —" 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' &&
+   grep -qF 'СНЯТА leak' <<<"$CT_BASE" && ! ct_ref leak; then
+  say "✅ CM" "исходник местного переноса — не предок цели — снят по пустой дельте слияния"
+else
+  say "❌ CM" "исходник переноса не снят переписью либо предпосылка «не предок» не подтверждена (sha ${CT_LEAK:-нет})"; fail=1
+  grep -F 'leak' <<<"$CT_BASE" | head -3 || true
+fi
+
+# CJ — законный близнец CI: та же ветка на том же давнем стволовом коммите, но её
+# ССЫЛКА заведена только что (журнал ссылки свежий) — окно держит её. Разница с
+# CI одна — время журнала ссылки; коммит у обеих давний, поэтому окно по времени
+# коммита их не различило бы. Прогон с окном 45 минут.
+CT_FRESH=45 ct_run "$AUDIT"; CT_WIN=$CT_OUT
+if grep -qF 'оставлена fresh-local — своего коммита нет' <<<"$CT_WIN" && ct_ref fresh-local &&
+   grep -qF 'СНЯТА stale-local' <<<"$CT_WIN"; then
+  say "✅ CJ" "свежая ссылка без своего коммита держится окном по журналу ссылки, давняя рядом снята"
+else
+  say "❌ CJ" "окно свежести не различает давнюю и свежую ссылку на одном стволовом коммите"; fail=1
+  grep -F -e 'fresh-local' -e 'stale-local' <<<"$CT_WIN" | head -4 || true
+fi
+
+ct_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = признак красного
+  local m="$TMP/ct-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  ct_run "$m"
+  if grep -qF -- "$6" <<<"$CT_OUT"; then
+    say "✅ $1" "мутация «$5» красит $2: $6"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+ct_mutant CF CA 'while read -r c; do TRUNK_FP["$c"]=1; done' ':' \
+  "первая линия ствола не читается" "СНЯТА wave"
+ct_mutant CG CC $'    if [ -n "${KEEP[$b]+x}" ]; then\n      echo "   оставлена $b — цель каскада' \
+  $'    if false; then\n      echo "   оставлена $b — цель каскада' "цели каскада снимаются" "СНЯТА named"
+ct_mutant CK CI '  [ "${3:-}" = local ] || { OWNLESS_WHY="есть на origin"; return 0; }' \
+  '  OWNLESS_WHY="мутант: исключение бессрочно"; return 0' "исключение без своего коммита бессрочно" \
+  "оставлена stale-local — своего коммита нет"
+CT_FRESH=45 ct_mutant CL CJ '  moved=$(ref_moved_ct "$2")' '  moved=$(git log -1 --format=%ct "$2")' \
+  "окно по времени коммита, а не журнала ссылки" "СНЯТА fresh-local"
+ct_mutant CN CM $'    if git branch -D "$b" >/dev/null 2>&1; then\n      echo "   СНЯТА $b"' \
+  $'    git merge-base --is-ancestor "refs/heads/$b" "$TRUNK" || { echo "   оставлена $b — не предок ствола"; kept=$((kept+1)); continue; }\n    if git branch -D "$b" >/dev/null 2>&1; then\n      echo "   СНЯТА $b"' \
+  "снятие переписью сужено до предков цели" "оставлена leak — не предок ствола"
+
+# --- EW5–EW12. ЦЕЛИ КАСКАДА — СТВОЛЫ СВЕРКИ (ws#821 × ws#847) ------------------
+# Сведение двух работ: стволы эпиков и волн (ws#821) и защита целей каскада
+# (ws#847) судят одни и те же ветки. Три факта, и у каждого — законный близнец
+# либо мутант, красящий своё утверждение:
+#   * база PR на origin — ствол И цель каскада: её местная копия, равная origin,
+#     поглощается своей же копией, и без пометки ушла бы «к снятию» (EW5, EW9);
+#   * волна флоу v2 без единого PR, названная в BRANCH_AUDIT_KEEP, — ствол: задача,
+#     сведённая в неё местным слиянием и не отправленная, — во «ВЛИТЫ» и снята
+#     (EW7); без перечня — единственный экземпляр (EW8, близнец); мутант (EW10);
+#   * первая линия берётся и у цели каскада: свежая ветка задачи от волны, без
+#     своего коммита, на давнем коммите волны, со свежим журналом ссылки,
+#     держится окном (EW6); мутант «первая линия только у ствола» (EW12).
+# Эпик 700 — база запроса 701 (PR из файла); волна 711 запросов не имеет.
+ev_build() { # $1 = каталог
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb 700 && echo эпик > e.txt && git add e.txt && git commit -qm "эпик"
+    git push -qu origin 700
+    git checkout -qb 711 700 && echo волна > w.txt && git add w.txt && git commit -qm "волна"
+    git checkout -qb 712 711 && echo задача > task.txt && git add task.txt && git commit -qm "задача"
+    git checkout -q 711 && git merge -q --no-ff -m "сборка: 712 в волну" 712
+    git push -qu origin 711
+    # Запись журнала ссылки берёт время коммиттера: давнее время снимается, иначе
+    # журнал 713 был бы давним, и окно её не держало бы.
+    unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+    git branch 713 711
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    git checkout -qb 750 main && echo закрытая > c.txt && git add c.txt && git commit -qm "работа 750 вне main"
+    git push -qu origin 750
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+  # 750 — база давнего запроса 751, и её собственный PR 306 уже влит: закрытая цель.
+  printf '701\t301\tMERGED\tfalse\t700\n751\t305\tMERGED\tfalse\t750\n750\t306\tMERGED\tfalse\tmain\n' > "$d.pr"
+}
+ev_run() { # $1 = исполняемый, $2 = BRANCH_AUDIT_KEEP → EV_OUT; каталог — $EV
+  ev_build "$EV"
+  set +e
+  EV_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=45 BRANCH_AUDIT_PR_STATE_FILE="$EV.pr" \
+    BRANCH_AUDIT_KEEP="$2" "$1" --prune-merged "$EV" 2>&1)
+  set -e
+}
+ev_ref() { git -C "$EV" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+ev_trunks() { grep -E '^branch-audit: стволов в сверке' <<<"$EV_OUT" || true; }
+EV="$TMP/cascade-trunks"
+ev_run "$AUDIT" "711"; EV_BASE=$EV_OUT
+
+if ev_trunks | grep -c 'origin/700 (база PR' >/dev/null &&
+   f_has "$EV_BASE" "ВЛИТЫ" "700 —" 'ЦЕЛЬ КАСКАДА' &&
+   grep -qF 'оставлена 700 — цель каскада' <<<"$EV_BASE" && ev_ref 700; then
+  say "✅ EW5" "база PR на origin — ствол и цель каскада: её копия, поглощённая своей же, не снята"
+else
+  say "❌ EW5" "местная копия базы PR 700 снята либо не помечена целью каскада"; fail=1
+  grep -F '700' <<<"$EV_BASE" | head -4 || true
+fi
+if grep -qF 'оставлена 713 — своего коммита нет' <<<"$EV_BASE" && ev_ref 713 &&
+   f_has "$EV_BASE" "ВЛИТЫ" "713 —" 'СВОЕГО КОММИТА НЕТ'; then
+  say "✅ EW6" "свежая ветка задачи от волны-ствола, без своего коммита, держится первой линией волны"
+else
+  say "❌ EW6" "ветка 713 без своего коммита снята либо не помечена — первая линия волны не прочитана"; fail=1
+  grep -F '713' <<<"$EV_BASE" | head -3 || true
+fi
+if ev_trunks | grep -c 'origin/711 (цель каскада)' >/dev/null &&
+   f_has "$EV_BASE" "ВЛИТЫ" "712 —" 'относительно origin/711' &&
+   grep -qF 'СНЯТА 712' <<<"$EV_BASE" && ! ev_ref 712; then
+  say "✅ EW7" "волна без PR из BRANCH_AUDIT_KEEP — ствол: сведённая в неё задача во «ВЛИТЫ» и снята"
+else
+  say "❌ EW7" "волна 711 из BRANCH_AUDIT_KEEP не ствол либо задача 712 не снята"; fail=1
+  grep -F -e '712' -e 'стволов в сверке' <<<"$EV_BASE" | head -4 || true
+fi
+# EW13 — цель каскада на origin без запроса не сирота: раздел «без предмета»
+# зовёт проверить ветку перед снятием, а волна и эпик без PR — штатное состояние.
+# Близнец — BE: давняя ветка без PR вне целей там названа.
+if ! f_sec "$EV_BASE" "НА ORIGIN" | grep -E -c '^   (700|711) — PR не заводился' >/dev/null; then
+  say "✅ EW13" "эпик и волна на origin без запроса не названы ветками без предмета"
+else
+  say "❌ EW13" "цель каскада на origin названа веткой «PR не заводился»"; fail=1
+  f_sec "$EV_BASE" "НА ORIGIN" | head -4 || true
+fi
+# EW15 — база, чей собственный PR влит, — закрытая цель: не ствол, её копия не
+# поглощается своей же копией на origin, и тревога о работе вне ствола звучит.
+if ! ev_trunks | grep -c 'origin/750' >/dev/null && f_has "$EV_BASE" "ЖИВЫЕ" "750 " 'MERGED' &&
+   f_sec "$EV_BASE" "ВНИМАНИЕ" | grep -F -c '   750 — #306 MERGED' >/dev/null; then
+  say "✅ EW15" "база с влитым своим PR — не ствол: работа вне main названа тревогой"
+else
+  say "❌ EW15" "закрытая база 750 стала стволом либо её тревога смолкла"; fail=1
+  grep -F '750' <<<"$EV_BASE" | head -4 || true
+fi
+ev_run "$AUDIT" ""; EV_NOKEEP=$EV_OUT
+if f_has "$EV_NOKEEP" "ТОЛЬКО ЛОКАЛЬНО" "712 " 'НЕТ на origin' && ev_ref 712 &&
+   ! ev_trunks | grep -c 'origin/711' >/dev/null; then
+  say "✅ EW8" "близнец EW7: без перечня целей волна без PR не ствол, задача — единственный экземпляр"
+else
+  say "❌ EW8" "без BRANCH_AUDIT_KEEP волна 711 всё равно ствол либо задача 712 не названа единственной"; fail=1
+fi
+
+ev_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = признак красного
+  local m="$TMP/ev-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  ev_run "$m" "711"
+  if grep -qF -- "$6" <<<"$EV_OUT"; then
+    say "✅ $1" "мутация «$5» красит $2: $6"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+ev_mutant EW9 EW5 '      FP_TRUNKS+=("$TRUNK_ADDED"); KEEP["$base"]=1;' '      FP_TRUNKS+=("$TRUNK_ADDED");' \
+  "база PR — ствол, но не цель каскада" "оставлена 700 — своего коммита нет"
+ev_mutant EW10 EW7 '    trunk_add "$k" "цель каскада" && FP_TRUNKS+=("$TRUNK_ADDED")' '    :' \
+  "цель из BRANCH_AUDIT_KEEP не ствол" "   712 (+"
+ev_mutant EW11 EW4 '    if trunk_add "$base" "база PR — эпик/волна"; then' '    if false; then' \
+  "база PR не ствол" "стволов в сверке 2 — "
+ev_mutant EW12 EW6 'git rev-list --first-parent "${FP_TRUNKS[@]}" --' 'git rev-list --first-parent "$TRUNK" --' \
+  "первая линия только у ствола" "СНЯТА 713"
+ev_mutant EW14 EW13 ' && [ -z "${KEEP[$b]+x}" ] &&' ' &&' \
+  "цель каскада на origin — сирота" "711 — PR не заводился"
+ev_mutant EW16 EW15 '    case "${PRSTATE[$base]:-}" in *MERGED|*CLOSED) n_base_closed=$((n_base_closed + 1)); continue ;; esac' \
+  '    :' "закрытая база — ствол" "относительно origin/750"
+
+# --- OR1–OR9. ВЕТКИ ORIGIN — ТЕМ ЖЕ ПРЕДИКАТОМ (ws#821, норма ws#847) ----------
+# Строка origin с пустой дельтой слияния по ЛЮБОМУ стволу, кроме своего, без
+# пометки — «к снятию на origin»; стоп нормы — пометкой [ДЕРЖИТСЯ: …]. Волна 721
+# названа в BRANCH_AUDIT_KEEP; 722, 723, 724 отправлены и сведены в неё
+# местным слиянием; у 723 местная ветка ушла вперёд, 724 — свежая. release/r1 и
+# release/r2 влиты в main, у r2 открыт PR в неё; release/r3 — живая линия.
+or_build() { # $1 = каталог
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb 721 && echo волна > w.txt && git add w.txt && git commit -qm "волна"
+    for t in 722 723; do
+      git checkout -qb "$t" 721 && echo "$t" > "$t.txt" && git add "$t.txt" && git commit -qm "задача $t"
+      git push -qu origin "$t"
+      git checkout -q 721 && git merge -q --no-ff -m "сборка: $t в волну" "$t"
+    done
+    unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+    git checkout -qb 724 721 && echo 724 > 724.txt && git add 724.txt && git commit -qm "задача 724, свежая"
+    git push -qu origin 724
+    git checkout -q 721 && git merge -q --no-ff -m "сборка: 724 в волну" 724
+    git push -qu origin 721
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    git checkout -q 723 && echo ещё >> 723.txt && git commit -qam "работа 723 после сборки"
+    for r in r1 r2 r3; do
+      git checkout -qb "release/$r" main && echo "$r" > "$r.txt" && git add "$r.txt" && git commit -qm "линия $r"
+      git push -qu origin "release/$r"
+    done
+    git checkout -q main
+    git merge -q --no-ff -m "влить r1" release/r1 && git merge -q --no-ff -m "влить r2" release/r2
+    git push -q origin main
+    git checkout -q --detach
+    git branch -q -D 722 724 release/r1 release/r2 release/r3
+  ) >/dev/null 2>&1
+  printf 'into-r2\t309\tOPEN\tfalse\trelease/r2\n' > "$d.pr"
+}
+or_run() { # $1 = исполняемый → OR_OUT; каталог — $ORD
+  or_build "$ORD"
+  set +e
+  OR_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=45 BRANCH_AUDIT_PR_STATE_FILE="$ORD.pr" \
+    BRANCH_AUDIT_KEEP=721 "$1" "$ORD" 2>&1)
+  set -e
+}
+ORD="$TMP/origin-predicate"
+or_run "$AUDIT"; OR_BASE=$OR_OUT
+or_row() { f_sec "$OR_BASE" "НА ORIGIN" | grep -F -- "   $1 —" || true; }
+
+if grep -E -c '^   722 — ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/721, содержимое в стволе$' <<<"$(or_row 722)" >/dev/null; then
+  say "✅ OR1" "ветка origin, сведённая в волну-ствол, — пустая дельта по стволу волны, без пометки"
+else
+  say "❌ OR1" "ветка origin 722, сведённая в волну 721, не отнесена к пустой дельте по origin/721: $(or_row 722)"; fail=1
+fi
+if grep -E -c '^   release/r1 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$' <<<"$(or_row release/r1)" >/dev/null &&
+   grep -F -c '[ДЕРЖИТСЯ: база открытого PR]' <<<"$(or_row release/r2)" >/dev/null; then
+  say "✅ OR2" "влитая release/* на origin судится; близнец с открытым PR в неё держится"
+else
+  say "❌ OR2" "release/r1 не предъявлена снятию либо release/r2 с открытым PR не держится: $(or_row release/r1) | $(or_row release/r2)"; fail=1
+fi
+if grep -F -c '[ДЕРЖИТСЯ: местная ветка того же имени вне «ВЛИТЫ»]' <<<"$(or_row 723)" >/dev/null; then
+  say "✅ OR3" "ветка origin, чья местная копия несёт работу, держится"
+else
+  say "❌ OR3" "ветка origin 723 с работой в местной копии не держится: $(or_row 723)"; fail=1
+fi
+if [ -n "$(or_row release/r3)" ] && ! grep -F -c 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' <<<"$(or_row release/r3)" >/dev/null; then
+  say "✅ OR4" "живая накопительная линия своим стволом не поглощена"
+else
+  say "❌ OR4" "release/r3 не осмотрена либо поглощена сама собой: $(or_row release/r3)"; fail=1
+fi
+if grep -E -c '\[ДЕРЖИТСЯ: коммит головы [0-9]+ мин назад\]' <<<"$(or_row 724)" >/dev/null; then
+  say "✅ OR5" "свежая ветка origin с пустой дельтой держится окном"
+else
+  say "❌ OR5" "свежая ветка origin 724 не держится окном: $(or_row 724)"; fail=1
+fi
+if grep -F -c '(к снятию на origin 2: дельта пуста, без пометки)' <<<"$OR_BASE" >/dev/null; then
+  say "✅ OR6" "итог считает «к снятию на origin» отдельным числом: 722 и release/r1"
+else
+  say "❌ OR6" "итог к снятию на origin не 2: $(grep -o '(к снятию на origin [^)]*)' <<<"$OR_BASE" || true)"; fail=1
+fi
+
+or_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = образец красного (ERE)
+  local m="$TMP/or-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  or_run "$m"
+  if grep -E -c -- "$6" <<<"$OR_OUT" >/dev/null; then
+    say "✅ $1" "мутация «$5» красит $2"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+or_mutant OR7 OR4 '  absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"' \
+  '  absorbed_where "refs/remotes/origin/$b"' "ветка origin сверяется и со своим стволом" \
+  '^   release/r3 — ДЕЛЬТА СЛИЯНИЯ ПУСТА'
+or_mutant OR8 OR1 '  absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"' \
+  '  TRUNKS=("$TRUNK"); absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"' \
+  "ветка origin судится одним стволом" '^   722 — PR не заводился'
+or_mutant OR9 OR3 '  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1]}" != merged ]; then' \
+  '  if false; then' "стоп по местной ветке снят" \
+  '^   723 — ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/721, содержимое в стволе$'
+or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база открытого PR\'; return 0; fi' ':' \
+  "стоп по открытому PR в ветку снят" '^   release/r2 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$'
 
 echo
 if [ "$fail" -eq 0 ]; then

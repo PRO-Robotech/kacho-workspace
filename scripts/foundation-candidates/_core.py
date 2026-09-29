@@ -98,6 +98,14 @@ subjects+1 files+2» — не выросло ничего, клон был ст�
 закрепляет ревизию каждого ствола (`ceiling.rev`), и `pin_state` сверяет её со
 стволом клона ДО замера: ствол ПОЗАДИ закреплённой ревизии — «считать не по чему»,
 а не находка о продукте. Та же форма, что у `scripts/comment-language-gate`.
+
+ФОРМА ВЕДОМОСТИ — ФАКТ ВОРКСПЕЙСА, А НЕ ПРЕДПОСЫЛКА (#856)
+
+Ведомость лежит в этом дереве и судится без клонов, поэтому её неполнота —
+находка с именем поля (`ledger_form`), а не «считать не по чему». Прежде снятый
+блок ревизий давал код 2, и хук отправки печатал «нет клона» при клонах на месте
+и выходил нулём: красным это делал только ручной шаг конвейера. Код 2 остаётся
+ровно за тем, чего в дереве нет по построению, — клоном и его стволом.
 """
 import os
 import re
@@ -188,8 +196,68 @@ def declared_revs(text):
     return revs, bad
 
 
+CEILING_KEYS = ("subjects", "files", "actionable")
+
+
+def declared_ceiling(text):
+    """{ключ: число} из блока `ceiling:` — только те из CEILING_KEYS, что стоят числом."""
+    res, inside = {}, False
+    for raw in text.split("\n"):
+        if raw.startswith("ceiling:"):
+            inside = True
+            continue
+        if inside and raw[:1] not in (" ", "\t", "#", ""):
+            inside = False
+        if not inside:
+            continue
+        m = re.match(r"  (\w+):\s*(\d+)\s*$", raw)
+        if m and m.group(1) in CEILING_KEYS:
+            res[m.group(1)] = int(m.group(2))
+    return res
+
+
+def ledger_form(text):
+    """(числа, ревизии, находки) — ФОРМА ведомости, каждая находка с ИМЕНЕМ ПОЛЯ.
+
+    Единственное место, где судится полнота ведомости; оба держателя набора
+    зовут его ДО сверки с клонами. Поле, которого нет, — находка о дереве
+    воркспейса: оно производится правкой этого файла и ни от какого клона не
+    зависит. Имя поля печатается адресом `ceiling.<ключ>` либо
+    `ceiling.rev.<продукт>`, чтобы находку можно было исполнить, не читая кода.
+    """
+    nums = declared_ceiling(text)
+    revs, bad = declared_revs(text)
+    findings = []
+    if not re.search(r"(?m)^ceiling:", text):
+        findings.append("нет блока `ceiling:` — ни одного числа и ни одной ревизии "
+                        "храповику не объявлено")
+    for k in CEILING_KEYS:
+        if k not in nums:
+            findings.append("`ceiling.%s` не объявлено числом — храповику по этой "
+                            "единице сверять не с чем" % k)
+    for b in bad:
+        findings.append("`ceiling.rev`: %s не разобрана — опечатка в имени продукта "
+                        "делала бы закрепление необъявленным молча" % b)
+    for name in PRODUCTS:
+        decl = revs.get(name)
+        if decl is None:
+            findings.append("`ceiling.rev.%s` не объявлено — ревизия ствола %s не "
+                            "закреплена, и числа ведомости ни о какой ревизии не "
+                            "утверждают" % (name, name))
+        elif not _REV.match(decl):
+            findings.append("`ceiling.rev.%s: %s` — не полная ревизия (40 знаков): "
+                            "сокращённая неоднозначна со временем, а имя ветки "
+                            "движется" % (name, decl))
+    return nums, revs, findings
+
+
 def pin_state(root, revs):
     """Сверка закреплённых ревизий со стволами клонов — ПРЕДПОСЫЛКА вердикта.
+
+    Зовётся ПОСЛЕ `ledger_form` без находок: полнота и форма ревизий судятся там,
+    и здесь их второго представления нет. Вызов на неполной ведомости — ошибка
+    вызывающего, а не исход: он падает исключением, а не выдаёт «считать не по
+    чему».
 
     Закреплённая ревизия обязана быть предком ствола клона либо им самим. Ствол
     ПОЗАДИ неё — клон не подтянут (или ревизия есть коммит ветки поверх ствола:
@@ -203,15 +271,9 @@ def pin_state(root, revs):
     res = {"pins": {}, "trunks": {}, "findings": [], "voids": []}
     for name in PRODUCTS:
         decl = revs.get(name)
-        if decl is None:
-            res["voids"].append("%s: ведомость не закрепляет ревизию ствола (`ceiling.rev.%s`) "
-                                "— сверять не с чем" % (name, name))
-            continue
-        if not _REV.match(decl):
-            res["findings"].append("%s: `rev: %s` — не полная ревизия (40 знаков): "
-                                   "сокращённая неоднозначна со временем, а имя ветки "
-                                   "движется" % (name, decl))
-            continue
+        if decl is None or not _REV.match(decl):
+            raise ValueError("pin_state на неполной ведомости: `ceiling.rev.%s` = %r — "
+                             "сначала ledger_form" % (name, decl))
         repo = clone(root, name)
         if repo is None:
             res["voids"].append("%s: клона нет — условие создаётся клоном в "

@@ -22,6 +22,12 @@ ws_root="$(cd "$here/../.." && pwd)"
 box="$(mktemp -d)"
 trap 'rm -rf "$box"' EXIT
 
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$here/../lib/sandbox-git-home.sh"
+sandbox_git_home "$box/home" || { echo "НЕ ВЫПОЛНИЛОСЬ: корневой подписи нет — синтетическому дереву не с чего взять подпись" >&2; exit 3; }
+
 pass=0
 fail=0
 
@@ -55,8 +61,8 @@ entries:
 YAML
   fi
   git -C "$dir" init -q
-  git -C "$dir" -c user.email=inj@example.invalid -c user.name=inj add -A
-  git -C "$dir" -c user.email=inj@example.invalid -c user.name=inj commit -q -m inj
+  git -C "$dir" add -A
+  sandbox_git -C "$dir" commit -q -m inj
   git -C "$dir" update-ref refs/remotes/origin/main "$(git -C "$dir" rev-parse HEAD)"
   echo "$dir"
 }

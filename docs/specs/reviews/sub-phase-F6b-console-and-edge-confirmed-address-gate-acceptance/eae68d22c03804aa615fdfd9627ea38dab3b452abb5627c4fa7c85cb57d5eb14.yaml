@@ -1,0 +1,269 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+  sha256: eae68d22c03804aa615fdfd9627ea38dab3b452abb5627c4fa7c85cb57d5eb14
+  revision: 6
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события и
+    записи ревью (change-graph §2). Шапка этой записью НЕ правится. Машинный читатель docs-gate
+    (`check-01`) по этой редакции ответит «не APPROVED» — он судит объявление, а не эту запись;
+    одобрение этой записи вступает в силу только внешним событием полномочия.
+  base_commit: a68edc466c7ad7704e2b4c58f21dca22064dde95
+  content_commit: a68edc466c7ad7704e2b4c58f21dca22064dde95
+  branch: "873"
+  merge_request: https://github.com/PRO-Robotech/kacho-workspace/pull/878
+  merge_request_base: "786"
+  task: https://github.com/PRO-Robotech/kacho/issues/2898
+  stage_tasks:
+    - https://github.com/PRO-Robotech/kacho/issues/2900
+    - https://github.com/PRO-Robotech/kacho/issues/2901
+  service_side_task: https://github.com/PRO-Robotech/kaname/issues/456
+  wave: https://github.com/PRO-Robotech/kacho/issues/2797
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: >-
+    sha256sum <путь> в копии tmp/ws-asm3-786 (ветка 873, голова a68edc46) И git show a68edc46:<путь>
+    | sha256sum — оба дают eae68d22c03804aa…d5eb14, совпало с заданием; wc -l → 2148
+  fingerprint_reproduced: true
+  lines: 2148
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T12:17:54Z'
+round: 6
+review_mode: >-
+  суд дельты к одобренной редакции 5 (ce81e18a): изменение признаётся механическим, только если
+  после подстановки формы команды остаются лишь дописанные строки истории и §8; иначе — полный
+  круг по изменённым местам
+previous_rounds:
+  - round: 1
+    sha256: 0bfa670190d3f52eedf1dcf4dcd821891e6d38a2068882e2551dbc8cb4eb3361
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    blocking_kinds_distinct: [SCOPE, COVERAGE]
+  - round: 2
+    sha256: 184fa2831ebd238b975787f727702f70631e329962bb838f0ff61016c63fb62f
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    blocking_kinds_distinct: [PRODUCER, FORMAT, COVERAGE]
+  - round: 3
+    sha256: 49bb29defe3a9442d813a6e09d8005bc1dce9c13aa6a7a98ad68e6e139aa76c3
+    verdict: APPROVED
+    blocking_count: 0
+    blocking_kinds_distinct: []
+  - round: 4
+    sha256: ab019574a5bccf2b20dc23ec525dcc40e6c60d34dff32f3592d66d7b83e30038
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    blocking_kinds_distinct: [PRODUCER, COVERAGE]
+  - round: 5
+    sha256: ce81e18aea14a35832a31c768e7f35ec2064f757834418aca93f91738c6ee04a
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/ce81e18aea14a35832a31c768e7f35ec2064f757834418aca93f91738c6ee04a.yaml
+    blocking_count: 0
+    blocking_kinds_distinct: []
+    authority_event: комментарий pointpu в kacho#2898, 2026-09-28T16:36:28Z, subject_sha256 ce81e18a…
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_trend: >-
+  3 → 3 → 0 → 2 → 0 → 0. Редакция 6 не трогает ни сценариев, ни решений, ни переписи, ни §5 и DoD;
+  род нового замечания не возникает.
+
+owner_decision_verbatim: >-
+  «Делай механику максимально безопасную где вход дальше экрана регистрации или логина доступен
+  только после подтверждения почты» — решение владельца 2026-09-27; документ вносит его дословно
+  (§0), рецензент его не переоткрывает.
+
+# ─── ЧТО ИЗМЕНИЛОСЬ ПРОТИВ ОДОБРЕННОЙ РЕДАКЦИИ И КЕМ ─────────────────────────
+delta_against_approved:
+  approved_revision: 5
+  approved_sha256: ce81e18aea14a35832a31c768e7f35ec2064f757834418aca93f91738c6ee04a
+  approved_commit: 1511bb35029ced27836e77ebcee48376f26cd873
+  approved_branch: lane/2898-address-gate-acceptance
+  changing_commit: a68edc466c7ad7704e2b4c58f21dca22064dde95
+  changing_commit_author: pointpu
+  changing_commit_subject: "#873 приёмка F6b: редакция 6 — цитаты make названы каталогом"
+  origin_of_change: >-
+    прямая правка на ветке сборки 873, вызванная красным заданием конвейера воркспейса «quoted make
+    commands run from the monorepo root» на 22ca97d5 (прогон 36510676080, failure). НЕ сведение
+    785, 861 или 786 и НЕ правка по kacho#2901: на каждом слиянии диапазона 1511bb35..a68edc46
+    (19927ea8, 58e19f42, 716050e4, b6f0d643, 78c30377) документ равен ce81e18a, вторая сторона
+    каждого слияния документа не несёт; единственный коммит, меняющий отпечаток, — a68edc46,
+    родитель 22ca97d5 несёт ce81e18a
+  commands:
+    - "git log --full-history --format='%h %an %s' 1511bb35..a68edc46 -- <док> → a68edc46 и пять слияний"
+    - "git show <c>:<док> | sha256sum по каждому слиянию и его родителям → ce81e18a или пусто; a68edc46 → eae68d22"
+    - "gh run view 36510676080 -R PRO-Robotech/kacho-workspace → headSha 22ca97d5, задание quoted make … failure"
+  changes:
+    - where: "§1.13 вывод 2, шапка блока §1.16, Given F6b-46"
+      what: "`make dev-up` → `make -C deploy dev-up` (три строки)"
+      meaning_changed: false
+      evidence: >-
+        цель dev-up объявлена в deploy/Makefile (b7608fe9750 :677, origin/main 1d42a6728bf :595); в
+        корневом Makefile продукта цели dev-up нет и include-делегирования нет (обе ревизии). Оба
+        конвейера зовут её из deploy: console-e2e.yml:636 и e2e-newman.yml:717–718 через
+        stand-up.sh --dir deploy -- make dev-up (b7608fe9750). Форма совпадает со спекой
+        03-deployment-and-operations.md:105, :109. Прежняя цитата при копировании из корня не
+        исполнилась бы; новая называет ту же цель тем же каталогом, что уже подразумевали §1.13 и
+        §1.16
+    - where: "шапка, «История review»"
+      what: "дописаны строки круга 5 и редакции 6; строка «Дата» 2026-09-28 → 2026-09-29"
+      meaning_changed: false
+      evidence: >-
+        прежние строки истории не тронуты (удалённая строка диффа одна — «Дата»). Утверждение
+        строки круга 5 о событии полномочия проверено: комментарий pointpu в kacho#2898
+        2026-09-28T16:36:28Z несёт verdict APPROVED, subject_revision 1511bb35, subject_sha256
+        ce81e18a…
+    - where: "§8, раздел «Редакция 6»"
+      what: "описание правки: почему, что изменено, что не тронуто"
+      meaning_changed: false
+      evidence: >-
+        заявленное в разделе воспроизведено: 56 сценариев в обеих редакциях, переписанных и снятых
+        нет; I5-1 и I5-2 в документ не вносились (отданы полосе S4 записью круга 5)
+  mechanical_predicate: >-
+    diff <(git show 1511bb35:<док> | sed 's/`make dev-up`/`make -C deploy dev-up`/g') <(git show
+    a68edc46:<док>) → 22 строки: одна удалённая («Дата: 2026-09-28») и 21 добавленная (7 строк
+    истории, новая «Дата», 13 строк §8); иных расхождений нет
+  verdict_on_delta: >-
+    изменение механическое по смыслу: исправлена форма трёх цитат команды (та же цель, тот же
+    каталог), дописаны история и §8. Суть сценариев, Given, Then, производители, близнецы, DoD и
+    перепись — байт в байт как в одобренной редакции 5
+
+# ─── ПОЛЕ ВЫДАЧИ ОДОБРЕНИЯ ───────────────────────────────────────────────────
+approval_issuance:
+  issued: false
+  effective_approval: pending_authority_event
+  code_transition_open: false
+  agent_verdict: APPROVED
+  reason: >-
+    Вердикт агента — ПРИНЯТО на отпечаток eae68d22. Одобрение ce81e18a (круг 5, событие
+    2026-09-28T16:36:28Z) на редакцию 6 не переносится; эта запись судит редакцию 6 целиком — по
+    дельте к одобренной, остальное байт в байт совпадает с ce81e18a. Одобрение действует только
+    после внешнего события полномочия на этот отпечаток.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac a68edc46 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: a68edc466c7ad7704e2b4c58f21dca22064dde95
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_sha256_predicate: git show a68edc46:docs/changes/policy.yaml | sha256sum
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  allowlisted_for_role: false
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Роль в этой записи — координата, а не доказательство личности (change-graph §3). Событие
+    публикует курьер; недоступность события — «не выполнилось», а не «да».
+  event_body_for_courier: >-
+    acceptance-reviewer · APPROVED (круг 6, блокирующих 0, правка механическая против ce81e18a) ·
+    SHA-256 eae68d22c03804aa615fdfd9627ea38dab3b452abb5627c4fa7c85cb57d5eb14
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: >-
+    Записи кругов 1–5 (0bfa6701…, 184fa283…, 49bb29de…, ab019574…, ce81e18a….yaml) не правлены;
+    эта — соседняя, по отпечатку редакции 6.
+
+premise_check:
+  claim: >-
+    копия tmp/ws-asm3-786, ветка 873 @a68edc46, запрос #878 → 786; одобрена была ce81e18a; в сборке
+    отпечаток eae68d22; действующего одобрения на eae68d22 нет; прошлые записи в каталоге ревью
+    копии
+  outcome: confirmed
+  commands:
+    - "git -C tmp/ws-asm3-786 rev-parse HEAD → a68edc46; branch --show-current → 873; ls-remote origin refs/heads/873 → a68edc46"
+    - "gh pr view 878 → base 786, head 873, OPEN, headRefOid a68edc46"
+    - "sha256sum <док> → eae68d22…; git show 1511bb35:<док> | sha256sum → ce81e18a…"
+    - "ls каталога записей → пять записей, eae68d22….yaml нет; комментарии kacho#2898 с 2026-09-27 → события только на 49bb29de и ce81e18a"
+
+measurement:
+  revisions_used:
+    workspace: "a68edc46 (ветка 873), 1511bb35 (одобренная), 22ca97d5 (родитель правки)"
+    kacho: "b7608fe9750 (ревизия измерения §1.13 и §1.16), origin/main 1d42a6728bf — в project/kacho"
+  make_citation_gate:
+    script: scripts/check-doc-commands.py из копии, дерево docs git archive a68edc46, продукт project/kacho @1d42a6728bf
+    before:
+      doc_sha256: ce81e18a
+      exit: 1
+      census: "документов 312, цитат make 477, каталогов с Makefile 10, целей 185"
+      findings: "3 — строки 621, 711, 1763 этого документа, make dev-up без каталога"
+    after:
+      doc_sha256: eae68d22
+      exit: 0
+      census: "документов 312, цитат make 478, каталогов с Makefile 10, целей 185"
+      findings: 0
+    note: "прибавка одной цитаты — code span `make -C deploy dev-up` в новом разделе §8"
+  docs_gate_check_01:
+    exit: 0
+    census: "приёмок осмотрено 190; вердикт прочитан у всех 190"
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* F6b-[0-9]+' <док>"
+    approved_revision: {total: 56, unique: 56}
+    this_revision: {total: 56, unique: 56}
+  producer_coverage: "56 из 56 — §5 не изменён против круга 5, где раскрытие дало 56 из 56"
+  twin_coverage: "не изменено против круга 5 (6 из 6 новых и переписанных называли близнеца)"
+  dod_coverage: "56 из 56 — DoD не изменён против круга 5"
+
+blocking_findings: []
+
+important_findings: []
+
+carried_from_round_5:
+  - "I5-1 (PRODUCER, F6b-55, страж слота пути) — остаётся за полосой S4, редакцией 6 не затронут"
+  - "I5-2 (COVERAGE, F6b-55, свежесть цели на прогон посева) — остаётся за полосой S4, редакцией 6 не затронут"
+
+constructibility:
+  seeded_by_experiment: 0
+  of_new_or_changed_nontrivial_givens: 1
+  items:
+    - "F6b-46 Given — изменена только цитата рецепта; конструируемость рецепта показана фикстурой: цель dev-up в deploy/Makefile, оба конвейера поднимают стенд ею из deploy"
+  not_performed: 1
+  not_performed_reason: >-
+    подъём стенда рецептом make -C deploy dev-up в этом круге не запускался: стенд и изоляция
+    заданием не названы, новых кластеров kind поднимать нельзя. Это «не выполнилось», в вердикт не
+    зачитывается; прочие Given не изменены против круга 5, их «не выполнилось» (6) переносится оттуда.
+
+not_performed:
+  - subject: "подъём стенда рецептом make -C deploy dev-up (Given F6b-46)"
+    reason: "стенд и изоляция заданием не названы; запрет на новые кластеры kind"
+    counts_as: "не выполнилось"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: true
+  public_rpc_note: "без изменений против круга 5: два глагола полосы формы края /iam/v1/auth/verify-email и …/confirm"
+  ui: true
+  new_domain: false
+  security_surface: true
+  security_surface_note: "без изменений против круга 5: рубеж полосы сессии (S1)"
+  disclosure_safe: true
+
+verified:
+  no_new_blocking_reason: >-
+    Изменённое редакцией 6 (§1.13 вывод 2, шапка §1.16, Given F6b-46, шапка истории, §8) перечитано
+    и сверено с деревом; сценария, неисполнимого по построению или небезопасного, не появилось.
+    Раскрытия уязвимости текущего поведения ни документ, ни запись не содержат.
+
+next:
+  needed_agent: courier
+  task: >-
+    опубликовать событие полномочия на eae68d22 в kacho#2898; затем git-operator — отправка ветки
+    873 с этой записью и повтор посадки #878 → 786
+  owner_questions: []

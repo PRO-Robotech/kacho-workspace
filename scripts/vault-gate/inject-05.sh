@@ -29,14 +29,21 @@ CHECK="$SCRIPT_DIR/check-05-index-split-holds.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 ok=0; bad=0
 
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$SCRIPT_DIR/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "inject-05: НЕ ВЫПОЛНИЛОСЬ — корневой подписи нет" >&2; exit 2; }
+# Весь посев пишет историю песочницы; проверяемый гейт — дочерний процесс, его
+# git этой функции не видит и HOME вызывающего не теряет.
+git() { sandbox_git "$@"; }
+
 # Рабочая копия дерева: инъекция не трогает настоящее. Берём хранилище, генератор,
 # сам набор проверок и посадку слияния — то есть ровно предмет.
 setup_tree() {
     local d="$TMP/$1"
     rm -rf "$d"; mkdir -p "$d"
     git -C "$d" init -q
-    git -C "$d" config user.email inject@example.invalid
-    git -C "$d" config user.name  inject
     (cd "$WS_REAL" && git ls-files --cached --others --exclude-standard \
         'obsidian/kacho/*' 'scripts/vault-index/*' 'scripts/vault-gate/*' '.gitattributes') \
         | while read -r f; do install -D "$WS_REAL/$f" "$d/$f"; done

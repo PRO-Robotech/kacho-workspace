@@ -39,6 +39,12 @@ WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Подпись песочниц — их HOME со своим `.gitconfig` (ws#785), без переопределения.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$WS/scripts/lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "ОТКАЗ: корневой подписи нет — коммитам песочниц не с чего взять подпись" >&2; exit 2; }
+
 pass=0; fail=0
 
 # Пути проб полосы `hook` — выводятся из самой ведомости, а не выписываются:
@@ -134,13 +140,12 @@ C2="check-02-lane-roster-covers-every-entry-point.sh"
 C3="check-03-ci-calls-every-artifact-of-the-set.sh"
 C4="check-04-package-releases-reproduce.sh"
 
-# commit_all <каталог> <сообщение> — коммит песочницы. Подпись — в конфиге
-# выброшенного репозитория: он живёт до конца пробы и на origin не попадает.
+# commit_all <каталог> <сообщение> — коммит песочницы. Подпись — HOME песочницы
+# со своим `.gitconfig`: правило подписи действует и на репозиторий, который на
+# origin не попадает никогда (ws#785).
 commit_all() {
-    git -C "$1" config user.name 'cg-gate probe'
-    git -C "$1" config user.email 'probe@invalid'
     git -C "$1" add -A > /dev/null 2>&1
-    git -C "$1" commit -q --allow-empty -m "$2" > /dev/null 2>&1
+    sandbox_git -C "$1" commit -q --allow-empty -m "$2" > /dev/null 2>&1
 }
 
 # world4 <каталог> — мир check-04: корень-cutover, затем реестр и пакет
@@ -263,7 +268,7 @@ git -C "$d" add -A > /dev/null 2>&1
 assert 2 "$(run "$d" "$C2")" "точек входа в дереве ноль -> без предмета, а не 'находок 0'"
 
 echo
-echo "=== check-03: конвейер зовёт все артефакты набора, и зовёт на стволе ==="
+echo "=== check-03: конвейер зовёт все артефакты набора, а при автозапуске — на стволе ==="
 
 # ФИКСТУРА ЗАВОДИТ АВТОЗАПУСК САМА. С решения владельца 2026-09-20 его в дереве нет
 # вовсе, и близнец на нетронутой копии доказывал бы «ось спит», а не «задание
@@ -441,18 +446,121 @@ C5="check-05-review-digest-is-full-index.sh"
 # rec <каталог> <путь> <текст> — запись ревью в песочнице.
 rec() { mkdir -p "$(dirname "$1/$2")"; printf '%s\n' "$3" >> "$1/$2"; }
 
+# const5 <каталог> <имя> <sha> — константа гейта (BOUNDARY, RULE) вписывается в
+# ЕДИНСТВЕННОЕ место, где гейт её объявляет; не вписалась — пробы о другом
+# гейте, отказ.
+const5() {
+    local g="$1/scripts/change-graph-gate/digestform.py"
+    sed -i "s/^$2 = \"[0-9a-f]\{40\}\"$/$2 = \"$3\"/" "$g" 2> /dev/null
+    grep -qx "$2 = \"$3\"" "$g" 2> /dev/null \
+        || { echo "ОТКАЗ: константы $2 в $g вписать некуда" >&2; exit 1; }
+}
+
+# tips5 <каталог> [<sha>…] — перечень вершин линий до правила целиком; пустой
+# вызов делает мир песочницы независимым от вершин настоящего дерева.
+tips5() {
+    local g="$1/scripts/change-graph-gate/digestform.py"; shift
+    python3 - "$g" "$@" << 'PY' \
+        || { echo "ОТКАЗ: перечня PRE_RULE_TIPS в $g вписать некуда" >&2; exit 1; }
+import re
+import sys
+path, tips = sys.argv[1], sys.argv[2:]
+with open(path, encoding="utf-8") as f:
+    text = f.read()
+body = "".join('    "%s",\n' % t for t in tips)
+new, n = re.subn(r"^PRE_RULE_TIPS = \(\n(?:    .*\n)*?\)$",
+                 lambda _m: "PRE_RULE_TIPS = (\n" + body + ")", text,
+                 count=1, flags=re.M)
+if n != 1:
+    sys.exit(1)
+with open(path, "w", encoding="utf-8") as f:
+    f.write(new)
+PY
+}
+
+# anchors5 <каталог> [<путь здесь> <репозиторий> <якорь> <путь в источнике>]…
+# — перечень якорей целиком; пустой вызов делает мир песочницы независимым от
+# якорей настоящего дерева.
+anchors5() {
+    local g="$1/scripts/change-graph-gate/digestform.py"; shift
+    python3 - "$g" "$@" << 'PY' \
+        || { echo "ОТКАЗ: перечня FOREIGN_ANCHORS в $g вписать некуда" >&2; exit 1; }
+import re
+import sys
+path, rows = sys.argv[1], sys.argv[2:]
+with open(path, encoding="utf-8") as f:
+    text = f.read()
+body = "".join('    ("%s", "%s", "%s", "%s"),\n' % tuple(rows[i:i + 4])
+               for i in range(0, len(rows), 4))
+new, n = re.subn(r"^FOREIGN_ANCHORS = \(\n(?:    .*\n)*?\)$",
+                 lambda _m: "FOREIGN_ANCHORS = (\n" + body + ")", text,
+                 count=1, flags=re.M)
+if n != 1:
+    sys.exit(1)
+with open(path, "w", encoding="utf-8") as f:
+    f.write(new)
+PY
+}
+
 # world5 <каталог> [<текст унаследованной записи>] — граница: коммит с записью,
-# чья команда без --full-index. Граница вписывается в ЕДИНСТВЕННОЕ место, где
-# гейт её объявляет; не вписалась — пробы о другом гейте, отказ.
+# чья команда без --full-index. Тот же коммит объявлен коммитом правила,
+# перечень вершин линий до правила пуст.
 world5() {
-    local g="$1/scripts/change-graph-gate/digestform.py" b
+    local b
     rec "$1" docs/changes/p/reviews/post-diff/r/old.yaml \
         "${2-command: git diff aaa...bbb | sha256sum}"
     commit_all "$1" boundary
     b="$(git -C "$1" rev-parse HEAD)"
-    sed -i "s/^BOUNDARY = \"[0-9a-f]\{40\}\"$/BOUNDARY = \"$b\"/" "$g" 2> /dev/null
-    grep -qx "BOUNDARY = \"$b\"" "$g" 2> /dev/null \
-        || { echo "ОТКАЗ: границы в $g вписать некуда" >&2; exit 1; }
+    const5 "$1" BOUNDARY "$b"
+    const5 "$1" RULE "$b"
+    tips5 "$1"
+    anchors5 "$1"
+}
+
+# commit_at / merge_at <каталог> <дата> … — коммит и сведение с датой автора и
+# коммиттера: «до правила» в пробе задают часы, а не скорость прогона.
+commit_at() {
+    ( export GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2"; commit_all "$1" "$3" )
+}
+merge_at() {
+    ( export GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2"
+      sandbox_git -C "$1" merge -q --no-ff --no-edit "$3" > /dev/null 2>&1 )
+}
+
+TIPREC=docs/changes/q/reviews/post-diff/r/tip.yaml
+
+# world5tip <каталог> <откуда линия: root|rule> <дата вершины> <свести: yes|no>
+# [<запись вершины>] — линия `side` пишет запись (по умолчанию без --full-index)
+# и объявлена вершиной до правила. Коммит правила (2001-01-03) и граница с
+# записью (2001-01-05) — РАЗНЫЕ коммиты ствола, правило — предок границы, как в
+# дереве: мир, где они один коммит, не отличает гейт, судящий вершины от
+# границы, от судящего их от правила (ws#822, M6). Линия ответвлена от корня
+# (правила не знает) либо от коммита правила (знает его, но не границу).
+# Вершина — в TIP, корень — в ROOT5.
+world5tip() {
+    local d="$1" b="" r=""
+    commit_at "$d" "2001-01-01T00:00:00Z" root
+    ROOT5="$(git -C "$d" rev-parse HEAD)"
+    rec "$d" RULE.md "правило ws#818"
+    commit_at "$d" "2001-01-03T00:00:00Z" rule
+    r="$(git -C "$d" rev-parse HEAD)"
+    rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "command: git diff aaa...bbb | sha256sum"
+    commit_at "$d" "2001-01-05T00:00:00Z" boundary
+    b="$(git -C "$d" rev-parse HEAD)"
+    if [ "$2" = rule ]; then
+        git -C "$d" checkout -q -b side "$r"
+    else
+        git -C "$d" checkout -q -b side "$ROOT5"
+    fi
+    rec "$d" "$TIPREC" "${5-command: git diff aaa...eee | sha256sum}"
+    commit_at "$d" "$3" side
+    TIP="$(git -C "$d" rev-parse HEAD)"
+    git -C "$d" checkout -q -
+    [ "$4" = yes ] && merge_at "$d" "2001-01-08T00:00:00Z" side
+    const5 "$d" BOUNDARY "$b"
+    const5 "$d" RULE "$r"
+    tips5 "$d" "$TIP"
+    anchors5 "$d"
 }
 
 # says <каталог> <код> <подстрока> <утверждение> — код И текст: находка обязана
@@ -553,6 +661,200 @@ d="$(sandbox c5-noboundary)"; world5 "$d"
 sed -i "s/^BOUNDARY = \"[0-9a-f]\{40\}\"$/BOUNDARY = \"$(printf '0%.0s' {1..40})\"/" \
     "$d/scripts/change-graph-gate/digestform.py"
 says "$d" 2 "граница" "граница не разрешается в клоне -> без предмета, а не 'находок 0'"
+
+# Линии, писавшие записи ДО правила и сходящиеся позже границы (ws#822, ws#824).
+# Пары меняют по одному факту против c5-tip: дату вершины, её основание,
+# сведение, дописанную команду, наличие записи, строку перечня.
+d="$(sandbox c5-tip)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+says "$d" 0 "в истории HEAD 1, не сошлись 0, унаследовано с них 1" "запись линии до правила сведена в HEAD -> унаследована с вершины, молчит и сосчитана"
+
+# Дата МЕЖДУ правилом и границей — единственная, на которой мерило «правило»
+# отличимо от мерила «граница»: вершина, снятая после правила, записи при нём уже
+# писала, хотя границы ещё не было.
+d="$(sandbox c5-tip-between)"; world5tip "$d" root "2001-01-04T00:00:00Z" yes
+says "$d" 1 "снята не раньше коммита правила" "вершина снята между правилом и границей -> знает правило, краснеет (мерило — правило, не граница)"
+
+d="$(sandbox c5-tip-late)"; world5tip "$d" root "2001-01-06T00:00:00Z" yes
+says "$d" 1 "снята не раньше коммита правила" "вершина снята позже правила и границы -> перечень не прощает записи при правиле, краснеет"
+
+# Линия от коммита правила, но не от границы: вершина знает правило предком,
+# хотя граница ей не предок, а дата подделана ранней.
+d="$(sandbox c5-tip-knows)"; world5tip "$d" rule "2001-01-02T00:00:00Z" yes
+says "$d" 1 "содержит коммит правила" "вершина содержит коммит правила, но не границу -> краснеет, её записи судятся как новые"
+
+# Знающая вершина, которой прощать НЕЧЕГО: её запись несёт --full-index, новых
+# находок нет, и код 1 обязан прийти одним знанием. Без этой пары вклад знания в
+# код выхода не держит ничто: c5-tip-late и c5-tip-knows краснеют и через запись.
+TIPFULL="command: git diff --full-index aaa...eee | sha256sum"
+d="$(sandbox c5-tip-knows-bare)"; world5tip "$d" root "2001-01-04T00:00:00Z" yes "$TIPFULL"
+says "$d" 1 "снята не раньше коммита правила" "знающая вершина без нового к прощению -> краснеет одним знанием"
+says "$d" 1 "без --full-index 1 (унаследовано 1, новых 0)" "у знающей вершины без нового находок в записях 0 -> код 1 пришёл не от записи"
+
+d="$(sandbox c5-tip-knows-bare-undeclared)"; world5tip "$d" root "2001-01-04T00:00:00Z" yes "$TIPFULL"
+tips5 "$d"
+says "$d" 0 "вершин линий до правила 0" "законный близнец: та же линия после правила, в перечне не объявлена -> молчит"
+
+d="$(sandbox c5-tip-edit)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+rec "$d" "$TIPREC" "again: git diff aaa...fff | sha256sum"; commit_at "$d" "2001-01-09T00:00:00Z" edit
+says "$d" 1 "без --full-index: $TIPREC" "в запись линии до правила после вершины дописана команда -> краснеет и называет путь"
+
+d="$(sandbox c5-tip-open)"; world5tip "$d" root "2001-01-02T00:00:00Z" no
+says "$d" 0 "в истории HEAD 0, не сошлись 1" "вершина объявлена, линия не сведена -> не судится, сосчитана несошедшейся"
+
+d="$(sandbox c5-tip-gone)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+git -C "$d" rm -q "$TIPREC"; commit_at "$d" "2001-01-09T00:00:00Z" gone
+says "$d" 1 "без предмета" "вершина в истории HEAD, а наследовать с неё нечего -> строка перечня без предмета, краснеет"
+
+# Лишняя строка перечня: разрешается в клоне, но не сведена — законный транзит;
+# не разрешается вовсе — без предмета с её координатой, а не вечное молчание.
+LOST5="0123456789abcdef0123456789abcdef01234567"
+d="$(sandbox c5-tip-lost)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+tips5 "$d" "$TIP" "$LOST5"
+says "$d" 2 "$LOST5" "строка перечня не разрешается в клоне -> без предмета и называет строку, а не 'не сошлась'"
+
+d="$(sandbox c5-tip-transit)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+other="$(GIT_AUTHOR_DATE="2001-01-02T00:00:00Z" GIT_COMMITTER_DATE="2001-01-02T00:00:00Z" \
+    sandbox_git -C "$d" commit-tree -p "$ROOT5" -m other "$ROOT5^{tree}")"
+git -C "$d" update-ref refs/heads/other "$other"
+tips5 "$d" "$TIP" "$other"
+says "$d" 0 "в истории HEAD 1, не сошлись 1" "законный близнец: лишняя строка разрешается, линия не сведена -> транзит, молчит и сосчитана"
+
+# Строка перечня — полный sha. Имя ветки и сокращение в песочнице разрешаются в
+# ту же вершину, что и c5-tip, — краснеют формой, а не содержимым.
+d="$(sandbox c5-tip-name)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+tips5 "$d" side
+says "$d" 1 "«side» — не полный sha" "строка перечня — имя ветки -> краснеет и называет строку"
+
+d="$(sandbox c5-tip-abbrev)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+tips5 "$d" "${TIP:0:12}"
+says "$d" 1 "«${TIP:0:12}» — не полный sha" "строка перечня — сокращённый sha -> краснеет и называет строку"
+
+# Та же строка-имя, а прощать вершине нечего (её запись несёт --full-index):
+# код 1 обязан прийти одной формой строки. Без этой пары вклад формы в код
+# выхода не держит ничто — c5-tip-name краснеет и через запись вершины, ставшую
+# новой. Законный близнец — c5-tip-knows-bare-undeclared.
+d="$(sandbox c5-tip-name-bare)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes "$TIPFULL"
+tips5 "$d" side
+says "$d" 1 "«side» — не полный sha" "строка-имя у вершины без нового к прощению -> краснеет одной формой"
+says "$d" 1 "без --full-index 1 (унаследовано 1, новых 0)" "у строки-имени без нового находок в записях 0 -> код 1 пришёл не от записи"
+
+# Записи ЧУЖОЙ линии до правила (corelib#54): запись снята в другом репозитории
+# до правила и перенесена сюда побайтно, путь здесь новый. Признаётся она только
+# по якорю — коммиту источника. Пары меняют по одному факту против c5-anchor:
+# строку перечня, дату якоря, байт записи, существование и публикацию якоря,
+# путь в источнике, клон источника, наличие записи и команды к прощению.
+FOREC=docs/changes/f/reviews/post-diff/r/foreign.yaml
+FOREPO=PRO-Robotech/src
+FOREFULL="command: git diff --full-index aaa...ggg | sha256sum"
+
+# world5src <каталог> <дата якоря> [<запись>] — ствол как у world5tip: корень,
+# правило (2001-01-03), граница с записью (2001-01-05). Источник — отдельный
+# репозиторий в project/src (вне индекса песочницы) с origin $FOREPO: запись
+# снята в нём коммитом с датой якоря и опубликована тегом; следом — ещё коммит,
+# чтобы неглубокий клон якоря не нёс. В HEAD песочницы та же запись побайтно
+# в $FOREC, перечень якорей — одна строка на неё. Якорь — в ANCHOR, источник — в SRC.
+world5src() {
+    local d="$1" b="" r=""
+    printf 'project/\n' >> "$d/.git/info/exclude"
+    commit_at "$d" "2001-01-01T00:00:00Z" root
+    rec "$d" RULE.md "правило ws#818"
+    commit_at "$d" "2001-01-03T00:00:00Z" rule
+    r="$(git -C "$d" rev-parse HEAD)"
+    rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "command: git diff aaa...bbb | sha256sum"
+    commit_at "$d" "2001-01-05T00:00:00Z" boundary
+    b="$(git -C "$d" rev-parse HEAD)"
+    SRC="$d/project/src"
+    git init -q "$SRC"
+    git -C "$SRC" remote add origin "https://github.com/$FOREPO.git"
+    rec "$SRC" "$FOREC" "${3-command: git diff aaa...ggg | sha256sum}"
+    commit_at "$SRC" "$2" record
+    ANCHOR="$(git -C "$SRC" rev-parse HEAD)"
+    git -C "$SRC" tag v0 "$ANCHOR"
+    rec "$SRC" LATER.md "позже"
+    commit_at "$SRC" "$2" later
+    mkdir -p "$(dirname "$d/$FOREC")"
+    git -C "$SRC" cat-file blob "$ANCHOR:$FOREC" > "$d/$FOREC"
+    commit_at "$d" "2001-01-09T00:00:00Z" transfer
+    const5 "$d" BOUNDARY "$b"
+    const5 "$d" RULE "$r"
+    tips5 "$d"
+    anchors5 "$d" "$FOREC" "$FOREPO" "$ANCHOR" "$FOREC"
+}
+
+d="$(sandbox c5-anchor)"; world5src "$d" "2001-01-02T00:00:00Z"
+says "$d" 0 "якорей чужих линий 1: признано 1, не судимо 0, унаследовано с них 1" "запись чужой линии с якорем до правила и тем же sha256 -> унаследована, молчит и сосчитана"
+
+d="$(sandbox c5-anchor-env)"; world5src "$d" "2001-01-02T00:00:00Z"
+mv "$SRC" "$TMP/src.env"
+KACHO_HOME_SRC="$TMP/src.env" says "$d" 0 "признано 1" "клон источника назван KACHO_HOME_<ИМЯ> -> найден, запись унаследована"
+rm -rf "$TMP/src.env"
+
+d="$(sandbox c5-anchor-none)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d"
+says "$d" 1 "без --full-index: $FOREC" "та же запись без якоря -> судится новой, краснеет и называет путь"
+
+d="$(sandbox c5-anchor-other)"; world5src "$d" "2001-01-02T00:00:00Z"
+rec "$d" "$NEW" "command: git diff aaa...ccc | sha256sum"; commit_all "$d" new
+says "$d" 1 "без --full-index: $NEW" "якорь прощает только свою запись -> новая запись в другом пути краснеет"
+
+# Дата МЕЖДУ правилом и границей: мерило — правило, а не граница.
+d="$(sandbox c5-anchor-late)"; world5src "$d" "2001-01-04T00:00:00Z"
+says "$d" 1 "снят не раньше коммита правила" "якорь на коммит после правила -> краснеет, запись судится новой"
+
+d="$(sandbox c5-anchor-sha256)"; world5src "$d" "2001-01-02T00:00:00Z"
+rec "$d" "$FOREC" "note: дописано после переноса"; commit_all "$d" edit
+says "$d" 1 "sha256 записи" "запись здесь не равна записи в источнике на якоре -> краснеет"
+
+d="$(sandbox c5-anchor-missing)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d" "$FOREC" "$FOREPO" "$LOST5" "$FOREC"
+says "$d" 1 "в полном клоне источника не существует" "якорь на несуществующий коммит -> краснеет и называет якорь"
+
+d="$(sandbox c5-anchor-unpublished)"; world5src "$d" "2001-01-02T00:00:00Z"
+git -C "$SRC" tag -d v0 > /dev/null
+says "$d" 1 "не опубликован" "якорь есть в клоне, но ни одна ссылка refs/remotes/ и refs/tags/ его не содержит -> краснеет"
+
+d="$(sandbox c5-anchor-srcpath)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d" "$FOREC" "$FOREPO" "$ANCHOR" "docs/changes/f/reviews/post-diff/r/absent.yaml"
+says "$d" 1 "на якоре пути" "пути записи в источнике на якоре нет -> краснеет"
+
+d="$(sandbox c5-anchor-abbrev)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d" "$FOREC" "$FOREPO" "${ANCHOR:0:12}" "$FOREC"
+says "$d" 1 "«${ANCHOR:0:12}» — не полный sha" "якорь — сокращённый sha -> краснеет и называет строку"
+
+d="$(sandbox c5-anchor-gone)"; world5src "$d" "2001-01-02T00:00:00Z"
+git -C "$d" rm -q "$FOREC"; commit_all "$d" gone
+says "$d" 1 "записи с якорем нет" "строка перечня якорей без записи в HEAD -> без предмета, краснеет"
+
+# Якорь, которому прощать НЕЧЕГО: запись несёт --full-index, код 1 обязан
+# прийти одним перечнем. Законный близнец — та же запись без строки.
+d="$(sandbox c5-anchor-idle)"; world5src "$d" "2001-01-02T00:00:00Z" "$FOREFULL"
+says "$d" 1 "прощать нечего" "якорь у записи без команды к прощению -> строка без предмета, краснеет"
+says "$d" 1 "без --full-index 1 (унаследовано 1, новых 0)" "у якоря без нового находок в записях 0 -> код 1 пришёл не от записи"
+
+d="$(sandbox c5-anchor-idle-undeclared)"; world5src "$d" "2001-01-02T00:00:00Z" "$FOREFULL"
+anchors5 "$d"
+says "$d" 0 "якорей чужих линий 0" "законный близнец: та же запись с --full-index без якоря -> молчит"
+
+# Клона источника нет, либо клон не того репозитория, либо неглубокий и якоря
+# не несёт — судить якорь нечем: без предмета, а не находка и не зелёное.
+d="$(sandbox c5-anchor-noclone)"; world5src "$d" "2001-01-02T00:00:00Z"
+rm -rf "$SRC"
+says "$d" 2 "клон $FOREPO" "клона источника нет -> без предмета, а не находка"
+
+d="$(sandbox c5-anchor-identity)"; world5src "$d" "2001-01-02T00:00:00Z"
+git -C "$SRC" remote set-url origin "https://github.com/PRO-Robotech/other.git"
+says "$d" 2 "это копия PRO-Robotech/other" "клон на месте источника — другого репозитория -> отвергнут, без предмета"
+
+d="$(sandbox c5-anchor-shallow)"; world5src "$d" "2001-01-02T00:00:00Z"
+mv "$SRC" "$TMP/src.full"
+git clone -q --depth 1 "file://$TMP/src.full" "$SRC" 2> /dev/null
+git -C "$SRC" remote set-url origin "https://github.com/$FOREPO.git"
+says "$d" 2 "неглубокий" "неглубокий клон источника без якоря -> без предмета, а не 'не существует'"
+rm -rf "$TMP/src.full"
+
+d="$(sandbox c5-norule)"; world5 "$d"
+const5 "$d" RULE "$(printf '0%.0s' {1..40})"
+says "$d" 2 "коммит правила" "коммит правила не разрешается в клоне -> без предмета, а не 'находок 0'"
 
 d="$(sandbox c5-nocommit)"
 says "$d" 2 "HEAD" "в песочнице нет ни одного коммита -> без предмета"

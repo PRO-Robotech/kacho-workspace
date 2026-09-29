@@ -56,9 +56,16 @@
 оригинал, разошедшийся с кодом, вызывает подозрение; правдоподобный русский
 перевод, разошедшийся с кодом, — нет.
 
-Исходы: 0 — числа сошлись; 1 — находка; 2 — считать не по чему. Находка
-объявляется раньше беспредметности: одно беспредметное дерево не маскирует
-находку в другом.
+ФОРМА ВЕДОМОСТИ СУДИТСЯ ПЕРВОЙ И БЕЗ КЛОНОВ (#856). Ведомость — файл этого
+дерева: её нет, у дерева нет записи, числа либо ревизии, строка блока не
+разобрана — находка с ИМЕНЕМ ПОЛЯ (`ledger_form`), код 1. Прежде это был код 2,
+а хук отправки печатал «нет клона» при клонах на месте и выходил нулём; и
+находки формы, собранные до замера, терялись, если после них не находился клон.
+
+Исходы: 0 — числа сошлись; 1 — находка (в том числе о форме ведомости); 2 —
+считать не по чему: клона нет, ствол не резолвится либо позади закреплённого,
+отказ разбора. Находка объявляется раньше беспредметности: одно беспредметное
+дерево не маскирует находку в другом.
 """
 import os
 import re
@@ -114,6 +121,44 @@ def declared(text):
     return res, bad
 
 
+def ledger_form(text):
+    """(объявленное, находки) — ФОРМА ведомости, каждая находка с ИМЕНЕМ ПОЛЯ.
+
+    Единственное место, где судится полнота ведомости. Поле, которого нет, —
+    находка о дереве воркспейса: оно производится правкой этого файла и ни от
+    какого клона не зависит. Имя печатается адресом `ceiling.<дерево>.<поле>`,
+    чтобы находку можно было исполнить, не читая кода.
+    """
+    want, bad = declared(text)
+    findings = []
+    if not re.search(r"(?m)^ceiling:", text):
+        findings.append("нет блока `ceiling:` — ни одного числа и ни одной ревизии "
+                        "храповику не объявлено")
+    for b in bad:
+        findings.append("в блоке `ceiling:` %s не разобрана — опечатка в имени поля "
+                        "делала бы число необъявленным молча" % b)
+    for t in TREES:
+        have = want.get(t, {})
+        need = KEYS + (("rev",) if t in _core.PRODUCTS else ())
+        for k in need:
+            if k not in have:
+                findings.append("`ceiling.%s.%s` не объявлено%s — храповику по этой "
+                                "единице сверять не с чем"
+                                % (t, k, "" if k == "rev" else " числом"))
+    if "rev" in want.get(_core.WORKSPACE, {}):
+        findings.append(
+            "`ceiling.workspace.rev`: у воркспейса в ведомости стоит `rev`, а судится "
+            "он по рабочей копии точным числом — поле без предмета читается как "
+            "закрепление, которого нет")
+    for t in _core.PRODUCTS:
+        r = want.get(t, {}).get("rev")
+        if r is not None and not _REV.match(r):
+            findings.append(
+                "`ceiling.%s.rev: %s` — не полная ревизия (40 знаков): сокращённая "
+                "неоднозначна со временем, а имя ветки движется" % (t, r))
+    return want, findings
+
+
 def nums(m):
     return {"files": len(m["files"]), "blocks": m["blocks"], "lines": m["lines"]}
 
@@ -126,36 +171,26 @@ def main():
     root = _lib.workspace_root()
     findings, voids, census = [], [], []
 
-    text = _lib.read(root, LEDGER) if os.path.exists(os.path.join(root, LEDGER)) else None
-    if text is None:
-        _lib.void(NAME, "ведомость %s не прочитана — сверять число не с чем" % LEDGER)
-        return 2
-    want, bad = declared(text)
-    if bad:
-        _lib.void(NAME, "ведомость %s не разобрана в блоке `ceiling:`: %s"
-                  % (LEDGER, "; ".join(bad)))
-        return 2
-    lacking = []
-    for t in TREES:
-        miss = [k for k in KEYS if k not in want.get(t, {})]
-        if t in _core.PRODUCTS and "rev" not in want.get(t, {}):
-            miss.append("rev")
-        if miss:
-            lacking.append("%s: %s" % (t, ", ".join(miss)))
-    if lacking:
-        _lib.void(NAME, "ведомость %s не объявляет %s — храповика нет"
-                  % (LEDGER, "; ".join(lacking)))
-        return 2
-    if "rev" in want[_core.WORKSPACE]:
-        findings.append(
-            "workspace: у воркспейса в ведомости стоит `rev`, а судится он по "
-            "рабочей копии точным числом — поле без предмета читается как "
-            "закрепление, которого нет")
-    for t in _core.PRODUCTS:
-        if not _REV.match(want[t]["rev"]):
-            findings.append(
-                "%s: `rev: %s` — не полная ревизия (40 знаков): сокращённая "
-                "неоднозначна со временем, а имя ветки движется" % (t, want[t]["rev"]))
+    # ФОРМА ВЕДОМОСТИ — ДО КЛОНОВ (#856). Ведомость лежит в воркспейсе, и её
+    # неполнота — находка об ЭТОМ дереве с именем поля: прежде нет записи, нет
+    # числа, нет файла — всё давало 2, и хук отправки печатал «нет клона» при
+    # клонах на месте. Находка объявляется раньше беспредметности, поэтому клоны
+    # на этом шаге не читаются вовсе.
+    if not os.path.exists(os.path.join(root, LEDGER)):
+        _lib.census("%s: ведомость %s — файла нет; клоны не читались" % (NAME, LEDGER))
+        _lib.fail(NAME, "ведомости %s нет в дереве, а гейт, который её судит, есть: "
+                        "носитель храповика снят отдельно от гейта. Снимают их одним "
+                        "изменением либо не снимают вовсе" % LEDGER)
+        return 1
+    want, form = ledger_form(_lib.read(root, LEDGER))
+    if form:
+        _lib.census("%s: ведомость %s — деревьев %d, полей формы требуется %d, находок "
+                    "формы %d; клоны не читались — форма судится без них"
+                    % (NAME, LEDGER, len(TREES),
+                       len(TREES) * len(KEYS) + len(_core.PRODUCTS), len(form)))
+        for f in form:
+            _lib.fail(NAME, "%s: %s" % (LEDGER, f))
+        return 1
 
     m = _core.measure(root)
     if "void" in m:

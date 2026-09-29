@@ -36,6 +36,9 @@ set -euo pipefail
 
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
 WS="$(tooling_gate_workspace_root)"
 NAME="check-10-push-hook-judges-what-is-pushed"
@@ -51,7 +54,12 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-pgit() { git -c user.email=probe@invalid -c user.name=probe -c core.hooksPath=/dev/null "$@"; }
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
+if ! sandbox_git_home "$TMP/home"; then
+    tooling_gate_void "$NAME" "корневой подписи нет — вершины песочницы не родятся, судить хук не на чем"
+    exit 2
+fi
+pgit() { sandbox_git -c core.hooksPath=/dev/null "$@"; }
 
 # mkbox <вызывающий> — печатает путь песочницы: `main` = G (state.txt green),
 # `red-lane` = R (red), HEAD = main, копия чистая. Факт вызова заглушки пишется
@@ -62,6 +70,10 @@ mkbox() {
     mkdir -p "$dir/scripts/hooks" "$dir/scripts/probe"
     cp "$WS/$1" "$dir/scripts/hooks/pre-push"
     chmod +x "$dir/scripts/hooks/pre-push"
+    # Страж атрибуции едет рядом с хуком (ws#861): без него хук отказывает
+    # всякой отправке, и проба судила бы отказ стража, а не свой предмет.
+    cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
+        "$dir/scripts/hooks/" 2>/dev/null
     # shellcheck disable=SC2016  # тело заглушки раскрывается при её вызове
     printf '#!/usr/bin/env bash\nr="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"\necho "$r" >> %q\n[ "$(cat "$r/state.txt")" = red ] && { echo "probe: красное"; exit 1; }\nexit 0\n' \
         "$dir.calls" > "$dir/scripts/probe/run-all.sh"

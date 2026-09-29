@@ -25,7 +25,7 @@ arch-postgres-in-service-test · не требует Postgres · ЗАВЕСТИ 
 
 arch-corelib-horizontal · нужен двум продуктам → PRO-Robotech/corelib пином версии · TestCrossModuleJudgeIsSilentOnTheAllowedDirections · red: вторая копия per-service
 arch-new-util-ownership · спроси чей предмет: двум → corelib, одному → pkg/, домену → каталог сервиса · ЗАВЕСТИ · red: доменная логика в pkg/
-arch-foreign-code-subtree · ЧУЖОЙ код — поддеревом в фундамент с пробами апстрима (`polyrepo.md#poly-foreign-subtree-default`); пин в `arch-corelib-horizontal` — про НАШ `corelib` · ЗАВЕСТИ: ввезённых поддеревьев нет · red: «берём пином» о стороннем коде, чьи пробы нам нужны
+arch-foreign-code-subtree · ЧУЖОЙ код — поддеревом в фундамент с пробами апстрима (`polyrepo.md#poly-foreign-subtree-default`); пин `arch-corelib-horizontal` — про НАШ `corelib` · ЗАВЕСТИ: ввезённых поддеревьев нет · red: «берём пином» о стороннем коде, чьи пробы нам нужны
 
 ### ВТОРАЯ ПРОПИСКА обязывает — общее не хоронится в продукте (требование владельца 2026-09-20)
 
@@ -34,15 +34,15 @@ arch-foreign-code-subtree · ЧУЖОЙ код — поддеревом в фу�
 а не намерение автора. Предмет — связная группа `.go`, попарно близких по нормализованному
 содержимому (Jaccard ≥ 0.70) и лежащих в РАЗНЫХ домах (дом = продукт + служба).
 
-arch-second-home-needs-a-decision · предмет со второй пропиской несёт ЗАПИСАННОЕ решение в `docs/foundation-candidates.yaml` (словарь и требования к доводу — там же); истинность класса выносит приёмка записи и `check-verifier` · scripts/foundation-candidates/check-01-every-candidate-carries-a-decision.py · red: кандидат без записи; запись без предмета; `keep` без `class`/`evidence`; девятый класс; координата вне файлов предмета
-arch-second-home-no-third · ярус 1, без задач и сроков: ТРЕТЬЯ прописка запрещена; три числа ведомости (предметов · файлов · очереди) точные на закреплённых ревизиях, красное И на росте, И на просрочке · scripts/foundation-candidates/check-02-second-home-count-does-not-grow.py · red: рост любого из трёх; число поднято вместо выноса
+arch-second-home-needs-a-decision · предмет со второй пропиской несёт ЗАПИСАННОЕ решение в `docs/foundation-candidates.yaml` (словарь и довод — там же); истинность класса выносят приёмка записи и `check-verifier` · scripts/foundation-candidates/check-01-every-candidate-carries-a-decision.py · red: кандидат без записи; запись без предмета; `keep` без `class`/`evidence`; девятый класс; координата вне файлов предмета
+arch-second-home-no-third · ярус 1, без задач и сроков: ТРЕТЬЯ прописка запрещена; три числа ведомости (предметов · файлов · очереди) точные на закреплённых ревизиях, красное и на росте, и на просрочке · scripts/foundation-candidates/check-02-second-home-count-does-not-grow.py · red: рост любого из трёх; число поднято вместо выноса
 arch-second-home-address · адрес — по числу ПРОДУКТОВ, а не домов: два продукта → `corelib`, один продукт и две службы → `pkg/` платформы · scripts/foundation-candidates (поле «адрес выноса») · red: внутрипродуктовый предмет адресован в фундамент
-arch-second-home-unit-is-package · единица отсева — ПАКЕТ, а не файл: ссылка на сиблинга импорта не требует, и отсев по `import` одного файла дыряв по построению (замер — шапка измерителя) · scripts/foundation-candidates/_core.py · red: направление или политика спрошены у файла, а не у пакета
+arch-second-home-unit-is-package · единица отсева — ПАКЕТ, не файл: ссылка на сиблинга импорта не требует, отсев по `import` одного файла дыряв (замер — шапка измерителя) · scripts/foundation-candidates/_core.py · red: направление или политика спрошены у файла, а не у пакета
 arch-second-home-exclusions-closed · исключений ВОСЕМЬ, перечень закрыт, у каждого механический признак и условие снятия; перечень с признаками — у измерителя · scripts/foundation-candidates/_core.py EXCLUSIONS · red: девятое исключение; «и тому подобное»; «если оправдано»
-arch-second-home-upper-bound · счёт — ВЕРХНЯЯ граница, а не мера требования: политика без литерала имени продукта и предмет по экземпляру на продукт признака не имеют · вниманием; остаток называет печать измерителя · red: «в фундамент едет то и только то, что предикат назвал»
+arch-second-home-upper-bound · счёт — ВЕРХНЯЯ граница, не мера требования: политика без литерала имени продукта и предмет по экземпляру на продукт признака не имеют · вниманием; остаток называет печать измерителя · red: «в фундамент едет то и только то, что предикат назвал»
 arch-second-home-precondition · ярус 0: пока решение владельца о перелицензировании выносимого (отдельно BUSL-1.1 и AGPL-3.0-or-later при Apache-2.0 фундаменте) не опубликовано ЗАПИСЬЮ, очередь пуста и обязанность выноса не наступает · исключения 4а/4б, предикат снятия внешний · red: снятие «одним решением на класс»; AGPL-код в Apache-фундаменте
 arch-second-home-move-atomic · вынос атомарен: все импортёры одним изменением, тег `corelib`, подъём пина у ОБОИХ потребителей; расхождение пинов — предусловие выноса · ЗАВЕСТИ arch-second-home-pin-parity · red: вынос при расходящихся пинах
-arch-second-home-touch · ярус 2: правку копии кандидата без выноса допускай один раз с причиной строкой; вторая правка той же копии — находка · ЗАВЕСТИ (предикат `class-guard`; до решения о лицензии предмета нет) · red: копия правится третий раз, и об этом не знает никто
+arch-second-home-touch · ярус 2: правка копии кандидата без выноса — один раз, с причиной строкой; вторая правка той же копии — находка · ЗАВЕСТИ (предикат `class-guard`; до решения о лицензии предмета нет) · red: копия правится третий раз, и об этом не знает никто
 
 #### Как эта норма сведена с тремя действующими про границу фундамента
 
@@ -53,14 +53,14 @@ arch-second-home-vs-copy-ban · шире запрета #20: тот ловит �
 
 ## Concurrency / lifecycle / читаемость (выведено из audit-раундов)
 
-arch-per-call-deadline · свой context.WithTimeout на КАЖДОМ peer-gRPC/HTTP/DB; все sibling-методы клиента — один configured-timeout · — (КАНДИДАТ НА ГЕЙТ: обход вызовов peer-gRPC/HTTP/DB без WithTimeout) · red: http.DefaultClient.Do с сырым request-ctx
+arch-per-call-deadline · свой context.WithTimeout на КАЖДОМ peer-gRPC/HTTP/DB; sibling-методы клиента — один configured-timeout · — (КАНДИДАТ НА ГЕЙТ: обход вызовов peer-gRPC/HTTP/DB без WithTimeout) · red: http.DefaultClient.Do с сырым request-ctx
 arch-waitgroup-drain · Stop() делает wg.Done за каждую задачу backlog + guard enqueue-after-stop под тем же mutex · — (КАНДИДАТ НА ГЕЙТ: wg.Add без парного Done на пути Stop) · red: Wait() не доходит до нуля
 arch-doc-truthfulness · описывает реальность кода, не намерение · — (частично: TestVpcSchemaGateFindsAColumnThatLiesAboutTheDiagram, TestClientTruth*) · red: комментарий о WHERE/статусе/sentinel, которых в коде нет
 arch-lean-no-vestigial · тип/пакет/ветка без прод-импортёров удаляется вместе с тестами · TestDeadHelper* (только пробы) · red: unreachable branch «документирует» контракт
 
 ## Пул размеряется по ДЛИННОМУ МЕНЬШИНСТВУ, а не по среднему (выведено 2026-08-21)
 
-arch-pool-long-minority · размеряется по длинным запросам: доля промахов кеша × их длительность, не по среднему · — (КАНДИДАТ НА ГЕЙТ: TestPoolParamPredicateHasASingleHome рядом, предмета не судит) · red: «1 мс × rps, возьмём с запасом»
+arch-pool-long-minority · размер — по длинным запросам: доля промахов кеша × их длительность, не среднее · — (КАНДИДАТ НА ГЕЙТ: TestPoolParamPredicateHasASingleHome рядом, предмета не судит) · red: «1 мс × rps, возьмём с запасом»
 arch-pool-sign · отвергается, если считана от средней задержки · ЗАВЕСТИ · red: множитель «запас» от средней
 arch-pool-profile · ищи ограниченный набор, а не нехватку мощности · ЗАВЕСТИ · red: добавили реплик вместо глубины
 arch-pool-how-choose · из счётчика промахов кеша и гистограммы длительности · ЗАВЕСТИ · red: число без обеих величин

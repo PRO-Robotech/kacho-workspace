@@ -49,15 +49,20 @@ trap 'rm -rf "$WORK"' EXIT
 
 pass=0; fail=0
 
+# Подпись синтетических клонов — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$WORK/home" || { echo "инъекция foundation-candidates: НЕ ВЫПОЛНИЛОСЬ — корневой подписи нет" >&2; exit 2; }
+
 # repo <корень> — пустой клон продукта с резолвимым стволом origin/main.
 repo() {
     mkdir -p "$1"
     git -C "$1" init -q
-    git -C "$1" config user.email i@i; git -C "$1" config user.name i
 }
 seal() {
     git -C "$1" add -A
-    git -C "$1" -c commit.gpgsign=false commit -qm i --allow-empty
+    sandbox_git -C "$1" -c commit.gpgsign=false commit -qm i --allow-empty
     git -C "$1" update-ref refs/remotes/origin/main HEAD
 }
 
@@ -415,7 +420,7 @@ hist() {
     for p in kaname corelib; do seal "$1/project/$p"; done
     seal "$k"; A="$(git -C "$k" rev-parse HEAD)"
     rm -rf "$k/services/gamma"; seal "$k"; B="$(git -C "$k" rev-parse HEAD)"
-    S="$(git -C "$k" -c user.email=i@i -c user.name=i commit-tree "$B^{tree}" -p "$A" -m S)"
+    S="$(sandbox_git -C "$k" commit-tree "$B^{tree}" -p "$A" -m S)"
     printf '%s %s %s' "$A" "$B" "$S"
 }
 KEEP='
@@ -492,6 +497,64 @@ expect J5 "дефект: причина названа — ревизии нет
 PIN_KACHO="${B:0:11}" ledger "$r" 1 2 1
 expect J6 "дефект: сокращённая ревизия — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
 expect J6 "дефект: причина названа — не полная ревизия" да "$(says "$r" 'не полная ревизия')"
+
+echo "── ОСЬ K · ВЕДОМОСТЬ НЕПОЛНА — НАХОДКА С ИМЕНЕМ ПОЛЯ, А НЕ «КЛОНА НЕТ» (#856)"
+echo "   Форма ведомости — факт ВОРКСПЕЙСА: она судится без клонов, и её дефект —"
+echo "   код 1 с именем поля. Код 2 остаётся за тем, чего в дереве нет по"
+echo "   построению, — клоном. Прежняя редакция отвечала 2 на оба, хук отправки"
+echo "   печатал «нет клона» при клонах на месте и выходил нулём."
+# set_rc <корень> — код НАБОРА, а не проверки: ровно его читает хук отправки.
+set_rc() {
+    env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB \
+        DOCS_GATE_ROOT="$1" RELICENSE_BUSL_DECIDED=1 RELICENSE_AGPL_DECIDED=1 \
+        bash "$HERE/run-all.sh" > "$1.out" 2>&1
+    echo $?
+}
+LEDGER_REL="docs/foundation-candidates.yaml"
+echo "   K1 · один факт: стоит ли в ведомости строка \`ceiling.rev.kacho\`; клоны на месте."
+for side in defect twin; do
+    r="$WORK/K1-$side"; build "$r"; lane_pair "$r"
+    ledger "$r" 1 2 1 "$KEEP"
+    [ "$side" = defect ] && sed -i '/^    kacho: /d' "$r/$LEDGER_REL"
+    if [ "$side" = defect ]; then
+        expect K1 "дефект: нет ceiling.rev.kacho — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect K1 "дефект: поле названо — ceiling.rev.kacho" да "$(says "$r" "\`ceiling.rev.kacho\`")"
+        expect K1 "дефект: не выдано за «клона нет»" нет "$(says "$r" 'клона нет')"
+        expect K1 "дефект: решения не судятся — 2" 2 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect K1 "дефект: причина — находка check-02" да "$(says "$r" 'находку называет check-02')"
+        expect K1 "дефект: НАБОР — код 1, отправку остановит" 1 "$(set_rc "$r")"
+    else
+        expect K1 "близнец: ведомость полна — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect K1 "близнец: НАБОР — код 0" 0 "$(set_rc "$r")"
+    fi
+done
+echo "   K2 · блок \`ceiling.rev\` снят целиком — названы все три поля."
+r="$WORK/K2"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
+sed -i '/^  rev:$/,/^    corelib: /d' "$r/$LEDGER_REL"
+expect K2 "дефект: нет ceiling.rev — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect K2 "дефект: названо ceiling.rev.corelib" да "$(says "$r" "\`ceiling.rev.corelib\`")"
+echo "   K3 · снято число: нет \`ceiling.files\`."
+r="$WORK/K3"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
+sed -i '/^  files: /d' "$r/$LEDGER_REL"
+expect K3 "дефект: нет ceiling.files — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect K3 "дефект: поле названо — ceiling.files" да "$(says "$r" "\`ceiling.files\`")"
+echo "   K4 · один факт против K1-близнеца: клона kaname нет; ведомость полна."
+r="$WORK/K4"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
+rm -rf "$r/project/kaname"
+expect K4 "близнец: клона нет — 2, а не находка" 2 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect K4 "близнец: причина названа — клона нет" да "$(says "$r" 'клона нет')"
+expect K4 "близнец: НАБОР — код 2" 2 "$(set_rc "$r")"
+echo "   K5 · оба сразу: ведомость неполна И клона нет — находка объявляется раньше."
+r="$WORK/K5"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
+sed -i '/^    kacho: /d' "$r/$LEDGER_REL"; rm -rf "$r/project/kaname"
+expect K5 "дефект: неполна и без клона — 1" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect K5 "дефект: НАБОР — код 1" 1 "$(set_rc "$r")"
+echo "   K6 · ведомости нет вовсе: носитель снят отдельно от гейта."
+r="$WORK/K6"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
+rm -f "$r/$LEDGER_REL"
+expect K6 "дефект: ведомости нет — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect K6 "дефект: причина названа — ведомости нет" да "$(says "$r" 'ведомости .* нет в дереве')"
+expect K6 "дефект: НАБОР — код 1" 1 "$(set_rc "$r")"
 
 echo
 echo "inject foundation-candidates: сошлось $pass, разошлось $fail"

@@ -173,3 +173,46 @@ hard-model-canonical-and-drift-gate · держать каноничной в о
 **абзац** — прежняя редакция:
 
 ## Контроль, у которого нет МЕХАНИЗМА исполниться (выведено 2026-08-23, эпик identity)
+
+## Снято 2026-09-26 (ws#786): сжатие корпуса под потолок check-06 на сведении 786 с 771
+
+Сведённое дерево `786` × `771` (волна-0 в волну-3) дало 208 847 знаков при потолке 200 000
+(решение владельца 2026-09-19); потолок не поднимался. Нормы каскада закрытия и снятия влитых
+веток (786) и требования волны-0 (771) сохранены под теми же id; ниже — ПРЕЖНИЕ редакции строк,
+сжатых этим изменением, дословно (редакция сведения до сжатия).
+
+hard-no-err-echo · возвращать фиксированный opaque-текст; err.Error() в codes.Internal запрещён на ОБОИХ листенерах · TestErrorMappersTailReturnsAFixedText · red: status.Error(codes.Internal, err.Error())
+hard-regression-asserts-message · утверждать текст сообщения, не только код · TestStatusTailGateCatchesAnEchoedError · red: assert только на codes.*
+hard-pii-regression-test · нести тест NotContains(log, <PII>) · go test · red: нет утверждения о содержимом лога
+hard-scope-extractor-object-scoped · нести scope_extractor (object_type + from_request_field) в permission-catalog · TestAnnotationLaneInjection_PermissionWithoutRelationIsAFinding · red: запись каталога с permission без relation/scope
+hard-catalog-complete · иметь запись на каждый выставленный RPC; отсутствие ⇒ AUTHZ_DENIED · TestCatalogReachability_EveryRowResolvesToAServedMethod · red: смонтированный метод без записи
+hard-catalog-copies-byte-identical · генерировать из proto (make permission-catalog); копии iam-seed и gateway-middleware — побайтово равны · make -C gateway permission-catalog-check · red: staleness или дрейф копий
+hard-catalog-generator-anchor · генератор каталога привязан к proto-дереву: перецентрализовал дерево — чини генератор тем же коммитом · TestCatalogAnchorCoordinateNamesSomethingThatExists · red: координата якоря называет путь, которого в дереве нет
+hard-misleading-security-comment · отражать реальное поведение кода · гейт правдивости комментария у отказов hide-existence · red: коммент «403», код отдаёт 404
+hard-hide-existence-byte-identical · делать дословно равным miss-тексту владельца ("<Resource> <id> not found") · TestHideExistenceFormats_MatchTheGateway · red: текст из внутреннего имени типа/таблицы или без id
+hard-hide-existence-table-complete · покрывать каждый hide-existence ресурс; запись без достижимого типа — находка · TestHideExistenceTablesCarryNoUnreachableType · red: непокрытый ресурс отвечает своей формой
+hard-format-before-authz · формат (page_size, page_token, id ⇒ InvalidArgument) — ДО authz-short-circuit; порядок и форма пробы — `api-conventions.md#api-pagination-before-shortcircuit` · TestEmptyPageNeverPrecedesPaginationValidation · red: пустой грант замыкает раньше проверки формата
+hard-check-in-same-function · проверку формата неси в замыкающейся функции, не в репозитории (`api-conventions.md#api-guard-same-function`) · TestEmptyPageNeverPrecedesPaginationValidation · red: «валидирует репозиторий» при замыкании до репозитория
+hard-gate-not-reference-title · держи AST-гейтом по синтаксическому признаку, а не званием «эталонного» сервиса · TestEmptyPageNeverPrecedesPaginationValidation · red: ссылка на эталон вместо гейта
+hard-misconfig-is-not-outage · классифицировать: 404/405/не-JSON/HTML = НАСТРОЙКА (громко, не Warn), сеть/таймаут/5xx = сбой · tools/softopengate TestSoftOpenPassesAreObservable · red: тихий Warn на доказанной неправильной настройке
+hard-soft-pass-counted · нести читаемый счётчик, не только лог · tools/softopengate TestSoftOpenPassesAreObservable · red: проход только логируется
+hard-zero-refusals-visible · делать наблюдаемым число своих отказов; ноль за всю жизнь — сигнал · tools/softopengate/gate_test.go · red: контроль без счётчика отказов
+hard-no-derived-security-address · задавать явно в каждом профиле; вывод из базового URL соседа запрещён; boot-guard отказывает при включённом контроле без адреса · TestEdgeAddressInjectionChartWaitsForEdgeRedsOnlyTheAddressLane · red: умолчание «base URL соседа + путь»
+hard-declarative-values-test · читать объявления values, не отрендеренный шаблон · gateway/deploy/token_shape_test.go · red: проба на рендере, которую можно пропустить
+hard-revocation-reader-on-request-path · иметь читателя на пути запроса; читатель только в местах выдачи отзыв не исполняет · TestEdgeRevocationLaneHasAReaderOnTheRequestPath · red: все вызывающие читателя стоят в чеканке/обновлении
+hard-revocation-antidote-cache-fail-closed · ставить на путь запроса с коротким объявленным кешем и fail-closed · TestEveryVerdictCacheProcessDeclaresItsOwnKnob · red: кеш вердикта без объявленной ручки окна
+hard-short-lived-by-decision · объявлять решением (политикой), а не получать следствием выбранного из удобства срока · TestRevocationWindowIsDeclaredPolicy · red: срок в коде без объявленной политики окна
+hard-wildcard-relation-not-authz · не нести отношение, выполнимое wildcard-tuple; такая проверка отвечает «да» каждому аутентифицированному · TestMRR_RedOnAWildcardSatisfiableRelation · red: required_relation, выполнимый user:*
+hard-directory-only-for-wildcard · допускать только для глобального справочника (регионы, зоны, типы дисков/машин); RPC об объектах с владельцами — нет · TestMRR_RedOnAWildcardSatisfiableRelation · red: справочное отношение на RPC об индивидуальном объекте
+hard-ask-which-tuples-satisfy · перед объявлением RPC с cluster-scoped отношением спроси, КАКИЕ tuple его выполняют · TestMRR_RedOnAWildcardSatisfiableRelation · red: отношение выполняется подстановочным знаком и не сужает ничего
+hard-authorize-at-data-scopefiltered · авторизовать на уровне данных и помечать ScopeFiltered; boot-guard не стартует без работающего фильтра · TestScopeFilteredRowsBelongToADomainThatEnforcesThem · red: ScopeFiltered-запись в домене без энфорсмента
+hard-empty-subject-rejected · отсекать безусловно, независимо от подключённости фильтра; ошибка фильтра ⇒ fail-closed · TestNoBlindPrincipalAbsenceAssertions · red: filter==nil + пустой субъект проходит
+hard-catalog-tells-truth-about-band · объявлять ту полосу, которую исполняет код; каждая wildcard-выполнимая запись несёт явное обоснование «это справочник» · TestMRR_ComparisonOfTwoDeclarationsIsLive · red: запись объявляет одно, код делает другое
+hard-establish-before-removing-guard · перед снятием самодельной проверки установи ПО КАЖДОМУ месту, что добавляет модель · ЗАВЕСТИ · red: проверка снята по одному месту, а покрытие модели по остальным не установлено
+hard-account-admin-cascade · разрешать каскадом внутри аккаунта; новые права после его уволнения навешивает только администратор облака · internal/repohygiene/quotasurfacecensus_injection_test.go · red: плоские глаголы на уровне аккаунта
+hard-owner-structural-on-own-account · быть структурным источником глаголов на своём объекте аккаунта; удаление так же надёжно, как создание · обход модели: глаголы account читают owner · red: право удаления приезжает материализацией
+hard-account-admin-not-on-account-itself · не получать право на сам объект аккаунта; тенантность сносят владелец и облако · internal/repohygiene/quotasurfacecensus_injection_test.go · red: admin аккаунта в usersets самого account
+hard-model-canonical-and-drift-gate · модель каноничной в одном файле, конфигмап чарта — из неё, гейт дрейфа зелёный · координата УСТАРЕЛА: proto/kacho/cloud/iam/v1/ в дереве нет, канон — PRO-Robotech/kaname (kacho#2616) · red: две правки в двух местах
+hard-control-carries-address-and-credential · объявлять пару: адрес соседа И удостоверение к нему; половина пары отвергается · TestEdgeRevocationGate_FindsAMissingDeclaration · red: профиль называет службу и не объявляет удостоверение
+hard-two-column-profile-census · сверять две колонки: сколько называют зависимость и сколько объявляют удостоверение к ней · TestEdgeRevocationGate_FindsAMissingDeclaration · red: первое число больше второго
+hard-declarative-probe-and-bootguard-pair · объявления держит декларативная проба плюс boot-guard на НЕПОЛНОЙ паре · TestEdgeRevocationGate_FindsAMissingDeclaration · red: половина пары объявлена, посадка стартует

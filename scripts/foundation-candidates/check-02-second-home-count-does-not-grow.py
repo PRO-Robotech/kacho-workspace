@@ -49,11 +49,16 @@
 (измерено: `kacho:pkg/refusal/lane.go` ↔ `kaname:…/shared/reference_refusal.go`,
 J = 0.105 при пороге 0.70). Это названо вслух и в норме, и здесь.
 
-Исходы: 0 — числа сошлись; 1 — находка; 2 — считать не по чему. Находка
-объявляется раньше беспредметности.
+ФОРМА ВЕДОМОСТИ СУДИТСЯ ПЕРВОЙ И БЕЗ КЛОНОВ (#856). Ведомость — файл этого
+дерева: её нет, в ней нет числа либо ревизии продукта, строка `rev` не
+разобрана — находка с ИМЕНЕМ ПОЛЯ (`_core.ledger_form`), код 1. Прежде это был
+код 2, и хук отправки печатал «нет клона» при клонах на месте и выходил нулём.
+
+Исходы: 0 — числа сошлись; 1 — находка (в том числе о форме ведомости); 2 —
+считать не по чему: клона нет, ствол не резолвится либо позади закреплённого.
+Находка объявляется раньше беспредметности.
 """
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -63,23 +68,7 @@ import _lib  # noqa: E402
 
 NAME = "check-02-second-home-count-does-not-grow"
 LEDGER = "docs/foundation-candidates.yaml"
-KEYS = ("subjects", "files", "actionable")
-
-
-def declared(text):
-    res, inside = {}, False
-    for raw in text.split("\n"):
-        if raw.startswith("ceiling:"):
-            inside = True
-            continue
-        if inside and raw[:1] not in (" ", "\t", "#", ""):
-            inside = False
-        if not inside:
-            continue
-        m = re.match(r"  (\w+):\s*(\d+)\s*$", raw)
-        if m and m.group(1) in KEYS:
-            res[m.group(1)] = int(m.group(2))
-    return res
+KEYS = _core.CEILING_KEYS
 
 
 def nums(m):
@@ -99,21 +88,27 @@ def main():
     root = _lib.workspace_root()
     threshold = float(os.environ.get("J", "0.70"))
 
-    text = _lib.read(root, LEDGER) if os.path.exists(os.path.join(root, LEDGER)) else None
-    if text is None:
-        _lib.void(NAME, "ведомость %s не прочитана — сверять число не с чем" % LEDGER)
-        return 2
-    want = declared(text)
-    missing = [k for k in KEYS if k not in want]
-    if missing:
-        _lib.void(NAME, "ведомость %s не объявляет %s в блоке `ceiling:` — храповика нет"
-                  % (LEDGER, ", ".join(missing)))
-        return 2
-    revs, bad = _core.declared_revs(text)
-    if bad:
-        _lib.void(NAME, "ведомость %s не разобрана в блоке `ceiling.rev`: %s"
-                  % (LEDGER, "; ".join(bad)))
-        return 2
+    # ФОРМА ВЕДОМОСТИ — ДО КЛОНОВ (#856). Ведомость лежит в воркспейсе, и её
+    # неполнота — находка об ЭТОМ дереве с именем поля, а не «считать не по
+    # чему»: прежде снятый блок ревизий давал код 2, и хук отправки печатал «нет
+    # клона» при клонах на месте. Находка объявляется раньше беспредметности,
+    # поэтому клоны на этом шаге не читаются вовсе.
+    if not os.path.exists(os.path.join(root, LEDGER)):
+        _lib.census("%s: ведомость %s — файла нет; клоны не читались" % (NAME, LEDGER))
+        _lib.fail(NAME, "ведомости %s нет в дереве, а гейт, который её судит, есть: "
+                        "носитель храповика снят отдельно от гейта. Снимают их одним "
+                        "изменением либо не снимают вовсе" % LEDGER)
+        return 1
+    text = _lib.read(root, LEDGER)
+    want, revs, form = _core.ledger_form(text)
+    if form:
+        _lib.census("%s: ведомость %s — полей формы требуется %d (%d числа, %d ревизии), "
+                    "находок формы %d; клоны не читались — форма судится без них"
+                    % (NAME, LEDGER, len(KEYS) + len(_core.PRODUCTS), len(KEYS),
+                       len(_core.PRODUCTS), len(form)))
+        for f in form:
+            _lib.fail(NAME, "%s: %s" % (LEDGER, f))
+        return 1
 
     ps = _core.pin_state(root, revs)
     if ps["findings"] or ps["voids"]:
