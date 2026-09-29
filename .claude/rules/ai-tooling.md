@@ -20,9 +20,8 @@ at-main-thread-is-agent · агент `dispatcher`, его тело — един
 at-rule-preloaded-by-symlink · правило закреплено предзагрузкой: `SKILL.md` — символьная ссылка, агент несёт её в `skills:` · readlink, check-04 · red: правило не в окне агента
 at-symlink-not-copy · символьная ссылка на файл правила, не копия · readlink .claude/skills/rule-<имя>/SKILL.md` = `../../rules/<имя>.md · red: копия правила в скиле
 at-rule-star-is-binding · `rule-*` — привязка к правилу, не экспертиза; в перечень канонических скилов не входит · check-03 (исключение в гейте) · red: rule-* учтён как канонический скил
-at-debt-three-gates-stale · `check-02` судит по снятой модели `@import` — до правки его вердикт недействителен · check-02 · red: вердикт о снятой модели принят за действующий
 at-skills-roster · перечень канонических скилов (14, без `rule-*`) обязан совпадать с деревом в обе стороны · check-03 · red: строка без каталога либо каталог без строки
-at-godzila-thirteenth · `godzila` отслеживается git и входит в перечень; приоритет ниже правил, выше локального `CLAUDE.md` · check-03 · red: отслеживаемый скил вне перечня
+at-godzila-thirteenth · `godzila` — в перечне; приоритет ниже правил, выше локального `CLAUDE.md` · check-03 · red: отслеживаемый скил вне перечня
 at-ci-clone-carries-no-tooling · клон продукта не несёт оснастку; CI-проверки — в его дереве, не в `.claude/` · ЗАВЕСТИ · red: клон без своей CI-проверки продукта
 at-dead-asset-does-not-travel · ассет без предмета не заводить «про запас»; исключение обязано самоистекать · --check → STALE-EXCLUSION · red: мёртвый ассет на вид работающий
 at-two-grep-engines · `grep` в Bash-инструменте агента и в скрипте — РАЗНЫЕ движки: обёртка харнесса (ugrep, `-G`) не экспортируется, дочерний bash берёт GNU grep · проба предпосылки в tooling-gate inject.sh · red: вердикт ручной команды перенесён на скрипт без перемера
@@ -37,7 +36,7 @@ at-agents-roster-dispatcher · главный поток — `dispatcher`: бе�
 at-agents-roster-execution · task-execution: 16 агентов, каждый — единственный держатель своей зоны правки · check-03 · red: зона правки без держателя либо с двумя
 at-agents-roster-review · specialist-review: 10 ролей; `wave-reviewer` — один на сборку, `convergence-reviewer` — держатель схождения · check-03 · red: посадка без ревью применимой ролью
 at-agents-roster-boundary · границы задачи: 5 read-only ролей (scout…ci-watcher), кода не пишут · check-03 · red: роль-разведка правит код
-at-agents-count-32 · счёт generic-агентов — 32 (31 исполнитель + dispatcher) · git ls-files .claude/agents/ | wc -l · red: перечень и число расходятся
+at-agents-count-32 · число агентов — одно, у предиката ниже · check-07 · red: перечень и число расходятся
 at-executors-dont-launch-executors · у каждого агента, кроме `dispatcher`, `disallowedTools` содержит `Agent` · grep -rL disallowedTools .claude/agents/ · red: исполнитель запускает исполнителя
 at-no-nested-launches · агент не зовёт другого напрямую — возвращает диспетчеру «нужен следующий» · check-05 · red: вложенный вызов агента из тела другого
 
@@ -86,20 +85,20 @@ at-no-nested-launches · агент не зовёт другого напрям�
 Перечень обязан совпадать с выводом в обе стороны (`check-03`); `<svc>-load-testing`
 живёт в репо сервиса и в счёт не входит. Что делает скил — `description` его `SKILL.md`.
 
-- `evgeniy` (workspace)
-- `code-authoring` (workspace)
-- `testing-code-coach` (workspace)
-- `testing-product-coach` (workspace)
-- `load-testing-coach` (workspace)
-- `kacho-docs-writer` (workspace)
-- `hardening-audit-loop` (workspace)
-- `measurement-discipline` (workspace)
-- `gate-authoring` (workspace)
-- `verdict-and-landing` (workspace)
-- `security-surface` (workspace)
-- `doc-truthfulness` (workspace)
-- `godzila` (workspace)
-- `change-graph` (workspace)
+- `evgeniy`
+- `code-authoring`
+- `testing-code-coach`
+- `testing-product-coach`
+- `load-testing-coach`
+- `kacho-docs-writer`
+- `hardening-audit-loop`
+- `measurement-discipline`
+- `gate-authoring`
+- `verdict-and-landing`
+- `security-surface`
+- `doc-truthfulness`
+- `godzila`
+- `change-graph`
 - `<svc>-load-testing` (repo)
 
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
@@ -109,7 +108,7 @@ lc1-acceptance-first · новая работа — только после APPR
 lc2-issue-branch-trail · фича — issue + ветка `issue-<N>` + trail в vault · docs-gate check-02 · red: код без issue, ветки или trail
 lc4-crossrepo-order · порядок proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по модулям, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
 lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
-lc6-role-reviews · провести ревью четырьмя ролями (proto-api-reviewer, db-architect-reviewer, go-style-reviewer, system-design-reviewer) плюс <svc>-conventions-auditor · ЗАВЕСТИ · red: посадка при неполном множестве ролей
+lc6-role-reviews · ревью — по `git-issues.md#gi-asm-one-round` · ЗАВЕСТИ · red: посадка без роли задетой области; четвёртая роль на задачу
 lc7-final-verification · `testing.md#final-verification-before-merge` и make audit-list-filter — зелёные на PR сборки · ci.yaml — зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 lc8-trail-and-close · обновить vault (resources/rpc/edges + записка) и закрыть issue с артефактами · vault-gate, docs-gate check-02 · red: issue закрыт без trail
 
