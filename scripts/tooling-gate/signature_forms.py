@@ -256,8 +256,10 @@ def judge_config_text(pieces, section, target):
 
 
 def judge_config_writes(lines):
-    """lines — список (номер, логическая строка). Находки записи конфигурации."""
+    """lines — список (номер, логическая строка). Находки записи конфигурации и
+    число осмотренных записей: «находок 0» отличимо от «записей 0»."""
     found = []
+    writes = 0
     section = {"root": None, "repo": None}
     i = 0
     while i < len(lines):
@@ -266,6 +268,7 @@ def judge_config_writes(lines):
         i += 1
         if target is None:
             continue
+        writes += 1
         h = HEREDOC.search(line)
         if h:
             delim = h.group(2)
@@ -280,14 +283,15 @@ def judge_config_writes(lines):
         section[target], kind = judge_config_text(config_pieces(line), section[target], target)
         if kind:
             found.append((no, kind, line))
-    return found
+    return found, writes
 
 
 def judge_shell(text, yaml=False):
     found = []
     n = 0
     lines = list(logical_lines(text))
-    written = {no: (kind, src) for no, kind, src in judge_config_writes(lines)}
+    writes_found, writes = judge_config_writes(lines)
+    written = {no: (kind, src) for no, kind, src in writes_found}
     for no, line in lines:
         n += 1
         if no in written:
@@ -308,7 +312,7 @@ def judge_shell(text, yaml=False):
             if kind:
                 found.append((no, kind, line))
                 break
-    return found, n
+    return found, n, writes
 
 
 # ── Python ──────────────────────────────────────────────────────────────────
@@ -405,7 +409,7 @@ def main():
         return 2
 
     counts = {"shell": 0, "python": 0, "yaml": 0}
-    lines = calls = 0
+    lines = calls = cfg_writes = 0
     unparsed = []
     sandbox_users = 0
     findings = []
@@ -431,14 +435,16 @@ def main():
                 continue
             calls += c
         else:
-            got, c = judge_shell(text, yaml=(kind == "yaml"))
+            got, c, w = judge_shell(text, yaml=(kind == "yaml"))
             lines += c
+            cfg_writes += w
         for no, what, src in got:
             findings.append((rel, no, what, " ".join(src.split())[:150]))
 
     files = sum(counts.values())
     print(f"[CENSUS] {name}: файлов оболочки {counts['shell']}, Python {counts['python']}, "
-          f"конвейера {counts['yaml']}; логических строк {lines}; вызовов Python {calls}; "
+          f"конвейера {counts['yaml']}; логических строк {lines}; записей файла конфигурации git "
+          f"{cfg_writes}; вызовов Python {calls}; "
           f"не разобрано {len(unparsed)}; песочниц на HOME со своим gitconfig {sandbox_users}; "
           f"находок {len(findings)}")
     if files == 0:
