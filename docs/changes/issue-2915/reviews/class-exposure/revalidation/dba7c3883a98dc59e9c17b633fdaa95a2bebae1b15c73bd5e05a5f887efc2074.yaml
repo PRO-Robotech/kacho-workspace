@@ -1,0 +1,188 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 8 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Заход отображения по Д26: судятся ТОЛЬКО строки отображения и дельта
+# редакции 8 против последней разобранной (редакция 7, 8d01a10e…, запись revalidation/8d01a10e….yaml).
+# Предмет дельты — `git diff b3ba899f4 6464ba4aa -- docs/changes/issue-2915/design.md` (+95/−33) и та же
+# дельта `tasks.md` (+5/−4, полосы N7 и C10) и `change.yaml` (+8/−5). Пункты CX1-01…69 и условия
+# УК1…УК92 этой записью не пересуживаются.
+# Итог: CX1-70 отображён строкой §11 и полосой N7, условия (а)–(г) пункта исполнены; УК93 и УК94
+# отображены строками §11а и полосой C10, текст З10 и З16 совпадает с условием дословно по смыслу.
+# Новых механизмов, решений, сторожей, внешних вызовов и асинхронных путей дельта не вводит.
+# Неотображённых пунктов нет. Одно замечание к исполнимости близнеца-контроля пробы CX1-70 (предел —
+# константа, а близнец ставит 1 мс) — не пункт и не условие замысла, заказом исполнителю N7.
+# Возврата в приёмку дельта не даёт; NTF1-L03 записи 9bfa92be в силе (приёмка не менялась, 29cfa368…).
+# Права писать реализацию эта запись не даёт: нужны ревью замысла трёх ролей (Е6).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: dba7c3883a98dc59e9c17b633fdaa95a2bebae1b15c73bd5e05a5f887efc2074
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл и `git show HEAD:<путь>` дают dba7c388…; после 6464ba4aa правок пакета нет
+  revision: 8
+  content_commit: 6464ba4aa
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/8d01a10e8b7f81dfb73965e2caa2552bbfeae8de2ae10595e1329cd3e1aff386.yaml
+    sha256: 8d01a10e8b7f81dfb73965e2caa2552bbfeae8de2ae10595e1329cd3e1aff386
+    content_commit: b3ba899f4
+  delta_predicate: "git diff b3ba899f4 6464ba4aa -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decision: "Д26 — заход отображения: судятся строки отображения и дельта"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 6464ba4aa9ef96bcf4f6388fa34e9fdcafee1b85   # вершина issue-880 на момент разбора = коммит предмета
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
+snapshot_at: 2026-09-30T12:10:00Z
+inspected: >-
+  Дельта b3ba899f4..6464ba4aa целиком: design.md (шапка «Что изменила редакция 8», «На чём стоит», §0
+  строка пересверки редакции 7 и Д26, §1 М20 и М33, З10 абзац `RetentionSubjects` о `Name` и `Sweep`,
+  З16 владелец места и допущенное употребление `Name`, второй остаток, близнецы C10, З24 абзац предела
+  и проба N7, §8, §11 заголовок и строка CX1-70, §11а вступление и строки УК93, УК94, §12 заказы, §13
+  первая фраза и Е6), tasks.md (шапка, строки C10 и N7), change.yaml (комментарий, hashes.design_sha256).
+  Вне дельты — З10 перечень операторов уборки (прошедшие окна — вид окно; мест окна по З7 и З10 три),
+  §8 `notify.workers` `[1..256]`, строка 1072 (размер `Claim` ≤ `notify.workers`), строка 1329
+  (резерв и освобождение по `global_daily`), приёмка NTF1-I05 (строка 2471: реплики ≥ 2) — поскольку
+  граница величины CX1-70 судит дельту через них; запись пересверки 8d01a10e целиком. Деревья kacho,
+  kaname, corelib не читались: дельта новых утверждений о них не вносит. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -niE 'TODO|TBD|FIXME|XXX' docs/changes/issue-2915/design.md | wc -l → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "§13: «Открытых решений нет: З1–З31 приняты, включая … форма CX1-70 (в) …»"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      CX1-70 — строка §11 (1), полоса N7 с пробой `TestFenceWriteWithinLimitUnderFullReserveFlow`;
+      УК93 — строка §11а (1), полоса C10, проба `TestAuditFeedTableWritesSiteOwnerIsEnclosingDecl`;
+      УК94 — строка §11а (1), полоса C10, проба `TestAuditFeedTableWritesRetentionSubjectName`.
+      Каждое отображение выдерживает условие (mapping_check)
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      дельта их не вводит: предел и исход по нему прежние (отказ старта, 5 с); новое — только число
+      времени ожидания в журнале старта и в записи по пределу, это не вызов, не путь и не сторож
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "запись привязана к dba7c388 — отпечатку файла на 6464ba4aa, на HEAD и в рабочем дереве; change.yaml несёт hashes.design_sha256 = dba7c388"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: >-
+      `git ls-tree -r --name-only HEAD docs/changes/issue-2915/reviews | grep -c design/` → 0.
+      design-reviewer (агент system-design-reviewer, режим «замысел»), db-architect-reviewer, proto-api-reviewer —
+      отдельный шаг (Е6); в `clean` не входит
+
+mapping_check:
+  - id: CX1-70
+    design: "З24 абзац «предел ожидания и исход по нему» (строки 1225–1245), проба N7 (1313–1319), §1 М33, §8, §11 строка CX1-70, §13 Е6; tasks.md N7"
+    verdict: holds
+    note: >-
+      (а) строка §11 есть, полоса N7 названа. (б) довод «длится миллисекунды … на порядки … только при
+      постороннем держателе» снят; ожидание = задержка самого долгого резерва в полёте = «одновременные
+      транзакции строки `global_daily` / темп её коммитов» со ссылкой на М33 — исполнено; М33 назван
+      замером записи 8d01a10e и честно помечен «этим замыслом не воспроизведён». (в) выбран вариант
+      «исход прежний — отказ старта»: верхняя граница одновременных транзакций строки названа
+      («реплики × `notify.workers`», у исполнителя одна транзакция; `notify.workers` ≤ 256 по §8),
+      граница величины выведена с запасом 2 («реплики × workers» ≤ `FenceLockTimeout` × темп / 2,
+      ≈1400 при темпе М33; арифметика сверена: 5 × 560 / 2 = 1400, 512 / 560 ≈ 0,9 с); темп коммита
+      не утверждается, а печатается пробой — это соответствует условию, поскольку следствие выше
+      границы названо («предел срабатывает от законного потока, и исход тот же»). Запись по пределу
+      несёт время ожидания и причины не утверждает — исполнено. (г) время ожидания числом пишет и
+      успешная запись ограды — исполнено. Держатель — проба N7 на полном резерве З24 с близнецом-
+      контролем. Замечание к исполнимости (не пункт): `limits.FenceLockTimeout` — константа без ручки
+      (§8), а близнец-контроль ставит пределу 1 мс; константу Go проба не переставит, поэтому функция
+      записи ограды должна принимать предел параметром (прод-вызов передаёт константу — §8 при этом
+      верен), а не превращать константу в пакетную переменную или ручку конфигурации — заказ N7
+  - id: "УК93"
+    design: "З10 (строки 688–692), З16 владелец места (899–904), близнецы (962–964), §11а строка УК93; tasks.md C10"
+    verdict: holds
+    note: >-
+      текст З16 повторяет условие: владелец — ближайшее объемлющее `*ast.FuncDecl` и его объект из
+      `types.Info.Defs`; литерал функции владельцем не бывает; место в инициализаторе пакетной
+      переменной — находка с координатой; `init` различаются координатой. З10 называет `Sweep`
+      литералом функции с местами за `RetentionSubjects`. Счёт мест окна согласован: три — окно `Put`
+      (З7), оператор возврата и уборка прошедших окон (З10); близнец УК93 даёт 3, а не 4. Проба с
+      близнецом и двумя инъекциями — строкой полосы C10
+  - id: "УК94"
+    design: "З10 (688–690), З16 допущенное употребление (920–925) и второй остаток (936–938), §11а строка УК94; tasks.md C10"
+    verdict: holds
+    note: >-
+      выбран первый вариант условия — `Name` равно имени таблицы по договору corelib, из
+      `tablename.Of`; исключение из запрета сохранения УК90 одно и узкое: значение поля `Name`
+      составного литерала `retention.Subject`, поле по объекту `*types.Var`, только в
+      `feed.RetentionSubjects`, употребления в ведомости с видами; прочее — находка; остаток
+      «имя из `Name` как текст оператора» назван в З16 и держится ревью диффа. Проба с близнецом
+      (2 употребления) и тремя инъекциями — строкой полосы C10
+
+conditions_to_code: []
+
+items: []
+
+measurements:
+  - claim: "предмет — dba7c388, коммит 6464ba4aa; после него правок пакета и приёмки нет"
+    command: "sha256sum docs/changes/issue-2915/design.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum; git log --oneline 6464ba4aa..HEAD -- docs/changes/issue-2915 <приёмка>; sha256sum <приёмка>"
+    result: "dba7c388 в обоих; журнал пуст; приёмка — 29cfa368"
+  - claim: "дельта — только диф b3ba899f4..6464ba4aa"
+    command: "git diff --numstat b3ba899f4 6464ba4aa -- docs/changes/issue-2915/"
+    result: "design.md +95/−33, tasks.md +5/−4, change.yaml +8/−5, запись пересверки 8d01a10e +326 (сама запись предыдущей пересверки)"
+  - claim: "строк отображения: CX1-70 в §11, УК93 и УК94 в §11а — по одной; пробы названы в замысле и в tasks.md"
+    command: "grep -c '^| CX1-70 ' design.md; grep -c '^| УК93 ' design.md; grep -c '^| УК94 ' design.md; grep -c 'TestFenceWriteWithinLimitUnderFullReserveFlow' design.md tasks.md; grep -c 'TestAuditFeedTableWritesSiteOwnerIsEnclosingDecl\\|TestAuditFeedTableWritesRetentionSubjectName' design.md tasks.md"
+    result: "1; 1; 1; 1 и 1; 2 и 1 (в tasks.md обе пробы в одной строке C10)"
+  - claim: "change.yaml несёт отпечаток редакции 8"
+    command: "grep -n design_sha256 docs/changes/issue-2915/change.yaml"
+    result: "74: design_sha256: dba7c388…"
+  - claim: "ревью замысла на отпечаток"
+    command: "git ls-tree -r --name-only HEAD docs/changes/issue-2915/reviews | grep -c design/"
+    result: "0"
+
+not_measurable:
+  - "поведение записи ограды под законным потоком и гейта `AuditFeedTableWrites` — кода нет; проверяются пробами N7 и C10 и по диффу"
+  - "темп коммитов строки `global_daily` на установке — величина диска; замысел его не утверждает, проба N7 печатает; вывод записи от него не зависит: следствие выше границы названо"
+
+outcome: к-коду
+outcome_note: >-
+  заход отображения по Д26 закрыл остаток пересверки 8d01a10e: CX1-70, УК93, УК94 отображены
+  строками §11/§11а и полосами N7, C10 с пробами-держателями и близнецами; новых механизмов,
+  сторожей, внешних вызовов и асинхронных путей нет. Неотображённых пунктов нет. Возврата в
+  приёмку дельта не даёт; NTF1-L03 записи 9bfa92be в силе (зависимость Е2, приёмка не менялась).
+  Одобрение замысла ждёт записей ревью трёх ролей (Е6)
+unmapped: []
+return_to_acceptance: []
+return_to_acceptance_carried:
+  - id: NTF1-L03
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3.yaml
+    note: "не исполнен: отпечаток приёмки тот же; замысел не решает его сам (Е2)"
+
+orders:
+  - to: исполнитель полосы N7 (go-implementer)
+    what: >-
+      функция записи ограды принимает предел ожидания параметром, прод-вызов передаёт
+      `limits.FenceLockTimeout`; близнец-контроль пробы `TestFenceWriteWithinLimitUnderFullReserveFlow`
+      ставит 1 мс через этот параметр; константа не становится пакетной переменной и ручкой
+      конфигурации (§8 «ручки нет»). Держится ревью диффа
+    basis: "code-authoring §«Инвариант и оснастка — это тоже прод-код»; rule testing §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.1"
+  - to: design-reviewer (агент system-design-reviewer, режим «замысел»), db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток dba7c388 (reviews/design/<role>/<sha>.yaml) — их 0; граница величины предела против темпа коммитов `global_daily` (CX1-70 (в)) — db-architect-reviewer"
+    basis: "SDD-1 §5; policy.yaml review_authority; замысел §13 Е6"
+  - to: автор пакета (change.yaml)
+    what: "комментарий «пересверки на него нет» для редакции 8 — ссылкой на эту запись"
+    basis: "change-graph §4 (привязка к отпечатку)"
