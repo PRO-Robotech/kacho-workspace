@@ -1,0 +1,192 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521
+  revision: 22
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: 3590477cc671af0cc2244e1a477513b61efb64b1
+  content_commit_note: >-
+    Редакцию 22 внёс коммит 3590477cc. Судится дельта 21 → 22 (git diff 88fa559c7 3590477cc по
+    документу) против трёх блокирующих круга 1 прохода RA-03 и против Д1–Д25. Кроме дельты
+    проверено заявление самой редакции: «все команды §1 и §7 прогнаны заново, сокращённые команды
+    выписаны целиком».
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md; то же для
+    git show HEAD:<путь> | sha256sum @aab40797c
+  fingerprint_reproduced: true
+  lines: 4462
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T11:16:50Z'
+round: 2
+round_note: >-
+  Круг 2 прохода RA-03. Действуют Д1–Д25 и принятое registerSharePause = 1. Роль design-reviewer
+  исполняет system-design-reviewer в режиме «замысел» (решение владельца 2026-09-30); к этой записи
+  это не относится. Утверждения дельты о дереве перемерены командами документа на kacho
+  @1d42a6728bf, kaname @734f69fb4 и @cbbac984b, corelib @34bc8104a (Д24).
+previous_rounds:
+  - round: 1
+    pass: RA-03
+    sha256: c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5.yaml
+blocking_count: 1
+blocking_kinds_distinct: [CONVENTION]
+repeated_kinds: [CONVENTION]
+repeated_kinds_note: >-
+  CONVENTION был в круге 1 (B3: напечатанная команда не даёт напечатанного числа). Здесь тот же
+  класс Д24, другая форма: в §1 остались утверждения о дереве без команды («со слов разведки») и
+  одна сокращённая команда. При этом редакция 22 объявляет, что все команды §1 выписаны целиком.
+  Это четвёртое появление класса «утверждение о дереве не предикатом» (RA-01, RA-02, RA-03, этот
+  круг). По §14а класс переезжает в форму задания автору: перепись всех утверждений о дереве,
+  а не только команд.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @aab40797c
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат, одобрения нет. Курьеру отдаётся тело записи о возврате, а не полномочие.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 прохода RA-03, блокирующих 1: CONVENTION) · SHA-256
+    077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521
+
+measurement:
+  scenario_ids: 163
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 156
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 163; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE по образцу гигиены задания (путь рабочей копии, домашний каталог, имена чужих облаков;
+    образец здесь не выписан, чтобы запись сама не несла этих имён) → 0.
+  floating_refs_predicate: >-
+    grep -nE 'origin/(main|357)' <документ> → 3 строки: 51 (текст записи редакции 22) и 62–63
+    (строка «Ревизии измерения», где у каждой ссылки есть ревизия). В командах плавающих ссылок 0.
+  reproduced_at_pinned_revisions:
+    - "§1.1: сервисов 6; почта 0 (с тестами и без тестов тоже 0); subscription.NewServer 5; манифестов 5. Верно."
+    - "§1.2: rpc Create|Register|… вне internal_ → 23; строк ^type в fga_model.fga @734f69fb4 → 32. Верно."
+    - "§1.5: состояний сбоя 7; OutboxActionFailed|Moved в nlb 7; MarkError в storage 7; NewReconciler 6; .MarkError( 3. Верно."
+    - "§1.6: observed_state в storage 45. Верно."
+    - "§1.7: rpc storage 42; колонки инициатора 3 (0002_operations.sql:14 комментарий, :28, :41). Верно."
+    - "§1.8: MarkEmailVerified( @734f69fb4 → 3, @cbbac984b → 1; users_invite_status_check → 1; locale|preferred_lang → 0. Верно."
+    - "§1.13: вызовов функции фундамента 2; INSERT в журнал функциями базы nlb 7, registry 1, storage 19, vpc 3, compute 0 (всего 30); EXECUTE FUNCTION → 18; раздел Down 0022 начинается строкой 144, значит :160,180,184 — Down; живых 12. Вне модулей 3; emitCompute 5 (без фильтров 7); vpc Outbox().Emit 50 (без фильтра 77); nlb 18/18; geo outbox.Emit 6. Верно."
+    - "§1.13: corelib emit.go @34bc8104a — объявления :46, :105; вставки :126, :139. Верно."
+    - "§1.14: compute (Attach|Detach)(ctx → 6; nlb пишущих вызовов 8. Верно."
+    - "§7: fake.New в storage 0; SET status в compute 3 (instance_repo.go:364, :476; миграция аудита :42). Верно."
+
+premise_check:
+  task_premise: >-
+    Посылка задания: SHA-256 редакции — 077fdc20…7521, круг 2. sha256sum рабочего файла и
+    git show HEAD:<путь> | sha256sum дают 077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521.
+    Подтверждена. Решения Д1–Д22 сверены по записи круга 1 (там они найдены в первых сообщениях
+    транскриптов агентов author:NTF-3 и author:NTF-1); Д23–Д25 — по тексту задания.
+  seeded: 0
+  seeding_note: >-
+    Стенд и изоляция для посева заданием не названы, поэтому посев — «не выполнилось», в зелёное не
+    зачитан. Конструируемость новых Given (С17, С18, NTF3-161 (б), (в), NTF3-163) проверена чтением
+    дерева @1d42a6728bf.
+  constructibility:
+    - "NTF3-163 / С18: selectStuckSQL (free_ip_runner.go) берёт status IN ('DELETING','CREATING') AND updated_at < now() - age AND leaseCoherent. У балансировщика, созданного публично из подсети, адрес и ключ аренды заполнены оба, поэтому leaseCoherent истинно. CHECK статуса допускает DELETING (0022_…:142). Триггеры на load_balancers — только квотные AFTER INSERT OR DELETE (0032_…:393,414), updated_at сами не двигают. Возраст задаётся параметром NewFreeIPRunner(…, ageThreshold). Ветка DELETING зовёт emitReconcileFinalize (NLB DELETED). ReleaseLease адреса модуля — исход RELEASED. Условие строимо."
+    - "NTF3-163, близнец: публичный Delete зовёт releaseVIP → ReleaseLease (delete.go) и снимает строку, поэтому задание её не подбирает. Строимо."
+    - "NTF3-161 (б) / С17: прямая запись seen_up_to в базу notify обвязки перед каждым повтором. Возврат назад публичным путём не нужен, противоречие круга 1 снято. (в) строится публичным PATCH из пустого. Строимо."
+  confirmed:
+    - "B1 круга 1 (CONSTRUCTIBILITY) закрыт: С17 в §8, Given (б) и близнец (б) опираются на него; производитель — §11."
+    - "B2 круга 1 (COVERAGE) закрыт: Р2 называет system:nlb-free-ip-runner; у NTF3-163 есть Then на инициатора строк vpc и nlb, на строки ленты и записи ленты консоли; близнец отличается одним фактом (снятие публичным Delete); строки в §7, §8, §10, §11, DoD 12.2, 12.4."
+    - "B3 круга 1 (CONVENTION, числа): все пары «команда → число» дельты воспроизводятся (список выше)."
+    - "Неблокирующие круга 1 учтены: Р10 (вся лента), NTF3-160 (з) (момент P0 compute, две строки), §7 (компенсация), Д23 (держит NTF-4)."
+    - "Счёт 163/7/156 сходится, дубликатов 0, гигиена 0."
+  refuted:
+    - "Заявление редакции 22 «сокращённые команды («…») выписаны целиком»: в §1.3, строка 214, команда начинается с «… |» (B1)."
+    - "Д24 «каждое утверждение о дереве — предикат»: в §1 и §2.2 шесть утверждений о дереве стоят «со слов разведки», без команды (B1)."
+
+blocking_findings:
+  - id: B1
+    kind: CONVENTION
+    anchors: ["§1.2 (строка 206)", "§1.3 (строки 214, 217)", "§1.8 (строки 334, 345)", "§1.10 (строка 371)", "§2.2 (строка 700)", "запись редакции 22 (строка 51)"]
+    what: >-
+      Д24: каждое утверждение документа о дереве должно быть предикатом с командой и числом
+      @ревизия, а не словами автора. Редакция 22 заявляет, что все команды §1 прогнаны и все
+      сокращённые команды выписаны целиком. Но в §1.3 (строка 214) осталась команда «… | grep -nE
+      '^\s+[A-Za-z.]+ (initiator|actor|occurred_at)…' → 0»: её начало не выписано, и воспроизвести
+      её нельзя. Ещё шесть утверждений о дереве стоят «со слов разведки» и без команды: 206 (журнал
+      службы доступа состояния не передаёт), 217 (журнал аудита compute — 0028_audit_outbox.sql),
+      334 (путь проверки прав состояние пользователя не читает — на этом стоит клетка
+      SUBJECT_INACTIVE Р7), 345 (производителя напоминания «≤14d before expires_at» нет — на этом
+      стоит Р19), 371 (три приёмки — домен прав), 700 (членство доходит правкой группы). Две из
+      них (334, 345) несут решения. Та же редакция 22 сама опровергла одно такое утверждение
+      («находит только два гейта», строка 161). Значит, у класса уже есть подтверждённый ложный
+      экземпляр в этом документе. Выборочные замеры рецензента остальные утверждения не
+      опровергают (ниже). Но Д24 требует, чтобы в документе стояла команда, а не проверка
+      рецензента.
+    predicate: >-
+      grep -nE 'со слов|Со слов' <документ> | grep -vE '^[0-9]{1,2}:>' → 7 строк (161, 206, 217,
+      334, 345, 371, 700); 161 — запись о снятии, остальные 6 — утверждения без команды.
+      grep -nE '`…' <документ> | grep -E 'grep ' → строка 214.
+    reviewer_measurements: >-
+      Замеры для замены, которые может взять автор. (1) строка 214: git show
+      1d42a6728bf:proto/corelib/subscription/subscription.proto | grep -nE '^\s+[A-Za-z.]+
+      (initiator|actor|occurred_at)[a-z_]* = ' | wc -l → 0 (файл 479 строк). (2) строка 217: git
+      ls-tree --name-only 1d42a6728bf services/compute/internal/migrations/ | grep -i audit → 2
+      (0028_audit_outbox.sql, 20260823001500_audit_journal_gets_its_receiver.sql). (3) строка 345: в
+      kaname @734f69fb4 git grep -nEi 'remind|alerts? .*before expires' -- '*.go' ':!*_test.go'
+      ':!pkg/api/**' → 0; комментарий «≤14d» есть только в сгенерированном
+      service_account_oauth_client.pb.go:73. (4) строка 185 (не «со слов», но без команды): git grep
+      -lE 'Outbox\(\)\.Emit\(ctx, "AddressPool"' 1d42a6728bf --
+      'services/vpc/internal/apps/kacho/api/addresspool/' | wc -l → 5, верно. Строки 206, 334, 371
+      и 700 автор меряет сам: для 334 — читатели invite_status в пути проверки прав kaname; для
+      700 — писатель события группы при правке членства.
+    required: >-
+      Одним проходом по §1–§2 (grep 'со слов' плюс grep '…' в командах) заменить каждое такое
+      утверждение командой, числом и ревизией. Если утверждение измерить нельзя, снять его или
+      перенести в «вопросы» с явной пометкой, что на нём не стоит ни одно решение. Р7
+      (SUBJECT_INACTIVE) и Р19 должны опираться на измеренное. В записи редакции утверждать только
+      то, что сделано: «все команды §1 прогнаны» вместо «все утверждения о дереве — предикатом»,
+      если второе не выполнено.
+
+non_blocking_findings:
+  - "NTF3-163, близнец: не сказано, когда читается P0. Then утверждает строки user:usr-A «после P0», поэтому P0 должен читаться до публичного Delete. Нужно назвать момент явно, как в NTF3-160 (з) редакции 22."
+  - "NTF3-163: «после приёма этих строк `notify-sender` `GET /notify/v1/inbox`» читается так, будто ленту выдаёт notify-sender. По Д20 ленту выдаёт notify-api. Лучше: «после того как notify-sender принял эти строки, usr-A вызывает GET … (notify-api)»."
+  - "С18 (§8) не называет порог возраста задания (60s), который Given NTF3-163 приписывает С18. Порог задаётся параметром ageThreshold в NewFreeIPRunner. Стоит вписать его в строку С18."
+  - "Строки 520 и 491–493 §1.13 указывают координаты разных строк одних триггеров: CREATE TRIGGER (544, 119, 554) и EXECUTE FUNCTION (546, 124, 556). Стоит сказать один раз, какую строку берёт таблица."
+  - "Неблокирующие прошлых кругов вне дельты остаются в силе: С15 строить через InstanceRepo.SetStatusCAS; форма вставки NTF3-70 и 23502 против CX3B-25 (б) — к design-author."
+
+method_verdict: >-
+  Судилась дельта 21 → 22 против трёх блокирующих круга 1 и Д1–Д25. Все пары «команда → число»
+  дельты воспроизведены на закреплённых ревизиях. Конструируемость С17, С18, NTF3-161 и NTF3-163
+  проверена по коду задания, CHECK и триггерам. Три блокирующих круга 1 закрыты. Одно новое
+  блокирующее того же рода Д24: в §1 и §2.2 остались утверждения о дереве без команды и одна
+  сокращённая команда, хотя запись редакции заявляет обратное. Посев не выполнялся: стенда нет,
+  это «не выполнилось», в зелёное не зачитано.
+
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
