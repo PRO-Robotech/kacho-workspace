@@ -647,7 +647,7 @@ b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
     's/(^parse_broken\(\) \{\n(?:(?!^\}).*\n)*?)  exit 2\n/$1  exit 1\n/m' \
     "код выхода parse_broken"; then
-    run_c09_red "$b" "инъекция: отказ разбора выходит кодом находки — краснеет" E F R U V
+    run_c09_red "$b" "инъекция: отказ разбора выходит кодом находки — краснеет" E F
 fi
 
 # ИНЪЕКЦИЯ СХЛОПЫВАНИЯ, НЕ ЗАВИСЯЩАЯ ОТ СРЕДЫ. Дедупликация по первому полю
@@ -703,137 +703,18 @@ if mr_patch "$b/$MR_REL" \
     run 0 "$b" "близнец: та же сортировка другой формой — молчит" "$C09"
 fi
 
-# ── БЕЗ ОБЯЗАТЕЛЬНЫХ КОНТЕКСТОВ: ВЕРДИКТ ПО ПРОГОНУ ci.yaml НА ГОЛОВЕ (ws#884) ──
-# Каждая инъекция снимает ровно одно условие засчёта прогона и обязана
-# покраснеть той пробой check-09, что держит именно его, — метка сверяется.
-
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.event == "workflow_dispatch")/' \
-    "прогон на другой ревизии засчитан"; then
-    run_c09_red "$b" "инъекция: зелёный прогон на ДРУГОЙ ревизии засчитан — краснеет" N
-fi
-
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.head_sha == \$sha)/' \
-    "прогон другим событием засчитан"; then
-    run_c09_red "$b" "инъекция: прогон ДРУГИМ событием засчитан — краснеет" O
-fi
-
-# Событие сверяется как «не push», а не равенством workflow_dispatch.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.head_sha == \$sha and .event != "push")/' \
-    "событие сверяется как «не push»"; then
-    run_c09_red "$b" "инъекция: засчитан прогон любым событием, кроме push, — краснеет" \
-        O-pull_request O-schedule
-fi
-
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/\| last \/\/ empty/| first \/\/ empty/' \
-    "судит первый прогон на голове, а не последний"; then
-    run_c09_red "$b" "инъекция: судит старый прогон вместо последнего — краснеет" P
-fi
-
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/select\(\.status == "completed" and \.conclusion == "success"\)/select(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped"))/; s/\["success","failure"/["success","skipped","failure"/' \
-    "пропущенное задание засчитано зелёным"; then
-    run_c09_red "$b" "инъекция: пропущенное задание засчитано зелёным — краснеет" Q
-fi
-
-# Репозиторий С обязательными контекстами: процесс начал читаться и там.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/^(printf .%s\\n. "\$required" > "\$workdir\/required")$/verdict_from_dispatched_run\n$1/m' \
-    "процесс читается и при обязательных контекстах"; then
-    run_c09_red "$b" "инъекция: вердикт по процессу подменил вердикт по контекстам — краснеет" T
-fi
-
 # ── КЛАСС «ЛОЖНОЕ „МОЖНО“ (КОД 0)» ПОРЕШЕННО ─────────────────────────────────
 # Каждое решение, ведущее к коду 0, портится ОДНИМ фактом, и порча обязана
-# покраснеть держащей его пробой. Выбор прогона (ревизия, событие, последний) —
-# выше; здесь задания, итог прогона, состояние слияния и выбор пути.
-
-# Итог прогона не сверяется: задания зелены — значит «можно».
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/ \|\| \[ "\$run_concl" != "success" \]//' \
-    "итог прогона не сверяется"; then
-    run_c09_red "$b" "инъекция: итог прогона failure при зелёных заданиях засчитан — краснеет" U
-fi
-
-# Итог прогона сверяется ДОПОЛНЕНИЕМ к перечню красных, а не равенством success:
-# исход, забытый в перечне, прошёл бы за «можно». Держат пробы U-*.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/\|\| \[ "\$run_concl" != "success" \]/|| [[ "\$run_concl" =~ ^(failure|cancelled|timed_out|action_required)\$ ]]/' \
-    "итог прогона сверяется дополнением к красным"; then
-    run_c09_red "$b" "инъекция: итог прогона — «не красный» вместо «success» — краснеет" \
-        U-startup_failure U-stale U-neutral U-skipped
-fi
-# По одному: итог прогона «success или <исход>».
-for c in failure cancelled timed_out action_required startup_failure stale neutral skipped; do
-    tag="U-$c"; [ "$c" = failure ] && tag="U"
-    b="$(mksandbox)"
-    if mr_patch "$b/$MR_REL" \
-        "s/\\|\\| \\[ \"\\\$run_concl\" != \"success\" \\]/|| { [ \"\\\$run_concl\" != \"success\" ] \\&\\& [ \"\\\$run_concl\" != \"$c\" ]; }/" \
-        "итог прогона $c засчитан успехом"; then
-        run_c09_red "$b" "инъекция: итог прогона $c засчитан успехом — краснеет" "$tag"
-    fi
-done
-
-# Судит по прочитанной части: объявленное число заданий подменено прочитанным.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/^(  jobs_total=\$\(jq -r )\x27\.total_count\x27/$1\x27.jobs | length\x27/m' \
-    "объявленное число заданий подменено прочитанным"; then
-    run_c09_red "$b" "инъекция: суждение по прочитанной части перечня заданий — краснеет" V
-fi
-
-# Прогон без заданий: «все ноль зелены».
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$jobs_total" -eq 0 \]; then/if false; then/' \
-    "проверка нуля заданий снята"; then
-    run_c09_red "$b" "инъекция: прогон без единого задания засчитан зелёным — краснеет" W
-fi
-
-# Красный исход задания выпал из перечня красных. Ложного «можно» это не даёт
-# (задание уходит в «не зелёное», и сверка числа зелёных отдаёт 2), но решение
-# «это — нельзя» держится пробой, и её порча видна.
-for pair in timed_out:Xt action_required:Xa startup_failure:Xs; do
-    concl="${pair%%:*}"; tag="${pair##*:}"
-    b="$(mksandbox)"
-    if mr_patch "$b/$MR_REL" "s/\\s*or \\.conclusion == \"$concl\"//" \
-        "$concl выпал из красных"; then
-        run_c09_red "$b" "инъекция: $concl не считается красным — краснеет" "$tag"
-    fi
-done
-
-# Идущее задание завершённого прогона не отличено.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$open_n" -gt 0 \]; then/if false; then/' \
-    "идущее задание не отличено"; then
-    run_c09_red "$b" "инъекция: идущее задание не названо идущим — краснеет" Y
-fi
+# покраснеть держащей его пробой: состояние слияния, выбор пути, исход контекста.
 
 # Удерживающее состояние слияния объявлено «можно». По одному на каждое.
-for pair in BLOCKED:S DIRTY:S-DIRTY BEHIND:S-BEHIND DRAFT:S-DRAFT UNKNOWN:S-UNKNOWN; do
-    ms="${pair%%:*}"; tag="${pair##*:}"
+for ms in BLOCKED DIRTY BEHIND DRAFT UNKNOWN; do
     b="$(mksandbox)"
     if mr_patch "$b/$MR_REL" "s/CLEAN\\|UNSTABLE\\|HAS_HOOKS\\)/CLEAN|UNSTABLE|HAS_HOOKS|$ms)/" \
         "состояние $ms объявлено «можно»"; then
-        run_c09_red "$b" "инъекция: состояние слияния $ms засчитано как «можно» — краснеет" "$tag"
+        run_c09_red "$b" "инъекция: состояние слияния $ms засчитано как «можно» — краснеет" "A-$ms"
     fi
 done
-
-# Выбор пути: защита не прочитана — а вердикт всё равно взят из процесса.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/(^if \[ -z "\$protection" \]; then\n)/$1  verdict_from_dispatched_run\n/m' \
-    "процесс читается при непрочитанной защите"; then
-    run_c09_red "$b" "инъекция: вердикт по процессу там, где защита не прочитана, — краснеет" C
-fi
 
 # Выбор пути: PR не открыт — а вердикт всё равно выносится.
 b="$(mksandbox)"
@@ -842,38 +723,12 @@ if mr_patch "$b/$MR_REL" 's/if \[ "\$state" != "OPEN" \]; then/if false; then/' 
     run_c09_red "$b" "инъекция: закрытый PR получает вердикт — краснеет" I
 fi
 
-# Выбор прогона: «последний» взят по номеру, а не по времени создания.
+# Выбор пути: у защиты ноль обязательных контекстов — а ответ «можно». Слияние
+# сервером ничем не гейтится; «можно» здесь — ложное зелёное, вердикта нет.
 b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/\| sort_by\(\.created_at, \.id\) \| last/| sort_by(.id) | last/' \
-    "последний прогон выбран по номеру"; then
-    run_c09_red "$b" "инъекция: последний прогон выбран по номеру, а не по времени — краснеет" P2
-fi
-
-# Все задания success: проверка «идёт ли прогон», проверка красных и проверка
-# «не выполнилось» — каждая снята поодиночке.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$run_status" != "completed" \]; then/if false; then/' \
-    "состояние прогона не сверяется"; then
-    run_c09_red "$b" "инъекция: идущий прогон не отличён — краснеет" M
-fi
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$red_n" -gt 0 \]; then/if false; then/' \
-    "красные задания не отличены"; then
-    run_c09_red "$b" "инъекция: красное задание не названо красным — краснеет" K L P P2 Xt Xa Xs
-fi
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$void_n" -gt 0 \]; then/if false; then/' \
-    "невыполненные задания не отличены"; then
-    run_c09_red "$b" "инъекция: невыполненное задание не отличено — краснеет" Q
-fi
-
-# Путь процесса выходит нулём мимо состояния слияния.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/^  merge_state_verdict "каждое задание прогона[^\n]*\n[^\n]*\n/  echo "merge-readiness: можно сливать"; exit 0\n/m' \
-    "путь процесса минует состояние слияния"; then
-    run_c09_red "$b" "инъекция: путь процесса минует состояние слияния — краснеет" \
-        S S-DIRTY S-BEHIND S-DRAFT S-UNKNOWN
+if mr_patch "$b/$MR_REL" 's/(ничем не гейтится\. Это находка, а не норма\."\n  )exit 2\n/${1}exit 0\n/' \
+    "ноль обязательных контекстов отвечает «можно»"; then
+    run_c09_red "$b" "инъекция: ноль обязательных контекстов засчитан как «можно» — краснеет" G
 fi
 
 # ── ПУТЬ С ОБЯЗАТЕЛЬНЫМИ КОНТЕКСТАМИ: КАЖДОЕ РЕШЕНИЕ, ВЕДУЩЕЕ К КОДУ 0 ─────────
@@ -938,19 +793,13 @@ if mr_patch "$b/$MR_REL" 's/if \[ "\$missing_count" -gt 0 \]; then/if [ "\$missi
         B H RC-running RC-FAILURE RC-CANCELLED RC-TIMED_OUT RC-ACTION_REQUIRED
 fi
 
-# Выбор пути: один обязательный контекст принят за «контекстов нет».
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$\{req_count:-0\}" -eq 0 \]; then/if [ "\${req_count:-0}" -le 1 ]; then/' \
-    "один обязательный контекст принят за ноль"; then
-    run_c09_red "$b" "инъекция: один обязательный контекст принят за «контекстов нет» — краснеет" T
-fi
-
 # Путь контекстов выходит нулём мимо состояния слияния.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/^merge_state_verdict "каждый обязательный контекст имеет зелёный исход"[^\n]*$/echo "merge-readiness: можно сливать"; exit 0/m' \
+    's/^(case "\$merge_state" in)$/echo "merge-readiness: можно сливать"; exit 0\n$1/m' \
     "путь контекстов минует состояние слияния"; then
-    run_c09_red "$b" "инъекция: путь контекстов минует состояние слияния — краснеет" A-BLOCKED
+    run_c09_red "$b" "инъекция: путь контекстов минует состояние слияния — краснеет" \
+        A-BLOCKED A-DIRTY A-BEHIND A-DRAFT A-UNKNOWN
 fi
 
 # Законный близнец фильтра: тот же «только SUCCESS», записанный иначе.
@@ -959,24 +808,6 @@ if mr_patch "$b/$MR_REL" \
     's/^(green=\$\(jq -r .\.statusCheckRollup\[\]\? \| )select\(\.conclusion=="SUCCESS"\)/${1}select(.conclusion | . == "SUCCESS")/m' \
     "фильтр зелёного исхода другой формой"; then
     run 0 "$b" "близнец: фильтр зелёного исхода контекста другой формой — молчит" "$C09"
-fi
-
-# Законный близнец: половина `green_n -ne jobs_total` последней сверки
-# НЕДОСТИЖИМА одна — до неё доходят только прогоны, где красных, идущих и
-# невыполненных заданий ноль, а объявленное число равно прочитанному, то есть
-# все задания зелёные. Её снятие поведения не меняет ни на одном входе, и гейт,
-# краснеющий на нём, судил бы форму записи, а не исход.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/if \[ "\$green_n" -ne "\$jobs_total" \] \|\| /if /' \
-    "страховочная половина сверки снята"; then
-    run 0 "$b" "близнец: снята недостижимая одна половина сверки зелёных — молчит" "$C09"
-fi
-
-# Законный близнец: «последний по времени создания» записан иначе.
-b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" 's/\| sort_by\(\.created_at, \.id\) \| last \/\/ empty/| max_by([.created_at, .id]) \/\/ empty/' \
-    "последний прогон другой формой"; then
-    run 0 "$b" "близнец: последний прогон выбран другой формой — молчит" "$C09"
 fi
 
 b="$(mksandbox scripts/merge-readiness.sh)"
