@@ -1,0 +1,195 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 81b95b646f716b58f68a4b07d74b189d7a5539ad9fc5891ee6b9e7e089c12aa1
+  revision: 27
+  static_status: DRAFT
+  static_status_note: >-
+    Строка истории шапки: «редакция 27 · вердикта нет». Эта запись шапку НЕ правит: вердикт привязан
+    к отпечатку, а не к слову в заголовке; действующий вердикт выводится из этой записи и внешнего
+    события.
+  content_commit: 1fa495870
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true   # рабочий файл = 1fa495870 (git diff 1fa495870 -- <приёмка> → 0 строк)
+  lines: 4383
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T21:05:00Z'
+round: 1
+round_note: >-
+  Круг 1 на редакции 27 — правке одобренной редакции 26 (`66b82c1c…`) по возврату первичного разбора
+  классов `issue-2917` (RA-3, RA-4). Одобрение редакции 26 на этот отпечаток не переносится. Дельта
+  e4d062d57 → 1fa495870 по документу прочитана целиком (+57 −8): шапка, Р8 «форма ключа», §6б строка
+  Р8 (6) граница и новый (7), §7 строка NTF2-71 (е), DoD пп. 7, 22, §11 «Редакция 26 → 27». Сверена с
+  записью разбора `docs/changes/issue-2917/reviews/class-exposure/initial/66b82c1c….yaml`
+  (return_to_acceptance, orders), с маршрутом и замыслом NTF-1 в дереве
+  (`docs/changes/issue-2915/tasks.md` строка D1, `design.md` З28 «Новый отслеживаемый чарт» (а)–(г),
+  §13 Е12 (12) @9b1aded1e) и с решением Д53 (задание). Прежние записи не правятся.
+previous_rounds:
+  - pass: редакция 24, круг 1
+    sha256: 53bd65224de8a3b2fb705473ffdbab632346535b3dc6466ffa94ea2dad9c567d
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 25, круг 2
+    sha256: f7f510df47f0c2637bb57a47bcebf4f6a47a748e51571af3987d6f715f29dcf4
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 26, круг 3
+    sha256: 66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a
+    verdict: APPROVED
+    later: первичный разбор классов вернул RA-3, RA-4 (e8c5886d7)
+return_items_checked:
+  RA-3: >-
+    ЗАКРЫТО. (а) §6б (7): множество листьев разобранного `edge.yaml` = {ключ ручки}, инъекция второго
+    листа → красный с именем листа, близнец с одним листом молчит. (б) §6б (6): граница названа —
+    чарт, который без записи не рендерится, разностью не судится; гейт печатает выпавшие чарты с
+    «не судится; держит (7)»; пустой перечень выпавших на записи `edge.yaml` — красный; инъекция (6)
+    нацелена на чарт, рендеримый без `edge.yaml`. Посев подтвердил (measurement, S-1).
+  RA-4: >-
+    ЗАКРЫТО. DoD п.22: существование `git cat-file -e <H>:<P>` («не выполнилось»), счёт
+    `git show <H>:<P> | grep -c '<ключ>'` (`0` — красный), порядок назван, контроль в обе стороны.
+    Посев подтвердил (measurement, S-2).
+  CX2-72: не блокирует по разбору; приёмка оставляет его маршруту — принимаю.
+decisions_applied:
+  D53: >-
+    НЕ отражено (B-1). Д53 делит полосу NTF-1 D1: расширение двух гейтов IaC-скана уходит в D1s.
+    Приёмка NTF-2 называет производителем того же расширения свою полосу D6.
+blocking_count: 1
+blocking_kinds_distinct: [PRODUCER]
+blocking_kinds_by_item:
+  B-1: PRODUCER
+blocking:
+  B-1: >-
+    [PRODUCER] У «Тогда» §6б строки Р8 (6) «гейт `assert-scan-stubs-hide-nothing.py` судит записи
+    `helm.values`» два производителя. Приёмка (§6б (6), §7 строка NTF2-71 (е)) пишет: «сегодня гейт
+    читает только `helm.set` … расширение вносит D6 тем же изменением». Посылка измерена на
+    `6edea09c2ee`, но это не база NTF-2. По Р16 п.1 NTF-2 начинается, когда NTF-1 влита. Маршрут NTF-1
+    в дереве (`docs/changes/issue-2915/tasks.md`, строка D1, @9b1aded1e) несёт в путях `trivy.yaml` и
+    `deploy/scripts/assert-scan-stubs-hide-nothing.py`. Замысел NTF-1 (`design.md` З28 «Новый
+    отслеживаемый чарт» (в), (г)) заводит форму `helm.values` в D1 и расширяет гейт заглушек на неё
+    своей формулой «гасит / без предмета» и своей инъекцией (чужой чарт). После Д53 это полоса D1s,
+    той же волны, что D1. Значит, на базе NTF-2 гейт уже судит `helm.values`, а семантика «без
+    предмета», «гасит» и печати объёма у него — NTF-1. Два изменения одного файла из двух полос с
+    разной семантикой — это не держатель, а конфликт посадки. Утверждение «файл в `helm.values` им
+    не судится» на базе NTF-2 ложно. Что сделать: переписать (6) и §7 от базы NTF-2. Гейт заглушек на
+    форме `helm.values` производит NTF-1 D1s (Д53). Дельта D6 — запись `edge.yaml` в
+    `helm.values`, печать чартов, выпавших из осмотра без записи, «пустой перечень выпавших на
+    `edge.yaml` — красный» и проба (7). Если D6 правит гейт NTF-1, это названо как правка чужого
+    гейта с его текущей формулой. Предпосылка печатается на базе полосы: гейт читает `helm.values`,
+    иначе «не выполнилось». Условие Р16 п.1 это уже покрывает — нужна строка, а не новое условие.
+non_blocking:
+  N-1: >-
+    [PRODUCER] §6б (7): «файла нет или он не разобрался — "не выполнилось"». После D6 `edge.yaml` —
+    продукт полосы, и его отсутствие — дефект, а не несозданное условие. Сейчас это держат (1) (у
+    рендера нет источника → красный) и (2) (голый рендер) — стоит сказать, что (7) это не держит, а
+    держат (1) и (2). Можно также сделать отсутствие красным.
+  N-2: >-
+    [FORMAT] Ключ ручки в значениях чарта края в приёмке не назван: названа только переменная
+    `KACHO_API_GATEWAY_TRUSTED_HOPS`. Множество (7) `{<ключ ручки>}` получит литерал только из
+    замысла. Можно назвать его или записать, что имя задаёт замысел З28.
+orders:
+  - to: acceptance-author (NTF-2)
+    what: "B-1: (6) и §7 NTF2-71 (е) — расширение гейта заглушек на `helm.values` производит NTF-1 D1s (Д53); дельта D6 — запись `edge.yaml`, печать выпавших чартов, (7); посылка — от базы NTF-2, а не от `6edea09c2ee`. N-1, N-2 — по желанию."
+  - to: design author (NTF-1)
+    what: >-
+      Замысел NTF-1 @9b1aded1e противоречит приёмке NTF-2. З28 (г), заметка N24 и §13 Е12 (12)
+      говорят: «в корне — только в `notify-standalone/values.yaml`», «D6 нового файла не заводит»,
+      «D6 вписывает строку ручки в те же файлы». Приёмка NTF-2 Р8 (одобрена в редакции 26,
+      сохранена в редакции 27) устроена наоборот: ключ ручки в корне только в
+      `notify-standalone/edge.yaml`, `notify-standalone/values.yaml` ключа не несёт (§6б (5) —
+      красный). Приёмка выше замысла — замыслу привести формулировки к ней. Замечено при наличии
+      незакоммиченной правки `design.md` (редакция 28, Д53) в той же рабочей копии; сверено с
+      закоммиченным 9b1aded1e.
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 81b95b646f716b58f68a4b07d74b189d7a5539ad9fc5891ee6b9e7e089c12aa1
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 81b95b64…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1, редакция 27, блокирующих 1: PRODUCER) · SHA-256
+    81b95b646f716b58f68a4b07d74b189d7a5539ad9fc5891ee6b9e7e089c12aa1
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: 1fa495870 (ветка issue-880)
+    kacho_epic: origin/2564 6edea09c2ee
+    ntf1_route: docs/changes/issue-2915/{design,tasks}.md @9b1aded1e (закоммичено)
+    tools: "trivy 0.70.0; helm v4.2.4; git (project/kacho)"
+  results:
+    - id: S-1
+      claim: граница (6) и держатель (7) конструируемы — чарт с `required` без файла выпадает, лишний ключ гасит находку и своего, и чужого чарта
+      command: >-
+        синтетика в scratchpad (ntf2r27): чарт edge с `required .Values.trustedHops` и
+        `readOnlyRootFilesystem: {{ .Values.roRoot | default false }}`, чарт other без required с тем же
+        securityContext; `trivy config . --config cfg.yaml` с `misconfiguration.helm.values` = [], [edge1.yaml
+        (trustedHops)], [edge2.yaml (trustedHops, roRoot)]; счёт целей и KSV-0014
+      outcome: >-
+        без файла — цели {other}, KSV-0014 {other}; edge1 — цели {edge, other}, KSV-0014 {edge, other};
+        edge2 — цели {edge, other}, KSV-0014 {} . Выпавшие без записи = {edge} (печать (6)
+        конструируема, непустота на edge.yaml — да); разность «без записи \ полный» на edge2 = {other
+        KSV-0014} → инъекция (6) на чарт, рендеримый без записи, красна; гашение KSV-0014 у edge разностью
+        не видно — ловит только (7) (листья {trustedHops, roRoot} ≠ {trustedHops}). Сходится с §6б (6), (7).
+    - id: S-2
+      claim: DoD п.22 — `git grep -c` не различает, `cat-file -e` и `show | grep -c` различают
+      command: >-
+        в project/kacho, H=6edea09c2ee: git grep -c 'KACHO_API_GATEWAY_TRUSTED_HOPS' H -- trivy.yaml;
+        git grep -c x H -- no/such.md; git cat-file -e H:trivy.yaml; git cat-file -e H:no/such.md;
+        git show H:trivy.yaml | grep -c 'KACHO_API_GATEWAY_TRUSTED_HOPS'; то же с 'misconfiguration'
+      outcome: "пусто rc=1; пусто rc=1; rc=0; rc=128; 0; 1 — сходится с DoD п.22 и контролем в обе стороны"
+    - id: S-3
+      claim: гейт заглушек на базе эпика читает только helm.set (посылка приёмки на 6edea09c2ee)
+      command: git show origin/2564:deploy/scripts/assert-scan-stubs-hide-nothing.py (scan_with, main)
+      outcome: верно на 6edea09c2ee; на базе NTF-2 (после NTF-1 по Р16 п.1) неверно по маршруту NTF-1 — B-1
+    - id: S-4
+      claim: маршрут NTF-1 отдаёт гейт заглушек и trivy.yaml полосе NTF-1
+      command: >-
+        awk '/^\| *D1 *\|/' docs/changes/issue-2915/tasks.md (пути);
+        sed -n 2280,2340p docs/changes/issue-2915/design.md (З28 (а)–(г))
+      outcome: >-
+        в путях D1 — trivy.yaml, assert-scan-stubs-hide-nothing.py и его инъекция; (в) — «гейт
+        расширяется: элементы helm.values снимаются по одному»; (г) — «Форму helm.values заводит D1»
+constructibility:
+  seeded: 2
+  of: 2
+  not_performed: 0
+  note: >-
+    Нетривиальные новые Given редакции 27 — граница (6) с однолистностью (7) и различение
+    существования и счёта в DoD п.22. Оба посеяны (S-1, S-2). Прочие Given не менялись; они
+    посеяны прежними кругами.
+route_flags:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true   # ручка доверенных прыжков края и IaC-скан (без изменений против редакции 26)
