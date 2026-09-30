@@ -3,7 +3,7 @@ Copyright (c) PRO-Robotech
 SPDX-License-Identifier: BUSL-1.1
 -->
 
-# Sub-phase NTF-2 (почта личности: kaname на ленте notify, защита почтовых глаголов, регистрация, снятие почты поставщика) — Acceptance
+# Sub-phase NTF-2 (почта личности: kaname на ленте notify, защита почтовых глаголов, регистрация, секрет почты у одного объекта) — Acceptance
 
 > **Статус:** DRAFT
 > **Статическая форма:** DRAFT; действующий вердикт выводится из внешнего события и записи ревью
@@ -70,15 +70,27 @@ SPDX-License-Identifier: BUSL-1.1
 > — редакция 13 · 2026-09-30 · вердикта нет · закрывает B-1 и N-1…N-6 этого круга; класс COVERAGE
 > «правило единственного производителя без держателя, падающего на копии» закрыт по всему документу
 > пятой переписью §6б — «единственный производитель → держатель»; что изменено — §11
+> — 2026-09-30 · круг 2 редакции 13 · ✅ APPROVED (блокирующих 0) · SHA-256
+> `ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f` ·
+> `docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml`
+> — редакция 14 · 2026-09-30 · вердикта нет · правка одобренной редакции 13 (`ef9c6801…`) по решениям
+> диспетчера Д39 (снятие почты поставщика личности — релиз identity-own, `kacho#1276`; страж секрета
+> почты один) и Д40 (база — линия релиза; все утверждения о дереве перемерены на её ветках); одобрение
+> редакции 13 к этому отпечатку не переносится; что изменено — §11
 > **Дата:** 2026-09-30
 > **Эпик:** `PRO-Robotech/kacho#2914` (сервис уведомлений — единый почтовый шлюз)
-> **Задачи:** `PRO-Robotech/kacho#2917` (чарт, край, консоль, снятие почты поставщика) и
+> **Задачи:** `PRO-Robotech/kacho#2917` (чарт, край, консоль, страж секрета почты) и
 > `PRO-Robotech/kaname#484` (сторона kaname); документ ведётся задачей `PRO-Robotech/kacho-workspace#880`;
 > пакет изменения — `docs/changes/issue-2917/` (заведён, ссылается на этот файл)
 > **Соседние под-фазы:** NTF-1 `kacho#2915` (`corelib#77`), NS `kacho#2916`, NTF-3 `kacho#2918`,
 > NTF-4 `kacho#2919`, NTF-5 `kacho#2924`, NTF-6 `kacho#2925`
-> **Ревизии замера:** kacho — ветка эпика `origin/2564` = `6edea09c2ee` (ствол `origin/main` =
-> `1d42a6728bf`); kaname — ветка эпика `origin/357` = `734f69fb4`; corelib `origin/main` = `34bc8104a83`
+> **База — линия релиза identity-own (Д40):** kacho — ветка эпика релиза `origin/2564` = `6edea09c2ee`,
+> в неё вливается волна-4 `origin/2798` = `96e2fa72b3a` (`2564` — предок `2798`, 31 коммит сверху);
+> kaname — `origin/357` = `734f69fb4`, волна-4 `origin/367` = `caf1c95ca` (`357` — предок, 72 коммита
+> сверху); corelib — `origin/26` = `cfe49ef00fa` = тег `v1.10.0-rc.5` (его пинят оба дерева). Замеры —
+> на головах волн-4 (`2798`, `367`) и `origin/26`; где число на ветке эпика другое, названо оба.
+> Предикат ревизий: `git rev-parse --short origin/{2564,2798}` в kacho, `origin/{357,367}` в kaname,
+> `origin/26` в corelib; `git merge-base --is-ancestor origin/2564 origin/2798` → 0
 > **Соседняя приёмка NTF-1, на которую опираются Р1, Р4, Р14:** редакция 16, SHA-256 `390b5a33368b…`,
 > вердикт APPROVED — `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/390b5a33368bc84b6d0b9351a85413d91bdab031c893391fa23ae5132c6b524e.yaml`.
 > Строки её изменённого текста против редакции 13 (`05828e42…`, которую сверял разбор классов) не
@@ -93,7 +105,8 @@ SPDX-License-Identifier: BUSL-1.1
 ## §0 Обзор
 
 NTF-2 переводит **всю почту личности** на единый шлюз `notify` и делает почтовые глаголы личности
-безопасными для владельца адреса. Под-фаза даёт семь результатов:
+безопасными для владельца адреса. Под-фаза даёт шесть результатов (S1–S5, S7; номер S6 не
+переиспользуется):
 
 1. **S1. kaname — источник ленты.** Приглашение, восстановление, подтверждение адреса и новые
    письма личности kaname ставит в свою ленту `corelib notify/feed` в транзакции события. Доставляет
@@ -110,26 +123,31 @@ NTF-2 переводит **всю почту личности** на едины�
 5. **S5. Обязательный класс S из аудита kaname** (Д9 в части личности): роли, ключи и токены,
    блокировка, сессии, пароль и второй фактор, ключ входа, вход с нового устройства, совершённое
    восстановление, удаление аккаунта и проекта.
-6. **S6. Почта поставщика личности снимается целиком** (Д12) — прямым переключением.
-7. **S7. Секрет почты смонтирован ровно в одном объекте — `notify`** — при напечатанном объёме обхода.
+6. **S6 — вне NTF-2** (Д39). Снятие почты поставщика личности — раздел `courier`, почтовый процесс,
+   потоки и хуки поставщика, подчарты `kratos` и `hydra` — принадлежит релизу identity-own:
+   `kacho#1276` в волне-4 `kacho#2798` (§4, Р19).
+7. **S7. Секрет почты смонтирован ровно в одном объекте — развёртывании `notify-sender`** (Д20, Д23,
+   Д39) — при напечатанном объёме обхода. Страж рендера один — существующий
+   `deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml`, доведённый до этого условия;
+   второго шаблона стража NTF-2 не заводит.
 
 **Предикат завершения** — одна формулировка, одинаковая здесь, в NTF2-30, NTF2-33 и в DoD п.20. В
 рендере каждой цепочки `deploy/stacks.txt` и в рендере самостоятельной поставки kaname:
 
-- объектов со ссылкой на секрет почты, отличных от `notify`, — **0**;
-- объектов, несущих адрес почтового узла, отличных от `notify`, — **0**;
-- в цепочке, объявляющей удостоверение почты, объект `notify` со ссылкой — **ровно 1**;
-- почтового процесса поставщика личности в рендере нет, а потоки поставщика, порождающие его письма,
-  выключены — и при повторном включении поставщика (NTF2-20, NTF2-21).
+- объектов со ссылкой на секрет почты, отличных от `notify-sender`, — **0**;
+- объектов, несущих адрес почтового узла, отличных от `notify-sender`, — **0**;
+- в цепочке, объявляющей удостоверение почты, объект `notify-sender` со ссылкой — **ровно 1**.
 
-Гейт печатает число цепочек и объектов обхода. Пустой обход — красный.
+Гейт печатает число цепочек и объектов обхода. Пустой обход — красный. Поставщик личности выключен во
+всех цепочках (§1.6), поэтому его объекты в обход цепочек не попадают; рендер с поставщиком,
+поднятым заново, — предмет `kacho#1276` (§1.7).
 
 Переход прямой, без периода двух путей: прода нет (В-прод, Д12).
 
 ### §0.1 Дом документа
 
 Дом — воркспейс `docs/specs/`. Предмет лежит в двух продуктах: kaname (глаголы, лента, аудит,
-модель), kacho (край, чарт, служба `notify`, консоль, конфигурация поставщика). Приёмка
+модель), kacho (край, чарт, служба `notify`, консоль). Приёмка
 кросс-доменного предмета живёт в воркспейсе (`.claude/rules/polyrepo.md` note «У приёмки домов ДВА,
 и это решение, а не дрейф»). Пакет изменения — `docs/changes/issue-2917/`; он ссылается на этот файл
 по отпечатку и не несёт его копии.
@@ -138,31 +156,39 @@ NTF-2 переводит **всю почту личности** на едины�
 
 ## §1 Что верно сегодня — с командой пересчёта
 
-Все замеры — на ревизиях шапки. «Дерево kaname» — `origin/357` @`734f69fb4`, «дерево kacho» —
-`origin/2564` @`6edea09c2ee`.
+Все замеры — на ревизиях шапки (Д40). «Дерево kaname» — `origin/367` @`caf1c95ca`, «дерево kacho» —
+`origin/2798` @`96e2fa72b3a`, «corelib» — `origin/26` @`cfe49ef00fa`. Каждое утверждение — предикат с
+командой и числом (Д24); где число на ветке эпика (`357` @`734f69fb4`, `2564` @`6edea09c2ee`) другое,
+оно названо рядом.
 
 ### §1.1 Почта kaname: отправитель, виды, очередь, ручки
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4 · единица — не-тестовый файл Go
-git grep -l '"net/smtp"' origin/357 -- '*.go' ':!*_test.go'
+# ДОМ: PRO-Robotech/kaname @caf1c95ca (origin/367) · единица — не-тестовый файл Go
+git grep -l '"net/smtp"' origin/367 -- '*.go' ':!*_test.go'
 #   → internal/check/mail_send_paths.go (гейт MAIL-47) · internal/clients/invite_mail.go (отправитель)
-git grep -hoE '"mail\.[a-z_]+\.[a-z_]+"' origin/357 -- '*.go' ':!*_test.go' | sort -u
+git grep -hoE '"mail\.[a-z_]+\.[a-z_]+"' origin/367 -- '*.go' ':!*_test.go' | sort -u
 #   → "mail.invite.send" "mail.recovery.send" "mail.verification.send"   (3 вида)
-git grep -n 'var OurMailKinds' origin/357 -- internal/check/mail_send_paths.go
+git grep -n 'var OurMailKinds' origin/367 -- internal/check/mail_send_paths.go
 #   → :112 — {MailKindInvite, MailKindRecovery, MailKindVerification}
-git grep -l 'invite_mail_outbox' origin/357 -- 'internal/migrations/*.sql'
+git grep -l 'invite_mail_outbox' origin/367 -- 'internal/migrations/*.sql'
 #   → 0001_initial.sql · 20260917015400_recovery_code_is_our_record.sql · 20260927190000_address_verification_is_our_verb.sql
-git show origin/357:internal/apps/kaname/config/defaults.go | grep -cE '"invite-mail\.'
+git show origin/367:internal/apps/kaname/config/defaults.go | grep -cE '"invite-mail\.'
 #   → 10 ключей почтового узла (relay, from, from-name, username-env, password-env, tls-mode, ca-bundle-file, login-url, attempt-timeout, max-attempts)
+# на origin/357 все пять команд дают то же
 ```
 
 **Перепись файлов kaname, задевающих почту.** Предикат — слова отправителя, очереди, видов и узла:
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4 · единица — отслеживаемый файл, кроме *.md
-LC_ALL=C git grep -lE 'invite-mail|inviteMail|KANAME_INVITE_MAIL|invite_mail|net/smtp|MailKind|OurMailKinds' origin/357 -- ':!*.md' | wc -l
-#   → 94 (из них не-тестовых 48)
+# ДОМ: PRO-Robotech/kaname @caf1c95ca · единица — отслеживаемый файл, кроме *.md
+P='invite-mail|inviteMail|KANAME_INVITE_MAIL|invite_mail|net/smtp|MailKind|OurMailKinds'
+LC_ALL=C git grep -lE "$P" origin/367 -- ':!*.md' | wc -l                    # → 97
+LC_ALL=C git grep -lE "$P" origin/367 -- ':!*.md' ':!*_test.go' | wc -l      # → 49 не-тестовых
+# на origin/357 — 94 и 48; разность по файлам (diff двух выводов):
+#   − cmd/kaname/provider_compensation_wiring.go (файл есть, слов предиката в нём после волны-4 нет)
+#   + deploy/mail_lane_names_every_letter_kind{,_injection}_test.go (#259) · deploy/values.prod.yaml
+#   + docs/content/install/configuration.mdx
 ```
 
 Разбивка по каталогам и исход каждой группы — §3б.
@@ -170,9 +196,11 @@ LC_ALL=C git grep -lE 'invite-mail|inviteMail|KANAME_INVITE_MAIL|invite_mail|net
 ### §1.2 Аудит kaname — источник класса S
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4
-git grep -hoE '"iam\.[a-z_]+\.[a-z_]+"' origin/357 -- '*.go' ':!*_test.go' | sort -u | wc -l   # → 61 вид события
-git grep -n 'CREATE TABLE kaname.audit_outbox' origin/357 -- internal/migrations/0001_initial.sql  # → :1716
+# ДОМ: PRO-Robotech/kaname @caf1c95ca
+git grep -hoE '"iam\.[a-z_]+\.[a-z_]+"' origin/367 -- '*.go' ':!*_test.go' | sort -u | wc -l   # → 61 вид события
+git grep -n 'CREATE TABLE kaname.audit_outbox' origin/367 -- internal/migrations/0001_initial.sql  # → :1716
+for e in <23 вида перечня ниже>; do git grep -hoE "\"iam\.$e\"" origin/367 -- '*.go' ':!*_test.go' | wc -l; done
+#   → у каждого из 23 видов ≥ 1 (видов с нулём — 0)
 ```
 
 Из обязательного набора Д9 в аудите есть: `access_binding.granted/revoked`,
@@ -188,12 +216,12 @@ git grep -n 'CREATE TABLE kaname.audit_outbox' origin/357 -- internal/migrations
 Производители видов, на которые пробы NTF2-90 и NTF2-89 опираются:
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4 · единица — место вызова вне объявления константы
-git grep -n 'AuditSecondFactorRemoved\|auditEventUserSecondFactorReset\|AuditAccessKeyRevoked\|eventSessionForceLogout' origin/357 -- '*.go' ':!*_test.go'
+# ДОМ: PRO-Robotech/kaname @caf1c95ca · единица — место вызова вне объявления константы
+git grep -n 'AuditSecondFactorRemoved\|auditEventUserSecondFactorReset\|AuditAccessKeyRevoked\|eventSessionForceLogout' origin/367 -- '*.go' ':!*_test.go'
 #   → humansession/sf_remove.go:144 (самостоятельное снятие фактора) · user/reset_second_factor.go:190
 #     (сброс распорядителем, UserService/ResetSecondFactor) · access_keys/revoke.go:173 (снятие ключа
-#     входа) · internal_iam/force_logout.go (InternalIAMService.ForceLogout) — у каждого есть глагол
-git grep -n 'AuditAccessKeyTransferred' origin/357 -- '*.go'
+#     входа) · internal_iam/force_logout.go:531 (InternalIAMService.ForceLogout) — у каждого есть глагол
+git grep -n 'AuditAccessKeyTransferred' origin/367 -- '*.go'
 #   → 1 строка: internal/apps/kaname/api/access_keys/audit.go:25 — объявление; вызова нет
 ```
 
@@ -203,11 +231,11 @@ git grep -n 'AuditAccessKeyTransferred' origin/357 -- '*.go'
 ### §1.3 Глагола смены адреса нет
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4
-git grep -hoE '"iam\.user\.email[a-z_]*"' origin/357 -- '*.go' ':!*_test.go'   # → "iam.user.email_verified" — и только
-git show origin/357:internal/check/people_address_writers.go | sed -n 12,23p
-#   гейт: мест, где непроверочный код пишет адрес в СУЩЕСТВУЮЩУЮ строку человека, — ноль;
-#   глагол смены адреса вносится только вместе со своими условиями (текст находки их называет)
+# ДОМ: PRO-Robotech/kaname @caf1c95ca
+git grep -hoE '"iam\.user\.email[a-z_]*"' origin/367 -- '*.go' ':!*_test.go'   # → "iam.user.email_verified" — и только
+git show origin/367:internal/check/people_address_writers.go | grep -n 'глагол смены адреса вносится только вместе'
+#   → :20 (на origin/357 — :23): гейт держит «мест, где непроверочный код пишет адрес в СУЩЕСТВУЮЩУЮ
+#     строку человека, — ноль»; находка называет, с чем вместе глагол вносится (`addressWriterFinding`)
 ```
 
 У пользователя один адрес: колонка `kaname.users.email` с отметкой `email_verified_at`, которую база
@@ -216,12 +244,12 @@ git show origin/357:internal/check/people_address_writers.go | sed -n 12,23p
 ### §1.4 Полоса формы: пути и регистрация
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4
-git grep -hoE '"/iam/v1/auth/[a-z0-9/_:-]+"' origin/357 -- internal/handler/loginlanehttp/*.go ':!*_test.go' | sort -u
+# ДОМ: PRO-Robotech/kaname @caf1c95ca
+git grep -hoE '"/iam/v1/auth/[a-z0-9/_:-]+"' origin/367 -- 'internal/handler/loginlanehttp/*.go' ':!*_test.go' | sort -u
 #   → 15 путей: csrf · login · logout · password · recovery · recovery/complete · register · second-factor (5) · step-up · verify-email · verify-email/confirm
-# ДОМ: PRO-Robotech/kacho @6edea09c2ee — край
-git grep -hoE '"/iam/v1/auth/[a-z0-9/_:-]*"' origin/2564 -- gateway/internal/middleware/login_lane_paths.go
-#   → те же 15 путей; пути `register/confirm` нет ни у kaname, ни у края
+# ДОМ: PRO-Robotech/kacho @96e2fa72b3a (origin/2798) — край
+git grep -hoE '"/iam/v1/auth/[a-z0-9/_:-]*"' origin/2798 -- gateway/internal/middleware/login_lane_paths.go | sort -u | wc -l
+#   → 15, те же пути (на origin/2564 — те же 15); `register/confirm` — 0 и у kaname, и у края
 ```
 
 Регистрация сегодня — контракт Ф4 (приёмка kaname `registration-and-its-three-consequences.md`,
@@ -230,15 +258,18 @@ git grep -hoE '"/iam/v1/auth/[a-z0-9/_:-]*"' origin/2564 -- gateway/internal/mid
 ### §1.5 Звенья, на которых стоит решение Д2 и Д3
 
 ```
-# ДОМ: PRO-Robotech/kaname @734f69fb4 — подписка у kaname есть
-git grep -l 'corelib/subscription' origin/357 -- '*.go' ':!*_test.go'
-#   → cmd/kaname/grpc_register.go · cmd/kaname/subscription_wiring.go · internal/repo/kaname/pg/subject_change_{repo,retention}.go · internal/restfront/registration.go
+# ДОМ: PRO-Robotech/kaname @caf1c95ca — подписка у kaname есть
+git grep -l 'corelib/subscription' origin/367 -- '*.go' ':!*_test.go'
+#   → 6 файлов: cmd/kaname/grpc_register.go · cmd/kaname/subscription_wiring.go ·
+#     internal/repo/kaname/pg/subject_change_{repo,retention}.go · internal/restfront/registration.go ·
+#     internal/subscriptionjournal/journal.go
 # ДОМ: PRO-Robotech/kaname — что судит TestMRW07
-git show origin/357:internal/servicemanifest/seed_form_test.go | sed -n 88,101p
-#   → судит ВСТРОЕННЫЙ манифест kaname: `seed.serviceAccounts` и `seed.joins` пусты
-#     («своей служебной записи у службы не бывает»); о типах модели он не утверждает ничего
-# ДОМ: PRO-Robotech/corelib @34bc8104a83 — подписка требует субъекта арендатора
-git show origin/main:subscription/server.go | sed -n 230,240p      # → «subscription requires an authenticated caller» + сужатель
+git show origin/367:internal/servicemanifest/seed_form_test.go | grep -n 'func TestMRW07\|ServiceAccounts) != 0'
+#   → :90 объявление, :98 проверка: судит ВСТРОЕННЫЙ манифест kaname — `seed.serviceAccounts` и
+#     `seed.joins` пусты («своей служебной записи у службы не бывает»); о типах модели он не утверждает ничего
+git show origin/367:internal/servicemanifest/manifest.embedded.yaml | grep -n 'служебной записи'   # → :67
+# ДОМ: PRO-Robotech/corelib @cfe49ef00fa (origin/26) — подписка требует субъекта арендатора
+git show origin/26:subscription/server.go | grep -n 'subscription requires an authenticated caller'   # → :233
 ```
 
 Вывод для Р1. Машинно TestMRW07 судит только подразделы `seed.serviceAccounts` и `seed.joins`, но
@@ -257,10 +288,14 @@ NTF-1 (Р3, §1.5, NTF1-F21, NTF1-G22), владелец механизма; NTF
 a8f60d. Единица — объект рендера (`kind/name`).
 
 ```
-# ДОМ: PRO-Robotech/kacho @6edea09c2ee, каталог deploy/helm/umbrella; локальные подчарты — из того же дерева
+# ДОМ: PRO-Robotech/kacho @96e2fa72b3a, каталог deploy/helm/umbrella; локальные подчарты
+# (`file://../../../…` в Chart.yaml) — из того же дерева, затем `helm dependency build .`; helm v4.2.4
 grep -v '^#' ../../stacks.txt | grep -v '^$' | while IFS=: read n c; do
   a="-f values.yaml"; for f in ${c//,/ }; do a="$a -f $f"; done
   helm template r . $a > chain-$n.yaml; done
+# посадка края: значение KACHO_API_GATEWAY_IDENTITY_PROVIDER; ручка полосы формы — число
+#   KACHO_API_GATEWAY_IAM_LOGIN_LANE_URL; рабочие объекты поставщика — Deployment/StatefulSet/Job
+#   с `# Source:` под charts/{kratos,hydra,pg-kratos,pg-hydra,identity-selfservice-ui}/;
 # держатель секрета: переменная окружения с valueFrom.secretKeyRef на удостоверение почты
 #   (KANAME_INVITE_MAIL_PASSWORD, KANAME_IDENTITY_SMTP_CREDENTIAL) либо на ключ smtpConnectionURI;
 # адрес узла: ConfigMap с ключом `relay:` в блоке `invite-mail`
@@ -276,62 +311,69 @@ grep -v '^#' ../../stacks.txt | grep -v '^$' | while IFS=: read n c; do
 | prorobotech | 216 | own | 1 | 0 | 0 | ConfigMap `kaname-config` |
 | a8f60d | 146 | own | 1 | 0 | 1 — Deployment `kaname` | ConfigMap `kaname-config` |
 
+Замер @`96e2fa72b3a` совпал поштучно с замером редакции 13 @`6edea09c2ee`: волна-4 переименовала
+файлы поставщика (`kacho#2759`), но рендера цепочек по этим столбцам не изменила.
+
 - Приёмник писем стенда отрендерен в 5 цепочках (dev, dev-prod, own, prorobotech, a8f60d).
-- Службы `notify` в дереве kacho нет: её заводит NTF-1.
+- Службы `notify` в дереве kacho нет: `git ls-tree -d origin/2798 services/notify | wc -l` → 0; её
+  заводит NTF-1.
 - Поставщик не поднимается ни в одной цепочке: выключение объявлено в базе зонтика, раздел «ЧУЖОЙ
-  СТЕК ЛИЧНОСТИ НЕ ПОДНИМАЕТСЯ НИ НА ОДНОМ СТЕНДЕ» (`deploy/helm/umbrella/values.yaml:767-768`,
-  `kratos.enabled: false`). Согласие посадки и флагов держит существующий гейт
-  `TestOwnPostureRaisesNoForeignIdentityService` (`deploy/own_posture_foreign_identity_test.go`).
+  СТЕК ЛИЧНОСТИ НЕ ПОДНИМАЕТСЯ НИ НА ОДНОМ СТЕНДЕ» (`deploy/helm/umbrella/values.yaml:749`, ключ
+  `kratos.enabled: false` — `:767-768`). Согласие посадки и флагов держит существующий гейт
+  `TestOwnPostureRaisesNoForeignIdentityService` (`deploy/own_posture_foreign_identity_test.go:347`).
 
-### §1.7 Почтовые объявления поставщика в дереве остаются
+### §1.7 Почта поставщика в дереве остаётся — предмет `kacho#1276`
 
-`deploy/helm/umbrella/charts/kaname/templates/_kratos-identity.tpl` @`6edea09c2ee` несёт хуки
-`show_verification_ui` (`:400`, `:416`) и `require_verified_address` (`:446`, `:461`), поток
-восстановления (`:475`), поток подтверждения (`:508`), раздел `courier` (`:622`) со сборкой адреса
-(`:620`), ссылку в шаге подстановки (`:1147`), `smtpConnectionURI` (`:1173`) и
-`KANAME_IDENTITY_SMTP_CREDENTIAL` (`:1182`).
+Снятие почты поставщика личности NTF-2 не делает (Д39): его делает релиз identity-own, `kacho#1276`
+(подчарты `kratos` и `hydra`, волна-4 `kacho#2798`). На базе он не влит:
 
 ```
-# ДОМ: PRO-Robotech/kacho
-git diff --stat 2267b405220 6edea09c2ee -- deploy        # → пусто: дерево развёртывания не менялось
+# ДОМ: PRO-Robotech/kacho @96e2fa72b3a
+git log --oneline origin/2798 | grep -c '#1276'                                        # → 0
+git ls-tree --name-only origin/2798 deploy/helm/umbrella/charts/ | grep -cE '^.*/(kratos|hydra)-'   # → 2 (архивы подчартов)
+git grep -cE 'courier|smtpConnectionURI|KANAME_IDENTITY_SMTP_CREDENTIAL' origin/2798 -- \
+  deploy/helm/umbrella/charts/kaname/templates/_identity-provider.tpl                  # → 6 строк
+# прежнее имя файла `_kratos-identity.tpl` снято волной-4 (`kacho#2759`): на 2798 его нет
 ```
 
-Поэтому замеры редакции 5 на `2267b405220` о повторном включении поставщика действуют и на
-`6edea09c2ee`: при включении набором ручек, которым дерево поднимает поставщика в своих пробах
-(`kratos.enabled`, `kaname.kratos.config.enabled`, `kaname.kratos.identitySchema.enabled`; набор
-объявлен в `deploy/tests/helm/provider-up.sh` `IDENTITY_STORE_UP_ARGS` и в срезе
-`providerRaisedByProbe` `deploy/provider_raised_by_probe_test.go`, согласие держит проба) рендер
-даёт 10 объектов поставщика, 2 объекта почтового процесса и 2 ссылки `smtpConnectionURI`.
+Отсюда одно следствие для S7. При повторном включении поставщика набором ручек, которым дерево
+поднимает его в своих пробах (`IDENTITY_STORE_UP_ARGS`, `deploy/tests/helm/provider-up.sh:53-55`),
+рендер получает держателей секрета почты у поставщика:
 
-### §1.8 Что процесс поставщика читает как конфигурацию
+```
+# тот же рендер §1.6 плюс --set kratos.enabled=true --set kaname.kratos.config.enabled=true
+#   --set kaname.kratos.identitySchema.enabled=true
+#   dev    → держателей 2: Deployment `r-kratos`, StatefulSet `r-kratos-courier` (ключ smtpConnectionURI)
+#   a8f60d → держателей 3: те же два и Deployment `kaname`
+```
 
-Замер редакции 5 (вход П7-kratos), дерево развёртывания с тех пор не менялось (§1.7). Процесс
-стартует с двумя аргументами `--config`, источников настроек три:
+Поэтому условие стража S7 «секрет почты смонтирован только у `notify-sender`» выполнимо на **всём**
+входе дерева только без подчартов поставщика: до `kacho#1276` законный вход дерева — пробы, поднимающие
+поставщика, — его нарушает. Полоса стража садится после вливания `kacho#1276` в ветку эпика релиза
+(Р16 п.4, Д40).
 
-| # | источник | чем задан | раздел `courier` на базе |
-|---|---|---|---|
-| 1 | ConfigMap подчарта `<релиз>-kratos-config` — первый `--config` | подчарт поставщика `0.62.1` из `kratos.kratos.config` и его умолчаний | `courier: {smtp: {}}` — умолчание подчарта, листьев 0 |
-| 2 | наша карта `kaname-kratos-config` — второй `--config` (через шаг подстановки) | `_kratos-identity.tpl` | `courier.smtp` с адресом, отправителем и именем |
-| 3 | окружение контейнеров поставщика: переменная перебивает ключ файла | подчарт и профили | `COURIER_SMTP_CONNECTION_URI` из ключа `smtpConnectionURI` — у двух объектов |
+### §1.8 (снят редакцией 14)
 
-Документы сливаются по порядку; наш идёт вторым и замещает одноимённый раздел целиком. Умолчание
-подчарта снять нельзя, не сломав его рендер: `courier: null` и `courier.smtp: null` роняют рендер на
-обращении подчарта к `courier.smtp.connection_uri` (`kratos/templates/secrets.yaml:20` архива
-`0.62.1`). Поэтому предикат снятия — не «раздела `courier` нет», а «нет ни ссылки на секрет, ни
-адреса узла, ни процесса, ни потоков» (Д12, Р19).
+Прежний §1.8 — источники конфигурации процесса поставщика — служил сценариям снятия почты поставщика
+и ушёл с ними в `kacho#1276` (Д39).
 
 ### §1.9 Перепись файлов дерева kacho, задевающих предмет
 
 ```
-# ДОМ: PRO-Robotech/kacho @6edea09c2ee · единица — отслеживаемый файл под deploy/, кроме *.md
+# ДОМ: PRO-Robotech/kacho @96e2fa72b3a · единица — отслеживаемый файл под deploy/, кроме *.md
 W='courier|COURIER_|statefulSet|smtpConnectionURI|KANAME_IDENTITY_SMTP_CREDENTIAL|mailCred|show_verification_ui|require_verified_address|flows\.recovery|flows\.verification|"recovery"|"verification"|hookRecoveryPayload|recovery-payload|hooks/recovery|kacho-mail-anchor|ВЫКЛЮЧЕНЫ|ВКЛЮЧЕНЫ|methods\.code|MAIL-[0-9]+'
 K='invite-mail|inviteMail|KANAME_INVITE_MAIL|kaname-mail-anchor|kaname-mail-credential'
-{ LC_ALL=C git grep -lE "$W|$K" origin/2564 -- deploy ':!*.md' | sed 's|^origin/2564:||'
-  git ls-tree -r --name-only origin/2564 deploy | grep -iE 'mail|courier|identity_method' | grep -v '\.md$'; } | LC_ALL=C sort -u | wc -l
-#   → 49  (только по W — 46: совпадает поштучно с переписью редакции 5; K добавляет 3 файла почты kaname)
+{ LC_ALL=C git grep -lE "$W|$K" origin/2798 -- deploy ':!*.md' | sed 's|^origin/2798:||'
+  git ls-tree -r --name-only origin/2798 deploy | grep -iE 'mail|courier|identity_method' | grep -v '\.md$'; } | LC_ALL=C sort -u | wc -l
+#   → 49  (только по W — 46; на origin/2564 — те же 49 и 46)
+# разность списков 2564 → 2798 — четыре переименования `kacho#2759`, файлов не прибавилось и не убыло:
+#   _kratos-identity.tpl → _identity-provider.tpl · kratos-config-configmap.yaml → identity-provider-config-configmap.yaml
+#   kratos-hooks-configmap.yaml → identity-provider-hooks-configmap.yaml · values.fe3455-ory-posture.yaml → values.fe3455-identity-posture.yaml
 ```
 
-Таблица исходов — §3а.
+Слово `W` — предмет прежней редакции (почта поставщика); после Д39 перепись по нему остаётся, чтобы
+исход каждого из 49 файлов был назван, а не выпал: у файлов почты поставщика исход — «за
+`kacho#1276`». Таблица исходов — §3а.
 
 ---
 
@@ -843,22 +885,30 @@ K='invite-mail|inviteMail|KANAME_INVITE_MAIL|kaname-mail-anchor|kaname-mail-cred
 ### Р15. Приёмник писем стенда читает только `notify` (решение автора; прежние Р8, Р13)
 
 - После NTF-2 объектов, чья почтовая полоса названа на приёмник стенда, в каждой цепочке не
-  больше одного, и это `notify`. Приёмник без читателя законен: цепочка может поднимать приёмник и
-  вести полосу `notify` к внешнему ретранслятору (NTF2-24).
+  больше одного, и это `notify-sender`. Приёмник без читателя законен: цепочка может поднимать
+  приёмник и вести полосу `notify-sender` к внешнему ретранслятору (NTF2-24).
 - **Основание:** В-без (приёмник читает коды; лишний читатель — лишний путь к ним).
 
-### Р16. Порядок и условие начала (Д13)
+### Р16. Порядок и условие начала (Д13, Д40)
 
-NTF-2 начинается, когда на её базе (ветки эпика `kacho#2914` в kacho и kaname) выполнены все
-условия:
+База NTF-2 — линия релиза identity-own (Д40): kacho — ветка эпика релиза `2564` с влитой волной-4
+`2798`, kaname — `357` с влитой `367`, corelib — `26`. NTF-2 начинается, когда на этой базе выполнены
+все условия:
 
-1. NTF-1 влита: `git ls-tree <база kacho> services/notify` не пуст; в corelib-пине обеих деревьев
+1. NTF-1 влита: `git ls-tree <база kacho> services/notify` не пуст; в corelib-пине обоих деревьев
    есть `notify/feed` и `notify/spec`; модель kaname несёт типы `notification_namespace` и
-   `notification_feed` (Д2–Д4).
+   `notification_feed` (Д2–Д4). Замер: `git ls-tree -d origin/2798 services/notify | wc -l` → 0;
+   `git ls-tree -d origin/26 notify | wc -l` в corelib → 0 — условие сегодня не выполнено.
 2. Посадка `own` стоит во всех цепочках: в рендере **каждой** цепочки `deploy/stacks.txt` посадка
    края — `own`, ручка полосы формы — 1, рабочих объектов поставщика — 0 (команды §1.6). Замер
-   @`6edea09c2ee`: 7 из 7.
-3. Край ретранслирует `verify-email` и `verify-email/confirm` (§1.4). Замер @`6edea09c2ee`: да.
+   @`96e2fa72b3a`: 7 из 7. Держит существующий гейт `TestOwnPostureRaisesNoForeignIdentityService`.
+3. Край ретранслирует `verify-email` и `verify-email/confirm` (§1.4). Замер @`96e2fa72b3a`: да.
+4. **Только для полосы стража S7** (DoD п.14): `kacho#1276` влит в ветку эпика релиза — подчартов
+   поставщика в зонтике нет: `git ls-tree --name-only <база kacho> deploy/helm/umbrella/charts/ |
+   grep -cE '/(kratos|hydra)-'` → 0. Замер @`96e2fa72b3a`: 2 — условие сегодня не выполнено.
+   Основание — §1.7: до `kacho#1276` условие стража нарушает законный вход дерева. Прочие полосы NTF-2
+   этого условия не ждут; полосы, трогающие файлы, переименованные или снимаемые волной-4, называют их
+   новыми именами и зависят от вливания этих задач (Д40, маршрут `docs/changes/issue-2917/tasks.md`).
 
 Вывод команд прикладывается к задаче `kacho#2917` до первой строки реализации. NTF-2 входит в
 первую волну вместе с NTF-1 (P1) и садится **до** закрытия `kaname#475` (Р18).
@@ -878,25 +928,30 @@ NTF-2 начинается, когда на её базе (ветки эпика
 здоровой, а подтвердить адрес нельзя» больше нет. `kaname#475` закрывается ссылкой на NTF2-50…52 и
 Р4 после посадки NTF-2.
 
-### Р19. Почта поставщика снимается из дерева целиком, прямым переключением (Д12)
+### Р19. Почта поставщика — не предмет NTF-2; секрет почты — у одного объекта, страж один (Д39)
 
-- Снимаются: раздел `courier` нашей конфигурации поставщика со всем, что его питает; обе ссылки на
-  секрет почты; потоки восстановления и подтверждения (`enabled: false`); метод `code` (и `link`);
-  хуки `show_verification_ui` и `require_verified_address`; нагрузка обратного вызова восстановления
-  и её член в отпечатке хуков профилей; якорь сертификата почтового узла у поставщика.
-- Почтовый процесс поставщика выключается ключом `kratos.courier.enabled: false` в базе зонтика:
-  умолчание подчарта (`true`) подняло бы его при повторном включении поставщика.
-- Умолчание подчарта `courier: {smtp: {}}` в его документе конфигурации **остаётся** без листьев
-  (замер §1.8); любой лист под `kratos.kratos.config.courier` рендер отвергает (NTF2-23).
-- **Предикат снятия** (Д12): в рендере нет ни ссылки на секрет почты, ни адреса почтового узла у
-  поставщика; процесс отправки писем поставщика не запущен; потоки, порождающие его письма,
-  выключены; секрет почты смонтирован ровно в одном объекте (`notify`) при напечатанном объёме
-  обхода. Утверждение «раздела `courier` в рендере 0» предикатом **не** является: оно ложно на верной
-  реализации из-за умолчания подчарта.
-- Правда о подтверждённости одна — отметка kaname; рубеж стоит на единственной полосе входа, нашей
-  (NTF2-19). Хук `require_verified_address` снимается как ссылка на снятый поток, а не как
-  смягчение.
-- **Основание:** В1, В-прод, В-без.
+- **Снятие почты поставщика личности принадлежит релизу identity-own** — `kacho#1276` в волне-4
+  `kacho#2798` (решение диспетчера Д39): раздел `courier` нашей конфигурации поставщика и всё, что его
+  питает, ссылки поставщика на секрет почты, почтовый процесс, потоки восстановления и подтверждения,
+  метод `code`, хуки `show_verification_ui` и `require_verified_address`, нагрузка обратного вызова
+  восстановления, якорь сертификата почтового узла у поставщика, подчарты `kratos` и `hydra`, их пробы
+  и абзацы профилей. NTF-2 этих файлов не правит (§3а, исход «за `kacho#1276`»; DoD п.13). Прежние
+  Р19 «снятие прямым переключением», ключ `kratos.courier.enabled` и страж листа под `courier` из NTF-2
+  сняты вместе с предметом.
+- **Секрет почты смонтирован ровно в одном объекте — `notify-sender`.** Предикат §0 судится в рендере
+  каждой цепочки `deploy/stacks.txt` и самостоятельной поставки kaname (NTF2-30…33). Поставщик в
+  цепочках выключен (§1.6), поэтому его объекты в обход не попадают; рендер с поставщиком, поднятым
+  заново, — вход `kacho#1276` (§1.7).
+- **Страж рендера один** — существующий шаблон `deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml`
+  (место С1 ID-MAIL-1). NTF-2 доводит его до условия «секрет почты смонтирован только у
+  `notify-sender`»: объявление, из которого ссылка на удостоверение почты получилась бы у объекта,
+  отличного от `notify-sender`, — отказ рендера с именем объекта (NTF2-31). Второго шаблона стража почты
+  NTF-2 не заводит (DoD п.14). Полоса стража садится после `kacho#1276` (Р16 п.4).
+- Правда о подтверждённости одна — отметка kaname; рубеж по ней стоит на единственной полосе входа,
+  нашей (NTF2-19). Хук поставщика `require_verified_address` снимает `kacho#1276` вместе с потоками
+  поставщика.
+- **Основание:** В1 (единая точка у кого есть креды — `notify-sender`), В-без (один страж — одно место
+  правды о держателе), Д39.
 
 ---
 
@@ -904,22 +959,22 @@ NTF-2 начинается, когда на её базе (ветки эпика
 
 | прежнее | где | исход |
 |---|---|---|
-| Р23 «у письма приглашения производитель — наш код; у двух других — почтовый процесс поставщика» | `sub-phase-ID-MAIL-1-mail-delivery-acceptance.md` | **замещено**: все письма личности kaname ставит в ленту, доставляет `notify` (Р1) |
+| Р23 «у письма приглашения производитель — наш код; у двух других — почтовый процесс поставщика» | `sub-phase-ID-MAIL-1-mail-delivery-acceptance.md` | **замещено**: все письма личности kaname ставит в ленту, доставляет `notify` (Р1); почтовый процесс поставщика снимает `kacho#1276` (Д39) |
 | MAIL-47 «один путь отправки на вид письма», перечень `OurMailKinds` | там же; kaname `internal/check/mail_send_paths.go` | **замещено**: «отправителей SMTP в kaname 0» (NTF2-44) и «виды писем = шаблоны kaname» (NTF2-45) |
 | MAIL-25 и Р22 «ограничение частоты на наших глаголах, отправляющих письмо» | там же | **замещено** таблицей Р8 и сценариями S3 |
-| Р26 «оба процесса службы личности читают нашу почтовую карту» | там же | **снято**: почтовой настройки у объектов поставщика нет (NTF2-20, NTF2-21) |
-| Р27 «почтовая полоса объявлена одним местом» в части раздела `courier` | там же | **замещено**: наших мест, объявляющих `courier`, 0; умолчание подчарта без листьев (Р19); полоса объявлена ручкой `notify` |
+| Р26 «оба процесса службы личности читают нашу почтовую карту» | там же | **вне NTF-2**: почтовую настройку объектов поставщика снимает `kacho#1276` (Д39, Р19) |
+| Р27 «почтовая полоса объявлена одним местом» в части раздела `courier` | там же | **вне NTF-2**: раздел `courier` снимает `kacho#1276`; NTF-2 не меняет, что полоса объявлена одним местом `global.kacho.identity.smtp.*`, и называет её читателем `notify-sender` вместо kaname |
 | Р21б «окно предъявителей поставщика» | там же | **истекает**: код — запись kaname (Р6) |
-| Р4а, место С2 (проверка почтовой полосы в шаге подстановки поставщика) | там же; `deploy/tests/helm/identity-mail-lane-runtime-inject.sh` | **снимается** вместе с шагом подстановки удостоверения (NTF2-21, NTF2-32). Место С1 (страж ручки полосы) остаётся за ручкой `notify` |
-| §1.10а «письма шлёт второй объект службы личности» | там же | **истекает** |
+| Р4а, место С2 (проверка почтовой полосы в шаге подстановки поставщика) | там же; `deploy/tests/helm/identity-mail-lane-runtime-inject.sh` | **вне NTF-2**: снимается вместе с шагом подстановки удостоверения поставщика — `kacho#1276`. Место С1 (`identity-mail-lane-guard.yaml`) остаётся и доводится до условия «секрет только у `notify-sender`» (Р19, NTF2-31) |
+| §1.10а «письма шлёт второй объект службы личности» | там же | **истекает** с почтовым процессом поставщика — `kacho#1276` |
 | MAIL-01 (подтверждение доставлено и принято) | там же | **производитель заменён**: NTF2-01, NTF2-02 |
 | MAIL-02 (Given «человек прошёл MAIL-01») | там же | **Given переопределено**: подтверждённый адрес — исход NTF2-80 или NTF2-02 |
 | MAIL-03 (неподтверждённый адрес входа не даёт) | там же | **замещено**: отказ стоит дальше экрана подтверждения — NTF2-19 |
 | MAIL-04 (восстановление доставлено) | там же | **производитель заменён**: NTF2-43 |
-| MAIL-14, MAIL-15, MAIL-16, MAIL-17, MAIL-18, MAIL-49, MAIL-51, MAIL-52 | там же и их держатели в `deploy/` (§3а) | **сняты вместе с предметом**; MAIL-52 передан NTF2-19 |
+| MAIL-14, MAIL-15, MAIL-16, MAIL-17, MAIL-18, MAIL-49, MAIL-51, MAIL-52 | там же и их держатели в `deploy/` (§3а) | **вне NTF-2**: снимаются вместе с почтой поставщика — `kacho#1276` (§3а, исход «за `kacho#1276`»); рубеж подтверждённости на нашей полосе, заменяющий MAIL-52, утверждает NTF2-19 |
 | MAIL-48 «оба отправителя читают одно объявление» | там же; `deploy/identity_mail_lane_feeds_both_senders{,_injection}_test.go` | **переписан**: держатель предиката §0 (NTF2-30…32) |
-| MAIL-54 «полоса объявлена одним местом» | там же; `deploy/identity_mail_lane_single_declaration{,_injection}_test.go` | **переписан** (§3а, строки 21–22) |
-| Р7 и Р18 ID-MAIL-1 (приёмник писем стенда) | там же | **сохранено**, читатель сужен до `notify` (Р15, NTF2-24) |
+| MAIL-54 «полоса объявлена одним местом» | там же; `deploy/identity_mail_lane_single_declaration{,_injection}_test.go` | **вне NTF-2**: предмет — раздел `courier`; правка — `kacho#1276` (§3а, строки 21–22) |
+| Р7 и Р18 ID-MAIL-1 (приёмник писем стенда) | там же | **сохранено**, читатель сужен до `notify-sender` (Р15, NTF2-24) |
 | Р7 «живёт только последний выданный код», EV-33, EV-34 | kaname `access-beyond-login-needs-a-verified-address.md` | **замещено**: пока код жив, повтор шлёт тот же код (Р6, NTF2-40, NTF2-41) |
 | ручка `verification-code-attempts` (код гаснет после N неверных) | там же; kaname `config/login_lane.go` | **замещено**: неверные предъявления код не гасят, перебор держат оси Р6 (NTF2-66) |
 | Р8 «третий вид в той же очереди» | там же | **замещено**: лента `notify` (Р1) |
@@ -928,7 +983,7 @@ NTF-2 начинается, когда на её базе (ветки эпика
 | Ф4-01, Ф4-11, Ф4-12 (регистрация выдаёт сессию сразу; занятый адрес — отказ) | kaname `registration-and-its-three-consequences.md` | **замещено**: «сначала письмо, потом сессия» (Р9, NTF2-80…85); четыре следствия Ф4-01 наступают на `register/confirm` |
 | Ф5-01 (код чеканится на каждый запрос) | kaname `recovery-of-access.md` | **замещено**: повтор того же живого кода (Р6, NTF2-64) |
 | Ф5-09, Ф5-10, Ф5-11, Ф5-12 (письмо в НАШУ очередь, перепись видов и отправителей, узел недоступен) | там же | **замещено**: лента `notify` (NTF2-43, NTF2-45, NTF2-07) |
-| Д5 «истекает вместе с поставщиком» | там же | **исполняется** здесь (S6) |
+| Д5 «истекает вместе с поставщиком» | там же | **исполняет** `kacho#1276` (Д39) |
 | ручки `invite.mail-rate-limit.*` | kaname конфигурация и поставка | **замещено** потолками приглашений Р7, Р8 (NTF2-69) |
 | предмет `kaname#475` «узел почты — условие старта `own`» | трекер | **замещён** флагом (Р18) |
 
@@ -937,94 +992,94 @@ NTF-2 начинается, когда на её базе (ветки эпика
 
 ### §3а Перепись файлов дерева kacho, задевающих предмет
 
-Перепись — объединение трёх источников, у каждого найденного файла исход из закрытого словаря:
+Перепись — объединение двух источников, у каждого найденного файла исход из закрытого словаря:
 
-1. **слова предмета** — команда §1.9 (слова решений Р2 и Р19, всего, что снимается вместе с ними,
-   меток ID-MAIL-1 и имён файлов), 49 файлов @`6edea09c2ee`;
-2. **посев «после NTF-2»** — дерево по DoD п.13–п.15, прогнанное всеми бегунами дерева `deploy`:
-   `go test -count=1 ./deploy/...` без метки и с меткой `helmcharts`, `make -C deploy gate-self-test`,
-   `make -C deploy injection-proofs`, `make -C deploy helm-manifest-test`. Файл, красный на посеве при
-   зелёной базе, обязан стоять с исходом «снят» или «переписан»;
-3. **посев без ключа** `kratos.courier.enabled` — гейт, зелёный с ключом и красный без него,
-   зеленеет за счёт ключа; исход «остаётся» ему запрещён.
+1. **слова предмета** — команда §1.9 (слова почты kaname `K`, слова почты поставщика `W` прежней
+   редакции, меток ID-MAIL-1 и имён файлов), 49 файлов @`96e2fa72b3a`; пути — именами после
+   `kacho#2759`;
+2. **посев «после NTF-2»** — дерево по DoD п.14 и п.16 (снята почтовая полоса kaname в чарте, страж
+   доведён до условия S7), прогнанное всеми бегунами дерева `deploy`: `go test -count=1 ./deploy/...`
+   без метки и с меткой `helmcharts`, `make -C deploy gate-self-test`, `make -C deploy injection-proofs`,
+   `make -C deploy helm-manifest-test`. Файл, красный на посеве при зелёной базе, обязан стоять с
+   исходом «правится» или «переписан».
 
-**Замер посевов** — на `2267b405220` (редакция 5); дерево `deploy` с тех пор не менялось (§1.7):
-`go test ./deploy/...` с `helmcharts` — база 1025 PASS · 0 FAIL · 7 SKIP, посев с ключом 983 PASS ·
-37 FAIL (файлов 13), посев без ключа 978 PASS · 42 FAIL (файлов 14); `gate-self-test` 90/90 на обоих;
-`injection-proofs` — посев красный в строках 18 и 46; `helm-manifest-test` 40/40. Три файла почты
-kaname (строки 47–49) на этом посеве не судились: их предмет — снятие полосы kaname, которого посев
-редакции 5 не делал; их исход назначен по предмету и перемеряется на базе старта (DoD п.16).
+**Посев перемеряется на базе старта** (DoD п.16). Посевы редакции 5 (`2267b405220`) мерили снятие
+почты поставщика — предмет, ушедший в `kacho#1276` (Д39), — и к предмету NTF-2 не относятся; третий
+источник прежней редакции (посев без ключа `kratos.courier.enabled`) снят вместе с ключом.
 
-Словарь исходов: **правится** — из файла снимается предмет NTF-2; **снят** — файл снимается вместе с
-предметом, предмет передан сценарию; **переписан** — утверждение, якорь или настоящий вход меняются,
-новое утверждение названо; **остаётся** — файл зелёный на обоих посевах без правки (кроме
-комментария, ставшего ложным), печатает непустой обход, и его счёт после NTF-2 назван и не является
-ни снимаемым предметом, ни добавляемым ключом.
+Словарь исходов: **правится** — из файла снимается предмет NTF-2 либо вносится её правка;
+**переписан** — утверждение, якорь или настоящий вход меняются, новое утверждение названо;
+**остаётся** — NTF-2 файл не меняет, его предмет переживает NTF-2, файл печатает непустой обход (кроме
+комментария, ставшего ложным); **за `kacho#1276`** — предмет файла — почта поставщика личности (Д39):
+NTF-2 файл не правит, правку или снятие делает `kacho#1276` (DoD п.13). Исхода «снят» у NTF-2 в
+дереве kacho нет.
 
-| # | файл (под `deploy/`) | посев | исход | куда предмет / что гейт считает после NTF-2 |
-|---|---|---|---|---|
-| 1 | `helm/umbrella/charts/kaname/templates/_kratos-identity.tpl` | — | правится | DoD п.13; утверждает NTF2-21 |
-| 2 | `helm/umbrella/values.yaml` | — | правится | `kratos.courier.enabled: false`; `global.kacho.notifications.enabled`; абзац об `invite-mail.ca-bundle-file` снимается. Блок приёмника остаётся (Р15) |
-| 3 | `helm/umbrella/values.dev.yaml` | — | правится | снимаются: блок `kratos.statefulSet`; якорь сертификата почтового узла у поставщика; член `hookRecoveryPayload` в отпечатке `KACHO_IDENTITY_HOOKS_SHA256`; абзацы о почтовом процессе и `courier` |
-| 4 | `helm/umbrella/values.prod.yaml` | — | правится | блок `kratos.statefulSet` (с вложенным `statefulSet.log`), член отпечатка, абзацы |
-| 5 | `helm/umbrella/values.fe3455-ory-posture.yaml` | — | правится | абзац о разделе `courier` |
-| 6 | `helm/umbrella/charts/kaname/templates/configmap.yaml` | — | правится | блок `invite-mail` снимается; ручка флага почты добавляется (Р4) |
-| 7 | `helm/umbrella/cutover-fe3455.sh` | — | правится | абзац об объявленном разделе `courier` |
-| 8 | `identity_courier_arg_premise_test.go` | зелёный, предмет исчез | снят | NTF2-20 (MAIL-49 истекает) |
-| 9 | `identity_courier_reads_what_it_mounts_test.go` | красный | снят | NTF2-20 |
-| 10 | `identity_bearer_window_ceiling_test.go` | красный | снят | MAIL-51 → NTF2-21 |
-| 11 | `identity_bearer_window_ceiling_injection_test.go` | красный | снят | то же |
-| 12 | `identity_delivery_flows_declared_once_test.go` | зелёный, предмет исчез | снят | MAIL-18 → NTF2-21, NTF2-23 |
-| 13 | `identity_delivery_flows_declared_once_injection_test.go` | зелёный, предмет исчез | снят | то же |
-| 14 | `identity_verification_mirrors_the_requirement_test.go` | красный | снят | MAIL-15…17 → NTF2-21, NTF2-19, NTF2-01 |
-| 15 | `identity_verification_mirrors_the_requirement_injection_test.go` | красный | снят | то же |
-| 16 | `identity_verified_address_required_on_both_lanes_test.go` | красный | снят | MAIL-52 → NTF2-19 |
-| 17 | `identity_verified_address_required_on_both_lanes_injection_test.go` | красный | снят | то же |
-| 18 | `tests/helm/identity-mail-lane-runtime-inject.sh` | красный | снят | место С2 → NTF2-21, NTF2-32 |
-| 19 | `identity_mail_lane_feeds_both_senders_test.go` | красный | переписан | держатель NTF2-30: предикат §0 |
-| 20 | `identity_mail_lane_feeds_both_senders_injection_test.go` | красный | переписан | инъекции NTF2-31 (а)–(г) |
-| 21 | `identity_mail_lane_single_declaration_test.go` | зелёный с ключом, красный без ключа | переписан | пара 1: «блоков `courier` с настройкой 0; ключ `kratos.courier.enabled` — ровно одно место, базовый `values.yaml`, `false`»; пары 2 и 3 — за ручкой `notify` |
-| 22 | `identity_mail_lane_single_declaration_injection_test.go` | красный | переписан | ось 1: настоящий вход — раздел `courier` шаблона с базы до NTF-2, возвращённый в шаблон, — красный; близнец — ключ выключения без настройки — молчит; ось 3 — на перечнях после NTF-2 |
-| 23 | `identity_mail_defaults_are_empty_test.go` | зелёный | остаётся | умолчания ручки `global.kacho.identity.smtp.*`; её читатель — `notify` |
-| 24 | `identity_mail_defaults_are_empty_injection_test.go` | зелёный | остаётся | то же |
-| 25 | `helm/umbrella/templates/identity-mail-lane-guard.yaml` | — | остаётся | место С1, страж ручки полосы; абзац шапки о читателе правится |
-| 26 | `tests/helm/identity-mail-lane-guard-inject.sh` | зелёный | остаётся | пробы места С1 |
-| 27 | `helm/umbrella/templates/mail-receiver.yaml` | — | остаётся | приёмник — ядро стенда (Р15) |
-| 28 | `mail_receiver_core_test.go` | зелёный | остаётся | объекты приёмника по цепочкам |
-| 29 | `mail_receiver_core_injection_test.go` | зелёный | остаётся | то же |
-| 30 | `scripts/newman-parallel.sh` | — | остаётся | приёмник на каждом шарде |
-| 31 | `identity_callback_transport_test.go` | зелёный | остаётся | совпадение — синтетический вход (`lane: "recovery"`) |
-| 32 | `identity_flow_path_is_served_injection_test.go` | зелёный | остаётся | совпадение — синтетический вход |
-| 33 | `identity_replaced_lists_injection_test.go` | зелёный | остаётся | совпадение — синтетический вход |
-| 34 | `identity_step_declaration_parses_injection_test.go` | красный | переписан | якорь инъекции переводится на ключ шага, который остаётся |
-| 35 | `identity_file_keys_survive_the_environment_test.go` | зелёный | остаётся | ключи нашего файла настроек (99 на посеве) против переменных чарта поставщика |
-| 36 | `identity_file_keys_survive_the_environment_injection_test.go` | красный | переписан | новый настоящий вход — остающийся ключ, перебиваемый переменной; `…ExistingControlStillReds` снимается |
-| 37 | `identity_substitution_judges_the_form_test.go` | зелёный | остаётся | ссылки во владении шага: `KANAME_HOOK_TOKEN` |
-| 38 | `helm/umbrella/charts/kaname/templates/deployment.yaml` | — | правится | переменные `KANAME_INVITE_MAIL_*`, том якоря почтового узла и абзац о них снимаются |
-| 39 | `helm/umbrella/charts/kaname/values.yaml` | — | правится | значения почтового узла kaname снимаются; флаг почты добавляется |
-| 40 | `helm/umbrella/charts/kaname/templates/kratos-config-configmap.yaml` | — | правится | абзац шапки о потоке восстановления |
-| 41 | `helm/umbrella/charts/kaname/templates/kratos-hooks-configmap.yaml` | — | правится | запись `recovery-payload.jsonnet` и абзац о ней |
-| 42 | `identity_method_comment_matches_declaration_test.go` | зелёный | остаётся | перечень методов «ВЫКЛЮЧЕНЫ: code, link, oidc / ВКЛЮЧЕНЫ: profile» совпадает с объявлением |
-| 43 | `identity_method_comment_matches_declaration_injection_test.go` | красный (6 из 7) | переписан | новый настоящий вход — отмеченный перечень после NTF-2 |
-| 44 | `chart_env_names_carry_their_own_product_prefix_test.go` | зелёный | остаётся | совпадение: `COURIER_…` — пример чужого имени |
-| 45 | `chart_env_names_carry_their_own_product_prefix_injection_test.go` | зелёный | остаётся | совпадение — синтетический вход |
-| 46 | `tests/helm/identity-substitution-output-inject.sh` | красный | переписан | ось С снимается вместе с местом С2; оси А, В, D не меняются |
-| 47 | `address_gate_stand_render_test.go` | не судился | переписан | F6b-56 (б): «у стенда почтовая полоса объявлена у `notify`» вместо блока `invite-mail` в настройках kaname |
-| 48 | `helm/umbrella/charts/kaname/templates/_helpers.tpl` | не судился | правится | помощник каталога якоря почтового узла kaname и абзац о нём снимаются |
-| 49 | `helm/umbrella/values.a8f60d.yaml` | не судился | правится | ссылка на секрет почты у kaname снимается; удостоверение объявляется для `notify` |
+| # | файл (под `deploy/`) | исход | куда предмет / что гейт считает после NTF-2 |
+|---|---|---|---|
+| 1 | `helm/umbrella/charts/kaname/templates/_identity-provider.tpl` | за `kacho#1276` | раздел `courier`, шаг подстановки, потоки, хуки (Р19) |
+| 2 | `helm/umbrella/values.yaml` | правится | `global.kacho.notifications.enabled` (Р4); абзац об `invite-mail.ca-bundle-file` снимается. Блок приёмника остаётся (Р15); `kratos.courier.enabled` NTF-2 не вносит |
+| 3 | `helm/umbrella/values.dev.yaml` | за `kacho#1276` | блок `kratos.statefulSet`, якорь почтового узла поставщика, член `hookRecoveryPayload` отпечатка |
+| 4 | `helm/umbrella/values.prod.yaml` | за `kacho#1276` | то же для боевого профиля |
+| 5 | `helm/umbrella/values.fe3455-identity-posture.yaml` | за `kacho#1276` | абзац о разделе `courier` |
+| 6 | `helm/umbrella/charts/kaname/templates/configmap.yaml` | правится | блок `invite-mail` снимается; ручка флага почты добавляется (Р4) |
+| 7 | `helm/umbrella/cutover-fe3455.sh` | за `kacho#1276` | абзац об объявленном разделе `courier` |
+| 8 | `identity_courier_arg_premise_test.go` | за `kacho#1276` | MAIL-49 |
+| 9 | `identity_courier_reads_what_it_mounts_test.go` | за `kacho#1276` | почтовый процесс поставщика |
+| 10 | `identity_bearer_window_ceiling_test.go` | за `kacho#1276` | MAIL-51 |
+| 11 | `identity_bearer_window_ceiling_injection_test.go` | за `kacho#1276` | то же |
+| 12 | `identity_delivery_flows_declared_once_test.go` | за `kacho#1276` | MAIL-18 |
+| 13 | `identity_delivery_flows_declared_once_injection_test.go` | за `kacho#1276` | то же |
+| 14 | `identity_verification_mirrors_the_requirement_test.go` | за `kacho#1276` | MAIL-15…17 |
+| 15 | `identity_verification_mirrors_the_requirement_injection_test.go` | за `kacho#1276` | то же |
+| 16 | `identity_verified_address_required_on_both_lanes_test.go` | за `kacho#1276` | MAIL-52: хук поставщика снимается с потоками; рубеж нашей полосы — NTF2-19 |
+| 17 | `identity_verified_address_required_on_both_lanes_injection_test.go` | за `kacho#1276` | то же |
+| 18 | `tests/helm/identity-mail-lane-runtime-inject.sh` | за `kacho#1276` | место С2 шага подстановки поставщика |
+| 19 | `identity_mail_lane_feeds_both_senders_test.go` | переписан | держатель NTF2-30: предикат §0; наш отправитель kaname снят, читатель полосы `global.kacho.identity.smtp.*` со стороны установки — `notify-sender` |
+| 20 | `identity_mail_lane_feeds_both_senders_injection_test.go` | переписан | инъекции NTF2-31 (а), (б), (в), (д) |
+| 21 | `identity_mail_lane_single_declaration_test.go` | за `kacho#1276` | MAIL-54: единственность раздела `courier` |
+| 22 | `identity_mail_lane_single_declaration_injection_test.go` | за `kacho#1276` | то же |
+| 23 | `identity_mail_defaults_are_empty_test.go` | остаётся | умолчания ручки `global.kacho.identity.smtp.*`; её читатель в установке — `notify-sender` |
+| 24 | `identity_mail_defaults_are_empty_injection_test.go` | остаётся | то же |
+| 25 | `helm/umbrella/templates/identity-mail-lane-guard.yaml` | правится | место С1 доводится до условия «секрет почты только у `notify-sender`» (Р19, NTF2-31); единственный страж почты; абзац шапки о читателе правится |
+| 26 | `tests/helm/identity-mail-lane-guard-inject.sh` | переписан | пробы места С1 плюс инъекция нового условия: объект, отличный от `notify-sender`, со ссылкой — отказ; близнец — `notify-sender` |
+| 27 | `helm/umbrella/templates/mail-receiver.yaml` | остаётся | приёмник — ядро стенда (Р15) |
+| 28 | `mail_receiver_core_test.go` | остаётся | объекты приёмника по цепочкам |
+| 29 | `mail_receiver_core_injection_test.go` | остаётся | то же |
+| 30 | `scripts/newman-parallel.sh` | остаётся | приёмник на каждом шарде |
+| 31 | `identity_callback_transport_test.go` | остаётся | совпадение — синтетический вход (`lane: "recovery"`) |
+| 32 | `identity_flow_path_is_served_injection_test.go` | остаётся | совпадение — синтетический вход |
+| 33 | `identity_replaced_lists_injection_test.go` | остаётся | совпадение — синтетический вход |
+| 34 | `identity_step_declaration_parses_injection_test.go` | за `kacho#1276` | якорь инъекции — шаг подстановки поставщика |
+| 35 | `identity_file_keys_survive_the_environment_test.go` | остаётся | ключи нашего файла настроек поставщика против переменных его чарта; NTF-2 их не меняет |
+| 36 | `identity_file_keys_survive_the_environment_injection_test.go` | за `kacho#1276` | настоящий вход — ключ почтового раздела поставщика |
+| 37 | `identity_substitution_judges_the_form_test.go` | остаётся | ссылки во владении шага подстановки; NTF-2 шаг не меняет |
+| 38 | `helm/umbrella/charts/kaname/templates/deployment.yaml` | правится | переменные `KANAME_INVITE_MAIL_*`, том якоря почтового узла kaname и абзац о них снимаются |
+| 39 | `helm/umbrella/charts/kaname/values.yaml` | правится | флаг почты добавляется; копия `global.kacho.identity.smtp` для одиночного рендера подчарта остаётся, пока её читает шаблон поставщика (`kacho#1276`) |
+| 40 | `helm/umbrella/charts/kaname/templates/identity-provider-config-configmap.yaml` | за `kacho#1276` | абзац шапки о потоке восстановления |
+| 41 | `helm/umbrella/charts/kaname/templates/identity-provider-hooks-configmap.yaml` | за `kacho#1276` | запись `recovery-payload.jsonnet` |
+| 42 | `identity_method_comment_matches_declaration_test.go` | остаётся | отмеченный перечень методов совпадает с объявлением; NTF-2 методов поставщика не меняет |
+| 43 | `identity_method_comment_matches_declaration_injection_test.go` | за `kacho#1276` | настоящий вход — перечень после снятия метода `code` |
+| 44 | `chart_env_names_carry_their_own_product_prefix_test.go` | остаётся | совпадение: `COURIER_…` — пример чужого имени |
+| 45 | `chart_env_names_carry_their_own_product_prefix_injection_test.go` | остаётся | совпадение — синтетический вход |
+| 46 | `tests/helm/identity-substitution-output-inject.sh` | за `kacho#1276` | ось С — место С2 |
+| 47 | `address_gate_stand_render_test.go` | переписан | F6b-56 (б): «у стенда почтовая полоса объявлена у `notify-sender`» вместо блока `invite-mail` в настройках kaname |
+| 48 | `helm/umbrella/charts/kaname/templates/_helpers.tpl` | правится | помощник каталога якоря почтового узла kaname и абзац о нём снимаются |
+| 49 | `helm/umbrella/values.a8f60d.yaml` | правится | ссылка на секрет почты у kaname снимается; удостоверение объявляется для `notify-sender` |
 
-Итог: правится 13, снят 11, переписан 9, остаётся 16 — всего 49. Файл, которого нет в таблице,
-или красный файл с исходом «остаётся» на базе старта — возврат в приёмку.
+Итог: правится 7, переписан 4, остаётся 14, за `kacho#1276` 24 — всего 49. Файл, которого нет в
+таблице, красный на посеве файл с исходом «остаётся» или «за `kacho#1276`» на базе старта — возврат в
+приёмку.
 
 ### §3б Перепись файлов дерева kaname, задевающих почту
 
-Предикат — §1.1, 94 файла @`734f69fb4`. Исход назначается группе; на базе старта перепись
-перемеряется, и каждый файл получает исход своей группы (DoD п.17).
+Предикат — §1.1, 97 файлов @`caf1c95ca` (на `357` @`734f69fb4` — 94). Исход назначается группе; на
+базе старта перепись перемеряется, и каждый файл получает исход своей группы (DoD п.17). Разбивка —
+префиксом пути по выводу команды §1.1.
 
 | группа | файлов | исход | куда предмет |
 |---|---|---|---|
 | `internal/clients/` (отправитель и его пробы) | 7 | снят | NTF2-44 |
-| `cmd/kaname/` (проводка отправителя и очереди) | 8 | `invite_mail_wiring{,_test}.go` сняты; остальные правятся — подъём сервера ленты вместо дренажа очереди | NTF2-44, NTF2-46 |
+| `cmd/kaname/` (проводка отправителя и очереди) | 7 | `invite_mail_wiring{,_test}.go` сняты; остальные правятся — подъём сервера ленты вместо дренажа очереди | NTF2-44, NTF2-46 |
 | `internal/apps/kaname/config/` | 10 | `invite_mail*.go` сняты; `config.go`, `defaults.go`, `invite.go` правятся под ручки Р8 и флаг Р4 (вне предиката правится и `login_lane.go`); пробы переписаны | NTF2-48, NTF2-50, NTF2-71 |
 | `internal/apps/kaname/api/` (пробы глаголов с письмом, включая `internal_iam`) | 5 | переписаны: утверждают строку ленты, а не строку очереди | NTF2-05, NTF2-42, NTF2-64 |
 | `internal/check/` (MAIL-47 и соседние гейты) | 12 | `mail_send_paths*` и `mail_kind_sender_parity*` переписаны под NTF2-44, NTF2-45; прочие правятся в словаре видов | NTF2-44, NTF2-45 |
@@ -1034,13 +1089,13 @@ kaname (строки 47–49) на этом посеве не судились: 
 | `internal/outboxtypes/` | 1 | правится: тип окна письма уходит в описание лимита шаблона | NTF2-08 |
 | `internal/handler/loginlanehttp/` (пробы) | 4 | переписаны | NTF2-01, NTF2-43, NTF2-80 |
 | `internal/supplyhygiene/` | 2 | переписаны: страница поставки называет флаг, а не узел | NTF2-33 |
-| `deploy/`, `deploy/templates/` | 7 | узел и креды сняты из значений и карты; пробы рендера переписаны | NTF2-33 |
-| `docs/content/` | 5 | правятся: почта — через `notify`, флаг почты | DoD п.22 |
+| `deploy/`, `deploy/templates/` | 10 | узел и креды сняты из значений (в том числе `values.prod.yaml`) и карты; пробы рендера переписаны; `mail_lane_names_every_letter_kind{,_injection}_test.go` (объявление узла на каждый вид письма, `kaname#259`) сняты вместе с узлом — объявление почты судят NTF2-33 и DoD п.22 | NTF2-33 |
+| `docs/content/` | 6 | правятся: почта — через `notify`, флаг почты (в том числе `install/configuration.mdx`) | DoD п.22 |
 | `docs/specs/reviews/` | 5 | остаются: записи ревью только дописываются | — |
 | `.github/scripts/`, `tests/authz-fixtures/`, `tests/newman/` | 6 | переписаны: стенд читает письма из приёмника, куда пишет `notify`; посевы П3 и П10 (`verified-human`) | П3, П10, NTF2-01, NTF2-81 |
 | `proto/kaname/` | 1 | правится комментарий об очереди | — |
 
-Сумма по группам — 94.
+Сумма по группам — 97.
 
 ---
 
@@ -1055,12 +1110,13 @@ kaname (строки 47–49) на этом посеве не судились: 
 | извещения оператора, класс OB | NTF-5 — `kacho#2924` |
 | центр уведомлений консоли, экран настроек, контакты | NTF-6 — `kacho#2925` |
 | глагол смены адреса | не вводится (Р13); условие его внесения — NTF2-98 |
-| физическое снятие поставщика: подчарты, база, шаблоны, схема личности, маршрут обратного вызова восстановления в kaname | `kacho#1276` (эпик `kacho#1266`) |
+| почта поставщика личности (прежний результат S6, Д39): раздел `courier` нашей конфигурации поставщика и всё, что его питает, ссылки поставщика на секрет почты, почтовый процесс и ключ его выключения, потоки восстановления и подтверждения, метод `code`, хуки `show_verification_ui` и `require_verified_address`, нагрузка обратного вызова восстановления, якорь почтового узла у поставщика, страж листа под `courier`; файлы §3а с исходом «за `kacho#1276`»; прежние сценарии NTF2-18, NTF2-20…NTF2-23 | `kacho#1276` — релиз identity-own, волна-4 `kacho#2798` (эпик `kacho#1266`, ветка эпика релиза `2564`) |
+| физическое снятие поставщика: подчарты `kratos` и `hydra`, база, шаблоны, схема личности, маршрут обратного вызова восстановления в kaname | `kacho#1276` (эпик `kacho#1266`) |
 | белая метка отправителя | вне эпика: один отправитель на установку |
 
-**Если `kacho#1276` сядет раньше NTF-2:** предмет S6 исчезает вместе с шаблоном; пункты DoD S6
-закрываются замером предиката п.15а, а не пробами NTF2-20…NTF2-23; S1–S5, S7 и NTF2-24 от этого не
-зависят.
+**Порядок с `kacho#1276`.** Предмет NTF-2 не зависит от того, сел ли `kacho#1276` раньше или позже,
+кроме полосы стража S7: она садится после него (Р16 п.4, §1.7). Файлы §3а с исходом «за `kacho#1276`»
+NTF-2 не правит ни при каком порядке (DoD п.13).
 
 ---
 
@@ -1068,7 +1124,7 @@ kaname (строки 47–49) на этом посеве не судились: 
 
 | посев | что создаёт | чем |
 |---|---|---|
-| **П1** стенд | цепочка **`dev`** из `deploy/stacks.txt`, поднятая с базы, где выполнены условия Р16 и посажены обе стороны NTF-2 (пин kaname в kacho указывает на ветку эпика kaname с NTF-2). Флаг почты kaname — `true`; `notify`, приёмник писем и край с ограничителем есть | рецепт подъёма стенда; перед прогоном проба печатает признаки рендера цепочки `dev` (посадка `own`, ручка полосы 1, объектов поставщика 0, объект `notify` 1, флаг `true`) и останавливается, если хоть один не совпал |
+| **П1** стенд | цепочка **`dev`** из `deploy/stacks.txt`, поднятая с базы, где выполнены условия Р16 и посажены обе стороны NTF-2 (пин kaname в kacho указывает на ветку эпика kaname с NTF-2). Флаг почты kaname — `true`; `notify`, приёмник писем и край с ограничителем есть | рецепт подъёма стенда; перед прогоном проба печатает признаки рендера цепочки `dev` (посадка `own`, ручка полосы 1, объектов поставщика 0, объект `notify-sender` 1, флаг `true`) и останавливается, если хоть один не совпал |
 | **П2** подтверждённый человек | человек с адресом `ntf2-<NN>-<runId>@<домен приёмника стенда>`, паролем, подтверждённым адресом, личным аккаунтом и живой сессией | исход NTF2-80 через край П1: `register` → код из API приёмника → `register/confirm`. У каждого кейса свой человек |
 | **П3** неподтверждённый человек | человек с паролем и **неподтверждённым** адресом `ntf2-<NN>-<runId>@<домен приёмника стенда>`, затем вход — сессия в положении подтверждения | посев стенда в дереве kaname `tests/authz-fixtures/` (новый шаг `unverified-human`): строка человека пишется в базу kaname стенда посевом, не миграцией (`.claude/rules/data-integrity.md` `stand-data-by-seed`); вход — `POST /iam/v1/auth/login` через край П1 |
 | **П4** чужое удостоверение сервера ленты kaname | сервер ленты kaname на стенде П6 предъявляет сертификат тестового удостоверяющего центра стенда, у которого **URI-SAN** (идентификатор из `kaname.spiffe`) отличается от записи `kaname` в перечне источников `notify` одним сегментом служебной учётной записи, а **DNS-SAN** тот же: его край сверяет с `ServerName` своего ребра к kaname, и путь край → kaname не меняется; `notify` сверяет запись равенством полного URI (NTF-1), поэтому отвергает; перечень `notify` не меняется — **только на стенде П6** | перезапуск сервера ленты kaname пробы с другим сертификатом; проба печатает URI-SAN и DNS-SAN записи, предъявленного сертификата и `ServerName` края; сертификат, не прошедший сверку края, — «не выполнилось», а не красный |
@@ -1077,8 +1133,7 @@ kaname (строки 47–49) на этом посеве не судились: 
 | **П6-off** стенд без почты | П6 с `notifications.enabled: false` у kaname | тот же стенд, одно значение |
 | **П6-age** возраст аккаунта | два аккаунта: `mature` заведён в момент `T`, `young` — в `T + 1 с`, у каждого администратор; часы пробы переводятся на `T + Ya`, где `Ya` = `invite.young-account-age` печатается пробой (ориентир 30 сут). В `T + Ya` возраст `mature` — ровно `Ya` (не моложе порога), `young` — `Ya − 1 с` (моложе): обе стороны порога в одном моменте. Сценарий, двигающий часы, называет, какой аккаунт ему нужен и в каком положении он остаётся | П6, фикстура П11, часы пробы |
 | **П7** инъекция рендера | копия одной цепочки с одной добавленной строкой значения | гейт рендера во временном каталоге; ствол не меняется |
-| **П7-kratos** повторное включение поставщика | цепочка `dev` плюс набор ручек из `IDENTITY_STORE_UP_ARGS` (`deploy/tests/helm/provider-up.sh`) или среза `providerRaisedByProbe` | то же; набор не выписывается третьим местом |
-| **П7-doc** правка отрендеренного документа | копия рендера П7-kratos, где один документ изменён одной строкой | гейт рендера во временном каталоге |
+| **П7-kratos**, **П7-doc** | сняты редакцией 14 (Д39): вход повторного включения поставщика служил сценариям снятия его почты, ушедшим в `kacho#1276` | — |
 | **П8** копия дерева kaname | копия дерева kaname с одной правкой (файл, строка манифеста, шаблон) | гейт дерева во временном каталоге |
 | **П10** подтверждённый человек посевом | человек с адресом `ntf2-<NN>-<runId>@<домен приёмника стенда>`, паролем и **подтверждённым** адресом, заведённый без единого глагола почты: ни регистрации, ни кода, ни письма; окон адресата на его адрес нет | на П1 — посев стенда в дереве kaname `tests/authz-fixtures/` (новый шаг `verified-human`, рядом с `unverified-human` П3; `.claude/rules/data-integrity.md` `stand-data-by-seed`); на П6 — фикстура integration-стенда той же формы |
 | **П11** люди и объекты П6 | пользователи, аккаунты, проекты, группы, сервисные аккаунты и администраторы облака, названные в Given сценариев уровня I | фикстура П6 записью в базу kaname, как П10: без глаголов почты, окон адресата и строк ленты к началу сценария; вход с меткой устройства, где он назван в Given, — глаголом `login` |
@@ -1406,6 +1461,25 @@ kaname; проба вычисляет его из сборки и печатае
 
 **Then** в каждом варианте старт отвергнут; сообщение называет добавленный ключ как неизвестный
 **And** близнец: без этого ключа kaname стартует и проходит готовность
+
+#### Сценарий 19: неподтверждённый не проходит дальше экрана подтверждения — рубеж нашей полосы
+
+**ID:** NTF2-19 · E · отрицательный (рубеж, заменяющий MAIL-52; перенесён из прежнего S6 редакцией 14) · близнецы — те же запросы подтверждённого
+
+**Given** П1
+**And** человек П3 — адрес не подтверждён; близнец — человек П3, прошедший NTF2-02 (единственное
+различие — предъявлен код); фактор второго шага ни у одного не заведён
+
+**When** (а) неподтверждённый и (б) подтверждённый своей сессией вызывают через край
+`GET /iam/v1/auth/second-factor`
+**And** (в) неподтверждённый и (г) подтверждённый своей сессией вызывают `GET /iam/v1/projects`
+
+**Then** (а) `403`, `code` `7`, `email address is not verified`, `details[].reason =
+EMAIL_NOT_VERIFIED`; `Set-Cookie` нет; `GET /iam/v1/auth/me` той же сессией — `200`, `emailVerified:
+false`
+**And** (б) `200`, тело `{"totp": {"enrolled": false}}`
+**And** (в) `403`, `code` `7`, тот же текст и `reason`, что в (а); `Set-Cookie` и `WWW-Authenticate` нет
+**And** (г) `200`; `EMAIL_NOT_VERIFIED` в ответе нет
 
 ### S2 — флаг почты kaname
 
@@ -2518,136 +2592,16 @@ NTF2-94)
 **And** близнец: на дереве kaname гейт печатает число имён перечня — 24 — и число прочитанных
 шаблонов; все 24 объявлены классом `security`; `notifygen -check` зелёный, ссылок отписки 0
 
-### S6 — почта поставщика личности снята из дерева
+### S6 — снят редакцией 14 (Д39)
 
-#### Сценарий 18: в каждой цепочке посадка own и поставщика нет — проба предпосылки
+Сценарии снятия почты поставщика личности — NTF2-18, NTF2-20, NTF2-21, NTF2-22, NTF2-23 — ушли вместе с
+предметом в `kacho#1276` (§4, Р19); их ID не переиспользуются. NTF2-19 (рубеж подтверждённости нашей
+полосы) перенесён в S1, NTF2-24 (единственный читатель приёмника) — в S7: их предмет — почта личности
+через `notify`, а не почта поставщика. Условие Р16 п.2 (посадка `own` во всех цепочках) остаётся
+условием начала, измеренным командой §1.6; держит его существующий гейт
+`TestOwnPostureRaisesNoForeignIdentityService`.
 
-**ID:** NTF2-18 · G · положительный (предпосылка Р16 п.2, Р19) · отрицательный близнец — П7-kratos
-
-**Given** рендер всех цепочек `deploy/stacks.txt` на базе NTF-2
-
-**When** проба читает по каждой цепочке признаки §1.6
-
-**Then** в каждой цепочке посадка края — `own`, ручка полосы формы — 1, рабочих объектов поставщика — 0
-**And** проба печатает число цепочек (= числу строк `deploy/stacks.txt`); пустой перечень — красный
-**And** близнец: вход П7-kratos подаётся существующей инъекцией
-`TestOwnPostureForeignIdentityGate_FindsTheInheritedFlag`
-(`deploy/own_posture_foreign_identity_injection_test.go`); исход — красный с именем цепочки и
-компонента поставщика
-
-#### Сценарий 19: неподтверждённый не проходит дальше экрана подтверждения — заменяющий контроль
-
-**ID:** NTF2-19 · E · отрицательный (замещает MAIL-52) · близнецы — те же запросы подтверждённого
-
-**Given** П1
-**And** человек П3 — адрес не подтверждён; близнец — человек П3, прошедший NTF2-02 (единственное
-различие — предъявлен код); фактор второго шага ни у одного не заведён
-
-**When** (а) неподтверждённый и (б) подтверждённый своей сессией вызывают через край
-`GET /iam/v1/auth/second-factor`
-**And** (в) неподтверждённый и (г) подтверждённый своей сессией вызывают `GET /iam/v1/projects`
-
-**Then** (а) `403`, `code` `7`, `email address is not verified`, `details[].reason =
-EMAIL_NOT_VERIFIED`; `Set-Cookie` нет; `GET /iam/v1/auth/me` той же сессией — `200`, `emailVerified:
-false`
-**And** (б) `200`, тело `{"totp": {"enrolled": false}}`
-**And** (в) `403`, `code` `7`, тот же текст и `reason`, что в (а); `Set-Cookie` и `WWW-Authenticate` нет
-**And** (г) `200`; `EMAIL_NOT_VERIFIED` в ответе нет
-
-#### Сценарий 20: почтового процесса поставщика нет даже при его повторном включении
-
-**ID:** NTF2-20 · G · отрицательный · близнец — основной объект поставщика в том же рендере
-
-**Given** П7-kratos на базе после посадки NTF-2
-
-**When** гейт считает объекты рендера почтового процесса поставщика (StatefulSet и сервис)
-
-**Then** их 0; гейт печатает число рабочих объектов поставщика (> 0 — поставщик действительно
-включён)
-**And** близнец: основной Deployment поставщика в том же рендере есть
-**And** инъекция настоящим входом: тот же гейт над П7-kratos на дереве до NTF-2 — красный, называет
-2 объекта почтового процесса по имени
-
-#### Сценарий 21: ни один источник конфигурации поставщика не несёт ссылки на секрет, адреса узла или почтового потока
-
-**ID:** NTF2-21 · G · отрицательный · близнец — ссылка `notify` (NTF2-30); для документа подчарта —
-его пустое умолчание
-
-**Given** П7-kratos на базе после посадки NTF-2
-
-**When** гейт выводит источники конфигурации каждого рабочего объекта поставщика (§1.8): документы —
-по аргументам `--config` через монтирование и том до карты (для пути шага подстановки — карта,
-которую шаг читает); окружение — переменные всех контейнеров, включая шаг подстановки
-**And** разбирает каждый документ и окружение
-
-**Then** документ, названный `--config` и не найденный в рендере, — красный с именем объекта и пути
-**And** во всех источниках: ссылок на удостоверение почты — 0 во всех трёх формах; ссылок на ключ
-`smtpConnectionURI` — 0 и ключа нет в секрете поставщика; адресов почтового узла — 0; переменных
-`COURIER_*` — 0; имени удостоверения в перечне подставляемых переменных шага — 0; томов якоря
-сертификата почтового узла — 0; потоков `recovery` и `verification` с `enabled: true` — 0; методы
-`code` и `link` — `enabled: false`; хуков `show_verification_ui` и `require_verified_address` — 0
-**And** раздел `courier`: в нашей карте — отсутствует; в документе подчарта — есть, листьев 0
-(законный близнец, Р19). Лист под `courier` в любом документе — красный с именем объекта, документа
-и полного пути ключа
-**And** гейт печатает число разобранных объектов, документов и переменных; 0 любого — красный
-«пустой обход»
-**And** инъекция настоящим входом: тот же гейт над П7-kratos на дереве до NTF-2 — красный, называет
-2 ссылки `smtpConnectionURI`, 2 переменные `COURIER_SMTP_CONNECTION_URI`, `courier.smtp.connection_uri`
-в нашей карте, включённые потоки и метод `code`, по 2 хука каждого вида, 2 тома якоря
-**And** инъекция П7-doc: в документ подчарта возвращён `connection_uri` со строкой-маркером под
-`courier.smtp` — красный, называет `ConfigMap` подчарта и ключ; близнец без строки молчит
-
-#### Сценарий 22: поставщик без почтовой настройки проходит проверку конфигурации — проба предпосылки
-
-**ID:** NTF2-22 · I · положительный (проба предпосылки Р19)
-
-**Given** оба документа конфигурации поставщика из рендера П7-kratos после NTF-2: документ подчарта
-с `courier: {smtp: {}}` и наша карта без `courier`, прошедшая шаг подстановки; файлы обратных вызовов
-и схема личности — из тех же карт
-**And** образ поставщика той версии, которую пинит подчарт зонтика; база — стенда пробы
-
-**When** локальный контейнер образа применяет миграции и стартует с аргументами рабочего объекта из
-рендера (`serve all` и оба `--config` в том же порядке)
-
-**Then** процесс проходит проверку готовности; в стартовом журнале нет ошибки проверки конфигурации
-**And** если поставщик отказывается стартовать без почтовой настройки, работа останавливается и
-возвращается в приёмку; обхода адресом-пустышкой нет (ban #14)
-
-#### Сценарий 23: лист почтовой полосы поставщика в значениях не принимается молча
-
-**ID:** NTF2-23 · G · отрицательный · близнец — рендер той же цепочки без строки
-
-**Given** П7 — копия цепочки `dev`, в значениях которой под `kratos.kratos.config.courier` есть лист со
-строкой-маркером: (а) `smtp.connection_uri`; (б) `smtp.from_address`
-
-**When** рендер
-
-**Then** (а) и (б): рендер отказывает; сообщение называет полный путь ключа и то, что почту установки
-шлёт только `notify`
-**And** отказ одинаков при `kratos.enabled: false` и при включении П7-kratos
-**And** близнец: цепочка без строки рендерится, в том числе с П7-kratos; умолчание подчарта
-`courier: {smtp: {}}` не отвергается
-
-#### Сценарий 24: приёмник писем стенда читает только notify
-
-**ID:** NTF2-24 · G · отрицательный · близнец — ствол
-
-**Given** рендер всех цепочек `deploy/stacks.txt`
-**And** П7: копия цепочки из множества `L` (ниже) со строкой, называющей приёмник почтовой полосой
-объекта, отличного от `notify`
-
-**When** гейт выводит из рендера каждой цепочки адрес приёмника (имя и порт его сервиса), `R` —
-цепочки, где приёмник отрендерен, и `L` ⊆ `R` — цепочки, где полоса `notify` названа на приёмник
-**And** считает объекты, чья почтовая полоса названа на адрес приёмника; единица — объявление
-почтовой полосы; собственные объекты приёмника читателями не считаются
-
-**Then** в каждой цепочке объектов, отличных от `notify`, чья полоса названа на приёмник, — 0
-**And** в каждой цепочке из `L` такой объект ровно 1, и это `notify`; в `R \ L` — 0 (Р15)
-**And** гейт печатает число цепочек, `|R|`, `|L|` и счёт по цепочкам; `R` пусто — красный «пустой
-обход»
-**And** на копии П7 — красный с именем цепочки и объекта
-
-### S7 — секрет почты ровно в одном объекте
+### S7 — секрет почты ровно в одном объекте — `notify-sender`
 
 #### Сценарий 30: перепись держателей по рендеру
 
@@ -2659,24 +2613,34 @@ false`
 удостоверение почты либо на ключ почтовой полосы в любом секрете — во всех трёх формах ссылки
 (`secretKeyRef` · `envFrom.secretRef` · том `secret`) — и объекты, несущие адрес почтового узла
 
-**Then** в каждой цепочке объектов со ссылкой, отличных от `notify`, — **0**; объектов с адресом
-узла, отличных от `notify`, — **0**
-**And** в цепочке, объявляющей удостоверение почты, объект `notify` со ссылкой — **ровно 1**
+**Then** в каждой цепочке объектов со ссылкой, отличных от `notify-sender`, — **0**; объектов с
+адресом узла, отличных от `notify-sender`, — **0**
+**And** в цепочке, объявляющей удостоверение почты, объект `notify-sender` со ссылкой — **ровно 1**;
+`notify-sender` узнаётся идентичностью своего объявления, а не образцом имени
 **And** гейт печатает число цепочек, объектов обхода по каждой и число ссылок
 
 #### Сценарий 31: второй держатель секрета и пустой обход — красные
 
 **ID:** NTF2-31 · G · отрицательный · близнец — NTF2-30
 
-**Given** П7 в пяти вариантах: (а) объект, отличный от `notify`, получает ссылку на удостоверение
-почты; (б) то же формой `envFrom.secretRef`; (в) пустой перечень цепочек; (г) П7-kratos на дереве
-до NTF-2 — настоящий вход; (д) цепочка `a8f60d` на дереве до NTF-2 — Deployment `kaname` со ссылкой
-(замер §1.6)
+**Given** П7 в вариантах: (а) объект, отличный от `notify-sender`, получает ссылку на удостоверение
+почты; (б) то же формой `envFrom.secretRef`; (в) пустой перечень цепочек; (д) цепочка `a8f60d` на
+дереве до NTF-2 — Deployment `kaname` со ссылкой (замер §1.6 @`96e2fa72b3a`) — настоящий вход.
+Вариант (г) прежних редакций — повторное включение поставщика — снят редакцией 14: этот вход —
+предмет `kacho#1276` (Д39, §1.7); буква не переиспользуется
+**And** (е) вход стража места С1 `deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml`:
+объявления профиля, по которым ссылка на удостоверение почты досталась бы объекту, отличному от
+`notify-sender`; близнец (е') — те же объявления для `notify-sender`. Форму объявления называет
+замысел `issue-2917` (З22); вход несёт инъекционный скрипт стража
+`deploy/tests/helm/identity-mail-lane-guard-inject.sh`
 
-**When** тот же гейт
+**When** тот же гейт; для (е), (е') — рендер цепочки
 
-**Then** (а), (б), (г), (д) — красный с именем цепочки, объекта и формы ссылки
+**Then** (а), (б), (д) — красный с именем цепочки, объекта и формы ссылки
 **And** (в) — красный «пустой обход»
+**And** (е) — рендер отказывает; сообщение называет объект и то, что секрет почты монтирует только
+`notify-sender`; (е') — рендерится
+**And** шаблонов стража почты под `deploy/helm/umbrella/templates/` — ровно один (DoD п.14)
 
 #### Сценарий 32: значение удостоверения не попадает в рендер
 
@@ -2704,6 +2668,25 @@ false`
 **And** (б) рендер отказывает и называет ключ флага
 **And** (в) рендер отказывает и называет ключ: почту шлёт только `notify`
 
+#### Сценарий 24: приёмник писем стенда читает только notify
+
+**ID:** NTF2-24 · G · отрицательный (перенесён из прежнего S6 редакцией 14) · близнец — ствол
+
+**Given** рендер всех цепочек `deploy/stacks.txt`
+**And** П7: копия цепочки из множества `L` (ниже) со строкой, называющей приёмник почтовой полосой
+объекта, отличного от `notify-sender`
+
+**When** гейт выводит из рендера каждой цепочки адрес приёмника (имя и порт его сервиса), `R` —
+цепочки, где приёмник отрендерен, и `L` ⊆ `R` — цепочки, где полоса `notify-sender` названа на приёмник
+**And** считает объекты, чья почтовая полоса названа на адрес приёмника; единица — объявление
+почтовой полосы; собственные объекты приёмника читателями не считаются
+
+**Then** в каждой цепочке объектов, отличных от `notify-sender`, чья полоса названа на приёмник, — 0
+**And** в каждой цепочке из `L` такой объект ровно 1, и это `notify-sender`; в `R \ L` — 0 (Р15)
+**And** гейт печатает число цепочек, `|R|`, `|L|` и счёт по цепочкам; `R` пусто — красный «пустой
+обход»
+**And** на копии П7 — красный с именем цепочки и объекта
+
 ### §6а Сверка «Тогда» G-сценариев на посеве
 
 Правило документа (класс CONSTRUCTIBILITY, редакции 1–5): каждое «Тогда» G-сценария сверяется на
@@ -2712,18 +2695,15 @@ false`
 
 | сценарий | «Тогда» | посев | база | исход |
 |---|---|---|---|---|
-| NTF2-18 | посадка `own`, ручка полосы 1, объектов поставщика 0 — в каждой цепочке | — | 7 из 7 @`6edea09c2ee` (§1.6) | сошлось на базе |
-| NTF2-20 | почтовых объектов 0; объектов поставщика > 0 | 0; 1 (посев редакции 5) | 2 по имени | сошлось |
-| NTF2-21 | ссылки · `COURIER_*` · тома якоря · имя удостоверения в перечне шага | 0 · 0 · 0 · 0 (посев редакции 5) | 2 · 2 · 2 · 0 | сошлось |
-| NTF2-21 | `courier`: наша карта / документ подчарта | нет / `{smtp: {}}`, листьев 0 | 3 листа / `{smtp: {}}` | сошлось (Р19) |
-| NTF2-22 | старт поставщика на двух документах | готовность `ok`, образ `v26.2.0` (посев редакции 5) | — | сошлось |
-| NTF2-23 | лист под `courier` виден зонтику в обоих положениях поставщика | виден (посев редакции 5) | — | конструируемо; страж — производитель NTF-2 |
-| NTF2-24 | читатели приёмника, не `notify` | — | 1 в dev, dev-prod, own, prorobotech (`kaname-config`); a8f60d — 0 | не выполнилось: читателя kaname снимает сама NTF-2 (Р2), `notify` на базе нет |
-| NTF2-30, 31 (д) | держателей, не `notify`, — 0; адрес узла вне `notify` — 0 | — | держатель — Deployment `kaname` в a8f60d; адрес узла — `kaname-config` в 5 цепочках (§1.6) | не выполнилось на посеве: полосу kaname снимает NTF-2, `notify` заводит NTF-1; настоящий вход (д) измерен |
-| NTF2-33 | поставка kaname без узла, флаг обязателен | — | узел и креды в `deploy/values.yaml`, `deploy/templates/configmap.yaml` kaname (§3б) | не выполнилось: производитель — NTF-2 |
-| NTF2-53, NTF2-73 | флаг и инвариант сетки в рендере | — | ручек нет | не выполнилось: производитель — NTF-2 |
-| NTF2-54 | литералов отказа 0; ссылка на `feed.DeliveryNotConfiguredStatus` достижима из четырёх действий | — | литералов текста и `reason` в kaname 0 (не-тестовые и тестовые) @`734f69fb4`; функции в corelib нет — `git grep -l DeliveryNotConfigured origin/main` → 0 @`34bc8104a83`; четыре метода перечня существуют @`734f69fb4` | не выполнилось: функцию заводит NTF-1 (`corelib#77`), гейт и вызовы — NTF-2 |
-| NTF2-08, 45, 47, 98, 99 | гейты дерева kaname | — | шаблонов, перечня `required-security.yaml` и `notifygen` на базе нет; гейт `people_address_writers` есть | не выполнилось: производители — NTF-1 (`notifygen`, валидатор) и NTF-2 (гейт обязательного класса, перечень) |
+| NTF2-24 | читатели приёмника, не `notify-sender` | — | 1 в dev, dev-prod, own, prorobotech (`kaname-config`: адрес узла в блоке `invite-mail` — сервис приёмника); a8f60d — 0 (узел внешний) @`96e2fa72b3a` (§1.6) | не выполнилось: читателя kaname снимает сама NTF-2 (Р2), `notify-sender` на базе нет |
+| NTF2-30, 31 (д) | держателей, не `notify-sender`, — 0; адрес узла вне `notify-sender` — 0 | — | держатель — Deployment `kaname` в a8f60d; адрес узла — `kaname-config` в 5 цепочках @`96e2fa72b3a` (§1.6) | не выполнилось на посеве: полосу kaname снимает NTF-2, `notify-sender` заводит NTF-1; настоящий вход (д) измерен |
+| NTF2-31 (е) | страж места С1 отказывает на держателе, не `notify-sender` | — | страж есть: `git ls-tree origin/2798 deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml` → 1 объект; условия S7 в нём нет | не выполнилось: условие вносит NTF-2 после `kacho#1276` (Р16 п.4) |
+| NTF2-33 | поставка kaname без узла, флаг обязателен | — | узел и креды в `deploy/values.yaml`, `deploy/values.prod.yaml`, `deploy/templates/configmap.yaml` kaname @`caf1c95ca` (§3б) | не выполнилось: производитель — NTF-2 |
+| NTF2-53, NTF2-73 | флаг и инвариант сетки в рендере | — | ручек нет: `git grep -l 'notifications.enabled' origin/2798 -- deploy/helm \| wc -l` → 0 | не выполнилось: производитель — NTF-2 |
+| NTF2-54 | литералов отказа 0; ссылка на `feed.DeliveryNotConfiguredStatus` достижима из четырёх действий | — | литералов текста и `reason` в kaname 0 (не-тестовые и тестовые): `git grep -l 'email delivery is not configured\|NOTIFICATION_DELIVERY_NOT_CONFIGURED' origin/367 \| wc -l` → 0; функции в corelib нет — `git grep -l DeliveryNotConfigured origin/26 \| wc -l` → 0 @`cfe49ef00fa`; четыре метода перечня существуют @`caf1c95ca` | не выполнилось: функцию заводит NTF-1 (`corelib#77`), гейт и вызовы — NTF-2 |
+| NTF2-08, 45, 47, 98, 99 | гейты дерева kaname | — | шаблонов, перечня `required-security.yaml` и `notifygen` на базе нет (`git ls-tree -d origin/367 notifications \| wc -l` → 0); гейт `people_address_writers` есть | не выполнилось: производители — NTF-1 (`notifygen`, валидатор) и NTF-2 (гейт обязательного класса, перечень) |
+
+Строки NTF2-18, NTF2-20…NTF2-23 прежних редакций сняты вместе со сценариями (Д39).
 
 ### §6б Правило → держатель
 
@@ -2900,7 +2880,7 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 | `recovery/complete`, `register/confirm` | отказ по частоте · неверный код | равенство для адреса, которого нет, держит существующий Ф5-08; NTF2-66 (а, б) утверждает тот же отказ на обоих путях; NTF2-82, NTF2-86 (в, г) — `401` побайтово как у неверного кода |
 
 **Единственный производитель → держатель.** Держатель красен на второй копии, а не только на
-расхождении значения. Строк 9.
+расхождении значения. Строк 10 (редакция 14 добавила «страж секрета почты один», Д39).
 
 | правило | где объявлено | держатель, красный на второй копии |
 |---|---|---|
@@ -2910,8 +2890,9 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 | консоль: своего текста отказа у экрана нет | Р5 | NTF2-58 (г) |
 | справочник адресов и разрешение адресатов отвечают только `notify` | Р11 | NTF2-88 (служба с проверенным сертификатом, не `notify`, — отказ) |
 | глагол смены адреса вносится только с письмом прежнему адресу | Р13 | NTF2-98 |
-| секрет почты смонтирован ровно в одном объекте | Р19, S7 | NTF2-31 (второй держатель — красный) |
-| правда о подтверждённости одна — отметка kaname | Р19 | второй источник — хук поставщика `require_verified_address`: его число в рендере 0 утверждает NTF2-21 (инъекция — дерево до NTF-2 с двумя хуками каждого вида — красный); рубеж по отметке kaname — NTF2-19 |
+| секрет почты смонтирован ровно в одном объекте — `notify-sender` | Р19, S7 | NTF2-31 (а), (б), (д) — второй держатель в рендере красный; (е) — страж отказывает |
+| страж секрета почты один — `identity-mail-lane-guard.yaml` | Р19 (Д39) | предикат DoD п.14 — шаблонов стража почты ровно один: второй шаблон даёт 2 и красен на посадке; постоянного гейта у этого правила нет, между посадками оно держится вниманием |
+| правда о подтверждённости одна — отметка kaname | Р19 | рубеж по отметке kaname — NTF2-19; второй источник — хук поставщика `require_verified_address` — снимает `kacho#1276` (Д39); в рендере цепочек его 0 (`grep -c require_verified_address chain-<n>.yaml` → 0 в 7 из 7 @`96e2fa72b3a`, поставщик выключен) |
 | ось источника анонимных почтовых глаголов только у края | Р5, §3 | NTF2-60 (а) (`H > source-attempts` запросов доходят до kaname); предикат `ChargeSource` → пусто — DoD п.7 |
 
 ### §6в Given и счёт → построение
@@ -2989,8 +2970,8 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 
 | ID сценария | что производит «Тогда» | координата в дереве | чем измерено / кто заводит |
 |---|---|---|---|
-| NTF2-01, 02, 03, 19 (а, б) | глагол и рубеж подтверждения, `emailVerified`, `401` | kaname `internal/handler/loginlanehttp/handler.go`, `internal/apps/kaname/api/humansession/verification.go` | существует: `git grep -c '/iam/v1/auth/verify-email' origin/357 -- internal/handler/loginlanehttp/handler.go` → 2 @`734f69fb4` |
-| NTF2-01, 40, 42, 43, 80, 81, 94 (доставка) | письмо, `From`, без `Reply-To`, multipart, `cid:`, origin, `Message-ID` | `kacho/services/notify` | NTF-1 (`kacho#2915`) |
+| NTF2-01, 02, 03, 19 (а, б) | глагол и рубеж подтверждения, `emailVerified`, `401` | kaname `internal/handler/loginlanehttp/handler.go`, `internal/apps/kaname/api/humansession/verification.go` | существует: `git grep -c '/iam/v1/auth/verify-email' origin/367 -- internal/handler/loginlanehttp/handler.go` → 2 @`caf1c95ca` |
+| NTF2-01, 40, 42, 43, 80, 81, 94 (доставка) | письмо, `From`, без `Reply-To`, multipart, `cid:`, origin, `Message-ID` | `kacho/services/notify` (развёртывание `notify-sender`) | NTF-1 (`kacho#2915`); на базе нет — `git ls-tree -d origin/2798 services/notify \| wc -l` → 0 |
 | NTF2-01, 05, 40, 41, 42, 43, 64, 75, 76, 80, 81, 86, 87, 89, 90 (постановка) | строка ленты kaname шаблоном Р3 в транзакции события | kaname: вызовы сгенерированных функций `corelib notify/feed`; `notifications/` | **NTF-2** (`kaname#484`); функции и лента — NTF-1 (`corelib#77`) |
 | NTF2-40, 41, 64, 65, 75, 76, 86, 87 | повтор того же живого кода, прогрессия, пол, скользящие часовое и суточное окна, срок кода от чеканки; ключ окна по назначению; код, привязанный к паролю | kaname: окна адресата на счётчике ленты, хранилище ожидающих регистраций | **NTF-2** (`kaname#484`) |
 | NTF2-05 | `429` `TOO_MANY_ATTEMPTS` и отсутствие строки | окно `verification` kaname | существует по форме (Ф6 EV-23); величины — **NTF-2** |
@@ -3008,7 +2989,7 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 | NTF2-52 | 0 строк, `UNIMPLEMENTED`, метрика | композиционный корень kaname, `internal/observability/metrics/` | **NTF-2** |
 | NTF2-53, 73 | вывод флага и перечня источников, инвариант сетки | зонтик kacho `deploy/helm/umbrella/` и чарт `notify` | **NTF-2** (`kacho#2917`); перечень источников `notify` — NTF-1 |
 | NTF2-59 | `503` `request limiter is unavailable`, до kaname не дошло, одноразовость не засчитана, метрика | звено-ограничитель края и его хранилище | **NTF-2** (`kacho#2917`); собственный статус края вносится в ведомость края (DoD п.7) |
-| NTF2-60 (а), kaname | `200 {}` на `H` пропущенных краем запросов с одного источника | снятие окна обращений по источнику на `register` и запросе восстановления в kaname (§3) | **NTF-2** (`kaname#484`); на базе окно есть: `git grep -ln 'ChargeSource' origin/357 -- ':!*_test.go'` → 4 файла @`734f69fb4`: вызовы `humansession/recovery_request.go`, `registration/register.go`, порт `humansession/verification.go`, реализация `internal/repo/kaname/pg/verification_code_repo.go` |
+| NTF2-60 (а), kaname | `200 {}` на `H` пропущенных краем запросов с одного источника | снятие окна обращений по источнику на `register` и запросе восстановления в kaname (§3) | **NTF-2** (`kaname#484`); на базе окно есть: `git grep -ln 'ChargeSource' origin/367 -- ':!*_test.go'` → 4 файла @`caf1c95ca` (на `357` — те же 4): вызовы `humansession/recovery_request.go`, `registration/register.go`, порт `humansession/verification.go`, реализация `internal/repo/kaname/pg/verification_code_repo.go` |
 | NTF2-60…63, 74, 79, 71 (край) | лестница, PoW, `429`, скользящие окна ручек, общий поток, область действия, ключ на доверенной глубине, страж ручек края | `kacho/gateway/internal/middleware/` (новое звено), композиционный корень края | **NTF-2** (`kacho#2917`) |
 | NTF2-66 | отказ по частоте (Ф5-08) и жизнь кода; те же оси на `register/confirm`; окно потолка неудач от первой неудачи | страж попыток полосы формы kaname | существует (Ф5-08) для `recovery/complete`; «код не гаснет», оси на `register/confirm` и истечение потолка — **NTF-2** |
 | NTF2-67 | ответ вне пути постановки | диспетчер полосы формы kaname (`humansession/dispatch.go`) | существует по устройству; блокировочная проба — **NTF-2** |
@@ -3019,14 +3000,9 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 | NTF2-88…97 | строки класса S, адресаты, `DENIED(recipient)`, идемпотентность, карта «вид → шаблон → адресат», закрытый перечень вызывающих справочник (`PERMISSION_DENIED` не-`notify`) | kaname: карта видов, писатель аудита, транзакции аудита, справочник адресов и разрешение адресатов (внутренние методы); `notify` — разрешение адреса в момент отправки | **NTF-2** (`kaname#484`); события аудита, кроме `access_key.transferred`, имеют глагол на базе (§1.2, с командой); `transferred` производит проба писателем аудита (NTF2-89) |
 | NTF2-94 | метка устройства и письмо | kaname полоса входа | **NTF-2** |
 | NTF2-98 | текст находки гейта | kaname `internal/check/people_address_writers.go` | гейт существует (§1.3); условие о письме — **NTF-2** |
-| NTF2-18 | посадка `own`, 0 объектов поставщика; красный близнец | `deploy/helm/umbrella/values.yaml:767-768`; гейт `TestOwnPostureRaisesNoForeignIdentityService`, инъекция `TestOwnPostureForeignIdentityGate_FindsTheInheritedFlag` | существуют @`6edea09c2ee`; проба предпосылки — **NTF-2** |
-| NTF2-19 (в, г) | рубеж края на пути платформы | `gateway/internal/middleware/auth_own_session.go`, `address_refusal.go` | существует (`kacho#2900`, влито в `origin/2564`); сквозная проба — **NTF-2** |
-| NTF2-20 | почтового процесса нет | `kratos.courier.enabled: false` в `deploy/helm/umbrella/values.yaml` | **NTF-2** |
-| NTF2-21 | источники конфигурации без почты | `_kratos-identity.tpl` (строки §1.7), якорь в `values.dev.yaml`; умолчание подчарта | **NTF-2**; сверено на посеве (§6а) |
-| NTF2-22 | старт поставщика без почты | оба документа после NTF-2 | проба предпосылки — **NTF-2** |
-| NTF2-23 | отказ рендера на листе под `courier` | страж рендера `deploy/helm/umbrella/templates/` | **NTF-2** |
-| NTF2-24 | один читатель приёмника | полоса `notify` (NTF-1), снятие полосы kaname (**NTF-2**), гейт над рендером (**NTF-2**) | замер §6а |
-| NTF2-30…32 | перепись держателей | `deploy/identity_mail_lane_feeds_both_senders{,_injection}_test.go`, переписанный под предикат §0 | **NTF-2** |
+| NTF2-19 (в, г) | рубеж края на пути платформы | `gateway/internal/middleware/auth_own_session.go`, `address_refusal.go` | существует (`kacho#2900`, влито в `origin/2564`): `git grep -c EMAIL_NOT_VERIFIED origin/2798 -- gateway/internal/middleware/address_refusal.go` → 1 @`96e2fa72b3a`; сквозная проба — **NTF-2** |
+| NTF2-24 | один читатель приёмника | полоса `notify-sender` (NTF-1), снятие полосы kaname (**NTF-2**), гейт над рендером (**NTF-2**) | замер §6а |
+| NTF2-30…32 | перепись держателей; отказ стража (31 (е)) | `deploy/identity_mail_lane_feeds_both_senders{,_injection}_test.go`, переписанный под предикат §0; страж `deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml` и его пробы `deploy/tests/helm/identity-mail-lane-guard-inject.sh` | **NTF-2**; страж существует @`96e2fa72b3a`, условие S7 вносит NTF-2 после `kacho#1276` (Р16 п.4) |
 | NTF2-33 | поставка kaname без узла | kaname `deploy/values.yaml`, `deploy/templates/configmap.yaml`, гейт рендера kaname | **NTF-2** (`kaname#484`) |
 
 Сценариев без производителя нет: каждый «Тогда» либо существует на базе (с командой), либо
@@ -3096,47 +3072,28 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
     (`notify`). NTF2-88…NTF2-93, NTF2-95…NTF2-97 зелёные на П6; NTF2-94 — на П1.
 12. Текст находки гейта `people_address_writers` называет письмо прежнему адресу; NTF2-98 зелёная.
 
-**S6 — почта поставщика**
-13. `_kratos-identity.tpl`, карта обратных вызовов и профили — снят предмет и всё, что его подпирает
-    (ban #11):
-    - раздел `courier` снят вместе с `$mailSmtp`, `$mailURI`, `$mailScheme`, `$mailParts`,
-      `$mailSpliced`, `$mailOut` и обеими декларациями источника удостоверения (`$mailCredName`,
-      `$mailCredKey`, `$mailCredDeclared`);
-    - в шаге подстановки сняты проверка почтовой полосы (место С2), `COURIER_SMTP_CONNECTION_URI` и
-      `KANAME_IDENTITY_SMTP_CREDENTIAL`; перечень владения шага — `KANAME_HOOK_TOKEN`;
-    - потоки `recovery` и `verification` — только `enabled: false`; хуки восстановления сняты вместе с
-      `hookRecoveryPayload`, её записью в `kratos-hooks-configmap.yaml` и её членом в отпечатке
-      `KACHO_IDENTITY_HOOKS_SHA256` профилей dev и prod;
-    - методы `code` и `link` выключены, у `code` нет `config`; хуков `show_verification_ui` и
-      `require_verified_address` 0; отмеченный перечень — «ВЫКЛЮЧЕНЫ: code, link, oidc / ВКЛЮЧЕНЫ:
-      profile»;
-    - в профиле dev снят якорь сертификата почтового узла у поставщика; в профилях dev и prod снят
-      блок `kratos.statefulSet` (с `statefulSet.log`) и абзацы о почтовом процессе; абзац раздела
-      журнала в `_kratos-identity.tpl` называет единственного владельца уровня — `kratos.config.log`;
-    - умолчание подчарта остаётся без листьев (Р19).
-
-    Предикаты на базе после NTF-2:
-    - `git grep -c '\$mail' <база> -- deploy/helm/umbrella/charts/kaname/templates/_kratos-identity.tpl` → 0;
-    - `git grep -nE 'hookRecoveryPayload|recovery-payload|kacho-mail-anchor|COURIER_SMTP' <база> -- deploy/helm` → пусто.
-14. `kratos.courier.enabled: false` объявлен в `deploy/helm/umbrella/values.yaml` рядом с
-    `kratos.enabled: false`.
-15. Страж NTF2-23 заведён; у гейтов NTF2-20, NTF2-21 есть инъекции настоящим входом и печать
-    объёма; у NTF2-21 — инъекция П7-doc с близнецом. NTF2-18…NTF2-24 зелёные; NTF2-22 — локальным
-    контейнером образа поставщика.
-
-    **15а. Если `kacho#1276` сел раньше** (§4): пп. 13–15 закрываются замером:
-    `git grep -c 'courier' <база> -- deploy/helm` → 0;
-    `git grep -cE 'smtpConnectionURI|KANAME_IDENTITY_SMTP_CREDENTIAL' <база> -- deploy/helm` → 0.
+**S6 — вне NTF-2 (Д39); граница с `kacho#1276`**
+13. Дельта NTF-2 в kacho не трогает ни одного файла §3а с исходом «за `kacho#1276`»: для базы
+    старта `<B>` и головы NTF-2 `<H>` — `git diff --name-only <B> <H> -- $(перечень 24 путей §3а с этим
+    исходом)` → пусто. Ключа `kratos.courier.enabled` и шаблона стража листа под `courier` NTF-2 не
+    вносит: `git grep -l 'courier.enabled' <H> -- deploy/helm | wc -l` равно тому же числу на `<B>`
+    (@`96e2fa72b3a` — 0).
+14. Страж секрета почты — один. `deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml` доведён
+    до условия «секрет почты смонтирован только у `notify-sender`» (Р19); шаблонов стража почты —
+    ровно один: `git ls-tree --name-only <H> deploy/helm/umbrella/templates/ | grep -cE 'mail.*guard'` →
+    1 (на базе @`96e2fa72b3a` — 1). Полоса стража садится после вливания `kacho#1276` (Р16 п.4); вывод
+    команды условия приложен к задаче `kacho#2917`. NTF2-31 (е) красный, (е') зелёный.
+15. NTF2-19 зелёная на П1 (newman, имя кейса несёт ID); NTF2-24 зелёная в CI kacho, печатает `|R|`,
+    `|L|` и счёт по цепочкам.
 
 **Перепись**
-16. Перепись §3а исполнена: перемерена командой §1.9 на базе старта; оба посева прогнаны всеми
-    четырьмя бегунами дерева; каждый красный файл стоит с исходом «снят» или «переписан»; файл без
-    строки или красный с исходом «остаётся» — возврат в приёмку. Файлы «снят» отсутствуют:
-    `git ls-files deploy | grep -cE 'identity_courier_|identity_bearer_window_ceiling|identity_delivery_flows_declared_once|identity_verification_mirrors_the_requirement|identity_verified_address_required_on_both_lanes|identity-mail-lane-runtime-inject'`
-    → 0. Файлы «правится» не несут снимаемого предмета:
-    `git grep -lE 'courier|statefulSet' <база> -- deploy/helm ':!*.md'` → ровно `deploy/helm/umbrella/values.yaml`
-    и файл стража NTF2-23; в `values.yaml` строк со словом вне комментария — одна (ключ `courier:` под
-    `kratos:`); `git grep -lE 'invite-mail|inviteMail|KANAME_INVITE_MAIL|kaname-mail-anchor|kaname-mail-credential' <база> -- deploy/helm` → пусто.
+16. Перепись §3а исполнена: перемерена командой §1.9 на базе старта; посев «после NTF-2» прогнан
+    всеми четырьмя бегунами дерева; каждый красный файл стоит с исходом «правится» или «переписан»;
+    файл без строки или красный с исходом «остаётся» либо «за `kacho#1276`» — возврат в приёмку. Файлы
+    «правится» не несут предмета почты kaname:
+    `git grep -lE 'invite-mail|inviteMail|KANAME_INVITE_MAIL|kaname-mail-anchor|kaname-mail-credential' <H> -- deploy/helm` → пусто.
+    Если к базе старта `kacho#1276` снял файлы с исходом «за `kacho#1276`», их отсутствие — исход
+    `kacho#1276`, а не NTF-2, и в перемеренной таблице они стоят со ссылкой на его посадку.
 17. Перепись §3б исполнена: предикат §1.1 перемерен на базе старта; у каждого файла исход его
     группы исполнен; после NTF-2 предикат
     `git grep -lE 'invite-mail|inviteMail|KANAME_INVITE_MAIL|invite_mail|net/smtp|MailKind|OurMailKinds' -- ':!*.md' ':!*_test.go' ':!docs/specs/reviews/**' ':!internal/migrations/0001_initial.sql' ':!internal/migrations/2026091*' ':!internal/migrations/20260927190000_*'`
@@ -3145,8 +3102,8 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 18. Таблица §6а перемерена на базе старта; исход «разошлось» у любого «Тогда» — возврат в приёмку.
 
 **S7 — единственный держатель**
-19. Держатель NTF2-30…NTF2-32 идёт в CI kacho и зелёный на ветке эпика; инъекции NTF2-31 (а)–(д)
-    красные. NTF2-33 зелёная в CI kaname.
+19. Держатель NTF2-30…NTF2-32 идёт в CI kacho и зелёный на ветке эпика релиза; инъекции NTF2-31
+    (а), (б), (в), (д), (е) красные, (е') зелёная. NTF2-33 зелёная в CI kaname.
 20. Предикат завершения §0 выполнен; вывод гейта — число цепочек, объектов и ссылок — приложен к
     задаче `kacho#2917`.
 
@@ -3168,7 +3125,8 @@ NTF2-71 (м, ч, ш); окна края — NTF2-71 (х, ц).
 **Покрытие ID.** Каждый ID §6 назван в пп. 1–20: NTF2-01, 02, 03, 40, 42, 43 — п.4; NTF2-05, 06, 07,
 09, 41 — п.5; NTF2-08, 99 — п.1; NTF2-44, 45, 48 — п.2; NTF2-46, 47 — п.3; NTF2-50…53 — п.6;
 NTF2-59…63, 79 — п.7; NTF2-64…71, 74…78, 84 — п.8; NTF2-58, 72, 73 — п.9; NTF2-80…87 — п.10; NTF2-88…97 — п.11;
-NTF2-98 — п.12; NTF2-18…24 — п.15; NTF2-30…33 — п.19.
+NTF2-98 — п.12; NTF2-19, NTF2-24 — п.15; NTF2-31 (е) — п.14; NTF2-30…33 — п.19. Снятые ID
+(NTF2-18, NTF2-20…NTF2-23) в DoD не называются.
 
 ---
 
@@ -3182,7 +3140,7 @@ NTF2-98 — п.12; NTF2-18…24 — п.15; NTF2-30…33 — п.19.
 | UI | да | консоль: прозрачный PoW, отказ `503` и исход `expired` решателя, экран регистрации с кодом |
 | новый домен или сервис | нет | `notify` заводит NTF-1 |
 | новое межсервисное ребро | да | notify→kaname (справочник адресов, разрешение адресатов) — внутренний слушатель |
-| поверхность безопасности | да | анонимные почтовые глаголы, регистрация, класс S, снятие почты поставщика |
+| поверхность безопасности | да | анонимные почтовые глаголы, регистрация, класс S, секрет почты у одного объекта (`notify-sender`) и страж рендера; снятие почты поставщика — `kacho#1276` (Д39) |
 | поток изменений ресурса | да | вид события «нотификация» подписки kaname (`notification_feed:kaname`) |
 
 ---
@@ -3386,3 +3344,28 @@ NTF2-98 — п.12; NTF2-18…24 — п.15; NTF2-30…33 — п.19.
 | N-6: лимит шаблона ≥ максимума окна без ссылки | правило в Р8; строка §6б — проба замысла З19 (И14) | Р8, §6б |
 
 **Новые ID:** NTF2-54 (номер был свободен). Снятых нет.
+
+### Редакция 13 → редакция 14 (решения диспетчера Д39, Д40)
+
+Редакция 13 одобрена кругом 2 (`ef9c6801…`, APPROVED). Правка меняет отпечаток, поэтому одобрение на
+редакцию 14 не переносится (История review). Основание правки — решения диспетчера, а не возврат
+ревью: Д39 — снятие почты поставщика личности принадлежит релизу identity-own (`kacho#1276` в волне-4
+`kacho#2798`), страж секрета почты один; Д40 — база эпиков notify — линия релиза, все утверждения о
+дереве перемеряются на её ветках предикатом с командой (Д24).
+
+| что изменено | основание | где |
+|---|---|---|
+| результат S6 снят; сценарии NTF2-18, NTF2-20, NTF2-21, NTF2-22, NTF2-23 ушли в `kacho#1276`; посевы П7-kratos, П7-doc сняты; строки §6а, §6б, §7 и DoD пп.13–15а о них сняты | Д39 | §0, §4, §5, §6 (S6), §6а, §6б, §7, §8 |
+| NTF2-19 (рубеж подтверждённости нашей полосы) перенесён в S1, NTF2-24 (читатель приёмника) — в S7: их предмет — почта личности через `notify`, а не почта поставщика | Д39 | §6 |
+| Р19 переписан: почта поставщика — вне NTF-2; секрет почты — у `notify-sender`; страж один — `identity-mail-lane-guard.yaml`, доведённый до условия; второго шаблона стража (прежний замысел — страж листа под `courier`) нет | Д39 | Р19, §0, NTF2-31 (е), DoD п.14 |
+| NTF2-31 (г) — вход повторного включения поставщика — снят: после NTF-2 без снятия почты поставщика этот вход красен на верной реализации (§1.7: 2 держателя у поставщика в dev) | Д39, замер §1.7 | NTF2-31 |
+| полоса стража садится после `kacho#1276`: до него законный вход дерева — пробы, поднимающие поставщика, — нарушает условие стража | Д39, Д40, замер §1.7 | Р16 п.4, DoD п.14 |
+| §3а: 49 файлов перемерены на `2798`, пути — именами `kacho#2759`; исход «снят» у NTF-2 исчез; новый исход «за `kacho#1276`» — 24 файла (строки 1, 3–5, 7, 8–18, 21–22, 34, 36, 40, 41, 43, 46); правится 7, переписан 4, остаётся 14; посевы редакции 5 и третий источник (без ключа `kratos.courier.enabled`) сняты как мерившие чужой предмет | Д39, Д40 | §1.9, §3а, DoD пп.13, 16 |
+| строки 16–18 §3а (MAIL-52 и место С2) и 21–22 (MAIL-54), 34, 36, 43, 46 отнесены к `kacho#1276`, хотя Д39 называет поимённо строки 1–5, 7 и 8–15: их красный на прежнем посеве давало снятие хуков, шага подстановки и раздела `courier` поставщика — предмета, ушедшего в `kacho#1276`; NTF-2 их не трогает | Д39 (толкование автора) | §3а |
+| §3б: 97 файлов на `367` (94 на `357`); группы `cmd/kaname/` 7, `deploy/` 10, `docs/content/` 6 | Д40 | §1.1, §3б |
+| шапка и §1: база — линия релиза (`2564`/`2798`, `357`/`367`, `26` = `v1.10.0-rc.5`); каждое утверждение — команда и число; `sed -n` по номерам строк заменён поиском по тексту там, где волна-4 сдвинула строки (`people_address_writers.go` :23 → :20) | Д40, Д24 | шапка, §1, Р16, §6а, §7 |
+| §1.7 — почта поставщика в дереве остаётся (6 строк слов почты в `_identity-provider.tpl`; архивы подчартов 2); §1.8 снят | Д39, Д40 | §1.7, §1.8 |
+| §3: замещения ID-MAIL-1, относящиеся к почте поставщика (Р26, Р27, Р4а С2, §1.10а, MAIL-14…18, 49, 51, 52, MAIL-54, Д5), помечены «вне NTF-2 — `kacho#1276`» | Д39 | §3 |
+
+**Снятые ID:** NTF2-18, NTF2-20, NTF2-21, NTF2-22, NTF2-23; вариант NTF2-31 (г). Не переиспользуются.
+**Новые ID:** нет; новый вариант NTF2-31 (е), (е').
