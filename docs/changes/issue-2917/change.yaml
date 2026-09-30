@@ -16,9 +16,10 @@
 # круг 2: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml),
 # но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
 # Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/ef9c6801….yaml
-# (к-замыслу, CX2-37…44). Замысел — `design.md` редакции 6 (2026-09-30), отпечаток —
+# (к-замыслу, CX2-37…44). Замысел — `design.md` редакции 7 (2026-09-30), отпечаток —
 # `hashes.design_sha256`; вердикта на него нет, пересверки на него нет. Прежние пересверки —
-# на редакции 1 (f21384ed…), 2 (2886b89f…), 3 (c3e37381…) и 5 (cc7bdad1…)
+# на редакции 1 (f21384ed…), 2 (2886b89f…), 3 (c3e37381…), 5 (cc7bdad1…) и 6 (cc42ace6… —
+# к-замыслу, CX2-45; отображён редакцией 7)
 # (reviews/class-exposure/revalidation/<sha>.yaml). Маршрут работ — `tasks.md`
 # (проект; TASKS_READY им не объявлено).
 schema_version: 1
@@ -52,7 +53,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
-  design_sha256: cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4
+  design_sha256: 6fc3cae220faa6212b0fe7ecca9c2d1555f2b841a9d25cac6d28658bf8dff8c5
   holders_sha256: 495ef143740f049d885ec10fbbce2975a95d3c3ee2de36b632a5af15730a3bca
 
 links:
