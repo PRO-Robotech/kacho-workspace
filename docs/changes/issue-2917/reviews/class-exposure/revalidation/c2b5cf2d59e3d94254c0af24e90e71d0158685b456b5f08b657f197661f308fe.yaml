@@ -1,0 +1,156 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 23.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки прежних редакций относятся к своим
+# редакциям и здесь не переписываются. Судится дельта редакции 23 против последней пересверенной
+# (редакция 22, c0d9f686): git diff a61014ed6 a3d081476 -- docs/changes/issue-2917/{design,tasks}.md.
+# Итог: к-замыслу. CX2-87 отображён: пробы (4) и (5) через псевдоним, D6, УК83, обе правки слов.
+# Сводка §11 перемерена и совпадает (88 строк). Новый CX2-88. Отображение CX2-87 описывает перечисление
+# вхождений как обход узлов имени `CHARTS` и атрибута `required` плюс пяти названных доступов по имени.
+# В разборе Python часть связываний несёт имя строковым полем, а не узлом имени: `import … as`,
+# `def`/`class`, `except … as`, `global`, образцы `match`. К тому же `globals()`, `sys.modules[…]` и
+# `operator.attrgetter` в перечень доступов по имени не входят. Распознаватель, собранный по этим словам,
+# на девяти таких формах вхождения не видит и печатает ложный зелёный. Пробы (4) и (5) этого не отличают.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: c2b5cf2d59e3d94254c0af24e90e71d0158685b456b5f08b657f197661f308fe
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 23
+  commit: a3d081476
+  route_sha256: 1f89e83f77f5b321…   # tasks.md @a3d081476 (sha256sum, первые 16 знаков)
+  previous_judged: c0d9f6862401ffe14586ac6fef3261d587509b733033a6042e2b58798f4a3902   # редакция 22, d94a67fd9
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  effective_verdict: APPROVED
+  initial_records:
+    - docs/changes/issue-2917/reviews/class-exposure/initial/66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a.yaml
+    - docs/changes/issue-2917/reviews/class-exposure/initial/29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014.yaml
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/c0d9f6862401ffe14586ac6fef3261d587509b733033a6042e2b58798f4a3902.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a3d081476b37cdf437d6eaffc700506ee41f8681   # ветка issue-880
+  ntf1_design: 5228b32b212bb08d77bc5e0b400442b6e1bb7b37d8b3d82741b7535e204de7a7   # без изменений
+  kacho: "origin/2564@6edea09c2ee (последний коммит файла check-volume-mounts.py — 64ff0524406)"
+snapshot_at: 2026-10-01
+inspected: >-
+  Дифф a61014ed6 → a3d081476 целиком, −U0 и пословно. design.md: шапка редакции 23, §0 строка пересверки
+  c0d9f686, М74 (слова контроля), З28 (а) Б10 «Носители», абзац о носителях, §11 CX2-86 (в), CX2-87
+  новая, сводка счёта; §11а УК82 (правка), УК83 новая. tasks.md: шапка редакции 23, строка D6.
+  Дерево kacho на 2564@6edea09c2ee: файл check-volume-mounts.py (523 строки) разобран через ast и
+  перечислен двумя способами (узлы Name/Attribute и любое поле-идентификатор); 11 инъекций на копии
+  файла в scratchpad. Записки vault не читались.
+
+dispatcher_decisions_check:
+  Д52: "держится: файл слоя и подача только слоем не менялись; дельта — условия к распознавателю переписи"
+  Д53: "держится: NTF-1 не менялся (5228b32b); D6 по-прежнему после NTF1-D1s"
+  Д54: "дельта его предмета не трогает: переезд на corelib и модель kaname в редакции 23 не упомянуты"
+  Д1–Д51: "дельта их строк не трогает"
+
+mapped_from_previous:
+  - id: CX2-87
+    source: revalidation/c0d9f686
+    where: "З28 (а) Б10 «Носители» («Распознаватель перечисляет вхождения, а не формы записи»); абзац о носителях; М74; §11 CX2-86 (в), CX2-87; §11а УК82, УК83; tasks D6 и шапка редакции 23"
+    held: yes
+    check: >-
+      (а) Пробы (4) `req = chart.required` + `req.clear()` → «не выполнилось» `Б10 (0)` и (5)
+      `charts = CHARTS` + `charts.pop()` → «не выполнилось» `Б10 (ii)` названы в §11 CX2-87, в УК83 и в D6.
+      У каждой близнец — файл дерева, ни одна не даёт зелёного. На копии файла обе инъекции добавляют
+      вхождение носителя вне роли (+1 при любом способе перечисления), то есть различимы.
+      (б) В D6 и Б10 записано, что распознаватель обходит вхождения по разбору и сопоставляет каждому роль.
+      Формы записи он не перечисляет: вхождение без роли — нарушение в любой форме.
+      (в) Слова М74 исправлены на «в перечисленных формах», полноту держат перепись вхождений и предикат
+      доступа по имени (М74, CX2-86 (в), УК82).
+      (г) Сводка §11 перемерена: `grep -c '^| CX2-'` → 88; повторяется только номер CX2-47 (2 строки),
+      так что номеров CX2-01…87 — совпадает с текстом. Остаток — новый CX2-88: неполнота ЗАПИСАННОГО
+      перечня того, что считается вхождением
+
+new_items:
+  - id: CX2-88
+    decision: >-
+      З28 (а) Б10 «Носители» (CX2-87) и D6: распознаватель обходит «каждый узел имени `CHARTS` в любом
+      контексте (чтение, связывание, удаление, цель `for`, `:=`, аннотированное присваивание, `global`,
+      `import … as`), каждый узел атрибута `required` в любом контексте и каждый доступ к атрибутам по
+      имени (`setattr`, `getattr`, `delattr`, `vars`, `__dict__`)»
+    class: >-
+      code-authoring §«Инвариант и оснастка — это тоже прод-код»: распознаватель судит по идентичности,
+      а не по виду узла. В разборе Python идентичность имени лежит не только в узле имени.
+      gate-authoring: пробы обязаны отличать объявленное свойство от более слабой реализации.
+      Продолжение цепочки CX2-84…87 (ложный зелёный переписи, класс CX2-84)
+    exposure: >-
+      Запись в скобках внутренне противоречива. В разборе Python (`ast`) связывания `global CHARTS`
+      (`Global.names`) и `import … as CHARTS` (`alias.asname`) — строковые поля, а не узлы `Name`. Так же
+      устроены `def CHARTS`/`class CHARTS` (`.name`), `except … as CHARTS` (`ExceptHandler.name`) и образцы
+      `match` (`MatchAs`/`MatchStar.name`, `MatchMapping.rest`). Перечень доступов по имени не называет
+      `globals()`, `sys.modules[__name__].CHARTS` (узел `Attribute` с `attr == "CHARTS"`, а не атрибут
+      `required`) и `operator.attrgetter("required")`.
+      Измерено на копии файла 2564@6edea09c2ee с инъекцией сразу после литерала `CHARTS`. Распознаватель
+      «узлы Name `CHARTS` + Attribute `required`» даёт прирост 0 на девяти формах: `import json as CHARTS`,
+      `from os import sep as CHARTS`, `def CHARTS()`, `class CHARTS`, `except … as CHARTS`,
+      `globals()['CHARTS'] = []`, `sys.modules[__name__].CHARTS = []`, `operator.attrgetter('required')`,
+      `case [*CHARTS]`. Перечисление по любому полю-идентификатору и строковой константе, равной имени
+      носителя, даёт +1 на каждой из девяти. Каждая из форм перебивает `CHARTS` модульного уровня
+      после литерала или пишет в носитель в обход звеньев, а распознаватель, собранный по словам замысла,
+      печатает «Б10 (0)–(iii) + Б6». Пробы (4) и (5) такую реализацию принимают: обе дают +1 и при
+      перечислении по узлам. Число измерено после инъекции, до кода опасный исход тихий
+    condition_on_code: >-
+      (а) Вхождением носителя считается любое появление его идентификатора в разборе файла. Это `Name.id`,
+      `Attribute.attr` (у любого объекта, в том числе `sys.modules[…]`), `alias.name`/`alias.asname`,
+      `FunctionDef`/`AsyncFunctionDef`/`ClassDef.name`, `ExceptHandler.name`, `Global`/`Nonlocal.names`,
+      `arg.arg`, `keyword.arg`, `MatchAs`/`MatchStar.name`, `MatchMapping.rest`, а также строковая
+      константа, равная `"CHARTS"` или `"required"`. Любой вызов `globals`, `locals`, `vars`, `exec`, `eval`,
+      `__import__`, `setattr`/`getattr`/`delattr` с неконстантным именем — нарушение: имя по разбору не
+      доказуемо. Роли на дереве есть у всех 9 вхождений по идентификатору, а не только у 7 узловых.
+      Добавляются параметр `required` в `Chart.__init__` (85, `arg`) и его чтение справа в `self.required =
+      required` (89, `Name` Load) — это роль звена (0), её надо назвать.
+      (б) К пробам (1)–(5) добавить две из форм, которые узловой перечень не видит, и сравнить каждую с
+      близнецом — файлом дерева: (6) после литерала `import json as CHARTS` → «не выполнилось» `Б10 (ii)`
+      с координатой вхождения; (7) после литерала `globals()["CHARTS"] = []` → «не выполнилось» `Б10 (ii)`.
+      Ни в одной нет красного самоистечения и зелёного «Б10 + Б6».
+      (в) Скобки в Б10 переписать без слов «узел имени»: перечень — поля-идентификаторы из (а), а не виды
+      узлов. Пробы (6) и (7) назвать в §11, §11а и D6
+    held_by: >-
+      Нужны пробы (6) и (7) — их нет. До отображения держится вниманием, а опасный исход тихий: ложный
+      зелёный переписи при реализации, буквально следующей словам «узел имени», которую пробы (1)–(5)
+      принимают
+
+remarks:
+  - >-
+    Строгость (а) сверх нужного — любой вызов `getattr`/`vars`/`globals` в файле даёт «не выполнилось»
+    независимо от имени. Это отказ в закрытую сторону. На дереве таких вызовов 0 (предикат из
+    measurements), и из доступа по имени в файле есть только `nonlocal rc` (383) — это не носитель.
+    Отдельным пунктом не выношу
+  - >-
+    Инъекция (4) ссылается на `chart` в `main` до цикла, где `chart` ещё не связан. Для распознавателя,
+    который судит по разбору, а не исполнением, это законно. Если реализация исполняет файл (она не
+    должна), проба упадёт NameError, а не нарушением `Б10 (0)`. Автору: пробу (4) лучше ставить внутрь
+    функции с параметром `chart` — на копии так и измерено
+
+return_to_acceptance: []
+return_to_acceptance_note: "приёмка 29b09f14 не задаёт ни распознаватель переписи, ни его пробы; CX2-88 — пункт замысла"
+
+measurements:
+  - claim: "сводка §11 — 88 строк, номера CX2-01…87 плюс CX2-47 · aaaff659"
+    how: "grep -c '^| CX2-' docs/changes/issue-2917/design.md; grep -oE '^\\| CX2-[0-9]+' … | sort | uniq -c | awk '$1>1' @a3d081476"
+    result: "88; единственный повтор — CX2-47 ×2; совпадает"
+  - claim: "на 2564 у носителей нет доступа по имени"
+    how: "grep -nE 'globals\\(|locals\\(|\\bexec\\(|\\beval\\(|attrgetter|sys\\.modules|__import__|importlib|setattr|getattr|delattr|vars\\(|__dict__|\\bglobal\\b|\\bnonlocal\\b' на origin/2564:.github/scripts/check-volume-mounts.py @6edea09c2ee, 523 строки"
+    result: "1 строка — 383 `nonlocal rc` (не носитель); строковых констант 'CHARTS'/'required' — 0"
+  - claim: "вхождения носителей по разбору"
+    how: "ast.walk по файлу 2564@6edea09c2ee; (А) узлы Name id=='CHARTS' + Attribute attr=='required'; (Б) любое строковое поле узла или константа, равная имени носителя"
+    result: "(А) 7 — CHARTS 103 Store, 298/327/357/510 Load; required 89 Store, 95 Load. (Б) 9 — те же плюс arg `required` 85 и Name `required` 89 Load (параметр звена (0))"
+  - claim: "пробы (4), (5) и девять форм связывания строковым полем"
+    how: "11 инъекций на копии файла сразу после литерала CHARTS, прирост (А) и (Б) против дерева; скрипт scratchpad/probe_cx88.py"
+    result: "(4) +1/+1; (5) +1/+1; import as, from-import as, def, class, except as, globals()[…], sys.modules[…].CHARTS, attrgetter('required'), case [*CHARTS] — (А) +0, (Б) +1 на каждой"
