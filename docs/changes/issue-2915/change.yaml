@@ -16,16 +16,18 @@
 # круг 2 прохода редакции 17/18: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml),
 # но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
 # Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/29cfa368….yaml
-# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 4
+# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 5
 # (2026-09-30), отпечаток — `hashes.design_sha256`; вердикта на него нет, пересверки на него нет
-# (следующая по Д22 судит дельту против 137602c7…).
+# (следующая по Д22 судит дельту против 1674e7a7…).
 # Пересверка на редакцию 1 (9bfa92be…) — reviews/class-exposure/revalidation/9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3.yaml
 # (вернуть в приёмку NTF1-L03; к замыслу CX1-58…62, УК71–УК74 — отображены редакцией 2).
 # Пересверка на редакцию 2 (774e8562…) — reviews/class-exposure/revalidation/774e8562884a35578bf13ce7a72521c163a9c7909ace1d2db80f1c0566616804.yaml
 # (к замыслу CX1-63, УК80–УК82 — отображены редакцией 3; L03 записи 9bfa92be в силе).
 # Пересверка на редакцию 3 (137602c7…) — reviews/class-exposure/revalidation/137602c7e9e39e7fe78a195aaf81c44d2792e26fec0d316e49537068eece40fe.yaml
 # (к замыслу CX1-64, CX1-65, УК85, УК86 — отображены редакцией 4; L03 записи 9bfa92be в силе).
-# Маршрут работ — `tasks.md` редакции 4 (проект; TASKS_READY им не объявлено).
+# Пересверка на редакцию 4 (1674e7a7…) — reviews/class-exposure/revalidation/1674e7a7b9d459130be8b23a2f40761c7b601abcdd4aa7914a1d7d77ac313477.yaml
+# (к замыслу CX1-66, CX1-67, УК89 — отображены редакцией 5; L03 записи 9bfa92be в силе).
+# Маршрут работ — `tasks.md` редакции 5 (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2915
 lifecycle_state: ISSUE_READY
@@ -62,7 +64,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
-  design_sha256: 1674e7a7b9d459130be8b23a2f40761c7b601abcdd4aa7914a1d7d77ac313477
+  design_sha256: 0be18f04eb74eb559f4a1dec5c8dea8bdc9ad04c566e8f02ca78922a4de97745
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:
