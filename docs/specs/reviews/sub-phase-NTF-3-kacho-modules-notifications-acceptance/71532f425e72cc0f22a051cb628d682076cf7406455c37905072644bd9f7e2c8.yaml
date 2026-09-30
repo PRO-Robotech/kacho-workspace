@@ -1,0 +1,192 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 71532f425e72cc0f22a051cb628d682076cf7406455c37905072644bd9f7e2c8
+  revision: 25
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: af0c93274
+  content_commit_note: >-
+    Редакцию 25 внёс коммит af0c93274 (по документу 99 вставок, 26 удалений). Судится дельта 24 → 25
+    (git diff 582da3a3a af0c93274 по документу) против B1–B3 и N1–N2 круга 1 (запись
+    c553cf62….yaml) и против Д1–Д25.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum <путь> и git show HEAD:<путь> | sha256sum @af0c93274 — оба дают 71532f42…e2c8
+  fingerprint_reproduced: true
+  lines: 4720
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T15:00:00Z'
+round: 2
+round_note: >-
+  Круг 2 прохода RA-04/RA-05. Действуют Д1–Д25. Каждая команда и координата дельты прогнана
+  рецензентом: kacho @1d42a6728bf, kaname @734f69fb4, corelib @34bc8104a, воркспейс @af0c93274 (Д24).
+previous_rounds:
+  - pass: RA-04/RA-05
+    round: 1
+    sha256: c553cf628f4ca7f7c84aec82fbe052e3e9308d36f52046bbd18a84920969e1b8
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/c553cf628f4ca7f7c84aec82fbe052e3e9308d36f52046bbd18a84920969e1b8.yaml
+prior_blocking_disposition:
+  - id: B1
+    status: closed
+    note: >-
+      С20 даёт управляемые часы обоих кэшей (Cache.SetNowFunc — corelib authz/cache.go:359;
+      Narrower.WithClock — listnarrow/narrower.go:241 @34bc8104a). Сдвиг часов за окно назван в
+      Given NTF3-163 и NTF3-164. Страж окна — servicecontract/contract.go:1123. Умолчания 5s
+      подтверждены: vpc config/defaults.go:146 и :181, compute config.go:155, storage config.go:146
+      @1d42a6728bf.
+  - id: B2
+    status: closed
+    note: >-
+      Проба предпосылки NTF3-164 задаёт модели ровно пять вопросов прохода. Аннотации сверены:
+      InstanceService.Delete — v_delete на compute_instance (instance_service.proto:95-106);
+      Detach у vpc и у storage — editor на объекте (:52-59 и :47-55). Отношения сужения сверены:
+      vpc relations.go:51 и nicinternal/service.go:238 — v_get по интерфейсу; storage
+      relations.go:36 и volume.go:678 — v_get по инстансу. Модель kaname fga_model.fga:1043-1053,
+      :1101-1113, :1363-1373 @734f69fb4: отношения объектов от editor проекта не выводятся.
+  - id: B3
+    status: closed
+    note: >-
+      Добавлена буква NTF3-163 (г). Выборка — free_ip_runner.go:81, строки журнала только для
+      DELETING — :372-379 @1d42a6728bf. Строится так: у kacho_nlb.operations нет CHECK на
+      done/result (0001_initial.sql:185-210, других ALTER с ограничением нет), CREATING входит в
+      load_balancers_status_check (:251-252), а триггеров на load_balancers нет. Сирота CREATING
+      удаляется тем же DELETE, что и DELETING, поэтому ответ Get lb-g NOT_FOUND обеспечен кодом.
+  - id: N1
+    status: closed
+  - id: N2
+    status: closed
+blocking_count: 1
+blocking_kinds_distinct: [CONVENTION]
+blocking_findings:
+  - id: B1
+    kind: CONVENTION
+    anchor: "§6 «Что НЕ входит», пункт «Сужение ListByInstance у vpc пообъектно по интерфейсу» (строки 1914-1919)"
+    what: >-
+      Документ откладывает дефект корректности словами «ведётся отдельной задачей», но саму задачу
+      не называет, и в трекере её нет. Поиск gh issue list -R PRO-Robotech/kacho --state all по
+      запросам «ListByInstance», «nicinternal», «сужение ListByInstance», «releaseAndDelete» и
+      «пообъектно» дал 0 подходящих задач (2026-09-30). Дефект настоящий, и редакция 25 его
+      подтверждает. В модели v_get и editor на vpc_network_interface — независимые прямые
+      отношения (fga_model.fga:1043-1053). vpc сужает ListByInstance по каждому интерфейсу
+      (relations.go:51, nicinternal/service.go:238). releaseAndDelete удаляет строку инстанса
+      сразу после пустого списка (instance.go:960-981 @1d42a6728bf). Отсюда сценарий: у начавшего
+      есть v_delete на инстансе, но нет v_get на привязанном интерфейсе. Тогда Р2 редакции 25
+      пропускает доделывателя, интерфейс не отвязывается, строка инстанса удаляется, и интерфейс
+      вместе с адресом остаётся привязанным к несуществующему инстансу. Сегодня тот же проход идёт
+      под запасной личностью, vpc её отвергает (authn_interceptor.go:85), и проход прерывается, не
+      удалив ничего. Значит, этот исход под-фаза открывает впервые и именно на доделывателе. У
+      отложенного есть причина и предикат снятия, но нет предмета — это третий исход ban #11 без
+      ответственного. К тому же слова «ведётся задачей» — утверждение о трекере без предиката (Д24).
+    fix: >-
+      Выбрать одно. (1) Завести задачу о корректности (area:vpc; ListByInstance сужается по
+      compute_instance, как ListAttachments у storage), вписать её номер в пункт §6 и в Р2. Там же
+      сказать, что до её закрытия доделыватель наследует исход публичного Delete. (2) Внести правку
+      сужения в под-фазу и держать её буквой NTF3-164 (д). Посев: у начавшего v_delete на ins-d
+      есть, v_get на nic-d нет. Then: строка инстанса на месте либо nic-d отвязан — по решению.
+      Близнец — (а).
+
+non_blocking_findings:
+  - id: N1
+    anchor: "§10, строка NTF3-164 (б)"
+    what: >-
+      В строке близнеца отличие названо только как «привязка снята». Given (б) теперь снимает ещё и
+      пообъектные записи usr-B на ins-r, nic-r и vol-r. Привести строку к Given.
+  - id: N2
+    anchor: "§8 С1; NTF3-164 Given («посевом С1 сняты … пообъектные записи»)"
+    what: >-
+      В строке С1 названы привязки ролей, группы и выдачи, а снятия пообъектных записей модели там
+      нет. Снятие записей по объекту — это отдельная возможность обвязки службы доступа. Нужно
+      назвать её в С1 или сказать, что Given ждёт материализацию до ответа «нет». Не блокирует:
+      проба предпосылки спрашивает все пять вопросов, поэтому неверно построенный Given даст «не
+      выполнилось», а не ложное красное.
+  - id: N3
+    anchor: "NTF3-163 (г), посев С18 для CREATING"
+    what: >-
+      lb-g создан публично (операция done=true), поэтому строка CREATED и регистрация прав прошли до
+      P0. У настоящей сироты CREATING их не бывает (free_ip_runner.go:373-374). Утверждения после P0
+      это не ломает, но лента lb-g в обвязке кончается на CREATED без DELETED. Стоит сказать это
+      одной фразой, чтобы исход (г) не читали как «сирота удалена молча и для ленты тоже».
+  - id: N4
+    anchor: "N3–N4 круга 1"
+    what: "Неблокирующие N3 (ветка «субъект запасной») и N4 круга 1 остаются в силе; дельта их не трогает."
+
+measurement:
+  scenario_ids: 164
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 157
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 164; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE по образцу гигиены задания (имена чужих облаков, домашний каталог, путь рабочей копии;
+    образец здесь не выписан) → 0.
+  reproduced_at_pinned_revisions:
+    - "scope_filtered: git grep -n 'scope_filtered' 1d42a6728bf -- <два proto> | grep -v '//' → 2 (storage :74, vpc :81). Верно."
+    - "instance.go @1d42a6728bf: ListByInstance :960, ListAttachments :971, repo.Delete :981. Верно."
+    - "free_ip_runner.go @1d42a6728bf: WHERE status IN ('DELETING','CREATING') :81 (и :101 у переписи); ветка DELETING → emitReconcileFinalize :375-376. Верно."
+    - "internal_address_service.proto:190-197 (CreateOwnedAddress) и :236-243 (ReleaseOwnedAddress) — editor на project. Верно."
+    - "ACR: required_acr_min на Detach, ListByInstance и ListAttachments внутренним слушателем kacho не судится. EvaluateStepUp вызывают только край и kaname (corelib grpcsrv/acr.go:7-13; git grep EvaluateStepUp в kacho вне gateway → 0). Значит, пересланный пользователь без acr прохода не ломает."
+
+premise_check:
+  task_premise: >-
+    В задании: SHA-256 71532f42…e2c8, круг 2. sha256sum рабочего файла и git show
+    HEAD:<путь> | sha256sum @af0c93274 дают 71532f425e72cc0f22a051cb628d682076cf7406455c37905072644bd9f7e2c8.
+    Посылка подтверждена.
+  seeded: 0
+  seeding_note: >-
+    Стенд и изоляция для посева заданием не названы, поэтому посев не выполнялся («не
+    выполнилось») и в зелёное не зачитан. Строимость С18 для CREATING и С20 выведена чтением схемы
+    и фундамента на закреплённых ревизиях.
+  confirmed:
+    - "B1–B3 и N1–N2 круга 1 закрыты. Каждая новая координата дельты воспроизведена."
+    - "Р2 редакции 25 (доделыватель спрашивает v_delete до вызова владельцев) держит буква (б): при реализации без этого вопроса пустые чтения удалили бы строку ins-r, и (б) покраснела бы."
+    - "Счёт 164/7/157 сходится, дубликатов 0, гигиена 0."
+  refuted:
+    - "Слова §6 «дефект корректности ведётся отдельной задачей»: задачи в трекере нет (B1)."
+
+method_verdict: >-
+  Судилась дельта 24 → 25 против круга 1 и Д1–Д25. Все координаты дельты воспроизведены на
+  закреплённых ревизиях. Сверх документа рецензент проверил строимость (г): ограничения таблицы
+  операций nlb, статусы и триггеры load_balancers. Проверена и ступень ACR на внутреннем пути.
+  Замысел закрытия B1–B3 верный. Остаётся один блокирующий: исход, который открывает Р2, отложен
+  без названного предмета.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: "git merge-base --is-ancestor 1202e3cf HEAD → 0 @af0c93274"
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_changes_requested
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует: тело события отдаётся курьеру строкой.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 прохода RA-04/RA-05, блокирующих 1: CONVENTION) ·
+    SHA-256 71532f425e72cc0f22a051cb628d682076cf7406455c37905072644bd9f7e2c8
+
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
