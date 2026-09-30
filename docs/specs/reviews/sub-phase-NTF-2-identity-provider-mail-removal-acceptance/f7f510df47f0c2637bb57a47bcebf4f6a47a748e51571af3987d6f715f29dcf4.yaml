@@ -1,0 +1,216 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: f7f510df47f0c2637bb57a47bcebf4f6a47a748e51571af3987d6f715f29dcf4
+  revision: 25
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT, строка истории — «редакция 25 · вердикта нет». Эта запись шапку НЕ
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: 216f7903d
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4282
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T20:37:39Z'
+round: 2
+round_note: >-
+  Круг 2 серии редакции 24 → 25 (круг 1 — `53bd6522…`, возврат B-1 COVERAGE по Д52). Дельта
+  c5602c620 → 216f7903d по документу прочитана целиком (87 строк: шапка, Р5 «Ключи», таблица Р8,
+  пункт «Ручка доверенных прыжков», §6б строки Р5 (г) и Р8 ×2, §7 новая строка, DoD пп. 7, 22, §11).
+  Сверена с Д51, Д52 (задание), с замыслом `issue-2917` @216f7903d (М67, CX2-68) и замыслом NTF-1
+  `issue-2915` @1690113d8 (строка Д52, Е12 (12)); механизмы перемерены посевом на копиях дерева
+  `origin/2564` `6edea09c2ee`. Прежние записи не правятся.
+previous_rounds:
+  - pass: редакция 21, круг 1
+    sha256: 21d5c951c273fddd8d327759313a7166640c8bd94db7d6cea34e58bd1e63392d
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 22, круг 2
+    sha256: c103822e857d5663339b168f102b529de45f16e4a542c3b9117e2a0ee9d2d1f5
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 23, круг 3
+    sha256: 7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4
+    verdict: APPROVED
+  - pass: редакция 24, круг 1
+    sha256: 53bd65224de8a3b2fb705473ffdbab632346535b3dc6466ffa94ea2dad9c567d
+    verdict: CHANGES_REQUESTED
+prior_findings_closed:
+  B-1: >-
+    закрыт по существу: Р8 называет рендер чарта края без зонтика, отказ с именем ручки и близнец
+    со слоем каталога; каталог назван по Д52 (`mail-node/`, `notify-standalone/`); §6б несёт
+    перепись по механизму с контролем М67 и инъекциями; DoD п.7 и §7 ссылаются. Остаток — одно
+    исключение внутри нового пункта (B-2 ниже), не повтор рода COVERAGE.
+  N-1: закрыт — §6б строка Р5 вариант (г) с близнецом.
+  N-2: закрыт — DoD п.22 называет `git grep -c` по обоим ключам, пустой вывод — «не выполнилось».
+  N-3: закрыт — ревизия `69ab1d3e17d`; перемер этой записью → 0, `config.go:661` default "1".
+decisions_applied:
+  D51: соблюдено (без изменений против круга 1).
+  D52: >-
+    отражено в Р8, Р5 «Ключи», §6б, §7, DoD п.7 — кроме исключения «запись края в ведомости
+    отказывающих чартов: значение не подаётся, утверждается отказ с именем ручки» (B-2): механизм,
+    на который оно ссылается, значение ПОДАЁТ и имени отказа не читает; исполненное буквально,
+    исключение красит конвейер, а исполненное по механизму — противоречит переписи §6б (1).
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  B-2: CONSTRUCTIBILITY
+blocking:
+  B-2: >-
+    [CONSTRUCTIBILITY] Р8 пункт «рендер чарта края без зонтика»: «Рендер края без зонтика, которому
+    по его назначению значение не подаётся (запись края в ведомости отказывающих чартов конвейера),
+    утверждает отказ с именем ручки — это отрицание, а не обход правила»; §6б строка Р8 «рендер чарта
+    края без зонтика» (1) — источник значения у этой записи «не подаётся», (4) — «запись края в
+    ведомости отказывающих чартов конвейера утверждает отказ с именем ручки». Ведомость
+    (`.github/scripts/lint-service-charts.sh` @`6edea09c2ee`, строки LEDGER и `sweep`) устроена иначе:
+    запись — `<путь чарта>|<аргументы helm>`; гейт рендерит чарт С аргументами записи (код ≠ 0 —
+    «не рендерится ДАЖЕ с координатами ведомости»), а самоистечение проверяет лишь, что голый рендер
+    отказывает (код, текст отказа не читается). Посев на копии дерева с `required` ручки в шаблоне
+    края: запись отсутствует → rc=1 «не рендерится, а координат ведомость ему не даёт»; запись
+    `gateway/deploy|` без аргументов → rc=1 то же (пустые аргументы неотличимы от отсутствия
+    записи); запись `gateway/deploy|-f deploy/testdata/notify-standalone/edge.yaml` (ключ в корне) →
+    rc=0 «координат подано ведомостью». Итого: записи, которой «значение не подаётся», в этом
+    механизме не существует — единственная зелёная форма подаёт значение слоем файла; и ни одна
+    форма не утверждает имя ручки в отказе. Приёмка тем самым (а) заказывает исключение, буквальное
+    исполнение которого красит конвейер, (б) называет у записи производителя утверждения «отказ с
+    именем ручки», которого у неё нет, (в) в переписи §6б (1) печатает источником «не подаётся» там,
+    где по механизму стоит файл каталога. Что сделать: убрать исключение и отнести ведомость к
+    общему правилу — запись края `gateway/deploy|-f <файл каталога фикстур NTF-1>` (источник в
+    переписи — этот файл; `--set` с ключом ручки в записи — красный, как у прочих рендеров);
+    самоистечение ведомости уже держит «без записи/без слоя — отказ» (кодом); утверждение «текст
+    отказа называет ручку» оставить за отрицанием §6б (2) (`helm template <релиз> gateway/deploy` без
+    слоя), а не за ведомостью. Если автор хочет, чтобы ведомость читала имя в отказе, — это правка
+    скрипта, и её производитель (полоса D6) и близнец называются явно.
+non_blocking:
+  N-1: >-
+    [CONSTRUCTIBILITY] Р8: близнец «тот же рендер со слоем файла каталога (`-f` файла из
+    `deploy/testdata/mail-node/` или `deploy/testdata/notify-standalone/`) — код 0» не называет форму
+    ключа. Посев: чарт края без зонтика со слоем `trustedHops: 1` (корень) → rc=0, переменная "1";
+    со слоем `api-gateway: {trustedHops: 1}` (форма слоя зонтика, в которой ручку несут файлы
+    `mail-node/` для рендеров `prod`) → rc=1, отказ с именем ручки; `0` в корне → переменная "0".
+    Значит, файл `mail-node/`, поданный рендеру без зонтика, отказывает, если не несёт второй строки
+    того же значения в корневой форме, — а «строка ручки лежит в каждом файле каталога» написано в
+    единственном числе, и две строки одного значения в одном файле — два места об одном предмете.
+    Замысел NTF-1 (`issue-2915` @1690113d8, Е12 (12)) прямо отдаёт выбор файла и формы ключа D6
+    NTF-2. Рекомендую назвать в Р8: рендеры без зонтика берут значение из файла с ключом в корне
+    (`notify-standalone/`), файл `mail-node/` несёт только форму под сегментом `api-gateway`; одно
+    значение — одна строка на файл. Не блокирует: неверный выбор держатель §6б (2) поймает красным
+    близнеца. Тот же выбор касается семейства (7) IaC-скана: `--helm-values`/`helm.values` сканера
+    ложится на КАЖДЫЙ рендеримый чарт — корневой ключ ручки не должен совпадать с ключом чужого чарта.
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: f7f510df47f0c2637bb57a47bcebf4f6a47a748e51571af3987d6f715f29dcf4
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку f7f510df…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2, редакция 25, блокирующих 1: CONSTRUCTIBILITY) · SHA-256
+    f7f510df47f0c2637bb57a47bcebf4f6a47a748e51571af3987d6f715f29dcf4
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: 216f7903d (ветка issue-880, HEAD 1690113d8 — документ после 216f7903d не менялся)
+    kacho_epic: origin/2564 6edea09c2ee
+    kacho_1276: origin/1276 69ab1d3e17d
+    helm: v4.2.4
+  results:
+    - claim: 9 строк helmTemplate( в gateway/deploy
+      command: git grep -nE 'helmTemplate\(' 6edea09c2ee -- gateway/deploy | wc -l
+      outcome: 9 — сходится
+    - claim: каталога deploy/testdata на базе нет
+      command: git ls-tree -d origin/2564 deploy/testdata | wc -l
+      outcome: 0 — сходится
+    - claim: число прыжков не задаёт ни одна цепочка на 1276; умолчание процесса 1
+      command: >-
+        git grep -c 'TRUSTED_PROXY_COUNT\|TRUSTED_XFF\|TRUSTED_HOPS' 69ab1d3e17d -- deploy
+        gateway/deploy ':!*_test.go' | wc -l; git grep -n 'default:"1"' 69ab1d3e17d --
+        gateway/internal/config/config.go
+      outcome: 0; config.go:661 AuthZTrustedProxyCount default "1" — сходится
+    - claim: чарт края без зонтика сегодня рендерится голым
+      command: git archive 6edea09c2ee gateway/deploy | tar -x; helm template t gateway/deploy
+      outcome: rc=0
+constructibility:
+  seeded: 3
+  of: 4
+  not_executed: 1
+  detail: >-
+    (1) отрицание/близнец рендера края без зонтика — посеяно: копия чарта @6edea09c2ee с
+    `required` ручки в env Deployment; без слоя → rc=1, `execution error at
+    (api-gateway/templates/deployment.yaml…)` с именем KACHO_API_GATEWAY_TRUSTED_HOPS; слой с ключом
+    в корне → rc=0, value "1"; `0` → value "0". (2) форма ключа слоя — посеяно: слой в форме
+    зонтика (`api-gateway:`) на рендере без зонтика → rc=1 (N-1). (3) исключение ведомости —
+    посеяно на синтетическом дереве со скриптом `lint-service-charts.sh` @6edea09c2ee и тремя
+    ведомостями: нет записи → rc=1; запись без аргументов → rc=1; запись `-f` файла каталога → rc=0
+    — опровергает исключение (B-2). (4) §6б Р5 (г) — окно фиксации на управляемом хранилище;
+    стенда пробы замысла З8 нет — «не выполнилось».
+premise_check:
+  claim: >-
+    задание: судить редакцию 25 на отпечаток f7f510df…, круг 2; учесть Д51, Д52.
+  outcome: >-
+    подтверждена в части отпечатка (sha256sum воспроизведён, строк 4282) и Д51; Д52 отражён, кроме
+    исключения ведомости, опровергнутого посевом (B-2).
+  commands:
+    - "sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    - "git diff c5602c620 216f7903d -- <док>"
+    - "посев: helm template на копии gateway/deploy с required; sweep lint-service-charts.sh с тремя ведомостями"
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да
+  security_surface_note: >-
+    доверенная глубина цепочки пересланных адресов у края и fail-closed отказ рендера без неё
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и предикатами, без описания обхода.
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY встречался в возврате редакции 21; в круге 1 редакции 24 — COVERAGE. Повтор рода
+  не в том же предмете: здесь — механизм ведомости, введённый дельтой по Д52. Форму задания автора
+  рекомендую дополнить шагом «исключение, ссылающееся на механизм, проверить посевом этого
+  механизма» (решает диспетчер, §14а).
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 26: B-2 — снять исключение «ведомость: значение не подаётся, отказ с именем ручки» из
+    Р8 и §6б (1), (4); ведомость края — запись `gateway/deploy|-f <файл каталога NTF-1>`, источник
+    в переписи — этот файл; имя ручки в отказе держит отрицание §6б (2); N-1 — назвать форму ключа
+    для рендеров без зонтика тем же заходом
+  also_needed: >-
+    курьер — опубликовать событие возврата на отпечаток f7f510df…; замысел `issue-2917` CX2-68 (б)
+    («запись края с ключом ручки в ведомости», синтетическое число) — вход пересверки разбора
+    классов против Д52 и этой записи
+  owner_questions: []
