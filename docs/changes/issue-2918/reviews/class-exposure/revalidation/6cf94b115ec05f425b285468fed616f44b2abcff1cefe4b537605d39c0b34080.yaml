@@ -1,0 +1,367 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 13.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5, 3dbb8b23, b34a411e, 97c51264, f6809e98, 7bc43f21, 5400c528) относятся к своим отпечаткам и
+# здесь не переписываются. По Д22 это дельта: редакция 13 проверена диффом d253e4897 → 4b11228f5
+# (design.md +236/−219 вместе с tasks.md и change.yaml). Редакция 13 — исключение из Д26 по заданию
+# диспетчера: минимальный новый механизм только для К1 и К2 ревью замысла 97c51264. Проверено:
+#   (1) отображение CX3N-01…05 пересверки 5400c528;
+#   (2) механизм К1 (NewNotifyingRepo, pgRepo.FailTerminal, выбор по terminalFailer) — по коду corelib
+#       @34bc8104a и по графу импортов corelib @34bc8104a и @origin/main 851ee57;
+#   (3) механизм К2 (directory.ErrCallWithoutDeadline) — против замысла NTF-5 (issue-2924) в той же
+#       рабочей копии;
+#   (4) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 13.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 6cf94b115ec05f425b285468fed616f44b2abcff1cefe4b537605d39c0b34080
+  fingerprint_predicate: git show HEAD:docs/changes/issue-2918/design.md | sha256sum
+  revision: 13
+  content_commit: 4b11228f5
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/5400c528c23011c21ced0906558a68e1e7123fa17f7149844aba81912539c47b.yaml
+  subject_revision: 12
+  outcome: к-замыслу
+design_review_mapped:
+  path: docs/changes/issue-2918/reviews/design/design-reviewer/97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097.yaml
+  items: [К1, К2, В1, В2, В3, В4, М1]
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34, Д37, Д40, Д41. Д22 — дельта. Д26 — заход отображения, для этого захода исключение по заданию
+    диспетчера: новый механизм разрешён только для К1 и К2 ревью замысла 97c51264. Поэтому запись судит
+    механизм К1/К2 по существу, а прочую дельту — как отображение.
+revisions:
+  workspace: 4b11228f5   # HEAD issue-880 при замере = коммит содержимого предмета
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a     # граф импортов перепроверен и на origin/main 851ee57 — то же
+  kaname: 734f69fb4
+snapshot_at: 2026-09-30T17:41:30Z
+inspected: >-
+  Дифф редакции 12 → 13 (коммит 4b11228f5): заметка редакции 13, З4 (1) и (б), З16 целиком, З18, З21,
+  З26, З27, И25–И28, §4, §7 п.4–6, §8, §12, строки §11 ДР-К1, ДР-К2, CX3N-01…05, §11а УК3-53…62; строки
+  X3, X5, S2-B4, S2-B5, S2-B9, S3-C3, S3-C4 tasks.md; change.yaml. Ревью замысла 97c51264 (К1, К2, М1).
+  Код corelib @34bc8104a: operations/worker.go 470–600 (execute, terminalWrite), 622–690 (Run,
+  RunWithWorker, RunSync); operations/repo.go 20–140 (Repo, FullRepo, executionClaimer), 240–266
+  (markErrorCAS), 305–320 (NewRepo), 570–604 (MarkError, ClaimForExecution); импорты auth/propagate.go.
+  Код kacho @1d42a6728bf: вызовы operations.NewRepo( и методы MarkError в пяти модулях. Код kaname
+  @734f69fb4: operations.NewRepo(. Замысел NTF-5 issue-2924/design.md строки 20–30, 290–300, 1838–1848.
+  Приёмка — только строки о Reconciler (grep), отпечаток сверен. Стенд не поднимался. Записки vault не
+  читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строки есть у всех 100 пунктов CX3 (`grep -c '^| CX3'` → 100 = 95 + CX3N-01…05) и у 7 строк ДР-.
+      Снятие CX3N-01, 02, 04, 05 «вместе с предметом» выдерживает: Worker, пакетный реестр, 54 вызова
+      operations.Run, NewWorker и NewReconciler механизм не трогает. CX3N-03 перенесён на УК3-59 и
+      выдерживает. ДР-К2 выдерживает для пакетов digest и reminder. ДР-К1 (а) не выдерживает по
+      построению: механизм в пакете operations не собирается, потому что образует цикл импортов (CX3O-01).
+      Новые пункты CX3O-01…04 без отображения.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: >-
+      Новых сетевых вызовов нет. pgRepo.FailTerminal ходит в свою базу. Клиент справочника отвергает
+      вызов до сети.
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: >-
+      Новых путей нет. Путь исполнителя тот же (runOn → execute → terminalWrite), в ветке ошибки
+      меняется только вызываемый метод репозитория. Reconciler не меняется.
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: red
+    detail: >-
+      directory.ErrCallWithoutDeadline — новое sentinel-значение. Замысел описывает его исход у
+      вызывающего (З27, ДР-К2), но пунктом не заводит, а классификация у вызывающего не держится
+      (CX3O-03). Заведено этой записью как CX3O-03.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: "Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md)."
+
+clean: false
+
+execution_check:
+  summary: "заказ автору 5400c528 исполнен, в основном снятием предмета; заказы integration-tester по CX3N-02, CX3N-04 сняты вместе с предметом, по CX3N-03 перенесён в УК3-59"
+  items:
+    - id: "orders.design-author CX3N-01…05 (5400c528)"
+      verdict: done
+      where: "З16, строки §11 CX3N-01…05, УК3-59, X5, S3-C3"
+      note: >-
+        Исполнено не отображением, а сменой механизма (исключение из Д26). Предмет CX3N-01, 02, 04, 05
+        исчез: сверено по коду corelib, что Worker, Run, NewReconciler и Sweep механизму не нужны.
+    - id: "orders.integration-tester (1) lroreconciler, (3) nil *Worker (5400c528)"
+      verdict: withdrawn
+      where: "строки §11 CX3N-02, CX3N-04 — «снят как предмет»"
+    - id: "orders.integration-tester (2) УК3-59 под своим именем импорта (5400c528)"
+      verdict: carried
+      where: "§11а УК3-59 (инъекции ops.NewRepo / близнец ops.NewNotifyingRepo)"
+    - id: "orders.acceptance-author NTF-4/NTF-5 — противоречие о NewReconciler в корне notify-api (5400c528)"
+      verdict: moot-for-this-change
+      where: "радиус X5 от него больше не зависит: сигнатура NewReconciler не меняется"
+      note: "противоречие между замыслами NTF-4 и NTF-5 как факт остаётся; оно их, не этого замысла"
+    - id: "orders.go-implementer X5 — проверка `git tag --contains <X2-F>` (97c51264)"
+      verdict: carried
+      where: "З10 «Посадка» п.4 (без изменений в дельте)"
+
+mapping_check:
+  summary: "100 из 100 пунктов CX3 имеют строку; ДР-К1 (а) не выдерживает (цикл импортов); 6 из 7 строк ДР- выдерживают"
+  holds_now:
+    - id: "CX3N-01, CX3N-02, CX3N-04, CX3N-05 — сняты вместе с предметом"
+      reason: >-
+        По коду corelib @34bc8104a значение подключения доходит до исполнителя через j.repo
+        (worker.go:358, :527). Для этого не нужен ни Worker корня, ни RunWithWorker, ни новая сигнатура
+        NewWorker/NewReconciler. 54 вызова operations.Run остаются, поэтому гейт lroreconciler
+        по-прежнему опознаёт асинхронные сервисы. Прозы о пакетном реестре механизм не делает ложной.
+    - id: "CX3N-03"
+      reason: >-
+        Перенесён на УК3-59: локальное имя пакета берётся из объявления импорта, инъекция под своим
+        именем названа.
+    - id: "ДР-К1 (б), (в), М1"
+      reason: >-
+        Reconciler журнала и Put не касается (markErrorCAS в транзакции пачки, repo.go:242 и
+        reconciler.go:252 без правки). Поэтому нет ни 23502, ни второго Put с лимитами, ни отката пачки.
+        У классификатора pgRepo.FailTerminal на каждый исход своя строка, но ErrNotFound в нём
+        пропущен (CX3O-04, к коду). Цена — нет письма об операции, разрешённой Reconciler, — названа в
+        §12 и согласована с приёмкой §6 (строки 1803, 1918, 1923 приёмки ac1f9fc9).
+    - id: "ДР-К1 (а) — выбор по terminalFailer и эквивалентность для NewRepo"
+      reason: >-
+        pgRepo реализует terminalFailer всегда. Поэтому для geo и kaname (NewRepo, NoFailedSender)
+        исполнитель зовёт FailTerminal, а он делает markErrorCAS на пуле. Это тот же оператор, что
+        pgRepo.MarkError (repo.go:586-588), и исход у него тот же. Обёрток operations.Repo на рабочем
+        пути пяти модулей нет (М26 перепроверен: методы MarkError вне тестов — только заглушки и
+        собственный store.go storage, не operations.Repo). terminalWriteTime (5 с на попытку,
+        worker.go:69) покрывает Begin + CAS + Put + Commit одной попытки.
+    - id: "ДР-К2 — пакеты digest и reminder"
+      reason: >-
+        Срок ставит место вызова константой пакета. Resolve идёт вне транзакции адресата.
+        DEADLINE_EXCEEDED — клетка Р7. Держат УК3-56, УК3-57, УК3-62.
+    - id: "ДР-В1…ДР-В4, 95 прежних пунктов CX3"
+      reason: "дельта их не меняет (сверено по диффу: строки не тронуты)"
+  not_holding:
+    - id: "ДР-К1 (а) — место механизма в пакете operations"
+      reason: >-
+        pgRepo.FailTerminal зовёт journaltx.Begin и AsComponent. FailedNotify несёт journaltx.Options,
+        а NewFailedNotify зовёт auth.SystemPrincipalFor и auth.InitiatorOf. Значит, пакет
+        corelib/operations должен импортировать journaltx и auth. Но auth уже импортирует operations
+        (auth/propagate.go:50 @34bc8104a и @851ee57). journaltx по З4 читает принципал через
+        PrincipalFromContextOK, а он живёт в operations/principal_ctx.go:57. Выходят два цикла:
+        operations → journaltx → operations и operations → auth → operations. Go такое не собирает.
+        См. CX3O-01.
+  unmapped: [CX3O-01, CX3O-02, CX3O-03, CX3O-04]
+
+new_items:
+  - id: CX3O-01
+    decision: "механизм К1 в пакете corelib/operations: NewFailedNotify (auth), FailedNotify{journaltx.Options}, pgRepo.FailTerminal → journaltx.Begin/AsComponent (З4 (1), З16, §4, И25)"
+    class: "code-authoring §«Контракт, который нельзя выразить»; measurement-discipline §«Радиус: по имени механизма и по точкам применения» (граф импортов как точка применения)"
+    exposure: >-
+      Механизм невыразим там, где он назначен. Цикл импортов в Go громкий: X3 не соберётся. Опасен
+      обход, который реализация выберет сама, без разбора. (1) Обёртка вокруг FullRepo в
+      подпакете, чтобы разорвать цикл. Она теряет необязательные интерфейсы pgRepo (executionClaimer
+      — это заново открывает phantom-ресурс под перегрузкой, worker.go:470-500), а terminalFailer она
+      либо теряет, либо переизобретает. (2) Перенос InitiatorOf или AsComponent в operations: второй
+      дом нормализации субъекта, против CX3B-26 (а) и CX3E-02 (в). (3) Инициатор из строки вместо
+      принципала. Цикл заложен с редакции 11: journaltx.Options вошёл в FailedNotify через CX3L-02,
+      auth.SystemPrincipalFor — в NewFailedNotify через CX3L-03. Пересверки 7bc43f21 и 5400c528 его
+      не заметили. Редакция 13 делает его несущим: Begin и AsComponent теперь зовутся из operations.
+    code_condition: >-
+      (а) Пакет corelib/operations не импортирует ни corelib/journaltx, ни corelib/auth, ни пакеты,
+      которые от них зависят. Открытие транзакции под парой и построение FailedNotify попадают в
+      operations значением интерфейса, который объявлен в operations (например, «открыть терминальную
+      транзакцию» и отдать pgx.Tx либо интерфейс, объявленный в operations). Строит его пакет, которому
+      разрешено импортировать и operations, и journaltx, и auth: journaltx или отдельный подпакет. Там
+      же живёт проверка пары (CX3L-03) и отказ на нулевых Options (CX3M-02 (а)). Замысел называет этот
+      пакет и имя конструктора. (б) Обёртки вокруг pgRepo для разрыва цикла нет. Если она всё же
+      выбрана, замысел называет, как сохраняются executionClaimer, MetadataFinalizer, TerminalSweeper,
+      OwnedOperationRepo и terminalFailer, и чем держится их сохранность. (в) Тип транзакции в
+      экспортированной operations.FailTerminal(ctx, tx, …) назван, и он не *journaltx.Tx. (г) З4 (1),
+      З16, §4 и И25 правятся тем же заходом: «одна неэкспортированная функция пакета operations» — это
+      сейчас именно то место, которое не собирается.
+    held_by: >-
+      Компилятор на полосе X3 ловит цикл сам и громко. Выбор обхода держит предикат графа:
+      `go list -deps ./operations | grep -E 'corelib/(journaltx|auth)$'` в corelib → пусто. Нужна проба
+      предпосылки: предикат краснеет на ветке, где operations импортирует journaltx. Если выбрана
+      обёртка — проба «ClaimForExecution достижим через репозиторий, который получает use-case».
+    outcome: к-замыслу
+  - id: CX3O-02
+    decision: "клиент справочника отвергает вызов без срока — «свойство держит одна точка» (З27, И26)"
+    class: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»; doc-truthfulness §«Два места об одном предмете, где одно верно»"
+    exposure: >-
+      У InternalNotificationRecipientService службы доступа в notify-sender два клиента. Первый —
+      services/notify/internal/directory этого замысла (Resolve, ListProjectAudience,
+      ListExpiringCredentials, полоса S2-B9). Второй — services/notify/internal/clients/kaname_client.go
+      замысла NTF-5 (DescribeScope, ListAccounts, Resolve; issue-2924/design.md строки 26, 298, 1843).
+      Resolve одного сервиса зовётся через оба. Отказ без срока стоит только в первом. Утверждение З27
+      «свойство "у каждого вызова справочника есть срок" держит одна точка» и И26 «каждый вызов
+      notify-sender → справочник» верны для одного клиента из двух. Какой из двух — «клиент
+      справочника», замысел не говорит, а имени kaname_client.go в замысле нет вовсе.
+    code_condition: >-
+      Замысел выбирает и называет одно из двух. (а) directory — единственный клиент
+      InternalNotificationRecipientService в notify-sender, kaname_client.go NTF-5 его использует или
+      становится им. Тогда предикат S2-B9 судит оба пути, а NTF-5 получает заказ. (б) Два клиента
+      остаются. Тогда З27 и И26 сужают утверждение до пакета directory и называют второй клиент с его
+      держателем: предикат NTF-5 «клиент своего срока не ставит» и его модульная проба на молчащую
+      службу. В этом случае нужна строка сверки двух полос (один и тот же Resolve, один словарь исходов
+      Р7 — resolvecell.Of).
+    held_by: "вниманием до выбора; после (а) — предикат S2-B9 на обоих путях; после (б) — предикаты двух замыслов по отдельности, сверку двух полос держит внимание"
+    outcome: к-замыслу
+  - id: CX3O-03
+    decision: "sentinel directory.ErrCallWithoutDeadline и его исход у вызывающего (З27, S2-B5, S3-C4)"
+    class: "code-authoring §«Чужой ответ: классификация и бюджет»; code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      (1) Это не gRPC-статус. Если вызывающий пропустит ошибку через status.FromError → resolvecell.Of,
+      получится codes.Unknown, а в таблице Р7 эта строка ведёт к DEFER/contactUnknown. Ошибка программы
+      тихо станет «служба недоступна», хотя З27 обещает «resolvecell.Of его не видит». (2) Замысел
+      увеличивает на отказе тот же счётчик отказа прохода, что и молчание страницы. Дефект программы и
+      отказ среды в метрике неразличимы. (3) Отказ проверяет наличие срока, а не его размер. Вызов под
+      унаследованным сроком прохода (тик) проходит отказ и висит до конца тика. Константу места вызова
+      держат только УК3-56 и УК3-57 — для digest и reminder, а не «одна точка».
+    code_condition: >-
+      (а) У каждого вызывающего errors.Is(err, directory.ErrCallWithoutDeadline) проверяется до
+      классификации статуса. Ветки, где ошибка без статуса доходит до resolvecell.Of, нет. (б) У счётчика
+      отказа прохода своя метка для этого исхода (например, cause="no_deadline"), и она отлична от метки
+      отказа страницы. (в) Текст З27 про «одну точку» сужен до «наличия срока». Размер срока — константа
+      места вызова, её держат УК3-56 и УК3-57.
+    held_by: >-
+      Близнец УК3-56: заглушка вызывающего отдаёт ErrCallWithoutDeadline → проход прекращён, метка
+      no_deadline +1, исхода DEFER/contactUnknown нет. То же — для УК3-57. (в) — правка текста, держится
+      вниманием.
+    outcome: к-коду
+  - id: CX3O-04
+    decision: "классификатор исходов pgRepo.FailTerminal (З16) и проза модулей о NewRepo (S3-C3)"
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (строка на исход); doc-truthfulness §«Утверждение, пережившее свой предмет»"
+    exposure: >-
+      (1) markErrorCAS различает три исхода: nil, ErrAlreadyDone, ErrNotFound (repo.go:259-266).
+      terminalWrite обрабатывает ErrNotFound отдельно, без повторов (worker.go:575-579). Строки
+      ErrNotFound в таблице З16 нет. Если pgRepo.FailTerminal обернёт его без %w либо запасная запись
+      вернёт своё, строка уйдёт в «отказ среды» и будет повторяться весь бюджет. (2) Три комментария в
+      пяти модулях называют operations.NewRepo как действующий конструктор репозитория корня:
+      compute cmd/compute/recovery.go:38, compute internal/repo/quota.go:150, nlb
+      cmd/kacho-loadbalancer/recovery.go:43. После S3-C3 они станут ложью. УК3-59 судит узел вызова, а
+      комментарии — нет.
+    code_condition: >-
+      (а) В таблице З16 есть строка ErrNotFound: откат, запасной записи нет, ошибка возвращается с %w,
+      terminalWrite не повторяет — как сегодня. Запасная запись возвращает свой исход тоже с %w. (б)
+      S3-C3 переписывает три комментария тем же изменением, что и корни.
+    held_by: >-
+      (а) — проба X3: FailTerminal на отсутствующем id → errors.Is(err, ErrNotFound), строк 0,
+      IncTerminalWriteRetries не вырос. (б) — предикат полосы S3-C3:
+      `git grep -n 'operations.NewRepo(' -- services/{compute,nlb,registry,storage,vpc}` → 0. Гейта нет:
+      прозу разбор Go не судит, держится вниманием при сдаче с напечатанным числом.
+    outcome: к-коду
+
+measurements:
+  - claim: "отпечаток предмета — редакция 13"
+    command: "git show HEAD:docs/changes/issue-2918/design.md | sha256sum (HEAD 4b11228f5)"
+    result: "6cf94b115ec05f425b285468fed616f44b2abcff1cefe4b537605d39c0b34080"
+    control: "запись 5400c528 — предмет прежней пересверки, другой отпечаток"
+  - claim: "пакет auth импортирует operations — operations не может импортировать auth"
+    command: "git -C corelib grep -l 'corelib/operations\"' 34bc8104a -- ':!*_test.go'; то же на origin/main 851ee57 -- auth"
+    result: "34bc8104a: auth/propagate.go (строка 50), authz/*, grpcsrv/*, listnarrow/*, operations/operationspb/*; 851ee57: auth/propagate.go"
+    control: "обратных рёбер нет: `git grep -n 'corelib/auth\"\\|corelib/journaltx\"' origin/main -- operations ':!*_test.go'` → 0; каталога journaltx на origin/main нет (0) — цикл возникает только с правкой X3"
+  - claim: "принципал контекста живёт в operations — journaltx обязан импортировать operations"
+    command: "git -C corelib grep -n 'func PrincipalFromContextOK\\|func SystemPrincipalFor' 34bc8104a"
+    result: "operations/principal_ctx.go:57 PrincipalFromContextOK; auth/propagate.go:125 SystemPrincipalFor (возвращает operations.Principal)"
+    control: "З4 замысла: Begin читает принципал через PrincipalFromContextOK и зовёт auth.InitiatorOf; auth/initiator.go — файл пакета auth (З1, §4)"
+  - claim: "для NewRepo путь FailTerminal эквивалентен сегодняшнему MarkError"
+    command: "git -C corelib show 34bc8104a:operations/repo.go | sed -n 586,588p; sed -n 242,266p"
+    result: "pgRepo.MarkError = markErrorCAS(ctx, r.pool, …); исходы nil / ErrAlreadyDone / ErrNotFound"
+    control: "worker.go:527-529 — сегодняшняя ветка ошибки зовёт j.repo.MarkError; terminalWrite — 546-600, ErrNotFound без повторов — 575-579"
+  - claim: "М25, М26 выдерживают: корни строят репозиторий одним вызовом, прод-реализаций operations.Repo в модулях нет"
+    command: >-
+      git -C kacho grep -nE 'operations\.NewRepo\(' 1d42a6728bf -- ':!*_test.go';
+      git -C kacho grep -lE 'func \([a-zA-Z_]+ \*?[A-Za-z_]+\) MarkError\(' 1d42a6728bf -- 'services/*' ':!*_test.go'
+    result: >-
+      вызовов 6 (compute main.go:149, geo serve.go:114, nlb main.go:248, registry serve.go:173, storage
+      serve.go:236, vpc main.go:307) и 4 строки прозы (compute recovery.go:38, quota.go:150, geo
+      recovery.go:44, nlb recovery.go:43); методы MarkError — 4 заглушки и storage reconciler/store.go
+    control: "store.go — MarkError ресурса storage (row.Kind, row.ID, reason), не operations.Repo; прямых вызовов MarkError репозитория операций в пяти модулях 0 (grep '\\.MarkError(' — только loop.go:312, :376, это store)"
+  - claim: "в notify-sender два клиента одного сервиса справочника"
+    command: "grep -n 'kaname_client\\|internal/directory' docs/changes/issue-2924/design.md docs/changes/issue-2918/design.md; sed -n 20,30p docs/changes/issue-2924/design.md"
+    result: "NTF-5: clients/kaname_client.go (DescribeScope, ListAccounts, Resolve), строки 26, 298, 1843; NTF-3: internal/directory (строки 1170, 1381, 1809, 1899); kaname_client.go в замысле NTF-3 — 0 упоминаний"
+    control: "InternalNotificationRecipientService — сервис NTF-3 Р7 (issue-2924 М13, З23 п.1)"
+  - claim: "строк отображения 107; маркеров отсрочки 0"
+    command: "grep -c '^| CX3' design.md; grep -c '^| ДР-' design.md; grep -cE 'TODO|TBD|FIXME|XXX' design.md tasks.md"
+    result: "100; 7; 0 и 0"
+    control: "95 в записи 5400c528 + CX3N-01…05 = 100"
+
+not_measurable:
+  - >-
+    Сборку X3 с механизмом редакции 13 не прогнать: journaltx и NewNotifyingRepo ещё нет в дереве.
+    Цикл доказан графом импортов действующего дерева (auth → operations) и назначением функций в
+    замысле (operations → journaltx, operations → auth), а не прогоном компилятора.
+  - >-
+    Чем станет kaname_client.go NTF-5 относительно directory (CX3O-02), решают замыслы, а не дерево:
+    в kacho @1d42a6728bf нет ни services/notify, ни одного из двух клиентов.
+
+facts_for_dispatcher:
+  - >-
+    CX3O-01. Механизм К1 назначен в пакет corelib/operations, но требует импорта journaltx и auth.
+    А auth уже импортирует operations (auth/propagate.go:50), и journaltx по З4 читает принципал из
+    operations. Выходит цикл импортов, X3 не соберётся. Корень цикла — редакция 11 (CX3L-02,
+    CX3L-03), и две прежние пересверки его пропустили. Исправление задевает только место механизма
+    К1, а не его смысл, поэтому оно помещается в то же исключение из Д26.
+  - >-
+    CX3O-02. Два клиента одного сервиса справочника в notify-sender (directory NTF-3 и
+    kaname_client.go NTF-5) — межзамысловый предмет. Выбор «один клиент» потребует правки замысла
+    NTF-5.
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: [CX3O-01, CX3O-02, CX3O-03, CX3O-04]
+not_holding_items: ["ДР-К1 (а) — место механизма в пакете operations (цикл импортов)"]
+new_items_without_mapping: [CX3O-01, CX3O-02, CX3O-03, CX3O-04]
+open_decisions: []
+
+orders:
+  - to: design-author (acceptance-author, база §12)
+    what: >-
+      CX3O-01: назвать пакет и конструктор, который строит FailedNotify и открывает терминальную
+      транзакцию под парой; operations получает это значением интерфейса, объявленного в operations, и
+      не импортирует ни journaltx, ни auth. Тип tx экспортированной FailTerminal не должен быть
+      *journaltx.Tx. Обёртки вокруг pgRepo нет, иначе — назвать сохранность необязательных
+      интерфейсов. Править З4 (1), З16, §4, И25, ДР-К1 и строку X3. CX3O-02: выбрать «один клиент» или
+      «два клиента с сужением З27/И26», назвать kaname_client.go. CX3O-03, CX3O-04: строками §11 с
+      держателями.
+    basis: "code-authoring §«Контракт, который нельзя выразить»; architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»; change-graph.md §4"
+  - to: integration-tester
+    what: >-
+      (1) Предикат графа импортов corelib: `go list -deps ./operations` без corelib/journaltx и
+      corelib/auth, с пробой предпосылки на ветке, где operations их импортирует. (2) Близнецы УК3-56,
+      УК3-57: ErrCallWithoutDeadline → метка no_deadline, без DEFER/contactUnknown. (3) Проба X3:
+      FailTerminal на отсутствующем id → ErrNotFound без повторов.
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; §«Инъекция настоящим входом из дерева с законным близнецом»"
+  - to: integration-tester
+    what: "заказы записей 5400c528 (УК3-59 под своим именем импорта), 7bc43f21, f6809e98, 3dbb8b23, ac1f9fc9, 374789b5 — в силе в редакции §11а; по CX3N-02 и CX3N-04 — сняты вместе с предметом"
+    basis: "§11а замысла"
+  - to: acceptance-author (замысел NTF-5 issue-2924)
+    what: "при выборе CX3O-02 (а) — kaname_client.go и directory сводятся в одного клиента InternalNotificationRecipientService, и у него есть отказ без срока"
+    basis: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат, не заводится. «Механизм назначен в пакет, который обязан импортировать того, кто уже
+  импортирует его» — радиус замысла, измеренный по вызывающим, но не по графу импортов (CX3O-01). Это
+  один экземпляр в одном замысле. Цена не измерена: компилятор ловит громко, дорог только
+  неразобранный обход. Порог §9 не пройден, это находка. При второй независимой встрече владелец по
+  противоядию — measurement-discipline (граф импортов как ось переписи радиуса).
