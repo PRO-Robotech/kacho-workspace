@@ -1,0 +1,228 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ee6f908e51e245436f50596d0f523dd76647d7f5bb01ad84d26d4ced964ae074
+  revision: 10
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  base_commit: 720cd711f9a975211b18ed01523d98b1d46d3e4a
+  content_commit: 720cd711f9a975211b18ed01523d98b1d46d3e4a
+  content_commit_note: >-
+    Редакция 10 внесена коммитом 720cd711f. Запись привязана только к отпечатку: после любой правки
+    документа нужно новое рассмотрение.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3491
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T04:14:22Z'
+round: 4
+round_note: >-
+  Круг 4 прохода «Д14–Д16». Решения диспетчера Д1–Д13 действуют без изменений, к ним добавлены Д14,
+  Д15 и Д16. Редакция 10 отвечает на круг 3 этого прохода (отпечаток 538b4d3f…).
+previous_rounds:
+  - round: 1
+    pass: first
+    sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+    verdict: CHANGES_REQUESTED
+    blocking_count: 6
+  - round: 2
+    pass: first
+    sha256: 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+  - round: 3
+    pass: first
+    sha256: 0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8
+    verdict: APPROVED
+    blocking_count: 0
+  - round: 1
+    pass: Д1–Д13
+    sha256: 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+    verdict: CHANGES_REQUESTED
+    blocking_count: 7
+  - round: 2
+    pass: Д1–Д13
+    sha256: 52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+  - round: 1
+    pass: Д14–Д16
+    sha256: 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+  - round: 2
+    pass: Д14–Д16
+    sha256: f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+  - round: 3
+    pass: Д14–Д16
+    sha256: 538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d.yaml
+blocking_count: 2
+blocking_kinds_distinct: [COVERAGE, NEGATIVE]
+blocking_kinds_by_item:
+  - B4-1 COVERAGE
+  - B4-2 NEGATIVE
+repeated_kinds:
+  - kind: NEGATIVE
+    note: >-
+      Род NEGATIVE повторяется четвёртый круг подряд (B1-2 → B2-1 → B3-1 → B4-2). Отказы Resolve
+      закрыты полностью: перепись в Р7 даёт 11 отказов, и у каждого есть буква, строка §10 и
+      производитель. Но у двух списочных методов справочника перепись взята не из конвенции
+      пагинации, а из того, что уже держали сценарии. У ListProjectAudience учтён мусорный
+      page_token, которого в тексте Р7 нет, а page_size вне диапазона не учтён. У
+      ListExpiringCredentials не учтено ни то ни другое. Автор просил переписывать отказы по тексту
+      решения. Здесь этого мало: для полей page_token и page_size отказы задаёт конвенция
+      `api-pagesize`, а не Р7. Если текст решения их не называет, перепись по тексту их не найдёт.
+author_task_form_candidate: >-
+  Перепись отказов берётся из двух источников: из текста решения и из конвенции по каждому полю
+  входа. Для page_token и page_size это `api-pagesize` и `api-pagination-before-shortcircuit`, для
+  обязательного id — `api-resourceid-empty`. Кроме того, у каждого списочного метода, который
+  вызывает потребитель, должен быть сценарий многостраничного обхода, а в решении
+  потребителя — запись о том, что он проходит все страницы.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 720cd711f → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 720cd711f9a975211b18ed01523d98b1d46d3e4a
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочий не выдаёт и ничего не открывает. Тело события для курьера
+    записано в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 4 прохода Д14–Д16, блокирующих 2: COVERAGE, NEGATIVE) ·
+    SHA-256 ee6f908e51e245436f50596d0f523dd76647d7f5bb01ad84d26d4ced964ae074
+
+measurement:
+  scenarios_numbers: 158
+  scenarios_removed: [8, 41, 42, 44, 45, 123, 124]
+  scenarios_live: 151
+  duplicate_ids: 0
+  producer_rows_missing: 0
+  producer_predicate: >-
+    python3: номера берутся из первого столбца каждой строки таблицы §11 (строки 3309–3361),
+    диапазоны «a..b» раскрываются и сверяются с живыми номерами «**ID:** NTF3-N». Сценариев без
+    производителя — 0.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|yandex|\baws\b|\bgcp\b|azure|google cloud' по документу → 0; grep
+    'kacho-workspace/tmp\|/home/' → 0
+  d16_predicate: >-
+    git ls-tree -r --name-only main | grep -c NTF-3-kacho-modules → 0; то же для origin/main → 0
+  pagination_census: >-
+    grep -n 'ListExpiringCredentials' по документу: 11 попаданий, в §9 — только NTF3-27 (отказ
+    вызывающему), NTF3-55 (клетки кодов) и NTF3-122. NTF3-122 делает один вызов без page_size и без
+    page_token. grep -n 'page_token\|page_size' в Р7 и Р19 (строки 575, 579, 939): оба поля названы
+    в сигнатурах методов, отказа или обхода по ним нет. `page_size` вне [0..1000] ни у
+    ListProjectAudience, ни у ListExpiringCredentials не встречается — есть только у публичных
+    списков notify-api (строки 1050, 1807–1808).
+  tree_revisions: kacho 1d42a6728bf · kaname 734f69fb4 · corelib 34bc8104a
+
+premise_check:
+  task_premise: >-
+    Задание отсылает к журналу прошлого прохода
+    (…/subagents/workflows/wf_8cc21fed-1ec/journal.jsonl) за решениями Д1–Д13. Файла нет: ls
+    каталога → «No such file or directory», поиск по каталогу сессии → 0. Поэтому Д1–Д13 сверены по
+    таблице решений в §2.1 документа (строки ~405–421) и по записям кругов 1–3, где они уже
+    сверялись. Д14–Д16 взяты из текста задания.
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: в дереве нет ни notify, ни справочника, стенд заданием не назван. Новые буквы
+    NTF3-118 (е), (ж), (з) отвергаются синхронной проверкой входа до вопроса к модели. Их Given —
+    это Given NTF3-118, а он в прошлых кругах проверен. Близнец (ж) на 100 ссылок держится на
+    id `vol-101`…`vol-199` той же формы, что `vol-1`/`vol-20`, у которых Р11а даёт `nil`. Близнец
+    (з) держится на `vol-2`, а он в Given посеян. `storage_snapshot` — вид storage (§1.2, строка
+    163), поэтому (з) падает на смеси, а не на типе. Исход «не выполнилось», а не «зелёный».
+  confirmed:
+    - "B3-1 закрыт: `resource_refs: required` перенесён в шаг (1) Р7. Держит его NTF3-118 (е), близнец `[{storage_volume, vol-1}]` → ADDRESS, строка §10 есть, производитель — §11 и DoD 12.2 п.4."
+    - "B3-2 закрыт: отрицания «101» и «смесь» вынесены в буквы (ж) и (з), у каждой близнец по одному факту: 100 ссылок без `vol-199` против 101; `{storage_volume, vol-2}` против `{storage_snapshot, snp-1}`. Строки §10 есть, граница 100 названа в §11 и DoD."
+    - "Перепись отказов Resolve в Р7 (11 отказов) сверена по держателям: у каждого есть буква или сценарий, строка §10 и производитель §11."
+    - "Неблокирующие круга 3 выполнены: место записывающей подмены названо (порт модели сценария использования Resolve, перехватчик в счёт не входит). Строки §10 NTF3-28 и NTF3-151 называют тип вместе с отношением и id."
+    - "Д14: семь мест Д-1…Д-7 названы в §1.12 (строка 370) и в Р28 (строки 1145–1153), BatchCheck отнесён к AuthorizeService (строки 1246–1247). Д15: строка решения в §2.1 (строка 421). Д16: файла в main и origin/main нет (0)."
+  refuted:
+    - "Заголовок редакции 10 утверждает, что отказы трёх методов справочника переписаны полностью: «ListProjectAudience 3, ListExpiringCredentials 4». Проверка это опровергает. `page_size` вне [0..1000] не назван ни у одного из двух методов (`api-pagesize`). Мусорный `page_token` не назван у ListExpiringCredentials. Многостраничного обхода ListExpiringCredentials нет ни в одном сценарии, и Р19 не говорит, что задание проходит все страницы (B4-1, B4-2)."
+
+blocking_findings:
+  - id: B4-1
+    kind: COVERAGE
+    title: Пагинация ListExpiringCredentials в контракте есть, но ни сценарий, ни решение потребителя её не держат
+    where: "Р7, строка 579 (сигнатура с page_token и page_size); Р19, строка 939 (задание зовёт метод на окно); NTF3-122; NTF3-140..145"
+    finding: >-
+      Метод списочный: в сигнатуре есть page_token и page_size. Но ни один сценарий не проходит
+      больше одной страницы. Р19 говорит «зовёт ListExpiringCredentials на окно» и не требует
+      пройти все страницы. Порядок выдачи и форма курсора (по какой колонке идёт курсор) тоже не
+      заданы. Реализация по этой приёмке может читать одну первую страницу, и все сценарии останутся
+      зелёными. Если в окне больше учётных данных, чем помещается на страницу по умолчанию (50),
+      часть напоминаний класса `security` потеряется молча, и ни одна проба этого не заметит.
+      Следующий проход задания снова получит ту же первую страницу: записи однократности не убирают
+      учётные данные из окна. Для сравнения, ListProjectAudience такой держатель имеет (NTF3-117,
+      page_size=2, все страницы).
+    fix: >-
+      Р7: назвать порядок выдачи ListExpiringCredentials и курсор, например `(expires_at, id)` по
+      возрастанию, непрозрачный токен. Р19: записать, что задание проходит страницы до пустого
+      next_page_token. Добавить букву NTF3-122 (г): тот же первый вызов с page_size=1 и обходом всех
+      страниц даёт в объединении ровно `{uoc1, soc1}`, по одному на страницу. В NTF3-140..145 (или
+      отдельной буквой) добавить: у задания напоминаний страница справочника меньше числа истекающих
+      учётных данных, и письмо получает каждый из них, а не только первые. Близнец — то же число в
+      пределах одной страницы. Строки §10 и производитель §11 (обход в задании notify-sender).
+  - id: B4-2
+    kind: NEGATIVE
+    title: Отказы пагинации внутренних списков справочника не названы и не держатся
+    where: "Р7, строки 571–583 (перепись «ListProjectAudience 3, ListExpiringCredentials 4»); NTF3-117; NTF3-122; §10; §11"
+    finding: >-
+      По `api-pagesize` значения page_size вне [0..1000] и мусорный page_token дают INVALID_ARGUMENT,
+      а не clamp и не первую страницу. Перепись Р7 объявлена полной, но у ListProjectAudience нет
+      отказа на page_size, а у ListExpiringCredentials — ни на page_size, ни на мусорный page_token.
+      Без держателя реализация в TDD может молча подрезать page_size или начать с первой страницы.
+      С мусорным курсором задание напоминаний тогда пойдёт по кругу по первой странице, и отказа
+      оно не увидит. У публичных списков notify-api эти отказы есть (строки 1050, 1807–1808), а у
+      внутренних — нет. Та же ось осталась непокрытой.
+    fix: >-
+      В Р7 для обоих методов записать: page_size вне [0..1000] — INVALID_ARGUMENT с полем page_size;
+      мусорный page_token — INVALID_ARGUMENT с полем page_token; оба проверяются до права и до
+      чтения (`api-pagination-before-shortcircuit`). Держатели — буквы NTF3-117 (page_size=1001;
+      близнец page_size=1000 даёт страницу) и NTF3-122 (мусорный page_token и page_size=1001;
+      близнецы — без токена и page_size=1000). Добавить строки §10 и производителя §11. Перепись в
+      Р7 исправить на «ListProjectAudience 4, ListExpiringCredentials 6».
+
+non_blocking_findings:
+  - "Р11а (г) перечисляет обязательные поля справочника без нового `resource_refs: required` (строки 789–791). Это не id-поле, и функция формата его не касается. Но Р11а (г) читают как список всех отказов `<field>: required` у справочника, поэтому стоит дописать или прямо сказать, что Р11а перечисляет только id-поля."
+  - "Таблица Р11а объявляет, что измерено «каждое id-подобное слово документа». `vol-101`…`vol-199` из NTF3-118 в таблице нет. Форма у них та же, что у `vol-1`, исход тот же (`nil`), но их стоит вписать в строку `nil`, иначе утверждение таблицы неверно."
+  - "§1.12 держит NTF-1 @b347b81f. На этот отпечаток NTF-1 есть свежая запись первичного разбора классов «вернуть в приёмку» (коммит 0ab60915b, RA-01…RA-06). Когда выйдет новая редакция NTF-1, сверить опоры §1.12 диффом, как в редакции 9."
+  - "NTF-6 в §1.12 держится @d5fe4734. Рабочая копия NTF-6 в ветке изменена и не закоммичена (чужая правка). После одобрения NTF-3 перевести NTF-6 на итоговый отпечаток (Д15)."
+
+method_verdict: >-
+  Возврат круга 3 закрыт полностью: у B3-1 и B3-2 есть буквы, близнецы, строки §10 и производитель.
+  Перепись отказов Resolve (11) сверена по держателям. Счёт 158/7/151 сходится, у каждого живого
+  сценария есть строка §11, гигиена 0, Д14–Д16 соблюдены. Новый возврат касается соседнего метода
+  справочника, а не Resolve. ListExpiringCredentials — единственный вход задания напоминаний
+  класса `security`. Его пагинация не держится ни обходом, ни отказами, а Р19 не требует обхода.
+  Реализация, читающая одну страницу, пройдёт все сценарии, а часть напоминаний потеряет молча.
+  Правка: две-три буквы, порядок и курсор в Р7, одна фраза в Р19, строки §10 и §11. Новых номеров
+  не нужно.
