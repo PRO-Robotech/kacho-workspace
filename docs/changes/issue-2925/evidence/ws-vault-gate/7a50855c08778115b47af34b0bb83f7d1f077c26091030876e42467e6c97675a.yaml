@@ -1,7 +1,6 @@
-# План свидетельства держателя ws-vault-gate — изменение issue-2925 (NTF-6).
+# Свидетельство держателя ws-vault-gate — изменение issue-2925 (NTF-6).
 #
-# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
-# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+# Исход СНЯТ прогоном 2026-09-30; поля ниже — наблюдение, а не намерение.
 schema_version: 1
 change_id: issue-2925
 holder: ws-vault-gate
@@ -12,14 +11,14 @@ subject_sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
 executable: './scripts/vault-gate/run-all.sh'
 predicate: 'висячих ссылок нет, оболочка записок цела, указатель свеж'
 
-# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
-captured_category: null
-input_sha256: null
-output_sha256: null
-stdout_digest: null
-stderr_digest: null
+# ── снятое прогоном ──────────────────────────────────────
+captured_category: GREEN
+input_sha256: sha256:12767e7d4a7b87d96d20abd8b33155771fabfe7d0b4e87e2eef55ef18aa0653f
+output_sha256: sha256:06d321cead832cb2b76e1b892678c28f573cb67cefcaa908e3bfc63fd35282bf
+stdout_digest: sha256:6e16e27ff484fb199b1c9a0af6a29141747e96da67339919b71d018a43e3340d
+stderr_digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
 # Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
 # NOT_EXECUTED, а не «наверное прошло».
 note: >-
-  прогон по этому отпечатку не снят; его снимает владелец держателя
+  прогон `bash scripts/vault-gate/run-all.sh` на ревизии 978f22cc9396969392247076895f833a7ba4f9f5 ветки issue-880 при чистом рабочем дереве; код возврата 0; итог: «vault-gate: рассмотрено проверок 5; пройдено 5, провалено 0, без предмета 0». Дерево продукта — PRO-Robotech/kacho@1d42a6728bf68fc37f31bf004bf2e82266b9c5f2 (KACHO_MONOREPO), дом PRO-Robotech/kaname — копия на 32637536f4cf664670e64556254c62eeccf4b86c, названная KACHO_HOME_KANAME. input_sha256 — sha256 вывода `git ls-tree -r 978f22cc9396969392247076895f833a7ba4f9f5`; output_sha256 — sha256 конкатенации stdout, stderr и строки `exit=<код>`; stdout_digest и stderr_digest — sha256 потоков.
