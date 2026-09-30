@@ -1,0 +1,156 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed
+  revision: 30
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: 139c4ff26
+  content_commit_note: >-
+    Судится дельта 29 → 30 (git diff f167381ed 139c4ff26 по документу: 22 вставки, 23 удаления) против
+    B1, B2 и N1 круга 3 после Д27 (запись 0094ddd1….yaml) и против Д30.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum <путь> и git show HEAD:<путь> | sha256sum @139c4ff2612 — оба дают ab0d0efe…4aed
+  fingerprint_reproduced: true
+  lines: 4809
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T18:30:00Z'
+round: 1
+round_note: >-
+  Круг 1 на редакцию 30 (после Д30). Предмет круга появился: две задачи, отсутствие которых держало
+  возврат трёх кругов подряд, заведены вне документа, и автор вписал их номера. Круг судит дельту
+  номеров и проверяет задачи в трекере, как требовал N1 круга 3.
+previous_rounds:
+  - pass: после Д27
+    round: 1
+    sha256: 0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014.yaml
+  - pass: после Д27
+    round: 2
+    sha256: 69ff8561b553aa7c6d917be3b02e5bbc2c64bcb3b2847e221cb90b7798fc4db4
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/69ff8561b553aa7c6d917be3b02e5bbc2c64bcb3b2847e221cb90b7798fc4db4.yaml
+  - pass: после Д27
+    round: 3
+    sha256: 0094ddd109db1f547a27193c4a5a80923bfb7e519b56c28fb8304ffe10d52e3d
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/0094ddd109db1f547a27193c4a5a80923bfb7e519b56c28fb8304ffe10d52e3d.yaml
+prior_blocking_disposition:
+  - id: B1 (круг 3 после Д27)
+    status: closed
+    note: >-
+      Снос инстанса при привязанном интерфейсе — PRO-Robotech/kacho#2934. Номер стоит в §1.14 (а)
+      (стр. 727), в Р2 (стр. 859), в строке §6 (стр. 1992) и в таблице «Отложенная работа → задача»
+      (стр. 2006). Пометка «блокирующая» снята. gh issue view 2934: OPEN, метки bug и area:compute.
+      Тело называет оба пути (публичный Delete и проход доведения снятия), близнеца по v_get на
+      интерфейсе и запрет закрытия отказом. Это ровно предмет и предикат строки §6.
+  - id: B2 (круг 3 после Д27)
+    status: closed
+    note: >-
+      П4–П6 — PRO-Robotech/kacho#2935. Номер стоит в §1.6 (стр. 325), в строке §6 (стр. 1968) и в
+      таблице (стр. 2004). gh issue view 2935: OPEN, метки bug и area:storage. Предмет — пары
+      READY → ≠READY и DELETING → * в Drifted. Тело явно отграничено от #922, предикат совпадает с
+      §6: есть производитель и проба, есть своя приёмка письма, Р16 и NTF3-53 меняются явно.
+  - id: N1 (круг 3 после Д27)
+    status: closed
+    note: >-
+      Порядок выполнен: задачи заведены (Д30), автор вписал номера, правка ограничена номерами,
+      снятием пометок и строкой замещения §4. Сценарии и решения не тронуты.
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_findings: []
+non_blocking_findings:
+  - id: N1
+    anchor: "§6, класс 2 (стр. 1934–1936)"
+    what: >-
+      Перечень номеров класса 2 стоит в скобках после слов «по правилу выше» и идёт в другом порядке,
+      чем предметы в начале строки: там П4–П6, зеркало, снос; здесь #2935, #2933, #2934. Порядок
+      совпадает, но строка читается как ссылка на «правило», а не на предметы. Править не
+      обязательно.
+  - id: N2
+    anchor: "вне дельты"
+    what: >-
+      Неблокирующие прошлых кругов, которые касаются формы кода, остаются в силе: С15 строится через
+      InstanceRepo.SetStatusCAS; форма вставки NTF3-70 и 23502 против CX3B-25 (б) — к design-author.
+      Д28 и Д29 касаются NTF-4 и NTF-5. В документе нет ни MaxDefer, ни ограды migrate
+      (grep → 0), так что на NTF-3 они не влияют.
+measurement:
+  scenario_ids: 164
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 157
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 164; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0. Совпадает с шапкой редакции 30.
+  delta_predicate: >-
+    git diff --stat f167381ed 139c4ff26 -- <документ> → 22+/23-. Тронуты: шапка (две строки
+    истории), §1.6, §1.14 (а), Р2, §4 (одна строка замещения), §6 (класс 2, две строки, таблица).
+    Сценарии, Given/When/Then, решения и DoD не тронуты.
+  residual_blocking_predicate: >-
+    grep -n 'номера нет\|нет номера\|блокирующая' <документ> → 5 строк: 63, 67 (история), 1897
+    (строка замещения, прежний текст), 1927 и 1936 (правило). Действующих пометок 0.
+  tracker_predicate: >-
+    gh issue view {2933,2934,2935} -R PRO-Robotech/kacho --json number,state,title,labels,body →
+    все три OPEN; предметы и предикаты тел совпадают со строками §6.
+  hygiene_predicate: >-
+    Добавленные строки дельты по образцу гигиены задания (имена чужих облаков, домашний каталог,
+    путь рабочей копии) → 0.
+premise_check:
+  task_premise: >-
+    Посылка задания: SHA-256 ab0d0efe…4aed, круг 1; задачи #2934 и #2935 заведены (Д30).
+    sha256sum рабочего файла и git show HEAD:<путь> | sha256sum @139c4ff2612 дают
+    ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed. Обе задачи в трекере есть,
+    OPEN, предмет совпадает. Посылка подтверждена.
+  seeded: 0
+  seeding_note: >-
+    Дельта не вводит новых Given, а стенд для посева заданием не назван. Поэтому посев — «не
+    выполнилось», в зелёное он не зачитан. Строимость Given С1–С18 проверена в прошлых кругах, и
+    дельта её не меняет.
+  confirmed:
+    - "B1 и B2 круга 3 закрыты: номера вписаны во все места, которые назвал возврат, а тела задач несут предмет и предикат строк §6."
+    - "Строк §6 класса 2 без номера 0; счёт 164/7/157 сходится, дубликатов 0."
+  refuted: []
+method_verdict: >-
+  Судилась дельта 29 → 30 против B1, B2 и N1 круга 3 и против Д30. Каждый номер проверен в
+  трекере: состояние, метки и тело. Тела сверены с предикатом строки §6 по смыслу, а не только по
+  существованию. Правка ограничена номерами, и сценарии не тронуты. По существу документ принимали
+  в прошлых кругах: RA-03 принят на 97afc066, после RA-04/RA-05 и Д27 возвраты шли только по
+  CONVENTION. Блокирующих нет. Посев не выполнялся — это «не выполнилось», в зелёное не зачитано.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @139c4ff2612
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует: тело события отдаётся курьеру строкой. Пока событие не
+    опубликовано, действующего одобрения нет, есть только эта запись.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 1 на редакцию 30, блокирующих 0) · SHA-256
+    ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
