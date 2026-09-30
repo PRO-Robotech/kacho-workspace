@@ -192,6 +192,26 @@ SPDX-License-Identifier: BUSL-1.1
 > З4 (1), З16, З18, З27, §4, §7 п.4, §8, §12. Строки ДР-В1…ДР-В4 не меняются, ДР-М1 — по новому
 > классификатору. Рёбра маршрута не меняются; размер S3-C3 — L → M.
 >
+> **Редакция 14 · 2026-09-30 — место механизма К1 без цикла импортов; прочее — отображение пересверки
+> `6cf94b11`** (запись `reviews/class-exposure/revalidation/6cf94b11….yaml`, коммит `cf1886152`, исход
+> «к-замыслу»). Механизм — то же исключение из Д26, что в редакции 13: задание диспетчера разрешает новый
+> механизм только для К1 и К2. Причина правки: редакция 13 назначала `operations` функции, которым нужны
+> `journaltx` и `auth`, а оба пакета уже импортируют `operations`, и Go такие циклы не собирает (М27,
+> CX3O-01). Изменено: `operations` объявляет интерфейс `FailedNotify` (`Ready`, `RunTerminal`),
+> экспортированный CAS `FailTerminalCAS` и тип транзакции `TerminalQuerier` (экспортированная форма
+> сегодняшнего `rowQuerier`); значение интерфейса строит новый подпакет `corelib/operations/opsnotify`
+> (`opsnotify.New`). Он импортирует `operations`, `auth`, `journaltx` и отправителя `operation-failed` и
+> несёт единственную ставящую функцию `opsnotify.FailTerminal`, контекст пары и классификатор. Обёртки
+> вокруг `pgRepo` нет; значения `NoFailedSender` нет — «модуль не подключён» выражается только
+> конструктором `NewRepo` (З16). CX3O-02 — выбран вариант «два клиента»: З27 и И26 сужены до клиента
+> `internal/directory`; второй клиент — `clients/kaname_client.go` NTF-5, его держатели названы. CX3O-03 —
+> `ErrCallWithoutDeadline` заведён пунктом: `errors.Is` у вызывающего стоит до классификации статуса,
+> счётчик прохода получает метку `no_deadline`, отказ проверяет наличие срока, а не его размер. CX3O-04 —
+> строка `ErrNotFound` в классификаторе; три комментария в модулях, называющие `operations.NewRepo`, правит
+> S3-C3. Новые строки §11 — CX3O-01…04; замер М27; пробы УК3-63 (граф импортов), УК3-64 (`ErrNotFound`);
+> переписаны З1, З4 (1), (д), З11, З16, З18, З27, И6, И11, И25, И26, И28, §4, §7 п.4, §8, §12, УК3-53,
+> УК3-55, УК3-56, УК3-57, УК3-60, УК3-62. Рёбра маршрута и размеры полос не меняются.
+>
 > Вердикта на редакцию нет. Действующий вердикт выводится из записи ревью на отпечаток этого
 > файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки разбора классов
 > (`reviews/class-exposure/revalidation/<sha256>.yaml`). Роль `design-reviewer` исполняет агент
@@ -220,6 +240,7 @@ SPDX-License-Identifier: BUSL-1.1
 | пересверка классов на редакцию 10 замысла | `reviews/class-exposure/revalidation/f6809e98….yaml` (коммит `26e8a652d`) | замысел `f6809e98…` | `к-замыслу`, `clean = false`: 88 пунктов CX3 и 6 из 7 строк `ДР-` держат; ДР-К1 (б) — нет (взятие кандидата без условия живости); новые пункты CX3L-01…05. Исполнено редакцией 11 |
 | пересверка классов на редакцию 11 замысла | `reviews/class-exposure/revalidation/7bc43f21….yaml` (коммит `9ef3435bc`) | замысел `7bc43f21…` | `к-замыслу`, `clean = false`: 93 пункта CX3 и 7 строк `ДР-` имеют строку; CX3L-02 (б) не выдерживает для `Worker` (асинхронные операции модулей исполняет пакетный реестр, построенный без корня); новые пункты CX3M-01 (к замыслу), CX3M-02 (к коду). Исполнено редакцией 12 |
 | пересверка классов на редакцию 12 замысла | `reviews/class-exposure/revalidation/5400c528….yaml` (коммит `a5df02586`) | замысел `5400c528…` | `к-замыслу`, `clean = false`: CX3M-01 (б) не выдерживает по радиусу; новые пункты CX3N-01…05 (радиус `NewReconciler` на ревизии подъёма, гейт `lroreconciler`, имя импорта в УК3-59, `nil *Worker`, проза о пакетном реестре). Исполнено редакцией 13: механизм К1 снимает предмет CX3N-01, 02, 04, 05; CX3N-03 перенесён на УК3-59 |
+| пересверка классов на редакцию 13 замысла | `reviews/class-exposure/revalidation/6cf94b11….yaml` (коммит `cf1886152`) | замысел `6cf94b11…` | `к-замыслу`, `clean = false`: строки §11 есть у 100 пунктов CX3 и 7 строк `ДР-`; CX3N-01, 02, 04, 05 сняты с предметом, CX3N-03 перенесён — выдерживают; ДР-К1 (а) не выдерживает — механизм в `operations` замыкает два цикла импортов (CX3O-01); новые пункты CX3O-01, CX3O-02 — к замыслу, CX3O-03, CX3O-04 — к коду. Исполнено редакцией 14 (З16, З27, строки §11 CX3O-01…04) |
 | замысел NTF-1 | `docs/changes/issue-2915/design.md` | `c018895f059dd839893f78c139191b69e24b2a0d6245e4fef33040f7e9c531f0` (редакция 13, коммит `d892dc35c`; запись реестра появилась в редакции 11, условия (а) уточнены CX1-76 в редакции 13) | вердикта нет. Фундамент ленты, `notifygen`, `feed.Put`, звено идентичности, гейт `treehygiene.AuditFeedTableWrites` и его реестр исключений — его (З5–З13, З16); его заказы этому замыслу — Е4, Е9, Е10 (§13 здесь). Запись реестра «генерируемая функция `resource-event`, форма `fanout`, одна на журнал модуля» (Д33) — его З16 |
 | замысел NTF-4 | `docs/changes/issue-2919/design.md` | `df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6` | вердикта нет. Корень `notify-api`, носитель Х5, край — его (З18, З19); его заказ — Е3 |
 | замысел NTF-5 | `docs/changes/issue-2924/design.md` | `c33e4a829cfcd10b58d51d48eaeffc4659ddf296b6003bbb3d6b64a18c515305` | вердикта нет. Точка входа в процессе `feed.NewLocal` (З28); его заказ — Е7 |
@@ -243,7 +264,8 @@ SPDX-License-Identifier: BUSL-1.1
 - Д26 — форма этого захода: строки отображения и условия к коду; механизм — только из приёмки и
   из вариантов, названных записями разбора. Исключение — редакция 13: задание диспетчера на этот заход
   (2026-09-30) разрешило минимальный новый механизм только для К1 и К2 ревью замысла `97c51264` (З16,
-  З27); прочее в редакции 13 — отображение;
+  З27); прочее в редакции 13 — отображение. Редакция 14 — то же исключение, тем же заданием: место
+  механизма К1 без цикла импортов (CX3O-01) и форма отказа клиента справочника (CX3O-02, CX3O-03);
 - Д31 — граница предмета (шапка, З13, §12); по ней же пересылаемая личность прохода compute не
   меняется (З13, CX3H-02): её выбор меняет исход прохода, а исход — предмет `#2934`;
 - Д33 — Е1 решён вариантом A: в реестр исключений гейта З16/УК87 замысла NTF-1 добавляется одна
@@ -295,6 +317,7 @@ SPDX-License-Identifier: BUSL-1.1
 | М23 | настраивают и запускают пакетный реестр до трафика четыре корня из пяти; registry его не настраивает и не запускает — старт ленивый, на первом `Run` | `git -C kacho grep -nE 'operations\.(ConfigureDefault\|Start\|Wait)\(' 1d42a6728bf -- ':!*_test.go'` | `ConfigureDefault` и `Start`: compute `observability.go:75,81`, nlb `observability.go:71,74`, storage `serve.go:293,298`, vpc `observability.go:70,76`; registry — только `Wait` (`serve.go:675`); geo — 0 |
 | М24 | `NewReconciler` ошибки не возвращает; вызывающих в kacho 6, в kaname 1; kaname исполняет операции пакетным реестром | `git -C corelib show 34bc8104a:operations/reconciler.go \| sed -n 151,152p`; `git -C kacho grep -nE 'operations\.NewReconciler\(' 1d42a6728bf -- ':!*_test.go'`; `git -C kaname grep -nE 'operations\.(NewReconciler\|ConfigureDefault\|Start)\(' 734f69fb4 -- ':!*_test.go'`; `git -C kaname grep -cE 'operations\.Run\(' 734f69fb4 -- ':!*_test.go'` | `func NewReconciler(pool, resolver, cfg, opts ...ReconcilerOption) *Reconciler`; kacho — `cmd/*/recovery.go` compute, geo, nlb, registry, storage, vpc; kaname — `cmd/kaname/recovery.go:35`, `ConfigureDefault` и `Start` (`serve.go:492,498`), `operations.Run` 38 (сумма `-c` по файлам) |
 | М25 | репозиторий операций в kacho строится только в корнях модулей, по одному вызову на корень | `git -C kacho grep -nE '^\s*[A-Za-z_]+\s*:?=\s*operations\.NewRepo\(' 1d42a6728bf -- ':!*_test.go'`; контроль — `git -C kacho grep -nE 'operations\.NewRepo\(' 1d42a6728bf -- ':!*_test.go' \| wc -l` | 6 присваиваний `opsRepo := operations.NewRepo(…)`: compute `cmd/compute/main.go:149`, geo `cmd/kacho-geo/serve.go:114`, nlb `cmd/kacho-loadbalancer/main.go:248`, registry `cmd/kacho-registry/serve.go:173`, storage `cmd/storage/serve.go:236`, vpc `cmd/vpc/main.go:307`; всех совпадений 10, остальные 4 — комментарии (`compute/cmd/compute/recovery.go:38`, `compute/internal/repo/quota.go:150`, `geo/cmd/kacho-geo/recovery.go:44`, `nlb/cmd/kacho-loadbalancer/recovery.go:43`). Замеры М22–М24 с редакции 13 — справка: механизм их не меняет |
+| М27 | `auth` и будущий `journaltx` импортируют `operations`, поэтому `operations` не может импортировать ни тот, ни другой | `git -C corelib grep -n 'corelib/operations"' 34bc8104a -- 'auth/*.go' ':!*_test.go'`; `git -C corelib grep -n 'func PrincipalFromContextOK\|func SystemPrincipalFor' 34bc8104a`; то же на `origin/main@851ee57` | `auth/propagate.go:50` импортирует `corelib/operations`, `SystemPrincipalFor` (`auth/propagate.go:125`) возвращает `operations.Principal`; `PrincipalFromContextOK` — `operations/principal_ctx.go:57`, его читает `journaltx.Begin` (З4). На обеих ревизиях одинаково. Импорт `journaltx` или `auth` из `operations` замкнул бы два цикла; сборку X3 до появления `journaltx` не прогнать, цикл выведен из графа импортов нынешнего дерева и назначения функций (пересверка `6cf94b11`) |
 | М26 | методы `operations.Repo` в модулях несут только заглушки; ветка ошибки исполнителя зовёт `MarkError` репозитория, а выбор по необязательному интерфейсу репозитория у исполнителя уже есть | `git -C kacho grep -lE 'func \([a-zA-Z_]+ \*?[A-Za-z_]+\) MarkDone\(' 1d42a6728bf -- 'services/*' ':!*_test.go'`; `git -C corelib show 34bc8104a:operations/worker.go \| sed -n 527,529p`; `git -C corelib grep -n 'executionClaimer' 34bc8104a -- operations ':!*_test.go'` | 4 файла, все — пакеты заглушек: `compute/internal/ports/portmock/portmock.go`, `geo/internal/repo/kacho/repomock/repomock.go`, `storage/internal/repo/repomock/repomock.go`, `vpc/internal/repo/repomock/repomock.go`; в nlb и registry — 0; прод-типов 0. `worker.go:527-528` — `w.terminalWrite(j.repo, j.opID, "MarkError", … j.repo.MarkError(…))`; `executionClaimer` — `repo.go:128` (объявление), `:136` (`var _ executionClaimer = (*pgRepo)(nil)`), проверка — `worker.go:487` |
 
 ## 2. Решения
@@ -312,13 +335,16 @@ SPDX-License-Identifier: BUSL-1.1
 | помощник транзакции записи журнала | corelib | `journaltx/` (новый) | S1 |
 | формы адресата `subject`/`fanout`/`account_owner`, ключ окна «проект», счётчик подавления после коммита | corelib | `notify/feed/`, `notify/spec/` (пакеты NTF-1) | S2 |
 | генерация `resource-event` и `operation-failed`, функция базы `resource-event` | corelib | `cmd/notifygen/` (NTF-1) | S2 |
-| транзакционная терминальная запись ошибки операции со строкой `operation-failed` | corelib | `operations/` | S3 |
+| интерфейс подключения терминальной записи (`FailedNotify`), `FailTerminalCAS`, `NewNotifyingRepo`, выбор метода в ветке ошибки исполнителя | corelib | `operations/` | S3 |
+| транзакционная терминальная запись ошибки операции со строкой `operation-failed`, значение подключения, классификатор | corelib | `operations/opsnotify/` (новый) | S3 |
 | писатели журнала пяти модулей, флаг, пересылаемые пути | kacho | `services/{compute,vpc,nlb,registry,storage}/**` | S1–S3 |
 | `notify-sender`: приём, лента консоли, сводка, мгновенные письма, напоминания | kacho | `services/notify/internal/{ingest,inbox,digest,instant,reminder,directory,resolvecell}/**` | S2, S3 |
 | `notify-api`: публичные по контракту сервисы | kacho | `services/notify/internal/apiserver/{inbox,catalog,preferences,subscriptions,contacts}/**`, `proto/kacho/cloud/notify/v1/` | S2 |
 | справочник адресов, инициатор журнала службы доступа | kaname | `internal/apps/kaname/api/recipientdirectory/` (новый), `internal/subscriptionjournal/` | S1, S2 |
 
-**Границы.** `journaltx` и `auth/initiator.go` не импортируют `notify/*`. `notify-api` не импортирует
+**Границы.** `journaltx` и `auth/initiator.go` не импортируют `notify/*`. `operations` не импортирует ни
+`journaltx`, ни `auth`, ни `notify/*`: `auth` и `journaltx` импортируют `operations` (М27); всё, что
+терминальной записи нужно от них, живёт в `operations/opsnotify` (З16, CX3O-01). `notify-api` не импортирует
 `net/smtp`, клиента `Claim`/`Ack` ленты и клиента справочника (З28). Модули kacho не импортируют
 `services/notify`. corelib не знает имён модулей kacho: имена и словари приходят дескриптором.
 
@@ -398,13 +424,13 @@ SPDX-License-Identifier: BUSL-1.1
 - **Нулевые `Options` отвергаются при сборке корня, а не на первой мутации** (пересверка `7bc43f21`,
   CX3M-02). Отказ `Begin` — страховка, а не первая точка обнаружения. Условия к коду:
   (а) каждый держатель `journaltx.Options` — конструктор писателя журнала модуля (репозиторий или
-  писатель, который хранит `Options` для своих вызовов `Begin`) и `operations.NewFailedNotify` — принимает
+  писатель, который хранит `Options` для своих вызовов `Begin`) и `opsnotify.New` — принимает
   их обязательным позиционным аргументом и на нулевом значении возвращает ошибку; корень модуля с ней не
   стартует, отказ несёт имя модуля. Функциональной опции для `Options` нет: её отсутствие было бы
   нулевым значением;
   (б) на пути запроса `ErrOptionsUnset`, дошедший до обработчика, уходит клиенту фиксированным
   `INTERNAL` без текста ошибки — веткой по умолчанию маппера модуля, как любой отказ драйвера; на пути
-  `pgRepo.FailTerminal` это своя строка классификатора З16 (запасная запись без письма), которую (а)
+  `(*opsnotify.Notifier).RunTerminal` это своя строка классификатора З16 (запасная запись без письма), которую (а)
   делает недостижимой; `Reconciler` `Begin` не зовёт (редакция 13);
   (в) `ErrOptionsUnset` — отдельное sentinel-значение `journaltx`, не оборачивающее отказ
   `auth.InitiatorOf`; `errors.Is` различает их, и в счётчике отказов они — разные значения метки `cause`.
@@ -422,12 +448,12 @@ SPDX-License-Identifier: BUSL-1.1
   CX3E-02 (в)). Условия к коду:
   (1) вызывающих `AsComponent` в не-тестовом дереве пяти модулей ровно два, по парам §8: storage `(storage, reconciler)`,
   nlb `(nlb, free-ip-runner)`; обработчик запроса его не зовёт. Третий вызывающий — вне дерева модулей, в
-  corelib `operations`: одна неэкспортированная функция пакета строит контекст терминальной записи ошибки
-  операции из пары `(<служба>, operations)` (З16, ревью замысла К1 (а)); служба — значение, которое корень
-  модуля передаёт вместе с отправителем `OperationFailedSender` и `journaltx.Options` одним значением
-  `operations.FailedNotify` в `NewNotifyingRepo` (З16, CX3L-02), роль `operations` — константа corelib.
-  Её зовёт только метод `pgRepo.FailTerminal` репозитория с подключением (редакция 13); `Worker`,
-  `Reconciler` и `RunSync` её не зовут. Контекст с этим принципалом несёт только транзакцию терминальной записи —
+  подпакете corelib `operations/opsnotify`: метод `(*Notifier).RunTerminal` строит контекст терминальной
+  записи ошибки операции из пары `(<служба>, operations)` (З16, ревью замысла К1 (а), CX3O-01); служба —
+  значение, которое корень модуля передаёт вместе с отправителем `OperationFailedSender` и
+  `journaltx.Options` в `opsnotify.New` (З16, CX3L-02), роль `operations` — константа `opsnotify`. Метод
+  зовёт только `pgRepo.FailTerminal` репозитория с подключением, через интерфейс `operations.FailedNotify`
+  (редакции 13–14); `Worker`, `Reconciler` и `RunSync` его не зовут. Контекст с этим принципалом несёт только транзакцию терминальной записи —
   межмодульных вызовов под ним нет, поэтому пересылаемая личность ни одного пути (З13, CX3H-02) не
   меняется; в дереве compute вызова `AsComponent` по-прежнему нет. Фоновый проход compute его **не** зовёт:
   пересылаемая личность прохода в под-фазе не меняется (З13, CX3H-02 (а)); пары compute в §8 нет. Четвёртая константа §8 — `stand-seed` — живёт в SQL посева (З8), Go у посева нет; это
@@ -466,8 +492,9 @@ SPDX-License-Identifier: BUSL-1.1
   `initiator`, — находка; (г) `set_config('kacho_journal.initiator', …, false)` и `SET` без `LOCAL`
   этой настройки где-либо в стволе — находка (УК3-29); (д) вызов `journaltx.AsComponent` в не-тестовом
   дереве пяти модулей вне двух пар §8 — находка (в том числе любой вызов в compute), перечень вызывающих
-  печатается; вызывающий в corelib `operations` дереву модулей не принадлежит, его единственность держит
-  проба X3 УК3-53 и `git grep -n 'AsComponent(' -- operations ':!*_test.go'` в corelib → 1. Гейт печатает объём по модулю и по форме,
+  печатается; вызывающий в corelib `operations/opsnotify` дереву модулей не принадлежит, его единственность
+  держит проба X3 УК3-53 и `git grep -n 'AsComponent(' -- operations ':!*_test.go'` в corelib → 1, и это
+  совпадение — в `operations/opsnotify/` (в самом пакете `operations` вызова нет: импорта `journaltx` там нет, УК3-63). Гейт печатает объём по модулю и по форме,
   на пустом обходе красный, доказан инъекцией в обе стороны.
 - Держатели наблюдаемого — NTF3-62 на переиспользованном соединении (УК3-28: проба гоняется на
   соединении, где предыдущая транзакция выставила инициатора), NTF3-58.
@@ -704,11 +731,11 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 - Ручку читает один загрузчик; одно прочитанное значение получают четыре потребителя: сборка корня
   (сервер ленты регистрируется или нет), `Mapping.Kinds` (ключ `notification` объявляется или нет),
   `journaltx.Begin` у писателей журнала модуля и `journaltx.Begin` терминальной записи ошибки операции в
-  corelib `operations` (настройка `kacho_feed.enabled`, З4, З16). Последние два получают одно значение
-  `journaltx.Options`, построенное корнем один раз из того же чтения: в `operations` оно приходит внутри
-  `operations.FailedNotify` вместе с отправителем и службой, а `FailedNotify` — в `NewNotifyingRepo` корня
-  (пересверка `f6809e98`, CX3L-02; редакция 13). Своего
-  чтения ручки нет ни у функции базы, ни у `operations` (один предикат — четыре потребителя).
+  corelib `operations/opsnotify` (настройка `kacho_feed.enabled`, З4, З16). Последние два получают одно значение
+  `journaltx.Options`, построенное корнем один раз из того же чтения: терминальная запись получает его в
+  `opsnotify.New` вместе с отправителем и службой, а построенное значение — в `NewNotifyingRepo` корня
+  (пересверка `f6809e98`, CX3L-02; редакции 13–14). Своего
+  чтения ручки нет ни у функции базы, ни у `operations`, ни у `opsnotify` (один предикат — четыре потребителя).
 - Держатель потребителя `operations` — УК3-55: флаг в транзакции терминальной записи равен значению
   ручки модуля (близнецы `true` и `false`).
 - Держатели — NTF3-64…67 (storage), близнецы для registry, vpc, nlb — УК3-12.
@@ -920,9 +947,9 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   причины `BACKEND_REJECTED` не предлагает арендатору действий над инфраструктурой (CX3-21).
   Держатель — вниманием: классификация исходов бэкенда вне предмета NTF-3.
 
-### З16. Терминальная запись ошибки операции и строка `operation-failed` (Р18; CX3B-32, CX3G-04, CX3B-26 (в); ревью замысла К1)
+### З16. Терминальная запись ошибки операции и строка `operation-failed` (Р18; CX3B-32, CX3G-04, CX3B-26 (в); ревью замысла К1; CX3O-01, CX3O-04)
 
-- **Механизм редакции 13 — исключение из Д26** (задание диспетчера на этот заход, 2026-09-30: минимальный
+- **Механизм редакций 13–14 — исключение из Д26** (задание диспетчера на этот заход, 2026-09-30: минимальный
   новый механизм только для К1 и К2 ревью замысла `97c51264`). Редакции 10–12 вели постановку через
   `Worker` и `Reconciler`, и каждая пересверка находила новый радиус: транзакция кандидата
   `Reconciler` (CX3L-01, CX3L-04, CX3L-05), рабочий `Worker` вне корня (CX3M-01), сигнатуры
@@ -931,24 +958,70 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   Корень модуля строит этот репозиторий сегодня ровно одним вызовом (М25), и репозиторий доходит до
   исполнителя тем же аргументом `repo`, с которым модуль зовёт `operations.Run`. `Worker`, пакетный
   реестр, `operations.Run`, `RunWithWorker`, `NewWorker`, `NewReconciler` и `Reconciler.Sweep` не
-  меняются. Новое в механизме — три вещи: конструктор `NewNotifyingRepo`, метод `pgRepo.FailTerminal`
-  и выбор этого метода в ветке ошибки исполнителя по необязательному интерфейсу.
-- **Одна функция постановки** (CX3G-04 (а), CX3B-32 (а)). `operations.FailTerminal(ctx, tx, table, id, st, notify FailedNotify) error` —
-  транзакционная версия `markErrorCAS`. CAS по `done` сохраняется, поэтому повтор строки письма не
-  ставит. Если CAS применён и адресат формы `user:`, функция ставит `operation-failed` в транзакцию
-  вызывающего. Функция экспортирована и служит входом пробы группы S (С5, CX3G-04 (в)). В прод-коде её
-  вызывающий один — `pgRepo.FailTerminal` (ниже). Держатели — NTF3-133, 135, 136, 137.
+  меняются. Редакция 14 выносит из `operations` всё, чему нужны `journaltx` и `auth`: в редакции 13 это
+  жило в самом `operations`, и пакет не собрался бы (М27, пересверка `6cf94b11`, CX3O-01). Новое в
+  механизме — пять вещей: интерфейс `operations.FailedNotify`, конструктор `NewNotifyingRepo`, метод
+  `pgRepo.FailTerminal`, выбор этого метода в ветке ошибки исполнителя по необязательному интерфейсу и
+  подпакет `operations/opsnotify`, который строит значение интерфейса.
+- **Граница импорта** (CX3O-01). Пакет `operations` не импортирует ни `corelib/journaltx`, ни
+  `corelib/auth`, ни пакеты `notify/*`. `auth` импортирует `operations` (`auth/propagate.go:50`), а
+  `journaltx` читает принципал через `operations.PrincipalFromContextOK` (З4). Импорт в обратную сторону
+  замкнул бы два цикла (М27). Всё, что требует этих пакетов, живёт в подпакете
+  `corelib/operations/opsnotify`: открытие транзакции под парой, проверка пары, адресат по `InitiatorOf`,
+  `Put` строки `operation-failed` и классификатор исходов. Граф: `operations ← auth ← journaltx ← opsnotify`
+  и `operations ← opsnotify`. Выбран подпакет, а не `journaltx`: `journaltx` не импортирует `notify/*`
+  (З1 «Границы»), а постановка зовёт отправителя `operation-failed`. Держатели — компилятор на полосе X3 и
+  предикат графа импортов УК3-63.
+- **Что объявляет `operations`** (CX3O-01).
+  ```
+  type TerminalQuerier interface { QueryRow(ctx context.Context, sql string, args ...any) pgx.Row }
+  type FailedRow struct { ID, Description string; Principal Principal; Status *status.Status }
+  func FailTerminalCAS(ctx context.Context, q TerminalQuerier, table, id string, st *status.Status) (FailedRow, error)
+  type FailedNotify interface {
+      Ready() error
+      RunTerminal(ctx context.Context, pool *pgxpool.Pool, table, id string, st *status.Status) error
+  }
+  ```
+  `TerminalQuerier` — экспортированная форма сегодняшнего `rowQuerier` (`repo.go:161`). Её реализуют
+  `*pgxpool.Pool`, `pgx.Tx` и `*journaltx.Tx`; утверждение `var _ operations.TerminalQuerier = (*journaltx.Tx)(nil)`
+  стоит в `opsnotify`. Транзакция в экспортированных сигнатурах `operations` имеет тип `TerminalQuerier`, а
+  не `*journaltx.Tx`. `FailTerminalCAS` — CAS `markErrorCAS` с `RETURNING` принципала и описания строки.
+  Исходы: `nil` с `FailedRow`, `ErrAlreadyDone`, `ErrNotFound`, ошибка оператора, обёрнутая `%w`. Письма
+  он не ставит. `markErrorCAS` становится вызовом `FailTerminalCAS` без чтения `FailedRow`: CAS остаётся
+  одним, второго SQL нет. `MarkError` и `Reconciler` зовут его, как сегодня.
+- **Одна функция постановки** (CX3G-04 (а), CX3B-32 (а)). `opsnotify.FailTerminal(ctx, tx *journaltx.Tx, table, id, st, n *Notifier) error`
+  выполняет `operations.FailTerminalCAS` в транзакции вызывающего. Если CAS применён и адресат формы
+  `user:`, она ставит `operation-failed` в ту же транзакцию. CAS по `done` сохраняется, поэтому повтор
+  строки письма не ставит. Функция экспортирована и служит входом пробы группы S (С5, CX3G-04 (в)). В
+  прод-коде её вызывающий один — `(*Notifier).RunTerminal` (ниже). Держатели — NTF3-133, 135, 136, 137.
+- **Значение подключения** (CX3L-02, CX3L-03, CX3O-01). `opsnotify.New(sender OperationFailedSender, service string, opts journaltx.Options) (*Notifier, error)`
+  — единственный конструктор `*Notifier`; тип `OperationFailedSender` объявлен в `opsnotify`. Отправитель,
+  служба пары и `opts` лежат в одном значении, и расхождения между ними построить нельзя. Конструктор
+  отказывает в трёх случаях: `nil` отправитель; нулевые `opts` — `journaltx.ErrOptionsUnset` (CX3M-02 (а));
+  отказ проверки пары. Пару он проверяет теми же `auth.SystemPrincipalFor(service, "operations")` и
+  `auth.InitiatorOf`, что путь записи: пустая служба или служба вне формы `CHECK` колонки (например,
+  `Storage`) дают ошибку с именем службы (CX3L-03). Корень с такой ошибкой не стартует. `opts` — то же
+  значение, что корень отдаёт писателям журнала модуля (З11). Роль `operations` — константа `opsnotify`.
 - **Репозиторий, который ставит** (К1 (а)). `operations.NewNotifyingRepo(pool, schema string, notify FailedNotify) (FullRepo, error)`
-  строит тот же `pgRepo`, что `NewRepo`, но со значением подключения. Нулевое `FailedNotify{}` и
-  `NoFailedSender` конструктор отвергает ошибкой: для неподключённого модуля есть `NewRepo`. Корень
+  строит тот же `*pgRepo`, что `NewRepo`, с полем подключения. Конструктор отказывает, если
+  `notify == nil` или `notify.Ready() != nil`. `(*Notifier).Ready` отказывает на `nil`-получателе и на
+  значении, которое построил не `New` (признак — неэкспортированное поле). Поэтому интерфейс, несущий
+  типизированный `nil` (`var n *opsnotify.Notifier`), отвергается при сборке, а не на первой записи. Корень
   оборачивает ошибку именем службы и не стартует. `NewRepo(pool, schema)` не меняется и означает «модуль
-  не подключён»: его значение подключения — `NoFailedSender`. Метод `pgRepo.FailTerminal(ctx, id, st) error`
+  не подключён»: поле подключения у него `nil`. Отдельного значения `NoFailedSender` нет: «не подключён»
+  выражается одним способом — выбором конструктора. Метод `pgRepo.FailTerminal(ctx, id, st) error`
   работает так:
-  1. при `NoFailedSender` — `markErrorCAS` на пуле, ровно как сегодняшний `MarkError`: журнал не
+  1. поле подключения `nil` — `markErrorCAS` на пуле, ровно как сегодняшний `MarkError`: журнал не
      пишется, транзакции помощника нет. Так у geo, kaname и любого иного потребителя `NewRepo`;
-  2. иначе метод кладёт поверх переданного `ctx` принципал пары `(<служба>, operations)` одной
-     неэкспортированной функцией пакета (З4 (1)), затем `journaltx.Begin(ctxPair, pool, opts)` →
-     `FailTerminal(ctxPair, tx, …)` → `Commit`. Исход разбирает классификатор ниже.
+  2. иначе — `notify.RunTerminal(ctx, r.pool, <таблица>, id, st)`, и его ошибка возвращается как есть.
+     `(*Notifier).RunTerminal` кладёт поверх `ctx` принципал пары `journaltx.AsComponent(ctx, service, "operations")`,
+     затем выполняет `journaltx.Begin(ctxPair, pool, opts)` → `FailTerminal(ctxPair, tx, …)` → `Commit`. Исход
+     разбирает классификатор ниже; он живёт в `RunTerminal`.
+
+  Обёртки вокруг `pgRepo` нет: `NewNotifyingRepo` отдаёт сам `*pgRepo`, и необязательные интерфейсы
+  (`executionClaimer`, `terminalFailer`) остаются при нём. Обёртка потеряла бы `executionClaimer`, и снова
+  открылся бы класс phantom-ресурса (CX3O-01). Держатель — `var _ executionClaimer` и `var _ terminalFailer`
+  на `*pgRepo` и УК3-53 через значение, которое вернул `NewNotifyingRepo`.
 - **Исполнитель выбирает ставящую запись по интерфейсу репозитория** (К1 (а); образец —
   `executionClaimer`: `repo.go:128-136`, проверка `worker.go:487` @`34bc8104a`, М26). В ветке ошибки
   `Worker.execute` (`worker.go:527`) терминал пишет необязательный интерфейс пакета
@@ -958,7 +1031,7 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   `OpsRepo` тестового дерева модулей интерфейс не реализуют и остаются на `MarkError`: поведение их проб
   не меняется. `terminalWrite` не меняется: бюджет, повторы, контекст от `context.Background()`
   (`worker.go:546-600`) — те же. Принципала вызывающего `pgRepo.FailTerminal` не требует: принципал пары
-  он кладёт сам.
+  кладёт `RunTerminal`.
 - **Путь исполнения в запросе** (`RunSync`, `worker.go:674`) зовёт `repo.MarkError`, то есть неставящую
   запись: исход клиент видит в ответе `done=true` (Р18). Держатель — УК3-14.
 - **`Reconciler` не меняется и писем не ставит** (К1 (б), (в), М1: механизм снимает их предмет).
@@ -970,19 +1043,9 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   нет. Поведение разрешителя осиротевших операций вне объёма: Д31; приёмка §6, строки «Р18 и группа S
   редакций до 30» и «Р18: пути терминальной записи»; предмет `#2934`. Это цена механизма, она названа
   вслух в §12. Держатель условия З13 «без нового отказа» на этом пути — УК3-54.
-- **Одно значение подключения** (CX3L-02). Отправитель `OperationFailedSender`, служба пары и
-  `journaltx.Options` приходят в `operations` одним значением `operations.FailedNotify`. Строит его только
-  `operations.NewFailedNotify(sender, service, opts)`; иное значение — явное `NoFailedSender`. Значение
-  идёт в `NewNotifyingRepo` корня модуля, а не в `Worker` и не в `Reconciler`. `opts` — то же значение,
-  что корень отдаёт писателям журнала модуля (З11); нулевые `opts` `NewFailedNotify` отвергает (CX3M-02 (а)).
-  Три признака «модуль подключён» — отправитель, пара и `opts` — выражаются одним значением, и
-  расхождения между ними построить нельзя.
-- **Пара проверяется при сборке** (CX3L-03). `NewFailedNotify` зовёт те же
-  `auth.SystemPrincipalFor(service, "operations")` и `auth.InitiatorOf`, что путь записи. При отказе (пустая
-  служба, служба вне формы `CHECK` колонки, например `Storage`) он возвращает ошибку с именем службы, и
-  корень не стартует.
 - **Какой репозиторий строят корни** (CX3M-01 снят, CX3N-03 перенесён на гейт этого пункта). Корень
-  каждого из пяти подключённых модулей строит репозиторий операций через `NewNotifyingRepo`; сегодня эти
+  каждого из пяти подключённых модулей строит репозиторий операций вызовом
+  `operations.NewNotifyingRepo(pool, schema, n)` с `n` из `opsnotify.New`; сегодня эти
   вызовы стоят в compute `main.go:149`, nlb `main.go:248`, registry `serve.go:173`, storage `serve.go:236`,
   vpc `main.go:307` @`1d42a6728bf` (М25). geo (`serve.go:114`) остаётся на `NewRepo`. Гейт УК3-59: вызов
   `NewRepo` пакета `corelib/operations` в не-тестовом дереве пяти модулей — находка. Модуль на `NewRepo`
@@ -990,43 +1053,51 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   реализующих `operations.Repo`, в пяти модулях нет; методы репозитория несут только заглушки
   `portmock`/`repomock` (М26). Обёртка, которая потеряла бы `FailTerminal`, на рабочем пути поэтому
   отсутствует. Её появление ловит проводка корня УК3-55: проба идёт через репозиторий, который получают
-  use-case, а не через значение конструктора.
+  use-case, а не через значение конструктора. Три комментария в модулях называют `operations.NewRepo(pool, …)`
+  как форму построения репозитория (compute `cmd/compute/recovery.go:38`, `internal/repo/quota.go:150`,
+  nlb `cmd/kacho-loadbalancer/recovery.go:43`, М25). После S3-C3 это была бы неправда, и полоса переписывает
+  их на `NewNotifyingRepo` (CX3O-04). Держатель — предикат S3-C3
+  `git grep -n 'operations\.NewRepo(' -- services/{compute,nlb,registry,storage,vpc} ':!*_test.go'` → 0 (вызовы
+  и проза); контроль тем же предикатом по `services/geo` → 2 (`serve.go:114`, `recovery.go:44`).
 - **Инициатор транзакции терминальной записи — личность компонента** (К1 (а)). Строку журнала подписки
   `notification_feed:<модуль>` пишет `Put` шагом 6 (NTF-1), и она несёт `system:<служба>-operations` —
   изменение, которое компонент делает сам (Р2). Открытие транзакции от принципала строки операции не
   зависит (И22): для `{system, bootstrap}`, `service_account:` и `user:` открывается одна и та же
   транзакция. Принципал строки решает только адресата.
-- **Классификатор исходов `pgRepo.FailTerminal`** (К1 (в), М1). На каждый исход своя строка, корзины
-  «прочее» нет. Каждый исход, кроме отказа среды, кончается `done = true` в пределах одной попытки
-  `terminalWrite`:
+- **Классификатор исходов `(*opsnotify.Notifier).RunTerminal`** (К1 (в), М1, CX3O-04). На каждый исход
+  своя строка, корзины «прочее» нет. Каждый исход, кроме отказа среды и отсутствия строки, кончается
+  `done = true` в пределах одной попытки `terminalWrite`:
 
   | исход | транзакция | что получает `terminalWrite` |
   |---|---|---|
   | CAS применён, адресат `user:`, `Put` принят | коммит, строка `operation-failed` 1 | `nil` |
   | CAS применён, адресата нет (И22) | коммит, строк 0 | `nil` |
-  | `ErrAlreadyDone` — строку раньше разрешили `Cancel` или `Reconciler` | откат, записи нет | `ErrAlreadyDone`; счётчик `AlreadyResolved`, как сегодня |
+  | `ErrAlreadyDone` — строку раньше разрешили `Cancel` или `Reconciler` | откат, записи нет | `ErrAlreadyDone`, обёрнутый `%w`; счётчик `AlreadyResolved`, как сегодня |
+  | `ErrNotFound` — строки операции нет | откат, записи нет | `ErrNotFound`, обёрнутый `%w`; `terminalWrite` обрабатывает его без повторов, как сегодняшний исход `MarkError` (`worker.go`, ветка `errors.Is(err, ErrNotFound)`) |
   | `ErrAttrsInvalid`, `ErrRecipientInvalid` | коммит без письма, счётчик `…_enqueue_refused_total{cause}` (З18) | `nil` |
   | `ErrLimitExhausted` | коммит без письма; `notify_suppressed_total` растёт хуком после коммита (З18) | `nil` |
-  | `ErrSecondLimitedPut` — по построению недостижим: одна операция, один `Put` | откат, затем запасная запись `markErrorCAS` на пуле; счётчик отказа постановки `cause = "second_limited"` | исход запасной записи |
-  | отказ `journaltx.Begin` (`ErrOptionsUnset` либо отказ инициатора) или `AsComponent` — по построению недостижимы (CX3L-03, CX3M-02 (а)) | транзакции нет; запасная запись `markErrorCAS` на пуле; счётчик `cause = "options_unset"` либо `cause = "initiator"`, строка журнала процесса | исход запасной записи |
-  | ошибка оператора, `Put` вне сторожей, `Commit` — отказ среды | откат | ошибка; `terminalWrite` повторяет, как сегодня. После бюджета строка остаётся `done = false`, и её разрешает `Reconciler`, без письма |
+  | `ErrSecondLimitedPut` — по построению недостижим: одна операция, один `Put` | откат, затем запасная запись `operations.FailTerminalCAS(ctx, pool, …)` на пуле; счётчик отказа постановки `cause = "second_limited"` | исход запасной записи |
+  | отказ `journaltx.Begin` (`ErrOptionsUnset` либо отказ инициатора) или `AsComponent` — по построению недостижимы (CX3L-03, CX3M-02 (а)) | транзакции нет; запасная запись `FailTerminalCAS` на пуле; счётчик `cause = "options_unset"` либо `cause = "initiator"`, строка журнала процесса | исход запасной записи |
+  | ошибка оператора, `Put` вне сторожей, `Commit` — отказ среды | откат | ошибка, обёрнутая `%w`; `terminalWrite` повторяет, как сегодня. После бюджета строка остаётся `done = false`, и её разрешает `Reconciler`, без письма |
 
-  Запасная запись — та же `markErrorCAS`, что в `MarkError`. С ней недостижимый исход становится
-  ошибкой программы, видимой по счётчику, а не остановкой операции. `ErrOptionsUnset` и отказ
-  инициатора метка `cause` различает через `errors.Is` (CX3M-02 (в)).
+  Запасная запись — `FailTerminalCAS` на пуле, тот же CAS, что в `MarkError`. С ней недостижимый исход
+  становится ошибкой программы, видимой по счётчику, а не остановкой операции. `ErrOptionsUnset` и отказ
+  инициатора метка `cause` различает через `errors.Is` (CX3M-02 (в)). Каждый sentinel `operations`
+  (`ErrAlreadyDone`, `ErrNotFound`) `RunTerminal` возвращает с `%w`, чтобы `errors.Is` в `terminalWrite`
+  видел его так же, как сегодня на `MarkError` (CX3O-04).
 - **Держатели К1** — пробы через настоящие входы (§11а): УК3-53 (исполнитель: пакетный `operations.Run`
   с репозиторием `NewNotifyingRepo`), УК3-54 (`Sweep` без нового отказа), УК3-55 (проводка корня модуля),
-  УК3-59 (гейт корней), УК3-60 (сборка). NTF3-133…137 и УК3-46 держат постановку и адресата на
-  экспортированной функции.
+  УК3-59 (гейт корней), УК3-60 (сборка), УК3-63 (граф импортов), УК3-64 (`ErrNotFound`). NTF3-133…137 и
+  УК3-46 держат постановку и адресата на экспортированной функции.
 - **Отмена строки не ставит** (CX3G-04 (б)). `Cancel` и `CancelOwned` (`repo.go:618`, `:673`) пишут
   `done = true` своим SQL и `FailTerminal` не зовут: исход отмены вызывающий видит в ответе `Cancel`, а
   письма об отмене нет. Письмо об отмене было бы новым наблюдаемым, то есть предметом приёмки, а не кода.
   Держатель — УК3-38.
-- **Вход пробы** — экспортированная `FailTerminal`, которую зовёт `pgRepo.FailTerminal`, а не тестовый
+- **Вход пробы** — экспортированная `opsnotify.FailTerminal`, которую зовёт `RunTerminal`, а не тестовый
   помощник (CX3G-04 (в)). Держатель — вниманием по диффу обвязок группы S.
-- **Адресат** — `auth.InitiatorOf(principal_type, principal_id)` строки операции; строка ставится,
-  только если инициатор формы `user:` (CX3B-26 (в)). `{system, bootstrap}` (умолчание колонок строки
-  операции) и `{user, system.…}` адресатом не становятся.
+- **Адресат** — `auth.InitiatorOf(principal_type, principal_id)` строки операции (`FailedRow.Principal`);
+  строка ставится, только если инициатор формы `user:` (CX3B-26 (в)). `{system, bootstrap}` (умолчание
+  колонок строки операции) и `{user, system.…}` адресатом не становятся.
 - **Отказ нормализации — «адресата нет», а не ошибка записи** (условие к коду CX3G-04 из
   пересверки). Для `FailTerminal` ответ `auth.InitiatorOf` `ErrNoInitiator` (для `{system, bootstrap}` и
   прочих строк таблицы З3 с отказом) и инициатор формы `service_account:`/`system:` означают одно:
@@ -1034,9 +1105,9 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   вызывающему нет. Иначе операции без человеческого принципала никогда не получили бы `done = true`.
   Классификатор — строка на каждый исход `InitiatorOf`, корзины «прочее» нет. Держатель — УК3-46
   (операция с `{system, bootstrap}` → `done = true`, строк 0; близнец — `{user, usr-A}` → строка 1).
-- **Неподключённый модуль** (`geo`, флаг `false`) строит репозиторий через `NewRepo`, то есть с
-  `NoFailedSender`. Его `FailTerminal` — `markErrorCAS` на пуле: строка не ставится, функция не падает
-  (CX3B-32 (в)). `nil` отправитель `NewFailedNotify` отвергает.
+- **Неподключённый модуль** (`geo`, флаг `false`) строит репозиторий через `NewRepo`, поле подключения
+  `nil`. Его `FailTerminal` — `markErrorCAS` на пуле: строка не ставится, функция не падает
+  (CX3B-32 (в)). `nil` отправитель `opsnotify.New` отвергает.
 - Атрибуты — З17.
 
 ### З17. Перечень Д21: шаблон × атрибут × откуда значение × законен ли нуль (CX3B-33 (а), (б))
@@ -1072,16 +1143,16 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | `ErrAttrsInvalid` | `INTERNAL`, мутация откатывается | коммит первичной записи без письма, счётчик `…_enqueue_refused_total{cause="attrs"}` |
 | `ErrRecipientInvalid` | `INTERNAL`, откат | коммит без письма, счётчик `cause="recipient"` |
 | `ErrLimitExhausted` | не бывает: глаголы арендатора писем с лимитом не ставят | коммит без письма; `notify_suppressed_total` — хуком после коммита (З4) |
-| `ErrSecondLimitedPut` | `INTERNAL`, откат (дефект программы) | `INTERNAL`/ошибка вызывающему, откат, мутация не коммитится; у `pgRepo.FailTerminal` — откат и запасная запись `markErrorCAS` без письма, `done = true` (З16) |
+| `ErrSecondLimitedPut` | `INTERNAL`, откат (дефект программы) | `INTERNAL`/ошибка вызывающему, откат, мутация не коммитится; у `(*opsnotify.Notifier).RunTerminal` — откат и запасная запись `FailTerminalCAS` на пуле без письма, `done = true` (З16) |
 
 - Классификатор — строка на каждый сторож, корзины «прочее → коммит» нет. `Put` сторожем
   транзакцию не переводит в `aborted` (точка сохранения NTF-1 З7 шаг 5, CX3-06).
 - **Не больше одного `Put` с лимитами в транзакции** (УК84): переход storage ставит одно письмо;
-  `FailTerminal` — одно в транзакции `pgRepo.FailTerminal`, которая несёт одну операцию; `Reconciler`
+  `FailTerminal` — одно в транзакции `(*opsnotify.Notifier).RunTerminal`, которая несёт одну операцию; `Reconciler`
   `Put` не зовёт вовсе (З16, ревью замысла К1 (б), редакция 13); задание напоминаний — одно письмо на
   транзакцию (З26). Сводка — одна строка на транзакцию адресата (З21).
 - **`FailTerminal` на пути без человека** (ревью замысла М1): путь один — асинхронный путь исполнителя
-  через `pgRepo.FailTerminal`; `Reconciler` писем не ставит (З16, редакция 13). `ErrLimitExhausted` —
+  через `pgRepo.FailTerminal` и `(*opsnotify.Notifier).RunTerminal`; `Reconciler` писем не ставит (З16, редакции 13–14). `ErrLimitExhausted` —
   коммит без письма; исход каждой строки — классификатор З16.
 - **После `Put` с лимитами — ни замка существующей строки, ни рекомендательной блокировки** (УК88):
   переход storage берёт замок строки ресурса до `Put` (оператор З15), после `Put` — ничего;
@@ -1177,8 +1248,9 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   «`UNAVAILABLE`, `DEADLINE_EXCEEDED`, …» таблицы отказов Р7 — `DEFER(platform_unavailable)`, не отказ
   настройки: на `Resolve` — письмо адресата в этом проходе не собирается, окно не закрывается, письма
   прочих адресатов исполняются (NTF3-103 (в)); на странице аудитории — правило приёмки «Отказ на
-  странице» (адресаты остатка в этом проходе не обрабатываются) и счётчик отказа прохода +1. Держатель —
-  УК3-56 (§11а).
+  странице» (адресаты остатка в этом проходе не обрабатываются) и счётчик отказа прохода +1. Отказ клиента
+  `directory.ErrCallWithoutDeadline` проверяется `errors.Is` **до** `resolvecell.Of` и классом Р7 не
+  становится (З27, CX3O-03). Держатель — УК3-56 (§11а).
 - Держатели — NTF3-103 (а)–(е), NTF3-108; поздний коммит на границе — УК3-17; два открытия — УК3-18.
 
 ### З22. Мгновенные письма (Р13; CX3B-38)
@@ -1345,9 +1417,10 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   вызовов в транзакции 0. `DEADLINE_EXCEEDED` — строка «`UNAVAILABLE`, `DEADLINE_EXCEEDED`, …» таблицы
   отказов Р7: на `Resolve` контакта — `contactUnknown` (письма в этом проходе нет, однократности нет,
   подстановки владельца нет, NTF3-143 (а)); на странице — правило «Отказ на странице» и счётчик отказа
-  прохода +1. Держатель — УК3-57 (§11а).
+  прохода +1. `directory.ErrCallWithoutDeadline` проверяется `errors.Is` до классификации статуса и
+  `contactUnknown` не даёт (З27, CX3O-03). Держатель — УК3-57 (§11а).
 
-### З27. Справочник адресов в службе доступа (Р7, Р28; CX3-12…16, CX3B-12, CX3B-13, CX3B-15, CX3B-16, CX3B-48)
+### З27. Справочник адресов в службе доступа (Р7, Р28; CX3-12…16, CX3B-12, CX3B-13, CX3B-15, CX3B-16, CX3B-48; CX3O-02, CX3O-03)
 
 - **Тип ресурса** проверяется точным членством в множестве типов, объявленных модулем пространства
   имён (модель и манифест), без строкового префикса; `namespace` — из закрытого перечня модулей
@@ -1368,16 +1441,36 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   `TestPageCursorFormIsDeclaredOnce`, если гейт видит службу доступа, иначе вниманием по диффу.
 - Словарь исходов вызова справочника — таблица Р7 (CX3-11 закрыт, CX3B-11); реализация в `notify` —
   функция `resolvecell.Of(code, outcome)` с исчерпывающим `switch` без `default`, держатели NTF3-55, 56.
-- **Клиент справочника своего срока не ставит и без срока не зовёт** (ревью замысла К2; механизм
-  редакции 13). Срок — одна константа на пакет в месте вызова (`digest` — З21, `reminder` — З26). Каждый
-  метод клиента первым оператором читает `ctx.Deadline()`; если срока нет, метод возвращает
-  `directory.ErrCallWithoutDeadline` до открытия соединения и запроса. Так свойство «у каждого вызова
-  справочника есть срок» держит одна точка, а не перечень мест вызова. Вызывающий, который срок не
-  поставил (в том числе новый — например, отправка по подписке или будущий пакет), падает на первой же
-  пробе, а не зависает на молчащей службе доступа. У вызывающего `ErrCallWithoutDeadline` — ошибка
-  программы, а не клетка Р7: проход прекращается, счётчик отказа прохода +1, строка журнала процесса с
-  именем метода; `resolvecell.Of` его не видит, это не код ответа. Держатель — УК3-62. Приём (`ingest`,
-  З19) клиента справочника не импортирует. Предикат полосы S2-B9:
+- **Клиентов службы доступа в `notify-sender` два, и этот пункт — о первом** (CX3O-02, выбран вариант
+  «два клиента»). Первый — `services/notify/internal/directory` (NTF-3, полоса S2-B9): через него идут
+  вызовы справочника пакетов `digest` (З21) и `reminder` (З26). Второй — `services/notify/internal/clients/kaname_client.go`
+  (NTF-5, `issue-2924/design.md` З1, «Сроки вызовов kaname»): через него идут `DescribeScope`,
+  `ListAccounts` и `Resolve` пакетов NTF-5 `notice/admit` и `notice/fanout`. Утверждения этого пункта и
+  И26 касаются только первого клиента. Срок вызовов через второй держит замысел NTF-5: константа срока
+  пакета в месте вызова (решение Д29, Н1), модульная проба «заглушка молчит» полосы N3 NTF-5 и предикат
+  `git grep -nE 'context\.With(Timeout|Deadline)' -- services/notify/internal/clients/` → 0. Отказа вызова
+  без срока во втором клиенте нет. Сведение двух клиентов в один было бы заказом замыслу NTF-5; эта
+  редакция его не делает (§12).
+- **Клиент `internal/directory` своего срока не ставит и без срока не зовёт** (ревью замысла К2; механизм
+  редакций 13–14). Срок — одна константа на пакет в месте вызова (`digest` — З21, `reminder` — З26). Каждый
+  метод клиента первым оператором читает `ctx.Deadline()`; если срока нет (`ok == false`), метод возвращает
+  `directory.ErrCallWithoutDeadline` до открытия соединения и запроса. Отказ проверяет только
+  **наличие** срока, а не его размер: вызов со сроком в прошлом или в 100 лет клиент пропускает, размер
+  держит константа места вызова (CX3O-03). Свойство «у каждого вызова через этот клиент есть срок» держит
+  одна точка, а не перечень мест вызова. Вызывающий, который срок не поставил (в том числе новый пакет,
+  который зовёт этот клиент), падает на первой же пробе, а не зависает на молчащей службе доступа.
+- **`ErrCallWithoutDeadline` — отдельное sentinel-значение пакета `directory`** (CX3O-03). Оно не несёт
+  gRPC-статуса. Если бы оно дошло до `resolvecell.Of`, `status.Code` дал бы `Unknown`, то есть `DEFER` или
+  `contactUnknown`, и ошибка программы тихо превратилась бы в «служба недоступна». Условия к коду:
+  (а) каждый вызывающий клиента (`digest`, `reminder`) проверяет `errors.Is(err, directory.ErrCallWithoutDeadline)`
+  **до** классификации статуса, и `resolvecell.Of` этот отказ не получает;
+  (б) исход у вызывающего — ошибка программы, а не клетка Р7: проход прекращается, строка журнала
+  процесса с именем метода, счётчик отказа прохода +1 с отдельным значением метки `cause = "no_deadline"`,
+  а не значением отказа службы;
+  (в) клиент возвращает его без обёртки текстом, так что `errors.Is` истинно на любом уровне вызова.
+  Держатели — УК3-62 (клиент), близнецы УК3-56 и УК3-57 на `ErrCallWithoutDeadline` (вызывающий: метка
+  `no_deadline`, `resolvecell.Of` не вызван, письма и однократности нет).
+- Приём (`ingest`, З19) клиента справочника не импортирует. Предикат полосы S2-B9:
   `git grep -nE 'context\.With(Timeout|Deadline)' -- services/notify/internal/directory/` → 0, с числом
   осмотренных файлов клиента и отказом на пустом обходе (форма предиката NTF-5).
 
@@ -1485,12 +1578,12 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | И3 | форма субъекта → инициатор решается одной функцией `auth.InitiatorOf`; `system:bootstrap` не выразим | З3; УК3-01, УК3-10 |
 | И4 | на каждую строку журнала с видом ресурса — ровно одна строка ленты `resource-event` той же транзакцией; строка сигнала ленты строки ленты не даёт | З10; NTF3-68, NTF3-70 |
 | И5 | прямых вставок в журнал мимо функции фундамента в стволе вне миграций 0 | З6, З8; NTF3-70 |
-| И6 | флаг модуля читается один раз; сборка корня, `Mapping.Kinds`, настройка транзакции писателей модуля и настройка транзакции терминальной записи в `operations` несут одно значение; незаданных `journaltx.Options` `Begin` не принимает | З4, З11, З16; NTF3-64…67, УК3-12, УК3-55 |
+| И6 | флаг модуля читается один раз; сборка корня, `Mapping.Kinds`, настройка транзакции писателей модуля и настройка транзакции терминальной записи в `operations/opsnotify` несут одно значение; незаданных `journaltx.Options` `Begin` не принимает | З4, З11, З16; NTF3-64…67, УК3-12, УК3-55 |
 | И7 | решение о письме сбоя и восстановления принимает тот же оператор, что меняет состояние, по `OLD`/`NEW` одной строки | З15; NTF3-07, 53, 129, 130 |
 | И8 | единственный не-тестовый писатель `state = 'ERROR'` в storage — `MarkError` | З15; УК3-41 |
 | И9 | отказ постановки на пути без человека первичную запись не откатывает, кроме `ErrSecondLimitedPut`; у терминальной записи ошибки операции и этот исход кончается `done = true` запасной записью без письма | З15, З16, З18; УК3-15, УК3-43 |
 | И10 | не больше одного `Put` с лимитами в транзакции; после него замков существующих строк нет | З18; УК3-42 |
-| И11 | строку `operation-failed` ставит только `FailTerminal`, в прод-коде её зовёт только `pgRepo.FailTerminal`; `Cancel`, исполнение в запросе и `Reconciler` её не ставят | З16; NTF3-133…137, УК3-14, УК3-38, УК3-54 |
+| И11 | строку `operation-failed` ставит только `opsnotify.FailTerminal`, в прод-коде её зовёт только `(*opsnotify.Notifier).RunTerminal`, а его — только `pgRepo.FailTerminal`; `Cancel`, исполнение в запросе и `Reconciler` её не ставят | З16; NTF3-133…137, УК3-14, УК3-38, УК3-54 |
 | И12 | позиция приёма и время приёма ленты консоли выдаются под одним замком до коммита; видимость монотонна по позиции | З19; УК3-35 |
 | И13 | `seen_up_to` не убывает; путь назад в прод-коде отсутствует | З23; NTF3-161, УК3-34 |
 | И14 | запись ленты консоли уникальна по `(module, source_row_id)` | З19; УК3-16 |
@@ -1504,10 +1597,10 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | И22 | отказ нормализации адресата в `FailTerminal` не мешает `done = true`; открытие транзакции терминальной записи от принципала строки операции не зависит | З16; УК3-46, УК3-53 |
 | И23 | позиция ленты — одно целое ≥ 1 от единственного генератора `inbox_clock`; на проводе — одно написание `[1-9][0-9]*` (0 — пусто), одна функция записи и одна разбора; сравнение — только числом над `inbox.Position`; позиция подписки — другой тип без преобразования | З19, З23, §5; NTF3-161 (г), NTF3-86, УК3-47, УК3-48; тип и генератор — вниманием по диффу |
 | И24 | функция базы `resource-event` — одна на журнал модуля по идентичности `(схема, имя, журнал)`; действующее тело — вывод генератора по текущему `Mapping`, прежние — выводы своих выпущенных версий шаблона; смена `Mapping` или `schema_rev` — новая миграция `CREATE OR REPLACE`, применённая не правится; «имени нет» — отсутствие ключа у обоих писателей; строка сигнала — из одного источника | З10; `notifygen -check`, гейт `AuditFeedTableWrites` NTF-1, УК3-49, УК3-50 |
-| И25 | терминальную запись ошибки асинхронного пути исполнителя с постановкой делает `pgRepo.FailTerminal` своей транзакцией `journaltx.Begin` под личностью компонента `(<служба>, operations)`, одна операция на транзакцию; каждый исход, кроме отказа среды, кончается `done = true`; `Reconciler` журнала и `Put` не касается | З16, З18; УК3-53, УК3-54, УК3-55 |
-| И26 | каждый вызов `notify-sender` → справочник идёт под сроком константы пакета вызывающего, поставленным в месте вызова; клиент справочника срока не ставит и вызов без срока отвергает `ErrCallWithoutDeadline` до сетевого вызова; в транзакции адресата сводки и транзакции напоминания сетевых вызовов нет | З21, З26, З27; УК3-56, УК3-57, УК3-62, предикат S2-B9 |
+| И25 | терминальную запись ошибки асинхронного пути исполнителя с постановкой делает `pgRepo.FailTerminal` через `(*opsnotify.Notifier).RunTerminal` своей транзакцией `journaltx.Begin` под личностью компонента `(<служба>, operations)`, одна операция на транзакцию; каждый исход, кроме отказа среды и `ErrNotFound`, кончается `done = true`; `Reconciler` журнала и `Put` не касается; пакет `operations` не импортирует ни `journaltx`, ни `auth` | З16, З18; УК3-53, УК3-54, УК3-55, УК3-63, УК3-64 |
+| И26 | каждый вызов справочника через клиент `internal/directory` (пакеты NTF-3 `digest`, `reminder`) идёт под сроком константы пакета вызывающего, поставленным в месте вызова; этот клиент срока не ставит и вызов без срока отвергает `ErrCallWithoutDeadline` до сетевого вызова, а вызывающий отличает этот отказ `errors.Is` до классификации статуса; в транзакции адресата сводки и транзакции напоминания сетевых вызовов нет. Вызовы через клиент NTF-5 `clients/kaname_client.go` держит замысел NTF-5 (З27, CX3O-02) | З21, З26, З27; УК3-56, УК3-57, УК3-62, предикат S2-B9 |
 | И27 | снят редакцией 13: транзакции кандидата `Reconciler` нет; сегодняшнее условие сироты под замком того же оператора (`reconciler.go:190-192`) не меняется | З16; УК3-54 |
-| И28 | репозиторий операций пяти подключённых модулей строит корень через `NewNotifyingRepo`; `NewRepo` пакета `operations` в не-тестовом дереве пяти модулей нет; нулевые `FailedNotify` и `journaltx.Options` не собираются — отказ старта корня, а не отказ на первой записи | З4, З16; УК3-59, УК3-60, УК3-61 |
+| И28 | репозиторий операций пяти подключённых модулей строит корень через `NewNotifyingRepo`; `NewRepo` пакета `operations` в не-тестовом дереве пяти модулей нет; `nil`, типизированный `nil` и не построенный `opsnotify.New` `*Notifier`, а также нулевые `journaltx.Options` не собираются — отказ старта корня, а не отказ на первой записи | З4, З16; УК3-59, УК3-60, УК3-61 |
 
 ## 4. Компоненты и границы
 
@@ -1519,7 +1612,8 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | `journaltx` | corelib | `journaltx/` | S1 |
 | формы адресата, ключ окна «проект», счётчик подавления | corelib | `notify/feed/`, `notify/spec/` | S2 |
 | генератор `resource-event`/`operation-failed` (X2), функция базы формы `fanout` (X2-F) | corelib | `cmd/notifygen/` | S2 |
-| `FailTerminal`, `FailedNotify`, `NewNotifyingRepo`, `pgRepo.FailTerminal`, выбор по `terminalFailer` в ветке ошибки исполнителя | corelib | `operations/` | S3 (X3) |
+| интерфейс `FailedNotify`, `TerminalQuerier`, `FailTerminalCAS`, `NewNotifyingRepo`, `pgRepo.FailTerminal`, выбор по `terminalFailer` в ветке ошибки исполнителя | corelib | `operations/` | S3 (X3) |
+| `opsnotify.New`, `*Notifier` (`Ready`, `RunTerminal`, классификатор), `opsnotify.FailTerminal`, `OperationFailedSender` | corelib | `operations/opsnotify/` (новый) | S3 (X3) |
 | репозиторий операций корня модуля — `NewNotifyingRepo` | kacho | `services/{compute,nlb,registry,storage,vpc}/cmd/**` | S3 |
 | миграции журналов, `intent_initiator`, лента модуля | kacho | `services/<svc>/internal/migrations/**` | S1–S3 |
 | писатели и пересылаемые пути | kacho | `services/{compute,vpc,nlb,registry,storage}/internal/**` | S1–S2 |
@@ -1655,9 +1749,10 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
    при сбое/восстановлении `SendX` → `Commit`; отказ — счётчик и журнал процесса.
 4. **Сбой операции.** Асинхронный путь исполнителя (пакетный реестр, `operations.Run` с репозиторием
    корня модуля) → ветка ошибки `execute` → `terminalWrite` (контекст от `Background`) →
-   `repo.FailTerminal` (`terminalFailer`) → у репозитория `NewNotifyingRepo`: принципал пары
-   `(<служба>, operations)` → `journaltx.Begin` (`opts` из `FailedNotify`) → `FailTerminal(tx)` → CAS → при
-   применённом CAS и инициаторе `user:` — `SendOperationFailed` → `Commit`; исход — классификатор З16.
+   `repo.FailTerminal` (`terminalFailer`) → у репозитория `NewNotifyingRepo`: `FailedNotify.RunTerminal` →
+   в `opsnotify`: принципал пары `(<служба>, operations)` → `journaltx.Begin` (`opts` из `opsnotify.New`) →
+   `opsnotify.FailTerminal(tx)` → `operations.FailTerminalCAS` → при применённом CAS и инициаторе `user:` —
+   `SendOperationFailed` → `Commit`; исход — классификатор З16.
    `Reconciler` — как сегодня: пачка `FOR UPDATE SKIP LOCKED`, `markErrorCAS` в транзакции пачки, писем
    нет (редакция 13).
 5. **Сводка.** Такт → `inbox_clock.t ≥ E` (0 строк — отказ прохода) → окна адресатов → аудитория по
@@ -1676,17 +1771,17 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
 - Постоянные кода: пары компонентов `(служба, роль)` — `(storage, reconciler)`, `(nlb, free-ip-runner)` —
   константы модулей (пара compute снята вместе с единственным потребителем, CX3H-02 (г)), у каждой одна объявленная, их единственный
   потребитель — `journaltx.AsComponent` (З4); пара терминальной записи `(<служба>, operations)` у пяти
-  подключённых модулей — роль `operations` одной константой corelib `operations`, служба — значение,
-  которое корень модуля передаёт с отправителем `OperationFailedSender` и `journaltx.Options` одним
-  значением `operations.FailedNotify` (З16, ревью замысла К1 (а), CX3L-02); форму службы проверяет
-  `NewFailedNotify` при сборке, отказ — отказ старта корня с именем службы (CX3L-03); `FailedNotify`
-  входит в `operations.NewNotifyingRepo` обязательным позиционным аргументом, опции для него нет; geo
-  строит `operations.NewRepo` (редакция 13);
+  подключённых модулей — роль `operations` одной константой corelib `operations/opsnotify`, служба —
+  значение, которое корень модуля передаёт с отправителем `OperationFailedSender` и `journaltx.Options`
+  в `opsnotify.New` (З16, ревью замысла К1 (а), CX3L-02, CX3O-01); форму службы проверяет `opsnotify.New`
+  при сборке, отказ — отказ старта корня с именем службы (CX3L-03); построенное значение входит в
+  `operations.NewNotifyingRepo` обязательным позиционным аргументом типа `FailedNotify`, опции для него
+  нет; geo строит `operations.NewRepo` (редакции 13–14);
   инициаторы `system:compute-operations`, `system:vpc-operations`, `system:nlb-operations`,
   `system:registry-operations`, `system:storage-operations` — DNS-метки формы `CHECK` колонки (З2), привязок и
   ролей у них нет (З13);
 - сроки вызовов справочника — одна именованная константа пакета `digest` и одна пакета `reminder`
-  (З21, З26), ручки нет (Р26 приёмки не меняется); вызов без срока клиент отвергает (З27); значение и его вывод — в комментарии константы; `system:stand-seed` — литерал SQL посева (З8), форму судит
+  (З21, З26), ручки нет (Р26 приёмки не меняется); вызов без срока клиент `internal/directory` отвергает (З27); значение и его вывод — в комментарии константы; `system:stand-seed` — литерал SQL посева (З8), форму судит
   `CHECK` колонки; имена настроек транзакции `kacho_journal.initiator`, `kacho_feed.enabled` — константы
   `journaltx`, генератор функции базы берёт их оттуда же.
 - `ttl` строки `resource-event` 72h, класс `notice` — из `notification.yaml` генерируемого шаблона (Р3).
@@ -1748,7 +1843,7 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
 | CX3B-29 | З2, З10 | X1, S2-B1 | `occurred_at` — время строки журнала из базы, в том же операторе; часов процесса нет | NTF3-57, NTF3-68 |
 | CX3B-30 | З2 | X1, S1-A3 | имя — из `RETURNING`/`OLD`; наличие имени — объявление вида | NTF3-59; УК3-13 (б) (Repository) |
 | CX3B-31 | З2 | X1, S1-A3 | `scope` — из объявления вида; пустой якорь проектного вида — отказ с именем вида | УК3-13 (а) |
-| CX3B-32 | З16 | X3, S3-C3 | ставящая запись — только асинхронный путь исполнителя через `pgRepo.FailTerminal` репозитория `NewNotifyingRepo`; `RunSync` и `Reconciler` не ставят (редакция 13); запись в транзакции; `NoFailedSender` у неподключённого | NTF3-133, 135, 136, 137; УК3-14; УК3-53 |
+| CX3B-32 | З16 | X3, S3-C3 | ставящая запись — только асинхронный путь исполнителя через `pgRepo.FailTerminal` репозитория `NewNotifyingRepo` и `(*opsnotify.Notifier).RunTerminal`; `RunSync` и `Reconciler` не ставят (редакция 13); запись в транзакции; у неподключённого — `NewRepo`, поле подключения `nil` (редакция 14) | NTF3-133, 135, 136, 137; УК3-14; УК3-53 |
 | CX3B-33 | З17, З18 | S3-C2, S3-C3, S3-C4 | перечень Д21 по каждому пути; нуль на любом пути → `optional`; на путях без человека отказ постановки не откатывает первичную запись | перечень — З17; УК3-15 |
 | CX3B-34 | З19 | S2-B4 | запись ленты консоли уникальна по `(module, source_row_id)`, `ON CONFLICT DO NOTHING` до `Ack` | УК3-16 |
 | CX3B-35 | З19 | X2, S2-B4 | `kind → resourceType` генерирует `notifygen` из `Mapping.Kinds`; своей таблицы у `notify` нет; в дайджесте сборки | NTF3-73; NTF3-34 |
@@ -1792,7 +1887,7 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
 | CX3G-01 | З15 | S3-C2 | постановка по `OLD`/`NEW` одного оператора; предикаты дословно; единственный писатель `ERROR` — `MarkError` | NTF3-53, 07, 130, 129; УК3-41 |
 | CX3G-02 | З15, З33 | S3-C2 | ручки «без сверщика» нет, обвязка — мимо `serve.go`; инициатор ставят функции перехода; функции принимают транзакцию либо открывают свою; (в) — выбран вариант (1) пересверки: транзакция вызывающего сверяется по `tx.Initiator()` до оператора, чужой инициатор — `ErrForeignTransitionInitiator`, строк 0 | NTF3-58, 10, 12; УК3-44 (в); (а) — вниманием по диффу |
 | CX3G-03 | З15 | S3-C2 | отказы функции записи названы; `loop.go:376` не отбрасывает — счётчик и журнал процесса; вето побочного следствия применено к `MarkError`/`Confirm` | УК3-40 |
-| CX3G-04 | З16 | X3, S3-C3 | одна функция постановки `FailTerminal`; в прод-коде её зовёт только `pgRepo.FailTerminal` (асинхронный путь исполнителя; `Reconciler` — нет, редакция 13); `Cancel`/`CancelOwned` не ставят; пробы зовут экспортированный вход; условие пересверки: `ErrNoInitiator` и не-`user:` инициатор в `FailTerminal` — «адресата нет», CAS коммитится, `done = true` | NTF3-133, 135, 136, 137; УК3-38; УК3-46; (в) — вниманием |
+| CX3G-04 | З16 | X3, S3-C3 | одна функция постановки `opsnotify.FailTerminal`; в прод-коде её зовёт только `(*opsnotify.Notifier).RunTerminal`, а его — `pgRepo.FailTerminal` (асинхронный путь исполнителя; `Reconciler` — нет, редакция 13); `Cancel`/`CancelOwned` не ставят; пробы зовут экспортированный вход; условие пересверки: `ErrNoInitiator` и не-`user:` инициатор в `FailTerminal` — «адресата нет», CAS коммитится, `done = true` | NTF3-133, 135, 136, 137; УК3-38; УК3-46; (в) — вниманием |
 | CX3G-05 | З13 | S1-A2, S1-A7, S2-B3 | перечень фоновых писателей с законным инициатором; исход до и после одинаков (nlb — `OutcomeDenied` оба кода; compute — личность прохода не меняется, поэтому ни код, ни класс исхода не меняются: чтения у владельцев отказывают, проход прерван, строка на месте, привязки целы — CX3H-02); нормализация одной функцией; «кто начавший» не решается; условия пересверок: (1) привязок, ролей и tuple личностям компонентов дифф не вносит (`#2934`); (2) — снято записью `3730bca2`: установка личности в цикле `FinishStuckDeletes` не выдерживала (б), вместо неё — CX3H-02 (а), (б) | пробы nlb `TestFreeIP_*`; УК3-39 (сравнение с базой на машине с привязками, инъекция установки личности в цикле → красный); (1) — вниманием по диффу модели прав |
 | CX3G-06 | З12 | S2-B3 | личность снятия привязок в публичном `Delete` — та же, что у исполнителя; отдельной установки нет; сужение не меняется | NTF3-160 (з); вниманием по диффу |
 | CX3H-01 | З19, З21, З23, §6 | S2-B4, S2-B5, S2-B7 | строку `inbox_clock` `(true, 0, now())` вставляет миграция схемы `kacho_notify` (структура продукта, не посев); уборщик и миграции её не удаляют; ноль строк: приём — `ErrInboxClockMissing`, откат, без `Ack`, **растёт читаемый счётчик отказов приёма** (CX3H-01 (г)); сводка — отказ прохода, окна не закрываются, растёт счётчик отказа прохода; отметка — `INTERNAL`, не «за границей»; классификации «0 строк → штатно» нет | УК3-45 (строка удалена → три отказа, счётчики приёма и сводки выросли; близнец — строка на месте → запись, окно, `done`, счётчики не изменились) |
@@ -1805,29 +1900,33 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
 | CX3K-01 | З23 | S2-B7 | (а) `seen_up_to` разбирается, только если поле входит в действующую маску (названную либо пустую = полная правка); при маске `digest_period` значение `seenUpTo` в теле не читается и не записывается; (б) порядок проверок `Update` закрыт: маска → `digest_period` (в действующей маске) → `seen_up_to` (в действующей маске) → оператор; первое нарушение — единственное в отказе; выбран второй вариант записи (`digest_period` до `seen_up_to`), так что при маске `digest_period` и при пустой маске NTF3-82 (м) несёт одно нарушение с полем `digest_period`; (в) обвязка NTF3-82 (м) шлёт оба варианта маски у пользователя с пустой отметкой | NTF3-82 (м) — оба вызова (маска `digest_period` и пустая маска, тело `{"digestPeriod": "WEEK"}`, `seenUpTo` пуст) → `400`, одно нарушение `digest_period`; УК3-51 (маска `digest_period` телом с `seenUpTo = ""` у пользователя без отметки → `done`, `digestPeriod` изменён, `seenUpTo` пуст; близнец — то же тело с пустой маской → `400` `seen_up_to`) |
 | CX3K-02 | З23, §5, М20 | S2-B7 | (а) позиция на проводе — JSON-строка; JSON-значение иного типа отвергает разбор тела краем (`INVALID_ARGUMENT`, текст разборщика, без нарушения поля) — вне NTF3-86, который судит строковое значение; довод М20 против `int64` — только 0 → `"0"` и множественность написаний, координата настройки — `strict_enum.go:76`/`:88`; (б) обвязки NTF3-86, NTF3-161 (а)–(г), УК3-47, УК3-48, УК3-51 шлют позицию JSON-строкой, это сказано в обвязке; (в) исход `INTERNAL` для нарушения `CHECK` оператора отметки — из класса `pgfault.Check` единственного дома SQLSTATE, без литерала `"23514"` в `notify`, текст фиксированный | (а) — вниманием по тексту замысла и М20; (б) — Given/When проб, вниманием по диффу обвязки; (в) — `TestIntegritySQLStateIsDecidedInOnePlace` (литерал вне дома → находка) и `TestErrorMappersTailReturnsAFixedText` (эхо ошибки → находка) на дереве `notify` |
 | CX3K-03 | §6, З19 | S2-B4 | предикат снятия «у `inbox_event.position` нет умолчания, `identity` и последовательности» судит колонку мигрированной схемы, а не текст файла миграции: `column_default IS NULL`, `is_identity = 'NO'`, `pg_get_serial_sequence('kacho_notify.inbox_event','position') IS NULL`; текстовый `grep` по миграциям снят (слеп к `bigserial`, шумит на чужих таблицах и комментариях) | УК3-52 (схема замысла → зелёный; инъекция `position bigserial` → красный; инъекция `GENERATED ALWAYS AS IDENTITY` → красный); до пробы — `db-architect-reviewer` по диффу миграции |
-| ДР-К1 (ревью замысла `97c51264`) | З4 (1), З16, З18, §7 п.4, §8, §12, И22, И25, И28 | X3, S3-C3 | механизм редакции 13 (исключение из Д26 заданием диспетчера): (а) значение подключения `FailedNotify` (отправитель, служба пары, `journaltx.Options`) живёт в репозитории операций модуля — `NewNotifyingRepo(pool, schema, notify) (FullRepo, error)`; нулевое значение и `NoFailedSender` конструктор отвергает, корень не стартует с именем службы. Метод `pgRepo.FailTerminal` открывает свою транзакцию `journaltx.Begin` под принципалом пары `(<служба>, operations)` из одной неэкспортированной функции пакета. Принципала вызывающего он не требует, поэтому контекст `terminalWrite` от `Background` не мешает. Ветка ошибки `Worker.execute` выбирает этот метод по необязательному интерфейсу `terminalFailer` (образец — `executionClaimer`), иначе зовёт `MarkError`; `RunSync` зовёт `MarkError`. `Worker`, пакетный реестр, `terminalWrite`, `NewWorker` и `NewReconciler` не меняются; (б) `Reconciler` не меняется: `markErrorCAS` в транзакции пачки, журнала и `Put` нет, поэтому нет ни 23502, ни второго `Put` с лимитами, ни отката пачки. Письма об операции, разрешённой `Reconciler`, нет — вне объёма по Д31 (`#2934`), цена названа в §12; (в) классификатор исходов `pgRepo.FailTerminal` — строка на исход (таблица З16). Недостижимые исходы (`ErrSecondLimitedPut`, отказ `Begin`/`AsComponent`) кончаются запасной записью `markErrorCAS` без письма и счётчиком `cause`; отказ среды — повтор `terminalWrite`, затем `Reconciler` | УК3-53 (исполнитель через пакетный `operations.Run` и `NewNotifyingRepo`: `fn` операции `usr-A` падает → `done=true` в первой попытке `terminalWrite`, строк 1, инициатор `system:<служба>-operations`; близнецы: `{system, bootstrap}` → строк 0, `NewRepo` → строк 0, `RunSync` → строк 0; проба предпосылки — `FailTerminal` снят инъекцией → строк 0, красный); УК3-54 (`Sweep`: две прерванные операции `usr-A`, `usr-B` в одной пачке → обе `done=true` одним проходом, строк 0, повторный `Sweep` → 0; близнец — одна операция; сравнение с базой `34bc8104a` — тот же исход); УК3-55 (проводка корня); УК3-59, УК3-60; `git grep -n 'AsComponent(' -- operations ':!*_test.go'` в corelib → 1 |
-| ДР-К2 (ревью замысла `97c51264`) | З21, З26, З27, §7 п.5–6, §8, И26 | S2-B4, S2-B5, S3-C4, S2-B9 | каждый вызов справочника из `digest` (`ListProjectAudience`, `Resolve` строк) и из `reminder` (`ListExpiringCredentials`, `Resolve` контакта) идёт под `context.WithTimeout` с одной константой пакета, в месте вызова; клиент `directory` срока не ставит. Механизм редакции 13: клиент отвергает вызов, у контекста которого срока нет, ошибкой `directory.ErrCallWithoutDeadline` до сетевого вызова — у любого вызывающего, в том числе будущего. Для вызывающего это ошибка программы: проход прекращается, счётчик отказа прохода +1. `DEADLINE_EXCEEDED` — строка «`UNAVAILABLE`, `DEADLINE_EXCEEDED`, …» таблицы отказов Р7 (`DEFER`, у контакта — `contactUnknown`), а не отказ настройки. В проходе сводки открытие окна — свой оператор, `Resolve` — вне транзакции адресата, транзакция адресата — `Put` и закрытие без сетевых вызовов; ручки нет. Приём (`ingest`) клиента справочника не импортирует | УК3-56 (сводка), УК3-57 (напоминания), УК3-62 (клиент: контекст без срока → `ErrCallWithoutDeadline`, запросов у заглушки 0; близнец — со сроком → запрос дошёл); предикат S2-B9 `git grep -nE 'context\.With(Timeout\|Deadline)' -- services/notify/internal/directory/` → 0 с числом осмотренных файлов; предикат S2-B4 `git grep -n 'notify/internal/directory' -- services/notify/internal/ingest/` → 0 |
+| ДР-К1 (ревью замысла `97c51264`) | З4 (1), З16, З18, §7 п.4, §8, §12, И22, И25, И28 | X3, S3-C3 | механизм редакций 13–14 (исключение из Д26 заданием диспетчера): (а) значение подключения (отправитель, служба пары, `journaltx.Options`) строит `opsnotify.New` и отдаёт его репозиторию операций модуля интерфейсом `operations.FailedNotify` — `NewNotifyingRepo(pool, schema, notify) (FullRepo, error)`; `nil`, типизированный `nil` и не построенный `New` `*Notifier` (`Ready`) конструктор отвергает, корень не стартует с именем службы. Метод `pgRepo.FailTerminal` зовёт `notify.RunTerminal`, который открывает свою транзакцию `journaltx.Begin` под принципалом пары `(<служба>, operations)` в `opsnotify`; `operations` не импортирует ни `journaltx`, ни `auth` (редакция 14, CX3O-01). Принципала вызывающего он не требует, поэтому контекст `terminalWrite` от `Background` не мешает. Ветка ошибки `Worker.execute` выбирает этот метод по необязательному интерфейсу `terminalFailer` (образец — `executionClaimer`), иначе зовёт `MarkError`; `RunSync` зовёт `MarkError`. `Worker`, пакетный реестр, `terminalWrite`, `NewWorker` и `NewReconciler` не меняются; (б) `Reconciler` не меняется: `markErrorCAS` в транзакции пачки, журнала и `Put` нет, поэтому нет ни 23502, ни второго `Put` с лимитами, ни отката пачки. Письма об операции, разрешённой `Reconciler`, нет — вне объёма по Д31 (`#2934`), цена названа в §12; (в) классификатор исходов `(*opsnotify.Notifier).RunTerminal` — строка на исход (таблица З16), с редакции 14 и строка `ErrNotFound`. Недостижимые исходы (`ErrSecondLimitedPut`, отказ `Begin`/`AsComponent`) кончаются запасной записью `FailTerminalCAS` на пуле без письма и счётчиком `cause`; отказ среды — повтор `terminalWrite`, затем `Reconciler` | УК3-53 (исполнитель через пакетный `operations.Run` и `NewNotifyingRepo`: `fn` операции `usr-A` падает → `done=true` в первой попытке `terminalWrite`, строк 1, инициатор `system:<служба>-operations`; близнецы: `{system, bootstrap}` → строк 0, `NewRepo` → строк 0, `RunSync` → строк 0; проба предпосылки — `FailTerminal` снят инъекцией → строк 0, красный); УК3-54 (`Sweep`: две прерванные операции `usr-A`, `usr-B` в одной пачке → обе `done=true` одним проходом, строк 0, повторный `Sweep` → 0; близнец — одна операция; сравнение с базой `34bc8104a` — тот же исход); УК3-55 (проводка корня); УК3-59, УК3-60, УК3-63, УК3-64; `git grep -n 'AsComponent(' -- operations ':!*_test.go'` в corelib → 1, в `operations/opsnotify/` |
+| ДР-К2 (ревью замысла `97c51264`) | З21, З26, З27, §7 п.5–6, §8, И26 | S2-B4, S2-B5, S3-C4, S2-B9 | каждый вызов справочника из `digest` (`ListProjectAudience`, `Resolve` строк) и из `reminder` (`ListExpiringCredentials`, `Resolve` контакта) идёт под `context.WithTimeout` с одной константой пакета, в месте вызова; клиент `directory` срока не ставит. Механизм редакций 13–14: клиент `internal/directory` отвергает вызов, у контекста которого срока нет, ошибкой `directory.ErrCallWithoutDeadline` до сетевого вызова — у любого вызывающего этого клиента, в том числе будущего; второй клиент службы доступа (`clients/kaname_client.go` NTF-5) держит замысел NTF-5 (CX3O-02). Для вызывающего это ошибка программы: `errors.Is` до классификации статуса, проход прекращается, счётчик отказа прохода +1 с меткой `no_deadline` (CX3O-03). `DEADLINE_EXCEEDED` — строка «`UNAVAILABLE`, `DEADLINE_EXCEEDED`, …» таблицы отказов Р7 (`DEFER`, у контакта — `contactUnknown`), а не отказ настройки. В проходе сводки открытие окна — свой оператор, `Resolve` — вне транзакции адресата, транзакция адресата — `Put` и закрытие без сетевых вызовов; ручки нет. Приём (`ingest`) клиента справочника не импортирует | УК3-56 (сводка), УК3-57 (напоминания), УК3-62 (клиент: контекст без срока → `ErrCallWithoutDeadline`, запросов у заглушки 0; близнец — со сроком → запрос дошёл); предикат S2-B9 `git grep -nE 'context\.With(Timeout\|Deadline)' -- services/notify/internal/directory/` → 0 с числом осмотренных файлов; предикат S2-B4 `git grep -n 'notify/internal/directory' -- services/notify/internal/ingest/` → 0 |
 | ДР-В1 (ревью замысла `97c51264`) | З12 | S2-B2 | NIC `Attach` — один оператор `WITH prev … FOR UPDATE` + `UPDATE` с сегодняшним предикатом `used_by_id = '' OR = $inst` и когерентностью; «изменилось» — `old_used_by = ''` из того же оператора; второго оператора нет | NTF3-160 (ж); УК3-33; форма — `db-architect-reviewer` по диффу |
 | ДР-В2 (ревью замысла `97c51264`) | З12 | S2-B2 | `SetAddressReference` — один оператор с изменяющими CTE (`prev … FOR UPDATE` по `addresses`, `UPDATE addresses`, upsert `address_references` из `prev`), `RETURNING` прежнего `used` и `(xmax = 0)`; исходы `NOT_FOUND` и `FAILED_PRECONDITION` — как сегодня | NTF3-160 (е); УК3-33; форма — `db-architect-reviewer` по диффу |
 | ДР-В3 (ревью замысла `97c51264`) | З19 | S2-B4 | утверждение «позиции без пропусков» снято; пропуск на повторной выдаче назван; сравнение позиций — порядком, не соседством | текст — вниманием; Given NTF3-161 (г) — «условие не создано» при пропуске (CX3I-04 (в)) |
 | ДР-В4 (ревью замысла `97c51264`) | З10 «Посадка», CX3J-01 (б), §13 Е6 | X3, X5 | тег X3 — после посадки S2-B1; относительно окна TW — правилом Д37 при выпуске тега; X1, X2 — рёбрами до X2-F; строка X5 держит только подъёмы | рёбра строки X3 `tasks.md`; окно TW — вниманием при выпуске тега |
 | ДР-М1 (ревью замысла `97c51264`) | З18, З16 | X3 | `ErrLimitExhausted` у `pgRepo.FailTerminal` — коммит без письма; `Reconciler` `Put` не зовёт (редакция 13), поэтому корзины у его исходов нет по построению | УК3-53 (строка исхода «лимит исчерпан»); прочие строки классификатора — вниманием по таблице З16 |
 | CX3L-01 (пересверка `f6809e98`) | З16, И27 | — | **снят редакцией 13 вместе с предметом**: транзакции кандидата `Reconciler` нет, взятие остаётся сегодняшним оператором пачки с условием сироты под замком того же оператора (`reconciler.go:190-192`); окна между чтением и взятием нет по построению | УК3-54 (сравнение с базой); УК3-58 снята вместе с предметом |
-| CX3L-02 (пересверка `f6809e98`) | З4, З11, З16, §8, И6 | X1, X3, S1-A4, S3-C3 | (а) `journaltx.Options` строит только `journaltx.NewOptions`; нулевое значение `Begin` отвергает `ErrOptionsUnset` до первого оператора; (б) отправитель, служба и `opts` приходят в `operations` одним значением `FailedNotify` (`NewFailedNotify` либо `NoFailedSender`). Путь значения — `NewNotifyingRepo` корня модуля (редакция 13; прежний путь через `NewWorker`/`NewReconciler` снят); нулевое значение и `NoFailedSender` этот конструктор отвергает; (в) корень строит `opts` один раз из единственного чтения ручки и отдаёт то же значение писателям модуля и `NewFailedNotify`; З11 — четыре потребителя | УК3-55 (флаг `kacho_feed.enabled` в транзакции терминальной записи равен ручке модуля: близнецы `true` → строка ленты, `false` → 0); проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец — `NewOptions(false)` → транзакция открыта); УК3-60 |
-| CX3L-03 (пересверка `f6809e98`) | З16, §8 | X3, S3-C3 | `NewFailedNotify` зовёт те же `SystemPrincipalFor` и `InitiatorOf`, что путь записи; отказ — ошибка с именем службы, корень модуля не стартует; строка классификатора «отказ `Begin`/`AsComponent`» по построению недостижима | УК3-55 (близнец: служба `''` и `Storage` → отказ сборки корня с именем службы; близнец — `storage` → собран) |
+| CX3L-02 (пересверка `f6809e98`) | З4, З11, З16, §8, И6 | X1, X3, S1-A4, S3-C3 | (а) `journaltx.Options` строит только `journaltx.NewOptions`; нулевое значение `Begin` отвергает `ErrOptionsUnset` до первого оператора; (б) отправитель, служба и `opts` лежат в одном значении `*opsnotify.Notifier`, которое строит только `opsnotify.New`; в `operations` оно приходит интерфейсом `FailedNotify` (редакция 14). Путь значения — `NewNotifyingRepo` корня модуля (редакция 13; прежний путь через `NewWorker`/`NewReconciler` снят); `nil` и не построенное `New` значение этот конструктор отвергает; «не подключён» — только `NewRepo`; (в) корень строит `opts` один раз из единственного чтения ручки и отдаёт то же значение писателям модуля и `opsnotify.New`; З11 — четыре потребителя | УК3-55 (флаг `kacho_feed.enabled` в транзакции терминальной записи равен ручке модуля: близнецы `true` → строка ленты, `false` → 0); проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец — `NewOptions(false)` → транзакция открыта); УК3-60 |
+| CX3L-03 (пересверка `f6809e98`) | З16, §8 | X3, S3-C3 | `opsnotify.New` (с редакции 14; прежде `NewFailedNotify`) зовёт те же `SystemPrincipalFor` и `InitiatorOf`, что путь записи; отказ — ошибка с именем службы, корень модуля не стартует; строка классификатора «отказ `Begin`/`AsComponent`» по построению недостижима | УК3-55 (близнец: служба `''` и `Storage` → отказ сборки корня с именем службы; близнец — `storage` → собран) |
 | CX3L-04 (пересверка `f6809e98`) | З16 | — | **снят редакцией 13 вместе с предметом**: `Sweep` не меняется, его счёт — сегодняшний (применённые CAS зафиксированной пачки); пропуска взятия и отката одной операции без отката пачки нет по построению | УК3-54 (`Sweep` вернул 2, повторный → 0) |
 | CX3L-05 (пересверка `f6809e98`) | З16, З4 (1) | — | **снят редакцией 13 вместе с предметом**: контекста пары у `Reconciler` нет вовсе; контекст пары живёт только внутри `pgRepo.FailTerminal` и несёт только его транзакцию | `git grep -n 'AsComponent(' -- operations ':!*_test.go'` в corelib → 1 (X3) |
 | CX3M-01 (пересверка `7bc43f21`) | З16 «Какой репозиторий строят корни», И28 | S3-C3 | **снят редакцией 13 как предмет**: значению подключения больше не нужно попадать в `Worker` — исполнитель получает репозиторий корня аргументом каждого `operations.Run` (М25). Поэтому пакетный реестр, 54 вызова `Run`, `ConfigureDefault`/`Start` корней и ленивый старт registry (М22, М23) не меняются. Переносится одно условие: неподключённым модуль не остаётся молча — корень каждого из пяти модулей строит `NewNotifyingRepo`, а `NewRepo` там — находка гейта | УК3-59 (гейт корней), УК3-55 (проводка на рантайме, в том числе registry) |
-| CX3M-02 (пересверка `7bc43f21`) | З4 «Нулевые `Options` отвергаются при сборке корня», З16 классификатор | X1, X3, S1-A4, S3-C3 | (а) каждый держатель `journaltx.Options` (конструктор писателя журнала модуля, `NewFailedNotify`) принимает их позиционно и отвергает нулевые при сборке корня, отказ — отказ старта с именем модуля; отказ `Begin` — страховка; (б) на пути запроса `ErrOptionsUnset` → фиксированный `INTERNAL` без текста ошибки (ветка по умолчанию маппера модуля); на пути `pgRepo.FailTerminal` — своя строка классификатора З16 (запасная запись без письма), недостижимая по (а); `Reconciler` `Begin` не зовёт (редакция 13); (в) `ErrOptionsUnset` не оборачивает отказ `InitiatorOf`, `errors.Is` различает их, метка `cause` счётчика — разные значения | проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец `NewOptions(false)`; перекрёстные `errors.Is` — для (в)); УК3-61 (корень, не передавший `Options` писателю журнала, → отказ старта; близнец — передал → собран); `TestErrorMappersTailReturnsAFixedText` на дереве пяти модулей — для (б) |
+| CX3M-02 (пересверка `7bc43f21`) | З4 «Нулевые `Options` отвергаются при сборке корня», З16 классификатор | X1, X3, S1-A4, S3-C3 | (а) каждый держатель `journaltx.Options` (конструктор писателя журнала модуля, `opsnotify.New`) принимает их позиционно и отвергает нулевые при сборке корня, отказ — отказ старта с именем модуля; отказ `Begin` — страховка; (б) на пути запроса `ErrOptionsUnset` → фиксированный `INTERNAL` без текста ошибки (ветка по умолчанию маппера модуля); на пути `(*opsnotify.Notifier).RunTerminal` — своя строка классификатора З16 (запасная запись без письма), недостижимая по (а); `Reconciler` `Begin` не зовёт (редакция 13); (в) `ErrOptionsUnset` не оборачивает отказ `InitiatorOf`, `errors.Is` различает их, метка `cause` счётчика — разные значения | проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец `NewOptions(false)`; перекрёстные `errors.Is` — для (в)); УК3-61 (корень, не передавший `Options` писателю журнала, → отказ старта; близнец — передал → собран); `TestErrorMappersTailReturnsAFixedText` на дереве пяти модулей — для (б) |
 | CX3N-01 (пересверка `5400c528`) | З16, М24 | X5 | **снят редакцией 13 как предмет**: сигнатура `operations.NewReconciler` тегом X3 не меняется, поэтому число её вызывающих на ревизии подъёма (6 на `1d42a6728bf`, 7 — если корень `notify-api` NTF-4 её зовёт) выбора не определяет; противоречие NTF-4 и NTF-5 о вызове `NewReconciler` корнем `notify-api` на радиус X5 больше не влияет. Подъём на тег X3 правок вне `go.mod`/`go.sum` не несёт | предикат X5: изменение подъёма на тег X3 трогает только `go.mod` и `go.sum` (`git diff --name-only` — два пути на репозиторий); `go build ./...` зелёный |
 | CX3N-02 (пересверка `5400c528`) | З16 | — | **снят редакцией 13 как предмет**: вызовы `operations.Run` пяти модулей не меняются, и гейт `TestEveryServiceWithAsyncMutationsResolvesOrphanedOperations` (`internal/repohygiene/lroreconciler_test.go`) опознаёт асинхронные сервисы тем же пакетным `Run`; файл гейта в пути полос не входит | гейт `lroreconciler` зелёный без правки; предикат S3-C3: `git diff --name-only` полосы не содержит `lroreconciler_test.go` |
 | CX3N-03 (пересверка `5400c528`) | З16 «Какой репозиторий строят корни» | S3-C3 | перенесён на гейт УК3-59 новой формы: локальное имя пакета `corelib/operations` берётся из объявления импорта (оба суффикса пути — как `operationsImportSuffixes` соседнего гейта `lroreconciler`, общим помощником, а не копией); точечный импорт — находка сам по себе | УК3-59 (инъекция `ops "…/corelib/operations"` + `ops.NewRepo(…)` → красный; близнец `ops.NewNotifyingRepo(…)` → зелёный) |
 | CX3N-04 (пересверка `5400c528`) | З16 | — | **снят редакцией 13 как предмет**: `*Worker` в use-case не передаётся, `RunWithWorker` модули не зовут, нулевого `Worker` на пути запроса нет. Аналог для репозитория закрыт конструктором: `NewNotifyingRepo` на отказе возвращает ошибку, а не пригодное значение, и корень с ошибкой не стартует | УК3-60 |
 | CX3N-05 (пересверка `5400c528`) | З16 | — | **снят редакцией 13 как предмет**: пакетный реестр с пяти модулей не снимается, и проза о нём в дереве остаётся правдой; утверждений «`Worker` корня» и «`Reconciler` ставит письмо» в дереве не было — они жили только в этом замысле и сняты его редакцией | — (предмета нет) |
+| CX3O-01 (пересверка `6cf94b11`) | З1, З4 (1), (д), З16 «Граница импорта», «Что объявляет `operations`», «Значение подключения», «Репозиторий, который ставит», §4, М27, И25 | X3 | пакет `operations` не импортирует ни `corelib/journaltx`, ни `corelib/auth`, ни `notify/*`. Открытие транзакции под парой, проверка пары, адресат, `Put` и классификатор приходят в него значением интерфейса `operations.FailedNotify` (`Ready`, `RunTerminal`), объявленного в самом `operations`. Строит это значение подпакет `corelib/operations/opsnotify` (`opsnotify.New`), а не `journaltx`: `journaltx` не импортирует `notify/*`. Тип транзакции в экспортированных сигнатурах `operations` — `TerminalQuerier` (экспортированная форма `rowQuerier`), не `*journaltx.Tx`; `*journaltx.Tx` — только у `opsnotify.FailTerminal`. Обёртки вокруг `pgRepo` нет: `NewNotifyingRepo` отдаёт сам `*pgRepo`, `executionClaimer` и `terminalFailer` остаются при нём. Типизированный `nil` в интерфейсе отвергает `Ready` при сборке | компилятор на полосе X3; УК3-63 (`go list -deps ./operations` без `corelib/journaltx` и `corelib/auth`, проба предпосылки на `./operations/opsnotify`); УК3-53 через значение `NewNotifyingRepo` (`ClaimForExecution` и `FailTerminal` на рабочем пути); УК3-60 (типизированный `nil` → отказ) |
+| CX3O-02 (пересверка `6cf94b11`) | З27, И26, §12 | S2-B9 | выбран вариант «два клиента»: клиент `internal/directory` (NTF-3) и `clients/kaname_client.go` (NTF-5) остаются двумя. З27 и И26 сужены до первого клиента: «одна точка» и «каждый вызов» говорят только о вызовах через него (пакеты `digest`, `reminder`). Второй клиент назван поимённо; его держатель — замысел NTF-5: константа срока в месте вызова пакетов `notice/admit` и `notice/fanout` (Д29, Н1), модульная проба «заглушка молчит» полосы N3 NTF-5, предикат `git grep -nE 'context\.With(Timeout\|Deadline)' -- services/notify/internal/clients/` → 0. Заказа NTF-5 нет | текст — вниманием по З27 и И26; второй клиент — держатели полосы N3 `issue-2924/tasks.md`; первый — УК3-62 и предикат S2-B9 |
+| CX3O-03 (пересверка `6cf94b11`) | З27 «`ErrCallWithoutDeadline` — отдельное sentinel-значение», З21, З26 | S2-B9, S2-B5, S3-C4 | (а) `directory.ErrCallWithoutDeadline` — sentinel-значение пакета `directory` без gRPC-статуса; каждый вызывающий (`digest`, `reminder`) проверяет `errors.Is` до классификации статуса, до `resolvecell.Of` этот отказ не доходит (иначе `Unknown` → `DEFER` или `contactUnknown`); (б) у счётчика отказа прохода отдельная метка `cause = "no_deadline"`; (в) отказ проверяет только наличие срока (`ctx.Deadline()` → `ok == false`), а не его размер; текст З27 сужен до этого | УК3-62 (клиент); УК3-56 и УК3-57 — близнецы на `ErrCallWithoutDeadline`: заглушка клиента отдаёт его → проход прекращён, метка `no_deadline` +1, `resolvecell.Of` не вызван, письма нет; близнец — `status.Error(codes.Unavailable, …)` → `DEFER`/`contactUnknown`, метка отказа службы |
+| CX3O-04 (пересверка `6cf94b11`) | З16 классификатор, «Какой репозиторий строят корни», М25 | X3, S3-C3 | (а) в классификаторе `RunTerminal` есть строка `ErrNotFound`: `FailTerminalCAS` его возвращает, транзакция откатывается, ошибка возвращается обёрнутой `%w`, и `terminalWrite` обрабатывает её без повторов, как сегодня на `MarkError`; (б) три комментария, называющие `operations.NewRepo(pool, …)` формой построения репозитория (compute `cmd/compute/recovery.go:38`, `internal/repo/quota.go:150`, nlb `cmd/kacho-loadbalancer/recovery.go:43`), полоса S3-C3 переписывает на `NewNotifyingRepo` | (а) УК3-64; (б) предикат S3-C3 `git grep -n 'operations\.NewRepo(' -- services/{compute,nlb,registry,storage,vpc} ':!*_test.go'` → 0, контроль по `services/geo` → 2 |
 
 Живых пунктов 88 (CX3B-01…48 — 48, CX3C — 8, CX3D — 5, CX3E — 10, CX3F-07 (б) — 1, CX3G — 6,
 CX3H — 2: CX3H-01 из пересверки `89d1f0ad`, CX3H-02 из пересверки `3730bca2`; CX3I — 4 из первичного
-разбора `ac1f9fc9`; CX3J — 1 из пересверки `374789b5`; CX3K — 3 из пересверки `3dbb8b23`: CX3K-01, CX3K-02 — пункты, CX3K-03 — условие к коду). Сверх них — 7 строк ревью замысла роли `design-reviewer` на отпечаток `97c51264` с префиксом `ДР-` (К1, К2, В1–В4, М1); строк таблицы 95. Сверх них — 5 строк пересверки `f6809e98` (CX3L-01…05: CX3L-01, CX3L-02 — к замыслу, CX3L-03…05 — условия к коду); строк таблицы 100. Сверх них — 2 строки пересверки `7bc43f21` (CX3M-01 — к замыслу, CX3M-02 — условие к коду); строк таблицы 102. Закрытые возвратом пункты (CX3B-11, CX3B-24, CX3C-03, CX3D-02, CX3E-03, CX3E-04)
+разбора `ac1f9fc9`; CX3J — 1 из пересверки `374789b5`; CX3K — 3 из пересверки `3dbb8b23`: CX3K-01, CX3K-02 — пункты, CX3K-03 — условие к коду). Сверх них — 7 строк ревью замысла роли `design-reviewer` на отпечаток `97c51264` с префиксом `ДР-` (К1, К2, В1–В4, М1); строк таблицы 95. Сверх них — 5 строк пересверки `f6809e98` (CX3L-01…05: CX3L-01, CX3L-02 — к замыслу, CX3L-03…05 — условия к коду); строк таблицы 100. Сверх них — 2 строки пересверки `7bc43f21` (CX3M-01 — к замыслу, CX3M-02 — условие к коду); строк таблицы 102. Сверх них — 5 строк пересверки `5400c528` (CX3N-01…05); строк таблицы 107. Сверх них — 4 строки пересверки `6cf94b11` (CX3O-01, CX3O-02 — к замыслу, CX3O-03, CX3O-04 — условия к коду); строк таблицы 111. Закрытые возвратом пункты (CX3B-11, CX3B-24, CX3C-03, CX3D-02, CX3E-03, CX3E-04)
 отображены с условиями, которые пережили возврат.
 
 ## 11а. Заказы проб из записей — где исполнено
@@ -1887,16 +1986,18 @@ CX3H — 2: CX3H-01 из пересверки `89d1f0ad`, CX3H-02 из пере�
 | УК3-50 | `374789b5` · CX3J-01 (а); NTF-1 CX1-75 (г), CX1-76 (в) | дерево модуля kacho с двумя миграциями — тело функции `resource-event`, выведенное до добавления вида в `Mapping`, и `CREATE OR REPLACE FUNCTION` по текущему `Mapping`, прежнего `Mapping` в дереве нет → `notifygen -check` и гейт `AuditFeedTableWrites` зелёные, функций на журнал 1; инъекция — вид добавлен в `Mapping`, новой миграции нет → красный `-check` и гейта с координатой | З10 | S2-B1 |
 | УК3-51 | `3dbb8b23` · CX3K-01 | у `usr-A` без отметки (`seenUpTo` пуст): `PATCH /notify/v1/preferences` маской `digest_period`, тело — снятое с `GET` и правленое (`{"digestPeriod": "HOUR", "seenUpTo": ""}`) → `done`, `GET` — `digestPeriod = "HOUR"`, `seenUpTo` пуст; близнец — то же тело с пустой маской → `400` `INVALID_ARGUMENT`, одно нарушение `seen_up_to`, `digestPeriod` не изменён; пара порядка — пустая маска, `{"digestPeriod": "WEEK", "seenUpTo": ""}` → `400`, одно нарушение `digest_period`. Позиции — JSON-строкой | З23 | S2-B7 |
 | УК3-52 | `3dbb8b23` · CX3K-03 | на схеме `kacho_notify` после всех миграций: `information_schema.columns` для `inbox_event.position` — `column_default IS NULL` и `is_identity = 'NO'`, `pg_get_serial_sequence('kacho_notify.inbox_event','position') IS NULL` → зелёный; инъекции в синтетической миграции — `position bigserial` → красный, `GENERATED ALWAYS AS IDENTITY` → красный, каждая с именем колонки | §6, З19 | S2-B4 |
-| УК3-53 | `97c51264` (ревью замысла) · К1 (а), (в), М1; редакция 13 | интеграционная проба corelib через настоящий `Worker` (пакетный реестр и `operations.Run`, как у модулей) и репозиторий `NewNotifyingRepo`: асинхронная операция с принципалом строки `{user, usr-A}`, `fn` возвращает ошибку → в первой попытке `terminalWrite` (не после `OrphanGrace`; `IncTerminalWriteRetries` не вырос) строка `done=true` с ошибкой, строк `operation-failed` 1, строка журнала `notification_feed` несёт `system:<служба>-operations`; близнец адресата — строка `{system, bootstrap}` → `done=true`, строк 0, ошибки нет; близнец конструктора — тот же путь на `NewRepo` → `done=true`, строк 0, транзакции помощника нет; близнец пути — `RunSync` с падающим `fn` на `NewNotifyingRepo` → `done=true`, строк 0; строка исхода — лимит `usr-A` исчерпан → `done=true`, письма нет, `notify_suppressed_total` +1 после коммита; проба предпосылки — `pgRepo` без метода `FailTerminal` (инъекция) → на `NewNotifyingRepo` строк 0 — красный; единственность вызова `AsComponent` в `operations` — `git grep` → 1 | З16 | X3 |
+| УК3-53 | `97c51264` (ревью замысла) · К1 (а), (в), М1; редакция 13 | интеграционная проба corelib через настоящий `Worker` (пакетный реестр и `operations.Run`, как у модулей) и репозиторий `NewNotifyingRepo`: асинхронная операция с принципалом строки `{user, usr-A}`, `fn` возвращает ошибку → в первой попытке `terminalWrite` (не после `OrphanGrace`; `IncTerminalWriteRetries` не вырос) строка `done=true` с ошибкой, строк `operation-failed` 1, строка журнала `notification_feed` несёт `system:<служба>-operations`; близнец адресата — строка `{system, bootstrap}` → `done=true`, строк 0, ошибки нет; близнец конструктора — тот же путь на `NewRepo` → `done=true`, строк 0, транзакции помощника нет; близнец пути — `RunSync` с падающим `fn` на `NewNotifyingRepo` → `done=true`, строк 0; строка исхода — лимит `usr-A` исчерпан → `done=true`, письма нет, `notify_suppressed_total` +1 после коммита; проба предпосылки — `pgRepo` без метода `FailTerminal` (инъекция) → на `NewNotifyingRepo` строк 0 — красный; единственность вызова `AsComponent` в `operations` — `git grep` → 1, в `operations/opsnotify/`; значение, которое вернул `NewNotifyingRepo`, проходит проверку `executionClaimer` исполнителя (`ClaimForExecution` вызван) — обёртки нет (CX3O-01) | З16 | X3 |
 | УК3-54 | `97c51264` (ревью замысла) · К1 (б); `f6809e98` · CX3L-04; редакция 13 | интеграционная проба corelib через настоящий `Reconciler.Sweep` на таблице операций модуля, чей репозиторий построен `NewNotifyingRepo`: две прерванные операции `usr-A` и `usr-B` старше `OrphanGrace` в одной пачке, резолвер отдаёт `OutcomeInterrupted` → обе `done=true` одним `Sweep`, `Sweep` вернул 2, строк `operation-failed` 0, строк журнала 0; повторный `Sweep` вернул 0; близнец — одна операция → `done=true`, вернул 1, строк 0; сравнение с базой — тот же прогон на `34bc8104a` даёт тот же исход (З13: без нового отказа) | З16, З18 | X3 |
-| УК3-55 | `97c51264` (ревью замысла) · К1 (а); `f6809e98` · CX3L-02, CX3L-03; редакция 13 | проводка корня каждого из пяти подключённых модулей: репозиторий операций, который корень отдаёт use-case (тот, с которым они зовут `operations.Run`), построен `NewNotifyingRepo` с `OperationFailedSender` и парой `(<служба>, operations)`; асинхронная операция модуля `usr-A` с ошибкой → строк `operation-failed` 1 с инициатором строки журнала `system:<служба>-operations`; близнец — `geo` (`NewRepo`) → `done=true`, строк 0, транзакция без помощника; близнец флага (CX3L-02) — модуль с ручкой `true` → строка ленты терминальной записи есть, с `false` → строк ленты 0; близнец пары (CX3L-03) — служба `''` и `Storage` → `NewFailedNotify` отказывает, корень не стартует с именем службы, `storage` → собран | З11, З16, §8 | S3-C3 |
-| УК3-56 | `97c51264` (ревью замысла) · К2 | модульная проба `digest`: заглушка справочника принимает соединение и молчит на `Resolve` строк адресата R1 → вызов возвращается `DEADLINE_EXCEEDED` в пределах срока пакета, проход завершён, письма R1 нет, окно R1 не закрыто, письмо R2 того же прохода отправлено, транзакции адресата во время вызова не открыто; молчание на странице 2 `ListProjectAudience` → адресаты страницы 1 исполнены, остатка нет, счётчик отказа прохода +1; близнец — ответ внутри срока → письма R1 и R2, окна закрыты | З21 | S2-B5 |
-| УК3-57 | `97c51264` (ревью замысла) · К2 | модульная проба `reminder`: заглушка молчит на `Resolve` контакта → `DEADLINE_EXCEEDED` в пределах срока пакета, исход `contactUnknown`, письма нет, однократности нет, подстановки владельца нет, проход завершён; молчание на странице `ListExpiringCredentials` → счётчик отказа прохода +1, записи однократности за остатком нет; близнец — ответ внутри срока → напоминание поставлено | З26 | S3-C4 |
+| УК3-55 | `97c51264` (ревью замысла) · К1 (а); `f6809e98` · CX3L-02, CX3L-03; редакция 13 | проводка корня каждого из пяти подключённых модулей: репозиторий операций, который корень отдаёт use-case (тот, с которым они зовут `operations.Run`), построен `NewNotifyingRepo` со значением `opsnotify.New(OperationFailedSender, "<служба>", opts)`; асинхронная операция модуля `usr-A` с ошибкой → строк `operation-failed` 1 с инициатором строки журнала `system:<служба>-operations`; близнец — `geo` (`NewRepo`) → `done=true`, строк 0, транзакция без помощника; близнец флага (CX3L-02) — модуль с ручкой `true` → строка ленты терминальной записи есть, с `false` → строк ленты 0; близнец пары (CX3L-03) — служба `''` и `Storage` → `opsnotify.New` отказывает, корень не стартует с именем службы, `storage` → собран | З11, З16, §8 | S3-C3 |
+| УК3-56 | `97c51264` (ревью замысла) · К2 | модульная проба `digest`: заглушка справочника принимает соединение и молчит на `Resolve` строк адресата R1 → вызов возвращается `DEADLINE_EXCEEDED` в пределах срока пакета, проход завершён, письма R1 нет, окно R1 не закрыто, письмо R2 того же прохода отправлено, транзакции адресата во время вызова не открыто; молчание на странице 2 `ListProjectAudience` → адресаты страницы 1 исполнены, остатка нет, счётчик отказа прохода +1; близнец — ответ внутри срока → письма R1 и R2, окна закрыты; близнец отказа программы (CX3O-03) — заглушка клиента возвращает `directory.ErrCallWithoutDeadline` → проход прекращён, счётчик отказа прохода +1 с меткой `no_deadline`, `resolvecell.Of` не вызван, письма нет; его близнец — `status.Error(codes.Unavailable, …)` → `DEFER(platform_unavailable)`, метка отказа службы | З21 | S2-B5 |
+| УК3-57 | `97c51264` (ревью замысла) · К2 | модульная проба `reminder`: заглушка молчит на `Resolve` контакта → `DEADLINE_EXCEEDED` в пределах срока пакета, исход `contactUnknown`, письма нет, однократности нет, подстановки владельца нет, проход завершён; молчание на странице `ListExpiringCredentials` → счётчик отказа прохода +1, записи однократности за остатком нет; близнец — ответ внутри срока → напоминание поставлено; близнец отказа программы (CX3O-03) — `directory.ErrCallWithoutDeadline` на `Resolve` контакта → проход прекращён, метка `no_deadline` +1, исхода `contactUnknown` нет, письма и однократности нет; его близнец — `status.Error(codes.Unavailable, …)` → `contactUnknown` | З26 | S3-C4 |
 | УК3-58 | `f6809e98` · CX3L-01 | **снята редакцией 13 вместе с предметом**: транзакции кандидата `Reconciler` и окна «чтение → взятие» нет; живость, подтверждённую `ClaimForExecution`, держит сегодняшний оператор пачки под тем же замком, и его исход до и после под-фазы одинаков (УК3-54, сравнение с базой) | З16 | — |
 | УК3-59 | `7bc43f21` · CX3M-01 (перенос); `5400c528` · CX3N-03; редакция 13 | гейт `TestConnectedModulesBuildTheNotifyingOperationsRepo` (`internal/repohygiene/notifyingopsrepo_test.go`): по разбору дерева (узел вызова; локальное имя пакета `corelib/operations` — из объявления импорта, оба суффикса пути, общим помощником с `lroreconciler`; точечный импорт — находка) вызов `NewRepo` этого пакета в не-тестовом дереве compute, nlb, registry, storage, vpc — находка с координатой; модуль без единого `NewNotifyingRepo` — красный; печатает число осмотренных файлов и вызовов `NewNotifyingRepo` по модулю; пустой обход — красный; инъекции — `operations.NewRepo` в корне registry → красный с координатой, `ops.NewRepo` под своим именем импорта → красный; близнецы — `NewNotifyingRepo`, `ops.NewNotifyingRepo` → зелёный; geo вне множества, его `NewRepo` не находка | З16 | S3-C3 |
-| УК3-60 | `7bc43f21` · CX3M-01 (б) (перенос); `5400c528` · CX3N-04; редакция 13 | сборка: (1) проба corelib X3 — `NewNotifyingRepo(pool, schema, FailedNotify{})` и `NewNotifyingRepo(…, NoFailedSender)` → ошибка, репозиторий не отдан; близнец — `NewFailedNotify(…)` → собран; `NewRepo` не меняется и собирается без значения подключения; (2) корень модуля, получивший от `NewNotifyingRepo` ошибку, не стартует, ошибка несёт имя службы; инъекция — корень registry передаёт нулевое `FailedNotify` → отказ старта с `registry` в тексте; близнец — `NewFailedNotify` → собран | З16 | X3 (проба corelib), S3-C3 (корни) |
+| УК3-60 | `7bc43f21` · CX3M-01 (б) (перенос); `5400c528` · CX3N-04; редакция 13 | сборка: (1) проба corelib X3 — `NewNotifyingRepo(pool, schema, nil)`, `NewNotifyingRepo(…, (*opsnotify.Notifier)(nil))` (типизированный `nil`) и `NewNotifyingRepo(…, &opsnotify.Notifier{})` (построено не `New`) → ошибка, репозиторий не отдан; близнец — значение `opsnotify.New(…)` → собран; `NewRepo` не меняется и собирается без значения подключения; (2) корень модуля, получивший от `NewNotifyingRepo` ошибку, не стартует, ошибка несёт имя службы; инъекция — корень registry передаёт типизированный `nil` → отказ старта с `registry` в тексте; близнец — `opsnotify.New` → собран | З16 | X3 (проба corelib), S3-C3 (корни) |
 | УК3-61 | `7bc43f21` · CX3M-02 (а); близнец УК3-12, NTF3-64…67 | корень модуля, не передавший `journaltx.Options` конструктору писателя журнала (нулевое значение), не стартует, ошибка несёт имя модуля; мутаций до отказа нет; близнец — `NewOptions(<ручка>)` передан → собран, флаг транзакции равен ручке (УК3-12); по модулю на каждый из пяти | З4 | S1-A4 |
-| УК3-62 | `97c51264` (ревью замысла) · К2; редакция 13 | модульная проба клиента справочника `services/notify/internal/directory`: на каждом методе клиента (`Resolve`, `ListProjectAudience`, `ListExpiringCredentials`) контекст без срока → `directory.ErrCallWithoutDeadline`, запросов у заглушки 0, соединение не открыто; близнец — тот же вызов с контекстом со сроком → запрос дошёл до заглушки; второй близнец — контекст с отменой, но без срока → `ErrCallWithoutDeadline` (отмена срока не заменяет) | З27 | S2-B9 |
+| УК3-62 | `97c51264` (ревью замысла) · К2; редакция 13 | модульная проба клиента справочника `services/notify/internal/directory`: на каждом методе клиента (`Resolve`, `ListProjectAudience`, `ListExpiringCredentials`) контекст без срока → `directory.ErrCallWithoutDeadline`, запросов у заглушки 0, соединение не открыто; близнец — тот же вызов с контекстом со сроком → запрос дошёл до заглушки; второй близнец — контекст с отменой, но без срока → `ErrCallWithoutDeadline` (отмена срока не заменяет); третий близнец (CX3O-03 (в)) — срок уже прошёл → отказа `ErrCallWithoutDeadline` нет, исход — `DEADLINE_EXCEEDED` клиента gRPC; на основном входе проба утверждает ещё `status.Code(err) == codes.Unknown` у `ErrCallWithoutDeadline` — свойство, из-за которого вызывающий обязан проверить его `errors.Is` до `resolvecell.Of` | З27 | S2-B9 |
+| УК3-63 | `6cf94b11` · CX3O-01 | предикат графа импортов corelib: `go list -deps ./operations \| grep -cE '/corelib/(journaltx\|auth)$'` → 0, печатается число зависимостей `./operations`; проба предпосылки — тот же `grep` по `go list -deps ./operations/opsnotify` → 2 (предикат видит оба пакета, когда они есть); пустой вывод `go list` — красный; вторая половина — `go build ./...` corelib зелёный (цикл Go не собирает) | З16 «Граница импорта» | X3 |
+| УК3-64 | `6cf94b11` · CX3O-04 (а) | интеграционная проба corelib: `pgRepo.FailTerminal` репозитория `NewNotifyingRepo` на id, строки которого нет → `errors.Is(err, operations.ErrNotFound)` истинно, транзакция откачена, строк `operation-failed` 0; через `Worker` — `terminalWrite` не повторяет (`IncTerminalWriteRetries` не вырос); близнец — строка есть и `done = false` → `nil`, `done = true`; сравнение с базой — тот же вход на `NewRepo` даёт тот же исход `terminalWrite` | З16 | X3 |
 
 Номер УК3-36 не используется: заказ гейта записи `97afc066` («фоновый вход пересылает запасную
 личность») исполняет УК3-31 — с редакции 2 на обе половины заказа (без явного принципала и с
@@ -1927,6 +2028,10 @@ compute `FinishStuckDeletes`; с редакции 3 он снят: вход comp
   `done = true` с ошибкой без письма.
 - Не меняет исполнителя операций модулей: пакетный реестр, `operations.Run`, `NewWorker`,
   `NewReconciler` остаются как есть (З16, редакция 13).
+- Не сводит два клиента службы доступа в `notify-sender` в один: клиент `internal/directory` (NTF-3) и
+  `clients/kaname_client.go` (NTF-5) остаются двумя (CX3O-02, вариант «два клиента»). Отказ вызова без
+  срока стоит только в первом; у второго срок держат место вызова и держатели замысла NTF-5 (З27).
+  Сведение было бы заказом замыслу NTF-5 и в эту редакцию не входит.
 
 ## 13. Открытые решения и зависимости
 
