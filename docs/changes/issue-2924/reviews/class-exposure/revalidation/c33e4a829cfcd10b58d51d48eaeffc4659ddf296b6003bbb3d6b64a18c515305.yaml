@@ -1,0 +1,207 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-5 (извещения оператора), редакция 11.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (a43a19fa, 379efc2a,
+# 108c05d2, 58e29da9, 5c62808f, 112ccca0, a383ddbd, 1004e1c8, f32e0fe2, 24e6168b) относятся к своим
+# редакциям и здесь не переписываются.
+# Редакция 11 — заход отображения по Д26 на пересверку 24e6168b: новых механизмов нет. Судятся
+# строки, которые пересверка 24e6168b оставила неотображёнными (CX5-67, Н1 в части `ResolveSend`),
+# условия к коду К1 (1)–(3) и вся дельта ред. 10 → 11: `git diff c50b57773 db8a3fa2f --
+# docs/changes/issue-2924/`, 3 файла, 130 вставок и 36 удалений. Проверено:
+#   (1) CX5-67 отображён, и отображение выдерживает условие пункта;
+#   (2) Н1: сужение перечня и зависимость Е9 выдерживают; посылка «срока у NTF-1 нет» перемерена;
+#   (3) условия к коду К1 (1)–(3) внесены в замысел и в полосу N10;
+#   (4) новые значения-метки редакции 11 (`ErrStreamBucketMissing`, `ErrStreamBucketInconsistent`)
+#       заведены внутри отображения CX5-67 и И34 и держатся пробой;
+#   (5) маркеров отсрочки и открытых решений нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2924
+issue: https://github.com/PRO-Robotech/kacho/issues/2924
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2924/design.md
+  sha256: c33e4a829cfcd10b58d51d48eaeffc4659ddf296b6003bbb3d6b64a18c515305
+  fingerprint_predicate: sha256sum docs/changes/issue-2924/design.md
+  revision: 11
+  content_commit: db8a3fa2f
+  pass_kind: "заход отображения по Д26 на пересверку 24e6168b (механизмов нет)"
+previous_revalidation:
+  path: docs/changes/issue-2924/reviews/class-exposure/revalidation/24e6168b77f6c91f19656bb140c46692ca45bd5850e9df6a6d4535b820abc505.yaml
+  design_sha256: 24e6168b77f6c91f19656bb140c46692ca45bd5850e9df6a6d4535b820abc505
+  commit: c50b57773
+  outcome: "к-замыслу (CX5-67 — новый пункт; Н1 в части `ResolveSend`); механизм горизонта К1 выдерживает, условия к коду"
+acceptance:
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153
+  effective_verdict: APPROVED
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: db8a3fa2f   # коммит редакции 11 и HEAD рабочей копии при замере
+  ntf1_design: "d0573311b (NTF-1 ред. 10, bd526f8a, APPROVED); рабочий файл issue-2915/design.md совпадает с ним по отпечатку"
+  kacho: "не перемерялась: кода `services/notify` в kacho нет (замер 1004e1c8); механизм судится по тексту замысла"
+snapshot_at: 2026-09-30T15:10:00Z
+inspected: >-
+  Дельта ред. 10 → 11 прочитана целиком (word-diff по design.md; stat по трём файлам): шапка,
+  M39, З11 п.1 шаг 4 (строки 680–705), З11 п.3 пп. 6–8, §3 И34, §6 строка
+  `notice_ob_stream_bucket`, §7, §8 «Сроки вызовов kaname», §9, §11 CX5-67, К1, Н1, итог,
+  §13 Е9 и заказы. tasks.md — шапка, N3/N9 (предикат `With(Timeout|Deadline)`), N10 (строки
+  146). NTF-1 на d0573311b: design.md строки 1080–1130 (сверка сроков, крайний момент строки,
+  «`ResolveSend` … под контекстом с этим сроком», «не начал»), 1798–1801 (ручки); tasks.md
+  строка 115 (N3). Изоляция транзакций NTF-5 (`READ COMMITTED`, строки 385, 413, 456, 684).
+  Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN, часть 1)"
+    result: green
+    detail: "`grep -cE 'TODO|TBD|FIXME|XXX' design.md tasks.md` → 0 и 0."
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN, часть 2)"
+    result: green
+    detail: "§13 (строка 2040): «Открытых решений нет». Е9 — зависимость с предикатом снятия, а не открытое решение: срок у вызова `ResolveSend` назван одобренным замыслом NTF-1 (M39), недостаёт только держателя у NTF-1."
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      67 уникальных пунктов CX5 (68 строк таблицы с учётом двух строк CX5-44) отображены.
+      Отображения CX5-67 и Н1 выдерживают (mapping_check). Условия к коду К1 (1)–(3) внесены
+      дословно по смыслу в З11 п.3 и в N10.
+  - condition: "новый внешний вызов, асинхронный путь, sentinel-значение или механизм заведены пунктом и отображены"
+    result: green
+    detail: >-
+      Внешних вызовов и асинхронных путей редакция не вводит. Она вводит два значения-метки:
+      `limits.ErrStreamBucketMissing` и `limits.ErrStreamBucketInconsistent`. Оба — противоядие
+      пункта CX5-67, заведены в его строке §11 и в инварианте И34, и держатся пробой N10 п.8 с
+      близнецом и инъекцией. Отдельного пункта не требуют: пересверка судит их внутри CX5-67.
+
+clean: true
+
+mapping_check:
+  - id: CX5-67
+    design: "З11 п.1 шаг 4 (строки 686–705), З11 п.3 п.8, §3 И34, §6, §7, §11 CX5-67; tasks.md N10"
+    verdict: holds
+    note: >-
+      Выбран вариант (а) пересверки 24e6168b: на нуле строк оператора шага 4 та же транзакция
+      в месте вызова шага 4 читает строку ведра. Три случая разведены. «Горизонт занят»
+      производится только при существующей строке с нарушенным условием. Отсутствие строки —
+      `ErrStreamBucketMissing`, откат, исхода нет, `DEFER` нет. Ноль шага 2 и ноль шага 4
+      классифицируются каждый в своём месте, общей ветки по `pgx.ErrNoRows` нет. Третий случай
+      (`ErrStreamBucketInconsistent`) по построению недостижим, проверено: изоляция `READ
+      COMMITTED` (строка 684). `UPDATE` оценивает условие на последней зафиксированной версии
+      после ожидания блокировки. Следующий `SELECT` берёт новый снимок, который видит эту
+      версию или более позднюю. `next_slot` не убывает, а `GREATEST(next_slot, $t) − $t`
+      монотонна по `next_slot`. Значит, чтение, где условие выполнено, после нуля строк
+      невозможно, и ветка остаётся защитой, а не штатным путём. Отказ от варианта (б) обоснован
+      верно: `CHECK (id = 1)` отсутствия строки не запрещает. Проба п.8 снимает ровно один факт
+      (строка ведра удалена). Есть близнец «строка есть, `next_slot = $t + H + 1 с`» и
+      инъекция «ноль без чтения» — красная на первой расстановке. Бесконечного круга
+      «взятие → ошибка → истечение аренды» с переводом строки в конечный статус нет: у NTF-1
+      нет счёта взятий (`grep attempt_count|MaxAttempts|взятий` по issue-2915/design.md → 0),
+      и строки `obligation` ждут восстановления строки ведра, а не пропадают.
+    code_conditions: >-
+      (1) Отказ «строки ведра нет» виден не только журналом. Замысел говорит, что он «снаружи
+      отличим от перегрузки», потому что `notify_ob_deferred_total` не растёт. Это отличимость
+      по отсутствию сигнала. При пустом потоке `obligation` она неотличима от тишины, а
+      журнал `ERROR` на каждое взятие каждой строки — не счётчик
+      (`security-hardening.md` hard-soft-pass-counted, hard-zero-refusals-visible). В коде
+      ошибка слоя считается читаемой величиной. Если перечень метрик закрыт приёмкой, годится
+      существующий счётчик ошибок слоя либо путь Р19 — выбирает автор кода, но проба п.8
+      утверждает рост величины на 1 за взятие, а не только строку журнала. (2) Вызывающий слой
+      в `notify-sender` не приводит ошибку слоя к исходу. Классификатор ошибок строки
+      (Р10 шаг 5) не отображает `ErrStreamBucketMissing`/`ErrStreamBucketInconsistent` ни в
+      `DEFER`, ни в повтор с `Ack`. Проба п.8 это держит утверждением «исхода нет»: `Ack` не
+      отправлен, запись исхода не менялась.
+  - id: Н1
+    design: "§8 «Сроки вызовов kaname» (строки 1833–1845), §9 (1878), §11 Н1, §13 Е9 и заказ автору NTF-1; tasks.md N3, N9"
+    verdict: holds
+    note: >-
+      Перечень §8 сужен до вызовов этой под-фазы (`DescribeScope`, `ListAccounts`, `Resolve`).
+      `ResolveSend` отнесён к конвейеру NTF-1. Второго места срока здесь не заводится: у одного
+      вызова было бы два места срока, и одно из них в коде, которым под-фаза не владеет. Посылка
+      пересверки 24e6168b «срока у NTF-1 нет» ОПРОВЕРГНУТА перемером. NTF-1 ред. 10 на
+      d0573311b, строки 1111 и 1119–1120: крайний момент строки `min(t_send + lease_remaining −
+      ackMargin, t_start + resolveSendTimeout + smtpSessionTimeout)`, и «`ResolveSend`, резерв
+      сетки и SMTP-сессия до ответа на `DATA` идут под контекстом с этим сроком (CX1-27)».
+      Ручка `notify.resolveSendTimeout` `[100ms..30s]` — строка 1800. Прежний поиск искал срок
+      в одной строке с именем вызова и срока не увидел, хотя тот стоит строкой ниже; число 0
+      было верным для предиката, но не для утверждения. Держателя «заглушка молчит на
+      `ResolveSend`» у NTF-1 нет: поиск по tasks.md NTF-1 даёт одну строку N3, где `ResolveSend`
+      и `DEADLINE_EXCEEDED` встречаются вместе, но `DEADLINE_EXCEEDED` там про контекст `Ack`.
+      Это зависимость Е9 с внешним предикатом снятия. Предикат клиента ищет обе формы
+      (`context.With(Timeout|Deadline)`) и в §8, и в N9.
+    code_conditions: >-
+      Предикат снятия Е9 — `grep -nE 'ResolveSend' tasks.md | grep -cE 'DeadlineExceeded' ≥ 1`
+      по строке NTF-1. Сегодня он даёт 0 и умеет сказать «нет». Но он судит совпадение двух
+      слов в одной строке таблицы, а строка N3 уже несёт `ResolveSend` и код срока в другом
+      смысле (контекст `Ack`). Правка N3, написавшая про `Ack` `DeadlineExceeded` вместо
+      `DEADLINE_EXCEEDED`, закроет Е9 без пробы. Тот же класс, что опроверг посылку 24e6168b,
+      только в обратную сторону. Снимающий Е9 судит по имени пробы (имя теста или кейса, например
+      `…ResolveSend…Deadline…` в дереве `services/notify/internal/deliver`) и по её зелёному
+      исходу на `origin/main`, а не по совпадению в строке полосы.
+  - id: "К1 — условия к коду (1)–(3) пересверки 24e6168b"
+    design: "З11 п.3 пп. 6–7; §11 К1; tasks.md N10"
+    verdict: holds
+    note: >-
+      (1) Предикат писателя судит оператор записи. Имя таблицы допускается только литералом в
+      текстах операторов слоя, константа с именем — находка. Разбор `pg_query_go`, операторов
+      `UPDATE`/`INSERT`/`DELETE` строки ведра ровно один. Пробы предпосылки «второй `UPDATE`» и
+      «запись через константу в другом пакете» красные, близнец «чтение шага 4» молчит. Чтение
+      строки ведра, которое добавил CX5-67, предикат видит как читателя, а не как писателя, и
+      близнец это утверждает. (2) Числа пробы горизонта вычисляются из `feed.MaxDefer` и
+      `$interval`. (3) Масштабный прогон печатает число транзакций слоя и утверждает И29 суммой
+      по строкам; оценка `n²/(2·N·H)` названа выводом, а не замером.
+    code_conditions: "—"
+  - id: "прочие отображения CX5-01…66, Н2, Н3"
+    design: "§11"
+    verdict: holds
+    note: "Word-diff §11 затрагивает только строки CX5-67, К1, Н1 и итог; прежние пробы в N3, N9, N10 не сняты, условия дописаны."
+    code_conditions: "—"
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета совпадает с заданием, коммитом и манифестом"
+    command: "sha256sum docs/changes/issue-2924/design.md; grep -n design_sha256 docs/changes/issue-2924/change.yaml; git rev-parse --short HEAD"
+    result: "c33e4a82…5305 — рабочий файл и hashes.design_sha256 (строка 88) совпадают; HEAD db8a3fa2f — коммит редакции 11"
+  - claim: "записи пересверки на этот отпечаток не было"
+    command: "ls docs/changes/issue-2924/reviews/class-exposure/revalidation/"
+    result: "10 записей, c33e4a82… среди них нет"
+  - claim: "дельта ред. 10 → 11"
+    command: "git diff --stat c50b57773 db8a3fa2f"
+    result: "change.yaml 14, design.md 136, tasks.md 16 строк; 130 вставок, 36 удалений"
+  - claim: "§11 — 67 пунктов, маркеров отсрочки и открытых решений нет"
+    command: "grep -oE '^\\| CX5-[0-9]+' design.md | sort -u | wc -l; grep -cE '^\\| CX5-' design.md; grep -cE 'TODO|TBD|FIXME|XXX' design.md tasks.md; grep -n 'Открытых решений' design.md"
+    result: "67 уникальных, 68 строк; 0 и 0; «Открытых решений нет» (строка 2040)"
+  - claim: "срок `ResolveSend` у NTF-1 назван (посылка 24e6168b опровергнута), держателя нет"
+    command: "git show d0573311b:docs/changes/issue-2915/design.md | sed -n '1105,1122p;1798,1801p'; git diff --stat d0573311b HEAD -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md; git show d0573311b:docs/changes/issue-2915/tasks.md | grep -nE 'ResolveSend' | grep -ciE 'DeadlineExceeded|DEADLINE_EXCEEDED'"
+    result: "строка 1111 — крайний момент, 1119–1120 и «`ResolveSend` … под контекстом с этим сроком»; строка 1800 — ручка `[100ms..30s]`; дифф до HEAD пуст; совпадений 1 — строка N3, `DEADLINE_EXCEEDED` о контексте `Ack`"
+  - claim: "предикат снятия Е9 сегодня отвечает «нет»"
+    command: "grep -nE 'ResolveSend' docs/changes/issue-2915/tasks.md | grep -cE 'DeadlineExceeded'"
+    result: "0"
+  - claim: "у NTF-1 нет счёта взятий, переводящего строку в конечный статус"
+    command: "grep -nE 'attempt_count|MaxAttempts|claim_count|число взятий|взятий' docs/changes/issue-2915/design.md"
+    result: "0 совпадений; «не начал» — аренда истекает, строку выдаёт следующий `Claim` (строки 1122–1124)"
+  - claim: "транзакция слоя на `READ COMMITTED`"
+    command: "grep -nE 'READ COMMITTED' docs/changes/issue-2924/design.md"
+    result: "строки 385, 413, 456, 507, 684 (шаг 4 — 684)"
+
+not_measurable:
+  - "Нагрузка журнала при отсутствии строки ведра: одна запись `ERROR` на каждое взятие каждой строки `obligation`, темп задают `notify.claimInterval` и аренда. Кода `services/notify` в kacho нет, поэтому число не измерить. Условие к коду (1) CX5-67 ставит вместо журнала читаемую величину."
+
+outcome: "к-коду (CX5-67: отказ «строки ведра нет» — читаемой величиной, а не только журналом; ошибка слоя не приводится классификатором к исходу; Н1: снятие Е9 — по имени и исходу пробы, а не по совпадению слов в строке полосы); неотображённых пунктов нет"
+unmapped: []
+return_to_acceptance: []
+return_to_acceptance_note: "Пусто: присутствие строки ведра и срок `ResolveSend` — предметы замыслов NTF-5 и NTF-1; приёмка их не утверждает."
+
+orders:
+  - to: go-implementer (полоса N10, kacho · services/notify/internal/notice/limits)
+    what: "CX5-67: `ErrStreamBucketMissing` — читаемой величиной (рост на 1 за взятие в пробе п.8), не только журналом; классификатор строки не отображает ошибки слоя ни в `DEFER`, ни в повтор с `Ack`."
+    basis: "security-hardening.md hard-soft-pass-counted, hard-zero-refusals-visible; code-authoring §«Чужой ответ: классификация и бюджет»"
+  - to: автор замысла NTF-1 (issue-2915)
+    what: "Е9: проба «заглушка kaname молчит на `ResolveSend` — обработка строки кончается `DeadlineExceeded` не позже `t_start + resolveSendTimeout`» с отдельным именем в полосе, владеющей `deliver`; снимающий Е9 судит по этому имени и зелёному исходу."
+    basis: "code-authoring §«Механизм накопления опыта» (предикат снятия на внешнем факте); testing.md §«Предикат по ДВУЯЗЫЧНОМУ корпусу … недобирает МОЛЧА» — по классу однострочного совпадения"
