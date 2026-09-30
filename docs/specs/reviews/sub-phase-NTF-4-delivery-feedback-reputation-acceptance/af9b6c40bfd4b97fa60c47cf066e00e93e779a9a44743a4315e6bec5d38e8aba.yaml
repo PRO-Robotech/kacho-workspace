@@ -1,0 +1,228 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (`git status --short` в tmp/issue-880 → `?? docs/specs/sub-phase-NTF-4-…md`).
+    Вердикт держится только на отпечатке.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1431
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T22:19:32Z'
+round: 3
+previous_rounds:
+  - round: 1
+    sha256: a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282.yaml
+  - round: 2
+    sha256: 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506.yaml
+blocking_count: 2
+blocking_kinds_distinct: [NEGATIVE, DoD]
+blocking_kinds_by_item:
+  - B3-1 NEGATIVE
+  - B3-2 DoD
+repeated_kinds_note: >-
+  Род DoD повторился (B2-2 → B3-2), но класс другой. В круге 2 держатель не мог упасть. Теперь
+  перечень DoD не покрывает два названных сценария, а в одном пункте перечень расходится с §8.
+  Род NEGATIVE новый. Число блокирующих не убывает (4 → 2 → 2). Что с этим делать, решает
+  диспетчер по §14а.
+
+round2_resolution:
+  B2-1: >-
+    Закрыт вариантом (б): ось mail_dns из самоотчёта снята. Свойство держат отказ в старте, признак
+    notify_mail_dns_posture и NTF4-52. Правки прошли по §1.1 (второй список), Р10, NTF4-40,
+    §5 В6, §8 и DoD S5 п.2. Перепись повторена тем же методом и нашла Х3 (corelib notify/feed —
+    SUPPRESSED и ceiling) и Х4 (пин corelib в kaname). Пин перемерен: kaname
+    origin/357@734f69fb4 go.mod:8 → corelib v1.10.0-rc.5.
+  B2-2: >-
+    Закрыт. Держатель — services/notify/internal/config/required_knobs_test.go, красный на трёх
+    инъекциях. Перечень ручек пересчитан: 25, как и объявлено. Для DNS-стража держатели — сами
+    пробы на П7 с инъекцией «return nil». Роль TestServiceDeclaringPostureKnobsHasABootGuard
+    сужена верно (bootguardpresence_test.go:43-48 перемерено).
+  non_blocking_round2: >-
+    Учтены N2-1 (пересылка стенда по узлу, а не по MX), N2-2 (dnsConfig только в профиле стенда,
+    ручки резолвера нет), N2-3 (метрики в закрытом перечне Р12), N2-4 (условие в NTF4-58),
+    N2-5 (дословный текст в NTF4-29(в)), N2-6 (откуда берётся токен ARF) и N2-7 (NTF4-80 вынесен).
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d473742c → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Он не даёт полномочий и ничего не открывает. Тело события для курьера
+    лежит в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3, блокирующих 2: NEGATIVE, DoD) ·
+    SHA-256 af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+
+measurement:
+  revisions_used:
+    kacho: origin/main@1d42a6728bf
+    kaname: origin/357@734f69fb4 (и main@cbbac984b для предиката §0)
+    corelib: origin/main@34bc810
+    workspace_copy: issue-880@d473742c
+  predicates_reproduced:
+    - "§0: git grep -ilE 'dkim|dmarc|list-unsubscribe|rfc ?3464|multipart/report' <rev> -- ':!*.md' ':!*package-lock.json' | wc -l → 0 на kacho 1d42a6728bf, kaname 734f69fb4, kaname cbbac984b, corelib 34bc810"
+    - "Х1: corelib 34bc810 ids/ids.go — комментарий на стр. 445, func KnownHyphenPrefixes на стр. 446"
+    - "Х4: git -C project/kaname show 734f69fb4:go.mod — стр. 8 github.com/PRO-Robotech/corelib v1.10.0-rc.5; теги corelib v1.10.0-rc.3…rc.5 существуют"
+    - "полосы: corelib 34bc810 errors/reason.go:81 AllReasons — 5 значений"
+    - "образец Р7: kaname 734f69fb4 internal_cluster_service.proto:103 rpc RevokeAdmin, permission iam.cluster_admins.revoke, required_relation system_admin; комментарий метода — несуществующий/уже снятый → NotFound"
+    - "audit: corelib 34bc810 audit/shipper.go:352 Record{EventType: eventType} — открытая строка"
+    - "стенд: git grep по deploy @1d42a6728bf — PrometheusRule 0 файлов, dnsConfig 0, POP3 0"
+    - "assert-ban6-external-isolation.py @1d42a6728bf — есть, `self-test` встречается 2 раза"
+    - "kaname 734f69fb4:docs/engineering/acceptance/recovery-of-access.md — есть"
+    - "services/notify в kacho 1d42a6728bf — нет (cat-file → does not exist)"
+    - "NTF-1, редакция 120f92836c84…: Р9 — словарь исходов, в котором AUTH → DEFER(platform_unavailable), EXPIRED(<причина последнего DEFER>) ставит уборщик; Р8 — лимит возвращает только EXPIRED(platform_unavailable). Опоры §1, Р17 и NTF4-37/38/55/80 с этим согласны"
+    - "Р16: число ручек в перечне — 9+6+4+2+1+3 = 25, совпадает с объявленным"
+    - "§1.1: знаменатель 24 = 23 строки сценариев §8 + строка Р16 — пересчитано"
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* NTF4-[0-9]+|^\\| NTF4-[0-9]+' <док> → уникальные номера, проверка пропусков и дублей"
+    total: 80
+    ids: NTF4-01…NTF4-80
+    duplicates: 0
+    gaps: 0
+  producer_coverage:
+    method: раскрытие диапазонов §8 в множество ID
+    covered: 80
+    of: 80
+  dod_coverage:
+    method: "python: диапазоны NTF4-a…b в §10 раскрыты в множество, вычтено из 1..80"
+    missing: [70, 78]
+  twin_coverage:
+    note: >-
+      У каждого отрицательного сценария назван близнец. У NTF4-80 близнец NTF4-38 отличается
+      больше чем одним фактом (N3-2). У NTF4-33 внутри сценария есть контроль непустого захвата.
+  constructibility:
+    seeded: 0
+    of: 10
+    not_performed: 10
+    reason: >-
+      Стенда П1 и разрешения на посев в задании нет. П3, П5, П6, П7, П9 и П10 заводит сама
+      под-фаза. Конструируемость проверена по названным фикстурам. У каждого интеграционного Given
+      есть двойник, который исполняет протокол. Механизм П1 описан (пересылка по узлу, dnsConfig
+      только в профиле стенда).
+
+premise_check:
+  claim: "SHA-256 редакции af9b6c40…; круг 3; роды прошлых кругов SCOPE, CONSTRUCTIBILITY, PRODUCER, COVERAGE, SCOPE, DoD"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba"
+    - "записи a8243cee… и 818c79c7… → роды [SCOPE, CONSTRUCTIBILITY, PRODUCER, COVERAGE] и [SCOPE, DoD]"
+
+blocking_findings:
+  - id: B3-1
+    kind: NEGATIVE
+    where: "Р7 (Delete); NTF4-24, NTF4-25, NTF4-29; §8 строка 24–29; DoD S3 п.3"
+    claim: >-
+      `InternalSuppressionService/Delete` — единственная мутация нового ресурса `Suppression`.
+      Отрицательных сценариев по входу и состоянию у неё нет: NTF4-25 проверяет только права, а
+      NTF4-29 — только `Get` и `Lookup`. Поэтому не утверждено, что будет в пяти случаях: Delete с
+      идентификатором не по форме; Delete существующего по форме, но отсутствующего `id`; Delete
+      истёкшей записи, которая по Р5 невидима; повторный Delete уже снятой записи; два
+      одновременных Delete одной записи. Не сказано и то, где приходит отказ: синхронно или
+      ошибкой в `Operation`. Образец, на который ссылается сам документ (`RevokeAdmin`), отвечает
+      на несуществующий объект NotFound. Без сценариев у этих «Тогда» нет ни держателя, ни
+      однозначной формы.
+    evidence:
+      - "grep -n 'Delete' <док> → в сценариях только NTF4-24 (успех) и NTF4-25 (PERMISSION_DENIED)"
+      - "kaname 734f69fb4 internal_cluster_service.proto:98-100 — «Revoking a non-existent or already-revoked admin returns NotFound»"
+      - ".claude/rules/api-conventions.md строки api-malformed-id-sync, api-lane-direct-read, api-reason-token; .claude/rules/data-integrity.md строка concurrent-integration-test"
+    required: >-
+      Добавить сценарии с близнецом NTF4-24, у каждого одно отличие:
+      (а) `suppressionId` = `not-an-id` → синхронно `INVALID_ARGUMENT`,
+      `"invalid suppression id 'not-an-id'"`, `reason = INVALID_RESOURCE_ID`, `Operation` не создан;
+      (б) `id` по форме, но в БД его нет → синхронно `NOT_FOUND`, `"Suppression <id> not found"`,
+      `reason = RESOURCE_NOT_FOUND` (либо явно выбрать отказ внутри `Operation` и так и написать);
+      (в) запись с `expiresAt` в прошлом (П9) → тот же исход, что в (б): её невидимость
+      распространяется и на Delete;
+      (г) повторный Delete после NTF4-24 → как (б);
+      (д) два одновременных Delete одной записи (integration, testcontainers) → ровно один успех,
+      второй получает исход (б), и запись аудита ровно одна.
+      Всё это внести в §8 и DoD S3.
+  - id: B3-2
+    kind: DoD
+    where: "§10 DoD S1 п.1, S5 п.1, S5 п.2; §8 строка 40…79"
+    claim: >-
+      (1) Сценарии NTF4-70 и NTF4-78 не требуются ни одним пунктом DoD: S1 п.1 перечисляет
+      01…15, а S5 п.1 — 40…52. Оба отрицательные и оба несут нагрузку. NTF4-70 — инъекционный
+      близнец, без которого проверка подписи в NTF4-41 может оказаться пустой. NTF4-78 —
+      несовпадение получателя у отписки, то есть граница подлинности обратной связи (Р2, условие
+      3). Стадию можно объявить готовой, когда они красные или не написаны.
+      (2) DoD S5 п.2 перечисляет «NTF4-42…NTF4-49, NTF4-75, NTF4-76, NTF4-79» — это 11 ID — и
+      требует, чтобы «все десять» покраснели на инъекции «return nil». В перечень попал NTF4-49,
+      а это положительный близнец: при снятом страже он остаётся зелёным. §8 перечисляет верно:
+      42–47, 75, 76, 79 и 48. Пункт DoD в нынешнем виде невыполним буквально и расходится с §8.
+    evidence:
+      - "python: раскрытие диапазонов NTF4-a…b в §10 → отсутствуют [70, 78]"
+      - "стр. 1281 (§8): «красные все девять проб 42–47, 75, 76, 79 и проба 48»; стр. 1385-1386 (DoD S5 п.2): «NTF4-42…NTF4-49, NTF4-75, NTF4-76, NTF4-79 … красные все десять проб»"
+    required: >-
+      Внести NTF4-78 в DoD S1 п.1, а NTF4-70 — в DoD S5 п.1 (и указать уровень: сквозной на П1).
+      В DoD S5 п.2 привести перечень к §8: 42–48, 75, 76, 79, всего десять; NTF4-49 — зелёный
+      контроль при снятом страже не нужен. Держать перечни DoD и §8 одним предикатом: каждый ID
+      1…N входит хотя бы в один пункт DoD.
+
+non_blocking_findings:
+  - id: N3-1
+    kind: FORMAT
+    where: "NTF4-33 When"
+    note: >-
+      Given — П6 (интеграционный уровень), а в перечне стоит NTF4-16, сквозной сценарий через
+      глагол kaname на П1. Интеграционный аналог — NTF4-80. Заменить либо назвать уровень, на
+      котором захватывается журнал NTF4-16.
+  - id: N3-2
+    kind: TWIN
+    where: "NTF4-80"
+    note: >-
+      Близнец NTF4-38 отличается больше чем одним фактом: класс (`notice` против `security`),
+      наличие подавления и исход. Как контроль того, что счётчик вообще двигается, он работает.
+      Чистый близнец — та же строка `security` на A без записи подавления, которая истекает
+      `EXPIRED(platform_unavailable)` при недоступном ретрансляторе: счётчик уменьшен на 1.
+  - id: N3-3
+    kind: FORMAT
+    where: "NTF4-16 Given"
+    note: >-
+      «Потрачено не больше 3 запросов окна (П2, П4 и этот)»: П4 сам включает П2, поэтому число
+      запросов неоднозначно. Назвать точное число запросов на A к шагу When.
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true

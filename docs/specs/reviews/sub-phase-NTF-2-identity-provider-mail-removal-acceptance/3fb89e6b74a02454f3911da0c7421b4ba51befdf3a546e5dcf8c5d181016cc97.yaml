@@ -1,0 +1,252 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 3fb89e6b74a02454f3911da0c7421b4ba51befdf3a546e5dcf8c5d181016cc97
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (рабочая копия задачи, ветка issue-880). Отпечаток — единственная
+    привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1193
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T00:10:18Z'
+round: 4
+previous_rounds:
+  - round: 1
+    sha256: fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21.yaml
+    blocking_count: 6
+  - round: 2
+    sha256: 1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a.yaml
+    blocking_count: 3
+  - round: 3
+    sha256: 7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c.yaml
+    blocking_count: 2
+round3_closure:
+  B3-1: >-
+    закрыто — строки 42–43 §3а; посев рецензента: 6 тестов
+    TestIdentityMethodCommentInjection_* красные, основной файл зелёный — как в таблице
+  B3-2: >-
+    закрыто — строки 21–22 «переписан»; посев без ключа: единственное отличие от посева с ключом —
+    TestMailLaneIsDeclaredOnce (красный), как в §3а источник 3
+  I3-1: закрыто — оба предиката DoD п.4 на посеве → 0 и пусто
+  I3-2: >-
+    закрыто — предикат DoD п.8 на базе даёт 6 файлов, все шесть с исходом «правится»;
+    файлы подчартов .tgz сжаты и предикатом не находятся
+repeated_kinds_note: >-
+  Род COVERAGE в этом круге не повторился: перепись §3а и все три её источника воспроизведены
+  поштучно. Новый блокирующий — CONSTRUCTIBILITY (третий раз за четыре круга: B1-1, B2-2/B2-3,
+  B4-1). Место новое и корень у него другой: документ судит «конфигурацию поставщика» только
+  по нашему шаблону и не видит второго документа конфигурации, который процесс поставщика
+  тоже читает. По multi-agent-flow-orchestration §14а решение о переносе класса в форму
+  задания автора — за диспетчером; предлагаемая форма шага: «каждое утверждение G-сценария о
+  рендере проверяется на посеянном рендере П7-kratos до подачи на ревью, вывод прикладывается».
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - B4-1 CONSTRUCTIBILITY
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Возврат полномочия не выдаёт, и от публикации события его сила не
+    зависит. Тело события для курьера — поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 4, блокирующих 1: CONSTRUCTIBILITY) ·
+    SHA-256 3fb89e6b74a02454f3911da0c7421b4ba51befdf3a546e5dcf8c5d181016cc97
+
+measurement:
+  revisions_used:
+    kacho: origin/2797 2267b40522015f2dd527f0c1a1081edaf8d8df3d (та же, что у кругов 2–3)
+  isolation: >-
+    временный worktree kacho @2267b405220 в kacho-workspace/tmp/rev-ntf2-r4 (снят после замера);
+    зависимости зонтика собраны `helm dependency build --skip-refresh`; ствол не менялся.
+    Рецепт посева — скрипт рецензента (DoD п.4, п.5: `_kratos-identity.tpl`,
+    `kratos-hooks-configmap.yaml`, `values.yaml`, `values.dev.yaml`, `values.prod.yaml`);
+    дельта 520 строк, сохранена в каталоге сессии рецензента.
+  census_reproduced:
+    command: предикат §3а дословно, R=origin/2797
+    result: 46 файлов; множество совпало с таблицей §3а поштучно (`comm -3` пуст)
+  runners:
+    go_test_helmcharts:
+      command: go test -count=1 -tags helmcharts -json ./deploy/...
+      base: "1025 PASS · 0 FAIL · 7 SKIP"
+      seed_with_key: "983 PASS · 37 FAIL · 7 SKIP; верхнего уровня 25; файлов 13"
+      seed_without_key: "978 PASS · 42 FAIL · 7 SKIP; верхнего уровня 26 (+TestMailLaneIsDeclaredOnce)"
+      red_files_seed: >-
+        identity_bearer_window_ceiling{,_injection}, identity_courier_reads_what_it_mounts,
+        identity_file_keys_survive_the_environment_injection,
+        identity_mail_lane_feeds_both_senders{,_injection},
+        identity_mail_lane_single_declaration_injection,
+        identity_method_comment_matches_declaration_injection,
+        identity_step_declaration_parses_injection,
+        identity_verification_mirrors_the_requirement{,_injection},
+        identity_verified_address_required_on_both_lanes{,_injection} — все 13 в таблице с
+        исходом «снят» или «переписан»
+      matches_doc: true
+    injection_proofs:
+      command: make -C deploy injection-proofs
+      seed_with_key: >-
+        красных 2 — identity-mail-lane-runtime-inject.sh, identity-substitution-output-inject.sh
+        (строки 18, 46), совпало
+    helm_manifest_test:
+      command: make -C deploy helm-manifest-test (включает gate-self-test)
+      seed_with_key: "all green (40 проверок); rc=0"
+    base_make_runners: не перепрогонялись — на базе опора на замер документа (90/90, 37/37, 40/40)
+  seed_render:
+    all_chains: >-
+      посев с ключом: все 7 цепочек `deploy/stacks.txt` рендерятся (rc=0); в каждой объектов
+      поставщика 0, ручка полосы формы 1 (Р10 п.4 на посеве держится)
+    p7_kratos: >-
+      цепочка dev + kratos.enabled/pg-kratos.enabled: рендер rc=0; StatefulSet и сервиса почтового
+      процесса 0 (NTF2-20 конструируема); `smtpConnectionURI` 0,
+      `KANAME_IDENTITY_SMTP_CREDENTIAL` 0, `show_verification_ui` 0, `require_verified_address` 0;
+      `courier:` — 1: ConfigMap `r-kratos-config`, ключ `kratos.yaml`, `courier: {smtp: {}}` — B4-1
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 19
+    positive: 6
+    negative: 13
+  producer_coverage: {method: сверка таблицы §7 с множеством ID §6, covered: 19, of: 19}
+  twin_coverage: {negatives: 13, twins_named: 13}
+  constructibility_seeding:
+    seeded: 5
+    of: 9
+    not_performed: 4
+    items:
+      - "дерево после NTF-2 (DoD п.4, п.5): строится; перепись и все три источника §3а воспроизведены поштучно"
+      - "посев без ключа (источник 3): строится, отличие ровно одно — TestMailLaneIsDeclaredOnce"
+      - "Р10 п.4 на посеве: 7 цепочек, посадка без поставщика — держится"
+      - "NTF2-20 на П7-kratos: строится (почтовых объектов 0)"
+      - "NTF2-21 на П7-kratos: НЕ строится в заявленной форме — B4-1"
+      - "П1, П2, П3: не выполнилось — стенд с notify не поднимается до NTF-1"
+      - "П4, П6: не выполнилось — производители заводит NTF-1"
+      - "NTF2-22: не выполнилось повторно — опора на посев круга 1 (образ v26.2.0); на новом рендере не перепрогонялась"
+      - "NTF2-30…32: не выполнилось — объекта notify на базе нет"
+
+premise_check:
+  claim: >-
+    задание: судить редакцию 3fb89e6b… круга 4. Документ §3а: перепись 46 файлов, числа трёх
+    бегунов на базе и двух посевах, 15 красных файлов — все «снят»/«переписан».
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 3fb89e6b74a0…"
+    - "предикат §3а @origin/2797 → 46, comm -3 с таблицей пуст"
+    - "go test -tags helmcharts ./deploy/... на базе и двух посевах → 1025/0/7 · 983/37/7 · 978/42/7"
+    - "make -C deploy injection-proofs на посеве → красных 2 (строки 18, 46)"
+    - "make -C deploy helm-manifest-test на посеве → 40/40"
+
+blocking_findings:
+  - id: B4-1
+    kind: CONSTRUCTIBILITY
+    title: >-
+      NTF2-21 «раздела courier в отрендеренной конфигурации — 0» ложно на реализации по DoD п.4:
+      процесс поставщика читает второй документ конфигурации — ConfigMap подчарта поставщика
+    coordinates:
+      doc: "NTF2-21 (Then п.3 и «печатает число документов его конфигурации»); DoD п.4, п.5, п.8 (предикат values.yaml → 1 строка); §3а строка 2"
+      tree_at: kacho origin/2797 2267b405220 + посев рецензента
+      tree:
+        - "deploy/helm/umbrella/charts/kratos-0.62.1.tgz → values.yaml: `kratos.config.courier.smtp: {}` (умолчание подчарта)"
+        - "рендер П7-kratos на посеве: ConfigMap `r-kratos-config`, `kratos.yaml` → `courier: {smtp: {}}`"
+        - "рендер Deployment `r-kratos`: args `serve all --dev --config /etc/config/kratos.yaml --config /etc/kaname-identity-rendered/kratos.yaml`; том `kratos-config-volume` → `r-kratos-config`"
+    measured: >-
+      На посеве (все снятия DoD п.4 и ключ п.5) рендер П7-kratos несёт раздел `courier` ровно в
+      одном документе конфигурации — `r-kratos-config`, и процесс поставщика этот документ читает
+      первым `--config`. Наш шаблон раздела больше не рендерит. На базе тот же документ несёт тот
+      же `courier: {smtp: {}}`; документ его не называет нигде (`grep -c 'r-kratos-config\|/etc/config'
+      <док>` → 0).
+    consequence: >-
+      Гейт NTF2-21 в заявленной форме («гейт разбирает … отрендеренную конфигурацию поставщика»,
+      раздела `courier` — 0) красный на верной реализации. У исполнителя два пути, оба закрыты
+      документом: снять умолчание подчарта строкой `courier: null` под `kratos.kratos.config` —
+      тогда DoD п.8 («в values.yaml вне комментария ровно одна строка со словом — ключ
+      `courier:` под `kratos:`») ложен; либо сузить гейт до нашей карты настроек — тогда
+      утверждение «у объектов поставщика раздела courier нет» ослаблено молча, и эффективная
+      конфигурация процесса раздел несёт. Путь наименьшего сопротивления — второй, то есть
+      тихое сужение предмета гейта.
+    remedy: >-
+      Решить и записать один исход: (а) раздел снимается и из документа подчарта — назвать
+      строку значений, снимающую умолчание, добавить её в DoD п.4/п.5 и в допустимые строки
+      предиката DoD п.8 и NTF2-23 (строка — не объявление полосы), подтвердить NTF2-22, что
+      процесс стартует без раздела; либо (б) NTF2-21 называет перечень документов конфигурации,
+      которые судит, и отдельно утверждает, что `courier` в документе подчарта не несёт ни
+      адреса, ни ссылки (`smtp` пуст), с инъекцией, где `connection_uri` возвращён в этот
+      документ, — и называет основание, почему пустой раздел не нарушает В1. Проверить класс, а
+      не место: каждое «Тогда» G-сценариев о рендере сверить на посеянном рендере П7-kratos.
+
+important_findings:
+  - id: I4-1
+    kind: DoD
+    text: >-
+      DoD п.8 требует, чтобы `_kratos-identity.tpl` после NTF-2 не содержал слов `courier` и
+      `statefulSet`, а DoD п.4 не называет абзац шаблона об уровне журнала почтового процесса
+      (`statefulSet.log`, `_kratos-identity.tpl:647,651` @2267b405220) и блок `statefulSet.log` в
+      `values.prod.yaml` (он внутри снимаемого `kratos.statefulSet`, но с отдельным предметом —
+      уровень журнала). Предикат п.8 их найдёт; назвать в п.4 явно, чтобы исход не решался на месте.
+  - id: I4-2
+    kind: FORMAT
+    text: >-
+      §3а «Итог по исходам»: строка «Строка 21 красна только на посеве без ключа…» склеена со
+      следующим предложением без разрыва строки — на читаемость, не на смысл.
+
+not_performed:
+  - "базовые прогоны gate-self-test, injection-proofs, helm-manifest-test — не перепрогонялись (посев зелёный там, где документ заявил зелёный)"
+  - "П1, П2, П3, П4, П6, NTF2-30…32 — производители заводит NTF-1"
+  - "NTF2-22 на новом рендере — не гонялась (образ поставщика локально не поднимался)"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    снятие хука подтверждённости у поставщика (замещено NTF2-19, закрыто); держатели дерева
+    развёртывания; B4-1 — полнота утверждения «второго держателя почтовой настройки нет»
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечание — о полноте утверждения гейта над рендером; пути к секрету не описывает
+    (раздел пуст).
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    Редакция 5 NTF-2: закрыть B4-1 — выбрать исход для раздела `courier` в документе
+    конфигурации подчарта поставщика (снять умолчание с правкой DoD п.4/п.5/п.8, либо назвать
+    перечень судимых документов с отдельным утверждением и инъекцией), сверить все «Тогда»
+    G-сценариев на посеянном рендере П7-kratos и приложить вывод.
+  owner_questions: []

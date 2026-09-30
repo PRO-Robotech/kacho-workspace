@@ -1,0 +1,248 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (`git status --short` в рабочей копии задачи: `?? docs/specs/sub-phase-NTF-2-…md`).
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 898
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T22:24:54Z'
+round: 2
+previous_rounds:
+  - round: 1
+    sha256: fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21.yaml
+    blocking_count: 6
+round1_closure:
+  B1-1: закрыто — §1.5 воспроизведён рендером 7 цепочек @origin/2797 2267b405220 поштучно
+  B1-2: закрыто — условие старта Р10 п.4 с командой по рендеру
+  B1-3: закрыто — NTF2-19 с близнецом; полосы поставщика в рендере базы 0 (замер)
+  B1-4: закрыто в своей части (MAIL-02, MAIL-03); тот же класс повторился на других сценариях — B2-1
+  B1-5: закрыто — шаблон `verification`, производитель NTF-1 (сверено с NTF-1 Р14, NTF1-H03 на отпечатке 077e9fff…)
+  B1-6: закрыто — преамбула §6 (Accept, без переадресации, пара статус+code); NTF2-10…14 сняты
+repeated_kinds_note: >-
+  Роды COVERAGE и CONSTRUCTIBILITY повторяют роды круга 1 (B1-4, B1-1). По
+  multi-agent-flow-orchestration §14а решение о переносе класса в форму задания автора — за
+  диспетчером.
+blocking_count: 3
+blocking_kinds_distinct: [COVERAGE, CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - B2-1 COVERAGE
+  - B2-2 CONSTRUCTIBILITY
+  - B2-3 CONSTRUCTIBILITY
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Возврат полномочия не выдаёт, и от публикации события его сила не
+    зависит. Тело события для курьера — поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2, блокирующих 3) ·
+    SHA-256 1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a
+
+measurement:
+  revisions_used:
+    kacho: origin/main 1d42a6728bf; origin/2797 2267b405220 (содержит origin/2564 — merge-base --is-ancestor)
+    kaname: origin/357 734f69fb4; пин kacho@2797 4af7fd4fafb4 (предок origin/357)
+    sibling_acceptance: sub-phase-NTF-1-notification-gateway-core-acceptance.md sha256 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 19
+    ids: NTF2-01…09, NTF2-18, NTF2-19, NTF2-20…24, NTF2-30…32
+    positive: 6
+    negative: 13
+  producer_coverage:
+    method: сверка таблицы §7 с множеством ID §6
+    covered: 19
+    of: 19
+  twin_coverage:
+    negatives: 13
+    twins_named: 13
+  render_census:
+    command: >-
+      worktree origin/2797 → helm dependency build --skip-refresh; для каждой строки deploy/stacks.txt:
+      helm template r . -f values.yaml -f <профили>; признаки §1.5 командами документа
+    result: >-
+      документов (kind:) 203/217/186/219/137/216/146 (dev/dev-prod/prod/own/fe3455/prorobotech/a8f60d);
+      посадка own — 7 из 7; ручка полосы — 1 в каждой; объектов r-kratos — 0; smtpConnectionURI — 0;
+      удостоверение — 0, кроме a8f60d (2); `/.ory/` — 0. Таблица §1.5 воспроизведена поштучно
+  constructibility_seeding:
+    isolation: временный worktree origin/2797 и рендер в каталоге сессии рецензента; ствол не менялся
+    seeded: 4
+    of: 8
+    not_performed: 4
+    items:
+      - "П1 (признаки рендера цепочки dev): строится — посадка own, ручка 1, поставщика 0"
+      - "П7-kratos (dev + kratos/pg-kratos enabled): строится — объектов поставщика 10, r-kratos-courier 2, smtpConnectionURI 2 — совпадает с §1.5"
+      - "NTF2-20 после NTF-2 (П7-kratos + kratos.courier.enabled: false): строится — почтовых объектов 0, объектов поставщика 8 (>0); smtpConnectionURI 1 остаётся в Deployment — снимает правка шаблона (NTF2-21)"
+      - "NTF2-24, множество «цепочек с приёмником, где читатель ровно 1»: НЕ строится для a8f60d — B2-3"
+      - "П2, П3 на стенде: не выполнилось — стенд заданием не назван, notify (NTF-1) на базе нет"
+      - "П4 на стенде: не выполнилось — производитель Revoke(feed) заводится NTF-1"
+      - "П6: не выполнилось — лента corelib заводится NTF-1"
+      - "NTF2-22 (старт образа без courier): повторно не гонялся — подтверждён посевом круга 1"
+
+premise_check:
+  claim: >-
+    задание: судить редакцию 1658e6f5… круга 2; роды прошлого круга CONSTRUCTIBILITY, SCOPE,
+    NEGATIVE, COVERAGE, PRODUCER, FORMAT. Документ: §1.5 и Р10 — база origin/2797 несёт посадку own
+    во всех цепочках.
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 1658e6f5e933…"
+    - "рендер 7 цепочек @2267b405220 → признаки §1.5 совпали поштучно"
+    - "git -C project/kacho merge-base --is-ancestor origin/2564 origin/2797 → да; rev-list --count origin/main..origin/2564 → 245"
+    - "gh issue view 2735 2777 → CLOSED; 2900 2792 2898 2901 1276 → OPEN"
+
+blocking_findings:
+  - id: B2-1
+    kind: COVERAGE
+    title: Замещение §3 и перечень снимаемых гейтов DoD п.8 пропускают гейты ID-MAIL-1, чей предмет NTF-2 снимает
+    coordinates:
+      doc: "§3; §9 DoD п.8 (перечень и предикат `grep -cE 'identity_courier_|mail_lane_feeds_both_senders'`); Р3; NTF2-21"
+      tree_at: kacho origin/2797 2267b405220
+      tree:
+        - deploy/identity_verified_address_required_on_both_lanes{,_injection}_test.go — MAIL-52, утверждает хук `require_verified_address` на обеих полосах входа поставщика
+        - deploy/identity_verification_mirrors_the_requirement_test.go — MAIL-15/16/17, зеркало требования и потока подтверждения
+        - deploy/identity_delivery_flows_declared_once{,_injection}_test.go — MAIL-18, потоки доставки объявлены один раз
+        - deploy/identity_bearer_window_ceiling{,_injection}_test.go — MAIL-51, потолок сроков code/recovery/verification (Р21б, который §3 объявляет истекающим)
+    measured: >-
+      `git grep -lE 'courier|smtpConnectionURI|KANAME_IDENTITY_SMTP_CREDENTIAL|show_verification_ui|require_verified_address|flows\.recovery|flows\.verification|"recovery"|"verification"' -- deploy ':!*.md'`
+      без шаблонов и профилей → 22 файла; DoD п.8 называет 6 из них. `grep -oE 'MAIL-[0-9]+' <док> | sort -u`
+      → MAIL-01…04, 47, 48, 54; MAIL-14…18, 51, 52 в документе 0 раз.
+    consequence: >-
+      Р3 и NTF2-21 снимают `require_verified_address`, а гейт MAIL-52 утверждает его наличие: на
+      верной реализации он красный, и у исполнителя два пути — ослабить гейт молча или оставить
+      хук. MAIL-52 — страж безопасности (требование подтверждённости на входе); его предмет
+      обязан явно перейти к NTF2-19, иначе утверждение «неподтверждённый дальше не проходит»
+      теряет держателя в дереве. Тот же класс, что B1-4.
+    remedy: >-
+      Перепись по предикату выше (с объёмом) вместо выборочного перечня: каждому файлу — исход
+      (снят вместе с предметом → какому сценарию передан предмет / остаётся с причиной). MAIL-52 →
+      NTF2-19 явно; MAIL-51 — вместе с Р21б; MAIL-15…18 — вместе с потоками. Строки в §3 и в
+      строку-ссылку DoD п.11; предикат DoD п.8 — по той же переписи.
+
+  - id: B2-2
+    kind: CONSTRUCTIBILITY
+    title: E-часть NTF2-06 отзывает ленту kaname целиком на общем стенде, без канала, изоляции и восстановления
+    coordinates:
+      doc: "§5 П4; NTF2-06 (E); §9 DoD п.1"
+      sibling: "NTF-1 Р7 (отсечка по последнему Restore), NTF1-F04, NTF1-L01/L02"
+    consequence: >-
+      Надгробие Revoke(feed) на стенде П1 гасит каждое письмо kaname на время окна: приглашения и
+      восстановление (NTF1-L01, L02), письма NTF2-01/04 и код для П3 (NTF2-19 б) параллельных
+      кейсов. По правилу отсечки NTF-1 строки, поставленные до Restore, получают REVOKED навсегда.
+      В E-части нет ни шага Restore, ни последовательного хвоста прогона, ни названного канала
+      к внутреннему слушателю kaname, а прогонщик E ходит через край (ban #6: внутреннее наружу
+      не публикуется). Given в названной изоляции не строится.
+    remedy: >-
+      Вести NTF2-06 только на уровне I (П6) — утверждение «SMTP-сессий 0» там уже есть; либо
+      назвать для E последовательный хвост прогона, канал к внутреннему слушателю и шаг Restore
+      с проверкой, что соседние кейсы не пересекаются с окном отзыва.
+
+  - id: B2-3
+    kind: CONSTRUCTIBILITY
+    title: NTF2-24 требует в a8f60d ровно одного читателя приёмника, а полоса a8f60d ведёт к внешнему ретранслятору
+    coordinates:
+      doc: "NTF2-24 Then («в цепочках с приёмником (сегодня dev, dev-prod, own, prorobotech, a8f60d) — ровно 1, и это notify»); Р8"
+      tree: "deploy/helm/umbrella/values.a8f60d.yaml:119-125 @2267b405220 (`global.kacho.identity.smtp.connectionURI` — внешний ретранслятор)"
+    measured: >-
+      Рендер @2267b405220: объектов приёмника в a8f60d есть (r-mailpit Service и Deployment), а
+      ссылок на адрес приёмника `…-mailpit:1025` — 0 (dev, dev-prod, own, prorobotech — по 1).
+      Полосу, объявленную декларацией, NTF-1 переводит на notify (NTF-1 З4), т.е. в a8f60d notify
+      укажет на внешний ретранслятор.
+    consequence: >-
+      Утверждение «ровно 1» для a8f60d ложно на верной реализации: сценарий красный либо требует
+      перенаправить боевую полосу стенда на приёмник.
+    remedy: >-
+      Множество цепочек выводить из рендера (цепочки, чья объявленная полоса — приёмник), а не
+      перечнем; для прочих — «читателей приёмника, отличных от notify, 0». Решить явно, законен ли
+      приёмник без читателя (a8f60d), — со ссылкой на ID-MAIL-1 Р18.
+
+important_findings:
+  - id: I2-1
+    kind: FORMAT
+    text: >-
+      §1.4 и §7 (строка NTF2-02…04): `git grep -c '/iam/v1/auth/verify-email' origin/357 --
+      internal/handler/loginlanehttp/handler.go` → в документе 3, измерено 2 (@734f69fb4). Исправить
+      число в обоих местах.
+  - id: I2-2
+    kind: FORMAT
+    text: >-
+      NTF2-03 «Given как NTF2-02» на том же человеке и коде: после NTF2-02 код истрачен и
+      `emailVerified: true`, поэтому «/me → emailVerified:false» верно только если NTF2-03 идёт
+      раньше. Назвать порядок либо отдельного человека.
+  - id: I2-3
+    kind: DoD
+    text: >-
+      DoD п.8: «Если её переносит NTF-1» — NTF-1 З4 уже решил, что декларация
+      `global.kacho.identity.smtp.*` остаётся одной и её читатель после NTF-2 — notify. Заменить
+      условие фактом.
+  - id: I2-4
+    kind: NEGATIVE
+    text: >-
+      NTF2-19 утверждает рубеж kaname (second-factor). Рубеж края для путей платформы
+      (gateway/internal/middleware/auth_own_session.go:146 @2267b405220) не утверждён ни здесь, ни
+      ссылкой. Добавить близнеца на пути чтения платформы либо сослаться на сценарий приёмки kacho#2900.
+  - id: I2-5
+    kind: FORMAT
+    text: >-
+      NTF2-18 близнец: TestOwnPostureRaisesNoForeignIdentityService читает deploy/stacks.txt из
+      дерева; «на П7-kratos красный» — назвать, чем подаётся вход (существующая инъекция
+      TestOwnPostureForeignIdentityGate_FindsTheInheritedFlag либо копия дерева).
+
+not_performed:
+  - "П2, П3, П4 на стенде; П6 — производители заводятся NTF-1, стенд заданием не назван"
+  - "NTF2-22 повторно не гонялся — опора на посев круга 1"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    снятие хука подтверждённости у поставщика и перенос держателя MAIL-52 (B2-1)
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы классом (гейт теряет предмет; отзыв на общем стенде) без сборки
+    «координата + условие + следствие» для постороннего.
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    Исправить B2-1…B2-3 в редакции 3 NTF-2: перепись гейтов ID-MAIL-1 по предикату с исходом
+    каждому; NTF2-06 только уровнем I либо с изоляцией; множество цепочек NTF2-24 из рендера.
+  owner_questions: []

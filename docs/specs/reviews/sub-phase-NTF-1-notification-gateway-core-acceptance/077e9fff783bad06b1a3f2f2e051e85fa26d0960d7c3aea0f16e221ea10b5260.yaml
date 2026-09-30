@@ -1,0 +1,192 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову
+    в заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (`git status --short` в рабочей копии tmp/issue-880 даёт `??`).
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1820
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T22:24:39Z'
+round: 3
+previous_rounds:
+  - round: 1
+    sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136.yaml
+  - round: 2
+    sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0.yaml
+round2_items_closed:
+  B2-1: >-
+    закрыт — Р10 (одна декларация `<служба>.spiffe`, четыре читателя, образец
+    bootstrapOperator.spiffe — перемерено: kacho deploy/helm/umbrella/values.yaml:290-298
+    @1d42a6728bf), Р22 п.2 (закрытая таблица «точный SAN → имя учётки», стражи старта, id из
+    строки посева). Формула id перемерена: применитель посева пишет
+    'sva' || substr(md5(name),1,17) (kaname internal/repo/kaname/pg/module_seed_writer.go:179
+    @734f69fb4) = domain.DerivedIDSuffix (internal/domain/derived_id.go:64). J03 строит
+    декларацию, таблицу и перечень читателей, близнец в той же пробе; J05 — стражи и гейт
+    рендера. Счёт вызывающих прежнего разбора «8 строк в 6 файлах» воспроизведён командой §1.3.
+  B2-2: >-
+    закрыт — Р3 заводит запись шаблона {лента, шаблон, отозвано, отсечка шаблона}, оси
+    независимы, правило ALLOW/REVOKED по обеим отсечкам; F19 (близнец F05), вариант шаблона в
+    F16, F17, F18 (г, д); CAS для вариантов с шаблоном назван.
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY, NEGATIVE]
+blocking_kinds_by_item:
+  - B3-1 CONSTRUCTIBILITY
+  - B3-2 NEGATIVE
+repeat_note: >-
+  Род CONSTRUCTIBILITY блокирует в четвёртый раз (круг 1 ×2, круг 2 ×1, круг 3 ×1). Предмет
+  снова новый, класс прежний: «Given опирается на объект/выдачу, которую действующие ограничения
+  дерева запрещают, а документ этого ограничения не называет». Перепись §9 круга 2 спрашивала
+  «откуда правило», но не спрашивала «существует ли субъект правила». Решение о переезде класса
+  в форму задания автора — за диспетчером (§14а).
+
+blocking:
+  - id: B3-1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      Субъекта права `send` на ленту kaname не существует и завести его нельзя: у службы доступа
+      своей служебной учётки не бывает — это закреплённое решение MRW-1 Р1 и держатель в дереве.
+      F01 (Given «манифест kaname несёт notifications: {feed}»), F12 «И»
+      (`Check(service_account:<учётка kaname>, send, …) — true`) и вся цепочка Р3 для первого
+      источника опираются на эту учётку.
+    evidence: >-
+      kaname internal/servicemanifest/manifest.embedded.yaml:66-67 @734f69fb4 — «Подразделов
+      `serviceAccounts` и `joins` у этого раздела НЕТ … своей служебной записи у службы доступа не
+      бывает»; держатель — internal/servicemanifest/seed_form_test.go:98-99
+      (TestMRW07_GroupWithItsGrantIsAccepted падает, если манифест службы объявляет
+      serviceAccounts). В 0001_initial.sql учёток kacho-kaname / kacho-iam нет (перечень строк
+      3837-3843). Р3 при этом требует: тип `notification_feed`, `send: [service_account]`;
+      «валидатор манифеста принимает … только свою учётку получателем»; запись выдачи
+      {лента, учётка, …}. Для kaname-источника поле «учётка» и субъект кортежа пусты по
+      построению. `grep -n 'учётк[аи] kaname' <док>` — одно упоминание (F12, стр. 1158), решения о
+      том, откуда учётка берётся, нет.
+    fix: >-
+      Решить явно и записать решением: либо (а) служба доступа получает служебную учётку ради
+      ленты — тогда это замещение MRW-1 Р1 строкой §3 (с правкой держателя TestMRW07 и
+      сценарием, что учётка не получает иных прав), либо (б) субъект `send` на собственную ленту
+      службы доступа выражается иначе (например, выдача на ленту без субъекта-учётки, либо
+      отдельный тип получателя) — с правкой Р3 (форма записи выдачи, текст валидатора), F01, F03,
+      F07, F12 и K03 п.7 под выбранную форму. В обоих случаях Given F01/F12 должен называть
+      посев, который строит субъект, и не противоречить судье формы манифеста службы.
+  - id: B3-2
+    kind: NEGATIVE
+    summary: >-
+      Выдача `reader` не имеет ни формы, ни ограничения «кому», ни отрицательного сценария;
+      сформулированное правило валидатора её отвергает.
+    evidence: >-
+      Р3 (стр. 266-268): «выдача `reader` notify — строкой манифеста notify; валидатор манифеста
+      принимает только ленту своего модуля и только свою учётку получателем». Строка notify
+      называет ленту kaname — не свою; по тексту валидатора она отвергается (как F02). Форма
+      строки reader не названа; сценария «модуль M объявляет reader на ленту kaname в своём
+      манифесте → отвергнуто» нет (F02 — только про send на чужую ленту). От `reader` зависит
+      сужение подписки (E02) и второй ключ `Claim` (C05), т.е. предмет О3.
+    fix: >-
+      Назвать форму строки `reader` и её правило (например: принимается только в манифесте
+      модуля, чья учётка — в декларации `notify.spiffe`, либо выдаётся только манифестом
+      источника с получателем из закрытого перечня), сузить текст валидатора до `send`; добавить
+      отрицательный сценарий «модуль, не являющийся notify, объявил reader на ленту kaname →
+      находка валидатора, кортеж не заведён» с положительным близнецом «та же строка в манифесте
+      notify → кортеж заведён» и внести пару в §6.1 и §6.2.
+
+non_blocking:
+  - >-
+    §1.1, стр. 103: скобка «(без учёта регистра; с `-c` — 12)» — 12 даёт команда без `-i`, а не
+    «с -c» (обе формы несут -c). Переписать «без `-i` — 12».
+  - >-
+    §1.4 / Р22 п.2 ссылаются на `serve.go:478` против `:1158`; на 734f69fb4 applyModuleSeed —
+    стр. 479, net.Listen публичного слушателя — около 1157. Ссылаться именем функции, а не
+    номером строки.
+  - >-
+    CallerPolicy kaname несёт третий рукав — перечень точных SAN оператора (`WithSANAllowlist`,
+    cmd/kaname/serve.go:786 @734f69fb4, fail-closed на пустом). Это действующий прецедент
+    «точный SAN из конфигурации»; стоит назвать его в Р22 как образец, чтобы S1/S2 не завели
+    третью форму перечня SAN.
+  - >-
+    E02 требует у kaname второй ленты («посеянная лента проб») с журнальной строкой вида
+    notification; назвать в Given, чем она строится (прямая вставка пробы в журнал либо вторая
+    лента в процессе), иначе автор пробы будет выбирать.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d473742c → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: Вердикт — отказ; полномочия не выдаёт, действительность от публикации не зависит.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3, блокирующих 2: CONSTRUCTIBILITY, NEGATIVE) ·
+    SHA-256 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+
+measurement:
+  revisions_used:
+    corelib: 34bc810
+    kaname: 734f69fb4 (origin/357)
+    kacho: 1d42a6728bf (origin/main)
+    workspace: d473742c (tmp/issue-880)
+  scenario_census:
+    predicate: "grep -oE '\\*\\*ID:\\*\\* NTF1-[A-L][0-9]{2}' <док>"
+    total: 124
+    unique: 124
+    by_group: {A: 9, B: 23, C: 7, D: 6, E: 9, F: 19, G: 21, H: 11, I: 6, J: 5, K: 3, L: 5}
+  producer_coverage:
+    method: раскрытие диапазонов первой колонки §6.1 в множество ID и сравнение с множеством §6 (python)
+    covered: 124
+    of: 124
+    uncovered: []
+  twin_coverage:
+    rows_in_6_2: 86
+    declared_twin_missing_in_table: []
+  facts_remeasured:
+    - "вызывающих прежнего разбора SAN в kaname = 8 строк в 6 файлах (команда §1.3) @734f69fb4"
+    - "CallerPolicy пол: SAN spiffe://…/ns/<ns>/sa/kacho-<svc> — caller_policy.go:9-10"
+    - "SANToServiceDomain ns не сверяет — fgaproxy.go:160-181"
+    - "id учётки посева = 'sva'||substr(md5(name),1,17) = DerivedIDSuffix — module_seed_writer.go:179, derived_id.go:64"
+    - "bootstrapOperator.spiffe {trustDomain, namespace, saName} — kacho values.yaml:290-298"
+    - "grpcsrv.EvaluateStepUp, PrincipalTypeServiceAccount, CertIdentityFromContext — corelib acr.go:66,184; cert_identity.go:158"
+  constructibility:
+    seeded: 0
+    premises_checked_by_reading: 9
+    confirmed:
+      - таблица Р22 — id учётки из строки посева манифеста модуля (форма посева и формула перемерены)
+      - notify проходит пол CallerPolicy под именем kacho-notify без правки пола
+      - J03 сертификат B (тот же sa, другой ns) проходит пол и отсекается перечнем читателей и таблицей Р22
+      - Restore(feed, template) и отсечка шаблона определены (F17, F18 г/д, F19)
+    refuted:
+      - субъект send на ленту kaname — у службы доступа своей учётки не бывает (MRW-1 Р1, TestMRW07) (B3-1)
+      - выдача reader строкой манифеста notify при правиле валидатора «только своя лента» (B3-2)
+    not_performed: >-
+      Посев не ставился: предмет — код, которого в дереве нет; стенда и изоляции задание не
+      назвало. Конструируемость судилась чтением ограничений на названных ревизиях.

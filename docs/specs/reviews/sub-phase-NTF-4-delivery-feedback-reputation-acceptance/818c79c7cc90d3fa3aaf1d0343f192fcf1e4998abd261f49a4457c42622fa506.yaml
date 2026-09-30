@@ -1,0 +1,234 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (`git status --short` в tmp/issue-880 → `?? docs/specs/sub-phase-NTF-4-…md`).
+    Вердикт держится только на отпечатке.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1302
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T22:09:13Z'
+round: 2
+previous_rounds:
+  - round: 1
+    sha256: a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282.yaml
+blocking_count: 2
+blocking_kinds_distinct: [SCOPE, DoD]
+blocking_kinds_by_item:
+  - B2-1 SCOPE
+  - B2-2 DoD
+repeated_kinds_note: >-
+  Род SCOPE повторился (B1-1 → B2-1). Класс тот же: перепись правок вне ствола kacho, объявленная
+  полной (§1.1 «Перепись сделана по всему…»), не содержит правки, которую требует «Тогда». Число
+  блокирующих убывает (4 → 2). Решение по §14а — за диспетчером.
+
+round1_resolution:
+  B1-1: resolved — §1.1 называет Х1 (corelib ids) и Х2 (kaname каталог прав) с координатами и задачами; координаты перемерены (ids/ids.go KnownHyphenPrefixes @34bc810; permission_catalog.json и permissions_to_relations.go @kaname 734f69fb4). Класс повторился в другой правке — см. B2-1
+  B1-2: resolved — посев П10 (двойник POP3 с семантикой UPDATE по RFC 1939) и явная подача П3 по уровням
+  B1-3: resolved — смена секрета доходит до процесса перечитыванием тома (NTF4-71/72/77), PDB заменён стратегией maxUnavailable 0 / maxSurge 1 с рендер-гейтом
+  B1-4: resolved — проверка mx в Р10 (NTF4-75/76), контрольное письмо и признак feedback_route (NTF4-73/74), требование к установке в §9
+  non_blocking_round1: N1-1…N1-8 учтены (Р5 невидимость истёкшей, Р12 закрытые перечни, NTF4-13/78, П1 лимит ≥4, NTF4-33 с Lookup, Р2 длина, DoD S7 п.4, NTF4-09 по уровням)
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d473742c → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Он не даёт полномочий и ничего не открывает. Тело события для курьера
+    лежит в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2, блокирующих 2: SCOPE, DoD) ·
+    SHA-256 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506
+
+measurement:
+  revisions_used:
+    kacho: origin/main@1d42a6728bf
+    kaname: origin/357@734f69fb4
+    corelib: origin/main@34bc810
+    workspace_copy: issue-880@d473742c
+  predicates_reproduced:
+    - "самоотчёт посадки: git -C project/corelib show 34bc810:observability/bootposture.go — BootPosture с закрытым набором из 10 полей; LogBootPosture — «Единственное место, где живут msg и имена полей контракта»; поля mail_dns нет"
+    - "держатель стража: git -C project/kacho show 1d42a6728bf:internal/repohygiene/bootguardpresence_test.go:43-48 — «Локальная Config.Validate() остаётся законной как ДОПОЛНЕНИЕ и этим гейтом не судится»; судится достижение servicecontract.New и закрытый перечень postureSpecFields"
+    - "Х1: corelib 34bc810 ids/ids.go — func KnownHyphenPrefixes на стр. 446 (док: 445) — подтверждено"
+    - "Х2: git -C project/kaname cat-file -e 734f69fb4:internal/apps/kaname/seed/embedded/permission_catalog.json и …/internal/authzmap/permissions_to_relations.go — оба есть"
+    - "образец Р7: kaname 734f69fb4 proto/kaname/cloud/iam/v1/internal_cluster_service.proto — RevokeAdmin, permission iam.cluster_admins.revoke, required_relation system_admin, object_type cluster — подтверждено"
+    - "kacho 1d42a6728bf: assert-production-posture.sh, assert-ban6-external-isolation.py, run-injection-proofs.sh, templates/mail-receiver.yaml — есть; deploy/tests/helm/notify-availability-test.sh — нет в дереве, заводится NTF-1 (NTF-1 acceptance, редакция 575e93d4…, стр. 1493)"
+    - "TestServiceDeclaringPostureKnobsHasABootGuard — bootguardpresence_test.go:213 — подтверждено; функций в файле 2 (213, 308)"
+    - "стенд: git grep -n -iE 'coredns|stubDomain|dnsConfig|nameserver' 1d42a6728bf -- deploy → 0; mail-receiver.yaml — образ mailpit, переменных relay нет"
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* NTF4-[0-9]+|^\\| NTF4-[0-9]+' <док> → уникальные номера, проверка пропусков и дублей"
+    total: 79
+    ids: NTF4-01…NTF4-79
+    duplicates: 0
+    gaps: 0
+  producer_coverage:
+    method: раскрытие диапазонов §8 в множество ID
+    covered: 79
+    of: 79
+    note: >-
+      Строки §8 покрывают все 79 ID. У NTF4-40 (ось mail_dns в самоотчёте) производитель
+      назван в kacho, хотя форма самоотчёта живёт в corelib observability (B2-1).
+  twin_coverage:
+    negatives_named_with_twin: 43
+    note: "grep -c 'Близнец' → 43 строки; у NTF4-33 внутренний контроль непустого захвата; отрицаний без близнеца не найдено"
+  constructibility:
+    seeded: 0
+    of: 10
+    not_performed: 10
+    reason: >-
+      Стенда П1 и разрешения на посев в задании нет. П3, П5, П6, П7, П9 и П10 заводит сама
+      под-фаза. Конструируемость проверена по названным фикстурам: у каждого интеграционного Given
+      теперь есть двойник, исполняющий протокол. Для П1 остаются пробелы в описании (N2-1, N2-2).
+
+premise_check:
+  claim: "SHA-256 редакции 818c79c7…; круг 2; роды прошлого круга SCOPE, CONSTRUCTIBILITY, PRODUCER, COVERAGE"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506"
+    - "cat …/a8243cee….yaml → blocking_kinds_distinct [SCOPE, CONSTRUCTIBILITY, PRODUCER, COVERAGE]"
+
+blocking_findings:
+  - id: B2-1
+    kind: SCOPE
+    where: "§1.1 («Правок вне kacho две»; «В corelib не правится servicecontract»); Р10 стр. 274-276; NTF4-40 And; §8 строка 40…79; DoD S5 п.2"
+    claim: >-
+      NTF4-40 утверждает: «в самоотчёте посадки есть ось `mail_dns` со значением `verified`».
+      Самоотчёт посадки — это одна строка `boot security posture`. Её форму задаёт corelib, а не
+      сервис: `observability.BootPosture` с закрытым набором из 10 полей и `LogBootPosture`,
+      который сам себя называет «единственным местом, где живут msg и имена полей контракта».
+      Оценщик `assert-production-posture.sh` читает именно эти ключи. Значит, ось `mail_dns`
+      требует третьей правки вне kacho — в corelib `observability/bootposture.go`. В §1.1 её нет,
+      хотя перепись там объявлена полной. Отказ от правки `servicecontract` обоснован верно, но
+      он не отвечает на вопрос, чем самоотчёт получит новое поле.
+    evidence:
+      - "git -C project/corelib show 34bc810:observability/bootposture.go — поля service, auth_mode, db_sslmode, public_mtls, internal_mtls, authz_check, trusted_forwarders, identity_provider, own_rest_public_tls, own_rest_internal_tls; mail_dns нет"
+      - "git -C project/kacho show 1d42a6728bf:deploy/scripts/assert-production-posture.sh:383 — оценщик перечисляет ровно эти ключи"
+    required: >-
+      Выбрать одно из двух и записать решение в §1.1 и §8.
+      (а) Добавить Х3: поле `mail_dns` в `observability.BootPosture` и `LogBootPosture` corelib.
+      У остальных сервисов в нём значение «n/a», как у `identity_provider`. Назвать задачу
+      corelib и пин, указать держателя оценки в `assert-production-posture.sh` и перечень служб,
+      у которых ось обязательна.
+      (б) Снять ось из самоотчёта и доказывать её иначе: метрикой `notify_mail_dns_posture` плюс
+      отказом в старте, который держат NTF4-42…47/75/76/79. Тогда исправить NTF4-40, Р10,
+      DoD S5 п.2 и строку В6 в §5.
+  - id: B2-2
+    kind: DoD
+    where: "§1.1 стр. 94-96; DoD S1 п.5; DoD S5 п.2"
+    claim: >-
+      Держателем собственного DNS-стража notify DoD называет
+      `TestServiceDeclaringPostureKnobsHasABootGuard` («страж обязан быть виден держателю»). Но
+      этот держатель по своему описанию локальный страж не судит: «Локальная `Config.Validate()`
+      остаётся законной как ДОПОЛНЕНИЕ и этим гейтом не судится». Судит он только достижение
+      `servicecontract.New` и закрытый перечень `postureSpecFields`. Держатель, который не может
+      покраснеть на снятом DNS-страже, делает пункт DoD неизмеримым. DoD S1 п.5 точно так же
+      приписывает ему отказ в старте на каждой незаданной ручке NTF-4. Этого он тоже не судит:
+      ручки NTF-4 не входят в `postureSpecFields`.
+    evidence:
+      - "git -C project/kacho show 1d42a6728bf:internal/repohygiene/bootguardpresence_test.go:43-48, 83-86"
+    required: >-
+      Назвать держателя, который способен упасть. Для DNS-стража это пробы NTF4-42…47, 75, 76, 79
+      плюс инъекция «страж сведён к return nil → проба краснеет». Для обязательности ручек Р16 —
+      проба notify, перебирающая объявленный перечень ручек с инъекцией по каждой; назвать её
+      координату. Упоминание `TestServiceDeclaringPostureKnobsHasABootGuard` оставить только для
+      того, что он действительно судит: notify доводит свои посадочные ручки до
+      `servicecontract.New`.
+
+non_blocking_findings:
+  - id: N2-1
+    kind: CONSTRUCTIBILITY
+    where: "П1; NTF4-74 (стенд)"
+    note: >-
+      По П1 исходящий приёмник стенда пересылает письма домена возврата «по MX зоны стенда». Но
+      приёмник стенда — mailpit (templates/mail-receiver.yaml), а он пересылает на один
+      настроенный узел по совпадению получателя, а не маршрутизирует по MX. Назвать механизм
+      (пересылка по совпадению на узел приёмника ящика) и не утверждать, что стенд проверяет
+      маршрут по MX: MX проверяет только страж Р10.
+  - id: N2-2
+    kind: CONSTRUCTIBILITY
+    where: "П1; NTF4-40/41/52 (стенд)"
+    note: >-
+      Не сказано, как notify на стенде разрешает имена в зоне DNS стенда: в deploy нет ни
+      dnsConfig, ни stub-зоны (git grep → 0). Дефолт, зафиксированный на ревью: ручки адреса
+      резолвера у notify нет; стенд задаёт dnsConfig пода только в профиле стенда; держатель
+      NTF4-52 утверждает, что в values.prod.yaml переопределения DNS пода нет. Резолвер, который
+      задаёт оператор, может подменить ответы проверкам Р10, поэтому такая ручка была бы ручкой
+      обхода.
+  - id: N2-3
+    kind: FORMAT
+    where: "Р12, таблица закрытых перечней; NTF4-11, 34, 35, 66"
+    note: >-
+      Сценарии пользуются метриками и метками, которых нет в закрытом перечне Р12:
+      notify_ceiling_deferred_total{ceiling, class}, notify_complaints_total{ns, template},
+      метки ns и template у notify_reputation_breach, а также
+      notify_feedback_poll_last_success_timestamp, notify_feedback_canary_last_success_timestamp,
+      notify_secret_generation_applied_timestamp. Внести их в перечень.
+  - id: N2-4
+    kind: FORMAT
+    where: "NTF4-58 When"
+    note: >-
+      «После роста признака перечитывания»: в этом сценарии перезагрузка отвергнута, поэтому
+      applied_timestamp не растёт. Условие перехода — secret_reload_rejected = 1.
+  - id: N2-5
+    kind: FORMAT
+    where: "NTF4-29 (в)"
+    note: >-
+      «Текст называет поле address» — дать текст дословно, как в (а) и (г), например
+      `"address: invalid"`, и указать reason.
+  - id: N2-6
+    kind: FORMAT
+    where: "Р2; NTF4-11"
+    note: >-
+      Отчёт ARF от петли обратной связи обычно приходит на зарегистрированный адрес без токена,
+      а токен лежит в Return-Path вложенного исходного письма. Написать, откуда берётся токен
+      для ARF: из адреса доставки или из вложения. Сейчас «токен b плюс feedback-report»
+      подразумевает адрес доставки.
+  - id: N2-7
+    kind: FORMAT
+    where: "NTF4-16, последний And"
+    note: >-
+      В сквозном сценарии на П1 стоит утверждение интеграционного уровня («integration-проба
+      на П6 читает счётчик»). Вынести его в отдельный интеграционный ID либо в близнеца NTF4-37,
+      как в NTF4-09.
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
