@@ -1,0 +1,208 @@
+# Экспозиция классов: пересверка (revalidation) замысла NTF-4, редакция 5.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки на редакции 1 (b9149d3c…),
+# 2 (cd92e9ac…), 3 (b46bd023…) и 4 (72f13d01…) относятся к своим редакциям и здесь не
+# переписываются. Редакция 5 — заход по решению диспетчера Д28: Е7 снята (вариант 1), и заходу
+# разрешён ровно один новый механизм — ключ values чарта notify, рендерящий одобрение сноса в
+# окружение init-контейнера `migrate` обоих развёртываний. Судятся только строка отображения,
+# которую пересверка 72f13d01 оставила открытой (CX4V-63 (б), строка Д26 · 4), §13, три мелочи
+# 72f13d01 и дельта dfe2cea05 → 0ea674482 (design.md, tasks.md, change.yaml). Прочие 64
+# отображения выдерживали, дельта их не касается.
+# Проверено четыре условия:
+#   (1) каждый неотображённый пункт пересверки 72f13d01 отображён, и отображение выдерживает
+#       условие пункта;
+#   (2) дельта не вводит нового внешнего вызова, асинхронного пути, sentinel-значения или
+#       механизма без пункта (ключ values — разрешённый Д28 механизм, отображён в CX4V-63);
+#   (3) маркеров отсрочки нет;
+#   (4) открытых решений нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: 80dea36282ddce4b3a0ca7419b603949a20b93b426803ed1a0a838718fd05b28
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 5
+  content_commit: 0ea674482
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/72f13d013817191fb466f8edce4cd9b85ebca926ab0ba18b65bb0181330081ea.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+  revision: 21
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml
+  note: >-
+    В дереве лежит редакция 22 (01b28881…), записи ревью на неё по-прежнему нет. Отображение
+    CX4V-65 держится при условии её одобрения (Е1 замысла), как в пересверках cd92e9ac, b46bd023
+    и 72f13d01. Е1 — зависимость §13 с предикатом снятия, а не открытое решение замысла.
+initial_records:
+  - docs/changes/issue-2919/reviews/class-exposure/initial/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml   # CX4V-01…62
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+dispatcher_decisions:
+  applied: >-
+    Д1–Д27 — как в 72f13d01. Д28 (задание этого захода): по Е7 выбран вариант 1 — ключ чарта
+    notify рендерит одобрение сноса в окружение init-контейнера `migrate` обоих развёртываний;
+    пустой ключ — переменной нет; рендер-проба в S1-A8 с близнецом «ключ не задан — переменной
+    нет». Д28 разрешает этому заходу ввести этот механизм в исключение из Д26; замысел NTF-1 не
+    меняется. Д29 касается NTF-5, Д30 — NTF-3, к NTF-4 не относятся.
+revisions:
+  workspace: 0ea674482   # коммит редакции 5 замысла; последний коммит, менявший design.md
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main рабочей копии (без fetch)
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # base_sha из change.yaml
+snapshot_at: 2026-09-30T13:13:39Z
+inspected: >-
+  Дельта dfe2cea05 → 0ea674482: design.md (шапка редакции 5; З21 — абзац о ключе
+  `migrator.dropApproved`; §10 п.2; строка CX4V-63 §11; вводный абзац таблицы Д26; строка
+  Д26 · 4 целиком; §11а строка УК4-36; §13 абзац и строка Е7), tasks.md (шапка; §0 новое правило
+  посадки сноса; §1 строки Е4 и Е7; S1-A8, S1-A10, S3-C6; §2а три строки Д26 · 4; §3 п.1),
+  change.yaml (комментарий, design_sha256). corelib @34bc810: `dropguard/preflight.go`
+  (ApprovalEnv, LegacyApprovalEnv, ParseApprovals, чтение через envknob), `envknob.Get`. kacho
+  @1d42a672: `deploy/` на переменную одобрения, `deploy/tests/helm/`, раскладка `deploy/helm/`,
+  форма истории ствола (слияния против первого родителя). Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый неотображённый пункт пересверки 72f13d01 отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      Строк §11 — 65, уникальных пунктов — 65, строк Д26 — 6. Единственный неотображённый
+      пункт 72f13d01, CX4V-63 (б), отображён: путь одобрения в окружение init-контейнера
+      `migrate` назван (ключ `migrator.dropApproved`, З21, Д26 · 4 (3)), у него есть полосы
+      (S1-A8, S3-C6, S1-A10) и держатель УК4-36 с близнецом и инъекцией. Условия к коду из
+      72f13d01 (1) перенесены дословно по смыслу и усилены: «ни у одного другого контейнера»,
+      печать числа судимых развёртываний, ноль — красный. Остаётся одно замечание к маршруту —
+      предикат посадки §0 tasks.md (mapping_check, (г)). Исход условия оно не меняет: запрет
+      держит само правило §0 (одна волна S1-A1 + S1-A8), а неверна только команда, которой его
+      проверяют.
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения или механизма без пункта (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Новый механизм в дельте один — ключ values `migrator.dropApproved`. Его разрешает Д28,
+      отображение — CX4V-63 (строка §11 и Д26 · 4), держатель — УК4-36. Sentinel-значение не
+      заведено: пустой ключ означает отсутствие переменной, а не особое значение. Разборщик
+      значения один — `dropguard.ParseApprovals`, чарт формат не проверяет. Внешнего вызова,
+      таймера и асинхронного пути в дельте нет. Правило §0 tasks.md — порядок посадки, а не
+      механизм продукта.
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "`grep -noE 'TODO|TBD|FIXME|XXX'` по design.md и tasks.md — 0."
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      §13: «Открытых решений нет». Строка Е7 несёт состояние «снята решением Д28». Предикат
+      строки Е7 в §1 tasks.md теперь умеет сказать «нет»: на 0ea674482 даёт 1, на dfe2cea05 — 0.
+      Е1–Е6 — зависимости с предикатом снятия, а не решения замысла; это так же, как в 72f13d01.
+
+mapping_check:
+  - id: CX4V-63 (б)
+    design: "З21 (абзац init-контейнера `migrate`); §10 п.2; §11 CX4V-63; Д26 · 4 (3), (5); §11а УК4-36; §13 Е7; tasks §0, §1 Е7, S1-A8, S1-A10, S3-C6, §2а Д26 · 4, §3 п.1"
+    verdict: holds
+    exposure:
+      - class: "code-authoring §«Умолчание, которое становится утверждением»"
+        condition: >-
+          Пустой или незаданный ключ — у контейнера нет переменной вовсе, а не переменная с пустым
+          значением. Держит УК4-36: близнец «ключ не задан» плюс инъекция «шаблон рендерит пустую
+          переменную → близнец красный». Замечу: страж читает пустую переменную как «одобрений
+          нет» (`ParseApprovals("")` → пустой список, `envknob.Get` @34bc810). Значит, различие
+          двух форм — дисциплина рендера, а не безопасность; проба всё равно строже, чем нужно
+          стражу, и это допустимо.
+      - class: "code-authoring §«Контракт, который нельзя выразить» — два написания одного значения"
+        condition: >-
+          Чарт рендерит только `MIGRATOR_DROP_APPROVED` (`dropguard.ApprovalEnv`). Прежнее
+          написание `KACHO_MIGRATOR_DROP_APPROVED` страж принимает окном перехода
+          (`LegacyApprovalEnv`, `envknob.Get(ApprovalEnv, LegacyApprovalEnv)`), но чарт его не
+          рендерит — так записано в З21. Держит УК4-36: проба ищет имя переменной дословно.
+          Условие к коду: проба утверждает и отсутствие прежнего написания у всех контейнеров —
+          иначе второе написание, отрендеренное рядом, пройдёт незамеченным.
+      - class: "rule-architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+        condition: >-
+          Два развёртывания (`notify-sender` с S1, `notify-api` с S3-C6) получают ключ одним
+          шаблоном. УК4-36 судит каждое развёртывание рендера и печатает число: S1-A8 — ≥ 1,
+          S3-C6 — 2. Держится пробой.
+      - class: "code-authoring §«Решение и его следствие разнесены» — перекат при смене ключа"
+        condition: >-
+          Значение идёт прямо в `env` шаблона пода, без ConfigMap. Поэтому смена ключа меняет
+          ревизию шаблона и вызывает перекат, как записано в Д26 · 4 (3). Условие к коду: ключ не
+          проходит через ConfigMap или Secret. Если пройдёт, нужна аннотация checksum
+          (security.md sec-chart-config-checksum), иначе постановка и очистка одобрения не
+          перекатят под. Держится вниманием рецензента чарта, если УК4-36 не утверждает, что
+          переменная задана `value:`, а не `valueFrom`.
+      - class: "code-authoring §«Контракт, который нельзя выразить» — тип значения в YAML"
+        condition: >-
+          Значение рендерится строкой (`| quote` или эквивалент), а не голым скаляром. Сегодня
+          форма `<версия>/<таблица>` всегда содержит `/` и потому остаётся строкой. Но
+          `ParseApprovals` принимает и перечень через пробелы и переводы строк, и тогда голый
+          скаляр ломает YAML рендера. Держит УК4-36, если в числе её входов есть значение из двух
+          одобрений через перевод строки. Сейчас он там не назван — это заказ к автору пробы, а не
+          к замыслу.
+    note: >-
+      Три мелочи 72f13d01 исполнены. (а) Предикат строки Е7 судит поле состояния: на 0ea674482
+      даёт 1, на dfe2cea05 — 0, то есть умеет сказать «нет». (б) §3 п.1 называет Е7. (в) Посадку
+      ствола вне маршрута полос держит правило §0 tasks.md: S1-A1 и S1-A8 входят в один запрос
+      волны.
+      (г) Новое замечание к маршруту, исход не меняет. Предикат посадки в §0 tasks.md —
+      `git log --diff-filter=A --format=%H origin/main -- <миграция сноса>.sql | tail -1` —
+      обходит всю историю, достижимую из ствола, а не линию первого родителя. Ствол kacho
+      вливается слияниями: @1d42a672 достижимо 3003 коммита, по первому родителю — 1039,
+      слияний — 645. Поэтому предикат вернёт коммит полосы S1-A1 внутри ветки волны, а не коммит
+      ствола. Если коммит S1-A1 предшествует коммиту S1-A8 (а §3 ставит S1-A1 раньше), файла
+      `notify-drop-approval-test.sh` на C нет, и предикат покраснеет на правильной посадке.
+      Контроль на живом слиянии #2618 (8d70f599834): для файла, добавленного в нём, форма без
+      `--first-parent` вернула 751707a193b — его нет на линии первого родителя (0 вхождений).
+      Форма `git log --first-parent -m --diff-filter=A` вернула само слияние 8d70f599834. Правка:
+      предикат §0 ведётся по `--first-parent -m`. Утверждение Д26 · 4 (5) о коммите ствола от
+      этого верно, неверна только команда в tasks.md.
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета; записи на этот отпечаток ещё нет"
+    command: "sha256sum docs/changes/issue-2919/design.md; ls docs/changes/issue-2919/reviews/class-exposure/revalidation/ | grep -c 80dea"
+    result: "80dea362…fd05b28 — равен заданию и hashes.design_sha256 в change.yaml; записей на отпечаток — 0 (до этой)"
+  - claim: "§11: 65 из 65; строк Д26 — 6"
+    command: "grep -c '^| CX4V-' design.md; grep -oE '^\\| CX4V-[0-9]+' design.md | sort -u | wc -l; grep -c '^| Д26 ·' design.md"
+    result: "65, 65, 6"
+  - claim: "маркеры отсрочки"
+    command: "grep -noE 'TODO|TBD|FIXME|XXX' design.md tasks.md | wc -l"
+    result: "0"
+  - claim: "предикат строки Е7 умеет сказать «нет»"
+    command: "grep -c '^. Е7 .*Состояние: снята решением' design.md; git show dfe2cea05:docs/changes/issue-2919/design.md | grep -c '^. Е7 .*Состояние: снята решением'"
+    result: "1 на 0ea674482; 0 на dfe2cea05"
+  - claim: "имя переменной, прежнее написание, разборщик — как в З21"
+    command: "git -C project/corelib grep -nE 'ApprovalEnv|func ParseApprovals' 34bc810 -- dropguard/preflight.go; git show 34bc810:envknob/envknob.go | grep -n 'func Get' -A3"
+    result: "ApprovalEnv = \"MIGRATOR_DROP_APPROVED\" (:118), LegacyApprovalEnv = \"KACHO_MIGRATOR_DROP_APPROVED\" (:124), чтение envknob.Get(ApprovalEnv, LegacyApprovalEnv) (:475); ParseApprovals режет по запятым и пробельным символам, неразборная запись — ошибка"
+  - claim: "в чартах ствола переменной одобрения нет, файла пробы ещё нет, чарта notify ещё нет"
+    command: "git -C project/kacho grep -c DROP_APPROVED 1d42a672 -- deploy; git ls-tree --name-only 1d42a672 deploy/tests/helm/ | wc -l; git ls-tree 1d42a672 deploy/tests/helm/notify-drop-approval-test.sh; git ls-tree -d --name-only 1d42a672 deploy/helm/"
+    result: "0 попаданий; 53 файла в deploy/tests/helm, notify-drop-approval-test.sh нет (путь свободен); в deploy/helm/ — только umbrella (Е6: кода notify в стволе нет)"
+  - claim: "ствол kacho вливается слияниями — предикат посадки §0 без --first-parent судит не коммит ствола"
+    command: "git -C project/kacho log --oneline origin/main | wc -l; ... --first-parent ... | wc -l; ... --merges ... | wc -l; для файла из слияния 8d70f599834: git log --diff-filter=A --format=%H origin/main -- <f> | tail -1 против git log --first-parent -m --diff-filter=A ..."
+    result: "3003 / 1039 / 645; без --first-parent — 751707a193b (на линии первого родителя 0 вхождений), с --first-parent -m — 8d70f599834 (само слияние)"
+
+not_measurable:
+  - "УК4-36 не прогонялась: чарта notify в стволе нет (Е6), файла пробы нет. Её зелёность и близнец — предмет S1-A8 и S3-C6."
+  - "Накат сноса с одобрением через init-контейнер на базе со строкой ограды не прогонялся по той же причине — предмет УК4-35 и S1-A9."
+
+outcome: "к-коду: CX4V-63 (б) отображён и выдерживает; четыре условия зелёные; одно замечание к маршруту (предикат посадки §0 tasks.md — --first-parent -m) и два условия к коду пробы УК4-36"
+unmapped: []
+return_to_acceptance: []
+questions_to_dispatcher: []
+orders:
+  - to: "автор замысла (tasks.md)"
+    subject: "предикат посадки §0: `git log --first-parent -m --diff-filter=A --format=%H origin/main -- <миграция сноса>.sql | tail -1`"
+    basis: "measurement-discipline §«Предикат — только с контролем»; контроль на слиянии #2618 в measurements"
+  - to: "deploy-engineer (S1-A8, автор УК4-36)"
+    subject: >-
+      УК4-36 утверждает также: (1) нет `KACHO_MIGRATOR_DROP_APPROVED` ни у одного контейнера;
+      (2) переменная задана `value:`, а не `valueFrom`; (3) среди входов есть значение из двух
+      одобрений через перевод строки — рендер остаётся валидным YAML, и значение приходит дословно
+    basis: "code-authoring §«Контракт, который нельзя выразить»; §«Решение и его следствие разнесены»; security.md sec-chart-config-checksum"
+findings_outside_subject: []
