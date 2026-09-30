@@ -27,6 +27,8 @@ SPDX-License-Identifier: BUSL-1.1
 > — **редакция 9 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 2 прохода Д14–Д16. NEGATIVE (B2-1, повтор рода): класс «обязательное поле без держателя отказа» закрыт по **всем** обязательным полям входа справочника, а не по двум названным: у `Resolve` — `namespace`, `audience` (форма не задана), `subject` при `resource`/`self` (пусто или без id после `:`), `resource_refs[i].id`, `audience.account_owner.account_id`; плюс `subject` при `account_owner` — отказ, а не молчаливое игнорирование (`api-accepted-ignored`); у `ListExpiringCredentials` — обязательные границы окна и пустое окно (буквы NTF3-122 (а)–(в)). Порядок проверок входа `Resolve` записан в Р7 (обязательность → форма → вопрос к модели); таблица «Отказ вызова справочника» называет отказ по обязательности в строке `INVALID_ARGUMENT`; держатели — буквы NTF3-118 (а)–(д) и NTF3-120 (а)–(в), каждая с близнецом по одному факту (§10) и производителем (§11, DoD 12.2 п.4); «вопроса к модели нет» наблюдается записывающей подменой двери в пробе службы доступа. Примеры вызова `Resolve` без `namespace` (NTF3-118, 119, 120, 139) дополнены им. Неблокирующие: §1.12 и ссылки на NTF-1 переведены на принятую редакцию 8 @`b347b81f` (правки против @`12a66925` — A09, B20, G19, D04 — ни одной опоры §1.12 не задевают, сверено диффом); близнец по типу NTF3-151 — точная пара строкой `Check {user:usr-ca, reader, notification_recipient_directory:root}` → `false`. Номера сценариев не добавлялись: номеров **158**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > — 2026-09-30 · круг 3 прохода Д14–Д16 · ⛔ ВОЗВРАТ (блокирующих 2: NEGATIVE · TWIN) · SHA-256 `538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d.yaml`
 > — **редакция 10 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 3 прохода Д14–Д16, класс закрыт по переписи отказов из текста решения, а не из заголовка правки (§14а). NEGATIVE (B3-1): ссылок 0 — отказ по обязательности `resource_refs: required`, перенесён в шаг (1) Р7; держатель — NTF3-118 (е), близнец `[{storage_volume, vol-1}]` → `ADDRESS`. TWIN (B3-2): отрицания «101 ссылка» и «смесь типов» вынесены из When NTF3-118 в буквы (ж), (з) с близнецами по одному факту — 100 ссылок → `ADDRESS` против 101; `[vol-1, vol-2]` одного типа → `ADDRESS` против `{storage_volume}` + `{storage_snapshot}`. Перепись всех отказов Р7 записана в Р7: `Resolve` 11, `ListProjectAudience` 3, `ListExpiringCredentials` 4 — у каждого сценарий или буква, строка §10 и производитель §11; дописана недостававшая строка §10 для мусорного `page_token` NTF3-117. Неблокирующие: место записывающей подмены (порт модели сценария использования `Resolve`; вопрос о праве вызывающего задаёт перехватчик слушателя и в счёт не входит) — NTF3-118, NTF3-120, §11; строки §10 для NTF3-151 (точная пара) и NTF3-28 называют тип объекта вместе с отношением и id. Номера сценариев не добавлялись: номеров **158**, снято **7**, живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
+> — 2026-09-30 · круг 4 прохода Д14–Д16 · ⛔ ВОЗВРАТ (блокирующих 2: COVERAGE · NEGATIVE) · SHA-256 `ee6f908e51e245436f50596d0f523dd76647d7f5bb01ad84d26d4ced964ae074` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/ee6f908e51e245436f50596d0f523dd76647d7f5bb01ad84d26d4ced964ae074.yaml`
+> — **редакция 11 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 4 прохода Д14–Д16; класс закрыт по **каждому** списочному методу документа (`ListProjectAudience`, `ListExpiringCredentials`, `NotificationInboxService.List`, `NotificationSubscriptionService.List`), перепись отказов — из текста решения **и** из конвенции каждого поля входа (§14а). NEGATIVE (B4-2): отказы пагинации внутренних списков записаны в Р7 первым стейтментом, до чтения и до замыкания на пустом результате (`api-pagesize`, `api-pagination-before-shortcircuit`); буквы NTF3-117 (а)–(в), NTF3-122 (д)–(з) с близнецами по одному факту (`1001`/`1000`, `-1`/`0`, мусорный курсор / без курсора, в том числе на пустом результате); у публичных списков добавлено `pageSize=-1` и близнецы `1000`/`0` (NTF3-77, NTF3-93); прежние отказы NTF3-117 переписаны буквами (г)–(е); перепись Р7: `ListProjectAudience` 4, `ListExpiringCredentials` 6. COVERAGE (B4-1): порядок и курсор названы — `ListProjectAudience` по id пользователя, `ListExpiringCredentials` `(expires_at, id)`, оба отступления от `api-pagination-cursor` обоснованы; обход до пустого `next_page_token` записан у потребителя (Р7, Р12, Р19) с ручкой `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE` (Р26, `[1, 1000]`, ориентир 500; страж — NTF3-126 по каждой ручке Р26); держатели многостраничного обхода — NTF3-122 (г), NTF3-117, NTF3-73, NTF3-103 (а), NTF3-140 (а), каждый против одностраничного близнеца. Неблокирующие: Р11а (г) называет, что перечисляет только id-поля; таблица Р11а дополнена `vol-2`, `vol-101`…`vol-199`, `prj-2`, `uoc2`…`uoc4`, `soc2` — исход `nil` измерен пробой `TestProbeNTF3IDs2` на corelib @`34bc8104a`. Номера сценариев не добавлялись: номеров **158**, снято **7**, живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задача `PRO-Robotech/kacho#2918` (NTF-3);
 > документ ведётся задачей `PRO-Robotech/kacho-workspace#880`; пакет изменения — `docs/changes/issue-2918/`
@@ -570,19 +572,47 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   `resource_refs` пуст, `resource_refs[i].id`, `account_id`, `subject` при `account_owner`, тип, отношение,
   больше 100, смесь) — держатели NTF3-118 (д), NTF3-120 (без аудитории), NTF3-118 (в), (г) и NTF3-120 (б),
   NTF3-118 (е), (а), (б), NTF3-120 (а), (в), NTF3-28, NTF3-29, NTF3-118 (ж), (з); у `ListProjectAudience`
-  3 (`project_id` пуст, не по форме, мусорный `page_token`) — NTF3-117; у `ListExpiringCredentials` 4
-  (две границы, пустое и длинное окно) — NTF3-122 (а)–(в) и второй вызов.
+  4 (`page_size` вне `[0..1000]`, мусорный `page_token`, `project_id` пуст, не по форме) — NTF3-117 (а)–(е);
+  у `ListExpiringCredentials` 6 (`page_size` вне `[0..1000]`, мусорный
+  `page_token`, две границы, пустое и длинное окно) — NTF3-122 (д)–(з), (а)–(в) и второй вызов.
+  **Перепись отказов берётся из двух источников по каждому полю входа** — из текста решения и из
+  конвенции поля (`page_size`, `page_token` — `api-pagesize`); перепись только по тексту решения
+  отказов конвенции не видит.
+- **Пагинация обоих списков справочника — по конвенции, первым шагом.** `page_size`: 0 — умолчание 50,
+  наибольшее 1000; вне `[0..1000]` — `INVALID_ARGUMENT` с полем `page_size` (не подрезка);
+  `page_token` — непрозрачный (base64 позиции), не разбирается — `INVALID_ARGUMENT` с полем
+  `page_token` (не первая страница). Оба отказа — первым стейтментом сценария использования, до
+  остальной проверки входа, до чтения и до замыкания на пустом результате
+  (`api-pagination-before-shortcircuit`, `api-cursor-codec-single`): мусорный курсор на пустом
+  результате — отказ, а не пустая страница (NTF3-117 (в), NTF3-122 (з)). Право вызывающего
+  (`reader` на справочник) проверяет перехватчик слушателя до сценария использования (как у
+  `Resolve`), пообъектной проверки страницы у этих списков нет. Страница, несущая последний элемент
+  выдачи, отдаёт пустой `next_page_token`; обход до пустого `next_page_token` даёт каждый элемент
+  ровно один раз.
 - `ListProjectAudience{project_id, page_token, page_size}` → субъекты `user:<id>` с действующей
   (не отозванной, не истёкшей) привязкой с субъектом-пользователем на `project:<id>`. Группы не
   раскрываются, привязки аккаунта не входят. Адресов в ответе нет. Пустой `project_id` —
-  `INVALID_ARGUMENT` `project_id: required` до проверки формата (NTF3-117).
+  `INVALID_ARGUMENT` `project_id: required` до проверки формата (NTF3-117). Порядок выдачи — по id
+  пользователя по возрастанию, курсор — позиция последнего выданного id. **Отступление от
+  `api-pagination-cursor` названо:** элемент выдачи — пользователь, выведенный из одной или
+  нескольких привязок, собственного `created_at` у него нет, а пользователь с двумя привязками под
+  курсором `(created_at привязки, id)` выдавался бы дважды.
 - `ListExpiringCredentials{expires_after, expires_before, page_token, page_size}` → действующие
   ключи сервисных аккаунтов и токены пользователей с `expires_at` в `(expires_after, expires_before]`; на
   каждый: вид, id, имя, `expires_at`, адресат (`user:<id>` у токена, `account:<id>` у ключа). Окно
   длиннее 721h (наибольшее допустимое упреждение Р19 + 1h) — `INVALID_ARGUMENT` с полем `expires_before`.
   Границы обязательны: не задана `expires_after` либо `expires_before` — `INVALID_ARGUMENT`
   `expires_after: required` / `expires_before: required`; `expires_before` не позже `expires_after` —
-  `INVALID_ARGUMENT` с полем `expires_before` (пустое окно, а не пустой ответ).
+  `INVALID_ARGUMENT` с полем `expires_before` (пустое окно, а не пустой ответ). Порядок выдачи —
+  `(expires_at, id)` по возрастанию, курсор — эта пара последнего выданного элемента. **Отступление
+  от `api-pagination-cursor` названо:** предикат окна судит `expires_at`, и ключ порядка совпадает с
+  ключом окна; `created_at` учётных данных к окну отношения не имеет.
+- **Потребитель обоих списков — `notify` — проходит все страницы** размером
+  `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE` (Р26) до пустого `next_page_token` с неизменными прочими полями
+  запроса (сводка — Р12, задание напоминаний — Р19). Отказ или недоступность на любой странице —
+  клетка таблицы «Отказ вызова справочника» ниже для всего прохода: письма по уже полученным
+  страницам ставятся, остаток — следующим проходом (однократность Р19 и окно сводки Р12 не дают
+  второго письма).
 
 Исходы `Resolve` (условия в этом порядке; первое невыполненное даёт исход):
 
@@ -788,7 +818,9 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   праве (`api-resourceid-empty`): `target.resource.resource_id`, `target.project.project_id` (Р11),
   `account_id` пути контактов (Р20), `subscription_id` в `Get`/`Delete` (Р25), `project_id`
   `ListProjectAudience`, у `Resolve` — `namespace`, `audience`, `subject` (при `resource`/`self`),
-  `resource_refs[i].id` и `audience.account_owner.account_id` (Р7, порядок проверки входа).
+  `resource_refs[i].id` и `audience.account_owner.account_id` (Р7, порядок проверки входа). Перечень
+  (г) — только id-поля; обязательность не-id полей (`resource_refs: required` — ссылок 0, границы окна
+  `ListExpiringCredentials`) и отказы пагинации записаны в Р7.
   Необязательное id-поле одно — `security.user_id` контакта: пусто — «явного контакта нет» (Р20,
   NTF3-113), это значение, а не отсутствие обязательного.
 - **Исход функции на каждом примере документа измерен**, а не выведен из формы строки: проба
@@ -800,6 +832,7 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   | `v@1`, `p@1`, `a@1`, `u@1`, `xx@` | `INVALID_ARGUMENT` `invalid <res> id '<X>'` | NTF3-90 (в), (м); NTF3-116; NTF3-92; NTF3-117 |
   | `vol@1` | `nil` — слитная форма, `vol` в каталоге | NTF3-88 (ответ линии владельца) |
   | `net-1`, `vol-1`, `vol-20`, `prj-1`, `acc-1`, `usr-A`, `usr-X`, `usr-zzz`, `sva-1`, `reg-1` (часть `reg-1/…` до `/`), `snp-1`, `apl-1`, `plg-1`, `soc1`, `uoc1` | `nil` | NTF3-87, 88, 94, 95, 113, 114 и Given документа |
+  | `vol-2`, `vol-101`…`vol-199` (каждый из 99), `prj-2`, `uoc2`, `uoc3`, `uoc4`, `soc2` | `nil` (досчитано пробой `TestProbeNTF3IDs2` на временной копии corelib @`34bc8104a`, снята после прогона; ошибок 0 из 99 по `vol-101`…`vol-199`) | NTF3-118 (ж), (з); NTF3-117 (в); NTF3-122; NTF3-140 (а) |
   | `""` | `nil` — поэтому (г) | NTF3-90 (н), (о); NTF3-92; NTF3-116; NTF3-117; NTF3-118 (а)–(г); NTF3-120 (а), (б) |
 
   Заполнители id в документе несут приставку каталога вида (`sva` сервисного аккаунта, `snp` снимка,
@@ -819,7 +852,9 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
 
 **Р12. Сводка — за период, по прямой роли, с перепроверкой каждой строки; право своего модуля у каждой строки.**
 - `notify-sender` раз в период адресата (`HOUR` | `DAY`, Р10) собирает события, попавшие в окно, для
-  каждого пользователя из `ListProjectAudience` проектов-якорей этих событий; плюс события,
+  каждого пользователя из `ListProjectAudience` проектов-якорей этих событий (все страницы до пустого
+  `next_page_token`, размер страницы — `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE`, Р7; держатель — NTF3-103 (а));
+  плюс события,
   отведённые в сводку из мгновенных писем (Р13), — их адресату. Окно сводки судится временем
   приёма события `notify` (часы `notify`), а не `occurred_at` источника: часов двух машин сводка не
   сравнивает. Событие, уже отправленное адресату мгновенным письмом, в его сводку не входит (одно
@@ -936,7 +971,11 @@ values с границами и страж старта. Оператор огр
 
 **Р19. Напоминание об истечении ключа и токена — задание `notify` по справочнику службы доступа.**
 - `notify-sender` раз в `KACHO_NOTIFY_CREDENTIAL_REMINDER_INTERVAL` (границы `[5m, 6h]`, ориентир 1h)
-  зовёт `ListExpiringCredentials` на окно `[сейчас, сейчас + наибольшее упреждение]` и для каждого
+  зовёт `ListExpiringCredentials` на окно `[сейчас, сейчас + наибольшее упреждение]` — **все страницы**
+  до пустого `next_page_token`, размер страницы `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE`, границы окна одни
+  на весь проход (Р7; держатель — NTF3-140 (а)); прочитавшее только первую страницу задание теряло бы
+  напоминания класса `security` навсегда: запись однократности учётные данные из окна не убирает, и
+  следующий проход получил бы ту же первую страницу, — и для каждого
   упреждения `L` из `KACHO_NOTIFY_CREDENTIAL_REMINDER_LEADS` (1–3 значения, строго убывающие, каждое в
   `[1h, 720h]`, ориентир `336h,24h`) ставит одно письмо, когда `сейчас ≥ expires_at − L`.
   Однократность — уникальность `(вид, id, expires_at, L)` в базе `kacho_notify`; запись однократности
@@ -1093,6 +1132,7 @@ REST — `/notify/v1/…`, JSON — camelCase; мутации — `Operation` (`
 | `KACHO_NOTIFY_SUBSCRIPTIONS_PER_USER` | `notify` | `[10, 1000]` | 200 | Р11 |
 | `KACHO_NOTIFY_CREDENTIAL_REMINDER_INTERVAL` | `notify` | `[5m, 6h]` | 1h | Р19 |
 | `KACHO_NOTIFY_CREDENTIAL_REMINDER_LEADS` | `notify` | 1–3 значения, строго убывают, каждое `[1h, 720h]` | `336h,24h` | Р19 |
+| `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE` | `notify` | `[1, 1000]` | 500 | Р7, Р12, Р19 |
 
 Не задана, вне границ, не разбирается — отказ старта до подъёма слушателей, сообщение называет ручку
 и границы; значение — строка самоотчёта посадки и `assert-production-posture`
@@ -1775,6 +1815,10 @@ DoD стадии — §12.2. Публичные вызовы `notify` в сце�
 каждой `module = "storage"`, `kind = "Volume"`, `resourceType = "storage_volume"`, `resourceId`,
 `projectId = "prj-1"`, `change`, `initiator`, `occurredAt`, `name`, `position`
 **And** в ответе нет ни состояния ресурса, ни адресов
+**And** обход страниц (Р9): `GET /notify/v1/inbox?projectId=prj-1&pageSize=1` и далее с `pageToken` из
+`nextPageToken` до пустого — страницы `[UPDATED vol-7]` с непустым `nextPageToken`, затем
+`[CREATED vol-7]` с пустым; объединение — те же 2 записи в том же порядке, повторов нет; близнец —
+запрос без `pageSize` (одна страница с обеими, `nextPageToken` пуст)
 
 **Сценарий NTF3-74: не видевшему ресурс лента его событий не показывает**
 **ID:** NTF3-74
@@ -1804,10 +1848,12 @@ DoD стадии — §12.2. Публичные вызовы `notify` в сце�
 **ID:** NTF3-77
 **Given** G0
 **When** `usr-X` (видимых событий 0) вызывает `GET /notify/v1/inbox?pageToken=garbage`, затем
-`?pageSize=1001`
-**Then** оба ответа — 400, `code` `INVALID_ARGUMENT`, поле `page_token` и `page_size` соответственно;
-пустой страницы 200 нет
-**And** близнец: `?pageSize=10` без курсора — 200 с пустыми `items`
+`?pageSize=1001`, затем `?pageSize=-1`
+**Then** все три ответа — 400, `code` `INVALID_ARGUMENT`, поле `page_token`, `page_size` и `page_size`
+соответственно; пустой страницы 200 нет
+**And** близнецы по одному факту: `?pageSize=10` без курсора — 200 с пустыми `items` (против мусорного
+курсора); `?pageSize=1000` — 200 с пустыми `items` (против 1001, не подрезка); `?pageSize=0` — 200 с
+пустыми `items` (против -1)
 
 **Сценарий NTF3-78: событие старше срока хранения снято вместе со снимком имени**
 **ID:** NTF3-78
@@ -2006,6 +2052,9 @@ vpc в `prj-1`, видимой `usr-A`) — формат проходит (famil
 затем `?pageToken=garbage`
 **Then** страницы: 2 + 1 подписка `usr-A`, порядок `created_at, id`; подписок `usr-B` нет
 **And** мусорный курсор — 400 `INVALID_ARGUMENT` с полем `page_token`
+**And** `?pageSize=1001` и `?pageSize=-1` — 400 `INVALID_ARGUMENT` с полем `page_size` (не подрезка);
+близнецы — `?pageSize=1000` и `?pageSize=0`: 200, одна страница с 3 подписками `usr-A`,
+`nextPageToken` пуст
 
 **Сценарий NTF3-94: подписка на проект требует права на проект**
 **ID:** NTF3-94
@@ -2122,6 +2171,12 @@ resourceId: "reg-1/pub"}` (составная форма id, Р11), затем �
 **And** `usr-B` сводки не получает: оба события — его собственные
 **And** `usr-E` (прямая роль на `prj-1`, `v_get` ни на один ресурс) сводки не получает: `Resolve` по обеим
 строкам — `AUDIENCE_DENIED`, пустая сводка не отправляется
+**And** обход аудитории (Р12, Р7): (а) `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE=1`; в окне `net-3` и `vol-3` в
+`prj-1` создал `usr-C` (роль на аккаунте, в аудиторию `prj-1` не входит) — аудитория `prj-1` идёт
+четырьмя страницами по одному субъекту, поэтому `usr-A` и `usr-B` — на разных страницах; `usr-A` и
+`usr-B` получают каждый ровно одно письмо `notify/digest` с 2 строками (`net-3`, `vol-3`); `usr-E` и
+`usr-blk` — ни одного; близнец — то же при `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE=500` (ориентир, одна
+страница): тот же исход
 
 **Сценарий NTF3-104: строки сводки перепроверяются при сборке**
 **ID:** NTF3-104
@@ -2548,11 +2603,26 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 **ID:** NTF3-117
 **Given** G0; дополнительно у `usr-F` привязка на `prj-1` с истёкшим сроком, у `usr-G` — отозванная
 **When** `notify` вызывает `ListProjectAudience{project_id=prj-1, page_size=2}` и проходит все страницы
+до пустого `next_page_token`
 **Then** объединение страниц — ровно `{user:usr-A, user:usr-B, user:usr-E, user:usr-blk}`; нет `usr-C`
 (аккаунт), `usr-D` и `grp-1` (группа), `usr-F`, `usr-G`, `sva-1`; адресов в ответах нет
-**And** мусорный `page_token` — `INVALID_ARGUMENT` с полем `page_token`; `project_id = "p@1"` —
-`INVALID_ARGUMENT` `invalid project id 'p@1'`; `project_id = ""` — `INVALID_ARGUMENT`
-`project_id: required` (не пустая страница)
+**And** обход (Р7): страниц с субъектами две, по 2 субъекта, id по возрастанию внутри и между
+страницами, повторов нет; вторая страница отдаёт пустой `next_page_token`; близнец обхода — тот же
+вызов с `page_size=0` (умолчание 50): одна страница с теми же четырьмя субъектами в том же порядке,
+`next_page_token` пуст
+**And** отказы входа (Р7); база каждой буквы — вызов `ListProjectAudience{project_id=prj-1}` без
+курсора (ответ — четыре субъекта одной страницей), в букве меняется одно поле:
+(а) `page_size=1001` — `INVALID_ARGUMENT` с полем `page_size` (не подрезка до 1000); близнец —
+`page_size=1000`: четыре субъекта одной страницей;
+(б) `page_size=-1` — `INVALID_ARGUMENT` с полем `page_size`; близнец — `page_size=0`;
+(в) `project_id=prj-2` (прямых привязок пользователей на `prj-2` в G0 нет) и мусорный `page_token` —
+`INVALID_ARGUMENT` с полем `page_token`, а не пустая страница; близнец — `project_id=prj-2` без
+курсора: ответ без ошибки, субъектов 0, `next_page_token` пуст;
+(г) мусорный `page_token` — `INVALID_ARGUMENT` с полем `page_token`; близнец — без курсора (база);
+(д) `project_id = "p@1"` — `INVALID_ARGUMENT` `invalid project id 'p@1'`; близнец — `prj-1` (база);
+(е) `project_id = ""` — `INVALID_ARGUMENT` `project_id: required` (не пустая страница); близнец —
+`prj-1` (база)
+**And** в (а)–(е) субъектов в ответе нет
 **And** близнец: после появления прямой привязки у `usr-C` он в ответе есть
 
 **Сценарий NTF3-118: пакетная проверка ссылок — адрес и видимое подмножество**
@@ -2645,6 +2715,18 @@ NTF3-118) фиксирует 0 вопросов к модели за кажды�
 `expires_after: required`; (б) `expires_before` не задана — `INVALID_ARGUMENT` `expires_before: required`;
 (в) `expires_before = t` (равна `expires_after`) — `INVALID_ARGUMENT` с полем `expires_before`; в
 каждой — не пустая страница, учётных данных в ответе нет; близнец — первый вызов (ровно `uoc1`, `soc1`)
+**And** обход страниц (Р7): (г) первый вызов с `page_size=1` и обход до пустого `next_page_token` —
+первая страница `[soc1]` с непустым `next_page_token`, вторая `[uoc1]` с пустым (порядок
+`(expires_at, id)`: t + 5d, затем t + 10d); объединение — ровно `{soc1, uoc1}`, повторов нет; близнец —
+первый вызов (`page_size` не задан, умолчание 50): одна страница `[soc1, uoc1]`, `next_page_token` пуст
+**And** отказы пагинации (Р7), против первого вызова меняется одно поле: (д) `page_size=1001` —
+`INVALID_ARGUMENT` с полем `page_size` (не подрезка); близнец — `page_size=1000`: ровно `soc1`, `uoc1`;
+(е) `page_size=-1` — `INVALID_ARGUMENT` с полем `page_size`; близнец — `page_size=0`: ровно `soc1`,
+`uoc1`; (ж) мусорный `page_token` — `INVALID_ARGUMENT` с полем `page_token` (не первая страница);
+близнец — первый вызов без курсора; (з) окно `(t + 41d, t + 42d]` (учётных данных в нём нет) и
+мусорный `page_token` — `INVALID_ARGUMENT` с полем `page_token`, а не пустая страница; близнец — то же
+окно без курсора: ответ без ошибки, учётных данных 0, `next_page_token` пуст. В (д)–(з) учётных данных
+в ответе нет
 
 #### Группа U. Полоса отсечки NTF-1 на лентах модулей
 
@@ -3032,6 +3114,12 @@ t + 14d (осталось 1d), задание проходит
 `notify` шаблона `credential-expiring` по `uoc1` — 2, форма адресата `subject` `user:usr-A`, класс
 `security`, каждая закрыта `SENT` после `ResolveSend(notify, credential-expiring, enqueued_at)` = `ALLOW`;
 `List-Unsubscribe` в письмах нет
+**And** обход страниц задания (Р19, Р7): (а) `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE=1`; дополнительно `usr-B`
+выпустил токен `uoc4` с `expires_at` = t + 15d — в окне прохода учётных данных две, больше размера
+страницы; в t + 1d задание проходит — два письма: на `a@example.test` по `uoc1` и на `b@example.test`
+по `uoc4`, записей однократности `(токен, uoc1, t + 15d, 336h)` и `(токен, uoc4, t + 15d, 336h)` — по
+одной; через 1h — писем 0; близнец — то же при `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE=2` (обе учётные данные
+на одной странице): те же два письма
 
 **Сценарий NTF3-141: отозванный токен напоминания не получает**
 **ID:** NTF3-141
@@ -3289,14 +3377,29 @@ t + 14d (осталось 1d), задание проходит
 | NTF3-116 (`a@1`) | NTF3-113 | `accountId` — `a@1` (функция отвергает) / `acc-1` |
 | NTF3-116 (пустой `account_id`) | NTF3-113 | `account_id` — `""` / `acc-1` |
 | NTF3-116 (`u@1`) | NTF3-113 | `security.userId` — `u@1` / `usr-A` |
-| NTF3-117 (`p@1`) | NTF3-117 | `project_id` — `p@1` / `prj-1` |
-| NTF3-117 (пустой `project_id`) | NTF3-117 | `project_id` — `""` / `prj-1` |
-| NTF3-117 (мусорный `page_token`) | NTF3-117 | `page_token` — мусорный / не задан (первая страница) |
+| NTF3-117 (а) | NTF3-117 (база) | `page_size` — `1001` / `1000` |
+| NTF3-117 (б) | NTF3-117 (база) | `page_size` — `-1` / `0` |
+| NTF3-117 (в) | NTF3-117 (в), вызов без курсора | при `project_id=prj-2` (субъектов 0) `page_token` — мусорный / не задан |
+| NTF3-117 (г) | NTF3-117 (база) | `page_token` — мусорный / не задан (первая страница) |
+| NTF3-117 (д) | NTF3-117 (база) | `project_id` — `p@1` / `prj-1` |
+| NTF3-117 (е) | NTF3-117 (база) | `project_id` — `""` / `prj-1` |
+| NTF3-122 (д) | NTF3-122 (первый вызов) | `page_size` — `1001` / `1000` |
+| NTF3-122 (е) | NTF3-122 (первый вызов) | `page_size` — `-1` / `0` |
+| NTF3-122 (ж) | NTF3-122 (первый вызов) | `page_token` — мусорный / не задан |
+| NTF3-122 (з) | NTF3-122 (з), вызов без курсора | при окне `(t + 41d, t + 42d]` (учётных данных 0) `page_token` — мусорный / не задан |
+| NTF3-77 (`pageSize=1001`) | NTF3-77 (`pageSize=1000`) | `pageSize` — `1001` / `1000` |
+| NTF3-77 (`pageSize=-1`) | NTF3-77 (`pageSize=0`) | `pageSize` — `-1` / `0` |
+| NTF3-93 (`pageSize=1001`) | NTF3-93 (`pageSize=1000`) | `pageSize` — `1001` / `1000` |
+| NTF3-93 (`pageSize=-1`) | NTF3-93 (`pageSize=0`) | `pageSize` — `-1` / `0` |
 | NTF3-27 (`notify-api`) | NTF3-23 | вызывающий — `notify-api` / `notify-sender` |
 
 Положительные пары, различающиеся одним фактом: NTF3-10 против NTF3-06 (инициатор `usr-B` / `usr-A`);
 NTF3-52 против NTF3-06 (объект есть и неисправен, П3 / объекта нет, глагол отвергнут, П1); NTF3-57
 против NTF3-58 (инициатор — пользователь / компонент); NTF3-108 против NTF3-103 (период `HOUR` / `DAY`).
+Многостраничный обход против одной страницы (размер страницы — единственный изменённый факт, исход
+одинаков; держатель класса «читается только первая страница»): NTF3-117 (`page_size=2` / `0`), NTF3-122 (г)
+(`page_size=1` / не задан), NTF3-73 (`pageSize=1` / не задан), NTF3-103 (а)
+(`KACHO_NOTIFY_DIRECTORY_PAGE_SIZE=1` / `500`), NTF3-140 (а) (`KACHO_NOTIFY_DIRECTORY_PAGE_SIZE=1` / `2`).
 
 ---
 
@@ -3318,12 +3421,12 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 | NTF3-66 | вывод флагов, перечня источников `notify`, требования записи `sourceLimits` и допуска `notify-sender` в политике vpc из одного объявления | `deploy/helm/umbrella` (шаблоны модулей), `deploy/helm/notify/` (перечень, `sourceLimits` — NTF-1 Р10), `deploy/helm/umbrella/templates/networkpolicy-vpc-internal.yaml` (существует, дополняется допуском) | проба рендера `helm template` (С11) |
 | NTF3-68, 69, 71 | функция фундамента: строка журнала + строка `resource-event` в той же транзакции; функция базы для журналов-триггеров | corelib `notify/feed` + `subscription` (новое), `cmd/notifygen` (функция базы), шаблоны `services/<svc>/notifications/resource-event/` (генерируются) | интеграционные пробы модулей (коммит, откат, закрытый набор атрибутов) |
 | NTF3-70 | гейт паритета журнала и ленты | `internal/repohygiene/` (новый) | гейт с инъекционной парой |
-| NTF3-72, 73..79, 158 | приём строки `fanout` (`INGESTED`), лента консоли по позиции приёма, её выдача постранично с проверкой `listauthz` (вызывающий; отказ пакетной проверки — `UNAVAILABLE`), уборщик срока хранения | `services/notify` (sender: приём; api: `NotificationInboxService.List`) (новое); пообъектное сужение страницы — `corelib/listnarrow` (существует) | интеграционная проба `notify` + служба доступа; сквозная проба края для пары статуса и кода |
+| NTF3-72, 73..79, 158 | приём строки `fanout` (`INGESTED`), лента консоли по позиции приёма, её выдача постранично с проверкой `listauthz` (вызывающий; отказ пакетной проверки — `UNAVAILABLE`), отказы `page_size` вне `[0..1000]` и мусорного курсора до права (NTF3-77), обход по `nextPageToken` (NTF3-73), уборщик срока хранения | `services/notify` (sender: приём; api: `NotificationInboxService.List`) (новое); пообъектное сужение страницы — `corelib/listnarrow` (существует) | интеграционная проба `notify` + служба доступа; сквозная проба края для пары статуса и кода |
 | NTF3-80..86, 149 | `NotificationPreferencesService` (Get, `SetEntries`, Update по маске), `NotificationCatalogService.Get`; таблица видов и политика ячеек из класса сборки; таблицы ячеек (уникальный ключ ячейки); освобождение от права модели в ведомости аннотаций | `services/notify` (api), таблица сборки `services/notify/kinds` и шаг `bundle` (новое), `proto/kacho/cloud/notify/v1/` (новое) | интеграционная проба `notify-api` через край; параллельные горутины (NTF3-85); `make -C services/notify bundle` с инъекцией (NTF3-149) |
-| NTF3-87..95, 156 | `NotificationSubscriptionService` с `channel` и составным id цели, проверка обязательности `<field>: required` до формата (Р11, Р11а (г); `ResourceID` пустую строку пропускает — `validate.go:470-471`), проверка формата чужого id `corevalidate.ResourceID` (Р11а; исход на примерах измерен пробой), CAS-счётчик потолка, уникальность `(владелец, цель, канал)`, проверка цели `Check` вызывающего, отображение отказа клиента прав в `UNAVAILABLE`/`PEER_UNAVAILABLE` | `services/notify` (api), proto (новое); `corevalidate.ResourceID` (corelib, существует) | интеграционная проба `notify-api` + служба доступа; параллельные горутины; разрыв пути (С13) |
+| NTF3-87..95, 156 | `NotificationSubscriptionService` с `channel` и составным id цели, проверка обязательности `<field>: required` до формата (Р11, Р11а (г); `ResourceID` пустую строку пропускает — `validate.go:470-471`), проверка формата чужого id `corevalidate.ResourceID` (Р11а; исход на примерах измерен пробой), CAS-счётчик потолка, уникальность `(владелец, цель, канал)`, проверка цели `Check` вызывающего, отображение отказа клиента прав в `UNAVAILABLE`/`PEER_UNAVAILABLE`; отказы `page_size` вне `[0..1000]` и мусорного курсора выдачи (NTF3-93) | `services/notify` (api), proto (новое); `corevalidate.ResourceID` (corelib, существует) | интеграционная проба `notify-api` + служба доступа; параллельные горутины; разрыв пути (С13) |
 | NTF3-153 | проверка сетки `notice` до мгновенного письма, отвод в сводку, `notify_instant_net_deferred_total` | `services/notify` (sender) (новое); сетка — NTF-1 Р10 | интеграционная проба `notify` с управляемыми часами |
 | NTF3-96..102 | мгновенные письма: окна схлопывания, всплеск, потолок пары, исключение собственного действия, правило Р10; метрика `notify_instant_burst_deferred_total` | `services/notify` (sender) (новое) | интеграционная проба `notify` с управляемыми часами и SMTP-приёмником обвязки |
-| NTF3-103..111 | сборщик сводки; шаблон `notify/digest`; `ResolveSend` на строку и на сводку | `services/notify` (sender), `services/notify/notifications/digest/` (новое); `ResolveSend` — NTF-1 | интеграционная проба `notify` + служба доступа на пине, управляемые часы |
+| NTF3-103..111 | сборщик сводки с обходом всех страниц `ListProjectAudience` размером `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE` (ручка Р26, NTF3-103 (а)); шаблон `notify/digest`; `ResolveSend` на строку и на сводку | `services/notify` (sender), `services/notify/notifications/digest/` (новое); `ResolveSend` — NTF-1 | интеграционная проба `notify` + служба доступа на пине, управляемые часы |
 | NTF3-112..116, 157 | `AccountNotificationContactsService`: `account_id: required` и формат до права (Р11а (г), Р20), право `Check` в use-case после формата (Р11а, Р25), годность контакта `Check(user:<id>, v_get, account:<id>)` (Р20), `UNAVAILABLE` при недоступной службе доступа | `services/notify` (api), proto (новое) | интеграционная проба `notify-api` + служба доступа; разрыв пути (С13) |
 | NTF3-06, 43, 52, 129 | сверщик storage: ветви П1/П3/П7 (существуют; каждая Given — строка в `Drifted`) + функции перехода в `ERROR` и выхода из него, ставящие строку сгенерированной `SendVolumeError`…`SendImageRecovered` в той же транзакции (новые) | существующие `reconciler/store.go:127-138` (`Drifted`), `decide.go:102`, `loop.go:198,259-263,312,367-377`, `store.go:192-196,246`; шаблоны — `services/storage/notifications/` | интеграционная проба storage (testcontainers + `blockbackend/fake`: `FailVerb`, `ClearFailures`, прямой вызов глагола порта у фейка, `SetObservedState`), утверждение `Drifted` до прохода |
 | NTF3-07, 53, 54, 130 | определение прежнего состояния тем же оператором записи; постановка только при `CREATING → ERROR` и `ERROR → READY` (Р16); П8; счёт вызовов порта | `reconciler/store.go`; обёртка порта `blockbackend.Backend` в тестовом дереве storage (С4, новая, в не-тестовый код не попадает) | та же проба; вторая запись — две горутины; NTF3-53 — прямой вызов функции перехода |
@@ -3334,7 +3437,7 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 | NTF3-13, 14, 49 | CAS-счётчик окна по получателю и по проекту; счётчик подавления | corelib `notify/feed.Put` (NTF-1) + ключ окна «проект» и `notify_suppressed_total{ns,template,reason,scope}` — **новые** (`PRO-Robotech/corelib#77`), лимиты из `notification.yaml` | интеграционная проба с управляемыми часами и параллельными горутинами |
 | NTF3-132, 138 | исход `SKIPPED(preference)` | `services/notify` (sender) (новое) | интеграционная проба `notify` |
 | NTF3-133..137, 139 | транзакционная терминальная запись ошибки операции + строка `operation-failed`; шаблоны `services/<svc>/notifications/operation-failed/` (генерируются) | corelib `operations` (`markErrorCAS`, `Reconciler`) — изменение; corelib `notify/feed` | интеграционные пробы пяти модулей с посевом осиротевшей операции (С5) и управляемыми часами |
-| NTF3-140..145 | задание напоминаний, однократность `(вид, id, expires_at, L)` в транзакции строки, собственная лента `notify` (миграция `notifygen`, `SendCredentialExpiring`, взятие в процессе), шаблон `notify/credential-expiring` класса `security` с `limits`; `ListExpiringCredentials` | `services/notify` (sender), `services/notify/notifications/credential-expiring/` (новое); служба доступа — внутренний сервис справочника (новое) | интеграционная проба `notify` + служба доступа на пине, управляемые часы |
+| NTF3-140..145 | задание напоминаний, однократность `(вид, id, expires_at, L)` в транзакции строки, собственная лента `notify` (миграция `notifygen`, `SendCredentialExpiring`, взятие в процессе), шаблон `notify/credential-expiring` класса `security` с `limits`; `ListExpiringCredentials` с обходом всех страниц размером `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE` (ручка Р26, NTF3-140 (а)) | `services/notify` (sender), `services/notify/notifications/credential-expiring/` (новое); служба доступа — внутренний сервис справочника (новое) | интеграционная проба `notify` + служба доступа на пине, управляемые часы |
 | NTF3-152 | `identityNamespaces = {kaname, notify}` в гейте сборки и страже старта; `limits` у `security`; инвариант сетки с новым слагаемым | corelib `notify/spec` (валидатор), `services/notify` (постоянная сборки, страж старта) — изменение NTF-1 Р6 (§4) | `make -C services/notify bundle` с инъекцией; интеграционная проба `notify` |
 | NTF3-15, 31, 39 | рендер и отправка `notify` | `services/notify` (NTF-1), шаблоны модулей | интеграционная проба `notify` с SMTP-приёмником обвязки; эталоны `.eml` |
 | NTF3-18, 19 | сигнал подписки storage (`IdlePoll` 2 s, `config.go:261`) и таймер `Claim` `notify` | сервер подписки storage (существует, `serve.go:913`), подписчик и таймер `notify` (NTF-1) | интеграционная проба `notify` + storage с замером t0 → приём |
@@ -3345,7 +3448,7 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 | NTF3-27 (`notify-api`) | отдельная служебная учётная запись и декларация `notifyApi.spiffe`; таблицы звена — только из `notify.spiffe` | `deploy/helm/notify/`, зонтик (декларации) | интеграционная проба службы доступа и storage с сертификатом `notify-api` |
 | NTF3-151, 154 | тип `notification_recipient_directory` в перечне без надзора; перечень звена службы доступа `{ResolveSend}` + три метода; каталог прав методов справочника | `PRO-Robotech/kaname` — декларация перечня типов у двери проверки прав (NTF-1 Р5), перечень звена в композиционном корне (NTF-1 Р2) — изменение; фикстурный пересылающий (С12) — тестовое дерево | интеграционная проба службы доступа (`Check`/вызовы через обработчики); гейт путей надзора с инъекцией (NTF1-F12) |
 | NTF3-150 | формы адресата по пространству (Р27): постоянная сборки `notify`, поле `recipient` шаблона, `feed.ErrRecipientInvalid` у `Put`, отказ `INVALID(recipient_form_not_allowed)` | corelib `notify/feed`, `notify/spec` (изменение), `services/notify` | интеграционная проба `notify` с прямой вставкой (С8); проба `Put`; `bundle` с инъекцией |
-| NTF3-23..29, 48, 117..122 | внутренний сервис справочника: `Resolve` (проверка входа Р7 в порядке «обязательность → лишнее поле → тип/отношение/число» до вопроса к модели: `namespace: required`, `audience: required`, `subject: required` при `resource`/`self`, `resource_refs: required` (ссылок 0), `resource_refs[i].id: required`, `audience.account_owner.account_id: required`, `subject: must be empty for audience account_owner`; ссылок больше 100 и смесь типов — `INVALID_ARGUMENT` `resource_refs` (граница 100 принята); порядок исходов Р7, пакетные ссылки, `self`, `account_owner`, `SUBJECT_INACTIVE`), `ListProjectAudience` (`project_id: required` до формата, Р7), `ListExpiringCredentials` (обязательные границы окна, пустое и длинное окно — отказ); `UserService.Delete` (`user_service.proto:199`, существует) | `PRO-Robotech/kaname`, внутренний сервис справочника (новый); записывающая подмена двери прав — тестовое дерево (образец — `recordingChecker`, `internal/apps/kaname/api/user/invite_authz_test.go:18` kaname @`734f69fb4`, существует) | интеграционная проба в дереве службы доступа (посев пользователей, привязок, учётных данных); счёт вопросов к модели записывающей подменой на порту модели сценария использования `Resolve` в буквах NTF3-118 (а)–(з), NTF3-120 (а)–(в) |
+| NTF3-23..29, 48, 117..122 | внутренний сервис справочника: `Resolve` (проверка входа Р7 в порядке «обязательность → лишнее поле → тип/отношение/число» до вопроса к модели: `namespace: required`, `audience: required`, `subject: required` при `resource`/`self`, `resource_refs: required` (ссылок 0), `resource_refs[i].id: required`, `audience.account_owner.account_id: required`, `subject: must be empty for audience account_owner`; ссылок больше 100 и смесь типов — `INVALID_ARGUMENT` `resource_refs` (граница 100 принята); порядок исходов Р7, пакетные ссылки, `self`, `account_owner`, `SUBJECT_INACTIVE`), `ListProjectAudience` (`project_id: required` до формата, Р7; порядок по id пользователя), `ListExpiringCredentials` (обязательные границы окна, пустое и длинное окно — отказ; порядок `(expires_at, id)`); у обоих списков — разбор `page_size` (`corevalidate.PageSize`, `validate/validate.go:249` corelib @`34bc8104a`, существует) и непрозрачного курсора первым стейтментом, до чтения и до замыкания на пустом результате, `next_page_token` пуст на странице с последним элементом (NTF3-117 (а)–(г), NTF3-122 (г)–(з)); `UserService.Delete` (`user_service.proto:199`, существует) | `PRO-Robotech/kaname`, внутренний сервис справочника (новый); записывающая подмена двери прав — тестовое дерево (образец — `recordingChecker`, `internal/apps/kaname/api/user/invite_authz_test.go:18` kaname @`734f69fb4`, существует) | интеграционная проба в дереве службы доступа (посев пользователей, привязок, учётных данных); счёт вопросов к модели записывающей подменой на порту модели сценария использования `Resolve` в буквах NTF3-118 (а)–(з), NTF3-120 (а)–(в) |
 | NTF3-24..26, 46..48 | исходы Р7 в `notify` (клетки Р24); уборщик ленты storage | `services/notify`, corelib `notify/feed` уборщик (NTF-1) | интеграционная проба `notify` + служба доступа, остановка службы доступа, управляемые часы |
 | NTF3-55, 56 | отображение кода ответа справочника в клетку (таблица Р7) и `notify_recipient_directory_refused_total{ns,code}` | `services/notify`; подмена справочника (С7) — тестовое дерево `services/notify` | NTF3-55 — `notify` + служба доступа; NTF3-56 — `notify` с подменой, перебор кодов из определения gRPC по трём методам |
 | NTF3-30 | REST: прослойка прав края — промах каталога → `403` / `code 7`; gRPC: сервис не зарегистрирован на внешнем слушателе | существующие `gateway/cmd/api-gateway/main.go:1288-1289`, `gateway/internal/middleware/authz.go:813-844`, `authz_util.go:225-232`, `permission_denied_response.go` (`writeHTTPDeny`); `deploy/scripts/assert-ban6-external-isolation.py` | гейт изоляции + сквозная проба края аутентифицированным вызывающим |
@@ -3410,7 +3513,8 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
    края, освобождение настроек в ведомости аннотаций; новый префикс id подписки в каталоге префиксов;
    таблица видов сборки и политика ячеек из класса (Р29); собственная лента `notify` в `kacho_notify` и
    строка `notifications: {namespace: notify, readers: [notify]}` в `services/notify/manifest.yaml`;
-   сборщик сводки и шаблон `notify/digest`; мгновенные письма с окнами Р13 и отводом в сводку при
+   сборщик сводки с обходом всех страниц аудитории (ручка `KACHO_NOTIFY_DIRECTORY_PAGE_SIZE`) и шаблон
+   `notify/digest`; мгновенные письма с окнами Р13 и отводом в сводку при
    сетке `notice`; исход `SKIPPED(preference)`; постоянная сборки форм адресата по пространствам;
    ручки Р26 со стражами старта, строки самоотчёта и `assert-production-posture`;
    гейты `TestMailSecretIsMountedByTheSenderOnly`, `TestNotifyServesNoSendVerb`;
@@ -3427,7 +3531,9 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
    (`Resolve` по Р7 — с проверкой входа до вопроса к модели: отказы `<field>: required` и
    `subject: must be empty for audience account_owner`, `resource_refs: required`; ссылок больше 100 и
    смесь типов — `INVALID_ARGUMENT` `resource_refs`, граница 100 принята; NTF3-118 (а)–(з), NTF3-120 (а)–(в);
-   `ListProjectAudience`, `ListExpiringCredentials`) на внутреннем слушателе без
+   `ListProjectAudience` с порядком по id пользователя, `ListExpiringCredentials` с порядком
+   `(expires_at, id)`; у обоих — отказы `page_size` вне `[0..1000]` и мусорного `page_token` первым
+   стейтментом, пустой `next_page_token` на последней странице, NTF3-117 (а)–(е), NTF3-122 (г)–(з)) на внутреннем слушателе без
    HTTP-привязки; три метода — в перечне звена Д2 на слушателях службы доступа и в каталоге прав с
    `required_relation reader` на `notification_recipient_directory:root`; тип модели
    `notification_recipient_directory` (`reader: [service]`) и его запись в перечне типов без надзора
@@ -3453,7 +3559,8 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
    инициаторе-сервисном аккаунте; обёртка порта со счётом вызовов — в тестовом дереве.
 2. corelib `operations`: транзакционная терминальная запись ошибки со строкой `operation-failed`; пять
    модулей — шаблоны `operation-failed` (генерируются).
-3. `notify`: задание напоминаний, однократность в транзакции строки собственной ленты, шаблон
+3. `notify`: задание напоминаний с обходом всех страниц `ListExpiringCredentials` (NTF3-140 (а)),
+   однократность в транзакции строки собственной ленты, шаблон
    `notify/credential-expiring` (класс `security`, `limits`); `identityNamespaces = {kaname, notify}` в
    гейте сборки и страже старта; инвариант сетки `security` с новым слагаемым.
 4. Гейты NTF-1, которые обязаны видеть новых источников, печатают пять модулей в объёме
