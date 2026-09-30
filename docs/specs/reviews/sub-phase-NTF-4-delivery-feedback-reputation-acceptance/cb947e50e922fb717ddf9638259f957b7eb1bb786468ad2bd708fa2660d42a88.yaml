@@ -1,0 +1,218 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+  revision: 21
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и эта запись шапку не правит. Действующий вердикт выводится из внешнего
+    события и записи ревью: он привязан к отпечатку, а не к слову в заголовке.
+  content_commit: ca32a3ded
+  content_commit_note: >-
+    Редакция 21 внесена коммитом ca32a3ded. `sha256sum` рабочего файла и
+    `git show ca32a3ded:<док> | sha256sum` дают один и тот же отпечаток.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4433
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T16:00:00Z'
+round: 20
+round_note: >-
+  Двадцатый круг документа, второй круг прохода после решений Д23–Д25. Предмет — дельта редакций
+  20 → 21 (`git diff 12ac29577 ca32a3ded -- <док>`: 316 строк добавлено, 50 снято). Она закрывает
+  B19-1 и B19-2 и важные N19-1…N19-3. Сверка с Д1–Д25. Возврат круга 19 к этой редакции не
+  переходит, у неё другой отпечаток.
+previous_rounds:
+  - {round: 19, sha256: e14bb9e7c00681311a5edecc0bd7014f727bb83dd7e8e0d98d3aee5e0ef0b228, verdict: CHANGES_REQUESTED, blocking_count: 2,
+     record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/e14bb9e7c00681311a5edecc0bd7014f727bb83dd7e8e0d98d3aee5e0ef0b228.yaml}
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+blocking_findings: []
+trend_note: >-
+  Блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1 → 0 → 0 → 2 → 0.
+  Класс «обязательство NTF-1 об одном процессе notify после Р22 утверждено только об одном
+  развёртывании» закрыт правилом Р22 по всем обязательствам, а не только двумя экземплярами.
+
+resolution_of_round_19:
+  B19-1:
+    status: закрыт
+    evidence: >-
+      В Р22 появился закрытый перечень ручек NTF-1 у `notify-api`, группы (н1)–(н4), у каждой
+      названа причина. Прочие ручки NTF-1 перечислены как необъявляемые, основание —
+      `api-accepted-ignored`. Держатель группы — проба Р16 (одно объявление ручек NTF-1 на оба
+      загрузчика, сверка в обе стороны, снятие и границы, три новые инъекции; всего их восемь).
+      Добавлены сценарий NTF4-119 и случай (9) рендер-гейта NTF4-117. Оси `DBSSLMode` и `Authz`
+      таблицы Р20 ссылаются на (н3) и (н4). Реплики и PDB: у `notify-api` задано требование с
+      причиной (строка §1 и Р22), гейт `notify-availability-test.sh` судит каждое развёртывание
+      закрытым перечнем, есть NTF4-118 с пятью инъекциями и пустым рендером и DoD S3 п.8в для
+      `values.prod.yaml`.
+  B19-2:
+    status: закрыт
+    evidence: >-
+      (а) Предикат воспроизведён @1d42a6728bf: `grep -nE 'for s in \$[A-Z_]+; do \[ "\$s" = "\$svc" \]'`
+      → 2 (:192, :202). Контроль — переменных из окружения 5 (:118, :124, :151, :187, :219),
+      обходов таблицы 2 (:230, :397), `svc` в разделе C 0. Правило «служба с несколькими строками
+      судится по развёртыванию, голое имя — находка» покрывает оба перечня. NTF4-109 получил
+      варианты (и)/(к) и (л)/(м): отрицания с положительными близнецами, отличие в одном факте.
+      (б) Условие допуска взято из кода. Воспроизведено @734f69fb4: `authorizeAnonymousPeer(ctx)`
+      → caller_authority.go:95, `SANToServiceDomain` → :164, `ServiceNameFromSAN(` →
+      caller_policy.go:366, `svcNamePrefix = "kacho-"` → fgaproxy.go:59. `AuthorizeService` в
+      GatewayFrontedInternalRPCs 0, в ReadFloorRPCs 0; FullMethod в SANRestrictedInternalRPCs 1.
+      Учётки названы (`kacho-notify`, `kacho-notify-api`), есть NTF4-120 и близнец NTF4-121.
+      Координата факта одна: `sed '/^## 29/,$d' <док> | grep -c grpc_register` → 0.
+  N19-1: "закрыт: Р12 и Р22 сужены — `notify_reputation_breach` одним рядом `kind`, метка `object` только у двух метрик перечитывания"
+  N19-2: "закрыт: в Р11 у обеих метрик перечитывания есть `object`"
+  N19-3: >-
+    закрыт. N17-1: у ожидания смены признака есть предел K + `…_SECRET_RELOAD_INTERVAL` + M и
+    исходы «красный» или «не выполнилось» по состоянию `..data` в поде. N17-2: в П1 названы стендовые
+    P = 5 с, D = 30 с, I = 60 с, LEASE_TTL = 30 с, POLL_STALE_MAX = 2 мин,
+    SECRET_RELOAD_INTERVAL = 5 с. Проверено по границам Р16 и С1–С3: I = 12P; P < D; D + P = 35 < 60;
+    STALE_MAX 120 ≥ max(20, 65); LEASE_TTL 30 ≥ max(30, 10) и 30 < 115. Бюджет
+    I + D + 2P + 2M = 160 с сходится с NTF4-74.
+
+non_blocking_findings:
+  - id: N20-1
+    kind: CONVENTION
+    anchors: ["Р22, «Учётка и допуск к kaname», пункт «пол внутреннего слушателя kaname»: «Ни один перечень, сужающий пол дальше, `AuthorizeService` не содержит»"]
+    summary: >-
+      Вывод верен, но состав «перечней, сужающих пол дальше» набран перечислением автора, а не
+      выведен предикатом из цепочки (Д24). Во внутренней цепочке kaname после CallerPolicy стоят
+      ещё три звена: `git show 734f69fb4:cmd/kaname/serve.go | sed -n '/^\tinternalUnary = append(internalUnary,/,/^\t)/p' | grep -c '\.Unary()'`
+      → 4 (internalCallerPolicy, addressGate, internalSystemViewerFloor, internalACRFloor).
+      ACRFloor судит тот же GatewayFrontedInternalRPCs, поэтому он покрыт косвенно. addressGate в
+      документе не назван. Вызов без принципала он пропускает (`address_gate.go`, `judge`: «Принципала
+      нет: судить нечего»), так что вывод не меняется. Держатель NTF4-120 собирает только пол и
+      обработчик, а не всю цепочку корня. Если в ReadFloorRPCs попадёт `AuthorizeService`, проба
+      останется зелёной, красными станут только стендовые NTF4-24…26. Нужно дописать предикат
+      цепочки и исход каждого звена. Держатель можно оставить как есть: стенд этот случай
+      покрывает.
+  - id: N20-2
+    kind: COVERAGE
+    anchors: ["Р20, «Правило гейта после NTF-4»: «Находка по строке notify называет развёртывание»", "assert-production-posture.sh:235 @1d42a6728bf"]
+    summary: >-
+      Отказ «deployment/$dep НЕ РАЗВЁРНУТ» в :235 подсказывает оператору `POSTURE_SKIP="$svc"`.
+      Для notify это `POSTURE_SKIP=notify`, а по новому правилу такое значение само даёт находку.
+      Документ требует, чтобы находка называла развёртывание, но в NTF4-109 нет варианта с
+      неразвёрнутым `notify-api`, который проверял бы текст подсказки. Стоит добавить этот вариант
+      (подсказка — `POSTURE_SKIP="notify-api"`) с близнецом в виде развёрнутого `notify-api`.
+  - id: N20-3
+    kind: FORMAT
+    anchors: ["Р20: «разделу C имя службы не нужно: `… | awk 'NR>=444' | grep -c 'svc'` → 0»"]
+    summary: >-
+      Раздел C на @1d42a6728bf начинается со строки 438 (заголовок `# C. СОХРАНЁННЫЕ НАСТРОЙКИ`), а не
+      с 444. `awk 'NR>=438'` тоже даёт 0, исход не меняется. Координату стоит поправить, чтобы
+      предикат покрывал весь раздел.
+  - id: N20-4
+    kind: FORMAT
+    anchors: ["NTF4-117 (§7, стадия S6)", "DoD S3 п.8г"]
+    summary: >-
+      Случаи (7)–(9) NTF4-117 и сам гейт заводятся в S3 (DoD S3 п.8г), а сценарий записан в разделе
+      стадии S6. Состав по стадиям назван явно, поэтому трассировка не рвётся. Для чтения проще
+      вынести случаи (7)–(9) отдельным ID в S3 либо поставить в S3 ссылку.
+  - id: N20-5
+    kind: SCOPE
+    anchors: ["§1 правило опоры, момент (1) — N19-4 записи круга 19"]
+    summary: "Остаётся за замыслом, как и в круге 19. На приёмку не влияет."
+
+d20_d25_check:
+  D20_3: "соблюдено: все обязательства NTF-1 о процессе notify, которые задевает `notify-api`, в Р22 разведены по развёртываниям"
+  D23: "соблюдено, дельта его не задевает"
+  D24: "соблюдено в утверждениях, указанных в круге 19 (оба перечня гейта, допуск kaname); остаток формы — N20-1, не блокирует: вывод проверен замером"
+  D25: "NTF-4 не задевает"
+
+dispatcher_decisions_check:
+  method: >-
+    Д1–Д13 взяты из wf_8cc21fed-1ec, Д14–Д16 — из wf_f705806c-629, Д17–Д22 — из wf_1721bfc6-e26,
+    Д23–Д25 и роль design-reviewer — из задания этого круга. С каждым сверена дельта 20 → 21.
+  results:
+    D1: "соблюдено: секрет почты один объект у `notify-sender`; у `notify-api` ручки пути его монтирования нет (Р22, вне (н1)–(н4))"
+    D2_D3: "не задеты"
+    D4: "соблюдено: новых рёбер нет; notify→kaname — ребро NTF-1, `notify-api` ходит по нему своей учёткой"
+    D5_D16: "не задеты"
+    D17: "соблюдено"
+    D18_D19_D21_D22: "не задевают"
+    D20: "соблюдено"
+    D23: "соблюдено"
+    D24: "соблюдено (N20-1 — форма)"
+    D25: "не задевает"
+  dispute_lines: "строк спора с Д1–Д25 нет"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — одобрение отпечатка cb947e50. Событие полномочия публикует курьер, его тело — в
+    поле `event_body_for_courier`. Без события одобрение не действует.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 20, блокирующих 0) ·
+    SHA-256 cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+
+measurement:
+  revisions_used:
+    workspace_copy: "issue-880@ca32a3ded"
+    kacho: 1d42a6728bf
+    kaname: 734f69fb4
+    ntf1_pinned: "5f3851113 (sha256 05828e42…, редакция 13)"
+  predicates_reproduced:
+    - "sha256sum <док> → cb947e50…; git show ca32a3ded:<док> | sha256sum → тот же"
+    - "git diff --stat 12ac29577 ca32a3ded -- <док> → 316+/50-"
+    - "уникальных **ID:** NTF4- → 106, повторов 0"
+    - "строк §8 по предикату §1.1 → 39"
+    - "assert-production-posture.sh @1d42a6728bf: сравнений с $svc 2 (:192, :202); переменных из окружения 5; обходов таблицы 2; svc с NR>=444 и с NR>=438 — 0"
+    - "kaname @734f69fb4: caller_authority.go :95, :164; caller_policy.go :366; fgaproxy.go :59; AuthorizeService в GatewayFronted 0, в ReadFloor 0; SANRestricted FullMethod 1; звеньев внутренней цепочки после извлечения личности 4"
+    - "kaname @734f69fb4: moduleCertCtx и TestCallerAuthority_Anonymous_ProdMode_VerifiedModuleCert_Allowed существуют (caller_authority_test.go:63, :211) — фикстура NTF4-120/121 строится"
+    - "SANToServiceDomain(kacho.cloud, spiffe://kacho.cloud/ns/kacho/sa/kacho-notify-api) по коду → (notify-api, true); …/sa/notify-api → (\"\", false)"
+    - "sed '/^## 29/,$d' <док> | grep -c grpc_register → 0"
+    - "гигиена: имена чужих облаков 0, tmp/ 0, TODO/FIXME 0"
+  producer_coverage:
+    result: "первая колонка §8 покрывает все 106 ID (разбор скриптом, пропусков 0)"
+  dod_coverage:
+    result: "DoD (§10) упоминает все 106 ID (разбор скриптом, пропусков 0)"
+  twin_coverage:
+    result: >-
+      Новые отрицания и их близнецы: NTF4-118 — рендер с инъекцией против рендера без неё; NTF4-119
+      (б)–(г) ↔ (а); NTF4-121 ↔ NTF4-120 (отличие в одной приставке учётки); NTF4-109 (и) ↔ (к),
+      (л) ↔ (м); NTF4-117 (7)–(9) — против рендера без инъекции. Отрицаний без близнеца 0.
+  constructibility:
+    seeded: 0
+    of: 106
+    not_executed: 106
+    reason: >-
+      Кода notify нет, стенда и разрешения на посев в задании нет — это «не выполнилось», в
+      зелёное не зачитывается. Given новых сценариев строятся названными фикстурами. NTF4-120/121 —
+      существующая фикстура kaname `moduleCertCtx` и `WithCertIdentityIn` @734f69fb4; исход разбора
+      SAN выведен из кода `SANToServiceDomain`. NTF4-118 и NTF4-117 (7)–(9) — рендер чарта. NTF4-119 —
+      П9 и П11. Стендовый профиль П1 лежит в границах Р16 и выполняет С1–С3.
+
+premise_check:
+  premise: "редакция 21 закрывает B19-1, B19-2 и N19-1…N19-3 без противоречия с Д1–Д25"
+  result: "подтверждена: каждая координата и число возврата воспроизведены командами на своих ревизиях; остаток формы по Д24 (N20-1) вывода не меняет"
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
