@@ -1,0 +1,206 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 01b2888142bdb25baeaf14f4ba9dc56007153bf8eb91410f2b5a5934d9cf2bc5
+  revision: 22
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и эта запись шапку не правит. Действующий вердикт выводится из внешнего
+    события и записи ревью: он привязан к отпечатку, а не к слову в заголовке.
+  content_commit: e80741ed8
+  content_commit_note: >-
+    Редакция 22 внесена коммитом e80741ed8. `sha256sum` рабочего файла на issue-880@5fe7ab451 и
+    `git show e80741ed8:<док> | sha256sum` дают один и тот же отпечаток; `git diff --quiet e80741ed8
+    HEAD -- <док>` → 0, после e80741ed8 файл не менялся. Тот же отпечаток назван в манифесте
+    `docs/changes/issue-2919/change.yaml` полем `hashes.acceptance_sha256`.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4563
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-01T09:00:00Z'
+round: 21
+round_note: >-
+  Двадцать первый круг документа. Предмет — дельта редакций 21 → 22 (`git diff -U0 ca32a3ded
+  e80741ed8 -- <док>`: 170 строк добавлено, 46 снято). Она отвечает на RA-01 и RA-02 пересверки
+  разбора классов на замысел b9149d3c (reviews/class-exposure/revalidation/b9149d3c….yaml, раздел
+  `return_to_acceptance`). Одобрение круга 20 относится к редакции 21 (cb947e50…) и к этой
+  редакции не переходит. Запись создаётся после того, как пакет P097 (2919:X1) уже исполнен по
+  этой редакции: вердикт судит содержимое, а не порядок событий, и порядок здесь не оправдывается.
+premise_check:
+  premise: >-
+    «Записи на отпечаток 01b28881… нет; манифест пакета назван на нём (редакция 22)».
+  result: >-
+    подтверждена: `sha256sum` документа → 01b28881…; `hashes.acceptance_sha256` манифеста — тот же;
+    файла `01b28881….yaml` в каталоге записей до этой записи не было (`ls` каталога — 20 записей,
+    этой среди них нет).
+previous_rounds:
+  - {round: 20, sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88, verdict: APPROVED, blocking_count: 0,
+     record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml}
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+blocking_findings: []
+trend_note: >-
+  Блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1 → 0 → 0 → 2 → 0 → 0.
+
+resolution_of_return_to_acceptance:
+  RA-01:
+    status: закрыт
+    evidence: >-
+      (1) Опоры перезакреплены. NTF-1 — на редакцию 18 `29cfa368…`. `git show dbe97c78c:<файл NTF-1>
+      | sha256sum` → 29cfa368…, отпечаток рабочего файла NTF-1 тот же. Запись — `verdict: APPROVED`,
+      `round: 2`, коммит добавления d18efea9c. NTF-2 — на редакцию 13 `ef9c6801…`: `git show
+      5b9da3c47:<файл NTF-2> | sha256sum` → ef9c6801…, запись `verdict: APPROVED`, коммит добавления
+      f5287bc3d. Второй коммит обеих записей — 939c64dff (событие полномочия): строк `verdict:`,
+      `round:`, `sha256:` он не трогает (`git show --format= 939c64dff -- <запись> | grep -cE
+      '^[-+] *(verdict|round|sha256):'` → 0 у обеих), поэтому правило «коммит записи — коммит
+      добавления» держится.
+      (2) Строка «закрытый словарь исходов»: причина `unclaimed`/`no_ack` у строки без `DEFER`
+      сверена с NTF1-B31 закреплённой редакции (строки 1701–1710): (а) `EXPIRED(unclaimed)`, вклад
+      возвращён; (б) `EXPIRED(no_ack)`, вклад не возвращён; близнец B15 — `EXPIRED(platform_unavailable)`.
+      Строка «точный лимит у источника» и фраза Р17 (строка 1476) говорят то же. Довод «исходы
+      NTF4-80 и NTF4-81 не меняются» верен: `SUPPRESSED` — не `EXPIRED`, а строка NTF4-81 получила
+      `DEFER(platform_unavailable)`, то есть попадает в близнеца B15, а не в B31 (а)/(б).
+      (3) Строка «флаг почты»: `FAILED_PRECONDITION`, `code` `9`, текст `email delivery is not
+      configured in this installation`, `reason` `NOTIFICATION_DELIVERY_NOT_CONFIGURED` — в
+      закреплённой NTF-2 строки 465–466. `MAIL_DELIVERY_DISABLED` в NTF-4 остался только в строке
+      истории сверки (595). Строка «лестница края»: `503`, `code` `14`, `request limiter is
+      unavailable` — NTF2-59 (строка 1657 закреплённой NTF-2).
+      (4) Правило П1/П2 для `503` — «не выполнилось», повтора шага нет, печать статуса, `code` и
+      текста. Так же в DoD, общем для каждой стадии (строки 3686–3690, `503` — строка 3689). Ни один сценарий NTF-4 этот
+      исход не утверждает — предмет остаётся у NTF2-59, и границу предмета это не сдвигает.
+      (5) Координаты соседей в закреплённых редакциях есть все: 23 номера NTF1-… из документа — у
+      каждого `grep -c '\*\*ID:\*\* <номер>'` по NTF-1@dbe97c78c → 1. Номера NTF2-51, 54, 59, 64, 65, 67, 73, 80
+      в NTF-2@5b9da3c47 встречаются 20, 11, 14, 38, 33, 5, 8, 23 раза. `**ID:** NTF1-` — 159,
+      `### Р` — 18, как и заявлено.
+      (6) Сверка NTF-5 для этого момента контура лежит в замысле (design.md:151, исход (в), по
+      `367b9482…`). Приёмку она не меняет, и её место — пакет, как велит правило §1.
+  RA-02:
+    status: закрыт
+    evidence: >-
+      Выбран первый из двух путей RA-02 — граница. Р12 (строки 1225–1231) называет довод: знаменатель
+      и числитель доли живут сроком журнала, и окно длиннее срока было бы
+      `api-accepted-ignored`. В таблице Р16 (строка 1390) стоит `1 ч … 30 сут и не больше
+      …_SENT_LOG_RETENTION`. `…_SENT_LOG_RETENTION` лежит в 7 … 90 сут (строка 1378), поэтому промежутки
+      непусты в обе стороны: окно при сроке 7 сут — 1 ч … 7 сут, срок при окне 30 сут —
+      30 … 90 сут. Поставляемые 24 ч и 30 сут границу выполняют. Обе ручки — стадии S1 и читаются
+      одним загрузчиком `notify-sender` (Р22, строки 1333–1340, 1349), так что производитель отказа
+      один. Держатель — проба `required_knobs_test.go`: подбор пары под проверяемую границу
+      (строка 1426) и инъекция «снятая зависимая граница». Инъекция (срок 7 сут, окно 30 сут —
+      старт) и близнец (окно 7 сут при том же сроке — старт) различаются одним фактом, и итог —
+      девять инъекций. Порядковые номера инъекций согласованы в Р16 (1432), §8 строка «Р16» (3610),
+      DoD S1 п.5 (пять, 3714) и DoD S3 п.7 (шестая, седьмая–девятая, 3777–3780). Устаревших
+      порядковых номеров вне истории правок нет: `grep -nE 'шест[а-я]*[–-]восьм|восьми инъекц'` → 0.
+
+non_blocking_findings:
+  - id: N21-1
+    kind: FORMAT
+    where: "§1 «Сверка при перезакреплении (редакция 22)» (строки 259–261) и §30 (строка 4544)"
+    what: >-
+      Документ пишет: «Каждый из 21 номера NTF1-…, которые называет этот документ» и
+      `grep -oE 'NTF1-[A-Z][0-9]{2}' <этот документ> | sort -u` → 21. На самой редакции 22 этот
+      предикат даёт 23: номера NTF1-B31 и NTF1-D07 добавила эта же редакция. Число снято до
+      собственной правки. Вывод не меняется: у каждого из 23 номеров в NTF-1@dbe97c78c ровно одно
+      `**ID:**`. Число стоит исправить при следующей правке документа, а не отдельной редакцией.
+  - id: N21-2
+    kind: COVERAGE
+    where: "§1.2 (опора на NTF-2); правило опоры §1, момент 2 «перед стартом каждой стадии»"
+    what: >-
+      После коммита редакции 22 у NTF-2 появились четыре более поздние одобренные записи. Коммит
+      добавления каждой — потомок f5287bc3d и не предок e80741ed8: 7a424030… (c3703907a),
+      66b82c1c… (e4d062d57), 229a4379… (f4efe7310), 29b09f14… (7e68ea1c1, 2026-10-01). Рабочий файл
+      NTF-2 теперь даёт 29b09f14…. Документ от этого ложным не становится: он утверждает, на какой
+      редакции стоит. Но по его же правилу опоры в следующий момент контура нужна сверка по строкам
+      §1.2. Каталога `docs/changes/issue-2919/reconciliation/`, куда design.md §0а велит писать исход
+      сверки перед стартом стадии, в пакете нет (`ls` → нет такого каталога), хотя пакет P097 уже
+      исполнен. Стадии S2 (NTF4-16/17) и сквозная часть NTF4-24 стоят на NTF-2. Сверка — работа
+      исполнителя стадии или автора замысла, а не этого круга. У NTF-1 более поздних одобренных записей
+      нет: у всех шести записей `verdict: APPROVED` коммит добавления не потомок d18efea9c, кроме неё самой.
+
+dispatcher_decisions_check:
+  method: >-
+    Д1–Д53 из журналов рабочих процессов сессии. Сверены с дельтой 21 → 22. Дельта вводит только
+    перезакрепление опор, правило «не выполнилось» для `503` края и зависимую границу пары ручек.
+  results:
+    D1_D25: "не задеты; §30 прямо говорит, что Д1–Д25 не переоткрываются"
+    D26_D28: "не задеты (строки отображения замысла и `migrator.dropApproved` — предмет design.md)"
+    D36_D38_D40: "не задевают приёмку (ветки и линия релиза)"
+    D44_D53: "не задеты: они о замыслах NTF-1 и NTF-2; строк NTF-4, которые с ними спорят, нет"
+  dispute_lines: "строк спора с Д1–Д53 нет"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2919
+  role: acceptance-reviewer
+  holder: human-acceptance
+  subject_sha256: 01b2888142bdb25baeaf14f4ba9dc56007153bf8eb91410f2b5a5934d9cf2bc5
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Вердикт — одобрение отпечатка 01b28881. Событие полномочия публикует курьер, его тело — в поле
+    `event_body_for_courier`. Пока события нет, одобрение не действует; недоступность источника —
+    «не выполнилось», а не «да».
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 21, блокирующих 0) ·
+    SHA-256 01b2888142bdb25baeaf14f4ba9dc56007153bf8eb91410f2b5a5934d9cf2bc5
+
+measurement:
+  revisions_used:
+    workspace_copy: "issue-880@5fe7ab451 (документ не менялся с e80741ed8)"
+    ntf1_pinned: "dbe97c78c (sha256 29cfa368…, редакция 18)"
+    ntf2_pinned: "5b9da3c47 (sha256 ef9c6801…, редакция 13)"
+  predicates_reproduced:
+    - "sha256sum <док> → 01b28881…; git show ca32a3ded:<док> | sha256sum → cb947e50… (редакция 21)"
+    - "grep -o '\\*\\*ID:\\*\\* NTF4-[0-9]*' <док> | sort -u | wc -l → 106, повторов 0"
+  dod_coverage:
+    result: "DoD (§10, строки 3680–3921) упоминает все 106 ID: разбор скриптом, пропусков 0"
+  producer_coverage:
+    result: "таблица §8 «Сценарий → производитель» покрывает все 106 ID: разбор первой колонки, пропусков 0"
+  twin_coverage:
+    result: >-
+      Дельта добавила одно отрицание — отказ старта при окне долей длиннее срока журнала. Его
+      близнец — окно, равное сроку, старт; держатель — инъекция Р16. Правило «не выполнилось» для
+      `503` — классификация исхода шага, а не утверждение, и близнеца оно не требует. Отрицаний без
+      близнеца 0.
+  constructibility:
+    seeded: 0
+    of: 106
+    not_executed: 106
+    reason: >-
+      Стенда и разрешения на посев в задании нет. Это «не выполнилось», в зелёное не зачитывается.
+      Given прежних сценариев не менялись: дельта перезакрепляет опоры, но Given и Then сценариев
+      не трогает. Единственное новое условие строится названной фикстурой: пара ручек в окружении
+      загрузчика `notify-sender` в `required_knobs_test.go`. Непустота обоих допустимых промежутков
+      выведена из таблицы Р16.
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
