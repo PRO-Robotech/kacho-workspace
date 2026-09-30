@@ -1,0 +1,182 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 17.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки прежних редакций относятся к своим
+# редакциям и здесь не переписываются. Судится дельта редакции 17 против последней пересверенной
+# (редакция 16, ed2fa203): git diff 63bfbab5c 456d6184f -- docs/changes/issue-2917/{design,tasks,change}.*.
+# Итог: к-замыслу. CX2-80 отображён целиком (М71, З28 (а), (б), (г), §11, §11а УК76, D6), замечания
+# ed2fa203 о строке Е13 §13 и строке NTF-1 §0 исполнены. Новых решений механизма нет. Новый пункт один:
+#   CX2-81 — отображение CX2-80 ввело распознаватель базы вызова и исход «база не установлена — не
+#            выполнилось». Но правило, по которому распознаватель устанавливает базу, не объявлено. Базы в
+#            дереве вычисляются цепочками `cd … && pwd` (HERE → REPO_ROOT → MONOREPO), а для `helmTemplate`
+#            допущено написание «от корня, вычисленного помощником», то есть значение времени исполнения.
+#            У ветки «не выполнилось» нет пробы.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: c98dd9d31b900b64e4cbc0eedade7bb3459335e0812f7057e61cb6a0a51c9a18
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 17
+  commit: 456d6184f
+  route_sha256: 75857cf2f0a8144c…   # tasks.md @456d6184f (sha256sum, первые 16 знаков)
+  previous_judged: ed2fa203ec8a63740987bc27432c4e491cbf7acd64ffad53277decb345ddb40b   # редакция 16, 63bfbab5c
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  effective_verdict: APPROVED
+  initial_records:
+    - docs/changes/issue-2917/reviews/class-exposure/initial/66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a.yaml
+    - docs/changes/issue-2917/reviews/class-exposure/initial/29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014.yaml
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/ed2fa203ec8a63740987bc27432c4e491cbf7acd64ffad53277decb345ddb40b.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 456d6184fa63a21e8a22fd569249a9b6745104d4   # ветка issue-880
+  ntf1_design: 5228b32b212bb08d77bc5e0b400442b6e1bb7b37d8b3d82741b7535e204de7a7   # редакция 30, без изменений
+  ntf1_route: d17ace5cd8674adc5473cea56a5af31b66b0fe7a0898fe37da0a7825fb040ef3   # редакция 31, без изменений
+  kacho: "origin/2564@6edea09c2ee (1276 в 2564 не влита — merge-base → 1)"
+snapshot_at: 2026-10-01
+inspected: >-
+  Дифф 63bfbab5c → 456d6184f целиком (design.md −U0 word-diff, 19 кусков; tasks.md — шапка редакции 17 и
+  строка D6 целиком; change.yaml — 4 куска). Строки: шапка редакции 17, §0 (пересверка ed2fa203, NTF-1),
+  М71, З28 (а), (б), (г), §8 (строка ручки), §11 CX2-68, CX2-77, CX2-80, счёт строк отображения, §11а
+  УК60, УК73, УК76, §13 Е13. Дерево kacho на 2564: `sweep`, `self_test`, `check` и главный вызов
+  lint-service-charts.sh (строки 85–244); `helmTemplate` (render_geo_test.go); `edgeChartDir` и вызов
+  helm (edge_retired_knobs_render_test.go); `REPO` и `render` (check-volume-mounts.py); присваивания
+  HERE/DEPLOY_ROOT/REPO_ROOT/MONOREPO в двух шелл-пробах. Записки vault не читались.
+
+dispatcher_decisions_check:
+  Д52: "держится; дельта уточнила написание аргумента, файл и способ подачи не изменились"
+  Д53: "держится; NTF-1 не изменился (5228b32b / d17ace5c)"
+  Д1–Д51: "дельта их строк не трогает"
+
+mapped_from_previous:
+  - id: CX2-80
+    source: revalidation/ed2fa203
+    where: "М71; З28 (а) перепись, (б) написание по базе каждого семейства, (г) сведение по нормализованному пути; §8; §11 CX2-68, CX2-77, CX2-80; §11а УК60, УК73, УК76; tasks D6 (путь, перепись, проба распознавателя переписи)"
+    held: true
+    check: >-
+      (а)–(г) условия ed2fa203 отображены дословно по смыслу. Пробы (г) стоят в строке D6 маршрута:
+      «проба распознавателя переписи» с близнецами. Замысел добавил сверх заказа находку `sweep`: при `cd` в
+      корень и самопроверке `sweep "$t"` путь `-f` записи читался бы из настоящего дерева. Это прочитано на
+      2564 (строки 118, 139, 195, 232 — `$args` дословно, база — текущий каталог). Проба
+      `--self-test` с файлом, которого нет в копии, построена верно: копия `self_test` синтетическая
+      (`mktemp -d`, `mkchart`)
+  - id: "замечание ed2fa203 «§13 Е13 не называет D6»"
+    where: "§13 Е13"
+    held: true
+  - id: "замечание ed2fa203 «§0, строка NTF-1: вердикта и пересверки нет»"
+    where: "§0, строка замысла NTF-1"
+    held: true
+  - id: "замечание ed2fa203 «запись ведомости с несколькими -f»"
+    held: true
+    note: "остаётся замечанием: второй `-f`-записи в ведомости нет и дельтой не заведено"
+  - id: "CX2-71…79"
+    held: true
+    note: "дельта редакции 17 их строк не ослабляет; CX2-68 (б) и CX2-77 (б) уточнены в сторону CX2-80"
+
+new_items:
+  - id: CX2-81
+    decision: >-
+      Отображение CX2-80 (З28 (а); tasks D6): «аргумент `-f` разрешается от базы своего вызова — текущего
+      каталога процесса… либо корня, от которого вызов строит путь (переменная шелл-пробы, `REPO`)…
+      базу вызова распознаватель не установил — «не выполнилось» с координатой». З28 (б) (1): `helmTemplate`
+      — «от каталога пакета… либо от корня, вычисленного помощником»
+    class: >-
+      testing-verdict п.14 «Твой СОБСТВЕННЫЙ разборщик — тоже распознаватель»: распознаватель базы — свой
+      разбор, и множество форм, которые он разрешает, не объявлено. gate-authoring §«исход вместо
+      объявления»: у исхода «не выполнилось» нет пробы. code-authoring §«Умолчание, которое становится
+      утверждением»: форма, не опознанная как база, склонна молча читаться как «корень»
+    exposure: >-
+      На 2564 базы шелл-проб — цепочки времени исполнения. В `edge-keyset-hop-test.sh` (строки 56–58)
+      `HERE="$(cd "$(dirname "$0")" && pwd)"` → `REPO_ROOT="$(cd "$HERE/../.." && pwd)"` → `MONOREPO="$(cd
+      "$REPO_ROOT/.." && pwd)"`. В `iam-trusted-forwarder-test.sh` (39–41) — HERE → DEPLOY_ROOT → REPO_ROOT.
+      Базы в Python — `REPO = pathlib.Path(__file__).resolve().parents[2]`. «Корень, вычисленный помощником»
+      в Go — возврат функции. Статически установить любую из этих баз распознаватель может только по
+      объявленному правилу вида «имя → каталог». Правила в замысле нет, и два неверных исхода остаются
+      открытыми. (1) Распознаватель не знает имени и честно даёт «не выполнилось» на рабочем написании.
+      Перепись тогда не зеленеет никогда, D6 стоит, и есть соблазн ослабить исход. (2) Распознаватель
+      подставляет неизвестной переменной корень. Проба «`$REPO_ROOT/deploy/…` → `deploy/deploy/…`» ловит
+      это только для REPO_ROOT, а `$DEPLOY_ROOT/…`, `$HERE/…` и Go-вызов неизвестной функции остаются
+      непокрытыми. У исхода «не выполнилось» проба не названа ни в §11 CX2-80, ни в УК76, ни в D6
+      (прочитано), значит ветку можно не написать, и зелёный от этого не изменится
+    condition_on_code: >-
+      (а) Рядом с переписью объявлена таблица баз: по каждому семейству М67 (и по найденному сверх) —
+      выражение базы, которое распознаватель принимает, и каталог, в который оно разрешается. Например:
+      `edge-keyset-hop-test.sh`: `$MONOREPO` → корень, `$REPO_ROOT` → `deploy/`;
+      `iam-trusted-forwarder-test.sh`: `$REPO_ROOT` → корень, `$DEPLOY_ROOT` → `deploy/`;
+      `check-volume-mounts.py`: `REPO` → корень; Go без `Dir` → каталог пакета. Выражение вне таблицы даёт
+      «не выполнилось» с координатой и текстом выражения. Корнем по умолчанию оно не считается. (б) Написание
+      каждого семейства, выбранное D6, есть в таблице. Для `helmTemplate` вариант «корень, вычисленный
+      помощником» либо снят, либо функция помощника названа строкой таблицы. (в) Пробы: написание с базой
+      вне таблицы (`$OTHER/deploy/testdata/…` в шелл-пробе; Go-вызов незнакомой функции) → «не
+      выполнилось» с координатой, не зелёный и не красный. Близнец — то же написание через выражение из
+      таблицы → молчит. Строка таблицы, выражения которой нет ни в одном семействе, → красный (самоистечение)
+    held_by: >-
+      Нужны проба (в) и самоистечение таблицы в строке D6, а их нет. До отображения держится вниманием. Не
+      тихо: перепись без контроля М67 не зеленеет, и неразрешимая база даёт громкое «не выполнилось».
+      Тихий исход — только ветка (2)
+
+remarks:
+  - subject: "`sweep`: переписывание `-f` записи и два потребителя `$args`"
+    text: >-
+      `$args` в `sweep` читают `helm lint` (строка 110) и `helm template` (строки 118, 132). Если путь `-f`
+      разрешать от `<корень>` не в `coords`/`args`, а у одного вызова, то lint в самопроверке прочтёт файл
+      настоящего дерева. Проба `--self-test` («файла нет в копии → красный») покраснеет и при частичной
+      правке, поэтому неверного вердикта это не даёт. Разумно переписывать один раз, там, где собирается
+      `args`. Какие написания флага переписываются (`-f x`, `--values x`, `-f=x`), решает исполнитель.
+      Сегодня в ведомости других `-f`-записей нет. Класса это не даёт.
+
+return_to_acceptance: []
+return_to_acceptance_note: "приёмка 29b09f14 говорит о файле слоя; базу вызова и распознаватель она не задаёт — CX2-81 пункт замысла"
+
+measurements:
+  - claim: "отпечатки предмета и маршрута; рабочее дерево = коммит"
+    command: "sha256sum docs/changes/issue-2917/design.md; git show 456d6184f:docs/changes/issue-2917/{design,tasks}.md | sha256sum"
+    result: "design c98dd9d3… (дерево и коммит совпадают); tasks 75857cf2…"
+  - claim: "строк отображения 81 (заявлено замыслом)"
+    command: "grep -c '^| CX2-' docs/changes/issue-2917/design.md"
+    result: "81"
+  - claim: "проба ветки «база не установлена» в замысле и маршруте"
+    command: "grep -o '[^;]*не установ[^;]*' <строка D6>; grep -n 'не установ' design.md"
+    result: "D6 — 1 вхождение (условие переписи), design — строки 2440, 3321, 3422 (условие); пробы с исходом «не выполнилось» на неизвестной базе нет ни в одном"
+  - claim: "базы шелл-проб и Python — цепочки времени исполнения"
+    command: "git show origin/2564:deploy/tests/helm/{edge-keyset-hop-test.sh,iam-trusted-forwarder-test.sh} | grep -n '^ *\\(HERE\\|REPO_ROOT\\|MONOREPO\\)='; git show origin/2564:.github/scripts/check-volume-mounts.py | grep -n 'REPO *='"
+    result: "keyset-hop 56–58: HERE, REPO_ROOT=$HERE/../.., MONOREPO=$REPO_ROOT/..; forwarder 39, 41: HERE, REPO_ROOT=$DEPLOY_ROOT/..; py 61: REPO = Path(__file__).resolve().parents[2]"
+  - claim: "`sweep` подаёт `$args` дословно, база — текущий каталог; самопроверка — синтетическая копия"
+    command: "git show origin/2564:.github/scripts/lint-service-charts.sh | sed -n 85,245p"
+    result: "lint 110, template 118/132, голый рендер 139; self_test — mktemp -d + mkchart; главный вызов — cd в корень (232), sweep \"$PWD\" (244)"
+  - claim: "Е18 открыта, NTF-1 не менялся"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; grep -c 'CX2-76\\|CX2-77'; grep -c edge.yaml; grep -o 'файлов значений [0-9M]*' tasks.md | sort | uniq -c"
+    result: "5228b32b…, d17ace5c…; 0/0; 0/0; «файлов значений 2» ×2, «M» ×1"
+  - claim: "М69, М70"
+    command: "git -C project/kacho grep -c -i trustedHops origin/2564 -- .; merge-base --is-ancestor origin/1276 origin/2564"
+    result: "вывода нет, код 1; merge-base → 1"
+
+not_measurable:
+  - "поведение распознавателя базы: его нет в дереве. CX2-81 выведен из текста замысла и присваиваний баз на 2564"
+
+outcome: к-замыслу
+unmapped: [CX2-81]
+
+orders:
+  - to: design author (NTF-2)
+    what: "отобразить CX2-81: таблица баз рядом с переписью (выражение → каталог, вне таблицы — «не выполнилось», не корень); написание каждого семейства из таблицы, вариант «корень, вычисленный помощником» снять или назвать функцию; пробы «база вне таблицы → не выполнилось» с близнецом и самоистечение строки таблицы — в §11 CX2-81, §11а, строку D6"
+    basis: "change-graph §4; testing-verdict п.14; gate-authoring §«исход вместо объявления»"
+  - to: design-reviewer, db-architect-reviewer, proto-api-reviewer
+    what: "ревью замысла после отображения CX2-81"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+
+questions_to_owner: []
+class_proposal: "— (одно место; неразрешимая база в основном громкая — это находка замысла, а не класс)"
+single_file_predicate_candidate: "—"
