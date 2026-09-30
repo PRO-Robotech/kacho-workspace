@@ -1,0 +1,172 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 16.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки относятся к своим
+# отпечаткам и здесь не переписываются. По Д22 это дельта: редакция 16 проверена диффом
+# 44505f120 → 58f5c0c2b (design.md +18/−3, tasks.md +9/−3). Редакция 16 — заход отображения по Д26
+# на пересверку 14176770; механизм не меняется (исключение из Д26 для К1, К2 этим заходом не
+# использовано). Проверено:
+#   (1) отображение CX3Q-01 и выдерживание его условий (а), (б), (в);
+#   (2) исполнимость переписанного контроля УК3-65, УК3-66 — замером на кэше пина kacho и прогоном
+#       формы предиката на близнецах;
+#   (3) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 16.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 409f4aee22e4ae8b9b2e51e29bb179e4d9ffada6745661a81bd0ebf00c0606d2
+  fingerprint_predicate: git show HEAD:docs/changes/issue-2918/design.md | sha256sum
+  revision: 16
+  content_commit: 58f5c0c2b
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/1417677098edb3a9dc77918b3198a28a225145264d794a4ad182e0ffadd3d5c4.yaml
+  subject_revision: 15
+  outcome: к-замыслу
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д43 по журналам заданий. Д22 — дельта. Д26 — заход отображения; исключение (механизм только для
+    К1 и К2 ревью замысла 97c51264) этим заходом не использовано: редакция 16 механизм не меняет, дифф
+    состоит из заметки редакции, строки таблицы вердиктов, замера М29, строки §11 CX3Q-01, счёта строк
+    §11 и текста УК3-65, УК3-66 — запись судит её как отображение.
+revisions:
+  workspace: 58f5c0c2b   # HEAD issue-880 при замере = коммит содержимого предмета
+  kacho: 1d42a6728bf     # один модуль, go.work и vendor нет, replace нет; пин corelib v1.8.0 (go.mod:119)
+  corelib: 34bc8104a     # справка М28; имя FailTerminalCAS появится только в X3
+  kaname: cbbac984b      # origin/main; один модуль, пин corelib v1.9.0 (go.mod:8)
+snapshot_at: 2026-09-30T18:09:54Z
+inspected: >-
+  Дифф редакции 15 → 16 (58f5c0c2b) по design.md и tasks.md целиком: заметка редакции 16, строка
+  таблицы вердиктов на 14176770, М29, строка §11 CX3Q-01, абзац счёта строк §11, §11а УК3-65 и УК3-66;
+  tasks.md — заметка редакции 16, Е4, строки X5 и S3-C3. Контекст: З16 — сигнатура FailTerminalCAS
+  (функция пакета, не метод: design.md строка 1011), от неё зависит форма `grep -v 'func FailTerminalCAS('`.
+  Замеры: М29 повторён в kacho @1d42a6728bf; `go list -m -f '{{.Dir}}'` на холодном кэше модулей; форма
+  контроля УК3-65 прогнана на кэше пина и трёх близнецах.
+
+gates:
+  - condition: "каждый пункт первичных разборов и прежних пересверок имеет строку §11"
+    result: green
+    detail: >-
+      Строк §11 с префиксами CX3 и ДР- — 115 (awk по разделу §11 → 115), как объявлено в прозе; CX3Q-01
+      получил строку. Множества УК3 в design.md и tasks.md совпадают (comm -3 → 0 строк).
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Новых сетевых вызовов нет: редакция 16 меняет только форму контроля пробы полосы."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: "Новых sentinel-значений нет; «не выполнилось» — исход пробы полосы, не значение в коде продукта."
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: "grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и 0 в tasks.md."
+
+clean: true
+
+execution_check:
+  summary: "заказ автору 14176770 исполнен; заказ integration-tester перенесён в §11а и строки полос"
+  items:
+    - id: "orders.design-author CX3Q-01 (14176770)"
+      verdict: done
+      where: "строка §11 CX3Q-01, М29, §11а УК3-65, УК3-66; tasks.md строки X5, S3-C3, Е4"
+    - id: "orders.integration-tester УК3-65, УК3-66 в рабочей форме (14176770)"
+      verdict: carried
+      where: "§11а УК3-65, УК3-66 (близнецы: пустое $d, несуществующий каталог, пин ниже тега X3); исполнение — полосы S3-C3, X5"
+
+mapping_check:
+  summary: "CX3Q-01 отображён и выдерживает; новых пунктов нет"
+  holds_now:
+    - id: "CX3Q-01 (а) форма вне рабочего дерева git"
+      reason: >-
+        §11а УК3-65 и УК3-66 называют `grep -rn --include='*.go' --exclude='*_test.go'` по `$d` и
+        равнозначную `git grep --no-index`; `git grep` без `--no-index` прямо назван неисполнимым. М29
+        повторён: в каталоге пина `git grep` → «fatal: не найден git репозиторий» (rc 128), `--no-index`
+        → 3, `grep -r` → 3 на одном имени `markErrorCAS(`.
+    - id: "CX3Q-01 (б) предпосылки до подсчёта, провал — «не выполнилось»"
+      reason: >-
+        Предпосылки названы в порядке: код `go list` 0, `$d` непусто, `test -d "$d"`, объявление имени
+        (`func FailTerminalCAS(` в `$d/operations` → 1; для УК3-66 — `test -d "$d/operations/opsnotify"`).
+        Форма прогнана: пин v1.8.0 → «не выполнилось: объявлений 0» (это и есть «пин ниже тега X3»);
+        `$d` пусто → «не выполнилось»; несуществующий каталог → «не выполнилось»; каталог-близнец с
+        объявлением, двумя вызывающими вне тестов и вызовом в `_test.go` → контроль 2 (тестовый файл
+        исключён, объявление вычтено). Предпосылка «$d непусто» не декоративна: на холодном кэше модулей
+        `go list -m -f '{{.Dir}}'` выходит с кодом 0 и печатает пустую строку (замер с пустым GOMODCACHE),
+        без неё подсчёт по пустому пути дал бы 0 — ровно дефект CX3Q-01. Порядок строк X5 и S3-C3
+        (`go build ./...` до проб) кэш заполняет, поэтому на полосе предпосылка выполняется; на холодном
+        прогоне вне полосы исход «не выполнилось» честный, не красный.
+    - id: "CX3Q-01 (в) форма записана в §11а и в строках полос"
+      reason: "tasks.md X5 и S3-C3 ссылаются на «форму УК3-65 замысла (CX3Q-01)» и повторяют `d=$(go list -m …)`; Е4 — на редакцию 16."
+    - id: "прочие 114 строк §11"
+      reason: "дельта их не трогает; сверено по диффу (изменён только абзац счёта строк)"
+  not_holding: []
+  unmapped: []
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета — редакция 16"
+    command: "git show HEAD:docs/changes/issue-2918/design.md | sha256sum (HEAD 58f5c0c2b)"
+    result: "409f4aee22e4ae8b9b2e51e29bb179e4d9ffada6745661a81bd0ebf00c0606d2"
+    control: "git show 44505f120:docs/changes/issue-2918/design.md | sha256sum → 14176770… (предмет прежней пересверки)"
+  - claim: "строк §11 с префиксами CX3 и ДР- — 115"
+    command: "awk '/^## 11\\. /{f=1;next} /^## 11а\\./{f=0} f' design.md | grep -cE '^\\| (CX3|ДР-)'"
+    result: "115"
+    control: "прочих строк таблицы, кроме разделителя, — 1 (заголовок)"
+  - claim: "М29 воспроизводится"
+    command: "cd kacho && d=$(go list -m -f '{{.Dir}}' github.com/PRO-Robotech/corelib); (cd $d && git grep -n 'markErrorCAS(' -- ':!*_test.go'); (cd $d && git grep --no-index …| wc -l); grep -rn --include='*.go' --exclude='*_test.go' 'markErrorCAS(' $d | wc -l"
+    result: "d = ~/go/pkg/mod/github.com/!p!r!o-!robotech/corelib@v1.8.0; git grep rc 128 «не найден git репозиторий»; --no-index 3; grep -r 3"
+  - claim: "на холодном кэше модулей Dir пуст при коде 0"
+    command: "GOMODCACHE=<пустой каталог> go list -m -f '{{.Dir}}' github.com/PRO-Robotech/corelib (в kacho, GOPROXY=https://proxy.golang.org,direct)"
+    result: "rc 0, вывод пуст, в кэш ничего не скачано"
+    control: "на рабочем кэше — rc 0 и путь каталога пина"
+  - claim: "форма контроля УК3-65 различает три исхода"
+    command: "функция по тексту §11а (предпосылки → подсчёт) на $d пина, на '', на /nonexistent, на каталоге-близнеце"
+    result: "не выполнилось (объявлений 0) · не выполнилось (пустой Dir) · не выполнилось (нет каталога) · контроль=2"
+  - claim: "в kacho и kaname нет go.work, vendor и replace для corelib"
+    command: "git ls-tree -r --name-only <rev> | grep -E '(^|/)go\\.(mod|work)$'; git ls-tree --name-only <rev> | grep -x vendor; go.mod | grep replace"
+    result: "по одному go.mod в корне; vendor нет; replace нет — `go list -m` отдаёт каталог именно закреплённой версии"
+
+not_measurable: >-
+  Числа УК3-65 и УК3-66 на деревьях после X3, S3-C3 и X5 сегодня не получить: имён FailTerminalCAS и
+  RunTerminal нет ни в одном дереве. Их держат пробы полос; форма пробы прогнана выше.
+
+facts_for_dispatcher:
+  - >-
+    Заход отображения исполнен: CX3Q-01 имеет строку §11, М29 повторяется, УК3-65 и УК3-66 переписаны
+    на `grep -r` с предпосылками; прогон формы даёт «не выполнилось» на пине v1.8.0, пустом и
+    несуществующем каталоге и 2 на близнеце с объявлением.
+  - "Новых пунктов нет; неотображённых пунктов нет; механизм не менялся."
+
+outcome: к-коду
+return_to_acceptance: []
+unmapped_items: []
+not_holding_items: []
+new_items_without_mapping: []
+open_decisions: []
+
+orders:
+  - to: integration-tester
+    what: "УК3-65, УК3-66 — исполнить на полосах S3-C3 и X5 в форме §11а с близнецами; заказы записей 350b291d и 14176770 в силе"
+    basis: "testing-verdict.md п.13; §11а замысла"
+
+candidate_predicates: []
+new_class_proposal: "—"
