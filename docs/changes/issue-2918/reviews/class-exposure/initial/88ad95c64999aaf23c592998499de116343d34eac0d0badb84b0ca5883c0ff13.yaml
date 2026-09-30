@@ -1,0 +1,275 @@
+# Экспозиция классов — первичный разбор (initial) под-фазы NTF-3 на редакцию 20.
+#
+# Разбор сделан ДО кода и привязан к отпечатку одобренной приёмки (круг 2 прохода RA-02).
+# По Д22 судится только ДЕЛЬТА против последней разобранной редакции — редакции 18
+# (9fd0cd5e…, запись рядом, append-only). Дельта — редакции 19 и 20: абзац Р2 о пересланном
+# инициаторе, следствие §1.13, строка §7 «Привязка диска», средство С15 в §8, Given и буква (г)
+# NTF3-160, строки §10 и §11. Прочие пункты записей на c26cc7cc (CX3B-*) и 9fd0cd5e (CX3C-*)
+# дельтой не задеты и остаются в силе без переноса.
+# Когда появится design.md, каждый пункт CX3B-*, CX3C-* и CX3D-* должен получить точное
+# отображение в решение замысла, а затем отдельную пересверку на отпечаток замысла
+# (class-exposure/revalidation/<design-sha256>.yaml). Разрешения писать реализацию эта запись
+# не даёт.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13
+  revision: 20
+  content_commit: cbb30df7f
+  lines: 4136
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml
+  verdict_commit: 040f4fe82
+previous_initial:
+  - path: docs/changes/issue-2918/reviews/class-exposure/initial/9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a.yaml
+    subject_revision: 18
+    outcome: вернуть-в-приёмку (RA-02 = CX3C-03)
+    disposition: >-
+      Замечание RA-02 отработано: Р2 называет инициатором пересланный субъект, строка §7 исправлена
+      замером, буква NTF3-160 (г) с близнецом утверждает initiator = user:<начавший> и одну строку
+      ленты на строку журнала, условие буквы строится посевом С15. Условие CX3C-03 (а), (б)
+      теперь держит NTF3-160 (г). CX3C-02 по снятию привязки (volume_repo.go:897, автокоммит)
+      тоже получил наблюдаемое утверждение — строку снятия в (г) с инициатором пользователя.
+      Повторно RA-02 не возвращается. Перепись пересылаемых путей, которой редакция 19 закрыла
+      класс, неполна — см. CX3D-02 / RA-03.
+delta_basis: >-
+  Д22: разобрана дельта редакции 20 против редакции 18 — git diff 2b11e7e8d cbb30df7f по файлу
+  приёмки (63 строки: 55 вставлено, 8 удалено; sha256 на 2b11e7e8d = 9fd0cd5e…, на
+  cbb30df7f = 88ad95c6…). Решения, которые вносит дельта, — DY1…DY5 ниже; пункты CX3D-01…05.
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0 @2d954c352
+dispatcher_decisions:
+  applied: >-
+    Д1–Д22 и registerSharePause = 1. Д22: только дельта; условия к коду — в замысел;
+    вернуть-в-приёмку — только наблюдаемое поведение, которое документ обязан утверждать.
+    RA-03 — именно такой случай: перепись в документе исключает публично конструируемый путь,
+    основываясь на неверном утверждении о дереве, — тот же класс, что RA-02.
+revisions:
+  workspace: 2d954c3522020487b1362d2ca48799988745b2c7
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a   # = v1.9.0
+snapshot_at: 2026-09-30T10:22:17Z
+inspected: >-
+  Приёмка: дифф редакций 19–20 целиком (шапка, Р2, §1.13 — следствия, §7 «Привязка диска», §8 С15,
+  NTF3-160 Given и (г), §10, §11 NTF3-160). Код @1d42a6728bf: storage миграции
+  20260828153423 (storage_outbox_emit, storage_outbox_emit_attachment, четыре триггера) и
+  20260830041500 (новые версии обеих функций), repo/pg/volume_repo.go:700-905 (Attach CAS-insert,
+  disambiguateAttach, Detach), domain/volume.go:130-160 (DeriveStatus), reconciler/loop.go
+  (Run/Once), reconciler/store.go:194; compute api/instance/instance.go:790-880,
+  shared/lro/runop.go, repo/instance_repo.go:364,420-450,476, clients/{storage,vpc_nic,iam}_client.go,
+  перечень триггеров миграций compute; corelib operations/worker.go:455-475,600-630,
+  baggage/baggage.go:51-56, auth/propagate.go:83-110; nlb clients/vpc/*.go (все вызовы vpc),
+  api/loadbalancer/{create.go:560-625,818, delete.go:280-300}, jobs/free_ip_runner.go:455-475;
+  vpc handler/internal_address_allocate_handler.go:120-260, api/address/handler.go:138-200,
+  api/address/{create.go:640, release.go:120-155}, services/addressref/service.go,
+  services/nicinternal/service.go:130-195, repo/helpers/outbox.go; umbrella values.prod.yaml:378-398,
+  1075-1090. Записки vault не читались.
+
+decisions:
+  DY1: "Р2, §1.13 — изменение по вызову другого модуля, пересланному под личностью начавшего, несёт инициатором пересланный субъект; перепись: такой путь, пишущий журнал, один — привязка и снятие привязки диска через compute; вызовы nlb в vpc — чтения"
+  DY2: "§7, §8 С15 — AttachDisk/DetachDisk публичны, состояние инстанса STOPPED строится посевом прямой записью статуса в базе compute обвязки до P0; на стенде буква (г) не утверждается до COMP-2"
+  DY3: "NTF3-160 Given — compute в наборе для всех букв; проход сверщика storage между P0 и чтением журнала не запускается"
+  DY4: "NTF3-160 (г) — привязка и снятие привязки vol-11 дают ровно две строки Volume UPDATED (обе пишет функция базы по строке привязки) с initiator user:usr-A, ноль строк service:/system:, строка ленты на строку журнала; близнец — usr-B с vol-12"
+  DY5: "§11 NTF3-160 — инициатор транзакции storage по (г) берётся из пары CertIdentityExtract → TrustedPrincipalExtract внутреннего слушателя storage, не из сертификата пира"
+
+items:
+  - id: CX3D-01
+    decision: [DY1, DY5]
+    class: "code-authoring §«Умолчание, которое становится утверждением» (чей субъект — инициатор, когда пересылки нет); security-hardening hard-async-carries-initiator; security sec-forwarded-trust-aware-extract"
+    exposure: >-
+      инициатор пересланного вызова берётся из пересланного принципала, но на тех же внутренних
+      методах бывают вызовы без пользователя: фоновое задание nlb освобождает аренду в vpc,
+      пересылая operations.SystemPrincipal() (free_ip_runner.go:465) — субъект без имени
+      компонента. Помощник транзакции vpc, читающий «пересланный субъект», запишет в журнал vpc
+      безликую системную форму, а не system:<компонент> Р2; либо, если форма CHECK её отвергнет,
+      освобождение аренды откатится и задание будет повторять его вечно. Второй исход того же
+      выбора — подставить сертификат пира, когда пересланного принципала нет, — даёт в ленте
+      служебную учётную запись вместо инициатора.
+    condition: >-
+      (а) инициатор транзакции в storage и vpc выставляется ровно из принципала, который вернула
+      trust-aware пара на этом запросе; сертификат пира как источник инициатора не используется ни
+      в одной ветке; при отсутствии принципала помощник транзакции отказывает (CX3C-02 (б)), а не
+      подставляет; (б) каждый отправитель, пересылающий системную личность, пересылает её с именем
+      компонента (auth.SystemPrincipalFor(<служба>, <роль>)), operations.SystemPrincipal() на
+      межмодульных вызовах, пишущих журнал, — 0 (сегодня 1: free_ip_runner.go:465);
+      (в) нормализация пересланного принципала в форму Р2 — та же функция CX3B-26 (а), что и для
+      прямого запроса.
+    held_by: >-
+      (а) для пользователя — NTF3-160 (г); (б) — вниманием, пока нет гейта «системная личность без
+      компонента на межмодульном вызове» (заказ gate-author); путь задания nlb публичным API не
+      конструируется (§7).
+  - id: CX3D-02
+    decision: [DY1]
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения» (перепись по комментарию профиля, а не по вызовам); code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      перепись в Р2, §1.13 и §7 опирается на комментарий профиля установки («nlb — резолв
+      subnet/address/SG/NIC», values.prod.yaml:395) и объявляет вызовы nlb в vpc чтениями.
+      Измерено по вызовам: nlb пересылает личность начавшего (auth.PropagateOutgoing) в три
+      пишущих внутренних метода vpc — CreateOwnedAddress (internal_address_client.go:834),
+      ReleaseOwnedAddress (:501), SetAddressReference (:630, :754). Два из них пишут журнал vpc:
+      CreateOwnedAddress исполняется общим путём публичного Create (address/handler.go:142-165) и
+      пишет Address CREATED (address/create.go:640); ReleaseOwnedAddress пишет Address DELETED
+      (address/release.go:150). Оба конструируются публичным API: NetworkLoadBalancerService.Create
+      с выделяемым адресом (loadbalancer/create.go:597,620 → allocFromCreate →
+      createOwnedAddressAndWait) и NetworkLoadBalancerService.Delete (loadbalancer/delete.go:292 →
+      ReleaseLease). Адрес — проектный, строка журнала vpc доезжает до ленты арендатора; её
+      инициатор документ не утверждает. Замысел, следующий фразе «такой путь один», не поставит
+      на vpc получение инициатора из пересланного принципала и не проверит его.
+    condition: >-
+      (а) замысел перечисляет пересылаемые пишущие пути по вызовам клиента (PropagateOutgoing к
+      не-читающим методам), а не по комментарию профиля; (б) vpc выставляет инициатора транзакции
+      создания и снятия адреса по CreateOwnedAddress / ReleaseOwnedAddress из пересланного
+      принципала (CX3D-01 (а)); (в) комментарий профиля values.prod.yaml:395 правится тем же
+      изменением, чтобы в дереве не осталось двух утверждений о том, зачем nlb в круге vpc.
+    held_by: "нет наблюдаемого утверждения — вернуть в приёмку (RA-03)"
+    return_to_acceptance: true
+  - id: CX3D-03
+    decision: [DY3, DY4]
+    class: "code-authoring §«Решение и его следствие разнесены» (условие буквы производит фоновый процесс, которому в окне буквы работать запрещено)"
+    exposure: >-
+      Given (г) требует дисков «оба READY». В READY том переводит только сверщик storage
+      (reconciler/store.go:194); публичный VolumeService.Create оставляет CREATING. Значит, проход
+      сверщика нужен ДО P0 и запрещён между P0 и чтением журнала (DY3). Если сверщик в обвязке
+      идёт своим тикером (reconciler/loop.go:110 Run), окно зависит от времени, а его запись
+      (под system:<компонент>) даёт строку журнала после P0 — утверждение «строк с инициатором
+      system: — 0» станет красным не из-за продукта. Кроме того, READY — внутреннее состояние:
+      публичный статус такого тома — AVAILABLE (domain/volume.go:139-155), и проверить условие
+      через API можно только им.
+    condition: >-
+      (а) в обвязке (г) сверщик storage не запускается тикером; условие READY производится явным
+      Reconciler.Once до P0 (loop.go:135), после чего Once не вызывается до чтения журнала;
+      (б) проба проверяет условие публичным VolumeService.Get → status = AVAILABLE для vol-11 и
+      vol-12 до P0; (в) в прод-коде не появляется ручки «выключить сверщик» ради обвязки — только
+      конструирование обвязки через New/Once.
+    held_by: "NTF3-160 (г) — «строк service:/system: — 0»; (а), (в) — вниманием по диффу обвязки"
+  - id: CX3D-04
+    decision: [DY2]
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (посев в обход глагола); rule 00-kacho-core ban11-three-outcomes (временная опора без предиката снятия)"
+    exposure: >-
+      С15 — прямая запись статуса строки инстанса мимо домена compute: единственный путь к
+      условию AttachDisk до COMP-2. Посев переживёт свою причину: когда сага запуска доведёт
+      инстанс до RUNNING, прямая запись останется, (г) продолжит проверять привязку к состоянию,
+      которого публичный путь уже умеет достигать, и тихо разойдётся с ним (например, если
+      COMP-2 добавит к переходу обязательные колонки). Посев, не изменивший ни одной строки
+      (статус уже не PROVISIONING), без проверки кардинальности превращает (г) в отказ
+      FAILED_PRECONDITION «Instance must be RUNNING or STOPPED» — красное по поломке обвязки.
+    condition: >-
+      (а) посев — один оператор CAS UPDATE instances SET status = 'STOPPED' WHERE id = $1 AND
+      status = 'PROVISIONING' с проверкой «изменена ровно 1 строка», только в тестовом дереве
+      обвязки; (б) рядом с посевом — причина и предикат снятия на внешнем факте: в не-тестовом
+      коде compute появился переход из PROVISIONING (git grep по instance_repo.go); с этого
+      момента условие (г) строится публичным путём, посев снимается; (в) в прод-коде compute не
+      появляется ни метода, ни ручки для перевода статуса ради пробы.
+    held_by: "Given (г) — InstanceService.Get → STOPPED до P0 (ловит холостой посев); (б) — вниманием, гейта «посев пережил свою причину» нет"
+  - id: CX3D-05
+    decision: [DY4]
+    class: "code-authoring §«Контракт, который нельзя выразить» (число строк журнала на одно действие зависит от того, какие строки трогает глагол)"
+    exposure: >-
+      «ровно две строки Volume UPDATED» держится тем, что привязка и её снятие трогают только
+      volume_attachments (INSERT volume_repo.go:716, DELETE :897), а публичный статус тома
+      вычисляется на чтении (DeriveStatus) — триггер volumes_storage_outbox_emit не срабатывает.
+      Повтор вызова compute (retry.OnUnavailable, storage_client.go:66,94) строк не добавляет:
+      CAS-insert при повторе вставляет 0 строк, DELETE — 0 строк, построчный триггер молчит.
+      Замысел, который при переводе функций на notifygen добавит запись в строку тома
+      (updated_at, колонку статуса, «касание» ради инициатора) или заменит построчный триггер
+      операторным, удвоит строки на привязку либо даст строку на пустом повторе.
+    condition: >-
+      (а) Attach и Detach в storage не пишут в строку volumes; если запись появится, столбец
+      исключается из storage_outbox_payload тем же изменением; (б) триггеры журнала остаются
+      FOR EACH ROW; повтор без изменения строк не даёт строк журнала; (в) новая версия
+      storage_outbox_emit_attachment сохраняет ветку «тома нет — не писать».
+    held_by: "NTF3-160 (г) — «ровно две» и «лишних строк ленты нет»; повтор — нужна проба (заказ)"
+
+measurements:
+  - claim: "Р2/§7: из пересылаемых вызовов журнал пишет один путь — привязка диска; вызовы nlb в vpc — чтения"
+    command: >-
+      git -C project/kacho grep -nE 'PropagateOutgoing' 1d42a6728bf -- 'services/nlb/internal/clients/' ':!*_test.go';
+      git -C project/kacho grep -nE 'cli\.[A-Z][A-Za-z]*\(' 1d42a6728bf -- 'services/compute/internal/clients/' ':!*_test.go';
+      git -C project/kacho grep -nE 'Emit\(ctx, "Address"' 1d42a6728bf -- 'services/vpc/internal/**/*.go' ':!**/*_test.go';
+      чтение vpc address/handler.go:142-200, addressref/service.go (Emit — 0), nicinternal/service.go:130-195 (Emit — 0)
+    result: >-
+      опровергнуто. Пишущих внутренних методов, куда пересылается личность: compute → storage 2
+      (Attach, Detach), compute → vpc 2 (NIC Attach, Detach), nlb → vpc 3 (CreateOwnedAddress,
+      ReleaseOwnedAddress, SetAddressReference). Из 7 журнал пишут 4: storage Attach/Detach
+      (триггер привязки), vpc CreateOwnedAddress (create.go:640, Address CREATED) и
+      ReleaseOwnedAddress (release.go:150, Address DELETED). NIC и SetAddressReference — 0 вызовов
+      эмиттера. Публичные входы двух неучтённых: NetworkLoadBalancerService.Create
+      (loadbalancer/create.go:597,620) и Delete (delete.go:292)
+    control: "положительный контроль предиката — известный путь storage_client.go:69,97 найден тем же приёмом (cli.<Метод>(auth.PropagateOutgoing…)); отрицательный — чтения (Get, ListAttachments, ListByInstance) журнала не пишут"
+  - claim: "NTF3-160 (г): после привязки и снятия — ровно две строки Volume UPDATED по vol-11"
+    command: >-
+      git -C project/kacho show 1d42a6728bf:services/storage/internal/migrations/20260828153423_storage_subscription_journal.sql | sed -n 285,302p;
+      git -C project/kacho show 1d42a6728bf:services/storage/internal/repo/pg/volume_repo.go | sed -n 700,900p
+    result: "подтверждено: Attach — только INSERT volume_attachments, Detach — только DELETE; триггер привязки FOR EACH ROW пишет одну строку Volume UPDATED; строка тома не трогается (CX3D-05)"
+  - claim: "Given (г): диски READY строятся публичным путём до P0 без прохода сверщика после P0"
+    command: "git -C project/kacho grep -nE \"SET state = 'READY'\" 1d42a6728bf -- 'services/storage/internal/**/*.go' ':!**/*_test.go'; чтение reconciler/loop.go:110,135"
+    result: "READY ставит только сверщик (store.go:194); у сверщика есть Once — условие строится явным проходом до P0 (CX3D-03)"
+  - claim: "§7: перехода из PROVISIONING в не-тестовом коде compute нет; DetachDisk состояние инстанса не проверяет"
+    command: "git -C project/kacho grep -n 'SET status' 1d42a6728bf -- services/compute ':!*_test.go'; чтение instance.go:840-880"
+    result: "подтверждено: CAS между существующими состояниями (instance_repo.go:364), DELETING (:476), миграция журнала аудита; DetachDisk зовёт ListAttachments и Detach без GateForAttach"
+  - claim: "Р2/(г): операция compute исполняется под личностью начавшего"
+    command: "git -C project/corelib show 34bc8104a:operations/worker.go | sed -n 455,470p; git -C project/corelib show 34bc8104a:baggage/baggage.go | sed -n 51,56p"
+    result: "подтверждено: контекст исполнителя — context.WithoutCancel контекста запроса, принципал сохраняется, PropagateOutgoing его пересылает"
+
+not_measurable:
+  - "поведение помощника транзакции storage/vpc при пересланном принципале — кода нет; условия CX3D-01, 02 (б), 05 проверяются по диффу"
+  - "полнота переписи пересылаемых пишущих путей: предикат видит вызовы клиента с PropagateOutgoing, а не вызовы, где принципал кладётся другим способом (например, metadata вручную); нижняя граница 7 методов, полноту даёт разбор по графу вызовов (CX3D-02 (а))"
+
+outcome: вернуть-в-приёмку
+return_to_acceptance:
+  - id: RA-03
+    item: CX3D-02
+    anchors: ["Р2 (абзац о пересланном инициаторе)", "§1.13 следствия", "§7 строка «Привязка диска» (последнее предложение)", NTF3-160, "§10", "§11 строка NTF3-160"]
+    what: >-
+      Перепись пересылаемых путей, пишущих журнал, неполна, и неполнота выводит из утверждений
+      публично конструируемый путь. Документ говорит «такой путь один — привязка диска; вызовы nlb
+      в vpc — чтения» (со слов комментария профиля). @1d42a6728bf nlb пересылает личность
+      начавшего в vpc CreateOwnedAddress (Address CREATED в журнале vpc, create.go:640) при
+      публичном NetworkLoadBalancerService.Create с выделяемым адресом и в ReleaseOwnedAddress
+      (Address DELETED, release.go:150) при публичном Delete. Наблюдаемое, которое документ обязан
+      утверждать: событие Address CREATED по адресу, выделенному балансировщику, несёт
+      initiator = user:<начавший создание балансировщика> и даёт ровно одну строку resource-event в
+      ленте vpc; то же для DELETED при снятии; близнец — тот же вызов другим пользователем.
+      Нужно: исправить перепись в Р2, §1.13, §7 командой замера по вызовам клиента (не по
+      комментарию профиля); буква NTF3-160 о пути nlb → vpc с близнецом; строки §10 и §11.
+      Пути задания освобождения nlb (system) наблюдаемого утверждения не требуют — это условие
+      к замыслу (CX3D-01 (б)).
+
+orders:
+  - to: design-author
+    what: "отобразить CX3D-01…05 вместе с CX3B-* и CX3C-* (кроме закрытых CX3B-11, CX3B-24, CX3C-03); CX3D-02 (б), (в) — после RA-03"
+    basis: ".claude/rules/change-graph.md §4; Д22"
+  - to: acceptance-author
+    what: "RA-03"
+    basis: ".claude/rules/change-graph.md §2; Д22"
+  - to: gate-author
+    what: "предикат «межмодульный вызов, пишущий журнал, несёт системную личность без имени компонента» (operations.SystemPrincipal() рядом с PropagateOutgoing к пишущему методу) — CX3D-01 (б)"
+    basis: ".claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п. 1"
+  - to: integration-tester
+    what: "проба повтора Attach/Detach после зафиксированной записи (обрыв ответа storage) — ноль лишних строк журнала и ленты (CX3D-05 (б))"
+    basis: "code-authoring §«Контракт, который нельзя выразить»; gate-authoring §«Отрицание только в паре с положительным»"
+
+candidate_predicates:
+  - name: system-principal-without-component-on-forwarded-write
+    single_file_sign: "в одной функции не-тестового Go — operations.WithPrincipal(ctx, operations.SystemPrincipal()) и вызов клиента, пересылающего личность в пишущий метод"
+    note: "живой положительный близнец в дереве есть (nlb free_ip_runner.go:465); отрицательный близнец — вызов с auth.SystemPrincipalFor — нужно найти в дереве до заведения (.claude/hooks/class-guard/README.md §«Как добавить предикат»); предложение, не запись"
+new_class_proposal: >-
+  кандидат: «перепись поверхности по комментарию конфигурации, а не по вызовам» — наблюдался дважды
+  в этой приёмке (RA-02: субъект привязки диска объявлен служебным; RA-03: вызовы nlb в vpc объявлены
+  чтениями по комментарию профиля), но оба — в одном документе и одном предмете, то есть один
+  экземпляр по порогу code-authoring §«Механизм накопления опыта». Не заводится; при втором
+  независимом месте — запись в measurement-discipline §«Радиус: по имени механизма и по точкам
+  применения» через tooling-maintainer.
