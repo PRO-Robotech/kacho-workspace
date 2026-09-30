@@ -1,0 +1,140 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425
+  revision: 16
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  content_commit: e85e4311cc4b34d1092f284a534d39d09445578e
+  content_commit_note: >-
+    Редакцию 16 внёс коммит e85e4311c. Последняя разобранная редакция — 15 (0a9f1fc6…, коммит
+    2ef21d90b, запись круга 1 прохода Д20). По Д22 судится только дельта 15 → 16:
+    git diff 2ef21d90b e85e4311c — 41 вставка, 21 удаление.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3938
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T10:30:00Z'
+round: 2
+round_note: >-
+  Круг 2 прохода «Д20». Действуют Д1–Д22 и принятое registerSharePause = 1. Редакция 16 отвечает на
+  возврат круга 1 прохода Д20 (D20-1, PRODUCER) и на его неблокирующие.
+previous_rounds:
+  - round: 1
+    pass: Д20
+    sha256: 0a9f1fc62c59f0f8c78154d6229ec4da5a0b181da2b5e00e05f984e67a464c41
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/0a9f1fc62c59f0f8c78154d6229ec4da5a0b181da2b5e00e05f984e67a464c41.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+repeated_kinds: []
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD → 0
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует. Тело для курьера — в поле `event_body_for_courier`. Пока событие
+    не опубликовано, одобрение не действует: роль в этой записи — координата, а не полномочие.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2 прохода Д20, блокирующих 0) ·
+    SHA-256 c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425
+
+measurement:
+  scenario_ids: 159
+  duplicate_ids: 0
+  producer_rows_missing: [8, 41, 42, 44, 45, 123, 124]
+  producer_rows_missing_note: >-
+    Строки §11 нет ровно у 7 снятых номеров. У каждого из 152 живых сценариев строка §11 есть. В §10
+    появилась строка NTF3-159 (г) с близнецом (в).
+  producer_predicate: >-
+    python3: номера «**ID:** NTF3-N» против первого столбца строк «| NTF3-…» между «## §11» и
+    «## §12» (диапазоны «..», «…», «–» и перечни раскрыты, буквы в скобках отброшены);
+    разность = {8, 41, 42, 44, 45, 123, 124}, лишних строк 0.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|yandex|\baws\b|\bgcp\b|azure|google cloud' по документу → 0;
+    grep -c '/home/' → 0
+  d16_predicate: >-
+    git ls-tree -r --name-only origin/main | grep -c NTF-3-kacho-modules → 0
+  ntf4_anchor: >-
+    git show b1e19abd9:docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md |
+    sha256sum → 53f865d8e4f2…; сверено: NTF4-30 пары края не называет (утверждает через
+    assert-ban6-external-isolation.py); Р7 — путь `POST /notify/v1/suppressions:lookup`, право
+    `notify.suppressions.get` (`system_viewer`) на `cluster`; самоотчёт Х5 — `listener_form =
+    internal_only`, `public_mtls = false`, `internal_mtls = true` (строки 1333, 2405).
+  edge_chain_at_1d42a6728bf: >-
+    allowlist/list.go:482-499 HasInternalSuffix: имя сервиса с приставкой `Internal` и окончанием
+    `Service` → true, значит `InternalNoSuchService` отказ маршрута получает;
+    proxy/route_refusal.go:53,60 — отказ NotFound «unknown method: %s» с полным именем метода.
+    REST: main.go:1285-1289 — authzMW.HTTP обёрнут вокруг httpMux; authz.go:465-537 — HTTP-звено
+    прав, отказ пишется writeHTTPDeny; authz_util.go:225 resolveRestFQN берёт имя из
+    сгенерированной таблицы rest_route_table_gen.go, где Internal-маршруты есть (53 строки с
+    `Internal`), иначе из пути; промах каталога — тоже outcomeDeny (authz.go:813-844). Исход (д)
+    для вызывающего без права — 403 / code 7 при любом из двух путей резолва.
+    allowlist/parity_test.go:407-423 TestAllowlist_NoInternalRPCIsRoutable (третья разность) и
+    proxy/server.go:95 (HasInternalSuffix в Resolver) существуют; restmux/external_refusal_shape_test.go
+    существует.
+
+premise_check:
+  task_premise: >-
+    Посылка задания о журнале wf_8cc21fed-1ec («первая строка type=started, поле prompt») в прошлых
+    двух кругах опровергнута: поля prompt у строки type=started нет. В этом круге журнал не
+    перечитывался. Д1–Д16 сверены по записям прошлых кругов, Д17–Д22 — по тексту задания.
+  premise_last_reviewed: >-
+    Посылка «круг 2 прохода Д20, последняя разобранная — редакция 15» подтверждена: запись
+    0a9f1fc6….yaml — круг 1 прохода Д20, коммит e242674fd; git show 2ef21d90b:<документ> | sha256sum
+    → 0a9f1fc6…; следующий коммит документа — e85e4311c (редакция 16).
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: notify, его контракта и справочника в дереве нет, стенд заданием не назван.
+    Новые Given дельты проверены чтением кода края на ревизии 1d42a6728bf, которую называет сам
+    документ. (г) — имя проходит HasInternalSuffix, отказ маршрута стоит до звена прав: NotFound
+    «unknown method: /kacho.cloud.notify.v1.InternalNoSuchService/Get», Check 0 — сходится.
+    (д) — вызывающий usr-A без system_viewer на cluster: звено прав края перед httpMux отказывает
+    403 / code 7, до диспетчера REST вызов не доходит — сходится. Исход по посеву — «не выполнилось»,
+    а не «зелёный».
+  confirmed:
+    - "D20-1 закрыт. NTF3-159 (г) переведена на имя в форме Internal* (`InternalNoSuchService/Get`): (в) и (г) производит одна функция отказа маршрута по приставке имени, ответы совпадают по коду и тексту с точностью до имени метода. Строка §10 для (г) с близнецом (в) есть, отличие — только существование метода. Р8 и §11 фраз «метод, которого нет» и «резолвер для метода вне перечня» больше не несут. Свойство «запись Internal* в перечне маршрута не открывает» отнесено к третьей разности parity_test.go и предикату приставки в Resolver."
+    - "Неблокирующие круга 1 выполнены: NTF3-127 утверждает ключ `listener_form = internal_only` и `public_mtls`/`internal_mtls` в согласии с NTF-4; отказ старта при адресе публичного слушателя — проба процесса, в §11 названа отдельно от гейта рендера. NTF3-159 (д) называет путь, тело и пару 403 / code 7 с производителем. Р8 ссылается на держателя перечня. §2.1 несёт строки Д21 и Д22; перечень Д21 отнесён в замысел пакета (Д22)."
+    - "Д17–Д22 и registerSharePause = 1: противоречий в дельте нет. Д19 и Д18 следствий для NTF-3 не имеют; Д21 для NTF-3 — объявление required/optional атрибутов шаблонов модулей, перечень по путям вызова в замысле; шаблона invite NTF-3 не заводит."
+    - "Счёт 159 / 7 / 152 сходится, у каждого живого сценария есть строка §11, гигиена 0, файла в origin/main нет (Д16)."
+  refuted: []
+
+blocking_findings: []
+
+non_blocking_findings:
+  - "NTF3-159 (д) держит «Internal*-путь не доходит до notify» только для вызывающего БЕЗ права метода: 403 даёт звено прав до диспетчера. Край, ошибочно смонтировавший REST-маршрут `InternalSuppressionService` на внешнем mux, на (д) тоже зелёный. Р8 (строка «до notify не доходят (NTF4-30; NTF3-159 (д))») и §11 (производитель (д) — «и классификация путей Internal* … не пускающая путь к notify») приписывают букве свойство, которое она не проверяет. Свойство при этом удержано: гейт assert-ban6-external-isolation.py (NTF4-30) и проба края external_refusal_shape_test.go названы в §11. По Д22 наблюдаемый исход в документе есть, поэтому возврата нет. При следующей правке: либо добавить букву с вызывающим, у которого есть `notify.suppressions.get` на cluster (близнец (д), отличие — только право; исход — отказ диспетчера, счётчик notify без изменений), либо снять (д) из держателей классификации в Р8 и §11."
+  - "NTF3-159 (д) цитирует `main.go:1286-1289`. Обёртка authzMW.HTTP стоит на строках 1288-1289, 1286 — idempotency. Координату стоит сузить."
+
+method_verdict: >-
+  Возврат круга 1 прохода Д20 закрыт. D20-1 закрыт переписью всех мест, где документ утверждает отказ
+  края на внешнем входе и называет его производителя. Новая буква (г) сверена с HasInternalSuffix и
+  route_refusal.go @1d42a6728bf, буква (д) — с цепочкой REST края. Неблокирующие выполнены. Судилась
+  только дельта 15 → 16 (Д22). Блокирующих нет. Замечание о силе (д) как держателя классификации
+  путей неблокирующее, потому что свойство держат гейт ban06 и проба края. Конструируемость показана
+  чтением производителей на названной ревизии, не посевом: посеять notify нечем.
