@@ -1,0 +1,184 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014
+  revision: 27
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: a6afb1e3e
+  content_commit_note: >-
+    Редакцию 26 внёс коммит 2acd87de8 (отпечаток 73af9345…95b6, вердикта на неё нет), редакцию 27 —
+    a6afb1e3e. Судится дельта 25 → 27 (git diff af0c93274 a6afb1e3e по документу, 57 вставок,
+    21 удаление) против B1 и N1–N4 круга 2 прохода RA-04/RA-05 (запись 71532f42….yaml) и против
+    Д1–Д27.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum <путь> и git show HEAD:<путь> | sha256sum @6464ba4aa (HEAD ветки на момент ревью,
+    документ после a6afb1e3e не менялся) — оба дают 0ce5883b…0014
+  fingerprint_reproduced: true
+  lines: 4756
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T16:00:00Z'
+round: 1
+round_note: >-
+  Круг 1 на редакцию 27 (после Д27). Действуют Д1–Д27. Координаты дельты сверены: kacho
+  @1d42a6728bf (releaseAndDelete — services/compute/internal/apps/kacho/api/instance/instance.go:958,
+  ListByInstance :960, ListAttachments :971, repo.Delete :981), трекер — gh 2026-09-30.
+previous_rounds:
+  - pass: RA-04/RA-05
+    round: 2
+    sha256: 71532f425e72cc0f22a051cb628d682076cf7406455c37905072644bd9f7e2c8
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/71532f425e72cc0f22a051cb628d682076cf7406455c37905072644bd9f7e2c8.yaml
+prior_blocking_disposition:
+  - id: B1 (круг 2)
+    status: partially_closed
+    note: >-
+      Номер вписан: PRO-Robotech/kacho#2933 открыта (gh issue view 2933, state OPEN). Правка сужения
+      из под-фазы снята по Д27, доделыватель наследует исход публичного Delete (Р2, §1.14, §6).
+      Буква NTF3-164 (д) снята чисто: NTF3-164 в редакции 27 побайтово совпадает с редакцией 25
+      (извлечение блока сценария из af0c93274 и a6afb1e3e, diff пуст). Остатков usr-C, ins-d, ins-v,
+      nic-d, nic-v в сценариях NTF3-164, §10, §11 и DoD нет. Но у названной задачи нет предмета
+      дефекта корректности, который ей передан, — см. B1 этого круга.
+  - id: N1 (круг 2)
+    status: closed
+    note: "Строка §10 NTF3-164 (б) называет снятие пообъектных записей на ins-r, vol-r, nic-r."
+  - id: N2 (круг 2)
+    status: closed
+    note: "С1 называет снятие пообъектных записей субъекта на объекте посевом."
+  - id: N3 (круг 2)
+    status: closed
+    note: "NTF3-163 (г) объясняет строку CREATED у lb-g до P0."
+  - id: N4 (круг 2)
+    status: open_non_blocking
+    note: "N3–N4 круга 1 дельта не трогает."
+blocking_count: 2
+blocking_kinds_distinct: [CONVENTION]
+blocking_findings:
+  - id: B1
+    kind: CONVENTION
+    anchor: "§6, пункт «Сужение ListByInstance у vpc … и видимость зеркала networkInterfaces» (строки 1944-1953); §1.14 (строки 712-722); Р2 (строки 841-851)"
+    what: >-
+      Документ передаёт задаче #2933 два предмета: модель видимости зеркала networkInterfaces и дефект
+      корректности. Дефект такой: снос при расхождении видимостей удаляет строку инстанса, хотя
+      интерфейс к нему привязан. Задача несёт только первый предмет. В её теле (gh issue view 2933
+      -R PRO-Robotech/kacho --json body, 2026-09-30) есть признак, предмет и предикат о видимости
+      зеркала. Там нет ни releaseAndDelete, ни исхода «интерфейс привязан к несуществующему
+      инстансу», ни пробы сноса. DoD задачи допускает «письменный отказ от расширения». Предикат
+      снятия в §6 («#2933 закрыта приёмкой с вердиктом о модели сужения ListByInstance и видимости
+      зеркала») такой отказ тоже выполняет. Сценарий: #2933 закрыта отказом от расширения, строка §6
+      снята, а удаление строки инстанса при привязанном интерфейсе остаётся в двух путях без
+      держателя — в публичном Delete (instance.go:958-981 @1d42a6728bf) и, после NTF-3, в проходе
+      доведения снятия (Р2). Предмет отложенного назван задачей, которая его не несёт. Это тот же
+      класс, что B1 круга 2 (ban #11, третий исход без ответственного).
+    fix: >-
+      Дерево менять не нужно, одного из двух достаточно. (1) Дописать в #2933 дефект корректности:
+      признак (снос при v_get на инстансе и без v_get на интерфейсе удаляет строку инстанса, интерфейс
+      остаётся привязанным), пробу сноса при расхождении видимостей с близнецом и запрет закрывать
+      задачу отказом, пока исход в дереве. Предикат снятия в §6 переписать так, чтобы отказ от
+      расширения его не выполнял. (2) Завести отдельную задачу о корректности (area:compute либо
+      area:vpc) с этим признаком и пробой. Вписать её номер в §6, §1.14 и Р2 рядом с #2933 и
+      привязать предикат снятия к ней.
+  - id: B2
+    kind: CONVENTION
+    anchor: "§6, пункт «Письмо о переходе в ERROR не из CREATING (П4, П5, П6)» (строки 1934-1942)"
+    what: >-
+      Пункт сам себя объявляет блокирующим: «номер вписывается сюда до одобрения; без номера строка —
+      блокирующая». Номера нет. В трекере такой задачи тоже нет: gh issue list -R PRO-Robotech/kacho
+      --state all --search по «сверщик storage», «недостижим», «Drifted», «storage ERROR», «переход в
+      ERROR», «Volume ERROR», а также все задачи, созданные 2026-09-30 (последняя — #2933), дают 0
+      подходящих; #922 о клейме строк, не о переходах. Редакция 27 пункт не трогала. Это дефект
+      корректности сверщика storage без предмета — третий исход ban #11 без ответственного.
+    fix: >-
+      Завести задачу о корректности (area:storage: переход в ERROR не из CREATING не имеет
+      производителя; предикат — производитель строки READY либо DELETING → Drifted в дереве).
+      Вписать её номер в пункт §6 и снять фразу «номер вписывается до одобрения».
+
+non_blocking_findings:
+  - id: N1
+    anchor: "Р2 (строки 847-849) против §6 (строки 1946-1948)"
+    what: >-
+      Р2 говорит, что исход сноса при расхождении видимостей документ «не утверждает ни в одну
+      сторону». Пункт §6 его утверждает: «получает по интерфейсу пустую страницу и удаляет строку
+      инстанса». По коду верно второе. Привести Р2 к одной форме: исход известен и назван в §6, но
+      сценарием под-фазы не держится.
+  - id: N2
+    anchor: "маршрут класса"
+    what: >-
+      Род CONVENTION с классом «отложенная работа без предмета в трекере» повторился третий круг
+      подряд (круг 2 B1, этот круг B1 и B2). По §14а класс переезжает в форму задания автору: перед
+      сдачей для каждого «вне под-фазы» сверить тело названной задачи с тем, что ей передано.
+
+measurement:
+  scenario_ids: 164
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 157
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 164; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0. Совпадает с шапкой редакции 27.
+  hygiene_predicate: "grep -icE по образцу гигиены задания → 0."
+  delta_predicate: >-
+    git diff af0c93274 a6afb1e3e -- <документ> --stat → 57+/21-; NTF3-164 в af0c93274 и a6afb1e3e
+    побайтово равен; остатки снятой буквы (usr-C, ins-d, ins-v, nic-d, nic-v вне сценариев сводки
+    NTF3-103/117) → 0.
+
+premise_check:
+  task_premise: >-
+    В задании: SHA-256 0ce5883b…0014, круг 1. sha256sum рабочего файла и git show HEAD:<путь>
+    | sha256sum дают 0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014; содержимое
+    внесено коммитом a6afb1e3e. Посылка подтверждена.
+  seeded: 0
+  seeding_note: >-
+    Дельта нового Given не вводит: NTF3-164 возвращён к редакции 25, а её строимость разобрана в
+    круге 2. Стенд и изоляция для посева заданием не названы, поэтому посев не выполнялся («не
+    выполнилось») и в зелёное не зачитан.
+  confirmed:
+    - "#2933 существует и открыта."
+    - "Снятие NTF3-164 (д) и правки vpc полное: §10, §11, DoD 12.2 и С1 согласованы."
+    - "releaseAndDelete @1d42a6728bf: ListByInstance :960, ListAttachments :971, repo.Delete :981 — исход §6 воспроизведён чтением."
+  refuted:
+    - "Слова §6 и Р2 «модель сужения … — предмет #2933»: тело задачи дефект корректности не несёт (B1)."
+    - "Молчаливая готовность пункта П4–П6 §6: задачи нет, пункт сам объявлен блокирующим (B2)."
+
+method_verdict: >-
+  Судилась дельта 25 → 27 против круга 2 и Д1–Д27. Д27 исполнен в тексте чисто. Оба блокирующих —
+  о трекере, а не о контракте: названная задача не несёт переданного ей дефекта, у второго пункта §6
+  задачи нет вовсе. Закрываются правкой тела #2933 или заведением задач и вписыванием номеров, без
+  новых сценариев.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: "git merge-base --is-ancestor 1202e3cf HEAD → 0 @6464ba4aa"
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_changes_requested
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: "Рецензент событие не публикует: тело события отдаётся курьеру строкой."
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 на редакцию 27, блокирующих 2: CONVENTION) ·
+    SHA-256 0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014
+
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
