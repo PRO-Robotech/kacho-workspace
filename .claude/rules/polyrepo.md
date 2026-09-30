@@ -54,6 +54,13 @@ poly-owners-list-closed · пустое значение = «не объявле
 poly-two-dictionaries · называет словарь (proto-пакет или каталог чарта) и сверяется с тем, который читает код · ЗАВЕСТИ poly-two-dictionaries · red: имя из чужого словаря → отказ старта края
 poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A; новое ребро фиксируется перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
 
+### Рёбра службы уведомлений `notify` (эпик kacho#2914; строки таблицы рёбер выполнения `docs/specs/01-architecture-and-services.md` вносит `docs-writer`, NTF-1 §3 З9)
+
+poly-edge-notify-sources · `notify` зовёт каждый модуль-источник своего закрытого перечня (адрес + точный SAN): `Subscribe` с `kinds: ["notification_feed"]` и `Claim`/`Ack` его ленты; источники — kaname с NTF-2 (записанное исключение: пространство kaname авторизуется точным SAN сервера ленты, служебного принципала у kaname нет) и модули kacho, которые перепись NTF-3 назвала подключёнными (перечень — в приёмке NTF-3, здесь не повторяется); в NTF-1 источник один — стендовый объект `notify-probe` (NTF-1 Р16, §3 З8); у модуля «не подключается» ребра нет · ЗАВЕСТИ poly-edge-notify-sources · red: notify зовёт модуль вне перечня; источник зовёт notify
+poly-edge-notify-kaname · ребро `notify → kaname` несёт подписку и ленту kaname-источника, `ResolveSend` на каждое письмо, внутренний справочник адресатов и областей (NTF-3, NTF-5) и `Check` снятия подавления (NTF-4); вызовов `kaname → notify` нет · ЗАВЕСТИ poly-edge-notify-kaname · red: клиент notify в дереве kaname — кольцо `notify ⇄ kaname`
+poly-edge-gateway-notify · ребро `край → notify`: сервисы настроек, подписок, контактов и ленты консоли, публикуемые краем, на внутреннем слушателе `notify-api` (NTF-3; публичного слушателя у notify нет) и внутренняя поверхность подавления `InternalSuppressionService` через внутренний слушатель края с пересылкой личности оператора (NTF-4); вызова отправки письма на этом ребре нет · ЗАВЕСТИ poly-edge-gateway-notify · red: маршрут края ведёт в процесс, держащий секрет почты
+poly-edge-notify-acyclic · утверждение ацикличности: единственный вызывающий `notify` — край; служба-домен и kaname клиента `notify` не держат, отправка идёт только лентой источника; край не вызывается ни источниками, ни kaname, поэтому рёбра `край → notify → {источники, kaname}` граф не замыкают · ЗАВЕСТИ poly-edge-notify-acyclic · red: служба-домен или kaname держит клиента `notify`
+
 ## Порядок работы для кросс-доменной фичи (топосортировка графа)
 
 poly-verdict-one-recognizer · читается одним распознавателем `scripts/docs-gate/_lib.py:verdict` в обоих домах · check-01 и check-04 · red: APPROVED, которого никто не читает
