@@ -1,0 +1,142 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 0094ddd109db1f547a27193c4a5a80923bfb7e519b56c28fb8304ffe10d52e3d
+  revision: 29
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: f167381ed
+  content_commit_note: >-
+    Судится дельта 28 → 29 (git diff 8b9771712 f167381ed по документу: 16 вставок, 0 удалений) против
+    B1, B2 и N1, N2 круга 2 (запись 69ff8561….yaml) и против Д1–Д27.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum <путь> и git show HEAD:<путь> | sha256sum @f167381ed — оба дают 0094ddd1…2e3d
+  fingerprint_reproduced: true
+  lines: 4810
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T17:30:00Z'
+round: 3
+round_note: >-
+  Круг 3 после Д27. Редакция 29, как и 28, сама объявляет себя «к ревью не готовой»: две строки §6 без
+  номера задачи блокирующие по её же правилу. Трекер перемерен: gh issue list -R PRO-Robotech/kacho
+  --state all --limit 12 — последняя задача #2933 (2026-09-30T12:31Z); gh search issues «сверщик
+  storage» → только #703 (другой предмет), «снос инстанса» → 0. Круг на этом отпечатке предмета не
+  имел: исход был известен до запуска (§14а, «круг без предмета»).
+previous_rounds:
+  - pass: после Д27
+    round: 1
+    sha256: 0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/0ce5883b47d0b4406ba8e99a7753800bffcad3a84b1aa138b15b607069c30014.yaml
+  - pass: после Д27
+    round: 2
+    sha256: 69ff8561b553aa7c6d917be3b02e5bbc2c64bcb3b2847e221cb90b7798fc4db4
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/69ff8561b553aa7c6d917be3b02e5bbc2c64bcb3b2847e221cb90b7798fc4db4.yaml
+prior_blocking_disposition:
+  - id: B1 (круг 2)
+    status: open
+    note: >-
+      Строка §6 «Снос инстанса при привязанном интерфейсе» и строка таблицы по-прежнему «нет номера —
+      блокирующая». Задачи о дефекте в трекере нет.
+  - id: B2 (круг 2)
+    status: open
+    note: >-
+      Строка П4–П6 по-прежнему «нет номера — блокирующая». Задачи о сверщике storage нет.
+  - id: N1 (круг 2)
+    status: open_outside_document
+    note: >-
+      Шаг «завести две задачи» до круга не выполнен; повтор рода CONVENTION пятый круг подряд.
+  - id: N2 (круг 2)
+    status: closed
+    note: >-
+      Третий класс строк §6 «исключение из объёма решением» назван в начале §6 с условием перехода в
+      класс 2 при отсутствии решения-основания или предиката; пять строк отнесены к нему.
+blocking_count: 2
+blocking_kinds_distinct: [CONVENTION]
+blocking_findings:
+  - id: B1
+    kind: CONVENTION
+    anchor: "§6, строка «Снос инстанса при привязанном интерфейсе» (стр. 1992) и строка таблицы «Отложенная работа → задача»"
+    what: >-
+      Дефект корректности compute отложен без задачи; документ сам объявляет строку блокирующей. Ban #11,
+      третий исход без ответственного.
+    fix: >-
+      Вне документа: завести задачу area:compute формулировкой строки §6. Затем в документе вписать
+      номер в §6, таблицу, §1.14 (а) и Р2; снять пометку.
+  - id: B2
+    kind: CONVENTION
+    anchor: "§6, строка «Письмо о переходе в ERROR не из CREATING (П4, П5, П6)» (стр. 1970) и строка таблицы"
+    what: >-
+      Дефект сверщика storage (ветви П4–П6 недостижимы) без задачи; документ сам объявляет строку
+      блокирующей.
+    fix: >-
+      Вне документа: завести задачу area:storage. Затем вписать номер в §6 и таблицу; снять пометку.
+non_blocking_findings:
+  - id: N1
+    anchor: "маршрут класса (§14а)"
+    what: >-
+      Следующий круг на отпечатке, где две строки всё ещё «нет номера», запускать не надо: его исход
+      заранее — этот же возврат. Порядок: завести две задачи → автор вписывает номера (правка только
+      номеров и снятия пометок) → круг судит дельту номеров и проверяет их gh issue view.
+measurement:
+  scenario_ids: 164
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 157
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 164; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0. Совпадает с шапкой редакции 29.
+  delta_predicate: >-
+    git diff 8b9771712 f167381ed -- <документ> --stat → 16+/0-; тронуты шапка (две строки истории) и
+    начало §6 (перечень трёх классов). Сценарии, решения, DoD не тронуты.
+  tracker_predicate: >-
+    gh issue list -R PRO-Robotech/kacho --state all --limit 12 → последняя #2933; gh search issues -R
+    PRO-Robotech/kacho "сверщик storage" → #703 (не тот предмет); "снос инстанса" → 0.
+premise_check:
+  task_premise: >-
+    В задании: SHA-256 0094ddd1…2e3d, круг 3. sha256sum рабочего файла и git show HEAD:<путь> дают
+    0094ddd109db1f547a27193c4a5a80923bfb7e519b56c28fb8304ffe10d52e3d. Посылка подтверждена.
+  seeded: 0
+  seeding_note: >-
+    Дельта нового Given не вводит; стенд для посева заданием не назван — посев «не выполнилось», в
+    зелёное не зачитан.
+  confirmed:
+    - "N2 круга 2 закрыт: третий класс строк §6 назван с условием перехода в класс 2."
+  refuted:
+    - "Готовность к одобрению: две строки §6 блокирующие по правилу самого документа; задач в трекере нет."
+method_verdict: >-
+  Дельта верна по существу. Возврат только из-за двух задач, которых нет в трекере; закрывается
+  действием вне документа, а не правкой текста.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: acceptance_changes_requested
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: "Рецензент событие не публикует: тело события отдаётся курьеру строкой."
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3 после Д27, блокирующих 2: CONVENTION) ·
+    SHA-256 0094ddd109db1f547a27193c4a5a80923bfb7e519b56c28fb8304ffe10d52e3d
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
