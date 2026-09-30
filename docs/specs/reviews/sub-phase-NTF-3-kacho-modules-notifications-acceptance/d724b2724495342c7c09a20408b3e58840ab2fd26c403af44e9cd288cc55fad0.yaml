@@ -1,0 +1,160 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: d724b2724495342c7c09a20408b3e58840ab2fd26c403af44e9cd288cc55fad0
+  revision: 19
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  content_commit: 6c82b6a4ef2c5242fd1630650bd315430861c2c6
+  content_commit_note: >-
+    Редакцию 19 внёс коммит 6c82b6a4e. Последняя разобранная редакция — 18 (9fd0cd5e…, одобрена
+    кругом 2 прохода RA-01, запись в коммите 9cb58597a). Первичный разбор классов на редакцию 18
+    вернул в приёмку RA-02 (docs/changes/issue-2918/reviews/class-exposure/initial/9fd0cd5e….yaml,
+    пункт CX3C-03). По Д22 судится только дельта 18 → 19: git show 6c82b6a4e по документу —
+    38 вставок, 8 удалений.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4119
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T13:30:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода «RA-02». Действуют Д1–Д22 и принятое registerSharePause = 1. Редакция 19 отвечает
+  на RA-02 первичного разбора классов: §7 объявлял субъект привязки диска служебным; путь публичен
+  (AttachDisk/DetachDisk compute), storage исполняет его под пересланной личностью начавшего.
+previous_rounds:
+  - round: 2
+    pass: RA-01
+    sha256: 9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a
+    verdict: APPROVED
+    blocking_count: 0
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a.yaml
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+repeated_kinds: []
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY возвращал круг 1 и круг 2 первого прохода и круг 1 прохода Д14–Д16; внутри
+  прохода RA-02 это первый круг, повтора рода в проходе нет. Предмет другой — состояние машины, к
+  которой привязывают диск.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @6c82b6a4e
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Одобрения нет, и событие одобрения не публикуется. Тело для курьера — запись
+    о возврате, а не полномочие.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода RA-02, блокирующих 1: CONSTRUCTIBILITY) ·
+    SHA-256 d724b2724495342c7c09a20408b3e58840ab2fd26c403af44e9cd288cc55fad0
+
+measurement:
+  scenario_ids: 160
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 153
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 160; grep -oE … | sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|yandex|\baws\b|\bgcp\b|azure|google cloud' <документ> → 0
+  delta_claims_reproduced_at_1d42a6728bf:
+    - "instance_service.proto:173 — rpc AttachDisk (POST /compute/v1/instances/{instance_id}:attachDisk, v_update); :192 — DetachDisk. Верно."
+    - "compute clients/storage_client.go:69 и :97 — c.cli.Attach/Detach(auth.PropagateOutgoing(callCtx), …). Верно."
+    - "Воркер операции compute получает контекст через baggage.Extract = context.WithoutCancel (corelib baggage/baggage.go @34bc8104a): значения запроса, включая личность, в воркере есть. Пересылка начавшего на прямом пути верна; путь после перезапуска (строка операции, добранная сверщиком) — условие CX3C-03 (б) замысла, не приёмки (Д22)."
+    - "values.prod.yaml:1081-1086 — trustedForwarderSANs storage = {kacho-api-gateway, kacho-compute}, комментарий «volume attach/detach runs under the identity of whoever initiated it». Верно."
+    - "Строка журнала на привязку одна: attachCASSQL (storage repo/pg/volume_repo.go) — только INSERT INTO volume_attachments, строку volumes не трогает; Detach — только DELETE FROM volume_attachments. Триггер volume_attachments_storage_outbox_emit AFTER INSERT OR UPDATE OR DELETE → storage_outbox_emit_attachment('Volume') пишет одну строку Volume UPDATED (20260830041500_…:178-210). «Две строки на привязку и снятие» верно."
+    - "Volume.Status AVAILABLE=2, IN_USE=3 (storage/v1/volume.proto:28,31). Верно."
+    - "Payload: AttachInstanceDiskRequest{instance_id, attached_disk_spec{mode, device_name, auto_delete, volume_id=5}}; DetachInstanceDiskRequest{instance_id, oneof disk{volume_id, device_name}}; AttachedDiskSpec.Mode READ_WRITE=2. Payload (г) строим."
+    - "vpc nicinternal/service.go:146,187 — AttachToInstance/DetachFromInstance через Writer, в файле 0 упоминаний emit|outbox. Утверждение «привязка интерфейса строки журнала не пишет» не опровергнуто."
+
+premise_check:
+  task_premise: >-
+    Задание: Д1–Д13 в wf_8cc21fed-1ec/journal.jsonl (поле prompt строки type=started), Д14–Д16 в
+    wf_f705806c-629/journal.jsonl. grep -c '"prompt"' по обоим журналам → 0 и 0. Посылка
+    опровергнута, как и в прошлых кругах. Д1–Д16 сверены по записям прошлых кругов, Д17–Д22 — по
+    тексту задания. Дельта 18 → 19 решений Д1–Д21 не касается. По Д22 условие к коду (восстановление
+    принципала в воркере compute после перезапуска, локальная установка инициатора на автокоммитном
+    Detach storage) приёмке не предъявляется.
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: стенд заданием не назван. Итог по посеву — «не выполнилось». Конструируемость
+    Given буквы (г) проверена чтением кода @1d42a6728bf, и чтение её ОПРОВЕРГАЕТ (см. блокирующее).
+  confirmed:
+    - "Класс RA-02 закрыт по существу: Р2 (инициатор пересланного вызова — пересланный субъект), §1.13, §7, NTF3-160 (г) с близнецом по начавшему, §10, §11 правлены согласованно; перепись пересылаемых путей, пишущих журнал, воспроизведена (один путь — привязка диска)."
+    - "Близнец (г) отличается одним фактом — кто начал (usr-B против usr-A, одна роль на prj-1); строка §10 есть."
+    - "Производитель (г) назван в §11: новые версии storage_outbox_emit_attachment и установка инициатора транзакции storage из пары CertIdentityExtract → TrustedPrincipalExtract."
+    - "Счёт 160/7/153 сходится, гигиена 0."
+  refuted:
+    - "§7: «Привязка диска публичным API конструируется». @1d42a6728bf машину, к которой AttachDisk вообще привязывает диск, публичным API построить нельзя (блокирующее B1)."
+
+blocking_findings:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    anchors: ["NTF3-160 (г) Given/When", "§7 строка «Привязка диска»"]
+    what: >-
+      Given (г) требует успешных AttachDisk и DetachDisk (`done=true`, `vol-11` → IN_USE → AVAILABLE)
+      на инстансе, созданном `usr-A`, но не называет состояния инстанса и фикстуры, которая его
+      строит. Воркер AttachDisk первым шагом зовёт GateForAttach: `status IN ('RUNNING','STOPPED')`,
+      иначе FAILED_PRECONDITION «Instance must be RUNNING or STOPPED» (compute
+      repo/instance_repo.go:442-447; api/instance/instance.go:813). Instance.Create кладёт машину в
+      PROVISIONING (instance.go:450-452, «переход к RUNNING — COMP-2»), Start требует STOPPED, Stop —
+      RUNNING (instance.go:750-757); других записей статуса в не-тестовом дереве compute нет
+      (git grep 'SET status' → только CAS lifecycle и DELETING). То же зафиксировано в
+      services/compute/tests/newman/cases/instance-nic-attach.py:23-32 («собрать НЕЛЬЗЯ … ни одного
+      перехода из PROVISIONING не существует»). Сценарий в написанном виде завершится отказом
+      операции, а не строками журнала: неверен сценарий, а не продукт. Утверждение §7 «публичным
+      API конструируется» о дереве ложно — ровно то, что раздел «Чего посеять нельзя» обязан назвать.
+    predicate: >-
+      в репозитории PRO-Robotech/kacho: git grep -n "SET status\|InstanceStatusRunning\b" 1d42a6728bf --
+      services/compute/internal ':!*_test.go' → переходов из PROVISIONING 0.
+    required: >-
+      Назвать, как строится машина в RUNNING или STOPPED в интеграционной обвязке (compute и storage
+      в одной обвязке уже названы в §11): например, посев строки инстанса compute со статусом
+      RUNNING/STOPPED прямой записью в базу compute как фикстура, помеченная seed со ссылкой; либо
+      перенести When (г) на внутренний вызов storage `InternalVolumeService.Attach/Detach` от
+      отправителя из круга пересылающих с пересланной личностью `usr-A`/`usr-B` — тогда Then о
+      статусе тома и строках журнала/ленты остаётся в силе, а публичный AttachDisk уходит в строку §7
+      как неконструируемый до COMP-2. В обоих путях — исправить строку §7 (что конструируется, что
+      нет и почему, с командой), строку §10 (близнец не меняется) и §11 (фикстура).
+
+non_blocking_findings:
+  - "(г) Then «строк журнала storage после P0 с инициатором вида service: или system: — 0» опирается на то, что сверщик storage между P0 и чтением не идёт — это в Given названо. Если выбран путь с посевом строки инстанса, стоит добавить: посев выполняется ДО чтения P0 (иначе посев в базу compute журнал storage не трогает — сейчас это верно, но утверждение держится на порядке)."
+  - "Неблокирующие прошлых кругов, не относящиеся к дельте, остаются в силе (форма вставки в журнал именем-переменной для NTF3-70; согласование 23502 с CX3B-25 (б) — к design-author)."
+
+method_verdict: >-
+  Судилась только дельта 18 → 19 (Д22). Класс RA-02 закрыт правильно: пересланный субъект —
+  инициатор (Р2), перепись пересылаемых путей воспроизведена, производитель и близнец (г) есть,
+  число строк на привязку и снятие верно по SQL. Но Given (г) неконструируем @1d42a6728bf: успешный
+  AttachDisk требует машины в RUNNING/STOPPED, а из PROVISIONING в дереве перехода нет. Блокирующих 1
+  (CONSTRUCTIBILITY). Посевов не было — «не выполнилось», в зелёное не зачитано.
+
+route_signals:
+  proto: false
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
