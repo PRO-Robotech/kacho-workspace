@@ -112,11 +112,10 @@ jobs:
       # отправке. Его приёмка — известный пример и отказы на синтетике.
       - name: расписание полос считает известный пример и отказывает на цикле
         run: bash scripts/lane-schedule/inject.sh
-      # Приёмка ws#884 нашла порчи инструмента, на которых набор выше оставался
-      # зелёным. Этот шаг портит копию инструмента по одному решению за раз и
-      # краснеет, если набор не покраснел хоть на одной порче.
-      - name: набор расписания краснеет на порче каждого решения инструмента
-        run: python3 scripts/lane-schedule/mutants.py
+      # Мутационный прогон того же инструмента (`mutants.py`, ~11 мин) вынесен в
+      # задание `lane-schedule-mutants` ниже (Д55, ws#884): шагом этого задания он
+      # обрывал всё задание по `timeout-minutes` (прогон 36783305602 — снят на
+      # 5 мин 13 с шага), и вместе с ним не исполнялся rules-gate.
       # ── rules-gate ЖИВЁТ ЗДЕСЬ, А НЕ ОТДЕЛЬНЫМ ЗАДАНИЕМ ─────────────────────
       #
       # Предмет набора — РАСКЛАДКА корпуса правил, и с 2026-09-17 она другая.
@@ -169,6 +168,75 @@ jobs:
         run: bash scripts/rules-gate/run-all.sh
       - name: rules-gate доказан инъекцией — дефект краснеет, законный близнец молчит
         run: bash scripts/rules-gate/inject.sh
+
+  # ── МУТАЦИОННЫЙ ПРОГОН РАСПИСАНИЯ ПОЛОС — СВОИМ ЗАДАНИЕМ (Д55, ws#884) ──────
+  #
+  # Приёмка ws#884 нашла порчи инструмента, на которых `inject.sh` оставался
+  # зелёным. `mutants.py` портит копию инструмента по одному решению за раз и
+  # краснеет, если набор не покраснел хоть на одной порче. Прогон идёт ~11 мин,
+  # поэтому живёт не в `tooling-gate` (лимит 10 мин, быстрые `inject.sh` остались
+  # там), а здесь, со своим лимитом.
+  #
+  # ФИЛЬТР ПУТЕЙ — ШАГОМ, А НЕ `paths:` ТРИГГЕРА: задание, которое не началось, не
+  # зеленеет и не краснеет, а остаётся «ожидается» (check-05, утверждение C).
+  # Здесь задание начинается ВСЕГДА и при нетронутом `scripts/lane-schedule/**`
+  # завершается success строкой «пропущено: предмет не тронут». База сравнения:
+  # `pull_request` — `base.sha` события; `push` — `before`. Базы нет (ручной
+  # прогон, первая отправка ветки) или её коммита нет в клоне — прогон ИДЁТ:
+  # неизвестное решается в сторону исполнения, а не пропуска. Сбой самого
+  # `git diff` роняет шаг (`bash -e`) — тихо «не тронуто» он не станет.
+  #
+  # КОНТЕКСТ ВНЕ ОБЯЗАТЕЛЬНОГО ПЕРЕЧНЯ НЕ БЛОКИРУЕТ СЛИЯНИЕ (довод над rules-gate
+  # выше): красное этого задания останавливает PR, только если администратор
+  # внёс его имя в обязательные контексты защиты `main`. Предикат —
+  #   gh api repos/PRO-Robotech/kacho-workspace/branches/main/protection \
+  #     --jq '.required_status_checks.contexts[]'
+  lane-schedule-mutants:
+    name: набор расписания полос краснеет на порче каждого решения инструмента
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      - name: предмет тронут — scripts/lane-schedule против базы события
+        id: subject
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base=""
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            push) base="$PUSH_BEFORE" ;;
+          esac
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "база сравнения у события «$EVENT» не определена — прогон идёт"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "коммита базы $base в клоне нет — прогон идёт"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only "$base" HEAD -- scripts/lane-schedule/)"
+          if [ -n "$changed" ]; then
+            printf 'тронуто против %s:\n%s\n' "$base" "$changed"
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "против $base в scripts/lane-schedule/ изменений нет"
+            echo "touched=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: набор расписания краснеет на порче каждого решения инструмента
+        if: steps.subject.outputs.touched == 'true'
+        run: python3 scripts/lane-schedule/mutants.py
+      - name: пропущено — предмет не тронут
+        if: steps.subject.outputs.touched != 'true'
+        run: |
+          echo "пропущено: предмет не тронут — scripts/lane-schedule/** против базы события без изменений"
 
   hook-proofs:
     name: доказательства хуков инъекцией исполняются, а не лежат текстом
