@@ -1,0 +1,102 @@
+# Пост-дифф ревью формы контракта — роль proto-api-reviewer, пакет P072 изменения issue-2918 (полоса X1, контракт).
+#
+# Имя файла — content_digest отсуженного содержимого (дифф заглушки corelib).
+# Прежние записи не правятся; сменился дайджест — новый запуск и новый файл
+# (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: issue-2918
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+subject: >-
+  P072 — SubscriptionEvent получает initiator = 12, occurred_at = 13, name = 14
+  (З2, §5 замысла); заглушка corelib порождена из контракта kacho 38ec5718ab5
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: 77-x1-subscription-contract
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/77-x1-subscription-contract
+  base: 5591b1f
+  head: 498e6af38925acfa47344eee3c224033ce99563c
+  source_contract:
+    repo: PRO-Robotech/kacho
+    branch: 2918-x1-subscription-contract
+    worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/2918-x1-subscription-contract
+    base: 7c8b4653c6d
+    head: 38ec5718ab5c8e4829740664ee35aba8f94dfa91
+    diff_digest: sha256:84b9212a8e5b4a2b7b9112f24549ca852a0d1215f0ee314f88cb8cbe67352a8f
+content_digest: sha256:635ac4b57c69c1c722a83d31ec5bbcf2e303714c4d751fc6294d1252834f8855
+digest_definition: >-
+  sha256 сырого вывода `git diff 5591b1f...498e6af38925` в копии corelib;
+  diff_digest — то же для `git diff 7c8b4653c6d...38ec5718ab5` в копии kacho.
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+proto_files_touched: 1       # kacho proto/corelib/subscription/subscription.proto; в коммите corelib — 0 (только заглушка)
+
+checks:
+  - cmd: buf lint                                                     # kacho/proto @38ec5718ab5
+    rc: 0
+  - cmd: buf breaking --against '../.git#ref=7c8b4653c6d,subdir=proto'
+    rc: 0
+  - cmd: buf breaking --against '../.git#ref=origin/2564,subdir=proto'
+    rc: 0
+  - cmd: buf breaking --against '../.git#ref=origin/main,subdir=proto'
+    rc: 0
+  - cmd: >-
+      buf generate (protoc-gen-go local, paths=source_relative) в scratch по
+      corelib/subscription/subscription.proto @38ec5718ab5; diff с
+      api/corelib/subscription/subscription.pb.go @498e6af
+    rc: 0
+    outcome: >-
+      единственное расхождение — строка версии плагина (v1.36.12 на машине
+      против v1.36.11 в заглушке); тело, дескриптор и индексы совпадают
+  - cmd: >-
+      GOWORK=off go test -count=1 -v -run
+      'Subscription|DescriptorField|ProtoPrefix|ApiSurface|ForeignProduct|Identifiers'
+      ./internal/repohygiene/  (kacho @38ec5718ab5, слот 2)
+    rc: 0
+    outcome: >-
+      PASS 164 · FAIL 0 · SKIP 0; TestSubscriptionFormShape: полей 22 (было 19),
+      осей 3, утверждений 47, находок 0
+
+conditions_to_design:
+  - item: номера 12, 13, 14 — следующие после state_unavailable = 11, прежние не тронуты (З2)
+    held: true
+  - item: типы и имена — string initiator, google.protobuf.Timestamp occurred_at, string name (§5)
+    held: true
+  - item: новые поля вне oneof carrier; name — только у DELETED, пусто = у вида нет имени формы DNS-метки
+    held: true
+  - item: копии заглушки в дереве kacho нет (ban20)
+    held: true     # git ls-files | grep subscription.pb.go → 0 путей
+
+findings:
+  critical: []
+  important:
+    - id: P072-I1
+      class: неполный перечень читателей оболочки
+      where: kacho gateway/internal/subscriptionstream/handler.go:593-611 (withUnavailableState)
+      what: >-
+        Край пересобирает SubscriptionEvent поимённым перечнем полей (position, kind,
+        resource_id, project_id, change) и теряет initiator, occurred_at, name. После
+        появления производителя событие с несериализуемым состоянием уйдёт подписчику
+        без инициатора и времени — против обещания контракта «пустого значения
+        владелец не производит». Замысел 2918 этот путь не называет.
+      now_observable: false   # производителя новых полей на этой голове нет
+      fix: >-
+        копировать оболочку клонированием события с заменой только carrier; проба —
+        событие с initiator/occurred_at/name и несериализуемым state выходит с ними
+        (близнец — сериализуемое состояние)
+      must_close_before: посадка волны, в которой появляется производитель (X1 corelib / S1)
+    - id: P072-I2
+      class: утверждение о производителе впереди производителя
+      where: kacho proto/corelib/subscription/subscription.proto (комментарии initiator, occurred_at); corelib subscription/drain.go:472
+      what: >-
+        Комментарий утверждает, что владелец поле производит всегда; производителя на
+        этой голове нет ни в corelib, ни в kacho. Приемлемо для полосы контракта,
+        пока проекция строки журнала (X1 corelib subscription/outbox) садится той же
+        волной; посадка контракта без неё — принято-и-не-произведено.
+      must_close_before: посадка волны
+  minor:
+    - id: P072-M1
+      where: kacho gateway/docs/content/api/subscription.mdx:354
+      what: пример кадра события без initiator/occurredAt — обновить вместе с производителем
