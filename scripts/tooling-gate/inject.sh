@@ -607,7 +607,11 @@ run_c09_red() {
     probes=$((probes + 1))
     out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$C09" 2>&1)"; got=$?
     for tag in "$@"; do
-        printf '%s\n' "$out" | grep -qF -- "[FAIL] $C09_NAME — [$tag] " || missing="$missing [$tag]"
+        # Не труба в `grep -q`: под pipefail он, выйдя на первом совпадении,
+        # роняет пишущий printf по SIGPIPE, когда вывод больше буфера трубы, —
+        # и найденная метка читалась как ненайденная (замерено 2026-09-30: [E]
+        # [F] [U] [V] «не покраснели» при их строках [FAIL] в выводе).
+        grep -qF -- "[FAIL] $C09_NAME — [$tag] " <<<"$out" || missing="$missing [$tag]"
     done
     if [ "$got" -eq 1 ] && [ -z "$missing" ]; then
         echo "  ok   $name (код 1; покраснели:$(printf ' [%s]' "$@"))"
@@ -659,6 +663,36 @@ if mr_patch "$b/$MR_REL" \
     run_c09_red "$b" "инъекция: различные имена схлопнуты в одно — краснеет" H
 fi
 
+# СНЯТИЕ САМОГО ПИНА `LC_ALL=C` — исходный дефект ws#530. check-09 исполняет
+# инструмент под локалью, замеренной как расходящаяся с байтовым порядком
+# (возврат check-verifier @5f3080335: под C.UTF-8 снятие пина проходило молча).
+# Представимо лишь там, где такая локаль есть; где её нет — это сказано строкой
+# переписи, проба НЕ засчитана ни зелёной, ни исполненной, а держат две
+# инъекции выше, от среды не зависящие.
+mr_locale_differs() {
+    local sample byte cand
+    sample="$(printf '%s\n' "bats-and-shellcheck" "доказательства хуков" "authz — lint" "проба — раз" "проба - раз")"
+    byte="$(printf '%s\n' "$sample" | LC_ALL=C sort -u)"
+    for cand in $(locale -a 2>/dev/null | grep -iv '^\(c\|posix\)\(\..*\)\?$'); do
+        [ "$(printf '%s\n' "$sample" | LC_ALL="$cand" sort -u 2>/dev/null)" != "$byte" ] && { printf '%s' "$cand"; return 0; }
+    done
+    return 1
+}
+if mr_loc="$(mr_locale_differs)"; then
+    b="$(mksandbox)"
+    if mr_patch "$b/$MR_REL" 's/^(required=\$\(jq .*?)\| LC_ALL=C sort -u\)$/$1| sort -u)/m' \
+        "пин LC_ALL=C снят с сортировки обязательных"; then
+        run_c09_red "$b" "инъекция: сортировка обязательных по локали ($mr_loc) — краснеет" A H
+    fi
+    b="$(mksandbox)"
+    if mr_patch "$b/$MR_REL" 's/^(green=\$\(jq .*?)\| LC_ALL=C sort -u\)$/$1| sort -u)/m' \
+        "пин LC_ALL=C снят с сортировки зелёных"; then
+        run_c09_red "$b" "инъекция: сортировка зелёных по локали ($mr_loc) — краснеет" A
+    fi
+else
+    echo "  [CENSUS] снятие пина LC_ALL=C НЕ ИСПОЛНЕНО: локали, расходящейся с байтовым порядком, в системе нет — держат две инъекции выше"
+fi
+
 # Законный близнец: то же свойство (байтовый порядок плюс дедупликация),
 # записанное иначе. Без него проверка ловила бы строку `LC_ALL=C sort -u`, а не
 # исход, и запрещала бы автору любую другую запись сверки.
@@ -685,6 +719,15 @@ if mr_patch "$b/$MR_REL" \
     's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.head_sha == \$sha)/' \
     "прогон другим событием засчитан"; then
     run_c09_red "$b" "инъекция: прогон ДРУГИМ событием засчитан — краснеет" O
+fi
+
+# Событие сверяется как «не push», а не равенством workflow_dispatch.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.head_sha == \$sha and .event != "push")/' \
+    "событие сверяется как «не push»"; then
+    run_c09_red "$b" "инъекция: засчитан прогон любым событием, кроме push, — краснеет" \
+        O-pull_request O-schedule
 fi
 
 b="$(mksandbox)"
@@ -719,6 +762,26 @@ if mr_patch "$b/$MR_REL" 's/ \|\| \[ "\$run_concl" != "success" \]//' \
     "итог прогона не сверяется"; then
     run_c09_red "$b" "инъекция: итог прогона failure при зелёных заданиях засчитан — краснеет" U
 fi
+
+# Итог прогона сверяется ДОПОЛНЕНИЕМ к перечню красных, а не равенством success:
+# исход, забытый в перечне, прошёл бы за «можно». Держат пробы U-*.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\|\| \[ "\$run_concl" != "success" \]/|| [[ "\$run_concl" =~ ^(failure|cancelled|timed_out|action_required)\$ ]]/' \
+    "итог прогона сверяется дополнением к красным"; then
+    run_c09_red "$b" "инъекция: итог прогона — «не красный» вместо «success» — краснеет" \
+        U-startup_failure U-stale U-neutral U-skipped
+fi
+# По одному: итог прогона «success или <исход>».
+for c in failure cancelled timed_out action_required startup_failure stale neutral skipped; do
+    tag="U-$c"; [ "$c" = failure ] && tag="U"
+    b="$(mksandbox)"
+    if mr_patch "$b/$MR_REL" \
+        "s/\\|\\| \\[ \"\\\$run_concl\" != \"success\" \\]/|| { [ \"\\\$run_concl\" != \"success\" ] \\&\\& [ \"\\\$run_concl\" != \"$c\" ]; }/" \
+        "итог прогона $c засчитан успехом"; then
+        run_c09_red "$b" "инъекция: итог прогона $c засчитан успехом — краснеет" "$tag"
+    fi
+done
 
 # Судит по прочитанной части: объявленное число заданий подменено прочитанным.
 b="$(mksandbox)"
@@ -834,6 +897,30 @@ if mr_patch "$b/$MR_REL" \
     run_c09_red "$b" "инъекция: зелёным считается всё, кроме FAILURE — краснеет" \
         RC-running RC-CANCELLED RC-TIMED_OUT RC-ACTION_REQUIRED
 fi
+
+# Возврат check-verifier @5f3080335: зелёный, заданный ДОПОЛНЕНИЕМ к перечню
+# красных, проходил все пробы — перечень RC-* повторял перечень `red=`. Теперь
+# пробы RC-* — все исходы, кроме SUCCESS. Порча дополнением — ровно та строка,
+# что предъявил check-verifier (перечень красных без STARTUP_FAILURE).
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .\.statusCheckRollup\[\]\? \| )select\(\.conclusion=="SUCCESS"\)/${1}select((.conclusion \/\/ "") as \$c | \$c != "" and (["FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED"] | index(\$c) | not))/m' \
+    "зелёный задан дополнением к перечню красных"; then
+    run_c09_red "$b" "инъекция: зелёный — всё, что не красное и не идёт, — краснеет" \
+        RC-STARTUP_FAILURE RC-STALE RC-NEUTRAL RC-SKIPPED
+fi
+
+# Одиночное расширение зелёного: SUCCESS «или <исход>» — по каждому незелёному
+# исходу, включая «идёт» (null). Каждая порча обязана покраснеть своей пробой.
+for oc in null FAILURE CANCELLED TIMED_OUT ACTION_REQUIRED STARTUP_FAILURE STALE NEUTRAL SKIPPED; do
+    if [ "$oc" = null ]; then lit="null"; tag="RC-running"; else lit="\"$oc\""; tag="RC-$oc"; fi
+    b="$(mksandbox)"
+    if mr_patch "$b/$MR_REL" \
+        "s/^(green=\\\$\\(jq -r .\\.statusCheckRollup\\[\\]\\? \\| )select\\(\\.conclusion==\"SUCCESS\"\\)/\${1}select(.conclusion==\"SUCCESS\" or .conclusion==$lit)/m" \
+        "зелёным засчитан и исход $oc"; then
+        run_c09_red "$b" "инъекция: зелёным засчитан исход $oc — краснеет" "$tag"
+    fi
+done
 
 # Разность множеств взята не в ту сторону.
 b="$(mksandbox)"

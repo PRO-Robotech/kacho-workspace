@@ -318,6 +318,30 @@ Y="$(mkcase Y)"; mk_zero_ctx_case "$Y" CLEAN
 mk_runs "$Y/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
 mk_jobs "$Y/jobs-11.json" "$JOB_A=success" "$JOB_B="
 
+# U-<исход> — задания зелены, а итог прогона — любой неуспешный исход, кроме
+# failure (U). Сверка итога, заданная дополнением к перечню красных, прошла бы
+# на исходе, забытом в перечне; каждый исход — своей пробой.
+U_CONCL="cancelled timed_out action_required startup_failure stale neutral skipped"
+for c in $U_CONCL; do
+    d="$(mkcase "U-$c")"; mk_zero_ctx_case "$d" CLEAN
+    mk_runs "$d/runs.json" "11:$HEAD:workflow_dispatch:completed:$c:2026-09-30T10:00:00Z"
+    mk_jobs "$d/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+done
+
+# O-<событие> — зелёный прогон на голове иным событием, чем push (O). Сверка
+# события, заданная как «не push», прошла бы на любом другом.
+O_EVENTS="pull_request schedule"
+for ev in $O_EVENTS; do
+    d="$(mkcase "O-$ev")"; mk_zero_ctx_case "$d" CLEAN
+    mk_runs "$d/runs.json" "11:$HEAD:$ev:completed:success:2026-09-30T10:00:00Z"
+    mk_jobs "$d/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+done
+
+# Q-neutral — задание с исходом neutral: не красное и не зелёное.
+QN="$(mkcase Q-neutral)"; mk_zero_ctx_case "$QN" CLEAN
+mk_runs "$QN/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$QN/jobs-11.json" "$JOB_A=success" "$JOB_B=neutral"
+
 # S-<состояние> — прогон зелёный, сервер держит слияние. S (BLOCKED) — выше;
 # здесь остальные удерживающие состояния, каждое своей пробой: порча перечня
 # «можно» на любом из них — ложное «можно».
@@ -352,7 +376,16 @@ mk_protection "$I/protection.json" "$CTX_LAT"
 # исход записи CTX_CYR. Это класс kacho#614 на основном пути: идущий или красный
 # обязательный контекст, засчитанный за «можно». Каждый исход — своей пробой:
 # фильтр, ослабленный до «не FAILURE», ловится остальными, «не null» — красными.
-RC_OUTCOMES="running FAILURE CANCELLED TIMED_OUT ACTION_REQUIRED"
+#
+# Перечень — ВСЕ исходы проверки, кроме SUCCESS, плюс «идёт», а не повтор
+# перечня `red=` инструмента. Повтор держал бы лишь то, что инструмент и так
+# называет красным: зелёный, заданный дополнением к перечню красных, проходил
+# все пробы, а на STARTUP_FAILURE и STALE отвечал «можно» (возврат
+# check-verifier @5f3080335). Красные исходы (RC_RED) инструмент называет
+# красными; прочие незелёные (RC_OTHER) — своим исходом.
+RC_RED="FAILURE CANCELLED TIMED_OUT ACTION_REQUIRED STARTUP_FAILURE"
+RC_OTHER="STALE NEUTRAL SKIPPED"
+RC_OUTCOMES="running $RC_RED $RC_OTHER"
 for oc in $RC_OUTCOMES; do
     d="$(mkcase "RC-$oc")"
     mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
@@ -400,6 +433,30 @@ if [ "$stub_rc" -ne 99 ]; then
     exit 2
 fi
 
+# ── ЛОКАЛЬ ПРОБ: ТА, ГДЕ ПОРЯДОК РАСХОДИТСЯ С БАЙТОВЫМ ─────────────────────────
+# Инструмент сверяет множества под `LC_ALL=C` (ws#530). Снятие этого пина —
+# дефект лишь там, где локаль среды упорядочивает или схлопывает иначе, чем
+# байты: под C.UTF-8 проба его не видит (возврат check-verifier @5f3080335).
+# Поэтому пробы не наследуют локаль вызова, а исполняют инструмент под
+# локалью, ЗАМЕРЕННОЙ здесь как расходящаяся с байтовым порядком на входе
+# фикстур: ru_RU первой (кириллица перед латиницей и схлопывание тире), затем
+# любая иная из `locale -a`. Нет такой — снятие пина в этой среде
+# непредставимо, и перепись говорит это вслух; держат тогда инъекции inject.sh,
+# не зависящие от среды (обратный порядок, дедупликация по полю).
+mr_locale_sample() { printf '%s\n' "$CTX_LAT" "$CTX_CYR" "$CTX_DASH" "проба — раз" "проба - раз"; }
+byte_order="$(mr_locale_sample | LC_ALL=C sort -u)"
+PROBE_LOCALE=""
+for cand in $(locale -a 2>/dev/null | grep -i '^ru_RU.*utf' ; locale -a 2>/dev/null | grep -iv '^ru_RU' | grep -iv '^\(c\|posix\)\(\..*\)\?$'); do
+    if [ "$(mr_locale_sample | LC_ALL="$cand" sort -u 2>/dev/null)" != "$byte_order" ]; then
+        PROBE_LOCALE="$cand"; break
+    fi
+done
+if [ -n "$PROBE_LOCALE" ]; then
+    locale_note="пробы исполняют инструмент под LC_ALL=$PROBE_LOCALE — порядок расходится с байтовым, снятие LC_ALL=C представимо"
+else
+    locale_note="локали, чей порядок расходится с байтовым, в системе нет — снятие LC_ALL=C здесь непредставимо; держат инъекции inject.sh, от среды не зависящие"
+fi
+
 # ── ПРОБЫ ────────────────────────────────────────────────────────────────────
 probes=0
 findings=0
@@ -428,7 +485,7 @@ probe() {
         && jq -e '(.required_status_checks.contexts // []) | length == 0' "$dir/protection.json" >/dev/null 2>&1; then
         by_run=$((by_run + 1))
     fi
-    out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" \
+    out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" LC_ALL="${PROBE_LOCALE:-${LC_ALL:-}}" \
         bash "$WS/$TOOL_REL" PRO-Robotech/kacho-workspace 1 2>&1)" && rc=0 || rc=$?
     if [ "$rc" -ne "$want" ]; then
         tooling_gate_fail "$NAME" "$title — ждали код $want, получили $rc"
@@ -437,7 +494,8 @@ probe() {
         return
     fi
     for needle in "$@"; do
-        if ! printf '%s\n' "$out" | grep -qF -- "$needle"; then
+        # Здесь-строка, а не труба: `grep -q` под pipefail роняет пишущего по SIGPIPE.
+        if ! grep -qF -- "$needle" <<<"$out"; then
             tooling_gate_fail "$NAME" "$title — код $rc верен, но в выводе нет «$needle»"
             printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
             findings=$((findings + 1))
@@ -536,14 +594,31 @@ done
 
 for oc in $RC_OUTCOMES; do
     d="$TMP/case-RC-$oc"
+    case " $RC_OTHER " in *" $oc "*) other=1 ;; *) other=0 ;; esac
     if [ "$oc" = running ]; then
         probe "$d" 1 "с контекстами: обязательный контекст идёт — «сливать нельзя», а не «можно»" \
             "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — идёт" "без него: 1"
+    elif [ "$other" -eq 1 ]; then
+        probe "$d" 1 "с контекстами: обязательный контекст $oc — не зелёный, «сливать нельзя»" \
+            "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [$oc] — не зелёный" "без него: 1"
     else
         probe "$d" 1 "с контекстами: обязательный контекст $oc — «сливать нельзя», а не «можно»" \
             "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [$oc]" "$CTX_CYR — красный"
     fi
 done
+
+for c in $U_CONCL; do
+    probe "$TMP/case-U-$c" 2 "без контекстов: задания зелены, а итог прогона $c — вердикта нет, а не «можно»" \
+        "РАЗБОР СЛОМАН" "исход прогона '$c'"
+done
+
+for ev in $O_EVENTS; do
+    probe "$TMP/case-O-$ev" 2 "без контекстов: зелёный прогон событием $ev не засчитан" \
+        "НЕТ" "не засчитаны: 1" "ВЕРДИКТА НЕТ"
+done
+
+probe "$QN" 2 "без контекстов: задание с исходом neutral — «не выполнилось», а не зелёное" \
+    "не выполнилось" "$JOB_B [neutral]" "ВЕРДИКТА НЕТ"
 
 probe "$AB" 1 "с контекстами: все обязательные зелены, но сервер держит слияние" \
     "СЛИЯНИЕ ЗАДЕРЖАНО" "BLOCKED" "обязательных контекстов: 3"
@@ -558,6 +633,7 @@ probe "$I" 2 "PR уже не открыт — беспредметно, а не 
     "сливать нечего"
 
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; по ожидаемому коду: 0 — $by_code0, 1 — $by_code1, 2 — $by_code2; из них без обязательных контекстов, по прогону ci.yaml, — $by_run"
+tooling_gate_census "$NAME: $locale_note"
 for n in "$by_code0" "$by_code1" "$by_code2"; do
     if [ "$n" -eq 0 ]; then
         tooling_gate_void "$NAME" "один из трёх исходов не представлен ни одной пробой — различение не доказано"
