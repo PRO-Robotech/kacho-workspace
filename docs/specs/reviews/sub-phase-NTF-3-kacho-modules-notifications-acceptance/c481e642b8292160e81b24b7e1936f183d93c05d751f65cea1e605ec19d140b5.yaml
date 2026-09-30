@@ -1,0 +1,226 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5
+  revision: 21
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку не правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  content_commit: 88fa559c7150eafc22fb46466d4071e577fe03f3
+  content_commit_note: >-
+    Редакцию 21 внёс коммит 88fa559c7. Последняя одобренная редакция — 20 (88ad95c6…, круг 2
+    прохода RA-02). Судится дельта 20 → 21 (git diff cbb30df7f 88fa559c7 по документу): §1.13
+    (обход вне модулей), новый §1.14, §2.1 Д23–Д25, Р2, Р3, Р8, Р10, §4, §7, §8 С16, NTF3-70,
+    NTF3-127, NTF3-160 (д)–(з), новые NTF3-161 и NTF3-162, §10, §11, §12.2, §12.4.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4380
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T15:30:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода RA-03 и Д23–Д25. Действуют Д1–Д25 и принятое registerSharePause = 1. Утверждения
+  дельты о дереве перемерены предикатами документа на kacho @1d42a6728bf и kaname @cbbac984b,
+  @734f69fb4 (Д24).
+previous_rounds:
+  - round: 1
+    pass: RA-02
+    sha256: d724b2724495342c7c09a20408b3e58840ab2fd26c403af44e9cd288cc55fad0
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/d724b2724495342c7c09a20408b3e58840ab2fd26c403af44e9cd288cc55fad0.yaml
+  - round: 2
+    pass: RA-02
+    sha256: 88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13
+    verdict: APPROVED
+    blocking_count: 0
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, COVERAGE, CONVENTION]
+repeated_kinds: [CONSTRUCTIBILITY]
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY был у круга 1 прохода RA-02 (состояние инстанса compute). Здесь предмет другой:
+  Given, который отрицает свойство, утверждаемое самим сценарием (монотонная отметка). Класс общий:
+  Given требует состояния, до которого публичный путь не доводит, и не называет средство посева.
+  CONVENTION — Д24: напечатанная команда не воспроизводит напечатанное число. Это тот же класс, что
+  RA-01..RA-03 («утверждение о дереве не предикатом»), теперь уже внутри переписи, заведённой ради
+  его закрытия.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @a514bac3b
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Одобрения нет, событие одобрения не публикуется. Курьеру отдаётся тело записи
+    о возврате, а не полномочие.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода RA-03, блокирующих 3: CONSTRUCTIBILITY,
+    COVERAGE, CONVENTION) · SHA-256 c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5
+
+measurement:
+  scenario_ids: 162
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 155
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 162; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE по образцу гигиены задания (путь рабочей копии и имена чужих облаков; образец здесь
+    не выписан, чтобы запись сама не несла этих имён) → 0; единственное попадание 'TODO' — строка
+    DoD 12.4 «ни одного TODO», это не маркер.
+  delta_claims_reproduced_at_1d42a6728bf:
+    - "§1.13, обход вне модулей и миграций: git grep -nE 'INSERT INTO[^;(]*(compute_outbox|vpc_outbox|nlb_outbox|registry_resource_journal|storage_outbox)' 1d42a6728bf -- ':!**/*_test.go' ':!**/migrations/**' → 3 (deploy/scripts/vpc-address-pool-baseline.sql:172, nlb free_ip_runner.go:487, outbox_emitter.go:37); с ':!*.go' → 1. Верно."
+    - "§1.13: изменения таблиц с триггерами журнала вне services/ → 0. Верно. Контроль: перечень таблиц с CREATE TRIGGER по всем миграциям снят; журнал подписки у таблиц volumes, snapshots, images, volume_attachments, registries, listeners, subnets — совпадает."
+    - "§1.13, вызовы обёрток: emitCompute без объявления → 5 (instance_repo.go:195,339,384,490,610). Верно. nlb Outbox().Emit → 18. Верно."
+    - "§1.13, vpc: напечатанная команда `git grep -nE '[^A-Za-z]Outbox\\(\\)\\.Emit\\(' 1d42a6728bf -- 'services/vpc/internal/**/*.go' ':!**/*_test.go'` даёт 77, а не 50. Число 50 получается только с отсевом комментариев `| grep -vE ':[0-9]+:\\s*//'`, которого в напечатанной команде нет (блокирующее B3)."
+    - "§1.14: MDKeyPrincipal|x-kacho-principal в не-тестовом Go без комментариев → 5 строк, ни одна не пересылает. PropagateOutgoing → 49; к модулям kacho — 18 (storage_client 3, vpc_nic_client 3, vpc_subnet_client 1, nlb compute 1, nlb vpc 10). Верно."
+    - "§1.14: клиентов модулей kacho вне своего модуля → 11. Верно. Контроль по графу импортов: только compute (→vpc 2 файла, →storage 1) и nlb (→compute 1, →vpc 5) импортируют контракты других модулей; вне services/ их импортируют только край, гейты repohygiene и провайдер terraform. Перепись полна."
+    - "§1.14: вызовов клиентов → 18, методов 15, пишущих 7, читающих 8. Верно."
+    - "§1.14: Emit(ctx в addressref и nicinternal → 0; Address CREATED create.go:640, DELETED release.go:150; исход DETACHED ReleaseOwnedAddress строки не пишет (release.go: Emit только в finishRelease при LeaseReleased). Верно."
+    - "§1.14, публичный вход compute: напечатанная команда `git grep -nE '\\.(Attach|Detach)\\(ctx' 1d42a6728bf -- 'services/compute/internal/apps/**/*.go' ':!**/*_test.go'` даёт 6 (instance.go:820,879,965,976; instance_nic.go:62,120), а не 5. Таблица §1.14 называет все шесть мест; неверно напечатанное число (блокирующее B3). nlb → 8. Верно."
+    - "§1.14: служба доступа контрактов модулей kacho не импортирует → 0 на cbbac984b и 734f69fb4. Верно."
+    - "Исполнители nlb под личностью начавшего: create.go:477 operations.WithPrincipal(ctx, principal); delete.go:~127 то же в воркере; free_ip_runner.go:465 operations.SystemPrincipal(). Верно."
+    - "NTF3-160 (д)/(е) payload строим: CreateNetworkLoadBalancerRequest{project_id, name, region_id, v4_source=VipSource{oneof address_id|subnet_id|public}, placement=INTERNAL_ZONAL}; NetworkLoadBalancer.v4_address_id — output-only; зона ZONAL-балансировщика выводится из подсети (create.go zoneOfSpecs); связь с существующим адресом — AttachExisting → SetAddressReference; снятие — ReleaseLease → ReleaseOwnedAddress. Address.used и repeated used_by есть в контракте."
+    - "NTF3-160 (ж) payload строим: AttachInstanceNetworkInterfaceRequest{instance_id, attached_nic_spec{nic_id, index}}; DetachInstanceNetworkInterfaceRequest{instance_id, oneof nic_id|index}. Гейт RUNNING/STOPPED — только у Attach (instance_nic.go:56-58). Повтор привязки проходит: CAS `used_by_id = '' OR used_by_id = $instance` (vpc pg/network_interface.go:318-352) — повтор строку обновляет, видимое состояние не меняет; требование «повтор строки журнала не пишет» — условие реализации, наблюдаемо."
+    - "NTF3-160 (з): Delete — MarkDeleting, снятие NIC, снятие томов, удаление строки (instance.go:923-990); auto_delete-томов не удаляет. VolumeService.Get → AVAILABLE после снятия верно."
+    - "NTF3-162: посев вставляет в vpc_outbox AddressPool CREATED только при вставке пула (FROM ins i); повтор при занятом слоте даёт 0 строк; интеграционная проба, исполняющая файл, существует (address_pool_baseline_seed_integration_test.go). Given и близнец конструируемы (С16)."
+
+premise_check:
+  task_premise: >-
+    Задание: Д1–Д13 в wf_8cc21fed-1ec/journal.jsonl, Д14–Д16 в wf_f705806c-629, Д17–Д22 в
+    wf_1721bfc6-e26 — «первая строка type=started, поле prompt». Проверка: у строк type=started
+    журналов ключи только type, key, agentId, label, phase — поля prompt нет. Посылка о месте
+    опровергнута. Сами решения найдены в первом сообщении транскриптов агентов author:NTF-3
+    (agent-a8e317bbbc91facc9.jsonl, agent-a6de82cc28c58aa8d.jsonl) и author:NTF-1
+    (agent-a8aef70a7241fa26c.jsonl) тех же каталогов; Д23–Д25 — из текста задания. Документ сверен с
+    Д1–Д25.
+  seeded: 0
+  seeding_note: >-
+    Стенд и изоляция для посева заданием не названы, поэтому сам посев — «не выполнилось».
+    Конструируемость новых Given проверена чтением дерева @1d42a6728bf. Для NTF3-160 (д)–(з) и
+    NTF3-162 она подтверждена. Для NTF3-161 (б) — опровергнута (B1).
+  confirmed:
+    - "Д24 (а): перепись писателей журнала вне модулей воспроизведена; посев стенда найден верно."
+    - "Д24 (б): перепись пересылаемых пишущих путей по вызовам полна (контроль по графу импортов). Прежнее «путь один, вызовы nlb — чтения» опровергнуто верно."
+    - "Д23: Р8, строка §2.1 и NTF3-127 согласованы. Секрет почты — один объект у отправителя. Секрет ключа отпечатка — отдельный объект, ссылок 2. Инъекционная пара (секрет почты против секрета ключа) отличается одним фактом."
+    - "Д25: Р10 и NTF3-161 (а), (в) выражают монотонность и отказ за верхней границей. Близнецы есть и отличаются одним фактом."
+    - "NTF3-160 (д)–(з) и NTF3-162: производители названы в §11, строки §10 есть, DoD 12.2 п.7 покрывает 153..162, 12.4 — NTF3-01…162."
+    - "Счёт 162/7/155 сходится, дубликатов 0, гигиена 0."
+  refuted:
+    - "§1.13: «vpc … → 50» по напечатанной команде — 77 (B3)."
+    - "§1.14: «compute … → 5» по напечатанной команде — 6 (B3)."
+    - "NTF3-161 (б): «в каждом повторе хранимое заново P1» — публичным API недостижимо и средством §8 не названо (B1)."
+
+blocking_findings:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    anchors: ["NTF3-161 (б) When", "§8 средства построения условий"]
+    what: >-
+      Given (б) требует 50 повторов, «в каждом повторе хранимое заново P1». После первого повтора
+      хранимое — P3. Р10 и Д25 делают отметку монотонной, поэтому публичный PATCH вернуть её к P1 не
+      может: это ровно то свойство, которое сценарий и утверждает. Средства, которое пишет строку
+      настроек notify в обход публичного пути, в §8 нет: С1–С16 такого не содержат, у С8 предмет —
+      лента модуля. В написанном виде Given со второго повтора не строится, и проба либо проверяет
+      один повтор вместо 50, либо собирает условие непоименованным способом.
+    predicate: >-
+      grep -nE 'заново|P1\)' <документ> → единственное место — строка 2538; awk '/^\| С1 \|/,/^\*\*Общий Given/'
+      <документ> → нет средства, пишущего строку настроек notify.
+    required: >-
+      Назвать средство: например, С17 — посев строки настроек пользователя notify (seen_up_to = P1)
+      прямой записью в базу kacho_notify обвязки перед каждым повтором. Другой путь — 50 разных
+      посеянных пользователей, у каждого P1 выставлен публичным PATCH. Строку §8 и производителя в
+      §11 дописать.
+
+  - id: B2
+    kind: COVERAGE
+    anchors: ["Р2 (пересланная системная личность)", "§7 «Фоновое задание освобождения»", "§1.14 итог"]
+    what: >-
+      Перепись §1.14 нашла путь, которым пишущий метод vpc (ReleaseOwnedAddress, исход RELEASED →
+      строка Address DELETED) зовётся под системной личностью: фоновое задание nlb
+      (free_ip_runner.go:465-466, operations.SystemPrincipal()). По этому пути Р2 принимает решение:
+      инициатор — system:<компонент>, где компонент называет службу и роль отправителя, а не общую
+      системную личность. У решения нет ни одного «Тогда». §7 объявляет путь «публичным API не
+      конструируется», а покрытием называет форму Р2 и NTF3-62. Но NTF3-62 утверждает только отказ
+      строке без инициатора и значения system:<компонент> не проверяет. Значение наблюдаемо: это
+      инициатор строки журнала и ленты, которую консоль показывает арендатору. По Д22 наблюдаемый
+      исход принадлежит приёмке. Путь конструируем тем же приёмом, что С15: балансировщик создаётся
+      публичным API (адрес выделен), строка nlb прямой записью переводится в состояние, которое
+      выбирает задание (selectStuckSQL), затем задание исполняется один раз в обвязке nlb + vpc. Д24
+      требует решения по каждому найденному пути, и решение здесь принято, но его держателя нет.
+    predicate: >-
+      grep -nE 'free_ip_runner|SystemPrincipal|system:<компонент>' <документ> → Р2, §1.14, §7, §11
+      NTF3-70; ни одного **Then** с инициатором system: по строке Address.
+    required: >-
+      Завести сценарий (например, букву NTF3-160 (и) или новый номер): посев застрявшей строки nlb
+      (новое средство §8), одно исполнение задания, Then — строка журнала vpc Address DELETED и
+      строка ленты с инициатором system:<имя компонента задания nlb>, строк с user: и с общей
+      системной личностью — 0. Близнец — тот же адрес, снятый публичным Delete: инициатор user:usr-A.
+      Строки в §10, §11, §12.2. Либо, если значение компонента в приёмке не утверждается, снять его
+      из Р2, записав решение с основанием.
+
+  - id: B3
+    kind: CONVENTION
+    anchors: ["§1.13 «вызовы обёрток», vpc", "§1.14 «Публичный вход», compute"]
+    what: >-
+      Д24: каждое утверждение о дереве — команда и число @ревизия, которые воспроизводятся. Две
+      напечатанные команды дельты дают не то число, что напечатано рядом. (1) vpc Outbox().Emit: по
+      команде 77, в документе 50. 50 выходит только с отсевом строк-комментариев, которого в
+      команде нет. (2) compute (Attach|Detach)\(ctx: по команде 6, в документе 5. Таблица §1.14
+      сама называет шесть мест (instance.go:820,879,965,976; instance_nic.go:62,120). Выводы
+      документа от этого не меняются. Но перепись заведена, чтобы закрыть класс RA-01..RA-03
+      («утверждение о дереве не предикатом»), и в ней самой класс остался. Следующий читатель,
+      перезапустив команду, получит другое число и не узнает, какое из двух верно.
+    predicate: >-
+      в PRO-Robotech/kacho: git grep -nE '[^A-Za-z]Outbox\(\)\.Emit\(' 1d42a6728bf --
+      'services/vpc/internal/**/*.go' ':!**/*_test.go' | wc -l → 77 (с | grep -vE ':[0-9]+:\s*//' → 50);
+      git grep -nE '\.(Attach|Detach)\(ctx' 1d42a6728bf -- 'services/compute/internal/apps/**/*.go'
+      ':!**/*_test.go' | wc -l → 6.
+    required: >-
+      Привести каждую пару «команда → число» дельты к воспроизводимому виду: в команду vpc дописать
+      отсев комментариев (либо напечатать 77 и объяснить разницу), у compute напечатать 6. Прогнать
+      все команды §1.13 и §1.14 заново одним проходом, числа брать из вывода.
+
+non_blocking_findings:
+  - "Р10 и NTF3-161 (в): «последняя выданная позиция ленты». Позиция приёма — одна последовательность базы notify на всех пользователей (Р9). Стоит одной фразой сказать, что верхняя граница — наибольшая позиция всей ленты, а не наибольшая позиция, видимая вызывающему. Текст отказа («latest inbox position») читается как второе. Given (в) («P3 — последняя выданная позиция ленты») согласуется с первым прочтением, поэтому это замечание к форме."
+  - "NTF3-160 (з): When читает P0 только журналов vpc и storage, а Then утверждает строки журнала compute «после P0». По общему Given P0 compute прочитан до привязок. Лучше назвать явно, что P0 compute читается там же, после привязок: MarkDeleting пишет Instance UPDATED (instance_repo.go:490), и счёт строк compute от выбора момента зависит."
+  - "§7: компенсация сорвавшегося Create признана эквивалентной (д) по методу и контексту. Её можно построить подменой ответа vpc в обвязке (приём С7). Это стоит сделать хотя бы в замысле, но не блокирует: исход у vpc тот же."
+  - "Д23: согласование ротации и контрольного значения Р11 NTF-4 на обоих развёртываниях NTF-3 не утверждает. Предмет — NTF-4; в строке §2.1 полезна ссылка «держит NTF-4», чтобы он не выпал."
+  - "Неблокирующие прошлых кругов вне дельты остаются в силе: С15 строить через InstanceRepo.SetStatusCAS; словарь READY/AVAILABLE в Given (г); форма вставки NTF3-70 и 23502 против CX3B-25 (б) — к design-author."
+
+method_verdict: >-
+  Судилась дельта 20 → 21 против Д1–Д25. Каждое утверждение дельты о дереве перемерено напечатанным
+  предикатом на @1d42a6728bf, полнота переписи §1.14 — контролем по графу импортов, payload новых
+  букв — по контрактам. Итог: 3 блокирующих. Given NTF3-161 (б) не строится. Решение Р2 по
+  системному пути без держателя. Две пары «команда → число» не воспроизводятся (Д24). Посев не
+  выполнялся: стенда нет, это «не выполнилось», в зелёное не зачитано.
+
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
