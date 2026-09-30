@@ -1,0 +1,382 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 18 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Последняя разобранная редакция — 16
+# (2003c8e2…, запись revalidation/2003c8e2….yaml, коммит bc8af4e91, итог «к замыслу»: CX1-81…83,
+# CX1-84 к коду). На редакцию 17 (9af0703a…, коммит 151befdb5) пересверки нет, поэтому дельта —
+# обе редакции: 151befdb5 (отображение CX1-81…84, N1, N2; открытое Е14) и e1af41e40 (Д47, Д48, Д49).
+# Пункты CX1-01…80 и условия УК1…УК94 эта запись не пересуживает.
+#
+# Итог — к замыслу. CX1-81…84, N1 и N2 отображены, и отображение выдерживает условия пунктов.
+# Д47 закрывает Е14 без новых механизмов. Новые решения Д48 и Д49 дают четыре пункта; три из них
+# подтверждены замером по дереву kacho, четвёртый выведен из текста дерева.
+#   CX1-85. Д46 и D2 ставят `fe3455` на приёмник в кластере. Но слой учётных данных площадки
+#   `cutover-fe3455.sh` накладывается последним, и ему разрешена ровно одна координата —
+#   `global.kacho.identity.smtp.connectionURI`. Если слой её несёт, раскатка `fe3455` после D2
+#   отвергается стражем зонтика (7). Замер: рендер цепочки с узлом D2 проходит, с таким слоем
+#   поверх — отказ.
+#   CX1-86. Перепись гейтов обхода по Д48 считает только `deploy/*_test.go`. Цепочки
+#   `deploy/stacks.txt` рендерят ещё 10 файлов Go вне `deploy/`, шелл-гейты через `stacks.sh` и
+#   задание CI.
+#   CX1-87. Образец узла «в форме узла values.dev.yaml» роняет рендер `prod` стражем зонтика (6);
+#   тот же адрес вовне с якорем стенда роняет его стражем (7). Замер: три рендера `prod` на
+#   origin/1276.
+#   CX1-88. Второе условие предиката старта D2 (Д49) — файл `values.fe3455-identity-posture.yaml`
+#   на базе. Изменение `kacho#1276` этот файл удаляет (origin/1276@3af063bd6f3). После вливания
+#   `kacho#1276` условие ложно всегда, и D2 не стартует никогда.
+# Кроме того, `change.yaml` несёт отпечаток редакции 17, а не предмета. Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 52b638a3fcd4cab695a0b1664595d85c81520a82b10db4ac0f3786cb50b4cf72
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на c162977cf (HEAD issue-880) и на e1af41e40 дают 52b638a3…
+  change_yaml_design_sha256: 9af0703a4bc5612978b8ff9afc70a9bf64c2776f3f023c4938d06dce54c7cd66   # НЕ равен предмету — N3
+  revision: 18
+  content_commit: e1af41e40
+  intermediate_unjudged:
+    sha256: 9af0703a4bc5612978b8ff9afc70a9bf64c2776f3f023c4938d06dce54c7cd66   # редакция 17 — пересверки на неё нет, её дельта судится здесь
+    content_commit: 151befdb5
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/2003c8e22ab2bba23137c295282b69656ae8f2b8d782a76786edbdb63242be88.yaml
+    sha256: 2003c8e22ab2bba23137c295282b69656ae8f2b8d782a76786edbdb63242be88
+    content_commit: bb0923aa1
+    record_commit: bc8af4e91
+  mapped_items: [CX1-81, CX1-82, CX1-83, CX1-84, N1, N2, Д47, Д48, Д49]
+  delta_predicate: "git diff bb0923aa1 e1af41e40 -- docs/changes/issue-2915/"
+  dispatcher_decisions:
+    - "Д47 (Е14 NTF-1) — вариант (а): все строки узла global.kacho.identity.smtp, которые читает notify-sender (connectionURI, credentialSecret, trustAnchorSecret, fromAddress, fromName), производит NTF-1 полосой D1 (форма по З28); всё, что notify читает из чарта, — NTF-1; NTF-2 — только сторона kaname"
+    - "Д48 — в поставляемый профиль prod образец узла не кладётся; гейты рендера, рендерящие каждую цепочку deploy/stacks.txt, подставляют образец узла из своей тестовой фикстуры; их правит полоса развёртывания NTF-1 тем же изменением"
+    - "Д49 — профиль fe3455 (values.fe3455-identity-posture.yaml, cutover-fe3455.sh) первым правит kacho#1276 релиза identity-own; полоса развёртывания NTF-1, проставляющая узел fe3455, зависит от вливания #1276 в эпик релиза 2564"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+neighbour_documents_read:
+  - path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+    revision: 21
+    commit: 132cb5ec5
+    why: "стык Д47–Д49: Р20, §3а строка 5, таблица N-3 (судьба стенда fe3455)"
+    note: "N-3 всё ещё называет узел fe3455 координатой слоя учётных данных, а флаг fe3455 — false. Это расходится с Д46 и таблицей З28 NTF-1 (флаг true, приёмник в кластере) — заказ Е12"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: c162977cf9c1ca139ef18f71a2ef8793105dcc47   # вершина issue-880; поверх e1af41e40 — 1 коммит (ревью NTF-2), пакет issue-2915 не тронут
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564 — база полос по Д38, Д40
+  kacho_wave4: 96e2fa72b3ad95074936eaa8203cef4dcb63b332          # origin/2798 — волна-4, база NTF-2
+  kacho_1276: 3af063bd6f305d3d21ccb47138c9c1bf446c6ce9           # origin/1276 — изменение kacho#1276 (Д49)
+  corelib: "не читался — дельта не делает утверждений о дереве corelib"
+snapshot_at: 2026-09-30T18:26:51Z
+inspected: >-
+  Прочитана вся дельта bb0923aa1..e1af41e40 по пакету: design.md (+243 строки: шапки ред. 17 и 18,
+  Д47–Д49 и абзац Д38/Д40 в §0, М36, З20 «Удостоверение», «Якорь», «Отправитель», «Стык», «Посадка»,
+  З25, З26, З28 «Рендер notify», «Прочие поля узла», «Узел стенда», «Цепочка prod», «Образец узла»,
+  «Флаг и выведенный перечень», §8 пять строк, §11 строки CX1-80…84, N1, N2, Д47–Д49, §13 Е12–Е14),
+  tasks.md (шапки ред. 18, 19; Е12–Е14; N1, N13, J2, D1, D2, D3; порядок), change.yaml. В kacho —
+  `deploy/stacks.txt` на трёх ревизиях, М36 по 7 цепочкам на 6edea09c2ee и origin/1276, перепись
+  читателей цепочек (Go в `deploy/` и вне его, шелл через `stacks.sh`, `ci.yaml`, `deploy/Makefile`),
+  страж зонтика `identity-mail-lane-guard.yaml` (ветки (6), (7)), `cutover-fe3455.sh` (слой
+  учётных данных, CRED_PATHS), `mail_receiver_core_test.go` (гейт (1)), состав коммита 3af063bd6f3.
+  Задача kacho#1276 — состояние, тело, комментарии. Рендеры зонтика на origin/1276 — во временном
+  worktree, снятом после замера. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: >-
+      Е14 закрыто Д47, Е13 — Д49. Не решено, что делает D2 с координатой `connectionURI` слоя учётных
+      данных `fe3455` (CX1-85). Предикат старта D2 невыполним после вливания `kacho#1276` (CX1-88)
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-81…84, N1, N2 отображены и выдерживают. Новые CX1-85…88 не отображены"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Нового внешнего вызова нет: ребро notify → ретранслятор было и раньше, том якоря и ссылка
+      удостоверения — объекты рендера. Асинхронного пути нет. Нового sentinel нет. Три состояния
+      удостоверения различает `os.LookupEnv`, и «нет переменной» — названное состояние со своим
+      исходом, а не значение
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: red
+    detail: >-
+      Запись привязана к 52b638a3. Это отпечаток файла на HEAD c162977cf, но `change.yaml`
+      `hashes.design_sha256` = 9af0703a (редакция 17): коммит e1af41e40 отпечаток не обновил (N3)
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на 52b638a3 ревью замысла нет, шапка редакции 18 это говорит. В `clean` не входит"
+
+mapping_check:
+  - item: CX1-81
+    verdict: holds
+    evidence: >-
+      (а) §8 и З20 объявляют `notify.smtp.credential` (только `secretKeyRef`, три состояния через
+      `os.LookupEnv`, пустая строка — отказ с именем ручки), `notify.smtp.trustAnchorFile` (переменной
+      нет — корневое хранилище; есть — только файл; ослабить проверку ручка не может),
+      `notify.smtp.fromAddress`, `notify.smtp.fromName` без умолчания. Строка пары §11 «Д45» судит
+      `notify.smtp.credential`; пробы N13 `TestRelayCredentialThreeStates`,
+      `TestRelayTrustAnchorFileIsTheWholePool` (инъекция «корневое ∪ файл» с `SSL_CERT_FILE` на
+      второй УЦ исполнима), `TestSenderKnobsAreRequired`. (б) Производитель строк чарта — NTF-1, D1
+      (Д47, Е14 закрыто). (в) Форма узла `fe3455` названа для ветки эпика `2564`. Предикат базы М36
+      воспроизведён на 6edea09c2ee и на origin/1276: у `dev`, `dev-prod`, `own`, `prorobotech` якорь
+      `kacho-mailpit-tls` / `ca.crt`. Изъян второго условия старта D2 — CX1-88, а не отображение
+      CX1-81 (в)
+  - item: CX1-82
+    verdict: holds
+    evidence: >-
+      (а) Чарт notify объекта секрета почты не рендерит; ссылка есть ровно при непустом
+      `credentialSecret`. (б) Ось G15 — ветка пары Д45, близнец «без имени, без удостоверения →
+      старт» и инъекция «ось безусловна» стоят в N1. (в) Гейт раскладки D1 судит `secretKeyRef` =
+      `credentialSecret.{name,key}`, `Secret` почты в рендере — 0. (г) Прочтение G15, I01, N02, N04
+      записано строкой §11 со ссылками и условием возврата в приёмку
+  - item: CX1-83
+    verdict: holds_with_note
+    evidence: >-
+      (а) Таблица «файл → ключ → значение» и таблица по семи цепочкам. Их файлы — в путях D2,
+      разделённые пути — в Е13. (б) Исход `prod` — флаг `true`, перечень пуст по построению, довод
+      записан. (в) Е12 (4) называет NTF-2 и NTF-3. Замер М36: флага и `notifyProbe` нет ни в одной
+      цепочке на обеих ревизиях, так что таблица — объявление D2, а не описание базы. Заметка N5
+      (`a8f60d` получает пробу при внешнем ретрансляторе) не блокирует
+  - item: CX1-84
+    verdict: holds
+    evidence: "N13: `smtps://a%40b@h:465/` → `AUTH` с `a@b`; `smtp://@h:587/` → отказ с полем; инъекция «без раскодирования» → красная; §8 строка адреса называет раскодированное непустое имя"
+  - item: N1
+    verdict: holds
+    evidence: "D1: читателя ключа узла в шаблоне `ConfigMap` notify держит проба рендера; `TestDeclaredKnobHasAReader` назван держателем только оси values → шаблон"
+  - item: N2
+    verdict: holds
+    evidence: "D2: исключение переписи «стендовая цепочка без узла» — ровно `prod`, заданная именем; новая цепочка правит перепись тем же изменением"
+  - item: Д47
+    verdict: holds
+    evidence: >-
+      Новых механизмов нет: строки и ручки названы редакцией 17, Д47 меняет только производителя и
+      снимает условие с D1, D3, D5, D6. Строки D1 для `dev` и `a8f60d` утверждают значение и
+      отсутствие. `fail` по полям узла в чарте notify нет: половину узла на рендере судит страж
+      зонтика, `identity-mail-lane-guard.yaml`, и он безусловен (замер ниже). Это совместимо с
+      «страж рендера зонтика один»
+  - item: Д48
+    verdict: holds_with_items
+    evidence: >-
+      `absent` для `values.prod.yaml` и инъекция «образец в профиле» — исполнимы. Не выдерживают
+      две вещи. Первая — объём переписи гейтов обхода (CX1-86). Вторая — форма образца: форма узла
+      `values.dev.yaml` роняет рендер `prod` стражем зонтика (CX1-87, замер)
+  - item: Д49
+    verdict: holds_with_items
+    evidence: >-
+      Порядок «сначала `kacho#1276`, потом D2 на базе с ним» исполним: `kacho#1276` правит
+      `values.fe3455.yaml` (+35/−) и строку `fe3455` в `deploy/stacks.txt`. Но второе условие
+      предиката старта невыполнимо после его вливания (CX1-88). И Д49 не называет, что `kacho#1276`
+      оставляет в слое учётных данных `fe3455` координату адреса почты (CX1-85)
+
+items:
+  - id: CX1-85
+    status: unmapped
+    decision: "Д46, Д49, D2: узел `fe3455` — приёмник в кластере с якорем `kacho-mailpit-tls` / `ca.crt` в отслеживаемом `values.fe3455.yaml`; раскатка `fe3455` — `cutover-fe3455.sh`, который накладывает последним неотслеживаемый слой учётных данных площадки"
+    class: "code-authoring §«Решение и его следствие разнесены» (решение о узле стенда в профиле дерева, следствие — в слое вне дерева, наложенном позже); §«Контракт, который нельзя выразить» (у одного значения `connectionURI` два источника с разным старшинством)"
+    finding: >-
+      `cutover-fe3455.sh` (и на origin/2564, и на origin/1276) добавляет неотслеживаемый слой учётных
+      данных последним в цепочку `-f`. Слою разрешён закрытый список координат CRED_PATHS, и в нём
+      ровно одна: `global.kacho.identity.smtp.connectionURI`. По тексту скрипта это «единственная
+      координата, которую слой ещё несёт». Значит, на живой раскатке адрес узла `fe3455` берётся из
+      слоя, а не из узла D2. Якорь же D2 кладёт в дерево, и он указывает на секрет приёмника. Страж
+      зонтика (7) на такое сочетание (полоса ведёт наружу, якорь — секрет приёмника стенда) отвечает
+      отказом рендера. Замер на origin/1276: цепочка `fe3455` с узлом в форме D2 и `mailpit.enabled`
+      рендерится (rc 0, 140 объектов). Тот же рендер со слоем, несущим только внешний
+      `connectionURI`, — rc 1, отказ стража (7). Проба D2 рендерит цепочку дерева и этого не видит.
+      Приёмка NTF-2 ред. 21 (N-3) по-прежнему описывает `fe3455` через слой учётных данных и флаг
+      `false`.
+    condition_to_design: >-
+      (а) Замысел называет судьбу координаты `connectionURI` в CRED_PATHS после D2. Исход по Д46 —
+      снять её из CRED_PATHS тем же изменением D2: слой, который её несёт, отвергается раскаткой с
+      именем координаты. Путь `deploy/helm/umbrella/cutover-fe3455.sh` входит в пути D2 и в Е13. Гейт
+      MAIL-54 (`deploy/identity_mail_lane_single_declaration_test.go`, `TestMailLaneIsDeclaredOnce`)
+      правится там же, потому что сверяет CRED_PATHS с объявлением узла.
+      (б) Проба D2 рендерит `fe3455` так, как её раскатывает скрипт: цепочка из `stacks.sh --chain
+      fe3455` плюс фикстурный слой учётных данных. Для этого есть два близнеца. Слой без координат —
+      рендер проходит, адрес приёмника. Слой с `connectionURI` — отказ раскатки на шаге 1a с именем
+      координаты. Инъекция — `connectionURI` возвращён в CRED_PATHS — красная.
+      (в) Если живой `fe3455` должен и дальше слать почту через ретранслятор оператора, Д46 для
+      `fe3455` неверно. Тогда это вопрос диспетчеру, а не правка замысла.
+    held_by: "проба D2 со слоем учётных данных — нужна, её нет (заказ); MAIL-54 — есть в дереве, правка нужна"
+  - id: CX1-86
+    status: unmapped
+    decision: "Д48, З28 «Образец узла — в фикстуре гейта», D2: перепись гейтов обхода — `git grep -lE 'deployStacks\\(|stacks\\.txt' -- 'deploy/*_test.go' 'deploy/**/*_test.go'`, равенство «рендерят `prod`» = «со слоем фикстуры»"
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения» (единица переписи — файлы Go одного каталога, а механизм — таблица цепочек с двумя читателями); gate-authoring — «ноль находок» по не прочитанному виду предмета"
+    finding: >-
+      Шапка `deploy/stacks.txt` называет двух читателей: шелл `tests/helm/stacks.sh` и Go
+      `deployStacks(t)`, общий для `deploy` и `gateway/deploy`. Предикат Д48 видит только файлы Go в
+      `deploy/`: 54 на 6edea09c2ee, 48 на origin/1276. Вне его остаются файлы Go, называющие
+      `deployStacks(`, `stacks.txt` или `stacks.sh` вне `deploy/`: 10 на обеих ревизиях
+      (`gateway/deploy` — 5, `services/registry/deploy` — 2, `internal/repohygiene` — 3). Вне его и
+      шелл-гейты `deploy/tests/helm/*`, которые подключают `stacks.sh` и рендерят каждую цепочку
+      (например, `rendered-documents-well-formed-test.sh`, `networkpolicy-egress-test.sh`), и задание
+      CI `ci.yaml`, рендерящее каждую цепочку (`stacks.sh --names` / `--args`). Всего файлов `*.sh`,
+      зовущих `stacks.sh`, на origin/1276 — 24, из них гейтов и харнессов в `deploy/tests/helm` — 17.
+      Равенство «рендерят `prod` = со слоем» будет зелёным, пока эти читатели рендерят `prod` без
+      слоя. Покраснеют они только когда NTF-2 или NTF-3 сделают перечень `prod` непустым, то есть
+      ровно там, откуда Д48 хотел это убрать. Второе: те же читатели зовут и рецепты установки —
+      `deploy/Makefile` (`STACK_ARGS`), `cutover-fe3455.sh`, `stack-secrets.sh`. Слой фикстуры,
+      вставленный в общий читатель, попал бы в настоящую установку `prod`.
+    condition_to_design: >-
+      (а) Единица переписи — точки применения механизма, а не каталог. Это каждый вызывающий
+      `deployStacks(`, `stacks.sh` (`--names`, `--args`, `--chain`) и прямой читатель `stacks.txt`
+      во всех языках и каталогах, включая `.github/workflows/*.yaml`. Каждый размечен ролью: гейт
+      (рендерит, получает слой) или установка (не получает никогда). Перепись печатает число по
+      каждой роли и по каждому языку.
+      (б) Слой образца подставляет обёртка, доступная только гейтам: тестовая функция Go и тестовая
+      библиотека шелла. Общие читатели `stacks.sh` и `deployStacks` возвращают строку таблицы
+      дословно. Держатель — проба «`stacks.sh --args prod` = строка `prod:` таблицы». Инъекция —
+      слой в общем читателе — красная.
+      (в) Инъекция Д48 «слой снят у одного гейта» проводится и на шелл-гейте, и на задании CI, а не
+      только на гейте Go.
+    held_by: "перепись D2 — есть в маршруте, объём нужно расширить (заказ); проба «общий читатель без слоя» — нужна, её нет (заказ)"
+  - id: CX1-87
+    status: unmapped
+    decision: "Д48, З28: образец узла для рендера `prod` — «узел целиком в форме узла `values.dev.yaml` (Д47)»; D1: «образец узла … слой из тестовой фикстуры гейта целиком (все пять полей)»"
+    class: "code-authoring §«Умолчание, которое становится утверждением» (фикстура, выбранная по удобству, утверждает то, чего оператор не задаёт); gate-authoring — фикстура не снисходительнее продукта и не строже его"
+    finding: >-
+      Страж зонтика `identity-mail-lane-guard.yaml` безусловен и стоит на обеих базах. Узел «в форме
+      `values.dev.yaml`» — это адрес приёмника релиза и якорь его секрета. На `prod` приёмник выключен
+      (`mailpit.enabled: false` в `values.yaml`). Замер `helm template` на origin/1276 (зависимости —
+      локальные чарты, `helm dependency build --skip-refresh`):
+      `prod` без слоя — rc 0, 186 объектов.
+      `prod` + образец формы `dev` — rc 1, страж (6) «полоса названа на приёмник, но приёмник
+      ВЫКЛЮЧЕН».
+      `prod` + внешний адрес с якорем `kacho-mailpit-tls` — rc 1, страж (7) «якорем назван секрет
+      приёмника стенда».
+      `prod` + внешний адрес без якоря, с отправителем — rc 0, 186 объектов.
+      Гейт с образцом по букве замысла красен до первой строки notify. Если «починить» его
+      `mailpit.enabled: true` в том же слое, на `prod` появляются стендовые объекты, и I04 («вне
+      `prod`») нарушается по построению.
+    condition_to_design: >-
+      (а) Образец — форма узла ОПЕРАТОРА, а не стенда. Адрес — внешнее имя, не оканчивающееся
+      суффиксом приёмника релиза. Якоря нет (корневое хранилище) либо он назван секретом, отличным
+      от `mailpit.tlsSecretName`. Пара «имя в адресе ⇔ `credentialSecret`» либо целиком, либо
+      отсутствует. `fromAddress`, `fromName` заданы. `mailpit.*` образец не трогает.
+      (б) Образец объявлен в ОДНОМ фикстурном файле, общем для всех гейтов обхода (по CX1-86 (б)), а
+      не копией в каждом гейте: пять полей в N копиях разойдутся.
+      (в) Держатель — проба D2: рендер `prod` + образец проходит через страж зонтика, и число
+      объектов вне notify равно рендеру без образца. Близнец-отрицание — образец формы `dev` →
+      отказ стража (6) с именем приёмника. Эта инъекция доказывает, что проба судит форму образца.
+    held_by: "проба D2 «образец проходит страж зонтика» — нужна, её нет (заказ)"
+  - id: CX1-88
+    status: unmapped
+    decision: "Д49, §11 «Д49», Е13, D2: предикат старта — `gh issue view 1276 … state` → `CLOSED` И `git cat-file -e <база>:deploy/helm/umbrella/values.fe3455-identity-posture.yaml` → 0"
+    class: "measurement-discipline §«Чужое измерение и чужое заявление» (посылка «#1276 правит профиль identity-posture» принята на слово); gate-authoring — предикат, не способный ответить «да»"
+    finding: >-
+      Файл `values.fe3455-identity-posture.yaml` не производится `kacho#1276`. Его ввело
+      переименование `#2759` (коммит 689bb77e848) на ветке волны-4 `origin/2798`@96e2fa72b3a.
+      Изменение `kacho#1276` (origin/1276@3af063bd6f3, наследник 2798) его УДАЛЯЕТ (−195 строк) и
+      снимает его слой со строки `fe3455` в `deploy/stacks.txt`. Строка становится
+      `values.prod.yaml,values.fe3455.yaml,values.fe3455-prod.yaml`. Коммит говорит это прямо:
+      «профиль его посадки values.fe3455-identity-posture.yaml и его слой в строке fe3455». Задача
+      kacho#1276 сейчас OPEN. Конъюнкция «задача закрыта вливанием» ∧ «файл на базе есть» после
+      вливания ложна всегда. До вливания ложна первая половина. Полоса D2 не стартует ни при каком
+      состоянии дерева. Порядок Д49 при этом верен: `kacho#1276` правит `values.fe3455.yaml` и
+      строку `fe3455`, которые правит и D2.
+    condition_to_design: >-
+      (а) Второе условие предиката — след изменения `kacho#1276` на базе, проверяемый исходом, а не
+      именем файла, который оно снимает. Годятся: «строка `fe3455:` в `deploy/stacks.txt` базы не
+      называет слоя `*-posture.yaml`, и файлов `values.fe3455-*-posture.yaml` на базе 0» либо
+      `git merge-base --is-ancestor <коммит слияния запроса #1276> <база>`. Близнец — база
+      origin/1276 → условие истинно. Отрицание — база origin/2798 → ложно.
+      (б) Первое условие читает не только `state`, но и `stateReason` = `COMPLETED`: задача, закрытая
+      как «не будет сделано», вливания не означает.
+      (в) Абзац «Узел стенда» З28, строка §0 «Д49» и Е13 называют профилем `fe3455` то, что есть на
+      базе после `kacho#1276`: `values.fe3455.yaml` и `values.fe3455-prod.yaml`. Сейчас они называют
+      снимаемый файл.
+    held_by: "предикат старта D2 — строка маршрута; проба предиката на двух базах (близнец и отрицание) — нужна, её нет (заказ)"
+
+notes:
+  - id: N3
+    blocking: true
+    where: "docs/changes/issue-2915/change.yaml, hashes.design_sha256"
+    text: >-
+      Отпечаток — 9af0703a (редакция 17), предмет — 52b638a3. Коммит e1af41e40 правил design.md и
+      tasks.md, но не change.yaml, и комментарий шапки change.yaml о редакции 18 молчит. Пока поле не
+      равно предмету, пересверка на 52b638a3 для контура устарела (CG_CLASS_REVALIDATION_STALE)
+  - id: N4
+    blocking: false
+    where: "З28 «Образец узла», tasks.md D2 — «54 файла на origin/2564@6edea09c2ee»"
+    text: >-
+      Число верно для своей ревизии (воспроизведено: 54). Но база D2 по Д49 — ветка эпика с
+      `kacho#1276`, а на origin/1276 тот же предикат даёт 48. Строке стоит оставить число
+      атрибутированным и сказать, что полоса печатает своё. Она это говорит — заметка только о том,
+      что 54 не будет числом полосы
+  - id: N5
+    blocking: false
+    where: "З28 таблица «цепочка → флаг», строка `a8f60d`"
+    text: >-
+      `a8f60d` получает `notifyProbe` через `values.dev.yaml`, а узел там — внешний ретранслятор с
+      удостоверением. Письма пробы на этой цепочке уходят через настоящий ретранслятор. Таблица
+      этого не называет, и не сказано, задан ли там `standProbeNamespace`. Нужна строка «проба на
+      `a8f60d` — да или нет, и почему»
+
+measurements:
+  - claim: "предмет — 52b638a3, коммит e1af41e40; поверх него пакет issue-2915 не правился; change.yaml несёт 9af0703a"
+    command: "sha256sum docs/changes/issue-2915/design.md; git diff --stat e1af41e40 HEAD -- docs/changes/issue-2915/; grep -n design_sha256 docs/changes/issue-2915/change.yaml"
+    result: "52b638a3; диф пуст (1 коммит поверх — ревью NTF-2); design_sha256: 9af0703a…"
+  - claim: "М36 воспроизводится на ветке эпика и на базе с #1276"
+    command: "для каждой строки deploy/stacks.txt <rev>: values.yaml + файлы цепочки через git show, yq eval-all -r '. as $i ireduce ({}; . * $i) | [connectionURI, trustAnchorSecret.name, .key, credentialSecret.name, fromAddress, mailpit.enabled // absent, notifications.enabled // absent] | join(\" | \")'"
+    result: "6edea09c2ee и 3af063bd6f3 — одинаково: dev, dev-prod, own, prorobotech — адрес приёмника над именем релиза, якорь kacho-mailpit-tls / ca.crt, удостоверения нет, отправитель задан, приёмник true; a8f60d — smtps с именем, якоря нет, credentialSecret задан; prod, fe3455 — пусто, absent; флаг absent в 7 из 7"
+  - claim: "kacho#1276 открыт; его изменение удаляет values.fe3455-identity-posture.yaml и его слой в строке fe3455"
+    command: "gh issue view 1276 --repo PRO-Robotech/kacho --json state,stateReason; git show origin/1276:deploy/stacks.txt | grep ^fe3455; git show --stat 3af063bd6f3 | grep fe3455"
+    result: "state OPEN; fe3455:values.prod.yaml,values.fe3455.yaml,values.fe3455-prod.yaml; values.fe3455-identity-posture.yaml | 195 -----"
+  - claim: "файл identity-posture введён на волне-4 переименованием, на ветке эпика его нет"
+    command: "git ls-tree -r --name-only <rev> deploy/helm/umbrella | grep values.fe3455; git log --oneline origin/2798..origin/1276 -- <файл>; git merge-base --is-ancestor"
+    result: "origin/2564 — ory-posture; origin/2798 — identity-posture; origin/1276 — ни того ни другого; 2564 ⊂ 2798 ⊂ 1276; переименование — 689bb77e848 (#2759)"
+  - claim: "слой учётных данных fe3455 разрешает ровно одну координату — адрес узла почты — и накладывается последним"
+    command: "git show <rev>:deploy/helm/umbrella/cutover-fe3455.sh | grep -n -A2 CRED_PATHS= (origin/2564, origin/1276)"
+    result: "CRED_PATHS = global.kacho.identity.smtp.connectionURI на обеих; FE_LAYERS=\"$FE_LAYERS $CREDS_LAYER\" — слой последний"
+  - claim: "раскатка fe3455 с узлом D2 и слоем, несущим connectionURI, отвергается стражем зонтика"
+    command: "worktree origin/1276, deploy/helm/umbrella: helm dependency build --skip-refresh; helm template kacho . -f values.prod.yaml -f values.fe3455.yaml -f values.fe3455-prod.yaml -f <узел формы dev + mailpit.enabled: true> [-f <слой: только внешний connectionURI>]"
+    result: "без слоя — rc 0, 140 объектов; со слоем — rc 1, identity-mail-lane-guard.yaml:256 (страж (7))"
+  - claim: "образец формы values.dev.yaml роняет рендер prod; образец формы оператора — нет"
+    command: "там же: helm template kacho . -f values.prod.yaml [-f <образец>] для образцов: нет; форма dev; внешний адрес + якорь kacho-mailpit-tls; внешний адрес без якоря с отправителем"
+    result: "нет — rc 0, 186; форма dev — rc 1, :225 (страж (6), приёмник выключен); внешний + якорь стенда — rc 1, :256 (страж (7)); форма оператора — rc 0, 186"
+  - claim: "страж зонтика безусловен и стоит на обеих базах"
+    command: "git show <rev>:deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml | grep -c -E 'приёмник ВЫКЛЮЧЕН|якорем нашего отправителя назван секрет приёмника'; управляющие if в начале шаблона"
+    result: "6edea09c2ee — 2, origin/1276 — 2; обёртывающего условия нет, первые ветки — по $uriSet/$fromSet"
+  - claim: "перепись Д48 недобирает читателей таблицы цепочек"
+    command: "git grep -lE 'deployStacks\\(|stacks\\.txt' <rev> -- 'deploy/*_test.go' 'deploy/**/*_test.go' | wc -l; git grep -lE 'deployStacks\\(|stacks\\.txt|stacks\\.sh' <rev> -- '*_test.go' ':!deploy/*_test.go' ':!deploy/**/*_test.go'; git grep -lE 'stacks\\.sh' <rev> -- '*.sh' '*.bats'; git grep -n 'stacks\\.(sh|txt)' <rev> -- .github deploy/Makefile"
+    result: "Go в deploy/: 54 (6edea09c2ee), 48 (origin/1276); Go вне deploy/: 10 на обеих; *.sh со stacks.sh: 34 и 24 (на 1276 в deploy/tests/helm — 17 гейтов и харнессов); ci.yaml:2564–2566 рендерит каждую цепочку; deploy/Makefile:65, :938 — установка"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "несёт ли настоящая копия слоя учётных данных fe3455 координату connectionURI"
+    why: "слой вне git и вне машины CI по построению (шапка stacks.txt, cutover-fe3455.sh). Вывод CX1-85 держится на тексте скрипта: CRED_PATHS разрешает ровно эту координату, и слой «её ещё несёт». Опровергнуть его может только оператор площадки"
+  - item: "какие из 17 шелл-гейтов и 10 файлов Go вне deploy/ рендерят именно prod"
+    why: "у большинства цепочка берётся из `--names` в цикле, и prod входит. Разметка по одному — предмет переписи D2 (CX1-86 (а)), а не этой записи; число здесь сделало бы вывод лишь на вид точнее"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-85, CX1-86, CX1-87, CX1-88]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-85 (а), (б): судьба connectionURI в CRED_PATHS, путь cutover-fe3455.sh и MAIL-54 в D2, проба раскатки fe3455 со слоем; CX1-86 (а)–(в): перепись по точкам применения, слой только в тестовой обёртке, инъекция на шелл-гейте и CI; CX1-87 (а)–(в): образец формы оператора, один фикстурный файл, проба через страж зонтика; CX1-88 (а)–(в): предикат старта D2 по следу #1276 и stateReason, профиль fe3455 по базе; N3 — обновить change.yaml; N4, N5"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Решение и его следствие разнесены», §«Умолчание, которое становится утверждением»; measurement-discipline §«Радиус: по имени механизма и по точкам применения», §«Чужое измерение и чужое заявление»"
+  - to: "диспетчер"
+    subject: "посылка Д49 опровергнута в части файла: `values.fe3455-identity-posture.yaml` ввела волна-4 (#2759), а `kacho#1276` его удаляет — формулировку Д49 стоит поправить. CX1-85 (в): Д46 переводит живой fe3455 с ретранслятора оператора на приёмник в кластере — подтвердить это либо сузить Д46"
+    basis: "origin/1276@3af063bd6f3; cutover-fe3455.sh CRED_PATHS"
+  - to: "acceptance-author (приёмка NTF-2)"
+    subject: "N-3 «судьба стенда fe3455» (узел — слой учётных данных, флаг false) расходится с Д46, Д49 и таблицей З28 NTF-1 — Е12"
+    basis: "NTF-2 ред. 21, таблица N-3; design.md NTF-1 З28"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-85…88"
+    basis: ".claude/rules/change-graph.md §4"
