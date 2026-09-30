@@ -65,6 +65,7 @@ hard-establish-before-removing-guard · перед снятием самодел
 ## Три уровня супер-доступа — КАСКАДОМ, ниже — плоско по выдаче
 
 hard-cloud-admin-cascade · разрешать каскадом на всё · internal/repohygiene/quotasurfacecensus_injection_test.go · red: глаголы без наследования от кластера
+hard-cloud-admin-no-oversight-on-notification-types · на типах закрытого перечня NTF-1 Р5 (`notification_feed`, `notification_namespace`; NTF-3 дописывает `notification_recipient_directory`) надзор администратора облака не применяется ни на одном пути двери проверки прав kaname: исход — от модели, где вопроса к модели нет — отказ; перечень типов объявлен одним местом рядом с дверью; рычаг оператора — `Revoke`/`Restore` на объекте `cluster` (эпик kacho#2914, NTF-1 Р5) · ЗАВЕСТИ hard-cloud-admin-no-oversight-on-notification-types · red: путь надзора двери отвечает разрешением на объект типа из перечня; вторая декларация перечня
 hard-bootstrap-account-cascade · разрешать каскадом в пределах облака · internal/repohygiene/quotasurfacecensus_injection_test.go · red: отсутствие наследования у бутстрапа
 hard-account-admin-cascade · разрешать каскадом внутри аккаунта; новые права после его уволнения навешивает только администратор облака · internal/repohygiene/quotasurfacecensus_injection_test.go · red: плоские глаголы на уровне аккаунта
 hard-below-is-flat · оставлять плоским per-object, материализуемым реконсайлером из AccessBinding · internal/repohygiene/catalogreachability_test.go · red: каскад ниже аккаунта
