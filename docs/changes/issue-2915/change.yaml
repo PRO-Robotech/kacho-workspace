@@ -16,9 +16,9 @@
 # круг 2 прохода редакции 17/18: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml),
 # но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
 # Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/29cfa368….yaml
-# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 9
-# (2026-09-30, заход отображения по Д26), отпечаток — `hashes.design_sha256`; вердикта на него нет,
-# пересверки на него нет (следующая по Д22 судит дельту против 8d01a10e…, по Д26 — строки
+# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 10
+# (2026-09-30, заход отображения по Д26 на пересверку e7a6ae15: CX1-71, CX1-72), отпечаток — `hashes.design_sha256`; вердикта на него нет,
+# пересверки на него нет (по Д26 следующая судит строки отображения и дельту против e7a6ae15…; прежняя формула — строки
 # отображения и дельту).
 # Ревью замысла (design-reviewer) на редакцию 8 (dba7c388…) — reviews/design/design-reviewer/dba7c3883a98dc59e9c17b633fdaa95a2bebae1b15c73bd5e05a5f887efc2074.yaml
 # (коммит 82647204d; возврат по К1, Н1–Н3 и М1 не блокируют — отображены редакцией 9 по Д26 строками SDR-*).
@@ -36,7 +36,9 @@
 # (коммит 706f7a0c5; к замыслу CX1-69, УК92 — отображены редакцией 7; L03 записи 9bfa92be в силе).
 # Пересверка на редакцию 7 (8d01a10e…) — reviews/class-exposure/revalidation/8d01a10e8b7f81dfb73965e2caa2552bbfeae8de2ae10595e1329cd3e1aff386.yaml
 # (коммит d80c1949e; к замыслу CX1-70, УК93, УК94 — отображены редакцией 8 по Д26; L03 записи 9bfa92be в силе).
-# Маршрут работ — `tasks.md` редакции 9 (проект; TASKS_READY им не объявлено).
+# Пересверка на редакцию 9 (e7a6ae15…) — reviews/class-exposure/revalidation/e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0.yaml
+# (коммит ad3c82c83; к замыслу CX1-71, CX1-72 — отображены редакцией 10 по Д26; L03 записи 9bfa92be в силе).
+# Маршрут работ — `tasks.md` редакции 10 (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2915
 lifecycle_state: ISSUE_READY
@@ -73,7 +75,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
-  design_sha256: e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0
+  design_sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:
