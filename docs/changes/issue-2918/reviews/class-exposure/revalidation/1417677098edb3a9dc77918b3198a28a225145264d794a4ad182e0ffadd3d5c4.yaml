@@ -1,0 +1,228 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 15.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки относятся к своим
+# отпечаткам и здесь не переписываются. По Д22 это дельта: редакция 15 проверена диффом
+# 2504b159e → 44505f120 (design.md +59/−10, tasks.md +14/−5). Редакция 15 — заход отображения по Д26
+# на пересверку 350b291d; механизм не меняется (исключение из Д26 для К1, К2 этим заходом не
+# использовано). Проверено:
+#   (1) отображение CX3P-01…03 и выдерживание условий этих пунктов, включая подпункты (в);
+#   (2) исполнимость новых предикатов УК3-65…67 и расширения УК3-59, УК3-63 — замером на деревьях;
+#   (3) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 15.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 1417677098edb3a9dc77918b3198a28a225145264d794a4ad182e0ffadd3d5c4
+  fingerprint_predicate: git show HEAD:docs/changes/issue-2918/design.md | sha256sum
+  revision: 15
+  content_commit: 44505f120
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/350b291deaea00a1459004732e17638f72f719f19ffc69e32ae1dca65564c9ae.yaml
+  subject_revision: 14
+  outcome: к-замыслу
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д43 по журналам заданий. Д22 — дельта. Д26 — заход отображения; исключение (механизм только для
+    К1 и К2 ревью замысла 97c51264) этим заходом не использовано: редакция 15 механизм не меняет, и
+    запись судит её как отображение.
+revisions:
+  workspace: 44505f120   # HEAD issue-880 при замере = коммит содержимого предмета
+  kacho: 1d42a6728bf     # пин corelib v1.8.0 (go.mod:119)
+  corelib: 34bc8104a     # предикат УК3-67 перепроверен и на origin/main 851ee57 — то же
+  kaname: 32637536f      # пин corelib v1.9.0 (go.mod:8)
+snapshot_at: 2026-09-30T18:04:30Z
+inspected: >-
+  Дифф редакции 14 → 15 (коммит 44505f120) по design.md и tasks.md целиком: заметка редакции 15,
+  таблица вердиктов, М28, З4 (первый пункт), З16 «FailTerminalCAS — не вход для модулей», «Что значение
+  построил opsnotify.New, типом не выражено», «Пробы … во внешнем тестовом пакете», И28, строки §11
+  CX3L-02, CX3P-01…03, счёт строк §11, §11а УК3-53, 54, 59, 60, 63, 64, 65, 66, 67; строки X3, X5, S3-C3,
+  Е4, §3 tasks.md. Контекст: З16 строки 1000, 1045–1048 (сигнатура RunTerminal и источник table).
+  Замеры: предикат УК3-67 на corelib @34bc8104a и @851ee57; охват pathspec 'operations/*_test.go';
+  исполнимость контроля УК3-65/66 «по каталогу закреплённой версии corelib» в kacho @1d42a6728bf.
+
+gates:
+  - condition: "каждый пункт первичных разборов и прежних пересверок имеет строку §11"
+    result: green
+    detail: >-
+      Строк §11 с префиксами CX3 и ДР- — 114 (awk по разделу §11 → 114), как объявлено в прозе. CX3P-01…03
+      получили строки. Множества УК3 в design.md и tasks.md совпадают (comm -3 → пусто), §3 tasks.md —
+      диапазон УК3-01…67.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Новых сетевых вызовов нет: редакция 15 добавляет только условия, предикаты и размещение проб."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет; цепочка terminalWrite → pgRepo.FailTerminal → RunTerminal та же."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: "Новых sentinel-значений нет."
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: "grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и 0 в tasks.md."
+
+clean: false
+
+execution_check:
+  summary: "заказ автору 350b291d исполнен; заказ integration-tester перенесён в §11а и предикаты полос"
+  items:
+    - id: "orders.design-author CX3P-01…03, выбор держателя CX3P-02 (б), CX3L-02 (б), И28, З4 строка 422 (350b291d)"
+      verdict: done
+      where: "З4, З16, И28, строки §11 CX3L-02, CX3P-01…03; выбраны оба держателя CX3P-02 — УК3-59 (расширен) и УК3-66"
+    - id: "orders.integration-tester (1) предикаты CX3P-01 (а), CX3P-02 (а); (2) внешний тестовый пакет; (3) исход УК3-63 по числу (350b291d)"
+      verdict: carried
+      where: "§11а УК3-63, 65, 66, 67, УК3-53, 54, 60, 64; предикаты полос X3, S3-C3, X5 (tasks.md)"
+
+mapping_check:
+  summary: "CX3P-01…03 отображены и выдерживают; новый пункт CX3Q-01 — в тексте предиката УК3-65/66"
+  holds_now:
+    - id: "CX3P-01 (а) вызывающие FailTerminalCAS"
+      reason: >-
+        З16 и строка §11 называют два пакета-вызывающих и 0 в kacho и kaname; держатель УК3-65 печатает
+        число и имеет контроль в обе стороны. Контроль «≥ 2 вне объявления» исполним: markErrorCAS и
+        opsnotify.FailTerminal (плюс запасная запись классификатора) дают не меньше 2. Половина контроля
+        для kacho и kaname не исполнима в написанной форме — см. CX3Q-01.
+    - id: "CX3P-01 (б) комментарий объявления"
+      reason: "З16 предписывает три утверждения комментария (не ставит писем, не вход для модулей, table — доверенный идентификатор из pgRepo.tableName() или Reconciler); держится вниманием по диффу X3, как и было предложено."
+    - id: "CX3P-01 (в) opsnotify не строит table"
+      reason: >-
+        Отдельной строкой не выписано, но выражено сигнатурой: RunTerminal(ctx, pool, table, id, st)
+        (З16, строка 1000) получает table от pgRepo.FailTerminal — `notify.RunTerminal(ctx, r.pool,
+        <таблица>, id, st)` (строка 1045), своего состояния таблицы у *Notifier в З16 нет, запасная
+        запись классификатора берёт тот же аргумент. Условие выдерживает построением.
+    - id: "CX3P-02 (а), (б), (в)"
+      reason: >-
+        Выбраны оба держателя. УК3-66 (реализация RunTerminal вне тестов одна) дополнен УК3-59: третий
+        аргумент NewNotifyingRepo — идентификатор, присвоенный вызовом opsnotify.New в той же функции,
+        литерал, поле, параметр и иной вызов — находка; инъекции fakeNotify{} и тип со встроенным
+        *Notifier; близнец n, err := opsnotify.New(…). Пробел предиката УК3-66 (встраивание) закрыт
+        гейтом по узлу вызова. CX3L-02 (б) и И28 говорят «типом не выражено» и называют держателей.
+    - id: "CX3P-03 (а), (б), (в)"
+      reason: >-
+        (а) УК3-53, 54, 60, 64 — во внешнем пакете operations_test с настоящим opsnotify.New. (б) Замысел
+        строже заказа: поддельного FailedNotify в тестовом дереве operations нет вовсе (УК3-67 (а)).
+        Замер предиката на сегодня: `git grep -nE 'func \([^)]*\) (RunTerminal|Ready)\(' -- 'operations/*_test.go'`
+        → 0 на 34bc8104a и на 851ee57, законного совпадения, которое сделало бы «→ 0» ложно красным, нет.
+        Pathspec git без :(glob) пересекает '/', поэтому под него попадают и подпакеты (operationspb
+        сегодня, opsnotify после X3) — это охват «тестового дерева operations», М28 его уже учитывает
+        (строка «ещё 1 — operationspb»). (в) Инъекция «pgRepo без FailTerminal» при запрете подделки
+        возможна только правкой исходника.
+    - id: "УК3-63 исход по числу"
+      reason: "Строка §11а говорит прямо: исход — напечатанное число, не код возврата grep -c; под set -e законный ноль больше не читается красным."
+    - id: "прочие 111 строк §11"
+      reason: "дельта их не трогает, кроме CX3L-02 (уточнение текста (б) без смены условия); сверено по диффу"
+  not_holding: []
+  unmapped: [CX3Q-01]
+
+new_items:
+  - id: CX3Q-01
+    decision: >-
+      УК3-65 и УК3-66 (редакция 15): контроль в обратную сторону для kacho и kaname — «тот же предикат
+      (`git grep …`) по каталогу закреплённой версии corelib (`go list -m -f '{{.Dir}}'` модуля corelib)»
+    class: "gate-authoring §«Исход вместо объявления»; measurement-discipline §«Предикат — только с контролем»"
+    exposure: >-
+      Каталог модуля в кэше Go — не рабочее дерево git. Замер в kacho @1d42a6728bf: Dir =
+      ~/go/pkg/mod/github.com/!p!r!o-!robotech/corelib@v1.8.0; `git -C <Dir> grep …` и `cd <Dir> && git grep
+      …` → «fatal: не найден git репозиторий», `git grep … -- <Dir>/operations` из kacho → «is outside
+      repository». Stdout пуст, поэтому форма «`… | wc -l`» печатает 0, а контроль ждёт ≥ 2 (УК3-65) и 1
+      (УК3-66). Контроль в написанной форме красный всегда, на любом дереве: он не отличает «предикат не
+      видит имени» от «предикат не запустился». Полоса либо не сдаётся, либо переписывает контроль на
+      ходу без записи — и тогда ослабление контроля неотличимо от починки. Замер той же строки рабочей
+      формой: `cd <Dir> && git grep --no-index -n 'markErrorCAS(' -- ':!*_test.go' | wc -l` → 3, равно
+      `git -C corelib grep … 34bc8104a` → 3; `grep -rn --include='*.go' --exclude='*_test.go'` → 3.
+    code_condition: >-
+      (а) Контроль УК3-65 и УК3-66 по каталогу закреплённой corelib исполняется формой, которая работает
+      вне рабочего дерева git: `git grep --no-index` с каталогом модуля текущим, либо `grep -rn
+      --include='*.go' --exclude='*_test.go'`. (б) Отказ самой команды (fatal, пустой Dir у `go list -m`,
+      модуль corelib не в графе) — исход «не выполнилось», а не 0: проба проверяет, что Dir непуст и
+      существует, до подсчёта. (в) Текст §11а УК3-65, УК3-66 и строк X5, S3-C3 tasks.md назван этой формой,
+      чтобы полоса не выбирала её сама.
+    held_by: >-
+      Гейта нет, предмет — сам текст предиката. (а), (в) — правкой §11а тем же заходом отображения;
+      (б) — строкой пробы полосы; исполнение видно только прогоном — заказ integration-tester.
+    outcome: к-замыслу
+
+measurements:
+  - claim: "отпечаток предмета — редакция 15"
+    command: "git show HEAD:docs/changes/issue-2918/design.md | sha256sum (HEAD 44505f120)"
+    result: "1417677098edb3a9dc77918b3198a28a225145264d794a4ad182e0ffadd3d5c4"
+    control: "git show 2504b159e:docs/changes/issue-2918/design.md | sha256sum → 350b291d… (предмет прежней пересверки)"
+  - claim: "строк §11 с префиксами CX3 и ДР- — 114"
+    command: "awk '/^## 11\\./{f=1;next} /^## 11а/{f=0} f && /^\\| (CX3|ДР-)/' design.md | wc -l"
+    result: "114"
+    control: "grep -c '^| УК3-6[5-7] ' design.md → 3 (новые строки §11а на месте)"
+  - claim: "множества УК3 в design.md и tasks.md совпадают"
+    command: "comm -3 <(grep -o 'УК3-[0-9]*' design.md | sort -u) <(grep -o 'УК3-[0-9]*' tasks.md | sort -u)"
+    result: "пусто"
+  - claim: "предикат УК3-67 (а) сегодня не даёт законных совпадений"
+    command: "git -C corelib grep -nE 'func \\([^)]*\\) (RunTerminal|Ready)\\(' <rev> -- 'operations/*_test.go' | wc -l"
+    result: "0 на 34bc8104a и 0 на origin/main 851ee57"
+    control: "без ограничения на operations (-- '*_test.go') — тоже 0; положительный контроль — инъекция fakeNotify, предписанная самой УК3-67"
+  - claim: "pathspec 'operations/*_test.go' охватывает подкаталоги"
+    command: "git -C corelib grep -l '' 34bc8104a -- 'operations/*_test.go' | awk -F/ '{print NF}' | sort | uniq -c"
+    result: "29 файлов глубины 2 и 1 — operations/operationspb/handler_test.go; согласуется с М28 (24 + 5 + 1)"
+  - claim: "git grep не работает в каталоге модуля из кэша Go"
+    command: "cd kacho && D=$(go list -m -f '{{.Dir}}' github.com/PRO-Robotech/corelib); git -C \"$D\" rev-parse --is-inside-work-tree; git grep -n 'markErrorCAS(' -- \"$D/operations\""
+    result: "Dir = …/corelib@v1.8.0; fatal: не найден git репозиторий; «is outside repository»"
+    control: "cd \"$D\" && git grep --no-index -n 'markErrorCAS(' -- ':!*_test.go' | wc -l → 3; git -C corelib grep -n 'markErrorCAS(' 34bc8104a -- ':!*_test.go' | wc -l → 3"
+
+not_measurable: >-
+  Будут ли после X3 вызовы FailTerminalCAS и реализации FailedNotify вне corelib, дерево сегодня не
+  говорит: имён нет нигде, ноль ничего не доказывает. Держат УК3-65, УК3-66 на деревьях после X3,
+  S3-C3 и X5 — при условии CX3Q-01.
+
+facts_for_dispatcher:
+  - >-
+    Заход отображения исполнен: CX3P-01…03 имеют строки §11 с держателями, выбор CX3P-02 (б) сделан
+    (оба держателя), CX3L-02 (б), И28 и З4 уточнены, механизм не менялся.
+  - >-
+    Один новый пункт CX3Q-01: контроль УК3-65/66 «git grep по каталогу закреплённой corelib» не
+    исполним — каталог в кэше Go не репозиторий git, команда падает, а «| wc -l» печатает 0, и контроль
+    красный на любом дереве. Правка — одна строка формы предиката в §11а и в строках X5, S3-C3.
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: [CX3Q-01]
+not_holding_items: []
+new_items_without_mapping: [CX3Q-01]
+open_decisions: []
+
+orders:
+  - to: design-author (acceptance-author, база §12)
+    what: >-
+      Строка §11 для CX3Q-01; в §11а УК3-65 и УК3-66 и в строках X5, S3-C3 tasks.md — форма контроля по
+      каталогу закреплённой corelib: `git grep --no-index` с каталогом модуля текущим (или `grep -rn
+      --include='*.go' --exclude='*_test.go'`), с проверкой непустого существующего Dir до подсчёта;
+      отказ команды — «не выполнилось». Механизм не менять (Д26).
+    basis: "change-graph.md §4; gate-authoring §«Исход вместо объявления»; measurement-discipline §«Предикат — только с контролем»"
+  - to: integration-tester
+    what: "УК3-65, УК3-66 — исполнить контроль в рабочей форме CX3Q-01 и показать его зелёным на кэше пина и красным на пустом Dir; заказы записи 350b291d в силе"
+    basis: "testing-verdict.md п.13, п.16; §11а замысла"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат, не заводится. «Предикат по дереву git перенесён на каталог вне git (кэш модулей), падение
+  команды читается нулём» — один экземпляр, цена не измерена. Похожий по форме класс (исход из кода
+  возврата вместо числа, УК3-63) уже закрыт в этом же замысле; вместе это второй случай «исход пробы
+  читается не из того канала», но в одном документе — один экземпляр по §9.1. Владелец при второй
+  независимой встрече — measurement-discipline (§«Предикат — только с контролем»: контроль проверяет
+  и то, что команда исполнилась).
