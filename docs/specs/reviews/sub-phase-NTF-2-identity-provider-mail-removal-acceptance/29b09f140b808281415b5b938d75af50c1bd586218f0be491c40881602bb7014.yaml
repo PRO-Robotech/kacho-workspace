@@ -1,0 +1,169 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  revision: 28
+  static_status: DRAFT
+  static_status_note: >-
+    Строка истории шапки: «редакция 28 · 2026-10-01 · вердикта нет». Эта запись шапку НЕ правит:
+    вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из этой
+    записи и внешнего события.
+  content_commit: d331d103a
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true   # рабочий файл = d331d103a (git diff d331d103a -- <приёмка> → 0 строк)
+  lines: 4422
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-01T09:00:00Z'
+round: 2
+round_note: >-
+  Круг 2 на редакции 28. Это правка редакции 27 (`81b95b64…`, круг 1 — возврат, B-1 PRODUCER). Дельта
+  1fa495870 → d331d103a по документу прочитана целиком (+43 −4): шапка, §6б строка Р8 «рендер чарта
+  края без зонтика» (6) и (7), §7 строка NTF2-71 (е), DoD п.7, §11 «Редакция 27 → 28». Сверена с
+  маршрутом NTF-1 @45d535e1e (`docs/changes/issue-2915/tasks.md`, строка D1s по Д53). Прежние записи
+  не правятся.
+previous_rounds:
+  - pass: редакция 26, круг 3
+    sha256: 66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a
+    verdict: APPROVED
+    later: первичный разбор классов вернул RA-3, RA-4 (e8c5886d7)
+  - pass: редакция 27, круг 1
+    sha256: 81b95b646f716b58f68a4b07d74b189d7a5539ad9fc5891ee6b9e7e089c12aa1
+    verdict: CHANGES_REQUESTED
+return_items_checked:
+  B-1: >-
+    ЗАКРЫТО. §6б (6): суд записей `helm.values` гейтом заглушек (формула «гасит / без предмета»,
+    печать «заглушек N; файлов значений M», инъекция) приписан NTF-1 D1s (Д53). Это сходится со
+    строкой D1s маршрута @45d535e1e: там та же формула, та же печать, инъекция «файлов значений 2».
+    Дельта D6 перечислена закрыто («три вещи и только они»): запись `edge.yaml` в `helm.values`
+    (M головы = M базы + 1), печать выпавших чартов и правило «пустой перечень на `edge.yaml` —
+    красный». Предпосылка «гейт читает `helm.values`» печатается на базе полосы. Если строки нет
+    или M = 0, это «не выполнилось», а не расширение гейта в D6. Состояние @6edea09c2ee названо
+    состоянием до NTF-1. Та же правка есть в §7 NTF2-71 (е) и в DoD п.7. Класс проверен переписью:
+    пути маршрута NTF-1 сравнены с упоминаниями в приёмке (S-2). Других утверждений о текущем
+    состоянии файла NTF-1, от которого зависит дельта NTF-2, не нашлось.
+  N-1: >-
+    ЗАКРЫТО. (7): если файла нет или он не разобрался, это красный с именем файла. Второй держатель
+    назван: (1) и (2).
+  N-2: >-
+    ЗАКРЫТО. Ключ берётся из `required` шаблона Deployment края, имя задаёт замысел `issue-2917` З28.
+    Литерала в пробе нет.
+blocking_count: 0
+blocking_kinds_distinct: []
+non_blocking:
+  N-1: >-
+    [FORMAT] (7): «шаблон без `required` на ключе ручки — "не выполнилось"». Здесь тот же довод, что
+    в закрытом N-1 круга 1: `required` в шаблоне края — продукт самой D6 (§7 NTF2-71 (е)). Поэтому
+    его отсутствие после D6 — дефект, а не несозданное условие. По существу его держит (2): голый
+    рендер обязан отказать с именем ручки. Стоит сказать, что (7) этого не держит и держит (2), как
+    сделано для отсутствия файла. Смысл документа от этого не меняется.
+  N-2: >-
+    [FORMAT] §7 NTF2-71 (е), конец ячейки: «D6 гейт не расширяет, а печатает предпосылку». В той же
+    ячейке и в §6б (6) в дельту D6 входит печать гейтом чартов, выпавших из осмотра. Это правка
+    файла гейта, который завела D1s. Точнее было бы так: «D6 не расширяет гейт на форму
+    `helm.values`; правка файла гейта — печать выпавших чартов и правило для `edge.yaml`». Посадке
+    это не мешает: D6 начинается после вливания NTF-1 (Р16 п.1), так что одновременной правки
+    файла нет.
+orders:
+  - to: design author (NTF-1)
+    what: >-
+      Повтор распоряжения круга 1, которое на @45d535e1e не исполнено. Строка D1s маршрута
+      (`docs/changes/issue-2915/tasks.md`) и замысел З28 (г), N24, §13 Е12 (12) говорят: «D6 NTF-2
+      пишет строку ручки в эти же файлы, второй формы подачи не заводит». Приёмка NTF-2 Р8 говорит
+      другое: ключ ручки в корне лежит только в `notify-standalone/edge.yaml`, D6 заводит этот файл
+      и его запись в `helm.values`, а `notify-standalone/values.yaml` ключа не несёт (§6б (5) —
+      красный). Приёмка выше замысла, поэтому замыслу надо привести формулировки к ней.
+  - to: design author (NTF-2, issue-2917)
+    what: имя ключа ручки в значениях чарта края — в З28 (вход из §11 редакции 28).
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  declared_verdict: APPROVED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_approved
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 29b09f14…; правка документа (в том числе по N-1, N-2) требует нового
+    рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2, редакция 28, блокирующих 0) · SHA-256
+    29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: d331d103a (ветка issue-880)
+    ntf1_route: docs/changes/issue-2915/tasks.md @45d535e1e (закоммичено)
+  results:
+    - id: S-1
+      claim: печать и инъекция гейта заглушек на форме `helm.values` производятся NTF-1 D1s
+      command: awk '/^\| *D1s *\|/' docs/changes/issue-2915/tasks.md
+      outcome: >-
+        строка D1s: пути `assert-scan-stubs-hide-nothing.py` и `-inject.sh`; «снимает элементы
+        `helm.values` по одному так же, как `helm.set`, "гасит" и "без предмета" той же формулой, печать
+        "заглушек N; файлов значений M"»; близнец — «файлов значений 2». Совпадает с (6) и с «M на
+        голове = M базы + 1».
+    - id: S-2
+      claim: перепись класса B-1 (пути маршрута NTF-1 против упоминаний в приёмке) воспроизводима
+      command: >-
+        awk -F'|' '/^\| *[A-Z][0-9]+s? *\|/' tasks.md@45d535e1e | wc -l; токены в обратных кавычках
+        столбца путей → basename → grep -F в приёмке
+      outcome: >-
+        строк полос 50 (как у автора). Мой предикат не отбирал только пути, поэтому пар 172, а не 137,
+        и совпадений больше. Число пар не сверялось, это расхождение предиката, а не опровержение.
+        Совпавшие файлы продукта, которых нет в перечне автора, я разобрал по месту:
+        `identity_mail_lane_single_declaration*` (D2) — «за kacho#1276», `mail-receiver.yaml` и
+        `mail_receiver_core_test.go` (D3) — «остаётся», `own_posture_foreign_identity_test.go` (D2) —
+        ссылка на существующий гейт в §1. Ни одно из них не утверждает состояние, от которого зависит
+        дельта NTF-2. Вывод автора подтверждён.
+    - id: S-3
+      claim: устаревших формулировок «расширение вносит D6» вне истории нет
+      command: python re.finditer по «только `helm.set`», «сегодня гейт», «расширение вносит», «helm.values»
+      outcome: >-
+        вне §11 «только `helm.set`» встречается только в (6) как состояние @6edea09c2ee до NTF-1.
+        «расширение гейта — D6» — строка 4355, это история редакции 25 → 26, она не правится.
+constructibility:
+  seeded: 0
+  of: 1
+  not_performed: 0
+  named_fixture: 1
+  note: >-
+    Новое нетривиальное Given редакции 28 — предпосылка (6): на базе полосы гейт печатает «файлов
+    значений M», M ≥ 1. Его строит полоса NTF-1 D1s; фикстура названа: близнец её инъекции на
+    каталоге даёт «файлов значений 2» (S-1). Посеять его нельзя, пока D1s не влита. Приёмка называет
+    это состояние «не выполнилось», а не зелёным. Граница (6) и однолистность (7) не изменились по
+    существу и посеяны в круге 1 (запись 81b95b64…, S-1). Прочие Given посеяны прежними кругами.
+route_flags:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true   # ручка доверенных прыжков края и IaC-скан (без изменений против редакции 27)
