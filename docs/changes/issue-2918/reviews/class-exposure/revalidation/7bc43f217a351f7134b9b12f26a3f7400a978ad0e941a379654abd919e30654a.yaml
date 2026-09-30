@@ -1,0 +1,292 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 11.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5, 3dbb8b23, b34a411e, 97c51264, f6809e98) относятся к своим отпечаткам и здесь не
+# переписываются. По Д22 это дельта: редакция 11 проверена диффом 1d49feafb → d34f98bc6 (design.md,
+# tasks.md, change.yaml). Проверено:
+#   (1) отображение CX3L-01…05 пересверки f6809e98 и строки ДР-К1 (б), которая там не выдерживала;
+#       условия на код сверены с кодом corelib @34bc8104a и kacho @1d42a6728bf;
+#   (2) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 11;
+#   (3) рёбра маршрута по Д41 (дельта рёбер не меняет — сверено).
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 7bc43f217a351f7134b9b12f26a3f7400a978ad0e941a379654abd919e30654a
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 11
+  content_commit: d34f98bc6
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/f6809e98b8dc7132a5908a26d90790474fb060b2409d18626827500fcc735ed1.yaml
+  subject_revision: 10
+  outcome: к-замыслу
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34, Д37, Д40, Д41. Д22 — дельта. Д26 — заход отображения. Д41 (уточняет Д37): окна пина corelib
+    в kacho (0) v1.10.0 → (1) NTF-1 → (2) NTF-4 (S2-B1, S3-C2 issue-2919) → (3) X2-F NTF-3 → (4) TW
+    NTF-5; каждый тег corelib, поднимающий пин kacho, рёбрами не пересекается с окнами (1)–(2).
+revisions:
+  workspace: d34f98bc6   # HEAD issue-880 при замере = коммит предмета
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a
+snapshot_at: 2026-09-30T17:07:03Z
+inspected: >-
+  Дифф редакции 10 → 11 целиком (коммит d34f98bc6: design.md +119/−31 по трём файлам, tasks.md,
+  change.yaml). Раздел З16 замысла целиком, З4, З11, §7 п.4, §8, И6, И27, строки §11 CX3L-01…05 и
+  ДР-К1, §11а УК3-54, УК3-55, УК3-58; строки X1…X5, X2-F маршрута. Код corelib @34bc8104a:
+  operations/reconciler.go (NewReconciler, Sweep, RecoverAll), operations/worker.go (NewWorker,
+  defaultRegistry, ConfigureDefault, Run, terminalWrite), operations/repo.go (ClaimForExecution). Код
+  kacho @1d42a6728bf: вызовы operations.NewReconciler, operations.NewWorker, operations.ConfigureDefault,
+  operations.Run во всём дереве services/. Приёмка не перечитывалась (дельта её не касается). Стенд не
+  поднимался. Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строки есть у всех 93 пунктов CX3 (`grep -c '^| CX3'` → 93 = 88 + CX3L-01…05) и у 7 строк ДР-.
+      ДР-К1 (б) и CX3L-01, CX3L-03…05 выдерживают. CX3L-02 (б) выдерживает для Reconciler и не
+      выдерживает для Worker: замысел доставляет FailedNotify «конструктору Worker», а Worker, на котором
+      исполняются асинхронные операции пяти модулей, строится не корнем, а инициализацией пакета
+      (`var defaultRegistry = NewWorker()`, worker.go:83), и корень registry его не настраивает вовсе.
+      Новый пункт CX3M-01 без отображения.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Новых вызовов нет: NewFailedNotify зовёт SystemPrincipalFor и InitiatorOf в процессе, а не по сети."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет. Путь Reconciler.Sweep уточнён (порог, условие живости, счёт), и это закрывает CX3L-01, CX3L-04."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: >-
+      Новое значение одно: `journaltx.ErrOptionsUnset`. Замысел сам заводит его пунктом (строка CX3L-02 (а),
+      проба X1). Здесь оно разобрано как CX3M-02, условие к коду. Значения operations.NoFailedSender и
+      FailedNotify{} — прежний sentinel (NoFailedSender) и нулевое значение нового типа; их разбирает
+      CX3M-01.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: "Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md)."
+
+clean: false
+
+execution_check:
+  summary: "заказ автору f6809e98 исполнен по всем пяти пунктам; заказы integration-tester перенесены в §11а"
+  items:
+    - id: "orders.design-author CX3L-01 (f6809e98)"
+      verdict: done
+      where: "З16 (порог один на проход, взятие с условием сироты), §7 п.4, И27, ДР-К1 (б), строка X3 tasks.md"
+    - id: "orders.design-author CX3L-02 (f6809e98)"
+      verdict: partly
+      where: "З4, З11 (четыре потребителя), З16 «Одно значение подключения», §8, И6"
+      note: "Для Reconciler путь доставки назван. Для Worker назван конструктор, которого у рабочего Worker модулей нет, — CX3M-01."
+    - id: "orders.design-author CX3L-03…05 (f6809e98)"
+      verdict: done
+      where: "строки §11 CX3L-03…05, З16"
+    - id: "orders.integration-tester УК3-58, близнецы УК3-54, УК3-55 (f6809e98)"
+      verdict: carried
+      where: "§11а УК3-54, УК3-55, УК3-58"
+    - id: "facts_for_dispatcher (f6809e98): окна X1 и X2 NTF-3 между собой не упорядочены"
+      verdict: unchanged
+      note: "Дельта рёбер не меняет. Д41 ребра X1 → X2 не требует; оба тега стоят после S3-C2 issue-2919."
+
+mapping_check:
+  summary: "93 из 93 пунктов CX3 имеют строку; CX3L-02 (б) выдерживает только для Reconciler; 7 из 7 строк ДР- выдерживают"
+  holds_now:
+    - id: "ДР-К1 (б), CX3L-01"
+      reason: >-
+        Взятие `WHERE id = $1 AND done = false AND modified_at < $threshold FOR UPDATE SKIP LOCKED`, порог
+        один на проход. Разобраны три порядка гонки с ClaimForExecution (repo.go:597). (1) Подтверждение
+        зафиксировано до взятия: снимок взятия видит новое modified_at, строк 0. (2) Подтверждение
+        держит замок строки: SKIP LOCKED даёт 0 строк. (3) Взятие первым: UPDATE исполнителя ждёт замок,
+        после коммита done = true получает 0 строк, fn не исполняется, как сегодня. Порог считается часами
+        процесса (time.Now().UTC()), и ClaimForExecution пишет modified_at тоже часами процесса — так же,
+        как сегодня (reconciler.go threshold, repo.go:597), поэтому новой зависимости от часов не
+        появляется.
+    - id: "CX3L-02 (а), (в)"
+      reason: >-
+        Options строит только NewOptions, нулевое значение Begin отвергает до первого оператора. Корень
+        строит одно значение из единственного чтения ручки, и З11 переписан на четырёх потребителей.
+    - id: "CX3L-02 (б) — Reconciler"
+      reason: >-
+        Reconciler строит корень модуля: 6 вызовов operations.NewReconciler в cmd/*/recovery.go (compute,
+        geo, nlb, registry, storage, vpc), вне тестов. Значит, у FailedNotify есть корень, куда его передать.
+        Однако NewReconciler сегодня ошибку не возвращает (reconciler.go:152) — условие к коду CX3M-01 (б).
+    - id: "CX3L-03"
+      reason: "NewFailedNotify проверяет пару при сборке; отказ — отказ старта с именем службы. Строка классификатора недостижима по построению."
+    - id: "CX3L-04"
+      reason: >-
+        Sweep считает только разрешённых. Пропуск взятия в счёт не входит, поэтому RecoverAll не
+        зацикливается на кандидате чужой реплики. Потери разделения между репликами тоже нет: реплика
+        держит замок одной строки за раз, а взятие соседа с SKIP LOCKED переходит к следующей строке.
+    - id: "CX3L-05"
+      reason: "Resolve получает контекст прохода без пары; держится вниманием, причина названа."
+    - id: "ДР-К1 (а), (в), ДР-К2, ДР-В1…В4, ДР-М1"
+      reason: "Дельта их не меняет, кроме ДР-К1 (б) — см. выше."
+  not_holding:
+    - id: "CX3L-02 (б) — Worker"
+      reason: >-
+        Замысел (З16 «Одно значение подключения», строка CX3L-02 (б)): «приходят в Worker и Reconciler одним
+        значением FailedNotify… Нулевое FailedNotify{} конструкторы Worker и Reconciler отвергают, как nil».
+        Прежний текст З16 «отправитель без пары и пара без отправителя конструктором отвергаются» — та же
+        посылка. В дереве kacho вызовов operations.NewWorker вне тестов 0. Асинхронные операции модулей
+        идут через пакетный operations.Run (worker.go:622) на `defaultRegistry = NewWorker()`
+        (worker.go:83), то есть на Worker, построенном инициализацией пакета без аргументов. Корень влияет
+        на него только функциональными опциями ConfigureDefault (worker.go:699), и этот вызов
+        необязателен. ConfigureDefault зовут compute, nlb, storage и vpc; registry не зовёт ни
+        ConfigureDefault, ни Start, и его Worker стартует лениво на первом Run («Backward-compat»,
+        worker.go:692-698). Конструктора, который мог бы отвергнуть нулевое FailedNotify с именем службы
+        при старте корня, у рабочего Worker нет. См. CX3M-01.
+  unmapped: [CX3M-01]
+
+new_items:
+  - id: CX3M-01
+    decision: "FailedNotify доставляется в Worker и Reconciler; нулевое значение отвергают «конструкторы» (З16, CX3L-02 (б))"
+    class: "code-authoring §«Умолчание, которое становится утверждением»; §«Решение и его следствие разнесены»"
+    exposure: >-
+      Решение «модуль подключён» принимает корень (ручка, FailedNotify). Исполняет его Worker пакетного
+      реестра, который построен до корня и без него. Точка отказа, которую называет замысел, в этом
+      пути не существует. Если реализация добавит FailedNotify параметром NewWorker, его не вызовет ни
+      один корень. Если добавит опцией ConfigureDefault, её отсутствие молча даст нулевое значение, а
+      registry ConfigureDefault не зовёт вовсе. Тогда подключённый модуль (ручка true, Reconciler с
+      парой) на пути исполнителя ведёт себя одним из двух способов. Либо как неподключённый: строки
+      operation-failed нет, ошибки нет, — ровно то расхождение трёх признаков, которое CX3L-02 обещал
+      сделать невыразимым. Либо отказывает при первой терминальной записи: операция остаётся done=false до
+      OrphanGrace, и её разрешит Reconciler. Оба исхода видны только по счётчику, а не отказом старта.
+    code_condition: >-
+      (а) Замысел называет путь FailedNotify в Worker, на котором исполняются асинхронные операции модулей
+      (пакетный defaultRegistry), и точку отказа корня. Например: опция ConfigureDefault обязательна, а
+      Start пакетного реестра и ленивый старт на первом Run отказывают, пока FailedNotify не задан (явный
+      NoFailedSender допустим). Корень зовёт ConfigureDefault и Start до приёма трафика, и отказ — отказ
+      старта с именем службы. Либо модули переходят на корневой Worker и RunWithWorker (worker.go:628), и
+      тогда пакетный Run в модулях запрещается. Выбор за автором. Непременно одно: нулевое значение не
+      может молча стать ни NoFailedSender, ни отказом в рантайме. (б) NewReconciler принимает FailedNotify
+      обязательным позиционным аргументом (не опцией) и возвращает ошибку. Все 6 вызывающих в cmd/*/recovery.go
+      (включая geo с явным NoFailedSender) правятся тем же подъёмом пина (строка X5 / S3-C3). (в) Корни
+      registry и geo, которые сегодня ConfigureDefault не зовут, названы в S3-C3 и S1-A4 поимённо.
+    held_by: >-
+      УК3-55 ловит исход рантаймом: у registry строк operation-failed 0 при ожидаемой 1 — красный. Но
+      ловит его только при прогоне через пакетный Run, а не через NewWorker. Нужен близнец: корень модуля
+      без FailedNotify у Worker → отказ старта с именем службы; и проба, что ленивый первый Run без
+      конфигурации отказывает. Заказ integration-tester.
+    outcome: к-замыслу
+  - id: CX3M-02
+    decision: "новое sentinel-значение journaltx.ErrOptionsUnset — отказ Begin на нулевых Options (З4)"
+    class: "code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      Проверка стоит в Begin, то есть на первой пишущей транзакции, а не при старте. Писатель журнала
+      модуля, которому корень не передал Options, соберётся и поднимет готовность, а откажет на каждой
+      мутации. Для operations это закрывает NewFailedNotify при сборке. Для писателей модуля замысел
+      точки отказа при сборке не называет. Кроме того, это первый отказ journaltx на пути запроса
+      пользователя, так что его ответ клиенту должен быть определён.
+    code_condition: >-
+      (а) Каждый держатель Options (конструктор писателя журнала модуля, NewFailedNotify) отвергает
+      нулевые Options при сборке корня. Отказ Begin остаётся страховкой, а не первой точкой обнаружения.
+      (б) На пути запроса ErrOptionsUnset уходит клиенту фиксированным INTERNAL без текста ошибки
+      (hard-no-err-echo); на пути terminalWrite и Reconciler это строка классификатора «отказ
+      journaltx.Begin» (З16), которую (а) делает недостижимой. (в) errors.Is отличает ErrOptionsUnset от
+      отказа InitiatorOf — это разные строки счётчика.
+    held_by: >-
+      Проба journaltx X1 (нулевые Options → ErrOptionsUnset, операторов 0; близнец NewOptions(false)) —
+      есть в замысле. Для (а) нужен близнец УК3-12 или NTF3-64…67: корень без Options у писателя → отказ
+      старта. Для (б) — TestErrorMappersTailReturnsAFixedText на дереве модулей.
+    outcome: к-коду
+
+measurements:
+  - claim: "отпечаток предмета — редакция 11"
+    command: "sha256sum docs/changes/issue-2918/design.md; git show d34f98bc6:docs/changes/issue-2918/design.md | sha256sum"
+    result: "7bc43f21… в обоих"
+    control: "1d49feafb:… → f6809e98 (предмет прежней пересверки)"
+  - claim: "Worker модулей — пакетный реестр, построенный без корня"
+    command: >-
+      git grep -nE 'operations\.NewWorker|\*operations\.Worker' 1d42a6728bf -- ':!*_test.go' (kacho);
+      git grep -n 'defaultRegistry *=' 34bc8104a -- operations (corelib)
+    result: "kacho — 0 вызовов вне тестов; corelib — worker.go:83 `var defaultRegistry = NewWorker()`"
+    control: "operations.Run( в services/*/internal — есть во всех пяти модулях (compute runop.go, nlb, registry, storage, vpc)"
+  - claim: "registry и geo пакетный Worker не настраивают"
+    command: "git grep -nE 'ConfigureDefault' 1d42a6728bf -- ':!*_test.go'"
+    result: "вызовы: compute observability.go:75, nlb observability.go:71, storage serve.go:293, vpc observability.go:70; registry и geo — 0"
+    control: "registry serve.go зовёт operations.Wait/Active (строки 675, 677) — пакетный реестр используется"
+  - claim: "NewReconciler ошибку не возвращает; вызывающих 6"
+    command: >-
+      git grep -nE '^func New(Worker|Reconciler)' 34bc8104a -- operations;
+      git grep -nE 'operations\.NewReconciler\(' 1d42a6728bf -- ':!*_test.go'
+    result: "`func NewReconciler(...) *Reconciler` (reconciler.go:152), `func NewWorker(opts ...WorkerOption) *Worker` (worker.go:208); вызывающих 6 (cmd/*/recovery.go)"
+    control: "тестовых файлов kacho с operations.New(Worker|Reconciler) — 0"
+  - claim: "порог и подтверждение живости — одни часы процесса"
+    command: "git show 34bc8104a:operations/reconciler.go (Sweep: threshold := time.Now().UTC().Add(-rc.grace)); git show 34bc8104a:operations/repo.go | sed -n 594,601p"
+    result: "оба — time.Now().UTC() процесса; ClaimForExecution: `UPDATE … SET modified_at = $2 WHERE id = $1 AND done = false`"
+    control: "то же на сегодняшнем claim — дельта часов не меняет"
+  - claim: "строк отображения 100; маршрут рёбер не менял"
+    command: "grep -c '^| CX3' design.md; grep -c '^| ДР-' design.md; git diff 1d49feafb d34f98bc6 -- tasks.md (колонка «зависит от» строк X1…X5, X2-F)"
+    result: "93; 7. Рёбра X1, X2, X3 — после S3-C2 issue-2919 (Д41); X2-F — после N11 issue-2915 и S3-C2 issue-2919; X3 — после S2-B1; X4 — полоса kaname, пин corelib в kacho не поднимает"
+    control: "в дельте tasks.md правлены только тексты X1, X3, S1-A4, S3-C3, Е4; колонка рёбер не тронута"
+
+not_measurable:
+  - >-
+    Какой из двух исходов CX3M-01 (молчаливое «не подключён» или отказ в рантайме) даст реализация,
+    зависит от кода, которого нет. Вывод держится на пути исполнения сегодня (worker.go:83, :622, :699;
+    ConfigureDefault отсутствует у registry и geo) и на тексте З16.
+
+facts_for_dispatcher:
+  - >-
+    CX3M-01 касается не формы, а последствий. Замысел обещает отказ старта корня при нулевом FailedNotify,
+    но Worker, которым модули исполняют асинхронные операции, корень не строит. У registry он и вовсе не
+    настраивается, а стартует лениво на первом Run. Если реализация повторит текст замысла дословно,
+    registry, подключённый ручкой, на пути исполнителя промолчит об ошибке операции, и старт это не
+    остановит.
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: [CX3M-01]
+not_holding_items: ["CX3L-02 (б) — Worker"]
+new_items_without_mapping: [CX3M-01, CX3M-02]
+open_decisions: []
+
+orders:
+  - to: design-author (acceptance-author, база §12)
+    what: >-
+      CX3M-01: в З16 «Одно значение подключения», строке CX3L-02 (б), X3 и S3-C3 назвать путь FailedNotify в
+      Worker пакетного реестра (либо переход модулей на корневой Worker и RunWithWorker) и точку отказа
+      корня. Ленивый старт на первом Run без FailedNotify не допускается. NewReconciler — позиционный
+      FailedNotify и возврат ошибки, 6 вызывающих тем же подъёмом. Корни registry и geo назвать
+      поимённо. CX3M-02: внести строкой §11 с держателями.
+    basis: "code-authoring §«Умолчание, которое становится утверждением», §«Решение и его следствие разнесены»; change-graph.md §4"
+  - to: integration-tester
+    what: >-
+      Близнецы УК3-55: (1) корень модуля, не передавший FailedNotify пакетному Worker, → отказ старта с
+      именем службы; (2) первый пакетный Run без конфигурации реестра → отказ, а не ленивый старт с
+      нулевым значением. Инъекция — снять вызов настройки в корне registry → красный. Близнец УК3-12
+      или NTF3-64…67 для CX3M-02 (а): писатель журнала без Options → отказ старта.
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+  - to: integration-tester
+    what: "заказы записей f6809e98 (УК3-58, близнецы УК3-54, УК3-55), 3dbb8b23, ac1f9fc9, 374789b5 остаются в силе"
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+  - to: go-implementer (полоса X5 NTF-3)
+    what: "заказ записи 97c51264 (проверка `git tag --contains <X2-F>` перед каждым подъёмом пина) остаётся в силе"
+    basis: "design.md З10 «Посадка» п.4"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Не заводится. CX3M-01 — экземпляр класса «умолчание, которое становится утверждением»: замысел
+  назначил точку отказа конструктору, которого на рабочем пути нет. Второго независимого наблюдения формы
+  «проверка в конструкторе, а объект — пакетный синглтон» в этой записи нет, цена не измерена прогоном.
