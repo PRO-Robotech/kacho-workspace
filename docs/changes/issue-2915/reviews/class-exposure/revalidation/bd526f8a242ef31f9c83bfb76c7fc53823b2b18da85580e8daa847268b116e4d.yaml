@@ -1,0 +1,215 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 10 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Это заход отображения по Д26, поэтому судятся ТОЛЬКО строки
+# отображения CX1-71, CX1-72, переписанная SDR-Н2 и дельта редакции 10 против последней разобранной
+# редакции 9 (e7a6ae15…, запись revalidation/e7a6ae15….yaml, коммит ad3c82c83). Предмет дельты —
+# коммит d0573311b: design.md +57/−17, tasks.md +4/−3, change.yaml +7/−5. Пункты CX1-01…70 и
+# условия УК1…УК94 эта запись не пересуживает.
+#
+# Итог. CX1-71 и CX1-72 отображены, и отображение выдерживает условия пунктов:
+#   CX1-71 — у контекста потока `Subscribe` своего срока нет; срок действует только до
+#     `SubscriptionOpened` и снимается с его приходом; открытия считает счётчик с меткой источника;
+#     проба с близнецом-инъекцией стоит в N2.
+#   CX1-72 — срок `Claim` вынесен из ручки `notify.claimInterval` в константу `sourceCallTimeout = 10s`.
+#     Верхняя граница выведена из аренды, арифметика сходится. Остаток «отмена после коммита
+#     аренды» назван, отмены по сроку считает отдельный счётчик. Проба с двумя близнецами есть.
+# SDR-Н2 переписана под оба пункта. Дельта не вводит нового внешнего вызова, асинхронного пути или
+# sentinel. Неотображённых 0. Итог — к коду. Три замечания к исполнению проб N2 записаны в orders
+# и пунктами не являются. Одно наблюдение лежит вне предмета Д26 (живость установленного потока
+# при полуоткрытом соединении) — это заказ design-reviewer, а не пункт. NTF1-L03 из записи
+# 9bfa92be остаётся в силе.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл и `git show HEAD:<путь>` дают bd526f8a…; после d0573311b пакет не правился
+  revision: 10
+  content_commit: d0573311b
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0.yaml
+    sha256: e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0
+    content_commit: bcffa6532
+    record_commit: ad3c82c83
+  mapped_items: [CX1-71, CX1-72]
+  delta_predicate: "git diff bcffa6532 d0573311b -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decision: "Д26 — заход отображения: судятся строки отображения и дельта"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 6ef9142c3993836c57ef5fe6014bc3c4a082e6e9   # вершина issue-880 на момент разбора; последний коммит пакета — d0573311b
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
+snapshot_at: 2026-09-30T13:10:00Z
+inspected: >-
+  Прочитана вся дельта d0573311b.
+  В design.md: шапка («Что изменила редакция 10»), З21 (срок `Claim` и установления `Subscribe`,
+  остаток отмены после коммита аренды), З27 (два новых счётчика), §8 (константа `sourceCallTimeout`
+  и довод числа), §11 (строки SDR-Н2, CX1-71, CX1-72), §12.
+  В tasks.md: шапка и строка N2. В change.yaml — вводные комментарии и hashes.design_sha256.
+  Запись пересверки e7a6ae15 прочитана целиком: её condition и held_by по CX1-71 и CX1-72 —
+  мерило отображения.
+  Вне дельты: З21 целиком (цикл источника, срок строки), §8 границы ручек `notify.claimInterval`
+  `[1s..5m]`, `notify.resolveSendTimeout` `[100ms..30s]`, `notify.smtp.sessionTimeout` `[1s..120s]`,
+  константы `feed.LeaseTTL = 5m`, `feed.MaxClaim = 500`, `ackMargin = 5s` — по ним проверен довод
+  числа. corelib @34bc8104a: в `subscription/server.go` по признакам heartbeat, keepalive, ping и
+  idle серверного сообщения простоя не найдено (`IdlePoll` — внутренний перепрос журнала);
+  `grpcclient/dial.go` — keepalive клиента включается опцией `KeepAliveTime`, значение 0 его
+  отключает. В замысле по признакам grpcclient, KeepAlive и Dial упоминаний клиента к источникам
+  нет: два найденных keepalive относятся к TCP keepalive сервера базы (М34).
+  Не читались дерево kacho (дельта ничего нового о нём не утверждает) и записки vault.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -niEc 'TODO|TBD|FIXME|XXX' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "§13: «Открытых решений нет …» (строка 2118 на bd526f8a)"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: "CX1-71 и CX1-72 — по строке §11 и условию к коду полосы N2; обе выдерживают condition и held_by записи e7a6ae15 (mapping_check)"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Дельта их не вводит. `sourceCallTimeout` — это срок у вызовов, которые уже были. Таймер
+      установления до `SubscriptionOpened` — та же отмена того же вызова, её требовал CX1-71 (а).
+      Два счётчика — наблюдение, а не путь. Исход отмены по сроку — существующий остаток до конца
+      аренды (З21), нового исхода нет
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "запись привязана к bd526f8a — это отпечаток файла на d0573311b, на HEAD 6ef9142c3 и в рабочем дереве; change.yaml:78 несёт `design_sha256: bd526f8a…`"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: >-
+      `git ls-tree -r --name-only HEAD docs/changes/issue-2915/reviews | grep design/` находит одну
+      запись, и она на dba7c388. На bd526f8a записей 0. Повтор design-reviewer,
+      db-architect-reviewer и proto-api-reviewer — отдельный шаг (Е6), в `clean` не входит
+
+mapping_check:
+  - id: CX1-71
+    design: "З21 (подпункт `Subscribe`), З27 (`notify_source_stream_opens_total{source}`), §11 CX1-71; tasks.md N2"
+    verdict: holds
+    note: >-
+      (а) У контекста потока своего срока нет. Срок `sourceCallTimeout` действует до
+      `SubscriptionOpened` и снимается с его приходом, после чего поток живёт под контекстом цикла.
+      Отмена цикла закрывает поток. (б) Все три места говорят «до `SubscriptionOpened`»: строка
+      SDR-Н2 §11, З21 и N2. Прежней формулы «открытие под `WithTimeout(…, claimInterval)`» в
+      замысле не осталось. (в) Счётчик открытий с меткой источника есть в З21 и З27. Проба
+      `TestHealthySubscribeStreamOpensOnce`: исправный источник → открытий 1, строка доставлена
+      по событию раньше такта. Близнец-инъекция — срок на контексте потока → открытий не меньше 5,
+      проба красная. Второй близнец — `SubscriptionOpened` не приходит → поток переоткрыт. Замечание
+      к исполнению — в orders (окно наблюдения в реальном времени), это не пункт
+  - id: CX1-72
+    design: "З21 (подпункты `Claim` и «Остаток — отмена после коммита аренды»), З27 (`notify_claim_call_timeouts_total{source}`), §8 (`sourceCallTimeout = 10s` и довод), §11 CX1-72; tasks.md N2"
+    verdict: holds
+    note: >-
+      (а) Срок — константа §8, отдельная от ручки. Верхняя граница выведена так:
+      `LeaseTTL` 300 с − (30 + 120 + 5) = 145 с по верхним границам ручек §8, и 10 с ниже неё в
+      14,5 раза. Арифметика проверена по таблице ручек. Нижняя сторона дана доводом — один оператор
+      не больше `feed.MaxClaim` = 500 строк, — но числом не замерена. Это допустимо: следствие
+      нарушения названо и видно счётчиком. Тактов на вызов больше одного не бывает: цикл
+      последователен, такты не копятся. (б) Остаток назван: строки без исполнителя до конца аренды,
+      класс `security` включён, дубля нет. (в) Счётчик отмен по сроку отделён от ошибок источника.
+      Проба `TestClaimCallTimeoutAfterLeaseCommitIsCounted` — отмена, счётчик +1, строки уходят после
+      конца аренды, писем 1. Близнец — ответ за 9 с при интервале 1 с → отмены нет. Инъекция —
+      срок = ручке → проба красная. Замечание к исполнению — в orders (предел параметром), это не пункт
+  - id: SDR-Н2
+    design: "З21, §8, §11 SDR-Н2; tasks.md N2"
+    verdict: holds
+    note: >-
+      Строка переписана под CX1-71 и CX1-72 и сохранила исходное требование ревью: зависший
+      источник держит только свой цикл, не дольше `sourceCallTimeout` на вызов. Обе просьбы ревью
+      dba7c388 теперь выполнены: константа notify с доводом числа, меньше `LeaseTTL`, и срок только
+      на установление потока. Проба `TestStalledSourceDoesNotStopOtherSources` с прежними
+      близнецами
+
+conditions_to_code: []
+
+items: []
+
+measurements:
+  - claim: "предмет — bd526f8a, коммит d0573311b; после него пакет и приёмка не правились"
+    command: "sha256sum docs/changes/issue-2915/design.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum; git log --oneline d0573311b..HEAD -- docs/changes/issue-2915 <приёмка>; sha256sum <приёмка>"
+    result: "bd526f8a в обоих случаях; журнал пуст; приёмка — 29cfa368"
+  - claim: "дельта — только коммит d0573311b"
+    command: "git diff --numstat bcffa6532 d0573311b -- docs/changes/issue-2915/"
+    result: "design.md +57/−17, tasks.md +4/−3, change.yaml +7/−5; плюс сама запись e7a6ae15 (+307) из ad3c82c83"
+  - claim: "довод верхней границы `sourceCallTimeout` сходится с границами ручек"
+    command: "grep -n 'resolveSendTimeout\\|sessionTimeout\\|MaxClaim\\|LeaseTTL = ' design.md; sed -n 1805,1832p design.md"
+    result: "`resolveSendTimeout` ≤ 30 с, `smtp.sessionTimeout` ≤ 120 с, `ackMargin` 5 с, `LeaseTTL` 5 м → 300 − 155 = 145 с; 145 / 10 = 14,5"
+  - claim: "новые имена записаны и в замысле, и в полосе"
+    command: "grep -n 'sourceCallTimeout\\|notify_source_stream_opens_total\\|notify_claim_call_timeouts_total\\|TestHealthySubscribeStreamOpensOnce\\|TestClaimCallTimeoutAfterLeaseCommitIsCounted' design.md tasks.md"
+    result: "design.md — 15 строк, в том числе З21, З27, §8 и §11; tasks.md — строка N2 (114) со всеми пятью именами"
+  - claim: "у сервера подписки corelib нет сообщения простоя; keepalive клиента включается опцией"
+    command: "git -C project/corelib show 34bc8104a:subscription/server.go | grep -n -iE 'heartbeat|keepalive|ping|idle'; git -C project/corelib grep -n -i keepalive 34bc8104a"
+    result: "server.go: только `IdlePoll` (внутренний перепрос журнала); grpcclient/dial.go: `KeepAliveTime`, «0 → без keepalive»"
+  - claim: "ревью замысла на отпечаток"
+    command: "git ls-tree -r --name-only HEAD docs/changes/issue-2915/reviews | grep design/"
+    result: "1 запись, на dba7c388; на bd526f8a — 0"
+
+not_measurable:
+  - "поведение срока установления и отмены `Claim` — кода notify нет; это покажут пробы N2"
+  - "законная задержка `Claim` у источника под нагрузкой — величина базы источника; замысел даёт довод без числа, нарушение видно `notify_claim_call_timeouts_total`"
+
+outcome: к-коду
+outcome_note: >-
+  Заход отображения по Д26 отобразил CX1-71 и CX1-72 и переписал SDR-Н2. Отображение выдерживает
+  condition и held_by записи e7a6ae15. Новых внешних вызовов, асинхронных путей и sentinel дельта
+  не вводит, неотображённых пунктов 0. Возврата в приёмку дельта не даёт. NTF1-L03 из записи 9bfa92be
+  остаётся в силе. Ревью замысла на этот отпечаток нет — это отдельный шаг Е6.
+unmapped: []
+return_to_acceptance: []
+return_to_acceptance_carried:
+  - id: NTF1-L03
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3.yaml
+    note: "не исполнен: отпечаток приёмки тот же; замысел не решает его сам (Е2)"
+
+orders:
+  - to: исполнитель полосы N2 (go-implementer)
+    what: >-
+      (1) `TestHealthySubscribeStreamOpensOnce`: срок gRPC идёт по реальному времени, а не по
+      внедряемым часам. Если «пять тактов» прокрутить поддельными часами, близнец-инъекция
+      `WithTimeout(…, claimInterval)` не успеет сработать и останется зелёной. Окно наблюдения
+      должно длиться не меньше пяти `claimInterval` реального времени, либо срок и такты должны
+      идти от одного источника времени. (2) `sourceCallTimeout` и срок установления передавать в
+      функцию цикла параметром, как в held_by записи e7a6ae15: прод-вызов передаёт константу, проба —
+      короткое значение. Иначе пробы CX1-72 и второй близнец CX1-71 ждут по 10 с реального времени.
+      Близнец «ответ за 9 с при сроке 10 с» оставляет запас 10 % и под `-race` на загруженном
+      раннере может дать ложную отмену: пропорцию 90 % сохранить, абсолютные числа уменьшить.
+      (3) Такты таймера: `time.Ticker` держит один пропущенный такт в буфере, поэтому после долгого
+      вызова следующий `Claim` уходит сразу. Это совпадает с «не копятся» (не больше одного) — в
+      коде так и написать
+    basis: "gate-authoring §«Детерминизм входа и управляемые часы»; code-authoring §«Инвариант и оснастка — это тоже прод-код»"
+  - to: design-reviewer (system-design-reviewer, режим «замысел»)
+    what: >-
+      Наблюдение вне предмета Д26, в пункт не заведено: дельта его не вносит, клиент к
+      источникам и без неё жил без срока потока до редакции 9. После снятия срока с потока (CX1-71)
+      установленный поток к источнику, чей узел исчез без RST, notify не распознаёт ничем, кроме
+      TCP. Сервер подписки corelib сообщений простоя не шлёт, а keepalive клиента `grpcclient`
+      выключен при `KeepAliveTime` = 0. Замысел не называет, с каким `KeepAliveTime` notify
+      набирает клиента к источникам. Путь «по событию» в таком случае молча уходит в таймер, а
+      `Claim` на том же транспорте упирается в `sourceCallTimeout` на каждом такте. Решить в ревью
+      замысла: назвать значение опции (это параметр уже существующего клиента) либо записать
+      остаток
+    basis: "code-authoring §«Умолчание, которое становится утверждением»; замысел §13 Е6"
+  - to: design-reviewer (system-design-reviewer, режим «замысел»), db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток bd526f8a; на нём их 0. Заказ db-architect-reviewer из записи e7a6ae15 (`statement_timeout` 10 с против темпа `global_daily` на медленном диске) остаётся в силе"
+    basis: "SDD-1 §5; policy.yaml review_authority; замысел §13 Е6"
