@@ -12,22 +12,23 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ CLASS_EXPOSURE_RECORDED — приёмка на отпечатке `hashes.acceptance_sha256` (редакция 21)
-# одобрена кругом 20 (запись docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml,
-# APPROVED, коммит добавления 349d68323); первичный разбор классов на тот же отпечаток записан
-# (reviews/class-exposure/initial/cb947e50….yaml, исход «к-замыслу», коммит aa64ebad0). Замысел —
-# `design.md` редакции 1 (2026-09-30), отпечаток — `hashes.design_sha256`; вердикта и пересверки на
-# него нет. Маршрут работ — `tasks.md` (проект; TASKS_READY им не объявлено). Сверка соседей в момент
-# «перед одобрением замысла» (design.md §0а) дала исход (б) по NTF-1 и NTF-2: приёмке нужна новая
-# редакция (design.md §13, Е1). Каталоги `evidence/*` несут отпечаток прежней редакции приёмки
-# `97046469` — свидетельства на `cb947e50` не сняты.
-# Опора на соседние приёмки (коммит записи — коммит её добавления): NTF-1 — одобренная редакция 13
-# (05828e42…, коммит 46e2a3819); NTF-2 — одобренная редакция 11 (9098d6ef…, коммит 52fed403d);
+# СОСТОЯНИЕ ISSUE_READY — у отпечатка `hashes.acceptance_sha256` (редакция 22) записи ревью нет.
+# Редакция 21 (cb947e50…) одобрена кругом 20 (запись docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml,
+# APPROVED, коммит добавления 349d68323); первичный разбор классов на неё — «к-замыслу»
+# (reviews/class-exposure/initial/cb947e50….yaml, коммит aa64ebad0); пересверка на замысел редакции 1
+# (reviews/class-exposure/revalidation/b9149d3c….yaml, коммит 9e8cf5571) вернула в приёмку RA-01 и
+# RA-02. Редакция 22 — ответ на них; одобрение редакции 21 к ней не переходит: вердикт привязан к
+# отпечатку. Замысел — `design.md` редакции 1, отпечаток — `hashes.design_sha256`; этой правкой он не
+# менялся, вердикта на него нет, а пересверка требует от него редакции 2 (CX4V-07, CX4V-63…65).
+# Маршрут работ — `tasks.md` (проект; TASKS_READY им не объявлено). Каталоги `evidence/*` несут
+# отпечаток прежней редакции приёмки `97046469` — свидетельства на редакцию 22 не сняты.
+# Опора на соседние приёмки (коммит записи — коммит её добавления): NTF-1 — одобренная редакция 18
+# (29cfa368…, коммит d18efea9c); NTF-2 — одобренная редакция 13 (ef9c6801…, коммит f5287bc3d);
 # NTF-5 — одобренная редакция 12 (2fe29c35…, коммит dbcd30a81). Исход сверки перед стартом стадии
 # пишется в reconciliation/<стадия>-<sha>.yaml (design.md §0а).
 schema_version: 1
 change_id: issue-2919
-lifecycle_state: CLASS_EXPOSURE_RECORDED
+lifecycle_state: ISSUE_READY
 
 coordinates:
   issue: https://github.com/PRO-Robotech/kacho/issues/2919
@@ -60,7 +61,7 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+  acceptance_sha256: 01b2888142bdb25baeaf14f4ba9dc56007153bf8eb91410f2b5a5934d9cf2bc5
   design_sha256: b9149d3c9c399069326a69fbae8da47041906ff211417190fbc343134e9644cc
   holders_sha256: 1a6f11bfc8fab7e05c278653d82bac09c0e1f497f1e6bf3a8b4eafc40bdcc5a2
 
