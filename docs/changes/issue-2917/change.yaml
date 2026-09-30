@@ -12,20 +12,21 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ ISSUE_READY — действующее APPROVED на текущий отпечаток приёмки есть (редакция 13,
-# круг 2: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml),
+# СОСТОЯНИЕ ISSUE_READY — действующее APPROVED на текущий отпечаток приёмки есть (редакция 23,
+# круг 3: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4.yaml),
 # но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
-# Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/ef9c6801….yaml
-# (к-замыслу, CX2-37…44). Замысел — `design.md` редакции 9 (2026-09-30), отпечаток —
-# `hashes.design_sha256`; вердикта на него нет, пересверки на него нет. Прежние пересверки —
-# на редакции 1 (f21384ed…), 2 (2886b89f…), 3 (c3e37381…), 5 (cc7bdad1…), 6 (cc42ace6… —
-# к-замыслу, CX2-45; отображён редакцией 7), 7 (6fc3cae2… — к-коду, УК47–УК52; вписаны
-# редакцией 8) и 8 (2a329728… — к-замыслу, CX2-46, УК53–УК56; отображены редакцией 9)
-# (reviews/class-exposure/revalidation/<sha>.yaml). Ревью замысла на 2a329728 — 0 записей. Ревью замысла —
-# reviews/design/design-reviewer/6fc3cae2….yaml (редакция 7, возврат К1, Н1–Н3, М1; отображено
-# редакцией 8, design.md §11б). Каталоги evidence/ названы отпечатком 33e199c9 (редакция 11
+# Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/7a424030….yaml
+# (к-замыслу, CX2-57…65). Замысел — `design.md` редакции 11 (2026-09-30), отпечаток —
+# `hashes.design_sha256`; вердикта и пересверки на него нет. Прежние пересверки —
+# на редакции 1 (f21384ed…), 2 (2886b89f…), 3 (c3e37381…), 5 (cc7bdad1…), 6 (cc42ace6…),
+# 7 (6fc3cae2…), 8 (2a329728…), 9 (aaaff659… — вернуть-в-приёмку: Р5, CX2-47 · aaaff659,
+# УК57, УК58) и 10 (91b3f6b9… — вернуть-в-приёмку: Р5, CX2-66, CX2-67); отображены редакцией 11
+# (reviews/class-exposure/revalidation/<sha>.yaml). Возврат Р5 — design.md §13 Е15, открыт.
+# Ревью замысла — reviews/design/design-reviewer/6fc3cae2….yaml (редакция 7, CHANGES_REQUESTED;
+# отображено редакцией 8) и aaaff659….yaml (редакция 9, APPROVED, В1, В2, М1, М2; отображено
+# редакцией 11, design.md §11б). Каталоги evidence/ названы отпечатком 33e199c9 (редакция 11
 # приёмки) — свидетельства на действующий отпечаток приёмки производят гейты полосы W1, а не
-# этот манифест. Маршрут работ — `tasks.md`
+# этот манифест. Маршрут работ — `tasks.md` редакции 11
 # (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2917
@@ -57,8 +58,8 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
-  design_sha256: aaaff659c0d1257a16b35858e7df23650cae290f9aecb98c5254500d4ecf758b
+  acceptance_sha256: 7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4
+  design_sha256: 45992f0b8b7bf7520bfd0407c8690a50fe28ed5870ee42cdbf181fcd3eb98aaf
   holders_sha256: 495ef143740f049d885ec10fbbce2975a95d3c3ee2de36b632a5af15730a3bca
 
 links:
