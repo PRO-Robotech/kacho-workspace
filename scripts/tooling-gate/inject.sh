@@ -229,6 +229,32 @@ mkwf() {
     git -C "$box" add -A -f >/dev/null 2>&1
 }
 
+# wf_set_on <песочница> <новый блок on> — заменяет ЦЕЛИКОМ объявление `on:`
+# живого ci.yaml в песочнице. Целиком, а не вставкой перед известной строкой:
+# вставка, чей образец перестал совпадать, была бы пустой операцией, и проба
+# судила бы дерево как есть (так было с `on:\n  workflow_dispatch:` после
+# решения владельца 2026-10-01). Не нашёлся блок — провал пробы, а не тишина.
+wf_set_on() {
+    local box="$1" block="$2"
+    if ! WF_ON="$block" python3 - "$box/.github/workflows/ci.yaml" <<'PYWF'
+import os
+import re
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+s, n = re.subn(r"^on:\n(?:[ \t]+\S.*\n)+", os.environ["WF_ON"], s, count=1, flags=re.M)
+if n != 1:
+    sys.exit(1)
+open(p, "w", encoding="utf-8").write(s)
+PYWF
+    then
+        probes=$((probes + 1)); failed=$((failed + 1))
+        echo "  ПРОВАЛ фикстура НЕ ВНЕСЕНА: блок on: в ci.yaml песочницы не найден" >&2
+        return 1
+    fi
+    git -C "$box" add -A -f >/dev/null 2>&1
+}
+
 WF_JOB='jobs:
   probe:
     runs-on: ubuntu-latest
@@ -298,25 +324,21 @@ TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
 такого job'"'"'а ни один процесс не производит' \
     run 1 "$b" "инъекция: защита требует контекст, которого нет — краснеет" check-05-workflow-triggers-narrowed.sh
 
-# Фикстура САМА заводит сужённый триггер: с решения владельца 2026-09-20 автозапуска
-# в дереве нет, и без этой строки проба доказывала бы не «контексты производятся», а
-# «их некому производить» — то есть свою же соседнюю ось.
+# Фикстура САМА задаёт сужённый триггер, а не полагается на то, что стоит в дереве:
+# объявление менялось решениями владельца (2026-09-20 снято, 2026-10-01 возвращено),
+# и проба, зависящая от него, доказывала бы то одну ось, то соседнюю.
 b="$(mksandbox)"
-python3 - "$b/.github/workflows/ci.yaml" <<'PYWF'
-import sys
-p = sys.argv[1]
-s = open(p, encoding='utf-8').read()
-s = s.replace("on:\n  workflow_dispatch:", "on:\n  pull_request:\n    branches: [main]\n  workflow_dispatch:", 1)
-open(p, 'w', encoding='utf-8').write(s)
-PYWF
+wf_set_on "$b" $'on:\n  pull_request:\n    branches: [main]\n  workflow_dispatch:\n' &&
 TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
 документы объявляют то, чем их измеряют' \
     run 0 "$b" "близнец: триггер сужен, все требуемые контексты производятся — молчит" check-05-workflow-triggers-narrowed.sh
 
-# ОПАСНАЯ СТОРОНА ОБЪЯВЛЕННОГО «АВТОЗАПУСКА НЕТ»: контекст, которого никто не
-# начинает, остаётся «ожидается» и блокирует слияние НАВСЕГДА. Дерево здесь как
-# есть (триггеров нет), извне задан непустой перечень обязательных контекстов.
+# ОПАСНАЯ СТОРОНА «АВТОЗАПУСКА НЕТ»: контекст, которого никто не начинает,
+# остаётся «ожидается» и блокирует слияние НАВСЕГДА. Фикстура сама снимает
+# триггеры до ручного (с 2026-10-01 в дереве они есть), извне задан непустой
+# перечень обязательных контекстов.
 b="$(mksandbox)"
+wf_set_on "$b" $'on:\n  workflow_dispatch:\n' &&
 TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck' \
     run 1 "$b" "инъекция: автозапуска нет, а защита требует контексты — краснеет" check-05-workflow-triggers-narrowed.sh
 
