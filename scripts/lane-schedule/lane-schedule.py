@@ -15,6 +15,14 @@
 имя каталога файла без префикса `issue-`. Таблица без колонки «зависит от» даёт
 независимые полосы — и заметку об этом, а не молчание.
 
+ЯЧЕЙКА «ЗАВИСИТ ОТ»: список ссылок — до первой «;», дальше пояснение, и его id
+рёбрами не становятся (заметка называет их поимённо). Ссылка — id полосы; id по
+суффиксу (`A1` → единственная `S2-A1`); стадия `S<n>`; «S-ярус» — все полосы с id
+`S<n>`; диапазон `A1–A3`, `N0…N4`, `S1-S3` с правой границей включительно;
+`S2-A1…A3` — префикс стадии левой границы переносится на правую. Прочее —
+внешние ссылки (жетоны ведомости). До ws#884 id с префиксом стадии (`S1-A1`)
+читался как диапазон `S1…A1` и терялся: внутренних рёбер 2919 не было вовсе.
+
 РЕЖИМЫ
   --edges A      рёбра только внутри задач (и внутризадачные строки ведомости);
   --edges B      плюс смысловые рёбра между под-фазами из `--semantic`;
@@ -32,8 +40,10 @@
 
 ИСХОДЫ (код выхода — вердикт, печать — пояснение):
   0 — рассчитано; перепись и числа напечатаны;
-  1 — ОТКАЗ: цикл из явных рёбер (назван путь), строка таблицы не той ширины,
-      раздела «Полосы» нет, строка ведомости без носителя, неизвестная под-фаза;
+  1 — ОТКАЗ: цикл из явных рёбер (назван путь), строка таблицы не той ширины
+      либо без заголовка, раздела «Полосы» нет, повтор id полосы либо под-фазы,
+      строка ведомости не из трёх непустых полей, без носителя либо с под-фазой
+      не из входа, `--minutes` не ровно S, M, L, вход не читается;
   2 — обход ПУСТ: файлов нет либо в файле ноль полос. Ноль полос — не «ноль
       пакетов, срок 0», а «не прочитано ничего».
 
@@ -93,8 +103,9 @@ def parse_file(path, notes):
             m = re.search(r'\bS(\d+)\b', l)
             stage = ('S' + m.group(1)) if m else None
         if not l.startswith('|'):
-            if l.strip():
-                hdr = None
+            # Любая строка вне таблицы — пустая тоже — таблицу кончает: строка `|…|`
+            # после неё без своего заголовка в разметке не таблица, а абзац.
+            hdr = None
             continue
         c = cells(l)
         if 'исполнитель' in c:
@@ -148,39 +159,64 @@ def build(paths, semantic_rows, edges_mode, notes):
                 return list(stages[t]), True
             return None, False
 
-        def expand(s):
-            explicit, alias, ext = set(), set(), []
-            s = re.sub(r'(S\d+-)([A-Z])(\d+)…([A-Z])(\d+)',
-                       lambda m: ' '.join(m.group(1) + m.group(2) + str(k)
-                                          for k in range(int(m.group(3)), int(m.group(5)) + 1)), s)
-            s2 = s
-            rng = '(' + ID + r')\s*[–…-]\s*(' + ID + ')'
-            for a, b in re.findall(rng, s):
-                pa = re.match(r'(.*?)(\d+)$', a)
-                pb = re.match(r'(.*?)(\d+)$', b)
-                if pa.group(1) == pb.group(1):
-                    for k in range(int(pa.group(2)), int(pb.group(2)) + 1):
-                        t = pa.group(1) + str(k)
-                        (explicit.add(t) if t in idset else ext.append(t))
-            s2 = re.sub(rng, ' ', s2)
-            if 'S-ярус' in s2:
-                alias.update(x for x in ids if re.fullmatch(r'S\d+', x))
-            for t in re.findall(ID, s2):
-                r, is_alias = resolve(t)
-                if r:
-                    (alias if is_alias else explicit).update(r)
-                else:
-                    ext.append(t)
-            ext += ['«%s»' % q for q in re.findall(r'«([^»]+)»', s)]
-            return explicit, alias, ext
+        def span(a, b):
+            # Диапазон `A1–A3` / `N0…N4`: общий префикс, правая граница входит.
+            # `S2-A1…A3`: префикс стадии у левой границы переносится на правую.
+            pa, pb = re.fullmatch(r'(.*?)(\d+)', a), re.fullmatch(r'(.*?)(\d+)', b)
+            if pa.group(1) == pb.group(1):
+                pre = pa.group(1)
+            elif pa.group(1).endswith('-' + pb.group(1)):
+                pre = pa.group(1)
+            else:
+                return None
+            return [pre + str(k) for k in range(int(pa.group(2)), int(pb.group(2)) + 1)]
 
-        deps, alias_deps = {}, {}
+        def expand(cell):
+            explicit, alias, ext = set(), set(), []
+            # Список ссылок — до первой «;»; дальше пояснение («N5 сюда не входит —
+            # она зависит от C4»), и его id рёбрами не становятся. Отброшенное
+            # печатается заметкой, а не исчезает молча.
+            s, _, tail = cell.partition(';')
+            toks = list(re.finditer(ID, s))
+            i = 0
+            while i < len(toks):
+                a = toks[i].group(0)
+                r, step = None, 2
+                if (i + 1 < len(toks)
+                        and re.fullmatch(r'\s*[–…-]\s*', s[toks[i].end():toks[i + 1].start()])):
+                    r = span(a, toks[i + 1].group(0))
+                if r is None and resolve(a)[0] is None:
+                    # `S1-S3` — дефисный диапазон, разобранный ID как id с суффиксом.
+                    m = re.fullmatch(r'(.*?\d+)-(.*?\d+)', a)
+                    r, step = (span(m.group(1), m.group(2)) if m else None), 1
+                if r is not None:
+                    for t in r:
+                        (explicit.add(t) if t in idset else ext.append(t))
+                    i += step
+                    continue
+                res, is_alias = resolve(a)
+                if res:
+                    (alias if is_alias else explicit).update(res)
+                else:
+                    ext.append(a)
+                i += 1
+            if 'S-ярус' in s:
+                alias.update(x for x in ids if re.fullmatch(r'S\d+', x))
+            ext += ['«%s»' % q for q in re.findall(r'«([^»]+)»', s)]
+            return explicit, alias, ext, s, tail.strip()
+
+        deps, alias_deps, raw_of = {}, {}, {}
         for d in lanes:
             n = d['_id']
-            e, a, x = expand(d.get('зависит от', ''))
+            e, a, x, head, tail = expand(d.get('зависит от', ''))
             deps[n] = {p for p in e | a if p != n}
             alias_deps[n] = {p for p in a - e if p != n}
             ext_of[(name, n)] = x
+            raw_of[n] = head
+            if tail:
+                named = [t for t in re.findall(ID, tail) if resolve(t)[0]]
+                notes.append('%s:%s после «;» — пояснение, рёбер не даёт: %s'
+                             % (name, n, ', '.join(named) or 'ссылок на полосы нет'))
 
         def reaches(a, b):
             st, seen = [a], set()
@@ -222,7 +258,7 @@ def build(paths, semantic_rows, edges_mode, notes):
             L[name + ':' + n] = dict(issue=name, id=n, ex=ex, repo='+'.join(sorted(repos)),
                                      multi=len(repos) > 1, size=sz,
                                      deps={name + ':' + p for p in deps[n]},
-                                     ext=ext_of[(name, n)], raw=d.get('зависит от', ''),
+                                     ext=ext_of[(name, n)], raw=raw_of[n],
                                      dispatcher=(ex == 'диспетчер'))
     tasks = {x['issue'] for x in L.values()}
     for src, token, dst in semantic_rows:
