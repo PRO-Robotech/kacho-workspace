@@ -1,0 +1,210 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 29 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта к редакции 28 (a3a57b5c…, запись
+# revalidation/a3a57b5c….yaml, коммит f4fa75762, итог «к замыслу»: CX1-101, CX1-102; N26, N27 не
+# блокируют). Дельта — один коммит b28480d25. Пункты CX1-01…100 и условия УК1…УК94 запись не
+# пересуживает.
+#
+# Итог — к замыслу, один новый пункт. CX1-101 (б), CX1-102, N26 и N27 отображены и выдерживают.
+# Предикат CX1-102 даёт 0 строк на предмете, контроль на 45d535e1e даёт 2 + 1. CX1-101 (а) отображён
+# в сути: двойник в путях D1s, фазы по обеим формам. Но команда прогона RG1.1 на ветке полосы
+# в замысле и в маршруте взята дословно из условия записи a3a57b5c, и она не создаёт условия
+# настоящих полос пробы. TestRG11_01 и полоса real теста TestRG11_03 требуют TRIVY_CACHE_DIR,
+# подготовленного прогоном гейта, как в шаге `rg11-scan-preservation`. Без этого они печатают
+# «CONDITION NOT CREATED» (замер: голая команда, TestRG11_01 — FAIL за 6,2 с). Исход «не
+# выполнилось» предсказуем заранее, а именно полосы real гоняют новые случаи инъекции (М48 (4),
+# E′) настоящим trivy. Условие, от которого пошла ошибка, записал этот разбор. Это CX1-103.
+# Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 1a770869d7637d5d66379635361f4bdf7b0c4d732a2d854ca6032b5bf1de141c
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на adfd325ac (HEAD issue-880; после b28480d25 пакет не менялся) даёт 1a770869…
+  change_yaml_design_sha256: 1a770869d7637d5d66379635361f4bdf7b0c4d732a2d854ca6032b5bf1de141c   # равен предмету (строка 165)
+  tasks_sha256: 2fab5449d3153c9f6fbd2f07110f19c7fa4a1c09e3fc8e5cf9790e7e0ebb7926   # маршрут редакции 30
+  revision: 29
+  content_commit: b28480d25
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/a3a57b5cad08ae78001821a03837138b3ef0eb1ca621d4d08b30ee3f4f7eb59e.yaml
+    sha256: a3a57b5cad08ae78001821a03837138b3ef0eb1ca621d4d08b30ee3f4f7eb59e
+    content_commit: 45d535e1e
+    record_commits: [f4fa75762]
+  mapped_items: [CX1-101, CX1-102, N26, N27]
+  delta_predicate: "git diff 45d535e1e b28480d25 -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decisions:
+    - "Д53 (NTF-1) — судился записью a3a57b5c. Задание этого захода маршрут не меняет"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: adfd325ac815d1fd9240ed3351dec77e361900a8   # вершина issue-880; после предмета — только запись ревью NTF-2 (чужой путь)
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564 после `git fetch` — не сдвинулся
+  kacho_measured_checkout: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2   # main в project/kacho; тест и двойник RG1.1 с origin/2564 побайтово равны (git diff --stat пуст)
+snapshot_at: 2026-09-30T21:14:26Z
+inspected: >-
+  Дельта 45d535e1e..b28480d25 целиком: design.md — шапка редакции 29, З28 (а) (16) и абзац таблицы
+  гейта томов, З28 (в) — абзац «пустого входа» и радиуса по механизму, §11 строки CX1-100, «М49-остаток»,
+  CX1-101, CX1-102, N26, N27, §13 Е12 (12); tasks.md — шапка редакции 30 и строка D1s; change.yaml —
+  шапка и `hashes`. В kacho на origin/2564@6edea09c2ee: `services/storage/tools/testdata/rg11/scan_process.py`
+  целиком (классификация фаз); `services/storage/tools/release_gates_rg11_scan_test.go` (полосы
+  сканера real, process, absent; `prepareTrivy`; соответствие тестов полосам); шаг `rg11-scan-preservation`
+  в `.github/workflows/security-scan.yml` (подготовка кэша); строки печати
+  `deploy/scripts/assert-scan-stubs-hide-nothing.py`; случаи инъекции `…-inject.sh`. Один прогон
+  TestRG11_01 голой командой замысла. Ни синтетики, ни trivy, ни helm сверх этого не запускалось,
+  записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "в дельте открытых Е нет"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-101, CX1-102, N26, N27 отображены. Новый CX1-103 (команда прогона RG1.1 на ветке полосы не создаёт условия полос real) не отображён"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: "в дельте их нет. Печать «заглушек 0; файлов значений 2» — исход прибора, а не значение данных"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 1a770869… = предмет"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "в reviews/design/design-reviewer записи на 1a770869 нет; шапка редакции 29: «Вердикта на эту редакцию нет». В `clean` это условие не входит"
+
+mapping_check:
+  - item: "CX1-101 (а)"
+    verdict: holds_with_new_item
+    text: >-
+      Двойник `scan_process.py` и, условно, тест RG1.1 вошли в пути D1s (tasks.md строка D1s). Фаза
+      определяется по обеим формам, у каждого нового случая своя фаза, вход вне фаз — отказ (З28 (в),
+      §11 CX1-101). Прочие потребители названы и исхода не меняют. Не выдерживает только команда прогона:
+      она не создаёт условия полос real. Это CX1-103; источник — условие (а) записи a3a57b5c, замысел его
+      перенёс дословно
+  - item: "CX1-101 (б)"
+    verdict: holds
+    text: >-
+      «Судить нечего» — только при обеих пустых формах. Случай E пустошит обе и ждёт прежний исход, E′ —
+      `helm.set = []` при непустом `helm.values` → суд о файлах и печать «заглушек 0; файлов значений 2»;
+      близнец — E; держатель раннего выхода — E′. Замечание к коду, не к замыслу: у двойника фаза `empty`
+      по обеим формам совпадает с E, а фаза E′ обязана отвечать печатью E′, а не «судить нечего», иначе
+      процессная полоса утвердит то, чего гейт не печатает
+  - item: "CX1-102"
+    verdict: holds
+    text: >-
+      Предикат условия (четыре формулировки design.md, одна tasks.md) → 0 строк на предмете и маршруте 30;
+      контроль на 45d535e1e — 2 строки design.md (одна строка несёт три формулировки) и 1 tasks.md. В
+      ячейке CX1-100: «в D1s», «семь переписей М49 и одиннадцать (А) М50», «`trivy.yaml` и его шапка — в
+      D1s»; в строке D1s — «красное чинится в D1s»
+  - item: "N26"
+    verdict: holds
+    text: "пути после `-f` — от `REPO` гейта; проба — запуск из временного каталога вне дерева с тем же исходом (З28 (а), §11 N26, строка D1s)"
+  - item: "N27"
+    verdict: holds
+    text: "корень `deploy/helm/notify` в `leafScanRoots` без условия, число объявлений — объём осмотренного (З28 (а) (16), §11 «М49-остаток», N27, строка D1s)"
+
+items:
+  - id: CX1-103
+    status: unmapped
+    decision: >-
+      CX1-101 (а), редакция 29: «D1s гонит `go test -tags=rg11trivy ./services/storage/tools -run
+      '^(TestRG11_0[1-4]|TestRG11Snapshot|TestRG11ScanExecution)'` на своей ветке сама и печатает исход;
+      «НЕ ВЫПОЛНИЛОСЬ» … за зелёное не идёт» (З28 (в), §11 CX1-101, tasks.md строка D1s)
+    class: >-
+      verdict-and-landing, три категории исхода: предсказуемое «не выполнилось» — это не суждение о
+      предмете. Опора — .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией,
+      снабдить проверкой предпосылки» п.7: у пробы есть предпосылка (подготовленный кэш сканера), а
+      команда полосы её не создаёт. Форма ошибки — measurement-discipline §«Откуда читается предмет»:
+      команду взяли из текста условия, а не из шага, который её реально исполняет
+    finding: >-
+      В тесте RG1.1 три полосы сканера. Полоса real (TestRG11_01; TestRG11_03, случай `dirty_present_repeat`)
+      линкует настоящий trivy и требует `TRIVY_CACHE_DIR` с `policy/metadata.json`. Иначе `t.Fatal("CONDITION
+      NOT CREATED: TRIVY_CACHE_DIR must name this run's prepared cache")`. Шаг `rg11-scan-preservation`
+      этот кэш готовит до `go test`: заводит каталог, экспортирует `TRIVY_CACHE_DIR` и `TMPDIR`, гонит
+      `python3 deploy/scripts/assert-scan-stubs-hide-nothing.py` и проверяет, что `metadata.json` появился.
+      Команда замысла этого не делает. Замер: голая команда на TestRG11_01 → FAIL за 6,2 с с этим текстом.
+      Значит, исход прогона D1s известен заранее: две полосы real — «не выполнилось». А именно они гоняют
+      НАСТОЯЩУЮ инъекцию настоящим trivy, то есть единственные на ветке судят новые случаи (М48 (4), E′)
+      не через двойник. Процессная полоса (TestRG11ScanExecution) проверит только классификацию двойника.
+      В итоге красное настоящего скана снова впервые появится на запросе волны в `2564`, от чего CX1-101
+      (а) и уводил. Команду без подготовки записало условие (а) записи a3a57b5c; ошибка — этого разбора
+    condition_to_design: >-
+      В З28 (в), в §11 CX1-101 и в строке D1s прогон RG1.1 на ветке полосы — в форме шага
+      `rg11-scan-preservation`, а не голой командой. Нужны: тег `rg11trivy`; свежий `TRIVY_CACHE_DIR` и
+      `TMPDIR` во временном каталоге полосы; подготовительный прогон `python3
+      deploy/scripts/assert-scan-stubs-hide-nothing.py` с печатью кода и проверкой
+      `$TRIVY_CACHE_DIR/policy/metadata.json`; затем `go test` с той же `-run`. Печатаются исход по
+      каждому тесту и полосе сканера (real, process, absent) и версия trivy. Подготовка, не давшая
+      `metadata.json`, — «НЕ ВЫПОЛНИЛОСЬ» с причиной и за зелёное не идёт, как и прежде. Проще всего —
+      исполнить тело шага из `security-scan.yml` с `RUNNER_TEMP`, указывающим в каталог полосы, и не
+      переписывать его. Проверка текста: `grep -n -F 'TRIVY_CACHE_DIR' design.md tasks.md` → ≥ 1 строки в
+      каждом (сейчас 0 и 0)
+    held_by: "покраснеет шаг `rg11-scan-preservation` на запросе волны — поздно. На ветке полосы держится вниманием исполнителя D1s: «не выполнилось» полос real видно в печати, но за провал его никто не примет, если форма прогона в замысле неверна"
+
+notes:
+  - id: N28
+    blocking: false
+    where: "З28 (в), случай E′; двойник `scan_process.py` (CX1-101 (а))"
+    text: >-
+      Двойник не только относит конфиг к фазе, но и печатает за гейт его вывод (`phase, code, output`).
+      Инъекция утверждает по печати. У фазы E′ ответ двойника обязан совпадать с тем, что замысел требует
+      от гейта: код 0, «заглушек 0; файлов значений 2», без «судить нечего». Если двойник отвечает на E′
+      «судить нечего», процессная полоса согласится с поломанной инъекцией, а не с гейтом. К коду: ответ
+      фазы E′ двойника берётся из той же строки, которую ждёт `expect` случая E′, и не пишется вторым
+      текстом
+    predicate: "на голове D1s ожидаемая строка случая E′ в `…-inject.sh` и ответ фазы E′ в `scan_process.py` совпадают побайтно (git grep -F по строке → два файла)"
+
+measurements:
+  - claim: "предмет — 1a770869, содержимое b28480d25; change.yaml несёт его; маршрут — 2fab5449; приёмка не менялась; после b28480d25 пакет не менялся"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; grep -n design_sha256 docs/changes/issue-2915/change.yaml; git diff --stat b28480d25 HEAD -- docs/changes/issue-2915/"
+    result: "1a770869…, 2fab5449…, 29cfa368…; design_sha256: 1a770869… (строка 165); diff пуст"
+  - claim: "предикат CX1-102 — 0 строк на предмете, контроль на прежней редакции красный"
+    command: "grep -n -F -e 'гейт заглушек D1 ' -e 'шапка — в D1.' -e 'механизму — в D1:' -e 'контроль — семь переписей М49;' design.md; grep -n -F 'чинится в D1 либо' tasks.md; то же с -c на git show 45d535e1e:…"
+    result: "0 и 0; контроль 2 (design) и 1 (tasks)"
+  - claim: "полосы real теста RG1.1 без подготовленного кэша не выполняются"
+    command: "cd project/kacho (main@1d42a6728, файл теста равен origin/2564); env -u TRIVY_CACHE_DIR go test -tags=rg11trivy ./services/storage/tools -run '^TestRG11_01$' -count=1"
+    result: "--- FAIL: TestRG11_01/real_clean (6.17s): CONDITION NOT CREATED: TRIVY_CACHE_DIR must name this run's prepared cache"
+  - claim: "шаг CI готовит кэш до go test; тесты 01 и 03 (dirty_present_repeat) идут полосой real"
+    command: "git show origin/2564:.github/workflows/security-scan.yml | sed -n 395,432p; git show origin/2564:services/storage/tools/release_gates_rg11_scan_test.go | grep -n -E 'newRG11|\"real\"|prepareTrivy'"
+    result: "export TRIVY_CACHE_DIR, подготовительный прогон гейта, проверка policy/metadata.json, затем go test -json; rg11NewScanFixture(t, false, \"real\") в :34, {\"dirty_present_repeat\", \"real\"} в :54"
+  - claim: "trivy на машине есть"
+    command: "trivy --version"
+    result: "Version: 0.70.0 (~/.local/bin/trivy)"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "исход подготовки кэша trivy в среде полосы"
+    why: "подготовка тянет базу правил сканера, и её исход зависит от сети и среды полосы. Замысел оставляет честный исход «не выполнилось» с причиной, CX1-103 требует только создать условие"
+  - item: "исходы RG1.1 после расширения"
+    why: "расширенных двойника и инъекции нет ни на одной ветке"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-103]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-103: прогон RG1.1 на ветке D1s — в форме шага `rg11-scan-preservation` (свежие TRIVY_CACHE_DIR/TMPDIR, подготовительный прогон гейта, проверка policy/metadata.json, затем go test), печать исхода по тесту и полосе сканера; в З28 (в), §11 CX1-101, строке D1s. N28 — ответ фазы E′ двойника совпадает с ожидаемой строкой случая E′"
+    basis: ".claude/rules/change-graph.md §4; .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.7; verdict-and-landing (три категории исхода)"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-103"
+    basis: ".claude/rules/change-graph.md §4"
