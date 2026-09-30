@@ -1,0 +1,303 @@
+# Экспозиция классов — первичный разбор (initial), под-фаза NTF-5 (извещения оператора), редакция 17.
+#
+# Разбор сделан ДО кода и привязан к отпечатку одобренной приёмки. Разрешения писать реализацию
+# запись не даёт. Когда появится design.md, каждый пункт CX5-* должен получить точное отображение
+# в решение замысла, а затем пересверку на отпечаток замысла
+# (class-exposure/revalidation/<design-sha256>.yaml).
+#
+# Прежние первичные разборы: редакция 8 (1f4852e4…, CX5-01…28), редакция 12 (2fe29c35…, CX5-29…36),
+# редакция 14 (88fabd09…, CX5-37…41), редакция 15 (03e291ee…, CX5-42…44). Каждый свидетельствует о
+# своей редакции и не переписывается.
+# По Д22 здесь судится ТОЛЬКО дельта редакций 16–17 против редакции 15
+# (`git diff 3ba8e31e1 a8f880009 -- <приёмка>`: 219 добавленных и 52 снятые строки). В дельту
+# входят: закрытие RA-11 разделением держателя (перепись строк (з), (и) по таблицам миграций
+# corelib и перепись входов хранилища DoD 10.1 п.2а (б)); Д20 (2), (3) — методы notify, не
+# являющиеся Internal*, на внешнем gRPC-входе края по перечню, NTF5-49 (б), (г), NTF5-84, З21;
+# держатели строк перечня и ключа notify — вычисляемые пробы края (DoD 10.1 п.4 (i), (ii), 10.2 п.5).
+# Новые номера — CX5-45…48.
+#
+# Исход — «к замыслу». По Д22 условие к коду вносится в замысел, а не в приёмку. Каждое новое
+# условие касается кода, у которого наблюдаемый исход, обязательный для документа, уже утверждён
+# (NTF5-49 (б), NTF5-84, NTF5-122 (з)). Два неточных утверждения документа о дереве названы
+# неблокирующими строками автору приёмки.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2924
+issue: https://github.com/PRO-Robotech/kacho/issues/2924
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  revision: 17
+  content_commit: a8f880009
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153.yaml
+  verdict_note: >-
+    Запись одобрения — круг 16 (круг 2 прохода RA-11 и Д20), коммит 99900390c, блокирующих 0.
+    В манифесте пакета (change.yaml) по-прежнему hashes.acceptance_sha256 редакции 2 и
+    lifecycle_state ISSUE_READY. Перезакреплять манифест — не задача этой роли.
+role: class-exposure-analyst
+mode: initial
+delta_scope:
+  basis: "Д22 — повторный первичный разбор судит только дельту новой редакции против последней разобранной"
+  last_reviewed: {revision: 15, sha256: 03e291eec3d343efa377a7027925f4cb5581057b56dbbd707de74f1d67a9765a, content_commit: 3ba8e31e1}
+  diff_predicate: "git diff 3ba8e31e1 a8f880009 -- docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md"
+  diff_size: "219 добавленных, 52 снятые строки (git diff --stat)"
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+previous_initial:
+  - record: docs/changes/issue-2924/reviews/class-exposure/initial/1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32.yaml
+    items: CX5-01…28 (действуют)
+  - record: docs/changes/issue-2924/reviews/class-exposure/initial/2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98.yaml
+    items: CX5-29…36 (действуют; поверхность по Д17, Д18)
+  - record: docs/changes/issue-2924/reviews/class-exposure/initial/88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af.yaml
+    items: CX5-37…41 (действуют)
+  - record: docs/changes/issue-2924/reviews/class-exposure/initial/03e291eec3d343efa377a7027925f4cb5581057b56dbbd707de74f1d67a9765a.yaml
+    items: >-
+      CX5-42, CX5-43 действуют. CX5-44 (б) действует и расширен пунктом CX5-47. CX5-44 (а)
+      («пакет operations не импортирует corelib/notify/*») СНЯТ: он судил бы чужой предмет. Worker
+      и Reconciler лежат в самом пакете operations (worker.go, reconciler.go @34bc810), а по
+      NTF-3 Р18 они вправе ставить строку operation-failed. Довод §26 проверен измерением. Замену
+      (а) даёт CX5-47 — граница проведена по функциям Ф1…Ф4, а не по пакету.
+    return_items_closed: >-
+      RA-11 закрыт редакцией 16. Проверено чтением дельты. Держатель разделён на две переписи:
+      (з) видит строки всех таблиц миграций corelib, (б) — входы хранилища; близнецы названы.
+      Обвязка больше не выдаёт себя за то, что видит строку ленты: Given и Then (з) прямо
+      говорят, чего перепись не видит. Остаток (б) назван, но не полностью — см. CX5-47.
+revisions:
+  workspace: d18efea9c528bcf393a2410ac9cd8ab87bb3e14d   # ветка issue-880 на момент замеров
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main после fetch — не сдвинулся
+  kaname: 734f69fb4f7f2cadf1d3887ece90b22bf7793a0b      # origin/357 — не сдвинулся
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # origin/main после fetch; последний тег v1.10.0-rc.5
+snapshot_at: 2026-09-30T09:32:26Z
+inspected: >-
+  приёмка: вся дельта 3ba8e31e1..a8f880009 (шапка ред. 16, 17; §1.4 внешний gRPC-вход; §1.6 сверки
+  NTF-4 ред. 18 и 19; Д20; Р2 «граница ban06»; Р23 «функция пишет только строку операции» и «строку
+  operation-failed ставит вызывающий Ф4»; З21; §5 S1; §6 строка «запись операции фундамента»;
+  NTF5-122 Given и (з); NTF5-49 целиком; NTF5-84 дописанное And; §8 строки NTF5-122 и NTF5-26, 49;
+  §9 строки NTF5-49; DoD 10.1 п.2а (а), (б), п.4; 10.2 п.5; §11 строка NTF-4; §26, §27); запись
+  одобрения 367b9482…; четыре прежних первичных разбора; NTF-4 @5cb8057d (редакция 19) Р20,
+  строки 1386–1432; NTF-3 @c26cc7cc — строки о миграции ленты (514, 535, 1423). kacho @1d42a672:
+  gateway/internal/allowlist/parity_test.go целиком; list.go HasInternalSuffix;
+  gateway/cmd/api-gateway/route_wiring_parity_test.go целиком; mtls_config.go dialBackends,
+  backendEdge, buildBackendDialCreds; gateway/internal/config/config.go BackendAddrs,
+  DomainsWithInternalBackend, теги полей адресов бэкендов; перечень TestMain/Setenv в тестах
+  gateway/cmd/api-gateway; обработка x-kacho-principal-* в middleware/auth.go (strip). corelib
+  @34bc810 и v1.10.0-rc.5: перечень файлов operations/, экспортируемые функции и методы pgRepo,
+  глобальные переменные пакета, markDoneCAS/markErrorCAS, каталоги *.sql и число CREATE TABLE.
+  Записки vault не читались.
+
+decisions:
+  N21: "Р23, NTF5-122 (з), (и), §6: перепись строк видит строки всех таблиц, которые создают миграции corelib на теге, и хранилище в обвязке собрано единственным конструктором NewRepo(pool, schema)"
+  N22: "Р23, DoD 10.1 п.2а (б): перепись входов хранилища — разбор исходника; допустимые типы параметров перечислены; находка — функциональный тип, чужой интерфейс, логический параметр, опция конструктора; остаток — флаг из окружения процесса — держит условие замысла CX5-44 (б)"
+  N23: "Д20 (2), Р2, З21, NTF5-49 (б), (г), NTF5-84: восемь методов сервисов, публичных по контракту, внешний gRPC-вход края маршрутизирует по записи notify и перечню allowlist.AllowedMethods; Internal* — отказ маршрута; право судит Check в use-case"
+  N24: "Д20 (3), Р2, DoD 10.1 п.4, 10.2 п.5: служба notify и имя на крае — одни; соединение к слушателю notify-api одно (notifyInternal), второго соединения нет, методы внешнего gRPC идут «по тому же соединению»"
+  N25: "DoD 10.1 п.4 (i), (ii), 10.2 п.5: строки перечня и ключ notify держат вычисляемые пробы края parity_test.go и route_wiring_parity_test.go; под-фаза их не правит, кроме blank-импорта пакета notify в население (i)"
+
+items:
+  - id: CX5-45
+    decision: N23, N24
+    class: "code-authoring §«Контракт, который нельзя выразить» (одно значение — адрес единственного слушателя notify-api — получает два написания); code-authoring §«Умолчание, которое становится утверждением» (умолчание адреса у второго ключа)"
+    exposure: >-
+      На крае ключ карты соединений — это отдельное соединение. dialBackends
+      (gateway/cmd/api-gateway/mtls_config.go:60) на каждый ключ из config.BackendAddrs() вызывает
+      grpc.NewClient, а BackendAddrs (config.go:992) берёт адрес каждого ключа из своего поля
+      конфигурации. У всех семи доменов своя ручка с умолчанием в теге
+      (KACHO_API_GATEWAY_<DOMAIN>_GRPC, default "<svc>:9090"). Ключ `notify` для внешнего gRPC-входа
+      (Д20 (2)), заведённый по образцу соседей, откроет второе соединение со второй ручкой адреса.
+      Это расходится с утверждением документа «по тому же соединению» / «второго соединения к
+      notify нет» (Р2 строки 668, 677; DoD 10.1 п.4; 10.2 п.5). Образец соседа ещё и подставит
+      умолчание: адрес публичного порта (:9090), которого по Д17 у notify-api нет. Тогда REST через
+      notifyInternal работает, а внешний gRPC к тем же методам отвечает UNAVAILABLE. Ни одна
+      in-process проба этого не увидит: NewClient ленив, а route_wiring_parity проверяет только,
+      что ключ есть. NTF-4 Р20 (@5cb8057d, строки 1391–1400) запрещает молчаливое умолчание только
+      адресу `notifyInternal` и о происхождении адреса ключа `notify` не говорит.
+    condition: >-
+      (а) Ключи `notify` и `notifyInternal` берут адрес из ОДНОГО поля конфигурации края. Второй
+      ручки адреса notify (KACHO_API_GATEWAY_NOTIFY_GRPC и подобной) в config.go нет, у поля нет
+      умолчания в теге (NTF-4 Р20). (б) Оба ключа указывают на один и тот же *grpc.ClientConn:
+      dialBackends либо BackendAddrs объявляет `notify` псевдонимом `notifyInternal`, а не
+      открывает второе соединение. Только так верно утверждение документа «второго соединения
+      нет». Если замысел выбирает два соединения на один адрес, он пишет это прямо, и автор
+      приёмки правит формулировку (см. to_acceptance_author). (в) backendEdge даёт обоим ключам
+      одно ребро mTLS (`notify`), как у пар vpc/vpcInternal. (г) Когда notify в установке нет
+      (NTF-4 Р20), нет ни одного из двух ключей. Методы notify перечня на внешнем gRPC-входе
+      получают тогда отказ маршрута, а не звонок по пустому адресу.
+    held_by: "нужен гейт, его нет: (а), (в) видны по диффу config.go и mtls_config.go; (б) — проба «backends[notify] == backends[notifyInternal]» по карте, которую строит dialBackends, с близнецом «два ключа vpc/vpcInternal — разные соединения»; на стенде расхождение адресов покажет NTF5-49 (б)"
+  - id: CX5-46
+    decision: N25, N24
+    class: "gate-authoring §«фикстура не снисходительнее продукта» (проба судит установку, собранную из умолчаний, а умолчания у notify по правилу нет); code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      DoD 10.1 п.4 (ii) требует, чтобы TestRouteWiring_EveryAllowedMethodResolvesOnTheRealBackends
+      был зелёным, и объявляет, что «эта под-фаза их не правит, кроме импорта в (i)» (строка 3625).
+      Проба строит карту вызовом config.Load() из окружения тестового процесса
+      (route_wiring_parity_test.go, realBackends). TestMain и t.Setenv адресов в пакете нет: все
+      семь доменов попадают в карту только за счёт умолчаний в тегах полей. У адреса notify
+      умолчания по NTF-4 Р20 нет, а незаданный адрес означает «notify в установке нет». В тестовом
+      окружении ключей notify тогда нет. Строки notify, которые эта под-фаза вносит в перечень,
+      не резолвятся, и (ii) краснеет на зелёном продукте. Проще всего выйти из этого, добавив полю
+      адреса умолчание. Это нарушит NTF-4 Р20 и CX5-45 (а), а (ii) при этом станет зелёным. Итог:
+      держатель, объявленный неизменным, при неизменном тексте либо красный, либо зеленеет ценой
+      запрещённого умолчания.
+    condition: >-
+      (а) Проба (ii) задаёт установку с notify явно: t.Setenv адреса notify и пары mTLS либо
+      признака «notify в установке есть», — а не получает её из умолчания поля. Правка пробы
+      названа в замысле как правка держателя, которую приёмка не предусмотрела (см.
+      to_acceptance_author). (б) Близнец в той же пробе: без адреса notify ключей `notify` и
+      `notifyInternal` в карте нет, строк notify среди резолвящихся нет. Так проба доказывает,
+      что зелёный цвет не получен умолчанием. (в) В config.go у поля адреса notify нет тега
+      default (CX5-45 (а)).
+    held_by: "нужен гейт, его нет: (а), (б) — правка route_wiring_parity_test.go, заказ исполнителю края; (в) — видно по диффу тега"
+  - id: CX5-47
+    decision: N22, N21
+    class: "measurement-discipline §«Предикат — только с контролем» (перепись входов хранилища не видит два канала, по которым функция пакета получает настройку мимо хранилища); code-authoring §«Решение и его следствие разнесены»"
+    exposure: >-
+      Р23 (строки 1515–1523) утверждает: «без такого входа у функции нет ни писателя, ни
+      настройки, и обвязка (з) — единственная конфигурация хранилища». Из остатка названа одна
+      позиция — флаг из окружения процесса. На дереве каналов ещё два, и перепись (б) их не видит.
+      (1) Глобальная переменная пакета, которую настраивает экспортируемая свободная функция. В
+      пакете operations прецедент уже есть: `var defaultRegistry = NewWorker()` (worker.go:83)
+      настраивается вызовом `ConfigureDefault(opts ...WorkerOption)` (worker.go:699). По NTF-3 Р18
+      писатель ленты исполнителя — законная опция Worker. Попав в defaultRegistry, он достижим из
+      любой функции пакета, в том числе из markErrorCAS. ConfigureDefault не возвращает хранилище и
+      не является методом его типа, поэтому (б) его не разбирает. (2) Значение в контексте: у Ф1…Ф4
+      параметр context.Context, и (б) его допускает. Пакет уже читает из контекста
+      (PrincipalFromContext, principal_ctx.go:44), и флаг либо писатель, положенный исполнителем в
+      ctx, (б) тоже не видит. Обвязка (з) ни того ни другого не включает, так что (з) остаётся
+      зелёной. Условие CX5-44 (б) («Ф3, Ф4 — обёртки из одного вызова») закрывает оба канала только
+      при неизменном ТЕЛЕ markDoneCAS и markErrorCAS. Документ же требует от Ф3, Ф4 «экспорт без
+      изменения условия», а не тела.
+    condition: >-
+      (а) Ф1…Ф4 и все неэкспортируемые функции пакета, которые они вызывают (markDoneCAS,
+      markErrorCAS, помощник вставки), не читают глобальных переменных пакета, кроме
+      сигнальных ошибок (ErrAlreadyDone, ErrNotFound) и констант. Они не вызывают ctx.Value
+      (напрямую или через *FromContext) и не читают окружение процесса. Из полей pgRepo им
+      доступны только pool и schema через tableName(). (б) Тела markDoneCAS и markErrorCAS в
+      правке не меняются, кроме переименования для экспорта, либо изменение названо в замысле с
+      обоснованием. (в) Кандидат в гейт corelib: разбор тел Ф1…Ф4 и их замыкания вызовов внутри
+      пакета. Находка — ссылка на глобальную переменную пакета вне перечня сигнальных ошибок,
+      вызов ctx.Value или os.Getenv. Близнецы: на теге молчит; инъекция чтения defaultRegistry в
+      markErrorCAS — красная с именем функции; перепись печатает число разобранных функций.
+      (г) CX5-44 (а) заменяется этим пунктом: граница проходит по Ф1…Ф4, а не по пакету, и
+      Worker/Reconciler ставить operation-failed вправе (NTF-3 Р18).
+    held_by: "нужен гейт, его нет: (в) — заказ исполнителю corelib; до гейта (а), (б) видны по диффу тел функций"
+  - id: CX5-48
+    decision: N25, N23
+    class: "code-authoring §«Решение и его следствие разнесены» (переключатель — blank-импорт пакета — судит весь пакет, а строки перечня принадлежат разным под-фазам)"
+    exposure: >-
+      TestAllowlist_EveryPublicRPCIsRoutable требует, чтобы в AllowedMethods был КАЖДЫЙ метод
+      любого сервиса пакета, не являющегося Internal* (parity_test.go:366; HasInternalSuffix,
+      list.go:482). TestAllowlist_CensusCoversEveryProtoFile требует blank-импорт, как только на
+      диске под proto/kacho/cloud появился любой .proto пакета notify. Импорт поэтому обязателен уже
+      с первой правкой контракта notify, а не с этой под-фазы. С момента импорта перечень должен
+      содержать строки всех публичных сервисов notify, какие есть в дереве: у соседей названы
+      NotificationPreferencesService, NotificationSubscriptionService, NotificationInboxService,
+      NotificationCatalogService, AccountNotificationContactsService, а не только восемь методов
+      этой под-фазы. Правка, которая заводит NoticeService или ProjectNotificationContactsService
+      в контракте без строк перечня, краснеет. Та, что вносит строки при ещё не заведённом ключе
+      `notify`, краснеет в (ii). Порядок задан тремя под-фазами.
+    condition: >-
+      (а) Строки перечня четырёх методов NoticeService входят в тот же коммит, что сервис в
+      контракте (S1), строки Get, Update контактов проекта — в тот же, что
+      ProjectNotificationContactsService (10.2 п.5). Так записано в DoD, и замысел это
+      подтверждает. (б) Замысел проверяет на ревизии посадки, что в дереве нет публичного сервиса
+      notify без строк перечня. Если импорт вносит эта под-фаза, она вносит и строки публичных
+      методов notify, уже лежащих в дереве, — кто бы их ни заводил. (в) Посадка S1 идёт после
+      посадки ключа `notify` (NTF-4 Р20 по Д20 (2), §5).
+    held_by: "покраснеет TestAllowlist_EveryPublicRPCIsRoutable и TestRouteWiring_EveryAllowedMethodResolvesOnTheRealBackends — гейты есть; пункт о порядке, а не о новом гейте"
+
+measurements:
+  - claim: "ключ `notify` на внешнем gRPC-входе идёт «по тому же соединению», второго соединения нет (Р2, DoD 10.1 п.4)"
+    command: "git -C project/kacho show 1d42a6728bf:gateway/cmd/api-gateway/mtls_config.go | sed -n 60,100p; git -C project/kacho show 1d42a6728bf:gateway/internal/config/config.go | sed -n 992,1016p"
+    result: >-
+      опровергнуто как свойство образца: dialBackends открывает по одному grpc.NewClient на ключ
+      BackendAddrs, 14 ключей = 14 соединений плюс петля operation; у каждого ключа своё поле адреса
+      (CX5-45). Верно только при псевдониме ключа, которого в дереве нет
+  - claim: "поля адресов бэкендов края несут умолчание"
+    command: "git -C project/kacho grep -nE 'VPCAddr|VPCInternalAddr|StorageInternalAddr' 1d42a6728bf -- gateway/internal/config/config.go"
+    result: "подтверждено: теги default:\"vpc.kacho.svc:9090\", \"vpc.kacho.svc:9091\", \"kacho-storage.kacho.svc:9091\" — образец, который NTF-4 Р20 для notify запрещает (CX5-45, CX5-46)"
+  - claim: "пробы (ii) существуют и под-фаза их не правит"
+    command: "git -C project/kacho show 1d42a6728bf:gateway/cmd/api-gateway/route_wiring_parity_test.go | grep -n '^func Test'; git -C project/kacho grep -nE 'func TestMain|Setenv\\(' 1d42a6728bf -- 'gateway/cmd/api-gateway/*_test.go'"
+    result: >-
+      4 пробы, названы две — существуют. realBackends вызывает config.Load() без Setenv адресов; в
+      пакете TestMain нет, Setenv только ручек mTLS и пары носителя. Без умолчания адреса notify
+      ключей notify в карте пробы не будет (CX5-46) — «не правит» неверно
+  - claim: "пробы (i) существуют; население — blank-импорты; внутренний сервис — по имени"
+    command: "git -C project/kacho show 1d42a6728bf:gateway/internal/allowlist/parity_test.go | grep -n '^func Test\\|^\\s*_ \"'; git -C project/kacho show 1d42a6728bf:gateway/internal/allowlist/list.go | sed -n 482,500p"
+    result: >-
+      4 пробы, 11 blank-импортов, пакета notify среди них нет; HasInternalSuffix — «InternalService»
+      в пути или префикс Internal + суффикс Service у сервиса. InternalNoticeService под него
+      попадает. Перепись диска обходит все .proto под корнями — импорт notify обязателен с первого
+      .proto пакета (CX5-48)
+  - claim: "перепись входов хранилища на 34bc810 молчит: NewRepo и 13 экспортируемых методов"
+    command: "git -C project/corelib grep -nE '^func \\([a-z]+ \\*?pgRepo\\) [A-Z]' 34bc8104a -- 'operations/*.go' ':!*_test.go' | wc -l; git -C project/corelib grep -nE '^func [A-Z][A-Za-z]*\\([^)]*\\) \\(?(Repo|FullRepo|OwnedOperationRepo)' 34bc8104a -- 'operations/*.go' ':!*_test.go'"
+    result: "13 методов (12 в repo.go и SweepTerminal в retention.go), функций, возвращающих хранилище, — 2 (NewRepo, AsOwned) — подтверждено"
+  - claim: "у функции пакета нет настройки вне входов хранилища (Р23 «единственная конфигурация»)"
+    command: "git -C project/corelib grep -nE '^var ' 34bc8104a -- 'operations/*.go' ':!*_test.go'; git -C project/corelib grep -n 'func ConfigureDefault\\|func PrincipalFromContext' 34bc8104a -- operations/"
+    result: >-
+      опровергнуто: глобальная переменная defaultRegistry (worker.go:83) с экспортируемой
+      настройкой ConfigureDefault (worker.go:699) и чтение контекста (principal_ctx.go:44) —
+      два канала вне переписи (б) (CX5-47)
+  - claim: "исполнитель и Reconciler лежат в пакете operations (довод §26 против предиката импортов)"
+    command: "git -C project/corelib ls-tree --name-only 34bc8104a operations/ | grep -E 'worker.go|reconciler.go'"
+    result: "подтверждено: operations/worker.go, operations/reconciler.go — CX5-44 (а) снят"
+  - claim: "(з) видит все таблицы миграций corelib"
+    command: "git -C project/corelib ls-tree -r --name-only <rev> | grep '\\.sql$' — на 34bc8104a и v1.10.0-rc.5; CREATE TABLE по ним"
+    result: >-
+      один каталог migrations/common, 4 файла, 1 CREATE TABLE (operations) на обеих ревизиях.
+      Миграция ленты по NTF-3 (строка 1423) генерируется notifygen в дерево модуля, не в corelib —
+      (з) её не видит, и документ это говорит прямо. Число не меняет вывод о (з), приложено ради
+      объёма
+  - claim: "внешний gRPC-вход не пропускает личность, присланную клиентом, до notify-api"
+    command: "git -C project/kacho grep -n 'x-kacho-principal' 1d42a6728bf -- gateway/internal/middleware/auth.go"
+    result: "подтверждено: звено аутентификации срезает входящие x-kacho-principal-* (auth.go:424) и ставит своё; класс для notify не новый, отдельного пункта нет"
+
+not_measurable:
+  - "откроет ли правка края второе соединение и заведёт ли вторую ручку (CX5-45) — кода нет; видно по диффу config.go, mtls_config.go"
+  - "поправит ли исполнитель пробу (ii) или добавит умолчание (CX5-46) — кода нет; видно по диффу теги поля и пробы"
+  - "дотянется ли Ф4 до defaultRegistry или ctx (CX5-47) — кода нет; видно по телам функций и заказанному гейту"
+  - "на какой ревизии лягут контракты публичных сервисов NTF-3 относительно S1 (CX5-48) — порядок посадок, не дерево"
+
+outcome: к-замыслу
+return_to_acceptance: []
+to_acceptance_author:
+  blocking: false
+  basis: "Д22: условие к коду — в замысел; эти строки не создают возврата, они о точности формулировок"
+  notes:
+    - "Р2 (668, 677), DoD 10.1 п.4, 10.2 п.5: «по тому же соединению / второго соединения нет» верно только при псевдониме ключа (CX5-45 (б)); при следующей правке — либо оставить с отсылкой на псевдоним, либо «один адрес, одна ручка»"
+    - "DoD 10.1 п.4 (строка 3625): «эта под-фаза их не правит, кроме импорта» неверно для (ii) при запрете умолчания адреса notify (CX5-46)"
+    - "Р23 (1515–1523): «обвязка (з) — единственная конфигурация хранилища» и остаток «флаг из окружения» неполны — ещё глобальная переменная пакета и контекст (CX5-47); держит их условие замысла, как и названный остаток"
+
+orders:
+  - to: design author (NTF-5)
+    what: >-
+      Отобразить CX5-01…48 в решения замысла. Отдельно: один адрес и одно соединение на два ключа
+      notify без умолчания (CX5-45); правка и близнец пробы route_wiring_parity (CX5-46); тела Ф1…Ф4
+      и их замыкание без глобальных переменных пакета, ctx.Value и окружения (CX5-47; CX5-44 (а)
+      снят); порядок строк перечня и импорта (CX5-48)
+    basis: "change-graph: второй разбор — по замыслу (SDD-1 §5, CLASS_EXPOSURE_RECORDED → DESIGN); Д22"
+  - to: go implementer (край kacho, NTF-4 Р20 / NTF-5)
+    what: "проба «backends[notify] и backends[notifyInternal] — одно соединение» с близнецом vpc/vpcInternal; Setenv установки notify в route_wiring_parity с близнецом «без адреса — ключей нет»"
+    basis: "gate-authoring (отрицание с положительным близнецом; фикстура не снисходительнее продукта)"
+  - to: go implementer (corelib operations, NTF-5)
+    what: "гейт разбора тел Ф1…Ф4 и их замыкания внутри пакета (CX5-47 (в)) с инъекцией чтения defaultRegistry в markErrorCAS"
+    basis: "testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.1"
+  - to: dispatcher
+    what: "строка автору NTF-4 (Р20 @5cb8057d): назвать происхождение адреса ключа `notify` — то же поле, что у notifyInternal, без умолчания, одно соединение (CX5-45); иначе образец соседей даст вторую ручку с умолчанием на несуществующий публичный порт"
+    basis: "code-authoring §«Контракт, который нельзя выразить»; verdict-and-landing (параллельные писатели)"
+
+proposals:
+  class_guard_candidate: "—: у CX5-45…48 нет однофайлового признака; CX5-47 судится разбором замыкания вызовов пакета"
+  new_class:
+    status: находка, не класс
+    note: >-
+      «Перепись входов конструктора не видит настройку через глобальную переменную пакета и через
+      контекст» наблюдалась один раз (CX5-47). Родственный случай — RA-11: держатель, названный
+      полным на неполной области. Оба случая в одном документе, поэтому это один экземпляр.
+      Порог code-authoring §«Механизм накопления опыта» не пройден.
