@@ -1,0 +1,301 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 26 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Последняя разобранная редакция — 25
+# (43ead44b…, запись revalidation/43ead44b….yaml, коммит 31371c92d, итог «к замыслу»: CX1-99;
+# N23 не блокирует). Дельта — коммит 1690113d8: отображение CX1-99 и N23, решение диспетчера Д52,
+# замер М47. Пункты CX1-01…98 и условия УК1…УК94 эта запись не пересуживает.
+#
+# Итог — к замыслу, один новый пункт. CX1-99 (а)–(г) и N23 отображены и выдерживают; М47
+# воспроизведён. Д52 делает каталог фикстур NTF-1 входом рендеров чарта БЕЗ зонтика. Одно из семи
+# семейств таких рендеров (NTF-2 М67, семейство 7) — IaC-скан `trivy config`. Он рендерит КАЖДЫЙ
+# отслеживаемый чарт вне зонтика, а значит и чарт notify, который заводит D1. Отсюда новый пункт
+# CX1-100. Кандидат гейта `assert-iac-scan-covers-every-chart.py` — отслеживаемый чарт с шаблонами,
+# не вложенный в другой. Путь `deploy/helm/notify/` этому условию отвечает. При умолчаниях чарта
+# шаблоны notify не рендерятся (NTF1-N04), при непустом перечне без узла почты отказывает
+# `required`. В обоих случаях целей скана ноль (синтетика, trivy 0.70.0), и гейт краснеет. В
+# замысле NTF-1 IaC-скан не назван ни разу. Чем подать значения, Д52 решает только наполовину:
+# заглушка `helm.set` была бы второй фикстурой узла почты, а форма «файлы каталога» лежит вне
+# переписи гейта `assert-scan-stubs-hide-nothing.py` — он читает только `helm.set`.
+# Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: c441cc112e58070dc0ec050f453492d2f11c1ba1aa0becc7e5e9ab369f9f62ef
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на 732ff8b10 (HEAD issue-880; design.md последний раз правлен 1690113d8) даёт c441cc11…
+  change_yaml_design_sha256: c441cc112e58070dc0ec050f453492d2f11c1ba1aa0becc7e5e9ab369f9f62ef   # равен предмету
+  tasks_sha256: d3c9a641582e37c56fef79a7dc3e81636b130efe7405cd26a55861c60ab2c2b1   # маршрут редакции 27
+  revision: 26
+  content_commit: 1690113d8
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/43ead44b7ab9a0f9f3937ba140358beaf2c8f77cf685faaf09dadb49a533e1be.yaml
+    sha256: 43ead44b7ab9a0f9f3937ba140358beaf2c8f77cf685faaf09dadb49a533e1be
+    content_commit: 220b5f9d9
+    record_commits: [31371c92d]
+  mapped_items: [CX1-99, N23]
+  delta_predicate: "git diff 220b5f9d9 1690113d8 -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decisions:
+    - "Д52 (граница Д51): рендер чарта края без зонтика без значения ручки прыжков — отказ; значение гейты берут из каталога фикстур NTF-1 (`deploy/testdata/mail-node/`, `deploy/testdata/notify-standalone/`), второй фикстуры нет. В замысле — §0 строка Д52, З28 «Каталог — источник значения и для рендеров чарта края без зонтика», §11 строка Д52, §13 Е12 (12). Судится этой записью (пункт CX1-100, заметка N24)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 732ff8b10b85ee424d7430fa93ae56637802e8e6   # вершина issue-880; после предмета — только запись ревью NTF-2 (чужой путь)
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564
+  kacho_1276: 69ab1d3e17d2f9e77e00ce0495c78bd5b3784154           # origin/1276
+  kacho_main: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+  helm: v4.2.4+g3900f43
+  trivy: 0.70.0
+snapshot_at: 2026-09-30T20:40:53Z
+inspected: >-
+  Дельта 220b5f9d9..1690113d8 по пакету целиком: шапка редакции 26 design.md; §0 строка Д52; §1 М47;
+  З28 «Узел почты → ключ процесса» (абзац «Запись `notify` в зависимостях зонтика»), «Фикстурная
+  копия D1» (восьмая зависимость), «Каталог — источник значения и для рендеров чарта края без
+  зонтика», «Читатели узла вне notify — закрытый перечень исключений» (база полосы); §11 строки
+  CX1-99, N23, Д52; §13 Е12 (10)–(12). tasks.md редакции 27: шапка, строки D1 (пути), D2, D9. change.yaml.
+  В контексте: З28 случай (4) пробы обёртки D9 («имя вне каталога»); замысел NTF-2
+  (`docs/changes/issue-2917/design.md`) — М67 (семь семейств), «Рендеры чарта края без зонтика», «Граница
+  Д51»; запись ревью приёмки NTF-2 `f7f510df…` (коммит 732ff8b10), N-1 — только как атрибутированный
+  замер формы ключа. В kacho на origin/2564, origin/1276, origin/main: `deploy/helm/umbrella/Chart.yaml`
+  (разбор `dependencies` yq), `deploy/.gitignore` (Chart.lock), `git ls-tree` путей
+  `deploy/helm/notify`, `deploy/testdata`, перечень отслеживаемых `Chart.yaml` с именами. На origin/2564:
+  `trivy.yaml`, `.github/workflows/security-scan.yml` (триггеры), `deploy/scripts/assert-iac-scan-covers-every-chart.py`
+  (предикат кандидата), `deploy/scripts/assert-scan-stubs-hide-nothing.py` (какие ключи `helm` читает),
+  переписи чартов по механизму (`ls-files '*Chart.yaml'`, `deploy/helm/**`). В scratchpad: синтетика М47
+  (зонтик с зависимостью `notify` без алиаса и с алиасом, `# Source:` и `execution error`) и синтетика
+  «чарт notify под IaC-сканом»: три варианта значений. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "в дельте открытых Е нет; Е12 (11), (12) — заказы стороне NTF-2 с условием, полос NTF-1 не гейтят"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-99 (а)–(г) и N23 выдерживают. Новый CX1-100 не отображён: чарт notify как кандидат IaC-скана, и в замысле нет формы, которой скан получает значения"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Внешних вызовов, асинхронных путей и sentinel-значений в дельте нет. «НЕ ВЫПОЛНИЛОСЬ» с
+      фактическим путём у опоры (CX1-99 (в)) — исход прибора, а не значение данных
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = c441cc11… = предмет"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на c441cc11 ревью замысла нет; шапка редакции 26: «Вердикта на эту редакцию нет». В `clean` не входит"
+
+mapping_check:
+  - item: "CX1-99 (а)"
+    verdict: holds
+    evidence: >-
+      Строка D1 tasks.md редакции 27 называет в путях `deploy/helm/umbrella/Chart.yaml` («только
+      запись зависимости `notify`, CX1-99»). В design.md производитель записи — D1 (З28 «Запись `notify`
+      в зависимостях зонтика»). Путь `deploy/helm/umbrella/**` §12 отдан `#2915`, коллизии с другой
+      полосой NTF-1 нет
+  - item: "CX1-99 (б)"
+    verdict: holds
+    evidence: >-
+      Форма: `name: notify`, `repository: file://../notify`, `version: ">= 0.0.0"`, без `alias` и без
+      `condition`. Перемерено yq-разбором `dependencies` на трёх базах. У семи file://-зависимостей
+      `version: ">= 0.0.0"` и нет алиасов, алиасы только у `postgresql` (`pg-*`). Без `condition` из
+      них одна `api-gateway`, у шести прочих `condition: <имя>.enabled`. Ссылка замысла на край как
+      на прецедент верна. Довод «второй включатель — второе написание решения» стоит на NTF1-N04.
+      `Chart.lock` зонтика отслеживанием не охвачен (`deploy/.gitignore:49`), а копию проба берёт из
+      отслеживаемых файлов, так что устаревший лок в копию не попадает
+  - item: "CX1-99 (в)"
+    verdict: holds_with_note
+    evidence: >-
+      Опора каждой ноги печатает `# Source:` объекта `ConfigMap` с `KACHO_NOTIFY_SMTP_CONNECTION_URI`
+      и сравнивает путь с константой ноги на равенство; не равен — «НЕ ВЫПОЛНИЛОСЬ» с фактическим путём,
+      отрицание не проводится. Инъекция — `alias: notifyx` в копии, близнец — копия как есть. М47
+      воспроизведён этой записью: без алиаса `# Source: kacho-umbrella/charts/notify/templates/configmap.yaml`,
+      с алиасом `# Source: kacho-umbrella/charts/notifyx/…` и `execution error at (kacho-umbrella/charts/notifyx/…)`,
+      чарт отдельно — `# Source: notify/templates/configmap.yaml`; сборка зависимостей — код 0 в обоих
+      случаях. Посылку держит тот же прибор, что отрицание. Заметка N25: случай «объектов с ключом
+      больше одного» исходом не назван
+  - item: "CX1-99 (г)"
+    verdict: holds
+    evidence: >-
+      Е12 (11) называет запись производителем сегмента для распознавателя NTF-2 (И44, CX2-49 (а)).
+      Условие исполнения — строка распознавателя в полосе D3 NTF-2 ссылается на запись NTF1-D1. Смена
+      имени или алиас правят запись, константы ног и распознаватель одним изменением
+  - item: N23
+    verdict: holds
+    evidence: >-
+      «База полосы» — ветка, на которой гонится проба образца: сведённая ветка волны либо `2564`.
+      «Влита» — `git merge-base --is-ancestor <коммит D2 NTF-1> <ветка прогона>`, и проба печатает
+      ветку и исход предиката. Внесено в З28, Е12 (10), §11 N23, tasks.md D2. Формулировка совпадает с
+      предикатом заметки
+
+items:
+  - id: CX1-100
+    status: unmapped
+    decision: >-
+      D1 (давнее решение: отдельный чарт `deploy/helm/notify/`, вне каталога зонтика) в свете Д52 (З28
+      «Каталог — источник значения и для рендеров чарта края без зонтика»: «второй фикстуры нет») и NTF-2
+      М67, семейство (7): IaC-скан рендерит каждый чарт без зонтика
+    class: >-
+      measurement-discipline §«Радиус: по имени механизма и по точкам применения». Новый
+      отслеживаемый чарт — точка применения каждой переписи чартов дерева. Замысел их не перечислил:
+      `grep -c -F 'iac'` по design.md → 0, `trivy` → 0. Второй класс — code-authoring §«Умолчание,
+      которое становится утверждением»: сканер на отказе рендера пропускает чарт молча, и при нуле
+      отрендеренных объектов «чисто» неотличимо от «не осмотрено». Третий — .claude/rules/testing.md
+      §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.7:
+      гейт заглушек судит только одну форму подачи значений
+    finding: >-
+      (1) Кандидат `assert-iac-scan-covers-every-chart.py` (origin/2564) — отслеживаемый `*Chart.yaml`
+      с шаблонами, не вложенный в другой чарт. Вложенность — префикс пути: `d.startswith(p)`.
+      `deploy/helm/notify/` префиксом `deploy/helm/umbrella/` не начинается, значит это кандидат, и
+      он обязан дать скану не меньше одной цели. Послабление в `EXEMPT` одно — зонтик, его причина
+      («локальные сабчарты не вендорятся») к notify неприменима. (2) Синтетика в scratchpad, trivy
+      0.70.0, чарт `notify` с `Deployment` под `if .Values.sources` и `required` на
+      `global.kacho.identity.smtp.connectionURI`. Пустой перечень — 0 целей и 0 строк `# Source:`.
+      Непустой перечень без узла — 0 целей: отказ рендера, сканер молчит. Контроль, перечень и узел
+      заданы — 1 цель. Чарт D1 устроен так же: шаблоны при пустом перечне не рендерятся (NTF1-N04),
+      узел под `required` (Д44), свои значения ноги лежат в `notify-standalone/values.yaml`, а не в
+      умолчаниях. Значит, при нынешнем `trivy.yaml` (заглушки только `zot.auth.password`,
+      `db.password`) после D1 гейт покрытия красный с именем `deploy/helm/notify/`. Громко, но полоса
+      этого не ждёт, и путей для починки у неё нет: `trivy.yaml` нет в путях ни одной полосы. (3)
+      Скан идёт в `security-scan.yml` на запросах в `main` и в ветки `[0-9]+`. Запрос в ветку волны
+      с суффиксом этим фильтром не ловится, поэтому красное всплывёт у запроса волны в `2564`, а не
+      у полосы. (4) Чем подать значения, Д52 решает наполовину. Заглушка `helm.set
+      global.kacho.identity.smtp.connectionURI=…` — вторая фикстура узла почты, её Д48/Д52
+      запрещают. Форма «файлы каталога» (`misconfiguration.helm.values`: `notify-standalone/values.yaml`
+      с флагом и перечнем плюс образец `mail-node/`) Д52 соответствует, но гейт
+      `assert-scan-stubs-hide-nothing.py` читает только `helm.set` (`helm.get("set")`). Файл, поданный
+      сканеру, лежит вне его переписи, и «заглушка ничего не гасит» для него молча не судится. А
+      файлы значений сканер применяет к КАЖДОМУ рендеримому чарту: корневой ключ файла может совпасть
+      с ключом чужого чарта (так же сказано в N-1 записи `f7f510df` приёмки NTF-2). Тот же выбор
+      встанет перед D6 NTF-2 с ручкой прыжков края. (5) Прочие переписи чартов по механизму на
+      origin/2564. `deploy/chart_name_addresses_exactly_one_chart_test.go` (`ls-files '*Chart.yaml'`)
+      тёзку не находит: среди 19 отслеживаемых `Chart.yaml` имени `notify` нет. `deploy/scripts/assert-metrics-surfaces-answer.sh`
+      (`git grep -l 'prometheus\.io/scrape' -- 'deploy/helm/**'`, сегмент `deploy/helm/<x>/` → часть
+      `<x>`) возьмёт `notify` частью, если чарт D1 объявит сбор величин, а у процесса есть `/metrics`
+      (Р1). `deploy/trust_anchor_claim_matches_declaration_test.go` судит `deploy/helm/**` по
+      `SSL_CERT_FILE`/`SSL_CERT_DIR`; якорь notify — своя ручка (CX1-81), `SSL_CERT_FILE` в замысле
+      только у процесса пробы, так что гейт, по-видимому, молчит. `.github/scripts/lint-service-charts.sh`
+      перечисляет `services/*/deploy`, `gateway/deploy`, `ui-future/deploy` — notify вне его перечня.
+      Чарта notify нет ни на одной ветке, поэтому исходы последних двух не измерены
+    condition_to_design: >-
+      (а) D1 называет точки применения «новый отслеживаемый чарт» по механизму: переписи
+      `git ls-files '*Chart.yaml'` и `deploy/helm/**`. Полоса печатает число на своей базе, контроль —
+      четыре переписи этой записи (IaC-покрытие, тёзки чартов, поверхности величин, якоря доверия).
+      Каждой назначен исход: красное на чарте D1 чинится в D1, либо записано, почему перепись
+      молчит, с напечатанным её выводом. (б) IaC-покрытие. `deploy/helm/notify/` даёт скану не меньше
+      одной цели, и держит это сам гейт покрытия, без новой записи в `EXEMPT`: исключение прятало бы
+      манифесты notify. Значения скан берёт из каталога фикстур NTF-1 по Д52 — `helm.values` с
+      `deploy/testdata/notify-standalone/values.yaml` и образцом `deploy/testdata/mail-node/` — а не
+      заглушкой `helm.set` узла почты. `trivy.yaml` — в путях D1. Если автор выбирает `helm.set`,
+      это граница Д52, и нужно решение диспетчера. (в) Гейт
+      `assert-scan-stubs-hide-nothing.py` расширяется на форму `helm.values`: каждый файл снимается
+      по одному, и «снятие не гасит находок» судится так же, как у `helm.set`. Путь гейта — в путях
+      D1. Инъекция: файл, поданный сканеру и гасящий находку чужого чарта (корневой ключ, совпавший
+      с ключом другого чарта), → красный. Близнец — файлы каталога как есть → зелёный с печатью
+      числа файлов. Иначе файл, поданный сканеру, лежит вне переписи гейта, и тот молчит. (г)
+      Порядок с D6 NTF-2: форму `helm.values` в `trivy.yaml` заводит D1, D6 дописывает строку ручки
+      в тот же файл каталога и не заводит второй формы подачи (Е12 (12) дополняется ссылкой на
+      семейство (7))
+    held_by: "покраснеет `assert-iac-scan-covers-every-chart.py` на запросе волны в `2564` — громко, но поздно и вне путей полосы; форму «файлы» (в) держать нечем, пока гейт заглушек не расширен — нужен гейт"
+
+notes:
+  - id: N24
+    blocking: false
+    where: "З28 «Каталог — источник значения и для рендеров чарта края без зонтика» («какой файл каталога … и в какой форме ключа … называет D6 NTF-2»); §13 Е12 (12)"
+    text: >-
+      Одно значение ручки прыжков имеет две формы ключа: в слое зонтика оно под сегментом
+      `api-gateway`, в чарте края без зонтика — в корне (М47). По записи `f7f510df` (N-1,
+      acceptance-reviewer, посев на копии origin/2564, этой записью не воспроизведено) слой формы
+      зонтика, поданный чарту края без зонтика, даёт отказ с именем ручки. Значит, файл `mail-node/`
+      рендеру без зонтика не годится, если в нём нет второй строки того же значения в корне. Замысел
+      отдаёт выбор D6 NTF-2 целиком. При этом файлы — NTF-1, и у них свой контракт: `mail-node/*` —
+      слои `prod` (D9), `notify-standalone/` — значения ноги notify (D1). К замыслу: назвать границу
+      со стороны NTF-1. В `mail-node/*` ручка пишется только формой зонтика: корневая строка в слое
+      `prod` — ключ, которого рендер зонтика не читает. Корневая форма для рендеров без зонтика
+      допустима только в `notify-standalone/values.yaml`. Одно значение — одна строка на файл
+    predicate: "yq по каждому файлу `deploy/testdata/mail-node/*.yaml`: корневого ключа ручки нет; по `notify-standalone/values.yaml`: ключ ручки только в корне"
+  - id: N25
+    blocking: false
+    where: "З28 «Запись `notify` в зависимостях зонтика» (опора печатает `# Source:` объекта `ConfigMap` с ключом адреса); «Фикстурная копия D1» («зависимости `Chart.yaml` вида `file://../../../<компонент>/deploy` … после записи D1 — восьмая»)"
+    text: >-
+      (1) Опора называет исход для «объекта с ключом нет» (число объектов), но не для «таких объектов
+      больше одного». Сегодня ключ `KACHO_NOTIFY_SMTP_CONNECTION_URI` несёт только notify, так что
+      путь однозначен. Но если объект с тем же ключом появится ещё где-то в рендере, сравнение
+      возьмёт один из них. К коду: ровно один объект, иначе «НЕ ВЫПОЛНИЛОСЬ» с числом и путями. (2)
+      Абзац о копии называет восьмую зависимость в ряду «вида `file://../../../<компонент>/deploy`»,
+      а запись D1 имеет вид `file://../notify`. Копия от этого не страдает: состав задан как
+      «зависимости с локальным источником». Но фраза о форме неверна, и полоса, которая копирует по
+      образцу `../../../`, notify не скопирует. Не воспроизведено, громко: `helm dependency build`
+      копии печатает зависимость `notify` (строка CX1-99 §11)
+
+measurements:
+  - claim: "предмет — c441cc11, содержимое коммита 1690113d8; change.yaml несёт c441cc11; маршрут — d3c9a641; приёмка не менялась"
+    command: "sha256sum docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; grep -n design_sha256 docs/changes/issue-2915/change.yaml; git log --oneline -1 -- docs/changes/issue-2915/design.md"
+    result: "c441cc11…; d3c9a641…; 29cfa368…; design_sha256: c441cc11… (строка 146); 1690113d8"
+  - claim: "дельта — три файла пакета плюс запись 43ead44b"
+    command: "git diff --stat 220b5f9d9 1690113d8 -- docs/changes/issue-2915/"
+    result: "change.yaml 11, design.md 83, tasks.md 17, запись 43ead44b 250"
+  - claim: "зависимости зонтика: семь file://, `>= 0.0.0`, без алиасов; `api-gateway` без condition; Chart.lock не отслеживается; notify и testdata нет"
+    command: "git -C project/kacho show <r>:deploy/helm/umbrella/Chart.yaml | yq -r '.dependencies[] | [.name,.repository,.version,(.alias//\"-\"),(.condition//\"-\")] | @tsv'; git check-ignore -v deploy/helm/umbrella/Chart.lock; git ls-tree -r <r> deploy/helm/notify deploy/testdata | wc -l; r ∈ origin/2564@6edea09c2ee, origin/1276@69ab1d3e17d, origin/main@1d42a6728bf"
+    result: "на трёх базах: 7 file://-зависимостей (vpc, compute, kacho-nlb, api-gateway, uif, registry, storage), все `>= 0.0.0`, alias нет; condition `-` только у api-gateway; alias — только у postgresql (pg-*); `deploy/.gitignore:49 helm/umbrella/Chart.lock`; 0 записей"
+  - claim: "М47: алиас меняет сегмент и в `# Source:`, и в `execution error`"
+    command: "scratchpad m47/: зонтик `kacho-umbrella` с зависимостью `notify` (`file://../notify`, `>= 0.0.0`) без алиаса и с `alias: notifyx`; `helm dependency build --skip-refresh umbrella`; `helm template r umbrella -f s.yaml [| --set global.kacho.identity.smtp.connectionURI=null]`; `helm template r notify -f s.yaml`"
+    result: "build=0 оба; без алиаса `# Source: kacho-umbrella/charts/notify/templates/configmap.yaml`, `execution error at (kacho-umbrella/charts/notify/templates/configmap.yaml:5:39)`; с алиасом — `notifyx` в обеих строках; отдельно — `# Source: notify/templates/configmap.yaml`"
+  - claim: "чарт вне каталога зонтика — кандидат гейта IaC-покрытия; гейт заглушек читает только `helm.set`"
+    command: "git -C project/kacho show origin/2564:deploy/scripts/assert-iac-scan-covers-every-chart.py | sed -n 195,240p; … assert-scan-stubs-hide-nothing.py | grep -n 'helm\\|set'; … trivy.yaml | grep -n -A8 'helm:'"
+    result: "`is_nested = any(d != p and d.startswith(p) for p in charts)`; `EXEMPT` — только `deploy/helm/umbrella/`; гейт заглушек: `stubs = list(helm.get(\"set\") or [])` (:117), подмена при прогоне — только `[\"helm\"][\"set\"]` (:96); `trivy.yaml` — `helm.set` из двух заглушек (`zot.auth.password`, `db.password`)"
+  - claim: "чарт, чьи шаблоны закрыты перечнем и узлом, даёт IaC-скану ноль целей"
+    command: "scratchpad iac/: `deploy/helm/notify` (`Deployment` под `if .Values.sources`, `required` на `global.kacho.identity.smtp.connectionURI`); `trivy config -q -f json <v> | jq '[.Results[]?.Target]|length'`; `helm template r <v>/deploy/helm/notify | grep -c '^# Source:'`; v ∈ empty (перечень пуст), nonempty (перечень есть, узла нет), control (оба есть)"
+    result: "empty: 0 целей, 0 объектов; nonempty: 0 целей, 0 объектов (отказ рендера); control: 1 цель, 1 объект. trivy 0.70.0"
+  - claim: "IaC-скан гонится на запросах в `main` и в ветки из цифр"
+    command: "git -C project/kacho show origin/2564:.github/workflows/security-scan.yml | sed -n 25,50p"
+    result: "pull_request.branches: `main`, `'[0-9]+'`; push — только main; шаг `python3 deploy/scripts/assert-iac-scan-covers-every-chart.py` (:351)"
+  - claim: "IaC-скан и гейты переписи чартов в замысле и маршруте NTF-1 не названы"
+    command: "grep -c -F <k> docs/changes/issue-2915/design.md, k ∈ trivy, iac, assert-metrics-surfaces, prometheus.io/scrape, trust_anchor_claim, chart_name_addresses; grep -c -iE 'trivy|iac' docs/changes/issue-2915/tasks.md"
+    result: "0 по каждому ключу; 0"
+  - claim: "переписи чартов по механизму и тёзка `notify`"
+    command: "git -C project/kacho grep -n -E \"ls-files.*Chart|deploy/helm/\\*\\*\" origin/2564 -- '*.sh' '*.py' '*.go'; git ls-tree -r --name-only origin/2564 | grep '(^|/)Chart\\.yaml$' | yq .name"
+    result: "четыре переписи: chart_name_addresses_exactly_one_chart_test.go:247, assert-iac-scan-covers-every-chart.py:197, assert-metrics-surfaces-answer.sh:482, trust_anchor_claim_matches_declaration_test.go (`deploy/helm/**`); 19 отслеживаемых `Chart.yaml`, имени `notify` среди них нет"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "исход гейтов поверхностей величин и якорей доверия на чарте D1"
+    why: "чарта notify нет ни на одной ветке; исход зависит от того, объявит ли D1 `prometheus.io/scrape` и пины `SSL_CERT_*`. CX1-100 (а) требует от полосы напечатать их вывод"
+  - item: "исход IaC-скана на настоящем чарте D1"
+    why: "замерена синтетика того же устройства (перечень и `required`), не чарт D1. Если D1 рендерит объекты без перечня, ноль целей не наступит. Но тогда те же объекты рендерились бы при пустом перечне, а это противоречит NTF1-N04"
+  - item: "форма ключа ручки прыжков в файлах каталога"
+    why: "ручки нет ни на одной ветке; N24 опирается на атрибутированный посев записи `f7f510df` (acceptance-reviewer), этой записью не воспроизведённый"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-100]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-100 (а)–(г): перепись точек применения «новый отслеживаемый чарт» в D1 с числом и контролем из четырёх переписей; IaC-покрытие `deploy/helm/notify/` без `EXEMPT`, значения скану — `helm.values` из каталога фикстур NTF-1, `trivy.yaml` в путях D1; расширение `assert-scan-stubs-hide-nothing.py` на `helm.values` с инъекцией и близнецом; порядок с D6 NTF-2 в Е12 (12). N24 — граница формы ключа со стороны файлов NTF-1; N25 — «ровно один объект» у опоры, правка фразы о форме восьмой зависимости"
+    basis: ".claude/rules/change-graph.md §4; measurement-discipline §«Радиус: по имени механизма и по точкам применения»; code-authoring §«Умолчание, которое становится утверждением»; .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.7"
+  - to: "диспетчер"
+    subject: "если CX1-100 (б) решается заглушкой `helm.set` узла почты, а не файлами каталога, — это граница Д52 («второй фикстуры нет»), нужно решение"
+    basis: "Д48, Д52"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-100"
+    basis: ".claude/rules/change-graph.md §4"
