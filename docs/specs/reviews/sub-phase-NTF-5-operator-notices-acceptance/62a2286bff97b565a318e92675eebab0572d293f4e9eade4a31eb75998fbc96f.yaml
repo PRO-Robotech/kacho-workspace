@@ -1,0 +1,256 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: действующий вердикт выводится из
+    внешнего события и записи ревью, привязанной к отпечатку, а не из слова в заголовке.
+  base_commit: fe6231afe
+  content_commit: de3ba2e0c
+  content_commit_note: >-
+    Редакция 5 введена коммитом de3ba2e0c. На base_commit файл не менялся: `git show
+    HEAD:<файл> | sha256sum` и `sha256sum <файл>` оба дают 62a2286b…. Привязка только по
+    отпечатку: после любой правки документа нужно новое рассмотрение.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2421
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T14:00:00Z'
+round: 5
+pass_round: 3
+pass_note: >-
+  Круг 3 прохода решений Д14–Д16. Сквозной номер круга по документу — 5.
+previous_rounds:
+  - round: 1
+    sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 2
+    sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 3
+    sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 4
+    sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d.yaml
+    verdict: CHANGES_REQUESTED
+publication_mode: >-
+  Событие полномочия публикует курьер. Его тело — строка external_event_body ниже. Роль в этой
+  записи служит координатой и личность не доказывает.
+external_event_body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f"
+blocking_count: 2
+blocking_kinds_distinct: [COVERAGE, NEGATIVE]
+blocking_kinds_by_item: [COVERAGE, NEGATIVE]
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2]
+  note: >-
+    Всё, что было заявлено в круге 4, закрыто: B1 и I-1…I-5, каждое проверено по тексту и дереву
+    (см. round_4_closure). Два новых блокирующих не выросли из правки редакции 5. Они касаются двух
+    новых методов службы доступа, `DescribeScope` и `ListAccounts`, с редакции 3. Выявились они
+    потому, что в тот же момент соседняя приёмка NTF-3 получила возврат того же класса на своих
+    внутренних списках справочника (запись ee6f908e….yaml, коммит 04025df90: B4-1 COVERAGE, B4-2
+    NEGATIVE). Если одобрить здесь то, что там возвращено, два документа одного справочника будут
+    судиться разной мерой.
+repeated_kinds:
+  - kind: COVERAGE
+    note: >-
+      Род был в круге 1. Класс здесь другой: контракт нового метода ЧУЖОГО производителя
+      (служба доступа) утверждается только через подмену в обвязке `notify`, и ни один сценарий не
+      судит самого производителя. Кандидат в форму задания автора (§14а): у каждого нового метода
+      другого продукта назвать хотя бы один сценарий в обвязке ЭТОГО продукта на каждое
+      утверждаемое свойство ответа (а не только на ограждение).
+
+neighbours_measured:
+  note: >-
+    §1.6 редакции 5 сверена на одном коммите 58471e572, как требовал I-1 круга 4. На этом коммите
+    каждая строка верна: NTF-1 b347b81f ✅, NTF-2 dd806ce9 ⛔, NTF-3 ee6f908e без вердикта, NTF-4
+    f9bc15ad без вердикта, NTF-6 47bd8b70 без вердикта. После 58471e572 вышло три записи. Каждую я
+    сверил с опорами NTF-5: ни одна опору не опровергает (замечание I-1).
+  NTF-1: "HEAD 530e22968ff1 (редакция 9, 2fa62337b) — вердикта нет; действующее одобрение — b347b81f. Дельта 58471e572→2fa62337b: +170/−21, заголовки решений **Р… не меняются (git diff | grep '^[-+]\\*\\*Р' → 0); probe-hello и InternalNotifyProbeService/Send на месте (строки 768-769)"
+  NTF-2: "dd806ce949eb — ⛔ (543eb00d4); путь подтверждения адреса, которым NTF-5 сеет стенд, не задет"
+  NTF-3: "ee6f908e51e2 — ⛔ после 58471e572 (04025df90: B4-1 COVERAGE — пагинация ListExpiringCredentials; B4-2 NEGATIVE — отказы пагинации ListProjectAudience/ListExpiringCredentials). NTF-5 эти методы не зовёт; опора не задета. Класс тот же, что B1/B2 здесь"
+  NTF-4: "f9bc15ad7179 — вердикта нет; Р5, Р6 опоры не менялись (§1.6)"
+  NTF-6: "47bd8b7054c3 — ✅ после 58471e572 (fe6231afe, блокирующих 0); граница «экраны извещений — NTF-6, данные — Р22 здесь» та же"
+
+counts:
+  scenarios: 110
+  scenario_ids_unique: true
+  scenario_count_predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 110; grep -oE … | sort | uniq -d | wc -l → 0"
+  producer_coverage: "§8: у каждого ID есть строка; новые ветки NTF5-67, 68 внесены (строки 2139-2140, §9 строка Д14)"
+  twins_section_9: "у ветки Д14 NTF5-68 близнец назван, меняется ровно один факт — вызывающий"
+  constructibility: >-
+    Посеяно 0 из 110: службы notify в дереве kacho нет, а стенд и изоляция для посева заданием не
+    названы. Поэтому «не выполнилось» — 110. Три новых Given проверены чтением и деревом.
+    (1) NTF5-67: отказ отобран методом и значением `pageToken`. Все вызовы, которые нужны для
+    строк страниц 1–2 (`DescribeScope`, `Resolve`), обслуживаются, а Р10 пишет строки страницы
+    до запроса следующей. Значит, «ровно 200 строк» при снятии и «250, без повторов» после
+    снятия от порядка конвейера не зависят. (2) NTF5-18 (б), (в): в окне разрыва по пути С-S идёт
+    только `DescribeScope{acc-1}`; письмо `started` на c@example.test следует из G0 (контакт
+    `operations` = usr-c). (3) NTF5-68, ветка Д14: пересланный принципал на внутреннем слушателе
+    службы доступа строится парой извлечения. Она есть в дереве: kaname @734f69fb4
+    cmd/kaname/serve.go:1045-1057 (UnaryCertIdentityExtract → UnaryTrustedPrincipalExtract), и
+    интеграционная обвязка уже так делает (cmd/kaname/acr_floor_grant_admin_integration_test.go:21).
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → 62a2286b… оба"
+  - claim: "§1.6 верна на 58471e572 (один коммит)"
+    result: подтверждено
+    predicate: "for d in NTF-1..NTF-6: git show 58471e572:<файл> | sha256sum; ls reviews/<док>/ — отпечатки и наличие записей совпадают со строками таблицы"
+  - claim: "класс «пагинация и отказы внутреннего списка справочника» не держится у новых методов NTF-5"
+    result: "подтверждено (B1, B2)"
+    predicate: >-
+      grep -nE 'pageSize|page_size|pageToken|page_token|ListAccounts' <файл>: у ListAccounts есть
+      только сигнатура (строка 661) и счёт вызовов подмены (1830-1854); порядок, форма курсора,
+      умолчание и потолок pageSize, пустой next_page_token в конце и отказы не названы (сравни
+      строки 766-767 у публичного списка). grep -nE 'exists: ?false|exists=false' → только Р10
+      (618, 637); сценариев, которые судят DescribeScope на обвязке службы доступа, кроме
+      NTF5-68 (acc-1, exists=true), нет
+  - claim: "Д14: BatchCheck — публичный AuthorizeService, а не внутренний"
+    result: подтверждено
+    predicate: "grep -n 'BatchCheck' → строки 265, 756: `AuthorizeService/BatchCheck`"
+  - claim: "гигиена: путей рабочей копии, фраз о незакоммиченности, имён чужих облаков и маркеров отсрочки нет"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|<закрытый перечень имён чужих провайдеров>|TODO|FIXME' <файл> → 0"
+
+blocking:
+  - id: B1
+    kind: COVERAGE
+    title: "Ответ двух новых методов службы доступа (DescribeScope, ListAccounts) держит только подмена в обвязке notify; производителя не судит ни один сценарий"
+    scenarios: [NTF5-17, NTF5-18, NTF5-66, NTF5-67, NTF5-68]
+    evidence: >-
+      Р10 объявляет контракт производителя. DescribeScope{accountId | projectId} →
+      {exists, accountId, ownerUserId}: для проекта — его аккаунт и владелец аккаунта,
+      несуществующая область → exists=false с пустыми полями. ListAccounts{pageToken, pageSize} →
+      идентификаторы аккаунтов курсором. Эти ответы используют NTF5-17 (exists=false), NTF5-66 и 67
+      (250 аккаунтов по 100) и адресация Р8 (аккаунт проекта). Но все эти сценарии идут против
+      подмены: §6, строка «служба доступа со стороны notify» — «подмена … над посеянными данными».
+      В обвязке службы доступа производителя судит только NTF5-68, и там один ответ:
+      DescribeScope{accountId: acc-1} → exists=true. Ни один сценарий не проверяет в обвязке
+      службы доступа: DescribeScope{projectId} → аккаунт и владелец; exists=false на
+      несуществующей области; обход ListAccounts — каждый аккаунт ровно один раз, в заданном
+      порядке, пустой следующий курсор в конце. При этом порядок выдачи и форма курсора ListAccounts
+      в Р10 не заданы (у публичного списка notify они заданы, строки 766-767). Реализация службы
+      доступа, у которой DescribeScope всегда отвечает exists=true или ListAccounts отдаёт только
+      первую страницу с пустым курсором, пройдёт все 110 сценариев. Отказ по несуществующему
+      аккаунту (Р10 шаг 4) тогда не наступит никогда, а allAccounts дойдёт до первых 50 или 100
+      аккаунтов молча. Тот же класс в тот же момент возвращён у NTF-3 (ee6f908e, B4-1).
+    fix: >-
+      В Р10 назвать порядок выдачи ListAccounts и курсор, например `(created_at, id)` по
+      возрастанию, с непрозрачным токеном, умолчанием 50 и потолком 1000, как у списков продукта.
+      Добавить, что в конце обхода next_page_token пуст. В NTF5-68 (или отдельной буквой без нового
+      номера) в обвязке службы доступа с сертификатом notify-sender проверить:
+      (а) DescribeScope{projectId: prj-1} → {exists: true, accountId: acc-1, ownerUserId: usr-own};
+      (б) DescribeScope{accountId: acc-9} → {exists: false}, прочие поля пусты — близнец (а) для
+      аккаунта acc-1; (в) ListAccounts с pageSize=2 на посеве из 5 аккаунтов проходит 3 страницы,
+      в объединении ровно эти 5, каждый по одному разу, в названном порядке, у последней страницы
+      next_page_token пуст. Близнец — pageSize=5, одна страница. Добавить строки §8 и DoD 10.1 п.5,
+      10.2 п.6.
+  - id: B2
+    kind: NEGATIVE
+    title: "Отказы на вход у DescribeScope и ListAccounts не названы и не держатся"
+    scenarios: [NTF5-68]
+    evidence: >-
+      Правило `api-pagesize`: pageSize вне [0..1000] и мусорный pageToken дают INVALID_ARGUMENT, а не
+      clamp и не первую страницу. Правило `api-malformed-id-sync`: id проверяется формой первым
+      стейтментом RPC. У ListAccounts нет ни отказа на pageSize, ни отказа на мусорный pageToken.
+      У DescribeScope не названы отказы, когда не задана ни одна из областей, заданы обе, id пустой
+      или неверной формы. Раскрытие allAccounts в notify-sender хранит курсор в базе и повторяет
+      его (Р10, NTF5-67). Если производитель на мусорный или устаревший курсор молча отдаёт первую
+      страницу, повтор после сбоя приведёт к повторному обходу с начала. Для этого случая
+      документ опирается только на уникальность строк доставки, а не на отказ. Без держателя
+      реализация в TDD может подрезать pageSize или игнорировать токен, и проба этого не
+      заметит. Тот же класс в тот же момент возвращён у NTF-3 (ee6f908e, B4-2).
+    fix: >-
+      В Р10 для обоих методов записать отказы: ListAccounts — pageSize вне [0..1000] и мусорный
+      pageToken → INVALID_ARGUMENT с полем page_size / page_token, проверка до вопроса о праве
+      (`api-pagination-before-shortcircuit`); DescribeScope — ни одной или обе области →
+      INVALID_ARGUMENT `"exactly one of accountId, projectId"`, пустая → `"<field>: required"`,
+      неверная форма → `"invalid <res> id '<X>'"`. Держатели — буквы NTF5-68 в обвязке службы
+      доступа с сертификатом notify-sender. Близнецы — pageSize=1000 даёт страницу, запрос без
+      токена даёт первую страницу, DescribeScope{accountId: acc-1} → OK. Добавить строки §8, §9
+      и DoD.
+
+important:
+  - id: I-1
+    kind: FORMAT
+    text: >-
+      §1.6 верна на объявленной ревизии 58471e572. После неё вышли три записи: NTF-3 ee6f908e —
+      возврат (04025df90); NTF-1 — редакция 9, отпечаток 530e22968ff1 (2fa62337b), вердикта на неё
+      нет; NTF-6 47bd8b70 — ✅ (fe6231afe). Ни одна не опровергает опору NTF-5, это проверено в
+      neighbours_measured. В следующей редакции нужно перемерить таблицу на её собственном коммите.
+      У NTF-6 в столбце «вердикт» должно стоять APPROVED.
+  - id: I-2
+    kind: PRODUCER
+    text: >-
+      Строка возврата о NTF3-114 (usr-U с неподтверждённым адресом назначается контактом) против
+      ответа двери по-прежнему открыта: на ee6f908e расхождение то же. Доводить до автора NTF-3 — дело
+      диспетчера, не автора NTF-5.
+  - id: I-3
+    kind: FORMAT
+    text: >-
+      NTF5-67 «Тогда»: «ListAccounts с курсором второй — не меньше 2 раз, из них последний — OK».
+      Число повторов между первым отказом и снятием отказа зависит от расписания повторов на
+      управляемых часах, и форма «не меньше 2» это верно учитывает. Стоит одной фразой сказать,
+      что при стоящих часах повтор не обязан произойти. Иначе проба, которая ждёт второго отказа
+      до перевода часов, повиснет.
+
+round_4_closure:
+  B1: "закрыт: отказ отобран методом и pageToken; Р10 задаёт порядок «строки страницы до запроса следующей»; «Тогда» утверждает 200 строк, ≤200 писем, 0 писем третьей странице, 250 после снятия — от порядка конвейера не зависит; правило §6 «отказ в «Дано»» и перепись §15 (NTF5-18, 74, 80, 90, 104) сверены"
+  I-1: "закрыт по форме (одна ревизия 58471e572, таблица верна на ней); новое устаревание — I-1 этого круга"
+  I-2: "перенесён: правка у NTF-3"
+  I-3: "закрыт: момент приёма заявки; держатели NTF5-01, NTF5-18 (б), (в)"
+  I-4: "закрыт: ветка Д14 в NTF5-68, близнец service:notify, §9, DoD 10.1 п.5, 10.2 п.6; пересланный принципал строится (kaname @734f69fb4 serve.go:1045-1057)"
+  I-5: "закрыт: NTF5-109 (в) — projectIds вместо accountIds; NTF-6 — PRO-Robotech/kacho#2925"
+
+dispatcher_decisions_check:
+  D1: соблюдено (Р1)
+  D2: "соблюдено: service:notify только у notify-sender; notify-api — только Check и пакетная проверка о пользователе"
+  D3: соблюдено (второго потокового контракта нет)
+  D4: соблюдено (ResolveSend в общем конвейере)
+  D5: соблюдено (19 шаблонов, кастомных нет)
+  D6: соблюдено
+  D7: соблюдено
+  D8: "соблюдено; расхождение NTF3-114 — I-2"
+  D9: "Р20 спором — решение за диспетчером (без изменений против круга 4)"
+  D10: к извещениям не относится — названо
+  D11: соблюдено
+  D12: соблюдено
+  D13: "уточнение порядка S2 заявлено спором (без изменений)"
+  D14: "соблюдено: тип справочника — в перечне без надзора; ветка user:usr-op c system_admin → PERMISSION_DENIED с близнецом service:notify; BatchCheck — публичный AuthorizeService (строки 265, 756)"
+  D15: "соблюдено: контакты и настройки — форма NTF-3; NTF-6 — потребитель"
+  D16: "соблюдено: документ — черновик ветки issue-880"
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (экраны — NTF-6 по контракту Р22)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (внутренний API оператора, два метода справочника службы доступа, контакты, ступень acr)"
+
+questions_for_dispatcher:
+  - >-
+    NTF3-114 против двери kaname (I-2) до сих пор не передан автору NTF-3. Без этого две приёмки
+    одного ресурса не сойдутся на одной реализации.
