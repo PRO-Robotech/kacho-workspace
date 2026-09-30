@@ -1,0 +1,259 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  revision: 13
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и строкой истории — «редакция 13 · вердикта нет». Эта запись шапку НЕ
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующее одобрение выводится
+    из этой записи и внешнего события.
+  content_commit: 5b9da3c47
+  content_commit_note: >-
+    `git show 5b9da3c47:<path> | sha256sum` даёт тот же отпечаток, что `sha256sum` рабочей копии.
+    Отпечаток — единственная привязка вердикта.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3388
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T07:10:00Z'
+round: 2
+round_note: >-
+  Круг 2 на редакции 13 — правке редакции 12 (f38dee0f…) по возврату круга 1 (B-1 COVERAGE,
+  N-1…N-6). Предмет круга — дельта e1917fbea → 5b9da3c47 (147 вставок, 19 удалений; прочитана
+  целиком) и её согласие с остальным документом, с одобренной редакцией 16 NTF-1 (390b5a33…) и с
+  Д1–Д19. Одобрение редакции 11 (9098d6ef…) к этому отпечатку не относилось и не переносится;
+  прежние записи не правятся.
+previous_rounds:
+  - round: 1
+    pass: возврат разбора классов issue-2917
+    sha256: f38dee0f359578c0eb23ea2f715072e7dd1dcce9c61c0b9dfd19d8c42fd00780
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/f38dee0f359578c0eb23ea2f715072e7dd1dcce9c61c0b9dfd19d8c42fd00780.yaml
+    blocking_count: 1
+return_closure:
+  B-1: >-
+    закрыто. Правило Р4 «отказ флага производит только corelib; своего текста и `reason` у kaname
+    нет» получило держателя, красного на второй копии, — NTF2-54 (G, гейт дерева kaname
+    `internal/check`): узел (1) — литералы текста и `reason` вне тестов (копии (а), (б) — красные с
+    файлом и строкой), узел (2) — ссылка на `feed.DeliveryNotConfiguredStatus` по идентичности из
+    проверки типов, узел (3) — достижимость узла (2) из каждого из четырёх методов закрытого перечня
+    (копия (в) — красный с именем действия); отсутствующее действие перечня — красный, пустой обход —
+    красный; близнецы — дерево как есть и литерал в `_test.go` (г), отличающийся от (б) ровно одним
+    фактом. Перечень гейта совпадает с перечнем действий Р4 (восстановление, регистрация,
+    приглашение, запрос кода подтверждения). Неисполнимая клауза о NTF1-N06 снята: NTF2-51 берёт
+    ожидаемое вызовом функции на пине, печатает его и прямо говорит, что копию не ловит. Граница
+    узла (1) (текст из фрагментов) названа, и названо, чем она закрыта. Строки §6а, §6б, §7, DoD п.6
+    дописаны.
+  B-1_class: >-
+    класс закрыт по документу пятой переписью §6б «единственный производитель → держатель» (9
+    строк). Перепись перемерена выборкой слов `только|единствен|своего|ровно од` по §2 (строки
+    364–902): сверх 9 строк найдены Р12 «признак нового устройства у `session.issued` ставит только
+    путь входа» и Р15 «приёмник читает только `notify`». Оба держатся: у Р12 выдавателей сессии в
+    kaname ровно три (`IssueSession` зовут `login.go:551`, `recovery_complete.go:309`,
+    `register.go:227` @734f69fb4), и каждый покрыт — вход NTF2-94, прочие два NTF2-80, NTF2-43; у
+    Р15 NTF2-24 утверждает «ровно 1, и это `notify`» — красен на втором читателе. Прочие попадания
+    выборки — поведенческие («только после истечения», «письмо ставит только пол») или права доступа
+    с держателями NTF2-46, NTF2-47, NTF2-88.
+  N-1: >-
+    закрыто — П4 меняет URI-SAN одним сегментом служебной учётной записи при том же DNS-SAN, который
+    край сверяет с `ServerName`; сверка `notify` — побайтовое равенство полного URI (NTF-1, строки
+    502–503); проба печатает оба SAN и `ServerName`; сертификат, не прошедший сверку края, —
+    «не выполнилось».
+  N-2: закрыто — Р14 разводит `pending` (NTF2-06) и истечение (NTF2-07).
+  N-3: >-
+    закрыто — строка §6б называет пробу замысла З8 (И6, CX2-28 (б)); координаты существуют в
+    `docs/changes/issue-2917/design.md` (строки 405, 1148, 1533).
+  N-4: >-
+    закрыто — близнец NTF2-59 вынесен в отдельный прогон на своей копии П6 с тем же посевом и тем же
+    `S4`, отличие одно — исправное хранилище; «`503` не истратил вызов» — шаг (д) основного прогона.
+    `Bs` NTF2-58 отсчитывает таймер главного потока страницы под `page.clock` (П12, §6в).
+  N-5: >-
+    закрыто — шапка закрепляет одобренную редакцию 16 NTF-1 (390b5a33…, запись APPROVED круга 3) и
+    команду; команда перемерена: `git diff 5f3851113 9636eb28f -- <NTF-1> | grep '^[+-]' | grep -cE
+    …` → 0; `git show 5f3851113:<NTF-1> | sha256sum` → 05828e42…, `git show 9636eb28f:<NTF-1> |
+    sha256sum` → 390b5a33…. Замысел issue-2917 (З21) приёмкой не правится — остаётся строкой next.
+  N-6: >-
+    закрыто — правило «лимит шаблона не режет письмо, пропущенное окном» в Р8, строка §6б — проба
+    замысла З19 (И14; `design.md` строки 908, 1156).
+dispatcher_decisions_check:
+  Д1: соблюдено — кредов у kaname нет (Р2), NTF2-30, NTF2-33; дельта не трогает
+  Д2: соблюдено по запасному пути (сертификат), как в одобренной NTF-1; дельта уточнила только П4
+  Д3: 'соблюдено — `readers: [notify]`, Claim/Ack только `service:notify` (NTF2-46, NTF2-47)'
+  Д4: для kaname — исключение Д2 (без `ResolveSend`)
+  Д5: соблюдено
+  Д6: соблюдено — истечение `EXPIRED(platform_unavailable)` с возвратом лимита (Р14, NTF2-07)
+  Д7: >-
+    соблюдено — отказ единый, одинаковый для любого адреса (NTF2-51 пары), производитель один —
+    corelib, держатель единственности NTF2-54; перечень действий Р4 шире перечня Д7 на регистрацию —
+    толкование автора записано в Р4 (не изменено дельтой)
+  Д8: соблюдено в части личности
+  Д9: соблюдено
+  Д10: к NTF-2 не относится
+  Д11: >-
+    соблюдено — край по источнику/подсети, своя PoW, `429`+`Retry-After`, `503` fail-closed без
+    пропуска непроверенного доказательства, консоль показывает отказ дословно (NTF2-58 (г))
+  Д12: соблюдено — предикат снятия не менялся
+  Д13: соблюдено
+  Д14: соблюдено — Р1
+  Д15: к NTF-2 не относится
+  Д16: документ живёт в ветке issue-880
+  Д17: не нарушено — дельта не вводит публичного слушателя `notify`
+  Д18: к NTF-2 не относится
+  Д19: соблюдено — §11 оставляет отказ `address.Domain` на нулевом значении NTF-1
+  registerSharePause: >-
+    = 1 принят диспетчером; величина замысла, в приёмке не упоминается и наблюдаемым контрактом не
+    является
+hygiene_check:
+  workspace_copy_paths: "0 — grep -c 'tmp/' <док>"
+  foreign_clouds: "0 — grep -ciE 'yandex|aws|gcp|azure|google cloud' <док>"
+  uncommitted_phrase: "0 — grep -c 'не закоммич' <док>"
+  deferral_markers: "0 — grep -ci 'TODO\\|FIXME' <док>"
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+blocking: {}
+non_blocking:
+  N2-1: >-
+    NTF2-54 узел (3): «статический граф вызовов» не назван алгоритмом. Если проверка флага стоит за
+    портом (вызов через интерфейс), граф без диспетчеризации интерфейсов путь не найдёт и гейт будет
+    красен на верном дереве. Назвать алгоритм (с разрешением вызовов через интерфейс — CHA/VTA либо
+    равносильный) или записать, что вызов функции стоит в методе действия либо в функции, вызываемой
+    напрямую. Гейт и вызовы заводит одна под-фаза (NTF-2), поэтому это согласуется при реализации.
+  N2-2: >-
+    NTF2-54 (в): достижимость ссылки из метода действия слабее, чем «ветка выключенного флага
+    возвращает значение функции» — действие, где ссылка достижима по другой ветке, а отказ собран
+    отдельно, узел (3) пропустит. При побайтовом совпадении текста это ловят только (1) и (3) вместе
+    и только частично; при расхождении — NTF2-51. Остаточная граница названа не вся; стоит дописать её
+    к «границе узла (1)».
+  N2-3: >-
+    NTF2-51: в одном процессе П6 версия corelib одна — выбранная сборкой модуля пробы; `go.mod`
+    kaname может закреплять более раннюю. Условие «пин модуля пробы, отличный от пина kaname, — не
+    выполнилось» может держать сценарий в «не выполнилось» постоянно, пока kacho требует более новую
+    corelib. Сравнивать с выбранной версией (её kaname в процессе и исполняет) и печатать обе;
+    «не выполнилось» оставить только для случая, когда функции на выбранной версии нет.
+  N2-4: >-
+    NTF2-59 (д): после подъёма хранилища проба не печатает, что его состояние пережило остановку
+    (выдача `C` и отметка одноразовости). Если хранилище пробы теряет состояние, (д) либо зелен
+    вакуумно, либо красен не по продукту. Напечатать предпосылку (запись `C` на месте) и без неё —
+    «не выполнилось».
+  N2-5: >-
+    Шапка называет NTF-1 редакции 16 одобренной — это верно по записи 390b5a33….yaml, но после неё
+    разбор классов RA-12 (коммит 7236d99a0) вернул NTF-1 в приёмку. Задетые им пункты (D08 — триггеры
+    CI и др.) не касаются NTF1-F21, G22, N06, `DeliveryNotConfigured`; закрепление отпечатком верно.
+    При редакции 17 NTF-1 шапку стоит пересверить той же командой.
+repeated_kinds_note: >-
+  Род COVERAGE круга 1 не повторился: шаг формы задания («утверждение о единственности получает
+  гейт дерева с инъекцией-копией») исполнен и распространён переписью на весь документ.
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: acceptance_review_approved
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Одобрение
+    относится только к отпечатку ef9c6801…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2 редакции 13, блокирующих 0) · SHA-256
+    ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: 5b9da3c47 (ветка issue-880)
+    ntf1_approved: 390b5a33368bc84b6d0b9351a85413d91bdab031c893391fa23ae5132c6b524e (запись APPROVED, круг 3); равен рабочей копии ветки
+    kaname: 734f69fb4 (origin/357)
+    corelib: 34bc8104a83 (origin/main)
+  facts_reproduced:
+    fingerprint: sha256sum рабочей копии и `git show 5b9da3c47:<path>` — ef9c6801…825f
+    delta: git diff e1917fbea 5b9da3c47 -- <док> — 147 вставок, 19 удалений; прочитана целиком
+    four_actions: >-
+      git -C kaname grep -nE 'func \(.*\*(RequestRecoveryUseCase|RegisterUseCase|InviteUserUseCase|RequestVerificationUseCase)\)
+      Execute' 734f69fb4 — 4 метода: humansession/recovery_request.go:111, humansession/verification.go:355,
+      registration/register.go:150, user/invite.go:218
+    gate_home: git -C kaname ls-tree --name-only 734f69fb4 internal/check/ | wc -l → 370
+    refusal_literals_kaname: "git -C kaname grep -lE 'email delivery is not configured|NOTIFICATION_DELIVERY_NOT_CONFIGURED' 734f69fb4 | wc -l → 0"
+    function_in_corelib: "git -C corelib grep -l DeliveryNotConfigured 34bc8104a83 | wc -l → 0 (заводит corelib#77)"
+    session_issuers: "git -C kaname grep -n 'IssueSession(' 734f69fb4 -- ':!*_test.go' — login.go:551, recovery_complete.go:309, register.go:227"
+    ntf1_pin: "git diff 5f3851113 9636eb28f -- <NTF-1> | grep '^[+-]' | grep -cE 'NTF1-(N06|G22|F21)|DeliveryNotConfigured|authorization: certificate' → 0"
+    ntf1_san_equality: NTF-1 строки 502–503 — побайтовое равенство полного URI
+    design_refs: "grep -nE 'З8|З19|И6|И14|CX2-28' docs/changes/issue-2917/design.md — строки 326, 405, 908, 1148, 1156, 1533"
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 75
+    positive: 19
+    negative: 57
+    note: NTF2-18 несёт оба слова; новый ID — NTF2-54; снятых нет
+  producer_coverage:
+    method: разбор первой колонки §7 (списки и диапазоны) против множества ID §6, скриптом
+    covered: 75
+    of: 75
+  twin_coverage:
+    negatives: 57
+    twins_named: 57
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательн | grep -vc близн → 0"
+  dod_coverage:
+    method: разбор §8 (списки и диапазоны) против множества ID §6, скриптом
+    covered: 75
+    of: 75
+    uncovered: []
+    phantom: []
+  constructibility_seeding:
+    seeded: 0
+    of: 5
+    not_performed: >-
+      Новые и переписанные Given (NTF2-54/П8 копии (а)–(г), NTF2-06/П4 по URI-SAN, NTF2-59 (д) и
+      близнец на отдельной копии П6, NTF2-58 (г)/П12) — уровни G, I, U на названных фикстурах;
+      производители (гейт «единый отказ флага», функция corelib, сервер ленты kaname, звено-ограничитель,
+      решатель консоли) на базе отсутствуют — их заводят NTF-1 и NTF-2 по §7. Предпосылки копий П8
+      измерены на базе: четыре метода перечня и пакеты копий (а), (б), (в) существуют, дом гейта есть.
+      Остаточные риски фикстур — N2-3, N2-4.
+premise_check:
+  claim: >-
+    задание: судить редакцию 13 на отпечаток ef9c6801…, круг 2, сверить с Д1–Д19; документ объявляет
+    закрытыми B-1 и N-1…N-6 круга 1 и класс B-1 — по всему документу.
+  outcome: подтверждена — отпечаток воспроизведён, B-1 и N-1…N-6 закрыты, перепись класса перемерена
+  commands:
+    - "sha256sum <док>; git show 5b9da3c47:<док> | sha256sum → ef9c6801…825f"
+    - "git diff e1917fbea 5b9da3c47 -- <док>"
+    - "awk 'NR>=364 && NR<=902' <док> | grep -E 'только|единствен|своего|ровно од'"
+    - "скрипты покрытия §7 и §8 против §6 → пусто, пусто"
+route_signs:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и пробами, без описания обхода и текущих слабых мест.
+next:
+  needed_agent: courier
+  task: >-
+    опубликовать событие одобрения на отпечаток ef9c6801…; N2-1…N2-5 — по желанию автора следующей
+    правкой (правка потребует нового круга)
+  also_needed: >-
+    автор замысла issue-2917 — привести З21 и строку К1 §0.1 к приёмке (сертификат, без
+    `service:kaname`), как в круге 1
+  owner_questions: []
