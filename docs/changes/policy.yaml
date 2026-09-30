@@ -41,7 +41,22 @@ review_authority:
   acceptance-reviewer: [pointpu]
   # initial analysis и revalidation exposure items
   class-exposure-analyst: [pointpu]
-  # вердикт по design
+  # вердикт по design. ДЕРЖАТЕЛЬ — АГЕНТ `system-design-reviewer` в режиме
+  # «замысел» (внесено 2026-09-30, решение владельца дословно: «tooling-maintainer
+  # правит реестр: design-reviewer — агентная роль (например system-design-reviewer
+  # в режиме «замысел»), ваша роль — выборочно. Реализация не ждёт человека»).
+  # Запись роли — `docs/changes/<id>/reviews/design/design-reviewer/<design-sha256>.yaml`
+  # (раскладка пакета — приёмка SDD-1 §3). Владелец рецензирует замысел ВЫБОРОЧНО,
+  # по своему желанию; его вердикт не является условием посадки.
+  #
+  # Значение ниже — GitHub-актор события полномочия, а НЕ имя исполнителя: §4
+  # приёмки засчитывает только внешнее событие, и оно публикуется учётной записью
+  # pointpu — тем же путём, что у агентных `acceptance-reviewer` и
+  # `class-exposure-analyst` (их записи несут `authority.actor: pointpu`). Реестр
+  # поэтому НЕ РАЗЛИЧАЕТ, агент или владелец стоит за событием: какой вердикт
+  # засчитан, называет запись роли, на отпечаток которой ссылается событие.
+  # Прежнее «держатель — человек, агентом не подменяется» (база диспетчера до
+  # 2026-09-30) этим отозвано.
   design-reviewer: [pointpu]
   # specialist post-diff: схема и миграции
   db-architect-reviewer: [pointpu]
