@@ -114,7 +114,7 @@ mapping_check:
       Имя таблицы `recipient_key_fence` теперь совпадает с миграцией сноса и в записи, и в значении
       одобрения. Вхождений `kacho_notify.recipient_key_fence` в design.md и tasks.md — 0.
       `ParseApprovals` разбирает `<version>/<table>` через `normaliseTable`, и ключ сверки общий с
-      инвентаризацией (`Approval.key` → `declKey`, preflight.go:137).
+      инвентаризацией (`Approval.key` → `declKey`, preflight.go:138).
     code_conditions: "—"
   - id: CX4V-63 (б)
     design: "Д26 · 4 (3); §10 п.4; §13 Е7; tasks S1-A8, §2а"
