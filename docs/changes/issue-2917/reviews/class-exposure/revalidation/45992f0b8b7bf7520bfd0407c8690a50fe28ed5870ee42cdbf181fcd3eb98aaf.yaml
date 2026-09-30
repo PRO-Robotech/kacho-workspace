@@ -1,0 +1,170 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 11.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки прежних редакций относятся к
+# своим редакциям и здесь не переписываются. Судится дельта редакции 11 против последней разобранной
+# (редакция 10, 91b3f6b9; Д22): git diff 80e33f3b4 4f8430b51 -- docs/changes/issue-2917/design.md
+# (412 строк диффа) и маршрут tasks.md той же пары ревизий. Решения диспетчера Д47–Д49 сверены
+# повторно: дельта их строк не трогает.
+# Итог: всё, что вернула пересверка 91b3f6b9, отображено: CX2-47 · aaaff659, УК57, УК58, В1, В2, М1,
+# М2, CX2-66, CX2-67 (УК59). Новых пунктов перечня дельта не вносит. Возврат Р5 в приёмку замысел
+# теперь называет зависимостью §13 Е15, и она гейтит E2. Но приёмка не правлена: отпечаток 7a424030,
+# строка Р5 на месте. Поэтому итог — «вернуть-в-приёмку»; со стороны замысла неотображённых пунктов 0.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 45992f0b8b7bf7520bfd0407c8690a50fe28ed5870ee42cdbf181fcd3eb98aaf
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 11
+  commit: 4f8430b51
+  previous_judged: 91b3f6b9dcd9098cd6967f5643e635290f32ceaa667f57207c1b8cee23c3a565   # редакция 10, 80e33f3b4
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4.yaml
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/91b3f6b9dcd9098cd6967f5643e635290f32ceaa667f57207c1b8cee23c3a565.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 4f8430b51e51ed2a9690621a8ac69db7a2ff4768   # ветка issue-880, коммит редакции 11 = HEAD
+  ntf1_design: 170f1ee20de7c798bac5c3b098fc08ffe5ace8cd8b85ba0636a73c5f2088af9f   # редакция 21, без изменений с 15e875957
+  ntf1_tasks: 4a0bee6f60e1b9ebbf955beb38637ad3f6b713918d50e6df1be7d6b2131b18fc
+  pgx: v5.10.0 (кэш модулей)
+snapshot_at: 2026-09-30
+inspected: >-
+  Дифф design.md 80e33f3b4 → 4f8430b51 целиком (412 строк): шапка редакции 11, §0 (строки 2a329728,
+  aaaff659, 91b3f6b9, ревью aaaff659, опора NTF-1), §1 М54, М65, З8 (2), (3а), «Исход фиксации»,
+  З24, З29 (образец, «Проба D0 зовёт шелл-обёртку»), §4, И6, И40, И41, §7 П9, §8, §11 (CX2-46,
+  CX2-47 · aaaff659, CX2-66, CX2-67, сводка), §11а (УК55, УК57–УК59), §11б (aaaff659), §13.
+  tasks.md редакции 11: строки D0, D3, D5, E2, Е15, порядок. Замысел NTF-1 редакции 21 — З28
+  «Один каталог образцов», «Слой подставляет только тестовая обёртка», «Шелл-обёртка — читатель
+  состава стендов», «только библиотека», «Проба образца». Исходник pgx v5.10.0 pgconn.go 2990–3012.
+  Приёмка 7a424030 — отпечаток и строка Р5. Записки vault не читались.
+
+dispatcher_decisions_check:
+  Д47: "держится; строки З29 «Кто производит» дельтой не тронуты"
+  Д48: >-
+    держится полнее, чем на редакции 10: образец П7-узел теперь лежит файлом каталога образцов
+    NTF-1 (deploy/testdata/mail-node/ntf2-p7.yaml). Это тестовая фикстура, а не поставляемый
+    профиль: по NTF-1 З28 каталог не называет deploy/stacks.txt, и маска values*.yaml зонтика его не
+    захватывает. Расхождение CX2-66 снято.
+  Д49: "держится; Е13 и строка порядка NTF-2 зависимость NTF1-D2 от Е12/Д49 сохраняют"
+
+mapped_from_previous:
+  - id: "CX2-47 · aaaff659"
+    where: "§11 — своя строка с ключом записи; условие к коду: производитель один, потребитель один, закрытый набор Admit не меняется, УК57; держатель — проба E2 с близнецами"
+    held: true
+  - id: УК57
+    where: "З8 «Исход фиксации» — перечень классов ответа pg_xact_status без ветки «прочее»; §11а УК57; И40; §7 П9; §8; tasks E2 — модульная проба по классам с близнецом «22023 сведён к повтору»"
+    held: true
+  - id: УК58
+    where: "З8 (2), (3а), «Исход фиксации», И6, §8, М65, §11а УК58; tasks E2 — допуски проб настоящего пула"
+    held: true
+    check: >-
+      арифметика сверена: живой держатель с одной отменой 1,5 + 0,25 + 0,25 + 0,1 = 2,1 с; худший ответ
+      при разрешении 1,5 + (0,25 + 0,1) + 0,25 + (0,25 + 0,1) + 3 + (0,25 + 0,1) = 5,8 с. Посылка М65
+      перемерена: pgconn.go:3004 — time.Sleep(100 ms) после CancelRequest; HandleUnwatchAfterCancel
+      (3008) ждёт cancelFinishedChan, то есть конца сна
+  - id: "В1, В2, М1, М2 (design-reviewer/aaaff659)"
+    where: "§11б — четыре строки; З24, М54, УК55, И41 — «в конце оператора DELETE», ABORTED на любом из двух путей, последовательный близнец FAILED_PRECONDITION; tasks S5"
+    held: true
+    note: "М2 исполнен частично и так и назван: окончательно — после одобрения правленого Р5 (предикат снятия Е15)"
+  - id: CX2-66
+    where: >-
+      З29, §0, §4, §11, tasks D0 (путь deploy/testdata/mail-node/ntf2-p7.yaml), D3, D5; опора — NTF-1
+      170f1ee2. Сверено с NTF-1 З28: обёртка принимает только имя файла каталога; Go —
+      deployStacksForRender(t, sample); проба образца обходит каталог. Прежний путь в маршруте — 0.
+      В замысле он назван 1 раз, только в шапке как снятый
+    held: true
+  - id: "CX2-67 (УК59)"
+    where: "З29 «Проба D0 зовёт шелл-обёртку по её контракту», §11, §11а УК59, tasks D0 — source, присваивание с проверкой кода, образец только для prod"
+    held: true
+    check: "форма совпадает с контрактом NTF-1 З28: библиотека без точки входа (код 2), отказ на образце для не prod и на prod без образца, rosterReaderNames"
+  - id: "Е14 (д)"
+    where: "§0, §11а, §13 Е14: (а)–(г) приняты NTF-1 редакции 21, (д) — нет, вывод держится вниманием"
+    held: true
+
+new_items: []
+
+remarks:
+  - subject: "УК57, класс ответа после переключения базы"
+    text: >-
+      Не пункт перечня: исход закрытого набора и ответ клиенту от этого не меняются. После
+      переключения с потерей хвоста журнала новый первичный узел может выдать тот же xid8 другой
+      транзакции. Тогда committed или aborted — ответ о чужой транзакции. Вывод это не ломает:
+      истину даёт чтение строки по decision_id, а строки нет, значит ответ 503, и он верен.
+      in progress чужой транзакции доведёт опрос до конца anonMailResolveBudget: ответ снова 503 и
+      верен, но WARN «исход фиксации не разрешён» запишется, хотя база отвечала. Условие к коду без
+      правки замысла: комментарий перечня в resolveCommit называет, что ответ опроса после
+      переключения может касаться чужой транзакции и что истина — только чтение строки.
+    held_by: "вниманием: гейта нет и не будет — случай требует переключения базы с потерей журнала; проба E2 на одном узле его не воспроизводит"
+
+return_to_acceptance:
+  - rule: "Р5 (приёмка 7a424030): «`503` не истрачивает вызов — NTF2-59 (д)»"
+    status: не исполнен — перенесён из revalidation/aaaff659 и revalidation/91b3f6b9
+    why: >-
+      Отпечаток приёмки прежний (7a424030); буквальная строка Р5 на месте (grep -c → 1). Замысел
+      редакции 11 возврат больше не называет «вопросом ревью приёмки». Он заведён зависимостью §13 Е15
+      с предикатом снятия («на одобренном отпечатке приёмки Р5 называет исключение с ценой») и гейтит
+      полосу E2 (tasks.md, E2 — «E1, Е15»; порядок — пункт 1). Со стороны замысла это полное
+      отображение. Но пока правки приёмки нет, «Тогда» Р5 допускает меньше, чем механизм способен
+      исполнить.
+    scenarios: [NTF2-59]
+
+measurements:
+  - claim: "отпечаток предмета"
+    command: "sha256sum docs/changes/issue-2917/design.md @4f8430b51"
+    result: "45992f0b8b7bf7520bfd0407c8690a50fe28ed5870ee42cdbf181fcd3eb98aaf"
+  - claim: "§11 «68 строк, различных пунктов столько же»"
+    command: "grep -c '^| CX2-' design.md; grep -o '^| CX2-[0-9]*\\( · `[0-9a-f]*`\\)\\?' design.md | sort | uniq -d; … | sort -u | wc -l"
+    result: "68 строк; повторов с учётом ключа записи 0; различных 68; сумма разбивки по записям 27+6+2+1+8+1+1+1+10+9+2 = 68"
+  - claim: "УК57, УК58, УК59, Е15 внесены"
+    command: "grep -c <ключ> design.md / tasks.md"
+    result: "УК57 10/3, УК58 13/3, УК59 4/2, Е15 12/7"
+  - claim: "путь образца сменён в маршруте и замысле"
+    command: "grep -c 'ntf2-minimal-mail-node' и 'mail-node/ntf2-p7' по design.md, tasks.md"
+    result: "прежний путь: design 2 (шапка — как снятый, строка §11 CX2-66 — как предикат), tasks 0; новый путь: design 4, tasks 2"
+  - claim: "опора на NTF-1 — действующая редакция"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git log --oneline -1 -- docs/changes/issue-2915/design.md"
+    result: "170f1ee2… и 4a0bee6f… — те, на которые опирается §0; последняя правка NTF-1 — 15e875957"
+  - claim: "Р5 не правлен"
+    command: "sha256sum <приёмка>; grep -c '`503` не истрачивает вызов — NTF2-59 (д)' <приёмка>; git log --oneline -1 -- <приёмка>"
+    result: "7a424030…; 1; последняя правка — 796be63a0 (редакция 23)"
+  - claim: "сон драйвера 100 мс (М65)"
+    command: "grep -n 'time.Sleep(100 \\* time.Millisecond)\\|HandleUnwatchAfterCancel' $(go env GOMODCACHE)/github.com/jackc/pgx/v5@v5.10.0/pgconn/pgconn.go; sed -n 2990,3012p"
+    result: "3004 — сон после CancelRequest; 3008–3011 — HandleUnwatchAfterCancel ждёт cancelFinishedChan"
+  - claim: "ревью замысла aaaff659 — APPROVED (§0)"
+    command: "grep -n '^verdict' docs/changes/issue-2917/reviews/design/design-reviewer/aaaff659….yaml"
+    result: "verdict: APPROVED"
+
+not_measurable:
+  - "отказ обёртки NTF1-D9 на имени вне каталога и печать ntf2-p7.yaml пробой образца — полоса D9 не посажена; держится текстом NTF-1 З28 редакции 21, а не прогоном"
+  - "В1 (RESTRICT не откладывается) здесь не перемерен — замысел честно помечает «прочитано ревью, не перемерено»; держатель — integration-проба S5"
+
+outcome: вернуть-в-приёмку
+unmapped: []
+
+orders:
+  - to: acceptance author (NTF-2)
+    what: "правка «Тогда» Р5 по возврату aaaff659 и 91b3f6b9 (Е15): исключение «COMMIT отправлен, база не ответила всё окно разрешения» с ценой в один лишний вызов; решить про кейс остатка рядом с NTF2-59 (д). Новый отпечаток → ревью приёмки → первичный разбор"
+    basis: "change-graph §2, §4; code-authoring §«Умолчание, которое становится утверждением»"
+  - to: design author (NTF-2)
+    what: "после одобрения правленого Р5 — снять Е15, закрыть М2 ревью aaaff659 новым отпечатком замысла; до того правок замысла по этой записи не требуется"
+    basis: "change-graph §4"
+  - to: NTF-1 author
+    what: "Е14 (д) (CX2-49 (в)) по-прежнему не принят замыслом NTF-1 редакции 21"
+    basis: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: db-architect-reviewer, proto-api-reviewer
+    what: "ревью замысла на отпечаток 45992f0b — записей этих ролей нет ни на одном отпечатке"
+    basis: "SDD-1 §5; policy.yaml review_authority"
