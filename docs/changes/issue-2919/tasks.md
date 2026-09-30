@@ -27,6 +27,8 @@ SPDX-License-Identifier: BUSL-1.1
 > `min(notify.smtp.sessionTimeout, LEASE_TTL / 3)` и близнец УК4-38 в S5-D3; Д26 · 8 (2) в S3-C3;
 > второй близнец УК4-40 в S5-D1; предикат посадки §0 — с `--first-parent -m`, как заказывали
 > пересверки `80dea362` и `1a5cf53f`.
+> Редакция 8 · 2026-09-30 — по решению диспетчера Д41: окна пина corelib NTF-4 — (2) в порядке эпика,
+> теги Х1 → Х3 → Х5 по одному (зависимости тегов в строках X1, X3, X5). Иного не меняет.
 >
 > Редакция 1 была проектом по замыслу редакции 1. Состояние `TASKS_READY`
 > этот файл не объявляет: по §5 SDD-1 оно наступает только после `DESIGN_APPROVED` и проверенного
@@ -43,6 +45,11 @@ SPDX-License-Identifier: BUSL-1.1
 
   Стадии NTF-4 стартуют после посадки стадий NTF-1, которые им нужны (Д13; Е6 замысла). Полоса
   стартует, когда сняты её зависимости. Полосы одного яруса без общих путей идут параллельно.
+- **Окна пина corelib в kacho** (Д41, уточняет Д37). В kacho одновременно открыто не больше одного окна
+  пина corelib — от выпуска тега до посадки полосы, поднимающей на него пин kacho. Окна NTF-4 — (2) в
+  порядке эпика, после окон NTF-1 и до окна X2-F NTF-3: тег Х1 — после посадки N11 `issue-2915`,
+  Х3 — после посадки S1-A1, Х5 — после посадки S2-B1; последнее окно закрывает посадка S3-C2. Код
+  Х-полос этим не задержан — только выпуск тега.
 - **Перед стартом каждой стадии** исполнитель стадии делает сверку соседей по §0а замысла и пишет
   исход в `docs/changes/issue-2919/reconciliation/<стадия>-<короткий sha воркспейса>.yaml`. Для S3
   в запись входит и поле `notify_api_root` (З18). Исход (б) останавливает стадию и даёт строку
@@ -88,11 +95,11 @@ SPDX-License-Identifier: BUSL-1.1
 
 | полоса | предмет | исполнитель | репозиторий · пути | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| X1 | префиксы `nsp`, `nop` (Х1) | `go-implementer` | corelib · `ids/ids.go` | проба каталога префиксов зелёная; `grep -rn '"nop"\|"nsp"' --include=*.go ids/` → по одной записи; тег corelib | Е5 | S |
-| X3 | `SUPPRESSED(reason)` в ленте (Х3) | `proto-sync` (контракт kacho), `go-implementer` (сервер ленты corelib) | kacho · `proto/corelib/notify/`; corelib · `notify/feed/**` | держатель закрытого словаря знает четыре причины, и это доказано инъекцией; проба повтора `Ack` на `SUPPRESSED`; тег | Е5, `corelib#77` | M |
+| X1 | префиксы `nsp`, `nop` (Х1) | `go-implementer` | corelib · `ids/ids.go` | проба каталога префиксов зелёная; `grep -rn '"nop"\|"nsp"' --include=*.go ids/` → по одной записи; тег corelib | код — Е5; тег — Е5, N11 `issue-2915` посажена (окно (1) NTF-1 закрыто; первый тег NTF-4; Д41) | S |
+| X3 | `SUPPRESSED(reason)` в ленте (Х3) | `proto-sync` (контракт kacho), `go-implementer` (сервер ленты corelib) | kacho · `proto/corelib/notify/`; corelib · `notify/feed/**` | держатель закрытого словаря знает четыре причины, и это доказано инъекцией; проба повтора `Ack` на `SUPPRESSED`; тег | код — Е5, `corelib#77`; тег — S1-A1 посажена (окно тега X1 закрыто: S1-A1 — единственная полоса, зависящая от X1; Д41) | M |
 | X4 | пин corelib в kaname (Х4) | `go-implementer` | kaname · `go.mod` | `go build ./...` и CI kaname зелёные на теге Х3 | X3 | S |
 | X2 | каталог прав `notify.suppressions.*`, отображение, сверка с аннотациями, проба NTF4-120/121 (Х2, З17) | `go-implementer` | kaname · `internal/apps/kaname/seed/embedded/permission_catalog.json`, `internal/authzmap/permissions_to_relations.go`, `internal/apps/kaname/api/authorize/` (проба) | держатель каталога kaname зелёный; команда сверки З17 → пустой `diff`; NTF4-120/121 зелёные (два SAN, счёт вопросов модели) | Е5, C1 | M |
-| X5 | ось `HostForm` + `HostInternalOnly`, `buildServer`, `PostureOf`, поля `BootPosture` (Х5, З18) | `go-implementer` | corelib · `servicecontract/`, `servicehost/`, `observability/bootposture.go` | integration-проба Х5 зелёная; `TestBothListenersRefuseIdenticallyOnTheWire` с формой и инъекцией «цепочка без звена прав» красная, затем зелёная; тег (DoD S3 п.8б) | Е5, Е2 (а), `corelib#77` | L |
+| X5 | ось `HostForm` + `HostInternalOnly`, `buildServer`, `PostureOf`, поля `BootPosture` (Х5, З18) | `go-implementer` | corelib · `servicecontract/`, `servicehost/`, `observability/bootposture.go` | integration-проба Х5 зелёная; `TestBothListenersRefuseIdenticallyOnTheWire` с формой и инъекцией «цепочка без звена прав» красная, затем зелёная; тег (DoD S3 п.8б) | код — Е5, Е2 (а), `corelib#77`; тег — S2-B1 посажена (окно тега X3 закрыто; Д41) | L |
 
 ### S1 — приём обратной связи
 
