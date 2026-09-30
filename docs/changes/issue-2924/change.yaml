@@ -12,9 +12,16 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
-# Вердикт по отпечатку: CHANGES_REQUESTED, круг 2 (запись docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418.yaml).
-# Замысла (`design.md`) у изменения ещё нет — `hashes.design_sha256: null`.
+# СОСТОЯНИЕ ISSUE_READY — запись APPROVED на текущий отпечаток приёмки есть (редакция 17,
+# круг 16: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153.yaml),
+# но публикация внешнего события полномочия этой записью не засвидетельствована — переход
+# состояния не объявляется. Первичный разбор классов на этот отпечаток —
+# reviews/class-exposure/initial/367b9482….yaml (к-замыслу, CX5-45…48); прежние — на 1f4852e4,
+# 2fe29c35, 88fabd09, 03e291ee. Замысел — `design.md` редакции 1 (2026-09-30), отпечаток —
+# `hashes.design_sha256`; вердикта и пересверки на него нет. Маршрут работ — `tasks.md`
+# (проект; TASKS_READY им не объявлено). Свидетельства `evidence/**` сняты на отпечатке
+# редакции 2 (47ac6f8b…) и на текущий отпечаток не переносятся; перечень `holders.yaml` этим
+# коммитом по DoD редакции 17 не перемерялся.
 schema_version: 1
 change_id: issue-2924
 lifecycle_state: ISSUE_READY
@@ -50,8 +57,8 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418
-  design_sha256: null
+  acceptance_sha256: 367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153
+  design_sha256: a43a19fa5f8bfeaa1463f8efcb7927726d69d5ed611501c603d51229f71e8a9f
   holders_sha256: d632299817f612adb40278b8d3215970e0d2d24028867c54fd0efdcf659c29e3
 
 links:
