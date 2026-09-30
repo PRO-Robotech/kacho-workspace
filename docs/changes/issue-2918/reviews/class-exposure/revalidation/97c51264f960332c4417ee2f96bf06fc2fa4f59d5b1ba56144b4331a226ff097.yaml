@@ -1,0 +1,215 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 9.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5, 3dbb8b23, b34a411e) относятся к своим отпечаткам и здесь не переписываются.
+# По Д22 это дельта: редакции 8 (ceca4a07) и 9 (97c51264) проверены одним диффом 51aa2c77d → e00befcee.
+# Отдельной пересверки на редакцию 8 нет. Проверено:
+#   (1) исполнение требований записи b34a411e: блокер «CX3J-01 (б) не держит окна NTF-4» и заказ автору;
+#   (2) исполнение Д41 рёбрами маршрутов четырёх предметов (NTF-1, NTF-3, NTF-4, NTF-5), а также
+#       отсутствие цикла между маршрутами;
+#   (3) держатели тегов из перечня Д41, которых рёбра (1)–(2) не упорядочивают с окнами (3)–(4);
+#   (4) новые внешние вызовы, асинхронные пути и sentinel-значения редакций 8–9.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 9
+  content_commit: e00befcee
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/b34a411e8666c68166c7f4ce3d6367109ace3daa4fdffe6d5551a916d887fb55.yaml
+  subject_revision: 7
+  outcome: блокер
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34, Д37, Д40, Д41. Д22 — дельта. Д26 — заход отображения. Д41 уточняет Д37. Порядок окон пина
+    corelib в kacho: (0) v1.10.0 релиза identity-own → (1) NTF-1 → (2) NTF-4 (S2-B1, S3-C2) → (3) X2-F
+    → (4) TW NTF-5. Правилу подчиняется каждый тег, поднимающий пин в kacho, в том числе X1–X4 NTF-3 и
+    T1, T2 NTF-5; их пересечение с окнами (1)–(2) исключается рёбрами. Рёбра: NTF-1 → NTF-4 (первый
+    тег NTF-4 после N11), X2-F → «S3-C2 issue-2919 посажена»; ребро TW → S2-B1 NTF-3 сохраняется.
+revisions:
+  workspace: 896d714c3   # HEAD issue-880 при замере; e00befcee — коммит предмета, 896d714c3 — NTF-2, docs/changes/ не трогает
+  kacho: 1d42a6728bf
+  corelib_pinned_by_design: 34bc8104a
+snapshot_at: 2026-09-30T16:30:23Z
+inspected: >-
+  Дифф замысла ред. 7 → 9 (git diff --numstat 51aa2c77d e00befcee: design.md 41/10, tasks.md NTF-3
+  21/8) и дифф маршрутов коммита 351fe3115 (issue-2915, -2919, -2924/tasks.md). Запись b34a411e
+  целиком. Колонка «зависит от» у каждой полосы X*/S* маршрутов NTF-3 (31 полоса) и NTF-4 (41 строка полос, с T1, T2),
+  у полос C/P/K/N маршрута NTF-5 (24), у C12, K8, K1, N11 NTF-1; строки Е маршрутов NTF-1 и NTF-4;
+  §0 «Окна пина corelib» NTF-4, §0 «Стадии гейтятся» и «Теги и пины» NTF-5; §10 приёмки NTF-4
+  (порядок пинов по стадиям). Код и стенд не читались, записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      Строки есть у всех 88 пунктов (`grep -c '^| CX3'` → 88, как на 51aa2c77d). CX3J-01 (б) теперь
+      выдерживает и в части окон NTF-4 (mapping_check). Остальные 87 пунктов в дельте не менялись.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Новых вызовов нет: дельта — рёбра маршрутов и держатели, механизмов не вносит."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: "В добавленных строках диффа нет ни одного имени Err*, нет слов «sentinel» и «горутин»."
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: >-
+      Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md). Итог §13 называет Е6
+      снятой Д37 и Д41, открытых решений нет.
+
+clean: true
+
+execution_check:
+  summary: "блокер записи b34a411e снят Д41 и рёбрами 351fe3115; заказ автору исполнен редакциями 8 и 9"
+  items:
+    - id: "orders.dispatcher (b34a411e)"
+      verdict: holds
+      where: "Д41; перечень решений §0 замысла"
+      note: >-
+        Окна NTF-4 поставлены на место (2), до X2-F. Выбран первый вариант из заказа: тег X2-F
+        выпускается после посадки S3-C2 NTF-4. Вопрос о тегах X1…X4 NTF-3 и T1, T2 NTF-5 решён: правилу
+        подчиняются все.
+    - id: "orders.design-author (b34a411e)"
+      verdict: holds
+      where: "З10 «Посадка» п.4 и держатели, CX3J-01 (б), §13 Е6, tasks.md X5, Е4, строка пересверки §0"
+      note: >-
+        Держатель «вниманием при выпуске тега X2-F» для окон NTF-4 снят во всех трёх местах. Вместо него
+        стоит ребро, и названы держатели тегов, которые рёбра не упорядочивают. Строка Е4 маршрута
+        переписана на действующую редакцию.
+    - id: "orders.integration-tester (b34a411e)"
+      verdict: carried
+      where: "—"
+      note: "заказы записей 3dbb8b23, ac1f9fc9, 374789b5 (УК3-47…52) — к коду, остаются в силе"
+
+mapping_check:
+  summary: "88 из 88 пунктов имеют строку, и все 88 выдерживают условие"
+  holds_now:
+    - id: "CX3J-01 (б)"
+      reason: >-
+        Условие пункта: на стволе kacho нет окна, в котором запись реестра есть, а функции нет. Запись
+        попадает в kacho только с тегом corelib ≥ X2-F, потому что теги линейны (М21). Подъёмы пина на
+        такой тег по источникам:
+        (1) NTF-1: единственный подъём пина corelib в kacho — N11, и тег X2-F зависит от посадки N11;
+        (2) NTF-4: теги corelib — Х1, Х3, Х5 (у X2, X4 — kaname), подъёмы — S2-B1 и S3-C2 «пины одним
+        изменением»; тег X2-F выпускается после посадки S3-C2, после неё полос с `go.mod` в маршруте нет,
+        поэтому тег NTF-4 внутри окна X2-F невозможен ребром;
+        (3) NTF-5: пин kacho поднимает только N5 (единственная полоса NTF-5 с `go.mod` в путях до S2), N5
+        зависит от C4 (TW), а C4 — от посадки S2-B1 NTF-3; T1, T2 отдельно в kacho не поднимаются;
+        (4) сам NTF-3: X5 запрещено поднимать на тег ≥ X2-F до S2-B1, в том числе через kaname (X4); это
+        держится вниманием по составу изменения kacho, как п.3 З10, и строка X5 это прямо говорит.
+        Цикла рёбра не замыкают. Межмаршрутные рёбра полос идут только в одну сторону: NTF-4 → NTF-1,
+        NTF-3 → NTF-1 и NTF-4, NTF-5 → NTF-3 и NTF-4. Обратных нет: полосы маршрутов NTF-1 и NTF-4 не
+        ссылаются на NTF-3 и NTF-5, полосы NTF-3 не ссылаются на NTF-5. Е3 NTF-4 — ссылка на замысел
+        NTF-3, а не на посадку полосы.
+  not_holding: []
+  unmapped: []
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета — редакция 9"
+    command: "sha256sum docs/changes/issue-2918/design.md; git show e00befcee:docs/changes/issue-2918/design.md | sha256sum"
+    result: "97c51264… в обоих"
+    control: "git show 351fe3115:… → ceca4a07 (ред. 8); 51aa2c77d:… → b34a411e (предмет прежней пересверки)"
+  - claim: "рёбра Д41 на месте и внесены коммитом 351fe3115 (предикаты §13 Е6 замысла, перемерены дословно)"
+    command: >-
+      grep -cP '^\| .*<ребро>' по файлу маршрута: 'S3-C2 .issue-2919.\s*посажена' в issue-2918 и
+      issue-2924; 'N11 .issue-2915.\s*посажена' в issue-2919; 'v1.10.0. релиза identity-own' в
+      issue-2915; 'N11 .issue-2915.\s*посажена' в issue-2918; 'S2-B1 .issue-2918.\s*посажена' в issue-2924
+    result: "HEAD 896d714c3 → 4, 2, 1, 1, 1, 1"
+    control: "740b272c1 → 0, 0, 0, 0, 1, 1 (первые четыре — рёбра Д41, последние два — Д37, сохранены)"
+  - claim: "цикла между маршрутами нет"
+    command: >-
+      awk -F'|' по колонке «зависит от» полос: issue-2918 → 2924 — 0; issue-2919 → 2918|2924 — 0;
+      полосы issue-2915 → 2918|2919|2924 — 0
+    result: "0, 0, 0"
+    control: "тот же awk: полосы issue-2918, ссылающиеся на 2919 — 4 на HEAD, 0 на 740b272c1"
+  - claim: "поздних тегов corelib и подъёмов пина после S3-C2 у NTF-4 нет"
+    command: "awk по X*/S* issue-2919/tasks.md: колонки «пути» и «зависит от»; grep -n 'go\\.mod' issue-2919/tasks.md"
+    result: >-
+      Теги corelib — X1, X3, X5. X2 и X4 — kaname (X4 — `go.mod` kaname). Подъёмы в kacho — S2-B1 (X3,
+      X4) и S3-C2 (X5, X2). Полосы S3-C3…S7-F3 зависят от S3 и `go.mod` не несут.
+    control: "go.mod в маршруте NTF-4 встречается 1 раз — строка X4 (kaname)"
+  - claim: "пин kacho на T1/T2 поднимает только N5 NTF-5 после TW"
+    command: "awk по полосам N* issue-2924/tasks.md, колонка путей; sed §0 «Теги и пины» (строки 80–84)"
+    result: >-
+      `go.mod` среди путей только у N5 («один коммит с подъёмом пина на TW»). N0 и N2 зависят от C3,
+      но путей `go.mod` не несут. S2 NTF-5 поднимает пин после TW.
+    control: "C3: «go build kacho и kaname с пином на T1» — предикат полосы тега, а не посадка"
+
+not_measurable:
+  - >-
+    Цена порядка Д41 — критический путь эпика 1790 → 2420 мин — названа автором замысла по его
+    инструменту и в §13 Е6 объявлена верхней границей. Здесь это число не перемерялось: вывод записи
+    от него не зависит, порядок — решение диспетчера (Д41). Атрибуция — design.md §13 Е6, ред. 9.
+  - >-
+    Подъёмы пина corelib в kacho изменениями вне эпика NTF (NTF-2, волны identity-own после v1.10.0)
+    внутри окна X2-F. З10 п.4 запрещает «любое иное изменение kacho», это держится вниманием. Тегов
+    X2-F и v1.10.0 нет, поэтому пересечение пока не измерить.
+
+facts_for_dispatcher:
+  - >-
+    Окно тега T1 NTF-5 по определению Д37 длится от выпуска тега до посадки полосы, поднимающей на него
+    пин kacho. Отдельно на T1 пин kacho не поднимается, его поднимает N5 на TW. Поэтому окно T1, если
+    C3 выпущен до посадки S2-B1 NTF-3, по букве покрывает окна (3) и (4). Д41 требует рёбрами исключить
+    пересечение только с (1)–(2), и это исполнено (C3 ← S3-C2 NTF-4). Для CX3J-01 (б) пересечение
+    безвредно. Если «каждый тег» в Д41 понимается буквально и для (3)–(4), нужно ребро «C3 после посадки
+    S2-B1 NTF-3». Цена этого ребра не измерена.
+  - >-
+    Окна тегов X1…X3 NTF-3 и T1 NTF-5 открываются после посадки S3-C2 NTF-4. Между собой их не
+    упорядочивает ни Д41, ни маршруты. Для условия этого предмета это безвредно.
+  - >-
+    Маршрут NTF-4, §0: «Х1 — окно до посадки S1-A1». Но в путях S1-A1 `go.mod` нет (только
+    `services/notify/internal/migrations/**`), хотя приёмка NTF-4 §10 п. S1 требует: «kacho поднимает
+    пин corelib». Если пин на Х1 поднимает не S1-A1, окно Х1 длится до S2-B1 NTF-4 и пересекает окно Х3.
+    Всё это внутри (2), на условие NTF-3 не влияет. Это находка к маршруту NTF-4.
+
+outcome: к-коду
+return_to_acceptance: []
+unmapped_items: []
+not_holding_items: []
+new_items_without_mapping: []
+open_decisions: []
+
+orders:
+  - to: integration-tester
+    what: "заказы записей 3dbb8b23 (CX3K-01 пробы, CX3K-03 проба колонки), ac1f9fc9 и 374789b5 (УК3-47…52) остаются в силе"
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+  - to: go-implementer (полоса X5 NTF-3)
+    what: >-
+      С выпуска тега X2-F до посадки S2-B1 никакой подъём kacho — ни corelib, ни kaname, сдвигающего
+      строку corelib в `go.mod` kacho, — не поднимает пин на тег ≥ X2-F. Проверка перед каждым подъёмом:
+      `git tag --contains <X2-F>` по целевому тегу corelib и по строке corelib в `go.mod` kacho после
+      `go mod tidy`.
+    basis: "code-authoring §«Решение и его следствие разнесены»; design.md З10 «Посадка» п.4"
+  - to: acceptance-author (маршрут NTF-4)
+    what: "назвать полосу, поднимающую пин kacho на Х1 (путь `go.mod` в строке S1-A1 либо иная полоса), иначе окно Х1 не закрывается посадкой S1-A1"
+    basis: "Д41; приёмка NTF-4 §10 «S1 (Х1)»"
+
+candidate_predicates: []
+new_class_proposal: "Не заводится: новых классов в дельте нет."
