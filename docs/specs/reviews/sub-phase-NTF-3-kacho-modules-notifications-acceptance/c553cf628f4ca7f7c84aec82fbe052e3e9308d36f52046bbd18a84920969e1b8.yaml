@@ -1,0 +1,205 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: c553cf628f4ca7f7c84aec82fbe052e3e9308d36f52046bbd18a84920969e1b8
+  revision: 24
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: 582da3a3a
+  content_commit_note: >-
+    Редакцию 24 внёс коммит 582da3a3a (183 вставки, 45 удалений). Судится дельта 23 → 24
+    (git diff 9d7984897 582da3a3a по документу) против RA-04 и RA-05 первичного разбора классов на
+    редакцию 23 (docs/changes/issue-2918/reviews/class-exposure/initial/97afc066….yaml) и против
+    Д1–Д25.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum <путь> и git show HEAD:<путь> | sha256sum @582da3a3a — оба дают c553cf62…69b8
+  fingerprint_reproduced: true
+  lines: 4647
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T12:30:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода RA-04/RA-05. Действуют Д1–Д25 и принятое registerSharePause = 1. Роль
+  design-reviewer исполняет system-design-reviewer в режиме «замысел» (решение владельца
+  2026-09-30); к этой записи это не относится. Каждая команда дельты прогнана рецензентом:
+  kacho @1d42a6728bf, kaname @734f69fb4, corelib @34bc8104a, воркспейс @582da3a3a (Д24).
+previous_rounds:
+  - pass: RA-03
+    round: 3
+    sha256: 97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17.yaml
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, COVERAGE]
+blocking_findings:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    anchor: "NTF3-163 Given и (б); NTF3-164 Given и (б); §7 «отзыв прав — посев С1»"
+    what: >-
+      Исход буквы (б) зависит от времени. Отказ владельца после отзыва прав Given не гарантирует.
+      Положительный вердикт владелец держит в кэше вердиктов. Окно кэша — «окно отзыва», и
+      обнулить его нельзя: страж старта отвергает CacheWindow <= 0 (corelib
+      servicecontract/contract.go:1123 @34bc8104a). Ключ кэша — (субъект, отношение, тип, id)
+      (corelib authz/cache.go:179). Умолчание — 5s: vpc deploy/values.yaml:186 и
+      internal/apps/kacho/config/config.go:121; storage config.go:146 @1d42a6728bf. Этот ключ
+      ложится в кэш ещё в самом Given. NTF3-163: usr-B создаёт lb-r, nlb зовёт
+      CreateOwnedAddress под usr-B. Тот метод требует editor на project
+      (internal_address_service.proto:190-194), как и ReleaseOwnedAddress (:236-240), значит ключ
+      один: (usr-B, editor, project, prj-1). NTF3-164: usr-B привязывает nic-r и vol-r. Attach и
+      Detach у vpc и у storage требуют одного отношения editor на одном объекте
+      (internal_network_interface_service.proto:39-56, internal_volume_service.proto:35-51).
+      Посев, отзыв через С1 и запуск прохода в обвязке укладываются в окно. Тогда владелец
+      отвечает из кэша «можно», адрес A5 (и nic-r, vol-r) освобождается, и (б) краснеет при
+      верной реализации. После окна (б) зеленеет. Проверка «модель отвечает нет» спрашивает
+      службу доступа, а не кэш владельца, и этого не видит.
+    fix: >-
+      Назвать в Given окно кэша вердиктов владельцев в обвязке (значение ручки vpc и storage).
+      Условие: проход запускается не раньше, чем окно истекло после ответа модели «нет». Другой
+      вариант — управляемые часы кэша (Cache.SetNowFunc, corelib authz/cache.go:359), сдвинутые за
+      окно. И то и другое — Given, а не ожидание наугад.
+  - id: B2
+    kind: CONSTRUCTIBILITY
+    anchor: "NTF3-164 Given («вопрос модели о usr-B на project:prj-1 отвечает «нет»»)"
+    what: >-
+      Проверка предпосылки NTF3-164 задаёт не тот вопрос, который задают владельцы. На пути
+      прохода vpc проверяет editor на vpc_network_interface:nic-r, storage — editor на
+      storage_volume:vol-r (аннотации выше). В модели эти отношения — прямые субъекты объекта или
+      admin объекта. От editor проекта они не выводятся: kaname internal/authzmodel/fga_model.fga
+      @734f69fb4, type vpc_network_interface и type storage_volume: «define editor: [user,
+      service_account, group#member] or admin»; super_admin идёт только от super_admin проекта.
+      Отзыв привязки роли снимает пообъектные записи материализацией, а это eventually consistent
+      (data-integrity fga-flat-contract-a). Ответ «нет» по project:prj-1 не означает «нет» по
+      nic-r и vol-r. Буква (б) остаётся недетерминированной и при закрытом B1. У NTF3-163 вопрос
+      предпосылки совпадает с вопросом владельца (editor на project:prj-1), там этого дефекта нет.
+    fix: >-
+      Проверка предпосылки NTF3-164 спрашивает модель ровно то, что спросят владельцы: usr-B —
+      editor на vpc_network_interface:nic-r и на storage_volume:vol-r. Добавить и вопросы
+      предварительных чтений прохода (ListByInstance и ListAttachments), если у них своё отношение.
+      Ждать, пока все ответы станут «нет», затем выждать окно кэша (B1).
+  - id: B3
+    kind: COVERAGE
+    anchor: "Р2 («у балансировщика в CREATING — начавший его Create»); NTF3-163; §10 NTF3-163"
+    what: >-
+      Р2 вводит поведение, у которого нет держателя. Задание nlb выбирает строки в DELETING и в
+      CREATING (free_ip_runner.go:77-86, WHERE status IN ('DELETING','CREATING') @1d42a6728bf) и
+      сегодня освобождает адрес сироты CREATING под запасной личностью. По Р2 после под-фазы
+      сироту CREATING доделывают личностью начавшего его Create. Если начавшего не восстановить,
+      владелец не вызывается. Все буквы NTF3-163 (а, б, в) и близнец строят только DELETING.
+      Реализация, которая ищет лишь операцию Delete, для CREATING не найдёт начавшего и не
+      вызовет владельца. Адрес сироты CREATING утечёт навсегда, и ни один сценарий не покраснеет.
+      Сегодня эта функция работает — значит, это регресс существующего поведения без держателя.
+    fix: >-
+      Добавить букву NTF3-163 (г). Посев С18: строка балансировщика в CREATING старше порога,
+      строка операции Create с done=false и субъектом usr-A, выделенный адрес. После прохода:
+      адрес NOT_FOUND. В журнале vpc ровно одна строка — Address DELETED с initiator =
+      "user:usr-A". В журнале nlb строк по балансировщику 0 (emitReconcileFinalize стоит только
+      на DELETING, free_ip_runner.go:375). Близнец по одному факту — (а).
+
+non_blocking_findings:
+  - id: N1
+    anchor: "§8 С18, С19 — столбец «где»"
+    what: >-
+      В С18 обвязка «nlb + vpc», в С19 — «compute + storage + vpc». NTF3-163 и NTF3-164 и §10
+      требуют ещё службу доступа в посадке production. Привести столбец к составу обвязки
+      сценария.
+  - id: N2
+    anchor: "NTF3-164 Then (а), (в)"
+    what: >-
+      У VolumeService.Get vol-s, NetworkInterfaceService.Get nic-s и InstanceService.Get ins-n и
+      других не назван вызывающий. В NTF3-163 он везде указан как «от usr-A». Дописать.
+  - id: N3
+    anchor: "Р2, исход (2) «субъект — запасной {system, bootstrap}»"
+    what: >-
+      Ветка «строка операции есть, субъект запасной» (умолчание столбцов principal_type/principal_id:
+      nlb 0001_initial.sql:198-199, compute 0008_operations_principal.sql:19-20) держателя не
+      имеет, (в) строит только «строки нет». В посадке production исход наблюдаемо совпадает с
+      (в) (vpc отвергает system, authn_interceptor.go:85), поэтому не блокирует. Отдельная
+      буква различила бы «не вызвал» и «вызвал и получил отказ» только по счётчику вызовов
+      владельца.
+  - id: N4
+    anchor: "N1–N5 круга 3 RA-03"
+    what: "Неблокирующие круга 3 прохода RA-03 остаются в силе; дельта их не трогает."
+
+measurement:
+  scenario_ids: 164
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 157
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 164; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE по образцу гигиены задания (имена чужих облаков, домашний каталог, путь рабочей копии;
+    образец здесь не выписан) → 0.
+  reproduced_at_pinned_revisions:
+    - "§1.14 личность проходов: operations.WithPrincipal( в services/compute без тестов → 0; в services/nlb → 3 (create.go:477, delete.go:127, free_ip_runner.go:465). SystemPrincipalFor( по *.go → 0. Верно."
+    - "§1.14 входы: .releaseAndDelete( → 2 (instance.go:940, 1050); .releaseFamily( → 2 (free_ip_runner.go:356, 359); AttachDisk → instance_handler.go:397, DetachDisk → :412, AttachNetworkInterface → :432, DetachNetworkInterface → :454, :456; acquireFamilyVIP → create.go:504; releaseAddress → create.go:774; releaseVIP → delete.go:180, 183. Верно."
+    - "§1.14 корни: reconcileOnce|reconcileOne → free_ip_runner.go:189, 227; задание собирается wiring.go:309; FinishStuckDeletes: main.go:393 → stuck_delete_finisher.go:59, 65 → :75. Верно."
+    - "§1.14 значение функции: предикат → 5 строк (instance_handler.go:182 — текст; 4 строки tests/newman/docs). Верно."
+    - "§1.14 vpc отвергает system: authn_interceptor.go principalForwarded, условие p.Type == \"system\" на :85. Верно."
+    - "NTF3-164 имена ручек: KACHO_[A-Z]+_AUTH_MODE → 5 (COMPUTE, GEO, REGISTRY, STORAGE, VPC). NTF3-163: services/nlb/deploy/templates/configmap.yaml:13 «mode:». Верно."
+    - "Порядок очереди: nlb selectStuckSQL ORDER BY updated_at ASC; compute ListStuckDeleting ORDER BY deleting_since (repo/instance_repo.go:514-520). Возраст посевов 3h/2h/1h ставит r, n, s в названном порядке. Верно."
+    - "Изоляция отказа nlb: handleReleaseErr — UPDATE load_balancers SET updated_at = now(). Триггеры lb_status_recompute стоят на listeners (0022:119-124) и сохраняют DELETING/CREATING, строки журнала nlb изоляция не пишет. Отказ по праву — peer.OutcomeDenied → ErrFailedPrecondition (internal_address_client.go:568-572) → не транзиентный → изоляция. «Строк по lb-r 0» держится."
+    - "Строка операции: kacho_nlb.operations несёт resource_id, metadata_type и principal_type/principal_id (0001_initial.sql:185-199); у compute principal-столбцы — 0008. Посев С5 строится."
+
+premise_check:
+  task_premise: >-
+    Посылка задания: SHA-256 c553cf62…69b8, круг 1. sha256sum рабочего файла и git show
+    HEAD:<путь> | sha256sum @582da3a3a дают c553cf628f4ca7f7c84aec82fbe052e3e9308d36f52046bbd18a84920969e1b8.
+    Посылка подтверждена.
+  seeded: 0
+  seeding_note: >-
+    Стенд и изоляция для посева заданием не названы. Посев — «не выполнилось», в зелёное не
+    зачитан. B1 и B2 найдены чтением дерева на закреплённых ревизиях: кэш вердиктов и модель
+    прав. Посев лишь показал бы то же на обвязке.
+  confirmed:
+    - "RA-04 по существу закрыт: перепись по входам объемлющей функции воспроизведена целиком, путей без личности запроса два."
+    - "RA-05 решение выбрано одно на оба пути и соответствует hard-async-carries-initiator. Изъяны — в строимости (B1, B2) и в покрытии ветки CREATING (B3), а не в выборе."
+    - "Д24: каждое новое утверждение дельты о дереве несёт команду и ревизию. Все команды воспроизведены."
+    - "Счёт 164/7/157 сходится, дубликатов 0, гигиена 0."
+  refuted: []
+
+method_verdict: >-
+  Судилась дельта 23 → 24 против RA-04, RA-05 и Д1–Д25. Все команды §1.14 воспроизведены на
+  закреплённых ревизиях. Сверх документа рецензент прошёл путь отказа до владельца: кэш вердиктов
+  corelib, аннотации прав vpc и storage, модель прав kaname. Этот путь показал, что буквы (б)
+  NTF3-163 и NTF3-164 не детерминированы, а у NTF3-164 проверка предпосылки задаёт не тот вопрос.
+  Ветка CREATING, введённая Р2, держателя не имеет.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: "git merge-base --is-ancestor 1202e3cf HEAD → 0 @582da3a3a"
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_changes_requested
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует: тело события отдаётся курьеру строкой.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода RA-04/RA-05, блокирующих 3: CONSTRUCTIBILITY ×2,
+    COVERAGE) · SHA-256 c553cf628f4ca7f7c84aec82fbe052e3e9308d36f52046bbd18a84920969e1b8
+
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
