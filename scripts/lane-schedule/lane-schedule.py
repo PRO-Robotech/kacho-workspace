@@ -1,0 +1,557 @@
+#!/usr/bin/env python3
+# Copyright (c) PRO-Robotech
+# SPDX-License-Identifier: BUSL-1.1
+"""lane-schedule — упаковка полос в пакеты и расписание до раздачи.
+
+Норма, которую инструмент исполняет: `.claude/rules/flow-acceleration.md`
+§«Раздача» (fa-a1…fa-a7). Приёмка инструмента — `scripts/lane-schedule/inject.sh`.
+
+ВХОД — один или несколько `tasks.md` (маршрут работ под-фазы). Из каждого берётся
+раздел `## <N>. Полосы` до следующего `## `: таблицы с колонкой «исполнитель»;
+первая ячейка строки — id полосы; колонки «зависит от», «размер» (S/M/L),
+«репозиторий · пути» либо «пути (kacho)». Заголовок `### … S<n> …` объявляет
+стадию: ссылка `S<n>` в «зависит от» означает все полосы стадии. Имя под-фазы —
+имя каталога файла без префикса `issue-`.
+
+РЕЖИМЫ
+  --edges A      рёбра только внутри задач (и внутризадачные строки ведомости);
+  --edges B      плюс смысловые рёбра между под-фазами из `--semantic`;
+  --pack literal склейка однотипных независимых пакетов без оглядки на путь;
+  --pack guard   склейка только если она не удлиняет критический путь (норма).
+
+ВЕДОМОСТЬ СМЫСЛОВЫХ РЁБЕР (`--semantic`, TSV, `#` — комментарий):
+  <под-фаза> <TAB> <жетон> <TAB> <под-фаза-цель>
+Полоса под-фазы, чья ячейка «зависит от» несёт жетон (внешняя ссылка вида `Е5`
+либо фраза, в ведомости её можно взять в «ёлочки»), зависит от ВСЕХ полос цели;
+внутри своей под-фазы — кроме полос, несущих тот же жетон. Цель, равная своей
+под-фазе, — внутризадачное ребро (действует и в A).
+Строка без полосы-носителя — ОТКАЗ: запись, которой нечего связывать, лжёт о
+графе так же, как пропущенное ребро.
+
+ИСХОДЫ (код выхода — вердикт, печать — пояснение):
+  0 — рассчитано; перепись и числа напечатаны;
+  1 — ОТКАЗ: цикл из явных рёбер (назван путь), строка таблицы не той ширины,
+      раздела «Полосы» нет, строка ведомости без носителя, неизвестная под-фаза;
+  2 — обход ПУСТ: файлов нет либо в файле ноль полос. Ноль полос — не «ноль
+      пакетов, срок 0», а «не прочитано ничего».
+
+Цикл, замкнутый только РАСКРЫТИЕМ стадии (полоса стадии S2 зависит от «S2» и
+тем самым от своих же потомков), — не отказ: ссылка на стадию значит «на
+остальных её членов»; снятые рёбра печатаются поимённо в «заметках».
+
+ДЛИТЕЛЬНОСТИ — ориентир, не замер: S=15, M=25, L=45 минут исполнения и 25 минут
+ревью на пакет (решение 2026-09-27: один круг ревью плюс проверка исполнения).
+Переопределяются `--minutes` и `--review`; число без перемера на новой модели
+основанием срока не служит. Полоса исполнителя «диспетчер» длится 0 и слота не
+занимает.
+"""
+import argparse
+import collections
+import heapq
+import os
+import re
+import sys
+
+UNIT = {'S': 1, 'M': 1, 'L': 2}
+CAP_UNITS = 4
+# Исполнители, чьи полосы однотипны по построению: склейка их независимых
+# полос из разных под-фаз не смешивает предметы (fa-a3).
+SAME_KIND = {'proto-sync', 'migration-writer', 'deploy-engineer', 'tooling-maintainer',
+             'docs-writer', 'vault-scribe', 'git-operator'}
+ID = r'[A-ZА-ЯЁ]+\d+(?:-[A-Z]\d+)?'
+REPO_TOKEN = r'(?:^|[;,]\s*|\s)(kacho-workspace|воркспейс|corelib|kacho|kaname|GitHub)\s*(?:·|\||$)'
+
+
+class Refusal(Exception):
+    """Код 1: вход не описывает ациклический граф полос."""
+
+
+class EmptyWalk(Exception):
+    """Код 2: прочитано ноль полос."""
+
+
+def cells(line):
+    line = line.replace('\\|', '\x00')
+    return [c.strip().replace('\x00', '|') for c in line.strip().strip('|').split('|')]
+
+
+def parse_file(path, notes):
+    name = os.path.basename(os.path.dirname(os.path.abspath(path))).replace('issue-', '')
+    with open(path, encoding='utf-8') as fh:
+        txt = fh.read().split('\n')
+    start = next((i for i, l in enumerate(txt) if re.match(r'^## .*Полосы', l)), None)
+    if start is None:
+        raise Refusal('%s: раздела «## … Полосы» нет — маршрут работ не опознан' % path)
+    end = next((i for i, l in enumerate(txt) if i > start and l.startswith('## ')), len(txt))
+    lanes, hdr, stage = [], None, None
+    stages = collections.defaultdict(list)
+    tables = 0
+    for off, l in enumerate(txt[start:end]):
+        if l.startswith('### '):
+            m = re.search(r'\bS(\d+)\b', l)
+            stage = ('S' + m.group(1)) if m else None
+        if not l.startswith('|'):
+            if l.strip():
+                hdr = None
+            continue
+        c = cells(l)
+        if 'исполнитель' in c:
+            hdr = c
+            tables += 1
+            continue
+        if set(''.join(c)) <= set('-: '):
+            continue
+        if hdr is None or len(c) != len(hdr):
+            raise Refusal('%s:%d: строка таблицы полос шириной %d при заголовке %s — разбор '
+                          'по колонкам недостоверен' % (path, start + off + 1, len(c),
+                                                        len(hdr) if hdr else 'нет'))
+        d = dict(zip(hdr, c))
+        d['_id'] = c[0]
+        lanes.append(d)
+        if stage:
+            stages[stage].append(c[0])
+    if not lanes:
+        raise EmptyWalk('%s: в разделе «Полосы» ноль полос (таблиц %d) — прочитано ничего'
+                        % (path, tables))
+    ids = [d['_id'] for d in lanes]
+    dup = sorted(x for x, n in collections.Counter(ids).items() if n > 1)
+    if dup:
+        raise Refusal('%s: id полос повторяются %s — ребро неадресуемо' % (path, dup))
+    return name, lanes, stages, tables
+
+
+def build(paths, semantic_rows, edges_mode, notes):
+    L = {}
+    census = []
+    ext_of = {}
+    for path in paths:
+        name, lanes, stages, tables = parse_file(path, notes)
+        if any(x['issue'] == name for x in L.values()):
+            raise Refusal('%s: под-фаза %s уже прочитана из другого файла' % (path, name))
+        census.append((name, path, tables, len(lanes)))
+        ids = [d['_id'] for d in lanes]
+        idset = set(ids)
+        order = {x: i for i, x in enumerate(ids)}
+
+        def resolve(t):
+            if t in idset:
+                return [t], False
+            suf = [x for x in ids if x.endswith('-' + t)]
+            if len(suf) == 1:
+                return suf, False
+            if t in stages:
+                return list(stages[t]), True
+            return None, False
+
+        def expand(s):
+            explicit, alias, ext = set(), set(), []
+            s = re.sub(r'(S\d+-)([A-Z])(\d+)…([A-Z])(\d+)',
+                       lambda m: ' '.join(m.group(1) + m.group(2) + str(k)
+                                          for k in range(int(m.group(3)), int(m.group(5)) + 1)), s)
+            s2 = s
+            rng = '(' + ID + r')\s*[–…-]\s*(' + ID + ')'
+            for a, b in re.findall(rng, s):
+                pa = re.match(r'(.*?)(\d+)$', a)
+                pb = re.match(r'(.*?)(\d+)$', b)
+                if pa.group(1) == pb.group(1):
+                    for k in range(int(pa.group(2)), int(pb.group(2)) + 1):
+                        t = pa.group(1) + str(k)
+                        (explicit.add(t) if t in idset else ext.append(t))
+            s2 = re.sub(rng, ' ', s2)
+            if 'S-ярус' in s2:
+                alias.update(x for x in ids if re.fullmatch(r'S\d+', x))
+            for t in re.findall(ID, s2):
+                r, is_alias = resolve(t)
+                if r:
+                    (alias if is_alias else explicit).update(r)
+                else:
+                    ext.append(t)
+            ext += ['«%s»' % q for q in re.findall(r'«([^»]+)»', s)]
+            return explicit, alias, ext
+
+        deps, alias_deps = {}, {}
+        for d in lanes:
+            n = d['_id']
+            e, a, x = expand(d.get('зависит от', ''))
+            deps[n] = {p for p in e | a if p != n}
+            alias_deps[n] = {p for p in a - e if p != n}
+            ext_of[(name, n)] = x
+
+        def reaches(a, b):
+            st, seen = [a], set()
+            while st:
+                u = st.pop()
+                if u == b:
+                    return True
+                if u in seen:
+                    continue
+                seen.add(u)
+                st += deps[u]
+            return False
+
+        for n in ids:
+            for p in sorted(alias_deps[n], key=order.get):
+                if reaches(p, n):
+                    deps[n].discard(p)
+                    notes.append('%s:%s ребро от %s снято: раскрытие стадии замкнуло бы цикл'
+                                 % (name, n, p))
+        for d in lanes:
+            n = d['_id']
+            a = re.findall(r'`([a-z-]+)`', d.get('исполнитель', ''))
+            ex = a[0] if a else d.get('исполнитель', '—')
+            if 'пути (kacho)' in d:
+                repos = {'kacho'}
+            elif 'репозиторий · пути' in d:
+                repos = set()
+                for m in re.findall(REPO_TOKEN, d['репозиторий · пути']):
+                    repos.add({'kacho-workspace': 'workspace', 'воркспейс': 'workspace'}.get(m, m))
+                if not repos:
+                    repos = {'—'}
+            else:
+                repos = {'workspace'} if ex == 'vault-scribe' else {'—'}
+                notes.append('%s:%s нет колонки репозитория -> %s' % (name, n, '+'.join(repos)))
+            sz = d.get('размер')
+            if sz not in UNIT:
+                notes.append('%s:%s размер «%s» не S/M/L -> S' % (name, n, sz or ''))
+                sz = 'S'
+            L[name + ':' + n] = dict(issue=name, id=n, ex=ex, repo='+'.join(sorted(repos)),
+                                     multi=len(repos) > 1, size=sz,
+                                     deps={name + ':' + p for p in deps[n]},
+                                     ext=ext_of[(name, n)], raw=d.get('зависит от', ''),
+                                     dispatcher=(ex == 'диспетчер'))
+    tasks = {x['issue'] for x in L.values()}
+    for src, token, dst in semantic_rows:
+        if src not in tasks or dst not in tasks:
+            raise Refusal('ведомость: строка «%s %s %s» — под-фазы %s нет во входе'
+                          % (src, token, dst, sorted({src, dst} - tasks)))
+        carriers = [g for g, x in L.items() if x['issue'] == src and carries(x, token)]
+        if not carriers:
+            raise Refusal('ведомость: строка «%s %s %s» без полосы-носителя — связывать нечего'
+                          % (src, token, dst))
+        if edges_mode == 'A' and src != dst:
+            continue
+        # Жетоны `Е<n>` нумеруются в каждом файле заново: исключать носителей
+        # имеет смысл только внутри своей под-фазы.
+        targets = {g for g, x in L.items()
+                   if x['issue'] == dst and not (src == dst and carries(x, token))}
+        for g in carriers:
+            L[g]['deps'] |= targets - {g}
+        notes.append('%s: %s %s -> все полосы %s (%d), носителей %d'
+                     % (edges_mode, src, token, dst, len(targets), len(carriers)))
+    return L, census
+
+
+def carries(x, token):
+    # Жетон — внешняя ссылка (`Е5`) либо фраза: «ёлочки» в ведомости необязательны,
+    # в ячейке фраза может стоять без них («посадка линий»).
+    return token in x['ext'] or token.strip('«»') in x['raw']
+
+
+def find_cycle(nodes, succ_of):
+    color, stack = {}, []
+
+    def dfs(u):
+        color[u] = 1
+        stack.append(u)
+        for v in sorted(succ_of(u)):
+            if color.get(v) == 1:
+                return stack[stack.index(v):] + [v]
+            if v not in color:
+                c = dfs(v)
+                if c:
+                    return c
+        stack.pop()
+        color[u] = 2
+        return None
+
+    for u in sorted(nodes):
+        if u not in color:
+            c = dfs(u)
+            if c:
+                return c
+    return None
+
+
+def plan(L, pack_mode, minutes, review, notes):
+    G = list(L)
+    pos = {g: i for i, g in enumerate(G)}
+    cyc = find_cycle(G, lambda g: L[g]['deps'])
+    if cyc:
+        raise Refusal('цикл в графе полос: %s' % ' <- '.join(cyc))
+    succ = collections.defaultdict(list)
+    indeg = {g: len(L[g]['deps']) for g in G}
+    for g in G:
+        for p in L[g]['deps']:
+            succ[p].append(g)
+    h = [(pos[g], g) for g in G if indeg[g] == 0]
+    heapq.heapify(h)
+    topo = []
+    while h:
+        _, g = heapq.heappop(h)
+        topo.append(g)
+        for s in succ[g]:
+            indeg[s] -= 1
+            if indeg[s] == 0:
+                heapq.heappush(h, (pos[s], s))
+
+    def dur(g):
+        return 0 if L[g]['dispatcher'] else minutes[L[g]['size']]
+
+    est = {}
+    for g in topo:
+        est[g] = max([est[p] + dur(p) for p in L[g]['deps']], default=0)
+
+    pk, P = {}, {}
+    nid = [0]
+
+    def pdeps(q):
+        return {pk[p] for g in P[q] for p in L[g]['deps'] if p in pk and pk[p] != q}
+
+    def units(q):
+        return sum(UNIT[L[g]['size']] for g in P[q])
+
+    def acyclic():
+        return find_cycle(list(P), pdeps) is None
+
+    def newp(g):
+        nid[0] += 1
+        q = 'P%03d' % nid[0]
+        P[q] = [g]
+        pk[g] = q
+
+    refused = collections.Counter()
+    # fa-a2: цепочка — подряд зависимые полосы одного исполнителя и репозитория.
+    for g in topo:
+        x = L[g]
+        placed = False
+        if not x['multi'] and not x['dispatcher']:
+            for p in sorted(x['deps'], key=pos.get):
+                q = pk[p]
+                y = L[p]
+                if (y['issue'] == x['issue'] and y['ex'] == x['ex'] and y['repo'] == x['repo']
+                        and not y['multi'] and P[q][-1] == p
+                        and all(L[m]['ex'] == x['ex'] and L[m]['repo'] == x['repo'] for m in P[q])
+                        and units(q) + UNIT[x['size']] <= CAP_UNITS):
+                    P[q].append(g)
+                    pk[g] = q
+                    if acyclic():
+                        placed = True
+                        break
+                    P[q].pop()
+                    del pk[g]
+                    refused['цепочка: цикл пакетов'] += 1
+        if not placed:
+            newp(g)
+    chains = sum(1 for q in P if len(P[q]) > 1)
+
+    def cp_now():
+        D0 = {q: sum(dur(g) for g in P[q]) + review for q in P}
+        f = {}
+
+        def e(q):
+            if q not in f:
+                f[q] = D0[q] + max([e(p) for p in pdeps(q)], default=0)
+            return f[q]
+        return max(e(q) for q in P)
+
+    def reach(a, b):
+        st, seen = [a], set()
+        while st:
+            u = st.pop()
+            if u == b:
+                return True
+            if u in seen:
+                continue
+            seen.add(u)
+            st += list(pdeps(u))
+        return False
+
+    # fa-a3: однотипные независимые пакеты одного исполнителя и репозитория.
+    def key(q):
+        return (L[P[q][0]]['ex'], L[P[q][0]]['repo'])
+
+    cands = [q for q in P if L[P[q][0]]['ex'] in SAME_KIND and not L[P[q][0]]['multi']]
+    cands.sort(key=lambda q: (key(q), min(est[g] for g in P[q]), pos[P[q][0]]))
+    base = cp_now()
+    cp_chain_only = base
+    merged = 0
+    for i, q in enumerate(cands):
+        if q not in P:
+            continue
+        for t in cands[:i]:
+            if t not in P or key(t) != key(q):
+                continue
+            if units(t) + units(q) > CAP_UNITS or reach(t, q) or reach(q, t):
+                continue
+            saved = P[q]
+            P[t] = P[t] + saved
+            del P[q]
+            for g in saved:
+                pk[g] = t
+            if acyclic() and (pack_mode == 'literal' or cp_now() <= base):
+                merged += 1
+                base = cp_now()
+                break
+            del P[t][-len(saved):]
+            P[q] = saved
+            for g in saved:
+                pk[g] = q
+            refused['склейка: цикл или удлинение пути'] += 1
+
+    D = {q: sum(dur(g) for g in P[q]) + (0 if all(L[g]['dispatcher'] for g in P[q]) else review)
+         for q in P}
+    PD = {q: pdeps(q) for q in P}
+    PS = collections.defaultdict(set)
+    for q in P:
+        for p in PD[q]:
+            PS[p].add(q)
+    bl, fin = {}, {}
+
+    def blev(q):
+        if q not in bl:
+            bl[q] = D[q] + max([blev(s) for s in PS[q]], default=0)
+        return bl[q]
+
+    def eft(q):
+        if q not in fin:
+            fin[q] = D[q] + max([eft(p) for p in PD[q]], default=0)
+        return fin[q]
+
+    for q in P:
+        blev(q)
+        eft(q)
+    cp = max(fin.values())
+    path = [max(sorted(P), key=eft)]
+    while PD[path[-1]]:
+        path.append(max(sorted(PD[path[-1]]), key=eft))
+    path.reverse()
+    return dict(P=P, D=D, PD=PD, PS=PS, bl=bl, cp=cp, path=path, units=units, chains=chains,
+                merged=merged, refused=refused, cp_chain_only=cp_chain_only)
+
+
+def schedule(r, k):
+    """Список готовых по bottom-level; освободился слот — стартует следующий
+    готовый пакет, барьера волны нет (fa-a6)."""
+    P, D, PD, PS, bl = r['P'], r['D'], r['PD'], r['PS'], r['bl']
+    t, busy, free = 0, 0, k
+    running, started, done = [], set(), set()
+    ready = {q for q in P if not PD[q]}
+    rem = set(P)
+    while rem:
+        for q in sorted(ready, key=lambda q: (-bl[q], q)):
+            if D[q] == 0:
+                started.add(q)
+                heapq.heappush(running, (t, q))
+                ready.discard(q)
+                continue
+            if free == 0:
+                break
+            free -= 1
+            started.add(q)
+            busy += D[q]
+            heapq.heappush(running, (t + D[q], q))
+            ready.discard(q)
+        te, q = heapq.heappop(running)
+        t = te
+        batch = [q]
+        while running and running[0][0] == t:
+            batch.append(heapq.heappop(running)[1])
+        for q in batch:
+            if D[q] > 0:
+                free += 1
+            rem.discard(q)
+            done.add(q)
+            for s in PS[q]:
+                if PD[s] <= done and s not in started:
+                    ready.add(s)
+    return t, busy
+
+
+def hours(m):
+    return '%.2f ч' % (m / 60)
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap.add_argument('tasks', nargs='*')
+    ap.add_argument('--edges', choices=['A', 'B'], default='A')
+    ap.add_argument('--pack', choices=['literal', 'guard'], default='guard')
+    ap.add_argument('--semantic', help='TSV смысловых рёбер (обязателен для --edges B)')
+    ap.add_argument('--slots', default='6,7,8')
+    ap.add_argument('--minutes', default='S=15,M=25,L=45')
+    ap.add_argument('--review', type=int, default=25)
+    ap.add_argument('--out', help='куда записать таблицу пакетов (TSV); без него — в вывод')
+    a = ap.parse_args(argv)
+    notes = []
+    try:
+        minutes = {kv.split('=')[0]: int(kv.split('=')[1]) for kv in a.minutes.split(',')}
+        if set(minutes) != set(UNIT):
+            raise Refusal('--minutes обязан назвать ровно S, M, L')
+        slots = [int(s) for s in a.slots.split(',')]
+        if not a.tasks:
+            raise EmptyWalk('входных tasks.md ноль — прочитано ничего')
+        rows = []
+        if a.edges == 'B' and not a.semantic:
+            raise Refusal('--edges B без --semantic: смысловых рёбер не из чего взять')
+        if a.semantic:
+            with open(a.semantic, encoding='utf-8') as fh:
+                for ln, l in enumerate(fh, 1):
+                    if not l.strip() or l.lstrip().startswith('#'):
+                        continue
+                    f = [x.strip() for x in l.rstrip('\n').split('\t')]
+                    if len(f) != 3 or not all(f):
+                        raise Refusal('%s:%d: строка ведомости не из трёх полей' % (a.semantic, ln))
+                    rows.append(tuple(f))
+            if not rows:
+                raise EmptyWalk('%s: в ведомости ноль строк — режим B вырожден в A' % a.semantic)
+        L, census = build(a.tasks, rows, a.edges, notes)
+        r = plan(L, a.pack, minutes, a.review, notes)
+    except Refusal as e:
+        print('ОТКАЗ — %s' % e)
+        return 1
+    except EmptyWalk as e:
+        print('ПУСТОЙ ОБХОД — %s; вердикта нет' % e)
+        return 2
+    except (OSError, ValueError) as e:
+        print('ОТКАЗ — вход не читается: %s' % e)
+        return 1
+
+    P, D = r['P'], r['D']
+    for name, path, tables, n in census:
+        print('перепись: %s — %s: таблиц %d, полос %d' % (name, path, tables, n))
+    worked = [q for q in P if D[q] > 0]
+    tot = sum(D.values())
+    print('режим: рёбра %s, склейка %s; длительности %s, ревью %d мин на пакет'
+          % (a.edges, a.pack, a.minutes, a.review))
+    print('полос: %d; пакетов: %d; цепочек (>1 полосы): %d; склеек: %d; отказов склейки: %s'
+          % (len(L), len(P), r['chains'], r['merged'], dict(r['refused']) or 0))
+    print('агент-часы: %s (%d мин; исполнение %d + ревью %d)'
+          % (hours(tot), tot, tot - a.review * len(worked), a.review * len(worked)))
+    print('критический путь: %d мин (%s), пакетов %d: %s'
+          % (r['cp'], hours(r['cp']), len(r['path']),
+             ' -> '.join('%s[%s]' % (q, '+'.join(P[q])) for q in r['path'])))
+    print('критический путь до склейки: %d мин' % r['cp_chain_only'])
+    for k in slots:
+        ms, busy = schedule(r, k)
+        print('слотов %d: срок %d мин (%s); загрузка %.1f%%' % (k, ms, hours(ms),
+                                                               busy / (k * ms) * 100 if ms else 0))
+    mink = next((k for k in range(1, 65) if schedule(r, k)[0] == r['cp']), None)
+    print('слотов до срока = пути: %s' % (mink if mink else 'не достигается до 64'))
+    for n in notes:
+        print('заметка: %s' % n)
+    lines = ['id\tполосы\tисполнитель\tрепозиторий\tединицы\tмин\tbottom-level_мин\tзависимости']
+    for q in sorted(P):
+        x = L[P[q][0]]
+        lines.append('\t'.join([q, ' '.join(P[q]), x['ex'], x['repo'], str(r['units'](q)),
+                                str(D[q]), str(r['bl'][q]), ' '.join(sorted(r['PD'][q])) or '—']))
+    if a.out:
+        with open(a.out, 'w', encoding='utf-8') as fh:
+            fh.write('\n'.join(lines) + '\n')
+        print('таблица: %s (%d строк)' % (a.out, len(P)))
+    else:
+        print('\n'.join(lines))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
