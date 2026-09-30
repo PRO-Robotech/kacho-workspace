@@ -1,0 +1,272 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 6d2709cf09e39854fa757e7c7464e4eb4c7fe891337fd98b125b76acb5fad738
+  revision: 10
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, строка редакции 10 говорит «вердикта на неё НЕТ». Эта запись
+    шапку не правит: действующий вердикт выводится из внешнего события и записи ревью, привязанной
+    к отпечатку, а не из слова в заголовке.
+  base_commit: 50dee5e22660351ecd9a59ab24eb9f68fa4c4b26
+  content_commit: 50dee5e22660351ecd9a59ab24eb9f68fa4c4b26
+  content_commit_note: >-
+    Редакцию 10 внёс коммит 50dee5e22 (родитель 6b5ce0e81). `git show HEAD:<файл> | sha256sum` и
+    `sha256sum <файл>` дают 6d2709cf… на HEAD 50dee5e22. Редакция 9 (0e30f722…, коммиты 410af0227 и
+    6549c0341) рассмотрения приёмки не получала: её предмет (RA-1…RA-6 разбора классов на
+    1f4852e4) судится этой записью вместе с дельтой редакции 10.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3210
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T09:10:00Z'
+round: 9
+pass_round: 1
+pass_note: >-
+  Круг 1 прохода решений Д17–Д18. Сквозной номер круга приёмки по документу — 9. Предмет — весь
+  документ; по существу проверены дельта 1f4852e4→0e30f722 (редакция 9, RA-1…RA-6) и дельта
+  0e30f722→6d2709cf (редакция 10, Д17/Д18).
+previous_rounds:
+  - {round: 1, sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: 1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 50dee5e22 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 50dee5e22660351ecd9a59ab24eb9f68fa4c4b26
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+publication_mode: >-
+  Событие полномочия публикует курьер. Его тело — строка external_event_body ниже. Роль в этой
+  записи служит координатой и личность не доказывает. Вердикт — возврат; по Д16 документ в main не
+  идёт, черновик остаётся в ветке issue-880.
+external_event_body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 6d2709cf09e39854fa757e7c7464e4eb4c7fe891337fd98b125b76acb5fad738"
+blocking_count: 3
+blocking_kinds_distinct: [COVERAGE, TWIN, PRODUCER]
+blocking_kinds_by_item:
+  - {id: B9-1, kind: COVERAGE}
+  - {id: B9-2, kind: TWIN}
+  - {id: B9-3, kind: PRODUCER}
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2, 2, 1, 0, 3]
+  note: >-
+    Все три блокирующих — на поверхности, которую ввели Д17/Д18 (путь края к notify, операции nop,
+    гейт изоляции). Предмет RA-1…RA-6 (редакция 9) проверен и принимается без блокирующих.
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → 6d2709cf… оба (HEAD 50dee5e22)"
+  - claim: "решения Д1–Д16 читаются из журналов, названных заданием; Д17, Д18 — из задания"
+    result: подтверждено
+    predicate: >-
+      в journal.jsonl строки type=started поля prompt нет; текст задания найден в первой строке
+      transcript-файла агента author:NTF-5 (agent-a2116456c4c121d1e.jsonl — Д1–Д13, требования
+      владельца, гигиена; agent-aca62613269e0e8c5.jsonl — Д14–Д16). Решения Д1–Д18 сверены с §2
+  - claim: "в main одобренной приёмки NTF-5 нет, черновик живёт в ветке (Д16)"
+    result: подтверждено
+    predicate: "git ls-tree -r --name-only main | grep -c NTF-5-operator → 0; то же для origin/main → 0"
+  - claim: "§1.6: отпечатки соседей на e90b7042f и записи вердиктов"
+    result: подтверждено
+    predicate: >-
+      git show e90b7042f:<документ> | sha256sum — NTF-1 4d0428033c6d (записи нет), NTF-2 9098d6ef95e5
+      (запись есть), NTF-3 cbdb3431e422 (записи нет), NTF-4 5f5641628fef (запись есть), NTF-6
+      47bd8b7054c3 (запись есть); git merge-base --is-ancestor e90b7042f HEAD → 0; на HEAD отпечатки
+      те же
+  - claim: "внешний gRPC-вход края отвечает на Internal* и на метод без соединения одним текстом NOT_FOUND unknown method"
+    result: подтверждено
+    predicate: >-
+      git -C project/kacho show 1d42a6728bf:gateway/internal/proxy/route_refusal.go — refuseRoute
+      status.Errorf(codes.NotFound, "unknown method: %s", fullMethod), перехватчик до прав;
+      server.go:89-106 — Resolver отказывает при отсутствии backends[domain]; у не-Internal метода
+      ответу маршрутизатора предшествует прослойка прав края, поэтому NTF5-49 (б) держится только
+      при записи метода «освобождение» в каталоге края — документ это называет
+  - claim: "Cancel операции nop с внутреннего слушателя края доходит до notify и отменяет незавершённую операцию"
+    result: подтверждено
+    predicate: >-
+      NTF-4 @5f564162 Р20 и NTF4-94 (б): POST /operations/E:cancel на внутреннем слушателе края доходит
+      до notify; corelib 34bc810 operations/operationspb/handler.go:103 — Cancel → CancelOwned:
+      незавершённая операция владельца отменяется, завершённая — FAILED_PRECONDITION
+      «operation … already completed». Операция Create извещения — done=false до 10 минут (Р10),
+      её владелец — вызывающий оператор
+  - claim: "у края нет внутреннего gRPC-слушателя: внутренний слушатель края — только REST"
+    result: подтверждено
+    predicate: >-
+      git -C project/kacho show 1d42a6728bf:gateway/cmd/api-gateway/main.go — :1384-1406
+      «dedicated cluster-internal admin REST listener» (httpSrv.Serve); шапка
+      deploy/scripts/assert-ban6-external-isolation.py: внутренний gRPC-листенер шлюза снят (#1024);
+      NTF-4 Р20: внешний gRPC-сервер и cmux помечены внешними
+  - claim: "гейт assert-ban6-external-isolation.py зелёный на домене без записи cluster-internal эндпоинта"
+    result: опровергнуто
+    predicate: >-
+      git -C project/kacho show 1d42a6728bf:deploy/scripts/assert-ban6-external-isolation.py:
+      INTERNAL_ENDPOINTS (:198-204) — iam, geo, nlb, registry, vpc, compute, storage, записи notify нет;
+      цикл CONTROL-COUNTERPART (:706-716): носитель без эндпоинта → «НЕ ПОДТВЕРЖДЁН» → unconfirmed;
+      шапка: «Непокрытый домен роняет прогон (rc=2)». grep -n 'INTERNAL_ENDPOINTS\|COUNTERPART' по
+      NTF-5 и NTF-4 @5f564162 → 0
+  - claim: "listnarrow.Visible — один тип на вызов; окно положительных вердиктов 5 с"
+    result: подтверждено
+    predicate: >-
+      git -C project/corelib show 34bc810:listnarrow/narrower.go:774 — Visible(ctx, subject,
+      resourceType, action, relation, ids); authz/revocation_policy.go — Default: 5 * time.Second;
+      SoftPassOnPeerFailure и Breakglass — поля конфигурации (:128, :136)
+  - claim: "гигиена: путей рабочей копии, фраз о незакоммиченности, имён чужих облаков и маркеров отсрочки нет"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|TODO|FIXME|<перечень имён чужих облаков>' <файл> → 0"
+
+counts:
+  scenarios: 117
+  scenario_ids_unique: true
+  scenario_count_predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 117; дубликатов 0; множество 1…117 без пропусков"
+  producer_coverage: "117 из 117: номера «**ID:** NTF5-N» против первого столбца строк §8 (диапазоны раскрыты), разность пуста"
+  twins: "у отрицаний §9 близнец назван; у NTF5-26 (б) названный близнец невыполним (B9-2)"
+  constructibility: >-
+    Посеяно 0 из 117, «не выполнилось» 117: службы notify в дереве kacho нет
+    (git -C project/kacho ls-tree origin/main services/notify → 0), стенд и изоляция для посева
+    заданием не названы. Новые «Дано» NTF5-26 и NTF5-49 строятся стендом в боевой посадке с краем по
+    NTF-4 Р20 и носителем Х5 — оба ещё не существуют. Чтением противоречия схеме или ограничениям у
+    новых «Дано» не найдено, кроме близнеца NTF5-26 (б) (B9-2).
+
+blocking:
+  - id: B9-1
+    kind: COVERAGE
+    anchors: ["Р2 «Операции»", "Р10 шаг 1–3", "NTF5-26 (в)", "§3 З20", "§9", "DoD 10.1 п.3"]
+    text: >-
+      Длительная операция Create (done=false до окна Р17) по Д18 доступна оператору через внутренний
+      слушатель края, и по NTF-4 Р20 с того же слушателя доходит не только Get, но и
+      POST /operations/{id}:cancel (NTF4-94 (б)). Обработчик фундамента отменяет незавершённую
+      операцию владельца (corelib operationspb.Cancel → CancelOwned). Документ исхода отмены операции
+      Create не называет нигде: ни в Р2, ни в Р10, ни в сценариях. Шаг 3 Р10 «одна транзакция:
+      извещение … Operation → done=true» не говорит, что фиксация извещения условна на
+      незавершённость операции. Без этого реализация вправе зафиксировать извещение после отмены
+      операции — «done с CANCELLED, а извещение есть», то есть фантом против api-operation-done.
+      Д18 требует описать опрос «как в NTF-4 Р20», а Р20 называет обе ветки: Get и Cancel на
+      внешнем входе — NOT_FOUND. У NTF5-26 внешняя ветка есть только для Get.
+    required: >-
+      Решить исход Cancel операции Create и записать в Р2/Р10. Вариант (а): отмена до фиксации —
+      операция done с отменой, заявка снята, извещения нет, писем нет; фиксация шага 3 — CAS по
+      состоянию операции и заявки в одной транзакции, гонка Cancel × фиксация — ровно один исход
+      (две горутины, повторы, по образцу NTF5-33). Вариант (б): отмена не поддерживается —
+      названный синхронный отказ, заявка продолжает жить. В обоих: сценарий Cancel на внутреннем
+      слушателе края с близнецом (тот же вызов после done=true → FAILED_PRECONDITION «operation …
+      already completed» либо Get вместо Cancel) и буква NTF5-26 — Cancel на внешнем входе →
+      NOT_FOUND без вызова notify, как NTF4-93 (б). Производитель в §8, строки в §9 и DoD.
+  - id: B9-2
+    kind: TWIN
+    anchors: ["NTF5-26 (б)", "§9 строка «NTF5-26 (а), (б) | NTF5-01 на стенде»"]
+    text: >-
+      Близнецом gRPC-отказа NTF5-26 (б) названо «NTF5-01 на стенде (вызов на внутреннем слушателе
+      края)» с отличием «вход края: внешний / внутренний слушатель». Внутреннего gRPC-слушателя у
+      края нет: внутренний слушатель края — только REST (main.go:1384-1406 @1d42a6728bf; gRPC-листенер
+      снят #1024). Поэтому названный близнец либо невыполним, либо отличается двумя фактами —
+      входом и протоколом (REST вместо gRPC). Отказ (б) остаётся неотличимым от «метода нет вовсе».
+    required: >-
+      Назвать выполнимого близнеца, отличающегося одним фактом. Например: тот же gRPC-вызов
+      InternalNoticeService/Create с тем же payload и принципалом прямо на слушателе notify-api
+      клиентом с SAN края (обвязка §6, NTF5-01) — меняется только точка входа: внешний gRPC края /
+      слушатель notify-api. Либо встречный контроль гейта изоляции на notify-api, если он назван
+      производителем (B9-3). Поправить строку §9.
+  - id: B9-3
+    kind: PRODUCER
+    anchors: ["NTF5-26 последнее «And»", "§8 строка NTF5-26, 49", "DoD 10.1 п.4"]
+    text: >-
+      «Тогда» NTF5-26 утверждает: гейт deploy/scripts/assert-ban6-external-isolation.py печатает
+      InternalNoticeService/* в объёме осмотренного и зелёный. Производителем §8 назван скрипт
+      «существует». На 1d42a6728bf у скрипта нет записи cluster-internal эндпоинта для носителя
+      notify (INTERNAL_ENDPOINTS: iam, geo, nlb, registry, vpc, compute, storage). Домен с
+      Internal*-контрактом без эндпоинта носителя CONTROL-COUNTERPART не подтверждает, и прогон
+      падает (rc=2). Если домен сузить флагом --domains, notify выпадает из объёма осмотренного — и
+      первая половина «Тогда» ложна. Без правки гейта «Тогда» не производится. Ни NTF-5, ни NTF-4
+      @5f564162 (NTF4-30 опирается на тот же гейт) правку не называют.
+    required: >-
+      Назвать производителя: запись носителя notify в INTERNAL_ENDPOINTS (Service и порт слушателя
+      notify-api в форме Х5, authority сертификата), вывод носителя домена notify в
+      e2e-ban6-domains.py, проверку предпосылки «незарегистрированный метод → отказ маршрутизации»
+      на носителе Х5, самопроверку карты в обе стороны. Указать, кто её вносит: эта под-фаза или
+      NTF-4 как первая Internal*-поверхность notify (тогда — ссылкой и строкой §1.6). Поправить §8
+      и DoD 10.1 п.4.
+
+important:
+  - id: I-1
+    kind: FORMAT
+    text: >-
+      Д18 и DoD 10.2 п.5 говорят, что id операции PATCH контактов — с приставкой nop. Ни один
+      сценарий группы J этого не утверждает: NTF5-97, 102 проверяют только done=true в ответе.
+      Стоит дописать приставку в «Тогда» NTF5-97 — так же, как NTF5-01 утверждает её для Create.
+  - id: I-2
+    kind: PRODUCER
+    text: >-
+      После e90b7042f приёмка NTF-1 получила возврат на 4d0428033c6 (коммит 6b5ce0e81, B11-1:
+      запись через unsafe мимо гейта формы; описание атрибутов у прямого feed.Put). Ссылку письма
+      (Р6) строит сам notify значением form.ParsePath, строки извещений — собственные строки notify.
+      Опоры на опровергнутое этим возвратом здесь нет. При следующей редакции NTF-1 строку §1.6
+      надо сверить заново.
+  - id: I-3
+    kind: PRODUCER
+    text: >-
+      Строка возврата о NTF3-114 против двери по-прежнему открыта. На cbdb3431 строки NTF3-114 не
+      менялись. Передать её автору NTF-3 должен диспетчер.
+
+revision_9_check:
+  RA-1: "принято: два вида строк со своими ключами; NTF5-111 держит оба порядка обхода и две реплики, близнец одним фактом"
+  RA-2: "принято: закрытая таблица Р5 «переход × этап»; у каждой клетки буква с близнецом (NTF5-74, 112…115)"
+  RA-3: "принято: у obligation срока нет (Р12, Р15, З19); NTF5-116, 117 с близнецами; тревога Р19 — единственный сигнал, назван"
+  RA-4: "принято: перепись восьми освобождённых методов ↔ буква отказа ↔ близнец (§9)"
+  RA-5: "принято: Visible на каждый тип, измерено на corelib 34bc810; NTF5-45 (а) различает по журналу подмены"
+  RA-6: "принято: транзакция перехода пишет событие этапа, строки — раскрытие; сетевых вызовов в транзакции нет"
+
+dispatcher_decisions_check:
+  D1-D16: "соблюдено: разделы §2 сверены с текстами решений из transcript-файлов агента author:NTF-5 обоих проходов"
+  D17: >-
+    соблюдено в форме: один внутренний слушатель notify-api в форме Х5, публичного нет по построению,
+    одна сборка цепочки носителем, наружу — только маршруты края через notifyInternal (Р2, З16, З20,
+    DoD 10.1 п.3, п.8). Поверхность Cancel операций nop, которую Д17 открывает с внутреннего
+    слушателя края, не описана (B9-1)
+  D18: >-
+    соблюдено частично: три поверхности на одном слушателе; маршруты края через notifyInternal;
+    NTF5-26 и NTF5-49 утверждают отказ маршрута края; PATCH контактов — done=true в ответе (Р21,
+    NTF5-97); стадия S1 ждёт тега corelib с Х5 (§5, DoD 10.1 п.8). Опрос Create «как в NTF-4 Р20»
+    описан только для Get: ветка Cancel отсутствует (B9-1); близнец gRPC-отказа невыполним (B9-2);
+    гейт изоляции без производителя для notify (B9-3)
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (экраны — NTF-6 по контракту Р22)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (внутренний API оператора, маршруты края через notifyInternal, операции nop, два метода справочника службы доступа, контакты)"
+
+questions_for_dispatcher:
+  - >-
+    NTF4-30 опирается на тот же гейт изоляции без записи носителя notify в INTERNAL_ENDPOINTS
+    (B9-3). Производитель нужен и NTF-4 — передать автору NTF-4.
+  - >-
+    NTF3-114 против двери (I-3) до сих пор не передан автору NTF-3.
