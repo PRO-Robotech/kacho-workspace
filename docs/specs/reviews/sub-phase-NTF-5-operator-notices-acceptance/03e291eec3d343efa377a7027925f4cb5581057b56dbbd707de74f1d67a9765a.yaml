@@ -1,0 +1,184 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 03e291eec3d343efa377a7027925f4cb5581057b56dbbd707de74f1d67a9765a
+  revision: 15
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, строка редакции 15 говорит «вердикта на неё НЕТ». Шапку эта
+    запись не правит. Действующий вердикт берётся из внешнего события и из записи ревью,
+    привязанной к отпечатку, а не из слова в заголовке.
+  base_commit: 3ba8e31e10e
+  content_commit: 3ba8e31e1
+  content_commit_note: >-
+    Редакцию 15 внёс коммит 3ba8e31e1 (HEAD ветки на момент ревью); его предшественник по файлу —
+    d3cb7bafa (редакция 14, 88fabd09…). `git show HEAD:<файл> | sha256sum` и `sha256sum <файл>`
+    дают 03e291ee… оба.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3848
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T16:00:00Z'
+round: 14
+pass_round: 1
+pass_note: >-
+  Круг 1 прохода «возврат из первичного разбора классов на 88fabd09» (RA-10); по документу это
+  круг 14. Судился весь документ; по существу проверена дельта 88fabd09→03e291ee
+  (`git diff -U0 d3cb7bafa 3ba8e31e1 -- <файл>`, 24 ханка): шапка, Р2 «запись операций», Р5, Р10
+  шаги 1, 3–5, Р21, Р23, §6, NTF5-122, §8, §9, DoD 10.1 п.2а, п.3, §11, §25. Раздел перенесённых
+  решений Д1–Д18 дельта не трогает.
+previous_rounds:
+  - {round: 1, sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: 1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32, verdict: APPROVED}
+  - {round: 9, sha256: 6d2709cf09e39854fa757e7c7464e4eb4c7fe891337fd98b125b76acb5fad738, verdict: CHANGES_REQUESTED}
+  - {round: 10, sha256: e9b2e194da595f8644a56b1b6f06631a3f9f86b72f18debecaa79effadd18b34, verdict: CHANGES_REQUESTED}
+  - {round: 11, sha256: 2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98, verdict: APPROVED}
+  - {round: 12, sha256: 9d10f44afedb8164b06fd71d599d02fe671514607bfe87acf271899851a5ba72, verdict: CHANGES_REQUESTED}
+  - {round: 13, sha256: 88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/
+class_exposure_return: docs/changes/issue-2924/reviews/class-exposure/initial/88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af.yaml
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 3ba8e31e10e → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 3ba8e31e10e
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+publication_mode: >-
+  Событие полномочия публикует курьер, его тело — строка external_event_body ниже. Роль в записи —
+  это координата, личность она не доказывает. Вердикт действует только для отпечатка 03e291ee…:
+  после любой правки документа нужно новое рассмотрение. Одобрение 88fabd09… (круг 13) остаётся
+  вердиктом о редакции 14.
+external_event_body: "acceptance-reviewer · APPROVED · sha256 03e291eec3d343efa377a7027925f4cb5581057b56dbbd707de74f1d67a9765a"
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2, 2, 1, 0, 3, 1, 0, 1, 0, 0]
+
+ra10_closure:
+  condition_a: >-
+    Закрыто. Единица предиката — экспортируемая функция, названы поимённо Ф1…Ф4, число — четыре,
+    параметр — pgx.Tx (Р23, DoD 10.1 п.2а). Выбрано «успех и ошибка порознь» (вариант разбора
+    классов), `markDoneWithMetadataCAS` не экспортируется, довод назван (metadata пишет Ф1).
+    Предикат п.2а выполним на предписанном построении: Ф3 = экспорт markDoneCAS, Ф4 = экспорт
+    markErrorCAS, по одной функции каждая.
+  condition_b: >-
+    Закрыто. «Функция пишет только строку операции» — отдельный пункт Р23; строку operation-failed
+    ставит вызывающий Ф4 своей записью в ту же транзакцию. Держатель — NTF5-122 (з) с близнецом (и)
+    (перепись строк по каталогу базы, положительный контроль). Предел держателя — I-1 ниже.
+  condition_c: >-
+    Закрыто. Граница с NTF-3 Р18 проведена по функциям: Р18 касается только Ф4, Ф1…Ф3 — только
+    NTF-5. Чтение NTF-3 Р18 сверено: вызывающие терминальной записи ошибки там — исполнитель и
+    Reconciler фундамента (NTF-3 строка 1073), а строка Д6 NTF-3 (строка 449) уже говорит «функции
+    фундамента, вызываемые тем же кодом, что … терминальную запись операции», то есть строку ставит
+    вызывающий. Противоречия с NTF-3 нет, отражение — строкой возврата (§11).
+  consequence_named: >-
+    Письма о сбое Create оператору нет: терминальные отказы шагов 4, 5 пишет notify-sender через Ф4,
+    операции Р5 и Р21 рождаются завершёнными (NTF-3 Р18, последний пункт, процитирован верно).
+  race_for_f4: "добавлено NTF5-122 (к) — гонка Ф4 против CancelOwned, 20 повторов; прежде гонку держала только Ф3 (ж)"
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → 03e291ee… оба (HEAD 3ba8e31e10e)"
+  - claim: "у фундамента три помощника markDoneCAS, markDoneWithMetadataCAS, markErrorCAS на rowQuerier + table"
+    result: подтверждено
+    predicate: "git -C project/corelib grep -nE '^func (\\([^)]*\\) )?mark[A-Za-z]*CAS\\(' origin/main -- operations/ → repo.go:170, 205, 242 (origin/main = 34bc810)"
+  - claim: "экспортируемых функций пакета operations на pgx.Tx сегодня нет (§1.4)"
+    result: подтверждено
+    predicate: "git -C project/corelib grep -nE '^func (\\([^)]*\\) )?[A-Z][A-Za-z]*\\([^)]*pgx\\.Tx' origin/main -- 'operations/*.go' ':!*_test.go' | wc -l → 0"
+  - claim: "NTF-3 Р18 делает транзакционной только запись ошибки; операция, ответившая done=true, этот путь не проходит"
+    result: подтверждено
+    predicate: "awk '/^\\*\\*Р18\\./,/^\\*\\*Р19\\./' docs/specs/sub-phase-NTF-3-*-acceptance.md (sha256 cbdb3431…) — пункты 1 и 4"
+  - claim: "в живом тексте единица «форма» не осталась"
+    result: подтверждено
+    predicate: "grep -n 'форм[аы] 3\\|на форму\\|трёх форм\\|формы «ошибка»\\|функци[яи] фундамента «\\|три функции' <файл> → только строки истории (шапка ред. 13, 15; §23, §25) и З10 («на форму NTF-3» — о форме API, другой референт)"
+  - claim: "дельта не трогает раздел перенесённых решений Д1–Д18"
+    result: подтверждено
+    predicate: "git diff -U0 d3cb7bafa 3ba8e31e1 -- <файл> | grep -c '^@@' → 24; ханки в шапке (36) и далее с 677 (Р2) — ни один не лежит в разделе Д1–Д18"
+  - claim: "id сценариев уникальны, их 122"
+    result: подтверждено
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 122; sort | uniq -d | wc -l → 0"
+  - claim: "гигиена: нет путей рабочей копии, фраз о незакоммиченности, маркеров отсрочки, имён чужих облаков"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|TODO|FIXME' → 0; grep -ciE '<перечень имён чужих облаков и почтовых поставщиков>' → 0"
+
+counts:
+  scenarios: 122
+  scenario_ids_unique: true
+  producer_coverage: "122 из 122 по §8; строка NTF5-122 переписана под Ф1…Ф4 (новые методы хранилища corelib operations)"
+  twins: >-
+    У каждого отрицания в §9 есть близнец; новая пара NTF5-122 (з) — (и), меняется один факт
+    (вызывающий пишет вторую строку сам / не пишет). (к) — проба гонки, как (ж): исходов два,
+    оба названы, близнеца не требует
+  constructibility: >-
+    Сценарии продукта: посеяно 0 из 122, «не выполнилось» 122 — функций Ф1…Ф4 и службы notify в
+    дереве нет (corelib @34bc810, kacho @1d42a6728bf), стенда и изоляции для посева задание не
+    назвало. Новые буквы (з), (и), (к) строятся названной фикстурой §6 «запись операции фундамента»
+    (testcontainers, T1/T2, перепись строк по каталогу базы) — средствами, которые у обвязки
+    corelib уже есть; вывода посева нет
+
+important:
+  - id: I-1
+    kind: PRODUCER
+    text: >-
+      NTF5-122 (з) держит «Ф4 пишет только строку операции» не для всех форм дефекта. Обвязка несёт
+      только таблицу операций и T1, T2, а NTF-3 Р18 ставит строку operation-failed «при включённом
+      флаге». Ф4, которая ставит строку сама, но лишь при заданной опции записи ленты или флаге
+      (параметр либо настройка NewRepo), в обвязке без опции строки не поставит. Тогда (з) зелёная, а
+      предикат п.2а («ровно четыре функции на pgx.Tx») лишний параметр не считает. Фраза DoD 10.1 п.2а
+      «иначе NTF5-122 (з) красный» верна только для безусловной записи. Совет: в Р23 и п.2а назвать
+      сигнатуры Ф3 и Ф4 поимённо (ctx, tx, id и ответ либо статус; ни опции ленты, ни флага) и
+      сделать сигнатуру вторым держателем. Либо в (з) подать Ф4 с включённым флагом, если такая ручка
+      у фундамента появится. Для самой NTF-5 последствий нет: операции notify по флагу модуля не
+      идут. Но утверждение документа о держателе шире того, что держатель ловит.
+
+dispatcher_decisions_check:
+  D1-D16: "соблюдено: раздел перенесённых решений дельта не меняла; сверка по существу — записи 6d2709cf….yaml, 9d10f44a….yaml, 88fabd09….yaml"
+  D17: >-
+    Соблюдено, дельта не меняла. У notify-api один внутренний слушатель формы Х5, публичного нет по
+    построению, цепочку прав и личности собирает один строитель хоста, наружу — маршруты края через
+    notifyInternal
+  D18: >-
+    Соблюдено, дельта не меняла по существу: InternalNoticeService, NoticeService и контакты — на
+    одном слушателе; NTF5-26 и NTF5-49 — отказ маршрута края; PATCH контактов — операция с done=true
+    в ответе (теперь Ф2, Р21); долгая Create done=false опрашивается и отменяется через внутренний
+    адрес края, как NTF-4 Р20 (NTF5-26 (в)–(е), 118, 119); S1 ждёт тега corelib с Х5 (§5, DoD 10.1 п.8)
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (экраны — NTF-6 по контракту Р22)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (звено прав notify-api, окно отзыва сужателя, принципал операций без запасного, маршруты края через notifyInternal)"
+
+questions_for_dispatcher:
+  - "Строки возврата §11 к NTF-3: граница Р18 по функциям (строку operation-failed ставит вызывающий Ф4) — передать автору NTF-3 вместе с прежними."
