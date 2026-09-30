@@ -1,0 +1,94 @@
+# Пост-дифф ревью формы контракта — роль proto-api-reviewer, пакет P1 (P001) изменения issue-2915.
+#
+# Имя файла — content_digest отсуженного содержимого (дифф стабов corelib).
+# Прежние записи не правятся; сменился дайджест — новый запуск и новый файл
+# (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+subject: >-
+  P1 — стабы ленты corelib.notify и поле ScopeExtractor.bound_to_server,
+  порождённые из контракта kacho 491aede5817
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '77'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/ntf-p001-corelib
+  base: 8be60de            # origin/main на момент ревью; merge-base --is-ancestor → 0
+  head: 611727295ff06b8ce90d9b0964f2ef52fad057a4
+  source_contract:
+    repo: PRO-Robotech/kacho
+    branch: ntf/p001
+    worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/ntf-p001-kacho
+    base: 77f1741f3c1
+    head: 491aede5817813fd2a3573a38b6b3c9553661e6f
+    diff_digest: sha256:e41d4a5415a2d6d04b916db730a170024d468adb91c3ac67a8c491cc777c60e8
+content_digest: sha256:4f1ab27f1bd597b7a47d0a5ca9458ce5edff38a84d5a874d2177f58b4c803c7d
+digest_definition: >-
+  sha256 сырого вывода `git diff 8be60de...611727295ff` в копии corelib; совпадает
+  с отпечатком staged-патча, названным исполнителем (4f1ab27f…).
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+proto_files_touched: 2       # в пакете: kacho proto/corelib/notify/feed.proto, proto/corelib/authz/v1/authz_options.proto; в коммите corelib — 0 (только стабы)
+
+checks:
+  - cmd: buf lint                                             # kacho/proto @491aede5817
+    rc: 0
+  - cmd: buf breaking --against '../.git#ref=77f1741f3c1,subdir=proto'
+    rc: 0
+    control: инъекция string→int32 поля 3 ScopeExtractor в копии дерева → rc=100 с именем поля
+  - cmd: buf breaking --against '../.git#branch=origin/main,subdir=proto'
+    rc: 0
+  - cmd: git grep -h 'returns (stream' -- proto | wc -l
+    result: 1                                                  # NTF1-C01
+  - cmd: buf generate (плагины proto/buf.gen.yaml, вход corelib, вывод в scratch) + diff -r против HEAD:api/corelib
+    rc: 0
+    files: 15 из 15
+    control: тот же вывод против 8be60de:api/corelib → rc=1 (authz_options.pb.go различается, notify отсутствует)
+  - cmd: make -C gateway permission-catalog-check PERMISSION_CATALOG_BUILD=<scratch>   # kacho @491aede5817
+    rc: 2
+    note: красный, как объявлено сообщением 491aede5817; см. landing_conditions
+
+findings_blocking: []
+
+findings_important:
+  - id: PAR-1
+    subject: kacho 491aede5817 — гейт CI permission-catalog-check красный
+    detail: >-
+      Плагин каталога края bound_to_server не читает и выводит для Claim/Ack запись
+      scope_extractor {object_type: notification_feed, from_request_field: ""} —
+      запись без источника идентификатора объекта. Дефект не в стабах, а в
+      состоянии половины kacho: закрывается C9 (catalogderive → ScopeBound),
+      бампом пина corelib и `permission-catalog-apply`.
+    landing_conditions:
+      - запрос волны в ветку эпика не садится при красном permission-catalog-check
+      - permission-catalog-apply до C9 не выполняется — иначе в край вшивается запись без источника id
+
+findings_record_only:
+  - id: PAR-2
+    subject: Claim и Ack мутируют (аренда, исход), а required_relation — reader
+    detail: >-
+      Против sec-read-viewer-mutation-admin выглядит как viewer-tier на мутации; решено
+      замыслом (design.md З14, И6: reader ленты только у service:notify, модель без `*`).
+      Не блокирует.
+  - id: PAR-3
+    subject: значения перечислений без префикса в области пакета corelib.notify
+    detail: >-
+      SECURITY, NOTICE, SENT, DEFER, INVALID, EXPIRED… живут в области пакета; второе
+      перечисление в corelib.notify с тем же значением не скомпилируется. Правила
+      ENUM_VALUE_PREFIX/ENUM_ZERO_VALUE_SUFFIX исключены в buf.yaml на всё дерево.
+  - id: PAR-4
+    subject: feed.pb.gw.go порождается для Internal-службы
+    detail: >-
+      generate_unbound_methods=true, как у corelib.subscription; вывод с внешнего
+      слушателя держится монтированием по префиксу Internal, google.api.http не объявлен.
+
+approved:
+  - плоская форма; ни metadata/spec/status, ни resource_version/generation/finalizers
+  - Internal в отдельной службе без google.api.http; инфра-полей нет
+  - отказ от Operation у Claim/Ack обоснован в контракте (аренда очереди, не ресурс)
+  - аннотации прав на обоих методах; объект проверки — привязка сервера, не поле запроса
+  - bound_to_server — новое поле 4, аддитивно; go_package notifyv1 — как у subscriptionv1/operationv1
+  - стабы воспроизводимы побайтово; дифф коммита равен staged-патчу исполнителя
