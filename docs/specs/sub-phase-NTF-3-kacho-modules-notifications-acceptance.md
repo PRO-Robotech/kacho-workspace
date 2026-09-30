@@ -47,6 +47,8 @@ SPDX-License-Identifier: BUSL-1.1
 > — **редакция 20 · 2026-09-30 · вердикта на неё НЕТ.** Правка по кругу 1 прохода RA-02. CONSTRUCTIBILITY: класс «Given требует состояния жизненного цикла, до которого публичный глагол не доводит» закрыт переписью Given, опирающихся на статус инстанса compute (`grep -nE 'ins-|Instance|RUNNING|STOPPED' ` по документу: `InstanceService.Create` — NTF3-68 и соседние, состояния не требуют; гейт состояния нужен только NTF3-160 (г)). Исполнитель `AttachDisk` пропускает инстанс только в `RUNNING`/`STOPPED` (`services/compute/internal/repo/instance_repo.go:442-447` @`1d42a6728bf`), `Create` оставляет `PROVISIONING`, перехода из него до COMP-2 нет. Выбран путь посева, а не внутреннего вызова storage: при нём пересылка личности исполнителем compute остаётся под пробой. Правлено: §7 (строка «Привязка диска» — глаголы публичные, условие строится посевом; на стенде буква (г) не утверждается до COMP-2), §8 (новое средство С15 — статус строки инстанса в базе compute обвязки `STOPPED`, до чтения `P0`), NTF3-160 (г) (Given с посевом С15 до `P0` и проверкой `status = STOPPED`), §10 (посев общий для буквы и близнеца), §11 (посев С15 — производитель условия). Сценариев: номеров **160**, снято **7**, живых **153**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29) — без изменений
 > — 2026-09-30 · круг 2 прохода RA-02 · ✅ ПРИНЯТО · SHA-256 `88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml`
 > — **редакция 21 · 2026-09-30 · вердикта на неё НЕТ.** Правка по RA-03 первичного разбора классов на редакцию 20 (`docs/changes/issue-2918/reviews/class-exposure/initial/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml`) и по Д23–Д25. Класс «утверждение документа о дереве, полученное перечислением автора или комментарием конфигурации, а не предикатом» (RA-01, RA-02, RA-03 — трижды) закрыт по Д24 **двумя полными переписями до правки текста**, каждая — команда, число и ревизия @`1d42a6728bf`: (а) писатели журнала подписки — §1.13 дополнен обходом всего дерева вне модулей и вне миграций: найден писатель, которого прежний предикат (только `services/*/internal/**/*.go`) не видел, — посев стенда `deploy/scripts/vpc-address-pool-baseline.sql:172` (строка `AddressPool` `CREATED` литеральной вставкой); вызовы обёрток эмиттеров посчитаны по модулям; (б) пишущие пути под пересланной личностью — новый §1.14 по вызовам клиентов, а не по комментарию профиля: межмодульных клиентов к модулям kacho 11, вызовов 18, методов 15, из них пишущих 7; журнал сегодня пишут 4 (storage `Attach`/`Detach`, vpc `CreateOwnedAddress`, `ReleaseOwnedAddress` в исходе `RELEASED`), видимое состояние опубликованного вида без строки журнала меняют ещё 3 (`InternalNetworkInterfaceService.Attach`/`Detach`, `SetAddressReference`) и исход `DETACHED` `ReleaseOwnedAddress`; прежнее «такой путь один; вызовы nlb в vpc — чтения» было неверно. Правлено: Р2 (перепись пересылаемых путей и решение: изменение видимого состояния по пересланному вызову пишет `UPDATED` с пересланным инициатором, повтор без изменения строки не пишет), Р3 (посев стенда), §7 (строки «Привязка диска», новые «Адрес балансировщика», «Интерфейс инстанса»), §8 (С16), NTF3-70 (обход вне модулей; инъекция (г) на посеве), NTF3-160 (заголовок, Given, новые буквы (д)–(з): адрес, выделенный балансировщику, адрес, привязанный к балансировщику, интерфейс инстанса, снятие инстанса с привязанными диском и интерфейсом), новый NTF3-162 (посев стенда), §10, §11, DoD 12.2, 12.4. Д23: ключ отпечатка адреса — отдельный объект секрета, его монтируют оба развёртывания `notify`; секрет почты по-прежнему в одном объекте (Р8, NTF3-127). Д25: отметка просмотра монотонна (Р10, новый NTF3-161). Сценариев: номеров **162**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **155**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
+> — 2026-09-30 · круг 1 прохода RA-03 · ⛔ ВОЗВРАТ (блокирующих 3: CONSTRUCTIBILITY · COVERAGE · CONVENTION) · SHA-256 `c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5.yaml`
+> — **редакция 22 · 2026-09-30 · вердикта на неё НЕТ.** Правка по кругу 1 прохода RA-03. CONVENTION (класс «напечатанная команда не даёт напечатанного числа»): **все** команды §1 и §7 прогнаны заново одним проходом @`1d42a6728bf` (kaname @`cbbac984b`, @`734f69fb4`; corelib @`34bc8104a`), числа взяты из вывода; плавающие ссылки `origin/main`, `origin/357` в командах заменены ревизией; сокращённые команды («…») выписаны целиком. Исправлено: §1.13 — вызовы `Outbox().Emit` в vpc (фильтр комментариев вписан в команду: 50, без него 77), вызовы `emitCompute` (полная команда, 5), `outbox.Emit` у `geo` (команда, 6), живые триггеры (суженный предикат 18 → 12 с разбором `Down`/замены/снятия), строки `emit.go`; §1.14 — публичные входы compute **6**, а не 5; §1.1 — отправителей почты 0 файлов по замеру (прежнее «два гейта» со слов разведки опровергнуто); §1.1 — манифесты (команда исправлена, 5); §1.2, §1.5, §1.6 — числа к командам (32; 7, 7, 6, 3; 45); §1.7 — предикат колонки инициатора: 3 строки, одна — комментарий; §1.8 — предикаты `MarkEmailVerified` (3 и 1), состояний пользователя (сужен до `CHECK`, 1), локали (0); §7 — `SET status` 3 строки. Выводы документа не изменились. CONSTRUCTIBILITY (класс «Given повтора требует состояния, которое утверждаемое свойство делает недостижимым публичным путём»): новое средство С17 — прямая запись `seen_up_to` в базу `kacho_notify` обвязки перед каждым повтором NTF3-161 (б) и перед близнецом (б); (в) строится публичным `PATCH` из пустого; каждая буква начинается с Given. COVERAGE: Р2 называет компонент задания освобождения адресов nlb — `system:nlb-free-ip-runner`; новый NTF3-163 (застрявшее снятие балансировщика — посев С18, один проход задания; строки `Address` `DELETED` и `NetworkLoadBalancer` `DELETED` с этим инициатором, строки ленты и записи ленты консоли; близнец — публичный `Delete`, `user:usr-A`); §1.14, §7, §8 (С18), §10, §11, DoD 12.2, 12.4 правлены. Неблокирующие: Р10 — «последняя выданная позиция» названа наибольшей позицией всей ленты; NTF3-160 (з) — момент чтения `P0` журнала compute назван (после привязок, до `Delete`), строк compute по `ins-3` и `ins-4` — по две; §7 — компенсация сорвавшегося `Create` строима подменой ответа vpc (замысел); Д23 — согласование ротации держит NTF-4. Сценариев: номеров **163**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **156**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задача `PRO-Robotech/kacho#2918` (NTF-3);
 > документ ведётся задачей `PRO-Robotech/kacho-workspace#880`; пакет изменения — `docs/changes/issue-2918/`
@@ -150,25 +152,27 @@ SPDX-License-Identifier: BUSL-1.1
 
 ### 1.1 Модулей kacho шесть; почту не шлёт ни один; сервер подписки — у пяти
 
-- `git -C project/kacho ls-tree --name-only origin/main services/` → `compute geo nlb registry
+- `git -C project/kacho ls-tree --name-only 1d42a6728bf services/` → `compute geo nlb registry
   storage vpc` (6) @`1d42a6728bf`. Каталога `services/notify` нет. Край (`gateway/`) ресурсами не
   владеет (`.claude/rules/data-integrity.md`, `owner-map`).
-- Отправителей почты в `services/` и `gateway/` ноль: `git grep -lE '"net/smtp"|"html/template"|"mime/multipart"'`
-  по не-тестовым `.go` находит только два гейта — **со слов разведки**, @`1d42a6728bf`.
+- Отправителей почты в `services/` и `gateway/` ноль:
+  `git grep -lE 'net/smtp|html/template|mime/multipart' 1d42a6728bf -- '*.go' ':!*_test.go' | wc -l` → 0
+  (тот же предикат без исключения тестов, по всему стволу — тоже 0; прежняя фраза «находит только два
+  гейта» со слов разведки замером не подтверждена и снята в редакции 22).
 - Сервер подписки поднимают пять модулей:
-  `git grep -l 'subscription\.NewServer' origin/main -- services ':!*_test.go'` →
+  `git grep -l 'subscription\.NewServer' 1d42a6728bf -- services ':!*_test.go'` →
   `compute/cmd/compute/main.go`, `nlb/cmd/kacho-loadbalancer/wiring.go`,
   `registry/cmd/kacho-registry/subscription_wiring.go`, `storage/cmd/storage/serve.go`,
   `vpc/cmd/vpc/main.go` @`1d42a6728bf`. У `geo` сервера подписки и журнала нет.
-- Манифест прав есть у пяти модулей: `git ls-tree --name-only origin/main services/*/` →
+- Манифест прав есть у пяти модулей: `git ls-tree -r --name-only 1d42a6728bf services/ | grep -E '^services/[a-z]+/manifest\.yaml$'` → 5:
   `services/{compute,nlb,registry,storage,vpc}/manifest.yaml`; у `geo` манифеста нет.
 
 ### 1.2 Виды ресурсов kacho, тип модели прав, журнал — перепись
 
 Знаменатель — вид ресурса с глаголом создания вне файлов `internal_*.proto`:
-`git grep -nE '^\s*rpc (Create|Register|Issue|Invite|Copy)[A-Za-z]*\s*\(' origin/main -- proto/kacho/cloud/ | grep -v '/internal_'`
+`git grep -nE '^\s*rpc (Create|Register|Issue|Invite|Copy)[A-Za-z]*\s*\(' 1d42a6728bf -- proto/kacho/cloud/ | grep -v '/internal_'`
 @`1d42a6728bf` → 23 строки, из них 2 — `Copy` уже названных видов; **видов 21**. Тип модели —
-`git -C project/kaname show origin/357:proto/kaname/cloud/iam/v1/fga_model.fga | grep -nE '^type '`
+`git -C project/kaname show 734f69fb4:proto/kaname/cloud/iam/v1/fga_model.fga | grep -nE '^type '` (32 строки)
 @`734f69fb4`. «В журнале» — вид есть в словаре `Mapping.Kinds` файла
 `services/<svc>/internal/subscriptionjournal/journal.go` @`1d42a6728bf`.
 
@@ -223,14 +227,14 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 
 ### 1.5 Сбои ресурсов и операций: у кого есть производитель
 
-Предикат состояний сбоя: `git grep -nE '^\s+(ERROR|FAILED|CRASHED|UNHEALTHY|DEGRADED|DETACHED|ORPHANED)\w* = ' origin/main -- 'proto/kacho/cloud/*.proto'`
+Предикат состояний сбоя: `git grep -nE '^\s+(ERROR|FAILED|CRASHED|UNHEALTHY|DEGRADED|DETACHED|ORPHANED)\w* = ' 1d42a6728bf -- 'proto/kacho/cloud/*.proto'`
 @`1d42a6728bf` → 7 строк.
 
 | модуль | состояние | производитель в дереве | как измерено |
 |---|---|---|---|
-| compute | `Instance.ERROR`, `Instance.CRASHED` | **нет**: статус инстанса пишут только глаголы арендатора в `api/instance/` | `git grep -lE 'InstanceStatus(Running\|Stopped\|Provisioning\|Deleting\|Error\|Crashed)' origin/main -- services/compute/internal ':!*_test.go'` → `api/instance/{instance,instance_nic}.go`, `domain/`, `repo/`, мок |
-| nlb | `TargetState.UNHEALTHY`; действие журнала `FAILED` | **нет**: здоровье целей вычисляется на чтении (`network_load_balancer.proto:192-194`); `OutboxActionFailed` объявлен (`iface_outbox.go:40`) и отображён (`journal.go:324`), писателя нет; `MOVED` пишет только глагол переноса арендатора (`api/*/move.go`) | `git grep -nE 'OutboxActionFailed\|OutboxActionMoved' origin/main -- services/nlb ':!*_test.go'` |
-| storage | `Volume/Snapshot/Image.ERROR` | **есть**: сверщик, `reconciler/store.go:246` `MarkError`; переходы — §1.6 | `git grep -n 'MarkError' origin/main -- services/storage ':!*_test.go'` |
+| compute | `Instance.ERROR`, `Instance.CRASHED` | **нет**: статус инстанса пишут только глаголы арендатора в `api/instance/` | `git grep -lE 'InstanceStatus(Running\|Stopped\|Provisioning\|Deleting\|Error\|Crashed)' 1d42a6728bf -- services/compute/internal ':!*_test.go'` → `api/instance/{instance,instance_nic}.go`, `domain/`, `repo/`, мок |
+| nlb | `TargetState.UNHEALTHY`; действие журнала `FAILED` | **нет**: здоровье целей вычисляется на чтении (`network_load_balancer.proto:192-194`); `OutboxActionFailed` объявлен (`iface_outbox.go:40`) и отображён (`journal.go:324`), писателя нет; `MOVED` пишет только глагол переноса арендатора (`api/*/move.go`) | `git grep -nE 'OutboxActionFailed\|OutboxActionMoved' 1d42a6728bf -- services/nlb ':!*_test.go'` → 7: объявления `iface_outbox.go:39,40`, отображение `journal.go:323,324`, вызовы `MOVED` — три в `api/{loadbalancer,targetgroup}/move.go`; `FAILED` вызовов 0 |
+| storage | `Volume/Snapshot/Image.ERROR` | **есть**: сверщик, `reconciler/store.go:246` `MarkError`; переходы — §1.6 | `git grep -n 'MarkError' 1d42a6728bf -- services/storage ':!*_test.go'` (7 строк) |
 | vpc | `DETACHED` | только во внутреннем контракте адреса (`internal_address_service.proto:364`) | предикат выше |
 | registry, geo | — | состояний сбоя в публичных контрактах нет | предикат выше |
 
@@ -238,10 +242,10 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 `done=true` с ошибкой двумя путями: (1) разрешение осиротевшей операции движком
 `operations.Reconciler` фундамента — исход `OutcomeInterrupted`, текст
 `operation interrupted before completion` (`corelib operations/reconciler.go` @`34bc8104a`);
-движок поднимают **все шесть** модулей: `git grep -nE 'NewReconciler\(' origin/main -- services ':!*_test.go'`
+движок поднимают **все шесть** модулей: `git grep -nE 'NewReconciler\(' 1d42a6728bf -- services ':!*_test.go'` → 6
 → `compute/cmd/compute/recovery.go:49`, `geo/…/recovery.go:60`, `nlb/…/recovery.go:60`,
 `registry/…/recovery.go:54`, `storage/…/recovery.go:60`, `vpc/cmd/vpc/recovery.go:44`;
-(2) запись ошибки исполнителем: `git grep -nE '\.MarkError\(' origin/main -- services ':!*_test.go'`
+(2) запись ошибки исполнителем: `git grep -nE '\.MarkError\(' 1d42a6728bf -- services ':!*_test.go'` → 3
 → `geo/…/syncop/syncop.go:101` (операции справочника `geo`); два попадания в storage —
 `MarkError` **ресурса** сверщиком, не операции. Терминальная запись — CAS по `done`
 (`operations/repo.go:586-589`, `markErrorCAS`): повторная запись уже завершённой строки ничего не
@@ -255,7 +259,7 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 (`reconciler/decide.go:102`) по намерению `Desired = DeriveStatus(state, false)` (`store.go:170`) и
 наблюдению бэкенда; снимок и образ идут той же функцией, изменения размера у них нет.
 
-**Кто пишет пару** (`git grep -n observed_state origin/main -- services/storage ':!*_test.go'` @`1d42a6728bf`):
+**Кто пишет пару** (`git grep -n observed_state 1d42a6728bf -- services/storage ':!*_test.go'` → 45 строк):
 
 | писатель | что пишет | координата |
 |---|---|---|
@@ -293,7 +297,7 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 
 ### 1.7 Какие глаголы задают намерение, по которому сверщик работает
 
-Предикат: `git grep -nE '^\s*rpc ' origin/main -- 'proto/kacho/cloud/storage/v1/*.proto'` @`1d42a6728bf` → 42 строки.
+Предикат: `git grep -nE '^\s*rpc ' 1d42a6728bf -- 'proto/kacho/cloud/storage/v1/*.proto'` → 42 строки.
 
 | глагол | координата | что даёт сверщику | вызывающий |
 |---|---|---|---|
@@ -309,20 +313,25 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 `DeriveMigrating` и `MigrateVolume` вне адаптеров вызывающих не имеют), `InternalVolumeService.Attach/Detach`.
 
 У строк тома, снимка и образа колонки инициатора нет:
-`git grep -nEi 'created_by|creator|initiator|principal_id' origin/main -- 'services/storage/internal/migrations/*.sql'`
-→ совпадения только в таблице операций (`0002_operations.sql:28,41`). Отсюда Р15.
+`git grep -nEi 'created_by|creator|initiator|principal_id' 1d42a6728bf -- 'services/storage/internal/migrations/*.sql'`
+→ 3 строки, все в таблице операций: `0002_operations.sql:14` (комментарий) и столбцы `:28,41`. Отсюда Р15.
 
 ### 1.8 Служба доступа: подтверждённый адрес, состояние пользователя, права, истекающие учётные данные
 
 - Отметка подтверждения адреса — `kaname.users.email_verified_at`, сбрасывается при смене адреса
   (`20260915111233_login_methods_live_in_their_own_rows.sql:96,105` @`734f69fb4`). **Производитель
   отметки есть на ветке эпика:** `internal/apps/kaname/api/humansession/verification.go:461`
-  (`MarkEmailVerified` в транзакции подтверждения кода) — `git grep -nE 'MarkEmailVerified' origin/357 -- '*.go' ':!*_test.go'`.
-  На `origin/main@cbbac984b` вызывающих в не-тестовом коде нет (там же). Перевод письма
+  (`MarkEmailVerified` в транзакции подтверждения кода) —
+  `git -C project/kaname grep -nE 'MarkEmailVerified\(' 734f69fb4 -- '*.go' ':!*_test.go' | grep -vE ':[0-9]+:\s*//' | grep -v 'func '`
+  → 3 строки: два объявления метода порта (`verification.go:183`, `loginmethod/store.go:57`) и один вызов
+  (`verification.go:461`). Тот же предикат @`cbbac984b` → 1 строка — объявление порта
+  (`loginmethod/store.go:57`); вызывающих в не-тестовом коде на стволе службы доступа нет. Перевод письма
   подтверждения на ленту — NTF-2.
 - Состояния пользователя — `PENDING`, `ACTIVE`, `BLOCKED`
-  (`git grep -nE "'(PENDING|ACTIVE|BLOCKED)'" origin/357 -- 'internal/migrations/*.sql'` →
-  `0001_initial.sql:1165,1210,1225`). **Со слов разведки**: путь проверки прав состояние
+  (`git -C project/kaname grep -nE "users_invite_status_check" 734f69fb4 -- 'internal/migrations/*.sql'` → 1:
+  `0001_initial.sql:3111`, `CHECK (invite_status = ANY (ARRAY['PENDING','ACTIVE','BLOCKED']))`; прежний
+  предикат по трём литералам состояния даёт 40 строк по всем таблицам и предметом не сужен — заменён в
+  редакции 22). **Со слов разведки**: путь проверки прав состояние
   пользователя не читает — отсюда отдельная клетка `SUBJECT_INACTIVE` в Р7.
 - Типы модели для ресурсов kacho — `fga_model.fga` @`734f69fb4` (§1.2). Глагол чтения — `v_get`,
   прямой, `[user, service_account, group#member] or super_admin`; у `registry_repository` — ещё
@@ -334,8 +343,8 @@ GuestAccessKey, AddressPool, Repository, DiskType.
   (`service_account_oauth_client.proto:60`, `user_oauth_client.proto:63` @`734f69fb4`). Комментарий
   контракта ключа обещает «the service layer alerts ≤14d before expires_at» (`:58-59`);
   **со слов разведки** производителя этого напоминания нет. Р19 это обещание исполняет.
-- Предпочитаемой локали у субъекта нет: `git grep -nEi '\blocale\b|preferred_lang' origin/357 -- 'internal/migrations/*.sql'`
-  → 0 по предмету. Отсюда Р21.
+- Предпочитаемой локали у субъекта нет: `git -C project/kaname grep -nEi '\blocale\b|preferred_lang' 734f69fb4 -- 'internal/migrations/*.sql' | wc -l`
+  → 0. Отсюда Р21.
 
 ### 1.9 Сигнал о новой строке ленты и его задержка
 
@@ -459,7 +468,7 @@ NTF-4 @`53f865d8` — редакция 18 (`sha256sum` файла
   вставок в иные очереди модуля (`fga_register_outbox`, `audit_outbox`, `registry_outbox`) счёт не
   включает — это не журнал подписки;
 - **термин гейта NTF3-70** — писатель на Go это **вызов функции фундамента**: сегодня corelib
-  `outbox.Emit`/`outbox.EmitAnchored` (`outbox/emit.go:126,139` corelib @`34bc8104a`), после под-фазы —
+  `outbox.Emit`/`outbox.EmitAnchored` (объявления `outbox/emit.go:46,105`, их вставки — `:126,139` corelib @`34bc8104a`), после под-фазы —
   функция фундамента Р3, которая ставит и строку ленты. Обёртка модуля законна, только если она зовёт
   эту функцию (так устроены `emitCompute` и `EmitVPC`). **Литеральный `INSERT` в таблицу журнала в
   не-тестовом Go — обход**, как бы ни называлась функция, в которой он стоит, в том числе эмиттер
@@ -473,9 +482,16 @@ NTF-4 @`53f865d8` — редакция 18 (`sha256sum` файла
   - вызов функции фундамента — `git grep -nE 'outbox\.EmitAnchored|outbox\.Emit\(' 1d42a6728bf -- 'services/'{compute,vpc,nlb,registry,storage}'/internal/**/*.go' ':!**/*_test.go' | grep -vE ':[0-9]+:\s*//'`
     → **2** (без фильтра комментариев — 4: две шапки обёрток): `compute/internal/repo/outbox.go:52`, `vpc/internal/repo/helpers/outbox.go:60`;
 - функцией базы — `git grep -nE 'INSERT INTO[^;]*_(outbox|journal)' 1d42a6728bf -- 'services/'{compute,vpc,nlb,registry,storage}'/internal/migrations/*.sql'` (пять путей, в оболочке — раскрытием скобок; только `*.sql` — без сужения в выдачу попадает `vpc/internal/migrations/README.md:233`) → 30 строк
-  и `git grep -nE 'CREATE TRIGGER|DROP TRIGGER|DROP TABLE' …` по тем же файлам; каждое попадание
-  отнесено к разделу `-- +goose Up` либо `Down` и к **последнему** определению функции; триггер
-  считается живым, если после последней миграции он не снят;
+  (7 — nlb, 1 — registry, 19 — storage, 3 — vpc, 0 — compute; по последнему определению — шесть
+  функций таблицы ниже); их триггеры —
+  `git grep -nE 'EXECUTE FUNCTION (kacho_[a-z]+\.)?(subnets_outbox_emit_route_table_change|lb_status_recompute|registries_journal_emit|storage_outbox_emit(_attachment|_lineage)?)\(' 1d42a6728bf -- 'services/'{compute,vpc,nlb,registry,storage}'/internal/migrations/*.sql'`
+  → **18** строк; каждое попадание отнесено к разделу `-- +goose Up` либо `Down` (граница — строка
+  `-- +goose Down` файла) и сверено с `DROP TRIGGER` / `DROP TABLE` последующих миграций
+  (`git grep -nE 'DROP TRIGGER' 1d42a6728bf -- <те же пять путей>`): из 18 в разделе `Down` — 3
+  (`nlb/…/0022_…:160,180,184`), заменён позднейшей миграцией — 1 (`nlb/…/0001_initial.sql:552`,
+  правка `listeners`, пересоздана `0022_…:124` после снятия `:117`), сняты вместе с таблицей
+  `attached_target_groups` — 2 (`0001_initial.sql:561,565`; `0022_…:24-25`); живых **18 − 3 − 1 − 2 = 12**;
+  `storage_outbox_emit_source` триггера не имеет — её зовёт `storage_outbox_emit_lineage`;
 - **вне дерева модулей и вне миграций** (Д24: обход всего ствола, не только `services/*/internal`) —
   `git grep -nE 'INSERT INTO[^;(]*(compute_outbox|vpc_outbox|nlb_outbox|registry_resource_journal|storage_outbox)' 1d42a6728bf -- ':!**/*_test.go' ':!**/migrations/**'`
   → **3**: две литеральные вставки nlb (выше) и **посев стенда** `deploy/scripts/vpc-address-pool-baseline.sql:172` —
@@ -484,11 +500,17 @@ NTF-4 @`53f865d8` — редакция 18 (`sha256sum` файла
   таблиц с триггерами журнала вне дерева модулей нет:
   `git grep -nE '(INSERT INTO|UPDATE|DELETE FROM)\s+([a-z_]+\.)?(volumes|snapshots|images|volume_attachments|registries|listeners|subnets)\b' 1d42a6728bf -- ':!services/**' ':!**/*.md' ':!**/*.mdx'` → 0;
 - **вызовы обёрток** (кто зовёт писателя на Go; не новые писатели, а их входы) —
-  compute `git grep -nE 'emitCompute\(' … services/compute` без объявления → 5 (все в `repo/instance_repo.go`);
-  vpc `git grep -nE '[^A-Za-z]Outbox\(\)\.Emit\(' 1d42a6728bf -- 'services/vpc/internal/**/*.go' ':!**/*_test.go'` → 50
-  (эмиттер `repo/kacho/pg/repository.go:317` зовёт `helpers.EmitVPC`); nlb — тот же предикат по `services/nlb` → 18
-  (эмиттер `outbox_emitter.go:37` — литерал); registry и storage на Go журнал не пишут. Вставки `outbox.Emit`
-  у `geo` (`repo/kacho/pg/region.go`, `zone.go` — 6) идут в `geo_outbox`: у `geo` нет `Mapping`, это не журнал
+  compute `git grep -nE 'emitCompute\(' 1d42a6728bf -- 'services/compute/internal/**/*.go' ':!**/*_test.go' | grep -vE ':[0-9]+:\s*//' | grep -v 'func emitCompute'`
+  → 5 (все в `repo/instance_repo.go`; без двух фильтров — 7: объявление `outbox.go:48` и комментарий
+  `subscriptionjournal/journal.go:61`);
+  vpc `git grep -nE '[^A-Za-z]Outbox\(\)\.Emit\(' 1d42a6728bf -- 'services/vpc/internal/**/*.go' ':!**/*_test.go' | grep -vE ':[0-9]+:\s*//'`
+  → **50** (без фильтра комментариев — 77: 27 строк комментариев — 16 в `repo/kacho/pg/*.go`, 10 в
+  `repo/kacho/iface_*.go`, 1 в `apps/kacho/api/gateway/iface.go`; эмиттер
+  `repo/kacho/pg/repository.go:317` зовёт `helpers.EmitVPC`); nlb — тот же предикат по
+  `'services/nlb/internal/**/*.go'` → 18 (с фильтром и без — 18; эмиттер `outbox_emitter.go:37` — литерал);
+  registry и storage на Go журнал не пишут. Вставки `outbox.Emit` у `geo` —
+  `git grep -nE 'outbox\.Emit\(' 1d42a6728bf -- 'services/geo/internal/**/*.go' ':!**/*_test.go'` → 6
+  (`repo/kacho/pg/region.go`, `zone.go`) — идут в `geo_outbox`: у `geo` нет `Mapping`, это не журнал
   подписки (Р1).
 
 | модуль | таблица журнала | писатели на Go | функции базы, пишущие журнал (последнее определение) | их живые триггеры |
@@ -555,7 +577,9 @@ registry» была неверна):
   `Outbox().Emit(ctx, "Address"` — `api/address/create.go:640`, `api/address/release.go:150`) либо функция
   базы по изменённой таблице (§1.13).
 - **Публичный вход** — вызовы пишущих методов клиента из прикладного кода:
-  `git grep -nE '\.(Attach|Detach)\(ctx' 1d42a6728bf -- 'services/compute/internal/apps/**/*.go' ':!**/*_test.go'` → 5;
+  `git grep -nE '\.(Attach|Detach)\(ctx' 1d42a6728bf -- 'services/compute/internal/apps/**/*.go' ':!**/*_test.go'` → **6**
+  (`api/instance/instance.go:820,879,965,976`, `instance_nic.go:62,120` — все шесть в таблице ниже;
+  прежнее «5» в редакции 21 с выводом команды расходилось);
   `git grep -nE '\.(AllocateExternalIP|AllocateExternalIPv6|AllocateInternalIP|AllocateInternalIPv6|ReleaseLease|SetReference|AttachExisting)\(ctx' 1d42a6728bf -- 'services/nlb/internal/**/*.go' ':!**/*_test.go' ':!services/nlb/internal/clients/**'` → 8.
   Исполнитель операции работает под личностью начавшего: compute — движок операций фундамента
   (`operations/worker.go:455-470` corelib @`34bc8104a`, контекст запроса без отмены), nlb — явная
@@ -568,7 +592,7 @@ registry» была неверна):
 | vpc `InternalNetworkInterfaceService.Attach` | `compute/internal/clients/vpc_nic_client.go:61` | `InstanceService.AttachNetworkInterface` (`api/instance/instance_nic.go:62`) | **нет** (`nicinternal/service.go:146` — запись без эмиттера), хотя меняются `usedBy` и `status` интерфейса | `NetworkInterface` `UPDATED` — NTF3-160 (ж) |
 | vpc `InternalNetworkInterfaceService.Detach` | `vpc_nic_client.go:86` | `InstanceService.DetachNetworkInterface` (`instance_nic.go:120`); `InstanceService.Delete` (`instance.go:965`) | **нет** (`nicinternal/service.go:187`) | `NetworkInterface` `UPDATED` — NTF3-160 (ж), (з) |
 | vpc `InternalAddressService.CreateOwnedAddress` | `nlb/internal/clients/vpc/internal_address_client.go:834` | `NetworkLoadBalancerService.Create` с `v4Source`/`v6Source` = `subnetId` либо `public` (`api/loadbalancer/create.go:595,597,618,620`) | `Address` `CREATED` — общий путь `Create` (`address/handler.go:142-165` → `create.go:640`) | то же, `initiator = user:<начавший>` — NTF3-160 (д) |
-| vpc `InternalAddressService.ReleaseOwnedAddress` | `internal_address_client.go:501` | `NetworkLoadBalancerService.Delete` (`delete.go:292`); компенсация сорвавшегося `Create` (`create.go:818`); фоновое задание освобождения (`jobs/free_ip_runner.go:466`, системная личность — не публичный вход) | исход `RELEASED` — `Address` `DELETED` (`release.go:150`); исход `DETACHED` (адрес арендатора, привязанный к балансировщику) — **нет**, хотя `used`/`usedBy` меняются | `RELEASED` — `DELETED`; `DETACHED` — `Address` `UPDATED`; повторные исходы `ALREADY_*` — строк нет — NTF3-160 (д), (е) |
+| vpc `InternalAddressService.ReleaseOwnedAddress` | `internal_address_client.go:501` | `NetworkLoadBalancerService.Delete` (`delete.go:292`); компенсация сорвавшегося `Create` (`create.go:818`); фоновое задание освобождения (`jobs/free_ip_runner.go:466`, системная личность — не публичный вход; строится посевом С18) | исход `RELEASED` — `Address` `DELETED` (`release.go:150`); исход `DETACHED` (адрес арендатора, привязанный к балансировщику) — **нет**, хотя `used`/`usedBy` меняются | `RELEASED` — `DELETED`; `DETACHED` — `Address` `UPDATED`; повторные исходы `ALREADY_*` — строк нет — NTF3-160 (д), (е); из фонового задания — `initiator = system:nlb-free-ip-runner` — NTF3-163 |
 | vpc `InternalAddressService.SetAddressReference` | `internal_address_client.go:754` (привязка существующего адреса); `:630` (`SetReference` — вызывающих в не-тестовом коде 0) | `NetworkLoadBalancerService.Create` с `v4Source`/`v6Source` = `addressId` (`create.go:565`) | **нет** (`addressref/service.go` — эмиттера 0) | `Address` `UPDATED` — NTF3-160 (е) |
 
 Итог @`1d42a6728bf`: пишущих методов под пересланной личностью **7**, публичных входов к ним **7**
@@ -578,7 +602,8 @@ registry» была неверна):
 меняют видимое состояние опубликованного вида без строки журнала **3** метода и исход `DETACHED`.
 Прежняя фраза Р2 и §7 «такой путь один — привязка диска; вызовы nlb в vpc — чтения» опровергнута.
 Системной личностью пишущий метод зовёт один путь — фоновое задание nlb (`free_ip_runner.go:465`,
-`operations.SystemPrincipal()`, без имени компонента); публичным API он не конструируется (§7).
+`operations.SystemPrincipal()`, без имени компонента); публичным API он целиком не конструируется —
+застрявшее снятие строится посевом С18 (§7), наблюдаемое — NTF3-163.
 Полнота переписи ограничена механизмом: предикат видит пересылку через `PropagateOutgoing` и
 заголовки `x-kacho-principal-*`; третьего способа переслать личность в дереве нет (оба предиката выше).
 
@@ -615,8 +640,8 @@ registry» была неверна):
 | Д20 | (1) ответ мутации несёт `done = true`, опрос клиенту не нужен; перечень «только с внутреннего слушателя» NTF-4 — по бэкенду; (2) не-`Internal` методы `notify` край маршрутизирует и внешним gRPC-входом, как у прочих доменов (единообразие для клиентов, SDK, Terraform); ключ `notify` разрешён на внешнем gRPC-входе только для не-`Internal` методов по перечню; `Internal*` наружу не выходят (`ban06`); (3) «`notify` один» — одна служба и одно имя на крае; `notify-sender` (единственный держатель кредов) и `notify-api` (без кредов) — раздельные развёртывания | публичные по контракту методы Р25 — в перечне разрешённых методов края и доступны внешним gRPC-входом с тем же исходом, что REST; `Internal*` — отказ маршрута до звена прав; соединение края к `notify-api` одно, под ключом `notify`; опрос операции `nop` внешним входом — `NOT_FOUND`; Р8 (два развёртывания) в силе | Р8, Р25, NTF3-127, NTF3-159 |
 | Д21 | атрибут шаблона объявляется в `notification.yaml` как required или optional; нулевое значение откатывает транзакцию постановки только у required; у `invite` при сервисной учётке `invitedBy` — optional; перечень «шаблон × атрибут × откуда значение × законен ли нуль» по каждому пути вызова, включая посев без человека, — в замысле | каждый атрибут шаблонов модулей — storage Р17 (`resource_id`, `resource_name`, `project_id`, `reason`, `occurred_at`) и генерируемых Р3 и Р18 (`operation_id`, `description`, `resource_type`, `resource_id`, `code`) — объявлен в `notification.yaml` required или optional; перечень по путям вызова (исполнитель, `Reconciler`, журнал-триггер) — в замысле пакета `docs/changes/issue-2918/` (Д22), а не здесь; шаблона `invite` NTF-3 не заводит | Р3, Р17, Р18; замысел пакета |
 | Д22 | повторный первичный разбор судит только дельту новой редакции против последней разобранной; условие к коду — в замысел, не в приёмку; возврат в приёмку — только при отсутствии наблюдаемого исхода, который документ обязан утверждать | следствий для наблюдаемого поведения нет; перечень Д21 и прочие условия к коду живут в замысле пакета, приёмка несёт только исходы | — |
-| Д23 | ключ отпечатка адреса (Р15 NTF-4) — в **отдельном** объекте секрета, его монтируют `notify-sender` и `notify-api`; секрет почты (SMTP, POP3, DKIM, кольцо токена) — один объект у `notify-sender`, предикат NTF-2 не меняется; ротация и контрольное значение Р11 NTF-4 согласуются на обоих развёртываниях | `notify-api` монтирует секрет ключа отпечатка и не монтирует секрет почты; гейт NTF3-127 судит **секрет почты** (один объект — отправитель), а секрет ключа отпечатка — отдельный объект, чья ссылка у `notify-api` нарушением не является | Р8, NTF3-127 |
-| Д24 | каждое утверждение документа о дереве — предикат с командой и числом @ревизия; для NTF-3 — полная перепись по всем модулям kacho до правки текста: (а) все писатели журнала подписки, (б) все пишущие пути под пересланной личностью | (а) — §1.13 (обход всего ствола вне миграций; найден посев стенда); (б) — §1.14 (по вызовам клиентов); решение по каждому найденному пути — Р2, Р3; наблюдаемое — NTF3-160 (г)–(з), NTF3-162, NTF3-70 | §1.13, §1.14, Р2, Р3 |
+| Д23 | ключ отпечатка адреса (Р15 NTF-4) — в **отдельном** объекте секрета, его монтируют `notify-sender` и `notify-api`; секрет почты (SMTP, POP3, DKIM, кольцо токена) — один объект у `notify-sender`, предикат NTF-2 не меняется; ротация и контрольное значение Р11 NTF-4 согласуются на обоих развёртываниях | `notify-api` монтирует секрет ключа отпечатка и не монтирует секрет почты; гейт NTF3-127 судит **секрет почты** (один объект — отправитель), а секрет ключа отпечатка — отдельный объект, чья ссылка у `notify-api` нарушением не является; согласование ротации и контрольного значения ключа на обоих развёртываниях (Р11 NTF-4) держит NTF-4, NTF-3 его не утверждает | Р8, NTF3-127 |
+| Д24 | каждое утверждение документа о дереве — предикат с командой и числом @ревизия; для NTF-3 — полная перепись по всем модулям kacho до правки текста: (а) все писатели журнала подписки, (б) все пишущие пути под пересланной личностью | (а) — §1.13 (обход всего ствола вне миграций; найден посев стенда); (б) — §1.14 (по вызовам клиентов); решение по каждому найденному пути — Р2, Р3; наблюдаемое — NTF3-160 (г)–(з), NTF3-162, NTF3-163, NTF3-70 | §1.13, §1.14, Р2, Р3 |
 | Д25 | отметка прочитанного монотонна: сервер пишет наибольшее из хранимого и присланного атомарно; откат назад невозможен | `seen_up_to` Р10 — монотонна; значение меньше хранимого хранимого не меняет, значение больше последней выданной позиции ленты отвергается (иначе необратимо «прочитано всё будущее») | Р10, NTF3-161 |
 
 ### 2.2 Решения этой под-фазы
@@ -661,7 +686,10 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   (идемпотентный повтор привязки, исходы `ALREADY_RELEASED` / `ALREADY_DETACHED`), строки не пишет.
   Пересланная **системная** личность (фоновое задание nlb, §1.14) даёт инициатора
   `system:<компонент>`, где компонент называет службу и роль отправителя, а не общую системную
-  личность. Основание: Д10 и ТВ10 («создал/обновил/удалил» — изменение, видимое в `Get`, есть
+  личность: у задания освобождения адресов nlb — `system:nlb-free-ip-runner`; тем же инициатором
+  задание пишет и свою строку `NetworkLoadBalancer` `DELETED` доведения снятия. Строки журнала с
+  общей системной личностью без имени компонента не бывает; держатель — NTF3-163 (близнец — то же
+  снятие публичным `Delete` даёт `user:<начавший>`). Основание: Д10 и ТВ10 («создал/обновил/удалил» — изменение, видимое в `Get`, есть
   обновление); Д24 — решение по каждому найденному пути, а не по одному названному.
 - Публикуются все 20 видов kacho с типом модели: к 16 добавляются PlacementGroup, GuestAccessKey,
   AddressPool, Repository (объект `<reg>/<repo>`). Строки вида `AddressPoolNetworkDefault`
@@ -1014,6 +1042,9 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   сказано в комментарии поля контракта). Значение **больше последней выданной позиции ленты** —
   `INVALID_ARGUMENT` `seen_up_to: beyond the latest inbox position` (сверка в том же операторе): при
   монотонной отметке такое значение необратимо объявило бы просмотренными все будущие события.
+  «Последняя выданная позиция ленты» — наибольшая позиция приёма во **всей** ленте консоли
+  установки: позиция приёма — одна последовательность базы `notify` на всех пользователей (Р9), а не
+  наибольшая позиция из записей, видимых вызывающему.
   Держатель — NTF3-161; потребитель — NTF-6 (Д15).
 - Объект — сам вызывающий: запрос не называет пользователя, поэтому чужие настройки ни прочесть,
   ни изменить нельзя. Права модели не требуется (authN обязателен, вызывающий — `user:`); это
@@ -1744,7 +1775,7 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
 
 - **Перевод ресурса storage в `ERROR` и обратно на поднятом стенде** публичным API не
   конструируется: фейковый бэкенд в не-тестовом коде не используется
-  (`git grep -nE 'fake\.New' origin/main -- services/storage ':!*_test.go' | wc -l` → 0 @`1d42a6728bf`),
+  (`git grep -nE 'fake\.New' 1d42a6728bf -- services/storage ':!*_test.go' | wc -l` → 0),
   а ручка инъекции отказа в прод-коде запрещена (`ban13-test-only-pr`, `ban14-production-grade`).
   Поэтому связь «переход → строка ленты» — интеграционные пробы storage (testcontainers + фейковый
   бэкенд `blockbackend/fake` с `FailVerb`, `ClearFailures`, `SetObservedState`); связь «строка →
@@ -1757,9 +1788,11 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
   конструируется — через него идёт каждый глагол nlb; его наблюдаемое после перевода на функцию
   фундамента — строка ленты на строку журнала глагола (NTF3-160 (б), строка глагола приёмника;
   NTF3-68), счёт — гейт NTF3-70 с парой (в). **Шаг доведения снятия фонового задания** публичным API
-  не конструируется: вставку делает `emitReconcileFinalize`. Держатели — гейт NTF3-70 (прямых
-  вставок мимо функции фундамента 0 у каждого модуля) и отказ базы NTF3-62 (строка без инициатора не
-  пишется); значение инициатора фонового задания — форма `system:<компонент>` Р2.
+  не конструируется: вставку делает `emitReconcileFinalize`; в интеграционной обвязке он строится
+  посевом С18 (застрявшее снятие балансировщика) и одним проходом задания. Держатели — гейт NTF3-70
+  (прямых вставок мимо функции фундамента 0 у каждого модуля), отказ базы NTF3-62 (строка без
+  инициатора не пишется) и NTF3-163 (строка `NetworkLoadBalancer` `DELETED` задания с инициатором
+  `system:nlb-free-ip-runner`, строка ленты на строку журнала).
 - **Привязка диска** (`storage_outbox_emit_attachment`, §1.13) публичным API конструируется
   **не целиком**. Глаголы — публичные: `InstanceService.AttachDisk` и `DetachDisk`
   (`instance_service.proto:173,192` @`1d42a6728bf`). **Условие** привязки публичным API не строится:
@@ -1768,7 +1801,9 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
   (`services/compute/internal/repo/instance_repo.go:442-447`), а `InstanceService.Create` оставляет
   инстанс в `PROVISIONING`, и перехода из него в не-тестовом коде compute нет — переход к `RUNNING`
   принадлежит саге запуска COMP-2 (`git grep -n 'SET status' 1d42a6728bf -- services/compute
-  ':!*_test.go'` — только CAS смены статуса между существующими состояниями и `DELETING`; `Start`
+  ':!*_test.go'` → 3 строки: две на `instances` — CAS смены статуса между существующими состояниями
+  (`instance_repo.go:364`) и переход в `DELETING` (`:476`), третья — миграция журнала аудита
+  (`20260823001500_audit_journal_gets_its_receiver.sql:42`, другая таблица); `Start`
   требует `STOPPED`, `Stop` — `RUNNING`). Поэтому состояние инстанса строится **посевом** (С15:
   статус строки инстанса в базе compute обвязки — `STOPPED`) до чтения позиции `P0`; сами
   `AttachDisk` и `DetachDisk` идут публичным путём (`DetachDisk` состояния инстанса не проверяет).
@@ -1789,9 +1824,14 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
   подсети (выделяемый адрес) либо существующего адреса (привязка) и `Delete` — NTF3-160 (д), (е).
   **Компенсация сорвавшегося `Create`** (`create.go:818`) публичным API не конструируется без отказа
   соседа посреди саги; она зовёт тот же метод `ReleaseOwnedAddress` в том же контексте операции, что
-  `Delete` (принципал установлен `create.go:477`), и её исход у vpc тот же, что (д) при снятии.
-  **Фоновое задание освобождения** (`jobs/free_ip_runner.go:465-466`) идёт под системной личностью и
-  публичным API не конструируется; его наблюдаемое — форма инициатора Р2 и отказ базы NTF3-62.
+  `Delete` (принципал установлен `create.go:477`), и её исход у vpc тот же, что (д) при снятии. В
+  интеграционной обвязке её можно построить подменой ответа vpc на шаг саги после выделения адреса
+  (приём С7 на клиенте vpc); строится ли отдельная проба — предмет замысла, наблюдаемое то же, что (д).
+  **Фоновое задание освобождения** (`jobs/free_ip_runner.go:465-466`) идёт под системной личностью;
+  публичным API не конструируется **условие** — застрявшее снятие (строка балансировщика в `DELETING`
+  старше порога возраста задания): балансировщик и его выделенный адрес создаются публично, условие —
+  посевом С18, проход задания — один запуск в обвязке. Держатель — NTF3-163 (инициатор
+  `system:nlb-free-ip-runner` на строках vpc и nlb; близнец — публичный `Delete`).
 - **Посев стенда** (`deploy/scripts/vpc-address-pool-baseline.sql`) на стенде исполняется рецептом
   подъёма; его строка журнала проверяется интеграционной пробой, исполняющей тот же файл против базы
   vpc обвязки (С16, NTF3-162).
@@ -1821,6 +1861,8 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
 | С14 | вызов слушателя `notify-api` из круга пересылающих | gRPC-клиент обвязки с сертификатом из выпуска установки, SAN которого — в круге пересылающих `notify` (форма SAN края), и пересланным принципалом посеянного пользователя в форме пересылки края | интеграционная обвязка `notify-api` |
 | С15 | посев состояния инстанса compute | статус строки инстанса, созданного публичным `InstanceService.Create`, — `STOPPED` (перехода из `PROVISIONING` в дереве нет до COMP-2, §7); одна прямая запись статуса по `id`, до чтения позиции журнала `P0`; журнал storage посев не трогает | база compute в интеграционной обвязке compute + storage |
 | С16 | исполнение посева стенда vpc | файл `deploy/scripts/vpc-address-pool-baseline.sql` исполняется против базы vpc обвязки после миграций этой под-фазы (как проба `address_pool_baseline_seed_integration_test.go` сегодня) | интеграционная обвязка vpc |
+| С17 | посев отметки просмотра | `seen_up_to` строки настроек заданного пользователя — заданная **уже выданная** позиция ленты; одна прямая запись по пользователю в обход монотонной правки (публичный путь отметку назад не двигает, Р10); ставится перед каждым повтором параллельного прохода | база `kacho_notify` в интеграционной обвязке `notify-api` |
+| С18 | посев застрявшего снятия балансировщика | строка балансировщика, созданного публичным `NetworkLoadBalancerService.Create`, — статус `DELETING` и время последней правки на 1 h раньше текущего (старше порога возраста задания освобождения адресов); одна прямая запись по `id`, до чтения `P0`; журнал nlb и базу vpc посев не трогает; таймер задания в обвязке выключен, проход задания обвязка запускает по одному | база nlb в интеграционной обвязке nlb + vpc |
 
 **Общий Given `G0`** (если не сказано иное):
 - набор `storage` + `vpc` + `notify` (оба развёртывания; `notify-api` — в форме «только внутренний
@@ -1871,7 +1913,7 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
 
 Номера сценариев стабильны между редакциями: снятый номер не переиспользуется. Снятые — NTF3-08,
 41, 42, 44 (редакция 3), NTF3-45 (редакция 5), NTF3-123, 124 (редакция 6); их записи ниже.
-Заведены в редакции 6: NTF3-149…154; в редакции 7: NTF3-155…158; в редакции 14: NTF3-159 (буквы переписаны в редакции 15); в редакции 17: NTF3-160 (буквы (д)–(з) — в редакции 21); в редакции 21: NTF3-161, 162. Стадий три: S1 — журнал, флаг,
+Заведены в редакции 6: NTF3-149…154; в редакции 7: NTF3-155…158; в редакции 14: NTF3-159 (буквы переписаны в редакции 15); в редакции 17: NTF3-160 (буквы (д)–(з) — в редакции 21); в редакции 21: NTF3-161, 162; в редакции 22: NTF3-163. Стадий три: S1 — журнал, флаг,
 перепись, локаль, сборка; S2 — лента событий, лента консоли, настройки, подписки, сводка,
 мгновенные письма, контакты, справочник; S3 — сбои ресурсов storage, сбой операции, напоминания,
 сквозные.
@@ -2322,16 +2364,18 @@ payload: `instanceId = "ins-2"`, `attachedNicSpec.nicId = "nic-1"`; операц
 **When** (з) снятие инстанса с привязками (compute → storage `Detach`, compute → vpc
 `InternalNetworkInterfaceService.Detach`): `usr-A` создал инстанс `ins-3` в `zn-1`, диск `vol-13` в `zn-1`
 (`AVAILABLE`) и интерфейс `nic-3` в `sub-d`; посевом С15 статус `ins-3` — `STOPPED`; привязал `vol-13`
-(`AttachDisk`, как в (г)) и `nic-3` (`AttachNetworkInterface`, как в (ж)); затем читает `P0` журналов vpc
-и storage; вызывает `InstanceService.Delete` `ins-3` (`DELETE /compute/v1/instances/ins-3`); операция `done=true`
+(`AttachDisk`, как в (г)) и `nic-3` (`AttachNetworkInterface`, как в (ж)); затем — после обеих привязок и
+до вызова `Delete` — читает `P0` журналов vpc, storage **и compute**; вызывает `InstanceService.Delete` `ins-3` (`DELETE /compute/v1/instances/ins-3`); операция `done=true`
 **Then** `VolumeService.Get` `vol-13` — `status = AVAILABLE`; `NetworkInterfaceService.Get` `nic-3` —
 `usedBy` пуст; в журнале storage после `P0` строк `Volume` `UPDATED` `vol-13` — **одна**, в журнале vpc
-строк `NetworkInterface` `UPDATED` `nic-3` — **одна**, обе с `initiator = "user:usr-A"`; в журнале compute —
-строка `Instance` `DELETED` `ins-3` с `initiator = "user:usr-A"`
+строк `NetworkInterface` `UPDATED` `nic-3` — **одна**, обе с `initiator = "user:usr-A"`; в журнале compute
+после `P0` строк по `ins-3` ровно **две** — `Instance` `UPDATED` (переход в `DELETING`, его пишет снятие
+первым шагом) и `Instance` `DELETED`, обе с `initiator = "user:usr-A"`
 **And** каждой строке журналов storage, vpc и compute после `P0` — ровно одна строка `resource-event` в
 ленте своего модуля (те же пять полей), лишних строк ленты нет
 **And** близнец (з): инстанс `ins-4` без привязок снимает `usr-A` — строк `Volume` и `NetworkInterface`
-после `P0` **0**, строка `Instance` `DELETED` `ins-4` одна
+после `P0` **0**; строк compute по `ins-4` после `P0` (прочитан так же — непосредственно перед `Delete`) —
+те же **две**, `Instance` `UPDATED` и `Instance` `DELETED`
 
 **Сценарий NTF3-162: посев стенда пишет журнал с инициатором и строкой ленты**
 **ID:** NTF3-162
@@ -2343,6 +2387,36 @@ payload: `instanceId = "ins-2"`, `attachedNicSpec.nicId = "nic-1"`; операц
 `resource-event` с теми же `kind`, `resource_id`, `change`, `initiator`, `occurred_at` и `scope=cluster`
 **And** близнец: второе исполнение того же файла (пул уже есть) — строк журнала и ленты после позиции,
 прочитанной перед ним, **0**
+
+**Сценарий NTF3-163: изменение, сделанное фоновым заданием под системной личностью, несёт инициатором имя компонента**
+**ID:** NTF3-163
+**Given** G0 и модуль `nlb` в наборе, как в NTF3-160 (д); регион `rg-1` и зона `zn-1` — справочник `geo`
+обвязки; таймер задания освобождения адресов nlb выключен, порог возраста задания — `60s` (С18);
+`usr-A` создал в `prj-1` сеть `net-s` и подсеть `sub-s` в `zn-1` (`v4CidrBlocks = ["10.41.0.0/24"]`) и
+вызвал `NetworkLoadBalancerService.Create` (`POST /nlb/v1/networkLoadBalancers`) с payload:
+`projectId = "prj-1"`, `name = "lb-s"`, `regionId = "rg-1"`, `placement = INTERNAL_ZONAL`,
+`v4Source.subnetId = "sub-s"`; операция `done=true`; `NetworkLoadBalancerService.Get` `lb-s` —
+`v4AddressId = A3` (непуст); посевом С18 строка `lb-s` — статус `DELETING`, время последней правки на
+1 h раньше текущего; затем проба читает последние позиции журналов vpc и nlb `P0`
+**When** обвязка запускает один проход задания освобождения адресов nlb
+**Then** `AddressService.Get` `A3` — `NOT_FOUND`; `NetworkLoadBalancerService.Get` `lb-s` — `NOT_FOUND`
+**And** в журнале vpc после `P0` ровно одна строка — `Address` `DELETED` `A3` с
+`initiator = "system:nlb-free-ip-runner"` и заполненным `occurred_at`; в журнале nlb после `P0` ровно одна
+строка — `NetworkLoadBalancer` `DELETED` `lb-s` с тем же инициатором
+**And** строк журналов vpc и nlb после `P0` с инициатором вида `user:` или `service:` либо с инициатором
+`system:`, у которого компонент иной, чем `nlb-free-ip-runner`, — **0**
+**And** каждой строке журналов vpc и nlb после `P0` соответствует ровно одна строка `resource-event` в
+ленте своего модуля с теми же `kind`, `resource_id`, `change`, `initiator`, `occurred_at`, лишних строк
+ленты нет
+**And** после приёма этих строк `notify-sender` `GET /notify/v1/inbox?projectId=prj-1` у `usr-A` содержит
+запись `kind=Address`, `resourceId=A3`, `change=DELETED` и запись `kind=NetworkLoadBalancer`,
+`resourceId=lb-s`, `change=DELETED`, обе с `initiator = "system:nlb-free-ip-runner"`
+**And** близнец: тот же набор с балансировщиком `lb-t` (адрес `A4`) **без** посева С18 — `usr-A` вызывает
+`NetworkLoadBalancerService.Delete` `lb-t`, операция `done=true`, затем обвязка запускает тот же один
+проход задания; строк `Address` `DELETED` `A4` в журнале vpc и `NetworkLoadBalancer` `DELETED` `lb-t` в
+журнале nlb после `P0` — по одной, обе с `initiator = "user:usr-A"`; строк с
+`initiator = "system:nlb-free-ip-runner"` после `P0` — **0** (задание строку не подобрало: снятие уже
+завершено); записи ленты консоли `usr-A` по `A4` и `lb-t` — с `initiator = "user:usr-A"`
 
 **Сценарий NTF3-71: в строке события нет свободного текста арендатора**
 **ID:** NTF3-71
@@ -2529,16 +2603,21 @@ payload: `instanceId = "ins-2"`, `attachedNicSpec.nicId = "nic-1"`; операц
 **Сценарий NTF3-161: отметка просмотра монотонна и не заходит за последнюю позицию ленты**
 **ID:** NTF3-161
 **Given** G0; в ленте консоли `usr-A` три записи с позициями `P1 < P2 < P3`, `P3` — последняя выданная
-позиция ленты; `seenUpTo` у `usr-A` пуст
+позиция ленты — наибольшая позиция приёма во **всей** ленте установки (Р10; других записей в обвязке
+нет); `seenUpTo` у `usr-A` пуст; каждая буква начинается с этого состояния
 **When** (а) `usr-A` вызывает `PATCH /notify/v1/preferences` с маской `seen_up_to`, `seenUpTo = P2`; затем
 тот же вызов с `seenUpTo = P1`
 **Then** оба ответа — `Operation` `done=true`; `GET /notify/v1/preferences` — `seenUpTo = P2`
 **And** близнец (а): второй вызов с `seenUpTo = P3` (больше хранимого) — `GET` — `seenUpTo = P3`
-**When** (б) хранимое — `P1`; `usr-A` одновременно (параллельные горутины обвязки, 50 повторов, в каждом
-повторе хранимое заново `P1`) отправляет два вызова: `seenUpTo = P2` и `seenUpTo = P3`
+**When** (б) 50 повторов; перед **каждым** повтором хранимое `seenUpTo` у `usr-A` ставится в `P1` посевом
+С17 (публичной правкой назад отметку не вернуть — это утверждает (а)), после посева `GET` —
+`seenUpTo = P1`; затем `usr-A` одновременно (параллельные горутины обвязки) отправляет два вызова:
+`seenUpTo = P2` и `seenUpTo = P3`
 **Then** в каждом повторе оба ответа `done=true`, `GET` — `seenUpTo = P3` при любом порядке фиксации
-**And** близнец (б): те же два вызова последовательно, `P3` затем `P2`, — `seenUpTo = P3`
-**When** (в) хранимое — `P1`; `usr-A` вызывает тот же `PATCH` с `seenUpTo` = позиция, следующая за `P3`
+**And** близнец (б): тот же посев С17 в `P1`, затем те же два вызова последовательно, `P3` затем `P2`, —
+`seenUpTo = P3`
+**When** (в) хранимое — `P1`, выставлено публичным `PATCH` `seenUpTo = P1` из пустого (`GET` — `seenUpTo = P1`);
+`usr-A` вызывает тот же `PATCH` с `seenUpTo` = позиция, следующая за `P3`
 (в форме позиции, но ещё не выданная)
 **Then** 400 `INVALID_ARGUMENT`, поле `seen_up_to`, текст `seen_up_to: beyond the latest inbox position`;
 `GET` — `seenUpTo = P1`
@@ -4015,6 +4094,7 @@ t + 14d (осталось 1d), задание проходит
 | NTF3-161 (б) | внутри | два вызова последовательно / параллельно |
 | NTF3-161 (в) | внутри | значение равно последней выданной позиции / следует за ней |
 | NTF3-162 | внутри | пул уже засеян / не засеян |
+| NTF3-163 | внутри | балансировщик снят публичным `Delete` начавшим `usr-A` / застрявшее снятие (посев С18) довело фоновое задание |
 | NTF3-71 | NTF3-68 | изменено только описание и метки / имя |
 | NTF3-74 | NTF3-73 | у вызывающего нет `v_get` на ресурс / есть |
 | NTF3-75 (`usr-X`) | NTF3-75 (`usr-E`) | нет `v_get` на якорь-проект / есть |
@@ -4183,6 +4263,7 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 | NTF3-160 | функции базы vpc `subnets_outbox_emit_route_table_change`, nlb `lb_status_recompute`, storage `storage_outbox_emit_source` и `storage_outbox_emit_attachment` (существуют, §1.13) в новых версиях: инициатор транзакции и строка `resource-event` той же транзакцией (`notifygen`); по букве (г) инициатор транзакции storage — субъект, пересланный compute, из пары `CertIdentityExtract` → `TrustedPrincipalExtract` внутреннего слушателя storage (не сертификат пира; Р2); пересылка личности compute — `storage_client.go:69,97` (существует), compute в круге пересылающих storage — профиль установки (существует); для (г) состояние инстанса `STOPPED` — посев С15 (публичным API не производится до COMP-2: гейт `GateForAttach`, `services/compute/internal/repo/instance_repo.go:442-447`, существует) | миграции vpc, nlb, storage (новые); установка инициатора транзакции в storage (новое); посев С15 — тестовое дерево обвязки (новое) | интеграционные пробы vpc, nlb, storage с чтением журнала и ленты после позиции `P0`; для (г) — compute и storage в одной обвязке с пересылкой личности, посев С15 до `P0` |
 | NTF3-160 (д)–(з) | инициатор транзакции vpc по пересланному вызову — субъект из пары `CertIdentityExtract` → `TrustedPrincipalExtract` внутреннего слушателя vpc (не сертификат пира; Р2); `Address` `CREATED`/`DELETED` (существуют: `address/create.go:640`, `release.go:150`); новые строки `Address` `UPDATED` при привязке и снятии привязки существующего адреса (`addressref`, исход `DETACHED` `ReleaseOwnedAddress`) и `NetworkInterface` `UPDATED` при привязке и снятии (`nicinternal`), без строки на повторе; пересылка личности nlb и compute — `internal_address_client.go:501,754,834`, `vpc_nic_client.go:61,86`, `storage_client.go:97` (существуют); условие `STOPPED` — посев С15 | `services/vpc/internal/apps/kacho/services/{addressref,nicinternal}/`, `services/vpc/internal/apps/kacho/api/address/release.go` (существуют, дополняются); установка инициатора транзакции в vpc (новое) | интеграционные пробы nlb + vpc и compute + vpc + storage в одной обвязке с чтением журналов и лент после `P0` |
 | NTF3-161 | запись `seen_up_to` одним оператором «наибольшее из хранимого и присланного» со сверкой с последней выданной позицией ленты | `services/notify` (api), `NotificationPreferencesService.Update` (новое) | интеграционная проба `notify-api` через край; параллельные горутины (б) |
+| NTF3-163 | задание освобождения адресов nlb зовёт `ReleaseOwnedAddress` под системной личностью, называющей компонент (`system:nlb-free-ip-runner`), вместо общей (`operations.SystemPrincipal()`, `free_ip_runner.go:465`, существует); vpc пишет `Address` `DELETED` с этим пересланным инициатором (`release.go:150`, существует); строка `NetworkLoadBalancer` `DELETED` задания — функцией фундамента с тем же инициатором (`emitReconcileFinalize`, `free_ip_runner.go:477-487`, существует, правится); условие — посев С18 | `services/nlb/internal/apps/kacho/jobs/` (существует, правится); установка инициатора транзакции в vpc (то же, что NTF3-160 (д)–(з)); посев С18 и запуск одного прохода — тестовое дерево обвязки nlb + vpc (новое) | интеграционная проба nlb + vpc (+ `notify` для записи ленты консоли) с чтением журналов и лент после `P0` |
 | NTF3-162 | посев стенда пишет строку журнала vpc путём функций базы (строка ленты той же транзакцией), инициатор транзакции `system:stand-seed` | `deploy/scripts/vpc-address-pool-baseline.sql` (существует, правится) | интеграционная проба vpc, исполняющая файл посева (С16; сегодня `address_pool_baseline_seed_integration_test.go`) |
 | NTF3-72, 73..79, 158 | приём строки `fanout` (`INGESTED`), лента консоли по позиции приёма, её выдача постранично с проверкой `listauthz` (вызывающий; отказ пакетной проверки — `UNAVAILABLE`), отказы `page_size` вне `[0..1000]` и мусорного курсора до права (NTF3-77), обход по `nextPageToken` (NTF3-73), уборщик срока хранения | `services/notify` (sender: приём; api: `NotificationInboxService.List`) (новое); пообъектное сужение страницы — `corelib/listnarrow` (существует) | интеграционная проба `notify` + служба доступа; сквозная проба края для пары статуса и кода |
 | NTF3-80..86, 149 | `NotificationPreferencesService` (Get, `SetEntries`, Update по маске), `NotificationCatalogService.Get`; таблица видов и политика ячеек из класса сборки; таблицы ячеек (уникальный ключ ячейки); освобождение от права модели в ведомости аннотаций | `services/notify` (api), таблица сборки `services/notify/kinds` и шаг `bundle` (новое), `proto/kacho/cloud/notify/v1/` (новое) | интеграционная проба `notify-api` через край; параллельные горутины (NTF3-85); `make -C services/notify bundle` с инъекцией (NTF3-149) |
@@ -4262,8 +4343,9 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
    журнал nlb (эмиттер модуля и шаг доведения снятия) переведены на функцию фундамента; посев стенда
    vpc пишет журнал путём функций базы с инициатором `system:stand-seed` (NTF3-162). vpc: строки
    `NetworkInterface` `UPDATED` и `Address` `UPDATED` на пересылаемых пишущих путях §1.14, инициатор
-   транзакции vpc из пересланного принципала (NTF3-160 (д)–(з)); `notify-api`: монотонная `seen_up_to`
-   (NTF3-161); секрет ключа отпечатка адреса — отдельный объект у обоих развёртываний (Д23, NTF3-127).
+   транзакции vpc из пересланного принципала (NTF3-160 (д)–(з)); задание освобождения адресов nlb
+   пишет и пересылает инициатора `system:nlb-free-ip-runner` (NTF3-163); `notify-api`: монотонная
+   `seen_up_to` (NTF3-161, посев С17 для параллельного прохода); секрет ключа отпечатка адреса — отдельный объект у обоих развёртываний (Д23, NTF3-127).
 2. Пять модулей — **все** шаги §3 (1)–(12) у каждого (процедура NTF-1 K03 и дополнения): (1) ключ
    ленты и его ручка; (2) миграция ленты и функция постановки `notifygen`; (3) сервер ленты и ключ
    журнала `notification` → `notification_feed` в `Mapping.Kinds` (вид провода `notification_feed`); (4) звено Р2 на обоих слушателях модуля — перечень
@@ -4359,7 +4441,7 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 ### 12.4 Общее
 
 - Ни одного `TODO`/заглушки; `geo` не несёт ни одного файла нотификаций.
-- Снятые номера NTF3-08, 41, 42, 44, 45, 123, 124 не имеют проб; все прочие номера NTF3-01…NTF3-162 — ровно по
+- Снятые номера NTF3-08, 41, 42, 44, 45, 123, 124 не имеют проб; все прочие номера NTF3-01…NTF3-163 — ровно по
   одной пробе с ID в имени (ведомость ID → проба сверяется гейтом документов).
 - Предикат задачи `#2918` называет этот путь; задачи NTF-5 и NTF-6 заведены в эпике.
 
