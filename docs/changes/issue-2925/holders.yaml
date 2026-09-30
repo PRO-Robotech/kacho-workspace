@@ -105,7 +105,7 @@ required_holders:
     kind: machine
     owner: integration-tester
     executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: notifications-center.spec.ts, notifications-settings.spec.ts, notifications-contacts.spec.ts против стенда G0 (дерево kacho)'
-    predicate: 'исполнено 21 из 21, 14 из 14, 11 из 11, красных 0; проба предпосылки стенда отдельным шагом (DoD §9 пп.3, 5, 7, 13)'
+    predicate: 'исполнено 24 из 24, 17 из 17, 10 из 10, красных 0 — счёт ID в DoD §9 пп.3, 5, 7 приёмки 47bd8b70; проба предпосылки стенда отдельным шагом (DoD §9 п.13)'
     evidence_coordinate: evidence/sev-console-e2e/
     note: >-
       Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.

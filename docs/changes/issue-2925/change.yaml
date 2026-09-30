@@ -12,13 +12,17 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
-# Вердикт по отпечатку: CHANGES_REQUESTED, круг 3 (запись docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a.yaml).
-# Замысел — `design.md` редакции 3 (2026-09-30), отпечаток — `hashes.design_sha256`;
-# вердикта на него нет. Маршрут работ — `tasks.md` (проект; TASKS_READY им не объявлено).
+# СОСТОЯНИЕ CLASS_EXPOSURE_RECORDED — приёмка на отпечатке `hashes.acceptance_sha256`
+# одобрена (запись docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml,
+# APPROVED), первичный разбор классов на тот же отпечаток записан
+# (reviews/class-exposure/initial/47bd8b70….yaml). Замысел — `design.md` редакции 4
+# (2026-09-30), отпечаток — `hashes.design_sha256`; вердикта и пересверки на него нет
+# (редакция 3 `defdbe67` возвращена ревью замысла). Маршрут работ — `tasks.md` (проект;
+# TASKS_READY им не объявлено). Каталоги `evidence/*` несут отпечаток прежней редакции
+# приёмки `7a50855c` — свидетельства на `47bd8b70` не сняты.
 schema_version: 1
 change_id: issue-2925
-lifecycle_state: ISSUE_READY
+lifecycle_state: CLASS_EXPOSURE_RECORDED
 
 coordinates:
   issue: https://github.com/PRO-Robotech/kacho/issues/2925
@@ -41,9 +45,9 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
-  design_sha256: defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde
-  holders_sha256: 6c7141100ede1c9e0bd63ed52f2250ddf15d1d73c101d99f74b93318c18c67ca
+  acceptance_sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  design_sha256: 7294a684eba8da35c8033b9cbb6a76ec568161624320b647354cd3b634836da9
+  holders_sha256: 88927a5be77796a75ab3afa8e7054c3184afb64cd9a0a51070732eaf5e9f4acf
 
 links:
   policy: docs/changes/policy.yaml
