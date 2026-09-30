@@ -1,0 +1,282 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и там же сказано, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: 9c442b0d7f716ca82d040cbaa25f52031bc25f8e
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52.
+    Отпечаток — единственная привязка; после любой правки документа нужно новое рассмотрение.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1393
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T01:47:45Z'
+round: 1
+previous_rounds: []
+publication_mode: >-
+  Событие полномочия публикует курьер. Тело события — строка external_event_body ниже. Роль в
+  этой записи — координата, а не доказательство личности.
+external_event_body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52"
+blocking_count: 7
+blocking_kinds_distinct: [PRODUCER, FORMAT, COVERAGE, CONVENTION, SCOPE]
+blocking_kinds_by_item: [PRODUCER, PRODUCER, PRODUCER, FORMAT, COVERAGE, CONVENTION, SCOPE]
+
+counts:
+  scenarios: 85
+  scenario_ids_unique: true
+  groups: {A: 21, B: 5, C: 15, D: 8, E: 5, F: 3, G: 11, H: 9, I: 6, S3: 2}
+  producer_rows_section_8: 26
+  producer_claim: >-
+    §8 утверждает «сценариев без производителя: 0». Это опровергнуто для NTF5-58..61, 65, 66, 76,
+    78..80 (B1, B2) и для полей в «Тогда» NTF5-03, 27..29, 70, 73 (B3).
+  twins_section_9: >-
+    49 строк. Близнец назван у каждого отрицательного сценария. Незакрытые отрицания,
+    предложенные ниже (I-3), близнецов пока не имеют.
+  constructibility: >-
+    Посеяно 0 из 85. Службы notify в дереве нет (kacho `git ls-tree 1d42a6728bf services/` →
+    compute geo nlb registry storage vpc), стенд для посева заданием не назван. Выполнено
+    чтением: 9 посылок, подтверждено 7, опровергнуто 2 (B1, B7).
+
+premises_checked:
+  - claim: "модель kaname: 32 типа; cluster system_admin/system_viewer прямые; account owner и v_get; project v_get (§1.3)"
+    result: подтверждено
+    predicate: "git -C project/kaname show 734f69fb4:internal/authzmodel/fga_model.fga | grep -c '^type ' → 32; строки 201-204, 301, 309, 353, 403, 425 совпадают"
+  - claim: "у project есть прямое отношение viewer (на нём стоят NTF5-42..44)"
+    result: подтверждено
+    predicate: "fga_model.fga:417 `define viewer: [user, service_account, group#member] or editor` @734f69fb4"
+  - claim: "required_acr_min по умолчанию \"2\""
+    result: подтверждено
+    predicate: "proto/corelib/authz/v1/authz_options.proto:113-117 @734f69fb4 (kaname)"
+  - claim: "промах каталога края — отказ 403/7 (NTF5-26, 49)"
+    result: подтверждено
+    predicate: "gateway/internal/middleware/authz.go:667 «catalog-miss deny», :501-508 вызов step-up @1d42a6728bf"
+  - claim: "служб notify и ресурса notice в дереве нет; префикса ntc нет"
+    result: подтверждено
+    predicate: "git -C project/kacho grep -liE '\\b(notice|announcement)\\b' 1d42a6728bf -- 'proto/*.proto' | wc -l → 0; git -C project/corelib grep -c '\"ntc\"' 34bc810 -- ids/ids.go → совпадений нет"
+  - claim: "NTF-4 передаёт правило для OB в NTF-5 (NTF-4 :279-281)"
+    result: подтверждено
+    predicate: "sed -n 279,281p docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md"
+  - claim: "типы ресурсов арендатора — префиксы vpc_, compute_, nlb_, registry_, storage_"
+    result: подтверждено с оговоркой (I-5)
+    predicate: "grep -n '^type ' fga_model.fga @734f69fb4 — в эти префиксы попадает vpc_address_pool"
+  - claim: "контакты, резолвер категорий и API настроек отключения — предмет NTF-3; NTF-5 берёт их готовыми"
+    result: опровергнуто
+    predicate: "grep -ciE 'контакт|contact' docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md → 0; grep -c 'отключ' → 0; строка 520 отдаёт «подписку на категории и отписку» NTF-4; NTF-6 :140, :347 тоже ждёт их от NTF-3"
+  - claim: "экраны консоли (баннеры, страница /notices/<id>, экран оператора) — NTF-6 (§4, §11)"
+    result: опровергнуто
+    predicate: "docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md:351 относит «ресурс «извещение» оператора, экран его ведения, баннеры и страницу статуса» к NTF-5"
+
+blocking:
+  - id: B1
+    kind: PRODUCER
+    title: "Хранилища контактов, резолвера категорий и API настроек отключения нет ни в одной приёмке. Производитель назван, а его нет"
+    scenarios: [NTF5-58, NTF5-59, NTF5-60, NTF5-61, NTF5-65, NTF5-66, NTF5-76, NTF5-78, NTF5-79, NTF5-80]
+    evidence: >-
+      §1.5 сам признаёт: «на ревизии измерения их текста в документе NTF-3 нет». При этом §8
+      называет производителем «резолвер и Resolve — NTF-3» и «настройки (NTF-3)», а итог §8 —
+      «сценариев без производителя: 0». Перемерил: в NTF-3 (отпечаток 8a3165cc…) слово «контакт»
+      встречается 0 раз, «отключ» — 0 раз, а строка 520 отдаёт «подписку на категории и отписку»
+      NTF-4. NTF-6 (:140, :347) тоже ждёт API контактов и настроек от NTF-3. Выходит, что три
+      документа ссылаются на один контракт, которого нет ни в одном. Отсюда же непостроимо G0:
+      «в хранилище контактов NTF-3: acc-1, OPERATIONS → usr-c» сеять нечем. Порядок резолвера
+      «проект → аккаунт → владелец», коды отказа настроек (NTF5-78: «INVALID_ARGUMENT с именем
+      поля вида») и форма идентификатора вида (`notify.notice-maintenance-scheduled`) нигде не
+      заданы.
+    fix: >-
+      Выбрать один путь и записать его решением. (а) Контракт контактов и настроек (хранилище в
+      notify, методы, коды отказа, форма идентификатора вида, порядок резолва) определяет эта
+      под-фаза в своих границах и дописывает строку в §3. (б) Он определяется в NTF-3 новой
+      редакцией, а NTF-5 ссылается на её разделы по имени. Пока ни (а), ни (б) не сделано, в §8 у
+      этих сценариев стоит «производителя нет», а итоговая строка §8 исправлена.
+  - id: B2
+    kind: PRODUCER
+    title: "«По умолчанию — владелец аккаунта»: владельца аккаунта не отдаёт ни один метод"
+    scenarios: [NTF5-59, NTF5-66, NTF5-84, NTF5-85]
+    evidence: >-
+      Р8 требует «иначе владелец аккаунта». Но DescribeScope (Р10) отвечает только `{exists,
+      accountId}`, ListAccounts — только идентификаторами, а Resolve (NTF-3 Р10) принимает
+      субъекта на входе и субъекта не ищет. Модель держит `account.owner: [user]`
+      (fga_model.fga:309 @734f69fb4), но метода, который отдавал бы notify этого субъекта, в
+      документе нет. Д8 при этом говорит: «kaname — только права». Кто и каким вызовом получает
+      владельца, не сказано. NTF5-66 (250 владельцев) и S3 (владелец acc-t) стоят на этом звене.
+    fix: >-
+      Назвать производителя владельца. Например: ответ DescribeScope либо ListAccounts несёт
+      субъекта-владельца, либо отдельный внутренний метод с тем же ограждением (перечень SAN
+      notify и отношение на объекте справочника). Добавить сценарий, где владелец меняется между
+      этапами (пересчёт на этапе, Р8), с близнецом.
+  - id: B3
+    kind: PRODUCER
+    title: "«Тогда» утверждает поля, которых нет ни в одной объявленной проекции"
+    scenarios: [NTF5-03, NTF5-27, NTF5-28, NTF5-29, NTF5-70, NTF5-73, NTF5-50]
+    evidence: >-
+      Р16 закрывает публичную проекцию: `id, kind, category, state, startsAt, endsAt, createdAt,
+      updatedAt`. Р18 определяет внутреннюю как «публичная + audience, affectedResources,
+      createdBy, revision, счётчики доставки». Полей `startedAt` (NTF5-27), `completedAt`
+      (NTF5-28, 50), `cancelledAt` (NTF5-29) и «назначенные напоминания» (NTF5-03, 70, 73) нет ни
+      там, ни там. Р14 считает срок хранения от «момента перехода», а в контракте этого поля нет.
+    fix: >-
+      Дописать поля в Р18, и в Р16, если арендатору они нужны, с комментарием контракта по
+      `api-projection-says`. Для напоминаний указать форму, порядок элементов и то, какие чтения
+      их заполняют (`api-repeated-order`).
+  - id: B4
+    kind: FORMAT
+    title: "Неясно, как приходит отказ перехода: синхронным статусом или ошибкой в Operation"
+    scenarios: [NTF5-30, NTF5-31, NTF5-32, NTF5-33, NTF5-35]
+    evidence: >-
+      Р5: «ноль затронутых строк → FAILED_PRECONDITION». В NTF5-30..32, 35 написано просто
+      «FAILED_PRECONDITION». NTF5-33 говорит «ровно одна операция done=true без ошибки,
+      вторая — FAILED_PRECONDITION», и из этого можно понять, что обе ветки возвращают Operation.
+      У Create канал задан явно («синхронный», «операции нет», NTF5-07, 17). Двое авторов проб
+      напишут разные утверждения, и одно из них упадёт на верной реализации.
+    fix: >-
+      В Р5 назвать канал. Либо синхронный gRPC-статус до создания Operation (тогда в NTF5-33
+      «вторая получила синхронный отказ, операции нет»), либо `Operation.result.error` с кодом 9
+      и текстом (тогда полл до done=true). Во всех пяти сценариях написать канал так же, как у
+      Create.
+  - id: B5
+    kind: COVERAGE
+    title: "Чтение в области проекта не видит извещений, адресованных его аккаунту, хотя «все аккаунты» видит"
+    scenarios: [NTF5-42, NTF5-46]
+    evidence: >-
+      По Р16 List(projectId) возвращает «аудитория содержит этот проект либо allAccounts». В
+      NTF5-42 N3 (`accountIds=[acc-1]`) в список prj-1 не попадает, хотя prj-1 лежит в acc-1, а N2
+      (allAccounts, то есть надмножество acc-1) попадает. Пользователь с viewer только на
+      проекте не увидит аварию своего аккаунта ни в List, ни в Get (там будет 404). Это расходится
+      с `containment-transitive` (правило целостности данных: объект проекта входит в аккаунт).
+      Баннеры NTF-6, построенные в контексте проекта, пропустят извещения аккаунта. Сценария на
+      такой случай нет.
+    fix: >-
+      Либо List/Get(projectId) включает извещения с аудиторией `accountIds`, куда входит аккаунт
+      этого проекта (аккаунт проекта берётся из DescribeScope или из хранения), и NTF5-42/46
+      правятся с новым близнецом. Либо исключение записывается решением с основанием и
+      сценарием «пользователь проекта не видит извещение аккаунта», и тогда явно названо, где
+      такой пользователь о нём узнаёт.
+  - id: B6
+    kind: CONVENTION
+    title: "Субъект прав notify назван двумя способами: «учётка notify» и service:notify (Д2, Д4)"
+    scenarios: [G0, NTF5-68]
+    evidence: >-
+      §2 Д2 и Д4 в документе говорят о служебном принципале `service:notify` и строке манифеста
+      `service:notify sender на notification_namespace:notify`. А Р10 и G0 пишут «прямое
+      отношение reader учётки notify» и «учётка notify с reader … и sender». По решению Д2
+      служебный принципал — не учётная запись арендаторского типа: он заводится только
+      манифестом модели. В модели @734f69fb4 типа `service` нет (есть `service_account`). Если
+      G0 посеять как service_account, это отступление от Д2 без строки спора. Если как service —
+      Р10 противоречит Д2 внутри самого документа.
+    fix: >-
+      В Р10, G0 и NTF5-68 назвать субъекта `service:notify` так, как это делает Д2, и указать тип
+      в модели, на котором стоят `reader` и `sender`. Если выбран иной субъект — нужна строка
+      спора с Д2.
+  - id: B7
+    kind: SCOPE
+    title: "Граница с NTF-6: экран оператора, баннеры, страница статуса и запись OB в ленте консоли не принадлежат никому"
+    scenarios: []
+    evidence: >-
+      NTF-5 §4 и §11 относят «баннеры, страницу /notices/<id>, экран оператора» к NTF-6. NTF-6:351
+      относит «экран его ведения, баннеры и страницу статуса» к NTF-5. Каждая сторона отдаёт
+      предмет другой. Кроме того, Д9 задаёт каналы «в объёме — почта и лента консоли», и NTF-6
+      (:172, NTF6-19) ждёт элементы класса OB в ленте. NTF-5 §4 ограничивает объём словами
+      «почта и чтение через API» и не говорит, кто кладёт извещение в ленту. Ссылка в каждом
+      письме (`/notices/<id>`, Р6) ведёт на страницу, у которой нет владельца.
+    fix: >-
+      Закрыть границу строкой в §4 и §11 с владельцем каждого предмета: экран оператора, баннеры,
+      страница /notices/<id>, запись в ленте. Если запись в ленте — предмет NTF-5, завести
+      сценарии с близнецом (OB в ленте получателя; нет в ленте у не-получателя). Одновременно
+      поправить NTF-6 — это отдельное рассмотрение.
+
+important:
+  - id: I-1
+    kind: CONSTRUCTIBILITY
+    text: >-
+      NTF5-58: метка имени `NAME-MARKER-7f3` не проходит единую форму имени (заглавные;
+      `api-name-one-form`). Кроме того, notify имени аккаунта не получает вовсе: DescribeScope
+      отвечает только `{exists, accountId}`, так что отрицание «имени нет в письме» упасть не
+      может. Взять строчную метку и назвать путь, которым имя могло бы попасть в письмо, либо
+      снять эту часть «И».
+  - id: I-2
+    kind: FORMAT
+    text: >-
+      NTF5-65: утверждение «обе реплики обрабатывали этап (запись в журнале каждой)» зависит от
+      расписания. Вторая реплика может ни разу не опросить этап до его завершения, и проба будет
+      мигать. Утверждать единственность строки доставки и письма, а участие реплик
+      проверять управляемо (например, остановить первую реплику после взятия этапа).
+  - id: I-3
+    kind: NEGATIVE
+    text: >-
+      Не хватает отрицаний с близнецами. ListByAccount и GetByAccount без viewer на аккаунте
+      (403). Update с startsAt в прошлом (`api-mask-mutable`: правила Create). Update с пустой
+      маской (`api-mask-empty-full-patch`). Подметальщик на CANCELLED (сейчас проверяется только
+      COMPLETED). Update вида без startsAt (OUTAGE) — «не поддерживает Update».
+  - id: I-4
+    kind: FORMAT
+    text: >-
+      Тексты «startsAt: must be in the future» и «endsAt: must be after startsAt» (NTF5-09, 10)
+      есть только в сценариях. Их стоит внести в Р4 вместе с «not allowed» и «required»:
+      тон ошибки — часть контракта.
+  - id: I-5
+    kind: SCOPE
+    text: >-
+      Если «тип арендатора» определять префиксом, в него попадают `vpc_address_pool` и
+      `compute_guest_access_key`: пул адресов — объект оператора. Задать закрытый перечень типов,
+      а не префиксы.
+  - id: I-6
+    kind: FORMAT
+    text: >-
+      Р13: Message-ID «первого письма этапа» имеет вид `ntc-…-<stage>-<revision>` и одинаков у
+      всех получателей этапа. Уточнить: у каждого письма свой Message-ID, корень нити — первое
+      письмо этому адресату, а In-Reply-To и References ссылаются на него.
+  - id: I-7
+    kind: FORMAT
+    text: >-
+      NTF5-82: у части «писем security и notice этот потолок не задерживает» нет When. Нужен
+      явный шаг: на тот же адрес отправляется письмо security, оно выходит SENT при исчерпанном
+      потолке OB.
+
+dispatcher_decisions_check:
+  D1: соблюдено (Р1)
+  D2: "расхождение внутри документа (B6)"
+  D3: соблюдено (извещение рождается в notify, второго потока нет)
+  D4: соблюдено (Р1, DoD 10.2 п.3)
+  D5: соблюдено (Р11, кастомных шаблонов нет)
+  D6: соблюдено (Р12, префикс в ids)
+  D7: >-
+    соблюдено: notify не прикладной модуль, и это названо следствием; спор не нужен
+  D8: "нарушено по производителю (B1, B2); чтение в области проекта (B5)"
+  D9: "лента консоли без владельца (B7)"
+  D10: к извещениям не относится — названо
+  D11: >-
+    соблюдено: ручки с границами и стражем старта; потолок OB отделён от сетки Д11 и обоснован
+  D12: соблюдено
+  D13: >-
+    уточнение порядка (S2 после NTF-3 и NTF-4) записано в документе и заявлено как спор для строки
+    возврата — отступлением не считается
+
+hygiene:
+  workcopy_paths_in_doc: "0 — grep -n 'tmp/' → нет"
+  uncommitted_phrases_in_doc: "0 — grep -n 'не закоммичен' → нет"
+  package_claim: >-
+    документ не утверждает, что пакет изменения не заводится; указан только факт отсутствия
+    каталога issue-2924 на ревизии измерения — допустимо
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (консоль — NTF-6, граница не закрыта: B7)"
+  new_domain: "нет (notify заводит NTF-1)"
+  security_surface: "да (внутренний API оператора, новые методы справочника kaname, отношение cluster)"
