@@ -13,7 +13,7 @@ subject:
   base_commit: d473742c19170677777d58a55044825f17cb6627
   content_commit: none
   content_commit_note: >-
-    Документ не закоммичен (`git status --short` в рабочей копии tmp/issue-880 даёт `??`).
+    Редакция на отпечатке a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0.
     Отпечаток — единственная привязка.
   branch: issue-880
   task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
@@ -152,7 +152,7 @@ measurement:
     corelib: 34bc810
     kaname: 734f69fb4 (origin/357)
     kacho: 1d42a6728bf (origin/main)
-    workspace: d473742c (tmp/issue-880)
+    workspace: d473742c (ветка issue-880)
   scenario_census:
     predicate: "grep -oE '\\*\\*ID:\\*\\* NTF1-[A-L][0-9]{2}' <док> | sort | uniq -d"
     total: 122

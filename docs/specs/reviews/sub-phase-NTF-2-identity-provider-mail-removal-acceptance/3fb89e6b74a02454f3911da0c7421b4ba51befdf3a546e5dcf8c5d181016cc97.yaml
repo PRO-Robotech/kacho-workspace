@@ -13,7 +13,7 @@ subject:
   base_commit: d473742c19170677777d58a55044825f17cb6627
   content_commit: none
   content_commit_note: >-
-    Документ не закоммичен (рабочая копия задачи, ветка issue-880). Отпечаток — единственная
+    Редакция на отпечатке 3fb89e6b74a02454f3911da0c7421b4ba51befdf3a546e5dcf8c5d181016cc97. Отпечаток — единственная
     привязка.
   branch: issue-880
   task: https://github.com/PRO-Robotech/kacho/issues/2917

@@ -13,8 +13,7 @@ subject:
   base_commit: d473742c19170677777d58a55044825f17cb6627
   content_commit: none
   content_commit_note: >-
-    Документ не закоммичен: `git status --porcelain docs/specs` в рабочей копии tmp/issue-880 даёт
-    `?? docs/specs/sub-phase-NTF-4-…md`. Отпечаток — единственная привязка вердикта.
+    Редакция на отпечатке a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282. Отпечаток — единственная привязка вердикта.
   branch: issue-880
   task: https://github.com/PRO-Robotech/kacho/issues/2919
   docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880

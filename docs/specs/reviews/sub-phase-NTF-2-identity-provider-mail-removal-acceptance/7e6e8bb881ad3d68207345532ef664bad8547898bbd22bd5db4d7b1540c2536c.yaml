@@ -13,7 +13,7 @@ subject:
   base_commit: d473742c19170677777d58a55044825f17cb6627
   content_commit: none
   content_commit_note: >-
-    Документ не закоммичен (`git status --short` в рабочей копии задачи: `?? docs/specs/sub-phase-NTF-2-…md`).
+    Редакция на отпечатке 7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c.
     Отпечаток — единственная привязка.
   branch: issue-880
   task: https://github.com/PRO-Robotech/kacho/issues/2917

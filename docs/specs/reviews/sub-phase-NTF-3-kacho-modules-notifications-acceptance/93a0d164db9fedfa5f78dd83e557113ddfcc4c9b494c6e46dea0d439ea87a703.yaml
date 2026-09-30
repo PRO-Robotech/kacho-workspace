@@ -12,7 +12,7 @@ subject:
   base_commit: d473742c19170677777d58a55044825f17cb6627
   content_commit: none
   content_commit_note: >-
-    Документ не закоммичен (`git status --short` в tmp/issue-880 → `?? docs/specs/sub-phase-NTF-3-…md`).
+    Редакция на отпечатке 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703.
     Отпечаток — единственная привязка.
   branch: issue-880
   task: https://github.com/PRO-Robotech/kacho/issues/2918
