@@ -1,0 +1,281 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 2 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/47bd8b70….yaml) и пересверка на
+# редакцию 1 (revalidation/7613071f….yaml) свидетельствуют о своих редакциях и здесь не
+# переписываются. Проверено: (1) каждый пункт CX6-01…24 отображён в решение замысла и
+# отображение выдерживает условие пункта; (2) новые внешние вызовы, (3) новые асинхронные
+# пути, (4) новые sentinel-значения, внесённые редакцией 2 сверх редакции 1, заведены пунктами
+# и отображены; (5) маркеров отсрочки и открытых решений нет.
+# Новый пункт этой пересверки — CX6-25 (отображён решением З14, строки §11 у него нет).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2925/design.md
+  sha256: deeea79a3acd2d39cb8c9ef1464f138994c3a07a1482e6bccdf34206ec1a27c3
+  fingerprint_predicate: sha256sum docs/changes/issue-2925/design.md
+acceptance:
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+initial_record: docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+previous_revalidation: docs/changes/issue-2925/reviews/class-exposure/revalidation/7613071f9b0608e5bc4d3b23702f09cdd190791442c3cd74fbb3e34f0e77a77d.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 1e814db0e98e3f9058db72cc85ffa982b64b036f   # ветка issue-880 на момент замеров; design.md на ней = deeea79a
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что в замысле §1
+snapshot_at: 2026-09-30T05:01:07Z
+inspected: >-
+  замысел целиком (873 строки: §0–§13, З1–З19, И1–И16, M1–M18, §10 — 27 строк, §11 — 25 строк);
+  пересверка 7613071f (CX6-20…24, заказы); первичный разбор 47bd8b70; change.yaml. Дерево kacho
+  @1d42a6728bf: перепись M1 заново (1073 файла тем же фильтром), M13 заново, перепись тестовых
+  файлов ui-future и deploy с порогом 7 из 8 (15 файлов) и чтение объявлений каждого;
+  host/src/remotes/{makeRemote.tsx, NlbRemote.tsx, index.ts, moduleCatalog.ts,
+  remote-boundary-coverage.test.ts}; host/src/lib/module-navigation.tsx (REMOTE_NAV_LOADERS,
+  NAV_REMOTES, withUnavailable, useModuleSections); HostRail.tsx (SELF_PLACED_SECTIONS);
+  host/vite.config.ts (блок remotes), host/jest.config.cjs; shared/src/test/module-reachability.ts;
+  shared/src/lib/error-presentation.ts (ErrorStatus, statusFromHttp, presentError, errorText);
+  shared/src/api/iam.ts (listUsers, listAccountMemberships); shared/src/api/client.ts (сборка
+  query); профили deploy/helm/umbrella/values.*.yaml (12, счёт закреплений образов консоли).
+  kaname не перемерялся: M17 принят из пересверки 7613071f (kaname @cbbac984b). Записки vault не
+  читались.
+
+approval_conditions:
+  # Пять условий, запрещающих DESIGN_APPROVED по части разбора классов (SDD-1 §5; CLASS-05, 08, 09, 10;
+  # DESIGN-02). Исход по каждому — на отпечатке deeea79a.
+  - condition: "каждый пункт первичного разбора и прежней пересверки отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      строк отображения 24 из 24 (CX6-06 двумя строками); 23 выдерживают, из них CX6-22 — с условием к коду.
+      CX6-10 не выдерживает: перепись тестовых перечней M2 неполна — в
+      дереве 6 перечней модулей, написанных руками, а не 2; три из них (CONSOLE_APPS в
+      iam-pages-authz-single-source.test.ts, ResourceIcon.registry.test.ts,
+      spec-columns.bool-labels.test.ts) решения в замысле не имеют, четвёртый (REMOTES в
+      ui-chart-remote-entry-cache.test.ts) решён в З3, но в §10 не назван.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: "новых внешних вызовов сверх редакции 1 нет; обход /iam/v1/users (CX6-24) теперь несёт accountId"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      1 новый: rememberLoad — общее обещание загрузки модуля с публикацией исхода подписчикам и
+      снятием отклонённого (З14). Заведён пунктом CX6-25; отображён решением З14 с держателем
+      rememberLoad.test.ts; условие к коду — снятие по идентичности обещания. useUnreadPoll и
+      useNotifySubscriptionsSync — форма уже заведённых путей (CX6-05, CX6-20), не новые пути.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      состояния available/unavailable подписчика rememberLoad — в пункте CX6-25; ResponseShapeError
+      заменяет ApiError(200) пункта CX6-22 и отображён; Error("listAllAccountUsers: accountId
+      required") недостижим с экрана (обход без аккаунта не начинается, З13) — не исход, видимый
+      пользователю.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 3 попадания, все — слово «потому»; §13
+      «Открытые решения — нет»; выбор по CX6-23 сделан (вариант (а)).
+
+mapping_check:
+  - id: CX6-01
+    design: З11
+    verdict: holds
+  - id: CX6-02
+    design: "З6, З7, З2, И7"
+    verdict: holds
+  - id: CX6-03
+    design: З10
+    verdict: holds
+  - id: CX6-04
+    design: "З2, З3"
+    verdict: holds
+  - id: CX6-05
+    design: "З9, И14"
+    verdict: holds
+  - id: CX6-06
+    design: "З3 (а); З6, З13, И4 (б)"
+    verdict: holds
+  - id: CX6-07
+    design: З12
+    verdict: holds
+  - id: CX6-08
+    design: "З6, З10, З13"
+    verdict: holds
+  - id: CX6-09
+    design: "З8, Е5"
+    verdict: holds
+  - id: CX6-10
+    design: "§10, З14, И16"
+    verdict: fails
+    note: >-
+      Исправлено против редакции 1 и подтверждено замером: M1 — 15 файлов, все 15 в §10; M13 — 5 мест,
+      все 5 в §10; З14 монтирует модуль обёрткой makeRemote с литералом import("notify/NotifyPage") и
+      moduleLabelOf("notify") — регулярные выражения гейта remote-boundary-coverage.test.ts (блок
+      remotes по отступу 8, обёртка ^[A-Z]\w*Remote\.tsx$, makeRemote(, moduleLabelOf) это
+      принимают; notify вне NAV_REMOTES ни одного читателя каталога не ломает (withUnavailable
+      пропускает модуль без section, useModuleSections обходит NAV_REMOTES, не каталог).
+      Не исправлено: M2 «2 перечня, прочие выводят состав обходом» опровергнут. Перечней модулей,
+      написанных руками, в тестах 6: MUTATING_MODULES (Toaster.mounted.test.ts), CONSOLE_APPS
+      (console-verb-routes-exist.test.ts) — оба в §10; CONSOLE_APPS в
+      shared/src/test/iam-pages-authz-single-source.test.ts:33,
+      shared/src/components/organisms/form/ResourceIcon/ResourceIcon.registry.test.ts:27,
+      shared/src/lib/spec-columns.bool-labels.test.ts:27 — решения нет; шапки двух из них прямо
+      требуют: «новое приложение обязано быть внесено осознанно, иначе выпадет из-под сверки молча»;
+      REMOTES в shared/src/test/ui-chart-remote-entry-cache.test.ts:38 — решение есть в З3, строки
+      §10 нет. Без решения notify молча выпадает из трёх сверок (реестр иконок, подписи логических
+      колонок, единственность поверхности управления доступом — последняя касается экрана
+      контактов, читающего пользователей службы доступа).
+  - id: CX6-11
+    design: З13
+    verdict: holds
+  - id: CX6-12
+    design: З13
+    verdict: holds
+  - id: CX6-13
+    design: З15
+    verdict: holds
+  - id: CX6-14
+    design: З16
+    verdict: holds
+  - id: CX6-15
+    design: "З3, И9"
+    verdict: holds
+  - id: CX6-16
+    design: "З2, И3"
+    verdict: holds
+  - id: CX6-17
+    design: "З7, И5"
+    verdict: holds
+  - id: CX6-18
+    design: З12
+    verdict: holds
+  - id: CX6-19
+    design: З10
+    verdict: holds
+  - id: CX6-20
+    design: "З10, И15"
+    verdict: holds
+    note: >-
+      слушатель — хук в провайдере страницы с отпиской, зависимость эффекта — клиент; событие без
+      данных; отправитель слушает сам себя. Событие из бандла notify при смонтированной странице
+      другого модуля невозможно (хост монтирует одну страницу маршрута), а внутри страницы
+      отправитель — карточка со своим слушателем на том же клиенте; покрытие полное.
+  - id: CX6-21
+    design: "З2 п.1, п.6, И12"
+    verdict: holds
+    note: "четыре читателя, у каждого ветка loading; имя unreadable не совпадает со словом счётчика"
+  - id: CX6-22
+    design: "З6, И13"
+    verdict: holds-with-condition
+    note: >-
+      ResponseShapeError без status, ветка presentError до ApiError со status = "500" — ErrorStatus
+      это значение допускает; errorText (тосты) идёт через presentError и ветку получает. Условие к
+      коду: И13 утверждает «отказ формы не повторяется» глобально, а notifyQueryRetry назначен
+      только запросам notify. ResponseShapeError производит и обход listAllAccountUsers (§4:
+      iam.ts читает response-shape.ts; повтор токена — отказ), его запрос исполняет QueryClient
+      NotifyPage «как у прочих» — retry: 1 (M16). Запрос кандидатов экрана контактов обязан нести
+      retry: notifyQueryRetry (либо умолчание QueryClient NotifyPage — notifyQueryRetry).
+  - id: CX6-23
+    design: "З9, И14"
+    verdict: holds
+  - id: CX6-24
+    design: "З13, §9"
+    verdict: holds
+
+new_items:
+  - id: CX6-25
+    source: "З14 «Одна загрузка — один исход для маршрута и кнопки» (rememberLoad, новый в редакции 2)"
+    kind: async_path
+    class: "code-authoring §«Решение и его следствие разнесены» (общий исход, снимаемый не тем, кто его положил)"
+    exposure: >-
+      rememberLoad хранит обещание загрузки модуля и снимает отклонённое в момент отказа; маршрут
+      (свежий lazy на каждую попытку makeRemote) и предзагрузка кнопки рейла зовут один загрузчик.
+      Если снятие безусловное (stored = null в обработчике отказа), обработчик отказа прежнего
+      обещания, сработавший после того, как повтор уже положил новое, снимет НОВОЕ — следующий вызов
+      начнёт третью загрузку, а подписчики получат исход не той загрузки. Подписчик до первого исхода
+      находится в третьем, неназванном состоянии (загрузка в полёте): кнопка в нём рисуется без
+      признака недоступности.
+    condition: >-
+      снятие по идентичности: отказ снимает хранимое обещание, только если хранимое — то самое
+      отклонённое (stored === p); исход подписчику публикует только текущее хранимое обещание;
+      состояние подписчика до исхода названо в коде третьим значением, и ветка кнопки рейла на нём
+      определена явно.
+    mapped_in_design: true
+    mapping: "З14 (решение и держатель rememberLoad.test.ts); строки §11 у пункта нет — пункт заведён этой пересверкой"
+    outcome: к-коду
+    held_by: "rememberLoad.test.ts — нужна ветка «отказ прежнего обещания после начала повтора не снимает новое»; в перечне З14 её нет, заказ"
+
+measurements:
+  - claim: "M1: файлов консоли, перечисляющих восемь модулей, 15"
+    command: "git ls-tree -r --name-only 1d42a6728bf ui-future | grep -vE '(^|/)(e2e|node_modules)/|\\.test\\.|/test/|__mocks__|package-lock|\\.md$|\\.snap$|\\.png$|\\.svg$' → по каждому git show | grep -oiE '<8 имён>' | tr A-Z a-z | sort -u | wc -l ≥ 8"
+    result: "подтверждено: обойдено 1073, найдено 15, все 15 — строки 1–15 §10"
+  - claim: "M13: мест по образцу nlb вне пакета nlb — 5"
+    command: "git ls-tree -r --name-only 1d42a6728bf ui-future | grep -vE '^ui-future/nlb/|node_modules' | grep -E '(/|-)(nlb|Nlb)(Remote)?[.-]'"
+    result: "подтверждено: 5, все — строки 16–20 §10"
+  - claim: "M2: тестовых перечней модулей, написанных руками, 2; прочие выводят состав обходом"
+    command: "по тестовым файлам ui-future и deploy (\\.test\\.|_test\\.go|/test/) счёт имён модулей с границей слова ≥ 7 → 15 файлов; в каждом — чтение объявлений (массив-литерал против readdirSync/discoverApps)"
+    result: >-
+      опровергнуто: 6 перечней руками — MUTATING_MODULES (Toaster.mounted.test.ts:63), CONSOLE_APPS
+      (console-verb-routes-exist.test.ts:62, iam-pages-authz-single-source.test.ts:33,
+      ResourceIcon.registry.test.ts:27, spec-columns.bool-labels.test.ts:27), REMOTES
+      (ui-chart-remote-entry-cache.test.ts:38). Прочие 9 выводят состав обходом каталога
+      (arrayContaining в них — проверка предпосылки, а не перечень).
+  - claim: "З14: обёртка через rememberLoad проходит гейт remote-boundary-coverage"
+    command: "git show 1d42a6728bf:ui-future/host/src/remotes/remote-boundary-coverage.test.ts"
+    result: "подтверждено: гейт требует литерал import(\"<remote>/<Page>\") в файле обёртки, makeRemote( и moduleLabelOf(\"<remote>\"); место литерала внутри вызова rememberLoad не проверяется"
+  - claim: "З14: makeRemote создаёт свежий lazy на каждую попытку и зовёт загрузчик заново"
+    command: "git show 1d42a6728bf:ui-future/host/src/remotes/makeRemote.tsx"
+    result: "подтверждено: useMemo(() => lazy(async () => loader() …), [attempt]); повтор — onRetry → attempt+1"
+  - claim: "notify без section и вне NAV_REMOTES не ломает читателей каталога"
+    command: "git grep -n 'loadRemoteNavigation\\|NAV_REMOTES\\|REMOTE_MODULES' 1d42a6728bf -- ui-future"
+    result: "подтверждено: каталог читают HostRail (SELF_PLACED_SECTIONS), withUnavailable (пропускает без section), гейт; загрузка навигации обходит NAV_REMOTES = ключи REMOTE_NAV_LOADERS"
+  - claim: "З6: presentError может вернуть status = \"500\" для ResponseShapeError"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/error-presentation.ts | sed -n 45,48p"
+    result: "подтверждено: ErrorStatus = \"403\" | \"404\" | \"500\" | \"warning\" | \"error\""
+  - claim: "З19: профили, закрепляющие образы модулей консоли"
+    command: "по deploy/helm/umbrella/values*.yaml на 1d42a6728bf: grep -cE 'kacho-ui-future-'"
+    result: "2 из 12: values.a8f60d.yaml (9), values.fe3455.yaml (11, из них строка ведомости «без-вывода» на 9 образов); решение З19 и строка 27 §10 сформулированы правилом, а не перечнем, — покрывают оба"
+  - claim: "§0: приёмка NTF-3 в ветке — c0ea704af36e…"
+    command: "sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md"
+    result: "подтверждено на 1e814db0e; запись круга 1 прохода Д17 — возврат на c0ea704af36 (коммит 1e814db0e); замысел зависит от формы §1.7 (Е2), вывод не меняется"
+  - claim: "манифест пакета отражает приёмку, на которой стоит замысел"
+    command: "grep -n acceptance_sha256 docs/changes/issue-2925/change.yaml"
+    result: "опровергнуто повторно: hashes.acceptance_sha256 = 7a50855c…, lifecycle_state ISSUE_READY; действующая приёмка — 47bd8b70 APPROVED (заказ прежней пересверки не исполнен)"
+
+not_measurable:
+  - "поведение раздачи и края по /console-config.json и /notify/v1/* — чарт и notify-api не посажены; З3, З5 проверяются рендером и прогоном стенда"
+  - "идентификация подчарта notify в З5 по пути # Source: charts/notify/templates/ — имя зависимости объявит NTF-1; держит инъекционная цепочка DoD 8"
+  - "порядок обработчиков отказа в rememberLoad против продолжения lazy (CX6-25) — свойство очереди микрозадач и порядка подписки; видно только пробой с управляемым обещанием, заказ"
+
+outcome: к-замыслу
+unmapped:
+  - "CX6-10 — отображение не выдерживает условие: перепись тестовых перечней M2 неполна; CONSOLE_APPS в iam-pages-authz-single-source.test.ts, ResourceIcon.registry.test.ts, spec-columns.bool-labels.test.ts — без решения; REMOTES в ui-chart-remote-entry-cache.test.ts — решён в З3, в §10 не назван"
+return_to_acceptance: []
+
+orders:
+  - to: design author (NTF-6)
+    what: >-
+      редакция 3 замысла: (1) §1 M2 — 6 перечней руками с координатами; §10 — строки с решением по
+      CONSOLE_APPS в iam-pages-authz-single-source.test.ts, ResourceIcon.registry.test.ts,
+      spec-columns.bool-labels.test.ts и по REMOTES в ui-chart-remote-entry-cache.test.ts;
+      (2) §11 — строка CX6-25 (З14); (3) З14 — снятие отклонённого обещания по идентичности и
+      третье состояние подписчика до исхода с веткой кнопки; (4) З13/З6 — retry: notifyQueryRetry
+      у запроса кандидатов экрана контактов (или умолчанием QueryClient NotifyPage), чтобы И13
+      держался и на обходе службы доступа
+    basis: "SDD-1 §5 (exact mapping; новый async path — новый пункт); code-authoring §«Решение и его следствие разнесены»"
+  - to: change package author (issue-2925)
+    what: "change.yaml: hashes.acceptance_sha256 и состояние — на приёмку 47bd8b70 APPROVED и записанный первичный разбор (повтор заказа пересверки 7613071f)"
+    basis: "SDD-1 §5 ACCEPTANCE_APPROVED → CLASS_EXPOSURE_RECORDED"
+  - to: go/ts implementer (NTF-6)
+    what: "проба rememberLoad.test.ts «отказ прежнего обещания после начала повтора не снимает новое» (CX6-25); ветка NotificationContactsPage.test.tsx «200 не той формы у обхода пользователей — один запрос, без повтора» (CX6-22)"
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"
