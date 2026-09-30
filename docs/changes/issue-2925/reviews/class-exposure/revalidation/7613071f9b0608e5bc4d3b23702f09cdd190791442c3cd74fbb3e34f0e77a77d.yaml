@@ -1,0 +1,307 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 1 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/47bd8b70….yaml) свидетельствует о
+# приёмке и здесь не переписывается. Проверено: (1) каждый пункт CX6-01…19 отображён в решение
+# замысла и отображение выдерживает условие пункта; (2) новые внешние вызовы, (3) новые
+# асинхронные пути, (4) новые sentinel-значения, внесённые замыслом сверх приёмки, заведены
+# пунктами и отображены; (5) маркеров отсрочки и открытых решений нет.
+# Новые пункты этой пересверки — CX6-20…24; у замысла для них строки отображения нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2925/design.md
+  sha256: 7613071f9b0608e5bc4d3b23702f09cdd190791442c3cd74fbb3e34f0e77a77d
+  fingerprint_predicate: sha256sum docs/changes/issue-2925/design.md
+acceptance:
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+initial_record: docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: aa831a960a80dcf211f4bbd6882874ac6793d845   # ветка issue-880 на момент замеров
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что в замысле §1
+  kaname: cbbac984b
+snapshot_at: 2026-09-30T04:47:43Z
+inspected: >-
+  замысел целиком (685 строк: §0–§13, З1–З19, И1–И11, §10 — 22 места, §11 — 19 пунктов);
+  первичный разбор 47bd8b70 (CX6-01…19, заказы); приёмка 47bd8b70 — Р2, Р11, §1.4, NTF6-03,
+  NTF6-39, NTF6-41; SDD-1 §5 (условия DESIGN_APPROVED, CLASS-04…10). Дерево kacho @1d42a6728bf:
+  перепись M1 заново (1073 файла ui-future тем же фильтром), host/src/remotes/{index.ts,
+  NlbRemote.tsx, makeRemote.tsx, remote-boundary-coverage.test.ts, moduleCatalog.ts},
+  host/src/lib/module-navigation.tsx, host/vite.config.ts, shared/src/api/{client.ts, iam.ts},
+  shared/src/lib/error-presentation.ts, shared/src/lib/subscription/{subjects.ts,
+  subjects.test.ts}, shared/src/test/{module-boundary-coverage,module-reachability}.test.ts,
+  семь страниц с new QueryClient, deploy/helm/umbrella/{Chart.yaml, values.a8f60d.yaml}.
+  kaname @cbbac984b: user_service.proto ListUsersRequest, api/user/handler.go List,
+  repo/kaname/pg/user_repo.go (фильтр аккаунта). Записки vault не читались.
+
+approval_conditions:
+  # Пять условий, запрещающих DESIGN_APPROVED по части разбора классов (SDD-1 §5; CLASS-05, 08, 09, 10;
+  # DESIGN-02). Исход по каждому — на отпечатке 7613071f.
+  - condition: "каждый пункт первичного разбора отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      строк отображения 19 из 19, но CX6-10 пересверку не выдерживает: перепись мест неполна
+      (15 файлов, а не 14; пропущен host/src/remotes/index.ts), а механизм монтирования З14
+      противоречит существующему гейту remote-boundary-coverage.test.ts. Остальные 18 выдерживают,
+      у CX6-05 — с условием к коду (см. CX6-23).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: red
+    detail: "1 новый: обход GET /iam/v1/users без accountId (З13) — CX6-24; строки отображения нет"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: "2 новых: событие окна NOTIFY_SUBSCRIPTIONS_EVENT (З10) — CX6-20; отмена цикла AbortController (З9) — CX6-23; строк отображения нет"
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: red
+    detail: "2 новых: состояние признака \"loading\" (З2) — CX6-21; ApiError(status = 200, code = \"RESPONSE_SHAPE\") (З6) — CX6-22; строк отображения нет"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 2 попадания, оба слово «потому»; §13
+      «Открытые решения — нет». Условная фраза З13 «функция обхода заводится там, если её нет»
+      разрешена замером: функции обхода пользователей в shared/src/api/iam.ts нет (есть listUsers
+      одной страницы), значит заводится.
+
+mapping_check:
+  - id: CX6-01
+    design: З11
+    verdict: holds
+    note: "specOfKind — обратный поиск; единственность kind держит существующая проба subjects.test.ts:144 (kinds.length = new Set(kinds).size); 24 записи kind, повторов 0"
+  - id: CX6-02
+    design: "З6, З7, З2, И7"
+    verdict: holds
+  - id: CX6-03
+    design: З10
+    verdict: holds
+  - id: CX6-04
+    design: "З2, З3"
+    verdict: holds
+  - id: CX6-05
+    design: З9
+    verdict: holds-with-condition
+    note: "поколение и схлопывание отображены; отмена через AbortController общим клиентом не исполнима — новый пункт CX6-23"
+  - id: CX6-06
+    design: "З3 (а); З6, З13, И4 (б)"
+    verdict: holds
+    note: "форма отказа — новый sentinel, пункт CX6-22"
+  - id: CX6-07
+    design: З12
+    verdict: holds
+  - id: CX6-08
+    design: "З6, З10, З13"
+    verdict: holds-with-condition
+    note: "обход до пустого токена отображён; источник кандидатов без фильтра аккаунта — новый пункт CX6-24"
+  - id: CX6-09
+    design: "З8, Е5"
+    verdict: holds
+  - id: CX6-10
+    design: "§10"
+    verdict: fails
+    note: >-
+      (1) перепись неполна: тем же фильтром M1 и тем же порогом 8 из 8 без учёта регистра — 15
+      файлов, а не 14; пятнадцатый — ui-future/host/src/remotes/index.ts (реэкспорт восьми
+      обёрток *Remote), в §10 решения нет. (2) З14 монтирует модуль своим ленивым загрузчиком
+      NOTIFY_PAGE_LOADER в ModuleErrorBoundary из App.tsx, без обёртки NotifyRemote.tsx; гейт
+      host/src/remotes/remote-boundary-coverage.test.ts сводит три перечня (remotes федерации в
+      vite.config.ts, обёртки *Remote.tsx, каталог moduleCatalog.ts) и требует у каждой обёртки
+      makeRemote( и moduleLabelOf("<remote>") — с notify в vite.config.ts и в каталоге без обёртки
+      он красный («у каждого объявленного remote есть обёртка»). Шапка makeRemote.tsx называет
+      собственную связку lazy+граница «форком фабрики». Места host/src/remotes/NotifyRemote.tsx,
+      host/src/remotes/notify.d.ts и host/src/remotes/index.ts замыслом не названы.
+  - id: CX6-11
+    design: З13
+    verdict: holds
+  - id: CX6-12
+    design: З13
+    verdict: holds
+  - id: CX6-13
+    design: З15
+    verdict: holds
+  - id: CX6-14
+    design: З16
+    verdict: holds
+  - id: CX6-15
+    design: "З3, И9"
+    verdict: holds
+  - id: CX6-16
+    design: "З2, И3"
+    verdict: holds-with-condition
+    note: "состояние на окне отображено; четвёртое значение \"loading\" — новый sentinel, пункт CX6-21"
+  - id: CX6-17
+    design: "З7, И5"
+    verdict: holds
+  - id: CX6-18
+    design: З12
+    verdict: holds
+  - id: CX6-19
+    design: З10
+    verdict: holds-with-condition
+    note: "кэш отображён; сброс событием окна — новый асинхронный путь, пункт CX6-20"
+
+new_items:
+  - id: CX6-20
+    source: "З10 (событие окна NOTIFY_SUBSCRIPTIONS_EVENT); в приёмке его нет — заведено замыслом"
+    kind: async_path
+    class: "code-authoring §«Решение и его следствие разнесены» (решение в одном бандле, следствие в кэше другого)"
+    exposure: >-
+      замысел регистрирует слушателя «один раз на бандл при загрузке модуля notify.ts» и
+      инвалидирует ключ «в QueryClient бандла». Но QueryClient создаётся страницей модуля
+      (new QueryClient в семи страницах, M5), а не модулем: при загрузке notify.ts ссылки на него
+      нет, а после размонтирования и повторного монтирования страницы слушатель, привязанный к
+      прежнему клиенту, инвалидирует кэш, которого никто не читает — карточка остаётся на «Вы
+      подписаны».
+    condition: >-
+      слушатель регистрируется хуком внутри дерева QueryClientProvider (useQueryClient в эффекте с
+      отпиской при размонтировании), а не побочным действием загрузки модуля; событие несёт только
+      имя, без данных; отправитель инвалидирует и свой ключ тем же путём.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "нужна ветка ResourceDetailExtensions.test.tsx «страница размонтирована и смонтирована заново → событие перечитывает список» — её нет, заказ"
+  - id: CX6-21
+    source: "З2 п.1 (state: \"loading\" | \"true\" | \"false\" | \"unread\"); приёмка Р2 знает три исхода"
+    kind: sentinel
+    class: "code-authoring §«Умолчание, которое становится утверждением» (четвёртое значение без своей ветки у читателя)"
+    exposure: >-
+      у читателей признака (маршрут /notifications/* в App.tsx, кнопка рейла, действие карточки,
+      опрос) З2, З9, З10, З14 и П1 называют ветки true / false / unread, ветки "loading" нет. При
+      переходе по прямой ссылке на /notifications первым рендером приходит "loading"; реализация,
+      сводящая «не true и не unread» к ветке false, на время чтения показывает «Уведомления в этой
+      установке не подключены» — утверждение, которого раздача не делала. Кроме того, имя состояния
+      "unread" в том же модуле совпадает со словом «непрочитанное» счётчика (unread-count,
+      unread-poll, unreadBadge) — два значения одного слова в одном предмете.
+    condition: >-
+      каждый читатель признака ветвится исчерпывающе по четырём значениям (switch с проверкой
+      never), у "loading" — своя ветка: маршрут не показывает ни названную страницу, ни перевод на
+      панель; состояние «не прочитано» названо словом, не совпадающим со счётчиком (например
+      "unreadable").
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "нужна ветка пробы хоста App «признак в loading → нет названной страницы false и нет перевода на панель» — её нет, заказ"
+  - id: CX6-22
+    source: "З6 (ApiError(status = 200, code = \"RESPONSE_SHAPE\"))"
+    kind: sentinel
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (исход, закодированный статусом успеха)"
+    exposure: >-
+      отказ формы кодируется ApiError со статусом 200. presentError переводит статус функцией
+      statusFromHttp: 200 → "error" (общий заголовок), devDetail — «HTTP 200»; у всех семи
+      QueryClient консоли retry: 1, значит неверная форма запрашивается повторно. Любой читатель,
+      ветвящийся по err.status (успех — < 400), примет отказ за успех.
+    condition: >-
+      ни один читатель не ветвится по err.status === 200 или < 400 для ApiError; presentError даёт
+      на RESPONSE_SHAPE текст отказа данных (проба словаря); retry для RESPONSE_SHAPE выключен
+      (ответ той же сборки края не исправится повтором).
+    mapped_in_design: false
+    outcome: к-коду
+    held_by: "notify.test.ts (З18) плюс ветка error-presentation.test.ts «RESPONSE_SHAPE → текст отказа, не общий «error»» — её нет, заказ"
+  - id: CX6-23
+    source: "З9 (NOTIFY_SEEN_EVENT делает цикл устаревшим: gen++ и AbortController.abort())"
+    kind: async_path
+    class: "code-authoring §«Решение и его следствие разнесены» (отмена, не доходящая до исполнителя)"
+    exposure: >-
+      общий клиент края не принимает сигнал отмены: fetchJson(method, path, body, replayed) строит
+      RequestInit без signal, у api.get / api.list параметра нет. Отмена по замыслу требует правки
+      shared/src/api/client.ts — её нет ни в §4, ни в §10, а радиус такой правки — все потребители
+      клиента. Без неё abort() ничего не отменяет, и держит только сравнение поколения; при
+      отмене же отклонение AbortError, пропущенное мимо сравнения поколения, превратит значок в «!».
+    condition: >-
+      замысел выбирает одно: (а) отмена не заводится, устаревший цикл отбрасывается только
+      сравнением gen — на ветке успеха И на ветке отказа; либо (б) клиент получает необязательный
+      signal, правка названа в §4 и §10 с радиусом, AbortError устаревшего цикла не даёт «!».
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "unread-poll.test.ts, ветка «отказ устаревшего цикла не меняет значок» — в перечне З9 её нет, заказ"
+  - id: CX6-24
+    source: "З13 «Контакты»: GET /iam/v1/users?pageSize=1000 до пустого токена"
+    kind: external_call
+    class: "code-authoring §«Умолчание, которое становится утверждением» (пустой фильтр = «все»)"
+    exposure: >-
+      в запросе замысла нет accountId. ListUsersRequest.account_id — фильтр аккаунта; обработчик
+      передаёт его в ListFilter.AccountID, и репозиторий добавляет условие членства только при
+      непустом значении — пустой читает всех, кого вызывающий видит. Приёмка Р11 требует
+      «/iam/v1/users аккаунта». Пользователь, состоящий в двух аккаунтах, увидит кандидатами
+      людей второго аккаунта; NTF6-39 утверждает присутствие U-A, U-B и отсутствие sa/grp, но не
+      отсутствие не-члена, поэтому это не заметит. Сервер откажет при назначении (NTF6-41), но
+      перечень кандидатов уже лжёт.
+    condition: >-
+      обход пользователей несёт accountId выбранного в хосте аккаунта; модульная проба
+      NotificationContactsPage.test.tsx утверждает параметр запроса.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "нужна ветка NotificationContactsPage.test.tsx «запрос кандидатов несёт accountId» — её нет, заказ"
+
+measurements:
+  - claim: "M1 замысла: файлов консоли, перечисляющих восемь модулей, 14 (без учёта регистра)"
+    command: "git ls-tree -r --name-only 1d42a6728bf ui-future | grep -vE '(^|/)(e2e|node_modules)/|\\.test\\.|/test/|__mocks__|package-lock|\\.md$|\\.snap$|\\.png$|\\.svg$' → по каждому git show | grep -oiE 'dashboard|vpc|compute|storage|nlb|registry|iam|system' | tr A-Z a-z | sort -u | wc -l ≥ 8"
+    result: "опровергнуто: 15; сверх перечня замысла — ui-future/host/src/remotes/index.ts"
+  - claim: "З14: модуль монтируется своим загрузчиком в ModuleErrorBoundary, без обёртки *Remote"
+    command: "git show 1d42a6728bf:ui-future/host/src/remotes/remote-boundary-coverage.test.ts; git ls-tree --name-only 1d42a6728bf ui-future/host/src/remotes/"
+    result: "гейт сводит remotes vite.config.ts, обёртки *Remote.tsx и каталог; у восьми модулей — обёртка makeRemote и <mod>.d.ts; notify без обёртки красит гейт"
+  - claim: "З9: отмена цикла AbortController"
+    command: "git show 1d42a6728bf:ui-future/shared/src/api/client.ts | sed -n 105,175p"
+    result: "fetchJson(method, path, body, replayed) без signal; api.get/list/create/update/delete/action сигнала не принимают"
+  - claim: "З6: ApiError со статусом 200 показывается отказом"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/error-presentation.ts | sed -n 362,368p; git grep -n -A4 'new QueryClient' 1d42a6728bf -- 'ui-future/*/src/*.ts*' ':!*test*' | grep retry"
+    result: "statusFromHttp(200) → \"error\"; retry: 1 у пяти страниц, isTest ? false : 1 у двух"
+  - claim: "З13: GET /iam/v1/users без accountId даёт пользователей аккаунта"
+    command: "git -C kaname show cbbac984b:proto/kaname/cloud/iam/v1/user_service.proto | sed -n 478,482p; git -C kaname show cbbac984b:internal/apps/kaname/api/user/handler.go | sed -n 109,121p; git -C kaname show cbbac984b:internal/repo/kaname/pg/user_repo.go | sed -n 375,385p"
+    result: "опровергнуто: фильтр членства только при непустом account_id; пустой — все видимые вызывающему"
+  - claim: "З13: функции обхода пользователей в shared/src/api/iam.ts может не быть"
+    command: "git show 1d42a6728bf:ui-future/shared/src/api/iam.ts | grep -nE 'listUsers|listAll'"
+    result: "есть listUsers (одна страница, :755), обхода нет — заводится"
+  - claim: "З11: specOfKind однозначен"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/subscription/subjects.ts | grep -oE 'kind: \"[^\"]+\"' | sort | uniq -d | wc -l; git grep -n 'new Set(kinds)' 1d42a6728bf -- ui-future/shared/src/lib/subscription/subjects.test.ts"
+    result: "подтверждено: повторов 0; единственность держит subjects.test.ts:144"
+  - claim: "З2: объект признака на окне одной формы у всех бандлов"
+    command: "git show 1d42a6728bf:deploy/helm/umbrella/values.a8f60d.yaml | grep -oE 'kacho-ui-future-[a-z]+:[^ ]+' | sed 's/.*://' | sort -u | wc -l"
+    result: "1 — девять образов профиля закреплены одним коммитом; расхождения формы объекта между бандлами на стенде сейчас нет, закрепления по модулю независимы по ключу — вниманием"
+  - claim: "§0: приёмка NTF-3 в ветке — c784a8ff"
+    command: "sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md"
+    result: "опровергнуто: c0ea704af36e…; на вывод не влияет — замысел зависит от формы §1.7 (Е2), а не от текущей редакции"
+  - claim: "манифест пакета отражает приёмку, на которой стоит замысел"
+    command: "grep -n acceptance_sha256 docs/changes/issue-2925/change.yaml"
+    result: "опровергнуто: hashes.acceptance_sha256 = 7a50855c…, lifecycle_state ISSUE_READY; действующая приёмка — 47bd8b70 APPROVED"
+
+not_measurable:
+  - "поведение раздачи и края по /console-config.json и /notify/v1/* — чарт и notify-api не посажены; З3, З5 проверяются рендером и прогоном стенда"
+  - "идентификация подчарта notify в З5 по пути # Source: charts/notify/templates/ — имя зависимости объявит NTF-1 (в зонтике есть прецедент kacho-nlb); держит инъекционная цепочка DoD 8, которой без опознанного подчарта не покраснеть"
+
+outcome: к-замыслу
+unmapped:
+  - "CX6-10 — отображение не выдерживает условие: перепись 15 мест, а не 14 (пропущен host/src/remotes/index.ts); З14 красит remote-boundary-coverage.test.ts, обёртки NotifyRemote.tsx и notify.d.ts не названы"
+  - "CX6-20 — новый асинхронный путь NOTIFY_SUBSCRIPTIONS_EVENT, строки отображения нет"
+  - "CX6-21 — новый sentinel \"loading\" признака, строки отображения нет"
+  - "CX6-22 — новый sentinel RESPONSE_SHAPE со статусом 200, строки отображения нет"
+  - "CX6-23 — новый асинхронный путь отмены цикла, клиент сигнала не принимает, строки отображения нет"
+  - "CX6-24 — новый внешний вызов обхода пользователей без accountId, строки отображения нет"
+return_to_acceptance: []
+
+orders:
+  - to: design author (NTF-6)
+    what: >-
+      редакция 2 замысла: (1) §10 — 15 мест по M1 плюс обёртка host/src/remotes/NotifyRemote.tsx
+      (makeRemote, moduleLabelOf("notify")), host/src/remotes/notify.d.ts и
+      host/src/remotes/index.ts; З14 монтирует модуль обёрткой, а общий с кнопкой рейла исход
+      загрузки берётся из загрузчика, который обёртка получает; (2) строки §11 для CX6-20…24 с
+      решениями по условиям этой записи; (3) З13 — accountId в обходе пользователей; (4) З9 —
+      выбор (а) или (б) CX6-23; (5) З2 — ветка "loading" у каждого читателя и имя состояния, не
+      совпадающее со счётчиком; (6) §0 — отпечаток NTF-3 по факту
+    basis: "SDD-1 §5 (exact mapping; новый external call / async path / sentinel — новый пункт)"
+  - to: change package author (issue-2925)
+    what: "change.yaml: hashes.acceptance_sha256 и состояние — на приёмку 47bd8b70 APPROVED и записанный первичный разбор"
+    basis: "SDD-1 §5 ACCEPTANCE_APPROVED → CLASS_EXPOSURE_RECORDED"
+  - to: go/ts implementer (NTF-6)
+    what: "пробы CX6-20 (перемонтирование страницы), CX6-21 (App в loading), CX6-22 (error-presentation на RESPONSE_SHAPE), CX6-23 (отказ устаревшего цикла), CX6-24 (accountId в запросе кандидатов) — сверх заказов первичного разбора"
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"

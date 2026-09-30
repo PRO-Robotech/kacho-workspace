@@ -1,0 +1,341 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 2
+# замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/9098d6ef….yaml) и пересверка на
+# редакцию 1 (revalidation/f21384ed….yaml) свидетельствуют о своих редакциях и здесь не
+# переписываются. Проверено: (1) каждый пункт CX2-01…33 отображён, и отображение выдерживает
+# условие пункта — по дереву, а не по тексту замысла; (2) новые внешние вызовы, (3) новые
+# асинхронные пути, (4) новые sentinel-значения, внесённые редакцией 2, заведены пунктами;
+# (5) маркеров отсрочки и открытых решений нет. Новые пункты этой пересверки — CX2-34, CX2-35;
+# строки отображения у замысла для них нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 2
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+initial_record: docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: e30a89818b8933ad3594cf3f1b06fde93485712c   # ветка issue-880 на момент замеров
+  kaname: 734f69fb4       # origin/357 — та же ревизия, что в замысле §1
+  kacho: 6edea09c2ee      # origin/2564 — та же ревизия, что в замысле §1
+snapshot_at: 2026-09-30T05:46:59Z
+inspected: >-
+  замысел целиком (1249 строк: §0–§13, З1–З26, И1–И22, §11 — 33 строки отображения); пересверка
+  f21384ed (CX2-28…33, заказы); tasks.md (гейты Е1, Е2, Е8); приёмка NTF-2 9098d6ef — таблица Р8,
+  сценарий потолка поперёк аккаунтов, поиск исхода 503 края; приёмка NTF-1 в ветке — редакция 12
+  (b92f0c2b, круг 2 CHANGES_REQUESTED) и записи d524e7bd (APPROVED), 4d042803 (CHANGES_REQUESTED);
+  решения Д1–Д16. Дерево kaname @734f69fb4: config/{service_link_collision.go (EnvNameOfKey,
+  walkEnvconfigNames), lane_requirements.go, login_lane.go, config.go, defaults.go},
+  имена KANAME_*__* в deploy/, passwordverify/{verifier.go, capacity.go, outcome.go},
+  seed/bootstrap_admin.go и место его вызова, формы записи audit_outbox вне INSERT-литерала,
+  repo/kaname/pg/account_repo.go (удаление аккаунта), 0001_initial.sql (индексы lower(email)),
+  cmd/kaname/connbudget_guard.go, вызовы AddressKey, профили e2e-newman.yml, verifierCapacity
+  обеих поставок. Дерево kacho @6edea09c2ee: middleware/idempotency.go (writeIdempotencyStatus),
+  idempotencypg/store.go (рекомендательная блокировка схемы), .github/workflows/ui.yml (триггеры),
+  umbrella values* (verifierCapacity). Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      строк отображения 33 из 33. Пять отказов редакции 1 (CX2-03, 05, 11, 20, 21) решены заново;
+      четыре выдерживают, CX2-21 — нет: у invite_acts внешний ключ на accounts с ON DELETE CASCADE,
+      а аккаунт удаляется физически (account_repo.go:304) — удаление аккаунта уменьшает счёт
+      recipient-per-day-all поперёк аккаунтов, то есть тот же класс «удаление уменьшает счёт»
+      через другой путь. С условием к коду выдерживают CX2-05, CX2-11; CX2-28 выдерживает
+      механизмом, но его исход наблюдаем и приёмкой не описан (вернуть в приёмку, Е9).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: "новых внешних вызовов в редакции 2 нет: Check в теле методов справочника — та же дверь прав, условие CX2-08 редакции 1"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: >-
+      1 новый: сверки пароля асинхронной части register идут через общий с входом проверяющий
+      (З14, решение редакции 2) — CX2-34; строки отображения нет.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      новые значения редакции 2 — StoreUnavailable (CX2-28), исход expired решателя (CX2-30),
+      oneof not_eligible (CX2-31), MigrationAuditFormsRatchet = 3 (CX2-05), пара lettered /
+      feed_id у invite_acts — все с механизмом; пара lettered ⇔ feed_id IS NOT NULL — два написания
+      одного факта, но CHECK делает их неразводимыми (замечание к коду, не пункт).
+  - condition: "новое решение с ценой или без уборки заведено пунктом (сверх SDD-1 — практика пересверок)"
+    result: red
+    detail: "якорь mail_windows и trusted_devices без срока хранения; удаление якоря ломает протокол «вставка → FOR UPDATE» — CX2-35"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 3 попадания: «что позже» (З8, про
+      момент), «потому что» (З11, З19) — ни одно не маркер; §13 «Открытые решения — нет»;
+      зависимости Е1–Е8 названы с предикатом снятия.
+
+mapping_check:
+  - {id: CX2-01, design: "З2, З4", verdict: holds}
+  - {id: CX2-02, design: "З1, З2", verdict: holds}
+  - id: CX2-03
+    design: З5
+    verdict: holds
+    note: >-
+      отказ редакции 1 снят: строгость сужена до пространства «__» с доводом; EnvNameOfKey —
+      экспорт service_link_collision.go:217, прямой вывод по ключам декодера исполним; полей с
+      динамическими ключами (map/срез структур под mapstructure) в Config нет — ByLevel
+      (lane_requirements.go:97) живёт в LaneWiring/CatalogFloors, не в конфигурации. Имён KANAME_*__*
+      в deploy/ — 40 строк (часть — фрагменты комментариев вида KANAME_AUTHN__LOGIN__); их сверку с
+      множеством закрывает «перемер профилей» З5. BindEnv по таблице границ — одно объявление.
+  - {id: CX2-04, design: З6, verdict: holds}
+  - id: CX2-05
+    design: З16
+    verdict: holds-with-condition
+    note: >-
+      отказ редакции 1 снят: одна форма в прод-дереве Go, миграционные формы — храповик 3 с
+      вопросом автору. Других форм записи (CopyFrom, pgx.Identifier) нет — единственная иная
+      координата — константа имени таблицы для метрик (outbox_metrics_wiring.go:90). Посев
+      вызывается процессом (cmd/kaname/serve.go:2008), поэтому до Enqueuer дотягивается. Условие к
+      коду: RunBootstrapAdmin получает писатель аудита параметром и своего INSERT не держит
+      (сегодня литерал в seed/bootstrap_admin.go внутри своей tx) — иначе гейт краснеет, а посев
+      оказывается вне карты класса S молча.
+  - {id: CX2-06, design: З16, verdict: holds}
+  - {id: CX2-07, design: З16, verdict: holds, note: "условие редакции 1 вписано в решение"}
+  - {id: CX2-08, design: З20, verdict: holds, note: "условие редакции 1 вписано: Check в теле; DenyDetailUnary есть (authzguard/deny_details.go)"}
+  - {id: CX2-09, design: З4, verdict: holds}
+  - {id: CX2-10, design: З4, verdict: holds}
+  - id: CX2-11
+    design: "З8, З9"
+    verdict: holds-with-condition
+    note: >-
+      отказ редакции 1 снят: ключ без строки сериализуется pg_advisory_xact_lock по
+      отсортированным свёрткам, ведро последним. Условие к коду: пространство рекомендательных
+      блокировок базы края общее — idempotencypg/store.go:434 берёт сеансовую pg_advisory_lock
+      одним bigint (schemaLockID) на время миграции схемы; совпадение свёртки ключа с ним держит
+      запрос до lock_timeout → 503. Брать форму с двумя int4 (класс звена + свёртка) либо
+      утвердить пробой, что schemaLockID вне образа hashtextextended('anonmail:'||…).
+  - {id: CX2-12, design: З8, verdict: holds, note: "условие редакции 1 вписано: число прыжков — обязательный параметр конструктора"}
+  - id: CX2-13
+    design: "З9, З18"
+    verdict: holds
+  - id: CX2-14
+    design: "З11–З14"
+    verdict: holds
+    note: "условие редакции 1 вписано (вставка → FOR UPDATE); уборка якоря, которая этот порядок ломает, — новый пункт CX2-35"
+  - {id: CX2-15, design: З11, verdict: holds}
+  - {id: CX2-16, design: З12, verdict: holds}
+  - id: CX2-17
+    design: З13
+    verdict: holds
+    note: >-
+      условие редакции 1 вписано: страж старта. «Действующий предел пула» в дереве уже читается —
+      connbudget_guard.go:60 (pool.Config().MaxConns после разбора); поставки 80 и 40 (М22), CI
+      поднимает чарт со значениями values.yaml (e2e-newman.yml:872). Отношение к ёмкости
+      проверяющего пароля — CX2-34.
+  - {id: CX2-18, design: З15, verdict: holds}
+  - {id: CX2-19, design: З14, verdict: holds}
+  - id: CX2-20
+    design: "З11, З15, З25"
+    verdict: holds
+    note: "перепись вызовов AddressKey совпала с замыслом: 11 вызовов ключа + verification.go:265 (значение Email); rate.go:56 — определение"
+  - id: CX2-21
+    design: З24
+    verdict: fails
+    note: >-
+      счёт актов вместо строк users верен, но §6 заводит invite_acts.account_id REFERENCES
+      kaname.accounts(id) ON DELETE CASCADE, а аккаунт удаляется физически
+      (account_repo.go:304, DELETE FROM accounts при отсутствии проектов, сервисных учёток, групп,
+      ролей). Удаление аккаунта уносит его акты и уменьшает счёт recipient-per-day-all поперёк
+      аккаунтов, и потолок поперёк аккаунтов перестаёт быть независимым от жизни аккаунтов.
+      Условие CX2-21 «счёт не уменьшается удалением» нарушено тем же классом через другой путь
+      удаления.
+  - {id: CX2-22, design: З23, verdict: holds}
+  - {id: CX2-23, design: З19, verdict: holds}
+  - {id: CX2-24, design: З18, verdict: holds}
+  - {id: CX2-25, design: З16, verdict: holds}
+  - {id: CX2-26, design: З22, verdict: holds}
+  - {id: CX2-27, design: З17, verdict: holds}
+  - id: CX2-28
+    design: "З8, З9"
+    verdict: holds-with-condition
+    note: >-
+      механизм выдерживает условие (закрытый тип исходов, StoreUnavailable → отказ, счётчик,
+      lock_timeout, ведро последним). Но исход наблюдаем на публичном анонимном пути: 503, code 14,
+      текст «request limiter is unavailable» — а в приёмке 9098d6ef нет ни 503, ни UNAVAILABLE
+      (grep -nE '503|limiter is unavailable|UNAVAILABLE' → 0 сценарных попаданий). Замысел
+      наблюдаемого поведения не владеет (design.md, шапка) — исход обязан попасть в приёмку (Е9).
+  - {id: CX2-29, design: З26, verdict: holds, note: "таблицы моментов покрыты функцией срока; предметы хранения вне окон без срока — CX2-35"}
+  - id: CX2-30
+    design: З10
+    verdict: holds
+    note: "файл векторов лежит у края, проба консоли его читает; ui.yml без фильтра путей — правка векторов гонит пробы консоли"
+  - {id: CX2-31, design: "З20, §5", verdict: holds, note: "читатель — Е8 (б), полоса S6/NTF-1 гейтится tasks.md"}
+  - {id: CX2-32, design: "З11, §6", verdict: holds, note: "экспорт предиката — Е8 (а), полоса G2 гейтится tasks.md строкой 83"}
+  - id: CX2-33
+    design: З14
+    verdict: holds
+    note: "confirm: одна свёртка при любом числе записей; сторона register — новое решение редакции 2, пункт CX2-34"
+
+items:
+  - id: CX2-34
+    source: "З14 («сверки пароля register — через тот же ограниченный проверяющий, что вход»), З13 (ёмкость диспетчера 16)"
+    kind: async_path
+    class: >-
+      code-authoring §«Решение и его следствие разнесены» (фоновый производитель расходует ресурс
+      пути запроса); §«Чужой ответ: классификация и бюджет» (исход «ёмкость исчерпана» без
+      классификации); §«Унификация и стоимость» (стоимость на строку под блокировкой)
+    exposure: >-
+      проверяющий пароля занимает место без ожидания: capacity.acquire — select с default, при
+      нехватке Verify сразу отдаёт OutcomeCapacityExhausted (passwordverify/verifier.go:147-151,
+      capacity.go:53-65). Ёмкость на профилях — 1 (values.a8f60d.yaml:433), 2 (values.dev.yaml:1925),
+      8 (values.prod.yaml:756); ёмкость диспетчера постановки — 16 на любом профиле. Анонимный
+      register, пропущенный краем и окном адресата, запускает в фоне до 44 последовательных
+      свёрток argon2id (64 МиБ, 3 прохода) — и до 16 таких работ одновременно: фон может занять
+      всю ёмкость, и вход паролем получает отказ ёмкости, хотя пользователь входа не
+      превышал ничего. Обратное тоже не решено: исход CapacityExhausted внутри работы register
+      замысел не классифицирует — прочтение «не совпал» заводит новую запись и новый код (ещё
+      одна свёртка в будущем), прочтение «ошибка» роняет работу молча. Сверки идут внутри
+      транзакции работы, под блокировкой якоря и с соединением пула на всё время N свёрток.
+    condition: >-
+      (а) у работы register исход «ёмкость исчерпана» — свой: работа не заводит записи, не пишет
+      момента окна и не ставит письма, исход dropped_overload (или свой) метрики З11, а не
+      «пароль не совпал»; (б) фоновые сверки не расходуют ёмкость входа: либо работа register
+      берёт место из доли, объявленной меньше ёмкости (вход сохраняет ≥ 1 место при любом
+      профиле, страж старта сравнивает), либо сверки register ждут место с ограниченным сроком
+      (acquireWait) и не больше одной работы register держит место одновременно; (в) число
+      свёрток на работу ограничено константой с доводом либо сверка вынесена до захвата якоря
+      (сравнение по предварительно прочитанным записям с перепроверкой под блокировкой), и цена
+      «до N свёрток под FOR UPDATE якоря» названа числом.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: >-
+      нет: нужна проба «16 работ register по 44 записи при verifier-capacity = 2 → вход паролем
+      во время работ получает matched, не capacity-exhausted» и проба «CapacityExhausted в работе
+      register → записей +0, моментов +0, метрика +1» — заказ
+  - id: CX2-35
+    source: "§6, З11, З18, З26 (якорь mail_windows; trusted_devices; перечень сроков хранения З26)"
+    kind: decision
+    class: >-
+      code-authoring §«Решение и его следствие разнесены» (ресурс, заводимый анонимным входом, без
+      уборки); §«Порядок операций внутри кода» (порядок снятия ресурса против протокола
+      блокировки)
+    exposure: >-
+      строка-якорь mail_windows (purpose, key_digest) заводится на каждый новый ключ, в том числе
+      анонимным register на произвольный адрес, а срока хранения у неё нет: З26 перечисляет
+      моменты, акты, ожидающие регистрации, вызовы и ledger, но не якорь; число строк растёт с
+      числом адресов, когда-либо названных анонимно. То же у trusted_devices: строка на каждый
+      вход паролем без метки, метка истекает по issued_at + ttl, строка остаётся (каскад только от
+      users). Если уборку якоря добавить наивно, она ломает протокол CX2-14: работа сделала
+      INSERT … ON CONFLICT DO NOTHING (строка была), уборка удалила якорь, SELECT … FOR UPDATE
+      вернул 0 строк — работа идёт без сериализации, и гонка первых запросов возвращается.
+    condition: >-
+      (а) у якоря mail_windows и у trusted_devices срок хранения назван решением: якорь снимается,
+      когда у ключа нет ни моментов, ни ожидающих записей (одним DELETE … WHERE NOT EXISTS под
+      блокировкой строки), метка — после issued_at + ttl; (б) работа окна требует, чтобы
+      SELECT … FOR UPDATE якоря вернул ровно одну строку, иначе повторяет вставку (ограниченное
+      число раз, затем ошибка хранилища) — «0 строк» не читается как «заблокировано»;
+      (в) integration-проба «уборка якоря между вставкой и FOR UPDATE → работа повторила вставку,
+      одна строка ленты».
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "нет: проба (в) и проба уборки «якорь без моментов снят, с моментом — нет» — заказ"
+
+measurements:
+  - claim: "§0 замысла: в ветке лежит редакция 11 NTF-1 (4d042803), вердикт CHANGES_REQUESTED"
+    command: "sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; grep -nE '^(verdict|round):' docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/{4d0428,b92f0c,d524e7}*.yaml"
+    result: "устарело, вывода не меняет: в ветке уже редакция 12 b92f0c2b (круг 2, CHANGES_REQUESTED); действующее одобрение — d524e7bd, как в замысле"
+  - claim: "К1, К2 не сняты"
+    command: "grep -c NOTIFICATION_DELIVERY_NOT_CONFIGURED …NTF-1….md (2); grep -c MAIL_DELIVERY_DISABLED …NTF-1….md (0); grep -n 'service:kaname' …NTF-1….md"
+    result: "подтверждено на b92f0c2b: строка 453 «service:kaname не заводится», строка 1689 «кортежей с субъектом service:kaname … 0»"
+  - claim: "Е3, Е4 — правки приёмки NTF-2 — не внесены"
+    command: "sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md; sed -n 638p …; grep -n '#456' …"
+    result: "подтверждено: отпечаток прежний 9098d6ef; у recipient-per-day-all верхней границы нет; ссылки на kaname#456 нет"
+  - claim: "З5: множество имён с «__» — прямой вывод по ключам декодера"
+    command: "git -C project/kaname grep -n 'func EnvNameOfKey' 734f69fb4; … grep -nE '\\bmap\\[string\\]' 734f69fb4 -- 'internal/apps/kaname/config/*.go' ':!*_test.go'; … grep -hoE 'KANAME_[A-Z0-9_]*__[A-Z0-9_]+' 734f69fb4 -- deploy | sort -u | wc -l"
+    result: "EnvNameOfKey экспортирована (service_link_collision.go:217); map-полей под mapstructure в Config нет; имён с «__» в deploy — 40 (включая фрагменты комментариев)"
+  - claim: "З14: сверки register идут через общий проверяющий без вреда входу"
+    command: "git -C project/kaname show 734f69fb4:internal/passwordverify/verifier.go | sed -n 136,151p; … capacity.go | sed -n 53,65p; git -C project/kacho grep -nE 'verifierCapacity' 6edea09c2ee -- deploy/helm/umbrella"
+    result: "опровергнуто: acquire без ожидания, нехватка — CapacityExhausted; ёмкость 1 / 2 / 8 на профилях против 16 работ диспетчера (CX2-34)"
+  - claim: "З24: удаление приглашения счёт не уменьшает"
+    command: "git -C project/kaname show 734f69fb4:internal/repo/kaname/pg/account_repo.go | sed -n 302,312p; sed -n '/CREATE TABLE kaname.invite_acts/,/);/p' docs/changes/issue-2917/design.md"
+    result: "для приглашения верно, для аккаунта нет: аккаунт удаляется физически, акты уходят каскадом (CX2-21)"
+  - claim: "З16: посев идёт через ту же точку записи аудита"
+    command: "git -C project/kaname grep -n 'RunBootstrapAdmin' 734f69fb4 -- cmd ':!*_test.go'; … show …:internal/apps/kaname/seed/bootstrap_admin.go | sed -n 256,275p"
+    result: "исполнимо: посев вызывается процессом (serve.go:2008); сегодня INSERT INTO audit_outbox — литерал в своей tx посева (условие CX2-05)"
+  - claim: "З8: рекомендательная блокировка — существующий приём, пространство свободно"
+    command: "git -C project/kacho grep -n 'pg_advisory' 6edea09c2ee -- gateway ':!*_test.go'"
+    result: "в базе края уже есть сеансовая pg_advisory_lock(schemaLockID) на миграцию схемы (idempotencypg/store.go:434) — пространство общее (условие CX2-11)"
+  - claim: "З8: 503 края — поведение, описанное приёмкой"
+    command: "grep -nE '503|limiter is unavailable|UNAVAILABLE' docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "опровергнуто: сценарных попаданий 0 (два попадания — цифры в отпечатке шапки) — Е9"
+  - claim: "З10: общий файл векторов держит обе стороны"
+    command: "git -C project/kacho show 6edea09c2ee:.github/workflows/ui.yml | sed -n 16,32p"
+    result: "подтверждено: фильтра путей у конвейера консоли нет, правка векторов у края запускает пробы консоли"
+  - claim: "З13: действующий предел пула читается после разбора"
+    command: "git -C project/kaname show 734f69fb4:cmd/kaname/connbudget_guard.go | sed -n 44,60p"
+    result: "подтверждено: pool.Config().MaxConns уже читается соседним стражем бюджета соединений"
+
+not_measurable:
+  - "время одной свёртки argon2id на узле стенда и длительность работы register под якорем (CX2-34 (в)) — число видно только прогоном; до кода утверждается свойство, а не число"
+  - "темп допуска аккаунтов, ограничивающий обход CX2-21, — значение account_admission_rate_limits задаёт администратор облака; число установки, не дерева"
+  - "поведение corelib notify/feed и читателя notify (Е8) — кода нет на базах"
+
+outcome: вернуть-в-приёмку
+unmapped:
+  - "CX2-21 — отображение не выдерживает: invite_acts каскадно уходит с удалённым аккаунтом, счёт recipient-per-day-all уменьшается"
+  - "CX2-34 — новый асинхронный путь: сверки пароля register через общий проверяющий без ожидания, строки отображения нет"
+  - "CX2-35 — якорь mail_windows и trusted_devices без срока хранения; уборка якоря против протокола «вставка → FOR UPDATE», строки отображения нет"
+return_to_acceptance:
+  - target: "docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md (d524e7bd APPROVED; в ветке b92f0c2b) против NTF-2 (9098d6ef)"
+    scenarios: "NTF1-F21, NTF1-G22, Р3, §1.5 — против NTF2-47, NTF2-06, Р1, Р14 (К1, Е1); NTF1-N06, Р9 — против NTF2-51, Р4 (К2, Е2)"
+    what: "не снято и на редакции 12 NTF-1; две приёмки по-прежнему утверждают взаимоисключающее — прежний возврат в силе"
+  - target: "docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (9098d6ef)"
+    scenarios: "Р8 строка «kaname · приглашения», NTF2-71 (т) (Е3); §3, DoD п.23 (Е4)"
+    what: "не внесено: отпечаток приёмки прежний — прежний возврат в силе"
+  - target: "то же"
+    scenarios: "NTF2-60…63, 74 (ряды ограничителя края); NTF2-72 (консоль)"
+    what: >-
+      Е9 (новое): исход «хранилище ограничителя недоступно» — 503, code 14, фиксированный текст,
+      одинаковый для любого адреса, до kaname не дошло — наблюдаемое поведение публичного
+      анонимного пути, которого в приёмке нет; нужен сценарий с положительным близнецом
+      (хранилище исправно → пропуск) и то, что показывает консоль на 503 и на исход expired
+      решателя. Замысел наблюдаемого поведения не владеет.
+
+orders:
+  - to: design author (NTF-2)
+    what: >-
+      редакция 3 замысла: (1) §6/З24 — invite_acts без внешнего ключа на accounts (account_id
+      text, снятие только уборкой по сроку З26) либо иной механизм, при котором удаление аккаунта
+      счёт не уменьшает; (2) З14 — строки отображения CX2-34 по условиям (а)–(в); (3) §6/З26 —
+      сроки хранения якоря mail_windows и trusted_devices и протокол «FOR UPDATE вернул 0 строк →
+      повтор вставки» (CX2-35); (4) условия к коду CX2-05 (посев без своего INSERT) и CX2-11
+      (пространство рекомендательных блокировок края) — в держатели; (5) §0 — редакция NTF-1 в
+      ветке по факту (b92f0c2b)
+    basis: "SDD-1 §5 (exact mapping; новый async path — новый пункт)"
+  - to: acceptance author (NTF-2)
+    what: "Е3, Е4 (прежние) и Е9 (исход 503 ограничителя края и поведение консоли) — правка приёмки; после неё — новый первичный разбор на новый отпечаток"
+    basis: "change-graph.md §2 (правка приёмки обесценивает вердикт); §4"
+  - to: acceptance author (NTF-1)
+    what: "К1/К2 (Е1, Е2) — по решению владельца о прочтении Д2; на редакции 12 не сняты"
+    basis: "Д2; Д13"
+  - to: change package author (NTF-1, docs/changes/issue-2915)
+    what: "Е8 (а) экспорт предиката «лимит возвращён», (б) правило читателя ответа справочника — в замысел и держатели NTF-1 (design.md у пакета NTF-1 ещё нет)"
+    basis: "design.md NTF-2 §13 Е8; tasks.md G2, S6"
+  - to: go implementer (NTF-2)
+    what: "пробы CX2-34 (вход не голодает при фоновых сверках; CapacityExhausted в работе register), CX2-35 (уборка якоря между вставкой и FOR UPDATE), CX2-21 (удаление аккаунта не уменьшает recipient-per-day-all) — сверх заказов прежних записей"
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"

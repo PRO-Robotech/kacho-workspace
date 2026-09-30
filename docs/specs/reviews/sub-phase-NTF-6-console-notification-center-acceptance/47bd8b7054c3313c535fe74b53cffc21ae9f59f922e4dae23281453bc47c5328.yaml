@@ -1,0 +1,208 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  revision: 6
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке объявлен DRAFT. Шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку намеренно не правит: вердикт привязан к отпечатку
+    (.claude/rules/change-graph.md §2). Одобрение d5fe4734 к этой редакции не относится.
+  base_commit: de3ba2e0c2035dd0cf34619e6834af5e093db9b1
+  content_commit: ff46eb4ec
+  content_commit_note: >-
+    Содержимое на content_commit совпадает с рассмотренным отпечатком. Проверено командами
+    git show ff46eb4ec:<path> | sha256sum и git show HEAD:<path> | sha256sum → 47bd8b70….
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2925
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1528
+  scenarios_live: 55
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T04:25:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода после разбора классов (Д14–Д16 действуют). По истории документа это шестое
+  рассмотрение. Прежние записи лежат соседними файлами этого каталога.
+previous_rounds:
+  - round: 1
+    sha256: 247c320c2836acad0136454944111b799c58363cde4c7b27801caf32051d92b9
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+  - round: 2
+    sha256: c82cd21b0eaa801bc3631b512d6e1a4d9973d308fe6b5e4a161f9ceb75cba443
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+  - round: 3
+    sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, OPEN-QUESTION]
+  - round: 1 (проход Д14–Д16)
+    sha256: bd960b46880259910881665c35f02d1428fc888aab3a4c4dd2cf2d56ad9ea9e6
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [CONSTRUCTIBILITY, NEGATIVE]
+  - round: 2 (проход Д14–Д16)
+    sha256: d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544
+    record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544.yaml
+    verdict: APPROVED
+    blocking_kinds: []
+    superseded_by: >-
+      разбор классов на d5fe4734
+      (docs/changes/issue-2925/reviews/class-exposure/initial/d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544.yaml)
+      вернул CX6-01, 02, 04, 07 в приёмку
+blocking_count: 0
+blocking_kinds_distinct: []
+closed_from_class_exposure: [CX6-01, CX6-02, CX6-04, CX6-07]
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: de3ba2e0c2035dd0cf34619e6834af5e093db9b1
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует, тело для курьера лежит в event_body_for_courier. Пока событие
+    не опубликовано, эта запись одобрения не выдаёт (.claude/rules/change-graph.md §3). По Д16
+    документ идёт в main только после публикации события, до того он живёт в ветке issue-880.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 1 после разбора классов, блокирующих 0) ·
+    SHA-256 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+
+measurement:
+  revisions_used:
+    kacho_origin: 1d42a6728bf
+    kaname_origin: cbbac984b
+    workspace_branch: issue-880@de3ba2e0c
+  neighbours_by_content:
+    NTF-1:
+      cited: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3
+      cited_verdict: APPROVED (запись abc1fd487)
+      measured_head: 530e22968ff16ae2…
+      note: >-
+        После отдачи редакции 6 в ветку лёг коммит 2fa62337b с редакцией 9 NTF-1 (возврат разбора
+        классов RA-01…RA-06). Р9 в ней сохранён по смыслу: одно объявление
+        global.kacho.notifications.enabled с переопределением модуля, умолчания нет, есть NTF1-N01.
+        Р13 допускает «b347b81f или более позднюю редакцию, где Р9 сохранён», поэтому документ не
+        устарел.
+    NTF-3:
+      cited: ee6f908e51e245436f50596d0f523dd76647d7f5bb01ad84d26d4ced964ae074
+      measured_head: ee6f908e51e245436f50596d0f523dd76647d7f5bb01ad84d26d4ced964ae074
+      cited_verdict: CHANGES_REQUESTED (04025df90; COVERAGE, NEGATIVE)
+      note: >-
+        Отпечаток совпал. Возврат NTF-3 касается пагинации внутренних списков справочника
+        (ListProjectAudience, ListExpiringCredentials) и не трогает форму Р9, Р10, Р11, Р20, Р25 и
+        Р29, на которой стоит консоль. Все 27 сценариев NTF-3 из Р3 найдены ровно по одному разу.
+        NTF3-149 даёт ключи модулей compute, vpc, nlb, registry, storage, notify, kaname. У kaname
+        есть только IDENTITY_SECURITY{EMAIL: ALWAYS}, поэтому действие подписки на карточках
+        службы доступа по Р10 не показывается, и это верный исход. nlb_target_group в журнале есть
+        (таблица видов NTF-3 §1).
+    NTF-5:
+      cited: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d
+      measured_head: 62a2286bff97b565…
+      note: >-
+        После отдачи редакции 6 в ветку лёг коммит de3ba2e0c с редакцией 5 NTF-5. Граница §4 не
+        изменилась: Р22 «Контракт для консоли и ссылки письма; экраны — NTF-6» на месте.
+  commands:
+    - sha256sum <док>; git show ff46eb4ec:<док> | sha256sum; git show HEAD:<док> | sha256sum → 47bd8b70… все три
+    - grep -c '^\*\*Сценарий NTF6-' <док> → 55; дублей ID 0; множество ID в §8 равно множеству сценариев (55)
+    - "for id in 73 … 158; do grep -c \"Сценарий NTF3-$id[: ]\" <NTF-3>; done → каждый 1 (27 из 27)"
+    - git diff 9afe86465 ff46eb4ec -- <док> → строки истории review только дописаны (удалённые строки — блок ревизий и соседей, не история)
+    - git -C project/kacho show 1d42a6728bf:ui-future/shared/src/lib/subscription/subjects.ts → JournalOwner из шести значений; STREAM_SUBJECTS — 23 записи (vpc 8, compute 1, loadbalancer 3, storage 3, registry 1, iam 7); registry_repository в карте нет
+    - git -C project/kacho show 1d42a6728bf:ui-future/deploy/templates/configmap-nginx.yaml | sed -n '132p;144p;336p' → перечень префиксов без notify; location / отдаёт index.html
+    - git -C project/kacho show 1d42a6728bf:ui-future/host/vite.config.ts | sed -n 36,43p → shared-библиотек федерации пять; @shared — алиас
+    - git -C project/kacho show 1d42a6728bf:ui-future/shared/src/components/molecules/ResourceLink/ResourceLink.tsx | grep -c encodeURIComponent → 0; resourceDetailHref :51-57
+    - git -C project/kacho grep -n journalsOutsideThisTree 1d42a6728bf -- ui-future/deploy → ведомость {"iam" → github.com/PRO-Robotech/kaname} (:669-671)
+    - git -C project/kacho show 1d42a6728bf:proto/kacho/cloud/loadbalancer/v1/{target_group_service,health_check}.proto; services/nlb/internal/domain/{health_check,constants}.go → тело NTF6-60 проходит проверки (interval 2s в [1s,600s], timeout 1s ≤ interval, пороги 3 и 2 в [2,10], tcp.port, port 8080)
+    - git -C project/kacho show 1d42a6728bf:ui-future/e2e/specs/contract-branches.spec.ts | sed -n 25,32p → anyRegionId на :28
+    - git -C project/kacho show 1d42a6728bf:ui-future/e2e/specs/users.spec.ts | sed -n 53p → onlyAccount; fixtures.ts:111-114 → Tenant {email, projectId}
+    - git -C project/kacho grep -l "from '@shared/" 1d42a6728bf -- 'ui-future/shared/src/*.ts*' ':!*test*' | wc -l → 128; относительных импортов ../api — 0 (обход DoD 6 и 11 по импорту @shared/api/notify внутри shared не пуст по построению)
+    - git -C project/kacho show 1d42a6728bf:ui-future/nlb/src/components/organisms/ResourceShell/ResourceShell.tsx → реэкспорт общей оболочки; карточка группы целей идёт через общую карточку (NTF6-60 строится)
+    - grep corelib/ids/ids.go → crockfordAlphabet в нижнем регистре; алфавит Р7 принимает законные id
+    - git -C project/kacho show 1d42a6728bf:.github/workflows/console-e2e.yml | grep -n uif → консоль стенда ставится подчартом uif, значит раздачей по шаблону configmap-nginx (NTF6-61 (а) исполнима)
+    - grep -nci 'yandex\|aws\|gcp\|azure' <док> → 0
+
+premise_check:
+  premise: >-
+    Задание исходит из того, что редакция 6 закрывает четыре пункта разбора классов на d5fe4734
+    (CX6-01, 02, 04, 07) и согласована с Д1–Д16.
+  result: confirmed
+  detail: >-
+    CX6-01 закрыт. Р10а объявляет NOTIFY_SOURCE_BY_OWNER одним местом, исчерпывающим по типу
+    JournalOwner. Гейт сверяет его с журналами дерева и с ведомостью внешнего журнала (она есть в
+    дереве). subjects.test.ts обходит все 23 записи. NTF6-60 проходит карточку группы целей, где
+    написания расходятся; его Given строится из существующих функций и допустимого тела.
+    CX6-02 закрыт. Р20 кладёт клиент, счёт и загрузчик в shared (импорты внутри shared идут через
+    @shared). DoD 6 переписан и больше не красит верную реализацию. Координаты §8 переведены:
+    ссылок на notify/src/api и host/src/lib/unread-count в §8 и §9 ноль.
+    CX6-04 закрыт. У Р2 есть канал во время работы (/console-config.json, отрендеренный чартом) и
+    три исхода с видимым «не прочитано». NTF6-61 проходит канал на стенде, который ставит uif
+    подчартом; NTF6-47 утверждает тело ответа.
+    CX6-07 закрыт. Р7 проверяет сегменты isPlatformId до ResourceLink. У NTF6-16 две ветки,
+    gamma и delta, и у каждой близнец alpha, отличающийся одним фактом.
+    По Д14: надзор администратора облака над лентой не утверждает ни один сценарий. По Д15: своего
+    контракта и заказов нет, заказ resourceTypes[] к NTF-3 явно отвергнут. По Д16: документ в
+    ветке, статическая форма DRAFT.
+
+blocking_findings: []
+
+non_blocking_findings:
+  - "[PRODUCER] Гейт console_notify_source_key_test.go (Р10а) сверяет NOTIFY_SOURCE_BY_OWNER с каталогом службы в дереве (services/<каталог>) и с последним сегментом пути модуля. Ключ модуля каталога notify производит NTF-3: перечень источников выводится из объявления флага, а сборка идёт по своей таблице. Каталог службы — только заместитель этого ключа. Если NTF-3 назовёт модуль иначе, чем каталог, гейт останется зелёным. Сквозной держатель есть на одном модуле (NTF6-60, nlb). Когда в дереве появится таблица сборки или перечень источников notify, гейт стоит перевести на неё. До тех пор посылку «ключ модуля = каталог службы» лучше назвать в Р10а со ссылкой на NTF3-149."
+  - "[COVERAGE] Три пункта разбора классов, которые аналитик держит «заказом модульной пробы», в DoD не названы. CX6-05: ветки «опоздавший ответ цикла» и «опрос в полёте во время отметки». Текст Р18 правило задаёт, но DoD 2 этих веток не перечисляет. CX6-08: «Вы подписаны» и перечень кандидатов обязаны выводиться обходом до пустого nextPageToken, а Р10 и Р11 обход не требуют. CX6-11: отказ каталога или настроек на экране настроек. Р2 это правило задаёт, но модульной пробы NotificationSettingsPage в DoD нет. Ни одно «Тогда» от этого не ложно, поэтому пункты не блокируют. Их надо отобразить в решения замысла и перепроверить на ревалидации разбора классов."
+  - "[FORMAT] Р7 требует непустой projectId для любой ссылки. resourceDetailHref для спек службы доступа projectId не читает, поэтому строка ленты о ресурсе без проекта потеряла бы ссылку. Сегодня такой строки нет: у kaname нет ячейки CONSOLE (NTF3-149). Формулировку «projectId проверяется, когда спека проектная» можно внести при следующей правке."
+  - "[FORMAT] Условие CX6-07 предлагало кодирование сегмента вторым рубежом. Р7 от него отказывается и записывает причину: на принятом алфавите кодирование тождественно, а в общей функции адреса оно сменило бы поведение остальных вызывающих. Решение законное. Ревалидации разбора классов стоит отметить это как принятое отклонение от условия."
+  - "[PRODUCER] Отпечатки NTF-1 (b347b81f) и NTF-5 (263b95d0) в ветке уже сменились (коммиты 2fa62337b и de3ba2e0c). Опора документа в обоих сохранилась: у NTF-1 это Р9 и NTF1-N01, у NTF-5 — Р22. Р13 требует пересверки с одобренными редакциями до старта, этого достаточно."
+
+checklist:
+  scope: pass — под-фазы в 04-roadmap нет; предмет задан ТВ1–ТВ6 и решениями Д; в §4 «Что НЕ входит» каждая граница ссылается на соседа
+  coverage: pass — отказы доступности производителя (NTF3-156…158) покрыты; новый предмет (переход Р10а, канал Р2, алфавит Р7) имеет сценарии NTF6-60, 61, 16
+  format: pass — у 55 сценариев есть GWT, ID, конкретное тело и пара «HTTP-статус и code»
+  producer: pass — §8 называет производителя у 55 из 55
+  twin: pass — у каждого отрицания есть строка §6; новые ветки NTF6-16 (gamma, delta) и NTF6-61 (б, в) отличаются от близнеца одним фактом
+  constructibility: pass — новые Given (NTF6-60, NTF6-61, ветки NTF6-16) сверены с кодом дерева и строятся названными функциями или подменой ответа
+  convention: pass — camelCase, адресация по id, Operation с опросом только при done=false, без чужих облаков
+  dod: pass — 55 из 55 по ID; DoD 3 (24), 5 (17), 7 (10) пересчитаны; DoD 6 называет по одному дому на каждую функцию
+  open_questions: pass — открытых вопросов нет
+  disclosure: pass — защитные свойства названы, путей атаки и описаний текущих слабых мест нет
+
+constructibility_measurement:
+  seeded: 0
+  total_nontrivial_given: 8
+  not_executed: 8
+  reason: >-
+    Посевом ничего не проверено: службы notify в дереве нет, в задании нет ни стенда, ни
+    разрешения на посев. Восемь нетривиальных Given сверены чтением кода kacho @1d42a6728bf и
+    kaname @cbbac984b. Это G0, G1, G2, право через accessBindings, подмена ответа края, группа
+    целей NTF6-60, ответ раздачи /console-config.json в NTF6-61 и элементы ленты с разметкой пути
+    в NTF6-16. Каждое строится названной фикстурой или приёмом из дерева: registerAndSignIn,
+    onlyAccount, ownUserId, anyRegionId, тело POST /nlb/v1/targetGroups в границах проверок
+    домена, page.route, стенд на подчарте uif.
+
+route_markers:
+  proto: no
+  schema: no
+  public_rpc: no
+  ui: yes
+  new_domain: no
+  security_surface: yes
+
+method_verdict: >-
+  Блокирующих нет. Четыре пункта разбора классов, возвращённые в приёмку, закрыты решениями,
+  сценариями и DoD. Конструируемость показана названными фикстурами, а не посевом: посев не
+  выполнялся, потому что предмета нет. Одобрение привязано к отпечатку 47bd8b70 и действует только
+  после публикации события курьером. Стадии дополнительно гейтятся одобрением NTF-1 и NTF-3 (Р13).

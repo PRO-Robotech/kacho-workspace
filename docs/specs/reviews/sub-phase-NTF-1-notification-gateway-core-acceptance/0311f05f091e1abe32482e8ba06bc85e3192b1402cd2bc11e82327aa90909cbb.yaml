@@ -1,0 +1,230 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb
+  revision: 6
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  base_commit: 616595d97ffb2715a8bcfbb447bdbf4c8e693179
+  content_commit: 3c05e613
+  content_commit_note: >-
+    Рассмотрена редакция 6 на отпечатке 0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb
+    (содержимое внесено коммитом 3c05e613; на базе 616595d9 файл тот же). Вердикт привязан только
+    к отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2047
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T03:40:41Z'
+round: 1
+round_note: >-
+  Круг 1 прохода с решениями Д14–Д16 (редакция 6). По документу в целом это седьмой круг подряд.
+previous_rounds:
+  - round: 1
+    sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136.yaml
+  - round: 2
+    sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0.yaml
+  - round: 3
+    sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260.yaml
+  - round: 4
+    sha256: 46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b.yaml
+  - round: 5
+    sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89.yaml
+
+previous_items_closed:
+  B5-1: >-
+    Закрыт. Предикат §1.11 перемерен на kaname 734f69fb4 и дал 62 строки, контрольный
+    "system_admin" — 11; обе цифры совпадают с документом. Классы построчно сверены с выводом:
+    обобщённая дверь 8, закреплённый предмет 14, определение 11, план 7, комментарий 22, сумма
+    62. module/authz.go:26 записан комментарием. verdictForRelation (:770), own_door.go:523 и
+    read_authz.go:76 вошли в перечень Д-1…Д-7. F12 разведён по входам: (а), (б) идут через
+    InternalIAMService/Check → CheckRelation → verdictForRelation; (г), (д) — через публичный
+    Check с полем действия: ветка «вопроса нет» по `*` и по неразрешающемуся действию есть
+    только в planCheck. BatchCheck приписан публичному AuthorizeService. Близнец по типу
+    (iam_user, token_issuer: subject) действительно получает «да» только через надзор. Всё это
+    соответствует Д14.
+  B5-2: >-
+    Закрыт в части слова провода. Во всех When и Then стоит kinds: ["notification_feed"].
+    Текст отказа N07 (а) дословно совпадает с corelib request.go:86-87, словарь отсортирован
+    (KindDictionary). Выбор исхода при пустом словаре сделан и записан в N07 (б). Остаток по
+    держателю этого выбора вынесен в B6-1.
+  N5-1: >-
+    Закрыт: все три типа записаны в Р2 п.5 и S1. Остаток по порядку пинов — N6-1.
+  N5-2: закрыт (средство F22 названо в самом F22 и отдельной строкой §6)
+
+blocking_count: 1
+blocking_kinds_distinct: [PRODUCER]
+blocking_kinds_by_item:
+  - B6-1 PRODUCER
+
+blocking:
+  - id: B6-1
+    kind: PRODUCER
+    scenarios: [NTF1-N07, NTF1-K03, NTF1-G19]
+    decisions: [Р9]
+    summary: >-
+      Документ трижды приписывает гейту TestGRPCMountParity_EveryDeclaredServiceIsMounted исход,
+      которого тот произвести не может. Гейт статический: «объявлен» для него значит «есть
+      ServiceDesc в стабах контракта», «смонтирован» — «в композиционном корне дерева kacho
+      есть вызов Register<Svc>Server». Судит он по владению пакетом: бинарь, не
+      смонтировавший ни одного сервиса proto-пакета, этим пакетом не владеет, и пропуск
+      целого пакета гейт не видит. Отсюда три случая.
+      (1) Р9 и NTF1-N07 (б): «объявление и монтирование выводятся из одного условия, и гейт их
+      согласие видит» и «TestGRPCMountParity… на этой посадке зелёный». Условное монтирование
+      во время работы гейт не видит: вызов Register в исходнике есть при любом значении флага.
+      Фикстуры N07 (probe, probe-solo) живут в corelib, а гейт обходит только services/ и
+      gateway/ kacho. Строка зелёная при любом поведении, то есть упасть не может.
+      (2) NTF1-K03, пропуск (3): «гейт монтирования». По C01 у пакета corelib.notify один
+      сервис, InternalNotificationFeedService. Служба, пропустившая его подъём, пакетом
+      corelib.notify не владеет, и гейт молчит.
+      (3) NTF1-G19: «гейт называет notify с нулём объявленных сервисов». Гейт печатает только
+      сводную перепись. Бинари без смонтированных сервисов не попадают даже в счётчик
+      OwningBinaries, поэтому notify он не называет. Это тот же класс, что закрывался
+      редакцией 6, — «факт о дереве взят из прозы»: ни один из трёх выводов не был
+      сверен с кодом гейта.
+    evidence:
+      - "kacho internal/repohygiene/grpcmountparity.go:294-430 @1d42a6728bf — declared = стабы, mounted = вызовы Register в Roots {services, gateway}; находка unmounted только для пакетов, которыми бинарь владеет; OwningBinaries++ только при len(set) > 0; вывод — одна строка сводной переписи"
+      - "kacho internal/repohygiene/grpcmountparity_test.go:113-123 @1d42a6728bf — Roots: services, gateway; APIRoot pkg/api"
+      - "kacho internal/repohygiene/grpcmountparity.go:382-383 @1d42a6728bf — «домен, у которого не смонтирован ни один сервис, этим правилом не покрыт»"
+      - "документ: Р9 стр. 563-567, N07 стр. 1620, K03 стр. 1731, G19 стр. 1472, C01 стр. 997 (один сервис ленты)"
+    required_change: >-
+      Р9 и N07 (б): снять утверждение о гейте монтирования. Исход «сервер подписки не
+      смонтирован» утверждать наблюдением на самой посадке, в той же integration-пробе corelib:
+      набор сервисов запущенного сервера (grpc.Server.GetServiceInfo) не содержит
+      corelib.subscription.InternalSubscriptionService и содержит остальные. У близнеца (true)
+      сервис в наборе есть. Если согласие «объявлено в самоотчёте = смонтировано» во время
+      работы нужно держать, назвать держателя, который читает оба значения у запущенного
+      процесса. K03 (3): назвать наблюдаемый исход пропуска, который производит репетиция
+      procedure_rehearsal_test.go, например Claim notify → UNIMPLEMENTED и тревога возраста.
+      Либо назвать гейт, который судит монтирование сервиса ленты у каждой службы с флагом
+      notifications и ловит пакет без владельца. G19: заменить последнюю строку переписью, у
+      которой есть производитель, например «в композиционном корне notify ни одного
+      grpc.NewServer и Register* — число 0, объём осмотренного напечатан», либо опереться
+      только на перепись портов пода, которая в G19 уже есть.
+
+non_blocking:
+  - id: N6-1
+    kind: CONVENTION
+    text: >-
+      У гейта TestForbiddenProxyObjectTypesAgreeWithTheModel две стороны
+      (proxyforbiddentypes.go:91-121 @1d42a6728bf). Сторона А — «запись без референта»: имя в
+      forbiddenObjectTypes, которого модель не объявляет, — находка. S1 (corelib) вносит service,
+      notification_feed и notification_namespace в набор раньше, чем S2 (kaname) — в модель.
+      Если kacho поднимет пин corelib отдельно от пина kaname, гейт покраснеет по стороне А.
+      В S3 или DoD п.11 стоит прямо сказать: пины corelib и kaname поднимаются одним изменением
+      kacho.
+  - id: N6-2
+    kind: FORMAT
+    text: >-
+      В F22 строка «And средство: …» стоит до When, то есть относится к Given. Её стоит
+      оформить продолжением Given (или отдельной строкой «Средство»), чтобы «And» не читалось
+      как утверждение Then.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 616595d9 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 616595d97ffb2715a8bcfbb447bdbf4c8e693179
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: Вердикт — отказ. Полномочий он не выдаёт, и от публикации его действительность не зависит.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода Д14–Д16, блокирующих 1: PRODUCER) ·
+    SHA-256 0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb
+
+measurement:
+  revisions_used:
+    corelib: 34bc810
+    kaname: 734f69fb4 (origin/357)
+    kacho: 1d42a6728bf (origin/main)
+    workspace: 616595d9 (ветка issue-880)
+  scenario_census:
+    predicate: "python re '^\\*\\*ID:\\*\\* NTF1-([A-Z])(\\d+)' по документу"
+    total: 142
+    unique: 142
+    by_group: {A: 9, B: 24, C: 7, D: 6, E: 4, M: 10, F: 22, G: 22, H: 10, N: 9, I: 6, J: 5, K: 3, L: 5}
+  producer_coverage:
+    method: диапазоны первой колонки §6.1 раскрыты в множество ID и сравнены с §6
+    covered: 142
+    of: 142
+    uncovered: []
+    note: покрытие по ID полное; у трёх утверждений внутри N07, K03 и G19 производитель назван неверно (B6-1)
+  dod_coverage:
+    method: то же раскрытие по §8
+    uncovered: []
+  twin_coverage:
+    note: >-
+      Для новых строк §6.2 (F12 по субъекту, F12 по типу, F12 для гейта, N07 (а), N07 (б))
+      близнецы есть, и каждый отличается одним фактом.
+  decisions_crosscheck:
+    Д1–Д13: согласно, как в круге 5; спора с решениями нет
+    Д14: >-
+      Согласно. Перечень {notification_feed, notification_namespace} стоит на всех семи местах
+      обобщённой двери. Перепись сделана одной командой с напечатанным числом (62) и
+      контрольным выводом (11). authorize_service.go:770, own_door.go:523, read_authz.go:76
+      названы. check, verdict и resolveRun — прежние. module/authz.go:26 записан комментарием.
+      F12 (д) идёт через публичный Check с действием. BatchCheck — публичного AuthorizeService.
+    Д15: к NTF-1 не относится; NTF-1 API настроек и контактов не описывает
+    Д16: документ не утверждает, что он в main; запись ревью коммитится в ветку issue-880
+    hygiene: >-
+      Путей tmp/ нет, фразы «не закоммичен» нет, имён чужих облаков нет. Имя файла
+      _kratos-identity.tpl — координата в дереве, а не сравнение.
+  facts_remeasured:
+    - "sha256sum документа = 0311f05f…90909cbb, 2047 строк"
+    - "kaname 734f69fb4: предикат семейства надзора → 62; '\"system_admin\"' без *.pb.go → 11; поимённая сверка классов 8/14/11/7/22"
+    - "InternalIAMService/Check → CheckRelation → verdictForRelation (надзор на отказе модели, `*` уходит модели как обычный объект) — authorize_service.go:708-775"
+    - "planCheck: пустое отношение → superGateDecides; Resource.ID == '*' → superGateDecides — authorize_service.go:482, 510"
+    - "resolveRun: прогон superGate (:1081) и пообъектный отказ (:1123)"
+    - "admission.Subject: субъект, не являющийся человеком (service:…), допущен — admission.go:101-120"
+    - "authorizeCaller: администратор облака вправе спросить о чужом субъекте — caller_authority.go:112"
+    - "iam_user: define token_issuer: subject — fga_model.fga:568; довод у checkAdapter — own_door.go:66, 477"
+    - "AllowsVerb/AllowsVGet: 7 вызовов с литералами account, iam_group, project, iam_service_account, iam_user"
+    - "corelib 34bc810: KindDictionary из ObjectType, отсортирован — journal.go:344-356; текст отказа — request.go:86-87; пустой Mapping.Kinds — ошибка — journal.go:492-494"
+    - "kacho 1d42a6728bf: гейт монтирования статический и судит по владению пакетом — grpcmountparity.go:294-430"
+    - "kacho 1d42a6728bf: forbidden types, стороны А и Б — proxyforbiddentypes.go:91-121"
+  constructibility:
+    seeded: 0
+    premises_checked_by_reading: 15
+    confirmed:
+      - F12 (а)–(ж) и оба близнеца — вход, место двери и исход каждого подслучая соответствуют коду на 734f69fb4
+      - F22 (а)–(в) — Claim идёт через Д-3, сужение подписки — через Д-4/Д-5
+      - N07 (а) — отказ INVALID_ARGUMENT дословно совпадает, словарь probe_item
+      - N07 (б) — «служба стартует без сервера подписки» выразимо как выбор новой сборки
+      - E01–E03 — вид провода notification_feed
+    refuted:
+      - N07 (б), K03 (3), G19 — утверждения о гейте монтирования (B6-1)
+    not_performed: >-
+      Посевов не было: кода предмета в дереве нет, стенд и изоляцию задание не назвало.
+      Конструируемость проверялась чтением ограничений на названных ревизиях. Эти проверки не
+      засчитываются ни в зелёное, ни в красное.

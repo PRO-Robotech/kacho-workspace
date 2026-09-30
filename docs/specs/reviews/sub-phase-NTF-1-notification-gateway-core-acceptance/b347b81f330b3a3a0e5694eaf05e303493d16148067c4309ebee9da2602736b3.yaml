@@ -1,0 +1,202 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3
+  revision: 8
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  base_commit: 258c92d5e2c6ef409123692a1a6a040727d05f22
+  content_commit: 258c92d5e2c6ef409123692a1a6a040727d05f22
+  content_commit_note: >-
+    Рассмотрена редакция 8, внесённая коммитом 258c92d5e. `git show HEAD:<путь> | sha256sum`
+    даёт тот же отпечаток, что и рабочий файл. Вердикт привязан только к отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2082
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T03:56:55Z'
+round: 3
+round_note: >-
+  Круг 3 прохода с решениями Д14–Д16 (редакция 8); по документу в целом — девятый круг. Род
+  PRODUCER блокировал два круга подряд (B6-1, B7-1); редакция 8 закрывает B7-1 и переписывает
+  класс на НОВЫХ держателях, чей предикат читает уже существующее дерево. Перепись перемерена
+  на тех же ревизиях и подтверждена.
+previous_rounds:
+  - round: 1
+    sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136.yaml
+  - round: 2
+    sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0.yaml
+  - round: 3
+    sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260.yaml
+  - round: 4
+    sha256: 46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b.yaml
+  - round: 5
+    sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89.yaml
+  - round: 6 (круг 1 прохода Д14–Д16)
+    sha256: 0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb.yaml
+  - round: 7 (круг 2 прохода Д14–Д16)
+    sha256: 12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4.yaml
+
+previous_items_closed:
+  B7-1: >-
+    Закрыт. G19 больше не судит импортное замыкание `cmd/notify`. Предмет теперь — вызовы из
+    не-тестовых файлов пакетов kacho под `services/notify/` (без `cmd/notify-probe` и пакетов
+    только его корня) в `grpc.NewServer`, в точки входа фундамента и в `Register…Server`
+    сгенерированных стабов; цель вызова определяется по типам. Перечень точек входа не
+    написан по памяти: проба выводит его из пина corelib как замыкание вызывающих
+    `grpc.NewServer`. На corelib 34bc810 перечень перемерен и совпал с названным:
+    `grpcsrv.NewServer` (server.go:51/55) ← `serverPair` (servicehost/serve.go:171, вызов :205)
+    ← `servicehost.Serve` (serve.go:66, вызов :89); других не-тестовых вызывающих
+    `grpcsrv.NewServer` нет, `servicehost.ServeSurface` (surface.go:78) в замыкание не входит,
+    `authz/interceptor.go:110` — комментарий. Импорт `servicecontract` → `grpcsrv` на исправном
+    notify переписью не судится, поэтому держатель зелёный на исправном продукте. Красный —
+    пустой обход, пустой перечень и инъекция `grpcsrv.NewServer` в `cmd/notify`; близнец —
+    дерево без инъекции.
+  N7-1: >-
+    Закрыт. B20 называет новый вход четвёртым и перечисляет три существующих входа:
+    `drainer.Config`, `CollectorConfig` и перепись колонок доставки. Оба неверных исхода без
+    нового входа сказаны. Перемерено на kacho 1d42a6728bf: `deliveryColumnMarks` =
+    `sent_at`, `next_attempt_at` (outboxobservedgate_test.go:871); перепись читает
+    `CREATE TABLE` миграций службы с учётом снятия колонок и таблиц (:945-1005); продвигатель
+    ищется регуляркой `UPDATE … SET … (sent_at|status) =` в прод-коде kacho (:919). Лента
+    схемой со `state` колонок доставки не объявляет, а `Claim`/`Ack` живут в corelib —
+    утверждение B20 верно для обоих вариантов схемы.
+  N7-2: закрыт — D04 называет положительного близнеца отрицания отдельной строкой.
+  class_census_new_holders: >-
+    Перепись новых держателей, чей предикат читает существующее дерево (§9, круг 7),
+    перемерена на тех же ревизиях. A09: не-тестовый импорт `text/template`/`html/template` в
+    corelib 34bc810 — один файл, `quota/refusal.go`, и узел теперь определён по файлу формата
+    шаблона, а не по вызову шаблонизатора. `notification.yaml` в `*.go` — 0 во всех трёх
+    деревьях. B19: `notification_outbox` — 0 во всех трёх. D05: импортёров `corelib/notify/spec`
+    — 0 во всех трёх. M10: писателей кортежей `service:` в не-тестовом kaname 734f69fb4 — 0.
+
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+blocking_findings: []
+
+non_blocking:
+  - id: N8-1
+    kind: PRODUCER
+    text: >-
+      G19 судит вызов по типу цели. Косвенный вызов — через значение-функцию или интерфейс,
+      полученный из фундамента, — статическим разбором по идентичности не виден. Сегодня у
+      фундамента таких путей к `grpcsrv.NewServer` нет: замыкание вызывающих состоит из прямых
+      вызовов. Стоит, чтобы проба печатала число вызовов через значение-функцию в пакетах
+      notify, — тогда появление такого пути будет заметно. На вердикт не влияет: перепись
+      портов пода в той же G19 (gRPC-порт не объявлен и не открыт) держит исход и на этом
+      пути.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 258c92d5e → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 258c92d5e2c6ef409123692a1a6a040727d05f22
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Пока событие не
+    опубликовано, эта запись одобрения не выдаёт (.claude/rules/change-graph.md §3). Д16: в main
+    документ идёт только после публикации события; до того он живёт в ветке issue-880.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 3 прохода Д14–Д16, блокирующих 0) ·
+    SHA-256 b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3
+
+measurement:
+  revisions_used:
+    corelib: 34bc810
+    kaname: 734f69fb4
+    kacho: 1d42a6728bf
+    workspace: 258c92d5e (ветка issue-880)
+  scenario_census:
+    predicate: "python re '^\\*\\*ID:\\*\\* NTF1-([A-Z])(\\d+)' по документу"
+    total: 142
+    unique: 142
+  producer_coverage:
+    method: >-
+      Диапазоны первой колонки §6.1 проверены на круге 7 (142 из 142). Редакция 8 ID не
+      добавляет и не снимает, меняет только текст строк A09, B20, G19 в §6.1.
+    covered: 142
+    of: 142
+    uncovered: []
+  twin_coverage:
+    note: >-
+      У изменённых сценариев близнецы есть. G19 — дерево без инъекции при импорте
+      `servicecontract` → `grpcsrv`. B20 — корень со сборщиком. D04 — дерево без правки
+      применённого файла. A09 — отсутствие инъекции.
+  decisions_crosscheck:
+    source_note: >-
+      Журнал прошлого прохода по пути из задания не найден: каталога `subagents/workflows`
+      нет, как и на круге 7. Д1–Д13 сверены по записям кругов 1 и 2 этого прохода и по диффу
+      редакции 8 (5c657b444..258c92d5e): Р-решения он не меняет. Повторного чтения исходного
+      текста Д1–Д13 не было — «не выполнилось».
+    Д1–Д13: согласно; правка редакции 8 их не затрагивает.
+    Д14: >-
+      Согласно. Перепись путей надзора в §1.11 не изменилась: Д-3 `authorize_service.go:770`
+      `verdictForRelation`, Д-6 `own_door.go:523`, Д-7 `read_authz.go:76` `AllowsVerb`,
+      Д-4/Д-5 `resolveRun`. F12 (д) идёт через путь с полем действия. BatchCheck принадлежит
+      публичному `AuthorizeService`.
+    Д15: согласно — NTF-1 API настроек и контактов не описывает, относит его к NTF-3 и NTF-6.
+    Д16: >-
+      Документ не утверждает, что он в main. Запись коммитится в ветку issue-880; в main документ
+      идёт после публикации события.
+    hygiene: >-
+      Путей во временный каталог и фразы «не закоммичен» нет. Поиск по словарю запрета ban02 — 0
+      совпадений.
+  facts_remeasured:
+    - "sha256sum документа = b347b81f…602736b3, 2082 строки; тот же отпечаток у blob на HEAD 258c92d5e"
+    - "corelib 34bc810: `git grep -nE 'NewServer\\(|Register[A-Za-z]*Server\\(' -- '*.go' ':!*_test.go'` без *.pb.go — grpcsrv/server.go:51,55,58; servicehost/serve.go:205; authz/interceptor.go:110 (комментарий); subscription/server.go:167 (конструктор своего типа, не gRPC-сервера); два *.pb.gw.go HandlerServer"
+    - "corelib 34bc810: вызывающий `grpcsrv.NewServer` — только servicehost/serve.go:205 в `serverPair` (:171); `serverPair` зовёт только `Serve` (:89)"
+    - "corelib 34bc810: `\"(text|html)/template\"` в не-тестовом Go — только quota/refusal.go"
+    - "corelib/kacho/kaname: `notification.yaml` в *.go — 0/0/0; `notification_outbox` — 0/0/0; `corelib/notify/spec` — 0/0/0"
+    - "kaname 734f69fb4: `\"service:` или `` `service: `` в не-тестовом Go — 0 строк"
+    - "kacho 1d42a6728bf: outboxobservedgate_test.go:28-31 (два входа AST), :871 deliveryColumnMarks, :919 продвигатель, :945-1005 перепись CREATE TABLE с учётом снятий"
+  constructibility:
+    seeded: 0
+    premises_checked_by_reading: 6
+    confirmed:
+      - G19 — перечень точек входа фундамента выводится замыканием вызывающих и на 34bc810 равен названному; исправный notify (импорт servicecontract → grpcsrv без вызова) переписью не судится
+      - B20 — без четвёртого входа исход зависит от схемы ленты, как сказано; с ним лента движима и наблюдаема
+      - A09 — узел по файлу формата не ловит quota/refusal.go
+      - B19, D05, M10 — предикаты на существующем дереве дают 0
+    refuted: []
+    not_performed: >-
+      Посевов не было: кода предмета в дереве нет, стенд и изоляцию задание не назвало.
+      Конструируемость показана названными фикстурами документа (§6.1, §7) и чтением
+      ограничений на названных ревизиях. Эти проверки не засчитываются ни в зелёное, ни в
+      красное.

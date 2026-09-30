@@ -1,0 +1,178 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке объявлен DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку намеренно не правит: вердикт привязан к отпечатку
+    (.claude/rules/change-graph.md §2).
+  base_commit: 5c657b44427f0744c4764df4319630b8e905a854
+  content_commit: 9afe86465
+  content_commit_note: >-
+    Содержимое на content_commit совпадает с рассмотренным отпечатком. Проверено командой
+    git show 9afe86465:<path> | sha256sum → d5fe4734….
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2925
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1317
+  scenarios_live: 53
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T03:54:25Z'
+round: 2
+round_note: >-
+  Круг 2 прохода Д14–Д16. По истории документа это пятое рассмотрение; прежние записи — соседние
+  файлы этого каталога.
+previous_rounds:
+  - round: 1
+    sha256: 247c320c2836acad0136454944111b799c58363cde4c7b27801caf32051d92b9
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+  - round: 2
+    sha256: c82cd21b0eaa801bc3631b512d6e1a4d9973d308fe6b5e4a161f9ceb75cba443
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+  - round: 3
+    sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, OPEN-QUESTION]
+  - round: 1 (проход Д14–Д16)
+    sha256: bd960b46880259910881665c35f02d1428fc888aab3a4c4dd2cf2d56ad9ea9e6
+    record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/bd960b46880259910881665c35f02d1428fc888aab3a4c4dd2cf2d56ad9ea9e6.yaml
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [CONSTRUCTIBILITY, NEGATIVE]
+blocking_count: 0
+blocking_kinds_distinct: []
+closed_from_previous_round: [B4-1, B4-2]
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 5c657b444 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 5c657b44427f0744c4764df4319630b8e905a854
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Пока событие не
+    опубликовано, эта запись одобрения не выдаёт (.claude/rules/change-graph.md §3). Д16: в main
+    документ идёт только после публикации события; до того он живёт в ветке issue-880.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2 прохода Д14–Д16, блокирующих 0) ·
+    SHA-256 d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544
+
+measurement:
+  revisions_used:
+    kacho_origin: 1d42a6728bf
+    kaname_origin: cbbac984b
+    workspace_branch: issue-880@5c657b444
+  neighbours_by_content:
+    NTF-1:
+      cited: 12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4
+      measured: 12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4
+      note: >-
+        Отпечаток совпал. На него вынесен возврат (5c657b444, PRODUCER). Р13 гейтит все стадии
+        одобрением NTF-1, поэтому возврат этому документу не мешает.
+    NTF-3:
+      cited: 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8
+      measured_worktree: 0654310d9b0a0a83…
+      measured_head: 52ef8689a9da5d0b…
+      note: >-
+        Сосед правится параллельно без коммита: 62d42441 — отпечаток, рассмотренный записью
+        add761b90, но содержимого в коммите нет. По текущему содержимому перемерены все 27
+        сценариев NTF-3, на которые ссылается документ (NTF3-73…149, 156, 157, 158): каждый есть
+        ровно один раз; тела NTF3-156 (503, code 14, PEER_UNAVAILABLE, Operation нет), NTF3-157
+        (GET и PATCH — 503, code 14) и NTF3-158 (503, code 14, items нет) и строки таблицы Р25
+        совпадают с таблицей отказов §1.7.
+    NTF-5:
+      cited: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937
+      measured_worktree: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937
+      note: Совпал. Опора — только граница §4.
+  commands:
+    - sha256sum <док> → d5fe4734…; git show 9afe86465:<док> | sha256sum → d5fe4734…
+    - "for id in 73 … 158; do grep -c \"Сценарий NTF3-$id[: ]\" <NTF-3>; done → каждый 1"
+    - sed -n 1718,1724p;1917,1925p;2116,2124p <NTF-3> → тела NTF3-158, 156, 157
+    - git -C project/kacho show origin/main:ui-future/e2e/specs/users.spec.ts | sed -n 145,270p → ownUserId :147-166, secondAccountMembership :199, register :219, onlyAccount :220, raiseAssurance :233, users:invite :235-236, ожидание ACTIVE :243-262, ctx.close :266
+    - git -C project/kacho show origin/main:ui-future/e2e/specs/assurance.ts | grep -n 'export async function' → assuranceLevel :124, raiseAssurance :140; импорта fixtures нет (кольца импортов при переносе не будет)
+    - git -C project/kacho show origin/main:ui-future/e2e/specs/fixtures.ts | grep -n 'export' → registerAndSignIn :323, Tenant {email, projectId}
+    - grep -c '^\*\*Сценарий NTF6-' <док> → 53; ID в §8 → те же 53
+    - grep -nci 'yandex\|aws\|gcp\|azure' <док> → 0
+
+premise_check:
+  premise: >-
+    Задание исходит из того, что редакция 5 закрывает круг 1 прохода (B4-1 CONSTRUCTIBILITY,
+    B4-2 NEGATIVE) и согласована с Д1–Д16.
+  result: confirmed
+  detail: >-
+    B4-1 закрыт: §1.6 описывает secondAccountMembership по её коду; G1 собран четырьмя шагами из
+    функций, которые существуют в дереве с названными сигнатурами; обобщение inviteIntoAccount
+    принимает аккаунт и страницу приглашающего, и приглашение в дереве проб остаётся одним
+    (DoD 14). B4-2 закрыт: три метода Р25, дающие UNAVAILABLE, получили сценарии консоли с
+    близнецами, отличающимися одним фактом (NTF6-56/07, 57/10, 58/37, 59/33); Р2 разводит сбой
+    загрузки модуля и отказ данных; Р18 записывает поведение счётчика при отказе. Д14 предмета
+    консоли не касается — ни один сценарий не утверждает надзор администратора облака над лентой.
+    Д15 соблюдено: своего контракта и заказов нет. Д16 соблюдено: документ в ветке, статическая
+    форма DRAFT.
+
+blocking_findings: []
+
+non_blocking_findings:
+  - "[FORMAT] G0 говорит, что registerAndSignIn даёт acc-A, но Tenant (fixtures.ts:111) несёт только {email, projectId}; id аккаунта нужен шагу 3 G1 и путям /notify/v1/accounts/<acc-A>/contacts. Готовая функция onlyAccount живёт в users.spec.ts:53 и в перенос Р14 не названа. Состояние строится (аккаунт существует и читается GET /iam/v1/accounts), но без названного источника id пробы S3 рискуют завести копию onlyAccount — это тот класс «три места об одном», против которого написан Р14. Добавить onlyAccount в перенос Р14 и в DoD 14."
+  - "[NEGATIVE] NTF3-157 утверждает 503 и на PATCH контактов; консольного сценария есть только на GET (NTF6-58). Отображение отвергнутого PATCH уже закреплено отрицаниями 400 и 403 (NTF6-41, 45, 46) и общим правилом Р2, поэтому это не блокирует. Если сценарий понадобится, близнецом будет NTF6-38."
+  - "[FORMAT] NTF6-59, последнее And («в Мои подписки строки этой сети нет») истинно по построению: POST подменён и до сервера не доходит. Держат сценарий утверждения о карточке и опросе операции. Строку можно снять или пометить как контроль, чтобы её не считали доказательством."
+  - "[PRODUCER] Отпечаток NTF-3 62d42441 снова не лежит в коммите: сосед правится без коммита и уже ушёл на 0654310d. Форма перемерена и совпадает. Р13 требует пересверки с одобренной редакцией NTF-3 до старта; этого достаточно."
+
+checklist:
+  scope: pass — под-фазы нет в 04-roadmap; предмет задан ТВ1–ТВ6 и Д-решениями; §4 «Что НЕ входит» со ссылками на соседей
+  coverage: pass — три метода с отказом доступности у производителя (Р25) покрыты; методы, не зовущие службу доступа, названы с причиной
+  format: pass — у 53 сценариев GWT, ID, код, тело «Тогда»
+  producer: pass — §8 называет производителя у 53 из 53
+  twin: pass — у каждого отрицания строка §6; новые NTF6-56…59 — близнецы с одним отличающимся фактом
+  constructibility: pass — G0, G1, G2, выдача права, подмена ответа сверены с кодом дерева; G1 из существующих функций
+  convention: pass — camelCase, адресация по id, Operation с опросом, пары HTTP и code, без чужих облаков
+  dod: pass — 53 из 53 по ID; DoD 2, 3, 5, 7, 12, 14, 15 пересчитаны
+  open_questions: pass — открытых нет
+  disclosure: pass — защитные свойства названы, путей атаки нет
+
+constructibility_measurement:
+  seeded: 0
+  total_nontrivial_given: 6
+  not_executed: 6
+  reason: >-
+    Посевом ничего не проверено: службы notify в дереве нет, в задании нет ни стенда, ни
+    разрешения на посев. Шесть нетривиальных Given (G0, G1, G2, право через accessBindings,
+    подмена ответа края, подмена 503 формой отказа производителя) сверены чтением кода
+    kacho @1d42a6728bf и kaname @cbbac984b. Каждое строится названной фикстурой или приёмом
+    из дерева. G1 собран из registerAndSignIn :323, ownUserId :147, assuranceLevel :124,
+    raiseAssurance :140 и шагов приглашения :233-262 с параметром аккаунта.
+
+route_markers:
+  proto: no
+  schema: no
+  public_rpc: no
+  ui: yes
+  new_domain: no
+  security_surface: yes
+
+method_verdict: >-
+  Блокирующих нет; B4-1 и B4-2 закрыты. Конструируемость показана названными фикстурами, а не
+  посевом (посев не выполнялся: предмета нет). Одобрение привязано к отпечатку d5fe4734 и
+  действует только после публикации события курьером; стадии дополнительно гейтятся одобрением
+  NTF-1 и NTF-3 (Р13).

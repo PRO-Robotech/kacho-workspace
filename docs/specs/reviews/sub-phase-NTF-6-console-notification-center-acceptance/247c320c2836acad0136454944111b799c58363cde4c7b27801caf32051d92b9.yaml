@@ -1,0 +1,206 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 247c320c2836acad0136454944111b799c58363cde4c7b27801caf32051d92b9
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку
+    (.claude/rules/change-graph.md §2).
+  base_commit: 1509555543ed71bfc320643a8425b70ebbe16dcd
+  content_commit: none
+  content_commit_note: Отпечаток — единственная привязка редакции.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2925
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  fingerprint_reproduced: true
+  lines: 947
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T01:44:17Z'
+round: 1
+previous_rounds: []
+blocking_count: 4
+blocking_kinds_distinct: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+blocking_kinds_by_item:
+  - B1-1 PRODUCER
+  - B1-2 CONVENTION
+  - B1-3 CONSTRUCTIBILITY
+  - B1-4 TWIN
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 15095555 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 1509555543ed71bfc320643a8425b70ebbe16dcd
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочия не выдаёт и ничего не открывает; тело события для
+    курьера — полем event_body_for_courier.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1, блокирующих 4) ·
+    SHA-256 247c320c2836acad0136454944111b799c58363cde4c7b27801caf32051d92b9
+
+measurement:
+  revisions_used:
+    kacho_origin: 1d42a6728bf
+    kaname_origin: cbbac984b
+    workspace: 1509555543ed71bfc320643a8425b70ebbe16dcd
+    neighbour_ntf1_acceptance_sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+    neighbour_ntf2_acceptance: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+    neighbour_ntf3_acceptance_sha256: 8a3165ccf3140ba3695dc8fc7602a9f2bb62fbdb414996222210b2f535662b70
+  tree_claims_rechecked:
+    - "§1.1 ноль вхождений notify в ui-future/*/src, gateway, proto; служб 6 — подтверждено"
+    - "§1.2 moduleCatalog.ts 8 remote; App.tsx:103 Navigate; ui.yml:400-401 матрица 9; deployment- ×9 — подтверждено"
+    - "§1.3 HeaderActions один Button; codestyles.md:31 — подтверждено"
+    - "§1.4 REFUSALS/AUTHZ_DENIED/FORBIDDEN_EXPLANATION; UNAVAILABLE_REASON module-navigation.tsx:99 — подтверждено"
+    - "§1.5 console_mail_says_sent_never_delivered_test.go:368 обход ui-future, исключения :135-137 — подтверждено"
+    - "§1.6 registerAndSignIn fixtures.ts:323; users:invite users.spec.ts:235 с raiseAssurance; retries 0 — подтверждено"
+    - "§1.7 grep '/notify/v1' в NTF-1 и NTF-3 → 0 — подтверждено"
+    - "компоненты и гейты, названные в §8 (ResourceDetailExtensions, RefNameLink, BoolFact, StepUpModal, ModuleErrorBoundary, ref-name-link-scope, spec-columns.bool, ui-chart-remote-entry-cache, module-runs-shared-suite, shared-organisms-single-source, console-list-filter-declared, console_refusal_reason_coverage_test.go) — все есть @1d42a6728bf"
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* NTF6-[0-9]+' <док> | sort -u | wc -l"
+    total: 48
+    groups: "positive/edge S1–S3 и поставка; отрицаний с близнецом по §6 — 24 строки"
+  producer_coverage:
+    claimed_by_doc: "48 из 48 (§8)"
+    reviewer_note: >-
+      Строки §8 покрывают все ID, но у S1-ядра (NTF6-04, 05, 09, 13, 14, 17, 20, 21) и у
+      NTF6-26, 27, 33 названный производитель — «NTF-3: лента, источник vpc» — опровергнут
+      соседним документом на измеренной ревизии (B1-1); производитель флага по модулю
+      («NTF-1: флаг») в NTF-1 отсутствует (B1-1).
+  twin_coverage:
+    rows_in_table: 24
+    reviewer_note: "NTF6-20 → NTF6-04 различаются больше чем одним фактом (B1-4); прочие строки §6 годны."
+  constructibility:
+    seeded: 0
+    of_nontrivial_givens: 11
+    verified_by_tree: 3
+    refuted_by_neighbour_contract: 1
+    no_builder_named: 2
+    not_performed: 5
+    detail:
+      - "registerAndSignIn (NTF6-35 арендатор C, G0) — фикстура есть, fixtures.ts:323 — подтверждено"
+      - "приглашение второго человека с подъёмом уровня (NTF6-20, 38, 41, 44) — users.spec.ts:222-241 — подтверждено"
+      - "raiseAssurance (NTF6-38, 42, 46) — ui-future/e2e/specs/assurance.ts — подтверждено"
+      - "G0 «флаг включён у vpc» и событие «сеть создана» (NTF6-04 и зависящие) — ОПРОВЕРГНУТО: NTF-3 §3 @8a3165cc — vpc «не подключается», нет ленты, таблицы, сервера — B1-1"
+      - "NTF6-46 «право чтения контактов без права правки» — роль/отношение не названы нигде (ни в Р3, ни в соседях) — B1-3"
+      - "NTF6-40 «член аккаунта, вошёл, почта не подтверждена» — фикстура не названа; по NTF-2 такой человек находится в положении подтверждения, путь в членство не установлен — B1-3"
+      - "NTF6-21, 42 (привязка роли), NTF6-39 (SA и группа), NTF6-45, G0 «registry выключен», все сценарии с живым notify — НЕ ВЫПОЛНИЛОСЬ: службы notify в дереве нет, стенда и разрешения на посев в задании нет"
+
+premise_check:
+  claim: "задание: судить редакцию 247c320c… круг 1; сверить с Д1–Д13; отступление без строки спора — блокирующее"
+  outcome: confirmed
+  commands:
+    - "sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md → 247c320c…92b9; wc -l → 947"
+    - "sed -n 455,470p docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md (перепись модулей)"
+    - "grep -cE 'global\\.kacho\\.notifications|notifications\\.enabled' docs/specs/sub-phase-NTF-1-*.md → 0"
+    - "git -C project/kacho grep/show @1d42a6728bf по координатам §1 и §8"
+  dispatcher_decisions_check: >-
+    Д13 (NTF-6 после NTF-1) — отступление заявлено строкой спора (§1.7, Р13): годно. Д7, Д8, Д9, Д11 —
+    следствия для консоли перенесены без отступлений. Д1–Д6, Д10, Д12 предмета консоли не
+    касаются, кроме Д10 (снимок имени, NTF6-17) — перенесено. Отступлений без строки спора нет.
+
+blocking_findings:
+  - id: B1-1
+    kind: PRODUCER
+    scenarios: [NTF6-04, NTF6-05, NTF6-09, NTF6-13, NTF6-14, NTF6-17, NTF6-20, NTF6-21, NTF6-24, NTF6-26, NTF6-27, NTF6-33, NTF6-34, NTF6-47]
+    title: >-
+      Производитель S1-ядра опровергнут соседним контрактом: G0 требует «флаг включён у vpc», а
+      «Тогда» — строку «сеть создана»; NTF-3 на измеренной редакции vpc не подключает и событий
+      создал/обновил/удалил не производит. Производителя флага по модулю в NTF-1 нет.
+    evidence: >-
+      docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md @8a3165cc §3: «vpc — не
+      подключается … нет каталога notifications/, нет таблицы ленты, нет сервера ленты, нет записи в
+      перечне источников notify»; подключается один storage (volume-error, snapshot-error,
+      image-error); registry тоже не подключается. grep 'сводк' в NTF-3 → 0. В NTF-1 @077e9fff
+      объявления global.kacho.notifications.* нет (grep → 0). Документ в §1.7 измерил у NTF-3 только
+      отсутствие /notify/v1 и в Р3/Р13 не заказывает ни событий ресурсов vpc, ни флага.
+    required_change: >-
+      Заказать недостающее явно: в Р3 (или отдельном Р) — «события ресурсов модулей kacho (Д10,
+      ТВ4: создал/обновил/удалил) в ленте консоли и каталоге» с производителем NTF-3, и «флаг по модулю
+      Д7 с выведенным перечнем источников» с производителем NTF-1; Р13 гейтить стадии и на них; §1.7
+      дополнить измерением NTF-3 §3. Либо перестроить Given S1 на единственный производимый источник.
+      Противоречие NTF-3 §3 с ТВ4/Д10 — строкой спора в возврат.
+  - id: B1-2
+    kind: CONVENTION
+    scenarios: [NTF6-05, NTF6-11, NTF6-27, NTF6-28, NTF6-30, NTF6-38, NTF6-42, NTF6-43]
+    title: >-
+      Заказанная форма контракта (Р3) расходится с конвенциями API, и документ фиксирует её
+      («NTF-3 вправе переименовать только правкой обоих документов»).
+    evidence: >-
+      (а) PATCH /notify/v1/preferences с updateMask-путями entries.<module>.<kind>.<channel> по
+      repeated-полю entries[] — путь маски не адресует элемент повторяющегося поля, а динамические
+      ключи из каталога не выражаются known-set’ом единой маски (api-conventions.md
+      api-mask-unknown, api-mask-parity). (б) Контакты — PATCH /notify/v1/contacts на коллекцию без id
+      и «DELETE переопределения проекта» без пути (NTF6-43 When без адреса): ресурс без id и без
+      REST-пути (api-rest-paths, ban15-id-addressing). (в) Порядок ленты createdAt убыв. — отступление
+      от api-pagination-cursor (created_at, id) ASC без записанного решения. (г) Точный счётчик >99
+      (NTF6-11 «непрочитанных: 150») при сужении «то же множество, что лента» требует проверки прав
+      на неограниченном множестве — против security.md §«Get/List: проверка прав постранично».
+    required_change: >-
+      Выразить правку ячейки конвенционно (например :verb с {module, kind, channel, enabled}
+      либо ресурс ячейки с id), контакту дать id и путь, NTF6-43 — конкретный запрос; порядок
+      ленты — записанным решением-исключением с основанием; счётчик — ограниченный (например,
+      не больше 100 с признаком «больше»), NTF6-11 утверждать по нему.
+  - id: B1-3
+    kind: CONSTRUCTIBILITY
+    scenarios: [NTF6-40, NTF6-45, NTF6-46]
+    title: >-
+      Нетривиальные Given без названного строителя: право «читать контакты без права правки» не
+      названо ни ролью, ни отношением; «член аккаунта с неподтверждённой почтой, вошедший» — без
+      фикстуры.
+    evidence: >-
+      Р3 строка «контакты» называет отказ PERMISSION_DENIED AUTHZ_DENIED, но не заказывает у
+      kaname/NTF-3 отношения чтения и правки контактов и их держателей по умолчанию; §8 NTF6-45/46
+      отсылает к «манифест notify, NTF-3», где их нет. По NTF-2 зарегистрированный без
+      подтверждения находится в положении подтверждения (рубеж Ф6); сценария его приглашения и
+      членства нет ни у NTF-2, ни в fixtures.ts.
+    required_change: >-
+      Назвать отношения (чтение/правка контактов аккаунта и проекта), кто их держит по умолчанию,
+      роль, дающую только чтение, и заказать это в Р3; для NTF6-40 — назвать фикстуру, строящую
+      члена с неподтверждённой почтой, либо заменить отказ на достижимое состояние (например, не
+      ACTIVE) с близнецом.
+  - id: B1-4
+    kind: TWIN
+    scenarios: [NTF6-20]
+    title: "Близнец NTF6-20 (NTF6-04) отличается больше чем одним фактом."
+    evidence: >-
+      В NTF6-04 читает владелец U-A (создатель); в NTF6-20 — другой человек U-B, приглашённый без
+      роли. Отличаются читающий, его членство и наличие роли. Положительный «U-B с ролью на prj-A
+      видит строку» есть только как Given NTF6-21, не как утверждение.
+    required_change: >-
+      Завести положительного близнеца: U-B с прямой ролью на prj-A видит строку о net2 и счётчик
+      растёт; NTF6-20 — то же без роли.
+
+non_blocking_findings:
+  - "[FORMAT] Ссылки на «обязательный набор, строка 10» и цитаты «обязательного набора» (строки 224, 239, 272) ведут в документ, которого в дереве нет — заменить ссылкой на Д9/Д11 или требование владельца."
+  - "[FORMAT] «гейт DoD 11.4» (строки 271, 854) — такого пункта нет; пункт DoD 11."
+  - "[FORMAT] NTF6-22 утверждает только HTTP 401 — добавить code 16 (api-case-asserts-pair)."
+  - "[FORMAT] NTF6-10: из Given неясно, подменён ли ответ счётчика или построен стендом; внести в §5."
+  - "[SCOPE] Нет строки о roadmap §3: под-фазы в 04-roadmap-and-phasing.md §3 нет, предмет задан требованиями владельца и эпиком #2914 — назвать это явно, как в NTF-3."
+  - "[NEGATIVE] :markRead с чужим id и с негодным id — утвердить одинаковое тело (скрытие существования), как в NTF6-35."
+  - "[CONVENTION] NTF6-41: несуществующий пользователь отвечает reason PEER_RESOURCE_STATE вместо PEER_RESOURCE_MISSING — решение скрытия записано в Р3, допустимо; сослаться на него в сценарии."
+  - "[UI] Текст FORBIDDEN_EXPLANATION («доступен администраторам платформы») не отвечает отказу в контактах аккаунта (NTF6-45/46): утверждение «пояснение из словаря» будет истинно, а текст — неверен для арендатора; решить словом в Р3."
+
+method_verdict: >-
+  Посевом ничего не проверено: службы notify в дереве нет, стенда и разрешения на посев в задании
+  нет. Факты §1 и координаты §8 перемерены на kacho @1d42a6728bf — все сошлись. Блокирующие
+  опираются на соседние приёмки в рабочей копии (NTF-1 @077e9fff, NTF-3 @8a3165cc) и конвенции.

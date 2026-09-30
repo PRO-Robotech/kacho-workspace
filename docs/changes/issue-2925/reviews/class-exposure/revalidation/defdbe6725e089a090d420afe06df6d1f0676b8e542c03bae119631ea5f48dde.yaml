@@ -1,0 +1,254 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 3 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/47bd8b70….yaml) и пересверки на
+# редакции 1 (revalidation/7613071f….yaml) и 2 (revalidation/deeea79a….yaml) свидетельствуют о
+# своих редакциях и здесь не переписываются. Проверено: (1) каждый пункт CX6-01…25 отображён в
+# решение замысла и отображение выдерживает условие пункта; (2) новые внешние вызовы, (3) новые
+# асинхронные пути, (4) новые sentinel-значения, внесённые редакцией 3 сверх редакции 2;
+# (5) маркеров отсрочки и открытых решений нет. Новых пунктов у этой пересверки нет; у CX6-25 и
+# CX6-10 (строка 31 §10) — условия к коду.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2925/design.md
+  sha256: defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde
+  fingerprint_predicate: sha256sum docs/changes/issue-2925/design.md
+acceptance:
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+initial_record: docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+previous_revalidation: docs/changes/issue-2925/reviews/class-exposure/revalidation/deeea79a3acd2d39cb8c9ef1464f138994c3a07a1482e6bccdf34206ec1a27c3.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 4e2b4621af238fcf90b3d15ada0d510e40f4fdf3   # ветка issue-880; design.md на ней = defdbe67
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что в замысле §0
+snapshot_at: 2026-09-30T05:11:31Z
+inspected: >-
+  замысел целиком (945 строк) и дифф редакций 2→3 (d97b9ea47..4e2b4621a); пересверка deeea79a;
+  change.yaml; записи вердиктов приёмки NTF-6 (6) и NTF-1 (каталог записей). Дерево kacho
+  @1d42a6728bf: перепись M2 заново (469 тестовых файлов ui-future, порог 7 из 8 → 16; тот же
+  обход с порогом 5–6 → ещё 32 файла, прочитаны строки-литералы); перепись однострочных
+  перечней модулей в кавычках по всем тестовым файлам дерева (2799 файлов, ≥ 4 имени в строке);
+  iam-pages-authz-single-source.test.ts, ResourceIcon.registry.test.ts,
+  spec-columns.bool-labels.test.ts, ui-chart-remote-entry-cache.test.ts,
+  module-test-setup-single-source.test.ts целиком по веткам; nlb/jest.config.cjs;
+  internal/repohygiene/console{formatterversion,stylelintconfig,lintproducer,typecheckproducer}
+  (инъекционные и древесные файлы); счёт `new QueryClient` в тестах ui-future. kaname не
+  перемерялся. Записки vault не читались. Журнал решений Д1–Д13, названный заданием, по
+  указанному пути отсутствует — решения взяты из замысла и прежних записей.
+
+approval_conditions:
+  - condition: "каждый пункт первичного разбора и прежних пересверок отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      строк отображения §11 — 26 (CX6-01…25, CX6-06 двумя строками), счёт уникальных пунктов 25 из 25.
+      Все 25 выдерживают; CX6-10 и CX6-25 — с условием к коду (ниже). Возврат пересверки deeea79a
+      исполнен по всем четырём пунктам заказа: M2 перемерен (6 перечней руками с координатами, строки
+      §10 21, 22, 28–31, гейты обходом — 23, 32); строка CX6-25 в §11 и И17; снятие и публикация по
+      идентичности и третье состояние pending с веткой кнопки (З14); createNotifyQueryClient с
+      умолчанием notifyQueryRetry для всех запросов модуля, включая обход пользователей (З6, З13).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: "редакция 3 внешних вызовов не добавляет"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: "новых нет: createNotifyQueryClient — фабрика клиента, не путь исполнения; rememberLoad — CX6-25"
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      LoadOutcome = "pending" | "available" | "unavailable" — третье состояние, которого требовал
+      пункт CX6-25; отдельного пункта не заводит, условие к коду по нему — в mapping_check CX6-25.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 4 попадания, все — слово «потому»; §13
+      «Открытые решения — нет».
+
+mapping_check:
+  - id: CX6-01
+    design: З11
+    verdict: holds
+  - id: CX6-02
+    design: "З6, З7, З2, И7"
+    verdict: holds
+  - id: CX6-03
+    design: З10
+    verdict: holds
+  - id: CX6-04
+    design: "З2, З3"
+    verdict: holds
+  - id: CX6-05
+    design: "З9, И14"
+    verdict: holds
+  - id: CX6-06
+    design: "З3 (а); З6, З13, И4 (б)"
+    verdict: holds
+  - id: CX6-07
+    design: З12
+    verdict: holds
+  - id: CX6-08
+    design: "З6, З10, З13"
+    verdict: holds
+  - id: CX6-09
+    design: "З8, Е5"
+    verdict: holds
+  - id: CX6-10
+    design: "§10 (32 строки), З14, И16"
+    verdict: holds-with-condition
+    note: >-
+      M2 подтверждён замером (469 файлов → 16 попаданий, те же 16, разбор совпадает). Расширение
+      предиката за его область: порог 5–6 в ui-future даёт 32 файла — перечней модулей консоли
+      руками среди них нет (перечни владельцев подписки, доменов края, arrayContaining-предпосылки,
+      попутные упоминания); вне ui-future перечни пакетов консоли руками есть в четырёх файлах
+      internal/repohygiene (console{formatterversion,stylelintconfig,lintproducer,typecheckproducer}
+      _injection_test.go), но это синтетические входы инъекционных проб, а древесные близнецы
+      выводят состав обходом package.json/tsconfig.json — notify они судят сами и покраснеют на
+      расходящемся каркасе (версия форматтера, цепочка lint, судья stylelint, производитель
+      typecheck); решения в §10 не требуют. Строки 28–32 сверены с кодом гейтов: 28 — все три
+      ветки обхода CONSOLE_APPS (каталог pages/iam, path="/iam…", переход navigate/to/href) верно
+      названы; 29, 30 — отсутствие реестра модуль пропускает (нет файлов resource-registry*),
+      порог ≥ 5 не меняется; 32 — EXCUSED = перечень освобождений, nlb/jest.config.cjs несёт
+      общий setup, своего src/test/setup.ts у nlb нет. Условие к коду по строке 31: проба делит
+      configmap-nginx.yaml по строкам, равным ровно `---`, и берёт имя блока первым совпадением
+      `name: (.+)-nginx`; блок notify, объявленный под условием флага, обязан начинаться строкой
+      `---` без ведущих пробелов и директив шаблона на той же строке, и первым `name:` в куске
+      должно быть имя с `ui.notifyName` — иначе блок сольётся с соседним и проба судит не тот блок.
+  - id: CX6-11
+    design: З13
+    verdict: holds
+  - id: CX6-12
+    design: З13
+    verdict: holds
+  - id: CX6-13
+    design: З15
+    verdict: holds
+  - id: CX6-14
+    design: З16
+    verdict: holds
+  - id: CX6-15
+    design: "З3, И9"
+    verdict: holds
+  - id: CX6-16
+    design: "З2, И3"
+    verdict: holds
+  - id: CX6-17
+    design: "З7, И5"
+    verdict: holds
+  - id: CX6-18
+    design: З12
+    verdict: holds
+  - id: CX6-19
+    design: З10
+    verdict: holds
+  - id: CX6-20
+    design: "З10, И15"
+    verdict: holds
+  - id: CX6-21
+    design: "З2 п.1, п.6, И12"
+    verdict: holds
+  - id: CX6-22
+    design: "З6, З13, И13"
+    verdict: holds
+    note: >-
+      условие пересверки deeea79a исполнено: одна функция createNotifyQueryClient() с
+      defaultOptions.queries.retry = notifyQueryRetry, её зовут NotifyPage и экранные пробы модуля;
+      «своего new QueryClient в ui-future/notify/src вне этой функции нет» — утверждение покрывает и
+      тестовые файлы модуля (они лежат под src), поэтому проба «обход — без повтора» не может
+      оказаться зелёной на клиенте с retry: false, построенном самой пробой (в дереве так строят
+      клиент 105 тестовых файлов ui-future). Гейта, ограничивающего форму создания QueryClient, в
+      дереве нет — утверждение проверяется грепом рецензента диффа.
+  - id: CX6-23
+    design: "З9, И14"
+    verdict: holds
+  - id: CX6-24
+    design: "З13, §9"
+    verdict: holds
+  - id: CX6-25
+    design: "З14, И17"
+    verdict: holds-with-condition
+    note: >-
+      Снятие и публикация по идентичности (stored === p в обоих обработчиках), обработчики вешаются
+      тем же синхронным вызовом, что кладёт p; довод о недостижимости ветки «исход прежнего при
+      хранимом новом» через публичный load() проверен и верен: новое кладётся только при
+      stored = null, а null ставит лишь обработчик отказа самого p, после которого у p обработчиков
+      rememberLoad не остаётся. Держится вниманием рецензента диффа — с названной причиной, это
+      допустимая третья строка. Условие к коду: подписчик, подписавшийся ПОСЛЕ исхода (хранимое
+      обещание уже исполнено; load() возвращает его и ничего не публикует), обязан получить текущий
+      исход при подписке, а не ждать публикации — rememberLoad хранит последний исход, и хук
+      useLoadOutcome читает его снимком (useSyncExternalStore или эквивалент). Иначе pending
+      становится вечным для позднего подписчика и значит уже не «загрузка в полёте», как его
+      определяет З14; кнопка сегодня рисует pending и available одинаково, поэтому наблюдаемого
+      дефекта нет, но определение состояния ложно. Проба: «подписка после успеха — состояние
+      available сразу, вызовов загрузчика 1».
+
+new_items: []
+
+measurements:
+  - claim: "M2: тестовых перечней модулей, написанных руками, 6 (16 попаданий по 469 файлам)"
+    command: "git ls-tree -r --name-only 1d42a6728bf ui-future | grep -v node_modules | grep -E '\\.test\\.|_test\\.go$|/test/' → по каждому git show | grep -oE '\\b(dashboard|vpc|compute|storage|nlb|registry|iam|system)' | sort -u | wc -l ≥ 7"
+    result: "подтверждено: обойдено 469, попаданий 16 — те же 16 файлов, что в §1 M2; разбор на 6 перечней, 5 обходов, 1 ведомость, 4 попутных совпадает с чтением объявлений"
+  - claim: "M2 полон — перечней руками вне порога и вне ui-future, которые обязаны назвать notify, нет"
+    command: "тот же обход с порогом 5–6 (32 файла); по всем 2799 тестовым файлам дерева — строки с ≥ 4 именами модулей в кавычках"
+    result: >-
+      подтверждено в части, влияющей на вывод: в ui-future перечней модулей консоли руками ниже
+      порога нет; вне ui-future — 4 синтетических перечня пакетов консоли в инъекционных пробах
+      internal/repohygiene, древесные близнецы выводят состав обходом (consoletypecheckproducer_test.go:
+      обход package.json с fatal на пустом). Шапки синтетических входов говорят «настоящий состав
+      дерева … девять пакетов» — после посадки notify это станет неверно (десять); дефектом класса
+      не является, заказ ниже.
+  - claim: "§10 строки 28–32: решения опираются на устройство гейтов"
+    command: "git show 1d42a6728bf:<каждый из пяти файлов>"
+    result: "подтверждено по веткам (см. mapping_check CX6-10); у строки 31 — условие к форме блока шаблона"
+  - claim: "§0 и Е1: приёмка NTF-1 — 530e2296, APPROVED; зависимость Е1 снята"
+    command: "sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; ls docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/; git diff 2fa62337b eb29a7d93 -- <приёмка NTF-1> | grep -E '^[-+]' | grep -iE 'enabled|Р9|NTF1-N01|подчарт|зонтик'"
+    result: >-
+      опровергнуто в части статуса: приёмка NTF-1 в ветке — d524e7bd… (редакция 10, коммит
+      eb29a7d93), записи вердикта на этот отпечаток нет; APPROVED на 530e2296 — вердикт о прежней
+      редакции. Содержание Р9, от которого зависит замысел (флаг global.kacho.notifications.enabled,
+      отказ рендера без значения NTF1-N01), редакцией 10 не тронуто: изменённых строк по этим словам
+      0. Вывод по классам не меняется; строка §0 и Е1 «снято» — устаревшее утверждение замысла.
+  - claim: "манифест пакета отражает приёмку, на которой стоит замысел"
+    command: "grep -n acceptance_sha256 docs/changes/issue-2925/change.yaml; sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md"
+    result: "опровергнуто третий раз: hashes.acceptance_sha256 = 7a50855c…, шапка — ISSUE_READY «APPROVED на текущий отпечаток нет»; файл приёмки = 47bd8b70, запись APPROVED есть"
+
+not_measurable:
+  - "поведение раздачи и края по /console-config.json и /notify/v1/* — чарт и notify-api не посажены; З3, З5 проверяются рендером и прогоном стенда"
+  - "порядок обработчиков отказа rememberLoad против продолжения lazy — свойство очереди микрозадач; довод З14 проверен рассуждением, пробой через load() ветка недостижима"
+
+outcome: к-коду
+unmapped: []
+return_to_acceptance: []
+
+orders:
+  - to: go/ts implementer (NTF-6, полосы S1 и хоста)
+    what: >-
+      (1) rememberLoad хранит последний исход, useLoadOutcome читает его снимком при подписке;
+      проба rememberLoad.test.ts «подписка после успеха — available сразу, вызовов загрузчика 1»
+      (CX6-25); (2) блок notify в configmap-nginx.yaml начинается отдельной строкой `---`, первое
+      `name:` куска — с ui.notifyName (CX6-10, строка 31 §10)
+    basis: "code-authoring §«Умолчание, которое становится утверждением»; gate-authoring (проба судит тот блок, который назван)"
+  - to: design author (NTF-6)
+    what: >-
+      §0 строка «ядро и флаг» и Е1: отпечаток приёмки NTF-1 — d524e7bd (редакция 10), вердикта нет;
+      Е1 снова открыт до одобрения редакции 10 (содержание Р9 не менялось). Правка замысла
+      обесценит эту пересверку — сводить с другими правками одной редакцией
+    basis: "measurement-discipline §«Чужое измерение и чужое заявление»"
+  - to: change package author (issue-2925)
+    what: "change.yaml: hashes.acceptance_sha256 и шапка состояния — на приёмку 47bd8b70 APPROVED и записанный первичный разбор (заказ третий раз)"
+    basis: "SDD-1 §5 ACCEPTANCE_APPROVED → CLASS_EXPOSURE_RECORDED"
+  - to: go/ts implementer (NTF-6, при посадке notify)
+    what: "шапки синтетических входов internal/repohygiene/console{formatterversion,stylelintconfig,lintproducer,typecheckproducer}_injection_test.go говорят «настоящий состав дерева» с числом пакетов — привести к составу с notify или снять слово «настоящий»"
+    basis: "doc-truthfulness (утверждение, пережившее свой предмет)"

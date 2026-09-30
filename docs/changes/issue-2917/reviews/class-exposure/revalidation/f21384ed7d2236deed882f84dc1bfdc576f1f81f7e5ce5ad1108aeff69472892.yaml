@@ -1,0 +1,439 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 1
+# замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/9098d6ef….yaml) свидетельствует о
+# приёмке редакции 11 и здесь не переписывается. Проверено: (1) каждый пункт CX2-01…27 отображён
+# в решение замысла и отображение выдерживает условие пункта — по дереву, а не по тексту
+# замысла; (2) новые внешние вызовы, (3) новые асинхронные пути, (4) новые sentinel-значения,
+# внесённые замыслом сверх приёмки, заведены пунктами; (5) маркеров отсрочки и открытых решений
+# нет. Новые пункты этой пересверки — CX2-28…33; у замысла для них строки отображения нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 1
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+initial_record: docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: fc9538f7bdd976a4f0808dee0fff778cb56b66fa   # ветка issue-880 на момент замеров
+  kaname: 734f69fb4       # origin/357 — та же ревизия, что в замысле §1
+  kacho: 6edea09c2ee      # origin/2564 — та же ревизия, что в замысле §1
+snapshot_at: 2026-09-30T05:23:47Z
+inspected: >-
+  замысел целиком (923 строки: §0–§13, З1–З25, И1–И15, §11 — 27 строк отображения); первичный
+  разбор 9098d6ef (CX2-01…27, заказы); приёмка NTF-2 9098d6ef — Р6, Р7, Р8 (таблица границ),
+  NTF2-68; приёмка NTF-1 — редакция 10 (d524e7bd, APPROVED) и редакция 11 (4d042803, коммит
+  89250d24e, легла во время замеров; вердикта нет) — §1.5, §1.6, Р3, Р5, Р6, Р8, Р9;
+  change.yaml пакета; решения Д1–Д16. Дерево kaname @734f69fb4: config/{load.go,
+  service_link_collision.go, mtls.go, defaults.go}, перепись плоских имён KANAME_* в не-тестовом
+  Go, api/humansession/{rate.go, recovery_request.go}, api/user/{resend_invite.go, delete.go},
+  repo/kaname/pg/{human_session_repo.go, user_repo.go, verification_code_repo.go}, четыре
+  отдельные формы записи audit_outbox, internal/migrations (записи audit_outbox в .sql,
+  grant_removal_trace.go, users/invite_expires_at), passwordverify, servicemanifest
+  (seed_form_test.go, manifest.embedded.yaml), deploy/values.yaml (полоса формы, пул базы).
+  Дерево kacho @6edea09c2ee: gateway context_extractor.go, login_lane_transport.go, main.go
+  (конструкции оператора адреса), config.go (ручки прыжков), deploy/values.yaml (однократность),
+  idempotency_fleet_test.go (шапка), зонтик kaname (maxConns). Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт первичного разбора отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      строк отображения 27 из 27, но пять не выдерживают условие пункта по дереву: CX2-03
+      (перепись поверхности окружения неполна), CX2-05 (пять форм записи аудита, а не все: миграции
+      пишут audit_outbox SQL-ом, и гейт дерева этого требует), CX2-11 (схема хранилища края не
+      несёт того, что можно заблокировать для нового ключа), CX2-20 (в kaname уже есть вторая
+      нормализация адреса AddressKey в тех же глаголах), CX2-21 («строки приглашений и есть
+      моменты» — опровергнуто: повторная отправка писем строк не заводит). Ещё пять выдерживают с
+      условием к коду: CX2-07, 08, 12, 14, 17.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: red
+    detail: "1 новый: край → хранилище края на пути анонимного запроса (Admit, одноразовость вызова) — CX2-28; строки отображения нет"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: "2 новых: уборка пяти новых предметов хранения (З14, §6) — CX2-29; решатель вызова в Worker консоли (З10) — CX2-30; строк отображения нет"
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: red
+    detail: >-
+      2 новых: ELIGIBILITY_UNSPECIFIED и пустой address ответа справочника (§5) — CX2-31;
+      feed_id NULL «считается отправленной» и литерал исхода строки ленты, читаемый kaname (З11) —
+      CX2-32; строк отображения нет. Сверх того новое решение с ценой на строку — сверка пароля по
+      каждой живой ожидающей записи (З14) — CX2-33.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож|пока ' → 3 попадания: «что позже» (З8, про
+      момент), «потому что» (З19), строка К2 — ни одно не маркер; §13 «Открытые решения — нет».
+      Зависимости Е1–Е5 названы с предикатом снятия; Е1–Е4 — правки приёмок (см. return_to_acceptance).
+
+mapping_check:
+  - id: CX2-01
+    design: "З2, З4"
+    verdict: holds
+  - id: CX2-02
+    design: "З1, З2"
+    verdict: holds
+    note: "securitynotice.Enqueue (З16) ставит строку через mail.Enqueue — решение о строке остаётся в одном месте"
+  - id: CX2-03
+    design: З5
+    verdict: fails
+    note: >-
+      правило З5 «плоское имя законно, только если оно есть в flatEnvKnobs, подходит под
+      ClusterServiceLinkForm либо названо значением *-from-env; список один —
+      service_link_collision.go» опровергнуто деревом: плоских литералов KANAME_* в не-тестовом Go
+      42, в литеральном перечне flatEnvKnobs — 12, вне его — 30 (KANAME_HYDRA_*, KANAME_BOOTSTRAP_*,
+      KANAME_*_SERVER_MTLS_ENABLE, KANAME_JWKS_ENC_KEY, KANAME_SECOND_FACTOR_ENC_KEY,
+      KANAME_CONFIG_PATH и др.; четыре KANAME_DB_* объявлены константами), плюс третий механизм —
+      структуры envconfig с приставкой (config/mtls.go: PUBLIC_/INTERNAL_/HOOKS_/METRICS_SERVER_MTLS,
+      и так же KANAME_LOGINLANE_SERVER_MTLS_*, которые объявляют values). Строгость по правилу З5
+      откажет в старте каждому профилю. Кроме того, 32 ключа Р8 и флаг без умолчания виден viper
+      только через BindEnv (М2) — их регистрация не названа.
+  - id: CX2-04
+    design: З6
+    verdict: holds
+    note: "радиус снимаемых имён вне миграций: source_request_windows — 4 файла (включая retention/registry.go и check_value_lanes.go), invite_mail_windows — 3, invite_mail_outbox — 22; §3б приёмки и DoD 17 держат перепись"
+  - id: CX2-05
+    design: З16
+    verdict: fails
+    note: >-
+      «auditwrite.Insert — единственный оператор INSERT INTO kaname.audit_outbox» недостижимо:
+      миграций, пишущих audit_outbox SQL-ом, 3, а гейт TestMigrationRemovingGrantsLeavesATrace
+      (internal/migrations/grant_removal_trace.go) ТРЕБУЕТ, чтобы миграция, снимающая выдачу, писала
+      след вставкой в kaname.audit_outbox. Снятие выдачи — вид класса S. Замысел не решает, ставит ли
+      миграционное снятие письмо, а гейт audit_outbox_single_writer по Go-литералам либо слеп к
+      .sql, либо красен на норме соседнего гейта.
+  - id: CX2-06
+    design: З16
+    verdict: holds
+    note: "отдельная таблица security_notice_ledger с PK вместо UNIQUE в ленте — эквивалент условия (а, б); (в) — строка в tx события"
+  - id: CX2-07
+    design: З16
+    verdict: holds-with-condition
+    note: >-
+      (а, б) выдержаны. (в) — отступление с доводом: пустое множество — исход unaddressed и тревога,
+      а не отказ транзакции; довод (действие безопасности не зависит от возможности известить)
+      совпадает с Р4 и принимается. Условие к коду: метка unaddressed зарегистрирована при старте в
+      закрытом наборе, правило тревоги поставлено чартом, проба «событие без адресата → глагол
+      исполнен, метрика +1».
+  - id: CX2-08
+    design: З20
+    verdict: holds-with-condition
+    note: >-
+      у внутреннего слушателя kaname звена authz.Interceptor нет (NTF-1 §1.6), значит «аннотация
+      reader» сама ничего не исполняет. Условие к коду: проверка Check(вызывающий, reader,
+      notification_feed:kaname) — первым стейтментом после проверки формы в теле каждого из трёх
+      методов, как у ResolveSend (NTF-1 Р5), а не только аннотацией.
+  - id: CX2-09
+    design: З4
+    verdict: holds
+  - id: CX2-10
+    design: З4
+    verdict: holds
+    note: "NTF-1 Р6: пустой перечень — отказ старта; Р9: «рендер notify и секрета почты ⇔ перечень непуст» — отображение верно"
+  - id: CX2-11
+    design: "З8, З9"
+    verdict: fails
+    note: >-
+      «Admit под блокировкой всех ключей запроса» не исполним схемой §6: у anon_mail_passes (key, at)
+      нет строки-якоря, и для ключа без моментов блокировать нечего — два одновременных запроса
+      видят один счёт и оба пишут момент. Механизм блокировки (якорная строка вставкой без
+      конфликта затем FOR UPDATE, либо транзакционная рекомендательная блокировка по свёртке ключа в
+      том же фиксированном порядке) замысел не называет. Исход отказа хранилища — CX2-28.
+  - id: CX2-12
+    design: З8
+    verdict: holds-with-condition
+    note: >-
+      оператор адреса конструируется одной функцией newClientAddressOperator (2 вызова: полоса
+      формы и authz, main.go:185, :1580) — край и модель прав видят один адрес. Условие к коду:
+      умолчание trustedProxyCount = 1 в конструкторе NewContextExtractor (context_extractor.go:96)
+      снимается вместе с ручками — число прыжков обязательный параметр, иначе «ручка без умолчания»
+      держится только тем, что вызывающий не забыл опцию.
+  - id: CX2-13
+    design: "З9, З18"
+    verdict: holds
+  - id: CX2-14
+    design: "З11–З14"
+    verdict: holds-with-condition
+    note: "условие к коду: якорь mail_windows создаётся вставкой ON CONFLICT DO NOTHING и только затем берётся FOR UPDATE; SELECT FOR UPDATE по отсутствующему якорю не сериализует первые запросы"
+  - id: CX2-15
+    design: З11
+    verdict: holds
+  - id: CX2-16
+    design: З12
+    verdict: holds
+    note: "страж попыток З15 берёт since параметром (human_session_repo.go CountFailures — failed_at > $3), в перечень гейта mail_clock_parameter он не нужен"
+  - id: CX2-17
+    design: З13
+    verdict: holds-with-condition
+    note: >-
+      довод «16 меньше предела пула базы» верен на профилях (maxConns 80 в чарте, 40 в values.dev), но
+      не держится ничем: умолчание max-conns = 0 означает умолчание драйвера (не больше числа ядер,
+      минимум 4). Условие к коду: страж старта «ёмкость постановки < max-conns» либо довод
+      переписан без ссылки на пул.
+  - id: CX2-18
+    design: З15
+    verdict: holds
+  - id: CX2-19
+    design: З14
+    verdict: holds
+    note: "условие пункта выдержано буквально; цена сверки по каждой записи — новый пункт CX2-33"
+  - id: CX2-20
+    design: З11
+    verdict: fails
+    note: >-
+      «одна нормализация ящика — Normalize corelib; функция kaname нормализацией не является»
+      опровергнуто: в kaname есть humansession.AddressKey (strings.ToLower(TrimSpace)) — 12 вызовов в
+      10 файлах, в том числе recovery_request.go:112, register.go:151, recovery_complete.go:163 —
+      ключ стража попыток З15 и даже значение Email в verification.go:265. Замер первичного разбора
+      (предикат по имени *Normali[sz]e*) её не нашёл. Замысел не решает её судьбу: у тех же
+      глаголов станет три написания адреса (AddressKey, Normalize, ключ злоупотребления).
+  - id: CX2-21
+    design: З24
+    verdict: fails
+    note: >-
+      «отдельной таблицы окна у приглашений нет: строки приглашений и есть моменты» опровергнуто:
+      приглашение — строка kaname.users с invite_status = PENDING (одна на (аккаунт, lower(email))),
+      её удаляет user/delete.go, а повторная отправка (user/resend_invite.go, §4 замысла — «правка»)
+      шлёт письмо без новой строки. Потолки Р7 «на адресата» — это потолки писем; сегодня повтор
+      ограничивает invite.mail-rate-limit.*, который З6 снимает. Счёт по строкам не видит повторов, а
+      удаление строки уменьшает счёт аккаунта.
+  - id: CX2-22
+    design: З23
+    verdict: holds
+  - id: CX2-23
+    design: З19
+    verdict: holds
+    note: "сумма 412 пересчитана: 49 + 3×44 + 1 + 50 + 18×10; 24 шаблона"
+  - id: CX2-24
+    design: З18
+    verdict: holds
+  - id: CX2-25
+    design: З16
+    verdict: holds
+  - id: CX2-26
+    design: З22
+    verdict: holds
+  - id: CX2-27
+    design: З17
+    verdict: holds
+    note: "слово журнала notification и слово провода notification_feed разведены так же, как в NTF-1 Р2"
+
+items:
+  - id: CX2-28
+    source: "З8, З9 (Admit и одноразовость вызова ходят в хранилище края на пути анонимного запроса)"
+    kind: external_call
+    class: "code-authoring §«Чужой ответ: классификация и бюджет»; §«Умолчание, которое становится утверждением» (третий исход «не смог спросить»)"
+    exposure: >-
+      при postgres-хранилище каждый запрос recovery/register зовёт базу края дважды (решение окна и
+      одноразовость вызова). Исход «хранилище не ответило / блокировка не получена в срок» замысел не
+      называет, поэтому реализация выберет его сама — «пропустить» делает ограничитель выключенным
+      при сбое базы. Ведро общего потока — одна строка под той же блокировкой, то есть все
+      анонимные почтовые запросы флота сериализуются на одной строке.
+    condition: >-
+      (а) у Admit и проверки одноразовости закрытый тип исходов, в котором отказ хранилища — свой
+      исход, отвечающий отказом (не пропуском) с фиксированным текстом и счётчиком; (б) время
+      ожидания блокировки ограничено величиной с доводом, превышение — тот же исход; (в) строка ведра
+      берётся последней в фиксированном порядке и держится только на время решения.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "нет: нужна модульная проба «хранилище недоступно → отказ, до kaname не дошло, счётчик +1» и близнец «хранилище исправно → пропуск» — заказ"
+  - id: CX2-29
+    source: "З14, §6 (уборка pending_registrations, mail_window_letters, security_notice_ledger, anon_mail_passes, pow_spent)"
+    kind: async_path
+    class: "code-authoring §«Решение и его следствие разнесены» (срок хранения короче окна, которое его читает); §«Контракт, который нельзя выразить» (граница в двух местах)"
+    exposure: >-
+      моменты mail_window_letters удаляются через at + 25 ч с доводом «окна длиннее суток нет, Р8».
+      Опровергнуто таблицей Р8: authn.login.mail-throttled-interval — ориентир 7 сут, граница 1–30
+      сут, и строки вида throttled лежат в той же таблице. Через 25 ч след письма о торможении
+      исчезает, и следующее ставится раньше интервала: NTF2-68 (б) (в Ts + Ti − 1 с новой строки
+      нет) красен на верной приёмке. Срок хранения моментов края (at + 24 ч) и граница окон края
+      (≤ 24 ч) — два литерала одной величины.
+    condition: >-
+      срок хранения каждой таблицы моментов выводится из верхней границы окон, которые её читают,
+      взятой из той же таблицы границ, что судит страж (З23), а не литералом: для throttled — не
+      меньше 30 сут (либо свои строки с таким сроком), для прочих видов kaname и для края — не
+      меньше наибольшего окна, строго больше границы.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "NTF2-68 (б) покраснеет только на П6 с управляемыми часами и уборкой, сдвинутой на срок; нужна модульная проба «срок хранения ≥ верхней границы каждого читающего окна» над таблицей границ — заказ"
+  - id: CX2-30
+    source: "З10 (решатель вызова в выделенном Worker консоли, собственная SHA-256)"
+    kind: async_path
+    class: "code-authoring §«Решение и его следствие разнесены» (отмена, не доходящая до исполнителя); §«Контракт, который нельзя выразить» (две реализации одной функции)"
+    exposure: >-
+      поиск nonce идёт вне потока формы без названного срока жизни: уход со страницы или повторная
+      отправка оставляют прежний Worker работающим; решение, найденное после expiresAt, край
+      отвергнет новым вызовом, и консоль по правилу «второй вызов подряд — отказ» покажет отказ
+      законному пользователю. Хеш считается двумя реализациями (Go у края, своя на TS в консоли).
+    condition: >-
+      (а) Worker завершается при размонтировании и при новой отправке; (б) поиск прекращается до
+      expiresAt с запасом, и истёкший поиск — свой исход, отличимый от «второго вызова»; (в)
+      реализация SHA-256 консоли и проверка края судятся общими векторами (одни входы → одни
+      ответы), расхождение — красный.
+    mapped_in_design: false
+    outcome: к-коду
+    held_by: "пробы З10 названы (решатель, submit), но не покрывают (а)–(в) — заказ веток"
+  - id: CX2-31
+    source: "§5 (GetVerifiedAddressResponse: Eligibility с нулевым ELIGIBILITY_UNSPECIFIED; address пуст «иначе»)"
+    kind: sentinel
+    class: "code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      нулевое значение перечисления и пустая строка — законные состояния провода, неотличимые от
+      «поле не заполнено». Читатель, ветвящийся «ELIGIBLE → шлём, иначе DENIED(recipient)», примет
+      сбой сериализации за неподходящего адресата; читатель «адрес непуст → шлём» — наоборот.
+    condition: >-
+      сервер никогда не отдаёт UNSPECIFIED; ELIGIBLE ⇔ адрес непуст — утверждается сервером; notify
+      трактует UNSPECIFIED и ELIGIBLE с пустым адресом как ошибку протокола (строка не закрывается
+      DENIED(recipient)); пробы на оба нарушения.
+    mapped_in_design: false
+    outcome: к-коду
+    held_by: "NTF2-92, 96 утверждают только NOT_ELIGIBLE; нужна проба читателя на UNSPECIFIED — заказ (читатель — notify, NTF-1)"
+  - id: CX2-32
+    source: "З11 («окно считает момент, только если строка ленты не закрыта EXPIRED(platform_unavailable)»; feed_id NULL — «считается отправленной»)"
+    kind: sentinel
+    class: "code-authoring §«Контракт, который нельзя выразить» (два написания одного значения); §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      запрос окна kaname читает исход строки таблицы, чью схему владеет генератор NTF-1, литералом
+      исхода и причины — второе написание перечисления corelib. NULL в feed_id означает «строку
+      удалила уборка», но колонка допускает NULL и при вставке, так что «не связано» и «удалено»
+      неотличимы.
+    condition: >-
+      (а) предикат «строка вернула лимит» — экспорт corelib notify/feed (функция или фрагмент
+      запроса), а не литерал в kaname; (б) момент окна пишется после feed.Put с непустым feed_id,
+      и вставка с NULL — ошибка кода, судимая пробой.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "NTF2-07 держит возврат лимита на П6; расхождение литерала с corelib не держит никто — заказ"
+  - id: CX2-33
+    source: "З14 (register/confirm сверяет пароль с каждой живой ожидающей записью адреса; ретрансляция confirm без ограничителя края, П3)"
+    kind: decision
+    class: "code-authoring §«Унификация и стоимость» (стоимость на строку на анонимном пути); security-hardening.md hard-authn-failures-byte-identical"
+    exposure: >-
+      свёртка пароля kaname — argon2id (64 МиБ, 3 прохода; passwordverify). Сверка по каждой живой
+      записи делает цену и время ответа confirm пропорциональными числу записей адреса (до per-day +
+      ⌈24 ч / floor-interval⌉ = 44 на границах Р8), а время ответа — зависящим от того, есть ли у
+      адреса ожидающие записи.
+    condition: >-
+      на confirm ровно одна сверка пароля при любом числе записей: код сравнивается постоянным
+      временем со всеми живыми записями, пароль — только с записью совпавшего кода, при отсутствии
+      совпадения — сверка с фиктивной свёрткой той же цены.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "нет: нужна проба «число вызовов сверки пароля на confirm = 1 при 0, 1 и 44 записях» — заказ"
+
+measurements:
+  - claim: "§0 замысла: приёмка NTF-1 — 530e2296"
+    command: "sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; ls docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/ | grep -E '^(530e|d524)'"
+    result: "устарело: действующее одобрение — редакция 10 d524e7bd…; в ветке уже редакция 11 4d042803… (89250d24e) без вердикта; 530e2296 — прежняя одобренная"
+  - claim: "К1, К2 — расхождения NTF-1 и NTF-2 не сняты"
+    command: "grep -c NOTIFICATION_DELIVERY_NOT_CONFIGURED …NTF-1….md; grep -c MAIL_DELIVERY_DISABLED …NTF-1….md; grep -n 'service:kaname' …NTF-1….md"
+    result: "подтверждено на d524e7bd и на 4d042803: 2 и 0; Р3 «service:kaname не заводится» (строка 404 и 424 соответственно), NTF1-F21 — исключение службы доступа без namespace"
+  - claim: "М15: TestMRW07 судит только seed.serviceAccounts и seed.joins"
+    command: "git -C project/kaname show 734f69fb4:internal/servicemanifest/seed_form_test.go | sed -n 88,101p; … manifest.embedded.yaml | sed -n 66,67p"
+    result: "подтверждено машинно; сообщение теста и комментарий манифеста называют основанием решение «своей служебной записи у службы доступа не бывает» — спор о смысле, не о коде (вопрос владельцу)"
+  - claim: "З5: плоские имена окружения kaname объявлены одним перечнем flatEnvKnobs"
+    command: "git -C project/kaname grep -hoE '\"KANAME_[A-Z0-9_]+\"' 734f69fb4 -- '*.go' ':!*_test.go' | tr -d '\"' | grep -v __ | sort -u (42) против литералов flatEnvKnobs (service_link_collision.go:146-170, 12); git … grep -n envconfig internal/apps/kaname/config/mtls.go"
+    result: "опровергнуто: вне перечня 30 имён; третий механизм — envconfig с приставкой (mtls.go) (CX2-03)"
+  - claim: "З16: пять форм записи audit_outbox — все"
+    command: "git -C project/kaname grep -liE 'insert\\s+into\\s+(kaname\\.)?audit_outbox' 734f69fb4 -- 'internal/migrations/*.sql' | wc -l; … show …:internal/migrations/grant_removal_trace.go | sed -n 1,40p"
+    result: "опровергнуто: ещё 3 миграции; гейт TestMigrationRemovingGrantsLeavesATrace требует SQL-след в audit_outbox (CX2-05)"
+  - claim: "З11: в kaname нет нормализации ящика, кроме Normalize"
+    command: "git -C project/kaname grep -n 'AddressKey(' 734f69fb4 -- ':!*_test.go'"
+    result: "опровергнуто: func AddressKey в humansession/rate.go:56, 12 вызовов в 10 файлах (CX2-20)"
+  - claim: "З24: строки приглашений — моменты писем"
+    command: "git -C project/kaname show 734f69fb4:internal/migrations/0001_initial.sql | awk '/CREATE TABLE kaname.users \\(/,/\\);/'; … ls-tree internal/apps/kaname/api/user/ | grep -iE 'invite|delete'; … show …:api/user/resend_invite.go | grep -n mailLimit"
+    result: "опровергнуто: приглашение — строка users (PENDING), есть delete.go и resend_invite.go (письмо без строки, сегодня под invite.mail-rate-limit) (CX2-21)"
+  - claim: "§6: окна длиннее суток нет — моменты хранятся at + 25 ч"
+    command: "sed -n 637p docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "опровергнуто: mail-throttled-interval 7 сут, граница 1–30 сут (CX2-29)"
+  - claim: "З8: край и модель прав читают адрес одним оператором"
+    command: "git -C project/kacho grep -nE 'NewContextExtractor\\(|newClientAddressOperator' 6edea09c2ee -- gateway ':!*_test.go'"
+    result: "подтверждено: одна функция-конструктор, два вызова (main.go:185, :1580); в конструкторе умолчание trustedProxyCount = 1 (CX2-12)"
+  - claim: "З7: снятие оси источника kaname не оставляет полосу формы без ограничителя"
+    command: "git -C project/kaname show 734f69fb4:deploy/values.yaml | sed -n 218,237p"
+    result: "подтверждено: полоса формы — взаимный TLS, вызывающий — ровно край по SAN; других путей к register/recovery нет"
+  - claim: "З13: ёмкость 16 меньше пула базы kaname"
+    command: "git -C project/kacho grep -n maxConns 6edea09c2ee -- deploy/helm/umbrella/charts/kaname/values.yaml deploy/helm/umbrella/values.dev.yaml; git -C project/kaname show 734f69fb4:internal/apps/kaname/config/defaults.go | grep -n max-conns"
+    result: "80 и 40 на профилях; умолчание процесса 0 (умолчание драйвера) — отношение не держится ничем (CX2-17)"
+  - claim: "CX2-33: цена сверки пароля"
+    command: "git -C project/kaname grep -nE 'argon2\\.IDKey' 734f69fb4 -- ':!*_test.go'; … show …:internal/domain/password_cost_class.go | sed -n 59p"
+    result: "argon2id memory=65536 iterations=3 parallelism=4"
+  - claim: "change.yaml отражает приёмку, на которой стоит замысел"
+    command: "grep -n 'acceptance_sha256\\|lifecycle_state' docs/changes/issue-2917/change.yaml"
+    result: "нет: acceptance_sha256 = 33e199c9…, ISSUE_READY; замысел стоит на 9098d6ef (манифест сам это называет)"
+
+not_measurable:
+  - "поведение corelib notify/feed, уборщика ленты NTF-1 и notify — кода нет на базах; CX2-31 (читатель UNSPECIFIED), CX2-32 (экспорт предиката исхода) проверяются по диффу NTF-1"
+  - "сериализация на строке ведра и время ожидания блокировки (CX2-28) — видны только прогоном под нагрузкой с флотом ≥ 2; числа до кода нет"
+  - "время решения вызова в браузере на границе 24 бит (CX2-30) — зависит от устройства; утверждается свойство (срок поиска < срока вызова), а не число"
+
+outcome: вернуть-в-приёмку
+unmapped:
+  - "CX2-03 — отображение не выдерживает: перепись поверхности окружения kaname неполна (30 плоских имён вне flatEnvKnobs, envconfig с приставкой), регистрация ключей без умолчания через BindEnv не названа"
+  - "CX2-05 — отображение не выдерживает: миграции пишут audit_outbox SQL-ом по норме гейта соседа; решение о письмах класса S при миграционном снятии выдачи не принято"
+  - "CX2-11 — отображение не выдерживает: механизм блокировки ключа без строки в хранилище края не назван"
+  - "CX2-20 — отображение не выдерживает: судьба humansession.AddressKey не решена"
+  - "CX2-21 — отображение не выдерживает: повторная отправка и удаление строки приглашения выпадают из счёта"
+  - "CX2-28 — новый внешний вызов, строки отображения нет"
+  - "CX2-29 — новый асинхронный путь (уборка), срок хранения короче окна письма о торможении"
+  - "CX2-30 — новый асинхронный путь (Worker решателя), строки отображения нет"
+  - "CX2-31 — новый sentinel ELIGIBILITY_UNSPECIFIED / пустой адрес, строки отображения нет"
+  - "CX2-32 — новый sentinel feed_id NULL и литерал исхода ленты, строки отображения нет"
+  - "CX2-33 — новое решение: сверка пароля по каждой записи на confirm, строки отображения нет"
+return_to_acceptance:
+  - target: "docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md (d524e7bd APPROVED; 4d042803 в ветке) против NTF-2 (9098d6ef)"
+    scenarios: "NTF1-F21, NTF1-G22, Р3, §1.5 — против NTF2-47, NTF2-06, Р1, Р14 (К1, Е1)"
+    what: "две одобренные приёмки утверждают взаимоисключающее о субъекте ленты kaname; реализация не может сделать зелёными обе. Выбор — толкование условия Д2 (см. вопросы владельцу)"
+  - target: "то же"
+    scenarios: "NTF1-N06, Р9 NTF-1 — против NTF2-51, Р4 NTF-2 (К2, Е2)"
+    what: "один производитель статуса (corelib) не может отдавать два текста и два reason; одна из приёмок меняет текст"
+  - target: "docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (9098d6ef)"
+    scenarios: "Р8 строка «kaname · приглашения»; NTF2-71 (т) (Е3)"
+    what: "у invite.recipient-per-day-all нет верхней границы, а лимит шаблона класса security статичен (NTF-1 Р7) — приёмка допускает значение, которое система исполнить не может"
+  - target: "то же"
+    scenarios: "§3 (замещения), DoD п.23 (Е4)"
+    what: "замысел З7 снимает окно обращений kaname по источнику (решение kaname#456); замещение прежнего решения обязано быть названо приёмкой, а не замыслом"
+
+orders:
+  - to: design author (NTF-2)
+    what: >-
+      редакция 2 замысла: (1) З5 — полная перепись механизмов чтения окружения kaname (viper с
+      BindEnv, flatEnvKnobs, прямые чтения, envconfig с приставкой) одним объявлением либо сужение
+      строгости до пространства «__» с доводом; регистрация ключей без умолчания; (2) З16 — форма
+      записи аудита миграциями и решение о письмах класса S при миграционном снятии выдачи, объём
+      гейта audit_outbox_single_writer с учётом TestMigrationRemovingGrantsLeavesATrace; (3) З8 —
+      механизм блокировки ключа без строки; (4) З11 — судьба humansession.AddressKey; (5) З24 — счёт
+      писем приглашения, включающий повторную отправку и не уменьшаемый удалением строки; (6) строки
+      §11 для CX2-28…33 с решениями по условиям этой записи; (7) §0 — отпечаток NTF-1 по факту
+      (действующее одобрение d524e7bd; в ветке 4d042803)
+    basis: "SDD-1 §5 (exact mapping; новый external call / async path / sentinel — новый пункт)"
+  - to: acceptance author (NTF-2)
+    what: "Е3 (граница invite.recipient-per-day-all и вариант NTF2-71) и Е4 (замещение kaname#456 в §3) — правка приёмки; после неё — новый первичный разбор на новый отпечаток"
+    basis: "change-graph.md §2 (правка приёмки обесценивает вердикт); §4"
+  - to: acceptance author (NTF-1)
+    what: "К1/К2 (Е1, Е2) — по решению владельца о толковании Д2"
+    basis: "Д2; Д13 (NTF-1 до NTF-2)"
+  - to: change package author (issue-2917)
+    what: "change.yaml: hashes.acceptance_sha256 и состояние — на приёмку 9098d6ef APPROVED и записанный первичный разбор"
+    basis: "SDD-1 §5 ACCEPTANCE_APPROVED → CLASS_EXPOSURE_RECORDED"
+  - to: go/ts implementer (NTF-2)
+    what: "пробы CX2-28 (хранилище недоступно), CX2-29 (срок хранения ≥ границы окна), CX2-30 (ветки Worker и общие векторы хеша), CX2-33 (одна сверка пароля), CX2-07 (событие без адресата), CX2-12 (конструктор без умолчания) — сверх заказов первичного разбора"
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"

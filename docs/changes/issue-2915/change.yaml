@@ -1,0 +1,96 @@
+# Манифест изменения issue-2915 (NTF-1) — координаты, состояние, отпечатки, ссылки.
+#
+# Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): наблюдаемое
+# поведение — в приёмке, чем изменение держится — в `holders.yaml`.
+#
+# ПРИЁМКА ЛЕЖИТ ВНЕ КАТАЛОГА ПАКЕТА, и это не пропуск: её дом — `docs/specs/`
+# (кросс-репозиторный предмет, polyrepo.md note «У приёмки домов ДВА»), и там
+# её читает docs-gate check-01. Копия `acceptance.md` здесь была бы вторым
+# местом об одном предмете. Документ назван отпечатком `hashes.acceptance_sha256`
+# и ссылкой `links.acceptance`. Записи ревью приёмки лежат по координате
+# `links.acceptance_reviews` (docs/specs/reviews/<имя приёмки>/<sha256>.yaml),
+# а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
+# append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
+#
+# СОСТОЯНИЕ ISSUE_READY — действующее APPROVED на текущий отпечаток приёмки есть (редакция 18,
+# круг 2 прохода редакции 17/18: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml),
+# но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
+# Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/29cfa368….yaml
+# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 10
+# (2026-09-30, заход отображения по Д26 на пересверку e7a6ae15: CX1-71, CX1-72), отпечаток — `hashes.design_sha256`; вердикта на него нет,
+# пересверки на него нет (по Д26 следующая судит строки отображения и дельту против e7a6ae15…; прежняя формула — строки
+# отображения и дельту).
+# Ревью замысла (design-reviewer) на редакцию 8 (dba7c388…) — reviews/design/design-reviewer/dba7c3883a98dc59e9c17b633fdaa95a2bebae1b15c73bd5e05a5f887efc2074.yaml
+# (коммит 82647204d; возврат по К1, Н1–Н3 и М1 не блокируют — отображены редакцией 9 по Д26 строками SDR-*).
+# Пересверка на редакцию 1 (9bfa92be…) — reviews/class-exposure/revalidation/9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3.yaml
+# (вернуть в приёмку NTF1-L03; к замыслу CX1-58…62, УК71–УК74 — отображены редакцией 2).
+# Пересверка на редакцию 2 (774e8562…) — reviews/class-exposure/revalidation/774e8562884a35578bf13ce7a72521c163a9c7909ace1d2db80f1c0566616804.yaml
+# (к замыслу CX1-63, УК80–УК82 — отображены редакцией 3; L03 записи 9bfa92be в силе).
+# Пересверка на редакцию 3 (137602c7…) — reviews/class-exposure/revalidation/137602c7e9e39e7fe78a195aaf81c44d2792e26fec0d316e49537068eece40fe.yaml
+# (к замыслу CX1-64, CX1-65, УК85, УК86 — отображены редакцией 4; L03 записи 9bfa92be в силе).
+# Пересверка на редакцию 4 (1674e7a7…) — reviews/class-exposure/revalidation/1674e7a7b9d459130be8b23a2f40761c7b601abcdd4aa7914a1d7d77ac313477.yaml
+# (к замыслу CX1-66, CX1-67, УК89 — отображены редакцией 5; L03 записи 9bfa92be в силе).
+# Пересверка на редакцию 5 (0be18f04…) — reviews/class-exposure/revalidation/0be18f04eb74eb559f4a1dec5c8dea8bdc9ad04c566e8f02ca78922a4de97745.yaml
+# (коммит c241b101e; к замыслу CX1-68, УК90, УК91 — отображены редакцией 6; L03 записи 9bfa92be в силе).
+# Пересверка на редакцию 6 (06397390…) — reviews/class-exposure/revalidation/0639739079e31e478877f4a6bcb2d13459171533052fc4492026d1914cb73cd1.yaml
+# (коммит 706f7a0c5; к замыслу CX1-69, УК92 — отображены редакцией 7; L03 записи 9bfa92be в силе).
+# Пересверка на редакцию 7 (8d01a10e…) — reviews/class-exposure/revalidation/8d01a10e8b7f81dfb73965e2caa2552bbfeae8de2ae10595e1329cd3e1aff386.yaml
+# (коммит d80c1949e; к замыслу CX1-70, УК93, УК94 — отображены редакцией 8 по Д26; L03 записи 9bfa92be в силе).
+# Пересверка на редакцию 9 (e7a6ae15…) — reviews/class-exposure/revalidation/e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0.yaml
+# (коммит ad3c82c83; к замыслу CX1-71, CX1-72 — отображены редакцией 10 по Д26; L03 записи 9bfa92be в силе).
+# Маршрут работ — `tasks.md` редакции 10 (проект; TASKS_READY им не объявлено).
+schema_version: 1
+change_id: issue-2915
+lifecycle_state: ISSUE_READY
+
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/2915
+  issue_kind: feature            # метки #2915: blocked · P1 · size:XL · release:notifications · area:notify
+  epic: PRO-Robotech/kacho#2914
+  docs_task: PRO-Robotech/kacho-workspace#880
+  rules_task: PRO-Robotech/kacho-workspace#881
+  co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: 6eddaa5e9c9b596976e205f4e012d47e00eaf8e3
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 6eddaa5e… → 0
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      base_ref: origin/main
+      base_sha: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… 1d42a672… → 0
+    - repo: PRO-Robotech/kaname
+      role: subject-tree
+      base_ref: origin/357
+      base_sha: 734f69fb4f7f2cadf1d3887ece90b22bf7793a0b
+      cutover_is_ancestor_of_base: null    # у репозитория нет записи в policy.yaml §1 — cutover не объявлен
+    - repo: PRO-Robotech/corelib
+      role: subject-tree
+      base_ref: origin/main
+      base_sha: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
+      cutover_is_ancestor_of_base: null    # у репозитория нет записи в policy.yaml §1 — cutover не объявлен
+
+# Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
+# Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
+hashes:
+  acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  design_sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
+  holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
+
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  acceptance: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  acceptance_reviews: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+  epic_changes:
+    - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
+    - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }
+    - { id: NTF-3, change: docs/changes/issue-2918, issue: PRO-Robotech/kacho#2918 }
+    - { id: NTF-4, change: docs/changes/issue-2919, issue: PRO-Robotech/kacho#2919 }
+    - { id: NTF-5, change: docs/changes/issue-2924, issue: PRO-Robotech/kacho#2924 }
+    - { id: NTF-6, change: docs/changes/issue-2925, issue: PRO-Robotech/kacho#2925 }
+    - { id: NS,    change: null, issue: PRO-Robotech/kacho#2916 }
+
+# Пусто, и это не пропуск: в ISSUE_READY реализации нет.
+implementation_diff_set: []

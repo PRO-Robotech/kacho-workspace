@@ -1,0 +1,264 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  base_commit: 0e797b0adf9866c7bcdb082624f1f60980611114
+  content_commit: none
+  content_commit_note: >-
+    Рассмотрена редакция 5 на отпечатке a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89.
+    Вердикт привязан только к отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1925
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T09:00:00Z'
+round: 2
+round_note: >-
+  Круг 2 нового прохода (редакция 5). По документу в целом это пятый круг подряд.
+previous_rounds:
+  - round: 1
+    sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136.yaml
+  - round: 2
+    sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0.yaml
+  - round: 3
+    sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260.yaml
+  - round: 1 (новый проход)
+    sha256: 46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b.yaml
+
+previous_items_closed:
+  B4-1: >-
+    Закрыт частично. Замысел верный: закрытый перечень типов без надзора и одна декларация.
+    Но перепись путей надзора в §1.11 неполна: пропущен тот путь, через который идут F12 и
+    F22 (а). Остаток вынесен в B5-1.
+  B4-2: >-
+    Закрыт: H01 и H03 берут security из одного источника kaname; identityNamespaces объявлен
+    константой сборки; свойство «поперёк источников» перенесено в H10 на классе notice, у H10
+    есть близнец N−1.
+  B4-3: >-
+    Закрыт: E02 строит близнеца кортежем в фикстурной проверке прав; N02 перенесён в гейт
+    рендера с таблицей из двух источников.
+  B4-4: >-
+    Закрыт: автоматическая пауза снята из Р10 и §4. Пауза только оператором, согласно Д11.
+  N4-1: закрыт (M02 — производитель authz.Interceptor, текст полный)
+  N4-2: закрыт (G19 — один диагностический HTTP-слушатель)
+  N4-3: закрыт (словарь notify.sourceLimits, инъекции N03)
+  N4-4: закрыт (M06 — OperationService.Get в перечне)
+  N4-5: вне этого документа (правка NTF-4)
+
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - B5-1 CONSTRUCTIBILITY
+  - B5-2 CONSTRUCTIBILITY
+repeat_note: >-
+  CONSTRUCTIBILITY блокирует шестой круг подряд, и каждый раз на новом предмете. На этом
+  круге перепись §1.11 спросила правильное: решает ли код kaname исход в обход модели. Но
+  ответила по предикату, который сама же прочла неверно. Команда печатает 29 строк, а
+  документ разнёс их на «4 внутри двери + 3 вне». Одна из трёх внешних (module/authz.go) —
+  комментарий. Не учтены три настоящих вызова, среди них путь InternalIAMService/Check.
+  Второй предмет круга: Given называет слово провода, которого дерево не принимает. Общий
+  знаменатель такой: факт о дереве взят из прозы — правила, комментария или собственной
+  сводки, — а не из разобранного вывода команды. Переносить ли в форму задания автора шаг
+  «каждую строку вывода предиката §1 классифицировать поимённо», решает диспетчер (§14а).
+
+blocking:
+  - id: B5-1
+    kind: CONSTRUCTIBILITY
+    scenarios: [NTF1-F12, NTF1-F22, NTF1-C04, NTF1-C05]
+    decisions: [Р4, Р5, З5, §1.11, S2]
+    summary: >-
+      В переписи §1.11 пропущен путь надзора, через который идёт InternalIAMService/Check.
+      F12 проверяет исход именно этим вызовом, а F22 (а) и перехватчик прав каждой службы kacho
+      вызывают его же. Обработчик InternalIAMService/Check передаёт вопрос в
+      AuthorizeService.CheckRelation, а та — в verdictForRelation. После отказа модели
+      verdictForRelation сама спрашивает, не администратор ли облака субъект, и на «да»
+      разрешает. Ни check, ни verdict, ни resolveRun при этом не участвуют. Р5, З5, S2 и гейт
+      F12 («каждый из 4 путей надзора») перечисляют четыре пути, и этого среди них нет.
+      Значит, правки, названные документом, Then F12 (а), (б), (г) и F22 (а) не производят:
+      пересланный администратор облака по-прежнему получает true, а Claim ему отдаёт строку.
+      Утверждение Р4 «тело письма может забрать только notify» держится на том же пути.
+      Сводка переписи тоже неверна. Команда §1.11 на 734f69fb4 печатает 29 строк. «Третий
+      вызов вне двери», internal/apps/kaname/api/module/authz.go:26, — это комментарий.
+      Документ не называет три настоящих вызова: authorize_service.go:770 (verdictForRelation),
+      authzguard/own_door.go:523 (checkAdapter.Check двери собственного публичного слушателя
+      kaname) и authzguard/read_authz.go:76 (AllowsVerb — надзор спрашивается первым, у него
+      10 вызывающих). Ещё два места в сценариях. F12 (д) — «действие, не разрешающееся в
+      отношение» — через InternalIAMService/Check невыразимо: этот запрос несёт отношение, а
+      действия у него нет. BatchCheck принадлежит публичному AuthorizeService, а §6.1 записывает
+      её в «обработчики InternalIAMService».
+    evidence:
+      - "kaname internal/apps/kaname/api/internal_iam/handler.go:266-294 @734f69fb4 — Check делегирует AuthorizeService.CheckRelation; запрос {subject_id, relation, object}, поля action нет"
+      - "kaname internal/service/authorize_service.go:708-775 @734f69fb4 — CheckRelation → verdictForRelation: модель false → SubjectIsClusterAdminPlainE → admin; комментарий: «Дверь эта — та, через которую идёт КАЖДЫЙ запрос платформы»"
+      - "kaname internal/authzguard/own_door.go:505-529 @734f69fb4 — checkAdapter.Check: надзор на отказе объекта; подключён NewOwnDoor (cmd/kaname/serve.go:898, публичный слушатель)"
+      - "kaname internal/authzguard/read_authz.go:60-90 @734f69fb4 — AllowsVerb: надзор первым; `git grep -n 'AllowsVerb(\\|AllowsVGet(' 734f69fb4 -- '*.go' ':!*_test.go' | wc -l` → 10"
+      - "`git -C kaname grep -n 'isClusterAdmin\\|superGateDecides\\|SubjectIsClusterAdminPlainE' 734f69fb4 -- '*.go' ':!*_test.go' | wc -l` → 29; module/authz.go:26 — строка комментария"
+      - "kaname internal/apps/kaname/api/authorize/handler.go:224 — BatchCheck обслуживает публичный AuthorizeService"
+    required_change: >-
+      Переписать §1.11 по выводу команды поимённо: каждая из 29 строк должна получить класс —
+      определение, обёртка, комментарий или путь решения — и отношение к типам Р5. В перечень
+      путей надзора двери внести verdictForRelation (CheckRelation, то есть
+      InternalIAMService/Check). Для checkAdapter двери публичного слушателя kaname и для
+      AllowsVerb сказать, касаются ли они типов Р5. Если касаются — внести их в тот же перечень.
+      Если нет — назвать довод и держателя. Р5, З5 и S2 перечисляют все пути; гейт F12 судит
+      множество путей, которое печатает перепись, а не константу 4. В F12 развести, какой
+      подслучай каким вызовом идёт: (а), (б), (г) — через InternalIAMService/Check;
+      (в) и (д) — через публичный AuthorizeService (BatchCheck и Check с действием).
+      Исправить строку F12 в §6.1.
+
+  - id: B5-2
+    kind: CONSTRUCTIBILITY
+    scenarios: [NTF1-E01, NTF1-E02, NTF1-E03, NTF1-F22, NTF1-N07, NTF1-N02, NTF1-N08]
+    decisions: [Р4, Р9]
+    summary: >-
+      Два Given не строятся на corelib 34bc810.
+      (1) Слово вида на проводе. Словарь видов Subscribe состоит из Mapping.Kinds[*].ObjectType,
+      то есть из типов модели прав. Ключ «notification» — слово журнала владельца, и наружу оно
+      не выходит. Поэтому подписка «с видом notification» (E01–E03, E02, F22 (в)) при
+      включённом флаге отвергается INVALID_ARGUMENT «kinds: "notification" is not a kind of this
+      owner; known kinds: notification_feed». В N07 отрицание («вид не объявлен» →
+      INVALID_ARGUMENT) и близнец («с флагом true вид объявлен») для запроса «notification»
+      дают один и тот же отказ, то есть отличаются не одним фактом.
+      (2) Пустой словарь видов. Если флаг выключен, а у источника других видов нет, журнал
+      подписки не собирается: Mapping.validate отвергает пустой Kinds. У notify-probe и
+      фикстурного источника N07 других видов документ не называет. Значит, «стартует» из N07
+      и N08, а также «служба с false» из N02 и N09, для такого источника ложно: либо он не
+      стартует, либо сервер подписки не монтируется, и тогда Subscribe отвечает UNIMPLEMENTED,
+      а не INVALID_ARGUMENT.
+    evidence:
+      - "corelib subscription/journal.go:344-356 @34bc810 — KindDictionary() собирает binding.ObjectType"
+      - "corelib subscription/request.go:68-90 @34bc810 — вид вне словаря → INVALID_ARGUMENT «kinds: %q is not a kind of this owner; known kinds: …»"
+      - "corelib subscription/journal.go:492-494 @34bc810 — Mapping.Kinds пуст → ошибка сборки журнала"
+      - "kacho services/compute/internal/subscriptionjournal/journal.go:126-131 @1d42a6728bf — ключ JournalWordInstance, на проводе ObjectType"
+    required_change: >-
+      Во всех When и Then писать вид провода: kinds: ["notification_feed"], событие вида
+      notification_feed. Слово журнала «notification» оставить только в Р4 как ключ Mapping.Kinds.
+      Для флага false явно выбрать исход и утвердить его в N07. Вариант первый: у источника
+      есть ещё хотя бы один вид (назвать его у фикстуры и у notify-probe), тогда Subscribe с
+      notification_feed → INVALID_ARGUMENT с полным текстом corelib. Вариант второй: при
+      пустом словаре сервер подписки не монтируется, тогда Subscribe → UNIMPLEMENTED, и
+      N07 с N08 утверждают, что служба стартует. Близнец N07 (true) должен отличаться ровно
+      флагом.
+
+non_blocking:
+  - id: N5-1
+    kind: CONVENTION
+    text: >-
+      Р2 п.5 вносит в forbiddenObjectTypes только тип service. Гейт
+      TestForbiddenProxyObjectTypesAgreeWithTheModel (kacho internal/repohygiene/proxyforbiddentypes.go:106-121
+      @1d42a6728bf, сторона Б) требует, чтобы каждый тип модели вне доменов-эмитентов был в
+      наборе. notification_feed и notification_namespace к доменам-эмитентам не относятся, так
+      что без записи в наборе DoD п.11 («proxyforbiddentypes_test.go на новом пине зелёный»)
+      будет красным. На той же записи держится и отказ M10 (б) для этих двух типов при пустом
+      домене вызывающего. Нужно назвать оба типа в Р2 п.5 (или в Р5) и в стадии S1.
+  - id: N5-2
+    kind: FORMAT
+    text: >-
+      В §6 строка средств «проверка прав фикстурного источника отвечает по посеянным кортежам»
+      противоречит F22 (а) и (в): там источник спрашивает настоящую дверь kaname в процессе
+      пробы (§6.1). Средство нужно назвать в самом F22, чтобы было видно, какая дверь даёт исход.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 0e797b0a → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 0e797b0adf9866c7bcdb082624f1f60980611114
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: Вердикт — отказ. Полномочий он не выдаёт, и от публикации его действительность не зависит.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 прохода, блокирующих 2: CONSTRUCTIBILITY ×2) ·
+    SHA-256 a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+
+measurement:
+  revisions_used:
+    corelib: 34bc810
+    kaname: 734f69fb4 (origin/357)
+    kacho: 1d42a6728bf (origin/main)
+    workspace: 0e797b0a (ветка issue-880)
+  scenario_census:
+    predicate: "python re '^\\*\\*ID:\\*\\* NTF1-([A-Z])(\\d+)' по документу"
+    total: 142
+    unique: 142
+    by_group: {A: 9, B: 24, C: 7, D: 6, E: 4, M: 10, F: 22, G: 22, H: 10, N: 9, I: 6, J: 5, K: 3, L: 5}
+  producer_coverage:
+    method: диапазоны первой колонки §6.1 раскрыты в множество ID и сравнены с §6
+    covered: 142
+    of: 142
+    uncovered: []
+  dod_coverage:
+    method: то же раскрытие по §8
+    uncovered: []
+  twin_coverage:
+    declared_twin_missing_in_6_2: []
+  decisions_crosscheck:
+    Д1: Р1, G19, I06 — согласно
+    Д2: Р2, Р3, M01–M10, F21, G22 — согласно; исключение kaname записано (TestMRW07)
+    Д3: Р4, F03 (с близнецом F01), C01–C06, E01–E04 — согласно по замыслу; слово вида на проводе и пустой словарь — B5-2
+    Д4: Р5, F01–F22 — согласно по замыслу; три исхода есть; перепись путей надзора неполна — B5-1
+    Д5: Р7, A01–A09, G03–G05, G17–G19 — согласно
+    Д6: Р8, D01–D06, §5 S0/S1 — согласно; запись forbiddenObjectTypes — N5-1
+    Д7: Р9, N01–N09 — согласно; исход старта при false — B5-2
+    Д11 (часть notify): Р10, H01–H10 — согласно; пауза только оператором
+    Д12, Д13: Р15, §3, §4, §5 — согласно
+    спор с решениями: строк спора нет; молчаливых отступлений не найдено
+  facts_remeasured:
+    - "sha256sum документа = a6cb0c1f…dc6e89, 1925 строк"
+    - "перепись надзора kaname: 29 строк; verdictForRelation :770, own_door.go:523, read_authz.go:76 документом не названы; module/authz.go:26 — комментарий"
+    - "InternalIAMService/Check → CheckRelation → verdictForRelation — internal_iam/handler.go:294, authorize_service.go:708-775 @734f69fb4"
+    - "словарь видов подписки = ObjectType — subscription/journal.go:344-356, request.go:68-90 @34bc810"
+    - "пустой Mapping.Kinds — ошибка сборки журнала — subscription/journal.go:492-494 @34bc810"
+    - "проекция проверки: listnarrow передаёт RequiredRelation — listnarrow/narrower.go:507-508 @34bc810 (действие reader без отношения не упёрлось бы в superGateDecides)"
+    - "project_id подписки необязателен — subscription/request.go:40, 115 @34bc810"
+    - "гейт запретительного набора, сторона Б — proxyforbiddentypes.go:106-121 @1d42a6728bf"
+    - "§1.1, §1.4, §1.9 перемерены: net/smtp в kaname — 2 файла на origin/main и 734f69fb4; типов модели 32; notifications в deploy/helm — 0; mailpit enabled:false в values.yaml; stacks.txt — 7 цепочек; manifest.yaml служб — 5; returns (stream — 1"
+  constructibility:
+    seeded: 0
+    premises_checked_by_reading: 14
+    confirmed:
+      - H01, H03, H05, H06, H10 — класс и форма адресата по Р6 допустимы
+      - E02 — близнец строится фикстурной проверкой прав
+      - N02 — таблица из двух источников в гейте рендера
+      - M02 — отказ authz.Interceptor без субъекта
+      - M06 — OperationService.Get в перечне
+      - Subscribe без project_id допустим
+    refuted:
+      - F12 (а), (б), (г), F22 (а) — надзор verdictForRelation не входит в перечень путей (B5-1)
+      - F12 (д) — действие невыразимо через InternalIAMService/Check (B5-1)
+      - E01–E03, F22 (в), N07 — вид «notification» на проводе отвергается (B5-2)
+      - N07, N08 — источник без других видов при false не собирает журнал (B5-2)
+    not_performed: >-
+      Посевов не было: кода предмета в дереве нет, стенд и изоляцию задание не назвало.
+      Конструируемость проверялась чтением ограничений на названных ревизиях. Эти проверки
+      не засчитываются ни в зелёное, ни в красное.

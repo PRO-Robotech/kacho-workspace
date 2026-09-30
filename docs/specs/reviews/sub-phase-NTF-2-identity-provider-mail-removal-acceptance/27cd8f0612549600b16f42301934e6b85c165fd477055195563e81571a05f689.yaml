@@ -1,0 +1,222 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 27cd8f0612549600b16f42301934e6b85c165fd477055195563e81571a05f689
+  revision: 10
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  content_commit: b8b0d9dc3
+  content_commit_note: >-
+    `git show b8b0d9dc3:<path> | sha256sum` даёт тот же отпечаток, что `sha256sum` рабочей копии.
+    Отпечаток — единственная привязка вердикта.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3000
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T04:45:00Z'
+round: 3
+round_note: >-
+  Круг 3 прохода Д14–Д16 (редакция 10). Сквозная нумерация: пятый круг после смены предмета.
+  Прежние записи не правятся.
+previous_rounds:
+  - round: 1
+    pass: после смены предмета
+    sha256: 4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9.yaml
+    blocking_count: 3
+  - round: 2
+    pass: после смены предмета
+    sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078.yaml
+    blocking_count: 6
+  - round: 1
+    pass: Д14–Д16
+    sha256: a4f11ceefcbbc753ee047e964699f0b555cbd2c2d2ace037d5fc4a9e6e59b9d6
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/a4f11ceefcbbc753ee047e964699f0b555cbd2c2d2ace037d5fc4a9e6e59b9d6.yaml
+    blocking_count: 3
+  - round: 2
+    pass: Д14–Д16
+    sha256: dd806ce949eb6c0ab84663629cd0fc9ed67acdc750d08c390abec0534e7ec9c0
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/dd806ce949eb6c0ab84663629cd0fc9ed67acdc750d08c390abec0534e7ec9c0.yaml
+    blocking_count: 1
+previous_round_closure:
+  B-1: >-
+    закрыто по классу — Р6 «длительности полуоткрытые», NTF2-68 (б) `capped` в `Ts + Ti − 1 с` без
+    строки и в `Ts + Ti` со строкой; NTF2-87 — сроки кода трёх назначений в `Tk + ttl − 1 с` (тот же
+    код, принят) и `Tk + ttl` (новый, `K` — `401`); перепись «длительность → обе стороны» — 25 строк
+    (пересчитано), каждая длительность Р8 и окно «в час»/«в сутки» названы с держателем. Правка
+    класса внесла скользящее суточное окно, которое разошлось с правилом пола Р6 — B-1 этой записи
+  I-1: закрыто — условие `Tc + Fl − 1 с < Ts + Ti` в Given NTF2-68, оба момента печатаются
+  I-2: закрыто — перепись символов §6в перемерена, `T_alarm` и NTF2-07 в ней
+  I-3: закрыто — `K1`, `Tk1` определены в NTF2-65, ветвь «новый / тот же» печатается
+  I-4: закрыто — NTF2-71 (т) перебор отсутствия; границы выборкой, добавлены (у), (ф). Остаток — I-1 этой записи
+  I-5: закрыто — П6-age два аккаунта с разницей 1 с в одном моменте `T + Ya`
+dispatcher_decisions_check:
+  Д1: соблюдено — кредов у kaname нет (Р2), NTF2-30, NTF2-33
+  Д2: соблюдено — §1.5 и Р1 не менялись редакцией 10
+  Д3: соблюдено — Claim/Ack только `service:notify` (NTF2-46)
+  Д4: соблюдено — одна строка sender (NTF2-47), три исхода (Р14)
+  Д5: соблюдено — каталог шаблонов, блоки, bundle при сборке
+  Д6: соблюдено — точный счётчик CAS в транзакции постановки (Р6)
+  Д7: соблюдено — равенство отказа для любого адреса (NTF2-51)
+  Д8: соблюдено в части личности (Р11)
+  Д9: соблюдено; смена адреса — помеченный спор Р13 (NTF2-98)
+  Д11: >-
+    оси, ступени, интервал письма о торможении и обе стороны каждой длительности — держатся. Правило
+    «пол — одно письмо раз в 6 ч после потолка» изложено в Р6 двумя несовместимыми способами — B-1
+  Д12: соблюдено — предикат §0/Р19 по Д12
+  Д13: соблюдено — Р16, Р18
+  Д14: соблюдено — Р1, держатель перечня типов — NTF-1 (§6б)
+  Д15: к NTF-2 не относится
+  Д16: к содержимому документа не относится; документ живёт в ветке
+hygiene_check:
+  workspace_copy_paths: "0 — grep -c 'tmp/' <док>"
+  foreign_clouds: 0 — выборка имён чужих облаков, поставщиков почты и капчи
+  uncommitted_phrase: 0
+  change_package_claim: пакет `docs/changes/issue-2917/` назван заведённым; каталог есть
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - B-1 CONSTRUCTIBILITY
+blocking:
+  B-1:
+    kind: CONSTRUCTIBILITY
+    where: >-
+      Р6 (строки 517–534: «после суточного потолка действует пол…», «Между `Tc` и `Tc + floor-interval`
+      исход любого запроса без метки устройства — `capped`», и новый пункт «часовой и суточный
+      потолки … в скользящих окнах»); NTF2-65 (г); NTF2-75 и NTF2-76 «граница суток»; NTF2-70 (в);
+      §6в строка «суточная граница `t0 + 1 сут` и пол»
+    text: >-
+      Редакция 10 объявила суточное окно скользящим `(t − 1 сут, t]`, но оставила прежнее правило пола:
+      «между `Tc` и `Tc + floor-interval` исход любого запроса без метки — `capped`». NTF2-65 (г) на копии
+      П6 с `floor-interval` = 24 ч требует в `t0 + 1 сут` исход `queued`/`resent_same` — а этот момент
+      лежит строго внутри `(Tc, Tc + 24 ч)`, потому что `Tc > t0`; Р6 предписывает там `capped`.
+      Построение по ориентирам Р8 (60 с · 5 мин · 3/ч · 5/сут): строки `t0`, `t0+60 с`, `t0+6 мин`,
+      `t0+1 ч`, `t0+1 ч 5 мин` = `Tc`; `t0 + 1 сут` < `Tc + 24 ч`. Реализация, исполняющая Р6 дословно,
+      красна на NTF2-65 (г), NTF2-75 и NTF2-76 (граница суток); реализация по скользящему окну нарушает
+      Р6. То же расхождение делает неопределённым `Tc` (Р6: «последнее письмо перед суточным
+      потолком») после того, как скользящее окно отпустило строку и суточный потолок наступил снова, —
+      на этом стоят базовое построение NTF2-70 (в) («три письма в `t1 + 1 сут − 10 мин`…», «пол в них не
+      наступил») и условие NTF2-65 (а, б) при `Fl` у верхней границы Р8 (24 ч): при `Fl` = 24 ч суточное
+      окно отпускает `t0` раньше `Tc + Fl`, и исход в `Tc + Fl` по скользящему окну — не `floor`.
+      Состояние, которое утверждают сценарии, правилом документа запрещено; одобрение этого не лечит.
+    required: >-
+      Одно правило пола при скользящих окнах, изложенное в Р6 и §6в: например, «пол действует, пока
+      суточное окно исчерпано; `Tc` — последнее письмо прогрессии перед текущим исчерпанием; письмо пола
+      — не раньше `Tc + floor-interval` и только пока окно исчерпано; когда окно отпустило строку,
+      прогрессия возобновляется» — и снять фразу «между `Tc` и `Tc + floor-interval` исход любого
+      запроса — `capped`» либо сузить её тем же условием. Затем: NTF2-65 (а, б) — условие «в `Tc + Fl`
+      суточное окно ещё исчерпано» (`t0 + 1 сут > Tc + Fl`, печатается, иначе «не выполнилось»);
+      NTF2-65 (г), NTF2-75, NTF2-76 — ожидание, выводимое из этого правила; NTF2-70 (в) — построение,
+      в котором `Tc` каждого исчерпания назван. Провести класс по всем сценариям с `Tc` (NTF2-65, 68,
+      70, 75, 76, 78).
+important:
+  I-1: >-
+    Р8: окна ручек края (`W_F`, `W_P`, `W_H`, `W_Ps`, `W_Hs`) спрятаны за `_*` и границ стража не имеют
+    (граница строки — только число и «HARD ≤ 1000/ч»). NTF2-71 (т) обещает «вариантов столько,
+    сколько ключей в таблице Р8», но ключи окон из таблицы не выводятся. Назвать ключи окон явно и их
+    границы (Д11: «значения с границами, которые boot-guard проверяет»).
+  I-2: >-
+    NTF2-69 (в): «затем `C` приглашает аккаунт, чьи свои потолки на `C` не исчерпаны» — субъект и объект
+    переставлены; должно быть «аккаунт, чьи потолки на `C` не исчерпаны, приглашает `C`».
+  I-3: >-
+    NTF2-87 условие `ttl − 1 с ≥ first-pause` — граница Р8 `ttl ≥ first-pause` судится только для
+    `recovery` (NTF2-71 (м)); для `verification-code-ttl` и `registration-code-ttl` варианта нет. Добавить
+    либо сказать «выборкой».
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY уже был родом кругов 2 (после смены предмета) и 1 (Д14–Д16); COVERAGE снят. Число
+  блокирующих не растёт (6 → 3 → 1 → 1). Новый блокирующий внесён самой правкой класса (скользящие окна
+  без согласования с полом). Шаг формы задания для диспетчера (§14а): «вводя или меняя семантику окна
+  или срока, перепиши каждое правило Р5–Р8, которое на неё опирается, и сверь ожидания сценариев с
+  построением по ориентирам Р8 и по обеим границам Р8».
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Возврат полномочия не выдаёт, и от публикации события его сила не
+    зависит. Тело события для курьера — поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3 прохода Д14–Д16, блокирующих 1: CONSTRUCTIBILITY) · SHA-256
+    27cd8f0612549600b16f42301934e6b85c165fd477055195563e81571a05f689
+measurement:
+  revisions_used:
+    document: b8b0d9dc3 (ветка issue-880)
+    kacho: origin/2564 6edea09c2ee (из шапки; §1 редакцией 10 не менялся — `git diff 36e89a033 b8b0d9dc3 -- <док>` не задевает §1)
+    kaname: origin/357 734f69fb4 (из шапки)
+  facts_reproduced:
+    fingerprint: sha256sum рабочей копии и `git show b8b0d9dc3:<path>` — 27cd8f06…f689
+    delta: "git diff 36e89a033 b8b0d9dc3 -- <док> — 710 строк диффа, прочитан целиком"
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 72
+    positive: 19
+    negative: 54
+    note: NTF2-18 несёт оба слова; новый ID — NTF2-87
+  producer_coverage: {method: сверка §7 с множеством ID §6, covered: 72, of: 72}
+  twin_coverage:
+    negatives: 54
+    twins_named: 54
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательный | grep -vc близн → 0"
+  dod_coverage: {method: сверка «Покрытие ID» DoD (NTF2-80…87 — п.10) с множеством ID §6, covered: 72, of: 72}
+  duration_table_rows:
+    predicate: "awk по таблице «Длительность → обе стороны» без заголовка и разделителя → 25"
+    declared: 25
+    measured: 25
+  constructibility_seeding:
+    seeded: 0
+    of: 12
+    not_performed: >-
+      Изменённые Given редакции 10 (NTF2-60 (в), 61 (г), 64, 65 (г), 66 (д), 68 (б), 69, 70 (в), 75, 76,
+      77 (д, е), 87) — уровня I на П6; производители (лента, окна kaname, ограничитель края, `notify`)
+      на базе отсутствуют: `services/notify` в kacho нет, `notify/feed` в kaname — 0 файлов. Построение
+      сверено арифметикой по ориентирам Р8 — она и дала B-1 (NTF2-65 (г)).
+premise_check:
+  claim: >-
+    задание: судить редакцию 10 (круг 3) и сверить с Д1–Д16; документ объявляет закрытыми B-1 и I-1…I-5
+    прошлого круга и класс COVERAGE по длительностям (перепись 25 строк).
+  outcome: confirmed_in_part
+  commands:
+    - "sha256sum <док> → 27cd8f06…f689; git show b8b0d9dc3:<док> | sha256sum → тот же"
+    - "таблица «длительность → обе стороны» — 25 строк, каждая длительность Р8 названа"
+    - "Р6 строка 531 против NTF2-65 (г) строки 1524–1526: построение по ориентирам Р8 — t0 + 1 сут внутри (Tc, Tc + 24 ч) — B-1"
+route_signs:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и пробами, без описания обхода и без текущих слабых мест.
+next:
+  needed_agent: acceptance-author
+  task: >-
+    Редакция 11 NTF-2: одно правило пола при скользящих окнах в Р6 (когда действует, что такое `Tc`
+    при повторном исчерпании); NTF2-65 (а, б) — условие исчерпанного окна в `Tc + Fl`; NTF2-65 (г),
+    75, 76, 70 (в) — ожидания по этому правилу; учесть I-1…I-3.
+  owner_questions: []

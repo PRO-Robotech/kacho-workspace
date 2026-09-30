@@ -1,0 +1,219 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: dd806ce949eb6c0ab84663629cd0fc9ed67acdc750d08c390abec0534e7ec9c0
+  revision: 9
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  content_commit: 36e89a033
+  content_commit_note: >-
+    `git show 36e89a033:<path> | sha256sum` даёт тот же отпечаток, что `sha256sum` рабочей копии.
+    Отпечаток — единственная привязка вердикта.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2777
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T04:14:32Z'
+round: 2
+round_note: >-
+  Круг 2 прохода Д14–Д16 (редакция 9). Сквозная нумерация: четвёртый круг после смены предмета.
+  Прежние записи не правятся.
+previous_rounds:
+  - round: 1
+    pass: после смены предмета
+    sha256: 4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9.yaml
+    blocking_count: 3
+  - round: 2
+    pass: после смены предмета
+    sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078.yaml
+    blocking_count: 6
+  - round: 1
+    pass: Д14–Д16
+    sha256: a4f11ceefcbbc753ee047e964699f0b555cbd2c2d2ace037d5fc4a9e6e59b9d6
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/a4f11ceefcbbc753ee047e964699f0b555cbd2c2d2ace037d5fc4a9e6e59b9d6.yaml
+    blocking_count: 3
+previous_round_closure:
+  B-1: >-
+    закрыто — NTF2-51 (ж) регистрация на занятый `A` (П10) побайтово равна (в), (з) приглашение `A`
+    равно (г); писем 0; близнец — те же пары на П6 с флагом `true`; Р4 и §6б называют пары
+  B-2: >-
+    закрыто — Р5 задаёт три ступени и счёт ключа; ручки `POW_BITS_{BASE,HIGH}` с границей
+    `BASE < HIGH`; NTF2-60 (а) печатает `difficultyBits` по номеру, (б) `POW` = `HARD` — повышенной
+    ступени нет; NTF2-71 (р, с). Арифметика лестницы сверена: при ряде в наименьшем окне номер
+    `n` получает `Dh` ровно при `P < n ≤ H`
+  B-3: >-
+    закрыто в части построения — `Ts` своим символом от ряда NTF2-64, повторы `capped` строго внутри
+    `(Tc, Tc + Fl)`, один исход в Р6 (сверх окна, слагаемое NTF2-73). Держатель нижней стороны
+    интервала при этом не заведён — B-1 этой записи
+  I-1: закрыто — NTF2-52 называет `acc`, `O`, `U`, роль пользователю
+  I-2: закрыто — Р11 адресаты снимком в транзакции события, в отправке только адрес
+  I-3: закрыто — §5 `V` счётом по перечню кейсов прогона
+dispatcher_decisions_check:
+  Д1: соблюдено — кредов у kaname нет (Р2), NTF2-30, NTF2-33
+  Д2: соблюдено — `service:kaname` типом модели; посылка о TestMRW07 с командой (§1.5)
+  Д3: соблюдено — сигнал подпиской, Claim/Ack только `service:notify` (NTF2-46)
+  Д4: соблюдено — одна строка sender (NTF2-47), три исхода (Р14), kaname→notify вызовов нет
+  Д5: соблюдено — каталог шаблонов, блоки, cid, origin из конфигурации, bundle при сборке
+  Д6: соблюдено — точный счётчик CAS в транзакции постановки (Р6), возврат лимита (NTF2-07)
+  Д7: соблюдено — равенство отказа для любого адреса у всех трёх действий, принимающих адрес (NTF2-51); толкование помечено (Р4)
+  Д8: соблюдено в части личности (Р11, NTF2-88, 92, 93, 96)
+  Д9: соблюдено; смена адреса — помеченный спор Р13 (NTF2-98)
+  Д11: >-
+    оси перенесены, ступень POW определена и держится. «Одно письмо о торможении не чаще раза в
+    интервал» объявлено (Р6, ручка Р8), но держателя нижней стороны интервала нет — B-1
+  Д12: соблюдено — предикат §0/Р19 по Д12
+  Д13: соблюдено — Р16, Р18
+  Д14: соблюдено — Р1, держатель перечня типов — NTF-1 (§6б)
+  Д15: к NTF-2 не относится
+  Д16: к содержимому документа не относится; документ живёт в ветке
+hygiene_check:
+  workspace_copy_paths: 0 — `grep -n 'tmp/' <док>`
+  foreign_clouds: 0 — выборка имён чужих облаков и поставщиков почты/капчи
+  change_package_claim: пакет `docs/changes/issue-2917/` назван заведённым; каталог есть
+blocking_count: 1
+blocking_kinds_distinct: [COVERAGE]
+blocking_kinds_by_item:
+  - B-1 COVERAGE
+blocking:
+  B-1:
+    kind: COVERAGE
+    where: >-
+      §6б таблица «ручка → поведение», строки `authn.login.mail-throttled-interval` и
+      `authn.login.{recovery,verification,registration}-code-ttl`; NTF2-68; NTF2-40/41, NTF2-65,
+      NTF2-83; Р6; Д11
+    text: >-
+      Редакция 9 объявляет правило таблицы: у каждой ручки есть сценарий, красный, если ручку читает
+      только страж старта. Для ручек-длительностей держатель утверждает лишь сторону «после срока»,
+      а сторону «до срока» — далеко от границы. (1) `mail-throttled-interval` (Д11: «не чаще раза в
+      7 дней»; таблица: «новая строка не раньше `Ts + Ti`»): NTF2-68 (а) проверяет отсутствие второй
+      строки только в пределах ряда (`Tc + Fl − 1 с`, при ориентирах около 7 ч), (б) — новую строку
+      не раньше `Ts + Ti`. Реализация с постоянным интервалом 1 сут (нижняя граница Р8) или «одно
+      письмо на сутки» проходит (а) и (б), нарушая Д11. (2) Сроки кода: NTF2-41 и NTF2-83 утверждают
+      «срок + 1 с — код не принят», NTF2-65 — истечение через `Fl` часов; живость кода утверждается
+      только вскоре после постановки (NTF2-40 — после первой паузы). Реализация с постоянным сроком,
+      равным нижней границе 5 мин, проходит все три. Держатель пола (`Tc + Fl − 1 с` / `Tc + Fl`),
+      окна перебора (`Tf + W − 1 с` / `Tf + W`), срока метки и приглашения обе стороны уже держит —
+      то есть класс выполнен частично, а §6б объявляет его закрытым.
+    required: >-
+      NTF2-68: добавить момент строго до `Ts + Ti` — часы на `Ts + Ti − 1 ч` (свежие окна), ряд до
+      первого `capped` в момент `Tq < Ts + Ti` (печатается) — новой строки `mail-throttled` нет; затем
+      запрос с исходом `capped` в момент ≥ `Ts + Ti` — строка есть. Сроки кода: в NTF2-41, NTF2-83 и
+      NTF2-65 (или отдельной строкой) — предъявление кода в `срок − 1 с` принято (`200`), в
+      `срок + 1 с` — `401`; для `recovery` запрос в `срок − 1 с` шлёт тот же код. Провести класс по
+      всем ручкам-длительностям Р8 и в таблице «ручка → поведение» назвать обе стороны для каждой.
+important:
+  I-1: >-
+    NTF2-68 (а) «строк `mail-throttled` ровно одна» верно только при конце ряда (а) раньше `Ts + Ti`.
+    Границы Р8 это допускают нарушить (`Ti` ≥ 1 сут, `Fl` до 24 ч, `per-hour` 1 при `per-day` 20).
+    Объявить в Given условие «конец ряда < `Ts + Ti`», печатать оба момента, иначе «не выполнилось» —
+    как NTF2-60 объявляет `F < P < H`.
+  I-2: >-
+    §6в: перечень символов времени назван «выборкой из текста §6», но `T_alarm` (NTF2-07) в нём нет и
+    NTF2-07 не в числе 13. Построение у `T_alarm` есть; поправить перепись, чтобы число было верным.
+  I-3: >-
+    NTF2-65: символ `K1` в сценарии не определён (первый код ряда NTF2-64 истекает задолго до `Tc`).
+    Назвать: `K1` — код письма в `Tc`.
+  I-4: >-
+    §6б «Границы и отсутствие каждой ручки судит NTF2-71» — NTF2-71 снимает пять ручек из десятков.
+    Либо сказать «выборкой», либо назвать держатель полноты (например, журнал старта печатает все
+    ручки Р8 и проба сверяет перечень с таблицей Р8).
+  I-5: >-
+    П6-age описывает один аккаунт, а NTF2-69 (в) требует `young` и `mature` одновременно. Назвать
+    построение: `mature` заведён в `T`, `young` — в `T + 2 сут`, часы на `T + Ya + 1 сут`.
+repeated_kinds_note: >-
+  COVERAGE — четвёртый круг подряд на документе (4991…, 33e1…, a4f1…, эта запись). Число
+  блокирующих убывает (6 → 3 → 1). Класс здесь уже в форме задания («ручка → поведение»), но
+  критерий не требует обеих сторон границы для длительностей. Предлагаемая формулировка шага для
+  диспетчера (§14а): «у ручки-длительности держатель утверждает `−1 с` и момент срока».
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Возврат полномочия не выдаёт, и от публикации события его сила не
+    зависит. Тело события для курьера — поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 прохода Д14–Д16, блокирующих 1: COVERAGE) · SHA-256
+    dd806ce949eb6c0ab84663629cd0fc9ed67acdc750d08c390abec0534e7ec9c0
+measurement:
+  revisions_used:
+    document: 36e89a033 (ветка issue-880)
+    kacho: origin/2564 6edea09c2ee (из шапки; §1 редакцией 9 не менялся — `git diff -U0 b62fd8407 36e89a033` не задевает строк 111–300)
+    kaname: origin/357 734f69fb4 (из шапки)
+  facts_reproduced:
+    fingerprint: sha256sum рабочей копии и `git show 36e89a033:<path>` — dd806ce9…c9e0
+    section1_unchanged: замеры §1 перемерены прошлым кругом (census 49, 94, 61 вид, 15 путей); редакция 9 их не трогала
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 71
+    positive: 18
+    negative: 53
+    note: NTF2-18 — положительный с отрицательным близнецом, счётом попадает в 53
+  producer_coverage: {method: сверка §7 с множеством ID §6 (разбор перечней и диапазонов), covered: 71, of: 71}
+  twin_coverage:
+    negatives: 53
+    twins_named: 53
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательный | grep -vc близн → 0"
+    note: у NTF2-68 близнец назван, но нижнюю сторону интервала он не судит — B-1
+  dod_coverage: {method: сверка «Покрытие ID» DoD с множеством ID §6, covered: 71, of: 71}
+  time_symbols_in_s6: "`T`, `t0`, `T_alarm`, `Tc`, `Tf`, `Ti`, `Ts`, `Ts'`, `Tt`, `Tv` — выборкой по тексту §6; `T_alarm` в переписи §6в нет (I-2)"
+  constructibility_seeding:
+    seeded: 0
+    of: 3
+    not_performed: >-
+      Изменённые Given редакции 9 (NTF2-51 (ж, з), NTF2-60 (б), NTF2-68, NTF2-75) — уровня I на П6;
+      производители (лента, окна, ограничитель края, `notify`) на базе отсутствуют — заводят NTF-1 и
+      NTF-2 (Р16). Построение сверено чтением против Р5/Р6 и ориентиров Р8; дерево `deploy` и §1 не
+      менялись.
+premise_check:
+  claim: >-
+    задание: судить редакцию 9 и сверить с Д1–Д16; документ объявляет закрытыми B-1…B-3, I-1…I-3 и
+    классы COVERAGE (§6б, переписи по предмету) и CONSTRUCTIBILITY (§6в, перепись символов времени).
+  outcome: refuted_in_part
+  commands:
+    - "sha256sum <док> → dd806ce9…c9e0; git show 36e89a033:<док> | sha256sum → тот же"
+    - "B-1…B-3, I-1…I-3 прошлого круга закрыты — сверено по тексту Р4, Р5, Р6, Р11, §5, NTF2-51, 52, 60, 68"
+    - "таблица «ручка → поведение»: строки mail-throttled-interval и *-code-ttl держат только сторону «после» — B-1"
+    - "выборка символов времени по §6: `T_alarm` вне переписи §6в — I-2"
+route_signs:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и пробами, без описания обхода и без текущих слабых мест.
+next:
+  needed_agent: acceptance-author
+  task: >-
+    Редакция 10 NTF-2: для каждой ручки-длительности Р8 держатель утверждает обе стороны срока —
+    NTF2-68 (нет новой строки `mail-throttled` строго до `Ts + Ti`, есть — после), сроки кода
+    `recovery`/`verification`/`registration` (`срок − 1 с` принят, `срок + 1 с` — нет); обновить
+    таблицу «ручка → поведение»; учесть I-1…I-5.
+  owner_questions: []

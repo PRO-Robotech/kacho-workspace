@@ -1,0 +1,324 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 9.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы (initial/9098d6ef….yaml,
+# initial/ef9c6801….yaml) и пересверки на редакции 1, 2, 3, 5, 6, 7 и 8 (f21384ed…, 2886b89f…,
+# c3e37381…, cc7bdad1…, cc42ace6…, 6fc3cae2…, 2a329728…) относятся к своим редакциям и здесь не
+# переписываются. По решению диспетчера Д22 судится ТОЛЬКО дельта редакции 9 против последней
+# разобранной (редакция 8, 2a329728):
+# git diff a514bac3b a0ad3a711 -- docs/changes/issue-2917/design.md docs/changes/issue-2917/tasks.md
+# (565 строк диффа; design.md +291/−54 вместе с tasks.md).
+# Что проверено:
+#   (1) отображение CX2-46 по трём частям его условия (а)–(в);
+#   (2) исполнение условий к коду УК53–УК56 текстом замысла;
+#   (3) новые внешние вызовы, асинхронные пути и sentinel-значения дельты;
+#   (4) маркеры отсрочки и открытые решения;
+#   (5) замеры М51–М55 (Д24) воспроизведены по дереву и модулям; утверждение о семантике
+#       pg_xact_status проверено по исходнику сервера PostgreSQL 16.
+# Итог: неотображённых пунктов нет; новый sentinel commitUnknown заведён пунктом CX2-47 и
+# отображением замысла держится. Условий к коду два (УК57, УК58). Остаток CX2-46 противоречит
+# буквальному тексту правила Р5 приёмки — «вернуть в приёмку» (заранее объявленное условие
+# пересверки 2a329728).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: aaaff659c0d1257a16b35858e7df23650cae290f9aecb98c5254500d4ecf758b
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 9
+  previous_judged: 2a329728df99a58e3babe6951aa4e35c7053f6139b3ba0a893b02330f4391fa4   # редакция 8, e476ac546
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+initial_records:
+  - docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/initial/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+previous_revalidations:
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc7bdad1c55489347978ba2414d471b2a9637088c946bedf9527798074349fda.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/6fc3cae220faa6212b0fe7ecca9c2d1555f2b841a9d25cac6d28658bf8dff8c5.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2a329728df99a58e3babe6951aa4e35c7053f6139b3ba0a893b02330f4391fa4.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a0ad3a711   # ветка issue-880, коммит редакции 9; пакет на HEAD b746239d5 не менялся (git diff --quiet a0ad3a711 HEAD -- docs/changes/issue-2917/)
+  kaname: 734f69fb4        # та же ревизия, что в §1 замысла (R_KN)
+  kacho: 6edea09c2ee       # та же ревизия, что в §1 замысла (R_KC)
+  modules: "github.com/jackc/pgx/v5 v5.10.0; github.com/PRO-Robotech/corelib v1.10.0-rc.5 (go.mod; исходники из кэша модулей)"
+  postgres_source: "postgres/postgres REL_16_STABLE — src/backend/utils/adt/xid8funcs.c, src/backend/access/transam/xact.c (линия 16 — единственная в образах края, М55)"
+snapshot_at: 2026-09-30
+
+inspected: >-
+  Дифф редакции 9 против редакции 8 (design.md и tasks.md) целиком, 565 строк. Разделы design.md
+  на aaaff659: З8 (1), (1а), (2), (3), (3а), «Исход фиксации», «Одноразовость и решение», (4)
+  (строки 633–760), проба З8 (строки 858–895), З22 «По какому признаку гейт узнаёт секрет почты»,
+  З24 «Строка приглашающего в порядке блокировок», §1 М51–М55, §3 И6, И13, И37, И40, И41, §6
+  (anon_mail_passes), §7 П9, §8, §11 (строки 2455–2462), §11а УК53–УК56, §12, §13. Приёмка
+  ef9c6801: Р5 (строка 2783). tasks.md: E2, S5, D3, Е7.
+  Модули: pgx v5.10.0 — pgconn/config.go:374, pgconn.go 1405–1414, 2955–3013
+  (оба обработчика отмены), tx.go 186–192; corelib v1.10.0-rc.5 — db/pool.go 55–90.
+  PostgreSQL 16: xid8funcs.c — pg_xact_status (673–716), TransactionIdInRecentPast,
+  pg_current_xact_id; xact.c — порядок RecordTransactionCommit (2277) и ProcArrayEndTransaction
+  (2301). Дерево kaname @734f69fb4: pgmaperr.go, shared/errors.go 108–113, repo/kaname/pg/tx.go
+  (Commit → mapErr), user_repo.go 755–800 (userWriter.Delete), миграции (REFERENCES users).
+  Дерево kacho @6edea09c2ee: образы postgres, вызовы pg_xact_status, anon_mail_passes, пулеры.
+  Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -ciE 'TODO|TBD|FIXME|XXX' по файлу на aaaff659 → 0. Расширенный поиск
+      ('позже|потом|отлож') даёт 11 строк; каждая — «не позже», «потом читать» (порядок
+      операций), «потому что» или «отложенная проверка внешнего ключа». Маркера отсрочки нет.
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      §13 (строка 2585): «Нет. Решения З1–З27 приняты». Вопрос об остатке CX2-46 адресован
+      ревью приёмки, а не замыслу: механизм выбран и от ответа не меняется. Это верно — от
+      ответа зависит только текст «Тогда» Р5 (см. return_to_acceptance).
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      CX2-46 отображён строкой §11 и решениями З8 (1), (1а), (3а), «Исход фиксации», И6, И37,
+      И40, §6, §7 П9, §8; все три части условия (а)–(в) решены (mapping_check). Новый пункт
+      CX2-47 (sentinel commitUnknown) держится теми же решениями; остаток классификации — УК57.
+      Строк отображения в §11 — 46 (grep -c '^| CX2-'); сводная строка 2462 по-прежнему говорит
+      «45 из 45» — счёт устарел на одну строку (замечание автору, отображению не мешает).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      Новых внешних вызовов нет. `pg_xact_status`, чтение строки момента и
+      `RETURNING pg_current_xact_id()` идут к собственной базе края по существующему пулу
+      ограничителя. Запрос отмены обработчика CancelRequest — отдельное короткое соединение к той
+      же базе (адрес — RemoteAddr связи, pgconn.go:1093), не новый сосед. Пулеров между краем и
+      базой в дереве нет (git grep -il 'pgbouncer|pgpool|odyssey' -- deploy gateway → 0).
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      Новых асинхронных путей замысла нет: `resolveCommit` — синхронный опрос внутри запроса.
+      Горутина отправки отмены живёт внутри драйвера, и снятие наблюдения её дожидается
+      (HandleUnwatchAfterCancel, pgconn.go:3008–3013). Отсюда следует цена по времени (УК58), но
+      не путь, переживающий запрос. TCP-посредник пробы — тестовая оснастка.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Дельта заводит одно новое значение — внутренний исход хранилища `commitUnknown`. Оно
+      заведено пунктом CX2-47 (new_items) и держится решениями замысла: производитель один (ошибка
+      COMMIT), потребитель один (`resolveCommit`), наружу `Admit` не выходит, у `memory` его нет.
+      `decision_id` — случайный идентификатор, а не sentinel. `anonMailDecisionWaits`,
+      `anonMailCommitWait`, `anonMailCancelGrace`, `anonMailResolveBudget` — константы.
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: >-
+      Запись привязана к aaaff659 — отпечатку файла на a0ad3a711 и на HEAD b746239d5; поле
+      change.yaml hashes.design_sha256 равно aaaff659.
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING); оценено отдельно, в clean не входит"
+    result: red
+    detail: >-
+      В reviews/design/ одна запись — design-reviewer/6fc3cae2….yaml (редакция 7). На aaaff659
+      записей нет ни у одной из трёх применимых ролей: design-reviewer (исполняет
+      system-design-reviewer в режиме «замысел»), db-architect-reviewer, proto-api-reviewer. По
+      заданию ревью замысла — отдельный шаг.
+
+mapping_check:
+  - {id: "CX2-01…42", design: "без изменений", verdict: holds, note: "дельта этих решений не касается"}
+  - id: CX2-43
+    design: "З8 «Одноразовость доказательства и решение — одна транзакция»"
+    verdict: holds
+    note: >-
+      Текст уточнён: `StoreUnavailable` — только до отправки COMMIT, ошибка COMMIT —
+      `commitUnknown`. Неделимость пометки и момента не ослаблена. Исключение «база недоступна
+      всё окно разрешения» названо в тексте, его судьба — вопрос Р5 (return_to_acceptance).
+  - id: CX2-44
+    design: "З8 (3а), (4) — три окна холодного пула"
+    verdict: holds
+    note: "УК54 исполнено: третье окно «срыв срока решения без ответа на отмену» названо рядом с двумя прежними."
+  - {id: CX2-45, design: "З27, З24 (УК55)", verdict: holds, note: "УК55 исполнено; см. conditions_executed"}
+  - id: CX2-46
+    design: "З8 (1), (1а), (3а), «Исход фиксации», И6, И37, И40, §6, §7 П9, §8; §11 строка 2460"
+    verdict: holds
+    note: >-
+      (а) Обработчик отмены выбран явно: CancelRequestContextWatcherHandler, CancelRequestDelay 0,
+      DeadlineDelay = anonMailCancelGrace. Цена названа, запасной путь (закрытие по дедлайну
+      сокета) — третье окно холодного пула. Одно уточнение по коду pgx: HandleCancel ставит
+      дедлайн сокета сразу, на момент срыва плюс DeadlineDelay (pgconn.go:2983–2984). Описание
+      «если ответ не пришёл за grace, ставит дедлайн» по исходу этому равносильно. Цена «порядка
+      100 мс» в замысле приписана отдельному соединению отмены. На деле это фиксированный сон
+      драйвера после отмены (pgconn.go:3004); в формулы границ он не вошёл — УК58.
+      (б) COMMIT вынесен из срока решения на WithoutCancel со своим пределом. Его ошибка —
+      `commitUnknown`, и `resolveCommit` разрешает её до ответа. Главный риск такого разрешения —
+      статус `committed` раньше, чем фиксация видна новому снимку: в PostgreSQL clog
+      обновляется до снятия транзакции из ProcArray (xact.c:2277 → 2301). По исходнику
+      PostgreSQL 16 этот риск закрыт: pg_xact_status сперва спрашивает TransactionIdIsInProgress
+      и лишь затем clog, с прямой ссылкой на эту гонку (xid8funcs.c:689–699). Поэтому порядок
+      «статус ≠ in progress → отдельный оператор со своим снимком → строка» верен. Остаток
+      «база не ответила всё окно разрешения» назван с ценой (один лишний вызов), и его судьба
+      отдана ревью приёмки. По условию пересверки 2a329728 это правка Р5 — return_to_acceptance.
+      Классификация ответов опроса неполна: NULL и ERROR 22023 не разобраны — УК57.
+      (в) Бюджет пересчитан по счёту ожиданий: 6 × anonMailStoreWait = 1,5 с (IPv6: захват,
+      3 ключа, пометка, ведро; IPv4 — 5). Сказано, что под конкуренцией действует срок решения,
+      а срыв до COMMIT — определённый откат. Числа совпадают со счётом пересверки 2a329728.
+
+new_items:
+  - id: CX2-47
+    decision: "З8 (1а), «Исход фиксации» — внутренний исход хранилища `commitUnknown` (новое sentinel-значение)"
+    classes:
+      - "code-authoring §«Умолчание, которое становится утверждением» — третий исход «не смог узнать»"
+      - "code-authoring §«Чужой ответ: классификация и бюджет» — классификация ответов опроса статуса"
+    exposure: >-
+      Новое значение закрытого набора исходов хранилища. Здесь есть два риска. Первый — утечка
+      наружу четвёртым исходом `Admit` или сведение к одному из четырёх без разрешения (прежний
+      дефект CX2-46). Второй — у самого разрешения есть свой чужой ответ, опрос статуса: у него
+      больше вариантов, чем «in progress / committed / aborted / не ответила».
+    mapping: >-
+      Отображение держится. Производитель один — ошибка COMMIT любого рода (З8 (1а)). Потребитель
+      один — `resolveCommit` («Исход фиксации»). Закрытый набор `Admit` не меняется: Pass ·
+      Challenge · Reject · StoreUnavailable (З8 (1а), И40). У `memory` исхода нет. Гейт формы
+      `anonmail` считает операторы вне транзакции (= 2, в `resolveCommit`). Держатели — проба
+      «срок истекает на COMMIT» с двумя близнецами-инъекциями и проба остатка (З8, E2). Неполная
+      классификация ответов опроса вынесена в УК57; она не меняет ни решения, ни исхода «Тогда».
+    mapped: true
+
+conditions_executed:
+  - {id: УК53, where: "З8 (2) `decisionLimitsSQL`, И37, §8, §11а, tasks E2", verdict: executed}
+  - {id: УК54, where: "З8 (3а), (4), И37, §8, §11а, tasks E2", verdict: executed, note: "допуск модульной пробы срока включает anonMailCancelGrace; см. УК58 — ещё 100 мс сна драйвера для проб на настоящем пуле"}
+  - id: УК55
+    where: "З24 «Строка приглашающего в порядке блокировок», И41, М53, М54, tasks S5"
+    verdict: executed
+    note: >-
+      Проверена и вторая жертва взаимной блокировки — удаление человека. Отложенный внешний ключ
+      проверяется на COMMIT, и ошибка фиксации в kaname идёт через mapErr
+      (repo/kaname/pg/tx.go:124–133) в тот же единственный дом pgmaperr (SerializationConflict,
+      40001 либо 40P01 → ErrAborted, pgmaperr.go:226, 265). `INTERNAL` нет ни у одной из сторон.
+  - {id: УК56, where: "З22, И13, §0 (Д23), tasks D3", verdict: executed}
+
+conditions_to_code:
+  - id: УК57
+    item: "CX2-47, CX2-46 (б) — `resolveCommit`"
+    class: "code-authoring §«Чужой ответ: классификация и бюджет»"
+    condition: >-
+      `resolveCommit` классифицирует ответ опроса `pg_xact_status` закрытым перечнем, без ветки
+      «прочее»:
+      `in progress` → ждать шаг;
+      `committed` или `aborted` → читать строку;
+      NULL (xid старше усечения clog, TransactionIdInRecentPast → false) → читать строку;
+      ERROR 22023 «transaction ID … is in the future» (опрошена база с меньшим счётчиком, то есть
+      после переключения, и фиксация до неё не дошла) → читать строку сразу, не опрашивать до
+      конца бюджета;
+      ошибка соединения, отмена или 57014 → повторить в пределах `anonMailResolveBudget`.
+      WARN «исход фиксации не разрешён» и +1 к счётчику пишутся только тогда, когда за весь бюджет
+      не удалось прочесть строку. Ответ базы с ошибкой — это ответ, а не «база не ответила».
+    held_by: >-
+      Нужна модульная проба `resolveCommit` на заглушке опроса: по одному варианту на каждый
+      класс, утверждаются исход, число опросов и признак WARN. Близнец-инъекция — 22023 сведён к
+      повтору: исход тот же (`503`), но опросов больше одного и WARN записан — красный. Строит
+      автор полосы E2.
+  - id: УК58
+    item: "CX2-46 (а), И6, И37, §8 (границы удержания и худший ответ)"
+    class: "measurement-discipline §«Форма числа»; code-authoring §«Унификация и стоимость» (цена чужого конструктора)"
+    condition: >-
+      Каждая отмена по сроку на пуле с CancelRequestContextWatcherHandler стоит, сверх
+      DeadlineDelay, фиксированных 100 мс сна драйвера до снятия наблюдения
+      (pgx v5.10.0 pgconn.go:3004; corelib db/pool.go 66–70 называет ту же цену). Этот сон не
+      ограничен ни `anonMailCancelGrace`, ни сроком контекста. Формулы границ его не содержат:
+      «живой держатель ≤ decision + commit + grace = 2 с» и «худший ответ ≈ 5,25 с». Там, где
+      код или проба утверждают временную границу на НАСТОЯЩЕМ пуле ограничителя, допуск включает
+      grace + 100 мс на каждую отмену пути. К ним относятся integration-проба «срок истекает на
+      COMMIT», проба остатка «503 не раньше anonMailResolveBudget» и проба «после срыва срока
+      соединений в пуле 4». Модульная проба срока на заглушке хранилища драйвера не содержит, её
+      допуск не меняется. В следующей редакции замысла формулы §8 и З8 (2) пересчитываются с
+      этим слагаемым; цена «порядка 100 мс» приписывается сну драйвера, а не соединению отмены.
+    held_by: >-
+      Гейта нет и не нужен. Держится пробами полосы E2: при допуске без 100 мс они нестабильно
+      краснеют на медленном раннере. Число — из исходника драйвера на пине, а не из прогона.
+
+measurements:
+  - claim: "М51: умолчание pgx закрывает соединение клиентом; Commit — Exec на контексте вызывающего"
+    command: "P=$(go env GOMODCACHE)/github.com/jackc/pgx/v5@v5.10.0; grep -n 'DeadlineContextWatcherHandler{' $P/pgconn/config.go; sed -n 2955,2961p $P/pgconn/pgconn.go; sed -n 1405,1414p $P/pgconn/pgconn.go; sed -n 186,192p $P/tx.go; git -C project/kacho show 6edea09c2ee:go.mod | grep jackc/pgx"
+    result: "воспроизведено: config.go:374; asyncClose при ошибке чтения (pgconn.go:1412); tx.conn.Exec(ctx, …) (tx.go:190); пин v5.10.0"
+  - claim: "М52: corelib ставит CancelRequest с DeadlineDelay 500 мс"
+    command: "sed -n 55,90p $(go env GOMODCACHE)/github.com/!p!r!o-!robotech/corelib@v1.10.0-rc.5/db/pool.go"
+    result: "воспроизведено: строки 80–85. В комментарии 66–70 цена названа как «~100 мс сна внутри драйвера»; замысел приписал её соединению отмены (УК58)"
+  - claim: "CancelRequest-обработчик: дедлайн сокета ставится сразу, снятие наблюдения ждёт сон 100 мс"
+    command: "sed -n 2965,3013p $(go env GOMODCACHE)/github.com/jackc/pgx/v5@v5.10.0/pgconn/pgconn.go"
+    result: "SetDeadline(now + DeadlineDelay) в HandleCancel (2983–2984); time.Sleep(100 * time.Millisecond) (3004); HandleUnwatchAfterCancel ждёт cancelFinishedChan (3010)"
+  - claim: "М53: 40P01 → SerializationConflict → ErrAborted → codes.Aborted"
+    command: "git -C project/kaname show 734f69fb4:internal/repo/kaname/pg/pgmaperr.go | grep -n 'SerializationConflict\\|ErrAborted'; git -C project/kaname show 734f69fb4:internal/apps/kaname/shared/errors.go | sed -n 108,113p"
+    result: "воспроизведено: pgmaperr.go:226, 265; errors.go:112"
+  - claim: "М54: accounts_owner_fk DEFERRABLE INITIALLY DEFERRED; внешних ключей на users 18"
+    command: "git -C project/kaname grep -nE 'accounts_owner_fk' 734f69fb4 -- 'internal/migrations/*.sql'; git -C project/kaname grep -nE 'REFERENCES (kaname\\.)?users' 734f69fb4 -- 'internal/migrations/*.sql' | wc -l"
+    result: "воспроизведено: 0001_initial.sql:5402; 18"
+  - claim: "ошибка фиксации удаления человека идёт в тот же дом классификации"
+    command: "git -C project/kaname show 734f69fb4:internal/repo/kaname/pg/tx.go | grep -nE 'func \\(.*\\) Commit|mapErr'"
+    result: "writeTx.Commit (124) → mapErr (131, 133)"
+  - claim: "М55: образы края — только линия 16; вызовов pg_xact_status в дереве 0"
+    command: "git -C project/kacho grep -hoE 'postgres(ql)?:[0-9]+[.0-9a-z-]*' 6edea09c2ee -- deploy gateway '*.go' | sort | uniq -c; git -C project/kacho grep -nE 'pg_xact_status|txid_status|pg_current_xact_id' 6edea09c2ee | wc -l"
+    result: "воспроизведено: 1 + 6 + 5 + 2 + 4 = 18 строк, все 16-й линии; вызовов 0"
+  - claim: "anon_mail_passes и decision_id в дереве ещё нет — колонка заводится вместе с таблицей, обратного заполнения нет"
+    command: "git -C project/kacho grep -n 'anon_mail_passes\\|decision_id' 6edea09c2ee | wc -l"
+    result: "0"
+  - claim: "статус committed не опережает видимость фиксации новому снимку"
+    command: "curl -sfL https://raw.githubusercontent.com/postgres/postgres/REL_16_STABLE/src/backend/utils/adt/xid8funcs.c | sed -n 673,716p; … xact.c | grep -n 'RecordTransactionCommit();\\|ProcArrayEndTransaction(MyProc'"
+    result: >-
+      подтверждено: pg_xact_status проверяет TransactionIdIsInProgress до TransactionIdDidCommit
+      (xid8funcs.c:696–698), комментарий 689–694 называет гонку clog и ProcArray; в xact.c порядок
+      RecordTransactionCommit (2277) → ProcArrayEndTransaction (2301). TransactionIdInRecentPast
+      бросает ERROR 22023 на xid из будущего и возвращает NULL на xid старше усечения (УК57);
+      pg_current_xact_id запрещён при восстановлении (PreventCommandDuringRecovery)
+  - claim: "между краем и базой нет пулера, ломающего запрос отмены"
+    command: "git -C project/kacho grep -il 'pgbouncer\\|pgpool\\|odyssey' 6edea09c2ee -- deploy gateway | wc -l"
+    result: "0"
+  - claim: "сводная строка §11 «45 из 45»"
+    command: "grep -n 'Неотображённых пунктов' docs/changes/issue-2917/design.md; grep -c '^| CX2-' docs/changes/issue-2917/design.md"
+    result: "строка 2462 говорит «45 из 45», строк отображения 46 — счёт устарел"
+
+not_measurable:
+  - "доля срывов COMMIT и частота остатка «база недоступна всё окно разрешения» на стенде — число прогона. Вывод от него не зависит: остаток существует при любой ненулевой доле, и замысел его не отрицает"
+  - "поведение PostgreSQL на отмену во время COMMIT (прерывания удержаны в критической секции фиксации) — утверждение о сервере, исходник здесь не читался. Вывод не зависит: при любом исходе отмены ответ клиенту либо настоящий, либо ошибка → commitUnknown → разрешение"
+
+outcome: вернуть-в-приёмку
+unmapped: []
+return_to_acceptance:
+  - rule: "Р5 (строка 2783): «`503` не истрачивает вызов — NTF2-59 (д)»"
+    why: >-
+      Замысел разрешает исход COMMIT во всех случаях, кроме одного, и этот неразрешимый остаток
+      называет прямо (З8 «Исход фиксации»): COMMIT отправлен, а база не ответила всё окно
+      `anonMailResolveBudget`. Тогда ответ — `503`, и если фиксация успела, вызов истрачен:
+      повтор того же доказательства получит `Replayed` и новый вызов. Буквальный текст Р5 этого
+      исключения не допускает, а по построению его не закрыть (исход фиксации знать нечем).
+      По условию пересверки 2a329728 («назвать цену вместо разрешения — правка Р5») нужна правка
+      «Тогда» Р5: исключение с ценой — один лишний вызов клиенту. Кейс NTF2-59 (д) останавливает
+      хранилище до COMMIT и остаётся верным. Сценарий остатка в приёмке не заведён.
+    scenarios: [NTF2-59]
+
+orders:
+  - to: acceptance author (NTF-2)
+    what: "Правка «Тогда» Р5: исключение «COMMIT отправлен, база недоступна всё окно разрешения» с ценой — один лишний вызов; решить, заводить ли кейс остатка рядом с NTF2-59 (д). После правки — новый отпечаток приёмки, ревью приёмки, первичный разбор классов на него"
+    basis: "change-graph §2 (правка приёмки обесценивает вердикт); code-authoring §«Умолчание, которое становится утверждением»"
+  - to: design author (NTF-2)
+    what: "Вписать УК57 и УК58 в §11а. Сводную строку §11 привести к числу строк отображения (46, с CX2-47 — 47). Пересчитать формулы границ З8 (2) и §8 со сном драйвера 100 мс и приписать цену ему (УК58). Ссылку на Р5 в «Исход фиксации» привести к исходу правки приёмки"
+    basis: "doc-truthfulness (два места об одном предмете); measurement-discipline §«Форма числа»"
+  - to: rpc-implementer (kacho gateway, полоса E2)
+    what: "УК57 (классификация ответов опроса статуса), УК58 (допуски проб на настоящем пуле)"
+    basis: "code-authoring §«Чужой ответ: классификация и бюджет»"
+  - to: design-reviewer (system-design-reviewer, режим «замысел»), db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток замысла; на aaaff659 их 0"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+  - to: package author (NTF-2)
+    what: "change.yaml: в комментарии «пересверки на него нет» сослаться на эту запись"
+    basis: "change-graph §4"

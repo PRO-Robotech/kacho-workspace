@@ -1,0 +1,226 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку
+    (.claude/rules/change-graph.md §2).
+  base_commit: 97b6ee166e3105b424e593324cccf8f9c685a9f7
+  content_commit: none
+  content_commit_note: Редакция привязана только отпечатком.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2925
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1224
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T02:21:06Z'
+round: 3
+previous_rounds:
+  - round: 1
+    sha256: 247c320c2836acad0136454944111b799c58363cde4c7b27801caf32051d92b9
+    record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/247c320c2836acad0136454944111b799c58363cde4c7b27801caf32051d92b9.yaml
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+  - round: 2
+    sha256: c82cd21b0eaa801bc3631b512d6e1a4d9973d308fe6b5e4a161f9ceb75cba443
+    record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/c82cd21b0eaa801bc3631b512d6e1a4d9973d308fe6b5e4a161f9ceb75cba443.yaml
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER, CONVENTION, CONSTRUCTIBILITY, TWIN]
+blocking_count: 2
+blocking_kinds_distinct: [PRODUCER, OPEN-QUESTION]
+blocking_kinds_by_item:
+  - B3-1 PRODUCER
+  - B3-2 OPEN-QUESTION
+closed_from_round_2: [B2-2, B2-3, B2-4, B2-5]
+repeated_kinds_note: >-
+  PRODUCER блокирует в третий раз подряд. Число блокирующих убыло с 5 до 2. Причина повтора в
+  этом круге лежит вне автора. NTF-3 в редакции 6 (3a511717…) принял заказ NTF-6 редакции 2
+  (c82cd21b…) и записал «NTF-6 правится по нему». В то же время NTF-6 в редакции 3 перешёл на
+  контракт NTF-3 редакции 5 (301c23dc…). Два документа разошлись навстречу друг другу. Новая
+  редакция автора этого не исправит, пока не выбран и не закреплён один владелец формы API.
+  Решение за диспетчером (.claude/rules/multi-agent-flow-orchestration.md §14а, §«Круг не
+  запускается там, где ПРЕДМЕТА ещё нет»).
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 97b6ee16 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 97b6ee166e3105b424e593324cccf8f9c685a9f7
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочий не выдаёт и ничего не открывает. Тело события для
+    курьера — в поле event_body_for_courier.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3, блокирующих 2) ·
+    SHA-256 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
+
+measurement:
+  revisions_used:
+    kacho_origin: 1d42a6728bf
+    kaname_origin: cbbac984b
+    workspace: 97b6ee166e3105b424e593324cccf8f9c685a9f7
+    neighbour_ntf1_acceptance_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+    neighbour_ntf3_acceptance_sha256_cited_by_doc: 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+    neighbour_ntf3_acceptance_sha256_current: 3a5117172e62df9b14e90b09a264f3da51999da3acf2a7315f6976bd6f134862
+    neighbour_ntf5_acceptance_sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418
+    neighbour_note: >-
+      Отпечатки NTF-1 и NTF-5 совпадают с шапкой документа. NTF-3 документ цитирует на
+      301c23dc… (редакция 5). На момент ревью в копии лежит редакция 6 (3a511717…): строка шапки
+      NTF-3 «редакция 6», Р29 и таблица «Решение по заказу NTF-6 Р3а» (строки 952-990). Вердикта
+      на редакцию 6 нет. Редакция 5 возвращена кругом 1 прохода (запись 301c23dc….yaml).
+  tree_claims_rechecked:
+    - "§1.6 secondAccountMembership — ui-future/e2e/specs/users.spec.ts:199 (функция модуля пробы, не экспорт fixtures.ts); ACTIVE сразу — шапка :193-197 — подтверждено @1d42a6728bf"
+    - "§1.6 PENDING — kaname internal/repo/kaname/pg/user_repo.go:596, :691 (CASE WHEN i.invite_status = 'PENDING') — подтверждено @cbbac984b"
+    - "§1.6 роли kaname manifest.yaml: iam.account.admin :897 classes [\"*\"], iam.account.view :917 [list, get], iam.project.view :977; ярусы :95-96; permissions_to_relations.go:17-24 — подтверждено @cbbac984b"
+    - "§1.4 край на пол — 401 + insufficient_user_authentication (ui-future/e2e/specs/stepup.spec.ts:113-126); isStepUpDenial — shared/src/api/step-up.ts:62-65 — подтверждено"
+    - "§1.2 deploy/helm/umbrella/Chart.yaml:114-117 подчарт uif — подтверждено"
+    - "§1.7 NTF-5 Р21 :573-608 (пара «область × категория», три записи, одно тело PEER_RESOURCE_STATE); З11 :640; NTF5-97…105 :1239-1315; пути /notify/v1/contacts — подтверждено @47ac6f8b"
+    - "§1.7 NTF-3: GET /notify/v1/inbox, rules[]{module, event_class}, каталога нет, /notify/v1/subscriptions с eventClasses — верно для 301c23dc, ОПРОВЕРГНУТО текущей редакцией 3a511717 (B3-1)"
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* NTF6-[0-9]+' <док> | sort -u | wc -l"
+    total: 50
+    duplicates: 0
+    producer_table_coverage: "comm -3 ID-сценариев и ID §8 → пусто (50 из 50)"
+    dod_coverage: "п.3 21 + п.5 14 + п.7 11 + NTF6-02 + NTF6-23 + NTF6-47 + NTF6-48 = 50 — пересчитано, сходится"
+  producer_coverage:
+    claimed_by_doc: "50 из 50 (§8); сторона notify — сценарии NTF-3 @301c23dc и NTF-5 @47ac6f8b, поля ленты — заказ Р3в"
+    reviewer_note: >-
+      Строки §8 покрывают все ID. Координаты стороны notify для S1 и S2 названы в редакции
+      NTF-3, которую текущая редакция производителя заменила ровно в принятых пунктах (B3-1).
+      Производитель S3 — NTF-5 Р21. Дом этого контракта спорен, и спор не разрешён (B3-2).
+  twin_coverage:
+    rows_in_table: 20
+    reviewer_note: >-
+      Все строки §6 сверены с Given. Пары NTF6-45/54 и NTF6-46/50 теперь различаются одним фактом,
+      и B2-5 закрыт. Прочие пары тоже годны.
+  constructibility:
+    seeded: 0
+    of_nontrivial_givens: 9
+    verified_by_tree: 7
+    refuted: 0
+    not_performed: 2
+    detail:
+      - "registerAndSignIn (G0, G2) — fixtures.ts — подтверждено"
+      - "второй член ACTIVE (G1) — users.spec.ts:199-262 — подтверждено"
+      - "член PENDING (NTF6-41) — приглашение незарегистрированной почты, user_repo.go:596 — подтверждено"
+      - "роли vpc.network.view, iam.account.view/admin, iam.project.view — манифесты — подтверждено"
+      - "право владельца на проект (NTF6-17) — kaname project/create.go:166-169 — подтверждено прошлым кругом, координата не менялась"
+      - "подъём уровня и 401 на пол (NTF6-44) — stepup.spec.ts, assurance.ts — подтверждено"
+      - "Given с подменой ответа (§5) — строятся page.route, строителя достаточно"
+      - "G0 с живым notify и ответами NTF-3/NTF-5 — НЕ ВЫПОЛНИЛОСЬ: службы notify в дереве нет, стенда и разрешения на посев в задании нет"
+      - "NTF6-28 «SECURITY» в JSON-перечислении — НЕ ВЫПОЛНИЛОСЬ: какое тело даст разбор незнакомого значения перечисления на крае, проверить без службы нельзя (важное замечание)"
+
+premise_check:
+  claim: "задание: судить редакцию 7a50855c…, круг 3; сверить с Д1–Д13; отступление без строки спора — блокирующее"
+  outcome: confirmed
+  commands:
+    - "sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md → 7a50855c…675a; wc -l → 1224"
+    - "sha256sum docs/specs/sub-phase-NTF-*.md → NTF-1 a6cb0c1f…, NTF-3 3a511717…, NTF-5 47ac6f8b…"
+    - "grep -noE '/notify/v1/[A-Za-z0-9{}:_?=&.-]*' NTF-3 (3a511717) → inboxItems, preferences:setEntries, catalog, notificationSubscriptions; sed -n 952,990p (Р29, «NTF-6 правится по нему»)"
+    - "grep -nE 'invite_status = .PENDING.' в kaname @cbbac984b; git show 1d42a6728bf:ui-future/e2e/specs/stepup.spec.ts | sed -n 110,127p"
+  dispatcher_decisions_check: >-
+    Д13 — отступление заявлено строкой спора (§1.7, Р13), годно. Д7 — перенесён (Р2); сочетание
+    «глобальный false + модуль true» названо следствием, см. важные замечания. Д8 — лента
+    «всегда» по v_get (отступление круга 2 снято); подписка на недоступное — одно тело «not found»
+    (NTF6-35); адресат — только пользователь (NTF6-39). Контакты и подписки хранит notify — да.
+    Дом API контактов: в постановке диспетчера «API настроек и контактов в notify» отнесено к
+    NTF-3, документ строит S3 на NTF-5 Р21. Строка спора есть (§1.7 п.5, Р13), поэтому
+    молчаливого отступления нет. Но спор не разрешён, и это B3-2. Д9 — класс безопасности не
+    переключается (Р6). «Каналы — интерфейсом»: документ снял ось канала вслед за NTF-3 р.5, а
+    NTF-3 р.6 её вернул (B3-1). Д10, Д11 — перенесены. Д1–Д6, Д12 консоли не касаются.
+
+blocking_findings:
+  - id: B3-1
+    kind: PRODUCER
+    scenarios: [NTF6-02, NTF6-04, NTF6-05, NTF6-06, NTF6-07, NTF6-09, NTF6-10, NTF6-11, NTF6-12, NTF6-13, NTF6-14, NTF6-15, NTF6-16, NTF6-17, NTF6-18, NTF6-20, NTF6-21, NTF6-22, NTF6-24, NTF6-25, NTF6-26, NTF6-27, NTF6-28, NTF6-29, NTF6-31, NTF6-32, NTF6-33, NTF6-34, NTF6-35, NTF6-36, NTF6-49, NTF6-52, NTF6-53]
+    title: >-
+      Производитель S1 и S2 в текущей редакции записал другой контракт, и назвал его ответом на
+      заказ этого документа. Два документа разошлись навстречу друг другу.
+    evidence: >-
+      docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md, отпечаток 3a511717…
+      (редакция 6, строка шапки 21). Р29 (строки 952-990) и «Решение по заказу NTF-6 Р3а
+      (@c82cd21b) — API принадлежит этой приёмке, NTF-6 правится по этому столбцу» (строки
+      980-990, также 356-358 и 1030). Расхождения с §1.7 и Р3а документа:
+      (1) лента — GET /notify/v1/inboxItems (строки 581, 988), а у NTF-6 — /inbox;
+      (2) настройки — NotificationPreferences{entries[], digest_period, seen_up_to}: ячейки
+      {module, kind, channel, state, explicit} правятся через POST /notify/v1/preferences:setEntries,
+      а маска PATCH знает только {digest_period, seen_up_to} (строки 594-613). У NTF-6 — rules[] и
+      PATCH с маской rules (NTF6-27, 28, 29, 31);
+      (3) каталог GET /notify/v1/catalog есть (строки 959-975), а §1.7 п.3 и Р5 утверждают, что
+      его нет;
+      (4) подписки — /notify/v1/notificationSubscriptions с kinds и channel (строки 620-633), у
+      NTF-6 — /notify/v1/subscriptions с eventClasses (NTF6-33…36, 53, DoD 6);
+      (5) «Вид» — пять значений, в том числе IDENTITY_SECURITY и CREDENTIAL_EXPIRING с ячейкой
+      ALWAYS. На этом стоят NTF6-24 (три строки), NTF6-25 и NTF6-28 (значение SECURITY вне
+      перечисления). Номера строк и ID сценариев NTF-3, названные в §8 (NTF3-73…92, 146, 148), —
+      это координаты редакции 301c23dc, а её заменила редакция производителя. Сама редакция 6
+      NTF-3 внутренне несогласована (строки 1498 /inbox, 1607 eventClasses) — это предмет её
+      ревьюера. Р3в в редакции 6 не принят (grep 'Р3в' → 0).
+    required_change: >-
+      Автор этого не исправит новой редакцией в одиночку: документы опять разойдутся. Сначала
+      диспетчер закрепляет одного владельца формы публичного API notify. По постановке это NTF-3:
+      «API настроек и контактов в notify». NTF-3 объявляет то же в Р29. Затем NTF-3 доводится до
+      внутренне согласованной редакции, и только после этого NTF-6 перестраивает §1.7, Р3а, Р5, Р6,
+      Р18, Р19 и сценарии S1/S2 на её отпечаток. Решение Р3в (поля module, resourceType, projectId
+      элемента ленты) нужно получить в той же редакции NTF-3. Если диспетчер выберет обратное
+      (NTF-6 заказывает, NTF-3 следует), NTF-3 откатывает Р29, и для NTF-6 это строка спора.
+  - id: B3-2
+    kind: OPEN-QUESTION
+    scenarios: [NTF6-37, NTF6-38, NTF6-39, NTF6-41, NTF6-42, NTF6-43, NTF6-44, NTF6-45, NTF6-46, NTF6-50, NTF6-54]
+    title: >-
+      S3 утверждает контракт контактов, у которого дом не решён. Производитель, на котором S3
+      построена, возвращён именно по этому предмету.
+    evidence: >-
+      S3 построена на NTF-5 Р21 @47ac6f8b (ContactService, /notify/v1/contacts, пара «область ×
+      категория», без id). Запись ревью NTF-5 на этот отпечаток — CHANGES_REQUESTED, блокирующий
+      SCOPE «У контактов три несовместимых контракта в трёх текущих приёмках эпика».
+      Постановка диспетчера относит «API настроек и контактов в notify» к NTF-3. NTF-3 р.6
+      (строка 990) держит контакт безопасности полем аккаунта по
+      /notify/v1/accounts/{accountId}/contacts, а категории и проект отдаёт NTF-5. Документ сам
+      признаёт спор (§1.7 п.5, Р13: «S3 — после … решения диспетчера по двум спорам»). Второй спор
+      — код отказа по полу: NTF-5 З11 и NTF5-102 требуют 403, край производит 401
+      (stepup.spec.ts:113-126, измерено). Утверждения «Тогда» одиннадцати сценариев (пути, тело
+      PATCH, форма DELETE с запросом, source, 401) зависят от ответа на эти вопросы. Такой вопрос
+      для реализации критичен, и закрыть его умолчанием на ревью нельзя.
+    required_change: >-
+      Диспетчер решает дом контракта контактов и код отказа по полу. После этого S3 пишется на
+      одобряемую редакцию выбранного производителя. Другой путь — вынести S3 из объёма этой
+      приёмки: снять или отложить сценарии с открытой задачей, с предикатом «решение диспетчера
+      записано» и без утверждений «Тогда» о несуществующем контракте. Тогда одобрение S1/S2
+      возможно раньше.
+
+non_blocking_findings:
+  - "[FORMAT] NTF6-02, ветка близнеца: «обращений GET /notify/v1/inbox одно и GET /notify/v1/preferences одно» при рендере /dashboard, а затем /notifications. Экран модуля сам читает ленту и настройки (NTF6-06, NTF6-09), поэтому счёт на всём прогоне больше одного. Назвать окно счёта (после /dashboard) или подменённый модуль."
+  - "[CONSTRUCTIBILITY] secondAccountMembership — функция модуля users.spec.ts:199, в fixtures.ts её нет. Если использовать её в трёх новых файлах проб, придётся копировать. Заказать перенос в fixtures.ts одним изменением (Р14 или §1.6)."
+  - "[CONSTRUCTIBILITY] NTF6-28: незнакомое строковое значение перечисления в JSON край отвергает при разборе тела, раньше проверки поля. Нарушение поля rules[0].event_class может не произойти. После B3-1 сверить с формой отказа производителя: ячейка ALWAYS в :setEntries даёт INVALID_ARGUMENT с полем entries[i] (NTF-3 р.6, строки 600-610), это законный вход, а не незнакомая строка."
+  - "[DISPATCHER-DECISION] Р2: сочетание «глобальный false + модуль true» по Д7 законно, но в такой установке центр в консоли пропадает. Гейт держит его только на поставляемых цепочках. Записать это в §4 как известное следствие с предикатом пересмотра (например, «зонтик выводит признак консоли из объявления NTF-1 Р9»)."
+  - "[FORMAT] §1.7 «Ревизии измерения: воркспейс issue-880@0e797b0a» — к моменту ревью NTF-3 сменил отпечаток. При следующей редакции заново перемерить отпечатки соседей (sha256sum) прямо перед отдачей."
+
+method_verdict: >-
+  Посевом ничего не проверено: службы notify в дереве нет, стенда и разрешения на посев в задании
+  нет. Координаты §1 и §8 в дереве kacho @1d42a6728bf и kaname @cbbac984b перемерены и сошлись.
+  B3-1 основан на перемере соседа NTF-3 по текущему отпечатку 3a511717…. B3-2 основан на записи
+  ревью NTF-5 @47ac6f8b, постановке диспетчера и измерении края. Замечания круга 2 B2-2, B2-3,
+  B2-4 и B2-5 закрыты. B2-1 закрыт на 301c23dc, но снова открыт сменой редакции производителя
+  (B3-1).

@@ -1,0 +1,326 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 7
+# замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичные разборы (initial/9098d6ef….yaml, initial/ef9c6801….yaml)
+# и пересверки на редакции 1 (f21384ed…), 2 (2886b89f…), 3 (c3e37381…), 5 (cc7bdad1…) и 6
+# (cc42ace6…) свидетельствуют о своих редакциях и здесь не переписываются. По решению диспетчера
+# Д22 судится ТОЛЬКО дельта редакции 7 против последней разобранной (редакция 6, cc42ace6):
+# git diff da569fc27 8d47f6da7 -- docs/changes/issue-2917/design.md (552 строки диффа) и дифф
+# tasks.md той же пары. Проверено: (1) отображение CX2-45 и исполнение условий к коду CX2-37, 38,
+# 39, 43, 44, поправок CX2-41, 42 — по дереву, а не по тексту замысла; (2) новые внешние вызовы,
+# (3) новые асинхронные пути, (4) новые sentinel-значения дельты; (5) маркеры отсрочки и открытые
+# решения; (6) применимые ревью замысла — отдельно. Новых пунктов нет. Условий к коду — шесть
+# (УК47–УК52 ниже), все на CX2-45 и CX2-44; ни одно не меняет «Тогда» приёмки (Д22).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 6fc3cae220faa6212b0fe7ecca9c2d1555f2b841a9d25cac6d28658bf8dff8c5
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 7
+  previous_judged: cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4   # редакция 6, da569fc27
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+initial_records:
+  - docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/initial/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+previous_revalidations:
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc7bdad1c55489347978ba2414d471b2a9637088c946bedf9527798074349fda.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 8d47f6da704c42c9e59207dc14d80faa9f3543c5   # ветка issue-880, коммит редакции 7 замысла
+  kaname: 734f69fb4        # origin/357 — та же ревизия, что в замысле §0
+  kacho: 6edea09c2ee       # origin/2564 — та же ревизия, что в замысле §0
+  ntf1_acceptance_text_approved: 9636eb28f   # sha256 390b5a33… (редакция 16, APPROVED)
+  ntf1_acceptance_text_pending: 62045c622    # sha256 97da33dc… (редакция 17, записи ревью нет) — опора Е11
+  modules: "google.golang.org/grpc v1.83.2, github.com/jackc/pgx/v5 v5.10.0 (go.mod kaname и kacho; исходники — кэш модулей)"
+snapshot_at: 2026-09-30T09:22:32Z
+inspected: >-
+  дифф замысла cc42ace6 → 6fc3cae2 целиком (шапка, §0 таблица опор и Д20–Д22, О6, М40–М44, З1, З3,
+  З7, З8, З9, З19, З21 (г) и условия CX2-38, З27 целиком с таблицей 24 шаблонов, И34–И36, §4, §5,
+  §7 П5, §11 строка CX2-45, §11а УК1–УК46, §12, §13 Е8 (в), Е11); дифф tasks.md той же пары;
+  change.yaml. Дерево kaname @734f69fb4: api/user/invite.go (405–432), authzguard/principal.go
+  (HumanUserID), admission/admission.go (ID), authzguard/address_gate.go (шапка), cmd/kaname/
+  grpc_register.go (публичные и внутренние службы), proto внутренних служб (перечни rpc),
+  seed/bootstrap_admin.go, cmd/kaname/serve.go 1985–2035 (реконсайлер посева), api/user/
+  internal_on_recovery.go и cmd/kaname/hooks_mux.go (второй источник recovery_completed),
+  audit_outbox_emitter.go 60–82. Дерево kacho @6edea09c2ee: подчарт kaname (values.yaml 800–815,
+  configmap.yaml — раздел authn, trusted-forwarder-sans и trust-domain), литералы spiffe:// по
+  восьми файлам М44. Приёмка NTF-2 ef9c6801 — Р7 (строка 674), NTF2-42 (1235–1252). Приёмка NTF-1 —
+  редакция 17 на 62045c622 (Р7 694–740, A10, A11, B30, строка 2955), каталог записей её ревью.
+  Исходники grpc status.FromError и pgxpool (checkHealth, checkConnsHealth, Release, Acquire,
+  ParseConfig). Решения диспетчера Д1–Д22 и registerSharePause = 1 — по заданию. Записки vault не
+  читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' по файлу на 6fc3cae2 → 3 попадания (строки
+      599 «что позже» — момент выхода из окна, 730 и 1193 «потому что») — ни одно не маркер
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      «вопрос» — 2 попадания: строка 64 (решённый вопрос редакции 4) и 1060 (вопрос, который гейт
+      храповика задаёт автору миграции). §13: «Нет. Решения З1–З27 приняты». Новая Е11 — внешняя
+      зависимость от правки приёмки NTF-1 с предикатом снятия и названными гейтимыми полосами (F4,
+      G1), а не открытое решение: признак `presence` внесён редакцией 17 NTF-1 (97da33dc, коммит
+      62045c622), записи ревью на неё в каталоге NTF-1 нет — сверено (0 файлов с 97da33dc)
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      45 из 45: CX2-01…44 выдерживали на cc42ace6 и дельтой не ослаблены; CX2-45 отображён З27 и
+      выдерживает (а) перечень 24 шаблонов × атрибут × производитель × путь × законность нуля есть;
+      (б) единственный законно отсутствующий источник — `invite.inviter_address` — `optional`, без
+      подстановки; (в) проба действия на пути без человека есть (сервисная учётка, посев,
+      `force_logout`). Условия к коду CX2-37, 38, 39, 43, 44 исполнены решениями (З21 (г), З21
+      условия (1), (2), З3, З9, З8), поправки CX2-41 (Е8 (в)) и CX2-42 (46) внесены — сверено по
+      дереву (measurements). Условия к коду этой записи (УК47–УК52) — не отказ отображения.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      новых внешних вызовов нет. Чтение подтверждённого адреса приглашающего в транзакции акта (З27) —
+      чтение своей базы kaname (users.email, email_verified_at), не вызов по сети; условие к его
+      исходу — УК49
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      новых асинхронных путей нет. Реконсайлер посева (serve.go 2005–2030, Interval 10 s) и воркер
+      Operation восстановления по хуку поставщика существуют на базе; З27 их не заводит, а
+      перечисляет (посев — путь П; второй источник recovery_completed — см. mapping_check CX2-45,
+      замечание (д))
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      новые значения дельты: (1) `mail.Present(v)` | `mail.Absent()` — закрытый тип присутствия
+      `optional` атрибута; это противоядие CX2-45 (отсутствие представимо отдельно от значения), а не
+      новое волшебное значение в домене атрибута — входит в решение CX2-45, условия к нулевому
+      значению типа и к основанию выбора Absent — УК47, УК48; (2) нулевое поле `optional` в `XAttrs`
+      = «не задан» — sentinel NTF-1 (B30 редакции 17), зависимость Е11, у kaname его производит
+      только конструктор из `mail.Absent()` (З1); (3) отказ «человек без подтверждённого адреса в
+      транзакции акта» — новый исход, входит в CX2-45 (б), условие к классу отказа — УК49
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: >-
+      до этой записи — red: последняя пересверка привязана к cc42ace6 (редакция 6). Эта запись
+      привязана к 6fc3cae2 — отпечатку файла на 8d47f6da7 и в рабочем дереве; change.yaml несёт
+      hashes.design_sha256 = 6fc3cae2. Комментарий change.yaml «пересверки на него нет» этой записью
+      устаревает — заказ пакету
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: >-
+      записей reviews/design/ в пакете — 0 (git ls-tree -r --name-only HEAD
+      docs/changes/issue-2917/reviews — только class-exposure, 7 файлов до этой записи). Применимые
+      роли те же три, что на cc42ace6: design-reviewer, db-architect-reviewer (миграции по З7, З8, З9,
+      З11), proto-api-reviewer (internal_notification_recipient_service.proto, §4, З20). Ревью
+      замысла — следующий шаг по заданию; DESIGN_APPROVED до всех трёх запрещён.
+
+mapping_check:
+  - {id: "CX2-01…36", design: "без изменений", verdict: holds, note: "дельта этих решений не касается"}
+  - id: CX2-37
+    design: "З21 (а)–(г), И36"
+    verdict: holds
+    note: >-
+      условие к коду cc42ace6 исполнено: гейт идентичности по РЕНДЕРУ каждой цепочки сверяет сегмент
+      домена доверия каждой записи authn.trusted-forwarder-sans с kaname.spiffe.trustDomain и
+      authn.trust-domain, инъекция (4) с близнецом, пустой перечень — красный. Замер М44 подтверждён
+      (8/1/15/6/6/5/1/1 литералов spiffe://); оба ключа — в разделе authn configmap kaname (строки 315,
+      533). Суждение по рендеру, а не по значениям подчарта, верно: профили переопределяют перечень.
+  - id: CX2-38
+    design: "З21 условия (1), (2)"
+    verdict: holds
+    note: >-
+      исключение своего файла по пути одной записью с печатью, проба «без исключения — красный на
+      своём файле» и «исключение каталога — красный»; слепота к конкатенации названа в описании и
+      печати. Выдерживает.
+  - id: CX2-39
+    design: З3
+    verdict: holds
+    note: >-
+      GRPCStatus() без изменения статуса; проба обработчика Invite с близнецом без GRPCStatus().
+      Довод «обёртка %w унесла бы свой текст в message» подтверждён исходником grpc v1.83.2:
+      status.FromError на обёрнутой ошибке берёт статус через errors.As и подменяет p.Message =
+      err.Error(), details сохраняет.
+  - {id: CX2-40, design: З3, verdict: holds, note: "дельта не касается"}
+  - {id: CX2-41, design: "З19, Е8 (в)", verdict: holds, note: "поправка внесена: экспорт лимита — зависимость NTF-1 с предикатом снятия; S5 гейтится"}
+  - {id: CX2-42, design: "З7, М40", verdict: holds, note: "число контроля 46 — совпадает с замером cc42ace6 (46 строк, 7 файлов)"}
+  - {id: CX2-43, design: "З9", verdict: holds, note: "фикстура NTF2-62 (в) строится пропуском 200"}
+  - id: CX2-44
+    design: З8
+    verdict: holds
+    note: >-
+      условия (1) порядок подъёма — типом входа buildAnonMailStore(idem, cfg); (2) закрытие после
+      HTTP-сервера в перечне Closer; (3) прогрев MinConns = anonMailPoolConns с отказом старта, остаток
+      «перезапуск базы» назван. Выдерживает с условием к коду УК52: на pgx v5.10.0 прогретый пул
+      остывает сам по сроку жизни соединения (умолчание MaxConnLifetime 1 ч, jitter 0) — остаток
+      цены, не названный замыслом.
+  - id: CX2-45
+    design: "З27, З1, О6, И34, И35, §7 П5"
+    verdict: holds
+    note: >-
+      (а)–(в) условия пункта выдержаны (см. approval_conditions). Сверено по дереву: М41 (invite.go
+      421, 429 — HumanUserID), М42 (admission.ID: `!person || verified`), М43 (serve.go:2009,
+      insertAuditEventTx — полезная нагрузка map, TenantAccountID только непустым). Условия к коду —
+      УК47–УК51. Замечания к тексту З27, вывода не меняющие: (г) путь В у `invite` в дереве не
+      существует — Invite и ResendInvite есть только в публичной UserService (grpc_register.go:41);
+      внутренние InternalUserService {UpsertFromIdentity, Get, OnRecoveryCompleted}, InternalIAMService,
+      InternalClusterService приглашений не несут; правило «по тому же правилу» от этого не ломается;
+      (д) у `recovery-completed` второй источник события — хук поставщика личности
+      (internal_on_recovery.go:283, воркер Operation по hooks_mux.go / InternalUserService.
+      OnRecoveryCompleted), в перечне путей его нет; вывод держится правилом класса S (атрибут — поле
+      субъекта события, primary.ID непуст), а не перечнем путей; (е) у посева пользователь
+      «найденный или заведённый» — на базе посев пользователя НЕ заводит: берёт ACTIVE строку с
+      подтверждённым адресом (bootstrap_admin.go 172–202), иначе пропускает (BootstrapSkipNotVerified
+      и др.); user_id непуст и так; (ж) близнец посева «старт отказывает» неосуществим — УК50.
+      Поправка собственной записи cc42ace6: фраза экспозиции CX2-45 «откат посева — отказ старта»
+      неверна — посев исполняет реконсайлер, «non-fatal by contract» (serve.go 1998–2030); замысел
+      перенял её в держатель.
+
+conditions_to_code:
+  - id: УК47
+    item: CX2-45
+    class: "code-authoring §«Умолчание, которое становится утверждением» (третий исход «не смог спросить»)"
+    condition: >-
+      выбор `mail.Present` | `mail.Absent()` для `invite.inviter_address` решается по ВИДУ
+      принципала, присутствие которого проверено, а не по пустоте authzguard.HumanUserID: та
+      возвращает "" и для сервисной учётки, и для контекста без принципала, и для анонима
+      (principal.go:45–53). Вид `user` → чтение адреса → Present; вид `service_account` → Absent;
+      принципала нет, аноним, системный или иной вид → ошибка акта, а не Absent.
+    held_by: >-
+      модульная проба глагола invite: контекст без принципала → ошибка, строки ленты нет; близнецы —
+      сервисная учётка → строка без атрибута, человек → строка с адресом. Без неё держится вниманием.
+  - id: УК48
+    item: CX2-45
+    class: "code-authoring §«Умолчание, которое становится утверждением»; §«Контракт, который нельзя выразить» (два написания отсутствия)"
+    condition: >-
+      нулевое значение закрытого типа присутствия (литерал типа без Present/Absent) не является ни
+      Present, ни Absent: конструктор Letter отвергает его ошибкой с именем атрибута. Absent —
+      отдельное явное состояние; иначе забытый аргумент молча становится «приглашающего нет».
+    held_by: >-
+      модульная проба конструкторов Letter (З1, И34): нулевой литерал типа → ошибка с именем
+      атрибута; близнец `mail.Absent()` → Send* вызван.
+  - id: УК49
+    item: CX2-45
+    class: "code-authoring §«Чужой ответ: классификация и бюджет»; §«Порядок операций внутри кода»"
+    condition: >-
+      «человек, чей подтверждённый адрес в транзакции акта не найден» (адрес сменён между рубежом
+      положения и актом) исходит тем же отказом, что рубеж положения подтверждения (тот же код и
+      reason, authzguard/address_gate.go), а не INTERNAL; адрес читается тем же предикатом, что
+      admission (email_verified_at IS NOT NULL) под блокировкой строки человека в транзакции акта.
+    held_by: >-
+      integration-проба: отметка подтверждения снята между рубежом и актом → отказ равен отказу
+      рубежа, строки ленты нет, акт не зафиксирован; близнец — адрес подтверждён → строка с адресом.
+  - id: УК50
+    item: CX2-45
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (держатель, утверждающий несуществующий исход)"
+    condition: >-
+      близнец-инъекция пробы посева («актор — required атрибут») утверждает наблюдаемый исход
+      реконсайлера, а не отказ старта: грант cluster_admin_grants не зафиксирован, строки ленты
+      cluster-admin-granted нет, счётчик исходов посева (NewBootstrapAdminRecorder) растёт по ошибке,
+      процесс жив. Проба, ждущая отказа старта, на этой инъекции останется зелёной.
+    held_by: "integration-проба посева с настоящим писателем аудита (З27) — исправленный близнец"
+  - id: УК51
+    item: CX2-45
+    class: "measurement-discipline §«Чужое измерение и чужое заявление»; code-authoring §«Инвариант и оснастка — это тоже прод-код»"
+    condition: >-
+      гейт optional_attributes_ledger читает признак presence из notification.yaml каталога kaname
+      (источник генерации, строгий разбор YAML, печать числа шаблонов и атрибутов, пустой обход —
+      красный), либо замысел дописывает к Е11 пункт «описание шаблона, порождённое notifygen,
+      экспортирует presence каждого атрибута читаемым идентификатором» с предикатом снятия: ни один
+      сценарий редакции 17 NTF-1 этот экспорт не утверждает (тот же вид, что Е8 (в) у CX2-41).
+    held_by: "две инъекции гейта (лишний optional, снятый optional) — на выбранном источнике"
+  - id: УК52
+    item: CX2-44
+    class: "code-authoring §«Порядок операций внутри кода»; §«Унификация и стоимость»"
+    condition: >-
+      прогрев пула ограничителя держится не только до первого запроса: (1) прогрев берёт
+      anonMailPoolConns соединений ОДНОВРЕМЕННО и только затем отпускает — последовательное
+      «взять-отпустить» прогревает одно; (2) MaxConnLifetime и MaxConnLifetimeJitter (> 0) заданы
+      явно — на pgx v5.10.0 умолчания 1 ч и 0, соединения одного возраста истекают разом и
+      уничтожаются на Acquire/Release (pool.go 624, conn.go 43), новое строится внутри Acquire со
+      сроком 250 мс; (3) этот остаток — «ротация срока жизни» — назван рядом с «перезапуском базы».
+    held_by: >-
+      проба прогрева (З8) проверяет число открытых соединений после старта; ротация — модульная
+      проба конфигурации пула (jitter > 0, срок задан) либо вниманием с названной ценой.
+
+measurements:
+  - claim: "отпечаток редакции 7 — 6fc3cae2, коммит 8d47f6da7; предыдущая разобранная — cc42ace6 на da569fc27"
+    command: "git show 8d47f6da7:docs/changes/issue-2917/design.md | sha256sum; sha256sum docs/changes/issue-2917/design.md"
+    result: "подтверждено: 6fc3cae2 в коммите и в рабочем дереве"
+  - claim: "Е11: редакция 17 NTF-1 вносит presence; записи ревью на неё нет"
+    command: "git show 62045c622:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md | sha256sum; … | grep -nE 'presence|when:|NTF1-A11|NTF1-B30'; ls docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/ | grep -c 97da33dc"
+    result: "подтверждено: 97da33dc; Р7 697–740, A10 (а) 1435, A11 1440, B30 1663, строка правок 2955; записей ревью — 0"
+  - claim: "УК51: экспорт presence в описании notifygen утверждается сценарием NTF-1"
+    command: "git show 62045c622:…NTF-1…md | grep -nE 'описани[еяю] шаблона|Descriptor|Description|набор ревизии'"
+    result: "опровергнуто: presence входит в набор ревизии (строка 2955), экспорт в описании сценарием не утверждается"
+  - claim: "М41, УК47: HumanUserID пуст для сервисной учётки"
+    command: "git -C project/kaname show 734f69fb4:internal/authzguard/principal.go | sed -n 33,53p; … invite.go | sed -n 405,432p"
+    result: "подтверждено и шире: пусто также для анонима и для контекста без принципала (Type != \"user\") — основание УК47"
+  - claim: "таблица З27: путь В у invite"
+    command: "git -C project/kaname show 734f69fb4:cmd/kaname/grpc_register.go | grep -nE 'Register.*Server'; перечни rpc InternalUserService, InternalIAMService, InternalClusterService"
+    result: "опровергнуто: Invite/ResendInvite — только публичная UserService; внутренние службы приглашений не несут"
+  - claim: "таблица З27 и держатель: посев «находит или заводит» пользователя; откат посева — отказ старта"
+    command: "git -C project/kaname show 734f69fb4:internal/apps/kaname/seed/bootstrap_admin.go | grep -niE 'verified|INSERT|Skip'; … serve.go | sed -n 1985,2035p"
+    result: "опровергнуто: посев только находит ACTIVE строку с подтверждённым адресом, иначе пропускает; исполняет его реконсайлер (Interval 10 s, «non-fatal by contract») — старт не отказывает"
+  - claim: "recovery-completed рождается только на анонимной полосе (А)"
+    command: "git -C project/kaname grep -n 'recovery_completed\\|RecoveryCompleted' 734f69fb4 -- '*.go' ':!*_test.go' ':!*.pb.go'"
+    result: "опровергнуто: второй источник — internal_on_recovery.go:79, 284 (хук поставщика через hooks_mux.go:124 и InternalUserService.OnRecoveryCompleted); вывод З27 держится правилом класса S"
+  - claim: "М44: литералы spiffe:// и ключи authn"
+    command: "git -C project/kacho show 6edea09c2ee:<8 файлов> | grep -c 'spiffe://'; … configmap.yaml | grep -nE 'trust-domain|trusted-forwarder'"
+    result: "подтверждено: 8, 1, 15, 6, 6, 5, 1, 1; trusted-forwarder-sans (315) и trust-domain (533) — оба под authn (162)"
+  - claim: "З3: status.FromError подменяет message текстом обёртки"
+    command: "sed -n '/^func FromError/,/^}/p' ~/go/pkg/mod/google.golang.org/grpc@v1.83.2/status/status.go"
+    result: "подтверждено: ветка errors.As — p.Message = err.Error(), details сохраняются"
+  - claim: "З8 (3): прогретый пул остаётся тёплым, кроме перезапуска базы"
+    command: "grep -nE 'defaultMaxConnLifetime|defaultHealthCheckPeriod|MaxConnLifetimeJitter|isExpired' ~/go/pkg/mod/github.com/jackc/pgx/v5@v5.10.0/pgxpool/{pool,conn}.go"
+    result: "опровергнуто частично: срок жизни 1 ч, jitter по умолчанию 0; истёкшие уничтожаются на Acquire (pool.go:624) и Release (conn.go:43), новое соединение строится внутри Acquire — основание УК52"
+  - claim: "применимые ревью замысла на 6fc3cae2"
+    command: "git ls-tree -r --name-only HEAD docs/changes/issue-2917/reviews"
+    result: "reviews/design/ — 0 файлов"
+
+not_measurable:
+  - "время установки TLS-соединения к базе края при ротации — число прогона; УК52 от числа не зависит: срок Acquire 250 мс включает его всегда, когда соединение строится внутри Acquire"
+  - "перечень атрибутов 24 шаблонов — объявление замысла; шаблонов на базе нет, их заводит NTF-2 (F4); проверяемо только гейтом УК51 после F4"
+
+outcome: к-коду
+unmapped: []
+return_to_acceptance: []
+
+orders:
+  - to: go implementer (kaname, NTF-2)
+    what: "УК47–УК51 (выбор Absent по виду принципала; нулевой литерал типа присутствия — ошибка; отказ «адрес не найден в транзакции акта» равен отказу рубежа; близнец посева по исходу реконсайлера; источник признака для optional_attributes_ledger)"
+    basis: "code-authoring §«Умолчание, которое становится утверждением», §«Чужой ответ: классификация и бюджет», §«Инвариант и оснастка — это тоже прод-код»"
+  - to: go implementer (kacho gateway, NTF-2)
+    what: "УК52: одновременный прогрев, явные MaxConnLifetime и MaxConnLifetimeJitter > 0, остаток «ротация» назван"
+    basis: "code-authoring §«Порядок операций внутри кода»"
+  - to: design author (NTF-2)
+    what: >-
+      при следующей правке замысла (не повод для неё сам по себе): §11а — строки УК47–УК52 этой
+      записи; З27 — путь В у invite снять, второй источник recovery_completed назвать, посев
+      «находит, не заводит»; держатель посева — по УК50. До правки действует эта запись: §11а
+      отсылает к записям revalidation/ пакета
+    basis: "Д22; change-graph §4"
+  - to: design-reviewer, db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток 6fc3cae2 (reviews/design/<role>/<sha>.yaml) — их 0; DESIGN_APPROVED до всех трёх запрещён"
+    basis: "SDD-1 §5; cglib/families/design.py design.precode-reviews; policy.yaml §3"
+  - to: package author (NTF-2)
+    what: "change.yaml: комментарий «пересверки на него нет» заменить ссылкой на эту запись; каталоги evidence/ по-прежнему названы отпечатком 33e199c9 — заказ cc42ace6 не исполнен"
+    basis: "change-graph §4 (привязка к отпечатку)"
