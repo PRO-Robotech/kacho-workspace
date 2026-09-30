@@ -1,0 +1,241 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 21d5c951c273fddd8d327759313a7166640c8bd94db7d6cea34e58bd1e63392d
+  revision: 21
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и строками истории — «редакция 19/20/21 · вердикта нет». Эта запись шапку
+    НЕ правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится
+    из этой записи и внешнего события.
+  content_commit: 132cb5ec5
+  content_commit_note: >-
+    `sha256sum` рабочей копии даёт отпечаток задания и на 132cb5ec5, и на e1af41e40 (следующий коммит
+    ветки — замысел NTF-1 редакции 18, документ не трогает). Редакции 19 (4a5b341a8) и 20 (878f42b4b)
+    рецензии не получали; предмет круга — дельта от последней рассмотренной редакции 18 (eb2325039,
+    7c9d9760…) к редакции 21, прочитана целиком (368 вставок, 109 удалений).
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3925
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T18:24:07Z'
+round: 1
+round_note: >-
+  Круг 1 на редакции 21. Дельта c1f3ae2c6 → 132cb5ec5 по документу: шапка, §1.10, Р4, Р16 пп.2, 6,
+  Р20, §3а строки 5, 7 и примечание, §5 (П7-tpl, П7-узел), NTF2-31, NTF2-24, NTF2-30, NTF2-34, §6а,
+  §6б, §6в (признаки 7, 8), §7, DoD «Условие начала», п.16, §11. Сверена с деревом kacho
+  @96e2fa72b3a рендером экспорта дерева (git archive, helm dependency build) и с замыслом NTF-1
+  редакций 17 (9af0703a, 151befdb5) и 18 (52b638a3, e1af41e40): design.md З28, tasks.md D1, D2, Е12.
+  Прежние записи не правятся.
+previous_rounds:
+  - round: 1
+    pass: редакция 18
+    sha256: 7c9d976014b20c29b8bf4d61e07c39186e1d8e9f940300e2e23b19aa11feb405
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/7c9d976014b20c29b8bf4d61e07c39186e1d8e9f940300e2e23b19aa11feb405.yaml
+    blocking_count: 3
+  - round: 1
+    pass: редакция 16
+    sha256: c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada.yaml
+    blocking_count: 2
+previous_round_closure:
+  B-1: >-
+    закрыт. П7-узел воспроизведён @96e2fa72b3a: `prod` с пустым узлом — код 0; + connectionURI — код 1
+    (identity-mail-lane-guard.yaml:85); + fromAddress — код 1 (:91); + fromName — код 0, адрес в рендере 1.
+  B-2: >-
+    закрыт по форме ключа: одна ручка, KACHO_NOTIFY_SMTP_CONNECTION_URI = tpl узла под required —
+    совпадает с замыслом NTF-1 редакции 18 (design.md «Узел почты → ключ процесса»). Исход пустого узла
+    переписан решением Д46 — и на нём B-1 этого круга.
+  B-3: >-
+    закрыт по существу (поиск M не зависит от первородительской линии), но контроль формы (а) не
+    различает — B-2 этого круга.
+  N-1: закрыт — вторая команда названа, вывод ` |  |  | absent` воспроизведён для fe3455.
+  N-2: закрыт текстом; двойной производитель строки флага — N-2 этого круга.
+  N-3: закрыт решениями Д46, Д49.
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY, DoD]
+blocking_kinds_by_item:
+  - B-1: CONSTRUCTIBILITY
+  - B-2: DoD
+blocking:
+  B-1: >-
+    [CONSTRUCTIBILITY] Отказ рендера `prod` с пустым узлом документ приписывает посадке NTF-1, а NTF-1
+    его не производит: по замыслу NTF-1 (редакция 17 @151befdb5 design.md :1806–1809, :1829–1836;
+    редакция 18 @e1af41e40 :1840–1843, :1875–1882; tasks.md D1, D2, Е12) выведенный перечень
+    источников `prod` в NTF-1 пуст по построению (единственный источник — стендовый notify-probe,
+    `notifyProbe.*` в values.yaml = false), notify в `prod` не рендерится, и отказа нет; `required`
+    держит только фикстура D1 (`probe-b` включён). Отказ появляется, когда в перечень входит источник,
+    развёрнутый в `prod`, — kaname, то есть посадкой самой NTF-2 (NTF2-53; Е12 NTF-1 прямо адресует
+    это NTF-2). Следствия: (1) Р16 п.6 (2) — условие начала на базе ДО NTF-2 требует «код не 0, отказ
+    называет connectionURI»; на верной NTF-1 рендер `prod` даёт код 0, и близнец с П7-узлом — тоже 0:
+    пара не различает, условие не выполняется никогда, исход «возврат в приёмку» на верной работе
+    соседа. (2) Р20 «Цепочка prod в гейтах», Р16 п.2, §5 П7-узел, примечание §3а — «после посадки
+    NTF-1 цепочка prod с пустым узлом по построению не рендерится» — неверно: это верно после посадки
+    NTF-2. (3) §7 NTF2-34 и §6б называют производителем отказа (е) только полосу развёртывания NTF-1;
+    без записи kaname в перечне (NTF-2) `required` не исполняется. (4) §6в признак 8, строка «NTF2-34
+    (е)», и Р20 утверждают, что «текущий текст замысла NTF-1 редакции 15 — без required … разошлось»;
+    `required` есть в замысле с редакции 16 (Д46) — строка цитирует снятую ревизию соседа, тот же класс,
+    что признак 8 объявляет закрытым. Что сделать: Р16 п.6 (2) — проверять `required` NTF-1 входом с
+    непустым перечнем (цепочка `prod` + включённый стендовый источник, как фикстура D1: код не 0, отказ
+    называет global.kacho.identity.smtp.connectionURI; близнец — то же + П7-узел, код 0; контроль —
+    `prod` как есть, код 0, notify не отрендерен); в Р20, §6б, §7 назвать отказ (е) совместным
+    исходом — `required` NTF-1 × запись kaname в перечне `prod` (NTF-2, NTF2-53), и момент, с которого
+    `prod` без узла не рендерится, — посадка NTF-2; строку §6в признака 8 перецитировать по редакции 18
+    замысла NTF-1.
+  B-2: >-
+    [DoD] DoD п.16 — контроль формы (а) поиска M не различает и записан неверно. Документ: без
+    перемотки C = commit-tree T -p 96e2fa72b3a -p 8f879ff7fbd «#2926 свести 1276» → M = {C}, счёт 1;
+    близнец «#2926 свести 2731» → M пусто, счёт 0 («замер 2026-09-30: 1 и 0»). Посев той же командой
+    (обе формы, без --first-parent) @96e2fa72b3a: на C → M = {8f879ff7fbd, C}, счёт 1 у обоих; на
+    близнеце → M = {8f879ff7fbd}, счёт 1 — не 0. Второй родитель 8f879ff7fbd сам несёт слияние
+    `#1276 merge #2818`, и форма (б) находит его на любом приёмнике; снятие формы (а) целиком контроль
+    не покрасит. Что сделать: второй родитель контроля — голова полосы без внутренних слияний 1276
+    (dcb6588fefa, второй родитель 8f879ff7fbd): замер этого круга — C' «#2926 свести 1276» → M = {C'},
+    счёт 1; близнец «#2926 свести 2731» → M пусто. Записать замер тем, что команда печатает.
+non_blocking:
+  N-1: >-
+    Р20 и §6в признак 8 называют источником отображения «замысел NTF-1 редакции 15, SHA-256 82486131…»;
+    действующая редакция — 18 (52b638a3…, e1af41e40). Форма ключа совпадает; перецитировать по
+    действующей ревизии (часть этого — B-1 (4)).
+  N-2: >-
+    Строку `global.kacho.notifications.enabled: true` в values.yaml зонтика объявляет полоса D2 NTF-1
+    (design.md З28 таблица флагов; tasks.md Е12: «NTF-2 §3а строка 2 его не повторяет»), а §3а строка
+    2 и Р20 «Значение флага в поставке» ставят её в правки NTF-2. У одной строки два производителя;
+    назвать одного (NTF-2 — ссылкой на D2).
+  N-3: >-
+    Р16 п.6 входит в «Условие начала» всей под-фазы (DoD), а выполним только после вливания
+    kacho#1276 в 2564 и посадки D2. Этим встают и полосы стороны kaname (S1 и др.), от fe3455 не
+    зависящие. Если это намерение Д49 — сказать; иначе сделать п.6 условием полосы, несущей NTF2-24 и
+    NTF2-34.
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 21d5c951c273fddd8d327759313a7166640c8bd94db7d6cea34e58bd1e63392d
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 21d5c951…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 редакции 21, блокирующих 2: CONSTRUCTIBILITY, DoD) ·
+    SHA-256 21d5c951c273fddd8d327759313a7166640c8bd94db7d6cea34e58bd1e63392d
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: 132cb5ec5 (ветка issue-880; на e1af41e40 отпечаток тот же)
+    document_previous_reviewed: eb2325039 (редакция 18, 7c9d9760…)
+    kacho: 96e2fa72b3a (экспорт git archive deploy + локальные подчарты, helm dependency build)
+    ntf1_design: docs/changes/issue-2915/design.md редакции 17 (151befdb5) и 18 (e1af41e40, 52b638a3…), tasks.md @e1af41e40
+  facts_reproduced:
+    fingerprint: "sha256sum рабочей копии → 21d5c951…392d"
+    p7_node_ladder: "helm template ci . -n kacho -f values.prod.yaml [--set connectionURI [, fromAddress [, fromName]]] → 0 / 1 (:85) / 1 (:91) / 0, адрес в рендере 1 — совпало с §6в признак 7"
+    fe3455_node_census: "yq eval-all … values.yaml + файлы цепочки fe3455 → ` |  |  |  | absent`; mailpit в рендере fe3455 — 0 — совпало с Р20"
+    r16_p6_2_base: "prod как есть @96e2fa72b3a → код 0 — совпало с текстом (не выполнено до NTF-1)"
+    ntf1_prod_list_empty: "design.md @e1af41e40 :1840–1843, :1875–1882; tasks.md D2 — перечень prod пуст, notify нет, отказа нет; Е12 адресует отказ prod NTF-2 и NTF-3 (B-1)"
+    ntf1_required_since: "design.md шапка редакции 16 (Д46: required с именем узла) — B-1 (4)"
+    dod16_nonff_doc_control: "commit-tree -p 96e2fa72b3a -p 8f879ff7fbd, темы «свести 1276» / «свести 2731» → M = {8f879ff7fbd, C} / {8f879ff7fbd}, счёт 1 / 1 (B-2)"
+    dod16_ff_control: "<B> = 8f879ff7fbd → M = {8f879ff7fbd}, счёт 1 — совпало"
+    dod16_discriminating_control: "commit-tree -p 96e2fa72b3a -p dcb6588fefa, темы «свести 1276» / «свести 2731» → M = {C'} / пусто"
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 71
+    negative_or_mixed_marked: 54
+    note: "новых ID нет; NTF2-34 (а) дополнен цепочкой fe3455, (е) переписан на отказ рендера"
+  producer_coverage:
+    covered: 71
+    of: 71
+    note: >-
+      производитель назван у каждого, но у NTF2-34 (е) назван неполно: отказ требует записи kaname в
+      перечне prod (NTF-2), документ называет только NTF-1 (B-1 (3))
+  twin_coverage:
+    negatives: 54
+    twins_named: 54
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательн | grep -vc близн → 0"
+  constructibility_seeding:
+    seeded: 5
+    of: 7
+    detail: >-
+      П7-узел (лестница 0/1/1/0), prod как есть, перепись узла fe3455, контроль DoD п.16 с перемоткой,
+      контроль DoD п.16 без перемотки с близнецом (расходится с текстом — B-2) и различающая замена.
+    not_performed: 2
+    not_performed_reason: >-
+      сторона чарта notify в NTF2-34 (е), (е'), (г') и Р16 п.6 (1) для fe3455 после D2 — чарта notify и
+      полосы D2 на базе нет; сличение проведено по замыслу NTF-1 редакции 18, а не рендером.
+premise_check:
+  claim: >-
+    задание: судить редакцию 21 на отпечаток 21d5c951…, круг 1; Д47 — все строки узла у notify
+    производит NTF-1 (D1); Д48 — образца узла в prod нет, гейты обхода подставляют его из фикстуры;
+    Д49 — профиль fe3455 первым правит kacho#1276.
+  outcome: >-
+    подтверждена в части отпечатка и применения Д47–Д49 (Р20, §7, §3а, Р16 п.6 совпадают с
+    решениями). Опровергнута в части следствия Д46, на котором стоят Р16 п.6 (2) и «после посадки NTF-1
+    prod не рендерится»: по замыслу NTF-1 отказ prod наступает только с источником kaname — посадкой
+    NTF-2 (B-1).
+  commands:
+    - "sha256sum <док>"
+    - "git diff c1f3ae2c6 132cb5ec5 -- <док>"
+    - "git archive 96e2fa72b3a deploy <локальные подчарты> | tar -x; helm dependency build --skip-refresh; helm template ci . -n kacho -f values.prod.yaml [--set …]"
+    - "git show e1af41e40:docs/changes/issue-2915/design.md | sed -n 1840,1882p; grep -n 'Е12\\|D2' docs/changes/issue-2915/tasks.md"
+    - "git commit-tree <T> -p 96e2fa72b3a -p {8f879ff7fbd|dcb6588fefa} -m '#2926 свести {1276|2731}: контроль'; команда п.16 (2) на каждом"
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да
+  security_surface_note: >-
+    дельта — отказ рендера и старта отправителя при пустом узле (ban #16, fail-closed), ссылка на
+    удостоверение почты только у отправителя (Р19), пара «имя ⇔ удостоверение»
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и предикатами, без описания обхода и текущих слабых мест.
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY — четвёртый круг подряд (редакции 14, 16, 18, 21), DoD — третий подряд по п.16.
+  Блокирующих убыло (3 → 2). Признак прежний: утверждение о выходе соседа взято из решения
+  диспетчера (Д46), а не сверено с тем, КОГДА сосед этот выход производит; контроль записан без
+  повторного исполнения опубликованной команды. Форма задания автору, выведенная прошлым кругом,
+  исполнена для формы ключа, но не для момента отказа — дописать: «каждое «после посадки X» о чужом
+  исходе сверяется с таблицей условий соседа (для prod — выведенный перечень), а каждая строка
+  «замер: …» исполняется той командой, что стоит в тексте».
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 22: B-1 (Р16 п.6 (2) — вход с непустым перечнем и контроль prod как есть; отказ (е) —
+    совместный исход required NTF-1 и записи kaname NTF-2; «после посадки NTF-2» вместо «NTF-1» в Р20,
+    Р16 п.2, §5, §3а; §6в признак 8 по редакции 18 замысла), B-2 (контроль формы (а) п.16 через
+    dcb6588fefa, замер как печатает команда); N-1…N-3 тем же заходом
+  also_needed: >-
+    курьер — опубликовать событие возврата на отпечаток 21d5c951…
+  owner_questions: []
