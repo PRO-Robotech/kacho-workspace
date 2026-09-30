@@ -38,6 +38,9 @@
 # (коммит d80c1949e; к замыслу CX1-70, УК93, УК94 — отображены редакцией 8 по Д26; L03 записи 9bfa92be в силе).
 # Пересверка на редакцию 9 (e7a6ae15…) — reviews/class-exposure/revalidation/e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0.yaml
 # (коммит ad3c82c83; к замыслу CX1-71, CX1-72 — отображены редакцией 10 по Д26; L03 записи 9bfa92be в силе).
+# Редакция 11 замысла (2026-09-30, Д33) — правка принятой редакции 10 (bd526f8a…, ревью замысла — коммит 0b02bd9dd):
+# одна запись реестра исключений З16 (функция `resource-event` формы `fanout`, одна на журнал модуля) и её держатель;
+# вердикта и пересверки на новый отпечаток нет.
 # Маршрут работ — `tasks.md` редакции 10 (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2915
@@ -75,7 +78,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
-  design_sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
+  design_sha256: 87ea333cc9027f412d12933c0abd0dfc99dffbab4b4bb7e99b069f415cabbff7
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:
