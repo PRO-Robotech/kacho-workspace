@@ -1,0 +1,175 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 073be8cd91b26ccc69e827cd9edc3fffbaae7dc4195b2640a666301b6a70c6e0
+  revision: 31
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: e98dcbaf8
+  content_commit_note: >-
+    Судится редакция 31 (сужение по Д31) против рамки Д31 и дельта 30 → 31
+    (git diff --shortstat 139c4ff26 e98dcbaf8 -- <документ>: 319 вставок, 553 удаления).
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum <путь> и git show e98dcbaf8:<путь> | sha256sum — оба дают 073be8cd…c6e0
+  fingerprint_reproduced: true
+  lines: 4575
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T20:00:00Z'
+round: 1
+round_note: >-
+  Круг 1 на редакцию 31 после Д31. Рамка объёма — Д31: утверждения только о (а) публикации в журнал
+  всех видов с инициатором и временем, (б) уведомлениях из этих событий, (в) API настроек, контактов
+  и флаге модуля. Утверждение за рамкой — блокирующее SCOPE.
+previous_rounds:
+  - pass: после Д30
+    round: 1
+    sha256: ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed.yaml
+    note: >-
+      Одобрение редакции 30 на редакцию 31 не переносится.
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_findings:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    anchor: "группа B, вводный абзац (стр. 3728–3735); NTF3-06 (стр. 3747–3750), NTF3-43 (стр. 3825–3833), NTF3-52 (стр. 3908), NTF3-54 близнец (стр. 3929)"
+    what: >-
+      Переписав группу B на запись перехода (С21), редакция 31 закрепила посадку, в которой
+      вставка оставляет строку в CREATING, а сверщик Given больше не строит. Одновременно она
+      сняла у источников пометку готовности, которая в редакции 30 стояла (`vol-0` и `snp-0`
+      READY/READY, стр. 3943 и 3946 редакции 30; `snp-1` и `img-1` READY/READY в NTF3-43,
+      стр. 4034). При этом глаголы, которые Given зовёт, требуют готового источника:
+      - `SnapshotService.Create` вставляет строку только с тома в READY: `WHERE v.id = $6 AND
+        v.project_id = $2 AND v.state = 'READY'` (snapshot_repo.go:209); иначе отказ «Volume <id>
+        is not ready» (:287-288);
+      - снимок-копия — `WHERE src.state = 'READY'` (snapshot_repo.go, copySnapshotSQL);
+      - образ со снимка — отказ «Snapshot <id> is not ready» (image_repo.go:322-323);
+      - том со снимка или образа — `sp.state = 'READY'` (volume_repo.go:372,380; :522,526).
+      Все координаты — kacho @1d42a6728bf.
+      Состояние рождения строки задаёт `bornState(readyOnCommit)` (volume_repo.go:58-64): при
+      посадке группы B это CREATING. Поэтому в том виде, как они записаны, не строятся:
+      ветви снимка и образа NTF3-06 (`snp-1` с `vol-0`, `img-1` со `snp-0`); NTF3-43 (`usr-A
+      создал snp-1 и img-1`, затем `Copy`); ветви NTF3-52 (`snp-3`, `img-3`); близнец NTF3-54
+      (`img-1` из `ImageService.Create`). Посевом Given отвергся бы FAILED_PRECONDITION ещё до
+      When. Сценарий неверен — продукт тут ни при чём.
+    fix: >-
+      В каждом таком Given назвать конструктор готовности источника: запись выхода в READY из
+      CREATING (С21, функция `Confirm` — `WHERE state IN ('CREATING','ERROR')`, store.go:192-196)
+      на `vol-0`, `snp-0`, на источнике `snp-1`/`img-1` в NTF3-43 и на источнике `img-1` в NTF3-54.
+      Проба утверждает `status = READY` (для тома — AVAILABLE) до вызова глагола. Если строки
+      `resource-event`, которые даёт эта подготовка, ложатся в счёт Then, счёт должен их учесть
+      либо начинаться с позиции, прочитанной после подготовки.
+non_blocking_findings:
+  - id: N1
+    anchor: "NTF3-160 (з) (стр. 2524–2534)"
+    what: >-
+      Главное положительное утверждение (з) — «каждая строка, которую записал этот Delete, несёт
+      user:usr-A». Если Delete не записал ни одной строки, оно зелено. По Д31 это законно: исход
+      Delete вне объёма, и утверждается только «если событие произошло». Но тогда (з) падает
+      только на строке с инициатором service:/system:, а близнец «строк user:usr-A по ins-4 — 0»
+      зелен и при пустом журнале. Пересланная личность на Detach уже держится буквами (г) и (ж).
+      Стоит назвать это в §10: (з) ловит ровно чужой инициатор, пустоту не ловит. Можно и
+      вывести (з) из счёта держателей пересылки.
+  - id: N2
+    anchor: "§6, строка «Снос инстанса при привязанном интерфейсе…» (стр. 1885–1899)"
+    what: >-
+      Строка исключения утверждает нынешний исход публичного Delete как прочитанный факт: «интерфейс
+      не отвязывается, строка инстанса удаляется», instance.go:958-981. Сценария или решения это не
+      делает, поэтому не SCOPE. Но это ровно тот предмет, который Д31 выводит за объём, и держит
+      его #2934. Лучше сослаться на тело задачи, а не повторять исход своими словами, — иначе он
+      устареет вместе со стволом.
+  - id: N3
+    anchor: "группа B, вводный абзац; NTF3-160 Given (стр. 2419–2420), (в), (г)"
+    what: >-
+      Группа B утверждает CREATING до записи, но не говорит, что цикл сверщика в её обвязке не
+      запущен. При фейковом бэкенде в G0 параллельный `Confirm` увёл бы строку в READY между Get
+      и записью, и счёт строк NTF3-130 и NTF3-53 поплыл бы. Там же в группе L готовность `vol-1`
+      (в) и `vol-11`/`vol-12` (г) по-прежнему держит неназванный построитель: сверщик, которого
+      документ больше не меряет. Это не новое против редакции 30, но с B1 закрывается одной
+      правкой: назвать С21 `Confirm` как конструктор готовности везде, где Given требует READY,
+      и сказать, что цикл сверщика в обвязке storage не стартует.
+measurement:
+  scenario_ids: 164
+  withdrawn: [8, 11, 41, 42, 44, 45, 123, 124, 163, 164]
+  live: 154
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> | sort -u | wc -l → 164; помеченных «снят» → 10;
+    uniq -d → 0. Совпадает с шапкой редакции 31 (164 / 10 / 154).
+  scope_predicate: >-
+    grep -niE 'доделыват|сверщик|застрял|reconcil|finaliz|разрешител|доведени[ея] снятия|Drifted|П4|П5|П6'
+    по телу (стр. > 100) → 84 строки. Каждая разобрана: координаты переписи Д24 (§1.13, §1.14),
+    исключение и перечень снятого (§1.6, §4, §6, §7, §8), снятые номера (NTF3-08/11/41/42/44/163/164),
+    фраза «вне объёма» при записи события (Р15, Р16, Р18, группы B и S), условие обвязки «проход
+    сверщика между P0 и чтением журнала не запускается» (NTF3-160). Сценария или решения,
+    утверждающего жизненный цикл за рамкой (а)–(в), не найдено.
+    Ссылок из §9–§12 на снятые средства С3, С4, С18–С20 и на Reconciler.Sweep/FailVerb → 0.
+    `system:nlb-free-ip-runner` → 1, только в строке истории §4.
+  code_predicates: >-
+    kacho @1d42a6728bf: store.go — `MarkError … WHERE id = $1 AND state <> 'DELETING'`, `Confirm …
+    WHERE id = $1 AND state IN ('CREATING','ERROR')`. Отсюда READY → ERROR (NTF3-53), ERROR → READY
+    (NTF3-129) и CREATING → READY (NTF3-130) записью строятся. Словарь причин — observed.go:63-69,
+    в нём BACKEND_REJECTED и PRECONDITION_FAILED. `status_reason = 17` — volume.proto:141.
+    DeriveStatus(READY, без привязки) → AVAILABLE — volume.go. corelib/operations импортируют
+    все пять подключённых модулей: git grep -l 'corelib/operations"' по services/*/{cmd,internal}.
+premise_check:
+  task_premise: >-
+    Посылка задания: SHA-256 073be8cd…c6e0, круг 1, рамка — Д31. sha256sum рабочего файла и
+    git show e98dcbaf8:<путь> | sha256sum дают 073be8cd91b26ccc69e827cd9edc3fffbaae7dc4195b2640a666301b6a70c6e0.
+    Шапка редакции 31 называет сужение по Д31. Посылка подтверждена.
+  seeded: 0
+  constructibility_checked_by_code: 9
+  seeding_note: >-
+    Стенд для посева заданием не назван, поэтому посев — «не выполнилось». Конструируемость
+    Given, которые Д31 переписал, проверена чтением предикатов вставки и перехода в дереве
+    @1d42a6728bf. Строится: NTF3-06 (том), 07, 10, 12, 13, 14, 49, 53, 129–131; группа S —
+    прямой вызов markErrorCAS на посеянной строке. Не строится: ветви снимка и образа NTF3-06
+    и NTF3-52, NTF3-43, близнец NTF3-54 (B1). В зелёное это не зачитано.
+  confirmed:
+    - "Сужение до (а)–(в) выполнено: сценариев и решений, утверждающих поведение доделывателей, сверщика, застрявших удалений и исходы Delete, нет (SCOPE — 0)."
+    - "Снятое перечислено в §6 таблицей «Снято сужением Д31» со ссылками на #2934 и #2935; §4 несёт строки замещения."
+    - "Р16 утверждает письмо на записи ERROR с не-ERROR и на ERROR → READY; функции записи в дереве такие переходы допускают."
+  refuted:
+    - "Готовность источников снимка, образа и копии в группе B снята вместе со сверщиком, а конструктор взамен не назван (B1)."
+method_verdict: >-
+  Рамку Д31 проверил предикатом по всем вхождениям терминов жизненного цикла, каждое разобрано по
+  роли. SCOPE-блокирующих нет. Переписанные Given групп B и S сверены с SQL-предикатами вставки и
+  перехода в дереве. Одна регрессия конструируемости: источники потеряли состояние READY, а
+  посадка группы B родить их готовыми не даёт. Сценарии при этом неверны — продукт не виноват.
+  Прочее вне дельты судилось в прошлых кругах и не перепроверялось.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @e98dcbaf8582
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: acceptance_rejection
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: "Рецензент событие не публикует: тело события отдаётся курьеру строкой."
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 на редакцию 31, блокирующих 1: CONSTRUCTIBILITY) ·
+    SHA-256 073be8cd91b26ccc69e827cd9edc3fffbaae7dc4195b2640a666301b6a70c6e0
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
