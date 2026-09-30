@@ -23,6 +23,8 @@ SPDX-License-Identifier: BUSL-1.1
 > — **редакция 7 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 2 прохода, каждый род закрыт классом по всему документу. CONSTRUCTIBILITY (повтор рода, §14а): для **каждого** ребра `notify → X` перечислены шаги подключения на стороне X — таблица §3 (NTF-1 K03 (1)–(7), запись `notify.sourceLimits.<модуль>`, декларация `<модуль>.spiffe`, допуск `notify-sender` политикой сети внутреннего порта vpc), те же шаги — в NTF3-04, G0, NTF3-66, Р26 и DoD 12.2 п.2; у `notify-api` своя идентичность без служебного принципала (Р8), проверка годности контакта переведена на вопрос модели, который `notify-api` задать может (Р20); заведён NTF3-155 (у модуля нет перечня звена — `Claim` отвергнут). NEGATIVE: таблица методов публичного API `notify` с правом, вызовом службы доступа и исходом при её недоступности (Р25); заведены NTF3-156…158 (подписка, контакт, лента — `UNAVAILABLE`, fail-closed); Р11 называет производителем службу доступа, а не справочник. CONVENTION: поле `kinds` снято с подписки, ячейка `(storage, STATE_CHANGE, CONSOLE)` снята — у обоих не было доставки (Р11, Р29; ячеек каталога 18); проверка формата чужих id — записанное исключение B4 family-agnostic (Р11а). Неблокирующие круга 2: порядок ленты — по позиции приёма (Р9), пространство `Resolve` строки сводки (Р12), координата чарта `notify` (NTF3-127), пункт DoD 12.1 без сценария снят, «адресованной строки» (Р5). Д14–Д16 перенесены (§2.1). Сценариев: номеров **158**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > — 2026-09-30 · круг 1 прохода Д14–Д16 · ⛔ ВОЗВРАТ (блокирующих 3: CONSTRUCTIBILITY · NEGATIVE · TWIN) · SHA-256 `62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8.yaml`
 > — **редакция 8 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 1 прохода Д14–Д16, каждый род закрыт классом по всему документу. CONSTRUCTIBILITY (B1-1): исход `corevalidate.ResourceID` на каждом id-подобном слове документа измерен пробой на corelib @`34bc8104a` и записан в Р11а (таблица); отказ формата утверждается только на входах, которые функция отвергает (`v@1`, `p@1`, `a@1`, `u@1`, `xx@`); `vol@1` проходит слитной формой — ответ линии владельца (NTF3-88); заполнители id, которых производитель не чеканит, заменены приставками каталога (`sa-1`→`sva-1`, `snap-N`→`snp-N`, `pool-N`→`apl-N`, `pg-1`→`plg-1`; ключ SA и токен пользователя — слитная чеканка `soc1`, `soc2`, `uoc1`…`uoc3`). NEGATIVE (B1-2): обязательность каждого обязательного id-поля `notify-api` и справочника — отдельной проверкой `<field>: required` до формата и до права (Р11а (г), Р7, Р11, Р20, Р25); буквы NTF3-90 (н)–(р), строки NTF3-92, NTF3-116, NTF3-117. TWIN (B1-3): §1.12 переведён на NTF-1 @`12a66925` (редакция 7, наследник `0311f05f`), изменённые строки отмечены; вид назван словом провода `notification_feed` в §1.9, Д3, Р3, Р4, §3, NTF3-04, NTF3-65 (полный текст отказа corelib со словарём storage), NTF3-67, DoD 12.2. Неблокирующие: близнец по типу NTF3-151 — форма NTF1-F12 (`iam_user`, `token_issuer`); NTF-6 @`d5fe4734` в §1.12; ребро `notify-api → служба доступа` в §3 и DoD 12.2 п.3; фраза о местах Д-1…Д-7 в Р28. Сценариев: номеров **158**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
+> — 2026-09-30 · круг 2 прохода Д14–Д16 · ⛔ ВОЗВРАТ (блокирующих 1: NEGATIVE) · SHA-256 `f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493.yaml`
+> — **редакция 9 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 2 прохода Д14–Д16. NEGATIVE (B2-1, повтор рода): класс «обязательное поле без держателя отказа» закрыт по **всем** обязательным полям входа справочника, а не по двум названным: у `Resolve` — `namespace`, `audience` (форма не задана), `subject` при `resource`/`self` (пусто или без id после `:`), `resource_refs[i].id`, `audience.account_owner.account_id`; плюс `subject` при `account_owner` — отказ, а не молчаливое игнорирование (`api-accepted-ignored`); у `ListExpiringCredentials` — обязательные границы окна и пустое окно (буквы NTF3-122 (а)–(в)). Порядок проверок входа `Resolve` записан в Р7 (обязательность → форма → вопрос к модели); таблица «Отказ вызова справочника» называет отказ по обязательности в строке `INVALID_ARGUMENT`; держатели — буквы NTF3-118 (а)–(д) и NTF3-120 (а)–(в), каждая с близнецом по одному факту (§10) и производителем (§11, DoD 12.2 п.4); «вопроса к модели нет» наблюдается записывающей подменой двери в пробе службы доступа. Примеры вызова `Resolve` без `namespace` (NTF3-118, 119, 120, 139) дополнены им. Неблокирующие: §1.12 и ссылки на NTF-1 переведены на принятую редакцию 8 @`b347b81f` (правки против @`12a66925` — A09, B20, G19, D04 — ни одной опоры §1.12 не задевают, сверено диффом); близнец по типу NTF3-151 — точная пара строкой `Check {user:usr-ca, reader, notification_recipient_directory:root}` → `false`. Номера сценариев не добавлялись: номеров **158**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задача `PRO-Robotech/kacho#2918` (NTF-3);
 > документ ведётся задачей `PRO-Robotech/kacho-workspace#880`; пакет изменения — `docs/changes/issue-2918/`
@@ -36,9 +38,10 @@ SPDX-License-Identifier: BUSL-1.1
 - **Ревизии измерения:** воркспейс `ea02db25`; kacho `origin/main@1d42a6728bf`; kaname
   `origin/main@cbbac984b` и ветка эпика `origin/357@734f69fb4` (свежая работа службы доступа
   лежит на ней); corelib `origin/main@34bc8104a` (= `v1.9.0`). Соседние приёмки — по отпечаткам:
-  NTF-1 `12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4` (редакция 7, коммит
-  `1b22f4d13`; содержит правки редакции 6 `0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb`,
-  по которой сверял рецензент круга 1 прохода Д14–Д16), NTF-6
+  NTF-1 `b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3` (редакция 8, коммит
+  `258c92d5e`, принята — запись ревью в коммите `abc1fd487`; наследник редакции 7
+  `12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4` и редакции 6
+  `0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb`), NTF-6
   `d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544` (редакция 5, коммит `9afe86465`)
   и прежние `c82cd21b0eaa801bc3631b512d6e1a4d9973d308fe6b5e4a161f9ceb75cba443`,
   `7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a`, `bd960b46880259910881665c35f02d1428fc888aab3a4c4dd2cf2d56ad9ea9e6` (редакция 4) (`sha256sum` по
@@ -349,9 +352,12 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 
 ### 1.12 Соседние приёмки: на что опирается документ — сверено с отпечатком, а не с памятью
 
-NTF-1 @`12a66925` — редакция 7 (`grep -n` по `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`
-на коммите `1b22f4d13`). Прежняя сверка шла по @`a6cb0c1f`; каждая строка ниже перепроверена на
-@`12a66925`, изменённые против @`a6cb0c1f` отмечены «изм.»:
+NTF-1 @`b347b81f` — редакция 8, принятая (`sha256sum` файла
+`docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md` на коммите `258c92d5e`; запись
+ревью «принято на b347b81f330» — коммит `abc1fd487`). Сверка шла по @`a6cb0c1f`, затем по @`12a66925`
+(редакция 7); дифф `git diff 1b22f4d13 258c92d5e` по файлу NTF-1 — 8 участков (история ревью, A09,
+B20, G19, D04 и их строки держателей), ни одна строка таблицы ниже им не задета. Строки, изменённые
+против @`a6cb0c1f`, отмечены «изм.»:
 
 | факт NTF-1 | где | следствие здесь |
 |---|---|---|
@@ -381,7 +387,8 @@ NTF-6 @`c82cd21b` Р3а заказывала этой приёмке форму 
 редакций NTF-6 — Р29, NTF-6 правится по нему. Действующая редакция NTF-6 @`d5fe4734` (редакция 5)
 строит сторону `notify` на NTF-3 @`62d42441` (редакция 7 этого документа, Д15). Редакция 8 формы API не
 меняет (методы, поля, пути Р9–Р11, Р20, Р25, Р29 — те же); она добавляет отказы `<field>: required` на
-пустых обязательных id (Р11а (г)) и заменяет примеры формата измеренными. После одобрения NTF-6
+пустых обязательных id (Р11а (г)) и заменяет примеры формата измеренными. Редакция 9 меняет только
+вход внутреннего справочника службы доступа (Р7), публичного API `notify` не касается. После одобрения NTF-6
 переводится на итоговый отпечаток этого документа — строка «нужен следующий» возврата автора.
 
 ---
@@ -534,16 +541,25 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
 отношение, строка манифеста и правило «только `notify`» — Р28. Отдельного набора вызывающих у
 справочника нет: второе место о том же предмете, что звено, не заводится. Методы:
 
-- `Resolve{namespace, subject?, audience}` → исход и адрес. `audience` — одно из:
+- `Resolve{namespace, subject?, audience}` → исход и адрес. `namespace` обязателен при любой
+  аудитории; `subject` обязателен при `resource` и `self` и запрещён при `account_owner`. `audience` — одно из:
   `resource{resource_refs[1..100] одного типа, relation=v_get}` (ответ несёт подмножество видимых
   ссылок), `self{}`, `account_owner{account_id}` (субъект не передаётся, ответ — адрес владельца).
   Типы в `resource_refs` — виды пространства имён `namespace` **и** `project`, `account` (якорь
   снятия, контакт); иное — `INVALID_ARGUMENT` с полем `resource_refs[i].type`; отношение не `v_get` —
   `INVALID_ARGUMENT` с полем `relation`; ссылок 0 или больше 100, смесь типов — `INVALID_ARGUMENT` с
-  полем `resource_refs`. Пустой `resource_refs[i].id` и пустой `account_owner.account_id` —
-  `INVALID_ARGUMENT` `<field>: required` (`resource_refs[i].id: required`,
-  `audience.account_owner.account_id: required`): функция формата фундамента пустую строку
-  пропускает (Р11а (г), `api-resourceid-empty`), и без этой проверки пустой id ушёл бы вопросом к модели.
+  полем `resource_refs`.
+- **Проверка входа `Resolve` — синхронно, в этом порядке, до любого вопроса к модели прав:**
+  (1) обязательность — `INVALID_ARGUMENT` `<field>: required`: `namespace: required` (пусто);
+  `audience: required` (ни одна форма не задана); `subject: required` при `resource` и `self` (пусто
+  либо без id после `:`, например `user:`); `resource_refs[i].id: required` (i — индекс первой пустой);
+  `audience.account_owner.account_id: required`; (2) `subject` задан при `account_owner` —
+  `INVALID_ARGUMENT` `subject: must be empty for audience account_owner` (принятое и
+  проигнорированное поле запрещено, `api-accepted-ignored`); (3) тип, отношение, число и смесь ссылок —
+  отказы выше. Функция формата фундамента пустую строку пропускает (Р11а (г), `api-resourceid-empty`):
+  без шага (1) пустой id ушёл бы к модели объектом `storage_volume:` и вернулся бы исходом по
+  субъекту (`AUDIENCE_DENIED`, `SUBJECT_NOT_FOUND`), неотличимым от законного. Держатели — NTF3-118
+  (а)–(д), NTF3-120 (а)–(в).
 - `ListProjectAudience{project_id, page_token, page_size}` → субъекты `user:<id>` с действующей
   (не отозванной, не истёкшей) привязкой с субъектом-пользователем на `project:<id>`. Группы не
   раскрываются, привязки аккаунта не входят. Адресов в ответе нет. Пустой `project_id` —
@@ -552,6 +568,9 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   ключи сервисных аккаунтов и токены пользователей с `expires_at` в `(expires_after, expires_before]`; на
   каждый: вид, id, имя, `expires_at`, адресат (`user:<id>` у токена, `account:<id>` у ключа). Окно
   длиннее 721h (наибольшее допустимое упреждение Р19 + 1h) — `INVALID_ARGUMENT` с полем `expires_before`.
+  Границы обязательны: не задана `expires_after` либо `expires_before` — `INVALID_ARGUMENT`
+  `expires_after: required` / `expires_before: required`; `expires_before` не позже `expires_after` —
+  `INVALID_ARGUMENT` с полем `expires_before` (пустое окно, а не пустой ответ).
 
 Исходы `Resolve` (условия в этом порядке; первое невыполненное даёт исход):
 
@@ -576,7 +595,7 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
 | код ответа `Resolve` (либо ответ) | что это значит для `notify` | исход строки | тратит попытку | сигнал | сценарий |
 |---|---|---|---|---|---|
 | `PERMISSION_DENIED`, `UNAUTHENTICATED` | у `service:notify` нет кортежа `reader` на справочник, либо звено не дало субъекта (метод вне перечня, SAN вне таблицы) — неисправность **настройки**, а не адресата | `DEFER(platform_unavailable)` | нет | `misconfigured`; `notify_recipient_directory_refused_total{ns,code}` растёт, тревога **без окна** | NTF3-55, NTF3-56 |
-| `INVALID_ARGUMENT` | запрос `notify` не прошёл проверку типа ресурса или отношения — дефект сборки шаблона, повтор того же запроса даст тот же ответ | `INVALID` (терминально), 0 SMTP-сессий | — | `notify_recipient_directory_refused_total{ns,code="InvalidArgument"}`, тревога без окна | NTF3-56 |
+| `INVALID_ARGUMENT` | запрос `notify` не прошёл проверку входа: обязательность поля (`<field>: required`, шаг (1) проверки входа выше), `subject` при `account_owner`, тип ресурса, отношение или число ссылок — дефект сборки шаблона или строки, повтор того же запроса даст тот же ответ | `INVALID` (терминально), 0 SMTP-сессий | — | `notify_recipient_directory_refused_total{ns,code="InvalidArgument"}`, тревога без окна | NTF3-56 |
 | `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `CANCELLED`, `RESOURCE_EXHAUSTED`, `ABORTED`, `INTERNAL`, `UNKNOWN`, `DATA_LOSS` | служба доступа не дала ответа по своей причине | `DEFER(platform_unavailable)` (та же клетка, что «kaname недоступна» NTF-1 Р11) | нет | — | NTF3-46, NTF3-56 |
 | `NOT_FOUND`, `ALREADY_EXISTS`, `FAILED_PRECONDITION`, `OUT_OF_RANGE`, `UNIMPLEMENTED` | контракт справочника таких кодов не производит (исход по субъекту — в теле ответа, не кодом); код означает расхождение версий `notify` и службы доступа | `DEFER(platform_unavailable)` | нет | `misconfigured`; тот же счётчик с кодом, тревога без окна | NTF3-56 |
 | `OK`, но значение исхода `notify` не знает (новое значение перечисления) | расхождение версий | `DEFER(platform_unavailable)` | нет | `misconfigured`; `notify_recipient_directory_refused_total{ns,code="UnknownOutcome"}` | NTF3-56 |
@@ -756,7 +775,8 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   собственная проверка `<field>: required` → `INVALID_ARGUMENT` до функции формата и до вопроса о
   праве (`api-resourceid-empty`): `target.resource.resource_id`, `target.project.project_id` (Р11),
   `account_id` пути контактов (Р20), `subscription_id` в `Get`/`Delete` (Р25), `project_id`
-  `ListProjectAudience`, `resource_refs[i].id` и `audience.account_owner.account_id` `Resolve` (Р7).
+  `ListProjectAudience`, у `Resolve` — `namespace`, `audience`, `subject` (при `resource`/`self`),
+  `resource_refs[i].id` и `audience.account_owner.account_id` (Р7, порядок проверки входа).
   Необязательное id-поле одно — `security.user_id` контакта: пусто — «явного контакта нет» (Р20,
   NTF3-113), это значение, а не отсутствие обязательного.
 - **Исход функции на каждом примере документа измерен**, а не выведен из формы строки: проба
@@ -768,7 +788,7 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   | `v@1`, `p@1`, `a@1`, `u@1`, `xx@` | `INVALID_ARGUMENT` `invalid <res> id '<X>'` | NTF3-90 (в), (м); NTF3-116; NTF3-92; NTF3-117 |
   | `vol@1` | `nil` — слитная форма, `vol` в каталоге | NTF3-88 (ответ линии владельца) |
   | `net-1`, `vol-1`, `vol-20`, `prj-1`, `acc-1`, `usr-A`, `usr-X`, `usr-zzz`, `sva-1`, `reg-1` (часть `reg-1/…` до `/`), `snp-1`, `apl-1`, `plg-1`, `soc1`, `uoc1` | `nil` | NTF3-87, 88, 94, 95, 113, 114 и Given документа |
-  | `""` | `nil` — поэтому (г) | NTF3-90 (н), (о); NTF3-92; NTF3-116; NTF3-117 |
+  | `""` | `nil` — поэтому (г) | NTF3-90 (н), (о); NTF3-92; NTF3-116; NTF3-117; NTF3-118 (а)–(г); NTF3-120 (а), (б) |
 
   Заполнители id в документе несут приставку каталога вида (`sva` сервисного аккаунта, `snp` снимка,
   `apl` пула адресов, `plg` группы размещения; у ключа сервисного аккаунта и токена пользователя
@@ -989,7 +1009,7 @@ values с границами и страж старта. Оператор огр
 
 **Р23. Снято в редакции 6 — номер не переиспользуется.** Прежняя редакция заводила свою ручку
 допуска часов источника (`clockSkewTolerance`) и сверку `source_now` в `notify`, ссылаясь на то, что
-NTF-1 оставила допуск NTF-3. Опровергнуто по NTF-1 @`a6cb0c1f`; факт держится и в @`12a66925` (§1.12): правило «`REVOKED`, если
+NTF-1 оставила допуск NTF-3. Опровергнуто по NTF-1 @`a6cb0c1f`; факт держится и в принятой @`b347b81f` (§1.12): правило «`REVOKED`, если
 `enqueued_at < отсечка + полоса`» для **каждой** ленты уже задано NTF-1 Р5 ручкой службы доступа
 `notificationCutoffGuard` (`[1s..10m]`, NTF1-F20). Для лент модулей kacho действует эта полоса без
 изменения (NTF3-125); второй ручки о том же правиле NTF-3 не заводит, сверки `source_now` нет. Окна,
@@ -1241,12 +1261,12 @@ DoD 12.2 п.3). Ребро `notify-api → служба доступа` (`Check`
 | Р15 редакции 4: «выход из `ERROR` (П7) письма не ставит»; сценарий NTF3-45 | редакция 4 | Р16: выход из `ERROR` ставит одно письмо о восстановлении; NTF3-45 снят, его место — NTF3-129 | Д9 «одно письмо на эпизод + одно о восстановлении» |
 | Р13 редакции 4: получатель письма о сбое — инициатор, в том числе учётная запись службы (исход `NO_ADDRESS`) | редакция 4 | Р5, Р16: у инициатора-сервисного аккаунта строка сбоя не ставится вовсе; `NO_ADDRESS` остаётся защитой справочника (NTF3-26) | Д8 «сервисный аккаунт и группа не адресаты» |
 | §6 редакции 4: «Подписка арендатора на категории писем и отписка — NTF-4» | редакция 4 | настройки и подписки — NTF-3 (Р10, Р11); отписка ссылкой из письма — NTF-4 (её Р6) | Д8, Д9; задание NTF-3 «API настроек и контактов» |
-| NTF-1 Р1: «gRPC-сервисов notify не обслуживает вовсе … единственный слушатель — диагностический HTTP» и «база `kacho_notify` — только для счётчиков лимитов» | приёмка NTF-1 @`12a66925`, Р1 | верно для развёртывания-отправителя; у развёртывания `notify-api` — публичный API через край, без секрета и без глагола отправки; база `kacho_notify` несёт также ленту консоли, настройки, подписки, контакты, окна Р13, однократность напоминаний и собственную ленту `notify` (Р8, Р19) | ТВ10 (настройки), ТВ1 (креды в одной точке) |
-| NTF-1 Р6: «форма адресата в NTF-1 одна — адрес … адресация субъекта — NTF-3» | приёмка NTF-1 @`12a66925`, Р6, NTF1-G21 | формы `subject`, `fanout`, `account_owner` и их разрешение по пространству (Р27); форма `address` для пространств NTF-1 не меняется | NTF-1 отдаёт адресацию субъекта этой приёмке |
-| NTF-1 Р6: `identityNamespaces = {kaname}` — константа сборки | приёмка NTF-1 @`12a66925`, Р6, NTF1-G20 | `{kaname, notify}` (Р19); модули kacho в перечень не входят (NTF3-152) | Д9: напоминание об истечении не отключается и «реализуется в notify»; NTF-4 Р6: неотключаемое не бывает `notice` |
-| NTF-1 §5 S2 и DoD п.11: перечень звена Р2 у службы доступа = `{ResolveSend}` | приёмка NTF-1 @`12a66925` | `{ResolveSend}` + три метода `InternalNotificationRecipientService` (Р28) | Д2: субъект из сертификата — только на закрытом перечне; без этого у вызова справочника субъекта нет |
-| NTF-1 Р5: перечень типов без надзора администратора облака `{notification_feed, notification_namespace}` | приёмка NTF-1 @`12a66925`, Р5, NTF1-F12 | + `notification_recipient_directory` (Р28) | адреса пользователей — только `service:notify` |
-| NTF-1 Р10: «сводку вместо отложенных писем (`DEFER(recipient_net)`) заводит NTF-3» | приёмка NTF-1 @`12a66925`, Р10 | Р13: мгновенное письмо, упёршееся в сетку `notice`, уходит в сводку; адресованные строки источников остаются в клетке NTF-1 | NTF-1 передала предмет этой приёмке |
+| NTF-1 Р1: «gRPC-сервисов notify не обслуживает вовсе … единственный слушатель — диагностический HTTP» и «база `kacho_notify` — только для счётчиков лимитов» | приёмка NTF-1 @`b347b81f`, Р1 | верно для развёртывания-отправителя; у развёртывания `notify-api` — публичный API через край, без секрета и без глагола отправки; база `kacho_notify` несёт также ленту консоли, настройки, подписки, контакты, окна Р13, однократность напоминаний и собственную ленту `notify` (Р8, Р19) | ТВ10 (настройки), ТВ1 (креды в одной точке) |
+| NTF-1 Р6: «форма адресата в NTF-1 одна — адрес … адресация субъекта — NTF-3» | приёмка NTF-1 @`b347b81f`, Р6, NTF1-G21 | формы `subject`, `fanout`, `account_owner` и их разрешение по пространству (Р27); форма `address` для пространств NTF-1 не меняется | NTF-1 отдаёт адресацию субъекта этой приёмке |
+| NTF-1 Р6: `identityNamespaces = {kaname}` — константа сборки | приёмка NTF-1 @`b347b81f`, Р6, NTF1-G20 | `{kaname, notify}` (Р19); модули kacho в перечень не входят (NTF3-152) | Д9: напоминание об истечении не отключается и «реализуется в notify»; NTF-4 Р6: неотключаемое не бывает `notice` |
+| NTF-1 §5 S2 и DoD п.11: перечень звена Р2 у службы доступа = `{ResolveSend}` | приёмка NTF-1 @`b347b81f` | `{ResolveSend}` + три метода `InternalNotificationRecipientService` (Р28) | Д2: субъект из сертификата — только на закрытом перечне; без этого у вызова справочника субъекта нет |
+| NTF-1 Р5: перечень типов без надзора администратора облака `{notification_feed, notification_namespace}` | приёмка NTF-1 @`b347b81f`, Р5, NTF1-F12 | + `notification_recipient_directory` (Р28) | адреса пользователей — только `service:notify` |
+| NTF-1 Р10: «сводку вместо отложенных писем (`DEFER(recipient_net)`) заводит NTF-3» | приёмка NTF-1 @`b347b81f`, Р10 | Р13: мгновенное письмо, упёршееся в сетку `notice`, уходит в сводку; адресованные строки источников остаются в клетке NTF-1 | NTF-1 передала предмет этой приёмке |
 | Р23 редакции 5: своя ручка допуска часов `clockSkewTolerance` и сверка `source_now` | редакция 5 | снято; действует полоса NTF-1 Р5 `notificationCutoffGuard` (NTF3-125) | второй механизм о предмете, решённом NTF-1 |
 | форма API `notify` в заказе NTF-6 Р3а и контракт редакции 5, принятый NTF-6 редакцией 3 | приёмка NTF-6 @`c82cd21b` Р3а; @`7a50855c` §1 | решение по каждому предмету — Р29; NTF-6 правится по нему | API — предмет этой приёмки (задание NTF-3: «API настроек и контактов в notify») |
 | Р10 редакции 5: правила `{module, event_class} → mail_enabled` с маской `rules` | редакция 5 | ячейки `(модуль, вид, канал)`, каталог, `:setEntries` (Р10, Р29) | Д9: канал — интерфейс; у правила оси канала не было |
@@ -2488,11 +2508,14 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 **And** близнец: тот же `Resolve` от `service:notify` — `ADDRESS{a@example.test, visible_refs=[vol-1]}`
 **And** близнец по типу (форма NTF1-F12, меняется только объект вопроса): тот же `usr-ca` тем же входом
 `InternalIAMService/Check` на `{user:usr-ca, token_issuer, iam_user:usr-A}` получает `true` — отношение
-`token_issuer` модель определяет как `subject` без ветви администратора (NTF-1 @`12a66925` F12), и
+`token_issuer` модель определяет как `subject` без ветви администратора (NTF-1 @`b347b81f` F12), и
 `true` у `usr-ca` производит только надзор: надзор на типе вне перечня жив. (Прежний близнец
 `project:prj-1` / `v_get` снят: `v_get` на проекте администратору облака даёт сама модель —
 `any_admin from cluster`, `internal/authzmodel/fga_model.fga:414, 425` kaname @`734f69fb4`, — и надзор он
 не отличал.)
+**And** точная пара по типу (меняется только тип объекта, вход тот же — `InternalIAMService/Check`, место
+двери Д-3): `Check {user:usr-ca, reader, notification_recipient_directory:root}` от того же `usr-ca` —
+`false` (надзор на типе из перечня не применяется)
 **And** гейт путей надзора службы доступа (NTF1-F12) печатает перечень из трёх типов и красен при
 инъекции второй декларации перечня
 
@@ -2523,16 +2546,30 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 **Сценарий NTF3-118: пакетная проверка ссылок — адрес и видимое подмножество**
 **ID:** NTF3-118
 **Given** G0; тома `vol-1`, `vol-2` в `prj-1`, `vol-20` в `prj-2`
-**When** `notify` вызывает `Resolve{subject=user:usr-A, audience=resource{resource_refs=[vol-1, vol-2, vol-20]}}`;
+**When** `notify` вызывает `Resolve{namespace=storage, subject=user:usr-A, audience=resource{resource_refs=[vol-1, vol-2, vol-20]}}`;
 затем со 101 ссылкой; затем со ссылками `storage_volume` и `storage_snapshot` вместе
 **Then** первый — `ADDRESS{a@example.test, visible_refs=[vol-1, vol-2]}`; второй и третий —
 `INVALID_ARGUMENT` с полем `resource_refs`
 **And** близнец: `resource_refs=[vol-20]` — `AUDIENCE_DENIED`
+**And** обязательность входа (Р7, шаг (1)); база каждой буквы — вызов
+`Resolve{namespace=storage, subject=user:usr-A, audience=resource{resource_refs=[{storage_volume, vol-1}], relation=v_get}}`
+(ответ `ADDRESS{a@example.test, visible_refs=[vol-1]}`, NTF3-23), в букве меняется одно поле:
+(а) `resource_refs=[{storage_volume, ""}]` — `INVALID_ARGUMENT` `resource_refs[0].id: required`;
+(б) `resource_refs=[{storage_volume, vol-1}, {storage_volume, ""}]` — `INVALID_ARGUMENT`
+`resource_refs[1].id: required` (индекс — первой пустой; видимая `vol-1` адреса не открывает);
+(в) `subject=""` — `INVALID_ARGUMENT` `subject: required`; (г) `subject=user:` — `INVALID_ARGUMENT`
+`subject: required`; (д) `namespace=""` — `INVALID_ARGUMENT` `namespace: required`
+**And** в (а)–(д) ответ — отказ, а не исход по субъекту: не `AUDIENCE_DENIED`, не `SUBJECT_NOT_FOUND`,
+адреса в ответе нет; записывающая подмена двери прав в пробе службы доступа фиксирует **0** вопросов к
+модели за каждый из пяти вызовов и **1** вопрос `{user:usr-A, v_get, storage_volume:vol-1}` за базовый
+**And** близнецы по одному факту: (а) — `vol-1` вместо `""`; (б) — вторая ссылка `vol-2` вместо `""`
+(`ADDRESS{…, visible_refs=[vol-1, vol-2]}`); (в), (г) — `user:usr-A` вместо `""` / `user:`; (д) —
+`storage` вместо `""`; каждый — `ADDRESS`
 
 **Сценарий NTF3-119: пользователь не в состоянии `ACTIVE` — адреса нет**
 **ID:** NTF3-119
 **Given** G0
-**When** `notify` вызывает `Resolve{subject=user:usr-blk, audience=resource{[vol-1]}}`
+**When** `notify` вызывает `Resolve{namespace=storage, subject=user:usr-blk, audience=resource{[vol-1]}}`
 **Then** ответ `SUBJECT_INACTIVE`; адреса в ответе нет
 **And** близнец NTF3-23: `usr-A` (`ACTIVE`) — `ADDRESS`
 
@@ -2544,7 +2581,20 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 `account_owner{account_id=acc-zzz}` (аккаунта нет)
 **Then** первый — `ADDRESS{a@example.test}`; второй — `ADDRESS{own@example.test}` (адрес `usr-own`);
 третий — `AUDIENCE_DENIED`
-**And** `Resolve{subject=user:usr-blk, audience=self{}}` — `SUBJECT_INACTIVE`
+**And** `Resolve{namespace=vpc, subject=user:usr-blk, audience=self{}}` — `SUBJECT_INACTIVE`
+**And** обязательность и лишнее поле входа (Р7, шаги (1), (2)); в букве меняется одно поле против
+названного близнеца:
+(а) `Resolve{namespace=notify, audience=account_owner{account_id=""}}` — `INVALID_ARGUMENT`
+`audience.account_owner.account_id: required`; близнец — второй вызов When (`acc-1`, `ADDRESS{own@example.test}`);
+(б) `Resolve{namespace=vpc, subject="", audience=self{}}` — `INVALID_ARGUMENT` `subject: required`;
+близнец — первый вызов When (`user:usr-A`, `ADDRESS{a@example.test}`);
+(в) `Resolve{namespace=notify, subject=user:usr-A, audience=account_owner{account_id=acc-1}}` —
+`INVALID_ARGUMENT` `subject: must be empty for audience account_owner`; близнец — второй вызов When
+(`subject` не задан, `ADDRESS{own@example.test}`)
+**And** `Resolve{namespace=vpc, subject=user:usr-A}` без аудитории — `INVALID_ARGUMENT`
+`audience: required`; близнец — первый вызов When (`audience=self{}`)
+**And** в (а)–(в) и без аудитории ответ — отказ, а не `AUDIENCE_DENIED` / `SUBJECT_NOT_FOUND`; адреса в
+ответе нет; записывающая подмена двери прав фиксирует 0 вопросов к модели за каждый из четырёх вызовов
 
 **Сценарий NTF3-121: якорь и аккаунт принимаются в любом пространстве имён**
 **ID:** NTF3-121
@@ -2564,6 +2614,10 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 **Then** первый ответ — ровно `uoc1` (адресат `user:usr-A`) и `soc1` (адресат `account:acc-1`), у
 каждого вид, id, имя, `expires_at`; `uoc2`, `uoc3`, `soc2` нет
 **And** второй — `INVALID_ARGUMENT` с полем `expires_before` (окно 1080h длиннее 721h)
+**And** против первого вызова меняется одно поле: (а) `expires_after` не задана — `INVALID_ARGUMENT`
+`expires_after: required`; (б) `expires_before` не задана — `INVALID_ARGUMENT` `expires_before: required`;
+(в) `expires_before = t` (равна `expires_after`) — `INVALID_ARGUMENT` с полем `expires_before`; в
+каждой — не пустая страница, учётных данных в ответе нет; близнец — первый вызов (ровно `uoc1`, `soc1`)
 
 #### Группа U. Полоса отсечки NTF-1 на лентах модулей
 
@@ -2931,7 +2985,7 @@ storage — тома)
 **ID:** NTF3-139
 **Given** как NTF3-133 в vpc, но `principal_id=usr-blk`
 **When** `notify` обрабатывает строку `operation-failed`
-**Then** `Resolve{audience=self}` = `SUBJECT_INACTIVE`; строка закрыта `NO_ADDRESS(inactive)`; 0 SMTP-сессий
+**Then** `Resolve{namespace=vpc, subject=user:usr-blk, audience=self}` = `SUBJECT_INACTIVE`; строка закрыта `NO_ADDRESS(inactive)`; 0 SMTP-сессий
 **And** близнец NTF3-133
 
 #### Группа T. Напоминание об истечении ключей и токенов
@@ -3144,7 +3198,19 @@ t + 14d (осталось 1d), задание проходит
 | NTF3-118 (`vol-20`) | NTF3-118 | ссылка не видна / видна |
 | NTF3-119 | NTF3-23 | пользователь `BLOCKED` / `ACTIVE` |
 | NTF3-120 (`acc-zzz`) | NTF3-120 (`acc-1`) | аккаунта нет / есть |
+| NTF3-118 (а) | NTF3-118 (а), близнец | `resource_refs[0].id` — `""` / `vol-1` |
+| NTF3-118 (б) | NTF3-118 (б), близнец | `resource_refs[1].id` — `""` / `vol-2` |
+| NTF3-118 (в) | NTF3-23 | `subject` — `""` / `user:usr-A` (аудитория `resource`) |
+| NTF3-118 (г) | NTF3-23 | `subject` — `user:` / `user:usr-A` (аудитория `resource`) |
+| NTF3-118 (д) | NTF3-23 | `namespace` — `""` / `storage` |
+| NTF3-120 (а) | NTF3-120 (`acc-1`) | `audience.account_owner.account_id` — `""` / `acc-1` |
+| NTF3-120 (б) | NTF3-120 (первый вызов) | `subject` — `""` / `user:usr-A` (аудитория `self`) |
+| NTF3-120 (в) | NTF3-120 (`acc-1`) | `subject` при `account_owner` — `user:usr-A` / не задан |
+| NTF3-120 (без аудитории) | NTF3-120 (первый вызов) | `audience` — не задана / `self{}` |
+| NTF3-151 (точная пара) | NTF3-151 (близнец по типу) | тип объекта `Check` — `notification_recipient_directory` (в перечне) / `iam_user` (вне перечня) |
 | NTF3-122 (окно) | NTF3-122 | окно длиннее допустимого / в пределах |
+| NTF3-122 (а), (б) | NTF3-122 (первый вызов) | `expires_after` / `expires_before` — не задана / задана |
+| NTF3-122 (в) | NTF3-122 (первый вызов) | `expires_before` — `t` (= `expires_after`) / `t + 14d + 1h` |
 | NTF3-125 (C + 29s) | NTF3-125 (C + 30s) | `enqueued_at` внутри полосы NTF-1 после отсечки / на её границе |
 | NTF3-126 | внутри | ручка не задана или вне границ / ориентир |
 | NTF3-127 (инъекция) | NTF3-127 | ссылка на секрет в `notify-api` есть / нет |
@@ -3248,7 +3314,7 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 | NTF3-27 (`notify-api`) | отдельная служебная учётная запись и декларация `notifyApi.spiffe`; таблицы звена — только из `notify.spiffe` | `deploy/helm/notify/`, зонтик (декларации) | интеграционная проба службы доступа и storage с сертификатом `notify-api` |
 | NTF3-151, 154 | тип `notification_recipient_directory` в перечне без надзора; перечень звена службы доступа `{ResolveSend}` + три метода; каталог прав методов справочника | `PRO-Robotech/kaname` — декларация перечня типов у двери проверки прав (NTF-1 Р5), перечень звена в композиционном корне (NTF-1 Р2) — изменение; фикстурный пересылающий (С12) — тестовое дерево | интеграционная проба службы доступа (`Check`/вызовы через обработчики); гейт путей надзора с инъекцией (NTF1-F12) |
 | NTF3-150 | формы адресата по пространству (Р27): постоянная сборки `notify`, поле `recipient` шаблона, `feed.ErrRecipientInvalid` у `Put`, отказ `INVALID(recipient_form_not_allowed)` | corelib `notify/feed`, `notify/spec` (изменение), `services/notify` | интеграционная проба `notify` с прямой вставкой (С8); проба `Put`; `bundle` с инъекцией |
-| NTF3-23..29, 48, 117..122 | внутренний сервис справочника: `Resolve` (порядок исходов Р7, пакетные ссылки, `self`, `account_owner`, `SUBJECT_INACTIVE`), `ListProjectAudience` (`project_id: required` до формата, Р7), `ListExpiringCredentials`; `UserService.Delete` (`user_service.proto:199`, существует) | `PRO-Robotech/kaname`, внутренний сервис справочника (новый) | интеграционная проба в дереве службы доступа (посев пользователей, привязок, учётных данных) |
+| NTF3-23..29, 48, 117..122 | внутренний сервис справочника: `Resolve` (проверка входа Р7 в порядке «обязательность → лишнее поле → тип/отношение/число» до вопроса к модели: `namespace: required`, `audience: required`, `subject: required` при `resource`/`self`, `resource_refs[i].id: required`, `audience.account_owner.account_id: required`, `subject: must be empty for audience account_owner`; порядок исходов Р7, пакетные ссылки, `self`, `account_owner`, `SUBJECT_INACTIVE`), `ListProjectAudience` (`project_id: required` до формата, Р7), `ListExpiringCredentials` (обязательные границы окна, пустое и длинное окно — отказ); `UserService.Delete` (`user_service.proto:199`, существует) | `PRO-Robotech/kaname`, внутренний сервис справочника (новый); записывающая подмена двери прав — тестовое дерево (образец — `recordingChecker`, `internal/apps/kaname/api/user/invite_authz_test.go:18` kaname @`734f69fb4`, существует) | интеграционная проба в дереве службы доступа (посев пользователей, привязок, учётных данных); счёт вопросов к модели записывающей подменой в буквах NTF3-118 (а)–(д), NTF3-120 (а)–(в) |
 | NTF3-24..26, 46..48 | исходы Р7 в `notify` (клетки Р24); уборщик ленты storage | `services/notify`, corelib `notify/feed` уборщик (NTF-1) | интеграционная проба `notify` + служба доступа, остановка службы доступа, управляемые часы |
 | NTF3-55, 56 | отображение кода ответа справочника в клетку (таблица Р7) и `notify_recipient_directory_refused_total{ns,code}` | `services/notify`; подмена справочника (С7) — тестовое дерево `services/notify` | NTF3-55 — `notify` + служба доступа; NTF3-56 — `notify` с подменой, перебор кодов из определения gRPC по трём методам |
 | NTF3-30 | REST: прослойка прав края — промах каталога → `403` / `code 7`; gRPC: сервис не зарегистрирован на внешнем слушателе | существующие `gateway/cmd/api-gateway/main.go:1288-1289`, `gateway/internal/middleware/authz.go:813-844`, `authz_util.go:225-232`, `permission_denied_response.go` (`writeHTTPDeny`); `deploy/scripts/assert-ban6-external-isolation.py` | гейт изоляции + сквозная проба края аутентифицированным вызывающим |
@@ -3327,7 +3393,9 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
    §«Формат чужого id»; строка-ссылка на него в `api-b4-recorded-exceptions` правила конвенций API
    вносится изменением владельца правил в той же волне.
 4. Служба доступа (PR в `PRO-Robotech/kaname`, пин поднят в kacho): внутренний сервис справочника
-   (`Resolve` по Р7, `ListProjectAudience`, `ListExpiringCredentials`) на внутреннем слушателе без
+   (`Resolve` по Р7 — с проверкой входа до вопроса к модели: отказы `<field>: required` и
+   `subject: must be empty for audience account_owner`, NTF3-118 (а)–(д), NTF3-120 (а)–(в);
+   `ListProjectAudience`, `ListExpiringCredentials`) на внутреннем слушателе без
    HTTP-привязки; три метода — в перечне звена Д2 на слушателях службы доступа и в каталоге прав с
    `required_relation reader` на `notification_recipient_directory:root`; тип модели
    `notification_recipient_directory` (`reader: [service]`) и его запись в перечне типов без надзора
