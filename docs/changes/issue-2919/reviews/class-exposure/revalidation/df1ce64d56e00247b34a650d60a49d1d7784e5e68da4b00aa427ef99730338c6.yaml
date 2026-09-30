@@ -1,0 +1,196 @@
+# Экспозиция классов: пересверка (revalidation) замысла NTF-4, редакция 7.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Пересверки на редакции 1–6 (b9149d3c…, cd92e9ac…,
+# b46bd023…, 72f13d01…, 80dea362…, 1a5cf53f…) относятся к своим редакциям и здесь не
+# переписываются. Редакция 7 отвечает на пересверку 1a5cf53f (CX4V-66, CX4V-67) и её заказы.
+# Судится дельта 832cc05ee → ac0cc65a5 (design.md, tasks.md, change.yaml) и то, что она вносит.
+# Прочие 65 отображений выдерживали в 1a5cf53f, и дельта их не касается.
+#
+# Проверено четыре условия:
+#   (1) каждый неотображённый пункт пересверки 1a5cf53f отображён;
+#   (2) дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения или механизма без
+#       выдерживающего отображения;
+#   (3) маркеров отсрочки нет;
+#   (4) открытых решений нет.
+# Все четыре — зелёные.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 7
+  content_commit: ac0cc65a5
+  tasks_sha256: 1241c0b6b0df4bdb5512274611daa32ee3fa0f9d224634f501eb410a35babb06
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/1a5cf53f397a412d4cd6463f76c40418cda4e49207f2f10e211727751c151c91.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+  revision: 21
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml
+  note: >-
+    В дереве лежит редакция 22 (01b28881…), записи ревью на неё нет — Е1 замысла, как в 1a5cf53f.
+    Это зависимость с предикатом снятия, а не открытое решение.
+initial_records:
+  - docs/changes/issue-2919/reviews/class-exposure/initial/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml   # CX4V-01…62
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+dispatcher_decisions:
+  applied: >-
+    Д1–Д28 — как в 1a5cf53f. Д29 касается NTF-5, Д30 — NTF-3; к NTF-4 они не относятся. Редакция 7
+    нового механизма не заводит. Функция `canary.AttemptTimeout` — производная величина из двух
+    существующих ручек, а не ручка, асинхронный путь или sentinel; разрешения на механизм ей не нужно.
+revisions:
+  workspace: ac0cc65a5968f991feea63f8d2fc9ad3996b5c5f   # HEAD ветки issue-880; design.md последним менял ac0cc65a5
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main рабочей копии; на нём проверен предикат §0 tasks.md
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # не перечитывался: ссылки дельты на worker.go:657, contract.go:657 сверены в 1a5cf53f
+snapshot_at: 2026-09-30T13:37:26Z
+inspected: >-
+  Дельта 832cc05ee → ac0cc65a5: design.md (шапка редакции 7; З7 «порядок сеанса» п.1; З11
+  «порядок в такте», «жизненный цикл горутины сеанса», «уровень изоляции транзакций держателя»;
+  З12 шаг 2 и «срок попытки против срока аренды»; З14 истечение своего срока против отмены
+  родителя; З17 контекст RunSync; §3 И24; §8 строка canary.AttemptTimeout; §11 строки CX4V-66,
+  CX4V-67 и пересчёт; Д26 · 7…9; §11а УК4-37, УК4-38, УК4-40), tasks.md (шапка, §0 предикат
+  посадки, S1-A3, S1-A5, S3-C3, S5-D1, S5-D3, §2а шесть строк), change.yaml. Замысел NTF-1
+  (issue-2915/design.md @bd526f8a…): ручка smtp.sessionTimeout (:1801), SMTP-сессия под
+  контекстом срока (:1119), CX1-72 (:1945). Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый неотображённый пункт пересверки 1a5cf53f отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      В 1a5cf53f `unmapped: [CX4V-67]`. CX4V-67 отображён строкой §11 и строкой Д26 · 7 (3) с
+      выбранным вариантом (а) и держателем УК4-38 с близнецом «`250` позже LEASE_TTL»; отображение
+      выдерживает (mapping_check). CX4V-66 получил строку §11 и условия Д26 · 7 (5)–(7). Строк §11 —
+      67, уникальных пунктов — 67, строк Д26 — 9.
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения или механизма без выдерживающего отображения (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Новых внешних вызовов нет: canary.Send существовал, у него сужен срок. Новых асинхронных
+      путей нет: условия (5)–(6) ограничивают уже названную горутину сеанса (ожидание выхода,
+      признак на выходе), а не заводят новую. Sentinel-значений нет: срок вышел — существующий
+      исход `not_accepted`; отмена родителя в dnscheck — не исход, а прекращение. Новых ручек нет:
+      строка §8 `canary.AttemptTimeout` выводится из двух существующих ручек одной функцией.
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "`grep -noE 'TODO|TBD|FIXME|XXX'` по design.md и tasks.md — 0."
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      §13: «Открытых решений нет». Е1–Е6 — зависимости с предикатом снятия, как в 1a5cf53f.
+
+mapping_check:
+  - id: CX4V-67 — срок попытки контрольного письма против срока аренды
+    design: "З12 «срок попытки против срока аренды»; §8; §3 И24; Д26 · 7 (3); УК4-38; tasks S5-D3"
+    verdict: holds
+    exposure:
+      - class: "rule-architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+        condition: >-
+          Отношение названо и совпадает с соседними полосами: pop3.opTimeout ≤ LEASE_TTL / 3 (З7) и
+          срок Claim NTF-1 (CX1-72). Шаг 1 продлевает аренду первым оператором, вызов кончается не
+          позже LEASE_TTL / 3, шаг 3 застаёт аренду живой. Вычисление одно — в корне `cmd/notify`.
+          Инвариант поднят в И24 для любого внешнего вызова держателя без продления, так что
+          следующий такой вызов встанет под ту же границу. Держит УК4-38: инъекция «срок попытки =
+          smtp.sessionTimeout» даёт эпоху +1 и expected_issue IS NULL — красный; близнец «`250`
+          через 2 с» — accepted, эпоха та же.
+      - class: "code-authoring §«Чужой ответ: классификация и бюджет» — срок доходит до каждой сетевой операции"
+        condition: >-
+          Граница действует, только если контекст попытки доходит до примитива `smtp.Session` NTF-1
+          без подмены. NTF-1 ведёт SMTP-сессию под контекстом срока (issue-2915/design.md :1119),
+          поэтому примитив срок контекста исполняет. Условие к коду: canary.Send передаёт в
+          smtp.Session контекст попытки как есть — без `context.WithoutCancel`, без
+          `context.Background()` и без собственного срока примитива поверх. Держит УК4-38: релей с
+          ответом через 35 с при сроке 10 с даёт красный, если срок до примитива не дошёл.
+      - class: "code-authoring §«Умолчание, которое становится утверждением» — названная цена"
+        condition: >-
+          Цена названа в З12: релей, отвечающий на DATA дольше LEASE_TTL / 3 (не меньше 10 с),
+          даёт `not_accepted` на каждой попытке, feedback_route не поднимается. Прежний круг смены
+          эпохи и рвущихся сеансов (1a5cf53f) снят. Остаток — один сигнал: рост
+          `notify_feedback_canary_issues_total{result="not_accepted"}` (Р12) при неподвижной базе.
+          Отдельного признака установки «контрольное письмо давно не принято» нет. Такой же остаток
+          был и до редакции 7 у релея, отвергающего письмо, так что нового класса дельта не вносит.
+          Держится вниманием оператора к ряду Р12.
+    note: >-
+      Вариант (б) не выбран, и довод замысла верен: (б) расширял бы асинхронный путь на время любого
+      внешнего вызова, а (а) ограничивает сам вызов.
+  - id: CX4V-66 — сеанс ящика вне такта
+    design: "З7 п.1; З11 «жизненный цикл горутины сеанса», «уровень изоляции»; Д26 · 7 (4)–(7); УК4-37 (а)–(г); tasks S1-A3, S1-A5"
+    verdict: holds
+    exposure:
+      - class: "rule-architecture §«Concurrency / lifecycle / читаемость»"
+        condition: >-
+          Все три условия пересверки 1a5cf53f приняты в замысел как написаны: контекст горутины
+          производный, работа держателя ждёт выход горутин сеанса и продления, пул закрывается
+          после; признак «сеанс идёт» — канал, закрываемый отложенным вызовом горутины; каждая
+          транзакция держателя на запись — явный ReadCommitted. Держатели заказаны: УК4-37 (в)
+          (остановка при молчащем П10) и (г) (умолчание роли `repeatable read`, 40001 — 0), прогон
+          под `-race`. «Не больше одной горутины» по-прежнему держится прогоном и вниманием, гейта
+          нет, это сказано в З11.
+    note: >-
+      Замечание к тексту из 1a5cf53f исполнено: З7 п.1 теперь говорит, что аренду перед запуском
+      продлевает такт, а горутина начинает с независимого продления.
+  - id: Д26 · 8 (2) — контекст RunSync
+    design: "З17; Д26 · 8 (2); tasks S3-C3"
+    verdict: holds
+    note: "Условие 1a5cf53f принято дословно; держится вниманием рецензента, это названо в строке."
+  - id: Д26 · 9 (2) — истечение своего срока против отмены родителя
+    design: "З14; Д26 · 9 (2); УК4-40 второй близнец; tasks S5-D1"
+    verdict: holds
+    note: >-
+      Признак различения назван проверяемо: `errors.Is(err, context.DeadlineExceeded)` и
+      `parent.Err() == nil`. Близнец с инъекцией «отмена родителя сведена в "ответа нет"» заказан.
+  - id: предикат посадки §0 tasks.md (заказ 80dea362 (г), повторён 1a5cf53f)
+    verdict: holds
+    note: >-
+      Предикат теперь `git -C kacho log --first-parent -m --diff-filter=A …`. Контроль в обе
+      стороны на kacho@1d42a67: файл, добавленный через слияние 4382f05c0a3
+      (scripts/release/publish-service-artifact-probe-hermetic-inject.sh), — новый предикат
+      называет слияние ствола 4382f05c0a3, старый — коммит ветки 48f5dba9c2e. Для файла,
+      добавленного прямым коммитом ствола (5cfcd1aa0cc), оба предиката совпадают.
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета; записи на этот отпечаток ещё нет"
+    command: "sha256sum docs/changes/issue-2919/design.md; ls docs/changes/issue-2919/reviews/class-exposure/revalidation/"
+    result: "df1ce64d…338c6 — равен заданию и hashes.design_sha256 change.yaml; до этой записи на отпечаток было 0 файлов"
+  - claim: "§11: 67 из 67; строк Д26 — 9"
+    command: "grep -c '^| CX4V-' design.md; grep -oE '^\\| CX4V-[0-9]+' design.md | sort -u | wc -l; grep -c '^| Д26 ·' design.md"
+    result: "67, 67, 9"
+  - claim: "маркеры отсрочки"
+    command: "grep -noE 'TODO|TBD|FIXME|XXX' design.md tasks.md | wc -l"
+    result: "0"
+  - claim: "примитив SMTP-сессии NTF-1 исполняет срок контекста"
+    command: "sed -n 1119,1120p docs/changes/issue-2915/design.md"
+    result: "«ResolveSend, резерв сетки и SMTP-сессия до ответа на DATA идут под контекстом с этим сроком (CX1-27)»"
+  - claim: "предикат §0 с --first-parent -m называет слияние ствола, а не коммит ветки"
+    command: "git -C project/kacho log --first-parent -m --diff-filter=A --format='%h parents=%p' origin/main -- <файл слияния 4382f05c0a3> | tail -1; то же без --first-parent -m"
+    result: "4382f05c0a3 (два родителя) против 48f5dba9c2e (один родитель); контроль на прямом коммите 5cfcd1aa0cc — оба дают 5cfcd1aa0cc"
+
+not_measurable:
+  - "УК4-37…40 не прогонялись: кода notify NTF-4 в стволе нет (Е6)."
+  - "Как долго живой релей отвечает на DATA, не измерено. Цена варианта (а) — постоянный `not_accepted` у релея медленнее LEASE_TTL / 3 — названа по границам, а не по наблюдению."
+
+outcome: "к-коду: CX4V-66 и CX4V-67 отображены и выдерживают; новых механизмов дельта не вводит; заказы 1a5cf53f исполнены в замысле и маршруте; условие к коду — контекст попытки canary.Send доходит до smtp.Session без подмены"
+unmapped: []
+return_to_acceptance: []
+questions_to_dispatcher: []
+orders:
+  - to: "go-implementer (S5-D3; автор УК4-38)"
+    subject: "canary.Send передаёт контекст попытки в smtp.Session без WithoutCancel, Background и своего срока примитива; УК4-38 с инъекцией «срок попытки = smtp.sessionTimeout» и близнецом «250 через 2 с»"
+    basis: "code-authoring §«Чужой ответ: классификация и бюджет»; rule-architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: "go-implementer (S1-A3, S1-A5, S5-D1; авторы УК4-37, УК4-40)"
+    subject: "«срок + запас» в УК4-37 (а), (в), УК4-38 и УК4-40 — запас числом в коде пробы, одной постоянной на пробу"
+    basis: "measurement-discipline §«Форма числа»"
+findings_outside_subject: []
