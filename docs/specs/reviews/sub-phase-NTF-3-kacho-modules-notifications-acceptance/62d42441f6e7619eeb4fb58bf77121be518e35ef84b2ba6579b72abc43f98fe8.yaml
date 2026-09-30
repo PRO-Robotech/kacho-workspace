@@ -1,0 +1,232 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8
+  revision: 7
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: a479f7318070e1f310ab4d16ef3a5df1035ed6f2
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8.
+    Отпечаток — единственная привязка; любая правка документа требует нового рассмотрения.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3271
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T03:46:06Z'
+round: 1
+round_note: >-
+  Круг 1 прохода «Д14–Д16» (решения диспетчера Д1–Д13 без изменений плюс Д14, Д15, Д16). Редакция 7
+  отвечает на круг 2 прежнего прохода (отпечаток 52ef8689…).
+previous_rounds:
+  - round: 1
+    pass: first
+    sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+    verdict: CHANGES_REQUESTED
+    blocking_count: 6
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a.yaml
+  - round: 2
+    pass: first
+    sha256: 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703.yaml
+  - round: 3
+    pass: first
+    sha256: 0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8
+    verdict: APPROVED
+    blocking_count: 0
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8.yaml
+  - round: 1
+    pass: Д1–Д13
+    sha256: 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+    verdict: CHANGES_REQUESTED
+    blocking_count: 7
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552.yaml
+  - round: 2
+    pass: Д1–Д13
+    sha256: 52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4.yaml
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, NEGATIVE, TWIN]
+blocking_kinds_by_item:
+  - B1-1 CONSTRUCTIBILITY
+  - B1-2 NEGATIVE
+  - B1-3 TWIN
+repeated_kinds:
+  - kind: CONSTRUCTIBILITY
+    note: >-
+      Род блокирует четвёртый круг подряд. Класс здесь новый: пример входа проверен не прогоном той
+      функции, которую решение называет производителем. Р11а называет corevalidate.ResourceID, а
+      примеры NTF3-90 (в), (м), NTF3-114, NTF3-116 выбраны по интуиции о «формате». Кандидат в форму
+      задания автора (§14а): каждый пример входа, чей исход решает названная функция дерева,
+      прогнать этой функцией на пине и написать исход в сценарий.
+  - kind: NEGATIVE
+    note: >-
+      Род повторяется (круг 2 прежнего прохода — B2-2). Класс другой: там fail-closed на недоступной
+      службе доступа, здесь пустой обязательный чужой id (api-resourceid-empty).
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac a479f731 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: a479f7318070e1f310ab4d16ef3a5df1035ed6f2
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочия не выдаёт и ничего не открывает. Тело события для курьера
+    лежит в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода Д14–Д16, блокирующих 3: CONSTRUCTIBILITY,
+    NEGATIVE, TWIN) · SHA-256 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8
+
+measurement:
+  scenarios_numbers: 158
+  scenarios_removed: [8, 41, 42, 44, 45, 123, 124]
+  scenarios_live: 151
+  duplicate_ids: 0
+  number_gaps: 0
+  new_scenarios_with_producer_and_twin: "NTF3-155, 156, 157, 158 — у каждого строка §10 и строка §11"
+  catalog_cells_recounted: "18 (без storage 14; SWITCHABLE 11) — совпадает с NTF3-149, NTF3-80, NTF3-81, NTF3-144"
+  gate_steps_recounted: "шаги (1)–(9) × 5 модулей + шаг (10) у vpc = 46 — совпадает с «5 × 9 + 1» в NTF3-04"
+  predicate: >-
+    python3: re.findall(r'^\*\*ID:\*\* NTF3-(\d+)(.*)$') по документу; снятые — строки ID со словом
+    «снят»; §10 и §11 — поиск номера либо диапазона
+  hygiene_predicate: >-
+    grep -nE 'tmp/|не закоммич|пакет изменения не|yandex|aws|gcp|azure' по документу → 0 попаданий
+  resourceid_probe: >-
+    временная проба в отдельной копии corelib @34bc8104a (v1.9.0), validate.ResourceID("x", "", id):
+    vol@1 → nil; prj@1 → nil; acc@1 → nil; reg-1/ → nil; net-1 → nil; usr-zzz → nil; u@1 →
+    InvalidArgument; sa-1 → InvalidArgument. Копия снята, в дерево corelib ничего не внесено.
+  neighbour_revisions_compared:
+    - path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+      sha256: 0311f05f091e
+      note: >-
+        Действующая редакция 6 (Д14 — перепись Д-1…Д-7; вид на проводе — notification_feed). Документ
+        сверен с прежней a6cb0c1f (§1.12).
+    - path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+      sha256: bd960b468802
+      note: редакция 4 ссылается на NTF-3 @a623c209, а не на этот отпечаток
+  tree_revisions: kacho 1d42a6728bf · kaname 734f69fb4 · corelib 34bc8104a
+
+premise_check:
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: предмета (notify, лента, справочник) в дереве нет, стенд заданием не назван.
+    Производитель проверки формата (corevalidate.ResourceID) в дереве есть — его исход измерен
+    пробой, а не прочтением. Остальная конструируемость проверена чтением дерева и соседних
+    приёмок. Результат этой части — «не выполнилось», не «зелёный».
+  confirmed:
+    - "B2-1 закрыт: §3 — таблица шагов (1)–(12) на стороне каждого ребра notify → X; те же шаги в NTF3-04, G0, NTF3-66, Р26, DoD 12.2 п.2; NTF3-155 с близнецом NTF3-15"
+    - "B2-2 закрыт: Р25 — закрытая таблица методов, права и исхода при недоступной службе доступа; NTF3-156…158 с близнецами NTF3-87, 113, 73; средство С13"
+    - "B2-3 закрыт: поле kinds снято с подписки, ячейка (storage, STATE_CHANGE, CONSOLE) снята; каталог 18 ячеек пересчитан"
+    - "B2-4 закрыт по форме: Р11а записывает исключение B4 в трёх границах, family-agnostic; но примеры не сходятся с функцией — B1-1"
+    - "политика vpc-internal-allowlist существует и включается vpc.networkPolicy.enabled — deploy/helm/umbrella/templates/networkpolicy-vpc-internal.yaml @1d42a6728bf"
+    - "словарь видов Subscribe — словарь ObjectType: corelib subscription/journal.go:345 KindDictionary, текст отказа subscription/request.go:87 @34bc8104a"
+    - "InternalIAMService/Check принимает субъект параметром — kaname internal/apps/kaname/api/internal_iam/handler.go:278-300 @734f69fb4; вопрос Р20 о назначаемом пользователе задать можно"
+    - "Д14: тип справочника вносится в ту же декларацию перечня (Р28); перепись путей и гейт — NTF-1; строка §2.1"
+    - "Д15: форма API — Р10, Р11, Р20, Р25, Р29 этого документа; строка §2.1"
+    - "Д16: строка §2.1; документ в ветке задачи"
+  refuted:
+    - "Р11а / NTF3-90 (в), (м), NTF3-116: «vol@1», «prj@1», «acc@1» отвергаются corevalidate.ResourceID — функция принимает их (устаревшая слитная форма судит только первые три символа)"
+    - "NTF3-114: «sa-1 — формат проходит, Р11а» — ResourceID отвергает «sa-1»: приставки sa в каталоге нет, приставка сервисного аккаунта — sva"
+    - "NTF3-65, NTF3-67, §1.9, строка Д3 §2.1: «вид notification в словаре подписки» — на проводе вид — notification_feed (NTF-1 @0311f05f Р4; corelib KindDictionary)"
+    - "NTF3-151, близнец по типу: «надзор на прочих типах не тронут» — v_get на project cluster-администратору даёт сама модель (fga_model.fga:414, 425 @734f69fb4: super_admin = … or any_admin from cluster), надзор здесь не участвует"
+
+blocking_findings:
+  - id: B1-1
+    kind: CONSTRUCTIBILITY
+    title: Примеры неверного формата чужих id не сходятся с функцией, которую Р11а называет производителем
+    where: "Р11а (а); Р11; NTF3-90 (в), (м); NTF3-116 (acc@1); NTF3-114 (sa-1); §10 строка NTF3-88; §11 строки NTF3-87..95, 112..116"
+    finding: >-
+      Р11а задаёт проверку формата чужих id одной функцией — corevalidate.ResourceID фундамента,
+      family-agnostic. Я прогнал её на пине corelib @34bc8104a на примерах документа. Функция
+      принимает «vol@1», «prj@1» и «acc@1»: устаревшая слитная форма у неё проверяет только первые
+      три символа, а vol, prj и acc входят в каталог. Значит, «Тогда» в NTF3-90 (в) (`invalid
+      storage_volume id 'vol@1'`), в NTF3-90 (м) (`invalid project id 'prj@1'`) и в NTF3-116 (`invalid
+      account id 'acc@1'`) названный производитель не выдаст. Такой вход дойдёт до Check и получит
+      FAILED_PRECONDITION либо PERMISSION_DENIED. Обратная ошибка в NTF3-114: «sa-1» функция
+      отвергает (приставки sa в каталоге нет, у сервисного аккаунта приставка sva). Документ же
+      утверждает, что «формат проходит, Р11а», и ждёт FAILED_PRECONDITION «not eligible».
+    fix: >-
+      Каждый пример прогнать через corevalidate.ResourceID на пине и записать исход в сценарий.
+      Для отказа по формату взять вход, который функция отвергает: без известной приставки и без
+      дефиса после неё (например, «u@1», «zz9»), — так в каждом из (в), (м) и NTF3-116. Для
+      назначения сервисного аккаунта взять id с приставкой sva. Либо, если отказ «vol@1» нужен,
+      назвать строгую проверку тела отдельным решением, но это выходит за границы B4 (а). Строку §10
+      и производителя §11 согласовать.
+  - id: B1-2
+    kind: NEGATIVE
+    title: Пустой обязательный чужой id цели подписки не отвергается — ResourceID пропускает пустую строку
+    where: "Р11 (resource_id, project_id цели), Р11а (а); NTF3-90"
+    finding: >-
+      corevalidate.ResourceID возвращает nil на пустом id (validate.go:468-471 @34bc8104a).
+      api-resourceid-empty требует у обязательного поля-ссылки своей проверки на обязательность:
+      INVALID_ARGUMENT «<field>: required». В Р11 и Р11а её нет. NTF3-90 (г) проверяет только цель
+      без resource и без project. Случаи `target.resource = {resourceType: "storage_volume",
+      resourceId: ""}` и `target.project = {projectId: "", module: "storage"}` не определены. По
+      написанному пустой id пройдёт формат и ответит линией владельца `storage_volume  not found`,
+      то есть с вырезанным id. Это ровно красный признак правила.
+    fix: >-
+      Записать в Р11: пустые `resource_id`, `project_id` и `resource_type` дают INVALID_ARGUMENT с
+      полем (`target.resource.resource_id: required` и т. д.), проверка идёт до права. Добавить
+      в NTF3-90 буквы (н), (о) с близнецом NTF3-87, строку §10 и производителя §11.
+  - id: B1-3
+    kind: TWIN
+    title: Пара NTF3-65/67 судит вид словом журнала, а не словом провода — отрицание упасть не может
+    where: "NTF3-65 (второе «And»), NTF3-67; §1.9; §2.1 строка Д3; §1.12 (отпечаток NTF-1 a6cb0c1f)"
+    finding: >-
+      Действующая редакция NTF-1 @0311f05f (Р4, Р9, N07) и corelib @34bc8104a (KindDictionary,
+      journal.go:345) задают вид на проводе словарём ObjectType: `notification_feed`. Слово
+      `notification` — ключ журнала владельца, наружу оно не выходит. Поэтому отрицание NTF3-65
+      («открытие потока с видом notification — INVALID_ARGUMENT») зелено при любом значении флага,
+      а положительный близнец NTF3-67 («вид notification есть в словаре подписки storage») не
+      пройдёт на верной реализации. Отрицание не отличает «флаг выключен» от «флаг включён».
+      Корень в том, что §1.12 сверяет документ с NTF-1 @a6cb0c1f, а NTF-1 с тех пор сменила
+      редакцию. У storage есть другие виды, поэтому по NTF-1 N07 (а) исход при флаге false —
+      INVALID_ARGUMENT с текстом corelib.
+    fix: >-
+      Перевести §1.12 на NTF-1 @0311f05f и перепроверить каждую строку таблицы. В NTF3-65 утверждать
+      `Subscribe` с `kinds: ["notification_feed"]` → INVALID_ARGUMENT, текст `kinds:
+      "notification_feed" is not a kind of this owner; known kinds: <виды storage>`. В NTF3-67 —
+      `notification_feed` в словаре `Opened` storage. §1.9 и строку Д3 назвать словом провода.
+      Строка §10 — «флаг false / true: notification_feed вне словаря / в словаре».
+
+non_blocking_findings:
+  - "NTF3-151, близнец по типу: `project:prj-1` с `v_get` cluster-администратору даёт модель (fga_model.fga:414, 425 @734f69fb4), а не надзор. Близнец зелен и при надзоре, снятом на всех типах, то есть утверждение «надзор на прочих типах не тронут» он не держит. Взять близнец NTF-1 F12: `iam_user:<id>` с `token_issuer`, где «да» даёт только надзор. Либо снять утверждение и сослаться на F12."
+  - "§1.12: отпечатки соседей устарели — NTF-1 теперь 0311f05f (редакция 6), NTF-6 — bd960b46 (редакция 4). NTF-6 ссылается на NTF-3 @a623c209, а не на эту редакцию: после одобрения NTF-6 надо перевести на итоговый отпечаток (строка диспетчеру)."
+  - "§3: в перечне рёбер нет ребра `notify-api → служба доступа` (InternalIAMService/Check о назначаемом пользователе, Р20; публичный AuthorizeService/BatchCheck ленты, Р9; Check контактов и цели подписки). Назвать шаги на стороне службы доступа — допуск вызывающего на её слушателях — тем же приёмом, что у прочих рёбер."
+  - "Д14: NTF3-151 поведенчески проходит только место Д-3 (verdictForRelation — дверь, через которую идут методы справочника). Остальные места для типа справочника держатся одной декларацией перечня и гейтом NTF1-F12. Довод верен; стоит записать его одной фразой в Р28, чтобы читатель не искал утверждение «на всех путях» в сценарии."
+
+method_verdict: >-
+  Все четыре блокирующих круга 2 закрыты правками редакции 7. Производитель назван у каждого
+  «Тогда», близнец — у каждого нового отрицания, счёт 158/7/151 сходится, каталог (18/14/11) и
+  шаги гейта (46) пересчитаны. Д14–Д16 перенесены строками §2.1. Возврат вызван тремя местами. Два
+  из них выявлены прогоном и чтением названных в документе функций, а не соседних документов:
+  примеры формата не проходят corevalidate.ResourceID, пустой id она пропускает, а вид на проводе
+  назван словом журнала.
