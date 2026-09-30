@@ -1,0 +1,280 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 7c9d976014b20c29b8bf4d61e07c39186e1d8e9f940300e2e23b19aa11feb405
+  revision: 18
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и строками истории — «редакция 17 · вердикта нет», «редакция 18 · вердикта
+    нет». Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в заголовке;
+    действующий вердикт выводится из этой записи и внешнего события.
+  content_commit: eb2325039
+  content_commit_note: >-
+    `sha256sum` рабочей копии даёт отпечаток задания и на eb2325039, и на bb98fdadc (следующий коммит
+    ветки — запись разбора классов NTF-1, документ не трогает). Редакция 17 (1757499b4,
+    83ae8af6…) рецензии не получала; предмет этого круга — дельта от последней рассмотренной
+    редакции 16 (d3387fcd4, c79fea78…) к редакции 18.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3666
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T17:34:50Z'
+round: 1
+round_note: >-
+  Круг 1 на редакции 18. Предмет — дельта d3387fcd4 → eb2325039 по документу (142 вставки, 25
+  удалений: шапка, Р4, Р16 п.5, Р20, §3а строка 3, NTF2-34 (г), (г'), (е), (е'), §6а, §6б, §7,
+  DoD «Условие начала», пп.13, 16, 19, §11), прочитана целиком. Сверена с деревом kacho
+  @96e2fa72b3a (origin/2798) рендером в отдельном detached worktree и с замыслом NTF-1 редакции 14
+  (docs/changes/issue-2915/design.md, tasks.md @eb2325039, коммит 0fefbced9 — Д44). Прежние записи
+  не правятся.
+previous_rounds:
+  - round: 1
+    pass: редакция 16
+    sha256: c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada.yaml
+    blocking_count: 2
+  - round: 1
+    pass: редакция 15
+    sha256: 229a43791107c01c74c4538a08da389573674f372793434cffd1834feba9f929
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/229a43791107c01c74c4538a08da389573674f372793434cffd1834feba9f929.yaml
+    blocking_count: 0
+previous_round_closure:
+  B-1: >-
+    закрыт. Р16 п.5 — команда над значениями цепочки dev на <B> и на базе запроса волны, исход «нет —
+    возврат в приёмку». Воспроизведено @96e2fa72b3a: `smtp://{{ .Release.Name }}-mailpit:1025/ |
+    kacho-mailpit-tls | ca.crt | kacho-mailpit-tls`; отрицательный контроль над одним values.yaml —
+    три пустых поля и `kacho-mailpit-tls`. Совпало с текстом.
+  B-2: >-
+    закрыт по диапазону (M^1..M вместо достижимости — верно, контроль 5f689f36438 воспроизведён:
+    is-ancestor → 0, счёт в диапазоне 96e2fa72b3a^1..96e2fa72b3a → 0), но способ НАЙТИ M не
+    исполняет правило на измеренной форме посадки — B-3 этого круга.
+  N-1: закрыт — (г), (г') судятся подстановкой контрольных X, Y.
+  N-2: закрыт по существу решением Д44; дельта, его вносящая, даёт B-1 и B-2 этого круга.
+  N-3: закрыт — сказано явно в Р20.
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, DoD]
+blocking_kinds_by_item:
+  - B-1: CONSTRUCTIBILITY
+  - B-2: CONSTRUCTIBILITY
+  - B-3: DoD
+blocking:
+  B-1: >-
+    [CONSTRUCTIBILITY] Близнец NTF2-34 (е') — «копия цепочки prod с одной добавленной строкой
+    global.kacho.identity.smtp.connectionURI = X» — не рендерится: страж зонтика, который NTF-2
+    сохраняет и условий которого не меняет (Р19), отвергает узел без адреса и имени отправителя.
+    Посев @96e2fa72b3a: `helm template ci . -n kacho -f values.prod.yaml --set
+    global.kacho.identity.smtp.connectionURI='smtp://probe-relay.example:587/'` → код 1,
+    identity-mail-lane-guard.yaml:85 «адрес отправителя НЕ задан»; с добавленным fromAddress — код 1
+    (правило :91 про fromName); с тремя значениями connectionURI, fromAddress, fromName — код 0,
+    адрес в рендере 1 раз. (е') как написан красен на верной реализации, и пара (е) ↔ (е') не
+    различает «ключ не читается» от «рендер отвергнут». Что сделать: близнец (е') — узел объявлен
+    минимально-законно (connectionURI = X, fromAddress = Y, fromName — значение пробы), единственный
+    факт — «узел объявлен»; ссылка на правило стража :85–:93 как причину, почему значений три.
+  B-2: >-
+    [CONSTRUCTIBILITY] «Тогда» (е) и (е') не совпадают с тем, что производит NTF-1 по Д44 (замысел
+    редакции 14, @eb2325039). (1) Ключей три, а не один: `notify.smtp.host`, `notify.smtp.port`,
+    `notify.smtp.tlsMode` (`KACHO_NOTIFY_SMTP_{HOST,PORT,TLS_MODE}`, design.md З20 :1175, §8
+    :1903–1905); ключ, равный URI, у отправителя не существует, и (е') «тот же ключ равен X» (X —
+    контрольный адрес, записанный в connectionURI) невыполним: host не равен URI. (2) Пустой узел по
+    NTF-1 даёт ОТСУТСТВИЕ ключей: tasks.md полоса D1 — «рендер без них даёт ConfigMap без ключей, и
+    старт отвергает страж N13»; (е) требует «ключ … присутствует и пуст» — на верной реализации
+    NTF-1 красный. (3) NTF-2 — производитель чтения узла (Р20), но не называет отображение
+    connectionURI → host / port / tlsMode: схема `smtp://` приёмника стенда (values.dev.yaml) при
+    режиме «ровно starttls / implicit, без TLS значения нет» (З26) — какой режим; `smtps://` a8f60d
+    — implicit; имя пользователя в адресе a8f60d (`info%40prorobotech.ru@`) — в какую ручку.
+    Без этого NTF2-34 (а) «адрес полосы — имя и порт сервиса приёмника» и (г') «адрес полосы равен
+    X» не имеют правила сличения. Смежно: у отправителя теперь два пути значений — узел
+    global.kacho.identity.smtp (Р20, Д42 «чарт notify своего не несёт») и ключи notify.smtp.* чарта
+    NTF-1; какой из них питает шаблон и какой запрещён, документ не говорит (тот же вывод
+    независимо — разбор классов NTF-1, CX1-77, bb98fdadc; здесь перемерено чтением design.md и
+    tasks.md @eb2325039). Что сделать: в Р20 — отображение узла на ручки NTF-1 (поле узла → ручка,
+    правило схемы → tlsMode, судьба userinfo) и единственность пути значений; в (е) — исход, который
+    производит NTF-1 (ключей host/port/tlsMode в конфигурации отправителя нет либо пусты — ровно
+    одно из двух, согласованное с D1), в (е') — host и port равны разобранным из X. Если согласовать
+    нельзя без правки замысла NTF-1 — это строка «возврат замыслу NTF-1», а не молчаливое «Тогда».
+  B-3: >-
+    [DoD] DoD п.16, шаг (3): M ищется как слияния с темой `#1276 merge ` на ПЕРВОРОДИТЕЛЬСКОЙ линии
+    приёмника (W или <B>). Такие коммиты — вливания полос В ВЕТКУ kacho#1276 (8f879ff7fbd «#1276
+    merge #2818», первый родитель 96e2fa72b3a); на первородительскую линию волны они попадают только
+    при перемотке волны на ветку задачи. Измеренная форма посадки волны 2798 — неперематывающее
+    слияние через сборку: 96e2fa72b3a «#2926 merge: сборка 1 волны 2798», внутри — «#2926 свести
+    <полоса>» (`git log --first-parent --merges 96e2fa72b3a^2`). Посев: коммит слияния
+    `git commit-tree <tree> -p 96e2fa72b3a -p 8f879ff7fbd -m '#2798 merge #1276'` (ссылки не
+    создавались) → шаг (3) на нём даёт 0 коммитов M, хотя снятие 92097320166 в его диапазоне M^1..M
+    есть (счёт 1); при перемотке (W = 8f879ff7fbd) — 1. Итог: на обычной посадке множество M пусто,
+    и файл, снятый kacho#1276, судится «снят другой посадкой» — возврат в приёмку на верной
+    работе. Контроль в документе исполняет только шаг диапазона, шаг поиска M положительного
+    контроля не имеет. Что сделать: M — коммит слияния на первородительской линии приёмника, чей
+    второй родитель несёт голову ветки kacho#1276 (`git merge-base --is-ancestor <голова 1276> M^2`
+    для слияний `git log --first-parent --merges 96e2fa72b3a..L`), либо по теме слияния, названной
+    для обеих форм посадки (`#<волна> merge #1276`, `#<сборка> свести 1276`); и положительный
+    контроль шага поиска на неперематывающем слиянии.
+non_blocking:
+  N-1: >-
+    §6а и Р20: «команда Р16 п.5 … даёт пустые поля» / «→ ` | ` в обеих». Команда Р16 п.5 выводит
+    четыре поля и credentialSecret не читает; над prod и fe3455 её вывод — ` |  |  |
+    kacho-mailpit-tls` (@96e2fa72b3a). Сам факт верен (connectionURI, fromAddress, fromName,
+    credentialSecret.name пусты в обеих — перемерено), но команда и вывод в тексте не те, которыми
+    он получается. Назвать команду с полями connectionURI и credentialSecret.name и её вывод.
+  N-2: >-
+    Значение `global.kacho.notifications.enabled` в values.yaml зонтика (§3а строка 2 — единственный
+    файл цепочек, который NTF-2 правит) не названо. «Флаг true» в (е) для цепочки prod «как есть» и
+    флаг П1 на dev следуют только из него; назвать значение в §3а строка 2 или в Р4.
+  N-3: >-
+    Следствие для стенда fe3455 не названо. После посадки флаг true (N-2) при пустом узле
+    отслеживаемых слоёв fe3455 (connectionURI, fromAddress, fromName пусты @96e2fa72b3a) даёт отказ
+    старта отправителя на боевой площадке, а слой учётных данных вне git узел объявить не может:
+    cutover-fe3455.sh (ORY_CRED_PATHS) пропускает только connectionURI, страж требует с ним
+    fromAddress и fromName. Файлы fe3455 — за kacho#1276 (§3а строки 5, 7); «установка либо задаёт
+    узел, либо выключает флаг» не называет, кто и в каком изменении делает это для fe3455. Нужна
+    строка: чья посадка приводит fe3455 к одному из двух исходов и чем это проверяется перед
+    раскаткой.
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY — третий круг подряд с этим родом (редакции 14, 16, 18); DoD — второй подряд и
+  по тому же пункту п.16. Признак общий: утверждение «Тогда» или предикат DoD написан без посева на
+  том, что производит соседняя сторона (страж зонтика — B-1; замысел NTF-1 — B-2; форма посадки
+  kacho#1276 — B-3). Блокирующих не убыло (2 → 3). По multi-agent-flow-orchestration §14а — в форму
+  задания автору: «каждый новый вариант Given и близнец рендерится командой на базе до записи в
+  документ, вывод прикладывается в §6а; каждое «Тогда» о ключе соседней задачи сверяется с её
+  замыслом по имени ключа и исходу пустого значения; каждая команда поиска в DoD несёт
+  положительный контроль на форме, которой посадка реально идёт».
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 7c9d976014b20c29b8bf4d61e07c39186e1d8e9f940300e2e23b19aa11feb405
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 7c9d9760…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 редакции 18, блокирующих 3: CONSTRUCTIBILITY ×2, DoD) ·
+    SHA-256 7c9d976014b20c29b8bf4d61e07c39186e1d8e9f940300e2e23b19aa11feb405
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: eb2325039 (ветка issue-880; на bb98fdadc отпечаток тот же)
+    document_previous_reviewed: d3387fcd4 (редакция 16, c79fea78…)
+    kacho: 96e2fa72b3a (origin/2798)
+    ntf1_design: docs/changes/issue-2915/design.md, tasks.md @eb2325039 (редакция 14 замысла, 15 маршрута)
+  facts_reproduced:
+    fingerprint: "sha256sum рабочей копии → 7c9d9760…b405"
+    delta: "git diff d3387fcd4 eb2325039 -- <док> — прочитана целиком"
+    r16_p5_dev: "команда Р16 п.5 над values.yaml + values.dev.yaml @96e2fa72b3a → `smtp://{{ .Release.Name }}-mailpit:1025/ | kacho-mailpit-tls | ca.crt | kacho-mailpit-tls` — совпало"
+    r16_p5_negative: "та же команда над одним values.yaml → ` |  |  | kacho-mailpit-tls` — совпало"
+    node_per_chain: "yq eval-all по 7 цепочкам stacks.txt: узел непуст в dev, dev-prod, own, prorobotech (приёмник), a8f60d (внешний, credentialSecret kaname-mail-credential); пуст в prod и fe3455 (connectionURI, fromAddress, fromName, credentialSecret.name) — совпало с Р20"
+    prod_render_empty: "helm template ci . -n kacho -f values.prod.yaml → код 0 (страж пустой узел не отвергает) — совпало с (е) «рендер проходит»"
+    prod_render_one_line: "то же + --set connectionURI=smtp://probe-relay.example:587/ → код 1, identity-mail-lane-guard.yaml:85 (B-1)"
+    prod_render_three: "то же + fromAddress + fromName → код 0, адрес в рендере 1 (B-1)"
+    ntf1_knobs: "design.md :1175, :1533, :1903–1905 — notify.smtp.host/port/tlsMode; tasks.md D1 — пустые значения → ConfigMap без ключей (B-2)"
+    dod16_control: "8f879ff7fbd — «#1276 merge #2818», родители 96e2fa72b3a, dcb6588fefa; rev-list 8f879ff7fbd^1..8f879ff7fbd ∋ 92097320166 → 1 — совпало"
+    dod16_finder_ff: "git log --first-parent --merges --grep='^#1276 merge ' 96e2fa72b3a..8f879ff7fbd → 1"
+    dod16_finder_non_ff: "то же на коммите commit-tree -p 96e2fa72b3a -p 8f879ff7fbd → 0 (B-3)"
+    wave_landing_form: "git log --first-parent --merges 96e2fa72b3a^2 → «#2926 свести <полоса>» ×7; 96e2fa72b3a — «#2926 merge: сборка 1 волны 2798»"
+    fe3455_cred_layer: "cutover-fe3455.sh ORY_CRED_PATHS @96e2fa72b3a — из узла только global.kacho.identity.smtp.connectionURI (N-3)"
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 71
+    positive_or_mixed_marked: 18
+    negative_or_mixed_marked: 54
+    note: "новых ID нет; у NTF2-34 новые варианты (е) отрицательный, (е') положительный"
+  producer_coverage:
+    covered: 71
+    of: 71
+    note: >-
+      производитель у NTF2-34 (е) назван (NTF-2 — чтение узла; NTF-1 — ключ и отказ старта), но
+      названный производитель NTF-1 производит иное, чем «Тогда» утверждает (B-2)
+  twin_coverage:
+    negatives: 54
+    twins_named: 54
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательн | grep -vc близн → 0"
+    note: "близнец (е') назван, но не строится (B-1)"
+  constructibility_seeding:
+    seeded: 4
+    of: 6
+    detail: >-
+      Рендер зонтика @96e2fa72b3a в detached worktree (helm dependency build, helm template -n
+      kacho): вход (е) — цепочка prod как есть — рендер проходит; вход (е') как написан — отвергнут
+      стражем; минимально-законный узел из трёх значений — рендер проходит; Р16 п.5 — выполнено на
+      базе, отрицательный контроль воспроизведён. DoD п.16 — шаг поиска M посеян коммитом слияния без
+      ссылки: на неперематывающем слиянии 0.
+    not_performed: 2
+    not_performed_reason: >-
+      сторона чарта notify в (е), (е') и (г') — чарта deploy/helm/notify на базе нет (его заводит
+      NTF-1); сличение ключей отправителя проведено по замыслу NTF-1, а не рендером.
+premise_check:
+  claim: >-
+    задание: судить редакцию 18 на отпечаток 7c9d9760…, круг 1; Д44 вносит в NTF-1 ключ адреса
+    ретранслятора (с портом и режимом TLS) и страж старта, NTF-2 держит свою долю — пустой узел
+    доезжает до ключа пустым.
+  outcome: >-
+    подтверждена в части отпечатка и предмета (дельта — B-1…N-3 круга редакции 16 и Д44, §11
+    совпадает с диффом). Опровергнута в части согласия долей: форма ключа и исход пустого значения,
+    записанные NTF-1 по тому же Д44, расходятся с «Тогда» NTF2-34 (е), (е') (B-2); близнец (е') не
+    проходит страж (B-1).
+  commands:
+    - "sha256sum <док>"
+    - "git diff d3387fcd4 eb2325039 -- <док>"
+    - "yq eval-all … values.yaml <файлы цепочки> — по 7 цепочкам deploy/stacks.txt @96e2fa72b3a"
+    - "helm template ci deploy/helm/umbrella -n kacho -f values.prod.yaml [--set …connectionURI [, fromAddress [, fromName]]]"
+    - "grep -n 'notify.smtp' docs/changes/issue-2915/{design,tasks}.md"
+    - "git commit-tree <tree> -p 96e2fa72b3a -p 8f879ff7fbd; git log --first-parent --merges --grep='^#1276 merge ' 96e2fa72b3a..<commit>"
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да
+  security_surface_note: >-
+    дельта — отказ старта отправителя при пустом узле (boot-guard, ban #16) и отсутствие умолчания
+    адреса (sec-no-silent-default-for-guarded-knob); чарт и конфигурация отправителя
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и предикатами, без описания обхода и текущих слабых мест.
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 19: B-1 (близнец (е') — минимально-законный узел из трёх значений), B-2 (отображение
+    узла на ручки notify.smtp.host/port/tlsMode NTF-1 и единственность пути значений в Р20; «Тогда»
+    (е), (е') — по тому, что производит D1/N13 NTF-1, либо строка возврата замыслу NTF-1), B-3 (поиск
+    M в DoD п.16 для неперематывающей посадки с положительным контролем); N-1…N-3 тем же заходом
+  also_needed: >-
+    курьер — опубликовать событие возврата на отпечаток 7c9d9760…; если B-2 требует правки
+    отображения в замысле NTF-1 — design-агент NTF-1 по CX1-77 тем же заходом
+  owner_questions:
+    - >-
+      Стенд fe3455 после посадки NTF-2: флаг почты true при пустом узле отслеживаемых слоёв даёт
+      отказ старта отправителя, а слой учётных данных может нести только connectionURI. Чья
+      посадка (kacho#1276 или NTF-2) приводит fe3455 к «узел задан» либо «флаг выключен»?
