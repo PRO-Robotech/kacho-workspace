@@ -1,0 +1,250 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 25 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Последняя разобранная редакция — 24
+# (954a71a8…, запись revalidation/954a71a8….yaml, коммит 2b9142be1, итог «к замыслу»: CX1-98;
+# N21, N22 не блокируют). Дельта — коммит 220b5f9d9: отображение CX1-98, N21, N22, замер М46,
+# перемер М45. Пункты CX1-01…97 и условия УК1…УК94 эта запись не пересуживает.
+#
+# Итог — к замыслу, один новый пункт. CX1-98 (а)–(д), N21 и N22 отображены и выдерживают, N22 — с
+# заметкой N23. Новый пункт CX1-99: константа пути ноги зонтика (CX1-98 (г)) собрана из «имени
+# подчарта без алиаса». Имя подчарта в пути задаёт запись `notify` в зависимостях
+# `deploy/helm/umbrella/Chart.yaml`, а этот файл не назван в путях ни одной полосы tasks.md. Замер
+# этой записи (helm v4.2.4): зависимость `file://../notify` с алиасом `notifyx` даёт путь
+# `kacho-umbrella/charts/notifyx/templates/configmap.yaml`. Решение «без алиаса» — посылка
+# константы, и держать её никто не назначен. На ту же запись опирается NTF-2: её распознаватель
+# чарта notify берёт «сегмент имени зависимости из `Chart.yaml`».
+# Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 43ead44b7ab9a0f9f3937ba140358beaf2c8f77cf685faaf09dadb49a533e1be
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на 220b5f9d9 (HEAD issue-880) даёт 43ead44b…
+  change_yaml_design_sha256: 43ead44b7ab9a0f9f3937ba140358beaf2c8f77cf685faaf09dadb49a533e1be   # равен предмету
+  tasks_sha256: 63e7535eb8b76c825f1b2bfa9bd1b6843a4fae961a30baea689953e1509a4972   # маршрут редакции 26
+  revision: 25
+  content_commit: 220b5f9d9
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/954a71a8cb7618735320c695791c6e172339f9ca438a1e2717f0e721eee7f288.yaml
+    sha256: 954a71a8cb7618735320c695791c6e172339f9ca438a1e2717f0e721eee7f288
+    content_commit: 38cfc14dd
+    record_commits: [2b9142be1]
+  mapped_items: [CX1-98, N21, N22]
+  delta_predicate: "git diff 38cfc14dd 220b5f9d9 -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decisions:
+    - "Д51 (NTF-2 Е16, вариант (а)) — строка §11 Д51 и абзац З28 «Каталог несёт и ручку прыжков края» в дельте не тронуты; Е12 (8), (9) правлены только ссылкой на CX1-98 (г). Отображение Д51 судилось записью 170f1ee2 и далее не менялось; эта запись его не пересуживает"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 220b5f9d9acaf85fc569355522fb92514f9025fe   # вершина issue-880 = предмет
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564
+  kacho_1276: 69ab1d3e17d2f9e77e00ce0495c78bd5b3784154           # origin/1276
+  kacho_main: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+  helm: v4.2.4+g3900f43
+snapshot_at: 2026-09-30T20:26:17Z
+inspected: >-
+  Дельта 38cfc14dd..220b5f9d9 по пакету целиком: шапка редакции 25 design.md; §1 М45 (перемер), М46;
+  З28 «Узел почты → ключ процесса» (нога без зонтика: файл значений, опора, предпосылка, отрицание,
+  инъекция, константа пути на ногу), текст D2 «с обоими выходами», «Отказ утверждается при одном
+  незаданном значении» (б), «Читатели узла вне notify — закрытый перечень исключений» (база полосы);
+  §11 строки CX1-98, N21, N22; §13 Е12 (8)–(10). tasks.md редакции 26: шапка, строки D1, D2 (пути).
+  change.yaml. В контексте: З28 «Фикстурная копия D1», «Отдельная установка», §12 таблица путей
+  (строка «чарт notify, флаг, стенд»), NTF-2 design.md строка 4 о распознавателе чарта notify,
+  NTF-2 tasks.md про базу полос. В kacho на origin/1276, origin/2564, origin/main — страж
+  `identity-mail-lane-guard.yaml` по строкам `not $uriSet`/`fail`, `Chart.yaml` зонтика (имя,
+  зависимости, алиасы, шапка о вендоренных чартах), `.mailpit.enabled` в `values.yaml` и
+  `values.prod.yaml`. Синтетический зонтик в scratchpad: зависимость `file://../notify` без алиаса и
+  с алиасом. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "в дельте открытых Е нет; Е12 (9), (10) — заказы стороне NTF-2 с условием, полос NTF-1 не гейтят"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-98 (а)–(д), N21, N22 выдерживают; отображение CX1-98 (г) ввело посылку «подчарт без алиаса», у которой нет полосы-владельца, — новый CX1-99 не отображён"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Внешних вызовов и асинхронных путей в дельте нет. Кандидат в sentinel — печать `absent` пробы
+      файла значений ноги (`yq '… // "absent"'`). Это вывод прибора, а не значение данных: файл
+      продукта его не несёт, и иное, чем `absent`, — «НЕ ВЫПОЛНИЛОСЬ». Узел `smtp: {}` дал бы `{}` и
+      тоже «НЕ ВЫПОЛНИЛОСЬ», то есть отказ в строгую сторону
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 43ead44b… = предмет"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на 43ead44b ревью замысла нет, шапка редакции 25 это говорит. В `clean` не входит"
+
+mapping_check:
+  - item: "CX1-98 (а)"
+    verdict: holds
+    evidence: >-
+      Опора ноги без зонтика — тот же рендер `deploy/helm/notify` с файлом ноги и образцом целиком: код 0,
+      и `KACHO_NOTIFY_SMTP_CONNECTION_URI` равен адресу образца. Она же положительный близнец:
+      отрицание отличается от неё только `--set global.kacho.identity.smtp.connectionURI=null`
+  - item: "CX1-98 (б)"
+    verdict: holds
+    evidence: >-
+      Предпосылка выписана для ноги дословно: имя образца, файл значений, снятые ключи из аргументов
+      `--set …=null`, исход опоры. Утверждение проводится только при «снят один ключ, опора — код 0 и
+      ключ равен адресу». Отказ рендера в инъекции «снятый `required`» — «НЕ ВЫПОЛНИЛОСЬ» с путём и
+      текстом, а не красный. Так закрыт случай (2) записи 954a71a8: чужой `required` того же шаблона
+  - item: "CX1-98 (в)"
+    verdict: holds
+    evidence: >-
+      Файл назван: `deploy/testdata/notify-standalone/values.yaml`, он в путях D1 (tasks.md). Узла почты
+      в нём нет, и проба это печатает. Требование строже условия записи 954a71a8, которое допускало
+      узел в файле: `--set …=null` снимает ключ из любого слоя (М43). Лишним оно не стало — делает
+      отрицание независимым от М43. На трёх базах ни `deploy/testdata/`, ни `deploy/helm/notify/`
+      нет (`git ls-tree -d`), путь новый, коллизии нет
+  - item: "CX1-98 (г)"
+    verdict: holds_with_new_item
+    evidence: >-
+      Константа на ногу полной строкой и сравнение пути без строки и столбца на равенство. Инъекция
+      «перепутанные константы» → «НЕ ВЫПОЛНИЛОСЬ», близнец — своя константа. Имя зонтика
+      `kacho-umbrella` — `Chart.yaml:4` на origin/2564, origin/1276, origin/main (перемерено). М46
+      воспроизведён отдельно с file://-зависимостью вместо подчарта в `charts/`: без алиаса —
+      `# Source: kacho-umbrella/charts/notify/templates/configmap.yaml`. Посылка «в зонтике без
+      алиаса» ни одной полосе не отдана — CX1-99
+  - item: "CX1-98 (д)"
+    verdict: holds
+    evidence: "Строки D1 и D2 tasks.md редакции 26 называют файл значений, опору, предпосылку ноги, две константы и инъекцию перепутанных констант; путь файла значений — в путях D1"
+  - item: N21
+    verdict: holds
+    evidence: >-
+      М45 перемерен этой записью. Условие `not $uriSet` у ветвей `if` — 1276: :84, :121, :264, :271
+      (`fail` — :85, :122, :265, :272); 2564: :87, :124, :267, :274 (`fail` — :88, :125, :268, :275).
+      Совпадает с замыслом. `.mailpit.enabled` в `values.yaml` и `values.prod.yaml` — `absent` на
+      обеих базах. Слово «до трёх» снято в пользу «четыре ветви, при образце оператора — до трёх».
+      Сказано верно: ветвь `mailpit.enabled` без узла при образце оператора молчит
+  - item: N22
+    verdict: holds_with_note
+    evidence: >-
+      «База полосы» = ветка вливания на момент вливания, и вторая при одновременных полосах перегоняет
+      пробу. Но замысел называет эту ветку «веткой эпика `2564`». При форме «волна — единица запроса»
+      полоса вливается в ветку волны, и проверки гонятся на сведённой ветке. Заметка N23
+
+items:
+  - id: CX1-99
+    status: unmapped
+    decision: "З28 «Узел почты → ключ процесса», абзац «Ожидаемый путь — константа на ногу»: «имя чарта `notify` в `deploy/helm/notify/Chart.yaml`, в зонтике без алиаса»; §1 М46 («подчарта (имя чарта либо алиас зависимости)»); §11 CX1-98 (г); tasks.md D1, D2 (пути)"
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» (путь подчарта в зонтике выражается двумя
+      способами — именем чарта либо алиасом зависимости, и какой из двух действует, решает файл, у
+      которого нет владельца); code-authoring §«Умолчание, которое становится утверждением»
+      («без алиаса» — умолчание helm, принятое за решение замысла, но не записанное ни одной полосой);
+      .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить
+      проверкой предпосылки» п.7 (у ноги зонтика есть предпосылка «notify в рендере копии», но нет
+      записи, которая её создаёт)
+    finding: >-
+      (1) Нога зонтика и её константа `kacho-umbrella/charts/notify/templates/configmap.yaml` требуют,
+      чтобы notify входил в рендер зонтика. Чарт notify лежит в `deploy/helm/notify/`, вне
+      `deploy/helm/umbrella/charts/`, поэтому в рендер он попадает только записью в `dependencies`
+      файла `deploy/helm/umbrella/Chart.yaml` (`repository: file://../notify`). Шапка этого файла на
+      origin/2564 запрещает другой путь — вендоренный каталог в `charts/`, объявленный зависимостью
+      (двойная копия, гейт `internal/repohygiene/subchartdup_test.go`). (2) Ни одна полоса tasks.md
+      редакции 26 не называет `deploy/helm/umbrella/Chart.yaml` в путях: `grep -c 'Chart' tasks.md` → 0.
+      D1 правит `deploy/helm/notify/**`, D2 — шаблоны и файлы значений зонтика. §12 отдаёт `#2915`
+      `deploy/helm/umbrella/**` целиком, но полосы внутри не называют. (3) Замер этой записи, helm
+      v4.2.4, синтетический зонтик `kacho-umbrella` с зависимостью `file://../notify`: без алиаса —
+      `# Source: kacho-umbrella/charts/notify/templates/configmap.yaml`, с `alias: notifyx` —
+      `execution error at (kacho-umbrella/charts/notifyx/templates/configmap.yaml:6:8)`. «Без
+      алиаса» — посылка константы, а соседние записи зонтика её не подсказывают: у зависимостей `postgresql` алиасы есть (девять на origin/2564), у семи file://-зависимостей нет. (4) На ту же запись опирается
+      NTF-2: design.md NTF-2, строка 4 таблицы — «принадлежность объекту чарта `notify` определяет
+      одна функция по сегменту имени зависимости из `Chart.yaml`». Запись о зависимости — контракт
+      двух изменений, а производителя у неё нет. Громкость есть: без записи опора ноги зонтика не
+      рендерит notify, и исход — «НЕ ВЫПОЛНИЛОСЬ», а не ложный зелёный. Но так проба D1 не
+      проводится вовсе, и полоса узнаёт о недостающей записи только на прогоне
+    condition_to_design: >-
+      (а) Полоса-владелец записи `notify` в `deploy/helm/umbrella/Chart.yaml` названа, и путь стоит в
+      её путях tasks.md. Естественный владелец — D1: она заводит чарт, и её проба ноги зонтика без
+      этой записи не проводится. (б) Форма записи названа в З28: `name: notify`,
+      `repository: file://../notify`, версия чарта D1, **без `alias`** и без `condition`. Шаблоны
+      notify рендерятся только при непустом перечне (NTF1-N04), поэтому второй включатель был бы
+      вторым написанием одного решения. (в) Держатель посылки «без алиаса». Можно так: опора ноги
+      зонтика печатает строку `# Source:` объекта `ConfigMap` notify и сверяет её с той же константой
+      на равенство. Путь не равен — «НЕ ВЫПОЛНИЛОСЬ» с фактическим путём, инъекция — алиас в
+      `Chart.yaml` копии. Тогда посылку держит тот же прибор, что и отрицание, а не отдельная
+      проверка. (г) Строка NTF-2 о «сегменте имени зависимости» ссылается на эту запись как на
+      производителя (Е12 новым пунктом либо ссылкой в (4)–(6)), чтобы смена имени или появление
+      алиаса правили обе стороны одним изменением
+    held_by: "нужен гейт — сегодня посылку держит только то, что автор D1 не поставит алиас; громкий исход «НЕ ВЫПОЛНИЛОСЬ» есть, производителя записи нет"
+
+notes:
+  - id: N23
+    blocking: false
+    where: "З28 «Читатели узла вне notify — закрытый перечень исключений» («База полосы — ветка, в которую полоса вливается (ветка эпика `2564`)»); §13 Е12 (10); tasks.md D2"
+    text: >-
+      Ветка вливания полосы при форме «волна — единица запроса» — это ветка волны: проверки гонятся на
+      сведённой ветке, а в `2564` уходит один запрос на всю волну. NTF-2 tasks.md говорит так же —
+      «перемеряет … на базе запроса волны». Если D2 NTF-1 и D1 NTF-2 в одной волне, предикат
+      «D2 влита в `2564`» ложен у обеих, а сведённая ветка несёт обе. Тогда исход (iii) красит прогон
+      сведённой ветки: строки kaname в перечне есть, объектов нет. Громко, держатель есть. К коду и
+      к посадке: «ветка вливания» — ветка, на которой гонится проба (сведённая ветка волны либо `2564`),
+      а предикат «влита» — `git merge-base --is-ancestor <коммит D2> <эта ветка>`
+    predicate: "git merge-base --is-ancestor <коммит D2 NTF-1> <сведённая ветка волны или origin/2564> — на ветке прогона пробы образца"
+
+measurements:
+  - claim: "предмет — 43ead44b, коммит 220b5f9d9; change.yaml несёт 43ead44b; маршрут — 63e7535e; приёмка не менялась"
+    command: "sha256sum docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; grep -n design_sha256 docs/changes/issue-2915/change.yaml; git rev-parse HEAD"
+    result: "43ead44b…; 63e7535e…; 29cfa368…; design_sha256: 43ead44b…; HEAD 220b5f9d9"
+  - claim: "дельта — три файла пакета плюс запись 954a71a8"
+    command: "git diff --stat 38cfc14dd 220b5f9d9 -- docs/changes/issue-2915/"
+    result: "change.yaml 10, design.md 97, tasks.md 14, запись 954a71a8 259"
+  - claim: "четыре ветви стража с `not $uriSet`, номера строк замысла верны"
+    command: "git -C project/kacho show <r>:deploy/helm/umbrella/templates/identity-mail-lane-guard.yaml | grep -nE 'not \\$uriSet|fail '; r ∈ origin/1276@69ab1d3e17d, origin/2564@6edea09c2ee"
+    result: "1276: if :84/:121/:264/:271, fail :85/:122/:265/:272; 2564: if :87/:124/:267/:274, fail :88/:125/:268/:275"
+  - claim: "`mailpit.enabled` в `values.yaml` и `values.prod.yaml` не задан"
+    command: "git -C project/kacho show <r>:deploy/helm/umbrella/<f> | yq '.mailpit.enabled // \"absent\"'; r ∈ origin/1276, origin/2564, origin/main; f ∈ values.yaml, values.prod.yaml"
+    result: "absent ×6"
+  - claim: "имя зонтика `kacho-umbrella` на трёх базах; у file://-зависимостей алиасов нет, у postgresql есть"
+    command: "git -C project/kacho show <r>:deploy/helm/umbrella/Chart.yaml | grep -nE '^name:|alias:|file://'"
+    result: "`name: kacho-umbrella` — :4 на origin/2564, origin/1276, origin/main; 7 зависимостей `file://../../../…` без alias; alias только у postgresql (pg-*)"
+  - claim: "`deploy/helm/umbrella/Chart.yaml` ни в одной полосе NTF-1"
+    command: "grep -c 'Chart' docs/changes/issue-2915/tasks.md; grep -n 'Chart.yaml' docs/changes/issue-2915/design.md"
+    result: "0; в design.md — только М46 (замер имени) и строка 1955 («в зонтике без алиаса»), а также «Фикстурная копия D1» о существующих зависимостях"
+  - claim: "путь подчарта в зонтике задаёт алиас зависимости"
+    command: "scratchpad: зонтик `kacho-umbrella` с зависимостью `notify` (`file://../notify`), `helm dependency build --skip-refresh`, `helm template r umbrella -f s.yaml [--set global.kacho.identity.smtp.connectionURI=null]`; то же с `alias: notifyx`"
+    result: "без алиаса — `# Source: kacho-umbrella/charts/notify/templates/configmap.yaml`; с алиасом — `execution error at (kacho-umbrella/charts/notifyx/templates/configmap.yaml:6:8)`; build=0 в обоих случаях"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "форма записи `notify` в `Chart.yaml` зонтика после D1"
+    why: "записи нет ни на одной ветке, чарта notify тоже нет; CX1-99 (в) сформулирован так, чтобы посылку проверял прибор на прогоне, а не этот замер"
+  - item: "состав волн, в которые попадут D2 NTF-1 и D1 NTF-2"
+    why: "раздача волн — решение диспетчера на момент раздачи; N23 от него не зависит: ветка прогона называется, а не угадывается"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-99]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-99 (а)–(г): владелец записи `notify` в `deploy/helm/umbrella/Chart.yaml` (путь в полосе, естественно D1), форма записи без алиаса и без condition, держатель посылки — строка `# Source:` опоры ноги зонтика на равенство с константой, инъекция — алиас в копии; ссылка NTF-2 на производителя записи. N23 — «ветка вливания» = ветка прогона пробы (сведённая ветка волны либо 2564)"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Контракт, который нельзя выразить», §«Умолчание, которое становится утверждением»; .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.7"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-99"
+    basis: ".claude/rules/change-graph.md §4"
