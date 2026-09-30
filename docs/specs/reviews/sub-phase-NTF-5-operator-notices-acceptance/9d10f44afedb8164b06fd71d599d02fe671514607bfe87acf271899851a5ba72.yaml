@@ -1,0 +1,273 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 9d10f44afedb8164b06fd71d599d02fe671514607bfe87acf271899851a5ba72
+  revision: 13
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, а строка редакции 13 говорит «вердикта на неё НЕТ». Эта запись
+    шапку не правит. Действующий вердикт выводится из внешнего события и из записи ревью,
+    привязанной к отпечатку, а не из слова в заголовке.
+  base_commit: ff0c7b24d91
+  content_commit: 9c8c1e16a
+  content_commit_note: >-
+    Редакцию 13 внёс коммит 9c8c1e16a (родитель несёт редакцию 12, 2fe29c35…). На HEAD ff0c7b24d91
+    `git show HEAD:<файл> | sha256sum` и `sha256sum <файл>` дают 9d10f44a… оба.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3698
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T13:00:00Z'
+round: 12
+pass_round: 1
+pass_note: >-
+  Круг 1 прохода «возврат из первичного разбора классов» (RA-7…RA-9, запись
+  docs/changes/issue-2924/reviews/class-exposure/initial/2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98.yaml).
+  Сквозной номер круга по документу — 12. Предмет — весь документ; по существу проверена дельта
+  2fe29c35→9d10f44a: `git diff -U0 9c8c1e16a~1 9c8c1e16a -- <файл>` — 42 места правки, все в
+  пределах RA-7…RA-9 и CX5-35 (§1.4, Р2, Р5, Р10, Р16, Р17, Р18, Р21, Р23, §5, §6, G0, NTF5-22, 24,
+  53, 54, 120–122, §8, §9, DoD 10.1 пп. 2а, 3, 6, 10, 11, §10.4, §11, §23). Раздел перенесённых
+  решений диспетчера (Д1–Д18) дельтой не тронут.
+previous_rounds:
+  - {round: 1, sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: 1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32, verdict: APPROVED}
+  - {round: 9, sha256: 6d2709cf09e39854fa757e7c7464e4eb4c7fe891337fd98b125b76acb5fad738, verdict: CHANGES_REQUESTED}
+  - {round: 10, sha256: e9b2e194da595f8644a56b1b6f06631a3f9f86b72f18debecaa79effadd18b34, verdict: CHANGES_REQUESTED}
+  - {round: 11, sha256: 2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac ff0c7b24d91 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: ff0c7b24d91
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+publication_mode: >-
+  Событие полномочия публикует курьер, его тело — строка external_event_body ниже. Роль в этой
+  записи — координата, личность она не доказывает. Вердикт относится только к отпечатку
+  9d10f44a…: любая правка документа требует нового рассмотрения. Одобрение 2fe29c35… (круг 11)
+  остаётся вердиктом о редакции 12 и на редакцию 13 не переносится.
+external_event_body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 9d10f44afedb8164b06fd71d599d02fe671514607bfe87acf271899851a5ba72"
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - {id: B12-1, kind: CONSTRUCTIBILITY}
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2, 2, 1, 0, 3, 1, 0, 1]
+  note: >-
+    RA-8 и RA-9 закрыты. RA-7 закрыт по сути (ручка, граница, страж, NTF5-120, NTF5-54 (г), (д)),
+    но пункт DoD о переписи гейта окна отзыва описывает состояние гейта, которое при его
+    нынешнем устройстве построить нельзя (B12-1).
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → 9d10f44a… оба (HEAD ff0c7b24d91)"
+  - claim: "§1.4: экспортируемые записи операций идут на пуле; CAS-записи на транзакции не экспортированы, условие `WHERE id = $1 AND done = false`, 0 строк → ErrAlreadyDone / ErrNotFound; CreateWithPrincipal пишет done=false и подставляет SystemPrincipal"
+    result: подтверждено
+    predicate: >-
+      git -C project/corelib show 34bc810:operations/repo.go: markDoneCAS :170 (условие :179,
+      ErrAlreadyDone :194, ErrNotFound :196), markDoneWithMetadataCAS :205, markErrorCAS :242;
+      MarkDone :573-574, MarkError :586-587 — r.pool; CreateWithPrincipal :367, SystemPrincipal :384,
+      вставка `false` в колонку done — :388-393; CancelOwned :667, условие `done = false AND <владелец>`
+      :674, ErrAlreadyDone :694
+  - claim: "NTF5-122 (ж): на READ COMMITTED гонка CancelOwned × условная запись даёт ровно один исход, без ошибки сериализации"
+    result: подтверждено чтением кода
+    predicate: >-
+      markDoneCAS — UPDATE … WHERE done = false внутри CTE плюс EXISTS по строке: проигравший UPDATE
+      ждёт блокировку, перечитывает строку, 0 строк, строка есть → ErrAlreadyDone. CancelOwned при 0
+      строк перечитывает строку отдельным запросом (GetOwned): done = true без ошибки → ErrAlreadyDone
+      (:690-694); отмена — error_code = 1 (:673)
+  - claim: "корелибовская интеграционная обвязка для NTF5-122 существует"
+    result: подтверждено
+    predicate: "git -C project/corelib grep -l testcontainers 34bc810 -- operations/ → cas_integration_test.go, execution_claim_integration_test.go, markdone_metadata_integration_test.go"
+  - claim: "§1.4: listnarrow — ноль и отрицательное значение CacheTTL заменяются на 5 с, часы заменяемы; модули держат окно ручкой семьи list-filter"
+    result: подтверждено
+    predicate: >-
+      git -C project/corelib show 34bc810:listnarrow/narrower.go: CacheTTL :110-120, замена :215-216,
+      WithClock :241-243, срок записи — n.now() :662, :684. git -C project/kacho show
+      1d42a6728bf:tools/revocationwindowgate/gate.go: knobNames :170-190 (семья list-filter),
+      verdictCacheCtorNames :210-214 (NewCache, NewCacheWithLimit, newDecisionCache).
+      RevocationPolicy.Ceiling = 10s (corelib authz/revocation_policy.go:153), Windows :205
+  - claim: "NTF5-121: текст отказа звена прав — `permission denied`"
+    result: подтверждено
+    predicate: >-
+      git -C project/corelib show 34bc810:authz/interceptor.go | sed -n 208,209p → DecisionDenied →
+      status.Error(codes.PermissionDenied, "permission denied"). Отказ со скрытием существования
+      (NOT_FOUND) задаётся каталогом по объекту; объект InternalNoticeService — cluster:cluster_root,
+      не извещение, поэтому сценарию он не мешает
+  - claim: "DoD 10.1 п.10 выполним на гейте окна отзыва так, как записан"
+    result: опровергнуто (B12-1)
+    predicate: >-
+      git -C project/kacho show 1d42a6728bf:tools/revocationwindowgate/ownership.go | sed -n 134,140p
+      (имя конструктора сопоставляется без квалификатора: fn.Sel.Name);
+      git -C project/kacho show 1d42a6728bf:internal/repohygiene/revocationwindow_test.go | sed -n
+      40,60p (revocationScanRoots — закрытый перечень каталогов конфигурации), :111-113 (ключ
+      сверки — serviceOfPath(каталог) + " " + ручка), :178-190 (serviceOfPath: services/<svc>/… →
+      <svc>), :247-248 (объявленный процесс — первое слово ключа Windows);
+      git -C project/kacho grep -l '\.New(' 1d42a6728bf -- 'services/*.go' 'gateway/*.go' ':!*_test.go' | wc -l → 195
+  - claim: "дельта не трогает раздел перенесённых решений Д1–Д18"
+    result: подтверждено
+    predicate: "git diff -U0 9c8c1e16a~1 9c8c1e16a -- <файл> | grep '^@@' → 42 места правки; ни одно не приходится на раздел перенесённых решений"
+  - claim: "id сценариев уникальны, 122 штуки; §10.4 сходится"
+    result: подтверждено
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* NTF5-[0-9]+' → 122, дубликатов 0; §10.4: 68 + 52 + 2 = 122"
+  - claim: "в Р17 шесть ручек"
+    result: подтверждено
+    predicate: "grep -n '^| `KACHO_NOTIFY' <файл> → 6 строк (1215–1220); NTF5-53, 54 (в) и §8 говорят «шесть»"
+  - claim: "службы notify в дереве продукта нет (посев недоступен)"
+    result: подтверждено
+    predicate: "git -C project/kacho ls-tree 1d42a6728bf services/notify | wc -l → 0"
+  - claim: "гигиена: нет путей рабочей копии, фраз о незакоммиченности, имён чужих облаков, маркеров отсрочки"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|TODO|FIXME|<перечень имён чужих облаков>' <файл> → 0"
+
+counts:
+  scenarios: 122
+  scenario_ids_unique: true
+  scenario_count_predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 122; дубликатов 0"
+  producer_coverage: >-
+    122 из 122 по §8. Новые строки: NTF5-120 (ручка → listnarrow.Config.CacheTTL, часы — порт
+    обвязки), NTF5-121 (authz.Interceptor на слушателе notify-api, corelib authz/interceptor.go:209),
+    NTF5-122 (функции Р23 corelib operations)
+  twins: >-
+    у каждого отрицания §9 есть близнец: NTF5-121 (а), (б) — (г); (в) — (д); NTF5-122 (а)–(б),
+    (в)–(г), (д)–(е); NTF5-54 (г), (д) — (в); NTF5-120 (б) — (а). У каждой пары меняется один факт
+  constructibility: >-
+    Посеяно 0 из 122, «не выполнилось» — 122: службы notify в дереве нет (@1d42a6728bf), стенд и
+    изоляцию для посева задание не назвало. Новые «Дано» строятся названными средствами §6:
+    «звено прав notify-api» (NTF5-121), «время» с часами сужателя (NTF5-120), «запись операции
+    фундамента» — обвязка corelib operations на testcontainers, существует (NTF5-122). Состояние
+    DoD 10.1 п.10 при нынешнем устройстве гейта не строится (B12-1)
+
+blocking:
+  - id: B12-1
+    kind: CONSTRUCTIBILITY
+    anchors: ["Р17 (абзац после таблицы ручек)", "Р16 (посадка сужателя)", "DoD 10.1 п.10", "§23 строка RA-7"]
+    text: >-
+      Пункт DoD 10.1 п.10 требует от гейта окна отзыва состояния, которое при его нынешнем
+      устройстве получить нельзя. Отдельных дефектов три.
+      (1) «Конструктор listnarrow.New — в словаре конструкторов гейта». Имя конструктора гейт
+      сопоставляет без квалификатора, и это сделано намеренно (ownership.go:134-139,
+      `verdictCacheCtorNames[fn.Sel.Name]`; gate.go: «the package qualifier is no longer read»).
+      Если записать в словарь `New`, окно по конструктору получит любой процесс, где есть вызов
+      `<что угодно>.New(`, — это 195 не-тестовых файлов в services/ и gateway/ @1d42a6728bf.
+      TestEveryVerdictCacheServiceIsDeclared (revocationwindow_test.go:239) потребует записи
+      Windows для каждого такого процесса. Чтобы выполнить пункт буквально, придётся либо
+      заставить гейт читать квалификатор (это меняет его договор, и нужна своя инъекция), либо
+      сломать перепись. Сужатели модулей (authzfilter у compute, storage, vpc, nlb) в словаре
+      конструкторов тоже не стоят: они держатся только ручкой. Поэтому довод «так же, как ручки
+      окна сужателя модулей» (Р16) требования к конструктору не содержит.
+      (2) «Запись RevocationPolicy.Windows с ключом `notify-api KACHO_NOTIFY_LIST_FILTER_CACHE_TTL`».
+      Гейт собирает ключ сверки как serviceOfPath(каталог) + " " + ручка
+      (revocationwindow_test.go:111-113), а serviceOfPath для services/notify/… даёт `notify`
+      (:178-190). Площадка будет сверяться с ключом `notify KACHO_NOTIFY_LIST_FILTER_CACHE_TTL`,
+      и запись `notify-api …` даст находку «окно не объявлено политикой». Кроме того, перепись
+      держателей берёт имя процесса из первого слова ключа (:247-248), и процесс `notify` окажется
+      необъявленным. Различать два развёртывания одного каталога (notify-api и notify-sender) гейт
+      сегодня не умеет.
+      (3) Гейт читает только закрытый перечень каталогов конфигурации revocationScanRoots
+      (revocationwindow_test.go:40-60). Каталога services/notify/internal/config в нём нет, и
+      пункт п.10 его не называет. Без этого ручка в словаре knobNames не даст ни одной площадки, и
+      инъекция «ручка снята из сборки сужателя» гейт не уронит: сверять ему нечего.
+      Что нужно: переписать п.10 (и абзац Р17, и строку §23) так, чтобы его можно было выполнить.
+      Ручка — в knobNames, семья list-filter. Каталог конфигурации notify — в revocationScanRoots.
+      Ключ Windows — в той форме, которую производит гейт (`notify KACHO_NOTIFY_LIST_FILTER_CACHE_TTL`),
+      либо правка serviceOfPath под имена развёртываний, названная производителем со своей
+      инъекцией. Требование к listnarrow.New снять, либо заменить правкой сопоставления
+      конструкторов с квалификатором — тогда со своей инъекцией и близнецом: «чужой `x.New` окна
+      не даёт».
+
+important:
+  - id: I-1
+    kind: COVERAGE
+    text: >-
+      NTF5-122 (д): «создание операции E3 любой из двух функций создания с пустым принципалом».
+      Р23 и DoD 10.1 п.2а говорят «обе функции создания отвергают пустой принципал». Проба,
+      вызвавшая только одну функцию, формально выполнит букву (д), и подстановка SystemPrincipal во
+      второй функции останется без держателя. Это тот самый класс CX5-33. Лучше развести на (д1),
+      (д2) — по функции на каждую, с близнецами (е1), (е2).
+  - id: I-2
+    kind: CONVENTION
+    text: >-
+      CX5-36 (в) требует задавать CacheMaxEntries сужателя явно; RA-7 этого не требовал. В Р16 про
+      предел размера окна ничего нет, а неположительное значение сужатель заменяет умолчанием
+      10000 (listnarrow/narrower.go:218-219 @34bc810). Если предел остаётся умолчанием фундамента,
+      это нужно сказать словами. Иначе — ручка или константа сборки с обоснованием.
+  - id: I-3
+    kind: PRODUCER
+    text: >-
+      Перенос из круга 11, I-2: запись носителя notify в INTERNAL_ENDPOINTS гейта изоляции первой
+      нужна NTF-4. Вопрос маршрута — диспетчеру.
+
+revision_13_check:
+  RA-7: >-
+    по сути закрыт: ручка KACHO_NOTIFY_LIST_FILTER_CACHE_TTL [1s, 10s], поставляется 5s, есть
+    страж; фраза «тот же размен, что у списков модулей» снята. NTF5-120 отличает окно ручки (2s)
+    от умолчания (5s) одним фактом — моментом чтения. NTF5-54 (г), (д) — близнец (в). Перепись
+    гейта (DoD п.10) не строится — B12-1
+  RA-8: >-
+    закрыт. Производитель — правка corelib operations (Р23): три формы, по одной функции на
+    каждую; форма 3 — экспорт markDoneCAS / markErrorCAS без изменения условия; принципал без
+    запасного; READ COMMITTED. Все пять мест записи операции в транзакции ссылаются на Р23.
+    Стадия S1 ждёт тега (§5), граница с NTF-3 Р18 названа, держатель — NTF5-122 (ж), гонка на 20
+    повторов
+  RA-9: >-
+    закрыт. NTF5-121: вызов прямо на слушатель notify-api клиентом с SAN края и пересланным
+    принципалом. Отказ на Create (usr-c, usr-v) и на Get (usr-c): PERMISSION_DENIED
+    «permission denied», use-case не исполнялся, в журнале ровно один Check. Близнецы — usr-op на
+    Create, usr-v на Get. NTF5-22 и 24 названы держателями уровня края; перепись «метод ↔ право»
+    — DoD п.11
+  CX5-35: "названо наблюдаемое (Р23: операция Create завершается только шагами 3–6); решение о Reconciler отдано замыслу — это правильно"
+
+dispatcher_decisions_check:
+  D1-D16: "соблюдено: раздел перенесённых решений дельтой не менялся; сверка — запись 6d2709cf….yaml"
+  D17: >-
+    соблюдено: у notify-api один внутренний слушатель в форме Х5, публичного слушателя нет по
+    построению, цепочку прав и личности собирает один строитель, наружу — только маршруты края
+    через notifyInternal. Редакция 13 усилила это: право на InternalNoticeService судит само звено
+    прав notify-api, а не только край (Р18, NTF5-121)
+  D18: >-
+    соблюдено: InternalNoticeService, публичный NoticeService и контакты — на одном слушателе.
+    NTF5-26 и NTF5-49 — под отказом маршрута края. PATCH контактов отвечает done=true, операция
+    пишется в той же транзакции функцией Р23 (Р21). Долгая Create с done=false опрашивается и
+    отменяется через внутренний адрес края по NTF-4 Р20 (NTF5-26 (в)–(е), 118, 119). S1 ждёт тега
+    corelib с Х5 (§5, DoD 10.1 п.8) и, теперь ещё, тега с функциями Р23
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (экраны — NTF-6 по контракту Р22)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (звено прав notify-api на InternalNoticeService, окно отзыва сужателя, принципал операций без запасного, маршруты края через notifyInternal)"
+
+questions_for_dispatcher:
+  - "Запись носителя notify в INTERNAL_ENDPOINTS первой нужна NTF-4 (I-3); передать автору NTF-4."
+  - "Р23 заводит новую задачу corelib (запись операции в транзакции вызывающего); её нужно завести до старта S1 и сверить с NTF-3 Р18 (та же форма 3)."
