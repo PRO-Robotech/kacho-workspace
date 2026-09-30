@@ -1,0 +1,449 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-5 (извещения оператора), редакция 1.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы на 1f4852e4, 2fe29c35, 88fabd09,
+# 03e291ee и 367b9482 свидетельствуют о своих редакциях приёмки и здесь не переписываются.
+# Проверено пять вещей:
+#   (1) каждый пункт CX5-01…48 отображён в решение замысла, и отображение выдерживает условие
+#       пункта;
+#   (2) новые внешние вызовы, (3) новые асинхронные пути и (4) новые sentinel-значения, которые
+#       замысел вносит сверх приёмки, заведены пунктами и отображены;
+#   (5) маркеров отсрочки и открытых решений нет.
+# Условие «нет применимого ревью замысла» здесь не судится: ревью — следующий шаг.
+# Новые пункты этой пересверки — CX5-49…54. У замысла для них строк отображения нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2924
+issue: https://github.com/PRO-Robotech/kacho/issues/2924
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2924/design.md
+  sha256: a43a19fa5f8bfeaa1463f8efcb7927726d69d5ed611501c603d51229f71e8a9f
+  fingerprint_predicate: sha256sum docs/changes/issue-2924/design.md
+  revision: 1
+  content_commit: 4697e3f39
+acceptance:
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153.yaml
+initial_records:
+  - docs/changes/issue-2924/reviews/class-exposure/initial/1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32.yaml   # CX5-01…28
+  - docs/changes/issue-2924/reviews/class-exposure/initial/2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98.yaml   # CX5-29…36
+  - docs/changes/issue-2924/reviews/class-exposure/initial/88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af.yaml   # CX5-37…41
+  - docs/changes/issue-2924/reviews/class-exposure/initial/03e291eec3d343efa377a7027925f4cb5581057b56dbbd707de74f1d67a9765a.yaml   # CX5-42…44
+  - docs/changes/issue-2924/reviews/class-exposure/initial/367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153.yaml   # CX5-45…48
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 01c6ea98714a764f31630f77ae160c4665bdf613   # ветка issue-880 на момент замеров
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main после fetch; равна §0 замысла
+  kaname: 734f69fb4f7f2cadf1d3887ece90b22bf7793a0b      # origin/357 после fetch; равна §0 замысла
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # origin/main после fetch; равна §0 замысла
+snapshot_at: 2026-09-30T09:58:35Z
+inspected: >-
+  Замысел прочитан целиком: 884 строки, §0–§13, З1–З25, И1–И15, §11 — 48 строк отображения,
+  уникальных номеров CX5 — 48. Условия всех 48 пунктов прочитаны в пяти первичных разборах.
+  Приёмка NTF-5 на 367b9482: Р12, Р14, NTF5-02, 07, 08, 50, 51, 57, 73, 92, 107, 117.
+  Приёмка NTF-1 на 29cfa368: Р7 — presence required|optional, нулевое значение атрибута;
+  Р8 — Claim/Ack, повтор Ack, уборщик и аренда, feed.LeaseTTL. corelib @34bc8104a:
+  operations/types.go (Principal, IsAnonymous, AnonymousPrincipalID), owner.go,
+  reconciler.go (withDefaults), перепись методов pgRepo и переменных пакета. kacho @1d42a6728bf:
+  gateway/cmd/api-gateway/mtls_config.go (dialBackends, cleanup, backendEdge), потребители карты
+  backends, config.go BackendAddrs, allowlist/parity_test.go,
+  deploy/scripts/assert-ban6-external-isolation.py, .golangci.yml. kaname @734f69fb4: места
+  вызова и упоминания operations.NewRepo. Записки vault не читались.
+
+approval_conditions:
+  # Пять условий: SDD-1 §5, CLASS-05, 08, 09, 10, DESIGN-02. Исход каждого — на отпечатке a43a19fa.
+  # Шестое условие DESIGN_APPROVED — применимое ревью замысла — предмет следующего шага, здесь не судится.
+  - condition: "каждый пункт первичного разбора отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строк отображения 48 из 48. Три отображения пересверку не выдерживают. CX5-05: предикат
+      Supersede «lease_until IS NULL» пропускает строку, которая уже была забрана и отложена
+      (DEFER), — а пункт назван ради именно этого случая. CX5-07: резерв окна адреса с PK
+      feed_row_id при повторном взятии отложенной строки даёт 23505 — строка застревает. CX5-24:
+      предикат подметальщика противоречит Р14, запрету З8 п.5 на SQL notify к таблице ленты и
+      порядку каскада. Остальные 45 выдерживают; у CX5-19 и CX5-28 — с условием к коду (см.
+      CX5-52, CX5-54).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      Новых сетевых вызовов 0. Рёбра §9 (DescribeScope, ListAccounts, Resolve, ResolveSend,
+      Check, пакетная проверка сужателя) названы приёмкой (ResolveSend — 8 упоминаний в приёмке).
+      ops.Get, feed.Supersede, feed.DeleteTerminal и порт OutcomeObserver — вызовы в процессе к
+      той же базе. Порт OutcomeObserver — новое звено в чужой транзакции; он заведён пунктом
+      CX5-54 по классу, а не как внешний вызов.
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      Новых асинхронных путей 0. Взятие заявки по аренде, повтор отложенной строки кандидата,
+      планировщик, подметальщик, раскрытие и сборщик метрик названы приёмкой или пунктами
+      CX5-08, 29, 30 и отображены. Повторное взятие после истечения аренды — часть пути
+      CX5-08; его значения судятся пунктом CX5-50.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: red
+    detail: >-
+      Пять новых sentinel-значений, строк отображения у них нет:
+      нулевое значение endsAt в строке ленты при шаблонах, где presence не объявлен, — CX5-49;
+      NULL и истёкший срок аренды, а также личность «$me» в трёх арендах notify — CX5-50;
+      пустая позиция раскрытия означает и «не начато», и «закончено» — CX5-51;
+      отсутствие thread_key, записанное пустой строкой, — CX5-52;
+      ErrEmptyPrincipal распознаётся по «p == Principal{}» мимо Principal.IsAnonymous — CX5-53.
+      ErrNilTx, pause, pauseMisconfigured и метка code="UnknownOutcome" заведены пунктами
+      CX5-43, 08, 09 и отображены.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож|пока не' даёт 3 попадания. Два из них —
+      «отложенной строки кандидата» (исход DEFER, термин предмета), третье — «позже T1, Х5, Х1»
+      (порядок тегов). §13: «Открытых решений нет». Зависимости Е1…Е5 несут предикат снятия.
+
+mapping_check:
+  - {id: CX5-01, design: "З8 п.1, п.2, п.6", verdict: holds}
+  - {id: CX5-02, design: "З6 п.1", verdict: holds}
+  - {id: CX5-03, design: "З5 п.1–п.3", verdict: holds}
+  - {id: CX5-04, design: "З5 п.4, п.5", verdict: holds}
+  - id: CX5-05
+    design: "З8 п.5, З1"
+    verdict: fails
+    note: >-
+      Условие (в) требует, чтобы SUPERSEDED ложился на строки, не взятые в работу. Замысел
+      выражает это как «feed.Supersede … только строкам pending без аренды (WHERE … AND
+      lease_until IS NULL)». По NTF-1 Р8 строка хранит токен аренды после Ack. Уборщик ленты
+      закрывает строку по условию «нет ДЕЙСТВУЮЩЕЙ аренды», а срок аренды — feed.LeaseTTL = 5 мин.
+      Строка, забранная Claim и отложенная потолком (DEFER(ob_address_ceiling), до 24 ч), —
+      тот самый случай, ради которого пункт заведён: «Cancel при неотправленном, отложенном
+      потолком scheduled». Её срок аренды уже истёк, но не NULL. Supersede её не закроет, и
+      следующий Claim отправит письмо отменённого этапа. Истёкшая аренда и её отсутствие —
+      одно состояние «не в работе», а записано двумя разными предикатами. Замысел выбрал тот,
+      который истёкшую аренду не видит.
+  - {id: CX5-06, design: "З10 п.1, п.2", verdict: holds}
+  - id: CX5-07
+    design: "З11"
+    verdict: fails
+    note: >-
+      (а) и (б) выражены. (в) не выдерживает. Резерв — вставка в notice_ob_address_window с PK
+      feed_row_id «в транзакции взятия строки», а снимается резерв только «той же транзакцией,
+      что закрывает строку». Строка, которая получила резерв и затем DEFER(ob_stream_pace)
+      (ведро пусто), не закрыта, и её резерв остаётся. То же при повторном Claim после потери
+      аренды (no_ack). Следующее взятие той же строки снова вставляет feed_row_id: 23505 на
+      каждом проходе, строка не уходит никогда. Это против Р15 «откладывают, не теряют».
+      Кроме того, «транзакция взятия» не названа по месту. Claim — транзакция сервера ленты
+      corelib, а не notify, и §4 правки Claim не перечисляет.
+  - {id: CX5-08, design: "З3 п.2, п.4, п.7", verdict: holds, note: "начальное значение аренды и личность держателя — новый пункт CX5-50"}
+  - {id: CX5-09, design: "З3 п.8, §5", verdict: holds}
+  - {id: CX5-10, design: "З9 п.3, З23 п.4, §9", verdict: holds}
+  - {id: CX5-11, design: "З23 п.3", verdict: holds}
+  - {id: CX5-12, design: "З9 п.2, З8 п.4", verdict: holds, note: "позиция после последней страницы — новый пункт CX5-51"}
+  - {id: CX5-13, design: "З16 п.2, п.3", verdict: holds}
+  - {id: CX5-14, design: "З13 п.3, п.4", verdict: holds, note: "(г) выбран третий путь — повтор хранится; довод о равенстве проекций назван"}
+  - {id: CX5-15, design: "З13 п.1", verdict: holds}
+  - {id: CX5-16, design: "З13 п.2", verdict: holds}
+  - {id: CX5-17, design: "З15", verdict: holds}
+  - {id: CX5-18, design: "З7 п.1, З20", verdict: holds}
+  - id: CX5-19
+    design: "З12"
+    verdict: holds-with-condition
+    note: >-
+      Вместо (б) «корень — вставка если нет при SENT» замысел выбирает корень при рендере
+      (первая SENT) и держит это однострочностью пары в полёте. Довод выдерживает. Условие к
+      коду о записи отсутствия thread_key и о месте правки Claim — новый пункт CX5-52.
+  - {id: CX5-20, design: "З10 п.1", verdict: holds}
+  - {id: CX5-21, design: "З23 п.1", verdict: holds}
+  - {id: CX5-22, design: "З23 п.2", verdict: holds}
+  - {id: CX5-23, design: "З6 п.1", verdict: holds}
+  - id: CX5-24
+    design: "З24"
+    verdict: fails
+    note: >-
+      (1) Р14 приёмки: подметальщик «удаляет … вместе с этапами и строками доставки», условия
+      на их исход нет. З24 добавляет «AND NOT EXISTS (<строка доставки не в терминальном
+      исходе>)» — извещение живёт дольше срока и остаётся видимым в Get/List. §12 замысла
+      («ни одного нового … исхода») с этим расходится. (2) Строки ленты лежат в таблице
+      фундамента, а З8 п.5 говорит: «своего SQL к таблице ленты у notify нет». Значит, «один
+      DELETE» с NOT EXISTS по исходу строки ленты в замысле невыразим. (3) id строк ленты
+      берутся из notice_addressees.feed_row_id, а эти строки снимает каскад того же DELETE.
+      После оператора передать их в feed.DeleteTerminal нечем. Это класс пункта — порядок
+      снятия ресурса. (4) Предикат «доставка не закончена» не называет открытого события этапа
+      (раскрытие не завершено) и строки кандидата в DEFER, хотя обе каскадно удаляются вместе
+      с извещением.
+  - {id: CX5-25, design: "З22", verdict: holds}
+  - {id: CX5-26, design: "З3 п.1, З25", verdict: holds}
+  - {id: CX5-27, design: "З16 п.4, З18 п.6", verdict: holds}
+  - id: CX5-28
+    design: "З21 п.2"
+    verdict: holds-with-condition
+    note: >-
+      Условие пункта: «счётчики исходов — на процесс». Замысел выбрал другое: счётчики в таблице
+      базы, одинаковые на репликах, агрегация max. Выбор назван, и его довод выдерживает. Новое
+      следствие — увеличение счётчика в транзакции Ack сервера ленты при повторе Ack и порядок
+      обновления строк счётчиков — вынесено в пункт CX5-54.
+  - {id: CX5-29, design: "З6 п.2, З7 п.3", verdict: holds}
+  - {id: CX5-30, design: "З8 п.2–п.6", verdict: holds}
+  - {id: CX5-31, design: "З10 п.2, п.3", verdict: holds}
+  - {id: CX5-32, design: "З16 п.1, п.3", verdict: holds}
+  - {id: CX5-33, design: "З17", verdict: holds, note: "распознавание пустого принципала в Ф1/Ф2 — новый пункт CX5-53"}
+  - {id: CX5-34, design: "З2, З3 п.5, п.6", verdict: holds}
+  - {id: CX5-35, design: "З4", verdict: holds}
+  - {id: CX5-36, design: "З14 п.2", verdict: holds}
+  - {id: CX5-37, design: "З2 п.1, п.9", verdict: holds}
+  - {id: CX5-38, design: "З2 п.1–п.3, п.5", verdict: holds}
+  - {id: CX5-39, design: "З20, §10", verdict: holds}
+  - {id: CX5-40, design: "З14 п.3", verdict: holds}
+  - {id: CX5-41, design: "З14 п.1", verdict: holds}
+  - {id: CX5-42, design: "З2 п.1, п.2, п.9", verdict: holds, note: "operations.NewRepo как значение функции в kacho и kaname — 0 мест; смена типа результата на TxRepo прежних присваиваний не ломает"}
+  - {id: CX5-43, design: "З2 п.4", verdict: holds}
+  - {id: CX5-44, design: "З2 п.5 (б); (а) снят записью на 367b9482", verdict: holds}
+  - {id: CX5-45, design: "З18 п.1–п.3", verdict: holds, note: "cleanup закрывает срез opened, а не карту backends; псевдоним в opened не входит — закрытие одно (mtls_config.go @1d42a6728bf)"}
+  - {id: CX5-46, design: "З18 п.4", verdict: holds}
+  - {id: CX5-47, design: "З2 п.5–п.7", verdict: holds}
+  - {id: CX5-48, design: "З18 п.5", verdict: holds}
+
+new_items:
+  - id: CX5-49
+    source: >-
+      §0 замысла: «Д19 и Д21 предмета NTF-5 не касаются: … атрибутов с законным нулём у шаблонов
+      obligation нет (Р12: только timestamp и path, оба обязательны по NTF-1 Р7)»
+    kind: sentinel
+    class: "code-authoring §«Умолчание, которое становится утверждением» (нулевое время незаданного endsAt)"
+    exposure: >-
+      Довод опровергнут замером. Р12 ограничивает ТИПЫ атрибутов, а не их число и не их
+      обязательность. NTF5-57 требует у каждого из 19 шаблонов атрибуты startsAt, endsAt
+      (timestamp) и link (path). У endsAt нуль законен: OUTAGE без endsAt (NTF5-02),
+      MAINTENANCE без endsAt (NTF5-08), а у DECOMMISSION endsAt запрещён вовсе (NTF5-07,
+      «endsAt: not allowed for kind DECOMMISSION»). NTF-1 Р7 на 29cfa368 требует ключ presence
+      required|optional у каждого атрибута без умолчания. Нулевое значение required — «не
+      значение», и Put отказывает (NTF1-B28, G26). Если endsAt объявлен required, либо
+      раскрытие передаёт time.Time{} полем required, транзакция страницы раскрытия
+      откатывается на каждом извещении без endsAt. Раскрытие стоит, писем 0, и это на всех
+      DECOMMISSION.
+    condition: >-
+      (а) В замысле есть таблица «шаблон × атрибут × откуда значение × законен ли нуль» на 19
+      шаблонов и три атрибута (по Д21). (б) endsAt объявлен presence: optional во всех
+      шаблонах, где вид допускает отсутствие. Блоки, ссылающиеся на endsAt, несут when: endsAt,
+      а тема на endsAt не ссылается. (в) Значение берётся из notices.ends_at: NULL означает
+      нулевое значение optional-поля сгенерированного XAttrs, и ключ в строку не пишется.
+      startsAt и link — required. (г) На каждую пару «шаблон × локаль» есть эталон .eml, в том
+      числе для случая без endsAt.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "покраснеют NTF5-73 и NTF5-107 (письма DECOMMISSION, endsAt всегда пуст) и NTF5-57 (сборка: валидатор NTF-1 требует presence); эталона .eml для пары «шаблон × локаль без endsAt» в перечне проб нет — заказ"
+  - id: CX5-50
+    source: >-
+      З3 п.2 (WHERE lease_until < now(), lease_owner = $me); З8 п.2, п.3 и З9 п.2 (аренда строки
+      кандидата и события); §6 (у lease_owner и lease_until нет NOT NULL и начального значения)
+    kind: sentinel
+    class: "code-authoring §«Умолчание, которое становится утверждением» (отсутствие аренды как значение столбца); code-authoring §«Решение и его следствие разнесены» (два предиката одного состояния)"
+    exposure: >-
+      Строка заявки вставляется в notify-api без аренды. Если lease_until там NULL, предикат
+      взятия «lease_until < now()» даёт NULL, и заявку не возьмёт никто. Create висит в
+      done=false и после окна: терминальный отказ шагов 4 и 5 исполняет только взявший заявку. В том же замысле feed.Supersede трактует NULL как «не в работе» (З8 п.5).
+      Отсутствие аренды получает две противоположные записи. «$me» не определён. Если это
+      имя пода или константа, CAS «lease_owner = $me» не различает прежнее и новое воплощение
+      процесса и не различает реплики с одинаковой константой. Часы аренды — now() базы, а
+      окно проверки судится часами notify (З3 п.4). Пробы с управляемыми часами (NTF5-18)
+      истечения аренды упавшей реплики не увидят.
+    condition: >-
+      (а) Во всех трёх арендах notify (заявка, событие этапа, строка кандидата) одно написание
+      «не в работе». Либо lease_until NOT NULL и при вставке равно моменту вставки, либо
+      предикат взятия «lease_until IS NULL OR lease_until < $now». Выбор один на три таблицы и
+      назван в §6. (б) $me — уникальный на процесс идентификатор, созданный при старте, а не
+      имя пода и не константа. (в) Часы аренды названы: либо now() базы во всех трёх арендах,
+      либо часы notify, переданные параметром. Проба «упавшая реплика держит аренду — другая
+      берёт после срока» исполнима теми же часами, что NTF5-18.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "NTF5-18 (а) покраснеет на NULL-варианте (заявка не берётся); истечение аренды упавшей реплики сценарием не держится — заказ пробы"
+  - id: CX5-51
+    source: >-
+      З9 п.1, п.4 («позиция — индекс последней завершённой области»; «Окончание — страница с
+      пустым next_page_token; позиция для следующей страницы не хранится»); §6 (позиция
+      scope_pos либо page_token); З6 п.3 и З21 (fanout_pending)
+    kind: sentinel
+    class: "code-authoring §«Умолчание, которое становится утверждением» (одно значение позиции для «не начато» и «закончено»)"
+    exposure: >-
+      Пустой page_token — это и начальная позиция allAccounts, и то, что остаётся после
+      последней страницы. Отдельного признака «раскрытие завершено» у события нет, а closed_at
+      означает «закрыто переходом» (З6 п.2). Завершённое событие остаётся открытым: следующий
+      проход начинает ListAccounts с начала. Дубликатов уникальности не дают, но проход
+      повторяется бесконечно, и notify_notice_fanout_pending не падает до нуля — тревога Р19
+      ложная. У областей «индекс последней завершённой» 0 означает «область 0 завершена», и
+      начального значения нет. Реализация, которая пометит конец раскрытия через closed_at,
+      сломает З6 п.2 и З8 п.5: переход закрывает строки только тех событий, которые закрыл сам,
+      и неотправленные строки такого события уйдут письмом отменённого этапа.
+    condition: >-
+      (а) У события этапа отдельный признак «раскрытие завершено» (например, fanned_out_at),
+      который ставит транзакция последней страницы. Он не совпадает с closed_at, и взятие
+      события и fanout_pending его читают. (б) Начальная позиция выражена отдельно от любой
+      законной: scope_pos NULL — «ни одна область не завершена», page_token NULL — «страниц не
+      было». Пустая строка не пишется, это CHECK. (в) Проба: событие allAccounts на двух
+      страницах раскрыто — следующий проход ListAccounts не зовёт, fanout_pending = 0.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "NTF5-66, 67 держат число писем, но не число вызовов ListAccounts после конца; тревога Р19 по fanout_pending на завершённом событии сценарием не держится — заказ пробы"
+  - id: CX5-52
+    source: "З10 п.4, З12 п.1 (необязательный столбец thread_key у строки ленты; предикат взятия исключает строку того же thread_key под действующей арендой)"
+    kind: sentinel
+    class: "code-authoring §«Умолчание, которое становится утверждением» (отсутствие ключа нити пустой строкой); measurement-discipline §«Радиус: по имени механизма и по точкам применения»"
+    exposure: >-
+      thread_key — новый столбец таблицы ленты фундамента, общей для всех источников и классов.
+      Предикат исключения стоит в Claim, то есть в каждом взятии конвейера. Незаданное строковое
+      поле в Go — пустая строка. Строки без нити с thread_key = '' попадают под «тот же
+      thread_key под действующей арендой», и весь конвейер notify сваливается к одной строке в
+      полёте. SQL-равенство на NULL такого не даёт — значит, всё решает одно написание
+      отсутствия. Правка предиката Claim — это правка сервера ленты corelib, а в §4 для corelib
+      notify/feed перечислены только «срок NULL, thread_key, Supersede, DeleteTerminal».
+      «Действующая аренда» опять не названа предикатом (CX5-05, CX5-50).
+    condition: >-
+      (а) Отсутствие thread_key — NULL: CHECK (thread_key IS NULL OR thread_key <> ''), в Go —
+      тип с признаком присутствия. (б) Исключение в Claim — одно условие рядом с условием аренды
+      уборщика, с той же формулой «аренда действует». (в) §4 называет правку Claim сервера ленты
+      отдельной строкой: corelib notify/feed, стадия S2. (г) Проба-близнец: две строки без
+      thread_key берутся одним Claim обе, две строки одного thread_key — одна.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "NTF5-75, 95, 108 держат нить; параллельность строк без нити не держит ни одна буква — заказ пробы corelib feed"
+  - id: CX5-53
+    source: "З2 п.5 («p == Principal{} → ErrEmptyPrincipal, без подстановки SystemPrincipal»)"
+    kind: sentinel
+    class: "code-authoring §«Контракт, который нельзя выразить» (второй распознаватель «никто» рядом с существующим); security.md sec-forwarded-trust-aware-extract"
+    exposure: >-
+      В фундаменте уже есть единственный распознаватель «принципал не называет никого»:
+      Principal.IsAnonymous() — Type пуст, или ID пуст, или ID = AnonymousPrincipalID
+      (operations/types.go:69 @34bc8104a). Шапка константы требует, чтобы любое сравнение
+      личностей его учитывало. Условие замысла «p == Principal{}» ловит только полностью пустую
+      пару. Принципал с одним Type, с одним DisplayName или {system, anonymous} проходит Ф1/Ф2 и
+      пишет операцию с владельцем «никто». GetOwned и CancelOwned такого владельца отсекают
+      (owner.go:80), и операция недостижима ни для кого. Кроме того, у значения «пусто» в пакете
+      появляются два распознавателя.
+    condition: >-
+      Ф1 и Ф2 отказывают по p.IsAnonymous() и возвращают ErrEmptyPrincipal (либо имя, которое
+      назовёт замысел). Сравнения с Principal{} в Ф1/Ф2 и в построителе нет. Проба corelib
+      (NTF5-122) несёт буквы {Type:"user", ID:""} и {system, anonymous} → ошибка, строк
+      операции 0, с близнецом «полная пара → строка есть».
+    mapped_in_design: false
+    outcome: к-коду
+    held_by: "NTF5-122 (д1), (д2) держат полностью пустую пару; частичную пару и анонимное слово — ни одна буква; заказ исполнителю corelib"
+  - id: CX5-54
+    source: "З21 п.1 (порт OutcomeObserver конвейера зовётся в транзакции записи исхода и увеличивает notice_counters); З8 п.4, З9 п.2 (счётчики в транзакции страницы)"
+    kind: new_mechanism
+    class: "code-authoring §«Решение и его следствие разнесены» (общий счётчик, увеличиваемый в чужой транзакции)"
+    exposure: >-
+      Исход строки ленты пишет Ack сервера ленты, то есть транзакция corelib. По NTF-1 Р8 повтор
+      Ack с тем же токеном и исходом — «успех без изменения строки»: ответ мог потеряться
+      после коммита. Наблюдатель, вызванный на каждом Ack, при таком повторе увеличит
+      notify_notice_letters_total{SENT} второй раз. Строки notice_counters общие для всех
+      извещений одного вида и этапа. Страница раскрытия увеличивает несколько строк (DENIED,
+      NO_ADDRESS, UNADDRESSED), переход — SUPERSEDED, наблюдатель — SENT. Два писателя,
+      обновляющие пересекающийся набор строк в разном порядке, получают взаимную блокировку
+      (40P01). Страница откатывается и повторяет сетевые вызовы. Сам порт — правка сервера
+      ленты corelib, а в §4 её нет.
+    condition: >-
+      (а) Наблюдатель зовётся только тогда, когда Ack действительно изменил строку. На ветке
+      «повтор с тем же токеном и исходом» его нет. (б) Каждая транзакция обновляет строки
+      notice_counters одним оператором в порядке (name, labels) последним действием. (в) §4
+      называет порт в сервере ленты corelib отдельной строкой со стадией. (г) Проба: потерянный
+      ответ Ack и повтор — SENT = 1.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: "NTF5-58 и подобные держат SENT=1 без повтора Ack; повтор Ack (NTF1-B26 — со стороны ленты) в NTF-5 со счётчиком не сведён — заказ пробы"
+
+measurements:
+  - claim: "§0: Д21 предмета NTF-5 не касается — у шаблонов obligation атрибутов с законным нулём нет"
+    command: "grep -n 'у каждого атрибуты только' docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md; grep -nE 'NTF5-0[278]\\b|not allowed for kind DECOMMISSION' <тот же файл>; sed -n 700,745p docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md"
+    result: "опровергнуто: NTF5-57 даёт каждому из 19 шаблонов startsAt, endsAt, link; endsAt законно пуст (NTF5-02, 08; у DECOMMISSION запрещён, NTF5-07); NTF-1 Р7 на 29cfa368 требует presence required|optional без умолчания"
+  - claim: "З8 п.5: «строки pending без аренды» = lease_until IS NULL"
+    command: "sed -n 939,976p docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md"
+    result: "опровергнуто как тождество: токен аренды хранится после Ack; уборщик судит «нет ДЕЙСТВУЮЩЕЙ аренды»; feed.LeaseTTL = 5 мин — отложенная строка после Claim несёт истёкшую, а не пустую аренду"
+  - claim: "З24: один DELETE с NOT EXISTS по исходу строки доставки, при З8 п.5 «своего SQL к таблице ленты у notify нет»"
+    command: "sed -n 1204,1210p docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md; чтение З8 п.5 и З24 замысла"
+    result: "противоречие: Р14 удаляет «вместе со строками доставки» без условия на исход; исход строки ленты в таблице фундамента недоступен notify без своего SQL"
+  - claim: "З2 п.5: пустой принципал распознаётся как p == Principal{}"
+    command: "git -C project/corelib show 34bc8104a:operations/types.go | sed -n 25,71p; git -C project/corelib show 34bc8104a:operations/owner.go | sed -n 80,82p"
+    result: "в пакете уже есть Principal.IsAnonymous (Type пуст ∨ ID пуст ∨ ID = \"anonymous\"), им отсекают Owner в GetOwned/CancelOwned; равенство с Principal{} — второй, более узкий распознаватель"
+  - claim: "З18 п.2: одно закрытие соединения при псевдониме ключа"
+    command: "git -C project/kacho show 1d42a6728bf:gateway/cmd/api-gateway/mtls_config.go | sed -n 60,99p"
+    result: "подтверждено: cleanup идёт по срезу opened; псевдоним после цикла в opened не попадает"
+  - claim: "З2 п.1: смена результата NewRepo на TxRepo не ломает мест вызова"
+    command: "git -C project/kacho grep -nE 'operations\\.NewRepo[^(]' 1d42a6728bf -- '*.go'; git -C project/kaname grep -nE 'operations\\.NewRepo[^(]' 734f69fb4 -- '*.go'"
+    result: "подтверждено: как значение функции — 0 мест; упоминаний в комментариях, утверждающих «NewRepo возвращает FullRepo», — 3 (kacho services/geo/internal/apps/kacho/shared/syncop/syncop.go:57; kaname internal/apps/kaname/api/cluster/ports.go:30, api/session_revocations/revoke.go:122) — станут неверны"
+  - claim: "M9, M10, M5, M12, M1, M6, M8; отсутствие линтера exhaustive"
+    command: "git grep по 1d42a6728bf и 34bc8104a командами §1 замысла; git show 1d42a6728bf:.golangci.yml | grep -c exhaustive"
+    result: "подтверждено: NewReconciler 6; listnarrow.New 5 / 4; blank-импортов 11; INTERNAL_ENDPOINTS 7 без notify; ключей BackendAddrs 14; методов pgRepo 13; переменные пакета — как в M8; exhaustive 0"
+  - claim: "ревизии §0 замысла не сдвинулись"
+    command: "git fetch; git rev-parse origin/main (kacho, corelib), origin/357 (kaname)"
+    result: "подтверждено: 1d42a6728bf, 34bc8104a, 734f69fb4"
+
+not_measurable:
+  - "Взаимная блокировка счётчиков (CX5-54 (б)) — свойство порядка операторов в ещё не написанном коде; проявится только прогоном двух страниц раскрытия одновременно, числом по дереву не выражается."
+  - "Колонки аренды ленты NTF-1 не названы ни приёмкой NTF-1, ни деревом (кода ленты нет, Е1). Поэтому «хранит ли Ack истёкший срок» установлено по тексту Р8, а не по схеме."
+
+outcome: к-замыслу
+unmapped:
+  - "CX5-05 — отображение не выдерживает: Supersede по lease_until IS NULL не закрывает отложенную строку с истёкшей арендой"
+  - "CX5-07 — отображение не выдерживает: резерв окна с PK feed_row_id не снимается при DEFER(ob_stream_pace) и при повторном Claim; место транзакции взятия не названо"
+  - "CX5-24 — отображение не выдерживает: З24 противоречит Р14, З8 п.5 и порядку каскада"
+  - "CX5-49 — новый sentinel: нулевой endsAt при необъявленном presence; строки отображения нет"
+  - "CX5-50 — новый sentinel: NULL и истёкшая аренда, личность $me, часы аренды; строки отображения нет"
+  - "CX5-51 — новый sentinel: позиция раскрытия «не начато» равна «закончено»; строки отображения нет"
+  - "CX5-52 — новый sentinel: отсутствие thread_key пустой строкой в общем Claim; строки отображения нет"
+  - "CX5-53 — новый sentinel: ErrEmptyPrincipal по равенству с Principal{} мимо IsAnonymous; строки отображения нет"
+  - "CX5-54 — новый механизм: наблюдатель исхода в чужой транзакции Ack считает повтор; строки отображения нет"
+return_to_acceptance: []
+return_to_acceptance_note: >-
+  Пусто по Д22. Р14 утверждает наблюдаемое поведение («удаляет … вместе со строками доставки»),
+  и замысел обязан его исполнить. Путь исполнить его внутри приёмки есть: подметальщик закрывает
+  незабранные строки функцией ленты и ждёт только строку под действующей арендой — не дольше
+  feed.LeaseTTL. Если автор замысла всё же оставит «не удаляет при незакрытой строке», это новый
+  наблюдаемый исход против Р14, и тогда пункт уходит в приёмку.
+
+orders:
+  - to: design author (NTF-5)
+    what: >-
+      Редакция 2 замысла:
+      (1) §0 — снять довод «Д21 не касается» и дать таблицу «шаблон × атрибут × откуда значение
+      × законен ли нуль» по CX5-49;
+      (2) З8 п.5, З12 п.1 и З3 п.2 — одна формула «аренда действует» для ленты и трёх аренд
+      notify (CX5-05, CX5-50, CX5-52);
+      (3) З11 — резерв окна идемпотентен по feed_row_id и снимается любым исходом, кроме SENT;
+      названа транзакция, в которой он ставится (CX5-07);
+      (4) З24 — исполнение Р14 без SQL notify к таблице ленты: id строк ленты собираются до
+      каскада той же транзакцией, в предикат входят открытые события и отложенные кандидаты
+      (CX5-24);
+      (5) З9 и §6 — признак «раскрытие завершено» и начальная позиция (CX5-51);
+      (6) З2 п.5 — IsAnonymous вместо равенства с Principal{} (CX5-53);
+      (7) З21 — наблюдатель только на изменившем строку Ack, порядок обновления счётчиков
+      (CX5-54);
+      (8) §4 — строки «Claim: исключение по thread_key» и «Ack: порт OutcomeObserver» в corelib
+      notify/feed;
+      (9) §11 — строки отображения CX5-49…54.
+    basis: "SDD-1 §5 (точное отображение; новый sentinel или механизм — новый пункт); change-graph.md §4"
+  - to: corelib implementer (NTF-5 S1, S2)
+    what: >-
+      Буквы NTF5-122: частичная пара и {system, anonymous} → ErrEmptyPrincipal, близнец «полная
+      пара». Проба feed: две строки без thread_key берутся одним Claim, два Claim одного
+      thread_key — одна строка. Проба Ack: повтор с тем же токеном не зовёт наблюдателя.
+      Комментарии «NewRepo возвращает FullRepo» (3 места в kacho и kaname) правятся тем же
+      изменением, что тип результата.
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"
+  - to: go implementer (NTF-5 notify)
+    what: >-
+      Пробы:
+      упавшая реплика держит аренду заявки — вторая берёт после срока, теми же часами, что NTF5-18
+      (CX5-50);
+      событие allAccounts раскрыто — следующий проход ListAccounts не зовёт, fanout_pending = 0
+      (CX5-51);
+      строка с резервом получила DEFER(ob_stream_pace) и взята снова — письмо ушло, 23505 нет
+      (CX5-07);
+      Cancel при отложенной потолком строке после истечения её аренды — SUPERSEDED, SMTP 0
+      (CX5-05);
+      эталон .eml без endsAt на каждый шаблон DECOMMISSION (CX5-49).
+    basis: "gate-authoring §«отрицание только в паре с положительным»"
