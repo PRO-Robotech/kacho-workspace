@@ -1,0 +1,271 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 7302da2731c8db4c61a5ae77ab6eb7569f7b359e16f37edb987621d68c939145
+  revision: 15
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: 8d921e1ca
+  content_commit_note: >-
+    Редакция 15 внесена коммитом 8d921e1ca; `sha256sum` рабочего файла на ревизии рассмотрения
+    даёт тот же отпечаток.
+  base_commit: 8d921e1ca
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3386
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T09:10:00Z'
+round: 15
+round_note: >-
+  Пятнадцатый круг документа; круг 1 прохода после первичного разбора классов на редакцию 14.
+  Предмет редакции 15 — возврат разбора RA-01…RA-05, замечания круга 14 N14-1 и N14-2 и сверка
+  с Д1–Д17. Одобрение круга 14 к этой редакции не переходит: другой отпечаток.
+previous_rounds:
+  - {round: 13, sha256: f9bc15ad717903df57f4c695d0b819ccfbcce10947f8e6237c73ff83138b91e6, verdict: CHANGES_REQUESTED, blocking_count: 1}
+  - {round: 14, sha256: 5f5641628fefaafdcccfc051fd9dd02bb92581ce15d1e3ad5eaf8d2d809d680d, verdict: APPROVED, blocking_count: 0,
+     record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/5f5641628fefaafdcccfc051fd9dd02bb92581ce15d1e3ad5eaf8d2d809d680d.yaml}
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - {id: B15-1, kind: CONSTRUCTIBILITY}
+trend_note: >-
+  Число блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1 → 1 → 0 → 1.
+  Род CONSTRUCTIBILITY в последних кругах не повторялся (круги 11–14: COVERAGE, SCOPE, SCOPE,
+  —). Возврат касается одного нового сценария дельты, а не класса по документу.
+
+ra_resolution:
+  RA-01:
+    status: "закрыт"
+    evidence: >-
+      Шапка и §1 стоят на d524e7bd… (редакция 10 NTF-1). Это действующее одобрение: записи
+      на редакции 11 (4d042803…) и 12 (b92f0c2b…) — CHANGES_REQUESTED. Команды сверки
+      воспроизведены: `git merge-base --is-ancestor c115d2008 419ce7343` → 0; `git show
+      2fa62337b|eb29a7d93:<NTF-1> | sha256sum` → 530e2296… / d524e7bd…; numstat 166/44; `### Р`
+      18/18; `**ID:** NTF1-` 148 → 149; для редакции 11 — `89250d24e` → 4d042803…, numstat 76/18.
+      Строка словаря §1 перечня причин `INVALID` не выписывает. Имена `attrs_invalid` и
+      `recipient_invalid`, `NormalizeDomain`, типы `form.*`, B28 и G24 (з) есть в редакции 10
+      NTF-1 (строки 637–663, 772, 794, 1754–1758). Строка «форма значений» внесена в §1 и во
+      второй список §1.1. Остаток класса — N15-1.
+  RA-02:
+    status: "закрыт"
+    evidence: >-
+      Р11: контрольное значение — функция отпечатка Р15 целиком над закреплённым набором
+      адресов; ловит и смену ключа, и смену профиля; перезаписи нет. Р15: вход — `address.Normalized`,
+      нулевое значение отвергается. §9: перенос записей вне объёма. NTF4-106 с близнецом NTF4-77
+      отличается одним фактом (профиль вместо ключа); проверено, что строка контрольного
+      значения не перезаписывается и что X1 после отказа X2 снова готов.
+  RA-03:
+    status: "закрыт по правилу; у сценария-держателя — B15-1"
+    evidence: >-
+      Р10 называет правило `feedback_route` целиком: подъём, «новый выпуск не снимает», снятие
+      только прочтением ожидаемого. Р12 называет правило снятия у каждого из семи признаков. Оба
+      перехода признака установки — условное обновление, WARN только на 0→1. Держатель
+      NTF4-107 в текущей форме недетерминирован — B15-1.
+  RA-04:
+    status: "закрыт"
+    evidence: >-
+      Х5 несёт поле `listener_form` (`pair` | `internal_only`, нулевое значение — `pair`).
+      Второй список §1.1 и строка §8 «40, 42–49…» говорят, что Х5 правит observability только
+      полем формы. Р20 задаёт правило гейта и отвергнутый вариант с ценой. Цена перемерена:
+      `git grep 'PublicMTLS:'` без тестов → kacho 7, kaname 1. Трёхсостояние `internal_mtls`
+      сверено со скриптом гейта (`assert-production-posture.sh` @1d42a6728bf: "true"/"n/a"/"false",
+      сравнение равенством). NTF4-108 и NTF4-109 — пара, отличие в одном ключе.
+      kaname стоит в перечне гейта (SERVICES, строка 145), но строит его kacho
+      (`services/iam/cmd/kaname`) на пине corelib kacho. Поэтому `listener_form = pair` у kaname
+      в NTF4-108 производится подъёмом пина без правки kaname.
+  RA-05:
+    status: "закрыт по существу; неполнота таблицы — N15-2"
+    evidence: >-
+      Пять ручек слушателя добавлены в Р16: 22 + 10 = 32 ручки, 32 строки таблицы, у каждой
+      граница и поставляемое значение; §8 «Р16» говорит «32 со стадии S3»; DoD S3 п.7.
+      `grpcsrv.PlatformInternalAdmission` существует (`grpcsrv/admission_posture.go:88`
+      @34bc810). Таблица осей заявляет полноту «каждой оси Spec», но пяти полей Spec в ней нет
+      (N15-2).
+  N14-1: "закрыт: (а) строка «нормализация адреса» по редакции 10 и Р10; (б) Р11 и NTF4-106"
+  N14-2: "закрыт: предикат полноты называет пути записей разбора классов; grep подтверждён (ниже)"
+
+blocking_findings:
+  - id: B15-1
+    kind: CONSTRUCTIBILITY
+    anchors:
+      - "NTF4-107, Given: «в пробе P < D < I (в границах Р16); выпуски — в t0 + I, t0 + 2I, t0 + 3I, t0 + 4I»"
+      - "NTF4-107, Then: «после (а): П5 принял ровно 3 контрольных письма»; «после (б): выпуск t0 + 4I прочитан»"
+    summary: >-
+      Шаг (а) заканчивается в t0 + 3I + D + P. «Ровно 3 принятых выпуска» и «четвёртый выпуск
+      в t0 + 4I попадает в (б)» следуют из Given только при 3I + D + P < 4I, то есть D + P < I.
+      Кроме того, выпуски стоят ровно в t0 + kI, только если I кратно P. Такт исполняет
+      держатель, интервал отсчитывается от последнего принятого выпуска (Р10), поэтому при
+      I, не кратном P, выпуски сдвигаются. Given требует только P < D < I, а этого мало.
+    counterexample: >-
+      I = 60 с, D = 50 с, P = 20 с. Условие P < D < I выполнено, границы Р16 тоже: POLL ≥ 5 с,
+      CANARY_INTERVAL ≥ 1 мин, 30 с ≤ DEADLINE < INTERVAL. (а) идёт до 60·3 + 50 + 20 = 250 с,
+      а четвёртый выпуск принят на такте 240 с, внутри (а). Тогда «ровно 3» красное на исправном
+      продукте, и (б) читает уже пятый выпуск, а не t0 + 4I.
+    required: >-
+      Дописать в Given NTF4-107 (и в строку П9, если там стоят стендовые значения) условие
+      «I кратно P и D + P < I», оставаясь в границах Р16. Либо переформулировать Then через
+      номера выпусков, а не через моменты времени. Близнец NTF4-73 и прочие утверждения
+      сценария не меняются.
+    basis: >-
+      gate-authoring §«детерминизм входа и управляемые часы»; чек-лист acceptance-reviewer §3.5
+      «Конструируемость Given»: Given должен строить состояние, из которого «Тогда» выводится,
+      при любом допустимом по нему значении.
+
+non_blocking_findings:
+  - id: N15-1
+    kind: SCOPE
+    anchors:
+      - "NTF4-23, Then: «вторая → SENT (локальная часть различается, Р15)»"
+      - "§1, строка «нормализация адреса»"
+    summary: >-
+      Это остаток класса RA-01. Р15 редакции 15 больше не определяет нормализацию: «её семантику
+      задаёт NTF-1». При этом NTF4-23 ссылается на Р15 как на основание того, что локальная часть
+      сохраняет регистр. Строка §1 «нормализация адреса» этого элемента не называет, хотя по
+      правилу связи §1 она обязана назвать каждый элемент соседа, на котором стоит «Тогда».
+      Сосед этот элемент производит: NTF-1 редакция 10, строка 637 — «локальная часть без
+      изменений». Исправление: в NTF4-23 сослаться на строку §1, а в строку добавить элемент
+      «локальная часть без изменений».
+  - id: N15-2
+    kind: FORMAT
+    anchors: ["Р20, таблица «Оси дескриптора носителя у notify — откуда каждая величина»"]
+    summary: >-
+      Таблица утверждает, что источник назван «у каждой оси servicecontract.Spec на пине замера».
+      Разбор `type Spec struct` @34bc810 даёт 29 полей, и пяти из них в таблице нет: `Logger`,
+      `OwnContour`, `TrustDomainKnob`, `SelfCheck`, `Existence`. Значение каждого выводится из
+      документа: `OwnContour` пуст (он отвергнут в Р20); `SelfCheck` = nil при `AuthzViaIAM`
+      (contract.go:1086-1090); `Existence` = nil при изъятом `HideExistence` (:1395-1400);
+      `TrustDomainKnob` = `KACHO_NOTIFY_AUTHZ_TRUST_DOMAIN`, и пустое значение отвергается
+      (:1006). Но утверждение о полноте буквально неверно. Для той же оси, что `ForwarderKnobs`,
+      имя ручки назвать стоит.
+  - id: N15-3
+    kind: SCOPE
+    anchors: ["§1, «Открытый возврат разбора классов NTF-1 на d524e7bd…»"]
+    summary: >-
+      План говорит только о редакции 11 NTF-1 (4d042803…). В ветке есть и редакция 12
+      (b92f0c2b…, коммит записи fff10b522, CHANGES_REQUESTED). Закрепление от этого не меняется:
+      одобрения у неё нет. План стоит дополнить при следующей правке, иначе он читается как
+      исчерпывающий.
+
+dispatcher_note: >-
+  В приёмке NTF-1 редакции 10 (строка 638) сказано: нормализация — «та же семантика, что Р15
+  приёмки NTF-4». Р15 NTF-4 теперь семантику не определяет и отсылает к NTF-1. Ссылка стала
+  круговой; определение при этом у NTF-1 есть в той же строке («локальная часть без изменений,
+  домен — NormalizeDomain»). Это предмет для автора NTF-1, а не блокирующее NTF-4.
+
+dispatcher_decisions_check:
+  method: >-
+    Дельта редакции 15 (`git diff 419ce7343 8d921e1ca -- <док>`, 493+/125−) сверена с каждым
+    решением. Тексты Д1–Д13 и Д14–Д16 прочитаны в журналах запуска авторов, Д17 — в задании.
+  results:
+    D1: "соблюдено: InternalSuppressionService — не вызов отправки; входящих вызовов отправки нет (З9)"
+    D2: "соблюдено: перечень звена идентичности служб у notify пуст; субъект — пересланный принципал (Р20)"
+    D3: "соблюдено: словарь «подтвердить» расширен одним значением; сторона notify в повторе Ack (Р17, NTF4-110/111)"
+    D4: "соблюдено: рёбер notify→* не прибавилось; входящее край→notify (§11)"
+    D5: "не задет дельтой"
+    D6: "соблюдено: правки corelib Х1, Х3, Х5 — задачами; `notify/address` и `notify/form` без правки, во втором списке §1.1"
+    D7: "не задет дельтой"
+    D8: "вне предмета NTF-4"
+    D9: "не задет дельтой; `List-Unsubscribe` — через сборщик заголовков NTF-1 (Р6)"
+    D10: "вне предмета NTF-4"
+    D11: "соблюдено: у пяти новых ручек границы и поставляемые значения; HARD_TTL ≤ 72 ч; своих потолков нет (Р8)"
+    D12: "соблюдено: смена профиля и ключа — отказ старта без двух путей; перенос вне объёма (§9)"
+    D13: "соблюдено: Given на действующих одобрениях NTF-1 d524e7bd и NTF-2 9098d6ef"
+    D14: "не задевает (§3.1)"
+    D15: "не задевает (§3.1)"
+    D16: "соблюдено: DRAFT в ветке issue-880"
+    D17: >-
+      соблюдено. Х5 — форма «только внутренний слушатель»; публичный сервер не создаётся;
+      цепочку собирает одна функция сборки сервера одного слушателя; падение внутреннего
+      слушателя — исход `Serve`; самоотчёт `listener_form`; задача и выпуск corelib; S3 ждёт Х5
+      (DoD S3 п.8б); решение действует для всей службы notify (§3.1).
+  dispute_lines: "строк спора с Д1–Д17 нет"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 8d921e1ca
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Событие полномочия публикует курьер; его тело — в поле
+    `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 15, блокирующих 1: CONSTRUCTIBILITY) ·
+    SHA-256 7302da2731c8db4c61a5ae77ab6eb7569f7b359e16f37edb987621d68c939145
+
+measurement:
+  revisions_used:
+    workspace_copy: issue-880@8d921e1ca
+    previous_revision: "419ce7343 (запись круга 14 на 5f564162…)"
+    corelib: 34bc810
+    kacho: 1d42a6728bf
+    kaname: 734f69fb4
+    neighbour_ntf1_pinned_sha256: d524e7bdd133b70da9335f027a83007800be4bdc567ab9ec740e08e7d497d31e
+    neighbour_ntf1_working_sha256: b92f0c2b7d5ebd753861d18292a46f3438fe1d768980b5bf326e8e7eed9712d3
+    neighbour_ntf1_working_note: "редакция 12 NTF-1, запись CHANGES_REQUESTED (коммит fff10b522)"
+    neighbour_ntf2_pinned_sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+    neighbour_ntf2_working_sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+  predicates_reproduced:
+    - "sha256sum <док> → 7302da27…9145"
+    - "grep '^verdict' по записям NTF-1 в порядке коммитов: последнее APPROVED — d524e7bd (c115d2008); 4d042803 и b92f0c2b — CHANGES_REQUESTED"
+    - "git merge-base --is-ancestor c115d2008 419ce7343 → 0"
+    - "git show 2fa62337b / eb29a7d93 / 89250d24e:<NTF-1> | sha256sum → 530e2296 / d524e7bd / 4d042803; numstat 166/44 и 76/18"
+    - "grep -c '^### Р' и '^**ID:** NTF1-' на 2fa62337b и eb29a7d93 → 18/148 и 18/149"
+    - "grep -n d524e7bd|9098d6ef|530e2296|4d042803 <док> → только шапка, сверка §1/§1.2 (включая пути записей разбора) и история §22–§23"
+    - "git -C corelib show 34bc810:servicecontract/contract.go — поля type Spec: 29; TrustDomainKnob (:1006), SelfCheck (:1086-1090), Existence (:1395-1400)"
+    - "git -C kacho grep 'PublicMTLS:' 1d42a6728bf без тестов → 7; git -C kaname grep … 734f69fb4 → 1"
+    - "assert-production-posture.sh @1d42a6728bf: SERVICES содержит kaname (строка 145); internal_mtls сравнивается с \"true\"/\"n/a\""
+    - "гигиена: TODO/FIXME/TBD → 0; имена чужих облаков, рабочие каталоги → 0"
+  scenario_census:
+    predicate: "grep -c '^\\*\\*ID:\\*\\* NTF4-' <док> → 96; дублей 0; плюс 9 табличных ID (42–47, 75, 76, 79) в строке группы"
+  producer_coverage:
+    method: "python: ID сценариев против строк §8 и упоминаний в §10 DoD (диапазоны раскрыты)"
+    result: "§8 — 96 из 96; DoD — 96 из 96; строк §8 — 32 (знаменатель §1.1)"
+  twin_coverage:
+    method: "python: строки **ID:** без «Близнец» → 26, все положительные якоря близнецов, без изменений против редакции 14"
+    result: "у новых NTF4-106…111 близнец назван, отличие — один факт; отрицаний без близнеца 0"
+  constructibility:
+    seeded: 0
+    of: 96
+    not_executed: 96
+    reason: >-
+      Кода notify нет (NTF-1 не посажена), стенда и разрешения на посев в задании нет. Это
+      «не выполнилось», в зелёное не зачитывается. Given строятся названными фикстурами §6
+      П1–П12; новым сценариям добавлены управляемые факты П6 (NTF4-110/111) и порт нормализации
+      (NTF4-106). Одно Given (NTF4-107) недоопределено — B15-1.
+
+premise_check:
+  premise: "редакция 7302da27 закрывает RA-01…RA-05, N14-1, N14-2 и не расходится с Д1–Д17"
+  result: >-
+    подтверждена по RA-01, RA-02, RA-04, N14-1, N14-2 и по Д1–Д17. По RA-03 правило верно, а
+    его держатель NTF4-107 недоопределён (B15-1). По RA-05 закрыто по существу, полнота таблицы
+    осей — N15-2.
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
