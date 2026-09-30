@@ -1,0 +1,362 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 21 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Последняя разобранная редакция — 20
+# (c9a81b71…, запись revalidation/c9a81b71….yaml, коммит d89bd2281, итог «к замыслу»: CX1-91;
+# N9–N11 не блокируют). Дельта — коммит 15e875957: отображение CX1-91, N9–N11, в том числе
+# принятый заказ NTF-2 7a424030 (CX2-58, CX2-60 (б), CX2-57 (в), CX2-47 (в)). Пункты
+# CX1-01…90 и условия УК1…УК94 эта запись не пересуживает.
+#
+# Итог — к замыслу. CX1-91, N9, N10 и пункты заказа NTF-2 отображены. Отображение CX1-91
+# выдерживает условие: судящая функция на переписанной строке даёт находку формы «аргумент
+# helm/kubectl», на близнеце находок 0 — сверено с выражениями гейта на origin/1276. Новое решение
+# редакции 21 — «образец — параметр обёртки, точка подстановки одна». Оно открывает два пункта:
+#   CX1-92. Контракт шелл-обёртки `render_chain_args <цепочка> [<образец>]` не несёт оси каталога,
+#   которую несёт общий читатель `stacks_args <имя> [КАТАЛОГ]`: 14 из 16 вызовов в шелле и CI
+#   передают каталог, 6 из 8 точек, рендерящих `prod`, — тоже. Вторым позиционным у обёртки стоит
+#   образец, у общего читателя — каталог. Форма, в которой образец попадает в цепочку, не названа
+#   ни для Go, ни для шелла относительно той базы, от которой её разрешают вызывающие. Кроме того,
+#   у двух обёрток разный контракт на цепочках не `prod`: Go принимает образец и дописывает его
+#   только к `prod`, а шелл такой вызов отвергает. Шесть точек в шелле и CI обходят все цепочки,
+#   и каждой пришлось бы вписать имя `prod` у себя.
+#   CX1-93. Единица переписи D2 — вызывающие читателей таблицы цепочек. Рендер `prod` по имени
+#   профиля, мимо таблицы, в неё не входит. Таких мест в шелле 4 (origin/1276). Когда перечень
+#   `prod` станет непустым (Е12 (4)), они покраснеют вне путей любой полосы, а перепись их не
+#   видит.
+# Заметки к коду: N12 (пустое имя образца в Go-обёртке указывает на каталог), N13 (режим 100644:
+# исполнение по пути даёт 126, а не 2), N14 (предикат N10 с `grep -c` по двум файлам печатает две
+# строки), N15 (`scripts/ci-local.sh` — точка роли «гейт», в путях D2 её нет). Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 170f1ee20de7c798bac5c3b098fc08ffe5ace8cd8b85ba0636a73c5f2088af9f
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на 15e875957 (HEAD issue-880) даёт 170f1ee2…
+  change_yaml_design_sha256: 170f1ee20de7c798bac5c3b098fc08ffe5ace8cd8b85ba0636a73c5f2088af9f   # равен предмету
+  tasks_sha256: 4a0bee6f60e1b9ebbf955beb38637ad3f6b713918d50e6df1be7d6b2131b18fc   # маршрут редакции 22
+  revision: 21
+  content_commit: 15e875957
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/c9a81b71bdbb15f30ee1b6ad6f350aba95f52d9ecd51bde898aeca37ae598a7b.yaml
+    sha256: c9a81b71bdbb15f30ee1b6ad6f350aba95f52d9ecd51bde898aeca37ae598a7b
+    content_commit: d46866f50
+    record_commit: d89bd2281
+  mapped_items: [CX1-91, N9, N10, N11]
+  delta_predicate: "git diff d89bd2281 15e875957 -- docs/changes/issue-2915/"
+  dispatcher_decisions:
+    - "Д47, Д48, Д49 — без изменений против записи c9a81b71; редакция 21 меняет в строке Д48 только форму образца (каталог, параметр обёртки)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 15e875957395ab502f3db238419de466fcde3193   # вершина issue-880 = коммит предмета
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564
+  kacho_wave4: 96e2fa72b3ad95074936eaa8203cef4dcb63b332          # origin/2798
+  kacho_1276: 23f1e058a35e4e37fdb28f71124e51362022f74b           # origin/1276 — база D2 по Д49; сдвинулась с 3af063bd6f3 на 8 коммитов, гейт кода отказа, его файл инъекций, stacks.sh, stacks.txt и cutover-fe3455.sh не тронуты (git diff --stat)
+snapshot_at: 2026-09-30T19:08:10Z
+inspected: >-
+  Прочитана дельта d89bd2281..15e875957 по пакету целиком: шапка редакции 21 design.md; §0 строка
+  Д48; З28 «Цепочка `prod`» (текст отказа с двумя выходами, «не рендерится» — 0 объектов notify),
+  «Слой учётных данных fe3455» (перенос комментария и текста отказа), «Один каталог образцов, одна
+  точка подстановки», «Шелл-обёртка — читатель состава стендов», «Шелл-обёртка — только
+  библиотека», «Проба образца», перепись «по вызову обёртки»; §11 строки CX1-87, CX1-89, CX1-91, N9,
+  N10, N11 (три строки), CX2-47 (в); §13 Е12 (7). tasks.md редакции 22: шапка, строки N13, D9, D2;
+  change.yaml. Сверено с заказом NTF-2 (initial/7a424030…, CX2-58 (а)–(г), orders «NTF-1 author»).
+  В kacho на origin/1276@23f1e058a35: `internal/repohygiene/rosterreaderexitcode_test.go` (список
+  имён, выражение читателя, четыре теряющие формы, `AuditRosterReaderExitCodes`, перепись),
+  `rosterreaderexitcode_injection_test.go` (строки 1–80); `deploy/tests/helm/stacks.sh` строки
+  95–150 (`stacks_args <имя> [КАТАЛОГ]`, точка входа); все вызовы `stacks_args` и `stacks.sh --args`
+  в шелле, CI и `scripts/`; обходчики цепочек в четырёх шелл-гейтах; `deployStacks` (Go, 44 файла
+  вызывающих); рендеры `values.prod.yaml` мимо таблицы в `deploy/tests/helm/*.sh` и в Go;
+  `cutover-fe3455.sh` по фразе `this script`; `scripts/ci-local.sh` строки 960–985. Записки vault
+  не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "N9 решён исходом (1); заказ NTF-2 принят целиком; открытых Е в дельте нет"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-91, N9, N10, N11 отображены и выдерживают; новые пункты CX1-92, CX1-93 открыты решением редакции 21 и не отображены"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Внешних вызовов и асинхронных путей нет. Кандидаты в sentinel: код 2 у библиотеки, исполненной
+      как скрипт, — отдельный исход с текстом и пробой, а не значение, читаемое как данные; пустое имя
+      образца у Go-обёртки — значения не имеет, решение «принимает только имя файла каталога» его
+      исключает, исполнение — N12 (к коду)
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 170f1ee2… = предмет"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на 170f1ee2 ревью замысла нет (reviews/design/design-reviewer — bd526f8a, c018895f, dba7c388), шапка редакции 21 это говорит. В `clean` не входит"
+
+mapping_check:
+  - item: CX1-91
+    verdict: holds
+    evidence: >-
+      (а) Путь `internal/repohygiene/rosterreaderexitcode_injection_test.go` — в путях D9 и в §11
+      CX1-89. (б) Держатель — функция файла инъекций на `AuditRosterReaderExitCodes`, вход — текст
+      `deploy/tests/helm/render-chain-wrapper-test.sh` с диска. Переписанная строка `helm template …
+      $(render_chain_args prod <образец>)`: `rosterReaderRe` её узнаёт, если `render_chain_args` в
+      `rosterReaderNames` (CX1-89 (а)). Форма «аргумент helm/kubectl» —
+      `(?:^|…)[ \t]*(?:helm|helm_try|render|kubectl)[ \t][^\n]*\$\(`, и она совпадает на строке с
+      отступом. `readerInsideSubstitution` находит читателя внутри `$(`. Значит, находка будет, и её
+      `Text` несёт имя `render_chain_args`. (в) Близнец `args="$(render_chain_args …)" || …`
+      считается потреблением (`Consumptions` > 0) и ни под одну из четырёх форм не попадает. Находок
+      0. «НЕ ВЫПОЛНИЛОСЬ» при отсутствии входа — та же категория, что у соседних случаев файла
+      (`t.Logf` + счёт `missing`). Вход с диска, а не из git по отпечатку — отступление от нормы
+      файла, но оправданное: теряющей формы с обёрткой в истории нет, а путь читается один, без
+      обхода
+  - item: N9
+    verdict: holds_with_note
+    evidence: >-
+      Исход (1) выбран. Точка входа не заводится, режим `100644`, а исполнение отказывает кодом 2.
+      Это тот же приём, что у `stacks.sh` (строка `[ "${BASH_SOURCE[0]}" = "$0" ]`). Форма пути в
+      `rosterReaderRe` не нужна: вызов по пути отказывает громко. Замечание к пробе — N13
+  - item: N10
+    verdict: holds_with_note
+    evidence: >-
+      Перенос комментария и текста отказа назван, и полоса у него та же — D2. На origin/1276 фраза
+      `in this script` в `deploy/helm/umbrella/*.sh` встречается ровно один раз, в строке
+      `cutover-fe3455.sh:233` (текст отказа CRED_PATHS). Строк с `this script` семь, но остальные
+      шесть — о скрипте раскатки, и они верны. Предикат узкий, но попадает в предмет. Форма его вывода
+      — N14
+  - item: "N11 · CX2-58 (а)"
+    verdict: partially_holds
+    evidence: >-
+      Каталог образцов назван, образец передаётся параметром обёртки, образец NTF-2 лежит в том же
+      каталоге, копий в гейтах нет. Одна точка подстановки выдерживает, но контракт шелл-обёртки
+      неполон — CX1-92
+  - item: "N11 · CX2-58 (б)"
+    verdict: holds
+    evidence: "Проба обходит каталог, печатает число и имена образцов, пустой каталог — отказ. Отрицание «адрес формы dev» → (6) дано каждому образцу, «половина пары» — только образцу с `credentialSecret` (у П7-узла пары нет). Это совпадает с условием «у каждого близнецы-отрицания»"
+  - item: "N11 · CX2-58 (в)"
+    verdict: holds
+    evidence: "Гейт печатает имя образца. Атрибуция счёта NTF2-30 — сторона NTF-2"
+  - item: "N11 · CX2-58 (г)"
+    verdict: partially_holds
+    evidence: >-
+      Перепись по вызову обёртки названа: гейт с `-f deploy/testdata/mail-node/<образец>` мимо
+      обёртки краснеет, близнец молчит. Но единица переписи — вызывающие таблицы цепочек. Рендер
+      `prod` по имени профиля в неё не входит, и такой гейт перепись не увидит ни со слоем, ни без
+      слоя — CX1-93
+  - item: "N11 · CX2-60 (б)"
+    verdict: holds
+    evidence: "Проба D2: перечень и число объектов notify по цепочкам (`own`, `prod` — 0); инъекция — объект вне условия перечня в фикстурной копии чарта, красный с именем объекта и цепочки; близнец — объект под условием"
+  - item: "N11 · CX2-57 (в)"
+    verdict: holds
+    evidence: >-
+      Текст с обоими выходами пишет D2, потому что ключ флага вводит D2, а текст до D2 лгал бы. D1
+      пишет текст с именем узла. Путь назван как «шаблон `ConfigMap` чарта notify в
+      `deploy/helm/notify/templates/` … после D1». Порядок D1 → D2 на один файл задан. Точного имени
+      файла нет, потому что его заводит D1
+  - item: "CX2-47 (в)"
+    verdict: holds
+    evidence: >-
+      Сверочная проба N13 устроена так: перепись `fail (printf` по узлу, таблица входов равна
+      переписи по числу, вход без отказа или отказ без входа — красный. Входы, которые разрешает только
+      рендер, помечены отдельно. Путь пробы — в `services/notify/internal/config/**` (строка N13
+      tasks.md)
+
+items:
+  - id: CX1-92
+    status: unmapped
+    decision: "З28 «Один каталог образцов, одна точка подстановки» (редакция 21, N11 · CX2-58 (а)): Go — `deployStacksForRender(t, sample)` отдаёт все цепочки с образцом, дописанным к `prod`; шелл — `render_chain_args <цепочка> [<образец>]`, образец для цепочки не `prod` → отказ, `prod` без образца → отказ; tasks.md D9"
+    class: >-
+      .claude/rules/architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ
+      СОБОЙ» (две обёртки одного механизма с разным контрактом); code-authoring §«Контракт, который
+      нельзя выразить» (ось, которую несёт общий читатель, у обёртки не выразима); measurement-discipline
+      §«Радиус: по имени механизма и по точкам применения» (контракт обёртки выведен без переписи её
+      будущих вызывающих)
+    finding: >-
+      (1) Ось каталога. Общий читатель — `stacks_args <имя> [КАТАЛОГ]`
+      (`deploy/tests/helm/stacks.sh:119–134` @23f1e058a35); он приписывает `$dir/` каждому профилю.
+      Вызовов `stacks_args` / `stacks.sh --args` в шелле, CI и `scripts/` без комментариев — 16, и 14
+      из них передают каталог (`"$UMBRELLA"` либо `./helm/umbrella`). Без каталога — только
+      `.github/workflows/ci.yaml:2566` и `scripts/ci-local.sh:975`, которые делают `cd` в зонтик.
+      Точек, рендерящих `prod` через таблицу, 8: явный `prod` — `identity-guards-on-our-own-posture-test.sh:81`,
+      `seed-secrets-refuse-unknown-state-test.sh:121`; обход всех цепочек —
+      `ceremony-coordinates-reach-the-edge-test.sh`, `console-serves-identity-flows-test.sh`,
+      `networkpolicy-egress-test.sh`, `servername-checked-against-the-peer-test.sh`, `ci.yaml`,
+      `ci-local.sh`. Шесть из восьми передают каталог. У `render_chain_args <цепочка> [<образец>]`
+      оси каталога нет, а вторая позиция занята образцом. Механическая замена `stacks_args prod
+      "$UMBRELLA"` на `render_chain_args prod "$UMBRELLA"` даёт громкий отказ «имя вне каталога». Но
+      вызов без каталога отдаёт `-f values.prod.yaml`, а такой путь верен только из каталога зонтика.
+      (2) Форма элемента образца в цепочке. Go-вызывающие получают имена профилей относительно
+      `umbrellaDir` (`deployStacks` сверяет `os.Stat(filepath.Join(umbrellaDir, p))`, вызывающих —
+      44 файла). Шелл-вызывающие получают `-f $dir/<профиль>`. Образец лежит вне зонтика
+      (`deploy/testdata/mail-node/`), и его форму в цепочке замысел не называет ни для одной обёртки.
+      Если элемент записан относительно корня `deploy/` либо репозитория, при соединении с базой
+      вызывающего он укажет в несуществующий путь. (3) Контракт на цепочках не `prod`. Go-обёртка
+      принимает образец для всех цепочек и дописывает его только к `prod`, а шелл-обёртка тот же
+      образец для цепочки не `prod` отвергает. Шесть шелл- и CI-точек обходят все цепочки. При
+      шелл-контракте каждая из них вписывает ветку `[ "$stack" = prod ]`, то есть знание «какой
+      цепочке нужен слой» переезжает из одной точки подстановки в шесть вызывающих. Это второе
+      написание того же решения, против которого и заведена одна точка подстановки
+    condition_to_design: >-
+      (а) Контракт шелл-обёртки несёт ось каталога общего читателя, например `render_chain_args
+      <цепочка> <каталог> [<образец>]`. Решение названо в З28 и в D9. Вызов без каталога либо
+      разрешён явно, с тем же смыслом, что у `stacks_args`, либо отвергнут. (б) Форма элемента образца
+      в цепочке названа для обеих обёрток: Go — путь, который `filepath.Join(umbrellaDir, p)`
+      разрешает в файл каталога; шелл — путь, верный из каталога вызывающего при любом значении
+      аргумента каталога. Проба D9 — каждый элемент цепочки `prod`, отданной обёрткой, существует
+      через ту же операцию соединения, что у вызывающих: Go — `os.Stat(filepath.Join(umbrellaDir,
+      p))`, шелл — `[ -f ]` из каталога, отличного от зонтика. Инъекция: элемент образца относительно
+      корня репозитория → красный с именем элемента. (в) Один контракт на цепочках не `prod` у обеих
+      обёрток. Либо обе принимают образец на любой цепочке и дописывают его только к `prod` — тогда
+      обходчику ветка не нужна, а проба утверждает, что строка цепочки не `prod` равна общему
+      читателю. Либо обе отвергают, и тогда у Go-обёртки есть форма на одну цепочку. Выбор записан
+      в З28, и проба D9 утверждает его на обеих обёртках одним набором случаев
+    held_by: "нужен гейт — проба D9 (б), (в); сейчас держится вниманием, пути проб уже в D9"
+
+  - id: CX1-93
+    status: unmapped
+    decision: "З28 «Перепись — по точкам применения» (единица — вызывающий `deployStacks(`, `stacks.sh`, прямой читатель `stacks.txt`) вместе с решением редакции 21 «одна точка подстановки» и переписью «по вызову обёртки» (CX2-58 (г)); Е12 (4) — полоса, делающая перечень `prod` непустым, обязует «гейты обхода `deploy/stacks.txt`»"
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения» (механизм — «рендер зонтика с `values.prod.yaml`», а не «чтение таблицы цепочек»); code-authoring §«Решение и его следствие разнесены» (слой нужен каждому рендеру `prod`, а перепись и обязательство считают только читателей таблицы)"
+    finding: >-
+      На origin/1276@23f1e058a35 зонтик с `values.prod.yaml` мимо таблицы цепочек рендерят 4 шелл-файла:
+      `deploy/tests/helm/prod-profile-fail-closed-test.sh:104` (`helm_try kacho-umbrella "$UMBRELLA"
+      -f "$PROD"`), `edge-keyset-hop-test.sh:190` (`-f "$UMBRELLA/values.prod.yaml" --show-only …`),
+      `networkpolicy-egress-test.sh:227` (`render "контроль 0 …" -f "$UMBRELLA/values.prod.yaml"`) и
+      `machine-credential-posture-test.sh:109` (`render_only "$PROD" …` → `helm_try kacho-umbrella
+      "$UMBRELLA" -f "$1" --show-only`). Ещё три файла (`iam-metrics-mtls`, `iam-trusted-forwarder`,
+      `registry-trusted-forwarder`) читают `$PROD` через yq или awk и зонтик с ним не рендерят. В Go
+      по предикату «файл называет `values.prod.yaml` и зовёт `template`, `deployStacks(` не зовёт»
+      нашёлся один файл, `gateway/deploy/login_lane_prereq_test.go`, и он рендерит чарт kaname, а не
+      зонтик. Ни один из четырёх шелл-файлов не входит в единицу переписи D2. Пока перечень `prod`
+      пуст (NTF-1), они проходят. Когда перечень станет непустым (NTF-2, NTF-3; Е12 (4)), каждый
+      получит отказ `required` с именем узла. Это красный на полосе, в путях которой их нет. Перепись
+      «рендерящих `prod` = со слоем» тогда зелёная, но вывод из неё ложный: она не видит рендеров, у
+      которых нет слоя. А «исправление» такого гейта прямым `-f deploy/testdata/mail-node/…` перепись
+      CX2-58 (г) тоже не увидит: гейт стоит вне её единицы
+    condition_to_design: >-
+      (а) Единица переписи D2 расширена. Точкой применения считается и рендер зонтика, называющий
+      `values.prod.yaml` (либо любой профиль, с которого начинается цепочка `prod` или `own`) по
+      имени, а не через таблицу, — на всех языках, с той же разметкой ролей. Перепись печатает их
+      число отдельной строкой. (б) Исход такой точки назван в З28 одним из двух: перевод на обёртку
+      (цепочка `prod` из таблицы + образец) либо утверждение отказа с именем узла. Прямой `-f`
+      профиля `prod` в гейте роли «гейт» после D2 — красный переписи с координатой. (в) Пути четырёх
+      файлов (либо «перечень печатает перепись» с этим признаком) внесены в D2 наравне с
+      существующими точками роли «гейт». (г) Инъекция: фикстурная копия с включённым `probe-b`
+      (перечень `prod` непуст) и шелл-гейтом, рендерящим `-f values.prod.yaml` напрямую → красный
+      переписи с именем файла; близнец — тот же гейт через обёртку → молчание
+    held_by: "нужен гейт — перепись D2 с расширенной единицей; сегодня не держится ничем (NTF-1 зелёна при пустом перечне `prod`)"
+
+notes:
+  - id: N12
+    blocking: false
+    where: "З28 «Один каталог образцов, одна точка подстановки» — «Обёртка принимает только имя файла каталога»; D9 `deployStacksForRender(t, sample)`"
+    text: >-
+      `filepath.Join(dir, "")` и `filepath.Join(dir, ".")` дают сам каталог, и `os.Stat` на нём
+      успешен. Проверка «существует» пропустит пустое имя, а в цепочку `prod` уйдёт `-f <каталог>`.
+      Решение «только имя файла каталога» это исключает, но исполнение с проверкой через `os.Stat`
+      его не выдержит. К коду: принадлежность проверяется по перечню обычных файлов каталога
+      (`os.ReadDir`, `!IsDir()`, точное совпадение имени). Отрицания пробы — `""`, `.`,
+      `../mail-node/operator.yaml`, имя подкаталога; близнец — `operator.yaml`. То же в шелле:
+      `[ -f ]` плюс проверка, что в имени нет `/`
+  - id: N13
+    blocking: false
+    where: "З28 «Шелл-обёртка — только библиотека» (N9); D9"
+    text: >-
+      При режиме `100644` запуск `deploy/tests/helm/lib/render-chain.sh prod` отказывает до первой
+      строки файла: оболочка возвращает 126 (Permission denied), а не 2. Код 2 с текстом «библиотека,
+      подключайте source» возможен только при `bash <путь>`. К коду: проба D9 исполняет `bash
+      <путь> prod` → 2 и текст, а прямой запуск по пути утверждает отдельно → 126. Иначе проба,
+      ожидающая 2 от прямого запуска, красная на верном файле, либо её «чинят» режимом `100755` — а
+      это противоречит решению
+  - id: N14
+    blocking: false
+    where: "З28 «Комментарий и текст отказа переезжают с перечнем» (N10); §11 N10; D2"
+    text: >-
+      `grep -c 'in this script' deploy/helm/umbrella/cutover-*.sh` на двух файлах печатает две строки
+      вида `<путь>:<N>`, а не `0`. Ожидание «→ 0» в такой форме не сравнимо. К коду: `cat
+      deploy/helm/umbrella/cutover-*.sh | grep -c 'in this script'` → `0`, либо `grep -h … | wc -l`
+      → `0`, плюс печать числа файлов, попавших под маску (2), чтобы пустая маска не дала «0»
+  - id: N15
+    blocking: false
+    where: "tasks.md D2 (пути: существующие точки роли «гейт» … `.github/workflows/ci.yaml`)"
+    text: >-
+      `scripts/ci-local.sh:975` — локальное зеркало задания CI `ci.yaml:2566`. Оно обходит каждую
+      цепочку, включая `prod`, через `bash ../../tests/helm/stacks.sh --args "$stack"`, то есть это
+      точка роли «гейт». В путях D2 его нет, но перепись по имени читателя его найдёт: форма
+      `stacks.sh --args` — в единице переписи. К коду: D2 правит его тем же изменением, что `ci.yaml`.
+      Раз обёртка — только библиотека (N9), задание подключает её `source` внутри `bash -c` и вызывает
+      функцию
+
+measurements:
+  - claim: "предмет — 170f1ee2, коммит 15e875957; change.yaml несёт 170f1ee2; маршрут — 4a0bee6f"
+    command: "sha256sum docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md; grep -n design_sha256 docs/changes/issue-2915/change.yaml; git rev-parse HEAD"
+    result: "170f1ee2…; 4a0bee6f…; design_sha256: 170f1ee2…; HEAD = 15e875957"
+  - claim: "дельта — три файла пакета"
+    command: "git diff --stat d89bd2281 15e875957 -- docs/changes/issue-2915/"
+    result: "change.yaml 10, design.md 121, tasks.md 17 (122+, 26−)"
+  - claim: "origin/1276 сдвинулась, предметы замеров не тронуты"
+    command: "git -C project/kacho diff --stat 3af063bd6f3 origin/1276"
+    result: "16 файлов; rosterreaderexitcode*, stacks.sh, stacks.txt, cutover-fe3455.sh в перечне нет"
+  - claim: "переписанная строка даёт находку «аргумент helm/kubectl», близнец — потребление без находки"
+    command: "git show origin/1276:internal/repohygiene/rosterreaderexitcode_test.go (rosterReaderRe, lossyForms, AuditRosterReaderExitCodes, readerInsideSubstitution)"
+    result: "форма `(?:^|[;|&(]|\\t|\\bthen\\b|\\bdo\\b|\\belse\\b)[ \\t]*(?:helm|helm_try|render|kubectl)[ \\t][^\\n]*\\$\\(`; присваивание не судится (шапка «присваивание подстановкой гейт НЕ судит»); Consumptions считает каждую строку с читателем"
+  - claim: "общий читатель несёт ось каталога; 14 из 16 вызовов её передают"
+    command: "git show origin/1276:deploy/tests/helm/stacks.sh | sed -n 119,134p; git grep -nE 'stacks_args|stacks\\.sh\"? +--args' origin/1276 -- '*.sh' '*.yaml' '*.yml' Makefile '*.mk' (без строк-комментариев и определения)"
+    result: "`stacks_args <имя> [КАТАЛОГ]`; 16 вызовов: с каталогом 14 (stack-secrets, ceremony, console-serves, identity-guards ×3, identity-mail-lane-guard-inject, networkpolicy, prerequisite ×2, seed-secrets ×2, servername, inject-admin-hop), без — 2 (ci.yaml:2566, ci-local.sh:975)"
+  - claim: "шесть шелл- и CI-точек обходят все цепочки"
+    command: "grep -nE 'for (stack|chain) in' в ceremony, console-serves, networkpolicy, servername; ci.yaml:2555–2570; ci-local.sh:960–985"
+    result: "каждая обходит `stacks_names`/`--names` без исключения `prod`"
+  - claim: "Go-вызывающие разрешают элементы цепочки относительно umbrellaDir"
+    command: "git show origin/1276:deploy/dbtls_declaration_test.go | sed -n 170,215p; git grep -l 'deployStacks(t)' origin/1276 -- '*.go' | wc -l"
+    result: "deployStacks: os.Stat(filepath.Join(umbrellaDir, p)); вызывающих файлов 44"
+  - claim: "4 шелл-файла рендерят зонтик с values.prod.yaml мимо таблицы"
+    command: "git grep -nE 'values\\.prod\\.yaml' origin/1276 -- '*.sh' …; по каждому файлу — строки `$PROD`, `helm_try`, `render`"
+    result: "prod-profile-fail-closed:104, edge-keyset-hop:190, networkpolicy-egress:227, machine-credential-posture:109 (render_only → helm_try kacho-umbrella); iam-metrics-mtls, iam-trusted-forwarder, registry-trusted-forwarder — только yq/awk по $PROD"
+  - claim: "в Go прямых рендеров зонтика с values.prod.yaml не найдено"
+    command: "файлы Go с `values.prod.yaml`|`productionBaseProfile` ∩ `\"template\"` ∖ `deployStacks(`"
+    result: "1 файл — gateway/deploy/login_lane_prereq_test.go, рендерит чарт kaname, не зонтик. Предикат слабый (строка `\"template\"`), в объём не выдаётся за полный"
+  - claim: "фраза `in this script` в umbrella/*.sh — одно вхождение"
+    command: "git grep -n 'this script' origin/1276 -- 'deploy/helm/umbrella/*.sh'"
+    result: "7 вхождений `this script`, из них `in this script` — одно, :233"
+  - claim: "kacho#1276 открыта — предикат старта D2 ложен"
+    command: "gh issue view 1276 --repo PRO-Robotech/kacho --json state"
+    result: "OPEN"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "полный перечень Go-рендеров зонтика по профилю `prod` мимо таблицы"
+    why: "предикат по строке `\"template\"` слаб: рендер может собираться помощником с иным именем. Число 0 для Go не утверждается. Полноту даёт только перепись D2 с расширенной единицей (CX1-93 (а))"
+  - item: "какой из двух контрактов на цепочках не `prod` выберет автор (CX1-92 (в))"
+    why: "это решение замысла; оба законны, если одинаковы у обеих обёрток"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-92, CX1-93]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-92 (а)–(в): ось каталога у шелл-обёртки, форма элемента образца в цепочке для обеих обёрток, один контракт на цепочках не `prod`; CX1-93 (а)–(г): единица переписи D2 включает рендер `prod` по имени профиля, исход таких точек, пути четырёх шелл-файлов, инъекция. N12–N15 можно назвать в D9, D2 (к коду)"
+    basis: ".claude/rules/change-graph.md §4; .claude/rules/architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»; measurement-discipline §«Радиус: по имени механизма и по точкам применения»"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-92, CX1-93"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "design author (NTF-2), к сведению"
+    subject: "CX1-93: гейты NTF-2, рендерящие `prod` по имени профиля, а не через таблицу, в перепись NTF-1 D2 не попадут, пока единица не расширена; CX2-58 (а) для них то же — только через обёртку"
+    basis: ".claude/rules/architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
