@@ -1,0 +1,261 @@
+# Экспозиция классов — первичный разбор (initial), под-фаза NTF-5 (извещения оператора), редакция 14.
+#
+# Разбор ДО кода. Привязан к отпечатку одобренной приёмки. Разрешения писать реализацию эта запись
+# не даёт: после появления design.md каждый пункт CX5-* обязан получить точное отображение в решение
+# замысла и пересверку на отпечаток замысла (class-exposure/revalidation/<design-sha256>.yaml).
+#
+# Прежние первичные разборы — на редакцию 8 (1f4852e4…, CX5-01…28, RA-1…RA-6) и на редакцию 12
+# (2fe29c35…, CX5-29…36, RA-7…RA-9). Они свидетельствуют о своих редакциях и не переписываются.
+# Здесь разобрана ДЕЛЬТА редакций 13–14 против редакции 12
+# (`git diff 13e0b5996 d3cb7bafa -- <приёмка>`, 375 добавленных и 44 снятых строки): Р23 (запись
+# операции в транзакции вызывающего), ручка окна сужателя с умолчанием загрузчика и перепись гейта
+# окна отзыва (Р16, Р17, DoD 10.1 п.10), NTF5-120…122, DoD 10.1 п.2а, п.11. Пункты CX5-01…36 не
+# повторяются — их условия действуют и отображаются замыслом по прежним записям. Новые номера —
+# CX5-37…41.
+#
+# Исход — «вернуть в приёмку»: один пункт требует правки документа (RA-10).
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2924
+issue: https://github.com/PRO-Robotech/kacho/issues/2924
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  revision: 14
+  content_commit: d3cb7bafa
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af.yaml
+  verdict_note: >-
+    Запись одобрения — круг 13 (круг 2 прохода RA-7…RA-9), блокирующих 0. Манифест пакета
+    (change.yaml) несёт hashes.acceptance_sha256 редакции 2 и lifecycle_state ISSUE_READY —
+    перезакрепление манифеста не предмет этой роли.
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+previous_initial:
+  - record: docs/changes/issue-2924/reviews/class-exposure/initial/1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32.yaml
+    items: CX5-01…28 (действуют без изменений)
+  - record: docs/changes/issue-2924/reviews/class-exposure/initial/2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98.yaml
+    items: CX5-29…36 (действуют без изменений)
+    return_items_closed: >-
+      RA-7…RA-9 закрыты редакциями 13–14, проверено чтением дельты: RA-7 — фраза «умолчание
+      фундамента, тот же размен, что у модулей» снята, окно сужателя — ручка
+      KACHO_NOTIFY_LIST_FILTER_CACHE_TTL с границей и переписью гейта (Р16, Р17, NTF5-120, DoD 10.1
+      п.10); RA-8 — производитель назван: функции фундамента Р23, стадия S1 ждёт тега (§5, DoD 10.1
+      п.2а); RA-9 — NTF5-121 с близнецами, DoD 10.1 п.11. CX5-35 (Reconciler) — наблюдаемое названо в
+      Р23, решение оставлено замыслу, как и заказано.
+revisions:
+  workspace: 2d4209cada92a27283af3ebff2bcbd17d2aa04c6   # ветка issue-880 на момент замеров
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main (перепроверено fetch: не сдвинулся)
+  kaname: 734f69fb4f7f2cadf1d3887ece90b22bf7793a0b      # origin/357 — ветка эпика (не перемерялась)
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # origin/main = тег v1.9.0; kacho пинит v1.8.0
+snapshot_at: 2026-09-30T06:34:25Z
+inspected: >-
+  приёмка: вся дельта 13e0b5996..d3cb7bafa (шапка, §1.3, §1.4 три новых пункта, Р2, Р5, Р10 шаги 1,
+  3–5, Р16, Р17, Р18, Р21, Р23, §5 S1, §6 три строки, G0, NTF5-22, 24, 53, 54, 120, 121, 122, §8, §9,
+  DoD 10.1 п.2а, п.3, п.6, п.10, п.11, §11, §23, §24); оба прежних первичных разбора; запись
+  одобрения 88fabd09…; corelib @34bc810: operations/repo.go (rowQuerier, markDoneCAS,
+  markDoneWithMetadataCAS, markErrorCAS, NewRepo/tableName, Create, CreateWithPrincipal, Cancel,
+  GetOwned, CancelOwned, ownerPredicateSQL), operations/operationspb/handler.go (Get, Cancel),
+  listnarrow/narrower.go (New, WithClock), authz/revocation_policy.go (Ceiling); kacho @1d42a6728bf:
+  internal/repohygiene/revocationwindow_test.go (revocationScanRoots, сверка с Windows и Ceiling),
+  go.mod (пин corelib), перечень services/; NTF-3 Р18 (строки 1071–1080); NTF-4 Р16 (строка 1163).
+  Записки vault не читались.
+
+decisions:
+  N10: "Р23: три формы записи операции в транзакции вызывающего, по одной экспортируемой функции на форму; форма 3 — экспорт markDoneCAS и markErrorCAS без изменения условия; функцию формы 3 заводит та под-фаза (NTF-3 Р18 или NTF-5), чья правка сядет первой"
+  N11: "Р23: функции создания отвергают пустой принципал без SystemPrincipal; транзакции notify — READ COMMITTED; второго писателя таблицы операций нет; тег corelib с Р23 поднят в kacho до старта S1 (DoD 10.1 п.2а)"
+  N12: "Р16, Р17: окно сужателя notify-api — ручка KACHO_NOTIFY_LIST_FILTER_CACHE_TTL, умолчание загрузчика 5s, граница [1s, 10s] (верх — RevocationPolicy.Ceiling), в values не задаётся"
+  N13: "DoD 10.1 п.10: ручка в knobNames, каталог services/notify/internal/config в revocationScanRoots, запись RevocationPolicy.Windows «notify KACHO_NOTIFY_LIST_FILTER_CACHE_TTL» = 5s в corelib; тег corelib с записью и объявление ручки садятся в kacho одним изменением"
+  N14: "NTF5-120, §6: часы сужателя — порт часов обвязки (listnarrow WithClock); окно из ручки держит проба со значением 2s"
+  N15: "NTF5-121, DoD 10.1 п.11: звено прав notify-api судит методы InternalNoticeService по аннотации; перепись «метод ↔ аннотация либо освобождение с Check» — гейт дерева"
+
+items:
+  - id: CX5-37
+    decision: N10
+    class: "code-authoring §«Унификация и стоимость» (сведение двух потребителей к одной функции — по самой узкой семантике); code-authoring §«Контракт, который нельзя выразить» (единица «форма» не выражена тем, что считает предикат)"
+    exposure: >-
+      Р23 и DoD 10.1 п.2а считают «формами» три предмета и требуют ровно одну экспортируемую функцию
+      на форму. Форма 3 при этом — «экспорт существующих markDoneCAS и markErrorCAS»: это две функции
+      (а у фундамента их три — ещё markDoneWithMetadataCAS). Предикат п.2а на построении, которое
+      предписывает тот же пункт, даёт 2 на форме 3 — выполнить букву можно только слиянием успеха и
+      ошибки в одну функцию, о котором документ не говорит. Второе: граница с NTF-3 Р18 («функцию формы
+      заводит та под-фаза, что сядет первой; вторая не заводится») сводит не одну и ту же форму. NTF-3
+      Р18 делает транзакционной только терминальную запись ОШИБКИ и в ту же транзакцию ставит строку
+      operation-failed при включённом флаге. Если NTF-3 сядет первой, половины «успех» у фундамента не
+      будет, а буква «вторая не заводится» запретит NTF-5 её завести. Если общая функция формы 3 несёт
+      постановку строки operation-failed внутри себя, терминальный отказ Create (шаги 4, 5 Р10) пошлёт
+      оператору извещение о сбое. Такого исхода NTF-5 не описывает, и принципал операции nop — всегда
+      user (Р23).
+    condition: >-
+      (а) единица предиката выражена сигнатурой: экспортируемые идентификаторы пакета operations с
+      параметром-транзакцией, перечислены поимённо, их число названо; успех и ошибка — либо две
+      формы (всего четыре), либо одна функция с исходом-oneof, решением приёмки; (б) функции записи
+      на транзакции пишут только строку таблицы операций: строку operation-failed NTF-3 ставит её
+      вызывающий в той же транзакции, а не функция фундамента; (в) граница с NTF-3 Р18 названа
+      по функциям, а не по «форме».
+    held_by: "нет — предикат DoD 10.1 п.2а невыполним на предписанном им построении; возвращено в приёмку (RA-10)"
+  - id: CX5-38
+    decision: N10, N11
+    class: "code-authoring §«Контракт, который нельзя выразить» (запись вне транзакции и чужое имя таблицы — выразимы); rule api-outcome / ban10 db-cas"
+    exposure: >-
+      «Экспорт без изменения» переносит наружу сигнатуру помощников как есть:
+      markDoneCAS(ctx, q rowQuerier, table, id, …). rowQuerier по комментарию фундамента — «общий для
+      *pgxpool.Pool и pgx.Tx интерфейс» (repo.go:158). Вызывающий, передавший пул вместо своей
+      транзакции, получает запись вне транзакции фиксации, и компилятор этого не видит. Шаг 3 Р10
+      тогда фиксирует операцию, даже если запись извещения откатилась: успешная операция без
+      извещения, против которой Р23 отверг «запись операции отдельной транзакцией». Второе: параметр
+      table — строка. Имя таблицы у CancelOwned и общего обработчика берёт r.tableName() из схемы
+      NewRepo, а экспортированной функции его подаёт notify — второе написание одного значения. При
+      расхождении схемы запись идёт в одну таблицу, а отмена и опрос — в другую. Третье:
+      CreateWithPrincipal подставляет SystemPrincipal при пустом принципале (repo.go:384). Новая
+      функция создания, собранная из её тела, наследует запасной путь.
+    condition: >-
+      (а) функции Р23 — методы хранилища operations (расширение FullRepo), имя таблицы — r.tableName();
+      параметра table у экспортируемой функции нет; (б) параметр — pgx.Tx, а не rowQuerier: запись вне
+      транзакции вызывающего не компилируется; (в) обработчик операций notify-api и писатель на
+      транзакции получают один и тот же экземпляр NewRepo (одна схема), что видно в композиционном
+      корне; (г) общий построитель INSERT не содержит запасного принципала, SystemPrincipal остаётся
+      только в пуловых Create/CreateWithPrincipal.
+    held_by: "покраснеют NTF5-122 (а), (в) (откат оставил операцию — запись шла мимо транзакции), (д1), (д2) (запасной принципал); подача пула на месте вызова в notify и расхождение схемы сценариями не держатся — держатся сигнатурой (а), (б) и видны в диффе"
+  - id: CX5-39
+    decision: N11, N13
+    class: "code-authoring §«Решение и его следствие разнесены» (запись политики в corelib, её предмет — в kacho, связь — через пин, который поднимают чужие полосы); verdict-and-landing (общий ствол, параллельные писатели)"
+    exposure: >-
+      Гейт окна отзыва kacho читает RevocationPolicy.Windows из ПИНА corelib
+      (revocationwindow_test.go импортирует corelib/authz). Запись «notify
+      KACHO_NOTIFY_LIST_FILTER_CACHE_TTL» в любом теге corelib делает красным ствол kacho,
+      поднявший пин на этот тег раньше, чем в services/notify/internal/config объявлена ручка с
+      умолчанием: гейт называет это «запись политики без предмета». Каталога services/notify на стволе
+      kacho нет. До старта S1 пин поднимают минимум трижды и разными полосами: тег с Р23 (DoD 10.1
+      п.2а, «до старта S1»), тег с Х5 и Х1 (NTF-4). Объявление ручки садится только в S1. Значит,
+      запись не может ехать ни в одном из этих тегов. Приёмка требует «одним изменением» лишь от
+      подъёма на тег с записью, а в каком теге запись и кто поднимет пин раньше, не говорит. Полоса
+      NTF-1 или NTF-4, поднявшая пин ради своего, окрасит ствол всем.
+    condition: >-
+      (а) в замысле названа последовательность тегов corelib: запись Windows — в отдельном теге ПОСЛЕ
+      тегов с Р23, Х5 и Х1; (б) подъём пина kacho на этот тег, объявление ручки с умолчанием и каталог в
+      revocationScanRoots — один коммит одного изменения; (в) задача corelib (Р23) и задачи NTF-1/NTF-4
+      несут строку «не поднимать пин kacho на тег с записью notify вне изменения S1 NTF-5».
+    held_by: "покраснеет TestRevocationWindowIsDeclaredPolicy, но уже на стволе, после посадки чужого подъёма; порядок тегов держится вниманием — заказ диспетчеру (строка в задачах)"
+  - id: CX5-40
+    decision: N12
+    class: "code-authoring §«Контракт, который нельзя выразить» (граница ручки — второе написание потолка политики); security-hardening.md hard-short-lived-by-decision"
+    exposure: >-
+      Верх границы ручки — «потолок политики окон отзыва, 10 с» (Р16), и NTF5-54 (д) держит его
+      литералом 11s. Гейт окна отзыва сравнивает с потолком (Ceiling, revocation_policy.go:153) только
+      умолчание в исходнике (revocationwindow_test.go, «окно превышает потолок»), а не границу стража.
+      Потолок, сниженный в corelib, оставит notify-api принимать прежние 10 с, и ни один держатель не
+      покраснеет. На том же процессе notify-api окно звена прав — ручка NTF-4
+      KACHO_NOTIFY_AUTHZ_CACHE_TTL с границей «1 с … 30 с» (NTF-4 строка 1163): верх втрое выше потолка,
+      которого NTF-5 держится. Гейт этого не видит, потому что умолчание 5 с в потолке.
+    condition: >-
+      (а) верх границы стража KACHO_NOTIFY_LIST_FILTER_CACHE_TTL читается из authz.RevocationPolicy.Ceiling,
+      литерала 10s в services/notify нет; (б) проба NTF5-54 (д) берёт значение как Ceiling + 1s, а не
+      литерал 11s.
+    held_by: "покраснеет NTF5-54 (д) только при нынешнем потолке; смену потолка держит (а), вниманием. Граница ручки NTF-4 — строкой диспетчеру, предмет NTF-4"
+  - id: CX5-41
+    decision: N14
+    class: "gate-authoring §«фикстура не снисходительнее продукта»; code-authoring §«Инвариант и оснастка — это тоже прод-код»"
+    exposure: >-
+      Окно, взятое сборкой сужателя мимо ручки, гейт не видит по построению (DoD 10.1 п.10), и
+      держит его одна NTF5-120. Проба видит сборку продукта только тогда, когда обвязка строит сужатель
+      тем же кодом, что main. Обвязка, вызвавшая listnarrow.New сама (ей нужен WithClock), с CacheTTL
+      из своей конфигурации, будет зелёной и на продукте, который передаёт ноль, — а ноль сужатель
+      превращает в 5 с (narrower.go:215).
+    condition: >-
+      (а) в notify-api ровно одна функция сборки сужателя, она принимает конфигурацию и часы; её зовут
+      и main (часы — time.Now), и обвязка (управляемые часы); (б) вызов listnarrow.New в не-тестовом
+      дереве services/notify — один, в этой функции; в тестах — ноль.
+    held_by: "покраснеет NTF5-120 (б), если обвязка идёт через (а); (б) — однофайловый кандидат в предикат class-guard, см. блок предложений"
+
+measurements:
+  - claim: "Р23: форма 3 — экспорт markDoneCAS и markErrorCAS; одна экспортируемая функция на форму"
+    command: "git -C project/corelib grep -nE '^func mark[A-Za-z]*CAS\\(' 34bc8104a -- operations/ | wc -l; git -C project/corelib grep -nE 'mark(Done|DoneWithMetadata|Error)CAS\\(' 34bc8104a -- '*.go' ':!*_test.go'"
+    result: "3 помощника (markDoneCAS, markDoneWithMetadataCAS, markErrorCAS); вызывающие — reconciler.go:243, 252 (на транзакции) и MarkDone/MarkDoneWithMetadata/MarkError (repo.go:574, 581, 587, на пуле); форма 3 по тексту Р23 — две функции (CX5-37)"
+  - claim: "экспорт без изменения даёт функцию на транзакции вызывающего"
+    command: "git -C project/corelib show 34bc8104a:operations/repo.go | sed -n 155,172p"
+    result: "параметр — rowQuerier, «общий для *pgxpool.Pool и pgx.Tx», плюс table string; пул проходит по типу (CX5-38)"
+  - claim: "ноль строк CAS различает ErrAlreadyDone и ErrNotFound (Р23 форма 3)"
+    command: "git -C project/corelib show 34bc8104a:operations/repo.go | sed -n 165,200p"
+    result: "подтверждено: CTE UPDATE … WHERE id=$1 AND done=false + EXISTS; updated=1 → nil, строка есть → ErrAlreadyDone, нет → ErrNotFound"
+  - claim: "экспортируемых функций записи операций на транзакции вызывающего сегодня нет (§1.4)"
+    command: "git -C project/corelib grep -nE '^func (\\([^)]*\\) )?[A-Z][A-Za-z]*\\([^)]*(pgx\\.Tx|rowQuerier)' 34bc8104a -- 'operations/*.go' ':!*_test.go' | wc -l"
+    result: "0 — подтверждено"
+  - claim: "NTF-3 Р18 — та же форма 3"
+    command: "sed -n 1071,1080p docs/specs/sub-phase-NTF-3-*-acceptance.md"
+    result: "только терминальная запись ошибки, и в ту же транзакцию — строка operation-failed при включённом флаге; успеха Р18 не касается (CX5-37)"
+  - claim: "гейт окна отзыва читает запись политики из corelib"
+    command: "git -C project/kacho show 1d42a6728bf:internal/repohygiene/revocationwindow_test.go | grep -nE 'corelib/authz|RevocationPolicy.(Windows|Ceiling)'; git -C project/kacho grep -n 'PRO-Robotech/corelib ' 1d42a6728bf -- go.mod"
+    result: "импорт corelib/authz, Windows и Ceiling — из пина; пин v1.8.0, corelib origin/main = тег v1.9.0 (CX5-39)"
+  - claim: "services/notify на стволе kacho"
+    command: "git -C project/kacho ls-tree -d origin/main services/ (после fetch; origin/main = 1d42a6728bf)"
+    result: "compute, geo, nlb, registry, storage, vpc — notify нет (CX5-39)"
+  - claim: "гейт сверяет с потолком границу стража"
+    command: "git -C project/kacho show 1d42a6728bf:internal/repohygiene/revocationwindow_test.go | sed -n 108,135p"
+    result: "нет: сверяется s.Window (умолчание в исходнике) с Ceiling; граница стража гейту не видна (CX5-40)"
+  - claim: "потолок политики 10 с"
+    command: "git -C project/corelib grep -n 'Ceiling:' 34bc8104a -- authz/revocation_policy.go"
+    result: "Ceiling: 10 * time.Second (строка 153) — подтверждено"
+  - claim: "ноль в CacheTTL — 5 с; WithClock существует"
+    command: "git -C project/corelib show 34bc8104a:listnarrow/narrower.go | sed -n 205,245p"
+    result: "подтверждено: cfg.CacheTTL <= 0 → 5s (215–216), WithClock (243) (CX5-41)"
+
+not_measurable:
+  - "подаст ли notify пул вместо транзакции и совпадёт ли схема хранилища у обработчика и писателя (CX5-38) — кода notify нет; видно диффом композиционного корня"
+  - "порядок тегов corelib и подъёмов пина разными полосами (CX5-39) — событие будущего; держится только записью в замысле и задачах"
+  - "способ сборки сужателя обвязкой NTF5-120 (CX5-41) — кода нет"
+
+outcome: вернуть-в-приёмку
+return_to_acceptance:
+  - item: RA-10
+    cx: CX5-37
+    anchors: [Р23, "DoD 10.1 п.2а", "§11 строки задачи corelib и NTF-3", NTF5-122]
+    what: >-
+      предикат DoD 10.1 п.2а «ровно по одной экспортируемой функции на каждую из трёх форм»
+      невыполним на построении, которое предписывает тот же пункт: форма 3 — это экспорт двух функций,
+      markDoneCAS и markErrorCAS. Назвать единицу счёта поимённо: либо четыре формы (успех и ошибка
+      порознь), либо одна функция формы 3 с исходом-oneof. Границу с NTF-3 Р18 переписать по
+      функциям: Р18 касается только ошибки и ставит строку operation-failed, а NTF-5 нужен и успех.
+      Сказать, что функция фундамента на транзакции пишет только строку операции, а строку
+      operation-failed ставит вызывающий NTF-3, — иначе терминальный отказ Create отправит оператору
+      извещение о сбое, которого документ не описывает.
+
+orders:
+  - to: acceptance author (NTF-5)
+    what: "RA-10; после правки — новый отпечаток, новое одобрение, повтор первичного разбора дельтой"
+    basis: "change-graph.md §4; SDD-1 §5 (ACCEPTANCE_APPROVED → CLASS_EXPOSURE_RECORDED)"
+  - to: design author (NTF-5)
+    what: >-
+      отображение CX5-01…41 в решения замысла; отдельно — сигнатура функций Р23 (методы хранилища,
+      pgx.Tx, без table, CX5-38), последовательность тегов corelib и подъёмов пина (CX5-39), граница
+      ручки из Ceiling (CX5-40), единственная сборка сужателя (CX5-41)
+    basis: "change-graph: второй разбор — по замыслу (SDD-1 §5, CLASS_EXPOSURE_RECORDED → DESIGN)"
+  - to: dispatcher
+    what: >-
+      строка «не поднимать пин kacho на тег corelib с записью Windows notify вне изменения S1 NTF-5»
+      в задачах corelib (Р23), NTF-1 и NTF-4 (CX5-39); строка автору NTF-4: граница
+      KACHO_NOTIFY_AUTHZ_CACHE_TTL «1 с … 30 с» выше RevocationPolicy.Ceiling 10 с на том же процессе
+      notify-api, и гейт окна отзыва верх границы не судит (CX5-40)
+    basis: "verdict-and-landing (общий ствол, параллельные писатели); security-hardening.md hard-short-lived-by-decision"
+  - to: go implementer (corelib operations, NTF-5)
+    what: "в NTF5-122 добавить букву: функция на транзакции не принимает пул (компиляционная проба либо отсутствие rowQuerier в экспортируемой сигнатуре, перечисленной переписью) (CX5-38)"
+    basis: "gate-authoring (отрицание с близнецом); testing.md §«Гейт на класс…» п.1"
+
+proposals:
+  class_guard_candidate:
+    predicate: "в не-тестовом дереве services/notify вызов listnarrow.New встречается ровно один раз; в *_test.go — ноль (CX5-41)"
+    note: >-
+      однофайловый признак есть. Живых близнецов в дереве сегодня нет: services/notify отсутствует,
+      а четыре модуля с сужателем строят его по одному разу, и тестового вызова у них не измерялось.
+      По требованию .claude/hooks/class-guard/README.md §«Как добавить предикат» кандидат заводится,
+      только когда оба близнеца берутся из дерева, — не раньше посадки S1.
+  new_class: "—: новых классов сверх существующих разделов code-authoring нет"
