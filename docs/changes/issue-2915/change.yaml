@@ -12,9 +12,13 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
-# Вердикт по отпечатку: CHANGES_REQUESTED, круг 2 (запись docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89.yaml).
-# Замысла (`design.md`) у изменения ещё нет — `hashes.design_sha256: null`.
+# СОСТОЯНИЕ ISSUE_READY — действующее APPROVED на текущий отпечаток приёмки есть (редакция 18,
+# круг 2 прохода редакции 17/18: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml),
+# но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
+# Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/29cfa368….yaml
+# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 1
+# (2026-09-30), отпечаток — `hashes.design_sha256`; вердикта на него нет, пересверки на него нет.
+# Маршрут работ — `tasks.md` (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2915
 lifecycle_state: ISSUE_READY
@@ -50,8 +54,8 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
-  design_sha256: null
+  acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  design_sha256: 9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:

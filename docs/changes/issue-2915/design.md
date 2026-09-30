@@ -1,0 +1,1283 @@
+<!--
+Copyright (c) PRO-Robotech
+SPDX-License-Identifier: BUSL-1.1
+-->
+
+# issue-2915 (NTF-1, ядро почтового шлюза) — замысел
+
+> **Что этот документ.** Технические решения, инварианты и отображение каждого пункта
+> разбора классов в механизм (`docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md`
+> §2 «Truth ownership»: `design.md` — technical decisions, invariants, exposure mapping).
+> Наблюдаемое поведение здесь не описывается и не переопределяется: его единственный
+> владелец — приёмка `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`.
+> Где замысел называет исход, он ссылается на её сценарий. Порядок работ — `tasks.md` рядом.
+>
+> **Редакция 1 · 2026-09-30.** Вердикта на неё нет. Действующий вердикт выводится из записи
+> ревью на отпечаток этого файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки
+> разбора классов (`reviews/class-exposure/revalidation/<sha256>.yaml`). Пересверок на замысел
+> у изменения пока нет: `ls docs/changes/issue-2915/reviews/class-exposure/` → только `initial`.
+>
+> **На чём стоит.** Одобренная редакция 18 приёмки и шесть первичных разборов классов на её
+> редакциях 8, 9, 10, 13, 16 и 18 (§0). Условия к коду из всех шести записей отображены: пункты
+> CX1-01…CX1-57 — в §11, каждое условие и каждый заказ исполнителю — в §11а. По решению
+> диспетчера Д22 условие к коду живёт здесь, а не в приёмке.
+
+## 0. Входы и на чём стоит замысел
+
+| вход | координата | отпечаток / ревизия | состояние |
+|---|---|---|---|
+| приёмка NTF-1 | `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md` | `29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7` (редакция 18, внесена `dbe97c78c`) | `APPROVED`, круг 2 прохода редакции 17/18, запись `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368….yaml`, `blocking_count: 0`; событие одобрения не опубликовано (`event.status: not_performed`) |
+| первичный разбор, редакция 8 | `reviews/class-exposure/initial/b347b81f….yaml` | `b347b81f…` | вернуть в приёмку (RA-01…06) — исполнено редакцией 9; пункты CX1-01…25 |
+| первичный разбор, редакция 9 | `reviews/class-exposure/initial/530e2296….yaml` | `530e2296…` | вернуть в приёмку (RA-07…09) — исполнено редакцией 10; CX1-26…32 |
+| первичный разбор, редакция 10 | `reviews/class-exposure/initial/d524e7bd….yaml` | `d524e7bd…` | вернуть в приёмку (RA-10) — исполнено редакциями 11–13; CX1-33…37 |
+| первичный разбор, редакция 13 | `reviews/class-exposure/initial/05828e42….yaml` | `05828e42…` | вернуть в приёмку (RA-11) — исполнено редакцией 14; CX1-38…43 |
+| первичный разбор, редакция 16 | `reviews/class-exposure/initial/390b5a33….yaml` | `390b5a33…` | вернуть в приёмку (RA-12) — исполнено редакцией 17; CX1-44…49 |
+| первичный разбор, редакция 18 | `reviews/class-exposure/initial/29cfa368….yaml` | `29cfa368…` (дельта против `390b5a33` по Д22) | `к-замыслу`, возврата нет; CX1-50…57 |
+| дерево kacho | `PRO-Robotech/kacho` | `origin/main@1d42a6728bf` | замеры §1 — на этой ревизии |
+| дерево kaname | `PRO-Robotech/kaname` | ветка эпика `origin/357@734f69fb4` | то же |
+| дерево corelib | `PRO-Robotech/corelib` | `origin/main@34bc8104a` (= `v1.9.0`) | то же |
+
+**Решения диспетчера.** Д1–Д13 (журнал запуска авторов NTF-*), Д14–Д16, Д17–Д22 и принятое
+`registerSharePause = 1` действуют без изменений. На предмет этого замысла влияют:
+
+- Д1 — дом кредов; Д2 — звено идентичности служб; Д3 — сигнал подписки и `Claim`/`Ack`;
+  Д4 — `sender` на пространство; Д5 — шаблон из блоков; Д6 — фундамент в corelib; Д7 — флаг без
+  умолчания; Д11 — лимиты notify; Д12 — прода нет; Д14 — надзор администратора облака не
+  распространяется на типы ленты; Д16 — в ствол только одобренное;
+- Д17 — у notify публичного слушателя нет по построению, форма хоста «только внутренний» из
+  corelib — для всей службы. В NTF-1 у notify gRPC-слушателя нет вовсе (Р1, NTF1-G19). Форма
+  «только внутренний» — предмет NTF-4 (Х5). Замысел заводит **одну** ось формы хоста, в которую
+  Х5 добавляет значение, а не второе поле (З15);
+- Д19 — отказ на нулевом `address.Domain` утверждает NTF-1 (Р8, NTF1-B27 (нуль), (гейт)): З3, З16;
+- Д20 — в NTF-1 notify без кредов не бывает. Раздельные развёртывания `notify-sender` и
+  `notify-api` и маршрутизация не-`Internal` методов на крае — предмет NTF-3 и NTF-4. Замысел
+  готовит к ним только то, что обязан: перепись поверхности G19 ведётся ведомостью по корням, а
+  не константой (З15, CX1-23);
+- Д21 — `presence: required | optional` (Р7, A10 (а), A11, B30, G26): З2, З4, З5;
+- Д22 — условие к коду живёт в замысле; повторный разбор судит только дельту.
+
+Д8–Д10 (получатели, обязательный набор, журналы модулей) и Д18 (NTF-5) предмета NTF-1 не
+задевают: адресация субъекта — NTF-3 (NTF1-G21), класс S — NTF-2.
+
+**Заказы соседей этому пакету.** Замысел NTF-2 (`docs/changes/issue-2917/design.md` §13,
+зависимость Е8) заказывает NTF-1 три условия к коду. Все три приняты: З10 (а), З23 (б), З5 (в).
+Е10 и Е11 того же замысла сняты редакциями 17 и 18 приёмки NTF-1: Д19 и Д21 теперь в приёмке.
+
+**Прода нет** (Д12, Р15): предмет новый, переход прямой, второго пути и флага совместимости нет.
+
+## 1. Замеры, на которых стоят решения
+
+Ревизии — §0. Если не сказано иное, число получено командой в этом замысле. Замеры записей
+разбора названы по записи; их предикаты повторены в записи.
+
+| № | утверждение | команда | результат |
+|---|---|---|---|
+| М1 | кода предмета нет | `git -C corelib ls-tree -d 34bc8104a notify \| wc -l`; `git -C kacho ls-tree -d 1d42a6728bf services/notify \| wc -l` | 0 и 0 |
+| М2 | шаблонов и `revision.yaml` в деревьях нет | запись `29cfa368…`, measurements: `git ls-tree -r --name-only` + `grep -c '/notifications/'`, `'revision.yaml$'` | kacho 6692 пути, kaname 3906, corelib 473; совпадений 0 во всех |
+| М3 | общий пакет гейтов дерева — `corelib/treehygiene`, его зовут оба дерева | `git -C kacho grep -l 'treehygiene\.' 1d42a6728bf -- '*.go' \| wc -l`; то же kaname | kacho 2 файла, kaname 3 |
+| М4 | перехватчик прав собирается в одном месте носителя | `git -C corelib grep -n 'NewInterceptor(' 34bc8104a -- '*.go' ':!*_test.go'` | 2 вызова, оба в `servicehost/serve.go` (строки 252, 267); третья строка — комментарий `authz/interceptor.go:109` |
+| М5 | цепочки обоих слушателей строит одна пара функций | `git -C corelib grep -n '^func (unaryChain\|streamChain\|serverPair)' 34bc8104a -- servicehost/` | `serverPair` :171, `unaryChain` :578, `streamChain` :608 |
+| М6 | граф импорта: `authz` не импортирует `grpcsrv`, `grpcsrv` не импортирует ни `authz`, ни `listnarrow` | `git -C corelib grep -h '"github.com/PRO-Robotech/corelib/[a-z/]*"' 34bc8104a -- '<пакет>/*.go' ':!*_test.go' \| sort -u` | `authz` → `operations`, `platformmodules`; `grpcsrv` → `envknob`, `internal/tlsutil`, `operations`, `principalwire`; `listnarrow` → `authz`, `operations`, `validate` |
+| М7 | функции с запасным `user` для неизвестного типа субъекта | `git -C corelib grep -n 'func FormatSubject\|func TenantSubject' 34bc8104a -- authz/types.go`; `git -C kaname grep -n 'FGASubjectRef(' 734f69fb4 -- '*.go' ':!*_test.go' \| grep -v 'func ' \| wc -l` | `FormatSubject` :290, `TenantSubject` :329; 4 вызова `FGASubjectRef` (default → `user`, запись `b347b81f…`) |
+| М8 | в аннотации прав нет формы «объект — экземпляр, к которому привязан сервер» | `git -C kacho show 1d42a6728bf:proto/corelib/authz/v1/authz_options.proto \| grep -nE '= [0-9]+;'`; `derive.go` :68–72, :289 | `ScopeExtractor` — три поля: `object_type`, `from_request_field`, `object_type_from_request_field`; «*» — синглтон только для `cluster` |
+| М9 | в kaname на пути `ResolveSend` бюджета отказов нет | `git -C kaname grep -n 'DenyRateLimitPerSec' 734f69fb4 -- '*.go' ':!*_test.go'`; чтение цепочки внутреннего слушателя `cmd/kaname/serve.go` :1060–1116 | поле есть только в `internal/authzguard/own_door.go` (публичная дверь, 0 — выключен); в `cmd/kaname/serve.go` оно не задаётся; во внутренней цепочке звена бюджета нет |
+| М10 | `internal/service` kaname импортирует `internal/authzguard`, обратного ребра нет | `git -C kaname grep -h 'kaname/internal/[a-z/]*"' 734f69fb4 -- 'internal/<пакет>/*.go' ':!*_test.go' \| sort -u` | `service` → `authzguard` есть; `authzguard` → `service` нет |
+| М11 | прогон надзора в `BatchCheck` не различает тип объекта | запись `b347b81f…`, measurements; `runKeyOf` :1033, `planCheck` :452 | ключ прогона — признак надзора, субъект и причина, без типа (CX1-05) |
+| М12 | у дескриптора носителя уже есть ось «собственный контур» и профиль не-gRPC поверхности | `git -C corelib grep -n 'OwnContour string' 34bc8104a -- servicecontract/`; `git -C corelib grep -n '^func ServeSurface' 34bc8104a -- servicehost/` | `contract.go:460`; `servicehost/surface.go:78` (`ReachClusterInternal` — досягаемость только изнутри кластера) |
+| М13 | самоотчёт посадки — `observability.LogBootPosture` | `git -C corelib grep -n 'func LogBootPosture' 34bc8104a -- observability/` | `bootposture.go:256`; `assert-production-posture.sh` :224 читает строку `boot security posture` |
+| М14 | корзины отказов в фундаменте нет, AEAD — 0 файлов | запись `b347b81f…`; §1.8 приёмки | `crypto/cipher\|NewGCM\|chacha20poly1305` в corelib — 0 |
+| М15 | значение-функция `NormalizeDomain` обходит виды (1)–(3) узла приёмника | запись `29cfa368…`, опыт `go/types` | ссылок на тип 0, прямых вызовов 0, иных использований объекта 1 |
+| М16 | `.S` и `.sx` уходят в `SFiles` только при cgo | запись `05828e42…`, `go/build` go1.26.8 | без `CgoFiles` — `IgnoredOtherFiles`; 19 расширений `fileListForExt` |
+| М17 | структура с неэкспортируемым полем не закрывает выходы значения | запись `05828e42…`, опыт `go run` | `fmt` и `slog` печатают значение; `json` молча даёт `{}` |
+| М18 | нуль с долей секунды проходит `IsZero` до усечения | запись `390b5a33…`, опыт `go run` | `time.Time{}` + 0,5 с — `IsZero` false до усечения, запись `0001-01-01T00:00:00Z` после |
+| М19 | инструментарий | `go version` | go1.26.8 linux/amd64 |
+| М20 | пересверок на замысел нет | `ls docs/changes/issue-2915/reviews/class-exposure/` | `initial` |
+| М21 | сценарий L03 и правило Р11 расходятся | приёмка, строки 1169 и 2564–2570 | Р11: строка без `DEFER`, не выданная ни одним `Claim`, — `EXPIRED(unclaimed)`; L03 (notify остановлен, строку не забирал никто) — `EXPIRED(platform_unavailable)`. Вклад возвращают обе причины, различается только метка (§13, Е2) |
+
+## 2. Решения
+
+Решения пронумерованы З1…З31. Каждое называет механизм и держатель; держатель — сценарий
+приёмки либо проба, заказанная записью разбора (§11а). «Вниманием» сказано там, где держателя
+нет и заказ не принят.
+
+### З1. Раскладка `corelib/notify` и границы импорта
+
+| пакет | предмет | импортирует из notify | не импортирует |
+|---|---|---|---|
+| `notify/form` | форма значений атрибутов, типы `Path`, `Token`, `HeaderText`, отметка времени, присутствие | — | `notify/spec`, `html/template`, `text/template`, `net/smtp`, `mime/multipart` (NTF1-B28, D05) |
+| `notify/address` | `Normalize`, `NormalizeDomain`, типы `Normalized`, `Domain`, профиль IDNA | — | прочие `notify/*` |
+| `notify/spec` | формат шаблона, **единственный** валидатор, места ссылок блоков, набор ревизии, чтение и запись `revision.yaml`, перечень типов атрибутов | `notify/form` | рендер, `net/smtp` |
+| `notify/feed` | `Put`, окно лимита, схема ленты, сервер `Claim`/`Ack`, уборщик, запечатывание, флаг, словарь исходов и причин | `notify/form`, `notify/address` | `notify/spec` (рантайм источника формат не тянет, NTF1-D05) |
+| `cmd/notifygen` | генерация `SendX`, миграции ленты, `-check`, `-check -base`, `-list`, `init` | `notify/spec`, `notify/feed` (типы описания) | — |
+
+- `notify/spec` импортирует `notify/form`, обратного ребра нет. Поэтому проба перечня типов
+  B29 живёт во внешнем тестовом пакете `form_test` (§6.1 приёмки).
+- Имён потребителей (kaname, модулей kacho) в `notify/*` нет (DoD 9). Каталог стабов
+  `api/corelib/notify` порождается из `kacho proto/corelib/notify/`, путь вписывается в
+  `PRO-Robotech/corelib#9` (Р8).
+- Гейты дерева в `notify/*` не живут: их дом — `treehygiene` (З16). Иначе
+  `go list -deps ./notify/...` тянул бы `go/types` и разбор YAML рабочих процессов в рантайм
+  источника.
+
+### З2. `notify/form`: форма, присутствие, нормализация, выходы значения
+
+- **Типы.** `form.Path`, `form.Token`, `form.HeaderText` — `struct{ v string; set bool }`. Признак
+  «задано» — отдельное поле, а не пустота строки (CX1-38). Строит их только `form.Parse*`;
+  `Value() (string, error)` на нулевом значении возвращает `form.ErrUnset` (NTF1-B28 (нуль)).
+- **Закрытый перечень видов.** `form.Kind` — `text`, `secret`, `path`, `token`, `timestamp`.
+  Перечень **объявляет** `notify/spec` (З4). `form` разбирает вид одним исчерпывающим `switch` без
+  ветки `default`; вид вне `switch` возвращает `form.ErrUnknownType`, ветки «принять без проверки»
+  нет (CX1-38, NTF1-B29). Линтер `exhaustive` включается на пакет, и новый вид без ветки даёт
+  красный `make lint`.
+- **Одна функция решает «нуль ли это».** `form.Presence(kind, raw) (Value, Present, error)`:
+  нормализует значение, решает «задано ли» по нормализованному значению и проверяет форму —
+  строго в порядке «нормализовать → решить → проверить» (CX1-44 (а), CX1-50 (а), (б)).
+  - `text`, `secret` — пустая строка значит «не задано»; `path` и `token` — тоже, а форма и
+    границы длины — по Р7;
+  - `timestamp` — `UTC()`, затем `Truncate(time.Second)`, затем `IsZero()`. Опыт М18:
+    `time.Time{}` + 0,5 с после нормализации — нуль, то есть «не задано» (для `optional`) или
+    сторож (для `required`), а не ключ `0001-01-01T00:00:00Z`;
+  - значение, входящее в тему, дополнительно проверяется `ParseHeaderText`: без CR, LF, C0 и DEL.
+    Пустое — `form.ErrEmpty` (NTF1-B29 (тема)).
+- **Отметка времени пишется одной функцией.** `form.FormatTimestamp(t)` — единственный писатель
+  написания ленты (RFC 3339, UTC, секунды), `form.ParseTimestamp` — единственный читатель. У
+  источника значение после нормализации форматируется и тут же разбирается `ParseTimestamp`.
+  Результат обязан совпасть с нормализованным, иначе `feed.ErrAttrsInvalid` с именем атрибута.
+  Так год вне `[0000..9999]` отвергается у источника той же функцией, что в notify, без отдельной
+  проверки диапазона (CX1-44 (б), (в)).
+- **Выходы значения закрыты.** У пяти непрозрачных типов (`form.Path`, `form.Token`,
+  `form.HeaderText`, `address.Normalized`, `address.Domain`) единственный выход значения —
+  `Value()`. Типы реализуют `fmt.Formatter` и `slog.LogValuer` нейтральной формой: имя типа и
+  признак «задано», без значения. `MarshalJSON`, `MarshalText` и `encoding.TextAppender`
+  возвращают ошибку `form.ErrNotSerializable` (у `address` — своя одноимённая). Модульная проба
+  каждого пакета судит четыре выхода: `fmt` (`%v`, `%s`, `%+v`, `%#v`), `slog` (текстовый и JSON
+  обработчики), `json.Marshal`, подстановку в `html/template` — в выводе нет исходной строки,
+  `json.Marshal` возвращает ошибку. Близнец — `Value()` возвращает строку (CX1-42).
+- Вызывающий вне пакета ошибку `Value()` обрабатывает. Узел гейта «ошибка `Value()` отброшена»
+  заводится (З16, CX1-36, CX1-41).
+
+### З3. `notify/address`: профиль IDNA и типы ключа
+
+- `address.Normalize(s) (Normalized, error)` — локальная часть без изменений, домен через
+  `NormalizeDomain`. `NormalizeDomain(s) (Domain, error)` — ASCII-форма IDNA по **одному
+  именованному профилю**: пакетная переменная `profile` —
+  `idna.New(idna.MapForLookup(), idna.Transitional(false), idna.BidiRule(), idna.ValidateLabels(true), idna.StrictDomainName(true))`.
+  Значение в коде одно, смена профиля — ломающая правка ключа, её замечает замороженный корпус
+  B27 (IDNA) (CX1-30).
+- Ошибка разбора (нет `@`, пустая локальная часть, управляющий символ, домен вне профиля) —
+  `address.ErrMalformed`. У источника `Put` отображает её в `feed.ErrRecipientInvalid` до первого
+  оператора SQL (CX1-30, NTF1-B27).
+- Типы — `struct{ v string }`, `Value() (string, error)`, `address.ErrUnset` на нуле. Выходы — как
+  в З2 (CX1-42).
+- **Производитель и приёмник `address.Domain` различаются так, как Р8.** Вне пакета приёмников
+  нет (Д19). Узел гейта выбран в **форме (а)** CX1-56: находкой считается всякое использование
+  объекта `address.NormalizeDomain` вне пакета, кроме позиции вызываемого в прямом вызове. Это
+  значение-функция, аргумент, поле, `go:linkname` — последний и так ловит вид (1) обхода. Форма
+  (а) выбрана потому, что соседний узел того же гейта (IDNA) судит значение-функцию так же, и
+  двух правил об одном предмете в гейте не будет. Шапка гейта пишет форму словами. Инъекция (4)
+  `f := address.NormalizeDomain; d, _ := f(s)` в `services/notify/…` даёт находку с видом «иное
+  использование производителя»; близнец — прямой вызов с ошибкой под именем, узлов 0 (З16).
+
+### З4. `notify/spec`: формат, валидатор, места ссылок, набор ревизии
+
+- **Единственный валидатор.** Функция, открывающая или разбирающая `notification.yaml`,
+  `body.<locale>.yaml`, `revision.yaml`, — ровно в `notify/spec` (NTF1-A09). Генератор, гейт
+  сборки notify и notify на старте зовут `spec.Load(dir) (Catalog, Census, error)`.
+- **Перечень видов атрибутов объявлен здесь** — `spec.AttrKinds()` — и больше нигде: пробы B29 и
+  B30 берут перечень отсюда (CX1-50, заказ B30 по перечню типов).
+- **Места ссылок блока — одна функция** (CX1-51 (а)). `spec.RefSites(b Block) []RefSite` —
+  исчерпывающий `switch` по закрытому набору из восьми видов блока, без `default`:
+  - `heading`, `p`, `warning`, `code` — подстановки `{{ }}` в тексте;
+  - `button` — поля `path:` и `token:`;
+  - `list` — каждый элемент;
+  - `kv` — каждое значение пары;
+  - `divider` — мест нет.
+
+  Валидатор правил `when`, `optional`, секрета (A07, A11) и рендер notify (З25) перебирают места
+  одной и той же функцией. Проба `notify/spec` для **каждого** вида берёт перечень видов из
+  `spec.BlockKinds()` и ставит `optional` без `when` в место ссылки этого вида — находка. Вид без
+  строки таблицы пробы делает пробу красной (заказ CX1-51).
+- **Правила Д21** исполняются по местам ссылок:
+  - `presence` обязателен, значений два, умолчания нет;
+  - блок, у которого хотя бы одно место ссылается на `optional`, несёт `when` ровно на этот
+    атрибут;
+  - `when` допустим только на объявленном `optional`;
+  - тема ссылается только на `required` (NTF1-A10 (а), A11).
+- **Набор ревизии.** Набор — это имя, вид, `presence`, признак вхождения в тему каждого
+  объявленного атрибута и класс шаблона (Р7, редакция 17). Отпечаток считает одна функция
+  `spec.SetFingerprint(Set) string` по **канонической форме** (CX1-45 (а)):
+  - атрибуты упорядочены по имени;
+  - каждое поле закодировано явно, с длиной: `name`, `kind`, `presence`, `subject`, затем `class`;
+  - порядок ключей YAML, кавычки, комментарии и пробелы в отпечаток не попадают.
+
+  Форма строки — `v1:sha256:<hex>`. Версия алгоритма — часть строки (CX1-45 (б)).
+- **«Набор тот же» решается пересчётом, а не сравнением записанных строк** (CX1-45 (б), (в)).
+  `-check -base` читает базовый `notification.yaml` **узким чтением**
+  `spec.ReadSetOnly(fs, dir) (Set, error)`: только имя, вид, `presence`, вхождение в тему и класс,
+  без правил формата текущей версии. Отпечаток базы пересчитывается текущей функцией. Поэтому
+  смена версии алгоритма при прежнем наборе ревизию не поднимает, а генерация переписывает
+  отпечаток при той же ревизии. Формат, ужесточённый после базы, базу «ненайденной» не делает.
+- **Состав набора уже менялся.** Редакция 17 добавила в набор класс и обязательность (запись
+  `29cfa368…`, CX1-45). Шаблонов в деревьях 0 (М2), поэтому первая выпущенная версия алгоритма —
+  `v1`, и она уже включает класс и `presence`. Следующая смена состава набора поднимает версию
+  алгоритма и идёт по правилу пересчёта выше.
+- **`revision.yaml` пишет и читает одна реализация** — `spec.WriteRevision` и
+  `spec.ReadRevision`. Генератор своей сериализации не заводит (CX1-45 (г)). Поэтому при том же
+  наборе файл побайтово прежний (NTF1-D07, шаги (2) и (8)).
+- **Замороженный корпус формата** (NTF1-A08) — `notify/spec/corpus/<версия>/…`. Проба гоняет
+  валидатор по всем версиям.
+
+### З5. `cmd/notifygen`: генерация, сверки, миграции
+
+- **`SendX`.** Для шаблона `<name>` в пакете источника порождается файл
+  `notifications_<name>.gen.go`:
+  - `type XAttrs struct{ To string; Initiator string /* только при лимите на инициатора */; <поля атрибутов> }`;
+  - описание шаблона `xDesc` — литерал `feed.TemplateDesc`: имя, класс, `schema_rev` из
+    `revision.yaml`, `ttl`, `limits`, атрибуты с видом, `presence`, признаком темы;
+  - `func SendX(ctx, tx, a XAttrs) error`.
+
+  Тело `SendX` не несёт ни одного литерала сравнения по виду: каждое поле передаётся в
+  `form.Presence` (З2). У `optional`, которое `Presence` назвала незаданным, ключ в набор значений
+  не попадает; у `required` значение уходит всегда, и нуль отвергает `Put` (CX1-50 (а), (в)).
+  Затем зовётся `feed.Put(ctx, tx, xDesc, a.To, values)` (З7).
+- **Экспорт лимитов.** Для каждого `limits` шаблона порождается экспортируемая константа
+  `X<Scope>Per<Window>`, например `InviteRecipientPerDay`. Страж NTF-2 берёт из неё границу
+  `invite.recipient-per-day-all` (заказ NTF-2 Е8 (в)).
+- **`-check`**: `revision.yaml` против набора, эталон структуры, побайтовое содержимое каждой
+  выпущенной версии схемы ленты (NTF1-D02, D04, D07). **`-check -base <ревизия>`** — всё то же и
+  правило базы Р7, всегда со знаменателем. **`-check -list`** печатает множество порождаемых
+  файлов при любом исходе сверки (NTF1-D01, D02). Ошибка генератора или неразобранный вывод —
+  ненулевой код и красный прогон потребителя, а не пустое множество (CX1-35).
+- **`init`** пишет новую миграцию ленты только при смене версии схемы (NTF1-D03, D04). Файлы
+  версий схемы встроены в генератор (`//go:embed`), применённый файл сверяется побайтово.
+- **Сообщение «функция `SendX` без вызова»** (NTF1-K02). Генератор ищет вызов по идентичности
+  объекта (`go/types`) в пакете источника и печатает шаблоны без вызова.
+- Директива `tool` в `go.mod`; `notifygen -version` печатает версию модуля corelib (NTF1-D06).
+
+### З6. Схема ленты у источника
+
+Миграцию `<svc>_notification_outbox` порождает `notifygen init` (§6). Решения:
+
+- **Состояние — вид терминального исхода либо `pending`**, закрытый перечень со `CHECK`:
+  `pending`, `sent`, `recipient_rejected`, `denied`, `invalid`, `dropped`, `expired`. Приёмка
+  утверждает `state = sent` после `Ack SENT` (NTF1-B12, B17), поэтому отдельного состояния
+  `closed` нет. У терминального состояния есть причина `outcome_reason` из словаря Р11. Пару
+  «вид × причина» проверяет `CHECK` по той же таблице, что `Ack`. Не-`pending` строка секрета не
+  несёт — `CHECK closed_carries_no_secret` (NTF1-B17).
+- **Записанный `Ack`** хранится отдельно от состояния — `recorded_kind`, `recorded_reason`,
+  `outcome_token`. У `DEFER` строка остаётся `pending`, а записанная пара — `defer` и причина.
+  Этим классифицируется повтор (З9).
+- **Признак выдачи — монотонный факт** (CX1-53 (а)). Колонку `first_claimed_at` ставит тот же
+  условный `UPDATE` `Claim`, что берёт аренду, выражением `coalesce(first_claimed_at, now())`.
+  Ни один переход её не снимает. Признак **не выводится** из колонок аренды: `lease_token`,
+  `lease_until` снимает каждый `Ack` и конец аренды.
+- **Последний `DEFER`** — колонка `last_defer_reason`, её пишет `Ack DEFER`. «Не раньше» — колонка
+  `not_before` (CX1-14).
+- Исход уборщика пишет `outcome_token = NULL` и `recorded_* = NULL`: ни один предъявленный токен
+  ему не равен (CX1-26 (г)).
+- `schema_rev integer NOT NULL CHECK (schema_rev >= 1)` (NTF1-B29 (ревизия)); колонка `class`
+  (только отбор `Claim(classes)`, З22); `enqueued_at` — `now()` транзакции (NTF1-B01).
+- **Вклад в окна** — таблица `<svc>_notification_contrib(notification_id, window_key, window_start)`
+  с `ON DELETE CASCADE`. Строка ленты ссылается на все окна, куда внесла вклад; уборщик
+  возвращает вклад по ней (З10).
+
+### З7. `feed.Put`: порядок, сторожа, окно
+
+Порядок внутри `Put` несущий: всё, что может отвергнуть вызов, стоит **до** первого оператора
+SQL либо выражено нулём строк условного оператора. Транзакция вызывающего после любого сторожа
+пригодна к коммиту (CX1-10, NTF1-B09, B27–B30):
+
+1. Флаг (З12). Выключен: для `notice` — `nil` без строки; для `security` —
+   `feed.ErrDeliveryNotConfigured`.
+2. Описание. Ревизия `< 1`, пустое описание при непустом наборе значений, атрибут вне описания
+   — `feed.ErrAttrsInvalid` с именем (NTF1-B28 (`Put`), B29 (ревизия)).
+3. Адресат — `address.Normalize`; ошибка или нуль — `feed.ErrRecipientInvalid` (NTF1-B27).
+4. Атрибуты. По описанию — один исчерпывающий обход:
+   - `required` без значения или с нулём — `feed.ErrAttrsInvalid`;
+   - `optional`, переданный нулём, — `feed.ErrAttrsInvalid`, потому что «не задан» выражается
+     только отсутствием ключа (CX1-50 (в), B30 (`Put`));
+   - значение вне формы — `feed.ErrAttrsInvalid`.
+
+   Ошибка называет атрибут и значения не несёт.
+5. Окно лимита. Для каждого `limits` — один оператор
+   `INSERT … ON CONFLICT (template, scope, key, window_start) DO UPDATE SET count = w.count + 1 WHERE w.count < $max RETURNING count`.
+   Ноль строк — `feed.ErrLimitExhausted`: это ноль строк, а не ошибка SQL (CX1-10, NTF1-B09).
+   Ключ окна по адресату — `Normalized.Value()` (CX1-12). Окно — выровненный интервал
+   `date_bin(window, now(), epoch)`.
+6. Вставка строки ленты, строк `contrib`, строки журнала подписки. Строка журнала — объект
+   `notification_feed:<модуль>`, слово журнала `notification` — пишется тем же писателем журнала
+   владельца, что пишет прочие строки подписки (NTF1-B01).
+
+Шаги 5 и 6 идут в транзакции вызывающего: откат уносит строку, журнал и вклад вместе (NTF1-B02).
+Гейт дерева NTF1-B09 судит, что в `feed` нет чтения счётчика с последующей записью.
+
+### З8. Сервер ленты: `Claim`
+
+- `feed.NewServer(cfg)` получает имя модуля (объект `notification_feed:<модуль>`), пул, кольцо
+  ключей и часы. Регистрация — только при флаге `true` (Р9, NTF1-N07).
+- **Аренда — одна короткая транзакция** (CX1-25). Один оператор:
+  `WITH c AS (SELECT id … WHERE state='pending' AND class = ANY($classes) AND expires_at > now() AND not_before <= now() AND (lease_until IS NULL OR lease_until <= now()) ORDER BY enqueued_at, id FOR UPDATE SKIP LOCKED LIMIT $max) UPDATE … SET lease_token = gen_random_uuid(), lease_until = now() + LeaseTTL, first_claimed_at = coalesce(first_claimed_at, now()) FROM c … RETURNING …`.
+
+  Сетевых вызовов и расшифровки в транзакции нет. Соединение возвращается пулу до ответа
+  (NTF1-B18).
+- **Расшифровка — после коммита.** Строка, чей шифротекст не открывается, закрывается условным
+  `UPDATE` с её токеном аренды: `INVALID(sealed_mismatch)` или `INVALID(key_unavailable)`, секрет
+  стирается. В ответ она не попадает (NTF1-B04, B07).
+- **Ответ несёт конец аренды каждой строки** — `lease_until` по часам базы источника (CX1-57 (а)).
+  `enqueued_at` уходит с полной точностью базы (микросекунды), без усечения до секунды: это
+  внутренний контракт работы, а не ресурс. Правило `api-timestamp-truncate` к нему не
+  применяется, и контракт говорит это в комментарии поля (CX1-08).
+- Границы `max` и `classes` — синхронный `INVALID_ARGUMENT` до SQL (NTF1-B21, B24).
+
+### З9. `Ack` и повтор после записанного исхода
+
+- **Один записывающий оператор** (CX1-26 (а)):
+  `UPDATE … SET recorded_kind = $k, recorded_reason = $r, outcome_token = $T, lease_token = NULL, lease_until = NULL, … WHERE id=$id AND lease_token=$T AND lease_until > now() AND state='pending' RETURNING …`.
+
+  Аренда снимается при **каждом** исходе, включая `DEFER`. Для `DEFER` оператор ставит
+  `last_defer_reason` и `not_before = now() + $defer_for` (З23), строка остаётся `pending`. Для
+  терминального исхода — `state = <вид>`, `outcome_reason`, `secret_attrs = NULL`,
+  `outcome_at = now()` (NTF1-B12).
+- **Ноль строк — одно чтение и классификация в объявленном порядке** (CX1-26 (б)):
+  1. `outcome_token = T` и `(recorded_kind, recorded_reason)` равна предъявленной паре — успех
+     без изменения строки;
+  2. `outcome_token = T` и пара иная — `FAILED_PRECONDITION` `OUTCOME_ALREADY_RECORDED`;
+  3. иначе — `LEASE_LOST`.
+
+  Строки нет — `NOT_FOUND` (NTF1-B23). Срок аренды в классификацию не входит: повтор B26 (в),
+  пришедший после конца аренды, — успех.
+- Равенство исходов — пара `(kind, reason)`. `defer_for` в сравнение не входит (CX1-26 (в)).
+- **До SQL** (CX1-26 (г)): пустой токен и `id` не по форме — `INVALID_ARGUMENT` (NTF1-B22);
+  `OUTCOME_UNSPECIFIED` — `outcome: required` (NTF1-B14); вид `EXPIRED` в `Ack` —
+  `INVALID_ARGUMENT` (`EXPIRED` ставит только уборщик).
+- **Следствия записи — только в ветке, где оператор изменил строку** (CX1-26 (д)): стирание
+  секрета, счётчик исходов ленты. На успешном повторе notify не увеличивает свой счётчик клеток и
+  не освобождает резерв сетки второй раз (З24).
+
+### З10. Уборщик: причина истечения и возврат вклада
+
+- **Константы объявлены по одному разу** в `notify/feed`: `LeaseTTL = 5 * time.Minute`,
+  `SweepInterval = time.Minute`. Ручек нет (Р8, NTF1-B31 (предел)).
+- **Жизненный цикл** (CX1-55 (а)). Уборщик запускает композиционный корень источника рядом со
+  схемой ленты, функцией `feed.StartSweeper(ctx, cfg)`, **вне** ветки регистрации сервера и вне
+  вопроса о флаге (CX1-21). Конструктор сервера уборщика не заводит. Схема от флага не зависит,
+  уборщик тоже (NTF1-B31 (в)). Гейт дерева B25 дополнительно судит, что `StartSweeper` не вызван
+  под условием, читающим флаг (§11а, УК63).
+- **Один оператор решает причину и возврат** (CX1-53 (б), CX1-16):
+
+  ```
+  WITH x AS (
+    UPDATE <t> SET state='expired',
+      outcome_reason = coalesce(last_defer_reason,
+                                CASE WHEN first_claimed_at IS NULL THEN 'unclaimed' ELSE 'no_ack' END),
+      outcome_token = NULL, recorded_kind = NULL, recorded_reason = NULL,
+      secret_attrs = NULL, outcome_at = now()
+    WHERE state='pending' AND expires_at <= now()
+      AND (lease_until IS NULL OR lease_until <= now())
+    RETURNING id, outcome_reason)
+  UPDATE <window> w SET count = w.count - 1
+    FROM <contrib> c JOIN x ON c.notification_id = x.id
+    WHERE x.outcome_reason = ANY($refund_reasons) AND w.… = c.…
+  ```
+
+  Условие аренды стоит в том же операторе, что перевод (NTF1-B25). Возврат идёт по строкам,
+  которые **этот** оператор перевёл, поэтому два уборщика двух реплик возвращают вклад ровно
+  один раз (CX1-55 (б)). Проход повторяется пачками до нуля переведённых: за проход закрывается
+  каждая строка, подлежащая закрытию (NTF1-B31).
+- **Перечень причин возврата объявлен один раз** — `feed.RefundReasons() = {platform_unavailable, unclaimed}`
+  рядом со словарём причин (CX1-53 (в)). Для NTF-2 экспортируется фрагмент запроса
+  `feed.LimitRefundedPredicate(alias)`, выведенный из того же перечня, — заказ NTF-2 Е8 (а).
+- Прежнее условие CX1-11 («только `platform_unavailable`») замещено этим перечнем (CX1-53).
+
+### З11. Секрет в покое
+
+- **AEAD** — `AES-256-GCM` стандартной библиотеки (`crypto/aes`, `crypto/cipher`); новой
+  зависимости нет. Кольцо — `{active, previous}`, у каждого ключа 1-байтовый идентификатор.
+- **Шифротекст несёт идентификатор ключа**, перебора ключей нет (CX1-19). Ключ вне кольца —
+  `key_unavailable` (NTF1-B07).
+- **AAD кодируется с длиной каждой части**: `len(table)‖table‖len(id)‖id‖len(template)‖template`.
+  Две раскладки одной байтовой строки невыразимы. Смена шаблона строки при прежнем шифротексте —
+  `sealed_mismatch` (CX1-19); проба-близнец B04 заказана (§11а).
+- Ключ — ручка источника `KACHO_<SVC>_NOTIFICATIONS_FEED_KEYRING`, путь к секрету. Без неё
+  боевая посадка с флагом `true` не стартует, самоотчёт называет ось ключа (NTF1-B05).
+
+### З12. Флаг у источника
+
+- Переменная `KACHO_<SVC>_NOTIFICATIONS_ENABLED` принимает ровно `true` или `false`
+  (`strconv.ParseBool` не годится: он принимает `1`, `t`, `TRUE`). Незаданная переменная и пустая
+  строка — отказ старта с именем переменной (CX1-20, NTF1-N08; случай пустой строки заказан).
+- Значение разбирается в корне один раз и передаётся в `feed.Config` закрытым типом
+  `feed.Enabled`. Второго чтения окружения нет.
+- **Глагол спрашивает флаг первым.** `feed.(*Source).DeliveryConfigured() error` возвращает
+  `feed.ErrDeliveryNotConfigured`, а `feed.DeliveryNotConfiguredStatus()` — единый статус
+  (NTF1-N06). Проверка стоит до чтения адреса; `SendX` проверяет флаг и сам (З7, шаг 1), и это
+  второй рубеж, а не единственный (CX1-21).
+- Метрика `kacho_notifications_enabled{module}` (NTF1-N09).
+- **Выключено.** Сервер ленты не регистрируется, ключ журнала `notification` не объявляется.
+  Если других видов нет, сервер подписки не объявляется и не монтируется — объявление и
+  монтирование выводятся из одного условия (NTF1-N07 (б)).
+
+### З13. Звено идентичности служб (corelib)
+
+- **Конфигурация.** `grpcsrv.NewServiceIdentity(methods []string, table map[string]ServiceName) (ServiceIdentity, error)`.
+  Отказы старта с именем ручки и значением (NTF1-M09):
+  - перечень непуст ⇔ таблица непуста;
+  - повтор SAN или имени;
+  - имя вне формы DNS label;
+  - ключ, чья каноническая форма отличается от литерала (CX1-02 (а)).
+  - метод вне каталога прав процесса. Этот отказ исполняет носитель в шаге отказов старта после
+    вывода каталога (`servicehost` `audit`), а kaname — в своём корне по реестру прав.
+- **Одна функция приведения SAN** — `grpcsrv.CanonicalSAN(u *url.URL) string`: разбор и
+  пересборка. Ею приводятся и ключ таблицы при старте, и левая сторона сравнения. Сравниваются
+  строки после приведения, без разбора на сегменты (CX1-02 (в)). Сертификат с двумя и более
+  URI-SAN под доменом доверия служебного субъекта не даёт (CX1-02 (б)).
+- **Звено** — `ServiceIdentity.Unary()` и `.Stream()`. В носителе стоит в `unaryChain` и
+  `streamChain` **рядом** с `grpcsrv.PrincipalExtract*`, без ветвления по параметру слушателя
+  `on` (CX1-34 (а)). `serverPair` и будущая форма Х5 получают цепочку только через эти функции
+  (CX1-34 (б)). Перечень и таблица приходят полем дескриптора
+  `Spec.ServiceIdentity Axis[grpcsrv.ServiceIdentity]`, а не аргументом сборки (CX1-34 (в)). У
+  службы без перечня — `NotApplicable` с причиной.
+- **Второй носитель.** Звено кладёт в контекст `grpcsrv.ServiceName` под своим ключом. Читатель
+  ключа в фундаменте один — `grpcsrv.ServiceNameFromContext`, и зовёт его одна функция.
+- **Одна функция субъекта** — `authz.CallerSubject(ctx) (Caller, bool)`. Порядок решения:
+  1. есть пересланный доверенным принципал — он решает (тенантский словарь `TenantSubject` не
+     расширяется);
+  2. иначе, если звено положило имя, — `service:<имя>`;
+  3. иначе — «субъекта нет».
+
+  `authz.defaultSubjectExtractor` и `listnarrow.SubjectFromContext` зовут её
+  (`sec-one-predicate-three-readers`). Новые рёбра импорта `authz → grpcsrv` и
+  `listnarrow → grpcsrv` колец не дают (М6).
+- **Строку `service:<имя>` производит одна функция фундамента** —
+  `authz.ServiceSubject(grpcsrv.ServiceName) string`. Её зовут `CallerSubject` и применитель
+  манифестов kaname (З17). Ветки `switch` в `FormatSubject` и `TenantSubject` словом `service` не
+  расширяются. Пересланный принципал с типом `service` субъекта не даёт — fail-closed, как сегодня
+  (CX1-01 (а)).
+- **`principalID` служебного субъекта — строка с типом** `service:<имя>`, не голое имя
+  (CX1-03 (а)). Корзина бюджета отказов и ключ кэша вердиктов у `service:x` и у `user:x`
+  раздельны. Проба бюджета с субъектом `service:x` и пользователем `x` заказана.
+- **Не владелец операций.** `operations.PrincipalFromContext` второго носителя не читает
+  (NTF1-M06). kaname `authzguard.PrincipalSubject` и 17 его вызывающих тоже не читают
+  (CX1-03 (б)). В kaname второй носитель читает только обработчик `ResolveSend` через
+  `authz.CallerSubject`.
+- **Гейт одной функции** (NTF1-M08, kacho `internal/repohygiene/servicesubjectsingular_test.go`).
+  Считаются: вызовы `grpcsrv.ServiceNameFromContext` вне `authz.CallerSubject`, литерал `"service:"`
+  в конкатенации вне `authz.ServiceSubject` — по трём деревьям. Инъекция второй функции — находка.
+
+### З14. Объект проверки прав `Claim`/`Ack` — экземпляр, к которому привязан сервер
+
+- В `ScopeExtractor` аннотации прав (`proto/corelib/authz/v1/authz_options.proto`) добавляется
+  поле `bool bound_to_server = 4`: объект проверки — экземпляр типа `object_type`, к которому
+  процесс привязал сервер при подъёме. Вместе с `from_request_field` или
+  `object_type_from_request_field` оно невыразимо — вывод каталога отвергает такую аннотацию с
+  именем метода (CX1-04).
+- `catalogderive` выводит форму `ScopeBound`. Строки каталога C07 перегенерируются
+  `make -C gateway permission-catalog-apply` без ручной правки.
+- **Значение привязки приносит сам сервер ленты**: `feed.NewServer(cfg)` возвращает регистратор и
+  привязку `servicecontract.Bound{Type: "notification_feed", ID: <модуль>}`. Корень кладёт привязку
+  в `Spec.Bound`. Метод формы `ScopeBound`, для типа которого привязки нет, — отказ старта с именем
+  метода. Две привязки одного типа — тоже отказ. Второго значения «имени модуля» в корне нет.
+- `Claim` и `Ack` аннотированы `permission` каталога, `required_relation: reader`,
+  `scope_extractor {object_type: "notification_feed", bound_to_server: true}`.
+
+### З15. Ось формы хоста, самоотчёт, диагностическая поверхность
+
+- **Одна закрытая ось** `Spec.HostForm servicecontract.HostForm` (CX1-33 (а)):
+  - нулевое значение `HostPair` — пара слушателей, как у всех служб сегодня и как «нуль — пара»
+    у Х5 NTF-4;
+  - `HostNoGRPC` — gRPC-слушателей нет.
+
+  Х5 добавляет третье значение той же оси, второго поля не заводит. `NoServedServices` из G15 —
+  **производное** значение (`HostForm == HostNoGRPC`), которое печатает самоотчёт, а не поле
+  ввода.
+- **`servicecontract.New` при `HostNoGRPC` отвергает** с именем поля: `PublicAddr`, `InternalAddr`,
+  транспорты слушателей, непустой `OwnContour` (CX1-33 (б), (г)). Разбор оси — исчерпывающий
+  `switch` без `default` (CX1-33 (г)). `servicehost.Serve` на дескрипторе `HostNoGRPC`
+  возвращает ошибку «поднимать нечего».
+- **Самоотчёт** — `observability.BootPosture` получает поле `HostForm`. Его заполняет
+  `d.HostForm().String()` из принятого дескриптора, второго литерала нет.
+  `assert-production-posture.sh` оценивает значение оси (CX1-33 (в)), а для `no-grpc` требует
+  пустой перечень Р2 (NTF1-G15).
+- **Диагностика notify** — `servicehost.ServeSurface` с `ReachClusterInternal`: `/healthz`,
+  `/readyz`, `/metrics` (Р1). Функция `grpc.NewServer` не зовёт (М12), в перечень точек входа G19
+  не входит.
+- **Перепись G19 сверяет найденное с ведомостью**, а не с константой (CX1-23). Ведомость
+  `services/notify/servesurface_ledger.go` — таблица `{корень → множество обслуживаемых сервисов}`.
+  В NTF-1 в ней одна строка: `cmd/notify → ∅`. Корень `cmd/notify-probe` исключён из переписи
+  приёмкой. NTF-3 (`cmd/notify-api`) и NTF-4 (Х5) правят строку ведомости, а не логику гейта.
+  Корень под `services/notify/cmd/`, которого нет в ведомости, — находка «корень без записи».
+
+### З16. Гейты дерева — один пакет corelib
+
+- **Дом — `corelib/treehygiene`** (М3, CX1-39 (а)). Функции:
+  - `AuditTypeSafetyBypass` — B28 (гейт), семь видов;
+  - `AuditIDNASingular` и `AuditDomainReceivers` — B27 (гейт) и приёмник;
+  - `AuditFeedPutReferences` — B28 (гейт `Put`), вход — вывод `notifygen -check -list`;
+  - `AuditFeedTableWrites` — B19;
+  - `AuditValueErrorDiscard` — узел CX1-41;
+  - `AuditNotifyWiring` — D08 (З31).
+
+  Тесты kacho (`internal/repohygiene/…`) и kaname (`internal/check/…`) — тонкие вызывающие с
+  корнем дерева. Параметр от дерева один — каталог стабов (`api/` либо `pkg/api/`) (CX1-39 (б)).
+  Перечня допустимых мест параметром нет. Копий перечней видов, расширений и ведомости в kacho и
+  kaname нет (CX1-39 (г)). Проба пакета: каждый перечень объявлен один раз, и тонкий вызывающий
+  его не переопределяет.
+- **Печать.** Каждый гейт печатает версию модуля corelib, из которой исполнен
+  (`debug.ReadBuildInfo`), число видов, число осмотренных пакетов и файлов. Пустой обход —
+  красный (CX1-39 (в), `ban17-gates`).
+- **Вид (7) выводится из классификации тулчейна** (CX1-40 (а)). `go/build` с `UseAllFiles = true`
+  даёт объединение `CFiles`, `CXXFiles`, `MFiles`, `HFiles`, `FFiles`, `SFiles`, `SwigFiles`,
+  `SwigCXXFiles`, `SysoFiles` и `IgnoredOtherFiles`, отфильтрованное по перечню расширений Р7.
+  Проба сверяет литерал Р7 с тулчейном в обе стороны: синтетический каталог по файлу на каждое
+  расширение, каждое должно быть классифицировано; расширение, которое тулчейн связывает, а
+  литерал не знает, — красный. Каталог без `.go` с файлом не на Go (`NoGoError`) обходом не
+  пропускается (CX1-40 (б)).
+- **Обход — по отслеживаемым файлам** `git ls-files` дерева, а не по файловой системе
+  (CX1-40 (в)): неотслеживаемые `node_modules` находкой не становятся.
+- **Узел приёмника `address.Domain`** — виды (1)–(3) Р8 и вид (4) «иное использование
+  `NormalizeDomain`», форма (а) (З3, CX1-56).
+- **Узел «ошибка `Value()` отброшена» заводится** (CX1-41 (б)). Он ловит результат-ошибку метода
+  `Value` любого из пяти непрозрачных типов, присвоенную `_` или не присвоенную, — по идентичности
+  метода из проверки типов, по трём деревьям. Инъекция — `s, _ := p.Value()`; близнец —
+  `s, err := p.Value(); if err != nil { … }`. Узел строже приёмки: на исправном дереве он молчит,
+  потому что `Value()` вне пакетов на пинах не вызывается (М1). Путь «чтение поля через
+  `reflect`» закрывает вид (2)–(4) лишь частично, и остаток приёмка называет сама.
+- **Реестр исключений гейта обхода живёт в самом гейте** (CX1-43 (а)) — таблица в `treehygiene`:
+  `{координата, вид, довод, предикат снятия}`. Запись без довода или без предиката снятия —
+  красный. Предикат снятия — команда, чей ноль означает, что исключению нечего исключать; гейт
+  исполняет его и краснеет на пустом исключении (`gate-authoring` §«Самоистечение
+  послаблений»). На пинах записей 0. Норма видов (1)–(7) как запрет продукта заводится в
+  `.claude/rules/` — заказ `tooling-maintainer`, не код (§13, Е3).
+- **Гейты не пропускаются при `testing.Short()`** (CX1-49 (б)): юниты kacho идут с `-short`
+  (запись `390b5a33…`).
+
+### З17. kaname: модель, манифест, конструктор субъекта, отказ тенантам
+
+- **Модель** (`internal/authzmodel/fga_model.fga`): типы `service` (без отношений),
+  `notification_feed` (`define reader: [service]`), `notification_namespace`
+  (`define sender: [service]`). Без каскада, без `*`, без `group#member` (Р5).
+  `tools/modelcanoncheck` зелёный.
+- **Строка манифеста** `notifications: {namespace, readers}`. Валидатор
+  (`tools/modulemanifestcheck`) принимает её только при `namespace == module` и
+  `readers == [notify]` (NTF1-F02, F03). У манифеста службы доступа — только `readers: [notify]`
+  без `namespace` (NTF1-F21).
+- **Конструктор кортежа** (CX1-01 (б)). Применитель посева строит субъекта функцией
+  `authz.ServiceSubject(grpcsrv.ServiceName)` фундамента (З13), а не через `FGASubjectRef`. Имя
+  проходит `grpcsrv.ParseServiceName`, ошибка — отказ посева, а не `user`. `FGASubjectRef` и 4 его
+  вызывающих поведения не меняют (CX1-01 (в), М7).
+- **Тенантские поверхности субъекта `service:` не производят.** `AccessBinding.Create` с типом
+  `service` — `INVALID_ARGUMENT` (NTF1-M10 (а)). Три типа — в `forbiddenObjectTypes` corelib
+  (NTF1-M10 (б)). Гейт `internal/check/servicesubjectwriter_test.go`: писатель кортежей с субъектом
+  `service:` — только применитель манифеста.
+
+### З18. kaname: запись выдачи, `ResolveSend`, `Revoke`/`Restore`
+
+- **Схема** (§6):
+  - `notification_grants(namespace PK, granted_at, revoked_at, cutoff_at)`;
+  - `notification_template_grants(namespace, template, revoked_at, cutoff_at, PK(namespace, template))`
+    с `FK namespace → notification_grants ON DELETE RESTRICT`.
+
+  `cutoff_at` — `timestamptz` полной точности, при чтении не усекается (CX1-08).
+- **`ResolveSend` читает обе записи одним оператором** (`LEFT JOIN`) (CX1-06 (а)). Кортеж
+  `sender` на пути решения о письме не читается нигде — ни в kaname, ни в notify.
+  - Чтение возвращает `(запись, найдено, ошибка)`. «Не найдено» — только
+    `errors.Is(err, pgx.ErrNoRows)` в одном месте. Любая иная ошибка — `UNAVAILABLE` с
+    фиксированным текстом Р5 без текста драйвера (CX1-07 (а), NTF1-F23).
+  - Сравнение — `enqueued_at ≥ cutoff_at + guard` на полной точности обеих сторон (CX1-08). Проба
+    дробной отсечки (`c − 0,5 с → REVOKED`) заказана.
+- **Право вызова.** Первый стейтмент после проверки формы — `authz.CallerSubject` (З13). Затем
+  `AuthorizeService.CheckRelation(субъект, reader, notification_feed:<namespace>)` — та же функция
+  вердикта, что у `InternalIAMService/Check` (место Д-3). Отказ — `PERMISSION_DENIED` через
+  `DenyDetailUnary` (NTF1-F09, F22 (б)).
+- **Переходы — CAS** (CX1-09):
+  - `Revoke` — `UPDATE … SET revoked_at = now() WHERE namespace=$1 AND revoked_at IS NULL RETURNING`
+    и намерение снятия кортежа `sender` в журнале kaname той же транзакцией;
+  - `Restore` — `UPDATE … SET revoked_at = NULL, cutoff_at = now() WHERE … AND revoked_at IS NOT NULL RETURNING`
+    и возврат кортежа;
+  - вариант с шаблоном — `INSERT … ON CONFLICT (namespace, template) DO UPDATE SET revoked_at = now() WHERE t.revoked_at IS NULL RETURNING`.
+
+  Ноль строк — одно чтение после неудачной записи, классификация `NOT_FOUND` против
+  `NOTIFICATION_GRANT_STATE`. Гейт F18 «нет чтения с последующей безусловной записью».
+- **Посев** — `INSERT … ON CONFLICT (namespace) DO NOTHING RETURNING`. Кортежи пишутся только
+  для вставленной записи без надгробия, существующую запись посев не трогает (NTF1-F08).
+- `Revoke`/`Restore` — тем же путём, что `RevokeAdmin`: внутренний слушатель, право —
+  администратор кластера, ответ `Operation` (Р5).
+- Полоса `notificationCutoffGuard` — ручка без умолчания в `[1s..10m]`, страж старта (NTF1-F20).
+
+### З19. kaname: надзор администратора облака на типах Р5 не применяется
+
+- **Одна декларация перечня** — `internal/authzguard/supergate_exempt.go`: закрытый набор
+  `{notification_feed, notification_namespace}` и `func SuperGateExempt(objectType string) bool`.
+  Пакет выбран по графу импорта (М10): `internal/service` (места Д-1…Д-5) импортирует
+  `authzguard` (места Д-6, Д-7), обратного ребра нет. Предикат судит тип объекта, **разобранный
+  тем же разбором, что кормит модель**, а не строку ресурса и не префикс (CX1-05 (б)).
+- **Попунктно на этапе плана** (CX1-05 (а)). `planCheck` не ставит метку «вопроса нет» пункту
+  типа из перечня. Такой пункт идёт к модели, а если вопроса к модели нет (отношение не
+  разрешается, идентификатор `*`), — отказом. Прогон надзора `resolveRun` (Д-4) пунктов этих
+  типов не получает, поэтому ключ прогона `runKeyOf` тип не несёт и не меняется. Смешанный батч
+  `notification_feed/*` и `iam_user/*` одного субъекта даёт `false` и `true` — проба заказана.
+- **Во всех семи местах Д-1…Д-7 зовётся одна и та же функция** (CX1-05 (в)). Гейт F12
+  (`internal/check/supergateexemptsites_test.go`) судит множество мест против ведомости классов
+  §1.11 приёмки.
+
+### З20. notify: конфигурация и стражи старта
+
+- **Конфигурация** — файл values, приводимый к переменным `KACHO_NOTIFY_*`; ручки и границы — §8.
+  Каждая ручка без умолчания. Незаданная или вне границы — отказ старта с именем и границей
+  (`sec-no-silent-default-for-guarded-knob`; NTF1-E04, G01, G06, H07, H08).
+- **Перечень источников** выводит чарт (З28). notify разбирает запись
+  `{module, feedAddr, san, classes, recipientForms, authorization}` строго: пустой перечень,
+  запись без поля — отказ старта (NTF1-G01).
+  - `authorization: certificate` допустим только у записи `kaname`, и только если её SAN равен
+    декларации `kaname.spiffe` (CX1-24, NTF1-G22).
+  - Форма `address` — только у `kaname` и у `standProbeNamespace` (NTF1-G21).
+- **`identityNamespaces = {kaname}`** — константа сборки notify (Р6). Гейт сборки сверяет классы
+  шаблонов с ней (NTF1-G20).
+- **Сверка сроков** (CX1-27, CX1-57 (б)). Страж старта требует
+  `resolveSendTimeout + smtpSessionTimeout + ackMargin < feed.LeaseTTL` своего пина с именами обеих
+  ручек. Константа здесь — **нижняя граница ожидания**, а не истина об аренде. Истина — конец
+  аренды в ответе `Claim` (З21).
+- **Посадка** (NTF1-G15): mTLS клиента к источникам и kaname, `authMode=production`, секрет почты
+  смонтирован, `sslmode=require` у `kacho_notify`. Дескриптор — `HostNoGRPC` (З15).
+
+### З21. notify: подписка, цикл `Claim`, аренда и срок обработки
+
+- **На каждый источник — один цикл.** Подписка `Subscribe(kinds: ["notification_feed"])` на
+  клиенте с точным SAN сервера источника: несовпадение — отказ подключения, тревога
+  `source_identity_mismatch` (NTF1-G22). `Claim` зовётся по событию, при каждом (пере)открытии
+  потока и по таймеру `notify.claimInterval` (NTF1-E01, E03). Событие — только сигнал
+  (`sub-refetch-not-apply`).
+- **Размер `Claim` — число свободных исполнителей**, не больше `notify.workers` (≤ 256 < 500).
+  Строки пачки обрабатываются параллельно. Хвост пачки поэтому не стареет в очереди внутри
+  аренды — иначе последние строки большой пачки теряли бы остаток аренды последовательно.
+- **Классы `Claim`** выводятся по порядку:
+  1. потолок потока достигнут — только `security` (NTF1-H05);
+  2. источник на паузе — только `security` (NTF1-H06);
+  3. иначе оба класса.
+
+  Ведро источника ограничивает число строк, которые notify забирает, а не исход строк (NTF1-H04).
+- **Срок обработки строки — от ответа `Claim`, а не от своей константы** (CX1-57 (а)).
+  - Крайний момент строки — `min(lease_until − ackMargin, now + resolveSendTimeout + smtpSessionTimeout)`.
+  - `ResolveSend`, резерв сетки и SMTP-сессия до ответа на `DATA` идут под контекстом с этим
+    сроком (CX1-27).
+  - Строку, у которой `lease_until − now` меньше суммы сроков, notify до `MAIL FROM` не доводит и
+    `Ack` не шлёт: исхода Р11 для «не начал» нет. Аренда кончается, строку выдаёт следующий
+    `Claim`. Такие строки видны метрикой `notify_lease_budget_short_total{source}`.
+  - Проба «аренда фикстурного сервера короче константы сборки notify → SMTP-сессий по строке не
+    больше одной» заказана (§11а).
+- **Перед `DATA` notify сверяет `expires_at`** (Р11). Истёкшую строку не начинает и `Ack` не шлёт:
+  её закроет уборщик источника (З10).
+
+### З22. notify: исход строки выбирает одна функция, порядок клеток объявлен
+
+- **`deliver.Decide(row, build) Step`** — одна функция. Порядок клеток — список в одном месте
+  (CX1-47 (а)), а не цепочка ветвей в разных слоях:
+
+  | № | клетка | исход | что дальше не судится |
+  |---|---|---|---|
+  | 1 | шаблона `<пространство ленты>/<имя>` нет в сборке, либо `schema_rev` ≠ ревизии сборки | `DEFER(template_skew)`, метка направления | всё: ни `ResolveSend`, ни резерва сетки, ни значений (CX1-47 (б)) |
+  | 2 | колонка `class` ≠ классу сборки | `INVALID(class_mismatch)` | всё |
+  | 3 | класс сборки `security`, пространство вне `identityNamespaces` | `INVALID(class_not_allowed)` | всё |
+  | 4 | форма адресата не разрешена записи перечня | `INVALID(recipient_form_not_allowed)` | всё |
+  | 5 | адрес не разбирается `address.Normalize` | `INVALID(recipient_invalid)` | всё |
+  | 6 | набор атрибутов не по описанию сборки: нет `required`, лишний, нуль, вне формы | `INVALID(attrs_invalid)` | всё |
+  | 7 | право: исключение `kaname` по сертификату либо `ResolveSend` | `DENIED(revoked)` · `DEFER(grant_skew)` · `DEFER(platform_unavailable)` (+`misconfigured`) | всё |
+  | 8 | остаток аренды меньше суммы сроков; `expires_at` прошёл | без `Ack` (З21) | всё |
+  | 9 | сетка на адресата | `DROPPED(recipient_net)` у `security` · `DEFER(recipient_net)` у прочего | всё |
+  | 10 | рендер и SMTP | клетки Р11 (З26) | — |
+
+- **Место `template_skew` — первым** (CX1-47 (в)). Выбор назван с ценой. Строка чужой ревизии,
+  которая к тому же отозвана, вне формы или упёрлась в сетку `security`, получает
+  `DEFER(template_skew)`, а не терминальный исход. Она ждёт до `expires_at` и уходит, если откат
+  (цена (4) Р7) вернёт её ревизию в сборку. Иначе закрывается `EXPIRED(template_skew)`.
+  Терминальная клетка, перебивающая `template_skew`, уничтожала бы строку, которую откат ещё мог
+  отправить. Цена — отозванная строка чужой ревизии живёт до `expires_at`, а не закрывается
+  сразу; письма она не отправит: после отката её судит клетка 7.
+- **Клетки 2–6 стоят до права (7).** Строку, которую отправить нельзя, notify не носит в kaname, и
+  внутренние отказы (`INVALID`) не зависят от доступности kaname.
+- **Описание строки без колонки `class`** (CX1-52 (а)). Клетки 1–2 строят
+  `deliver.Resolved{tmpl *bundle.Template, attrs form.Set, recipient address.Normalized}`. В этом
+  типе колонки `class` нет. Клетки 3–10, сетка и рендер получают только `Resolved`, класс берут из
+  `tmpl.Class`. Поле `row.Class` читает ровно одна строка кода — сравнение клетки 2; держит это
+  гейт пакета `deliver` (одно чтение поля по идентичности).
+- **`class_mismatch` — сразу после решения о ревизии**, до `ResolveSend` и до резерва сетки
+  (CX1-52 (б)).
+- **Судьба блока с `when` решается по набору после `notify/form`** (клетка 6), а не по ключам
+  сырой строки (CX1-51 (б)).
+- Метрика `notify_template_skew_total{source, direction}`, где `direction ∈ {older, newer, missing}`.
+  Направление берётся из того же сравнения целых ревизий, которым выбрана клетка 1, без второго
+  вычисления (CX1-48). Тревога «сразу» — по сумме направлений, как требует G25. Панель и правило
+  различают направления.
+
+### З23. notify: ответ `ResolveSend`, отсрочка, бюджет отказов
+
+- **Классификатор ответа — по типу, без ветки «прочее»** (CX1-07 (б), NTF1-G23). Три исхода, род
+  «недоступен» (нет ответа, `UNAVAILABLE`, `DEADLINE_EXCEEDED`) и род «отказ» (любой иной код,
+  исход вне трёх, незаданный вариант). `switch` по закрытому перечню кодов gRPC исчерпывающий:
+  каждый код назван своей строкой.
+- **Правило чужого ответа общее для notify** (заказ NTF-2 Е8 (б)). Незаданный вариант `oneof`
+  (или перечисления) и пустое обязательное поле в ответе чужой службы — род «отказ»:
+  `DEFER(platform_unavailable)` и `misconfigured`, а не решение о письме. Читатель справочника
+  адресов kaname заводит NTF-3 (адресация субъекта, NTF1-G21) и строит его на том же
+  классификаторе `deliver/peeranswer`. В NTF-1 читателя справочника нет.
+- **Кэша ответа `ResolveSend` нет** — вопрос на каждое письмо (CX1-06 (б)).
+- **Отсрочка** (CX1-14, CX1-28 (а)). `Ack DEFER` несёт `defer_for`. Источник ставит
+  `not_before = now() + defer_for`, а `Claim` строк с `not_before` в будущем не выдаёт (З8).
+  - Для `grant_skew`, `platform_unavailable`, `template_skew` и отказа `ResolveSend` значение
+    одно — ручка `notify.deferFor` в `[1s..15m]` без умолчания.
+  - Для `recipient_net` — время до освобождения окна сетки, ограниченное той же верхней границей.
+  - `defer_for` вне `[feed.MinDefer..feed.MaxDefer]` (1 с и 15 мин, константы `feed`) источник
+    отвергает `INVALID_ARGUMENT` `defer_for: must be in [1s..15m]`, а не усекает.
+
+  Число отсрочек видно метрикой `kacho_notification_feed_defers_total{module, reason}`. Колонка
+  `not_before` засчитывается четвёртым входом `outboxobservedgate` — подъём сервера ленты
+  (NTF1-B20).
+- **Бюджет отказов на пути `ResolveSend`** (CX1-28 (б)). На внутреннем слушателе kaname звена
+  бюджета отказов нет, поле `DenyRateLimitPerSec` задано только у публичной двери и в корне не
+  выставлено (М9). Отказы одного пространства поэтому не отнимают ответы у другого. NTF-1 бюджета
+  на этот путь не добавляет. Правка, которая его добавит, обязана назвать корзину
+  «принципал × пространство» — довод записан в шапке `ResolveSend` kaname. На стороне источника
+  отказы `Claim` судит `authz.Interceptor` с корзиной по типизированному `principalID`
+  `service:notify` (З13), общей с пользователем она не бывает.
+- **Метрика отказов несёт код ответа** (CX1-28 (в)): `notify_resolve_send_total{source, code, outcome}`,
+  где `code` — закрытый перечень кодов gRPC. `RESOURCE_EXHAUSTED` отличим от `PERMISSION_DENIED`
+  без чтения журналов.
+
+### З24. notify: сетка, ведро, потолок, пауза
+
+- **Сетка на адресата** — CAS-строки в `kacho_notify` (§6), ключ — `HMAC-SHA256(notify.recipientKey, Normalized.Value())`
+  (Р10: ключевой хеш, адреса открытым текстом нет; NTF1-H03).
+  - **Резерв — один CAS до `MAIL FROM`**: `INSERT … ON CONFLICT … DO UPDATE SET count = count + 1 WHERE count < $limit RETURNING`.
+    Отдельного «есть ли место» нет. Для `notice` оба окна (час, сутки) резервируются в одной
+    транзакции; ноль строк любого — откат транзакции и исход клетки 9 (CX1-15).
+  - **Освобождение — тем же шагом обработки строки** на любом исходе, кроме `SENT`. Резерв
+    строки освобождается один раз: признак «освобождён» живёт в записи обработки строки у
+    исполнителя. Успешный повтор `Ack` освобождения не повторяет (З9, CX1-26 (д)).
+  - Резерв, оставшийся от упавшей реплики, живёт не дольше окна. Это названный остаток, а не
+    ошибка (CX1-15).
+- **Суточный потолок потока** — CAS-строка `global_daily(day, count)`, резерв и освобождение по
+  тем же правилам (NTF1-H05).
+- **Ведро источника** — в памяти реплики (`rate`, `burst`), ограничивает размер `Claim`
+  (NTF1-H04). Пауза — ручка values (NTF1-H06).
+- **Инвариант сетки `security`** ≥ 1,25 × сумма суточных `limits` шаблонов `security` сборки —
+  страж старта (NTF1-H07). Сумму читает из описаний сборки (`bundle`), а не из второй таблицы.
+
+### З25. notify: рендер, ссылка, заголовки
+
+- **Общий макет** — `services/notify/layout/` на `html/template`, стили inline, табличная
+  вёрстка; текстовая часть — из тех же блоков. Письмо `multipart/alternative`, картинки —
+  `multipart/related` с `cid:` (NTF1-G03).
+- **Блоки перебираются по `spec.RefSites`** (З4), значения — из `deliver.Resolved.attrs`
+  (проверенный набор). Блок с `when` выводится, только если атрибут в этом наборе задан
+  (NTF1-G26 (а), CX1-51 (б)).
+- **Сборщик ссылки** принимает только `form.Path` и `form.Token`: origin + `Path.Value()`,
+  origin + литерал пути кнопки + `?token=` + `url.QueryEscape(Token.Value())`. Разрешения
+  относительного адреса (`url.ResolveReference`) на этом пути нет (Р7, CX1-18). На `ErrUnset`
+  сборщик возвращает ошибку, и ссылки нет (NTF1-B28 (нуль)).
+- **Сборщик заголовков** принимает только `form.HeaderText`. Кодирование — `mime.QEncoding`
+  (RFC 2047), `From` один на установку, `Reply-To` у `security` не выражается (NTF1-G18).
+- **`Message-ID`** — `<hex(sha256(namespace ‖ 0x00 ‖ id))[:32]@<домен отправителя>>` (Р14).
+- Эталоны `.eml` и превью порождает `make -C services/notify bundle` тем же шагом, что сборку
+  (NTF1-G17).
+
+### З26. notify: SMTP и классификатор ответа ретранслятора
+
+- **TLS обязателен**: STARTTLS либо неявный TLS, проверка сертификата по доверенному набору.
+  Ручки отключения проверки нет — это держит перепись ручек `knobcensus_test.go` (NTF1-G07, G08).
+- **Классификатор — таблица, а не `default`** (CX1-17). Ключ — `(стадия, класс кода, расширенный код)`:
+  - `RCPT 5xx` с любым расширенным кодом, в том числе `5.7.x`, и без него — `RECIPIENT_REJECTED`;
+    каждая из трёх форм — своя строка таблицы;
+  - `AUTH` отказ, `MAIL FROM 5xx`, `DATA 5xx` — `DEFER(platform_unavailable)` + `misconfigured`;
+  - `4xx`, разрыв, нет TLS, недоверенный сертификат — `DEFER(platform_unavailable)` и размыкатель.
+
+  Ответ вне таблицы — `DEFER(platform_unavailable)` + `misconfigured` своей строкой «код вне
+  таблицы», со счётчиком. Разбор закрыт, но «прочего» с молчаливым исходом нет (NTF1-G14).
+- **Размыкатель** — после `N` подряд недоступностей ретранслятора notify перестаёт забирать строки
+  на интервал охлаждения. Строки ждут `pending`, причина последнего `DEFER` сохраняется
+  (NTF1-G11). `N` и интервал — константы notify.
+
+### З27. Метрики и тревоги
+
+- **У источника** — `kacho_notification_feed_outcomes_total{module, class, kind, reason}`,
+  `kacho_notification_feed_oldest_pending_seconds{module, class}`,
+  `kacho_notification_feed_delivered_total{module}` (NTF1-B20). Значения меток — **закрытые
+  перечни** `feed.Classes()`, `feed.Kinds()`, `feed.Reasons()`. Счётчик значение вне перечня не
+  принимает: вызов метрики идёт через типизированную функцию `feed.observeOutcome(Class, Outcome)`,
+  свободной строки в метке нет (CX1-54 (б)).
+- **Правило `feed_expired`** — в чарте notify, **исключением одной пары**
+  (CX1-54 (а)): `sum by (module,class,reason) (increase(…{kind="expired"}[2m])) > 0 unless sum by (module,class,reason) (increase(…{kind="expired",class="notice",reason="recipient_net"}[2m]))`.
+  Новая причина словаря получает тревогу без правки правила.
+- **Проба G27 берёт перечни из corelib** (`feed.Classes()`, `feed.Reasons()`), а не литералами
+  (CX1-54 (в)). Для каждой пары, кроме исключённой, она утверждает тревогу; для исключённой —
+  её отсутствие.
+- **notify** — клетки Р11 `notify_outcomes_total{source, template, kind, reason}`,
+  `notify_recipient_net_hits_total{class}`, `notify_source_throttled_total{source}`,
+  `notify_global_ceiling_hits_total`, `notify_source_paused{source}`,
+  `notify_source_enabled{source}`, `notify_template_skew_total{source, direction}`,
+  `notify_resolve_send_total{source, code, outcome}`, `notify_lease_budget_short_total{source}`,
+  `notify_misconfigured_total{source, cause}`. Адреса и его хеша нет ни в одной метке (NTF1-H09).
+- **Тревоги Р18** — в чарте notify.
+
+### З28. Чарт notify, флаг, выведенный перечень, стенд
+
+- **Флаг** — `global.kacho.notifications.enabled` плюс переопределение `<модуль>.notifications.enabled`.
+  Действующее значение модуля выводит **один помощник** `kacho.notifications.enabledFor`: через
+  `hasKey` и `kindIs "bool"`, без `default`, `or`, `if` над значением. Незаданный глобальный флаг —
+  `fail` с именем ручки (CX1-20, NTF1-N01, N02).
+- **Перечень источников** выводится из закрытой таблицы подключаемых источников
+  (`deploy/helm/notify/templates/_sources.tpl`) и того же помощника. Ручного перечня нет.
+  `notify.sources` в values — красный гейт (NTF1-N03). Ключ `notify.sourceLimits`, которого нет в
+  таблице, и источник перечня без записи `sourceLimits` — `fail` рендера.
+- **Рендер notify и секрета почты** — при непустом перечне (NTF1-N04). Секрет почты монтируется
+  только в notify (NTF1-I01). Реплики ≥ 2 и PDB (NTF1-I05). Аннотация `checksum/config`.
+- **Декларации `<служба>.spiffe`** — `notify.spiffe`, `notifyProbe.spiffe`, `kaname.spiffe`,
+  литералом в зонтике. Читатели:
+  - выпуск сертификата;
+  - перечень источников notify;
+  - таблицы Р2 kaname и `notify-probe`.
+
+  Их согласие судит гейт рендера J05 (З30).
+- **Стенд** — приёмник `mailpit` со STARTTLS и сертификатом УЦ стенда, `notify-probe`,
+  `standProbeNamespace` — вне цепочки `prod`. Держит расширенный гейт
+  `deploy/mail_receiver_core_test.go` (NTF1-I03, I04).
+- **Отдельная установка** — чарт `deploy/helm/notify/` рендерится без значений зонтика
+  (NTF1-I06).
+
+### З29. `notify-probe`
+
+- Корень `services/notify/cmd/notify-probe`, база `kacho_notifyprobe`, лента,
+  `InternalNotifyProbeService/Send`, шаблон `probe-hello` класса `notice`; процедура подключения —
+  K03.
+- Регистрация сервера ленты стоит **в прод-файле корня** (NTF1-C02), не в corelib. В
+  `INTERNAL_ENDPOINTS` скрипта `assert-ban6-external-isolation.py` заводится строка носителя
+  `notify`.
+- Других видов журнала у пробы нет. При флаге `false` сервер подписки не объявляется и не
+  монтируется (З12, NTF1-N07 (б)).
+- Дескриптор — `HostPair` со звеном Р2 (перечень `{Subscribe, Claim, Ack}`, таблица из
+  `notify.spiffe`) (NTF1-M08).
+
+### З30. NS: политика выпуска и одна декларация SAN
+
+- **Политика выпуска сертификатов служб** (kacho#2916) — правило одобрения запросов: SAN
+  запроса обязан совпасть с `spiffe://<trustDomain>/ns/<namespace запросившего>/sa/<учётка запросившего>`.
+  Иной SAN не одобряется, отказ наблюдаем событием (NTF1-J01, J02).
+- **Гейт боевой посадки** — `assert-production-posture.sh` краснеет, если notify включён, а
+  политики нет (NTF1-J04).
+- **Гейт рендера J05** сравнивает литералы деклараций у всех читателей (З28). Правка одного
+  читателя в обход декларации — красный с его именем.
+- Прежний разбор SAN в kaname (`SANToServiceDomain` и производные) звено Р2 не использует и не
+  меняет (Р12).
+
+### З31. CI: вызов проверок (D08) — ведомость в corelib
+
+- **Ведомость обязательных вызовов, разбор YAML рабочих процессов и тел `run:` словами оболочки,
+  перечень запретов** — одна функция `treehygiene.AuditNotifyWiring(workflowDir, makefile)`.
+  Запреты: `if:`, `continue-on-error`, `fetch-depth ≠ 0`, триггеры. Тесты kacho
+  (`internal/repohygiene/notifywiring_test.go`) и kaname (`internal/check/notify_wiring_test.go`) —
+  тонкие вызывающие (CX1-49 (а)).
+- Гейт не пропускается при `-short` и печатает версию corelib и число записей ведомости
+  (CX1-49 (б), (в)).
+- **Цели `notifications-check` и `notify-tree-gates`** — в `Makefile` обоих деревьев. База
+  `HEAD^1`, клон с полной историей (NTF1-D07, D08).
+
+## 3. Инварианты
+
+| № | инвариант | чем держится |
+|---|---|---|
+| И1 | креды почты смонтированы только в notify | NTF1-I01, I02 |
+| И2 | у notify в NTF-1 нет gRPC-слушателя; ось формы хоста одна | NTF1-G19, G15; ведомость З15 |
+| И3 | строку `service:<имя>` производит одна функция фундамента, субъект вызывающего решает одна функция | гейт З13 (NTF1-M08) |
+| И4 | тенантские поверхности субъекта `service:` не производят | NTF1-M10, гейт писателя кортежей |
+| И5 | надзор администратора облака на двух типах Р5 не срабатывает ни в одном из семи мест; решает одна функция попунктно | NTF1-F12 и его гейт |
+| И6 | `reader` ленты есть только у `service:notify` | NTF1-F03; модель без `*` и каскада |
+| И7 | решение о письме — по записи выдачи и шаблона одним чтением; кортеж `sender` на пути решения не читается; ответ не кэшируется | NTF1-F05–F07, F19 (З18, З23) |
+| И8 | переходы записи выдачи — CAS; отказ ноль строк классифицируется чтением после записи | NTF1-F18 |
+| И9 | у `Put` каждый сторож — до SQL либо ноль строк; транзакция вызывающего пригодна к коммиту | NTF1-B09, B27–B30 |
+| И10 | «задан ли» и «нуль ли» решает одна функция `notify/form` по нормализованному значению | З2; B29, B30, G25, G26 |
+| И11 | форма значения проверяется одной функцией у источника и в notify | NTF1-B28, G24 |
+| И12 | нормализация адреса и её доменная часть — одна; приёмников `address.Domain` вне пакета нет | NTF1-B27 (гейт) |
+| И13 | запись в непрозрачные типы в обход функций пакета — находка гейта по трём деревьям | NTF1-B28 (гейт) |
+| И14 | описание атрибутов в `Put` в рабочем коде — только описание генератора | NTF1-B28 (гейт `Put`) |
+| И15 | ревизия растёт ровно со сменой набора; отпечаток — одна функция по канонической форме | NTF1-D07, D08 |
+| И16 | исход строки выбирает одна функция; `template_skew` — первым; класс исхода — из сборки | З22; G25, G26 |
+| И17 | признак выдачи монотонен; причину истечения и возврат вклада решает один оператор уборщика | З10; B31 |
+| И18 | уборщик работает при любом флаге; вклад возвращается ровно один раз при любом числе реплик | NTF1-B31 (в); проба двух уборщиков (заказ) |
+| И19 | аренда — одна короткая транзакция; сетевых вызовов и расшифровки внутри нет | NTF1-B10, B18 |
+| И20 | повтор `Ack` после записанного исхода классифицируется без срока аренды; следствия — только на изменившей строке | NTF1-B26 |
+| И21 | срок обработки строки в notify ограничен концом аренды из ответа `Claim` | З21; проба (заказ) |
+| И22 | сетка на адресата точна поперёк реплик: резерв — один CAS до `MAIL FROM` | NTF1-H03 |
+| И23 | ни одна ручка не имеет молчаливого умолчания | стражи старта (§8) |
+| И24 | метки метрик — закрытые перечни; тревога `feed_expired` — исключением одной пары | З27; G27 |
+| И25 | гейты дерева — одна реализация в corelib; kacho и kaname — тонкие вызывающие | З16, З31 |
+
+## 4. Компоненты и границы
+
+| компонент | репозиторий | путь | владелец | стадия |
+|---|---|---|---|---|
+| контракт ленты, поле `bound_to_server` | kacho | `proto/corelib/notify/`, `proto/corelib/authz/v1/authz_options.proto` | #2915 | S0 |
+| стабы | corelib | `api/corelib/notify/`, `api/corelib/authz/v1/` | corelib#77 | S0 |
+| `notify/form`, `address`, `spec`, `feed`, `cmd/notifygen` | corelib | `notify/**`, `cmd/notifygen/**` | corelib#77 | S1 |
+| звено Р2, `CallerSubject`, ось формы хоста, `Bound`, `bound_to_server` в выводе каталога | corelib | `grpcsrv/`, `authz/`, `listnarrow/`, `servicecontract/`, `servicehost/`, `authz/catalogderive/`, `observability/bootposture.go` | corelib#77 | S1 |
+| гейты дерева | corelib | `treehygiene/notify_*.go` | corelib#77 | S1 |
+| типы в `forbiddenObjectTypes`, приставка `ntf` | corelib | `authz/proxytuple/policy.go`, `ids/ids.go` | corelib#77 | S1 |
+| модель, манифест, выдача, `ResolveSend`/`Revoke`/`Restore`, исключение надзора, звено Р2 на слушателях | kaname | `internal/authzmodel/`, `tools/modulemanifestcheck/`, `internal/servicemanifest/`, `internal/…/notificationgrant/`, `internal/authzguard/`, `internal/service/`, `cmd/kaname/`, `proto/kaname/cloud/iam/v1/` | kaname#484 | S2 |
+| служба notify | kacho | `services/notify/**` | #2915 | S3 |
+| гейты kacho | kacho | `internal/repohygiene/{notifyspecsingular,servicesubjectsingular,notifywiring}*_test.go`, `catalogparity_test.go` | #2915 | S3 |
+| политика выпуска, декларации | kacho | `deploy/helm/umbrella/**`, `deploy/tests/**` | #2916 | S4 |
+| чарт notify, флаг, стенд, `notify-probe` | kacho | `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `services/notify/cmd/notify-probe/**` | #2915 | S5 |
+
+Границы:
+
+- notify не импортирует kaname. Ребро только сетевое: `ResolveSend`.
+- corelib не знает имён потребителей.
+- kaname не зовёт notify.
+
+## 5. Набросок контракта
+
+Набросок — не контракт: контракт появляется в S0 и судится `buf lint`, `buf breaking` и
+ревью proto.
+
+```proto
+// kacho proto/corelib/notify/feed.proto — пакет corelib.notify (без сегмента версии, Р8)
+service InternalNotificationFeedService {
+  // Аренда пачки строк. Объект проверки — лента, к которой привязан сервер (З14).
+  rpc Claim(ClaimRequest) returns (ClaimResponse);
+  // Исход аренды. Повтор после записанного исхода — З9.
+  rpc Ack(AckRequest) returns (AckResponse);
+}
+message ClaimRequest { uint32 max = 1; repeated NotificationClass classes = 2; }
+message ClaimResponse { repeated ClaimedNotification notifications = 1; }
+message ClaimedNotification {
+  string id = 1;                                  // ntf-…
+  string lease_token = 2;
+  google.protobuf.Timestamp lease_until = 3;      // конец аренды по часам источника (CX1-57)
+  string template = 4;
+  uint32 schema_rev = 5;
+  NotificationClass class = 6;                    // только отбор; исход — по сборке notify (З22)
+  oneof recipient { string address = 7; }        // форма субъекта — NTF-3
+  map<string, string> attrs = 8;                  // ключа нет = атрибут не задан; секреты — открытым текстом
+  google.protobuf.Timestamp enqueued_at = 9;      // полная точность базы, не усекается (CX1-08)
+  google.protobuf.Timestamp expires_at = 10;
+}
+message AckRequest {
+  string id = 1;
+  string lease_token = 2;
+  Outcome outcome = 3;
+  google.protobuf.Duration defer_for = 4;         // обязателен при kind = DEFER, [1s..15m] (З23)
+}
+message Outcome { OutcomeKind kind = 1; OutcomeReason reason = 2; }
+// OutcomeKind: SENT, RECIPIENT_REJECTED, DEFER, DENIED, INVALID, DROPPED (EXPIRED — только уборщик)
+// OutcomeReason: закрытый словарь Р11; сочетание kind × reason проверяется одной таблицей
+```
+
+```proto
+// kaname proto/kaname/cloud/iam/v1/internal_notification_grant_service.proto
+service InternalNotificationGrantService {
+  rpc ResolveSend(ResolveSendRequest) returns (ResolveSendResponse);   // чтение решения, без Operation
+  rpc Revoke(NotificationGrantRequest) returns (kacho.cloud.operation.Operation);
+  rpc Restore(NotificationGrantRequest) returns (kacho.cloud.operation.Operation);
+}
+message ResolveSendRequest { string namespace = 1; string template = 2; google.protobuf.Timestamp enqueued_at = 3; }
+message ResolveSendResponse { SendDecision decision = 1; }   // UNSPECIFIED = 0 читатель считает «отказом» (З23)
+message NotificationGrantRequest { string namespace = 1; optional string template = 2; }
+```
+
+- Тексты отказов, `reason` и `ErrorInfo` — таблица отказов Р5 и границы Р8 приёмки. Замысел их
+  не повторяет.
+- Внутренние сервисы не маршрутизируются на внешний вход: `Internal*`, без `google.api.http`
+  (NTF1-C01, C02).
+
+## 6. Схема БД
+
+**Источник** (порождает `notifygen init`; имя таблицы — `outbox.SanitizeTable`):
+
+```sql
+CREATE TABLE <svc>_notification_outbox (
+  id                text PRIMARY KEY,                       -- ids.NewID("ntf")
+  template          text NOT NULL,
+  schema_rev        integer NOT NULL CHECK (schema_rev >= 1),
+  class             text NOT NULL CHECK (class IN ('security','notice')),
+  recipient_address text NOT NULL,
+  attrs             jsonb NOT NULL,
+  secret_attrs      bytea,                                  -- AEAD, заголовок — id ключа
+  state             text NOT NULL CHECK (state IN ('pending','sent','recipient_rejected',
+                                                    'denied','invalid','dropped','expired')),
+  outcome_reason    text, outcome_at timestamptz,               -- у терминального состояния
+  recorded_kind     text, recorded_reason text, outcome_token uuid,  -- последний записанный Ack (З9)
+  lease_token       uuid, lease_until timestamptz,
+  first_claimed_at  timestamptz,                            -- монотонный признак выдачи (CX1-53)
+  last_defer_reason text,
+  not_before        timestamptz NOT NULL DEFAULT '-infinity',
+  enqueued_at       timestamptz NOT NULL DEFAULT now(),
+  expires_at        timestamptz NOT NULL,
+  CONSTRAINT closed_carries_no_secret CHECK (state = 'pending' OR secret_attrs IS NULL),
+  CONSTRAINT outcome_matches_state CHECK ((state <> 'pending') = (outcome_at IS NOT NULL)),
+  CONSTRAINT outcome_pair CHECK (<пара state × outcome_reason из словаря Р11>)
+);
+CREATE INDEX … ON <svc>_notification_outbox (class, enqueued_at, id) WHERE state = 'pending';
+CREATE TABLE <svc>_notification_window (
+  template text, scope text, key text, window_start timestamptz, count integer NOT NULL CHECK (count >= 0),
+  PRIMARY KEY (template, scope, key, window_start));
+CREATE TABLE <svc>_notification_contrib (
+  notification_id text REFERENCES <svc>_notification_outbox(id) ON DELETE CASCADE,
+  template text, scope text, key text, window_start timestamptz,
+  PRIMARY KEY (notification_id, scope));
+```
+
+Колонка `ttl` не хранится: `expires_at = enqueued_at + ttl` пишется при вставке, верхняя граница
+`ttl` — 720 ч (Р7). Уборка закрытых строк — `outbox.NewQueueSweeper` по сроку хранения.
+
+**notify** (`kacho_notify`):
+
+```sql
+CREATE TABLE recipient_net (key bytea, class text, window text, window_start timestamptz,
+  count integer NOT NULL CHECK (count >= 0), PRIMARY KEY (key, class, window, window_start));
+CREATE TABLE global_daily (day date PRIMARY KEY, count integer NOT NULL CHECK (count >= 0));
+```
+
+Адреса открытым текстом нет (NTF1-H03). Строки старше окна снимает уборка notify.
+
+**kaname** — две таблицы З18 и их намерения в существующем журнале kaname той же транзакцией.
+
+## 7. Последовательности
+
+1. **Постановка.** Глагол → `DeliveryConfigured()` → `SendX` → `Put` (З7) → коммит. Строка,
+   вклад и журнал видны вместе; LISTEN будит сервер подписки.
+2. **Реакция.** notify получает событие вида `notification_feed` → `Claim(max = свободные, classes)` →
+   на каждую строку `Decide` (З22) → при `ALLOW` резерв сетки → рендер → SMTP → `Ack`.
+   Освобождение резерва на не-`SENT` — тем же шагом.
+3. **Отсрочка.** `Ack DEFER(reason, defer_for)` → `not_before` → строка выдаётся после него.
+4. **Истечение.** Проход уборщика (З10) → `EXPIRED(reason)` и возврат вклада одним оператором.
+5. **Отзыв.** `Revoke(ns)` → надгробие и намерение снятия кортежа одной транзакцией →
+   `ResolveSend` → `REVOKED` → `DENIED(revoked)`.
+6. **Флаг выключен.** Ставить нечего, сервера ленты нет, уборщик закрывает поставленное раньше
+   (`unclaimed`).
+
+## 8. Конфигурация, ручки и границы
+
+| ручка | где | граница | без значения | держатель |
+|---|---|---|---|---|
+| `KACHO_<SVC>_NOTIFICATIONS_ENABLED` | источник | ровно `true`/`false`; пустая строка — отказ | отказ старта | NTF1-N08; случай пустой строки (заказ) |
+| `KACHO_<SVC>_NOTIFICATIONS_FEED_KEYRING` | источник, флаг `true` | активный + прежний | отказ старта | NTF1-B05 |
+| `notify.claimInterval` | notify | `[1s..5m]` | отказ | NTF1-E04 |
+| `notify.workers` | notify | `[1..256]` | отказ | З21 |
+| `notify.resolveSendTimeout` | notify | `[100ms..30s]` | отказ | З20 |
+| `notify.smtp.sessionTimeout` | notify | `[1s..120s]` | отказ | З20 |
+| `notify.deferFor` | notify | `[1s..15m]` | отказ | З23 |
+| `notify.origin` | notify | абсолютный `https://` без пути | отказ | NTF1-G06 |
+| `notify.recipientKey` | notify | 32 байта | отказ | З24 |
+| `notify.limits.recipient.security.perDay` | notify | `[1..1000]` | отказ | NTF1-H07, H08 |
+| `notify.limits.recipient.notice.perHour` / `perDay` | notify | `[1..10000]` | отказ | NTF1-H08 |
+| `notify.limits.global.perDay` | notify | `[1..10⁷]` | отказ | NTF1-H08 |
+| `notify.sourceLimits.<модуль>.rate` / `burst` / `paused` | notify | `[1..1000]` / `[1..10000]` / bool | рендер отвергнут | NTF1-N03, H08 |
+| `notify.standProbeNamespace` | notify, стенд | DNS label; вне `prod` | не задан — формы `address` у пробы нет | NTF1-G21, I04 |
+| `notificationCutoffGuard` | kaname | `[1s..10m]` | отказ | NTF1-F20 |
+| `global.kacho.notifications.enabled`, `<модуль>.notifications.enabled` | зонтик | bool | рендер отвергнут | NTF1-N01, N02 |
+
+Константы, не ручки: `feed.LeaseTTL = 5m`, `feed.SweepInterval = 1m`, `feed.MaxClaim = 500`,
+`feed.MinDefer = 1s`, `feed.MaxDefer = 15m`, `ackMargin = 5s`, порог и охлаждение размыкателя
+notify.
+
+## 9. Рёбра
+
+| ребро | вызов | ацикличность |
+|---|---|---|
+| notify → источник (kaname с NTF-2, модули kacho с NTF-3, `notify-probe`) | `Subscribe`, `Claim`, `Ack` | источник notify не зовёт |
+| notify → kaname | `ResolveSend` | kaname notify не зовёт |
+| notify → ретранслятор | SMTP | внешний узел |
+
+Запись в правиле топологии и в `docs/specs/01-architecture-and-services.md` — задача
+`kacho-workspace#881` (З8, З9 §3 приёмки).
+
+## 10. План перехода
+
+Прода нет (Д12). Переход прямой: S0 → S1 (тег corelib) → S2 → S3 → S5; S4 блокирует только боевое
+включение. Пины corelib (S1) и kaname (S2) поднимаются в kacho **одним изменением** (DoD 11:
+сторона А гейта запрещённых типов). Откат — предыдущие образы и чарт. Лента источника от флага
+не зависит, поэтому откат флага данных не теряет, а поставленное закрывает уборщик.
+
+## 11. Отображение пунктов разбора в решения
+
+Каждый пункт шести первичных разборов → решение → механизм → держатель. «Заказ» — проба,
+заказанная записью разбора; она — строка маршрута (`tasks.md`).
+
+| пункт | решение | механизм | держатель |
+|---|---|---|---|
+| CX1-01 | З13, З17 | `authz.ServiceSubject` — единственный производитель; `CallerSubject` — одна функция; `FormatSubject` и `TenantSubject` без `service`; применитель kaname — через фундамент, не `FGASubjectRef` | NTF1-F01, F03, M10; гейт З13; проба «пересланный `service`, сертификат вне таблицы → субъекта нет» (заказ) |
+| CX1-02 | З13 | `CanonicalSAN` — одна функция приведения обеих сторон; отказ старта на неканоническом ключе; два URI-SAN — субъекта нет | NTF1-M03, M09; случаи «ключ не канонический», «два URI-SAN» (заказ) |
+| CX1-03 | З13, З23 | `principalID = service:<имя>`; второй носитель читает только `CallerSubject`; звено — в `unaryChain`/`streamChain` носителя | NTF1-M07, M08; проба раздельной корзины (заказ) |
+| CX1-04 | З14 | `bound_to_server` в аннотации, форма `ScopeBound`, привязка из `feed.NewServer` | NTF1-C03, C07, M08 |
+| CX1-05 | З19 | `SuperGateExempt` попунктно в `planCheck`; одна функция в семи местах | NTF1-F12 и гейт; смешанный батч (заказ) |
+| CX1-06 | З18, З23 | одно чтение записи выдачи и шаблона; кортеж `sender` не читается; кэша ответа нет | NTF1-F05–F07, F18, F19 |
+| CX1-07 | З18, З23 | `(запись, найдено, ошибка)`, `ErrNoRows` в одном месте; классификатор по типу | NTF1-F23, G23 |
+| CX1-08 | З8, З18 | `enqueued_at` на проводе с полной точностью; `cutoff_at` не усекается | NTF1-F20; дробная отсечка (заказ) |
+| CX1-09 | З18 | CAS `UPDATE … RETURNING`; вставка шаблона `ON CONFLICT … WHERE`; классификация после записи | NTF1-F15–F18 |
+| CX1-10 | З7 | сторожа — до SQL либо ноль строк CAS | NTF1-B09; NTF3-14 на той же реализации |
+| CX1-11 | З10 | замещён CX1-53: перечень `feed.RefundReasons()` | NTF1-B15, B16, B31 |
+| CX1-12 | З3, З7, З24 | ключ окна и ключ сетки — от `address.Normalize` | NTF1-B27 и гейт |
+| CX1-13 | З9 | см. CX1-26 | NTF1-B26, B13 |
+| CX1-14 | З23, З8 | `defer_for` в `Ack`, `not_before`, `Claim` не выдаёт будущих; ручка `notify.deferFor` | B20 (четвёртый вход); проба «вызовов `ResolveSend` ≤ T / шаг + 1» (заказ) |
+| CX1-15 | З24 | резерв — один CAS до `MAIL FROM`; освобождение тем же шагом, один раз | NTF1-H03; возврат резерва после `DEFER` (заказ) |
+| CX1-16 | З10 | условие аренды в том же операторе, что перевод | NTF1-B25 и гейт |
+| CX1-17 | З26 | таблица классификатора, три формы 5xx на `RCPT` — три строки, без `default` | NTF1-G10, G14 |
+| CX1-18 | З2, З25 | грамматика `path`/`token` — одна функция `notify/form`; ссылка — сложение строк | NTF1-G24, B28 |
+| CX1-19 | З11 | AAD с длинами; идентификатор ключа в шифротексте; смена шаблона → `sealed_mismatch` | NTF1-B04; смена шаблона в строке (заказ) |
+| CX1-20 | З12, З28 | `hasKey`/`kindIs "bool"` в одном помощнике; переменная — ровно `true`/`false` | NTF1-N01, N02; пустая строка (заказ) |
+| CX1-21 | З12 | `DeliveryConfigured()` первым стейтментом глагола | NTF1-N06 |
+| CX1-22 | — (фикстура пробы) | C05 строится без предшествующего разрешения в кэше; окно кэша — ручка | NTF1-C05; `TestEveryVerdictCacheProcessDeclaresItsOwnKnob` |
+| CX1-23 | З15 | перепись G19 против ведомости корней, не константы | NTF1-G19; ведомость З15 |
+| CX1-24 | З20, З21 | `certificate` только у `kaname` с SAN из `kaname.spiffe`; клиент источника с точным SAN | NTF1-G22, J05 |
+| CX1-25 | З8 | аренда — одна короткая транзакция; расшифровка после коммита | NTF1-B10, B18 |
+| CX1-26 | З9 | один записывающий оператор снимает аренду при каждом исходе; классификация повтора без срока; пара `(kind, reason)`; следствия только на изменившей строке | NTF1-B26, B13; случаи повтора `DEFER` и `SENT = 1` (заказ) |
+| CX1-27 | З20, З21 | срок обработки под контекстом до `lease_until − ackMargin`; страж старта суммы сроков | проба «`DATA` дольше аренды → одна сессия» (заказ) |
+| CX1-28 | З23 | та же отсрочка после отказа; бюджета на пути `ResolveSend` нет (М9); метрика с кодом | проба «пространство A отказывает, `kaname` отправлено» (заказ) |
+| CX1-29 | З3 | доменная часть всех ключей — `NormalizeDomain`; ключ kaname — поверх неё (NTF-2) | NTF1-B27 (гейт) по дереву kaname |
+| CX1-30 | З3, З7 | именованный профиль IDNA; ошибка — `ErrRecipientInvalid` до SQL | NTF1-B27 (IDNA) |
+| CX1-31 | З2, З7 | одна функция формы на обеих сторонах, `SendX` → `Put` до SQL | NTF1-B28 |
+| CX1-32 | — | ратификация с ценой — в приёмке (Р11); кода нет | — |
+| CX1-33 | З15 | одна ось `HostForm`, нуль — пара; `NoServedServices` производное; отказы сочетаний; `switch` без `default` | NTF1-G15; отказы сочетаний (заказ); Х5 — NTF-4 (§13, Е1) |
+| CX1-34 | З13, З15 | звено Р2 в `unaryChain`/`streamChain` без ветки по `on`; поля дескриптора | NTF1-M08; сравнение цепочки Х5 — NTF-4 (Е1) |
+| CX1-35 | З5, З7, З16 | гейт ссылки на `Put` со входом `-list`; ошибка генератора — красный прогон; пустое описание и атрибут вне описания — сторож | NTF1-B28 (`Put`), B29 (`Put`) |
+| CX1-36 | З2, З3, З16 | непрозрачные типы; нуль отвергают названные приёмники; ошибка `Value()` не отбрасывается — узел заводится | NTF1-B27, B28 (форма типа, нуль); узел З16 |
+| CX1-37 | — | предмет NTF-3 (производные цены замещения Р6); кода NTF-1 нет | заказ автору NTF-3 (§13, Е4) |
+| CX1-38 | З2 | признак «задано» — поле, а не пустота; исчерпывающий `switch`, `ErrUnknownType` | NTF1-B29, G25, A10 |
+| CX1-39 | З16 | гейты — функции `treehygiene`; единственный параметр — каталог стабов; печать версии | тонкие вызывающие; проба «перечни объявлены один раз» (заказ) |
+| CX1-40 | З16 | вид (7) из `go/build` `UseAllFiles`, `IgnoredOtherFiles`; `NoGoError` не пропускается; обход по `git ls-files` | проба сверки с тулчейном (заказ) |
+| CX1-41 | З2, З16 | узел «ошибка `Value()` отброшена» заводится в corelib | инъекция и близнец узла (заказ) |
+| CX1-42 | З2, З3 | `Formatter`, `LogValuer` нейтральные; `Marshal*` с ошибкой | проба выходов (заказ); NTF1-G13 |
+| CX1-43 | З16 | реестр исключений в гейте: довод и предикат снятия; норма в правилах — заказ оснастке | гейт краснеет на записи без предиката; норма — §13, Е3 |
+| CX1-44 | З2 | «нормализовать → решить → проверить → записать»; одна функция написания ленты | NTF1-B29 (е), G25; «нуль + доля», «год вне диапазона» (заказ) |
+| CX1-45 | З4 | канонический отпечаток `v1:sha256` с классом и `presence`; пересчёт базы; узкое чтение базы; `revision.yaml` пишет и читает `notify/spec` | NTF1-D07; близнецы «перестановка», «старая версия алгоритма», «база прежнего формата» (заказ) |
+| CX1-46 | З22 | закрыт приёмкой (RA-12); условие — CX1-52 | NTF1-G26 |
+| CX1-47 | З22 | одна функция исхода, порядок объявлен списком; ревизия и шаблон до права и резерва; `template_skew` первым, цена названа | пары «чужая ревизия + REVOKED / адрес вне формы / исчерпанная сетка» (заказ) |
+| CX1-48 | З22, З27 | метка `direction` из того же сравнения | метрика; правило |
+| CX1-49 | З31 | ведомость D08 — одна функция corelib; не пропускается при `-short` | NTF1-D08; проба «ведомость объявлена один раз» (заказ) |
+| CX1-50 | З2, З5, З7 | `form.Presence` — одна функция; `SendX` без литералов; ключ `optional` опускается только перед `Put`; `Put` нуль `optional` отвергает | NTF1-B30; B30 по перечню видов и `timestamp` + 0,5 с (заказ) |
+| CX1-51 | З4, З25 | `spec.RefSites` — исчерпывающий `switch` по восьми видам; валидатор и рендер зовут её; рендер по проверенному набору | NTF1-A11, G26; A11 (б) по восьми видам (заказ) |
+| CX1-52 | З22 | `deliver.Resolved` без колонки `class`; `class_mismatch` сразу после ревизии | NTF1-G26 (г), (д); «чужая ревизия, колонка `security`, исчерпанная сетка → `template_skew`, резервов 0» (заказ) |
+| CX1-53 | З6, З10 | `first_claimed_at` ставит `UPDATE` `Claim`; причина и возврат — один оператор уборщика; `RefundReasons()` один раз | NTF1-B31, B15, B16; «выдана, аренда истекла, больше не выдана → `no_ack`» (заказ) |
+| CX1-54 | З27 | правило исключением одной пары; метки — закрытые перечни; G27 из перечней corelib | NTF1-G27; проба G27 по перечням (заказ) |
+| CX1-55 | З10 | `StartSweeper` в корне вне ветки флага; возврат по строкам своего оператора | NTF1-B31 (в); два уборщика (заказ) |
+| CX1-56 | З3, З16 | форма (а): всякое использование `NormalizeDomain` вне прямого вызова — узел | NTF1-B27 (гейт, приёмник); инъекция (4) (заказ) |
+| CX1-57 | З8, З21 | `lease_until` в ответе `Claim`; срок обработки по нему; страж сверяет сроки с нижней границей | проба «аренда короче константы сборки notify» (заказ) |
+
+## 11а. Условия к коду из записей разбора — где каждое исполнено
+
+Условие к коду — требование записи разбора к реализации, которое не меняет ни одного «Тогда»
+(Д22: его дом — замысел). Ниже — **все** условия к коду и заказы исполнителям из шести первичных
+разборов: `b347b81f` (ред. 8), `530e2296` (ред. 9), `d524e7bd` (ред. 10), `05828e42` (ред. 13),
+`390b5a33` (ред. 16), `29cfa368` (ред. 18). Пересверок на замысел нет (М20). Условие, уточнённое
+поздней записью, дано последней формой, с ранней записью в столбце «запись». Полоса — `tasks.md`.
+
+| № | запись · пункт | условие к коду | где в замысле | держатель (полоса) |
+|---|---|---|---|---|
+| УК1 | `b347b81f`, `d524e7bd` · CX1-01 | один производитель `service:<имя>` в corelib; `FormatSubject`/`TenantSubject` без `service`; конструктор кортежа kaname с закрытым типом; `FGASubjectRef` и 4 вызова не меняются | З13, З17 | гейт З13 (C7, N10); NTF1-F01, F03 (K2) |
+| УК2 | `b347b81f` · CX1-02 | ключ приводится к форме левой стороны, иначе отказ старта; два URI-SAN — субъекта нет; сравнение одной функцией | З13 | проба `grpcsrv` (C7) |
+| УК3 | `b347b81f` · CX1-03 | `principalID` с типом; второй носитель в kaname — только `ResolveSend`; звено — в `servicehost` | З13 | NTF1-M07 (K5), M08 (C7, N10) |
+| УК4 | `b347b81f` · CX1-04 | объект `Claim`/`Ack` — лента сервера, форма аннотацией, выводимой генератором каталога | З14 | NTF1-C03 (C5), C07 (N10) |
+| УК5 | `b347b81f` · CX1-05 | исключение попунктно в плане; предикат над разобранным типом; одна функция в семи местах | З19 | NTF1-F12 и гейт (K4) |
+| УК6 | `b347b81f` · CX1-06 | решение по записи выдачи и шаблона одним оператором; кортеж `sender` не читается; без кэша | З18, З23 | NTF1-F05–F07 (K3), G-конвейер (N3) |
+| УК7 | `b347b81f`, `530e2296` · CX1-07 | `(запись, найдено, ошибка)`, `ErrNoRows` в одном месте, иначе `UNAVAILABLE` фиксированным текстом; классификатор по типу без «прочего» | З18, З23 | NTF1-F23 (K3), G23 (N4) |
+| УК8 | `b347b81f` · CX1-08 | `enqueued_at ≥ cutoff + guard` на полной точности; notify передаёт `enqueued_at` строки | З8, З18 | NTF1-F20 (K3) |
+| УК9 | `b347b81f` · CX1-09 | CAS `UPDATE … RETURNING`; вставка шаблона `ON CONFLICT`; классификация после записи; кортеж — той же транзакцией | З18 | NTF1-F18 (K3) |
+| УК10 | `b347b81f` · CX1-10 | исчерпание — ноль строк, не SQL-ошибка; транзакция пригодна к коммиту | З7 | NTF1-B09 (C4) |
+| УК11 | `b347b81f` · CX1-11 | замещено `29cfa368` · CX1-53 (см. УК61) | З10 | — |
+| УК12 | `b347b81f` · CX1-12 | ключ окна и ключ сетки — от `address.Normalize` | З3, З7, З24 | NTF1-B27 (C2, C4), H-конвейер (N7) |
+| УК13 | `b347b81f` · CX1-13 | `Ack` — условный `UPDATE` по `(id, token, pending)`, ноль строк — одно чтение (уточнено УК30) | З9 | NTF1-B26 (C5) |
+| УК14 | `b347b81f` · CX1-14 | «не раньше» по объявленной политике (ручка без умолчания); `Claim` не выдаёт будущих; метрика; вход B20 | З23, З8 | B20 (N10); проба темпа `ResolveSend` (N4) |
+| УК15 | `b347b81f` · CX1-15 | резерв — один CAS до `MAIL FROM`; возврат тем же шагом; остаток упавшей реплики назван | З24 | NTF1-H03 (N7); проба возврата после `DEFER` (N7) |
+| УК16 | `b347b81f` · CX1-16 | условие аренды в том же операторе, что `EXPIRED` | З10 | NTF1-B25 и гейт (C5) |
+| УК17 | `b347b81f`, `530e2296` · CX1-17 | классификатор RCPT — явная ветка на класс, без `default`; `5.7.x` — своей строкой | З26 | NTF1-G10, G14 (N6) |
+| УК18 | `b347b81f`, `530e2296` · CX1-18 | грамматика одной функцией, три границы; сложение строк, без `ResolveReference` | З2, З25 | NTF1-G24 (N5), B28 (C1) |
+| УК19 | `b347b81f` · CX1-19 | AAD с длинами; идентификатор ключа; смена шаблона → `sealed_mismatch` | З11 | NTF1-B04; близнец смены шаблона (C5) |
+| УК20 | `b347b81f` · CX1-20 | `hasKey`/`kindIs`; `true`/`false`, пустая строка — отказ | З12, З28 | NTF1-N01, N02 (D2); пустая строка (C4) |
+| УК21 | `b347b81f` · CX1-21 | флаг — первым стейтментом, сторож до `Put` | З12 | NTF1-N06 (C4) |
+| УК22 | `b347b81f` · CX1-22 | C05 без разрешения в кэше; окно кэша — ручка | tasks | NTF1-C05 (C5) |
+| УК23 | `b347b81f` · CX1-23 | G19 против объявленного множества, не константы | З15 | NTF1-G19 (N10) |
+| УК24 | `b347b81f` · CX1-24 | `certificate` — только `kaname` и SAN из `kaname.spiffe` | З20 | NTF1-G22 (N2), J05 (J2) |
+| УК25 | `b347b81f` · CX1-25 | аренда — одна короткая транзакция; расшифровка после коммита | З8 | NTF1-B10, B18 (C5) |
+| УК26 | `b347b81f` · заказ corelib | пробы CX1-01 (пересланный `service`), CX1-02 (ключ, два URI-SAN), CX1-03 (корзина), CX1-19 (смена шаблона), CX1-16 (закрыт B25), CX1-20 (пустая строка) | З13, З11, З12 | C7, C5, C4 |
+| УК27 | `b347b81f` · заказ kaname | пробы CX1-05 (смешанный батч), CX1-07 (закрыт F23), CX1-08 (дробная отсечка) | З19, З18 | K4, K3 |
+| УК28 | `b347b81f` · заказ notify | пробы CX1-14 (темп `ResolveSend`), CX1-15 (возврат резерва), CX1-22 (C05 без кэша) | З23, З24 | N4, N7, C5 |
+| УК29 | `b347b81f` · заказ замыслу | форма объекта `Claim`/`Ack`; производитель `service:<имя>`; политика отсрочки | З14, З13, З23 | исполнено здесь |
+| УК30 | `530e2296` · CX1-26 | (а) один оператор снимает аренду при каждом исходе; (б) классификация повтора в объявленном порядке без срока; (в) пара `(kind, reason)`; (г) пустой токен до SQL, уборщик пишет `NULL`; (д) следствия только на изменившей строке | З9, З24 | NTF1-B26, B13 (C5) |
+| УК31 | `530e2296` · CX1-27 | длительность аренды названа; обработка под сроком меньше остатка аренды; страж старта | З10, З20, З21 | проба `DATA` дольше аренды (N3) |
+| УК32 | `530e2296` · CX1-28 | (а) отсрочка после отказа; (б) бюджет на пути `ResolveSend` назван; (в) метрика с кодом | З23 | проба «A отказывает, `kaname` отправлено» (N4) |
+| УК33 | `530e2296`, `d524e7bd` · CX1-29 | доменная часть обеих нормализаций — одна функция, ключ kaname поверх неё | З3 | NTF1-B27 (гейт) по kaname (K7); ключ kaname — NTF-2 |
+| УК34 | `530e2296` · CX1-30 | профиль IDNA одним значением; ошибка — `ErrRecipientInvalid` до SQL; смена профиля — ломающая | З3, З7 | NTF1-B27 (IDNA) (C2) |
+| УК35 | `530e2296` · CX1-31 | одна функция формы на обеих сторонах; `SendX` — до `Put` | З2, З7 | NTF1-B28 (C1, C4) |
+| УК36 | `530e2296` · заказ corelib | CX1-26 (повтор `DEFER` после выдачи T2; `DEFER` другой причины), CX1-30 (Unicode и A-label, `ß`/`ss`, сторож внутри транзакции) | З9, З3 | C5, C2 |
+| УК37 | `530e2296` · заказ notify | CX1-27 (одна сессия), CX1-28 (A против `kaname`), CX1-26 (д) (`SENT` = 1 в B26 (в)) | З21, З23, З9 | N3, N4 |
+| УК38 | `d524e7bd`, `05828e42` · CX1-33 | одна ось формы хоста (нуль — пара, `no-grpc`); `NoServedServices` производное; отказы сочетаний; самоотчёт и гейт по оси; `switch` без `default` | З15 | NTF1-G15 (C8, N1); отказы сочетаний (C8) |
+| УК39 | `d524e7bd` · CX1-34 | звено Р2 в `unaryChain`/`streamChain` без ветки; пара и Х5 — только через них; поля дескриптора; M08 сравнивает цепочки слушателей | З13, З15 | NTF1-M08 (C7) |
+| УК40 | `d524e7bd`, `05828e42` · CX1-35 | описание в `Put` — только от генератора (гейт ссылки); пустое описание и атрибут вне описания — сторож; ошибка генератора — красный прогон | З5, З7, З16 | NTF1-B28 (`Put`), гейт `Put` (C4, C10) |
+| УК41 | `d524e7bd`, `05828e42` · CX1-36 | сборщики и ключи отвергают нуль и не отбрасывают ошибку `Value()` | З2, З3, З25 | NTF1-B27, B28 (нуль) (C2, C4, N5); узел З16 (C10) |
+| УК42 | `d524e7bd` · заказ corelib | CX1-33 (не объявлена → отказ; нет сервисов + адрес → отказ), CX1-35 (пустое описание; атрибут вне описания) | З15, З7 | C8, C4 |
+| УК43 | `05828e42`, `390b5a33` · CX1-38 | признак «задано» отдельно от строки; исчерпывающий `switch`, `ErrUnknownType` | З2 | NTF1-B29, G25 (C1, N3) |
+| УК44 | `05828e42` · CX1-39 | три гейта — функции одного пакета corelib; один параметр — каталог стабов; печать версии и числа видов; копий нет | З16 | тонкие вызывающие (C10, K7, N10) |
+| УК45 | `05828e42` · CX1-40 | вид (7) из `go/build` с `UseAllFiles`; `NoGoError` не пропускается; `git ls-files` | З16 | проба сверки с тулчейном (C10) |
+| УК46 | `05828e42` · CX1-41 | ошибка `Value()` обрабатывается; решение по узлу — заводится | З2, З16 | узел и его пара (C10) |
+| УК47 | `05828e42` · CX1-42 | единственный выход — `Value()`; `Formatter`, `LogValuer` нейтральные; `Marshal*` с ошибкой; проба четырёх выходов | З2, З3 | проба выходов (C1, C2) |
+| УК48 | `05828e42`, `29cfa368` · CX1-43 | реестр исключений в гейте с доводом и предикатом снятия; норма — в правилах | З16 | реестр (C10); норма — Е3 |
+| УК49 | `05828e42` · заказ corelib | CX1-33 (сочетания), CX1-39 (перечни один раз), CX1-40 (сверка с тулчейном), CX1-41 (узел), CX1-42 (выходы) | З15, З16, З2 | C8, C10, C1, C2 |
+| УК50 | `05828e42`, `390b5a33` · заказ kaname | тонкие вызывающие B27, B28, B28 (`Put`), D08 без копии перечней | З16, З31 | K7 |
+| УК51 | `390b5a33` · CX1-44 | нормализация до проверки нуля; проверка у источника той же функцией через написание ленты; писатель написания — одна функция | З2 | NTF1-B29 (е), G25 (C1, C4, N3) |
+| УК52 | `390b5a33`, `29cfa368` · CX1-45 | (а) каноническая форма с классом и `presence`; (б) версия алгоритма, пересчёт базы; (в) узкое чтение базы; (г) `revision.yaml` пишет `notify/spec` | З4 | NTF1-D07 (C3, C6) |
+| УК53 | `390b5a33` · CX1-47 | одна функция исхода с объявленным порядком; ревизия до `ResolveSend` и резерва; место `template_skew` названо с ценой | З22 | N3 |
+| УК54 | `390b5a33` · CX1-48 | метка направления `template_skew` из того же сравнения | З22, З27 | N3, N8 |
+| УК55 | `390b5a33` · CX1-49 | ведомость D08 — одна функция corelib; не пропускается при `-short`; печатает версию и число записей | З31 | NTF1-D08 (C10, K7, N10) |
+| УК56 | `390b5a33` · заказ corelib | CX1-44 («нуль + доля», «год вне диапазона», близнец доли у ненулевой), CX1-45 (перестановка, старая версия алгоритма, база прежнего формата), CX1-49 (ведомость один раз, без `-short`) | З2, З4, З31 | C1, C4, C3, C6, C10 |
+| УК57 | `390b5a33` · заказ notify | CX1-47 пары «чужая ревизия + REVOKED / адрес вне формы / исчерпанная сетка» — исход `DEFER(template_skew)`, вызовов `ResolveSend` и резервов 0 | З22 | N3 |
+| УК58 | `29cfa368` · CX1-50 | одна функция «нуль / задан»; нормализовать → решить → записать; ключ не пишется в нулевом написании; опускание только перед `Put` | З2, З5, З7 | NTF1-B30 (C1, C4, C6) |
+| УК59 | `29cfa368` · CX1-51 | места ссылок — одна функция `notify/spec`; рендер по проверенному набору | З4, З25 | NTF1-A11 (C3), G26 (N5) |
+| УК60 | `29cfa368` · CX1-52 | описание строки без колонки `class`; `class_mismatch` до `ResolveSend` и резерва | З22 | NTF1-G26 (N3) |
+| УК61 | `29cfa368` · CX1-53 | монотонный признак выдачи в `UPDATE` `Claim`; причина и возврат — один оператор; перечень причин возврата один раз | З6, З8, З10 | NTF1-B31 (C5) |
+| УК62 | `29cfa368` · CX1-54 | правило исключением одной пары; закрытые перечни меток; G27 из перечней | З27 | NTF1-G27 (N8); экспорт перечней (C5) |
+| УК63 | `29cfa368` · CX1-55 | уборщик в корне вне ветки флага; возврат ровно один раз | З10 | NTF1-B31 (в) (C5); гейт «`StartSweeper` не под флагом» (C10) |
+| УК64 | `29cfa368` · CX1-56 | узел по типам: использование `NormalizeDomain` вне прямого вызова — находка; форма выбрана и записана | З3, З16 | NTF1-B27 (гейт, приёмник) (C10) |
+| УК65 | `29cfa368` · CX1-57 | ответ `Claim` несёт конец аренды; notify ограничивает обработку им; страж — по нижней границе | З8, З20, З21 | N3 |
+| УК66 | `29cfa368` · заказ corelib | CX1-50 (B30 по перечню видов; `timestamp` + 0,5 с), CX1-51 (A11 (б) по восьми видам), CX1-53 (`no_ack` после истечения аренды), CX1-54 (экспорт перечней), CX1-55 (два уборщика), CX1-56 (инъекция (4)) | З2, З4, З10, З27, З3 | C1, C3, C4, C5, C10 |
+| УК67 | `29cfa368` · заказ notify | CX1-52 (чужая ревизия, колонка `security`, исчерпанная сетка → `template_skew`, резервов 0), CX1-54 (G27 по перечням), CX1-57 (аренда короче константы) | З22, З27, З21 | N3, N8 |
+| УК68 | NTF-2 Е8 (а) | экспорт предиката «лимит строки возвращён» из `notify/feed` | З10 | C5 |
+| УК69 | NTF-2 Е8 (б) | незаданный вариант и пустое обязательное поле в ответе чужой службы — ошибка протокола | З23 | классификатор `deliver/peeranswer` (N4); читатель справочника — NTF-3 |
+| УК70 | NTF-2 Е8 (в) | описание шаблона экспортирует лимит на адресата в сутки | З5 | C6 |
+
+Заказы, чей дом — не код NTF-1, — строками §13: автору NTF-3 (CX1-37; ведомость G19 для
+`notify-api`; `schema_rev` ведомости сборки из `revision.yaml`), автору NTF-4 (Х5 — значение оси
+формы хоста, сравнение цепочки), автору NTF-2 (Д21-перечень исполняется формой CX1-50),
+`tooling-maintainer`:
+
+- норма видов (1)–(7) в правилах;
+- кандидаты `class-guard` «default → `user`» и «ошибка `Value()` в `_`» — после посадки S1;
+- ссылка тела агента на `Skill rule-change-graph`.
+
+## 12. Что замысел не делает
+
+- Не меняет наблюдаемого поведения приёмки: где механизм мог бы выбрать исход, выбор назван
+  ссылкой на сценарий.
+- Не заводит второго потокового контракта, входящего глагола отправки, кастомных шаблонов,
+  регистрации шаблонов в рантайме.
+- Не заводит служебного принципала kaname и не зовёт `ResolveSend` по пространству `kaname`
+  (Р3).
+- Не заводит формы хоста «только внутренний» (Х5 NTF-4), публичных методов notify, развёртывания
+  `notify-api` (NTF-3, Д20).
+- Не заводит адресации субъекта и читателя справочника адресов kaname (NTF-3).
+- Не заводит бюджета отказов на внутреннем слушателе kaname (З23).
+- Не заводит ручки срока аренды и периода уборщика: это константы `feed` (Р8).
+- Не переводит прежних вызывающих разбора SAN в kaname на таблицу Р2 (§4 приёмки).
+- Не пишет нормы в `.claude/rules/`: правки З4…З10 §3 приёмки и норма видов (1)–(7) — задачи
+  оснастки.
+
+## 13. Открытые решения и зависимости
+
+Открытых решений нет: З1–З31 приняты. Зависимости — предметы соседних документов с предикатом
+снятия, а не решения этого замысла.
+
+| № | зависимость | чей предмет | предикат снятия |
+|---|---|---|---|
+| Е1 | форма Х5 — третье значение оси `HostForm`, а не второе поле; проба Х5 сравнивает цепочку единственного слушателя с внутренней половиной пары, включая звено Р2 (CX1-33, CX1-34) | приёмка и замысел NTF-4 | на одобренном отпечатке NTF-4 Х5 названа значением оси формы хоста, а в DoD Х5 есть сравнение состава цепочки. До снятия З15 держит ось с двумя значениями, и NTF-1 не блокируется |
+| Е2 | **L03 противоречит Р11** (М21): строка, которую не выдал ни один `Claim`, по Р11 — `EXPIRED(unclaimed)`, по L03 — `EXPIRED(platform_unavailable)`. Замысел исполняет Р11 (З10) | приёмка NTF-1 | на одобренном отпечатке приёмки L03 утверждает `EXPIRED(unclaimed)` либо Р11 называет иную причину для этого случая. До снятия полоса L-проб (S5) L03 не зеленит |
+| Е3 | норма «в рукописном коде продукта нет видов (1)–(7)» в `.claude/rules/` со ссылкой на реестр гейта (CX1-43 (б)) | `tooling-maintainer` | `grep -rl 'unsafe' .claude/rules/` находит строку нормы со ссылкой на гейт B28 |
+| Е4 | NTF-3: производные цены замещения Р6 (CX1-37); строка ведомости G19 для `cmd/notify-api` (З15); `schema_rev` ведомости сборки — из `revision.yaml` через `notify/spec` | приёмка и замысел NTF-3 | на одобренном отпечатке NTF-3 все три названы |
+| Е5 | событие одобрения приёмки NTF-1 опубликовано (`event.status: not_performed` на `29cfa368`) | диспетчер (Д16) | запись ревью несёт опубликованное событие |
+| Е6 | `DESIGN_APPROVED` этого замысла и пересверка разбора классов на его отпечаток | `design-reviewer`, `class-exposure-analyst` | записи `reviews/design/<role>/<sha>.yaml` и `reviews/class-exposure/revalidation/<sha>.yaml` на отпечаток этого файла |
