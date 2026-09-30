@@ -12,15 +12,15 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ ISSUE_READY — у отпечатка `hashes.acceptance_sha256` (редакция 18) записи ревью нет.
-# Редакция 17 (77ad7465…) одобрена кругом 17 (запись docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/77ad746588a0ee079767d0f5557a20aab7885020872e4465e89ca092cc6689b2.yaml,
-# коммит 003cd67b6); первичный разбор классов на неё вернул RA-01, и редакция 18 — ответ на него.
-# Одобрение редакции 17 к редакции 18 не переходит: вердикт привязан к отпечатку.
-# Замысла (`design.md`) у изменения нет — `hashes.design_sha256: null`.
-# Опора на соседние приёмки: NTF-1 — одобренная редакция 13 (05828e42…, коммит 46e2a3819);
-# NTF-2 — одобренная редакция 11 (9098d6ef…, коммит 52fed403d); NTF-5 — одобренная редакция 12
-# (2fe29c35…, коммит dbcd30a81). Моменты сверки с более поздними одобрениями — приёмка §1,
-# «Правило опоры на соседний документ»; исход каждой сверки пишется в этот пакет.
+# СОСТОЯНИЕ ISSUE_READY — у отпечатка `hashes.acceptance_sha256` (редакция 19) записи ревью нет.
+# Редакция 18 (53f865d8…) одобрена кругом 18 (запись docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/53f865d8e4f2f56349fdfe2306ae668048e75fea30b1c8daf32f064b7618822c.yaml,
+# коммит добавления 2d4209cad); первичный разбор классов на неё вернул RA-01, и редакция 19 — ответ
+# на него и на решение диспетчера Д20 (2). Одобрение редакции 18 к редакции 19 не переходит: вердикт
+# привязан к отпечатку. Замысла (`design.md`) у изменения нет — `hashes.design_sha256: null`.
+# Опора на соседние приёмки (коммит записи — коммит её добавления): NTF-1 — одобренная редакция 13
+# (05828e42…, коммит 46e2a3819); NTF-2 — одобренная редакция 11 (9098d6ef…, коммит 52fed403d);
+# NTF-5 — одобренная редакция 12 (2fe29c35…, коммит dbcd30a81). Моменты сверки с более поздними
+# одобрениями — приёмка §1, «Правило опоры на соседний документ»; исход каждой сверки пишется в этот пакет.
 schema_version: 1
 change_id: issue-2919
 lifecycle_state: ISSUE_READY
@@ -56,7 +56,7 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: 53f865d8e4f2f56349fdfe2306ae668048e75fea30b1c8daf32f064b7618822c
+  acceptance_sha256: 5cb8057dc1cb52fdee12f3eb7eae579921c10fba02c19abfaf49f2bc45b846fd
   design_sha256: null
   holders_sha256: 1a6f11bfc8fab7e05c278653d82bac09c0e1f497f1e6bf3a8b4eafc40bdcc5a2
 
@@ -65,7 +65,7 @@ links:
   contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
   acceptance: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
   acceptance_reviews: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/
-  class_exposure_initial: docs/changes/issue-2919/reviews/class-exposure/initial/77ad746588a0ee079767d0f5557a20aab7885020872e4465e89ca092cc6689b2.yaml   # на редакцию 17 77ad7465…, коммит 321d9d124, исход «вернуть-в-приёмку» (RA-01); на редакцию 18 разбора нет
+  class_exposure_initial: docs/changes/issue-2919/reviews/class-exposure/initial/53f865d8e4f2f56349fdfe2306ae668048e75fea30b1c8daf32f064b7618822c.yaml   # на редакцию 18 53f865d8…, коммит 1d5e4c85c, исход «вернуть-в-приёмку» (RA-01); на редакцию 19 разбора нет
   epic_changes:
     - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
     - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }
