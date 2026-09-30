@@ -1,0 +1,349 @@
+# Экспозиция классов — первичный разбор (initial) под-фазы NTF-3 на редакцию 30.
+#
+# Разбор сделан ДО кода и привязан к отпечатку одобренной приёмки (круг 1 на редакцию 30).
+# По Д22 судится только ДЕЛЬТА против последней разобранной редакции — редакции 23
+# (97afc066…, запись рядом, append-only). Дельта — редакции 24–30: Р2 (фоновые доделыватели
+# операции арендатора несут её начавшего из строки операции модуля; два исхода вне успеха;
+# вопрос доделывателя compute о своём ресурсе до вызова владельцев; расхождение видимостей
+# внутри инстанса), §1.14 (перепись по входам объемлющей функции, вопросы модели каждого пути,
+# окна кэшей), §4, §6 (три класса строк, задачи #2933, #2934, #2935), §7, §8 (С1, С18, новые С19,
+# С20), NTF3-163 переписан, новый NTF3-164, §10, §11, DoD. Пункты записей на c26cc7cc (CX3B-*),
+# 9fd0cd5e (CX3C-*), 88ad95c6 (CX3D-*) и 97afc066 (CX3E-*) остаются в силе без переноса.
+# Когда появится design.md, каждый пункт CX3B-*, CX3C-*, CX3D-*, CX3E-* и CX3F-* должен получить
+# точное отображение в решение замысла, а затем отдельную пересверку на отпечаток замысла
+# (class-exposure/revalidation/<design-sha256>.yaml). Разрешения писать реализацию эта запись
+# не даёт.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed
+  revision: 30
+  content_commit: 139c4ff26
+  lines: 4809
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed.yaml
+  verdict_commit: 6400c3748
+previous_initial:
+  - path: docs/changes/issue-2918/reviews/class-exposure/initial/97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17.yaml
+    subject_revision: 23
+    outcome: вернуть-в-приёмку (RA-04 = CX3E-03, RA-05 = CX3E-04)
+    disposition: >-
+      RA-04 отработан: §1.14 ведёт перепись по входам объемлющей функции (9 функций, 14 мест вызова),
+      путей без личности запроса два; наблюдаемое — NTF3-164. RA-05 отработан: одно решение на оба
+      пути — начавший доделываемую операцию, проверка прав владельца в посадке production, отказ по
+      праву терминален и проход не прерывает (Р2, NTF3-163, NTF3-164). Повторно не возвращаются.
+      CX3E-02 (нормализация system:<компонент>) на этих путях снят решением: system:<компонент>
+      остаётся за сверщиком storage и посевом стенда. Источник начавшего — строка операции модуля —
+      и состояние этой строки у застрявшего ресурса разобраны ниже (CX3F-01, RA-06).
+delta_basis: >-
+  Д22: разобрана дельта редакции 30 против редакции 23 — git diff 9d7984897 139c4ff26 по файлу
+  приёмки (355 вставок, 55 удалений; git show 9d7984897:<путь> | sha256sum = 97afc066…,
+  git show 139c4ff26:<путь> | sha256sum = ab0d0efe…). Редакции 26–30 в части §6, §13, §1.6, §1.12
+  правили ссылки на задачи трекера и классы строк §6 — решений о коде не несут (DY9). Решения
+  дельты — DY1…DY9 ниже; пункты CX3F-01…07.
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0 @ed44d6bbe
+dispatcher_decisions:
+  applied: >-
+    Д1–Д30; роль design-reviewer — system-design-reviewer в режиме «замысел» (к этой записи не
+    относится). Д22: только дельта; условия к коду — в замысел; вернуть-в-приёмку — только
+    отсутствующее наблюдаемое и утверждение документа о дереве, которое замер опровергает. Д27:
+    сужение ListByInstance в NTF-3 не правится (CX3F-07 (б)). Д30: задачи #2934, #2935 заведены.
+    Д28, Д29 касаются NTF-4 и NTF-5 и к этой записи не относятся.
+revisions:
+  workspace: ed44d6bbe7111d57386bad1acc976498771d9b2c
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a   # = v1.9.0
+snapshot_at: 2026-09-30T13:15:33Z
+inspected: >-
+  Приёмка: дифф редакций 24–30 целиком (590 строк диффа). Код @1d42a6728bf: nlb
+  jobs/free_ip_runner.go:60-520 (выборка, reconcileOnce, reconcileOne, handleReleaseErr,
+  releaseFamily, emitReconcileFinalize), clients/vpc/internal_address_client.go:480-600
+  (ReleaseLease, mapReleaseLeaseErr), cmd/kacho-loadbalancer/wiring.go:290-315, recovery.go:30-45,
+  config/defaults.go:197, operationresolver/resolver.go (ветки NetworkLoadBalancer),
+  api/loadbalancer/delete.go:100-200, proto loadbalancer (метаданные Create/Delete); compute
+  api/instance/instance.go:900-1060 (Delete, releaseAndDelete, FinishStuckDeletes),
+  api/instance/instance_nic.go:206 (mapNicErr), clients/storage_client.go:85-140,
+  cmd/compute/stuck_delete_finisher.go (целиком), recovery.go (целиком), main.go:368-395,
+  operationresolver/resolver.go:95-210, repo/instance_repo.go (ListStuckDeleting, stuckDeleteBatch);
+  corelib migrations/common/0001–0004, operations/reconciler.go:236-262, operations/repo.go
+  (resolveResourceID), operations/retention.go:34-54. Записки vault не читались.
+
+decisions:
+  DY1: "Р2, §1.14 — фоновый доделыватель операции арендатора (задание освобождения адресов nlb; проход доведения снятия compute) пишет журнал и зовёт владельца личностью начавшего доделываемую операцию — субъектом строки операции модуля (principal_type/principal_id): DELETING → операция Delete, CREATING (nlb) → операция Create; другая операция над тем же ресурсом начавшим не считается"
+  DY2: "Р2 — исходов вне успеха два, оба без строки журнала: (1) права начавшего отозваны — отказ терминален, ресурс остаётся, проход не прерывается; (2) начавшего не восстановить (строки операции нет либо субъект запасной {system, bootstrap}) — владелец не вызывается, ресурс остаётся, проход продолжается"
+  DY3: "Р2, NTF3-164 — доделыватель compute до первого вызова владельца спрашивает модель о начавшем v_delete на compute_instance:<id> (вопрос публичного InstanceService.Delete); «нет» — исход (1) без вызова владельцев"
+  DY4: "§11 NTF3-164 — FinishStuckDeletes: терминальный отказ владельца по праву пропускает инстанс и проход не прерывает; недоступность владельца по-прежнему прерывает проход"
+  DY5: "NTF3-163 (г) — сирота CREATING задания nlb освобождает адрес с инициатором начавшего Create; строки журнала nlb нет"
+  DY6: "Р2, §1.14, §6 — расхождение видимостей внутри инстанса: доделыватель наследует исход публичного Delete того же субъекта; сужение vpc ListByInstance эта под-фаза не меняет (Д27); дефект — #2934, видимость зеркала — #2933"
+  DY7: "§8 — С18 и С19 сеют застрявшее снятие вместе со строкой операции done=false (у сироты CREATING строка операции Create переводится в done=false); С1 снимает пообъектные записи начавшего; С20 — управляемые часы кэшей вердиктов и кэшей сужения списков участников прохода"
+  DY8: "NTF3-163, NTF3-164 — обвязки подняты в посадке production с проверкой прав каждого вызова на обоих слушателях, без подмены authN и проверки прав"
+  DY9: "§6, §1.6, §1.12, §13 — три класса строк §6; отложенная работа несёт проверенный номер задачи (#2933, #2934, #2935) и предикат снятия; решений о коде не несёт"
+
+items:
+  - id: CX3F-01
+    decision: [DY1, DY2, DY5, DY7]
+    class: "gate-authoring §«Фикстура не снисходительнее продукта» (Given сеет состояние строки операции, которого продукт у застрявшего ресурса не производит); code-authoring §«Решение и его следствие разнесены» (вход доделывателя хранится в записи с чужим жизненным циклом — разрешитель осиротевших операций и уборка срока хранения)"
+    exposure: >-
+      Р2 берёт начавшего из строки операции модуля; §7, С18 и С19 строят застрявшее снятие со
+      строкой операции «которую никто не довёл» (done=false), а NTF3-163 (г) специально переводит
+      строку операции Create сироты в done=false. У застрявшего ресурса продукт такую строку почти
+      не производит. (1) Отказ владельца внутри операции (путь, который и оставляет ресурс в
+      DELETING: nlb delete.go — «release-сбой между 1 и 3 оставляет строку в DELETING →
+      free_ip_runner»; compute releaseAndDelete возвращает ошибку в Delete) сразу завершает
+      операцию ошибкой — done=true. (2) Крах процесса: разрешитель осиротевших операций (grace 5m,
+      проход каждые 30s, RecoverAll синхронно ДО запуска фоновых заданий) переводит Delete при
+      живом ресурсе в Interrupted (markErrorCAS, done=true), а Create при живом ресурсе — в Done
+      с текущим ресурсом (nlb resolver.go:13,121; compute resolver.go:117,174-178). Порог
+      доделывателей — 5m по времени ресурса у обоих (nlb age-threshold 5m, compute
+      stuckDeleteGrace 5m), то есть к первому проходу по ресурсу его операция уже done=true.
+      (3) Уборка срока хранения снимает терминальные операции через 7 d (corelib
+      OperationRetention), после чего ресурс, простоявший дольше, попадает в исход (2) навсегда —
+      с занятыми адресом пула, томом и интерфейсом. Замысел, отбирающий «недоведённую операцию»
+      (NOT done), пройдёт NTF3-163 и NTF3-164 целиком и в посадке не доделает ни одного ресурса.
+    condition: >-
+      (а) выборка строки операции не фильтрует по done и не читает её результат: начавший берётся
+      из строки операции независимо от того, завершил её рабочий путь ошибкой, разрешитель —
+      Interrupted или Done; (б) строка ищется по resource_id = <id ресурса> И metadata_type =
+      точный type_url метаданных Delete (для DELETING) либо Create (для CREATING, только nlb), а не
+      по «последней операции над ресурсом»; при нескольких строках одного вида — последняя по
+      (created_at, id), выбор назван в замысле; (в) решение об исходе после уборки срока хранения
+      принимает приёмка (RA-06); замысел не вводит молчаливого продления срока хранения операций
+      ради доделывателя.
+    held_by: "нет: Given NTF3-163, NTF3-164 строят только done=false — вернуть в приёмку (RA-06)"
+    return_to_acceptance: true
+  - id: CX3F-02
+    decision: [DY2, DY4]
+    class: "data-integrity poison-not-blocking, wedge-observability (пропущенная строка остаётся в голове выборки); security-hardening hard-zero-refusals-visible"
+    exposure: >-
+      Оба доделывателя выбирают «старейших первыми», и новые исходы (1) и (2) делают пропуск
+      ПОСТОЯННЫМ. nlb клеймит одну строку за раз (selectStuckSQL — ORDER BY updated_at ASC
+      LIMIT 1 FOR UPDATE SKIP LOCKED) до freeIPMaxPerTick = 100 раз; из выборки строку выводит
+      только bump updated_at в handleReleaseErr. Исход (2) владельца не зовёт, до handleReleaseErr
+      не доходит — строка без bump переизбирается 100 раз, и следующие за ней не доделываются.
+      compute берёт партию ListStuckDeleting — ORDER BY deleting_since LIMIT 50 (stuckDeleteBatch):
+      50 инстансов в исходе (1) или (2) (права сняты навсегда; операция убрана уборкой — CX3F-01)
+      занимают всю партию каждого прохода, и более молодые застрявшие снятия не доделываются никогда.
+      Счётчика пропусков у compute нет; у nlb onPoison считает только изоляцию по отказу владельца.
+    condition: >-
+      (а) nlb: исходы (1) и (2) выводят строку из головы выборки тем же механизмом, что изоляция
+      отравленной строки (bump updated_at в той же транзакции; поле наружу не отдаётся — в контракте
+      NetworkLoadBalancer updated_at нет); (б) compute: пропущенный инстанс уходит из головы
+      следующей партии — отдельным ключом выборки (время следующей попытки), а не правкой
+      deleting_since, которая несёт смысл «вошёл в удаление» и от которой считается отсрочка;
+      порядок партии — по этому ключу; (в) у обоих модулей счётчик по исходу (доделано; пропуск по
+      праву; пропуск без начавшего; прерывание по недоступности) с именем модуля, и «ноль за всю
+      жизнь» различим с «доделывателя нет».
+    held_by: >-
+      nlb (а) — NTF3-163 (в) вместе с (а): lb-n старше lb-s, и lb-s доделывается тем же проходом
+      только при выводе lb-n из головы; compute (б) — нет (в NTF3-164 три инстанса при партии 50),
+      нужна проба (заказ integration-tester); (в) — нет, по диффу
+  - id: CX3F-03
+    decision: [DY3]
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (новый внешний вызов — вопрос модели прав из фонового пути); §«Контракт, который нельзя выразить» (отношение гейта публичного Delete названо во второй раз литералом)"
+    exposure: >-
+      Вопрос доделывателя о своём ресурсе — новый внешний вызов compute к службе доступа вне пути
+      запроса. У него три исхода, а решение Р2 называет два: «да» и «нет». Недоступность модели,
+      принятая за «нет», превратит перебой в постоянный пропуск (CX3F-02); принятая за «да» —
+      пустит releaseAndDelete по пустым сужаемым чтениям и удалит строку инстанса при занятых томе
+      и интерфейсе (§1.14). Отношение v_delete уже объявлено каталогом прав у
+      InstanceService.Delete; литерал в доделывателе — второе место об одном отношении, и правка
+      каталога разведёт гейт публичного Delete и вопрос доделывателя молча.
+    condition: >-
+      (а) отношение и тип объекта вопроса берутся из той же записи каталога прав, которой гейтится
+      InstanceService.Delete, а не литералом; (б) исходов три и все названы: «да» — продолжить;
+      «нет» — исход (1), владельцы не вызываются; модель недоступна либо ответ не классифицирован —
+      проход прерывается (fail-closed, как недоступность владельца), а не «нет» и не «да»; (в) вопрос
+      идёт тем же клиентом проверки и через тот же кэш вердиктов, что путь запроса compute, под
+      личностью начавшего (иначе С20 им не управляет); (г) порядок в коде: начавший → вопрос модели →
+      установка личности → releaseAndDelete; окно «да на вопросе, права сняты до чтения привязок» —
+      класс #2934, в NTF-3 не закрывается и не расширяется.
+    held_by: "(б) «нет» — NTF3-164 (б); «модель недоступна» — нет, нужна проба (заказ integration-tester); (а) — по диффу"
+  - id: CX3F-04
+    decision: [DY4]
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (отказ владельца в фоновом проходе: терминальный против транзиентного, без корзины «прочее»)"
+    exposure: >-
+      Сегодня FinishStuckDeletes прерывается на ЛЮБОЙ ошибке releaseAndDelete. DY4 разделяет
+      «терминальный отказ по праву» и «недоступность». Ошибки приходят уже переведёнными:
+      mapNicErr (instance_nic.go:206) пропускает InvalidArgument, FailedPrecondition, NotFound,
+      AlreadyExists, PermissionDenied, переводит в Unavailable не-статусную ошибку (в том числе
+      истечение срока прохода stuckDeleteTimeout = 2m) и прочее — в Internal; storage Detach —
+      через mapStorageErr. Замысел, пропускающий «всё, кроме Unavailable», сделает Internal и
+      NotFound пропуском; NotFound на Detach, прочитанный как «уже снято», довёл бы releaseAndDelete
+      до удаления строки инстанса при привязке, которой вызывающий просто не видит.
+    condition: >-
+      (а) классификация исхода releaseAndDelete в доделывателе — закрытое отображение по коду:
+      PermissionDenied — пропуск (исход (1)); Unavailable и DeadlineExceeded, в том числе истечение
+      срока прохода, — прерывание; InvalidArgument, FailedPrecondition, NotFound, AlreadyExists,
+      Internal — каждый назван в замысле с исходом и счётчиком, корзины «прочее» нет; (б) ни один
+      отказ пишущего метода владельца не ведёт к удалению строки инстанса (строка — последней, как
+      сегодня); (в) пропуск инстанса после частичного успеха (интерфейс снят, том отказал по праву)
+      оставляет строку журнала vpc о снятом интерфейсе и не пишет строк compute.
+    held_by: >-
+      NTF3-164 (б) проходит ветвь вопроса модели и до отказа владельца не доходит; отказ Detach по
+      праву при «да» на вопросе (v_delete есть, editor на томе снят) — нет, нужна проба (заказ
+      integration-tester)
+  - id: CX3F-05
+    decision: [DY1, DY2]
+    class: "code-authoring §«Контракт, который нельзя выразить» (запасной субъект выразим строкой операции как законный); security-hardening hard-async-carries-initiator, hard-audit-writes-both"
+    exposure: >-
+      Столбцы principal_type/principal_id строки операции по умолчанию — 'system'/'bootstrap'
+      (corelib 0002_operations_principal.sql), то есть «запасной субъект» — значение по умолчанию
+      столбца, а не только литерал. Начавшим может быть сервисный аккаунт, а не пользователь;
+      приёмка показывает только user:. Сегодня задание nlb ставит operations.SystemPrincipal()
+      прямо перед вызовом (free_ip_runner.go:465), и после под-фазы любой оставшийся такой вызов на
+      пути доделывателя тихо вернёт общую системную личность.
+    condition: >-
+      (а) «начавшего не восстановить» — любой principal_type = system (а не сравнение с bootstrap),
+      решает та же функция нормализации, что CX3B-26 (а) и CX3E-02 (а); (б) начавший-сервисный
+      аккаунт даёт инициатора той же формой, что публичный глагол сервисного аккаунта; (в)
+      operations.SystemPrincipal() с путей обоих доделывателей снят, личность ставится один раз из
+      строки операции; (г) журнал процесса доделывателя называет и компонент, и начавшего
+      (актор и «от чьего имени»), а строка журнала ресурса — только начавшего, как решила Р2.
+    held_by: "(а), (в) — NTF3-163, NTF3-164 «строк с system: или service: — 0» и буквы (в); (б), (г) — вниманием по диффу"
+  - id: CX3F-06
+    decision: [DY7, DY8]
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (средство обвязки не заводит обход в прод-коде); gate-authoring §«Детерминизм входа и управляемые часы»"
+    exposure: >-
+      С20 двигает часы кэшей вердиктов и кэшей сужения за окно — через существующие
+      Cache.SetNowFunc и Narrower.WithClock. Если ради обвязки в прод-коде появится ручка
+      «выключить окно» или ветка по признаку теста, страж старта CacheWindow <= 0
+      (servicecontract/contract.go:1123) станет обходим. То же у С19: посев строки инстанса и строки
+      операции прямой записью, а не новым методом.
+    condition: >-
+      (а) часы кэшей в обвязке ставятся только существующими точками SetNowFunc и WithClock; новой
+      ручки, флага или ветки, меняющей окно кэша, в не-тестовом дереве нет; (б) посевы С18, С19 —
+      только в тестовом дереве обвязок, прямыми записями с проверкой «изменена ровно 1 строка»; (в)
+      обвязки NTF3-163, NTF3-164 поднимают модули через тот же композиционный корень и страж
+      посадки, что стенд (authMode=production), без подменённого перехватчика.
+    held_by: "(в) — Given NTF3-163, NTF3-164 (посадка production); (а), (б) — вниманием по диффу"
+  - id: CX3F-07
+    decision: [DY6]
+    class: "code-authoring §«Унификация и стоимость» (одна реализация шагов саги на два вызывающих)"
+    exposure: >-
+      releaseAndDelete — одна реализация для операции Delete и доделывателя (instance.go:937-938,
+      «две копии шагов саги разъехались бы ровно там, где расхождение не наблюдаемо»). Вопрос модели
+      и установка личности, помещённые внутрь releaseAndDelete, дадут публичному Delete второй
+      вопрос о праве после перехватчика; копия шагов для доделывателя разведёт исходы, которые Р2
+      требует одинаковыми. Правка сужения ListByInstance сменила бы видимость зеркала
+      networkInterfaces — предмет #2933, выведенный из NTF-3 решением Д27.
+    condition: >-
+      (а) releaseAndDelete остаётся одной функцией; вопрос модели, выбор начавшего и установка
+      личности — в цикле FinishStuckDeletes, до вызова; (б) дифф под-фазы не меняет сужение
+      ListByInstance у vpc (authzfilter и nicinternal ListByInstance).
+    held_by: "(а) — NTF3-164 близнец по пути (NTF3-160 (з)): один инициатор и одни строки владельцев на обоих путях; (б) — вниманием по диффу"
+
+measurements:
+  - claim: "§7, С18, С19, NTF3-163 (г): у застрявшего снятия строка операции Delete (у сироты — Create) не доведена — done=false"
+    command: >-
+      git -C project/kacho show 1d42a6728bf:services/nlb/internal/apps/kacho/api/loadbalancer/delete.go | sed -n 155,162p
+      («Краш/release-сбой между 1 и 3 оставляет строку в DELETING → free_ip_runner»; ошибка releaseVIP
+      возвращается из работы операции);
+      git -C project/kacho show 1d42a6728bf:services/compute/cmd/compute/recovery.go | sed -n 28,40p → reconcileOrphanGrace 5m, interval 30s;
+      git -C project/kacho show 1d42a6728bf:services/nlb/cmd/kacho-loadbalancer/recovery.go | sed -n 34,40p → 5m, 30s;
+      git -C project/kacho show 1d42a6728bf:services/compute/cmd/compute/main.go | sed -n 368,395p → RecoverAll синхронно, затем фоновые reconciler и stuck-delete-finisher;
+      git -C project/kacho show 1d42a6728bf:services/nlb/internal/operationresolver/resolver.go | sed -n 13,18p → Create присутствует → Done(current); Delete присутствует → Interrupted;
+      git -C project/corelib show 34bc8104a:operations/reconciler.go | sed -n 242,258p → markDoneCAS / markErrorCAS;
+      git -C project/kacho show 1d42a6728bf:services/nlb/internal/apps/kacho/config/defaults.go | sed -n 197p → age-threshold 5m;
+      git -C project/kacho show 1d42a6728bf:services/compute/cmd/compute/stuck_delete_finisher.go | sed -n 14,25p → interval 5m, grace 5m;
+      git -C project/corelib show 34bc8104a:operations/retention.go | sed -n 54p → OperationRetention = 7 * 24h
+    result: >-
+      опровергнуто: к моменту, когда ресурс старше порога доделывателя (5m), его операция
+      завершена — ошибкой рабочего пути сразу либо разрешителем (grace 5m, RecoverAll до первого
+      прохода) в Interrupted (Delete) или Done (Create при живом ресурсе); через 7 d терминальная
+      строка убирается. Состояние done=false у застрявшего ресурса — окно до 5m, которое порог
+      доделывателя отсекает (CX3F-01, RA-06)
+    control: "положительный — тот же разрешитель переводит Delete при ОТСУТСТВУЮЩЕМ ресурсе в Done(Empty) (compute resolver.go:174-178), то есть ветки различаются по существованию ресурса, а не по времени; отрицательный — Skip на неразбираемых метаданных оставляет done=false (compute resolver.go:105)"
+  - claim: "Р2: исходы вне успеха ресурс оставляют и проход не прерывают — следующие ресурсы доделываются"
+    command: >-
+      git -C project/kacho show 1d42a6728bf:services/nlb/internal/apps/kacho/jobs/free_ip_runner.go | sed -n 77,86p (ORDER BY updated_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED), :220-240 (цикл до freeIPMaxPerTick = 100), :407-420 (bump updated_at только в handleReleaseErr);
+      git -C project/kacho show 1d42a6728bf:services/compute/internal/repo/instance_repo.go | sed -n 513,547p → ORDER BY deleting_since LIMIT $2, stuckDeleteBatch = 50
+    result: "выполнимо только при выводе пропущенной строки из головы выборки; сегодня nlb выводит лишь изоляцией отказа владельца, compute не выводит вовсе (CX3F-02)"
+    control: "поле updated_at у NetworkLoadBalancer наружу не отдаётся: git -C project/kacho grep -nE 'updated_at' 1d42a6728bf -- proto/kacho/cloud/loadbalancer → 0"
+  - claim: "Р2: строку операции модуля можно найти по ресурсу"
+    command: >-
+      git -C project/corelib show 34bc8104a:migrations/common/0001_operations.sql → resource_id, operations_resource_idx;
+      git -C project/corelib show 34bc8104a:operations/repo.go | sed -n 790,830p (resolveResourceID: явный ResourceID, иначе поле resource_id / первое *_id метаданных);
+      git -C project/kacho grep -hA2 -E '^message (Create|Delete)NetworkLoadBalancerMetadata |^message DeleteInstanceMetadata ' 1d42a6728bf -- proto → единственное поле — id ресурса;
+      git -C project/kacho grep -nE 'ResourceID:' 1d42a6728bf -- services/nlb/internal/apps/kacho/api/loadbalancer ':!**/*_test.go' → delete.go:33, payloads.go:74,89
+    result: "подтверждено: resource_id заполнен и индексирован; строк по ресурсу несколько видов (Update, Move и др.), поэтому нужен и metadata_type (CX3F-01 (б))"
+    control: "отрицательный — List операций ресурса (list_operations.go:38) фильтрует тем же resource_id и возвращает все виды"
+  - claim: "Р2, NTF3-163 (б): отказ vpc по праву задание nlb считает терминальным"
+    command: "git -C project/kacho show 1d42a6728bf:services/nlb/internal/clients/vpc/internal_address_client.go | sed -n 562,600p"
+    result: "подтверждено: peer.OutcomeDenied → ErrFailedPrecondition → handleReleaseErr изолирует (не транзиентно); неклассифицированный ответ → ErrInternal, тоже изоляция"
+    control: "OutcomeUnavailable → ErrUnavailable — единственная повторяемая полоса (isTransientReleaseErr)"
+  - claim: "§11 NTF3-164: терминальный отказ владельца пропускает инстанс, недоступность прерывает"
+    command: "git -C project/kacho show 1d42a6728bf:services/compute/internal/apps/kacho/api/instance/instance_nic.go | sed -n 206,225p; git -C project/kacho show 1d42a6728bf:services/compute/internal/apps/kacho/api/instance/instance.go | sed -n 1033,1057p"
+    result: "сегодня любой отказ прерывает проход; отображение mapNicErr пропускает 5 кодов, не-статусную ошибку делает Unavailable, прочее — Internal (CX3F-04)"
+    control: "—"
+
+not_measurable:
+  - "поведение доделывателей в посадке production на стенде — стенд не поднимался; выведено чтением кода"
+  - "какой код отдаёт vpc InternalNetworkInterfaceService.Detach и storage Detach вызывающему без editor на объекте (PermissionDenied или скрывающий существование NotFound) — перехватчики внутренних слушателей в этом проходе не читались; условие CX3F-04 (а) требует назвать исход каждого кода, какой бы из них ни пришёл"
+  - "классификация, выбор строки операции и ключ выборки compute (CX3F-01…05) — кода доделывателей в новой форме нет; по диффу и пробами"
+
+outcome: вернуть-в-приёмку
+return_to_acceptance:
+  - id: RA-06
+    item: CX3F-01
+    anchors: ["§7 «Фоновое задание освобождения», «Проход доведения снятия compute»", "§8 С18, С19", "NTF3-163 Given и (г)", "NTF3-164 Given", "Р2 (исход (2))", "§10 NTF3-163 (в), NTF3-164 (в)"]
+    what: >-
+      Утверждение документа о дереве опровергнуто замером @1d42a6728bf: у застрявшего снятия строка
+      операции не «недоведённая». Рабочий путь, оставивший ресурс в DELETING, завершает операцию
+      ошибкой сразу (nlb delete.go — release-сбой; compute releaseAndDelete); при крахе разрешитель
+      осиротевших операций (grace 5m, RecoverAll до запуска доделывателей) переводит Delete при живом
+      ресурсе в Interrupted, Create — в Done; порог доделывателей тоже 5m. Given NTF3-163 и NTF3-164
+      строят только done=false (С18, С19; для сироты Create специально переведена в done=false),
+      то есть утверждают поведение на состоянии, которого продукт у застрявшего ресурса не
+      производит. Наблюдаемое, которое документ обязан утверждать: (а) начавший берётся из строки
+      операции, завершённой ошибкой рабочего пути и завершённой разрешителем (Interrupted у Delete,
+      Done у Create сироты) — строки ленты и журналов с user:<начавший>, как (а) NTF3-163, NTF3-164;
+      посев С18, С19 сеет эти две формы (близнец — done=false, если документ его сохраняет); (б)
+      исход ресурса, чья строка операции убрана уборкой срока хранения (7 d, corelib
+      OperationRetention): по тексту Р2 это исход (2) навсегда — адрес пула, том и интерфейс заняты
+      без срока; документ либо утверждает это с его ценой и наблюдаемым сигналом, либо меняет
+      источник начавшего так, чтобы он жил не короче застрявшего ресурса (например, начавший
+      записывается в строку ресурса на переходе в DELETING/CREATING), и тогда буквы (в) NTF3-163,
+      NTF3-164 переписываются.
+
+orders:
+  - to: design-author
+    what: "отобразить CX3F-01…07 вместе с CX3B-*, CX3C-*, CX3D-*, CX3E-* (кроме закрытых CX3B-11, CX3B-24, CX3C-03, CX3D-02, CX3E-03, CX3E-04; CX3E-02 — только нормализация, без system:nlb-free-ip-runner); CX3F-01 (в) — после RA-06"
+    basis: ".claude/rules/change-graph.md §4; Д22"
+  - to: acceptance-author
+    what: "RA-06"
+    basis: ".claude/rules/change-graph.md §2; Д22, Д24"
+  - to: integration-tester
+    what: >-
+      пробы: (1) compute — пропущенных инстансов больше партии доделывателя (партия уменьшена
+      параметром обвязки), более молодой застрявший доделывается тем же или следующим проходом
+      (CX3F-02 (б)); (2) вопрос модели доделывателя compute при недоступной службе доступа — проход
+      прерван, инстанс на месте, строк журналов 0 (CX3F-03 (б)); (3) отказ storage Detach по праву
+      при «да» на вопросе модели — инстанс пропущен, следующий доделан тем же проходом, строка
+      инстанса цела (CX3F-04)
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; code-authoring §«Чужой ответ: классификация и бюджет»"
+  - to: gate-author
+    what: "гейт hard-async-carries-initiator (заказ записи 97afc066 в силе): после под-фазы положительных близнецов в дереве станет 0 — гейт заводится вместе с правкой как инъекция operations.SystemPrincipal() на путь доделывателя"
+    basis: ".claude/rules/security-hardening.md hard-async-carries-initiator (ЗАВЕСТИ); .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п. 1"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат, не запись: «вход фонового доделывателя хранится в записи, которую завершает или
+  убирает другой механизм раньше, чем доделыватель её прочтёт» (строка операции против
+  разрешителя осиротевших и уборки срока хранения). Наблюдался один раз, в одном документе, на двух
+  модулях с одним механизмом (corelib operations) — один экземпляр по порогу code-authoring
+  §«Механизм накопления опыта»; цена (утечка адресов пула без срока) не измерена на стенде.
+  Находка идёт возвратом RA-06, в скилл не заводится.
