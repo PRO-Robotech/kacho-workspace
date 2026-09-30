@@ -1,0 +1,25 @@
+# План свидетельства держателя human-acceptance — изменение issue-2917 (NTF-2).
+#
+# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+schema_version: 1
+change_id: issue-2917
+holder: human-acceptance
+kind: human-external
+owner: acceptance-reviewer
+subject: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+subject_sha256: 85b36b268ac1803eaf10f406d88e7eeb49b15547fcf27479e1c84ba467f9a548
+executable: 'внешнее review event на отпечаток приёмки'
+predicate: 'наблюдаемое поведение описано полно, у каждого «Тогда» есть производитель, у каждого отрицания — положительный близнец'
+
+# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
+captured_category: null
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
+# NOT_EXECUTED, а не «наверное прошло».
+note: >-
+  вердикт выпускает внешнее событие на этот отпечаток; события нет
