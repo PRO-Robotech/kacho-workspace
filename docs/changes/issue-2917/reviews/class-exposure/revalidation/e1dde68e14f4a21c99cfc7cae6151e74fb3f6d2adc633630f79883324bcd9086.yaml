@@ -1,0 +1,183 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 21.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки прежних редакций относятся к своим
+# редакциям и здесь не переписываются. Судится дельта редакции 21 против последней пересверенной
+# (редакция 20, 83965048): git diff eb7863957 7e8b8298f -- docs/changes/issue-2917/{design,tasks}.md.
+# Итог: к-замыслу. CX2-85 отображён ЧАСТИЧНО. Звено (0), исход его разрыва, М74 (10 строк) и пробы на месте.
+# Но условие «иных записей в атрибут нет» сужено до «иных присваиваний `self.required` нет», и контроль
+# М74 (`self\.required\s*=`) видит только эту форму. Запись в атрибут через имя экземпляра
+# (`chart.required = []` в цикле `main`), `setattr` или изменение списка на месте (`.required.clear()`,
+# `.required[:] = …`) звено (0) не разрывает. Звенья (i)–(iii) при этом тоже на месте, и перепись печатает
+# зелёный «Б10 + Б6». Новый CX2-86 — то же свойство на имени `CHARTS`: якорь — литерал `CHARTS`, звено
+# (ii) обходит имя `CHARTS`, а то, что имя связано ровно один раз, звеном не объявлено. Одно условие
+# закрывает оба: у каждого носителя цепочки запись в файле ровно та, что названа звеном.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: e1dde68e14f4a21c99cfc7cae6151e74fb3f6d2adc633630f79883324bcd9086
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 21
+  commit: 7e8b8298f
+  route_sha256: 66a28816c38a0c7b…   # tasks.md @7e8b8298f (sha256sum, первые 16 знаков)
+  previous_judged: 839650487f1c4bd2d4192c2189155ff4b8a5e16b81a9d771a2ef87fabbb19df4   # редакция 20, eb7863957
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  effective_verdict: APPROVED
+  initial_records:
+    - docs/changes/issue-2917/reviews/class-exposure/initial/66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a.yaml
+    - docs/changes/issue-2917/reviews/class-exposure/initial/29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014.yaml
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/839650487f1c4bd2d4192c2189155ff4b8a5e16b81a9d771a2ef87fabbb19df4.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 7e8b8298fcc363b77846ebd183cbc5af420623b1   # ветка issue-880
+  ntf1_design: 5228b32b212bb08d77bc5e0b400442b6e1bb7b37d8b3d82741b7535e204de7a7   # без изменений
+  ntf1_route: d17ace5cd8674adc5473cea56a5af31b66b0fe7a0898fe37da0a7825fb040ef3   # без изменений
+  kacho: "origin/2564@6edea09c2ee (последний коммит файла check-volume-mounts.py — 64ff0524406)"
+snapshot_at: 2026-10-01
+inspected: >-
+  Дифф eb7863957 → 7e8b8298f целиком, −U0 (design.md: шапка редакции 21, §0 строка пересверки 83965048,
+  М74, З28 (а) Б10, абзац о носителях, перечень «не выполнилось», (б) (4); §11 CX2-82, CX2-84 правка,
+  CX2-85 новая, счёт строк отображения; §11а УК78, УК80 правка, УК81 новая; tasks.md — шапка редакции 21
+  и строка D6 целиком). Дерево kacho на 2564@6edea09c2ee: check-volume-mounts.py — класс `Chart` (83–100),
+  литерал `CHARTS` (103–158), `render` (311–317), `main` (320–329), все вхождения `required` и `CHARTS`.
+  Записки vault не читались.
+
+dispatcher_decisions_check:
+  Д52: "держится: файл слоя и подача только слоем не менялись; добавлено звено (0) носителя Б10"
+  Д53: "держится: NTF-1 не менялся (5228b32b / d17ace5c); D6 по-прежнему после NTF1-D1s (Е13)"
+  Д54: "дельта его предмета не трогает: переезд на corelib и модель kaname в редакции 21 не упомянуты"
+  Д1–Д51: "дельта их строк не трогает"
+
+mapped_from_previous:
+  - id: CX2-85
+    source: revalidation/83965048
+    where: "М74; З28 (а) Б10, абзац о носителях, перечень «не выполнилось», (б) (4); §11 CX2-85 (+ CX2-82, CX2-84 печать «(0)–(iii)»); §11а УК81 (+ УК78, УК80); tasks D6 «звено (0) Б10»"
+    held: partial
+    check: >-
+      Отображено: (а) звено (0) добавлено в выражение Б10 — параметр `Chart.__init__` на позиции якоря
+      (третий позиционный без `self`) присвоен `self.required` без изменения, сверяется фактом. «Ровно
+      (i)–(iii)» заменено на «(0)–(iii)» везде, где стояло: абзац о носителях, перечень, (б) (4), CX2-82,
+      CX2-84, УК78, УК80, D6. (б) Исход разрыва — «не выполнилось» `Б10 (0)`, самоистечение молчит,
+      зелёного нет. (в) М74 расширен: `\.required\b|required\s*=|__init__`. Счёт — 10 строк, перемерено
+      (совпадает дословно). Проба `self.required = []` с близнецом-файлом дерева есть в §11, УК81 и D6.
+      Замечания 83965048 (позиция распаковки (ii), ключевой `required=`) внесены в Б10 и получили пробы.
+      НЕ отображено: условие (а) 83965048 требовало, чтобы иных записей в атрибут `required` не было ни в
+      какой форме — «`self.required = …`, `<ч>.required = …`, `setattr`». Замысел объявляет только «иных
+      присваиваний `self.required` в файле нет». Контроль М74 — `grep -cE 'self\.required\s*='` — на
+      `chart.required = []` даёт 0 (проверено, см. measurements). Остаток перенесён в CX2-86
+
+new_items:
+  - id: CX2-86
+    decision: >-
+      З28 (а) Б10: якорь — «третий позиционный аргумент записи `Chart(…)` в литерале списка `CHARTS`»;
+      звено (0) — «иных присваиваний `self.required` в файле нет»; звено (ii) — «цикл `for <ч> in CHARTS:`».
+      М74, контроль — `grep -cE 'self\.required\s*='`
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением»: что носитель между звеньями не
+      переписан, принято по умолчанию. Звенья объявляют чтения и одно присваивание, но не объявляют, что
+      других записей в тот же носитель нет. measurement-discipline §«Предикат — только с контролем»:
+      контроль М74 видит одну форму записи из нескольких, и в обратную сторону он не проверен. Это
+      продолжение CX2-84/CX2-85: перечень фактов цепочки не закрыт по записям в её носители
+    exposure: >-
+      Носителей между якорем и helm на 2564 два, и оба пишутся в файле ровно один раз: атрибут `required`
+      (89; чтение — 95) и имя модуля `CHARTS` (103; чтения — 298, 327, 357, 510). Замысел закрывает только
+      одну форму записи, `self.required =`. Каждый случай ниже рвёт путь `-f` края к helm, а все
+      объявленные звенья (0)–(iii) остаются сверенными, и перепись печатает зелёный «Б10 + Б6»:
+      (1) в `main` перед `chart.renders()` стоит `chart.required = []` (либо
+      `setattr(chart, "required", [])`); (2) изменение на месте — `self.required.clear()`,
+      `chart.required[:] = []`, `del CHARTS[3].required[-2:]`, `.remove("-f")`; (3) после литерала имя
+      перевязано: `CHARTS = [c for c in CHARTS if c.name != "api-gateway"]` или
+      `CHARTS[3] = Chart("api-gateway", "gateway/deploy", [], [])`. Якорь при этом — всё ещё литерал в
+      первом связывании `CHARTS`, а звено (ii) обходит уже другой список. Это исход (2) CX2-82 — ложный
+      зелёный переписи, от которого CX2-84 (б) обещает «зелёного при разорванном звене нет»
+    condition_on_code: >-
+      (а) Распознаватель проверяет замкнутость носителей цепочки Б10 общим правилом, не перечнем форм.
+      У атрибута `required` запись в файле ровно одна — звено (0). Записью считается любое присваивание
+      атрибута `required` любого объекта (`<выр>.required = …`, `+=`, цель распаковки), `setattr(…, "required", …)`,
+      `del`, присваивание по индексу или срезу `<выр>.required[…] = …` и вызов изменяющего метода списка на
+      `<выр>.required` (`append`, `extend`, `insert`, `remove`, `pop`, `clear`, `sort`, `reverse`).
+      У имени `CHARTS` связывание в модуле ровно одно — литерал якоря. Ни перевязки (`CHARTS = …`,
+      `global CHARTS`, цель `for`/`with`/распаковки), ни записи по индексу или срезу, ни изменяющего
+      метода на `CHARTS` нет. Нарушение правила — «не выполнилось» с координатой и именем звена
+      (`Б10 (0)` для `required`, `Б10 (ii)` для `CHARTS`), самоистечение молчит, зелёного «Б10 + Б6» нет —
+      исход CX2-84 (б). (б) Контроль М74 заменяется таким, который видит все формы: на 2564
+      `grep -nE '\.required\b'` → 2 строки (89 запись, 95 чтение), `grep -nE '\bCHARTS\b'` → 5 строк
+      (103 связывание, 298/327/357/510 чтения). Проверка контроля в обратную сторону:
+      на `chart.required = []` он даёт находку, а у прежнего `self\.required\s*=` находки нет.
+      (в) Пробы по одной, у каждой близнец — файл дерева (молчит): `chart.required = []` в цикле `main` →
+      «не выполнилось» `Б10 (0)`; `self.required.clear()` в `renders` до `list(...)` → «не выполнилось»
+      `Б10 (0)`; `CHARTS = [c for c in CHARTS if c.name != "api-gateway"]` после литерала →
+      «не выполнилось» `Б10 (ii)`. Ни в одной из проб не должно быть красного самоистечения или зелёного «Б10 + Б6»
+    held_by: >-
+      Нужны пробы (в) в §11 (строка CX2-86), §11а и строке D6 — их нет. До отображения держится вниманием.
+      Опасный исход тихий: ложный зелёный переписи. Сам скрипт краснеет отдельно, потому что чарт края
+      без слоя отказывает в рендере, но по иной причине, и перепись слой уже засчитала. Случай (3) с
+      фильтром записи края тише: чарт края не рендерится вовсе, и `coverage_findings` его не заметит,
+      потому что `covered` (298) считается по тому же, уже перевязанному `CHARTS`
+
+remarks:
+  - >-
+    Третий пропуск подряд в одной цепочке (CX2-84 — звенья, CX2-85 — звено конструктора, CX2-86 — записи
+    в носители) говорит о том, что перечень звеньев сам себя не закрывает. Условие (а) CX2-86 поэтому
+    сформулировано правилом «носитель пишется ровно там, где названо звено», а не очередной формой. Если
+    автор отобразит его перечнем форм, следующая пересверка найдёт следующую форму
+  - >-
+    `sets` в звене (i) — копия (`list(self.required)`). Её изменение на месте в `renders` покрыто
+    формулировкой (i): «изменяется только `sets += <литерал списка>`». Отдельно не выношу
+
+return_to_acceptance: []
+return_to_acceptance_note: "приёмка 29b09f14 говорит о файле слоя; носитель аргумента и распознаватель переписи она не задаёт. CX2-85 (остаток) и CX2-86 — пункты замысла"
+
+measurements:
+  - claim: "отпечатки предмета и маршрута; рабочее дерево = коммит"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD~1:docs/changes/issue-2917/design.md | sha256sum; git status --short | wc -l"
+    result: "design e1dde68e… (дерево = 7e8b8298f); редакция 20 @eb7863957 = 83965048… (предыдущая пересверка); tasks 66a28816…; незакоммиченных 0"
+  - claim: "строк отображения 86 (заявлено: 86), строк УК 81"
+    command: "grep -c '^| CX2-' design.md; grep -c '^| УК' design.md"
+    result: "86; 81"
+  - claim: "М74 редакции 21 воспроизводится: 10 строк (85, 89, 92, 95, 98, 100, 311, 313, 328, 329), контроль — 1"
+    command: "git -C project/kacho show origin/2564:.github/scripts/check-volume-mounts.py | grep -nE 'renders\\(|render\\(|subprocess\\.run|sets\\b|\\.required\\b|required\\s*=|__init__'; … | grep -cE 'self\\.required\\s*='"
+    result: "совпадает дословно; 10 строк; контроль 1"
+  - claim: "контроль М74 не видит запись через имя экземпляра (CX2-85 остаток)"
+    command: "printf 'chart.required = []\\n' | grep -cE 'self\\.required\\s*='  vs  printf 'chart.required = []\\n' | grep -cE '\\.required\\s*=|setattr\\([^,]+,\\s*[\"'\\'']required'"
+    result: "0 против 1"
+  - claim: "носители цепочки на 2564 пишутся ровно один раз (условие (а) CX2-86 выполнимо на дереве)"
+    command: "… | grep -nE '\\.required\\b'; … | grep -nE '\\bCHARTS\\b'; … | grep -nE 'setattr|__dict__|dataclass|__slots__|replace\\('"
+    result: "`.required`: 89 (запись), 95 (чтение); `CHARTS`: 103 (связывание), 298, 327, 357, 510 (чтения); setattr/__dict__/dataclass/replace — 0"
+  - claim: "NTF-1 и приёмка не менялись"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "5228b32b…, d17ace5c…, 29b09f14…"
+
+not_measurable:
+  - "как распознаватель переписи ведёт себя при записи в носитель — распознавателя в дереве нет; CX2-86 выведен из текста З28 (а) Б10, М74 и формы файла на 2564"
+
+outcome: к-замыслу
+unmapped: ["CX2-85 (остаток: запись в атрибут вне `self.required =`)", CX2-86]
+
+orders:
+  - to: design author (NTF-2)
+    what: "отобразить CX2-86 и остаток CX2-85: в Б10 — правило «у носителя (`required`, `CHARTS`) запись в файле ровно та, что названа звеном» со всеми формами записи; контроль М74 по `\\.required\\b` и `\\bCHARTS\\b`, проверенный в обе стороны; три инъекции с близнецом-файлом дерева — в §11, §11а, D6"
+    basis: "change-graph §4; code-authoring §«Умолчание, которое становится утверждением»; measurement-discipline §«Предикат — только с контролем»"
+  - to: design-reviewer (system-design-reviewer, режим «замысел»)
+    what: "ревью замысла после отображения CX2-86"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+
+questions_to_owner: []
+class_proposal: >-
+  Кандидат, порог не пройден. CX2-84, CX2-85 и CX2-86 — одно свойство: цепочка носителя объявлена
+  закрытым перечнем фактов, в перечне пропущен факт, и предикат замера пропуска не видит. Но все три — в
+  одном замысле и одном файле дерева, поэтому это один экземпляр, а не класс
+single_file_predicate_candidate: "—"
