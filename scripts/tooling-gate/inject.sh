@@ -608,10 +608,13 @@ fi
 
 # Инъекция ПРЕДМЕТА ЗАДАЧИ: отказ разбора выходит единицей. Скрипт при этом
 # исправен во всём остальном — меняется ровно один факт, код на выходе из
-# `parse_broken`, — и краснеют ровно две пробы, где разбор ломается.
+# `parse_broken`, — и краснеют пробы, где разбор ломается.
+# Образец привязан к ТЕЛУ `parse_broken`, а не к первой строке «вердикта нет»:
+# прежний якорь совпал с шапкой инструмента, когда её текст сменился (ws#884),
+# и инъекция вносила `exit 1` в разбор аргументов — дефект внесён, но не тот.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/(вердикта нет.*?\n)  exit 2\n/$1  exit 1\n/s' \
+    's/(^parse_broken\(\) \{\n(?:(?!^\}).*\n)*?)  exit 2\n/$1  exit 1\n/m' \
     "код выхода parse_broken"; then
     run 1 "$b" "инъекция: отказ разбора выходит кодом находки — краснеет" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
@@ -640,6 +643,53 @@ if mr_patch "$b/$MR_REL" \
     "та же сортировка другой формой"; then
     run 0 "$b" "близнец: та же сортировка другой формой — молчит" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# ── БЕЗ ОБЯЗАТЕЛЬНЫХ КОНТЕКСТОВ: ВЕРДИКТ ПО ПРОГОНУ ci.yaml НА ГОЛОВЕ (ws#884) ──
+# Каждая инъекция снимает ровно одно условие засчёта прогона и обязана
+# покраснеть той пробой check-09, что держит именно его.
+C09=check-09-merge-readiness-tells-three-outcomes-apart.sh
+
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.event == "workflow_dispatch")/' \
+    "прогон на другой ревизии засчитан"; then
+    run 1 "$b" "инъекция: зелёный прогон на ДРУГОЙ ревизии засчитан — краснеет" "$C09"
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.head_sha == \$sha)/' \
+    "прогон другим событием засчитан"; then
+    run 1 "$b" "инъекция: прогон ДРУГИМ событием засчитан — краснеет" "$C09"
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\| last \/\/ empty/| first \/\/ empty/' \
+    "судит первый прогон на голове, а не последний"; then
+    run 1 "$b" "инъекция: судит старый прогон вместо последнего — краснеет" "$C09"
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.status == "completed" and \.conclusion == "success"\)/select(.status == "completed" and (.conclusion == "success" or .conclusion == "skipped"))/; s/\["success","failure"/["success","skipped","failure"/' \
+    "пропущенное задание засчитано зелёным"; then
+    run 1 "$b" "инъекция: пропущенное задание засчитано зелёным — краснеет" "$C09"
+fi
+
+# Репозиторий С обязательными контекстами: процесс начал читаться и там.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(printf .%s\\n. "\$required" > "\$workdir\/required")$/verdict_from_dispatched_run\n$1/m' \
+    "процесс читается и при обязательных контекстах"; then
+    run 1 "$b" "инъекция: вердикт по процессу подменил вердикт по контекстам — краснеет" "$C09"
+fi
+
+# Законный близнец: «последний по времени создания» записан иначе.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\| sort_by\(\.created_at, \.id\) \| last \/\/ empty/| max_by([.created_at, .id]) \/\/ empty/' \
+    "последний прогон другой формой"; then
+    run 0 "$b" "близнец: последний прогон выбран другой формой — молчит" "$C09"
 fi
 
 b="$(mksandbox scripts/merge-readiness.sh)"

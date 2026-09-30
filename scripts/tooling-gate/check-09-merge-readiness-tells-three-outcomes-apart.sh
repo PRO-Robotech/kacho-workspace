@@ -69,11 +69,25 @@ cat > "$STUB/gh" <<'STUBEOF'
 # Незнакомый вызов — жёсткий отказ, а не пустой ответ: пустой прошёл бы за
 # «сосед недоступен» и замаскировал промах провязки успехом.
 set -u
+# `api` различается по ПУТИ: защита ветки, перечень прогонов процесса, задания
+# одного прогона. Задания отдаются по номеру прогона — прочитай скрипт задания
+# не того прогона, фикстуры у него нет, и промах придёт отказом соседа.
 case "${1:-}" in
     pr)  target="${MR_FIXTURE:?}/pr" ;;
-    api) target="${MR_FIXTURE:?}/protection" ;;
+    api)
+        case "${2:-}" in
+            */branches/*/protection)      target="${MR_FIXTURE:?}/protection" ;;
+            */actions/workflows/*/runs*)  target="${MR_FIXTURE:?}/runs" ;;
+            */actions/runs/*/jobs*)
+                rid="${2#*/actions/runs/}"; rid="${rid%%/*}"
+                target="${MR_FIXTURE:?}/jobs-$rid" ;;
+            *) echo "gh-stub: незнакомый путь api: $*" >&2; exit 99 ;;
+        esac ;;
     *)   echo "gh-stub: незнакомый вызов: $*" >&2; exit 99 ;;
 esac
+if [ ! -e "$target.json" ] && [ ! -e "$target.unavailable" ]; then
+    echo "gh-stub: фикстуры $target.json нет" >&2; exit 98
+fi
 if [ -e "$target.unavailable" ]; then exit 1; fi
 cat "$target.json"
 STUBEOF
@@ -100,8 +114,41 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
     if [ "$#" -gt 0 ]; then
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
-    jq -n --arg st "$st" --arg ms "$ms" --argjson r "$rollup" \
-        '{state:$st, baseRefName:"main", mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+    jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD" --argjson r "$rollup" \
+        '{state:$st, baseRefName:"main", headRefOid:$h, mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+}
+
+# Голова PR и чужая ревизия. Чужая отличается от головы ОДНИМ последним знаком —
+# сверка по префиксу или по вхождению приняла бы её за голову.
+HEAD="68b0d0a1ede6920b4aa7d7a99dbb7adb39ec1d25"
+OTHER="68b0d0a1ede6920b4aa7d7a99dbb7adb39ec1d26"
+ZERO_CTX='{"required_status_checks":null}'
+
+mk_runs() {  # <файл> <id:sha:событие:status:conclusion:created_at>...
+    local f="$1"; shift
+    local rows='[]'
+    if [ "$#" -gt 0 ]; then
+        rows="$(printf '%s\n' "$@" | jq -R 'split(":") | {id:(.[0]|tonumber), head_sha:.[1], event:.[2],
+            status:.[3], conclusion:(if .[4]=="" then null else .[4] end), created_at:.[5],
+            html_url:("https://example.invalid/runs/" + .[0])}' | jq -s .)"
+    fi
+    jq -n --argjson r "$rows" '{total_count:($r|length), workflow_runs:$r}' > "$f"
+}
+
+mk_jobs() {  # <файл> <имя=conclusion>...
+    local f="$1"; shift
+    printf '%s\n' "$@" | jq -R 'capture("^(?<name>.*)=(?<c>[a-z_]*)$")
+        | {name, status:(if .c=="" then "in_progress" else "completed" end),
+           conclusion:(if .c=="" then null else .c end)}' \
+        | jq -s '{total_count:length, jobs:.}' > "$f"
+}
+
+# Прогон процесса с заданиями «все зелены» — строительный блок проб без контекстов.
+JOB_A="bats-and-shellcheck"
+JOB_B="доказательства хуков инъекцией исполняются, а не лежат"
+mk_zero_ctx_case() {  # <каталог> <состояние-слияния>
+    mk_pr "$1/pr.json" OPEN "$2"
+    printf '%s\n' "$ZERO_CTX" > "$1/protection.json"
 }
 
 # A — все обязательные зелены.
@@ -136,10 +183,75 @@ F="$(mkcase F)"
 printf '<html><head><title>502</title></head></html>\n' > "$F/pr.json"
 mk_protection "$F/protection.json" "$CTX_LAT"
 
-# G — защита есть, обязательных контекстов ноль.
+# G — защита есть, обязательных контекстов ноль, прогона процесса нет вовсе.
 G="$(mkcase G)"
 mk_pr "$G/pr.json" OPEN CLEAN
 printf '{"required_status_checks":{"contexts":[]}}\n' > "$G/protection.json"
+mk_runs "$G/runs.json"
+
+# ── БЕЗ ОБЯЗАТЕЛЬНЫХ КОНТЕКСТОВ ВЕРДИКТ БЕРЁТСЯ ИЗ ПРОГОНА ci.yaml НА ГОЛОВЕ ─────
+# (ws#884). Каждая проба меняет против J ровно один факт.
+
+# J — прогон на голове завершён, все задания зелены.
+J="$(mkcase J)"; mk_zero_ctx_case "$J" CLEAN
+mk_runs "$J/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$J/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+
+# K — одно задание красное.
+K="$(mkcase K)"; mk_zero_ctx_case "$K" CLEAN
+mk_runs "$K/runs.json" "11:$HEAD:workflow_dispatch:completed:failure:2026-09-30T10:00:00Z"
+mk_jobs "$K/jobs-11.json" "$JOB_A=success" "$JOB_B=failure"
+
+# L — одно задание отменено.
+L="$(mkcase L)"; mk_zero_ctx_case "$L" CLEAN
+mk_runs "$L/runs.json" "11:$HEAD:workflow_dispatch:completed:cancelled:2026-09-30T10:00:00Z"
+mk_jobs "$L/jobs-11.json" "$JOB_A=cancelled" "$JOB_B=success"
+
+# M — прогон на голове ещё идёт.
+M="$(mkcase M)"; mk_zero_ctx_case "$M" CLEAN
+mk_runs "$M/runs.json" "11:$HEAD:workflow_dispatch:in_progress::2026-09-30T10:00:00Z"
+mk_jobs "$M/jobs-11.json" "$JOB_A=success" "$JOB_B="
+
+# N — зелёный прогон есть, но на ДРУГОЙ ревизии. Сервер фильтр по голове
+# обещает, а засчитывается только сверенное самим скриптом.
+N="$(mkcase N)"; mk_zero_ctx_case "$N" CLEAN
+mk_runs "$N/runs.json" "11:$OTHER:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$N/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+
+# O — зелёный прогон на голове, но ДРУГИМ событием.
+O="$(mkcase O)"; mk_zero_ctx_case "$O" CLEAN
+mk_runs "$O/runs.json" "11:$HEAD:push:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$O/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+
+# P — на голове два прогона: старый зелёный, НОВЫЙ красный. Судит последний.
+P="$(mkcase P)"; mk_zero_ctx_case "$P" CLEAN
+mk_runs "$P/runs.json" \
+    "12:$HEAD:workflow_dispatch:completed:failure:2026-09-30T11:00:00Z" \
+    "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$P/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+mk_jobs "$P/jobs-12.json" "$JOB_A=failure" "$JOB_B=success"
+
+# Q — задание пропущено: не красное и не зелёное — «не выполнилось».
+Q="$(mkcase Q)"; mk_zero_ctx_case "$Q" CLEAN
+mk_runs "$Q/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$Q/jobs-11.json" "$JOB_A=success" "$JOB_B=skipped"
+
+# R — ответ о прогонах не разбирается.
+R="$(mkcase R)"; mk_zero_ctx_case "$R" CLEAN
+printf '<html><head><title>502</title></head></html>\n' > "$R/runs.json"
+
+# S — прогон зелёный, но сервер держит слияние (BLOCKED).
+S="$(mkcase S)"; mk_zero_ctx_case "$S" BLOCKED
+mk_runs "$S/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$S/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+
+# T — обязательные контексты ЕСТЬ и зелены, а прогон процесса на голове красный:
+# поведение для репозитория с контекстами не меняется, процесс не читается.
+T="$(mkcase T)"
+mk_protection "$T/protection.json" "$CTX_LAT"
+mk_pr "$T/pr.json" OPEN CLEAN "$CTX_LAT"
+mk_runs "$T/runs.json" "11:$HEAD:workflow_dispatch:completed:failure:2026-09-30T10:00:00Z"
+mk_jobs "$T/jobs-11.json" "$JOB_A=failure" "$JOB_B=success"
 
 # H — два обязательных имени, различающихся ТОЛЬКО длинным тире.
 #
@@ -218,8 +330,41 @@ probe "$E" 2 "ответ о защите не разбирается — бес�
 probe "$F" 2 "ответ о PR не разбирается — беспредметно, а не «нельзя»" \
     "РАЗБОР СЛОМАН"
 
-probe "$G" 2 "обязательных контекстов ноль — беспредметно, а не «нельзя»" \
-    "обязательных контекстов ноль"
+probe "$G" 2 "обязательных контекстов ноль и прогона нет — беспредметно, а не «нельзя»" \
+    "обязательных контекстов ноль" "прогона ci.yaml" "НЕТ" "ВЕРДИКТА НЕТ"
+
+probe "$J" 0 "без контекстов: прогон ci.yaml на голове зелёный — «сливать можно»" \
+    "можно сливать" "заданий 2 · зелёных 2" "$HEAD"
+
+probe "$K" 1 "без контекстов: задание прогона красное — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_B [failure]"
+
+probe "$L" 1 "без контекстов: задание прогона отменено — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_A [cancelled]"
+
+probe "$M" 2 "без контекстов: прогон на голове идёт — вердикта нет, а не «нельзя»" \
+    "идёт" "ВЕРДИКТА НЕТ"
+
+probe "$N" 2 "без контекстов: зелёный прогон на ДРУГОЙ ревизии не засчитан" \
+    "НЕТ" "не засчитаны: 1" "ВЕРДИКТА НЕТ"
+
+probe "$O" 2 "без контекстов: зелёный прогон ДРУГИМ событием не засчитан" \
+    "НЕТ" "не засчитаны: 1" "ВЕРДИКТА НЕТ"
+
+probe "$P" 1 "без контекстов: судит ПОСЛЕДНИЙ прогон на голове, а не любой зелёный" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_A [failure]" "runs/12"
+
+probe "$Q" 2 "без контекстов: пропущенное задание — «не выполнилось», а не зелёное" \
+    "не выполнилось" "$JOB_B [skipped]" "ВЕРДИКТА НЕТ"
+
+probe "$R" 2 "без контекстов: ответ о прогонах не разбирается — беспредметно" \
+    "РАЗБОР СЛОМАН"
+
+probe "$S" 1 "без контекстов: прогон зелёный, но сервер держит слияние" \
+    "СЛИЯНИЕ ЗАДЕРЖАНО" "BLOCKED"
+
+probe "$T" 0 "с контекстами: прогон процесса не читается, вердикт — по контекстам" \
+    "можно сливать" "обязательных контекстов: 1"
 
 probe "$H" 1 "имена, различные только длинным тире, не схлопнуты — учтены оба" \
     "обязательных контекстов: 2" "проба - раз"
@@ -227,7 +372,7 @@ probe "$H" 1 "имена, различные только длинным тир�
 probe "$I" 2 "PR уже не открыт — беспредметно, а не «нельзя»" \
     "сливать нечего"
 
-tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — 1 проба, 1 — 2 пробы, 2 — 6 проб)"
+tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — 3 пробы, 1 — 6 проб, 2 — 11 проб); из них без обязательных контекстов, по прогону ci.yaml, — 11"
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings из $probes"
