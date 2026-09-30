@@ -33,6 +33,13 @@ SPDX-License-Identifier: BUSL-1.1
 > — **редакция 5 · 2026-09-30 · вердикта на неё НЕТ.** Закрывает B4-1…B4-4 и важные замечания
 > круга 4; перепись класса CONSTRUCTIBILITY по двум вопросам (решает ли код kaname исход в обход
 > модели; не запрещает ли Given собственное правило документа) — §1.11 и §9
+> — **2026-09-30 · круг 5 · ⛔ ВОЗВРАТ (блокирующих 2: CONSTRUCTIBILITY ×2) ·
+> SHA-256 `a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89` ·
+> `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89.yaml`**
+> — **редакция 6 · 2026-09-30 · вердикта на неё НЕТ.** Закрывает B5-1, B5-2 и замечания N5-1, N5-2
+> круга 5; класс «факт о дереве взят из прозы, а не из разобранного вывода команды» закрыт по всему
+> документу: §1.11 классифицирует построчно вывод расширенного предиката, слово вида — из словаря
+> corelib; что изменено — §9
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задачи под-фазы — `PRO-Robotech/kacho#2915`
 > (notify, раздел «notify»), `PRO-Robotech/corelib#77` (фундамент, раздел «corelib»),
@@ -206,28 +213,97 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 `sub-phase-NTF-1-notification-gateway-core-acceptance.md` — правка ссылок в задачах названа в
 возврате автора (строка «нужен следующий»).
 
-### 1.11 Исход проверки прав в kaname решает не только модель — перепись путей решения
+### 1.11 Исход проверки прав в kaname решает не только модель — перепись мест надзора построчно
 
-Дверь проверки прав kaname (`internal/service/authorize_service.go` @`734f69fb4`) отвечает на
-`InternalIAMService/Check`, на партию (`BatchCheck`, которой пользуется сужение строк
-`listnarrow` у каждой службы kacho) и на вопросы собственных обработчиков kaname. Кроме модели,
-исход в ней решают:
+Дверь проверки прав kaname отвечает тремя входами, и у каждого своя функция вердикта
+(`internal/service/authorize_service.go` @`734f69fb4`):
 
-| путь | где (имя функции) | в какую сторону меняет исход | касается типов Р5 |
+| вход | кто спрашивает | функция вердикта | несёт |
 |---|---|---|---|
-| надзор администратора облака на отказе модели | `verdict` | «нет» модели → «да» администратору | **да** — без правки F12 было бы `true` |
-| надзор, когда вопроса к модели нет (отношение не разрешается; идентификатор объекта `*`) | `check`, ветка `superGateDecides` | «нет вопроса» → «да» администратору | **да** |
-| те же два пути в партии | `resolveRun` (ветка прогона `superGate` и пообъектный отказ) | то же | **да** — сужение строк подписки и `Claim` через `listnarrow` |
-| допуск субъекта (`admission.Subject`, Р4а kaname#456) | `check` → `admissionDenied`; `authzcascade.Client.CheckWithContext` | только «да» → «нет», и только человеку с неподтверждённым адресом; не-человек допущен (`admission.go`, функции `Subject`, `ID`) | нет: разрешения не добавляет |
-| право спрашивать о чужом субъекте | `authorize/caller_authority.go`, `authorizeCaller` | решает, можно ли задать вопрос, а не его ответ | нет |
+| `InternalIAMService/Check` (обработчик `internal_iam/handler.go` делегирует `AuthorizeService.CheckRelation`) | перехватчик прав **каждой** службы kacho, в том числе сервер ленты источника (`Claim`, `Ack`) | `verdictForRelation` | субъект, **отношение**, объект; действия нет |
+| публичный `AuthorizeService/Check` (обработчик `authorize/handler.go`) | край, клиенты | `check` → `verdict` либо ветка «вопроса нет» (`superGateDecides`) | субъект, **действие**, необязательное `required_relation`, ресурс |
+| публичный `AuthorizeService/BatchCheck` (тот же обработчик) | `listnarrow` — сужение строк списка и подписки у каждой службы kacho | `BatchCheck` → `resolveRun` (прогон «вопроса нет» и пообъектный отказ) | как у `Check`, до 100 пунктов |
+
+**Перепись.** Предикат прошлой редакции
+(`grep -n 'isClusterAdmin\|superGateDecides\|SubjectIsClusterAdminPlainE'`, 29 строк) сам молчал о
+части предмета: он не видит вызовов обёрток `IsClusterAdmin`, `IsClusterAdminE`,
+`SubjectIsClusterAdmin`, `SubjectIsClusterAdminE`, задающих тот же вопрос надзора. Предикат этой
+редакции — по всему семейству имён, словами целиком:
+
+`git -C kaname grep -nE '\b(IsClusterAdmin|IsClusterAdminE|SubjectIsClusterAdmin|SubjectIsClusterAdminE|SubjectIsClusterAdminPlainE|isClusterAdmin)\b|superGateDecides' 734f69fb4 -- '*.go' ':!*_test.go'`
+→ **62** строки. Контроль с другой стороны — прямые вопросы об отношении надзора:
+`git -C kaname grep -n '"system_admin"' 734f69fb4 -- '*.go' ':!*_test.go' ':!*.pb.go'` → **11** строк.
+Каждая строка обоих выводов получила класс; суммы классов равны выводам.
+
+**Класс «обобщённая дверь» — тип объекта приходит параметром; 8 строк, 7 мест. Касаются типов Р5 —
+все семь, и все семь входят в перечень путей надзора Р5:**
+
+| # | строка | функция | вход, который до неё доходит |
+|---|---|---|---|
+| Д-1 | `authorize_service.go:390`, `:395` | `check`, ветка «вопроса нет» (действие не разрешается в отношение либо идентификатор `*`) | публичный `Check` |
+| Д-2 | `authorize_service.go:552` | `verdict` — надзор на отказе модели | публичный `Check` с разрешённым отношением |
+| Д-3 | `authorize_service.go:770` | `verdictForRelation` — надзор на отказе модели | `InternalIAMService/Check` |
+| Д-4 | `authorize_service.go:1081` | `resolveRun`, прогон «вопроса нет» | `BatchCheck` |
+| Д-5 | `authorize_service.go:1123` | `resolveRun`, пообъектный отказ | `BatchCheck` |
+| Д-6 | `authzguard/own_door.go:523` | `checkAdapter.Check` — дверь собственного публичного слушателя kaname (`NewOwnDoor`, `cmd/kaname/serve.go`) | публичные методы kaname по их каталогу прав |
+| Д-7 | `authzguard/read_authz.go:76` | `AllowsVerb` (и `AllowsVGet`) — надзор спрашивается **первым** | читающие стражи kaname: 7 вызывающих, `git -C kaname grep -n 'AllowsVerb(\|AllowsVGet(' 734f69fb4 -- '*.go' ':!*_test.go'` → 10 строк = 7 вызовов + определения и обёртка |
+
+Д-6 и Д-7 сегодня типов Р5 не получают: каталог публичных методов kaname не называет этих типов, а
+7 вызывающих `AllowsVerb` передают литералы `account`, `project`, `iam_group`,
+`iam_service_account`, `iam_user`. Документ всё равно вносит их в перечень, а не держит довод
+«сегодня не доходит»: у обобщённой двери тип — параметр, и довод истёк бы с первым же вызывающим,
+передавшим тип Р5. Предикат перечня стоит во всех семи местах.
+
+**Класс «место с закреплённым предметом» — тип объекта или вопроса закреплён самим use-case;
+14 строк. Типов Р5 не касаются:**
+
+| строки | функция | о чём решает | почему не типы Р5 и чем держится |
+|---|---|---|---|
+| `access_binding/helpers.go:170`, `:289`; `list.go:243`; `list_by_role.go:163`; `subject_read_authority.go:189` | `requireGrantAuthority`, `fgaHoldsAdminE`, `Execute` (список привязок), `grantAuthorityVerdict`, `subjectReadAuthority` | право выдавать и читать **привязки доступа** | привязка к типам Р5 невыразима: субъект `service` привязкой не выдаётся, а отношения `reader`/`sender` модель допускает только субъекту `service` — NTF1-M10 (а), `tools/modelcanoncheck` |
+| `account/list.go:176`, `group/list.go:131`, `project/list.go:160`, `role/list.go:172`, `service_account/list.go:131`, `user/list.go:133` | `Execute` списков | видимость строк **своего** типа kaname | тип списка закреплён литералом use-case |
+| `account/list_all_operations.go:139` | `requireAccountViewAuthority` | чтение операций аккаунта | объект — `account` |
+| `authorize/caller_authority.go:112` | `authorizeCaller` | можно ли **задать** вопрос о чужом субъекте | решает допустимость вопроса, а не его ответ: ответ по-прежнему даёт дверь Д-1…Д-5 |
+| `module/authz.go:50` | `requireClusterSystemAdmin` | право на методы модулей | объект — `cluster` |
+
+**Класс «определение или обёртка» — 11 строк:** `cluster_admin_shortcircuit.go:30`, `:38`, `:53`,
+`:61`, `:68`, `:69`, `:92`; `subject_question.go:52`; `authorize_service.go:331`, `:333`, `:349`.
+Своего исхода не решают — решает вызывающий.
+
+**Класс «план и группировка» — 7 строк, исхода не решают, только несут метку «вопроса нет»:**
+`authorize_service.go:442` (поле), `:482`, `:510` (`planCheck` ставит метку), `:890`, `:896`
+(`BatchCheck` сводит пункты в прогоны), `:1037` (`runKeyOf`), `:594` (`NeutralDenyReasons` — только
+текст отказа).
+
+**Класс «комментарий» — 22 строки:** `access_binding/helpers.go:163`, `:245`, `:273`;
+`access_binding/list.go:179`; `account/list_all_operations.go:134`; `module/authz.go:25`, `:26`;
+`cluster_admin_shortcircuit.go:8`, `:27`, `:41`, `:51`, `:64`, `:73`, `:83`; `subject_question.go:11`,
+`:43`; `check/authz_wrapper_outcome_lanes.go:9`, `:10`; `publicauthzcensus/census.go:218`,
+`publicauthzcensus/exempt.go:59`; `authorize_service.go:316`, `:440`.
+
+8 + 14 + 11 + 7 + 22 = **62**.
+
+**Контрольный вывод `"system_admin"` — 11 строк, надзора над чужим объектом среди них нет:**
+вопрос о праве на сам объект `cluster` — `cluster/admin_authz.go:73`,
+`internal_iam/force_logout.go:298`, `internal_operations/list_iam_operations.go:100`,
+`authorize/whoami.go:126` (флаг для консоли); запись кортежей выдачи администратора —
+`cluster/helpers.go:81`, `access_binding/tuples.go:279`, посев `seed/bootstrap_admin.go:229`;
+тело определений надзора — `cluster_admin_shortcircuit.go:99`, `subject_question.go:56`,
+`own_door.go:534` (`isSuperGateQuestion`); стенд замера `tools/authzformbench/fullworld.go:270`.
+Право на `Revoke`/`Restore` Р5 — вопрос первого вида и перечнем не затронуто.
+
+**Прочие пути, меняющие исход, — не надзор:**
+
+| путь | где | в какую сторону | касается типов Р5 |
+|---|---|---|---|
+| допуск субъекта (`admission.Subject`, Р4а kaname#456) | `check`, `CheckRelation` → `admissionDenied` | только «да» → «нет», и только человеку с неподтверждённым адресом; не-человек допущен | нет: разрешения не добавляет |
 | `Breakglass` звена прав kacho | corelib `authz/interceptor.go` | пропуск без проверки | нет: в боевой посадке запрещён стражем (`sec-bootguard-fail-closed-axes`) |
 
-Команда переписи:
-`git -C kaname grep -n 'isClusterAdmin\|superGateDecides\|SubjectIsClusterAdminPlainE' 734f69fb4 -- '*.go' ':!*_test.go'`
-→ 4 места надзора внутри двери (`check`, `verdict`,
-`resolveRun` ×2) и 3 вызова `SubjectIsClusterAdminPlainE` вне её (`access_binding/list.go` — чтение
-привязок, `caller_authority.go` — право спрашивать, `module/authz.go` — модуль): предметы последних
-трёх — не объекты типов Р5. Следствие для документа — Р5 п. «надзор не применяется» (B4-1).
+**Держатель переписи** — гейт дерева kaname (NTF1-F12): вызовы семейства находятся разбором по
+идентичности объекта (`go/types`), а не по имени; каждое найденное место сверяется с ведомостью
+классов в дереве kaname; место вне ведомости, строка ведомости без места и место класса
+«обобщённая дверь» без предиката перечня — находка с координатой; гейт печатает число осмотренных
+файлов и мест по классам и падает на пустом обходе. Следствие для документа — Р5 п. «надзор не
+применяется».
 
 ---
 
@@ -272,7 +348,11 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
    без собственных отношений; объект `service:<модуль>` существует, когда доставленный манифест
    модуля с `module: <модуль>` несёт раздел `notifications` (Р5), а `service:notify` — манифестом
    `services/notify/manifest.yaml`. Тенантские поверхности субъекта `service:` не производят:
-   выдача с таким типом отвергается, тип `service` внесён в `forbiddenObjectTypes` (NTF1-M10).
+   выдача с таким типом отвергается; типы `service`, `notification_feed` и `notification_namespace`
+   внесены в `forbiddenObjectTypes` (`corelib/authz/proxytuple/policy.go`) — все три вне доменов-
+   эмитентов, и гейт `TestForbiddenProxyObjectTypesAgreeWithTheModel` kacho (сторона Б) требует
+   каждого такого типа модели в наборе; на этой же записи держится отказ `RegisterResource` для
+   трёх типов (NTF1-M10 (б)).
 6. **Стражи старта:** перечень непуст ⇔ таблица непуста; повтор SAN или имени; метод вне каталога;
    имя вне формы — отказ старта с именем ручки и значением (NTF1-M09).
 7. **Самоотчёт:** перечень методов и строки таблицы входят в самоотчёт посадки и оцениваются
@@ -300,8 +380,12 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 
 - notify — подписчик `corelib.subscription.InternalSubscriptionService/Subscribe` каждого
   источника своего перечня (Р6) — LISTEN-сигнал, почти сразу;
-- вид `notification` в `Mapping.Kinds` источника привязан к типу модели `notification_feed` и
-  действию `reader`; объект события — `notification_feed:<модуль>`; событие несёт только
+- ключ `notification` в `Mapping.Kinds` источника — **слово журнала владельца**, наружу оно не
+  выходит; ключ привязан к типу модели `notification_feed` и действию `reader`. Словарь видов
+  `Subscribe` собирается из `ObjectType` (`corelib subscription/journal.go`, `KindDictionary`), поэтому
+  **на проводе вид — `notification_feed`**: подписка `kinds: ["notification_feed"]`, событие вида
+  `notification_feed`. Во всех сценариях ниже вид назван словом провода. Объект события —
+  `notification_feed:<модуль>`; событие несёт только
   идентификатор ленты и род изменения, состояние — словом в `state_unavailable`: ни атрибутов, ни
   адресата, ни имени шаблона;
 - по событию notify перечитывает (`sub-refetch-not-apply`): вызывает `Claim`; `Claim` зовётся
@@ -381,13 +465,18 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 - **надзор администратора облака на типах Р5 не применяется** (отступление от
   `hard-cloud-admin-cascade`, §3 З5): закрытый перечень типов объектов
   `{notification_feed, notification_namespace}` объявлен в kaname **одним** местом — рядом с дверью
-  проверки прав; каждый путь надзора двери (§1.11: `check` — ветка «вопроса нет», `verdict`,
-  `resolveRun` — обе ветки) для объекта типа из перечня надзор не спрашивает и отвечает исходом
-  модели, а там, где вопроса к модели нет (отношение не разрешается, идентификатор `*`), —
-  отказом. Человек не отправитель и не читатель ленты; рычаг администратора — `Revoke`/`Restore`
-  (право на объекте `cluster`, перечнем не затронуто). Гейт дерева kaname: каждый вызов надзора в
-  двери стоит под предикатом перечня; инъекция вызова без предиката и второй декларации перечня —
-  находка (NTF1-F12);
+  проверки прав. Перечень путей надзора — **все семь мест класса «обобщённая дверь» переписи
+  §1.11**: Д-1 `check`, ветка «вопроса нет»; Д-2 `verdict`; Д-3 `verdictForRelation` (вход
+  `InternalIAMService/Check`, которым идут `Claim`, `Ack` и перехватчик прав каждой службы kacho);
+  Д-4 и Д-5 `resolveRun`, обе ветки (вход `BatchCheck`, которым идёт сужение строк `listnarrow`);
+  Д-6 `checkAdapter.Check` двери публичного слушателя kaname; Д-7 `AllowsVerb`. В каждом из них для
+  объекта типа из перечня надзор не спрашивается: исход — исход модели, а там, где вопроса к модели
+  нет (отношение не разрешается, идентификатор `*`), — отказ. Места класса «закреплённый предмет»
+  §1.11 перечнем не затронуты: их предмет — не объекты типов Р5, довод и держатель названы там же.
+  Человек не отправитель и не читатель ленты; рычаг администратора — `Revoke`/`Restore` (право на
+  объекте `cluster`, перечнем не затронуто). Гейт дерева kaname судит множество мест, которое
+  печатает перепись, а не число: место класса «обобщённая дверь» без предиката перечня, место вне
+  ведомости классов и вторая декларация перечня — находка (NTF1-F12);
 - **основание:** О3, О6 (одна строка), О8.
 
 ### Р6. Пространство — чья лента; перечень источников выводится из флага; класс и адресат ограничены
@@ -464,8 +553,18 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
   подключаемых и его флаг включён. Рендер notify и секрета почты ⇔ перечень непуст. Рассинхрон
   флага и перечня невыразим: ручного перечня нет (NTF1-N03, N04);
 - **выключен:** `SendX` строк не пишет и событий подписки не порождает; сервер ленты не
-  регистрируется; вид `notification` в журнале подписки не объявляется; notify модуль не
-  опрашивает; схема базы (миграция ленты) — та же, от флага не зависит (NTF1-N05, N07);
+  регистрируется; ключ `notification` (тип `notification_feed`) в `Mapping.Kinds` не объявляется;
+  notify модуль не опрашивает; схема базы (миграция ленты) — та же, от флага не зависит
+  (NTF1-N05, N07). Исход `Subscribe` при выключенном флаге зависит от того, остаются ли у источника
+  другие виды, и выбран так (NTF1-N07):
+  - **есть другие виды** (каждый модуль kacho NTF-3) — журнал подписки собирается без ключа ленты;
+    `Subscribe` с `kinds: ["notification_feed"]` — `INVALID_ARGUMENT` текстом corelib
+    `kinds: "notification_feed" is not a kind of this owner; known kinds: <прочие виды>`;
+  - **других видов нет** (`notify-probe`) — `Mapping.Kinds` был бы пуст, а пустой словарь corelib
+    отвергает при сборке журнала; поэтому журнал не собирается, а сервер подписки **не объявляется
+    и не монтируется** — объявление и монтирование выводятся из одного условия, и гейт
+    `TestGRPCMountParity_EveryDeclaredServiceIsMounted` их согласие видит. Служба стартует;
+    `Subscribe` — `UNIMPLEMENTED`;
 - **письма класса `security` при выключенном флаге не глотаются:** `SendX` возвращает сторож
   `feed.ErrDeliveryNotConfigured`, и глагол источника отвечает единым отказом corelib
   `feed.DeliveryNotConfiguredStatus()`: `FAILED_PRECONDITION`, текст `email delivery is not
@@ -569,7 +668,9 @@ kaname и поставщика личности — NTF-2 с его предик
 - приёмник (`templates/mail-receiver.yaml`) говорит STARTTLS с сертификатом из УЦ стенда; ручки
   отключения проверки TLS у notify нет;
 - проба-источник `notify-probe` — служба kacho (`services/notify/cmd/notify-probe`, своя база
-  `kacho_notifyprobe`), подключённая процедурой K03: лента, сервер ленты, вид `notification`,
+  `kacho_notifyprobe`), подключённая процедурой K03: лента, сервер ленты, ключ журнала `notification`
+  (вид провода `notification_feed`; других видов у пробы нет — при флаге `false` сервер подписки не
+  объявляется, Р9),
   звено Р2 в `authz.Interceptor`, манифест `notifications: {namespace: notify-probe, readers:
   [notify]}`, шаблон `probe-hello` класса `notice`; внутренний глагол
   `InternalNotifyProbeService/Send` ставит письмо на адрес;
@@ -600,7 +701,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | З2 | Р22 редакций 1–3: субъект `service_account:<учётка>` из таблицы `SAN → saName` | там же | служебный принципал `service:<имя>` (Р2); учётки для служб не заводятся | эта редакция |
 | З3 | перечень SAN читателей ленты у источника (C06 редакций 1–3) | там же | читатель — только `reader` в модели + звено Р2 | эта редакция |
 | З4 | `sub-notification-kind`: объект `notification_feed:<id ленты>` | `.claude/rules/subscription.md` | `notification_feed:<модуль>` (Р4) | правка правила — `kacho-workspace#881` |
-| З5 | `hard-cloud-admin-cascade` — администратор кластера получает каскадом всякое отношение; в коде — надзор двери проверки прав kaname на отказе модели (§1.11) | `.claude/rules/security-hardening.md`; kaname `internal/service/authorize_service.go` | у `notification_feed`/`notification_namespace` надзор не применяется ни на одном пути двери; перечень типов — одна декларация; рычаг — `Revoke`/`Restore` (Р5) | правило — `kacho-workspace#881`; код — S2 (kaname#484) |
+| З5 | `hard-cloud-admin-cascade` — администратор кластера получает каскадом всякое отношение; в коде — надзор в семи местах обобщённой двери kaname (§1.11, Д-1…Д-7) | `.claude/rules/security-hardening.md`; kaname `internal/service/authorize_service.go`, `internal/authzguard/own_door.go`, `internal/authzguard/read_authz.go` | у `notification_feed`/`notification_namespace` надзор не применяется ни в одном из мест Д-1…Д-7; перечень типов — одна декларация; места с закреплённым предметом не затронуты (§1.11); рычаг — `Revoke`/`Restore` (Р5) | правило — `kacho-workspace#881`; код — S2 (kaname#484) |
 | З6 | `sec-forwarded-trust-aware-extract`: личность — только пересланная | `.claude/rules/security.md` | + служебный принципал из проверенного сертификата на закрытом перечне методов, отдельным носителем (Р2) | правка правила — `kacho-workspace#881` |
 | З7 | `authz.TenantSubject`: субъект подписки — только `user`/`service_account` | corelib `authz/types.go` | словарь тенантских субъектов не меняется; `service:` приходит вторым носителем одной функцией (Р2 п.3) | S1 |
 | З8 | `poly-edge-notify-sources` / `poly-edge-notify-kaname`: «источники — kaname (NTF-1)» | `.claude/rules/polyrepo.md` | kaname — источник с NTF-2 (исключение Р3); в NTF-1 — `notify-probe` на стенде; `notify → kaname` несёт `ResolveSend` | правка правила — `kacho-workspace#881` |
@@ -641,8 +742,8 @@ kaname и поставщика личности — NTF-2 с его предик
 | стадия | задача | что производит | зависит от |
 |---|---|---|---|
 | **S0** | #2915 | контракт `kacho proto/corelib/notify/`, стабы в corelib | — |
-| **S1** | corelib#77 | `notify/spec`, `notify/feed` (с флагом), `cmd/notifygen`, звено Р2 в `grpcsrv`/`listnarrow`/`authz`; тег corelib | S0 |
-| **S2** | kaname#484 | типы модели `service`, `notification_feed`, `notification_namespace`; форма строки манифеста и валидатор; запись выдачи; `ResolveSend`/`Revoke`/`Restore` (право `ResolveSend` — той же дверью проверки прав); перечень типов без надзора администратора облака и его предикат на всех путях надзора двери (Р5, §1.11); звено Р2 на слушателях kaname (перечень `{ResolveSend}`); отказ тенантских поверхностей | S1 |
+| **S1** | corelib#77 | `notify/spec`, `notify/feed` (с флагом), `cmd/notifygen`, звено Р2 в `grpcsrv`/`listnarrow`/`authz`; `notification_feed`, `notification_namespace` и `service` в `forbiddenObjectTypes` (Р2 п.5); тег corelib | S0 |
+| **S2** | kaname#484 | типы модели `service`, `notification_feed`, `notification_namespace`; форма строки манифеста и валидатор; запись выдачи; `ResolveSend`/`Revoke`/`Restore` (право `ResolveSend` — той же дверью проверки прав); перечень типов без надзора администратора облака и его предикат во всех семи местах обобщённой двери Д-1…Д-7, ведомость классов переписи и её гейт (Р5, §1.11); звено Р2 на слушателях kaname (перечень `{ResolveSend}`); отказ тенантских поверхностей | S1 |
 | **S3** | #2915 | `services/notify`: перечень, подписка, `Claim`/`Ack`, `ResolveSend`, рендер, отправка, лимиты, база `kacho_notify`, метрики, тревоги | S1, S2 |
 | **S4** | #2916 | политика выпуска, декларации `<служба>.spiffe`, гейт согласия | — (блокирует боевое включение S3) |
 | **S5** | #2915 | чарт notify, флаг, выведенный перечень, приёмник с TLS, `notify-probe`, сквозные пробы | S3, S4 |
@@ -664,8 +765,10 @@ kaname и поставщика личности — NTF-2 с его предик
 | время | управляемые часы в `feed`, notify и kaname | integration |
 | ретранслятор | тестовый SMTP-узел в процессе пробы с TLS, ответы задаются на `AUTH`/`MAIL FROM`/`RCPT`/`DATA` | notify integration |
 | фикстурный источник | служба в процессе пробы на `corelib notify/feed` с базой testcontainers; пространства `probe`, `probe-b` и фикстурное `kaname` (класс `security` допустим только ему — `identityNamespaces`); перечень notify пробы: у `kaname` и `probe` форма адресата `address`, `standProbeNamespace = probe` (кроме G21, где он явно не задан); у `probe-b` формы `address` нет — строки `probe-b` в пробах до отправки не доходят | notify integration |
-| проверка прав фикстурного источника | клиент проверки прав источника в пробе notify отвечает по посеянным кортежам (Р5 — только `service:notify reader …`; иначе — как сказано в Given) | notify integration |
+| проверка прав фикстурного источника | клиент проверки прав источника в пробе notify отвечает по посеянным кортежам (Р5 — только `service:notify reader …`; иначе — как сказано в Given); **кроме F22 (а), (в)**, где источник спрашивает настоящую дверь kaname в процессе пробы — средство названо в самом F22 | notify integration |
+| дверь kaname в процессе пробы | kaname на testcontainers с посевом F01 и фикстурным краем в круге пересылающих | notify integration (F22 (а), (в)) |
 | пересылающий | фикстурный край в круге пересылающих пробы, пересылает посеянного пользователя (в том числе администратора облака) | kaname, notify integration |
+| фикстурные источники флага | corelib: `probe` с ключами журнала `notification` → `notification_feed` и `item` → `probe_item` (тип фикстуры); `probe-solo` — только `notification` → `notification_feed`; переменная флага процесса | corelib integration (N07) |
 | таблица подключаемых источников | фикстурная копия чарта notify с таблицей из двух источников `notify-probe`, `probe-b` | гейт рендера |
 | недоступность | остановка тестового сервера в процессе пробы | notify integration |
 | флаг | значения рендера по `deploy/stacks.txt`; переменная процесса источника | chart, corelib, notify |
@@ -737,13 +840,13 @@ kaname и поставщика личности — NTF-2 с его предик
 **Given** фикстурный источник `probe` с лентой и журналом подписки, флаг включён; шаблон `probe-hello` собран
 **When** use-case вызывает `SendProbeHello(ctx, tx, attrs)` и транзакция коммитится
 **Then** в ленте ровно одна строка `pending`: `template = probe-hello`, `schema_rev`, `class = notice`, `expires_at = enqueued_at + ttl`, `enqueued_at` — серверное время транзакции, `id` с приставкой `ntf-`
-**And** в журнале подписки ровно одна строка вида `notification` с объектом `notification_feed:probe`
+**And** в журнале подписки ровно одна строка по объекту `notification_feed:probe` (ключ журнала `notification`; на проводе — вид `notification_feed`)
 
 **ID:** NTF1-B02 — **откат — нет ни строки, ни сигнала** (близнец B01)
 
 **Given** условия B01
 **When** транзакция откатывается после `SendProbeHello`
-**Then** строк в ленте 0, строк вида `notification` в журнале 0, счётчик лимита не изменился
+**Then** строк в ленте 0, строк журнала подписки по `notification_feed:probe` 0, счётчик лимита не изменился
 
 **ID:** NTF1-B03 — **секрет в покое — шифротекст; notify получает открытый текст**
 
@@ -974,15 +1077,15 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **ID:** NTF1-E01 — **постановка даёт notify событие без атрибутов, и письмо уходит**
 
-**Given** фикстурный источник `probe` с сервером подписки и лентой; модель посеяна как в F01; notify открыл подписку на `probe` с видом `notification`
+**Given** фикстурный источник `probe` с сервером подписки и лентой; модель посеяна как в F01; notify открыл подписку на `probe` с `kinds: ["notification_feed"]`
 **When** в `probe` коммитится постановка письма с посеянными уникальными значениями атрибутов
-**Then** notify получает событие `notification` с объектом `notification_feed:probe`, состояние — словом в `state_unavailable`
+**Then** notify получает событие вида `notification_feed` с объектом `notification_feed:probe`, состояние — словом в `state_unavailable`
 **And** байты события не содержат ни одного посеянного значения, ни адреса, ни имени шаблона
 **And** notify вызывает `Claim`, `ResolveSend` (`ALLOW`) и отправляет письмо; на тестовом узле одна сессия с этим получателем
 
 **ID:** NTF1-E02 — **служба без `reader` событий ленты не видит** (близнец — тот же подписчик с `reader` в фикстурной проверке прав)
 
-**Given** условия E01; служба `probe-b` (ключ таблицы Р2 источника) открывает подписку на `probe` с видом `notification`; фикстурная проверка прав источника кортежа `service:probe-b reader notification_feed:probe` не несёт
+**Given** условия E01; служба `probe-b` (ключ таблицы Р2 источника) открывает подписку на `probe` с `kinds: ["notification_feed"]`; фикстурная проверка прав источника кортежа `service:probe-b reader notification_feed:probe` не несёт
 **When** в `probe` коммитится постановка письма
 **Then** поток `probe-b` открыт, события по `notification_feed:probe` он не несёт; поток notify это событие несёт (E01)
 **And** близнец: в фикстурной проверке прав посеян кортеж `service:probe-b reader notification_feed:probe` (в модели kaname такой кортеж невыразим — F03; здесь он различает ровно один факт), остальное то же — поток `probe-b` несёт событие по `notification_feed:probe`
@@ -1149,14 +1252,21 @@ kaname и поставщика личности — NTF-2 с его предик
 **Then** `Ack DEFER(platform_unavailable)`; попытка не потрачена; SMTP-сессий 0
 **And** после подъёма kaname в пределах срока строка отправлена
 
-**ID:** NTF1-F12 — **надзор администратора облака на типах Р5 не срабатывает ни на одном пути двери** (близнец — служебный принципал; и администратор на соседнем типе)
+**ID:** NTF1-F12 — **надзор администратора облака на типах Р5 не срабатывает ни в одном месте обобщённой двери** (близнецы — служебный принципал; и администратор на типе вне перечня)
 
-**Given** условия F01; пользователь `U_ca` — администратор облака (`system_admin` на `cluster`)
-**When** через дверь проверки прав kaname — вызовами `InternalIAMService/Check` и `BatchCheck`, которыми пользуются kaname и службы kacho: (а) `Check(user:U_ca, sender, notification_namespace:probe)`; (б) `Check(user:U_ca, reader, notification_feed:probe)`; (в) `BatchCheck` субъекта `user:U_ca`, `reader`, объекты `notification_feed:probe` и `notification_feed:probe-c`; (г) `Check` субъекта `user:U_ca` на `notification_feed:*`; (д) `Check` на `notification_feed:probe` с действием, не разрешающимся в отношение
-**Then** каждый — `allowed = false`, отказ назван, `Unavailable` нет
-**And** близнец по субъекту: (а) от `service:probe`, (б) и (в, `probe`) от `service:notify` — `true`
-**And** близнец по типу: `Check(user:U_ca, viewer, <объект типа вне перечня>)` без кортежа у `U_ca` — `true` (надзор жив вне перечня)
-**And** гейт дерева kaname: перечень типов объявлен одним местом; каждый из 4 путей надзора двери (§1.11) стоит под его предикатом; инъекция пути без предиката или второй декларации — находка с координатой
+**Given** условия F01; пользователь `U_ca` — администратор облака (`system_admin` на `cluster`) с подтверждённым адресом (допуск субъекта §1.11 его не отсекает), кортежей на объектах типов Р5 у него нет; для близнеца по типу посеян пользователь `U2`, объект `iam_user:<id U2>`: отношение `token_issuer` модель определяет как `subject` без ветви администратора, поэтому администратору облака его даёт **только** надзор (довод записан у `checkAdapter`, `own_door.go`) — модель на вопрос `U_ca` отвечает «нет»
+**When** каждый подслучай идёт своим входом двери (§1.11), и каждое место Д-1…Д-7 достигнуто хотя бы одним:
+- (а) `InternalIAMService/Check` `{subject: user:U_ca, relation: sender, object: notification_namespace:probe}` — место Д-3 `verdictForRelation`;
+- (б) `InternalIAMService/Check` `{subject: user:U_ca, relation: reader, object: notification_feed:probe}` — Д-3;
+- (в) публичный `AuthorizeService/BatchCheck` от `U_ca` о себе: пункты `{subject: user:U_ca, action: <непустое действие>, required_relation: reader, resource: notification_feed/probe}`, то же с `notification_feed/probe-c` и с `notification_feed/*` — Д-5 `resolveRun` (пообъектный отказ) и Д-4 (прогон «вопроса нет»);
+- (г) публичный `AuthorizeService/Check` от `U_ca` о себе с непустым действием и `required_relation: reader`, ресурс `notification_feed/*` — Д-1 `check`, ветка «вопроса нет» по идентификатору `*`;
+- (д) публичный `AuthorizeService/Check` от `U_ca` о себе на `notification_feed/probe` с действием, не разрешающимся в отношение, без `required_relation` — Д-1, ветка «вопроса нет» по действию;
+- (е) публичный `AuthorizeService/Check` от `U_ca` о себе с непустым действием и `required_relation: reader` на `notification_feed/probe` — Д-2 `verdict`;
+- (ж) модульная проба kaname: `checkAdapter.Check(user:U_ca, reader, notification_feed:probe)` двери публичного слушателя и `AllowsVerb(reader, notification_feed, probe)` с принципалом `U_ca` в контексте — Д-6, Д-7
+**Then** каждый пункт каждого подслучая — `allowed = false` (в (ж) — `false` без ошибки), отказ назван, `UNAVAILABLE` нет
+**And** близнец по субъекту (меняется только субъект вопроса): (а) от `service:probe`; (б), (в, пункт `probe`), (е) от `service:notify` — `true`; вопрос о чужом субъекте в (в), (е) задаёт тот же `U_ca`: право **задать** вопрос у администратора облака есть (`authorizeCaller`, §1.11), ответ даёт дверь
+**And** близнец по типу (меняется только объект вопроса — тип вне перечня с отношением, которое этот тип объявляет): (а), (б) — `InternalIAMService/Check` `{user:U_ca, token_issuer, iam_user:<id U2>}`; (в) — пункты `iam_user/<id U2>` и `iam_user/*` с `required_relation: token_issuer`; (г) — `iam_user/*`; (д) — `iam_user/<id U2>` с тем же неразрешающимся действием; (е) — `iam_user/<id U2>` с `required_relation: token_issuer`; (ж) — `checkAdapter.Check` и `AllowsVerb` на `iam_user:<id U2>` с `token_issuer` — каждый `true`: модель ответила «нет», «да» дал надзор (надзор жив вне перечня)
+**And** гейт дерева kaname (§1.11, держатель переписи): перечень типов объявлен одним местом; каждое место класса «обобщённая дверь», найденное разбором, стоит под предикатом перечня; гейт судит множество мест из переписи, а не число; инъекция места без предиката, места вне ведомости классов или второй декларации перечня — находка с координатой; без инъекции гейт молчит и печатает число мест по классам
 
 **ID:** NTF1-F13 — **негодный вход отвергается синхронно с именем поля** (близнецы F01 / F05 / F06)
 
@@ -1224,7 +1334,8 @@ kaname и поставщика личности — NTF-2 с его предик
 **ID:** NTF1-F22 — **пересланный администратор облака не забирает тело, не получает решения и не видит событий ленты** (близнец — те же вызовы от `service:notify`)
 
 **Given** условия F01 и C03; фикстурный край в круге пересылающих источника `probe` и kaname пересылает `U_ca` (F12); в ленте `probe` одна строка `pending`
-**When** от фикстурного края с пересланным `U_ca`: (а) `Claim(max=10, classes={notice})` на внутреннем слушателе `probe`; (б) `ResolveSend(probe, probe-hello, сейчас)` на внутреннем слушателе kaname; (в) `Subscribe` на `probe` с видом `notification`, затем в `probe` коммитится постановка письма
+**And** средство: проверку прав источника `probe` решает **настоящая дверь kaname**, поднятая в процессе пробы на testcontainers с посевом F01, а не фикстурная проверка прав §6 — (а) `Claim` спрашивает её входом `InternalIAMService/Check` (место Д-3 §1.11), (в) сужение строк подписки — входом `BatchCheck` (Д-4, Д-5), (б) право вызова `ResolveSend` — той же функцией вердикта, что `InternalIAMService/Check` (Д-3)
+**When** от фикстурного края с пересланным `U_ca`: (а) `Claim(max=10, classes={notice})` на внутреннем слушателе `probe`; (б) `ResolveSend(probe, probe-hello, сейчас)` на внутреннем слушателе kaname; (в) `Subscribe` на `probe` с `kinds: ["notification_feed"]`, затем в `probe` коммитится постановка письма
 **Then** (а) `PERMISSION_DENIED`, текст `permission denied`; строка не арендована (следующий `Claim` notify её получает); (б) `PERMISSION_DENIED`, `permission denied`, `ErrorInfo{reason: AUTHZ_DENIED, …}`, решения в ответе нет; (в) поток открыт, события по `notification_feed:probe` не несёт
 **And** близнец: те же три вызова от notify по его сертификату без пересланного принципала (субъект `service:notify`) — (а) строка в ответе; (б) `ALLOW`; (в) событие по `notification_feed:probe` приходит
 
@@ -1489,7 +1600,7 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **Given** фикстурный источник с флагом `false`; глагол ставит `probe-hello`
 **When** глагол коммитится
-**Then** `SendProbeHello` вернул `nil`; строк в ленте 0; событий `notification` 0; ресурсная мутация глагола закоммичена
+**Then** `SendProbeHello` вернул `nil`; строк в ленте 0; событий вида `notification_feed` 0; ресурсная мутация глагола закоммичена
 **And** с флагом `true` — исход B01
 
 **ID:** NTF1-N06 — **выключено: письмо `security` — явный отказ, одинаковый для любого адреса** (близнец — включено)
@@ -1500,12 +1611,14 @@ kaname и поставщика личности — NTF-2 с его предик
 **And** гейт дерева: глагол спрашивает флаг до чтения адреса (порядок вызовов в пробе: флаг — первым)
 **And** с флагом `true` глагол для `a` ставит строку, для `b` — отвечает как для `a` без строки
 
-**ID:** NTF1-N07 — **выключено: сервера ленты и вида нет, схема та же** (близнец — включено)
+**ID:** NTF1-N07 — **выключено: сервера ленты и вида нет, схема та же; исход `Subscribe` выбран по наличию других видов** (близнец каждого случая — тот же источник с флагом `true`)
 
-**Given** фикстурный источник с флагом `false`
-**When** он стартует; notify-проба зовёт `Claim`; сравниваются схемы баз при `false` и `true`
-**Then** `Claim` — `UNIMPLEMENTED`; вид `notification` в журнале подписки не объявлен (`Subscribe` с этим видом — `INVALID_ARGUMENT` вида); таблица ленты существует, схемы побайтово равны
-**And** с флагом `true` `Claim` обслуживается и вид объявлен
+**Given** два фикстурных источника corelib, различающиеся только набором видов: (а) `probe` — ключи `notification` → `notification_feed` и `item` → `probe_item`; (б) `probe-solo` — только ключ `notification` → `notification_feed` (форма `notify-probe`); у обоих флаг `false`
+**When** каждый стартует; проба зовёт `Claim(max=10, classes={notice})` и `Subscribe` с `kinds: ["notification_feed"]`; сравниваются схемы баз при `false` и `true`
+**Then** оба стартуют; у обоих `Claim` — `UNIMPLEMENTED`; таблица ленты существует, схемы побайтово равны
+**And** (а) `Subscribe` — `INVALID_ARGUMENT`, текст `kinds: "notification_feed" is not a kind of this owner; known kinds: probe_item`
+**And** (б) журнал подписки не собран, сервер подписки не объявлен и не смонтирован: `Subscribe` — `UNIMPLEMENTED`; `TestGRPCMountParity_EveryDeclaredServiceIsMounted` на этой посадке зелёный (объявлено = смонтировано)
+**And** близнец: тот же источник с флагом `true` — `Claim` обслуживается, `Subscribe` с `kinds: ["notification_feed"]` открыт; у (а) словарь видов — `notification_feed, probe_item`
 
 **ID:** NTF1-N08 — **переменная флага не задана — служба-источник не стартует** (близнец — задана)
 
@@ -1613,7 +1726,7 @@ kaname и поставщика личности — NTF-2 с его предик
 **ID:** NTF1-K03 — **«подключить службу» — 7 шагов, каждый пропуск назван**
 
 **Given** служба kacho без ленты
-**When** выполняются: (1) ключ ленты и его ручка; (2) `notifygen init`; (3) подъём сервера ленты и вид `notification` в журнале подписки; (4) звено Р2: перечень `{Subscribe, Claim, Ack}`, таблица из `notify.spiffe`; (5) строки каталога прав для `Claim`/`Ack`; (6) строка `notifications: {namespace: <модуль>, readers: [notify]}` в манифесте; (7) строка таблицы подключаемых источников в чарте и флаг модуля
+**When** выполняются: (1) ключ ленты и его ручка; (2) `notifygen init`; (3) подъём сервера ленты и ключ `notification` → `notification_feed` в `Mapping.Kinds` журнала подписки; (4) звено Р2: перечень `{Subscribe, Claim, Ack}`, таблица из `notify.spiffe`; (5) строки каталога прав для `Claim`/`Ack`; (6) строка `notifications: {namespace: <модуль>, readers: [notify]}` в манифесте; (7) строка таблицы подключаемых источников в чарте и флаг модуля
 **Then** письмо фикстурного шаблона доставлено
 **And** пропуск (1) — отказ старта (B05); (2) — отказ старта сервера ленты «таблицы нет»; (3) — гейт монтирования; (4) — `Claim` notify `PERMISSION_DENIED` (C06) и тревога возраста; (5) — гейт аннотаций (C07); (6) — `NOT_YET_GRANTED` и `grant_skew` (F04); (7) — нет в перечне notify (N03), тревога возраста
 
@@ -1681,7 +1794,10 @@ kaname и поставщика личности — NTF-2 с его предик
 | M08 | извлекатель `authz.Interceptor` на обоих слушателях | corelib `authz/interceptor_service_subject_test.go`; kacho `services/notify/cmd/notify-probe/…/listeners_integration_test.go`; гейт одной функции — kacho `internal/repohygiene/servicesubjectsingular_test.go` | `go test`; `go test -tags integration` |
 | M10 | отказ тенантских поверхностей, писатель кортежей `service:` | kaname `internal/apps/kaname/api/access_binding/*_test.go`; `TestProxyTupleRefusalMapsToPermissionDenied` (существующий); corelib `authz/proxytuple/policy.go`; kacho `proxyforbiddentypes_test.go` (существующий); kaname гейт `internal/check/servicesubjectwriter_test.go` | `go test` в kaname и kacho |
 | F01, F04–F11, F13–F20 | модель, выдача, `ResolveSend`, `Revoke`/`Restore`, посев, полоса | kaname `internal/…/notificationgrant/*_integration_test.go` (testcontainers; F18 — горутины); модель — `tools/modelcanoncheck` (существующий) | `go test -tags integration ./...` (kaname) |
-| F12 | дверь проверки прав kaname: перечень типов без надзора на всех 4 путях (§1.11) | kaname `internal/service/authorize_service_supergate_exempt_test.go` (вызовы `Check`/`BatchCheck` через обработчики `InternalIAMService`); гейт дерева — kaname `internal/check/supergateexemptsites_test.go` | `go test ./internal/service/... ./internal/check/...` (kaname), инъекция |
+| F12 (а), (б) | место Д-3 `verdictForRelation` через обработчик `InternalIAMService/Check` | kaname `internal/apps/kaname/api/internal_iam/supergate_exempt_test.go` (вызов обработчика; дверь — настоящая `AuthorizeService` на посеве F01) | `go test ./internal/apps/kaname/api/internal_iam/...` (kaname) |
+| F12 (в)–(е) | места Д-1, Д-2, Д-4, Д-5 через обработчики публичного `AuthorizeService` (`Check`, `BatchCheck`) | kaname `internal/apps/kaname/api/authorize/supergate_exempt_test.go` | `go test ./internal/apps/kaname/api/authorize/...` (kaname) |
+| F12 (ж) | места Д-6 `checkAdapter.Check`, Д-7 `AllowsVerb` | kaname `internal/authzguard/supergate_exempt_test.go` | `go test ./internal/authzguard/...` (kaname) |
+| F12 (гейт) | перепись мест семейства надзора разбором по идентичности против ведомости классов §1.11; предикат перечня в каждом месте «обобщённой двери» | kaname `internal/check/supergateexemptsites_test.go` + ведомость классов в `internal/check/testdata/` | `go test ./internal/check/...` (kaname), инъекция в обе стороны |
 | F22 (б) | `ResolveSend` пересланному администратору облака | kaname `internal/…/notificationgrant/forwarded_admin_integration_test.go` | `go test -tags integration ./...` (kaname) |
 | F22 (а), (в) | сервер ленты и сужение подписки фикстурного источника против двери kaname | kacho `services/notify/internal/…/forwarded_admin_integration_test.go` (kaname в процессе пробы на testcontainers) | `go test -tags integration ./services/notify/...` |
 | F02, F03, F21 | валидатор и применитель манифестов | kaname `tools/modulemanifestcheck`, `internal/servicemanifest/seed_form_test.go` (существующий, новые случаи) | `go test ./tools/modulemanifestcheck/... ./internal/servicemanifest/...` |
@@ -1694,7 +1810,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | H01–H10 | лимиты notify, база `kacho_notify` | kacho `services/notify/internal/…/limits_integration_test.go` (2 реплики в процессе для H03); `services/notify/internal/config/*_test.go` (H07, H08) | `go test -tags integration ./services/notify/...` |
 | N01–N04, I01, I02, I04, I05, J05 | гейты рендера по `deploy/stacks.txt` (N02 — на фикстурной копии чарта с таблицей из двух источников) | kacho `deploy/notifications_flag_test.go`, `deploy/notify_source_list_derived_test.go`, `deploy/identity_mail_lane_feeds_both_senders_test.go` (существующий, переписывается под I01), `deploy/mail_receiver_core_test.go` (существующий, расширяется), `deploy/tests/helm/notify-availability-test.sh`, `deploy/tests/helm/service-identity-declaration-test.sh` | `go test ./deploy/...`; прогон по `deploy/stacks.txt` |
 | I03, L01, L02 | стенд с приёмником и `notify-probe` | kacho newman `tests/newman/notify-delivery/` + строка ведомости производителя | прогон newman на стенде `dev-prod` |
-| N05–N07, N09 | флаг в `feed` | corelib `notify/feed/flag_integration_test.go`; источник-фикстура | `go test -tags integration ./notify/feed/...` |
+| N05–N07, N09 | флаг в `feed`; N07 — сборка журнала и объявление сервера подписки по наличию видов (источники `probe`, `probe-solo`) | corelib `notify/feed/flag_integration_test.go`; источник-фикстура | `go test -tags integration ./notify/feed/...` |
 | N08 | страж старта `notify-probe` | kacho `services/notify/cmd/notify-probe/config_test.go` | `go test` |
 | I06 | чарт notify отдельно | kacho `deploy/tests/helm/notify-standalone-test.sh`; `helm install` на кластере | прогон скрипта; `.github/workflows/production-posture.yml` |
 | J01, J02, J04 | политика выпуска | kacho политика в чарте + `deploy/tests/cluster/cert-issuance-policy-test.sh`; `assert-production-posture.sh` | прогон на поднятом кластере |
@@ -1703,7 +1819,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | L03–L05 | конвейер с управляемыми часами | kacho `services/notify/internal/…/outage_integration_test.go` | `go test -tags integration ./services/notify/...` |
 
 **Сценариев без производителя — ноль.** Каждый ID §6 входит хотя бы в одну строку таблицы
-(F01, F22, G20 — в двух, по двум «Тогда»).
+(F01, F22, G20 — в двух, F12 — в четырёх, по своим «Тогда» и входам двери).
 
 ## §6.2 Близнецы: один изменённый факт на каждое отрицание
 
@@ -1762,8 +1878,9 @@ kaname и поставщика личности — NTF-2 с его предик
 | F09 | F01 | субъект / пространство вызова |
 | F10 | F05 | роль вызывающего |
 | F11 | F01 | доступность kaname |
-| F12 (администратор, типы Р5) | F12 (служебный принципал) | субъект |
-| F12 (администратор, типы Р5) | F12 (администратор, тип вне перечня) | тип объекта |
+| F12 (а), (б), (в, `probe`), (е) — администратор, типы Р5 | тот же вход и место: `service:probe` в (а), `service:notify` в (б), (в), (е) | субъект вопроса |
+| F12 (а)–(ж) — администратор, типы Р5 | тот же вход и место, объект `iam_user:<id U2>` с `token_issuer` | объект вопроса: тип вне перечня (с отношением, которое этот тип объявляет и которое администратору даёт только надзор) |
+| F12 (гейт, инъекция) | F12 (гейт, дерево) | место без предиката / вне ведомости / вторая декларация |
 | F22 (а)–(в), пересланный администратор | F22 (а)–(в), `service:notify` | субъект вызова |
 | F13 (по полю) | F01 / F05 / F06 | одно поле |
 | F14 | F01 | есть ли выдача |
@@ -1806,7 +1923,8 @@ kaname и поставщика личности — NTF-2 с его предик
 | N04 (всё выключено) | N04 (проба включена) | флаги |
 | N05 | B01 | флаг |
 | N06 (`false`) | N06 (`true`) | флаг |
-| N07 (`false`) | N07 (`true`) | флаг |
+| N07 (а) `false` | N07 (а) `true` | флаг |
+| N07 (б) `false` | N07 (б) `true` | флаг |
 | N08 | N08 (задана) | переменная |
 | I02 | I01 | ссылка модуля на секрет |
 | I04 | I04 (стендовые цепочки) | профиль |
@@ -1873,8 +1991,8 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **S2 — kaname (#484, часть NTF-1):**
 
-10. Зелёные: NTF1-F01…F21, NTF1-F22 (б), NTF1-M07, NTF1-M10, NTF1-J03; гейт путей надзора (F12)
-    доказан инъекцией в обе стороны.
+10. Зелёные: NTF1-F01…F21, NTF1-F22 (б), NTF1-M07, NTF1-M10, NTF1-J03; гейт переписи мест надзора (F12)
+    доказан инъекцией в обе стороны и печатает число мест по классам §1.11.
 11. Модель несёт `service`, `notification_feed`, `notification_namespace`; `tools/modelcanoncheck`,
     kacho `modelrelationproducer_test.go` и `proxyforbiddentypes_test.go` на новом пине зелёные;
     перечень Р2 kaname = `{ResolveSend}`.
@@ -1923,3 +2041,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | 4 | B4-4 автоматическая пауза против Д11 | SCOPE | снята из Р10 и §4: пауза — только оператором и в NTF-1, и в NTF-4 |
 | 4 | класс CONSTRUCTIBILITY пятый раз подряд — перепись по двум вопросам ревьюера | CONSTRUCTIBILITY | (1) «решает ли код kaname исход в обход модели»: перепись §1.11 — единственный разрешающий обход для типов Р5 — надзор, закрыт Р5; допуск только сужает; `Breakglass` запрещён посадкой. (2) «не запрещает ли Given собственное правило документа»: перепись всех Given, где строка доходит до отправки, по правилам Р6 (класс `security` — только `kaname`; форма `address` — только `kaname` и `standProbeNamespace`) и Р4/Р5 (одна лента на службу, `reader` — только notify): найдены и исправлены H01, H03 (два источника `security`), E02 (вторая лента), G02 (близнец отправлял из `probe-b`, у которого нет формы `address` — роли поменяны), H05/H06 (класс строк по лентам назван); средства §6 называют `standProbeNamespace = probe` в пробах notify |
 | 4 | важные | — | M02 — текст и производитель `authz.Interceptor` (`permission denied`), близнец — метод в перечне; G19 и Р1 — один диагностический HTTP-слушатель, gRPC-слушателя нет; ручки на источник — словарь `notify.sourceLimits.<модуль>` (Р10, H04, H06, H08, N03 с двумя новыми инъекциями); M06 — перечень включает `OperationService.Get`, проверяется Р2 п.4; рассинхрон NTF-4 с этой редакцией — правка NTF-4, названа в возврате |
+| 5 | B5-1 перепись путей надзора неполна: пропущен `verdictForRelation` (вход `InternalIAMService/Check`); `module/authz.go:26` — комментарий, а не вызов; `checkAdapter.Check` и `AllowsVerb` не названы; F12 (д) невыразим через `InternalIAMService/Check`; `BatchCheck` приписан не тому сервису | CONSTRUCTIBILITY | §1.11 переписан построчно: предикат прошлой редакции (29 строк) молчал о вызовах обёрток — новый предикат по всему семейству имён даёт 62 строки, контрольный `"system_admin"` — 11; каждая строка получила класс (обобщённая дверь 8 · закреплённый предмет 14 · определение 11 · план 7 · комментарий 22), сумма сверена с выводом; все семь мест обобщённой двери Д-1…Д-7 (включая `verdictForRelation`, `checkAdapter.Check`, `AllowsVerb`) внесены в перечень Р5, места с закреплённым предметом — с доводом и держателем; Р5, З5, S2 называют Д-1…Д-7; F12 разведён по входам: (а), (б) — `InternalIAMService/Check`, (в)–(е) — публичный `AuthorizeService` (`BatchCheck`, `Check` с действием), (ж) — модульная проба Д-6, Д-7; гейт F12 судит множество мест из переписи против ведомости классов, а не константу; §6.1 — четыре строки F12, `BatchCheck` — публичного `AuthorizeService` |
+| 5 | B5-2 слово вида на проводе и пустой словарь видов | CONSTRUCTIBILITY | во всех When/Then вид провода — `notification_feed` (`kinds: ["notification_feed"]`, событие вида `notification_feed`); слово `notification` — только ключ `Mapping.Kinds` (Р4, Р9, Р16, B01, B02, K03); исход флага `false` выбран по наличию других видов (Р9): есть — `INVALID_ARGUMENT` полным текстом corelib, нет — журнал не собирается, сервер подписки не объявляется и не монтируется, служба стартует, `Subscribe` — `UNIMPLEMENTED`; N07 утверждает оба случая на двух фикстурных источниках (`probe` с видом `probe_item`, `probe-solo`), близнец каждого отличается только флагом |
+| 5 | важные N5-1, N5-2 | — | Р2 п.5 и S1: `notification_feed`, `notification_namespace` внесены в `forbiddenObjectTypes` рядом с `service` (сторона Б гейта `TestForbiddenProxyObjectTypesAgreeWithTheModel`, M10 (б)); средство F22 (а), (в) — настоящая дверь kaname в процессе пробы — названо в самом F22 и отдельной строкой §6, строка фикстурной проверки прав оговаривает исключение |
+| 5 | класс CONSTRUCTIBILITY шестой раз подряд — общий знаменатель «факт о дереве из прозы» | CONSTRUCTIBILITY | перепись фактов документа о коде по вопросу «из разобранного вывода или из прозы»: утверждения §1.11 — из вывода, построчно; слово вида — из `KindDictionary` corelib, а не из имени ключа; исход флага `false` — из проверки пустого `Mapping.Kinds` corelib; адресаты проверки прав F22 — из цепочки обработчиков; F12 (г) ведётся публичным `Check`, а не `InternalIAMService/Check`: ветка «вопроса нет» по `*` есть только у `check` (Д-1), а `CheckRelation` отдаёт `*` модели как обычный объект |
