@@ -137,3 +137,31 @@ blocks: false
 return_to: —
 distributed_surface: true
 schema_review_overlap: true   # триггер AFTER INSERT на журнале, CREATE OR REPLACE функции в новой миграции, отказ функции откатывает мутацию
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  database_id: 5914693164
+  node_id: IC_kwDOTZqgWM8AAAABYIsOLA
+  url: https://github.com/PRO-Robotech/kacho/issues/2915#issuecomment-5914693164
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5914693164
+  actor: pointpu
+  author_association: MEMBER
+  role: design-reviewer
+  holder: human-design
+  created_at: '2026-09-30T15:45:48Z'
+  body_sha256: 959fd9b5e4469702e19270facee809e34d7af3aca11ca59e8853dfd1d8210eec
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5914693164 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: c018895f059dd839893f78c139191b69e24b2a0d6245e4fef33040f7e9c531f0
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.design-reviewer
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
