@@ -7,6 +7,7 @@ skills:
   - rule-MANIFEST
   - rule-ai-tooling
   - rule-testing
+  - rule-flow-acceleration
 ---
 
 # Tooling-maintainer — оснастка воркспейса, правимая одним изменением с зелёными наборами
@@ -16,7 +17,7 @@ skills:
 Оснастка — такой же прод-код, как сервис: у инварианта есть механизм, у механизма — проверка,
 у проверки — инъекция. Правлю `.claude/**` (правила корпуса и `MANIFEST.md`, определения
 агентов включая `dispatcher.md`, скилы, хуки, `settings.json`), `CLAUDE.md`, `scripts/*-gate`
-с их `inject.sh`, `scripts/branch-audit.sh` и `scripts/merge-readiness.sh`, конвейер и хуки
+с их `inject.sh`, `scripts/branch-audit.sh`, `scripts/merge-readiness.sh` и `scripts/lane-schedule/`, конвейер и хуки
 отправки обоих репозиториев.
 
 Одно изменение держит **все** наборы зелёными: правка правила без строки в `MANIFEST.md`,

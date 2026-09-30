@@ -8,6 +8,7 @@ skills:
   - rule-data-integrity
   - rule-security
   - rule-security-disclosure
+  - rule-flow-acceleration
 ---
 
 # Acceptance-author — автор контракта Given-When-Then, пишущийся до первой строки кода

@@ -69,11 +69,21 @@ cat > "$STUB/gh" <<'STUBEOF'
 # Незнакомый вызов — жёсткий отказ, а не пустой ответ: пустой прошёл бы за
 # «сосед недоступен» и замаскировал промах провязки успехом.
 set -u
+# `api` различается по ПУТИ: инструмент читает у соседа ровно защиту ветки.
+# Любой иной путь — отказ 99: чтение, которого инструмент делать не обязан,
+# видно, а не проходит пустым ответом.
 case "${1:-}" in
     pr)  target="${MR_FIXTURE:?}/pr" ;;
-    api) target="${MR_FIXTURE:?}/protection" ;;
+    api)
+        case "${2:-}" in
+            */branches/*/protection)      target="${MR_FIXTURE:?}/protection" ;;
+            *) echo "gh-stub: незнакомый путь api: $*" >&2; exit 99 ;;
+        esac ;;
     *)   echo "gh-stub: незнакомый вызов: $*" >&2; exit 99 ;;
 esac
+if [ ! -e "$target.json" ] && [ ! -e "$target.unavailable" ]; then
+    echo "gh-stub: фикстуры $target.json нет" >&2; exit 98
+fi
 if [ -e "$target.unavailable" ]; then exit 1; fi
 cat "$target.json"
 STUBEOF
@@ -102,6 +112,21 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
     fi
     jq -n --arg st "$st" --arg ms "$ms" --argjson r "$rollup" \
         '{state:$st, baseRefName:"main", mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+}
+
+# mk_pr_mixed <файл> <состояние-слияния> <имя=ИСХОД>... — rollup с НЕзелёными
+# записями. Пустой исход — контекст идёт (`conclusion: null`). Без такой фикстуры
+# решение «контекст зелёный только по исходу SUCCESS» не держала ни одна проба:
+# `mk_pr` пишет одни SUCCESS, и фильтр, снятый до `select(true)`, давал ложное
+# «можно» при зелёном check-09 (возврат check-verifier @4a02d37a9).
+mk_pr_mixed() {
+    local f="$1" ms="$2"; shift 2
+    local rollup
+    rollup="$(printf '%s\n' "$@" | jq -R 'capture("^(?<name>.*)=(?<c>[A-Z_]*)$")
+        | {name, status:(if .c=="" then "IN_PROGRESS" else "COMPLETED" end),
+           conclusion:(if .c=="" then null else .c end)}' | jq -s .)"
+    jq -n --arg ms "$ms" --argjson r "$rollup" \
+        '{state:"OPEN", baseRefName:"main", mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
 }
 
 # A — все обязательные зелены.
@@ -157,6 +182,47 @@ I="$(mkcase I)"
 mk_pr "$I/pr.json" MERGED CLEAN "$CTX_LAT"
 mk_protection "$I/protection.json" "$CTX_LAT"
 
+# ── С ОБЯЗАТЕЛЬНЫМИ КОНТЕКСТАМИ: ЗЕЛЁНЫЙ — ТОЛЬКО ИСХОД SUCCESS ────────────────
+# RC-<исход> — обязательный контекст на ревизии ЕСТЬ, но не зелёный: идёт
+# (`running`, conclusion null) либо красный. Против A меняется ровно один факт —
+# исход записи CTX_CYR. Это класс kacho#614 на основном пути: идущий или красный
+# обязательный контекст, засчитанный за «можно». Каждый исход — своей пробой:
+# фильтр, ослабленный до «не FAILURE», ловится остальными, «не null» — красными.
+#
+# Перечень — ВСЕ исходы проверки, кроме SUCCESS, плюс «идёт», а не повтор
+# перечня `red=` инструмента. Повтор держал бы лишь то, что инструмент и так
+# называет красным: зелёный, заданный дополнением к перечню красных, проходил
+# все пробы, а на STARTUP_FAILURE и STALE отвечал «можно» (возврат
+# check-verifier @5f3080335). Красные исходы (RC_RED) инструмент называет
+# красными; прочие незелёные (RC_OTHER) — своим исходом.
+RC_RED="FAILURE CANCELLED TIMED_OUT ACTION_REQUIRED STARTUP_FAILURE"
+RC_OTHER="STALE NEUTRAL SKIPPED"
+RC_OUTCOMES="running $RC_RED $RC_OTHER"
+for oc in $RC_OUTCOMES; do
+    d="$(mkcase "RC-$oc")"
+    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    c="$oc"; [ "$oc" = running ] && c=""
+    mk_pr_mixed "$d/pr.json" CLEAN "$CTX_LAT=SUCCESS" "$CTX_DASH=SUCCESS" "$CTX_CYR=$c"
+done
+
+# A-<состояние> — все обязательные зелены, а сервер держит слияние. Против A один
+# факт — состояние слияния, и каждое удерживающее — своей пробой: порча перечня
+# «можно» на любом из них — ложное «можно».
+# Z-<состояние> — законные «можно» при зелёных обязательных: снятие их из перечня
+# дало бы ложное «нельзя», и близнец удерживающих проб обязан молчать на них.
+MS_HELD="BLOCKED DIRTY BEHIND DRAFT UNKNOWN"
+MS_LAWFUL="UNSTABLE HAS_HOOKS"
+for ms in $MS_HELD; do
+    d="$(mkcase "A-$ms")"
+    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    mk_pr "$d/pr.json" OPEN "$ms" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+done
+for ms in $MS_LAWFUL; do
+    d="$(mkcase "Z-$ms")"
+    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    mk_pr "$d/pr.json" OPEN "$ms" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+done
+
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
 # незнакомый отвергается кодом 99, а не тишиной. Проверяется БЕЗ участия
@@ -172,16 +238,54 @@ if [ "$stub_rc" -ne 99 ]; then
     exit 2
 fi
 
+# ── ЛОКАЛЬ ПРОБ: ТА, ГДЕ ПОРЯДОК РАСХОДИТСЯ С БАЙТОВЫМ ─────────────────────────
+# Инструмент сверяет множества под `LC_ALL=C` (ws#530). Снятие этого пина —
+# дефект лишь там, где локаль среды упорядочивает или схлопывает иначе, чем
+# байты: под C.UTF-8 проба его не видит (возврат check-verifier @5f3080335).
+# Поэтому пробы не наследуют локаль вызова, а исполняют инструмент под
+# локалью, ЗАМЕРЕННОЙ здесь как расходящаяся с байтовым порядком на входе
+# фикстур: ru_RU первой (кириллица перед латиницей и схлопывание тире), затем
+# любая иная из `locale -a`. Нет такой — снятие пина в этой среде
+# непредставимо, и перепись говорит это вслух; держат тогда инъекции inject.sh,
+# не зависящие от среды (обратный порядок, дедупликация по полю).
+mr_locale_sample() { printf '%s\n' "$CTX_LAT" "$CTX_CYR" "$CTX_DASH" "проба — раз" "проба - раз"; }
+byte_order="$(mr_locale_sample | LC_ALL=C sort -u)"
+PROBE_LOCALE=""
+for cand in $(locale -a 2>/dev/null | grep -i '^ru_RU.*utf' ; locale -a 2>/dev/null | grep -iv '^ru_RU' | grep -iv '^\(c\|posix\)\(\..*\)\?$'); do
+    if [ "$(mr_locale_sample | LC_ALL="$cand" sort -u 2>/dev/null)" != "$byte_order" ]; then
+        PROBE_LOCALE="$cand"; break
+    fi
+done
+if [ -n "$PROBE_LOCALE" ]; then
+    locale_note="пробы исполняют инструмент под LC_ALL=$PROBE_LOCALE — порядок расходится с байтовым, снятие LC_ALL=C представимо"
+else
+    locale_note="локали, чей порядок расходится с байтовым, в системе нет — снятие LC_ALL=C здесь непредставимо; держат инъекции inject.sh, от среды не зависящие"
+fi
+
 # ── ПРОБЫ ────────────────────────────────────────────────────────────────────
 probes=0
 findings=0
+by_code0=0; by_code1=0; by_code2=0
 
 # probe <каталог> <ожидаемый-код> <имя-пробы> <обязательная-подстрока>...
+#
+# Имя пробы начинается МЕТКОЙ случая — `[<буква>]` из имени каталога фикстуры.
+# По метке inject.sh сверяет, что порча решения покраснила ИМЕННО держащую его
+# пробу, а не соседнюю: код 1 набора сам по себе этого не говорит.
+#
+# Перепись по кодам считается ЗДЕСЬ, по вызовам, а не
+# выписывается литералом: добавленная или снятая проба меняет строку сама.
 probe() {
     local dir="$1" want="$2" title="$3"; shift 3
     local out rc needle
+    title="[${dir##*/case-}] $title"
     probes=$((probes + 1))
-    out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" \
+    case "$want" in
+        0) by_code0=$((by_code0 + 1)) ;;
+        1) by_code1=$((by_code1 + 1)) ;;
+        2) by_code2=$((by_code2 + 1)) ;;
+    esac
+    out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" LC_ALL="${PROBE_LOCALE:-${LC_ALL:-}}" \
         bash "$WS/$TOOL_REL" PRO-Robotech/kacho-workspace 1 2>&1)" && rc=0 || rc=$?
     if [ "$rc" -ne "$want" ]; then
         tooling_gate_fail "$NAME" "$title — ждали код $want, получили $rc"
@@ -190,7 +294,8 @@ probe() {
         return
     fi
     for needle in "$@"; do
-        if ! printf '%s\n' "$out" | grep -qF -- "$needle"; then
+        # Здесь-строка, а не труба: `grep -q` под pipefail роняет пишущего по SIGPIPE.
+        if ! grep -qF -- "$needle" <<<"$out"; then
             tooling_gate_fail "$NAME" "$title — код $rc верен, но в выводе нет «$needle»"
             printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
             findings=$((findings + 1))
@@ -218,8 +323,33 @@ probe "$E" 2 "ответ о защите не разбирается — бес�
 probe "$F" 2 "ответ о PR не разбирается — беспредметно, а не «нельзя»" \
     "РАЗБОР СЛОМАН"
 
-probe "$G" 2 "обязательных контекстов ноль — беспредметно, а не «нельзя»" \
-    "обязательных контекстов ноль"
+probe "$G" 2 "обязательных контекстов ноль — беспредметно, а не «нельзя» и не «можно»" \
+    "обязательных контекстов ноль" "ничем не гейтится"
+
+for ms in $MS_HELD; do
+    probe "$TMP/case-A-$ms" 1 "с контекстами: все обязательные зелены, состояние слияния $ms — задержано, а не «можно»" \
+        "СЛИЯНИЕ ЗАДЕРЖАНО" "состояние слияния: $ms" "обязательных контекстов: 3"
+done
+
+for ms in $MS_LAWFUL; do
+    probe "$TMP/case-Z-$ms" 0 "с контекстами: все обязательные зелены, состояние слияния $ms — «сливать можно»" \
+        "можно сливать" "состояние слияния: $ms"
+done
+
+for oc in $RC_OUTCOMES; do
+    d="$TMP/case-RC-$oc"
+    case " $RC_OTHER " in *" $oc "*) other=1 ;; *) other=0 ;; esac
+    if [ "$oc" = running ]; then
+        probe "$d" 1 "с контекстами: обязательный контекст идёт — «сливать нельзя», а не «можно»" \
+            "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — идёт" "без него: 1"
+    elif [ "$other" -eq 1 ]; then
+        probe "$d" 1 "с контекстами: обязательный контекст $oc — не зелёный, «сливать нельзя»" \
+            "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [$oc] — не зелёный" "без него: 1"
+    else
+        probe "$d" 1 "с контекстами: обязательный контекст $oc — «сливать нельзя», а не «можно»" \
+            "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [$oc]" "$CTX_CYR — красный"
+    fi
+done
 
 probe "$H" 1 "имена, различные только длинным тире, не схлопнуты — учтены оба" \
     "обязательных контекстов: 2" "проба - раз"
@@ -227,7 +357,14 @@ probe "$H" 1 "имена, различные только длинным тир�
 probe "$I" 2 "PR уже не открыт — беспредметно, а не «нельзя»" \
     "сливать нечего"
 
-tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — 1 проба, 1 — 2 пробы, 2 — 6 проб)"
+tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; по ожидаемому коду: 0 — $by_code0, 1 — $by_code1, 2 — $by_code2"
+tooling_gate_census "$NAME: $locale_note"
+for n in "$by_code0" "$by_code1" "$by_code2"; do
+    if [ "$n" -eq 0 ]; then
+        tooling_gate_void "$NAME" "один из трёх исходов не представлен ни одной пробой — различение не доказано"
+        exit 2
+    fi
+done
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings из $probes"

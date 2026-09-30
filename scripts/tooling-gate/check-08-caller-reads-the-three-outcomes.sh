@@ -70,6 +70,10 @@ trap 'rm -rf "$TMP"' EXIT
 # Коммит делается пустым и «через силу не берётся»: на машине без объявленной
 # личности он не состоится, HEAD останется неродившимся, и хук получит пустое имя
 # ветки — черновиком (`wip/`, `tmp/`) оно не является, поэтому путь пробы тот же.
+#
+# Вход хука — ПУСТОЙ поток (`< /dev/null`): с 2026-09-30 хук читает вход git
+# (имя ветки на удалённом, `check-10`), и унаследованный открытый канал без
+# конца держал бы пробу вечно. Пустой вход значит «ссылок нет» — путь проб тот же.
 probe() {
     local caller="$1"; shift
     local dir i=90 rc out code
@@ -93,7 +97,7 @@ probe() {
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
               KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        bash ./scripts/hooks/pre-push 2>&1
+        bash ./scripts/hooks/pre-push 2>&1 < /dev/null
     )"; code=$?
     printf '%s|%s\n' "$code" "$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
 }

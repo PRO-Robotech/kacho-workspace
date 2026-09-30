@@ -135,9 +135,20 @@ fi
 
 # Исходы на ревизии PR. Один контекст может встретиться дважды (перезапуск),
 # поэтому зелёным считается имя, у которого ЕСТЬ успешный исход.
+#
+# ЗЕЛЁНЫЙ — ТОЛЬКО SUCCESS, и это определение, а не дополнение к перечню
+# красных. Исходов у проверки девять (SUCCESS, FAILURE, CANCELLED, TIMED_OUT,
+# ACTION_REQUIRED, STARTUP_FAILURE, STALE, NEUTRAL, SKIPPED) плюс «идёт»;
+# «зелёный = не красный» пропустил бы за «можно» любой исход, забытый в
+# перечне красных (возврат check-verifier @5f3080335: STARTUP_FAILURE и STALE).
+# Прочие неуспешные исходы — `other`: не красные, но и не зелёные, и вывод
+# называет их своим исходом, а не «не появлялся».
 green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
-red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
+red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED" or .conclusion=="STARTUP_FAILURE") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
 running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
+other=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "") as $c
+                 | $c != "" and (["SUCCESS","FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","STARTUP_FAILURE"] | index($c) | not))
+               | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
 
 printf '%s\n' "$required" > "$workdir/required"
 printf '%s\n' "$green"    > "$workdir/green"
@@ -165,10 +176,11 @@ green_req=$(printf '%s' "$(set_diff -12)" | grep -c . || true)
 missing_count=$(printf '%s\n' "$missing" | grep -c . || true)
 red_count=$(printf '%s\n' "$red" | grep -c . || true)
 running_count=$(printf '%s\n' "$running" | grep -c . || true)
+other_count=$(printf '%s\n' "$other" | grep -c . || true)
 
 echo "merge-readiness: $REPO#$PR → $base"
 echo "  обязательных контекстов: $req_count · с зелёным исходом: $green_req · без него: $missing_count"
-echo "  красных на ревизии: $red_count · ещё идут: $running_count · состояние слияния: $merge_state"
+echo "  красных на ревизии: $red_count · ещё идут: $running_count · с иным незелёным исходом: $other_count · состояние слияния: $merge_state"
 
 if [ "$red_count" -gt 0 ]; then
   echo "  КРАСНЫЕ:"
@@ -183,6 +195,8 @@ if [ "$missing_count" -gt 0 ]; then
       echo "    $ctx — идёт"
     elif printf '%s\n' "$red" | grep -qF "$ctx"; then
       echo "    $ctx — красный"
+    elif printf '%s\n' "$other" | grep -qF -- "$ctx ["; then
+      printf '%s\n' "$other" | grep -F -- "$ctx [" | sed 's/$/ — не зелёный/; s/^/    /'
     else
       # Тот самый случай из kacho#614: контекста на ревизии НЕТ ВОВСЕ.
       echo "    $ctx — НЕ ПОЯВЛЯЛСЯ на этой ревизии (защита сейчас не действует)"
