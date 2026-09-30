@@ -53,6 +53,13 @@ SPDX-License-Identifier: BUSL-1.1
 > круга 7; класс «держателю приписан исход, которого он на исправном продукте не даст» закрыт по
 > всему документу переписью каждого названного **нового** держателя, чей предикат читает уже
 > существующее дерево (§9)
+> — **2026-09-30 · круг 8 · ✅ ПРИНЯТО рецензентом (блокирующих 0; событие одобрения не опубликовано) ·
+> SHA-256 `b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3` ·
+> `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3.yaml`**
+> — **редакция 9 · 2026-09-30 · вердикта на неё НЕТ.** Закрывает возврат первичного разбора
+> классов на `b347b81f…` (RA-01…RA-06, запись
+> `docs/changes/issue-2915/reviews/class-exposure/initial/b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3.yaml`)
+> и замечание N8-1 круга 8: новые сценарии B25–B27, F23, G23, G24; что изменено — §9
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задачи под-фазы — `PRO-Robotech/kacho#2915`
 > (notify, раздел «notify»), `PRO-Robotech/corelib#77` (фундамент, раздел «corelib»),
@@ -471,7 +478,11 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 | `Revoke` отозванного | `FAILED_PRECONDITION` | `NOTIFICATION_GRANT_STATE` | `NotificationNamespace <id> is already revoked` (с шаблоном: `… template <name> is already revoked`) |
 | `Restore` без надгробия | `FAILED_PRECONDITION` | `NOTIFICATION_GRANT_STATE` | `NotificationNamespace <id> is not revoked` (с шаблоном: `… template <name> is not revoked`) |
 
-  `ResolveSend` на неизвестное пространство ошибкой не отвечает: исход `NOT_YET_GRANTED`;
+  `ResolveSend` на неизвестное пространство ошибкой не отвечает: исход `NOT_YET_GRANTED`.
+  `NOT_YET_GRANTED` означает только «записи нет»: чтение записи выдачи возвращает запись,
+  признак «найдено» и ошибку раздельно, и сбой чтения хранилища kaname — `UNAVAILABLE` с
+  фиксированным текстом `notification grant service temporarily unavailable` (без текста
+  драйвера), а не `NOT_YET_GRANTED` (NTF1-F23);
 - объекты `notification_feed:<модуль>` и `notification_namespace:<модуль>` адресуются именем модуля:
   это неизменяемый идентификатор из закрытого перечня модулей (как `cluster_root`), а не
   косметическое имя ресурса арендатора — `ban15-id-addressing` не задет;
@@ -522,6 +533,18 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 - общий макет — HTML с inline CSS и табличной вёрсткой в `services/notify/layout/`; рендер
   экранирует значения; письмо `multipart/alternative`; картинки — вложения `cid:`; внешних ресурсов
   нет; ссылка = origin установки из конфигурации notify + `path`/`token`;
+- **форма значений `path` и `token`** — значения этих типов приходят данными строки ленты, а
+  данные строки notify не доверяет (строку мог записать взломанный модуль), поэтому форма
+  проверяется в notify на каждой строке, перед рендером:
+  - `path` — абсолютный путь: ровно одна ведущая `/`, за ней сегменты из `[A-Za-z0-9._~-]`,
+    разделённые одной `/`; сегментов `.` и `..` нет; схемы, узла, `?`, `#`, `%`, `\`, пробелов
+    и управляющих символов нет; длина `[1..1024]`;
+  - `token` — алфавит `[A-Za-z0-9_-]`, длина `[16..512]`;
+  - ссылка собирается **сложением строк**: origin установки + `path`, для кнопки с `token` —
+    origin + путь кнопки из шаблона + `?token=` + значение с экранированием параметра запроса.
+    Разрешения относительного адреса на пути сборки ссылки нет: значение, которое при таком
+    разрешении ушло бы на другой узел, до сборки не доходит — оно не проходит форму;
+  - значение вне формы — `INVALID(attrs_invalid)` по клетке Р11, SMTP-сессий 0 (NTF1-G24);
 - заголовки — MIME-библиотекой, RFC 2047; CR/LF в значении заголовка → `INVALID`; `From` один на
   установку; `Reply-To` у `security` не выражается; локали — `{ru}`;
 - шаблоны попадают в notify **только при сборке** (`make -C services/notify bundle` + гейт);
@@ -553,6 +576,26 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
   `Ack` с `id` не по форме → `invalid notification id '<X>'` (`INVALID_RESOURCE_ID`); с
   неизвестным → `NOT_FOUND` `Notification <id> not found` (`RESOURCE_NOT_FOUND`); без исхода →
   `outcome: required`; с утраченной арендой → `FAILED_PRECONDITION` `LEASE_LOST`;
+- **повтор `Ack` после записанного исхода.** Строка хранит токен аренды, которым записан её
+  последний исход, и сам исход. `Ack(id, T, X)`, где исход строки уже записан токеном `T` и равен
+  `X`, — успех **без изменения строки** (`outcome_at` прежний): ответ `Ack` мог потеряться в сети
+  после коммита, и notify повторяет тот же вызов. `Ack(id, T, Y)` с тем же `T` и другим исходом —
+  `FAILED_PRECONDITION`, `reason = OUTCOME_ALREADY_RECORDED`, текст
+  `Notification <id> outcome is already recorded`; строка не меняется. Прочие случаи (токен не
+  тот, аренда истекла, исход записан другим токеном или уборщиком) — `LEASE_LOST`. Успешный повтор
+  notify письма не переотправляет (NTF1-B26). Правило одно для всех исходов Р11;
+- **уборщик и аренда.** Уборщик закрывает истёкшую строку только тогда, когда у неё нет
+  действующей аренды: условие аренды стоит в том же условном `UPDATE`, что и перевод в
+  `EXPIRED`. Строка под арендой остаётся `pending` до конца аренды, и notify, начавший `DATA` до
+  `expires_at`, записывает `SENT`; после конца аренды уборщик закрывает строку, и запоздалый
+  `Ack` получает `LEASE_LOST` (NTF1-B25);
+- **нормализация адреса — одна функция corelib `notify/address.Normalize`**: домен в нижнем
+  регистре и в ASCII-форме IDNA, локальная часть без изменений (та же семантика, что Р15
+  приёмки NTF-4). Её зовут `feed.Put` (ключ окна лимита у источника) и notify (ключ сетки на
+  адресата, Р10); второй нормализации адреса нет ни у источника, ни в notify. Адрес, который
+  функция не разбирает, окна не получает: `SendX` возвращает сторож `feed.ErrRecipientInvalid`, и
+  строка не ставится; строка с таким адресом, попавшая в ленту мимо `SendX`, в notify —
+  `INVALID(recipient_invalid)` (NTF1-B27, G24);
 - идентификатор строки — `corelib ids.NewID("ntf")`, приставка вносится в `ids.KnownHyphenPrefixes`;
 - **основание:** О10.
 
@@ -595,11 +638,25 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 ### Р10 (Д11, часть notify). Лимиты: точный счётчик у источника, сетка на адресата и потолки в notify
 
 - **источник** — `Put` обновляет счётчик окна CAS в транзакции события по `limits` шаблона; сверх
-  лимита строки нет — сторож `feed.ErrLimitExhausted`; ответ вызывающему выбирает глагол источника;
-  уборщик, закрывая строку `EXPIRED(platform_unavailable)`, возвращает её вклад в окно той же
-  транзакцией (только если строка ни разу не получила ответа ретранслятора на `RCPT`);
+  лимита строки нет — сторож `feed.ErrLimitExhausted`; ответ вызывающему выбирает глагол источника.
+  Ключ окна — адрес, нормализованный `address.Normalize` (Р8): два написания одного ящика
+  делят одно окно (NTF1-B27). Сторож исчерпания — ноль строк условного `UPDATE` счётчика, а не
+  ошибка SQL: после `feed.ErrLimitExhausted` транзакция вызывающего пригодна к коммиту, и
+  откатывать ли её, решает глагол источника;
+- **возврат вклада решается причиной последнего `DEFER`, и только ею.** Уборщик, закрывая строку
+  `EXPIRED(platform_unavailable)`, возвращает её вклад в окно той же транзакцией; при любой другой
+  причине истечения вклад не возвращается (NTF1-B15, B16). Прежнее условие этого пункта
+  (редакции до 8 включительно) — «только если строка ни разу не получила ответа ретранслятора на
+  `RCPT`» — **снято и замещено** этим правилом: `Ack` факта ответа на `RCPT` не несёт, а 4xx на
+  `RCPT` по Р11 даёт тот же `DEFER(platform_unavailable)`, что и отсутствие ответа, — условие было
+  невыразимо контрактом. Правило верно по существу: во всех клетках Р11 с причиной
+  `platform_unavailable` ретранслятор `DATA` не принял, письмо не ушло, и возвращать нечего
+  отнимать у владельца ящика. **Цена названа:** если ретранслятор принял `DATA`, а `Ack SENT` не
+  записался до истечения строки (окно Р14, источник недоступен notify до `expires_at`), вклад
+  вернётся, хотя письмо ушло, — не больше одного письма на строку, и только в окне Р14;
 - **notify, сетка на адресата поперёк источников** — CAS-строки в `kacho_notify`, ключ —
-  HMAC адреса ключом notify (адрес открытым текстом не хранится):
+  ключевой хеш адреса, нормализованного `address.Normalize` (Р8), ключом notify (адрес открытым
+  текстом не хранится); NTF-4 (З11) заменяет хеш отпечатком своего Р15 с той же нормализацией:
   - `security` — своя сетка (ручка `notify.limits.recipient.security.perDay`, граница
     `[1..1000]`, ориентир 40): сверх — терминальный `DROPPED(recipient_net)`, секрет стёрт,
     **тревога** на каждое срабатывание;
@@ -636,19 +693,38 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
 | событие | исход `Ack` | тратит попытку |
 |---|---|---|
 | ретранслятор принял `DATA` | `SENT`, секрет стёрт | — |
-| 5xx на `RCPT` | `RECIPIENT_REJECTED` (терминально) | — |
+| 5xx на `RCPT` — с любым расширенным кодом, в том числе класса `5.7`, и без расширенного кода | `RECIPIENT_REJECTED` (терминально) | — |
 | отказ `AUTH`; 5xx на `MAIL FROM`/`DATA` | `DEFER(platform_unavailable)` + сигнал `misconfigured` | нет |
 | 4xx, разрыв, нет TLS, недоверенный сертификат | `DEFER(platform_unavailable)`, размыкатель | нет |
 | `ResolveSend` = `REVOKED` | `DENIED(revoked)` | — |
 | `ResolveSend` = `NOT_YET_GRANTED` | `DEFER(grant_skew)` | нет |
-| kaname недоступна | `DEFER(platform_unavailable)` | нет |
+| kaname недоступна: `ResolveSend` не ответил, ответил `UNAVAILABLE` или `DEADLINE_EXCEEDED` | `DEFER(platform_unavailable)` | нет |
+| `ResolveSend` ответил отказом — любым иным кодом gRPC (`PERMISSION_DENIED`, `INVALID_ARGUMENT`, `UNAUTHENTICATED`, `INTERNAL`, …); либо исходом вне трёх, неизвестным notify | `DEFER(platform_unavailable)` + сигнал `misconfigured` | нет |
 | шаблона нет в сборке для пространства / `schema_rev` новее | `DEFER(template_skew)` | нет |
-| класс или форма адресата не разрешены пространству; атрибуты не по схеме; CR/LF в заголовке; шифротекст не открывается | `INVALID` (терминально) | — |
+| класс или форма адресата не разрешены пространству; атрибуты не по схеме, в том числе `path`/`token` вне формы Р7 (`attrs_invalid`); адрес не разбирается `address.Normalize` (`recipient_invalid`); CR/LF в заголовке; шифротекст не открывается | `INVALID` (терминально) | — |
 | сетка `security` на адресата исчерпана | `DROPPED(recipient_net)` (терминально) | — |
 | сетка прочего исчерпана | `DEFER(recipient_net)` | нет |
 | срок истёк | `EXPIRED(<причина последнего DEFER>)` — ставит только уборщик источника | — |
 
 Повтор ограничен **сроком** строки, а не счётом попыток; перед `DATA` notify сверяет срок.
+
+Ответ `ResolveSend` классифицируется **типом**: три исхода (`ALLOW`, `NOT_YET_GRANTED`,
+`REVOKED`) · недоступность (нет ответа, `UNAVAILABLE`, `DEADLINE_EXCEEDED`) · отказ (любой иной код
+или исход вне трёх). Третий род — неисправность настройки (таблица SAN kaname не согласна с
+сертификатом notify, у notify нет `reader` ленты, расхождение версий контракта), а не решение о
+письме: строка ждёт в пределах срока, попытка не тратится, тревога `misconfigured` видна сразу
+(NTF1-G23). Тревога `grant_skew` на отказ не срабатывает — она означает только «права ещё нет».
+
+**5xx на `RCPT` терминален и с расширенным кодом класса `5.7` — это ратифицировано, с ценой.**
+Отказ по политике ретранслятора (класс `5.7`, например отказ пересылки) приходит на каждого
+адресата и означает неисправность настройки, а не адресата; notify по одной сессии эти два случая
+не различает, а NTF-4 (Р4, сценарий NTF4-07) уже строит на `RECIPIENT_REJECTED` при `550 5.7.1`
+свою классификацию `permanent_other` без подавления. **Цена:** пока ретранслятор отвергает
+`RCPT` по политике, каждая забранная строка, включая `security`, закрывается терминально; письмо
+`security` получатель запрашивает повторно после исправления (глаголы `security` инициирует сам
+получатель), вклад строки в окно не возвращается (Р10). Заметность неисправности не теряется:
+счётчик исходов по клеткам Р11 (Р18) показывает рост `RECIPIENT_REJECTED` по всем пространствам и
+шаблонам сразу (NTF1-G14).
 
 ### Р12. Идентичность в сертификате выпускается только своей службе (NS); декларация одна
 
@@ -788,6 +864,9 @@ kaname и поставщика личности — NTF-2 с его предик
 | фикстурные источники флага | corelib: `probe` с ключами журнала `notification` → `notification_feed` и `item` → `probe_item` (тип фикстуры); `probe-solo` — только `notification` → `notification_feed`; переменная флага процесса | corelib integration (N07) |
 | таблица подключаемых источников | фикстурная копия чарта notify с таблицей из двух источников `notify-probe`, `probe-b` | гейт рендера |
 | недоступность | остановка тестового сервера в процессе пробы | notify integration |
+| ответ `ResolveSend` | тестовый сервер контракта `InternalNotificationGrantService` в процессе пробы; код или исход ответа задаёт проба (G23) | notify integration |
+| сбой хранилища kaname | обёртка чтения записи выдачи в пробе kaname, возвращающая ошибку хранилища (F23) | kaname integration |
+| потеря ответа `Ack` | фикстурный сервер ленты обрывает ответ после коммита (B26 (в)) | notify integration |
 | флаг | значения рендера по `deploy/stacks.txt`; переменная процесса источника | chart, corelib, notify |
 | стенд | цепочка `dev-prod` с `mailpit` и `notify-probe` | стенд |
 
@@ -907,7 +986,7 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **Given** условия B08
 **When** L+k горутин параллельно ставят письмо
-**Then** строк ровно L; k вызовов получили сторож `feed.ErrLimitExhausted` (`errors.Is`), их транзакции откатились; счётчик L
+**Then** строк ровно L; k вызовов получили сторож `feed.ErrLimitExhausted` (`errors.Is`) без ошибки SQL — транзакция пригодна к коммиту, и фикстурный вызывающий откатывает её сам; счётчик L
 **And** гейт дерева не находит в `feed` чтения счётчика с последующей записью (CAS в базе)
 
 **ID:** NTF1-B10 — **`Claim`: параллельные вызовы получают непересекающиеся строки**
@@ -945,6 +1024,7 @@ kaname и поставщика личности — NTF-2 с его предик
 **Given** строка `pending`, последний `DEFER` — `platform_unavailable`; счётчик окна = 3
 **When** часы переходят `expires_at`, уборщик проходит
 **Then** строка `EXPIRED(platform_unavailable)`, секрет стёрт, счётчик = 2 — одной транзакцией
+**And** тот же исход, когда последний `DEFER(platform_unavailable)` записан notify после ответа `451` на `RCPT` (ретранслятор ответил, `DATA` не принят): счётчик = 2 — правило Р10 судит причину последнего `DEFER`, а не факт ответа на `RCPT`
 
 **ID:** NTF1-B16 — **истечение по иной причине лимит не возвращает** (близнец B15)
 
@@ -1007,6 +1087,33 @@ kaname и поставщика личности — NTF-2 с его предик
 **When** `Claim(max=10, classes={})`
 **Then** `INVALID_ARGUMENT`, `classes: required`, `field = classes`; ни одна строка не арендована
 **And** `Claim(max=10, classes={security})` отдаёт ровно строку `security`; строка `notice` остаётся `pending`
+
+**ID:** NTF1-B25 — **уборщик не закрывает строку под действующей арендой** (близнец B15)
+
+**Given** условия B15 (последний `DEFER` — `platform_unavailable`, счётчик окна = 3), но строка забрана `Claim` с токеном T, и аренда действует
+**When** часы переходят `expires_at`, аренда ещё действует; уборщик проходит
+**Then** строка остаётся `pending`, секрет на месте, счётчик = 3
+**And** `Ack(id, T, SENT)` в пределах аренды — строка `sent`, секрет стёрт, счётчик = 3 (вклад не возвращён: письмо ушло)
+**And** вариант без `Ack`: аренда кончается, уборщик проходит — `EXPIRED(platform_unavailable)`, счётчик = 2; запоздалый `Ack(id, T, SENT)` — `FAILED_PRECONDITION`, `reason = LEASE_LOST`, строка не изменилась
+**And** гейт дерева не находит в `feed` перевода в `EXPIRED` без условия аренды в том же операторе
+
+**ID:** NTF1-B26 — **повтор `Ack` после записанного исхода** (близнецы B12 и B13)
+
+**Given** условия B12; `Ack(id, T, SENT)` закоммичен, `outcome_at = t1`
+**When** (а) повторный `Ack(id, T, SENT)`; (б) `Ack(id, T, DEFER(platform_unavailable))`; (в) в integration-пробе notify: ответ первого `Ack(id, T, SENT)` теряется после коммита на стороне источника (обрыв ответа фикстурным сервером ленты)
+**Then** (а) успех; строка не изменилась, `outcome_at = t1`
+**And** (б) `FAILED_PRECONDITION`, `reason = OUTCOME_ALREADY_RECORDED`, текст `Notification <id> outcome is already recorded`; строка не изменилась
+**And** (в) notify повторяет `Ack(id, T, SENT)` и получает успех; на тестовом узле по строке ровно одна сессия; строка `sent`
+**And** близнец по токену — B13: тот же повтор с токеном, которым исход не записан, даёт `LEASE_LOST`
+
+**ID:** NTF1-B27 — **окно лимита у источника — одно на ящик, как бы адрес ни написан** (близнец — два разных ящика)
+
+**Given** шаблон с лимитом L на адресата за окно; счётчики 0
+**When** L постановок на `User@Example.Invalid` и затем ещё одна на `User@example.invalid`, каждая в своей транзакции
+**Then** строк L; последняя постановка получила `feed.ErrLimitExhausted`; счётчик окна один, = L
+**And** близнец: L постановок на `user@example.invalid` и одна на `User@example.invalid` (локальная часть различается, Р15 NTF-4) — строк L+1, счётчиков два
+**And** постановка на адрес, который `address.Normalize` не разбирает (`user@`), — `feed.ErrRecipientInvalid` (`errors.Is`), строк 0, счётчики не изменились
+**And** `address.Normalize` ровно одна: гейт дерева не находит второй нормализации адреса в `corelib/notify` и `services/notify` (инъекция — находка с координатой; без инъекции гейт молчит и печатает объём осмотренного)
 
 ### C. Контракт ленты и её сервер — разделы «notify» (S0) и «corelib» (S1)
 
@@ -1362,6 +1469,14 @@ kaname и поставщика личности — NTF-2 с его предик
 **Then** (а) `PERMISSION_DENIED`, текст `permission denied`; строка не арендована (следующий `Claim` notify её получает); (б) `PERMISSION_DENIED`, `permission denied`, `ErrorInfo{reason: AUTHZ_DENIED, …}`, решения в ответе нет; (в) поток открыт, события по `notification_feed:probe` не несёт
 **And** близнец: те же три вызова от notify по его сертификату без пересланного принципала (субъект `service:notify`) — (а) строка в ответе; (б) `ALLOW`; (в) событие по `notification_feed:probe` приходит
 
+**ID:** NTF1-F23 — **сбой чтения записи выдачи — `UNAVAILABLE`, а не «права ещё нет»** (близнец F04)
+
+**Given** условия F04 (записи выдачи и надгробия нет), но чтение записи выдачи в kaname возвращает ошибку хранилища (инъекция сбоя в пробе kaname)
+**When** notify зовёт `ResolveSend(probe, probe-hello, сейчас)`
+**Then** `UNAVAILABLE`, текст `notification grant service temporarily unavailable`; исхода в ответе нет; текста драйвера в ответе нет
+**And** notify на такой ответ — `Ack DEFER(platform_unavailable)` (клетка «kaname недоступна» Р11, F11); тревога `grant_skew` не срабатывает
+**And** близнец F04: без инъекции тот же вызов — исход `NOT_YET_GRANTED`
+
 ### G. Служба notify — раздел «notify» (S3)
 
 **ID:** NTF1-G01 — **перечень источников: пустой или неполный — отказ старта** (близнец — полный)
@@ -1429,7 +1544,7 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **ID:** NTF1-G10 — **отказ получателя — терминальный и отдельный** (близнец — `RCPT` 250)
 
-**Given** узел отвечает 550 на `RCPT` одному адресату и 250 остальным
+**Given** узел отвечает `550 5.1.1` на `RCPT` одному адресату и 250 остальным
 **When** notify обрабатывает по строке на каждого
 **Then** строка отвергнутого — `RECIPIENT_REJECTED`, счётчик по `(пространство, шаблон)` +1; остальные отправлены; `misconfigured` нулевой
 
@@ -1455,9 +1570,10 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **ID:** NTF1-G14 — **каждый ответ ретранслятора — в названной клетке**
 
-**Given** узел, отвечающий 250, 421, 451, 535, 550 на `RCPT`, 552 на `DATA`, 554 на `MAIL FROM`, разрыв
+**Given** узел, отвечающий 250, 421, 451, 535, `550 5.1.1`, `550 5.7.1` и `550` без расширенного кода на `RCPT`, 552 на `DATA`, 554 на `MAIL FROM`, разрыв
 **When** notify обрабатывает по строке на ответ
 **Then** каждый — клетка Р11; «прочего» нет; 5xx вне `RCPT` — `DEFER` с `misconfigured`
+**And** все три 5xx на `RCPT`, включая `5.7.1`, — `RECIPIENT_REJECTED` (ратификация Р11), и каждый виден в счётчике исходов по клеткам Р11 с пространством и шаблоном строки
 
 **ID:** NTF1-G15 — **посадка notify: боевые оси** (близнец — посадка исправна)
 
@@ -1495,7 +1611,7 @@ kaname и поставщика личности — NTF-2 с его предик
 **And** перепись поверхности notify разбором по идентичности (цель вызова — по типам, а не по тексту): в не-тестовых файлах пакетов kacho под `services/notify/` (без `cmd/notify-probe` и пакетов только его корня) вызовов, чья цель — `google.golang.org/grpc.NewServer`, точка входа фундамента, поднимающая gRPC-сервер, либо функция `Register…Server` сгенерированного стаба, — **0**
 **And** фундамент в предмет переписи не входит, и это не послабление: notify импортирует его законно — самоотчёт собирается через corelib `servicecontract` (G15), а `servicecontract` импортирует `grpcsrv`, где стоят `grpc.NewServer` и `RegisterHealthServer`; импортированная функция поднимает сервер только будучи вызванной, поэтому судится ВЫЗОВ из кода notify в точку входа фундамента, а не достижимость по импорту (перепись импортного замыкания покраснела бы на исправном notify)
 **And** перечень точек входа не пишется по памяти — его выводит та же проба из пина corelib в `go.mod`: замыкание вызывающих `grpc.NewServer` по не-тестовым файлам corelib (разбор по идентичности), экспортируемые функции замыкания — точки входа; на corelib `34bc810` это `grpcsrv.NewServer` и `servicehost.Serve` (через `serverPair`); новая точка входа фундамента входит в перечень сама, без правки пробы
-**And** перепись печатает число осмотренных пакетов, файлов и вызовов и выведенный перечень точек входа; пустой обход или пустой перечень — красный; инъекция вызова `grpcsrv.NewServer` в `cmd/notify` — находка с координатой; близнец — то же дерево notify без инъекции, где импорт `servicecontract` → `grpcsrv` на месте, — перепись молчит
+**And** перепись печатает число осмотренных пакетов, файлов и вызовов, выведенный перечень точек входа и отдельной строкой — число вызовов через значение-функцию или интерфейс в пакетах notify (их цель статическим разбором по идентичности не видна; сегодня у фундамента таких путей к `grpc.NewServer` нет, и появление такого вызова заметно по этой строке, а исход держит перепись портов пода); пустой обход или пустой перечень — красный; инъекция вызова `grpcsrv.NewServer` в `cmd/notify` — находка с координатой; близнец — то же дерево notify без инъекции, где импорт `servicecontract` → `grpcsrv` на месте, — перепись молчит
 
 **ID:** NTF1-G20 — **класс `security` — только пространствам `identityNamespaces`** (близнец — `security` в `kaname`)
 
@@ -1519,6 +1635,21 @@ kaname и поставщика личности — NTF-2 с его предик
 **Then** строка `kaname` отправлена без вызова `ResolveSend` (счётчик вызовов 0); строка `probe` — после `ResolveSend` (`ALLOW`)
 **And** если сервер ленты `kaname` предъявил SAN, отличный от записи, — подключение отвергнуто, `Claim` не вызван, тревога `source_identity_mismatch`
 **And** страж старта notify отвергает `authorization: certificate` у любой записи, кроме `kaname`, с именем записи
+
+**ID:** NTF1-G23 — **отказ `ResolveSend` — строка ждёт, неисправность видна** (близнец F01)
+
+**Given** строка `probe`, забранная notify; `ResolveSend` отвечает тестовый сервер контракта kaname в процессе пробы, ответ задан пробой
+**When** по отдельности сервер отвечает: (а) `PERMISSION_DENIED` `permission denied`; (б) `INVALID_ARGUMENT`; (в) `INTERNAL`; (г) исходом, значение которого notify не знает
+**Then** каждый — `Ack DEFER(platform_unavailable)`; попытка не потрачена; секрет на месте; SMTP-сессий 0; сигнал `misconfigured` +1 на каждый; тревога `grant_skew` не срабатывает
+**And** затем сервер отвечает `ALLOW` — строка отправлена в пределах срока
+**And** близнец F01: тот же конвейер, сервер сразу отвечает `ALLOW` — строка отправлена, `misconfigured` нулевой
+
+**ID:** NTF1-G24 — **`path`, `token` и адрес вне формы — `INVALID`, ссылка на другой узел не собирается** (близнец — те же строки со значениями по форме)
+
+**Given** фикстурный шаблон `probe/probe-link` класса `notice`: атрибуты `target: path`, `token: token`; тело — `button{text, path: target}` и `button{text, token}`; origin `https://console.example.invalid`, управляемые часы; строки поставлены `SendX` фикстурного источника `probe` (форма `address` разрешена, `standProbeNamespace = probe`), после чего значения атрибутов и адреса заданы прямым `UPDATE` пробы в ленте — мимо `SendX`; поле, которое лента хранит запечатанным (Р13), проба запечатывает ключом фикстурного источника с AAD этой строки, так что строка открывается и до проверки формы доходит
+**When** notify обрабатывает по строке на каждое значение: `path` = (а) `//other.example.invalid/x`, (б) `https://other.example.invalid/x`, (в) `/\other.example.invalid`, (г) `/a/../b`, (д) `/a b`; `token` = (е) `abc&next=x` длиной ≥ 16, (ж) 15 символов алфавита; (з) адрес получателя `user@` (не разбирается `address.Normalize`)
+**Then** (а)–(ж) — `INVALID(attrs_invalid)`, (з) — `INVALID(recipient_invalid)`; секрет стёрт; SMTP-сессий 0; в журнале notify — идентификатор строки и имя атрибута, значения нет
+**And** близнец: та же строка с `target = /iam/invitations/inv-0123456789abcdefg`, `token` из 32 символов алфавита и адресом `user@example.invalid` — письмо отправлено; обе кнопки ведут на `https://console.example.invalid/…`, других узлов в ссылках письма нет
 
 ### H. Лимиты notify — раздел «notify» (S3)
 
@@ -1803,7 +1934,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | A01–A07 | валидатор `notify/spec` | corelib `notify/spec/spec_test.go`, `notify/spec/testdata/` | `go test ./notify/spec/...` |
 | A08 | гейт замороженного корпуса | corelib `notify/spec/corpus_test.go` | `go test`, инъекция |
 | A09 | гейт единственности валидатора (узел — функция, читающая файл формата шаблона; вызов `text/template` узлом не считается) | kacho `internal/repohygiene/notifyspecsingular*_test.go` | `go test ./internal/repohygiene/...`, инъекция |
-| B01–B18, B20–B24 | `feed.Put`, сервер ленты, уборщик, схема, метрики | corelib `notify/feed/*_integration_test.go` (testcontainers, управляемые часы); для B20 (гейт) — kacho `outboxobservedgate_test.go` (существующий, три входа; расширяется четвёртым — «подъём сервера ленты в корне», засчитываемым и за движущего для переписи колонок доставки) | `go test -tags integration ./notify/feed/...` |
+| B01–B18, B20–B27 | `feed.Put`, сервер ленты, уборщик, схема, метрики, `address.Normalize` (B27; гейт единственности нормализации и гейт «перевод в `EXPIRED` без условия аренды» B25 — corelib `notify/feed` гейты дерева, вызываемые из CI kacho) | corelib `notify/feed/*_integration_test.go` (testcontainers, управляемые часы); для B20 (гейт) — kacho `outboxobservedgate_test.go` (существующий, три входа; расширяется четвёртым — «подъём сервера ленты в корне», засчитываемым и за движущего для переписи колонок доставки) | `go test -tags integration ./notify/feed/...` |
 | B19 | гейт прямой вставки | corelib `notify/feed` гейт дерева, вызываемый из CI kacho | `go test`, инъекция |
 | C01 | гейт формы подписки | kacho `TestSubscriptionFormIsDeclaredOnce` (существующий) | `go test ./internal/repohygiene/...` |
 | C02 | гейт внешней изоляции | kacho `deploy/scripts/assert-ban6-external-isolation.py` (существующий, расширяется строкой носителя `notify` в `INTERNAL_ENDPOINTS`); регистрация сервера ленты — в прод-файле корня `notify-probe`, иначе перепись `e2e-ban6-domains.py` домена не видит | прогон на стенде |
@@ -1819,7 +1950,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | M07 | звено на слушателях kaname; корпус ответов до Р2 | kaname `internal/authzguard/service_subject_corpus_integration_test.go` | `go test -tags integration ./internal/authzguard/...` (kaname) |
 | M08 | извлекатель `authz.Interceptor` на обоих слушателях | corelib `authz/interceptor_service_subject_test.go`; kacho `services/notify/cmd/notify-probe/…/listeners_integration_test.go`; гейт одной функции — kacho `internal/repohygiene/servicesubjectsingular_test.go` | `go test`; `go test -tags integration` |
 | M10 | отказ тенантских поверхностей, писатель кортежей `service:` | kaname `internal/apps/kaname/api/access_binding/*_test.go`; `TestProxyTupleRefusalMapsToPermissionDenied` (существующий); corelib `authz/proxytuple/policy.go`; kacho `proxyforbiddentypes_test.go` (существующий); kaname гейт `internal/check/servicesubjectwriter_test.go` | `go test` в kaname и kacho |
-| F01, F04–F11, F13–F20 | модель, выдача, `ResolveSend`, `Revoke`/`Restore`, посев, полоса | kaname `internal/…/notificationgrant/*_integration_test.go` (testcontainers; F18 — горутины); модель — `tools/modelcanoncheck` (существующий) | `go test -tags integration ./...` (kaname) |
+| F01, F04–F11, F13–F20, F23 | модель, выдача, `ResolveSend`, `Revoke`/`Restore`, посев, полоса, сбой хранилища (F23) | kaname `internal/…/notificationgrant/*_integration_test.go` (testcontainers; F18 — горутины); модель — `tools/modelcanoncheck` (существующий) | `go test -tags integration ./...` (kaname) |
 | F12 (а), (б) | место Д-3 `verdictForRelation` через обработчик `InternalIAMService/Check` | kaname `internal/apps/kaname/api/internal_iam/supergate_exempt_test.go` (вызов обработчика; дверь — настоящая `AuthorizeService` на посеве F01) | `go test ./internal/apps/kaname/api/internal_iam/...` (kaname) |
 | F12 (в)–(е) | места Д-1, Д-2, Д-4, Д-5 через обработчики публичного `AuthorizeService` (`Check`, `BatchCheck`) | kaname `internal/apps/kaname/api/authorize/supergate_exempt_test.go` | `go test ./internal/apps/kaname/api/authorize/...` (kaname) |
 | F12 (ж) | места Д-6 `checkAdapter.Check`, Д-7 `AllowsVerb` | kaname `internal/authzguard/supergate_exempt_test.go` | `go test ./internal/authzguard/...` (kaname) |
@@ -1827,7 +1958,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | F22 (б) | `ResolveSend` пересланному администратору облака | kaname `internal/…/notificationgrant/forwarded_admin_integration_test.go` | `go test -tags integration ./...` (kaname) |
 | F22 (а), (в) | сервер ленты и сужение подписки фикстурного источника против двери kaname | kacho `services/notify/internal/…/forwarded_admin_integration_test.go` (kaname в процессе пробы на testcontainers) | `go test -tags integration ./services/notify/...` |
 | F02, F03, F21 | валидатор и применитель манифестов | kaname `tools/modulemanifestcheck`, `internal/servicemanifest/seed_form_test.go` (существующий, новые случаи) | `go test ./tools/modulemanifestcheck/... ./internal/servicemanifest/...` |
-| F01 (доставка), F04–F07, F11, G02, G07–G14, G20–G22 | конвейер notify с тестовым узлом TLS | kacho `services/notify/internal/…/deliver_integration_test.go` | `go test -tags integration ./services/notify/...` |
+| F01 (доставка), F04–F07, F11, F23 (сторона notify), B26 (в), G02, G07–G14, G20–G24 | конвейер notify с тестовым узлом TLS, классификатор ответа `ResolveSend` (G23), проверка формы атрибутов и адреса (G24) | kacho `services/notify/internal/…/deliver_integration_test.go` | `go test -tags integration ./services/notify/...` |
 | G03–G05, G18 | рендер и эталоны | kacho `services/notify/layout/*_test.go`, `services/notify/testdata/golden/` | `go test ./services/notify/...` |
 | G12 | правило тревоги | kacho чарт notify + `deploy/tests/…/notify_alert_rules_test.go` | прогон проб правил с синтетическим рядом |
 | G16 | реплики, падение реплики | kacho `services/notify/internal/…/replica_integration_test.go` | `go test -tags integration` |
@@ -1845,7 +1976,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | L03–L05 | конвейер с управляемыми часами | kacho `services/notify/internal/…/outage_integration_test.go` | `go test -tags integration ./services/notify/...` |
 
 **Сценариев без производителя — ноль.** Каждый ID §6 входит хотя бы в одну строку таблицы
-(F01, F22, G20 — в двух, F12 — в четырёх, по своим «Тогда» и входам двери).
+(F01, F22, G20, F23, B26 — в двух, F12 — в четырёх, по своим «Тогда» и входам двери).
 
 ## §6.2 Близнецы: один изменённый факт на каждое отрицание
 
@@ -1868,6 +1999,12 @@ kaname и поставщика личности — NTF-2 с его предик
 | B13 | B12 | токен аренды |
 | B14 | B12 | значение `outcome` |
 | B16 | B15 | причина последнего `DEFER` |
+| B25 (аренда действует) | B15 | действует ли аренда при проходе уборщика |
+| B25 (запоздалый `Ack`) | B25 (`Ack` в пределах аренды) | момент `Ack` относительно конца аренды |
+| B26 (б) | B26 (а) | исход повтора |
+| B26 (повтор другим токеном) | B26 (а) | токен повтора (B13) |
+| B27 (два написания) | B27 (два ящика) | различается ли адрес после нормализации |
+| B27 (`user@`) | B27 (два написания) | разбирается ли адрес |
 | B17 | B17 (со стиранием) | стёрт ли секрет |
 | B19 (инъекция) | B19 (дерево) | путь вставки |
 | B21 (0 и 501) | B21 (1 и 500) | значение `max` |
@@ -1917,6 +2054,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | F19 | F06 | ось отзыва — шаблон |
 | F20 (в полосе) | F20 (за полосой) | `enqueued_at` относительно полосы |
 | F21 (б) | F21 (а) | ключ `namespace` |
+| F23 | F04 | сбой чтения записи выдачи |
 | G01 (неполный) | G01 (полный) | полнота перечня |
 | G02 | G02 (шаблон в своём пространстве) | есть ли шаблон в пространстве `probe` |
 | G04 | G03 | значение атрибута |
@@ -1926,6 +2064,7 @@ kaname и поставщика личности — NTF-2 с его предик
 | G08 | G07 (узел с TLS) | доверие сертификату |
 | G09 | G09 (после смены) | ответ на `AUTH` |
 | G10 | G10 (остальные адресаты) | ответ на `RCPT` |
+| G14 (`550 5.7.1`) | G14 (`550 5.1.1`) | расширенный код отказа на `RCPT` (исход тот же — ратификация Р11) |
 | G11 | G11 (узел доступен) | доступность узла |
 | G12 (2:30) | G12 (2:29) | возраст строки |
 | G13 (значения) | G13 (id строки) | что ищется |
@@ -1934,6 +2073,8 @@ kaname и поставщика личности — NTF-2 с его предик
 | G20 | G20 (`kaname`) | пространство шаблона |
 | G21 | G21 (`kaname`) | пространство строки |
 | G22 (чужое исключение / SAN) | G22 (`probe` через `ResolveSend`) | запись исключения |
+| G23 (а)–(г) | F01 | ответ `ResolveSend` |
+| G24 (а)–(з) | G24 (значения по форме) | одно значение атрибута или адреса |
 | H01 | H01 (S−1) | число доставленных |
 | H02 | H02 (N−1) | число доставленных |
 | H03 (параллельно) | H03 (последовательно) | параллельность реплик |
@@ -1972,7 +2113,7 @@ kaname и поставщика личности — NTF-2 с его предик
 |---|---|---|
 | В1 | кто выпускает сертификат с нужным SAN | Р12; NTF1-J01…J05 |
 | В2 | ротация кредов отравляет очередь | Р11; NTF1-G09 |
-| В3 | 5xx получателя смешан с неисправностью настройки | Р11; NTF1-G10, G14 |
+| В3 | 5xx получателя смешан с неисправностью настройки | Р11 (5xx вне `RCPT` и отказ `ResolveSend` — `DEFER` + `misconfigured`; 5xx на `RCPT`, включая класс `5.7`, — терминально, ратифицировано с ценой); NTF1-G10, G14, G23 |
 | В4 | ретранслятор лежит часами | Р11; NTF1-G11 |
 | В5 | неверный порядок раскатки теряет письма | Р5 (`NOT_YET_GRANTED` ≠ `REVOKED`), Р11 (`template_skew`); NTF1-F04, G02 |
 | В6 | общий страж старта для службы без сервисов | NTF1-G15 (`NoServedServices`) |
@@ -2009,7 +2150,7 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **S1 — corelib (#77):**
 
-7. Зелёные исполненными пробами: NTF1-A01…A09, NTF1-B01…B24, NTF1-C03…C06, NTF1-D01…D06,
+7. Зелёные исполненными пробами: NTF1-A01…A09, NTF1-B01…B27 (B26 (в) — в S3), NTF1-C03…C06, NTF1-D01…D06,
    NTF1-M01…M06, NTF1-M09, NTF1-N05…N07, NTF1-N09 (сторона corelib).
 8. Тег corelib выпущен; kacho и kaname встают на него пином без `replace`.
 9. `go list -deps ./notify/...` corelib без `net/smtp`, `mime/multipart`, `html/template`; имён
@@ -2017,7 +2158,7 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **S2 — kaname (#484, часть NTF-1):**
 
-10. Зелёные: NTF1-F01…F21, NTF1-F22 (б), NTF1-M07, NTF1-M10, NTF1-J03; гейт переписи мест надзора (F12)
+10. Зелёные: NTF1-F01…F21, NTF1-F22 (б), NTF1-F23, NTF1-M07, NTF1-M10, NTF1-J03; гейт переписи мест надзора (F12)
     доказан инъекцией в обе стороны и печатает число мест по классам §1.11.
 11. Модель несёт `service`, `notification_feed`, `notification_namespace`; `tools/modelcanoncheck`,
     kacho `modelrelationproducer_test.go` и `proxyforbiddentypes_test.go` на новом пине зелёные;
@@ -2028,7 +2169,8 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **S3 — notify (#2915):**
 
-12. Зелёные: NTF1-E01…E04, NTF1-G01…G22, NTF1-H01…H10, NTF1-F22 (а), (в), NTF1-D05, NTF1-M08.
+12. Зелёные: NTF1-E01…E04, NTF1-G01…G24, NTF1-H01…H10, NTF1-F22 (а), (в), NTF1-F23 (сторона notify),
+    NTF1-B26 (в), NTF1-D05, NTF1-M08.
 13. `make -C services/notify bundle-check`, `golangci-lint` (цель `make lint`), `gosec` зелёные;
     миграции `kacho_notify` применяются в боевой посадке с `sslmode=require`.
 
@@ -2047,7 +2189,7 @@ kaname и поставщика личности — NTF-2 с его предик
 19. Записки хранилища контекста: ресурсы `notification_feed`, `notification_namespace`,
     `<svc>_notification_outbox`; rpc `corelib.notify.InternalNotificationFeedService/{Claim,Ack}`,
     `kaname.cloud.iam.v1.InternalNotificationGrantService/{ResolveSend,Revoke,Restore}`; пакеты
-    `corelib/notify/*`, `corelib/grpcsrv` (звено Р2); рёбра notify→источники, notify→kaname,
+    `corelib/notify/*` (включая `notify/address`), `corelib/grpcsrv` (звено Р2); рёбра notify→источники, notify→kaname,
     notify→ретранслятор.
 
 ---
@@ -2080,3 +2222,10 @@ kaname и поставщика личности — NTF-2 с его предик
 | 7 | B7-1 G19: перепись импортного замыкания `cmd/notify` покраснела бы на исправном notify — `servicecontract` (самоотчёт G15) импортирует `grpcsrv`, где `grpc.NewServer` и `RegisterHealthServer` | PRODUCER | выбран вариант (б) рецензента, уточнённый: предмет — вызовы из пакетов kacho под `services/notify/`; фундамент не входит, потому что импорт функции её не вызывает, а вызов из notify в точку входа фундамента судится; перечень точек входа выводится пробой замыканием вызывающих `grpc.NewServer` по corelib, а не пишется. Сверка: `git -C project/corelib grep -nE 'NewServer\(\|Register[A-Za-z]*Server\(' 34bc810 -- '*.go' ':!*_test.go'` — не-тестовый `grpc.NewServer` один (`grpcsrv/server.go`, в `grpcsrv.NewServer`); `git -C project/corelib grep -nE 'grpcsrv\.NewServer\b' 34bc810 -- '*.go' ':!*_test.go'` — вызывающий один (`servicehost/serve.go`, `serverPair`), `serverPair` зовёт только `servicehost.Serve`; вызывающих `servicehost.Serve` в не-тестовом corelib 0 — перечень на `34bc810`: `grpcsrv.NewServer`, `servicehost.Serve`; `servicehost/surface.go` `srv.Serve` — HTTP-сервер, в замыкание не входит |
 | 7 | класс PRODUCER по всему документу: перепись каждого названного **нового** держателя, чей предикат судит уже существующее дерево (фундамент, чужой репозиторий, существующие миграции), против этого дерева (kacho `1d42a6728bf`, corelib `34bc810`, kaname `734f69fb4`) | PRODUCER | найдено ещё два: B20 — перепись колонок доставки существующего `outboxobservedgate` (`deliveryColumnMarks` = `sent_at`, `next_attempt_at`) объявила бы ленту находкой «двигать некому», если схема ленты несёт эти колонки: новый вход назван четвёртым и засчитывается за движущего (N7-1); A09 — узел «реализация проверки формата» по вызову `template.Parse` поймал бы `quota/refusal.go` corelib (`git -C project/corelib grep -lE '"(text\|html)/template"' 34bc810 -- '*.go' ':!*_test.go'` → 1 файл), узел назван по файлу формата (`git grep -l 'notification\.yaml' <ревизия> -- '*.go'` → 0 во всех трёх деревьях); подтверждены без правки: B19 (`git grep -il notification_outbox` → 0 во всех трёх), D05 (импортёров `corelib/notify/spec` 0 во всех трёх), M10 (писателей кортежей `service:` в не-тестовом kaname 0: `git -C project/kaname grep -nE '"service:\|`service:' 734f69fb4 -- '*.go' ':!*_test.go'` → пусто), F12 (гейт) — перепись §1.11 круга 5; M08, G17/G20, N01–N04 судят только новое дерево |
 | 7 | N7-2 | TWIN | D04: положительный близнец отрицания «правка применённого файла» назван строкой — без правки `notifygen -check` зелёный |
+| 8 | первичный разбор классов на `b347b81f…` — RA-01 (Р10 невыразим контрактом `Ack`) | CONTRACT | выбран вариант (б) разбора: условие «ни разу не получила ответа на `RCPT`» снято и явно замещено правилом «по причине последнего `DEFER`» (Р10) с доводом и названной ценой (окно Р14); B15 утверждает исход после `451` на `RCPT`; уборщик и аренда (CX1-16) — правило Р8 и новый B25 с близнецом B15; сторож исчерпания — ноль строк, транзакция вызывающего пригодна к коммиту (CX1-10, Р10) |
+| 8 | RA-02 (адрес без нормализации) | CONTRACT | одна функция `corelib notify/address.Normalize` с семантикой Р15 NTF-4 (Р8); её зовут `feed.Put` и notify (Р10); неразбираемый адрес — `feed.ErrRecipientInvalid` у источника и `INVALID(recipient_invalid)` в notify; новый B27 (два написания — одно окно; близнец — два ящика; гейт единственности) и G24 (з) |
+| 8 | RA-03 (повтор `Ack` после записанного исхода) | CONTRACT | правило повтора в Р8 (тот же токен и исход — успех без изменения; другой исход — `OUTCOME_ALREADY_RECORDED`; прочее — `LEASE_LOST`); новый B26 с близнецами B12, B13 и пробой потерянного ответа в notify |
+| 8 | RA-04 (нет клетки отказа `ResolveSend`) | CONTRACT | в Р11 — клетка «отказ `ResolveSend` или исход вне трёх → `DEFER(platform_unavailable)` + `misconfigured`», недоступность названа кодами; классификация ответа типом, без «прочего»; новый G23 (близнец F01); сбой хранилища kaname — `UNAVAILABLE`, а не `NOT_YET_GRANTED` (Р5, новый F23 с близнецом F04) |
+| 8 | RA-05 (5.7.x на `RCPT` терминален) | CONTRACT | выбрана ратификация терминального исхода с названной ценой (Р11): иной выбор расходится с NTF-4 (Р4, NTF4-07 строит `permanent_other` на `RECIPIENT_REJECTED` при `550 5.7.1`); G10 — `550 5.1.1`; G14 утверждает `5.1.1`, `5.7.1` и 5xx без расширенного кода на `RCPT` |
+| 8 | RA-06 (форма `path`/`token` не определена, клетка без сценария) | CONTRACT | форма `path` и `token` и сборка ссылки сложением строк — Р7; клетка Р11 названа (`attrs_invalid`); новый G24 (семь значений вне формы и неразбираемый адрес, близнец — значения по форме) |
+| 8 | N8-1 | PRODUCER | G19 печатает отдельной строкой число вызовов через значение-функцию или интерфейс в пакетах notify |
