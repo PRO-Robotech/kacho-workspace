@@ -12,7 +12,8 @@ SPDX-License-Identifier: BUSL-1.1
 >
 > **Редакция 2 · 2026-09-30 — проект маршрута по замыслу редакции 2** (заход отображения по
 > решению диспетчера Д26: строки CX4V-07, 55, 56, 63, 64, 65 — в §2а и в предикатах полос; новая
-> полоса S1-A10).
+> полоса S1-A10). Редакция 3 · 2026-09-30 — строки Д26 · 3, 4, 5 по пересверке `cd92e9ac…`; путь
+> одобрения сноса в env контейнера `migrate` — зависимость Е7 замысла.
 >
 > Редакция 1 была проектом по замыслу редакции 1. Состояние `TASKS_READY`
 > этот файл не объявляет: по §5 SDD-1 оно наступает только после `DESIGN_APPROVED` и проверенного
@@ -79,8 +80,8 @@ SPDX-License-Identifier: BUSL-1.1
 | S1-A4 | вид, токен-источник, классификация, ограничения разбора, корпус П3, `suppression.Apply` (З8, З9) | `go-implementer` | `services/notify/internal/{feedback,suppression}/**`, корпус `internal/feedback/testdata/corpus/` | NTF4-01…09, 11…14, 78 (integration) зелёные; корпус сверен с таблицей в обе стороны (DoD S1 п.3); УК4-11 | S1-A2, S1-A3 | L |
 | S1-A5 | аренда с эпохой, такт, подметальщик у держателя, NTF4-15 (З11) | `go-implementer` | `services/notify/internal/{lease,suppression}/**` | NTF4-95…97, 15 зелёные (95 красная на инъекции «продление только фиксацией»); УК4-01, 01а; уборка по сроку — проход подметальщика у держателя, партии под продлением (§2а, Д26 · 6) | S1-A1 | M |
 | S1-A6 | 23 ручки S1, группы, зависимые границы, `required_knobs_test.go` (З22) | `go-implementer` | `services/notify/internal/config/**` | DoD S1 п.5: зелёная и красная на четырёх инъекциях; NTF4-87, 88; зависимая граница окна долей и срока журнала (§2а, Д26 · 6) | Е6 | M |
-| S1-A7 | `reputation.Register`, наборы метрик, метки (З13, часть S1) | `go-implementer` | `services/notify/internal/reputation/**`, корень `cmd/notify` | УК4-21 зелёный; NTF4-33 (журнал и метки S1) зелёная; УК4-34 — состав набора против Р12 в обе стороны, двух снятых метрик нет (§2а, Д26 · 5) | S1-A4 | S |
-| S1-A8 | чарт: объект ключа томом у `notify-sender`, снятие `secretKeyRef` и `checksum/recipient-key`, правка гейта D1; приёмник ящика стенда (З21) | `deploy-engineer` | `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `deploy/notify_secret_layout_test.go` | гейт D1 зелёный в форме З21 и красный на инъекции `secretKeyRef`; DoD S1 п.6; УК4-32 — версия образа и её возможности напечатаны в отчёте полосы; новой ручки чарта для одобрения сноса нет — одобрение ставит оператор существующей ручкой стража (§2а, Д26 · 4) | S1-A2 | M |
+| S1-A7 | `reputation.Register`, наборы метрик, метки (З13, часть S1) | `go-implementer` | `services/notify/internal/reputation/**`, корень `cmd/notify` | УК4-21 зелёный; NTF4-33 (журнал и метки S1) зелёная; УК4-34 — семейства `notify_` реестра корня против объединения Р12 и перечня NTF-1 в обе стороны, двух снятых метрик нет (§2а, Д26 · 5) | S1-A4 | S |
+| S1-A8 | чарт: объект ключа томом у `notify-sender`, снятие `secretKeyRef` и `checksum/recipient-key`, правка гейта D1; приёмник ящика стенда (З21) | `deploy-engineer` | `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `deploy/notify_secret_layout_test.go` | гейт D1 зелёный в форме З21 и красный на инъекции `secretKeyRef`; DoD S1 п.6; УК4-32 — версия образа и её возможности напечатаны в отчёте полосы; путь одобрения сноса в env контейнера `migrate` — по снятию Е7 замысла; в этом заходе ключа чарта нет (§2а, Д26 · 4) | S1-A2 | M |
 | S1-A9 | сквозные S1 на П1: 01, 02, 11, 13, 15 (две реплики) | `qa-test-engineer` | сквозные пробы kacho | зелёные числом исполненного, признаки установки сверены на обеих репликах | S1-A1…A8 | M |
 | S1-A10 | страница перехода S1 службы notify: снос ограды, одобрение `MIGRATOR_DROP_APPROVED` до выкатки там, где стартовала NTF-1, его снятие после применения, откат новой миграцией (замысел З2, §10 п.4; §2а, Д26 · 4) | `docs-writer` | `services/notify/docs/**` | build сайта без битых ссылок; страница ссылается на `docs/architecture/drop-preflight-counts-the-live-database.md`, а не пересказывает его | S1-A1 | S |
 
@@ -97,7 +98,7 @@ SPDX-License-Identifier: BUSL-1.1
 | полоса | предмет | исполнитель | пути (kacho) | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
 | S3-C1 | контракт `InternalSuppressionService` (§5) | `proto-sync` | `proto/kacho/cloud/notify/v1/`, `pkg/api/kacho/cloud/notify/v1/` | `buf lint`, `buf breaking` зелёные; держатель аннотаций зелёный (DoD S3 п.1) | S2 | S |
-| S3-C2 | корень `notify-api` либо дополнение существующего (по `notify_api_root`), носитель Х5, `PostureOf`, оси, (н1)–(н4), 12 ручек, `RequireApplied`, замок мигратора, сверщик операций, изъятия с пробой (З18, З22) | `service-scaffolder` (при `absent`), затем `go-implementer` | `services/notify/cmd/notify-api/**`, `services/notify/cmd/migrator/**`, `services/notify/internal/{apiserver,config,migrations}/**` | NTF4-119, 91, 92 зелёные; DoD S3 п.7; УК4-26, 27, 28 с вариантами Д26 · 3 (`RequireApplied` через `dropguard.GooseApplied`, `hashtext` имён замков, разрыв соединения замка) | S3-C1, X5, X2 (пины одним изменением), Е2 (а), Е3 при `present` | L |
+| S3-C2 | корень `notify-api` либо дополнение существующего (по `notify_api_root`), носитель Х5, `PostureOf`, оси, (н1)–(н4), 12 ручек, `RequireApplied`, замок мигратора, сверщик операций, изъятия с пробой (З18, З22) | `service-scaffolder` (при `absent`), затем `go-implementer` | `services/notify/cmd/notify-api/**`, `services/notify/cmd/migrator/**`, `services/notify/internal/{apiserver,config,migrations}/**` | NTF4-119, 91, 92 зелёные; DoD S3 п.7; УК4-26, 27, 28 с вариантами Д26 · 3 (`RequireApplied` через `dropguard.GooseApplied` на `*sql.DB` из `stdlib.OpenDBFromPool`, «схема не прочитана» отдельно от «версия не применена», `hashtext` имён замков, разрыв соединения замка) | S3-C1, X5, X2 (пины одним изменением), Е2 (а), Е3 при `present` | L |
 | S3-C3 | `Get`, `Lookup`, `Delete`: сценарии, аудит, операции (З17) | `rpc-implementer` | `services/notify/internal/apiserver/suppression/**` | NTF4-24…29, 31…33, 82…86 зелёные (86 — 50 повторов под `-race`); УК4-23, 24, 25 | S3-C2 | L |
 | S3-C4 | край: соединение `notify`, адрес без умолчания, внутренний mux, таблица прав, `prefixToBackend`, декларация `InternalOnly`, `notifysurfaceparity_test.go` (З19) | `api-gateway-registrar` | `gateway/internal/{restmux,opsproxy,config,middleware/embed}/**`, `internal/repohygiene/notifysurfaceparity_test.go` | DoD S3 п.6, 6а, 6б, 8а; NTF4-93, 94, 112; инъекция CX4V-51 и маршрут на `…/Send` — красные | S3-C1 | M |
 | S3-C5 | гейт посадки: счёт строк на службу, подперечень, форма (З20) | `deploy-engineer` | `deploy/scripts/{assert-production-posture.sh,listener-form-posture-inject.sh,run-injection-proofs.sh}` | NTF4-109: девять красных, (з), (к), (м) зелёные; УК4-30, 31 | S3-C2 | M |
@@ -151,11 +152,11 @@ SPDX-License-Identifier: BUSL-1.1
 | Д26 · 1 | CX4V-07 | S1-A2 | `addresskey.New` — только в двух корнях; `Func` и начальный дайджест объекта ключа — из одних байтов; УК4-06 |
 | Д26 · 1 | CX4V-07 | S6-E1 | функция проверки `address_key` в `secretreload` не строит `Func`: `unparsable` · `accepted` · `control_mismatch`; NTF4-77 с близнецом NTF4-71; инъекция УК4-06 — `New` в `secretreload` |
 | Д26 · 2 | CX4V-55 | S1-A2 | `Establish` на `ReadCommitted` явно; NTF4-116 с `repeatable read` у роли и близнецом |
-| Д26 · 3 | CX4V-56 | S3-C2 | `RequireApplied` через `dropguard.GooseApplied`; имена замков не совпадают по `hashtext`; разрыв замка — ненулевой выход; варианты УК4-28 |
-| Д26 · 4 | CX4V-63 | S1-A1 | запись `dropguard.json`, производитель `dropguard_integration_test.go`; УК4-35 с двумя близнецами |
-| Д26 · 4 | CX4V-63 | S1-A8 | ручки чарта для одобрения нет; одобрение — существующей ручкой стража у init-контейнера `migrate` |
+| Д26 · 3 | CX4V-56 | S3-C2 | `RequireApplied` через `dropguard.GooseApplied` на `*sql.DB` из `stdlib.OpenDBFromPool`; ошибка чтения схемы — отказ «схема не прочитана»; имена замков не совпадают по `hashtext`; разрыв замка — ненулевой выход; варианты УК4-28 |
+| Д26 · 4 | CX4V-63 | S1-A1 | запись `dropguard.json` с таблицей `recipient_key_fence` дословно как в миграции, производитель `dropguard_integration_test.go`; УК4-35 с двумя близнецами |
+| Д26 · 4 | CX4V-63 | S1-A8 | путь `MIGRATOR_DROP_APPROVED` в env контейнера `migrate` не назван этим заходом — зависимость Е7 замысла; до её снятия выкатки на базу со строкой ограды нет |
 | Д26 · 4 | CX4V-63 | S1-A10 | страница перехода S1: одобрение до выкатки, снятие после, откат новой миграцией |
-| Д26 · 5 | CX4V-64 | S1-A7 | УК4-34 — состав наборов против Р12 в обе стороны; инъекция — ряд вне таблицы |
+| Д26 · 5 | CX4V-64 | S1-A7 | УК4-34 — семейства `notify_` реестра корня против объединения Р12 и перечня NTF-1 (З27 NTF-1) в обе стороны; инъекция — регистрация снятой метрики в `sentlog` |
 | Д26 · 5 | CX4V-64 | S2-B1 | ветка «вне таблицы» `ReadAckAnswer` — сигнал `misconfigured` NTF-1, своего счётчика нет |
 | Д26 · 5 | CX4V-64 | S2-B2 | неудача отметки `accepted_at` — строка журнала ERROR без адреса и отпечатка, метрики нет |
 | Д26 · 6 | CX4V-65 | S1-A5 | уборка по сроку — проход подметальщика у держателя, партия ≤ 1000 строк в транзакции, открытой продлением |
