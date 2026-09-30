@@ -1,0 +1,273 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: a6a6474dd270516d7341c259d8a12f80471d1613
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552.
+    Отпечаток — единственная привязка; любая правка документа требует нового рассмотрения.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2655
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T02:06:44Z'
+round: 1
+round_note: >-
+  Круг 1 прохода после смены предмета (требования владельца 2026-09-29/30, решения диспетчера
+  Д1–Д13). Круги 1–3 прежнего прохода судили редакции 1–3; одобрение круга 3 (отпечаток 0478263a…)
+  к этой редакции не относится.
+previous_rounds:
+  - round: 1
+    pass: previous
+    sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+    verdict: CHANGES_REQUESTED
+    blocking_count: 6
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a.yaml
+  - round: 2
+    pass: previous
+    sha256: 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703.yaml
+  - round: 3
+    pass: previous
+    sha256: 0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8
+    verdict: APPROVED
+    blocking_count: 0
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8.yaml
+blocking_count: 7
+blocking_kinds_distinct: [CONVENTION, CONSTRUCTIBILITY, SCOPE, COVERAGE]
+blocking_kinds_by_item:
+  - B1-1 CONVENTION
+  - B1-2 CONSTRUCTIBILITY
+  - B1-3 CONSTRUCTIBILITY
+  - B1-4 CONSTRUCTIBILITY
+  - B1-5 SCOPE
+  - B1-6 COVERAGE
+  - B1-7 CONSTRUCTIBILITY
+repeated_kinds:
+  - kind: CONSTRUCTIBILITY
+    note: >-
+      Род блокировал и в прежнем проходе (круги 1 и 2). Здесь класс другой: документ опирается на
+      соседнюю приёмку NTF-1 в редакции, которой больше нет (форма модели, формы адресата, класс
+      security, полоса отсечки). Кандидат в форму задания автора (§14а): перед сдачей сверять каждую
+      ссылку «NTF-1 Р<n>» с текущим отпечатком NTF-1, а не с памятью о прежней редакции.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac a6a6474d → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: a6a6474dd270516d7341c259d8a12f80471d1613
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочия не выдаёт и ничего не открывает; тело события для курьера —
+    полем `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода, блокирующих 7: CONVENTION, CONSTRUCTIBILITY ×4,
+    SCOPE, COVERAGE) · SHA-256 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+
+measurement:
+  scenarios_numbers: 148
+  scenarios_removed: [8, 41, 42, 44, 45]
+  scenarios_live: 143
+  duplicate_ids: 0
+  scenarios_without_producer: 0
+  scenarios_missing_from_dod_probe_lists: 0
+  twin_table_rows: 107
+  predicate: >-
+    python3: re.findall(r'^\*\*ID:\*\* NTF3-(\d+)(.*)$') по документу; диапазоны строк §11 и строк
+    «Пробы» §12 раскрыты; снятые — строки ID со словом «снят»
+  neighbour_revisions_compared:
+    - path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+      sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+      note: текущая редакция NTF-1 в ветке; круг 2 прохода по ней — возврат, поэтому она ещё может меняться
+    - path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+      sha256: c82cd21b0eaa801bc3631b512d6e1a4d9973d308fe6b5e4a161f9ceb75cba443
+  tree_revisions: kacho 1d42a6728bf · kaname 734f69fb4 · corelib 34bc8104a
+
+premise_check:
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: предмета (notify, лента, справочник) в дереве нет, стенд заданием не назван.
+    Конструируемость проверена прочтением дерева и соседних приёмок.
+  confirmed:
+    - "видов с глаголом создания вне internal_*: 23 строки → 21 вид — git grep по proto/kacho/cloud @1d42a6728bf"
+    - "типов модели для kacho 20 — fga_model.fga @734f69fb4 (^type )"
+    - "в Mapping.Kinds 16 видов — journal.go пяти модулей @1d42a6728bf"
+    - "полей initiator/actor/occurred_at в SubscriptionEvent 0; NOT_PRODUCED = 4 существует — subscription.proto @1d42a6728bf"
+    - "вид без ObjectType сервер подписки отвергает — corelib subscription/journal.go:495-497 @34bc8104a"
+    - "осиротевшая операция — codes.Internal, «operation interrupted before completion» — corelib operations/reconciler.go:23,251 @34bc8104a"
+    - "строки AddressPoolNetworkDefault — bindings.go:46,74 @1d42a6728bf"
+    - "снятие судится проектным якорем — corelib subscription/drain.go:588 @34bc8104a"
+  refuted:
+    - "NTF3-57: «управляемые часы базы модуля» — время строки журнала storage ставит база (created_at DEFAULT now(), 20260828153423_storage_subscription_journal.sql:136 @1d42a6728bf; журнал — триггером); средства управлять ими в §8 нет"
+    - "§4 «NTF-1 Р7: адресат — address | subject» — NTF-1 @a6cb0c1f Р6: форма адресата одна — адрес; адресация субъекта отдана NTF-3 (NTF1-G21)"
+    - "Р23 «NTF-1 Р3 оставил допуск NTF-3» — NTF-1 @a6cb0c1f Р3 — исключение kaname; допуск уже решён полосой notificationCutoffGuard в Р5"
+    - "Р19 класс security у notify/credential-expiring — NTF-1 @a6cb0c1f Р6: security только identityNamespaces = {kaname}, константа сборки (NTF1-G20)"
+    - "§2.1 строка Д4 «send на ленту модуля» — Д4 и NTF-1 @a6cb0c1f Р5: sender на notification_namespace:<модуль>, reader на notification_feed:<модуль>"
+
+round_closure_note: >-
+  Замечания прежнего прохода (круги 1–3) к предмету редакции 5 перенесены автором: П1/П3/П7,
+  NTF3-30, NTF3-07, таблица «Отказ вызова справочника» (CX3-11) — проверены прочтением, клетки не
+  изменены. Новый предмет (Д1–Д13) рассматривается впервые.
+
+blocking_findings:
+  - id: B1-1
+    kind: CONVENTION
+    title: Форма права на отправку и субъект notify расходятся с Д2 и Д4 без строки спора
+    where: "§2.1 строка Д4; §1.9; Р7; §8 G0 (выдачи манифестов); NTF3-21; NTF3-50; NTF3-55; §12.2 п.4"
+    finding: >-
+      Д4: право на отправку — отношение модели kaname «service:<модуль> sender на
+      notification_namespace:<модуль>»; Д3: reader на notification_feed:<модуль> у service:notify;
+      Д2: служебный принципал service:<имя> из сертификата, заводится только манифестом модели.
+      Документ пересказывает Д4 как «send на ленту модуля» (строка Д4 таблицы §2.1), в G0 сеет
+      «send модулей на свои ленты», «send notify на ленту notify», говорит о «кортеже reader учётки
+      notify» (§1.9, Р7, G0, NTF3-55) и о выдаче «своей учётке» (NTF3-50). Отношения send на ленте в
+      модели нет, учётки у notify как субъекта нет (NTF-1 @a6cb0c1f Р2 п.5, Р5, замещение З1). Строки
+      спора с Д2/Д4 нет.
+    fix: >-
+      Переписать строку Д4 §2.1 дословно по Д4; в G0, §1.9, Р7, NTF3-21, NTF3-50, NTF3-55 —
+      service:<модуль> sender notification_namespace:<модуль>, service:notify reader
+      notification_feed:<модуль>, строка манифеста в форме NTF-1 Р5; слово «учётка» для notify снять.
+  - id: B1-2
+    kind: CONSTRUCTIBILITY
+    title: Право notify на справочник не строится — перечень методов звена, тип объекта и форма строки манифеста не названы
+    where: "Р7; §8 G0; NTF3-23, 27, 50, 55, 117–122; §12.2 п.4"
+    finding: >-
+      (а) Д2: субъект из сертификата появляется только на закрытом перечне методов. NTF-1 @a6cb0c1f
+      S2 ставит на слушатели kaname перечень {ResolveSend}. Документ не расширяет его методами
+      Resolve, ListProjectAudience, ListExpiringCredentials; на них у вызова notify субъекта нет, и
+      Check reader ложен — Given NTF3-23 («notify вызывает Resolve … → ADDRESS») не строится.
+      (б) Тип объекта справочника не назван («объект справочника», «тип объекта справочника»).
+      (в) Формы строки манифеста для выдачи reader на справочник нет: строка NTF-1 Р5 —
+      {namespace, readers: [notify]}, и её валидатор знает только ленту. Близнец NTF3-50 («та же
+      строка в манифесте notify») поэтому не выразим. (г) NTF-1 Р5 закрывает перечень типов без
+      надзора администратора облака {notification_feed, notification_namespace}. Входит ли туда
+      тип справочника — не решено; а от этого зависит, читает ли администратор облака адреса всех
+      пользователей мимо модели.
+    fix: >-
+      Назвать тип (например notification_recipient_directory, объект-одиночка), определить
+      define reader: [service] и строку манифеста notify с правилом валидатора. Внести три метода в
+      перечень звена Д2 на слушателях kaname и в перечень вызывающих. Решить, входит ли тип в
+      перечень без надзора, и держать это сценарием с близнецом. Правку NTF-1 назвать строкой §4.
+  - id: B1-3
+    kind: CONSTRUCTIBILITY
+    title: Форма адресата «субъект» не определена ни здесь, ни в NTF-1 — адресованные строки модулей получат INVALID
+    where: "Р3 (fanout), §4 строка «NTF-1 Р7», NTF3-06, 10, 15, 43, 52, 129, 133; перечень источников"
+    finding: >-
+      NTF-1 @a6cb0c1f Р6: «форма адресата в NTF-1 одна — адрес … адресация субъекта — NTF-3
+      (NTF1-G21)»; запись перечня источников несёт «формы адресата». Страж старта notify отвергает
+      форму address вне {kaname, standProbeNamespace}. Строка без разрешённой формы получает
+      INVALID(recipient_form_not_allowed). Документ считает форму subject уже существующей в NTF-1
+      (§4: «NTF-1 Р7: адресат — address | subject») и дописывает только fanout. В итоге форму subject
+      не определяет никто: её вид (только user:<id>?), проверку при Put и в notify, формы в записях
+      перечня модулей ({subject, fanout}) и страж. Строки user:usr-A от storage и от движка операций
+      по правилу NTF1-G21 не дойдут до отправки.
+    fix: >-
+      Завести решение «форма адресата subject»: вид значения, кто его ставит, проверка при
+      постановке и приёме. В записях перечня источников модулей объявить формы {subject, fanout},
+      у notify — свои. Добавить сценарий «строка модуля с формой address → INVALID» с близнецом
+      «subject → SENT». Строку §4 исправить на текущий текст NTF-1.
+  - id: B1-4
+    kind: CONSTRUCTIBILITY
+    title: Класс security у notify/credential-expiring запрещён NTF-1 без названного замещения
+    where: "Р5 (строка истечения), Р19, NTF3-140..145, §12.3 п.3"
+    finding: >-
+      NTF-1 @a6cb0c1f Р6: класс security допустим только пространствам identityNamespaces = {kaname}.
+      Это константа сборки, значением установки перечень не расширяется. Гейт сборки на шаблон
+      security вне перечня красный (NTF1-G20). По NTF-1 Р7 limits обязательны для security.
+      Р19 ставит шаблону notify/credential-expiring класс security в пространстве notify, не
+      расширяя перечень и не объявляя limits. Шаг bundle красный, и NTF3-140..145 не строятся.
+    fix: >-
+      Либо расширить identityNamespaces до {kaname, notify} строкой §4 (замещение NTF-1 Р6) с
+      причиной, limits шаблона и отрицательным сценарием «шаблон security модуля kacho отвергнут»
+      с близнецом; либо выразить неотключаемость напоминания иначе, не классом security.
+  - id: B1-5
+    kind: SCOPE
+    title: Допуск часов — второй механизм о предмете, который NTF-1 уже решила полосой отсечки
+    where: "Р23, Р26 (clockSkewTolerance), §4, §13, NTF3-123..125, §12.2 п.4"
+    finding: >-
+      Р23 заводит global.kacho.notifications.clockSkewTolerance с границами [1s, 30s] и ориентиром
+      2s, ссылаясь на то, что «NTF-1 Р3 оставил допуск NTF-3». В NTF-1 @a6cb0c1f Р3 — исключение
+      kaname. Сам допуск там уже решён в Р5: полоса notificationCutoffGuard, [1s..10m], ориентир 30s,
+      правило «REVOKED, если enqueued_at < отсечка + полоса» для каждой ленты (NTF1-F20). Выходят две
+      ручки об одном правиле. Близнец NTF3-125 (C + 3s → ALLOW при допуске 2s) противоречит полосе
+      NTF-1. Строка NTF3-125 о ленте службы доступа утверждает ALLOW от ResolveSend, но по NTF-1 Р3 и
+      G22 для пространства kaname ResolveSend не зовётся вовсе.
+    fix: >-
+      Правило отсечки в kaname взять у NTF-1 (полоса), свою ручку kaname не заводить. Если сверка
+      source_now в notify нужна, её допуск вывести из той же величины и так и назвать. Переписать
+      NTF3-123..125, Р26, §13 и DoD 12.2 п.4. Строку о ленте kaname снять.
+  - id: B1-6
+    kind: COVERAGE
+    title: Ось канала (Д9 «каналы — интерфейсом») контрактом не выражена; Р5 утверждает обратное
+    where: "Р5 (последний пункт), Р10, Р11, §6; соседняя NTF-6"
+    finding: >-
+      Р5: «вебхук и мессенджер — новые значения канала той же подписки и того же правила». Но
+      правило Р10 — {module, event_class} → mail_enabled, а подписка Р11 канала не несёт. Нового
+      значения канала в этих контрактах нет: новый канал — это новое поле и смена формы. Д9 требует
+      каналы интерфейсом. Приёмка NTF-6 (c82cd21b), построенная «поверх API этой под-фазы», ждёт
+      оси канала (entries[]{module, kind, channel, state}, каталог GET /notify/v1/catalog, подписка с
+      channel). В NTF-3 этих контрактов нет.
+    fix: >-
+      Ввести канал ключом правила и подписки: закрытое перечисление, в объёме — MAIL; лента консоли
+      — ALWAYS, правкой не выразима. Добавить сценарий «неизвестный канал → INVALID_ARGUMENT с полем»
+      и близнеца. Какой форме API быть (правила Р10 или entries/каталог NTF-6), решает эта приёмка,
+      потому что API её; решение назвать, чтобы NTF-6 правилась по нему.
+  - id: B1-7
+    kind: CONSTRUCTIBILITY
+    title: NTF3-57 требует управляемых часов базы модуля — такого средства нет
+    where: "NTF3-57 Given/Then; §8"
+    finding: >-
+      Given: «управляемые часы базы модуля стоят на 2026-10-01T10:00:00.734Z»; Then: occurredAt =
+      «2026-10-01T10:00:00Z». У storage (и registry) журнал пишется триггером, время строки ставит база
+      (created_at DEFAULT now(), 20260828153423_storage_subscription_journal.sql:136 @1d42a6728bf).
+      В §8 (С6) управляемых часов базы модуля нет.
+    fix: >-
+      Утверждать occurredAt равным времени транзакции строки журнала, усечённому до секунды
+      (прочитанному пробой из таблицы), без дробной части. Либо назвать средство, которое задаёт
+      время базы, и внести его в §8.
+
+non_blocking_findings:
+  - "G0: у usr-E роль с v_get на project:prj-1 и без v_get на ресурсы storage, а про vpc ничего не сказано. usr-E — в аудитории ListProjectAudience (NTF3-117). Если роль даёт v_get на сети, «писем 0» в NTF3-109 ложно, а NTF3-103 про usr-E молчит. Сузить роль: без v_get на ресурсы любого модуля."
+  - "NTF3-79: отказ ленты консоли несёт текст «notification settings are available to users only» — это текст настроек. Назвать текст ленты либо один общий текст для всех сервисов notify."
+  - "NTF3-135: не назван глагол vpc, который отвечает Operation с done=true и ошибкой INVALID_ARGUMENT, — по api-error-codes-vocab формат отвергается синхронно, без Operation. Назвать производителя или снять половину."
+  - "NTF-1 @a6cb0c1f Р10: «сводку вместо отложенных писем (DEFER(recipient_net)) заводит NTF-3». Здесь ни решения, ни строки спора нет. Взять или отклонить явно."
+  - "Строка §4 о замещении NTF-1 Р1 называет только слушатель. NTF-1 Р1 говорит и «база kacho_notify — только для счётчиков лимитов»; лента консоли, настройки, подписки и контакты это тоже замещают."
+  - "Контакты правит держатель v_update на аккаунт, а задание говорит «пользователь меняет только свои». Записать решением, что контакт — свойство аккаунта."
+  - "Р14: лимиты шаблонов storage записаны числами в notification.yaml (20/ч, 200/ч), а Д11 называет числа поставляемыми значениями с границами. Указать, что лимиты шаблона — форма NTF-1 Р7, а не ручка установки."
+  - "NTF3-95: id репозитория reg-1/pub содержит «/». Определить форму resourceId цели подписки для составных id (Р25 — corevalidate.ResourceID первым стейтментом)."
+  - "Строка редакции 5 в шапке не несёт счёта. Его надо вписать: номеров 148, снято 5, живых 143, стадий 3, решений Р1–Р26."
+
+method_verdict: >-
+  Производитель назван у всех «Тогда» (0 без производителя). Все живые номера попадают в списки проб
+  DoD. У отрицательных сценариев 107 строк близнецов. Формат GWT, коды и тексты конкретны. Возврат
+  вызван расхождением с решениями Д2, Д4, Д9 и опорой на ту редакцию NTF-1, которой больше нет:
+  четыре Given не строятся при текущих формах модели, адресата, класса и полосы отсечки.
