@@ -11,13 +11,21 @@
 мин — замер приёмки на fc25f8038, notify 2915/2917/2919/2925). Второй возврат
 (⛔ на a1b230728) нашёл ещё 13 решений и 4 отказа входа, на которых набор был
 зелёным 47/47; при их разборе нашлось, что id со стадией (`S1-A1`) читался как
-диапазон и терялся — внутренних рёбер 2919 не было, и те числа занижены. Перечень ниже — по РЕШЕНИЮ инструмента, а
+диапазон и терялся: у 2919 рёбра были у 8 полос из 41 (38 рёбер), после правки — у 35
+(83), замер `build()` @a1b230728 против @bfe2d9c91. Третий возврат (⛔ на bfe2d9c91)
+нашёл 4 формы ячейки «зависит от», на которых ребро терялось молча (диапазон по
+суффиксу, диапазон стадий, обратный диапазон, неоднозначный суффикс), и 12 выживших
+порч разбора ячейки — строк и регулярных выражений. Перечень ниже — по РЕШЕНИЮ инструмента, а
 не по найденным местам; у порчи в описании в скобках — проба `inject.sh`,
-которая её держит. Чем перечень полон: разведочный прогон всех однофактных
-порч разобранного дерева (сравнение, and/or, not, условие if, целая константа,
-max/min, +/−) — выживших, кроме заведомо равносильных (`EQUIVALENT`) и печати
-без решения, нет; перечень держит решения, а разведка — их полноту на момент
-правки. Новое решение инструмента без строки здесь — та же дыра заново.
+которая её держит. Чем перечень полон: разведка `explore-mutants.py` — все
+однофактные порчи разобранного дерева, включая порчи строк, регулярных
+выражений, методов и переменных ячейки (перечень операторов — в её шапке).
+Прогон на этой правке: порч 1059, выжило 92; каждый выживший разобран руками —
+он либо строка здесь с пробой, либо `EQUIVALENT` с доводом, либо `UNHELD`
+(отличим, нормы нет — печатается каждым прогоном). Один из 92 разбором оказался
+решением без пробы (`chain-cross-phase-ge`) и получил пробу M2 после прогона;
+остальные 91 — в `EQUIVALENT` и `UNHELD` ниже. Перечень держит решения, а
+разведка — их полноту на момент правки. Новое решение инструмента без строки здесь — та же дыра заново.
 
 КАК: порча — точная замена фрагмента исходника копии инструмента. Копия
 кладётся во временный каталог, `inject.sh` гонится против неё через
@@ -159,14 +167,13 @@ MUTANTS = [
      "repos = {'workspace'} if ex == 'vault-scribe' else {'—'}", "repos = {'—'}"),
     # ссылки в «зависит от»
     ('range-open-right', 'диапазон включает правую границу [D1]',
-     "for k in range(int(pa.group(2)), int(pb.group(2)) + 1)]",
-     "for k in range(int(pa.group(2)), int(pb.group(2)))]"),
+     "for k in range(lo, hi + 1)]", "for k in range(lo, hi)]"),
     ('range-ellipsis', 'разделитель диапазона — «–», «…» и «-» [D2]',
      r"re.fullmatch(r'\s*[–…-]\s*'", r"re.fullmatch(r'\s*[–-]\s*'"),
     ('range-stage-prefix', 'префикс стадии левой границы переносится на правую [D2]',
      "elif pa.group(1).endswith('-' + pb.group(1)):", "elif False:"),
     ('range-hyphen-token', 'дефисный диапазон `S1-S3`, прочитанный как один id [D9]',
-     "r, step = (span(m.group(1), m.group(2)) if m else None), 1", "r, step = None, 1"),
+     "for t in span(m.group(1), m.group(2), n) or m.groups():", "for t in m.groups():"),
     ('suffix-off', 'ссылка по суффиксу id (`A1` → `S2-A1`) [D3]',
      "suf = [x for x in ids if x.endswith('-' + t)]", "suf = []"),
     ('stage-inherit', 'заголовок без S<n> стадию не продолжает [D4]',
@@ -232,21 +239,21 @@ MUTANTS = [
     ('range-sep-other-token', 'разделитель диапазона — между СОСЕДНИМИ ссылками [D1c]',
      "s[toks[i].end():toks[i + 1].start()]", "s[toks[i].end():toks[i - 1].start()]"),
     ('range-right-other-token', 'правая граница — соседняя ссылка [D1c]',
-     "r = span(a, toks[i + 1].group(0))", "r = span(a, toks[i - 1].group(0))"),
+     "r = span(a, toks[i + 1].group(0), n)", "r = span(a, toks[i - 1].group(0), n)"),
     ('range-step-skip', 'после диапазона следующая ссылка читается [D1d]',
-     "r, step = None, 2", "r, step = None, 3"),
+     "                    i += 2\n", "                    i += 3\n"),
     ('range-hyphen-left', 'дефисный диапазон начинается с левой границы [D9]',
-     "r, step = (span(m.group(1), m.group(2))", "r, step = (span(m.group(2), m.group(2))"),
-    ('range-hyphen-step', 'после дефисного диапазона следующая ссылка читается [D9b]',
-     "if m else None), 1", "if m else None), 2"),
+     "span(m.group(1), m.group(2), n)", "span(m.group(2), m.group(2), n)"),
+    ('ref-step', 'после ссылки и дефисного диапазона следующая ссылка читается [D9b, D1b]',
+     "                i += 1\n", "                i += 2\n"),
     ('range-diff-prefix', 'тире между разными префиксами — две ссылки [D10]',
      "if pa.group(1) == pb.group(1):", "if True:"),
     ('range-stage-any-prefix', 'перенос префикса — только префикса стадии левой границы [D10]',
      "elif pa.group(1).endswith('-' + pb.group(1)):", "elif True:"),
     ('fallback-only-unresolved', 'id с дефисом, который есть в файле, — ссылка, не диапазон [D11]',
-     "if r is None and resolve(a)[0] is None:", "if r is None:"),
-    ('range-ext-kept', 'член диапазона вне файла — внешняя ссылка [X2]',
-     "(explicit.add(t) if t in idset else ext.append(t))", "explicit.add(t)"),
+     "if m and resolve(a, n)[0] is None:", "if m:"),
+    ('range-ext-kept', 'ссылка и член диапазона вне файла — внешняя ссылка [X2, N2]',
+     "                    ext.append(t)\n", "                    pass\n"),
     ('carries-ext', 'жетон узнаётся и среди раскрытых внешних ссылок [X2]',
      "return token in x['ext'] or token.strip('«»') in x['raw']",
      "return token.strip('«»') in x['raw']"),
@@ -284,6 +291,143 @@ MUTANTS = [
      "if not l.strip() or l.lstrip().startswith('#'):", "if l.lstrip().startswith('#'):"),
     ('refused-zero', 'нет отказов склейки — «0» [W2]', "dict(r['refused']) or 0", "dict(r['refused'])"),
     ('load-zero', 'загрузка при сроке 0 — 0 [P3]', "if ms else 0))", "if ms else 1))"),
+    # ── третий возврат ws#884 (⛔ на bfe2d9c91): формы ячейки, на которых ребро
+    # терялось молча, и порчи разбора ячейки, на которых набор был зелёным 121/121.
+    # Метка приёмки — в скобках после пробы (m1…m23 — её нумерация порч) ─────
+    ('range-member-exact-only', 'член диапазона узнаётся как ссылка: суффикс, стадия [D12, D13]',
+     "                    for t in r:\n                        take(t)\n",
+     "                    for t in r:\n                        (explicit.add(t) if t in idset else ext.append(t))\n"),
+    ('hyphen-member-exact-only', 'член дефисного диапазона узнаётся как ссылка [D13b]',
+     "or m.groups():\n                        take(t)\n",
+     "or m.groups():\n                        (explicit.add(t) if t in idset else ext.append(t))\n"),
+    ('hyphen-two-refs-off', 'дефис между разными префиксами — две ссылки [D14]',
+     "or m.groups():", "or ():"),
+    ('reverse-range-off', 'обратный диапазон — отказ [R15]', "if lo > hi:", "if False:"),
+    ('reverse-range-strict', 'диапазон с равными границами законен [D20]', "if lo > hi:", "if lo >= hi:"),
+    ('suffix-ambiguous-off', 'неоднозначный суффикс — отказ [R16] (m19)', "if len(suf) > 1:", "if False:"),
+    ('suffix-any-refuses', 'единственный суффикс — ссылка, не отказ [D3]', "if len(suf) > 1:", "if len(suf) > 0:"),
+    ('suffix-no-dash', 'суффикс id — после «-», не хвост имени [N2] (m7)',
+     "suf = [x for x in ids if x.endswith('-' + t)]", "suf = [x for x in ids if x.endswith(t)]"),
+    ('fallback-dash-optional', 'дефисный разбор — только при дефисе [N3]',
+     "m = re.fullmatch(r'(.*?\\d+)-(.*?\\d+)', a)", "m = re.fullmatch(r'(.*?\\d+)-?(.*?\\d+)', a)"),
+    ('loose-note-off', 'ссылка без полосы и без строки ведомости названа [N2, N3, K1]',
+     "        if loose:\n", "        if False:\n"),
+    ('loose-ignores-ledger', 'жетон под строкой ведомости заметки не даёт [K4]',
+     " if t.strip('«»') not in covered[x['issue']]]", "]"),
+    ('loose-ledger-dst', 'жетон покрывает строка СВОЕЙ под-фазы, не цели [K4]',
+     "for src, token, _ in semantic_rows:", "for _, token, src in semantic_rows:"),
+    ('note-names-all', 'заметка о пояснении — только ссылки на полосы [D6b] (m10)',
+     "if known(t)]", "]"),
+    ('note-known-no-stage', 'стадия в пояснении — ссылка на полосы [D6b]',
+     "return t in idset or t in stages or", "return t in idset or"),
+    ('note-known-no-suffix', 'суффикс в пояснении — ссылка на полосу [D6b]',
+     " or any(x.endswith('-' + t) for x in ids)", ""),
+    ('id-latin-suffix', 'суффикс id — и с кириллической буквой [D18b] (m11)',
+     "(?:-[A-ZА-ЯЁ]\\d+)?'", "(?:-[A-Z]\\d+)?'"),
+    ('id-no-suffix', 'id со стадией — один id, не стадия и суффикс [D18] (m22)',
+     "\\d+(?:-[A-ZА-ЯЁ]\\d+)?'", "\\d+'"),
+    ('header-no-boundary', 'стадия в заголовке — слово S<n> [D19] (m23)',
+     "re.search(r'\\bS(\\d+)\\b', l)", "re.search(r'S(\\d+)\\b', l)"),
+    ('s-tier-in-tail', '«S-ярус» после «;» рёбер не даёт [D15] (m1)',
+     "if 'S-ярус' in s:", "if 'S-ярус' in cell:"),
+    ('raw-whole-cell', 'фраза-жетон после «;» не носитель [R17, R18] (m2)',
+     "raw_of[n] = head", "raw_of[n] = d.get('зависит от', '')"),
+    ('quotes-whole-cell', 'жетон в «ёлочках» после «;» не носитель [R18] (m3)',
+     "re.findall(r'«([^»]+)»', s)", "re.findall(r'«([^»]+)»', cell)"),
+    ('s-tier-prefix', '«S-ярус» — id РОВНО S<n> [D16] (m18)',
+     "re.fullmatch(r'S\\d+', x)", "re.match(r'S\\d+', x)"),
+    ('range-sep-no-spaces', 'пробелы вокруг тире диапазона [D17] (m5)',
+     "re.fullmatch(r'\\s*[–…-]\\s*'", "re.fullmatch(r'[–…-]'"),
+    # ── разведка после третьего возврата (порчи строк, регулярных выражений,
+    # методов и переменных): отличимые выжившие получили пробу и строку здесь ──
+    ('cell-escape-off', 'экранированная «\\|» — символ ячейки, не граница [R19]',
+     r"line.replace('\\|', '\x00')", r"line.replace('\\|x', '\x00')"),
+    ('cell-escape-lost', 'экранированная «\\|» возвращается в ячейку [R19]',
+     r"c.strip().replace('\x00', '|')", r"c.strip().replace('\x00', '')"),
+    ('row-trailing-space', 'пробел после замыкающей «|» [R19]',
+     "line.strip().strip('|')", "line.lstrip().strip('|')"),
+    ('row-no-closing-pipe', 'строка таблицы узнаётся по «|» в начале [R19]',
+     "if not l.startswith('|'):", "if not l.endswith('|'):"),
+    ('narrow-row', 'строка уже заголовка — отказ [R2b]', "len(c) != len(hdr)", "len(c) > len(hdr)"),
+    ('section-anywhere', 'раздел полос — заголовок второго уровня с начала строки [R5b]',
+     "re.match(r'^## .*Полосы', l)", "re.search(r'## .*Полосы', l)"),
+    ('section-fullmatch', 'текст после «Полосы» в заголовке раздела законен [K7]',
+     "re.match(r'^## .*Полосы', l)", "re.fullmatch(r'^## .*Полосы', l)"),
+    ('phase-repeat-ge', 'повтор под-фазы — равенство имён, не порядок [K6]',
+     "if any(x['issue'] == name for x in L.values()):", "if any(x['issue'] >= name for x in L.values()):"),
+    ('alias-self-lt', 'при снятии рёбер стадии учитывается член с любым id [C4]',
+     "alias_deps[n] = {p for p in a - e if p != n}", "alias_deps[n] = {p for p in a - e if p < n}"),
+    ('reaches-ge', 'цикл раскрытия — возврат в САМУ полосу [C5]',
+     "if u == b:\n                    return True\n                if u in seen:\n                    continue\n                seen.add(u)\n                st += deps[u]",
+     "if u >= b:\n                    return True\n                if u in seen:\n                    continue\n                seen.add(u)\n                st += deps[u]"),
+    ('sep-search', 'разделитель диапазона — весь текст между ссылками [D1e]',
+     r"re.fullmatch(r'\s*[–…-]\s*', s[", r"re.search(r'\s*[–…-]\s*', s["),
+    ('sep-match', 'разделитель диапазона — ровно одно тире [D1f]',
+     r"re.fullmatch(r'\s*[–…-]\s*', s[", r"re.match(r'\s*[–…-]\s*', s["),
+    ('sep-no-hyphen', 'дефис с пробелами — разделитель диапазона [D17b]',
+     r"r'\s*[–…-]\s*'", r"r'\s*[–…]\s*'"),
+    ('prefix-ge', 'диапазон — при РАВНЫХ префиксах границ [D10b]',
+     "if pa.group(1) == pb.group(1):", "if pa.group(1) >= pb.group(1):"),
+    ('prefix-carry-no-dash', 'префикс стадии переносится только через «-» [D10c]',
+     "elif pa.group(1).endswith('-' + pb.group(1)):", "elif pa.group(1).endswith(pb.group(1)):"),
+    ('hyphen-pair-one-letter', 'дефисная пара с многобуквенным префиксом [D14b]',
+     r"m = re.fullmatch(r'(.*?\d+)-(.*?\d+)', a)", r"m = re.fullmatch(r'(.?\d+)-(.*?\d+)', a)"),
+    ('span-greedy-a', 'номер левой границы — все цифры [D22]',
+     r"pa, pb = re.fullmatch(r'(.*?)(\d+)', a)", r"pa, pb = re.fullmatch(r'(.*)(\d+)', a)"),
+    ('span-greedy-b', 'номер правой границы — все цифры [D22]',
+     r"re.fullmatch(r'(.*?)(\d+)', b)", r"re.fullmatch(r'(.*)(\d+)', b)"),
+    ('stage-one-digit', 'стадия — номер любой длины [D21]',
+     r"re.search(r'\bS(\d+)\b', l)", r"re.search(r'\bS(\d)\b', l)"),
+    ('stage-trailing-boundary', 'стадия в заголовке — слово: после номера граница [D19]',
+     r"re.search(r'\bS(\d+)\b', l)", r"re.search(r'\bS(\d+)', l)"),
+    ('s-tier-one-digit', '«S-ярус» — S<n> с номером любой длины [D16]',
+     r"re.fullmatch(r'S\d+', x)", r"re.fullmatch(r'S\d', x)"),
+    ('known-suffix-no-dash', 'в заметке суффикс — после «-» [D6b]',
+     "or any(x.endswith('-' + t) for x in ids)", "or any(x.endswith(t) for x in ids)"),
+    ('quotes-to-ext-off', 'фраза в «ёлочках» — внешняя ссылка ячейки [N4]',
+     "re.findall(r'«([^»]+)»', s)", "re.findall(r'«([»]+)»', s)"),
+    ('covered-lstrip', 'жетон ведомости в «ёлочках» покрывает фразу ячейки [R18u]',
+     "covered[src].add(token.strip('«»'))", "covered[src].add(token.lstrip('«»'))"),
+    ('loose-lstrip', 'фраза ячейки в «ёлочках» покрыта жетоном без них [R18t]',
+     "if t.strip('«»') not in covered", "if t.lstrip('«»') not in covered"),
+    ('carries-lstrip', 'жетон в «ёлочках» находит фразу без них [I2]',
+     "token.strip('«»') in x['raw']", "token.lstrip('«»') in x['raw']"),
+    ('carriers-ge', 'носители строки — только своей под-фазы [X3]',
+     "if x['issue'] == src and carries(x, token)]", "if x['issue'] >= src and carries(x, token)]"),
+    ('targets-le', 'цели строки — только полосы под-фазы-цели [X3]',
+     "if x['issue'] == dst and not", "if x['issue'] <= dst and not"),
+    ('targets-exclude-le', 'носители исключаются из целей только при цели = своя под-фаза [X3]',
+     "not (src == dst and carries(x, token))", "not (src <= dst and carries(x, token))"),
+    ('edges-A-cross-gt', 'режим A не берёт межфазную строку и при под-фазе меньше цели [K5b]',
+     "if edges_mode == 'A' and src != dst:", "if edges_mode == 'A' and src > dst:"),
+    ('chain-tail-le', 'цепочка — хвост пакета РАВЕН предшественнику [P1b]',
+     " and P[q][-1] == p\n", " and P[q][-1] <= p\n"),
+    ('ledger-wide', 'строка ведомости шире трёх полей — отказ [R7b]',
+     "if len(f) != 3 or not all(f):", "if len(f) < 3 or not all(f):"),
+    ('ledger-field-lstrip', 'поле ведомости обрезается с обеих сторон [K4]',
+     "f = [x.strip() for x in", "f = [x.lstrip() for x in"),
+    ('ledger-field-rstrip', 'поле ведомости обрезается с обеих сторон [K4]',
+     "f = [x.strip() for x in", "f = [x.rstrip() for x in"),
+    ('minutes-superset', '--minutes без лишних размеров [R10d]',
+     "if set(minutes) != set(UNIT):", "if set(minutes) < set(UNIT):"),
+    ('minutes-negative-off', 'отрицательная длительность — отказ [R10b]',
+     "if min(minutes.values()) < 0 or a.review < 0:", "if a.review < 0:"),
+    ('review-negative-off', 'отрицательное ревью — отказ [R10c]',
+     "if min(minutes.values()) < 0 or a.review < 0:", "if min(minutes.values()) < 0:"),
+    ('zero-duration-refused', 'нулевые длительности законны [R10e]',
+     "if min(minutes.values()) < 0 or a.review < 0:", "if min(minutes.values()) < 1 or a.review < 1:"),
+    ('slots-zero-off', 'ноль слотов — отказ [R12b]', "if min(slots) < 1:", "if False:"),
+    ('slots-one-refused', 'один слот законен [R10e]', "if min(slots) < 1:", "if min(slots) < 2:"),
+    ('vault-ge', 'workspace без колонки — только vault-scribe [T2]',
+     "if ex == 'vault-scribe' else", "if ex >= 'vault-scribe' else"),
+    ('dispatcher-ge', '0 мин — только исполнитель «диспетчер» [T2]',
+     "dispatcher=(ex == 'диспетчер'))", "dispatcher=(ex >= 'диспетчер'))"),
+    ('tsv-no-dash', 'пакет без зависимостей — «—» в таблице [Z2]',
+     "' '.join(sorted(r['PD'][q])) or '—'", "' '.join(sorted(r['PD'][q]))"),
+    ('chain-cross-phase-ge', 'цепочка — только внутри под-фазы, и когда предшественник в большей [M2]',
+     "if (y['issue'] == x['issue'] and y['ex']", "if (y['issue'] >= x['issue'] and y['ex']"),
+    ('out-join', '--out пишет ту же таблицу, что печать [O1]',
+     r"fh.write('\n'.join(lines) + '\n')", r"fh.write('\nx'.join(lines) + '\n')"),
 ]
 
 # Порчи, которым нечем отличиться от исходника — доводом, не пропуском:
@@ -325,6 +469,46 @@ EQUIVALENT = [
     ('est-root-shift', "начальный ранний старт 0 → ±1: он сдвигает ранний старт всех полос "
      "на одно число (каждый путь начинается с корня), порядок кандидатов прежний"),
     ('nid-index', "`nid[0]` → `nid[-1]`: список из одного элемента"),
+    ('cmp-nonnegative', "`== 0` → `<= 0` и `> 0` → `!= 0` у длительности пакета (расписание, "
+     "«работа»), свободных слотов, входящей степени; `==` → `<=` у времени кучи событий и "
+     "у срока против пути: длительности не отрицательны (отказ R10b, R10c), слотов не "
+     "меньше нуля, событие не раньше текущего времени, срок не короче пути"),
+    ('cmp-two-values', "`== 'A'` → `<=`, `== 'B'` → `>=`, `== 'literal'` → `>=`: у `--edges` и "
+     "`--pack` по два значения (`choices` argparse), порядок строк их не различает"),
+    ('cmp-count-ge1', "`> 1` → `!= 1` у счёта повторов id, длины пакета и числа репозиториев: "
+     "каждое из них не меньше 1 (Counter, непустой пакет, `{'—'}` вместо пустого)"),
+    ('cmp-loop-bounds', "`i < len(toks)` и `i + 1 < len(toks)` → `!=`: `i` растёт на 1, а на 2 — "
+     "только при `i + 1 < len(toks)`, перескочить границу нельзя"),
+    ('cands-key-order', "`key(t) != key(q)` → `<` в склейке: кандидаты отсортированы по ключу, "
+     "`t` стоит раньше `q`, значит `key(t) <= key(q)`"),
+    ('guard-never-shorter', "`cp_now() <= base` → `==`: склейка путь не укорачивает (довод "
+     "`guard-base-frozen`), `<` не наступает"),
+    ('chain-conjunction', "в условии цепочки — снятие или ослабление (`==` → `<=`/`>=`, `and` → "
+     "`or` внутри `all`) любого из сравнений исполнителя и репозитория: пакет цепочки "
+     "собирается только этим правилом, у его членов исполнитель и репозиторий общие, и "
+     "оставшееся сравнение хвоста `p` проверяет то же"),
+    ('hyphen-pair-regex', "в `(.*?\\d+)-(.*?\\d+)`: `fullmatch` → `match`/`search`, снятие `?`, `+` "
+     "и второй `*`: разбирается только id вида «буквы+цифры-буква+цифры» (ID), разрез по "
+     "единственному «-» тот же; первая `*` держится пробой D14b"),
+    ('span-regex-anchor', "`fullmatch` → `match`/`search` в `span`: образец кончается жадным "
+     "`\\d+`, id кончается цифрами, совпадение с позиции 0 то же"),
+    ('section-anchor', "`re.match(r'^## …')` → `search` либо без `^`: `match` и так привязан к "
+     "началу строки, `^` без MULTILINE — тоже; раздел ищет проба R5b"),
+    ('tail-strip', "`tail.strip()` → `lstrip`/`rstrip`: пояснение читается только на истинность "
+     "и поиском id, пробелы по краям не меняют ни того, ни другого"),
+    ('row-leading-space', "`line.strip()` → `rstrip` у строки таблицы: строка таблицы узнаётся "
+     "по «|» в начале, ведущих пробелов у неё нет"),
+    ('cell-defaults', "значение по умолчанию `d.get('зависит от', '')`, `d.get('исполнитель', …)`: "
+     "колонка «исполнитель» есть всегда (по ней узнаётся заголовок), а ячейка по "
+     "умолчанию без id, «;», «ёлочек» и «S-ярус» не даёт ничего при любой строке"),
+    ('ledger-line-blank', "`not l.strip()` → `lstrip`/`rstrip` у строки ведомости: строка из одних "
+     "пробелов пуста при любой из трёх"),
+    ('sep-var-cell', "`s[…]` → `cell[…]` у разделителя диапазона: `s` — начало `cell` до «;», "
+     "смещения ссылок лежат внутри `s`"),
+    ('ledger-rstrip-newline', "`l.rstrip('\\n')` → `rstrip('')` у строки ведомости: поля "
+     "обрезаются `strip()` после разбиения, хвостовой перевод строки уходит там"),
+    ('span-or-none', "`return [...] or None` в `span` (m21 приёмки на bfe2d9c91): после отказа на "
+     "обратном диапазоне `lo <= hi`, и список из `range(lo, hi + 1)` непуст всегда"),
     ('script-guards', "`if __name__ == '__main__'` и индекс строки описания argparse — "
      "не решение расчёта"),
 ]
@@ -333,11 +517,15 @@ EQUIVALENT = [
 # определена нормой, и проба закрепила бы случайное поведение. Печатаются
 # каждый прогон — это «держится вниманием», а не «держится».
 UNHELD = [
-    ('range-chained', "`r, step = None, 2` → `1`: правая граница перечитывается и может "
+    ('range-chained', "`i += 2` после диапазона → `1`: правая граница перечитывается и может "
      "начать новый диапазон; отличимо только на цепи «A1–A2–A5», смысл которой нормой "
      "не задан (в маршрутах notify её нет)"),
+    ('strip-set-x', "добавка символа к набору `strip` (`'«»'` → `'«»x'`, `'\\n'` → `'\\nx'` у строки "
+     "ведомости, `'|'` → `'|x'` у строки таблицы): отличимо только на жетоне, имени "
+     "под-фазы или последней ячейке строки без замыкающей «|», которые начинаются или "
+     "кончаются этим символом; нормой это не задано, жетоны — `Е<n>` и фразы"),
     ('separator-strict', "`<=` → `<` в узнавании строки-разделителя: отличимо только на "
-     "строке, чьи ячейки состоят из «-», «:» и пробела внутри ячейки — это не "
+     "строке, чьи ячейки состоят из «-», «:» и пробела (и, для порчи набора `'-: x'`, «x») — это не "
      "разделитель GFM и не строка полосы"),
 ]
 

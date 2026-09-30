@@ -17,11 +17,24 @@
 
 ЯЧЕЙКА «ЗАВИСИТ ОТ»: список ссылок — до первой «;», дальше пояснение, и его id
 рёбрами не становятся (заметка называет их поимённо). Ссылка — id полосы; id по
-суффиксу (`A1` → единственная `S2-A1`); стадия `S<n>`; «S-ярус» — все полосы с id
-`S<n>`; диапазон `A1–A3`, `N0…N4`, `S1-S3` с правой границей включительно;
-`S2-A1…A3` — префикс стадии левой границы переносится на правую. Прочее —
-внешние ссылки (жетоны ведомости). До ws#884 id с префиксом стадии (`S1-A1`)
-читался как диапазон `S1…A1` и терялся: внутренних рёбер 2919 не было вовсе.
+суффиксу (`A1` → единственная `S2-A1`; суффикс нескольких полос — ОТКАЗ); стадия
+`S<n>`; «S-ярус» — все полосы с id ровно `S<n>`; диапазон `A1–A3`, `N0…N4`,
+`S1-S3` с правой границей включительно, каждый член которого узнаётся как
+отдельная ссылка (`A1–A2` → `S1-A1`, `S1-A2`; `S1–S2` → полосы стадий);
+`S2-A1…A3` — префикс стадии левой границы переносится на правую; обратный
+диапазон (`A3–A1`) — ОТКАЗ; тире или дефис между разными префиксами (`X1–Y2`,
+`X1-Y2`) — две ссылки. Прочее — внешние ссылки (жетоны ведомости); внешняя
+ссылка без строки ведомости своей под-фазы печатается заметкой — опечатка в id
+иначе неотличима от жетона. До ws#884 id с префиксом стадии (`S1-A1`) читался
+как диапазон `S1…A1` и терялся: у 2919 из 41 полосы рёбра были у 8 (38 рёбер),
+после правки — у 35 (83 ребра); замер `build()` @a1b230728 против @bfe2d9c91.
+
+ПОРЯДОК ФАЙЛОВ — часть входа: он разрывает равенства (цепочка продолжает первого
+по файлу предшественника, кандидаты склейки при равном раннем старте идут по месту
+первой полосы, пакеты нумеруются по порядку). Прогоны сравнимы только при одном
+порядке; строки «перепись» печатаются в порядке входа и его называют. Замер
+@bfe2d9c91 на notify: 2915 2917 2919 2924 2925 — пакетов 137, срок при 6 слотах
+1300 мин, минимум слотов 10; 2915 2917 2919 2925 2924 — 136, 1305, 9.
 
 РЕЖИМЫ
   --edges A      рёбра только внутри задач (и внутризадачные строки ведомости);
@@ -43,7 +56,9 @@
   1 — ОТКАЗ: цикл из явных рёбер (назван путь), строка таблицы не той ширины
       либо без заголовка, раздела «Полосы» нет, повтор id полосы либо под-фазы,
       строка ведомости не из трёх непустых полей, без носителя либо с под-фазой
-      не из входа, `--minutes` не ровно S, M, L, вход не читается;
+      не из входа, ссылка по суффиксу неоднозначна, диапазон обратный,
+      `--minutes` не ровно S, M, L, отрицательные `--minutes` или `--review`,
+      `--slots` меньше 1, вход не читается;
   2 — обход ПУСТ: файлов нет либо в файле ноль полос. Ноль полос — не «ноль
       пакетов, срок 0», а «не прочитано ничего».
 
@@ -70,7 +85,7 @@ CAP_UNITS = 4
 # полос из разных под-фаз не смешивает предметы (fa-a3).
 SAME_KIND = {'proto-sync', 'migration-writer', 'deploy-engineer', 'tooling-maintainer',
              'docs-writer', 'vault-scribe', 'git-operator'}
-ID = r'[A-ZА-ЯЁ]+\d+(?:-[A-Z]\d+)?'
+ID = r'[A-ZА-ЯЁ]+\d+(?:-[A-ZА-ЯЁ]\d+)?'
 REPO_TOKEN = r'(?:^|[;,]\s*|\s)(kacho-workspace|воркспейс|corelib|kacho|kaname|GitHub)\s*(?:·|\||$)'
 
 
@@ -149,19 +164,29 @@ def build(paths, semantic_rows, edges_mode, notes):
         idset = set(ids)
         order = {x: i for i, x in enumerate(ids)}
 
-        def resolve(t):
+        def resolve(t, n):
+            """Ссылка → (полосы, раскрытие стадии?); (None, False) — не полоса файла.
+            Суффикс, общий нескольким полосам, — отказ: ребро неадресуемо."""
             if t in idset:
                 return [t], False
             suf = [x for x in ids if x.endswith('-' + t)]
-            if len(suf) == 1:
+            if len(suf) > 1:
+                raise Refusal('%s:%s: ссылка «%s» по суффиксу неоднозначна — %s; ребро '
+                              'неадресуемо' % (name, n, t, ', '.join(suf)))
+            if suf:
                 return suf, False
             if t in stages:
                 return list(stages[t]), True
             return None, False
 
-        def span(a, b):
+        def known(t):
+            # Для заметки о пояснении: ссылка ли это на полосу — без отказа.
+            return t in idset or t in stages or any(x.endswith('-' + t) for x in ids)
+
+        def span(a, b, n):
             # Диапазон `A1–A3` / `N0…N4`: общий префикс, правая граница входит.
             # `S2-A1…A3`: префикс стадии у левой границы переносится на правую.
+            # Разные префиксы — не диапазон (None): две ссылки.
             pa, pb = re.fullmatch(r'(.*?)(\d+)', a), re.fullmatch(r'(.*?)(\d+)', b)
             if pa.group(1) == pb.group(1):
                 pre = pa.group(1)
@@ -169,10 +194,24 @@ def build(paths, semantic_rows, edges_mode, notes):
                 pre = pa.group(1)
             else:
                 return None
-            return [pre + str(k) for k in range(int(pa.group(2)), int(pb.group(2)) + 1)]
+            lo, hi = int(pa.group(2)), int(pb.group(2))
+            if lo > hi:
+                raise Refusal('%s:%s: диапазон «%s–%s» обратный — какие полосы в нём, не '
+                              'определено' % (name, n, a, b))
+            return [pre + str(k) for k in range(lo, hi + 1)]
 
-        def expand(cell):
+        def expand(cell, n):
             explicit, alias, ext = set(), set(), []
+
+            def take(t):
+                # Каждая ссылка — и член диапазона тоже — узнаётся одинаково: id,
+                # суффикс id, стадия; не узнанная — внешняя (жетон ведомости).
+                res, is_alias = resolve(t, n)
+                if res:
+                    (alias if is_alias else explicit).update(res)
+                else:
+                    ext.append(t)
+
             # Список ссылок — до первой «;»; дальше пояснение («N5 сюда не входит —
             # она зависит от C4»), и его id рёбрами не становятся. Отброшенное
             # печатается заметкой, а не исчезает молча.
@@ -181,24 +220,24 @@ def build(paths, semantic_rows, edges_mode, notes):
             i = 0
             while i < len(toks):
                 a = toks[i].group(0)
-                r, step = None, 2
+                r = None
                 if (i + 1 < len(toks)
                         and re.fullmatch(r'\s*[–…-]\s*', s[toks[i].end():toks[i + 1].start()])):
-                    r = span(a, toks[i + 1].group(0))
-                if r is None and resolve(a)[0] is None:
-                    # `S1-S3` — дефисный диапазон, разобранный ID как id с суффиксом.
-                    m = re.fullmatch(r'(.*?\d+)-(.*?\d+)', a)
-                    r, step = (span(m.group(1), m.group(2)) if m else None), 1
+                    r = span(a, toks[i + 1].group(0), n)
                 if r is not None:
                     for t in r:
-                        (explicit.add(t) if t in idset else ext.append(t))
-                    i += step
+                        take(t)
+                    i += 2
                     continue
-                res, is_alias = resolve(a)
-                if res:
-                    (alias if is_alias else explicit).update(res)
+                m = re.fullmatch(r'(.*?\d+)-(.*?\d+)', a)
+                if m and resolve(a, n)[0] is None:
+                    # ID читает `S1-S3` и `X1-Y2` как один id с суффиксом. Полосы с
+                    # таким id нет: это дефисный диапазон либо, при разных
+                    # префиксах, две ссылки — как через тире.
+                    for t in span(m.group(1), m.group(2), n) or m.groups():
+                        take(t)
                 else:
-                    ext.append(a)
+                    take(a)
                 i += 1
             if 'S-ярус' in s:
                 alias.update(x for x in ids if re.fullmatch(r'S\d+', x))
@@ -208,13 +247,13 @@ def build(paths, semantic_rows, edges_mode, notes):
         deps, alias_deps, raw_of = {}, {}, {}
         for d in lanes:
             n = d['_id']
-            e, a, x, head, tail = expand(d.get('зависит от', ''))
+            e, a, x, head, tail = expand(d.get('зависит от', ''), n)
             deps[n] = {p for p in e | a if p != n}
             alias_deps[n] = {p for p in a - e if p != n}
             ext_of[(name, n)] = x
             raw_of[n] = head
             if tail:
-                named = [t for t in re.findall(ID, tail) if resolve(t)[0]]
+                named = [t for t in re.findall(ID, tail) if known(t)]
                 notes.append('%s:%s после «;» — пояснение, рёбер не даёт: %s'
                              % (name, n, ', '.join(named) or 'ссылок на полосы нет'))
 
@@ -279,6 +318,17 @@ def build(paths, semantic_rows, edges_mode, notes):
             L[g]['deps'] |= targets - {g}
         notes.append('%s: %s %s -> все полосы %s (%d), носителей %d'
                      % (edges_mode, src, token, dst, len(targets), len(carriers)))
+    # Ссылка, не узнанная полосой файла и не названная строкой ведомости своей
+    # под-фазы (в любом режиме), ребра не даёт — и это печатается: опечатка в id и
+    # жетон без строки неотличимы от законной внешней ссылки иначе как глазами.
+    covered = collections.defaultdict(set)
+    for src, token, _ in semantic_rows:
+        covered[src].add(token.strip('«»'))
+    for g, x in L.items():
+        loose = [t for t in x['ext'] if t.strip('«»') not in covered[x['issue']]]
+        if loose:
+            notes.append('%s ссылки без полосы в файле и без строки ведомости — рёбер не '
+                         'дают: %s' % (g, ', '.join(loose)))
     return L, census
 
 
@@ -535,7 +585,12 @@ def main(argv):
         minutes = {kv.split('=')[0]: int(kv.split('=')[1]) for kv in a.minutes.split(',')}
         if set(minutes) != set(UNIT):
             raise Refusal('--minutes обязан назвать ровно S, M, L')
+        if min(minutes.values()) < 0 or a.review < 0:
+            raise Refusal('--minutes и --review не бывают отрицательными')
         slots = [int(s) for s in a.slots.split(',')]
+        if min(slots) < 1:
+            # Ноль слотов не запускает ни одного пакета: расписание не кончилось бы.
+            raise Refusal('--slots — число слотов от 1, названо %s' % a.slots)
         if not a.tasks:
             raise EmptyWalk('входных tasks.md ноль — прочитано ничего')
         rows = []
