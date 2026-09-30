@@ -1,0 +1,240 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: e9b2e194da595f8644a56b1b6f06631a3f9f86b72f18debecaa79effadd18b34
+  revision: 11
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, строка редакции 11 говорит «вердикта на неё НЕТ». Эта запись
+    шапку не правит: действующий вердикт выводится из внешнего события и записи ревью, привязанной
+    к отпечатку, а не из слова в заголовке.
+  base_commit: e30a89818b8933ad3594cf3f1b06fde93485712c
+  content_commit: e30a89818b8933ad3594cf3f1b06fde93485712c
+  content_commit_note: >-
+    Редакцию 11 внёс коммит e30a89818 (родитель 8d921e1ca). `git show HEAD:<файл> | sha256sum` и
+    `sha256sum <файл>` дают e9b2e194… на HEAD e30a89818.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3403
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T09:40:00Z'
+round: 10
+pass_round: 2
+pass_note: >-
+  Круг 2 прохода решений Д17–Д18. Сквозной номер круга приёмки по документу — 10. Предмет — весь
+  документ; по существу проверена дельта 6d2709cf→e9b2e194 (редакция 11: закрытие B9-1…B9-3 и I-1
+  круга 9). Прочий текст с круга 9 не менялся (git diff 50dee5e22 e30a89818 — только места §21).
+previous_rounds:
+  - {round: 1, sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: 1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32, verdict: APPROVED}
+  - {round: 9, sha256: 6d2709cf09e39854fa757e7c7464e4eb4c7fe891337fd98b125b76acb5fad738, verdict: CHANGES_REQUESTED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac e30a89818 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: e30a89818b8933ad3594cf3f1b06fde93485712c
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+publication_mode: >-
+  Событие полномочия публикует курьер. Его тело — строка external_event_body ниже. Роль в этой
+  записи служит координатой и личность не доказывает. Вердикт — возврат; по Д16 документ в main не
+  идёт, черновик остаётся в ветке issue-880.
+external_event_body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 e9b2e194da595f8644a56b1b6f06631a3f9f86b72f18debecaa79effadd18b34"
+blocking_count: 1
+blocking_kinds_distinct: [PRODUCER]
+blocking_kinds_by_item:
+  - {id: B10-1, kind: PRODUCER}
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2, 2, 1, 0, 3, 1]
+  note: >-
+    B9-1…B9-3 закрыты. Единственное блокирующее — внутри закрытия B9-1: исход отмены для строки
+    заявки. Род PRODUCER в проходе Д17–Д18 — второй раз (B9-3, B10-1), но класс другой: B9-3 —
+    гейт без носителя, B10-1 — «снятие» строки без названной записи, его производящей.
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → e9b2e194… оба (HEAD e30a89818)"
+  - claim: "решения Д1–Д16 соблюдены; Д17, Д18 — из задания"
+    result: подтверждено
+    predicate: >-
+      разделы §2 «Перенесённые решения диспетчера» между редакциями 10 и 11 не менялись, кроме
+      строки «Следствие» Д18 (git diff 50dee5e22 e30a89818 — единственная правка в §2 до Р1);
+      сверка Д1–Д16 с текстами решений выполнена на круге 9 (запись 6d2709cf….yaml,
+      dispatcher_decisions_check) и на неизменённом тексте не устарела
+  - claim: "CancelOwned — одна запись с done = false и владельцем; повтор отменённой — та же операция; завершённая иначе — FAILED_PRECONDITION 'operation <id> already completed'; чужая — NotFound"
+    result: подтверждено
+    predicate: >-
+      git -C project/corelib show 34bc810:operations/repo.go:667-697 (UPDATE … WHERE id=$1 AND
+      done=false AND ownerPredicate; error_code=1 'operation cancelled'; 0 строк → GetOwned: code 1 →
+      та же операция, иной done → ErrAlreadyDone, чужая → ErrNotFound);
+      operations/operationspb/handler.go:103-126 (ErrAlreadyDone → FailedPrecondition
+      "operation %s already completed")
+  - claim: "фиксация может записать Operation с условием done = false внутри своей транзакции"
+    result: подтверждено
+    predicate: >-
+      corelib 34bc810 operations/repo.go:170, :205, :242 — markDoneCAS / markDoneWithMetadataCAS /
+      markErrorCAS принимают rowQuerier и пишут `WHERE id = $1 AND done = false`
+  - claim: "край перед отменой читает операцию у владельца — одна отмена через край даёт два вызова OperationService"
+    result: подтверждено
+    predicate: "git -C project/kacho show 1d42a6728bf:gateway/internal/opsproxy/proxy.go:216-247 — client.Get, checkOperationOwnership, client.Cancel"
+  - claim: "гейт изоляции: INTERNAL_ENDPOINTS без notify; проверки gap, lost, missing; самопроверка; REGISTER_CALL"
+    result: подтверждено
+    predicate: >-
+      git -C project/kacho show 1d42a6728bf:deploy/scripts/assert-ban6-external-isolation.py —
+      :197-205 (семь носителей), gap :965, lost :1008, missing :1024, --self-test :1042;
+      e2e-ban6-domains.py :93-95 REGISTER_CALL
+  - claim: "у отменённой до фиксации заявки есть запись, её снимающая"
+    result: опровергнуто
+    predicate: >-
+      grep -n 'заявк' <файл>: Р10 шаг 3 «транзакция откатывается целиком» при 0 строк Operation;
+      шаг 6 «Заявку с завершённой операцией notify-sender снимает … взятие шага 2 берёт только
+      заявки, чья операция done = false»; Р14 подметальщик — только извещения COMPLETED/CANCELLED.
+      Записи, удаляющей строку заявки с done=true у операции, в документе нет (B10-1)
+  - claim: "id сценариев NTF5-01…NTF5-119 уникальны и без пропусков; §10.4 сходится"
+    result: подтверждено
+    predicate: >-
+      grep -oE '^\*\*ID:\*\* NTF5-[0-9]+' | sort -n → 119 строк, дубликатов 0, пропусков 0;
+      65 + 52 + 2 = 119
+  - claim: "гигиена: путей рабочей копии, фраз о незакоммиченности, имён чужих облаков и маркеров отсрочки нет"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|TODO|FIXME|<перечень имён чужих облаков>' <файл> → 0"
+
+counts:
+  scenarios: 119
+  scenario_ids_unique: true
+  scenario_count_predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 119; дубликатов 0; множество 1…119 без пропусков"
+  producer_coverage: >-
+    119 из 119 по строкам §8 (новая строка NTF5-118, 119; строка NTF5-26, 49 дописана). У «Тогда»
+    «заявка снята / notify_notice_create_pending = 0» в NTF5-118 (а), NTF5-119 (б), (в) названный
+    производитель («снятие заявки с завершённой операцией» в §8) не имеет записи в Р10 — B10-1
+  twins: >-
+    у отрицаний §9 близнец назван; NTF5-26 (б) — выполнимый близнец одним фактом (адресат: внешний
+    gRPC края / слушатель notify-api клиентом с SAN края); NTF5-26 (д)/(е), NTF5-118 (а)/(г),
+    (в)/(а), NTF5-119 (а)/(б) — одним фактом
+  constructibility: >-
+    Посеяно 0 из 119, «не выполнилось» 119: службы notify в дереве kacho нет
+    (git -C project/kacho ls-tree origin/main services/notify → 0 @1d42a6728bf), стенд и изоляция
+    для посева заданием не названы. Новые «Дано» (NTF5-118, 119, 26 (д), (е)) чтением строятся
+    средствами §6 («отказ отобранных вызовов», «шаги notify-sender», «отмена операции»); у
+    NTF5-119 (б) «Тогда» не строится этими же средствами — B10-1.
+
+blocking:
+  - id: B10-1
+    kind: PRODUCER
+    anchors: ["Р10 шаг 3 (последнее предложение)", "Р10 шаг 6, первый пункт", "NTF5-118 (а)", "NTF5-119 (б), (в)", "§8 строка NTF5-118, 119", "Р19 notify_notice_create_pending"]
+    text: >-
+      После отмены операции Create строку заявки не снимает ни одна названная запись. Отмена делает
+      общий обработчик фундамента: CancelOwned пишет только строку Operation (corelib
+      operations/repo.go:672-675 @34bc810), таблицы заявок notify он не знает. Фиксация шага 3 при
+      0 строк Operation «откатывается целиком» — значит, откатывается и снятие заявки. Шаг 6
+      говорит: «заявку с завершённой операцией notify-sender снимает… взятие шага 2 берёт только
+      заявки, чья операция done = false». Взятие, которое такие заявки не берёт, их и не снимает;
+      другой записи, снимающей заявку, нет. Подметальщик Р14 удаляет только извещения. Из-за этого
+      три «Тогда» не производятся. NTF5-119 (б): «заявка снята, notify_notice_create_pending = 0» —
+      notify-sender в обвязке остановлен, обвязка исполняет только шаги 2 и 3, и шаг 3 откатился.
+      NTF5-119 (в): «pending после каждого повтора = 0» в исходе (б). NTF5-118 (а): «pending = 0» и
+      «после того как pending стал 0» — если метрика считает строки заявок. Определение метрики в Р19
+      («заявки создания, ещё не проверенные у владельца») не говорит, считается ли заявка с
+      завершённой операцией. Если нет — pending = 0 держится, а строка остаётся навсегда (утечка без
+      сигнала). Если да — тревога Р19 срабатывает на каждую отмену. Без названной записи реализация
+      вправе оставить строку либо снять её любым путём, и сценарий этого не различит.
+    required: >-
+      Назвать запись, снимающую заявку с завершённой операцией, и её место — одним из двух способов,
+      одинаково в Р10 шаг 3, шаг 6, §8 и DoD 10.1 п.3. (а) Взятие шага 2 берёт заявки при любом
+      состоянии операции. Заявку с done = true оно удаляет одной записью (например, `DELETE … USING
+      <operations> WHERE done = true RETURNING`) без вызова справочника, а проверку у владельца
+      зовёт только для done = false. Фразу «берёт только заявки, чья операция done = false» тогда
+      исправить. (б) Фиксация при 0 строк Operation откатывает извещение, событие и напоминания, но
+      той же либо следующей транзакцией удаляет заявку. «Откатывается целиком» тогда исправить.
+      Определить notify_notice_create_pending через предмет: считаются строки заявок либо заявки с
+      done = false. «Тогда» NTF5-118 (а) и NTF5-119 (б), (в) привести к выбранному: в NTF5-119 (б)
+      обвязка исполняет запись снятия тем же кодом («шаги notify-sender», §6) либо утверждение
+      «заявка снята» заменяется на утверждение о строке после шага снятия. Нужен близнец снятия
+      одним фактом: заявка с done = false при том же шаге не снимается и получает вызов DescribeScope.
+
+important:
+  - id: I-1
+    kind: PRODUCER
+    text: >-
+      DoD 10.1 п.9 берёт запись носителя notify в гейте изоляции на эту под-фазу, стадию S1. Но
+      NTF-4 первой регистрирует InternalSuppressionService на слушателе notify-api. Как только
+      регистрация появится в дереве, e2e-ban6-domains.py выведет домен notify провязанным, и без
+      записи эндпоинта гейт на стволе упадёт (gap → rc=2) ещё до S1 NTF-5. Оговорка «если ствол
+      уже несёт запись — вторая не заводится» здесь верна. Но реальный первый производитель — NTF-4,
+      и строка возврата в §11 должна дойти до автора NTF-4 (вопрос диспетчеру).
+  - id: I-2
+    kind: FORMAT
+    text: >-
+      NTF5-118 (в): после отказа usr-op2 «дальше — как (а)», то есть отказ DescribeScope снимается,
+      часы переводятся на T0 + 2m и T0 + 10m + 1s. «Тогда» (в) утверждает исход «как (г)». Стоит
+      назвать момент утверждения (T0 + 2m), иначе проверка при T0 + 10m + 1s сравнивает с (г) на
+      другом времени.
+
+revision_11_check:
+  B9-1: >-
+    закрыт по существу, кроме строки заявки. Выбран исход (а): фиксация и терминальные записи с
+    done = false на Operation — тот же предикат, что у CancelOwned (подтверждено на corelib
+    34bc810). Гонка разрешается блокировкой строки Operation, ровно один исход — NTF5-119 (в). Отмена
+    операций done=true в ответе названа (Р2). Внешний Cancel — NTF5-26 (д), близнец (е) с двумя
+    вызовами OperationService (proxy.go:216-247 подтверждает). Снятие строки заявки без
+    производителя — B10-1
+  B9-2: "закрыт: близнец NTF5-26 (б) выполним и отличается одним фактом; §1.4 фиксирует, что gRPC у внутреннего слушателя края нет"
+  B9-3: "закрыт: производитель — DoD 10.1 п.9 (эндпоинт носителя, перепись, предпосылка встречного контроля, самопроверка gap/lost/missing с двумя инъекциями); координаты гейта подтверждены на 1d42a6728bf"
+  I-1_round9: "закрыт: NTF5-97 утверждает приставку nop и 17 символов crockford"
+
+dispatcher_decisions_check:
+  D1-D16: "соблюдено: текст §2 до Р1 с круга 9 не менялся, кроме «Следствие» Д18"
+  D17: >-
+    соблюдено: один внутренний слушатель notify-api в форме Х5, публичного нет по построению, одна
+    сборка цепочки носителем, наружу — только маршруты края через notifyInternal; поверхность
+    Cancel операций nop теперь описана
+  D18: >-
+    соблюдено по форме: три поверхности на одном слушателе, маршруты через notifyInternal, NTF5-26
+    и NTF5-49 под отказом маршрута края, PATCH контактов — done=true (NTF5-97 с nop), опрос и
+    отмена Create — обе ветки NTF-4 Р20 (Get: NTF5-26 (в)/(г); Cancel: (д)/(е), NTF5-118, 119), S1
+    ждёт тега corelib с Х5 (§5, DoD 10.1 п.8). Исход отмены для строки заявки без производителя —
+    B10-1
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (экраны — NTF-6 по контракту Р22)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (внутренний API оператора, маршруты края через notifyInternal, отмена операций nop, гейт изоляции, два метода справочника службы доступа, контакты)"
+
+questions_for_dispatcher:
+  - >-
+    Запись носителя notify в INTERNAL_ENDPOINTS (DoD 10.1 п.9) реально нужна уже NTF-4: там на
+    notify-api первым регистрируется Internal*-сервис (I-1). Строку возврата §11 нужно передать
+    автору NTF-4.
+  - >-
+    NTF3-114 против двери (I-3 круга 9) по-прежнему не передан автору NTF-3.
