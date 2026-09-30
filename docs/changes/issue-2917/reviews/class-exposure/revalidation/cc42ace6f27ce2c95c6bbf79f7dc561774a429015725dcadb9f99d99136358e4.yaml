@@ -1,0 +1,417 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 6
+# замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичные разборы (initial/9098d6ef….yaml — редакция 11
+# приёмки, initial/ef9c6801….yaml — редакция 13) и пересверки на редакции 1 (f21384ed…),
+# 2 (2886b89f…), 3 (c3e37381…) и 5 (cc7bdad1…) свидетельствуют о своих редакциях и здесь не
+# переписываются. Предмет — дифф замысла cc7bdad1 → cc42ace6 (git diff ac6692844 da569fc27)
+# целиком. Проверено: (1) каждый пункт CX2-01…44 отображён, и отображение выдерживает условие
+# пункта — по дереву, а не по тексту замысла; (2) новые внешние вызовы, (3) новые асинхронные
+# пути, (4) новые sentinel-значения редакции 6 заведены пунктами либо входят в решение уже
+# заведённого; (5) маркеров отсрочки и открытых решений нет; (6) применимые ревью замысла на
+# этот отпечаток — отдельно. Новый пункт один: CX2-45 (сторож feed.ErrAttrsInvalid, О6).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 6
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+initial_records:
+  - docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/initial/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+previous_revalidations:
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc7bdad1c55489347978ba2414d471b2a9637088c946bedf9527798074349fda.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: da569fc273e0865bfa66dc2c32d584c163599d12   # ветка issue-880, коммит редакции 6 замысла
+  kaname: 734f69fb4        # origin/357 — та же ревизия, что в замысле §0
+  kacho: 6edea09c2ee       # origin/2564 — та же ревизия, что в замысле §0
+  ntf1_acceptance_text: 9636eb28f   # sha256 390b5a33… — опора замысла §0.2
+snapshot_at: 2026-09-30T07:21:03Z
+inspected: >-
+  дифф замысла cc7bdad1 → cc42ace6 целиком (git diff ac6692844 da569fc27, 866 строк: шапка, §0
+  таблица опор, §0.1 К1/К2, §0.2 О1–О6, М15, М16, М31, М34–М39, З1, З2, З3, З4 (строка источника),
+  З7, З8, З9, З10, З13, З19, З21, §3 И4, И6, И27, И29–И34, §4, §5, §7 П1, П8, П9, §8, §9, §10, §11,
+  §12, §13); дифф tasks.md той же пары; первичный разбор ef9c6801 (CX2-37…44, условия и заказы);
+  пересверка cc7bdad1 (отображение CX2-01…36, условие к коду CX2-36); change.yaml; policy.yaml §2, §3;
+  scripts/change-graph-gate/cglib/families/design.py (состав pre-code ревью). Текст NTF-1 на
+  9636eb28f (sha256 390b5a33) — строки 676–690, 712–727, 936–939, 1004–1012, 1096, 1215, 1297–1301,
+  1335–1340, 1545. Дерево kaname @734f69fb4: handler/loginlanehttp/handler.go (writeError, строки
+  998–1030), api/user/handler.go (Invite), api/user/invite.go (admission, 405–430),
+  internal/clients/invite_mail.go (MailEvent), internal/check/ceremony_surface_load.go (загрузчик),
+  go.mod, перепись имён механизма окна по источнику, предикат кортежей субъекта kaname, файлы
+  модели прав, cmd/kaname/serve.go (цепочки перехватчиков, вызов RunBootstrapAdmin). Дерево kacho
+  @6edea09c2ee: подчарт kaname (certificate.yaml, _helpers.tpl, configmap.yaml, values.yaml 760–813,
+  977–980), поиск параллельных написаний SAN kaname в deploy/gateway/services,
+  gateway/cmd/api-gateway/idempotency_store.go, gateway/internal/idempotencypg/store.go (New,
+  ensureSchema). Приёмка NTF-2 ef9c6801 — Р5 (строки 528–548), NTF2-59, NTF2-62. Решения
+  диспетчера Д1–Д19 и registerSharePause = 1 — по заданию. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 3 попадания (строки 521 «что позже» — момент
+      выхода из окна, 640 и 1096 «потому что») — ни одно не маркер
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      «вопрос» — 2 попадания: строка 40 (вопрос редакции 4, решён диспетчером — registerSharePause = 1)
+      и строка 970 (вопрос, который гейт храповика задаёт автору будущей миграции). §13: «Нет. Решения
+      З1–З26 приняты»; Е10 — по Д19 предмет NTF-1 с предикатом снятия, замысел от исхода не зависит
+      (решение З11 принято). Е1–Е4, Е9 сняты одобренной редакцией 13 приёмки — сверено: grep
+      NOTIFICATION_DELIVERY_NOT_CONFIGURED/MAIL_DELIVERY_DISABLED по приёмке NTF-2 → 9/1 (строка §11
+      о снятом); `authorization: certificate` в приёмке NTF-2 — 9 строк.
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      строк отображения §11 — 44 из 44, все 44 выдерживают (ниже mapping_check), с условиями к коду на
+      CX2-37, 38, 39, 43, 44 и поправкой числа в держателе CX2-42. Красный — из-за НОВОГО пункта
+      CX2-45 (сторож feed.ErrAttrsInvalid, внесён редакцией 6 через О6): решение в З1 есть, но условие
+      пункта не выдерживает — перечня атрибутов 24 шаблонов с производителем значения на каждом пути
+      в замысле нет, а законный путь с нулевым значением в дереве есть (приглашение от сервисной
+      учётки). Отображение CX2-45 — дело редакции 7.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      новых внешних вызовов нет. Свой pgxpool ограничителя (З8) — второй пул к той же базе края по
+      тому же ребру «край → хранилище края» (§9, существующее), предмет CX2-44 и отображён им.
+      runtime.HTTPStatusFromCode — функция зависимости, уже прямой в go.mod kaname (grpc-gateway/v2
+      v2.30.0, её импортируют 3 не-тестовых файла) — не вызов по сети. Отказ «SAN не совпал» у notify
+      (П1) — поведение NTF-1 на существующем ребре.
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      новых асинхронных путей нет. Таймер главного потока страницы, завершающий Worker по бюджету
+      (З10), — механизм уже заведённого CX2-30 (срок жизни решателя), не новый путь исполнения:
+      запроса он не шлёт. Классы диспетчера — внутри одного GoDispatcher с одной WaitGroup (З13) —
+      исполнение условия к коду CX2-36, а не новый путь.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: red
+    detail: >-
+      новые значения редакции 6: (1) *mail.DeliveryRefusal — тип отказа флага, узнаваемый errors.As в
+      writeError; предмет CX2-39/40, отображён (З3); (2) L_invite ≤ 0 — отказ старта, предмет
+      CX2-41 (б), отображён (З19); (3) feed.ErrAttrsInvalid и ошибка конструктора Letter на нулевом
+      атрибуте с откатом транзакции события (З1, О6, И34) — НОВЫЙ сторож, пунктом не заведён ни
+      первичным разбором ef9c6801 (его предмет — дифф приёмки 11 → 13, а О6 пришло из редакций
+      14–16 NTF-1), ни прежними пересверками. Заведён здесь пунктом CX2-45; отображение не
+      выдерживает (см. пункт).
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: >-
+      до этой записи — red: последняя пересверка привязана к cc7bdad1 (редакция 5). Эта запись
+      привязана к cc42ace6 — отпечатку файла на da569fc27. change.yaml несёт hashes.design_sha256 =
+      cc42ace6 и hashes.acceptance_sha256 = ef9c6801 (заказ прежних пересверок исполнен); каталоги
+      evidence/ пакета по-прежнему названы отпечатком 33e199c9 (редакция 8 приёмки) — полоса пакета.
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: >-
+      записей reviews/design/ в пакете — 0 на da569fc27 (git ls-tree -r --name-only HEAD
+      docs/changes/issue-2917/reviews — только class-exposure, 6 файлов). Применимые роли — три:
+      (1) design-reviewer — вердикт замысла: applicability.py field design_documents_referenced → 1,
+      освобождения no-design-document-in-change нет; (2) db-architect-reviewer — зарегистрированное
+      pre-code ревью (cglib/families/design.py REGISTERED_PRECODE_REVIEWS): поле migrations_touched →
+      [UNREAD] (у манифеста нет head_sha — числа нет, а без числа освобождение no-migrations-in-change
+      недоступно); по содержанию замысла миграции есть — снятие source_request_windows (З7), таблицы
+      окон kaname (З11), таблицы моментов и использованных вызовов края (З8, З9); (3)
+      proto-api-reviewer — зарегистрированное pre-code ревью: proto_files_touched → [UNREAD]; по
+      содержанию — новый internal_notification_recipient_service.proto (§4, З20). Ни одна из трёх
+      записей на cc42ace6 не существует; DESIGN_APPROVED запрещён до всех трёх. Поскольку итог этой
+      пересверки — к-замыслу (CX2-45), записи на cc42ace6 устареют с редакцией 7: разумный момент
+      ревью — отпечаток редакции 7; решает диспетчер.
+
+mapping_check:
+  - {id: CX2-01, design: "З2, З4", verdict: holds, note: "не менялось"}
+  - {id: CX2-02, design: "З1, З2, З3", verdict: holds, note: "mail.Available() заменён прямым вызовом mail.RefuseIfDisabled до чтения адреса — порядок «флаг до адреса» сохранён"}
+  - {id: CX2-03, design: З5, verdict: holds}
+  - {id: CX2-04, design: З6, verdict: holds}
+  - {id: CX2-05, design: З16, verdict: holds}
+  - {id: CX2-06, design: З16, verdict: holds}
+  - {id: CX2-07, design: З16, verdict: holds}
+  - {id: CX2-08, design: З20, verdict: holds}
+  - {id: CX2-09, design: З4, verdict: holds, note: "строка источника получила поле authorization: certificate; имя, модуль и адрес по-прежнему три независимых поля"}
+  - {id: CX2-10, design: З4, verdict: holds}
+  - {id: CX2-11, design: "З8, З9", verdict: holds, note: "пара «вид хранилища ↔ флот» не менялась; свой пул ограничителя — при том же объявлении хранилища"}
+  - {id: CX2-12, design: З8, verdict: holds}
+  - {id: CX2-13, design: "З9, З18", verdict: holds}
+  - {id: CX2-14, design: "З11–З14", verdict: holds}
+  - {id: CX2-15, design: З11, verdict: holds}
+  - {id: CX2-16, design: З12, verdict: holds}
+  - {id: CX2-17, design: З13, verdict: holds}
+  - {id: CX2-18, design: З15, verdict: holds}
+  - {id: CX2-19, design: З14, verdict: holds}
+  - {id: CX2-20, design: "З11, З15, З25", verdict: holds, note: "О1 перепроверено по 390b5a33 (строки 925–940, 1527) — ErrUnset на нуле тот же"}
+  - {id: CX2-21, design: "З24, §6", verdict: holds}
+  - {id: CX2-22, design: З23, verdict: holds}
+  - {id: CX2-23, design: З19, verdict: holds}
+  - {id: CX2-24, design: З18, verdict: holds}
+  - {id: CX2-25, design: З16, verdict: holds}
+  - {id: CX2-26, design: З22, verdict: holds}
+  - {id: CX2-27, design: З17, verdict: holds}
+  - {id: CX2-28, design: "З8, З9", verdict: holds, note: "503 теперь наблюдаем в приёмке (Р5, NTF2-59); третий повод — ожидание соединения пула — добавлен тем же пределом"}
+  - {id: CX2-29, design: З26, verdict: holds}
+  - {id: CX2-30, design: З10, verdict: holds, note: "бюджет отсчитывает таймер главного потока, часы Worker в отсчёт не входят — управляемо пробой NTF2-58"}
+  - {id: CX2-31, design: "З20, §5", verdict: holds}
+  - {id: CX2-32, design: "З11, §6", verdict: holds}
+  - {id: CX2-33, design: З14, verdict: holds}
+  - {id: CX2-34, design: "З14, З13, §6", verdict: holds}
+  - {id: CX2-35, design: "З11, З18, З26, §6", verdict: holds}
+  - id: CX2-36
+    design: "З13, З14"
+    verdict: holds
+    note: >-
+      условие к коду пересверки cc7bdad1 исполнено решением: классы — счётчики одного GoDispatcher
+      с одной WaitGroup, drain зовёт один Wait (М34 подтверждён); проба гашения с близнецом
+      «отдельный экземпляр диспетчера» — красный. Выдерживает.
+  - id: CX2-37
+    design: "З21, З4"
+    verdict: holds
+    note: >-
+      (а) один помощник kaname.spiffeURI, ключ mtls.spiffe снят вместе с читателями — замер: у
+      mtls.spiffe в шаблонах подчарта ровно два читателя (certificate.yaml:9, _helpers.tpl:133 →
+      kaname.trustDomain → certificate.yaml:10 и configmap.yaml:533); вне подчарта `kaname.mtls.spiffe`
+      не читает никто (поиск по deploy, gateway, services — 0). (б) default для трёх сегментов и
+      «kacho.cloud» помощника снимаются. (в) отказ рендера «флаг без mTLS» с близнецом. Держатель —
+      гейт kaname_feed_server_identity с тремя инъекциями. Условие к коду (к-коду, не отказ
+      отображения): домен доверия процесса теперь из kaname.spiffe.trustDomain, а перечни
+      допускаемых пиров подчарта (values.yaml 807–813 и trustedForwarderSANs) держат домен доверия
+      литералом kacho.cloud — второе написание одного значения. Гейт идентичности сверяет сегмент
+      домена доверия этих перечней с kaname.spiffe.trustDomain по каждой цепочке, либо замысел
+      называет, почему расхождение законно.
+  - id: CX2-38
+    design: "З2, З21"
+    verdict: holds
+    note: >-
+      (а) сервер ленты — на существующем внутреннем слушателе; проба сборки корня с инъекцией
+      публичного слушателя. (б) предикат дерева kaname @734f69fb4 → 0 (подтверждено). Условия к коду:
+      (1) гейт no_kaname_sender_tuples — сам не-тестовый Go-файл под internal/check; предикат замысла
+      `':!*_test.go'` его не исключает, и литералы образца в теле гейта дают попадание на собственном
+      файле — гейт либо исключает свой файл явно (и печатает это в объёме осмотренного), либо не
+      держит образец одним литералом; иначе он красен на верном дереве или, после «правки», слеп к
+      себе молча. (2) Предикат текстовый: запись кортежа, собранная конкатенацией типа и
+      идентификатора, им не видна — эта часть держится вниманием, и гейт говорит это в своём
+      описании (ban17-gates: судит образец, а не узел).
+  - id: CX2-39
+    design: З3
+    verdict: holds
+    note: >-
+      ветка writeError узнаёт только *mail.DeliveryRefusal, тело — protojson статуса, код —
+      runtime.HTTPStatusFromCode (зависимость уже прямая). Условие к коду: *mail.DeliveryRefusal
+      реализует GRPCStatus() и возвращает статус corelib без изменений — обработчик Invite
+      (api/user/handler.go:234–236) отдаёт ошибку use-case как есть, и без GRPCStatus() gRPC
+      превратит её в codes.Unknown с текстом ошибки вместо FAILED_PRECONDITION corelib. Держит
+      NTF2-51 на поверхности края (users:invite).
+  - id: CX2-40
+    design: З3
+    verdict: holds
+    note: >-
+      загрузчик internal/check — go list -deps -export + importer gc (ceremony_surface_load.go:15–20,
+      201): объект feed.DeliveryNotConfiguredStatus из данных экспорта пина corelib доступен для
+      сравнения по types.Object. Решение (б) записано: прямой вызов функции пакета, путь через порт —
+      находка, а не ложный красный.
+  - id: CX2-41
+    design: З19
+    verdict: holds
+    note: >-
+      граница — идентификатор сгенерированного описания, литерала нет; L_invite ≤ 0 — отказ старта;
+      проба на копии с лимитом 40. Поправка к замыслу (к-замыслу, не отказ отображения): форма
+      сгенерированного описания — вывод notifygen, предмет NTF-1; на 390b5a33 limits описаны как вход
+      каталога (Р7, строка 680) и как описание, передаваемое в Put (строка 1096), но экспорт лимита
+      «на адресата в сутки» читаемым идентификатором ни одним сценарием NTF-1 не утверждается.
+      Замысел опирается на него без зависимости — дописать Е8 (в) с предикатом снятия («у описания
+      шаблона invite, порождённого notifygen на пине, есть экспортируемое значение лимита на адресата
+      в сутки»).
+  - id: CX2-42
+    design: З7
+    verdict: holds
+    note: >-
+      перепись по имени механизма выдерживает (а)–(в). Поправка числа держателя: команда замысла
+      (с SubjectSourceRequestWindows и исключением retired.json) на 734f69fb4 печатает 46 строк, а не
+      44 — 44 печатает команда М38 без SubjectSourceRequestWindows (+2 строки registry.go:126, 250).
+      Контроль «в обе стороны» на числе 44 для команды замысла красен на базе — исправить число в З7
+      на 46 либо свести команду держателя к команде М38 (и тогда сказать, что константа предмета
+      ловится по source_request_windows).
+  - id: CX2-43
+    design: "З8, З9"
+    verdict: holds
+    note: >-
+      пометка, Admit и момент — одна транзакция, фиксируемая только при Pass; memory — одна
+      критическая секция; проба с близнецом «пометка отдельной транзакцией». Решение шире условия:
+      пометка откатывается и на Challenge/Reject — вызов остаётся неистраченным до срока, что
+      согласуется с Р5 («одноразовый» = один пропуск). Условие к коду: фикстура NTF2-62 (в)
+      («доказательство, уже использованное один раз») строится пропуском 200, а не отказом —
+      иначе на этой реализации сценарий красен ложно.
+  - id: CX2-44
+    design: З8
+    verdict: holds
+    note: >-
+      свой pgxpool (MaxConns 4) по тому же DSN, ожидание соединения и блокировки — один предел
+      anonMailStoreWait; цена 4N названа; проба с близнецом «общий пул». Условия к коду (порядок
+      операций и снятия): (1) пул ограничителя строится после возврата idempotencypg.New — цепочку
+      миграций (в том числе таблиц ограничителя и строки ведра) накатывает ensureSchema внутри New
+      (store.go, ensureSchema под pg_advisory_lock); запрос, пришедший раньше, получил бы 503
+      «отношения нет» — отказ закрытый, но ложный; (2) пул закрывается после остановки
+      HTTP-сервера края, в том же перечне закрываемых, что хранилище однократности; (3) холодное
+      соединение: срок pool.Acquire 250 мс включает установку TLS-соединения к базе, когда пул ниже
+      предела, — первый запрос после простоя или масштабирования получит 503; MinConns =
+      anonMailPoolConns (пул прогрет) либо цена холодного соединения названа в замысле.
+  - id: CX2-45
+    design: "З1, О6, И34"
+    verdict: does_not_hold
+    note: >-
+      см. items ниже — перечня атрибутов с производителем значения нет; законный путь с нулевым
+      значением в дереве найден
+
+items:
+  - id: CX2-45
+    decision: >-
+      О6 / З1 / И34 (редакция 6): каждый объявленный атрибут шаблона — параметр конструктора Letter;
+      нулевое значение конструктор отвергает до Send*; сторож feed.ErrAttrsInvalid из Send* — ошибка,
+      транзакция события откатывается (как ошибка хранилища, З16)
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением» (нулевое значение атрибута —
+      «нет значения» или «законно пусто»); §«Решение и его следствие разнесены» (отказ сборки
+      письма откатывает бизнес-действие); §«Чужой ответ: классификация и бюджет» (новый сторож
+      поставщика)
+    exposure: >-
+      NTF-1 (390b5a33, Р7 строки 712–727, NTF1-B29 строка 1545) делает каждый объявленный атрибут
+      обязательным. Замысел отвечает конструктором, отвергающим нуль, и откатом транзакции события.
+      Но какие атрибуты несут 24 шаблона kaname и откуда берётся значение каждого — в замысле не
+      перечислено (0 строк «шаблон × атрибут × производитель»). Законный нуль в дереве есть:
+      приглашение от сервисной учётки — invitedBy пуст по решению (api/user/invite.go:414–430
+      @734f69fb4: «A service account is a legitimate inviter … there is no inviting user to record»);
+      шаблон invite в примере NTF-1 (A01, строка 1279) объявляет inviter_name. Если шаблон invite
+      kaname объявит атрибут приглашающего, приглашение от сервисной учётки получит ошибку
+      конструктора, транзакция откатится, законный вызывающий получит отказ INTERNAL — регресс
+      действующего поведения. Тот же вид — события класса S, производимые без человека или без
+      клиентского контекста (посев администратора облака зовётся из serve.go:2009 и пишет аудит в
+      своей транзакции, М32): откат посева — отказ старта. Сегодняшняя форма письма kaname
+      (internal/clients/invite_mail.go MailEvent) держит необязательные поля (omitempty) — их
+      перенос в «все атрибуты обязательны» и есть непроверенное место.
+    condition: >-
+      (а) замысел несёт перечень: 24 шаблона × объявленные атрибуты × производитель значения на
+      каждом пути вызова (человек, сервисная учётка, посев, внутренний слушатель без клиентского
+      адреса) и довод, почему значение на этом пути непусто; (б) атрибут, источник которого на
+      законном пути отсутствует, шаблоном не объявляется (разделение шаблона или снятие атрибута),
+      а не заполняется подстановкой («unknown», «system», id вместо имени) — подстановка была бы
+      умолчанием, выдающим себя за факт; (в) на каждый такой путь — проба действия: источник
+      атрибута отсутствует законно → действие исполнено и письмо поставлено (или шаблон атрибута не
+      несёт); близнец — конструктор на нуле → ошибка с именем атрибута (уже есть в И34).
+    held_by: >-
+      модульная проба конструкторов (И34) держит только «нуль отвергнут»; недостижимость нуля на
+      законных путях — нет держателя. Нужна проба «приглашение от сервисной учётки при флаге true →
+      Operation успешна, строка ленты invite есть» и перепись путей по (а) — заказ; до перечня (а)
+      отображение не выдерживает.
+
+measurements:
+  - claim: "шапка: отпечаток редакции 6 — cc42ace6, коммит da569fc27"
+    command: "for c in $(git log --format=%h -3 -- docs/changes/issue-2917/design.md); do git show $c:docs/changes/issue-2917/design.md | sha256sum; done; sha256sum docs/changes/issue-2917/design.md"
+    result: "подтверждено: da569fc27 → cc42ace6, ac6692844 → cc7bdad1, a2b5b2082 → ec65427a; рабочий файл — cc42ace6"
+  - claim: "М35, CX2-37 (а): у mtls.spiffe подчарта два читателя; вне подчарта его никто не читает"
+    command: >-
+      git -C project/kacho grep -nE 'spiffe|trustDomain' 6edea09c2ee -- deploy/helm/umbrella/charts/kaname/templates;
+      git -C project/kacho grep -nE 'sa/kaname|kaname\.mtls|\.kaname\.spiffe|saName: *kaname' 6edea09c2ee -- deploy gateway services ':!*_test.go'
+    result: >-
+      подтверждено: certificate.yaml:9–10, 81; _helpers.tpl:132–134 (default "kacho.cloud");
+      configmap.yaml:533. Вне шаблонов подчарта — только values.yaml:980 и комментарии профилей о
+      других ключах kaname.mtls.*. Перечни пиров values.yaml 807–813 — литерал kacho.cloud (условие
+      к коду CX2-37)
+  - claim: "CX2-38 (б): предикат кортежей субъекта kaname на базе → 0"
+    command: "git -C project/kaname grep -nE 'service:kaname|notification_namespace:kaname' 734f69fb4 -- '*.go' '*.sql' '*.yaml' ':!*_test.go' | wc -l"
+    result: "0; файлов со словом notification_namespace в kaname — 0; файлы модели прав — internal/authzmodel/fga_model.fga, proto/…/fga_model.fga (предикатом не обходятся, кортежей не несут)"
+  - claim: "М38 и З7: «та же команда печатает 44 строки»"
+    command: >-
+      git -C project/kaname grep -nE 'ChargeSource|SourcePacer|SourceLane|SourcePace\b|SweepAgedSourceWindows|SourceWindowReaper|SubjectSourceRequestWindows|source_request_windows' 734f69fb4 -- ':!*_test.go' ':!internal/migrations/*.sql' ':!internal/migrations/retired.json' | wc -l;
+      то же без SubjectSourceRequestWindows и без исключения retired.json
+    result: "опровергнуто для команды З7: 46 строк в 7 файлах; 44 — у команды М38. Разница — registry.go:126, 250 (SubjectSourceRequestWindows)"
+  - claim: "М36, CX2-39: writeError — закрытый выбор; grpc-gateway в go.mod kaname"
+    command: "git -C project/kaname show 734f69fb4:internal/handler/loginlanehttp/handler.go | sed -n 998,1030p; git -C project/kaname show 734f69fb4:go.mod | grep -n grpc-gateway; git -C project/kaname grep -l 'grpc-gateway/v2/runtime' 734f69fb4 -- '*.go' ':!*_test.go'"
+    result: "подтверждено: switch по errors.As/Is; grpc-gateway/v2 v2.30.0 в require (строка 12), импортирован 3 не-тестовыми файлами"
+  - claim: "CX2-39: обработчик Invite отдаёт ошибку use-case как есть"
+    command: "git -C project/kaname show 734f69fb4:internal/apps/kaname/api/user/handler.go | sed -n 226,237p"
+    result: "подтверждено: op, err := h.invite.Execute(ctx, in); if err != nil { return nil, err } — статус определяется самим значением ошибки (условие GRPCStatus())"
+  - claim: "М37, CX2-40: загрузчик internal/check типизирован и берёт внешние пакеты из данных экспорта"
+    command: "git -C project/kaname show 734f69fb4:internal/check/ceremony_surface_load.go | grep -nE 'importer|go list|func '"
+    result: "подтверждено: go list -deps -export -json, importer.ForCompiler(…, \"gc\", …) (строка 201); x/tools не нужен"
+  - claim: "CX2-44: хранилище однократности само накатывает схему при New"
+    command: "git -C project/kacho show 6edea09c2ee:gateway/internal/idempotencypg/store.go | sed -n 370,440p; … show …:gateway/cmd/api-gateway/idempotency_store.go | sed -n 28,60p"
+    result: "подтверждено: New → ensureSchema под pg_advisory_lock(schemaLockID); buildIdempotencyStore возвращает Closer хранилища — основание условий к коду CX2-44 (1), (2)"
+  - claim: "CX2-45: законный нулевой атрибут на пути приглашения"
+    command: "git -C project/kaname show 734f69fb4:internal/apps/kaname/api/user/invite.go | sed -n 405,431p; git -C project/kaname show 734f69fb4:internal/clients/invite_mail.go | grep -nE 'omitempty'"
+    result: "invitedBy = HumanUserID(ctx) — пусто для сервисной учётки, и это решение, а не дефект; MailEvent держит login_url и code с omitempty"
+  - claim: "О2, О6: номера строк NTF-1 по 390b5a33"
+    command: "git show 9636eb28f:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md | sha256sum; sed -n 936,939p; 1215p; 1545p; 712,716p"
+    result: "подтверждено: 390b5a33; строки 936–939 и 1215 относят отказ address.Domain к NTF-2 (Е10 открыта по Д19); 1545 — NTF1-B29"
+  - claim: "М16: MAIL_DELIVERY_DISABLED в соседних приёмках"
+    command: "for f in docs/specs/sub-phase-NTF-*.md; do grep -c NOTIFICATION_DELIVERY_NOT_CONFIGURED $f; grep -c MAIL_DELIVERY_DISABLED $f; done"
+    result: "подтверждено: NTF-1 2/0, NTF-2 9/1, NTF-4 0/2 (строки 472, 482), NTF-3, 5, 6 — 0/0"
+  - claim: "применимые ревью замысла на cc42ace6"
+    command: >-
+      git ls-tree -r --name-only HEAD docs/changes/issue-2917/reviews;
+      python3 scripts/change-graph-gate/applicability.py field {design_documents_referenced,migrations_touched,proto_files_touched} --package docs/changes/issue-2917 --rev HEAD
+    result: >-
+      reviews/design/ — 0 файлов; design_documents_referenced → 1 (пакет 14 файлов @da569fc27);
+      migrations_touched, proto_files_touched → [UNREAD] (нет head_sha)
+
+not_measurable:
+  - "перечень атрибутов 24 шаблонов kaname — шаблонов на базе нет, их заводит NTF-2; CX2-45 держится на перечне, который обязан появиться в замысле, а не на замере"
+  - "форма описания, порождаемого notifygen (экспорт лимита на адресата в сутки) — кода генератора нет на базах; CX2-41 опирается на него условно (Е8 (в))"
+  - "время установки TLS-соединения к базе края на стенде — число прогона; условие CX2-44 (3) от числа не зависит: срок Acquire 250 мс включает его при пуле ниже предела"
+  - "migrations_touched и proto_files_touched — у изменения нет линии (head_sha); применимость db-architect-reviewer и proto-api-reviewer установлена по содержанию замысла (З7, З8, З11, З20, §4)"
+
+outcome: к-замыслу
+unmapped:
+  - CX2-45
+return_to_acceptance: []
+
+orders:
+  - to: design author (NTF-2)
+    what: >-
+      редакция 7: (1) отображение CX2-45 — перечень «шаблон × атрибут × производитель на каждом пути»
+      по 24 шаблонам, решение для атрибутов с законно отсутствующим источником (приглашение от
+      сервисной учётки; события без человека или клиентского контекста) без подстановочных
+      значений, проба действия на таком пути; (2) З7: число контроля переписи 44 → 46 для команды
+      замысла (либо команда М38); (3) Е8 (в): экспорт лимита шаблона на адресата в сутки в описании
+      notifygen — зависимость NTF-1 с предикатом снятия (CX2-41)
+    basis: "change-graph §4 (новый sentinel — новый пункт, отображение, новая пересверка); code-authoring §«Умолчание, которое становится утверждением»; measurement-discipline §«Предикат — только с контролем»"
+  - to: design-reviewer, db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток замысла (reviews/design/<role>/<sha>.yaml) — на cc42ace6 их 0; без трёх DESIGN_APPROVED запрещён. С итогом к-замыслу разумный отпечаток — редакции 7"
+    basis: "SDD-1 §5; cglib/families/design.py design.precode-reviews; policy.yaml §3"
+  - to: go implementer (kaname, NTF-2)
+    what: >-
+      условия к коду: гейт no_kaname_sender_tuples не судит сам себя молча (CX2-38 (1)) и называет
+      слепоту к конкатенации (CX2-38 (2)); *mail.DeliveryRefusal реализует GRPCStatus() (CX2-39);
+      фикстура NTF2-62 (в) — доказательство, использованное пропуском 200 (CX2-43)
+    basis: "00-kacho-core.md ban17-gates; api-conventions §«Error-format»; gate-authoring (фикстура не снисходительнее продукта)"
+  - to: go implementer (kacho gateway, NTF-2)
+    what: "CX2-44 (1)–(3): пул ограничителя строится после idempotencypg.New, закрывается после остановки HTTP-сервера, прогрет (MinConns = anonMailPoolConns) либо цена холодного соединения названа"
+    basis: "code-authoring §«Порядок операций внутри кода» (порядок снятия ресурса)"
+  - to: gate author (kacho deploy, NTF-2)
+    what: "гейт kaname_feed_server_identity сверяет домен доверия kaname.spiffe с сегментом домена доверия перечней пиров подчарта (values.yaml trustedForwarderSANs и соседний перечень) по каждой цепочке (CX2-37)"
+    basis: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: package author (NTF-2)
+    what: "каталоги evidence/ пакета названы отпечатком 33e199c9 (редакция 8 приёмки) — перевести на ef9c6801"
+    basis: "change-graph §4 (привязка к отпечатку приёмки)"
+  - to: acceptance author (NTF-4)
+    what: "строки 472, 482: отказ флага kaname под прежним reason MAIL_DELIVERY_DISABLED — расходится с одобренными NTF-1 и NTF-2 (М16)"
+    basis: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
