@@ -16,10 +16,11 @@
 # (редакция 32, суженная по Д31) одобрена кругом 2 (запись docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e.yaml,
 # APPROVED), первичный разбор классов на тот же отпечаток записан
 # (reviews/class-exposure/initial/aa939edc….yaml, исход «к-замыслу»).
-# Замысел — `design.md` редакции 2 (2026-09-30; редакция 1 — первый заход в форме захода отображения
-# Д26, предмет сужен Д31; редакция 2 исполняет пересверку классов на редакцию 1 `89d1f0ad…`, исход
-# «к-замыслу»), отпечаток — `hashes.design_sha256`; маршрут — `tasks.md` рядом, редакция 2. Вердикта и
-# пересверки на отпечаток редакции 2 нет. Открытое решение замысла — Е1 (§13): функция базы
+# Замысел — `design.md` редакции 3 (2026-09-30; редакция 1 — первый заход в форме захода отображения
+# Д26, предмет сужен Д31; редакция 2 исполняет пересверку классов на редакцию 1 `89d1f0ad…`; редакция 3 —
+# пересверку на редакцию 2 `3730bca2…`, исход «к-замыслу»: CX3H-02, CX3B-25 (4), CX3H-01 (г)),
+# отпечаток — `hashes.design_sha256`; маршрут — `tasks.md` рядом, редакция 3. Вердикта и
+# пересверки на отпечаток редакции 3 нет. Открытое решение замысла — Е1 (§13): функция базы
 # `resource-event` против запрета замысла NTF-1 (Е10 NTF-1), решение за диспетчером.
 schema_version: 1
 change_id: issue-2918
@@ -57,7 +58,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e
-  design_sha256: 3730bca2e8b21d468e7ed875adff4dc3e82f41ba7c78c900241ce3d87f779db1
+  design_sha256: 374789b55fb1a242e7a762f961c1c399ae379c6239429949ecdd7ff10012c55f
   holders_sha256: d8072f8503df9f347e4799f7e24a94807465c30e81652d745d3b93df1e77c9db
 
 links:
@@ -66,7 +67,7 @@ links:
   acceptance: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
   acceptance_reviews: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/
   class_exposure_initial: docs/changes/issue-2918/reviews/class-exposure/initial/aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e.yaml   # на редакцию aa939edc…, исход «к-замыслу»
-  class_exposure_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/89d1f0ad50ccc5fe04ec4c8a64b7dccb6c75e641dc383d17d00293656a3c1587.yaml   # на замысел редакции 1 (89d1f0ad…), исход «к-замыслу»; исполнена редакцией 2
+  class_exposure_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/3730bca2e8b21d468e7ed875adff4dc3e82f41ba7c78c900241ce3d87f779db1.yaml   # на замысел редакции 2 (3730bca2…), исход «к-замыслу»; исполнена редакцией 3, кроме Е1 (решение диспетчера); прежняя — revalidation/89d1f0ad….yaml (редакция 1, исполнена редакцией 2)
   epic_changes:
     - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
     - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }
