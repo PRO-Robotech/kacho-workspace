@@ -1,0 +1,75 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer.
+# Имя файла — content_digest. Прежние записи не правятся; новый дайджест — новый файл.
+schema_version: 1
+change_id: issue-2925
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  P163 / полоса F1 (NTF-6 З2, З7, З12, З20) — ui-future/shared/src/lib/{id-form,unread-count,console-config}.ts
+  с пробами; шапка config.ts.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2925-f1-id-unread-config
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/2925-f1-id-unread-config
+  base: 07ab32da0721ea2b338e5296fff71b1e3132b95c   # родитель головы
+  head: 5a787ff640baacdccb5850efa1620a70cf54a07c
+content_digest: sha256:f6fa19264b0ac5518b6261d135a7efba3ac1454c3764ae725e791671f09cc657
+digest_definition: sha256 сырого вывода `git diff 07ab32da0721..5a787ff640b` (один коммит полосы)
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+distributed_surface: false   # клиент консоли; мутаций, журнала, событий, серверных рёбер в диффе нет
+schema_review_overlap: false
+timestamp: '2026-10-01T00:00:00Z'
+
+axes:
+  atomicity_journal_event_one_tx: >-
+    неприменимо — в диффе нет записи в базу, журнала (outbox) и события; единственное
+    обращение — GET /console-config.json раздачи.
+  idempotency: >-
+    закрыто. Чтение признака идемпотентно (GET, cache no-store); повторные триггеры
+    (второй бандл, фокус, «Повторить») схлопываются в одно чтение в полёте; исход
+    применяется однократно по идентичности inFlight (console-config.ts:160), опоздавший
+    ответ и отказ по abort() отбрасываются. Выход из enabled/disabled отсутствует по
+    замыслу (З2 п.4).
+  bounded_wait: >-
+    закрыто. Дедлайн CONFIG_DEADLINE_MS=10_000 одной константой; таймер ставится тем же
+    синхронным отрезком, что inFlight (console-config.ts:153-157), завершает чтение
+    unreadable сам, не дожидаясь отзыва транспорта (И18, CX6-26).
+  transport: >-
+    обращение идёт через orderedTransport (api/carrier-order.ts) как GET: глагол,
+    ставящий носитель, его отменяет и выпускает снова; дедлайн окна от этого не зависит
+    и ограничивает ожидание в очереди глагола тоже.
+  cross_service_edges: нет новых
+  edge_public_internal: не затронут
+
+notes:
+  - id: N1
+    severity: note
+    where: docs/changes/issue-2925/design.md З2 п.3 (ветка issue-880)
+    text: >-
+      Замысел предписывает `fetch(...)` окна, код выпускает через orderedTransport
+      (как требует норма выпуска F8 Р10 и страж исполнения). Отступление верное и названо
+      в коммите и шапке модуля, но текст замысла теперь описывает не код — поправить
+      формулировку при следующей редакции замысла. Не блокирует.
+  - id: N2
+    severity: note
+    where: ui-future/shared/src/lib/unread-count.ts:303-307
+    text: >-
+      isNew опирается на множество позиций, а не на индекс: если одна позиция встретится
+      в сцепке страниц дважды (сдвиг страниц при вставке сверху), нижний дубль тоже
+      помечается «новым». При курсорной выдаче дубль не возникает; задачей не заводится.
+
+evidence:
+  tests: >-
+    jest (ui-future/vpc, roots с ../shared/src) — `id-form unread-count console-config`:
+    Test Suites 3 passed, Tests 80 passed, 0 failed; исполнено на голове ветки f5a492a67d7,
+    где три модуля и зависимости (shared, vpc, package*.json) совпадают с 5a787ff640b,
+    кроме entity-names.ts, который пробы не импортируют (git diff --stat 5a787ff640b HEAD).
+  dod6_predicate: >-
+    git grep -n 'notificationsEnabled' 5a787ff640b -- 'ui-future/*/src/*.ts*' ':!*test*'
+    → 1 попадание, console-config.ts:90.
+  b1_cases_present: >-
+    console-config.test.ts:262,283,292,305,316,335 — все три ветки B1 из tasks.md F1
+    плюс отказ по отмене после дедлайна и снятие таймера исходом.
