@@ -4,14 +4,16 @@
 """lane-schedule — упаковка полос в пакеты и расписание до раздачи.
 
 Норма, которую инструмент исполняет: `.claude/rules/flow-acceleration.md`
-§«Раздача» (fa-a1…fa-a7). Приёмка инструмента — `scripts/lane-schedule/inject.sh`.
+§«Раздача» (fa-a1…fa-a7). Приёмка инструмента — `scripts/lane-schedule/inject.sh`;
+что набор краснеет на порче каждого решения — `scripts/lane-schedule/mutants.py`.
 
 ВХОД — один или несколько `tasks.md` (маршрут работ под-фазы). Из каждого берётся
 раздел `## <N>. Полосы` до следующего `## `: таблицы с колонкой «исполнитель»;
 первая ячейка строки — id полосы; колонки «зависит от», «размер» (S/M/L),
 «репозиторий · пути» либо «пути (kacho)». Заголовок `### … S<n> …` объявляет
 стадию: ссылка `S<n>` в «зависит от» означает все полосы стадии. Имя под-фазы —
-имя каталога файла без префикса `issue-`.
+имя каталога файла без префикса `issue-`. Таблица без колонки «зависит от» даёт
+независимые полосы — и заметку об этом, а не молчание.
 
 РЕЖИМЫ
   --edges A      рёбра только внутри задач (и внутризадачные строки ведомости);
@@ -98,6 +100,9 @@ def parse_file(path, notes):
         if 'исполнитель' in c:
             hdr = c
             tables += 1
+            if 'зависит от' not in c:
+                notes.append('%s:%d таблица без колонки «зависит от» — её полосы считаются '
+                             'независимыми' % (path, start + off + 1))
             continue
         if set(''.join(c)) <= set('-: '):
             continue
@@ -344,8 +349,16 @@ def plan(L, pack_mode, minutes, review, notes):
             newp(g)
     chains = sum(1 for q in P if len(P[q]) > 1)
 
+    def pdur(q):
+        # Одна длительность пакета на guard, путь и расписание. До ws#884 путь для
+        # guard считался с ревью и на пакете диспетчера, а итоговый — без него:
+        # «путь до склейки» печатался на 25 мин длиннее, а guard сравнивал склейку
+        # с завышенной базой и пропускал удлинение пути меньше одного ревью.
+        return sum(dur(g) for g in P[q]) + (0 if all(L[g]['dispatcher'] for g in P[q])
+                                            else review)
+
     def cp_now():
-        D0 = {q: sum(dur(g) for g in P[q]) + review for q in P}
+        D0 = {q: pdur(q) for q in P}
         f = {}
 
         def e(q):
@@ -398,8 +411,7 @@ def plan(L, pack_mode, minutes, review, notes):
                 pk[g] = q
             refused['склейка: цикл или удлинение пути'] += 1
 
-    D = {q: sum(dur(g) for g in P[q]) + (0 if all(L[g]['dispatcher'] for g in P[q]) else review)
-         for q in P}
+    D = {q: pdur(q) for q in P}
     PD = {q: pdeps(q) for q in P}
     PS = collections.defaultdict(set)
     for q in P:
