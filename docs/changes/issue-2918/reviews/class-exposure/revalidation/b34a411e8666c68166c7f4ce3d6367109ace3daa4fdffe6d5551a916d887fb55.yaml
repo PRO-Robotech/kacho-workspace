@@ -1,0 +1,213 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 7.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5, 3dbb8b23) относятся к своим отпечаткам и здесь не переписываются.
+# Проверено по Д22 (дельта; редакции 5, 6, 7 — одним диффом 056350e1b → 51aa2c77d, отдельной
+# пересверки на 5 (b4cc78a6) и 6 (0ede7df9) нет):
+#   (1) исполнение каждого требования записи 3dbb8b23;
+#   (2) отображение CX3K-01, CX3K-02 и условия к коду CX3K-03 — есть ли строка и выдерживает ли решение
+#       условие пункта;
+#   (3) исполнение CX3J-01 (б) после решения диспетчера Д37 — рёбрами маршрутов;
+#   (4) новые внешние вызовы, асинхронные пути и sentinel-значения редакций 5–7.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: b34a411e8666c68166c7f4ce3d6367109ace3daa4fdffe6d5551a916d887fb55
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 7
+  content_commit: 51aa2c77d
+  lines: 1586
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/3dbb8b23fc609c3234f2e5d36a7138c0ab96421a2c30575f644ebdc2bba0bc93.yaml
+  subject_revision: 4
+  outcome: к-замыслу
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34, Д37. Д22 — дельта. Д26 — заход отображения. Д37 — в kacho одновременно не больше одного
+    окна пина corelib; порядок (1) NTF-1, (2) X2-F NTF-3, (3) TW NTF-5, (4) NTF-4 (S2-B1/S3-C2);
+    выражается рёбрами «зависит от»: первая полоса-выпуск тега следующего окна зависит от полосы-посадки,
+    закрывающей предыдущее; больше ничего в маршрутах не менять.
+revisions:
+  workspace: 51aa2c77dad4c5ec54bb9342e58eef048edb88f8   # HEAD issue-880 при замере
+  kacho: 1d42a6728bf
+  corelib_pinned_by_design: 34bc8104a
+  corelib_origin_main: 8be60de
+  protobuf_go: v1.36.11
+snapshot_at: 2026-09-30T16:10:38Z
+inspected: >-
+  Дифф замысла ред. 4 → 7 целиком (git diff --numstat 056350e1b 51aa2c77d: design.md 128/36) и
+  маршрутов (issue-2918/tasks.md 32/11, issue-2924/tasks.md 4/2). Запись 3dbb8b23 целиком. Строки
+  полос и зависимостей маршрутов NTF-1 (issue-2915/tasks.md, все 49 строк полос), NTF-4
+  (issue-2919/tasks.md, 41 строка), NTF-5 (issue-2924/tasks.md, 45 строк полос и зависимостей) —
+  колонка «зависит от». corelib@34bc8104a db/pgfault/pgfault.go (Class, Classify); kacho@1d42a6728bf
+  internal/repohygiene/sqlstatehome_test.go (имена гейтов, дом SQLSTATE), 42 файла *.pb.gw.go (вывод
+  маски из тела). Стенд не поднимался, записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строки есть у всех 88 пунктов (`grep -c '^| CX3'` → 88; на 056350e1b — 85; +3 = CX3K-01…03).
+      CX3K-01, CX3K-02, CX3K-03 выдерживают. CX3J-01 (б) выдерживает в части окон NTF-1 и TW NTF-5
+      (рёбра на месте), но не в части окон NTF-4: держатель — «правило Д37 вниманием диспетчера», а
+      порядок окон, который это правило предписывает ((3) TW раньше (4) NTF-4), маршруты соседей
+      исполнить не дают (mapping_check). Внимание, исполняющее невыполнимый порядок, не говорит, где
+      окна NTF-4 встанут относительно окна X2-F.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Новых рёбер нет: `pgfault.Classify` — вызов фундамента в процессе; рёбра Д37 — зависимости маршрутов, не вызовы."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет; порядок проверок `Update` (CX3K-01) — синхронный путь правки."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: >-
+      В добавленных строках диффа имена Err*: `Errorf` (цитата сгенерированного кода края, М20) и
+      `ErrorMappersTailReturnsAFixedText` (имя гейта) — sentinel нет. `pgfault.Check` — класс
+      существующего дома, не новое значение.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: >-
+      Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md). Е6 снята Д37, итог §13
+      открытых решений не называет.
+
+clean: false
+
+execution_check:
+  summary: "требования записи 3dbb8b23 к замыслу исполнены все; заказ диспетчеру исполнен Д37, но порядок Д37 для окон (3)/(4) маршрутами невыполним"
+  items:
+    - {id: "orders.design-author (1) / CX3J-01 (б)", verdict: partial, where: "З10 «Посадка» п.1–4, §13 Е6, tasks.md X2-F, S2-B1, X5, C4 issue-2924", note: "окно X2-F названо для ствола kacho, выпуск тега разведён с кодом, длительность названа; рёбра N11 → тег X2-F и S2-B1 → C4 (TW) на месте; окна NTF-4 — см. mapping_check"}
+    - {id: "CX3K-01 (а)", verdict: holds, where: "З23 «Разбор стоит до оператора, и только в действующей маске», §5 комментарий поля", note: "поле вне действующей маски не читается и не записывается"}
+    - {id: "CX3K-01 (б)", verdict: holds, where: "З23 п.1–4", note: "порядок закрыт: маска → digest_period → seen_up_to → оператор; первое нарушение единственное; выбран второй вариант записи с доводом против первого"}
+    - {id: "CX3K-01 (в)", verdict: holds, where: "З23 «Обвязка NTF3-82 (м)», УК3-51", note: "обе маски у usr-A с пустой отметкой, одно нарушение digest_period; положительная пара и близнец — УК3-51. Пустая маска доходит до сервиса пустой: у края вывода маски из тела нет (М ниже)"}
+    - {id: "CX3K-02 (а)", verdict: holds, where: "З23 «На проводе — JSON-строка», §5, М20", note: "отказ края на ином JSON-типе вне NTF3-86; довод против int64 — два (0 → \"0\", множественность написаний); координата strict_enum.go:76/:88"}
+    - {id: "CX3K-02 (б)", verdict: holds, where: "З23, §11а УК3-47, УК3-48, УК3-51", note: "обвязки шлют позицию JSON-строкой, сказано в строках проб"}
+    - {id: "CX3K-02 (в)", verdict: holds, where: "З23", note: "`pgfault.Classify(err).Class == pgfault.Check` — есть в corelib@34bc8104a (Check :87, Classify :177, поле Class :144); гейты дома — sqlstatehome_test.go:98, :228"}
+    - {id: "CX3K-03", verdict: holds, where: "З19, §11а УК3-52, tasks.md S2-B4, строка CX3I-04", note: "колонка мигрированной схемы, две инъекции; текстовый grep снят"}
+    - {id: "orders.dispatcher", verdict: partial, where: "Д37", note: "порядок решён, но (3) → (4) противоречит маршруту NTF-5 (mapping_check); окна NTF-3 X1…X4 в перечне Д37 не названы (facts)"}
+
+mapping_check:
+  summary: "88 из 88 пунктов имеют строку; 87 выдерживают; CX3J-01 (б) не выдерживает в части окон NTF-4"
+  not_holding:
+    - id: "CX3J-01 (б)"
+      reason: >-
+        Условие — «окна, в котором на стволе kacho есть запись реестра без функции, нет». Окно X2-F
+        отделено ребром от окна NTF-1 (тег X2-F после посадки N11 NTF-1; у NTF-1 один тег C12 и одна
+        посадка пина N11) и от окна TW NTF-5 (C4 после посадки S2-B1). От окон NTF-4 ребра нет;
+        держатель — правило Д37 вниманием диспетчера, и оно предписывает NTF-4 идти после TW. Этот
+        порядок маршруты не исполнят: (1) C4 NTF-5 — «тег TW выпущен после T1, Х5, Х1» (issue-2924
+        :109), а Х5 — тег NTF-4 (X5 issue-2919 :95), поднимаемый в kacho полосой S3-C2 NTF-4 — окно
+        (4) открывается раньше окна (3); (2) стадия S1 NTF-5 гейтится Е4 — край NTF-4 (S3-C4 ← S3-C1 ←
+        S2), а S2 NTF-4 — это S2-B1 NTF-4, «пины одним изменением» на теги X3, X4: окно (4) обязано
+        закрыться раньше окна (3). При «одном окне за раз» окна NTF-4 (по крайней мере S2-B1 и Х5)
+        стоят ДО окна TW. Значит, они встанут либо до выпуска тега X2-F, либо между посадкой S2-B1
+        NTF-3 и выпуском TW. Замысел этого выбора не называет и называет держателем внимание «при
+        выпуске тега X2-F». Такое внимание ловит окно NTF-4, открытое раньше, но не тег NTF-4,
+        выпущенный внутри окна X2-F. Тег NTF-4 после X2-F несёт запись (теги линейны, М21), и его
+        подъём до S2-B1 красит ствол kacho самоистечением. Довод замысла «ребро (3) → (4) замкнуло бы
+        цикл» верен, но он доказывает, что неверен сам порядок Д37, а не что окна NTF-4 не нужно
+        упорядочивать с окном X2-F. Автор замысла этого не исправит: Д37 запрещает прочие правки
+        маршрутов.
+  unmapped: []
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета — редакция 7"
+    command: "sha256sum docs/changes/issue-2918/design.md; git show 51aa2c77d:docs/changes/issue-2918/design.md | sha256sum"
+    result: "b34a411e… в обоих"
+    control: "git show 372c396c4:… → 0ede7df9 (ред. 6), e21215ab4:… → b4cc78a6 (ред. 5), 056350e1b:… → 3dbb8b23 (предмет прежней пересверки)"
+  - claim: "строки отображения у всех пунктов, новых sentinel нет"
+    command: "grep -c '^| CX3' design.md; git diff 056350e1b 51aa2c77d -- design.md | grep '^+' | grep -oE 'Err[A-Za-z]+' | sort | uniq -c"
+    result: "88; Errorf ×1, ErrorMappersTailReturnsAFixedText ×2 — не sentinel"
+    control: "тот же '^| CX3' на 056350e1b → 85; Err*-предикат на диффе 63f13f42b→d923fc2c3 → 4 имени"
+  - claim: "рёбра Д37 на месте и внесены этим заходом"
+    command: "grep -c 'N11 .issue-2915.\\s*посажена' docs/changes/issue-2918/tasks.md; grep -c 'S2-B1 .issue-2918.\\s*посажена' docs/changes/issue-2924/tasks.md"
+    result: "1 и 1 на 51aa2c77d"
+    control: "те же предикаты на 3475f155b → 0 и 0"
+  - claim: "окно NTF-1 одно: один тег, одна посадка пина kacho"
+    command: "колонки «пути» и «зависит от» issue-2915/tasks.md (awk по строкам полос)"
+    result: "тег — C12 (C1–C11); пин kacho — N11 (C12, K1); K8 поднимает пин corelib в kaname, не в kacho"
+    control: "—"
+  - claim: "порядок Д37 (3) → (4) противоречит маршрутам"
+    command: "grep -n '^| C4 ' docs/changes/issue-2924/tasks.md; grep -n 'Стадии гейтятся' docs/changes/issue-2924/tasks.md; колонка «зависит от» issue-2919/tasks.md для X5, S2-B1, S3-C1, S3-C2, S3-C4"
+    result: "C4: «тег TW выпущен после T1, Х5, Х1»; S1 NTF-5 — после Е1, Е3, Е4, Е5 и тегов T1, TW; Е4 — край NTF-4 (S3-C4 ← S3-C1 ← S2); S2-B1 NTF-4 ← S1, X3, X4 (пины одним изменением); S3-C2 ← X5, X2 (пины одним изменением)"
+    control: "ребро «первый выпуск тега NTF-4 после посадки S1 NTF-5» дало бы цикл Х5 → C4 → N5 → S1 NTF-5 → Х5 — то же, что называет замысел (§13 Е6)"
+  - claim: "`pgfault.Check` и `Classify` есть на пине замысла"
+    command: "git -C corelib show 34bc8104a:db/pgfault/pgfault.go | grep -n 'func Classify\\|^\\tCheck$\\|Class Class'"
+    result: ":87 Check, :144 Class Class, :177 func Classify"
+    control: "то же на origin/main@8be60de — те же строки"
+  - claim: "край не выводит маску из тела — пустая маска доходит до сервиса пустой"
+    command: "git -C kacho grep -l 'FieldMaskFromRequestBody' 1d42a6728bf -- 'pkg/api/**/*.pb.gw.go' | wc -l; git -C kacho ls-tree -r --name-only 1d42a6728bf -- pkg/api | grep -c '\\.pb\\.gw\\.go$'"
+    result: "0 из 42; правки в контрактах с `body: \"*\"` (network_service.proto:92)"
+    control: "42 — объём осмотренного; вывод маски grpc-gateway делает только при body на поле ресурса"
+
+not_measurable:
+  - "где диспетчер поставит окна NTF-4 после исправления порядка Д37 — это решение, а не факт дерева; тегов X2-F, Х5, TW нет"
+  - "с какой маской проба NTF3-82 (м) пойдёт на деле — обвязки notify-api в дереве нет (services/notify на 1d42a6728bf отсутствует)"
+
+facts_for_dispatcher:
+  - >-
+    Перечень окон Д37 не называет окна тегов NTF-3 X1, X3, X4 (подъём — X5 «по мере выпуска»). X1
+    зависит ни от чего («—»), X3 — от X1, поэтому их окна могут пересечься с окном NTF-1 (C12 → N11).
+    Окно X2 отделено от NTF-1 через Е3, а от X2-F — зависимостью «тег X2 поднят». Для CX3J-01 (б) это
+    безвредно: ранние теги записи не несут, и замысел верно говорит, что подъём на тег раньше X2-F
+    ограничением не затронут. Но правило «одно окно за раз» такие окна нарушают. То же с тегами T1, T2
+    NTF-5.
+  - "tasks.md NTF-3 Е4 называет «открыта на редакцию 5» — после редакций 6, 7 это устарело (маршрут, не предмет записи)."
+
+outcome: блокер
+return_to_acceptance: []
+unmapped_items: []
+not_holding_items: ["CX3J-01 (б) — окна NTF-4"]
+new_items_without_mapping: []
+open_decisions: []
+
+orders:
+  - to: dispatcher
+    what: >-
+      Пересмотреть порядок Д37. Окна NTF-4 (S2-B1 на X3/X4, S3-C2 на Х5) маршрут NTF-5 ставит РАНЬШЕ
+      окна TW: C4 требует выпущенных Х5 и Х1, стадия S1 NTF-5 требует края NTF-4 после S2 NTF-4.
+      Выбрать место окон NTF-4 относительно окна X2-F — до тега X2-F (ребро: тег X2-F после посадки
+      S3-C2 NTF-4) либо между посадкой S2-B1 NTF-3 и тегом TW (ребро: первый тег NTF-4 после посадки
+      S2-B1 NTF-3; ребро C4 → S2-B1 тогда заменяется ребром C4 → последняя посадка NTF-4). Разрешить
+      автору замысла внести это ребро в маршрут. Решить заодно, входят ли в правило окна NTF-3 X1…X4 и
+      NTF-5 T1, T2.
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Решение и его следствие разнесены»; запись реестра NTF-1 c018895f (самоистечение)"
+  - to: design-author
+    what: >-
+      После решения диспетчера: З10 «Посадка» п.4, §13 Е6, строка CX3J-01 (б) и маршрут называют место
+      окон NTF-4 относительно окна X2-F ребром. Держатель «вниманием при выпуске тега X2-F» снимается
+      либо расширяется на выпуск каждого тега NTF-4 внутри окна. Строку Е4 в tasks.md переписать на
+      действующую редакцию. Затем новая пересверка.
+    basis: ".claude/rules/change-graph.md §4; Д22, Д26"
+  - to: integration-tester
+    what: "заказы записей 3dbb8b23 (CX3K-01 пробы, CX3K-03 проба колонки), ac1f9fc9 и 374789b5 (УК3-47…52) остаются в силе"
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Не заводится. «Порядок, предписанный решением, противоречит зависимостям маршрутов, которые он
+  упорядочивает» — встречено один раз (Д37), цена не измерена (ствол не краснел). Это находка к
+  решению диспетчера, а не класс.
