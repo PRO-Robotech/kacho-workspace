@@ -14,7 +14,11 @@
 #
 # СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
 # Вердикт по отпечатку: CHANGES_REQUESTED, круг 2 (запись docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078.yaml).
-# Замысла (`design.md`) у изменения ещё нет — `hashes.design_sha256: null`.
+# Замысел — `design.md` редакции 1 (2026-09-30) по приёмке на отпечатке
+# 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1 (APPROVED, круг 4 прохода Д14–Д16);
+# отпечаток замысла — `hashes.design_sha256`; вердикта на него нет. Маршрут работ — `tasks.md`
+# (проект; TASKS_READY им не объявлено). `hashes.acceptance_sha256` ниже ещё несёт отпечаток
+# редакции 8 — его перевод на 9098d6ef… вместе со свидетельствами — полоса пакета изменения.
 schema_version: 1
 change_id: issue-2917
 lifecycle_state: ISSUE_READY
@@ -46,7 +50,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
-  design_sha256: null
+  design_sha256: f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892
   holders_sha256: 495ef143740f049d885ec10fbbce2975a95d3c3ee2de36b632a5af15730a3bca
 
 links:
