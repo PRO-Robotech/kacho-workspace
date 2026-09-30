@@ -1,0 +1,361 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 8.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы (initial/9098d6ef….yaml,
+# initial/ef9c6801….yaml) и пересверки на редакции 1, 2, 3, 5, 6 и 7 (f21384ed…, 2886b89f…,
+# c3e37381…, cc7bdad1…, cc42ace6…, 6fc3cae2…) относятся к своим редакциям и здесь не
+# переписываются. По решению диспетчера Д22 судится ТОЛЬКО дельта редакции 8 против последней
+# разобранной (редакция 7, 6fc3cae2):
+# git diff 8d47f6da7 e476ac546 -- docs/changes/issue-2917/design.md docs/changes/issue-2917/tasks.md
+# (608 строк диффа, из них design.md — 522).
+# Что проверено:
+#   (1) исполнение условий к коду УК47–УК52 — по тексту замысла и по дереву;
+#   (2) отображение замечаний ревью замысла К1 и Н1–Н3 — как новые решения, по которым тоже
+#       разбирается экспозиция;
+#   (3) новые внешние вызовы, асинхронные пути и sentinel-значения дельты;
+#   (4) маркеры отсрочки и открытые решения;
+#   (5) решения диспетчера Д23–Д25 в той мере, в какой замысел на них ссылается.
+# Итог: один новый пункт (CX2-46) не отображён. Условий к коду четыре (УК53–УК56).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 2a329728df99a58e3babe6951aa4e35c7053f6139b3ba0a893b02330f4391fa4
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 8
+  previous_judged: 6fc3cae220faa6212b0fe7ecca9c2d1555f2b841a9d25cac6d28658bf8dff8c5   # редакция 7, 8d47f6da7
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+initial_records:
+  - docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/initial/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+previous_revalidations:
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc7bdad1c55489347978ba2414d471b2a9637088c946bedf9527798074349fda.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/6fc3cae220faa6212b0fe7ecca9c2d1555f2b841a9d25cac6d28658bf8dff8c5.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: e476ac54694ecfeb7123349eed41d85de30afa1e   # ветка issue-880, коммит редакции 8; пакет на HEAD 5707b77ec не менялся (git diff --quiet e476ac546 HEAD -- docs/changes/issue-2917/)
+  kaname: 734f69fb4        # origin/357, та же ревизия, что в §0 замысла
+  kacho: 6edea09c2ee       # origin/2564, та же ревизия, что в §0 замысла
+  modules: "github.com/jackc/pgx/v5 v5.10.0; github.com/PRO-Robotech/corelib v1.10.0-rc.5 (go.mod обоих деревьев; исходники взяты из кэша модулей)"
+snapshot_at: 2026-09-30
+
+inspected: >-
+  Дифф редакции 8 против редакции 7 (design.md и tasks.md) целиком. Разделы design.md на
+  2a329728: З8 (ключи, сериализация, «Одноразовость и решение — одна транзакция», пул, строки
+  592–668), З24 (порядок блокировок, строки 1563–1570), З22 (гейт единственного держателя,
+  1495–1498), §13. Приёмка ef9c6801: Р5 (строка 2783), NTF2-59, NTF2-30…31.
+  Модули: pgx v5.10.0 — conn.go 515–518 (простой протокол без аргументов), pgconn.go 2955–2961
+  (DeadlineContextWatcherHandler), 1400–1414 и 1601 (asyncClose при ошибке чтения), tx.go
+  180–203 (Commit); corelib v1.10.0-rc.5 — db/pool.go 41–95 (RuntimeParams, обработчик отмены).
+  Дерево kaname @734f69fb4: cmd/kaname/serve.go 1672–1720, loginlane.go 78–83,
+  humansession/dispatch.go 60–140, seed/bootstrap_admin.go, proto user_service.proto,
+  repo/kaname/pg/human_session_repo.go 685–700, oauth_ceremony_vaults.go 205–272, миграции
+  (REFERENCES users). Дерево kacho @6edea09c2ee: подчарт kaname values.yaml 496–499,
+  gateway (серверные пределы сессии, NewPool). Решения диспетчера Д22–Д25 взяты из задания.
+  Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' по файлу на 2a329728 даёт 7 попаданий
+      (строки 27, 693, 845, 999, 1337, 1809, 2086). Все они значат «не позже» либо «потому
+      что»; маркера отсрочки среди них нет.
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      В §13 (строка 2358) стоит «Нет. Решения З1–З27 приняты». Слово «вопрос» встречается в
+      строках 97 и 1204; оба места — о решённом, открытого вопроса нет.
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Пункты CX2-01…45 выдерживают. УК47–УК52 исполнены решениями З8 и З27 (см. mapping_check).
+      Поправки таблицы З27 (М48–М50) воспроизведены по дереву. Новый пункт CX2-46 появился из
+      решения К1 этой дельты и не отображён: у транзакции решения ограничителя теперь есть
+      срок, покрывающий COMMIT, но исход фиксации при срыве срока классифицирован как «откат»,
+      хотя он неизвестен (§7 П9, И6).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      Новых внешних вызовов нет. Оба новых обращения — `SET LOCAL` трёх пределов (К1) и
+      `SHOW` в пробе Н3 — идут к собственной базе вызывающего по уже существующему соединению.
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      Новых асинхронных путей нет. Н1 меняет только то, из какого контекста строится работа
+      существующего диспетчера (`context.WithoutCancel`). Вызывающий `Dispatch` на базе один —
+      humansession/recovery_request.go:147; второй, `register`, заведён прежними редакциями
+      (CX2-36).
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: red
+    detail: >-
+      Своих sentinel-значений дельта не заводит. Превышение `anonMailDecisionBudget` исходит
+      существующим `StoreUnavailable`, а код 25P03 наблюдает только проба. Однако у ошибки
+      COMMIT в закрытом наборе исходов нет своего значения «исход неизвестен»: она сведена к
+      `StoreUnavailable`, то есть к «откату». Недостающий исход входит в CX2-46.
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: >-
+      До этой записи условие было красным: последняя пересверка привязана к 6fc3cae2. Эта
+      запись привязана к 2a329728 — отпечатку файла на e476ac546 и на HEAD 5707b77ec.
+      Поле change.yaml hashes.design_sha256 тоже равно 2a329728.
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING); оценено отдельно, в clean не входит"
+    result: red
+    detail: >-
+      В reviews/design/ одна запись: design-reviewer/6fc3cae2….yaml, то есть на редакцию 7. На
+      2a329728 записей нет ни у одной из трёх применимых ролей: design-reviewer (его держит
+      system-design-reviewer в режиме «замысел»), db-architect-reviewer, proto-api-reviewer.
+      По заданию ревью замысла — отдельный шаг.
+
+mapping_check:
+  - {id: "CX2-01…36", design: "без изменений", verdict: holds, note: "дельта этих решений не касается"}
+  - {id: "CX2-37…43", design: "без изменений", verdict: holds, note: "дельта не ослабляет; CX2-43 см. CX2-46: новое решение К1 открывает путь, в обход которого проходит «503 не истрачивает вызов»"}
+  - id: CX2-44
+    design: "З8 (3), (4)"
+    verdict: holds
+    note: >-
+      УК52 исполнено:
+      (1) прогрев берёт соединения одновременно, у пробы есть близнец «по одному»;
+      (2) `MaxConnLifetime` задан явно, разброс ненулевой, есть модульная проба;
+      (3) окно «ротация срока жизни» названо рядом с окном «перезапуск базы».
+      Из К1 следует ТРЕТЬЕ окно холодного пула — срыв срока решения. По умолчанию pgx
+      закрывает соединение на стороне клиента (УК54), и в замысле это окно не названо.
+  - id: CX2-45
+    design: "З27, З1, О6, §11, tasks S5, G1, G3, S13"
+    verdict: holds
+    note: >-
+      Условия исполнены так:
+      - УК47 — строка `inviter_address` решается по виду принципала;
+      - УК48 — нулевой литерал закрытого типа отвергается ошибкой;
+      - УК49 — отказ равен отказу рубежа; чтение идёт предикатом admission под блокировкой
+        строки человека;
+      - УК50 — близнец посева утверждает исход реконсайлера;
+      - УК51 — источник признака — notification.yaml, строгий разбор, пустой обход красный.
+      Поправки М48, М49, М50 воспроизведены (measurements). Путь В у invite снят, путь В у
+      recovery-completed добавлен с пробой (G3).
+      Остаток: новая блокировка строки человека из УК49 не стоит в порядке блокировок З24
+      (УК55).
+
+new_items:
+  - id: CX2-46
+    decision: "З8, К1 — срок `anonMailDecisionBudget` на захват соединения и ВСЮ транзакцию, включая COMMIT; §7 П9; И6"
+    classes:
+      - "code-authoring §«Чужой ответ: классификация и бюджет» — ответ «не знаю» классифицирован как «нет»"
+      - "code-authoring §«Умолчание, которое становится утверждением» — «ошибка ⇒ откат, пометки нет» как утверждение о состоянии базы"
+      - "code-authoring §«Унификация и стоимость» — пул собран в обход общего конструктора и молча теряет его обработчик отмены"
+    exposure: >-
+      В П9 редакции 8 сказано: «ошибка … срока решения anonMailDecisionBudget на любом шаге →
+      откат всей транзакции (пометки нет) → 503». На шаге COMMIT это неверно.
+      (1) Срок контекста покрывает Commit (pgx tx.go:190: Commit — это Exec на том же
+      контексте). Пул ограничителя строится `pgxpool.ParseConfig` (З8 (3)), а не
+      `corelib db.NewPool`, поэтому у него обработчик отмены pgx по умолчанию,
+      DeadlineContextWatcherHandler с нулевой задержкой (pgconn.go:2955). Срок ставит сокету
+      дедлайн в прошлом, чтение ошибается, и соединение закрывается клиентом (asyncClose,
+      pgconn.go:1412). Если COMMIT уже дошёл до сервера, транзакция зафиксирована: пометка
+      вызова и момент записаны, а клиент получает `503`. Повтор того же доказательства тогда
+      даёт `Replayed`, а не `Fresh`. Это нарушает И6 («не истраченный вызов») и правило Р5
+      приёмки («`503` не истрачивает вызов»). NTF2-59 (д) этого не увидит: там хранилище
+      остановлено и до COMMIT не доходит.
+      (2) Срок срывается не только редко, но и под обычной нагрузкой. Довод числа
+      «1 с = 4 × anonMailStoreWait — захват и не больше трёх ожиданий» не сходится с решением
+      о ключах того же З8. Каждая попытка взять блокировку ограничена `lock_timeout` отдельно,
+      а ожиданий на пути больше трёх:
+      - захват соединения;
+      - блокировки ключей: IPv4 — не меньше 2 (/32, /24), IPv6 — не меньше 3 (/64, /56, /48);
+      - ожидание вставки пометки на конфликте того же доказательства;
+      - строка ведра.
+      Итого для IPv4 не меньше 5 ожиданий, для IPv6 не меньше 6, то есть до 1,5 с против
+      бюджета 1 с. Под конкуренцией предел наступает в хвосте транзакции, там, где стоит COMMIT.
+      (3) Каждый срыв срока с обработчиком по умолчанию уничтожает прогретое соединение. Это
+      третье окно холодного пула (к CX2-44). Общий конструктор corelib держит противоядие и
+      называет его цену (db/pool.go: CancelRequestContextWatcherHandler, DeadlineDelay 500 мс,
+      около 100 мс на отмену). Замысел отказался от этого конструктора из-за 30 с и 60 с,
+      которые `SET LOCAL` перекрывает и так, а про обработчик не сказал ни слова.
+    condition_for_mapping: >-
+      Отображение выдерживает, когда в З8, П9 и И6 решены три вещи.
+      (а) Как срок решения доходит до соединения. Нужен явный выбор обработчика отмены пула
+      ограничителя: CancelRequest, как в corelib (сервер получает отмену, клиент читает
+      настоящий исход COMMIT, соединение возвращается в пул; цена — запасной дедлайн и около
+      100 мс на отмену), либо умолчание pgx с названной ценой (исход COMMIT неизвестен,
+      соединение уничтожено).
+      (б) Какой исход у ошибки COMMIT. Ошибка COMMIT — это «исход неизвестен», а не
+      `StoreUnavailable`. Сначала исход разрешается чтением пометки или момента на отдельном
+      коротком сроке: запись найдена — решение было `Pass` и запрос идёт дальше, записи нет —
+      `503`. Второй вариант — COMMIT выводится из бюджета и получает свой предел, а остаток
+      (обрыв сети на COMMIT) разрешается тем же чтением. Если замысел выберет не разрешать
+      исход, а назвать цену, это меняет правило Р5 — вернуть в приёмку.
+      (в) Довод числа `anonMailDecisionBudget` пересчитан по фактическому числу ожиданий для
+      IPv4 и IPv6 и по доле COMMIT. Либо бюджет не меньше суммы, либо прямо сказано, что под
+      конкуренцией действующий предел — срок решения, а не `lock_timeout`.
+    held_by_candidate: >-
+      integration-проба на postgres «срок решения истекает на COMMIT». Пробу замедления
+      фиксации строит её автор. Утверждается: после ответа `503` повтор того же доказательства
+      получает `Fresh`, а если транзакция зафиксирована — запрос уже пропущен, и `503` не было.
+      Близнец-инъекция: ошибка COMMIT сведена к `StoreUnavailable` без разрешения исхода →
+      `503`, а повтор получает `Replayed` — красный.
+    mapped: false
+
+conditions_to_code:
+  - id: УК53
+    item: "К1 (З8 (2), И37)"
+    class: "code-authoring §«Контракт, который нельзя выразить» — два написания одного значения"
+    condition: >-
+      Строка `SET LOCAL` в `beginDecision` получает оба предела и `lock_timeout` из тех же
+      констант Go (`anonMailDecisionBudget`, `anonMailStoreWait`) через Duration → миллисекунды
+      в одном месте. Второго литерала «1000» или «1s» в пакете нет. Параметров у строки нет:
+      pgx на Exec без аргументов переходит на простой протокол (conn.go:515–518), поэтому три
+      оператора одной строкой исполнимы.
+    held_by: >-
+      модульная проба: строка `SET LOCAL` равна выводу из констант; инъекция другого значения
+      константы меняет строку. К ней — строка «одна дверь» гейта формы (И37).
+  - id: УК54
+    item: "CX2-44, К1"
+    class: "code-authoring §«Унификация и стоимость»; §«Порядок операций внутри кода»"
+    condition: >-
+      Пул ограничителя, собранный `pgxpool.ParseConfig`, задаёт `BuildContextWatcherHandler`
+      явно, и окно «срыв срока решения» названо рядом с окнами «перезапуск базы» и «ротация»
+      (З8 (3)). Если выбран CancelRequest — допуск модульной пробы срока включает запасной
+      дедлайн обработчика.
+    held_by: >-
+      integration-проба: после срыва срока решения число открытых соединений пула равно
+      anonMailPoolConns (при CancelRequest) либо цена названа и проба прогрева повторяется
+      после срыва. Модульная проба конфигурации печатает тип обработчика.
+  - id: УК55
+    item: "CX2-45 (УК49), З24"
+    class: "code-authoring §«Порядок операций внутри кода» (порядок блокировок); §«Чужой ответ: классификация и бюджет»"
+    condition: >-
+      Блокировка строки приглашающего (УК49) названа по режиму и месту в порядке З24. Годится
+      `FOR SHARE`: смену адреса она удерживает, а `FOR KEY SHARE` не удерживает. Место — после
+      строки аккаунта и до рекомендательной блокировки адресата, одинаково у invite и resend.
+      Встречный порядок в дереве есть: `accounts_owner_fk … REFERENCES kaname.users ON DELETE
+      RESTRICT DEFERRABLE INITIALLY DEFERRED` (0001_initial.sql:5402). Удаление человека
+      берёт его строку, а при фиксации проверка ключа берёт строку аккаунта. Invite берёт
+      строку аккаунта, затем строку человека. Ответ 40P01 глагола классифицирован как
+      повторяемый отказ, а не как INTERNAL. Цена встречного порядка в модуле уже измерялась:
+      6 взаимных блокировок из 6 прогонов (human_session_repo.go:690–699).
+    held_by: >-
+      integration-проба «invite от владельца аккаунта × удаление этого человека» параллельными
+      горутинами: одна транзакция зафиксирована, вторая получает классифицированный отказ, а
+      не INTERNAL.
+  - id: УК56
+    item: "Д23, И13 (З22)"
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» — распознаватель по идентичности, а не по имени"
+    condition: >-
+      Замысел утверждает, что Д23 предикат единственного держателя не меняет. Это верно только
+      при условии, которого замысел не записал: гейт NTF2-30…32 узнаёт секрет почты по
+      идентичности объекта, заведённого единственным объявлением чарта, а не по образцу имени
+      (`notify-*`, `mail`) и не по именам ключей. «Объект notify» в гейте — это развёртывание
+      notify-sender, названное явно: после Д23 и Р8 развёртываний notify два, и оба монтируют
+      секреты.
+    held_by: >-
+      две инъекции гейта. Секрет ключа отпечатка смонтирован в notify-api — гейт молчит
+      (близнец). Секрет почты смонтирован в notify-api — красный с именем объекта.
+
+measurements:
+  - claim: "отпечаток редакции 8 — 2a329728, коммит e476ac546; пакет на HEAD не менялся"
+    command: "git show e476ac546:docs/changes/issue-2917/design.md | sha256sum; git show HEAD:… | sha256sum; git diff --quiet e476ac546 HEAD -- docs/changes/issue-2917/"
+    result: "подтверждено: 2a329728 в обоих местах; дифф пакета пуст"
+  - claim: "М45: своих серверных пределов у края 0; у kaname 6 строк; пин corelib v1.10.0-rc.5 в обоих деревьях; NewPool ставит 30000 и 60000"
+    command: "git -C project/kacho grep -nE 'statement_timeout|idle_in_transaction|tcp_keepalives|idle_session_timeout' 6edea09c2ee -- gateway ':!*_test.go' | wc -l; то же по kaname с ':!*.md'; sed -n 30,95p …/corelib@v1.10.0-rc.5/db/pool.go"
+    result: >-
+      подтверждено: 0 и 6. Вызовы: kaname serve.go:142, 193; край idempotencypg/store.go:385.
+      Сверх М45: NewPool ставит ещё CancelRequestContextWatcherHandler (CancelRequestDelay 0,
+      DeadlineDelay 500 мс). Пул ограничителя, собранный ParseConfig, этого не получает —
+      основание УК54 и CX2-46 (3).
+  - claim: "срыв срока контекста в pgx v5.10.0 на пуле без своего обработчика закрывает соединение"
+    command: "grep -n 'DeadlineContextWatcherHandler{' …/pgconn/config.go; sed -n 2955,2961p …/pgconn/pgconn.go; sed -n 1400,1414p …/pgconn/pgconn.go; sed -n 180,203p …/tx.go"
+    result: >-
+      подтверждено. Умолчание — DeadlineContextWatcherHandler{Conn} с нулевой задержкой
+      (config.go:374). Ошибка чтения ведёт к asyncClose (pgconn.go:1412), Commit — это Exec на
+      контексте вызывающего (tx.go:190). Исход COMMIT при срыве срока клиенту неизвестен.
+  - claim: "довод числа: 1 с = захват и не больше трёх ожиданий"
+    command: "sed -n 544,548p docs/changes/issue-2917/design.md (ключи); sed -n 630,640p (пометка до ведра)"
+    result: >-
+      опровергнуто. Ожиданий не меньше 5 для IPv4 и не меньше 6 для IPv6: захват; ключи 2 или 3;
+      пометка; ведро. Каждое до 250 мс, итого до 1,25–1,5 с против бюджета 1 с.
+  - claim: "М46: Dispatch отбрасывает контекст запроса"
+    command: "git -C project/kaname show 734f69fb4:internal/apps/kaname/api/humansession/dispatch.go | sed -n 78,87p"
+    result: >-
+      подтверждено. Попутно: context.WithValue в не-тестовом дереве kaname встречается 5 раз,
+      из них 3 кладут в контекст транзакцию (oauth_ceremony_vaults.go 220, 265, 272, полоса
+      обмена OAuth). Вызывающий Dispatch один (recovery_request.go:147), с полосой обмена он
+      не пересекается. Наследование значений через WithoutCancel ресурса чужого запроса не
+      переносит; пункта нет.
+  - claim: "М47: худшее гашение 50 с; terminationGracePeriodSeconds не объявлен"
+    command: "git -C project/kaname show 734f69fb4:cmd/kaname/serve.go | sed -n 1690,1721p; … | grep -n gracefulTimeout; git -C project/kacho show 6edea09c2ee:deploy/helm/umbrella/charts/kaname/values.yaml | sed -n 496,499p; git -C project/kaname show 734f69fb4:deploy/values.yaml | sed -n 203,206p; git -C project/kacho grep -l terminationGracePeriodSeconds 6edea09c2ee -- deploy | wc -l; git -C project/kaname grep -l terminationGracePeriodSeconds 734f69fb4 | wc -l; loginlane.go 78–83"
+    result: >-
+      подтверждено. stopGRPCBounded ×2 (1709, 1710), stopSurfaces (1717), lane.drain (1720);
+      gracefulShutdown 10s в обеих поставках; recoveryDispatchTimeout = 30 с (loginlane.go:81);
+      объявлений 0 и 0; preStop в подчарте и в deploy/ kaname — 0 и 0.
+  - claim: "М48: Invite и ResendInvite — только публичная служба"
+    command: "git -C project/kaname grep -nE 'rpc (Invite|ResendInvite)\\b' 734f69fb4 -- 'proto/*.proto'"
+    result: "подтверждено: 2 строки, user_service.proto:69 и 118"
+  - claim: "М49: recovery_completed рождается двумя путями, 14 файлов"
+    command: "git -C project/kaname grep -nE 'recovery_completed|RecoveryCompleted' 734f69fb4 -- '*.go' ':!*_test.go' ':!*.pb.go' | cut -d: -f2 | sort | uniq -c"
+    result: "подтверждено: 14 файлов; recovery_complete.go 4, internal_on_recovery.go 18, hooks_mux.go 3"
+  - claim: "М50: посев находит пользователя и не заводит его"
+    command: "git -C project/kaname show 734f69fb4:internal/apps/kaname/seed/bootstrap_admin.go | grep -nE 'INSERT INTO|BootstrapSkipNot[A-Za-z]+ '"
+    result: "подтверждено: вставок 3 (207, 238, 269), в users вставки нет; пропусков 3 (72, 76, 82)"
+  - claim: "УК55: встречный порядок строк users и accounts существует"
+    command: "git -C project/kaname grep -nE 'REFERENCES (kaname\\.)?users' 734f69fb4 -- 'internal/migrations/*.sql'; git -C project/kaname show 734f69fb4:internal/repo/kaname/pg/human_session_repo.go | sed -n 685,700p"
+    result: >-
+      найдено 18 внешних ключей на users; среди них accounts_owner_fk RESTRICT DEFERRABLE
+      INITIALLY DEFERRED (0001_initial.sql:5402). Прежний замер встречного порядка в модуле —
+      6 взаимных блокировок из 6 прогонов.
+  - claim: "Д23 не меняет предикат NTF2-30"
+    command: "sed -n 2650,2668p приёмки; sed -n 1495,1498p design.md"
+    result: >-
+      не установлено по тексту. Приёмка говорит «объект notify» и «ключ почтовой полосы»;
+      замысел перечисляет формы ссылок, но не говорит, по какому признаку распознаётся сам
+      секрет. Вывод держится только на распознавателе по идентичности — УК56.
+
+not_measurable:
+  - "время COMMIT на стенде под нагрузкой и доля срывов срока на COMMIT — число прогона. Вывод CX2-46 от него не зависит: исход неизвестен при любой ненулевой доле, а довод числа бюджета опровергнут счётом ожиданий, без прогона"
+  - "годность SET LOCAL idle_in_transaction_session_timeout внутри транзакции и его действие в состоянии «транзакция прервана» — утверждение о поведении сервера. Замысел верно отдаёт его пробе (К1, 25P03); исходник сервера здесь не читался"
+
+outcome: к-замыслу
+unmapped:
+  - CX2-46
+return_to_acceptance: []   # условно: если отображение CX2-46 выберет «назвать цену» вместо разрешения исхода, это правка Р5 — вернуть в приёмку
+
+orders:
+  - to: design author (NTF-2)
+    what: >-
+      Отобразить CX2-46 в З8, §7 П9, И6 и §8, решив пункты (а)–(в) условия отображения.
+      Тем же заходом: вписать УК53–УК56 в §11а; поставить блокировку строки приглашающего в
+      порядок З24 (УК55); в З22 записать признак, по которому распознаётся секрет почты (УК56).
+      Затем новый отпечаток и новая пересверка по дельте (Д22).
+    basis: "change-graph §4; code-authoring §«Чужой ответ: классификация и бюджет», §«Унификация и стоимость»"
+  - to: rpc-implementer (kacho gateway, полоса E2)
+    what: "УК53, УК54 и проба CX2-46 — после отображения"
+    basis: "code-authoring §«Контракт, который нельзя выразить», §«Порядок операций внутри кода»"
+  - to: rpc-implementer (kaname, полоса S5)
+    what: "УК55: режим и место блокировки строки приглашающего, классификация 40P01, проба «invite × удаление владельца»"
+    basis: "code-authoring §«Порядок операций внутри кода»"
+  - to: integration-tester (kacho, полоса D3)
+    what: "УК56: распознаватель секрета почты по идентичности, близнец «секрет отпечатка в notify-api» молчит"
+    basis: "code-authoring §«Инвариант и оснастка — это тоже прод-код»"
+  - to: design-reviewer (system-design-reviewer, режим «замысел»), db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на следующий отпечаток замысла; на 2a329728 их 0"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+  - to: package author (NTF-2)
+    what: "change.yaml: в комментарии «пересверки на него нет» сослаться на эту запись; каталоги evidence/ по-прежнему названы отпечатком 33e199c9"
+    basis: "change-graph §4"
