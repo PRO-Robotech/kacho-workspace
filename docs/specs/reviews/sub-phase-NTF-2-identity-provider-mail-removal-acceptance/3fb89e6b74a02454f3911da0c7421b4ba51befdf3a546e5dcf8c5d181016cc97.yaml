@@ -92,7 +92,7 @@ measurement:
   revisions_used:
     kacho: origin/2797 2267b40522015f2dd527f0c1a1081edaf8d8df3d (та же, что у кругов 2–3)
   isolation: >-
-    временный worktree kacho @2267b405220 в kacho-workspace/tmp/rev-ntf2-r4 (снят после замера);
+    временный worktree kacho @2267b405220 вне дерева продукта (снят после замера);
     зависимости зонтика собраны `helm dependency build --skip-refresh`; ствол не менялся.
     Рецепт посева — скрипт рецензента (DoD п.4, п.5: `_kratos-identity.tpl`,
     `kratos-hooks-configmap.yaml`, `values.yaml`, `values.dev.yaml`, `values.prod.yaml`);

@@ -92,7 +92,7 @@ measurement:
     result: 39 файлов; множество совпало с таблицей §3а поштучно
   seed_post_ntf2:
     isolation: >-
-      временный worktree kacho @origin/2797 в kacho-workspace/tmp/rev-ntf2-r3 (снят после замера);
+      временный worktree kacho @origin/2797 вне дерева продукта (снят после замера);
       ствол не менялся; дельта посева сохранена в каталоге сессии рецензента (135 строк diff)
     seeded_changes: >-
       по DoD п.4 и п.5: из `_kratos-identity.tpl` сняты раздел `courier`, переменная
