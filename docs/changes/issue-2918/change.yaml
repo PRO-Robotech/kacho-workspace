@@ -18,14 +18,17 @@
 # APPROVED), первичный разбор классов на тот же отпечаток записан
 # (reviews/class-exposure/initial/ac1f9fc9….yaml, исход «к-замыслу»). Прежняя одобренная
 # редакция 32 — `aa939edc…`, её разбор — initial/aa939edc….yaml.
-# Замысел — `design.md` редакции 4 (2026-09-30; редакция 1 — первый заход в форме захода отображения
+# Замысел — `design.md` редакции 5 (2026-09-30; редакция 1 — первый заход в форме захода отображения
 # Д26, предмет сужен Д31; редакция 2 исполняет пересверку классов на редакцию 1 `89d1f0ad…`; редакция 3 —
-# пересверку на редакцию 2 `3730bca2…`; редакция 4 — пересверку на редакцию 3 `374789b5…`),
-# отпечаток — `hashes.design_sha256`; маршрут — `tasks.md` рядом, редакция 4. Замысел редакции 4
-# стоит на `hashes.acceptance_sha256` (редакция 33, `ac1f9fc9…`) и восьми первичных разборах; отображены
-# CX3I-01…04 (позиция ленты — объявленная десятичная форма, Д34) и CX3J-01 (обязательства по записи
-# реестра Д33); Е1 — зависимость от одобрения записи реестра на отпечатке замысла NTF-1 (на
-# `c018895f…`, редакция 13, вердикта нет), открытых решений нет. Пересверки и вердикта на редакцию 4 нет.
+# пересверку на редакцию 2 `3730bca2…`; редакция 4 — пересверку на редакцию 3 `374789b5…`; редакция 5 —
+# пересверку на редакцию 4 `3dbb8b23…`), отпечаток — `hashes.design_sha256`; маршрут — `tasks.md` рядом,
+# редакция 5. Замысел редакции 5 стоит на `hashes.acceptance_sha256` (редакция 33, `ac1f9fc9…`) и восьми
+# первичных разборах; отображены CX3J-01 (б) для ствола kacho (тег X2-F — после прочих зависимостей
+# S2-B1, ограничение эпика на подъём пина — Е6), CX3K-01 (действующая маска, порядок проверок), CX3K-02
+# (JSON-строка на проводе, исход CHECK из дома SQLSTATE), CX3K-03 (предикат по колонке схемы). Е1 —
+# зависимость от одобрения записи реестра на отпечатке замысла NTF-1; Е6 — от решения диспетчера о
+# порядке окон эпика и строк в маршрутах NTF-1, NTF-4, NTF-5; открытых решений внутри NTF-3 нет.
+# Пересверки и вердикта на редакцию 5 нет.
 schema_version: 1
 change_id: issue-2918
 lifecycle_state: CLASS_EXPOSURE_RECORDED
@@ -62,7 +65,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
-  design_sha256: 3dbb8b23fc609c3234f2e5d36a7138c0ab96421a2c30575f644ebdc2bba0bc93
+  design_sha256: b4cc78a6bae8fdc412e0fe1b74da823fd01ae161042d5df94a803c15f6beffc1
   holders_sha256: d8072f8503df9f347e4799f7e24a94807465c30e81652d745d3b93df1e77c9db
 
 links:
@@ -71,7 +74,7 @@ links:
   acceptance: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
   acceptance_reviews: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/
   class_exposure_initial: docs/changes/issue-2918/reviews/class-exposure/initial/ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1.yaml   # на редакцию 33 ac1f9fc9…, исход «к-замыслу»; прежний — initial/aa939edc….yaml (редакция 32)
-  class_exposure_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/374789b55fb1a242e7a762f961c1c399ae379c6239429949ecdd7ff10012c55f.yaml   # на замысел редакции 3 (374789b5…), исход «к-замыслу»: CX3I-01…04, CX3J-01 не отображены; прежние — revalidation/3730bca2….yaml (редакция 2, исполнена редакцией 3), revalidation/89d1f0ad….yaml (редакция 1)
+  class_exposure_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/3dbb8b23fc609c3234f2e5d36a7138c0ab96421a2c30575f644ebdc2bba0bc93.yaml   # на замысел редакции 4 (3dbb8b23…), исход «к-замыслу»: CX3J-01 (б) не держал, CX3K-01, CX3K-02 не отображены, CX3K-03 — условие к коду; исполнено редакцией 5; прежние — revalidation/374789b5….yaml (редакция 3, исполнена редакцией 4), revalidation/3730bca2….yaml (редакция 2), revalidation/89d1f0ad….yaml (редакция 1)
   epic_changes:
     - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
     - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }
