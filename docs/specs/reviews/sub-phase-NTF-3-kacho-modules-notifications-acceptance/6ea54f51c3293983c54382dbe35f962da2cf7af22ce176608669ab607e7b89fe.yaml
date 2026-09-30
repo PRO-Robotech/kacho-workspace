@@ -1,0 +1,200 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 6ea54f51c3293983c54382dbe35f962da2cf7af22ce176608669ab607e7b89fe
+  revision: 17
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  content_commit: 3c759a980c041fd0d1357cc68e0826f69ee5979c
+  content_commit_note: >-
+    Редакцию 17 внёс коммит 3c759a980. Последняя рассмотренная редакция — 16 (c26cc7cc…, коммит
+    e85e4311c, одобрена кругом 2 прохода Д20, запись в коммите 2492fe336). После одобрения первичный
+    разбор классов вернул её в приёмку (RA-01 = CX3B-24, коммит 04c1f8231). По Д22 судится дельта
+    16 → 17: git diff e85e4311c 3c759a980 — 131 вставка, 16 удалений.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4053
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T10:10:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода «RA-01». Действуют Д1–Д22 и принятое registerSharePause = 1. Редакция 17 отвечает
+  на возврат первичного разбора классов на редакцию 16 (RA-01: писатели журнала названы неверно,
+  и от этого зависит объём гейта NTF3-70).
+previous_rounds:
+  - round: 2
+    pass: Д20
+    sha256: c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425
+    verdict: APPROVED
+    blocking_count: 0
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425.yaml
+  - round: initial class exposure
+    sha256: c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425
+    verdict: вернуть-в-приёмку (RA-01)
+    record: docs/changes/issue-2918/reviews/class-exposure/initial/c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425.yaml
+blocking_count: 1
+blocking_kinds_distinct: [COVERAGE]
+blocking_kinds_by_item:
+  - RA1-1 COVERAGE
+repeated_kinds:
+  - kind: COVERAGE
+    note: >-
+      COVERAGE был блокирующим в круге 1 прохода Д17 (D17-2) и в кругах 4 и 6 прохода Д14–Д16.
+      По предмету этот случай — тот же класс, что сам RA-01: утверждение документа о писателях
+      журнала задаёт, что увидит гейт. Перепись §1.13 закрыла его для функций базы, но не довела
+      до конца для писателей на Go.
+author_task_form_candidate: >-
+  Когда документ вводит термин, по которому гейт считает («мимо функции фундамента»), автор
+  применяет этот термин к КАЖДОЙ строке своей переписи и пишет итог каждой строки этим же
+  термином. Число «сегодня» считается тем же предикатом, что гейт после под-фазы.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @3c759a980
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует. Тело для курьера — в поле `event_body_for_courier`. Роль в этой
+    записи — координата, а не полномочие.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода RA-01, блокирующих 1: COVERAGE) ·
+    SHA-256 6ea54f51c3293983c54382dbe35f962da2cf7af22ce176608669ab607e7b89fe
+
+measurement:
+  scenario_ids: 160
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 153
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 160; uniq -d → пусто; семь снятых номеров
+    идут заголовком «снят в редакции N». Шапка (160 / 7 / 153) сходится.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|yandex|\baws\b|\bgcp\b|azure|google cloud' <документ> → 0
+  census_go_at_1d42a6728bf: >-
+    Предикат §1.13 для Go повторён в project/kacho @1d42a6728bf. Результат — 12 строк (без фильтров
+    59): 8 объявлений (константы compute и vpc; Table и Channel у nlb, registry, storage) и
+    4 места записи — compute repo/outbox.go:52 (corelib outbox.EmitAnchored), vpc
+    repo/helpers/outbox.go:60 (corelib outbox.EmitAnchored), nlb repo/kacho/pg/outbox_emitter.go:37
+    (собственный литерал `INSERT INTO kacho_nlb.nlb_outbox`), nlb apps/kacho/jobs/free_ip_runner.go:487
+    (литерал `INSERT INTO kacho_nlb.nlb_outbox` в emitReconcileFinalize). Контроль шире:
+    git grep 'INSERT INTO … (compute_outbox|vpc_outbox|nlb_outbox|registry_resource_journal|storage_outbox)'
+    по не-миграционному дереву — те же 2 литерала nlb, других нет.
+  census_sql_at_1d42a6728bf: >-
+    Функции базы, пишущие журнал, по последнему определению в разделе Up: vpc
+    subnets_outbox_emit_route_table_change (20260828130000:74); nlb lb_status_recompute
+    (20260830120000:86); registry registries_journal_emit (20260828154000:151); storage
+    storage_outbox_emit (20260830120000:131), storage_outbox_emit_attachment (20260830041500:178),
+    storage_outbox_emit_source (20260830120000:185; вызывается из триггерной
+    storage_outbox_emit_lineage). Итого 6. Живые триггеры: vpc 1 (0001:646), nlb 3 на listeners
+    (0001:544, 0022:119, 0001:554; два на attached_target_groups сняты в 0022:24-25), registry 3
+    (:186, 201, 206), storage 5 (20260828153423:287, 291, 295, 299 и 20260830120000:268). Итого 12.
+    Документ сходится по всем координатам.
+
+premise_check:
+  task_premise: >-
+    В задании сказано, что Д1–Д13 лежат в wf_8cc21fed-1ec/journal.jsonl («первая строка
+    type=started любого author:NTF-*, поле prompt»), а Д14–Д16 — в wf_f705806c-629/journal.jsonl.
+    Проверено: у строк type=started (в том числе label author:NTF-1, author:NTF-2) ключи только
+    type, key, agentId, label, phase. Поля prompt нет, строк с «prompt» в обоих журналах 0. Посылка
+    опровергнута, как и в прошлых кругах. Д1–Д16 сверены по записям прошлых кругов, Д17–Д22 — по
+    тексту задания. Дельта редакции 17 §2.1 не трогает.
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: стенд заданием не назван. Given новых букв проверены чтением кода на ревизии
+    1d42a6728bf, которую называет сам документ. Итог по посеву — «не выполнилось», а не «зелёный».
+    NTF3-160 (а): RouteTableService.Delete с привязанной подсетью не отвергается — repo Delete
+    отказывает только по нарушению FK, а subnets.route_table_id — ON DELETE SET NULL (0001:255);
+    переназначения нет: триггеры subnet_auto_pick_rt и rt_auto_assoc_subnets сняты (0017:70-71,
+    0019:43-44). SubnetService.Update принимает маску route_table_id (update.go:186). Сходится.
+    NTF3-160 (б): балансировщик после Create — INACTIVE (create.go:707-723). Worker
+    ListenerService.Create пишет LB UPDATED глаголом (create.go:335) и сверх того вставкой в
+    listeners вызывает lb_status_recompute. has_wired требует default_target_group_id <> ''.
+    Значит, с группой целей строк две, без неё одна. Сходится. NTF3-160 (в): триггер родословной
+    срабатывает на INSERT и на смену колонок источника. Подтверждения сверщика источнику ничего не
+    пишут (комментарий миграции 20260830120000). Строка Snapshot UPDATED по snp-1 ровно одна.
+    Сходится.
+  confirmed:
+    - "RA-01 закрыт для функций базы. Перепись §1.13 идёт по таблице журнала каждого модуля, с командами. Все координаты функций и триггеров сошлись @1d42a6728bf (6 функций, 12 живых триггеров, 4 модуля). Р3, NTF3-62, NTF3-70, §7, §10, §11, DoD 12.2 и 12.4 правлены согласованно."
+    - "NTF3-62: отказ без инициатора задан для каждой из шести функций. Изменение, которое её вызывает, названо, у каждой строки есть близнец."
+    - "NTF3-70: инъекция (б) по каждому из четырёх модулей с функциями базы, с близнецом; пустой обход и модуль без писателей красные."
+    - "NTF3-160: наблюдаемое по путям vpc, nlb и родословной storage, у каждой буквы близнец, отличающийся одним фактом; строки §10 и §11 есть. Given конструируемы по коду (см. seeding_note)."
+    - "Счёт 160/7/153 сходится, гигиена 0."
+  refuted:
+    - "Число «сегодня у nlb 1» прямая вставка мимо функции фундамента (NTF3-70, Р3, §1.13) неверно в собственном термине документа. Литеральных вставок в журнал nlb на Go две, и ни одна не идёт через функцию фундамента (RA1-1)."
+
+blocking_findings:
+  - id: RA1-1
+    kind: COVERAGE
+    title: Гейт NTF3-70 не определён на эмиттере nlb — число «сегодня у nlb 1» считает другим термином, чем гейт после под-фазы
+    where: "NTF3-70 Then («число прямых вставок в таблицу журнала мимо неё (0 у каждого модуля; сегодня у nlb 1 — §1.13)»); Р3 («Прямой вставки … мимо функции фундамента после под-фазы нет (сегодня у nlb одна)»); §1.13 строка nlb и итог («из них 1 — прямая вставка мимо эмиттера»); §11 строка NTF3-70 (переводится только free_ip_runner.go:487)"
+    finding: >-
+      Гейт NTF3-70 делит писателей на Go на два класса: «вызов функции фундамента» и «прямая
+      вставка в таблицу журнала мимо неё». По Р3 функция фундамента — одна точка, которая пишет
+      строку журнала и строку ленты. Перепись §1.13 судит другим термином: «мимо ЭМИТТЕРА». Эмиттер
+      nlb (repo/kacho/pg/outbox_emitter.go:37) — не функция фундамента, а собственный литерал
+      модуля `INSERT INTO kacho_nlb.nlb_outbox`. Через него идут все глаголы nlb; разбор классов
+      насчитал 31 вызов Outbox().Emit. В термине гейта литеральных вставок мимо функции фундамента
+      у nlb сегодня ДВЕ, а не одна. Документ пишет «одна», и §11 переводит на функцию фундамента
+      только free_ip_runner.go:487. Поэтому исход гейта на эмиттере nlb не определён. Автор гейта
+      вправе (1) счесть его законным писателем — тогда «одна точка» Р3 у nlb не соблюдена,
+      а строку ленты ставит вторая реализация; (2) считать его обходом — тогда гейт после под-фазы
+      красный, пока эмиттер не переведён, а документ этого перевода не называет. Разбор классов
+      (CX3B-24 (а)) требовал перевести оба места, и RA-01 был возвращён ровно за утверждение
+      документа, от которого зависит, что увидит гейт. NTF3-68 по NetworkLoadBalancer ловит
+      отсутствие строки ленты в поведении. Но он не отличает одну точку от второй реализации, а
+      гейт — единственный держатель паритета «журнал ↔ лента» по построению.
+    fix: >-
+      Назвать эмиттер nlb в термине гейта и довести число до конца. В §1.13 у строки nlb и в итоге
+      написать: мест записи на Go у nlb 2, оба — литеральная вставка мимо функции фундамента
+      (эмиттер модуля и шаг доведения снятия). В Р3 и NTF3-70 — «сегодня у nlb 2», после под-фазы
+      0. В §11 у строки NTF3-70 — оба места nlb (outbox_emitter.go и free_ip_runner.go) переводятся на
+      функцию фундамента. Если выбран иной путь (эмиттер модуля объявлен законной точкой), его
+      надо записать решением: чем эмиттер nlb ставит строку ленты, и как гейт отличает его от
+      обхода — по имени функции, с инъекцией. Тогда формула «одна точка» в Р3 правится.
+      Инъекция (а) может остаться на vpc. Если эмиттер nlb переводится, нужна пара на nlb: литерал
+      вставки в outbox_emitter.go — красный, вызов функции фундамента — зелёный.
+
+non_blocking_findings:
+  - "NTF3-62 утверждает отказ функции базы как SQLSTATE 23502 с именем колонки инициатора. Разбор классов CX3B-25 (б) ставит замыслу условие: «функция базы при невыставленной настройке поднимает отказ с именем настройки, а не подставляет значение». Если замысел поднимет своё исключение, код будет не 23502, и проба NTF3-62 покраснеет. По Д22 наблюдаемое утверждает приёмка, поэтому замыслу нужно согласовать CX3B-25 (б) с 23502 (например, настройка читается в колонку NOT NULL, а имя настройки идёт в сообщение). Строка к design-author, не к автору приёмки."
+  - "§7, пункт о прямой вставке nlb фоновым заданием: исход «LB DELETED от сверщика несёт system:<компонент> и одну строку ленты» не утверждает ни один сценарий. Держатся только форма (Р2), отказ без инициатора (NTF3-62) и путь через функцию (NTF3-70). Сценарий можно построить в интеграционной обвязке nlb: посев строки DELETING старше порога и фейковый клиент vpc, как NTF3-133..137 сеют операции. Это заказ CX3B-25 (в) к integration-tester. Блокирующим не считаю: фраза §7 «публичным API не конструируется» верна."
+  - "NTF3-160 (б): у When нет полного тела ListenerService.Create — порт, протокол, имя. Одного targetGroupId для пробы мало. Дописать тело, как у прочих сценариев с конкретным payload."
+  - "§1.13, предикат функций базы: обход каталога migrations/ даёт и не-SQL попадание (vpc migrations/README.md:233). Команда верна, но к ней стоит приписать `-- '*.sql'`, чтобы число попаданий было числом мест SQL."
+
+method_verdict: >-
+  RA-01 закрыт по функциям базы: перепись §1.13 сведена к таблицам журнала, все 6 функций и 12
+  триггеров сверены с деревом @1d42a6728bf, у NTF3-62, NTF3-70 и нового NTF3-160 есть близнецы,
+  строки §10 и §11. Given NTF3-160 конструируемы по коду; посевов не было, это «не выполнилось».
+  Судилась только дельта 16 → 17 (Д22). Возврат один, COVERAGE. Для писателей на Go перепись
+  считает «мимо эмиттера», а гейт — «мимо функции фундамента». На эмиттере nlb эти термины
+  расходятся, поэтому исход гейта для главного писателя nlb документ не определяет. Правка
+  точечная: число и перечень переводимых мест nlb в Р3, §1.13, NTF3-70 и §11.
+
+route_signals:
+  proto: false
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: false
