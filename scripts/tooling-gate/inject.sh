@@ -646,6 +646,124 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
+echo "== commit-msg: трейлер атрибуции отвергается хуком (gi-no-attribution-trailers) =="
+
+# Предмет — ХУК, а не проверка набора, поэтому пробы идут настоящим входом:
+# `git commit` в отдельном репозитории, куда хук провязан тем же `install.sh`,
+# что и в живом клоне. Так доказывается вся цепочка разом — переходник в
+# `.git/hooks` находит отслеживаемый скрипт, скрипт отвергает сообщение, коммит не
+# появляется. Проба, звавшая бы скрипт напрямую, осталась бы зелёной ровно в том
+# состоянии, ради которого хук заводился: переходник есть, скрипта нет.
+#
+# ПРИНАДЛЕЖНОСТЬ КРАСНОГО. Та же инъекция без `scripts/hooks/commit-msg` обязана
+# ПРОЙТИ с «проверок НЕ БЫЛО» — иначе отказ мог бы прийти от чего угодно, кроме хука.
+
+# mkhookrepo <с-хуком: 1|0> — печатает путь репозитория с провязанными хуками.
+mkhookrepo() {
+    local with="$1" dir
+    dir="$(mktemp -d "$TMP/hXXXXXX")"
+    (
+        unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+        cd "$dir" || exit 1
+        git init -q
+        git config user.name "inject"
+        git config user.email "inject@invalid"
+        git config commit.gpgsign false
+        mkdir -p scripts/hooks
+        cp "$WS/scripts/hooks/install.sh" scripts/hooks/
+        cp "$WS/scripts/hooks/commit-msg" scripts/hooks/
+        printf 'a\nCo-Authored-By: строка содержимого, не сообщения\nb\n' > f.txt
+        git add -A
+        bash scripts/hooks/install.sh >/dev/null 2>&1
+        git commit -q -m "chore: исходное состояние" >/dev/null 2>&1
+        # Без хука: переходник остаётся, отслеживаемого скрипта в копии нет —
+        # ровно состояние клона до этой правки.
+        [ "$with" = 1 ] || rm -f scripts/hooks/commit-msg
+    ) || { echo "  ПРОВАЛ mkhookrepo: не собран репозиторий пробы" >&2; }
+    printf '%s' "$dir"
+}
+
+# runcommit <ожидаемо: accept|reject> <репо> <имя> [подстрока-вывода] -- <аргументы git commit>
+runcommit() {
+    local want="$1" repo="$2" name="$3" need="$4" before after out got
+    shift 5
+    probes=$((probes + 1))
+    before="$(git -C "$repo" rev-parse HEAD 2>/dev/null)"
+    printf 'x%s\n' "$probes" >> "$repo/f.txt"
+    git -C "$repo" add f.txt
+    out="$(
+        unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+        cd "$repo" && git commit "$@" 2>&1
+    )"
+    after="$(git -C "$repo" rev-parse HEAD 2>/dev/null)"
+    if [ "$before" = "$after" ]; then got=reject; else got=accept; fi
+    if [ "$got" != "$want" ]; then
+        echo "  ПРОВАЛ $name — ждали $want, получили $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1)); return
+    fi
+    if [ -n "$need" ] && [[ "$out" != *"$need"* ]]; then
+        echo "  ПРОВАЛ $name — исход $got верен, но в выводе нет «$need»" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1)); return
+    fi
+    [ "$got" = reject ] && git -C "$repo" reset -q
+    echo "  ok   $name ($got)"
+}
+
+# Редактор пробы дописывает строку КОММЕНТАРИЯ с именем трейлера: git её
+# выбросит, хук обязан её не судить. Держит это якорь выражения, а не ветка
+# пропуска (см. шапку хука): близнец законной формы, фиксирующий её молчание.
+ED_COMMENT="$TMP/editor-comment.sh"
+printf '#!/bin/sh\nprintf "%%s\\n" "%s" >> "$1"\n' '# Co-Authored-By: в справке редактора' > "$ED_COMMENT"
+chmod +x "$ED_COMMENT"
+h="$(mkhookrepo 1)"
+if (cd "$h" && bash scripts/hooks/install.sh check >/dev/null 2>&1); then
+    probes=$((probes + 1)); echo "  ok   предпосылка: commit-msg провязан переходником install.sh"
+else
+    probes=$((probes + 1)); failed=$((failed + 1))
+    echo "  ПРОВАЛ предпосылка: install.sh check не подтвердил провязку commit-msg" >&2
+fi
+
+runcommit reject "$h" "инъекция: трейлер Co-Authored-By — коммит отвергнут" \
+    "gi-no-attribution-trailers" -- \
+    -m "fix: предмет" -m "Почему верно." -m "Co-Authored-By: Someone <x@invalid>"
+runcommit reject "$h" "инъекция: трейлер Claude-Session — коммит отвергнут" \
+    "Claude-Session" -- \
+    -m "fix: предмет" -m "Claude-Session: https://invalid/session"
+runcommit reject "$h" "инъекция: трейлер строчными не в последнем абзаце — отвергнут" \
+    "co-authored-by" -- \
+    -m "fix: предмет" -m "  co-authored-by: Someone <x@invalid>" -m "Closes #1"
+runcommit accept "$h" "близнец: то же сообщение без трейлера — принят" "" -- \
+    -m "fix: предмет" -m "Почему верно."
+runcommit accept "$h" "близнец: имя трейлера в середине строки прозы — принят" "" -- \
+    -m "fix: предмет" -m "Правило запрещает строку Co-Authored-By: в теле коммита."
+GIT_EDITOR="$ED_COMMENT" runcommit accept "$h" "близнец: трейлер в строке комментария (# ...) — принят" "" -- \
+    -e -m "fix: предмет" -m "Почему верно."
+if git -C "$h" log -1 --format=%B | grep -qi 'co-authored-by'; then
+    probes=$((probes + 1)); failed=$((failed + 1))
+    echo "  ПРОВАЛ близнец-комментарий: строка комментария попала в коммит — проба не про то" >&2
+fi
+# Ниже линии ножниц (`git commit -v`) — дифф; строка контекста f.txt несёт
+# «Co-Authored-By:» после пробела и обязана не судиться. Правка первой строки
+# делает строку 2 файла контекстом дифа. Вторая проба — та же при
+# `core.commentChar=;`: линия ножниц начинается ЭТИМ символом, и хук, выписавший
+# `#` литералом, её не узнает.
+sed -i '1s/.*/a-v/' "$h/f.txt"
+GIT_EDITOR=true runcommit accept "$h" "близнец: имя трейлера в диффе ниже линии ножниц (-v) — принят" "" -- \
+    -v -e -m "fix: предмет" -m "Почему верно."
+git -C "$h" config core.commentChar ';'
+sed -i '1s/.*/a-v2/' "$h/f.txt"
+GIT_EDITOR=true runcommit accept "$h" "близнец: то же при core.commentChar=; — ножницы узнаны, принят" "" -- \
+    -v -e -m "fix: предмет" -m "Почему верно."
+git -C "$h" config --unset core.commentChar
+
+# Принадлежность красного: скрипта нет, переходник стоит — та же инъекция проходит.
+h="$(mkhookrepo 0)"
+runcommit accept "$h" "контроль: без scripts/hooks/commit-msg та же инъекция проходит — красное принадлежит хуку" \
+    "проверок НЕ БЫЛО" -- \
+    -m "fix: предмет" -m "Co-Authored-By: Someone <x@invalid>"
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.

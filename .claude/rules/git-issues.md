@@ -15,7 +15,7 @@ description: "Разметка задач и комментариев GitHub Iss
 
 gi-conventional-commits · Conventional Commits: `feat:` `fix:` `chore:` `docs:` `test:` `ci:` `refactor:` · ЗАВЕСТИ gi-conventional-commits · red: тип не из набора либо тип отсутствует
 gi-identity-owner-only · author И committer — ТОЛЬКО личная учётка владельца; `--author=`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*`, `git -c user.*` и worktree-local override запрещены; коммить дефолтно, дрейф чинится `filter-branch --env-filter` по затронутому диапазону · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись владельца · red: коммит подписан бот-идентичностью либо «Kacho Workspace»
-gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · ЗАВЕСТИ gi-no-attribution-trailers · red: трейлер атрибуции в теле коммита
+gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · хук `scripts/hooks/commit-msg` (провязка `bash scripts/hooks/install.sh`; инъекция — `scripts/tooling-gate/inject.sh`, раздел commit-msg) · red: трейлер атрибуции в теле коммита
 gi-no-direct-push-main · в `main` не пушить напрямую и не `--force` без явного разрешения владельца: работа идёт веткой с номером задачи через PR · защита ветви (`enforce_admins`, обязательные контексты) · red: коммит в `main`, которому не предъявить PR
 gi-no-verify-by-request · `--no-verify` — только по явной просьбе владельца · ЗАВЕСТИ gi-no-verify-by-request · red: хук отправки обойдён, чтобы «пройти»
 
