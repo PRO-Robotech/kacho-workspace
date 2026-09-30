@@ -18,6 +18,10 @@ SPDX-License-Identifier: BUSL-1.1
 > Редакция 5 · 2026-09-30 — по решению диспетчера Д28 и пересверке `72f13d01…`: Е7 снята (ключ values
 > `migrator.dropApproved`, УК4-36 в S1-A8 и S3-C6); предикат строки Е7 судит поле состояния; §3 п.1
 > называет Е7; правило §0 держит посадку ствола — миграция сноса не садится без ключа и его пробы.
+> Редакция 6 · 2026-09-30 — по ревью замысла `80dea362…` ролью `design-reviewer`: строки Д26 · 7
+> (срок сетевых операций POP3 и попытки контрольного письма, такт не ждёт сеанса ящика), Д26 · 8
+> (`OrphanGrace` сверщика), Д26 · 9 (срок запроса DNS) — в §2а и в предикатах S1-A3, S1-A5, S3-C3,
+> S5-D1, S5-D3, S7-F1; заказы УК4-37…УК4-40.
 >
 > Редакция 1 была проектом по замыслу редакции 1. Состояние `TASKS_READY`
 > этот файл не объявляет: по §5 SDD-1 оно наступает только после `DESIGN_APPROVED` и проверенного
@@ -89,9 +93,9 @@ SPDX-License-Identifier: BUSL-1.1
 |---|---|---|---|---|---|---|
 | S1-A1 | миграции §6: `sent_log`, `feedback_message`, `feedback_event`, `suppression`, `feedback_lease`, `canary_issue`, `feedback_state`, `install_flag`, `address_key_check`, затем `DROP TABLE recipient_key_fence` | `migration-writer` | `services/notify/internal/migrations/**` | держатель монотонности миграций зелёный; УК4-12 (23514), УК4-33 (`now()` в SQL — 0) зелёные с инъекциями; DoD S1 п.2; запись `dropguard.json` и её производитель `dropguard_integration_test.go`, `TestEveryDropGuardManifestHasAProducer` зелёный; УК4-35 (§2а, Д26 · 4); индекс `feedback_message (processed_at)` (Д26 · 6) | X1, Е6 | M |
 | S1-A2 | `addresskey`: функция отпечатка, `Establish`, набор, скрытие ключа; снятие ограды и её сторожа в `limits` и `deliver`; объект ключа томом в загрузчике `notify-sender` (З2, З3) | `go-implementer` | `services/notify/internal/{addresskey,limits,deliver,config}/**`, `services/notify/cmd/notify/**` | NTF4-23, 77, 106 зелёные (106 красная на инъекции «код аутентичности над постоянной строкой»); УК4-05, 06, 07, 08; `redaction_test.go`; `Establish` на `ReadCommitted`, NTF4-116 с `repeatable read` у роли (§2а, Д26 · 1, Д26 · 2) | S1-A1, Е2 (б) | M |
-| S1-A3 | клиент `pop3`, двойник П10, сеанс, независимое продление (З7) | `go-implementer` | `services/notify/internal/{pop3,feedback}/**`, двойник П10 в тестовом дереве | NTF4-10, 104 зелёные (104 красная на инъекции «продление только в начале сеанса»); УК4-02 | S1-A1, S1-A5 | M |
+| S1-A3 | клиент `pop3` со сроком каждой сетевой операции, двойник П10, сеанс, независимое продление (З7) | `go-implementer` | `services/notify/internal/{pop3,feedback}/**`, двойник П10 в тестовом дереве | NTF4-10, 104 зелёные (104 красная на инъекции «продление только в начале сеанса»); УК4-02; УК4-37 (а) — молчащий П10: сеанс закрыт в пределах `pop3.opTimeout`, продлений после закрытия 0, такты идут (§2а, Д26 · 7) | S1-A1, S1-A5 | M |
 | S1-A4 | вид, токен-источник, классификация, ограничения разбора, корпус П3, `suppression.Apply` (З8, З9) | `go-implementer` | `services/notify/internal/{feedback,suppression}/**`, корпус `internal/feedback/testdata/corpus/` | NTF4-01…09, 11…14, 78 (integration) зелёные; корпус сверен с таблицей в обе стороны (DoD S1 п.3); УК4-11 | S1-A2, S1-A3 | L |
-| S1-A5 | аренда с эпохой, такт, подметальщик у держателя, NTF4-15 (З11) | `go-implementer` | `services/notify/internal/{lease,suppression}/**` | NTF4-95…97, 15 зелёные (95 красная на инъекции «продление только фиксацией»); УК4-01, 01а; уборка по сроку — проход подметальщика у держателя, партии под продлением (§2а, Д26 · 6) | S1-A1 | M |
+| S1-A5 | аренда с эпохой, такт, подметальщик у держателя, NTF4-15 (З11) | `go-implementer` | `services/notify/internal/{lease,suppression}/**` | NTF4-95…97, 15 зелёные (95 красная на инъекции «продление только фиксацией»); УК4-01, 01а; уборка по сроку — проход подметальщика у держателя, партии под продлением (§2а, Д26 · 6); порядок такта «продление → признаки → выпуск → запуск сеанса», такт не ждёт сеанса (§2а, Д26 · 7 (4)) | S1-A1 | M |
 | S1-A6 | 23 ручки S1, группы, зависимые границы, `required_knobs_test.go` (З22) | `go-implementer` | `services/notify/internal/config/**` | DoD S1 п.5: зелёная и красная на четырёх инъекциях; NTF4-87, 88; зависимая граница окна долей и срока журнала (§2а, Д26 · 6) | Е6 | M |
 | S1-A7 | `reputation.Register`, наборы метрик, метки (З13, часть S1) | `go-implementer` | `services/notify/internal/reputation/**`, корень `cmd/notify` | УК4-21 зелёный; NTF4-33 (журнал и метки S1) зелёная; УК4-34 — семейства `notify_` реестра корня против объединения Р12 и перечня NTF-1 в обе стороны, двух снятых метрик нет (§2а, Д26 · 5) | S1-A4 | S |
 | S1-A8 | чарт: объект ключа томом у `notify-sender`, снятие `secretKeyRef` и `checksum/recipient-key`, правка гейта D1; ключ values `migrator.dropApproved` → env `MIGRATOR_DROP_APPROVED` контейнера `migrate` (З21, Д28); приёмник ящика стенда (З21) | `deploy-engineer` | `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `deploy/notify_secret_layout_test.go`, `deploy/tests/helm/notify-drop-approval-test.sh` | гейт D1 зелёный в форме З21 и красный на инъекции `secretKeyRef`; DoD S1 п.6; УК4-32 — версия образа и её возможности напечатаны в отчёте полосы; УК4-36 зелёная с напечатанным числом судимых развёртываний ≥ 1, близнец «ключ не задан — переменной нет» зелёный, инъекция «переменная с пустым значением при пустом ключе» даёт красный близнеца (§2а, Д26 · 4); входит в один запрос волны с S1-A1 (§0) | S1-A2, Е7 (снята Д28) | M |
@@ -112,7 +116,7 @@ SPDX-License-Identifier: BUSL-1.1
 |---|---|---|---|---|---|---|
 | S3-C1 | контракт `InternalSuppressionService` (§5) | `proto-sync` | `proto/kacho/cloud/notify/v1/`, `pkg/api/kacho/cloud/notify/v1/` | `buf lint`, `buf breaking` зелёные; держатель аннотаций зелёный (DoD S3 п.1) | S2 | S |
 | S3-C2 | корень `notify-api` либо дополнение существующего (по `notify_api_root`), носитель Х5, `PostureOf`, оси, (н1)–(н4), 12 ручек, `RequireApplied`, замок мигратора, сверщик операций, изъятия с пробой (З18, З22) | `service-scaffolder` (при `absent`), затем `go-implementer` | `services/notify/cmd/notify-api/**`, `services/notify/cmd/migrator/**`, `services/notify/internal/{apiserver,config,migrations}/**` | NTF4-119, 91, 92 зелёные; DoD S3 п.7; УК4-26, 27, 28 с вариантами Д26 · 3 (`RequireApplied` через `dropguard.GooseApplied` на `*sql.DB` из `stdlib.OpenDBFromPool`, «схема не прочитана» отдельно от «версия не применена», `hashtext` имён замков, разрыв соединения замка) | S3-C1, X5, X2 (пины одним изменением), Е2 (а), Е3 при `present` | L |
-| S3-C3 | `Get`, `Lookup`, `Delete`: сценарии, аудит, операции (З17) | `rpc-implementer` | `services/notify/internal/apiserver/suppression/**` | NTF4-24…29, 31…33, 82…86 зелёные (86 — 50 повторов под `-race`); УК4-23, 24, 25 | S3-C2 | L |
+| S3-C3 | `Get`, `Lookup`, `Delete`: сценарии, аудит, операции (З17) | `rpc-implementer` | `services/notify/internal/apiserver/suppression/**` | NTF4-24…29, 31…33, 82…86 зелёные (86 — 50 повторов под `-race`); УК4-23, 24, 25; УК4-39 — `reconcileOrphanGrace` строго больше верхней границы `…_HANDLING_BUDGET` (§2а, Д26 · 8) | S3-C2 | L |
 | S3-C4 | край: соединение `notify`, адрес без умолчания, внутренний mux, таблица прав, `prefixToBackend`, декларация `InternalOnly`, `notifysurfaceparity_test.go` (З19) | `api-gateway-registrar` | `gateway/internal/{restmux,opsproxy,config,middleware/embed}/**`, `internal/repohygiene/notifysurfaceparity_test.go` | DoD S3 п.6, 6а, 6б, 8а; NTF4-93, 94, 112; инъекция CX4V-51 и маршрут на `…/Send` — красные | S3-C1 | M |
 | S3-C5 | гейт посадки: счёт строк на службу, подперечень, форма (З20) | `deploy-engineer` | `deploy/scripts/{assert-production-posture.sh,listener-form-posture-inject.sh,run-injection-proofs.sh}` | NTF4-109: девять красных, (з), (к), (м) зелёные; УК4-30, 31 | S3-C2 | M |
 | S3-C6 | чарт `notify-api`: развёртывание, учётка, сертификаты, PDB, окружение (н1)–(н4) + 12; рендер-гейт случаи (7)–(9); `notify-availability-test.sh` по двум развёртываниям (З21) | `deploy-engineer` | `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `deploy/tests/helm/{notify-rollout-and-secret-mount-test.sh,notify-availability-test.sh,notify-listeners-test.sh}` | NTF4-117 (7)–(9), NTF4-118 зелёные с инъекциями; перепись портов 1 и 2; УК4-29; УК4-36 зелёная с числом судимых развёртываний 2 — `migrate` у `notify-api` получает ключ тем же шаблоном (Д26 · 4) | S3-C2 | M |
@@ -124,9 +128,9 @@ SPDX-License-Identifier: BUSL-1.1
 
 | полоса | предмет | исполнитель | пути (kacho) | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| S5-D1 | `dnscheck`, таблица родов ответа, организационный домен, двойник П7, страж старта (З14) | `go-implementer` | `services/notify/internal/dnscheck/**`, корень `cmd/notify` | NTF4-40, 42…51, 75, 76, 79 зелёные; инъекция «ранний `return nil`» — десять красных; УК4-22 | S3 | M |
+| S5-D1 | `dnscheck`, таблица родов ответа, организационный домен, двойник П7, страж старта (З14) | `go-implementer` | `services/notify/internal/dnscheck/**`, корень `cmd/notify` | NTF4-40, 42…51, 75, 76, 79 зелёные; инъекция «ранний `return nil`» — десять красных; УК4-22; УК4-40 — срок запроса DNS (§2а, Д26 · 9) | S3 | M |
 | S5-D2 | `dkim` и проверка независимой реализацией (З15) | `go-implementer` | `services/notify/internal/dkim/**`, `deliver` | NTF4-41, 70 (integration) зелёные с близнецом «изменён байт тела» | S5-D1 | M |
-| S5-D3 | контрольное письмо (З12) | `go-implementer` | `services/notify/internal/canary/**` | NTF4-73, 100, 103, 105 (integration) зелёные с инъекциями DoD S7 п.1; УК4-20 | S5-D1, S5-D2 | M |
+| S5-D3 | контрольное письмо (З12) | `go-implementer` | `services/notify/internal/canary/**` | NTF4-73, 100, 103, 105 (integration) зелёные с инъекциями DoD S7 п.1; УК4-20; УК4-38 — срок `canary.Send` (§2а, Д26 · 7 (3)) | S5-D1, S5-D2 | M |
 | S5-D4 | стенд: зона DNS, `dnsConfig` только в стенде, ключевая пара посевом, пересылка на домен возврата (З21) | `deploy-engineer` | `deploy/helm/umbrella/**` | NTF4-52 красный на инъекции `dnsConfig` в `values.prod.yaml`; `helm install` в боевой посадке доходит до готовности (DoD S5 п.3) | S5-D1 | M |
 | S5-D5 | страница «требования к DNS установки» (DoD S5 п.4) | `docs-writer` | `services/notify/docs/**` | build без битых ссылок; записей для примера нет | S5-D1 | S |
 
@@ -143,7 +147,7 @@ SPDX-License-Identifier: BUSL-1.1
 
 | полоса | предмет | исполнитель | пути (kacho) | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| S7-F1 | признаки установки, доли, `feedback_stale`, `feedback_route`, уровни (З12, З13) | `go-implementer` | `services/notify/internal/{reputation,canary,lease}/**` | NTF4-64…69, 74 (integration), 107 (инъекция) зелёные; DoD S7 п.2а, п.3; УК4-04, 04а, 10, 18 | S5-D3 | M |
+| S7-F1 | признаки установки, доли, `feedback_stale`, `feedback_route`, уровни (З12, З13) | `go-implementer` | `services/notify/internal/{reputation,canary,lease}/**` | NTF4-64…69, 74 (integration), 107 (инъекция) зелёные; DoD S7 п.2а, п.3; УК4-04, 04а, 10, 18; УК4-37 (б) — `feedback_stale` поднят при молчащем П10 (§2а, Д26 · 7) | S5-D3 | M |
 | S7-F2 | сквозные 68, 74 на П1 | `qa-test-engineer` | сквозные пробы kacho | 74 — в бюджете I + D + 2P + 2M | S7-F1 | S |
 | S7-F3 | страницы метрик и «требования к установке» (DoD S7 п.2, п.5) | `docs-writer` | `services/notify/docs/**` | build без битых ссылок | S7-F1 | S |
 
@@ -177,6 +181,12 @@ SPDX-License-Identifier: BUSL-1.1
 | Д26 · 6 | CX4V-65 | S2-B2 | пакет `sentlog` в УК4-01а; две функции пути письма — по идентичности; NTF4-04 |
 | Д26 · 6 | CX4V-65 | S1-A1 | индекс `feedback_message (processed_at)` |
 | Д26 · 6 | CX4V-65 | S1-A6 | граница `…_REPUTATION_WINDOW ≤ …_SENT_LOG_RETENTION` в `config.checkCrossBounds`; девятая инъекция Р16 |
+| Д26 · 7 | К1 ревью замысла `80dea362` | S1-A3 | срок `pop3.opTimeout` на каждой сетевой операции, продление срока при прогрессе `RETR`; по сроку — закрытие без `QUIT`, выход горутины продления, временный сбой опроса; УК4-37 (а) с инъекциями «срок снят», «такт ждёт сеанс» и близнецом NTF4-104 |
+| Д26 · 7 | К1 ревью замысла `80dea362` | S1-A5 | `lease.Tick`: продление → переходы признаков → выпуск → запуск сеанса; сеанс — горутина держателя, не больше одной, такт её не ждёт |
+| Д26 · 7 | К1 ревью замысла `80dea362` | S5-D3 | `canary.Send` под сроком `notify.smtp.sessionTimeout` NTF-1; срок вышел — `not_accepted`; УК4-38 |
+| Д26 · 7 | К1 ревью замысла `80dea362` | S7-F1 | `feedback_stale` вычисляется при зависшем сеансе; УК4-37 (б) |
+| Д26 · 8 | М2 ревью замысла `80dea362` | S3-C3 | `OrphanGrace` явно постоянной `reconcileOrphanGrace` = 5 мин > 60 с; УК4-39 |
+| Д26 · 9 | М3 ревью замысла `80dea362` | S5-D1 | каждый вызов резолвера под `dnscheck.queryTimeout` = 5 с; истёкший срок — «ответа нет»; УК4-40 |
 
 ## 3. Порядок и параллельность
 
