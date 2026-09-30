@@ -143,6 +143,22 @@ mk_jobs() {  # <файл> <имя=conclusion>...
         | jq -s '{total_count:length, jobs:.}' > "$f"
 }
 
+# mk_jobs_declared <файл> <объявлено> <имя=conclusion>... — сервер объявляет
+# заданий больше, чем отдал в перечне: недочитанная страница.
+mk_jobs_declared() {
+    local f="$1" n="$2"; shift 2
+    mk_jobs "$f" "$@"
+    jq --argjson n "$n" '.total_count = $n' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+}
+
+# mk_green_run <каталог> — зелёный прогон ci.yaml на голове. Кладётся и туда, где
+# процесс читаться НЕ ДОЛЖЕН (C, I): иначе порча выбора пути приводила бы скрипт
+# к отказу соседа, кодом 2, и ложное «можно» на ней не было бы представимо.
+mk_green_run() {
+    mk_runs "$1/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+    mk_jobs "$1/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+}
+
 # Прогон процесса с заданиями «все зелены» — строительный блок проб без контекстов.
 JOB_A="bats-and-shellcheck"
 JOB_B="доказательства хуков инъекцией исполняются, а не лежат"
@@ -253,6 +269,52 @@ mk_pr "$T/pr.json" OPEN CLEAN "$CTX_LAT"
 mk_runs "$T/runs.json" "11:$HEAD:workflow_dispatch:completed:failure:2026-09-30T10:00:00Z"
 mk_jobs "$T/jobs-11.json" "$JOB_A=failure" "$JOB_B=success"
 
+# U — все задания зелены, а ИТОГ ПРОГОНА — failure. Исход прогона и исходы
+# заданий расходятся: вердикта нет, а не «можно».
+U="$(mkcase U)"; mk_zero_ctx_case "$U" CLEAN
+mk_runs "$U/runs.json" "11:$HEAD:workflow_dispatch:completed:failure:2026-09-30T10:00:00Z"
+mk_jobs "$U/jobs-11.json" "$JOB_A=success" "$JOB_B=success"
+
+# V — сервер объявил три задания, отдал два, оба зелёные. Суждение по
+# прочитанной части дало бы «можно».
+V="$(mkcase V)"; mk_zero_ctx_case "$V" CLEAN
+mk_runs "$V/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs_declared "$V/jobs-11.json" 3 "$JOB_A=success" "$JOB_B=success"
+
+# W — прогон завершён успехом, заданий НОЛЬ. «Все ноль заданий зелены» — пустой
+# обход, а не вердикт.
+W="$(mkcase W)"; mk_zero_ctx_case "$W" CLEAN
+mk_runs "$W/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+printf '{"total_count":0,"jobs":[]}\n' > "$W/jobs-11.json"
+
+# X* — красные исходы задания, кроме failure (K) и cancelled (L): каждый — «нельзя».
+Xt="$(mkcase Xt)"; mk_zero_ctx_case "$Xt" CLEAN
+mk_runs "$Xt/runs.json" "11:$HEAD:workflow_dispatch:completed:timed_out:2026-09-30T10:00:00Z"
+mk_jobs "$Xt/jobs-11.json" "$JOB_A=success" "$JOB_B=timed_out"
+Xa="$(mkcase Xa)"; mk_zero_ctx_case "$Xa" CLEAN
+mk_runs "$Xa/runs.json" "11:$HEAD:workflow_dispatch:completed:action_required:2026-09-30T10:00:00Z"
+mk_jobs "$Xa/jobs-11.json" "$JOB_A=success" "$JOB_B=action_required"
+Xs="$(mkcase Xs)"; mk_zero_ctx_case "$Xs" CLEAN
+mk_runs "$Xs/runs.json" "11:$HEAD:workflow_dispatch:completed:startup_failure:2026-09-30T10:00:00Z"
+mk_jobs "$Xs/jobs-11.json" "$JOB_A=success" "$JOB_B=startup_failure"
+
+# Y — прогон объявлен завершённым, а задание ещё идёт.
+Y="$(mkcase Y)"; mk_zero_ctx_case "$Y" CLEAN
+mk_runs "$Y/runs.json" "11:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$Y/jobs-11.json" "$JOB_A=success" "$JOB_B="
+
+# S-<состояние> — прогон зелёный, сервер держит слияние. S (BLOCKED) — выше;
+# здесь остальные удерживающие состояния, каждое своей пробой: порча перечня
+# «можно» на любом из них — ложное «можно».
+# Z-<состояние> — законные «можно» при зелёном прогоне: снятие их из перечня
+# дало бы ложное «нельзя», и близнец удерживающих проб обязан молчать на них.
+for ms in DIRTY BEHIND DRAFT UNKNOWN; do
+    d="$(mkcase "S-$ms")"; mk_zero_ctx_case "$d" "$ms"; mk_green_run "$d"
+done
+for ms in UNSTABLE HAS_HOOKS; do
+    d="$(mkcase "Z-$ms")"; mk_zero_ctx_case "$d" "$ms"; mk_green_run "$d"
+done
+
 # H — два обязательных имени, различающихся ТОЛЬКО длинным тире.
 #
 # Это не экзотика, а второй дефект той же строки. Локальный `sort -u` считает
@@ -268,6 +330,11 @@ mk_pr "$H/pr.json" OPEN CLEAN "проба — раз"
 I="$(mkcase I)"
 mk_pr "$I/pr.json" MERGED CLEAN "$CTX_LAT"
 mk_protection "$I/protection.json" "$CTX_LAT"
+
+# C и I получают зелёный прогон на голове: вердикт «можно» по процессу здесь
+# доступен, и пути, ведущие к нему мимо своего решения, видны кодом 0.
+mk_green_run "$C"
+mk_green_run "$I"
 
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
@@ -287,12 +354,31 @@ fi
 # ── ПРОБЫ ────────────────────────────────────────────────────────────────────
 probes=0
 findings=0
+by_code0=0; by_code1=0; by_code2=0
+by_run=0
 
 # probe <каталог> <ожидаемый-код> <имя-пробы> <обязательная-подстрока>...
+#
+# Имя пробы начинается МЕТКОЙ случая — `[<буква>]` из имени каталога фикстуры.
+# По метке inject.sh сверяет, что порча решения покраснила ИМЕННО держащую его
+# пробу, а не соседнюю: код 1 набора сам по себе этого не говорит.
+#
+# Перепись по кодам и по пути «без контекстов» считается ЗДЕСЬ, по вызовам, а не
+# выписывается литералом: добавленная или снятая проба меняет строку сама.
 probe() {
     local dir="$1" want="$2" title="$3"; shift 3
     local out rc needle
+    title="[${dir##*/case-}] $title"
     probes=$((probes + 1))
+    case "$want" in
+        0) by_code0=$((by_code0 + 1)) ;;
+        1) by_code1=$((by_code1 + 1)) ;;
+        2) by_code2=$((by_code2 + 1)) ;;
+    esac
+    if [ ! -e "$dir/protection.unavailable" ] && [ -s "$dir/protection.json" ] \
+        && jq -e '(.required_status_checks.contexts // []) | length == 0' "$dir/protection.json" >/dev/null 2>&1; then
+        by_run=$((by_run + 1))
+    fi
     out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" \
         bash "$WS/$TOOL_REL" PRO-Robotech/kacho-workspace 1 2>&1)" && rc=0 || rc=$?
     if [ "$rc" -ne "$want" ]; then
@@ -366,13 +452,52 @@ probe "$S" 1 "без контекстов: прогон зелёный, но с�
 probe "$T" 0 "с контекстами: прогон процесса не читается, вердикт — по контекстам" \
     "можно сливать" "обязательных контекстов: 1"
 
+probe "$U" 2 "без контекстов: задания зелены, а итог прогона failure — вердикта нет, а не «можно»" \
+    "РАЗБОР СЛОМАН" "исход прогона 'failure'"
+
+probe "$V" 2 "без контекстов: заданий объявлено больше, чем прочитано, — вердикта нет, а не «можно»" \
+    "РАЗБОР СЛОМАН" "объявлено 3, прочитано 2"
+
+probe "$W" 2 "без контекстов: прогон без единого задания — вердикта нет, а не «можно»" \
+    "заданий в прогоне 0" "ВЕРДИКТА НЕТ"
+
+probe "$Xt" 1 "без контекстов: задание просрочено — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_B [timed_out]"
+
+probe "$Xa" 1 "без контекстов: задание ждёт одобрения — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_B [action_required]"
+
+probe "$Xs" 1 "без контекстов: задание не стартовало — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_B [startup_failure]"
+
+probe "$Y" 2 "без контекстов: прогон завершён, а задание ещё идёт — вердикта нет" \
+    "ИДУТ" "$JOB_B [in_progress]" "ВЕРДИКТА НЕТ"
+
+for ms in DIRTY BEHIND DRAFT UNKNOWN; do
+    d="$TMP/case-S-$ms"
+    probe "$d" 1 "без контекстов: прогон зелёный, состояние слияния $ms — задержано, а не «можно»" \
+        "СЛИЯНИЕ ЗАДЕРЖАНО" "состояние слияния: $ms"
+done
+
+for ms in UNSTABLE HAS_HOOKS; do
+    d="$TMP/case-Z-$ms"
+    probe "$d" 0 "без контекстов: прогон зелёный, состояние слияния $ms — «сливать можно»" \
+        "можно сливать" "состояние слияния: $ms"
+done
+
 probe "$H" 1 "имена, различные только длинным тире, не схлопнуты — учтены оба" \
     "обязательных контекстов: 2" "проба - раз"
 
 probe "$I" 2 "PR уже не открыт — беспредметно, а не «нельзя»" \
     "сливать нечего"
 
-tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — 3 пробы, 1 — 6 проб, 2 — 11 проб); из них без обязательных контекстов, по прогону ci.yaml, — 11"
+tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; по ожидаемому коду: 0 — $by_code0, 1 — $by_code1, 2 — $by_code2; из них без обязательных контекстов, по прогону ci.yaml, — $by_run"
+for n in "$by_code0" "$by_code1" "$by_code2"; do
+    if [ "$n" -eq 0 ]; then
+        tooling_gate_void "$NAME" "один из трёх исходов не представлен ни одной пробой — различение не доказано"
+        exit 2
+    fi
+done
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings из $probes"
