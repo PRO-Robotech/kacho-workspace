@@ -52,8 +52,22 @@ Scope не судятся, но СЧИТАЮТСЯ и печатаются пе�
 числом, а документ, чей состав переехал из раздела Scope, переходит в «объявляют
 состав иначе» и тоже виден в переписи.
 
+Неотображаемые области. Внутри блока кода (ограда ``` или ~~~, в том числе
+после маркера пункта списка) и внутри HTML-комментария `<!-- … -->` строка `# …`
+не заголовок, `| F<N> |` не строка таблицы, `**When**` не маркер сценария.
+Распознаватель, не знающий этих областей, принимал `# комментарий` из блока
+`bash` за заголовок первого уровня: раздел Scope закрывался, весь состав ниже
+выпадал из предмета, а итог оставался PASS. Поэтому ВСЯ структура документа —
+разделы Scope, разделы фич, строки, маркеры сценария — читается по тексту, из
+которого эти области вынуты (`rendered`). Строки `| F<N> |`, оказавшиеся внутри
+них, не судятся, но считаются переписью. Незакрытая область поглощает остаток
+документа — и для читателя, и для проверки; если в поглощённом есть непустые
+строки, это находка с координатой открытия, а не молчание. Ограда на последней
+строке документа не поглощает ничего и находкой не является.
+
 Исходы: 0 — у каждой строки Scope есть сценарий (или резолвящаяся передача);
-1 — есть строки без сценария (каждая названа координатой); 2 — предмета нет.
+1 — есть строки без сценария либо незакрытая область, поглощающая текст (каждая
+названа координатой); 2 — предмета нет.
 """
 import os
 import re
@@ -80,9 +94,62 @@ LVL2 = re.compile(r"^##\s")
 # сценария нет.
 WHEN = re.compile(r"^[\s>_-]*\*\*\s*(?:When|Когда)\b")
 THEN = re.compile(r"^[\s>_-]*\*\*\s*(?:Then|Тогда)\b")
+# Ограда блока кода: необязательный отступ, необязательный маркер пункта списка,
+# три и более одинаковых символа. У ограды из обратных кавычек в строке сведений
+# обратной кавычки быть не может (иначе это встроенный код, а не ограда).
+FENCE = re.compile(r"^[ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+)?(`{3,}|~{3,})(.*)$")
+COMMENT_OPEN = "<!--"
+COMMENT_CLOSE = "-->"
 # Ссылка на дочернюю приёмку: имя файла или его начало (в корпусе встречается
 # усечённая форма с многоточием).
 CHILD = re.compile(r"sub-phase-[A-Za-z0-9._-]+")
+
+
+def rendered(lines):
+    """Текст, из которого вынуты блоки кода и HTML-комментарии.
+
+    Возвращает (строки той же длины — вынутая строка заменена пустой, поэтому
+    номера строк сохраняются; число строк `| F<N> |` внутри вынутого; незакрытая
+    область как (номер строки открытия, вид, непустых поглощённых строк) либо None).
+    """
+    out, hidden_rows = [], 0
+    fence, comment = None, None  # fence: (символ, длина, строка); comment: строка
+    for n, line in enumerate(lines, 1):
+        if fence:
+            m = FENCE.match(line)
+            if (m and m.group(1)[0] == fence[0] and len(m.group(1)) >= fence[1]
+                    and not m.group(2).strip()):
+                fence = None
+            elif ROW.match(line):
+                hidden_rows += 1
+            out.append("")
+            continue
+        if comment:
+            if COMMENT_CLOSE in line:
+                comment = None
+            elif ROW.match(line):
+                hidden_rows += 1
+            out.append("")
+            continue
+        m = FENCE.match(line)
+        if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+            fence = (m.group(1)[0], len(m.group(1)), n)
+            out.append("")
+            continue
+        if line.lstrip().startswith(COMMENT_OPEN):
+            if COMMENT_CLOSE not in line.split(COMMENT_OPEN, 1)[1]:
+                comment = n
+            out.append("")
+            continue
+        out.append(line)
+    unclosed = None
+    if fence or comment:
+        start = fence[2] if fence else comment
+        kind = "блок кода (%s)" % (fence[0] * fence[1]) if fence else "HTML-комментарий"
+        swallowed = sum(1 for l in lines[start:] if l.strip())
+        if swallowed:
+            unclosed = (start, kind, swallowed)
+    return out, hidden_rows, unclosed
 
 
 def sections(lines):
@@ -155,10 +222,17 @@ def main():
         _lib.void(NAME, "отслеживаемых docs/specs/*-acceptance.md нет — читать нечего")
         return 2
 
-    parsed, rows, other = {}, {}, []
+    parsed, rows, other, texts = {}, {}, [], {}
     outside_rows, outside_docs = 0, 0
+    hidden_rows, hidden_docs, unclosed = 0, 0, []
     for rel in docs:
-        lines = _lib.read(root, rel).split("\n")
+        lines, hidden, open_at = rendered(_lib.read(root, rel).split("\n"))
+        texts[rel] = lines
+        if hidden:
+            hidden_rows += hidden
+            hidden_docs += 1
+        if open_at:
+            unclosed.append((rel,) + open_at)
         rs, outside = scope_rows(lines)
         if outside:
             outside_rows += outside
@@ -172,9 +246,16 @@ def main():
     # его всё равно надо, иначе передача не резолвится по причине, к предмету
     # передачи отношения не имеющей.
     for rel in other:
-        parsed.setdefault(rel, sections(_lib.read(root, rel).split("\n")))
+        parsed.setdefault(rel, sections(texts[rel]))
 
-    if not rows:
+    # Незакрытая область судится ДО вопроса о предмете: поглотив раздел Scope,
+    # она увела бы документ в «объявляют состав иначе» или весь обход — в VOID.
+    for rel, ln, kind, swallowed in unclosed:
+        _lib.fail(NAME, "%s:%d — незакрытый %s поглощает %d непустых строк до конца "
+                        "документа: ни читатель, ни проверка их структуры не видят"
+                  % (rel, ln, kind, swallowed))
+
+    if not rows and not unclosed:
         _lib.void(NAME, "ни одна приёмка не объявляет фичи строками `| F<N> |` в "
                         "разделе `## … Scope …` (строк `| F<N> |` вне раздела Scope: "
                         "%d) — предмета у проверки нет" % outside_rows)
@@ -184,8 +265,10 @@ def main():
     _lib.census(
         "%s: приёмок осмотрено %d; объявляют состав фичами `| F<N> |` в разделе "
         "Scope — %d, остальные %d объявляют его иначе и в предмет не входят; строк "
-        "`| F<N> |` вне раздела Scope (не состав, не судятся) — %d в %d документах"
-        % (NAME, len(docs), len(rows), len(other), outside_rows, outside_docs)
+        "`| F<N> |` вне раздела Scope (не состав, не судятся) — %d в %d документах; "
+        "в блоках кода и HTML-комментариях (не таблица, не судятся) — %d в %d документах"
+        % (NAME, len(docs), len(rows), len(other), outside_rows, outside_docs,
+           hidden_rows, hidden_docs)
     )
 
     findings, ok, passed_on, handovers = [], 0, 0, []
@@ -214,11 +297,12 @@ def main():
            (" (" + "; ".join(handovers) + ")") if handovers else "")
     )
 
-    if findings:
+    if findings or unclosed:
         for rel, ln, fid, why in findings:
             _lib.fail(NAME, "%s:%d — %s: %s" % (rel, ln, fid, why))
-        _lib.fail(NAME, "строк Scope без сценария: %d; по ним нельзя ни написать пробу, "
-                        "ни отличить сделанное от заявленного" % len(findings))
+        _lib.fail(NAME, "строк Scope без сценария: %d; незакрытых областей, поглощающих "
+                        "текст: %d; по ним нельзя ни написать пробу, ни отличить "
+                        "сделанное от заявленного" % (len(findings), len(unclosed)))
         return 1
 
     _lib.passed(NAME, "у всех %d строк Scope есть сценарий (%d прямо, %d передачей)"
