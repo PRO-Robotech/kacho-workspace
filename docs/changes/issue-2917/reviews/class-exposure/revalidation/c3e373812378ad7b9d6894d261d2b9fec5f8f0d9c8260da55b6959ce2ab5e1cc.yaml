@@ -1,0 +1,289 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 3
+# замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/9098d6ef….yaml) и пересверки на
+# редакции 1 (revalidation/f21384ed….yaml) и 2 (revalidation/2886b89f….yaml) свидетельствуют о
+# своих редакциях и здесь не переписываются. Проверено: (1) каждый пункт CX2-01…35 отображён, и
+# отображение выдерживает условие пункта — по дереву, а не по тексту замысла; (2) новые внешние
+# вызовы, (3) новые асинхронные пути, (4) новые sentinel-значения, внесённые редакцией 3, заведены
+# пунктами; (5) маркеров отсрочки и открытых решений нет. Новый пункт этой пересверки — CX2-36;
+# строки отображения у замысла для него нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 3
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+initial_record: docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+previous_revalidations:
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: e5ef5f823be228fd0367cebe35cceda0ae960264   # ветка issue-880, коммит редакции 3
+  kaname: 734f69fb4       # origin/357 — та же ревизия, что в замысле §1
+  kacho: 6edea09c2ee      # origin/2564 — та же ревизия, что в замысле §1
+snapshot_at: 2026-09-30T06:02:47Z
+inspected: >-
+  дифф замысла 2886b89f → c3e37381 целиком (604 строки: шапка, §0, М26–М32, З8, З10, З11, З13,
+  З14, З16, З18, З24, З26, И10, И20, И23–И26, §4, §6, П2, §8, §11 — 35 строк отображения, §12,
+  §13 Е1, Е9); пересверка 2886b89f (CX2-34, 35, условия CX2-05, 11, заказы); tasks.md (строки
+  гейтов Е9 и полос F1, G2, G3, S2, S4, S5, E2, E4); приёмка NTF-2 в ветке (отпечаток, таблица Р8
+  — строка общего потока края); приёмка NTF-1 в ветке (редакция 13, запись круга 3). Дерево
+  kaname @734f69fb4: passwordverify/capacity.go (acquire, acquireWait, Capacity),
+  repo/kaname/pg/tx.go и формы TxOptions в repo/kaname/pg, все вызовы pg_*advisory*_lock
+  прод-дерева, cmd/kaname/serve.go (место вызова RunBootstrapAdmin), вызовы RunBootstrapAdmin в
+  тестах. Дерево kacho @6edea09c2ee: вызовы pg_*advisory* края. Решения Д1–Д16 — по заданию.
+  Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      строк отображения 35 из 35. Отказ редакции 2 (CX2-21) решён заново и выдерживает; CX2-34 и
+      CX2-35 отображены и выдерживают своё условие — CX2-35 с условием к коду (уровень изоляции
+      транзакции LockAnchor); условия CX2-05 и CX2-11 вписаны и выдерживают. Решение CX2-34 (б)
+      само вводит ожидание с ценой, которое прежним пунктом не покрыто, — новый пункт CX2-36.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: "новых внешних вызовов в редакции 3 нет: DeriveWait — метод проверяющего внутри процесса"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      новые фоновые пути редакции 3 — уборка якоря mail_windows и уборка trusted_devices
+      (предметы реестра retention); оба — решение пункта CX2-35 и отображены им. Ожидание доли
+      register внутри уже заведённой работы диспетчера — не новый путь, а новое решение с ценой
+      (CX2-36, строка ниже).
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      новые значения редакции 3 — registerDerivations = 2, registerDerivationShare = 1,
+      anchorAttempts = 3, anonMailLockClass, inviteRecipientLockClass, столбец password_probe; все —
+      константы с доводом (§8) или поле с CHECK длины; «FOR UPDATE вернул 0 строк» получил своё
+      прочтение (повтор), а не молчаливое. Ни одно не нуль-значение с двумя смыслами.
+  - condition: "новое решение с ценой или без уборки заведено пунктом (сверх SDD-1 — практика пересверок)"
+    result: red
+    detail: >-
+      ожидание места доли register (до срока работы 30 с) занимает место общего диспетчера
+      recovery/register; цена для восстановления и для входа на профиле с ёмкостью 1 названа
+      на одно письмо, а не на поток — CX2-36
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 4 попадания: «что позже» (З8, про
+      момент), «потому что» (К2, З11, З19) — ни одно не маркер; §13 — зависимости Е1–Е9 с предикатом
+      снятия, открытых решений нет.
+
+mapping_check:
+  - {id: CX2-01, design: "З2, З4", verdict: holds}
+  - {id: CX2-02, design: "З1, З2", verdict: holds}
+  - {id: CX2-03, design: З5, verdict: holds, note: "не менялось с редакции 2"}
+  - {id: CX2-04, design: З6, verdict: holds}
+  - id: CX2-05
+    design: З16
+    verdict: holds
+    note: >-
+      условие пересверки на редакцию 2 вписано: писатель аудита — параметр посева, литерала в
+      seed нет, незаданный писатель — ошибка сборки; обход гейта печатает seed. Исполнимо:
+      единственный прод-вызов RunBootstrapAdmin — замыкание реконсайлера в serve.go:2009, в
+      которое писатель передаётся без перестройки порядка сборки. Смена сигнатуры задевает
+      35 вызовов в 6 тестовых файлах — объём полосы G3, не класс.
+  - {id: CX2-06, design: З16, verdict: holds}
+  - {id: CX2-07, design: З16, verdict: holds}
+  - {id: CX2-08, design: З20, verdict: holds}
+  - {id: CX2-09, design: З4, verdict: holds}
+  - {id: CX2-10, design: З4, verdict: holds}
+  - id: CX2-11
+    design: "З8, З9"
+    verdict: holds
+    note: >-
+      условие пересверки на редакцию 2 вписано: форма с двумя int4, гейт формы в anonmail,
+      integration-проба пространства ключей с близнецом-инъекцией одним bigint. Перепись вызовов
+      pg_*advisory*_lock подтвердила посылку М30: в kaname все прод-вызовы — форма с одним
+      ключом (xact по hashtext и сеансовые try-lock по $1), формы с двумя аргументами 0; у края —
+      одна сеансовая блокировка одним bigint (idempotencypg/store.go:434).
+  - {id: CX2-12, design: З8, verdict: holds}
+  - {id: CX2-13, design: "З9, З18", verdict: holds, note: "смена k_window объявлена и покрывает password_probe: соль пробы выводится из k_window, прежние записи не находятся вовсе — address_digest тоже меняется"}
+  - {id: CX2-14, design: "З11–З14", verdict: holds, note: "протокол вставка → FOR UPDATE теперь одна функция LockAnchor для всех работ окна"}
+  - {id: CX2-15, design: З11, verdict: holds}
+  - {id: CX2-16, design: З12, verdict: holds}
+  - {id: CX2-17, design: З13, verdict: holds, note: "отношение ожидания доли register к ёмкости диспетчера — CX2-36"}
+  - {id: CX2-18, design: З15, verdict: holds}
+  - {id: CX2-19, design: З14, verdict: holds}
+  - {id: CX2-20, design: "З11, З15, З25", verdict: holds}
+  - id: CX2-21
+    design: "З24, §6"
+    verdict: holds
+    note: >-
+      отказ пересверки на редакцию 2 снят: у invite_acts внешних ключей 0, строка уходит только
+      по сроку З26; удаление аккаунта (физическое, М29) счёт recipient-per-day-all не уменьшает.
+      Висящий акт удалённого аккаунта чужого счёта не задевает — идентификатор аккаунта
+      выпускается новым и не переиспользуется. Проба схемы «внешних ключей 0» по pg_constraint и
+      integration-проба с близнецом — в держателях.
+  - {id: CX2-22, design: З23, verdict: holds}
+  - {id: CX2-23, design: З19, verdict: holds}
+  - {id: CX2-24, design: З18, verdict: holds}
+  - {id: CX2-25, design: З16, verdict: holds}
+  - {id: CX2-26, design: З22, verdict: holds}
+  - {id: CX2-27, design: З17, verdict: holds}
+  - {id: CX2-28, design: "З8, З9", verdict: holds, note: "исход 503 вынесен в приёмку зависимостью Е9, гейтит полосы E2, E4 (tasks.md)"}
+  - {id: CX2-29, design: З26, verdict: holds, note: "перечень предметов хранения закрыт табличной пробой (И25)"}
+  - {id: CX2-30, design: З10, verdict: holds, note: "503 края решатель не запускает; поведение консоли — Е9"}
+  - {id: CX2-31, design: "З20, §5", verdict: holds}
+  - {id: CX2-32, design: "З11, §6", verdict: holds}
+  - {id: CX2-33, design: З14, verdict: holds}
+  - id: CX2-34
+    design: "З14, З13, §6"
+    verdict: holds
+    note: >-
+      условия (а)–(в) выдерживают: (а) истёкшее ожидание — dropped_overload до транзакции, строк
+      0; (б) выводы ждут место (acquireWait в дереве есть — capacity.go, «полоса входа этим путём
+      не ходит»), доля register — 1 место; (в) 0 или 2 вывода на работу при любом числе записей,
+      выводы вне блокировки якоря и без соединения пула, под блокировкой — байтовое сравнение
+      проб. Цена самого ожидания для соседей по диспетчеру и для входа на профиле с ёмкостью 1
+      названа на одно письмо, а не на поток, — вынесено новым пунктом CX2-36, а не отказом
+      отображения: условие CX2-34 этого не требовало.
+  - id: CX2-35
+    design: "З11, З18, З26, §6"
+    verdict: holds-with-condition
+    note: >-
+      (а) уборка якоря под FOR UPDATE SKIP LOCKED и DELETE … WHERE NOT EXISTS, внешние ключи
+      RESTRICT, срок метки функцией З26, закрытый перечень; (б) LockAnchor: 0 строк → повтор
+      вставки, anchorAttempts = 3. Условие к коду: прочтение «FOR UPDATE вернул 0 строк» верно
+      только в READ COMMITTED; в REPEATABLE READ одновременное удаление строки даёт ошибку
+      сериализации, а повторная вставка в том же снимке строку не заведёт. В repo/kaname/pg
+      обе формы живут рядом (ceremonyWriterTx — ReadCommitted явно, catalog — RepeatableRead),
+      tx.go уровня не задаёт. Транзакция работы окна объявляет ReadCommitted явно (как
+      ceremonyWriterTx), и integration-проба (в) идёт на той же форме TxOptions, что прод.
+
+items:
+  - id: CX2-36
+    source: >-
+      З14 «Ёмкость выводов» (ожидание места доли register в сроке работы 30 с, доля = 1), З13
+      (mailDispatchInFlight = 16, общий для recovery и register), приёмка Р8 строка «край · общий
+      поток» (20 rps, всплеск 100 — выше вызов PoW, а не отказ)
+    kind: decision
+    class: >-
+      code-authoring §«Решение и его следствие разнесены» (темп производителя выше темпа
+      применения, общий счётчик мест); §«Чужой ответ: классификация и бюджет» (бюджет ожидания,
+      тратящий чужой ресурс)
+    exposure: >-
+      работа register занимает место диспетчера до того, как ждёт место доли, и держит его всё
+      ожидание — до 30 с. Пропускная способность доли — одна работа на два вывода argon2id
+      (64 МиБ, 3 прохода) за раз. Поток пропущенных register на разные свободные адреса окно
+      адресата не ограничивает (оно считает по адресу, а не число адресов); его верх — край:
+      общий поток сверх 20 rps переходит на вызов PoW, а не на отказ. Когда поток выше
+      пропускной способности доли, все 16 мест диспетчера занимают ожидающие register, и работа
+      recovery получает dropped_overload у диспетчера: письмо восстановления владельцу адреса
+      не уходит из-за чужих регистраций. До редакции 3 этого не было: без ожидания работа
+      register освобождала место сразу. Та же непокрытость у входа: на профиле с ёмкостью
+      проверяющего 1 доля при таком потоке занята непрерывно, и вход паролем получает отказ по
+      ёмкости всё время потока; замысел называет цену «два вывода на пропущенное письмо» — на
+      одно письмо, а не долю времени при потоке на верхней границе края.
+    condition: >-
+      (а) ожидание доли register не держит место диспетчера, общее с recovery: у register своя
+      часть мест диспетчера (не больше k из 16, recovery сохраняет не меньше 16 − k — k с
+      доводом), либо register ждёт долю до занятия места диспетчера и при переполнении своей
+      очереди кончается своим исходом; (б) цена для входа названа потоком: доля времени, когда
+      место проверяющего занято выводами register при потоке на границе Р8, — и для профиля с
+      ёмкостью 1 либо выводы register ограничены темпом (ведро на доле, оставляющее входу
+      объявленную долю времени), либо цена принята решением с этим числом; (в) recovery не
+      отбрасывается диспетчером из-за ожидающих register — это утверждает проба, а не довод.
+    mapped_in_design: false
+    outcome: к-замыслу
+    held_by: >-
+      нет: нужна проба «16 работ register ждут долю, приходит recovery → recovery исполнена, не
+      dropped_overload» с близнецом без разделения мест (красный) и проба входа на ёмкости 1 при
+      непрерывном потоке register — заказ
+
+measurements:
+  - claim: "§0 замысла: редакция 13 NTF-1 (05828e42) — «вердикта нет»; замысел стоит на действующем одобрении d524e7bd"
+    command: >-
+      grep -nE '^(verdict|round):' docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/05828e42*.yaml;
+      git merge-base --is-ancestor 46e2a3819 e5ef5f823
+    result: >-
+      опровергнуто: на 05828e42 — APPROVED, круг 3 (коммит 46e2a3819), и этот коммит — предок
+      коммита редакции 3. Действующее одобрение NTF-1 — 05828e42, не d524e7bd. К1 и К2 на нём
+      на месте (NOTIFICATION_DELIVERY_NOT_CONFIGURED — 2 попадания; «service:kaname не
+      заводится» — строка 497; «кортежей с субъектом service:kaname … 0» — строка 1753). Вывод
+      Е1/Е2 не меняется, но теперь две ОДОБРЕННЫЕ приёмки утверждают взаимоисключающее.
+  - claim: "Е3, Е4, Е9 — правки приёмки NTF-2 — не внесены"
+    command: "sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "подтверждено: отпечаток прежний 9098d6ef"
+  - claim: "М30: в kaname только формы блокировки с одним ключом; у края — одна одним bigint"
+    command: >-
+      git -C project/kaname grep -hoE 'pg_(try_)?advisory(_xact)?_lock(_shared)?\([^;`"]{0,80}' 734f69fb4 -- ':!*_test.go' ':!*.md' | sort | uniq -c;
+      git -C project/kacho grep -nE 'pg_(try_)?advisory' 6edea09c2ee -- gateway ':!*_test.go' ':!*.md'
+    result: >-
+      подтверждено: kaname — pg_advisory_xact_lock(hashtext(…)) и pg_try_advisory_lock($1), все с
+      одним аргументом, двухаргументных 0 (контроль: образец ловит обе известные формы); край —
+      pg_advisory_lock/unlock($1) с schemaLockID (store.go:434, 438)
+  - claim: "М32/CX2-05: писатель аудита передаётся в посев без перестройки корня"
+    command: "git -C project/kaname grep -n 'RunBootstrapAdmin' 734f69fb4 -- ':!*_test.go'; … -- '*_test.go' | счёт по файлам"
+    result: "подтверждено: прод-вызов один — замыкание реконсайлера serve.go:2009; тестовых вызовов 35 в 6 файлах"
+  - claim: "М26: ожидающий захват места у проверяющего есть"
+    command: "git -C project/kaname show 734f69fb4:internal/passwordverify/capacity.go | sed -n 50,95p"
+    result: "подтверждено: acquireWait(ctx) — захват в сроке контекста; acquire — select с default; Capacity() — cap канала"
+  - claim: "З11: «FOR UPDATE вернул 0 строк» — прочтение «якоря нет»"
+    command: "git -C project/kaname grep -nE 'IsoLevel|RepeatableRead|ReadCommitted' 734f69fb4 -- 'internal/repo/kaname/pg/*.go' ':!*_test.go'; … show …:internal/repo/kaname/pg/tx.go | grep -n TxOptions"
+    result: >-
+      верно только в READ COMMITTED: в repo/kaname/pg есть и ReadCommitted явно
+      (oauth_ceremony_repo.go:518), и RepeatableRead (catalog_repo.go:119, catalog_plan_reader.go:116);
+      tx.go уровень не задаёт — условие к коду CX2-35
+  - claim: "З14: ожидание доли register дёшево для соседей"
+    command: "sed -n 630,634p docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md; sed -n 537,556p docs/changes/issue-2917/design.md"
+    result: >-
+      не установлено: общий поток края 20 rps (выше — вызов, не отказ), диспетчер 16 общий для
+      recovery и register, ожидание доли держит место диспетчера до 30 с — CX2-36
+
+not_measurable:
+  - "время одного вывода argon2id на узле стенда, а с ним пропускная способность доли register — число видно только прогоном; до кода утверждается свойство (ожидание держит общее место), а не порог"
+  - "поток пропущенных register на верхней границе края — зависит от числа источников и цены PoW у клиента; число установки и нагрузки, не дерева"
+  - "поведение corelib notify/feed и читателя notify (Е8) — кода нет на базах"
+
+outcome: вернуть-в-приёмку
+unmapped:
+  - "CX2-36 — ожидание доли register держит место общего диспетчера recovery/register до 30 с; цена для recovery и для входа на ёмкости 1 названа на письмо, а не на поток; строки отображения нет"
+return_to_acceptance:
+  - target: "docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md (05828e42 APPROVED, круг 3) против NTF-2 (9098d6ef APPROVED)"
+    scenarios: "NTF1-F21, NTF1-G22, Р3, §1.5 — против NTF2-47, NTF2-06, Р1, Р14 (К1, Е1); NTF1-N06, Р9 — против NTF2-51, Р4 (К2, Е2)"
+    what: "не снято и на одобренной редакции 13 NTF-1; теперь обе приёмки одобрены и утверждают взаимоисключающее"
+  - target: "docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (9098d6ef)"
+    scenarios: "Р8 «kaname · приглашения», NTF2-71 (т) (Е3); §3, DoD п.23 (Е4); NTF2-60…63, 74, NTF2-72 (Е9)"
+    what: "не внесено: отпечаток приёмки прежний — прежние возвраты в силе"
+
+orders:
+  - to: design author (NTF-2)
+    what: >-
+      редакция 4 замысла: (1) З13/З14 — строка отображения CX2-36 по условиям (а)–(в);
+      (2) З11 — транзакция работы окна объявляет ReadCommitted явно, проба (в) на той же форме
+      (условие CX2-35); (3) §0 — действующее одобрение NTF-1 — 05828e42 (круг 3, APPROVED), К1/К2
+      на нём не сняты; перепроверить опоры замысла на NTF-1 (поставщик notify/feed, Е8) по
+      одобренной редакции 13, а не по d524e7bd
+    basis: "SDD-1 §5 (exact mapping); change-graph.md §4"
+  - to: acceptance author (NTF-2)
+    what: "Е3, Е4, Е9 (прежние) — правка приёмки; после неё — новый первичный разбор на новый отпечаток"
+    basis: "change-graph.md §2; §4"
+  - to: acceptance author (NTF-1)
+    what: "К1/К2 (Е1, Е2) — на одобренной 05828e42 не сняты; по решению владельца о прочтении Д2"
+    basis: "Д2; Д13"
+  - to: go implementer (NTF-2)
+    what: "пробы CX2-36 (recovery не отбрасывается ожидающими register; вход на ёмкости 1 при потоке register) — сверх заказов прежних записей"
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"
