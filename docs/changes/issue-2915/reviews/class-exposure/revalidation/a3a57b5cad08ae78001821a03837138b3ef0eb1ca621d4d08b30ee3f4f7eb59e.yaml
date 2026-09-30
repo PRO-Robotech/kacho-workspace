@@ -1,0 +1,326 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 28 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Последняя разобранная редакция — 26
+# (c441cc11…, запись revalidation/c441cc11….yaml, коммит 9417dcb4b, итог «к замыслу»: CX1-100;
+# N24, N25 не блокируют). Редакция 27 (bec8c936…, коммит 9b1aded1e) отдельной пересверки не
+# получала, поэтому дельта — два коммита 9b1aded1e и 45d535e1e: отображение CX1-100, N24, N25,
+# решение диспетчера Д53, замеры М48–М50. Пункты CX1-01…99 и условия УК1…УК94 эта запись не
+# пересуживает.
+#
+# Итог — к замыслу, два новых пункта. CX1-100 (а)–(г), N24, N25 и Д53 отображены и в сути
+# выдерживают; предикат М49 воспроизведён (85 файлов, база не сдвинулась). Первый новый пункт —
+# CX1-101. Расширение гейта заглушек на `helm.values` (CX1-100 (в), полоса D1s) меняет механизм,
+# у которого есть потребители вне путей D1s. Во-первых, двойник процесса скана пробы RG1.1
+# (`services/storage/tools/testdata/rg11/scan_process.py`): он различает фазы только по
+# `helm.set`. Во-вторых, случай E собственной инъекции гейта («заглушек нет — судить нечего»):
+# при непустом `helm.values` он перестаёт быть пустым входом. Оба краснеют на запросе волны в
+# `2564`, а не на ветке полосы. Второй новый пункт — CX1-102. Решение Д53 перенесло работу в
+# D1s, но в трёх местах пакета она по-прежнему названа за D1, и одно из них — строка
+# исполнителя D1s в маршруте. Заметки N26, N27 идут к коду и к замыслу и не блокируют.
+# Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: a3a57b5cad08ae78001821a03837138b3ef0eb1ca621d4d08b30ee3f4f7eb59e
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на d331d103a (HEAD issue-880; design.md последний раз правлен 45d535e1e) даёт a3a57b5c…
+  change_yaml_design_sha256: a3a57b5cad08ae78001821a03837138b3ef0eb1ca621d4d08b30ee3f4f7eb59e   # равен предмету (строка 158)
+  tasks_sha256: 80c9ff284ac2491c741cbebdd63b7bddbab104dc464273a22cddf0fef7e5efb3   # маршрут редакции 29
+  revision: 28
+  content_commit: 45d535e1e
+  intermediate_unjudged:
+    revision: 27
+    sha256: bec8c936217dc9a31f4b9a289fef6f176a1cb88257376ad5f761995b53bda52c
+    content_commit: 9b1aded1e
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/c441cc112e58070dc0ec050f453492d2f11c1ba1aa0becc7e5e9ab369f9f62ef.yaml
+    sha256: c441cc112e58070dc0ec050f453492d2f11c1ba1aa0becc7e5e9ab369f9f62ef
+    content_commit: 1690113d8
+    record_commits: [9417dcb4b]
+  mapped_items: [CX1-100, N24, N25]
+  delta_predicate: "git diff 1690113d8 45d535e1e -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decisions:
+    - "Д53 (NTF-1): полоса D1 делится на D1 (узел почты в чарте, строки узла, стенды и prod по Д44–Д52; M) и D1s (расширение двух гейтов скана, таблица гейта монтирования томов, перепись переписей чартов; зависит от D1; M). В замысле — §0 строка Д53, шапка редакции 28, З28 «Новый отслеживаемый чарт — точка применения переписей чартов» (а)–(д), §11 строки CX1-100, Д53, «М49-остаток». Судится этой записью (пункты CX1-101, CX1-102)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: d331d103a937434ea97cf0827909faa93233d0d6   # вершина issue-880; после предмета — только записи приёмки и ревью NTF-2 (чужие пути)
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564, `git fetch` на момент записи — не сдвинулся
+snapshot_at: 2026-09-30T21:05:27Z
+inspected: >-
+  Дельта 1690113d8..45d535e1e по пакету целиком. design.md: шапки редакций 27 и 28; §0 строки Д52
+  (дополнение) и Д53; §1 М48, М49, М50; З28 абзац об опоре ноги («ровно один» объект, N25), граница
+  формы ключа (N24), «Новый отслеживаемый чарт — точка применения переписей чартов» (а)–(д),
+  «Фикстурная копия D1» (состав разбором `dependencies`); §11 строки CX1-100, Д53, «М49-остаток», N24,
+  N25; §13 Е12 (12). tasks.md редакций 28 и 29: шапки, строки D1 (пути и хвост предиката), D1s
+  (целиком), порядок п. 6. change.yaml (шапка, `hashes`). В kacho на origin/2564@6edea09c2ee:
+  предикат М49 (воспроизведён); вызовы `check-volume-mounts`, `assert-iac-scan-covers-every-chart`,
+  `assert-scan-stubs-hide-nothing` по всему дереву; `.github/scripts/check-volume-mounts.{sh,py}`
+  (класс `Chart`, `render`, `REPO`, переход в корень); `deploy/scripts/assert-scan-stubs-hide-nothing-inject.sh`
+  (случаи B–F); `deploy/scripts/assert-scan-stubs-hide-nothing.py` (пустой вход, формула «без
+  предмета»); `services/storage/tools/release_gates_rg11_scan_test.go` (сборка фикстуры) и
+  `services/storage/tools/testdata/rg11/scan_process.py` (классификация фаз); шаг RG1.1
+  `.github/workflows/security-scan.yml`; триггеры `.github/workflows/ci.yaml`;
+  `scripts/ci-local.sh` и `scripts/hooks/*` (вызывают ли гейты томов и скана);
+  `deploy/client_identity_leaf_test.go` (`leafScanRoots`, обход корней);
+  `deploy/scripts/assert-shard-coverage.py` (`gated_deps`); `deploy/helm_deps_single_owner_test.go`
+  (`helmDepsExempt`). Синтетики не строилось, trivy и helm не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "в дельте открытых Е нет; (16) М50 решена условием, а не вопросом (см. N27)"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-100 (а)–(г), N24, N25 выдерживают. Новые CX1-101 (потребители гейта заглушек вне путей D1s) и CX1-102 (полоса-исполнитель названа за D1 в трёх местах после Д53) не отображены"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: "в дельте нет ни внешних вызовов, ни асинхронных путей, ни sentinel-значений. Исходы «НЕ ВЫПОЛНИЛОСЬ» опоры (N25) и копии — это исходы прибора, а не значения данных"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = a3a57b5c… = предмет"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на a3a57b5c ревью замысла нет; в шапке редакции 28 сказано: «Вердикта на эту редакцию нет». В `clean` это условие не входит"
+
+mapping_check:
+  - item: "CX1-100 (а)"
+    verdict: holds_with_note
+    evidence: >-
+      Перепись переписей передана D1s. Предикат М49 на `origin/2564@6edea09c2ee` воспроизведён: 85
+      файлов; с базы редакции он не сдвинулся, дельта базы пуста. Контроль назван: семь переписей М49 и
+      одиннадцать (А) М50. Недостающая перепись — красный пробы, а не зелёный. Выборочно перечитаны два
+      исхода М50 из восемнадцати. (13): `gated_deps` берёт только `condition: <имя>.enabled`, поэтому
+      notify без `condition` в него не входит. (16): `leafScanRoots` — зонтик, `services`,
+      `gateway/deploy`, корня `deploy/helm/notify` там нет. Оба исхода совпадают с М50. Гейт томов
+      краснеет на записи D1 предсказуемо, и чинится это записью `notify` в `CHARTS`. Замечание к форме
+      этой записи — N26. Ни `scripts/ci-local.sh`, ни хуки `scripts/hooks/*` не вызывают ни гейт томов,
+      ни гейты скана (`git grep` по `scripts/` дал ноль вызовов). Поэтому предсказанное красное D1 не
+      роняет полный локальный прогон полосы D1, а в CI проявляется только на запросе волны. Исход (16)
+      поставлен условием на содержимое D1 — см. N27. В трёх местах перепись всё ещё названа за D1 —
+      см. CX1-102
+  - item: "CX1-100 (б)"
+    verdict: holds
+    evidence: >-
+      Покрытие без записи в `EXEMPT`. Значения подаются `misconfiguration.helm.values` из двух файлов
+      каталога NTF-1, `helm.set` узла почты не выбирается (Д48, Д52). Пути отсчитываются от корня (М48
+      (2)). Ненайденный файл выбивает все чарты молча (М48 (3)), и замысел закрывает это громким
+      красным гейта покрытия плюс инъекцией «путь испорчен». Шапка `trivy.yaml` переписывается тем же
+      изменением. Гейт покрытия гонит сама D1s, потому что ветка полосы вне триггеров
+      `security-scan.yml`. М48 синтетикой не перемерялся — атрибутирован замыслу
+  - item: "CX1-100 (в)"
+    verdict: holds_with_new_item
+    evidence: >-
+      Форма расширения выдерживает. Элементы `helm.values` снимаются по одному, «гасит» и «без
+      предмета» судятся той же формулой, число файлов печатается отдельно. Инъекция по форме М48 (4)
+      дополнена близнецом. У снятия каждого из двух файлов предмет есть: без
+      `notify-standalone/values.yaml` у notify нет целей, без `mail-node/operator.yaml` отказывает
+      рендер. Значит, «без предмета» на законных файлах не краснеет. Но потребители механизма гейта
+      вне путей D1s не названы — это CX1-101
+  - item: "CX1-100 (г)"
+    verdict: holds
+    evidence: >-
+      Е12 (12) дополнена: форма подачи сканеру одна, её заводит D1s, D6 NTF-2 не заводит ни `helm.set`,
+      ни третьего файла. Запись ревью NTF-2 (коммит 30d6baf7b) называет производителем расширения гейта
+      D1s NTF-1 по Д53, стороны сходятся. В тексте Е12 (12) полоса по-прежнему названа D1
+      («гейт заглушек D1», строка 3351), см. CX1-102
+  - item: N24
+    verdict: holds
+    evidence: >-
+      Граница формы ключа закреплена со стороны NTF-1 в З28, Е12 (12) и строках D1 и D9 маршрута. У
+      обеих проб есть инъекция и близнец. Посылка стоит на посеве записи `f7f510df` — атрибутирована и
+      названа невоспроизведённой
+  - item: N25
+    verdict: holds
+    evidence: >-
+      (1) Опора требует ровно один `ConfigMap`. На ноль и на «больше одного» — «НЕ ВЫПОЛНИЛОСЬ» с числом
+      и путями, и сравнение не проводится. Инъекция — вторая копия шаблона. (2) Состав копии задан
+      разбором `dependencies`, а не формой пути. Восьмая зависимость названа своей формой
+      `file://../notify`. Недостающий каталог — «НЕ ВЫПОЛНИЛОСЬ» с именем зависимости
+  - item: "Д53"
+    verdict: holds_with_new_item
+    evidence: >-
+      Раздел сделан без потери: пути `trivy.yaml`, гейта заглушек, его инъекции и
+      `check-volume-mounts.py` ушли из D1 в D1s (строка D1 маршрута их больше не несёт). База D1s —
+      голова D1. Запроса волны с D1 без D1s нет. Сдача D1 печатает оба красных с пометкой «чинит D1s» и
+      зелёными их не называет. Решение и его следствие разнесены по полосам честно, со связкой через
+      волну. Остаток — три места со старым владельцем (CX1-102)
+
+items:
+  - id: CX1-101
+    status: unmapped
+    decision: >-
+      CX1-100 (в), полоса D1s: гейт `deploy/scripts/assert-scan-stubs-hide-nothing.py` и его инъекция
+      `deploy/scripts/assert-scan-stubs-hide-nothing-inject.sh` судят вторую форму подачи значений
+      `helm.values`, а `trivy.yaml` её несёт
+    class: >-
+      measurement-discipline §«Радиус: по имени механизма и по точкам применения»: радиус правки гейта
+      взят по его пути, а не по его потребителям. Второй класс — code-authoring §«Умолчание, которое
+      становится утверждением»: «пустой вход» гейта определён по одной форме, а форм становится две.
+      Третий — .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией,
+      снабдить проверкой предпосылки» п.7: двойник процесса судит одну форму входа
+    finding: >-
+      (1) Проба RG1.1 (`services/storage/tools/release_gates_rg11_scan_test.go`, тег `rg11trivy`, шаг
+      `rg11-scan-preservation` в `.github/workflows/security-scan.yml`) гоняет НАСТОЯЩУЮ инъекцию
+      `assert-scan-stubs-hide-nothing-inject.sh` в клоне дерева с рабочими байтами. Процессы гейтов в
+      ней подменены двойником `services/storage/tools/testdata/rg11/scan_process.py`. Двойник
+      относит конфиг к фазе только по `misconfiguration.helm.set`: `original`, `suppressed` (+
+      `image.repository=…`), `no_subject` (`trivyStubsProbe=true`), `empty` (`[]`). На прочее он
+      бросает «unexpected actual scan input». Кроме того, гейт покрытия он принимает только в фазе
+      `suppressed`, иначе «coverage probe did not receive the suppressing injection». Новый случай
+      инъекции по форме М48 (4) меняет `helm.values` и оставляет `helm.set` как есть. Двойник ответит
+      фазой `original`, кодом 0 и «погашено 0», а случай ждёт красного. Если случай зовёт и гейт
+      покрытия, двойник упадёт на `RuntimeError`. Ни двойника, ни теста RG1.1 в путях D1s нет. Шаг
+      RG1.1 идёт на запросах в ветки из цифр, то есть на запросе волны в `2564`, а не на ветке полосы.
+      (2) Случай E той же инъекции («Идеал не превращён в поломку: заглушек нет вовсе») ставит
+      `helm.set = []` и ждёт код 0 и «судить нечего». Гейт печатает «судить нечего» при `not stubs`
+      (:118). После расширения пустой `helm.set` при двух файлах `helm.values` — уже не пустой вход:
+      замысел требует судить файлы. Одно из двух ломается. Либо случай E краснеет, потому что гейт
+      судит файлы и «судить нечего» не печатает. Либо гейт сохраняет ранний выход по `not stubs` и
+      молча не судит `helm.values`, если заглушек нет, — это ровно дыра, которую закрывает CX1-100 (в).
+      Замысел случай E не называет. (3) Прочие потребители имени механизма исхода не меняют:
+      `deploy/scripts/run-injection-proofs.sh:160–165` — строка «нужен trivy» в таблице пропусков;
+      `security-scan.yml:393, :420, :488` — вызовы без аргументов
+    condition_to_design: >-
+      (а) В пути D1s входят `services/storage/tools/testdata/rg11/scan_process.py` и, если меняется
+      ожидаемый набор событий, `services/storage/tools/release_gates_rg11_scan_test.go`. Двойник
+      относит конфиг к фазе по обеим формам, `helm.set` и `helm.values`. Каждому новому случаю инъекции
+      D1s соответствует своя фаза. Вход, не отнесённый ни к одной фазе, по-прежнему вызывает
+      «unexpected actual scan input». D1s гонит `go test -tags=rg11trivy ./services/storage/tools -run
+      '^(TestRG11_0[1-4]|TestRG11Snapshot|TestRG11ScanExecution)'` на своей ветке и печатает исход,
+      либо печатает «НЕ ВЫПОЛНИЛОСЬ» с причиной. «Не выполнилось» за зелёное не идёт. (б) «Пустой
+      вход» гейта заглушек определён по обеим формам: «судить нечего» — только когда пусты и
+      `helm.set`, и `helm.values`. Случай E инъекции пустошит обе формы. Добавляется случай E′:
+      `helm.set = []` при непустом `helm.values` → гейт судит файлы (печать «заглушек 0; файлов
+      значений 2») и «судить нечего» не печатает. Близнец — случай E. Иначе ранний выход по одной форме
+      молча выключает суждение о второй
+    held_by: "покраснеет шаг `rg11-scan-preservation` на запросе волны в `2564` — громко, но поздно и вне путей полосы; случай E (б) — покраснеет сама инъекция гейта, если D1s её прогонит; ранний выход по одной форме ничего не красит — нужен случай E′"
+
+  - id: CX1-102
+    status: unmapped
+    decision: >-
+      Д53: перепись переписей чартов, `trivy.yaml` с шапкой и расширение гейта заглушек передаются из
+      D1 в D1s. «Красное на чарте D1 чинится в D1s» (З28 (а))
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить»: одно решение («какая полоса чинит») записано
+      в пакете двумя способами, и один из них неверен. Опора — doc-truthfulness, «два места об одном
+      предмете, где одно верно»
+    finding: >-
+      Действующая редакция в трёх местах всё ещё называет владельцем D1. (1) design.md §11, строка
+      CX1-100 (строка 3149), колонка решения: «(а) Перепись переписей чартов по механизму — в D1»,
+      «контроль — семь переписей М49» (а действует семь М49 плюс одиннадцать М50, строка «М49-остаток»
+      ниже), «`trivy.yaml` и его шапка — в D1». Префикс той же ячейки «редакция 28 по Д53 — полоса D1s»
+      это противоречие не снимает: ниже по тексту ячейка его опровергает. (2) design.md §13 Е12 (12)
+      (строка 3351): «судит расширенный гейт заглушек D1». Е12 — заказ стороне NTF-2, и она будет искать
+      производителя в D1. (3) tasks.md, строка D1s (строка 295), — строка самого исполнителя:
+      «исход (красное чинится в D1 либо записано, почему молчит …)». З28 (а) говорит «чинится в D1s».
+      Полоса D1s стартует от головы D1, поэтому «чинится в D1» для неё значит вернуть работу в уже
+      сданную полосу. Это прямо противоречит З28 (д)
+    condition_to_design: >-
+      В строке CX1-100 §11, в Е12 (12) и в строке D1s маршрута полоса-исполнитель переписи, `trivy.yaml`
+      и гейта заглушек — D1s. Контроль переписи — «семь М49 и одиннадцать (А) М50». В строке D1s —
+      «красное чинится в D1s». Проверка: `grep -n -F -e 'гейт заглушек D1 ' -e 'шапка — в D1.' -e
+      'механизму — в D1:' -e 'контроль — семь переписей М49;' design.md` и `grep -n -F 'чинится в D1
+      либо' tasks.md` → 0 строк. Контроль предиката — на a3a57b5c и 80c9ff28 он даёт по одной строке на
+      каждое из пяти мест
+    held_by: "держится вниманием: полноту отображения судит семейство `cg.class`, текст одной ячейки против другой оно не сравнивает; предикат выше — разовая проверка автора, гейта не будет, потому что формулировки у каждой правки свои"
+
+notes:
+  - id: N26
+    blocking: false
+    where: "З28 «Новый отслеживаемый чарт …» (а), предсказанные исходы (таблица гейта томов); tasks.md строка D1s (запись `Chart(\"notify\", …, [\"-f\", \"deploy/testdata/…\"], …)`)"
+    text: >-
+      Гейт `.github/scripts/check-volume-mounts.py` сам по себе от текущего каталога не зависит. Чарт
+      он рендерит по `str(REPO / chart.path)` (:313), где `REPO` — родитель скрипта (:61). В таблице
+      `CHARTS` сегодня нет ни одного `-f`, только `--set`. Запись notify в той форме, в какой её дают
+      замысел и маршрут (`"-f", "deploy/testdata/…"`), вводит в гейт первый путь, отсчитанный от
+      текущего каталога. Через точку входа `check-volume-mounts.sh` это работает: она переходит в
+      корень (:24). Прямой вызов `python3 …/check-volume-mounts.py` из другого каталога даёт отказ
+      рендера notify с диагнозом «нет файла», а не «нет тома». Класс тот же, что М48 (2). К коду: пути
+      `-f` в записи строятся от `REPO` (`str(REPO / "deploy/testdata/…")`), как путь самого чарта
+    predicate: "в `CHARTS` у каждого аргумента после `-f` — абсолютный путь от `REPO`; проба: запуск гейта из `/tmp` даёт тот же исход, что из корня"
+  - id: N27
+    blocking: false
+    where: "З28 (а), исход (16) М50; tasks.md строка D1s (путь `deploy/client_identity_leaf_test.go` «условно»)"
+    text: >-
+      Корень `deploy/helm/notify` попадает в `leafScanRoots` только при условии, что чарт notify
+      объявляет клиентскую личность mTLS. Иначе печатается «объявлений 0». Напечатанный ноль — разовое
+      утверждение о содержимом D1. Если позже в чарт notify добавят `_MTLS_CERTFILE`, гейт
+      `client_identity_leaf` его молча не рассудит. Шапка гейта требует обратного: «корни выводятся из
+      раскладки … новый чарт попадает под проверку сам» (:213–214). Корень без объявлений гейт не
+      роняет: обход добавляет файлы и пропускает те, в которых объявлений нет (:502–540). Значит,
+      добавить корень безусловно ничего не стоит. К замыслу, рекомендовано: корень `deploy/helm/notify`
+      (или `deploy/helm` целиком, если это не удваивает обход зонтика) добавляется в D1s безусловно.
+      Печать «объявлений N» остаётся как объём осмотренного
+    predicate: "`git grep -n 'deploy/helm/notify\\|\"notify\"' -- deploy/client_identity_leaf_test.go` на голове D1s → одна строка в `leafScanRoots`"
+
+measurements:
+  - claim: "предмет — a3a57b5c, содержимое коммита 45d535e1e; редакция 27 — bec8c936 (9b1aded1e); change.yaml несёт a3a57b5c; маршрут — 80c9ff28; приёмка не менялась"
+    command: "for c in 1690113d8 9b1aded1e 45d535e1e; do git show $c:docs/changes/issue-2915/design.md | sha256sum; done; sha256sum docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; grep -n design_sha256 docs/changes/issue-2915/change.yaml"
+    result: "c441cc11…, bec8c936…, a3a57b5c…; рабочий файл a3a57b5c…; tasks 80c9ff28…; приёмка 29cfa368…; design_sha256: a3a57b5c… (строка 158)"
+  - claim: "дельта — три файла пакета плюс запись c441cc11"
+    command: "git diff --stat 1690113d8 45d535e1e -- docs/changes/issue-2915/"
+    result: "change.yaml 18, design.md 158, tasks.md 30, запись c441cc11 301"
+  - claim: "предикат М49 воспроизводится, база эпика не сдвинулась"
+    command: "git -C project/kacho fetch origin 2564; git rev-parse origin/2564; git -C project/kacho grep -l -E 'Chart\\.yaml|deploy/helm([^a-z_-]|$)' <r> -- '*.go' '*.py' '*.sh' ':!deploy/helm/**' ':!**/testdata/**' ':!*_injection_test.go' | wc -l, r ∈ 6edea09c2ee, origin/2564"
+    result: "origin/2564 = 6edea09c2ee2592ee8112981fe99c4f0a393677d; 85 и 85"
+  - claim: "гейты томов и скана не вызываются локальным полным прогоном и хуками; гейт томов — в ci.yaml, гейты скана и RG1.1 — в security-scan.yml"
+    command: "git -C project/kacho grep -n -E 'check-volume-mounts|assert-iac-scan-covers|assert-scan-stubs-hide' origin/2564 -- ':!deploy/scripts/assert-*' ':!.github/scripts/check-volume-mounts.py'; git grep -n -E 'volume-mounts|iac-scan|scan-stubs' origin/2564 -- scripts/"
+    result: "ci.yaml:2220 (гейт томов); security-scan.yml:351, :393, :420, :488; run-gate-self-tests.sh:105; run-injection-proofs.sh:160, :165; services/storage/tools/release_gates_rg11_scan_test.go:27, :263; services/storage/tools/testdata/rg11/scan_process.py:74, :92; по scripts/ — 0"
+  - claim: "двойник RG1.1 относит конфиг к фазе только по helm.set"
+    command: "git -C project/kacho show origin/2564:services/storage/tools/testdata/rg11/scan_process.py | sed -n 72,100p; … release_gates_rg11_scan_test.go | sed -n 180,215p; … security-scan.yml | sed -n 400,430p"
+    result: "`stubs = ((content.get(\"misconfiguration\") or {}).get(\"helm\") or {}).get(\"set\") or []`; фазы original, suppressed, no_subject, empty, иначе `RuntimeError(\"unexpected actual scan input\")`; гейт покрытия — только в фазе suppressed. Фикстура — `git clone --shared` дерева плюс рабочие байты изменённых файлов. Шаг `rg11-scan-preservation`, `GOFLAGS=-tags=rg11trivy`"
+  - claim: "случай E инъекции ставит helm.set=[] и ждёт «судить нечего»; гейт выходит по not stubs"
+    command: "git -C project/kacho show origin/2564:deploy/scripts/assert-scan-stubs-hide-nothing-inject.sh | sed -n 128,140p; … assert-scan-stubs-hide-nothing.py | grep -n 'if not stubs\\|судить нечего'"
+    result: "`d[\"misconfiguration\"][\"helm\"][\"set\"] = []`, `expect \"заглушек нет — гейт проходит, а не падает\" 0 \"судить нечего\"`; гейт :118 `if not stubs:`, :119 «судить нечего»"
+  - claim: "гейт томов рендерит от REPO, переход в корень делает только точка входа; `-f` в таблице нет"
+    command: "git -C project/kacho show 6edea09c2ee:.github/scripts/check-volume-mounts.py | grep -n -E '^REPO|REPO /|\"-f\"'; … check-volume-mounts.sh | sed -n 22,32p"
+    result: "`REPO = pathlib.Path(__file__).resolve().parents[2]` (:61), `str(REPO / chart.path)` (:313), `\"-f\"` — 0; `cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\"` (.sh:24)"
+  - claim: "исходы М50 (13), (16) выборочно совпадают"
+    command: "git -C project/kacho grep -n -A6 'leafScanRoots' 6edea09c2ee -- deploy/client_identity_leaf_test.go; … -A8 'def gated_deps' -- deploy/scripts/assert-shard-coverage.py; client_identity_leaf_test.go | sed -n 495,560p"
+    result: "корни — umbrellaDir, services, gateway/deploy; шапка «новый чарт попадает под проверку сам»; файлы без объявлений пропускаются (`continue`); `gated_deps` — регулярное выражение `condition: <имя>.enabled`"
+  - claim: "в пакете после Д53 полоса-исполнитель названа за D1 в пяти формулировках трёх мест"
+    command: "grep -n -F -- <p> docs/changes/issue-2915/{design,tasks}.md, p ∈ 'гейт заглушек D1 ', 'шапка — в D1.', 'механизму — в D1:', 'контроль — семь переписей М49;', 'чинится в D1 либо'"
+    result: "design.md:3351; design.md:3149 (три формулировки); tasks.md:295"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "точный исход проб RG1.1 после расширения инъекции"
+    why: "расширенной инъекции нет ни на одной ветке. Предсказание стоит на прочитанной классификации двойника, а не на прогоне. CX1-101 (а) требует от D1s прогнать RG1.1 и напечатать исход"
+  - item: "исходы (А) М50, кроме (13) и (16)"
+    why: "чарта notify нет ни на одной ветке; исходы печатает D1s. Из одиннадцати выборочно перечитаны два"
+  - item: "М48 (1)–(4)"
+    why: "синтетика замысла этой записью не перестраивалась (trivy не запускался), поэтому М48 атрибутирован замыслу. Вывод CX1-101 от М48 не зависит"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-101, CX1-102]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-101 (а): двойник RG1.1 `scan_process.py` (и тест, если меняется набор событий) — в пути D1s, фазы по обеим формам, прогон `-tags=rg11trivy` с печатью исхода; (б): «пустой вход» гейта заглушек — по обеим формам, случай E пустошит обе, новый случай E′ (`helm.set=[]` при непустом `helm.values` → гейт судит файлы). CX1-102: в строке CX1-100 §11, Е12 (12) и строке D1s маршрута исполнитель — D1s, контроль — семь М49 и одиннадцать М50. N26 — пути `-f` в записи гейта томов от `REPO`; N27 — корень `deploy/helm/notify` в `leafScanRoots` безусловно"
+    basis: ".claude/rules/change-graph.md §4; measurement-discipline §«Радиус: по имени механизма и по точкам применения»; code-authoring §«Умолчание, которое становится утверждением», §«Контракт, который нельзя выразить»; .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.7"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-101 и CX1-102"
+    basis: ".claude/rules/change-graph.md §4"
