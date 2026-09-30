@@ -14,7 +14,7 @@
 #
 # СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
 # Вердикт по отпечатку: CHANGES_REQUESTED, круг 3 (запись docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a.yaml).
-# Замысел — `design.md` редакции 2 (2026-09-30), отпечаток — `hashes.design_sha256`;
+# Замысел — `design.md` редакции 3 (2026-09-30), отпечаток — `hashes.design_sha256`;
 # вердикта на него нет. Маршрут работ — `tasks.md` (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2925
@@ -42,7 +42,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
-  design_sha256: deeea79a3acd2d39cb8c9ef1464f138994c3a07a1482e6bccdf34206ec1a27c3
+  design_sha256: defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde
   holders_sha256: 6c7141100ede1c9e0bd63ed52f2250ddf15d1d73c101d99f74b93318c18c67ca
 
 links:

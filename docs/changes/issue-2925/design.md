@@ -11,11 +11,21 @@ SPDX-License-Identifier: BUSL-1.1
 > Наблюдаемое поведение здесь не описывается и не переопределяется: его единственный
 > владелец — приёмка. Порядок работ — `tasks.md` рядом.
 >
-> **Редакция 2 · 2026-09-30.** Вердикта на неё нет; действующий вердикт выводится из записи
+> **Редакция 3 · 2026-09-30.** Вердикта на неё нет; действующий вердикт выводится из записи
 > ревью на отпечаток этого файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки
 > разбора классов (`reviews/class-exposure/revalidation/<sha256>.yaml`).
 >
-> **Что изменено против редакции 1 (`7613071f`) и почему.** Пересверка на `7613071f` вернула
+> **Что изменено против редакции 2 (`deeea79a`) и почему.** Пересверка на `deeea79a` вернула
+> замысел (`reviews/class-exposure/revalidation/deeea79a….yaml`): CX6-10 не выдерживал условия —
+> перепись тестовых перечней M2 назвала 2 перечня модулей, написанных руками, а их 6; новый пункт
+> CX6-25 (асинхронный путь `rememberLoad`) строки не имел; CX6-22 — с условием к коду (обход
+> пользователей повторялся бы на отказ формы). Изменено: M2 перемерен (§1) и в §10 внесены строки
+> 28–32 с решением по каждому перечню; `rememberLoad` снимает и публикует только по идентичности
+> хранимого обещания, у подписчика названо третье состояние `pending` и ветка кнопки рейла на нём
+> (З14, CX6-25); запросы модуля `notify`, включая обход пользователей, исполняет клиент запросов с
+> умолчанием `retry: notifyQueryRetry` (З6, З13, CX6-22); строка CX6-25 в §11.
+>
+> **Что изменено в редакции 2 против редакции 1 (`7613071f`) и почему.** Пересверка на `7613071f` вернула
 > замысел (`reviews/class-exposure/revalidation/7613071f….yaml`): CX6-10 не выдерживал условия,
 > у новых пунктов CX6-20…24 не было строк. Изменено: перепись §10 — 15 файлов по M1, а не 14, и
 > места по образцу модуля (M13); монтирование модуля — обёрткой `NotifyRemote.tsx` общей
@@ -33,6 +43,7 @@ SPDX-License-Identifier: BUSL-1.1
 | приёмка NTF-6 | `docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md` | `47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328` | `APPROVED`, запись `docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b70….yaml` |
 | первичный разбор классов | `docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b70….yaml` | тот же отпечаток | `к-коду`, возврата в приёмку нет; пункты CX6-01…19 |
 | пересверка на редакцию 1 | `docs/changes/issue-2925/reviews/class-exposure/revalidation/7613071f….yaml` | замысел `7613071f` | `к-замыслу`; новые пункты CX6-20…24; в приёмку не возвращено ничего |
+| пересверка на редакцию 2 | `docs/changes/issue-2925/reviews/class-exposure/revalidation/deeea79a….yaml` | замысел `deeea79a` | `к-замыслу`; CX6-10 не выдерживал (M2); новый пункт CX6-25; условие к коду по CX6-22; в приёмку не возвращено ничего |
 | дерево продукта | `PRO-Robotech/kacho` | `origin/main@1d42a6728bf` | все замеры §1 — на этой ревизии, если не сказано иное |
 | контракт `notify` | приёмка NTF-3, в форме §1.7 приёмки NTF-6 (`ee6f908e`) | в ветке на `e97ed2b38` — `c0ea704af36e…` | не одобрена; стадии гейтятся её одобрением (Р13 приёмки). Замысел зависит от формы §1.7 (Е2), а не от текущей редакции NTF-3 |
 | ядро и флаг | приёмка NTF-1, Р9 | `530e2296…` | `APPROVED` (запись круга 1 прохода редакции 9) |
@@ -55,7 +66,7 @@ SPDX-License-Identifier: BUSL-1.1
 | № | утверждение | команда | результат |
 |---|---|---|---|
 | M1 | файлов консоли, перечисляющих все восемь модулей руками | `git ls-tree -r --name-only 1d42a6728bf ui-future \| grep -vE '(^\|/)(e2e\|node_modules)/\|\.test\.\|/test/\|__mocks__\|package-lock\|\.md$\|\.snap$\|\.png$\|\.svg$'` → обойдено 1073 файла; по каждому `git show 1d42a6728bf:<файл> \| grep -oiE 'dashboard\|vpc\|compute\|storage\|nlb\|registry\|iam\|system' \| tr A-Z a-z \| sort -u \| wc -l`, порог 8 из 8 | **15** (перечень — §10, строки 1–15). Редакция 1 назвала 14: пропущен `ui-future/host/src/remotes/index.ts` (реэкспорт восьми обёрток `*Remote`) — опровергнуто пересверкой и повторено этим замером |
-| M2 | тестовых перечней модулей, написанных руками | тот же обход по `*.test.ts*`, порог 8 из 8, затем чтение объявлений | 2 перечня, которые обязаны назвать `notify`: `MUTATING_MODULES` (`shared/src/components/molecules/Toaster/Toaster.mounted.test.ts:63`) и `CONSOLE_APPS` (`shared/src/test/console-verb-routes-exist.test.ts:62`); прочие выводят состав обходом дерева, среди них `host/src/remotes/remote-boundary-coverage.test.ts` — сводит `remotes` федерации `vite.config.ts`, обёртки `*Remote.tsx` и `moduleCatalog.ts` |
+| M2 | тестовых перечней модулей, написанных руками | `git ls-tree -r --name-only 1d42a6728bf ui-future \| grep -v node_modules \| grep -E '\.test\.\|_test\.go$\|/test/'` → обойдено 469 файлов; по каждому `git show 1d42a6728bf:<файл> \| grep -oE '\b(dashboard\|vpc\|compute\|storage\|nlb\|registry\|iam\|system)' \| sort -u \| wc -l`, порог 7 из 8 → 16 попаданий; затем чтение объявлений каждого (массив-литерал против `readdirSync`/обхода каталога) | **6 перечней руками**, каждый обязан получить решение: `MUTATING_MODULES` (`shared/src/components/molecules/Toaster/Toaster.mounted.test.ts:63`); `CONSOLE_APPS` — четыре копии: `shared/src/test/console-verb-routes-exist.test.ts:62`, `shared/src/test/iam-pages-authz-single-source.test.ts:33`, `shared/src/components/organisms/form/ResourceIcon/ResourceIcon.registry.test.ts:27`, `shared/src/lib/spec-columns.bool-labels.test.ts:27` (шапки трёх требуют вносить новое приложение осознанно, иначе оно молча выпадает из сверки); `REMOTES` (`shared/src/test/ui-chart-remote-entry-cache.test.ts:38`, имена помощников `<mod>Name` чарта). Прочие 10 попаданий перечня модулей не держат: 5 выводят состав обходом каталога (`module-boundary-coverage`, `module-tailwind-scans-shared`, `module-test-setup-single-source`, `request-body-built-not-spread`, `shared-organisms-single-source`; `arrayContaining` в них — проверка предпосылки, а у `module-test-setup-single-source` ещё перечень освобождённых `EXCUSED` = `host`, `dashboard`), 1 — ведомость долга (`module-reachability-ledger.json`), 4 называют модули попутно (`InstancesPage.list`, `StoragePage.list`, `oneof-form-coverage`, `oneof-branch-coverage.ts`). Редакция 2 назвала 2 перечня — опровергнуто пересверкой `deeea79a` и повторено этим замером. Гейт `host/src/remotes/remote-boundary-coverage.test.ts` лежит вне порога (имена модулей в нём не перечислены) и сводит обходом `remotes` федерации `vite.config.ts`, обёртки `*Remote.tsx` и `moduleCatalog.ts` |
 | M3 | край выбирает владельца операции ручной картой, приставки операций `notify` в ней нет | `git show 1d42a6728bf:gateway/internal/opsproxy/proxy.go \| sed -n 86,102p` | 8 ключей (`vpc`×2, `compute`, `iam`, `loadbalancer`, `registry`, `storage`, `geo`); неизвестная приставка → `INVALID_ARGUMENT` (`resolveBackend`) |
 | M4 | общий `useOperation` опрашивает хотя бы раз и при `done = true` | `git show 1d42a6728bf:ui-future/shared/src/lib/use-operation.ts \| sed -n 18,34p` | `enabled: !!opId`, первый `GET /operations/{id}` уходит всегда |
 | M5 | `QueryClient` создаёт **страница** модуля, а не модуль | `git grep -n -B3 'new QueryClient' 1d42a6728bf -- 'ui-future/*/src/*.ts*' ':!*test*'` | 7 мест (compute, iam, nlb, registry, storage, system, vpc), каждое — `useMemo` внутри компонента страницы: клиент живёт, пока смонтирована страница, и при повторном монтировании создаётся заново; кэш одного бандла другому не виден |
@@ -262,6 +273,15 @@ location = /console-config.json {
     где `notifyQueryRetry(failureCount, err) = !isResponseShapeError(err) && failureCount < 1`
     (одно место, `notify.ts`): ответ той же сборки края повтором не исправится, а прочие отказы
     повторяются так же, как у соседей.
+  - **Клиент запросов модуля `notify` несёт это умолчанием** (CX6-22, условие пересверки
+    `deeea79a`). `ResponseShapeError` производит не только `notify.ts`, но и обход
+    `listAllAccountUsers` (З13), чей запрос исполняет клиент запросов страницы `NotifyPage`.
+    Поэтому клиент модуля создаёт одна функция `createNotifyQueryClient()`
+    (`ui-future/notify/src/lib/queryClient.ts`) с `defaultOptions.queries.retry =
+    notifyQueryRetry`; её зовут `NotifyPage` и экранные пробы модуля. Любой запрос модуля —
+    `notify` или обход службы доступа — наследует «без повтора на отказ формы»; явная опция
+    запроса остаётся только у запросов карточки, исполняемых чужим клиентом (M16). Своего
+    `new QueryClient` в `ui-future/notify/src` вне этой функции нет.
 - **Обход страниц** (CX6-08 (а)): `listAllSubscriptions()` — `pageSize = 1000` (граница ручки
   NTF-3), цикл до пустого `next_page_token`; повтор уже виденного токена — `ResponseShapeError`
   с `field = "next_page_token"` (обход не зацикливается на неисправном ответе).
@@ -273,7 +293,10 @@ location = /console-config.json {
 `notify.test.ts` (по каждой функции чтения и мутации: `200` не той формы → `ResponseShapeError`,
 у ошибки нет `status`; `notifyQueryRetry` → `false` на `ResponseShapeError`, `true` на первом
 `ApiError` `503`) и ветка `error-presentation.test.ts` «`ResponseShapeError` → `status = "500"`,
-текст отказа данных, не общее `"error"`» (заказ пересверки CX6-22).
+текст отказа данных, не общее `"error"`» (заказ пересверки CX6-22); `queryClient.test.ts`
+модуля — «умолчание `retry` клиента — `notifyQueryRetry`»; `NotificationContactsPage.test.tsx`
+— «`200` не той формы у обхода пользователей — один запрос, без повтора» (условие пересверки
+`deeea79a`).
 
 ### З7. Счёт «нового» — одна функция над сцепкой загруженного
 
@@ -459,7 +482,9 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
   фильтр у владельца означает «все видимые вызывающему», а не «члены аккаунта» (M17), поэтому
   пустая строка отвергается функцией до запроса (`Error("listAllAccountUsers: accountId
   required")`), а экран без выбранного аккаунта обхода не начинает. Сервисных аккаунтов и групп
-  в выборе нет по построению — источник только пользователи.
+  в выборе нет по построению — источник только пользователи. Запрос кандидатов исполняет клиент
+  `createNotifyQueryClient()` (З6): отказ формы обхода (`ResponseShapeError`, в том числе повтор
+  токена) не повторяется (И13).
 
 Держатели: `NotificationSettingsPage.test.tsx` — «каталог не `200`», «каталог `200` не той
 формы», «настройки не `200`» → текст отказа, матрицы нет (CX6-11); «ничего не изменено —
@@ -468,7 +493,8 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
 нет»» (CX6-06 (б)), «вторая страница после найденного `seenUpTo` — без пометок» (CX6-17).
 `NotificationContactsPage.test.tsx` — «контакты `200` без `security` → отказ»,
 «кандидат на второй странице пользователей виден» (CX6-08), «каждый запрос кандидатов несёт
-`accountId` выбранного аккаунта, вторая страница — тоже» (заказ пересверки CX6-24);
+`accountId` выбранного аккаунта, вторая страница — тоже» (заказ пересверки CX6-24),
+«`200` не той формы у обхода пользователей — один запрос, без повтора» (CX6-22);
 `iam.test.ts` (или проба рядом с `iam.ts`) — «`listAllAccountUsers("")` — отказ, запросов 0».
 
 ### З14. Вход в рейле, маршрут, обёртка модуля, названные страницы
@@ -490,14 +516,43 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
   Литерал `import("notify/NotifyPage")` стоит в файле обёртки (требование плагина федерации и
   гейта `remote-boundary-coverage.test.ts`); граница отказа, повтор и имя раздела — те же, что
   у восьми соседей. Собственной связки `lazy` + `ModuleErrorBoundary` в `App.tsx` нет.
-- **Одна загрузка — один исход для маршрута и кнопки.** `rememberLoad(loader)`
+- **Одна загрузка — один исход для маршрута и кнопки** (CX6-25). `rememberLoad(loader)`
   (`host/src/remotes/rememberLoad.ts`, новый) хранит обещание загрузки и публикует его исход
   подписчикам: исполненное обещание хранится до конца жизни окна; **отклонённое снимается с
   хранения в момент отказа**, иначе повтор `makeRemote` (свежий `lazy` на каждую попытку)
   попал бы в тот же отказ немедленно — ровно то, от чего фабрика защищается номером попытки.
-  Подписчики получают `available`/`unavailable`; повтор, завершившийся успехом, переводит в
-  `available`. Кнопка рейла в состоянии признака `enabled` один раз зовёт `loadNotifyPage()`
-  (предзагрузка) и читает исход — отдельного загрузчика у кнопки нет.
+
+  ```ts
+  export type LoadOutcome = "pending" | "available" | "unavailable";
+  // load(): вернуть хранимое; иначе p = loader(), stored = p, publish("pending"),
+  // и тем же синхронным вызовом повесить обработчики исхода p:
+  //   успех → if (stored === p) publish("available")
+  //   отказ → if (stored === p) { stored = null; publish("unavailable"); }
+  ```
+
+  - **Снятие и публикация — по идентичности.** Обработчик исхода обещания `p` снимает
+    хранимое и публикует исход, **только если хранимое — это `p`**; безусловного
+    `stored = null` нет. Исход подписчику публикует только текущее хранимое обещание, поэтому
+    исход прежней загрузки не снимает новую и не перекрывает её исход.
+  - **Состояний подписчика три, и все названы:** `pending` (загрузка в полёте — от вызова
+    `loader()` до исхода), `available`, `unavailable`. Хук подписки
+    `useLoadOutcome(load)` при монтировании зовёт `load()` (предзагрузка), поэтому состояния
+    «ещё не звали» у подписчика нет; повтор после отказа переводит `unavailable → pending`,
+    успех повтора — в `available`.
+  - **Кнопка рейла ветвится по трём состояниям исчерпывающе** (`switch` с проверкой `never`,
+    как у признака Р2, И12) и только в состоянии признака `enabled`: `pending` и `available` —
+    обычная кнопка без признака недоступности (переход ведёт в маршрут, где загрузку и отказ
+    показывает сама обёртка `makeRemote`; отказ до исхода кнопкой не предсказывается);
+    `unavailable` — кнопка с признаком недоступности и `UNAVAILABLE_REASON`, как у соседей.
+    Отдельного загрузчика у кнопки нет.
+  - **Предел держателя названо.** Пока `load()` возвращает хранимое обещание и обработчики
+    вешаются тем же синхронным вызовом, что кладёт `p`, обработчик прежнего обещания не может
+    сработать после того, как положено новое: снятие происходит только в самом обработчике
+    отказа, а новое кладётся лишь после снятия. Ветка «исход прежнего обещания при хранимом
+    новом» поэтому пробой через публичный `load()` не достигается; условие `stored === p`
+    держит инвариант независимо от порядка обработчиков и от будущего пути замены хранимого.
+    Проба держит достижимое — счёт вызовов загрузчика и последовательность состояний; проверка
+    идентичности в обоих обработчиках — пункт чек-листа рецензента диффа (`ui-reviewer`).
 - `host/src/remotes/notify.d.ts` (новый) объявляет модуль `notify/NotifyPage` той же формы, что
   `nlb.d.ts`; модуля `notify/navigation` не объявляет — навигации нет.
 - `host/src/remotes/index.ts` — `export * from "./NotifyRemote"`.
@@ -519,8 +574,12 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
 
 Держатели: `remote-boundary-coverage.test.ts` (существующий; с `notify` в федерации, обёртке и
 каталоге — зелёный, печать «federation=9, обёрток=9, имён в каталоге=9»); `rememberLoad.test.ts`
-— «два вызова — одна загрузка», «отказ → повтор грузит заново», «успех после отказа — подписчик
-получает `available`»; `App.test.tsx` — ветки NTF6-02 и `loading` (З2); `HostRail.test.tsx`.
+(управляемый загрузчик: тест сам решает, когда исполнить или отклонить каждое обещание) —
+«два вызова — одна загрузка», «отказ → повтор грузит заново», «успех после отказа — подписчик
+получает `available`», «последовательность состояний подписчика `pending → unavailable → pending
+→ available`, вызовов загрузчика ровно 2, после успеха хранимое не снимается» (CX6-25);
+`App.test.tsx` — ветки NTF6-02 и `loading` (З2); `HostRail.test.tsx` — кнопка в `pending` без
+признака недоступности, в `unavailable` — с ним (CX6-25).
 
 ### З15. Пояснение отказа в правах (Р17)
 
@@ -552,7 +611,7 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
 | CX6-06 (б) | `200` не той формы → отказ, по каждой функции чтения и мутации | `ui-future/shared/src/api/notify.test.ts`; экранные ветки — З13 |
 | CX6-08 | цель на второй странице; отказ создания → перечитывание; кандидат на второй странице | `ResourceDetailExtensions.test.tsx`, `NotificationContactsPage.test.tsx` |
 | CX6-09 | ноль `GET /operations` при `done = true` | `ui-future/shared/src/api/notify.test.ts` |
-| CX6-10 | обёртка `notify` строится фабрикой; три перечня сходятся | `ui-future/host/src/remotes/remote-boundary-coverage.test.ts` (существующий), `rememberLoad.test.ts` |
+| CX6-10 | обёртка `notify` строится фабрикой; три перечня сходятся; шесть тестовых перечней M2 называют `notify` | `ui-future/host/src/remotes/remote-boundary-coverage.test.ts` (существующий), `rememberLoad.test.ts`; перечни §10 строки 21, 22, 28–31 — каждая проба зелёная с `notify` в переписи |
 | CX6-11 | экран настроек при отказе каталога/настроек | `NotificationSettingsPage.test.tsx` |
 | CX6-15 | каждый location с `add_header` в отрендеренной раздаче хоста и модулей несёт набор заголовков защиты уровня `server` | `ui-future/deploy/console_location_security_headers_test.go` (обход блоков `location` рендера; печать числа; пустой обход — красный; инъекция location без include — красный) |
 | CX6-16 | два вызова загрузчика — один запрос; выход из `unreadable` | `ui-future/shared/src/lib/console-config.test.ts` |
@@ -560,9 +619,10 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
 | CX6-19 | две карточки подряд — каталог и список по одному разу | `ResourceDetailExtensions.test.tsx` |
 | CX6-20 | страница смонтирована заново → событие перечитывает список; после размонтирования слушателей 0 | `ResourceDetailExtensions.test.tsx`, `ui-future/shared/src/hooks/useNotifySubscriptionsSync.test.tsx` |
 | CX6-21 | признак в `loading` → ни названной страницы `disabled`, ни перевода на панель; исчерпывающее ветвление | `ui-future/host/src/App.test.tsx`; `tsc` хоста и `notify` |
-| CX6-22 | `ResponseShapeError` → текст отказа данных, не общее `"error"`; без повтора; без `status` | `ui-future/shared/src/lib/error-presentation.test.ts`, `notify.test.ts` |
+| CX6-22 | `ResponseShapeError` → текст отказа данных, не общее `"error"`; без повтора; без `status`; обход пользователей на экране контактов — без повтора | `ui-future/shared/src/lib/error-presentation.test.ts`, `notify.test.ts`, `ui-future/notify/src/lib/queryClient.test.ts`, `NotificationContactsPage.test.tsx` |
 | CX6-23 | отказ устаревшего цикла не меняет значок | `ui-future/host/src/lib/unread-poll.test.ts` |
 | CX6-24 | запрос кандидатов несёт `accountId`; пустой аккаунт — запросов 0 | `NotificationContactsPage.test.tsx`, проба `iam.ts` |
+| CX6-25 | одна загрузка; отказ → повтор; последовательность состояний `pending → unavailable → pending → available`, вызовов загрузчика 2; кнопка в `pending` — без признака недоступности | `ui-future/host/src/remotes/rememberLoad.test.ts`, `HostRail.test.tsx`; снятие по идентичности — рецензент диффа (предел — З14) |
 
 Модульные пробы шлют запросы в подменённый клиент с управляемыми ответами; ожидание —
 условием, часы — управляемые (`jest.useFakeTimers`), без пауз.
@@ -593,10 +653,11 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
 | И10 | признак консоли совпадает с развёртыванием `notify` на каждой поставляемой цепочке | `deploy/console_notify_flag_parity_test.go` (З5, DoD 8) |
 | И11 | адрес ресурса строит только `resourceDetailHref`; из ответа принимаются только сегменты в алфавите id | `id-form.test.ts`, `InboxItemRow.test.tsx`, NTF6-16 |
 | И12 | каждый читатель признака ветвится исчерпывающе по четырём состояниям; `loading` не показывается ни одним исходом | проверка `never` в `tsc`; `App.test.tsx` (CX6-21) |
-| И13 | отказ формы ответа не несёт статуса успеха и не повторяется | `notify.test.ts`, `error-presentation.test.ts` (CX6-22) |
+| И13 | отказ формы ответа не несёт статуса успеха и не повторяется — ни у запросов `notify`, ни у обхода пользователей на экране контактов | `notify.test.ts`, `error-presentation.test.ts`, `queryClient.test.ts`, `NotificationContactsPage.test.tsx` (CX6-22) |
 | И14 | к значку применяется исход только последнего начатого цикла — и успех, и отказ | `unread-poll.test.ts` (CX6-05, CX6-23) |
 | И15 | слушатель события окна живёт ровно столько, сколько клиент кэша, который он инвалидирует | `useNotifySubscriptionsSync.test.tsx`, `ResourceDetailExtensions.test.tsx` (CX6-20) |
 | И16 | каждый remote федерации хоста монтируется обёрткой общей фабрики с именем раздела из каталога | `remote-boundary-coverage.test.ts` (CX6-10) |
+| И17 | исход загрузки модуля снимает и публикует только обработчик хранимого обещания; у подписчика три названных состояния | `rememberLoad.test.ts`, `HostRail.test.tsx`; идентичность — рецензент диффа (CX6-25, предел — З14) |
 
 ## 4. Компоненты и границы
 
@@ -617,6 +678,7 @@ unreadCount(items: readonly { position: string }[], seenUpTo: string, hasMore: b
 | имена разделов | `ui-future/shared/src/lib/entity-names.ts`, `ui-future/host/src/lib/entity-names.ts` | правка | все / хост | рейл, панель недоступности |
 | опрос счётчика | `ui-future/host/src/lib/unread-poll.ts` | новый | хост | `HostRail` |
 | обёртка модуля и её загрузка | `ui-future/host/src/remotes/{NotifyRemote.tsx,notify.d.ts,rememberLoad.ts}` | новые | хост | `App.tsx`, `HostRail` |
+| клиент запросов модуля | `ui-future/notify/src/lib/queryClient.ts` (`createNotifyQueryClient`) | новый | `notify` | `NotifyPage`, экранные пробы |
 | рейл, маршрут, каталог, реэкспорт | `ui-future/host/src/{components/organisms/HostRail,components/atoms/RailButton,App.tsx,remotes/moduleCatalog.ts,remotes/index.ts}` | правка | хост | — |
 | сборка хоста | `ui-future/host/{vite.config.ts,jest.config.cjs,Dockerfile}`, `ui-future/host/src/test/notify-remote.tsx` | правка + заглушка новая | хост | — |
 | модуль | `ui-future/notify/**` | новый | `notify` | хост (федерация) |
@@ -781,7 +843,9 @@ export type ConsoleNotificationsState = "loading" | "enabled" | "disabled" | "un
 ## 10. Перепись мест, перечисляющих модули руками или по образцу модуля (CX6-10)
 
 Предикаты: M1 (15 файлов, строки 1–15), M13 (места по образцу модуля, строки 16–20), тестовые
-перечни M2 (строки 21–23), прочие места, названные приёмкой (строки 24–27). Решение по каждому.
+перечни M2 (строки 21–23 и 28–32; строки 28–32 внесены редакцией 3, номера прежних строк не
+сдвинуты, потому что на них ссылаются `tasks.md` и записи ревью), прочие места, названные
+приёмкой (строки 24–27). Решение по каждому.
 
 | № | место | источник | решение | основание |
 |---|---|---|---|---|
@@ -812,16 +876,23 @@ export type ConsoleNotificationsState = "loading" | "enabled" | "disabled" | "un
 | 25 | `ui-future/deploy/templates/ingress.yaml` | приёмка | **не правится**: модулей не перечисляет | M9 |
 | 26 | `.github/workflows/ui.yml`, `.github/workflows/console-e2e.yml` | приёмка | **правится**: `STANDALONE`, матрица `test` (`pkg`), матрица `build` (`project`), имя задания `typecheck` (число пакетов); шаг предпосылки DoD 13 | DoD 9, DoD 13, M10 |
 | 27 | `deploy/helm/umbrella/values.*.yaml`, закрепляющие образы модулей консоли (M11) | приёмка | **правится**: `uif.notify.image` в каждом профиле, чья цепочка рендерит модуль (флаг `true`), тем же видом закрепления, что соседи; достижимость образа — существующий гейт `published_image_pin_is_reachable` | З19 |
+| 28 | `ui-future/shared/src/test/iam-pages-authz-single-source.test.ts:33` (`CONSOLE_APPS`) | M2 | **правится**: `notify` внесён. Все три ветки гейта с ним зелёные: каталога `notify/src/pages/iam` нет (форка экранов доступа нет); маршрута `path="/iam…"` в `notify/src` нет; литерального перехода `navigate("/iam…")`/`to="/iam…"`/`href="/iam…"` нет — адрес карточки службы доступа строит только `resourceDetailHref` в `shared` (З12, И11). Экран контактов читает пользователей через `@shared/api/iam` и поверхности управления доступом не заводит; условие к коду модуля — литерального пути `/iam` в `notify/src` нет | M2, З12, З13 |
+| 29 | `ui-future/shared/src/components/organisms/form/ResourceIcon/ResourceIcon.registry.test.ts:27` (`CONSOLE_APPS`) | M2 | **правится**: `notify` внесён. Реестра `resource-registry*` в `notify/src/lib` нет — модуль спек ресурсов не объявляет (карточка и спеки остаются в реестрах `shared` и модулей, §4), обход каталог пропускает, нижний порог «≥ 5 реестров» не меняется; внесение делает будущий реестр модуля судимым, а не молча выпавшим | M2, §4 |
+| 30 | `ui-future/shared/src/lib/spec-columns.bool-labels.test.ts:27` (`CONSOLE_APPS`) | M2 | **правится**: `notify` внесён — то же основание, что строка 29: реестра у модуля нет, колонок с форматом `bool` модуль не объявляет | M2, §4 |
+| 31 | `ui-future/shared/src/test/ui-chart-remote-entry-cache.test.ts:38` (`REMOTES`) | M2 | **правится**: `"notifyName"` внесён. Проба читает объявление шаблона, а не рендер; блок раздачи модуля (`{{ include "ui.notifyName" . }}-nginx`) объявлен в `configmap-nginx.yaml` под условием флага (З3, З4) и судится при любом значении флага: правило `remoteEntry.js` с `no-cache` стоит до общего правила для `js` | З3, M2 |
+| 32 | `ui-future/shared/src/test/module-test-setup-single-source.test.ts` (`EXCUSED`) | M2 (перечень освобождённых) | **не правится**: это перечень освобождений (`host`, `dashboard`), а не модулей; `notify` судится обходом каталога. Условие к каркасу модуля (S1): `notify/jest.config.cjs` несёт `setupFilesAfterEnv: ["<rootDir>/../shared/src/test/setup.ts"]`, своего `src/test/setup.ts` нет — как у `nlb` | M2, M10 |
 | — | `ui-future/dashboard/**`, `vpc`, `compute`, `storage`, `nlb`, `registry`, `iam`, `system` | — | исходники **не** правятся; образы пересобираются, потому что `shared` компилируется в бандл (карточка, Р17) | §1.8 приёмки |
 | — | `ui-future/dev-federation.sh` | — | **не** правится: состав выводит из `host/vite.config.ts` | чтение скрипта |
 
 Предикат полноты строк 1–15 — команда M1 на `1d42a6728bf`: 15 путей, каждый назван в таблице.
+Строки 21, 22, 28–31 — шесть перечней руками по команде M2 (16 попаданий, разобраны в M2),
+каждый с решением; строки 23 и 32 — гейты обходом, решение «не правится» с основанием.
 Строки 16–20 — пять мест предиката M13 по образцу `nlb`, каждое с решением; место по образцу
 модуля, не названное здесь, — находка рецензента диффа.
 
 ## 11. Отображение пунктов разбора в решения
 
-Каждый пункт первичного разбора на `47bd8b70` и пересверки на `7613071f` → решение замысла →
+Каждый пункт первичного разбора на `47bd8b70` и пересверок на `7613071f` и `deeea79a` → решение замысла →
 механизм → держатель.
 
 | пункт | решение | механизм | держатель |
@@ -836,7 +907,7 @@ export type ConsoleNotificationsState = "loading" | "enabled" | "disabled" | "un
 | CX6-07 | З12 | `isPlatformId` до `ResourceLink` | `id-form.test.ts`, NTF6-16 |
 | CX6-08 | З6, З10, З13 | полный обход подписок и пользователей **аккаунта**; перечитывание после отказа (условие — CX6-24) | `ResourceDetailExtensions.test.tsx`, `NotificationContactsPage.test.tsx` |
 | CX6-09 | З8, Е5 | при `done = true` опроса нет; `done = false` — общий путь, отказ показан отказом; маршрут края — заказ NTF-3 | `notify.test.ts`; NTF6-27, 36, 38, 43, 52 |
-| CX6-10 | §10, З14, И16 | перепись 27 мест: 15 по M1, 5 по образцу модуля M13, 3 тестовых перечня M2, 4 названных приёмкой — с решением по каждому; монтирование обёрткой общей фабрики `NotifyRemote.tsx`, общий исход загрузки — `rememberLoad` | `remote-boundary-coverage.test.ts` (9/9/9), `rememberLoad.test.ts`; DoD 9, 10; остальное — рецензент диффа по §10 |
+| CX6-10 | §10, З14, И16 | перепись 32 мест: 15 по M1, 5 по образцу модуля M13, 8 по M2 (6 перечней руками — строки 21, 22, 28–31 — и 2 гейта обходом — строки 23, 32), 4 названных приёмкой — с решением по каждому; монтирование обёрткой общей фабрики `NotifyRemote.tsx`, общий исход загрузки — `rememberLoad` | `remote-boundary-coverage.test.ts` (9/9/9), `rememberLoad.test.ts`; пробы строк 21, 22, 28–31 зелёные с `notify` в переписи; DoD 9, 10; остальное — рецензент диффа по §10 |
 | CX6-11 | З13 | одно состояние загрузки; подстановки пустого нет | `NotificationSettingsPage.test.tsx` |
 | CX6-12 | З13 | `:setEntries` из разницы по `SWITCHABLE` | NTF6-27, 28, 31; `NotificationSettingsPage.test.tsx` |
 | CX6-13 | З15 | меняется только значение константы | DoD 12 |
@@ -848,12 +919,13 @@ export type ConsoleNotificationsState = "loading" | "enabled" | "disabled" | "un
 | CX6-19 | З10 | кэш провайдера страницы, `staleTime: Infinity`; сброс событием (слушатель — CX6-20) | `ResourceDetailExtensions.test.tsx` |
 | CX6-20 | З10, И15 | слушатель `NOTIFY_SUBSCRIPTIONS_EVENT` — хук `useNotifySubscriptionsSync` внутри провайдера с отпиской при размонтировании; событие без данных; отправитель инвалидирует свой ключ тем же слушателем. Та же форма у слушателей `useUnreadPoll` (З9) | `ResourceDetailExtensions.test.tsx` «перемонтирование», `useNotifySubscriptionsSync.test.tsx` «слушателей 0» |
 | CX6-21 | З2 п.1, п.6, И12 | четыре состояния, `switch` с проверкой `never` у каждого читателя; `loading` — ни названной страницы, ни перевода на панель, ни кнопки; имя `unreadable` вместо `unread` | `App.test.tsx` «`loading`», `tsc`, `console-config.test.ts` |
-| CX6-22 | З6, И13 | `ResponseShapeError` без `status`, не `ApiError`; ветка `presentError` → `"500"` и текст отказа данных; `notifyQueryRetry` — без повтора на отказ формы | `error-presentation.test.ts`, `notify.test.ts` |
+| CX6-22 | З6, З13, И13 | `ResponseShapeError` без `status`, не `ApiError`; ветка `presentError` → `"500"` и текст отказа данных; `notifyQueryRetry` — без повтора на отказ формы; умолчание клиента запросов модуля `createNotifyQueryClient()` — `notifyQueryRetry`, поэтому и обход пользователей экрана контактов не повторяется (условие пересверки `deeea79a`) | `error-presentation.test.ts`, `notify.test.ts`, `queryClient.test.ts`, `NotificationContactsPage.test.tsx` «обход — без повтора» |
 | CX6-23 | З9, И14 | выбор (а): отмены нет, `client.ts` не правится; устаревший цикл отбрасывается сравнением поколения на ветке успеха и на ветке отказа | `unread-poll.test.ts` «отказ устаревшего цикла не меняет значок» |
 | CX6-24 | З13, §9 | `listAllAccountUsers(accountId)` — `accountId` обязательный аргумент, пустой отвергается до запроса; каждый запрос обхода несёт `accountId` | `NotificationContactsPage.test.tsx` «запрос несёт `accountId`», проба `iam.ts` «пустой — запросов 0» |
+| CX6-25 | З14, И17 | `rememberLoad`: обработчики исхода вешаются тем же синхронным вызовом, что кладёт обещание; снятие и публикация — только при `stored === p`; состояния подписчика `pending`/`available`/`unavailable`, кнопка рейла ветвится по ним исчерпывающе (`pending` — без признака недоступности) | `rememberLoad.test.ts` «вызовов загрузчика 2, последовательность `pending → unavailable → pending → available`», `HostRail.test.tsx` «`pending`» и «`unavailable`»; ветка идентичности недостижима через `load()` — рецензент диффа (предел — З14) |
 
-Неотображённых пунктов нет: 24 из 24 (CX6-01…19 первичного разбора и CX6-20…24 пересверки;
-CX6-06 — двумя строками).
+Неотображённых пунктов нет: 25 из 25 (CX6-01…19 первичного разбора, CX6-20…24 пересверки
+`7613071f`, CX6-25 пересверки `deeea79a`; CX6-06 — двумя строками).
 
 ## 12. Что замысел не делает
 
@@ -869,5 +941,5 @@ CX6-06 — двумя строками).
 
 ## 13. Открытые решения
 
-Нет. Решения З1–З19 приняты; выбор по CX6-23 сделан (вариант (а)); зависимости Е2–Е5 —
+Нет. Решения З1–З19 приняты (З6, З13, З14 уточнены редакцией 3); выбор по CX6-23 сделан (вариант (а)); зависимости Е2–Е5 —
 предметы соседей с названным предикатом снятия, а не открытые решения этого замысла.
