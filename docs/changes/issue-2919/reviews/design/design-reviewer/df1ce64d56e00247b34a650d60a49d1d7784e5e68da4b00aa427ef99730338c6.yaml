@@ -1,0 +1,120 @@
+# Запись ревью замысла issue-2919 (NTF-4) ролью design-reviewer — отпечаток df1ce64d… (редакция 7).
+#
+# Прежняя запись роли — 80dea362….yaml (редакция 5, ⛔ по К1, коммит 5f8bb9496). Эта запись судит
+# дельту 0ea674482..ac0cc65a5 (редакции 6 и 7) против находок К1, М1–М3 и механизмы, которые дельта
+# внесла (сеанс вне такта, срок попытки контрольного письма), плюс оси, закрытые прежней записью,
+# на предмет того, не сломала ли их дельта. Запись не правится: сменился отпечаток — новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2919
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  fingerprint_matches_task: true   # перемерено на ветке issue-880 @249409337; design.md последним менял ac0cc65a5
+  revision: 7
+previous_record: docs/changes/issue-2919/reviews/design/design-reviewer/80dea36282ddce4b3a0ca7419b603949a20b93b426803ed1a0a838718fd05b28.yaml
+class_exposure:
+  revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6.yaml
+  revalidation_on_current_fingerprint: true   # коммит 249409337, clean=true
+revisions:
+  workspace: 249409337fce93815f7d3b92e585af1098600a7f
+  delta: 0ea674482..ac0cc65a5 -- docs/changes/issue-2919/design.md
+snapshot_at: 2026-09-30
+
+inspected: >-
+  git diff 0ea674482 ac0cc65a5 -- design.md целиком (шапки редакций 6, 7; З7 порядок сеанса и срок
+  сетевой операции; З11 порядок такта, жизненный цикл горутины сеанса, ReadCommitted, таймеры вне
+  такта; З12 срок попытки; З13 feedback_stale; З14 срок DNS; З17 OrphanGrace; З23; И24; §7 п.3;
+  §8; §11 CX4V-66, 67; строки Д26 · 7–9; §11а УК4-37…40); design.md:540-566 (сеанс, независимое
+  продление, io.LimitReader(MAX_MESSAGE_BYTES + 1)); приёмка редакции 22 строки 1363-1377 (границы
+  Р16: LEASE_TTL ≥ max(30 с, 2 × POLL_INTERVAL)).
+
+prior_findings:
+  К1: >-
+    закрыто. Срок на каждую сетевую операцию POP3 (Dial, TLS, семь команд, продление на прогрессе
+    RETR) — pop3.opTimeout 10 с ≤ наименьшего LEASE_TTL / 3, реальное время; срабатывание закрывает
+    соединение без QUIT и гасит независимое продление. Сеанс вынесен из такта, признаки считает
+    такт, поэтому feedback_stale поднимается при зависшем сеансе (УК4-37 (б)). canary.Send под
+    сроком min(smtp.sessionTimeout, LEASE_TTL / 3) (УК4-38 с инъекцией и близнецом). «Капающий»
+    сервер ограничен io.LimitReader на сообщение и перечнем UIDL — цена конечна и названа.
+  М1: закрыто — З11 называет два таймера вне такта и сериализацию строчным замком feedback_lease.
+  М2: закрыто — reconcileOrphanGrace 5 мин явно в корне, строго больше верхней границы HANDLING_BUDGET 60 с; контекст обработчика в RunSync не отвязывается (УК4-39).
+  М3: закрыто — dnscheck.queryTimeout 5 с; отмена родителя исходом не считается (близнец УК4-40).
+
+axes:
+  atomicity_no_dual_write: закрыто; дельта транзакционных границ не меняет.
+  idempotency: >-
+    закрыто; обрыв по сроку после коммита и до QUIT оставляет сообщение в ящике, повтор даёт
+    duplicate по дайджесту (Р14).
+  atomic_and_optimistic_concurrency: >-
+    закрыто. Сеанс и такт теперь пересекаются на каждом такте; явный ReadCommitted у всех
+    транзакций держателя делает утверждение о строчном замке истинным (под repeatable read было бы
+    40001), держатель УК4-37 (г) с инъекцией умолчания роли.
+  change_delivery_polling: закрыто; не затронуто.
+  workers_and_reconcilers: >-
+    закрыто. Горутина сеанса не больше одной, признак «сеанс идёт» снимает она сама, новый сеанс
+    после смены эпохи не стартует до выхода прежнего; работа держателя ждёт обе горутины, пул
+    закрывается после (УК4-37 (в)). Разрыв продлений без сеанса ≤ POLL_INTERVAL + LEASE_TTL / 3 ≤
+    LEASE_TTL / 2 + LEASE_TTL / 3 < LEASE_TTL по границе Р16 (LEASE_TTL ≥ 2 × POLL_INTERVAL) —
+    выводится, но в замысле не выписан (М5).
+  inter_service_edges: закрыто; новых рёбер дельта не вводит.
+  replica_state_isolation: закрыто; не затронуто.
+  edge_ban6: закрыто; не затронуто.
+  clean_architecture: >-
+    закрыто; canary.AttemptTimeout вычисляется один раз в корне cmd/notify и передаётся в пакет —
+    связывание в композиционном корне.
+  d28_drop_approval_path: закрыто прежней записью; дельта строку Д26 · 4 не меняет.
+
+verdict: APPROVED     # ✅ принято
+blocks: false
+return_to: —
+distributed_surface: true
+schema_review_overlap: true   # аренда-CAS, ReadCommitted транзакций держателя, pg_advisory_lock мигратора, условный DELETE
+
+critical: []
+
+important: []
+
+minor:
+  - id: М4
+    coordinate: design.md З7 «Независимое продление» (строка 555 «Соединение — своё, из пула»), З11 строки Д26 · 7 (4)–(7)
+    finding: >-
+      С редакции 6 держатель одновременно держит до четырёх соединений (независимое продление,
+      транзакция сообщения сеанса, транзакция такта, партия подметальщика) плюс пути писем NTF-1 на
+      том же пуле. Размер пула и срок захвата соединения для продления не названы; при исчерпании
+      пула продление ждёт захвата, и аренда может уйти. Безопасность держит эпоха в условии фиксации,
+      страдает только живость (лишняя смена держателя).
+    requirement: >-
+      Назвать в handoff S1-A3 / S1-A5: захват соединения независимым продлением — под сроком не
+      больше LEASE_TTL / 3, наименьший размер пула сверен с числом одновременных соединений
+      держателя. Не блокирует.
+  - id: М5
+    coordinate: design.md З11 «Порядок в такте, сеанс вне такта»; §8
+    finding: >-
+      Граница «аренда без сеанса доживает до следующего такта» держится неравенством
+      POLL_INTERVAL + canary.AttemptTimeout < LEASE_TTL, которое выводится из Р16 (LEASE_TTL ≥
+      2 × POLL_INTERVAL) и min(…, LEASE_TTL / 3), но нигде не выписано; при будущей правке любой из
+      трёх величин его не увидит ни текст, ни проба.
+    requirement: Выписать неравенство в З11 рядом с И24 тем же заходом, что следующая правка замысла. Не блокирует.
+
+orders:
+  - кому: db-architect-reviewer
+    что: >-
+      Пересечение со схемой на отпечаток df1ce64d (записи роли нет): §6, CAS аренды и сериализация
+      транзакций держателя замком строки при явном ReadCommitted, pg_advisory_lock мигратора с
+      lock_timeout 5m, Establish, DROP TABLE recipient_key_fence и dropguard.json.
+  - кому: integration-tester
+    что: Пробы УК4-37 (а)–(г), УК4-38, УК4-40 заказаны замыслом с инъекциями и близнецами; нового заказа нет.
+
+next: >-
+  db-architect-reviewer — на отпечаток df1ce64d, если пересечение со схемой не судилось; затем
+  convergence-reviewer / DESIGN_APPROVED по маршруту диспетчера.
