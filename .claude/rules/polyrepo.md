@@ -54,6 +54,12 @@ poly-owners-list-closed · пустое значение = «не объявле
 poly-two-dictionaries · называет словарь (proto-пакет или каталог чарта) и сверяется с тем, который читает код · ЗАВЕСТИ poly-two-dictionaries · red: имя из чужого словаря → отказ старта края
 poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A; новое ребро фиксируется перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
 
+### Рёбра службы уведомлений `notify` (эпик kacho#2914; строки таблицы рёбер выполнения `docs/specs/01-architecture-and-services.md` вносит её автор, NTF-1 З7)
+
+poly-edge-notify-sources · `notify` зовёт каждый модуль-источник своего закрытого перечня (адрес + точный SAN): `Subscribe` на вид `notification` и `Claim`/`Ack` его ленты; источники — kaname (NTF-1) и модули kacho, которые перепись NTF-3 назвала подключёнными (на 2026-09-30 — storage); у модуля «не подключается» ребра нет · ЗАВЕСТИ poly-edge-notify-sources · red: notify зовёт модуль вне перечня; источник зовёт notify
+poly-edge-notify-kaname · ребро `notify → kaname` несёт подписку и ленту kaname-источника, `ResolveSend` на каждое письмо, справочник подтверждённых адресов (NTF-3) и `Check` снятия подавления (NTF-4); вызовов `kaname → notify` нет · ЗАВЕСТИ poly-edge-notify-kaname · red: клиент notify в дереве kaname — кольцо `notify ⇄ kaname`
+poly-edge-notify-acyclic · утверждение ацикличности: входящих вызовов от служб у `notify` нет — отправка идёт только лентой источника, а внутреннюю поверхность NTF-4 (`InternalSuppressionService`) зовёт оператор на внутреннем слушателе; вершина без входящих рёбер не лежит ни на одном цикле, поэтому рёбра `notify → *` граф не замыкают · ЗАВЕСТИ poly-edge-notify-acyclic · red: служба-домен, край или kaname держит клиента `notify`
+
 ## Порядок работы для кросс-доменной фичи (топосортировка графа)
 
 poly-verdict-one-recognizer · читается одним распознавателем `scripts/docs-gate/_lib.py:verdict` в обоих домах · check-01 и check-04 · red: APPROVED, которого никто не читает
