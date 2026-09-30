@@ -1,0 +1,237 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (`git status --short` в tmp/issue-880 → `?? docs/specs/sub-phase-NTF-3-…md`).
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 822
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T21:56:08Z'
+round: 1
+previous_rounds: []
+blocking_count: 6
+blocking_kinds_distinct: [CONSTRUCTIBILITY, COVERAGE, NEGATIVE, FORMAT, CONVENTION]
+blocking_kinds_by_item:
+  - B1-1 CONSTRUCTIBILITY
+  - B1-2 COVERAGE
+  - B1-3 NEGATIVE
+  - B1-4 COVERAGE
+  - B1-5 FORMAT
+  - B1-6 CONVENTION
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d473742c → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает; тело события для курьера —
+    полем `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1, блокирующих 6) ·
+    SHA-256 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+
+measurement:
+  revisions_used:
+    kacho_origin: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+    kaname_epic_branch: origin/357@734f69fb4
+  scenario_census:
+    predicate: "grep -oE 'ID:\\*\\* NTF3-[0-9]+' <док> | sort -u | wc -l"
+    total: 40
+    unique: 40
+    duplicates: 0
+  producer_coverage:
+    claimed_by_doc: "40 из 40 (§10)"
+    reviewer_note: >-
+      Строки §10 покрывают все ID диапазонами; но производитель NTF3-18 («срок реакции,
+      объявленный NTF-1») ссылается на документ, которого в дереве нет
+      (`ls docs/specs | grep -i ntf` → только NTF-3 и NTF-4) — см. B1-5.
+  twin_coverage:
+    negatives_in_table: 26
+    twins_named: 26
+    reviewer_note: >-
+      Близнец назван у всех, но у NTF3-24/25/26 назван NTF3-23 (прямой вызов Resolve), тогда как
+      их When — обработка строки; законный близнец в одно изменение — NTF3-15. NTF3-16 против
+      NTF3-15 меняет два факта (имя шаблона и путь вставки мимо генератора). Не блокирует —
+      правильные близнецы в документе есть, неверна только ссылка.
+  constructibility:
+    seeded: 0
+    of_nontrivial_givens: 9
+    verified_by_named_fixture: 7
+    refuted_by_tree: 1
+    not_performed: 1
+    detail:
+      - "фейковый бэкенд с инъекцией по имени глагола и полосе исхода — существует: services/storage/internal/blockbackend/fake/faults.go (FailVerb(verb, outcome)) @1d42a6728bf — подтверждено"
+      - "v_get на storage_* — прямой, материализуется из привязки через resource_mirror (services/storage/internal/fgaregister/fgaregister.go:4-19; kaname fga_model.fga:1363-1397 @734f69fb4); прямого кортежа создателя storage не пишет → NTF3-24 (снятие привязки снимает v_get) конструируем — подтверждено"
+      - "email_verified_at и его сброс при смене адреса — kaname 20260915111233_…sql:96,105 @734f69fb4 → NTF3-25 конструируем — подтверждено"
+      - "NTF3-06 (и наследующие «как NTF3-06»): AVAILABLE + терминальный отказ глагола → BACKEND_REJECTED — ОПРОВЕРГНУТО деревом, см. B1-1"
+      - "NTF3-38 (посев на стенде функцией SendVolumeError) — НЕ ВЫПОЛНИЛОСЬ: стенда и разрешения на посев в задании нет; фикстура посева документом не названа"
+
+premise_check:
+  claim: "задание: судить редакцию 4a6b9c14… круг 1; решения диспетчера не переоткрывать"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a; wc -l → 822"
+    - "git -C project/kacho show origin/main:services/storage/internal/reconciler/decide.go (стр. 101-161)"
+    - "git -C project/kacho grep -n 'rpc ' origin/main -- proto/kacho/cloud/storage/v1/*_service.proto"
+  doc_facts_rechecked:
+    - "§1.2 compute: производителей ERROR/CRASHED нет — подтверждено (git grep -ohE 'InstanceStatus[A-Z][a-z]+' … → Deleting/Provisioning/Running/Stopped/Unspecified)"
+    - "§1.2 nlb: 0 производителей UNHEALTHY — подтверждено"
+    - "§1.2 storage MarkError: store.go:246-261, WHERE state <> 'DELETING'; loop.go:312 (vanished), :376 (terminal) — подтверждено"
+    - "§1.2 словарь причин шесть значений — подтверждено (observed.go:63-69)"
+
+blocking_findings:
+  - id: B1-1
+    kind: CONSTRUCTIBILITY
+    scenarios: [NTF3-06, NTF3-07, NTF3-08, NTF3-10, NTF3-11, NTF3-12, NTF3-13, NTF3-14]
+    title: >-
+      Given NTF3-06 «том AVAILABLE + терминальный отказ глагола, который сверщик исполнит →
+      statusReason=BACKEND_REJECTED» деревом не строится; «то же для снимка и образа» — тем более.
+    evidence: >-
+      reconciler/decide.go:135-152 @1d42a6728bf: у AVAILABLE/IN_USE сверщик исполняет глагол
+      бэкенда ТОЛЬКО при недоехавшем увеличении размера (ActionResize); иначе ActionNone, либо
+      ActionReportVanished без вызова глагола → MarkError(PRECONDITION_FAILED) (loop.go:312).
+      Глагол с терминальным исходом → BACKEND_REJECTED исполняется у CREATING (ActionProvision,
+      loop.go:376 → ReasonFor). У снимка и образа состояния CREATING/READY/DELETING/ERROR
+      (snapshot.proto:21-30, image.proto:35-44) — AVAILABLE нет, изменения размера нет.
+    required: >-
+      Переписать Given на реально производимые переходы: CREATING → ERROR (терминальный отказ
+      CreateVolume/CreateSnapshot/CloneVolume/CopySnapshot → BACKEND_REJECTED) для всех трёх
+      типов; при желании — второй путь AVAILABLE/READY → ERROR через пропажу объекта
+      (PRECONDITION_FAILED) и путь изменения размера тома. Таблицу близнецов §8 (NTF3-07/08
+      «AVAILABLE») поправить тем же изменением.
+  - id: B1-2
+    kind: COVERAGE
+    scenarios: [NTF3-09, NTF3-10]
+    title: >-
+      Р13 перечисляет глаголы намерения не полностью: строки ресурса рождают ещё Snapshot.Copy,
+      Image.Copy и InternalImageService.Register; что пишется в intent_initiator на них — не сказано,
+      ограничение колонки не определено, производитель Given NTF3-09 не назван.
+    evidence: >-
+      snapshot_service.proto:93 `rpc Copy`, image_service.proto:117 `rpc Copy`,
+      internal_image_service.proto:53 `rpc Register` (system_admin @ cluster, образ вносит
+      оператор установки в проект арендатора) @1d42a6728bf. Для Register инициатор — оператор, а
+      не арендатор: письмо о пропаже зарегистрированного образа уйдёт оператору либо не уйдёт
+      никому. NTF3-09 требует строку без инициатора «созданную до изменения схемы», а Р9-а
+      (прода нет, без обратного заполнения) такой строки в живой установке не оставляет.
+    required: >-
+      Назвать intent_initiator для каждого глагола, рождающего или меняющего строку (включая Copy
+      и Register) и решение о получателе для Register; объявить ограничение колонки на уровне БД
+      (NOT NULL / CHECK), и тогда либо назвать живой путь, дающий пустого инициатора (он и есть
+      Given NTF3-09), либо снять NTF3-09 и ветку `no_initiator` как мёртвые. Сценарии на Copy и
+      Register.
+  - id: B1-3
+    kind: NEGATIVE
+    title: >-
+      У двух из пяти исходов Р10 нет сценария: `UNAVAILABLE`/срок (DEFER, fail-closed, «срок
+      строки не продлевается») и `SUBJECT_NOT_FOUND` (NO_ADDRESS(subject_gone)).
+    evidence: >-
+      §9 группы C–E: сценарии на ADDRESS (23), AUDIENCE_DENIED (24), NO_CONFIRMED_ADDRESS (25, 26);
+      на недоступность службы доступа и на удалённого субъекта — ни одного. Чек-лист требует
+      UNAVAILABLE peer fail-closed.
+    required: >-
+      Добавить: служба доступа недоступна → строка DEFER, 0 SMTP-сессий, expires_at не сдвинут,
+      после восстановления доставлена; недоступность дольше 24h → EXPIRED. Субъект удалён между
+      постановкой и доставкой → NO_ADDRESS(subject_gone), счётчик. Каждый с близнецом NTF3-15.
+  - id: B1-4
+    kind: COVERAGE
+    title: >-
+      Лимит на проект (Р14: 200 писем в час) объявлен и не имеет ни одного сценария; проверен
+      только лимит на получателя (NTF3-13/14).
+    required: >-
+      Пара сценариев 200-е/201-е письмо проекту за час от разных получателей (каждый ниже своего
+      лимита); переход ресурса коммитится, reason="limit" с различимой меткой уровня лимита.
+  - id: B1-5
+    kind: FORMAT
+    scenarios: [NTF3-18, NTF3-30, NTF3-17]
+    title: >-
+      «Тогда» без конкретного наблюдаемого значения.
+    evidence: >-
+      NTF3-18 — «в пределах срока реакции, объявленного NTF-1»: приёмки NTF-1 в дереве нет
+      (`ls docs/specs | grep -i ntf` → NTF-3, NTF-4), число не определено, утверждение упасть не
+      может. NTF3-30 — «пара HTTP-статус + code утверждается по таблице края» без самих значений.
+      NTF3-17 — «соединение отвергается» без наблюдаемого исхода (код/ошибка рукопожатия/метрика с
+      именем).
+    required: >-
+      NTF3-18: назвать границу числом здесь (либо сослаться на NTF-1 по отпечатку, когда он будет).
+      NTF3-30: выписать пару (HTTP-статус, code) из таблицы края. NTF3-17: назвать исход и имя
+      счётчика.
+  - id: B1-6
+    kind: CONVENTION
+    title: >-
+      Новые runtime-рёбра notify→storage (лента) и notify→kaname (справочник Resolve) не
+      фиксируются в таблице рёбер спеки; DoD называет только записи vault.
+    evidence: >-
+      docs/specs/01-architecture-and-services.md:44-57 — таблица runtime cross-domain edges и норма
+      «Новое ребро фиксируется…»; правило data-integrity `new-edge-in-polyrepo`, polyrepo
+      `poly-acyclicity-statement`. В документе строки 175 и 804 — только упоминание и vault.
+    required: >-
+      Пункт DoD S2: строки рёбер в таблице 01 с назначением и утверждением ацикличности
+      (storage и kaname notify не зовут).
+
+non_blocking_findings:
+  - kind: TWIN
+    text: >-
+      §8: у NTF3-24/25/26 близнец — NTF3-15 (обработка строки), а не NTF3-23 (прямой Resolve);
+      NTF3-16 против NTF3-15 меняет два факта — дать близнеца, где строка `volume-error` тоже
+      вставлена прямой вставкой.
+  - kind: COVERAGE
+    text: >-
+      decide.go:154-159: ERROR при здоровом объекте возвращается в строй (ActionConfirm). Значит
+      цикл ERROR → AVAILABLE → ERROR даёт по Р15 второе письмо. Сказать это явно и закрыть
+      сценарием (второе письмо ставится; лимит его ограничивает).
+  - kind: CONVENTION
+    text: >-
+      intent_initiator — субъект арендатора в строке ресурса: утвердить, что он не выходит в
+      публичную проекцию Get/List (security `sec-two-projections`), либо сказать, где выходит.
+  - kind: NEGATIVE
+    text: >-
+      Р11: `reader` на справочнике выдаётся строкой манифеста самого notify. Нужен отрицательный
+      сценарий «манифест иного модуля объявляет ту же выдачу → судья манифеста отвергает», иначе
+      Check справочника сводится к «кто написал манифест» и держится одним списком SAN.
+  - kind: SCOPE
+    text: >-
+      Введение не ссылается на 04-roadmap §3; в спеке-книге требований к нотификациям нет.
+      Назвать источником scope требования владельца 2026-09-29/30 и эпик #2914 явно.
+  - kind: FACT
+    text: >-
+      NTF3-08 опирается на `WHERE state <> 'DELETING'` (store.go:258), а публичная страница
+      storage volume.mdx:376 обещает «DELETING, затем ERROR с BACKEND_REJECTED» при отказе
+      снятия. Одна из двух сторон ложна; к этой приёмке не относится, но кандидат на находку.
+
+method_verdict: >-
+  Посев не выполнялся (стенда и разрешения нет). Конструируемость проверена чтением дерева
+  производителя перехода: одна Given опровергнута (B1-1), семь подтверждены названными
+  фикстурами, одна (NTF3-38) — «не выполнилось».

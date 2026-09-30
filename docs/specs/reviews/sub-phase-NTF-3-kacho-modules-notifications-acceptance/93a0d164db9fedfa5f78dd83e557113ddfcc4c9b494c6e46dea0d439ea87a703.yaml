@@ -1,0 +1,220 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Документ не закоммичен (`git status --short` в tmp/issue-880 → `?? docs/specs/sub-phase-NTF-3-…md`).
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1122
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T22:12:13Z'
+round: 2
+previous_rounds:
+  - round: 1
+    sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+    verdict: CHANGES_REQUESTED
+    blocking_count: 6
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a.yaml
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, PRODUCER]
+blocking_kinds_by_item:
+  - B2-1 CONSTRUCTIBILITY
+  - B2-2 PRODUCER
+  - B2-3 PRODUCER
+repeated_kinds:
+  - kind: CONSTRUCTIBILITY
+    rounds: [1, 2]
+    note: >-
+      Род повторился. По §14а диспетчера — перенос в форму задания автора: каждое Given о
+      сверщике storage предъявляется с доказательством, что строка попадает в рабочий набор
+      сверщика (`Drifted`, предикат `state <> observed_state`), а не только что ветка `Decide`
+      существует.
+
+round1_closure:
+  B1-1: "частично: П1 (CREATING → ERROR) переписан верно для трёх типов; но введённые взамен П4/П5 на сошедшейся строке деревом не производятся — B2-1"
+  B1-2: "по форме закрыто (Copy, Register, NOT NULL + CHECK, NTF3-09 переписан как утверждение ограничения); ветка Register упирается в B2-1"
+  B1-3: "закрыто: NTF3-46, NTF3-47, NTF3-48"
+  B1-4: "закрыто: NTF3-49 с меткой scope"
+  B1-5: "NTF3-18 (t0 + 5 s) и NTF3-17 (счётчик, 0 вызовов Claim) — закрыто; NTF3-30 — значения названы, но пара неверна — B2-2"
+  B1-6: "закрыто: DoD 5в"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d473742c → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает; тело события для курьера —
+    полем `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2, блокирующих 3) ·
+    SHA-256 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+
+measurement:
+  revisions_used:
+    kacho_origin: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
+    kaname_epic_branch: origin/357@734f69fb4
+    neighbour_ntf1_acceptance_sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* NTF3-[0-9]+' <док> | sort -u | wc -l"
+    total: 51
+    unique: 51
+  producer_coverage:
+    claimed_by_doc: "51 из 51 (§10)"
+    reviewer_note: >-
+      Строки §10 покрывают все ID. Но у NTF3-30 названный производитель («обработчик маршрутизации
+      по умолчанию») ответа не производит — ответ даёт авторизующая прослойка края (B2-2); у
+      NTF3-07 заявлен «счётчик вызовов фейка», которого в дереве нет (B2-3).
+  twin_coverage:
+    rows_in_table: 34
+    reviewer_note: >-
+      Близнецы по кругу 1 поправлены (NTF3-24/25/26 → NTF3-15; NTF3-16 — близнец внутри).
+      Близнецы NTF3-10/NTF3-42/NTF3-51 наследуют неконструируемость B2-1.
+  constructibility:
+    seeded: 0
+    of_nontrivial_givens: 14
+    verified_by_tree: 7
+    refuted_by_tree: 5
+    caveat: 1
+    not_performed: 1
+    detail:
+      - "NTF3-06 (П1 ×3): CREATING/ABSENT в рабочем наборе; provision → CreateVolume / CreateSnapshot / CloneVolume (loop.go provision) → fail → MarkError(BACKEND_REJECTED) — подтверждено"
+      - "NTF3-07 первая часть: ERROR/ABSENT в рабочем наборе, Decide → ActionNone — подтверждено; но Observe вызывается (B2-3)"
+      - "NTF3-08 (П6): DELETING → Remove → терминальный отказ → MarkError WHERE state<>'DELETING' → 0 строк — подтверждено (store.go:256-257)"
+      - "NTF3-11 (П2): Terminal=ложь → MarkError не зовётся — подтверждено (loop.go fail)"
+      - "NTF3-43: копия снимка и копия образа обе идут глаголом CopySnapshot (loop.go provision, SourceIsSnapshot / SourceIsCopy) — подтверждено"
+      - "NTF3-24, NTF3-25: подтверждено в круге 1, предмет не менялся"
+      - "NTF3-10, NTF3-42 (П5), NTF3-41 (П4), NTF3-45 (вторая половина, П4 после П7), NTF3-44 (Register → П4) — ОПРОВЕРГНУТО деревом, B2-1"
+      - "NTF3-48: UserService.Delete отказывает, если пользователь владеет аккаунтом (user_service.proto:195-198 @734f69fb4); G0 не говорит, кто владелец аккаунта prj-1 — оговорка, не блокирует"
+      - "NTF3-38: НЕ ВЫПОЛНИЛОСЬ — стенда и разрешения на посев в задании нет"
+
+premise_check:
+  claim: "задание: судить редакцию 93a0d164… круг 2; решения диспетчера не переоткрывать"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703; wc -l → 1122"
+    - "git -C project/kacho show 1d42a6728bf:services/storage/internal/reconciler/{decide,loop,store}.go"
+    - "git -C project/kacho grep -nE 'observed_state' 1d42a6728bf -- 'services/storage/*.go' 'services/storage/*.sql' ':!*_test.go'"
+    - "git -C project/kacho grep -lE 'ResizeVolume\\(' 1d42a6728bf -- 'services/storage/*.go' ':!*_test.go'"
+    - "git -C project/kacho show 1d42a6728bf:gateway/internal/middleware/{authz.go,authz_util.go,permission_denied_response.go}; main.go:1288-1289"
+
+blocking_findings:
+  - id: B2-1
+    kind: CONSTRUCTIBILITY
+    scenarios: [NTF3-10, NTF3-41, NTF3-42, NTF3-44, NTF3-45, NTF3-51]
+    title: >-
+      Переходы П4 и П5 на сошедшейся строке сверщик не производит: строка READY с
+      observed_state=READY в его рабочий набор не попадает. У образа, внесённого Register, нет и
+      координаты бэкенда — сверщик такую строку не наблюдает вовсе.
+    evidence: >-
+      @1d42a6728bf: рабочий набор прохода — только `WHERE r.state <> r.observed_state`
+      (reconciler/store.go:133, loop.go:162 `Drifted`); Confirm пишет `state='READY',
+      observed_state='READY'` (store.go:194); рост размера — `UPDATE volumes SET size_bytes …
+      WHERE … state = 'READY'` без касания observed_state (repo/pg/volume_repo.go:627-634);
+      Register вставляет `state='READY', observed_state='READY'` без `binding_id`
+      (repo/pg/image_repo.go:380-386), а строка без координаты сверщиком не исполняется
+      («row has no backend coordinate», loop.go step). Единственный вызывающий `ResizeVolume` в
+      не-тестовом коде — loop.go (ActionResize). Значит: NTF3-41 «снять объект под READY → один
+      проход → ERROR» даёт 0 переходов; NTF3-10/42 «Update size → проход → ResizeVolume отвергнут»
+      — ResizeVolume не вызывается вовсе; NTF3-45 вторая половина (после П7 снова READY/READY) —
+      0 переходов; NTF3-44 — 0 переходов при любом наблюдении. Таблица §1.8 (П4, П5) и §1.9
+      («Register → только П4») утверждают производимость, которой нет.
+    required: >-
+      Для П4/П5 на томе, снимке и образе: либо построить Given законным путём дерева (строка
+      выходит из сошедшегося состояния: например, предыдущий проход с отказом наблюдения даёт
+      observed_state=UNKNOWN, следующий — наблюдение, и только тогда ветка Decide) и сказать это
+      в §1.8 с координатами, либо объявить, что сегодня переходов П4/П5 на сошедшейся строке нет,
+      и по собственному критерию Р9 не подключать на них письмо, а изменение сверщика (рабочий
+      набор, включающий расхождение размера и периодическое перенаблюдение) назвать отдельным
+      предметом с задачей и предикатом. Ветку Register (Р13, §1.9, NTF3-44): у строки нет
+      координаты бэкенда, переходов 0 — снять письмо о ней как не имеющее производителя либо
+      назвать предмет, который координату заводит. NTF3-51 перевести на конструируемого близнеца.
+    product_defect_note: >-
+      Независимо от приёмки: рост размера тома, принятый операцией (`done=true`), до бэкенда не
+      доходит — строка не попадает в рабочий набор сверщика. Комментарий image_repo.go:374-375
+      («сверщик перепроверит… и переведёт строку в ERROR, если объекта нет») с кодом расходится.
+      Это предмет задачи о корректности storage, не этой приёмки.
+  - id: B2-2
+    kind: PRODUCER
+    scenarios: [NTF3-30]
+    title: >-
+      REST-пара NTF3-30 (HTTP 404, code 5 «Not Found») краем не производится: неизвестный путь
+      отвечает авторизующая прослойка отказом 403 / code 7 до маршрутизатора.
+    evidence: >-
+      @1d42a6728bf: `inner = authzMW.HTTP(inner)` (gateway/cmd/api-gateway/main.go:1288-1289)
+      оборачивает REST-маршрутизатор; для пути без маршрута `resolveRestFQN` возвращает сам путь
+      (middleware/authz_util.go:225-231), каталог его не знает → `outcomeDeny` «catalog: no entry
+      for method» (middleware/authz.go:813-844) → `writeHTTPDeny` пишет 403 (permission_denied_response.go:309-314).
+      Предикат документа (`WithRoutingErrorHandler|WithErrorHandler` → 0) искал не ту прослойку.
+    required: >-
+      Выписать пару, которую край производит (для аутентифицированного вызывающего — 403 и code 7
+      с причиной каталога; для анонимного — измерить и назвать), и производителем в §10 назвать
+      авторизующую прослойку края. Гейт изоляции внутренних методов остаётся вторым утверждением.
+  - id: B2-3
+    kind: PRODUCER
+    scenarios: [NTF3-07]
+    title: >-
+      «вызовов глаголов бэкенда по vol-1 за этот проход 0 (счётчик вызовов фейка)» — неверно для
+      правильного продукта и опирается на прибор, которого нет.
+    evidence: >-
+      Observe — глагол порта (fake/faults.go:31) и вызывается на каждой строке рабочего набора до
+      решения (loop.go:198); строка ERROR/ABSENT в наборе, значит Observe по vol-1 вызван 1 раз.
+      Счётчика вызовов у фейка нет: `git grep -niE 'calls|count' 1d42a6728bf --
+      services/storage/internal/blockbackend/fake/*.go ':!*_test.go'` → 0. Та же неточность в
+      §1.8 П8 («глагол бэкенда не вызывается»).
+    required: >-
+      Утверждать 0 вызовов изменяющих глаголов (CreateVolume, CloneVolume, CopySnapshot,
+      CreateSnapshot, ResizeVolume, Delete*) и 1 вызов Observe; назвать прибор счёта и его
+      производителя в §10 (он заводится в тестовом дереве фейка).
+
+non_blocking_findings:
+  - kind: PRODUCER
+    text: >-
+      `notify_suppressed_total` в NTF-1 (a31661de…) не встречается ни разу; §12 и DoD 5а называют
+      метку `scope` расширением существующей формы. Счётчик заводится здесь — назвать его новым
+      в §10 (строка NTF3-13/14/49) и в DoD 5а.
+  - kind: CONSTRUCTIBILITY
+    text: >-
+      NTF3-48: `UserService.Delete` отказывает FAILED_PRECONDITION, если пользователь владеет
+      аккаунтом. В G0 назвать владельца аккаунта `prj-1` не `usr-A`.
+  - kind: FACT
+    text: >-
+      §1.8 «хранимые состояния CREATING/READY/…; AVAILABLE/IN_USE выводятся» — Decide ветвится по
+      `domain.VolumeStatusAvailable/InUse` после `DeriveStatus(state, false)` (store.go:170), для
+      снимка и образа тоже. Формулировку привести к коду; на предмет не влияет.
+
+method_verdict: >-
+  Посев не выполнялся (стенда и разрешения нет). Конструируемость проверена чтением дерева
+  производителя на всём пути строки: выборка рабочего набора → наблюдение → решение → запись.
+  Круг 1 проверял только ветку решения — отсюда пропуск B2-1 и тем же кругом; урок записан в
+  repeated_kinds.
