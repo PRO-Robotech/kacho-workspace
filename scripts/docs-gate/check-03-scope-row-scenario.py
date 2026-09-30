@@ -41,6 +41,17 @@ Scope и ни одного сценария, а её положение в пе�
 поломка будет громкой. Поэтому отдельной ветки на неё здесь нет: ветка,
 недостижимая по построению, — мёртвый код, а не защита.
 
+Где строка Scope. Строкой Scope считается строка `| F<N> |` ТОЛЬКО внутри
+раздела второго уровня, в заголовке которого стоит слово `Scope` (до следующего
+заголовка первого или второго уровня). Первая ячейка вида `F<N>` встречается и
+в других таблицах: приёмка NTF-1 нумерует сценарии `F02…F19` и сводит их в
+таблицы «сценарий → производитель» и «близнецы» — это ссылки на сценарии, а не
+состав, и при прежнем распознавателе (любая строка документа) они давали
+четырнадцать ложных находок «раздела нет вовсе». Строки `| F<N> |` вне раздела
+Scope не судятся, но СЧИТАЮТСЯ и печатаются переписью: сужение предмета видно
+числом, а документ, чей состав переехал из раздела Scope, переходит в «объявляют
+состав иначе» и тоже виден в переписи.
+
 Исходы: 0 — у каждой строки Scope есть сценарий (или резолвящаяся передача);
 1 — есть строки без сценария (каждая названа координатой); 2 — предмета нет.
 """
@@ -53,8 +64,14 @@ import _lib  # noqa: E402
 
 NAME = "check-03-scope-row-scenario"
 
-# Строка таблицы Scope: первая ячейка — идентификатор фичи `F<число>[буква]`.
+# Строка таблицы с первой ячейкой — идентификатором `F<число>[буква]`. Строкой
+# Scope она становится только внутри раздела SCOPE_HEAD (см. `scope_rows`).
 ROW = re.compile(r"^\|\s*\**\s*(F\d+[A-Za-z]?)\s*\**\s*\|")
+# Заголовок раздела Scope: ровно второй уровень, слово `Scope` целиком. Раздел
+# длится до следующего заголовка первого или второго уровня; подразделы `###`
+# внутри него остаются в разделе.
+SCOPE_HEAD = re.compile(r"^##(?!#)\s.*\bScope\b")
+TOP = re.compile(r"^#{1,2}(?!#)\s")
 # Заголовок раздела фичи. Граница слова не даёт `F7` совпасть с `F7a`, а `F1` — с `F10`.
 HEAD = re.compile(r"^#{2,3}\s*\**\s*(F\d+[A-Za-z]?)\b")
 LVL2 = re.compile(r"^##\s")
@@ -94,14 +111,23 @@ def has_scenario(body):
 
 
 def scope_rows(lines):
-    """[(id, номер строки)] в порядке объявления, без повторов."""
-    seen, out = set(), []
+    """([(id, номер строки)] строк раздела Scope в порядке объявления, без
+    повторов; число строк `| F<N> |` ВНЕ раздела Scope)."""
+    seen, out, outside, in_scope = set(), [], 0, False
     for n, line in enumerate(lines, 1):
+        if TOP.match(line):
+            in_scope = bool(SCOPE_HEAD.match(line))
+            continue
         m = ROW.match(line)
-        if m and m.group(1) not in seen:
+        if not m:
+            continue
+        if not in_scope:
+            outside += 1
+            continue
+        if m.group(1) not in seen:
             seen.add(m.group(1))
             out.append((m.group(1), n))
-    return out
+    return out, outside
 
 
 def delegation(body, fid, rel, parsed):
@@ -130,9 +156,13 @@ def main():
         return 2
 
     parsed, rows, other = {}, {}, []
+    outside_rows, outside_docs = 0, 0
     for rel in docs:
         lines = _lib.read(root, rel).split("\n")
-        rs = scope_rows(lines)
+        rs, outside = scope_rows(lines)
+        if outside:
+            outside_rows += outside
+            outside_docs += 1
         if not rs:
             other.append(rel)
             continue
@@ -145,15 +175,17 @@ def main():
         parsed.setdefault(rel, sections(_lib.read(root, rel).split("\n")))
 
     if not rows:
-        _lib.void(NAME, "ни одна приёмка не объявляет фичи строками `| F<N> |` — "
-                        "предмета у проверки нет")
+        _lib.void(NAME, "ни одна приёмка не объявляет фичи строками `| F<N> |` в "
+                        "разделе `## … Scope …` (строк `| F<N> |` вне раздела Scope: "
+                        "%d) — предмета у проверки нет" % outside_rows)
         return 2
 
     total = sum(len(v) for v in rows.values())
     _lib.census(
-        "%s: приёмок осмотрено %d; объявляют состав фичами `| F<N> |` — %d, "
-        "остальные %d объявляют его иначе и в предмет не входят"
-        % (NAME, len(docs), len(rows), len(other))
+        "%s: приёмок осмотрено %d; объявляют состав фичами `| F<N> |` в разделе "
+        "Scope — %d, остальные %d объявляют его иначе и в предмет не входят; строк "
+        "`| F<N> |` вне раздела Scope (не состав, не судятся) — %d в %d документах"
+        % (NAME, len(docs), len(rows), len(other), outside_rows, outside_docs)
     )
 
     findings, ok, passed_on, handovers = [], 0, 0, []
