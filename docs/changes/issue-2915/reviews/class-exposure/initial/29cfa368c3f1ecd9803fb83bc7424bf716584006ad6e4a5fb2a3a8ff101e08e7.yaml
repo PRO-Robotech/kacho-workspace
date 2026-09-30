@@ -416,3 +416,31 @@ orders:
       (CX1-41); (3) тело агента ссылается на `Skill rule-change-graph`, которого в перечне скиллов
       нет — ссылку перевести на skill change-graph
     basis: ".claude/hooks/class-guard/README.md §«Как добавить предикат»; code-authoring §«Механизм накопления опыта»; doc-truthfulness §«Утверждение пережило свой предмет»"
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  database_id: 5913217213
+  node_id: IC_kwDOTZqgWM8AAAABYHSIvQ
+  url: https://github.com/PRO-Robotech/kacho/issues/2915#issuecomment-5913217213
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913217213
+  actor: pointpu
+  author_association: MEMBER
+  role: class-exposure-analyst
+  holder: human-class-exposure-initial
+  created_at: '2026-09-30T14:22:38Z'
+  body_sha256: ee9328439b1938c47db6e7846117408b2d4e08c47c3ea587d980253fa9538a9c
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913217213 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  declared_verdict: 'к-замыслу'
+  policy_field: review_authority.class-exposure-analyst
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

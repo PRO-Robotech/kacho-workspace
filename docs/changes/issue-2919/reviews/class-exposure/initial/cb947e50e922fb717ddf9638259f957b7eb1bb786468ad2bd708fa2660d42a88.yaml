@@ -480,3 +480,31 @@ orders:
   - to: tooling-maintainer
     what: "кандидаты из записей на 77ad7465 и 53f865d8 — в силе; новых предложений класса нет (CX4V-51 — экземпляр известного класса «граница, выраженная только именем», а не новый)"
     basis: "code-authoring §«Механизм накопления опыта»"
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2919
+  database_id: 5913222684
+  node_id: IC_kwDOTZqgWM8AAAABYHSeHA
+  url: https://github.com/PRO-Robotech/kacho/issues/2919#issuecomment-5913222684
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913222684
+  actor: pointpu
+  author_association: MEMBER
+  role: class-exposure-analyst
+  holder: human-class-exposure-initial
+  created_at: '2026-09-30T14:22:55Z'
+  body_sha256: b33df22d56b9560c5c98ef682d182fb90ecf87102e9f3bcf05aec11ede9c17af
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913222684 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+  declared_verdict: 'к-замыслу'
+  policy_field: review_authority.class-exposure-analyst
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

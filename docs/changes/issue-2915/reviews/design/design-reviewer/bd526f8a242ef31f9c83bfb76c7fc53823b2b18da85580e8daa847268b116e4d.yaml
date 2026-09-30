@@ -204,3 +204,31 @@ orders:
 next: >-
   db-architect-reviewer на bd526f8a (Е6); затем proto-api-reviewer (§5) по Е6. После этого у Е6
   не остаётся открытых ролей, кроме тех, что назовёт сама запись db-architect-reviewer.
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  database_id: 5913218592
+  node_id: IC_kwDOTZqgWM8AAAABYHSOIA
+  url: https://github.com/PRO-Robotech/kacho/issues/2915#issuecomment-5913218592
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913218592
+  actor: pointpu
+  author_association: MEMBER
+  role: design-reviewer
+  holder: human-design
+  created_at: '2026-09-30T14:22:42Z'
+  body_sha256: 268e0453ddb5d63ddca080dcfc588c8efc08b55739783fb7a7d4aea0fd6abd04
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913218592 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.design-reviewer
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

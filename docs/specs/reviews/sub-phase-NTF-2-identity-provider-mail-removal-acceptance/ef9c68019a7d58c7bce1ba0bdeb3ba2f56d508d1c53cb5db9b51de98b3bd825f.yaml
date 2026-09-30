@@ -160,9 +160,33 @@ authority:
   policy_document: docs/changes/policy.yaml
   policy_field: review_authority.acceptance-reviewer
 event:
-  type: acceptance_review_approved
-  status: not_performed
-  published: false
+  # ДОПИСАНО курьером после публикации события: status и published сменены с
+  # not_performed/false, прочие строки блока рецензента сохранены ниже как были.
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  database_id: 5913219192
+  node_id: IC_kwDOTZqgWM8AAAABYHSQeA
+  url: https://github.com/PRO-Robotech/kacho/issues/2917#issuecomment-5913219192
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913219192
+  actor: pointpu
+  author_association: MEMBER
+  role: acceptance-reviewer
+  holder: human-acceptance
+  created_at: '2026-09-30T14:22:44Z'
+  body_sha256: 02ee29279c64ea0f556e661af856d17c70f80432430db32676af92a1407c768f
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913219192 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.acceptance-reviewer
+  published_by_role: git-operator
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  record_event_type: acceptance_review_approved
   publication_mode: courier
   publication_expected_from_orchestrator: true
   rationale: >-
@@ -175,7 +199,7 @@ attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
   publishing_actor: none
-  publication_mode: courier_of_agent_verdict
+  courier_publication_mode: courier_of_agent_verdict
   personal_review_by_publishing_actor_claimed: false
   history_is_appended_not_rewritten: true
 measurement:

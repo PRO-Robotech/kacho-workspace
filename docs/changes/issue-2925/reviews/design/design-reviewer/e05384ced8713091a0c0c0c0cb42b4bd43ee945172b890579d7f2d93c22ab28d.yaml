@@ -142,3 +142,31 @@ important:
 orders:
   - "диспетчер — вопрос владельцу §13 (K1 (3)): приемлем ли против NTF6-04 исход порога; до ответа S2 не раздавать"
   - "ui-implementer (S2) — условия к коду пересверки e05384ce CX6-35 (1)–(2) и CX6-36 плюс N4"
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2925
+  database_id: 5913229221
+  node_id: IC_kwDOTZqgWM8AAAABYHS3pQ
+  url: https://github.com/PRO-Robotech/kacho/issues/2925#issuecomment-5913229221
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913229221
+  actor: pointpu
+  author_association: MEMBER
+  role: design-reviewer
+  holder: human-design
+  created_at: '2026-09-30T14:23:15Z'
+  body_sha256: 72d5427ae6d4810da0e0f2658187bd4b92e70819afc42e86c48b37985bc6a98c
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913229221 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: e05384ced8713091a0c0c0c0cb42b4bd43ee945172b890579d7f2d93c22ab28d
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.design-reviewer
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

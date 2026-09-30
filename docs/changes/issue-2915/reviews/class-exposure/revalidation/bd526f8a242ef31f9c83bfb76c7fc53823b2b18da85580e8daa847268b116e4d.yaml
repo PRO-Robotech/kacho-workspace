@@ -213,3 +213,31 @@ orders:
   - to: design-reviewer (system-design-reviewer, режим «замысел»), db-architect-reviewer, proto-api-reviewer
     what: "записи ревью на отпечаток bd526f8a; на нём их 0. Заказ db-architect-reviewer из записи e7a6ae15 (`statement_timeout` 10 с против темпа `global_daily` на медленном диске) остаётся в силе"
     basis: "SDD-1 §5; policy.yaml review_authority; замысел §13 Е6"
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  database_id: 5913217932
+  node_id: IC_kwDOTZqgWM8AAAABYHSLjA
+  url: https://github.com/PRO-Robotech/kacho/issues/2915#issuecomment-5913217932
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913217932
+  actor: pointpu
+  author_association: MEMBER
+  role: class-exposure-analyst
+  holder: human-class-exposure-revalidation
+  created_at: '2026-09-30T14:22:40Z'
+  body_sha256: df6b55fd82c069c33f1f6061f329f0d653216e6d3790b79ae28b07887a13dc4e
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913217932 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
+  declared_verdict: 'к-коду'
+  policy_field: review_authority.class-exposure-analyst
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

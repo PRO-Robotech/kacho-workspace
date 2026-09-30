@@ -216,3 +216,31 @@ next: >-
   Эта роль на aaaff659 одобряет. Недостающие применимые ревью замысла — db-architect-reviewer и
   proto-api-reviewer. Возврат пересверки в приёмку (Р5) идёт своим маршрутом. После правки
   приёмки и замысла — повтор этой роли по дельте.
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  database_id: 5913221250
+  node_id: IC_kwDOTZqgWM8AAAABYHSYgg
+  url: https://github.com/PRO-Robotech/kacho/issues/2917#issuecomment-5913221250
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913221250
+  actor: pointpu
+  author_association: MEMBER
+  role: design-reviewer
+  holder: human-design
+  created_at: '2026-09-30T14:22:51Z'
+  body_sha256: b48a06523cb9c34a8709f16576c2ac2bdefcc2b62b14b525c64f3ebe02d053bf
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913221250 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: aaaff659c0d1257a16b35858e7df23650cae290f9aecb98c5254500d4ecf758b
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.design-reviewer
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

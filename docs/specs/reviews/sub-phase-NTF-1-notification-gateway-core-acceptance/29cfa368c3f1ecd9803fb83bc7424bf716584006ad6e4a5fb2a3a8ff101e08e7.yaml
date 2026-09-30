@@ -130,9 +130,33 @@ authority:
   policy_field: review_authority.acceptance-reviewer
 
 event:
-  type: acceptance_review
-  status: not_performed
-  published: false
+  # ДОПИСАНО курьером после публикации события: status и published сменены с
+  # not_performed/false, прочие строки блока рецензента сохранены ниже как были.
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  database_id: 5913216411
+  node_id: IC_kwDOTZqgWM8AAAABYHSFmw
+  url: https://github.com/PRO-Robotech/kacho/issues/2915#issuecomment-5913216411
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913216411
+  actor: pointpu
+  author_association: MEMBER
+  role: acceptance-reviewer
+  holder: human-acceptance
+  created_at: '2026-09-30T14:22:36Z'
+  body_sha256: bff7a2e5c043c4e0f215d521718e444253c89118d0f2aace802e61d7398acbd6
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913216411 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.acceptance-reviewer
+  published_by_role: git-operator
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  record_event_type: acceptance_review
   publication_mode: courier
   publication_expected_from_orchestrator: true
   rationale: "Рецензент событие не публикует. Тело для курьера лежит в event_body_for_courier."

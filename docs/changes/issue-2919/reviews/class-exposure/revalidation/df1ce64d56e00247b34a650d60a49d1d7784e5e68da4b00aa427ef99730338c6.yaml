@@ -194,3 +194,31 @@ orders:
     subject: "«срок + запас» в УК4-37 (а), (в), УК4-38 и УК4-40 — запас числом в коде пробы, одной постоянной на пробу"
     basis: "measurement-discipline §«Форма числа»"
 findings_outside_subject: []
+
+# ДОПИСАНО курьером после публикации события полномочия; ни одна прежняя строка
+# записи не переписана и не удалена (SDD-1 §4: артефакт append-only и ссылается на событие).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 2919
+  database_id: 5913223407
+  node_id: IC_kwDOTZqgWM8AAAABYHSg7w
+  url: https://github.com/PRO-Robotech/kacho/issues/2919#issuecomment-5913223407
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913223407
+  actor: pointpu
+  author_association: MEMBER
+  role: class-exposure-analyst
+  holder: human-class-exposure-revalidation
+  created_at: '2026-09-30T14:22:57Z'
+  body_sha256: ad95f3874a49b3ced212c6bcbd723ab865b33649075db4ea6a4c9da34491e1ac
+  body_sha256_predicate: >-
+    sha256 СЫРОГО поля body ответа GET https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5913223407 (без добавления перевода строки); перемерено вторым GET после публикации — совпало с отправленным телом.
+  subject_sha256: df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6
+  declared_verdict: 'к-коду'
+  policy_field: review_authority.class-exposure-analyst
+  published_by_role: git-operator
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
