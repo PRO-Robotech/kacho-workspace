@@ -1,0 +1,129 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13
+  revision: 20
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  content_commit: cbb30df7fd80734e12cd19153a127210179669f2
+  content_commit_note: >-
+    Редакцию 20 внёс коммит cbb30df7f. Последняя разобранная редакция — 19 (d724b272…, возврат
+    кругом 1 прохода RA-02, блокирующее B1 CONSTRUCTIBILITY). По Д22 судится только дельта 19 → 20:
+    git diff 6c82b6a4e cbb30df7f по документу — строка истории, §7 «Привязка диска», §8 С15,
+    NTF3-160 (г) Given, §10 строка (г), §11 строка NTF3-160.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4136
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T14:10:00Z'
+round: 2
+round_note: >-
+  Круг 2 прохода RA-02. Действуют Д1–Д22 и принятое registerSharePause = 1. Редакция 20 отвечает
+  на B1 круга 1: машину для AttachDisk публичным API в RUNNING/STOPPED не довести, поэтому её
+  состояние строится посевом С15.
+previous_rounds:
+  - round: 1
+    pass: RA-02
+    sha256: d724b2724495342c7c09a20408b3e58840ab2fd26c403af44e9cd288cc55fad0
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/d724b2724495342c7c09a20408b3e58840ab2fd26c403af44e9cd288cc55fad0.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+repeated_kinds: []
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @cbb30df7f
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — одобрение. Событие полномочия публикует курьер; имя роли в этой записи — координата,
+    а не доказательство личности.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2 прохода RA-02, блокирующих 0) ·
+    SHA-256 88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13
+
+measurement:
+  scenario_ids: 160
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 153
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 160; grep -oE … | sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|yandex|\baws\b|\bgcp\b|azure|google cloud' <документ> → 0
+  delta_claims_reproduced_at_1d42a6728bf:
+    - "GateForAttach (compute repo/instance_repo.go:442-461): один SELECT, status IN ('RUNNING','STOPPED'), иначе ErrFailedPrecondition «Instance must be RUNNING or STOPPED». Верно."
+    - "Create кладёт InstanceStatusProvisioning (api/instance/instance.go:450-452). Верно."
+    - "Писатели статуса вне тестов: generic CAS `UPDATE instances SET status = $3 WHERE id = $1 AND status = $2` (instance_repo.go:364; вызывают его только Start и Stop, instance.go:750-757) и перевод в DELETING (:476). Перехода из PROVISIONING нет. Утверждение §7 верно."
+    - "DetachDisk (instance.go:840-880) GateForAttach не зовёт: ListAttachments → Detach у storage. «DetachDisk состояния инстанса не проверяет» — верно."
+    - "Посев С15 конструируем: instances.status — TEXT без CHECK (0001_initial.sql:147); из триггеров на instances есть только instances_quota_count AFTER INSERT OR DELETE (0036:320-322) — UPDATE статуса его не задевает; прецедент в дереве: repo-интеграционные пробы доводят строку до STOPPED через SetStatusCAS (instance_resize_stopped_race_integration_test.go:26-35)."
+    - "Воркер AttachDisk после гейта берёт zone/project/name из строки и зовёт storage.Attach под пересланной личностью (storage_client.go:69). Кроме статуса, посеянная строка ничего не требует."
+
+premise_check:
+  task_premise: >-
+    По заданию Д1–Д13 лежат в wf_8cc21fed-1ec/journal.jsonl, Д14–Д16 — в wf_f705806c-629/journal.jsonl,
+    в поле prompt. Проверка: grep -c '"prompt"' по обоим журналам → 0 и 0. Посылка опровергнута, как и в
+    прошлых кругах. Д1–Д16 сверены по записям прошлых кругов, Д17–Д22 — по тексту задания. Дельта
+    19 → 20 решений Д1–Д21 не касается. По Д22 (судится только дельта) здесь — одна строка состояния
+    Given, наблюдаемое поведение не меняется.
+  seeded: 0
+  seeding_note: >-
+    Стенда и изоляции для посева задание не назвало, поэтому сам посев — «не выполнилось». Фикстура,
+    которая строит условие, названа (С15, §8), и её конструируемость показана чтением дерева
+    @1d42a6728bf: столбец без CHECK, триггера на UPDATE нет, в дереве есть прецедент доведения до
+    STOPPED в интеграционной обвязке. По §3.5 этого достаточно: у Given есть фикстура, которая его
+    строит.
+  confirmed:
+    - "B1 круга 1 закрыт. Условие (г) строится посевом С15 до P0, а Given проверяет, что посев лёг (`InstanceService.Get` → STOPPED)."
+    - "Глаголы AttachDisk и DetachDisk остались публичными, поэтому пересылка личности исполнителем compute по-прежнему под пробой. Путь выбран верно."
+    - "§7 говорит правду о дереве: стенд букву (г) не утверждает, пока нет COMP-2. DoD с этим согласован — NTF3-160 входит в интеграционные пробы S2 (12.2 п.7), в стендовые S3 не входит."
+    - "Строка близнеца в §10 отличается одним фактом (кто начал), посев общий. В §11 для С15 производитель назван — тестовое дерево обвязки."
+    - "Неблокирующее круга 1 (посев до чтения P0) учтено в §8 и в Given."
+    - "Счёт 160/7/153 сходится, гигиена 0."
+  refuted: []
+
+blocking_findings: []
+
+non_blocking_findings:
+  - "С15: «одна прямая запись статуса по id». В дереве тот же переход уже делает `InstanceRepo.SetStatusCAS(PROVISIONING → STOPPED)` (instance_repo.go:364). Автору проб стоит строить посев им, а не своим SQL, как это делает instance_resize_stopped_race_integration_test.go:26-35: так фикстура не станет снисходительнее продукта, если у статуса появится CHECK. Это условие к коду — замысел, а не приёмка (Д22)."
+  - "Given (г): «диски … оба `READY`» — словарь статуса строки storage. Публичный Volume.Status такого значения не имеет, там AVAILABLE=2. Строка не из дельты, Then при этом утверждает публичное AVAILABLE/IN_USE. Документ везде использует этот словарь, так что двусмысленности нет — это замечание к форме."
+  - "Неблокирующие прошлых кругов, не относящиеся к дельте, остаются в силе: форма вставки в журнал именем-переменной для NTF3-70 и согласование 23502 с CX3B-25 (б) — к design-author."
+
+method_verdict: >-
+  Судилась только дельта 19 → 20 (Д22). Исправление B1 проверено по дереву @1d42a6728bf: гейт
+  состояния, отсутствие перехода из PROVISIONING, отсутствие проверки состояния у DetachDisk и
+  конструируемость посева (TEXT без CHECK, триггер только на INSERT/DELETE, прецедент в дереве).
+  Блокирующих 0. Сам посев не выполнялся, стенда нет — это «не выполнилось», в зелёное не
+  зачитано. Одобрение опирается на названную фикстуру и чтение дерева.
+
+route_signals:
+  proto: false
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
