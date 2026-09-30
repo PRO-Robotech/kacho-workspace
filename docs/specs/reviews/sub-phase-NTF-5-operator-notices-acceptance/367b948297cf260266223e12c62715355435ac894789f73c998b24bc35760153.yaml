@@ -1,0 +1,219 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153
+  revision: 17
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, а строка редакции 17 говорит «вердикта на неё НЕТ». Шапку эта
+    запись не правит. Действующий вердикт берётся из внешнего события и из записи ревью, привязанной
+    к отпечатку. Слово в заголовке вердиктом не является.
+  base_commit: 2492fe336aa
+  content_commit: a8f880009
+  content_commit_note: >-
+    Редакцию 17 внёс коммит a8f880009. Его предшественник по файлу — c616f7920 (редакция 16,
+    415736a7…, возвращена кругом 15). `sha256sum <файл>` и `git show HEAD:<файл> | sha256sum`
+    (HEAD 2492fe336aa) дают 367b9482… оба.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4015
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T09:45:00Z'
+round: 16
+pass_round: 2
+pass_note: >-
+  Круг 2 прохода «RA-11 первичного разбора классов на 03e291ee и решение Д20». По Д22 судится только
+  дельта 415736a7→367b9482 (`git diff -U0 c616f7920 a8f880009 -- <файл>`, 13 ханков): шапка (строки
+  редакций), ревизии измерения, §1.6 «сверка редакции 17 — NTF-4 в редакции 19», Р2 (метод вне
+  перечня), NTF5-49 (близнец (г)), §8 строка NTF5-26, 49, §9 строка NTF5-49 (г), DoD 10.1 п.2а (б),
+  10.1 п.4, 10.2 п.5, §11 строка NTF-4, §27. Остальное тело одобрено кругом 14 (03e291ee), дельта
+  круга 15 разобрана той записью. Здесь они не перерассматривались.
+previous_rounds:
+  - {round: 1, sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: 1f4852e4b36cd8c7a390a58a17aa9490f86456bda4d51b514460a2f5d97bda32, verdict: APPROVED}
+  - {round: 9, sha256: 6d2709cf09e39854fa757e7c7464e4eb4c7fe891337fd98b125b76acb5fad738, verdict: CHANGES_REQUESTED}
+  - {round: 10, sha256: e9b2e194da595f8644a56b1b6f06631a3f9f86b72f18debecaa79effadd18b34, verdict: CHANGES_REQUESTED}
+  - {round: 11, sha256: 2fe29c352de0559d6834e2923bca8e13a63c987a688cd7f12b1873f214a35b98, verdict: APPROVED}
+  - {round: 12, sha256: 9d10f44afedb8164b06fd71d599d02fe671514607bfe87acf271899851a5ba72, verdict: CHANGES_REQUESTED}
+  - {round: 13, sha256: 88fabd094f59deab41dbec619dde823c32a267173d26df016356e03355a4a6af, verdict: APPROVED}
+  - {round: 14, sha256: 03e291eec3d343efa377a7027925f4cb5581057b56dbbd707de74f1d67a9765a, verdict: APPROVED}
+  - {round: 15, sha256: 415736a75fe65e7bf5c322b243a64434038004536bad3fa2028d789d306f83e5, verdict: CHANGES_REQUESTED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 2492fe336aa → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 2492fe336aa
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+publication_mode: >-
+  Событие полномочия публикует курьер, его тело — строка external_event_body ниже. Роль в записи —
+  координата, личность она не доказывает. Вердикт относится только к отпечатку 367b9482…. Возврат
+  редакции 16 (415736a7…, круг 15) и одобрение редакции 15 (03e291ee…, круг 14) остаются вердиктами
+  о своих редакциях.
+external_event_body: "acceptance-reviewer · APPROVED · sha256 367b948297cf260266223e12c62715355435ac894789f73c998b24bc35760153"
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2, 2, 1, 0, 3, 1, 0, 1, 0, 0, 1, 0]
+  class_note: >-
+    B15-1 закрыт классом, а не местом. Перепись мест, где документ называет держателя строк перечня,
+    ключа `notify` или отсутствия `Internal*` в перечне, повторена рецензентом тем же предикатом
+    (`grep -nE 'перечн[а-я]* метод|строк[аи]? перечня|методов перечня|ключ[а]? .notify.|запись
+    .notify.|по перечню|AllowedMethods'`). Кроме мест, перечисленных в §27, попаданий нет: строка 530
+    говорит о перечне методов звена справочника, это другой предмет. Повтора рода нет, перенос
+    класса в форму задания по §14а не требуется.
+
+b15_1_closure:
+  condition: >-
+    Закрыто. Держателями строк перечня и ключа `notify` названы вычисляемые пробы края. Производитель
+    состава — дескрипторы, производитель карты — настоящий `dialBackends` композиционного корня. У
+    каждой пробы есть инъекция-близнец, меняющая один факт. NTF5-84 и NTF5-49 (б), (г) оставлены
+    держателями исхода: вызов доходит до `notify-api` и судится `Check`.
+  premises_measured:
+    - claim: "четыре пробы в allowlist/parity_test.go существуют и читают разность «публичное в дескрипторах» минус перечень"
+      result: подтверждено
+      predicate: >-
+        git -C project/kacho show 1d42a6728bf:gateway/internal/allowlist/parity_test.go — 325
+        CensusCoversEveryProtoFile (sortedDiff(disk, surface.files) → «добавь blank-импорт» с именами
+        файлов), 366 EveryPublicRPCIsRoutable (sortedDiff(surface.public, AllowedMethods) с именами
+        методов), 387 NoEntryWithoutAnRPC, 409 NoInternalRPCIsRoutable (IsAllowed по всей популяции
+        Internal*)
+    - claim: "каталог proto/kacho/cloud/notify/v1 входит в поверхность переписи без правки пробы, кроме blank-импорта"
+      result: подтверждено
+      predicate: >-
+        routableRoots() = contractroot.Roots с sub "cloud" + FoundationRoots; файл notify несёт путь
+        kacho/cloud/notify/v1/… → hasRoutableFilePrefix истинно; обход диска по тому же корню
+    - claim: "инъекция «строка InternalNoticeService/Create в перечне» роняет NoInternalRPCIsRoutable, а не NoEntryWithoutAnRPC"
+      result: подтверждено
+      predicate: >-
+        HasInternalSuffix (list.go:482) — префикс сервиса «Internal» и суффикс «Service» → метод в
+        surface.internal; RPC `InternalNoticeService.Create` в документе есть (строка 1697), значит
+        NoEntryWithoutAnRPC молчит, а NoInternalRPCIsRoutable краснеет с именем
+    - claim: "две пробы route_wiring_parity_test.go судят карту, построенную настоящим dialBackends"
+      result: подтверждено
+      predicate: >-
+        git -C project/kacho show 1d42a6728bf:gateway/cmd/api-gateway/route_wiring_parity_test.go —
+        realBackends → config.Load + dialBackends (mtls_config.go:60, цикл по cfg.BackendAddrs());
+        EveryAllowedMethodResolvesOnTheRealBackends печатает домен без соединения («домен notify: …»);
+        EveryBackendKeyHasAConsumer принимает `notifyInternal` как спутник, когда `notify` есть
+        среди доменов перечня; в файле 4 пробы, названы две
+    - claim: "ключ домена берётся из третьего сегмента пакета"
+      result: подтверждено
+      predicate: "proxy/server.go:35 RoutableDomain — pkgParts[2] для облачного корня → `notify`"
+    - claim: "NTF-4 редакция 19 (5cb8057d, коммит 5f87c1819) правит Р20 по Д20 (2) и приписывает публичные методы NTF-3"
+      result: подтверждено
+      predicate: >-
+        git show 5e7c218a4:docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md |
+        sha256sum → 5cb8057dc1cb…; sed -n 1411,1429p → «ключ `notify` … разрешён», «(их заводит NTF-3)»,
+        «Internal* … отказ маршрута»
+    - claim: "OwnedOperationRepo (owner.go:93) не объявляет Ф1…Ф4 и Repo/FullRepo; AsOwned(r Repo) — owner.go:115"
+      result: подтверждено
+      predicate: >-
+        git -C project/corelib show 34bc810:operations/owner.go | sed -n 85,125p → три метода GetOwned,
+        CancelOwned, ListOwned; AsOwned — приведение типа, нового писателя не вводит
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → 367b9482… оба (HEAD 2492fe336aa)"
+  - claim: "последний разобранный отпечаток — 415736a7 (ред. 16, коммит c616f7920), дельта — a8f880009"
+    result: подтверждено
+    predicate: "git show c616f7920:<файл> | sha256sum → 415736a7…; git show a8f880009:<файл> | sha256sum → 367b9482…; git diff -U0 c616f7920 a8f880009 -- <файл> | grep -c '^@@' → 13"
+  - claim: "id сценариев уникальны, их 122"
+    result: подтверждено
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 122; sort | uniq -d | wc -l → 0"
+  - claim: "гигиена: пути рабочей копии, незакоммиченность, маркеры отсрочки, имена чужих облаков"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|TODO|FIXME' → 0; grep -ciE '<перечень имён чужих облаков и почтовых поставщиков>' → 0"
+
+counts:
+  scenarios: 122
+  scenario_ids_unique: true
+  producer_coverage: >-
+    Все «Тогда» дельты имеют производителя. У строк перечня и ключа — пробы края (i), (ii) DoD 10.1
+    п.4. У исхода вызова NTF5-49 (б), (г), близнеца (г) и NTF5-84 — маршрут по записи перечня и
+    `Check` в use-case (§8)
+  twins: >-
+    NTF5-49 (г) — близнец (г): тот же `usr-x`, привязка `viewer` на `prj-t` есть или нет, вход и
+    вызов те же (§9). У проб перечня близнецы — пять инъекций, каждая меняет один факт и называет
+    себя в выводе
+  constructibility: >-
+    Сценарии продукта: посеяно 0 из 122, «не выполнилось» 122. Службы notify, записи notify на
+    внешнем gRPC-входе и функций Ф1…Ф4 в дереве нет (kacho @1d42a6728bf, corelib @34bc810), стенда и
+    изоляции для посева задание не назвало. Предпосылки дельты проверены чтением исходника по
+    названной ревизии: существование и предикат шести проб края, построение карты настоящим
+    `dialBackends`, форма ключа домена, OwnedOperationRepo/AsOwned. См. b15_1_closure
+
+important:
+  - id: I-1
+    kind: PRODUCER
+    text: >-
+      Р2 и DoD 10.1 п.4 требуют сразу двух вещей: «второго соединения к `notify` не заведено» и «ключ
+      `notify` есть в карте, которую строит `dialBackends`» (держатель (ii)). На @1d42a6728bf
+      `dialBackends` открывает `grpc.NewClient` на каждый ключ `cfg.BackendAddrs()`
+      (mtls_config.go:77-85). Если просто добавить `notify` в `BackendAddrs` с адресом
+      `notifyInternal`, получится второе соединение к тому же адресу. Оба требования выполнимы только
+      тогда, когда ключ `notify` ставится псевдонимом соединения `notifyInternal` внутри
+      `dialBackends`. Если псевдоним поставить после этого вызова в `main`, проба (ii) его не увидит.
+      Это условие к коду, по Д22 оно идёт в замысел, а не в приёмку. Наблюдаемый исход приёмка уже
+      утверждает, поэтому пункт не блокирует.
+  - id: I-2
+    kind: FORMAT
+    text: >-
+      «Близнец (г)» NTF5-49 изменяет факт из «Дано» (у `usr-x` привязок на `prj-t` нет): привязка
+      `viewer` введена прямо в строке «And», а не посевом в «Дано». Изменение названо явно, поэтому
+      сценарий читается однозначно. Чище было бы вынести её отдельной строкой «Дано близнеца», как
+      сделано в NTF5-44.
+
+dispatcher_decisions_check:
+  D1-D19: "дельта раздел перенесённых решений не трогает; прежняя сверка — записи 88fabd09….yaml, 03e291ee….yaml, 415736a7….yaml"
+  D17-D18: "соблюдено: `notify-api` — только внутренний слушатель, дельта этого не меняет"
+  D20: >-
+    Соблюдено. (2) Наружу по внешнему gRPC выходят только методы, не являющиеся `Internal*`, и только
+    по перечню. Теперь это держит вычисляемая разность перечня с дескрипторами в обе стороны, а
+    отсутствие `Internal*` держит NoInternalRPCIsRoutable на всей популяции. (3) Соединение одно,
+    имя на крае одно, см. I-1 про способ. (1) дельта не трогает
+  D21: "к предмету NTF-5 не относится (атрибуты шаблонов NTF-2)"
+  D22: >-
+    Соблюдено. Автор перенёс условие к коду только в виде держателей и инъекций, которые утверждают
+    наблюдаемое: состав перечня и резолв домена. Эта запись тоже судит только дельту. I-1 отдан
+    замыслу, возврата в приёмку по нему нет
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: "да (восемь методов notify на внешнем gRPC-входе края по Д20 (2))"
+  ui: "нет (экраны — NTF-6 по контракту Р22)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (граница ban06 на внешнем gRPC-входе: перечень, вычисляемый из дескрипторов, плюс отказ Internal*; Check в use-case)"
+
+questions_for_dispatcher:
+  - "Строка возврата к NTF-4 (ред. 19: «публичные методы notify заводит NTF-3»): строки NoticeService и контактов проекта вносит NTF-5 — §11 этого отпечатка."
