@@ -1,0 +1,251 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 080d4997ba81bff000bba2032d64b1af694b7dcda9df851cb7216c7a5252491e
+  revision: 7
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке. Одобрение редакции 6 (7d036fa6…) к редакции 7 не переходит.
+  base_commit: 71824ffb193749d185b114a785609e60847bce69
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2280
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T02:40:10Z'
+round: 7
+round_note: >-
+  Седьмой круг документа; первый круг прохода по редакции 7, заведённой по первичному разбору
+  классов RA-01…RA-05 на одобренную редакцию 6.
+previous_rounds:
+  - round: 1
+    sha256: a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282.yaml
+  - round: 2
+    sha256: 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506.yaml
+  - round: 3
+    sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba.yaml
+  - round: 4
+    sha256: 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c.yaml
+  - round: 5
+    sha256: eed9a22230226645478b3e95584eb5cd8021a32dfeb24061e260f6cfbc69a65e
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/eed9a22230226645478b3e95584eb5cd8021a32dfeb24061e260f6cfbc69a65e.yaml
+  - round: 6
+    sha256: 7d036fa6be6def81a6a7bdb2106d8e45ee05faa7a7634fb9898b4a0f61f9c552
+    verdict: APPROVED
+    blocking_count: 0
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/7d036fa6be6def81a6a7bdb2106d8e45ee05faa7a7634fb9898b4a0f61f9c552.yaml
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - id: B7-1
+    kind: CONSTRUCTIBILITY
+trend_note: >-
+  Число блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1. Род CONSTRUCTIBILITY встречался в
+  круге 1 (другой предмет — Given, не строившийся посевом); повтором рода в смысле §14а не
+  считается: предмет круга 1 закрыт, новый появился вместе со следующей под-фазой, на которую
+  Given опирается, но которую документ не закрепил.
+
+ra_resolution:
+  RA-01: "закрыт: Р21 (одиночка установки, аренда в kacho_notify), уровни признаков Р12, ручка срока аренды с границами Р16, П10 с исключительной блокировкой и -ERR [IN-USE], NTF4-15 на двух репликах, NTF4-95…97 с близнецом"
+  RA-02: "закрыт: назначения токена b/u/c, перечень закрыт в одном месте (Р2); вид canary распознаётся до unparsed; applied/stale по номеру выпуска (Р10, Р12, NTF4-74, NTF4-100)"
+  RA-03: "закрыт: три исхода перечитывания (принят/отвергнут/отложен), счётчик исходов, закрытая таблица ответов на вход SMTP/POP3, NTF4-98 (близнец NTF4-62), NTF4-99 (близнец NTF4-59)"
+  RA-04: "закрыт: база kacho_notify, её ручки, поставщик и посадка — NTF-1; NTF-4 — только таблицы; две непересекающиеся группы ручек в загрузчике; «одно время» — часами процесса (DoD S1 п.2)"
+  RA-05: "закрыт: Given закреплён отпечатком NTF-1 a6cb0c… (рабочий файл NTF-1 в копии имеет этот же отпечаток); свои потолки сняты (Р8, З12); подавление до сетки и без расхода слота (NTF4-101/102); ключ сетки — отпечаток Р15 (З11); Р17 по словарю NTF-1"
+
+dispatcher_decisions_check:
+  D1: "соблюдено: креды POP3, DKIM, кольцо токена, ключ отпечатка — в том же объекте секрета (З6); вызова отправки нет, Р7 — административная поверхность"
+  D2: "соблюдено: перечень звена идентичности служб у notify пуст; личность человека — пересылкой края в круге (Р20)"
+  D3: "соблюдено: «подтвердить» расширен одним значением, второго контракта нет"
+  D4: "соблюдено: рёбра notify→* не добавлены; входящее край→notify названо, цикла нет"
+  D5: "соблюдено: метки закрыты сборкой; кастомных шаблонов нет"
+  D6: "соблюдено: Х3 в corelib notify/feed и контракте kacho proto/corelib/notify"
+  D7: "соблюдено: флаг не меняется"
+  D8: "соблюдено: подавление по отпечатку адреса, сырого адреса нет"
+  D9: "соблюдено: List-Unsubscribe только у notice, токен u привязан к адресату и паре (ns, шаблон)"
+  D11: >-
+    в части NTF-4 соблюдено (72 ч, жалоба только notice, пауза шаблона только оператором, границы
+    ручек); НАРУШЕНО в Given стендовых сценариев: рубеж kaname на адресата (пауза, прогрессия,
+    часовой потолок) и лестница края для анонимных почтовых глаголов в Given не учтены — B7-1.
+    Строки спора с Д11 в документе нет.
+  D12: "соблюдено: переносить нечего, замещения З1–З12 явные"
+  D13: "соблюдено: NTF-4 после NTF-1; Х3 после corelib#77. Зависимость от NTF-2 (первая волна) в Given не закреплена — B7-1"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 71824ffb → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 71824ffb193749d185b114a785609e60847bce69
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Полномочия одобрения нет; событие фиксирует возврат на отпечаток и
+    публикуется курьером. Его тело — в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 7, блокирующих 1: CONSTRUCTIBILITY) ·
+    SHA-256 080d4997ba81bff000bba2032d64b1af694b7dcda9df851cb7216c7a5252491e
+
+measurement:
+  revisions_used:
+    kacho: 1d42a6728bf
+    kaname: 734f69fb4
+    corelib: 34bc810
+    workspace_copy: issue-880@71824ffb
+    neighbour_ntf1_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+    neighbour_ntf2_sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
+  predicates_reproduced:
+    - "sha256sum документа → 080d4997…491e (совпадает с заданием)"
+    - "sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md → a6cb0c1f… — Given закреплён на текущей редакции NTF-1"
+    - "docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (33e199c9…): Р5 — лестница края по источнику и подсети для POST /iam/v1/auth/recovery (порог «без проверки» → proof-of-work → 429); Р6 — окно (адрес, назначение) recovery: второе письмо не раньше первой паузы, третье не раньше второй, затем часовой и суточный потолки; строка для адреса без учётки не заводится; NTF2-05 и NTF2-64 — вне паузы новой строки ленты нет (исход cooldown)"
+    - "NTF-2 §«замещения»: Ф5-01 kaname recovery-of-access.md («код чеканится на каждый запрос») замещено повтором того же живого кода"
+    - "kacho 1d42a6728bf: gateway/internal/opsproxy/proxy.go (prefixToBackend :86, resolveBackend :146), prefix_routing_test.go, listenerorigin.go (IsExternal :70), restmux/mux.go:434-446 (geoInternalAddr, registryInternalAddr), internal_routes.go, proxy/server.go, repohygiene grpcmountparity/bootguardpresence/trustedforwarderscircle/revocationwindow, compute audit_shipper.go, vpc cidrgroup/delete.go, assert-ban6-external-isolation.py — есть"
+    - "kacho 1d42a6728bf deploy/helm/umbrella/values.prod.yaml:452 trustedForwarderSANs = spiffe://kacho.cloud/ns/kacho/sa/kacho-api-gateway"
+    - "kacho 1d42a6728bf bootguardpresence_test.go:43-48 — локальная Config.Validate гейтом не судится"
+    - "kacho 1d42a6728bf git grep -c 'kind: PrometheusRule' -- deploy → 0; git grep -l dnsConfig -- deploy → 0; services/notify нет"
+    - "corelib 34bc810: ids.go:109-122 префиксы операций (enp, sop, aop), :274 knownPrefixes, :445 KnownHyphenPrefixes; git grep '\"nop\"\\|\"nsp\"' -- '*.go' → 0; operations/worker.go:657 RunSync; authz/interceptor.go:134 NewInterceptor, :331-337 нет принципала → отказ; errors/reason.go:81 AllReasons"
+    - "kaname 734f69fb4: go.mod:8 corelib v1.10.0-rc.5; internal_cluster_service.proto RevokeAdmin ~:103, REST только внутренний; permission_catalog.json, permissions_to_relations.go, docs/engineering/acceptance/recovery-of-access.md — есть"
+    - "гигиена: grep путей рабочей копии tmp/ и фраз о незакоммиченности → 0; имён чужих облаков и почтовых служб → 0; docs/changes/issue-2915, -2917, -2918, -2919 существуют"
+  scenario_census:
+    predicate: "python: re '^\\*\\*ID:\\*\\* NTF4-(\\d+)' плюс строки таблицы '^\\| NTF4-(\\d+)'"
+    total: 96
+    note: "87 в форме **ID:**; 9 (42–47, 75, 76, 79) строками таблицы; 34–39 сняты (З12) и не выдаются"
+  producer_coverage:
+    method: раскрытие диапазонов первой колонки §8 в множество ID
+    covered: 96
+    of: 96
+    rows: "29 строк данных (28 групп и строка Р16) — совпадает со знаменателем §1.1"
+  dod_coverage:
+    method: "раскрытие NTF4-a…b и одиночных ID §10, вычитание из множества ID"
+    missing: []
+  knobs:
+    listed: 27
+    table_rows: 27
+    predicate: "grep -c '^  | `KACHO_NOTIFY' документа → 27"
+  twin_coverage:
+    note: "у каждого отрицательного сценария назван близнец; новые: NTF4-95↔96, 97↔95, 98↔62, 99↔59, 100↔74, 101↔102"
+  constructibility:
+    seeded: 0
+    of: 96
+    not_executed: 96
+    reason: >-
+      Стенда и разрешения на посев в задании нет — «не выполнилось», в зелёное не зачитывается.
+      Конструируемость судилась чтением Given против закреплённых решений и соседних приёмок;
+      на этом пути найден B7-1: Given стендовых сценариев 16/17/24 (и зависящих от П2/П4)
+      противоречит действующему после NTF-2 рубежу kaname и лестнице края.
+
+premise_check:
+  premise: "редакция 7 закрывает RA-01…RA-05 и сверена с Д1–Д13"
+  result: >-
+    подтверждена в части RA-01…RA-05 (см. ra_resolution) и Д1–Д10, Д12, Д13 в предмете NTF-4;
+    опровергнута в части Д11 для Given стендовых сценариев (B7-1).
+
+blocking_findings:
+  - id: B7-1
+    kind: CONSTRUCTIBILITY
+    anchors: [П1, П2, П4, NTF4-16, NTF4-17, NTF4-24, "§1.1 второй список, строка «глагол запроса кода восстановления»", "§8 строка 16–17"]
+    summary: >-
+      Given стендовых сценариев, которые ставят письмо глаголом восстановления kaname через край,
+      построены по семантике глагола до NTF-2 («каждый запрос — новая строка ленты, считается
+      только общий лимит ≥ 4»). После NTF-2 (Д11: «kaname на адресата — повтор того же
+      действующего кода, пауза, часовой и суточный потолок»; «край — по IP//64 и подсетям только
+      для анонимных почтовых глаголов, proof-of-work после порога») такое состояние
+      недостижимо так, как оно описано.
+    details:
+      - >-
+        NTF4-16: «до шага When на A ровно один запрос (П2); шаг When — второй запрос окна». По
+        NTF-2 Р6 второе письмо ставится не раньше первой паузы; запрос внутри паузы даёт `200 {}`
+        и НЕ ставит строки (исход `cooldown`, NTF2-05, NTF2-64). Тогда утверждение «исход строки
+        в ленте kaname — SUPPRESSED(hard_bounce), secret_attrs = NULL» не на чем проверять: строки
+        нет, а «приёмник не получил письма на A» станет зелёным при любом исходе. Given не
+        называет ни момента шага When относительно паузы, ни величин паузы в профиле стенда.
+      - >-
+        NTF4-24: «следующий запрос кода восстановления на A даёт исход SENT» — третий запрос
+        окна; по NTF-2 он допустим не раньше второй паузы и в пределах часового потолка. Ни
+        то ни другое в Given не названо (П1 говорит только «лимит не меньше 4 за окно»).
+      - >-
+        П2 не говорит, что A (и B в NTF4-17) — подтверждённый адрес ACTIVE учётки. По NTF-2 Р6
+        для адреса без учётки строка ленты не заводится вовсе; тогда NTF4-17 («исход SENT,
+        приёмник получил одно письмо на B») не строится, а NTF4-16 и NTF4-17 совпадают по ответу
+        и по пустоте приёмника — близнец перестаёт различать.
+      - >-
+        Стендовый прогон зовёт `POST /iam/v1/auth/recovery` с одного источника пробы многократно
+        (П2 в NTF4-01/02/03, 15, 41, 62/63; NTF4-16, 17, 24, 25, 26, 93/94 через П4). По NTF-2 Р5
+        выше порога «без проверки» край отвечает вызовом proof-of-work (`429`,
+        `PROOF_OF_WORK_REQUIRED`), выше жёсткого — `429 RATE_LIMITED`. Given не называет, как
+        проба проходит лестницу (решает вызов по контракту NTF-2, порог стенда, разные
+        источники).
+      - >-
+        §1.1, второй список: «глагол запроса кода восстановления — приёмка
+        recovery-of-access.md (origin/357) … глагол не меняется». NTF-2 замещает Ф5-01 этой
+        приёмки (повтор того же живого кода) и вводит окно адресата — утверждение неверно для
+        мира, в котором NTF-4 входит в реализацию (Д13: NTF-2 — первая волна).
+    required: >-
+      Закрепить в §1 Given от NTF-2 так же, как от NTF-1: отпечаток редакции NTF-2 и таблицу
+      свойств (окно recovery: паузы, часовой потолок, повтор того же кода, строки для адреса без
+      учётки нет; лестница края для анонимных почтовых глаголов). В П1 назвать ручки паузы и
+      потолков окна recovery в профиле стенда и способ прохождения лестницы края пробой. В П2
+      назвать A и B подтверждёнными адресами ACTIVE учёток (фикстура). В NTF4-16 шаг When — не
+      раньше T(П2) + первая пауза (величина печатается пробой), с утверждением исхода
+      `kaname_mail_intents_total{verb="recovery"}` = `resent_same` либо `queued`; в NTF4-24 —
+      не раньше второй паузы и в пределах часового потолка. Исправить строку §1.1 о глаголе.
+      Пройти класс по всему документу: каждое Given, которое ставит письмо источником через
+      анонимный глагол, проверить против окна адресата и лестницы края.
+
+non_blocking_findings:
+  - id: N7-1
+    kind: FORMAT
+    summary: >-
+      Р16: «Границы включительные», но у `…_LEASE_TTL` и `…_CANARY_DEADLINE` верхняя граница
+      строгая. Назвать исключения в самой фразе. Границы взаимозависимы: при
+      `…_POLL_INTERVAL` = 5 с нижняя граница `…_POLL_STALE_MAX` (20 с) несовместима с
+      `…_LEASE_TTL` ≥ 30 с и < STALE_MAX − POLL. Держатель «значение на каждой границе — старт»
+      должен подбирать зависимые ручки; сказать это в описании держателя.
+  - id: N7-2
+    kind: FORMAT
+    summary: >-
+      NTF4-95/96: «ровно 3 контрольных письма» и `canary applied` = 3 за 3 × CANARY_INTERVAL
+      зависят от того, попадает ли третий выпуск (момент 3·I после взятия аренды) и его
+      прочтение в срок шага. Назвать момент взятия аренды на управляемых часах и срок шага
+      (например 3·I + интервал опроса + 1 с).
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
