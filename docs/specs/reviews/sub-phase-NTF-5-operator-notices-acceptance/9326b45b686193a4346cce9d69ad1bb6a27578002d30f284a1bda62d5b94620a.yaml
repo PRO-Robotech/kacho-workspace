@@ -1,0 +1,258 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a
+  revision: 7
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: действующий вердикт выводится из
+    внешнего события и записи ревью, привязанной к отпечатку, а не из слова в заголовке.
+  base_commit: aa831a960a80dcf211f4bbd6882874ac6793d845
+  content_commit: 491cd37a57671a6822e190195305956cd1b54cfe
+  content_commit_note: >-
+    Редакцию 7 внёс коммит 491cd37a5. После него документ не менялся: `git show HEAD:<файл> |
+    sha256sum` и `sha256sum <файл>` дают 9326b45b… на базе aa831a960. Привязка только по
+    отпечатку: после любой правки документа нужно новое рассмотрение.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2924
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2667
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T18:00:00Z'
+round: 7
+pass_round: 5
+pass_note: >-
+  Круг 5 прохода решений Д14–Д16. Сквозной номер круга по документу — 7.
+previous_rounds:
+  - round: 1
+    sha256: 3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/3b8a08afeb778edb4f7282ec4e6bfb02bf16e91697aeed0200b1771e8e6bab52.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 2
+    sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 3
+    sha256: acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/acd62218d140902bc54b4363ab5b171ae5f5c7b24d7d749fe49ab25bbd7fe937.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 4
+    sha256: 263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/263b95d0030bfd0a2dbe72de695037bd69d04b9ea8f5909644bd204014af772d.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 5
+    sha256: 62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/62a2286bff97b565a318e92675eebab0572d293f4e9eade4a31eb75998fbc96f.yaml
+    verdict: CHANGES_REQUESTED
+  - round: 6
+    sha256: 8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3
+    record: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/8a8566b261c5e1078a8472854b2dc7efe3f0f0de7d31dbea91a9219fd49e23f3.yaml
+    verdict: CHANGES_REQUESTED
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac aa831a960 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: aa831a960a80dcf211f4bbd6882874ac6793d845
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+publication_mode: >-
+  Событие полномочия публикует курьер. Его тело — строка external_event_body ниже. Роль в этой
+  записи служит координатой и личность не доказывает. Вердикт — возврат: полномочий он не выдаёт
+  и ничего не открывает.
+external_event_body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 9326b45b686193a4346cce9d69ad1bb6a27578002d30f284a1bda62d5b94620a"
+blocking_count: 1
+blocking_kinds_distinct: [NEGATIVE]
+blocking_kinds_by_item: [NEGATIVE]
+
+trend:
+  blocking_by_round: [7, 3, 3, 1, 2, 2, 1]
+  note: >-
+    B1 и B2 круга 6 закрыты по названным местам (round_6_closure). Единственное блокирующее
+    появилось из правки редакции 7. Она расширила класс B2 на новое место — отказ `DescribeScope`
+    раскрытия — и дописала в Р10 правило «любым кодом обеих строк шага 5 — приостановка». Держатель
+    дан только первой строке (NTF5-67 (б), `UNAVAILABLE`).
+repeated_kinds:
+  - kind: NEGATIVE
+    note: >-
+      Род был в кругах 5 и 6. Класс тот же, что B2 круга 6: у второй строки шага 5 нет держателя.
+      Изменилось только место: тогда — свой курсор `ListAccounts`, теперь — `DescribeScope`
+      раскрытия. Кандидат в форму задания автора (§14а): правило вида «любым кодом обеих строк»
+      получает букву на КАЖДУЮ строку в каждом месте вызова. Если место отличается от соседней
+      таблицы, на которую ссылается, — букву на тот код, где отличается.
+
+premises_checked:
+  - claim: "отпечаток задания совпадает с файлом и с HEAD"
+    result: подтверждено
+    predicate: "sha256sum <файл>; git show HEAD:<файл> | sha256sum → 9326b45b… оба (HEAD aa831a960)"
+  - claim: "в main одобренной приёмки NTF-5 нет, черновик живёт в ветке (Д16)"
+    result: подтверждено
+    predicate: "git ls-tree -r --name-only main | grep -c NTF-5-operator → 0; то же для origin/main → 0"
+  - claim: "новая ссылка письма проходит форму `path` NTF-1 Р7 на одобренном 530e2296"
+    result: подтверждено
+    predicate: >-
+      sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md → 530e2296…;
+      sed -n 539-541p (одна ведущая `/`, сегменты `[A-Za-z0-9._~-]`, без `.`/`..`, без `?#%\`,
+      длина [1..1024]); алфавит id — corelib 34bc810 ids/ids.go:22 `0123456789abcdefghjkmnpqrstvwxyz`;
+      echo -n '/notices/ntc-0123456789abcdefg/accounts/acc1a18042d81fb438d6' | wc -c → 60;
+      grep -n '?accountId\|?projectId' <NTF-5> → остались только пути публичного REST (строки 435-436,
+      1522-1638, 2290-2300) и прежняя форма как отвергнутый пример (564); в ссылке письма — 0
+  - claim: "таблица «Отказ вызова справочника» NTF-3 Р7 помещает INVALID_ARGUMENT в ту же клетку, что недоступность (Р10 шаг 5 ссылается на неё так)"
+    result: "опровергнуто (B1, I-1)"
+    predicate: >-
+      sed -n 667-677p docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md @aa831a960 —
+      строка `INVALID_ARGUMENT` → `INVALID` (терминально); «Таблица действует для всех трёх методов
+      справочника». NTF-5 Р8 (строки 615-619) читает её так же, Р10 шаг 5 (строки 701-706) — иначе
+  - claim: "каждое место, где утверждён исход отказа вызова справочника, получило букву с близнецом (§17, класс B2)"
+    result: "опровергнуто (B1)"
+    predicate: >-
+      sed -n 745-752p <NTF-5> — отказ `DescribeScope` раскрытия «любым кодом обеих строк шага 5»;
+      grep -n 'acc-150' <NTF-5> → только NTF5-67 (б) и §9, код отказа — `UNAVAILABLE`; ни одной буквы
+      со второй строкой шага 5 у этого места
+  - claim: "§1.6 измерена на ff0c1b310 — последнем коммите до коммита редакции"
+    result: "опровергнуто (I-2)"
+    predicate: >-
+      git merge-base --is-ancestor ff0c1b310 HEAD → 1; git log -1 --format=%P ff0c1b310 и f152624a7 →
+      оба d9dc30005 (два разных коммита с одним родителем, деревья разные);
+      git log --oneline f152624a7..491cd37a5^ → 0c30011e8 (NTF-6 замысел), 9b8911760 (NTF-2 редакция 11)
+  - claim: "опора на NTF-2 (путь подтверждения адреса кодом) не задета дельтой после измерения"
+    result: подтверждено
+    predicate: >-
+      git diff ff0c1b310 491cd37a5^ -- <NTF-2> | grep '^[+-]' | grep -iE 'email_verified|код подтверж|приёмник' → 0
+  - claim: "гигиена: путей рабочей копии, фраз о незакоммиченности, имён чужих облаков и маркеров отсрочки нет"
+    result: подтверждено
+    predicate: "grep -ciE 'tmp/|не закоммич|<закрытый перечень имён чужих провайдеров>|TODO|FIXME' <файл> → 0"
+
+counts:
+  scenarios: 110
+  scenario_ids_unique: true
+  scenario_count_predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF5-' → 110; grep -oE … | sort | uniq -d | wc -l → 0"
+  producer_coverage: "110 из 110: python3 — номера «**ID:** NTF5-N» против первого столбца строк «| NTF5-…» §8 (диапазоны раскрыты), разность пуста"
+  twins_new_letters: "NTF5-18 (г)/(д), NTF5-62 (а)–(в)/база, NTF5-67 (а)/база, NTF5-67 (б)/NTF5-66 — у каждой буквы близнец, меняется один факт (§9)"
+  constructibility: >-
+    Посеяно 0 из 110, «не выполнилось» 110: службы notify в дереве kacho нет, стенд и изоляция для
+    посева заданием не названы. Чтением и деревом проверены новые Given: ссылка письма против формы
+    NTF-1 Р7 и алфавита corelib — строится; посев моментов NTF5-68 прямой вставкой с явным
+    `created_at` — строится; отбор вызова `DescribeScope{acc-150}` и `Resolve` о `usr-c` средством
+    §6 — строится.
+
+blocking:
+  - id: B1
+    kind: NEGATIVE
+    title: "Отказ `DescribeScope` раскрытия кодом второй строки шага 5 Р10 без держателя; отнесение INVALID_ARGUMENT к нетерминальной строке расходится с таблицей NTF-3, на которую Р10 ссылается"
+    scenarios: [NTF5-67]
+    evidence: >-
+      Редакция 7 дописала в Р10 (строки 745-752) правило: отказ `DescribeScope` раскрытия «любым
+      кодом обеих строк шага 5» даёт ту же приостановку на странице k, «вторая строка шага 5
+      добавляет сигнал и счётчик». Держатель назван один — NTF5-67 (б), и у него код `UNAVAILABLE`,
+      то есть первая строка. Для второй строки (`PERMISSION_DENIED`, `UNAUTHENTICATED`,
+      `INVALID_ARGUMENT`, `NOT_FOUND`, …) в этом месте нет ни «Тогда», ни близнеца. Опасность
+      усиливает ссылка шага 5 на таблицу «Отказ вызова справочника» NTF-3 Р7 «без изменений». В
+      этой таблице (NTF-3 строка 677 @aa831a960) `INVALID_ARGUMENT` — терминальный `INVALID`, и сам
+      документ в Р8 применяет её так же. Реализация, которая берёт общий классификатор NTF-3 и для
+      `DescribeScope` раскрытия, закроет строку владельца `acc-150` терминально и пойдёт к
+      следующему аккаунту. Извещение класса OB этому владельцу не уйдёт, а все 110 сценариев
+      останутся зелёными. Документ в §17 утверждает обратное: «каждое место … получило букву с
+      близнецом». Класс тот же, что B2 круга 6.
+    fix: >-
+      (1) В NTF5-67 добавить букву (в), отличающуюся от (б) одним фактом: код отказа
+      `DescribeScope{accountId: acc-150}` — `INVALID_ARGUMENT` вместо `UNAVAILABLE`. «Тогда» в
+      момент снятия: то же, что (б) (строк по `acc-150` и `acc-201…250` нет, строки владельца
+      `acc-150` с терминальным исходом нет, `ListAccounts` третьей страницы не вызывался,
+      `notify_notice_fanout_pending{…}` = 1), плюс
+      `notify_recipient_directory_refused_total{ns="notify",code="InvalidArgument"}` ≥ 1 и ненулевой
+      `misconfigured`. После снятия: 250 писем, повторов нет. Близнец — (б): счётчик не изменился,
+      сигнала нет. Строки добавить в §8, §9 и DoD 10.2 п.4. (2) В Р10 шаг 5 написать прямо, что для
+      `DescribeScope` и `ListAccounts` клетка `INVALID_ARGUMENT` отличается от таблицы NTF-3 Р7
+      (там терминальна), и дать основание. Например: отказ страницы или области терминального
+      исхода не даёт, адресаты остатка неизвестны — то же правило, что «Отказ на странице» NTF-3 Р7.
+      Сейчас текст приписывает это NTF-3. (3) Для проверки заявки (NTF5-18) у `INVALID_ARGUMENT` то же
+      расхождение с NTF-3. Либо держать его буквой (е) — «(г) с кодом `INVALID_ARGUMENT`», близнец
+      (г), — либо назвать в Р10 исход, отличный от окна, и держать его.
+
+important:
+  - id: I-1
+    kind: FORMAT
+    text: >-
+      Р10 шаг 5 (строки 701-706) называет свои две строки «таблица «Отказ вызова справочника» NTF-3
+      Р7». Но NTF-3 сама ограничивает таблицу «всеми тремя методами справочника» (`Resolve` и два
+      своих списка) и кладёт `INVALID_ARGUMENT` в отдельную терминальную строку. Для двух методов
+      этого документа (`DescribeScope`, `ListAccounts`) таблица своя, и это надо сказать как
+      отличие с основанием, а не как перенос «без изменений». Правка входит в fix B1, п. (2).
+  - id: I-2
+    kind: FORMAT
+    text: >-
+      §1.6: «Ревизия сверки редакции 7 — один коммит `issue-880@ff0c1b310` (последний коммит до
+      коммита самой редакции)». `ff0c1b310` не входит в историю ветки (`git merge-base
+      --is-ancestor ff0c1b310 HEAD` → 1). Это сосед `f152624a7` с тем же родителем `d9dc30005`, его
+      повторить из ветки нельзя. Последний коммит до редакции — `0c30011e8`, а между ними вышла
+      редакция 11 NTF-2 (`9b8911760`). Её дельта опору документа не задевает (строк о коде
+      подтверждения 0). После редакции вышли одобрение NTF-2 на `9098d6ef` (`52fed403d`) и редакция 13
+      NTF-3 (`aa831a960`). Перемерить §1.6 на коммите из истории ветки.
+  - id: I-3
+    kind: FORMAT
+    text: >-
+      В Р6 примеры `acc0123456789abcdefgh` и `prj0123456789abcdefgh` имеют 21 символ, а форма id
+      службы доступа — префикс и 17 символов, всего 20 (§1.4; corelib ids.go:5). Проверку `path`
+      примеры проходят, но id верной формы не являются. К тому же строкой ниже сказано «длина ссылки
+      — 60 символов», а это верно только для id длиной 20. Взять тела по 17 символов.
+  - id: I-4
+    kind: PRODUCER
+    text: >-
+      Строка возврата о NTF3-114 против двери по-прежнему открыта (на `9e4404d1` строка не
+      изменилась). Довести её до автора NTF-3 — дело диспетчера.
+
+round_6_closure:
+  B1: "закрыт: ссылка письма — сегменты пути `/notices/<id>/accounts/<A>` | `/projects/<P>`; прогнана против формы NTF-1 Р7 @530e2296 в обе стороны; `?` в атрибуте ссылки — 0; границы RA-09 (пустой сегмент, хвостовая `/`) ссылкой не задеты"
+  B2: "закрыт по названным местам: NTF5-18 (г)/(д) — проверка заявки, NTF5-67 (а)/база — свой курсор; перенос класса на `DescribeScope` раскрытия неполон — B1 этого круга"
+  I-1: "закрыт по составу (RA-07…RA-09 названы и сверены); ревизия сверки не из истории ветки — I-2 этого круга"
+  I-2: "закрыт (§1.4 называет `IsSeededResourceID`)"
+  I-3: "закрыт (средство посева — вставка с явным `created_at`)"
+  I-4: "перенесён — I-4 этого круга"
+
+dispatcher_decisions_check:
+  D1: соблюдено (Р1)
+  D2: "соблюдено: service:notify только у notify-sender"
+  D3: соблюдено (второго потокового контракта нет)
+  D4: соблюдено (ResolveSend в общем конвейере)
+  D5: "соблюдено: кастомных шаблонов нет; ссылка — путь установки, форма `path` NTF-1 Р7 соблюдена"
+  D6: соблюдено
+  D7: соблюдено
+  D8: "соблюдено; расхождение NTF3-114 — I-4"
+  D9: "Р20 спором — решение за диспетчером (без изменений)"
+  D10: к извещениям не относится — названо
+  D11: соблюдено
+  D12: соблюдено
+  D13: "уточнение порядка S2 заявлено спором (без изменений)"
+  D14: "соблюдено: тип справочника в перечне без надзора (Р10); ветка user:usr-op с system_admin → PERMISSION_DENIED, близнец service:notify (NTF5-68); BatchCheck — публичный AuthorizeService"
+  D15: "соблюдено: контакты и настройки — форма NTF-3; NTF-6 — потребитель"
+  D16: "соблюдено: в main документа нет (0), черновик — ветка issue-880"
+
+hygiene:
+  workcopy_paths_in_doc: "0"
+  uncommitted_phrases_in_doc: "0"
+  foreign_clouds: "0"
+  deferral_markers: "0"
+
+route_markers:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: "нет (экраны — NTF-6 по контракту Р22; маршрут цели ссылки назван)"
+  new_domain: "нет (службу notify заводит NTF-1)"
+  security_surface: "да (внутренний API оператора, два метода справочника службы доступа, контакты, ступень acr)"
+
+questions_for_dispatcher:
+  - >-
+    NTF3-114 против двери kaname (I-4) до сих пор не передан автору NTF-3.
