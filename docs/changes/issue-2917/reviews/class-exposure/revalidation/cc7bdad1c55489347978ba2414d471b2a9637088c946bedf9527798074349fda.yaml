@@ -1,0 +1,294 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 5
+# замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/9098d6ef….yaml) и пересверки на
+# редакции 1 (f21384ed…), 2 (2886b89f…) и 3 (c3e37381…) свидетельствуют о своих редакциях и
+# здесь не переписываются. На редакцию 4 (ec65427a…) пересверки нет: её сменила редакция 5 до
+# разбора, и дифф 4→5 разобран здесь вместе с 3→4. Проверено: (1) каждый пункт CX2-01…36
+# отображён, и отображение выдерживает условие пункта — по дереву, а не по тексту замысла;
+# (2) новые внешние вызовы, (3) новые асинхронные пути, (4) новые sentinel-значения редакций 4 и
+# 5 заведены пунктами либо входят в решение уже заведённого; (5) маркеров отсрочки и открытых
+# решений нет; (6) применимые ревью замысла на этот отпечаток. Новых пунктов нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: cc7bdad1c55489347978ba2414d471b2a9637088c946bedf9527798074349fda
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 5
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+initial_record: docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1.yaml
+previous_revalidations:
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed7d2236deed882f84dc1bfdc576f1f81f7e5ce5ad1108aeff69472892.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f1e0fd77aa4f834845e6466fa06cf31405bbf60fcb2bc8a39dd35f850.yaml
+  - docs/changes/issue-2917/reviews/class-exposure/revalidation/c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: ac6692844   # ветка issue-880, коммит редакции 5; на ff0c7b24d пакет и приёмка NTF-2 те же (git diff --stat пуст)
+  kaname: 734f69fb4      # origin/357 — та же ревизия, что в замысле §1
+  kacho: 6edea09c2ee     # origin/2564 — та же ревизия, что в замысле §1; в этой пересверке не открывался
+snapshot_at: 2026-09-30T06:17:47Z
+inspected: >-
+  дифф замысла c3e37381 → cc7bdad1 целиком (git diff e5ef5f823 ac6692844: шапка, §0 таблица
+  опор, §0.2 О1–О5, М18, М33, З11 (ключи, уровень изоляции), З13 (классы мест), З14 (пауза доли),
+  проба CX2-36, З25, И24, И27, И28, §4, §8, §11 (CX2-35, CX2-36), §12, §13 Е10); пересверка
+  c3e37381 (CX2-35 условие к коду, CX2-36 условия (а)–(в), заказы); tasks.md (шапка, S12, G2, G1);
+  change.yaml; policy.yaml §3 (реестр применимости); scripts/change-graph-gate/cglib/families/
+  {design,klass}.py (состав условий одобрения); текст NTF-1 на 5f3851113 (sha256 05828e42 —
+  строки 685, 802, 1084, 1388) и все 14 записей вердиктов NTF-1. Дерево kaname @734f69fb4:
+  humansession/dispatch.go целиком, вызовы Dispatch/NewGoDispatcher/WithCap в прод-дереве,
+  cmd/kaname/loginlane.go (сборка диспетчера, drain), cmd/kaname/serve.go (порядок гашения
+  вокруг lane.drain), passwordverify/capacity.go (acquire, acquireWait, Capacity). Решения
+  Д1–Д19 — по заданию. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → 1 попадание «что позже» (З8, строка 395,
+      про момент выхода из окна) — не маркер
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      «вопрос» — 2 попадания: строка 19 (вопрос редакции 4 решён диспетчером — registerSharePause
+      = 1, З14) и строка 815 (вопрос, который гейт храповика задаёт автору будущей миграции) —
+      ни одно не открытое решение замысла. §13: «Нет. Решения З1–З26 приняты»; Е1–Е10 —
+      зависимости с чьим-предметом и предикатом снятия. Е10 по решению диспетчера Д19 — внешняя
+      зависимость с владельцем (приёмка NTF-1 как владелец пакета address утверждает отказ
+      address.Domain на нуле), а не вопрос замысла: решение самого замысла (kaname принимает только
+      address.Normalized, отказ на нулевом — условие к коду З11 с пробой) принято и от выбора
+      документа не зависит. Строка Е10 «чей предмет» ещё несёт развилку «NTF-2 … либо NTF-1» — по
+      Д19 действует вторая ветвь; правка строки не требуется ради одобрения и не стоит новой
+      пересверки сама по себе.
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      строк отображения §11 — 36 из 36 (27 + 6 + 2 + 1). CX2-36 — механизм (а) классы мест 12/4,
+      (б) пауза доли registerSharePause = 1, (в) пробы с близнецами — выдерживает все три условия
+      пересверки c3e37381. CX2-35 — условие к коду вписано решением (BeginWindowWork,
+      WindowTx, ReadCommitted явно) с пробой и близнецом — выдерживает. Условие к коду на
+      гашение обоих классов — строка CX2-36 ниже (к-коду, не отказ отображения).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: "в редакциях 4 и 5 новых внешних вызовов нет"
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: green
+    detail: >-
+      новый путь один — снятие доли register таймером часов-параметра после паузы (З14). Он —
+      механизм (б) пункта CX2-36 и отображён им (полоса S12, проба «паузы без работы»: горутин
+      работы 0, место класса свободно). Пауза держит только слот доли; работу, место диспетчера и
+      соединение пула не держит — ожидать его при гашении нечего.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      новые значения: mailkey.ErrUnset (нулевое address.Normalized) — второе написание «пустого
+      адреса», предмет пункта CX2-20 («одна нормализация, одно написание»); решение З11 и З25
+      (ошибка до транзакции, пустая строка в users.email не пишется) и проба с близнецом —
+      отображение CX2-20 выдерживает. Нулевой WindowTx → ошибка LockAnchor до первого оператора —
+      часть решения CX2-35. registerSharePause, recoveryDispatchPlaces = 12,
+      registerDispatchPlaces = 4 — константы с доводом (§8) и модульной пробой суммы — часть
+      CX2-36. Ни одно не нуль-значение с двумя смыслами.
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: >-
+      до этой записи — red: последняя пересверка привязана к c3e37381 (редакция 3), на
+      ec65427a (редакция 4) пересверки не было. Эта запись привязана к cc7bdad1 — отпечатку
+      файла на ac6692844 и на ff0c7b24d. Первичный разбор привязан к 9098d6ef — отпечаток файла
+      приёмки тот же. Манифест пакета (change.yaml hashes.acceptance_sha256) несёт 33e199c9
+      (редакция 8 приёмки) — привязку, которую семейство cg.class сравнило бы с первичным
+      разбором; манифест сам называет перевод полосой пакета — заказ ниже.
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING)"
+    result: red
+    detail: >-
+      reviews/design/ в пакете нет ни на одной ревизии (git ls-tree -r HEAD
+      docs/changes/issue-2917/reviews — только class-exposure). design-reviewer применим:
+      applicability.py field design_documents_referenced → 1. db-architect-reviewer и
+      proto-api-reviewer: числа нет ([UNREAD] — у манифеста нет head_sha), освобождения нет;
+      по существу обе применимы — замысел заводит миграции (F1: таблицы окна, снятие трёх) и
+      proto внутреннего справочника адресатов (§4, З20). Одобрение замысла запрещено до записей
+      трёх ролей на cc7bdad1.
+
+mapping_check:
+  - {id: CX2-01, design: "З2, З4", verdict: holds, note: "не менялось с редакции 3"}
+  - {id: CX2-02, design: "З1, З2", verdict: holds, note: "шаг feed.Put теперь исполняется через Send* пакета mail (И28) — решение то же"}
+  - {id: CX2-03, design: З5, verdict: holds}
+  - {id: CX2-04, design: З6, verdict: holds}
+  - {id: CX2-05, design: З16, verdict: holds}
+  - {id: CX2-06, design: З16, verdict: holds}
+  - {id: CX2-07, design: З16, verdict: holds}
+  - {id: CX2-08, design: З20, verdict: holds}
+  - {id: CX2-09, design: З4, verdict: holds}
+  - {id: CX2-10, design: З4, verdict: holds}
+  - {id: CX2-11, design: "З8, З9", verdict: holds}
+  - {id: CX2-12, design: З8, verdict: holds}
+  - {id: CX2-13, design: "З9, З18", verdict: holds}
+  - {id: CX2-14, design: "З11–З14", verdict: holds}
+  - {id: CX2-15, design: З11, verdict: holds}
+  - {id: CX2-16, design: З12, verdict: holds}
+  - id: CX2-17
+    design: З13
+    verdict: holds
+    note: >-
+      ёмкость 16 сохранена суммой классов; страж пула и И22 судят сумму. onDrop сегодня один и
+      пишет только исход восстановления (loginlane.go:549) — решение «dropped_overload своего
+      глагола» требует приёмника на класс; держит проба классов S12 (dropped_overload{verb}).
+  - {id: CX2-18, design: З15, verdict: holds}
+  - {id: CX2-19, design: З14, verdict: holds}
+  - id: CX2-20
+    design: "З11, З15, З25"
+    verdict: holds
+    note: >-
+      редакция 5 (§0.2 О1): address.Normalized на одобренной NTF-1 05828e42 — структура с
+      неэкспортируемым полем, нулевое значение законно (строки 802, 1388 текста на 5f3851113).
+      Решение: производные читают Value(), на address.ErrUnset — mailkey.ErrUnset, ключа нет;
+      писатели users.email — то же. Второе написание «пустой адрес» не становится общим ключом.
+      Держит модульная проба mailkey на нуле с близнецом «значение из Normalize → ключ»
+      (полоса G1 по шапке tasks.md).
+  - {id: CX2-21, design: "З24, §6", verdict: holds}
+  - {id: CX2-22, design: З23, verdict: holds}
+  - {id: CX2-23, design: З19, verdict: holds}
+  - {id: CX2-24, design: З18, verdict: holds}
+  - {id: CX2-25, design: З16, verdict: holds}
+  - {id: CX2-26, design: З22, verdict: holds}
+  - {id: CX2-27, design: З17, verdict: holds}
+  - {id: CX2-28, design: "З8, З9", verdict: holds, note: "503 — зависимость Е9, приёмка NTF-2 не правилась"}
+  - {id: CX2-29, design: З26, verdict: holds}
+  - {id: CX2-30, design: З10, verdict: holds}
+  - {id: CX2-31, design: "З20, §5", verdict: holds}
+  - {id: CX2-32, design: "З11, §6", verdict: holds}
+  - {id: CX2-33, design: З14, verdict: holds}
+  - {id: CX2-34, design: "З14, З13, §6", verdict: holds, note: "пауза доли (CX2-36 (б)) условия (а)–(в) не задевает: выводы по-прежнему 0 или 2, вне блокировки и без соединения пула"}
+  - id: CX2-35
+    design: "З11, З18, З26, §6"
+    verdict: holds
+    note: >-
+      условие к коду пересверки c3e37381 вписано решением: транзакцию работы окна открывает одна
+      mail_window_repo.BeginWindowWork с pgx.TxOptions{IsoLevel: pgx.ReadCommitted}, возвращает тип
+      WindowTx; LockAnchor и прочие операторы работы окна принимают только WindowTx, нулевой
+      WindowTx — ошибка до первого оператора (тот же приём, что address.Normalized: непустое
+      значение строит одна функция). Все три работы окна — recovery, register (через диспетчер) и
+      verify-email (на пути запроса, П4) — зовут LockAnchor и поэтому проходят через
+      BeginWindowWork. Держатели: проба current_setting('transaction_isolation') внутри WindowTx →
+      read committed с близнецом RepeatableRead (проба различает); проба (в) через
+      BeginWindowWork с близнецом-инъекцией RepeatableRead → ошибка сериализации вместо повтора —
+      красный. Маршрут: полоса G2.
+  - id: CX2-36
+    design: "З13, З14"
+    verdict: holds
+    note: >-
+      (а) места разделены: recovery 12, register 4, сумма 16; класс, чьи места заняты, —
+      dropped_overload своего глагола, чужих мест не берёт; k = 4 с доводом (доля = 1, пятая
+      ожидающая не получила бы вывода раньше повтора). Посылка М33 подтверждена: у GoDispatcher
+      одно поле inFlight и один cap, отказ при inFlight >= cap (dispatch.go:94), единственный
+      прод-вызов Dispatch — recovery_request.go:147, так что третьего класса, оставшегося без
+      мест, нет. (б) пауза доли = время, которое выводы держали место проверяющего: место занято
+      выводами register не больше 2d из каждых 4d, то есть ≤ 1/2 времени при любом потоке —
+      арифметика верна, включая порог насыщения 20 rps > 1/(4d) ⇔ d > 12,5 мс. Цена для входа
+      названа потоком (доля времени) и принята решением диспетчера (registerSharePause = 1) —
+      ровно исход «цена принята решением с этим числом» условия (б). (в) recovery не
+      отбрасывается ожидающими register — утверждает проба классов с близнецом «один счётчик на
+      16» (красный), а не довод; проба доли времени на управляемых часах при c = 1 с близнецом
+      registerSharePause = 0. Маршрут: полоса S12.
+      Условие к коду (к-коду, не отказ отображения): гашение дожидается работ ОБОИХ классов.
+      Сегодня loginLane держит один *GoDispatcher и drain зовёт его Wait (loginlane.go:144,
+      serve.go:1720 — после остановки слушателей). Если классы будут сделаны двумя экземплярами
+      диспетчера, а не классами внутри одного, drain обязан ждать оба; иначе работы второго
+      класса обрываются гашением молча. Держит проба «работа каждого класса в полёте → drain
+      возвращается только после обеих» — заказ полосе S12. Синхронный путь «после остановки
+      работа на месте» (dispatch.go) при этом недостижим для нового запроса: drain стоит после
+      stopGRPCBounded и stopSurfaces, новых запросов нет — оракула времени на пути ответа
+      register при гашении не возникает.
+
+measurements:
+  - claim: "шапка замысла: на ac6692844 отпечаток cc7bdad1; на ff0c7b24d тот же"
+    command: "git show ac6692844:docs/changes/issue-2917/design.md | sha256sum; sha256sum docs/changes/issue-2917/design.md; git diff --stat ac6692844 HEAD -- docs/changes/issue-2917 docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "подтверждено: cc7bdad1 на обеих ревизиях; дифф пакета и приёмки NTF-2 пуст"
+  - claim: "М33: у диспетчера один счётчик мест на все работы, класса нет"
+    command: >-
+      git -C project/kaname show 734f69fb4:internal/apps/kaname/api/humansession/dispatch.go;
+      git -C project/kaname grep -nE '\.Dispatch\(|NewGoDispatcher|WithCap\(' 734f69fb4 -- ':!*_test.go'
+    result: >-
+      подтверждено: поля inFlight/cap, отказ при inFlight >= cap; прод-вызов Dispatch один
+      (recovery_request.go:147), диспетчер строится один (loginlane.go:549) с onDrop только
+      исхода восстановления
+  - claim: "гашение ждёт постановок после остановки слушателей"
+    command: "git -C project/kaname show 734f69fb4:cmd/kaname/serve.go | sed -n 1680,1725p; … show …:cmd/kaname/loginlane.go | sed -n 138,146p"
+    result: >-
+      подтверждено: readiness → stopAdmission → stopGRPCBounded ×2 → stopSurfaces → lane.drain();
+      drain зовёт Wait одного поля dispatcher — основание условия к коду CX2-36 о двух классах
+  - claim: "§0.2: действующее одобрение NTF-1 — 05828e42, круг 3; О1, О2 стоят на его тексте"
+    command: >-
+      git show 5f3851113:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md | sha256sum;
+      grep -nE '^(verdict|round):' docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/*.yaml;
+      sed -n 1084p; grep -n ErrUnset (по тексту на 5f3851113)
+    result: >-
+      подтверждено: 05828e42 — APPROVED, круг 3; APPROVED среди 14 записей ещё у d524e7bd,
+      530e2296, b347b81f. Строка 1084 — «ключ kaname на адрес как приёмник address.Domain и его
+      отказ на нулевом значении (Р8)»; ErrUnset на нуле — строки 802, 1388. Уточнение к шапке
+      замысла: редакция 14 NTF-1 (7d855830) после коммита замысла получила запись
+      CHANGES_REQUESTED (ff0c7b24d, 09:14) — «вердикта нет» устарело, вывод не меняется: опора
+      на последнее APPROVED
+  - claim: "Е3, Е4, Е9 — правки приёмки NTF-2 — не внесены"
+    command: "sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "подтверждено: отпечаток прежний 9098d6ef"
+  - claim: "применимые ревью замысла на cc7bdad1"
+    command: >-
+      git ls-tree -r --name-only HEAD docs/changes/issue-2917/reviews;
+      python3 scripts/change-graph-gate/applicability.py field {design_documents_referenced,migrations_touched,proto_files_touched} --package docs/changes/issue-2917 --rev HEAD
+    result: >-
+      записей reviews/design/ — 0 (файлов в reviews — только class-exposure); design_documents_referenced
+      → 1 (пакет 12 файлов, design.md есть); migrations_touched и proto_files_touched — [UNREAD],
+      числа нет: у манифеста нет head_sha
+
+not_measurable:
+  - "время одного вывода argon2id на узле стенда и с ним порог насыщения доли — число прогона; замысел утверждает свойство при насыщении (≤ 1/2), и оно от числа не зависит"
+  - "migrations_touched и proto_files_touched — у изменения нет линии (head_sha), производитель числа не выдаёт; применимость db-architect-reviewer и proto-api-reviewer установлена по содержанию замысла (F1, §4 З20), а не числом"
+  - "поведение corelib notify/feed и читателя notify (Е8) — кода нет на базах"
+
+outcome: вернуть-в-приёмку
+unmapped: []
+return_to_acceptance:
+  - target: "docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md (05828e42 APPROVED, круг 3) против NTF-2 (9098d6ef APPROVED)"
+    scenarios: "NTF1-F21, NTF1-G22, Р3, §1.5 — против NTF2-47, NTF2-06, Р1, Р14 (К1, Е1); NTF1-N06, Р9 — против NTF2-51, Р4 (К2, Е2)"
+    what: "не снято; обе приёмки одобрены и утверждают взаимоисключающее"
+  - target: "docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (9098d6ef)"
+    scenarios: "Р8 «kaname · приглашения», NTF2-71 (т) (Е3); §3, DoD п.23 (Е4); NTF2-60…63, 74, NTF2-72 (Е9)"
+    what: "не внесено: отпечаток приёмки прежний — прежние возвраты в силе"
+  - target: "docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md §4 строка 1084 (05828e42)"
+    scenarios: "§4 «ключ kaname на адрес как приёмник address.Domain … (Р8)» (Е10)"
+    what: >-
+      по Д19 отказ address.Domain на нулевом значении утверждает NTF-1 как владелец пакета
+      address; строка §4, относящая его к NTF-2, на одобренном отпечатке остаётся — правит
+      владелец NTF-1. Замысла NTF-2 не блокирует
+
+orders:
+  - to: design-reviewer, db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток замысла cc7bdad1 (reviews/design/<role>/cc7bdad1….yaml) — без них DESIGN_APPROVED запрещён"
+    basis: "SDD-1 §5; cglib/families/design.py design.precode-reviews; policy.yaml §3"
+  - to: go implementer (NTF-2, полоса S12)
+    what: "условие к коду CX2-36: drain дожидается работ обоих классов; проба «работа каждого класса в полёте → drain возвращается только после обеих»"
+    basis: "code-authoring §«Решение и его следствие разнесены»; архитектура §«Concurrency / lifecycle / читаемость»"
+  - to: package author (NTF-2)
+    what: "change.yaml hashes.acceptance_sha256 → 9098d6ef вместе со свидетельствами (сейчас 33e199c9 — редакция 8); иначе cg.class судит первичный разбор как устаревший"
+    basis: "change-graph §4 (привязка первичного разбора к отпечатку приёмки)"
+  - to: acceptance author (NTF-2)
+    what: "Е3, Е4, Е9 (прежние) — правка приёмки; после неё — новый первичный разбор на новый отпечаток"
+    basis: "change-graph §2; §4"
+  - to: acceptance author (NTF-1)
+    what: "К1/К2 (Е1, Е2) и строка §4 о приёмнике address.Domain (Е10, по Д19)"
+    basis: "Д2; Д13; Д19"
