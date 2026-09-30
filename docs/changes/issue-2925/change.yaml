@@ -15,10 +15,10 @@
 # СОСТОЯНИЕ CLASS_EXPOSURE_RECORDED — приёмка на отпечатке `hashes.acceptance_sha256`
 # одобрена (запись docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml,
 # APPROVED), первичный разбор классов на тот же отпечаток записан
-# (reviews/class-exposure/initial/47bd8b70….yaml). Замысел — `design.md` редакции 6
+# (reviews/class-exposure/initial/47bd8b70….yaml). Замысел — `design.md` редакции 7
 # (2026-09-30), отпечаток — `hashes.design_sha256`; вердикта и пересверки на него нет
-# (редакция 3 `defdbe67` возвращена ревью замысла, редакции 4 `7294a684` и 5 `dd683a30` —
-# пересверками разбора классов, `к-замыслу`). Маршрут работ — `tasks.md` (проект;
+# (редакция 3 `defdbe67` возвращена ревью замысла, редакции 4 `7294a684`, 5 `dd683a30` и
+# 6 `0fff30f0` — пересверками разбора классов, `к-замыслу`). Маршрут работ — `tasks.md` (проект;
 # TASKS_READY им не объявлено). Каталоги `evidence/*` несут отпечаток прежней редакции
 # приёмки `7a50855c` — свидетельства на `47bd8b70` не сняты.
 schema_version: 1
@@ -47,7 +47,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
-  design_sha256: 0fff30f0c4761d034e5a8bf99b2c439be88e24e7d21923d9341280f8911ba959
+  design_sha256: 1e70adcdb72aa5fb89cd1b60c55656544bf0f0685090df62642374aeab78adb0
   holders_sha256: 88927a5be77796a75ab3afa8e7054c3184afb64cd9a0a51070732eaf5e9f4acf
 
 links:
