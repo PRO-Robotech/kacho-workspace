@@ -1,0 +1,376 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 10.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5, 3dbb8b23, b34a411e, 97c51264) относятся к своим отпечаткам и здесь не переписываются.
+# По Д22 это дельта: редакция 10 проверена диффом 38283c50d → 1d49feafb (design.md, tasks.md,
+# change.yaml). Проверено:
+#   (1) решения редакции 10 по записи ревью замысла 97c51264 (К1, К2, В1–В4, М1): каждое разобрано
+#       на классы, условия на код сверены с кодом corelib @34bc8104a и kacho @1d42a6728bf;
+#   (2) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 10;
+#   (3) 88 прежних пунктов: затронуты ли дельтой (CX3B-25, CX3H-02, CX3J-01 (б) правлены ею).
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: f6809e98b8dc7132a5908a26d90790474fb060b2409d18626827500fcc735ed1
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 10
+  content_commit: 1d49feafb
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097.yaml
+  subject_revision: 9
+  outcome: к-коду
+design_review_answered:
+  path: docs/changes/issue-2918/reviews/design/design-reviewer/97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097.yaml
+  commit: 38283c50d
+  outcome: возврат (К1, К2)
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34, Д37, Д40, Д41. Д22 — дельта. Д26 — заход отображения. Д41 уточняет Д37: порядок окон пина
+    corelib в kacho (0) v1.10.0 → (1) NTF-1 → (2) NTF-4 (S2-B1, S3-C2) → (3) X2-F NTF-3 → (4) TW NTF-5.
+    Рёбрами исключается пересечение каждого тега только с окнами (1)–(2).
+revisions:
+  workspace: f4efe7310   # HEAD issue-880 при замере; 1d49feafb — коммит предмета, f4efe7310 — NTF-2, docs/changes/issue-2918 не трогает
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a
+snapshot_at: 2026-09-30T16:57:36Z
+inspected: >-
+  Дифф редакции 9 → 10 целиком: design.md (+209/−42 по трём файлам коммита 1d49feafb), строки X3,
+  S2-B2, S2-B4, S2-B5, S2-B9, S3-C3, S3-C4, Е4 и §0 «Теги X1, X2, X3» tasks.md. Разделы З4, З11, З16
+  замысла целиком. Код corelib @34bc8104a: operations/reconciler.go (Sweep, resolveOne,
+  keepClaimAlive, RecoverAll), operations/worker.go (terminalWrite, проверка живости перед fn),
+  operations/repo.go (executionClaimer, ClaimForExecution). Код kacho @1d42a6728bf: recovery.go шести
+  модулей (NewReconciler), resolver.go compute, storage, nlb (чем читают), SQL NIC AttachToInstance
+  и addressWriter.SetReference. В приёмке ac1f9fc9: Р2, строки таблицы Р7 с DEADLINE_EXCEEDED,
+  поиск по «подряд» и «непрочитан». Стенд не поднимался. Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строки есть у всех 88 пунктов CX3 (`grep -c '^| CX3'` → 88, на 38283c50d тоже 88) и у 7 строк ДР-.
+      Но строка ДР-К1 (б) в редакции 10 не выдерживает: взятие кандидата без проверки живости снова
+      открывает класс фантомного ресурса, который закрывает ClaimForExecution (CX3L-01). Кроме того,
+      заведены новые пункты CX3L-01 и CX3L-02, а отображения для них в замысле нет.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: >-
+      Новых вызовов нет. Вызовы справочника из digest и reminder были и раньше. Дельта даёт им срок и
+      выносит их из транзакции.
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: red
+    detail: >-
+      Новых путей нет, но существующий фоновый путь Reconciler.Sweep перестроен: чтение без замка,
+      затем транзакция на каждого кандидата. На разнесении «прочитал → взял» заведены пункты
+      CX3L-01 и CX3L-04.
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: >-
+      Новых Err* нет: в добавленных строках ErrAlreadyDone, ErrAttrsInvalid, ErrComponentOverPrincipal,
+      ErrLimitExhausted, ErrRecipientInvalid, ErrSecondLimitedPut — все прежние. Новые постоянные —
+      пять инициаторов `system:<служба>-operations`. Р2 приёмки задаёт открытую форму
+      `system:<компонент>` без закрытого перечня, так что это значения в допустимом домене, а не
+      sentinel. Проверка конструктором — пункт CX3L-03.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: "Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md)."
+
+clean: false
+
+execution_check:
+  summary: "заказы записи 97c51264 исполнены или перенесены; К1–М1 ревью замысла отображены, кроме изъяна К1 (б)"
+  items:
+    - id: "orders.go-implementer X5 (97c51264)"
+      verdict: carried
+      where: "tasks.md X5; З10 «Посадка» п.4"
+      note: "Подъёмы пина от тега X2-F до S2-B1 проверяются по `git tag --contains` — это требование к коду, оно остаётся."
+    - id: "orders.acceptance-author маршрут NTF-4 (97c51264)"
+      verdict: carried
+      where: "вне предмета (issue-2919/tasks.md)"
+      note: "Какая полоса поднимает пин kacho на Х1, в этой дельте не проверялось."
+    - id: "facts_for_dispatcher (97c51264): окна X1…X3 NTF-3 и T1 NTF-5 между собой не упорядочены"
+      verdict: partly
+      where: "tasks.md X3; §0 «Теги X1, X2, X3»; З10 «Посадка»"
+      note: >-
+        X3 теперь упорядочен ребром после S2-B1 (ревью замысла В4). Против окна TW его держит правило
+        Д37 при выпуске, вниманием, и причина отказа от ребра названа (длина критического пути).
+        Окна X1 и X2 друг против друга по-прежнему ничем не упорядочены. Д41 этого не требует, для
+        условия предмета это безвредно.
+
+mapping_check:
+  summary: "88 из 88 пунктов CX3 выдерживают; из 7 строк ДР- не выдерживает одна, ДР-К1 (б)"
+  holds_now:
+    - id: "CX3B-25"
+      reason: >-
+        Третий вызывающий AsComponent находится в corelib operations, вне дерева пяти модулей. Его
+        единственность держит `git grep -n 'AsComponent(' -- operations ':!*_test.go'` → 1 и УК3-53.
+        Гейт УК3-27 (д) по-прежнему судит только дерево модулей. Ребро импорта operations → journaltx
+        новое. Кольцо journaltx → operations отверг бы компилятор, поэтому отдельный держатель не нужен.
+    - id: "CX3H-02"
+      reason: >-
+        В дереве compute вызова AsComponent нет. Принципал пары `(compute, operations)` ставит corelib
+        только на транзакцию терминальной записи. Резолвер compute читает лишь свой репозиторий на пуле
+        (`operationresolver.Readers{Instance: repo.NewInstanceRepo(pool)}`, main.go:378), межмодульных
+        вызовов у него нет. Утверждение «пересылаемая личность прохода не меняется» верно на
+        1d42a6728bf. На будущее условие закреплено пунктом CX3L-05.
+    - id: "CX3J-01 (б)"
+      reason: >-
+        Ребро «тег X3 — после посадки S2-B1» есть в строке X3 tasks.md. S2-B1 от X3 не зависит
+        (S2-B1: Е1, Е6, X2-F, S1-A1…A4), так что цикла нет. Окна X1 и X2 закрываются до выпуска X2-F:
+        у выпуска X2-F есть рёбра «S1-A1…A4» и «X5 (тег X2)». X3 против окна TW держится вниманием
+        при выпуске, причина названа. Д41 требует рёбер только против (1)–(2), и они есть.
+    - id: "ДР-К1 (а)"
+      reason: >-
+        Путь исполнителя сверен с кодом. terminalWrite строит контекст от context.Background на каждой
+        попытке (worker.go:558 @34bc8104a). В Background нет принципала, поэтому AsComponent идёт
+        первым исходом. Два условия к коду остаются открытыми: источник opts journaltx (CX3L-02) и
+        проверка пары конструктором (CX3L-03).
+    - id: "ДР-К1 (в), ДР-М1"
+      reason: >-
+        Классификатор расписан строкой на каждый исход, корзины «прочее» нет. Строка ErrLimitExhausted
+        одинакова на обоих путях.
+    - id: "ДР-К2"
+      reason: >-
+        Коды DEADLINE_EXCEEDED и CANCELLED стоят в строке «не дала ответа» таблицы Р7 приёмки
+        (строка 978). Ошибку, которая не является статусом, status.FromError отдаёт как UNKNOWN, а
+        UNKNOWN стоит в той же строке (grpc v1.83.2 в go.mod kacho). Отказ настройки поэтому не
+        возникает. Открытие окна фиксируется до Resolve, начало окна не сдвигается, повторный проход
+        читает победившую запись. Если две реплики пришли к одному адресату, вторая транзакция
+        откатывается на уникальности закрытия `(адресат, начало)`, и её Put откатывается вместе с ней.
+        Сетевых вызовов в транзакции адресата нет.
+    - id: "ДР-В1"
+      reason: >-
+        Сегодня AttachToInstance — один UPDATE без prev (network_interface.go:327-345 @1d42a6728bf).
+        Форма З15 с `prev … FOR UPDATE` меняет только одно: откуда берётся old_used_by. Разобраны оба
+        порядка гонки. (1) Detach соседа зафиксирован после снимка оператора: UPDATE видит в снимке
+        занятую строку и получает 0 строк, как сегодня. (2) Attach другого инстанса зафиксирован после
+        снимка: повторная проверка (EPQ) отвергает строку, 0 строк. Если конкурент — тот же инстанс,
+        EPQ строку пропускает, но old_used_by = $2, и строки журнала нет. Журнал пишет ровно один
+        из двух.
+    - id: "ДР-В2"
+      reason: >-
+        Сегодня SetReference — два оператора (address.go:1008-1035). В форме CTE `upd` ставит
+        used = true и тогда, когда `ref` пуст (ссылка чужая), — сегодня так же. Откат транзакции
+        вызывающего на FAILED_PRECONDITION назван. `upd` и `ref` меняют разные таблицы, поэтому
+        двойной правки одной строки в одном операторе нет.
+    - id: "ДР-В3"
+      reason: >-
+        Позиции растут в порядке фиксации: замок строки inbox_clock держится до коммита. Потребителей
+        соседства позиций нет. В приёмке `:countUnread` не принят (строка 1692), а слово «подряд»
+        встречается только в Given обвязки (строка 2776), и его защищает CX3I-04 (в).
+    - id: "ДР-В4"
+      reason: "См. CX3J-01 (б)."
+  not_holding:
+    - id: "ДР-К1 (б)"
+      reason: >-
+        Взятие кандидата в замысле: `SELECT … WHERE id = $1 AND done = false FOR UPDATE SKIP LOCKED`
+        (design.md:862, строка ДР-К1 (б), строка X3 tasks.md). Условие живости `modified_at < $порог`
+        из взятия выпало. Сегодня оно стоит под замком того же оператора (reconciler.go:190-192
+        @34bc8104a), и защита от фантома в worker.go держится именно на нём. См. CX3L-01.
+  unmapped: []
+
+new_items:
+  - id: CX3L-01
+    decision: "Reconciler: чтение кандидатов без замка, затем взятие каждого своей транзакцией (З16, ДР-К1 (б))"
+    class: "code-authoring §«Решение и его следствие разнесены»; §«Порядок операций внутри кода»"
+    exposure: >-
+      Кандидата выбирают по условию «сирота»: done = false AND modified_at < порог. Взятие через
+      несколько секунд проверяет только done = false. Если между чтением и взятием исполнитель
+      подтвердил живость (ClaimForExecution, repo.go:597: `UPDATE … SET modified_at = now WHERE id AND
+      done = false`), Reconciler всё равно возьмёт строку. Ответ резолвера будет OutcomeInterrupted,
+      потому что ресурса ещё нет, и Reconciler запишет терминальную ошибку. После этого fn
+      исполнителя создаст ресурс поверх операции в ERROR. Это ровно тот фантом, который закрывают
+      executionClaimer и worker.go:472-500. Сегодня его не бывает: условие живости стоит под замком
+      того же оператора (reconciler.go:190-192). Окно задаётся последовательным разбором пачки и
+      длится до SweepBudget (30 с по умолчанию, reconciler.go:106-107). Кандидатами становятся как
+      раз операции из admission backlog при перегрузке, то есть те, для которых проверка живости и
+      существует.
+    code_condition: >-
+      Взятие кандидата повторяет условие сироты целиком тем же порогом, что и чтение:
+      `WHERE id = $1 AND done = false AND modified_at < $threshold FOR UPDATE SKIP LOCKED`. Порог
+      вычисляется один раз на проход. Строка, которую исполнитель подтвердил после чтения, даёт 0
+      строк взятия и уходит в пропуск. Замысел должен исправить это в трёх местах: З16 (строка
+      «взятие строки»), ДР-К1 (б), строка X3 tasks.md.
+    held_by: "нужна проба, её нет — заказ integration-tester (УК3-58)"
+    outcome: к-замыслу
+  - id: CX3L-02
+    decision: "новый вызывающий journaltx.Begin — corelib operations (З4 (1), З16, §8)"
+    class: "code-authoring §«Умолчание, которое становится утверждением»; §«Контракт, который нельзя выразить»"
+    exposure: >-
+      Первым оператором Begin(ctx, pool, opts) выставляет `kacho_feed.enabled` из opts (З4). Значение
+      берётся из ручки модуля, которую читают один раз. По З11 у ручки «три читателя»: корень, Mapping
+      и journaltx модуля. Редакция 10 добавляет открытие Begin внутри corelib operations. Корень модуля
+      передаёт туда отправителя и службу, а opts замысел не называет. При нулевом значении opts
+      транзакция терминальной записи выставит флаг false, и корень модуля об этом не узнает. Кроме
+      того, один бит «модуль подключён» выражен тремя значениями — наличие отправителя, наличие пары
+      и флаг в opts. Конструктор отвергает только расхождение первых двух.
+    code_condition: >-
+      Замысел называет источник opts для Begin внутри operations. Условие к коду: отправитель, служба
+      и opts journaltx приходят в operations одним значением. Корень собирает его из того же
+      единственного чтения ручки, что и журнал модуля; нулевых opts операции получить не могут. З11
+      переписан на четырёх потребителей либо называет, что operations получает помощник модуля.
+      Проба УК3-55 утверждает, что флаг в транзакции терминальной записи равен значению ручки модуля.
+    held_by: "УК3-55 после дописки; до неё — вниманием по диффу корня"
+    outcome: к-замыслу
+  - id: CX3L-03
+    decision: "пара `(<служба>, operations)`, где служба — значение от корня модуля (З16, §8)"
+    class: "code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      Конструктор отвергает только отправителя без пары и пару без отправителя. Если служба не проходит
+      форму `CHECK` (пустая, заглавные буквы), ошибка всплывёт только при первой терминальной записи:
+      AsComponent или InitiatorOf откажет. По классификатору это «ошибка программы, счётчик,
+      следующий». На пути исполнителя повтора нет, строку передают Reconciler, а тот отказывает так
+      же на каждом проходе. Все асинхронные операции модуля навсегда остаются done=false, и заметен
+      этот отказ только по счётчику.
+    code_condition: >-
+      Конструктор отправителя с парой при сборке вызывает те же SystemPrincipalFor и InitiatorOf, что
+      и путь записи. При отказе корень модуля не стартует и называет службу (fail-closed). На
+      неэкспортированную функцию пары в рантайме остаётся только исход, который по построению
+      недостижим.
+    held_by: "УК3-55, близнец дописать: служба '' и 'Storage' → отказ сборки корня"
+    outcome: к-коду
+  - id: CX3L-04
+    decision: "Sweep: взятие ноль строк — пропуск; исходы кандидата без отката соседей (З16)"
+    class: "code-authoring §«Решение и его следствие разнесены»"
+    exposure: >-
+      RecoverAll вызывает Sweep, пока тот не вернёт 0 (reconciler.go:305-318), и работает до приёма
+      трафика в шести модулях (recovery.go). Если после перестройки Sweep начнёт считать прочитанных
+      или взятых кандидатов, а не разрешённых, то кандидат, которого держит другая реплика или который
+      стабильно откатывается (ErrSecondLimitedPut, отказ Begin), даёт n > 0 на каждом проходе. Старт
+      тогда зацикливается до приёма трафика.
+    code_condition: >-
+      Sweep возвращает число кандидатов, у которых CAS по done применён и транзакция зафиксирована.
+      Пропуск взятия, ErrAlreadyDone, откат и отказ Begin в это число не входят.
+    held_by: "УК3-54, дописать близнеца: кандидат, взятый другой транзакцией, → RecoverAll возвращается, n = 0"
+    outcome: к-коду
+  - id: CX3L-05
+    decision: "контекст пары на транзакции кандидата Reconciler, резолв внутри этой транзакции (З16)"
+    class: "code-authoring §«Решение и его следствие разнесены»"
+    exposure: >-
+      Замысел утверждает: «контекст с этим принципалом несёт только транзакцию терминальной записи,
+      межмодульных вызовов под ним нет» (З4 (1)). При этом резолв идёт внутри транзакции, открытой под
+      контекстом пары. Если резолверу передать тот же ctx, личность `system:<служба>-operations`
+      попадёт в чтения резолвера. Сегодня все резолверы читают свой репозиторий на пуле (измерено:
+      compute, storage, nlb), так что вреда пока нет. Но утверждение З4 (1) начинает зависеть от
+      того, как устроен резолвер.
+    code_condition: >-
+      resolver.Resolve получает контекст прохода с ResolveTimeout, без принципала пары. Контекст пары
+      передаётся только в journaltx.Begin и в операторы транзакции.
+    held_by: "держится вниманием по диффу X3: однофайлового признака нет, а пробу на межмодульный вызов резолвера сегодня не на чем поставить"
+    outcome: к-коду
+
+measurements:
+  - claim: "отпечаток предмета — редакция 10"
+    command: "sha256sum docs/changes/issue-2918/design.md; git show 1d49feafb:docs/changes/issue-2918/design.md | sha256sum"
+    result: "f6809e98… в обоих"
+    control: "38283c50d:… → 97c51264 (предмет прежней пересверки)"
+  - claim: "условие живости выпало из взятия кандидата"
+    command: >-
+      grep -n 'id = \$1 AND done = false' design.md (issue-2918); git show 34bc8104a:operations/reconciler.go
+      | sed -n 187,194p; grep -c ClaimForExecution design.md tasks.md
+    result: >-
+      design.md:862 — взятие без modified_at. Сегодняшний claim — `WHERE done = false AND modified_at <
+      $1 … FOR UPDATE SKIP LOCKED`. ClaimForExecution в замысле и маршруте встречается 0 раз.
+    control: >-
+      Писатель modified_at у живой строки — ClaimForExecution (repo.go:597); из worker.go:472-500 он
+      вызывается до fn. Прочие писатели modified_at (repo.go:178, 217, 247, 618, 673) терминальны:
+      done = true.
+  - claim: "Reconciler в kacho собирают шесть корней, RecoverAll — до приёма трафика"
+    command: "git grep -n 'NewReconciler' 1d42a6728bf -- 'services/*' ':!*_test.go'"
+    result: "6: compute, geo, nlb, registry, storage, vpc (cmd/*/recovery.go)"
+    control: "geo — неподключённый модуль (NoFailedSender), остальные пять — пары §8"
+  - claim: "резолверы читают свой репозиторий, а не соседа"
+    command: "git show 1d42a6728bf:services/compute/cmd/compute/main.go | sed -n 378,380p; grep Readers в recovery.go/serve.go nlb, registry, storage"
+    result: "compute — repo.NewInstanceRepo(pool); storage, nlb — интерфейсы Get(ctx, id) над своими таблицами"
+    control: "клиентов gRPC в compute/storage/nlb operationresolver/resolver.go — 0 (grep client|grpc)"
+  - claim: "DEADLINE_EXCEEDED и CANCELLED стоят в строке «не дала ответа» таблицы Р7"
+    command: "grep -n 'DEADLINE_EXCEEDED' docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md"
+    result: "строка 978: UNAVAILABLE, DEADLINE_EXCEEDED, CANCELLED, RESOURCE_EXHAUSTED, ABORTED, INTERNAL, UNKNOWN, DATA_LOSS → DEFER(platform_unavailable)"
+    control: "grpc v1.83.2 (go.mod kacho:145)"
+  - claim: "ребро X3 → S2-B1 внесено, цикла нет"
+    command: "awk -F'|' по строкам X1…X5, X2-F, S2-B1, S3-C3 tasks.md, колонка «зависит от»; то же на 38283c50d"
+    result: "X3: «… S2-B1 посажена (окно (3) закрыто; ревью замысла В4)»; S2-B1: Е1, Е6, X2-F, S1-A1…A4 — X3 нет"
+    control: "на 38283c50d у X3 ребра S2-B1 нет"
+  - claim: "строк отображения 95"
+    command: "grep -c '^| CX3' design.md; grep -c '^| ДР-' design.md"
+    result: "88; 7"
+    control: "38283c50d: 88 (CX3)"
+
+not_measurable:
+  - >-
+    Окно CX3L-01 на стенде при перегрузке (очередь admission и одновременный проход Reconciler) здесь
+    не воспроизводилось: реализации нет. Вывод держится на тексте замысла (design.md:862) и на коде
+    сегодняшнего claim, где условие живости стоит под тем же замком (reconciler.go:190-192). Проба —
+    заказ УК3-58.
+  - >-
+    Соотношение ResolveTimeout (10 с по умолчанию) и idle_in_transaction_session_timeout пулов модулей
+    не мерялось. Транзакция кандидата простаивает не дольше одного резолва, как и сегодняшний claim с
+    keepClaimAlive. Дельта это соотношение не меняет.
+
+facts_for_dispatcher:
+  - >-
+    CX3L-01 — последствия, а не формы. Если реализация повторит текст замысла дословно, возвращается
+    фантомный ресурс при операции в ERROR, который corelib уже однажды закрыл (executionClaimer,
+    «r9b»). Исправление — одно условие во взятии, но его нужно внести в замысел: иначе исполнитель
+    напишет предикат ровно по З16.
+  - >-
+    Окна тегов X1 и X2 NTF-3 друг против друга ничем не упорядочены: оба тега выпускаются после S3-C2
+    NTF-4. Д41 этого не требует. Если правило Д37 «одно окно одновременно» понимать буквально и
+    внутри предмета, нужно ребро «тег X2 — после подъёма пина на X1».
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: [CX3L-01, CX3L-02]
+not_holding_items: ["ДР-К1 (б)"]
+new_items_without_mapping: [CX3L-01, CX3L-02, CX3L-03, CX3L-04, CX3L-05]
+open_decisions: []
+
+orders:
+  - to: design-author (acceptance-author, база §12)
+    what: >-
+      CX3L-01: во взятии кандидата З16, ДР-К1 (б) и строке X3 tasks.md повторить условие сироты
+      `modified_at < $threshold` тем же порогом, что и чтение. CX3L-02: назвать источник opts
+      journaltx для Begin внутри operations и поправить З11. CX3L-03…05: внести строками отображения
+      с держателями.
+    basis: "code-authoring §«Решение и его следствие разнесены», §«Умолчание, которое становится утверждением»; change-graph.md §4"
+  - to: integration-tester
+    what: >-
+      УК3-58 (новая): интеграционная проба corelib через настоящие Worker и Reconciler. Кандидат прочитан
+      Sweep. До его взятия ClaimForExecution подтверждает живость, fn исполняется. Ожидается: взятие
+      даёт 0 строк, операция done=true с ответом fn, строк operation-failed 0, счётчик
+      IncTerminalWriteAlreadyResolved не вырос. Инъекция — взятие без modified_at → операция в ERROR,
+      AlreadyResolved +1, красный. Дописать УК3-54 близнецом CX3L-04, УК3-55 — близнецами CX3L-02 (флаг)
+      и CX3L-03 (недопустимая служба → отказ сборки).
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+  - to: integration-tester
+    what: "заказы записей 3dbb8b23, ac1f9fc9, 374789b5 (УК3-47…52) остаются в силе"
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+  - to: go-implementer (полоса X5 NTF-3)
+    what: "заказ записи 97c51264 (проверка `git tag --contains <X2-F>` перед каждым подъёмом пина) остаётся в силе"
+    basis: "code-authoring §«Решение и его следствие разнесены»; design.md З10 «Посадка» п.4"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Не заводится. CX3L-01 — экземпляр класса «решение и его следствие разнесены»
+  (code-authoring). Второго независимого наблюдения именно формы «повторное взятие теряет условие
+  выборки» в этой записи нет; цена не измерена прогоном.
