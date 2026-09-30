@@ -16,7 +16,7 @@ sub-poll-not-retired · не отзывается: подписка — втор
 
 ## Подписчик-служба `notify` и вид `notification` (эпик kacho#2914)
 
-sub-notification-kind · вид `notification` источника привязывай к типу модели `notification_feed`; объект события — лента (`notification_feed:<id ленты>`), не строка ленты; событие несёт только id ленты и род изменения, состояние — словом в `state_unavailable` · ЗАВЕСТИ sub-notification-kind · red: атрибут, адресат или имя шаблона в событии журнала подписки
+sub-notification-kind · вид `notification` источника привязывай к типу модели `notification_feed`; объект события — лента модуля (`notification_feed:<модуль>`, имя модуля — неизменяемый идентификатор из закрытого перечня), не строка ленты; событие несёт только id ленты и род изменения, состояние — словом в `state_unavailable` · ЗАВЕСТИ sub-notification-kind · red: атрибут, адресат или имя шаблона в событии журнала подписки
 sub-notify-rereads · по событию `notify` перечитывает ленту вызовом `Claim`; `Claim` зовётся и при каждом (пере)открытии потока, и по таймеру — сигнал ускоряет доставку, но не условие её корректности · ЗАВЕСТИ sub-notify-rereads · red: строка ленты лежит неотправленной, пока не пришло событие
 sub-no-second-stream-for-notify · тело письма (секретные атрибуты) берут унарным `Claim`/`Ack` ленты `corelib notify/feed`, второго потокового контракта не заводят · subscriptionformsingularity · red: git grep -h 'returns (stream' -- proto | wc -l > 1
 
