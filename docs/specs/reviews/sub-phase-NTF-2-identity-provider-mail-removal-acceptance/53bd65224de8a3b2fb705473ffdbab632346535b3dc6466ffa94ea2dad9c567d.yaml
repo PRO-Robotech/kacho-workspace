@@ -1,0 +1,208 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 53bd65224de8a3b2fb705473ffdbab632346535b3dc6466ffa94ea2dad9c567d
+  revision: 24
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT, строка истории — «редакция 24 · вердикта нет». Эта запись шапку НЕ
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: b48e76a9a
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4219
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T20:29:43Z'
+round: 1
+round_note: >-
+  Круг 1 на редакции 24 — правке одобренной редакции 23 (`7a424030…`); одобрение редакции 23 на этот
+  отпечаток не переносится. Дельта 796be63a0 → b48e76a9a по документу прочитана целиком (265 строк
+  диффа): шапка, Р5 «Ключи» и новый пункт «`503` не истрачивает вызов — кроме одного окна», Р8
+  (вводная, строка таблицы, пункт «Ручка доверенных прыжков»), Р20, §5 П7-узел, NTF2-59 (д), NTF2-71
+  Given, NTF2-34 (е), §6б строки Р5 и Р8, §6в признак 10 (три строки), §7 NTF2-34, DoD пп. 7, 13, 22,
+  §11. Сверена с решениями Д51 и Д52 (журналы workflow, задание) и с замыслом `issue-2917`
+  `docs/changes/issue-2917/design.md` @4656a7f4b (З8 «Исход фиксации», З28 «Рендеры чарта края без
+  зонтика», М66, М67). Прежние записи не правятся.
+previous_rounds:
+  - pass: редакция 21, круг 1
+    sha256: 21d5c951c273fddd8d327759313a7166640c8bd94db7d6cea34e58bd1e63392d
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 22, круг 2
+    sha256: c103822e857d5663339b168f102b529de45f16e4a542c3b9117e2a0ee9d2d1f5
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 23, круг 3
+    sha256: 7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4
+    verdict: APPROVED
+decisions_applied:
+  D51: >-
+    соблюдено в пределах рендеров зонтика: в `values.yaml` зонтика и значениях чарта края ключа нет;
+    поставляемый `prod` без значения — отказ с именем ручки; стенды — `1` файлом профиля; гейты рендера
+    `prod` — каталог образцов NTF-1; DoD п.13 исключение для `values.dev.yaml` после `kacho#1276`.
+  D52: >-
+    НЕ отражено (B-1): документ не говорит, что рендер чарта края без зонтика подчиняется тому же
+    правилу, и называет каталог фикстур узко — только `deploy/testdata/mail-node/`.
+blocking_count: 1
+blocking_kinds_distinct: [COVERAGE]
+blocking_kinds_by_item:
+  B-1: COVERAGE
+blocking:
+  B-1: >-
+    [COVERAGE] Решение Д52 (граница Д51) не имеет в приёмке ни утверждения, ни держателя. Д52:
+    рендер чарта края БЕЗ зонтика подчиняется тому же правилу — без `KACHO_API_GATEWAY_TRUSTED_HOPS`
+    отказ рендера; гейты таких рендеров берут значение из каталога фикстур NTF-1 (включая
+    `deploy/testdata/notify-standalone`), второй фикстуры нет. В редакции 24: Р8 п. «Ручка доверенных
+    прыжков» говорит только о рендере `prod` и цепочек зонтика; «гейты рендера `prod` берут значение
+    из одного каталога фикстур — каталога образцов NTF-1 `deploy/testdata/mail-node/`» — каталог назван
+    уже, чем в Д52, а рендеры подчарта `gateway/deploy` без зонтика не названы вовсе; §6б строка Р8
+    держателя для них не несёт; DoD п.7 их не требует. Рендеры эти существуют (замысел М67: семь
+    семейств на `origin/2564` `6edea09c2ee`; перемер этой записью — `git grep -nE 'helmTemplate\('
+    origin/2564 -- 'gateway/deploy/*_test.go' | wc -l` → 9 строк, из них одна — определение
+    помощника; вызовы `helm` на каталоге края также в `.github/scripts/lint-service-charts.sh`,
+    `.github/scripts/check-volume-mounts.py`, `deploy/tests/helm/iam-trusted-forwarder-test.sh`,
+    `deploy/tests/helm/edge-keyset-hop-test.sh`). Молчание приёмки оставляет законной форму замысла
+    З28 «Рендеры чарта края без зонтика» (б) — «синтетическое число рядом с прочими `--set`» в
+    каждом рендере, — которую Д52 запрещает («второй фикстуры нет»). Что сделать: (1) Р8 — пункт
+    «рендер чарта края без зонтика без значения ручки — отказ рендера с именем
+    `KACHO_API_GATEWAY_TRUSTED_HOPS`; с значением — код 0» (одно незаданное обязательное значение, как
+    NTF2-34 (е); близнец — тот же рендер со значением); (2) Р8 — каталог фикстур назван по Д52:
+    каталог фикстур NTF-1 (`deploy/testdata/mail-node/` и `deploy/testdata/notify-standalone/`),
+    гейты и рендеров `prod`, и рендеров чарта края без зонтика берут значение оттуда, своей фикстуры и
+    инлайн-значения в вызове нет; (3) §6б строка Р8 — держатель: перепись рендеров чарта края без
+    зонтика по механизму (вызов `helm` на `gateway/deploy`), печать числа осмотренных и источника
+    значения у каждого, контроль — семейства М67; инъекция «рендер подаёт значение своим `--set`, мимо
+    каталога» — красный, близнец — тот же рендер со слоем каталога — молчит; инъекция «рендер без
+    значения» — отказ с именем ручки; (4) DoD п.7 — ссылка на этот держатель; (5) §7 — производитель
+    строки ручки в файле каталога для рендеров без зонтика (та же полоса, что делает ручку
+    обязательной, либо NTF-1 — по маршруту).
+non_blocking:
+  N-1: >-
+    [PRODUCER] Р5 исключение: «если фиксация в этом окне успела, вызов истрачен: повтор того же
+    доказательства получает `429` с новым вызовом, а запрос вошёл в счёт ключа источника». Держатель
+    §6б строка Р5 (в) утверждает только `503` и метрику +1; последствие «повтор → `429`, счёт +1»
+    никто не держит. На управляемом хранилище оно конструируемо: ответы хранилища теряются весь срок
+    выяснения при применённой фиксации → `503`; хранилище восстановлено → повтор того же
+    доказательства → `429` `PROOF_OF_WORK_REQUIRED` с новым вызовом; близнец — фиксация не применена →
+    повтор пропущен. Рекомендую вариант (г) в строке Р5 §6б (механизм тот же, что NTF2-62 (в), — это
+    и снижает до не блокирующего).
+  N-2: >-
+    [FORMAT] DoD п.22: «мест, называющих каждое из двух значений обязательным для `prod`, ≥ 1 — печать
+    счёта по каждому» — без команды счёта. Назвать предикат (файл страницы поставки kacho и образец
+    поиска по каждому ключу).
+  N-3: >-
+    [FORMAT] Р8 и DoD п.13 ссылаются на замер `origin/1276` `23f1e058a35`; ветка сдвинулась
+    (`69ab1d3e17d` на момент этой записи). Перемер на новой голове даёт тот же вывод (ниже,
+    measurement) — утверждение держится ревизией, правка не обязательна; при следующей редакции
+    можно обновить координату.
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 53bd65224de8a3b2fb705473ffdbab632346535b3dc6466ffa94ea2dad9c567d
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 53bd6522…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1, редакция 24, блокирующих 1: COVERAGE) · SHA-256
+    53bd65224de8a3b2fb705473ffdbab632346535b3dc6466ffa94ea2dad9c567d
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: b48e76a9a (ветка issue-880, HEAD 31371c92d — документ после b48e76a9a не менялся)
+    kacho_epic: origin/2564 6edea09c2ee
+    kacho_1276: origin/1276 69ab1d3e17d (документ цитирует 23f1e058a35)
+  results:
+    - claim: число прыжков не задаёт ни одна цепочка; умолчание процесса 1
+      command: >-
+        git grep -c 'TRUSTED_PROXY_COUNT\|TRUSTED_XFF\|TRUSTED_HOPS' <r> -- deploy gateway/deploy
+        ':!*_test.go' | wc -l; git grep -n 'TRUSTED_PROXY_COUNT' <r> -- gateway/internal/config/config.go
+      outcome: 0 и config.go:661 default:"1" на обеих ревизиях — сходится
+    - claim: цепочки dev, dev-prod, prorobotech, a8f60d начинаются с values.dev.yaml; own несёт values.own.yaml; fe3455 — values.fe3455.yaml; prod — только values.prod.yaml
+      command: git show <r>:deploy/stacks.txt | grep -vE '^(#|$)'
+      outcome: сходится на обеих; различие ревизий — лишний слой fe3455-ory-posture на 2564, вывода не меняет
+    - claim: контроль DoD п.13 (2) — один лист → одна строка `>`, плюс изменённый fromName → три
+      command: >-
+        yq v4.53.6; копия origin/2564:deploy/helm/umbrella/values.dev.yaml; yq -i '.gateway.env.trustedHops = 1';
+        затем .global.kacho.identity.smtp.fromName = "X Y"; diff <(yq -o=props база) <(yq -o=props копия) | grep '^[<>]'
+      outcome: 1 строка и 3 строки — воспроизведено (путь ключа условный, как в документе)
+    - claim: рендеры чарта края без зонтика существуют (к B-1)
+      command: git grep -nE 'helmTemplate\(' origin/2564 -- 'gateway/deploy/*_test.go' | wc -l; git grep -lE 'gateway/deploy' origin/2564 -- '*.sh' '*.py' '*.go'
+      outcome: 9 строк helmTemplate (одна — определение); скрипты с вызовом на каталоге края — есть
+constructibility:
+  seeded: 1
+  of: 4
+  not_executed: 3
+  detail: >-
+    Новые Given дельты: (1) DoD п.13 контроль по разобранному YAML — посеян копией файла базы,
+    воспроизведён; (2) NTF2-34 (е) после полосы D6 и (3) рендер `prod` с образцом каталога без строки
+    ручки — требуют каталога `deploy/testdata/mail-node/` (NTF-1 D9) и `required` полосы D6, которых
+    на `origin/2564` нет (`git ls-tree origin/2564 deploy/testdata` пусто) — «не выполнилось», форма
+    отрицания совпадает с одобренной формой NTF-1 CX1-94 и замыслом З28; (4) окно Р5 — автор назвал
+    неконструируемым на уровне I и отдал пробе замысла на управляемом хранилище (довод принят;
+    см. N-1) — «не выполнилось» на этой ревизии.
+premise_check:
+  claim: >-
+    задание: судить редакцию 24 на отпечаток 53bd6522…, круг 1; учесть Д51, Д52.
+  outcome: >-
+    подтверждена в части отпечатка (sha256sum воспроизведён, строк 4219) и Д51; Д52 документом не
+    отражён (B-1).
+  commands:
+    - "sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    - "git diff 796be63a0 b48e76a9a -- <док>"
+    - "grep -n 'notify-standalone\\|без зонтика\\|чарта края\\|mail-node' <док>"
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да
+  security_surface_note: >-
+    доверенная глубина цепочки пересланных адресов у края (ключ ограничителя) и fail-closed отказ
+    рендера без неё
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и предикатами, без описания обхода.
+repeated_kinds_note: >-
+  COVERAGE — впервые в этой серии; прежние возвраты (редакции 21, 22) — CONSTRUCTIBILITY, DoD. Причина
+  не в форме задания автора: Д52 принят после написания редакции 24.
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 25: B-1 — Д52 в Р8, §6б строка Р8, DoD п.7, §7 (рендер чарта края без зонтика: отказ без
+    ручки с близнецом; каталог фикстур NTF-1 с `notify-standalone`; перепись рендеров и инъекция
+    «значение мимо каталога»); N-1…N-3 тем же заходом
+  also_needed: >-
+    курьер — опубликовать событие возврата на отпечаток 53bd6522…; замысел `issue-2917` З28 (б)
+    («синтетическое число») расходится с Д52 — предмет разбора классов, не этой записи
+  owner_questions: []
