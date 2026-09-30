@@ -1,0 +1,272 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 6 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/47bd8b70….yaml) и пересверки на
+# редакции 1 (7613071f), 2 (deeea79a), 3 (defdbe67), 4 (7294a684) и 5 (dd683a30) свидетельствуют
+# о своих редакциях и здесь не переписываются. Проверено: (1) каждый пункт CX6-01…34 отображён и
+# отображение выдерживает условие пункта; (2) новые внешние вызовы, (3) новые асинхронные пути,
+# (4) новые sentinel-значения, внесённые редакцией 6 сверх редакции 5. Редакция 6 заводит свойство
+# `source` у ResourceListPage с опцией `enabled` у useResourceList, собственное чтение центра
+# (fetchQuery с ключом поколения, таймер, дедлайн) и «следствие» в хуке охраны мутаций. Механизмы
+# разобраны против исходника @tanstack/query-core 5.101.2 и дерева kacho @1d42a6728bf; отсюда
+# новые пункты CX6-35, CX6-36.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2925/design.md
+  sha256: 0fff30f0c4761d034e5a8bf99b2c439be88e24e7d21923d9341280f8911ba959
+  fingerprint_predicate: "sha256sum docs/changes/issue-2925/design.md; git show a977cd2b2:docs/changes/issue-2925/design.md | sha256sum — оба 0fff30f0"
+acceptance:
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+initial_record: docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+previous_revalidation: docs/changes/issue-2925/reviews/class-exposure/revalidation/dd683a304e4358d09524aaeaefc4a98b0331c012931478385ecbf0a87152e611.yaml
+design_review_on_previous: docs/changes/issue-2925/reviews/design/design-reviewer/defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a38a2622907dc4d8ed03345fb3009cf6df7a7041   # ветка issue-880; design.md на ней = 0fff30f0 (коммит a977cd2b2)
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что в замысле §0
+  tanstack_query: "5.101.2"   # ui-future/compute/node_modules/@tanstack/query-core/package.json
+snapshot_at: 2026-09-30T11:29:48Z
+inspected: >-
+  дифф редакций 5→6 замысла (8085f06a6..a977cd2b2: design.md и tasks.md, 548 строк диффа) целиком;
+  З10, З13, З18, З20, §8, §9, §11, §11а; tasks.md G1, G4, S2, S3, Е2, Е6; пересверка dd683a30
+  целиком. Дерево kacho @1d42a6728bf: ResourceListPage.tsx (хуки, серверные фильтры и поиск,
+  useResourceList, запрос зон, fetchMore), use-resource-list.ts (useResourceStream внутри хука,
+  useInfiniteQuery, enabled, refetchInterval), use-resource-stream.ts (enabled, targetKey), каталог
+  проб ResourceListPage. @tanstack/query-core 5.101.2: queryClient.ts fetchQuery (345–368),
+  invalidateQueries/refetchQueries (291–337), query.ts fetch (400–420, синхронный старт retryer),
+  optionalRemove (226–230), retryer.ts defaultRetryDelay (49–51). Приёмка NTF-3 на cbb30df7f,
+  88fa559c7, b746239d5, HEAD (Р10, NTF3-161) и верхний verdict всех 21 записи ревью. Kaname не
+  перемерялся; записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт первичного разбора и прежних пересверок отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      строк §11 — 35, уникальных пунктов 34 из 34 (CX6-06 двумя строками). CX6-29 переотображён на
+      чтение центра с поколением и выдерживает; CX6-31…34 отображены и выдерживают (CX6-31 и
+      CX6-33 — с условиями к коду ниже). Новые пункты CX6-35, CX6-36 учтены в условии (3).
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      новых адресов и новой семантики вызовов нет: чтение центра повторяет GET /notify/v1/preferences
+      и GET /notify/v1/inbox, следствие подписки — GET /notify/v1/subscriptions (обход страниц).
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: >-
+      новые пути редакции 6: чтение центра (fetchQuery с ключом поколения, таймер CENTER_POLL_MS,
+      дедлайн CENTER_READ_DEADLINE_MS), дочитывание тем же механизмом, цепочка хука
+      mutateAsync → следствие → finally. Цепочка хука и следствие разобраны и держат (CX6-33,
+      CX6-34). У чтения центра два не отображённых свойства: ключ поколения повторяется между
+      чтениями одного поколения, и fetchQuery присоединяет новое чтение к зависшему (CX6-35);
+      дедлайн 30 с судит составное чтение с повтором, а его обоснование в §8 — про один запрос
+      (CX6-36). Строк §11 нет.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      состояние чтения центра — три названных исхода loading · rejected(err) · data(snapshot);
+      номер поколения и флаг «исход применён» — внутреннее состояние механизма с названным
+      правилом применения; на проводе новых значений нет.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "§13 «Нет»; выборы по CX6-31 (путь (а)) и CX6-34 (форма mutate) сделаны"
+
+mapping_check:
+  - {id: CX6-01, design: З11, verdict: holds}
+  - {id: CX6-02, design: "З6, З7, З2, И7", verdict: holds}
+  - {id: CX6-03, design: З10, verdict: holds}
+  - {id: CX6-04, design: "З2, З3", verdict: holds}
+  - {id: CX6-05, design: "З9, И14, З20", verdict: holds}
+  - {id: CX6-06, design: "З3 (а); З6, З13, И4 (б)", verdict: holds}
+  - {id: CX6-07, design: З12, verdict: holds}
+  - {id: CX6-08, design: "З6, З10, З13", verdict: holds}
+  - {id: CX6-09, design: "З8, Е5", verdict: holds}
+  - {id: CX6-10, design: "§10, З3, З14, И16", verdict: holds}
+  - {id: CX6-11, design: З13, verdict: holds}
+  - {id: CX6-12, design: З13, verdict: holds}
+  - {id: CX6-13, design: З15, verdict: holds}
+  - {id: CX6-14, design: З16, verdict: holds}
+  - {id: CX6-15, design: "З3, И9", verdict: holds}
+  - {id: CX6-16, design: "З2, И3, З20", verdict: holds}
+  - {id: CX6-17, design: "З7, И5", verdict: holds}
+  - {id: CX6-18, design: З12, verdict: holds}
+  - {id: CX6-19, design: З10, verdict: holds}
+  - {id: CX6-20, design: "З10, И15", verdict: holds}
+  - {id: CX6-21, design: "З2 п.1, п.6, И12", verdict: holds}
+  - {id: CX6-22, design: "З6, З13, И13", verdict: holds}
+  - {id: CX6-23, design: "З9, И14", verdict: holds}
+  - {id: CX6-24, design: "З13, §9", verdict: holds}
+  - {id: CX6-25, design: "З14, И17, З20", verdict: holds}
+  - {id: CX6-26, design: "З2 п.3–4, З20, И18, §8", verdict: holds}
+  - {id: CX6-27, design: "З9, З20, И14, И18, §8, M24", verdict: holds}
+  - {id: CX6-28, design: "З10, З13, З20, И19, M26", verdict: holds}
+  - id: CX6-29
+    design: "З13 «Чтение центра — одно в полёте…», З20, И20, П3"
+    verdict: holds
+    note: >-
+      строки и пометки — из одного снимка, который кладёт только значение чтения текущего
+      поколения; отметка делает gen++, и чтение, начатое до успеха, отбрасывается. Присоединение
+      чтения к зависшему того же поколения (CX6-35) согласованности пары не нарушает: оба значения
+      приходят из одного чтения, а отметка между ними невозможна без gen++.
+  - id: CX6-30
+    design: "З13, Е6, §9, M22, M25"
+    verdict: holds
+    note: >-
+      Е6 (2) — командой по верхнему ключу (yq -r '.verdict'). Перемерено на HEAD воркспейса: у
+      редакции 23 приёмки NTF-3 (97afc066) верхний verdict APPROVED (запись в a38a26229, влита
+      ПОСЛЕ коммита замысла a977cd2b2 — git merge-base --is-ancestor a38a26229 a977cd2b2 → 1), и
+      NTF3-161 в Р10 — 1. Предикаты Е6 (1) и (2) на 97afc066 выполнены; Е6 (3) — суждение
+      рецензента: NTF3-161 задаёт позиции абстрактно P1 < P2 < P3, близнеца смены числа разрядов
+      нет. Утверждение §0 и Е2/Е6 «одобренной редакции с Д25 нет» верно на ревизии замысла и
+      устарело на HEAD — заказ ниже, на вывод о классе не влияет.
+  - {id: CX6-31, design: "З13, §4, M27, M28; tasks.md G4", verdict: holds-with-condition}
+  - {id: CX6-32, design: "З13, З20, И20, §8, M29", verdict: holds}
+  - {id: CX6-33, design: "З10, З20, И19, П4", verdict: holds-with-condition}
+  - {id: CX6-34, design: "З10, И19, M30", verdict: holds}
+
+conditions_to_code:
+  - id: CX6-31
+    measured: >-
+      useResourceStream вызывается ВНУТРИ useResourceList (use-resource-list.ts:182, enabled:
+      target.resolved), не в ResourceListPage; ResourceListPage держит серверные фильтры
+      spec.listFilters и серверный поиск spec.search.serverTerm / spec.serverSearchField
+      (ResourceListPage.tsx:82–122, 614–618), которые уходят только в запрос useResourceList.
+    must_hold_in_code: >-
+      (а) опция enabled: false гасит и useInfiniteQuery, и useResourceStream (передаётся в его
+      enabled); проба G4 считает не только запросы к spec.apiPath, но и открытия потока (подмена
+      транспорта подписки или счёт вызовов с enabled: true) — иначе «ни потока» держится вниманием;
+      (б) при заданном source серверные фильтры и серверный поиск спеки не отрисовываются либо
+      сочетание source с listFilters / search.serverTerm / serverSearchField отвергается (ошибка
+      сборки спеки или проверка на старте компонента) — иначе элемент управления принят и
+      проигнорирован: запрос выключен, а фильтр «работает». Проба: спека с listFilters и source —
+      фильтров на экране 0 либо отказ.
+    held_by: "ResourceListPage.source.test.tsx (две ветки выше); спека ленты без серверного сужения — рецензент диффа"
+  - id: CX6-33
+    measured: >-
+      query.ts:411–413: тихая отмена идущего чтения при cancelRefetch только если у ключа уже есть
+      данные (state.data !== undefined); иначе новое чтение присоединяется к идущему (414–418).
+      invalidateQueries → refetchQueries стартует fetch синхронно внутри notifyManager.batch
+      (queryClient.ts:291–337; query.ts: dispatch fetch и createRetryer до первого await).
+    must_hold_in_code: >-
+      действие «Подписаться»/«Отписаться» недоступно, пока у ключа ["notify","subscriptions"] нет
+      данных (первое чтение в полёте): иначе событие исхода не снимает чтение, начатое ДО исхода, и
+      следствие присоединяется к нему — флаг опустится по списку без только что созданной
+      подписки. Проба: первое чтение списка отвечает позже — кнопки нет.
+    held_by: "ResourceDetailExtensions.test.tsx (ветка «список ещё не прочитан»)"
+
+new_items:
+  - id: CX6-35
+    decision: "З13 — ключ чтения центра [\"notify\",\"center\",module,gen,\"pair\"|token], поколение растёт только по отметке и смене фильтра; после дедлайна «следующий таймер начинает новую пару»"
+    class: "code-authoring §«Решение и его следствие разнесены» (решение «чтение устарело, начать новое» принято счётчиком механизма, а исполняет его кэш клиента запросов по ключу, который этого решения не несёт); §«Чужой ответ: классификация и бюджет» (повтор после дедлайна не делает запроса)"
+    measured: >-
+      queryClient.ts fetchQuery (5.101.2, 363–367): при staleTime 0 зовёт query.fetch(options) БЕЗ
+      fetchOptions; query.ts fetch (404–419): если у ключа идёт чтение и retryer не отказал —
+      возвращается обещание ИДУЩЕГО чтения (continueRetry), нового запроса нет; cancelRefetch у
+      fetchQuery не передать. optionalRemove (226–230) снимает ключ только при fetchStatus 'idle',
+      так что gcTime: 0 зависшее чтение из кэша не убирает. Ключ пары не несёт ничего, кроме gen, а
+      таймерные пары gen не меняют: после истечения дедлайна пара следующего таймера того же
+      поколения присоединяется к зависшему чтению — запроса нет, её исход — исход зависшего. То же у
+      дочитывания: повторное «Показать ещё» после дедлайна по тому же токену присоединяется к
+      зависшему. Проба З18 «следующий таймер начинает новую пару», считающая запросы, на такой
+      конструкции красная; считающая только состояние экрана — не отличит.
+    must_hold_in_code: >-
+      ключ каждого чтения центра уникален для ЧТЕНИЯ, а не для поколения (номер чтения, растущий
+      на каждом старте, рядом с gen), либо чтение центра не идёт через кэш клиента запросов вовсе;
+      исход применяется при текущем gen и однократно, как записано. Проба: пара не отвечает →
+      дедлайн → «отвергнуто» → следующий таймер — обращений к /notify/v1/preferences и к
+      /notify/v1/inbox по 2 (новый запрос ушёл); близнец — ответивший первый запрос: следующий
+      таймер тоже делает новый запрос (обращений 2), снимок — из второго ответа. То же для
+      дочитывания: второе «Показать ещё» после дедлайна — запросов по токену 2.
+    held_by: "NotificationCenterPage.test.tsx (две ветки выше, счёт обращений)"
+    design_mapping: "нет: З13 называет ключ с gen и утверждает «ключ нового поколения не присоединяется к чтению, начатому раньше» — верно между поколениями, ложно внутри поколения"
+    verdict: unmapped
+  - id: CX6-36
+    decision: "§8, З13, З20 — CENTER_READ_DEADLINE_MS = 30 с, «равен proxy_read_timeout 30s раздачи — меньший объявил бы отказом чтение, которого раздача ещё ждёт»; дедлайн ставится на чтение центра — пару (настройки ∥ страницы 1…k подряд) с retry: notifyQueryRetry"
+    class: "code-authoring §«Умолчание, которое становится утверждением» (число, выведенное для одного запроса, применено к составному чтению); doc-truthfulness — обоснование числа о другом предмете"
+    measured: >-
+      единица дедлайна — чтение центра (З13: «каждое чтение центра ставит таймер окна»); пара
+      читает k страниц ПОДРЯД (токен следующей — из ответа предыдущей), fetchQuery повторяет по
+      notifyQueryRetry (failureCount < 1 — один повтор) с defaultRetryDelay 1000·2^0 = 1 с
+      (retryer.ts:49–51). Предел раздачи — 30 с на ОДИН запрос (M24). Законная длительность пары
+      при зависающем апстриме — до k·30 с, с повтором — до 2·k·30 + 1 с; при k = 1 и первом ответе
+      504 на 30-й секунде повтор уходит на 31-й, а дедлайн уже истёк. Обоснование «меньший объявил
+      бы отказом чтение, которого раздача ещё ждёт» для пары ложно при любом k с повтором и при
+      k ≥ 2 без него. Вместе с CX6-35 следующий таймер присоединяется к тому же чтению.
+    must_hold_in_code: >-
+      выбрать и записать в §8 одно: (а) дедлайн на КАЖДЫЙ запрос чтения (обоснование «равен
+      proxy_read_timeout» тогда верно), а у пары — названный предел как функция k и повтора; либо
+      (б) дедлайн пары — граница ожидания экрана, с обоснованием, не ссылающимся на раздачу, и с
+      названным исходом: законное медленное чтение объявляется «отвергнуто», следующий таймер
+      начинает НОВОЕ чтение (CX6-35). Проба на управляемых часах: k = 2, каждая страница отвечает
+      через 20 с — при (а) снимок обновлён, «отвергнуто» не было; при (б) «отвергнуто» на 30-й
+      секунде и новый запрос следующим таймером.
+    held_by: "NotificationCenterPage.test.tsx (ветка «медленная пара из двух страниц»); одна константа — рецензент диффа"
+    design_mapping: "нет: §8 и З13 выводят 30 с из предела одного запроса"
+    verdict: unmapped
+
+measurements:
+  - claim: "M27: ResourceListPage — 7 свойств, чтение, опрос 3 с, дочитывание свои"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/use-resource-list.ts | sed -n 150,260p; git show 1d42a6728bf:…/ResourceListPage.tsx | grep -nE 'use[A-Z][A-Za-z]*\\(|fetchMore'"
+    result: "подтверждено; сверх замера: useResourceStream — внутри useResourceList (строка 182), серверные фильтры и поиск — в ResourceListPage (условие к коду CX6-31)"
+  - claim: "M28: 17 мест отрисовки в 10 файлах, 3 вызова useResourceList, 18 файлов проб"
+    command: "git grep -n '<ResourceListPage\\b' 1d42a6728bf -- ui-future ':!*node_modules*' ':!*.test.*' ':!*.md' | wc -l; то же -l; git grep -n 'useResourceList(' … ':!*test*' | wc -l; git grep -l 'ResourceListPage' … | grep -c '\\.test\\.'"
+    result: "подтверждено: 17, 10, 3, 18; ResourceListPage.hookorder.test.tsx есть (git ls-tree)"
+  - claim: "M29: fetchQuery отдаёт значение или отказ, умолчание retry false"
+    command: "sed -n 345,368p ui-future/compute/node_modules/@tanstack/query-core/src/queryClient.ts"
+    result: "подтверждено; сверх замера: при идущем чтении ключа fetchQuery возвращает обещание идущего (query.ts:404–419) — CX6-35"
+  - claim: "З13: «ключ нового поколения не присоединяется к чтению, начатому раньше»; «следующий таймер начинает новую пару»"
+    command: "чтение query.ts:400–420, 226–230; queryClient.ts:363–367"
+    result: "первое верно между поколениями; второе опровергнуто внутри поколения — CX6-35"
+  - claim: "§8: CENTER_READ_DEADLINE_MS 30 с равен пределу раздачи, меньший объявил бы отказом ждущее чтение"
+    command: "З13 (единица дедлайна — чтение центра, страницы подряд); retryer.ts:49–51; M24"
+    result: "опровергнуто для пары — CX6-36"
+  - claim: "З10: событие в onSettled → инвалидация стартует чтение после исхода синхронно, следствие присоединяется к нему"
+    command: "queryClient.ts:291–337 (batch, type 'active', cancelRefetch ?? true); query.ts: dispatch fetch и createRetryer до первого await; query.ts:411–418"
+    result: "подтверждено при данных у ключа; без данных тихой отмены нет — условие к коду CX6-33"
+  - claim: "§0, Е2, Е6: одобренной редакции NTF-3 с Д25 нет"
+    command: "F=docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md; R=docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance; для rev в cbb30df7f 88fa559c7 b746239d5 HEAD: sha256 отпечатка, sed -n '/^\\*\\*Р10\\./,/^\\*\\*Р11\\./p' | grep -c 'NTF3-161', yq -r '.verdict' $R/<sha>.yaml"
+    result: >-
+      верно на ревизии замысла, устарело на HEAD a38a26229: 88ad95c6 — 0, APPROVED; c481e642 — 1,
+      CHANGES_REQUESTED; 077fdc20 — 1, CHANGES_REQUESTED; 97afc066 (редакция 23) — 1, APPROVED.
+      Записей 21, верхний APPROVED — 5, строка 'verdict: APPROVED' где-либо — 15. Запись 97afc066
+      добавлена a38a26229, не предком a977cd2b2 (→ 1)
+  - claim: "Е6 (3): близнец смены числа разрядов в NTF3-161"
+    command: "sed -n '/Сценарий NTF3-161/,/Группа O/p' $F | grep -cE 'разряд'"
+    result: "0: позиции P1 < P2 < P3 абстрактны — заказ автору NTF-3 (пересверки 7294a684, dd683a30) не исполнен"
+
+not_measurable:
+  - "как часто на стенде пара превышает 30 с — зависит от числа загруженных страниц и времени ответа ленты; для вывода не нужно: CX6-36 — о ложности обоснования и о выбранной единице, а не о частоте"
+  - "откроется ли поток для спеки ленты при enabled: true — у use-resource-stream targetKey требует owner и kind из перечня видов, а спеки ленты ещё нет; условие CX6-31 (а) требует гасить поток независимо от этого"
+
+outcome: к-замыслу
+unmapped: [CX6-35, CX6-36]
+does_not_hold: []
+return_to_acceptance: []
+
+to_design:
+  - "§11: строки CX6-35, CX6-36 с решением и держателем"
+  - "З13, З18: ключ чтения центра — номер ЧТЕНИЯ (или чтение мимо кэша); проба «после дедлайна следующий таймер делает новый запрос» со счётом обращений, то же у дочитывания (CX6-35)"
+  - "§8, З13, З20: единица дедлайна — запрос или пара; обоснование числа — о выбранной единице; проба «медленная пара из двух страниц» (CX6-36)"
+  - "§0 строка «контракт notify», M25, Е2, Е6 и tasks.md §1: на HEAD a38a26229 у редакции 23 NTF-3 (97afc066) верхний verdict APPROVED и NTF3-161 в Р10 — Е6 (1), (2) выполнены; Е6 (3) и сверка формы §1.7 (Р9, Р10, Р11, Р20, Р29) для снятия Е2 — суждение рецензента; близнеца смены разрядов в NTF3-161 нет (0)"
+  - "условия к коду CX6-31 (поток и серверное сужение при source) и CX6-33 (действие недоступно до первых данных ключа подписок) — в G4 и G1 предикатами снятия"
+
+orders:
+  - to: design author (NTF-6)
+    what: "правки to_design одной редакцией; затем пересверка на новом отпечатке и ревью замысла (system-design-reviewer, режим «замысел»)"
+    basis: "change-graph.md §4; code-authoring §«Решение и его следствие разнесены», §«Умолчание, которое становится утверждением»"
+  - to: acceptance author (NTF-3, через диспетчера)
+    what: "третий повтор заказа: NTF3-161 задаёт позиции абстрактно P1 < P2 < P3 — близнеца смены числа разрядов (9 → 10) нет; на одобренной 97afc066 — тоже"
+    basis: "code-authoring §«Контракт, который нельзя выразить»"
