@@ -1,0 +1,192 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a
+  revision: 26
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT, строка истории — «редакция 26 · вердикта нет». Эта запись шапку НЕ
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: f2b1eea7c
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4334
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T20:45:07Z'
+round: 3
+round_note: >-
+  Круг 3 серии редакции 24 → 26 (круг 1 — `53bd6522…`, COVERAGE; круг 2 — `f7f510df…`,
+  CONSTRUCTIBILITY). Дельта 216f7903d → f2b1eea7c по документу прочитана целиком (70+/18−: шапка,
+  Р8 «форма ключа» и «рендер чарта края без зонтика», §5 П7-узел, §6б строки Р8 ×2, §7 строка
+  NTF2-71 (е), DoD п.7, §11). Вне дельты документ не менялся после одобрения редакции 23 (круг 3,
+  `7a424030…`) иначе, чем дельтами кругов 1–2 этой серии, которые судились прежними записями.
+  Механизмы всех семи семейств М67, на которые дельта теперь ссылается, перемерены посевом на копии
+  дерева `origin/2564` `6edea09c2ee`. Прежние записи не правятся.
+previous_rounds:
+  - pass: редакция 21, круг 1
+    sha256: 21d5c951c273fddd8d327759313a7166640c8bd94db7d6cea34e58bd1e63392d
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 22, круг 2
+    sha256: c103822e857d5663339b168f102b529de45f16e4a542c3b9117e2a0ee9d2d1f5
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 23, круг 3
+    sha256: 7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4
+    verdict: APPROVED
+  - pass: редакция 24, круг 1
+    sha256: 53bd65224de8a3b2fb705473ffdbab632346535b3dc6466ffa94ea2dad9c567d
+    verdict: CHANGES_REQUESTED
+  - pass: редакция 25, круг 2
+    sha256: f7f510df47f0c2637bb57a47bcebf4f6a47a748e51571af3987d6f715f29dcf4
+    verdict: CHANGES_REQUESTED
+prior_findings_closed:
+  B-2: >-
+    закрыт: исключение «запись ведомости без значения, отказ с именем ручки» снято из Р8 и §6б;
+    запись края — `gateway/deploy|-f deploy/testdata/notify-standalone/edge.yaml`; ведомость
+    утверждает код со слоем и код голого рендера (самоистечение), имя ручки в тексте отказа — только
+    отрицание §6б (2); источник в переписи (1) — `edge.yaml` у каждого рендера. Посев подтвердил все три
+    формы записи (см. constructibility (1)).
+  N-1: >-
+    закрыт: форма ключа одна на файл — `mail-node/` только под `api-gateway`, `edge.yaml` только в
+    корне и без других ключей, `notify-standalone/values.yaml` ключа не несёт; держатель — §6б (5) с
+    близнецом. Посев: файл формы `mail-node/` на рендере без зонтика → rc=1 с именем ручки.
+  class_extension: >-
+    автор сверх замечания нашёл второе место того же класса — скан получал бы значение через
+    `helm.values`, которого гейт заглушек не судит (`assert-scan-stubs-hide-nothing.py` @`6edea09c2ee`,
+    `scan_with` заменяет только `helm.set`, строки 93–96, 116–117 — прочитано); §6б (6) заказывает
+    расширение гейта полосой D6 с инъекцией и близнецом. Посылка подтверждена чтением.
+decisions_applied:
+  D51: соблюдено (без изменений против кругов 1–2).
+  D52: >-
+    соблюдено: каждый рендер чарта края без зонтика (помощник `helmTemplate`,
+    `edge_retired_knobs_render_test.go`, ведомость, сверка томов, два шелл-скрипта, IaC-скан) получает
+    значение только слоем файла каталога фикстур NTF-1; без значения — отказ с именем ручки; значения
+    в самом вызове нет. Файл `notify-standalone/edge.yaml` — новый файл NTF-2 внутри каталога NTF-1
+    (как `ntf2-p7.yaml`, CX2-66), второго каталога фикстур не заводит; выбор файла и формы ключа замысел
+    NTF-1 (Е12 (12)) отдаёт D6 NTF-2 — принято как дефолт ревью (defaults.Q1).
+defaults:
+  Q1: >-
+    «второй фикстуры нет» (Д52) читается как «второго каталога и второго источника значения нет»;
+    отдельный файл `edge.yaml` в `deploy/testdata/notify-standalone/` ему не противоречит, а
+    строка ручки в `notify-standalone/values.yaml` была бы принятой и проигнорированной чартом
+    `notify`. Если диспетчер читает Д52 как «ровно существующий файл NTF1-I06», — это вопрос к Д52,
+    не дефект приёмки.
+blocking_count: 0
+blocking_kinds_distinct: []
+non_blocking:
+  N-1: >-
+    [FORMAT] Р8, пункт «гейты рендера `prod`» (строки ~898–902) по-прежнему называет источником
+    значения для гейтов `prod` оба каталога — `mail-node/` и `notify-standalone/` «(файл собственных
+    значений ноги `notify` без зонтика, NTF1-I06)», — тогда как следующий пункт «форма ключа» прямо
+    запрещает ключ в `notify-standalone/values.yaml`, а §6б (строка Р8 «не из базовых значений») уже
+    исправлена на «`prod` рендерится через зонтик, файл — `mail-node/`». §11 отмечает правку только в
+    §6б. Два места об одном предмете, одно устарело. Не блокирует: более частный пункт однозначен, и
+    держатель §6б (5) красный на ключе в `notify-standalone/values.yaml`. Рекомендую привести пункт к
+    строке §6б при следующей правке документа.
+  N-2: >-
+    [FORMAT] §6б (1): для `deploy/tests/helm/iam-trusted-forwarder-test.sh` «слой в своей строке
+    рендера края» — у скрипта отдельной строки края нет: все семь чартов рендерит одна функция
+    `peer_san` (строки 93–101 @`6edea09c2ee`) с `--show-only templates/certificate.yaml`; `required`
+    в `deployment.yaml` срабатывает и под `--show-only`, так что семейство в переписи верно, а слой
+    ляжет на общую строку и достанется всем чартам цикла (безвредно: ключ в корне читает только край,
+    `values.schema.json` в дереве нет — `git ls-tree -r --name-only 6edea09c2ee | grep -c
+    values.schema.json` → 0). Уточнить формулировку, если документ будет правиться.
+constructibility:
+  seeded: 7
+  of: 8
+  not_executed: 1
+  detail: >-
+    Копия `gateway/deploy`, `trivy.yaml`, `.github/scripts`, `deploy/scripts`, `deploy/tests/helm` @
+    `6edea09c2ee` со вставленной строкой env `KACHO_API_GATEWAY_TRUSTED_HOPS` = `required … .Values.trustedHops`.
+    (1) ведомость `lint-service-charts.sh` (подменена только LEDGER, git-репозиторий посева): записи нет
+    → rc=1 «координат ведомость ему не даёт»; `gateway/deploy|` → rc=1 то же; `gateway/deploy|-f
+    deploy/testdata/notify-standalone/edge.yaml` → rc=0 «документов 4 (координат подано ведомостью)».
+    (2) отрицание: голый `helm template t gateway/deploy` → rc=1, `execution error at
+    (api-gateway/templates/deployment.yaml:87:24)`, текст с именем ручки. (3) близнец: `-f edge.yaml`
+    (`trustedHops: 1`) → rc=0, value "1". (4) `0` в корне → value "0". (5) форма `mail-node/`
+    (`api-gateway: {trustedHops: 1}`) на рендере без зонтика → rc=1 с именем ручки. (6) IaC-скан
+    trivy 0.70.0: `trivy.yaml` без `helm.values` → rc=0, целей 0 (чарт молча выпал); с
+    `misconfiguration.helm.values: [deploy/testdata/notify-standalone/edge.yaml]` → rc=0, целей 4 —
+    механизм `helm.values` существует и подаёт значение. (7) `helmTemplate(` в `gateway/deploy` → 9
+    строк — сходится. (8) §6б Р5 (г) — вне дельты; окно фиксации на управляемом хранилище, стенда
+    пробы замысла З8 нет — «не выполнилось» (как в круге 2).
+premise_check:
+  claim: >-
+    задание: судить редакцию 26 на отпечаток 66b82c1c…, круг 3; учесть Д51, Д52 (рендер края без
+    зонтика — отказ без значения; значение из каталога фикстур NTF-1, включая notify-standalone;
+    второй фикстуры нет).
+  outcome: подтверждена — отпечаток воспроизведён (4334 строки); Д51, Д52 соблюдены.
+  commands:
+    - "sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    - "git diff 216f7903d f2b1eea7c -- <док>"
+    - "посев: helm template на копии gateway/deploy с required; sweep lint-service-charts.sh с тремя ведомостями; trivy config --config с helm.values и без"
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да
+  security_surface_note: >-
+    доверенная глубина цепочки пересланных адресов у края и fail-closed отказ рендера без неё
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и предикатами, без описания обхода.
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a
+  declared_verdict: APPROVED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_approved
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 66b82c1c…; правка документа (в том числе по N-1, N-2) требует нового
+    рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 3, редакция 26, блокирующих 0) · SHA-256
+    66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: f2b1eea7c (ветка issue-880, HEAD 9417dcb4b — документ после f2b1eea7c не менялся)
+    kacho_epic: origin/2564 6edea09c2ee
+    helm: v4.2.4
+    trivy: 0.70.0
+repeated_kinds_note: >-
+  Блокирующих нет. Серия 24→26 дала два возврата разных родов (COVERAGE, CONSTRUCTIBILITY); класс
+  круга 2 автор закрыл по классу (все семь механизмов прочитаны), а не по месту.
+next:
+  needed_agent: courier (публикация события одобрения на 66b82c1c…) и слияние приёмки тем же заходом
+  task: >-
+    опубликовать событие одобрения на отпечаток 66b82c1c…; влить PR приёмки в линию до старта полосы
+    реализации D6; N-1, N-2 — при следующей правке документа (правка снимет одобрение)
+  owner_questions: []
