@@ -1,0 +1,273 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 16.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки прежних редакций относятся к своим
+# редакциям и здесь не переписываются. Судится дельта редакции 16 против последней пересверенной
+# (редакция 14, 320bd2b2). Редакция 15 (23a6d8f5, коммит 4656a7f4b) пересверки не имела, её дельта входит
+# сюда: git diff 38ef03f18 63bfbab5c -- docs/changes/issue-2917/{design,tasks,change}.*.
+# Итог: к-замыслу. CX2-71 (320bd2b2), CX2-72…74 (initial/66b82c1c) и CX2-75…79 (initial/29b09f14)
+# отображены все. Возврат Р5/Р8 (Е15, Е16) снят одобрением редакции 28. Д52 и Д53 держатся.
+# Новый пункт один:
+#   CX2-80 — Д52 предписывает одно написание слоя, `-f deploy/testdata/notify-standalone/edge.yaml`
+#            («путь от корня репозитория»), всем семи семействам. Но относительный путь helm разрешает от
+#            текущего каталога процесса, а базы у семейств четыре разные. Помощник `helmTemplate` зовёт
+#            `helm template .` из каталога пакета `gateway/deploy`, и там такая строка даёт код 1 (замер).
+#            Поэтому перепись D6 «файл-источник у каждого — edge.yaml», если судит по тексту аргумента,
+#            ошибётся: либо потребует нерабочее написание, либо покраснеет на рабочем.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: ed2fa203ec8a63740987bc27432c4e491cbf7acd64ffad53277decb345ddb40b
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 16
+  commit: 63bfbab5c
+  route_sha256: a02abbede3926687…   # tasks.md @63bfbab5c (sha256sum, первые 16 знаков)
+  previous_judged: 320bd2b2da780f27e04c386ce5d3fc5746e5c6e231a2347caf16cc5508a363a9   # редакция 14, 38ef03f18
+  unjudged_between: 23a6d8f563fe66e0c17332729f55ecc4a946a7cad230997ab2608711fb3335f9  # редакция 15, 4656a7f4b — без пересверки
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014.yaml
+  initial_records:
+    - docs/changes/issue-2917/reviews/class-exposure/initial/66b82c1cbadda0b78c40ce198aa78df90d8a07ccfafb27ceea627a6abbd98c4a.yaml   # CX2-72…74
+    - docs/changes/issue-2917/reviews/class-exposure/initial/29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014.yaml   # CX2-75…79
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/320bd2b2da780f27e04c386ce5d3fc5746e5c6e231a2347caf16cc5508a363a9.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 63bfbab5c2b24e2fee205385abd11df2e23db4e8   # ветка issue-880
+  ntf1_design: 5228b32b212bb08d77bc5e0b400442b6e1bb7b37d8b3d82741b7535e204de7a7   # редакция 30; пересверка — to_code, ревью — APPROVED
+  ntf1_route: d17ace5cd8674adc5473cea56a5af31b66b0fe7a0898fe37da0a7825fb040ef3   # редакция 31
+  kacho: "origin/2564@6edea09c2ee, origin/1276@69ab1d3e17d (1276 в 2564 не влита — merge-base → 1)"
+  helm: v4.2.4+g3900f43
+snapshot_at: 2026-10-01
+inspected: >-
+  Дифф design.md 4656a7f4b → 63bfbab5c целиком (−U0, 38 кусков): шапка редакции 16, §0 (строки приёмки
+  редакции 28, разборов 29b09f14 и 66b82c1c, NTF-1), Д52 и Д53 после Д51, М69, М70, З8 «Исход фиксации» (Е15),
+  З28 — «Ручка прыжков — не из базы», «Рендеры чарта края без зонтика» (а)–(е), «Граница Д51 и Д52», «Е16
+  снята», «Порядок», «Держатель», §8 (строка ручки), §11 CX2-68 и CX2-72…79, §11а УК60 и УК67–УК75, §13
+  Е12, Е13, Е15–Е18. Шапки и перечни дельты редакции 15 (38ef03f18 → 4656a7f4b): CX2-71, УК63–УК66.
+  tasks.md @63bfbab5c — строки E1, D6 (все колонки), W3, Е12, Е13, Е18. tasks.md @4656a7f4b — строки
+  D6, E1 и Е12 (посылка CX2-72). Приёмка 29b09f14 — Р8, пункты «форма ключа» и «рендер чарта края
+  без зонтика» (строки 920–945). NTF-1 @5228b32b: шапка (N23, N24), М46–М50, §13 Е12 (12), исходы
+  пересверки и ревью на 5228b32b. Дерево kacho на 2564: `helmTemplate` (render_geo_test.go),
+  `edgeChartDir` (edge_retired_knobs_render_test.go), `sweep` и главный вызов lint-service-charts.sh,
+  `render` и `Chart("api-gateway", …)` в check-volume-mounts.py, корни путей в
+  iam-trusted-forwarder-test.sh и edge-keyset-hop-test.sh, строки `env` шаблона Deployment края.
+  Синтетика helm в scratchpad. Журналы решений диспетчера: формулировка Д52. Записки vault не читались.
+
+dispatcher_decisions_check:
+  Д52: >-
+    Держится. Формулировка диспетчера: «рендер чарта края без зонтика — то же правило, значение из каталога
+    фикстур NTF-1». `deploy/testdata/notify-standalone/edge.yaml` лежит в каталоге фикстур NTF-1, и
+    одобренная приёмка редакции 28 называет этот файл (Р8, строки 920–945). Синтетического числа и
+    заглушки `helm.set` в замысле больше нет (З28 (б), §8, CX2-68 (б), УК60). Прочтение того же решения
+    в NTF-1 Е12 (12) («нового файла D6 не заводит», ключ в корне `notify-standalone/values.yaml`)
+    расходится с приёмкой. Замысел это называет: §0, §13 Е18 (в), и этот пункт гейтит D6. Держится и
+    способ подачи — одним файлом. Написание пути в каждом семействе — новый пункт CX2-80.
+  Д53: >-
+    Держится. NTF1-D1s — после D1, суд `helm.values` гейтом заглушек — там же. D6 его формулу не меняет
+    (З28 (г), CX2-76 (в), УК72). Зависимость D6 от D1s названа в маршруте (D6 → Е13 с NTF1-D1s, строка
+    Е13 маршрута «гейтит … D6»).
+  Д51: "держится; «Граница Д51 и Д52» заменила абзац «Граница Д51». Вопрос владельцу из 695a1e95 и 320bd2b2 снят Д52: рендеры подчарта берут значение из каталога"
+  Д1–Д50: "дельта их строк не трогает"
+
+mapped_from_previous:
+  - id: CX2-71
+    source: revalidation/320bd2b2
+    where: "З28 «Держатель»; §11 CX2-70, CX2-71; §11а УК62, УК63; tasks D6 (отрицание: «снятых ключей ровно один, опора — код 0», инъекции «сняты оба ключа» и «опора без узла почты»)"
+    held: true
+    check: "слова «перечень незаданных обязательных значений опоры» и «незаданное обязательное значение одно» в tasks.md — 0; в design.md — 3, и все три стоят в истории редакций или в строке CX2-71 «сняты»"
+  - id: CX2-72
+    source: initial/66b82c1c
+    where: "З28 «Порядок»; М70; §11 CX2-72; §11а УК68; §13 Е12; tasks E1 и D6 (старт — печать SHA и merge-base)"
+    held: true
+    check: >-
+      Замысел отчасти опроверг посылку пункта, и это верно. На маршруте 4656a7f4b Е12 (вливание kacho#1276)
+      уже стоял в зависимостях D6, у E1 его не было (прочитано). Пункт 66b82c1c в части D6 был неточен:
+      Е12 и есть это вливание. Теперь условие у E1 есть, строка Е12 маршрута и замысла называет D6 и E1.
+      Вливания нет и сейчас: merge-base --is-ancestor origin/1276 origin/2564 → 1 (перемерено)
+  - id: CX2-73
+    source: initial/66b82c1c
+    where: "З28 (г) «Инъекция (6)», (д); §11 CX2-73; §11а УК69; tasks D6"
+    held: true
+  - id: CX2-74
+    source: initial/66b82c1c
+    where: "§11 CX2-74; §11а УК70; tasks W3 (cat-file -e, затем show | grep -c по двум ключам, контроль в обе стороны, git grep -c не используется)"
+    held: true
+  - id: CX2-75
+    source: initial/29b09f14
+    where: "З28 (г) «Предпосылка (6)» (1)–(3); §11 CX2-75; §11а УК71; tasks D6"
+    held: true
+    note: "M = 0 явно даёт «не выполнилось». Якорь распознавателя назван полным текстом строки"
+  - id: CX2-76
+    source: initial/29b09f14
+    where: "З28 (г) «Голова D6»; §11 CX2-76; §11а УК72; §13 Е18 (а); tasks D6 (пути: гейт, таблица, edge.yaml, файл инъекции D1s — при литеральном близнеце)"
+    held: true
+    check: "литерал «файлов значений 2» в маршруте NTF-1 d17ace5c есть (2 вхождения), поэтому ветка «D6 берёт файл инъекции» действует, и маршрут её называет"
+  - id: CX2-77
+    source: initial/29b09f14
+    where: "З28 (г) «печать выпавших», «правило обязан выпасть», «Инъекция правила»; §11 CX2-77; §11а УК73; §13 Е18 (б); tasks D6"
+    held: true
+    note: "строки таблицы для записей D1s ведёт NTF-1 (Е18 (б), не гейтит D6). Строку NTF-2 (edge.yaml) замысел завёл сам"
+  - id: CX2-78
+    source: initial/29b09f14
+    where: "З28 (д); §11 CX2-78; §11а УК74"
+    held: true
+    check: "якорь выполним: окружение края в шаблоне — список `env` с `- name: KACHO_…` и `value:` (63 элемента на 2564; соседний tokenAudience — `value: {{ .Values.tokenAudience | quote }}`)"
+  - id: CX2-79
+    source: initial/29b09f14
+    where: "З28 (д); §11 CX2-79; §11а УК75"
+    held: true
+  - id: "замечание 29b09f14 «текст держателя §6б (6) дословно верен только для edge.yaml»"
+    where: "§0 (строка разбора 29b09f14, «попутно, не блокирует»)"
+    held: true
+    note: "это адрес автору приёмки, а не замыслу. Замысел ведёт держателя по таблице (CX2-77 (а)) и текст приёмки не повторяет"
+  - id: "замечание 320bd2b2 «ключ ручки уникален среди чартов дерева»"
+    where: "М69 (trustedHops — 0 на 2564 и 1276, перемерено)"
+    held: true
+    note: "`helm.values` не знает области чарта, поэтому edge.yaml получает каждый чарт скана. Утверждение «ни один чарт не читает trustedHops» верно на ревизию. Чарт, который позже станет читать этот ключ, молча получит значение, и гейт заглушек увидит это, только если значение гасит находку. Держится вниманием"
+
+new_items:
+  - id: CX2-80
+    decision: >-
+      Д52 в З28 (б) и tasks D6: «Слой — `-f deploy/testdata/notify-standalone/edge.yaml`, путь от корня
+      репозитория… (1) помощник `helmTemplate` добавляет слой одной строкой внутри помощника». Там же
+      перепись D6 (а): «по каждому рендеру — координату вызова и файл-источник значения ручки (у каждого —
+      edge.yaml; иной источник… — красный)»
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить»: у одного значения (физический файл слоя)
+      несколько написаний, и замысел предписывает одно на всех. testing-verdict п.14 «Твой СОБСТВЕННЫЙ
+      разборщик — тоже распознаватель»: перепись судит «файл-источник» собственным разбором вызова.
+      architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ» —
+      форма пути в trivy.yaml и в ведомости стыкуется по строке
+    exposure: >-
+      helm разрешает относительный `-f` от текущего каталога процесса. То же для trivy `helm.values`
+      (NTF-1 М48 (2)). У семи семейств М67 четыре разные базы: `helmTemplate` вызывает
+      `exec.Command("helm", "template", ".")` из каталога пакета `gateway/deploy`;
+      `edge_retired_knobs_render_test.go` — из `deploy/` (`edgeChartDir = ../gateway/deploy`);
+      `edge-keyset-hop-test.sh` называет `REPO_ROOT` каталог `deploy/`, а корень репозитория там —
+      `MONOREPO`; `iam-trusted-forwarder-test.sh` — `REPO_ROOT` = корень; `lint-service-charts.sh` делает
+      `cd` в корень; `check-volume-mounts.py` вызывает helm без `cwd`; trivy запускается из корня.
+      Буквальная строка из замысла внутри `helmTemplate` даёт `Error: open
+      deploy/testdata/notify-standalone/edge.yaml: no such file or directory`, код 1 (синтетика, helm
+      4.2.4). Написание `../../deploy/…` из того же каталога даёт код 0. Сам рендер отказывает громко, `go
+      test` краснеет, так что молча ничего не проходит. Опасна перепись D6: если она сверяет «файл-источник»
+      с текстом `deploy/testdata/notify-standalone/edge.yaml`, у неё два неверных исхода. Первый — она
+      требует написания, на котором два Go-семейства не рендерятся. Второй — краснеет «иным источником» на
+      рабочем `../../deploy/…` или `filepath.Join(…)`. Если же сверять по подстроке `edge.yaml`, пройдёт и
+      `$REPO_ROOT/deploy/testdata/…` в `edge-keyset-hop-test.sh`, а это `deploy/deploy/testdata/…`. Правило
+      «обязан выпасть» (CX2-77 (б)) стыкует запись ведомости `-f <файл>` с записью `helm.values` того же
+      `<файл>` по строке. `./deploy/…` и `deploy/…` — один файл, но разные строки: записи не найдут друг
+      друга
+    condition_on_code: >-
+      (а) Замысел называет написание слоя по базе каждого семейства. Пример: `helmTemplate` —
+      путь от каталога пакета (`../../deploy/testdata/notify-standalone/edge.yaml`) или от корня,
+      вычисленного помощником; `edge_retired_knobs_render_test.go` — от `deploy/`;
+      `edge-keyset-hop-test.sh` — `$MONOREPO/deploy/…`, не `$REPO_ROOT/…`;
+      `iam-trusted-forwarder-test.sh` — `$REPO_ROOT/deploy/…`; ведомость, сверка томов и trivy.yaml —
+      от корня, запускаются из корня. Слова «путь от корня репозитория» относятся к файлу, а не к
+      аргументу каждого вызова. (б) Перепись D6 судит файл-источник по тождеству файла: аргумент `-f`
+      разрешается от базы своего вызова, и результат совпадает с `<корень>/deploy/testdata/notify-standalone/edge.yaml`.
+      По каждому рендеру печатаются координата, написание и разрешённый путь. Совпадение по тексту и по
+      подстроке исходом не считается. Если базу вызова распознаватель не установил, исход — «не
+      выполнилось» с координатой, а не зелёный. (в) Правило «обязан выпасть» стыкует записи по
+      нормализованному пути от корня. Запись ведомости `-f <файл>`, для которой нет записи `helm.values`
+      с тем же файлом, даёт красный с именем записи, а не пропуск. (г) Проба распознавателя в обе
+      стороны. `helmTemplate` с написанием `deploy/testdata/…` (от корня) → перепись: «разрешённый путь не
+      существует», красный, и `go test ./gateway/deploy` тоже красный. Близнец — `../../deploy/…` → оба
+      молчат. `edge-keyset-hop-test.sh` с `$REPO_ROOT/deploy/…` → красный переписи с разрешённым путём
+      `deploy/deploy/…`
+    held_by: >-
+      Сам неверный путь держится громко: рендер отказывает, и `go test`, шелл-пробы и ведомость краснеют.
+      Исход переписи D6 и правила «обязан выпасть» держится только пробами (г), а их в замысле и
+      маршруте нет. До отображения держится вниманием
+
+remarks:
+  - subject: "§13 Е13 замысла не называет D6 среди гейтируемых, а маршрут называет"
+    text: >-
+      Строка Е13 в design.md: «гейтит D3, D5, а D1 — через путь values.a8f60d.yaml». В tasks.md та же Е13:
+      «гейтит D1, D3, D5, D6 (NTF1-D9, NTF1-D2, NTF1-D1s)», и З28 «Порядок» ставит D6 после Е13. Два
+      места об одном предмете расходятся. Это тот же род, что у CX2-72 с Е12, который редакция 16
+      исправила в строке Е12. Маршрут верен, класса это не даёт. Поправить при следующей правке замысла.
+  - subject: "§0, строка замысла NTF-1: «вердикта и пересверки на замысел нет»"
+    text: >-
+      На 5228b32b (редакция 30 NTF-1) есть пересверка (outcome: to_code, коммит febdd4a23) и ревью
+      design-reviewer (APPROVED, коммит e7dbe88c7). Оба закоммичены за 3–5 минут до 63bfbab5c. Решений
+      NTF-2 это не меняет: Е17 (б), (д) держится сильнее, Е18 по-прежнему открыта — её предикат на
+      5228b32b/d17ace5c перемерен: 0/0/0/0 и литерал «файлов значений 2» ×2. Строку §0 при следующей правке
+      привести к записям.
+  - subject: "правило «обязан выпасть» и запись ведомости с несколькими -f"
+    text: >-
+      CX2-77 (б) выводит правило из записи `<чарт>|-f <файл>`. Что делать с записью, где несколько `-f`,
+      не сказано: требовать выпадения без каждого файла или без хотя бы одного. Сегодня такой записи нет.
+      Ведомость содержит nlb и registry с `--set`, а notify вне её области (NTF-1 М49 (7)). Пункта это
+      не даёт. Если появится вторая `-f`-запись, её семантику назначает тот, кто её заводит.
+
+return_to_acceptance: []
+return_to_acceptance_note: >-
+  Приёмка 29b09f14 говорит о файле (`-f deploy/testdata/notify-standalone/edge.yaml` — «тот же рендер со
+  слоем»). Написание аргумента в каждом семействе она не задаёт, поэтому CX2-80 — пункт замысла, а не
+  приёмки.
+
+measurements:
+  - claim: "отпечатки предмета, промежуточной редакции и маршрута"
+    command: "sha256sum docs/changes/issue-2917/design.md; git show <c>:docs/changes/issue-2917/{design,tasks}.md | sha256sum для 38ef03f18, 4656a7f4b, 63bfbab5c"
+    result: "design: 320bd2b2… (38ef03f18), 23a6d8f5… (4656a7f4b), ed2fa203… (63bfbab5c = рабочее дерево); tasks: 4f42be2d…, d6166fad…, a02abbed…"
+  - claim: "CX2-71 — остаток старой формы предпосылки"
+    command: "grep -c 'незаданных обязательных значений опоры\\|незаданное обязательное значение одно' design.md tasks.md; grep -n … design.md"
+    result: "tasks 0; design 3 — строки 64, 98 (история редакций) и 3275 (CX2-71: «сняты»)"
+  - claim: "посылка CX2-72: у D6 на маршруте редакции 15 Е12 уже стоял, у E1 — нет"
+    command: "git show 4656a7f4b:docs/changes/issue-2917/tasks.md | awk -F' \\\\| ' '$1 ~ /^\\| (D6|E1)$/ {print $1, $(NF-1)}'"
+    result: "D6: «Е12, Е13 …, Е16; садится вместе с E1»; E1: «Е7; садится только вместе с D6». Опровержение замысла верно"
+  - claim: "М69, М70 перемерены"
+    command: "git -C project/kacho grep -c -i trustedHops <r> -- .; merge-base --is-ancestor origin/1276 origin/2564"
+    result: "trustedHops: вывода нет, код 1 на 2564@6edea09c2ee и 1276@69ab1d3e17d; merge-base → 1"
+  - claim: "Е18 открыта — предикат на NTF-1 5228b32b / d17ace5c"
+    command: "grep -c 'CX2-76\\|CX2-77' docs/changes/issue-2915/{design,tasks}.md; grep -c 'edge.yaml' …; grep -o 'файлов значений [0-9M]*' docs/changes/issue-2915/tasks.md | sort | uniq -c"
+    result: "0, 0; 0, 0; «файлов значений 2» ×2, «файлов значений M» ×1 — сходится с §13 Е18"
+  - claim: "CX2-80 — базы путей у семейств рендера края"
+    command: "git show origin/2564:<файл> для render_geo_test.go (helmTemplate), deploy/edge_retired_knobs_render_test.go (edgeChartDir), .github/scripts/lint-service-charts.sh (sweep, строка cd), .github/scripts/check-volume-mounts.py (render), deploy/tests/helm/{iam-trusted-forwarder-test.sh,edge-keyset-hop-test.sh} (HERE/REPO_ROOT/MONOREPO)"
+    result: "helmTemplate — `helm template .` из каталога пакета gateway/deploy; edgeChartDir = ../gateway/deploy (база deploy/); lint-service-charts.sh:232 — cd в корень, аргументы записи дословно; check-volume-mounts.py — subprocess.run без cwd, чарт — REPO / path; iam-trusted-forwarder: REPO_ROOT = корень; edge-keyset-hop: REPO_ROOT = deploy/, MONOREPO = корень"
+  - claim: "CX2-80 — написание слоя от корня из каталога пакета не рендерится"
+    command: "синтетика в scratchpad/cx80: чарт gateway/deploy с `required .Values.trustedHops`, файл deploy/testdata/notify-standalone/edge.yaml (`trustedHops: 1`); helm template из корня с -f deploy/testdata/…; из gateway/deploy `helm template . -f deploy/testdata/…`; из gateway/deploy с -f ../../deploy/testdata/…"
+    result: "из корня — код 0; из каталога пакета с написанием от корня — `Error: open deploy/testdata/notify-standalone/edge.yaml: no such file or directory`, код 1; с ../../ — код 0 (helm v4.2.4)"
+  - claim: "якорь CX2-78 выполним на шаблоне края"
+    command: "git show origin/2564:gateway/deploy/templates/deployment.yaml | grep -c '^ *- name: KACHO_'; sed -n 295,310p"
+    result: "63 элемента `env` с `name`/`value`; `value: {{ .Values.tokenAudience | quote }}`"
+  - claim: "Д52 — формулировка диспетчера"
+    command: "grep -rho 'Д52 ([^)]*)' <журналы workflows> | sort | uniq -c"
+    result: "«Д52 (рендер чарта края без зонтика — то же правило, значение из каталога фикстур NTF-1)» ×15"
+
+not_measurable:
+  - "исход переписи D6 на настоящем дереве: переписи нет, значит, нет и её распознавателя. CX2-80 выведен из текста замысла, баз вызовов на 2564 и синтетики helm"
+  - "написание пути в семействах, которые перепись D6 найдёт сверх М67: их нет в перечне; условие (б) CX2-80 рассчитано и на них"
+
+outcome: к-замыслу
+unmapped: [CX2-80]
+
+orders:
+  - to: design author (NTF-2)
+    what: "отобразить CX2-80: З28 (б) — написание слоя по базе каждого семейства, «путь от корня» — о файле; перепись D6 (а) — тождество разрешённого пути с печатью координаты, написания и разрешённого пути; CX2-77 (б) — стыковка ведомости и helm.values по нормализованному пути; пробы (г) в строке D6 маршрута; строка §11 CX2-80 и условие §11а. Попутно — строка Е13 §13 (D6) и строка NTF-1 в §0 (записи на 5228b32b)"
+    basis: "change-graph §4; code-authoring §«Контракт, который нельзя выразить»; testing-verdict п.14"
+  - to: design author (NTF-1)
+    what: "Е18 (а)–(в) без изменений (перемерено: открыта)"
+    basis: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: design-reviewer, db-architect-reviewer, proto-api-reviewer
+    what: "ревью замысла на отпечаток ed2fa203 после отображения CX2-80: записей этих ролей на редакциях 12–16 нет"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+
+questions_to_owner: []
+class_proposal: "— (CX2-80 — одно место, цена не измерена: неверный путь краснеет громко; это находка, а не класс)"
+single_file_predicate_candidate: "—"
