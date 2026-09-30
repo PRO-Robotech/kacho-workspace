@@ -150,6 +150,29 @@ SPDX-License-Identifier: BUSL-1.1
 > (CX3L-02, CX3L-03). Новое sentinel-значение одно — `journaltx.ErrOptionsUnset` (отображено CX3L-02);
 > асинхронных путей и внешних вызовов нет.
 >
+> **Редакция 12 · 2026-09-30 — заход отображения по Д26: пересверка классов на редакцию 11** (запись
+> `reviews/class-exposure/revalidation/7bc43f21….yaml`, коммит `9ef3435bc`, исход «к-замыслу»: CX3L-02 (б)
+> не выдерживает для `Worker`, новые пункты CX3M-01 — к замыслу, CX3M-02 — к коду). CX3M-01 — выбран
+> вариант записи «модули переходят на `Worker` корня и `RunWithWorker`», а не «обязательная
+> `ConfigureDefault` и отказ ленивого старта»: во втором точка отказа — первый `Run` или необязательный
+> вызов `Start`, то есть момент во времени, а не конструктор; пакетный реестр строится инициализацией
+> пакета до корня (М22), и нулевое значение в нём было бы выразимо. После под-фазы: `operations.NewWorker`
+> и `operations.NewReconciler` принимают `FailedNotify` обязательным позиционным аргументом и возвращают
+> ошибку; нулевое значение — отказ, корень модуля не стартует с именем службы; корень каждого из пяти
+> подключённых модулей строит свой `Worker`, запускает его до приёма трафика, дренирует его же, а все
+> 54 вызова пакетного `operations.Run` пяти модулей переходят на `RunWithWorker` с тем же `Worker`
+> (М22); пакетный реестр corelib остаётся для kaname и строится явным `NoFailedSender`; пакетного API
+> `operations` в не-тестовом дереве пяти модулей нет — гейт УК3-59. Корни registry (сегодня без
+> `ConfigureDefault` и `Start`, ленивый старт, М23) и geo (асинхронных операций нет, `Reconciler` с явным
+> `NoFailedSender`) названы поимённо в З16, S1-A4 и S3-C3. Шесть вызывающих `NewReconciler` в kacho и один в
+> kaname правятся тем же подъёмом пина на тег X3 с явным `NoFailedSender` (строка X5; поведение
+> неизменно), пять подключённых получают `NewFailedNotify` в S3-C3. CX3M-02 — каждый держатель
+> `journaltx.Options` принимает их позиционно и отвергает нулевые при сборке корня; `ErrOptionsUnset` на пути
+> запроса уходит клиенту фиксированным `INTERNAL`; `errors.Is` отличает его от отказа `InitiatorOf` —
+> две строки классификатора З16 (З4, З16). Новые строки §11 — CX3M-01, CX3M-02; инвариант И28; пробы
+> УК3-59…61; замеры М22…М24. Асинхронных путей и внешних вызовов нет; новое sentinel-значение не
+> заводится; рёбра маршрута не меняются.
+>
 > Вердикта на редакцию нет. Действующий вердикт выводится из записи ревью на отпечаток этого
 > файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки разбора классов
 > (`reviews/class-exposure/revalidation/<sha256>.yaml`). Роль `design-reviewer` исполняет агент
@@ -176,6 +199,7 @@ SPDX-License-Identifier: BUSL-1.1
 | пересверка классов на редакцию 9 замысла | `reviews/class-exposure/revalidation/97c51264….yaml` (коммит `f9d386f08`) | замысел `97c51264…` | `к-коду`, clean |
 | ревью замысла роли `design-reviewer` на редакцию 9 | `reviews/design/design-reviewer/97c51264….yaml` (коммит `38283c50d`) | замысел `97c51264…` | возврат: К1, К2 блокируют, В1–В4, М1 — нет. Исполнено редакцией 10 (строки §11 `ДР-`) |
 | пересверка классов на редакцию 10 замысла | `reviews/class-exposure/revalidation/f6809e98….yaml` (коммит `26e8a652d`) | замысел `f6809e98…` | `к-замыслу`, `clean = false`: 88 пунктов CX3 и 6 из 7 строк `ДР-` держат; ДР-К1 (б) — нет (взятие кандидата без условия живости); новые пункты CX3L-01…05. Исполнено редакцией 11 |
+| пересверка классов на редакцию 11 замысла | `reviews/class-exposure/revalidation/7bc43f21….yaml` (коммит `9ef3435bc`) | замысел `7bc43f21…` | `к-замыслу`, `clean = false`: 93 пункта CX3 и 7 строк `ДР-` имеют строку; CX3L-02 (б) не выдерживает для `Worker` (асинхронные операции модулей исполняет пакетный реестр, построенный без корня); новые пункты CX3M-01 (к замыслу), CX3M-02 (к коду). Исполнено редакцией 12 |
 | замысел NTF-1 | `docs/changes/issue-2915/design.md` | `c018895f059dd839893f78c139191b69e24b2a0d6245e4fef33040f7e9c531f0` (редакция 13, коммит `d892dc35c`; запись реестра появилась в редакции 11, условия (а) уточнены CX1-76 в редакции 13) | вердикта нет. Фундамент ленты, `notifygen`, `feed.Put`, звено идентичности, гейт `treehygiene.AuditFeedTableWrites` и его реестр исключений — его (З5–З13, З16); его заказы этому замыслу — Е4, Е9, Е10 (§13 здесь). Запись реестра «генерируемая функция `resource-event`, форма `fanout`, одна на журнал модуля» (Д33) — его З16 |
 | замысел NTF-4 | `docs/changes/issue-2919/design.md` | `df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6` | вердикта нет. Корень `notify-api`, носитель Х5, край — его (З18, З19); его заказ — Е3 |
 | замысел NTF-5 | `docs/changes/issue-2924/design.md` | `c33e4a829cfcd10b58d51d48eaeffc4659ddf296b6003bbb3d6b64a18c515305` | вердикта нет. Точка входа в процессе `feed.NewLocal` (З28); его заказ — Е7 |
@@ -245,6 +269,9 @@ SPDX-License-Identifier: BUSL-1.1
 | М19 | `releaseAndDelete` сначала ЧИТАЕТ привязки у владельцев, затем снимает их, затем удаляет строку; оба чтения сужаются на уровне данных: безымянному — отказ, названному без привязок — пустой набор без ошибки | `git -C kacho show 1d42a6728bf:services/compute/internal/apps/kacho/api/instance/instance.go \| sed -n 958,1060p \| grep -nE 'ListByInstance\|ListAttachments\|Detach\|repo\.Delete'`; `git -C corelib show 34bc8104a:listnarrow/subject.go \| grep -nE 'ErrUnnamedCaller\|TenantSubject'`; `git -C kacho show 1d42a6728bf:services/storage/internal/apps/kacho/api/volume/volume.go \| sed -n 666,693p \| grep -n visibleInstances` | порядок в `releaseAndDelete`: `ListByInstance` (+2) → `Detach` (+7) → `ListAttachments` (+13) → `Detach` (+18) → `repo.Delete` (+23); `ErrUnnamedCaller` → `codes.Unauthenticated`, субъект судит `authz.TenantSubject` (тип вне `user`, `service_account` — безымянный); storage: `len(visibleInstances) == 0` → пустой ответ без ошибки. Совпадает с записью пересверки `3730bca2` (measurements). Разбор — З13, CX3H-02 |
 | М20 | публичный край пишет незаполненные поля ответа; у 64-битного целого в контракте ноль и «пусто» неразличимы и ноль выходит `"0"`; разбор тела запроса делает край до сервиса и отвергает значение не того JSON-типа без нарушения поля — одинаково для строкового и 64-битного поля | `git -C kacho grep -n 'EmitUnpopulated:' 1d42a6728bf -- gateway ':!*_test.go'`; `git -C kacho show 1d42a6728bf:pkg/api/kacho/cloud/compute/v1/instance_service.pb.gw.go \| grep -n -A1 'NewDecoder(req.Body).Decode'`; `sed -n 330,333p ~/go/pkg/mod/google.golang.org/protobuf@v1.36.11/encoding/protojson/decode.go`; поведение `protojson` у 64-битных целых — по записи `ac1f9fc9` (measurements) | настройка маршаллера края — `gateway/internal/restmux/strict_enum.go:76` публичный `EmitUnpopulated: true`, `:88` внутренний `false` (прежняя координата `mux.go:17`, `:21` — строки комментария, не настройка); третье совпадение — `subscriptionstream/handler.go:584`, к REST-телу настроек не относится. Разбор тела — `:117–118`: ошибка → `status.Errorf(codes.InvalidArgument, "%v", err)`, без нарушения поля; файлов `*.pb.gw.go` в дереве 42, форма разбора одна (генератор grpc-gateway v2.30.0). `decode.go:330–333`: строковое поле принимает только JSON-строку. По записи `ac1f9fc9`: 64-битное целое пишется JSON-строкой, разбор принимает число, строку и экспоненту. Следствие для З23: у `int64` хранимый 0 вышел бы наружу `"0"` (против CX3I-03 (а) и «`seenUpTo` пуст» NTF3-80), и у одного значения было бы несколько написаний (против CX3I-01 (г)). Отказ края на JSON-значении не того типа — **общий** для обоих вариантов и выбора не решает (CX3K-02). Разбор — З23, CX3I-01, CX3I-03, CX3K-02 |
 | М21 | пин corelib в kacho поднимают не только полосы NTF-3, и каждый поздний тег corelib несёт всё, что нёс ранний | `git -C kacho log --format='%h %ad' --date=short 1d42a6728bf -G'PRO-Robotech/corelib v' -- go.mod`; `grep -n 'пины одним изменением' docs/changes/issue-2919/tasks.md`; `grep -n 'пины corelib и kaname одним изменением' docs/changes/issue-2915/tasks.md`; `grep -n 'пин kacho не поднимает никто' docs/changes/*/tasks.md` | подъёмов 4 за 2026-09-12…09-15 (`0cc1cd54c`, `6ee6c2d58`, `edc98869b`, `bdaedfd5a`), история ствола до `1d42a6728bf`; NTF-4 поднимает пины сам — `S2-B1` (`:116`) и `S3-C2` (`:125`, носитель Х5); NTF-1 — полоса N11 (`issue-2915/tasks.md:115`); NTF-5 уже держит ограничение того же вида для своего тега TW (`issue-2924/tasks.md:78–79`: «между его выпуском и посадкой S1 пин kacho не поднимает никто, кроме полосы S1»), других файлов с этой фразой нет. Теги corelib линейны: тег после X2-F несёт запись реестра. Разбор — З10 «Посадка», CX3J-01 (б), Е6 |
+| М22 | асинхронные операции пяти подключённых модулей исполняет пакетный реестр corelib, построенный инициализацией пакета без корня; своего `Worker` корни не строят | `git -C corelib show 34bc8104a:operations/worker.go \| sed -n 83p`; `git -C kacho grep -nE 'operations\.NewWorker\(' 1d42a6728bf -- ':!*_test.go' \| wc -l`; `git -C kacho grep -nE '^\s*operations\.Run\(' 1d42a6728bf -- 'services/*/internal/*' ':!*_test.go'` по модулю | `var defaultRegistry = NewWorker()`; `NewWorker` вне тестов 0; вызовов `operations.Run` 54: compute 1 (`shared/lro/runop.go`), nlb 13, registry 11, storage 12, vpc 17; geo 0 (контроль — строки комментариев и документации с `operations.Run(` в счёт не вошли: предикат требует вызова первым оператором строки) |
+| М23 | настраивают и запускают пакетный реестр до трафика четыре корня из пяти; registry его не настраивает и не запускает — старт ленивый, на первом `Run` | `git -C kacho grep -nE 'operations\.(ConfigureDefault\|Start\|Wait)\(' 1d42a6728bf -- ':!*_test.go'` | `ConfigureDefault` и `Start`: compute `observability.go:75,81`, nlb `observability.go:71,74`, storage `serve.go:293,298`, vpc `observability.go:70,76`; registry — только `Wait` (`serve.go:675`); geo — 0 |
+| М24 | `NewReconciler` ошибки не возвращает; вызывающих в kacho 6, в kaname 1; kaname исполняет операции пакетным реестром | `git -C corelib show 34bc8104a:operations/reconciler.go \| sed -n 151,152p`; `git -C kacho grep -nE 'operations\.NewReconciler\(' 1d42a6728bf -- ':!*_test.go'`; `git -C kaname grep -nE 'operations\.(NewReconciler\|ConfigureDefault\|Start)\(' 734f69fb4 -- ':!*_test.go'`; `git -C kaname grep -cE 'operations\.Run\(' 734f69fb4 -- ':!*_test.go'` | `func NewReconciler(pool, resolver, cfg, opts ...ReconcilerOption) *Reconciler`; kacho — `cmd/*/recovery.go` compute, geo, nlb, registry, storage, vpc; kaname — `cmd/kaname/recovery.go:35`, `ConfigureDefault` и `Start` (`serve.go:492,498`), `operations.Run` 38 (сумма `-c` по файлам) |
 
 ## 2. Решения
 
@@ -344,6 +371,22 @@ SPDX-License-Identifier: BUSL-1.1
   принимается. Корень модуля строит `Options` один раз из единственного чтения ручки и отдаёт одно и то
   же значение писателям журнала модуля и `operations` (З11, З16). `Tx.Initiator()` отдаёт инициатора, выставленного
   этой транзакции: то же значение, что ушло в `set_config` (читатель — З15).
+- **Нулевые `Options` отвергаются при сборке корня, а не на первой мутации** (пересверка `7bc43f21`,
+  CX3M-02). Отказ `Begin` — страховка, а не первая точка обнаружения. Условия к коду:
+  (а) каждый держатель `journaltx.Options` — конструктор писателя журнала модуля (репозиторий или
+  писатель, который хранит `Options` для своих вызовов `Begin`) и `operations.NewFailedNotify` — принимает
+  их обязательным позиционным аргументом и на нулевом значении возвращает ошибку; корень модуля с ней не
+  стартует, отказ несёт имя модуля. Функциональной опции для `Options` нет: её отсутствие было бы
+  нулевым значением;
+  (б) на пути запроса `ErrOptionsUnset`, дошедший до обработчика, уходит клиенту фиксированным
+  `INTERNAL` без текста ошибки — веткой по умолчанию маппера модуля, как любой отказ драйвера; на пути
+  `terminalWrite` и `Reconciler` это своя строка классификатора З16, которую (а) делает недостижимой;
+  (в) `ErrOptionsUnset` — отдельное sentinel-значение `journaltx`, не оборачивающее отказ
+  `auth.InitiatorOf`; `errors.Is` различает их, и в счётчике отказов они — разные значения метки `cause`.
+  Держатели — проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец
+  `NewOptions(false)`; `errors.Is(err, ErrOptionsUnset)` истинно, `errors.Is(err, auth.ErrNoInitiator)` —
+  ложно, и наоборот для контекста без принципала), УК3-61 (сборка корня), `TestErrorMappersTailReturnsAFixedText`
+  (`internal/repohygiene/sqlstatehome_test.go`) на дереве пяти модулей.
 - Принципала нет или `InitiatorOf` отказал — `Begin` отказывает **до** первого оператора и
   транзакции не открывает (CX3C-02 (б)). Подстановки нет: ни сертификата пира, ни запасной личности
   (CX3D-01 (а)).
@@ -887,10 +930,45 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
     служба пары и `journaltx.Options` приходят в `Worker` и `Reconciler` одним значением
     `operations.FailedNotify`; строит его только `operations.NewFailedNotify(sender, service, opts)`, иное
     значение — явное `operations.NoFailedSender` (модуль не подключён: ни отправителя, ни пары, ни
-    `opts`). Нулевое `FailedNotify{}` конструкторы `Worker` и `Reconciler` отвергают, как `nil`. Три
+    `opts`). Нулевое `FailedNotify{}` отвергают конструкторы `operations.NewWorker` и
+    `operations.NewReconciler`, которые принимают его обязательным позиционным аргументом и возвращают
+    ошибку (пересверка `7bc43f21`, CX3M-01 (б); путь значения в рабочий `Worker` — пункт ниже). Три
     признака «модуль подключён» — отправитель, пара, `opts` — одним значением и выражаются: расхождения
     между ними построить нельзя. `opts` — то же значение `journaltx.Options`, что корень отдаёт писателям
     журнала модуля (З11); незаданных `opts` конструктор не принимает (`journaltx.ErrOptionsUnset`, З4).
+  - **Где исполняются асинхронные операции модулей** (пересверка `7bc43f21`, CX3M-01 (а), (в); выбран
+    вариант записи «модули переходят на `Worker` корня и `RunWithWorker`»). Сегодня их исполняет не
+    `Worker` корня, а пакетный реестр `defaultRegistry`, построенный инициализацией пакета без аргументов
+    (М22); корень влияет на него только необязательной `ConfigureDefault`, а registry не зовёт и её (М23).
+    Вариант «`ConfigureDefault` обязательна, `Start` и ленивый старт на первом `Run` отказывают без
+    `FailedNotify`» отвергнут: пакетный реестр существует до корня, и его нулевое значение выразимо —
+    отказ наступил бы на первом `Run`, то есть в работе, если корень не позвал `Start`. После под-фазы:
+    - `operations.NewWorker(notify FailedNotify, opts ...WorkerOption) (*Worker, error)` и
+      `operations.NewReconciler(pool, resolver, notify FailedNotify, cfg, opts ...ReconcilerOption) (*Reconciler, error)`;
+      нулевое `FailedNotify` — ошибка; корень оборачивает её именем службы и не стартует;
+    - корень каждого из пяти подключённых модулей — compute, nlb, registry, storage, vpc — строит один
+      `Worker` с `FailedNotify` от `NewFailedNotify`, зовёт `Start` до приёма трафика, подключает `Ready`
+      этого `Worker` к готовности, `Active` — к метрике, `Wait` — к дренажу при остановке; опции, которые
+      сегодня уходят в `ConfigureDefault` (М23), уходят в `NewWorker`;
+    - все вызовы `operations.Run` пяти модулей (54, М22) переходят на `operations.RunWithWorker` с тем же
+      `Worker`, который use-case получает от корня; конструктор набора use-case модуля отвергает `nil`
+      `Worker` (отказ старта). Смешения целей исполнения и дренажа, о котором предупреждает комментарий
+      `Run` в corelib, после этого нет;
+    - **registry** — сегодня пакетный реестр не настраивает и не запускает, старт ленивый (М23); после —
+      как остальные четыре: свой `Worker`, `Start` до трафика, `Wait` того же `Worker` в дренаже вместо
+      пакетного `operations.Wait`;
+    - **geo** — асинхронных операций нет (М22), `Worker` не строит; его `Reconciler` получает явное
+      `operations.NoFailedSender` позиционным аргументом;
+    - пакетный реестр в corelib остаётся — им исполняет операции kaname (М24), который модулем
+      уведомлений не является; он строится явным `NoFailedSender` (неэкспортированным путём без ошибки:
+      значение известно при сборке пакета), а не нулевым значением. Пакетного API исполнения
+      (`operations.Run`, `ConfigureDefault`, `Start`, `Wait`, `Active`, `Ready`) в не-тестовом дереве пяти
+      подключённых модулей нет — гейт УК3-59; модуль, оставшийся на пакетном реестре, был бы молча
+      неподключённым, поэтому это находка гейта, а не наблюдение по счётчику;
+    - подъём пина на тег X3 ломает сборку шести вызывающих `NewReconciler` в kacho и одного в kaname
+      (М24): тем же подъёмом (строка X5) они получают явное `NoFailedSender` и обработку ошибки — поведение
+      не меняется, модули ещё не подключены; пять подключённых получают `NewFailedNotify` в S3-C3.
+    Держатели — УК3-59 (гейт), УК3-60 (сборка корня), УК3-55 (проводка на рантайме).
   - **Пара проверяется при сборке** (пересверка `f6809e98`, CX3L-03). `NewFailedNotify` зовёт те же
     `auth.SystemPrincipalFor(service, "operations")` и `auth.InitiatorOf`, что путь записи, и при отказе
     (пустая служба, служба вне формы `CHECK` колонки, например `Storage`) возвращает ошибку с именем
@@ -945,10 +1023,12 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
   | `ErrAttrsInvalid`, `ErrRecipientInvalid` | коммит без письма, счётчик `…_enqueue_refused_total{cause}` (З18) | следующий |
   | `ErrLimitExhausted` | коммит без письма, `notify_suppressed_total` хуком после коммита (З18, М1) | следующий |
   | `ErrSecondLimitedPut` | откат этой транзакции, счётчик дефектов растит сам `Put` (NTF-1 CX1-67); по построению недостижим | строка остаётся `done=false`, счётчик ошибок `Reconciler`, следующий |
-  | отказ `journaltx.Begin` или `AsComponent` | транзакции нет — ошибка программы | счётчик ошибок `Reconciler`, строка журнала процесса, следующий |
+  | отказ `journaltx.Begin` с `ErrOptionsUnset` (CX3M-02); по построению недостижим — нулевые `Options` не собираются (З4) | транзакции нет — ошибка программы | счётчик ошибок `Reconciler` с `cause = options_unset`, строка журнала процесса, следующий |
+  | отказ `journaltx.Begin` без принципала или отказ `InitiatorOf`/`AsComponent` | транзакции нет — ошибка программы | счётчик ошибок `Reconciler` с `cause = initiator`, строка журнала процесса, следующий |
   | ошибка резолва, оператора или `Commit` | откат этой транзакции | как сегодня: счётчик ошибок, следующий; строка — следующим `Sweep` |
 
-  На пути исполнителя те же исходы классифицирует `terminalWrite`: `ErrSecondLimitedPut` и отказ
+  На пути исполнителя те же исходы классифицирует `terminalWrite` (различая две строки отказа `Begin`
+  через `errors.Is`, CX3M-02 (в)): `ErrSecondLimitedPut` и отказ
   `Begin`/`AsComponent` — не повторяются (не отказ среды), `IncTerminalWriteFailures`, строка остаётся
   `Reconciler`; прочие — как сегодня.
 - **Держатели К1** — пробы через настоящие входы, а не через экспортированную `FailTerminal`: УК3-53
@@ -1439,6 +1519,7 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | И25 | транзакцию терминальной записи ошибки операции на асинхронном пути исполнителя и в `Reconciler` открывает помощник под личностью компонента `(<служба>, operations)`; транзакция `Reconciler` несёт одну операцию; исход одной операции не откатывает другие | З16, З18; УК3-53, УК3-54, УК3-55 |
 | И26 | каждый вызов `notify-sender` → справочник из пакетов `digest` и `reminder` идёт под сроком константы своего пакета, поставленным в месте вызова; клиент справочника срока не ставит; в транзакции адресата сводки и транзакции напоминания сетевых вызовов нет | З21, З26, З27; УК3-56, УК3-57, предикат S2-B9 |
 | И27 | `Reconciler` разрешает кандидата только под условием сироты целиком (`done = false AND modified_at < $threshold`, порог один на проход) в том же операторе, что берёт замок; строка, чью живость исполнитель подтвердил после чтения, не разрешается; `Sweep` считает только разрешённых | З16; УК3-58, УК3-54 |
+| И28 | асинхронные операции пяти подключённых модулей исполняет `Worker`, построенный корнем модуля с `FailedNotify`; пакетного API исполнения `operations` в не-тестовом дереве пяти модулей нет; нулевые `FailedNotify` и `journaltx.Options` не собираются — отказ старта корня, а не отказ на первой записи | З4, З16; УК3-59, УК3-60, УК3-61 |
 
 ## 4. Компоненты и границы
 
@@ -1450,7 +1531,8 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | `journaltx` | corelib | `journaltx/` | S1 |
 | формы адресата, ключ окна «проект», счётчик подавления | corelib | `notify/feed/`, `notify/spec/` | S2 |
 | генератор `resource-event`/`operation-failed` (X2), функция базы формы `fanout` (X2-F) | corelib | `cmd/notifygen/` | S2 |
-| `FailTerminal` | corelib | `operations/` | S3 |
+| `FailTerminal`; `NewWorker`, `NewReconciler` с позиционным `FailedNotify` | corelib | `operations/` | S3 (X3) |
+| `Worker` корня модуля, `RunWithWorker` в use-case | kacho | `services/{compute,nlb,registry,storage,vpc}/cmd/**`, `services/{compute,nlb,registry,storage,vpc}/internal/apps/**` | S3 |
 | миграции журналов, `intent_initiator`, лента модуля | kacho | `services/<svc>/internal/migrations/**` | S1–S3 |
 | писатели и пересылаемые пути | kacho | `services/{compute,vpc,nlb,registry,storage}/internal/**` | S1–S2 |
 | переход storage | kacho | `services/storage/internal/reconciler/**` | S3 |
@@ -1460,7 +1542,7 @@ NTF-5 (S1 — полосой N5 на тег TW, который содержит 
 | `notify-api` | kacho | `services/notify/internal/apiserver/**`, `services/notify/cmd/notify-api/**` (корень — NTF-4 З18) | S2 |
 | контракт `notify` | kacho | `proto/kacho/cloud/notify/v1/`, `pkg/api/kacho/cloud/notify/v1/` | S2 |
 | край | kacho | `gateway/internal/{restmux,allowlist,middleware/embed}/**` | S2 |
-| гейты дерева | kacho | `internal/repohygiene/{journalparity,journalhelper,notifysources,notifyapiimports,storageerrorwriters,seedaddresspoolparity}_test.go` | S1–S3 |
+| гейты дерева | kacho | `internal/repohygiene/{journalparity,journalhelper,notifysources,notifyapiimports,storageerrorwriters,seedaddresspoolparity,rootworker}_test.go` | S1–S3 |
 | чарты | kacho | `deploy/helm/{notify,umbrella}/**`, `deploy/helm/umbrella/charts/kacho-<svc>/**` | S1, S2 |
 | справочник, журнал службы доступа | kaname | `internal/apps/kaname/api/recipientdirectory/**`, `internal/subscriptionjournal/**`, `proto/kaname/cloud/iam/v1/` | S1, S2 |
 
@@ -1583,7 +1665,8 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
 3. **Переход storage.** Функция записи перехода → `journaltx` (своя под `AsComponent` либо вызывающего
    после сверки её инициатора) → оператор З15 →
    при сбое/восстановлении `SendX` → `Commit`; отказ — счётчик и журнал процесса.
-4. **Сбой операции.** Асинхронный путь исполнителя (`terminalWrite`, контекст от `Background` с
+4. **Сбой операции.** Асинхронный путь исполнителя (`Worker`, построенный корнем модуля с `FailedNotify`
+   и вызванный `RunWithWorker`, CX3M-01; `terminalWrite`, контекст от `Background` с
    принципалом пары `(<служба>, operations)`) либо `Reconciler` (порог сироты один на проход → чтение
    кандидатов без замка → на кандидата своя транзакция под той же парой: взятие `FOR UPDATE SKIP LOCKED`
    с условием сироты целиком, ноль строк — пропуск → резолв под контекстом прохода без пары) → `journaltx.Begin` (`opts` из `FailedNotify`) →
@@ -1608,7 +1691,9 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
   подключённых модулей — роль `operations` одной константой corelib `operations`, служба — значение,
   которое корень модуля передаёт с отправителем `OperationFailedSender` и `journaltx.Options` одним
   значением `operations.FailedNotify` (З16, ревью замысла К1 (а), CX3L-02); форму службы проверяет
-  `NewFailedNotify` при сборке, отказ — отказ старта корня с именем службы (CX3L-03);
+  `NewFailedNotify` при сборке, отказ — отказ старта корня с именем службы (CX3L-03); `FailedNotify`
+  входит в `operations.NewWorker` и `operations.NewReconciler` обязательным позиционным аргументом, опции
+  для него нет (CX3M-01 (б)); у geo — явное `operations.NoFailedSender` только в `NewReconciler`;
   инициаторы `system:compute-operations`, `system:vpc-operations`, `system:nlb-operations`,
   `system:registry-operations`, `system:storage-operations` — DNS-метки формы `CHECK` колонки (З2), привязок и
   ролей у них нет (З13);
@@ -1740,14 +1825,16 @@ CREATE TABLE account_contact (account_id text PRIMARY KEY, security_user_id text
 | ДР-В4 (ревью замысла `97c51264`) | З10 «Посадка», CX3J-01 (б), §13 Е6 | X3, X5 | тег X3 — после посадки S2-B1; относительно окна TW — правилом Д37 при выпуске тега; X1, X2 — рёбрами до X2-F; строка X5 держит только подъёмы | рёбра строки X3 `tasks.md`; окно TW — вниманием при выпуске тега |
 | ДР-М1 (ревью замысла `97c51264`) | З18, З16 | X3, S3-C3 | `ErrLimitExhausted` у кандидата `Reconciler` — коммит без письма, как у исполнителя | УК3-54 (строка классификатора — вниманием по таблице З16) |
 | CX3L-01 (пересверка `f6809e98`) | З16, §7 п.4, И27 | X3 | порог `threshold = now − OrphanGrace` — один раз на проход; взятие кандидата — `WHERE id = $1 AND done = false AND modified_at < $threshold FOR UPDATE SKIP LOCKED`, условие сироты повторено целиком тем же порогом, что чтение; строка, подтверждённая `ClaimForExecution` после чтения, даёт ноль строк взятия — пропуск | УК3-58 (живость подтверждена между чтением и взятием → взятие 0 строк, `done=true` с ответом `fn`, строк `operation-failed` 0, `IncTerminalWriteAlreadyResolved` не вырос; инъекция — взятие без `modified_at` → операция в ошибке, `AlreadyResolved` +1, красный) |
-| CX3L-02 (пересверка `f6809e98`) | З4, З11, З16, §8, И6 | X1, X3, S1-A4, S3-C3 | (а) `journaltx.Options` строит только `journaltx.NewOptions`; нулевое значение `Begin` отвергает `ErrOptionsUnset` до первого оператора; (б) отправитель, служба и `opts` приходят в `operations` одним значением `FailedNotify` (`NewFailedNotify` либо `NoFailedSender`), нулевое `FailedNotify{}` конструкторы `Worker`/`Reconciler` отвергают; (в) корень строит `opts` один раз из единственного чтения ручки и отдаёт то же значение писателям модуля и `NewFailedNotify`; З11 — четыре потребителя | УК3-55 (флаг `kacho_feed.enabled` в транзакции терминальной записи равен ручке модуля: близнецы `true` → строка ленты, `false` → 0); проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец — `NewOptions(false)` → транзакция открыта); до пробы — вниманием по диффу корня |
+| CX3L-02 (пересверка `f6809e98`) | З4, З11, З16, §8, И6 | X1, X3, S1-A4, S3-C3 | (а) `journaltx.Options` строит только `journaltx.NewOptions`; нулевое значение `Begin` отвергает `ErrOptionsUnset` до первого оператора; (б) отправитель, служба и `opts` приходят в `operations` одним значением `FailedNotify` (`NewFailedNotify` либо `NoFailedSender`), нулевое `FailedNotify{}` отвергают `NewWorker` и `NewReconciler` — позиционным аргументом с возвратом ошибки; рабочий `Worker` модулей строит корень (пересверка `7bc43f21`: в редакции 11 конструктор назван для `Worker`, которого на рабочем пути не было, — CX3M-01); (в) корень строит `opts` один раз из единственного чтения ручки и отдаёт то же значение писателям модуля и `NewFailedNotify`; З11 — четыре потребителя | УК3-55 (флаг `kacho_feed.enabled` в транзакции терминальной записи равен ручке модуля: близнецы `true` → строка ленты, `false` → 0); проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец — `NewOptions(false)` → транзакция открыта); до пробы — вниманием по диффу корня |
 | CX3L-03 (пересверка `f6809e98`) | З16, §8 | X3, S3-C3 | `NewFailedNotify` зовёт те же `SystemPrincipalFor` и `InitiatorOf`, что путь записи; отказ — ошибка с именем службы, корень модуля не стартует; строка классификатора «отказ `Begin`/`AsComponent`» по построению недостижима | УК3-55 (близнец: служба `''` и `Storage` → отказ сборки корня с именем службы; близнец — `storage` → собран) |
 | CX3L-04 (пересверка `f6809e98`) | З16 | X3 | `Sweep` возвращает число кандидатов с применённым CAS по `done` и зафиксированной транзакцией; пропуск взятия, `ErrAlreadyDone`, откат, отказ `Begin` не считаются | УК3-54 (близнец: кандидат, взятый другой транзакцией, → `RecoverAll` возвращается, `n = 0`) |
 | CX3L-05 (пересверка `f6809e98`) | З16, З4 (1) | X3 | `Resolve` получает контекст прохода под `ResolveTimeout`, без принципала пары; контекст пары — только `journaltx.Begin` и операторы транзакции кандидата | вниманием по диффу X3 (однофайлового признака нет; межмодульного вызова резолвера сегодня нет — измерено записью `f6809e98`) |
+| CX3M-01 (пересверка `7bc43f21`) | З16 «Где исполняются асинхронные операции модулей», «Одно значение подключения», §7 п.4, §8, И28 | X3, X5, S1-A4, S3-C3 | (а) асинхронные операции пяти подключённых модулей исполняет `Worker` корня: корень строит его `NewWorker(FailedNotify, …)`, зовёт `Start` до трафика, `Ready`/`Active`/`Wait` — этого `Worker`; 54 вызова `operations.Run` → `RunWithWorker` с тем же `Worker`; пакетного API исполнения `operations` в не-тестовом дереве пяти модулей нет; пакетный реестр corelib строится явным `NoFailedSender` (для kaname); ленивого старта с нулевым значением нет — нулевое значение не собирается; (б) `NewWorker` и `NewReconciler` принимают `FailedNotify` обязательным позиционным аргументом и возвращают ошибку; корень оборачивает её именем службы и не стартует; шесть вызывающих `NewReconciler` в kacho и один в kaname — тем же подъёмом пина на тег X3 с явным `NoFailedSender`, пять подключённых — `NewFailedNotify` в S3-C3; (в) registry — свой `Worker`, `Start` до трафика, дренаж своего `Worker` (сегодня ни `ConfigureDefault`, ни `Start`); geo — без `Worker`, `Reconciler` с явным `NoFailedSender` | УК3-59 (гейт: вызов пакетного API `operations` в не-тестовом дереве пяти модулей — находка с координатой; инъекция — один `operations.Run` в use-case registry → красный; близнец — `RunWithWorker` → зелёный); УК3-60 (сборка корня: нулевое `FailedNotify` у `Worker` или `Reconciler` → отказ старта с именем службы; близнец — `NewFailedNotify` → собран; geo с `NoFailedSender` → собран); УК3-55 (проводка на рантайме, в том числе registry) |
+| CX3M-02 (пересверка `7bc43f21`) | З4 «Нулевые `Options` отвергаются при сборке корня», З16 классификатор | X1, X3, S1-A4, S3-C3 | (а) каждый держатель `journaltx.Options` (конструктор писателя журнала модуля, `NewFailedNotify`) принимает их позиционно и отвергает нулевые при сборке корня, отказ — отказ старта с именем модуля; отказ `Begin` — страховка; (б) на пути запроса `ErrOptionsUnset` → фиксированный `INTERNAL` без текста ошибки (ветка по умолчанию маппера модуля); на пути `terminalWrite` и `Reconciler` — своя строка классификатора З16, недостижимая по (а); (в) `ErrOptionsUnset` не оборачивает отказ `InitiatorOf`, `errors.Is` различает их, метка `cause` счётчика — разные значения | проба `journaltx` X1 (нулевые `Options` → `ErrOptionsUnset`, операторов 0; близнец `NewOptions(false)`; перекрёстные `errors.Is` — для (в)); УК3-61 (корень, не передавший `Options` писателю журнала, → отказ старта; близнец — передал → собран); `TestErrorMappersTailReturnsAFixedText` на дереве пяти модулей — для (б) |
 
 Живых пунктов 88 (CX3B-01…48 — 48, CX3C — 8, CX3D — 5, CX3E — 10, CX3F-07 (б) — 1, CX3G — 6,
 CX3H — 2: CX3H-01 из пересверки `89d1f0ad`, CX3H-02 из пересверки `3730bca2`; CX3I — 4 из первичного
-разбора `ac1f9fc9`; CX3J — 1 из пересверки `374789b5`; CX3K — 3 из пересверки `3dbb8b23`: CX3K-01, CX3K-02 — пункты, CX3K-03 — условие к коду). Сверх них — 7 строк ревью замысла роли `design-reviewer` на отпечаток `97c51264` с префиксом `ДР-` (К1, К2, В1–В4, М1); строк таблицы 95. Сверх них — 5 строк пересверки `f6809e98` (CX3L-01…05: CX3L-01, CX3L-02 — к замыслу, CX3L-03…05 — условия к коду); строк таблицы 100. Закрытые возвратом пункты (CX3B-11, CX3B-24, CX3C-03, CX3D-02, CX3E-03, CX3E-04)
+разбора `ac1f9fc9`; CX3J — 1 из пересверки `374789b5`; CX3K — 3 из пересверки `3dbb8b23`: CX3K-01, CX3K-02 — пункты, CX3K-03 — условие к коду). Сверх них — 7 строк ревью замысла роли `design-reviewer` на отпечаток `97c51264` с префиксом `ДР-` (К1, К2, В1–В4, М1); строк таблицы 95. Сверх них — 5 строк пересверки `f6809e98` (CX3L-01…05: CX3L-01, CX3L-02 — к замыслу, CX3L-03…05 — условия к коду); строк таблицы 100. Сверх них — 2 строки пересверки `7bc43f21` (CX3M-01 — к замыслу, CX3M-02 — условие к коду); строк таблицы 102. Закрытые возвратом пункты (CX3B-11, CX3B-24, CX3C-03, CX3D-02, CX3E-03, CX3E-04)
 отображены с условиями, которые пережили возврат.
 
 ## 11а. Заказы проб из записей — где исполнено
@@ -1809,10 +1896,13 @@ CX3H — 2: CX3H-01 из пересверки `89d1f0ad`, CX3H-02 из пере�
 | УК3-52 | `3dbb8b23` · CX3K-03 | на схеме `kacho_notify` после всех миграций: `information_schema.columns` для `inbox_event.position` — `column_default IS NULL` и `is_identity = 'NO'`, `pg_get_serial_sequence('kacho_notify.inbox_event','position') IS NULL` → зелёный; инъекции в синтетической миграции — `position bigserial` → красный, `GENERATED ALWAYS AS IDENTITY` → красный, каждая с именем колонки | §6, З19 | S2-B4 |
 | УК3-53 | `97c51264` (ревью замысла) · К1 (а), (в) | интеграционная проба corelib через настоящий `Worker`: асинхронная операция с принципалом строки `{user, usr-A}`, `fn` возвращает ошибку → в пределах бюджета `terminalWrite` (не после `OrphanGrace`) строка `done=true` с ошибкой, строк `operation-failed` 1, строка журнала `notification_feed` несёт `system:<служба>-operations`; близнец — строка операции `{system, bootstrap}` → `done=true`, строк 0, ошибки нет; проба предпосылки — ветка ошибки без пары в контексте (снятая установка) → после бюджета `done=false`, `IncTerminalWriteFailures` +1 — красный; единственность вызова `AsComponent` в `operations` — `git grep` → 1 | З16 | X3 |
 | УК3-54 | `97c51264` (ревью замысла) · К1 (б), (в), М1; `f6809e98` · CX3L-04 | интеграционная проба corelib через настоящий `Reconciler.Sweep`: две прерванные операции `usr-A` и `usr-B` старше `OrphanGrace` в одной пачке, резолвер отдаёт `OutcomeInterrupted` → обе `done=true`, строк `operation-failed` 2 (по одной каждому), повторный `Sweep` разрешает 0; близнец — одна операция в пачке → строк 1; конкурентный близнец — две реплики `Sweep` параллельно на тех же двух → строк 2, не 4; близнец счёта (`f6809e98` · CX3L-04) — кандидат, строку которого держит другая транзакция, → `Sweep` возвращает 0, `RecoverAll` возвращается; строка исхода — лимит `usr-B` исчерпан → `usr-B` `done=true` без письма, `usr-A` — письмо, соседа не откатил | З16, З18 | X3 |
-| УК3-55 | `97c51264` (ревью замысла) · К1 (а); `f6809e98` · CX3L-02, CX3L-03 | проводка корня каждого из пяти подключённых модулей: `Worker` и `Reconciler`, собранные композиционным корнем модуля, получают `OperationFailedSender` с парой `(<служба>, operations)`; асинхронная операция модуля `usr-A` с ошибкой → строк `operation-failed` 1 с инициатором строки журнала `system:<служба>-operations`; близнец — `geo` (`NoFailedSender`, пары нет) → `done=true`, строк 0, транзакция без помощника; близнец флага (CX3L-02) — модуль с ручкой `true` → строка ленты терминальной записи есть, с `false` → строк ленты 0 (настройка `kacho_feed.enabled` транзакции равна ручке); близнец пары (CX3L-03) — служба `''` и `Storage` → `NewFailedNotify` отказывает, корень не стартует с именем службы, `storage` → собран | З11, З16, §8 | S3-C3 |
+| УК3-55 | `97c51264` (ревью замысла) · К1 (а); `f6809e98` · CX3L-02, CX3L-03; `7bc43f21` · CX3M-01 | проводка корня каждого из пяти подключённых модулей: `Worker` (тот, которым use-case модуля исполняют операции через `RunWithWorker`, а не пакетный реестр) и `Reconciler`, собранные композиционным корнем модуля, получают `OperationFailedSender` с парой `(<служба>, operations)`; асинхронная операция модуля `usr-A` с ошибкой → строк `operation-failed` 1 с инициатором строки журнала `system:<служба>-operations`; близнец — `geo` (`NoFailedSender`, пары нет) → `done=true`, строк 0, транзакция без помощника; близнец флага (CX3L-02) — модуль с ручкой `true` → строка ленты терминальной записи есть, с `false` → строк ленты 0 (настройка `kacho_feed.enabled` транзакции равна ручке); близнец пары (CX3L-03) — служба `''` и `Storage` → `NewFailedNotify` отказывает, корень не стартует с именем службы, `storage` → собран | З11, З16, §8 | S3-C3 |
 | УК3-56 | `97c51264` (ревью замысла) · К2 | модульная проба `digest`: заглушка справочника принимает соединение и молчит на `Resolve` строк адресата R1 → вызов возвращается `DEADLINE_EXCEEDED` в пределах срока пакета, проход завершён, письма R1 нет, окно R1 не закрыто, письмо R2 того же прохода отправлено, транзакции адресата во время вызова не открыто; молчание на странице 2 `ListProjectAudience` → адресаты страницы 1 исполнены, остатка нет, счётчик отказа прохода +1; близнец — ответ внутри срока → письма R1 и R2, окна закрыты | З21 | S2-B5 |
 | УК3-57 | `97c51264` (ревью замысла) · К2 | модульная проба `reminder`: заглушка молчит на `Resolve` контакта → `DEADLINE_EXCEEDED` в пределах срока пакета, исход `contactUnknown`, письма нет, однократности нет, подстановки владельца нет, проход завершён; молчание на странице `ListExpiringCredentials` → счётчик отказа прохода +1, записи однократности за остатком нет; близнец — ответ внутри срока → напоминание поставлено | З26 | S3-C4 |
 | УК3-58 | `f6809e98` · CX3L-01 | интеграционная проба corelib через настоящие `Worker` и `Reconciler`: асинхронная операция старше порога прочитана `Sweep`; до её взятия (инъекция паузы между чтением и взятием) исполнитель подтверждает живость `ClaimForExecution` и исполняет `fn` → взятие 0 строк, операция `done=true` с ответом `fn`, строк `operation-failed` 0, `IncTerminalWriteAlreadyResolved` не вырос; близнец — живость не подтверждена → кандидат взят и разрешён; инъекция — взятие без `modified_at` → операция в ошибке, `AlreadyResolved` +1 — красный | З16 | X3 |
+| УК3-59 | `7bc43f21` · CX3M-01 (а); заказ integration-tester (инъекция в корень registry) | гейт `TestConnectedModulesDispatchOnTheRootWorker` (`internal/repohygiene/rootworker_test.go`): по разбору дерева (узел вызова с селектором пакета `operations`, а не поиск по тексту — комментарии и документация с `operations.Run(` находками не являются) вызов `operations.Run`, `ConfigureDefault`, `Start`, `Wait`, `Active`, `Ready` в не-тестовом дереве compute, nlb, registry, storage, vpc — находка с координатой; печатает число осмотренных файлов и вызовов `RunWithWorker` по модулю; пустой обход или модуль без единого `RunWithWorker` — красный; инъекция — один `operations.Run` в use-case registry → красный с координатой; близнец — тот же вызов через `RunWithWorker` → зелёный | З16 | S3-C3 |
+| УК3-60 | `7bc43f21` · CX3M-01 (а), (б), близнецы УК3-55 (1), (2) | сборка корня: (1) корень модуля, передавший `NewWorker` или `NewReconciler` нулевое `FailedNotify`, не стартует, ошибка несёт имя службы; близнец — `NewFailedNotify` → собран; близнец geo — `NewReconciler` с `NoFailedSender` → собран; (2) ленивый старт с нулевым значением недостижим: проба corelib X3 — `NewWorker(FailedNotify{})` → ошибка, `Worker` не отдан (нет объекта, чей первый `RunWithWorker` мог бы стартовать); пакетный реестр несёт `NoFailedSender` (сравнение значения), а не нулевое; инъекция — корень registry передаёт нулевое `FailedNotify` → отказ старта с `registry` в тексте | З16 | X3 (проба corelib), S3-C3 (корни) |
+| УК3-61 | `7bc43f21` · CX3M-02 (а); близнец УК3-12, NTF3-64…67 | корень модуля, не передавший `journaltx.Options` конструктору писателя журнала (нулевое значение), не стартует, ошибка несёт имя модуля; мутаций до отказа нет; близнец — `NewOptions(<ручка>)` передан → собран, флаг транзакции равен ручке (УК3-12); по модулю на каждый из пяти | З4 | S1-A4 |
 
 Номер УК3-36 не используется: заказ гейта записи `97afc066` («фоновый вход пересылает запасную
 личность») исполняет УК3-31 — с редакции 2 на обе половины заказа (без явного принципала и с
