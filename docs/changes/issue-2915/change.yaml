@@ -16,10 +16,12 @@
 # круг 2 прохода редакции 17/18: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml),
 # но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
 # Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/29cfa368….yaml
-# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 8
+# (к-замыслу, CX1-50…57; дельта против редакции 16 по Д22). Замысел — `design.md` редакции 9
 # (2026-09-30, заход отображения по Д26), отпечаток — `hashes.design_sha256`; вердикта на него нет,
 # пересверки на него нет (следующая по Д22 судит дельту против 8d01a10e…, по Д26 — строки
 # отображения и дельту).
+# Ревью замысла (design-reviewer) на редакцию 8 (dba7c388…) — reviews/design/design-reviewer/dba7c3883a98dc59e9c17b633fdaa95a2bebae1b15c73bd5e05a5f887efc2074.yaml
+# (коммит 82647204d; возврат по К1, Н1–Н3 и М1 не блокируют — отображены редакцией 9 по Д26 строками SDR-*).
 # Пересверка на редакцию 1 (9bfa92be…) — reviews/class-exposure/revalidation/9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3.yaml
 # (вернуть в приёмку NTF1-L03; к замыслу CX1-58…62, УК71–УК74 — отображены редакцией 2).
 # Пересверка на редакцию 2 (774e8562…) — reviews/class-exposure/revalidation/774e8562884a35578bf13ce7a72521c163a9c7909ace1d2db80f1c0566616804.yaml
@@ -34,7 +36,7 @@
 # (коммит 706f7a0c5; к замыслу CX1-69, УК92 — отображены редакцией 7; L03 записи 9bfa92be в силе).
 # Пересверка на редакцию 7 (8d01a10e…) — reviews/class-exposure/revalidation/8d01a10e8b7f81dfb73965e2caa2552bbfeae8de2ae10595e1329cd3e1aff386.yaml
 # (коммит d80c1949e; к замыслу CX1-70, УК93, УК94 — отображены редакцией 8 по Д26; L03 записи 9bfa92be в силе).
-# Маршрут работ — `tasks.md` редакции 8 (проект; TASKS_READY им не объявлено).
+# Маршрут работ — `tasks.md` редакции 9 (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2915
 lifecycle_state: ISSUE_READY
@@ -71,7 +73,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
-  design_sha256: dba7c3883a98dc59e9c17b633fdaa95a2bebae1b15c73bd5e05a5f887efc2074
+  design_sha256: e7a6ae151142faf7cdbfdacd3a284d7a5bed5a3113444ea3d83e7f4127bd00c0
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:
