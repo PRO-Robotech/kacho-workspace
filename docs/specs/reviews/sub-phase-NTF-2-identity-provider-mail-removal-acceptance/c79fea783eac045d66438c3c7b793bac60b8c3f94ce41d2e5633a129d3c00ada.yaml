@@ -1,0 +1,257 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada
+  revision: 16
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и строкой истории — «редакция 16 · вердикта нет». Эта запись шапку НЕ
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится
+    из этой записи и внешнего события.
+  content_commit: d3387fcd4
+  content_commit_note: >-
+    `sha256sum` рабочей копии на d3387fcd4 даёт отпечаток задания. Отпечаток прежней одобренной
+    редакции 15 воспроизведён из `git show 7b1d83c5a:<path> | sha256sum` → 229a4379…f929:
+    одобрение редакции 15 к этому отпечатку не переносится.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3549
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T17:16:08Z'
+round: 1
+round_note: >-
+  Круг 1 на редакции 16 — правке одобренной редакции 15 (229a4379…) по возврату первичного
+  разбора классов issue-2917 (docs/changes/issue-2917/reviews/class-exposure/initial/229a4379….yaml,
+  return_to_acceptance: RA-1, RA-2). Предмет — дельта 7b1d83c5a → d3387fcd4 по документу
+  (130 изменённых строк: шапка, §1.10, Р20, §3а итог, §5 П1, NTF2-34, §6а, §6б, §7, DoD пп.13, 16,
+  19, покрытие ID, §11), прочитана целиком, и её согласие с остальным документом, с одобренной
+  NTF-1 @29cfa368 и её замыслом (docs/changes/issue-2915/design.md §8) и с деревом kacho
+  @96e2fa72b3a. Прежние записи не правятся.
+previous_rounds:
+  - round: 1
+    pass: редакция 15
+    sha256: 229a43791107c01c74c4538a08da389573674f372793434cffd1834feba9f929
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/229a43791107c01c74c4538a08da389573674f372793434cffd1834feba9f929.yaml
+    blocking_count: 0
+  - round: 1
+    pass: редакция 14
+    sha256: e618a9f7c2cec159a864aa9b83d2071ae37f34d2788ab1ff9e5639653a172f95
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/e618a9f7c2cec159a864aa9b83d2071ae37f34d2788ab1ff9e5639653a172f95.yaml
+    blocking_count: 2
+return_to_acceptance_closure:
+  RA-1: >-
+    закрыт по существу, кроме одной посылки (B-1). Р20 называет производителя чтения узла
+    global.kacho.identity.smtp чартом notify — NTF-2 (kacho#2917); §7 строки NTF2-24, NTF2-30…32,
+    NTF2-34 переписаны; держатель — NTF2-34 с близнецами (а)↔(б), (а)↔(в), (г)↔(г'). Противоречия
+    с NTF-1 нет: в одобренной NTF-1 и в её замысле ключа адреса ретранслятора нет вовсе
+    (issue-2915/design.md §8 — только notify.smtp.sessionTimeout; NTF1-I06 перечисляет «флаг,
+    перечень, spiffe, секрет»), так что путь global.kacho.identity.smtp.* второго узла не создаёт.
+    П1 переписан верно: цепочка dev удостоверения не объявляет (values.dev.yaml @96e2fa72b3a —
+    credentialSecret нет), прежний признак «ссылок 1» останавливал бы пробу на верной реализации.
+    Незакрытая часть: «после kacho#1276 узел и полоса стенда остаются» — утверждение об исходе
+    чужой посадки без предиката, при этом DoD п.13 запрещает NTF-2 трогать values.dev.yaml (B-1).
+  RA-2: >-
+    закрыт по намерению, но предикат DoD п.16 не исполняет сказанное правило (B-2).
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY, DoD]
+blocking_kinds_by_item:
+  - B-1: CONSTRUCTIBILITY
+  - B-2: DoD
+blocking:
+  B-1: >-
+    [CONSTRUCTIBILITY] Given NTF2-34 (а) и посев П1 держатся на полосе стенда в
+    helm/umbrella/values.dev.yaml (global.kacho.identity.smtp: connectionURI
+    'smtp://{{ .Release.Name }}-mailpit:1025/', trustAnchorSecret kacho-mailpit-tls/ca.crt —
+    values.dev.yaml:121–133 @96e2fa72b3a). Этот файл — строка 3 §3а с исходом «за kacho#1276», и
+    DoD п.13 требует `git diff --name-only <B> <H> -- <24 пути>` → пусто, то есть NTF-2 файл не
+    трогает ни при каком исходе. Р20 и DoD п.13 утверждают «после kacho#1276 узел и полоса стенда
+    остаются», но это исход чужой посадки, у которого нет ни предиката на базе старта, ни держателя.
+    Полоса чтения узла (NTF2-34) по Р16 п.4 не ждёт kacho#1276 и может сесть до или после него; а
+    kacho#1276 судит себя предикатом «0 строк hydra|kratos|oryd/ в values*.yaml, включая
+    комментарии» (тело kacho#1276, п.1), и блок узла в values.dev.yaml несёт такие строки
+    (:79 «у kratos.deployment», :84 «kacho-umbrella-pg-kratos»). Если kacho#1276 снимет узел вместе
+    с блоком, у NTF2-34 (а) и П1 входа не останется, а исправить его NTF-2 запрещено DoD п.13 —
+    сценарий неверен на верной реализации. Что сделать: либо добавить в Р16 условие начала для
+    полосы чтения узла — команда на <B> вида `git show <B>:deploy/helm/umbrella/values.dev.yaml |
+    yq '.global.kacho.identity.smtp | [.connectionURI, .trustAnchorSecret.name, .trustAnchorSecret.key]'`
+    (все непусты, адрес — выражение над .Release.Name), с исходом «нет — возврат в приёмку»; либо
+    назвать в DoD п.13 исключение: NTF-2 вправе править в values.dev.yaml ровно узел
+    global.kacho.identity.smtp (предикат — дифф файла ограничен этим узлом), если kacho#1276 его
+    снял.
+  B-2: >-
+    [DoD] DoD п.16, новое исключение: файл §3а, отсутствующий на <B>, — исход kacho#1276, если
+    `git log --diff-filter=D … 96e2fa72b3a..<B> -- deploy/<путь>` «называет коммит, достижимый из
+    вливания kacho#1276 в ветку эпика релиза». Достижимость из вливания выполняет любой предок
+    вливания, включая коммиты других посадок, влитых раньше kacho#1276 в том же диапазоне; тот же
+    пункт требует «файл, снятый другой посадкой, — возврат в приёмку», а предикат этот случай
+    пропускает. Замер @96e2fa72b3a: вливание 96e2fa72b3a (#2926) и коммит снятия 5f689f36438
+    (#2858, удаление под deploy, влит раньше через 87329e2935c) — `git merge-base --is-ancestor
+    5f689f36438 96e2fa72b3a` → да, `git rev-list 96e2fa72b3a^1..96e2fa72b3a | grep -c 5f689f36438`
+    → 0. Что сделать: заменить «достижимый из вливания» на «внесённый вливанием»: коммит снятия
+    входит в `git rev-list <M>^1..<M>` (M — коммит вливания kacho#1276; при сжатом вливании — сам M),
+    и назвать, как находится M (например `git log --first-parent --grep '#1276' <B>`).
+non_blocking:
+  N-1: >-
+    NTF2-34 (г)/(г'): «перепись путей значений, из которых шаблоны чарта notify берут почтовую
+    полосу» не говорит, чем гейт узнаёт, что выражение шаблона питает адрес полосы. Строковый
+    поиск по .Values.* в шаблонах даст ложные находки (notify.smtp.sessionTimeout законен) и
+    пропуски (ключ, собранный в переменной; тот же класс, что CX2-48 (а)). Предпочтительно назвать
+    идентичность: подстановка сигнального значения в узел и в каждый иной путь значений и сверка,
+    какой путь доезжает до поля адреса полосы в рендере (форма (б), расширенная на все пути).
+  N-2: >-
+    Р20 не называет исход для цепочки, где чарт notify включён, а узел пуст (values.yaml:572–575 —
+    connectionURI "", так в prod-цепочках без слоя учётных данных). Отказы по узлу — только страж,
+    а страж на полностью пустой узел не падает (identity-mail-lane-guard.yaml:268 — только при
+    включённом приёмнике). В NTF-1 ручки адреса ретранслятора нет (issue-2915/design.md §8), так
+    что «notify без полосы» — ни отказ рендера, ни отказ старта по имени ручки. Стоит назвать
+    исход одной фразой (чей он: NTF-1 отказ старта notify либо NTF-2 рендер) — иначе это
+    «принято-и-проигнорировано» на уровне установки.
+  N-3: >-
+    NTF2-34 (д): самостоятельная поставка чарта notify не несёт стража (он в зонтике), значит
+    правила пары «имя пользователя в адресе ⇔ источник удостоверения» (страж :197, :200) при
+    самостоятельной поставке никто не держит. Р20 «отказы по узлу — только страж» верно для
+    зонтика; для NTF1-I06 стоит сказать прямо, что правила пары там не проверяются, либо кто их
+    проверяет.
+repeated_kinds_note: >-
+  CONSTRUCTIBILITY встречался в круге 1 редакции 14 (вход (е) без формы); здесь тот же род, но
+  другой признак: Given держится на исходе чужой посадки (kacho#1276), без предиката на базе
+  старта. Этот признак уже был: RA-1 разбора классов прямо называл «DoD п.13 запрещает править
+  values.dev.yaml, где лежит полоса dev», а ответ «правка не нужна» опирается на неизмеренное.
+  DoD как род в последних кругах не встречался. В форму задания автору стоит внести: «утверждение
+  об исходе соседней посадки (kacho#1276, NTF-1, NTF-3) в Given или DoD несёт команду на <B> и
+  исход при её несовпадении; предикат о происхождении коммита выражается диапазоном `M^1..M`,
+  а не достижимостью».
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку c79fea78…; правка документа требует нового рассмотрения. Одобрение
+    редакции 15 (229a4379…) остаётся вердиктом о ней и к этой редакции не переносится.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 редакции 16, блокирующих 2: CONSTRUCTIBILITY, DoD) ·
+    SHA-256 c79fea783eac045d66438c3c7b793bac60b8c3f94ce41d2e5633a129d3c00ada
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: d3387fcd4 (ветка issue-880)
+    document_previous: 7b1d83c5a (редакция 15, 229a4379…)
+    kacho: 96e2fa72b3a (origin/2798); 6edea09c2ee (origin/2564) — не перемерялось
+    ntf1_acceptance: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+    design_issue_2915: рабочая копия issue-880 @d3387fcd4
+    kacho_1276_issue_body: gh issue view 1276 (OPEN), 2026-09-30
+  facts_reproduced:
+    fingerprint: sha256sum рабочей копии → c79fea78…0ada; git show 7b1d83c5a:<док> | sha256sum → 229a4379…f929
+    delta: git diff 7b1d83c5a d3387fcd4 -- <док> — прочитана целиком
+    smtp_node_dev: "values.dev.yaml:121–133 — connectionURI 'smtp://{{ .Release.Name }}-mailpit:1025/', fromAddress, fromName, trustAnchorSecret kacho-mailpit-tls/ca.crt; credentialSecret нет — совпало с §6а"
+    smtp_node_a8f60d: "values.a8f60d.yaml:117–133 — внешний узел, credentialSecret kaname-mail-credential/password, якорь пуст — совпало с §6а"
+    receiver_secret: "values.yaml:348 mailpit.tlsSecretName: kacho-mailpit-tls — совпало"
+    ntf1_relay_knob: "issue-2915/design.md §8 — ручки адреса ретранслятора нет; NTF1-I06 — «флаг, перечень, spiffe, секрет»; grep узла в NTF-1 → 0 (совпало с §1.10)"
+    ntf2_34_id_fresh: "NTF2-34 в 10 прежних редакциях документа (git log 7b1d83c5a -- <док>) → 0 вхождений; снятым не был"
+    dod16_reachability: "git merge-base --is-ancestor 5f689f36438 96e2fa72b3a → да; git rev-list 96e2fa72b3a^1..96e2fa72b3a | grep -c 5f689f36438 → 0 (B-2)"
+    notify_chart_on_base: "git ls-tree -d origin/2798 deploy/helm/notify services/notify | wc -l → 0"
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 71
+    positive_or_mixed_marked: 18
+    negative_or_mixed_marked: 54
+    note: новый ID NTF2-34 (варианты (а)–(д), (г')); снятых нет
+  producer_coverage:
+    covered: 71
+    of: 71
+    note: >-
+      у NTF2-34 производитель назван (§7: NTF-2 kacho#2917; чарт — NTF-1); «Сценариев без
+      производителя нет» остаётся верным. Посылка производителя о входе (узел в values.dev.yaml
+      после kacho#1276) не измерена — B-1
+  twin_coverage:
+    negatives: 54
+    twins_named: 54
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательн | grep -vc близн → 0"
+  dod_coverage:
+    note: "NTF2-34 назван в DoD п.19 и в покрытии ID (NTF2-30…34 — п.19); прочее — как в записи 229a4379"
+  constructibility_seeding:
+    seeded: 3
+    of: 5
+    detail: >-
+      Посев рендером зонтика @96e2fa72b3a в detached worktree (helm dependency build, helm template
+      -n kacho): (а) цепочка dev под именами релиза ci и ntf2x — рендер прошёл, страж не отверг,
+      по 7 упоминаний <релиз>-mailpit в каждом; (б) dev с --set
+      global.kacho.identity.smtp.fromAddress=probe-ntf2@kacho.cloud — рендер прошёл, адрес в
+      рендере 1 раз; (в) a8f60d (-f dev, dev-prod, a8f60d) — рендер прошёл, kaname-mail-credential
+      1. Входы узла для (а)–(в) строятся на базе; сторона чарта notify — нет (чарта нет на базе).
+    not_performed: 2
+    not_performed_reason: >-
+      (д) самостоятельная поставка и (г) П7-tpl требуют чарта deploy/helm/notify — его заводит
+      NTF-1, на origin/2798 его нет (ls-tree → 0). Отдельно: вход (а) на будущей базе <B> зависит
+      от исхода kacho#1276 — B-1.
+premise_check:
+  claim: >-
+    задание: судить редакцию 16 на отпечаток c79fea78…, круг 1; редакция закрывает RA-1 и RA-2
+    первичного разбора классов issue-2917 на 229a4379.
+  outcome: >-
+    подтверждена в части отпечатка и предмета: отпечаток воспроизведён, дельта к одобренной
+    редакции 15 — ровно RA-1 и RA-2 (§11 и дифф совпадают). Опровергнута в части полноты: RA-1
+    закрыт с неизмеренной посылкой об исходе kacho#1276 (B-1), предикат RA-2 шире сказанного
+    правила (B-2).
+  commands:
+    - "sha256sum <док>; git show 7b1d83c5a:<док> | sha256sum"
+    - "git diff 7b1d83c5a d3387fcd4 -- <док>"
+    - "git show origin/2798:deploy/helm/umbrella/values.{dev,a8f60d,}.yaml | grep -n -A14 'smtp:'"
+    - "helm template {ci,ntf2x} deploy/helm/umbrella -f values.dev.yaml; то же с --set …fromAddress; цепочка a8f60d"
+    - "git merge-base --is-ancestor 5f689f36438 96e2fa72b3a; git rev-list 96e2fa72b3a^1..96e2fa72b3a"
+    - "gh issue view 1276 -R PRO-Robotech/kacho --json body"
+route_signs:
+  proto: нет
+  schema: нет
+  public_rpc: нет
+  ui: нет
+  new_domain: нет
+  security_surface: да
+  security_surface_note: дельта редакции 16 — только чарт (чтение узла почты и ссылка на секрет удостоверения); прочие признаки документа — как в записи 229a4379
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и предикатами, без описания обхода и текущих слабых мест.
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 17: B-1 (условие начала полосы чтения узла — команда на <B>, что узел
+    global.kacho.identity.smtp в values.dev.yaml есть, с исходом «нет — возврат», либо названное
+    исключение DoD п.13 на этот узел) и B-2 (предикат DoD п.16 — «внесён вливанием kacho#1276»,
+    диапазон M^1..M, и как находится M); N-1…N-3 тем же заходом
+  also_needed: >-
+    курьер — опубликовать событие возврата на отпечаток c79fea78…
+  owner_questions: []
