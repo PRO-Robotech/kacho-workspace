@@ -33,6 +33,87 @@ fi
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$ROOT" || exit 1
 
+# ── ИМЯ ВЕТКИ: `<N>-<суффикс>` (`git-issues.md` §«Имя ветки») ────────────────
+#
+# Решение владельца 2026-09-30: «Таски именуй по номеру плюс постфикс от себя
+# задачи которую делают что бы придерживаться гит флоу». Судится ИМЯ НА
+# УДАЛЁННОМ, взятое со входа git (`<local_ref> <local_sha> <remote_ref>
+# <remote_sha>`), а не имя ветки рабочей копии: `git push origin x:refs/heads/y`
+# создаёт `y`, и спрашивать надо про него.
+#
+# Проверка стоит ДО прогона наборов: отказ по имени приходит за секунду, а не
+# после десяти минут проверок, итог которых всё равно выбрасывается.
+#
+# Законно: `main`; `<N>-<суффикс>` по `^[0-9]+-[a-z0-9][a-z0-9-]*$` с суффиксом
+# не длиннее 40 символов; личные черновики `wip/*`, `tmp/*` (не вливаются).
+# НЕ судится: удаление ссылки (нулевой `<local_sha>` — снимать ветки прежних
+# форм обязаны, и отказ здесь их бы законсервировал), не-ветки (`refs/tags/*`) и
+# ДОПИСЫВАНИЕ ветки, уже существующей на удалённом (ненулевой `<remote_sha>`):
+# ветки прежних форм, заведённые до решения, доводятся до вливания и снимаются
+# им. Это послабление истекает само — новых таких ссылок хук не допускает, а
+# существующие снимаются вливанием (`merged-branch-removed-at-merge`), — и о
+# каждом его применении хук говорит строкой.
+#
+# Вход читается только когда он есть: при ручном вызове с терминала `cat` ждал
+# бы ввода вечно. Держатель поведения — поведенческая проба
+# `scripts/tooling-gate/check-10-push-refuses-unlawful-branch-name.sh`.
+branch_name_lawful() {
+    local name="$1" re='^[0-9]+-[a-z0-9][a-z0-9-]*$'
+    case "$name" in
+        main | wip/* | tmp/*) return 0 ;;
+    esac
+    [[ "$name" =~ $re ]] || return 1
+    local suffix="${name#*-}"
+    [ "${#suffix}" -le 40 ]
+}
+
+branch_name_reason() {
+    local name="$1"
+    case "$name" in
+        issue-* | epic-* | ntf/* | release/*)
+            echo "прежняя форма «${name%%[-/]*}…» снята решением 2026-09-30" ;;
+        *)
+            if [[ "$name" =~ ^[0-9]+$ ]]; then
+                echo "нет суффикса: одного номера мало, нужна суть задачи"
+            elif ! [[ "$name" =~ ^[0-9]+- ]]; then
+                echo "не начинается с номера задачи"
+            elif ! [[ "$name" =~ ^[0-9]+-[a-z0-9][a-z0-9-]*$ ]]; then
+                echo "суффикс не латиница kebab-case [a-z0-9-] либо начинается с дефиса"
+            else
+                echo "суффикс длиннее 40 символов"
+            fi ;;
+    esac
+}
+
+push_input=""
+if [ ! -t 0 ]; then
+    push_input="$(cat)"
+fi
+zero_sha="0000000000000000000000000000000000000000"
+bad_names=()
+while read -r _local_ref local_sha remote_ref remote_sha; do
+    case "${remote_ref:-}" in refs/heads/*) ;; *) continue ;; esac
+    name="${remote_ref#refs/heads/}"
+    [ "${local_sha:-}" = "$zero_sha" ] && continue
+    branch_name_lawful "$name" && continue
+    if [ -n "${remote_sha:-}" ] && [ "$remote_sha" != "$zero_sha" ]; then
+        echo "pre-push: ветка «$name» прежней формы уже есть на удалённом — дописывание пропущено; новую так не заводить" >&2
+        continue
+    fi
+    bad_names+=("$name")
+done <<< "$push_input"
+
+if [ "${#bad_names[@]}" -gt 0 ]; then
+    echo "pre-push: ОТКАЗ — имя ветки не по форме «<N>-<суффикс>» (git-issues.md §«Имя ветки»):" >&2
+    for n in "${bad_names[@]}"; do
+        echo "  $n — $(branch_name_reason "$n")" >&2
+    done
+    echo "Форма: номер задачи в ЭТОМ репозитории, дефис, суть латиницей kebab-case," >&2
+    echo "  например 884-flow-acceleration, 2914-notify, 2915-c8-feed-put." >&2
+    echo "Переименовать: git branch -m <старое> <N>-<суть> — и отправить заново." >&2
+    exit 1
+fi
+
 # Ветка, которую никто не собирается вливать, проверок не требует.
 branch="$(git rev-parse --abbrev-ref HEAD)"
 case "$branch" in
