@@ -1,0 +1,261 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: ea02db255db95990dbe250f3653d1bce32d06ab9
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c.
+    Вердикт держится только на отпечатке.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1663
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T01:42:01Z'
+round: 4
+round_note: >-
+  Четвёртый круг документа; первый круг прохода, сверяющего редакцию с решениями диспетчера
+  Д1–Д13 в их текущей нумерации.
+previous_rounds:
+  - round: 1
+    sha256: a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282.yaml
+  - round: 2
+    sha256: 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506.yaml
+  - round: 3
+    sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba.yaml
+blocking_count: 2
+blocking_kinds_distinct: [PRODUCER, COVERAGE]
+blocking_kinds_by_item:
+  - B4-1 PRODUCER
+  - B4-2 COVERAGE
+repeated_kinds_note: >-
+  Род PRODUCER был в круге 1 (другой класс: производитель вне kacho). COVERAGE — тоже в круге 1
+  (другой предмет). Число блокирующих 4 → 2 → 2 → 2 не убывает. Что с этим делать, решает
+  диспетчер по §14а.
+
+round3_resolution:
+  B3-1: >-
+    Закрыт. Р18 и NTF4-82…NTF4-86: формат, нет записи, истекла, повторный, два одновременно; у
+    каждого близнец NTF4-24 с одним отличием; синхронная линия и линия Operation.error названы;
+    одна запись аудита держится удалением с условием видимости в одной транзакции (DB-уровень).
+    Внесено в §8 и DoD S3 п.3.
+  B3-2: >-
+    Закрыт. Раскрытие диапазонов DoD по всем 88 ID — пропусков 0. S5 п.2 приведён к §8:
+    десять проб 42–48, 75, 76, 79; NTF4-49 из инъекции исключён.
+  non_blocking_round3: "N3-1 (NTF4-33 → NTF4-80), N3-2 (чистый близнец NTF4-81), N3-3 (одно обращение до When в NTF4-16) — учтены."
+
+dispatcher_decisions_check:
+  method: >-
+    Каждое решение Д1–Д13 постановки сверено с §3.1 и с местами документа, где оно действует;
+    отступление без строки спора — блокирующее.
+  results:
+    D1: "соблюдено: креды POP3, ключ DKIM, ключ токена, ключ отпечатка — в объекте секрета почты; InternalSuppressionService — не вызов отправки (З4)"
+    D2: "НЕ доведено до производителя — B4-1: строка §3.1 утверждает «пересланный принципал из круга пересылающих», но ни круга notify, ни пересылающего, ни ребра, ни ручки нет"
+    D3: "соблюдено: словарь исходов расширен двумя значениями (Р17), второго контракта нет"
+    D4: "соблюдено для отправки; ребро notify→kaname для Check — то же ребро"
+    D5: "соблюдено: перечень пар (ns, шаблон) закрыт сборкой"
+    D6: "соблюдено: Х3 в corelib notify/feed, контракт в kacho proto/corelib/notify"
+    D7: "соблюдено: флаг не меняется"
+    D8: "соблюдено: сырого адреса у notify нет, подавление по отпечатку"
+    D9: "соблюдено в форме «List-Unsubscribe только у notice»; равенство «notice = отключаемый вид» не держится проверкой — N4-1"
+    D11: "соблюдено: HARD_TTL ≤ 72 ч, жалоба подавляет только notice, автоприостановки нет, у всех 25 ручек границы и страж старта (NTF4-87/88)"
+    D12: "соблюдено: З8 замещает пункт ID-MAIL-1 явно; миграции переносить нечего"
+    D13: "соблюдено: NTF-4 после NTF-1, Х3 после corelib#77"
+    D10: "не задевает NTF-4"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac ea02db25 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: ea02db255db95990dbe250f3653d1bce32d06ab9
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Он не даёт полномочий и ничего не открывает. Тело события для курьера
+    лежит в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 4, блокирующих 2: PRODUCER, COVERAGE) ·
+    SHA-256 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c
+
+measurement:
+  revisions_used:
+    kacho: origin/main@1d42a6728bf
+    kaname: origin/357@734f69fb4
+    corelib: origin/main@34bc810
+    workspace_copy: issue-880@ea02db25
+  predicates_reproduced:
+    - "corelib 34bc810 ids/ids.go: префиксы операций 109-122 (enp, sop, aop…), knownPrefixes 274, KnownHyphenPrefixes 446 (комментарий 445); git grep '\"nop\"\\|\"nsp\"' -- '*.go' → 0"
+    - "corelib 34bc810 operations/worker.go:657 func RunSync; errors/reason.go:81 func AllReasons"
+    - "kaname 734f69fb4 go.mod:8 corelib v1.10.0-rc.5; permission_catalog.json и permissions_to_relations.go — есть"
+    - "kaname 734f69fb4 internal_cluster_service.proto:98-110: RevokeAdmin — «REST exposed ONLY on the cluster-internal listener», google.api.http delete /iam/v1/internal/cluster/admins/{subject_id}"
+    - "kacho 1d42a6728bf gateway/internal/restmux/mux.go:434-448, 533-651: Internal*-службы монтируются во внутренний mux края через <домен>InternalAddr; notify среди них нет"
+    - "kacho 1d42a6728bf internal/repohygiene/bootguardpresence_test.go:43-48 — локальная Config.Validate гейтом не судится (как сказано в документе)"
+    - "kacho 1d42a6728bf: services/vpc/internal/apps/kacho/api/cidrgroup/delete.go есть; assert-ban6-external-isolation.py есть; PrometheusRule в deploy — 0 файлов; dnsConfig в deploy — 0 файлов"
+    - "приёмка NTF-1 (077e9fff…) Р8: лимит возвращает только EXPIRED(platform_unavailable) — NTF4-80/81 согласны"
+    - "приёмка NTF-3 (8a3165cc…) Р14: «Каждый шаблон модуля объявляет class: notice» — к N4-1"
+    - "гигиена: путей рабочей копии, фраз о незакоммиченности и об отказе от пакета изменения в документе 0; чужие облака → 0; docs/changes/issue-2919/ существует"
+  scenario_census:
+    predicate: "python: re '^\\*\\*ID:\\*\\* NTF4-(\\d+)|^\\| NTF4-(\\d+)' по документу"
+    total: 88
+    ids: NTF4-01…NTF4-88
+    duplicates: 0
+    gaps: 0
+  producer_coverage:
+    method: раскрытие диапазонов первой колонки §8 в множество ID
+    covered: 88
+    of: 88
+    note: >-
+      Покрытие по ID полное. Для NTF4-24…NTF4-30 и NTF4-82…NTF4-86 не назван производитель пути
+      личности вызывающего до notify — B4-1.
+  dod_coverage:
+    method: "python: диапазоны NTF4-a…b и одиночные ID в §10 раскрыты в множество, вычтено из 1..88"
+    missing: []
+  twin_coverage:
+    note: >-
+      У каждого отрицательного сценария назван близнец. У NTF4-15 близнец NTF4-01 отличается
+      больше чем одним фактом — N4-3.
+  constructibility:
+    seeded: 0
+    of: 10
+    not_performed: 10
+    reason: >-
+      Стенда П1 и разрешения на посев в задании нет; П3, П5, П6, П7, П9, П10 заводит сама
+      под-фаза. Конструируемость проверена по названным фикстурам. Given «вызывающий —
+      администратор кластера» на внутреннем слушателе notify (NTF4-24…30, 82…86) не
+      конструируется из документа: путь личности до notify не назван (B4-1).
+
+premise_check:
+  claim: "SHA-256 редакции 0927cf65…; редакция 4; прошлые круги 1–3 — возвраты"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c"
+    - "ls docs/specs/reviews/sub-phase-NTF-4-…/ → три записи a8243cee…, 818c79c7…, af9b6c40…"
+
+blocking_findings:
+  - id: B4-1
+    kind: PRODUCER
+    where: "§3.1 строка Д2; Р7; NTF4-24…NTF4-30, NTF4-82…NTF4-86; §8 строки 24–29 и 82–86; Р16; §11 «новое межсервисное ребро — нет»"
+    claim: >-
+      Строка Д2 в §3.1 говорит: администратор приходит к Р7 «пересланным принципалом из круга
+      пересылающих». Но ни одна часть документа этого не производит. Не названо, кто пересылает;
+      не названы круг пересылающих notify, его ручка и отказ в старте на пустом круге. В закрытом
+      перечне 25 ручек Р16 такой ручки нет. У notify до NTF-4 входящих вызовов нет (Д1), значит
+      NTF-1 круга тоже не заводит. Штатный путь человека к Internal*-службе в дереве —
+      внутренний mux края: служба монтируется через <домен>InternalAddr, образец Р7 (RevokeAdmin)
+      несёт google.api.http и «REST exposed ONLY on the cluster-internal listener». Если путь
+      этот, появляется ребро край→notify и маршрут опроса операций с префиксом nop. А §11
+      утверждает, что нового ребра нет. Если путь другой (прямой вызов с пользовательским
+      токеном), notify нужна проверка токена, и её ручек в Р16 тоже нет. В обоих случаях Given
+      «вызывающий — администратор кластера» и «Тогда» NTF4-24 «актор — субъект из удостоверения
+      вызывающего» производителя не имеют.
+    evidence:
+      - "grep -n -iE 'пересыла|forward|restmux|InternalAddr|gateway' <док> → единственное место — стр. 163 (строка Д2)"
+      - "kacho 1d42a6728bf gateway/internal/restmux/mux.go:434-448 — перечень <домен>InternalAddr без notify"
+      - "kaname 734f69fb4 internal_cluster_service.proto:105-110 — google.api.http у RevokeAdmin"
+      - ".claude/rules/security.md строки sec-forwarded-trust-aware-extract, sec-forwarder-allowlist-nonempty, sec-forwarder-bootguard-empty-circle, sec-forwarder-in-selfreport-and-gate, sec-admin-ui-rpc-internal-only"
+    required: >-
+      Выбрать и назвать путь личности администратора до InternalSuppressionService. Для
+      выбранного пути назвать:
+      (1) производителя — пересылающий, его координату; для края — регистрацию во внутреннем mux и
+      маршрут OperationService.Get по префиксу nop;
+      (2) ребро в §11 и в строке «рёбра» Д4, либо обоснование, почему ребра нет;
+      (3) ручку круга (или ручки проверки токена) в перечне Р16 с границами и сценарий
+      отказа в старте на пустом круге;
+      (4) отрицательный сценарий: пир вне круга пересылает личность администратора → личность
+      снята, отказ; положительный близнец — тот же вызов от пересылающего из круга (NTF4-24);
+      (5) держателя в §8 и пункт DoD S3.
+  - id: B4-2
+    kind: COVERAGE
+    where: "Р5 (инвариант «одна запись на (отпечаток, область, ns, шаблон)»); NTF4-11, NTF4-19; §8; DoD S2"
+    claim: >-
+      Причины SOFT_BOUNCE и COMPLAINT имеют одну область NOTICE и пустые ns и шаблон. Значит, у
+      обеих один ключ уникальности. Р5 определяет только «повторное событие той же причины». Что
+      происходит, когда на ключе, где уже стоит одна причина, приходит событие другой, не
+      сказано. Опасная линия: для A действует бессрочная COMPLAINT. Затем набирается порог
+      мягких отказов. Если SOFT_BOUNCE обновит ту же запись по правилу «та же запись, новый
+      expiresAt», жалоба молча получит срок SOFT_TTL и истечёт. После этого письма notice снова
+      пойдут адресату, который пожаловался, — это против Д11 и против Р13 («обратная связь только
+      сужает»). Обратная линия (COMPLAINT после SOFT_BOUNCE) тоже не определена: нарушение
+      уникальности, потеря жалобы или перезапись. Сценария нет ни на одну из линий.
+    evidence:
+      - "Р5, стр. 259-261: «Инвариант БД: не больше одной записи на (отпечаток адреса, область, ns, шаблон). Повторное событие той же причины обновляет…»"
+      - "grep -n -iE 'друг(ой|ая) причин|разн(ой|ые) причин|приоритет' <док> → 0"
+    required: >-
+      Назвать в Р5 правило для разных причин на одном ключе. Варианты: (а) причина входит в ключ,
+      и записей две; (б) порядок старшинства «бессрочная не заменяется срочной, срок только
+      растёт». Добавить сценарии интеграционного уровня:
+      COMPLAINT → затем порог SOFT_BOUNCE → жалоба действует после SOFT_TTL + 1 с (П9), строка
+      notice → SUPPRESSED(complaint);
+      обратный порядок SOFT_BOUNCE → COMPLAINT → запись бессрочна.
+      Положительный близнец — NTF4-19 (одна причина). Добавить в §8 и DoD S2.
+
+non_blocking_findings:
+  - id: N4-1
+    kind: CONVENTION
+    where: "Р6 («все письма класса notice отключаемы: неотключаемых писем класса notice в сборке NTF-1…NTF-4 нет»); §3.1 Д9"
+    note: >-
+      Д9 разрешает отписку только от отключаемых видов. Документ сводит это к равенству «класс
+      notice = отключаемый вид». Но это утверждение о содержимом соседних под-фаз, и никакая
+      проверка его не держит. NTF-3 Р14 объявляет у всех шаблонов модулей class: notice. Д9
+      относит к неотключаемому классу S напоминание об истечении ключей (реализуется в notify) и
+      письма из аудита kaname (NTF-2). Если хоть одно такое письмо окажется notice, NTF-4 молча
+      повесит на него List-Unsubscribe, а отписка и жалоба его подавят. Рекомендую правило
+      единого валидатора notify/spec: «неотключаемый вид не может иметь класс notice» (либо
+      признак отключаемости в notification.yaml, от которого зависит заголовок), и сценарий с
+      близнецом. Как минимум — строку зависимости от NTF-2/NTF-3 с предикатом.
+  - id: N4-2
+    kind: FORMAT
+    where: "Р2, условие 3 для отписки"
+    note: >-
+      Проверка отписки сравнивает From письма отписки с получателем. У адресата, который
+      пересылает почту или пишет с псевдонима, отписка отвергается (recipient_mismatch). Это
+      разумная цена, но стоит назвать её остатком рядом с Р6.
+  - id: N4-3
+    kind: TWIN
+    where: "NTF4-15"
+    note: >-
+      Близнец NTF4-01 отличается больше чем одним фактом: сертификат ящика, срок ожидания и
+      другой предмет утверждения. Чистый близнец — тот же стенд с доверенным сертификатом, где
+      notify_feedback_poll_last_success_timestamp растёт и признак feedback_stale = 0.
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
