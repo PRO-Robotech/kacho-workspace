@@ -1,0 +1,429 @@
+# Экспозиция классов — первичный разбор (initial) под-фазы NTF-3 на редакцию 23.
+#
+# Разбор сделан ДО кода и привязан к отпечатку одобренной приёмки (круг 3 прохода RA-03).
+# По Д22 судится только ДЕЛЬТА против последней разобранной редакции — редакции 20
+# (88ad95c6…, запись рядом, append-only). Дельта — редакции 21, 22 и 23: §1.13 (обход ствола
+# вне миграций, посев стенда), новый §1.14 (пишущие пути под пересланной личностью), Р2
+# (строка журнала на каждое изменение видимого состояния по пересланному вызову, инициатор
+# system:<компонент>), Р3 (посев стенда), Р8 и NTF3-127 (Д23), Р10 (Д25), §7, §8 С16–С18,
+# NTF3-70 инъекция (г), NTF3-160 (д)–(з), новые NTF3-161, 162, 163, §10, §11, DoD. Команды §1,
+# перемеренные редакциями 22–23 без смены выводов, дельтой решений не несут и заново не
+# разбираются (их воспроизвёл acceptance-reviewer в круге 3). Пункты записей на c26cc7cc
+# (CX3B-*), 9fd0cd5e (CX3C-*) и 88ad95c6 (CX3D-*) остаются в силе без переноса.
+# Когда появится design.md, каждый пункт CX3B-*, CX3C-*, CX3D-* и CX3E-* должен получить точное
+# отображение в решение замысла, а затем отдельную пересверку на отпечаток замысла
+# (class-exposure/revalidation/<design-sha256>.yaml). Разрешения писать реализацию эта запись
+# не даёт.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17
+  revision: 23
+  content_commit: 9d7984897
+  lines: 4509
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17.yaml
+  verdict_commit: a38a26229
+  verdict_event_note: >-
+    Запись вердикта (круг 3, блокирующих 0) говорит event.status = not_performed, публикация —
+    курьером диспетчера. Разбор начат по заданию диспетчера на этот отпечаток; опубликовано ли
+    событие одобрения, этой записью не проверялось.
+previous_initial:
+  - path: docs/changes/issue-2918/reviews/class-exposure/initial/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml
+    subject_revision: 20
+    outcome: вернуть-в-приёмку (RA-03 = CX3D-02)
+    disposition: >-
+      RA-03 отработан. §1.14 переписывает пишущие пути под пересланной личностью по вызовам клиентов
+      (7 методов, 7 публичных глаголов); Р2 решает строку журнала по каждому; NTF3-160 (д)–(з)
+      утверждают инициатора и строку ленты с близнецами для путей nlb → vpc и compute → vpc;
+      NTF3-163 утверждает имя компонента у фонового задания nlb (CX3D-01 (б) получил наблюдаемое).
+      Повторно RA-03 не возвращается. Перепись путей, пишущих под СИСТЕМНОЙ личностью, по-прежнему
+      неполна, и личность задания nlb не проходит авторизацию владельца — см. CX3E-03, CX3E-04,
+      RA-04, RA-05.
+delta_basis: >-
+  Д22: разобрана дельта редакции 23 против редакции 20 — git diff cbb30df7f 9d7984897 по файлу
+  приёмки (442 вставки, 69 удалений; sha256 на cbb30df7f = 88ad95c6…, на 9d7984897 = 97afc066…,
+  git show 9d7984897:<путь> | sha256sum воспроизводит отпечаток). Решения дельты — DZ1…DZ9 ниже;
+  пункты CX3E-01…10.
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0 @1de812f34
+dispatcher_decisions:
+  applied: >-
+    Д1–Д25, registerSharePause = 1; роль design-reviewer — system-design-reviewer в режиме
+    «замысел» (к этой записи не относится). Д22: только дельта; условия к коду — в замысел;
+    вернуть-в-приёмку — только наблюдаемое, которое документ обязан утверждать. Д24: каждое
+    утверждение о дереве — команда, число, ревизия; два возврата этой записи (RA-04, RA-05) —
+    утверждения дельты, которые замер опровергает (RA-04), и Given, который в посадке с
+    проверкой прав владельца не строится (RA-05).
+revisions:
+  workspace: 1de812f34b280c6374c7ee8507c51c85ecf4d726
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a   # = v1.9.0
+snapshot_at: 2026-09-30T11:35:45Z
+inspected: >-
+  Приёмка: дифф редакций 21–23 целиком (782 строки диффа), Р9, Р10 и G0 целиком. Код
+  @1d42a6728bf: vpc services/nicinternal/service.go:100-200, repo/kacho/pg/network_interface.go:300-455
+  (AttachToInstance, DetachFromInstance), services/addressref/service.go:44-135,
+  repo/kacho/pg/address.go:995-1060 (SetReference, MarkEphemeralInUse), repo/cqrsadapter/cqrsadapter.go:165-200,
+  api/address/release.go:60-200, api/addresspool/create.go:180-195, handler/authn_interceptor.go:55-110,
+  shared/pbconv/pbconv.go:25-70, authzfilter/actions.go:1-40,
+  proto internal_address_service.proto:236-246, reference.proto, address.proto, network_interface.proto;
+  compute api/instance/instance_nic.go (целиком до :140), api/instance/instance.go:930-1060,
+  cmd/compute/stuck_delete_finisher.go, repo/instance_repo.go:455-545, clients/vpc_nic_client.go:50-95,
+  handler/tenant_interceptor.go:35-55; nlb jobs/free_ip_runner.go:380-500,
+  clients/vpc/internal_address_client.go:555-590,745-760; deploy/scripts/vpc-address-pool-baseline.sql
+  (структура оператора, :120-200); corelib auth/propagate.go (целиком). Записки vault не читались.
+
+decisions:
+  DZ1: "Р2, §1.14 — изменение видимого состояния по пересланному вызову пишет строку журнала: NetworkInterface UPDATED на привязке и снятии интерфейса, Address UPDATED на SetAddressReference и исходе DETACHED ReleaseOwnedAddress; повтор, не изменивший видимого состояния (идемпотентный повтор привязки, ALREADY_*), строки не пишет"
+  DZ2: "Р2, NTF3-160 (д)–(з) — инициатор транзакции vpc по пересланному вызову — субъект из trust-aware пары внутреннего слушателя vpc"
+  DZ3: "Р2, §1.14, NTF3-163 — пересланная системная личность даёт инициатора system:<служба>-<роль>; задание освобождения адресов nlb — system:nlb-free-ip-runner, им же пишет свою строку NetworkLoadBalancer DELETED; «системной личностью пишущий метод зовёт один путь — фоновое задание nlb»"
+  DZ4: "§8 С18 — застрявшее снятие балансировщика строится посевом статуса DELETING, проход задания — один запуск в обвязке"
+  DZ5: "Р3, §1.13, NTF3-162, NTF3-70 (г) — посев стенда vpc пишет журнал путём функций базы, со строкой ленты той же транзакцией и инициатором system:stand-seed; гейт NTF3-70 обходит весь ствол вне миграций"
+  DZ6: "Р10, NTF3-161 (Д25) — seen_up_to монотонна: наибольшее из хранимого и присланного одним оператором; ≤ хранимого — done=true без изменения; больше последней выданной позиции ленты (наибольшей позиции приёма всей ленты) — INVALID_ARGUMENT, сверка в том же операторе"
+  DZ7: "§8 С17 — посев seen_up_to прямой записью в обход монотонной правки перед каждым повтором NTF3-161 (б)"
+  DZ8: "Р8, NTF3-127 (Д23) — ключ отпечатка адреса — отдельный объект секрета, его монтируют notify-sender и notify-api; секрет почты — один объект у notify-sender"
+  DZ9: "NTF3-160 (з) — InstanceService.Delete с привязками: по одной строке Volume UPDATED и NetworkInterface UPDATED, в журнале compute Instance UPDATED (переход в DELETING) и Instance DELETED, все с инициатором начавшего"
+
+items:
+  - id: CX3E-01
+    decision: [DZ1]
+    class: "code-authoring §«Решение и его следствие разнесены» (решение «видимое состояние изменилось» выводится из числа затронутых строк, которое повтор даёт то же); §«Контракт, который нельзя выразить»"
+    exposure: >-
+      Оба новых писателя строки UPDATED стоят на операторах, которые на повторе отвечают так же,
+      как на изменении. Привязка интерфейса — CAS `WHERE (ni.used_by_id = '' OR ni.used_by_id = $2)`
+      (network_interface.go:318-345): повтор той же привязки проходит и возвращает строку RETURNING.
+      SetReference — безусловный `UPDATE addresses SET used = true` (address.go:1009) и upsert
+      `ON CONFLICT … DO UPDATE … WHERE referrer_id = EXCLUDED.referrer_id` (:1016-1026, ещё и
+      attached_at = now()): повтор той же ссылки возвращает строку. Повтор здесь штатный, а не
+      редкий: compute зовёт Attach в retry.OnUnavailable (vpc_nic_client.go:58), nlb —
+      SetAddressReference в retry.OnUnavailable (internal_address_client.go:753), то есть ответ,
+      потерянный после коммита, даёт второй вызов. Замысел, эмитирующий «при успехе оператора»
+      (или построчным триггером без сравнения старого и нового), даст вторую строку UPDATED на
+      повторе — против утверждения Р2 и близнеца NTF3-160 (ж). Кроме того, SetReference
+      исполняется в собственной writer-TX адаптера (cqrsadapter.go:172-185), чей комментарий
+      прямо говорит «Outbox НЕ emit'ит — referrer-tracking не публичное событие».
+    condition: >-
+      (а) каждый из четырёх писателей (vpc nicinternal Attach, Detach; addressref SetAddressReference;
+      ReleaseOwnedAddress исходом DETACHED) решает «видимое состояние изменилось» в ТОМ ЖЕ операторе,
+      что меняет строку, по прежнему значению (Attach — прежний used_by_id был пуст; SetReference —
+      прежний used = false либо ссылка вставлена, а не обновлена; Detach — затронута 1 строка;
+      ReleaseOwnedAddress — исход DETACHED, а не ALREADY_DETACHED), и эмитирует только тогда;
+      «успех оператора» и «строк затронуто > 0» признаком изменения не служат;
+      (б) строка журнала пишется в той же writer-TX, что изменение (для SetReference — в транзакции
+      адаптера), и несёт состояние, прочитанное после изменения в этой же транзакции;
+      (в) комментарий cqrsadapter.go:169-171 переписывается тем же изменением;
+      (г) если журнал пишет триггер базы, а не Go, у триггера условие WHEN сравнивает видимые
+      столбцы OLD и NEW (used_by_id, status; used), а не срабатывает на любой UPDATE.
+    held_by: >-
+      NTF3-160 (ж) — «повтор привязки строки не дал» (интерфейс); повтор SetAddressReference и
+      повтор после потерянного ответа (обрыв после коммита) — нужна проба (заказ integration-tester)
+  - id: CX3E-02
+    decision: [DZ3]
+    class: "code-authoring §«Контракт, который нельзя выразить» (у системной личности два написания на проводе); security sec-forwarded-trust-aware-extract"
+    exposure: >-
+      Р2 требует инициатора `system:nlb-free-ip-runner`, но на проводе системной личности вида
+      `system:…` у законного отправителя нет: auth.SystemPrincipalFor (corelib auth/propagate.go:125)
+      производит Principal{Type: "user", ID: "system.nlb-free-ip-runner"}, а тип "system" vpc считает
+      ярлыком анонимности (authn_interceptor.go:85, pbconv.go:50). Нормализация «type:id» даст в
+      журнале `user:system.nlb-free-ip-runner` — строку, которую лента покажет арендатору как
+      пользователя; нормализация «по типу» не узнает системную личность вовсе.
+    condition: >-
+      (а) одна функция нормализации (та же, что CX3B-26 (а)) переводит {user, system.<служба>-<роль>}
+      в `system:<служба>-<роль>`, а {system, *} (anonymous, bootstrap) отвергает, а не пишет
+      `system:bootstrap`; (б) признак «system.» проверяется только у типа user, и форма id
+      пользователей и сервисных аккаунтов (ids.NewID, префикс + crockford) его нести не может —
+      сказано в комментарии функции; (в) nlb пишет свою строку NetworkLoadBalancer DELETED через ту
+      же функцию, а не своим литералом инициатора.
+    held_by: "NTF3-163 — «строк с инициатором вида user: … — 0» и «компонент иной, чем nlb-free-ip-runner — 0»"
+  - id: CX3E-03
+    decision: [DZ3, DZ9]
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения» (перепись по месту вызова, а не по входам объемлющей функции); security-hardening hard-async-carries-initiator"
+    exposure: >-
+      §1.14 приписывает вызовы compute instance.go:965 (vpc NIC Detach) и :976 (storage Detach)
+      одному входу — InstanceService.Delete. Обе строки стоят в releaseAndDelete, у которой входов
+      два: операция Delete (instance.go:940) и фоновый проход FinishStuckDeletes (:1050), который
+      поднимает cmd/compute/stuck_delete_finisher.go:75 без установки принципала (WithPrincipal в
+      не-тестовом коде compute — 0). Контекст прохода несёт запасное SystemPrincipal() =
+      {system, bootstrap}, и PropagateOutgoing его пересылает (propagate.go:83-95). Значит, путей,
+      где пишущий метод зовут под системной личностью, два, а не один: этот проход пишет Volume
+      UPDATED (storage), NetworkInterface UPDATED (vpc, после под-фазы) и Instance DELETED (журнал
+      compute, instance_repo.go:610). Их инициатор документ не утверждает, а фраза §1.14 «системной
+      личностью пишущий метод зовёт один путь — фоновое задание nlb» и решение Р2 «строки журнала с
+      общей системной личностью без имени компонента не бывает» на этом пути ничем не держатся.
+      По чтению кода проход в посадке с authMode=production сегодня получает отказ vpc
+      (authn_interceptor.go:85 отвергает тип system) и оставляет инстанс в DELETING — на стенде не
+      измерено.
+    condition: >-
+      (а) замысел перечисляет пути под системной личностью по входам объемлющих функций (кто зовёт
+      функцию, содержащую вызов клиента), а не по местам вызова; (б) проход compute несёт личность,
+      выбранную RA-05 (инициатор снятия, захваченный при запросе, либо именованная личность
+      компонента с грантом), а не запасную; (в) нормализация — CX3E-02.
+    held_by: "нет наблюдаемого утверждения — вернуть в приёмку (RA-04)"
+    return_to_acceptance: true
+  - id: CX3E-04
+    decision: [DZ3, DZ4]
+    class: "security-hardening hard-async-carries-initiator, hard-machine-gets-grant; gate-authoring §«Фикстура не снисходительнее продукта»"
+    exposure: >-
+      NTF3-163 утверждает, что проход задания nlb освобождает адрес (A3 → NOT_FOUND, Address DELETED в
+      журнале vpc) под личностью system:nlb-free-ip-runner. Владелец принимает этот вызов только
+      через проверку прав: ReleaseOwnedAddress несёт permission vpc.addresses.releaseOwned,
+      required_relation "editor" на project (internal_address_service.proto:236-243). Грант на
+      проекте арендатора у личности задания не объявлен нигде: вызовов SystemPrincipalFor в дереве
+      kacho 0, в G0 (С1) привязок у такой личности нет, модель прав о системных личностях компонентов
+      не говорит. В обвязке G0 со службой доступа и проверкой прав vpc Given NTF3-163 не строится
+      (отказ → nlb классифицирует его как терминальный, internal_address_client.go:568-572, и
+      изолирует строку, free_ip_runner.go:404-425); в обвязке без проверки прав проба зелёная, а в
+      посадке задание по-прежнему не работает — сегодня оно пересылает {system, bootstrap}, которое
+      vpc в production-посадке отвергает (authn_interceptor.go:85). Одновременно выбор «задание
+      пишет под своей учётной записью» противоречит hard-async-carries-initiator: задание доделывает
+      снятие, которое начал пользователь, и норма требует нести его личность, захваченную при
+      запросе (у операции она хранится — principal_type/principal_id, corelib
+      0002_operations_principal.sql:17-19).
+    condition: >-
+      (а) решение о личности фоновых доделывателей (nlb free-ip-runner, compute stuck-delete) —
+      одно на оба и записано в приёмке (RA-05); (б) если выбрана личность компонента — у неё узкий
+      грант на один глагол владельца (hard-machine-gets-grant), материализованный моделью прав, а
+      не обход проверки в vpc; если выбран инициатор — он берётся из операции снятия, а отказ
+      владельца после отзыва прав у инициатора классифицирован явно; (в) обвязка NTF3-163 и
+      аналога для compute поднимает vpc с authN production и проверкой прав той же посадки, что
+      стенд.
+    held_by: "нет наблюдаемого утверждения о проверке прав владельца на этом пути — вернуть в приёмку (RA-05)"
+    return_to_acceptance: true
+  - id: CX3E-05
+    decision: [DZ6]
+    class: "code-authoring §«Порядок операций внутри кода» (приведение типа при сравнении позиций); §«Умолчание, которое становится утверждением» (0 строк оператора — «за границей» или «записи нет»)"
+    exposure: >-
+      «Наибольшее из хранимого и присланного одним оператором» и «сверка с последней выданной
+      позицией в том же операторе» сводят три исхода к одному оператору: применено, не изменено
+      (≤ хранимого), отвергнуто (за границей). Позиция в контракте непрозрачна (форма позиции,
+      page_token), и если отметка хранится строкой, GREATEST сравнит лексикографически ('9' > '10').
+      Строка настроек может отсутствовать («отсутствие записи = DAY», Р10), и UPDATE … WHERE
+      <граница> вернёт 0 строк и при отсутствии записи, и при нарушении границы — отличить их по
+      числу строк нельзя. Граница «наибольшая позиция приёма всей ленты» не монотонна: уборщик
+      срока хранения (Р9) может снять все записи, и тогда граница пуста.
+    condition: >-
+      (а) seen_up_to хранится тем же числовым типом, что позиция приёма, и сравнивается числом;
+      разбор формы — на входе RPC, до оператора; (б) запись — upsert по пользователю, отсутствие
+      строки настроек даёт вставку, а не отказ; исход (применено / не изменено / за границей)
+      возвращается оператором явно (RETURNING флагов), а не выводится из «0 строк»; (в) порядок
+      проверок назван в коде: форма → «≤ хранимого — done» → граница → запись; значение ≤
+      хранимого не отвергается при пустой ленте; (г) граница не читается отдельным SELECT до
+      оператора.
+    held_by: >-
+      NTF3-161 (а), (в) с близнецами (из пустого, равно границе, за границей); сравнение числом —
+      нужна проба с позициями разной длины записи (9 → 10) и проба «лента пуста после уборщика,
+      отметка ≤ хранимого» (заказ integration-tester)
+  - id: CX3E-06
+    decision: [DZ6]
+    class: "code-authoring §«Решение и его следствие разнесены» (позиция выдаётся последовательностью при вставке, видимой становится при коммите)"
+    exposure: >-
+      Р9 определяет позицию приёма как «монотонную последовательность базы notify». Последовательность
+      монотонна по выдаче, но не по видимости: при двух одновременных транзакциях приёма позиция P4
+      может стать видимой позже P5. Консоль, прочитавшая P5 первой страницей, отметит seen_up_to = P5,
+      и запись P4, закоммиченная следом, окажется под отметкой, не показанная пользователю. До Д25
+      отметку можно было вернуть; с монотонной отметкой (DZ6) это необратимо. Решение Д25 дельты
+      делает этот класс невосстановимым, поэтому он разобран здесь, хотя Р9 не менялось.
+    condition: >-
+      (а) позиция приёма назначается в порядке фиксации: один писатель приёма на базу с
+      последовательными транзакциями либо позиция берётся под блокировкой, удерживаемой до коммита;
+      выбор назван в замысле; (б) если ни то ни другое, граница сверки seen_up_to — наибольшая позиция,
+      ниже которой нет транзакций в полёте, а не max(position).
+    held_by: "нет пробы — нужна (заказ integration-tester): две параллельные транзакции приёма, меньшая позиция фиксируется второй; отметка по большей не скрывает меньшую"
+  - id: CX3E-07
+    decision: [DZ5]
+    class: "code-authoring §«Контракт, который нельзя выразить» (одна строка журнала — два производителя формы: Go и литерал SQL посева); §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      Сегодня посев стенда (vpc-address-pool-baseline.sql:172-188) пишет строку AddressPool CREATED
+      своим jsonb-литералом с ключами 'ID', 'Name', … и собственным ключом 'actor' в полезной
+      нагрузке, тогда как Go-писатель того же события зовёт helpers.AddressPoolDomainPayload с
+      helpers.NoProjectAnchor (addresspool/create.go:184-185). После под-фазы AddressPool
+      публикуется (Р2), и состояние события посева дойдёт до подписчика и ленты. Второй производитель
+      формы разойдётся с первым при первой правке домена; ключ 'actor' — второе место об
+      инициаторе рядом со столбцом initiator. Идемпотентность посева держится тем, что строка
+      журнала привязана к RETURNING вставки пула в одном операторе; перенос записи журнала в
+      отдельный оператор или функцию вне этого CTE даст строку на повторном исполнении.
+    condition: >-
+      (а) строка журнала и строка ленты посева привязаны к RETURNING вставки пула в том же
+      операторе (повтор — 0 строк); (б) инициатор system:stand-seed ставится тем же механизмом, что
+      у функций базы, в транзакции посева, а ключ 'actor' из полезной нагрузки снимается тем же
+      изменением; (в) форма состояния AddressPool одна: посев зовёт функцию базы, строящую
+      состояние, либо паритет ключей посева и AddressPoolDomainPayload держится гейтом (как
+      seedaddressplanparity_test.go); якорь проекта тот же, что NoProjectAnchor; (г) рецепт dev-up
+      исполняет посев после миграций vpc этой под-фазы.
+    held_by: "NTF3-162 и близнец — (а), (б); (в) — нет, нужен гейт паритета формы (заказ gate-author); (г) — подъём стенда"
+  - id: CX3E-08
+    decision: [DZ5]
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код»; rule 00-kacho-core ban17-gates"
+    exposure: >-
+      Объём гейта NTF3-70 расширен до «всего ствола вне миграций и тестов». Текстовый предикат по
+      стволу встречает прозу: упоминаний вставки в таблицы журналов в .md/.mdx — 16 строк в 6 файлах
+      @1d42a6728bf (схемы потоков, описания). Гейт, судящий текст, либо покраснеет на документации,
+      либо её исключат глобом — и тем же глобом из обхода выпадет следующий посев в новом каталоге.
+    condition: >-
+      (а) гейт судит узел по виду файла: вызов и строковый литерал SQL в Go (разбор AST), оператор в
+      *.sql и SQL внутри *.sh (разбор), и объявляет перечень видов файлов; (б) печатает объём по
+      каждому виду и краснеет на пустом обходе любого вида; (в) документация исключается видом файла
+      с числом исключённых в выводе, а не каталогом.
+    held_by: "NTF3-70 — инъекция (г) с близнецом и «на пустом обходе гейт красный»"
+  - id: CX3E-09
+    decision: [DZ8]
+    class: "code-authoring §«Решение и его следствие разнесены» (ротация одного ключа у двух потребителей)"
+    exposure: >-
+      Ключ отпечатка адреса читают два развёртывания. Ротация объекта секрета без перезапуска одного
+      из них даёт два ключа одновременно: notify-api ищет контакт по отпечатку новым ключом,
+      notify-sender хранит отпечатки старым, и совпадений нет. Гейт NTF3-127, отличающий «секрет
+      почты» от «секрета ключа» по имени объекта, пропустит ключ почты, положенный в объект ключа.
+    condition: >-
+      (а) оба развёртывания несут в шаблоне пода контрольную сумму объекта секрета ключа, так что
+      его правка перекатывает оба (форма sec-chart-config-checksum); (б) гейт NTF3-127 определяет
+      секрет почты по объявленному набору ключей (SMTP, POP3, DKIM, кольцо токена), а не по
+      подстроке имени; (в) объект ключа несёт только ключ отпечатка.
+    held_by: "(б), (в) — NTF3-127 с близнецом (ключ почты в объекте ключа — красный); (а) — NTF-4 Р11 (согласование ротации), в NTF-3 — вниманием"
+  - id: CX3E-10
+    decision: [DZ7]
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (посев в обход правила, которое утверждает проба)"
+    exposure: >-
+      С17 двигает отметку назад прямой записью — единственный способ повторить NTF3-161 (б).
+      Если ради обвязки в прод-коде появится путь «сбросить отметку» (метод, ручка, ветка по
+      признаку теста), монотонность Р10 перестанет быть свойством продукта.
+    condition: >-
+      (а) посев С17 — только в тестовом дереве обвязки notify-api, одним оператором с проверкой
+      «изменена ровно 1 строка»; (б) в прод-коде notify нет ни метода, ни ручки, ни ветки, двигающей
+      seen_up_to вниз.
+    held_by: "NTF3-161 (а) — публичная правка назад отметку не двигает; (б) — вниманием по диффу"
+
+measurements:
+  - claim: "§1.14/Р2: системной личностью пишущий метод зовёт один путь — фоновое задание nlb"
+    command: >-
+      git -C project/kacho grep -nE 's\.releaseAndDelete\(' 1d42a6728bf -- 'services/compute/**/*.go' ':!**/*_test.go' | wc -l → 2
+      (instance.go:940 — операция Delete; :1050 — FinishStuckDeletes);
+      git -C project/kacho grep -nE 'FinishStuckDeletes\(' 1d42a6728bf -- '*.go' ':!**/*_test.go' → cmd/compute/stuck_delete_finisher.go:75 и объявление;
+      git -C project/kacho grep -nE 'WithPrincipal\(' 1d42a6728bf -- 'services/compute/**/*.go' ':!**/*_test.go' ':!**/portmock/**' | wc -l → 0
+    result: >-
+      опровергнуто: путей два — задание nlb (free_ip_runner.go:465) и проход compute по застрявшему
+      снятию (releaseAndDelete → vpc NIC Detach instance.go:965, storage Detach :976; затем
+      Instance DELETED instance_repo.go:610) под запасной личностью {system, bootstrap}
+    control: "положительный контроль — тот же приём находит известный вход операции Delete (:940); отрицательный — ListByInstance (чтение) в releaseAndDelete журнал не пишет"
+  - claim: "Р2/NTF3-163: у задания nlb будет личность system:nlb-free-ip-runner, и vpc её примет"
+    command: >-
+      git -C project/corelib show 34bc8104a:auth/propagate.go | sed -n 118,137p;
+      git -C project/kacho grep -nE 'SystemPrincipalFor\(' 1d42a6728bf -- '*.go' ':!**/*_test.go' | wc -l → 0;
+      git -C project/kacho grep -nE 'Type == "system"' 1d42a6728bf -- 'services/*/internal/**/*.go' ':!**/*_test.go' →
+      vpc handler/authn_interceptor.go:85, shared/pbconv/pbconv.go:50, compute handler/tenant_interceptor.go:44 (только bootstrap), nlb и registry domain/fga_intent.go;
+      git -C project/kacho show 1d42a6728bf:proto/kacho/cloud/vpc/v1/internal_address_service.proto | sed -n 236,244p
+    result: >-
+      форма на проводе — {user, system.nlb-free-ip-runner}, не system:… (CX3E-02); вызовов в дереве
+      0; тип system vpc в production-посадке отвергает; глагол требует editor на проекте, гранта у
+      личности компонента нет (CX3E-04)
+    control: "SubjectFromContext @pbconv.go:50 даёт '' на {system, *} и 'user:system.…' на типизированную форму — оба исхода прочитаны в одной функции"
+  - claim: "Р2/NTF3-160 (ж): повтор привязки интерфейса строки не пишет"
+    command: >-
+      git -C project/kacho show 1d42a6728bf:services/vpc/internal/repo/kacho/pg/network_interface.go | sed -n 318,345p;
+      git -C project/kacho show 1d42a6728bf:services/vpc/internal/repo/kacho/pg/address.go | sed -n 1008,1030p;
+      git -C project/kacho show 1d42a6728bf:services/compute/internal/clients/vpc_nic_client.go | sed -n 56,62p;
+      git -C project/kacho show 1d42a6728bf:services/nlb/internal/clients/vpc/internal_address_client.go | sed -n 753,754p
+    result: "сегодня не пишет, потому что эмиттера нет вовсе; после под-фазы — зависит от признака изменения: оба оператора на повторе возвращают строку, а оба клиента повторяют вызов (CX3E-01)"
+  - claim: "NTF3-160 (з): в журнале compute по снимаемому инстансу ровно две строки — UPDATED (DELETING) и DELETED"
+    command: "git -C project/kacho show 1d42a6728bf:services/compute/internal/repo/instance_repo.go | sed -n 465,500p; git -C project/kacho grep -nE 'emitCompute\\(' 1d42a6728bf -- services/compute/internal/repo/instance_repo.go"
+    result: "подтверждено: MarkDeleting эмитит UPDATED только на фактическом переходе (WHERE status <> 'DELETING', :476-490), Delete — DELETED (:610)"
+  - claim: "NTF3-162: повторное исполнение посева строк не даёт"
+    command: "git -C project/kacho show 1d42a6728bf:deploy/scripts/vpc-address-pool-baseline.sql | sed -n 120,188p"
+    result: "подтверждено для сегодняшней формы: вставка журнала — SELECT … FROM ins, где ins — вставка пула с NOT EXISTS и ON CONFLICT DO NOTHING; условие сохранения — CX3E-07 (а)"
+  - claim: "NTF3-70: обход всего ствола вне миграций — литеральных вставок 3"
+    command: >-
+      git -C project/kacho grep -nE 'INSERT (INTO )?(kacho_[a-z]+\.)?(compute_outbox|vpc_outbox|nlb_outbox|registry_resource_journal|storage_outbox)' 1d42a6728bf -- '*.md' '*.mdx' | wc -l → 16 (файлов 6)
+    result: "число документа (3) — по предикату, требующему INTO и исключающему прозу; прозы с тем же предметом 16 строк — объём, который гейт обязан исключить видом файла (CX3E-08)"
+
+not_measurable:
+  - "поведение прохода compute и задания nlb в посадке authMode=production на стенде — выведено чтением кода vpc authn_interceptor.go:85 и классификации nlb; стенд не поднимался"
+  - "порядок видимости позиций приёма notify (CX3E-06) — кода notify в дереве нет; условие проверяется по диффу и пробой"
+  - "признак изменения у новых писателей vpc (CX3E-01), форма нормализации (CX3E-02), оператор seen_up_to (CX3E-05) — кода нет; по диффу"
+  - "полнота переписи путей под системной личностью: предикат видит входы объемлющей функции на один уровень; вход через цепочку из двух и более функций к клиенту ловит только обход графа вызовов (CX3E-03 (а))"
+
+outcome: вернуть-в-приёмку
+return_to_acceptance:
+  - id: RA-04
+    item: CX3E-03
+    anchors: ["§1.14 (итог, фраза «системной личностью пишущий метод зовёт один путь»)", "§1.14 таблица, строки storage Detach и vpc InternalNetworkInterfaceService.Detach", "Р2 (абзац о пересланной системной личности)", "§7", "§8", "§10", "§11"]
+    what: >-
+      Перепись путей под системной личностью неполна. @1d42a6728bf вызовы compute instance.go:965
+      (vpc NIC Detach) и :976 (storage Detach) стоят в releaseAndDelete, у которой два входа: операция
+      Delete (:940) и фоновый проход FinishStuckDeletes (:1050, cmd/compute/stuck_delete_finisher.go:75),
+      идущий без принципала (WithPrincipal в compute — 0), то есть под запасной {system, bootstrap}.
+      Проход пишет Volume UPDATED, NetworkInterface UPDATED (после под-фазы) и Instance DELETED.
+      Наблюдаемое, которое документ обязан утверждать: строки журналов storage, vpc и compute,
+      записанные проходом по застрявшему снятию инстанса, несут инициатора по решению RA-05 (не
+      запасную личность), по строке ленты на строку журнала; близнец — то же снятие публичным Delete
+      без застревания даёт user:<начавший>. Условие строится как С18: посев статуса DELETING и
+      deleting_since старше порога прохода, один проход в обвязке. Исправить фразу §1.14 командой по
+      входам объемлющей функции.
+  - id: RA-05
+    item: CX3E-04
+    anchors: ["Р2 (system:<компонент> у пересланной системной личности)", "NTF3-163 Given и Then", "§7 «Фоновое задание освобождения»", "§8 С18", "§11 NTF3-163", "G0"]
+    what: >-
+      Given NTF3-163 не строится в посадке, где vpc проверяет права, а решение о личности фонового
+      задания расходится с нормой. Задание зовёт ReleaseOwnedAddress, который требует editor на
+      проекте арендатора (internal_address_service.proto:236-243); у личности компонента гранта нет
+      ни в G0, ни в модели (вызовов SystemPrincipalFor в kacho 0), отказ nlb считает терминальным и
+      изолирует строку. Сегодня задание пересылает {system, bootstrap}, которое vpc в
+      production-посадке отвергает (authn_interceptor.go:85), — по коду задание в боевой посадке не
+      освобождает ничего. Норма hard-async-carries-initiator требует у асинхронного пути личность
+      инициатора, захваченную при запросе, а не учётную запись воркера. Нужно решение в приёмке, одно
+      для задания nlb и прохода compute (RA-04): (а) инициатор — начавший снятие, из операции снятия,
+      и что происходит, если его права отозваны до прохода; либо (б) личность компонента — с узким
+      грантом на один глагол владельца, объявленным моделью прав, и с отказом той же личности на
+      другом глаголе (близнец). Сценарий утверждает освобождение адреса при vpc с authN production и
+      проверкой прав той же посадки, что стенд; G0 называет посадку обвязки для этих букв.
+
+orders:
+  - to: design-author
+    what: "отобразить CX3E-01…10 вместе с CX3B-*, CX3C-*, CX3D-* (кроме закрытых CX3B-11, CX3B-24, CX3C-03, CX3D-02); CX3E-03 (б), CX3E-04 — после RA-04, RA-05"
+    basis: ".claude/rules/change-graph.md §4; Д22"
+  - to: acceptance-author
+    what: "RA-04, RA-05"
+    basis: ".claude/rules/change-graph.md §2; Д22, Д24"
+  - to: gate-author
+    what: "гейт hard-async-carries-initiator: фоновый вход (горутина из cmd/ либо задание) достигает клиента с PropagateOutgoing без явного принципала или с operations.SystemPrincipal(); живых положительных близнецов в дереве два (nlb free_ip_runner.go:465; compute stuck_delete_finisher.go → releaseAndDelete)"
+    basis: ".claude/rules/security-hardening.md hard-async-carries-initiator (ЗАВЕСТИ); .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п. 1"
+  - to: gate-author
+    what: "паритет формы состояния AddressPool: ключи jsonb посева стенда против helpers.AddressPoolDomainPayload (CX3E-07 (в)), по образцу seedaddressplanparity_test.go"
+    basis: "code-authoring §«Контракт, который нельзя выразить»"
+  - to: integration-tester
+    what: >-
+      пробы: (1) повтор SetAddressReference и NIC Attach после зафиксированной записи с потерянным
+      ответом — ноль лишних строк журнала и ленты (CX3E-01); (2) seen_up_to с позициями разной длины
+      записи (9 → 10) и при ленте, опустевшей после уборщика (CX3E-05); (3) две параллельные
+      транзакции приёма notify, меньшая позиция фиксируется второй, — отметка по большей не скрывает
+      меньшую (CX3E-06)
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; code-authoring §«Решение и его следствие разнесены»"
+
+candidate_predicates:
+  - name: worker-forwards-fallback-system-principal
+    single_file_sign: "в одной функции не-тестового Go — operations.WithPrincipal(ctx, operations.SystemPrincipal()) рядом с вызовом клиента чужого модуля"
+    note: >-
+      живой положительный близнец — nlb free_ip_runner.go:465; второй положительный (compute) не
+      однофайловый — принципал не ставится вовсе, признак виден только по графу вызовов;
+      отрицательного близнеца (auth.SystemPrincipalFor на межмодульном вызове) в дереве 0 — по
+      .claude/hooks/class-guard/README.md §«Как добавить предикат» предикат не заводится, пока его
+      нет. Предложение, не запись.
+new_class_proposal: >-
+  Не заводится. «Фоновый доделыватель пересылает личность, которую владелец отвергает» наблюдался в
+  двух независимых местах (nlb free_ip_runner, compute stuck_delete_finisher), но класс уже есть —
+  security-hardening hard-async-carries-initiator, у него нет гейта (ЗАВЕСТИ); заказ gate-author
+  выше. «Перепись по месту вызова, а не по входам объемлющей функции» — четвёртый возврат этой
+  приёмки по переписи (RA-01…RA-04), все в одном документе и одном предмете, то есть один экземпляр
+  по порогу code-authoring §«Механизм накопления опыта».
