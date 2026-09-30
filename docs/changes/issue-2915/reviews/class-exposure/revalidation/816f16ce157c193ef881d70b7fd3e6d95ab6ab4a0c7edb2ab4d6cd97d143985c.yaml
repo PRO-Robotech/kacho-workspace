@@ -1,0 +1,322 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 23 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Последняя разобранная редакция — 22
+# (efff0ee7…, запись revalidation/efff0ee7….yaml, коммит 72929148b, итог «к замыслу»: CX1-94,
+# CX1-95; N16–N19). Дельта — коммит b03b11845: отображение CX1-94, CX1-95, N16–N19, замер М43.
+# Пункты CX1-01…93 и условия УК1…УК94 эта запись не пересуживает.
+#
+# Итог — к замыслу. N16–N19 отображены и выдерживают. CX1-94 отображён, но в одном месте
+# отображение не выдерживает условия пункта, — это CX1-97. CX1-95 отображён новой опорой, а
+# утверждение этой опоры в дереве ложно по построению, — это CX1-96. Оба пункта измерены на
+# настоящем зонтике origin/1276@23f1e058a35, helm v4.2.4:
+#   CX1-96. Узел `global.kacho.identity.smtp` читает не только notify. Подчарт kaname (он в рендере
+#   `prod` всегда) выводит из адреса `invite-mail.relay` в своём ConfigMap, а хеш конфигурации идёт в
+#   аннотацию его Deployment. Замер «образец / тот же образец с `alt-<хост>`» дал 186 объектов в обоих
+#   рендерах и две различающиеся строки вне notify: `relay` и `kacho.cloud/config-checksum` у kaname.
+#   Значит, утверждение «объекты вне notify побайтно равны» краснеет на каждом образце. Нога (1) на
+#   фикстурной копии идёт «всегда» с посадки D2, а читатель kaname снимает только NTF-2 D1. Близнец
+#   инъекции «адрес только в notify → молчание» при этом не бывает молчаливым.
+#   CX1-97. Снять ровно один ключ не значит получить ровно один отказ. Операторский образец (адрес с
+#   именем, `credentialSecret`, отправитель) с `--set …connectionURI=null` отвергает страж зонтика
+#   `identity-mail-lane-guard.yaml:85` («отправитель объявлен, узел не задан»), а по коду есть и :122.
+#   С `required` notify (модель подчарта в настоящем зонтике) трижды подряд выходит отказ notify:
+#   helm обходит шаблоны по глубине пути. Имя ключа есть в обоих текстах, поэтому проба D1 держится.
+#   Текст с флагом (D2, N11 · CX2-57 (в)) есть только у notify, и держится он порядком обхода. Фраза
+#   З28 «имя в отказе не зависит от порядка шаблонов» верна для имени и неверна для отказывающего.
+# Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 816f16ce157c193ef881d70b7fd3e6d95ab6ab4a0c7edb2ab4d6cd97d143985c
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на b03b11845 (HEAD issue-880) даёт 816f16ce…
+  change_yaml_design_sha256: 816f16ce157c193ef881d70b7fd3e6d95ab6ab4a0c7edb2ab4d6cd97d143985c   # равен предмету
+  tasks_sha256: 65b1d752597d954ba404013e6d43d9f5b4a022c88475c59fcb48d1d962e5fd25   # маршрут редакции 24
+  revision: 23
+  content_commit: b03b11845
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/efff0ee78a16b952c892daa9fb38de6e80593553e3fb100f899e1cf8948ab9d8.yaml
+    sha256: efff0ee78a16b952c892daa9fb38de6e80593553e3fb100f899e1cf8948ab9d8
+    content_commit: 3f19e31ea
+    record_commit: 72929148b
+  mapped_items: [CX1-94, CX1-95, N16, N17, N18, N19]
+  delta_predicate: "git diff 3f19e31ea b03b11845 -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml"
+  dispatcher_decisions:
+    - "Д51 — без изменений против записи efff0ee7; Д46–Д49 — тоже"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: b03b11845da70a2fff66dff514b50903fcf03c87   # вершина issue-880 = коммит предмета
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d      # origin/2564
+  kacho_1276: 23f1e058a35e4e37fdb28f71124e51362022f74b           # origin/1276 — та же, что в записи efff0ee7
+  helm: v4.2.4+g3900f43
+snapshot_at: 2026-09-30T20:02:41Z
+inspected: >-
+  Прочитана дельта 3f19e31ea..b03b11845 по пакету целиком: шапка редакции 23 design.md; §1 М43; З28
+  «Узел почты → ключ процесса» (пробы D1, D2), «Контракт шелл-обёртки несёт ось каталога» (N16),
+  «Отказ утверждается при одном незаданном значении» (а)–(г), «Фикстурная копия D1», «Рендер профиля
+  `prod` по имени» (N18), «Проба образца» с подразделами «Опора сравнения — второй законный адрес»,
+  «Сравнение — там, где узел попадает в рендер», «Кто заводит сравнение», «Инъекция»; абзац о полосе,
+  делающей перечень непустым; §11 строки Д46, Д48, N11 · CX2-57 (в), CX1-93, Д51, CX1-94, CX1-95,
+  N16–N19; §13 Е12 (4), (9), Е13. tasks.md редакции 24: шапка, порядок яруса 6. change.yaml. В
+  контексте: З28 абзац «Узел стенда» (строки 1922–1935), §1 М30, М38. Со стороны NTF-2: tasks.md
+  строка D1 (снятие `invite-mail` из ConfigMap kaname). В kacho: на origin/1276@23f1e058a35 —
+  `deploy/helm/umbrella/Chart.yaml` (зависимости), `charts/kaname/templates/configmap.yaml` строки
+  608–660, `deployment.yaml` строки 18–30 и 605–630, `templates/identity-mail-lane-guard.yaml` (все
+  строки `fail`); на origin/2564 и origin/main — наличие `relay:` и `config-checksum` в чарте kaname.
+  Настоящий зонтик origin/1276 отрендерен в scratchpad (`git archive` путей зонтика и зависимостей
+  file://, `helm dependency build --skip-refresh`). Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "в дельте открытых Е нет; Е12 (9) и Е13 (N17) — порядок и заказ на стороне NTF-2, полос NTF-1 не гейтят"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "N16–N19 выдерживают; CX1-94 выдерживает, кроме того, что закрывает CX1-97; CX1-95 (б), (в) выдерживают, а (а) даёт утверждение, ложное на дереве, — CX1-96; новые CX1-96 и CX1-97 не отображены"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Внешних вызовов и асинхронных путей нет. Кандидат в sentinel — `null` в `--set <ключ>=null`.
+      По М43 это снятие значения, а не значение. Перепись «слой мимо обёртки» его значением не
+      считает, это записано в З28 (а). Условие CX1-92 «не задано пишется одним способом» не
+      нарушено: `null` снимает, `""` отказывает (М41)
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 816f16ce… = предмет"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на 816f16ce ревью замысла нет, шапка редакции 23 это говорит. В `clean` не входит"
+
+mapping_check:
+  - item: "CX1-94 (а)"
+    verdict: holds
+    evidence: >-
+      Утверждаемый отказ получается на цепочке `prod` через обёртку, со слоем образца минус ровно
+      проверяемый ключ; снятие — `--set <ключ>=null`. Замер этой записи на настоящем зонтике
+      подтверждает М43: `--set global.kacho.identity.smtp.connectionURI=null` поверх образца снимает
+      узел, rc 1. Формулировки «с именем узла и ручки» и «голый `-f values.prod.yaml`» исходами не
+      считаются
+  - item: "CX1-94 (б), (в)"
+    verdict: holds_with_note
+    evidence: >-
+      Пробы D1 и D2 (Д46, N11 · CX2-57 (в)) переведены на обёртку и образец минус адрес. Предпосылка
+      «снят один ключ, опора рендерится с rc 0» печатается, при нарушении исход «НЕ ВЫПОЛНИЛОСЬ».
+      Инъекция «сняты два ключа» с близнецом названа. Она судит число ключей, а не их
+      обязательность, и от этого корректна: М43 (5) — `fromAddress` необязателен. Но предпосылка
+      гарантирует не больше одного незаданного ЗНАЧЕНИЯ, а не не больше одного ОТКАЗЫВАЮЩЕГО
+      шаблона — CX1-97
+  - item: "CX1-94 (г)"
+    verdict: holds
+    evidence: "Инъекция Д48 «слой снят целиком» утверждает только rc ≠ 0 и имя цепочки, имени значения не утверждает (строка §11 Д48)"
+  - item: "CX1-94 · фикстурная копия D1"
+    verdict: holds_with_note
+    evidence: >-
+      Состав назван: зонтик, `charts/`, зависимости `Chart.yaml` с локальным источником, каталог
+      образцов — всё в прежнем взаимном положении. Каждый элемент цепочки проверяется до рендера. На
+      origin/1276 и origin/2564 по семь зависимостей вида `file://../../../<компонент>/deploy`, то
+      есть вне зонтика, и их `.tgz` не отслеживаются. Удалённые зависимости лежат в `charts/*.tgz` и
+      отслеживаются, на 2564 — вместе с `kratos` и `hydra`. Значит, копия рендерится только после
+      `helm dependency build --skip-refresh`, как в М38. К коду: проба печатает этот шаг и его rc,
+      отказ — «НЕ ВЫПОЛНИЛОСЬ» (N20)
+  - item: "CX1-95 (а)"
+    verdict: fails
+    evidence: >-
+      Опора — `alt-<хост>` аргументом `--set` после цепочки; она рендерится при любом состоянии
+      перечня (замер: rc 0, 186 объектов). Но утверждение «объекты вне notify побайтно равны»
+      неверно, пока узел читает kaname — CX1-96
+  - item: "CX1-95 (б)"
+    verdict: holds
+    evidence: >-
+      Состояние перечня и число объектов notify печатаются по каждому образцу. Нога (1) идёт на
+      копии всегда, с предпосылкой «перечень непуст, notify > 0», иначе «НЕ ВЫПОЛНИЛОСЬ». Нога (2)
+      при пустом перечне печатает «не проводится» и в зелёные не входит. Число ног печатается.
+      Сравнение и печать вносит D2 — изменение, с которым notify входит в рендер; путь пробы образца
+      есть в путях D2
+  - item: "CX1-95 (в)"
+    verdict: holds_with_note
+    evidence: "Инъекция «ConfigMap края в копии читает адрес» названа. Близнец «адрес только в notify → молчание» при читателе kaname молчать не может — CX1-96"
+  - item: N16
+    verdict: holds
+    evidence: "Прежняя форма — `render_chain_args prod <образец>`, она отказывает; близнец — новая форма, строка цепочки. Совпадает с Е12 (8)"
+  - item: N17
+    verdict: holds
+    evidence: >-
+      Строка Е13, порядок яруса 6 tasks.md «D9 до D6 NTF-2», предикат старта D6
+      `git ls-tree --name-only origin/2564 deploy/testdata/mail-node/` называет `operator.yaml`.
+      Предикат умеет ответить «нет»: сегодня каталога на 2564 нет
+  - item: N18
+    verdict: holds
+    evidence: "Каждая строка рендера `prod` в `prod-profile-fail-closed-test.sh`, включая `render_only … --show-only`, идёт через обёртку; помощник берёт аргументы цепочки целиком; инъекция — один `render_only` с прямым `-f`"
+  - item: N19
+    verdict: holds
+    evidence: "Е12 (9): держатель NTF-2 рендерит образец минус ключ ручки через обёртку с предпосылкой. К нему относится и CX1-97 — заказ ниже"
+
+items:
+  - id: CX1-96
+    status: unmapped
+    decision: "З28 «Проба образца» → «Опора сравнения — второй законный адрес» (утверждение «объекты вне notify в двух рендерах побайтно равны»), «Сравнение — там, где узел попадает в рендер» (нога (1) на фикстурной копии D1 — «всегда»), «Инъекция» (близнец «адрес только в notify → молчание»); §11 CX1-95, Д51"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением» (опора молча считает notify
+      единственным читателем узла); .claude/rules/testing.md §«Гейт на класс: измерить по дереву,
+      доказать инъекцией, снабдить проверкой предпосылки» п.1 (утверждение о дереве не измерено по
+      дереву); .claude/rules/architecture.md §«Параллельные полосы одного механизма обязаны сверяться
+      МЕЖДУ СОБОЙ» (читателя kaname снимает NTF-2 D1, а сравнение вводит NTF-1 D2)
+    finding: >-
+      (1) Узел `global.kacho.identity.smtp` на origin/1276, origin/2564 и origin/main читают три
+      шаблона вне notify: `charts/kaname/templates/configmap.yaml` (строки 612–657:
+      `invite-mail.relay` = хост:порт адреса, `from`, `from-name`, `tls-mode`),
+      `charts/kaname/templates/deployment.yaml` (пара удостоверения, том якоря) и страж зонтика. Хеш
+      ConfigMap kaname идёт в аннотацию `kacho.cloud/config-checksum` его Deployment (М30). Подчарт
+      kaname входит в рендер `prod` без условия. (2) Замер на origin/1276, `prod` плюс образец формы
+      оператора, опора `--set …connectionURI=smtps://relay-user@alt-smtp.example.org:465/`. Оба
+      рендера — rc 0, по 186 объектов; `diff` — две строки, обе вне notify: `relay:
+      "smtp.example.org:465"` против `"alt-smtp.example.org:465"` и `kacho.cloud/config-checksum`
+      kaname. Значит, «объекты вне notify побайтно равны» краснеет на каждом образце, пока в дереве
+      есть читатель kaname. (3) Читателя снимает полоса D1 NTF-2 (tasks.md NTF-2: «`configmap` kaname
+      без `invite-mail`», «`deployment.yaml` без `KANAME_INVITE_MAIL_*` и тома якоря»). Сравнение же
+      вводит D2 NTF-1, и нога (1) идёт «всегда». Её копия собрана из отслеживаемых файлов базы, где
+      kaname узел читает. Нога (1) краснеет с посадки D2 до посадки D1 NTF-2, и причина — не предмет
+      пробы. (4) Близнец инъекции CX1-95 (в) «адрес только в notify → молчание» в этом окне тоже
+      красный, так что инъекция ничего не отличает. (5) Прежнее утверждение редакции 22 «число
+      объектов вне notify равно» здесь было бы зелёным (186 = 186). Более сильное утверждение
+      оказалось верным ровно настолько, насколько верна посылка «вне notify узел никто не читает», а
+      её не измеряли
+    condition_to_design: >-
+      (а) В З28 записан замер: вне notify узел читают шаблоны kaname, `configmap.yaml` и
+      `deployment.yaml` (ключ, строка, ревизия); читателя снимает D1 NTF-2. (б) Утверждение сравнения
+      переписано так. Объекты вне notify побайтно равны, КРОМЕ закрытого перечня объявленных
+      читателей узла вне notify. Перечень записан в пробе по объекту (вид, имя, чарт), и различие в
+      каждом его объекте утверждается дословно: строка `relay` и аннотация хеша kaname. Перечень
+      истекает сам: объект из перечня, у которого различия нет, — красный «исключение без
+      исключаемого» с именем объекта. Так после D1 NTF-2 перечень обязан опустеть, иначе проба
+      краснеет. Удалённая альтернатива — нога (1) не проводится, пока в копии есть читатель kaname —
+      хуже: она оставляет CX1-95 без держателя на всё окно NTF-1. (в) Инъекция CX1-95 (в) остаётся:
+      ConfigMap края, которого в перечне нет, читает адрес → красный с именем объекта. Близнец —
+      адрес только в notify и в объектах перечня → молчание. Вторая инъекция — объект перечня без
+      различия → красный «исключение без исключаемого». (г) Е12 получает строку для NTF-2: полоса D1
+      NTF-2, снимающая читателя kaname, тем же изменением опустошает перечень пробы образца. Путь
+      пробы — в путях D1 NTF-2
+    held_by: "нужен гейт — перечень исключений пробы образца с самоистечением; сегодня утверждение держится ничем и на дереве красное"
+
+  - id: CX1-97
+    status: unmapped
+    decision: "З28 «Отказ утверждается при одном незаданном значении» (б) («тогда незаданное обязательное значение в отрицании не больше одного, и имя в отказе не зависит от порядка шаблонов»); З28 «Узел почты → ключ процесса» проба D2 «текст с обоими выходами»; §11 N11 · CX2-57 (в), CX1-94; NTF-2 Е12 (9)"
+    class: >-
+      code-authoring §«Инвариант и оснастка — это тоже прод-код» (утверждение пробы держится порядком
+      обхода шаблонов helm, а не своей конструкцией); change-graph «отрицательный кейс меняет ровно
+      один факт против положительного близнеца» (один снятый ключ включает два отказывающих
+      шаблона); .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией,
+      снабдить проверкой предпосылки» п.7 (предпосылка судит не то, от чего зависит исход)
+    finding: >-
+      (1) Замер на origin/1276: `prod` плюс операторский образец (адрес с именем, `credentialSecret`,
+      `fromAddress`, `fromName`) и `--set global.kacho.identity.smtp.connectionURI=null` → rc 1,
+      отказ `identity-mail-lane-guard.yaml:85` «адрес отправителя объявлен…, но узел почтовой полосы
+      НЕ задан (global.kacho.identity.smtp.connectionURI пуст)». В этом же страже на снятый узел
+      отказывает и строка 122 (`credentialSecret` без узла). (2) В настоящий зонтик положена модель
+      подчарта `charts/notify` с `required` на том же ключе и текстом с флагом. Три прогона подряд
+      дали отказ `kacho-umbrella/charts/notify/templates/configmap.yaml`, а не стража. Образец без
+      удостоверения дал то же. Helm обходит шаблоны от более глубокого пути к менее глубокому, и
+      подчарт идёт раньше шаблонов зонтика. (3) Значит, при предпосылке CX1-94 (б), выполненной
+      («снят один ключ, опора rc 0»), отказывающих шаблонов два, а не один. Проба D1 утверждает имя
+      ключа, и оно есть в обоих текстах, так что D1 держится своей конструкцией. Проба D2 утверждает
+      текст с флагом `global.kacho.notifications.enabled`, а он есть только у notify, так что D2
+      держится порядком обхода. Это тот самый класс, который закрывал CX1-94. (4) Фраза З28
+      «имя в отказе не зависит от порядка шаблонов» верна для имени, а для отказывающего шаблона и
+      его текста неверна. Исполнитель прочтёт её как разрешение не утверждать, кто отказал. (5) Та же
+      форма у NTF-2 Е12 (9): снятие ключа ручки прыжков. Какие шаблоны края отказывают на него, не
+      измерено — D6 NTF-2 не написан
+    condition_to_design: >-
+      (а) Предпосылка CX1-94 (б) дополнена: проба утверждает не только имя ключа, но и ОТКАЗЫВАЮЩИЙ
+      шаблон — путь из `execution error at (<путь>:<строка>)` вывода helm. Для D1 и D2 это шаблон
+      ConfigMap notify. Отказал другой шаблон — «НЕ ВЫПОЛНИЛОСЬ» с его путём и текстом, а не зелёный
+      и не красный. (б) В З28 записан перечень шаблонов, отказывающих на снятие адреса узла, измеренный
+      по дереву: страж `identity-mail-lane-guard.yaml` строки 85, 122 и `required` notify. Там же
+      сказано, что при этом перечне порядок обхода helm — предпосылка, а не гарантия. Проба печатает
+      путь отказавшего шаблона. (в) Инъекция: образец, в котором отказ стража наступает раньше
+      notify (фикстурная копия со стражем, перенесённым в подчарт с более глубоким путём, либо любое
+      другое построение, дающее отказ стража первым) → «НЕ ВЫПОЛНИЛОСЬ» с путём стража. Близнец —
+      копия как есть → отказ notify, текст с обоими выходами. (г) Фраза «имя в отказе не зависит от
+      порядка шаблонов» заменена на «имя ключа есть в тексте каждого отказывающего шаблона; кто
+      отказал — утверждается путём». (д) Е12 (9) получает ту же форму для держателя ручки NTF-2:
+      утверждается путь отказывающего шаблона края
+    held_by: "нужен гейт — утверждение пути отказывающего шаблона в пробах D1, D2 и в держателе NTF-2 Е12 (9); сегодня D2 держится порядком обхода helm (глубина пути)"
+
+notes:
+  - id: N20
+    blocking: false
+    where: "З28 «Фикстурная копия D1»"
+    text: >-
+      На origin/1276 и origin/2564 у зонтика по семь зависимостей вида
+      `file://../../../<компонент>/deploy` (`services/{vpc,compute,nlb,registry,storage}`, `gateway`,
+      `ui-future`). Их `.tgz` в `charts/` не отслеживаются. Отслеживаются `kacho-geo/`, `kaname/`,
+      `kratos-selfservice-ui/` (2564) и `.tgz` удалённых зависимостей. Копия «из отслеживаемых файлов»
+      без `helm dependency build --skip-refresh` не рендерится. Шаг сборки обходится без сети: удалённые
+      `.tgz` на месте, а file://-зависимости упаковываются из копии. Для этого каталоги
+      file://-зависимостей вне `deploy/` копируются в том же взаимном положении. Формулировка
+      «зависимости `Chart.yaml` с локальным источником» это покрывает, если её читать как каталоги вне
+      зонтика. К коду: проба D1 печатает шаг сборки и его rc, отказ — «НЕ ВЫПОЛНИЛОСЬ»
+    predicate: "git -C project/kacho show origin/2564:deploy/helm/umbrella/Chart.yaml | grep -c 'repository: file://'; git -C project/kacho ls-tree --name-only origin/2564 deploy/helm/umbrella/charts/"
+
+measurements:
+  - claim: "предмет — 816f16ce, коммит b03b11845; change.yaml несёт 816f16ce; маршрут — 65b1d752; пакет после b03b11845 не тронут"
+    command: "sha256sum docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md; grep -n design_sha256 docs/changes/issue-2915/change.yaml; git log --oneline b03b11845..HEAD -- docs/changes/issue-2915 | wc -l"
+    result: "816f16ce…; 65b1d752…; design_sha256: 816f16ce…; 0"
+  - claim: "дельта — три файла пакета"
+    command: "git diff --stat 3f19e31ea b03b11845 -- docs/changes/issue-2915/"
+    result: "change.yaml, design.md (161 строка ±), tasks.md (19), плюс запись efff0ee7 (335)"
+  - claim: "опора «второй законный адрес» меняет объекты вне notify"
+    command: "scratchpad: git archive origin/1276 путей зонтика и file://-зависимостей; helm dependency build --skip-refresh .; helm template kacho . -f values.prod.yaml -f op.yaml [--set global.kacho.identity.smtp.connectionURI=smtps://relay-user@alt-smtp.example.org:465/]; diff"
+    result: "rc 0 / rc 0; 186 / 186 объектов; diff — 2 строки: `relay:` ConfigMap kaname и `kacho.cloud/config-checksum` Deployment kaname. Образец: smtps://relay-user@smtp.example.org:465/, credentialSecret kacho-mail-relay/password, fromAddress, fromName (форма М38)"
+  - claim: "читатель kaname есть на всех базах"
+    command: "git -C project/kacho grep -c 'relay: {{ $mailHost' <r> -- deploy/helm/umbrella/charts/kaname/templates/configmap.yaml; то же 'config-checksum' в deployment.yaml; r ∈ origin/2564, origin/1276, origin/main"
+    result: "1 и 1 на каждой"
+  - claim: "снятие одного ключа включает отказ стража зонтика"
+    command: "там же: helm template kacho . -f values.prod.yaml -f op.yaml --set global.kacho.identity.smtp.connectionURI=null"
+    result: "rc 1, `identity-mail-lane-guard.yaml:85:4` «адрес отправителя объявлен… узел… НЕ задан (…connectionURI пуст)»"
+  - claim: "при модели `required` notify в подчарте отказ notify выходит раньше стража зонтика"
+    command: "там же, charts/notify/templates/configmap.yaml с `required \"NOTIFY: …connectionURI required; or set global.kacho.notifications.enabled: false\"`; ×3 с op.yaml; ×1 с образцом без удостоверения; модель затем снята"
+    result: "4 из 4 — `kacho-umbrella/charts/notify/templates/configmap.yaml:6:39`. Модель, а не чарт D1: путь чарта notify после D1 (file://-зависимость → `charts/notify-*.tgz`) даёт ту же глубину, но это не замерено"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "порядок обхода на настоящем чарте notify после D1"
+    why: "чарта notify нет ни на одной ветке. На модели в настоящем зонтике отказ notify выходит первым, и условие CX1-97 сформулировано так, чтобы от этого порядка не зависеть"
+  - item: "какие шаблоны края отказывают на снятый ключ ручки прыжков (NTF-2 Е12 (9))"
+    why: "ручки `TRUSTED_HOPS` нет ни на одной ветке (запись efff0ee7), D6 NTF-2 не написан"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-96, CX1-97]
+orders:
+  - to: "acceptance-author (замысел NTF-1 и маршрут tasks.md)"
+    subject: "CX1-96 (а)–(г): читатели узла вне notify (kaname configmap, deployment) записаны замером; сравнение опоры — побайтное равенство кроме закрытого перечня с дословным различием и самоистечением; инъекция «исключение без исключаемого»; строка Е12 для D1 NTF-2. CX1-97 (а)–(д): утверждается путь отказывающего шаблона, перечень отказывающих на снятие адреса записан (страж :85, :122, notify), инъекция «страж первым» → НЕ ВЫПОЛНИЛОСЬ, фраза о порядке исправлена, та же форма в Е12 (9). N20 — к коду D1"
+    basis: ".claude/rules/change-graph.md §4; .claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» пп.1, 7; code-authoring §«Умолчание, которое становится утверждением», §«Инвариант и оснастка — это тоже прод-код»"
+  - to: "design author (NTF-2), к сведению"
+    subject: "CX1-96: полоса D1 NTF-2, снимающая `invite-mail` kaname, опустошает перечень исключений пробы образца NTF-1 (путь пробы — в её путях). CX1-97: держатель Е12 (9) утверждает путь отказывающего шаблона края, а не только имя ручки"
+    basis: ".claude/rules/architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-96, CX1-97"
+    basis: ".claude/rules/change-graph.md §4"
