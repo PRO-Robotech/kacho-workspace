@@ -1,0 +1,142 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a
+  revision: 18
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Шапка сама говорит, что действующий вердикт выводится из
+    внешнего события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не
+    к слову в заголовке.
+  content_commit: 2b11e7e8d22c42aff299cae917db33ce8ba946d6
+  content_commit_note: >-
+    Редакцию 18 внёс коммит 2b11e7e8d. Последняя разобранная редакция — 17 (6ea54f51…, коммит
+    3c759a980, запись круга 1 прохода RA-01 в коммите 81b1eb871). По Д22 судится только дельта
+    17 → 18: git diff 3c759a980 2b11e7e8d по документу — 52 вставки, 16 удалений.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4089
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T11:10:00Z'
+round: 2
+round_note: >-
+  Круг 2 прохода «RA-01». Действуют Д1–Д22 и принятое registerSharePause = 1. Редакция 18 отвечает
+  на возврат круга 1 (RA1-1, COVERAGE) и на два его неблокирующих (предикат функций базы и payload
+  NTF3-160 (б)).
+previous_rounds:
+  - round: 1
+    pass: RA-01
+    sha256: 6ea54f51c3293983c54382dbe35f962da2cf7af22ce176608669ab607e7b89fe
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/6ea54f51c3293983c54382dbe35f962da2cf7af22ce176608669ab607e7b89fe.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+repeated_kinds: []
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @2b11e7e8d
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует. Тело для курьера — в поле `event_body_for_courier`. Пока событие
+    не опубликовано, одобрение не действует: роль в этой записи — координата, а не полномочие.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2 прохода RA-01, блокирующих 0) ·
+    SHA-256 9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a
+
+measurement:
+  scenario_ids: 160
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 153
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 160; uniq -d → пусто.
+  producer_rows: >-
+    Строки §11 есть у всех 153 живых (диапазоны «..» раскрыты вручную там, где разбор скриптом их
+    не взял: 73..79, 117..122, 146..148, 46..48); строка NTF3-70 правлена на оба места nlb. В §10
+    добавлена строка NTF3-70 (инъекция (в)) с близнецом.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|yandex|\baws\b|\bgcp\b|azure|google cloud' <документ> → 0
+  census_reproduced_at_1d42a6728bf: >-
+    Все три предиката §1.13 повторены в project/kacho @1d42a6728bf. (1) Обход:
+    git grep 'INSERT INTO[^(]*(compute_outbox|vpc_outbox|nlb_outbox|registry_resource_journal|storage_outbox)'
+    по не-тестовому не-миграционному Go → 2, обе у nlb (repo/kacho/pg/outbox_emitter.go:37,
+    apps/kacho/jobs/free_ip_runner.go:487). Контроль в другую сторону: INSERT INTO по пяти модулям с
+    фильтром outbox|journal → 9; сверх двух — 7 вставок в иные очереди (compute audit.go:79;
+    compute outbox.go:115 — имя-переменная fgaRegisterOutboxTable, то есть fga_register_outbox; nlb
+    free_ip_runner.go:507 и fga_register_outbox_emitter.go:73; storage fga_register.go:58; vpc
+    repository.go:371; registry registry.go:542 — registry_outbox). Сходится. (2) Вызов функции
+    фундамента: outbox.EmitAnchored|outbox.Emit( → 4 строки, из них 2 — комментарии-шапки обёрток;
+    вызовов 2 (compute repo/outbox.go:52, vpc repo/helpers/outbox.go:60). Сходится. (3) Функции базы
+    по '*.sql' → 30 строк. Сходится. Эмиттер nlb прочитан: собственный литерал
+    `INSERT INTO kacho_nlb.nlb_outbox (resource_type, resource_id, project_id, action, payload)`;
+    corelib outbox/emit.go @34bc8104a пишет (resource_kind, resource_id, project_id, event_type,
+    payload) — расхождение столбцов, названное в §1.13, подтверждено и верно отнесено к замыслу (Д22).
+
+premise_check:
+  task_premise: >-
+    Задание: Д1–Д13 в wf_8cc21fed-1ec/journal.jsonl (поле prompt строки type=started), Д14–Д16 в
+    wf_f705806c-629/journal.jsonl. grep -c '"prompt"' по обоим журналам → 0 и 0. Посылка
+    опровергнута, как и в прошлых кругах. Д1–Д16 сверены по записям прошлых кругов, Д17–Д22 — по
+    тексту задания. Дельта 17 → 18 решений Д1–Д22 не касается, кроме Д22: условие к коду (как
+    сводятся столбцы журнала nlb с формой функции фундамента) отнесено к замыслу, в приёмке — только
+    наблюдаемое (счёт гейта, строки ленты).
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: стенд заданием не назван. Итог по посеву — «не выполнилось», а не «зелёный».
+    Конструируемость новых Given проверена чтением кода @1d42a6728bf. NTF3-160 (б), новый payload:
+    CreateListenerRequest несёт load_balancer_id=1, name=2, protocol=5 (Listener.Protocol, TCP=1),
+    port=6, target_group_id=12 (listener_service.proto); target_group_id — единственный вход привязки
+    группы (create.go:137; default_target_group_id на входе отвергается, create.go:134). Payload
+    строим. NTF3-70 (в): эмиттер nlb — реализация kacho.OutboxEmitter с литералом
+    (outbox_emitter.go:37); инъекция и её близнец конструируются правкой одного тела Emit.
+  confirmed:
+    - "RA1-1 закрыт. Перепись §1.13 ведётся в термине гейта NTF3-70: писатель на Go — вызов функции фундамента, литеральный INSERT в таблицу журнала в не-тестовом Go — обход, где бы он ни стоял. Счёт @1d42a6728bf: вызовов 2, обходов 2 (оба nlb) — воспроизведён."
+    - "Все места счёта правлены согласованно: §1.13 (таблица, итог, следствия 2 → 0), Р3, §7, NTF3-70, §10, §11, DoD 12.2. grep 'мимо эмиттера|у nlb одна|сегодня у nlb 1' по документу → 0 попаданий вне истории редакций."
+    - "NTF3-70 (в): инъекционная пара на эмиттере nlb — литерал красный, вызов функции фундамента зелёный; отличаются одним фактом. Строка §10 есть."
+    - "§7: путь эмиттера nlb теперь назван конструируемым публичным API с наблюдаемым (NTF3-160 (б), NTF3-68); неконструируемым остаётся только шаг доведения снятия — верно."
+    - "Неблокирующие круга 1: предикат функций базы сужен до '*.sql'; у NTF3-160 (б) и близнеца полный payload."
+    - "Счёт 160/7/153 сходится, гигиена 0."
+  refuted: []
+
+blocking_findings: []
+
+non_blocking_findings:
+  - "Термин §1.13 делит писателей на Go на два класса: вызов функции фундамента и ЛИТЕРАЛЬНЫЙ INSERT. Вставка в таблицу журнала именем-переменной (форма compute outbox.go:115, fmt.Sprintf с константой таблицы) не попадает ни в один из них. Сегодня таких вставок в журнал 0 — это измерено контролем §1.13, поэтому число верно. Но гейт после под-фазы на такой вставке должен быть красным, иначе он ловит только литерал. Предлагаю замыслу и автору гейта судить обход по узлу разбора (любой INSERT, чья цель — литерал таблицы журнала ИЛИ ссылка на объявление `Table` модуля, вне функции фундамента), а при следующей правке приёмки — букву (г) у NTF3-70 с этой формой и близнецом. Не блокирует: наблюдаемое сегодня определено, текст документа истинен."
+  - "Неблокирующие круга 1, не относящиеся к дельте, остаются в силе: согласование NTF3-62 (SQLSTATE 23502) с условием CX3B-25 (б) — строка к design-author; LB DELETED от сверщика — заказ integration-tester (CX3B-25 (в))."
+
+method_verdict: >-
+  Судилась только дельта 17 → 18 (Д22). RA1-1 закрыт: термин гейта определён в §1.13 с предикатом
+  в обе стороны, счёт в этом термине воспроизведён @1d42a6728bf (2 вызова, 2 обхода у nlb), все места
+  счёта правлены согласованно, у новой инъекционной пары (в) есть близнец и строка §10. Неблокирующие
+  круга 1 по дельте закрыты. Given новых мест конструируемы по коду; посевов не было — «не
+  выполнилось», в зелёное не зачитано. Блокирующих 0.
+
+route_signals:
+  proto: false
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: false
