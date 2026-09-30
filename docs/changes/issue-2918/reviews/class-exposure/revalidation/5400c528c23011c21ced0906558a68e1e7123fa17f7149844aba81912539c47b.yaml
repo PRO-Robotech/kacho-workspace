@@ -1,0 +1,399 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 12.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5, 3dbb8b23, b34a411e, 97c51264, f6809e98, 7bc43f21) относятся к своим отпечаткам и здесь не
+# переписываются. По Д22 это дельта: редакция 12 проверена диффом 9ef3435bc → 787e9cbd0 (design.md,
+# tasks.md, change.yaml). Проверено:
+#   (1) отображение CX3M-01, CX3M-02 пересверки 7bc43f21 и строки CX3L-02 (б), которая там не
+#       выдерживала для Worker; условия на код сверены с кодом corelib @34bc8104a, kacho @1d42a6728bf,
+#       kaname @734f69fb4;
+#   (2) радиус правки сигнатур NewWorker и NewReconciler — на ревизии, где правка случится по Д41, а не
+#       на ревизии замера (замыслы-соседи NTF-4 issue-2919, NTF-5 issue-2924 в той же рабочей копии);
+#   (3) существующие гейты дерева, распознающие снимаемый механизм (пакетный operations.Run);
+#   (4) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 12;
+#   (5) рёбра маршрута по Д41 (дельта рёбер не меняет — сверено).
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 5400c528c23011c21ced0906558a68e1e7123fa17f7149844aba81912539c47b
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 12
+  content_commit: 787e9cbd0
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/7bc43f217a351f7134b9b12f26a3f7400a978ad0e941a379654abd919e30654a.yaml
+  subject_revision: 11
+  outcome: к-замыслу
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34, Д37, Д40, Д41. Д22 — дельта. Д26 — заход отображения. Д41 (уточняет Д37): окна пина corelib
+    в kacho (0) v1.10.0 → (1) NTF-1 → (2) NTF-4 (S2-B1, S3-C2 issue-2919) → (3) X2-F NTF-3 → (4) TW
+    NTF-5; каждый тег corelib, поднимающий пин kacho, рёбрами не пересекается с окнами (1)–(2). Отсюда
+    следствие, которое эта запись разбирает как CX3N-01: подъём kacho на тег X3 происходит ПОСЛЕ посадки
+    S3-C2 issue-2919, то есть на дереве, где корень notify-api уже есть.
+revisions:
+  workspace: dd8e4e846   # HEAD issue-880 при замере; предмет — 787e9cbd0, отпечаток сверен
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a
+  kaname: 734f69fb4
+snapshot_at: 2026-09-30T17:19:55Z
+inspected: >-
+  Дифф редакции 11 → 12 целиком (коммит 787e9cbd0: design.md +110/−12, tasks.md +20/−8,
+  change.yaml). Раздел З16 «Где исполняются асинхронные операции модулей», З4 «Нулевые Options
+  отвергаются при сборке корня», классификатор З16, §7 п.4, §8, И28, строки §11 CX3L-02, CX3M-01,
+  CX3M-02, §11а УК3-55, УК3-59…61, замеры М22…М24; строки X3, X5, S1-A4, S3-C3, Е4 tasks.md. Замыслы
+  соседей: issue-2919/design.md (df1ce64d…) — М6, шаг 4 Р18 (строка 1055), tasks.md S3-C2;
+  issue-2924/design.md (c33e4a82…) — З4. Код corelib @34bc8104a: operations/worker.go (defaultRegistry,
+  NewWorker, Configure, Start, Wait, Stop, runOn, Run, RunWithWorker, RunSync, пакетные обёртки);
+  вызовы пакетного API и NewWorker/NewReconciler вне operations/ (0). Код kacho @1d42a6728bf: все
+  вызовы и упоминания operations.{Run,RunSync,ConfigureDefault,Start,Wait,Active,Ready,NewReconciler}
+  в services/, gateway/, internal/, pkg/; импорты corelib/operations под своим именем;
+  internal/repohygiene/lroreconciler_test.go (строки 74–136, 194–254). Код kaname @734f69fb4:
+  NewReconciler, ConfigureDefault, Start, число operations.Run. Приёмка не перечитывалась (дельта её
+  не касается). Стенд не поднимался. Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строки есть у всех 95 пунктов CX3 (`grep -c '^| CX3'` → 95 = 93 + CX3M-01, CX3M-02) и у 7 строк
+      ДР-. CX3L-02 (б) теперь выдерживает и для Worker. CX3M-01 (а), (в) и CX3M-02 выдерживают. Условие
+      CX3M-01 (б) по форме выдерживает, по радиусу нет. Шесть вызывающих NewReconciler в kacho
+      сосчитаны на 1d42a6728bf, а правка случится на дереве после посадки S3-C2 issue-2919 (Д41), где
+      корень notify-api — седьмой вызывающий (CX3N-01). Новые пункты CX3N-01…05 без отображения.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Новых сетевых вызовов нет: Worker корня и RunWithWorker работают в процессе."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: >-
+      Новых путей нет. Асинхронный путь исполнителя тот же (runOn → execute → terminalWrite), меняется
+      только владелец экземпляра Worker: пакетный реестр заменяет Worker корня. Следствия смены
+      владельца для существующего гейта разобраны как CX3N-02, для нулевого *Worker — как CX3N-04.
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: >-
+      Новых значений нет. Отказ NewWorker и NewReconciler на нулевом FailedNotify замысел именованным
+      значением не заводит. Для классификации отказа старта именованное значение и не нужно: корень
+      оборачивает ошибку именем службы и не стартует. Значения метки `cause` (`options_unset`,
+      `initiator`) — строки классификатора CX3M-02 (в), а не sentinel.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: "Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md)."
+
+clean: false
+
+execution_check:
+  summary: "заказ автору 7bc43f21 исполнен; заказы integration-tester перенесены в §11а (УК3-59…61)"
+  items:
+    - id: "orders.design-author CX3M-01 (7bc43f21)"
+      verdict: done
+      where: "З16 «Где исполняются асинхронные операции модулей», «Одно значение подключения», §7 п.4, §8, И28; X3, X5, S3-C3"
+      note: >-
+        Выбран вариант «Worker корня и RunWithWorker». Ленивый старт с нулевым значением невыразим:
+        NewWorker(FailedNotify{}) объекта не отдаёт. Радиус правки NewReconciler назван на ревизии замера,
+        а не на ревизии правки — CX3N-01.
+    - id: "orders.design-author CX3M-02 (7bc43f21)"
+      verdict: done
+      where: "З4 «Нулевые Options отвергаются при сборке корня», классификатор З16, строка §11 CX3M-02, S1-A4"
+    - id: "orders.integration-tester близнецы УК3-55 (1), (2), инъекция в корень registry; близнец УК3-12 для CX3M-02 (а) (7bc43f21)"
+      verdict: carried
+      where: "§11а УК3-59, УК3-60, УК3-61"
+    - id: "orders.integration-tester заказы f6809e98, 3dbb8b23, ac1f9fc9, 374789b5"
+      verdict: carried
+      where: "§11а (без изменений в дельте)"
+
+mapping_check:
+  summary: "95 из 95 пунктов CX3 имеют строку; CX3M-01 (б) выдерживает по форме и не выдерживает по радиусу; 7 из 7 строк ДР- выдерживают"
+  holds_now:
+    - id: "CX3L-02 (б)"
+      reason: >-
+        Worker, исполняющий асинхронные операции модулей, теперь строит корень:
+        NewWorker(FailedNotify, …) (*Worker, error). Все 54 вызова пакетного Run переходят на
+        RunWithWorker с этим Worker. Нулевое значение отвергает конструктор, который на рабочем пути есть.
+    - id: "CX3M-01 (а)"
+      reason: >-
+        Пересчитал сам. Вызовов operations.Run первым оператором строки в не-тестовом Go пяти модулей 54
+        (compute 1, nlb 13, registry 11, storage 12, vpc 17). Остальные совпадения с `operations.Run` —
+        комментарии и документация (перечислены в measurements). Пакетный API вне services/ в kacho не
+        зовётся, в corelib вне operations/ — тоже (0 и 0). Значит, рабочих путей, остающихся на
+        пакетном реестре после S3-C3, в пяти модулях нет. Вызывающие на обёртках (compute
+        shared/lro/runop.go) переходят вместе с обёрткой. Пакетный реестр со строкой NoFailedSender —
+        исход, а не умолчание. Условие к коду переносится: неэкспортированный путь сборки пакетного
+        реестра параметра FailedNotify не принимает, строится только с NoFailedSender, и NewWorker
+        доходит до него только после проверки. Держит УК3-60 (сравнение значения пакетного реестра).
+    - id: "CX3M-01 (в)"
+      reason: >-
+        Корни registry (сегодня только пакетный Wait, serve.go:675) и geo (Run 0) названы поимённо в
+        З16, S1-A4, S3-C3. Ready Worker корня registry впервые попадает в готовность registry, и это
+        названо.
+    - id: "CX3M-02 (а)–(в)"
+      reason: >-
+        Держатели Options принимают их позиционно, функциональной опции нет, отказ — при сборке корня. На
+        пути запроса отказ идёт веткой по умолчанию маппера, то есть фиксированным INTERNAL.
+        Классификатор различает два отказа Begin через errors.Is. Держатели — X1, УК3-61,
+        TestErrorMappersTailReturnsAFixedText.
+    - id: "CX3L-01, CX3L-03…05, ДР-К1…ДР-М1 и 88 пунктов прежних разборов"
+      reason: "Дельта их не меняет (сверено по диффу: правлены только строки CX3L-02, добавлены CX3M-01, CX3M-02)."
+  not_holding:
+    - id: "CX3M-01 (б) — радиус правки NewReconciler"
+      reason: >-
+        Замысел (З16, строка CX3M-01, X5, М24) называет шесть вызывающих в kacho
+        (services/{compute,geo,nlb,registry,storage,vpc}/cmd/*/recovery.go) и один в kaname. Предикат X5:
+        `git grep -nE 'operations\.NewReconciler\(' -- ':!*_test.go'` в kacho → 6. Число верно для
+        1d42a6728bf. Но по Д41 тег X3 поднимается в kacho только после посадки S3-C2 issue-2919
+        (колонка рёбер X3), а S3-C2 issue-2919 заводит корень notify-api со «сверщиком операций»
+        (issue-2919/tasks.md строка S3-C2; issue-2919/design.md шаг 4 Р18: «разрешает сверщик операций
+        operations.NewReconciler в корне notify-api, как у шести служб kacho»). На ревизии подъёма
+        вызывающих 7. Смена сигнатуры ломает сборку notify-api. Пути X5 его не называют, а предикат «→ 6»
+        краснеет на верном дереве. См. CX3N-01.
+  unmapped: [CX3N-01, CX3N-02, CX3N-03, CX3N-04, CX3N-05]
+
+new_items:
+  - id: CX3N-01
+    decision: "смена сигнатуры operations.NewReconciler тегом X3; правка вызывающих подъёмом X5 (З16, X5, М24)"
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения»; code-authoring §«Контракт, который нельзя выразить» (перечень входных поверхностей)"
+    exposure: >-
+      Радиус сигнатурной правки измерен на ревизии замера, а применяется на ревизии подъёма пина, между
+      которыми по Д41 садятся окна (1)–(2). Одно из них (S3-C2 issue-2919) добавляет вызывающего. Исходы
+      на реализации: подъём X5 не собирается (notify-api), либо полоса X5 правит седьмого вызывающего вне
+      своих путей, либо под давлением «→ 6» кто-то правит предикат. К тому же у notify-api нет решения,
+      какое значение FailedNotify он получает. notify — не подключённый модуль, и по смыслу ему положен
+      NoFailedSender, но замысел этого не говорит.
+    code_condition: >-
+      (а) X5 правит ВСЕХ вызывающих NewReconciler в kacho на ревизии подъёма на тег X3. Предикат — не
+      константа, а равенство двух чисел на этой ревизии: число вызовов `operations.NewReconciler(` вне
+      тестов = число тех, что несут явный `operations.NoFailedSender` либо `NewFailedNotify(…)` и
+      проверку ошибки. Значение на 1d42a6728bf (6) остаётся справкой. (б) В пути X5 включён корень
+      notify-api (`services/notify/cmd/notify-api/**` либо корень, который назовёт NTF-4 по
+      `notify_api_root`). Решено поимённо: notify-api получает `operations.NoFailedSender`, потому что
+      notify в список пяти подключённых модулей не входит. (в) Если на ревизии подъёма корень notify-api
+      NewReconciler не зовёт (см. противоречие NTF-4 и NTF-5 в facts_for_dispatcher), (а) даёт верный
+      исход без правки замысла, так что условие не зависит от того, чей текст победит.
+    held_by: >-
+      Сборка kacho на ревизии подъёма (`go build ./...` X5) ловит пропуск вызывающего сама, громко.
+      Предикат (а) ловит вызывающего, собранного без явного значения. Гейт не нужен, но нужна правка
+      предиката и путей X5.
+    outcome: к-замыслу
+  - id: CX3N-02
+    decision: "54 вызова пакетного operations.Run пяти модулей → RunWithWorker (З16, S3-C3)"
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код»; measurement-discipline §«Радиус: по имени механизма и по точкам применения»"
+    exposure: >-
+      Действующий гейт TestEveryServiceWithAsyncMutationsResolvesOrphanedOperations
+      (internal/repohygiene/lroreconciler_test.go) опознаёт «сервис с асинхронными мутациями» ровно по
+      вызову пакетного `Run` в services/<svc>/internal: callsOperationsFunc(…, "Run"), строка 97. После
+      S3-C3 такой вызов не делает ни один модуль, asyncServices пуст, и гейт падает на строке 133 («ни
+      один сервис не зовёт operations.Run — предпосылка распознавания сломана»). Падение громкое, но
+      файла гейта нет ни в путях S3-C3, ни в §4 замысла. Полоса упрётся в красный на чужом гейте, и
+      самый короткий «ремонт» — заменить «Run» на «RunWithWorker» либо ослабить предпосылку — не
+      разобран. Промежуточное состояние (часть модулей уже на RunWithWorker) тише: мигрировавшие модули
+      молча выпадают из требования «есть NewReconciler», пока хоть один модуль зовёт Run.
+    code_condition: >-
+      (а) S3-C3 включает internal/repohygiene/lroreconciler_test.go в пути. Распознаватель асинхронного
+      запуска — набор {Run, RunWithWorker}, а не замена одного имени другим: модуль, вернувшийся на
+      пакетный Run, остаётся асинхронным для этого гейта, даже когда его уже поймал УК3-59. Печать
+      объёма называет, каким именем опознан каждый сервис. (б) Инъекция — снять NewReconciler в корне
+      registry при RunWithWorker в use-case → красный с именем registry; близнец — на месте → зелёный.
+      (в) Предпосылка «ни одного асинхронного сервиса → Fatal» сохраняется без ослабления.
+    held_by: "сам гейт lroreconciler (краснеет громко); после правки (а) — его же инъекция (б). Заказ integration-tester на (б)."
+    outcome: к-замыслу
+  - id: CX3N-03
+    decision: "гейт УК3-59 — запрет пакетного API operations в пяти модулях по узлу вызова с селектором пакета operations"
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (судить по идентичности, а не по имени)"
+    exposure: >-
+      В дереве пяти модулей пакет corelib/operations импортируется и под своим именем: `opmetrics` в
+      4 файлах (compute, nlb, vpc — internal/observability/metrics/metrics.go; ещё один у geo). Селектор
+      с буквальным именем «operations» не видит `opmetrics.Run(…)`, и гейт молча недосчитывает, а его
+      запрет — ровно то место, где молчание дороже всего (CX3M-01: модуль на пакетном реестре молча не
+      подключён). Действующий соседний гейт (lroreconciler_test.go) эту ловушку уже решил: имя пакета
+      он берёт из объявления импорта.
+    code_condition: >-
+      УК3-59 определяет локальное имя пакета по объявлению импорта (оба суффикса пути — как
+      operationsImportSuffixes соседнего гейта; лучше общий помощник, а не копия). Инъекция: файл
+      use-case с `ops "github.com/PRO-Robotech/corelib/operations"` и `ops.Run(…)` → красный с
+      координатой. Близнец — тот же импорт и `ops.RunWithWorker(w, …)` → зелёный. Точечный импорт
+      (`. ".../operations"`) — находка сам по себе.
+    held_by: "инъекция в УК3-59 — заказ integration-tester"
+    outcome: к-коду
+  - id: CX3N-04
+    decision: "Worker корня передаётся в use-case; RunWithWorker(w, …) (З16, S3-C3)"
+    class: "code-authoring §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      RunWithWorker разыменовывает w без проверки (worker.go:628–630 → runOn:331). nil *Worker в
+      use-case — паника на первом асинхронном RPC на пути запроса, а не отказ старта. Её ловит
+      recover-перехватчик gRPC, если он есть, и клиент видит INTERNAL без созданной операции либо с
+      осиротевшей строкой. Замысел ставит отказ в «конструктор набора use-case модуля». Но у модулей
+      асинхронные use-case раскиданы по ресурсам (54 вызова в десятках файлов), и «набор» — не одно
+      место. Держателя у отказа на nil нет: УК3-60 проверяет нулевое FailedNotify, а не nil Worker.
+    code_condition: >-
+      (а) *operations.Worker приходит в use-case одним значением зависимостей модуля, которое корень
+      собирает один раз и проверяет на nil один раз, до приёма трафика. Каждый конструктор, берущий Worker
+      не из этого значения, проверяет nil сам и отказывает с именем use-case. (б) Тестовые фикстуры
+      модулей получают Worker тем же путём (NewWorker(NoFailedSender)), а не nil «для простоты».
+    held_by: >-
+      Близнец УК3-60 — корень модуля с nil Worker в зависимостях → отказ старта с именем службы. Для
+      (б) — вниманием по диффу: однофайлового признака без разбора потока значений нет.
+    outcome: к-коду
+  - id: CX3N-05
+    decision: "пакетный реестр снимается с пяти модулей (З16, И28)"
+    class: "doc-truthfulness §«Утверждение, пережившее свой предмет» (скилл doc-truthfulness)"
+    exposure: >-
+      В пяти модулях 45 строк прозы описывают пакетный реестр как текущее устройство: 30 в не-Go файлах
+      (docs/content/*/operations.mdx, docs/engineering/ARCHITECTURE.md, 09-go-skills-applied.md:99
+      «operations.Run использует pkg-level registry», observability.mdx:251, newman
+      PRODUCT-REQUIREMENTS.md) и 15 в Go-комментариях (например, nlb listener/*.go, vpc network/create.go:187).
+      После S3-C3 они становятся ложью о модуле, и ни S3-C3, ни S3-C5 их не называет. Гейт УК3-59 по
+      замыслу комментарии и документацию намеренно не судит.
+    code_condition: >-
+      S3-C3 (комментарии Go тем же изменением, что код) и S3-C5 (страницы и инженерные документы)
+      переписывают упоминания пакетного API пяти модулей на Worker корня и RunWithWorker. Предикат
+      полосы: `git grep -nE '\boperations\.(Run|ConfigureDefault|Start|Wait|Active|Ready)\b' --
+      services/{compute,nlb,registry,storage,vpc} ':!*_test.go'` → 0 либо каждое оставшееся — с причиной
+      (например, исторический раздел known-divergences, прямо названный историческим). Help-строки
+      метрик «(operations.Active())» — тоже упоминание.
+    held_by: "предикат полосы S3-C3/S3-C5; гейта нет и не будет — проза не судится разбором Go; держится вниманием при сдаче полосы с напечатанным числом"
+    outcome: к-коду
+
+measurements:
+  - claim: "отпечаток предмета — редакция 12"
+    command: "sha256sum docs/changes/issue-2918/design.md (HEAD dd8e4e846); git log -1 -- docs/changes/issue-2918/design.md"
+    result: "5400c528… ; последний коммит файла — 787e9cbd0"
+    control: "запись 7bc43f21 — предмет прежней пересверки, другой отпечаток"
+  - claim: "вызовов пакетного Run в коде пяти модулей 54; остальные совпадения — проза"
+    command: >-
+      git -C kacho grep -nE '\boperations\.Run\(' 1d42a6728bf -- 'services/*' ':!*_test.go' (по модулю, все позиции);
+      то же с отсевом строк, где `operations.Run(` стоит первым оператором
+    result: "все позиции: compute 5, geo 1, nlb 13, registry 11, storage 12, vpc 22; первым оператором: compute 1, nlb 13, registry 11, storage 12, vpc 17, geo 0 — 54, как М22"
+    control: "разница — 10 строк, каждая просмотрена: комментарии (runop.go:17, network/create.go:187, geo metrics.go:17,128) и документация (.md/.mdx/.py); вызовов в них нет"
+  - claim: "вне services/ пакетный API не зовётся"
+    command: >-
+      git -C kacho grep -nE '\boperations\.(Run|ConfigureDefault|Start|Wait|Active|Ready)\(' 1d42a6728bf -- ':!*_test.go';
+      git -C corelib grep -nE '\boperations\.(Run|ConfigureDefault|Start|Wait|Active|Ready|RunSync)\(' 34bc8104a -- ':!*_test.go' ':!operations/*'
+    result: "kacho — только services/{compute,geo,nlb,registry,storage,vpc}; corelib вне operations/ — 0; defaultRegistry вне worker.go — 0"
+    control: "gateway и internal импортируют пакет (3 и 1 файл), но пакетный API не зовут"
+  - claim: "на ревизии подъёма тега X3 вызывающих NewReconciler в kacho будет 7, не 6"
+    command: >-
+      колонка рёбер X3 tasks.md («тег — S3-C2 issue-2919 посажена»); grep -n 'сверщик операций'
+      docs/changes/issue-2919/tasks.md (строка S3-C2); sed -n 1054,1056p docs/changes/issue-2919/design.md
+    result: >-
+      X3 — после S3-C2 issue-2919 (Д41). S3-C2 issue-2919 несёт «корень notify-api … сверщик операций».
+      Замысел NTF-4, шаг 4 Р18: «операцию разрешает сверщик операций operations.NewReconciler в корне
+      notify-api, как у шести служб kacho (М6)»
+    control: "на 1d42a6728bf в kacho 6 вызывающих (cmd/*/recovery.go), services/notify нет (ls-tree services/)"
+  - claim: "действующий гейт lroreconciler опознаёт асинхронный сервис только по пакетному Run"
+    command: "git -C kacho show 1d42a6728bf:internal/repohygiene/lroreconciler_test.go | sed -n 95,103p; sed -n 130,136p"
+    result: "callsOperationsFunc(t, …/internal, \"Run\") — строка 97; пустой asyncServices → t.Fatal, строка 133"
+    control: "имя пакета гейт берёт из объявления импорта (шапка файла) — поэтому он не слеп к opmetrics, в отличие от УК3-59 в редакции замысла"
+  - claim: "пакет operations импортируется под своим именем"
+    command: "git -C kacho grep -nE '^\\s*[A-Za-z_]+\\s+\"github.com/PRO-Robotech/corelib/operations\"' 1d42a6728bf -- 'services/*' ':!*_test.go'"
+    result: "4 файла, все `opmetrics`: compute, geo, nlb, vpc — internal/observability/metrics/metrics.go"
+    control: "в пяти подключённых модулях таких файлов 3 (compute, nlb, vpc); geo вне гейта УК3-59"
+  - claim: "RunWithWorker на nil паникует"
+    command: "git -C corelib show 34bc8104a:operations/worker.go | sed -n 628,631p; grep -n 'func (w \\*Worker) runOn'"
+    result: "RunWithWorker → w.runOn(…) без проверки; runOn — метод с разыменованием полей Worker (строка 331)"
+    control: "пакетный Run ходит в defaultRegistry, не nil по построению — класса сегодня нет, его вносит перевод"
+  - claim: "прозы о пакетном API в пяти модулях 45 строк"
+    command: >-
+      git -C kacho grep -nE '\boperations\.(Run|Wait|Active|Ready|Start|ConfigureDefault)\b' 1d42a6728bf --
+      services/{compute,nlb,registry,storage,vpc} ':!*_test.go' — без строк Go-кода; отдельно ':!*.go'
+    result: "45 строк; из них в не-Go файлах 30, комментарии Go — 15"
+    control: "строки кода (вызовы) в счёт не вошли; единица — строка файла, ревизия 1d42a6728bf"
+  - claim: "kaname: вызывающий NewReconciler 1, пакетный реестр настраивается"
+    command: "git -C kaname grep -nE 'operations\\.(NewWorker|NewReconciler|ConfigureDefault|Start|RunWithWorker)\\(' 734f69fb4 -- ':!*_test.go'"
+    result: "recovery.go:35 NewReconciler; serve.go:492 ConfigureDefault, :498 Start; NewWorker 0 — совпадает с М24"
+    control: "operations.Run вне тестов и комментариев — 38 (М24 — 38)"
+  - claim: "строк отображения 102; маршрут рёбер не менял"
+    command: "grep -c '^| CX3' design.md; grep -c '^| ДР-' design.md; git diff 9ef3435bc 787e9cbd0 -- docs/changes/issue-2918/tasks.md"
+    result: "95; 7. Колонки рёбер X1…X5, X2-F, S1-A4, S3-C3 не тронуты; X5 правлена в тексте и предикате"
+    control: "Е6 tasks.md — ребро X2-F → S3-C2 issue-2919 на месте (строка X2-F), рёбра X1, X2, X3 → S3-C2 issue-2919 на месте"
+
+not_measurable:
+  - >-
+    Зовёт ли корень notify-api NewReconciler на ревизии подъёма, решит посадка NTF-4. Замысел NTF-4
+    (df1ce64d…, шаг 4 Р18, tasks S3-C2) говорит «да». Замысел NTF-5 (c33e4a82…, З4, CX5-35 (в))
+    утверждает «ни notify-api, ни notify-sender не зовут operations.NewReconciler». Число 6 или 7 здесь
+    не измерить: корня ещё нет в дереве. Условие CX3N-01 (а) сформулировано так, чтобы от этого не
+    зависеть.
+  - >-
+    Сколько конструкторов use-case в пяти модулях получат *Worker (CX3N-04), зависит от раскладки,
+    которую выберет реализация. Сегодня Worker никуда не передаётся. Нижняя граница — число файлов с
+    вызовом Run; её я не считал, потому что вывод от неё не меняется.
+
+facts_for_dispatcher:
+  - >-
+    CX3N-01. По Д41 тег X3 поднимается в kacho после посадки S3-C2 issue-2919, а та заводит корень
+    notify-api с operations.NewReconciler (замысел NTF-4). Поэтому смена сигнатуры NewReconciler ломает
+    сборку notify-api, которого нет ни в путях X5, ни в предикате «→ 6».
+  - >-
+    Замыслы NTF-4 (issue-2919, шаг 4 Р18: «сверщик операций operations.NewReconciler в корне
+    notify-api») и NTF-5 (issue-2924, З4: «ни notify-api, ни notify-sender не зовут
+    operations.NewReconciler») противоречат друг другу в одном факте о корне notify-api. Предмет не этой
+    записи, но от него зависит радиус X5 NTF-3.
+  - >-
+    CX3N-02. Перевод 54 вызовов на RunWithWorker уронит действующий гейт
+    TestEveryServiceWithAsyncMutationsResolvesOrphanedOperations: он опознаёт асинхронный сервис только
+    по пакетному Run. Гейта нет в путях S3-C3. Падение громкое, риск в том, как его «починят».
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: [CX3N-01, CX3N-02, CX3N-03, CX3N-04, CX3N-05]
+not_holding_items: ["CX3M-01 (б) — радиус правки NewReconciler"]
+new_items_without_mapping: [CX3N-01, CX3N-02, CX3N-03, CX3N-04, CX3N-05]
+open_decisions: []
+
+orders:
+  - to: design-author (acceptance-author, база §12)
+    what: >-
+      CX3N-01: в З16 («подъём пина на тег X3 ломает сборку…»), строке CX3M-01 (б), М24 и строке X5
+      заменить «шесть в kacho» и предикат «→ 6» равенством двух чисел на ревизии подъёма. Включить корень
+      notify-api в пути X5 и поимённо дать ему NoFailedSender. CX3N-02: внести
+      internal/repohygiene/lroreconciler_test.go в пути S3-C3 и §4. Распознаватель — {Run, RunWithWorker},
+      предпосылка без ослабления, инъекция в корень registry. CX3N-03…05 внести строками §11 с
+      держателями, CX3N-05 — предикатом S3-C3/S3-C5.
+    basis: "measurement-discipline §«Радиус: по имени механизма и по точкам применения»; code-authoring §«Инвариант и оснастка — это тоже прод-код»; change-graph.md §4"
+  - to: integration-tester
+    what: >-
+      (1) Инъекция гейта lroreconciler после расширения распознавателя: RunWithWorker в use-case registry
+      и снятый NewReconciler в корне registry → красный с именем registry; близнец → зелёный. (2) УК3-59:
+      инъекция с импортом corelib/operations под своим именем (`ops.Run`) → красный; близнец
+      `ops.RunWithWorker` → зелёный. (3) Близнец УК3-60: nil *Worker в зависимостях корня → отказ старта с
+      именем службы.
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; §«Инъекция настоящим входом из дерева с законным близнецом»"
+  - to: integration-tester
+    what: "заказы записей 7bc43f21 (УК3-59…61), f6809e98 (УК3-58, близнецы УК3-54, УК3-55), 3dbb8b23, ac1f9fc9, 374789b5 остаются в силе"
+    basis: "gate-authoring §«Отрицание только в паре с положительным»"
+  - to: go-implementer (полоса X5 NTF-3)
+    what: "заказ записи 97c51264 (проверка `git tag --contains <X2-F>` перед каждым подъёмом пина) остаётся в силе"
+    basis: "design.md З10 «Посадка» п.4"
+  - to: acceptance-author (замыслы NTF-4 issue-2919, NTF-5 issue-2924)
+    what: "свести противоречие о вызове operations.NewReconciler корнем notify-api (NTF-4 шаг 4 Р18 против NTF-5 З4, CX5-35 (в))"
+    basis: "doc-truthfulness §«Два места об одном предмете, где одно верно»"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат, не заводится. «Радиус сигнатурной правки измерен на ревизии замера, а правка происходит на
+  ревизии после посадки соседнего окна, которое добавляет вызывающих» (CX3N-01). Родственное
+  наблюдение — М21 этого же замысла: подъёмы пина другими эпиками, тоже межзамысловое упорядочение. Но
+  это тот же замысел и тот же эпик, то есть не независимое место. Цена прогоном не измерена (сборка
+  упала бы громко). Порог §9 не пройден, это находка. Если вторая независимая встреча случится,
+  владелец по противоядию — measurement-discipline (радиус берётся на ревизии применения).
