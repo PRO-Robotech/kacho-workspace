@@ -12,15 +12,15 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
-# Вердикт по отпечатку: CHANGES_REQUESTED, круг 2 (запись docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078.yaml).
-# Замысел — `design.md` редакции 5 (2026-09-30) по приёмке на отпечатке
-# 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1 (APPROVED, круг 4 прохода Д14–Д16);
-# отпечаток замысла — `hashes.design_sha256`; вердикта на него нет. Редакции 1 (f21384ed…),
-# 2 (2886b89f…) и 3 (c3e37381…) — пересверки разбора классов «вернуть в приёмку»
-# (reviews/class-exposure/revalidation/{f21384ed…,2886b89f…,c3e37381…}.yaml). Маршрут работ — `tasks.md`
-# (проект; TASKS_READY им не объявлено). `hashes.acceptance_sha256` ниже ещё несёт отпечаток
-# редакции 8 — его перевод на 9098d6ef… вместе со свидетельствами — полоса пакета изменения.
+# СОСТОЯНИЕ ISSUE_READY — действующее APPROVED на текущий отпечаток приёмки есть (редакция 13,
+# круг 2: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml),
+# но событие одобрения не опубликовано (event.status: not_performed) — переход состояния не наступил.
+# Первичный разбор классов на этот отпечаток — reviews/class-exposure/initial/ef9c6801….yaml
+# (к-замыслу, CX2-37…44). Замысел — `design.md` редакции 6 (2026-09-30), отпечаток —
+# `hashes.design_sha256`; вердикта на него нет, пересверки на него нет. Прежние пересверки —
+# на редакции 1 (f21384ed…), 2 (2886b89f…), 3 (c3e37381…) и 5 (cc7bdad1…)
+# (reviews/class-exposure/revalidation/<sha>.yaml). Маршрут работ — `tasks.md`
+# (проект; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2917
 lifecycle_state: ISSUE_READY
@@ -51,8 +51,8 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
-  design_sha256: cc7bdad1c55489347978ba2414d471b2a9637088c946bedf9527798074349fda
+  acceptance_sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+  design_sha256: cc42ace6f27ce2c95c6bbf79f7dc561774a429015725dcadb9f99d99136358e4
   holders_sha256: 495ef143740f049d885ec10fbbce2975a95d3c3ee2de36b632a5af15730a3bca
 
 links:

@@ -11,11 +11,32 @@ SPDX-License-Identifier: BUSL-1.1
 > Наблюдаемое поведение здесь не описывается и не переопределяется: его единственный
 > владелец — приёмка. Порядок работ — `tasks.md` рядом.
 >
-> **Редакция 5 · 2026-09-30.** Вердикта на неё нет; действующий вердикт выводится из записи
+> **Редакция 6 · 2026-09-30.** Вердикта на неё нет; действующий вердикт выводится из записи
 > ревью на отпечаток этого файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки
 > разбора классов (`reviews/class-exposure/revalidation/<sha256>.yaml`).
 >
-> **Что изменилось против редакции 4** (`ec65427a…`; исполнены два оставшихся заказа пересверки
+> **Что изменилось против редакции 5** (`cc7bdad1…`; замысел переведён на одобренную редакцию 13
+> приёмки `ef9c6801…` и на первичный разбор классов по ней —
+> `reviews/class-exposure/initial/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml`,
+> пункты CX2-37…44):
+> - К1 и К2 сняла приёмка, а не замысел (§0.1). У kaname служебного принципала нет: З21 переписано
+>   под исключение NTF-1 Р3 — лента kaname авторизуется сертификатом её сервера, `ResolveSend` по
+>   пространству `kaname` не зовётся, манифест несёт только `readers: [notify]`. Строка §9 про
+>   `ResolveSend` для kaname снята. Отказ флага — текст и `reason` corelib (З3);
+> - новые решения по CX2-37…44: SAN сервера ленты — из одной декларации без умолчаний, флаг без mTLS
+>   — отказ рендера (З21); сервер ленты — на существующем внутреннем слушателе, кортежей субъекта
+>   kaname в дереве 0 (З21); в полосе формы — ветка для статуса corelib, поля берутся из самого
+>   статуса (З3); гейт NTF2-54 — на загрузчике `internal/check`, проверка флага — прямой вызов
+>   функции пакета `mail`, а не порт (З3); граница приглашений — идентификатор сгенерированного
+>   пакета (З19); снятие окна по источнику — по имени механизма (З7); одноразовость доказательства
+>   и `Admit` — одна транзакция (З8, З9); у ограничителя свой пул с ограниченным ожиданием
+>   соединения (З8);
+> - условие к коду пересверки `cc7bdad1…` вписано в З13: гашение ждёт работ обоих классов
+>   диспетчера (классы — внутри одного диспетчера, одно ожидание);
+> - опоры на NTF-1 перепроверены по одобренной редакции 16 `390b5a33…` (§0.2, новое О6). Е1–Е4 и Е9
+>   сняты редакцией 13 приёмки; Е10 по решению диспетчера Д19 — предмет NTF-1 (§13).
+>
+> **Что изменилось в редакции 5 против редакции 4** (`ec65427a…`; исполнены два оставшихся заказа пересверки
 > на редакцию 3 и решение диспетчера по вопросу редакции 4):
 > - `registerSharePause = 1` принят решением диспетчера (З14): доступность входа и восстановления
 >   под потоком регистрации важнее пропускной способности регистрации;
@@ -70,63 +91,67 @@ SPDX-License-Identifier: BUSL-1.1
 
 | вход | координата | отпечаток / ревизия | состояние |
 |---|---|---|---|
-| приёмка NTF-2 | `docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md` | `9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1` (редакция 11) | `APPROVED`, запись `docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/9098d6ef….yaml`; событие одобрения не опубликовано (`event.status: not_performed`) |
-| первичный разбор классов | `docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef….yaml` | тот же отпечаток | `к-коду`, возврата в приёмку нет; пункты CX2-01…27 |
+| приёмка NTF-2 | `docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md` | `ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f` (редакция 13) | `APPROVED`, круг 2, запись `docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c6801….yaml`; событие одобрения не опубликовано (`event.status: not_performed`). Прежняя опора — редакция 11 `9098d6ef…` (`APPROVED`); одобрение редакции 11 на редакцию 13 не переносилось |
+| первичный разбор классов на редакцию 13 | `docs/changes/issue-2917/reviews/class-exposure/initial/ef9c6801….yaml` | отпечаток приёмки `ef9c6801…` | `к-замыслу`, возврата в приёмку нет; новые пункты CX2-37…44 (дифф редакций 11 → 13); CX2-01…36 не повторены |
+| первичный разбор классов на редакцию 11 | `docs/changes/issue-2917/reviews/class-exposure/initial/9098d6ef….yaml` | отпечаток приёмки `9098d6ef…` | `к-коду`, возврата в приёмку нет; пункты CX2-01…27 |
 | пересверка разбора на редакцию 1 | `docs/changes/issue-2917/reviews/class-exposure/revalidation/f21384ed….yaml` | отпечаток редакции 1 замысла | `вернуть-в-приёмку`; пункты CX2-28…33; заказы замыслу исполнены редакцией 2 (§11), приёмочные Е1–Е4 — §13 |
 | пересверка разбора на редакцию 2 | `docs/changes/issue-2917/reviews/class-exposure/revalidation/2886b89f….yaml` | отпечаток редакции 2 замысла | `вернуть-в-приёмку`; CX2-21 не выдерживает; новые пункты CX2-34, CX2-35; условия к коду CX2-05, CX2-11; заказы замыслу исполнены редакцией 3 (§11), приёмочные Е3, Е4, Е9 — §13 |
 | пересверка разбора на редакцию 3 | `docs/changes/issue-2917/reviews/class-exposure/revalidation/c3e37381….yaml` | отпечаток редакции 3 замысла | `вернуть-в-приёмку`; новый пункт CX2-36 — отображён редакцией 4 (З13, З14, §11); условие к коду CX2-35 (уровень изоляции транзакции работы окна) и заказ по §0 (действующее одобрение NTF-1 — `05828e42`) исполнены редакцией 5 (З11, §0.2) |
-| приёмка NTF-1 (ядро) | `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md` | `05828e42f3f5bce888a7dad5e7ada2d77ef538a37490075d53c12e0772f22130` (редакция 13; текст — `git show 5f3851113:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`) | `APPROVED`, круг 3 (запись `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/05828e42….yaml`, коммит `46e2a3819`; событие не опубликовано) — **последняя** запись `APPROVED` в каталоге записей NTF-1 на момент правки. Прежние одобрения — `d524e7bd…` (редакция 10), `530e2296…`, `b347b81f…`. После неё в ветке — редакция 14 `7d8558303e8de0fdc2658a23f41da69b974fcf9f478d77646141f96ca380c053` (коммит `f25be4887`, вердикта нет): замысел на неё не опирается. К1 и К2 (§0.1) на `05828e42` не сняты (М31). Опоры замысла на NTF-1 перепроверены по `05828e42` — §0.2. Поставщик `corelib notify/feed`, `notify/spec`, `notifygen`, звена идентичности служб, сервера ленты, `ResolveSend` |
+| пересверка разбора на редакцию 5 | `docs/changes/issue-2917/reviews/class-exposure/revalidation/cc7bdad1….yaml` | отпечаток редакции 5 замысла | `вернуть-в-приёмку` (К1, К2 — сняты затем редакцией 13 приёмки, §0.1); 36 из 36 отображены; условие к коду «гашение ждёт работ обоих классов диспетчера» — исполнено редакцией 6 (З13) |
+| приёмка NTF-1 (ядро) | `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md` | `390b5a33368bc84b6d0b9351a85413d91bdab031c893391fa23ae5132c6b524e` (редакция 16; текст — `git show 9636eb28f:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`) | `APPROVED`, круг 3 (запись `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/390b5a33….yaml`, коммит `7b139ff2a`; событие не опубликовано) — **последняя** запись `APPROVED` в каталоге записей NTF-1 на момент правки; на неё же опирается шапка приёмки NTF-2 редакции 13. Прежние одобрения — `05828e42…` (редакция 13, опора редакции 5 замысла), `d524e7bd…` (редакция 10), `530e2296…`, `b347b81f…`. Редакции 14 (`7d855830…`, коммит `f25be4887`) и 15 (`82c49b57…`, коммит `3a80a56d7`) получили `CHANGES_REQUESTED` (записи — коммиты `ff0c7b24d` и `f9291468d`); замысел на них не опирается. Первичный разбор классов NTF-1 на `390b5a33` вернул её в приёмку (коммит `7236d99a0`, RA-12): если следующая редакция NTF-1 сменит опору, §0.2 перепроверяется по ней. Опоры замысла на NTF-1 перепроверены по `390b5a33` — §0.2. Поставщик `corelib notify/feed`, `notify/spec`, `notifygen`, звена идентичности служб, сервера ленты, исключения пространства `kaname` (запись перечня `authorization: certificate`), единого отказа флага |
 | дерево kaname | `PRO-Robotech/kaname` | `origin/357@734f69fb4` | замеры §1 |
 | дерево kacho | `PRO-Robotech/kacho` | `origin/2564@6edea09c2ee` (ствол `origin/main@1d42a6728bf`) | замеры §1 |
 | corelib | `PRO-Robotech/corelib` | `origin/main@34bc8104a83` | не открывался: содержимое `notify/*` — предмет NTF-1 |
 
-Решения диспетчера Д1–Д16 действуют без изменений. Предмет NTF-2 задают Д1–Д7 (шлюз, звено
+Решения диспетчера Д1–Д19 действуют без изменений. Предмет NTF-2 задают Д1–Д7 (шлюз, звено
 идентичности, подписка, права, шаблоны, corelib, флаг), Д8–Д9 в части личности, Д11 (лимиты для
 анонимных почтовых глаголов), Д12 (снятие почты поставщика), Д13 (порядок), Д14 (надзор
-администратора облака не распространяется на `notification_feed`). Д10, Д15 к предмету не
-относятся; Д16 — в ствол идёт только одобренное.
+администратора облака не распространяется на `notification_feed`), Д19 (отказ `address.Domain` на
+нулевом значении утверждает NTF-1 — владелец пакета `address`, §13 Е10). Д10, Д15 к предмету не
+относятся; Д16 — в ствол идёт только одобренное. Д17 (у notify публичного слушателя нет по
+построению: хост «только внутренний» из corelib, для всей службы) и Д18 (то же для NTF-5) меняют
+поверхность notify, а не kaname: kaname notify не зовёт ни одним вызовом (§9), а рёбра
+notify → kaname идут на **внутренний** слушатель kaname — замысел от Д17 не зависит и его не
+нарушает. Решение диспетчера `registerSharePause = 1` принято (З14).
 
 **Прода нет** (Д12, требование владельца «можно перестраивать все подряд»): переход прямой, без
 второго пути и без флага совместимости. Строки прежней очереди писем kaname не переносятся.
 
-### 0.1 Расхождения двух одобренных приёмок — и чем они снимаются
+### 0.1 Расхождения двух одобренных приёмок — сняты редакцией 13 приёмки NTF-2
 
-Замысел реализует NTF-2. Сверка с NTF-1, на которую NTF-2 стоит (Р16 п.1), дала два расхождения
-**наблюдаемого** поведения, которые замысел не вправе снять сам: у каждого есть сценарий, который
-в одной приёмке зелёный, а в другой — красный. Оба решаются правкой приёмки, а не замыслом.
+Редакции 1–5 замысла стояли на двух расхождениях **наблюдаемого** поведения между NTF-1 и NTF-2
+(К1, К2), которые замысел не вправе был снять сам. Их сняла правка приёмки: редакция 12 привела
+NTF-2 к одобренной NTF-1, редакция 13 одобрена (§11 приёмки, «Редакция 11 → редакция 12»). Замысел
+следует приёмке без собственного выбора.
 
-| № | предмет | NTF-1 (`05828e42`, действующее одобрение; то же в `d524e7bd`, `4d042803`, `b92f0c2b`) | NTF-2 (`9098d6ef`) | чем решено в замысле | что нужно |
-|---|---|---|---|---|---|
-| К1 | субъект ленты kaname | Р3: `service:kaname` не заводится; пространство `kaname` авторизуется сертификатом, `ResolveSend` для него не зовётся; NTF1-F21: кортежей с субъектом `service:kaname` — 0; NTF1-G22 | Р1: «`service:kaname` sender на `notification_namespace:kaname`» — одна строка манифеста; NTF2-47 (близнец: строк права ровно 1); NTF2-06 (надгробие выдачи → `DENIED(revoked)`); Р14 (три исхода `ResolveSend`) | по Д2: условие запасного пути Д2 — «**если TestMRW07 запрещает** `service:kaname`». Замер (М15) — тест судит только подразделы `seed.serviceAccounts` и `seed.joins` и о типах модели не утверждает; это же признаёт NTF-1 §1.5. Условие не выполнено — действует основной путь Д2: служебный принципал `service:kaname` (З21) | правка NTF-1: Р3, §1.5, NTF1-F21, NTF1-G22 и строка валидатора манифеста для kaname (Е1) |
-| К2 | отказ при выключенном флаге | Р9, NTF1-N06: `feed.DeliveryNotConfiguredStatus()` — текст `email delivery is not configured in this installation`, `reason: NOTIFICATION_DELIVERY_NOT_CONFIGURED`; «глаголы kaname переводятся на это в NTF-2» | Р4, NTF2-51: текст `mail delivery is not configured in this installation`, `reason: MAIL_DELIVERY_DISABLED` | код один (`FAILED_PRECONDITION`, HTTP 400); производитель статуса один — corelib (З3). Текст и `reason` в замысле — из NTF-2, потому что его сценарий утверждает побайтовое равенство | выровнять одну из приёмок; рекомендация — NTF-1 (правится по К1 тем же кругом; других потребителей текста нет — М16) (Е2) |
-
-Условие Д2 допускает два прочтения — машинное (что судит тест) и по смыслу (что называют
-сообщение теста и комментарий манифеста); пересверка на редакцию 1 вынесла выбор владельцу. До
-ответа замысел держит машинное прочтение (основной путь Д2, З21), и полосы, которые от него
-зависят, гейтятся Е1 (`tasks.md` §0). Если владелец выберет прочтение по смыслу, правится NTF-2
-(Р1, NTF2-47, NTF2-06, Р14), а в замысле — только З21 и строка §9 про `ResolveSend`.
+| № | предмет | как решено приёмкой (редакция 13, `ef9c6801`) | что это значит для замысла |
+|---|---|---|---|
+| К1 | субъект ленты kaname | запасной путь Д2, принятый NTF-1 Р3: служебного принципала `service:kaname` нет (MRW-1 Р1 не замещается); запись перечня `notify` для kaname — `authorization: certificate` с SAN из `kaname.spiffe`; `ResolveSend` по пространству `kaname` не зовётся; манифест — только `readers: [notify]`; рычаг оператора — флаг (Р1, Р14, NTF2-06, 47, 53, DoD п.3) | З21 переписано; строка §9 про `ResolveSend` для kaname снята; прежний довод «условие запасного пути Д2 не выполнено» (М15) снят вместе с решением, которое он подпирал — предпосылка измерения верна, но решение принято по смыслу MRW-1 Р1 |
+| К2 | отказ при выключенном флаге | единый отказ corelib `feed.DeliveryNotConfiguredStatus()`: текст `email delivery is not configured in this installation`, `reason: NOTIFICATION_DELIVERY_NOT_CONFIGURED`; своего текста и `reason` у kaname нет; гейт дерева NTF2-54 (Р4, NTF2-51, 54) | З3 переписано: производитель статуса — только функция corelib; форма ответа полосы берётся из самого статуса (CX2-39); гейт NTF2-54 (CX2-40) |
 
 Три меньших расхождения замысел снимает сам, не меняя ни одного «Тогда»: имя метрики флага
 (З3), ключ окна поверх единственной нормализации ящика (З11), два предела на адресата — лимит
 шаблона ленты и рубеж по ручкам (З19).
 
-### 0.2 Опоры на NTF-1 — перепроверка по действующему одобрению `05828e42`
+### 0.2 Опоры на NTF-1 — перепроверка по действующему одобрению `390b5a33`
 
-Текст одобренной редакции — `git show 5f3851113:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`
-(его `sha256sum` — `05828e42…`); сравнение с прежней опорой — `diff` того же файла на `eb29a7d93`
-(`d524e7bd…`) и на `5f3851113`: 257 изменённых строк в 23 местах (`diff | grep -cE '^[0-9]'`) — шапка, §1.8, Р7, Р8, строка Р11,
-§4, сценарии B27/B28 и D01/D02, §6.1, §6.2, DoD пп. 7, 10, 13, §9. Р1–Р6, Р9, Р10 (включая
-NTF1-H07), Р14, Р16, §1.5, §1.6, NTF1-F21, NTF1-G22, NTF1-N06 изменения не задевают — опоры З3,
-З4, З17, З19–З21 и К1, К2 (§0.1) стоят на `05828e42` без правки. Расхождения с тем, на что замысел
-опирался до этой редакции:
+Текст одобренной редакции — `git show 9636eb28f:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`
+(его `sha256sum` — `390b5a33…`); сравнение с прежней опорой — `git diff 5f3851113 9636eb28f` того же
+файла: 246 вставок, 19 удалений (`git diff --stat`). Строки, задевающие опоры замысла, — 7
+(`git diff … | grep '^[+-]' | grep -cE 'address\.(Normalized|Domain)|ErrUnset|feed\.Put|idna|обход типобезопасности'`):
+все — новое правило «каждый объявленный атрибут обязателен» (NTF1-B29, О6) и его строки в таблицах;
+Р3, Р8 в части адреса, NTF1-B27, NTF1-B28, NTF1-F21, NTF1-G22, NTF1-N06 по существу не изменились
+(шапка приёмки NTF-2 утверждает то же для F21, G22, N06 своей командой). Опоры З3, З4, З17, З19–З21
+стоят на `390b5a33`. Номера строк ниже — по тексту `390b5a33`.
 
-| № | опора NTF-1 (`05828e42`) | что было в замысле | чем снято |
+| № | опора NTF-1 (`390b5a33`) | что было в замысле | чем снято |
 |---|---|---|---|
-| О1 | Р8 (строки 795–816), NTF1-B27 (нуль) (строка 1388): `address.Normalized` и `address.Domain` — структуры с неэкспортируемым полем; чтение — `Value() (string, error)`, на нулевом значении — `address.ErrUnset`; «иначе, чем из функций пакета, не получить» снято — нулевое значение остаётся путём, и его держат названные приёмники | З11: производные `mailkey` «вызвать мимо `Normalize` невыразимо» | З11: производные `mailkey` читают `Value()` и на `address.ErrUnset` возвращают ошибку, а не ключ пустой строки; «невыразимо» сужено до «непустое значение строит только `Normalize`»; нулевое значение держит модульная проба `mailkey` с близнецом (З11); то же у писателей `users.email` (З25) |
-| О2 | §4 (строка 1084): «ключ kaname на адрес как приёмник `address.Domain` и его отказ на нулевом значении (Р8)» относится к NTF-2 | в приёмке NTF-2 (`9098d6ef`) такой строки нет; замысел о приёмнике `address.Domain` не говорил | замысел: kaname принимает только `address.Normalized` — `address.Domain` вне `notify/address` в kaname не принимается (А-label домена уже внутри `Normalized`); отказ на нулевом `address.Normalized` — З11. Какой из двух документов утверждает этот отказ — зависимость Е10 (§13) |
-| О3 | NTF1-B28 (гейт `Put`) (строка 1403), DoD п.10 (строка 2467): ссылка на `feed.Put` в не-тестовом файле kaname вне файлов, которые печатает `notifygen -check -list`, — находка; гейт гоняется и по дереву kaname | З1, З13, З17 называли шаг транзакции «`feed.Put`», а полоса G1 — «порт журнала `feed.Put`» | И28: в kaname `feed.Put` зовут только сгенерированные `Send*` из `mail/feedgen/`; «`feed.Put`» в З13 и §7 — шаг, исполняемый через `Send*` пакета `mail` (З1); адаптер журнала реализует порт corelib и `feed.Put` не называет |
-| О4 | NTF1-B28 (гейт) (строка 1402): узел «обход типобезопасности», семь видов (`unsafe`, три вызова `reflect`, функция без тела, `import "C"`, исходник не на Go) по трём деревьям целиком, включая kaname; допустимых мест нет | замысел этого запрета не называл | И28: код NTF-2 в kaname ни одного из семи видов не вводит; выводы argon2id — `golang.org/x/crypto` (внешний модуль, значений типов формы и адреса не получает) |
-| О5 | NTF1-B27 (гейт) (строка 1389): узел сужен до вызова `golang.org/x/net/idna`; узла «преобразование типа» больше нет | И16, З11: «гейт NTF-1 B27 обходит и дерево kaname» — держатель «своего IDNA у kaname нет» | расхождения нет: держатель «своего IDNA нет» — именно узел вызова `idna`, он остался |
+| О1 | Р8 (строки 925–940), NTF1-B27 (нуль) (строка 1527): `address.Normalized` и `address.Domain` — структуры с неэкспортируемым полем; чтение — `Value() (string, error)`, на нулевом значении — `address.ErrUnset`; «иначе, чем из функций пакета, не получить» снято — нулевое значение остаётся путём, и его держат названные приёмники | З11: производные `mailkey` «вызвать мимо `Normalize` невыразимо» | З11: производные `mailkey` читают `Value()` и на `address.ErrUnset` возвращают ошибку, а не ключ пустой строки; «невыразимо» сужено до «непустое значение строит только `Normalize`»; нулевое значение держит модульная проба `mailkey` с близнецом (З11); то же у писателей `users.email` (З25) |
+| О2 | Р8 (строки 936–939) и §4 (строка 1215): «первый приёмник `address.Domain` вне пакета — ключ kaname (NTF-2), и его отказ на нулевом `address.Domain` входит в NTF-2» | в приёмке NTF-2 такой строки нет ни на `9098d6ef`, ни на `ef9c6801`; по решению диспетчера Д19 этот отказ утверждает NTF-1 как владелец пакета `address` (§11 приёмки NTF-2, редакция 12) | замысел: kaname принимает только `address.Normalized` — `address.Domain` вне `notify/address` в kaname не принимается (А-label домена уже внутри `Normalized`); отказ на нулевом `address.Normalized` — условие к коду З11 с модульной пробой. Правка двух строк NTF-1 под Д19 — зависимость Е10 (§13), предмет NTF-1 |
+| О3 | NTF1-B28 (гейт `Put`) (строка 1542), DoD п.10 (строка 2672): ссылка на `feed.Put` в не-тестовом файле kaname вне файлов, которые печатает `notifygen -check -list`, — находка; гейт гоняется и по дереву kaname | З1, З13, З17 называли шаг транзакции «`feed.Put`», а полоса G1 — «порт журнала `feed.Put`» | И28: в kaname `feed.Put` зовут только сгенерированные `Send*` из `mail/feedgen/`; «`feed.Put`» в З13 и §7 — шаг, исполняемый через `Send*` пакета `mail` (З1); адаптер журнала реализует порт corelib и `feed.Put` не называет |
+| О4 | NTF1-B28 (гейт) (строка 1541): узел «обход типобезопасности», семь видов (`unsafe`, три вызова `reflect`, функция без тела, `import "C"`, исходник не на Go) по трём деревьям целиком, включая kaname; допустимых мест нет | замысел этого запрета не называл | И28: код NTF-2 в kaname ни одного из семи видов не вводит; выводы argon2id — `golang.org/x/crypto` (внешний модуль, значений типов формы и адреса не получает) |
+| О5 | NTF1-B27 (гейт) (строка 1528): узел — вызов `golang.org/x/net/idna`; узла «преобразование типа» нет | И16, З11: «гейт NTF-1 B27 обходит и дерево kaname» — держатель «своего IDNA у kaname нет» | расхождения нет: держатель «своего IDNA нет» — именно узел вызова `idna`, он остался |
+| О6 | Р7 (строки 712–727), NTF1-B29 (строка 1545) — **новое в редакциях 14–16**: каждый объявленный атрибут шаблона обязателен; нулевое значение объявленного атрибута — сторож `feed.ErrAttrsInvalid` с именем атрибута, строк 0, транзакция вызывающего пригодна к коммиту | замысел считал исходом `Enqueue` только исходы политики и ошибку хранилища (З1) | З1: `feed.ErrAttrsInvalid` — не исход политики и не «прочее», а дефект сборки письма kaname: конструктор `Letter` каждого шаблона принимает **все** атрибуты шаблона параметрами, и нулевое значение отвергает он сам до `Send*`; `Enqueue`, получивший сторож, возвращает ошибку, и транзакция события откатывается (как ошибка хранилища, З16), а не коммитится без письма. Держатель — модульная проба конструкторов по 24 шаблонам: нулевое значение каждого атрибута → ошибка с его именем; близнец — все значения по форме → `Send*` вызван |
 
 ## 1. Замеры, на которых стоят решения
 
@@ -152,8 +177,8 @@ NTF1-H07), Р14, Р16, §1.5, §1.6, NTF1-F21, NTF1-G22, NTF1-N06 изменен
 | М12 | консоль ходит в полосу формы одним клиентом | `git -C project/kacho grep -ln 'auth/register\|auth/recovery' $R_KC -- 'ui-future/*/src/*' ':!*test*'` | `ui-future/shared/src/api/login-lane.ts` (единственный не-тестовый файл) |
 | М13 | манифест службы доступа — `module: iam` | `git -C project/kaname show $R_KN:internal/servicemanifest/manifest.embedded.yaml \| grep -n '^module:'` | `module: iam` — имя модуля не равно имени источника `kaname` (CX2-09) |
 | М14 | край знает внутренний адрес kaname под доменом `iam` | разбор, замер «Р1, Д3: имя источника kaname» | `iam`/`iamInternal` в `BackendAddrs` края; notify к kaname через край не ходит (NTF-1 Р4) |
-| М15 | TestMRW07 не судит типы модели | `git -C project/kaname show $R_KN:internal/servicemanifest/seed_form_test.go \| sed -n 88,101p` | проверяет `len(m.Seed.ServiceAccounts) == 0 && len(m.Seed.Joins) == 0` — и только |
-| М16 | текст отказа флага нужен только NTF-1 и NTF-2 | `grep -c 'NOTIFICATION_DELIVERY_NOT_CONFIGURED\|MAIL_DELIVERY_DISABLED' docs/specs/sub-phase-NTF-*.md` | NTF-1 — 2, NTF-2 — 9, NTF-3…6 — 0 |
+| М15 | TestMRW07 не судит типы модели | `git -C project/kaname show $R_KN:internal/servicemanifest/seed_form_test.go \| sed -n 88,101p` | проверяет `len(m.Seed.ServiceAccounts) == 0 && len(m.Seed.Joins) == 0` — и только; замер верен, но довод «условие запасного пути Д2 не выполнено», который он подпирал, снят решением приёмки (§0.1, К1) |
+| М16 | единый отказ флага — токен corelib; прежний токен NTF-2 остался в соседней приёмке | `grep -c 'NOTIFICATION_DELIVERY_NOT_CONFIGURED\|MAIL_DELIVERY_DISABLED' docs/specs/sub-phase-NTF-*.md` (по отдельности) | `NOTIFICATION_DELIVERY_NOT_CONFIGURED`: NTF-1 — 2, NTF-2 — 9; `MAIL_DELIVERY_DISABLED`: NTF-2 — 1 (строка §11 о снятом, не контракт), NTF-4 — 2 (строки 472, 482: отказ флага kaname под прежним `reason`) — расхождение соседа с одобренными NTF-1 и NTF-2, заказ автору NTF-4; NTF-3, 5, 6 — 0 |
 | М17 | в kaname есть вторая функция ключа адреса — `humansession.AddressKey` | `git -C project/kaname grep -n 'AddressKey(' $R_KN -- ':!*_test.go'` | `rate.go:56` — `strings.ToLower(strings.TrimSpace(email))`; 12 вызовов в 10 файлах: ключ стража попыток входа, восстановления, регистрации, второго фактора, смены пароля, `step_up`; в `verification.go:265` — значение `Email` записи кода |
 | М18 | `address.Normalize` corelib локальную часть не меняет | `git show 5f3851113:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md \| grep -n 'локальная часть без'` (коммит редакции 13, отпечаток `05828e42`, действующее одобрение) | Р8 NTF-1, строка 787: «локальная часть без изменений, домен — `address.NormalizeDomain`»; гейт единственности IDNA обходит и дерево kaname |
 | М19 | приглашение — строка `kaname.users`; повторная отправка строки не заводит, удаление — снимает | `git -C project/kaname ls-tree --name-only $R_KN internal/apps/kaname/api/user/ \| grep -iE 'invite\|delete'`; `… show $R_KN:internal/apps/kaname/api/user/resend_invite.go \| grep -n mailLimit` | `invite.go`, `resend_invite.go` (письмо без новой строки, сегодня под `invite.mail-rate-limit`), `delete.go`; `invite_status = 'PENDING'` у строки `users` |
@@ -168,9 +193,15 @@ NTF1-H07), Р14, Р16, §1.5, §1.6, NTF1-F21, NTF1-G22, NTF1-N06 изменен
 | М28 | хешер пароля kaname ёмкостью не ограничен; `register` сегодня хеширует на пути запроса | `git -C project/kaname show $R_KN:internal/passwordverify/hasher.go \| sed -n 59,86p`; `… internal/apps/kaname/api/registration/register.go \| sed -n 165,175p` | `Hash` — `argon2.IDKey` со случайной солью 16 байт, без захвата места; `uc.hasher.Hash(in.Password)` в use-case |
 | М29 | аккаунт удаляется физически | `git -C project/kaname show $R_KN:internal/repo/kaname/pg/account_repo.go \| sed -n 298,312p` | `DELETE FROM accounts` при отсутствии проектов, сервисных учёток, групп и ролей; каскадный внешний ключ на `accounts` унёс бы строки вместе с аккаунтом |
 | М30 | в базе края уже есть сеансовая рекомендательная блокировка одним `bigint`; kaname берёт свои транзакционные блокировки формой с одним ключом | `git -C project/kacho grep -n 'pg_advisory' $R_KC -- gateway ':!*_test.go'`; `git -C project/kaname grep -nE 'pg_advisory(_xact)?_lock\(' $R_KN -- ':!*_test.go' ':!*.md'` | край: `pg_advisory_lock($1)` с `schemaLockID` на время миграции схемы (`idempotencypg/store.go:434`); kaname: `pg_advisory_xact_lock(hashtext(…))` — только форма с одним ключом, формы с двумя `int4` нет. По документации PostgreSQL пространства ключей «один `bigint`» и «два `int4`» не пересекаются |
-| М31 | К1 и К2 не сняты и в последней редакции NTF-1 в ветке (на редакции 12 — замер пересверки `2886b89f…`) | `sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`; `grep -c NOTIFICATION_DELIVERY_NOT_CONFIGURED …`; `grep -n 'service:kaname' …` | в ветке редакция 13 `05828e42…`: `NOTIFICATION_DELIVERY_NOT_CONFIGURED` — 2 попадания; «`service:kaname` не заводится» и «кортежей с субъектом `service:kaname` … 0» на месте |
+| М31 | К1 и К2 не сняты и в последней редакции NTF-1 в ветке (на редакции 12 — замер пересверки `2886b89f…`) | `sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`; `grep -c NOTIFICATION_DELIVERY_NOT_CONFIGURED …`; `grep -n 'service:kaname' …` | в ветке редакция 13 `05828e42…`: `NOTIFICATION_DELIVERY_NOT_CONFIGURED` — 2 попадания; «`service:kaname` не заводится» и «кортежей с субъектом `service:kaname` … 0» на месте Историческая строка: К1 и К2 сняты правкой приёмки NTF-2 (редакции 12–13, §0.1), а не NTF-1 |
 | М32 | посев администратора облака пишет аудит своим литералом внутри своей транзакции; вызывается процессом | `git -C project/kaname show $R_KN:internal/apps/kaname/seed/bootstrap_admin.go \| grep -n 'func RunBootstrapAdmin\|INSERT INTO'`; `git -C project/kaname grep -n 'RunBootstrapAdmin' $R_KN -- cmd ':!*_test.go'` | `RunBootstrapAdmin(ctx, pool, logger, in)` — `INSERT INTO audit_outbox` в строке 269 рядом со вставками `cluster_admin_grants` и `fga_outbox`; вызов — `cmd/kaname/serve.go` |
 | М33 | у диспетчера постановки один счётчик мест на все работы; класса у работы нет | `git -C project/kaname show $R_KN:internal/apps/kaname/api/humansession/dispatch.go \| grep -nE 'inFlight\|cap '`; `… show $R_KN:cmd/kaname/loginlane.go \| sed -n 549,551p` | поля `inFlight int`, `cap int`; отказ при `d.inFlight >= d.cap` (строка 94); корень строит один `GoDispatcher` с `WithCap(recoveryDispatchInFlight, …)` |
+| М34 | гашение kaname ждёт постановок одним ожиданием одного диспетчера | `git -C project/kaname show $R_KN:cmd/kaname/loginlane.go \| sed -n 138,146p`; `… show $R_KN:internal/apps/kaname/api/humansession/dispatch.go \| grep -nE 'sync.WaitGroup\|func \(d \*GoDispatcher\)'` | `loginLane.drain()` зовёт `l.dispatcher.Wait()` одного поля; у `GoDispatcher` одна `sync.WaitGroup` (строка 54), `Wait` — строка 117; порядок гашения — после остановки слушателей (пересверка `cc7bdad1…`, замер `serve.go`) |
+| М35 | URI-SAN сертификата сервера kaname в подчарте строится из `mtls.spiffe` с тремя умолчаниями; тот же ключ читает домен доверия процесса | `git -C project/kacho show $R_KC:deploy/helm/umbrella/charts/kaname/templates/certificate.yaml \| sed -n 1,16p`; `git -C project/kacho grep -n 'kaname.trustDomain\|\$m.spiffe' $R_KC -- deploy/helm/umbrella/charts/kaname/templates`; `… show $R_KC:deploy/helm/umbrella/charts/kaname/values.yaml \| sed -n 977,980p` | `certificate.yaml`: `$sp := $m.spiffe \| default dict`, `$spNs := $sp.namespace \| default $ns` (пространство релиза), `$sa := $sp.saName \| default .Chart.Name`, домен — помощник `kaname.trustDomain` (`_helpers.tpl:132–134`, `default "kacho.cloud"`), SAN — строка 81; второй читатель помощника — `configmap.yaml:533` (`authn.trust-domain`). Значения подчарта объявляют `mtls.spiffe: {trustDomain: kacho.cloud, namespace: kacho, saName: kaname}`; в 12 профилях зонтика ни `kaname.spiffe`, ни `kaname.mtls.spiffe` нет (замер разбора CX2-37). `kaname.spiffe` — декларация NTF-1 Р12 (строки 1129–1133 на `390b5a33`); её гейт NTF1-J05 (строка 2334) сверяет SAN notify, таблиц Р2 и записей перечня источников — сертификата сервера kaname в его перечне читателей нет |
+| М36 | отказ полосы формы kaname — закрытый выбор по типу ошибки; статуса gRPC полоса не знает | `git -C project/kaname show $R_KN:internal/handler/loginlanehttp/handler.go \| sed -n 998,1112p`; `git -C project/kaname show $R_KN:go.mod \| grep -n grpc-gateway` | `writeError` — `switch` по `errors.As` доменных ошибок, ветка по умолчанию — `503` с текстом глагола; `errorInfo` — `{@type, reason, domain}` без `metadata`, `domain` — `h.cfg.RefusalDomain`; коды `google.rpc.Code` — константы полосы. `grpc-gateway/v2 v2.30.0` в `go.mod` kaname есть — `runtime.HTTPStatusFromCode` доступен без новой зависимости |
+| М37 | гейты kaname с проверкой типов уже стоят на одном загрузчике; `golang.org/x/tools` нет | `git -C project/kaname grep -lE '"go/types"\|packages\.Load\|importer\.' $R_KN -- internal/check`; `… show $R_KN:go.mod \| grep -c 'golang.org/x/tools'` | 6 файлов (`ceremony_surface{,_flow,_load,_manual,_resolve}.go`, `envelope_composition_root.go`); `x/tools` — 0 |
+| М38 | механизм окна обращений по источнику шире символа `ChargeSource` | `git -C project/kaname grep -nE 'ChargeSource\|SourcePacer\|SourceLane\|SourcePace\b\|SweepAgedSourceWindows\|SourceWindowReaper\|source_request_windows' $R_KN -- ':!*_test.go' ':!internal/migrations/*.sql'` | 44 строки в 7 файлах: `humansession/{recovery_request,verification}.go`, `registration/register.go`, `cmd/kaname/loginlane.go` (538, 543, 554), `retention/registry.go` (126 — константа предмета, 149 — поле, 161–162 — порт, 253 — проводка уборщика), `repo/kaname/pg/verification_code_repo.go` (`ChargeSource`, `SweepAgedSourceWindows`), `repo/kaname/pg/check_value_lanes.go:411` (запись таблицы); таблицу заводит миграция `20260927190000_*` |
+| М39 | хранилище однократности края — один пул pgx; его делят два потребителя | `git -C project/kacho show $R_KC:gateway/cmd/api-gateway/idempotency_store.go \| sed -n 28,60p`; `git -C project/kacho show $R_KC:gateway/internal/idempotencypg/store.go \| grep -n 'pgxpool\|func New'` | `idempotencypg.New(ctx, Config{DSN: cfg.IdempotencyDSN, …})` строит свой `*pgxpool.Pool` (строки 250, 380–404); его делят ключ однократности и повтор доказательства владения (разбор CX2-44) |
 
 ## 2. Решения
 
@@ -190,10 +221,17 @@ NTF1-H07), Р14, Р16, §1.5, §1.6, NTF1-F21, NTF1-G22, NTF1-N06 изменен
   `feed.Put` corelib пишет строку ленты и строку журнала подписки kaname в ту же `tx` (З17).
 - Исходы `Enqueue` — закрытый тип: `Queued`, `ResentSame`, `Floor`, `TrustedDevice`, `Capped`,
   `Cooldown`, `Disabled`, `NoRecipient`; прочее — ошибка хранилища. Корзины «прочее» нет.
+- **Все атрибуты шаблона — параметры конструктора** (§0.2, О6; NTF1-B29): у `Letter` каждого
+  шаблона один конструктор, и он принимает каждый объявленный атрибут; нулевое значение атрибута
+  конструктор отвергает ошибкой с именем атрибута до `Send*`. Сторож `feed.ErrAttrsInvalid`,
+  если он всё же пришёл из `Send*`, — не исход политики: `Enqueue` возвращает ошибку, и транзакция
+  события откатывается так же, как на ошибке хранилища (З16).
 
 Держатели: гейт NTF2-45 (множество шаблонов = множество вызовов `Send*`); гейт дерева
 `mail_single_enqueuer` — вызовы `feedgen.Send*` вне пакета `mail` — находка с координатой (разбор
-импортов, печать числа пакетов, инъекция вызова из `api/user`).
+импортов, печать числа пакетов, инъекция вызова из `api/user`); модульная проба конструкторов
+`Letter` по 24 шаблонам: нулевое значение каждого атрибута — ошибка с его именем, близнец — все
+значения по форме, `Send*` вызван (О6).
 
 ### З2. Флаг почты: трёхзначный на входе, одно значение в процессе
 
@@ -207,27 +245,76 @@ NTF1-H07), Р14, Р16, §1.5, §1.6, NTF1-F21, NTF1-G22, NTF1-N06 изменен
   - сервер ленты (`Claim`/`Ack`) не регистрируется на внутреннем слушателе — вызов даёт
     `UNIMPLEMENTED` (NTF2-52); ключ `notification` в `Mapping.Kinds` журнала kaname не объявляется
     (у kaname есть другие виды — журнал собирается без него, NTF-1 Р9);
-  - четыре глагола — `recovery`, `register`, `users:invite`, `verify-email` — зовут
-    `mail.Available()` **до** любого чтения по адресу (CX2-02 (в)): у `register` — после правил
-    пароля (Р9, NTF2-51 (е)), у прочих — после проверки формы и `csrf`. Отказ — статус З3;
+  - четыре действия — `recovery`, `register`, `users:invite`, `verify-email` — зовут
+    `mail.RefuseIfDisabled(uc.mail)` **прямым вызовом функции пакета** `mail` (не метода порта,
+    З3, CX2-40) **до** любого чтения по адресу (CX2-02 (в)): у `register` — после правил
+    пароля (Р9, NTF2-51 (е)), у прочих — после проверки формы и `csrf`. `uc.mail` — значение
+    `mail.Enabled` из зависимостей use-case, а не интерфейс. Отказ — статус З3;
   - писатель аудита (З16) ставит события без строк ленты; глаголы класса S исполняются (Р4).
+- **Включён:** сервер ленты (`Claim`/`Ack`) регистрируется на **существующем внутреннем
+  gRPC-слушателе** kaname — том, что предъявляет серверный сертификат подчарта (З21). Своего
+  слушателя, своего порта и своего сертификата у сервера ленты нет (CX2-38 (а)): notify судит
+  пространство `kaname` по SAN, который предъявил этот слушатель, и второго предъявителя быть не
+  должно.
 - Метрика `kaname_notifications_enabled` (gauge, `1`/`0`) выставляется корнем из того же значения.
 
-Держатели: NTF2-50, NTF2-51 (пары и порядок (е)), NTF2-52.
+Держатели: NTF2-50, NTF2-51 (пары и порядок (е)), NTF2-52; NTF2-06 и NTF2-46 — на сервере ленты,
+поднятом на внутреннем слушателе; проба сборки корня kaname: при флаге `true` сервис
+`Claim`/`Ack` есть в `GetServiceInfo` внутреннего слушателя и нет ни на одном другом слушателе
+процесса (близнец-инъекция — регистрация на публичном слушателе — красный с его именем).
 
 ### З3. Отказ «доставка почты не настроена» — один производитель
 
-- Производитель статуса — corelib `feed.DeliveryNotConfiguredStatus()` (NTF-1 Р9); kaname своего
-  текста не заводит. Форма, которую утверждает NTF2-51: `FAILED_PRECONDITION`, HTTP `400`,
-  `code` `9`, текст `mail delivery is not configured in this installation`,
-  `ErrorInfo{reason: MAIL_DELIVERY_DISABLED}` — расхождение с NTF-1 — К2, зависимость Е2.
-- Для полосы формы (HTTP без gRPC) статус переводится в тело `{code, message, details}` той же
-  функцией полосы, что прочие отказы полосы; ответ не зависит от адреса по построению — отказ
-  стоит до чтения адреса.
-- `users:invite` — синхронный отказ до заведения `Operation` (NTF2-51 (г, з)).
+- Производитель статуса — corelib `feed.DeliveryNotConfiguredStatus()` (NTF-1 Р9, NTF1-N06);
+  kaname своего текста и `reason` не заводит (Р4, §0.1 К2). Что утверждает NTF2-51: поля ответа
+  равны полям, которые функция возвращает на пине corelib из `go.mod` kaname (NTF-1 объявляет
+  `code` `9`, текст `email delivery is not configured in this installation`,
+  `ErrorInfo{reason: NOTIFICATION_DELIVERY_NOT_CONFIGURED}`); HTTP `400` — отображение
+  `FAILED_PRECONDITION` таблицей края.
+- **Одна функция отказа, прямой вызов** (CX2-40 (б) — решение записано): пакет `mail` экспортирует
+  функцию `RefuseIfDisabled(e Enabled) error`; при `false` она возвращает
+  `*mail.DeliveryRefusal`, несущий статус из `feed.DeliveryNotConfiguredStatus()` — это
+  **единственная** ссылка на функцию corelib в дереве kaname. Каждое из четырёх действий
+  (`RequestRecoveryUseCase.Execute`, `RegisterUseCase.Execute`, `InviteUserUseCase.Execute`,
+  `RequestVerificationUseCase.Execute`) зовёт её **прямым** вызовом функции пакета, а не
+  методом интерфейса: достижимость по статическому графу вызовов тогда не зависит от разрешения
+  диспетчеризации через интерфейс, и гейт NTF2-54 не краснеет на верной реализации. Путь «проверка
+  флага через порт» законной реализацией не считается: гейт отвечает на него находкой
+  «действие не достигает функции прямым вызовом (design.md З3)» — это отрицательный вариант, а не
+  ложный красный.
+- **Ответ полосы формы — ветка для статуса corelib** (CX2-39; М36). У `writeError` полосы появляется
+  **одна** ветка: `errors.As(err, &*mail.DeliveryRefusal)` — узнаётся только этот тип, не любой
+  статус gRPC (иначе полоса отдала бы наружу текст произвольной внутренней ошибки). В ветке:
+  `code`, `message` и `details` берутся **из самого статуса** — тело — `protojson` от его
+  `google.rpc.Status`, та же сериализация, что у края; HTTP-код — `runtime.HTTPStatusFromCode`
+  от кода статуса (то же отображение, что у края, `FAILED_PRECONDITION` → `400`). Константы кодов
+  полосы, `errorInfo` полосы и `RefusalDomain` в этой ветке не участвуют: `domain` и `metadata`
+  отказа — те, что вернула функция corelib, а не домен kaname. Ветка стоит **перед** веткой по
+  умолчанию (`503`), поэтому отказ флага не уходит в «unclassified refusal». Ответ не зависит от
+  адреса по построению — отказ стоит до чтения адреса.
+- `users:invite` — синхронный отказ до заведения `Operation` (NTF2-51 (г, з)): обработчик gRPC
+  отдаёт `DeliveryRefusal` статусом как есть (`status.FromError` → тот же `*status.Status`), край
+  переводит его своей таблицей — те же `code`, `message`, `details`.
+- **Гейт NTF2-54 — на существующем загрузчике** (CX2-40 (а); М37): гейт «единый отказ флага»
+  (`internal/check/delivery_refusal_single_producer.go`) использует типизированный загрузчик
+  `internal/check` (`go/types`, тот же, что у `ceremony_surface_*`), `golang.org/x/tools` в `go.mod`
+  не вводится. Узел (2) — объект `feed.DeliveryNotConfiguredStatus`, полученный проверкой типов
+  пакета `corelib notify/feed` на пине из `go.mod` kaname, и ссылки сравниваются с этим объектом
+  (`types.Object`), а не по строке имени: одноимённая функция другого пакета узлом не является.
+  Достижимость узла (3) — по прямым вызовам функций и методов с известным получателем от метода
+  действия до ссылки; вызов через интерфейс рёбер графа не даёт (решение выше).
 - Метрика источника: corelib регистрирует gauge с именем, которое передаёт корень службы:
   модули kacho — `kacho_notifications_enabled{module}` (NTF-1 Р9, NTF-3), kaname —
   `kaname_notifications_enabled` (NTF2-52). Второй метрики о том же у kaname нет.
+
+Держатели: NTF2-51 (а)–(з) — поля ответа против функции на пине, на обеих поверхностях (полоса
+формы и край для `users:invite`); NTF2-54 (а)–(в) красные, (г) и дерево как есть — молчат, пустой
+обход красен; сверх инъекций приёмки — вариант «действие достигает функции только через метод
+порта» → находка с именем действия (решение CX2-40 (б)) и вариант «одноимённая функция
+`DeliveryNotConfiguredStatus` в пакете kaname, действие ссылается на неё» → находка (узел по
+объекту типов, CX2-40 (а)); модульная проба `writeError`: статус corelib → тело равно `protojson`
+статуса, HTTP `400`; близнец — произвольный `status.Error(codes.Internal, "x")` из глагола → ветка
+по умолчанию `503` с текстом глагола, текст `x` в ответе отсутствует (CX2-39 (б)).
 
 ### З4. Флаг в зонтике — один помощник; перечень источников выводится из него
 
@@ -244,7 +331,8 @@ NTF1-H07), Р14, Р16, §1.5, §1.6, NTF1-F21, NTF1-G22, NTF1-N06 изменен
 - Строка kaname в закрытой таблице подключаемых источников NTF-1 (Р6):
   `{name: kaname, module: iam, flag: kaname.notifications.enabled, namespace: kaname,
   address: <внутренний сервис kaname из помощника подчарта>, san: kaname.spiffe,
-  classes: [security], recipientForms: [address, subject]}`. **Имя источника, имя модуля и адрес —
+  authorization: certificate, classes: [security], recipientForms: [address, subject]}`
+  (Р1, NTF-1 Р3; NTF2-53 близнец). **Имя источника, имя модуля и адрес —
   три поля одной строки**; ни одно не выводится из написания другого (CX2-09 (а)); край и его
   словарь `iam` в этой строке не участвуют — notify зовёт kaname напрямую (М14).
 
@@ -316,12 +404,27 @@ NTF2-44 (CX2-04 (б)): окна без запрета SMTP нет. Утверж�
   ось источника анонимных почтовых глаголов краю, а два предела одной оси с разными ключами
   расходятся молча. Ручки `authn.login.source-{attempts,window}` остаются: их второй читатель —
   окно неудач входа паролем (`humansession/rate.go`), предмет которого NTF-2 не меняет.
-- Снятие — замещение решения kaname#456 об окне обращений по источнику; строка-ссылка на него
-  дописывается в шапку приёмки kaname `access-beyond-login-needs-a-verified-address.md` по DoD
-  п.23 (Е4).
+- Снятие — замещение решения kaname#456 об окне обращений по источнику (§3 приёмки, редакция 13);
+  строка-ссылка на него дописывается в шапку приёмки kaname
+  `access-beyond-login-needs-a-verified-address.md` по DoD п.23.
+- **Радиус — по имени механизма, а не символа** (CX2-42; М38). Одним изменением снимаются все
+  имена механизма: `ChargeSource` (реализация и оба вызывающих), порт `SourcePacer`, константы
+  `SourceLane*`, тип `SourcePace` и его проводка в корне (`loginlane.go` 538, 543, 554), **уборщик**
+  `SweepAgedSourceWindows`, его порт `SourceWindowReaper`, поле реестра удержания, константа
+  предмета `SubjectSourceRequestWindows` и строка проводки уборщика (`retention/registry.go`),
+  запись таблицы в `check_value_lanes.go`. Таблица `source_request_windows` снимается новой
+  миграцией с записью в `retired.json` (З6 п.3) — **тем же изменением, что уборщик**: уборщик,
+  переживший таблицу, на каждом шаге удержания получал бы ошибку «отношения нет».
+- У ручек `source-{attempts,window}` после снятия остаётся одно семейство читателей — окно
+  неудач входа (`humansession/rate.go`); описание ручки в `INSTALL.md` и на страницах настроек
+  kaname говорит только о нём (DoD п.22).
 
-Держатели: NTF2-60, NTF2-63 (ряды без отказа kaname по источнику); проба дерева «`ChargeSource`
-вызывающих 0».
+Держатели: NTF2-60 (а), NTF2-63 (ряды без отказа kaname по источнику); предикат DoD п.7
+(`ChargeSource` → пусто) и **перепись механизма** (CX2-42 (б)):
+`git grep -nE 'ChargeSource|SourcePacer|SourceLane|SourcePace\b|SweepAgedSourceWindows|SourceWindowReaper|SubjectSourceRequestWindows|source_request_windows' -- ':!*_test.go' ':!internal/migrations/*.sql' ':!internal/migrations/retired.json'`
+→ пусто; контроль в обе стороны — на базе `734f69fb4` та же команда печатает 44 строки (М38),
+и проба печатает число до и после; проба реестра удержания: предметов `source_request_windows`
+0, прочие предметы реестра на месте.
 
 ### З8. Звено-ограничитель края
 
@@ -370,21 +473,44 @@ NTF2-44 (CX2-04 (б)): окна без запрета SMTP нет. Утверж�
   - строка ведра общего потока (`anon_mail_bucket`, единственная, заводится миграцией хранилища)
     берётся `SELECT … FOR UPDATE` **последней**, после ключей, и держится только до конца
     транзакции решения (CX2-28 (в)).
-- **Отказ хранилища — свой исход** (CX2-28 (а, б)): `Admit` возвращает закрытый тип
+- **Отказ хранилища — свой исход** (CX2-28 (а, б); CX2-44 (а)): `Admit` возвращает закрытый тип
   `Pass · Challenge · Reject(retryAfter) · StoreUnavailable`; проверка одноразовости (З9) —
-  `Fresh · Replayed · StoreUnavailable`. `StoreUnavailable` — ошибка соединения, ошибка запроса и
-  превышение времени ожидания блокировки (`SET LOCAL lock_timeout` = 250 мс — константа звена с
-  доводом: решение ключа — единицы операторов к базе, и ожидание дольше означает очередь, а не
-  конкуренцию). Ответ — `503`, `code` `14`, тело той же функцией формы края, что у однократности
-  (`writeIdempotencyStatus`, М24), фиксированный текст `request limiter is unavailable`,
-  одинаковый для любого адреса (адрес ещё не прочитан); до kaname запрос не
-  доходит; счётчик `kacho_api_gateway_anon_mail_store_unavailable_total`. Ветки «не смог
-  спросить → пропустить» в типе исходов нет.
+  `Fresh · Replayed · StoreUnavailable`. `StoreUnavailable` — ошибка соединения, ошибка запроса,
+  превышение ожидания блокировки **и превышение ожидания соединения пула**. Оба ожидания
+  ограничены **одним** пределом звена `anonMailStoreWait` = 250 мс: блокировки — `SET LOCAL
+  lock_timeout`, соединение — срок контекста на `pool.Acquire` (довод: решение ключа — единицы
+  операторов к базе, и ожидание дольше означает очередь, а не конкуренцию; очередь за соединением —
+  та же очередь). Ответ — `503`, `code` `14`, тело той же функцией формы края, что у однократности
+  (`writeIdempotencyStatus`, М24), фиксированный текст `request limiter is unavailable`, пустой
+  `details`, одинаковый для любого адреса и обоих путей (адрес ещё не прочитан); до kaname запрос не
+  доходит; счётчик `kacho_api_gateway_anon_mail_store_unavailable_total` (Р5, NTF2-59). Ветки «не
+  смог спросить → пропустить» в типе исходов нет.
+- **Одноразовость доказательства и решение — одна транзакция** (CX2-43; Р5: «`503` не истрачивает
+  вызов», NTF2-59 (д)). Разбор, подпись, срок и число нулевых битов доказательства — чистая функция
+  до хранилища (З9). Всё, что пишется, пишется одной транзакцией хранилища: блокировки ключей →
+  пометка вызова использованным (`INSERT … ON CONFLICT DO NOTHING RETURNING`; 0 строк — `Replayed`,
+  транзакция откатывается) → ведро → `Admit` → момент пропуска. Пометка и момент фиксируются
+  **только** при исходе `Pass`; `Challenge` и `Reject` откатывают транзакцию, и вызов остаётся
+  неистраченным до своего срока; `StoreUnavailable` на **любом** операторе откатывает обе записи и
+  отвечает `503`. Поэтому исход «`503` после пометки» невозможен по построению, а не по порядку
+  вызовов в обработчике. У хранилища `memory` — та же неделимость: пометка, решение и момент
+  исполняются под одной критической секцией полосатых мьютексов ключей и ведра, и пометка
+  снимается при любом исходе, кроме `Pass`.
 - **Хранилище** (CX2-11 (б)) — то же объявление, что у однократности (М5):
   `KACHO_IDEMPOTENCY_STORE` = `memory` \| `postgres` и его DSN. `memory` законно только при флоте из
   одной реплики; пару «вид хранилища ↔ флот» судит расширенный гейт
   `gateway/deploy/idempotency_fleet_test.go` для обоих потребителей, отказ рендера на неисполнимой
   паре — тот же. Второго объявления «где живёт состояние края» не заводится.
+- **Пул ограничителя — свой, при том же объявлении** (CX2-44 (б) — решение записано; М39). Звено
+  строит собственный `pgxpool` по тому же DSN с `MaxConns = anonMailPoolConns = 4` (константа звена),
+  а не берёт пул однократности. Довод числа: все решения флота проходят строку ведра по одному
+  (ниже), поэтому соединений больше, чем «одно держит ведро и три готовят свои блокировки ключей»,
+  пропускной способности не прибавляют — лишние только ждали бы ведра. Что покупает свой пул:
+  анонимный поток на `recovery`/`register` не занимает соединений однократности
+  аутентифицированных мутаций и повтора доказательства владения, а их нагрузка не даёт `503`
+  анонимным глаголам; исчерпание пула ограничителя кончается `StoreUnavailable` по пределу
+  ожидания, а не очередью без срока. Цена названа числом: +4 соединения к базе края на реплику
+  (при флоте `N` — `4N`); при `memory` пула нет.
 - **Общий поток:** ведро `RATE`/`BURST` — строка хранилища, взятая последней (см. выше); сверх —
   вызов (не `429`), в том числе источнику ниже своего порога (NTF2-74). Цена названа: все
   анонимные почтовые запросы флота проходят строку ведра по одному; время её удержания — одна
@@ -396,20 +522,29 @@ NTF2-44 (CX2-04 (б)): окна без запрета SMTP нет. Утверж�
   `StoreUnavailable` вносятся в ведомость собственных статусов края
   (`internal/repohygiene/httpstatusproducer_test.go`), DoD п.7.
 
-Держатели: NTF2-60…63, 74, 79, 71 (е, ж, з, и, к, р, с, х, ц); проба «адрес, которым считает
-край, равен адресу, пришедшему в kaname» (CX2-12, заказ) — integration-проба края с фиктивной
-полосой формы, печатающей полученный `X-Forwarded-For`; гейт пары хранилища (CX2-11, заказ);
+Держатели: NTF2-59 (а)–(д) с близнецом, NTF2-60…63, 74, 79, 71 (е, ж, з, и, к, р, с, х, ц); проба «адрес, которым считает
+край, равен адресу, пришедшему в kaname» (CX2-12) — integration-проба края с фиктивной
+полосой формы, печатающей полученный `X-Forwarded-For`; гейт пары хранилища (CX2-11);
 integration-проба гонки «`N` одновременных запросов с нового ключа при `FREE = 1` → пропущен ровно
 один» на `postgres` (CX2-11); модульная проба «хранилище недоступно → `503`, фиктивная полоса формы
 вызовов не получила, счётчик +1» и близнец «хранилище исправно → пропуск» (CX2-28); проба
-«ожидание блокировки дольше `lock_timeout` → `StoreUnavailable`» (CX2-28 (б)); проба конструктора
+«ожидание блокировки дольше `lock_timeout` → `StoreUnavailable`» (CX2-28 (б)) — это третий повод
+`503`, который приёмка отдаёт этой пробе (§6б, И6); проба конструктора
 «нулевое `TrustedHops` → отказ сборки корня» (CX2-12); integration-проба пространства ключей
 (CX2-11, условие): соседнее соединение держит `pg_advisory_lock(schemaLockID)`, а функция ключа блокировки
 звена подменена в пробе так, что `obj` равен младшим 32 битам `schemaLockID`, а `class` —
 старшим. `Admit` отвечает в пределах `lock_timeout`. Близнец-инъекция: та же подмена в форме
 «один `bigint`» со значением `schemaLockID` даёт `StoreUnavailable`. Гейт формы
 блокировки в пакете `anonmail` (печать числа вызовов, инъекция формы с одним ключом — красный).
-Исход `503` звена — наблюдаемое поведение публичного пути, и его сценарий заводит приёмка (Е9).
+По CX2-43 — модульная проба на обоих хранилищах: верное свежее доказательство, пометка записана,
+затем ведро не получено в срок (удержано соседней транзакцией пробы дольше `anonMailStoreWait`) →
+`503`; повтор того же решения после освобождения ведра → `Fresh` и пропуск. Близнец-инъекция
+меняет один факт — пометка вынесена в отдельную фиксируемую транзакцию до `Admit`: повтор →
+`Replayed` и новый вызов — красный. По CX2-44 — integration-проба: пул ограничителя исчерпан
+соединениями, удержанными пробой → анонимный запрос получает `503` в пределах
+`anonMailStoreWait`, а мутация с `Idempotency-Key` в тот же момент исполняется (пул однократности
+не задет); близнец-инъекция — ограничитель на пуле однократности: та же мутация получает отказ
+хранилища однократности — красный.
 
 ### З9. Proof-of-work края
 
@@ -420,9 +555,11 @@ integration-проба гонки «`N` одновременных запрос�
   время), срок по часам звена, число ведущих нулевых битов `SHA-256(challenge ":" nonce)` ≥ `bits`,
   затем **одноразовость**: вставка `id` в множество использованных того же хранилища З8
   (`postgres` — `INSERT … ON CONFLICT DO NOTHING`, 0 строк — повтор; `memory` — множество со
-  сроком). Любой отказ проверки — новый вызов (NTF2-62), до kaname запрос не доходит; исход
-  `StoreUnavailable` одноразовости — не отказ проверки, а `503` З8 (CX2-28): «не смог проверить»
-  за «свежий» не считается.
+  сроком) — **внутри транзакции решения З8**, а не отдельной записью: пометка фиксируется вместе с
+  моментом пропуска и только при `Pass` (CX2-43). Любой отказ проверки — новый вызов (NTF2-62), до
+  kaname запрос не доходит; исход `StoreUnavailable` одноразовости — не отказ проверки, а `503` З8
+  (CX2-28): «не смог проверить» за «свежий» не считается, и `503` вызова не истрачивает
+  (NTF2-59 (г, д)).
 - **Ключ `k`** — удостоверение профиля: файл секрета, путь — `KACHO_API_GATEWAY_ANON_MAIL_POW_KEY_FILE`;
   без файла или с ключом короче 32 байт — отказ старта с именем ручки; вывода из другого секрета
   нет; один секрет на флот (CX2-13 (а, б)). Смена ключа делает невалидными выданные вызовы — не
@@ -434,22 +571,26 @@ integration-проба гонки «`N` одновременных запрос�
   ответ `429` с `reason: PROOF_OF_WORK_REQUIRED` решается **один раз**: поиск `nonce` — в
   выделенном `Worker` (`ui-future/shared/src/lib/pow/solver.worker.ts`, собственная SHA-256, без
   сетевых ресурсов), повтор того же тела с заголовком `X-Kacho-Proof`. Второй вызов подряд либо
-  `RATE_LIMITED` — отказ, показанный текстом отказа полосы.
-  Ответ `503` края (`StoreUnavailable`, З8) решатель не запускает и запрос не повторяет: это
-  отказ, показанный тем же текстом отказа полосы; что именно видит пользователь на `503` и на
-  исход `expired`, утверждает приёмка (Е9).
+  `RATE_LIMITED` — отказ: экран показывает `message` ответа дословно (канон консоли: своего текста
+  отказа у экрана нет, Р5).
+  Ответ `503` края (`StoreUnavailable`, З8) решатель не запускает и запрос не повторяет: экран
+  показывает `message` этого ответа дословно, форма редактируема, `Worker` не создаётся (Р5,
+  NTF2-58 (а, г)). Своей копии текста края (`request limiter is unavailable`) в консоли нет: вариант
+  NTF2-58 (г) подменяет текст ответа, и экран с копией краснеет.
 - Экран регистрации — два шага: форма `register` → единый текст и поле кода → `register/confirm`
   (форма `register-confirm`). Экран восстановления после отправки показывает единый текст
   независимо от ответа `200`/решённого вызова (NTF2-72).
 
 - **Срок жизни решателя** (CX2-30 (а, б)): `Worker` принадлежит одной отправке формы. Он
   завершается (`terminate()`) при размонтировании экрана, при новой отправке той же формы и по
-  исчерпании бюджета поиска. Бюджет — 4 мин от получения вызова по монотонным часам страницы
-  (`performance.now()`): меньше срока вызова (5 мин, З9) на запас, покрывающий передачу и
-  проверку; часы клиента с часами края не сравниваются. Исчерпанный бюджет — свой исход
-  `expired` решателя, отличимый от «второго вызова подряд»: запрос не отправляется, форма
-  возвращается в редактируемое положение с тем же текстом отказа полосы, что при любом
-  неуспехе; при следующей отправке вызов получается заново. Результат `Worker`, пришедший после
+  исчерпании бюджета поиска. Бюджет `Bs` — 4 мин от получения вызова; отсчитывает его **таймер
+  главного потока страницы**, который по истечении завершает `Worker` (часы внутри `Worker` в отсчёт
+  не входят — ими проба не управляет, NTF2-58). `Bs` меньше срока вызова (5 мин, З9) на запас,
+  покрывающий передачу и проверку; часы клиента с часами края не сравниваются. Исчерпанный бюджет —
+  свой исход `expired` решателя, отличимый от «второго вызова подряд»: запрос с доказательством не
+  отправляется ни тогда, ни после, форма возвращается в редактируемое положение, экран показывает
+  `message` последнего ответа края (`proof of work required`) дословно; следующая отправка идёт без
+  доказательства и получает новый вызов — прежний не переиспользуется (Р5, NTF2-58 (б)). Результат `Worker`, пришедший после
   `terminate()` или от прежней отправки, отбрасывается по номеру отправки.
 - **Одна функция — две реализации, одни векторы** (CX2-30 (в)): SHA-256 решателя консоли и
   проверка края судятся общим файлом векторов `gateway/internal/middleware/anonmail/testdata/pow_vectors.json`
@@ -459,7 +600,7 @@ integration-проба гонки «`N` одновременных запрос�
   утверждается над тем же файлом; константы кода обеих сторон сверяются с ним пробами своих
   сторон.
 
-Держатели: NTF2-72; модульная проба решателя по общим векторам и пробы `submit` (вызов → один
+Держатели: NTF2-72; NTF2-58 (а)–(г) с близнецом (в) в пробе консоли П12; модульная проба решателя по общим векторам и пробы `submit` (вызов → один
 повтор с заголовком; второй вызов → отказ; размонтирование и повторная отправка → прежний
 `Worker` завершён, его результат отброшен; бюджет исчерпан → исход `expired`, запроса нет) —
 управляемые часы страницы (CX2-30).
@@ -627,6 +768,15 @@ integration-проба гонки «`N` одновременных запрос�
   равна `mailDispatchInFlight`, поэтому страж пула (ниже) и И22 не меняются: транзакций
   постановки одновременно по-прежнему не больше 16. Равенство суммы и «каждый класс ≥ 1»
   судит модульная проба констант.
+- **Классы — внутри одного диспетчера, гашение ждёт работ обоих** (условие к коду пересверки
+  `cc7bdad1…`; М34). Классы мест — два счётчика **одного** `GoDispatcher` (поля мест по классу и
+  одна `sync.WaitGroup` на все работы), а не два экземпляра диспетчера. `loginLane.drain()`
+  по-прежнему зовёт один `Wait`, и он возвращается только после того, как завершены работы
+  **обоих** классов: работа `register`, ждущая доли проверяющего, при гашении не обрывается молча.
+  Таймер снятия доли `register` (З14) работы не держит и в `WaitGroup` не входит: после гашения он
+  освобождает только место доли, которым уже никто не воспользуется. Синхронный путь «после
+  остановки работа исполняется на месте» (`dispatch.go`) для нового запроса недостижим: `drain`
+  стоит после остановки слушателей, новых запросов нет.
 - **Отношение к пулу базы держит страж старта, а не довод** (CX2-17, условие пересверки):
   транзакции постановки берут соединения из общего пула kaname, и при пуле не больше ёмкости они
   вытеснили бы вход и прочие глаголы. Страж старта сравнивает `mailDispatchInFlight` с
@@ -646,7 +796,12 @@ integration-проба гонки «`N` одновременных запрос�
 классы сняты инъекцией (один счётчик на 16): те же 16 работ `register` занимают все места,
 `recovery` → `dropped_overload{verb="recovery"}` +1, строк ленты +0 — красный. Модульная проба
 констант: `recoveryDispatchPlaces + registerDispatchPlaces = mailDispatchInFlight`, каждый
-класс ≥ 1; инъекция 12 + 5 — красный с обоими числами.
+класс ≥ 1; инъекция 12 + 5 — красный с обоими числами. Проба гашения (условие к коду пересверки
+`cc7bdad1…`): в полёте по одной работе каждого класса, обе удержаны заглушками пробы; `drain()`
+не возвращается, пока удержана любая из них, и возвращается после освобождения обеих (порядок
+освобождения — оба варианта); близнец-инъекция меняет один факт — работы класса `register`
+идут мимо общего ожидания (отдельный экземпляр диспетчера, `drain` ждёт только `recovery`):
+`drain()` возвращается при удержанной работе `register` — красный.
 
 ### З14. Регистрация «сначала письмо»
 
@@ -920,13 +1075,22 @@ integration-проба гонки «`N` одновременных запрос�
   | `recovery` | 49 | `per-day` ≤ 20 + пол ⌈24 ч / 1 ч⌉ = 24 + запас устройства ≤ 5 |
   | `verification`, `registration`, `registration-existing` | по 44 | 20 + 24 |
   | `mail-throttled` | 1 | интервал ≥ 1 сут |
-  | `invite` | 50 | граница стража ниже («Приглашения») |
+  | `invite` | 50 | граница стража — этот же лимит, читаемый из `feedgen` («Приглашения») |
   | 18 шаблонов аудита | по 10 | событийные; сверх — исход `capped` метрики класса S |
 
-- **Приглашения:** у `invite.recipient-per-day-all` в Р8 верхней границы нет; поэтому страж
-  старта kaname требует `invite.recipient-per-day-all ≤ 50` (лимит шаблона `invite`, вписанный
-  генератором константой) — иначе значение выше 50 было бы принятым и проигнорированным. Граница
-  добавляется в таблицу Р8 правкой приёмки (Е3).
+- **Приглашения** (Р8, NTF2-71 (щ); CX2-41): страж старта kaname требует
+  `invite.recipient-per-day-all ≤ L_invite`, где `L_invite` — лимит шаблона `invite` на адресата в
+  сутки (50) — иначе значение выше было бы принятым и проигнорированным. Граница — **одно место**:
+  страж читает её из идентификатора сгенерированного описания шаблона `invite` в `feedgen`
+  (вывод `notifygen`), числового литерала границы в конфигурации kaname нет; таблица границ
+  `mail_bounds.go` (З23) ссылается на тот же идентификатор. Сообщение стража называет ключ,
+  значение, границу и её источник — «лимит шаблона `invite`».
+- **Нуль лимита не читается как «границы нет»** (CX2-41 (б)): лимит `invite` на адресата в сутки
+  обязан быть положительным. Генератор NTF-1 отвергает нулевое число `limits` (NTF1-A10 (г)) и
+  класс `security` без `limits` (NTF1-A04); но раздел `limits` без строки на адресата в сутки дал бы
+  в описании нулевое значение. Поэтому страж kaname, прочитав `L_invite ≤ 0`, отказывает в
+  старте с текстом «у шаблона `invite` нет лимита на адресата в сутки» — ни «граница 0», ни
+  «границы нет»; модульная проба констант утверждает `L_invite = 50 > 0`.
 - **Сумма для сетки notify:** страж старта notify (NTF-1 H07) требует сетку `security` ≥ 1,25 ×
   Σ лимитов шаблонов = 1,25 × 412 = 515 (граница ручки NTF-1 — `[1..1000]`); инвариант NTF2-73
   (1,25 × суммы суточных пределов kaname по ручкам) при этом выполняется всегда, потому что
@@ -937,8 +1101,14 @@ integration-проба гонки «`N` одновременных запрос�
   назначениям (`per-day` + ⌈24 ч / `floor-interval`⌉ ×3), запас устройства и
   ⌈1 сут / `mail-throttled-interval`⌉; отказ рендера печатает слагаемые.
 
-Держатели: NTF2-08, 45, 73, 99; гейт «лимит шаблона ≥ максимума по границам Р8» — модульная проба
-над константами генератора и таблицей границ стража kaname (одно объявление границ).
+Держатели: NTF2-08, 45, 73, 99, 71 (щ) и близнец «50 — старт»; гейт «лимит шаблона ≥ максимума
+по границам Р8» — модульная проба над константами генератора и таблицей границ стража kaname
+(одно объявление границ). По CX2-41 — проба стража на копии П8, где лимит шаблона `invite` на
+адресата в сутки = 40 (копия шаблона, перегенерированная `notifygen`): значение
+`invite.recipient-per-day-all` = 45 — отказ старта, сообщение называет границу 40 и шаблон
+`invite`; близнец на той же копии — 40 → старт. Страж с литералом 50 на этой копии зелёный на 45 —
+проба его ловит (красный). Вариант копии с разделом `limits` без строки на адресата →
+отказ старта «нет лимита на адресата» (CX2-41 (б)).
 
 ### З20. Справочник адресов и разрешение адресатов — внутренние методы kaname
 
@@ -980,23 +1150,69 @@ integration-проба гонки «`N` одновременных запрос�
 недоступна → `UNAVAILABLE`» при снятой аннотации — проверка в теле держит отказ сама (CX2-08);
 модульная проба сервера «ответ всегда с заданным вариантом, `address` непуст» (CX2-31).
 
-### З21. Служебный принципал kaname и строка права отправки
+### З21. Лента kaname авторизуется сертификатом её сервера; служебного принципала kaname нет
 
-- По Д2 (К1): в манифесте kaname — одна строка
-  `notifications: {namespace: kaname, readers: [notify]}`; применитель посева NTF-1 пишет
-  `service:kaname sender notification_namespace:kaname` и `service:notify reader
-  notification_feed:kaname`. Правило валидатора NTF-1 «`namespace` = `module`» для манифеста
-  `module: iam` (М13) исполняется через строку таблицы источников З4: имя источника `kaname`
-  — литерал этой строки, а не вывод из `module`.
-- `service:kaname` — объект модели, заводимый манифестом (NTF-1 Р2 п.5), и субъект выдачи
-  `sender`. Вызывающим он не бывает: kaname не зовёт ни notify, ни иную службу от имени
-  `service:kaname`, поэтому в перечень звена идентичности kaname как вызывающий не входит.
-  Записи `seed.serviceAccounts`/`joins` у kaname по-прежнему нет — TestMRW07 остаётся зелёным
-  (М15). Тенантские поверхности субъекта `service:` не производят (NTF-1 Р2 п.5).
-- Решение на письмо `ResolveSend` для пространства `kaname` зовётся, как для любого источника
-  (Р14, NTF2-06): «шлюз проверяет доступы у канаме» исполняется одинаково для всех.
+- **Решение приёмки** (Р1, Р14, NTF2-06, 47, 53, DoD п.3; §0.1 К1; NTF-1 Р3): служебного принципала
+  `service:kaname` нет — MRW-1 Р1 не замещается. Строки «`service:kaname` sender на
+  `notification_namespace:kaname`» нет. Манифест kaname несёт в разделе `notifications` **только**
+  `readers: [notify]`, без `namespace`; применитель посева NTF-1 заводит из него ровно один кортеж
+  `service:notify reader notification_feed:kaname`. Запись `seed.serviceAccounts`/`joins` у kaname
+  не появляется — `TestMRW07_GroupWithItsGrantIsAccepted` зелёный (М15).
+- **Право на отправку пространства `kaname` — сертификат сервера ленты.** Запись перечня
+  источников `notify` для kaname несёт `authorization: certificate` и SAN из `kaname.spiffe` (З4);
+  `notify` принимает ленту, только если её сервер предъявил этот точный SAN, и `ResolveSend` по
+  пространству `kaname` не зовёт. Рычаг оператора по письмам kaname — флаг (З2), отзыва по
+  пространству `kaname` нет. «Шлюз проверяет доступы у канаме» для пространства самой службы
+  доступа исполняется проверкой её удостоверения: служба доступа не спрашивает сама себя.
+- **Предъявитель SAN — один** (CX2-38 (а)): сервер ленты стоит на существующем внутреннем
+  gRPC-слушателе kaname (З2), который предъявляет серверный сертификат подчарта; своего
+  слушателя и своего сертификата у сервера ленты нет. Сервер ленты на отдельном слушателе предъявил
+  бы другой SAN (или никакого), и NTF2-06-близнец покраснел бы только на стенде П6.
+- **SAN сертификата сервера kaname — из одной декларации, без умолчаний** (CX2-37; М35). Сегодня
+  URI-SAN сертификата строится в `certificate.yaml` подчарта из `mtls.spiffe` с тремя `default`
+  (пространство релиза, имя чарта, домен доверия помощника), а NTF-1 заводит декларацию
+  `kaname.spiffe` (NTF-1 Р12) — в подчарте это был бы второй ключ `.Values.spiffe` рядом с
+  `.Values.mtls.spiffe` об одном предмете, и notify, сверяющий запись перечня равенством полного
+  URI, отверг бы ленту kaname, разойдись они одним сегментом. Снаружи этого не видно: письма kaname
+  стоят в `pending`, ответ глаголов не меняется (Р14). Поэтому тем же изменением:
+  - (а) URI-SAN сертификата сервера kaname и домен доверия процесса (`authn.trust-domain`,
+    `configmap.yaml`) строятся из **одной** декларации — `kaname.spiffe` зонтика (в подчарте —
+    `.Values.spiffe`); ключ `mtls.spiffe` подчарта **снимается** вместе со своими двумя читателями
+    (`certificate.yaml`, помощник `kaname.trustDomain`). Строку SAN строит один помощник подчарта
+    `kaname.spiffeURI`, и его же вывод сверяет гейт ниже с записью перечня notify — второго
+    вычисления SAN нет;
+  - (б) в этом пути нет `default` для `trustDomain`, `namespace` и `saName`: отсутствие поля —
+    `fail` рендера с полным именем ключа (`kaname.spiffe.saName`), а не пространство релиза или имя
+    чарта. Умолчание домена доверия `kacho.cloud` в помощнике `kaname.trustDomain` снимается тем
+    же изменением — декларация NTF-1 литеральна в зонтике (NTF-1 Р12), и умолчанию нечего
+    подпирать;
+  - (в) `kaname.notifications.enabled: true` (вывод помощника З4) при выключенном mTLS kaname
+    (`kaname.mtls.enable` ложно или `kaname.mtls.serverSecretName` пуст) — `fail` рендера,
+    называющий оба ключа: без серверного сертификата запись `authorization: certificate`
+    неисполнима. Флаг `false` при выключенном mTLS — законная пара.
+- **Кортежей субъекта kaname в дереве нет** (CX2-38 (б)): в не-тестовом дереве kaname нет места,
+  пишущего или читающего кортеж с субъектом `service:kaname` либо объектом
+  `notification_namespace:kaname` (ни Go, ни SQL миграций и посева, ни YAML манифестов);
+  сгенерированные функции постановки kaname проверку права отправки не зовут — пространство
+  авторизует сертификат. NTF2-47 судит манифест; кортеж, записанный в обход манифеста (посевом или
+  бутстрапом), держит предикат дерева ниже.
 
-Держатели: NTF2-46, 47, 06; зависимость Е1.
+Держатели: NTF2-46, 47 (а, б) с близнецом, 06 с близнецом (`ResolveSend` 0), 53 (запись
+`authorization: certificate`); проба сборки корня (З2: сервер ленты только на внутреннем
+слушателе). По CX2-37 — гейт рендера `deploy/kaname_feed_server_identity_test.go` (kacho) по
+цепочкам `deploy/stacks.txt`: URI-SAN `Certificate` сервера kaname **равен** SAN записи kaname в
+перечне источников notify и выводу `kaname.spiffe`; печатает число цепочек и SAN по каждой;
+инъекции — (1) копия подчарта, где `certificate.yaml` берёт `saName` из другого ключа, — красный с
+обоими SAN; (2) цепочка без `kaname.spiffe.saName` — рендер отказывает с именем ключа; (3) флаг
+`true`, `kaname.mtls.enable: false` — рендер отказывает с именами обоих ключей; близнец (3) — флаг
+`false` при выключенном mTLS рендерится. Гейт NTF1-J05 этот сертификат не читает (М35); включить
+его в перечень читателей J05 — заказ NTF-1, а не опора замысла. По CX2-38 (б) — предикат дерева
+kaname `git grep -nE 'service:kaname|notification_namespace:kaname' -- '*.go' '*.sql' '*.yaml' ':!*_test.go'`
+→ 0 (на `734f69fb4` — 0: предмет заводится этим изменением, и предикат держит, что не заведётся),
+исполняемый гейтом `internal/check/no_kaname_sender_tuples.go` с печатью числа осмотренных файлов по видам; инъекция —
+строка посева с кортежем `service:kaname sender notification_namespace:kaname` в копии миграции —
+красный с координатой; близнец — тот же посев с `service:notify reader notification_feed:kaname` —
+молчит.
 
 ### З22. Снятие почты поставщика личности (S6)
 
@@ -1143,9 +1359,9 @@ integration-проба гонки «`N` одновременных запрос�
 | И1 | вызовы `Send*` — только в пакете `mail` kaname | гейт `mail_single_enqueuer`; NTF2-45 |
 | И2 | флаг kaname не имеет умолчания ни в бинаре, ни в чарте; «не задан» ≠ `false` | NTF2-50, NTF2-53 (а); вариант рендера «глобальный `false`, модуль `true`» |
 | И3 | флаг и перечень источников notify — один помощник | NTF2-53 (гейт печатает равенство чисел) |
-| И4 | ось источника анонимных почтовых глаголов — только у края | проба дерева `ChargeSource` → 0; NTF2-60 |
+| И4 | ось источника анонимных почтовых глаголов — только у края; механизм окна kaname по источнику снят целиком, включая уборщик и запись реестра удержания | перепись имён механизма → 0 (З7); DoD п.7; NTF2-60 (а) |
 | И5 | край и kaname считают источником один адрес | `ClientIP` — единственный вычислитель; проба «адрес края = адрес в kaname» |
-| И6 | решение ограничителя и приращение — одна операция; ключ без строк сериализуется блокировкой ключа; состояние — у флота; отказ хранилища — `503`, не пропуск | рекомендательные блокировки по отсортированным свёрткам З8; integration-проба гонки нового ключа; проба `StoreUnavailable`; гейт пары хранилища |
+| И6 | решение ограничителя, пометка одноразовости и приращение — одна транзакция, фиксируемая только при `Pass`; ключ без строк сериализуется блокировкой ключа; состояние — у флота; отказ хранилища (в том числе ожидание блокировки или соединения дольше предела звена) — `503`, не пропуск и не истраченный вызов | рекомендательные блокировки по отсортированным свёрткам З8; integration-проба гонки нового ключа; проба `StoreUnavailable` и `lock_timeout`; проба «пометка записана, ведро не получено → `503`, повтор — `Fresh`» с близнецом (CX2-43); NTF2-59; гейт пары хранилища |
 | И7 | окно адресата — функция хранимых моментов; решение, код, запись и строка ленты — одна транзакция | табличная проба `Decide`; integration-проба гонки |
 | И8 | один живой код на (назначение, субъект) | частичный `UNIQUE`; NTF2-40, 41 |
 | И9 | время окон, кодов, записей, приглашений, меток — только параметр | гейт `mail_clock_parameter`; П6 |
@@ -1166,8 +1382,14 @@ integration-проба гонки «`N` одновременных запрос�
 | И24 | уборка якоря окна не уносит ни момента, ни записи; `FOR UPDATE` якоря возвращает ровно одну строку, иначе — повтор вставки; работа окна идёт только в `WindowTx` — `READ COMMITTED`, объявленный явно | внешние ключи `RESTRICT`; пробы З11 (уборка между вставкой и блокировкой, уборка с моментом); проба уровня изоляции `WindowTx` и близнец `RepeatableRead` (З11) |
 | И25 | у каждой таблицы NTF-2 есть предмет уборки или довод его отсутствия | табличная проба закрытого перечня З26 |
 | И26 | рекомендательные блокировки NTF-2 — только формы с двумя `int4`; с блокировками одним ключом (схема края, прочие kaname) не пересекаются | гейт формы в `anonmail`; integration-проба пространства ключей З8 |
-| И27 | работа `register` не занимает места диспетчера класса `recovery` (12 + 4 = 16); место проверяющего занято выводами `register` не больше половины времени при любом потоке | пробы классов мест (З13) и доли времени (З14) с близнецами; модульная проба констант |
+| И27 | работа `register` не занимает места диспетчера класса `recovery` (12 + 4 = 16); место проверяющего занято выводами `register` не больше половины времени при любом потоке; гашение ждёт работ обоих классов одним ожиданием | пробы классов мест (З13) и доли времени (З14) с близнецами; модульная проба констант; проба гашения с близнецом (З13) |
 | И28 | в не-тестовом коде kaname ссылка на `feed.Put` — только в файлах генератора `mail/feedgen/` (вывод `notifygen -check -list`); код NTF-2 в kaname не вводит ни одного вида «обхода типобезопасности» NTF-1 Р7; нулевое `address.Normalized` не становится ключом или адресом | гейты NTF1-B28 (гейт), NTF1-B28 (гейт `Put`) по дереву kaname (DoD п.10 NTF-1); гейт `mail_single_enqueuer`; проба `mailkey` на нуле (З11) |
+| И29 | отказ выключенного флага производит только `feed.DeliveryNotConfiguredStatus()` corelib; в kaname одна ссылка на неё — `mail.RefuseIfDisabled`, достижимая прямым вызовом из каждого из четырёх действий; ответ полосы формы берёт `code`, `message`, `details` из самого статуса, узнавая только этот тип ошибки | гейт NTF2-54 (объект типов, прямые вызовы); NTF2-51; модульная проба `writeError` с близнецом (З3) |
+| И30 | сервер ленты kaname — только на внутреннем gRPC-слушателе; URI-SAN его сертификата, домен доверия процесса и запись перечня notify выводятся из одной декларации `kaname.spiffe` без умолчаний; флаг `true` без mTLS kaname не рендерится | проба сборки корня (З2); гейт `kaname_feed_server_identity` с инъекциями (З21); NTF2-06, 53 |
+| И31 | в дереве kaname нет кортежей с субъектом `service:kaname` и объектом `notification_namespace:kaname`; `ResolveSend` по пространству `kaname` не зовётся | предикат дерева (З21); NTF2-47; NTF2-06 близнец |
+| И32 | граница `invite.recipient-per-day-all` — лимит шаблона `invite`, прочитанный из сгенерированного описания; нуль лимита — отказ старта, а не «границы нет» | NTF2-71 (щ); проба на копии с лимитом 40; вариант без лимита на адресата (З19) |
+| И33 | у ограничителя края свой пул; ожидание соединения ограничено пределом звена; нагрузка ограничителя и однократности друг друга не вытесняют | integration-проба исчерпания пула с близнецом (З8) |
+| И34 | каждый объявленный атрибут шаблона kaname передаётся конструктором `Letter`; нулевое значение — ошибка до `Send*`, сторож `feed.ErrAttrsInvalid` — ошибка транзакции события | модульная проба конструкторов по 24 шаблонам (З1, О6) |
 
 ## 4. Компоненты и границы
 
@@ -1179,25 +1401,27 @@ integration-проба гонки «`N` одновременных запрос�
 | проверяющий пароля | kaname · `internal/passwordverify/{verifier,capacity}.go` (метод `DeriveWait` поверх `acquireWait`) | правка | З14 |
 | диспетчер постановки | kaname · `internal/apps/kaname/api/humansession/dispatch.go` (классы мест), `cmd/kaname/loginlane.go` (константы классов) | правка | З13 (CX2-36) |
 | глаголы | kaname · `api/humansession/{recovery_request,verification,recovery_complete,login,change_password,sf_backup_codes,sf_enroll,sf_remove,step_up,rate}.go`, `api/registration/{register,confirm}.go`, `api/user/{invite,resend_invite}.go` | правка / `confirm.go` новый; `AddressKey` снимается | З2, З7, З11–З15, З24 |
-| полоса формы | kaname · `internal/handler/loginlanehttp/handler.go` (путь `register/confirm`, печенье метки) | правка | З14, З18 |
+| полоса формы | kaname · `internal/handler/loginlanehttp/handler.go` (путь `register/confirm`, печенье метки, ветка `writeError` для статуса corelib) | правка | З3, З14, З18 |
 | аудит и класс S | kaname · `internal/repo/kaname/pg/auditwrite/`, `internal/apps/kaname/securitynotice/`, 4 формы М6 (включая `seed/bootstrap_admin.go` — писатель параметром), `cmd/kaname/serve.go` | новый + правка | З16 |
 | справочник адресатов | kaname · `proto/kaname/cloud/iam/v1/internal_notification_recipient_service.proto`, `internal/apps/kaname/api/notification_recipient/`, регистрация в `cmd/kaname/grpc_register.go`, каталог прав | новый | З20 |
-| манифест | kaname · `internal/servicemanifest/manifest.embedded.yaml` | правка (одна строка) | З21 |
+| манифест | kaname · `internal/servicemanifest/manifest.embedded.yaml` | правка: раздел `notifications` — только `readers: [notify]` | З21 |
 | конфигурация | kaname · `internal/apps/kaname/config/{load,defaults,config,invite,login_lane,mail_bounds,notifications,strict_env}.go`; страж пула в `cmd/kaname/loginlane.go` | правка + новые | З2, З5, З13, З18, З23 |
 | снятие почты kaname | kaname · `internal/clients/invite_mail*`, `cmd/kaname/invite_mail_wiring*`, `internal/check/mail_send_paths*`, `mail_kind_sender_parity*`, `internal/observability/metrics/*mail*` | снятие / переписка | З6 |
-| гейты дерева kaname | kaname · `internal/check/{no_smtp_senders,mail_templates_match_calls,required_security_templates,mail_single_enqueuer,audit_outbox_single_writer,mail_clock_parameter,attempt_guard_callers,people_address_writers}.go` | новый / переписанный | З1, З6, З11, З12, З15, З16, З19, З25 |
-| уборка | kaname · `internal/apps/kaname/retention/registry.go` (предметы по видам, функция срока над `mail_bounds.go`; предметы `mail_windows`, `trusted_devices`) | правка | З11, З14, З18, З26 |
+| гейты дерева kaname | kaname · `internal/check/{no_smtp_senders,mail_templates_match_calls,required_security_templates,mail_single_enqueuer,audit_outbox_single_writer,mail_clock_parameter,attempt_guard_callers,people_address_writers,delivery_refusal_single_producer,no_kaname_sender_tuples}.go` | новый / переписанный | З1, З3, З6, З11, З12, З15, З16, З19, З21, З25 |
+| уборка | kaname · `internal/apps/kaname/retention/registry.go` (предметы по видам, функция срока над `mail_bounds.go`; предметы `mail_windows`, `trusted_devices`; снятие предмета `source_request_windows`, порта `SourceWindowReaper` и его проводки) | правка | З7, З11, З14, З18, З26 |
 | самостоятельная поставка kaname | kaname · `deploy/{values.yaml,templates/configmap.yaml,templates/deployment.yaml}` | правка | З23; NTF2-33 |
-| ограничитель края | kacho · `gateway/internal/middleware/anonmail/**` (включая `testdata/pow_vectors.json`), `gateway/internal/middleware/{login_lane_paths.go,context_extractor.go}`, `gateway/internal/config/{config.go,anon_mail_bounds.go}`, `gateway/cmd/api-gateway/*` | новый + правка | З8, З9, З10, З26 |
+| ограничитель края | kacho · `gateway/internal/middleware/anonmail/**` (включая `testdata/pow_vectors.json`), `gateway/internal/middleware/{login_lane_paths.go,context_extractor.go}`, `gateway/internal/config/{config.go,anon_mail_bounds.go}`, `gateway/cmd/api-gateway/*` (свой пул ограничителя по DSN хранилища однократности) | новый + правка | З8, З9, З10, З26 |
 | хранилище края | kacho · миграция хранилища однократности края (таблицы моментов и использованных вызовов) | новый | З8, З9 |
 | консоль | kacho · `ui-future/shared/src/api/login-lane.ts`, `ui-future/shared/src/lib/pow/**` (решатель, срок жизни `Worker`, проба по общим векторам), `ui-future/shared/src/pages/auth/{RegistrationPage,RecoveryPage}.tsx` | правка + новые | З10 |
-| зонтик | kacho · `deploy/helm/umbrella/{values*.yaml,templates/_notifications.tpl,templates/identity-provider-mail-guard.yaml}`, `charts/kaname/**` по §3а приёмки | правка + новые | З4, З19, З22 |
-| гейты рендера | kacho · `deploy/*_test.go` по §3а; `deploy/kaname_two_deliveries_keys_test.go`; `gateway/deploy/idempotency_fleet_test.go` | переписка + новые | З8, З22, З23 |
+| зонтик | kacho · `deploy/helm/umbrella/{values*.yaml,templates/_notifications.tpl,templates/identity-provider-mail-guard.yaml}`, `charts/kaname/**` по §3а приёмки, включая `charts/kaname/templates/{certificate.yaml,_helpers.tpl,configmap.yaml}` и `charts/kaname/values.yaml` (SAN из `kaname.spiffe`, снятие `mtls.spiffe`, отказ «флаг без mTLS») | правка + новые | З4, З19, З21, З22 |
+| гейты рендера | kacho · `deploy/*_test.go` по §3а; `deploy/kaname_two_deliveries_keys_test.go`; `deploy/kaname_feed_server_identity_test.go`; `gateway/deploy/idempotency_fleet_test.go` | переписка + новые | З8, З21, З22, З23 |
 | сквозные пробы | kacho · `gateway/tests/newman/cases/<коллекция NTF-2>` и запись ведомости производителя; `ui-future/e2e/specs/ntf2-*.spec.ts` | новые | DoD п.4, 9, 10 |
 
 **Граница с соседями.** `corelib notify/*`, `notifygen`, служба `notify`, её чарт, таблица
-подключаемых источников, звено идентичности служб, `ResolveSend`, `Revoke`/`Restore`, тревоги
-ленты — NTF-1; NTF-2 их не пишет, а подключает источник kaname и добавляет в таблицу его строку.
+подключаемых источников, звено идентичности служб, исключение пространства `kaname` (запись
+`authorization: certificate`, проверка SAN, тревога `source_identity_mismatch`, валидатор
+манифеста службы доступа), `ResolveSend` прочих источников, `Revoke`/`Restore`, тревоги
+ленты, декларация `kaname.spiffe` — NTF-1; NTF-2 их не пишет, а подключает источник kaname и добавляет в таблицу его строку.
 Контакты по категориям, истечение ключей — NTF-3. Физическое снятие поставщика — `kacho#1276`.
 Экспорт предиката «лимит возвращён» из `corelib notify/feed` и правило читателя ответа
 справочника в notify — условия к NTF-1 (Е8), а не код NTF-2.
@@ -1246,6 +1470,13 @@ message ResolveCloudAdminsResponse { repeated string user_ids = 1; }  // наб�
   `200 {}` без печений.
 - `POST /iam/v1/auth/register/confirm` — **новый**: `{email, code, password, csrfToken}`, форма
   `register-confirm`; ответ — как у `login` (`{user, session}` + печенья сессии и метки).
+
+**Отказ выключенного флага** (`recovery`, `register`, `verify-email` полосы формы и `users:invite`
+через край): тело — `protojson` статуса `feed.DeliveryNotConfiguredStatus()` corelib как есть
+(`code`, `message`, `details` — поля функции на пине; NTF-1 объявляет `9`,
+`email delivery is not configured in this installation`, `ErrorInfo{reason:
+NOTIFICATION_DELIVERY_NOT_CONFIGURED, domain и metadata — из corelib}`), HTTP — `runtime.HTTPStatusFromCode`
+(`400`); констант и домена отказов полосы в этом ответе нет (З3).
 
 **Отказы края:** `503` · `{code: 14, message: "request limiter is unavailable", details: []}` (З8,
 `StoreUnavailable`);
@@ -1373,12 +1604,14 @@ at timestamptz)` — единственная строка, заводимая �
 ## 7. Последовательности
 
 **П1. `recovery` (флаг `true`).** край: `ClientIP` → `Admit` (пропустить / вызов / `429`) →
-ретрансляция → kaname: форма, `csrf` → `mail.Available()` → `200 {}` → диспетчер: tx { поиск учётки
+ретрансляция → kaname: форма, `csrf` → `mail.RefuseIfDisabled` → `200 {}` → диспетчер: tx { поиск учётки
 по `Normalize(email)` → нет: конец (строки окна нет) → якорь `(recovery, key)`: вставка
 `ON CONFLICT DO NOTHING`, затем `FOR UPDATE` →
 моменты → `Decide` → код (тот же / новый) → `feed.Put` → момент `mail_window_letters` (+ журнал) } →
-notify: сигнал → `Claim` → `ResolveSend(kaname, recovery, enqueued_at)` → `GetVerifiedAddress` →
-отправка → `Ack SENT`.
+notify: сигнал → подключение к серверу ленты kaname на её внутреннем слушателе, сверка
+предъявленного SAN с записью перечня (`authorization: certificate`; `ResolveSend` по пространству
+`kaname` не зовётся, З21) → `Claim` → `GetVerifiedAddress` → отправка → `Ack SENT`. SAN не совпал —
+подключение отвергнуто, `Claim` 0, тревога `source_identity_mismatch`, строка `pending` (NTF2-06).
 
 **П2. `register`.** край: `Admit` → kaname: форма, пароль (отказ `400` о пароле) → флаг →
 `200 {}` → диспетчер: чтение без блокировки { моменты → `Decide`; адрес занят? } → не пропущено:
@@ -1411,12 +1644,17 @@ tx { `LockAnchor (registration, key)` (вставка, `FOR UPDATE` = 1 стро
 предикат «лимит возвращён» corelib, Е8).
 
 **П8. Флаг выключен.** старт: `notifications.enabled=false` → `mail.Enabled=false` → сервер ленты
-не регистрируется, ключ журнала не объявляется, метрика `0` → глаголы П1–П4: отказ З3 до чтения
-адреса; П5: событие без строк.
+не регистрируется, ключ журнала не объявляется, метрика `0` → действия П1–П4 и `users:invite`:
+`mail.RefuseIfDisabled` → `*mail.DeliveryRefusal` со статусом corelib до чтения адреса → полоса
+формы: ветка `writeError` для этого типа, тело — `protojson` статуса, HTTP `400`; `users:invite`:
+тот же статус через край, `Operation` не заводится (З3); П5: событие без строк.
 
-**П9. Хранилище края недоступно.** край: `ClientIP` → `Admit` → ошибка соединения, запроса или
-`lock_timeout` → `StoreUnavailable` → `503` фиксированным текстом, счётчик +1; ретрансляции нет,
-kaname запроса не видит.
+**П9. Хранилище края недоступно.** край: `ClientIP` → (доказательство есть: разбор, подпись, срок,
+биты — без хранилища) → транзакция решения: соединение из пула ограничителя (ожидание ≤
+`anonMailStoreWait`) → блокировки ключей → пометка вызова (если есть доказательство) → ведро →
+`Admit` → момент; ошибка соединения, запроса, `lock_timeout` или ожидания соединения на любом шаге →
+откат всей транзакции (пометки нет) → `StoreUnavailable` → `503` фиксированным текстом, счётчик +1;
+ретрансляции нет, kaname запроса не видит; тот же вызов после подъёма хранилища — `Fresh`.
 
 ## 8. Конфигурация, ручки и границы
 
@@ -1432,7 +1670,7 @@ kaname запроса не видит.
 | `authn.secrets.mail-window-key-file` | kaname | то же | окно, ожидающие регистрации (З11, З14) |
 | `authn.secrets.device-label-key-file` | kaname | то же | метка устройства (З18) |
 | `KACHO_IDEMPOTENCY_STORE` (+ DSN) | край (существующая) | `memory` законно только при флоте 1 — гейт пары | однократность и ограничитель (З8) |
-| `invite.recipient-per-day-all` | kaname (Р8) | **добавочная** граница `≤ 50` (З19, Е3) | страж kaname |
+| `invite.recipient-per-day-all` | kaname (Р8) | верхняя граница — лимит шаблона `invite` (50), читаемый из `feedgen` (Р8, З19) | страж kaname |
 
 **Снимаются** (ban #11, вместе с предметом): `invite-mail.*` (10), `invite.mail-rate-limit.*`,
 `authn.login.verification-resend-{interval,limit,window}`, `authn.login.verification-code-attempts`,
@@ -1450,7 +1688,8 @@ kaname запроса не видит.
 | предел одной постановки | 30 с | там же (существующая) |
 | хранение ожидающих регистраций | `expires_at + 24 ч` | реестр `retention` |
 | хранение моментов окон kaname и края, актов приглашения | функция З26: верхняя граница читающих окон + 1 ч (30 сут + 1 ч у `throttled`, 25 ч у прочих на границах Р8) | реестр `retention`; уборщик хранилища края |
-| ожидание блокировки ключей ограничителя | 250 мс (`SET LOCAL lock_timeout`) | `gateway/internal/middleware/anonmail/store_pg.go` |
+| предел ожидания хранилища ограничителя | 250 мс (`anonMailStoreWait`): `SET LOCAL lock_timeout` и срок `pool.Acquire` — одно число | `gateway/internal/middleware/anonmail/store_pg.go` |
+| соединений пула ограничителя | 4 (`anonMailPoolConns`) на реплику, свой `pgxpool` по DSN хранилища однократности | там же |
 | бюджет решателя PoW в консоли | 4 мин по монотонным часам страницы; сверяется с файлом векторов | `ui-future/shared/src/lib/pow/` |
 | повторы чеканки кода регистрации при совпадении | 3 | `pending_registration_repo.go` |
 | выводов argon2id на работу `register` | 2 (`registerDerivations`): проба и хеш | `internal/apps/kaname/api/registration/register.go` |
@@ -1465,7 +1704,7 @@ kaname запроса не видит.
 | ребро | вид | новое? | основание |
 |---|---|---|---|
 | notify → kaname (`Subscribe`, `Claim`/`Ack` ленты kaname) | runtime, gRPC, внутренний слушатель | новое для kaname-источника; форма — NTF-1 | Р1 |
-| notify → kaname (`ResolveSend`) | то же | форма NTF-1; для `kaname` — З21 (Е1) | Р14 |
+| notify → kaname (авторизация ленты kaname) | TLS-рукопожатие того же ребра: сверка SAN сервера ленты с записью перечня `authorization: certificate`; вызова `ResolveSend` по пространству `kaname` нет | форма NTF-1 (Р3); для kaname — З21 | Р1, Р14 |
 | notify → kaname (`InternalNotificationRecipientService`) | то же | **новое** | З20 |
 | край → kaname (`register/confirm`) | runtime, HTTP ретрансляция полосы формы | новый путь существующего ребра | Р9 |
 | край → хранилище края | runtime, база края; отказ — `StoreUnavailable` → `503`, fail-closed (З8) | существующее (однократность), новые таблицы | З8, З9 |
@@ -1477,7 +1716,7 @@ kaname запроса не видит.
 Прода нет: без второго пути. Порядок посадки задаёт `tasks.md`; здесь — что меняется в поведении
 на каждом шаге и почему окна без защиты нет.
 
-1. **NTF-1 в стволе** (Р16 п.1) и правка NTF-1 по Е1–Е2 одобрена и влита.
+1. **NTF-1 в стволе** (Р16 п.1); правка NTF-1 по Д19 (Е10) одобрена и влита.
 2. **kaname — одним изменением** (линия `kaname#484`): постановка через ленту, окна, коды,
    регистрация, класс S, справочник, конфигурация, снятие почты и очереди, гейт NTF2-44 вместо
    MAIL-47. До его посадки письма kaname идут прежним отправителем; после — только через ленту.
@@ -1499,7 +1738,7 @@ kaname запроса не видит.
 | пункт | решение | механизм | держатель |
 |---|---|---|---|
 | CX2-01 | З2, З4 | `*bool` + `IsSet`; `hasKey` без `default`/`or`/`if`; один помощник | NTF2-50, 53; вариант рендера «глобальный `false`, модуль `true`» |
-| CX2-02 | З1, З2 | флаг читается корнем; решение о строке — только `Enqueue`; `mail.Available()` до чтения адреса | NTF2-51, 52 |
+| CX2-02 | З1, З2, З3 | флаг читается корнем; решение о строке — только `Enqueue`; прямой вызов `mail.RefuseIfDisabled` до чтения адреса | NTF2-51, 52, 54 |
 | CX2-03 | З5 | `UnmarshalExact`; строгость окружения в выводимом пространстве `__` (множество — прямой вывод `EnvNameOfKey` по ключам декодера); плоские имена четырёх механизмов не судятся — довод М2а, М2б; ключи без умолчания — `BindEnv` из таблицы границ; перемер профилей | NTF2-48; проба переменной с `__`; близнец с плоскими именами поставок; проба привязки |
 | CX2-04 | З6 | порядок снятия; гейт NTF2-44 тем же коммитом; пара «очереди нет — ленты есть» | NTF2-44, 45; DoD п.17 |
 | CX2-05 | З16 | `auditwrite.Insert` — единственная форма прод-дерева Go; посев через неё — писатель аудита параметром `RunBootstrapAdmin`, литерала в `seed` нет (условие пересверки на редакцию 2); миграции пишут след SQL-ом по норме соседа и писем не ставят (довод М6а); число миграционных форм — двусторонний храповик 3 | гейт `audit_outbox_single_writer` (два обхода, `seed` в перечне осмотренных, инъекция литерала в посев); проба посева; NTF2-90 |
@@ -1550,13 +1789,34 @@ kaname запроса не видит.
 |---|---|---|---|
 | CX2-36 | З13, З14 | (а) места диспетчера разделены по классу работы: `recovery` 12, `register` 4, сумма — прежние 16 (страж пула и И22 не меняются); работа класса, чьи места заняты, — `dropped_overload` своего глагола, чужих мест не берёт, поэтому ожидающие долю `register` не вытесняют `recovery` ни при каком потоке; (б) доля `register` освобождается после паузы, равной времени, которое выводы держали место проверяющего (`registerSharePause = 1`, монотонные часы параметром; пауза держит только место доли, не работу и не место диспетчера) — место проверяющего занято выводами `register` не больше 1/2 времени при любом потоке, в том числе на границе края (20 rps, выше — PoW, а не отказ): на `c = 1` вход получает свободное место не меньше половины времени (без паузы — 0), на `c = 2` при занятой доле церемонии — то же, на `c = 8` — не меньше 3 мест всё время; цена — пропускная способность `register` одна работа на `4d`, насыщение при `d` > 12,5 мс; (в) — пробы | проба классов мест (16 работ `register` при удержанной доле → 4 ждут, 12 `dropped_overload{register}`, затем `recovery` исполнена) с близнецом «один счётчик на 16» → `recovery` `dropped_overload` — красный; проба доли времени на управляемых часах при `c = 1` (≤ 1/2 на `100 d`, вход в паузе `matched`) с близнецом `registerSharePause = 0` (≥ 0,99, вход — отказ по ёмкости); проба паузы без работы; модульная проба констант (12 + 4 = 16, инъекция 12 + 5 — красный) |
 
-Неотображённых пунктов нет: 36 из 36 (27 первичного разбора, 6 пересверки на редакцию 1, 2 пересверки на редакцию 2, 1 пересверки на редакцию 3).
+Условие к коду пересверки на редакцию 5 (`reviews/class-exposure/revalidation/cc7bdad1….yaml`, к
+пункту CX2-36): гашение дожидается работ обоих классов — З13 (классы внутри одного диспетчера,
+одно ожидание) и проба гашения с близнецом «отдельный экземпляр диспетчера» (полоса S12).
+
+Пункты первичного разбора на редакцию 13 приёмки (`reviews/class-exposure/initial/ef9c6801….yaml`):
+
+| пункт | решение | механизм | держатель |
+|---|---|---|---|
+| CX2-37 | З21, З4 | URI-SAN сертификата сервера kaname и домен доверия процесса — из одной декларации `kaname.spiffe` одним помощником `kaname.spiffeURI`; ключ `mtls.spiffe` подчарта снят вместе с двумя читателями; `default` для `trustDomain`, `namespace`, `saName` нет — `fail` с именем ключа; флаг `true` при выключенном mTLS kaname — `fail` с обоими ключами | гейт `deploy/kaname_feed_server_identity_test.go` (равенство SAN сертификата и записи перечня, инъекции (1)–(3), близнец флага `false`); NTF2-06, 53. NTF1-J05 сертификат kaname не читает (М35) — включение в его перечень заказано NTF-1, опорой не является |
+| CX2-38 | З2, З21 | сервер ленты — на существующем внутреннем gRPC-слушателе kaname, своего слушателя и сертификата нет; кортежей `service:kaname` и `notification_namespace:kaname` в дереве 0; постановка не зовёт проверку права отправки; З21 и строка §9 про `ResolveSend` для kaname сняты | проба сборки корня (сервис ленты только на внутреннем слушателе, инъекция публичного — красный); гейт `no_kaname_sender_tuples` (Go, SQL, YAML; инъекция строкой посева, близнец `service:notify reader`); NTF2-06 близнец, 46, 47 |
+| CX2-39 | З3 | одна ветка `writeError` для `*mail.DeliveryRefusal`: `code`, `message`, `details` — из статуса corelib через `protojson`, HTTP-код — `runtime.HTTPStatusFromCode`; `RefusalDomain` и константы полосы не участвуют; ветка узнаёт только этот тип, не любой статус gRPC | NTF2-51 (а)–(д), (ж); модульная проба `writeError` с близнецом «произвольный статус gRPC → ветка по умолчанию, текст статуса в ответе отсутствует» |
+| CX2-40 | З3 | гейт NTF2-54 — на существующем загрузчике `internal/check`, узел по объекту типов на пине corelib; решение: проверка флага в каждом действии — прямой вызов функции пакета `mail.RefuseIfDisabled`, путь через порт законной реализацией не считается | инъекции NTF2-54 (а)–(в), молчащие (г) и дерево; вариант «только через порт» → находка; вариант «одноимённая функция в kaname» → находка |
+| CX2-41 | З19 | граница `invite.recipient-per-day-all` — идентификатор сгенерированного описания шаблона `invite`, литерала нет; `L_invite ≤ 0` — отказ старта «нет лимита на адресата»; сообщение называет источник границы | NTF2-71 (щ) и близнец; проба на копии П8 с лимитом 40 (45 — отказ, 40 — старт); вариант без лимита на адресата |
+| CX2-42 | З7 | снятие по имени механизма: `ChargeSource`, `SourcePacer`, `SourceLane*`, `SourcePace`, уборщик `SweepAgedSourceWindows`, порт `SourceWindowReaper`, предмет и проводка реестра удержания, запись `check_value_lanes`, таблица — одним изменением; описание ручек `source-*` — только окно неудач входа | перепись механизма → пусто (контроль: 44 строки на базе, М38); DoD п.7; проба реестра удержания; NTF2-60 (а) |
+| CX2-43 | З8, З9 | пометка одноразовости, `Admit` и момент — одна транзакция, фиксируемая только при `Pass`; `StoreUnavailable` на любом операторе откатывает всё; у `memory` — одна критическая секция | модульная проба «пометка записана, ведро не получено → `503`, повтор — `Fresh`» на обоих хранилищах с близнецом-инъекцией «пометка отдельной транзакцией»; NTF2-59 (д) |
+| CX2-44 | З8 | ожидание соединения и блокировки — один предел `anonMailStoreWait` = 250 мс, превышение — `StoreUnavailable`; свой `pgxpool` ограничителя на 4 соединения по тому же DSN; цена — `4N` соединений при флоте `N` | integration-проба «пул ограничителя исчерпан → `503` анонимным, мутация с `Idempotency-Key` исполнена» с близнецом-инъекцией «общий пул» |
+
+Неотображённых пунктов нет: 44 из 44 (27 первичного разбора на редакцию 11, 6 пересверки на редакцию 1, 2 пересверки на редакцию 2, 1 пересверки на редакцию 3, 8 первичного разбора на редакцию 13).
 
 ## 12. Что замысел не делает
 
 - Не меняет схему ленты, `SendX`, сервер ленты, `ResolveSend`, notify и его чарт — NTF-1.
 - Не заводит глагол смены адреса (Р13) и контакты по категориям (NTF-3).
-- Не заводит ручек сверх названных в §8; ёмкость диспетчера и срок вызова PoW — константы.
+- Не заводит ручек сверх названных в §8; ёмкость диспетчера, срок вызова PoW, предел ожидания и
+  размер пула ограничителя — константы.
+- Не заводит служебного принципала kaname, кортежей субъекта kaname и вызова `ResolveSend` по
+  пространству `kaname`; не поднимает второго слушателя или сертификата для сервера ленты (З21).
+- Не заводит своего текста, `reason` или домена отказа выключенного флага (З3).
 - Не держит второй нормализации ящика: `mailkey` — две именованные производные от
   `address.Normalized`, своего разбора и IDNA у kaname нет; `humansession.AddressKey` снята.
 - Не сводит плоские переменные окружения kaname к одному объявлению: четыре механизма их
@@ -1567,17 +1827,19 @@ kaname запроса не видит.
 
 ## 13. Открытые решения
 
-Нет. Решения З1–З26 приняты. Внешние зависимости — предметы соседних приёмок с названным
-предикатом снятия, а не открытые решения этого замысла:
+Нет. Решения З1–З26 приняты. Внешние зависимости — предметы соседних документов с названным
+предикатом снятия, а не открытые решения этого замысла.
+
+**Снятые зависимости** (редакция 13 приёмки NTF-2, `ef9c6801`, одобрена): Е1 (субъект ленты kaname —
+приёмка приведена к NTF-1 Р3: сертификат вместо `service:kaname`, З21), Е2 (текст и `reason`
+отказа флага — corelib, З3), Е3 (граница `invite.recipient-per-day-all ≤ 50` — Р8, NTF2-71 (щ)), Е4
+(замещение окна `kaname#456` — §3, NTF2-60 (а)), Е9 (исход `503` — Р5, NTF2-59; консоль на `503` и
+`expired` — NTF2-58). Предикат снятия каждой — строка на одобренном отпечатке `ef9c6801`; номера
+не переиспользуются.
 
 | № | зависимость | чей предмет | предикат снятия |
 |---|---|---|---|
-| Е1 | NTF-1 приведена к Д2: `service:kaname` и строка `sender` для kaname; `ResolveSend` зовётся и для `kaname`; исключение «сертификат вместо `ResolveSend`» снято (Р3, §1.5, NTF1-F21, NTF1-G22 — на `d524e7bd`, `4d042803`, `b92f0c2b` и `05828e42` не снято) — либо, при ответе владельца «прочтение Д2 по смыслу», правка NTF-2 (§0.1) | приёмка NTF-1 (или NTF-2 — по ответу владельца) | запись `APPROVED` на отпечаток NTF-1, где NTF1-F21 утверждает ровно одну строку `service:kaname sender notification_namespace:kaname` |
-| Е2 | один текст и `reason` отказа флага в NTF-1 и NTF-2 (К2) | приёмка NTF-1 (рекомендация) либо NTF-2 | `grep -c 'NOTIFICATION_DELIVERY_NOT_CONFIGURED' docs/specs/sub-phase-NTF-1-*.md` → 0 на одобренном отпечатке, либо обратное для NTF-2 |
-| Е3 | граница `invite.recipient-per-day-all ≤ 50` в таблице Р8 и вариант NTF2-71 на неё | приёмка NTF-2 | строка границы в Р8 на одобренном отпечатке |
-| Е4 | замещение окна обращений по источнику kaname#456 названо в §3 NTF-2 и строкой в шапке приёмки kaname | приёмка NTF-2 (§3), DoD п.23 | строка §3 на одобренном отпечатке |
 | Е5 | NTF-1 в стволе kacho и в пине corelib обоих деревьев (Р16 п.1) | NTF-1 | команды Р16 п.1 на базе старта |
 | Е6, Е7 | событие одобрения приёмки NTF-2 и `DESIGN_APPROVED` — зависимости маршрута, а не замысла | `tasks.md` §1 | там же |
 | Е8 | условия к коду NTF-1, которых требует этот замысел и которые не меняют ни одного «Тогда»: (а) `corelib notify/feed` экспортирует предикат «лимит строки возвращён» (фрагмент запроса над строкой ленты), чтобы kaname не писала литерал исхода (З11, CX2-32); (б) классификатор ответа справочника адресов в notify трактует незаданный `result` и пустой `address` как ошибку протокола, а не `DENIED(recipient)` (З20, CX2-31) | замысел и маршрут NTF-1 (`docs/changes/issue-2915`) | экспорт предиката есть в corelib на пине старта; проба читателя notify на незаданный вариант — в держателях пакета NTF-1 |
-| Е9 | исход «хранилище ограничителя недоступно» (`503`, `code` `14`, фиксированный текст, одинаковый для любого адреса, до kaname запрос не доходит, З8, П9) — сценарий с положительным близнецом «хранилище исправно → пропуск» в рядах ограничителя NTF2-60…63, 74; поведение консоли на `503` и на исход `expired` решателя (З10) в NTF2-72 | приёмка NTF-2 | сценарий `503` с близнецом и строка консоли на одобренном отпечатке NTF-2 |
-| Е10 | NTF-1 §4 (`05828e42`, строка 1084) относит к NTF-2 «ключ kaname на адрес как приёмник `address.Domain` и его отказ на нулевом значении (Р8)»; в приёмке NTF-2 (`9098d6ef`) строки нет. Замысел: `address.Domain` kaname не принимает, отказ на нулевом `address.Normalized` — условие к коду З11 с модульной пробой (не наблюдаемое поведение API: нулевое значение производит только код, не вход) | приёмка NTF-2 (строка §4 или DoD) либо NTF-1 (§4 — приёмник `address.Normalized`, отказ — условие к коду) | строка о приёмнике адреса kaname и его отказе на нулевом значении на одобренном отпечатке NTF-2, либо правка строки §4 NTF-1 на одобренном отпечатке |
+| Е10 | отказ ключа kaname на нулевом `address.Domain`: по решению диспетчера Д19 его утверждает NTF-1 как владелец пакета `address`; одобренная редакция 16 NTF-1 (`390b5a33`) ещё относит его к NTF-2 — Р8 (строки 936–939) и §4 (строка 1215). Замысел от исхода не зависит: `address.Domain` kaname не принимает, отказ на нулевом `address.Normalized` — условие к коду З11 с модульной пробой (нулевое значение производит только код, не вход API) | приёмка NTF-1 | на одобренном отпечатке NTF-1 строки Р8 и §4 не относят отказ к NTF-2, и приёмник назван у NTF-1 |
