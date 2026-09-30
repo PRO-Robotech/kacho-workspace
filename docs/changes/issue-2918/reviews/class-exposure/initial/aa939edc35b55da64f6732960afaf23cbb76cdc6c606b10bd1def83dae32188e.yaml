@@ -1,0 +1,288 @@
+# Экспозиция классов — первичный разбор (initial) под-фазы NTF-3 на редакцию 32.
+#
+# Разбор сделан ДО кода и привязан к отпечатку одобренной приёмки (круг 2 на редакцию 32).
+# По Д22 разобрана только ДЕЛЬТА против последней разобранной редакции — редакции 30
+# (ab0d0efe…, запись рядом, append-only). Дельта — редакции 31 (сужение предмета по Д31) и 32
+# (готовность источников, С22). Пункты записей на c26cc7cc (CX3B-*), 9fd0cd5e (CX3C-*),
+# 88ad95c6 (CX3D-*) и 97afc066 (CX3E-*) остаются в силе без переноса, кроме оговорённого в
+# previous_initial. Пункты CX3F-* записи на ab0d0efe в большей части сняты вместе с предметом
+# (перечень — previous_initial). Когда появится design.md, каждый живой пункт CX3B-*, CX3C-*,
+# CX3D-*, CX3E-*, CX3F-07 (б) и CX3G-* должен получить точное отображение в решение замысла, а
+# затем отдельную пересверку на отпечаток замысла (class-exposure/revalidation/<design-sha256>.yaml).
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e
+  revision: 32
+  content_commit: 7361f0131
+  lines: 4590
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e.yaml
+  verdict_commit: a17ed606d
+previous_initial:
+  - path: docs/changes/issue-2918/reviews/class-exposure/initial/ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed.yaml
+    subject_revision: 30
+    outcome: вернуть-в-приёмку (RA-06 = CX3F-01)
+    disposition: >-
+      RA-06 снят сужением Д31: утверждения, на которые он указывал (Р2 о доделывателях, NTF3-163,
+      NTF3-164, С18, С19, §7 «Фоновое задание освобождения» и «Проход доведения снятия compute»),
+      из документа ушли; в живом тексте ссылок на С18–С20, NTF3-163, NTF3-164, Reconciler.Sweep,
+      FailVerb вне записей о снятом 0 (grep по документу, строки после шапки). Группа S сеет
+      done=false (С5) и вызывает терминальную запись сама — утверждения о состоянии строки операции
+      у застрявшего ресурса документ больше не делает. CX3F-01…06 и CX3F-07 (а) сняты вместе с
+      предметом (DY1–DY8 документом не утверждаются). CX3F-07 (б) в силе: дифф под-фазы не меняет
+      сужение ListByInstance у vpc (Д27). Добавка к заказу гейта hard-async-carries-initiator из
+      записи на ab0d0efe («положительных близнецов станет 0») снята; заказ записи 97afc066 — в
+      редакции той записи. CX3E-02 (нормализация system:<компонент>) на фоновых путях, снятый
+      решением DY1, снова в силе — см. CX3G-05.
+delta_basis: >-
+  Д22: разобрана дельта редакции 32 против редакции 30 — git diff 139c4ff26 7361f0131 по файлу
+  приёмки (343 вставки, 562 удаления; 139c4ff26 → ab0d0efe…, e98dcbaf8 → 073be8cd…, 7361f0131 →
+  aa939edc…, каждое — git show <коммит>:<путь> | sha256sum). Удаления (§1.6, Р2 о доделывателях,
+  NTF3-11, 163, 164, С3, С4, С18–С20) решений о коде не вносят и разобраны через disposition выше.
+  Решения дельты — DZ1…DZ7; пункты CX3G-01…06.
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0 @a17ed606d
+dispatcher_decisions:
+  applied: >-
+    Д1–Д31. Д22: только дельта; условия к коду — в замысел; вернуть-в-приёмку — только
+    отсутствующее наблюдаемое В РАМКЕ Д31 и утверждение документа о дереве, которое замер
+    опровергает. Д31: объём — (а) публикация в журнал с инициатором и временем, (б) уведомления из
+    этих событий, (в) API настроек и контактов и флаг; жизненный цикл фоновых путей и исходы
+    публичного Delete вне объёма — условия о них ниже идут только в замысел, в приёмку не
+    возвращаются.
+revisions:
+  workspace: a17ed606d7f5f599ee659814a94de0ad4da5308f
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a   # = v1.9.0
+snapshot_at: 2026-09-30T14:09:06Z
+inspected: >-
+  Приёмка: дифф редакций 31–32 целиком (1162 строки диффа). Код @1d42a6728bf: storage
+  reconciler/store.go:185-275 (Confirm, Observe, MarkError, Forget), reconciler/loop.go (места
+  вызова :265, :298, :312, :376), cmd/storage/serve.go:330-350, 478-495, repo/pg/volume_repo.go:55-66,
+  368-392, snapshot_repo.go:195-215, 280-290, 390-408, image_repo.go:225-258, 318-328, 598-614,
+  migrations/20260830120000_storage_journal_source_state.sql (storage_outbox_emit); nlb
+  jobs/free_ip_runner.go:470-495, перечень тестов jobs/ (free_ip_runner_integration_test.go —
+  заголовки функций); compute api/instance/delete_finisher_test.go (заголовки, фикстуры).
+  corelib @34bc8104a: operations/repo.go:170-250, 570-680 (markDoneCAS, markErrorCAS, MarkError,
+  Cancel, CancelOwned), вызовы MarkError/MarkDone в worker.go и reconciler.go. Записки vault не
+  читались.
+
+decisions:
+  DZ1: "Р16 (ред. 31) — письмо о сбое ставится, когда запись изменила состояние строки тома, снимка или образа на ERROR с любого не-ERROR и записал её компонент; письмо о восстановлении — ERROR → READY; прежнее «только CREATING → ERROR» снято; NTF3-53 меняет знак (READY → ERROR — одно письмо)"
+  DZ2: "§8 С21, §7 группа B — пробы строят условие прямым вызовом функции записи перехода storage (MarkError / Confirm) на строке, вставленной публичным глаголом, от имени system:storage-reconciler; посадка обвязки storage — вставка оставляет CREATING, цикл сверщика не запущен"
+  DZ3: "§8 С22 (ред. 32) — готовность источника (том, снимок, образ) строится записью выхода Confirm; Get утверждает AVAILABLE/READY до зависящего глагола; строки ленты подготовки названы счётом"
+  DZ4: "Р18, §1.5, группа S (ред. 31) — строку operation-failed ставит терминальная запись ошибки фундамента «кто бы её ни вызвал»; пути, которые её зовут, вне объёма; пробы зовут запись напрямую на посеянной строке (С5)"
+  DZ5: "Р3, §1.14, §7 (ред. 31) — инициатор строк фоновых путей (задание nlb, проход compute) документом не утверждается; правило «строки без инициатора нет» (NTF3-62) и «прямых вставок мимо функции фундамента 0» (NTF3-70) действуют и для них"
+  DZ6: "NTF3-160 (з) (ред. 31–32) — утверждает только инициатора каждой строки, которую записал публичный Delete, и строку ленты на каждую; близнец — другой начавший; сколько строк Delete пишет — не утверждается"
+  DZ7: "§1.7 (ред. 31) — перепись глаголов, вставляющих строку тома, снимка и образа; состояние при вставке и путь строки дальше — вне объёма"
+
+items:
+  - id: CX3G-01
+    decision: [DZ1]
+    class: "code-authoring §«Порядок операций внутри кода» (прежнее состояние — тем же оператором записи); §«Умолчание, которое становится утверждением» (различение «компонент, а не глагол пользователя» по строке инициатора — sentinel)"
+    exposure: >-
+      Предикат постановки сменился с «прежнее = CREATING» на «прежнее ≠ ERROR». Ни MarkError, ни
+      Confirm прежнего состояния сегодня не возвращают: MarkError — одно безусловное по состоянию
+      UPDATE … WHERE state <> 'DELETING', Confirm — UPDATE … WHERE state IN ('CREATING','ERROR') с
+      исходом «применилось / нет» (store.go:192-200, 254-257), где CREATING → READY и ERROR → READY
+      неразличимы. Замысел, читающий прежнее состояние отдельным SELECT до UPDATE, даёт два письма
+      на две параллельные записи (NTF3-07). Замысел, унаследовавший предикат редакций 5–30
+      (OLD = 'CREATING'), молча не пошлёт письмо на READY → ERROR, которое теперь утверждает
+      NTF3-53. Добавка Р16 «записал её компонент, а не глагол пользователя» зовёт к проверке
+      строки инициатора транзакции внутри постановки — второе место о том, кто пишет ERROR.
+    condition: >-
+      (а) решение о постановке берётся из OLD/NEW той же строки в том же операторе: триггер AFTER
+      UPDATE (storage_outbox_emit уже читает OLD и NEW) либо CTE с FOR UPDATE внутри одного
+      оператора; предшествующего SELECT состояния нет; (б) предикаты дословно
+      OLD.state <> 'ERROR' AND NEW.state = 'ERROR' (сбой) и OLD.state = 'ERROR' AND
+      NEW.state = 'READY' (восстановление); сравнения с 'CREATING' в постановке нет; (в)
+      «компонент, а не глагол пользователя» держится составом писателей: единственный не-тестовый
+      писатель state = 'ERROR' — MarkError (замер ниже); строку инициатора постановка не разбирает;
+      если появится второй писатель ERROR, его письмо — предмет новой приёмки.
+    held_by: >-
+      (а), (б) — NTF3-53 (READY → ERROR: одно письмо), NTF3-07 (ERROR → ERROR: 0; две параллельные
+      записи: 1), NTF3-130 (CREATING → READY: 0), NTF3-129 (ERROR → READY: 1); (в) — нужен гейт, его
+      нет: перепись писателей state = 'ERROR' в не-тестовом дереве storage вне функции перехода = 0
+      (заказ gate-author)
+  - id: CX3G-02
+    decision: [DZ2, DZ3]
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (посадка обвязки не заводит ручку в прод-коде); gate-authoring §«Фикстура не снисходительнее продукта» (инициатор ставит проба, а не функция)"
+    exposure: >-
+      С21 требует посадки «вставка оставляет CREATING, цикл сверщика не запущен». В композиционном
+      корне это одно решение: dataPlane := cfg.BlockBackendKind != "" задаёт и readyOnCommit, и
+      запуск сверщика (serve.go:337-340, 478-490); комментарий прямо запрещает их разводить.
+      Обвязка, собранная через корень, либо запускает сверщик (и счёт строк ленты плывёт), либо
+      зовёт новую ручку «без сверщика» в прод-коде. Второе: С21 говорит «от имени компонента
+      system:storage-reconciler», но не говорит, КТО ставит инициатора. Если его ставит проба в
+      своей транзакции, NTF3-58 и NTF3-10 зелены, а путь сверщика (loop.go:265, 298, 312, 376 зовут
+      те же методы Store без транзакции и без инициатора) пишет строку без инициатора — и
+      отказ базы NTF3-62 роняет его запись перехода.
+    condition: >-
+      (а) в не-тестовом дереве нет ручки, флага или ветки, разводящей readyOnCommit и запуск
+      сверщика; обвязка С21/С22 собирает репозитории с WithReadyOnCommit(false) и
+      reconciler.NewStore напрямую в тестовом дереве, мимо serve.go; (б) инициатор
+      system:storage-reconciler ставят сами функции записи перехода Store (одна точка на оба
+      вызывающих — цикл сверщика и пробу); проба инициатора не ставит и зовёт ровно те
+      экспортированные методы, что зовёт loop.go; (в) функции принимают транзакцию вызывающего
+      (NTF3-12) и без неё открывают свою — в обоих случаях инициатор ставится внутри.
+    held_by: >-
+      (б) — NTF3-58 и NTF3-10 держат, только если проба инициатора не ставит: вниманием по диффу
+      обвязки; (а) — вниманием по диффу serve.go и конфигурации storage; (в) — NTF3-12 (откат)
+  - id: CX3G-03
+    decision: [DZ1, DZ2]
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (новый исход отказа функции глотается вызывающим); security-hardening hard-zero-refusals-visible"
+    exposure: >-
+      Постановка письма в той же транзакции, что MarkError, даёт MarkError новый исход отказа:
+      откат по нулевому required-атрибуту (Д21, CX3B-33) или отказ функции фундамента. Вызов
+      loop.go:376 отбрасывает ошибку (`_ = r.store.MarkError(...)`). После под-фазы откат постановки
+      оставит строку в CREATING без записи ERROR, без строки журнала и без следа в логе — сбой,
+      о котором письмо обязано уйти, исчезает целиком. Путь сверщика вне объёма приёмки, но
+      отказ создаёт функция, которую правит эта под-фаза.
+    condition: >-
+      (а) замысел называет, какие отказы функции записи перехода возможны после под-фазы и как их
+      видит вызывающий; (б) отказ MarkError на loop.go:376 не отбрасывается молча — счётчик по
+      исходу и строка лога с видом и id ресурса; (в) решение CX3B-33 (вето побочного следствия над
+      первичной записью) применено к MarkError и Confirm явно.
+    held_by: "вниманием по диффу: сверщик вне объёма приёмки (Д31), пробы на отказ постановки на пути сверщика в приёмке нет и быть не должно; проба замысла — заказ integration-tester"
+  - id: CX3G-04
+    decision: [DZ4]
+    class: "code-authoring §«Решение и его следствие разнесены» (одна «терминальная запись ошибки», а писателей done = true с ошибкой больше); §«Умолчание, которое становится утверждением» (Cancel как третий исход, не названный Р18)"
+    exposure: >-
+      Р18 теперь ставит строку на «терминальной записи ошибки фундамента — кто бы её ни вызвал» и
+      в §1.5 называет её markErrorCAS. Писателей done = true с ошибкой в corelib больше: кроме
+      markErrorCAS (repo.go:242-247), Cancel и CancelOwned пишут done = true, error_code = 1,
+      'operation cancelled' своим SQL (repo.go:618, :673). CX3B-32 насчитал четыре места
+      записи ошибки и отмену не учёл. Замысел, переносящий постановку в общий «переход в done с
+      ошибкой», пошлёт письмо «операция не удалась» арендатору, который сам её отменил; замысел,
+      ставящий постановку в MarkError-обёртку пула (repo.go:587), а не в markErrorCAS, пропустит
+      путь Reconciler (reconciler.go:252 зовёт markErrorCAS в своей транзакции). Пробы группы S
+      «зовут запись напрямую» — если это тестовый помощник, а не вход исполнителя, они зелёны при
+      постановке не в той функции.
+    condition: >-
+      (а) постановка operation-failed живёт в одной функции, через которую идут асинхронный путь
+      исполнителя и Reconciler (как требует CX3B-32 (а)); путь исполнения в запросе её не зовёт;
+      (б) Cancel и CancelOwned строку не ставят — исход виден вызывающему в ответе Cancel;
+      замысел называет это решение; если замысел решит слать письмо об отмене — это новое
+      наблюдаемое и предмет приёмки, а не кода; (в) пробы NTF3-133…137 зовут экспортированный вход,
+      которым пользуется исполнитель, а не тестовый помощник.
+    held_by: "(а) — NTF3-133, 135, 136, 137 при соблюдении (в); (б) — нет: нужна проба «Cancel операции done=false — строк operation-failed 0» (заказ integration-tester); (в) — вниманием по диффу"
+  - id: CX3G-05
+    decision: [DZ5]
+    class: "code-authoring §«Решение и его следствие разнесены» (новое ограничение базы против писателя, чей вход не решён); §«Умолчание, которое становится утверждением» (запасная личность {system, bootstrap})"
+    exposure: >-
+      Д31 снял решение «доделыватели несут начавшего» (DY1), но оставил на фоновых путях NTF3-62
+      (строки без инициатора база не пишет) и NTF3-70 (прямых вставок мимо функции фундамента 0).
+      Значит, под-фаза ОБЯЗАНА переписать литеральную вставку nlb emitReconcileFinalize
+      (free_ip_runner.go:487, §1.13) через функцию фундамента — а какого инициатора та получит,
+      документ больше не говорит. Контекст задания nlb несёт operations.SystemPrincipal()
+      {system, bootstrap}; у прохода compute WithPrincipal 0 (замер записи ab0d0efe). Если
+      нормализация (CX3E-02) не даёт этой личности законной формы, отказ базы роняет транзакцию
+      доведения снятия — балансировщик остаётся в DELETING навсегда, а у compute — строка Instance
+      DELETED. Это регрессия фонового пути, созданная под-фазой, а не предмет #2934.
+    condition: >-
+      (а) замысел перечисляет писателей журнала на фоновых путях (nlb emitReconcileFinalize; vpc
+      ReleaseOwnedAddress из releaseFamily; compute FinishStuckDeletes → Instance DELETED;
+      storage и vpc Detach из releaseAndDelete) и для каждого называет инициатора после
+      под-фазы — законного по форме NTF3-09/NTF3-62; (б) исход каждого фонового пути до и после
+      под-фазы одинаков: под-фаза не добавляет отказа ни базы, ни владельца; (в) нормализация
+      {system, bootstrap} (CX3E-02 (а)) на этих путях снова в силе и решается одной функцией;
+      решения «кто начавший» замысел не принимает — это #2934.
+    held_by: >-
+      nlb — существующие интеграционные пробы на базе TestFreeIP_ReconcileStuckDeleting,
+      TestFreeIP_CreateOrphanReconciled (free_ip_runner_integration_test.go) покраснеют, если
+      финализацию отвергнет база, — при условии, что их утверждения не правят; compute —
+      delete_finisher_test.go собран на фейках и базы не касается: нужна проба (заказ
+      integration-tester)
+  - id: CX3G-06
+    decision: [DZ6]
+    class: "gate-authoring §«Пустой вход как всеразрешение» (утверждение «каждая строка несёт X» зелено при нуле строк)"
+    exposure: >-
+      NTF3-160 (з) теперь утверждает «каждая строка, которую записал Delete, несёт user:usr-A;
+      строк service:/system: 0» и прямо признаёт (§10), что остаётся зелёной, если Delete не
+      записал ни одной. Это решение Д31, в приёмку не возвращается. Для кода следствие одно: путь
+      снятия привязок в Delete (releaseAndDelete → storage и vpc Detach) ничем, кроме (з), не
+      держится на личности — (г) и (ж) держат тот же метод клиента, но из ДРУГОЙ объемлющей
+      функции. Если замысел поставит личность в releaseAndDelete иначе, чем в AttachDisk /
+      DetachDisk, и владелец отвергнет вызов, (з) останется зелёной.
+    condition: >-
+      (а) личность на снятии привязок в публичном Delete — та же, что у исполнителя операции
+      (контекст исполнителя — WithoutCancel контекста запроса, замер записи 88ad95c6); отдельной
+      установки личности в releaseAndDelete замысел не вводит; (б) CX3F-07 (б) в силе: дифф не
+      меняет сужение ListByInstance у vpc.
+    held_by: "(а) — вниманием по диффу; (з) держит только чужого инициатора, предпосылку «Delete пишет строки» держит #2934 (Д31); (б) — вниманием по диффу"
+
+measurements:
+  - claim: "Р16: ERROR пишет только компонент, а не глагол пользователя"
+    command: >-
+      git -C project/kacho grep -nE "SET[^;]*state = 'ERROR'|state\s*=\s*'ERROR',\s*observed" 1d42a6728bf -- 'services/storage/*.go' ':!*_test.go' | wc -l
+    result: "1 — reconciler/store.go:256 (MarkError); вызывающие — только loop.go:312, :376"
+    control: "тот же предикат с 'READY' → 1 (store.go:194, Confirm): предикат находит писателя состояния, слепоты нет"
+  - claim: "Р16: прежнее состояние определяется тем же оператором записи"
+    command: "git -C project/kacho show 1d42a6728bf:services/storage/internal/reconciler/store.go | sed -n 185,260p; …/migrations/20260830120000_storage_journal_source_state.sql (storage_outbox_emit)"
+    result: "сегодня ни MarkError, ни Confirm прежнего состояния не возвращают (Exec на пуле, исход — RowsAffected); триггер журнала AFTER UPDATE читает OLD и NEW — место для решения в том же операторе есть (CX3G-01 (а))"
+    control: "—"
+  - claim: "С21: посадка «вставка оставляет CREATING, сверщик не запущен»"
+    command: "git -C project/kacho show 1d42a6728bf:services/storage/cmd/storage/serve.go | sed -n 330,350p; sed -n 478,495p"
+    result: "в композиционном корне одно решение dataPlane задаёт и readyOnCommit, и запуск сверщика; посадка С21 достижима только сборкой репозиториев мимо корня (CX3G-02 (а))"
+    control: "volume_repo.go:58-64 bornState: readyOnCommit=false → CREATING — подтверждено"
+  - claim: "С22: снимок — только с тома READY; копии — src.state = 'READY'; образ со снимка или тома; том из снимка"
+    command: >-
+      git -C project/kacho show 1d42a6728bf:services/storage/internal/repo/pg/snapshot_repo.go | sed -n 195,215p (v.state = 'READY'), :280-290 («is not ready»), :390-408;
+      image_repo.go:238-258, :318-328, :598-614; volume_repo.go:368-392
+    result: "подтверждено: условие готовности — только state = 'READY', binding_id переносится как есть и не требуется; Confirm его не пишет — готовность С22 достаточна для вставки"
+    control: "копии снимка и образа требуют ещё ACTIVE-привязки типа диска в целевой зоне (snapshot_repo.go:395, image_repo.go:602); С22 её не называет — предмет конструкции Given NTF3-43, не условие к коду и не возврат (Д22); передано строкой в «нужен следующий»"
+  - claim: "Р18: «терминальная запись ошибки фундамента» одна"
+    command: >-
+      git -C project/corelib grep -nE "done\s*=\s*(true|TRUE)" 34bc8104a -- '*.go' '*.sql' ':!*_test.go';
+      git -C project/corelib grep -nE '\.MarkError\(|markErrorCAS\(' 34bc8104a -- ':!*_test.go'
+    result: "писателей done = true в operations/repo.go — 5: markDoneCAS :178, markDoneWithMetadataCAS :217, markErrorCAS :247, Cancel :618 и CancelOwned :673 (оба error_code = 1); markErrorCAS зовут Reconciler (reconciler.go:252, в транзакции) и pgRepo.MarkError (repo.go:587, на пуле), MarkError — worker.go:528, :674"
+    control: "retention.go:112 — условие WHERE done = true, не запись; в kacho прямых записей done = true вне миграций-комментариев 0"
+  - claim: "Р3, NTF3-70: фоновые пути пишут журнал через функцию фундамента с инициатором"
+    command: "git -C project/kacho show 1d42a6728bf:services/nlb/internal/apps/kacho/jobs/free_ip_runner.go | sed -n 474,492p; git -C project/kacho ls-tree -r --name-only 1d42a6728bf services/nlb/internal/apps/kacho/jobs | grep test"
+    result: "emitReconcileFinalize — литеральный INSERT INTO kacho_nlb.nlb_outbox без инициатора; интеграционные пробы на базе TestFreeIP_ReconcileStuckDeleting, TestFreeIP_CreateOrphanReconciled существуют и проходят финализацию (CX3G-05)"
+    control: "compute delete_finisher_test.go — фикстуры fakeNicPeer, fakeVolumePeer; базы не касается"
+
+not_measurable:
+  - "отвергнет ли функция фундамента после под-фазы нормализованную запасную личность {system, bootstrap} — функции и нормализации в дереве нет; условие CX3G-05 (а) требует решения замысла"
+  - "исход обвязок С21/С22 на стенде — стенд не поднимался; выведено чтением кода"
+  - "полнота переписи отказов функций записи перехода после под-фазы (CX3G-03) — кода постановки нет; по диффу"
+
+outcome: к-замыслу
+return_to_acceptance: []
+
+orders:
+  - to: design-author
+    what: "отобразить CX3G-01…06 вместе с живыми CX3B-*, CX3C-*, CX3D-*, CX3E-* (CX3E-02 — и на фоновых путях, CX3G-05 (в)) и CX3F-07 (б); CX3F-01…06, CX3F-07 (а) не отображать — сняты сужением Д31"
+    basis: ".claude/rules/change-graph.md §4; Д22, Д31"
+  - to: integration-tester
+    what: >-
+      пробы замысла: (1) Cancel операции done=false в модуле с включённым флагом — строк
+      operation-failed 0, близнец — терминальная запись ошибки той же строки: 1 (CX3G-04 (б));
+      (2) compute FinishStuckDeletes на базе после под-фазы — застрявший инстанс доводится,
+      строка Instance DELETED записана с законным инициатором, отказа базы нет (CX3G-05 (б));
+      (3) отказ постановки в MarkError на пути сверщика виден счётчиком и логом (CX3G-03 (б))
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; code-authoring §«Чужой ответ: классификация и бюджет»"
+  - to: gate-author
+    what: "гейт переписи писателей state = 'ERROR' в не-тестовом дереве storage: вне функции записи перехода — 0, с инъекцией второго писателя и контролем по 'READY' (CX3G-01 (в))"
+    basis: ".claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п. 1"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Не заводится. Наблюдение CX3G-06 («каждая строка несёт X» зелено при нуле строк) — известный
+  класс gate-authoring §«Пустой вход как всеразрешение»; CX3G-05 — один экземпляр, цена на стенде
+  не измерена (порог code-authoring §«Механизм накопления опыта» не пройден).
