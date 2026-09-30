@@ -1,0 +1,133 @@
+# Ревью замысла NTF-3 — роль design-reviewer (исполнитель — агент system-design-reviewer в режиме
+# «замысел», docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к ОТПЕЧАТКУ замысла (редакция 16). Прежняя запись роли — 97c51264 (редакция 9,
+# возврат: К1, К2 блокируют). Этот суд — повторный: судит исполнение К1, К2, В1–В4, М1 и механизм
+# редакций 13–14 (исключение из Д26 заданием диспетчера — только для К1 и К2), по распределённым осям
+# документа целиком. Запись не правится: сменился отпечаток — пишется новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2918
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 409f4aee22e4ae8b9b2e51e29bb179e4d9ffada6745661a81bd0ebf00c0606d2
+  fingerprint_predicate: git show HEAD:docs/changes/issue-2918/design.md | sha256sum
+  fingerprint_matches_task: true   # перемерено на ветке issue-880 @dfa879fff; design.md последним менял 58f5c0c2b
+  revision: 16
+  tasks_path: docs/changes/issue-2918/tasks.md
+  tasks_sha256: fdc79ebb9436045b9b87da9b2923a2ce5365bb96bed82da370484d987b134464
+previous_record: docs/changes/issue-2918/reviews/design/design-reviewer/97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097.yaml
+class_exposure:
+  revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/409f4aee22e4ae8b9b2e51e29bb179e4d9ffada6745661a81bd0ebf00c0606d2.yaml
+  revalidation_on_current_fingerprint: true   # коммит dfa879fff, «новых пунктов нет»
+revisions:
+  workspace: dfa879fff78a65395529726373cc5cc5be3d27ab
+  corelib: 34bc8104a   # перечитан operations/worker.go terminalWrite (context.WithTimeout(context.Background(), terminalWriteTime), ветки ErrAlreadyDone, ErrNotFound), проверка executionClaimer
+  acceptance_sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+snapshot_at: 2026-09-30
+
+scope_note: >-
+  Повторный суд. Дельта e00befcee..58f5c0c2b по design.md (878 строк диффа) прочитана целиком; З16, З21,
+  З26, З27, §12, §13 и строки §11 ДР-К1, ДР-К2, ДР-В1…В4, ДР-М1, УК3-53…57, УК3-62 — по тексту редакции
+  16. Блокирующим по заданию считается только распределённое свойство, инвариант и безопасность.
+
+inspected: >-
+  design.md строки 982–1168 (З16), 1281–1310 (З21), 1460–1530 (З26, З27), 1960–1966 (строки ДР-),
+  2050–2059 (УК3-53…62), 2080–2105 (§12); tasks.md строки X3, S2-B4, S2-B5, S2-B9, S3-C3, S3-C4 (grep по
+  УК3-53…57, УК3-62, ErrCallWithoutDeadline, NewNotifyingRepo); приёмка ac1f9fc9 строки 1803, 1918,
+  1923 (исход разрешителя осиротевших операций — вне объёма, Д31); corelib @34bc8104a
+  operations/worker.go — terminalWrite и executionClaimer.
+
+axes:
+  atomicity_no_dual_write: >-
+    закрыто. Терминальная запись с письмом — одна транзакция journaltx.Begin под парой
+    (<служба>, operations): FailTerminalCAS и Put operation-failed тем же tx, Commit один (З16). Запасная
+    запись на недостижимых исходах — только CAS без письма, второй записи нет. Прочее — как в 97c51264.
+  idempotency: >-
+    закрыто. Повтор terminalWrite после отказа среды не дублирует письмо: CAS по done в той же транзакции,
+    что Put; неоднозначный Commit (зафиксирован, ответ потерян) → повтор получает ErrAlreadyDone,
+    письмо ровно одно. В3 исполнен (утверждение «без пропусков» снято, ДР-В3).
+  atomic_and_optimistic_concurrency: >-
+    закрыто. В1 — один оператор WITH prev … FOR UPDATE + UPDATE с сегодняшним предикатом
+    `used_by_id = '' OR = $inst`; В2 — изменяющие CTE одним оператором, RETURNING прежнего used и
+    (xmax = 0), выполнимо на Postgres 16. Гонка Worker ↔ Reconciler на одной строке — CAS по done,
+    проигравший получает ErrAlreadyDone и откатывается без письма. Порядок замков: транзакция
+    терминальной записи держит одну строку операции и пишет журнал модуля; транзакция пачки Reconciler
+    журнала не пишет — цикла ожиданий нет.
+  change_delivery_polling: закрыто (без изменений против 97c51264).
+  workers_and_reconcilers: >-
+    закрыто (К1 исполнен механизмом). Инициатор транзакции — личность компонента из opsnotify, принципала
+    контекста не требует, поэтому контекст terminalWrite от Background не мешает; операции без
+    человеческого принципала получают done=true в первой попытке (И22 на открытии транзакции). Reconciler
+    не меняется и Put не зовёт: ни 23502, ни второго Put с лимитами, ни отката пачки — по построению.
+    Классификатор RunTerminal — строка на исход, корзины нет; ErrAlreadyDone и ErrNotFound возвращаются
+    с %w, terminalWrite различает их как сегодня. Держатели через настоящие входы — УК3-53 (Worker,
+    пакетный operations.Run), УК3-54 (Sweep, сравнение с базой 34bc8104a), УК3-55 (корни), УК3-59
+    (гейт корней), УК3-67 (подделка FailedNotify). Срок терминальной записи — terminalWriteTime.
+  per_call_deadline: >-
+    закрыто (К2 исполнен). Каждый вызов справочника из digest и reminder — под context.WithTimeout
+    константой пакета в месте вызова; клиент internal/directory отвергает контекст без срока sentinel
+    ErrCallWithoutDeadline до соединения, вызывающий проверяет его errors.Is до resolvecell.Of (метка
+    no_deadline); DEADLINE_EXCEEDED — клетка Р7 (DEFER / contactUnknown). Resolve сводки — вне
+    транзакции адресата; в транзакции адресата сетевых вызовов 0; гонка двух реплик на закрытии окна —
+    UNIQUE (адресат, начало), проигравший откатывает и Put. Второй клиент (NTF-5) — держит замысел NTF-5.
+  inter_service_edges: >-
+    закрыто. Новых рёбер механизм не вводит: opsnotify — пакет corelib внутри процесса модуля; граф
+    импортов operations ← auth ← journaltx ← opsnotify и operations ← opsnotify ацикличен (УК3-63).
+  replica_state_isolation: закрыто (без изменений).
+  edge_ban6: закрыто (без изменений).
+  clean_architecture: >-
+    закрыто. operations не импортирует journaltx, auth, notify/*; значение подключения строится в корне
+    (opsnotify.New), доходит до исполнителя тем же аргументом repo; обёртки над *pgRepo нет, поэтому
+    executionClaimer не теряется.
+  security: >-
+    закрыто. FailTerminalCAS подставляет table в текст запроса — условие к коду: только доверенный
+    идентификатор из конструктора репозитория или Reconciler, вызовов из kacho и kaname 0 (УК3-65);
+    вход для модулей — не он.
+  pin_windows_d41: >-
+    закрыто (В4 исполнен: тег X3 — после посадки S2-B1, окно TW — правилом Д37 при выпуске).
+
+verdict: APPROVED     # принято
+blocks: false
+return_to: —
+distributed_surface: true
+schema_review_overlap: true   # CAS FailTerminalCAS с RETURNING, CTE В1 и В2, транзакция терминальной записи под journaltx
+
+critical: []
+
+important: []
+
+minor:
+  - id: Н1
+    coordinate: design.md §12 (строки 2090–2093) против З16 таблицы классификатора (строка «отказ среды», 1133)
+    finding: >-
+      §12 называет цену механизма К1 одним случаем — «исполнитель пропал вместе с процессом». Таблица З16
+      даёт второй путь к тому же исходу: отказ среды исчерпал бюджет terminalWrite, строка остаётся
+      done=false, её разрешает Reconciler без письма. Цена та же и в объёме приёмки (строка 1918:
+      разрешитель вне объёма), но §12 перечисляет её неполно.
+    requirement: >-
+      Одна фраза в §12: письма нет и у операции, чья терминальная запись исчерпала бюджет terminalWrite
+      отказами среды. Не блокирует; можно тем же заходом, что следующая правка, или в handoff X3.
+
+orders:
+  - кому: db-architect-reviewer
+    что: >-
+      Пересечение со схемой на отпечаток 409f4aee: FailTerminalCAS (CAS markErrorCAS с RETURNING
+      принципала и описания), CTE В1 (NIC Attach) и В2 (SetAddressReference), inbox_clock и порядок замков
+      приёма и сводки (§6).
+  - кому: integration-tester
+    что: >-
+      Конкурентные и проводочные пробы уже заказаны замыслом (УК3-17…21, 35, 42, 53…57, 62, NTF3-07);
+      новых заказов нет.
+
+next: >-
+  db-architect-reviewer — на отпечаток 409f4aee, если его записи на этот отпечаток нет; затем
+  DESIGN_APPROVED по policy. Н1 — автору замысла, не блокирует.
