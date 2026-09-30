@@ -1,0 +1,207 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493
+  revision: 8
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа говорит DRAFT и сама указывает, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: b62fd840784064add55c9ac128e7323043cf10e6
+  content_commit: eb0060512f9bebe88eecbf1cb3d2e83f5dc8ce3a
+  content_commit_note: >-
+    Редакция 8 внесена коммитом eb0060512. Привязка — только отпечаток: после любой правки документа
+    нужно новое рассмотрение.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3391
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T04:00:59Z'
+round: 2
+round_note: >-
+  Круг 2 прохода «Д14–Д16»: решения диспетчера Д1–Д13 действуют без изменений, к ним добавлены Д14,
+  Д15, Д16. Редакция 8 отвечает на круг 1 этого прохода (отпечаток 62d42441…).
+previous_rounds:
+  - round: 1
+    pass: first
+    sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+    verdict: CHANGES_REQUESTED
+    blocking_count: 6
+  - round: 2
+    pass: first
+    sha256: 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+  - round: 3
+    pass: first
+    sha256: 0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8
+    verdict: APPROVED
+    blocking_count: 0
+  - round: 1
+    pass: Д1–Д13
+    sha256: 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+    verdict: CHANGES_REQUESTED
+    blocking_count: 7
+  - round: 2
+    pass: Д1–Д13
+    sha256: 52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+  - round: 1
+    pass: Д14–Д16
+    sha256: 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8.yaml
+blocking_count: 1
+blocking_kinds_distinct: [NEGATIVE]
+blocking_kinds_by_item:
+  - B2-1 NEGATIVE
+repeated_kinds:
+  - kind: NEGATIVE
+    note: >-
+      Род повторяется: в круге 1 этого прохода это был B1-2. Класс тот же — пустой обязательный id,
+      который функция формата пропускает. Редакция 8 закрыла его в публичном API notify и в
+      ListProjectAudience, но у двух полей Resolve отказ записан в решении, а сценария на него нет.
+      Число блокирующих падает: 3 → 1. Кандидат в форму задания автора (§14а): каждый отказ, который
+      вводится решением, получает букву сценария и строку §10 — до того, как в заголовке редакции
+      появится слово «закрыт классом».
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac b62fd8407 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: b62fd840784064add55c9ac128e7323043cf10e6
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочий не выдаёт и ничего не открывает. Тело события для курьера —
+    в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 прохода Д14–Д16, блокирующих 1: NEGATIVE) · SHA-256
+    f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493
+
+measurement:
+  scenarios_numbers: 158
+  scenarios_removed: [8, 41, 42, 44, 45, 123, 124]
+  scenarios_live: 151
+  duplicate_ids: 0
+  number_gaps: 0
+  producer_rows_missing: 0
+  producer_predicate: >-
+    python3: номера из первого столбца каждой строки §11, диапазоны «a..b» раскрыты, сверены с живыми
+    номерами «**ID:** NTF3-N» → без производителя 0
+  hygiene_predicate: >-
+    grep -icE 'tmp/|не закоммич|пакет изменения не|yandex|\baws\b|\bgcp\b|azure|google cloud' по
+    документу → 0
+  resourceid_probe: >-
+    Временная проба на копии corelib @34bc8104a (git archive в личный черновик; дерево corelib не
+    тронуто). Сначала функция validate.ResourceID прогнана на каждом входе таблицы Р11а — все исходы
+    совпали с таблицей: v@1, p@1, a@1, u@1, xx@ → InvalidArgument; vol@1, net-1, vol-1, vol-20, prj-1,
+    acc-1, usr-A, usr-X, usr-zzz, sva-1, reg-1, snp-1, apl-1, plg-1, soc1, soc2, uoc1…uoc3 и "" → nil.
+    Затем все 102 id-подобных слова документа (регэксп по словам в обратных кавычках и в кавычках, по
+    форме «приставка-Хвост») прогнаны той же функцией. Функция отвергла sa-1, pg-1, pool-N, snap-N,
+    но все четыре встречаются только в строке истории редакции 8 («sa-1→sva-1» и т. п.). Остальные
+    отвергнутые слова — не id: имена шаблонов (image-error), имена ресурсов (data-N), координаты
+    правил. Отказ формата на входе, который функция пропускает, в документе не утверждается.
+  kinds_text_check: >-
+    Текст отказа в NTF3-65 совпадает с corelib subscription/request.go @34bc8104a ("kinds: %q is not
+    a kind of this owner; known kinds: %s"). Словарь отсортирован (journal.go KindDictionary,
+    sort.Strings). Виды storage — storage_volume, storage_snapshot, storage_image
+    (services/storage/internal/authzfilter/actions.go:11-13; journal.go:205-218 @1d42a6728bf).
+  required_refusals_census: >-
+    grep -nE ': required' по документу. Отказ на пустом обязательном id названный сценарий есть у
+    полей target.resource.resource_id, target.project.project_id, target.resource.resource_type,
+    target.project.module (NTF3-90 (н)–(р)), subscription_id (NTF3-92), account_id (NTF3-116) и
+    project_id у ListProjectAudience (NTF3-117). У resource_refs[i].id и у
+    audience.account_owner.account_id отказ записан в Р7 (строки 543-545) и в Р11а (г) (строка 759),
+    но сценария на него нет: 0 попаданий вне этих двух решений.
+  neighbour_revisions_compared:
+    - path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+      sha256: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3
+      note: >-
+        Действующая редакция 8, принята (abc1fd487). NTF-3 §1.12 сверен с редакцией 7 @12a66925.
+        Правки между редакциями (git diff 1b22f4d13 258c92d5e) касаются только A09, B20, G19, D04 и
+        истории. Ни одна строка таблицы §1.12 от них не зависит: Р2, Р4, Р5, §1.11, F12, K03, N03,
+        N07 не менялись.
+    - path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+      sha256: d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544
+      note: >-
+        Совпадает с отпечатком из §1.12. NTF-6 строится на NTF-3 @62d42441. После одобрения её нужно
+        перевести на итоговый отпечаток (Д15).
+  tree_revisions: kacho 1d42a6728bf · kaname 734f69fb4 · corelib 34bc8104a
+
+premise_check:
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: в дереве нет ни notify, ни ленты, ни справочника, а стенд заданием не назван.
+    Функция формата, которую документ называет производителем, в дереве есть, и её исход измерен
+    пробой, а не выведен чтением. Остальная конструируемость проверена чтением дерева и соседних
+    приёмок: это исход «не выполнилось», а не «зелёный».
+  confirmed:
+    - "B1-1 закрыт: таблица Р11а сходится с исходом функции на каждом входе; NTF3-88 (vol@1 → ответ линии владельца), NTF3-90 (в) v@1, (м) p@1, NTF3-116 a@1 и u@1, NTF3-92 xx@, NTF3-114 sva-1 — все исходы соответствуют измеренным"
+    - "B1-2 закрыт для публичного API notify и для ListProjectAudience: NTF3-90 (н)–(р), NTF3-92, NTF3-116, NTF3-117; строки §10 3188-3197; производители §11 3226, 3230, 3251"
+    - "B1-3 закрыт: NTF3-65 и NTF3-67 используют слово провода notification_feed; текст отказа совпадает с corelib побайтно; словарь при true — notification_feed, storage_image, storage_snapshot, storage_volume; строка §10 3104"
+    - "Д14: тип справочника вносится в единую декларацию перечня (Р28). Семь мест Д-1…Д-7 названы в §1.12 по NTF-1 §1.11: verdictForRelation, checkAdapter.Check, AllowsVerb, check, verdict, resolveRun. Перепись путей и гейт — NTF1-F12"
+    - "Д15: контракт API настроек и контактов — Р9–Р11, Р20, Р25, Р29 этого документа; NTF-6 — потребитель (§1.12, §2.1)"
+    - "Д16: документа нет ни в main, ни в origin/main (git ls-tree → пусто); он в ветке issue-880"
+    - "неблокирующие круга 1 выполнены: близнец по типу в NTF3-151 оформлен по форме NTF1-F12; ребро notify-api → служба доступа внесено в §3; в Р28 добавлена фраза о местах Д-1…Д-7"
+  refuted:
+    - "заголовок редакции 8: «обязательность каждого обязательного id-поля notify-api и справочника» закрыта сценариями NTF3-90, 92, 116, 117 — у Resolve это не так: для resource_refs[i].id и audience.account_owner.account_id отказ записан, а сценария нет (B2-1)"
+
+blocking_findings:
+  - id: B2-1
+    kind: NEGATIVE
+    title: Отказ Resolve на пустом resource_refs[i].id и на пустом account_owner.account_id записан, но ни один сценарий его не держит
+    where: "Р7 (строки 543-545), Р11а (г) (строка 759); NTF3-118, NTF3-120; §10; §11 строка NTF3-23..29, 48, 117..122; таблица «Отказ вызова справочника», строка INVALID_ARGUMENT"
+    finding: >-
+      Р7 вводит два отказа: `resource_refs[i].id: required` и `audience.account_owner.account_id:
+      required`, оба INVALID_ARGUMENT. Р11а (г) включает эти поля в перечень, закрытый классом. В §9
+      нет ни одного сценария, где Resolve получает пустой id ссылки или пустой account_id владельца;
+      в §10 нет строки близнеца; §11 для справочника называет только `project_id: required`
+      ListProjectAudience. Без держателя реализация по TDD эти отказы не породит. Тогда пустой id
+      уйдёт к модели объектом вида `storage_volume:` — ровно тот красный признак
+      `api-resourceid-empty`, который закрывал B1-2. Исход такого вызова в таблице отказов тоже не
+      определён: строка INVALID_ARGUMENT говорит только о «проверке типа ресурса или отношения».
+      К тому же классу относится необязательный по форме `subject?`. Для аудиторий `resource` и `self`
+      он нужен, но исход пустого `subject` при такой аудитории не записан.
+    fix: >-
+      Добавить в NTF3-118 (или в NTF3-120) буквы: `resource_refs=[{storage_volume, ""}]` →
+      INVALID_ARGUMENT `resource_refs[0].id: required`, вопроса к модели нет; близнец —
+      `[{storage_volume, vol-1}]`. Затем `account_owner{account_id=""}` → INVALID_ARGUMENT
+      `audience.account_owner.account_id: required`; близнец — `acc-1` (NTF3-120). Затем `subject`
+      пуст при `resource`/`self` → INVALID_ARGUMENT `subject: required`; близнец — `user:usr-A`.
+      Для каждой буквы — строка §10. В §11 дописать эти отказы производителю справочника. В строке
+      INVALID_ARGUMENT таблицы отказов назвать и отказ по обязательности (дефект сборки запроса
+      notify, терминально).
+
+non_blocking_findings:
+  - "§1.12 сверен с NTF-1 @12a66925 (редакция 7), а принята редакция 8 @b347b81f (abc1fd487). Я сравнил: правки между ними не задевают ни одной строки таблицы §1.12. Отпечаток нужно перевести на принятый."
+  - "NTF3-151, близнец по типу. Отрицание идёт через Resolve, близнец — через InternalIAMService/Check, поэтому меняются и вход, и объект. Место двери у обоих одно (Д-3), так что вывод верен. Пару в один факт даёт Check `{user:usr-ca, reader, notification_recipient_directory:root}` → false рядом с тем же Check на `iam_user:usr-A`/`token_issuer` → true; ради неё стоит добавить одну строку «And»."
+
+method_verdict: >-
+  Все три блокирующих круга 1 закрыты, каждый проверен пробой или сверкой с деревом: функция формата
+  на 102 словах документа, текст отказа kinds, словарь storage. Счёт 158/7/151 сходится, у каждого
+  живого сценария есть строка §11, в каждом пункте DoD есть сценарий. Д14–Д16 перенесены. Остался
+  один возврат, и он узкий: у двух полей Resolve отказ по обязательности записан в решении, а держит
+  его ноль сценариев. Это остаток класса B1-2, а заголовок редакции утверждает, что класс закрыт.
