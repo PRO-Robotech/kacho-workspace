@@ -1,0 +1,301 @@
+# Экспозиция классов — пересверка (revalidation, дельта) замысла NTF-3, редакция 4.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и прежние пересверки (89d1f0ad, 3730bca2,
+# 374789b5) относятся к своим отпечаткам и здесь не переписываются.
+# Проверено по Д22 (дельта):
+#   (1) исполнение каждого требования записи 374789b5 редакцией 4 (дифф d923fc2c3 → 056350e1b);
+#   (2) отображение CX3I-01…04 (первичный разбор ac1f9fc9) и CX3J-01 (пересверка 374789b5) —
+#       есть ли строка и выдерживает ли решение условие пункта;
+#   (3) новые внешние вызовы, асинхронные пути и sentinel-значения редакции 4;
+#   (4) классы, которые открывают ВЫБОРЫ редакции 4 (тип поля, исход пустого, порядок посадки).
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 3dbb8b23fc609c3234f2e5d36a7138c0ab96421a2c30575f644ebdc2bba0bc93
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 4
+  content_commit: 056350e1b
+  lines: 1494
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/374789b55fb1a242e7a762f961c1c399ae379c6239429949ecdd7ff10012c55f.yaml
+  subject_revision: 3
+  outcome: к-замыслу
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+  effective_verdict: APPROVED
+  design_anchored_to: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1   # design.md, таблица входов §1
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Д1–Д34. Д22 — дельта. Д26 — заход отображения: механизм только из приёмки и из вариантов,
+    названных записями. Д33 — Е1 решён вариантом A (одна строка реестра исключений гейта З16/УК87
+    NTF-1, довод — З10 NTF-3, приёмка NTF-3 не меняется). Д34 — позиция ленты сравнивается числом
+    (Р10, NTF3-161 (г), близнец P1 = 9, P2 = 10, наблюдаемое seenUpTo = 10).
+revisions:
+  workspace: 056350e1bb105b89c1dee279cd6c8a9bf9d5d2b2   # HEAD issue-880 при замере
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a
+  protobuf_go: v1.36.11
+  grpc_gateway: v2.30.0   # project/kacho/go.mod:124
+  ntf1_design: c018895f059dd839893f78c139191b69e24b2a0d6245e4fef33040f7e9c531f0   # редакция 13; вердикта нет
+  ntf6_design: e05384ced8713091a0c0c0c0cb42b4bd43ee945172b890579d7f2d93c22ab28d
+snapshot_at: 2026-09-30T15:40:42Z
+inspected: >-
+  Дифф замысла и маршрута ред. 3 → 4 целиком (git diff --numstat d923fc2c3 056350e1b: design.md
+  204/30, tasks.md 29/12). Записи 374789b5 (пересверка) и ac1f9fc9 (первичный разбор) целиком.
+  Приёмка ac1f9fc9: Р10 (1082–1120), NTF3-80…86 и NTF3-161 (2685–2785), NTF3-159 (е) (3700–3735).
+  Замысел NTF-1 c018895f: запись реестра :1024 и следующие 40 строк (область, самоистечение).
+  Замысел NTF-6 e05384ce: вхождения seenUpTo/seen_up_to (тип клиентского поля). Продукт @1d42a6728bf:
+  gateway/internal/restmux (mux.go, strict_enum.go), разбор тела в сгенерированном *.pb.gw.go
+  (instance_service), internal/repohygiene/sqlstatehome_test.go, история пина corelib в go.mod.
+  protobuf-go v1.36.11 encoding/protojson/decode.go:330–333. Стенд не поднимался, записки vault не
+  читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строки есть у всех 85 пунктов (`grep -c '^| CX3'` → 85; `| CX3I`/`| CX3J` → 5). Не выдерживает
+      одно: CX3J-01 (б) — порядок посадки закрывает окно «запись без функции» только для полос NTF-3,
+      а тег X2-F может выйти задолго до S2-B1, и любой подъём пина corelib в kacho на этот или
+      поздний тег (соседи эпика, NTF-4 S3-C2) красит ствол kacho самоистечением записи. Выборы
+      редакции 4 открыли два новых пункта (CX3K-01, CX3K-02) — отображения у них нет.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Редакция 4 новых рёбер не вводит: X2-F — полоса и тег, не вызов; FormatPosition/ParsePosition — локальный кодек."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет; обвязка NTF3-161 (г) идёт существующим путём приёма."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: >-
+      В добавленных строках диффа имён Err* 0 (git diff d923fc2c3 056350e1b -- design.md | grep '^+' |
+      grep -oE 'Err[A-Za-z]+' → пусто). Новый текст отказа `seen_up_to: not an inbox position` —
+      отказ формы с полем, не sentinel; 0 как «пусто» на проводе разобран пунктом CX3I-03.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: green
+    detail: >-
+      Маркеров 0 (grep -cE 'TODO|TBD|FIXME|XXX' → 0 в design.md и tasks.md). Е1 переписан в
+      зависимость от одобрения записи реестра NTF-1; «Решение за диспетчером» и «запрещает» в тексте
+      — только в истории правки (шапка ред. 1) и в строке М13, называющей снятую редакцию.
+
+clean: false
+
+execution_check:
+  summary: "требования записи 374789b5 исполнены все; исполнение CX3J-01 (б) не выдерживает своего условия (mapping_check), выборы CX3I-01 (г) и CX3I-03 (б) открыли CX3K-02 и CX3K-01"
+  items:
+    - {id: "orders.design-author (1)", verdict: holds, where: "таблица входов §1, change.yaml", note: "переякорено на ac1f9fc9 и восемь первичных разборов"}
+    - {id: "CX3I-01 (а)", verdict: holds, where: "З23, §5", note: "позиция записи и seen_up_to — одно целое; тип `string`, десятичная запись; комментарии полей «сравнивать как число»; «непрозрачн» осталось только у позиции подписки (:907, :1479) и в истории правки"}
+    - {id: "CX3I-01 (б)", verdict: holds, where: "З23", note: "одна пара FormatPosition/ParsePosition, три вызывающих; page_token — общий кодек курсора"}
+    - {id: "CX3I-01 (в)", verdict: holds, where: "З23, УК3-47", note: "разбор до оператора; -1 и 2^63 → INVALID_ARGUMENT seen_up_to; 23514 → INTERNAL (условие к коду о единственном доме — CX3K-02 (в))"}
+    - {id: "CX3I-01 (г)", verdict: holds, where: "З23", note: "ровно [1-9][0-9]* в пределах int64; обоснование выбора — М20, частично неверно (CX3K-02)"}
+    - {id: "CX3I-01 (д)", verdict: holds, where: "З23, И23", note: "inbox.Position (int64) от разбора до SQL"}
+    - {id: "CX3I-02", verdict: holds, where: "З23, §12, S2-B4", note: "разные типы, преобразования нет, позиция подписки вне ORDER BY и сравнений"}
+    - {id: "CX3I-03 (а)", verdict: holds, where: "З23, §5", note: "0 → \"\" через FormatPosition; при `string` и EmitUnpopulated=true край выдаёт \"seenUpTo\": \"\" — пусто, а не \"0\""}
+    - {id: "CX3I-03 (б)", verdict: holds, where: "З23, УК3-48", note: "выбран отказ формы для \"\" и \"0\"; ни один исход не пишет меньше хранимого. Выбор открыл CX3K-01"}
+    - {id: "CX3I-03 (в)", verdict: holds, where: "З19, §5 комментарий поля", note: "наименьшая позиция 1"}
+    - {id: "CX3I-04 (а)", verdict: holds, where: "З19, §6", note: "position bigint PRIMARY KEY без DEFAULT/identity/последовательности; предикат полосы S2-B4 слеп к bigserial — условие к коду CX3K-03"}
+    - {id: "CX3I-04 (б), (в)", verdict: holds, where: "З23 «Обвязка NTF3-161 (г)», S2-B7", note: "десять записей приёмом, без прямой записи; 9 и 10 утверждаются чтением до When; несовпадение — «условие не создано»"}
+    - {id: "CX3J-01 (а)", verdict: holds, where: "З10 «Версии тела», И24, УК3-50", note: "CREATE OR REPLACE той же функции; в генератор — шаблоны, не тела (CX1-76); тело несёт отпечаток и входы; проба извлечения — X2-F"}
+    - {id: "CX3J-01 (б)", verdict: does-not-hold, where: "З10 «Посадка», tasks.md X2-F, X5, S2-B1", note: "см. mapping_check.not_holding"}
+    - {id: "CX3J-01 (в)", verdict: holds, where: "З10 п.3, X2, УК3-49", note: "ключ `name` опускается у обоих писателей; близнец Registry"}
+    - {id: "CX3J-01 (г)", verdict: holds, where: "З10 п.5, X2", note: "форма строки сигнала в notify/spec — один источник; -check красный на расхождении"}
+    - {id: "CX3J-01 (д)", verdict: holds, where: "шапка, З9, З10, §13 Е1, tasks.md Е1", note: "Д1–Д34; Е1 — зависимость с предикатом по имени записи и вердикту"}
+    - {id: "orders.dispatcher (манифест)", verdict: holds, where: "change.yaml", note: "acceptance_sha256 ac1f9fc9, design_sha256 3dbb8b23"}
+
+mapping_check:
+  summary: "85 из 85 пунктов имеют строку; 84 выдерживают; CX3J-01 (б) не выдерживает; новые CX3K-01, CX3K-02 без отображения; CX3K-03 — условие к коду"
+  not_holding:
+    - id: "CX3J-01 (б)"
+      reason: >-
+        Условие пункта — «окна, в котором на стволе kacho есть функция без записи или запись без
+        функции, нет». Замысел закрывает его порядком, который связывает только полосы NTF-3: X5
+        NTF-3 не поднимает kacho на тег ≥ X2-F, подъём входит в S2-B1. Но (1) X2-F зависит только от
+        X2 и Е1 (tasks.md), а S2-B1 — ещё от S1-A1…A4: тег с записью может выйти за целую стадию до
+        S2-B1; (2) теги corelib линейны — каждый следующий тег несёт запись; (3) пин corelib в kacho
+        поднимают и другие изменения: NTF-4 S3-C2 поднимает пин на тег с Х5 (tasks.md NTF-4 :125,
+        «пины одним изменением»), подъёмы пина за 2026-09-12…09-23 — 4 (замер ниже). Любой такой
+        подъём на тег ≥ X2-F до посадки S2-B1 даёт в дереве kacho запись и ноль функций, а запись
+        NTF-1 (:1024 и далее) говорит прямо: «Ноль в дереве области — записи нечего исключать, гейт
+        красный с именем записи». Держатель «вниманием по составу изменения kacho» видит только
+        изменение S2-B1, а не подъёмы соседей.
+  unmapped:
+    - {id: CX3K-01, reason: "новый пункт этой записи — следствие выбора CX3I-03 (б)"}
+    - {id: CX3K-02, reason: "новый пункт этой записи — следствие выбора CX3I-01 (г) и довода М20"}
+
+new_items:
+  - id: CX3K-01
+    decision: >-
+      З23 (ред. 4): пустое и "0" в seen_up_to — отказ формы INVALID_ARGUMENT seen_up_to; правка с пустой
+      маской — полная правка, seen_up_to из тела разбирается той же функцией; порядок в Update —
+      «маска → разбор seen_up_to → оператор»
+    class: >-
+      code-authoring §«Порядок операций внутри кода» (порядок проверок полей одного запроса решает,
+      какое нарушение увидит клиент); §«Умолчание, которое становится утверждением» (значение, которое
+      чтение выдаёт, правка того же ресурса отвергает)
+    exposure: >-
+      NTF3-82 (м) — `PATCH /notify/v1/preferences` с `digestPeriod: "WEEK"`, маска не названа, Given —
+      G0, у usr-A seenUpTo пуст; Then — 400 с полем `digest_period`. Если проба шлёт (м) с пустой
+      маской, у usr-A в теле seenUpTo = "" — и по З23 разбор seen_up_to стоит сразу после маски, а
+      место проверки digest_period в порядке не названо: отказ может прийти с полем `seen_up_to`, и
+      NTF3-82 (м) красный на исправном продукте либо зелёный по случайному порядку. Второе: из текста
+      не следует, что seen_up_to НЕ разбирается, когда его нет в маске, — правка маской `digest_period`
+      телом, снятым с GET (seenUpTo = ""), у пользователя без отметки была бы отвергнута, хотя
+      замысел сам называет маску `digest_period` путём для этого пользователя.
+    condition: >-
+      (а) З23 называет: seen_up_to разбирается, только если поле входит в действующую маску (названную
+      либо пустую = полная правка); при маске `digest_period` значение seen_up_to в теле не читается;
+      (б) порядок проверок при пустой маске назван полностью, с местом digest_period — либо отказ несёт
+      оба нарушения полей, либо digest_period проверяется до seen_up_to; выбор согласован с NTF3-82 (м)
+      так, что при любой форме маски, которую допускает текст (м), нарушение несёт поле `digest_period`;
+      (в) проба NTF3-82 (м) называет свою маску, а если шлёт пустую — утверждает поле `digest_period`
+      у пользователя с пустой отметкой.
+    held_by: >-
+      (а), (б) — нужна проба, её нет: PATCH маской `digest_period` телом с seenUpTo = "" у пользователя
+      без отметки → done, digestPeriod изменён; PATCH с пустой маской, digestPeriod = "WEEK",
+      seenUpTo = "" → 400 с полем `digest_period` (заказ integration-tester); (в) — NTF3-82 (м).
+  - id: CX3K-02
+    decision: >-
+      §5, З23, М20 (ред. 4): позиция на проводе — поле `string`; `int64` отвергнут доводом М20, в том
+      числе «значение не той формы отвергал бы разбор тела краем, до сервиса, без нарушения с полем
+      seen_up_to (против NTF3-86)»; 23514 оператора → INTERNAL
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» (у значения на проводе два слоя разбора —
+      край и сервис, и контракт называет только второй); measurement-discipline §«Предикат — только с
+      контролем» (довод выбора проверен на одном варианте)
+    exposure: >-
+      Довод М20 верен для int64 и так же верен для string: край разбирает тело protojson до сервиса
+      (сгенерированный *.pb.gw.go: `marshaler.NewDecoder(req.Body).Decode` → `status.Errorf(codes.
+      InvalidArgument, "%v", err)`, без field_violations), а protojson принимает для строкового поля
+      только JSON-строку (decode.go:330–333). JSON-число `10`, `true`, объект в `seenUpTo` отвергнет
+      край текстом разборщика и без поля `seen_up_to` — ровно то, чем замысел дисквалифицировал int64.
+      Выбор `string` от этого не ломается (он держится ещё двумя доводами: 0 → "" и одно написание),
+      но (1) замысел утверждает о дереве асимметрию, которой нет; (2) NTF3-86 «значение не по форме
+      позиции — 400 с полем seen_up_to» и литералы NTF3-161 (г) (`seenUpTo = 10`) в приёмке JSON-тип
+      не называют — проба, пославшая число, получит отказ края на исправном продукте. Потребитель NTF-6
+      шлёт строку (e05384ce: `seen_up_to: string`, `position: string`) — с выбором согласован. Третье:
+      INTERNAL для 23514 этого оператора в дереве держит гейт единственного дома SQLSTATE
+      (`TestIntegritySQLStateIsDecidedInOnePlace`): литерал "23514" в коде notify — находка, решение
+      должно идти от классифицированного вида отказа, который выдаёт дом.
+    condition: >-
+      (а) З23 и §5 называют: значение позиции на проводе — JSON-строка; JSON-значение иного типа
+      отвергает разбор тела краем (INVALID_ARGUMENT, текст разборщика, без нарушения поля) — это
+      вне NTF3-86, который судит строковое значение; довод М20 против int64 переписан без ложной
+      асимметрии (остаются 0 → "0" и множественность написаний); (б) пробы NTF3-86 (не по форме),
+      NTF3-161 (г), УК3-47, УК3-48 шлют позицию JSON-строкой — это сказано в обвязке; (в) исход
+      INTERNAL для 23514 этого оператора берётся из вида отказа, классифицированного единственным домом
+      SQLSTATE, без литерала "23514" в notify; текст — фиксированный.
+    held_by: >-
+      (а) — вниманием по тексту замысла; (б) — Given/When проб (вниманием по диффу обвязки); (в) —
+      `TestIntegritySQLStateIsDecidedInOnePlace` и `TestErrorMappersTailReturnsAFixedText` (kacho
+      internal/repohygiene), покраснеют на литерале вне дома и на эхо ошибки.
+
+code_conditions:
+  - id: CX3K-03
+    subject: "предикат снятия полосы S2-B4 — «у inbox_event.position нет умолчания, identity и последовательности»"
+    class: "measurement-discipline §«Предикат — только с контролем» (контроль в обе стороны)"
+    exposure: >-
+      `grep -niE 'identity|sequence|nextval|setval' services/notify/internal/migrations/*.sql → 0`
+      слеп к самому вероятному нарушению — `position bigserial` (последовательность создаётся неявно,
+      ни одного из четырёх слов в тексте) — и шумит на законном: любая иная таблица `kacho_notify`
+      с `identity`/`serial` или слово `identity` в комментарии миграции дадут ложный красный.
+    condition: >-
+      предикат судит колонку, а не текст файла: на схеме после миграций
+      `information_schema.columns` для kacho_notify.inbox_event.position — `column_default IS NULL` и
+      `is_identity = 'NO'`, `pg_get_serial_sequence('kacho_notify.inbox_event','position') IS NULL`;
+      инъекция `bigserial` → красный, близнец — схема замысла → зелёный
+    held_by: "нужна проба, её нет (заказ integration-tester); до неё — вниманием db-architect-reviewer по диффу миграции, как в CX3I-04 (а)"
+
+measurements:
+  - claim: "отпечаток предмета — редакция 4 замысла"
+    command: "sha256sum docs/changes/issue-2918/design.md; git show 056350e1b:docs/changes/issue-2918/design.md | sha256sum"
+    result: "3dbb8b23… в обоих"
+    control: "git show d923fc2c3:… | sha256sum → 374789b5… (предмет прежней пересверки)"
+  - claim: "строки отображения есть у всех 85 пунктов, новых sentinel нет"
+    command: "grep -c '^| CX3' design.md; grep -c '^| CX3I\\|^| CX3J' design.md; git diff d923fc2c3 056350e1b -- design.md | grep '^+' | grep -oE 'Err[A-Za-z]+' | sort | uniq -c"
+    result: "85; 5; пусто"
+    control: "тот же '^| CX3' на d923fc2c3 давал 80 (запись 374789b5); тот же Err*-предикат на диффе 63f13f42b→d923fc2c3 находил 4 имени — предикат видит строки и имена"
+  - claim: "самоистечение записи реестра красит дерево kacho при нуле функций"
+    command: "L=$(grep -n 'Запись реестра .AuditFeedTableWrites.' docs/changes/issue-2915/design.md | cut -d: -f1); sed -n \"$L,$((L+40))p\" docs/changes/issue-2915/design.md"
+    result: "c018895f :1024 — «Область записи — дерево (модуль) kacho … Ноль в дереве области — записи нечего исключать, гейт красный с именем записи»"
+    control: "в той же записи — «в остальных деревьях (corelib — C10, kaname — K7) запись не признаёт ничего и самоистечением не краснеет»: поиск различает области"
+  - claim: "пин corelib в kacho поднимается часто и не только полосами NTF-3"
+    command: "git -C project/kacho log --oneline 1d42a6728bf -G'PRO-Robotech/corelib v' -- go.mod | wc -l; grep -n 'пины одним изменением' docs/changes/issue-2919/tasks.md"
+    result: "4 подъёма (0cc1cd54c 09-12, 6ee6c2d58 09-14, edc98869b 09-15, bdaedfd5a 09-15), история ствола до 1d42a6728bf (09-23); NTF-4 S3-C2 (:125) поднимает пины одним изменением на тег с Х5"
+    control: "предикат -G по строке require corelib: 4 коммита, все — релизы/волны с подъёмом фундамента (сообщения коммитов); ноль означал бы неверный путь к go.mod"
+  - claim: "край разбирает тело до сервиса и отвечает без нарушения поля; строковому полю protojson даёт только JSON-строку"
+    command: "git -C project/kacho show 1d42a6728bf:pkg/api/kacho/cloud/compute/v1/instance_service.pb.gw.go | grep -n -A1 'NewDecoder(req.Body).Decode'; sed -n 330,333p ~/go/pkg/mod/google.golang.org/protobuf@v1.36.11/encoding/protojson/decode.go"
+    result: ":117–118 — ошибка разбора тела → status.Errorf(codes.InvalidArgument, \"%v\", err); decode.go:330–333 — StringKind принимается только при tok.Kind() == json.String"
+    control: "в дереве *.pb.gw.go — 42 файла (git ls-tree … | grep -c '\\.pb\\.gw\\.go$'); проверен один, форма разбора тела — генератор grpc-gateway v2.30.0, одна на все"
+  - claim: "М20 замысла цитирует комментарий, а не настройку"
+    command: "git -C project/kacho grep -n 'EmitUnpopulated:' 1d42a6728bf -- gateway ':!*_test.go'"
+    result: "gateway/internal/restmux/strict_enum.go:76 true (публичный), :88 false (внутренний); М20 ссылается на mux.go:17, :21 — строки комментария. Факт верен, координата — проза"
+    control: "тот же grep находит третье место (subscriptionstream/handler.go:584) — предикат видит код"
+  - claim: "потребитель NTF-6 шлёт позицию строкой"
+    command: "grep -n 'seen_up_to: string\\|position: string' docs/changes/issue-2925/design.md"
+    result: ":509 `position: string`, `seenUpTo: string`; :1320 `seen_up_to: string`"
+    control: "—"
+
+not_measurable:
+  - "когда будет выпущен тег X2-F относительно Х5 NTF-4 и S1 NTF-3 — тегов нет, corelib@34bc8104a = v1.9.0; окно CX3J-01 (б) выведено из маршрутов, не из дерева"
+  - "с какой маской проба NTF3-82 (м) шлёт правку — приёмка маску не называет, обвязки notify-api в дереве нет"
+  - "исход CX3K-03 на реальной схеме — миграций kacho_notify в дереве нет (services/notify на 1d42a6728bf отсутствует)"
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: []
+not_holding_items: ["CX3J-01 (б)"]
+new_items_without_mapping: [CX3K-01, CX3K-02]
+open_decisions: []
+
+orders:
+  - to: design-author
+    what: >-
+      редакция 5 замысла NTF-3: (1) CX3J-01 (б) — окно «запись без функции» закрыть для ствола kacho,
+      а не для полос NTF-3: тег X2-F выпускается, когда у S2-B1 сняты все прочие зависимости
+      (S1-A1…A4, X2, Е1), и S2-B1 садится следующим изменением kacho; ограничение «пин corelib в kacho
+      на тег ≥ X2-F — только изменением S2-B1» названо как ограничение эпика (NTF-1, NTF-4 S3-C2,
+      NTF-5) с его длительностью; (2) CX3K-01 (а)–(в) — seen_up_to разбирается только в маске,
+      порядок проверок при пустой маске с местом digest_period, согласование с NTF3-82 (м);
+      (3) CX3K-02 (а)–(в) — JSON-строка на проводе, отказ края для иного JSON-типа вне NTF3-86,
+      довод М20 без ложной асимметрии и с координатой strict_enum.go:76/:88 вместо комментария,
+      INTERNAL для 23514 через вид отказа единственного дома; (4) CX3K-03 — предикат S2-B4 по
+      колонке на мигрированной схеме; затем новая пересверка
+    basis: ".claude/rules/change-graph.md §4; Д22, Д26; code-authoring §«Порядок операций внутри кода», §«Решение и его следствие разнесены»"
+  - to: dispatcher
+    what: >-
+      ограничение CX3J-01 (б) касается маршрутов соседей: NTF-4 S3-C2 и любые подъёмы пина corelib в
+      kacho между тегом X2-F и посадкой S2-B1 — решить порядок тегов эпика (X2-F последним перед
+      S2-B1) и донести до авторов маршрутов NTF-1, NTF-4, NTF-5
+    basis: ".claude/rules/change-graph.md §4; запись реестра NTF-1 c018895f (область, самоистечение)"
+  - to: integration-tester
+    what: >-
+      пробы notify-api: (CX3K-01) PATCH маской digest_period телом с seenUpTo = "" у пользователя без
+      отметки → done, digestPeriod изменён; PATCH с пустой маской, digestPeriod = "WEEK", seenUpTo = ""
+      → 400 с полем digest_period; (CX3K-03) колонка inbox_event.position на мигрированной схеме —
+      без умолчания, identity и владеемой последовательности; инъекция bigserial → красный. Заказы
+      записей ac1f9fc9 и 374789b5 (УК3-47…50) остаются в силе
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; measurement-discipline §«Предикат — только с контролем»"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Не заводится. CX3J-01 (б) — «решение и его следствие разнесены» (запись в общем фундаменте,
+  функции в потребителе, общий пин у многих писателей) — известный класс code-authoring; здесь один
+  экземпляр без измеренной цены (ствол kacho ещё ни разу не покраснел). CX3K-02 — довод выбора,
+  проверенный на одном варианте, — один раз, находка.
