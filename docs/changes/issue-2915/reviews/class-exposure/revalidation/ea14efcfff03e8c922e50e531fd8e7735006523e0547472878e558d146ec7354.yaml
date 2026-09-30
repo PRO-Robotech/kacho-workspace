@@ -1,0 +1,282 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 14 замысла.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта. Судятся строка §11 «Д44» и дельта редакции 14
+# против последней разобранной редакции 13 (c018895f…, запись revalidation/c018895f….yaml, коммит
+# e27d83376, итог «к коду»). Предмет дельты — коммит 0fefbced9: design.md +28/−1 (шапка, Д44 в перечне
+# решений, З20 абзац «Узел почты», З26 строка узла и режима, §8 три строки ручек, §11 строка Д44),
+# tasks.md (шапка, N13, D1, порядок), change.yaml (отпечаток). Пункты CX1-01…76 и условия УК1…УК94
+# эта запись не пересуживает.
+#
+# Д44 — не заход отображения по Д26: он вносит новое решение (ручки и страж старта). Поэтому по §7
+# агента дельта разбирается на решения и классы заново, а не только сверяется строкой отображения.
+#
+# Итог — к замыслу. Решение «страж старта notify на пустом адресе ретранслятора» по существу верно и
+# отображено (полоса N13, проба с близнецом). Но у ручек два источника значения: замысел заводит
+# собственные ключи values `notify.smtp.{host,port,tlsMode}` и провязывает их чартом (D1), а приёмка
+# NTF-2 той же волны Д44 (редакция 18, eb2325039) берёт адрес полосы отправителя notify из узла
+# `global.kacho.identity.smtp.connectionURI` и объявляет «второго пути значений полосы нет». Её
+# NTF2-34 (г) краснеет на шаблоне notify, который читает адрес из ключа вне этого узла. Замысел NTF-1
+# этот узел не называет ни разу (CX1-77). Кроме того, два держателя строки Д44 названы по чужому
+# референту (CX1-78). CX1-79 и CX1-80 — к коду. Возврата в приёмку NTF-1 нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: ea14efcfff03e8c922e50e531fd8e7735006523e0547472878e558d146ec7354
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл на eb2325039 (HEAD issue-880) даёт ea14efcf…; change.yaml hashes.design_sha256 — тот же
+  revision: 14
+  content_commit: 0fefbced9
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/c018895f059dd839893f78c139191b69e24b2a0d6245e4fef33040f7e9c531f0.yaml
+    sha256: c018895f059dd839893f78c139191b69e24b2a0d6245e4fef33040f7e9c531f0
+    content_commit: d892dc35c
+    record_commit: e27d83376
+  mapped_items: [Д44]
+  delta_predicate: "git diff 0fefbced9~1 0fefbced9 -- docs/changes/issue-2915/"
+  dispatcher_decisions:
+    - "Д44 — узел почты: notify включён (флаг Д7), адрес ретранслятора пуст → отказ старта с понятным текстом (fail-closed, ban #16); установка без почты выключает флаг, источники отвечают DeliveryNotConfigured одинаково для любого адреса"
+    - "Д7 — флаг модуля; в дельте не менялся"
+    - "Д26 — к этой дельте не применяется: Д44 вносит новое решение, а не отображение"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+neighbour_documents_read:
+  - path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+    revision: 18
+    commit: eb2325039
+    verdict: "нет (редакция 16 — ⛔ возврат круга 1; редакции 17 и 18 — вердикта нет)"
+    why: "та же волна Д44; называет NTF-1 производителем ключа адреса ретранслятора и отказа старта"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: eb2325039d29a0f3fd3dd7d8138f47d46b5019ef   # вершина issue-880 на момент разбора; поверх коммита содержимого 0fefbced9 — 1 коммит (только приёмка NTF-2)
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2        # origin/main по ls-remote на момент разбора
+  corelib: "не читался — дельта не делает утверждений о дереве corelib"
+snapshot_at: 2026-09-30T17:29:22Z
+inspected: >-
+  Прочитана вся дельта 0fefbced9: design.md (шапка редакции 14, Д44 в перечне решений, З20 абзац
+  «Узел почты», З26 строка узла и режима, §8 три строки, §11 строка Д44), tasks.md (шапка редакции 15,
+  N13, D1, порядок п.4), change.yaml (отпечаток). Для сверки опор прочитаны З20 целиком, З28 (флаг,
+  перечень, рендер, стенд), приёмка NTF-1 — сценарии E04, G01, G06, G07, G08, G15, N04, N06 и строка
+  G19 таблицы держателей, строки N1, N6, D1, D3 tasks.md. Приёмка NTF-2 редакции 18 прочитана в местах,
+  называющих Д44, узел `global.kacho.identity.smtp` и NTF2-34 (строки шапки, §-абзац «Узел пуст при
+  включённом notify», сценарий NTF2-34 (г), (е), (е'), таблица держателей, §11 редакция 17 → 18).
+  В дереве kacho @1d42a67 прочитаны `internal/repohygiene/profileknobreader_test.go`
+  (`TestDeclaredKnobHasAReader`), `internal/repohygiene/bootguardpresence_injection_test.go`
+  (`TestSpecWiringRedOnAQuietConstantInEveryPostureField`) и почтовая полоса стенда в
+  `deploy/helm/umbrella/values.dev.yaml`. Записки vault не читались. Замысел NTF-3 не читался:
+  предмет Д44 там — `notify-sender`, полоса параллельная.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: >-
+      Источник значения ручек узла почты не решён: замысел заводит собственные ключи values
+      `notify.smtp.{host,port,tlsMode}`, а соседняя приёмка той же волны назначает источником узел
+      `global.kacho.identity.smtp.connectionURI` и запрещает второй путь (CX1-77)
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-77 и CX1-78 не отображены; строка Д44 отображена, но с держателями по чужому референту (mapping_check)"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Дельта их не вводит. Ребро notify → ретранслятор уже есть (§9). Страж старта — синхронная
+      проверка конфигурации, не новый вызов. Нового sentinel нет: отказ — ошибка старта с именем ручки
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "запись привязана к ea14efcf; это отпечаток файла на HEAD eb2325039, change.yaml несёт design_sha256: ea14efcf…"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "на ea14efcf ревью замысла нет, шапка редакции 14 это говорит. В `clean` не входит"
+
+mapping_check:
+  - item: Д44
+    verdict: holds_with_items
+    evidence: >-
+      Решение отображено: З20 абзац «Узел почты», З26, §8 (три строки с границами), §11 строка Д44,
+      полоса N13 с пробой `TestNotifyStartRefusedWithoutRelayAddress`. У пробы есть отрицание (адрес
+      пуст, адрес не задан, порт 0 и 65536, режим none) и близнецы (адрес задан, порты 1 и 65535,
+      режимы starttls и implicit). Инъекция «умолчание localhost» делает пробу красной по варианту
+      «переменная не задана». Отклонение от буквы Д44 названо и обосновано: страж не спрашивает флаг,
+      потому что notify рендерится только при непустом перечне, то есть при включённом флаге хотя бы
+      одного модуля (NTF1-N04). Такой страж строже буквы Д44 и с ней не расходится: при выключенном
+      флаге процесса нет. Не выдерживают два места: источник значения (CX1-77) и держатели «перепись
+      ручек» и «TestDeclaredKnobHasAReader» (CX1-78)
+
+items:
+  - id: CX1-77
+    status: unmapped
+    decision: "ручки `notify.smtp.{host,port,tlsMode}` — собственные ключи values чарта notify, провязанные в ConfigMap (З20, §8, D1)"
+    class: "code-authoring §«Контракт, который нельзя выразить» — два написания одного значения; §«Умолчание, которое становится утверждением»"
+    finding: >-
+      Приёмка NTF-2 редакции 18 (eb2325039, та же волна Д44) называет источником адреса полосы
+      отправителя notify узел `global.kacho.identity.smtp` (`connectionURI`, `fromAddress`,
+      `credentialSecret`). Там же: «второго пути значений полосы нет» (NTF2-34), а инъекция
+      (г) «шаблон чарта notify берёт адрес почтовой полосы из ключа значений вне узла
+      `global.kacho.identity.smtp`, у которого своё непустое значение» — красный. Узел несёт адрес
+      одной строкой URI: схема задаёт режим, `smtp://` = STARTTLS. Замысел NTF-1 редакции 14 этого
+      узла не называет ни разу, а D1 провязывает в ConfigMap собственные ключи `notify.smtp.*` из
+      values notify. Следствия:
+      (1) D1 в заявленной форме краснит NTF2-34 (г) по построению;
+      (2) одно значение (адрес ретранслятора) выражено двумя способами — URI в узле и тройкой ручек;
+      отображение «URI → узел, порт, режим» нигде не определено: какие схемы допустимы, что при URI
+      без порта, что с именем пользователя в URI (NTF-2 «пара имя пользователя в адресе ⇔ источник
+      удостоверения»);
+      (3) стенд. Почтовая полоса стенда объявлена в узле: `values.dev.yaml` @1d42a67 —
+      `connectionURI: 'smtp://{{ .Release.Name }}-mailpit:1025/'`. Файл отдан `kacho#1276`, NTF-2 его
+      не правит. Ни одна полоса tasks.md не пишет `notify.smtp.*` в профиль стенда: пути D1 и D3 его не
+      называют, а близнец D1 «значения стенда (приёмник D3)» ссылается на значения, которых никто не
+      заводит. При собственных ключах notify на стенде с включённым флагом не стартует — это условие
+      стенда, поданное как отказ продукта. В том же файле уже был такой прецедент: «прежде здесь стоял
+      адрес узла, которого не поднимал ни один манифест».
+    condition_to_design: >-
+      Замысел выбирает один источник и пишет его в З20, §8, D1 и строке Д44.
+      (а) Значение ручек процесса `KACHO_NOTIFY_SMTP_{HOST,PORT,TLS_MODE}` чарт выводит ОДНИМ
+      помощником из `global.kacho.identity.smtp.connectionURI`; собственных ключей values
+      `notify.smtp.{host,port,tlsMode}` нет. Либо ручка процесса одна — URI, и разбирает её страж
+      старта. Выбор с доводом — в З20.
+      (б) Отображение «схема → режим» — закрытая таблица без `default`: `smtp` → `starttls`,
+      `smtps` → `implicit`; иная схема — отказ рендера либо пустой режим, который отвергает страж N13.
+      URI без порта даёт пустой порт, а не порт по схеме: иначе это умолчание, которое страж не видит.
+      Пустой узел даёт пустые ключи, согласно NTF2-34 (е).
+      (в) Имя пользователя в URI: либо у него есть читатель в наборе соединения SMTP, либо отказ с
+      именем поля. Молча отброшенное — «принято-и-проигнорировано» (`api-accepted-ignored`).
+      (г) D1: близнец строится по узлу `global.kacho.identity.smtp` цепочки стенда, а не по ключам
+      `notify.smtp.*`. Проба рендера — URI `X` в узле → в ConfigMap узел, порт и режим из `X`; пустой
+      узел → ключи пусты, рендер проходит (NTF-2 Р19, Д42). Отказ даёт старт (N13).
+      (д) Строка §9 или §13: чтение узла — доля NTF-2 (NTF2-34), ключ процесса и страж — NTF-1 (Д44).
+      Стык называет обе стороны.
+    held_by: >-
+      NTF2-34 (г), (е), (е') — гейт рендера NTF-2, он есть в приёмке NTF-2. Проба помощника разбора
+      URI в D1 — нужна, её нет (заказ). Страж старта — N13
+  - id: CX1-78
+    status: unmapped
+    decision: "держатели строки Д44 и полосы N13: «`TestDeclaredKnobHasAReader` — у трёх ручек читатель в наборе соединения SMTP», «инъекция умолчания → `knobcensus_test.go` красный»"
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (держатель, названный по чужому референту); §«Умолчание, которое становится утверждением» (принято-и-проигнорировано для режима)"
+    finding: >-
+      (1) `TestDeclaredKnobHasAReader` (kacho @1d42a67, `internal/repohygiene/profileknobreader_test.go`)
+      проверяет другое. По его шапке: «ключ, объявленный в профиле развёртывания, обязан иметь
+      читателя в шаблоне чарта либо в шаблоне его родителя». Это ось values → шаблон. О читателе
+      поля конфигурации в Go-коде соединения SMTP он не говорит ничего. Уместен он в D1, а не в N13.
+      (2) `services/notify/internal/config/knobcensus_test.go` — файл будущий (G19, полоса N1). Его
+      предикат в N1 — «ручки отключения TLS нет»; оси «у охраняемой ручки нет умолчания в загрузчике»
+      у него нет ни в N1, ни в G19. Строка N13 объявляет его красным на инъекции `localhost`, но
+      полосы, которая заводит эту ось, нет. Гейт правила `sec-no-silent-default-for-guarded-knob` в
+      дереве — `TestSpecWiringRedOnAQuietConstantInEveryPostureField`. Его подделки — поля
+      дескриптора посадки (`DBSSLMode`, `Mode`, `Forwarders`, `ForwarderKnobs.OptIn`); ручки SMTP он не
+      покрывает.
+      (3) Чтение режима не доказано. Близнецы «`starttls`, `implicit` → старт» доказывают только, что
+      валидатор режим принимает. Что набор соединения его читает, они не доказывают. Узел и порт
+      читателя имеют: «первая SMTP-сессия идёт на заданные узел и порт». У режима такой пробы нет.
+    condition_to_design: >-
+      (а) Держатель «читатель в наборе соединения» — проба N13. Режим `implicit` против узла,
+      слушающего только STARTTLS: `MAIL FROM` не отправлен, `DEFER(platform_unavailable)`. Близнец —
+      `starttls` против того же узла: письмо отправлено. Инъекция — набор соединения не читает режим
+      (всегда STARTTLS) → красная.
+      (б) `TestDeclaredKnobHasAReader` перенесён в D1: ключ values → читатель в шаблоне. При выборе
+      CX1-77 (а) ключей values `notify.smtp.*` нет, и строка D1 называет узел.
+      (в) Про `knobcensus_test.go` — одно из двух. Либо N1 или N13 называет ось «охраняемая ручка без
+      умолчания в загрузчике» с инъекцией и близнецом, и путь её есть в полосе (`internal/config/**`
+      покрывает). Либо утверждение о красном переписи снимается, и держит вариант «переменная не
+      задана» пробы N13.
+    held_by: "проба N13 (после правки); перепись ручек — только если ось заведена"
+
+conditions_to_code:
+  - id: CX1-79
+    decision: "страж N13 безусловен и ложится поверх стражей N1"
+    class: "code-authoring §«Порядок операций внутри кода»; отрицательный кейс меняет ровно один факт против близнеца"
+    condition: >-
+      Базовая конфигурация проб, стартующих процесс notify (E04, G01, G06, G15 — отрицания и близнецы
+      «с заданной — стартует», полоса N1), лежит в одном фикстурном построителе под
+      `services/notify/internal/config/**` (путь N13). N13 добавляет в него действительный узел
+      почты. Отрицания E04, G01, G06 и G15 утверждают имя СВОЕЙ ручки или оси в тексте отказа. Без
+      этого близнецы N1 после N13 краснеют не по своему предмету, а отрицание остаётся зелёным по
+      чужой причине.
+    held_by: "близнецы E04, G01, G06, G15 зелёные на вершине N13 — строка предиката снятия N13 (заказ автору маршрута)"
+  - id: CX1-80
+    decision: "узел почты задаёт и адрес набора соединения, и имя проверки сертификата"
+    class: "code-authoring §«Умолчание, которое становится утверждением»; security-hardening hard-no-derived-security-address"
+    condition: >-
+      Имя, по которому проверяется сертификат ретранслятора (`ServerName`), берётся из той же ручки
+      узла. Своей ручки, вывода из соседа и `InsecureSkipVerify` нет. Секрет почты несёт только
+      удостоверение (имя и пароль), адреса и URI в нём нет. У адреса ретранслятора ровно один
+      носитель — источник, выбранный по CX1-77.
+    held_by: "G08 (недоверенный сертификат) — есть; на «адреса в секрете нет» гейт раскладки D1 (CX1-66 (а)) расширяется перечнем ключей секрета почты — заказ"
+
+notes:
+  - id: N1
+    blocking: false
+    where: "design.md §11 строка Д44, столбец держателя"
+    text: >-
+      Строка ссылается на правило `sec-no-silent-default-for-guarded-knob`, но называет не его
+      гейт. Гейт правила — `TestSpecWiringRedOnAQuietConstantInEveryPostureField`, а ручек SMTP он не
+      покрывает. Ссылку стоит привести к держателю, выбранному по CX1-78 (в)
+  - id: N2
+    blocking: false
+    where: "tasks.md N13, «зависит от»"
+    text: >-
+      N13 зависит от N1 и N6, но правит `services/notify/internal/smtp/dial*.go` — это путь N6
+      (`internal/smtp/**`). Последовательность это разводит, пересечения по времени нет. Однако
+      перепись путей полос покажет одноимённый путь у двух полос, поэтому строке N6 стоит оговорить,
+      что `dial*.go` после неё правит N13
+
+measurements:
+  - claim: "предмет — ea14efcf, коммит 0fefbced9; поверх него пакет issue-2915 и приёмка NTF-1 не правились"
+    command: "sha256sum docs/changes/issue-2915/design.md; git log --oneline --stat 0fefbced9..HEAD; sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md"
+    result: "ea14efcf; поверх 1 коммит (eb2325039 — только приёмка NTF-2); приёмка NTF-1 — 29cfa368 (как в записи c018895f)"
+  - claim: "замысел NTF-1 не называет узел почты NTF-2"
+    command: "grep -n -E 'identity\\.smtp|connectionURI|NTF2-34' docs/changes/issue-2915/design.md"
+    result: "0 совпадений; приёмка NTF-1 — тот же предикат, 0. Контроль в обратную сторону: в приёмке NTF-2 @eb2325039 предикат `grep -n -E 'identity\\.smtp|connectionURI'` находит абзац «Узел пуст при включённом notify» и сценарий NTF2-34 (г), (е), (е')"
+  - claim: "полоса стенда объявлена в узле identity.smtp, ключей notify.smtp в профилях нет"
+    command: "git -C project/kacho grep -n -iE 'mailpit|smtp' 1d42a67 -- 'deploy/helm/umbrella/values*.yaml'"
+    result: "values.dev.yaml:122 `connectionURI: 'smtp://{{ .Release.Name }}-mailpit:1025/'`; values.a8f60d.yaml:120 — URI вида `smtps://`; ключей `notify.smtp` 0"
+  - claim: "TestDeclaredKnobHasAReader судит values → шаблон, а не читателя в Go"
+    command: "sed -n 90,100p internal/repohygiene/profileknobreader_test.go @1d42a67"
+    result: "шапка: «ключ, объявленный в профиле развёртывания, обязан иметь читателя в шаблоне чарта либо в шаблоне его родителя»"
+  - claim: "гейт sec-no-silent-default-for-guarded-knob не покрывает ручки SMTP"
+    command: "sed -n 728,790p internal/repohygiene/bootguardpresence_injection_test.go @1d42a67"
+    result: "подделки — DBSSLMode, Mode, Forwarders, ForwarderKnobs.OptIn; поле дескриптора посадки, не загрузчик конфигурации службы"
+  - claim: "knobcensus_test.go в дереве нет, его ось в N1 — «ручки отключения TLS нет»"
+    command: "git -C project/kacho ls-tree -r --name-only 1d42a67 | grep -i knobcensus; grep -n knobcensus docs/changes/issue-2915/tasks.md"
+    result: "в дереве 0 файлов; tasks.md — N1 («ручки отключения TLS нет») и N13 (утверждение о красном на умолчании)"
+  - claim: "маркеров отсрочки нет"
+    command: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "0"
+
+not_measurable:
+  - item: "что NTF-2 редакции 18 получит одобрение в нынешней формулировке NTF2-34"
+    why: "вердикта на редакцию 18 нет, редакция 16 возвращена. CX1-77 опирается на текст документа, а не на его одобрение: противоречие есть уже между двумя документами одной волны, и замысел обязан его решить до своего одобрения"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-77, CX1-78]
+orders:
+  - to: "acceptance-author (замысел NTF-1)"
+    subject: "CX1-77 (а)–(д): один источник значения узла почты, стык с NTF2-34; CX1-78 (а)–(в): держатели строки Д44 и N13; N1, N2 — формулировки"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Контракт, который нельзя выразить»"
+  - to: "acceptance-author (маршрут tasks.md)"
+    subject: "CX1-79 — фикстурный построитель базовой конфигурации в путях N13, близнецы N1 в предикате снятия N13; CX1-80 — перечень ключей секрета почты в гейте раскладки D1; проба помощника разбора URI в D1"
+    basis: "code-authoring §«Порядок операций внутри кода»; .claude/rules/security-hardening.md hard-no-derived-security-address"
+  - to: "диспетчер"
+    subject: "стык NTF-1 ↔ NTF-2 по источнику адреса ретранслятора: решить, чей текст ведущий, если замысел NTF-1 выберет не узел identity.smtp"
+    basis: "приёмка NTF-2 ред. 18, NTF2-34 (г)"
+  - to: "system-design-reviewer (режим «замысел»)"
+    subject: "ревью замысла — после редакции, отображающей CX1-77 и CX1-78"
+    basis: ".claude/rules/change-graph.md §4"
