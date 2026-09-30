@@ -25,6 +25,8 @@ SPDX-License-Identifier: BUSL-1.1
 > — **редакция 8 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 1 прохода Д14–Д16, каждый род закрыт классом по всему документу. CONSTRUCTIBILITY (B1-1): исход `corevalidate.ResourceID` на каждом id-подобном слове документа измерен пробой на corelib @`34bc8104a` и записан в Р11а (таблица); отказ формата утверждается только на входах, которые функция отвергает (`v@1`, `p@1`, `a@1`, `u@1`, `xx@`); `vol@1` проходит слитной формой — ответ линии владельца (NTF3-88); заполнители id, которых производитель не чеканит, заменены приставками каталога (`sa-1`→`sva-1`, `snap-N`→`snp-N`, `pool-N`→`apl-N`, `pg-1`→`plg-1`; ключ SA и токен пользователя — слитная чеканка `soc1`, `soc2`, `uoc1`…`uoc3`). NEGATIVE (B1-2): обязательность каждого обязательного id-поля `notify-api` и справочника — отдельной проверкой `<field>: required` до формата и до права (Р11а (г), Р7, Р11, Р20, Р25); буквы NTF3-90 (н)–(р), строки NTF3-92, NTF3-116, NTF3-117. TWIN (B1-3): §1.12 переведён на NTF-1 @`12a66925` (редакция 7, наследник `0311f05f`), изменённые строки отмечены; вид назван словом провода `notification_feed` в §1.9, Д3, Р3, Р4, §3, NTF3-04, NTF3-65 (полный текст отказа corelib со словарём storage), NTF3-67, DoD 12.2. Неблокирующие: близнец по типу NTF3-151 — форма NTF1-F12 (`iam_user`, `token_issuer`); NTF-6 @`d5fe4734` в §1.12; ребро `notify-api → служба доступа` в §3 и DoD 12.2 п.3; фраза о местах Д-1…Д-7 в Р28. Сценариев: номеров **158**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > — 2026-09-30 · круг 2 прохода Д14–Д16 · ⛔ ВОЗВРАТ (блокирующих 1: NEGATIVE) · SHA-256 `f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493.yaml`
 > — **редакция 9 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 2 прохода Д14–Д16. NEGATIVE (B2-1, повтор рода): класс «обязательное поле без держателя отказа» закрыт по **всем** обязательным полям входа справочника, а не по двум названным: у `Resolve` — `namespace`, `audience` (форма не задана), `subject` при `resource`/`self` (пусто или без id после `:`), `resource_refs[i].id`, `audience.account_owner.account_id`; плюс `subject` при `account_owner` — отказ, а не молчаливое игнорирование (`api-accepted-ignored`); у `ListExpiringCredentials` — обязательные границы окна и пустое окно (буквы NTF3-122 (а)–(в)). Порядок проверок входа `Resolve` записан в Р7 (обязательность → форма → вопрос к модели); таблица «Отказ вызова справочника» называет отказ по обязательности в строке `INVALID_ARGUMENT`; держатели — буквы NTF3-118 (а)–(д) и NTF3-120 (а)–(в), каждая с близнецом по одному факту (§10) и производителем (§11, DoD 12.2 п.4); «вопроса к модели нет» наблюдается записывающей подменой двери в пробе службы доступа. Примеры вызова `Resolve` без `namespace` (NTF3-118, 119, 120, 139) дополнены им. Неблокирующие: §1.12 и ссылки на NTF-1 переведены на принятую редакцию 8 @`b347b81f` (правки против @`12a66925` — A09, B20, G19, D04 — ни одной опоры §1.12 не задевают, сверено диффом); близнец по типу NTF3-151 — точная пара строкой `Check {user:usr-ca, reader, notification_recipient_directory:root}` → `false`. Номера сценариев не добавлялись: номеров **158**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
+> — 2026-09-30 · круг 3 прохода Д14–Д16 · ⛔ ВОЗВРАТ (блокирующих 2: NEGATIVE · TWIN) · SHA-256 `538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d.yaml`
+> — **редакция 10 · 2026-09-30 · вердикта на неё НЕТ.** Правки по кругу 3 прохода Д14–Д16, класс закрыт по переписи отказов из текста решения, а не из заголовка правки (§14а). NEGATIVE (B3-1): ссылок 0 — отказ по обязательности `resource_refs: required`, перенесён в шаг (1) Р7; держатель — NTF3-118 (е), близнец `[{storage_volume, vol-1}]` → `ADDRESS`. TWIN (B3-2): отрицания «101 ссылка» и «смесь типов» вынесены из When NTF3-118 в буквы (ж), (з) с близнецами по одному факту — 100 ссылок → `ADDRESS` против 101; `[vol-1, vol-2]` одного типа → `ADDRESS` против `{storage_volume}` + `{storage_snapshot}`. Перепись всех отказов Р7 записана в Р7: `Resolve` 11, `ListProjectAudience` 3, `ListExpiringCredentials` 4 — у каждого сценарий или буква, строка §10 и производитель §11; дописана недостававшая строка §10 для мусорного `page_token` NTF3-117. Неблокирующие: место записывающей подмены (порт модели сценария использования `Resolve`; вопрос о праве вызывающего задаёт перехватчик слушателя и в счёт не входит) — NTF3-118, NTF3-120, §11; строки §10 для NTF3-151 (точная пара) и NTF3-28 называют тип объекта вместе с отношением и id. Номера сценариев не добавлялись: номеров **158**, снято **7**, живых **151**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задача `PRO-Robotech/kacho#2918` (NTF-3);
 > документ ведётся задачей `PRO-Robotech/kacho-workspace#880`; пакет изменения — `docs/changes/issue-2918/`
@@ -547,19 +549,29 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   ссылок), `self{}`, `account_owner{account_id}` (субъект не передаётся, ответ — адрес владельца).
   Типы в `resource_refs` — виды пространства имён `namespace` **и** `project`, `account` (якорь
   снятия, контакт); иное — `INVALID_ARGUMENT` с полем `resource_refs[i].type`; отношение не `v_get` —
-  `INVALID_ARGUMENT` с полем `relation`; ссылок 0 или больше 100, смесь типов — `INVALID_ARGUMENT` с
-  полем `resource_refs`.
+  `INVALID_ARGUMENT` с полем `relation`; ссылок 0 — `INVALID_ARGUMENT` `resource_refs: required`
+  (обязательность, шаг (1) ниже); больше 100 либо смесь типов — `INVALID_ARGUMENT` с полем
+  `resource_refs`.
 - **Проверка входа `Resolve` — синхронно, в этом порядке, до любого вопроса к модели прав:**
   (1) обязательность — `INVALID_ARGUMENT` `<field>: required`: `namespace: required` (пусто);
   `audience: required` (ни одна форма не задана); `subject: required` при `resource` и `self` (пусто
-  либо без id после `:`, например `user:`); `resource_refs[i].id: required` (i — индекс первой пустой);
+  либо без id после `:`, например `user:`); `resource_refs: required` при `resource` (ссылок 0);
+  `resource_refs[i].id: required` (i — индекс первой пустой);
   `audience.account_owner.account_id: required`; (2) `subject` задан при `account_owner` —
   `INVALID_ARGUMENT` `subject: must be empty for audience account_owner` (принятое и
-  проигнорированное поле запрещено, `api-accepted-ignored`); (3) тип, отношение, число и смесь ссылок —
-  отказы выше. Функция формата фундамента пустую строку пропускает (Р11а (г), `api-resourceid-empty`):
+  проигнорированное поле запрещено, `api-accepted-ignored`); (3) тип, отношение, ссылок больше 100,
+  смесь типов — отказы выше. Функция формата фундамента пустую строку пропускает (Р11а (г), `api-resourceid-empty`):
   без шага (1) пустой id ушёл бы к модели объектом `storage_volume:` и вернулся бы исходом по
-  субъекту (`AUDIENCE_DENIED`, `SUBJECT_NOT_FOUND`), неотличимым от законного. Держатели — NTF3-118
-  (а)–(д), NTF3-120 (а)–(в).
+  субъекту (`AUDIENCE_DENIED`, `SUBJECT_NOT_FOUND`), неотличимым от законного; пустой набор ссылок
+  прошёл бы цикл проверки без единого вопроса и дал бы тот же `AUDIENCE_DENIED`. Держатели — NTF3-118
+  (а)–(з), NTF3-120 (а)–(в), NTF3-28, NTF3-29; каждый отказ Р7 — буква или сценарий, строка §10 с
+  близнецом по одному факту и производитель §11. Перепись отказов Р7 — по тексту решения, а не по
+  заголовку правки: у `Resolve` 11 (`namespace`, `audience`, `subject` при `resource`/`self`,
+  `resource_refs` пуст, `resource_refs[i].id`, `account_id`, `subject` при `account_owner`, тип, отношение,
+  больше 100, смесь) — держатели NTF3-118 (д), NTF3-120 (без аудитории), NTF3-118 (в), (г) и NTF3-120 (б),
+  NTF3-118 (е), (а), (б), NTF3-120 (а), (в), NTF3-28, NTF3-29, NTF3-118 (ж), (з); у `ListProjectAudience`
+  3 (`project_id` пуст, не по форме, мусорный `page_token`) — NTF3-117; у `ListExpiringCredentials` 4
+  (две границы, пустое и длинное окно) — NTF3-122 (а)–(в) и второй вызов.
 - `ListProjectAudience{project_id, page_token, page_size}` → субъекты `user:<id>` с действующей
   (не отозванной, не истёкшей) привязкой с субъектом-пользователем на `project:<id>`. Группы не
   раскрываются, привязки аккаунта не входят. Адресов в ответе нет. Пустой `project_id` —
@@ -2513,7 +2525,7 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 `project:prj-1` / `v_get` снят: `v_get` на проекте администратору облака даёт сама модель —
 `any_admin from cluster`, `internal/authzmodel/fga_model.fga:414, 425` kaname @`734f69fb4`, — и надзор он
 не отличал.)
-**And** точная пара по типу (меняется только тип объекта, вход тот же — `InternalIAMService/Check`, место
+**And** точная пара по типу (меняется объект вопроса — тип с его отношением и id, вход тот же — `InternalIAMService/Check`, место
 двери Д-3): `Check {user:usr-ca, reader, notification_recipient_directory:root}` от того же `usr-ca` —
 `false` (надзор на типе из перечня не применяется)
 **And** гейт путей надзора службы доступа (NTF1-F12) печатает перечень из трёх типов и красен при
@@ -2545,11 +2557,10 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 
 **Сценарий NTF3-118: пакетная проверка ссылок — адрес и видимое подмножество**
 **ID:** NTF3-118
-**Given** G0; тома `vol-1`, `vol-2` в `prj-1`, `vol-20` в `prj-2`
-**When** `notify` вызывает `Resolve{namespace=storage, subject=user:usr-A, audience=resource{resource_refs=[vol-1, vol-2, vol-20]}}`;
-затем со 101 ссылкой; затем со ссылками `storage_volume` и `storage_snapshot` вместе
-**Then** первый — `ADDRESS{a@example.test, visible_refs=[vol-1, vol-2]}`; второй и третий —
-`INVALID_ARGUMENT` с полем `resource_refs`
+**Given** G0; тома `vol-1`, `vol-2` в `prj-1`, `vol-20` в `prj-2`; id `vol-101`…`vol-199` (99 id по
+форме, томов под ними нет — модель отвечает по ним «не видно»)
+**When** `notify` вызывает `Resolve{namespace=storage, subject=user:usr-A, audience=resource{resource_refs=[vol-1, vol-2, vol-20]}}`
+**Then** ответ `ADDRESS{a@example.test, visible_refs=[vol-1, vol-2]}`
 **And** близнец: `resource_refs=[vol-20]` — `AUDIENCE_DENIED`
 **And** обязательность входа (Р7, шаг (1)); база каждой буквы — вызов
 `Resolve{namespace=storage, subject=user:usr-A, audience=resource{resource_refs=[{storage_volume, vol-1}], relation=v_get}}`
@@ -2558,13 +2569,28 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 (б) `resource_refs=[{storage_volume, vol-1}, {storage_volume, ""}]` — `INVALID_ARGUMENT`
 `resource_refs[1].id: required` (индекс — первой пустой; видимая `vol-1` адреса не открывает);
 (в) `subject=""` — `INVALID_ARGUMENT` `subject: required`; (г) `subject=user:` — `INVALID_ARGUMENT`
-`subject: required`; (д) `namespace=""` — `INVALID_ARGUMENT` `namespace: required`
-**And** в (а)–(д) ответ — отказ, а не исход по субъекту: не `AUDIENCE_DENIED`, не `SUBJECT_NOT_FOUND`,
+`subject: required`; (д) `namespace=""` — `INVALID_ARGUMENT` `namespace: required`;
+(е) `resource_refs=[]` — `INVALID_ARGUMENT` `resource_refs: required` (шаг (1): пустой набор — отказ по
+обязательности, а не `AUDIENCE_DENIED` «ни одна ссылка не видна»)
+**And** число и тип ссылок (Р7, шаг (3)); база — вызов с `resource_refs=[{storage_volume, vol-1},
+{storage_volume, vol-2}]` (ответ `ADDRESS{a@example.test, visible_refs=[vol-1, vol-2]}`):
+(ж) 101 ссылка — `vol-1`, `vol-2`, `vol-101`…`vol-199`, все `storage_volume` — `INVALID_ARGUMENT` с
+полем `resource_refs`; (з) `resource_refs=[{storage_volume, vol-1}, {storage_snapshot, snp-1}]` —
+`INVALID_ARGUMENT` с полем `resource_refs` (смесь типов)
+**And** в (а)–(з) ответ — отказ, а не исход по субъекту: не `AUDIENCE_DENIED`, не `SUBJECT_NOT_FOUND`,
 адреса в ответе нет; записывающая подмена двери прав в пробе службы доступа фиксирует **0** вопросов к
-модели за каждый из пяти вызовов и **1** вопрос `{user:usr-A, v_get, storage_volume:vol-1}` за базовый
+модели за каждый из восьми вызовов и **1** вопрос `{user:usr-A, v_get, storage_volume:vol-1}` за базовый
+вызов (а)–(е). Подмена стоит на порту модели прав сценария использования `Resolve`; вопрос о праве
+вызывающего (`Check(service:notify, reader, notification_recipient_directory:root)`, Р7) задаёт
+перехватчик слушателя по записи каталога прав до сценария использования той же дверью, но не через этот
+порт, поэтому в счёт не входит
 **And** близнецы по одному факту: (а) — `vol-1` вместо `""`; (б) — вторая ссылка `vol-2` вместо `""`
 (`ADDRESS{…, visible_refs=[vol-1, vol-2]}`); (в), (г) — `user:usr-A` вместо `""` / `user:`; (д) —
-`storage` вместо `""`; каждый — `ADDRESS`
+`storage` вместо `""`; (е) — `[{storage_volume, vol-1}]` вместо `[]`; каждый — `ADDRESS`;
+(ж) — 100 ссылок (`vol-1`, `vol-2`, `vol-101`…`vol-198`, без `vol-199`) — `ADDRESS{a@example.test,
+visible_refs=[vol-1, vol-2]}` (граница 100 принята, 101 — нет); (з) — вторая ссылка
+`{storage_volume, vol-2}` вместо `{storage_snapshot, snp-1}` (оба одного типа) — `ADDRESS{a@example.test,
+visible_refs=[vol-1, vol-2]}`
 
 **Сценарий NTF3-119: пользователь не в состоянии `ACTIVE` — адреса нет**
 **ID:** NTF3-119
@@ -2594,7 +2620,8 @@ audience=resource{[{storage_volume, vol-1}]}}`, `ListProjectAudience{project_id=
 **And** `Resolve{namespace=vpc, subject=user:usr-A}` без аудитории — `INVALID_ARGUMENT`
 `audience: required`; близнец — первый вызов When (`audience=self{}`)
 **And** в (а)–(в) и без аудитории ответ — отказ, а не `AUDIENCE_DENIED` / `SUBJECT_NOT_FOUND`; адреса в
-ответе нет; записывающая подмена двери прав фиксирует 0 вопросов к модели за каждый из четырёх вызовов
+ответе нет; записывающая подмена двери прав (на порту модели сценария использования `Resolve`, как в
+NTF3-118) фиксирует 0 вопросов к модели за каждый из четырёх вызовов
 
 **Сценарий NTF3-121: якорь и аккаунт принимаются в любом пространстве имён**
 **ID:** NTF3-121
@@ -3134,7 +3161,7 @@ t + 14d (осталось 1d), задание проходит
 | NTF3-25 | NTF3-15 | адрес не подтверждён / подтверждён |
 | NTF3-26 | NTF3-15 | значение формы `subject` — `service_account:` / `user:` |
 | NTF3-27 | NTF3-23 | вызывающий — не `notify` / `notify` |
-| NTF3-28 | NTF3-121 | тип ссылки — вид чужого модуля / `project` |
+| NTF3-28 | NTF3-121 | тип ссылки с её id — вид чужого модуля `{vpc_network, net-1}` / якорь `{project, prj-1}` |
 | NTF3-29 | NTF3-23 | отношение `viewer` / `v_get` |
 | NTF3-30 | NTF3-23 | вызов на внешнем слушателе / на внутреннем |
 | NTF3-32 | NTF3-34 | кнопка с абсолютным адресом / с путём |
@@ -3203,11 +3230,14 @@ t + 14d (осталось 1d), задание проходит
 | NTF3-118 (в) | NTF3-23 | `subject` — `""` / `user:usr-A` (аудитория `resource`) |
 | NTF3-118 (г) | NTF3-23 | `subject` — `user:` / `user:usr-A` (аудитория `resource`) |
 | NTF3-118 (д) | NTF3-23 | `namespace` — `""` / `storage` |
+| NTF3-118 (е) | NTF3-23 | `resource_refs` — `[]` / `[{storage_volume, vol-1}]` |
+| NTF3-118 (ж) | NTF3-118 (ж), близнец | ссылок 101 (есть `vol-199`) / 100 (без `vol-199`) |
+| NTF3-118 (з) | NTF3-118 (з), близнец | вторая ссылка — `{storage_snapshot, snp-1}` (смесь типов) / `{storage_volume, vol-2}` (один тип) |
 | NTF3-120 (а) | NTF3-120 (`acc-1`) | `audience.account_owner.account_id` — `""` / `acc-1` |
 | NTF3-120 (б) | NTF3-120 (первый вызов) | `subject` — `""` / `user:usr-A` (аудитория `self`) |
 | NTF3-120 (в) | NTF3-120 (`acc-1`) | `subject` при `account_owner` — `user:usr-A` / не задан |
 | NTF3-120 (без аудитории) | NTF3-120 (первый вызов) | `audience` — не задана / `self{}` |
-| NTF3-151 (точная пара) | NTF3-151 (близнец по типу) | тип объекта `Check` — `notification_recipient_directory` (в перечне) / `iam_user` (вне перечня) |
+| NTF3-151 (точная пара) | NTF3-151 (близнец по типу) | тип объекта `Check` с его отношением и id — `reader` на `notification_recipient_directory:root` (в перечне) / `token_issuer` на `iam_user:usr-A` (вне перечня) |
 | NTF3-122 (окно) | NTF3-122 | окно длиннее допустимого / в пределах |
 | NTF3-122 (а), (б) | NTF3-122 (первый вызов) | `expires_after` / `expires_before` — не задана / задана |
 | NTF3-122 (в) | NTF3-122 (первый вызов) | `expires_before` — `t` (= `expires_after`) / `t + 14d + 1h` |
@@ -3261,6 +3291,7 @@ t + 14d (осталось 1d), задание проходит
 | NTF3-116 (`u@1`) | NTF3-113 | `security.userId` — `u@1` / `usr-A` |
 | NTF3-117 (`p@1`) | NTF3-117 | `project_id` — `p@1` / `prj-1` |
 | NTF3-117 (пустой `project_id`) | NTF3-117 | `project_id` — `""` / `prj-1` |
+| NTF3-117 (мусорный `page_token`) | NTF3-117 | `page_token` — мусорный / не задан (первая страница) |
 | NTF3-27 (`notify-api`) | NTF3-23 | вызывающий — `notify-api` / `notify-sender` |
 
 Положительные пары, различающиеся одним фактом: NTF3-10 против NTF3-06 (инициатор `usr-B` / `usr-A`);
@@ -3314,7 +3345,7 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
 | NTF3-27 (`notify-api`) | отдельная служебная учётная запись и декларация `notifyApi.spiffe`; таблицы звена — только из `notify.spiffe` | `deploy/helm/notify/`, зонтик (декларации) | интеграционная проба службы доступа и storage с сертификатом `notify-api` |
 | NTF3-151, 154 | тип `notification_recipient_directory` в перечне без надзора; перечень звена службы доступа `{ResolveSend}` + три метода; каталог прав методов справочника | `PRO-Robotech/kaname` — декларация перечня типов у двери проверки прав (NTF-1 Р5), перечень звена в композиционном корне (NTF-1 Р2) — изменение; фикстурный пересылающий (С12) — тестовое дерево | интеграционная проба службы доступа (`Check`/вызовы через обработчики); гейт путей надзора с инъекцией (NTF1-F12) |
 | NTF3-150 | формы адресата по пространству (Р27): постоянная сборки `notify`, поле `recipient` шаблона, `feed.ErrRecipientInvalid` у `Put`, отказ `INVALID(recipient_form_not_allowed)` | corelib `notify/feed`, `notify/spec` (изменение), `services/notify` | интеграционная проба `notify` с прямой вставкой (С8); проба `Put`; `bundle` с инъекцией |
-| NTF3-23..29, 48, 117..122 | внутренний сервис справочника: `Resolve` (проверка входа Р7 в порядке «обязательность → лишнее поле → тип/отношение/число» до вопроса к модели: `namespace: required`, `audience: required`, `subject: required` при `resource`/`self`, `resource_refs[i].id: required`, `audience.account_owner.account_id: required`, `subject: must be empty for audience account_owner`; порядок исходов Р7, пакетные ссылки, `self`, `account_owner`, `SUBJECT_INACTIVE`), `ListProjectAudience` (`project_id: required` до формата, Р7), `ListExpiringCredentials` (обязательные границы окна, пустое и длинное окно — отказ); `UserService.Delete` (`user_service.proto:199`, существует) | `PRO-Robotech/kaname`, внутренний сервис справочника (новый); записывающая подмена двери прав — тестовое дерево (образец — `recordingChecker`, `internal/apps/kaname/api/user/invite_authz_test.go:18` kaname @`734f69fb4`, существует) | интеграционная проба в дереве службы доступа (посев пользователей, привязок, учётных данных); счёт вопросов к модели записывающей подменой в буквах NTF3-118 (а)–(д), NTF3-120 (а)–(в) |
+| NTF3-23..29, 48, 117..122 | внутренний сервис справочника: `Resolve` (проверка входа Р7 в порядке «обязательность → лишнее поле → тип/отношение/число» до вопроса к модели: `namespace: required`, `audience: required`, `subject: required` при `resource`/`self`, `resource_refs: required` (ссылок 0), `resource_refs[i].id: required`, `audience.account_owner.account_id: required`, `subject: must be empty for audience account_owner`; ссылок больше 100 и смесь типов — `INVALID_ARGUMENT` `resource_refs` (граница 100 принята); порядок исходов Р7, пакетные ссылки, `self`, `account_owner`, `SUBJECT_INACTIVE`), `ListProjectAudience` (`project_id: required` до формата, Р7), `ListExpiringCredentials` (обязательные границы окна, пустое и длинное окно — отказ); `UserService.Delete` (`user_service.proto:199`, существует) | `PRO-Robotech/kaname`, внутренний сервис справочника (новый); записывающая подмена двери прав — тестовое дерево (образец — `recordingChecker`, `internal/apps/kaname/api/user/invite_authz_test.go:18` kaname @`734f69fb4`, существует) | интеграционная проба в дереве службы доступа (посев пользователей, привязок, учётных данных); счёт вопросов к модели записывающей подменой на порту модели сценария использования `Resolve` в буквах NTF3-118 (а)–(з), NTF3-120 (а)–(в) |
 | NTF3-24..26, 46..48 | исходы Р7 в `notify` (клетки Р24); уборщик ленты storage | `services/notify`, corelib `notify/feed` уборщик (NTF-1) | интеграционная проба `notify` + служба доступа, остановка службы доступа, управляемые часы |
 | NTF3-55, 56 | отображение кода ответа справочника в клетку (таблица Р7) и `notify_recipient_directory_refused_total{ns,code}` | `services/notify`; подмена справочника (С7) — тестовое дерево `services/notify` | NTF3-55 — `notify` + служба доступа; NTF3-56 — `notify` с подменой, перебор кодов из определения gRPC по трём методам |
 | NTF3-30 | REST: прослойка прав края — промах каталога → `403` / `code 7`; gRPC: сервис не зарегистрирован на внешнем слушателе | существующие `gateway/cmd/api-gateway/main.go:1288-1289`, `gateway/internal/middleware/authz.go:813-844`, `authz_util.go:225-232`, `permission_denied_response.go` (`writeHTTPDeny`); `deploy/scripts/assert-ban6-external-isolation.py` | гейт изоляции + сквозная проба края аутентифицированным вызывающим |
@@ -3394,7 +3425,8 @@ NTF3-52 против NTF3-06 (объект есть и неисправен, П3
    вносится изменением владельца правил в той же волне.
 4. Служба доступа (PR в `PRO-Robotech/kaname`, пин поднят в kacho): внутренний сервис справочника
    (`Resolve` по Р7 — с проверкой входа до вопроса к модели: отказы `<field>: required` и
-   `subject: must be empty for audience account_owner`, NTF3-118 (а)–(д), NTF3-120 (а)–(в);
+   `subject: must be empty for audience account_owner`, `resource_refs: required`; ссылок больше 100 и
+   смесь типов — `INVALID_ARGUMENT` `resource_refs`, граница 100 принята; NTF3-118 (а)–(з), NTF3-120 (а)–(в);
    `ListProjectAudience`, `ListExpiringCredentials`) на внутреннем слушателе без
    HTTP-привязки; три метода — в перечне звена Д2 на слушателях службы доступа и в каталоге прав с
    `required_relation reader` на `notification_recipient_directory:root`; тип модели
