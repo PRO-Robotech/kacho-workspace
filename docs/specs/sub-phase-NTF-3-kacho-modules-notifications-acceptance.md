@@ -49,6 +49,8 @@ SPDX-License-Identifier: BUSL-1.1
 > — **редакция 21 · 2026-09-30 · вердикта на неё НЕТ.** Правка по RA-03 первичного разбора классов на редакцию 20 (`docs/changes/issue-2918/reviews/class-exposure/initial/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml`) и по Д23–Д25. Класс «утверждение документа о дереве, полученное перечислением автора или комментарием конфигурации, а не предикатом» (RA-01, RA-02, RA-03 — трижды) закрыт по Д24 **двумя полными переписями до правки текста**, каждая — команда, число и ревизия @`1d42a6728bf`: (а) писатели журнала подписки — §1.13 дополнен обходом всего дерева вне модулей и вне миграций: найден писатель, которого прежний предикат (только `services/*/internal/**/*.go`) не видел, — посев стенда `deploy/scripts/vpc-address-pool-baseline.sql:172` (строка `AddressPool` `CREATED` литеральной вставкой); вызовы обёрток эмиттеров посчитаны по модулям; (б) пишущие пути под пересланной личностью — новый §1.14 по вызовам клиентов, а не по комментарию профиля: межмодульных клиентов к модулям kacho 11, вызовов 18, методов 15, из них пишущих 7; журнал сегодня пишут 4 (storage `Attach`/`Detach`, vpc `CreateOwnedAddress`, `ReleaseOwnedAddress` в исходе `RELEASED`), видимое состояние опубликованного вида без строки журнала меняют ещё 3 (`InternalNetworkInterfaceService.Attach`/`Detach`, `SetAddressReference`) и исход `DETACHED` `ReleaseOwnedAddress`; прежнее «такой путь один; вызовы nlb в vpc — чтения» было неверно. Правлено: Р2 (перепись пересылаемых путей и решение: изменение видимого состояния по пересланному вызову пишет `UPDATED` с пересланным инициатором, повтор без изменения строки не пишет), Р3 (посев стенда), §7 (строки «Привязка диска», новые «Адрес балансировщика», «Интерфейс инстанса»), §8 (С16), NTF3-70 (обход вне модулей; инъекция (г) на посеве), NTF3-160 (заголовок, Given, новые буквы (д)–(з): адрес, выделенный балансировщику, адрес, привязанный к балансировщику, интерфейс инстанса, снятие инстанса с привязанными диском и интерфейсом), новый NTF3-162 (посев стенда), §10, §11, DoD 12.2, 12.4. Д23: ключ отпечатка адреса — отдельный объект секрета, его монтируют оба развёртывания `notify`; секрет почты по-прежнему в одном объекте (Р8, NTF3-127). Д25: отметка просмотра монотонна (Р10, новый NTF3-161). Сценариев: номеров **162**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **155**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > — 2026-09-30 · круг 1 прохода RA-03 · ⛔ ВОЗВРАТ (блокирующих 3: CONSTRUCTIBILITY · COVERAGE · CONVENTION) · SHA-256 `c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5.yaml`
 > — **редакция 22 · 2026-09-30 · вердикта на неё НЕТ.** Правка по кругу 1 прохода RA-03. CONVENTION (класс «напечатанная команда не даёт напечатанного числа»): **все** команды §1 и §7 прогнаны заново одним проходом @`1d42a6728bf` (kaname @`cbbac984b`, @`734f69fb4`; corelib @`34bc8104a`), числа взяты из вывода; плавающие ссылки `origin/main`, `origin/357` в командах заменены ревизией; сокращённые команды («…») выписаны целиком. Исправлено: §1.13 — вызовы `Outbox().Emit` в vpc (фильтр комментариев вписан в команду: 50, без него 77), вызовы `emitCompute` (полная команда, 5), `outbox.Emit` у `geo` (команда, 6), живые триггеры (суженный предикат 18 → 12 с разбором `Down`/замены/снятия), строки `emit.go`; §1.14 — публичные входы compute **6**, а не 5; §1.1 — отправителей почты 0 файлов по замеру (прежнее «два гейта» со слов разведки опровергнуто); §1.1 — манифесты (команда исправлена, 5); §1.2, §1.5, §1.6 — числа к командам (32; 7, 7, 6, 3; 45); §1.7 — предикат колонки инициатора: 3 строки, одна — комментарий; §1.8 — предикаты `MarkEmailVerified` (3 и 1), состояний пользователя (сужен до `CHECK`, 1), локали (0); §7 — `SET status` 3 строки. Выводы документа не изменились. CONSTRUCTIBILITY (класс «Given повтора требует состояния, которое утверждаемое свойство делает недостижимым публичным путём»): новое средство С17 — прямая запись `seen_up_to` в базу `kacho_notify` обвязки перед каждым повтором NTF3-161 (б) и перед близнецом (б); (в) строится публичным `PATCH` из пустого; каждая буква начинается с Given. COVERAGE: Р2 называет компонент задания освобождения адресов nlb — `system:nlb-free-ip-runner`; новый NTF3-163 (застрявшее снятие балансировщика — посев С18, один проход задания; строки `Address` `DELETED` и `NetworkLoadBalancer` `DELETED` с этим инициатором, строки ленты и записи ленты консоли; близнец — публичный `Delete`, `user:usr-A`); §1.14, §7, §8 (С18), §10, §11, DoD 12.2, 12.4 правлены. Неблокирующие: Р10 — «последняя выданная позиция» названа наибольшей позицией всей ленты; NTF3-160 (з) — момент чтения `P0` журнала compute назван (после привязок, до `Delete`), строк compute по `ins-3` и `ins-4` — по две; §7 — компенсация сорвавшегося `Create` строима подменой ответа vpc (замысел); Д23 — согласование ротации держит NTF-4. Сценариев: номеров **163**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **156**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
+> — 2026-09-30 · круг 2 прохода RA-03 · ⛔ ВОЗВРАТ (блокирующих 1: CONVENTION) · SHA-256 `077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521` · `docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521.yaml`
+> — **редакция 23 · 2026-09-30 · вердикта на неё НЕТ.** Правка по кругу 2 прохода RA-03. CONVENTION (класс «утверждение о дереве без команды, числа и ревизии» — Д24), закрыт проходом по всему §1: каждое утверждение, стоявшее на разведке, заменено командой с выводом и ревизией, и ни одно не снято — все подтвердились замером: журнал службы доступа состояния не передаёт (§1.2, `StateNotProduced` на все 7 видов, @`734f69fb4` и @`cbbac984b`); инициатор в журнале аудита compute — `actor_type`/`actor_id` `0028_audit_outbox.sql:46,47`, файлов миграций аудита 2 (§1.3); путь проверки прав состояние пользователя не читает — 0 на пути `Check`, контроль `email_verified_at` 1 (§1.8, держит клетку `SUBJECT_INACTIVE` Р7); производителя напоминания об истечении ключа нет — 1 попадание, сам комментарий `.pb.go` (§1.8, держит Р19); три приёмки домена прав — DRAFT 3 из 3, путей модулей kacho 0 (§1.10); членство доходит правкой группы — триггер `group_members_resource_journal_trg` (§2, Р2). Команда §1.3, начинавшаяся многоточием, выписана целиком (0, контроль 3). Тем же проходом командой снабжены утверждения без неё: `AddressPool` в 5 файлах (§1.2), 40 строк прежнего предиката состояний (§1.8), «`DELETING` не пишет никто» (§1.6: 1 попадание — условие `DELETE`, контроль 14), «вызывающих у `DeriveMigrating`/`MigrateVolume` нет» (§1.7: 4 объявления, вызовов 0). Самопроверка класса вписана в шапку §1. Неблокирующие: §1.13 — координаты триггеров в таблице приведены к строкам `EXECUTE FUNCTION`, которые печатает команда; NTF3-163 — `P0` близнеца читается до `Delete`; ленту выдаёт `notify-api` (Д20); С18 — порог `60s`. Выводы и сценарии не изменились. Сценариев: номеров **163**, снято **7** (NTF3-08, 41, 42, 44, 45, 123, 124), живых **156**; стадий **3**; решений **Р1–Р29** и **Р11а** (Р23 снято, живых 29)
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задача `PRO-Robotech/kacho#2918` (NTF-3);
 > документ ведётся задачей `PRO-Robotech/kacho-workspace#880`; пакет изменения — `docs/changes/issue-2918/`
@@ -147,8 +149,10 @@ SPDX-License-Identifier: BUSL-1.1
 
 ## §1 Что верно в дереве — измерено, а не предположено
 
-Каждое число — с командой и ревизией. Где факт взят у разведки диспетчера и не перемерян, это
-сказано.
+Каждое утверждение о дереве — команда, её вывод (число или координаты) и ревизия; где вывод
+прочитан глазами, названы файл, строка и ревизия. Фактов, взятых у разведки без замера, в документе
+нет: `grep -nE '[Сс]о[ ]слов' <этот документ> | grep -vE '^[0-9]{1,2}:>'` → 1 строка — запись о снятии
+прежней фразы в §1.1; команд, начатых многоточием, — ``grep -nE '`[…]' <этот документ> | grep -c 'grep '`` → 0.
 
 ### 1.1 Модулей kacho шесть; почту не шлёт ни один; сервер подписки — у пяти
 
@@ -182,7 +186,7 @@ SPDX-License-Identifier: BUSL-1.1
 | compute | PlacementGroup | `placement_group_service.proto:46` | `compute_placement_group` | **нет** |
 | compute | GuestAccessKey | `guest_access_key_service.proto:50` | `compute_guest_access_key` | **нет** |
 | vpc | Network, Subnet, SecurityGroup, RouteTable, Address, Gateway, NetworkInterface, CidrGroup (8) | `*_service.proto` (8 строк) | `vpc_network` … `vpc_cidr_group` | да (8) |
-| vpc | AddressPool | `address_pool_service.proto:120` (`required_relation "system_admin"` на `cluster`) | `vpc_address_pool` | **нет**: строки пишутся (`Outbox().Emit(ctx, "AddressPool", …)` в 5 файлах `api/addresspool/`), но вида нет в `Kinds`, и строки вида `AddressPoolNetworkDefault` (`bindings.go:46,74`) не доставляются никому |
+| vpc | AddressPool | `address_pool_service.proto:120` (`required_relation "system_admin"` на `cluster`) | `vpc_address_pool` | **нет**: строки пишутся (`Outbox().Emit(ctx, "AddressPool", …)` в 5 файлах `api/addresspool/`: `git -C project/kacho grep -lE 'Outbox\(\)\.Emit\(ctx, "AddressPool"' 1d42a6728bf -- services/vpc ':!*_test.go' \| wc -l` → 5 — `add_cidr_blocks.go`, `create.go`, `delete.go`, `remove_cidr_blocks.go`, `update.go`), но вида нет в `Kinds`, и строки вида `AddressPoolNetworkDefault` (`bindings.go:46,74`) не доставляются никому |
 | nlb | NetworkLoadBalancer, Listener, TargetGroup | `*_service.proto` (3 строки) | `nlb_network_load_balancer`, `nlb_listener`, `nlb_target_group` | да (3) |
 | registry | Registry | `registry_service.proto:53` | `registry_registry` | да |
 | registry | Repository | `registry_service.proto:188` | `registry_repository` (объект `<reg>/<repo>`, `fga_intent.go:368`) | **нет** |
@@ -203,18 +207,29 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 - **Служба доступа:** её журнал публикует 7 видов (`account`, `project`, `iam_user`, `iam_group`,
   `iam_service_account`, `iam_role`, `iam_access_binding` — `internal/subscriptionjournal/journal.go:110-116`
   @`734f69fb4`); у членства, ключа входа, ключа сервисного аккаунта и токена пользователя типа
-  модели нет (перечень `^type ` выше). **Со слов разведки**: журнал службы доступа состояния не
-  передаёт ни для одного вида.
+  модели нет (перечень `^type ` выше). Журнал службы доступа состояния не передаёт ни для одного
+  вида: функция `state` отвечает на все 7 видов одной ветвью `StateNotProduced` —
+  `git -C project/kaname show 734f69fb4:internal/subscriptionjournal/journal.go | grep -nE 'StateNotProduced|anypb\.New|MarshalFrom'`
+  → 1 строка, `:227` (`return nil, subscription.StateNotProduced, nil`; ветвь `case` перечисляет все
+  7 констант вида, `:225-226`); тот же предикат @`cbbac984b` → та же 1 строка; упаковки состояния
+  во всём пакете `git -C project/kaname grep -nE 'anypb\.New|MarshalFrom' 734f69fb4 -- internal/subscriptionjournal ':!*_test.go' | wc -l` → 0.
 
 ### 1.3 Событие журнала не несёт ни инициатора, ни времени
 
 Поля `SubscriptionEvent` (`proto/corelib/subscription/subscription.proto:359-480` @`1d42a6728bf`):
 `position = 1`, `kind = 2`, `resource_id = 3`, `project_id = 4`, `change = 5`, oneof `state = 10` /
 `state_unavailable = 11`. Род изменения — `CREATED | UPDATED | DELETED`.
-`… | grep -nE '^\s+[A-Za-z.]+ (initiator|actor|occurred_at)[a-z_]* = '` → 0. Имя ресурса есть
+`git -C project/kacho show 1d42a6728bf:proto/corelib/subscription/subscription.proto | sed -n 359,480p | grep -nE '^\s+[A-Za-z.]+ (initiator|actor|occurred_at)[a-z_]* = '`
+→ 0 (контроль: тот же конвейер с `(position|kind|change)` вместо трёх имён → 3 строки — `position = 1`,
+`kind = 2`, `change = 5`). Имя ресурса есть
 только внутри `state`; у события снятия состояния нет. Инициатор хранится у операций
 (`corelib migrations/common/0002_operations_principal.sql:17-19` — `principal_type`,
-`principal_id`) и в журнале аудита compute (**со слов разведки**: `compute/internal/migrations/0028_audit_outbox.sql`).
+`principal_id`) и в журнале аудита compute — столбцы `actor_type`, `actor_id` таблицы `audit_outbox`:
+`git -C project/kacho grep -nE 'actor_(type|id)\s+text' 1d42a6728bf -- services/compute/internal/migrations/`
+→ 2 строки, `0028_audit_outbox.sql:46,47`; снятия столбца позднее —
+`git -C project/kacho grep -nE 'DROP COLUMN.*actor' 1d42a6728bf -- services/compute/internal/migrations/ | wc -l` → 0
+(файлов миграций аудита у compute 2 — `git -C project/kacho ls-tree -r --name-only 1d42a6728bf services/compute/internal/migrations/ | grep -c audit`
+→ 2: `0028_audit_outbox.sql`, `20260823001500_audit_journal_gets_its_receiver.sql`).
 
 ### 1.4 Снятие в подписке судится проектным якорем — прецедент и его цена
 
@@ -269,7 +284,7 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 | `Observe` | только `observed_state`; зовётся лишь на строке, уже взятой из `Drifted` | `store.go:240`, `loop.go:203,256` |
 | `MarkError` | `state='ERROR'`, `observed_state` = переданное наблюдение | `store.go:254-257` |
 | рост размера `VolumeService.Update` | только `size_bytes`; пару не трогает | `volume_repo.go:627-634` |
-| `Delete` тома, снимка, образа | **удаляет** строку; `DELETING` не пишет никто | `volume_repo.go:679`, `snapshot_repo.go:354`, `image_repo.go:521` |
+| `Delete` тома, снимка, образа | **удаляет** строку; `DELETING` не пишет никто | `volume_repo.go:679`, `snapshot_repo.go:354`, `image_repo.go:521`; `git -C project/kacho grep -nE "state\s*=\s*'DELETING'\|SET[^;]*'DELETING'" 1d42a6728bf -- 'services/storage/*.go' ':!*_test.go'` → 1 — условие `DELETE … WHERE … state = 'DELETING'` (`reconciler/store.go:271`), записи нет; контроль — тот же предикат с `(CREATING\|ERROR\|READY)` → 14 |
 
 Строки без координаты бэкенда сверщик не исполняет (`loop.go:177-184`).
 
@@ -310,7 +325,9 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 
 Намерения сверщику **не** задают: `VolumeService.Update` (и с ростом `size_bytes`), все `Update`
 снимка и образа, `Delete`, `VolumeService.ChangeDiskType` (переезда в сверщике нет:
-`DeriveMigrating` и `MigrateVolume` вне адаптеров вызывающих не имеют), `InternalVolumeService.Attach/Detach`.
+`git -C project/kacho grep -nE '\b(DeriveMigrating|MigrateVolume)\(' 1d42a6728bf -- services/storage ':!*_test.go' ':!*.pb.go' ':!services/storage/internal/blockbackend/contract/'`
+→ 4 строки, все объявления — `domain/volume.go:131`, `blockbackend/port.go:177`, `blockbackend/fake/fake.go:457`,
+`clients/cephrbd/adapter.go:224`; вызывающих 0, исключённый каталог `contract/` — набор проверок адаптеров), `InternalVolumeService.Attach/Detach`.
 
 У строк тома, снимка и образа колонки инициатора нет:
 `git grep -nEi 'created_by|creator|initiator|principal_id' 1d42a6728bf -- 'services/storage/internal/migrations/*.sql'`
@@ -330,9 +347,19 @@ GuestAccessKey, AddressPool, Repository, DiskType.
 - Состояния пользователя — `PENDING`, `ACTIVE`, `BLOCKED`
   (`git -C project/kaname grep -nE "users_invite_status_check" 734f69fb4 -- 'internal/migrations/*.sql'` → 1:
   `0001_initial.sql:3111`, `CHECK (invite_status = ANY (ARRAY['PENDING','ACTIVE','BLOCKED']))`; прежний
-  предикат по трём литералам состояния даёт 40 строк по всем таблицам и предметом не сужен — заменён в
-  редакции 22). **Со слов разведки**: путь проверки прав состояние
-  пользователя не читает — отсюда отдельная клетка `SUBJECT_INACTIVE` в Р7.
+  предикат по трём литералам состояния — `git -C project/kaname grep -nE "'PENDING'|'ACTIVE'|'BLOCKED'" 734f69fb4 -- 'internal/migrations/*.sql' | wc -l`
+  → 40 строк по всем таблицам, предметом не сужен — заменён в редакции 22).
+- Путь проверки прав состояние пользователя не читает. Путь — `Check`/`BatchCheck`
+  (`internal/apps/kaname/api/authorize/handler.go:125,200`) → `AuthorizeService.check`
+  (`internal/service/authorize_service.go:374`) → допуск субъекта `admission` и форма решения
+  `internal/authzcascade` → читатель отметок `internal/repo/kaname/pg/personmarks`:
+  `git -C project/kaname grep -nE 'invite_status|InviteStatus' 734f69fb4 -- internal/apps/kaname/api/authorize internal/service/authorize_service.go internal/authzcascade internal/admission internal/repo/kaname/pg/personmarks ':!*_test.go' | wc -l`
+  → 0; контроль — тот же набор путей с `email_verified_at` → 1 (`personmarks.go`: путь читает отметку
+  подтверждения адреса, но не состояние); без сужения путей —
+  `git -C project/kaname grep -lE 'invite_status|InviteStatus' 734f69fb4 -- '*.go' ':!*_test.go' ':!*.pb.go' | wc -l`
+  → 35 файлов (среди них `api/cluster/grant_admin.go`, `api/humansession/login.go`, `api/user/invite.go`,
+  `repo/kaname/pg/subject_state_reader.go`) — состояние читают выдача прав кластера, вход, приглашение,
+  а файлов пути проверки прав среди 35 нет. Тот же предикат по путям @`cbbac984b` → 0. Отсюда отдельная клетка `SUBJECT_INACTIVE` в Р7.
 - Типы модели для ресурсов kacho — `fga_model.fga` @`734f69fb4` (§1.2). Глагол чтения — `v_get`,
   прямой, `[user, service_account, group#member] or super_admin`; у `registry_repository` — ещё
   `user:*` и `owner`. Ярусы `viewer/editor/admin` с глаголами не объединены.
@@ -342,7 +369,14 @@ GuestAccessKey, AddressPool, Repository, DiskType.
   пользователя (`UserOAuthClient`) поле `google.protobuf.Timestamp expires_at = 5`
   (`service_account_oauth_client.proto:60`, `user_oauth_client.proto:63` @`734f69fb4`). Комментарий
   контракта ключа обещает «the service layer alerts ≤14d before expires_at» (`:58-59`);
-  **со слов разведки** производителя этого напоминания нет. Р19 это обещание исполняет.
+  производителя этого напоминания нет:
+  `git -C project/kaname grep -nE '≤14d|14 ?days|14 ?\* ?24' <ревизия> -- '*.go' ':!*_test.go' | wc -l` → 1 на
+  обеих ревизиях (`734f69fb4`, `cbbac984b`) — сам комментарий контракта в
+  `pkg/api/kaname/cloud/iam/v1/service_account_oauth_client.pb.go:73`; единственный обходчик сроков
+  `internal/apps/kaname/expiredcredsweep` снимает уже истёкшее и не напоминает —
+  `git -C project/kaname grep -niE 'remind|alert' <ревизия> -- internal/apps/kaname/expiredcredsweep ':!*_test.go' | wc -l`
+  → 0 на обеих; `git -C project/kaname grep -niE 'remind' 734f69fb4 -- '*.go' ':!*_test.go' ':!*.pb.go' | wc -l` → 0.
+  Р19 это обещание исполняет.
 - Предпочитаемой локали у субъекта нет: `git -C project/kaname grep -nEi '\blocale\b|preferred_lang' 734f69fb4 -- 'internal/migrations/*.sql' | wc -l`
   → 0. Отсюда Р21.
 
@@ -368,7 +402,10 @@ GuestAccessKey, AddressPool, Repository, DiskType.
   уведомление на 80 % квоты с предикатом «завёлся домен уведомлений». Предмет **снят**: квоты
   выпиливаются целиком (решение владельца 2026-09-16).
 - `sub-phase-3.7-iam-jit-breakglass…`, `sub-phase-3.9-iam-audit-pipeline…`, `sub-phase-W2.B…` —
-  DRAFT, домен прав (служба доступа), не модули kacho. **Со слов разведки**.
+  DRAFT, домен прав (служба доступа), не модули kacho: статус —
+  `git grep -nE '^> \*\*(Статус|Status)(:\*\*|\*\*:) *DRAFT' b746239d5b8 -- docs/specs/sub-phase-3.7-iam-jit-breakglass-reviews-gdpr-acceptance.md docs/specs/sub-phase-3.9-iam-audit-pipeline-acceptance.md docs/specs/sub-phase-W2.B-stream-b-enterprise-block-acceptance.md | wc -l`
+  → 3 из 3 (воркспейс @`b746239d5b8`); путей модулей kacho в них —
+  `git grep -nE 'services/(compute|vpc|nlb|storage|registry|geo)/' b746239d5b8 -- docs/specs/sub-phase-3.7-iam-jit-breakglass-reviews-gdpr-acceptance.md docs/specs/sub-phase-3.9-iam-audit-pipeline-acceptance.md docs/specs/sub-phase-W2.B-stream-b-enterprise-block-acceptance.md | wc -l` → 0.
 
 ### 1.11 Нарушенные посылки задачи
 
@@ -513,13 +550,16 @@ NTF-4 @`53f865d8` — редакция 18 (`sha256sum` файла
   (`repo/kacho/pg/region.go`, `zone.go`) — идут в `geo_outbox`: у `geo` нет `Mapping`, это не журнал
   подписки (Р1).
 
+Координата триггера в таблице — строка `EXECUTE FUNCTION`, та же, что печатает команда выше (строка
+`CREATE TRIGGER` стоит на 2–4 строки раньше).
+
 | модуль | таблица журнала | писатели на Go | функции базы, пишущие журнал (последнее определение) | их живые триггеры |
 |---|---|---|---|---|
 | compute | `compute_outbox` | 1 — вызов функции фундамента `outbox.EmitAnchored` в обёртке `repo/outbox.go:52` | 0 | — |
-| vpc | `kacho_vpc.vpc_outbox` | 1 — вызов функции фундамента `outbox.EmitAnchored` в обёртке `repo/helpers/outbox.go:60` | 1 — `subnets_outbox_emit_route_table_change` (`20260828130000_vpc_outbox_project_anchor.sql:74`) | 1 — `AFTER UPDATE OF route_table_id ON subnets` (`0001_initial.sql:646`); срабатывает, когда привязку подсети меняет база: `RouteTableService.Delete` таблицы с привязанной подсетью (внешний ключ `ON DELETE SET NULL`, `0001_initial.sql:255`) |
-| nlb | `kacho_nlb.nlb_outbox` | 2 — **обе литеральные вставки мимо функции фундамента**: эмиттер модуля `repo/kacho/pg/outbox_emitter.go:37` (реализация `kacho.OutboxEmitter` со своим `INSERT INTO kacho_nlb.nlb_outbox`; через него идут все глаголы nlb) и шаг доведения снятия фонового задания `apps/kacho/jobs/free_ip_runner.go:487` | 1 — `lb_status_recompute` (`20260830120000_lb_journal_state_envelope.sql:86`): пишет `NetworkLoadBalancer` `UPDATED`, когда статус балансировщика между `INACTIVE` и `ACTIVE` меняется | 3 на `listeners` — вставка (`0001_initial.sql:544`), правка (`0022_drop_attached_tg_pivot_and_transitional_statuses.sql:119`), снятие (`0001_initial.sql:554`); два триггера на `attached_target_groups` сняты вместе с таблицей (`0022_…:24-25,129`) |
-| registry | `kacho_registry.registry_resource_journal` | 0 | 1 — `registries_journal_emit` (`20260828154000_registry_resource_journal.sql:151`) | 3 на `registries` (`:186,201,206`) |
-| storage | `kacho_storage.storage_outbox` | 0 | 3 — `storage_outbox_emit` (`20260830120000_storage_journal_source_state.sql:131`), `storage_outbox_emit_attachment` (`20260830041500_storage_journal_volume_state.sql:178`), `storage_outbox_emit_source` (`20260830120000_…:185`; зовётся из триггерной `storage_outbox_emit_lineage`, `:238`) | 5 — на `volumes`, `snapshots`, `images`, `volume_attachments` (`20260828153423_storage_subscription_journal.sql:287,291,295,299`) и родословная на `volumes` (`20260830120000_…:268`): вставка, смена и снятие диска с источником пишут `Snapshot`/`Image` `UPDATED` источника |
+| vpc | `kacho_vpc.vpc_outbox` | 1 — вызов функции фундамента `outbox.EmitAnchored` в обёртке `repo/helpers/outbox.go:60` | 1 — `subnets_outbox_emit_route_table_change` (`20260828130000_vpc_outbox_project_anchor.sql:74`) | 1 — `AFTER UPDATE OF route_table_id ON subnets` (`0001_initial.sql:650`); срабатывает, когда привязку подсети меняет база: `RouteTableService.Delete` таблицы с привязанной подсетью (внешний ключ `ON DELETE SET NULL`, `0001_initial.sql:255`) |
+| nlb | `kacho_nlb.nlb_outbox` | 2 — **обе литеральные вставки мимо функции фундамента**: эмиттер модуля `repo/kacho/pg/outbox_emitter.go:37` (реализация `kacho.OutboxEmitter` со своим `INSERT INTO kacho_nlb.nlb_outbox`; через него идут все глаголы nlb) и шаг доведения снятия фонового задания `apps/kacho/jobs/free_ip_runner.go:487` | 1 — `lb_status_recompute` (`20260830120000_lb_journal_state_envelope.sql:86`): пишет `NetworkLoadBalancer` `UPDATED`, когда статус балансировщика между `INACTIVE` и `ACTIVE` меняется | 3 на `listeners` — вставка (`0001_initial.sql:546`), правка (`0022_drop_attached_tg_pivot_and_transitional_statuses.sql:124`), снятие (`0001_initial.sql:556`); два триггера на `attached_target_groups` (`0001_initial.sql:561,565`) сняты вместе с таблицей (`0022_…:24-25,129`) |
+| registry | `kacho_registry.registry_resource_journal` | 0 | 1 — `registries_journal_emit` (`20260828154000_registry_resource_journal.sql:151`) | 3 на `registries` (`:188,204,208`) |
+| storage | `kacho_storage.storage_outbox` | 0 | 3 — `storage_outbox_emit` (`20260830120000_storage_journal_source_state.sql:131`), `storage_outbox_emit_attachment` (`20260830041500_storage_journal_volume_state.sql:178`), `storage_outbox_emit_source` (`20260830120000_…:185`; зовётся из триггерной `storage_outbox_emit_lineage`, `:238`) | 5 — на `volumes`, `snapshots`, `images`, `volume_attachments` (`20260828153423_storage_subscription_journal.sql:289,293,297,301`) и родословная на `volumes` (`20260830120000_…:270`): вставка, смена и снятие диска с источником пишут `Snapshot`/`Image` `UPDATED` источника |
 
 Итог @`1d42a6728bf`: писателей на Go **4** у трёх модулей; в термине гейта — **2** вызова функции
 фундамента (compute, vpc) и **2** литеральные вставки мимо неё (обе у nlb: эмиттер модуля и шаг
@@ -697,7 +737,13 @@ S (NTF-2). Её журнал в NTF-3 получает инициатора и �
   пула по умолчанию сети публикуется событием `AddressPool` `UPDATED` этого пула.
 - DiskType не публикуется: типа модели нет, сервер подписки вид без него не принимает (§1.2). Четыре
   вида службы доступа без типа модели (членство, ключ входа, ключ сервисного аккаунта, токен
-  пользователя) — там же; членство уже доходит правкой группы (**со слов разведки**), истечение
+  пользователя) — там же; членство уже доходит правкой группы: вставка и снятие строки
+  `kaname.group_members` пишут `iam_group` `UPDATED` группы — триггер `group_members_resource_journal_trg`
+  (`AFTER INSERT OR DELETE`, функция `resource_journal_emit_member('iam_group', 'group_id', 'groups')`,
+  `20260914090000_resource_journal_serves_the_subscription.sql:342-344` @`734f69fb4`);
+  `git -C project/kaname grep -nE 'group_members_resource_journal_trg' <ревизия> -- 'internal/migrations/*.sql' | wc -l`
+  → 2 на обеих ревизиях (`734f69fb4`, `cbbac984b`): создание `:342` в разделе `Up` и снятие `:364` в
+  разделе `Down` (граница `-- +goose Down` — `:354`); истечение
   ключей и токенов обслуживает Р19 без журнала.
 - Служба доступа заполняет `initiator` и `occurred_at` у своих 7 видов (её PR той же волны).
 Основание: Д10; ТВ7 — одно место контракта; «максимальная безопасность» — вид без типа модели нельзя
@@ -1862,7 +1908,7 @@ NTF-4 Р20, имя — по Д20 (3)); NTF-3 добавляет на нём REST
 | С15 | посев состояния инстанса compute | статус строки инстанса, созданного публичным `InstanceService.Create`, — `STOPPED` (перехода из `PROVISIONING` в дереве нет до COMP-2, §7); одна прямая запись статуса по `id`, до чтения позиции журнала `P0`; журнал storage посев не трогает | база compute в интеграционной обвязке compute + storage |
 | С16 | исполнение посева стенда vpc | файл `deploy/scripts/vpc-address-pool-baseline.sql` исполняется против базы vpc обвязки после миграций этой под-фазы (как проба `address_pool_baseline_seed_integration_test.go` сегодня) | интеграционная обвязка vpc |
 | С17 | посев отметки просмотра | `seen_up_to` строки настроек заданного пользователя — заданная **уже выданная** позиция ленты; одна прямая запись по пользователю в обход монотонной правки (публичный путь отметку назад не двигает, Р10); ставится перед каждым повтором параллельного прохода | база `kacho_notify` в интеграционной обвязке `notify-api` |
-| С18 | посев застрявшего снятия балансировщика | строка балансировщика, созданного публичным `NetworkLoadBalancerService.Create`, — статус `DELETING` и время последней правки на 1 h раньше текущего (старше порога возраста задания освобождения адресов); одна прямая запись по `id`, до чтения `P0`; журнал nlb и базу vpc посев не трогает; таймер задания в обвязке выключен, проход задания обвязка запускает по одному | база nlb в интеграционной обвязке nlb + vpc |
+| С18 | посев застрявшего снятия балансировщика | строка балансировщика, созданного публичным `NetworkLoadBalancerService.Create`, — статус `DELETING` и время последней правки на 1 h раньше текущего (старше порога возраста задания освобождения адресов `60s` — параметр `NewFreeIPRunner`, задаётся обвязкой); одна прямая запись по `id`, до чтения `P0`; журнал nlb и базу vpc посев не трогает; таймер задания в обвязке выключен, проход задания обвязка запускает по одному | база nlb в интеграционной обвязке nlb + vpc |
 
 **Общий Given `G0`** (если не сказано иное):
 - набор `storage` + `vpc` + `notify` (оба развёртывания; `notify-api` — в форме «только внутренний
@@ -2408,10 +2454,11 @@ payload: `instanceId = "ins-2"`, `attachedNicSpec.nicId = "nic-1"`; операц
 **And** каждой строке журналов vpc и nlb после `P0` соответствует ровно одна строка `resource-event` в
 ленте своего модуля с теми же `kind`, `resource_id`, `change`, `initiator`, `occurred_at`, лишних строк
 ленты нет
-**And** после приёма этих строк `notify-sender` `GET /notify/v1/inbox?projectId=prj-1` у `usr-A` содержит
+**And** после приёма этих строк `notify-sender` ответ `notify-api` на `GET /notify/v1/inbox?projectId=prj-1` от `usr-A` (ленту выдаёт `notify-api`, Д20) содержит
 запись `kind=Address`, `resourceId=A3`, `change=DELETED` и запись `kind=NetworkLoadBalancer`,
 `resourceId=lb-s`, `change=DELETED`, обе с `initiator = "system:nlb-free-ip-runner"`
-**And** близнец: тот же набор с балансировщиком `lb-t` (адрес `A4`) **без** посева С18 — `usr-A` вызывает
+**And** близнец: тот же набор с балансировщиком `lb-t` (адрес `A4`) **без** посева С18 — проба читает
+последние позиции журналов vpc и nlb `P0` **до** вызова `Delete`, затем `usr-A` вызывает
 `NetworkLoadBalancerService.Delete` `lb-t`, операция `done=true`, затем обвязка запускает тот же один
 проход задания; строк `Address` `DELETED` `A4` в журнале vpc и `NetworkLoadBalancer` `DELETED` `lb-t` в
 журнале nlb после `P0` — по одной, обе с `initiator = "user:usr-A"`; строк с
