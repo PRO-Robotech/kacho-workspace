@@ -111,8 +111,8 @@ SPDX-License-Identifier: BUSL-1.1
 
 | № | полоса | исполнитель | репозиторий · пути | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| C1 | клиент `notify.ts`: функции, разборщики формы, отказ формы, повтор, обход страниц, константы, исход операции (З6, З8) | `ui-implementer` | kacho · `ui-future/shared/src/api/{notify.ts,notify.test.ts,response-shape.ts}` | `notify.test.ts` зелёный с числом: по каждой функции чтения — «`200` не той формы → `ResponseShapeError`, у ошибки нет `status`» (CX6-06 (б), CX6-22); `notifyQueryRetry` — `false` на `ResponseShapeError`, `true` на первом `503` (CX6-22); по каждой из пяти мутаций — «`done = true` → обращений к `/operations/` 0» и «`done = false` → 1» (CX6-09); повтор токена — отказ; фабрика опций ключа подписок `notifySubscriptionsQuery()` несёт `retry: notifyQueryRetry` и `networkMode: "always"` (design.md З10, CX6-33); `git grep -l '/notify/v1/' -- 'ui-future/*/src/*.ts*' ':!*test*'` → только `notify.ts` | Е2 | M |
-| C2 | текст Р17 (З15) и ветка отказа формы (З6) | `ui-implementer` | kacho · `ui-future/shared/src/lib/error-presentation.ts`, `error-presentation.test.ts` | проба словаря утверждает новый текст у `AUTHZ_DENIED`; `git grep -c 'администраторам платформы' -- ui-future` → 0; ветка «`ResponseShapeError` → `status = "500"`, текст отказа данных, не общее `"error"`» (CX6-22) | C1 (класс `ResponseShapeError`) | S |
+| C1 | клиент `notify.ts`: функции, разборщики формы, отказ формы, повтор, обход страниц, константы, исход операции (З6, З8) | `ui-implementer` | kacho · `ui-future/shared/src/api/{notify.ts,notify.test.ts,response-shape.ts}` | `notify.test.ts` зелёный с числом: по каждой функции чтения — «`200` не той формы → `ResponseShapeError`, у ошибки нет `status`» (CX6-06 (б), CX6-22); `notifyQueryRetry` — `false` на `ResponseShapeError`, `true` на первом `503` (CX6-22); по каждой из пяти мутаций — «`done = true` → обращений к `/operations/` 0» и «`done = false` → 1» (CX6-09); повтор токена — отказ; фабрика опций ключа подписок `notifySubscriptionsQuery()` несёт `retry: notifyQueryRetry` и `networkMode: "always"` (design.md З10, CX6-33); `git grep -l '/notify/v1/' -- 'ui-future/*/src/*.ts*' ':!*test*'` → только `notify.ts` | Е2; S2-B7 `issue-2918` посажена (публичный контракт notify-api, от которого зависит клиент) | M |
+| C2 | текст Р17 (З15) и ветка отказа формы (З6) | `ui-implementer` | kacho · `ui-future/shared/src/lib/error-presentation.ts`, `error-presentation.test.ts` | проба словаря утверждает новый текст у `AUTHZ_DENIED`; `git grep -c 'администраторам платформы' -- ui-future` → 0; ветка «`ResponseShapeError` → `status = "500"`, текст отказа данных, не общее `"error"`» (CX6-22) | C1 (класс `ResponseShapeError`); S2-B7 `issue-2918` посажена (публичный контракт notify-api) | S |
 
 ### Ярус 3 — общее (карточка, имена, фикстуры)
 
@@ -182,7 +182,8 @@ SPDX-License-Identifier: BUSL-1.1
 
 ## 4. Порядок по времени
 
-1. После Е2: F1, F2, C1, C2, G2, G3, G4 — параллельно (путей общих нет).
+1. После Е2: F1, F2, G2, G3, G4 — параллельно (путей общих нет); C1 — после Е2 и посадки
+   S2-B7 `issue-2918` (публичный контракт notify-api), C2 — после C1.
 2. F3 (после F2); G1 (после F1, F2, C1); S1 (после C1).
 3. S2, S3, S4, S5, E1, T1 — параллельно после своих зависимостей; S6 — после S3 и S4 (перечень
    `iam-pages-authz-single-source` судит исходники экранов модуля).
