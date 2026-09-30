@@ -1,0 +1,300 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-3, редакция 2.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверка на редакцию 1 (89d1f0ad)
+# относятся к своим отпечаткам и здесь не переписываются.
+# Проверено:
+#   (1) у каждого живого пункта есть строка §11, и решение выдерживает условие пункта;
+#       отдельно — исполнение каждого заказа записи 89d1f0ad;
+#   (2) новые внешние вызовы, асинхронные пути и sentinel-значения замысла заведены пунктом;
+#   (3) маркеры отсрочки и открытые решения;
+#   (4) граница предмета по Д31.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 3730bca2e8b21d468e7ed875adff4dc3e82f41ba7c78c900241ce3d87f779db1
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 2
+  content_commit: 63f13f42b
+  lines: 1261
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/89d1f0ad50ccc5fe04ec4c8a64b7dccb6c75e641dc383d17d00293656a3c1587.yaml
+  subject_revision: 1
+  outcome: к-замыслу
+initial_records:
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8.yaml, items: "CX3-01…23 (перенесены в CX3B-01…23)"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425.yaml, items: "CX3B-01…48"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a.yaml, items: "CX3C-01…08"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml, items: "CX3D-01…05"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17.yaml, items: "CX3E-01…10"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed.yaml, items: "CX3F-07 (б); CX3F-01…06, CX3F-07 (а) сняты Д31"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e.yaml, items: "CX3G-01…06"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/revalidation/89d1f0ad50ccc5fe04ec4c8a64b7dccb6c75e641dc383d17d00293656a3c1587.yaml, items: "CX3H-01"}
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e
+  effective_verdict: APPROVED
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+dispatcher_decisions:
+  applied: >-
+    Д1–Д31. Д22: условие к коду живёт в замысле. Д26: заход отображения. Д31: предмет — (а) публикация
+    в журнал с инициатором и временем, (б) уведомления из этих событий, (в) API настроек и контактов и
+    флаг; поведение фоновых доделывателей и сверщиков вне объёма (kacho#2934, kacho#2935). Именно по Д31
+    здесь решается новый пункт CX3H-02: выбор ПЕРЕСЫЛАЕМОЙ личности доделывателя compute меняет исход
+    его прохода, а исход — предмет kacho#2934.
+revisions:
+  workspace: 63f13f42b   # коммит редакции 2 и HEAD рабочей копии при замере
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a
+  kaname: "не перемерялась"
+snapshot_at: 2026-09-30T14:58:51Z
+inspected: >-
+  Дифф замысла редакции 1 → 2 целиком (git diff 9a13eea27 63f13f42b, 230 строк изменений в design.md) и
+  §11 (79 строк), §11а, §13 редакции 2. Исполнение девяти требований записи 89d1f0ad (failures 2,
+  holder_correction 1, text_correction 1, code_conditions 3, new_items 1, заказы). Код @1d42a6728bf: nlb
+  free_ip_runner.go:160-500 (Run, tick, reconcileOnce, reconcileOne, releaseFamily,
+  emitReconcileFinalize), clients/vpc/internal_address_client.go:484-600; compute instance.go:925-1065
+  (Delete, releaseAndDelete, FinishStuckDeletes), cmd/compute/stuck_delete_finisher.go:55-95,
+  repo/instance_repo.go:570-590; vpc nicinternal/service.go (пакетный комментарий, ListByInstance);
+  storage api/volume/volume.go:636-690 (ListAttachments). corelib @34bc8104a: auth/propagate.go:55-135,
+  listnarrow/precheck.go, listnarrow/page.go, listnarrow/subject.go (SubjectFromContext,
+  ErrUnnamedCaller), authz/types.go:329-339 (TenantSubject), operations/types.go:69-71. Перепись
+  WithPrincipal/SystemPrincipal в nlb, compute, storage. Стенд не поднимался, записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строк §11 79, живых пунктов 79 (прежние 78 и CX3H-01): перечень совпадает. Все требования записи
+      89d1f0ad исполнены (execution_check). Не выдерживает CX3G-05 (б) вместе с CX3D-01 (б) для compute:
+      решение редакции 2 поставить личность компонента в цикле FinishStuckDeletes меняет исход прохода
+      из «прерван, строка в DELETING» в «строка удалена, привязки у владельцев остались навсегда».
+      Условие «исход до и после одинаков» не выдержано. Пункт — CX3H-02, разбор — mapping_check.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: >-
+      Новых сетевых рёбер редакция 2 не вводит. Место установки личности у nlb (вход reconcileOne) меняет
+      личность только на уже разобранном вызове ReleaseOwnedAddress. У compute оно меняет личность на
+      двух ЧИТАЮЩИХ вызовах (ListByInstance vpc, ListAttachments storage), которых перепись З13
+      не называет. Это не новое ребро, а новое следствие для старого, и оно заведено пунктом CX3H-02.
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Новых путей нет: приём, сводка, отметка, переход storage и FailTerminal — прежние, редакция 2 меняет их исходы на нуле строк и на отказе нормализации (CX3H-01, CX3G-04)."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: green
+    detail: >-
+      Новые значения редакции 2 — ErrComponentOverPrincipal (З4), ErrForeignTransitionInitiator (З15),
+      ingest.ErrInboxClockMissing и digest.ErrInboxClockMissing (З19, З21), Tx.Initiator() (З4). Каждое
+      служит противоядием уже заведённого пункта (CX3B-25, CX3G-02 (в) с CX3B-20, CX3H-01) и отображено
+      в его строке §11. У двух из них не назван исход у вызывающего, это code_conditions ниже (CX3B-25 (4),
+      CX3H-01 (г)). Нового пункта они не требуют.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: red
+    detail: >-
+      Маркеров 0 (`grep -cE 'TODO|TBD|FIXME|XXX'` → 0 в design.md и 0 в tasks.md). Открытое решение
+      одно — §13 Е1 (функция базы `resource-event` против Е10 NTF-1), как и на редакции 1. Пока Е1 не
+      снято, одобрение замысла запрещено. Решает диспетчер.
+
+clean: false
+
+execution_check:
+  summary: "все девять требований записи 89d1f0ad исполнены; одно исполнение (личность compute в цикле) породило CX3H-02"
+  items:
+    - {id: "CX3G-02 (в), CX3B-20", verdict: holds, where: "З15, И19, УК3-44", note: "выбран вариант (1): сверка tx.Initiator() до первого оператора, отказ ErrForeignTransitionInitiator, строк 0; близнец под AsComponent"}
+    - {id: CX3E-05, verdict: holds, where: "З23, УК3-34, УК3-45", note: "`FROM b LEFT JOIN ins ON true`; исходы закрытой таблицей из четырёх строк; «0 строк» и «пустой ins» разведены; хранимое ≤ границы по построению, поэтому строка «не изменено» полна"}
+    - {id: CX3H-01, verdict: holds_with_condition, where: "З19, З21, З23, §6, И21, УК3-45", note: "строку вставляет миграция схемы; ноль строк у каждого оператора — отказ с именем. У приёма не назван счётчик отказа: code_conditions CX3H-01 (г)"}
+    - {id: "CX3D-01 (б) holder_correction", verdict: holds_for_nlb_fails_for_compute, where: "З13, §11а УК3-31", note: "УК3-31 судит обе половины и держит оба близнеца дерева. Место установки у nlb верно. У compute именно это место установки и даёт CX3H-02"}
+    - {id: "CX3G-05 text_correction", verdict: holds, where: "З13 «Отказ владельца», УК3-39", note: "текст о классификаторе compute исправлен; УК3-39 утверждает «проход прерван», а не «терминальный отказ»"}
+    - {id: "CX3G-05 (1) code_condition", verdict: holds, where: "З13, И17", note: "привязок, ролей и tuple личностям компонентов дифф не вносит; держится вниманием по диффу"}
+    - {id: "CX3G-05 (2) code_condition", verdict: holds_text_but_see_CX3H-02, where: "З13 «Место установки»", note: "установка в цикле до releaseAndDelete названа. Условие записи 89d1f0ad, которое требовало именно этого, было неполным: оно не проверяло, что делают с новой личностью читающие вызовы releaseAndDelete (признание — в new_items CX3H-02)"}
+    - {id: "CX3B-25 (1)–(3) code_conditions", verdict: holds_with_condition, where: "З4, §8, И20, УК3-27 (д)", note: "один источник инициатора; вызывающих AsComponent три по парам §8; иной принципал — отказ; пустая служба или роль — отказ до SystemPrincipalFor. Остаётся третий исход и исход у вызывающего: code_conditions CX3B-25 (4)"}
+    - {id: "CX3G-04 code_condition", verdict: holds, where: "З16, И22, УК3-46", note: "ErrNoInitiator и не-user инициатор — «адресата нет», CAS коммитится, done=true; классификатор без корзины «прочее»"}
+
+mapping_check:
+  summary: "79 из 79 отображены; 78 выдерживают; не выдерживает CX3G-05 (б) с CX3D-01 (б) на пути compute (новый пункт CX3H-02)"
+  failures:
+    - id: CX3G-05
+      part: "(б) «исход до и после одинаков»; вместе с CX3D-01 (б) и И17 для compute"
+      design: "З13 «Место установки» (compute), §11 строки CX3D-01 и CX3G-05, §11а УК3-31 (близнец compute) и УК3-39"
+      verdict: does_not_hold
+      why: "см. new_items CX3H-02"
+
+new_items:
+  - id: CX3H-02
+    decision: "З13 «Место установки» — compute ставит `AsComponent(ctx, \"compute\", \"stuck-delete-finisher\")` в цикле FinishStuckDeletes до releaseAndDelete; эта личность пересылается владельцам"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением» (пустой ответ сужающего чтения
+      неотличим от «привязок нет», и по нему действуют разрушительно); §«Решение и его следствие
+      разнесены» (личность выбрана ради строки журнала, а следствие — исход чужого чтения); gate-authoring
+      §«Пустой вход как всеразрешение» (УК3-39 зелена ровно на дефекте)
+    exposure: >-
+      releaseAndDelete сначала читает привязки у владельцев: vpc InternalNetworkInterfaceService/ListByInstance
+      и storage InternalVolumeService/ListAttachments. Оба чтения авторизуются на уровне данных
+      (ScopeFiltered, listnarrow). Сегодня проход идёт без принципала, и PropagateOutgoing пересылает
+      запасную `{system, bootstrap}`. `listnarrow.SubjectFromContext` не называет её субъектом
+      (`TenantSubject` принимает только `user` и `service_account`) и отказывает `Unauthenticated`.
+      compute получает ошибку, проход прерывается, строка остаётся в DELETING, привязки у владельцев целы.
+      После редакции 2 пересылается `{user, system.compute-stuck-delete-finisher}`. Это названный
+      субъект: `validSubjectID` точку пропускает, а по З13 аутентификацию у владельца он проходит.
+      Модель спрашивают про идентификаторы страницы. Привязок у личности нет, и по CX3G-05 (1) под-фаза их
+      не заводит. `listnarrow.Page` поэтому возвращает пустой набор БЕЗ ошибки, а storage при
+      пустом `visibleInstances` возвращает `nil, nil`. Цикл отцепления не делает ни одного Detach,
+      `repo.Delete` удаляет строку машины, и в журнал compute пишется `Instance DELETED`. Интерфейсы
+      и тома остаются занятыми у владельцев навсегда: строка машины была единственной зацепкой к ним
+      (комментарий releaseAndDelete: «строка последней — не стиль»). Storage уже прошёл этот класс:
+      комментарий ListAttachments называет отменённое сужение по тому, при котором «том оставался занят
+      навсегда». Исход меняется с самоисцеляемого повтора на необратимую утечку. Это нарушает И17 и
+      CX3G-05 (б) и решает за kacho#2934 (Д31), чем становится доделыватель. У nlb класса нет:
+      releaseFamily зовёт один пишущий глагол ReleaseOwnedAddress, исход читается из поля ответа, а
+      отказ по праву классифицируется OutcomeDenied (как до правки). УК3-39 в редакции 2
+      утверждает «строка Instance DELETED с инициатором system:compute-stuck-delete-finisher, отказа базы нет»,
+      то есть ровно наблюдаемое следствие дефекта. Проба на машине без привязок зелена и на дефекте.
+    condition: >-
+      (а) Личность, которую проход compute пересылает владельцам, в под-фазе НЕ меняется. Ни
+      `AsComponent`, ни иной `WithPrincipal` в цикле FinishStuckDeletes и выше него по стеку не ставится.
+      Исход чтений ListByInstance и ListAttachments на проходе остаётся отказом, а не суженным пустым
+      набором. Выбор пересылаемой личности доделывателя — предмет kacho#2934 (Д31, CX3E-04).
+      (б) Строка журнала `Instance DELETED` из прохода, если до неё дошло, получает инициатора только из
+      принципала контекста (З4, один источник). Раз принципала нет, `journaltx.Begin` в `repo.Delete`
+      отказывает до оператора (CX3C-02 (б)), и проход прерывается тем же образом, что сегодня прерывается
+      на чтении. Второго источника инициатора ради этой строки замысел не заводит (CX3B-25).
+      (в) Близнец compute в УК3-31 снимается. Вход FinishStuckDeletes заносится в ведомость гейта
+      строкой-исключением с причиной «пересылаемая личность доделывателя — kacho#2934; смена личности
+      превращает отказ сужающего чтения в пустой успех (CX3H-02)» и предикатом снятия на внешнем факте:
+      kacho#2934 закрыт, и в kaname на его ревизии есть привязка, выполняющая `viewer` на
+      `compute_instance` и `viewer ∪ v_list` на `vpc_network_interface` для личности доделывателя, ЛИБО
+      проход различает «сужено» и «пусто». Исключение печатается в объёме гейта, и гейт красный, если
+      предикат снятия выполнен, а строка ещё стоит. Близнец nlb остаётся.
+      (г) И17, строки §11 CX3D-01, CX3G-05, CX3B-25 (перечень вызывающих `AsComponent` сужается до двух:
+      storage и nlb), §8 (пара `(compute, stuck-delete-finisher)` снимается вместе с единственным
+      потребителем) и таблица фоновых путей З13 правятся тем же изменением.
+      (д) Утверждение об исходе — сравнение с базой, а не абсолютное утверждение о жизненном цикле
+      доделывателя (Д31): УК3-39 гоняет проход на машине С привязкой интерфейса и тома у владельцев под
+      боевой посадкой фильтра (модель провязана, у личности привязок нет) и утверждает одно и то же на
+      базовой ревизии и после правки: строка машины на месте, привязки у владельцев не сняты, строк
+      журнала compute о машине 0. Прежнее положительное утверждение «Instance DELETED с инициатором
+      system:compute-stuck-delete-finisher» из УК3-39 снимается.
+    held_by: >-
+      (а), (г) — вниманием по диффу и гейтом УК3-27 (д) (перечень вызывающих `AsComponent` — два); (в) — УК3-31
+      со строкой-исключением и её предикатом снятия; (д) — проба УК3-39 в новой форме (заказ
+      integration-tester). Выбор между (а) и иным исходом, сохраняющим исход прохода, остаётся за автором
+      замысла. Только грант личности запрещён CX3G-05 (1).
+    note_on_previous_record: >-
+      Запись 89d1f0ad (holder_correction CX3D-01 (б), required) сама потребовала близнеца compute в
+      УК3-31 и места установки «цикл FinishStuckDeletes до releaseAndDelete». Она проверила
+      только пишущие вызовы (Detach) и не проверила читающие, которые releaseAndDelete делает до них.
+      Редакция 2 исполнила это требование дословно. Ошибка — в требовании, не в исполнении.
+
+code_conditions:
+  - id: CX3B-25
+    part: "(4)"
+    text: >-
+      У `AsComponent` три исхода на входе, а не два. Принципала нет — ставится принципал компонента.
+      Принципал есть, и `InitiatorOf` даёт инициатора компонента — повтор, не отказ. Принципал есть, и
+      `InitiatorOf` даёт ИНОГО инициатора ЛИБО сам отказывает (например, `{system, bootstrap}`) —
+      `ErrComponentOverPrincipal`. Третий подслучай в З4 сейчас не назван: сравнение «инициатор не равен»
+      не определено, когда инициатора нет. Отказ `AsComponent` у вызывающего — ошибка программы, не
+      отказ среды. nlb: `reconcileOne` возвращает ошибку до `Begin`, тик прерывается и пишет строку
+      журнала процесса. storage: функция перехода отказывает без оператора (как
+      `ErrForeignTransitionInitiator`). Держатель — проба `journaltx` X1: близнец `{system, bootstrap}`
+      в контексте → отказ.
+  - id: CX3H-01
+    part: "(г)"
+    text: >-
+      Отказ приёма `ingest.ErrInboxClockMissing` без `Ack` возвращает ту же строку ленты повторной выдачей
+      после каждого срока аренды, пока строки часов нет. Отказ обязан расти читаемым счётчиком, как у
+      сводки (hard-zero-refusals-visible), а не только строкой журнала процесса. Держатель — УК3-45:
+      добавить утверждение о счётчике приёма.
+
+holds_with_note:
+  - {id: CX3E-05, note: "исход «применено» при `inserted = false` и `seen_up_to = $v` сливает «уже было $v» и «поднято до $v» — оба законно `done`, различать не требуется"}
+  - {id: CX3H-01, note: "единственное `now()` схемы — значение строки в миграции, не умолчание колонки; `INSERT INTO` в миграции — структура продукта по seed-predicate, гейт посева увидит его попаданием, которое судится этим предикатом"}
+  - {id: "Д31", note: "редакция 2 добавила о compute фразы «строка остаётся в DELETING, следующий проход повторяет» — это ссылка на базовую ревизию для утверждения «исход тот же», а не утверждение о жизненном цикле. CX3H-02 (д) переводит УК3-39 в форму сравнения с базой, чтобы проба не закрепляла поведение доделывателя, принадлежащее kacho#2935"}
+
+measurements:
+  - claim: "проход compute сегодня идёт без принципала, а читающие вызовы releaseAndDelete предшествуют пишущим"
+    command: "git -C project/kacho show 1d42a6728bf:services/compute/internal/apps/kacho/api/instance/instance.go | sed -n 958,1060p; git -C project/kacho grep -nE 'operations\\.WithPrincipal|SystemPrincipal\\(\\)' 1d42a6728bf -- services/compute ':!*_test.go'"
+    result: "releaseAndDelete: nicClient.ListByInstance → Detach по списку → storageClient.ListAttachments → Detach по списку → repo.Delete; вызовов WithPrincipal в не-тестовом compute 0 (1 совпадение — комментарий миграции 0008)"
+    control: "тот же предикат по services/nlb находит create.go:477, delete.go:127, free_ip_runner.go:465: предикат видит установку"
+  - claim: "оба чтения сужаются на уровне данных; безымянному — отказ, названному без привязок — пустой набор без ошибки"
+    command: "git -C project/corelib show 34bc8104a:listnarrow/subject.go | sed -n 20,57p; git -C project/corelib show 34bc8104a:listnarrow/page.go | sed -n 40,95p; git -C project/kacho show 1d42a6728bf:services/storage/internal/apps/kacho/api/volume/volume.go | sed -n 666,693p; git -C project/kacho show 1d42a6728bf:services/vpc/internal/apps/kacho/services/nicinternal/service.go | sed -n 219,241p"
+    result: "ErrUnnamedCaller → codes.Unauthenticated; TenantSubject: тип вне {user, service_account} → false; IDs/Page: пустой видимый набор → nil, nil; storage: `len(visibleInstances) == 0 → return nil, nil`; vpc: `return listnarrow.Page(…)`"
+    control: "authz.TenantSubject(\"user\", \"system.compute-stuck-delete-finisher\") — тип user принят; SystemPrincipalFor прямо говорит, что '.' проходит санитайзер (auth/propagate.go:118-121)"
+  - claim: "у nlb класса CX3H-02 нет"
+    command: "git -C project/kacho show 1d42a6728bf:services/nlb/internal/apps/kacho/jobs/free_ip_runner.go | sed -n 329,380p; то же | sed -n 459,474p; git -C project/kacho show 1d42a6728bf:services/nlb/internal/clients/vpc/internal_address_client.go | sed -n 484,590p"
+    result: "reconcileOne зовёт владельца только через releaseFamily → ReleaseLease → ReleaseOwnedAddress (пишущий глагол, исход — поле ответа, неназванный исход — отказ); OutcomeDenied → ErrFailedPrecondition → изоляция строки; сужающих чтений на входе нет"
+    control: "—"
+  - claim: "фоновые входы запускаются без принципала в контексте (вход AsComponent (2) не срабатывает)"
+    command: "git -C project/kacho show 1d42a6728bf:services/compute/cmd/compute/stuck_delete_finisher.go | sed -n 55,80p; free_ip_runner.go:166-229"
+    result: "compute: context.WithTimeout от корневого ctx; nlb: Run → tick → reconcileOnce → reconcileOne без WithPrincipal"
+    control: "—"
+  - claim: "замок прохода compute не пишет в журналируемую таблицу"
+    command: "git -C project/kacho show 1d42a6728bf:services/compute/internal/repo/instance_repo.go | sed -n 570,576p"
+    result: "singlepass.TryAcquire — замок, не строка таблицы"
+    control: "—"
+  - claim: "перечень отображения и маркеры"
+    command: "grep -c '^| CX3' docs/changes/issue-2918/design.md; grep -cE 'TODO|TBD|FIXME|XXX' docs/changes/issue-2918/design.md docs/changes/issue-2918/tasks.md; sha256sum docs/changes/issue-2918/design.md"
+    result: "79; 0 и 0; 3730bca2…"
+    control: "тот же grep на 9a13eea27 давал 78 (запись 89d1f0ad)"
+
+not_measurable:
+  - "проходит ли `{user, system.compute-stuck-delete-finisher}` аутентификацию у vpc и storage на :9091 на стенде: стенд не поднимался. Замысел (З13 «Отказ владельца») утверждает, что проходит. Условие CX3H-02 выдерживается при любом ответе: если не проходит, исход тот же (отказ), если проходит — пустой набор и утечка"
+  - "есть ли в модели прав kaname tuple, выполняющий `viewer` на `compute_instance` или `viewer ∪ v_list` на `vpc_network_interface` для этой личности (подстановочный или системный): kaname не перемерялась. Если есть — чтение отдаёт привязки, Detach отказывает по `editor`, исход тот же. Если нет — утечка. Условие обязано держаться в обоих случаях, поэтому решение не опирается на этот ответ"
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: []
+not_holding_items: [CX3G-05, CX3D-01]
+new_items_without_mapping: [CX3H-02]
+open_decisions: ["Е1 (§13): функция базы resource-event против Е10 NTF-1 — за диспетчером"]
+
+orders:
+  - to: design-author
+    what: >-
+      редакция 3 замысла NTF-3: отобразить CX3H-02 (а)–(д). Не менять пересылаемую личность прохода
+      compute, снять пару `(compute, stuck-delete-finisher)` и близнеца compute в УК3-31, завести строку-исключение
+      гейта с причиной и предикатом снятия, переписать УК3-39 в форму сравнения с базой на машине с
+      привязками, поправить И17, З13, §8 и строки §11. Внести условия к коду CX3B-25 (4) и CX3H-01 (г).
+      Затем новая пересверка
+    basis: ".claude/rules/change-graph.md §4; Д22, Д26, Д31"
+  - to: dispatcher
+    what: "Е1 (§13 замысла) — выбор между исключением в ведомости гейта NTF-1 и новой редакцией приёмки NTF-3; без снятия Е1 одобрение замысла запрещено"
+    basis: ".claude/rules/change-graph.md §4 (нерешённый вопрос запрещает одобрение)"
+  - to: integration-tester
+    what: >-
+      УК3-39 в новой форме: машина в DELETING с интерфейсом у vpc и томом у storage, фильтр провязан, у
+      личности прохода привязок нет. Проход на базовой ревизии и после правки даёт одно и то же: строка
+      на месте, привязки не сняты, строк журнала compute 0. Инъекция — поставить
+      `AsComponent(ctx, "compute", "stuck-delete-finisher")` в цикле → строка удалена, привязки остались → красный.
+      Плюс близнец CX3B-25 (4): `{system, bootstrap}` в контексте → `ErrComponentOverPrincipal`
+    basis: "gate-authoring §«Пустой вход как всеразрешение»; §«Отрицание только в паре с положительным»"
+  - to: gate-author
+    what: "УК3-31: строка-исключение для входа FinishStuckDeletes с причиной и внешним предикатом снятия (CX3H-02 (в)); исключение печатается в объёме; гейт красный, когда предикат выполнен, а строка стоит"
+    basis: "gate-authoring §«Самоистечение послаблений»; ban11-three-outcomes"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Предложение записи класса (не вписано, возвращается диспетчеру для tooling-maintainer). Класс: «смена
+  личности, которую фоновый путь пересылает владельцу, превращает ОТКАЗ сужающего чтения в ПУСТОЙ
+  УСПЕХ, и путь по нему действует разрушительно». Порог пройден: два независимых экземпляра с названной
+  ценой. Первый — отменённое сужение по тому в storage ListAttachments (комментарий в дереве @1d42a6728bf:
+  «том оставался занят навсегда»). Второй — CX3H-02 здесь (необратимая утечка привязок интерфейса и тома).
+  Владелец по противоядию — code-authoring: «перед сменой пересылаемой личности перечисли сужающие
+  (ScopeFiltered) чтения, достижимые со входа, и для каждого установи, что новая личность даёт тот же
+  класс исхода (отказ либо полный набор), а не суженный пустой». Держится пробой на входе с непустым
+  набором у владельца. Предикат снятия (внешний): в дереве нет ни одного ScopeFiltered-метода, чей
+  потребитель действует по пустому ответу разрушительно, либо listnarrow различает в ответе «сужено до
+  пустого» и «пусто».
