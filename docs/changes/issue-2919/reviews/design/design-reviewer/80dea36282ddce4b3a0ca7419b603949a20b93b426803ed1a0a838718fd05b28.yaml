@@ -1,0 +1,188 @@
+# Ревью замысла NTF-4 — роль design-reviewer (исполнитель — агент system-design-reviewer в режиме
+# «замысел», docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к ОТПЕЧАТКУ замысла (редакция 5). Прежней записи этой роли на замысел
+# issue-2919 нет: это первый суд роли, он судит документ целиком, а не дельту. Запись не правится:
+# сменился отпечаток — пишется новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2919
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: 80dea36282ddce4b3a0ca7419b603949a20b93b426803ed1a0a838718fd05b28
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  fingerprint_matches_task: true   # перемерено на ветке issue-880 @ed44d6bbe; design.md последним менял 0ea674482
+  revision: 5
+  tasks_path: docs/changes/issue-2919/tasks.md
+  tasks_sha256: 1d5c3aada927a33b11f27d25cb59489e1c8a0556b69550f9204be1955faae2cb
+previous_record: —
+class_exposure:
+  revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/80dea36282ddce4b3a0ca7419b603949a20b93b426803ed1a0a838718fd05b28.yaml
+  revalidation_on_current_fingerprint: true   # коммит f9fff40a0
+revisions:
+  workspace: ed44d6bbe7111d57386bad1acc976498771d9b2c
+  kacho: 1d42a6728bf    # ревизия замеров §0 замысла; дерево продукта не перемерялось
+  corelib: 34bc810      # перечитаны migratorrun/runner.go:150-180, dropguard/preflight.go:465-485, operations/reconciler.go:60-215
+  acceptance_sha256: 01b2888142bdb25baeaf14f4ba9dc56007153bf8eb91410f2b5a5934d9cf2bc5   # редакция 22 в дереве; §0 замысла стоит на 21 (Е1)
+snapshot_at: 2026-09-30
+
+scope_note: >-
+  Первый суд роли — документ целиком (1804 строки): §0–§13, строки Д26 · 1–6, §11а. Механизм Д28
+  (ключ values migrator.dropApproved → env init-контейнера migrate обоих развёртываний, УК4-36)
+  сверен с кодом стража corelib. Блокирующим по заданию считается только распределённое свойство,
+  инвариант и безопасность; остальное — в important/minor.
+
+inspected: >-
+  design.md целиком; tasks.md строка S1-A3 и grep по deadline/timeout; приёмка редакции 22 строки
+  1765–1812 (одиночка и сеанс) и сценарий NTF4-104; замысел NTF-1 grep smtpSessionTimeout
+  (docs/changes/issue-2915/design.md:1083, 1801); .claude/rules/polyrepo.md:57-62 (рёбра notify);
+  corelib @34bc810: migratorrun/runner.go:162 (dropguard.Gate до goose.UpContext на том же db),
+  dropguard/preflight.go:475 (ParseApprovals(envknob.Get(ApprovalEnv, LegacyApprovalEnv))),
+  operations/reconciler.go:176-196 (claim done=false AND modified_at < now-OrphanGrace FOR UPDATE SKIP LOCKED).
+
+axes:
+  atomicity_no_dual_write: >-
+    закрыто. Снятие подавления и запись аудита — одна транзакция (З17), operation_id UNIQUE; событие
+    обратной связи, подавление, метка опроса и отметка дайджеста — одна транзакция на сообщение
+    (З7); синхронный 5xx на RCPT — запись подавления отдельной транзакцией ДО Ack, повтор — refreshed (З10).
+  idempotency: >-
+    закрыто. feedback_message по дайджесту, feedback_event по (sent_log_id, kind), sent_log по
+    (ns, feed_row_id) с переиспользованием, suppression по UNIQUE ключу с ON CONFLICT DO UPDATE,
+    Establish — INSERT ON CONFLICT DO NOTHING + чтение; накат goose идемпотентен.
+  atomic_and_optimistic_concurrency: >-
+    закрыто. Аренда — CAS взятия (INSERT … ON CONFLICT / UPDATE … WHERE lease_until <= $now) и
+    продления (holder, epoch, lease_until > $now) первым оператором каждой транзакции держателя —
+    строчный замок feedback_lease сериализует транзакции держателя с взятием; переходы признаков —
+    UPDATE … WHERE value = $from; удаление — условный DELETE … RETURNING. Пробы с конкурирующими
+    горутинами заказаны: NTF4-116 (Establish, 50 повторов -race), NTF4-31 (Apply, 8 горутин),
+    NTF4-86 (Delete с барьером), УК4-01 (два экземпляра с разными часами).
+  change_delivery_polling: >-
+    закрыто. Watch/стрима нет; Delete возвращает Operation, опрос — через край prefixToBackend[nop].
+  workers_and_reconcilers: >-
+    ВОПРОС → К1. Одиночка установки — аренда с эпохой (З11), довод против singlepass назван. Сверщик
+    операций — corelib operations.NewReconciler в корне notify-api. Дедлайн на внешнем вызове сеанса
+    ящика не назван (К1).
+  inter_service_edges: >-
+    закрыто. край → notify-api (внутренний слушатель), notify-api → kaname Check, notify → kaname
+    ResolveSend и лента; kaname и домены notify не зовут. Рёбра записаны в правиле
+    (.claude/rules/polyrepo.md:60-62, poly-edge-notify-kaname несёт Check снятия). Нового
+    незаписанного ребра нет.
+  replica_state_isolation: >-
+    закрыто. Признаки установки — строки базы, не-держатели читают каждым тактом; признаки реплики —
+    GaugeFunc над своим процессом; контрольное значение сверяется с базой на старте.
+  edge_ban6: >-
+    закрыто. InternalSuppressionService только на внутреннем слушателе notify-api (публичного
+    сервера в форме HostInternalOnly не строится), на крае — только внутренний mux; класс
+    поверхности объявлен записью З9 и сверен гейтом в обе стороны (З19).
+  clean_architecture: >-
+    закрыто. apiserver импортирует только cmd/notify-api, порты — параметры конструкторов, реестр
+    метрик и Func строит корень; проба по графу импортов.
+  d28_drop_approval_path: >-
+    закрыто. dropguard.Gate вызывается внутри Runner.Up до goose на том же db (runner.go:162),
+    значит под замком мигратора notify (З18) — одобрение из двух init-контейнеров применяет ровно
+    один накат, второй видит снос применённым. Имя переменной — dropguard.ApprovalEnv, прежнее
+    написание страж ещё читает (envknob.Get(ApprovalEnv, LegacyApprovalEnv)), но чарт его не
+    рендерит — одного источника достаточно. Пустой ключ — переменной нет, близнец в УК4-36.
+    Серверные контейнеры переменной не получают. Одобрение сноса — не секрет, раскрытия нет.
+    Посадку ствола без ключа держит правило §0 tasks.md (строка Д26 · 4 (5)).
+
+verdict: CHANGES_REQUESTED     # ⛔ возврат
+blocks: true
+return_to: автор замысла issue-2919
+distributed_surface: true
+schema_review_overlap: true   # аренда-CAS, замок мигратора pg_advisory_lock + lock_timeout, ON CONFLICT Establish, условный DELETE снятия
+
+critical:
+  - id: К1
+    lane: S1-A3 (и S1-A4 — путь контрольного письма)
+    coordinate: design.md З7 (строки 501–534), З11 (строки 690–694, 718–722), З12 (строка 749); tasks.md:92
+    finding: >-
+      У сеанса ящика нет срока ни на одну сетевую операцию. Клиент POP3 (Dial, рукопожатие TLS,
+      USER/PASS/STAT/UIDL/RETR/DELE/QUIT) не несёт ни context.WithTimeout, ни conn.SetDeadline, кроме
+      срока «сейчас», который ставится только при потере аренды (строка 529). При этом независимая
+      горутина продлевает аренду «пока сеанс открыт» (строка 524). Сервер ящика, принявший TCP и
+      замолчавший (полуоткрытое соединение, зависший RETR), даёт держателя, который продлевает
+      аренду вечно и не делает ничего: смены держателя нет (граница приёмки «упавшего держателя
+      сменяет другая реплика не позже TTL + POLL_INTERVAL», NTF4-97, обходится — держатель не упал),
+      очередь ящика стоит. Сеанс идёт внутри такта держателя (§7 п.3, lease.Tick — З11 строка 719),
+      а выпуск контрольного письма и переходы признаков установки, включая feedback_stale, вычисляет
+      только держатель на такте (З12, З13 строка 795) — поэтому feedback_stale при зависшем сеансе
+      не поднимается никогда, и инвариант Р12 «сигнал при опросе старше POLL_STALE_MAX» ломается
+      без следа. То же у canary.Send: срок SMTP-сессии контрольного письма не назван (у пути строк он
+      есть — smtpSessionTimeout NTF-1, issue-2915/design.md:1083, 1801). Правило
+      arch-per-call-deadline: у каждого внешнего вызова свой срок.
+    requirement: >-
+      Условие к коду без новой ручки (в форме Д26 — строка отображения в §11 и в полосе S1-A3):
+      (1) у каждой сетевой операции POP3 — Dial, рукопожатие, каждая команда с ответом и каждое
+      чтение тела RETR — срок по реальному монотонному времени (conn.SetDeadline, продлеваемый на
+      прогрессе чтения), постоянная кода, выведенная из LEASE_TTL (не больше LEASE_TTL / 3) — так
+      «длительность сеанса ничем не ограничена» приёмки сохраняется, а молчание сервера — нет;
+      срабатывание срока закрывает соединение без QUIT (незафиксированное остаётся в ящике, Р21),
+      останавливает независимое продление и завершает такт временным сбоем опроса; (2) canary.Send
+      получает контекст со сроком smtp.sessionTimeout NTF-1 и передаёт его примитиву smtp.Session;
+      (3) шаг такта, вычисляющий признаки, не зависит от исхода сеанса — либо назвать, что он идёт
+      после сеанса, срок которого ограничен (1). Держатель — вариант NTF4-104 / УК4-02: П10 принимает
+      RETR и молчит → сеанс закрыт в пределах срока, продлений после него 0, следующий такт
+      открывает новый сеанс, feedback_stale поднимается после POLL_STALE_MAX при постоянном
+      молчании; близнец — NTF4-104 как есть (медленный, но идущий RETR на управляемых часах) остаётся
+      зелёным: срок сети — реальное время, а не внедрённые часы.
+
+important: []
+
+minor:
+  - id: М1
+    coordinate: design.md З11 строки 718–722 против З9 строки 605–607 и строки Д26 · 6 (1)
+    finding: >-
+      З11 утверждает «единственный таймер вне такта — независимое продление сеанса», а З9 и Д26 · 6
+      заводят подметальщик (и уборку по сроку) на своём таймере SUPPRESSION_SWEEP_INTERVAL. Два
+      места об одном предмете расходятся. Корректность не страдает: и транзакция сообщения, и
+      партия уборки первым оператором продлевают аренду, строчный замок feedback_lease их
+      сериализует (удаление строки sent_log, на которую ссылается фиксируемое событие, не
+      пересекается с фиксацией).
+    requirement: >-
+      Выровнять текст: либо подметальщик — шаг lease.Tick, либо З11 называет второй таймер
+      держателя и довод сериализации замком строки аренды. Не блокирует.
+  - id: М2
+    coordinate: design.md З17 строки 942–954; corelib operations/reconciler.go:187-196
+    finding: >-
+      Resolver сверщика читает аудит и запись подавления вне транзакции fn. Гонки с живым RunSync
+      нет только потому, что сверщик берёт операции старше OrphanGrace (умолчание 5 мин), а RunSync
+      ограничен сроком запроса (HANDLING_BUDGET ≤ 60 с). Это граница по построению, но в замысле
+      она не названа.
+    requirement: >-
+      Назвать в З17: OrphanGrace сверщика notify-api строго больше верхней границы
+      …_HANDLING_BUDGET (значение из конфигурации сверщика, а не умолчание по памяти). Не блокирует.
+  - id: М3
+    coordinate: design.md З14 строки 862–869
+    finding: >-
+      Срок одного DNS-запроса проверок и перепроверки не назван; ограничены только повтор при
+      старте (DNS_BOOT_DEADLINE) и стандартный резолвер (таймауты resolv.conf).
+    requirement: >-
+      Назвать срок запроса (context.WithTimeout на каждый Lookup*) постоянной кода. Не блокирует:
+      перепроверка на отдельном таймере, аренды не держит.
+
+orders:
+  - кому: автор замысла issue-2919
+    что: К1 — строка условия к коду в §11 (форма Д26) и в полосе S1-A3/S1-A4 tasks.md с пробой-держателем и близнецом; М1–М3 — тем же заходом либо в handoff полос.
+  - кому: db-architect-reviewer
+    что: >-
+      Пересечение со схемой на отпечаток 80dea362 (записи роли нет): §6 целиком, CAS аренды и
+      сериализация транзакций держателя замком строки, pg_advisory_lock мигратора с lock_timeout 5m,
+      Establish под READ COMMITTED (Д26 · 2), миграция DROP TABLE recipient_key_fence и запись dropguard.json.
+  - кому: integration-tester
+    что: >-
+      Пробы с конкурирующими горутинами уже заказаны замыслом (NTF4-116, NTF4-31, NTF4-86, УК4-01);
+      новый заказ — вариант К1 (молчащий П10) после исправления замысла.
+
+next: >-
+  автор замысла issue-2919 — исполнить К1 (и М1–М3) и перевнести замысел; на новом отпечатке —
+  повтор этой роли и пересверка разбора классов; db-architect-reviewer — на отпечаток, который
+  пойдёт в DESIGN_APPROVED.
