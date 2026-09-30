@@ -1,0 +1,259 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 13.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверки прежних редакций относятся к
+# своим редакциям и здесь не переписываются. Судится дельта редакции 13 против последней разобранной
+# (редакция 11, 45992f0b; на редакцию 12, 05ce3d98, пересверки нет — её дельта входит сюда):
+# git diff 4f8430b51 5c3502f8e -- docs/changes/issue-2917/{design,tasks}.md.
+# Итог: всё, что вернули пересверка 45992f0b (замечание к УК57) и ревью замысла 45992f0b (К1, В3, М3),
+# отображено. Д51 исполнен замыслом по всем пяти пунктам. Решение Д51 вносит три новых пункта перечня,
+# и ни один не отображён:
+#   CX2-68 — ручку `required` получает чарт края `gateway/deploy`. Его рендерят и без зонтика: четыре
+#            семейства читателей на 2564, из них ни одно не названо в замысле и маршруте;
+#   CX2-69 — `0` законен и значим. Соседняя форма шаблона (`with`) молча его теряет;
+#   CX2-70 — отрицательный близнец D6 «prod без образца» меняет два факта; helm называет одно имя
+#            (сторона NTF-2 пункта CX1-94 пересверки NTF-1 efff0ee7).
+# Возврат Р5 (Е15) не исполнен, приёмка та же (7a424030). Е16 — вторая правка той же приёмки;
+# её называет сам замысел.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 695a1e957aed37ba5c8f2bb3aecf07071b0217da214eab155a75a60fdc6258e7
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 13
+  commit: 5c3502f8e
+  previous_judged: 45992f0b8b7bf7520bfd0407c8690a50fe28ed5870ee42cdbf181fcd3eb98aaf   # редакция 11, 4f8430b51
+  unjudged_between: 05ce3d98ad389a7bb6ab7eef9dd55e9f1828d79a71c2cd17ecd54292c6834879  # редакция 12, 7f68f0144 — без пересверки
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/7a424030e0a984bc4bb73f8cf075de7fc5239c6fbf849092484032e9991097c4.yaml
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/45992f0b8b7bf7520bfd0407c8690a50fe28ed5870ee42cdbf181fcd3eb98aaf.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 72929148b215a4f1d781986ddc7a233ed3e62eb3   # ветка issue-880; предмет — 5c3502f8e, HEAD добавил только запись NTF-1
+  ntf1_design: efff0ee78a16b952c892daa9fb38de6e80593553e3fb100f899e1cf8948ab9d8   # редакция 22
+  ntf1_tasks: 8be6780d462054d70ffd478a37661120f3e04e85ab85f8c148bc0e0dd754f7bd
+  kacho: "origin/2564@6edea09c2ee, origin/1276@23f1e058a35"
+  helm: v4.2.4+g3900f43
+snapshot_at: 2026-09-30
+inspected: >-
+  Дифф design.md 4f8430b51 → 5c3502f8e целиком: шапки редакций 12 и 13, §0 (строки 45992f0b, опора
+  NTF-1 редакции 22), Д50, Д51, М66, З8 «Одна ручка прыжков», (2), «Исход фиксации», З28 «Ручка
+  прыжков — не из базы», З29 «Проба D0», И6, И40, §7 П9, §8, §11 CX2-12, CX2-57, CX2-67, §11а УК57,
+  УК59, §11б (45992f0b), §12, §13 Е16, Е17. Дифф tasks.md той же пары: шапки, Е16, Е17, E1, D0, D1,
+  D6, §3, §4. Дерево kacho на 2564 и 1276: deploy/stacks.txt, шаблон и значения чарта края,
+  читатели, рендерящие чарт края без зонтика (Go, .github/scripts, deploy/tests/helm). helm 4.2.4:
+  `required` и `with` на значении 0 и выбор имени при двух незаданных `required` — на своём
+  игрушечном чарте. Пересверка NTF-1 efff0ee7 (HEAD) — пункты CX1-94, CX1-95, N19. Записки vault не
+  читались.
+
+dispatcher_decisions_check:
+  Д51: >-
+    Исполнен по всем пяти пунктам. (1) Значения в базе нет: З28, §8, §12, D1 («кроме TRUSTED_HOPS»),
+    D6. (2) Рендер `prod` без ручки — отказ `required`: З28 «Форма (а)», D6. (3) Стенды объявляют
+    значение своим файлом профиля — таблица З28. Она сверена с deploy/stacks.txt на 2564 и 1276:
+    `dev`, `dev-prod`, `prorobotech`, `a8f60d` начинаются с values.dev.yaml; `own` — values.prod.yaml,
+    затем values.own.yaml; `fe3455` — values.prod.yaml, затем values.fe3455.yaml. (4) values.dev.yaml
+    правится после Е12 по образцу Д49: D6 зависит от Е12, исключение DoD п.13 вынесено в Е16 (1).
+    (5) Фикстура — один каталог NTF-1 deploy/testdata/mail-node/, своей фикстуры у NTF-2 нет: З28,
+    §12, Е17. Оговорка — CX2-68 (в): рендеры чарта края без зонтика — это не рендеры `prod`, и Д51
+    их не называет (вопрос владельцу ниже).
+  Д47, Д48, Д49: "держатся; дельта их строк не трогает, кроме сноски Д48 в З28 (тот же каталог)"
+  Д50: "механизма NTF-2 не задаёт, и замысел это называет (§0)"
+
+mapped_from_previous:
+  - id: "замечание к УК57 (пересверка 45992f0b)"
+    where: "§11а УК57 — комментарий перечня в resolveCommit: ответ опроса после переключения может касаться чужой транзакции, истина — только чтение строки по decision_id"
+    held: true
+    held_by: "вниманием; обоснование прежнее"
+  - id: "К1 (design-reviewer/45992f0b)"
+    where: "З8 «Одна ручка прыжков», З28 «Ручка прыжков — не из базы», §8, §11 CX2-12, CX2-57 (г), §11б, §13 Е16, Е17; tasks D1, D6, E1, §3, §4"
+    held: true
+    note: "вариант выбран Д51 (а); новые пункты CX2-68…70 открыты самим этим выбором"
+  - id: "В3 (design-reviewer/45992f0b)"
+    where: "З8 (2), И6, §8 — у каждой границы названа точка отсчёта"
+    held: true
+    check: >-
+      Арифметика сверена. Последний оператор уходит в T0 + 1,5 − ε; разделение сети и потеря отмены
+      дают T0 + 1,5 + 2 × 1,5 ≈ 4,5 с. Срок разрешения 3 с отсчитывается от COMMIT — последнего
+      оператора. Поэтому 2 × anonMailDecisionBudget от последнего оператора покрывает жизнь исходной
+      транзакции, и довод «Исход фиксации» держится
+  - id: "М3 (design-reviewer/45992f0b)"
+    where: "З8 «Исход фиксации», И40, §7 П9, §11а УК57; tasks E2 — вариант «in progress до конца срока»: 503, чтений строки 0, WARN"
+    held: true
+  - id: "CX2-67 / УК59 — контракт обёртки NTF-1 редакции 22"
+    where: "З29, §11 CX2-67, §11а УК59, tasks D0: render_chain_args prod \"$umbrella\" ntf2-p7.yaml; близнец «вызов без каталога → не выполнилось»"
+    held: true
+
+new_items:
+  - id: CX2-68
+    decision: "З28 «Форма (а)» — «в значениях чарта края значения нет; шаблон края читает его как обязательный (`required`)»; tasks D6"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены» (решение — `required` в шаблоне
+      gateway/deploy; следствие — отказ каждого рендера этого чарта без значения); измерение —
+      measurement-discipline §«Радиус: по имени механизма и по точкам применения»
+    finding: >-
+      Замысел меряет радиус только по цепочкам зонтика (М66, семь цепочек) и по переписи NTF1-D2
+      «рендер `prod`». Но чарт края рендерят и отдельно, без значений зонтика. На 2564 таких
+      читателей четыре семейства: (1) Go-помощник helmTemplate (gateway/deploy/render_geo_test.go) —
+      8 вызовов в 3 файлах: render_geo_test.go, jwks_ca_render_test.go,
+      render_internal_listener_retired_test.go; при ошибке рендера — t.Fatalf; (2)
+      .github/scripts/lint-service-charts.sh — обходит gateway/deploy по индексу git. Его ведомость
+      отказывающих чартов «самоистекает в обе стороны», сейчас в ней две записи (nlb, registry),
+      записи края нет; (3) .github/scripts/check-volume-mounts.py — Chart("api-gateway",
+      "gateway/deploy", --set image, name), матрица тумблеров; (4)
+      deploy/tests/helm/iam-trusted-forwarder-test.sh — peer_san рендерит gateway/deploy, два цикла.
+      После D6 каждый из них отказывает. Ни одно из имён не встречается в design.md, tasks.md и
+      замысле NTF-1 (grep → 0). Самая дешёвая «починка» красного — умолчание в
+      gateway/deploy/values.yaml. Ровно это Д51 и К1 запрещают: база молча вернулась бы на уровень
+      подчарта.
+    condition_on_code: >-
+      (а) Полоса D6 перечисляет рендеры чарта края без зонтика переписью по дереву, а не по памяти.
+      Перепись печатает число, контроль — эти четыре семейства на 2564. Пути всех четырёх семейств
+      входят в пути полосы D6. (б) Каждый такой рендер подаёт значение ручки явно — синтетической
+      координатой в форме ведомости. В lint-service-charts.sh — запись `gateway/deploy|--set <ключ>=…`;
+      ведомость краснеет на записи без отказа, значит запись сама держит «чарт края отказывает без
+      ручки». (в) В gateway/deploy/values.yaml ключа ручки нет: ни значения, ни пустышки.
+    held_by: >-
+      (а), (б) — красные этих гейтов в конвейере (go test ./gateway/deploy, «сервисный чарт
+      рендерится», «каждый volumeMount имеет свой volume», helm-manifest-test): D6 без них не
+      проходит. (в) — инъекция D6 «строка снята из values.own.yaml → рендер own отказывает». При
+      умолчании в значениях подчарта own отрендерится `1`, и инъекция покраснеет. Условие: эта
+      инъекция в D6 обязательна, а не одна из многих
+  - id: CX2-69
+    decision: "З8 «Одна ручка прыжков» (`0` — не верить пересланным, ключ — TCP-пир) × З28 «Форма (а)» (шаблон края)"
+    class: "code-authoring §«Умолчание, которое становится утверждением» (отсутствие, представимое отдельно от значения); §«Контракт, который нельзя выразить»"
+    finding: >-
+      `0` — законное значение ручки со своей семантикой. В шаблоне края рядом уже стоит форма «ручка
+      без умолчания» — `{{- with .Values.… }}`, 3 места в gateway/deploy/templates/deployment.yaml на
+      2564 (identityProvider, iamLoginLaneUrl, iamIssuanceUrl). Замер helm 4.2.4: `with` на 0
+      переменную не эмитит, `required … | quote` на 0 даёт "0", на пустой строке и отсутствии —
+      отказ. Если перенести соседнюю форму, топология «прыжков 0» в чарте невыразима. Отказ при этом
+      приходит от старта процесса (переменной нет), а не от рендера. Проба D6 утверждает только `1`
+      из файлов стендов, близнеца со значением 0 у неё нет.
+    condition_on_code: >-
+      Шаблон края эмитит KACHO_API_GATEWAY_TRUSTED_HOPS безусловно, через `required "<имя ручки> …"`,
+      без `with`, `if`, `default`, `empty`, `coalesce` вокруг ключа. Проба D6 несёт вариант «значение 0
+      → переменная "0" в Deployment края» и близнец-инъекцию «форма with» — на 0 переменной нет,
+      красный.
+    held_by: "проба D6 — после внесения варианта; до того вниманием"
+  - id: CX2-70
+    decision: "tasks D6, предикат снятия: «рендер `prod` без образца — отказ с именем KACHO_API_GATEWAY_TRUSTED_HOPS, близнец — через обёртку с образцом каталога»; З28 «Держатель»"
+    class: "change-graph: отрицательный кейс меняет ровно один факт против положительного близнеца; gate-authoring — отрицание в паре с положительным"
+    finding: >-
+      «prod без образца» против «prod с образцом» — это два факта: нет узла почты (Д46, `required`
+      NTF1-D1) и нет ручки. helm 4.2.4 при двух незаданных `required` печатает одну ошибку (замер на
+      игрушечном чарте: одна строка Error, имя — по порядку шаблонов, а не по предмету проверки).
+      Какое имя выйдет, решает порядок шаблонов. Утверждение «отказ с именем ручки» станет
+      недетерминированным по предмету либо стабильно красным. Та же находка на стороне NTF-1 —
+      CX1-94 и N19 пересверки efff0ee7 (коммит 72929148b).
+    condition_on_code: >-
+      Отрицательный близнец D6 — рендер `prod` через обёртку NTF1-D9 с образцом каталога, из которого
+      снята только строка ручки (узел почты на месте) → отказ с именем ручки. Положительный близнец —
+      тот же образец со строкой → проходит. Проба печатает предпосылку «незаданное обязательное
+      значение одно» и имя снятого ключа. Инъекция «сняты оба ключа» даёт исход «не выполнилось:
+      предпосылка», а не зелёный и не красный с чужим именем.
+    held_by: "проба D6 — после правки её предиката; форма согласуется с CX1-94 (а)–(г) NTF-1"
+
+remarks:
+  - subject: "E1 садится только вместе с D6"
+    text: >-
+      Связь названа (tasks E1 «зависит от», §4 п.6), но держится она сведением волны, а не гейтом.
+      Если E1 войдёт без D6, конвейер рендера зелёный: значения нет — переменной нет, и
+      producerless_input_test этого не ловит, он краснеет только когда у конструктора нет ни одного
+      производимого входа. Отказ старта края виден лишь на подъёме стенда. Цена названа, отдельного
+      пункта это не даёт.
+    held_by: "вниманием: состав запроса волны; первый подъём стенда после сведения"
+  - subject: "критический путь E-яруса"
+    text: >-
+      Через «E1 садится с D6» полосы E1 → E2 → E3, E4, X1, X2 теперь транзитивно стоят за Е12
+      (вливание kacho#1276 в 2564; на замере не влит — merge-base → 1), за Е13 и за Е16. Замысел
+      это называет, класса здесь нет, но это новая цена маршрута для диспетчера.
+  - subject: "Е17 значится «принята», а пересверка NTF-1 efff0ee7 держит (б) лишь при пустом перечне prod (CX1-95)"
+    text: >-
+      Строка D6 «проба образца NTF1-D9 — каждый файл каталога → код 0» опирается на Е17 (б). Пока
+      NTF-1 не отобразит CX1-95, статус «принята» у Е17 завышен. Предикат снятия Е17 следует
+      привязать к отпечатку замысла NTF-1, отображающего CX1-95, а не к efff0ee7.
+
+return_to_acceptance:
+  - rule: "Р5 (приёмка 7a424030): «`503` не истрачивает вызов — NTF2-59 (д)»"
+    status: не исполнен — перенесён из revalidation/aaaff659, 91b3f6b9, 45992f0b
+    why: "отпечаток приёмки прежний; строка на месте (grep -c → 1); последняя правка приёмки — 796be63a0"
+    scenarios: [NTF2-59]
+  - rule: "Р8 строка «край · доверенные прыжки» — «задано явно в каждом профиле» (строка 829); DoD п.13; DoD п.22"
+    status: новый возврат, назван самим замыслом (§13 Е16) под решение Д51
+    why: >-
+      Поставляемый `prod` значения не несёт, а Р8 требует «в каждом профиле». D6 правит
+      values.dev.yaml, а DoD п.13 это запрещает, исключения нет. Д51 делает вторым обязательным
+      значением поставки `prod` ручку, а DoD п.22 называет одно. Пока приёмка не правлена, полоса D6
+      и посадка E1 закрыты.
+    scenarios: []
+
+measurements:
+  - claim: "отпечаток предмета"
+    command: "sha256sum docs/changes/issue-2917/design.md; git show HEAD:… | sha256sum"
+    result: "695a1e957aed37ba5c8f2bb3aecf07071b0217da214eab155a75a60fdc6258e7 (рабочее дерево и HEAD)"
+  - claim: "опора NTF-1 — редакция 22"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; grep -c TRUSTED_HOPS docs/changes/issue-2915/design.md"
+    result: "efff0ee7…, 8be6780d…; 4"
+  - claim: "§11: 68 строк, повторов 0"
+    command: "grep -c '^| CX2-' design.md; grep -o '^| CX2-[0-9]*\\( · `[0-9a-f]*`\\)\\?' design.md | sort | uniq -d | wc -l"
+    result: "68; 0"
+  - claim: "таблица файлов-источников З28 совпадает с составом цепочек"
+    command: "git -C project/kacho show <r>:deploy/stacks.txt | grep -vE '^(#|$)' для origin/2564 и origin/1276"
+    result: "7 цепочек на обеих; первые отличающие файлы — как в таблице; на 1276 у fe3455 нет values.fe3455-ory-posture.yaml (совпадает с М66)"
+  - claim: "М66 и М64 (перемер)"
+    command: "git grep -c 'TRUSTED_PROXY_COUNT\\|TRUSTED_XFF\\|TRUSTED_HOPS' <r> -- deploy gateway/deploy ':!*_test.go' | wc -l; cat-file -e трёх файлов; merge-base --is-ancestor origin/1276 origin/2564"
+    result: "0 и 0; config.go:661 default \"1\" на обеих; три файла есть на обеих; 1276 не влит (1)"
+  - claim: "CX2-68: рендеры чарта края без зонтика"
+    command: "git grep -lE 'exec.Command\\(\"helm\"' origin/2564 -- 'gateway/**'; git grep -cE 'helmTemplate\\(t' origin/2564 -- 'gateway/deploy/*_test.go'; git show origin/2564:.github/scripts/lint-service-charts.sh | sed -n 66,67p; git show origin/2564:.github/scripts/check-volume-mounts.py | sed -n 116,117p; git show origin/2564:deploy/tests/helm/iam-trusted-forwarder-test.sh | sed -n -e 93,101p -e 121p -e 217p"
+    result: "helmTemplate: 8 вызовов в 3 файлах (render_geo 4, jwks_ca_render 2, render_internal_listener_retired 2); ведомость lint-service-charts — 2 записи, записи края нет; check-volume-mounts — Chart api-gateway с --set image, name; iam-trusted-forwarder — peer_san по gateway/deploy в 2 циклах"
+  - claim: "CX2-68: замысел и маршрут их не называют"
+    command: "grep -c <имя> docs/changes/issue-2917/{design,tasks}.md docs/changes/issue-2915/design.md для lint-service-charts, check-volume-mounts, render_geo, helmTemplate, iam-trusted-forwarder, gateway/deploy/values"
+    result: "0 во всех трёх файлах по каждому имени"
+  - claim: "CX2-69: `required` пропускает 0, `with` его теряет"
+    command: "игрушечный чарт в scratchpad: data.req: {{ required \"…\" .Values.hops | quote }} и {{- with .Values.hops }}; helm template с '', --set hops=0, --set hops=1, --set-string hops="
+    result: "'' → отказ required; 0 → req \"0\", with отсутствует; 1 → оба \"1\"; пустая строка → отказ required. Форм `{{- with .Values` в deployment.yaml края на 2564 — 3"
+  - claim: "CX2-70: при двух незаданных required helm называет одно имя"
+    command: "тот же чарт + templates/a-node.yaml с required \"MAIL NODE required\" .Values.node; helm template без значений"
+    result: "одна строка Error — имя ручки (cm.yaml); имя выбирает порядок шаблонов, а не предмет проверки"
+  - claim: "Р5 и Р8 не правлены"
+    command: "sha256sum <приёмка>; grep -c '`503` не истрачивает вызов — NTF2-59 (д)' <приёмка>; sed -n 829p <приёмка>"
+    result: "7a424030…; 1; «| край · доверенные прыжки | … | по профилю | задано явно в каждом профиле |»"
+
+not_measurable:
+  - "порядок шаблонов в зонтике после D6 и NTF1-D1: шаблона ручки нет ни на одной ветке; CX2-70 поставлено так, чтобы от этого порядка не зависеть"
+  - "поведение перечисленных рендеров после D6 — D6 не написан; вывод «откажут» следует из замера `required` на helm 4.2.4 и из того, что значения в gateway/deploy/values.yaml нет ни сегодня, ни по Д51"
+
+outcome: вернуть-в-приёмку
+unmapped: [CX2-68, CX2-69, CX2-70]
+
+orders:
+  - to: design author (NTF-2)
+    what: "отобразить CX2-68 (перепись рендеров чарта края без зонтика, запись ведомости lint-service-charts, пути в D6, инъекция «строка снята» как держатель отсутствия умолчания в подчарте), CX2-69 (форма `required` без with/if/default, вариант 0 с близнецом «with»), CX2-70 (отрицательный близнец D6 — образец минус строка ручки, предпосылка «одно незаданное»)"
+    basis: "change-graph §4; code-authoring §«Решение и его следствие разнесены», §«Умолчание, которое становится утверждением»"
+  - to: acceptance author (NTF-2)
+    what: "Е15 (Р5) и Е16 (Р8 строка 829, DoD п.13 исключение values.dev.yaml, DoD п.22 — ручка вторым обязательным значением prod, фикстура — каталог NTF-1) одной правкой; новый отпечаток → ревью приёмки → первичный разбор"
+    basis: "change-graph §2, §4"
+  - to: NTF-1 author
+    what: "CX1-94, CX1-95 пересверки efff0ee7 — от них зависят D6 и статус Е17 (б) NTF-2; Е14 (д) по-прежнему не принят"
+    basis: "architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: db-architect-reviewer, proto-api-reviewer
+    what: "ревью замысла — записей этих ролей нет ни на одном отпечатке"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+
+questions_to_owner:
+  - "Д51 «гейты рендера prod подставляют значение из ОДНОГО каталога фикстур» — распространяется ли это на рендеры чарта края без зонтика (CX2-68)? Разбор считает, что нет: это не рендер `prod`, и значение там — синтетическая координата формы ведомости (как db.password у nlb). Если да, этим рендерам нужен путь к файлу каталога NTF-1, и CX2-68 (б) меняет форму."
