@@ -1,0 +1,240 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: f6453d349761b6624a6875a420d86f61d071b74d0605546d1b7a2f85c82a3ece
+  revision: 12
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  base_commit: e96497a8e
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2711
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T07:30:00Z'
+round: 12
+round_note: >-
+  Двенадцатый круг документа; круг 2 прохода Д14–Д16. Предмет редакции 12 — блокирующее B11-1
+  (COVERAGE) и замечания N11-1…N11-4 круга 11.
+previous_rounds:
+  - {round: 10, sha256: f9e8de7ee883a8da50e083a8c072e4092703ea7b150730a046e3559714458edf, verdict: APPROVED, blocking_count: 0}
+  - {round: 11, sha256: 1a6019bc0954336fd1147f65c4e9d160cc0dfe4ded2a68a4d8171a2d8e5a1466, verdict: CHANGES_REQUESTED, blocking_count: 1,
+     record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/1a6019bc0954336fd1147f65c4e9d160cc0dfe4ded2a68a4d8171a2d8e5a1466.yaml}
+blocking_count: 1
+blocking_kinds_distinct: [SCOPE]
+blocking_kinds_by_item:
+  - {id: B12-1, kind: SCOPE}
+trend_note: >-
+  Число блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1. Род SCOPE в
+  истории документа впервые. Блокирующее не в дельте редакции 12: его вызвало событие вне
+  документа — одобрение NTF-1 на другой редакции (коммит abc1fd487, родитель коммита редакции
+  12). Правило пересверки, по которому документ теперь обязан получить новую редакцию, записано
+  в §1 самого документа.
+
+delta_scope:
+  predicate: "git diff 2988e7288 e96497a8e -- <док> (git show 2988e7288:<док> | sha256sum → 1a6019bc…, редакция 11)"
+  touched: >-
+    шапка (история), §1.1 абзац переписи, Р10 (исход попытки контрольного письма), Р11 (таблица
+    входа для соединения попытки), Р21 (продление каждым тактом, отвергнутый потолок сеанса),
+    §5, П5, П6, NTF4-95, NTF4-104, NTF4-103, новый NTF4-105, §8 строки 95–97, 104 и
+    73–74, 100, 103, 105, DoD S1 п.1 и S7 п.1, §20.
+
+b11_resolution:
+  B11-1:
+    status: "закрыт"
+    note: >-
+      (1) NTF4-103 утверждает DEFER(platform_unavailable) = 0 и один исход Ack = SENT по строке
+      security, поставленной сразу после отвергнутого такта, и нулевой misconfigured после
+      каждого такта; производитель счёта исходов — фикстура П6 (заведена в §6). (2) Ветка 5xx
+      покрыта NTF4-105 с близнецом NTF4-103, отличие одно (554 вместо 451 на DATA). (3) Инъекция
+      «исход попытки классифицируется словарём строк NTF-1» внесена в DoD S7 п.1 и §8 с красным
+      по каждому сценарию. Класс пройден также по Р11 (таблица входа и отказ пароля по обоим
+      слотам на соединении попытки).
+  N11-1: "закрыт: строка Р21 возвращена; NTF4-95 и NTF4-104 утверждают, что эпоха за шаг не выросла (см. N12-2 о предсказании инъекции)"
+  N11-2: "закрыт: инъекция NTF4-103 утверждается отсутствием ожидаемого выпуска в kacho_notify после (а)"
+  N11-3: "закрыт: отказ от потолка сообщений за сеанс записан в Р21 «Отвергнуто» с доводом"
+  N11-4: "закрыт: предсказание NTF4-104 — «к QUIT применено меньше 8»"
+
+blocking_findings:
+  - id: B12-1
+    kind: SCOPE
+    anchors:
+      - "шапка строки 63–66 (Given закреплён на NTF-1 a6cb0c1f…, «круг 5 по ней — возврат»)"
+      - "§1 строки 113–123 (правило: одобрят другую редакцию — сверить таблицу по строкам; свойство названо иначе или снято — новая редакция)"
+      - "§1 таблица, строка 139 (нет gRPC-слушателя; гейт паритета монтирования называет notify с нулём сервисов; NTF1-G19)"
+      - "§4 З9 (строка 1063)"
+      - "§20 последний абзац (строка 2710)"
+    summary: >-
+      Приёмка NTF-1 одобрена на редакции b347b81f… (запись
+      docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3.yaml,
+      verdict APPROVED, коммит abc1fd487 — родитель коммита редакции 12). §20 утверждает
+      обратное: «одобренной редакции, отличной от закреплённой, ни у NTF-1, ни у NTF-2 нет».
+      По правилу §1 самого документа одобренную редакцию сверяют с таблицей §1 по строкам, и
+      сверка находит свойство, названное в одобренной NTF-1 иначе, — именно то, которое NTF-4
+      замещает (З9).
+    details:
+      - >-
+        NTF1-G19 в одобренной редакции b347b81f больше не опирается на
+        TestGRPCMountParity_EveryDeclaredServiceIsMounted («называет notify с нулём объявленных
+        сервисов» снято). Держатель G19 теперь — новая проба services/notify/servesurface_test.go:
+        «вызовов, чья цель — grpc.NewServer, точка входа фундамента, поднимающая gRPC-сервер
+        (grpcsrv.NewServer, servicehost.Serve), либо функция Register…Server сгенерированного
+        стаба, — 0» в не-тестовых пакетах под services/notify/, с инъекцией и близнецом.
+      - >-
+        NTF-4 З9 поднимает у notify внутренний gRPC-слушатель с InternalSuppressionService и
+        OperationService, то есть вводит ровно то, что эта проба называет находкой. З9 замещает
+        формулировку G19 редакции a6cb0c1f («гейт паритета монтирования называет notify с нулём»)
+        и не называет держателя одобренной редакции — servesurface_test. Реализация NTF-4 по
+        этому документу покрасит одобренный держатель NTF-1, и ни одна строка приёмки не говорит,
+        что с ним делать (снять, сузить перечень до двух названных Register…Server, перевести в
+        «слушатель один — внутренний gRPC»).
+      - >-
+        Прочие изменения NTF-1 a6cb0c1f → b347b81f, сверенные по строкам таблицы §1: Р4 (вид на
+        проводе notification_feed) — NTF-4 вид не называет; Р5 (перечень путей надзора, Д14) —
+        права NTF-4 на объекте cluster, перечнем не затронуты; Р9/NTF1-N07 (исход Subscribe при
+        выключенном флаге) — NTF-4 не использует; Р10, Р11 (таблица исходов, размыкатель,
+        misconfigured), G07, G15, G16, G20, H01…H10, N04, L01, I04 — без изменения смысла; DoD
+        NTF-1 п.12 добавил «пины corelib и kaname поднимаются в kacho одним изменением» —
+        касается правок Х NTF-4 в corelib и kaname (§1.1) как порядка посадки.
+    required: >-
+      (1) Перезакрепить Given на одобренной редакции NTF-1 b347b81f… (шапка, §1): таблица §1 —
+      координаты по b347b81f; строка 139 — свойство и держатель одобренной G19. (2) Дописать З9:
+      замещается и держатель servesurface_test одобренной G19 — названо, какой исход у него после
+      NTF-4 (например: перечень допустимых Register…Server у notify — ровно
+      InternalSuppressionService и OperationService, точка входа фундамента — одна, прочее —
+      находка; инъекция и близнец сохраняются), с производителем в §8 и пунктом DoD S3. (3)
+      Исправить утверждение §20 и сверить по той же процедуре NTF-2 (у NTF-2 на момент круга
+      одобренной редакции нет — подтверждено). (4) Учесть DoD NTF-1 п.12 в порядке посадки правок
+      Х, если он их касается.
+
+non_blocking_findings:
+  - id: N12-1
+    kind: DoD
+    anchors: [NTF4-103 When (а), DoD S7 п.1, "NTF-1 b347b81f Р11 и G07"]
+    summary: >-
+      Предсказание инъекции для NTF4-103 — «DEFER(platform_unavailable) по строке security ≥ 1».
+      NTF-1 не определяет, что открытый размыкатель делает со следующими строками: в Р11 он
+      только назван, в G07 наблюдается как «размыкатель открыт». Если открытый размыкатель не
+      забирает строк до своего закрытия по часам, строка при стоящих часах исхода не получит, и
+      шаг «ждёт её исхода, не переводя часов» не имеет срока. Рекомендация: назвать бюджет
+      ожидания исхода (не дождались — красный, а не «не выполнилось») и, если NTF-1 выставляет
+      состояние размыкателя наблюдаемым, утверждать его напрямую.
+  - id: N12-2
+    kind: DoD
+    anchors: [NTF4-95 Given, "§8 строка 95–97, 104", DoD S1 п.1, Р21]
+    summary: >-
+      Инъекция «держатель не продлевает аренду тактом вне сеанса» даёт рост эпохи в NTF4-95
+      только если в шаге есть промежуток без продления длиннее …_LEASE_TTL. Given NTF4-95 не
+      связывает I (…_CANARY_INTERVAL) с …_LEASE_TTL, а Р21 одновременно говорит «ящик пуст и
+      сеанс не открывается» — не сказано, открывает ли проверка пустого ящика POP3-сеанс (а
+      продление внутри сеанса стоит). Рекомендация: зафиксировать в Given I > …_LEASE_TTL +
+      …_POLL_INTERVAL и уточнить в Р21, что проверка пустого ящика — это (или не это) сеанс.
+      Класс тот же, что у N11-2: предсказание инъекции, не гарантированное Given.
+
+dispatcher_decisions_check:
+  method: >-
+    Д1–Д13 — дельта редакции 12 сверена с каждым решением; унаследованный текст — по записям
+    кругов 10–11. Д14–Д16 — по документу целиком.
+  results:
+    D1: "соблюдено: канал контрольного письма — ретранслятор notify; входящих вызовов отправки нет"
+    D2: "не задет дельтой"
+    D3: "не задет дельтой"
+    D4: "не задет дельтой"
+    D5: "не задет дельтой"
+    D6: "соблюдено: дельта правит services/notify и двойники проб; corelib не трогает"
+    D7: "не задет дельтой"
+    D8: "не задет дельтой"
+    D9: "не задет дельтой"
+    D10: "вне предмета NTF-4"
+    D11: "соблюдено: новых лимитов нет; контрольное письмо вне сетки NTF-1"
+    D12: "не задет дельтой"
+    D13: "соблюдено: NTF-4 после NTF-1; но Given закреплён не на одобренной редакции NTF-1 (B12-1)"
+    D14: >-
+      не задевает NTF-4: grep «notification_feed|verdictForRelation|AllowsVerb|BatchCheck» по
+      документу → 0; права NTF-4 — на объекте cluster, перечнем Р5 одобренной NTF-1 не затронуты.
+    D15: "соблюдено: форма API настроек и контактов в NTF-4 не задаётся"
+    D16: "соблюдено: DRAFT, документ в ветке issue-880; утверждений о посадке в main нет"
+  dispute_lines: "строк спора с Д1–Д16 нет"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac e96497a8e → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: e96497a8e
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Событие публикует курьер; его тело — в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 12, блокирующих 1: SCOPE) ·
+    SHA-256 f6453d349761b6624a6875a420d86f61d071b74d0605546d1b7a2f85c82a3ece
+
+measurement:
+  revisions_used:
+    workspace_copy: issue-880@e96497a8e
+    previous_revision: "2988e7288 (редакция 11, 1a6019bc…)"
+    neighbour_ntf1_pinned_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+    neighbour_ntf1_approved_sha256: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3
+    neighbour_ntf2_pinned_sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
+  predicates_reproduced:
+    - "sha256sum документа и git show e96497a8e:<док> | sha256sum → f6453d34…3ece (совпадает с заданием)"
+    - "git merge-base --is-ancestor abc1fd487 e96497a8e → 0 (одобрение NTF-1 предшествует редакции 12)"
+    - "запись NTF-1 b347b81f…yaml: verdict APPROVED; git show 258c92d5e:<NTF-1> | sha256sum → b347b81f…"
+    - "git show 189f2ad86:<NTF-1> | sha256sum → a6cb0c1f… (закреплённая); diff a6cb0c1f → b347b81f по разделам Р4…Р18, G, N, §8"
+    - "grep -n 'servesurface\\|G19\\|NoServedServices' <док> → строки 139, 1063, 2450, 2554, 2591; servesurface — 0"
+    - "записи ревью NTF-2: одобренных нет (33e199c9, a4f11cee и прочие — CHANGES_REQUESTED либо без записи)"
+    - "гигиена: 'tmp/' → 0; 'не закоммичен' → 0; имён чужих облаков и почтовых служб → 0"
+  scenario_census:
+    predicate: "grep -c '^\\*\\*ID:\\*\\* NTF4-' документа → 90; дублей ID 0"
+  producer_coverage:
+    method: "python по документу: ID сценариев против первых столбцов строк §8 и упоминаний в §10 DoD (с раскрытием диапазонов)"
+    result: "§8 — 90 из 90; DoD — 90 из 90"
+  twin_coverage:
+    note: >-
+      NTF4-105 ↔ NTF4-103: отличие одно (554 вместо 451 на DATA контрольного письма); фаза (б)
+      даёт внутренний положительный контроль. NTF4-95 ↔ NTF4-96 — без изменения.
+  constructibility:
+    seeded: 0
+    of: 90
+    not_executed: 90
+    reason: >-
+      Стенда и разрешения на посев в задании нет — «не выполнилось», в зелёное не зачитывается.
+      Новые Given строятся названными фикстурами: П5 (отказ DATA по домену получателя, код
+      задаётся), П6 (счёт исходов Ack по строке — заведён в редакции 12), П9, П10.
+
+premise_check:
+  premise: "редакция 12 закрывает B11-1 и N11-1…N11-4"
+  result: >-
+    подтверждена (b11_resolution); но документ не годен к одобрению по причине вне дельты —
+    Given закреплён на неодобренной редакции NTF-1 при существующей одобренной, чья G19
+    противоречит З9 (B12-1).
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
