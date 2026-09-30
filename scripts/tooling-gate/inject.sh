@@ -779,6 +779,101 @@ if mr_patch "$b/$MR_REL" 's/if \[ "\$state" != "OPEN" \]; then/if false; then/' 
     run_c09_red "$b" "инъекция: закрытый PR получает вердикт — краснеет" I
 fi
 
+# Выбор прогона: «последний» взят по номеру, а не по времени создания.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\| sort_by\(\.created_at, \.id\) \| last/| sort_by(.id) | last/' \
+    "последний прогон выбран по номеру"; then
+    run_c09_red "$b" "инъекция: последний прогон выбран по номеру, а не по времени — краснеет" P2
+fi
+
+# Все задания success: проверка «идёт ли прогон», проверка красных и проверка
+# «не выполнилось» — каждая снята поодиночке.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if \[ "\$run_status" != "completed" \]; then/if false; then/' \
+    "состояние прогона не сверяется"; then
+    run_c09_red "$b" "инъекция: идущий прогон не отличён — краснеет" M
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if \[ "\$red_n" -gt 0 \]; then/if false; then/' \
+    "красные задания не отличены"; then
+    run_c09_red "$b" "инъекция: красное задание не названо красным — краснеет" K L P P2 Xt Xa Xs
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if \[ "\$void_n" -gt 0 \]; then/if false; then/' \
+    "невыполненные задания не отличены"; then
+    run_c09_red "$b" "инъекция: невыполненное задание не отличено — краснеет" Q
+fi
+
+# Путь процесса выходит нулём мимо состояния слияния.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^  merge_state_verdict "каждое задание прогона[^\n]*\n[^\n]*\n/  echo "merge-readiness: можно сливать"; exit 0\n/m' \
+    "путь процесса минует состояние слияния"; then
+    run_c09_red "$b" "инъекция: путь процесса минует состояние слияния — краснеет" \
+        S S-DIRTY S-BEHIND S-DRAFT S-UNKNOWN
+fi
+
+# ── ПУТЬ С ОБЯЗАТЕЛЬНЫМИ КОНТЕКСТАМИ: КАЖДОЕ РЕШЕНИЕ, ВЕДУЩЕЕ К КОДУ 0 ─────────
+# Возврат check-verifier @4a02d37a9: фильтр `conclusion=="SUCCESS"` в строке
+# `green=` снимался до `select(true)` при зелёном check-09 — фикстуры знали
+# одни SUCCESS. Держат его пробы RC-*.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .\.statusCheckRollup\[\]\? \| )select\(\.conclusion=="SUCCESS"\)/${1}select(true)/m' \
+    "фильтр зелёного исхода контекста снят"; then
+    run_c09_red "$b" "инъекция: любой исход контекста засчитан зелёным — краснеет" \
+        RC-running RC-FAILURE RC-CANCELLED RC-TIMED_OUT RC-ACTION_REQUIRED
+fi
+
+# Ослабление, а не снятие: зелёным считается всё, кроме FAILURE. Проба
+# RC-FAILURE на нём законно молчит, остальные обязаны покраснеть.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .\.statusCheckRollup\[\]\? \| )select\(\.conclusion=="SUCCESS"\)/${1}select(.conclusion!="FAILURE")/m' \
+    "зелёным считается всё, кроме FAILURE"; then
+    run_c09_red "$b" "инъекция: зелёным считается всё, кроме FAILURE — краснеет" \
+        RC-running RC-CANCELLED RC-TIMED_OUT RC-ACTION_REQUIRED
+fi
+
+# Разность множеств взята не в ту сторону.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^missing=\$\(set_diff -23\)$/missing=\$(set_diff -13)/m' \
+    "разность множеств взята не в ту сторону"; then
+    run_c09_red "$b" "инъекция: недостающие обязательные считаются не с той стороны — краснеет" \
+        B H RC-running RC-FAILURE RC-CANCELLED RC-TIMED_OUT RC-ACTION_REQUIRED
+fi
+
+# Один недостающий обязательный прощён.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if \[ "\$missing_count" -gt 0 \]; then/if [ "\$missing_count" -gt 1 ]; then/' \
+    "один недостающий обязательный прощён"; then
+    run_c09_red "$b" "инъекция: один недостающий обязательный прощён — краснеет" \
+        B H RC-running RC-FAILURE RC-CANCELLED RC-TIMED_OUT RC-ACTION_REQUIRED
+fi
+
+# Выбор пути: один обязательный контекст принят за «контекстов нет».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if \[ "\$\{req_count:-0\}" -eq 0 \]; then/if [ "\${req_count:-0}" -le 1 ]; then/' \
+    "один обязательный контекст принят за ноль"; then
+    run_c09_red "$b" "инъекция: один обязательный контекст принят за «контекстов нет» — краснеет" T
+fi
+
+# Путь контекстов выходит нулём мимо состояния слияния.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^merge_state_verdict "каждый обязательный контекст имеет зелёный исход"[^\n]*$/echo "merge-readiness: можно сливать"; exit 0/m' \
+    "путь контекстов минует состояние слияния"; then
+    run_c09_red "$b" "инъекция: путь контекстов минует состояние слияния — краснеет" A-BLOCKED
+fi
+
+# Законный близнец фильтра: тот же «только SUCCESS», записанный иначе.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .\.statusCheckRollup\[\]\? \| )select\(\.conclusion=="SUCCESS"\)/${1}select(.conclusion | . == "SUCCESS")/m' \
+    "фильтр зелёного исхода другой формой"; then
+    run 0 "$b" "близнец: фильтр зелёного исхода контекста другой формой — молчит" "$C09"
+fi
+
 # Законный близнец: половина `green_n -ne jobs_total` последней сверки
 # НЕДОСТИЖИМА одна — до неё доходят только прогоны, где красных, идущих и
 # невыполненных заданий ноль, а объявленное число равно прочитанному, то есть

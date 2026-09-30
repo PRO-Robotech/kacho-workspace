@@ -118,6 +118,21 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
         '{state:$st, baseRefName:"main", headRefOid:$h, mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
 }
 
+# mk_pr_mixed <файл> <состояние-слияния> <имя=ИСХОД>... — rollup с НЕзелёными
+# записями. Пустой исход — контекст идёт (`conclusion: null`). Без такой фикстуры
+# решение «контекст зелёный только по исходу SUCCESS» не держала ни одна проба:
+# `mk_pr` пишет одни SUCCESS, и фильтр, снятый до `select(true)`, давал ложное
+# «можно» при зелёном check-09 (возврат check-verifier @4a02d37a9).
+mk_pr_mixed() {
+    local f="$1" ms="$2"; shift 2
+    local rollup
+    rollup="$(printf '%s\n' "$@" | jq -R 'capture("^(?<name>.*)=(?<c>[A-Z_]*)$")
+        | {name, status:(if .c=="" then "IN_PROGRESS" else "COMPLETED" end),
+           conclusion:(if .c=="" then null else .c end)}' | jq -s .)"
+    jq -n --arg ms "$ms" --arg h "$HEAD" --argjson r "$rollup" \
+        '{state:"OPEN", baseRefName:"main", headRefOid:$h, mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+}
+
 # Голова PR и чужая ревизия. Чужая отличается от головы ОДНИМ последним знаком —
 # сверка по префиксу или по вхождению приняла бы её за голову.
 HEAD="68b0d0a1ede6920b4aa7d7a99dbb7adb39ec1d25"
@@ -331,6 +346,40 @@ I="$(mkcase I)"
 mk_pr "$I/pr.json" MERGED CLEAN "$CTX_LAT"
 mk_protection "$I/protection.json" "$CTX_LAT"
 
+# ── С ОБЯЗАТЕЛЬНЫМИ КОНТЕКСТАМИ: ЗЕЛЁНЫЙ — ТОЛЬКО ИСХОД SUCCESS ────────────────
+# RC-<исход> — обязательный контекст на ревизии ЕСТЬ, но не зелёный: идёт
+# (`running`, conclusion null) либо красный. Против A меняется ровно один факт —
+# исход записи CTX_CYR. Это класс kacho#614 на основном пути: идущий или красный
+# обязательный контекст, засчитанный за «можно». Каждый исход — своей пробой:
+# фильтр, ослабленный до «не FAILURE», ловится остальными, «не null» — красными.
+RC_OUTCOMES="running FAILURE CANCELLED TIMED_OUT ACTION_REQUIRED"
+for oc in $RC_OUTCOMES; do
+    d="$(mkcase "RC-$oc")"
+    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    c="$oc"; [ "$oc" = running ] && c=""
+    mk_pr_mixed "$d/pr.json" CLEAN "$CTX_LAT=SUCCESS" "$CTX_DASH=SUCCESS" "$CTX_CYR=$c"
+    mk_green_run "$d"
+done
+
+# A-BLOCKED — все обязательные зелены, а сервер держит слияние. Против A один
+# факт — состояние слияния. Удерживающие состояния на пути ПРОЦЕССА держат S и
+# S-*; здесь — что путь контекстов тоже спрашивает состояние, а не выходит нулём
+# мимо него.
+AB="$(mkcase A-BLOCKED)"
+mk_protection "$AB/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+mk_pr "$AB/pr.json" OPEN BLOCKED "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+mk_green_run "$AB"
+
+# P2 — два прогона на голове, и порядок номеров ПРОТИВ порядка создания: позже
+# создан красный с меньшим номером. Судит последний по времени создания; выбор
+# по номеру взял бы зелёный. Против P один факт — какой из ключей решает.
+P2="$(mkcase P2)"; mk_zero_ctx_case "$P2" CLEAN
+mk_runs "$P2/runs.json" \
+    "11:$HEAD:workflow_dispatch:completed:failure:2026-09-30T11:00:00Z" \
+    "12:$HEAD:workflow_dispatch:completed:success:2026-09-30T10:00:00Z"
+mk_jobs "$P2/jobs-11.json" "$JOB_A=failure" "$JOB_B=success"
+mk_jobs "$P2/jobs-12.json" "$JOB_A=success" "$JOB_B=success"
+
 # C и I получают зелёный прогон на голове: вердикт «можно» по процессу здесь
 # доступен, и пути, ведущие к нему мимо своего решения, видны кодом 0.
 mk_green_run "$C"
@@ -484,6 +533,23 @@ for ms in UNSTABLE HAS_HOOKS; do
     probe "$d" 0 "без контекстов: прогон зелёный, состояние слияния $ms — «сливать можно»" \
         "можно сливать" "состояние слияния: $ms"
 done
+
+for oc in $RC_OUTCOMES; do
+    d="$TMP/case-RC-$oc"
+    if [ "$oc" = running ]; then
+        probe "$d" 1 "с контекстами: обязательный контекст идёт — «сливать нельзя», а не «можно»" \
+            "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — идёт" "без него: 1"
+    else
+        probe "$d" 1 "с контекстами: обязательный контекст $oc — «сливать нельзя», а не «можно»" \
+            "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [$oc]" "$CTX_CYR — красный"
+    fi
+done
+
+probe "$AB" 1 "с контекстами: все обязательные зелены, но сервер держит слияние" \
+    "СЛИЯНИЕ ЗАДЕРЖАНО" "BLOCKED" "обязательных контекстов: 3"
+
+probe "$P2" 1 "без контекстов: последний — по времени создания, а не по номеру прогона" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$JOB_A [failure]" "runs/11"
 
 probe "$H" 1 "имена, различные только длинным тире, не схлопнуты — учтены оба" \
     "обязательных контекстов: 2" "проба - раз"
