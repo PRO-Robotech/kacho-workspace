@@ -1,0 +1,266 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: e618a9f7c2cec159a864aa9b83d2071ae37f34d2788ab1ff9e5639653a172f95
+  revision: 14
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и строкой истории — «редакция 14 · вердикта нет». Эта запись шапку НЕ
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится
+    из этой записи и внешнего события.
+  content_commit: 896d714c3
+  content_commit_note: >-
+    `git show 896d714c3:<path> | sha256sum` даёт тот же отпечаток, что `sha256sum` рабочей копии.
+    Отпечаток — единственная привязка вердикта.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3371
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T16:38:00Z'
+round: 1
+round_note: >-
+  Круг 1 на редакции 14 — правке одобренной редакции 13 (ef9c6801…, APPROVED) по решениям
+  диспетчера Д39 и Д40. Одобрение редакции 13 к этому отпечатку не относится и не переносится.
+  Предмет круга — дельта 5b9da3c47 → 896d714c3 (404 вставки, 421 удаление; прочитана целиком), её
+  согласие с остальным документом, с рамкой Д39/Д40 и с соседними приёмками. Прежние записи не
+  правятся.
+previous_rounds:
+  - round: 2
+    pass: редакция 13
+    sha256: ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ef9c68019a7d58c7bce1ba0bdeb3ba2f56d508d1c53cb5db9b51de98b3bd825f.yaml
+    blocking_count: 0
+dispatcher_decisions_check:
+  D39_moved_out: >-
+    исполнено. S6 снят (§0 п.6, §6 «S6 — снят»); NTF2-20, 21, 23 сняты, а с ними NTF2-18 и NTF2-22 —
+    обе служили только снятию почты поставщика (предпосылка посадки и старт поставщика без почты);
+    Р16 п.2 держит существующий гейт TestOwnPostureRaisesNoForeignIdentityService, это согласуется
+    с «S6 уходит» Д39. §3а: строки 1, 3–5, 7 и 8–15 — «за kacho#1276»; строка 2 остаётся «правится»
+    только по флагу почты и абзацу invite-mail, courier из неё снят. Расширение на строки 16–18,
+    21–22, 34, 36, 43, 46 автор отметил как толкование (§11); проверено по содержанию: предикат
+    тестов 21–22 (MAIL-54) — объявления `courier:` и координаты оснастки раскатки, почтовой полосы
+    kaname не касается; K-слов почты kaname (invite-mail|inviteMail|KANAME_INVITE_MAIL|kaname-mail-*)
+    в файлах с исходом «за kacho#1276» нет — `git grep -cE "$K" origin/2798 -- deploy/helm` находит
+    их только в _helpers.tpl, configmap.yaml, deployment.yaml, values.a8f60d.yaml, values.yaml, все
+    с исходом «правится». Значит DoD п.13 («не трогать 24 пути») и DoD п.16 («K-слов в deploy/helm
+    нет») совместимы.
+  D39_single_guard: >-
+    исполнено в тексте приёмки: страж — существующий identity-mail-lane-guard.yaml (есть на 2798),
+    identity-provider-mail-guard.yaml в документе не встречается (grep → 0), DoD п.14 его
+    исключает. Но форма входа (е) отослана к замыслу З22, а З22 на ревизии a0ad3a711 называет именно
+    второй шаблон identity-provider-mail-guard.yaml — см. B-1.
+  D39_remaining_subject: >-
+    на месте: три вида писем kaname на ленте (S1), снятие net/smtp и кредов (NTF2-44, 48, 33),
+    защита от спама Д11 (S3), регистрация без раскрытия адреса (S4), класс S (S5).
+  D40_revisions: >-
+    исполнено. Все замеры §1–§8 — на 2798 @96e2fa72b3a, 367 @caf1c95ca, 26 @cfe49ef00fa
+    (перечень @-ревизий до §11: 96e2fa72b3a ×18, caf1c95ca ×13, cfe49ef00fa ×3; 6edea09c2ee и
+    734f69fb4 — только как «на ветке эпика — то же/другое», по 2). Головы воспроизведены после
+    fetch: origin/2564 = 6edea09c2ee, origin/2798 = 96e2fa72b3a (предок, 31 коммит), origin/357 =
+    734f69fb4, origin/367 = caf1c95ca (предок, 72), origin/26 = cfe49ef00fa = v1.10.0-rc.5.
+    Пути §3а — именами kacho#2759 (4 переименования подтверждены diff переписей 2564→2798).
+hygiene_check:
+  workspace_copy_paths: "0 — grep -c 'tmp/' <док>"
+  foreign_clouds: "0 — grep -ciE 'yandex|aws|gcp|azure|google cloud' <док>"
+  deferral_markers: "0 — grep -ci 'TODO\\|FIXME' <док>"
+  removed_ids_residue: >-
+    NTF2-18, 20–23, П7-kratos, П7-doc встречаются только в строках о снятии (§0, §4, §5, §6, §6а,
+    §8, §11) — `grep -nE 'NTF2-(18|20|21|22|23)\b|П7-kratos|П7-doc' <док>`
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY, PRODUCER]
+blocking_kinds_by_item:
+  - B-1: CONSTRUCTIBILITY
+  - B-2: PRODUCER
+blocking:
+  B-1: >-
+    [CONSTRUCTIBILITY] NTF2-31 (е)/(е') — единственный новый вход редакции и единственная проба
+    решения Д39 «страж один, доведён до условия» — не построен. Given: «объявления профиля, по
+    которым ссылка на удостоверение почты досталась бы объекту, отличному от notify-sender; форму
+    объявления называет замысел issue-2917 (З22)». (1) В дереве такого объявления нет: удостоверение
+    объявлено одним местом `global.kacho.identity.smtp.credentialSecret`
+    (values.a8f60d.yaml:119–124 @96e2fa72b3a), а КТО его монтирует — решают шаблоны, не значения;
+    страж места С1 — шаблон над `.Values`, чужого рендера он не видит. После NTF-2 (снят монтаж у
+    kaname, строка 38 §3а) и kacho#1276 (снят поставщик) значения, которым «досталась бы» ссылка
+    другому объекту, может не остаться вовсе — тогда условие стража вакуумно, а (е) не
+    конструируем. (2) Отсылка ложна на измеренной ревизии замысла: З22 (docs/changes/issue-2917/
+    design.md:1636, ревизия a0ad3a711) называется «Снятие почты поставщика личности (S6)», описывает
+    страж листа под `courier` в шаблоне identity-provider-mail-guard.yaml (второй страж, запрещённый
+    Д39; тот же путь — в таблице раскладки :2036) и распознаватель гейта рендера; формы значения
+    для стража С1 в нём нет. Что сделать: назвать в самой приёмке конкретную форму входа (е) —
+    ключ значений и объект, которому он передал бы удостоверение, существующий после NTF-2 и
+    kacho#1276, — и её законного близнеца (е'), отличающегося ровно одним фактом; либо, если такой
+    формы не остаётся, записать, что правило «секрет только у notify-sender» держит гейт рендера
+    NTF2-30/31 (а, б, д), а страж С1 доводится лишь до снятия читателя kaname, и снять (е). Отсылку
+    к З22 заменить либо убрать.
+  B-2: >-
+    [PRODUCER] Объект, на котором стоит весь S7, — развёртывание notify-sender — приписан не тому
+    производителю. §7 (строка NTF2-01…94 «доставка») и §0 S7 называют «kacho/services/notify
+    (развёртывание notify-sender) — NTF-1 (kacho#2915)». Но NTF-1 развёртывания notify-sender не
+    заводит: в одобренной приёмке NTF-1 слов notify-sender и notify-api 0
+    (`grep -c 'notify-api' <NTF-1>` → 0), а её замысел пишет прямо: «Раздельные развёртывания
+    notify-sender и notify-api … — предмет NTF-3 и NTF-4» (docs/changes/issue-2915/design.md:173–175,
+    Д20 — на него же ссылается заголовок S7). Раздвоение заводит NTF-3 Р8 («notify — одна служба,
+    два развёртывания», NTF3-127). Условия начала Р16 требуют только NTF-1, и Р16 ставит NTF-2 в
+    первую волну вместе с NTF-1. При NTF-1 без NTF-3 объект notify-sender в рендере отсутствует:
+    NTF2-30 «в цепочке, объявляющей удостоверение, notify-sender со ссылкой — ровно 1» и §0 п.3
+    красны на верной реализации, а проба П1 («объект notify-sender 1») останавливает стенд. Что
+    сделать: назвать производителем notify-sender NTF-3 (kacho#2918, Р8) и добавить в Р16 условие
+    «раздвоение NTF-3 влито» с командой и замером на 2798, либо сформулировать предикат §0/NTF2-30
+    через объект-отправитель, который существует при любом порядке (единственное развёртывание
+    notify до NTF-3, notify-sender после), с распознаванием по идентичности объявления.
+non_blocking:
+  N-1: >-
+    §1.3 и §11: номера строк переставлены. `git show origin/367:internal/check/people_address_writers.go
+    | grep -n 'глагол смены адреса вносится только вместе'` → :23; на origin/357 → :20. Документ
+    пишет «:20 (на origin/357 — :23)» и в §11 «:23 → :20». Утверждение о гейте верно; исправить числа.
+  N-2: >-
+    §6б, строка «страж секрета почты один»: держатель — только предикат DoD п.14 по образцу имени
+    файла `grep -cE 'mail.*guard'`, между посадками — «вниманием». Для запрета Д39 на дельту NTF-2
+    этого хватает (запрещённое имя identity-provider-mail-guard.yaml образец ловит), но второй
+    страж под другим именем (например, отказы о секрете почты внутри _notifications.tpl, который
+    замысел заводит) образец пропустит. Предпочтительно — предикат по содержанию: число шаблонов
+    `deploy/helm/umbrella/templates/`, чей `fail` называет удостоверение почты, = 1.
+  N-3: >-
+    Соседние документы расходятся с Д39 (не предмет этого круга, для диспетчера): одобренная NTF-1
+    (строки 1330–1331) приписывает NTF-2 «снятие почты поставщика личности»; замысел issue-2917 З22
+    и таблица раскладки (:2036) держат S6 и второй страж.
+repeated_kinds_note: >-
+  Род CONSTRUCTIBILITY встречался в кругах 1–4 и 1–3 проходов; здесь он относится к новому входу
+  (е), внесённому этой редакцией, а не к прежнему классу «Given описан, но не посеян» — перепись
+  §6в к стражу С1 не применялась. PRODUCER в последних кругах не встречался. Форму задания автору
+  стоит дополнить: «вход инъекции называется ключом значений на измеренной ревизии, а не отсылкой
+  к замыслу; производитель объекта предиката сверяется с приёмкой-производителем».
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: e618a9f7c2cec159a864aa9b83d2071ae37f34d2788ab1ff9e5639653a172f95
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Рецензент событие не публикует; тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку e618a9f7…; правка документа требует нового рассмотрения.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 редакции 14, блокирующих 2: CONSTRUCTIBILITY,
+    PRODUCER) · SHA-256 e618a9f7c2cec159a864aa9b83d2071ae37f34d2788ab1ff9e5639653a172f95
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: 896d714c3 (ветка issue-880)
+    kacho: 96e2fa72b3a (origin/2798); 6edea09c2ee (origin/2564) для сравнения
+    kaname: caf1c95ca (origin/367); 734f69fb4 (origin/357) для сравнения
+    corelib: cfe49ef00fa (origin/26 = v1.10.0-rc.5)
+    design_issue_2917: a0ad3a711
+    design_issue_2915: рабочая копия issue-880 @896d714c3
+  facts_reproduced:
+    fingerprint: sha256sum рабочей копии и `git show 896d714c3:<path>` — e618a9f7…f95
+    delta: git diff 5b9da3c47 896d714c3 -- <док> — 404 вставки, 421 удаление; прочитана целиком
+    kaname_census: "предикат §1.1 → 97/49 на 367, 94/48 на 357; diff файлов совпал с §1.1 (−1, +4)"
+    kaname_groups: "разбивка вывода §1.1 по префиксам: clients 7, cmd 7, config 10, api 5, check 12, repo 10, migrations 6, metrics 5, outboxtypes 1, loginlanehttp 4, supplyhygiene 2, deploy 10, docs/content 6, reviews 5, ci/tests 6, proto 1 = 97 — совпало с §3б"
+    kacho_census: "команда §1.9 → 49 на 2798 и на 2564; diff — ровно 4 переименования kacho#2759"
+    provider_mail_in_tree: "git log origin/2798 | grep -c '#1276' → 0; архивов kratos/hydra 2; 6 строк в _identity-provider.tpl; courier.enabled в deploy/helm 0; шаблонов mail.*guard 1"
+    chain_render: "helm v4.2.4, dependency build, 7 цепочек stacks.txt: объектов dev 203, dev-prod 217, prod 186, own 219, fe3455 137, prorobotech 216, a8f60d 146; посадка own, ручка полосы 1, объектов поставщика 0 — 7 из 7; require_verified_address 0 — 7 из 7"
+    provider_up_render: "IDENTITY_STORE_UP_ARGS (provider-up.sh:53–55): dev → 2 держателя (Deployment r-kratos, StatefulSet r-kratos-courier); a8f60d → 3 (плюс Deployment kaname) — совпало с §1.7"
+    real_input_d: "цепочка a8f60d без ручек → 1 держатель, Deployment kaname — совпало с NTF2-31 (д)"
+    other_claims: "services/notify 0; corelib notify 0; notifications.enabled в deploy/helm 0; EMAIL_NOT_VERIFIED в address_refusal.go 1; #2900 в 2564 — 4 коммита; литералов отказа в kaname 0; DeliveryNotConfigured в corelib 0; ChargeSource 4/4; verify-email 2; 61 вид iam.*; 15 путей края; subscription/server.go:233; manifest.embedded.yaml:67; values.yaml:749, :767–768; own_posture_foreign_identity_test.go:347 — совпало"
+    mismatch: "people_address_writers.go: 367 → :23, 357 → :20 (документ — наоборот, N-1)"
+    notify_sender_producer: "grep -c 'notify-api' <NTF-1> → 0; <NTF-3> → 92; <NTF-4> → 183; issue-2915/design.md:173–175 (Д20)"
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 70
+    positive: 17
+    negative: 53
+    note: снято 5 (NTF2-18, 20, 21, 22, 23); NTF2-19 перенесён в S1, NTF2-24 — в S7; новых ID нет
+  producer_coverage:
+    method: разбор первой колонки §7 (списки и диапазоны) против множества ID §6, скриптом
+    covered: 70
+    of: 70
+    note: >-
+      покрытие по ID полное; производитель объекта notify-sender назван неверно — B-2
+  twin_coverage:
+    negatives: 53
+    twins_named: 53
+    predicate: "grep -E '^\\*\\*ID:\\*\\* NTF2' <док> | grep отрицательн | grep -vc близн → 0"
+  dod_coverage:
+    method: разбор §8 (списки и диапазоны) против множества ID §6, скриптом
+    covered: 70
+    of: 70
+    uncovered: []
+    phantom_note: NTF2-18, 20–23 упомянуты только фразой «снятые ID в DoD не называются»
+  constructibility_seeding:
+    seeded: 1
+    of: 3
+    detail: >-
+      Новые и изменённые Given: NTF2-31 (д) — посеяно рендером a8f60d @96e2fa72b3a, Deployment
+      kaname со ссылкой, сошлось; NTF2-31 (е) — не строится: формы входа нет ни в документе, ни в
+      дереве, отсылка к З22 ложна (B-1); NTF2-30 с объектом notify-sender — не выполнилось:
+      производителя объекта (NTF-3 Р8) нет на базе и нет в условиях начала (B-2). NTF2-19 и
+      NTF2-24 перенесены без изменения Given, кроме имени объекта.
+    not_performed: 1
+    not_performed_reason: NTF2-30 — службы notify нет на базе (services/notify 0), раздвоения тем более
+premise_check:
+  claim: >-
+    задание: судить редакцию 14 на отпечаток e618a9f7…, круг 1, в рамке Д39/Д40; утверждение за
+    рамкой или измерение на устаревшей ревизии — блокирующее.
+  outcome: >-
+    подтверждена в части отпечатка и ревизий: отпечаток воспроизведён, все замеры §1–§8 — на
+    2798/367/26 и перемерены (одно расхождение номера строки, N-1, небл.); за рамку Д39 документ не
+    выходит, но вход (е) отослан к замыслу, держащему запрещённый Д39 второй страж (B-1), и
+    производитель notify-sender назван неверно (B-2).
+  commands:
+    - "sha256sum <док>; git show 896d714c3:<док> | sha256sum → e618a9f7…f95"
+    - "git rev-parse origin/{2564,2798} (kacho), origin/{357,367} (kaname), origin/26 (corelib) после fetch"
+    - "git diff 5b9da3c47 896d714c3 -- <док>"
+    - "helm template по 7 цепочкам stacks.txt и 2 рендерам с IDENTITY_STORE_UP_ARGS в detached worktree 96e2fa72b3a"
+    - "grep -n 'З22' docs/changes/issue-2917/design.md; sed -n 1636,1680p"
+    - "grep -c 'notify-api' docs/specs/sub-phase-NTF-{1,3,4}-*-acceptance.md; sed -n 170,185p docs/changes/issue-2915/design.md"
+route_signs:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания названы требованиями и пробами, без описания обхода и текущих слабых мест.
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 15: B-1 (конкретный вход (е)/(е') стража С1 либо снятие (е) с переносом правила на
+    гейт рендера; отсылку к З22 убрать) и B-2 (производитель notify-sender — NTF-3 Р8; условие
+    Р16 либо предикат через объект-отправитель при любом порядке); N-1…N-2 тем же заходом
+  also_needed: >-
+    курьер — опубликовать событие возврата на отпечаток e618a9f7…; автор замысла issue-2917 —
+    привести З22 и таблицу раскладки (:2036) к Д39 (без S6 и без identity-provider-mail-guard.yaml);
+    автор NTF-1 — строки 1330–1331 (снятие почты поставщика приписано NTF-2)
+  owner_questions: []
