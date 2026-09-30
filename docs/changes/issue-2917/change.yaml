@@ -14,11 +14,11 @@
 #
 # СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
 # Вердикт по отпечатку: CHANGES_REQUESTED, круг 2 (запись docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078.yaml).
-# Замысел — `design.md` редакции 3 (2026-09-30) по приёмке на отпечатке
+# Замысел — `design.md` редакции 4 (2026-09-30) по приёмке на отпечатке
 # 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1 (APPROVED, круг 4 прохода Д14–Д16);
-# отпечаток замысла — `hashes.design_sha256`; вердикта на него нет. Редакции 1 (f21384ed…) и
-# 2 (2886b89f…) — пересверки разбора классов «вернуть в приёмку»
-# (reviews/class-exposure/revalidation/{f21384ed…,2886b89f…}.yaml). Маршрут работ — `tasks.md`
+# отпечаток замысла — `hashes.design_sha256`; вердикта на него нет. Редакции 1 (f21384ed…),
+# 2 (2886b89f…) и 3 (c3e37381…) — пересверки разбора классов «вернуть в приёмку»
+# (reviews/class-exposure/revalidation/{f21384ed…,2886b89f…,c3e37381…}.yaml). Маршрут работ — `tasks.md`
 # (проект; TASKS_READY им не объявлено). `hashes.acceptance_sha256` ниже ещё несёт отпечаток
 # редакции 8 — его перевод на 9098d6ef… вместе со свидетельствами — полоса пакета изменения.
 schema_version: 1
@@ -52,7 +52,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
-  design_sha256: c3e373812378ad7b9d6894d261d2b9fec5f8f0d9c8260da55b6959ce2ab5e1cc
+  design_sha256: ec65427aa5e2c5d31877b73b5938db24b1c70023bc5e0f44a2532c18adfb8634
   holders_sha256: 495ef143740f049d885ec10fbbce2975a95d3c3ee2de36b632a5af15730a3bca
 
 links:

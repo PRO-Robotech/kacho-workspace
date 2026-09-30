@@ -10,7 +10,9 @@ SPDX-License-Identifier: BUSL-1.1
 > трекер: состояние полос живёт в задачах `PRO-Robotech/kacho#2917`, `PRO-Robotech/kaname#484` и
 > их подзадачах (`docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md` §2).
 >
-> **Редакция 3 · 2026-09-30 — проект маршрута под редакцию 3 замысла** (пересверка разбора
+> **Редакция 4 · 2026-09-30 — проект маршрута под редакцию 4 замысла** (пересверка разбора
+> классов на редакцию 3 — «вернуть в приёмку»; новая полоса S12 по CX2-36: классы мест диспетчера и
+> пауза доли `register`). Редакция 3 — проект маршрута под редакцию 3 замысла (пересверка разбора
 > классов на редакцию 2 — «вернуть в приёмку»; полосы F1, G2, G3, S2, S4, S5, E2, E4 дополнены
 > решениями по CX2-05, 11, 21, 34, 35; новая зависимость Е9 гейтит E2 и E4). Редакция 2 —
 > полосы по CX2-03, 05, 07, 08, 11, 12, 14, 17, 20, 21, 28…33, З26 и зависимость Е8. Состояние
@@ -102,6 +104,7 @@ SPDX-License-Identifier: BUSL-1.1
 | S9 | сервер ленты на внутреннем слушателе по флагу; ключ журнала по флагу (З2) | `go-implementer` | kaname · `cmd/kaname/{grpc_register,subscription_wiring}.go` | NTF2-46 с близнецом `notify`, NTF2-06 (надгробие выдачи → `DENIED(revoked)`), NTF2-09 (`DEFER(template_skew)`), NTF2-52 `UNIMPLEMENTED` — на П6 | G1, **Е1** | S |
 | S10 | гейт смены адреса и писателей `users.email` через `address.Normalized` (З25) | `go-implementer` | kaname · `internal/check/people_address_writers.go` | NTF2-98 красная копия и близнец (печать числа операторов > 0); инъекция записи сырой строки в `users.email` — красный (CX2-20) | S2, S5 | S |
 | S11 | самостоятельная поставка kaname (NTF2-33); правило тревоги `unaddressed` > 0 (CX2-07) | `deploy-engineer` | kaname · `deploy/{values.yaml,templates/configmap.yaml,templates/deployment.yaml}`, правила тревог поставки | NTF2-33 (а)–(в); строка правила тревоги в рендере | F3 | S |
+| S12 | классы мест диспетчера и пауза доли `register` (CX2-36): `GoDispatcher` получает классы мест — `recovery` 12, `register` 4, сумма = `mailDispatchInFlight`; работа класса, чьи места заняты, — `dropped_overload` своего глагола; gauge `kaname_mail_dispatch_in_flight{class}`; доля `register` освобождается таймером часов-параметра после паузы `registerSharePause × время выводов` (пауза не держит ни работы, ни места диспетчера) (З13, З14) | `rpc-implementer` | kaname · `internal/apps/kaname/api/humansession/dispatch.go`, `cmd/kaname/loginlane.go`, `internal/apps/kaname/api/registration/register.go` | проба классов мест: при удержанной доле 16 работ `register` → 4 ждут, 12 `dropped_overload{verb="register"}`, затем `recovery` исполнена (строка ленты +1, `dropped_overload{verb="recovery"}` +0); близнец «один счётчик на 16» — `recovery` `dropped_overload` +1 — красный; проба доли времени на управляемых часах при `verifier-capacity = 1`: доля под выводами `register` ≤ 1/2 на `100 d`, вход в паузе `matched`; близнец `registerSharePause = 0` — доля ≥ 0,99, вход — отказ по ёмкости — красный; проба паузы без работы (горутин работы 0, место класса свободно); модульная проба констант (12 + 4 = 16; инъекция 12 + 5 — красный с обоими числами); пробы S1 (`dropped_overload`, страж пула 32/33) и S2 (голодание, исход) зелёные после правки | S1, S2 | M |
 
 ### Ярус 5 — край (kacho)
 
@@ -152,7 +155,7 @@ SPDX-License-Identifier: BUSL-1.1
    Е8 — условия к коду NTF-1 в её маршруте.
 2. F1–F5, C1 — параллельно (путей общих нет); C2 — после Е1.
 3. G1 → G2, G3 → G4.
-4. S1, S2, S5, S6, S9, S11 — параллельно после своих зависимостей; затем S3, S4, S7, S8, S10.
+4. S1, S2, S5, S6, S9, S11 — параллельно после своих зависимостей; затем S3, S4, S7, S8, S10, S12.
 5. Линия `kaname#484` сводится и садится (одно изменение).
 6. E1 → E2 → E3, E4; D2 — параллельно; D1 (после посадки линии kaname) → D3, D4.
 7. Стенд `dev` с флагом `true`; X1, X2; T1.
