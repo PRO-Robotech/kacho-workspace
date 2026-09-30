@@ -1,0 +1,254 @@
+# Экспозиция классов: пересверка (revalidation) замысла NTF-4, редакция 2.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы и пересверка на редакцию 1
+# (b9149d3c…) относятся к своим редакциям и здесь не переписываются.
+# Редакция 2 — заход отображения по решению диспетчера Д26. Поэтому судятся только строки
+# отображения (§11: строки CX4V-07, 63, 64, 65; таблица «Строки отображения захода Д26», Д26 · 1…6;
+# §11а УК4-34, УК4-35; tasks.md §2а) и дельта 2b0cea762 → 20164b92e. Прочие 59 отображений
+# пересверки b9149d3c выдерживали, дельта их не касается.
+# Проверено четыре условия:
+#   (1) каждый неотображённый пункт пересверки b9149d3c отображён, и отображение выдерживает
+#       условие пункта;
+#   (2) дельта не вводит нового внешнего вызова, асинхронного пути, sentinel-значения или
+#       механизма без пункта;
+#   (3) маркеров отсрочки нет;
+#   (4) открытых решений нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: cd92e9ac810b16b427552fce1078d872f498e5eda3eae31832d96c99ec6d65ab
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 2
+  content_commit: 20164b92e
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/b9149d3c9c399069326a69fbae8da47041906ff211417190fbc343134e9644cc.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88
+  revision: 21
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml
+  note: >-
+    В дереве лежит редакция 22 (01b28881…), записи ревью на неё нет. Строка Д26 · 6 (5) исполняет
+    зависимую границу Р16 редакции 22. Отображение CX4V-65 поэтому держится при условии, что
+    редакция 22 будет одобрена. Это уже закрывает Е1 замысла, и она блокирует DESIGN_APPROVED.
+initial_records:
+  - docs/changes/issue-2919/reviews/class-exposure/initial/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml   # CX4V-01…62
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+dispatcher_decisions:
+  applied: "Д1–Д27; Д26 — заход отображения, судятся строки отображения и дельта; Д27 к NTF-4 не относится"
+revisions:
+  workspace: 20164b92e   # коммит редакции 2 замысла; HEAD рабочей копии при замере — f167381ed, файл замысла на нём тот же
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main рабочей копии (без fetch); равна §0 замысла
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # origin/main рабочей копии (без fetch); равна §0 замысла
+snapshot_at: 2026-09-30T12:43:34Z
+inspected: >-
+  Дельта design.md 2b0cea762 → 20164b92e (330 строк diff) и дельта tasks.md (§2а, полосы S1-A1,
+  A2, A5–A8, A10, S2-B1, B2, S3-C2, S6-E1). В design.md: З13 (строки 780–805), §6 (строки
+  1390–1410, 1492–1503), §11 и таблица Д26 целиком. Приёмка NTF-4 редакции 22: Р16 (строки 1225,
+  1363, 1383, 1390, 1434), §8 строка Р16. Замысел NTF-1: имя таблицы ограды (CREATE и LOCK), метрики
+  §8 (строки 1391–1396). corelib @34bc810: dropguard/preflight.go (GooseApplied, Preflight, Gate),
+  dropguard/observe.go (Querier), dropguard/inventory.go (normaliseTable), dropguard/judge.go
+  (declKey, Reconcile). kacho @1d42a6728bf: четыре dropguard.json, dropguardproducer_test.go,
+  docs/architecture/drop-preflight-counts-the-live-database.md (строки 196–236), контейнер
+  `migrate` в семи чартах (vpc, geo, compute, registry, nlb, storage, kaname). Записки vault не
+  читались.
+
+approval_conditions:
+  - condition: "каждый неотображённый пункт пересверки b9149d3c отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строк §11 65, уникальных пунктов 65. Строк Д26 6, по одной на CX4V-07, 55, 56, 63, 64, 65.
+      Выдерживают строки CX4V-07, 55 и 65. У CX4V-56 выдерживает с уточнением условия к коду.
+      Не выдерживают CX4V-63 (два расхождения) и CX4V-64 (единица счёта держателя).
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения или механизма без пункта (CG_CLASS_NEW_EXTERNAL_CALL, CG_CLASS_NEW_ASYNC_PATH, CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      Что вносит дельта: запись dropguard.json и её производитель (CX4V-63); проход уборки как часть
+      существующего подметальщика (CX4V-65); индекс feedback_message (processed_at) (CX4V-65);
+      закрытое изъятие двух функций sentlog в УК4-01а по идентичности (CX4V-65); ветка
+      `control_mismatch` без построения — прежний исход (CX4V-07); чтение goose через corelib
+      (CX4V-56); полоса документации S1-A10. Каждое изменение отнесено к своему пункту. Нового
+      внешнего вызова, таймера, ручки или sentinel нет. Одобрение сноса требует механизма, которого
+      в дереве нет, — это разобрано в CX4V-63 (б), а не здесь.
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "`grep -noE 'TODO|TBD|FIXME|XXX'` по design.md и tasks.md — 0. «позже», «пока не», «отложен» — по одному, те же, что в редакции 1: описание поведения и термин исхода."
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      §13 (строка 1758): «Открытых решений нет: З1–З26 приняты». Последнее решение — З26 (строка
+      1278). Сам замысел решений не открывает. CX4V-63 (б) требует решения диспетчера, потому что
+      Д26 запрещает в этом заходе новый механизм. Это вопрос, и он вынесен отдельно.
+
+mapping_check:
+  - id: CX4V-07
+    design: "З2, З3, З4; Д26 · 1; §11а УК4-06; tasks S1-A2, S6-E1"
+    verdict: holds
+    note: >-
+      Выбран вариант (б). Перечитыватель `New` не зовёт, объект `address_key` судится по одному
+      файлу; при несовпадении дайджеста — `control_mismatch` без построения. Условие (3) закрывает
+      то, что оставалось в (б): `Func` и начальный дайджест берутся из одних и тех же байтов одного
+      поколения. Инъекция УК4-06 названа: вызов `New` в `secretreload`.
+    code_conditions: "—"
+  - id: CX4V-55
+    design: "Д26 · 2; tasks S1-A2"
+    verdict: holds
+    note: "Условие к коду перенесено дословно, NTF4-116 гоняется с `repeatable read` у роли, близнец назван."
+    code_conditions: "—"
+  - id: CX4V-56
+    design: "З18; Д26 · 3; УК4-28; tasks S3-C2"
+    verdict: holds
+    note: >-
+      Три условия перенесены. Уточнение по дереву: `dropguard.GooseApplied(ctx, db Querier)`
+      принимает интерфейс `database/sql` (`QueryRowContext` → `*sql.Row`, dropguard/observe.go:30
+      @34bc810), а З18 пишет `RequireApplied(ctx, pool)`. Пул pgx этому интерфейсу не
+      удовлетворяет. Кроме того, `GooseApplied` отвечает ошибкой, если база недоступна, и `false`,
+      если таблицы `goose_db_version` нет.
+    code_conditions: >-
+      `RequireApplied` получает `*sql.DB` через `pgx/v5/stdlib.OpenDBFromPool` (в services его
+      импортируют 33 файла) и закрывает его после сверки. Ошибка `AppliedSet` — отказ старта с
+      текстом «схема не прочитана», а не «версия не применена»: это два разных исхода.
+  - id: CX4V-63
+    design: "З2, §6, §10 п.2, п.4; Д26 · 4; УК4-35; tasks S1-A1, S1-A8, S1-A10"
+    verdict: does_not_hold
+    note: >-
+      (а) Имя таблицы в строке расходится с миграцией. Д26 · 4 пишет в dropguard.json и в одобрении
+      `kacho_notify.recipient_key_fence`, а миграция сноса в §6 (строка 1492) — `DROP TABLE
+      recipient_key_fence;`, как и `CREATE TABLE recipient_key_fence` в NTF-1. Инвентаризация
+      стража хранит имя так, как оно написано в миграции: «schema-qualified only when the migration
+      qualified it» (inventory.go:20–21). Ключ сверки — точная строка (`declKey`, judge.go:308).
+      Следствия: `Reconcile` даёт `undeclared-drop` для сноса и истёкшую запись для объявления;
+      одобрение ни с чем не совпадает и печатается устаревшим; на базе со строкой ограды страж
+      отказывает и с одобрением. Молча это не пройдёт: УК4-35 (близнец «с одобрением → накат») и
+      производитель манифеста покраснеют. Но условие к коду в этой форме неисполнимо.
+      (б) Одобрению нет пути в init-контейнер. Условие (3) говорит: «существующая ручка стража у
+      init-контейнера `migrate`… Новой ручки чарта заход не заводит». Страж читает одобрение только
+      из окружения процесса (`envknob.Get(ApprovalEnv, LegacyApprovalEnv)`, preflight.go:475).
+      Контейнер `migrate` в семи чартах из семи получает закрытый список `env` без подстановки из
+      values. `range .Values.env` есть в compute, registry и kaname, но только в основном
+      контейнере. Имени `MIGRATOR_DROP_APPROVED` нет ни в одном yaml или tpl дерева. У чарта notify
+      NTF-1 передачи тоже нет. Сама выкатка S1 — это `helm upgrade`, и она переписывает спецификацию
+      init-контейнера. Поэтому в управляемой чартом выкатке оператору некуда положить одобрение.
+      УК4-35 работает на уровне мигратора и этого не видит: проба будет зелёной, а выкатка S1 на
+      базе с оградой встанет без выхода, кроме ручной правки объекта вне чарта.
+    code_conditions: >-
+      (а) Замысел пишет имя таблицы сноса ровно так, как его пишет миграция, в трёх местах: запись
+      dropguard.json, строка одобрения, утверждение УК4-35 об имени таблицы в отказе. Раз NTF-1
+      создаёт таблицу без схемы, это `recipient_key_fence`. Правится одна строка отображения.
+      (б) Нужен путь одобрения до init-контейнера `migrate` обоих развёртываний notify, и
+      держатель, который судит отрендеренный чарт, а не мигратор. Путь без нового механизма один:
+      Е2 — NTF-1 садится без ограды, и сноса нет вовсе. Любой другой путь — это ключ values чарта
+      notify, который рендерит `MIGRATOR_DROP_APPROVED` в `env` контейнера `migrate`. Д26 такой
+      механизм в этом заходе запрещает, поэтому выбор — за диспетчером (вопрос ниже).
+  - id: CX4V-64
+    design: "З6, З10, З13; Д26 · 5; УК4-34; tasks S1-A7, S2-B1, S2-B2"
+    verdict: does_not_hold
+    note: >-
+      Условия (1)–(3) выдерживают: две метрики сняты, сигналы взамен названы, второго счётчика у
+      ветки «вне таблицы» нет. Держатель УК4-34 в этой редакции самопротиворечив. Строка говорит:
+      «строит реестр каждого развёртывания и сверяет зарегистрированные имена и метки с таблицей Р12
+      в обе стороны». В реестре корня `notify-sender` есть семейства NTF-1:
+      `notify_outcomes_total`, `notify_misconfigured_total` и `notify_reserve_db_errors_total`
+      (замысел NTF-1, строки 1391–1396). В Р12 NTF-4 их нет (`grep` по приёмке — 0). Если
+      сверять реестр корня буквально, проба покраснеет на законном дереве. Если сверять свежий
+      реестр после `reputation.Register`, она молчит, но не видит регистраций вне `reputation`. А
+      обе снятые метрики жили именно там, в `sentlog` и `deliver`. Инъекция из строки («одна из двух
+      снятых метрик») краснеет только в первой форме.
+    code_conditions: >-
+      Единица сверки УК4-34 — семейства с приставкой `notify_` в реестре, который построил корень
+      каждого развёртывания. Они сверяются в обе стороны с объединением: Р12 NTF-4 и перечень
+      семейств NTF-1, прочитанный из одного названного источника NTF-1, а не скопированный в пробу.
+      Семейства без приставки `notify_` (сборщики процесса и среды) проба печатает числом и в
+      сверку не берёт. Инъекция — регистрация семейства вне `reputation` (в `sentlog`) → красный.
+      Близнец — корень по таблице → зелёный с печатью числа сверенных семейств.
+  - id: CX4V-65
+    design: "З6, З9, З11, З22, §6; Д26 · 6; УК4-01а; tasks S1-A1, S1-A5, S1-A6, S2-B2"
+    verdict: holds
+    note: >-
+      Исполнитель назван: проход существующего подметальщика у держателя, на его таймере
+      (`…_SUPPRESSION_SWEEP_INTERVAL` есть в Р16, строка 1383). Партия ограничена, первым вызовом в
+      ней идёт `lease.Renew`, `$cut` считается на внедрённых часах один раз за проход. Индексы
+      `sent_log (created_at)` (строка 1406) и `feedback_message (processed_at)` на месте. Изъятие
+      двух функций пути письма закрыто и судится по идентичности. Граница окна и срока есть в
+      приёмке редакции 22 (строки 1225, 1363, 1390, 1434) вместе с девятой инъекцией. Условие:
+      одобрение редакции 22 (Е1).
+    code_conditions: "—"
+
+new_items: []
+
+measurements:
+  - claim: "отпечаток предмета; записи на этот отпечаток ещё нет"
+    command: "sha256sum docs/changes/issue-2919/design.md; ls docs/changes/issue-2919/reviews/class-exposure/revalidation/; git log -1 --format=%h -- docs/changes/issue-2919/design.md"
+    result: "cd92e9ac…5ab — равен заданию и hashes.design_sha256; в revalidation/ только b9149d3c…; коммит 20164b92e"
+  - claim: "§11: 65 из 65; строк Д26 — 6"
+    command: "grep -c '^| CX4V-' design.md; grep -oE '^\\| CX4V-[0-9]+' design.md | sort -u | wc -l; grep -c '^| Д26 ·' design.md"
+    result: "65, 65, 6"
+  - claim: "имя таблицы сноса в миграции и в строке Д26 · 4 разное (CX4V-63 (а))"
+    command: >-
+      grep -n 'recipient_key_fence' docs/changes/issue-2919/design.md docs/changes/issue-2915/design.md;
+      git -C corelib show 34bc810:dropguard/inventory.go | sed -n 16,24p;
+      git -C corelib show 34bc810:dropguard/judge.go | sed -n 308,310p
+    result: >-
+      §6 NTF-4: `DROP TABLE recipient_key_fence;` (1492); NTF-1: `CREATE TABLE recipient_key_fence`
+      (1681); Д26 · 4: `kacho_notify.recipient_key_fence` (1677). Инвентаризация: «schema-qualified
+      only when the migration qualified it»; `declKey` = `%d\x00<lower(table)>` без снятия схемы
+  - claim: "одобрению сноса нет пути в init-контейнер migrate ни одного чарта (CX4V-63 (б))"
+    command: >-
+      git -C kacho grep -n 'DROP_APPROVED' 1d42a6728bf -- '*.yaml' '*.tpl';
+      контейнер `migrate` в services/{vpc,compute,nlb,registry,storage}/deploy/templates/deployment.yaml
+      и deploy/helm/umbrella/charts/{kacho-geo,kaname}/templates/deployment.yaml — grep 'range|extraEnv|toYaml .*env'
+      в окне от `name: migrate` до `containers:`;
+      git -C corelib show 34bc810:dropguard/preflight.go | sed -n 470,480p;
+      grep -n 'extraEnv|initContainer|DROP_APPROVED|dropguard' docs/changes/issue-2915/design.md
+    result: >-
+      0 совпадений в yaml/tpl; env у migrate закрытый в 7 из 7 чартов, `range .Values.env` у
+      compute (287), registry (340) и kaname (618) — только в основном контейнере (migrate — 65…91,
+      68…93); страж читает одобрение только из окружения; в замысле NTF-1 — 0
+  - claim: "в реестре notify-sender есть семейства NTF-1 вне Р12 NTF-4 (CX4V-64)"
+    command: "grep -n 'notify_misconfigured_total\\|notify_outcomes_total' docs/changes/issue-2915/design.md; grep -oE 'notify_[a-z_]+' <приёмка NTF-4> | sort -u"
+    result: "замысел NTF-1, строки 1391–1396: `notify_outcomes_total`, `notify_misconfigured_total`, `notify_reserve_db_errors_total`; в приёмке NTF-4 нет ни одного из них"
+  - claim: "GooseApplied принимает интерфейс database/sql (CX4V-56)"
+    command: "git -C corelib grep -n -A3 'type Querier' 34bc810 -- dropguard; git -C kacho grep -l 'pgx/v5/stdlib' 1d42a6728bf -- services | wc -l"
+    result: "`QueryRowContext(ctx, …) *sql.Row` (observe.go:30); адаптер stdlib в services — 33 файла"
+  - claim: "граница окна и срока в приёмке редакции 22 (CX4V-65)"
+    command: "grep -n 'SUPPRESSION_SWEEP_INTERVAL\\|REPUTATION_WINDOW.*SENT_LOG_RETENTION\\|девяти инъекциях' <приёмка NTF-4>; ls docs/specs/reviews/sub-phase-NTF-4-*/ | grep -c 01b2888"
+    result: "строки 1225, 1363, 1383, 1390, 1434, 3610; записей ревью на 01b28881 — 0"
+  - claim: "маркеры отсрочки и открытые решения"
+    command: "grep -noE 'TODO|TBD|FIXME|XXX' design.md tasks.md | wc -l; grep -n 'Открытых решений' design.md; grep -nE '^### З[0-9]+' design.md | tail -1"
+    result: "0; §13 строка 1758; последнее решение З26 (1278)"
+
+not_measurable:
+  - "Выкатка S1 без пути одобрения (CX4V-63 (б)) выведена из чартов и стража, но не прогнана: кода и чарта notify в стволе нет (М1)."
+  - "Точный состав семейств реестра корня notify-sender зависит от реализации NTF-1. Перечень взят из замысла NTF-1, строки 1391–1396, а не из дерева."
+
+outcome: "к-замыслу (CX4V-63 (а), CX4V-64 — правка строк отображения); вопрос диспетчеру (CX4V-63 (б) — путь одобрения сноса запрещён Д26 как новый механизм)"
+unmapped:
+  - "CX4V-63 (а) — имя таблицы в dropguard.json и в одобрении (`kacho_notify.recipient_key_fence`) не совпадает с миграцией (`recipient_key_fence`): страж отказывает и с одобрением"
+  - "CX4V-63 (б) — у одобрения сноса нет пути в init-контейнер `migrate` (закрытый env в 7 из 7 чартов); УК4-35 судит мигратор, а не отрендеренный чарт"
+  - "CX4V-64 — единица сверки УК4-34 («реестр развёртывания» против одной Р12 NTF-4): красный на законном дереве либо слепота к регистрациям вне `reputation`"
+return_to_acceptance: []
+questions_to_dispatcher:
+  - >-
+    CX4V-63 (б). Одобрению сноса ограды нужен путь в init-контейнер `migrate` обоих развёртываний
+    notify. Варианты: (1) разрешить в следующем заходе один ключ values чарта notify, который
+    рендерит `MIGRATOR_DROP_APPROVED` в `env` контейнера `migrate`, с рендер-пробой; (2) пойти по
+    Е2: NTF-1 садится без ограды, и сноса нет. Д26 запрещает (1) в заходе отображения.
+findings_outside_subject:
+  - >-
+    Во всём дереве (kacho @1d42a6728bf) инструкция оператору «назвать снос в
+    `KACHO_MIGRATOR_DROP_APPROVED` и выкатить» (docs/architecture/drop-preflight-counts-the-live-database.md,
+    порядок для оператора, п. 3; install/deploy.mdx шести служб) неисполнима через чарт: ни один
+    контейнер `migrate` не принимает переменных из values. Это находка о корректности выкатки, а не
+    о NTF-4.
