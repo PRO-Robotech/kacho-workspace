@@ -1,0 +1,249 @@
+# Ревью замысла NTF-3 — роль design-reviewer (исполнитель — агент system-design-reviewer в режиме
+# «замысел», docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к ОТПЕЧАТКУ замысла (редакция 9). Прежней записи этой роли на замысел issue-2918
+# нет: это первый суд роли, он судит документ целиком, а не дельту. Запись не правится: сменился
+# отпечаток — пишется новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2918
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097
+  fingerprint_predicate: git show HEAD:docs/changes/issue-2918/design.md | sha256sum
+  fingerprint_matches_task: true   # перемерено на ветке issue-880 @f9d386f08; design.md последним менял e00befcee
+  revision: 9
+  tasks_path: docs/changes/issue-2918/tasks.md
+  tasks_sha256: 9e7ce76353c75ac432abb58fb53ef973e61ae7f394130f6a0b14635a33fc20d0
+previous_record: —
+class_exposure:
+  revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/97c51264f960332c4417ee2f96bf06fc2fa4f59d5b1ba56144b4331a226ff097.yaml
+  revalidation_on_current_fingerprint: true   # коммит f9d386f08
+revisions:
+  workspace: f9d386f087057c304127daf5ec84a8c7e803ce78
+  kacho: 1d42a6728bf   # перечитаны services/vpc/internal/repo/kacho/pg/network_interface.go:318-360, address.go:1008-1035
+  corelib: 34bc8104a   # перечитаны operations/worker.go:505-580, operations/reconciler.go:150-260, operations/repo.go:585-590
+  acceptance_sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+snapshot_at: 2026-09-30
+
+scope_note: >-
+  Первый суд роли — документ целиком (1617 строк): §0–§13, §11, §11а. Блокирующим по заданию считается
+  только распределённое свойство, инвариант и безопасность; остальное — в important/minor. Порядок окон
+  пина (Д41) сверен предикатами §13 Е6 на рабочей копии: все шесть дали ожидаемое (1, 1, 4, 2, 1, 1).
+
+inspected: >-
+  design.md целиком; tasks.md строки X1–X5, S2-B4, S2-B5, S2-B10, S3-C3, S3-C4 и grep по
+  срок/timeout/deadline (одно совпадение — S2-B10, срок notify-api); приёмка ac1f9fc9 grep по
+  KACHO_NOTIFY_* (ручки срока вызова справочника у notify-sender нет) и строки 1748–1756;
+  замысел NTF-1 (issue-2915/design.md:536–572, УК84/85, CX1-67, шаг 6 Put — :585); замысел NTF-5
+  (issue-2924/design.md:1833–1870, «Сроки вызовов kaname», «клиент kaname_client.go своего срока не
+  ставит»); замысел NTF-4 (запись ревью 80dea362, К1 — прецедент); corelib @34bc8104a:
+  operations/worker.go:558 (terminalWrite под context.WithTimeout(context.Background(), …)),
+  operations/reconciler.go:179 (rc.pool.Begin — одна транзакция на пачку), :193 (LIMIT BatchSize,
+  по умолчанию 100, :97-98), :252 (markErrorCAS в транзакции пачки); kacho @1d42a6728bf:
+  vpc network_interface.go:318-360 (AttachToInstance — один CAS `used_by_id = '' OR = $2`),
+  address.go:1008-1035 (SetReference — `UPDATE addresses SET used = true`, затем upsert
+  address_references); версия Postgres в deploy — 16 (RETURNING OLD нет).
+
+axes:
+  atomicity_no_dual_write: >-
+    закрыто. Строка ленты resource-event — триггером AFTER INSERT на журнале в том же операторе и той
+    же транзакции (З10); переход storage и письмо — одна транзакция (З15); CAS строки операции и
+    operation-failed — одна транзакция (З16); счётчик подавления — хуком после коммита (З4); приём —
+    запись ленты консоли, затем Ack после коммита (at-least-once + UNIQUE, З19).
+  idempotency: >-
+    закрыто, кроме В3. Приём — UNIQUE (module, source_row_id) + ON CONFLICT DO NOTHING; открытие и
+    закрытие окна сводки — уникальные ключи; однократность напоминания — PK; повторы Attach/Detach и
+    SetAddressReference без лишних строк журнала — УК3-32, УК3-33.
+  atomic_and_optimistic_concurrency: >-
+    ВОПРОС → В1, В2. Переход storage — CTE FOR UPDATE + UPDATE одним оператором; позиция ленты — под
+    замком строки inbox_clock до коммита; отметка просмотра — один upsert с границей в том же
+    операторе; сетка мгновенных писем, потолок подписок — CAS. Пробы с конкурирующими горутинами
+    заказаны: УК3-17, 18, 19, 20, 21, 35, 42; NTF3-07 (две параллельные записи перехода).
+  change_delivery_polling: >-
+    закрыто. Watch/стрима публичного нет; мутации notify — Operation nop done=true; изъятие
+    StreamBudget сохранено (З28).
+  workers_and_reconcilers: >-
+    ВОЗВРАТ → К1, К2. Терминальная запись ошибки операции на обоих фоновых путях (исполнитель,
+    Reconciler) не может открыть транзакцию, пишущую журнал, в той форме, что назначает замысел, а
+    пачка Reconciler ставит больше одного письма с лимитами в одну транзакцию; у вызовов notify-sender
+    к справочнику срока нет.
+  inter_service_edges: >-
+    закрыто. notify-sender → модули (Subscribe/Claim/Ack), notify-sender → kaname, notify-api → kaname,
+    gateway → notify-api; модули и kaname notify не зовут; новых рёбер между модулями kacho нет (§9,
+    З31). Рёбра notify записаны в правиле (.claude/rules/polyrepo.md, строки notify).
+  replica_state_isolation: >-
+    закрыто. Позиция и время приёма — строка базы inbox_clock; окна сводки — строки базы; кэша-источника
+    истины в памяти реплики нет.
+  edge_ban6: >-
+    закрыто. Пять сервисов NTF-3 — класс public по контракту (Р25), InternalNotificationRecipientService
+    kaname — без HTTP-привязки; маршрут, перечень и каталог края — одним генератором (З28).
+  clean_architecture: >-
+    закрыто. Граница импорта cmd/notify-api (УК3-26); journaltx и auth/initiator не импортируют
+    notify/*; corelib не знает имён модулей (З1).
+  pin_windows_d41: >-
+    закрыто для рёбер, которые Д41 требует (окна (1)–(2)): X1, X2, X3, X2-F этого предмета — после
+    S3-C2 issue-2919 (4 строки), T1/T2 и C4 NTF-5 — (2 строки), Х1 NTF-4 после N11 (1), C12 NTF-1 после
+    v1.10.0 (1), X2-F после N11 (1), C4 TW после S2-B1 (1). Остаток про окна (3)–(4) — В4 (не блокирует).
+
+verdict: CHANGES_REQUESTED     # ⛔ возврат
+blocks: true
+return_to: автор замысла issue-2918 (acceptance-author)
+distributed_surface: true
+schema_review_overlap: true   # CTE FOR UPDATE перехода storage, inbox_clock singleton-замок, upsert отметки, CAS NIC Attach, upsert SetAddressReference, транзакция пачки Reconciler
+
+critical:
+  - id: К1
+    lane: X3, S3-C3
+    coordinate: >-
+      design.md З16 (строки 789–796), §7 п.4 (1384–1385), З18 (851–852, 856–858); corelib @34bc8104a
+      operations/worker.go:558, operations/reconciler.go:179, :193, :252; замысел NTF-1
+      issue-2915/design.md:539–543 (УК84/85), :558–572 (CX1-67), :585 (шаг 6 — строка журнала подписки)
+    finding: >-
+      Терминальная запись ошибки операции на обоих путях, которые замысел проводит через FailTerminal,
+      в назначенной форме не завершается. (1) Путь исполнителя: pgRepo.MarkError «открывает транзакцию
+      помощником модуля» (З16), а помощник берёт инициатора только из принципала контекста и без него
+      транзакции не открывает (З4). terminalWrite исполнителя зовёт запись под
+      context.WithTimeout(context.Background(), terminalWriteTime) (worker.go:558) — принципала в этом
+      контексте нет ни у одной операции, поэтому journaltx.Begin отказывает всегда, запись уходит в
+      повторы и остаётся done=false до Reconciler («reconciler backstop»). Это новый отказ пути без
+      человека, против условия З13 «под-фаза не добавляет фоновому пути отказа». (2) Путь Reconciler:
+      Sweep открывает одну транзакцию rc.pool.Begin на пачку до BatchSize (по умолчанию 100) операций
+      (reconciler.go:179, :193) и зовёт терминальную запись каждой в ней (:252). Транзакция открыта не
+      помощником — kacho_journal.initiator не выставлен, а Put шагом 6 пишет строку журнала подписки
+      модуля, колонка initiator которой NOT NULL (З2) → 23502. Кроме того, operation-failed — письмо с
+      limits (З18: FailTerminal — «одно» письмо с лимитами), и вторая операция пачки с адресатом user:
+      даёт ErrSecondLimitedPut; по З18 для пути без человека это откат всей транзакции вызывающего —
+      откатываются и уже применённые CAS пачки. Следующий Sweep берёт ту же пачку (ORDER BY
+      modified_at ASC) — Reconciler не продвигается никогда, операции с человеческим инициатором не
+      получают done=true. Держатели не ловят: NTF3-133…137, УК3-46 и УК3-38 зовут экспортированный
+      FailTerminal напрямую (З16 «Вход пробы»), проводку исполнителя и Sweep не проходит ни одна проба;
+      гейт З4 (а) обходит только дерево пяти модулей и corelib Reconciler не видит.
+    requirement: >-
+      Условие к коду в форме Д26 (строки §11 и полосы X3, S3-C3), выбрать и назвать: (а) источник
+      инициатора транзакции терминальной записи на обоих путях — либо terminalWrite исполнителя несёт
+      принципал контекста исполнителя (WithoutCancel, а не Background), либо у терминальной записи своя
+      личность компонента — тогда §8, З4 (1) «вызывающих AsComponent ровно два» и УК3-27 (д)
+      правятся тем же изменением; строку операции без человеческого принципала это не должно
+      останавливать (И22 распространить на открытие транзакции, а не только на адресата); (б) на
+      пути Reconciler — не больше одного Put с лимитами на транзакцию: терминальная запись с
+      постановкой — своей транзакцией на операцию (claim-замок пачки при этом не теряет exactly-once:
+      CAS по done), либо иная форма, названная с доводом против УК84; (в) классификатор исходов
+      терминальной записи на Reconciler — строкой на исход, без отката пачки из-за одной операции.
+      Держатели — интеграционные пробы через настоящие входы: исполнитель, fn операции usr-A падает →
+      done=true в пределах terminalWrite (не после OrphanGrace), строк operation-failed 1; близнец —
+      операция {system, bootstrap} → done=true, строк 0; Sweep с двумя прерванными операциями usr-A и
+      usr-B в одной пачке → обе done=true, строк 2, повторный Sweep ничего не берёт; близнец — одна
+      операция в пачке.
+
+  - id: К2
+    lane: S2-B5, S3-C4 (и S2-B4, если приём зовёт справочник)
+    coordinate: >-
+      design.md З21 (919–934), З26 (1083–1093), З27 (1095–1115), §7 п.5–6 (1386–1389), §8 (1393–1401);
+      tasks.md: срок вызова назван только у notify-api (S2-B10); замысел NTF-5 issue-2924/design.md:1833–1860
+    finding: >-
+      У вызовов notify-sender к справочнику службы доступа — страницы ListProjectAudience и Resolve строк
+      сводки (З21), страницы ListExpiringCredentials и Resolve проверки контакта (З26) — срок не назван
+      ни замыслом, ни ручкой приёмки (в Р26 ручки срока справочника у notify-sender нет). Общий клиент
+      kaname_client.go своего срока не ставит по построению (NTF-5, предикат «клиент своего срока не
+      ставит» → 0), срок ставится в месте вызова пакета — у пакетов NTF-5 он есть, у пакетов digest,
+      reminder, directory этой под-фазы нет. Служба доступа, принявшая соединение и замолчавшая,
+      останавливает проход сводки и проход напоминаний без отказа: окна не созревают, счётчик отказа
+      прохода не растёт, клетка «срок вызова» таблицы Р7 (исход, который приёмка ожидает) не
+      производится. §7 п.5 ставит Resolve строк между открытием окна и Put — если это одна
+      транзакция, вторая реплика ждёт на незафиксированной вставке открытия того же адресата.
+      Правило arch-per-call-deadline; прецедент — К1 ревью замысла NTF-4 и Н1 ревью замысла NTF-5.
+    requirement: >-
+      Условие к коду без новой ручки: каждый вызов notify-sender → kaname этой под-фазы — под
+      context.WithTimeout с константой-сроком своего пакета (одна на пакет, в месте вызова, как у NTF-5;
+      клиент срока не ставит); DEADLINE_EXCEEDED классифицируется клеткой «срок вызова» Р7 (отложить
+      адресата / contactUnknown), а не отказом настройки; назвать, что вызовы справочника в проходе
+      сводки идут вне транзакции адресата (либо назвать сумму сроков меньше
+      idle_in_transaction_session_timeout пула kacho_notify). Держатель — модульная проба: заглушка
+      справочника молчит → вызов возвращается в пределах срока, проход завершён, счётчик отказа прохода
+      +1, окно адресата не закрыто; близнец — ответ внутри срока. Строки §11 для З21, З26.
+
+important:
+  - id: В1
+    coordinate: design.md З12 таблица, строка «vpc InternalNetworkInterfaceService.Attach» (595); kacho vpc network_interface.go:327-345
+    finding: >-
+      Замысел заменяет действующий один CAS AttachToInstance (`used_by_id = '' OR used_by_id = $2`, с
+      проверкой когерентности размещения и слота в том же операторе) на CAS `WHERE used_by_id = ''` и
+      «второй оператор» для повтора. Форма второго оператора не названа. Если он повторяет широкий
+      предикат, то между операторами соседняя транзакция может освободить интерфейс, и второй оператор
+      привяжет его без строки журнала (видимое изменение без события). Если он узкий (`= $inst`), повтор
+      при параллельном Detach получит ложный отказ.
+    requirement: >-
+      Сохранить один оператор (cas-attach-template) и признак «изменилось» брать из прежнего значения,
+      прочитанного под замком в том же операторе (CTE `SELECT used_by_id … FOR UPDATE` + UPDATE, как у
+      перехода storage З15); либо назвать форму второго оператора и исход гонки с Detach. Не блокирует.
+  - id: В2
+    coordinate: design.md З12 таблица, строка «vpc InternalAddressService.SetAddressReference» (599); kacho vpc address.go:1008-1035
+    finding: >-
+      «RETURNING (xmax = 0) AS inserted, <прежнее used> из одного оператора upsert» невыразимо как
+      написано: used живёт в addresses, upsert — в address_references, а сегодня это два оператора;
+      RETURNING OLD в Postgres 16 нет. Реализация выведет «прежнее used» чтением до записи — тем
+      признаком, который CX3E-01 (а) запрещает.
+    requirement: >-
+      Назвать форму, выполнимую на Postgres 16 одним оператором: CTE с `SELECT used FROM addresses …
+      FOR UPDATE`, затем UPDATE addresses и upsert address_references, RETURNING прежнего used и
+      признака вставки. Пересечение со схемой. Не блокирует.
+  - id: В3
+    coordinate: design.md З19 (874–878, 888–892), И23
+    finding: >-
+      «Позиции выдаются подряд без пропусков» неверно на пути повторной выдачи: транзакция приёма
+      первым оператором поднимает inbox_clock.pos, затем вставка inbox_event уходит в ON CONFLICT DO
+      NOTHING (УК3-16: Ack утрачен, та же строка пришла снова, в том числе параллельно с другой
+      репликой) — транзакция фиксируется с выданной позицией без записи. Граница отметки от этого не
+      ломается, NTF3-161 (г) на свежей схеме тоже, но утверждение о дырах ложно.
+    requirement: >-
+      Либо снять утверждение «без пропусков» (З19, CX3I-04) и назвать дыру на повторе, либо сделать так,
+      чтобы повтор позицию не тратил: сначала вставка ключа приёма с ON CONFLICT DO NOTHING RETURNING,
+      часы — только при вставке. Не блокирует.
+  - id: В4
+    coordinate: design.md З10 «Посадка» держатели (559–565), §13 Е6 (1611); tasks.md X3 (127), X5 (129)
+    finding: >-
+      Окно по Д37 открывается выпуском тега, а не подъёмом. Строка X5 правит подъёмы и поэтому не
+      держит окна X1…X3 против окон (3)–(4): у тега X3 ребро только «после S3-C2 issue-2919», и выпуск
+      X3 между выпуском X2-F и посадкой S2-B1 (или внутри окна TW) открывает второе окно. Д41 требует
+      рёбер только против окон (1)–(2) — они на месте.
+    requirement: >-
+      Дать тегу X3 ребро «после посадки S2-B1» (S3-C3 и так ждёт X3 и S2-B1) и назвать его место
+      относительно TW, либо записать, что окна X1…X3 против (3)–(4) держатся вниманием при ВЫПУСКЕ
+      тега, а не строкой X5. Не блокирует.
+
+minor:
+  - id: М1
+    coordinate: design.md З18 (851)
+    finding: >-
+      Для FailTerminal на пути без человека ErrLimitExhausted — «коммит без письма»; при исправлении К1
+      (б) стоит назвать то же для операции Reconciler, иначе классификатор Sweep снова получит корзину.
+    requirement: Одна строка в З18. Не блокирует.
+
+orders:
+  - кому: автор замысла issue-2918 (acceptance-author)
+    что: >-
+      К1, К2 — строки условия к коду в §11 (форма Д26) и в полосах X3, S3-C3, S2-B5, S3-C4 tasks.md с
+      пробами и близнецами; В1–В4 и М1 — тем же заходом либо в handoff полос.
+  - кому: db-architect-reviewer
+    что: >-
+      Пересечение со схемой на отпечаток 97c51264 (записи роли нет): §6 целиком, CTE FOR UPDATE перехода
+      storage, inbox_clock singleton и порядок замков приёма/сводки, upsert отметки просмотра, форма
+      CAS NIC Attach (В1) и SetAddressReference (В2).
+  - кому: integration-tester
+    что: >-
+      Конкурентные пробы уже заказаны замыслом (УК3-17…21, 35, 42, NTF3-07); новые — проводка
+      терминальной записи через исполнитель и Sweep (К1) и молчащий справочник (К2) после исправления.
+
+next: >-
+  автор замысла issue-2918 — исполнить К1, К2 (и В1–В4, М1) и перевнести замысел; на новом отпечатке —
+  повтор этой роли и пересверка разбора классов; db-architect-reviewer — на отпечаток, который пойдёт в
+  DESIGN_APPROVED.
