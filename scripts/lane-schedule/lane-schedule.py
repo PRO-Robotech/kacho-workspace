@@ -3,6 +3,11 @@
 # SPDX-License-Identifier: BUSL-1.1
 """lane-schedule — упаковка полос в пакеты и расписание до раздачи.
 
+ОРИЕНТИР ПЛАНИРОВАНИЯ, НЕ ГЕЙТ (Д43): инструмент ничего не пропускает и не
+блокирует; его числа — оценка до раздачи, окончательно — реальный прогон волны.
+Утверждение о нём одно: ребро не теряется МОЛЧА — ячейка «зависит от», не
+прочитанная целиком, даёт ОТКАЗ с координатой, а не расчёт без ребра.
+
 Норма, которую инструмент исполняет: `.claude/rules/flow-acceleration.md`
 §«Раздача» (fa-a1…fa-a7). Приёмка инструмента — `scripts/lane-schedule/inject.sh`;
 что набор краснеет на порче каждого решения — `scripts/lane-schedule/mutants.py`.
@@ -21,11 +26,17 @@
 `S<n>`; «S-ярус» — все полосы с id ровно `S<n>`; диапазон `A1–A3`, `N0…N4`,
 `S1-S3` с правой границей включительно, каждый член которого узнаётся как
 отдельная ссылка (`A1–A2` → `S1-A1`, `S1-A2`; `S1–S2` → полосы стадий);
-`S2-A1…A3` — префикс стадии левой границы переносится на правую; обратный
+`S2-A1…A3` — префикс стадии левой границы переносится на правую; id с
+буквенным суффиксом (`X2-F`, вход 2918 @d3387fcd4) — одна полоса; имя под-фазы
+(`NTF-1`) — внешняя ссылка; обратный
 диапазон (`A3–A1`) — ОТКАЗ; тире или дефис между разными префиксами (`X1–Y2`,
 `X1-Y2`) — две ссылки. Прочее — внешние ссылки (жетоны ведомости); внешняя
 ссылка без строки ведомости своей под-фазы печатается заметкой — опечатка в id
-иначе неотличима от жетона. До ws#884 id с префиксом стадии (`S1-A1`) читался
+иначе неотличима от жетона. РАЗБОР FAIL-CLOSED: цифра до «;» вне `кода`,
+«фразы» и номера окна `(0)`, не ставшая частью целой ссылки, либо id,
+приклеенный к букве, цифре или «-буква» (`a1`, `X2-Fx`, `A1b`), — ОТКАЗ с
+`файл:строка`, полосой и текстом ячейки: ссылка на полосу всегда несёт цифру, и
+такой фрагмент иначе выпал бы без ребра и без заметки. До ws#884 id с префиксом стадии (`S1-A1`) читался
 как диапазон `S1…A1` и терялся: у 2919 из 41 полосы рёбра были у 8 (38 рёбер),
 после правки — у 35 (83 ребра); замер `build()` @a1b230728 против @bfe2d9c91.
 
@@ -57,6 +68,7 @@
       либо без заголовка, раздела «Полосы» нет, повтор id полосы либо под-фазы,
       строка ведомости не из трёх непустых полей, без носителя либо с под-фазой
       не из входа, ссылка по суффиксу неоднозначна, диапазон обратный,
+      ячейка «зависит от» не распознана целиком,
       `--minutes` не ровно S, M, L, отрицательные `--minutes` или `--review`,
       `--slots` меньше 1, вход не читается;
   2 — обход ПУСТ: файлов нет либо в файле ноль полос. Ноль полос — не «ноль
@@ -85,7 +97,9 @@ CAP_UNITS = 4
 # полос из разных под-фаз не смешивает предметы (fa-a3).
 SAME_KIND = {'proto-sync', 'migration-writer', 'deploy-engineer', 'tooling-maintainer',
              'docs-writer', 'vault-scribe', 'git-operator'}
-ID = r'[A-ZА-ЯЁ]+\d+(?:-[A-ZА-ЯЁ]\d+)?'
+ID = r'[A-ZА-ЯЁ]+\d+(?:-[A-ZА-ЯЁ]+\d*)?'
+# Имя под-фазы в ячейке (`NTF-1 на стенде`): внешняя ссылка, как жетон `Е<n>`.
+PHASE = r'(?<![\w-])[A-ZА-ЯЁ]+-\d+(?![\w-])'
 REPO_TOKEN = r'(?:^|[;,]\s*|\s)(kacho-workspace|воркспейс|corelib|kacho|kaname|GitHub)\s*(?:·|\||$)'
 
 
@@ -138,6 +152,7 @@ def parse_file(path, notes):
                                                         len(hdr) if hdr else 'нет'))
         d = dict(zip(hdr, c))
         d['_id'] = c[0]
+        d['_line'] = start + off + 1
         lanes.append(d)
         if stage:
             stages[stage].append(c[0])
@@ -188,6 +203,9 @@ def build(paths, semantic_rows, edges_mode, notes):
             # `S2-A1…A3`: префикс стадии у левой границы переносится на правую.
             # Разные префиксы — не диапазон (None): две ссылки.
             pa, pb = re.fullmatch(r'(.*?)(\d+)', a), re.fullmatch(r'(.*?)(\d+)', b)
+            if pa is None or pb is None:
+                # Граница без номера на конце (`X2-F`) — не диапазон: две ссылки.
+                return None
             if pa.group(1) == pb.group(1):
                 pre = pa.group(1)
             elif pa.group(1).endswith('-' + pb.group(1)):
@@ -200,7 +218,29 @@ def build(paths, semantic_rows, edges_mode, notes):
                               'определено' % (name, n, a, b))
             return [pre + str(k) for k in range(lo, hi + 1)]
 
-        def expand(cell, n):
+        def whole(s, n, line, cell):
+            # Fail-closed разбора (Д43): ячейка, которую разборщик не прочёл
+            # ЦЕЛИКОМ, — ОТКАЗ с координатой, а не ребро, выпавшее молча. Ссылка на
+            # полосу всегда несёт цифру; вне `кода`, «фразы» и номера окна `(0)`
+            # цифра обязана лежать внутри целого id (или имени под-фазы `NTF-1`), а
+            # id — не быть приклеен к букве, цифре или «-буква» (`X2-Fx`, `a1`, `A1b`).
+            t = re.sub(r'`[^`]*`|«[^»]*»|\(\d+\)', lambda m: ' ' * len(m.group(0)), s)
+            t = re.sub(PHASE, lambda m: ' ' * len(m.group(0)), t)
+            bad = []
+            for m in re.finditer(ID, t):
+                pre = t[m.start() - 1:m.start()]
+                post = t[m.end():m.end() + 2]
+                if re.match(r'\w', pre) or re.match(r'\w|-\w', post):
+                    bad.append(t[max(0, m.start() - 1):m.end() + 2].strip())
+                t = t[:m.start()] + ' ' * (m.end() - m.start()) + t[m.end():]
+            bad += re.findall(r'\S*\d\S*', t)
+            if bad:
+                raise Refusal('%s:%d: %s: ячейка «зависит от» «%s» не распознана целиком — '
+                              'фрагмент %s не стал ни ссылкой, ни пояснением; ребро '
+                              'потерялось бы молча' % (path, line, n, cell,
+                                                       ', '.join('«%s»' % b for b in bad)))
+
+        def expand(cell, n, line):
             explicit, alias, ext = set(), set(), []
 
             def take(t):
@@ -216,6 +256,7 @@ def build(paths, semantic_rows, edges_mode, notes):
             # она зависит от C4»), и его id рёбрами не становятся. Отброшенное
             # печатается заметкой, а не исчезает молча.
             s, _, tail = cell.partition(';')
+            whole(s, n, line, cell)
             toks = list(re.finditer(ID, s))
             i = 0
             while i < len(toks):
@@ -242,12 +283,13 @@ def build(paths, semantic_rows, edges_mode, notes):
             if 'S-ярус' in s:
                 alias.update(x for x in ids if re.fullmatch(r'S\d+', x))
             ext += ['«%s»' % q for q in re.findall(r'«([^»]+)»', s)]
+            ext += re.findall(PHASE, re.sub(r'`[^`]*`|«[^»]*»', ' ', s))
             return explicit, alias, ext, s, tail.strip()
 
         deps, alias_deps, raw_of = {}, {}, {}
         for d in lanes:
             n = d['_id']
-            e, a, x, head, tail = expand(d.get('зависит от', ''), n)
+            e, a, x, head, tail = expand(d.get('зависит от', ''), n, d['_line'])
             deps[n] = {p for p in e | a if p != n}
             alias_deps[n] = {p for p in a - e if p != n}
             ext_of[(name, n)] = x
