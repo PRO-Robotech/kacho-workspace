@@ -430,6 +430,16 @@ jobs:
           fi
           echo "shellcheck в образе нет — ставлю"
           sudo apt-get update -qq && sudo apt-get install -y shellcheck
+      # Разборщик CommonMark — предпосылка check-03-scope-row-scenario: структуру
+      # приёмки он читает деревом разбора, а не построчными регулярками (два
+      # круга возврата issue-880 — оба про правила вложенности, которые держит
+      # разборщик). Версия закреплена равной локальной (`python3 -c 'import
+      # markdown_it; print(markdown_it.__version__)'` → 3.0.0): иной разбор дал бы
+      # иной вердикт. Без шага проверка отвечает VOID, и набор краснеет кодом 2 —
+      # не тихим зелёным. Сетевая установка — со своим пределом (#278).
+      - name: разборщик CommonMark для check-03
+        timeout-minutes: 3
+        run: python3 -m pip install --quiet 'markdown-it-py==3.0.0'
       - name: shellcheck docs-gate (strict)
         run: shellcheck -x -- scripts/docs-gate/*.sh
       # Дерево продукта выкладывается ЗДЕСЬ, потому что check-03 сверяет координату,
