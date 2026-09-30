@@ -1,0 +1,224 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: b92f0c2b7d5ebd753861d18292a46f3438fe1d768980b5bf326e8e7eed9712d3
+  revision: 12
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и строка редакции 12 говорит «вердикта на неё НЕТ». Эта запись шапку не
+    правит, и так задумано: вердикт привязан к отпечатку, а не к слову в заголовке. Действующий
+    вердикт выводится из этой записи и из внешнего события.
+  base_commit: 4a9003a018407485db6c14cd00a1b3732e856eaf
+  content_commit: 0e365051f6af1d640b6d52aa0d5724f658c086d9
+  content_commit_note: >-
+    Редакция 12 внесена коммитом 0e365051f. Соседние коммиты 005486232 (NTF-5) и 4a9003a01 (NTF-2)
+    документ не трогали: у blob HEAD 4a9003a01 и у рабочего файла отпечаток тот же. У родителя
+    0e365051f~1 (89250d24e) лежит редакция 11 (4d042803…), возвращённая прошлым кругом.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2488
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T05:41:44Z'
+round: 2
+round_note: >-
+  Круг 2 прохода по решениям Д1–Д17. По документу в целом это двенадцатый круг. Редакция 12
+  отвечает на возврат круга 11 (B11-1, N11-1…N11-3, N10-1-carry). Дифф 89250d24e..0e365051f
+  проверен по существу: 114 строк добавлено, 37 удалено. Весь документ заново сверен с Д1–Д17.
+previous_rounds:
+  - {round: 1, sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3, verdict: APPROVED}
+  - {round: 9, sha256: 530e22968ff16ae2f6f9deb88037faffa7eed1c83fda5aaca36f9b8d601e23d6, verdict: APPROVED}
+  - {round: 10, sha256: d524e7bdd133b70da9335f027a83007800be4bdc567ab9ec740e08e7d497d31e, verdict: APPROVED}
+  - {round: 11, sha256: 4d0428033c6d97af5cba053eb2391df23b7c438c47cf20c0a0a6202b47758ca2, verdict: CHANGES_REQUESTED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+
+previous_return_checked:
+  B11-1 (1): >-
+    Закрыто в заявленном объёме. Узел гейта теперь «обход типобезопасности»: импорт `unsafe` или
+    ссылка на `reflect.NewAt`, `UnsafePointer`, `UnsafeAddr`. Обход охватывает три дерева целиком,
+    а заголовок генератора засчитывается только вместе с каталогом стабов. Замер редакции
+    воспроизведён: вспомогательный пакет без импорта `unsafe` через
+    `reflect.NewAt(f.Type(), f.Addr().UnsafePointer())` пишет `//evil.example` в `var p Path`, а
+    `Field(0).String()` читает поле. Два reflect-пути мимо узла тоже проверены, оба закрыты самим
+    `reflect`: `Convert` uintptr → unsafe.Pointer и `Convert` *Path → unsafe.Pointer паникуют. Но
+    перечень «два пути остаются без держателя» неполон: третий путь — ассемблер. Это блокирующее
+    B12-1.
+  B11-1 (2): >-
+    Направление принято. `Put` назван второй линией, держателем назначен гейт ссылки на
+    `feed.Put`. Однако вход гейта — «множество файлов из вывода `notifygen -check`» — не имеет
+    производителя. Это блокирующее B12-2.
+  N11-1: "закрыто; числа 8 / 41 / 75 перемерены, и у всех 124 файлов стоит заголовок генератора до `package` в каталоге стабов"
+  N11-2: "закрыто; «каждый приёмник» сужено до названных, у `Value()` проба с близнецом"
+  N11-3: "закрыто"
+  N10-1-carry: "закрыто; §4, строка NTF-4 — Р1 и G19 как состояние на посадку NTF-1, по Д17 их меняют Х5 и З9"
+
+blocking_count: 2
+blocking_kinds_distinct: [PRODUCER]
+blocking_kinds_by_item:
+  - {id: B12-1, kind: PRODUCER}
+  - {id: B12-2, kind: PRODUCER}
+blocking_findings:
+  - id: B12-1
+    kind: PRODUCER
+    anchors: [Р7 «Два пути остаются **без держателя** и названы», Р7 «Допустимых мест нет», Р8 «теми же двумя путями без держателя», Р11 «ссылка через `go:linkname` требует `unsafe` — узел Р7», "NTF1-B28 (гейт)", "NTF1-B28 (гейт `Put`)", "§9, строка круга 11 «перемер … класс закрыт»"]
+    text: >-
+      Ассемблер пишет в непрозрачный тип и не задевает ни одного узла. Замер (go1.26.8, amd64):
+      пакет `asm` объявляет в `.go` функцию без тела `func copy16(dst, src any)` и обёртку
+      `Copy16`, тело лежит в рукописном `asm_amd64.s` и копирует 16 байт заголовка строки. Потребитель
+      вызывает `asm.Copy16(&p, &s)` над `var p form.Path` и `s := "//evil.example"`. `go run`
+      печатает `asm: "//evil.example" <nil>`. Ни в одном `.go` пакетов `asm` и потребителя нет ни
+      `unsafe`, ни `NewAt`, ни `UnsafePointer`, ни `UnsafeAddr`, ни `linkname`. Гейт судит только
+      `.go`-файлы, поэтому узел молчит. Ассемблер, кроме того, может обратиться к символу
+      `feed.Put` мимо гейта ссылки на `feed.Put`. Значит, утверждение Р11 «ссылка в обход — только
+      через `go:linkname`, а это узел Р7» тоже закрывает не все пути. Это тот же класс, что B11-1:
+      перечень путей без держателя объявлен полным, а он неполон. Строка §9 «перепись … класс
+      закрыт» снова не выдерживает. cgo (`import "C"`) тоже не назван ни узлом, ни путём без
+      держателя. Посевом он не проверялся — отдан на решение автору.
+    required: >-
+      Выбрать одно. (а) Расширить узел «обход типобезопасности»: рукописный не-тестовый `.s`/`.S`
+      файл, объявление функции без тела в `.go`, импорт `"C"`. На пинах corelib 34bc810,
+      kaname 734f69fb4, kacho 1d42a6728bf этих узлов 0 (замер ниже), так что цена та же — «запрещено
+      целиком». Добавить инъекцию «пакет с функцией без тела и `.s`, потребитель без `unsafe`» и
+      близнец — те же деревья без неё. (б) Назвать ассемблер (и cgo) путями без держателя в Р7, Р8,
+      Р11 с ценой. После любого варианта перемерить строку §9.
+    evidence: >-
+      Модуль в scratchpad: `form` (`type Path struct{ v string }`), `asm` (`asm.go` + `asm_amd64.s`),
+      `c2/main.go`. `go run ./c2` → `asm: "//evil.example" <nil>`. `grep -rln
+      'unsafe|NewAt|UnsafePointer|UnsafeAddr|linkname' asm c2 --include=*.go` → пусто. Счёт на
+      пинах: `.s`/`.S` — 0/0/0, `import "C"` в не-тестовых `.go` — 0/0/0.
+  - id: B12-2
+    kind: PRODUCER
+    anchors: ["NTF1-B28 (гейт `Put`) «множество берётся из вывода генератора по дереву»", "Р11 «множество — из вывода `notifygen -check`, а не из заголовка файла»", "NTF1-D01", "NTF1-D02", "§6.2 строка B28 (гейт `Put`)"]
+    text: >-
+      Гейт ссылки на `feed.Put` различает «файл генератора» и «рукописный файл» по множеству, которое
+      печатает `notifygen -check`. Близнец инъекции (2) — файл с заголовком `notifygen`, которого нет
+      в выводе генератора, — держится только на этом множестве. Но ни один сценарий не утверждает,
+      что генератор выдаёт это множество. D01 говорит «порождены `SendInvite` и эталон». D02 говорит
+      «красный с именем файла и расхождения» — это только на красном. Форма вывода на зелёном, его
+      полнота и то, что миграции `init` входят или не входят в множество, не заданы. Вход гейта без
+      производителя: реализатор придумает форму сам, и первый же расход гейта с генератором станет
+      ложной находкой либо, хуже, ложной тишиной.
+    required: >-
+      Дать множеству производителя сценарием. Например, And в D01: «`notifygen -check -list` (или
+      иная названная форма) печатает по одной строке путь каждого порождённого файла `SendX`;
+      вывод совпадает с перечнем файлов, изменённых `make notifications` над пустым каталогом».
+      Близнец — рукописный файл с заголовком `notifygen` в выводе отсутствует. В B28 (гейт `Put`)
+      сослаться на этот сценарий как на производителя входа, в §6.1 назвать держателя.
+
+non_blocking:
+  - id: N12-1
+    kind: FORMAT
+    anchors: ["строка шапки «круг 11 (первый проход редакции 11)»"]
+    text: >-
+      Строка шапки называет круг 11 «первый проход редакции 11». Запись 4d042803… называет его
+      «круг 1 прохода Д1–Д17». Счёт разный, ошибки по существу нет. Стоит выровнять формулировку,
+      когда шапку будут править по итогам этого круга.
+
+routing_note: >-
+  Род PRODUCER блокирует второй круг подряд (11 → 12), и число блокирующих выросло с 1 до 2.
+  Оба новых — тот же класс: «держатель/вход назван, но пути или производитель не перечислены
+  до конца». По §14а multi-agent-flow-orchestration.md решение за диспетчером. Предложение —
+  внести в форму задания автора шаг «перечень путей к записи в тип и к вызову символа: Go, reflect,
+  unsafe, linkname, ассемблер, cgo — каждый либо узел, либо путь без держателя; у каждого входа
+  гейта — сценарий-производитель».
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 4a9003a01 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 4a9003a018407485db6c14cd00a1b3732e856eaf
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует: тело для курьера — в event_body_for_courier. Это возврат.
+    Одобрение круга 10 относится к d524e7bd… и на редакцию 12 не переносится. По Д16 документ
+    в main не идёт.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 прохода Д1–Д17, блокирующих 2: PRODUCER) ·
+    SHA-256 b92f0c2b7d5ebd753861d18292a46f3438fe1d768980b5bf326e8e7eed9712d3
+
+measurement:
+  revisions_used:
+    workspace: 4a9003a01 (ветка issue-880); предмет — 0e365051f
+    corelib: 34bc810
+    kaname: 734f69fb4
+    kacho: 1d42a6728bf
+  scenario_census:
+    predicate: "python re '^\\*\\*ID:\\*\\* NTF1-([A-Z]\\d+)' по документу; Given/When/Then в каждом блоке"
+    total: 149
+    unique: 149
+    gwt_missing: 0
+    delta: "0 к редакции 11; новые ветви — B28 (гейт) переписан, добавлен B28 (гейт `Put`), B27 (нуль) и B28 (нуль) получили пробу `Value()`"
+  producer_coverage:
+    covered: 149
+    of: 149
+    note: >-
+      У каждого «Тогда» держатель назван. B12-1 и B12-2 — пробелы в утверждениях о полноте
+      держателя пути (ассемблер) и во входе гейта (множество файлов генератора). Производителя у
+      «Тогда» они не отнимают.
+  twin_coverage:
+    note: >-
+      §6.2: B27 (гейт) сужен до вызова IDNA; B28 (гейт) — инъекции (1)–(5) против стабов в
+      каталогах стабов; B28 (гейт `Put`) — три инъекции против `SendProbeHello` и тестового файла.
+      В каждой паре меняется один факт. Близнец инъекции (2) гейта `Put` держится на входе без
+      производителя (B12-2).
+  dod_coverage: "S1 п.7 и S2 п.10 распределяют B27 (гейт), B28 (гейт), B28 (гейт `Put`) по деревьям; S3 — приёмники нуля"
+  decisions_crosscheck:
+    source_note: >-
+      В journal.jsonl прогонов wf_8cc21fed-1ec и wf_f705806c-629 строк type=started с полем prompt
+      у author:NTF-* нет: python-разбор ничего не вывел. Д1–Д16 взяты из сверки прошлого круга
+      (запись 4d042803…, тот же источник — транскрипты агентов). Д17 — из задания этого круга.
+    Д1–Д16: "согласно; редакция 12 их предмета не меняет"
+    Д17: >-
+      Согласно. У notify NTF-1 gRPC-слушателя нет, публичного — по построению. §4 теперь прямо
+      говорит, что форму хоста «только внутренний слушатель» вносят Х5 и З9 приёмки NTF-4, а
+      публичного нет и после NTF-4 (Р20, З4). Цепочку прав на стороне notify NTF-1 не строит.
+    hygiene: >-
+      `tmp/` — 0 вхождений. Имён чужих облаков — 0. TODO и FIXME — 0. Рукописных слабых мест
+      текущего дерева новый текст не описывает: пути без держателя относятся к гейтам кода,
+      которого ещё нет.
+  facts_remeasured:
+    - "sha256sum = b92f0c2b…d3 при 2488 строках; тот же отпечаток у blob 0e365051f и 4a9003a01"
+    - "git show --stat 0e365051f: 114 вставок, 37 удалений, один файл"
+    - "импорт unsafe по узлу импорта в не-тестовых .go: corelib 8, kaname 41, kacho 75; все в каталоге стабов, все .pb.go, у всех заголовок `// Code generated … DO NOT EDIT.` до `package` (awk по каждому файлу)"
+    - "reflect.NewAt|.UnsafePointer()|.UnsafeAddr() в не-тестовых .go — 0/0/0"
+    - "`.s`/`.S` в деревьях на пинах — 0/0/0; `import \"C\"` в не-тестовых .go — 0/0/0"
+    - "reflect.NewAt над f.Addr().UnsafePointer() без импорта unsafe пишет поле; Field(0).String() его читает — замер §1.8 воспроизведён"
+    - "reflect Convert uintptr→unsafe.Pointer и *Path→unsafe.Pointer паникуют — путь через reflect.SliceAt без узловых функций закрыт"
+    - "ассемблер (функция без тела + .s) пишет `//evil.example` в form.Path без узлов (B12-1)"
+  constructibility:
+    seeded: 0
+    premises_checked_by_experiment: 4
+    confirmed:
+      - "§1.8 / B28 (гейт) инъекция (1): reflect.NewAt без unsafe — воспроизведено go run"
+      - "B28 (гейт) близнец: число стабов 8/41/75 и их признаки (каталог + заголовок) — перемерено"
+      - "B27 (нуль) / B28 (нуль): Value() на нуле строится модульной пробой без стенда"
+    refuted:
+      - "Р7 «два пути без держателя» — есть третий, ассемблер (B12-1)"
+    not_performed: >-
+      Посевов на стенде не было. Кода предмета (corelib notify/*, services/notify) в дереве нет,
+      стенд и изоляцию задание не назвало. Эти проверки не засчитываются ни в зелёное, ни в красное.
