@@ -1,0 +1,25 @@
+# План свидетельства держателя ws-vault-gate — изменение issue-2919 (NTF-4).
+#
+# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+schema_version: 1
+change_id: issue-2919
+holder: ws-vault-gate
+kind: machine
+owner: integration-tester
+subject: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+subject_sha256: 97046469633dae98397d18bcaa187e19072f1a43552a68ca08148848c09b5c01
+executable: './scripts/vault-gate/run-all.sh'
+predicate: 'висячих ссылок нет, оболочка записок цела, указатель свеж'
+
+# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
+captured_category: null
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
+# NOT_EXECUTED, а не «наверное прошло».
+note: >-
+  прогон по этому отпечатку не снят; его снимает владелец держателя

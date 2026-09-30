@@ -10,13 +10,16 @@
 # (`evidence/<holder>/<subject-sha256>.yaml`), вердикт по отпечатку — в записи
 # ревью роли, запись схождения выпускает `convergence-reviewer`.
 #
+# МАШИННЫЕ ДЕРЖАТЕЛИ ПРОДУКТА выведены из DoD ТЕКУЩЕЙ редакции приёмки (отпечаток —
+# `hashes.acceptance_sha256` манифеста); ссылка на пункт DoD стоит в `predicate`.
+# Правка DoD приёмки обязана перемерить этот перечень тем же заходом.
+#
 # ПРИМЕНИМЫ ВСЕ РОЛИ `review_authority`. Освобождать нечем: изменение несёт
-# приёмку, и замысел по ней обязателен (§5 SDD-1); миграции и контракты оно
-# вводит по своим сценариям; линия идёт в нескольких репозиториях, а это полосы
-# рядом. Поля освобождений (`migrations_touched`, `proto_files_touched`,
-# `lane_merges_in_change`) до голов линии числа не дают (код 2 производителя),
-# поэтому освобождение и не могло бы быть пересчитано. Строки ниже перечисляют
-# роли явно, чтобы их сверял `check-04` в обе стороны.
+# приёмку, и замысел по ней обязателен (§5 SDD-1). Поля освобождений
+# (`migrations_touched`, `proto_files_touched`, `lane_merges_in_change`) до голов
+# линии числа не дают (код 2 производителя), поэтому освобождение и не могло бы
+# быть пересчитано. Строки ниже перечисляют роли явно, чтобы их сверял `check-04`
+# в обе стороны.
 schema_version: 1
 change_id: issue-2919
 
@@ -44,7 +47,7 @@ role_applicability:
     holder: [human-post-diff-system]
   integration-tester:
     status: applicable
-    holder: [ws-docs-gate, ws-vault-gate, prod-notify-suppression, prod-notify-lint]
+    holder: [ws-docs-gate, ws-vault-gate, prod-notify-suppression, prod-notify-lint, prod-ci-local, prod-notify-rollout-render, sev-notify-feedback-e2e]
   wave-reviewer:
     status: applicable
     holder: [human-wave]
@@ -76,19 +79,45 @@ required_holders:
   prod-notify-suppression:
     kind: machine
     owner: integration-tester
-    executable: "ЗАВОДИТСЯ NTF-1: go test -tags integration ./services/notify/... -count=1 в дереве kacho (пробы NTF4-* заводятся этим изменением)"
-    predicate: подавление при отправке, снятие подавления на внутреннем слушателе и точные потолки notice зелёные (стадии S2–S4)
+    executable: 'ЗАВОДИТСЯ NTF-1: go test -tags integration ./services/notify/... -count=1 в дереве kacho (пробы NTF4-* заводятся этим изменением)'
+    predicate: 'приём обратной связи, подавление при отправке, снятие подавления, DNS и подпись, ротация и наблюдаемость зелёные (DoD §10, стадии S1–S3, S5–S7)'
     evidence_coordinate: evidence/prod-notify-suppression/
     note: >-
-      Производителя в дереве нет; до его появления исход держателя —
-      «не выполнилось», и он НЕ вычитается из вердикта.
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 
   prod-notify-lint:
     kind: machine
     owner: integration-tester
-    executable: "make lint (дерево kacho)"
-    predicate: линтер и gosec зелёные по дереву notify
+    executable: 'ЗАВОДИТСЯ NTF-1: make -C services/notify lint и govulncheck ./services/notify/... в дереве kacho'
+    predicate: 'линтер, gosec и govulncheck зелёные по дереву notify числом исполненного (DoD §10, общее)'
     evidence_coordinate: evidence/prod-notify-lint/
+    note: >-
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
+
+  prod-ci-local:
+    kind: machine
+    owner: integration-tester
+    executable: 'scripts/ci-local.sh proto go (дерево kacho)'
+    predicate: 'proto/kacho/cloud/notify/v1 проходит buf lint и buf breaking (DoD §10, S3 п.1)'
+    evidence_coordinate: evidence/prod-ci-local/
+
+  prod-notify-rollout-render:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: bash deploy/tests/helm/notify-rollout-and-secret-mount-test.sh (дерево kacho)'
+    predicate: 'рендер-гейт ротации и монтирования секрета зелёный на всех цепочках (DoD §10, S6 п.2)'
+    evidence_coordinate: evidence/prod-notify-rollout-render/
+    note: >-
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
+
+  sev-notify-feedback-e2e:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: сквозные пробы на стенде П1 через assert-suites-green.sh (дерево kacho)'
+    predicate: 'сквозные NTF4-16, 17, 41, 56…59, 70, 71, 74 зелёные числом исполненного (DoD §10, S2, S5–S7)'
+    evidence_coordinate: evidence/sev-notify-feedback-e2e/
+    note: >-
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 
   # ── человеческие: роль — координата, вердикт даёт внешнее событие ──
   human-acceptance:

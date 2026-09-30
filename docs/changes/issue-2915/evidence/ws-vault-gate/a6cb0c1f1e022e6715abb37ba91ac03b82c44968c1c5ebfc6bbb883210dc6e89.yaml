@@ -8,7 +8,7 @@ holder: ws-vault-gate
 kind: machine
 owner: integration-tester
 subject: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
-subject_sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260
+subject_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
 executable: './scripts/vault-gate/run-all.sh'
 predicate: 'висячих ссылок нет, оболочка записок цела, указатель свеж'
 

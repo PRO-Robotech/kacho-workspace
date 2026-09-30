@@ -1,14 +1,14 @@
-# План свидетельства держателя human-class-exposure-initial — изменение issue-2918 (NTF-3).
+# План свидетельства держателя human-class-exposure-initial — изменение issue-2919 (NTF-4).
 #
 # Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
 # ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
 schema_version: 1
-change_id: issue-2918
+change_id: issue-2919
 holder: human-class-exposure-initial
 kind: human-external
 owner: class-exposure-analyst
-subject: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
-subject_sha256: 8a3165ccf3140ba3695dc8fc7602a9f2bb62fbdb414996222210b2f535662b70
+subject: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+subject_sha256: 97046469633dae98397d18bcaa187e19072f1a43552a68ca08148848c09b5c01
 executable: 'внешнее review event на отпечаток приёмки'
 predicate: 'перечень классов дефектов, которые изменение может задеть, назван и сохранён'
 
@@ -22,4 +22,4 @@ stderr_digest: null
 # Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
 # NOT_EXECUTED, а не «наверное прошло».
 note: >-
-  вердикт выпускает внешнее событие на этот отпечаток; события нет
+  первичного разбора на этот отпечаток нет; прежний — docs/changes/issue-2919/reviews/class-exposure/initial/7d036fa6be6def81a6a7bdb2106d8e45ee05faa7a7634fb9898b4a0f61f9c552.yaml (на редакцию 7d036fa6…, исход «вернуть-в-приёмку» (RA-01…RA-05))

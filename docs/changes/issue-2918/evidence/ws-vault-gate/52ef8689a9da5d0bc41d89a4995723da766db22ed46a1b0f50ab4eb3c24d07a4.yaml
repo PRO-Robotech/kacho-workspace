@@ -1,0 +1,25 @@
+# План свидетельства держателя ws-vault-gate — изменение issue-2918 (NTF-3).
+#
+# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+schema_version: 1
+change_id: issue-2918
+holder: ws-vault-gate
+kind: machine
+owner: integration-tester
+subject: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+subject_sha256: 52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4
+executable: './scripts/vault-gate/run-all.sh'
+predicate: 'висячих ссылок нет, оболочка записок цела, указатель свеж'
+
+# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
+captured_category: null
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
+# NOT_EXECUTED, а не «наверное прошло».
+note: >-
+  прогон по этому отпечатку не снят; его снимает владелец держателя

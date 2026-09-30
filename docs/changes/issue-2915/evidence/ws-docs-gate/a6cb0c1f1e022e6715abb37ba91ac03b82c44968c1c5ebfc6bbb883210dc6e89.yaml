@@ -1,14 +1,14 @@
-# План свидетельства держателя ws-docs-gate — изменение issue-2918 (NTF-3).
+# План свидетельства держателя ws-docs-gate — изменение issue-2915 (NTF-1).
 #
 # Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
 # ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
 schema_version: 1
-change_id: issue-2918
+change_id: issue-2915
 holder: ws-docs-gate
 kind: machine
 owner: integration-tester
-subject: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
-subject_sha256: 8a3165ccf3140ba3695dc8fc7602a9f2bb62fbdb414996222210b2f535662b70
+subject: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+subject_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
 executable: './scripts/docs-gate/run-all.sh'
 predicate: 'вердикт приёмки этого пакета читается машинно, у каждой строки Scope есть сценарий'
 

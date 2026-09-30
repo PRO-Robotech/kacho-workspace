@@ -1,4 +1,4 @@
-# Манифест изменения issue-2915 (NTF-1) — координаты, состояние, отпечатки, ссылки.
+# Манифест изменения issue-2925 (NTF-6) — координаты, состояние, отпечатки, ссылки.
 #
 # Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): наблюдаемое
 # поведение — в приёмке, чем изменение держится — в `holders.yaml`.
@@ -13,19 +13,19 @@
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
 # СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
-# Вердикт по отпечатку: CHANGES_REQUESTED, круг 2 (запись docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89.yaml).
+# Вердикт по отпечатку: CHANGES_REQUESTED, круг 3 (запись docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a.yaml).
 # Замысла (`design.md`) у изменения ещё нет — `hashes.design_sha256: null`.
 schema_version: 1
-change_id: issue-2915
+change_id: issue-2925
 lifecycle_state: ISSUE_READY
 
 coordinates:
-  issue: https://github.com/PRO-Robotech/kacho/issues/2915
-  issue_kind: feature            # метки #2915: blocked · P1 · size:XL · release:notifications · area:notify
+  issue: https://github.com/PRO-Robotech/kacho/issues/2925
+  issue_kind: feature            # метки #2925: blocked · P2 · size:L · release:notifications · area:notify
   epic: PRO-Robotech/kacho#2914
   docs_task: PRO-Robotech/kacho-workspace#880
   rules_task: PRO-Robotech/kacho-workspace#881
-  co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+  co_issues: []
   repositories:
     - repo: PRO-Robotech/kacho-workspace
       role: package-home
@@ -36,29 +36,19 @@ coordinates:
       base_ref: origin/main
       base_sha: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2
       cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… 1d42a672… → 0
-    - repo: PRO-Robotech/kaname
-      role: subject-tree
-      base_ref: origin/357
-      base_sha: 734f69fb4f7f2cadf1d3887ece90b22bf7793a0b
-      cutover_is_ancestor_of_base: null    # у репозитория нет записи в policy.yaml §1 — cutover не объявлен
-    - repo: PRO-Robotech/corelib
-      role: subject-tree
-      base_ref: origin/main
-      base_sha: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
-      cutover_is_ancestor_of_base: null    # у репозитория нет записи в policy.yaml §1 — cutover не объявлен
 
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+  acceptance_sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
   design_sha256: null
-  holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
+  holders_sha256: 6c7141100ede1c9e0bd63ed52f2250ddf15d1d73c101d99f74b93318c18c67ca
 
 links:
   policy: docs/changes/policy.yaml
   contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
-  acceptance: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
-  acceptance_reviews: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+  acceptance: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  acceptance_reviews: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/
   epic_changes:
     - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
     - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }

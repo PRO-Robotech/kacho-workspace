@@ -1,0 +1,25 @@
+# План свидетельства держателя human-class-exposure-initial — изменение issue-2925 (NTF-6).
+#
+# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+schema_version: 1
+change_id: issue-2925
+holder: human-class-exposure-initial
+kind: human-external
+owner: class-exposure-analyst
+subject: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+subject_sha256: 7a50855c08778115b47af34b0bb83f7d1f077c26091030876e42467e6c97675a
+executable: 'внешнее review event на отпечаток приёмки'
+predicate: 'перечень классов дефектов, которые изменение может задеть, назван и сохранён'
+
+# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
+captured_category: null
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
+# NOT_EXECUTED, а не «наверное прошло».
+note: >-
+  первичного разбора на этот отпечаток нет

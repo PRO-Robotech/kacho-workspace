@@ -13,7 +13,8 @@
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
 # СОСТОЯНИЕ ISSUE_READY — действующего APPROVED на текущий отпечаток приёмки нет.
-# Вердикт по отпечатку: CHANGES_REQUESTED, круг 3. Замысла (`design.md`) у изменения ещё нет.
+# Вердикт по отпечатку: CHANGES_REQUESTED, круг 9 (запись docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/97046469633dae98397d18bcaa187e19072f1a43552a68ca08148848c09b5c01.yaml).
+# Замысла (`design.md`) у изменения ещё нет — `hashes.design_sha256: null`.
 schema_version: 1
 change_id: issue-2919
 lifecycle_state: ISSUE_READY
@@ -24,6 +25,7 @@ coordinates:
   epic: PRO-Robotech/kacho#2914
   docs_task: PRO-Robotech/kacho-workspace#880
   rules_task: PRO-Robotech/kacho-workspace#881
+  co_issues: []
   repositories:
     - repo: PRO-Robotech/kacho-workspace
       role: package-home
@@ -45,23 +47,26 @@ coordinates:
       base_sha: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
       cutover_is_ancestor_of_base: null    # у репозитория нет записи в policy.yaml §1 — cutover не объявлен
 
-# Отпечатки — `sha256sum` файла в рабочем дереве ветки issue-880 на 2026-09-30.
+# Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+  acceptance_sha256: 97046469633dae98397d18bcaa187e19072f1a43552a68ca08148848c09b5c01
   design_sha256: null
-  holders_sha256: a2cf50cf9fbc6594c199eff227bf3404680e7b8dd237f3e13b91c6b319ab37e5
+  holders_sha256: 1a6f11bfc8fab7e05c278653d82bac09c0e1f497f1e6bf3a8b4eafc40bdcc5a2
 
 links:
   policy: docs/changes/policy.yaml
   contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
   acceptance: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
   acceptance_reviews: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/
+  class_exposure_initial: docs/changes/issue-2919/reviews/class-exposure/initial/7d036fa6be6def81a6a7bdb2106d8e45ee05faa7a7634fb9898b4a0f61f9c552.yaml   # на редакцию 7d036fa6…, исход «вернуть-в-приёмку» (RA-01…RA-05)
   epic_changes:
     - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
     - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }
     - { id: NTF-3, change: docs/changes/issue-2918, issue: PRO-Robotech/kacho#2918 }
     - { id: NTF-4, change: docs/changes/issue-2919, issue: PRO-Robotech/kacho#2919 }
+    - { id: NTF-5, change: docs/changes/issue-2924, issue: PRO-Robotech/kacho#2924 }
+    - { id: NTF-6, change: docs/changes/issue-2925, issue: PRO-Robotech/kacho#2925 }
     - { id: NS,    change: null, issue: PRO-Robotech/kacho#2916 }
 
 # Пусто, и это не пропуск: в ISSUE_READY реализации нет.

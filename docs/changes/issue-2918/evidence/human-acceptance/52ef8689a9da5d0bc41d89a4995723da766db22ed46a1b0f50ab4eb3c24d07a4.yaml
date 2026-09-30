@@ -8,7 +8,7 @@ holder: human-acceptance
 kind: human-external
 owner: acceptance-reviewer
 subject: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
-subject_sha256: 8a3165ccf3140ba3695dc8fc7602a9f2bb62fbdb414996222210b2f535662b70
+subject_sha256: 52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4
 executable: 'внешнее review event на отпечаток приёмки'
 predicate: 'наблюдаемое поведение описано полно, у каждого «Тогда» есть производитель, у каждого отрицания — положительный близнец'
 
@@ -22,4 +22,4 @@ stderr_digest: null
 # Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
 # NOT_EXECUTED, а не «наверное прошло».
 note: >-
-  вердикт выпускает внешнее событие на этот отпечаток; события нет
+  вердикт выпускает внешнее событие на этот отпечаток; события нет. Запись роли на этот отпечаток: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4.yaml — CHANGES_REQUESTED, круг 2

@@ -10,13 +10,16 @@
 # (`evidence/<holder>/<subject-sha256>.yaml`), вердикт по отпечатку — в записи
 # ревью роли, запись схождения выпускает `convergence-reviewer`.
 #
+# МАШИННЫЕ ДЕРЖАТЕЛИ ПРОДУКТА выведены из DoD ТЕКУЩЕЙ редакции приёмки (отпечаток —
+# `hashes.acceptance_sha256` манифеста); ссылка на пункт DoD стоит в `predicate`.
+# Правка DoD приёмки обязана перемерить этот перечень тем же заходом.
+#
 # ПРИМЕНИМЫ ВСЕ РОЛИ `review_authority`. Освобождать нечем: изменение несёт
-# приёмку, и замысел по ней обязателен (§5 SDD-1); миграции и контракты оно
-# вводит по своим сценариям; линия идёт в нескольких репозиториях, а это полосы
-# рядом. Поля освобождений (`migrations_touched`, `proto_files_touched`,
-# `lane_merges_in_change`) до голов линии числа не дают (код 2 производителя),
-# поэтому освобождение и не могло бы быть пересчитано. Строки ниже перечисляют
-# роли явно, чтобы их сверял `check-04` в обе стороны.
+# приёмку, и замысел по ней обязателен (§5 SDD-1). Поля освобождений
+# (`migrations_touched`, `proto_files_touched`, `lane_merges_in_change`) до голов
+# линии числа не дают (код 2 производителя), поэтому освобождение и не могло бы
+# быть пересчитано. Строки ниже перечисляют роли явно, чтобы их сверял `check-04`
+# в обе стороны.
 schema_version: 1
 change_id: issue-2918
 
@@ -44,7 +47,7 @@ role_applicability:
     holder: [human-post-diff-system]
   integration-tester:
     status: applicable
-    holder: [ws-docs-gate, ws-vault-gate, prod-notify-sources-census, prod-storage-notifications, prod-notify-bundle-check]
+    holder: [ws-docs-gate, ws-vault-gate, prod-corelib-journal, prod-notify-sources-census, prod-modules-notifications, prod-ci-local, prod-notify-bundle-check, sev-notify-modules-e2e]
   wave-reviewer:
     status: applicable
     holder: [human-wave]
@@ -73,32 +76,57 @@ required_holders:
     evidence_coordinate: evidence/ws-vault-gate/
 
   # ── машинные: продукт (исполняемое — из DoD приёмки; дерево названо в скобках) ──
+  prod-corelib-journal:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: go test ./subscription/... ./notify/... ./operations/... -count=1 в дереве corelib'
+    predicate: 'поля initiator, occurred_at, name в контракте события; строка resource-event и operation-failed в транзакции журнала (DoD §12.1 п.1, §12.2 п.1, §12.3 п.2)'
+    evidence_coordinate: evidence/prod-corelib-journal/
+    note: >-
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
+
   prod-notify-sources-census:
     kind: machine
     owner: integration-tester
-    executable: "ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: гейт internal/repohygiene/notifysourcesledger*.go и ведомость services/notify/sources.yaml в дереве kacho, с инъекционными парами"
-    predicate: ведомость источников notify сходится с переписью модулей в обе стороны; модуль «не подключается» не несёт файлов нотификаций (стадия S1)
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: гейт переписи источников и ведомость services/notify/sources.yaml в дереве kacho, с инъекцией в обе стороны'
+    predicate: 'ведомость источников notify сходится с переписью модулей в обе стороны; модуль «не подключается» файлов нотификаций не несёт (DoD §12.1 п.5)'
     evidence_coordinate: evidence/prod-notify-sources-census/
     note: >-
-      Производителя в дереве нет; до его появления исход держателя —
-      «не выполнилось», и он НЕ вычитается из вердикта.
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 
-  prod-storage-notifications:
+  prod-modules-notifications:
     kind: machine
     owner: integration-tester
-    executable: "go test -tags integration ./services/storage/... -count=1 (дерево kacho; пробы NTF3-* заводятся этим изменением)"
-    predicate: переход CREATING → ERROR ставит строку ленты в той же транзакции; откат не оставляет строки (стадия S2)
-    evidence_coordinate: evidence/prod-storage-notifications/
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: go test -tags integration ./services/compute/... ./services/vpc/... ./services/nlb/... ./services/registry/... ./services/storage/... -count=1 (дерево kacho; пробы NTF3-* заводятся этим изменением)'
+    predicate: 'журналы пяти модулей несут инициатора и время; лента ставится в транзакции журнала; флаг модуля без умолчания (DoD §12.1 п.2, §12.2 п.2, §12.3 п.1)'
+    evidence_coordinate: evidence/prod-modules-notifications/
+    note: >-
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
+
+  prod-ci-local:
+    kind: machine
+    owner: integration-tester
+    executable: 'scripts/ci-local.sh proto go (дерево kacho)'
+    predicate: 'контракты proto/kacho/cloud/notify/v1 проходят buf lint и buf breaking, дерево собирается (DoD §12.2 п.3)'
+    evidence_coordinate: evidence/prod-ci-local/
 
   prod-notify-bundle-check:
     kind: machine
     owner: integration-tester
-    executable: "ЗАВОДИТСЯ NTF-1: make -C services/notify bundle-check в дереве kacho"
-    predicate: шаблоны storage в обеих локалях собраны и совпадают с ведомостью сборки
+    executable: 'ЗАВОДИТСЯ NTF-1: make -C services/notify bundle-check в дереве kacho'
+    predicate: 'шаблоны всех подключённых модулей в обеих локалях собраны и совпадают с ведомостью сборки (DoD §12.1 п.5)'
     evidence_coordinate: evidence/prod-notify-bundle-check/
     note: >-
-      Производителя в дереве нет; до его появления исход держателя —
-      «не выполнилось», и он НЕ вычитается из вердикта.
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
+
+  sev-notify-modules-e2e:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: сквозные пробы стенда NTF3-38, NTF3-146…NTF3-148 и новые коллекции newman через assert-suites-green.sh (дерево kacho)'
+    predicate: 'сквозные зелёные числом исполненного; у новых коллекций есть запись ведомости производителя (DoD §12.3 п.5)'
+    evidence_coordinate: evidence/sev-notify-modules-e2e/
+    note: >-
+      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 
   # ── человеческие: роль — координата, вердикт даёт внешнее событие ──
   human-acceptance:

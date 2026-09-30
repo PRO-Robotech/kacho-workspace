@@ -1,4 +1,4 @@
-# Точное множество требуемых держателей изменения issue-2915 (NTF-1, эпик kacho#2914).
+# Точное множество требуемых держателей изменения issue-2925 (NTF-6, эпик kacho#2914).
 #
 # Форма ключей — по образцу `docs/changes/standalone-iam/holders.yaml`; её не
 # задаёт ни приёмка SDD-1, ни испытуемый контура.
@@ -21,7 +21,7 @@
 # быть пересчитано. Строки ниже перечисляют роли явно, чтобы их сверял `check-04`
 # в обе стороны.
 schema_version: 1
-change_id: issue-2915
+change_id: issue-2925
 
 role_applicability:
   acceptance-reviewer:
@@ -47,7 +47,7 @@ role_applicability:
     holder: [human-post-diff-system]
   integration-tester:
     status: applicable
-    holder: [ws-docs-gate, ws-vault-gate, prod-ci-local, prod-corelib-notify, prod-kaname-notification-model, prod-notify-bundle-check, sev-ns-issuance, sev-newman-notify-delivery, sev-notify-prod-boot]
+    holder: [ws-docs-gate, ws-vault-gate, prod-console-notify-unit, prod-console-deploy-gates, prod-console-chart-render, sev-console-e2e]
   wave-reviewer:
     status: applicable
     holder: [human-wave]
@@ -76,64 +76,37 @@ required_holders:
     evidence_coordinate: evidence/ws-vault-gate/
 
   # ── машинные: продукт (исполняемое — из DoD приёмки; дерево названо в скобках) ──
-  prod-ci-local:
+  prod-console-notify-unit:
     kind: machine
     owner: integration-tester
-    executable: 'scripts/ci-local.sh proto go (дерево kacho)'
-    predicate: 'контракт proto/corelib/notify проходит buf lint и buf breaking, стабы порождаются воспроизводимо (DoD §8 п.6)'
-    evidence_coordinate: evidence/prod-ci-local/
-
-  prod-corelib-notify:
-    kind: machine
-    owner: integration-tester
-    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: go test ./notify/... ./grpcsrv/... ./authz/... -count=1 в дереве corelib (пакета notify на 34bc810 нет)'
-    predicate: 'пробы NTF1-A, B, C03–C06, D, M01–M06, M09, N05–N07, N09 зелёные; notify/ corelib не зависит от net/smtp, mime/multipart, html/template (DoD §8 пп.7, 9)'
-    evidence_coordinate: evidence/prod-corelib-notify/
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: npm ci --prefix notify && npm run typecheck && npm test в ui-future/notify (дерево kacho)'
+    predicate: 'модульные пробы модуля и хоста зелёные с напечатанным числом исполненного; гейты единого источника и вывода HTML называют notify (DoD §9 пп.1–2, 10–11)'
+    evidence_coordinate: evidence/prod-console-notify-unit/
     note: >-
       Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 
-  prod-kaname-notification-model:
+  prod-console-deploy-gates:
     kind: machine
     owner: integration-tester
-    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: go test ./... -count=1 и go run ./tools/modelcanoncheck в дереве kaname (пробы NTF1-F* заводятся этим изменением)'
-    predicate: 'пробы NTF1-F01…F22, M07, M10, J03 зелёные; модель несёт service, notification_feed, notification_namespace (DoD §8 пп.10–11)'
-    evidence_coordinate: evidence/prod-kaname-notification-model/
+    executable: 'go test ./ui-future/deploy/ -run ''ConsoleMailSaysSentNeverDelivered|ConsoleRefusalReasonCoverage'' -count=1 (дерево kacho)'
+    predicate: 'гейты печатают файлы ui-future/notify/src/** в переписи и сходятся со словарём отказов (DoD §9 пп.4, 12)'
+    evidence_coordinate: evidence/prod-console-deploy-gates/
+
+  prod-console-chart-render:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: пара проб рендера зонтика в ui-future/deploy/ с global.kacho.notifications.enabled false и true (дерево kacho)'
+    predicate: 'признак консоли совпадает с рендером notify по всем цепочкам deploy/stacks.txt; пустой обход — красный (DoD §9 п.8)'
+    evidence_coordinate: evidence/prod-console-chart-render/
     note: >-
       Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 
-  prod-notify-bundle-check:
+  sev-console-e2e:
     kind: machine
     owner: integration-tester
-    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: make -C services/notify bundle-check и make -C services/notify lint в дереве kacho (services/notify на 1d42a672 нет)'
-    predicate: 'эталоны .eml и превью совпадают с ведомостью сборки; линтер и gosec зелёные (DoD §8 п.13)'
-    evidence_coordinate: evidence/prod-notify-bundle-check/
-    note: >-
-      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
-
-  sev-ns-issuance:
-    kind: machine
-    owner: integration-tester
-    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: пробы NTF1-J01, J02, J04 на поднятом кластере и гейт рендера NTF1-J05 (дерево kacho, kacho#2916)'
-    predicate: 'идентичность в сертификате выпускается только своей службе (DoD §8 п.14)'
-    evidence_coordinate: evidence/sev-ns-issuance/
-    note: >-
-      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
-
-  sev-newman-notify-delivery:
-    kind: machine
-    owner: integration-tester
-    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: коллекция newman notify-delivery через assert-suites-green.sh (дерево kacho)'
-    predicate: 'сквозные NTF1-C02, N01…N04, N08, I01…I06, K01…K03, L01…L05 зелёные числом исполненного; коллекция внесена в ведомость производителя (DoD §8 пп.15–16)'
-    evidence_coordinate: evidence/sev-newman-notify-delivery/
-    note: >-
-      Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
-
-  sev-notify-prod-boot:
-    kind: machine
-    owner: integration-tester
-    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: helm install + ожидание готовности цепочки dev-prod с notify и notify-probe (дерево kacho)'
-    predicate: 'установка с notify поднимается в боевой посадке, а не только рендерится (DoD §8 п.17)'
-    evidence_coordinate: evidence/sev-notify-prod-boot/
+    executable: 'ЗАВОДИТСЯ ЭТИМ ИЗМЕНЕНИЕМ: notifications-center.spec.ts, notifications-settings.spec.ts, notifications-contacts.spec.ts против стенда G0 (дерево kacho)'
+    predicate: 'исполнено 21 из 21, 14 из 14, 11 из 11, красных 0; проба предпосылки стенда отдельным шагом (DoD §9 пп.3, 5, 7, 13)'
+    evidence_coordinate: evidence/sev-console-e2e/
     note: >-
       Производителя в дереве нет; до его появления исход держателя — «не выполнилось», и он НЕ вычитается из вердикта.
 

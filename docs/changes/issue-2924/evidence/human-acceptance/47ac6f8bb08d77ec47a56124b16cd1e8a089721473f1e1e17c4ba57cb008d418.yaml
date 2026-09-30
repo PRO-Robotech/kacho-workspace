@@ -1,14 +1,14 @@
-# План свидетельства держателя human-acceptance — изменение issue-2919 (NTF-4).
+# План свидетельства держателя human-acceptance — изменение issue-2924 (NTF-5).
 #
 # Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
 # ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
 schema_version: 1
-change_id: issue-2919
+change_id: issue-2924
 holder: human-acceptance
 kind: human-external
 owner: acceptance-reviewer
-subject: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
-subject_sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+subject: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+subject_sha256: 47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418
 executable: 'внешнее review event на отпечаток приёмки'
 predicate: 'наблюдаемое поведение описано полно, у каждого «Тогда» есть производитель, у каждого отрицания — положительный близнец'
 
@@ -22,4 +22,4 @@ stderr_digest: null
 # Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
 # NOT_EXECUTED, а не «наверное прошло».
 note: >-
-  вердикт выпускает внешнее событие на этот отпечаток; события нет
+  вердикт выпускает внешнее событие на этот отпечаток; события нет. Запись роли на этот отпечаток: docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/47ac6f8bb08d77ec47a56124b16cd1e8a089721473f1e1e17c4ba57cb008d418.yaml — CHANGES_REQUESTED, круг 2
