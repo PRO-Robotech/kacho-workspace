@@ -51,7 +51,9 @@
 # (коммит bb98fdadc; к замыслу CX1-77, CX1-78; к коду CX1-79, CX1-80).
 # Редакция 15 замысла (2026-09-30, отображение CX1-77…80 по Д44: одна ручка notify.smtp.connectionURI из узла
 # global.kacho.identity.smtp.connectionURI) — вердикта и пересверки на новый отпечаток нет.
-# Маршрут работ — `tasks.md` редакции 16 (проект, Д44 — полосы N13, D1; TASKS_READY им не объявлено).
+# Редакция 16 замысла (2026-09-30, решения диспетчера Д45, Д46: производитель строки чарта и проверки пары — NTF-1;
+# `required` узла на рендере, узел стенда fe3455 — приёмник в кластере) — вердикта и пересверки на новый отпечаток нет.
+# Маршрут работ — `tasks.md` редакции 17 (проект, Д45, Д46 — полосы N13, D1, D2; TASKS_READY им не объявлено).
 schema_version: 1
 change_id: issue-2915
 lifecycle_state: ISSUE_READY
@@ -88,7 +90,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
-  design_sha256: 82486131f806eaa8731d9bc749b318f60d22dfe81f3c3e3b2b3d997d5e8e86db
+  design_sha256: 2003c8e22ab2bba23137c295282b69656ae8f2b8d782a76786edbdb63242be88
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:
