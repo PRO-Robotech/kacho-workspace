@@ -1,0 +1,181 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 97046469633dae98397d18bcaa187e19072f1a43552a68ca08148848c09b5c01
+  revision: 9
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке. Одобрение редакции 6 (7d036fa6…) к редакции 9 не переходит.
+  base_commit: 4c4b0cb6
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2459
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T05:00:00Z'
+round: 9
+round_note: >-
+  Девятый круг документа; третий круг прохода по разбору классов RA-01…RA-05 (круги 7 и 8 —
+  первый и второй).
+previous_rounds:
+  - {round: 1, sha256: a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282, verdict: CHANGES_REQUESTED, blocking_count: 4}
+  - {round: 2, sha256: 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506, verdict: CHANGES_REQUESTED, blocking_count: 2}
+  - {round: 3, sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba, verdict: CHANGES_REQUESTED, blocking_count: 2}
+  - {round: 4, sha256: 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c, verdict: CHANGES_REQUESTED, blocking_count: 2}
+  - {round: 5, sha256: eed9a22230226645478b3e95584eb5cd8021a32dfeb24061e260f6cfbc69a65e, verdict: CHANGES_REQUESTED, blocking_count: 1}
+  - {round: 6, sha256: 7d036fa6be6def81a6a7bdb2106d8e45ee05faa7a7634fb9898b4a0f61f9c552, verdict: APPROVED, blocking_count: 0}
+  - {round: 7, sha256: 080d4997ba81bff000bba2032d64b1af694b7dcda9df851cb7216c7a5252491e, verdict: CHANGES_REQUESTED, blocking_count: 1}
+  - {round: 8, sha256: 451ba5ef16ac0a3684e591a5fa2028d349d632ca2550843e20bcd798ecf4a37b, verdict: CHANGES_REQUESTED, blocking_count: 1,
+     record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/451ba5ef16ac0a3684e591a5fa2028d349d632ca2550843e20bcd798ecf4a37b.yaml}
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  - id: B9-1
+    kind: CONSTRUCTIBILITY
+trend_note: >-
+  Число блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1 → 1 → 1. Род CONSTRUCTIBILITY повторён
+  третий круг подряд (7, 8, 9) на одном предмете — предсказание исхода окна восстановления по
+  моменту шага против срока кода. B8-1 закрыт по существу (длительность П4 больше не мешает);
+  B9-1 — остаток того же класса: момент, от которого предсказан исход, не тот, в который его
+  решает kaname. Для §14а: повтор рода на одном предмете в третий раз — сигнал диспетчеру
+  перенести класс в форму задания автору («исход, решаемый продуктом асинхронно, предсказывается
+  от моментов итогового запроса и наблюдённого приращения, а не от момента начала шага»).
+
+b8_1_resolution:
+  path_chosen: "(б) — оба исхода окна приняты"
+  p1_inequality: "закрыт: неравенство профиля с длительностью П4 снято; ttl — в границах NTF-2 Р8"
+  p2_moments: "закрыт: R(П2) — итоговый принятый запрос; бюджет 60 с — как в NTF-2 (N8-1 учтено)"
+  ntf4_16_existence: "закрыт: t16 существует при любой длительности П4 (промежуток [R+ttl, T+ttl) конечен)"
+  queued_branch: "верна: t16 ≥ T(П2)+ttl ⇒ решение kaname позже истечения ⇒ queued"
+  resent_same_branch: "НЕ верна — B9-1"
+  n8_2: "учтено: NTF4-15, 56, 58, 62, 63 исполняются исключительно, условие возврата названо"
+
+dispatcher_decisions_check:
+  D1: "соблюдено"
+  D2: "соблюдено"
+  D3: "соблюдено"
+  D4: "соблюдено"
+  D5: "соблюдено"
+  D6: "соблюдено"
+  D7: "соблюдено: флаг почты kaname true в П1 — Given"
+  D8: "соблюдено"
+  D9: "соблюдено"
+  D10: "вне предмета NTF-4"
+  D11: "соблюдено: окно kaname и лестница края — Given NTF-2, не ослаблены; порог «без проверки» профилем не поднимается"
+  D12: "соблюдено"
+  D13: "соблюдено: сквозная часть S2 и NTF4-24 стоит на одобрении NTF-2"
+  dispute_lines: "строк спора с Д1–Д13 нет, отступлений не найдено"
+
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 4c4b0cb6
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Событие фиксирует возврат на отпечаток и публикуется курьером; его тело —
+    в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 9, блокирующих 1: CONSTRUCTIBILITY) ·
+    SHA-256 97046469633dae98397d18bcaa187e19072f1a43552a68ca08148848c09b5c01
+
+measurement:
+  revisions_used:
+    workspace_copy: issue-880@4c4b0cb6
+    neighbour_ntf1_sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89
+    neighbour_ntf2_sha256: 33e199c9ce4e4e19d3b183db98e36c0270529ebcb21915be0e9348c6d4f44078
+  predicates_reproduced:
+    - "sha256sum документа → 97046469…5c01 (совпадает с заданием)"
+    - "sha256sum рабочих файлов NTF-1 и NTF-2 → a6cb0c1f… и 33e199c9… — совпадают с закреплёнными в шапке"
+    - "NTF-2 33e199c9…, §Р6 (строка 483): «Ответ и время ответа одинаковы: чтение адреса и постановка идут вне пути ответа (NTF2-67)» — решение kaname о повторе кода принимается после ответа глагола"
+    - "П1 (строка 1031): «Порог «без проверки» профилем не поднимается»; NTF4-16 (строки 1352–1353): итоговый ответ берётся после решения вызова PoW — итоговый запрос шага может уйти позже t16"
+    - "гигиена: 'tmp/' → 0; 'не закоммичен'/'незакоммичен' → 0; трейлеров атрибуции → 0; имён чужих облаков и почтовых служб → 0 (вхождения 'google' — google.api.http и google.rpc.Status); утверждения, что пакет изменения не заводится, нет"
+  scenario_census:
+    predicate: "grep -c '^\\*\\*ID:\\*\\* NTF4-' документа → 87 (плюс строки таблиц; 34–39 сняты З12)"
+    note: "перечень сценариев против круга 8 не менялся; правка редакции 9 — моменты шагов 16/17/24, П1, П2, §1.2, §8, DoD"
+  producer_coverage:
+    method: "строки §8 (grep '^| [0-9]' в пределах §8 → 28 групп плюс строка держателя Р16)"
+    note: "без изменений против круга 8 (96 из 96)"
+  knobs:
+    predicate: "grep -c '^  | `KACHO_NOTIFY' документа → 27"
+  twin_coverage:
+    note: "у каждого отрицательного сценария назван близнец; NTF4-16↔17 отличаются одним фактом (запись подавления)"
+  constructibility:
+    seeded: 0
+    of: 96
+    not_executed: 96
+    reason: >-
+      Стенда и разрешения на посев в задании нет — «не выполнилось», в зелёное не зачитывается.
+      Конструируемость судилась чтением Given против закреплённых редакций NTF-1 и NTF-2; на этом
+      пути найден B9-1.
+
+premise_check:
+  premise: "редакция 9 закрывает B8-1 путём (б) и исправляет класс по всему документу"
+  result: >-
+    подтверждена в части существования момента шага и ветки `queued`; опровергнута в ветке
+    `resent_same`: предсказание от момента начала шага не держится, потому что kaname решает
+    исход позже — после решения вызова PoW и вне пути ответа (B9-1).
+
+blocking_findings:
+  - id: B9-1
+    kind: CONSTRUCTIBILITY
+    anchors: [NTF4-16, NTF4-17, NTF4-24, П2, §1.2, §8 строка 16–17, DoD S2 п.1]
+    summary: >-
+      Ожидаемый исход окна печатается до шага и выводится из момента НАЧАЛА шага:
+      «`resent_same`, если t16 < R(П2) + ttl» (и так же t17, «t24 раньше R_K + ttl»). Но жив ли код,
+      kaname решает не в t16: (1) итоговый запрос шага уходит после решения вызова PoW — П1
+      порог «без проверки» не поднимает, и NTF4-16 сам принимает итоговый ответ после PoW; (2) по
+      NTF-2 (33e199c9…, строка 483, NTF2-67) чтение адреса и постановка идут вне пути ответа, то
+      есть решение принимается и после ответа глагола, вплоть до наблюдённого приращения t16'.
+      Гарантия П2 «код жив в момент раньше R(П2) + ttl» относится к моменту решения kaname, а
+      применена к t16. Ветка `queued` верна (решение позже t16 ≥ T + ttl), ветка `resent_same` —
+      нет.
+    failure_scenario: >-
+      Окончание П4 — R(П2) + ttl − 5 с; t16 = это значение (вне [R+ttl, T+ttl), ≥ T + first-pause),
+      проба печатает ожидание `resent_same`. Край отвечает 429 PROOF_OF_WORK_REQUIRED, клиент
+      решает вызов за 3 с, итоговый запрос уходит в R(П2) + ttl − 2 с; kaname отвечает 200 {} и
+      ставит строку вне пути ответа через 4 с — в R(П2) + ttl + 2 с. Код П2 отчеканен в
+      R(П2) + 0,1 с и истёк в R(П2) + ttl + 0,1 с, поэтому kaname чеканит новый: `queued` +1,
+      `resent_same` +0. «Тогда» («вырос ровно на 1 по напечатанному ожидаемому исходу») красный
+      на исправном продукте. То же — в NTF4-17 (и ложная сверка «код тот же, что в письме П2») и в
+      третьем запросе NTF4-24.
+    required: >-
+      Исход определять от моментов, которые ограничивают решение kaname, а не от начала шага:
+      решение лежит в [R16, t16'], где R16 — отправка итогового принятого запроса шага, t16' —
+      момент, когда проба заметила приращение. `resent_same` определён, если t16' < R(П2) + ttl;
+      `queued` определён, если R16 ≥ T(П2) + ttl; иначе исход моментами не определён. Одно из двух,
+      по выбору автора: (а) ставить шаг только в определимую ветку `queued` — t16 не раньше
+      max(T(П2) + ttl, T(П2) + first-pause, окончание П4); ветка всегда определена, так как
+      R16 ≥ t16; либо (б) сохранить обе ветки, но печатать R16 и t16' и утверждать исход ПОСЛЕ
+      шага: определённый — ровно он +1, другой +0; неопределённый — сумма `resent_same` +
+      `queued` ровно +1, `cooldown`/`capped` +0, а сверка кода в письме NTF4-17 — по фактическому
+      исходу. Тем же правилом — t17, t24 (с R_K, T_K), строка «пока код жив» §1.2, П2 («заведомо
+      жив» — о моменте решения kaname), строка 16–17 §8 и DoD S2 п.1 («ожидаемый напечатан до
+      шага»). Утверждения о подавлении (SUPPRESSED +1, SENT +0, письма нет) от выбора не зависят.
+
+non_blocking_findings: []
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
