@@ -1,0 +1,215 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d
+  revision: 9
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа говорит DRAFT и сама указывает, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: bc3af0c803bc1f8bfcf62e39fd2c522848a885e0
+  content_commit: 4fa0f7e81294cc4eeb2b94a9112aadfe1e4deeec
+  content_commit_note: >-
+    Редакция 9 внесена коммитом 4fa0f7e81. Привязка — только отпечаток: после любой правки документа
+    нужно новое рассмотрение.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3459
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T04:08:28Z'
+round: 3
+round_note: >-
+  Круг 3 прохода «Д14–Д16»: решения диспетчера Д1–Д13 действуют без изменений, к ним добавлены Д14,
+  Д15, Д16. Редакция 9 отвечает на круг 2 этого прохода (отпечаток f0cfd653…).
+previous_rounds:
+  - round: 1
+    pass: first
+    sha256: 4a6b9c143167284eb2660ce86629bf31f2fc459533ead0b97674870ea6011e6a
+    verdict: CHANGES_REQUESTED
+    blocking_count: 6
+  - round: 2
+    pass: first
+    sha256: 93a0d164db9fedfa5f78dd83e557113ddfcc4c9b494c6e46dea0d439ea87a703
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+  - round: 3
+    pass: first
+    sha256: 0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8
+    verdict: APPROVED
+    blocking_count: 0
+  - round: 1
+    pass: Д1–Д13
+    sha256: 301c23dc40c1892597c61b4b684eaaf4da5ab741c68620751643ecd76ccaa552
+    verdict: CHANGES_REQUESTED
+    blocking_count: 7
+  - round: 2
+    pass: Д1–Д13
+    sha256: 52ef8689a9da5d0bc41d89a4995723da766db22ed46a1b0f50ab4eb3c24d07a4
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+  - round: 1
+    pass: Д14–Д16
+    sha256: 62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/62d42441f6e7619eeb4fb58bf77121be518e35ef84b2ba6579b72abc43f98fe8.yaml
+  - round: 2
+    pass: Д14–Д16
+    sha256: f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/f0cfd65373d869e7af796d3eaed58f1c2db9d0d2e72848fd1ced438d147fb493.yaml
+blocking_count: 2
+blocking_kinds_distinct: [NEGATIVE, TWIN]
+blocking_kinds_by_item:
+  - B3-1 NEGATIVE
+  - B3-2 TWIN
+repeated_kinds:
+  - kind: NEGATIVE
+    note: >-
+      Род NEGATIVE повторяется третий круг подряд (B1-2 → B2-1 → B3-1). Каждый раз это один класс:
+      отказ на входе справочника, который записан в решении, но не имеет сценария. Редакция 9 сузила
+      класс до «обязательного поля» и закрыла его. Но соседний отказ того же шага проверки входа Р7 —
+      «ссылок 0» — остался без держателя. Число блокирующих не падает: 1 → 2. Второй пункт — не новый
+      класс. Это отказы 101 ссылки и смеси типов в том же NTF3-118: они существовали и раньше, прежние
+      круги их не заметили. По §14а класс переносится в форму задания автора, формулировку см. в
+      `author_task_form_candidate`.
+author_task_form_candidate: >-
+  Автор перечисляет каждый отказ, который вводит решение (Р7 и прочие: каждое «— INVALID_ARGUMENT с
+  полем X»), и для каждого показывает три вещи: букву сценария, строку §10 с близнецом по одному факту
+  и производителя в §11. Перечень составляется из текста решений, а не из заголовка правки.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac bc3af0c80 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: bc3af0c803bc1f8bfcf62e39fd2c522848a885e0
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Отказ полномочий не выдаёт и ничего не открывает. Тело события для курьера
+    лежит в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3 прохода Д14–Д16, блокирующих 2: NEGATIVE, TWIN) · SHA-256
+    538b4d3ff9219d71be1aaa7d8ed48623f8907d8d1184cb47b5c88e1d72b1122d
+
+measurement:
+  scenarios_numbers: 158
+  scenarios_removed: [8, 41, 42, 44, 45, 123, 124]
+  scenarios_live: 151
+  duplicate_ids: 0
+  number_gaps: 0
+  producer_rows_missing: 0
+  producer_predicate: >-
+    python3: номера берутся из первого столбца каждой строки §11 (строки 3272–3337), диапазоны «a..b»
+    раскрываются и сверяются с живыми номерами «**ID:** NTF3-N». Сценариев без производителя — 0.
+  hygiene_predicate: >-
+    grep -icE 'tmp/|не закоммич|yandex|\baws\b|\bgcp\b|azure|google cloud' по документу → 0;
+    grep 'kacho-workspace/tmp\|/home/' → 0
+  refusal_census: >-
+    python3: из решений §2.2 (строки 422–1419) выбраны поля отказов (формы «полем `X`», «поле `X`» и
+    «`X: required`/`X: must…`»), каждое найдено в §9 (строки 1420–3108). Все 20 полей имеют
+    попадание, три — через индексную форму (`resource_refs[0].id`, `resource_refs[0].type`,
+    `entries[0].state`). Перепись по полям не видит отказов по ЧИСЛУ. Поэтому ручной обход строк 549–550
+    Р7: «отношение не v_get» держит NTF3-29 (строка §10 есть). «Ссылок больше 100» и «смесь типов» —
+    буквы When NTF3-118 без близнеца и без строки §10. «Ссылок 0» не держит ни один сценарий:
+    grep `resource_refs=\[\]` и «ссылок 0» / «0 ссылок» по §9 → 0.
+  recording_checker_check: >-
+    Образец из §11 существует: `recordingChecker`, internal/apps/kaname/api/user/invite_authz_test.go:18
+    kaname @734f69fb4 (git show). Это подмена порта проверки на уровне сценария использования, а не
+    перехватчика двери.
+  neighbour_revisions_compared:
+    - path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+      sha256: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3
+      note: >-
+        sha256sum в рабочем дереве совпадает с отпечатком §1.12. Это принятая редакция 8.
+    - path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+      sha256: 7916badfdad570ba3bc5cd50e797d365dd192c0d68e15365b12907f2576c71f1
+      note: >-
+        Рабочая копия NTF-6 изменена и не закоммичена (чужая правка в ветке), поэтому её отпечаток
+        расходится с d5fe4734 из §1.12. Для NTF-3 это не блокирующее: NTF-6 — потребитель (Д15). После
+        одобрения NTF-3 переводится на итоговый отпечаток.
+  tree_revisions: kacho 1d42a6728bf · kaname 734f69fb4 · corelib 34bc8104a
+
+premise_check:
+  seeded: 0
+  seeding_note: >-
+    Посевов не было: в дереве нет ни notify, ни справочника, стенд заданием не назван. Новые буквы
+    NTF3-118 (а)–(д), NTF3-120 (а)–(в) и NTF3-122 (а)–(в) отвергаются синхронной проверкой входа до
+    посева. Их Given — это Given базовых вызовов NTF3-23, NTF3-120 и NTF3-122, а конструируемость тех
+    уже проверена в прошлых кругах. Это исход «не выполнилось», а не «зелёный».
+  confirmed:
+    - "B2-1 закрыт: Р7 шаг (1) называет отказы `namespace`, `audience`, `subject` (при resource/self, включая `user:`), `resource_refs[i].id` и `audience.account_owner.account_id`, шаг (2) — `subject` при account_owner. Держатели — NTF3-118 (а)–(д) и NTF3-120 (а)–(в) плюс «без аудитории». У каждой буквы есть строка §10 (строки §10 93–97 и соответствующие строки NTF3-120). Производитель назван в §11 (строка 3317), держатель — в DoD 12.2. Строка INVALID_ARGUMENT таблицы отказов называет отказ по обязательности."
+    - "ListExpiringCredentials: обязательные границы и пустое окно — NTF3-122 (а)–(в), у каждой буквы близнец."
+    - "Неблокирующие круга 2 выполнены: §1.12 переведён на NTF-1 @b347b81f (отпечаток совпадает с деревом). У NTF3-151 появилась точная пара `Check {user:usr-ca, reader, notification_recipient_directory:root}` → false на месте Д-3."
+    - "Д14: семь мест Д-1…Д-7 (check, verdict, verdictForRelation, resolveRun ×2, checkAdapter.Check, AllowsVerb) по-прежнему названы в §1.12, строка 368, и в Р28, строки 1138–1139. BatchCheck назван методом AuthorizeService, а не внутреннего сервиса (строки 1234–1235)."
+    - "Д15: без изменений против круга 2. Д16: файла нет ни в main, ни в origin/main (git ls-tree | grep -c → 0)."
+  refuted:
+    - "Заголовок редакции 9 утверждает, что класс закрыт по «всем обязательным полям входа справочника». Отказ «ссылок 0» того же шага проверки входа Р7 (строка 550) не держит ни один сценарий (B3-1)."
+
+blocking_findings:
+  - id: B3-1
+    kind: NEGATIVE
+    title: Отказ Resolve на пустом списке resource_refs записан в Р7, но ни один сценарий его не держит
+    where: "Р7, строки 549–550 («ссылок 0 или больше 100, смесь типов — INVALID_ARGUMENT с полем resource_refs»); NTF3-118; §10; §11 строка 3317"
+    finding: >-
+      Р7 ограничивает `resource_refs` диапазоном [1..100], и отказ на нуле ссылок — это отказ
+      обязательности набора. В §9 нет вызова с `resource_refs=[]`. Без держателя TDD-реализация этот
+      отказ не породит. Цикл по пустому набору не найдёт ни одной видимой ссылки и вернёт
+      `AUDIENCE_DENIED` («ни одна ссылка не видна»). Это тот самый исход, «неотличимый от законного»,
+      против которого Р7 вводит шаг (1). Класс тот же, что у B2-1, соседняя клетка.
+    fix: >-
+      Добавить в NTF3-118 букву (е): `resource_refs=[]` при базовом вызове → INVALID_ARGUMENT, поле
+      `resource_refs`; не AUDIENCE_DENIED, 0 вопросов к модели. Близнец — базовый вызов
+      `[{storage_volume, vol-1}]` → ADDRESS. Добавить строку §10. В §11 и DoD 12.2 п.4 дописать
+      нижнюю границу. Отказ записать в шаг (1) порядка проверки входа, раз это обязательность.
+  - id: B3-2
+    kind: TWIN
+    title: У отказов NTF3-118 «101 ссылка» и «смесь типов» нет близнеца и нет строки §10
+    where: "NTF3-118, When/Then (второй и третий вызовы); §10 (есть только строка NTF3-118 (vol-20))"
+    finding: >-
+      Строка «And близнец» у NTF3-118 — это `resource_refs=[vol-20]` → AUDIENCE_DENIED, близнец первого
+      вызова. У двух отрицаний того же сценария (101 ссылка → INVALID_ARGUMENT и смесь
+      `storage_volume`+`storage_snapshot` → INVALID_ARGUMENT) положительного близнеца по одному факту нет,
+      и в §10 для них строки нет. Отказ на 101 без утверждения, что 100 принимается, неотличим от
+      отказа на любом числе больше 3: граница [1..100] остаётся непроверенной сверху. Отказ на смеси
+      без близнеца того же типа неотличим от отказа на `storage_snapshot` как таковом.
+    fix: >-
+      Добавить (или оформить буквами) пару для 101: 100 ссылок `storage_volume` → ADDRESS, против 101 →
+      INVALID_ARGUMENT `resource_refs`. Для смеси: `[{storage_volume, vol-1}, {storage_snapshot,
+      snp-1}]` → INVALID_ARGUMENT; близнец `[{storage_volume, vol-1}, {storage_volume, vol-2}]` →
+      ADDRESS. Если `snp-1` в Given отсутствует, его нужно засеять — иначе близнец `[{storage_snapshot,
+      snp-1}]` не строится. Для каждого — строка §10.
+
+non_blocking_findings:
+  - "NTF3-118 и NTF3-120: «0 вопросов к модели» и «1 вопрос за базовый» верны, только если записывающая подмена стоит на порту сценария использования Resolve (так устроен образец recordingChecker). Право вызывающего `Check(service:notify, reader, notification_recipient_directory:root)` задаётся той же дверью. Если подмена встанет на всю дверь, базовый вызов даст 2 вопроса, а буквы — по 1. Одна фраза «счёт — по порту сценария использования, проверку права вызывающего перехватчиком не считаем» снимает двусмысленность."
+  - "NTF3-151, точная пара: вместе с типом меняются отношение (reader/token_issuer) и id объекта (root/usr-A). Это неизбежно, отношения у разных типов свои. Строку §10 стоит писать как «тип объекта вместе с его отношением», а не «тип объекта»."
+  - "§1.12 держит NTF-6 @d5fe4734. В рабочей копии ветки NTF-6 изменена и не закоммичена (sha256 7916badf…). Перевести NTF-6 на итоговый отпечаток NTF-3 после одобрения (Д15)."
+
+method_verdict: >-
+  B2-1 закрыт классом «обязательное поле»: пять полей Resolve и границы ListExpiringCredentials,
+  каждое с буквой, близнецом, строкой §10 и производителем. Счёт 158/7/151 сходится, у каждого живого
+  сценария есть строка §11, гигиена 0. Д14–Д16 соблюдены. Возврат узкий, и все его пункты — в одном
+  сценарии NTF3-118 на том же шаге проверки входа Р7. Первый: нижняя граница «ссылок 0» без
+  держателя, отсюда исход AUDIENCE_DENIED, неотличимый от законного. Второй: у отрицаний «101» и
+  «смесь» нет близнецов. Правка — две-три буквы и три строки §10, новых номеров не нужно.
