@@ -1,0 +1,273 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: eed9a22230226645478b3e95584eb5cd8021a32dfeb24061e260f6cfbc69a65e
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: 854d0eb43510f4ae0be5d220edcaa27ae50fa3ef
+  content_commit: 5662ad8a
+  content_commit_note: >-
+    Редакция 5 внесена коммитом 5662ad8a; на базе 854d0eb4 отпечаток тот же
+    (git show HEAD:<док> | sha256sum → eed9a222…). Вердикт держится только на отпечатке.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1863
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T01:59:08Z'
+round: 5
+round_note: >-
+  Пятый круг документа; второй круг прохода, сверяющего редакцию с решениями диспетчера Д1–Д13.
+previous_rounds:
+  - round: 1
+    sha256: a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/a8243cee92982513438a58cdbc2c8c69ef091343fab883419d4e358d0c80a282.yaml
+  - round: 2
+    sha256: 818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/818c79c7cc90d3fa3aaf1d0343f192fcf1e4998abd261f49a4457c42622fa506.yaml
+  - round: 3
+    sha256: af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/af9b6c40bfd4b97fa60c47cf066e00e93e779a9a44743a4315e6bec5d38e8aba.yaml
+  - round: 4
+    sha256: 0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+    record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/0927cf65ce2a6bfe8e52c4d0f1248164fb971048f10a68a179c8d9d048d4ed6c.yaml
+blocking_count: 1
+blocking_kinds_distinct: [COVERAGE]
+blocking_kinds_by_item:
+  - B5-1 COVERAGE
+repeated_kinds_note: >-
+  COVERAGE был в кругах 1 и 4, но предмет другой. В круге 4 это была разная причина на одном
+  ключе, теперь — поверхность маршрута операций notify. Блокирующих: 4 → 2 → 2 → 2 → 1, впервые
+  убывает. Класс B5-1 — следствие выбора пути через край (B4-1): производитель назван, но
+  не прослежено, где ещё этот производитель действует.
+
+round4_resolution:
+  B4-1: >-
+    Закрыт по существу. Путь выбран и назван: внутренний REST-слушатель края, mTLS, notify (Р20).
+    Круг пересылающих = {SAN края}, ручка в Р16 с границами. Пустой круг — отказ общего стража
+    (NTF4-92, близнец NTF4-88). Пир вне круга (NTF4-91, близнец NTF4-24): личность снята, отказ
+    PERMISSION_DENIED "permission denied" до Check. Правки края названы. Ребро край→notify внесено
+    в §11 и в строку Д4. NTF1-G21/G16 замещены явно (З9). Держатели и DoD S3 п.3, 6–9 на месте.
+    Цепочку перемерил в corelib 34bc810: у недоверенного пира личность снимается без отказа
+    (grpcsrv/cert_identity.go withTrustedPrincipal: ветка !trusted → WithoutPrincipal; в
+    identity_arrival.go refused() только для foreign_namespace и incomplete). Затем authz.Interceptor
+    в ветке «нет принципала» отдаёт DecisionDenied, и это даёт status PermissionDenied
+    "permission denied" (authz/interceptor.go:208-209, 331-337). Остаток — B5-1 (операции
+    `nop` через край).
+  B4-2: >-
+    Закрыт. Причина входит в ключ, поэтому у разных причин разные записи и свои сроки. Порядок
+    причин в исходе закрыт. Сценарии: NTF4-89 (COMPLAINT, затем SOFT; контроль B внутри) и
+    NTF4-90 (SOFT, затем COMPLAINT); у обоих близнец NTF4-19. Они в §8 и в DoD S2 п.1.
+  non_blocking_round4: >-
+    N4-1: равенство «отключаемый ⇔ notice» теперь держится построением (Р6, ссылка на NTF5-78…80
+    сверена). N4-2: остаток про псевдоним назван. N4-3: у NTF4-15 чистый близнец внутри сценария.
+    Все три учтены.
+
+dispatcher_decisions_check:
+  method: >-
+    Каждое решение Д1–Д13 постановки сверено с §3.1 и с местами документа, где оно действует.
+    Отступление без строки спора считается блокирующим.
+  results:
+    D1: "соблюдено: секрет почты — один объект (З6); административная поверхность — не вызов отправки (З4)"
+    D2: "соблюдено: нового удостоверения службы NTF-4 не вводит; человек приходит пересланным принципалом из круга {SAN края}; перечень Р22 у notify пуст"
+    D3: "соблюдено: словарь исходов +2 значения (Р17), второго контракта нет"
+    D4: "соблюдено: рёбер notify→* не добавлено. Входящее ребро край→notify названо, цикла нет. Но оно делает красной строку правила poly-edge-notify-acyclic — N5-1"
+    D5: "соблюдено: пары (ns, шаблон) закрыты сборкой"
+    D6: "соблюдено: Х3 в corelib notify/feed, контракт в kacho proto/corelib/notify"
+    D7: "соблюдено: флаг не меняется, подавление — о адресе"
+    D8: "соблюдено: сырого адреса у notify нет"
+    D9: "соблюдено: List-Unsubscribe только у notice, токен u привязан к строке журнала (адресат, ns, шаблон)"
+    D10: "не задевает NTF-4"
+    D11: "соблюдено: HARD_TTL ≤ 72 ч, жалоба только notice, автоприостановки нет, у 30 ручек есть границы и страж старта"
+    D12: "соблюдено: З8 замещает пункт ID-MAIL-1 явно; прямое переключение"
+    D13: "соблюдено: NTF-4 после NTF-1; Х3 после corelib#77"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 854d0eb4 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 854d0eb43510f4ae0be5d220edcaa27ae50fa3ef
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Он не даёт полномочий и ничего не открывает. Тело события для курьера
+    лежит в поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 5, блокирующих 1: COVERAGE) ·
+    SHA-256 eed9a22230226645478b3e95584eb5cd8021a32dfeb24061e260f6cfbc69a65e
+
+measurement:
+  revisions_used:
+    kacho: origin/main@1d42a6728bf
+    kaname: origin/357@734f69fb4
+    corelib: origin/main@34bc810
+    workspace_copy: issue-880@854d0eb4
+  predicates_reproduced:
+    - "corelib 34bc810 grpcsrv/cert_identity.go:282 UnaryTrustedPrincipalExtract; :331-374 withTrustedPrincipal (недоверенный пир → WithoutPrincipal, без отказа)"
+    - "corelib 34bc810 grpcsrv/identity_arrival.go:81-82 refused() = foreign_namespace | incomplete; untrusted не отвергается"
+    - "corelib 34bc810 grpcsrv/trusted_forwarders.go:136-180 Require(ForwarderGate); в боевом режиме текст называет SANsKnob и TrustAnyKnob"
+    - "corelib 34bc810 grpcsrv/trust_domain.go:178 TrustDomain.Require"
+    - "corelib 34bc810 authz/interceptor.go:134 NewInterceptor; :331-337 нет принципала → DecisionDenied; :208-209 → PermissionDenied \"permission denied\""
+    - "corelib 34bc810 audit/shipper.go:132 type Shipper; audit/sink.go:133 NewLogSink"
+    - "kacho 1d42a6728bf gateway/internal/restmux/mux.go:434-448 перечень <домен>InternalAddr без notify; :153 buildPrincipalMetadata; :985-995 OperationService регистрируется opsproxy.New(conns) на каждом mux"
+    - "kacho 1d42a6728bf gateway/cmd/api-gateway/main.go:1165-1166 opsproxy.New(backends) регистрируется registerExternalGRPCServices на внешнем gRPC-сервере; в backends лежат и внутренние соединения (backends[\"iamInternal\"], :246 и далее)"
+    - "kacho 1d42a6728bf gateway/internal/opsproxy/proxy.go:86-101 prefixToBackend; :153 маршрут по id[:3]; prefix_routing_test.go есть"
+    - "kacho 1d42a6728bf gateway/internal/middleware/embed/permission_catalog.json есть"
+    - "kacho 1d42a6728bf deploy/helm/umbrella/values.prod.yaml:452 trustedForwarderSANs = spiffe://kacho.cloud/ns/kacho/sa/kacho-api-gateway"
+    - "kacho 1d42a6728bf services/compute/internal/config/validate.go:59-68 — образец Require с TrustAnyKnob KACHO_COMPUTE_AUTHZ_TRUST_ANY_FORWARDER и ранним выходом по breakglass"
+    - "kacho 1d42a6728bf internal/repohygiene: trustedforwarderscircle_test.go:110, :191; revocationwindow_test.go:682; grpcmountparity_test.go:126 — функции с названными именами есть"
+    - "kacho 1d42a6728bf services/compute/cmd/compute/audit_shipper.go есть"
+    - ".claude/rules/polyrepo.md:61 poly-edge-notify-acyclic — «red: … край … держит клиента notify» (к N5-1)"
+    - "docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md:486 — посев подавления «через InternalSuppressionService NTF-4»; у Р7 NTF-4 методов создания нет (к N5-4)"
+    - "гигиена: grep путей рабочей копии, фраз о незакоммиченности, имён чужих облаков → 0; docs/changes/issue-2915, -2917, -2918, -2919 существуют"
+  scenario_census:
+    predicate: "python: re '^\\*\\*ID:\\*\\* NTF4-(\\d+)' плюс строки таблицы '^\\| NTF4-(\\d+)' по документу"
+    total: 92
+    ids: NTF4-01…NTF4-92
+    duplicates: 0
+    gaps: 0
+  producer_coverage:
+    method: раскрытие диапазонов первой колонки §8 в множество ID (строка «Р16 …, 87, 88» — вручную)
+    covered: 92
+    of: 92
+    note: >-
+      Покрытие по ID полное. Производитель «Тогда» NTF4-24 «опрос через край» назван. Но тот же
+      производитель — общая карта prefixToBackend и общий набор соединений края — действует и на
+      внешнем слушателе. Этого документ не утверждает и отрицает в §11 — B5-1.
+  dod_coverage:
+    method: "python: диапазоны NTF4-a…b, NTF4-a…b(короткий) и одиночные ID в §10 раскрыты в множество, вычтено из множества ID"
+    missing: []
+  twin_coverage:
+    note: >-
+      У каждого отрицательного сценария назван близнец. У новых: NTF4-91 → NTF4-24 (одно
+      отличие: SAN пира), NTF4-92 → NTF4-88 (пустой круг), NTF4-89/90 → NTF4-19.
+  constructibility:
+    seeded: 0
+    of: 11
+    not_performed: 11
+    reason: >-
+      Стенда П1 и разрешения на посев в задании нет. П3, П5, П6, П7, П9, П10, П11 заводит сама
+      под-фаза. Конструируемость проверена по названным фикстурам. Given NTF4-91 (пир из того же
+      центра, вне круга) сверен с кодом: снятие личности без отказа и отказ звена прав до Check —
+      поведение corelib 34bc810 как есть.
+
+premise_check:
+  claim: "SHA-256 редакции eed9a222…; редакция 5; прошлые круги 1–4 — возвраты"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → eed9a22230226645478b3e95584eb5cd8021a32dfeb24061e260f6cfbc69a65e"
+    - "git show 5662ad8a:<док> | sha256sum и git show HEAD:<док> | sha256sum → тот же отпечаток"
+    - "ls docs/specs/reviews/sub-phase-NTF-4-…/ → четыре записи a8243cee…, 818c79c7…, af9b6c40…, 0927cf65…"
+
+blocking_findings:
+  - id: B5-1
+    kind: COVERAGE
+    where: "Р20 («Что правится в крае»: префикс nop → notify в prefixToBackend, ключ notifyInternal); З4; NTF4-24 (опрос через край); NTF4-30; §11 строка «публичный RPC или край» («поверхность только внутренняя»)"
+    claim: >-
+      Р20 велит добавить префикс операций `nop` в карту `prefixToBackend` края, а соединение с
+      внутренним слушателем notify — в набор соединений края. У края одна такая карта и один
+      набор соединений (`backends`). OpsProxy строится из них и регистрируется на ВСЕХ
+      поверхностях: на внешнем gRPC-сервере (`main.go:1165-1166`, `registerExternalGRPCServices`)
+      и на обоих REST-mux (`mux.go:985-995`). Внутренние соединения в этом наборе уже лежат
+      (`backends["iamInternal"]`). Значит, названный производитель неизбежно открывает путь
+      внешний TLS-вход края → `OperationService.Get/Cancel` для id `nop-…` → внутренний слушатель
+      notify. Документ этого не решает и не утверждает. §11 и З4 называют поверхность notify
+      «только внутренней». NTF4-30 судит только `InternalSuppressionService`: держатель
+      `assert-ban6-external-isolation.py` смотрит на Internal*-методы, а `OperationService`
+      не Internal*. Так у внешнего входа в notify нет ни решения, ни сценария. Правило
+      о поверхности безопасности обязано быть решением, а не побочным следствием общей карты.
+      Прецедент есть: операции `geo` маршрутизируются так же. Но у geo есть публичный слушатель,
+      а у notify публичного слушателя нет по построению (Р1, Д1). Кроме того, Р20 называет ключ
+      соединения `notifyInternal`, а значение карты — `notify`. Если прочесть буквально,
+      `resolveBackend` не найдёт соединения, ответит NOT_FOUND, и опрос NTF4-24 на стенде
+      покраснеет.
+    evidence:
+      - "kacho 1d42a6728bf gateway/cmd/api-gateway/main.go:1165-1166 — opsproxy.New(backends) на внешнем gRPC-сервере"
+      - "kacho 1d42a6728bf gateway/internal/restmux/mux.go:985-995 — opsproxy.New(conns) на каждом mux"
+      - "kacho 1d42a6728bf gateway/internal/opsproxy/proxy.go:86-101, 153 — одна карта prefixToBackend; значение — ключ в backends"
+      - "grep -n 'внешн' <док> — внешний вход упомянут только в NTF4-30 для InternalSuppressionService"
+    required: >-
+      Решить и назвать, доступны ли операции `nop` с внешнего входа края.
+      (а) Доступны (как у geo): сказать это в Р20, З4 и §11; назвать, что права дают
+      `operations.CheckRecordedOwnership` края и владельца. Добавить сценарий: внешний вход,
+      `GET /operations/<nop-id>` от НЕ создателя → ответ побайтово равен ответу на
+      несуществующий id; близнец — тот же вызов от создателя → `done = true`.
+      (б) Недоступны: назвать правку края, которая разводит набор соединений внешней и
+      внутренней поверхности OpsProxy. Добавить сценарий: внешний вход, `nop`-id создателя →
+      NOT_FOUND, побайтово как у несуществующего; близнец — тот же вызов на внутреннем слушателе
+      → OK. Держатель — проба края.
+      В обоих вариантах: значение `prefixToBackend["nop"]` = имя ключа соединения, одно имя в
+      Р20 и в §8; строка в §8 и пункт DoD S3.
+
+non_blocking_findings:
+  - id: N5-1
+    kind: CONVENTION
+    where: "DoD S3 п.9; §11; .claude/rules/polyrepo.md:61 poly-edge-notify-acyclic"
+    note: >-
+      Действующая строка канона называет красным «край … держит клиента notify» и предполагает,
+      что оператор зовёт InternalSuppressionService сам. Выбор Р20 делает её красной. Документ
+      это признаёт: DoD S3 п.9 требует правки «задачей воркспейса». Но задача не названа
+      номером, а правка канона — не предмет приёмки. Нужна заведённая задача (или строка спора
+      диспетчеру) до старта S3. Иначе реализация S3 садится на красную строку правила.
+  - id: N5-2
+    kind: FORMAT
+    where: "Р16 строка KACHO_NOTIFY_AUTHZ_TRUSTED_FORWARDER_SANS («1 … 8 записей … Пустое значение — отказ общего стража круга»); держатель Р16 («за каждой границей — отказ с именем ручки и границы»); NTF4-92"
+    note: >-
+      Одно входное значение (пустой круг = 0 записей, за нижней границей) обещано двум
+      производителям отказа. Загрузчик называет ручку и границу, общий страж печатает свой
+      текст. NTF4-92 утверждает текст стража. Назвать порядок: загрузчик нижнюю границу этой ручки
+      не судит и отдаёт её стражу. Держатель Р16 делает для неё исключение по тексту.
+  - id: N5-3
+    kind: FORMAT
+    where: "Р20 «Ручки „доверять любому пересылающему“ … у notify нет»; NTF4-92"
+    note: >-
+      В боевом режиме `TrustedForwarders.Require` печатает и `SANsKnob`, и `TrustAnyKnob`
+      («the dev opt-in %s is not honoured in production», trusted_forwarders.go @34bc810). У
+      notify такой ручки нет, поэтому текст отказа назовёт несуществующую ручку либо пустую
+      строку. Назвать, что notify передаёт в `TrustAnyKnob`. Лучше, чтобы NTF4-92 утверждал:
+      текст не называет ручку, которой нет в загрузчике.
+  - id: N5-4
+    kind: COVERAGE
+    where: "межприёмочное: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md:486"
+    note: >-
+      NTF-5 сеет записи подавления «через InternalSuppressionService NTF-4», а у Р7 есть только
+      Get/Lookup/Delete. Это дефект NTF-5, не NTF-4. Передаётся диспетчеру, чтобы NTF-5 сеяла
+      путём продукта (DSN/ARF по П3), а не несуществующим методом.
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
