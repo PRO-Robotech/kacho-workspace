@@ -40,6 +40,12 @@ SPDX-License-Identifier: BUSL-1.1
 > круга 5; класс «факт о дереве взят из прозы, а не из разобранного вывода команды» закрыт по всему
 > документу: §1.11 классифицирует построчно вывод расширенного предиката, слово вида — из словаря
 > corelib; что изменено — §9
+> — **2026-09-30 · круг 6 · ⛔ ВОЗВРАТ (блокирующих 1: PRODUCER) ·
+> SHA-256 `0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb` ·
+> `docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb.yaml`**
+> — **редакция 7 · 2026-09-30 · вердикта на неё НЕТ.** Закрывает B6-1 и замечания N6-1, N6-2
+> круга 6; класс «существующей проверке приписан исход, которого она дать не может» закрыт по всему
+> документу переписью каждого названного существующего держателя против его предмета (§9)
 > **Дата:** 2026-09-30
 > **Эпик/issue:** эпик `PRO-Robotech/kacho#2914`; задачи под-фазы — `PRO-Robotech/kacho#2915`
 > (notify, раздел «notify»), `PRO-Robotech/corelib#77` (фундамент, раздел «corelib»),
@@ -562,8 +568,12 @@ kaname#484 ссылаются на `sub-phase-NTF-1-notify-core-acceptance.md`, 
     `kinds: "notification_feed" is not a kind of this owner; known kinds: <прочие виды>`;
   - **других видов нет** (`notify-probe`) — `Mapping.Kinds` был бы пуст, а пустой словарь corelib
     отвергает при сборке журнала; поэтому журнал не собирается, а сервер подписки **не объявляется
-    и не монтируется** — объявление и монтирование выводятся из одного условия, и гейт
-    `TestGRPCMountParity_EveryDeclaredServiceIsMounted` их согласие видит. Служба стартует;
+    и не монтируется** — объявление и монтирование выводятся из одного условия. Согласие
+    наблюдается в integration-пробе corelib (NTF1-N07 (б)): набор сервисов сервера
+    (`GetServiceInfo`) не содержит `corelib.subscription.InternalSubscriptionService`. Статический
+    гейт `TestGRPCMountParity_EveryDeclaredServiceIsMounted` этого исхода **не** производит: он
+    сверяет стабы с вызовами регистрации в композиционных корнях kacho, условного монтирования во
+    время работы не видит и пакет, которым бинарь не владеет, не судит. Служба стартует;
     `Subscribe` — `UNIMPLEMENTED`;
 - **письма класса `security` при выключенном флаге не глотаются:** `SendX` возвращает сторож
   `feed.ErrDeliveryNotConfigured`, и глагол источника отвечает единым отказом corelib
@@ -960,7 +970,8 @@ kaname и поставщика личности — NTF-2 с его предик
 **Given** источник с лентой
 **When** снимаются метрики
 **Then** есть возраст старейшей непринятой строки по классу, счётчики исходов по клеткам Р11, число доставленных за жизнь
-**And** таблица ленты входит в перечень `outboxobservedgate`, и «ноль доставленных за всю жизнь» видим
+**And** «ноль доставленных за всю жизнь» видим метрикой в той же пробе: источник без единой принятой строки отдаёт счётчик доставленных `0` и растущий возраст старейшей строки
+**And** гейт `outboxobservedgate` (существующий) расширяется третьим входом предмета: подъём сервера ленты в композиционном корне (разбор AST, как `drainer.Config{Table: X}` сегодня) даёт таблицу ленты в множество обязанных быть наблюдаемыми — лента дренируется `Claim`, а не `drainer`, и без этого входа гейт её не видит; корень `notify-probe` с лентой и без сборщика состояния — находка (инъекция), с ним — перепись печатает таблицу ленты среди наблюдаемых
 
 **ID:** NTF1-B21 — **`Claim` с `max` вне границ** (близнец — `max` на границах)
 
@@ -1000,7 +1011,8 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **Given** стенд с `notify-probe`, чей сервер ленты поднят на внутреннем слушателе
 **When** запрос `Claim` приходит на внешний TLS-вход установки
-**Then** метод не резолвится; `assert-ban6-external-isolation.py` называет метод ленты в перечне проверенных
+**Then** метод не резолвится; `assert-ban6-external-isolation.py` относит `Claim` и `Ack` к предмету и печатает для каждого вердикт `ISOLATED` (`INCONCLUSIVE` изоляцией не засчитывается); встречный контроль печатает домен `notify` обслуженным у носителя `notify`
+**And** предмет у скрипта есть только при двух условиях, и оба — часть S5: вызов `RegisterInternalNotificationFeedServiceServer(` стоит в прод-файле композиционного корня `services/notify/cmd/notify-probe` (перепись `e2e-ban6-domains.py` находит регистрации поиском по прод-файлам kacho; регистрация, спрятанная в corelib, оставила бы домен вне предмета — непровязанным, с напечатанным «предмета нет»); в `INTERNAL_ENDPOINTS` скрипта заведена строка носителя `notify` — внутренний слушатель `notify-probe` (без неё встречный контроль домена не подтверждается, и прогон падает как отказ харнесса, а не как изоляция)
 **And** в том же прогоне `Claim` от notify на внутреннем слушателе `notify-probe` получает ответ сервера ленты (не `UNIMPLEMENTED`)
 
 **ID:** NTF1-C03 — **`service:notify` с `reader` забирает строки**
@@ -1029,9 +1041,10 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **ID:** NTF1-C07 — **методы ленты аннотированы правом**
 
-**Given** контракт ленты
-**When** `TestAnnotationLaneInjection_UnannotatedMethodIsAFinding` обходит сервисы
-**Then** `Claim` и `Ack` в перечне и несут `permission`; снятие аннотации — находка
+**Given** контракт ленты; в перечень `catalogProtoPackages` (`internal/repohygiene/catalogparity_test.go`) внесён пакет `corelib.notify` и импорт его стабов — без этой строки пакет не обходится вовсе, и гейт о ленте молчит
+**When** `TestCatalogMatchesTheAnnotationsItWasGeneratedFrom` обходит аннотированные RPC перечня пакетов
+**Then** `Claim` и `Ack` среди обойдённых; перепись печатает «без аннотации 0» и число обойдённых RPC; строки каталога края для обоих перегенерированы (`make -C gateway permission-catalog-apply`), расхождений 0
+**And** способность падать на неаннотированном методе доказывает `TestAnnotationLaneInjection_UnannotatedMethodIsAFinding` на подставном входе (по дереву он не ходит); снятие аннотации с `Claim` в дереве — находка обхода «не несёт аннотации» с именем метода
 
 ### D. Генератор — раздел «corelib» (S1)
 
@@ -1058,8 +1071,8 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **Given** применённая миграция ленты v1; пин corelib поднят до схемы v2
 **When** `notifygen init`
-**Then** новый файл `v2_from_v1`, применённый файл побайтово тот же
-**And** правка применённого файла — красный гейт монотонности миграций
+**Then** новый файл `v2_from_v1`, применённый файл побайтово тот же; метка нового файла старше каждой применённой миграции службы (`TestNewMigrationOutranksEveryAppliedOne`, существующий, зелёный)
+**And** правка применённого файла миграции ленты — красный `notifygen -check` с именем файла: генератор держит побайтовое содержимое каждой выпущенной им версии схемы и сверяет с ним файлы дерева (гейт монотонности правки содержимого не видит — он судит только номер добавленного файла)
 
 **ID:** NTF1-D05 — **рантайм источника не тянет формат и рендер**
 
@@ -1334,7 +1347,7 @@ kaname и поставщика личности — NTF-2 с его предик
 **ID:** NTF1-F22 — **пересланный администратор облака не забирает тело, не получает решения и не видит событий ленты** (близнец — те же вызовы от `service:notify`)
 
 **Given** условия F01 и C03; фикстурный край в круге пересылающих источника `probe` и kaname пересылает `U_ca` (F12); в ленте `probe` одна строка `pending`
-**And** средство: проверку прав источника `probe` решает **настоящая дверь kaname**, поднятая в процессе пробы на testcontainers с посевом F01, а не фикстурная проверка прав §6 — (а) `Claim` спрашивает её входом `InternalIAMService/Check` (место Д-3 §1.11), (в) сужение строк подписки — входом `BatchCheck` (Д-4, Д-5), (б) право вызова `ResolveSend` — той же функцией вердикта, что `InternalIAMService/Check` (Д-3)
+**And** проверку прав источника `probe` решает **настоящая дверь kaname**, поднятая в процессе пробы на testcontainers с посевом F01, а не фикстурная проверка прав §6 — (а) `Claim` спрашивает её входом `InternalIAMService/Check` (место Д-3 §1.11), (в) сужение строк подписки — входом `BatchCheck` (Д-4, Д-5), (б) право вызова `ResolveSend` — той же функцией вердикта, что `InternalIAMService/Check` (Д-3)
 **When** от фикстурного края с пересланным `U_ca`: (а) `Claim(max=10, classes={notice})` на внутреннем слушателе `probe`; (б) `ResolveSend(probe, probe-hello, сейчас)` на внутреннем слушателе kaname; (в) `Subscribe` на `probe` с `kinds: ["notification_feed"]`, затем в `probe` коммитится постановка письма
 **Then** (а) `PERMISSION_DENIED`, текст `permission denied`; строка не арендована (следующий `Claim` notify её получает); (б) `PERMISSION_DENIED`, `permission denied`, `ErrorInfo{reason: AUTHZ_DENIED, …}`, решения в ответе нет; (в) поток открыт, события по `notification_feed:probe` не несёт
 **And** близнец: те же три вызова от notify по его сертификату без пересланного принципала (субъект `service:notify`) — (а) строка в ответе; (б) `ALLOW`; (в) событие по `notification_feed:probe` приходит
@@ -1469,7 +1482,7 @@ kaname и поставщика личности — NTF-2 с его предик
 **When** перепись слушателей пода, обслуживаемых сервисов и ручек конфигурации
 **Then** слушатель один — диагностический HTTP с `/healthz`, `/readyz`, `/metrics`; gRPC-слушателя нет (порт gRPC в поде не объявлен и не открыт); перепись печатает число слушателей — **1**
 **And** ручек пути к шаблонам и загрузки шаблонов нет; шаблоны читаются только из встроенной сборки
-**And** `TestGRPCMountParity_EveryDeclaredServiceIsMounted` называет notify с нулём объявленных сервисов
+**And** перепись поверхности notify разбором по идентичности: в пакетах, достижимых импортом из `services/notify/cmd/notify` (без `cmd/notify-probe`), вызовов `grpc.NewServer` и `Register…Server` сгенерированных стабов — **0**; перепись печатает число осмотренных пакетов и файлов, пустой обход — красный, инъекция вызова регистрации — находка с координатой
 
 **ID:** NTF1-G20 — **класс `security` — только пространствам `identityNamespaces`** (близнец — `security` в `kaname`)
 
@@ -1615,10 +1628,10 @@ kaname и поставщика личности — NTF-2 с его предик
 
 **Given** два фикстурных источника corelib, различающиеся только набором видов: (а) `probe` — ключи `notification` → `notification_feed` и `item` → `probe_item`; (б) `probe-solo` — только ключ `notification` → `notification_feed` (форма `notify-probe`); у обоих флаг `false`
 **When** каждый стартует; проба зовёт `Claim(max=10, classes={notice})` и `Subscribe` с `kinds: ["notification_feed"]`; сравниваются схемы баз при `false` и `true`
-**Then** оба стартуют; у обоих `Claim` — `UNIMPLEMENTED`; таблица ленты существует, схемы побайтово равны
-**And** (а) `Subscribe` — `INVALID_ARGUMENT`, текст `kinds: "notification_feed" is not a kind of this owner; known kinds: probe_item`
-**And** (б) журнал подписки не собран, сервер подписки не объявлен и не смонтирован: `Subscribe` — `UNIMPLEMENTED`; `TestGRPCMountParity_EveryDeclaredServiceIsMounted` на этой посадке зелёный (объявлено = смонтировано)
-**And** близнец: тот же источник с флагом `true` — `Claim` обслуживается, `Subscribe` с `kinds: ["notification_feed"]` открыт; у (а) словарь видов — `notification_feed, probe_item`
+**Then** оба стартуют; у обоих `Claim` — `UNIMPLEMENTED`; набор сервисов сервера (`GetServiceInfo`) не содержит `corelib.notify.InternalNotificationFeedService`; таблица ленты существует, схемы побайтово равны
+**And** (а) `Subscribe` — `INVALID_ARGUMENT`, текст `kinds: "notification_feed" is not a kind of this owner; known kinds: probe_item`; набор сервисов сервера содержит `corelib.subscription.InternalSubscriptionService`
+**And** (б) журнал подписки не собран, сервер подписки не объявлен и не смонтирован: набор сервисов сервера (`GetServiceInfo`) не содержит `corelib.subscription.InternalSubscriptionService`; `Subscribe` — `UNIMPLEMENTED`
+**And** близнец: тот же источник с флагом `true` — `Claim` обслуживается, `Subscribe` с `kinds: ["notification_feed"]` открыт; набор сервисов сервера содержит `corelib.notify.InternalNotificationFeedService` и `corelib.subscription.InternalSubscriptionService`; у (а) словарь видов — `notification_feed, probe_item`
 
 **ID:** NTF1-N08 — **переменная флага не задана — служба-источник не стартует** (близнец — задана)
 
@@ -1728,7 +1741,7 @@ kaname и поставщика личности — NTF-2 с его предик
 **Given** служба kacho без ленты
 **When** выполняются: (1) ключ ленты и его ручка; (2) `notifygen init`; (3) подъём сервера ленты и ключ `notification` → `notification_feed` в `Mapping.Kinds` журнала подписки; (4) звено Р2: перечень `{Subscribe, Claim, Ack}`, таблица из `notify.spiffe`; (5) строки каталога прав для `Claim`/`Ack`; (6) строка `notifications: {namespace: <модуль>, readers: [notify]}` в манифесте; (7) строка таблицы подключаемых источников в чарте и флаг модуля
 **Then** письмо фикстурного шаблона доставлено
-**And** пропуск (1) — отказ старта (B05); (2) — отказ старта сервера ленты «таблицы нет»; (3) — гейт монтирования; (4) — `Claim` notify `PERMISSION_DENIED` (C06) и тревога возраста; (5) — гейт аннотаций (C07); (6) — `NOT_YET_GRANTED` и `grant_skew` (F04); (7) — нет в перечне notify (N03), тревога возраста
+**And** пропуск (1) — отказ старта (B05); (2) — отказ старта сервера ленты «таблицы нет»; (3) — `Claim` notify к источнику — `UNIMPLEMENTED` и тревога возраста; у службы с другими видами `Subscribe` notify с `kinds: ["notification_feed"]` — `INVALID_ARGUMENT` полным текстом corelib (как NTF1-N07 (а)); (4) — `Claim` notify `PERMISSION_DENIED` (C06) и тревога возраста; (5) — отказ старта с именем метода (NTF1-M09 (в): метод перечня Р2 вне каталога прав); (6) — `NOT_YET_GRANTED` и `grant_skew` (F04); (7) — нет в перечне notify (N03), тревога возраста
 
 ### L. Сквозные: стенд (L01, L02) и integration с управляемыми часами (L03–L05) — раздел «notify» (S5)
 
@@ -1777,13 +1790,13 @@ kaname и поставщика личности — NTF-2 с его предик
 | A01–A07 | валидатор `notify/spec` | corelib `notify/spec/spec_test.go`, `notify/spec/testdata/` | `go test ./notify/spec/...` |
 | A08 | гейт замороженного корпуса | corelib `notify/spec/corpus_test.go` | `go test`, инъекция |
 | A09 | гейт единственности валидатора | kacho `internal/repohygiene/notifyspecsingular*_test.go` | `go test ./internal/repohygiene/...`, инъекция |
-| B01–B18, B20–B24 | `feed.Put`, сервер ленты, уборщик, схема, метрики | corelib `notify/feed/*_integration_test.go` (testcontainers, управляемые часы); `outboxobservedgate_test.go` kacho (существующий, расширяется) для B20 | `go test -tags integration ./notify/feed/...` |
+| B01–B18, B20–B24 | `feed.Put`, сервер ленты, уборщик, схема, метрики | corelib `notify/feed/*_integration_test.go` (testcontainers, управляемые часы); для B20 (гейт) — kacho `outboxobservedgate_test.go` (существующий, расширяется входом «подъём сервера ленты в корне») | `go test -tags integration ./notify/feed/...` |
 | B19 | гейт прямой вставки | corelib `notify/feed` гейт дерева, вызываемый из CI kacho | `go test`, инъекция |
 | C01 | гейт формы подписки | kacho `TestSubscriptionFormIsDeclaredOnce` (существующий) | `go test ./internal/repohygiene/...` |
-| C02 | гейт внешней изоляции | kacho `deploy/scripts/assert-ban6-external-isolation.py` (существующий) | прогон на стенде |
+| C02 | гейт внешней изоляции | kacho `deploy/scripts/assert-ban6-external-isolation.py` (существующий, расширяется строкой носителя `notify` в `INTERNAL_ENDPOINTS`); регистрация сервера ленты — в прод-файле корня `notify-probe`, иначе перепись `e2e-ban6-domains.py` домена не видит | прогон на стенде |
 | C03–C06 | авторизация сервера ленты через `reader` и звено Р2 | corelib `notify/feed/authz_integration_test.go` | `go test -tags integration` |
-| C07 | гейт аннотаций | kacho `TestAnnotationLaneInjection_UnannotatedMethodIsAFinding` (существующий) | `go test` |
-| D01–D04, D06 | генератор | corelib `cmd/notifygen/*_test.go`; D04 монотонность — kacho `migrationmonotonic_test.go` (существующий) | `go test ./cmd/notifygen/...` |
+| C07 | обход аннотаций по дереву | kacho `TestCatalogMatchesTheAnnotationsItWasGeneratedFrom` (существующий; перечень `catalogProtoPackages` получает `corelib.notify`); способность падать — `TestAnnotationLaneInjection_UnannotatedMethodIsAFinding` (существующий, подставной вход) | `go test ./internal/repohygiene/...` |
+| D01–D04, D06 | генератор (D04: правка применённого файла — `notifygen -check`) | corelib `cmd/notifygen/*_test.go`; D04 номер нового файла — kacho `TestNewMigrationOutranksEveryAppliedOne` (существующий) | `go test ./cmd/notifygen/...`; `go test ./internal/repohygiene/...` |
 | D05 | перепись зависимостей рантайма | kacho `services/notify/runtimedeps_test.go` | `go test`, инъекция |
 | E01–E03 | подписчик notify + сервер подписки фикстурного источника (E02 — фикстурная проверка прав с посеянным кортежем) | kacho `services/notify/internal/…/subscribe_integration_test.go` | `go test -tags integration ./services/notify/...` |
 | E04, G01, G06, G15 | стражи старта и самоотчёт notify | kacho `services/notify/internal/config/*_test.go`; corelib `servicecontract` (элемент `NoServedServices`); `deploy/scripts/assert-production-posture.sh` | `go test`; `make -C deploy assert-production-posture` |
@@ -1806,16 +1819,16 @@ kaname и поставщика личности — NTF-2 с его предик
 | G12 | правило тревоги | kacho чарт notify + `deploy/tests/…/notify_alert_rules_test.go` | прогон проб правил с синтетическим рядом |
 | G16 | реплики, падение реплики | kacho `services/notify/internal/…/replica_integration_test.go` | `go test -tags integration` |
 | G17, G20 (гейт) | гейт сборки | kacho `services/notify/bundle_test.go` | `make -C services/notify bundle-check` |
-| G19 | перепись слушателей, поверхностей и ручек notify | kacho `TestGRPCMountParity_EveryDeclaredServiceIsMounted` (существующий); `services/notify/internal/config/knobcensus_test.go`; перепись портов пода — `deploy/tests/helm/notify-listeners-test.sh` | `go test`; прогон скрипта по рендеру |
+| G19 | перепись слушателей, поверхностей и ручек notify | kacho `services/notify/servesurface_test.go` (разбор импортного замыкания `cmd/notify`: 0 `grpc.NewServer`/`Register…Server`, объём осмотренного, инъекция); `services/notify/internal/config/knobcensus_test.go`; перепись портов пода — `deploy/tests/helm/notify-listeners-test.sh` | `go test ./services/notify/...`; прогон скрипта по рендеру |
 | H01–H10 | лимиты notify, база `kacho_notify` | kacho `services/notify/internal/…/limits_integration_test.go` (2 реплики в процессе для H03); `services/notify/internal/config/*_test.go` (H07, H08) | `go test -tags integration ./services/notify/...` |
 | N01–N04, I01, I02, I04, I05, J05 | гейты рендера по `deploy/stacks.txt` (N02 — на фикстурной копии чарта с таблицей из двух источников) | kacho `deploy/notifications_flag_test.go`, `deploy/notify_source_list_derived_test.go`, `deploy/identity_mail_lane_feeds_both_senders_test.go` (существующий, переписывается под I01), `deploy/mail_receiver_core_test.go` (существующий, расширяется), `deploy/tests/helm/notify-availability-test.sh`, `deploy/tests/helm/service-identity-declaration-test.sh` | `go test ./deploy/...`; прогон по `deploy/stacks.txt` |
 | I03, L01, L02 | стенд с приёмником и `notify-probe` | kacho newman `tests/newman/notify-delivery/` + строка ведомости производителя | прогон newman на стенде `dev-prod` |
-| N05–N07, N09 | флаг в `feed`; N07 — сборка журнала и объявление сервера подписки по наличию видов (источники `probe`, `probe-solo`) | corelib `notify/feed/flag_integration_test.go`; источник-фикстура | `go test -tags integration ./notify/feed/...` |
+| N05–N07, N09 | флаг в `feed`; N07 — сборка журнала и объявление сервера подписки по наличию видов (источники `probe`, `probe-solo`), «не смонтирован» — набором `GetServiceInfo` сервера пробы | corelib `notify/feed/flag_integration_test.go`; источник-фикстура | `go test -tags integration ./notify/feed/...` |
 | N08 | страж старта `notify-probe` | kacho `services/notify/cmd/notify-probe/config_test.go` | `go test` |
 | I06 | чарт notify отдельно | kacho `deploy/tests/helm/notify-standalone-test.sh`; `helm install` на кластере | прогон скрипта; `.github/workflows/production-posture.yml` |
 | J01, J02, J04 | политика выпуска | kacho политика в чарте + `deploy/tests/cluster/cert-issuance-policy-test.sh`; `assert-production-posture.sh` | прогон на поднятом кластере |
 | J03 | SAN сквозь звено kaname | kaname `internal/…/notificationgrant/service_subject_san_integration_test.go` | `go test -tags integration ./...` (kaname) |
-| K01–K03 | репетиция процедур | kacho `services/notify/procedure_rehearsal_test.go` | `go test` |
+| K01–K03 | репетиция процедур; исход каждого пропуска K03 — наблюдаемый ответ или отказ старта в самой репетиции (гейт монтирования и гейт аннотаций исходом пропуска не названы: пакетом `corelib.notify` пропустившая служба не владеет, а обход аннотаций судит контракт, не службу) | kacho `services/notify/procedure_rehearsal_test.go` | `go test` |
 | L03–L05 | конвейер с управляемыми часами | kacho `services/notify/internal/…/outage_integration_test.go` | `go test -tags integration ./services/notify/...` |
 
 **Сценариев без производителя — ноль.** Каждый ID §6 входит хотя бы в одну строку таблицы
@@ -1995,7 +2008,10 @@ kaname и поставщика личности — NTF-2 с его предик
     доказан инъекцией в обе стороны и печатает число мест по классам §1.11.
 11. Модель несёт `service`, `notification_feed`, `notification_namespace`; `tools/modelcanoncheck`,
     kacho `modelrelationproducer_test.go` и `proxyforbiddentypes_test.go` на новом пине зелёные;
-    перечень Р2 kaname = `{ResolveSend}`.
+    перечень Р2 kaname = `{ResolveSend}`. Пины corelib (S1) и kaname (S2) поднимаются в kacho
+    **одним изменением**: сторона А гейта `TestForbiddenProxyObjectTypesAgreeWithTheModel` называет
+    находкой тип набора, которого нет в модели, и пин corelib с тремя новыми типами без пина kaname
+    с ними же красит ствол.
 
 **S3 — notify (#2915):**
 
@@ -2045,3 +2061,6 @@ kaname и поставщика личности — NTF-2 с его предик
 | 5 | B5-2 слово вида на проводе и пустой словарь видов | CONSTRUCTIBILITY | во всех When/Then вид провода — `notification_feed` (`kinds: ["notification_feed"]`, событие вида `notification_feed`); слово `notification` — только ключ `Mapping.Kinds` (Р4, Р9, Р16, B01, B02, K03); исход флага `false` выбран по наличию других видов (Р9): есть — `INVALID_ARGUMENT` полным текстом corelib, нет — журнал не собирается, сервер подписки не объявляется и не монтируется, служба стартует, `Subscribe` — `UNIMPLEMENTED`; N07 утверждает оба случая на двух фикстурных источниках (`probe` с видом `probe_item`, `probe-solo`), близнец каждого отличается только флагом |
 | 5 | важные N5-1, N5-2 | — | Р2 п.5 и S1: `notification_feed`, `notification_namespace` внесены в `forbiddenObjectTypes` рядом с `service` (сторона Б гейта `TestForbiddenProxyObjectTypesAgreeWithTheModel`, M10 (б)); средство F22 (а), (в) — настоящая дверь kaname в процессе пробы — названо в самом F22 и отдельной строкой §6, строка фикстурной проверки прав оговаривает исключение |
 | 5 | класс CONSTRUCTIBILITY шестой раз подряд — общий знаменатель «факт о дереве из прозы» | CONSTRUCTIBILITY | перепись фактов документа о коде по вопросу «из разобранного вывода или из прозы»: утверждения §1.11 — из вывода, построчно; слово вида — из `KindDictionary` corelib, а не из имени ключа; исход флага `false` — из проверки пустого `Mapping.Kinds` corelib; адресаты проверки прав F22 — из цепочки обработчиков; F12 (г) ведётся публичным `Check`, а не `InternalIAMService/Check`: ветка «вопроса нет» по `*` есть только у `check` (Д-1), а `CheckRelation` отдаёт `*` модели как обычный объект |
+| 6 | B6-1 гейту монтирования приписан исход, которого он дать не может (Р9, N07 (б), K03 (3), G19) | PRODUCER | Р9 и N07 (б): «не смонтирован» наблюдается набором сервисов сервера (`GetServiceInfo`) в integration-пробе corelib, у (а) и близнеца `true` — тот же набор; K03 (3): исход пропуска — `Claim` `UNIMPLEMENTED` и тревога возраста в репетиции; G19: новая перепись импортного замыкания `cmd/notify` (0 `grpc.NewServer`/`Register…Server`, объём осмотренного, инъекция) вместо гейта монтирования |
+| 6 | класс PRODUCER по всему документу: перепись каждого названного **существующего** держателя против его предмета (читано в kacho `1d42a6728bf`) | PRODUCER | найдено ещё пять: C07 — названная проба инъекционная и по дереву не ходит, обход дерева — `TestCatalogMatchesTheAnnotationsItWasGeneratedFrom` по перечню `catalogProtoPackages`, куда вносится `corelib.notify`; K03 (5) — обход аннотаций судит контракт, а не службу, исход пропуска — отказ старта M09 (в); D04 — гейт монотонности судит номер добавленного файла, а не правку применённого, исход правки — `notifygen -check`; C02 — скрипт внешней изоляции видит домен, только если регистрация стоит в прод-файле корня kacho и у носителя есть строка `INTERNAL_ENDPOINTS` — оба условия названы в C02 и §6.1; B20 — `outboxobservedgate` берёт предмет из `drainer.Config`, а ленту дренирует `Claim` — назван новый вход гейта; подтверждены без правки: C01 (`TestSubscriptionFormIsDeclaredOnce` обходит весь `proto`), M10 (б) (сторона Б `TestForbiddenProxyObjectTypesAgreeWithTheModel`), F21 (`TestMRW07_GroupWithItsGrantIsAccepted` — только «зелёный», исхода не несёт) |
+| 6 | N6-1, N6-2 | — | S2 п.11: пины corelib и kaname поднимаются в kacho одним изменением (сторона А гейта запретительного набора); F22: строка средства — продолжение Given, а не отдельная строка перед When |
