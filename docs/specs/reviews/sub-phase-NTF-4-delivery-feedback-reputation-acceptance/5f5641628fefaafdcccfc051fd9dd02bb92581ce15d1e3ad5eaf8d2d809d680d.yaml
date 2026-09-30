@@ -1,0 +1,218 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 5f5641628fefaafdcccfc051fd9dd02bb92581ce15d1e3ad5eaf8d2d809d680d
+  revision: 14
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и шапка сама говорит, что действующий вердикт выводится из внешнего
+    события и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: 48c2d70f8
+  content_commit_note: >-
+    Редакция 14 внесена коммитом 48c2d70f8; `sha256sum` рабочего файла на ревизии рассмотрения
+    даёт тот же отпечаток.
+  base_commit: 48c2d70f8
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3018
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T08:30:00Z'
+round: 14
+round_note: >-
+  Четырнадцатый круг документа; круг 2 прохода по решению Д17 (Х5, вариант (б)). Предмет
+  редакции 14 — блокирующее B13-1 (SCOPE) и не блокирующее N13-1 круга 13; плюс сверка с Д1–Д17.
+previous_rounds:
+  - {round: 12, sha256: f6453d349761b6624a6875a420d86f61d071b74d0605546d1b7a2f85c82a3ece, verdict: CHANGES_REQUESTED, blocking_count: 1}
+  - {round: 13, sha256: f9bc15ad717903df57f4c695d0b819ccfbcce10947f8e6237c73ff83138b91e6, verdict: CHANGES_REQUESTED, blocking_count: 1,
+     record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/f9bc15ad717903df57f4c695d0b819ccfbcce10947f8e6237c73ff83138b91e6.yaml}
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_kinds_by_item: []
+trend_note: >-
+  Число блокирующих по кругам: 4 → 2 → 2 → 2 → 1 → 0 → 1 → 1 → 1 → 0 → 1 → 1 → 1 → 0. Класс
+  SCOPE двух прошлых кругов закрыт на уровне класса, а не экземпляра: отпечаток соседа стоит
+  только в шапке и сверке, определения соседа не пересказываются, а названы строками таблицы со
+  свойством и координатой. Предикат полноты воспроизведён.
+
+b13_resolution:
+  B13-1:
+    status: "закрыт"
+    items:
+      "(1) перезакрепление": >-
+        Шапка, §1 и §1.2 стоят на действующих одобрениях: NTF-1 530e2296… (запись APPROVED, коммит
+        a67820c41) и NTF-2 9098d6ef… (запись APPROVED, коммит 52fed403d). Команды сверки
+        воспроизведены: `git show 258c92d5e:<NTF-1> | sha256sum` → b347b81f…, `git show
+        2fa62337b:<NTF-1> | sha256sum` → 530e2296…, numstat 170/21; `### Р` 18 и 18, `**ID:**
+        NTF1-` 142 → 148; для NTF-2 `a6a6474dd` → 33e199c9…, `9b8911760` → 9098d6ef…, numstat
+        945/235. Предикат полноты `grep -n '<8 знаков>'` находит только шапку, сверку (включая путь
+        записи открытого разбора в §1) и историю правок §12–§22.
+      "(2) нормализация": >-
+        Р15 берёт `address.Normalize` NTF-1 и своей нормализации не определяет; З11 замещает только
+        функцию хеша; §8 строки 04…67, 24–29, 101–102 разделяют производителей; `notify/address`
+        во втором списке §1.1 с абзацем переписи редакции 14. Сверено с NTF-1 530e2 строками 583,
+        596–598 (сторож `feed.ErrRecipientInvalid`, `INVALID(recipient_invalid)`).
+      "(3) словарь и неразбираемый адрес": >-
+        Строка словаря §1 называет причины `INVALID` и клетку отказа `ResolveSend`; Р17: строка с
+        неразбираемым адресом — `INVALID(recipient_invalid)` до подавления, записей подавления и
+        счётчиков не трогает, держатель — NTF1-G24 (з).
+      "(4) повтор Ack": >-
+        Правило повтора NTF-1 (NTF1-B26, строка 1105 NTF-1 530e2) распространено на `SUPPRESSED`
+        без исключений в §1, Х3 и Р17; причина входит в исход; держит проба Х3 (DoD S2 п.2).
+      "(5) строки §1.2": >-
+        Сверено с NTF-2 9098d6ef строками 462–468 (лестница только на recovery и register, ключи
+        /32, /64, /24, /56, /48), 481–498 (ступени), 631–634 (ручки, граница floor-interval), 642
+        (1,25 × суммы, включая пол и письмо о торможении). Следствия для П1, П2, NTF4-16, NTF4-17,
+        NTF4-24 названы.
+  N13-1: >-
+    закрыт: план по RA-07…RA-09 в §1 — какие строки NTF-4 меняет каждый вариант; сверх плана
+    сказано, что он сверку новой одобренной редакции не заменяет.
+
+blocking_findings: []
+
+non_blocking_findings:
+  - id: N14-1
+    kind: SCOPE
+    anchors:
+      - "§1, «Открытый возврат разбора классов NTF-1» (строки 184–196)"
+      - "§1, строка таблицы «нормализация адреса»; §1.1 второй список, строка «нормализация адреса»"
+    summary: >-
+      Редакция 10 NTF-1 (d524e7bd…, коммит eb29a7d93, 08:06) закоммичена раньше редакции 14
+      NTF-4 (48c2d70f8, 08:10), вердикта на неё нет. По правилу §1 документа закрепление идёт за
+      действующим одобрением — это 530e2296…, так что выбор закрепления верен. Документ о
+      существовании редакции 10 не говорит, но план открытого возврата её исходы покрывает.
+      Рецензент сверил дельту 530e2 → d524e7bd заранее: RA-07 закрыт вариантом (а) — ратификация
+      5xx на RCPT класса 5.7 сохранена, и NTF-1 прямо ссылается на NTF4-06 и NTF4-07; RA-08 закрыт
+      первым вариантом — единственность сужена до `corelib/notify` и `services/notify`. По плану
+      §1 ни то ни другое строк NTF-4 не меняет. Две вещи из редакции 10 при будущей сверке
+      стоит внести в строку «нормализация адреса»: (а) у гейта NTF1-B27 появились узлы «вызов
+      `golang.org/x/net/idna`» и «преобразование в `address.Normalized` или `address.Domain` вне
+      `notify/address`», обход включает `services/notify`. Проверки DNS NTF-4 (Р10) по этой
+      причине IDNA вызывать не могут; сегодня им это и не нужно: `KACHO_NOTIFY_RETURN_DOMAIN` —
+      имя по RFC 1123 (строка 947), домен `From` — ручка NTF-1. (б) Смена именованного профиля
+      IDNA перекладывает ключи сетки, а значит и отпечатки записей подавления Р15 — последствие
+      для действующих записей подавления стоит назвать одной фразой.
+  - id: N14-2
+    kind: FORMAT
+    anchors: ["§1, предикат полноты отпечатка соседа"]
+    summary: >-
+      Предикат говорит «строки только шапки, сверки и истории правок». Он находит ещё путь записи
+      открытого разбора классов (строка 185) — эта строка лежит в разделе сверки §1, так что
+      предикат выполнен. Если план открытого возврата уедет из §1, предикат станет ложным;
+      надёжнее назвать и её.
+
+dispatcher_note: >-
+  Когда NTF-1 редакция 10 (d524e7bd…) получит вердикт, NTF-4 по своему правилу §1 сверяется с
+  ней. По заранее сделанной сверке рецензента (N14-1) строки таблицы не меняются. В предмете
+  сверки остаются только уточнения к строке «нормализация адреса». Это решение по порядку, не
+  блокирующее.
+
+dispatcher_decisions_check:
+  method: >-
+    Дельта редакции 14 (`git diff 40c2964c1 48c2d70f8 -- <док>`, 252+/119−) сверена с каждым
+    решением Д1–Д17; тексты Д1–Д13 и Д14–Д16 прочитаны в журналах запуска авторов.
+  results:
+    D1: "соблюдено: InternalSuppressionService — не вызов отправки; входящих вызовов отправки нет"
+    D2: "соблюдено: субъект Р7 — только пересланный принципал (Р20); звено идентичности notify пусто"
+    D3: "не задет дельтой"
+    D4: "не задет дельтой; права NTF-4 на объекте cluster (Х2)"
+    D5: "не задет; List-Unsubscribe — заголовок, ссылок в тело NTF-4 не вставляет (§1)"
+    D6: "соблюдено: правки corelib Х1, Х3, Х5 — задачами; `notify/address` — без правки, во втором списке §1.1"
+    D7: "не задет дельтой"
+    D8: "вне предмета NTF-4"
+    D9: "не задет дельтой"
+    D10: "вне предмета NTF-4"
+    D11: "соблюдено: HARD_TTL ≤ 72 ч (строки 548, 956, NTF4 1529–1536); жалоба подавляет только не-security (NTF4-18); своих потолков нет (Р8); инвариант пары 1,25 с полом и письмом о торможении (§1.2)"
+    D12: "не задет дельтой"
+    D13: "соблюдено: NTF-4 после NTF-1; Given — на действующих одобрениях NTF-1 и NTF-2"
+    D14: "не задевает: права на cluster, notification_feed документ не надзирает"
+    D15: "соблюдено: форма API настроек и контактов в NTF-4 не задаётся"
+    D16: "соблюдено: DRAFT в ветке issue-880"
+    D17: >-
+      соблюдено; дельта редакции 14 трогает Х5, Р20, З9 только формулировкой закрепления.
+      Х5 — форма «только внутренний слушатель», публичный сервер не собирается, публичные адрес,
+      транспорт и регистратор — отказ старта с именем поля; один строитель цепочки; задача и выпуск
+      corelib; S3 ждёт Х5.
+  dispute_lines: "строк спора с Д1–Д17 нет"
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 48c2d70f8
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — принято. Событие полномочия публикует курьер; его тело — в поле
+    `event_body_for_courier`. До публикации действующего одобрения нет.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 14, блокирующих 0) ·
+    SHA-256 5f5641628fefaafdcccfc051fd9dd02bb92581ce15d1e3ad5eaf8d2d809d680d
+
+measurement:
+  revisions_used:
+    workspace_copy: issue-880@48c2d70f8
+    previous_revision: "40c2964c1 (редакция 13, f9bc15ad…)"
+    neighbour_ntf1_pinned_sha256: 530e22968ff16ae2f6f9deb88037faffa7eed1c83fda5aaca36f9b8d601e23d6
+    neighbour_ntf1_working_sha256: d524e7bdd133b70da9335f027a83007800be4bdc567ab9ec740e08e7d497d31e
+    neighbour_ntf1_working_note: "редакция 10 NTF-1, коммит eb29a7d93, вердикта нет"
+    neighbour_ntf2_pinned_sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+    neighbour_ntf2_working_sha256: 9098d6ef95e558aa7bb376fc266835777fd814116da098772bf5f3698962c8a1
+  predicates_reproduced:
+    - "sha256sum <док> → 5f564162…680d"
+    - "git show 258c92d5e / 2fa62337b:<NTF-1> | sha256sum → b347b81f… / 530e2296…; numstat 170/21"
+    - "git show a6a6474dd / 9b8911760:<NTF-2> | sha256sum → 33e199c9… / 9098d6ef…; numstat 945/235"
+    - "grep -c '^### Р' и '^**ID:** NTF1-' на 258c92d5e и 2fa62337b → 18/142 и 18/148"
+    - "git merge-base --is-ancestor a67820c41 58471e572 → 1"
+    - "grep -n для 530e2296, 9098d6ef, b347b81f, 33e199c9 → шапка, сверка §1/§1.2, история §15–§22"
+    - "git diff eb29a7d93~1 eb29a7d93 -- <NTF-1>: RA-07 (а), RA-08 первый вариант; новые узлы B27 (idna, преобразование типа)"
+    - "grep -i 'idna|punycode|A-label|x/net' <док> → 0"
+    - "гигиена: ссылки на рабочие каталоги, 'Co-Authored', имена чужих облаков и почтовых служб → 0 (единственное совпадение 'google' — `google.api.http`, `google.rpc.Status`)"
+  scenario_census:
+    predicate: "grep -c '^\\*\\*ID:\\*\\* NTF4-' <док> → 90; дублей ID 0"
+  producer_coverage:
+    method: "python: ID сценариев против первого столбца строк §8 и упоминаний в §10 DoD (диапазоны раскрыты)"
+    result: "§8 — 90 из 90; DoD — 90 из 90"
+  twin_coverage:
+    method: "python: блок сценария без слова «близнец» → 01, 18, 22, 40"
+    result: >-
+      01 и 40 — положительные; NTF4-40 сам назван близнецом отказов старта. 18 и 22 — пара
+      внутри сценария, разница в одном факте: класс `security`/`notice` и шаблон `n1`/`n2`.
+      Отрицаний без близнеца 0; дельта редакции 14 новых отрицаний не вводит.
+  constructibility:
+    seeded: 0
+    of: 90
+    not_executed: 90
+    reason: >-
+      Стенда и разрешения на посев в задании нет — «не выполнилось», в зелёное не зачитывается.
+      Given строятся названными фикстурами §6 П1–П12. П1 и П2 переписаны по NTF-2 9098d6ef:
+      V без register/confirm, `floor` +0.
+
+premise_check:
+  premise: "редакция 5f564162 закрывает B13-1 и N13-1 и не расходится с Д1–Д17"
+  result: "подтверждена (b13_resolution, dispatcher_decisions_check)"
+
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
