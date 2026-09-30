@@ -1,0 +1,178 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17
+  revision: 23
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Эта запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: 9d7984897
+  content_commit_note: >-
+    Редакцию 23 внёс коммит 9d7984897. Судится дельта 22 → 23 (git diff 3590477cc 9d7984897 по
+    документу: 69 вставок, 22 удаления) против блокирующего B1 круга 2 прохода RA-03 и против
+    Д1–Д25. Кроме дельты проверено заявление редакции: «каждое утверждение, стоявшее на разведке,
+    заменено командой с выводом и ревизией».
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md; то же для
+    git show HEAD:<путь> | sha256sum @917253007a8
+  fingerprint_reproduced: true
+  lines: 4509
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T11:45:00Z'
+round: 3
+round_note: >-
+  Круг 3 прохода RA-03. Действуют Д1–Д25 и принятое registerSharePause = 1. Роль design-reviewer
+  исполняет system-design-reviewer в режиме «замысел» (решение владельца 2026-09-30); к этой записи
+  это не относится. Каждая новая команда дельты прогнана рецензентом на своей ревизии: kacho
+  @1d42a6728bf, kaname @734f69fb4 и @cbbac984b, воркспейс @b746239d5b8 (Д24).
+previous_rounds:
+  - round: 1
+    pass: RA-03
+    sha256: c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5
+    verdict: CHANGES_REQUESTED
+    blocking_count: 3
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/c481e642b8292160e81b24b7e1936f183d93c05d751f65cea1e605ec19d140b5.yaml
+  - round: 2
+    pass: RA-03
+    sha256: 077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521
+    verdict: CHANGES_REQUESTED
+    blocking_count: 1
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/077fdc208ced5c99b0a69b12c97109b28e1b7e451fbbffb545dad1f418747521.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_findings: []
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf HEAD → 0 @917253007a8
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует: тело события отдаётся курьеру строкой. Пока событие не
+    опубликовано, действующего одобрения нет, есть только эта запись.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 3 прохода RA-03, блокирующих 0) · SHA-256
+    97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17
+
+measurement:
+  scenario_ids: 163
+  withdrawn: [8, 41, 42, 44, 45, 123, 124]
+  live: 156
+  duplicate_ids: 0
+  count_predicate: >-
+    grep -cE '^\*\*ID:\*\* NTF3-' <документ> → 163; grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> |
+    sort | uniq -d | wc -l → 0.
+  hygiene_predicate: >-
+    grep -icE по образцу гигиены задания (имена чужих облаков, домашний каталог, путь рабочей копии;
+    образец здесь не выписан, чтобы запись сама не несла этих имён) → 0.
+  self_check_predicates_can_fail: >-
+    Обе самопроверки шапки §1 прогнаны на редакции 23 и, как контроль, на редакции 22
+    (git show 3590477cc:<путь>, sha256 077fdc20…7521): grep -nE '[Сс]о[ ]слов' | grep -vE
+    '^[0-9]{1,2}:>' → 1 строка (165, запись о снятии в §1.1) против 7 на редакции 22;
+    grep -nE '`[…]' | grep -c 'grep ' → 0 против 1 на редакции 22. Обе проверки различают
+    дефект и его исправление.
+  reproduced_at_pinned_revisions:
+    - "§1.2 AddressPool: git grep -lE 'Outbox\\(\\)\\.Emit\\(ctx, \"AddressPool\"' 1d42a6728bf -- services/vpc ':!*_test.go' → 5 (add_cidr_blocks, create, delete, remove_cidr_blocks, update). Верно."
+    - "§1.2 служба доступа: journal.go @734f69fb4 и @cbbac984b — StateNotProduced|anypb.New|MarshalFrom → 1 строка :227; case :224-226 перечисляет все 7 видов; anypb.New|MarshalFrom в пакете → 0. Верно."
+    - "§1.3: subscription.proto @1d42a6728bf, срез 359–480 — initiator|actor|occurred_at → 0; контроль position|kind|change → 3 (59, 68, 96 среза). Без среза по всему файлу тоже 0. Верно."
+    - "§1.3 аудит compute: actor_(type|id)\\s+text → 0028_audit_outbox.sql:46,47; DROP COLUMN.*actor → 0; DROP TABLE audit_outbox (0028:113) стоит в разделе Down (граница :111); файлов с audit 2. Верно."
+    - "§1.6: предикат DELETING по storage *.go → 1 (reconciler/store.go:271, условие DELETE); контроль CREATING|ERROR|READY → 14; в *.sql storage 'DELETING' только в CHECK и комментарии. Верно."
+    - "§1.7: DeriveMigrating|MigrateVolume вне contract/ → 4 объявления (volume.go:131, port.go:177, fake.go:457, adapter.go:224); с contract/ добавляются только 4 вызова набора проверок адаптеров cases.go:669–691. Верно."
+    - "§1.8 состояние пользователя: 40 строк прежнего предиката; на пути проверки прав invite_status|InviteStatus → 0 на обеих ревизиях, email_verified_at → 1 (personmarks.go:32); без сужения 35 файлов. Рецензент прошёл AuthorizeService.check @734f69fb4 (:374–420): planCheck → admissionDenied → isClusterAdmin (authzguard) → verdict. Пакета authzguard среди 35 файлов тоже нет, subject_state_reader.go зовёт выдача прав кластера. Утверждение держится. Верно."
+    - "§1.8 напоминание: '≤14d|14 ?days|14 ?\\* ?24' → 1 на обеих ревизиях (service_account_oauth_client.pb.go:73); remind|alert в expiredcredsweep → 0; remind по дереву без .pb.go → 0. Верно."
+    - "§1.10: DRAFT → 3 из 3 @b746239d5b8; services/(compute|…)/ → 0. Число верно, но предикат пустой (см. неблокирующее 1)."
+    - "§1.13: координаты EXECUTE FUNCTION сверены построчно — vpc 0001:650; nlb 0001:546,556,561,565, 0022:124; registry :188,204,208; storage 289,293,297,301 и 20260830120000:270. Верно."
+    - "§2: group_members_resource_journal_trg → 2 на обеих ревизиях (:342 Up, :364 Down, граница :354). Функция resource_journal_emit_member (:237) пишет 'UPDATED' владельца, kind из TG_ARGV[0]='iam_group'. Верно."
+
+premise_check:
+  task_premise: >-
+    Посылка задания: SHA-256 редакции 97afc066…ea17, круг 3. sha256sum рабочего файла и
+    git show HEAD:<путь> | sha256sum @917253007a8 дают
+    97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17. Посылка подтверждена.
+    Журналы решений Д1–Д22 на месте (три файла journal.jsonl). В этом круге сверено то, чего касается
+    дельта: Д20 — ленту выдаёт notify-api, как теперь написано в NTF3-163; Д24 — весь предмет круга;
+    Д25 — С17 обходит монотонную правку только посевом. Остальные решения дельта не трогает.
+  seeded: 0
+  seeding_note: >-
+    Стенд и изоляция для посева заданием не названы, поэтому посев — «не выполнилось», в зелёное не
+    зачитан. Новых Given дельта не вводит: у С18 только вписан порог 60s, это параметр ageThreshold
+    в NewFreeIPRunner (проверено в круге 2). Конструируемость всех Given держится названными
+    средствами С1–С18. Их строимость проверена чтением дерева в прошлых кругах, и дельта её не
+    меняет.
+  confirmed:
+    - "B1 круга 2 (CONVENTION, Д24) закрыт. Все шесть утверждений «со слов разведки» (206, 217, 334, 345, 371, 700 редакции 22) стоят на команде с числом и ревизией, и каждое подтверждено прогоном рецензента. Сокращённая команда §1.3 выписана целиком и имеет контроль."
+    - "Р7 (клетка SUBJECT_INACTIVE) и Р19 теперь опираются на измеренное, как требовал круг 2."
+    - "Неблокирующие круга 2 учтены: координаты таблицы §1.13 приведены к строкам EXECUTE FUNCTION; у близнеца NTF3-163 назван момент P0 до Delete; ленту выдаёт notify-api; у С18 назван порог 60s."
+    - "Счёт 163/7/156 сходится, дубликатов 0, гигиена 0."
+  refuted: []
+
+non_blocking_findings:
+  - id: N1
+    anchor: "§1.10 (строки 403–407)"
+    what: >-
+      Число «путей модулей kacho 0» верно, но предикат упасть не может. Три документа написаны до
+      монорепо и называют модули именами репозиториев, а не путями services/. Контроль: git grep
+      -nE 'services/' → 1 строка на все три документа; git grep -cE
+      'kacho-(vpc|compute|nlb|storage|registry|geo)' @b746239d5b8 → 3.7: 2, 3.9: 1, W2.B: 1.
+      По содержанию утверждение верно: отложенные уведомления там про домен прав. Это одобрение
+      заявки JIT и break-glass (3.7:38, :50) и Approve/Deny (W2.B:539). Лучше назвать эти
+      координаты или взять предикат по именам репозиториев. На этом утверждении не стоит ни одно
+      решение.
+  - id: N2
+    anchor: "§1.8 (строки 376–378)"
+    what: >-
+      Слова «единственный обходчик сроков — expiredcredsweep» шире замера. По expires_at обходит и
+      internal/apps/kaname/retention (registry.go:334–341: утверждения, отзывы, выпуски) @734f69fb4.
+      Вывод «производителя напоминания нет» держится на remind → 0 по всему дереву. Уточнить до
+      «обходчик сроков ключей».
+  - id: N3
+    anchor: "§1.3"
+    what: >-
+      В координате subscription.proto:359-480 файл на @1d42a6728bf имеет 479 строк. Предикат по
+      всему файлу даёт тот же 0 и сильнее среза.
+  - id: N4
+    anchor: "запись редакции 23"
+    what: >-
+      Запись говорит «выводы и сценарии не изменились», хотя текст Then и близнеца NTF3-163 правлен.
+      Утверждения при этом не изменились. Точнее было бы «утверждения сценариев не изменились».
+  - id: N5
+    anchor: "вне дельты"
+    what: >-
+      Неблокирующие прошлых кругов остаются в силе. С15 строить через InstanceRepo.SetStatusCAS.
+      Форма вставки NTF3-70 и 23502 против CX3B-25 (б) — к design-author.
+
+method_verdict: >-
+  Судилась дельта 22 → 23 против B1 круга 2 и Д1–Д25. Все команды дельты (одиннадцать групп)
+  прогнаны на закреплённых ревизиях, и все числа и координаты воспроизводятся. Самопроверки шапки
+  §1 различают дефект: на редакции 22 они дают 7 и 1, на редакции 23 — 1 и 0. Утверждения, на
+  которых стоят решения (Р7 SUBJECT_INACTIVE, Р19, Р2 членство группы), рецензент проверил и
+  чтением кода, а не только числом. Блокирующих нет. Пять неблокирующих — формулировки и сила
+  одного предиката, на котором не стоит решение. Посев не выполнялся: стенда нет, это «не
+  выполнилось», в зелёное не зачитано.
+
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
