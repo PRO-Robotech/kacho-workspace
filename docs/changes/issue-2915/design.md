@@ -12,15 +12,22 @@ SPDX-License-Identifier: BUSL-1.1
 > владелец — приёмка `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`.
 > Где замысел называет исход, он ссылается на её сценарий. Порядок работ — `tasks.md` рядом.
 >
-> **Редакция 1 · 2026-09-30.** Вердикта на неё нет. Действующий вердикт выводится из записи
+> **Редакция 2 · 2026-09-30.** Вердикта на неё нет. Действующий вердикт выводится из записи
 > ревью на отпечаток этого файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки
-> разбора классов (`reviews/class-exposure/revalidation/<sha256>.yaml`). Пересверок на замысел
-> у изменения пока нет: `ls docs/changes/issue-2915/reviews/class-exposure/` → только `initial`.
+> разбора классов (`reviews/class-exposure/revalidation/<sha256>.yaml`). Пересверка есть одна — на
+> редакцию 1 (`reviews/class-exposure/revalidation/9bfa92be….yaml`, исход «вернуть в приёмку» по
+> NTF1-L03 и «к замыслу» по CX1-58…62). На эту редакцию пересверки нет; по Д22 следующая судит
+> дельту против `9bfa92be`.
 >
-> **На чём стоит.** Одобренная редакция 18 приёмки и шесть первичных разборов классов на её
-> редакциях 8, 9, 10, 13, 16 и 18 (§0). Условия к коду из всех шести записей отображены: пункты
-> CX1-01…CX1-57 — в §11, каждое условие и каждый заказ исполнителю — в §11а. По решению
-> диспетчера Д22 условие к коду живёт здесь, а не в приёмке.
+> **Что изменила редакция 2** (дельта к `9bfa92be`, всё — по записи пересверки): отображены новые
+> пункты CX1-58…62 (З6, З7, З8, З10, §6, §11); условия к коду УК71–УК74 и условия пунктов
+> CX1-58…62 — строки УК75–УК79 §11а; ответ `Claim` несёт остатки длительностью, а не моменты
+> (З8, З21, §5); Е2 переписана ссылкой на возврат L03 (§13), добавлена Е7; замеры М20–М25 (§1).
+>
+> **На чём стоит.** Одобренная редакция 18 приёмки, шесть первичных разборов классов на её
+> редакциях 8, 9, 10, 13, 16 и 18 и пересверка на редакцию 1 замысла (§0). Условия к коду из всех
+> семи записей отображены: пункты CX1-01…CX1-62 — в §11, каждое условие и каждый заказ
+> исполнителю — в §11а. По решению диспетчера Д22 условие к коду живёт здесь, а не в приёмке.
 
 ## 0. Входы и на чём стоит замысел
 
@@ -33,6 +40,7 @@ SPDX-License-Identifier: BUSL-1.1
 | первичный разбор, редакция 13 | `reviews/class-exposure/initial/05828e42….yaml` | `05828e42…` | вернуть в приёмку (RA-11) — исполнено редакцией 14; CX1-38…43 |
 | первичный разбор, редакция 16 | `reviews/class-exposure/initial/390b5a33….yaml` | `390b5a33…` | вернуть в приёмку (RA-12) — исполнено редакцией 17; CX1-44…49 |
 | первичный разбор, редакция 18 | `reviews/class-exposure/initial/29cfa368….yaml` | `29cfa368…` (дельта против `390b5a33` по Д22) | `к-замыслу`, возврата нет; CX1-50…57 |
+| пересверка, замысел редакции 1 | `reviews/class-exposure/revalidation/9bfa92be….yaml` (коммит `3b4218aa5`) | `9bfa92be…` — отпечаток редакции 1 этого файла | вернуть в приёмку (NTF1-L03, §13 Е2); 57 из 57 выдерживают; УК71–УК74; новые CX1-58…62 — отображены этой редакцией |
 | дерево kacho | `PRO-Robotech/kacho` | `origin/main@1d42a6728bf` | замеры §1 — на этой ревизии |
 | дерево kaname | `PRO-Robotech/kaname` | ветка эпика `origin/357@734f69fb4` | то же |
 | дерево corelib | `PRO-Robotech/corelib` | `origin/main@34bc8104a` (= `v1.9.0`) | то же |
@@ -91,8 +99,12 @@ SPDX-License-Identifier: BUSL-1.1
 | М17 | структура с неэкспортируемым полем не закрывает выходы значения | запись `05828e42…`, опыт `go run` | `fmt` и `slog` печатают значение; `json` молча даёт `{}` |
 | М18 | нуль с долей секунды проходит `IsZero` до усечения | запись `390b5a33…`, опыт `go run` | `time.Time{}` + 0,5 с — `IsZero` false до усечения, запись `0001-01-01T00:00:00Z` после |
 | М19 | инструментарий | `go version` | go1.26.8 linux/amd64 |
-| М20 | пересверок на замысел нет | `ls docs/changes/issue-2915/reviews/class-exposure/` | `initial` |
-| М21 | сценарий L03 и правило Р11 расходятся | приёмка, строки 1169 и 2564–2570 | Р11: строка без `DEFER`, не выданная ни одним `Claim`, — `EXPIRED(unclaimed)`; L03 (notify остановлен, строку не забирал никто) — `EXPIRED(platform_unavailable)`. Вклад возвращают обе причины, различается только метка (§13, Е2) |
+| М20 | пересверка на замысел одна — на редакцию 1 | `ls docs/changes/issue-2915/reviews/class-exposure/revalidation/` | `9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3.yaml`; на редакцию 2 записи нет |
+| М21 | сценарий L03 расходится с Р11 и B31 (а) | приёмка, строки 1169, 1705, 2566–2568; подтверждено пересверкой `9bfa92be…` | Р11 и B31 (а): строка без `DEFER`, не выданная ни одним `Claim`, — `EXPIRED(unclaimed)`; L03 (notify остановлен, строку не забирал никто) — `EXPIRED(platform_unavailable)`. Вклад возвращают обе причины, различается только метка (§13, Е2) |
+| М22 | `outbox.NewQueueSweeper` зашит на `sent_at` и требует ключ партиции | `git -C corelib show 34bc8104a:outbox/retention.go \| sed -n 76,200p` | оператор снимает `sent_at IS NOT NULL AND sent_at < now() − grace`, щадит строку с недоставленным предшественником партиции; без `PartitionColumn` — отказ сборки. В схеме ленты нет ни `sent_at`, ни партиции (CX1-59) |
+| М23 | pgx не сканирует бесконечность в `time.Time` | `sed -n 444,460p ~/go/pkg/mod/github.com/jackc/pgx/v5@v5.10.0/pgtype/builtin_wrappers.go` (версия — `go.mod` corelib `34bc8104a`) | `NegativeInfinity` → ошибка «cannot scan -Infinity into *time.Time» (CX1-58) |
+| М24 | `UPDATE … FROM` меняет целевую строку один раз; сумма по окну — верно | `docker run postgres:16-alpine` (16.15), окна час и сутки по 5, две строки ленты с вкладом в оба, оператор З10 ред. 1 и оператор З10 ред. 2 | ред. 1: `UPDATE 2`, окна 4 и 4 (ожидалось 3); ред. 2: `UPDATE 2`, окна 3 и 3; строк `expired` 2 в обоих (CX1-62). `CHECK (not_before IS NULL OR isfinite(not_before))` отвергает `-infinity`; отбор `not_before IS NULL OR not_before <= now()` выдаёт строки без отсрочки (CX1-58) |
+| М25 | откат к точке сохранения снимает вклад первого лимита, транзакция пригодна к коммиту | тот же контейнер: `SAVEPOINT`; вклад адресата +1; окно инициатора (1 из 1) — ноль строк; `ROLLBACK TO SAVEPOINT`; `COMMIT` | строки окна адресата нет, окно инициатора 1 (CX1-61) |
 
 ## 2. Решения
 
@@ -243,6 +255,11 @@ SPDX-License-Identifier: BUSL-1.1
 - **Экспорт лимитов.** Для каждого `limits` шаблона порождается экспортируемая константа
   `X<Scope>Per<Window>`, например `InviteRecipientPerDay`. Страж NTF-2 берёт из неё границу
   `invite.recipient-per-day-all` (заказ NTF-2 Е8 (в)).
+- **Лимиты в описании.** Каждый лимит несёт `scope`, `window_seconds` и `max`; порядок — по
+  `(scope, window_seconds)` (З7, шаг 5). Два лимита одной области с разными окнами — два лимита
+  (CX1-60). Два лимита с одной парой `(scope, window_seconds)` генератор сводит в один с меньшим
+  `max`: письмо, прошедшее меньший, проходит и больший, так что исход тот же, а имя экспортируемой
+  константы одно.
 - **`-check`**: `revision.yaml` против набора, эталон структуры, побайтовое содержимое каждой
   выпущенной версии схемы ленты (NTF1-D02, D04, D07). **`-check -base <ревизия>`** — всё то же и
   правило базы Р7, всегда со знаменателем. **`-check -list`** печатает множество порождаемых
@@ -273,13 +290,32 @@ SPDX-License-Identifier: BUSL-1.1
   `lease_until` снимает каждый `Ack` и конец аренды.
 - **Последний `DEFER`** — колонка `last_defer_reason`, её пишет `Ack DEFER`. «Не раньше» — колонка
   `not_before` (CX1-14).
+- **«Отсрочки не было» — `NULL`, а не значение из домена времени** (CX1-58 (а)). `not_before`
+  допускает `NULL`, умолчания нет; `CHECK (not_before IS NULL OR isfinite(not_before))` делает
+  бесконечность невыразимой. Отбор `Claim` — `(not_before IS NULL OR not_before <= now())` (З8).
+  Читатели колонки в Go сканируют её в `pgtype.Timestamptz` и различают `Valid`; метрика и вход
+  B20 считают возраст только у строк с `not_before IS NOT NULL` (З23). Форма (б) записи
+  (`DEFAULT now()`) не выбрана: она сливает «отсрочки не было» с «отсрочено до момента
+  постановки», и метрика отсроченных считала бы каждую строку.
+- **Отметка закрытия — `outcome_at`** (CX1-59 (б)). Её ставит каждый переход в терминальное
+  состояние: `Ack` терминального вида (З9), уборщик истечения (З10), закрытие `Claim` по
+  `sealed_mismatch`/`key_unavailable` (З8). Что отметка есть ровно у закрытой строки, держит
+  `CHECK outcome_matches_state` (§6), а не дисциплина писателей: переход без неё отвергает база.
+  По ней работает уборка закрытых строк (З10).
 - Исход уборщика пишет `outcome_token = NULL` и `recorded_* = NULL`: ни один предъявленный токен
   ему не равен (CX1-26 (г)).
 - `schema_rev integer NOT NULL CHECK (schema_rev >= 1)` (NTF1-B29 (ревизия)); колонка `class`
   (только отбор `Claim(classes)`, З22); `enqueued_at` — `now()` транзакции (NTF1-B01).
-- **Вклад в окна** — таблица `<svc>_notification_contrib(notification_id, window_key, window_start)`
-  с `ON DELETE CASCADE`. Строка ленты ссылается на все окна, куда внесла вклад; уборщик
-  возвращает вклад по ней (З10).
+- **Окно лимита различает лимиты** (CX1-60 (а)). Ключ окна —
+  `(template, scope, window_seconds, key, window_start)`: область **и** длина окна. Два лимита
+  одной области с разными окнами (адресат «в час» и «в сутки») — две строки даже тогда, когда
+  выровненные начала совпадают (полночь). Длина окна — целое число секунд из описания шаблона,
+  `CHECK (window_seconds > 0)`.
+- **Вклад в окна** — таблица `<svc>_notification_contrib`, **её форма описана одним местом — §6**
+  (УК74): строка на пару «строка ленты × лимит», ключ `(notification_id, scope, window_seconds)`,
+  колонки — ключ окна, в которое внесён вклад; `ON DELETE CASCADE` от строки ленты. Внешнего ключа
+  на строку окна нет: строку прошедшего окна снимает уборка (З10), а вклад закрытой строки ленты
+  живёт до её уборки. Уборщик возвращает вклад по этой таблице (З10).
 
 ### З7. `feed.Put`: порядок, сторожа, окно
 
@@ -290,7 +326,11 @@ SQL либо выражено нулём строк условного опер�
 1. Флаг (З12). Выключен: для `notice` — `nil` без строки; для `security` —
    `feed.ErrDeliveryNotConfigured`.
 2. Описание. Ревизия `< 1`, пустое описание при непустом наборе значений, атрибут вне описания
-   — `feed.ErrAttrsInvalid` с именем (NTF1-B28 (`Put`), B29 (ревизия)).
+   — `feed.ErrAttrsInvalid` с именем (NTF1-B28 (`Put`), B29 (ревизия)). Два лимита описания с
+   одной парой `(scope, window_seconds)` — тот же сторож с именем шаблона: такое описание
+   генератор не порождает (он сводит одинаковую пару к меньшему `max`, что по поведению равно
+   двум лимитам, З5), а рукописного описания в рабочем коде нет (гейт `Put`, З16). Без этого
+   сторожа второй вклад той же пары дал бы 23505 по ключу `contrib` внутри `Put` (CX1-60).
 3. Адресат — `address.Normalize`; ошибка или нуль — `feed.ErrRecipientInvalid` (NTF1-B27).
 4. Атрибуты. По описанию — один исчерпывающий обход:
    - `required` без значения или с нулём — `feed.ErrAttrsInvalid`;
@@ -299,34 +339,55 @@ SQL либо выражено нулём строк условного опер�
    - значение вне формы — `feed.ErrAttrsInvalid`.
 
    Ошибка называет атрибут и значения не несёт.
-5. Окно лимита. Для каждого `limits` — один оператор
-   `INSERT … ON CONFLICT (template, scope, key, window_start) DO UPDATE SET count = w.count + 1 WHERE w.count < $max RETURNING count`.
-   Ноль строк — `feed.ErrLimitExhausted`: это ноль строк, а не ошибка SQL (CX1-10, NTF1-B09).
-   Ключ окна по адресату — `Normalized.Value()` (CX1-12). Окно — выровненный интервал
-   `date_bin(window, now(), epoch)`.
-6. Вставка строки ленты, строк `contrib`, строки журнала подписки. Строка журнала — объект
-   `notification_feed:<модуль>`, слово журнала `notification` — пишется тем же писателем журнала
-   владельца, что пишет прочие строки подписки (NTF1-B01).
+5. Окно лимита — **под точкой сохранения** (CX1-61). `Put` открывает вложенную транзакцию
+   `sp, err := tx.Begin(ctx)` (у `pgx.Tx` это `SAVEPOINT`; параметр `tx` у `Put` и `SendX` —
+   `pgx.Tx`). Для каждого `limits` в порядке описания — один оператор
+   `INSERT … ON CONFLICT (template, scope, window_seconds, key, window_start) DO UPDATE SET count = w.count + 1 WHERE w.count < $max RETURNING count`.
+   Ноль строк **любого** лимита — `sp.Rollback(ctx)` (откат к точке сохранения снимает вклады
+   прошедших лимитов этой постановки), затем `feed.ErrLimitExhausted`: это ноль строк, а не ошибка
+   SQL (CX1-10, NTF1-B09). Вклад во все окна шаблона — всё или ничего: после
+   `ErrLimitExhausted` транзакция вызывающего пригодна к коммиту и не несёт ни одного вклада
+   (замер М25). Ключ окна по адресату — `Normalized.Value()` (CX1-12). Окно — выровненный интервал
+   `date_bin(window, now(), epoch)`, длина — `window_seconds` лимита (З6).
+   - Порядок операторов — порядок `limits` в описании, который генератор упорядочивает по
+     `(scope, window_seconds)`. Две постановки одного шаблона берут замки строк окон в одном
+     порядке и взаимной блокировки не дают.
+6. Вставка строки ленты, строк `contrib`, строки журнала подписки — в той же точке сохранения.
+   Строка журнала — объект `notification_feed:<модуль>`, слово журнала `notification` — пишется
+   тем же писателем журнала владельца, что пишет прочие строки подписки (NTF1-B01). Ошибка шага 6
+   тоже откатывает к точке сохранения до возврата. Успех — `sp.Commit(ctx)` (`RELEASE SAVEPOINT`).
 
-Шаги 5 и 6 идут в транзакции вызывающего: откат уносит строку, журнал и вклад вместе (NTF1-B02).
-Гейт дерева NTF1-B09 судит, что в `feed` нет чтения счётчика с последующей записью.
+Шаги 5 и 6 идут в транзакции вызывающего: откат вызывающего уносит строку, журнал и вклад вместе
+(NTF1-B02). Точка сохранения не отделяет их от транзакции вызывающего, а только делает отказ
+`Put` атомарным внутри неё. Гейт дерева NTF1-B09 судит, что в `feed` нет чтения счётчика с
+последующей записью.
 
 ### З8. Сервер ленты: `Claim`
 
 - `feed.NewServer(cfg)` получает имя модуля (объект `notification_feed:<модуль>`), пул, кольцо
   ключей и часы. Регистрация — только при флаге `true` (Р9, NTF1-N07).
 - **Аренда — одна короткая транзакция** (CX1-25). Один оператор:
-  `WITH c AS (SELECT id … WHERE state='pending' AND class = ANY($classes) AND expires_at > now() AND not_before <= now() AND (lease_until IS NULL OR lease_until <= now()) ORDER BY enqueued_at, id FOR UPDATE SKIP LOCKED LIMIT $max) UPDATE … SET lease_token = gen_random_uuid(), lease_until = now() + LeaseTTL, first_claimed_at = coalesce(first_claimed_at, now()) FROM c … RETURNING …`.
+  `WITH c AS (SELECT id … WHERE state='pending' AND class = ANY($classes) AND expires_at > now() AND (not_before IS NULL OR not_before <= now()) AND (lease_until IS NULL OR lease_until <= now()) ORDER BY enqueued_at, id FOR UPDATE SKIP LOCKED LIMIT $max) UPDATE … SET lease_token = gen_random_uuid(), lease_until = now() + LeaseTTL, first_claimed_at = coalesce(first_claimed_at, now()) FROM c … RETURNING …, lease_until - now() AS lease_left, expires_at - now() AS expires_left`.
 
   Сетевых вызовов и расшифровки в транзакции нет. Соединение возвращается пулу до ответа
   (NTF1-B18).
 - **Расшифровка — после коммита.** Строка, чей шифротекст не открывается, закрывается условным
   `UPDATE` с её токеном аренды: `INVALID(sealed_mismatch)` или `INVALID(key_unavailable)`, секрет
   стирается. В ответ она не попадает (NTF1-B04, B07).
-- **Ответ несёт конец аренды каждой строки** — `lease_until` по часам базы источника (CX1-57 (а)).
-  `enqueued_at` уходит с полной точностью базы (микросекунды), без усечения до секунды: это
+- **Ответ несёт остаток аренды и остаток срока каждой строки длительностью, а не моментом**
+  (CX1-57 (а), УК71). Моменты `lease_until` и `expires_at` поставлены часами базы источника, а
+  notify сравнивал бы их со своими часами — расхождение часов двух узлов вошло бы в срок без
+  предела. Поэтому разность считает база источника в том же операторе (`lease_left`,
+  `expires_left` — обе стороны одними часами), а сервер ленты вычитает из неё время, прошедшее
+  по **монотонным** часам своего процесса от возврата оператора до ответа (расшифровка идёт
+  между ними). В ответ уходят `lease_remaining` и `expires_in` (§5). Ни одного момента по часам
+  источника, который notify сравнивал бы со своими часами, в ответе нет. `lease_left` равна
+  `feed.LeaseTTL` пина источника, но берётся из оператора, а не из константы: истина об аренде —
+  у того, кто её выставил.
+- `enqueued_at` уходит с полной точностью базы (микросекунды), без усечения до секунды: это
   внутренний контракт работы, а не ресурс. Правило `api-timestamp-truncate` к нему не
-  применяется, и контракт говорит это в комментарии поля (CX1-08).
+  применяется, и контракт говорит это в комментарии поля (CX1-08). notify его ни с чем своим не
+  сравнивает: он передаёт его в `ResolveSend` (З18).
 - Границы `max` и `classes` — синхронный `INVALID_ARGUMENT` до SQL (NTF1-B21, B24).
 
 ### З9. `Ack` и повтор после записанного исхода
@@ -350,6 +411,13 @@ SQL либо выражено нулём строк условного опер�
 - **До SQL** (CX1-26 (г)): пустой токен и `id` не по форме — `INVALID_ARGUMENT` (NTF1-B22);
   `OUTCOME_UNSPECIFIED` — `outcome: required` (NTF1-B14); вид `EXPIRED` в `Ack` —
   `INVALID_ARGUMENT` (`EXPIRED` ставит только уборщик).
+  - **Токен аренды разбирается как UUID** (УК73): непустой `lease_token` не по форме —
+    `INVALID_ARGUMENT` с именем поля `lease_token`, до оператора. Иначе приведение в
+    `lease_token = $T` дало бы 22P02, а оно уходит в `INTERNAL`. Токен по форме, но чужой аренды —
+    ноль строк и классификация ниже (`LEASE_LOST`).
+  - **`defer_for` при виде ≠ `DEFER` отвергается** (УК72, `api-outcome-reject`): заданное поле —
+    `INVALID_ARGUMENT` с именем `defer_for`, а не молча проигнорированное. При виде `DEFER` поле
+    обязательно и в `[feed.MinDefer..feed.MaxDefer]` (З23).
 - **Следствия записи — только в ветке, где оператор изменил строку** (CX1-26 (д)): стирание
   секрета, счётчик исходов ленты. На успешном повторе notify не увеличивает свой счётчик клеток и
   не освобождает резерв сетки второй раз (З24).
@@ -374,16 +442,58 @@ SQL либо выражено нулём строк условного опер�
       secret_attrs = NULL, outcome_at = now()
     WHERE state='pending' AND expires_at <= now()
       AND (lease_until IS NULL OR lease_until <= now())
-    RETURNING id, outcome_reason)
-  UPDATE <window> w SET count = w.count - 1
-    FROM <contrib> c JOIN x ON c.notification_id = x.id
-    WHERE x.outcome_reason = ANY($refund_reasons) AND w.… = c.…
+    RETURNING id, outcome_reason),
+  d AS (
+    SELECT c.template, c.scope, c.window_seconds, c.key, c.window_start, count(*) AS n
+      FROM <contrib> c JOIN x ON c.notification_id = x.id
+     WHERE x.outcome_reason = ANY($refund_reasons)
+     GROUP BY c.template, c.scope, c.window_seconds, c.key, c.window_start)
+  UPDATE <window> w SET count = w.count - d.n
+    FROM d
+   WHERE (w.template, w.scope, w.window_seconds, w.key, w.window_start)
+       = (d.template, d.scope, d.window_seconds, d.key, d.window_start)
   ```
 
   Условие аренды стоит в том же операторе, что перевод (NTF1-B25). Возврат идёт по строкам,
   которые **этот** оператор перевёл, поэтому два уборщика двух реплик возвращают вклад ровно
   один раз (CX1-55 (б)). Проход повторяется пачками до нуля переведённых: за проход закрывается
   каждая строка, подлежащая закрытию (NTF1-B31).
+- **Возврат суммируется по окну до обновления** (CX1-62). В PostgreSQL `UPDATE … FROM` меняет
+  целевую строку не больше одного раза, сколько бы строк соединения на неё ни пришлось: две
+  строки одного адресата в одном окне, истёкшие в одном проходе, вернули бы вклад один раз
+  (замер М24: окно 5 → 4 вместо 3). Поэтому вклад сначала сводится `GROUP BY` по ключу окна в
+  `d` — каждое окно встречается в `d` один раз и получает `− n`. Это массовый случай: notify,
+  остановленный надолго, оставляет пачку строк одного адресата в одном окне (L03, L04). Строка
+  окна, уже снятая уборкой прошедших окон, в соединение не попадает — возвращать некуда, и окно
+  всё равно прошло.
+- **Уборка закрытых строк и прошедших окон — своя, `outbox.NewQueueSweeper` не используется**
+  (CX1-59 (б), CX1-60 (в), замер М22). Уборщик очереди дренажа зашит на `sent_at` и ключ
+  партиции, а его пощада «доставленной строки с недоставленным предшественником» защищает
+  читателя, которого у ленты нет: реконсайлера, оживляющего отравленные строки, у ленты нет,
+  и строки ленты друг от друга не зависят. Поэтому `notify/feed` объявляет два предмета
+  фундаментальной петли `corelib/retention` — `feed.RetentionSubjects(db, table) []retention.Subject`:
+  - **закрытые строки** — `DELETE FROM <t> WHERE id IN (SELECT id FROM <t> WHERE state <> 'pending' AND outcome_at < now() − $grace ORDER BY id LIMIT $batch)`;
+    `Grace = feed.ClosedRetention` (7 суток: читатель — оператор, разбирающий исход письма,
+    та же причина, что у `outbox.DeliveredRetention`; величина объявлена отдельно, рядом со своим
+    читателем). Строка `pending` не снимается ни при каком возрасте: предикат требует отметки
+    закрытия, а `outcome_matches_state` делает её невозможной у `pending`. Строки `contrib`
+    уходят каскадом. Индекс `(outcome_at) WHERE state <> 'pending'` (§6). Второй читатель
+    закрытой строки — предикат `feed.LimitRefundedPredicate` у NTF-2 — удалённую строку уже
+    толкует («момент считается», замысел NTF-2 CX2-32), поэтому срок хранения его не касается;
+    вклад закрытой строки больше не возвращается (возврат — только при истечении), и уборка
+    его не меняет;
+  - **прошедшие окна** — `DELETE FROM <window> WHERE (template, scope, window_seconds, key, window_start) IN (SELECT … WHERE window_start + make_interval(secs => window_seconds) < now() − $grace ORDER BY window_start LIMIT $batch)`;
+    `Grace = feed.WindowRetention` (сутки после конца окна: запас на чтение счётчика оператором;
+    `Put` пишет только в текущее окно). Постановка, чья транзакция началась до конца окна и
+    вставила строку уже прошедшего окна, после уборки теряет этот счётчик — окно прошло, лимит
+    по нему больше не судится.
+
+  Величины петли — `retention.DefaultConfig()` фундамента; ручек у ленты нет (Р8). Все три
+  прохода — истечение, закрытые строки, прошедшие окна — поднимает один вызов
+  `feed.StartSweeper` в корне вне ветки флага (CX1-55 (а)): уборка работает и при выключенном
+  флаге, когда закрывать всё равно есть что. Приёмка (§1.8, Р8) называет `NewQueueSweeper`
+  годным для ленты; наблюдаемого исхода уборки она не утверждает, поэтому по Д22 это не возврат,
+  а зависимость Е7 (§13).
 - **Перечень причин возврата объявлен один раз** — `feed.RefundReasons() = {platform_unavailable, unclaimed}`
   рядом со словарём причин (CX1-53 (в)). Для NTF-2 экспортируется фрагмент запроса
   `feed.LimitRefundedPredicate(alias)`, выведенный из того же перечня, — заказ NTF-2 Е8 (а).
@@ -635,8 +745,8 @@ SQL либо выражено нулём строк условного опер�
   шаблонов с ней (NTF1-G20).
 - **Сверка сроков** (CX1-27, CX1-57 (б)). Страж старта требует
   `resolveSendTimeout + smtpSessionTimeout + ackMargin < feed.LeaseTTL` своего пина с именами обеих
-  ручек. Константа здесь — **нижняя граница ожидания**, а не истина об аренде. Истина — конец
-  аренды в ответе `Claim` (З21).
+  ручек. Константа здесь — **нижняя граница ожидания**, а не истина об аренде. Истина — остаток
+  аренды в ответе `Claim` (З8, З21).
 - **Посадка** (NTF1-G15): mTLS клиента к источникам и kaname, `authMode=production`, секрет почты
   смонтирован, `sslmode=require` у `kacho_notify`. Дескриптор — `HostNoGRPC` (З15).
 
@@ -656,17 +766,28 @@ SQL либо выражено нулём строк условного опер�
   3. иначе оба класса.
 
   Ведро источника ограничивает число строк, которые notify забирает, а не исход строк (NTF1-H04).
-- **Срок обработки строки — от ответа `Claim`, а не от своей константы** (CX1-57 (а)).
-  - Крайний момент строки — `min(lease_until − ackMargin, now + resolveSendTimeout + smtpSessionTimeout)`.
+- **Срок обработки строки — от ответа `Claim`, а не от своей константы** (CX1-57 (а)), и
+  **по одним часам — монотонным часам notify** (УК71).
+  - `t_send` — показание монотонных часов notify в момент **отправки** запроса `Claim`. Конец
+    аренды для notify — `t_send + lease_remaining`, конец срока строки — `t_send + expires_in`
+    (§5, З8). Оба не позже настоящих: источник выставил аренду после `t_send`, а время ответа
+    источник уже вычел. Разности «момент источника − часы notify» в вычислении нет нигде.
+  - Крайний момент строки — `min(t_send + lease_remaining − ackMargin, t_start + resolveSendTimeout + smtpSessionTimeout)`,
+    где `t_start` — начало обработки строки по тем же часам.
   - `ResolveSend`, резерв сетки и SMTP-сессия до ответа на `DATA` идут под контекстом с этим
     сроком (CX1-27).
-  - Строку, у которой `lease_until − now` меньше суммы сроков, notify до `MAIL FROM` не доводит и
-    `Ack` не шлёт: исхода Р11 для «не начал» нет. Аренда кончается, строку выдаёт следующий
-    `Claim`. Такие строки видны метрикой `notify_lease_budget_short_total{source}`.
+  - Строку, у которой остаток `t_send + lease_remaining − now_mono` меньше суммы сроков, notify до
+    `MAIL FROM` не доводит и `Ack` не шлёт: исхода Р11 для «не начал» нет. Аренда кончается,
+    строку выдаёт следующий `Claim`. Такие строки видны метрикой
+    `notify_lease_budget_short_total{source}`.
+  - Цена — задержка сети запроса `Claim` уходит из бюджета аренды (срок у notify раньше
+    настоящего на время в пути). Это консервативная сторона: запоздалого `Ack` и второй
+    SMTP-сессии по строке она не даёт.
   - Проба «аренда фикстурного сервера короче константы сборки notify → SMTP-сессий по строке не
-    больше одной» заказана (§11а).
-- **Перед `DATA` notify сверяет `expires_at`** (Р11). Истёкшую строку не начинает и `Ack` не шлёт:
-  её закроет уборщик источника (З10).
+    больше одной» и проба сдвига часов (УК71) заказаны (§11а).
+- **Перед `DATA` notify сверяет срок строки** (Р11) — `now_mono < t_send + expires_in`, по тем же
+  монотонным часам. Истёкшую строку не начинает и `Ack` не шлёт: её закроет уборщик источника
+  (З10).
 
 ### З22. notify: исход строки выбирает одна функция, порядок клеток объявлен
 
@@ -682,7 +803,7 @@ SQL либо выражено нулём строк условного опер�
   | 5 | адрес не разбирается `address.Normalize` | `INVALID(recipient_invalid)` | всё |
   | 6 | набор атрибутов не по описанию сборки: нет `required`, лишний, нуль, вне формы | `INVALID(attrs_invalid)` | всё |
   | 7 | право: исключение `kaname` по сертификату либо `ResolveSend` | `DENIED(revoked)` · `DEFER(grant_skew)` · `DEFER(platform_unavailable)` (+`misconfigured`) | всё |
-  | 8 | остаток аренды меньше суммы сроков; `expires_at` прошёл | без `Ack` (З21) | всё |
+  | 8 | остаток аренды меньше суммы сроков; срок строки прошёл — оба по монотонным часам notify от отправки `Claim` | без `Ack` (З21) | всё |
   | 9 | сетка на адресата | `DROPPED(recipient_net)` у `security` · `DEFER(recipient_net)` у прочего | всё |
   | 10 | рендер и SMTP | клетки Р11 (З26) | — |
 
@@ -731,7 +852,8 @@ SQL либо выражено нулём строк условного опер�
 
   Число отсрочек видно метрикой `kacho_notification_feed_defers_total{module, reason}`. Колонка
   `not_before` засчитывается четвёртым входом `outboxobservedgate` — подъём сервера ленты
-  (NTF1-B20).
+  (NTF1-B20). Читатель колонки сканирует её в `pgtype.Timestamptz`; строка без отсрочки
+  (`NULL`) в возраст отсроченных не входит и ошибки сканирования не даёт (CX1-58, З6).
 - **Бюджет отказов на пути `ResolveSend`** (CX1-28 (б)). На внутреннем слушателе kaname звена
   бюджета отказов нет, поле `DenyRateLimitPerSec` задано только у публичной двери и в корне не
   выставлено (М9). Отказы одного пространства поэтому не отнимают ответы у другого. NTF-1 бюджета
@@ -904,11 +1026,15 @@ SQL либо выражено нулём строк условного опер�
 | И18 | уборщик работает при любом флаге; вклад возвращается ровно один раз при любом числе реплик | NTF1-B31 (в); проба двух уборщиков (заказ) |
 | И19 | аренда — одна короткая транзакция; сетевых вызовов и расшифровки внутри нет | NTF1-B10, B18 |
 | И20 | повтор `Ack` после записанного исхода классифицируется без срока аренды; следствия — только на изменившей строке | NTF1-B26 |
-| И21 | срок обработки строки в notify ограничен концом аренды из ответа `Claim` | З21; проба (заказ) |
+| И21 | срок обработки строки в notify ограничен остатком аренды из ответа `Claim`, отсчитанным монотонными часами notify от отправки запроса; момент часов источника с часами notify не сравнивается | З8, З21; пробы (заказ, УК65, УК71) |
 | И22 | сетка на адресата точна поперёк реплик: резерв — один CAS до `MAIL FROM` | NTF1-H03 |
 | И23 | ни одна ручка не имеет молчаливого умолчания | стражи старта (§8) |
 | И24 | метки метрик — закрытые перечни; тревога `feed_expired` — исключением одной пары | З27; G27 |
 | И25 | гейты дерева — одна реализация в corelib; kacho и kaname — тонкие вызывающие | З16, З31 |
+| И26 | вклад `Put` во все окна шаблона — всё или ничего; после `ErrLimitExhausted` вклада нет ни в одном окне | З7 (точка сохранения); проба (заказ, УК78) |
+| И27 | окно лимита различает область и длину окна; вклад возвращается по окну суммой, ровно столько раз, сколько строк закрыто | З6, З7, З10; пробы (заказ, УК77, УК79) |
+| И28 | «отсрочки не было» — `NULL`; бесконечности в колонках времени ленты нет | `CHECK` §6; проба (заказ, УК75) |
+| И29 | закрытая строка ленты и строка прошедшего окна снимаются за конечное время; строка `pending` уборкой не снимается | З10; проба (заказ, УК76) |
 
 ## 4. Компоненты и границы
 
@@ -950,20 +1076,20 @@ message ClaimResponse { repeated ClaimedNotification notifications = 1; }
 message ClaimedNotification {
   string id = 1;                                  // ntf-…
   string lease_token = 2;
-  google.protobuf.Timestamp lease_until = 3;      // конец аренды по часам источника (CX1-57)
+  google.protobuf.Duration lease_remaining = 3;   // остаток аренды: разность часов базы источника минус время ответа (CX1-57, УК71)
   string template = 4;
   uint32 schema_rev = 5;
   NotificationClass class = 6;                    // только отбор; исход — по сборке notify (З22)
   oneof recipient { string address = 7; }        // форма субъекта — NTF-3
   map<string, string> attrs = 8;                  // ключа нет = атрибут не задан; секреты — открытым текстом
   google.protobuf.Timestamp enqueued_at = 9;      // полная точность базы, не усекается (CX1-08)
-  google.protobuf.Timestamp expires_at = 10;
+  google.protobuf.Duration expires_in = 10;       // остаток срока строки, той же формы (УК71)
 }
 message AckRequest {
   string id = 1;
-  string lease_token = 2;
+  string lease_token = 2;                         // UUID; не по форме — INVALID_ARGUMENT до SQL (УК73)
   Outcome outcome = 3;
-  google.protobuf.Duration defer_for = 4;         // обязателен при kind = DEFER, [1s..15m] (З23)
+  google.protobuf.Duration defer_for = 4;         // обязателен при kind = DEFER, [1s..15m] (З23); при ином виде — INVALID_ARGUMENT (УК72)
 }
 message Outcome { OutcomeKind kind = 1; OutcomeReason reason = 2; }
 // OutcomeKind: SENT, RECIPIENT_REJECTED, DEFER, DENIED, INVALID, DROPPED (EXPIRED — только уборщик)
@@ -1007,25 +1133,39 @@ CREATE TABLE <svc>_notification_outbox (
   lease_token       uuid, lease_until timestamptz,
   first_claimed_at  timestamptz,                            -- монотонный признак выдачи (CX1-53)
   last_defer_reason text,
-  not_before        timestamptz NOT NULL DEFAULT '-infinity',
+  not_before        timestamptz CHECK (not_before IS NULL OR isfinite(not_before)),  -- NULL = отсрочки не было (CX1-58)
   enqueued_at       timestamptz NOT NULL DEFAULT now(),
   expires_at        timestamptz NOT NULL,
   CONSTRAINT closed_carries_no_secret CHECK (state = 'pending' OR secret_attrs IS NULL),
-  CONSTRAINT outcome_matches_state CHECK ((state <> 'pending') = (outcome_at IS NOT NULL)),
+  CONSTRAINT outcome_matches_state CHECK ((state <> 'pending') = (outcome_at IS NOT NULL)),  -- отметка закрытия (CX1-59)
   CONSTRAINT outcome_pair CHECK (<пара state × outcome_reason из словаря Р11>)
 );
 CREATE INDEX … ON <svc>_notification_outbox (class, enqueued_at, id) WHERE state = 'pending';
+CREATE INDEX … ON <svc>_notification_outbox (outcome_at) WHERE state <> 'pending';        -- уборка закрытых (З10)
 CREATE TABLE <svc>_notification_window (
-  template text, scope text, key text, window_start timestamptz, count integer NOT NULL CHECK (count >= 0),
-  PRIMARY KEY (template, scope, key, window_start));
-CREATE TABLE <svc>_notification_contrib (
-  notification_id text REFERENCES <svc>_notification_outbox(id) ON DELETE CASCADE,
-  template text, scope text, key text, window_start timestamptz,
-  PRIMARY KEY (notification_id, scope));
+  template       text NOT NULL,
+  scope          text NOT NULL,
+  window_seconds integer NOT NULL CHECK (window_seconds > 0),                          -- длина окна лимита (CX1-60)
+  key            text NOT NULL,
+  window_start   timestamptz NOT NULL,
+  count          integer NOT NULL CHECK (count >= 0),
+  PRIMARY KEY (template, scope, window_seconds, key, window_start));
+CREATE TABLE <svc>_notification_contrib (                                             -- единственное описание (УК74)
+  notification_id text NOT NULL REFERENCES <svc>_notification_outbox(id) ON DELETE CASCADE,
+  template        text NOT NULL,
+  scope           text NOT NULL,
+  window_seconds  integer NOT NULL CHECK (window_seconds > 0),
+  key             text NOT NULL,
+  window_start    timestamptz NOT NULL,
+  PRIMARY KEY (notification_id, scope, window_seconds));
 ```
 
 Колонка `ttl` не хранится: `expires_at = enqueued_at + ttl` пишется при вставке, верхняя граница
-`ttl` — 720 ч (Р7). Уборка закрытых строк — `outbox.NewQueueSweeper` по сроку хранения.
+`ttl` — 720 ч (Р7). Уборка закрытых строк ленты и строк прошедших окон — `feed.RetentionSubjects`
+на петле `corelib/retention` (З10); `outbox.NewQueueSweeper` ленте не годится (М22, CX1-59).
+Отбор уборки прошедших окон — по выражению `window_start + window_seconds`; таблица окон растёт на
+строку в окно на ключ и снимается партиями, отдельного индекса по выражению не заводится: проход
+редкий (`retention.DefaultInterval`), а размер таблицы ограничен уборкой.
 
 **notify** (`kacho_notify`):
 
@@ -1047,11 +1187,14 @@ CREATE TABLE global_daily (day date PRIMARY KEY, count integer NOT NULL CHECK (c
    на каждую строку `Decide` (З22) → при `ALLOW` резерв сетки → рендер → SMTP → `Ack`.
    Освобождение резерва на не-`SENT` — тем же шагом.
 3. **Отсрочка.** `Ack DEFER(reason, defer_for)` → `not_before` → строка выдаётся после него.
-4. **Истечение.** Проход уборщика (З10) → `EXPIRED(reason)` и возврат вклада одним оператором.
-5. **Отзыв.** `Revoke(ns)` → надгробие и намерение снятия кортежа одной транзакцией →
+4. **Истечение.** Проход уборщика (З10) → `EXPIRED(reason)` и возврат вклада, суммированного по
+   окну, одним оператором.
+5. **Уборка.** Петля `corelib/retention` снимает закрытые строки старше `feed.ClosedRetention`
+   (вклад — каскадом) и строки окон, прошедших больше `feed.WindowRetention` назад (З10).
+6. **Отзыв.** `Revoke(ns)` → надгробие и намерение снятия кортежа одной транзакцией →
    `ResolveSend` → `REVOKED` → `DENIED(revoked)`.
-6. **Флаг выключен.** Ставить нечего, сервера ленты нет, уборщик закрывает поставленное раньше
-   (`unclaimed`).
+7. **Флаг выключен.** Ставить нечего, сервера ленты нет, уборщик закрывает поставленное раньше
+   (`unclaimed`), уборка работает.
 
 ## 8. Конфигурация, ручки и границы
 
@@ -1075,8 +1218,9 @@ CREATE TABLE global_daily (day date PRIMARY KEY, count integer NOT NULL CHECK (c
 | `global.kacho.notifications.enabled`, `<модуль>.notifications.enabled` | зонтик | bool | рендер отвергнут | NTF1-N01, N02 |
 
 Константы, не ручки: `feed.LeaseTTL = 5m`, `feed.SweepInterval = 1m`, `feed.MaxClaim = 500`,
-`feed.MinDefer = 1s`, `feed.MaxDefer = 15m`, `ackMargin = 5s`, порог и охлаждение размыкателя
-notify.
+`feed.MinDefer = 1s`, `feed.MaxDefer = 15m`, `feed.ClosedRetention = 168h`,
+`feed.WindowRetention = 24h`, `ackMargin = 5s`, порог и охлаждение размыкателя notify. Величины
+петли уборки — `retention.DefaultConfig()` фундамента (З10).
 
 ## 9. Рёбра
 
@@ -1098,7 +1242,8 @@ notify.
 
 ## 11. Отображение пунктов разбора в решения
 
-Каждый пункт шести первичных разборов → решение → механизм → держатель. «Заказ» — проба,
+Каждый пункт шести первичных разборов и пересверки на редакцию 1 → решение → механизм →
+держатель. «Заказ» — проба,
 заказанная записью разбора; она — строка маршрута (`tasks.md`).
 
 | пункт | решение | механизм | держатель |
@@ -1112,13 +1257,13 @@ notify.
 | CX1-07 | З18, З23 | `(запись, найдено, ошибка)`, `ErrNoRows` в одном месте; классификатор по типу | NTF1-F23, G23 |
 | CX1-08 | З8, З18 | `enqueued_at` на проводе с полной точностью; `cutoff_at` не усекается | NTF1-F20; дробная отсечка (заказ) |
 | CX1-09 | З18 | CAS `UPDATE … RETURNING`; вставка шаблона `ON CONFLICT … WHERE`; классификация после записи | NTF1-F15–F18 |
-| CX1-10 | З7 | сторожа — до SQL либо ноль строк CAS | NTF1-B09; NTF3-14 на той же реализации |
+| CX1-10 | З7 | сторожа — до SQL либо ноль строк CAS; при нескольких `limits` — под точкой сохранения (CX1-61) | NTF1-B09; NTF3-14 на той же реализации |
 | CX1-11 | З10 | замещён CX1-53: перечень `feed.RefundReasons()` | NTF1-B15, B16, B31 |
 | CX1-12 | З3, З7, З24 | ключ окна и ключ сетки — от `address.Normalize` | NTF1-B27 и гейт |
 | CX1-13 | З9 | см. CX1-26 | NTF1-B26, B13 |
-| CX1-14 | З23, З8 | `defer_for` в `Ack`, `not_before`, `Claim` не выдаёт будущих; ручка `notify.deferFor` | B20 (четвёртый вход); проба «вызовов `ResolveSend` ≤ T / шаг + 1» (заказ) |
+| CX1-14 | З23, З8, З9 | `defer_for` в `Ack`, `not_before`, `Claim` не выдаёт будущих; ручка `notify.deferFor`; `defer_for` при виде ≠ `DEFER` — отказ (УК72); «отсрочки не было» — `NULL` (CX1-58) | B20 (четвёртый вход); проба «вызовов `ResolveSend` ≤ T / шаг + 1» (заказ) |
 | CX1-15 | З24 | резерв — один CAS до `MAIL FROM`; освобождение тем же шагом, один раз | NTF1-H03; возврат резерва после `DEFER` (заказ) |
-| CX1-16 | З10 | условие аренды в том же операторе, что перевод | NTF1-B25 и гейт |
+| CX1-16 | З10 | условие аренды в том же операторе, что перевод; возврат — суммой по окну (CX1-62) | NTF1-B25 и гейт |
 | CX1-17 | З26 | таблица классификатора, три формы 5xx на `RCPT` — три строки, без `default` | NTF1-G10, G14 |
 | CX1-18 | З2, З25 | грамматика `path`/`token` — одна функция `notify/form`; ссылка — сложение строк | NTF1-G24, B28 |
 | CX1-19 | З11 | AAD с длинами; идентификатор ключа в шифротексте; смена шаблона → `sealed_mismatch` | NTF1-B04; смена шаблона в строке (заказ) |
@@ -1128,8 +1273,8 @@ notify.
 | CX1-23 | З15 | перепись G19 против ведомости корней, не константы | NTF1-G19; ведомость З15 |
 | CX1-24 | З20, З21 | `certificate` только у `kaname` с SAN из `kaname.spiffe`; клиент источника с точным SAN | NTF1-G22, J05 |
 | CX1-25 | З8 | аренда — одна короткая транзакция; расшифровка после коммита | NTF1-B10, B18 |
-| CX1-26 | З9 | один записывающий оператор снимает аренду при каждом исходе; классификация повтора без срока; пара `(kind, reason)`; следствия только на изменившей строке | NTF1-B26, B13; случаи повтора `DEFER` и `SENT = 1` (заказ) |
-| CX1-27 | З20, З21 | срок обработки под контекстом до `lease_until − ackMargin`; страж старта суммы сроков | проба «`DATA` дольше аренды → одна сессия» (заказ) |
+| CX1-26 | З9 | один записывающий оператор снимает аренду при каждом исходе; классификация повтора без срока; пара `(kind, reason)`; следствия только на изменившей строке; токен — UUID до SQL (УК73) | NTF1-B26, B13; случаи повтора `DEFER` и `SENT = 1` (заказ) |
+| CX1-27 | З20, З21 | срок обработки под контекстом до `t_send + lease_remaining − ackMargin` по монотонным часам notify (УК71); страж старта суммы сроков | проба «`DATA` дольше аренды → одна сессия» (заказ) |
 | CX1-28 | З23 | та же отсрочка после отказа; бюджета на пути `ResolveSend` нет (М9); метрика с кодом | проба «пространство A отказывает, `kaname` отправлено» (заказ) |
 | CX1-29 | З3 | доменная часть всех ключей — `NormalizeDomain`; ключ kaname — поверх неё (NTF-2) | NTF1-B27 (гейт) по дереву kaname |
 | CX1-30 | З3, З7 | именованный профиль IDNA; ошибка — `ErrRecipientInvalid` до SQL | NTF1-B27 (IDNA) |
@@ -1155,19 +1300,25 @@ notify.
 | CX1-50 | З2, З5, З7 | `form.Presence` — одна функция; `SendX` без литералов; ключ `optional` опускается только перед `Put`; `Put` нуль `optional` отвергает | NTF1-B30; B30 по перечню видов и `timestamp` + 0,5 с (заказ) |
 | CX1-51 | З4, З25 | `spec.RefSites` — исчерпывающий `switch` по восьми видам; валидатор и рендер зовут её; рендер по проверенному набору | NTF1-A11, G26; A11 (б) по восьми видам (заказ) |
 | CX1-52 | З22 | `deliver.Resolved` без колонки `class`; `class_mismatch` сразу после ревизии | NTF1-G26 (г), (д); «чужая ревизия, колонка `security`, исчерпанная сетка → `template_skew`, резервов 0» (заказ) |
-| CX1-53 | З6, З10 | `first_claimed_at` ставит `UPDATE` `Claim`; причина и возврат — один оператор уборщика; `RefundReasons()` один раз | NTF1-B31, B15, B16; «выдана, аренда истекла, больше не выдана → `no_ack`» (заказ) |
+| CX1-53 | З6, З10 | `first_claimed_at` ставит `UPDATE` `Claim`; причина и возврат — один оператор уборщика, возврат суммой по окну (CX1-62); `RefundReasons()` один раз | NTF1-B31, B15, B16; «выдана, аренда истекла, больше не выдана → `no_ack`» (заказ) |
 | CX1-54 | З27 | правило исключением одной пары; метки — закрытые перечни; G27 из перечней corelib | NTF1-G27; проба G27 по перечням (заказ) |
 | CX1-55 | З10 | `StartSweeper` в корне вне ветки флага; возврат по строкам своего оператора | NTF1-B31 (в); два уборщика (заказ) |
 | CX1-56 | З3, З16 | форма (а): всякое использование `NormalizeDomain` вне прямого вызова — узел | NTF1-B27 (гейт, приёмник); инъекция (4) (заказ) |
-| CX1-57 | З8, З21 | `lease_until` в ответе `Claim`; срок обработки по нему; страж сверяет сроки с нижней границей | проба «аренда короче константы сборки notify» (заказ) |
+| CX1-57 | З8, З21 | остаток аренды `lease_remaining` в ответе `Claim`, посчитанный часами базы источника; срок обработки — от отправки `Claim` по монотонным часам notify (УК71); страж сверяет сроки с нижней границей | проба «аренда короче константы сборки notify»; проба сдвига часов (заказ, УК71) |
+| CX1-58 | З6, З8, З23, §6 | «отсрочки не было» — `NULL`; `CHECK isfinite`; отбор `Claim` `not_before IS NULL OR …`; читатели — `pgtype.Timestamptz`, возраст — только у отсроченных | строка без `DEFER` читается сервером ленты и наблюдателем без ошибки сканирования; близнец — после `DEFER` (заказ, УК75) |
+| CX1-59 | З6, З10, §6 | своя уборка закрытых строк по отметке закрытия `outcome_at` (её ставит каждый терминальный переход, держит `CHECK outcome_matches_state`); `pending` не снимается; `NewQueueSweeper` не используется | закрытая строка каждого терминального вида старше срока — снята; `pending` старше срока — нет; близнец — закрытая моложе срока (заказ, УК76) |
+| CX1-60 | З5, З6, З7, З10, §6 | длина окна в ключах окна и вклада; одинаковая пара `(scope, window)` сводится генератором и отвергается `Put`; одна форма `contrib` (УК74); уборка прошедших окон | лимиты «1 в час» и «3 в сутки» на адресата, четыре постановки в разные часы → строк 3, четвёртая — `ErrLimitExhausted`; близнец — один лимит; проба уборки окон (заказ, УК77) |
+| CX1-61 | З7 | шаги 5–6 `Put` под точкой сохранения; ноль строк любого лимита — откат к ней до `ErrLimitExhausted` | окно инициатора исчерпано → `ErrLimitExhausted`, вызывающий коммитит, окно адресата не изменилось; близнец — оба свободны → оба +1 (заказ, УК78) |
+| CX1-62 | З10 | возврат сводится `GROUP BY` по ключу окна до `UPDATE`, окно получает `− n` | две строки `unclaimed` одного окна: 5 → 3; близнец — строки разных окон, по −1; вместе с пробой двух уборщиков (заказ, УК79) |
 
 ## 11а. Условия к коду из записей разбора — где каждое исполнено
 
 Условие к коду — требование записи разбора к реализации, которое не меняет ни одного «Тогда»
 (Д22: его дом — замысел). Ниже — **все** условия к коду и заказы исполнителям из шести первичных
 разборов: `b347b81f` (ред. 8), `530e2296` (ред. 9), `d524e7bd` (ред. 10), `05828e42` (ред. 13),
-`390b5a33` (ред. 16), `29cfa368` (ред. 18). Пересверок на замысел нет (М20). Условие, уточнённое
-поздней записью, дано последней формой, с ранней записью в столбце «запись». Полоса — `tasks.md`.
+`390b5a33` (ред. 16), `29cfa368` (ред. 18), — и из пересверки `9bfa92be` на редакцию 1 замысла
+(УК71–УК79, М20). Условие, уточнённое поздней записью, дано последней формой, с ранней записью в
+столбце «запись». Полоса — `tasks.md`.
 
 | № | запись · пункт | условие к коду | где в замысле | держатель (полоса) |
 |---|---|---|---|---|
@@ -1235,17 +1386,27 @@ notify.
 | УК62 | `29cfa368` · CX1-54 | правило исключением одной пары; закрытые перечни меток; G27 из перечней | З27 | NTF1-G27 (N8); экспорт перечней (C5) |
 | УК63 | `29cfa368` · CX1-55 | уборщик в корне вне ветки флага; возврат ровно один раз | З10 | NTF1-B31 (в) (C5); гейт «`StartSweeper` не под флагом» (C10) |
 | УК64 | `29cfa368` · CX1-56 | узел по типам: использование `NormalizeDomain` вне прямого вызова — находка; форма выбрана и записана | З3, З16 | NTF1-B27 (гейт, приёмник) (C10) |
-| УК65 | `29cfa368` · CX1-57 | ответ `Claim` несёт конец аренды; notify ограничивает обработку им; страж — по нижней границе | З8, З20, З21 | N3 |
+| УК65 | `29cfa368`, `9bfa92be` · CX1-57 | ответ `Claim` несёт остаток аренды (форма уточнена УК71); notify ограничивает обработку им; страж — по нижней границе | З8, З20, З21 | N3 |
 | УК66 | `29cfa368` · заказ corelib | CX1-50 (B30 по перечню видов; `timestamp` + 0,5 с), CX1-51 (A11 (б) по восьми видам), CX1-53 (`no_ack` после истечения аренды), CX1-54 (экспорт перечней), CX1-55 (два уборщика), CX1-56 (инъекция (4)) | З2, З4, З10, З27, З3 | C1, C3, C4, C5, C10 |
 | УК67 | `29cfa368` · заказ notify | CX1-52 (чужая ревизия, колонка `security`, исчерпанная сетка → `template_skew`, резервов 0), CX1-54 (G27 по перечням), CX1-57 (аренда короче константы) | З22, З27, З21 | N3, N8 |
 | УК68 | NTF-2 Е8 (а) | экспорт предиката «лимит строки возвращён» из `notify/feed` | З10 | C5 |
 | УК69 | NTF-2 Е8 (б) | незаданный вариант и пустое обязательное поле в ответе чужой службы — ошибка протокола | З23 | классификатор `deliver/peeranswer` (N4); читатель справочника — NTF-3 |
 | УК70 | NTF-2 Е8 (в) | описание шаблона экспортирует лимит на адресата в сутки | З5 | C6 |
+| УК71 | `9bfa92be` · CX1-57, CX1-27 | крайний момент строки notify считает по своим монотонным часам от отправки `Claim`: `t_send + lease_remaining`, где остаток посчитан часами базы источника; разности «момент источника − часы notify» нет; то же для срока строки (`expires_in`). Поправка собственного условия записи `29cfa368` | З8, З21, §5 | проба notify: фикстурный сервер ленты, часы которого сдвинуты на +10 с, аренда 20 с, SMTP-узел отвечает на `DATA` через 25 с → SMTP-сессий по строке ≤ 1, `Ack` не опаздывает; близнец без сдвига — то же (N3); сервер ленты отдаёт остаток за вычетом времени ответа (C5) |
+| УК72 | `9bfa92be` · CX1-14 | `defer_for`, заданный при виде ≠ `DEFER`, — синхронный `INVALID_ARGUMENT` с именем поля до SQL | З9, §5 | модульная проба сервера ленты: `Ack(SENT, defer_for = 1m)` → `INVALID_ARGUMENT` `defer_for`; близнец `Ack(SENT)` без поля — успех (C5) |
+| УК73 | `9bfa92be` · CX1-26 | `lease_token` разбирается как UUID до SQL; не по форме — `INVALID_ARGUMENT` `lease_token`, а не 22P02 → `INTERNAL` | З9, §5 | модульная проба `Ack`: токен «x» → `INVALID_ARGUMENT` `lease_token`; близнец — UUID чужой аренды → `LEASE_LOST` (C5) |
+| УК74 | `9bfa92be` · CX1-60 | таблица вклада описана одним местом — §6; З6 на него ссылается | З6, §6 | ревью замысла |
+| УК75 | `9bfa92be` · CX1-58 | «отсрочки не было» — `NULL`; бесконечности в колонке нет (`CHECK isfinite`); ни один читатель не получает бесконечность | З6, З8, З23, §6 | интеграционная проба ленты: строка без `DEFER` читается сервером ленты и наблюдателем B20 без ошибки сканирования и в возраст отсроченных не входит; близнец — строка после `DEFER` (C4, C5); вставка `-infinity` — ошибка базы (C4) |
+| УК76 | `9bfa92be` · CX1-59 | отметка закрытия на каждом терминальном переходе (`outcome_at`, `CHECK`); своя уборка ленты по ней, `pending` не снимается; `NewQueueSweeper` не используется | З6, З10, §6 | интеграционная проба уборки: по одной закрытой строке каждого терминального вида старше `ClosedRetention` → снята вместе с `contrib`; строка `pending` старше срока — не снята; близнец — закрытая строка моложе срока — не снята (C5) |
+| УК77 | `9bfa92be` · CX1-60 | длина окна в ключах окна и вклада; одинаковая пара `(scope, window)` не доходит до SQL; уборка прошедших окон | З5, З6, З7, З10, §6 | интеграционная проба `Put`: лимиты на адресата «1 в час» и «3 в сутки», четыре постановки на один адрес в разные часы → строк 3, четвёртая — `ErrLimitExhausted`; близнец — один лимит; описание с повтором пары → `ErrAttrsInvalid`; генератор сводит повтор к меньшему `max` (C4, C6); уборка окна, прошедшего больше `WindowRetention` назад, — снято, текущего — нет (C5) |
+| УК78 | `9bfa92be` · CX1-61 | шаги 5–6 `Put` под точкой сохранения; после `ErrLimitExhausted` транзакция вызывающего пригодна к коммиту и не несёт вклада | З7 | интеграционная проба `Put`: лимиты на адресата (L) и на инициатора (1), окно инициатора исчерпано → `ErrLimitExhausted`, вызывающий коммитит, счётчик окна адресата не изменился; близнец — оба окна свободны → оба +1 (C4) |
+| УК79 | `9bfa92be` · CX1-62 | возврат вклада суммируется по окну до `UPDATE`; «ровно раз при двух уборщиках» сохраняется | З10 | интеграционная проба уборщика: две строки `unclaimed` одного адресата в одном окне, счётчик 5 → 3; близнец — строки в разных окнах, по −1; вместе с пробой двух уборщиков (C5) |
 
 Заказы, чей дом — не код NTF-1, — строками §13: автору NTF-3 (CX1-37; ведомость G19 для
 `notify-api`; `schema_rev` ведомости сборки из `revision.yaml`), автору NTF-4 (Х5 — значение оси
-формы хоста, сравнение цепочки), автору NTF-2 (Д21-перечень исполняется формой CX1-50),
-`tooling-maintainer`:
+формы хоста, сравнение цепочки), автору NTF-2 (Д21-перечень исполняется формой CX1-50), автору
+приёмки NTF-1 (возврат L03 — Е2; утверждение §1.8 и Р8 о `NewQueueSweeper` — Е7), ревьюерам
+замысла `design-reviewer`, `db-architect-reviewer`, `proto-api-reviewer` (Е6), `tooling-maintainer`:
 
 - норма видов (1)–(7) в правилах;
 - кандидаты `class-guard` «default → `user`» и «ошибка `Value()` в `_`» — после посадки S1;
@@ -1276,8 +1437,9 @@ notify.
 | № | зависимость | чей предмет | предикат снятия |
 |---|---|---|---|
 | Е1 | форма Х5 — третье значение оси `HostForm`, а не второе поле; проба Х5 сравнивает цепочку единственного слушателя с внутренней половиной пары, включая звено Р2 (CX1-33, CX1-34) | приёмка и замысел NTF-4 | на одобренном отпечатке NTF-4 Х5 названа значением оси формы хоста, а в DoD Х5 есть сравнение состава цепочки. До снятия З15 держит ось с двумя значениями, и NTF-1 не блокируется |
-| Е2 | **L03 противоречит Р11** (М21): строка, которую не выдал ни один `Claim`, по Р11 — `EXPIRED(unclaimed)`, по L03 — `EXPIRED(platform_unavailable)`. Замысел исполняет Р11 (З10) | приёмка NTF-1 | на одобренном отпечатке приёмки L03 утверждает `EXPIRED(unclaimed)` либо Р11 называет иную причину для этого случая. До снятия полоса L-проб (S5) L03 не зеленит |
+| Е2 | **возврат в приёмку NTF1-L03** — `return_to_acceptance` пересверки `reviews/class-exposure/revalidation/9bfa92be….yaml` (М21). «Тогда» L03 `EXPIRED(platform_unavailable)` противоречит Р11 и B31 (а): строка, которую не выдал ни один `Claim`, — `EXPIRED(unclaimed)`. Замысел исполняет Р11 и B31 (а) (З10) и решения здесь не принимает | автор приёмки NTF-1 | на одобренном отпечатке приёмки L03 утверждает `EXPIRED(unclaimed)` либо Р11 называет иную причину для этого случая и B31 (а) правлена вместе с ней; первичный разбор по Д22 судит эту дельту. До снятия полоса L-проб (S5) L03 не зеленит |
 | Е3 | норма «в рукописном коде продукта нет видов (1)–(7)» в `.claude/rules/` со ссылкой на реестр гейта (CX1-43 (б)) | `tooling-maintainer` | `grep -rl 'unsafe' .claude/rules/` находит строку нормы со ссылкой на гейт B28 |
 | Е4 | NTF-3: производные цены замещения Р6 (CX1-37); строка ведомости G19 для `cmd/notify-api` (З15); `schema_rev` ведомости сборки — из `revision.yaml` через `notify/spec` | приёмка и замысел NTF-3 | на одобренном отпечатке NTF-3 все три названы |
 | Е5 | событие одобрения приёмки NTF-1 опубликовано (`event.status: not_performed` на `29cfa368`) | диспетчер (Д16) | запись ревью несёт опубликованное событие |
-| Е6 | `DESIGN_APPROVED` этого замысла и пересверка разбора классов на его отпечаток | `design-reviewer`, `class-exposure-analyst` | записи `reviews/design/<role>/<sha>.yaml` и `reviews/class-exposure/revalidation/<sha>.yaml` на отпечаток этого файла |
+| Е6 | `DESIGN_APPROVED` этого замысла и пересверка разбора классов на его отпечаток | `class-exposure-analyst` (пересверка — дельта против `9bfa92be` по Д22), затем `design-reviewer`, `db-architect-reviewer` (§6), `proto-api-reviewer` (§5) | записи `reviews/class-exposure/revalidation/<sha>.yaml` и `reviews/design/<role>/<sha>.yaml` всех трёх ролей на отпечаток этого файла |
+| Е7 | приёмка §1.8 и Р8 называют `outbox.NewQueueSweeper` годным для ленты — утверждение о дереве неверно (М22). Наблюдаемого исхода уборки приёмка не утверждает, поэтому по Д22 это не возврат; замысел его не использует (З10) | автор приёмки NTF-1 — тем же заходом, что Е2 | на одобренном отпечатке приёмки §1.8 и Р8 не называют `NewQueueSweeper` годным для ленты. Не блокирует ни одну полосу |
