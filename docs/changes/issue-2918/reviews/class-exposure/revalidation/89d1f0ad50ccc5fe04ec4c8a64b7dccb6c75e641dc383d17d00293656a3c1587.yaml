@@ -1,0 +1,302 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-3, редакция 1.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Первичные разборы (0478263a, c26cc7cc, 9fd0cd5e, 88ad95c6,
+# 97afc066, ab0d0efe, aa939edc) относятся к своим редакциям приёмки и здесь не переписываются.
+# Проверено:
+#   (1) у каждого живого пункта есть строка §11, и решение выдерживает условие пункта;
+#   (2) новые внешние вызовы, асинхронные пути и sentinel-значения замысла заведены пунктом;
+#   (3) маркеры отсрочки и открытые решения.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 89d1f0ad50ccc5fe04ec4c8a64b7dccb6c75e641dc383d17d00293656a3c1587
+  fingerprint_predicate: sha256sum docs/changes/issue-2918/design.md
+  revision: 1
+  content_commit: 9a13eea27
+  lines: 1129
+previous_revalidation: null   # первая пересверка замысла NTF-3
+initial_records:
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/0478263a0a501cecd5fee26f853049d4b8ec98cf74756645960389eb407fb4b8.yaml, items: "CX3-01…23 (перенесены в CX3B-01…23)"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/c26cc7cc7348ef4ef717ab8fc470cf72c8dcd67da3569537d87b99816261b425.yaml, items: "CX3B-01…48"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/9fd0cd5eba5c02eb8532d1ea57282702a442de6f2e9622866158a9e605fc4c0a.yaml, items: "CX3C-01…08"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/88ad95c64999aaf23c592998499de116343d34eac0d0badb84b0ca5883c0ff13.yaml, items: "CX3D-01…05"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/97afc066c6df15d48f32dfd2ee4a8fdea23a5f5acfd155b05e614fb33ba9ea17.yaml, items: "CX3E-01…10"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/ab0d0efece4c252f68c7d61a5dc94babe5bb4cc519c862f99ad4e530124f4aed.yaml, items: "CX3F-07 (б); CX3F-01…06, CX3F-07 (а) сняты Д31"}
+  - {path: docs/changes/issue-2918/reviews/class-exposure/initial/aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e.yaml, items: "CX3G-01…06"}
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: aa939edc35b55da64f6732960afaf23cbb76cdc6c606b10bd1def83dae32188e
+  effective_verdict: APPROVED
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+dispatcher_decisions:
+  applied: >-
+    Д1–Д31. Д22: условие к коду живёт в замысле. Д26: заход отображения. Д31: предмет — (а) публикация
+    в журнал с инициатором и временем, (б) уведомления из этих событий, (в) API настроек и контактов
+    и флаг; жизненный цикл фоновых путей и исходы публичного Delete вне объёма. Замысел этой
+    границы держится: утверждений о жизненном цикле фоновых путей сверх «исход до и после под-фазы
+    одинаков» (З13, CX3G-05 (б)) в нём нет.
+revisions:
+  workspace: 9a13eea27   # коммит редакции 1 и HEAD рабочей копии при замере
+  kacho: 1d42a6728bf
+  corelib: 34bc8104a
+  kaname: "не перемерялась"
+snapshot_at: 2026-09-30T14:43:03Z
+inspected: >-
+  design.md целиком (1129 строк; §0–§13, 78 строк §11, 42 строки §11а). Условия всех пунктов
+  семи первичных разборов (извлечены из YAML по полям condition и held_by, для перенесённых
+  CX3B — ещё delta). Код @1d42a6728bf: nlb jobs/free_ip_runner.go:329-476 (reconcileOne,
+  handleReleaseErr, releaseFamily), clients/vpc/internal_address_client.go:484-600
+  (ReleaseLease, mapReleaseLeaseErr), compute instance.go:958-1060 (releaseAndDelete,
+  FinishStuckDeletes), instance_nic.go mapNicErr, clients/storage_client.go mapStorageErr,
+  перепись WithPrincipal/SystemPrincipal в compute; gateway permission_catalog.json запись
+  ReleaseOwnedAddress; vpc manifest.yaml (address). corelib @34bc8104a: peer/outcome.go:378-379,
+  authz/interceptor.go:90-110, 345-385 (AllowSystemPrincipal), auth/propagate.go:60-80, 115-131.
+  Проверены замеры замысла М2, М4, М11. Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      Строк §11 78, живых пунктов 78 (CX3B 48, CX3C 8, CX3D 5, CX3E 10, CX3F-07 (б) 1, CX3G 6):
+      перечень совпадает с идентификаторами записей. Не выдерживают: CX3G-02 (в) вместе с CX3B-20
+      (инициатор на ветке с транзакцией вызывающего), CX3E-05 (б) (исход «за границей» выводится из
+      пустого результата). Держатель CX3D-01 (б) назван неверно: УК3-31 не покрывает неявную
+      запасную личность, а замысел объявляет заказ 97afc066 (УК3-36) исполненным им. Подробности —
+      mapping_check.
+  - condition: "новый внешний вызов заведён пунктом"
+    result: green
+    detail: "Рёбра §9 — из приёмки (Р7, Р9, Р25) и уже разобраны (CX3B-42, CX3B-45, CX3-23). Новых сетевых вызовов замысел не вводит."
+  - condition: "новый асинхронный путь заведён пунктом"
+    result: green
+    detail: "Приём, сводка, мгновенные письма и напоминания — из приёмки (CX3B-34…41). `Tx.AfterCommit` — синхронный хук после коммита (CX3-07). Новых путей нет."
+  - condition: "новое sentinel-значение заведено пунктом"
+    result: red
+    detail: >-
+      Выбор варианта (а) CX3E-06 вводит строку-одиночку `inbox_clock`. Её отсутствие — новый случай
+      «0 строк» в трёх операторах (З19 приём, З21 поднятие `t`, З23 отметка просмотра), и в З23 он
+      неотличим от «за границей». Кто создаёт строку, замысел не говорит. Пункт — CX3H-01.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN) — вне clean"
+    result: red
+    detail: >-
+      Маркеров 0 (`grep -cE 'TODO|TBD|FIXME|XXX'` → 0 в design.md и 0 в tasks.md). Открытое решение
+      одно — §13 Е1 (функция базы `resource-event` против запрета замысла NTF-1). Пока Е1 не снято,
+      одобрение замысла запрещено независимо от этой записи. Решает диспетчер.
+
+clean: false
+
+mapping_check:
+  summary: "78 из 78 отображены; 75 выдерживают (у части есть условия к коду ниже); CX3G-02 (в) и CX3B-20 — нет; CX3E-05 — нет; у CX3D-01 (б) держатель назван неверно"
+  failures:
+    - id: CX3G-02
+      part: "(в); и CX3B-20 (CX3-20)"
+      design: "З15 «Инициатор записи»; §7 п.3 «journaltx (своя либо вызывающего)»"
+      verdict: does_not_hold
+      why: >-
+        Условие: функции записи перехода принимают транзакцию вызывающего и без неё открывают свою,
+        и «в обоих случаях инициатор ставится внутри». CX3B-20: инициатор записи перехода — константа
+        компонента внутри функций перехода. Замысел ставит `system:storage-reconciler` только на
+        ветке без транзакции (`journaltx.AsComponent`). На ветке с `*journaltx.Tx` инициатора
+        выставил тот, кто её открыл (`journaltx.Begin` — первым оператором, З4), и функция его не
+        ставит и не сверяет. Вторую установку внутри замысел не допускает (И2), сверки нет. Значит,
+        строка журнала о переходе в ERROR несёт личность того, кто открыл транзакцию: сегодня это
+        проба NTF3-12, завтра любой вызывающий, в том числе с `user:` в контексте. При этом NTF3-58
+        и NTF3-10 зелены: они гоняют ветку без транзакции.
+      required: >-
+        Выбрать и записать в З15 одно из двух. (1) `journaltx.Tx` отдаёт инициатора своей
+        транзакции, и функция перехода с транзакцией вызывающего отказывает до оператора, если он не
+        равен `system:storage-reconciler`; отказ проверяется пробой с близнецом (транзакция,
+        открытая `AsComponent(ctx, "storage-reconciler")`, проходит, открытая под `user:usr-A` —
+        отказ, строк журнала 0). (2) Ветка с транзакцией вызывающего не экспортируется, и NTF3-12
+        строит откат иначе. В строке §11 CX3G-02 и CX3B-20 назвать выбранное и держателя.
+    - id: CX3E-05
+      part: "(б), затем (в)"
+      design: "З23, оператор upsert `seen_up_to`"
+      verdict: does_not_hold
+      why: >-
+        Условие (б): исход «применено / не изменено / за границей» возвращается оператором явно и
+        не выводится из «0 строк». В операторе З23 внешний `SELECT (SELECT pos FROM b) AS boundary,
+        ins.* FROM ins` на пустом `ins` даёт пустой результат, и `boundary` в нём нет. Замысел
+        называет исходом «за границей» «пустой результат при непустой границе». Но узнать, что
+        граница непуста, можно только отдельным чтением, а его тот же пункт (г) запрещает. Выходит,
+        «за границей» выводится из нуля строк, и тот же ноль даёт отсутствие строки `inbox_clock`
+        (CX3H-01).
+      required: >-
+        Оператор возвращает строку при любом исходе: граница читается внешним `FROM b LEFT JOIN ins
+        ON true` (или равносильно), «за границей» = граница есть и `ins` пуст, «строки часов нет» =
+        строк 0 — отдельный отказ (CX3H-01), не «за границей». Проба УК3-34 получает близнеца
+        «значение больше границы → исход "за границей" с числом границы».
+  holder_correction:
+    - id: CX3D-01
+      part: "(б); заказ gate-author записи 97afc066 (hard-async-carries-initiator)"
+      design: "З13 «Пересылаемая системная личность»; §11а УК3-31 и абзац об УК3-36"
+      verdict: holds_decision_holder_misnamed
+      why: >-
+        Само решение условие выдерживает: отправители на фоновых путях ставят
+        `auth.SystemPrincipalFor`, в том числе compute. Держатель назван неверно. Заказ 97afc066
+        просил гейт на две половины: вход достигает клиента с `PropagateOutgoing` (1) без явного
+        принципала или (2) с `operations.SystemPrincipal()`, и назвал два положительных близнеца
+        (nlb `free_ip_runner.go:465`; compute `stuck_delete_finisher.go` → `releaseAndDelete`).
+        УК3-31 в §11а — только половина (2) с одним близнецом nlb. У compute сегодня нет ни одного
+        `WithPrincipal`/`SystemPrincipal` в не-тестовом дереве. `PropagateOutgoing` при отсутствии
+        принципала сама пересылает `{system, bootstrap}` (corelib `auth/propagate.go:70-74`; и SystemPrincipalFor с пустой службой или ролью — тоже, :110).
+        Поэтому УК3-31 в описанной форме молчит на compute и до правки, и после неё, если правку
+        забудут. Утверждение §11а «УК3-36 … исполняется УК3-31» ложно.
+      required: >-
+        УК3-31 судит обе половины и держит два близнеца дерева до правки (nlb :465 и compute
+        `FinishStuckDeletes`). Либо УК3-36 возвращается отдельной строкой. В З13 назвать место
+        установки личности compute: цикл `FinishStuckDeletes` до вызова `releaseAndDelete`, не
+        внутри него (CX3G-06 (а)).
+  text_correction:
+    - id: CX3G-05
+      design: "З13 «Отказ владельца»"
+      what: >-
+        Сказано, что классификатор ответа владельца «у nlb и compute относит оба кода к одному
+        исходу (терминальный отказ по праву)». Для nlb это так: `peer.Classify` относит
+        PermissionDenied и Unauthenticated к `OutcomeDenied` (corelib `peer/outcome.go:378-379`),
+        `mapReleaseLeaseErr` даёт ErrFailedPrecondition, `handleReleaseErr` изолирует строку.
+        Для compute — нет. `mapNicErr` пропускает PermissionDenied как есть и сводит Unauthenticated
+        в `codes.Internal`. `FinishStuckDeletes` на любой ошибке прерывает проход, а следующий проход
+        повторяет (instance.go:1033-1060). Терминального исхода у compute нет. Условие (б)
+        выдерживается и так: исход до и после одинаков (проход прерван, строка в DELETING). Текст
+        нужно исправить. УК3-39 утверждает именно «проход прерван тем же образом», а не
+        «терминальный отказ».
+  code_conditions:
+    - id: CX3G-05
+      text: >-
+        (1) Исход «до и после одинаков» держится, только пока у `user:system.nlb-free-ip-runner` и
+        `user:system.compute-stuck-delete-finisher` нет привязок. `ReleaseOwnedAddress` требует
+        `editor` на `project` (permission_catalog.json, запись `…/ReleaseOwnedAddress`),
+        `AllowSystemPrincipal` в kacho не выставлен ни одним сервисом. Сегодня отказ — и после
+        под-фазы отказ. Под-фаза не заводит привязок, ролей и tuple для личностей компонентов:
+        привязка сменила бы исход с отказа на успех, а это решение `#2934` (hard-machine-gets-grant,
+        hard-ask-which-tuples-satisfy). (2) Строка журнала compute `Instance DELETED` из
+        `FinishStuckDeletes` получает инициатора из контекста, выставленного в цикле, потому что
+        `repo.Delete` общий с публичным `Delete`.
+    - id: CX3B-25
+      text: >-
+        `journaltx.AsComponent` — второй источник инициатора рядом с принципалом контекста. В коде:
+        (1) вызывающих ровно четыре, по константам §8 (`storage-reconciler`, `nlb-free-ip-runner`,
+        `compute-stuck-delete-finisher`, `stand-seed` — последний в SQL посева). Обработчик запроса
+        его не зовёт. Держится вниманием по диффу, если гейт помощника З4 не печатает вызывающих
+        `AsComponent`. (2) В контексте одновременно метка компонента и принципал, дающий иного
+        инициатора, — отказ `Begin`, а не выбор одного. (3) Форму `system:<компонент>` строит
+        `auth.InitiatorOf` (через `SystemPrincipalFor`), а не второе сложение строки
+        (CX3B-26 (а), CX3E-02 (в)).
+    - id: CX3G-04
+      text: >-
+        В `FailTerminal` отказ `auth.InitiatorOf` (`ErrNoInitiator` для `{system, bootstrap}` —
+        умолчания строки операции) означает «адресата нет»: CAS коммитится, строки нет. Это не
+        ошибка терминальной записи. Иначе операции без принципала никогда не получат `done = true`,
+        и `Reconciler` будет повторять их без конца. Близнец к УК3-10: операция с `{system,
+        bootstrap}` → `done = true`, строк `operation-failed` 0.
+  holds_with_note:
+    - {id: CX3G-01, note: "CTE `prev … FOR UPDATE` → `upd … FROM prev` в READ COMMITTED отдаёт прежнее состояние последней зафиксированной версии после ожидания замка: второй из двух параллельных MarkError видит `old_state = 'ERROR'`, и письмо одно (NTF3-07)"}
+    - {id: CX3G-03, note: "исходы названы (З15), `loop.go:376` — счётчик и журнал процесса; вето побочного следствия применено к MarkError и Confirm; держатель УК3-40"}
+    - {id: CX3G-06, note: "личность `releaseAndDelete` — исполнителя, своей установки нет; `releaseAndDelete` одна функция (З12)"}
+    - {id: CX3F-07, note: "(б) — З12, И18, вниманием по диффу"}
+
+new_items:
+  - id: CX3H-01
+    decision: "З19, З21, З23 — строка-одиночка `inbox_clock` (выбор варианта (а) CX3E-06)"
+    class: "code-authoring §«Умолчание, которое становится утверждением» (отсутствие строки неотличимо от исхода); §«Чужой ответ: классификация и бюджет» (ноль строк без классификации)"
+    exposure: >-
+      Три оператора зависят от одной строки `inbox_clock`: `UPDATE … SET pos = pos + 1 … RETURNING`
+      приёма, `UPDATE … SET t = greatest(t, $E)` сводки и `WITH b AS (SELECT pos FROM inbox_clock)`
+      отметки. `pos bigint NOT NULL` без умолчания. Кто вставляет строку, замысел не говорит (§6,
+      §10; `grep -c inbox_clock` — 15 строк в design.md и 2 в tasks.md, вставки нет). Без строки приём
+      получает 0 строк и не имеет позиции, поднятие `t` проходит без эффекта, и сводка закрывает
+      окно без гарантии «все T ≤ E видимы». Отметка просмотра отвечает «за границей» на любое
+      значение (CX3E-05).
+    condition: >-
+      (а) Строку создаёт миграция схемы `kacho_notify` (строка обязана существовать у любого
+      арендатора, развернувшего продукт; это структура продукта, а не посев стенда), значение
+      `pos = 0`, `t` — время миграции. (б) Каждый из трёх операторов различает «строки нет» и свой
+      штатный исход: приём и сводка на нуле строк отказывают с именем инварианта (транзакция
+      откатывается, `Ack` нет, окно не закрывается), отметка — по CX3E-05 выше. Классификации
+      «0 строк → штатно» нет. (в) Уборщик и любые миграции строку не удаляют; `CHECK (singleton)`
+      уже не даёт второй.
+    held_by: "нужна проба (заказ integration-tester): строка удалена → приём отказывает, `Ack` не отправлен; сводка окно не закрывает; отметка отвечает отказом «строки часов нет», а не «за границей»; близнец — строка на месте"
+
+measurements:
+  - claim: "в kacho ни один сервис не выставляет AllowSystemPrincipal; принципал {system, bootstrap} идёт в обычный Check"
+    command: "git -C project/kacho grep -nE 'AllowSystemPrincipal' 1d42a6728bf -- ':!*_test.go'; git -C project/corelib show 34bc8104a:authz/interceptor.go | sed -n 345,375p"
+    result: "1 совпадение — комментарий nlb shared/objectauthz.go:60 («не выставлена ни в одном»); в interceptor.go пропуск без Check только при AllowSystemPrincipal && {system, bootstrap}"
+    control: "то же имя в corelib находит объявление поля (interceptor.go:95–98): предикат видит флаг"
+  - claim: "ReleaseOwnedAddress требует editor на project"
+    command: "git -C project/kacho show 1d42a6728bf:gateway/internal/middleware/embed/permission_catalog.json | sed -n 1899,1907p"
+    result: "permission vpc.addresses.releaseOwned, required_relation editor, scope_extractor project/project_id"
+    control: "—"
+  - claim: "nlb относит PermissionDenied и Unauthenticated к одному исходу; compute — нет"
+    command: "git -C project/corelib grep -nE 'codes\\.(Unauthenticated|PermissionDenied)' 34bc8104a -- peer ':!*_test.go'; git -C project/kacho show 1d42a6728bf:services/compute/internal/apps/kacho/api/instance/instance_nic.go | sed -n 195,240p"
+    result: "peer/outcome.go:378-379 — оба OutcomeDenied; compute mapNicErr: PermissionDenied пропускается как есть, Unauthenticated → default → codes.Internal; FinishStuckDeletes прерывает проход на любой ошибке"
+    control: "mapStorageErr (storage_client.go:196-213) — та же форма, что mapNicErr: вывод о compute не зависит от ребра"
+  - claim: "compute не выставляет принципал на фоновом пути; PropagateOutgoing пересылает запасную личность"
+    command: "git -C project/kacho grep -nE 'WithPrincipal|SystemPrincipal' 1d42a6728bf -- services/compute ':!*_test.go'; git -C project/corelib show 34bc8104a:auth/propagate.go | sed -n 66,74p"
+    result: "7 строк в compute — комментарии, комментарии миграций и имя метода CreateWithPrincipal (portmock); вызовов WithPrincipal/SystemPrincipal 0; propagate.go: «ctx without an explicit WithPrincipal → … falls back to SystemPrincipal() … headers ARE forwarded»"
+    control: "тот же предикат по services/nlb находит вызов free_ip_runner.go:465"
+  - claim: "замеры замысла М2, М4, М11"
+    command: "git -C project/kacho grep -nE 'store\\.(MarkError|Confirm|Observe|Forget)\\(' 1d42a6728bf -- services/storage ':!*_test.go' | wc -l; volume_repo.go:897; cqrsadapter.go:169-171"
+    result: "7; loop.go:312 и :376 (`_ = r.store.MarkError`); :897 `r.pool.Exec(ctx,`; комментарий «Outbox НЕ emit'ит» — подтверждены"
+    control: "—"
+  - claim: "в замысле нет вставки строки inbox_clock"
+    command: "grep -n 'inbox_clock' docs/changes/issue-2918/design.md docs/changes/issue-2918/tasks.md"
+    result: "15 строк в design.md и 2 в tasks.md; INSERT INTO inbox_clock — 0"
+    control: "тот же grep находит CREATE TABLE inbox_clock (design.md:890)"
+  - claim: "маркеры отсрочки"
+    command: "grep -cE 'TODO|TBD|FIXME|XXX' docs/changes/issue-2918/design.md docs/changes/issue-2918/tasks.md"
+    result: "0 и 0"
+    control: "—"
+
+not_measurable:
+  - "есть ли в модели прав kaname tuple, выполняющий `editor` на проекте для `user:system.<компонент>` на стенде: стенд не поднимался. Каталог и отсутствие вызовов SystemPrincipalFor в kacho (0 в не-тестовом дереве) говорят «нет», и отсюда условие к коду CX3G-05 (1)"
+  - "поведение CTE `FOR UPDATE` → `UPDATE … FROM` при двух параллельных MarkError выведено из семантики READ COMMITTED, не прогоном; держит NTF3-07"
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: []
+not_holding_items: [CX3G-02, CX3B-20, CX3E-05]
+new_items_without_mapping: [CX3H-01]
+open_decisions: ["Е1 (§13): функция базы resource-event против Е10 NTF-1 — за диспетчером"]
+
+orders:
+  - to: design-author
+    what: >-
+      редакция 2 замысла NTF-3: (1) CX3G-02 (в) и CX3B-20 — выбрать сверку инициатора транзакции
+      вызывающего либо закрытую ветку; (2) CX3E-05 — оператор З23 возвращает границу при любом
+      исходе; (3) отобразить CX3H-01 (кто создаёт `inbox_clock`, классификация нуля строк в З19,
+      З21, З23); (4) УК3-31 — обе половины и компьютерный близнец либо вернуть УК3-36, и место
+      установки личности compute в З13; (5) исправить текст З13 о классификаторе compute; (6)
+      внести условия к коду CX3G-05 (1), (2), CX3B-25 (1)–(3), CX3G-04 в З13, З4, З16; затем новая
+      пересверка
+    basis: ".claude/rules/change-graph.md §4; Д22, Д26"
+  - to: dispatcher
+    what: "Е1 (§13 замысла) — выбор между исключением в ведомости гейта NTF-1 и новой редакцией приёмки NTF-3; без снятия Е1 одобрение замысла запрещено"
+    basis: ".claude/rules/change-graph.md §4 (нерешённый вопрос запрещает одобрение)"
+  - to: integration-tester
+    what: "пробы замысла: CX3H-01 (строка часов удалена → три отказа с именем, близнец — строка есть); CX3G-02 (в) (переход в транзакции под `user:usr-A` → отказ, строк журнала 0; близнец — AsComponent); CX3G-04 (операция с `{system, bootstrap}` → done=true, строк operation-failed 0)"
+    basis: "gate-authoring §«Отрицание только в паре с положительным»; code-authoring §«Умолчание, которое становится утверждением»"
+  - to: gate-author
+    what: "УК3-31 на обе половины заказа 97afc066: PropagateOutgoing к пишущему методу без явного принципала ИЛИ с operations.SystemPrincipal(); положительные близнецы дерева @1d42a6728bf — nlb free_ip_runner.go:465 и compute FinishStuckDeletes → releaseAndDelete"
+    basis: ".claude/rules/testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п. 1"
+
+candidate_predicates: []
+new_class_proposal: >-
+  Не заводится. CX3H-01 — второй независимый экземпляр наблюдения «строка-одиночка, чьё отсутствие
+  неотличимо от штатного нуля строк». Первый — CX5-67 (NTF-5, строка ведра темпа). Порог «дважды в
+  независимых местах» пройден, но оба экземпляра — в замыслах одного эпика, а дерево их ещё не
+  содержит, так что цену не измерить. Кандидат записи в code-authoring §«Умолчание, которое
+  становится утверждением» возвращён диспетчеру строкой возврата, а не вписан.
