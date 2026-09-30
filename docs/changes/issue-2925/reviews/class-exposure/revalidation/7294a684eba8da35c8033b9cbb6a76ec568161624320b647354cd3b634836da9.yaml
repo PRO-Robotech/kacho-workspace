@@ -1,0 +1,272 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 4 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/47bd8b70….yaml) и пересверки на
+# редакции 1 (7613071f), 2 (deeea79a) и 3 (defdbe67) свидетельствуют о своих редакциях и здесь не
+# переписываются. Проверено: (1) каждый пункт CX6-01…25 отображён и отображение выдерживает условие
+# пункта; (2) новые внешние вызовы, (3) новые асинхронные пути, (4) новые sentinel-значения,
+# внесённые редакцией 4 сверх редакции 3. Редакция 4 заводит два таймера дедлайна, первую в дереве
+# отмену запроса, охрану «одна мутация на действие» и перечитывание ленты после отметки, а также
+# опирается на новую семантику соседа (Д25, Е6). Это новые пункты CX6-26…30; строк §11 у них нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2925/design.md
+  sha256: 7294a684eba8da35c8033b9cbb6a76ec568161624320b647354cd3b634836da9
+  fingerprint_predicate: sha256sum docs/changes/issue-2925/design.md
+acceptance:
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+initial_record: docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+previous_revalidation: docs/changes/issue-2925/reviews/class-exposure/revalidation/defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde.yaml
+design_review_on_previous: docs/changes/issue-2925/reviews/design/design-reviewer/defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 88fa559c7150eafc22fb46466d4071e577fe03f3   # ветка issue-880; design.md на ней = 7294a684 (коммит aa40211f4)
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что в замысле §0
+  tanstack_query: "5.101.2"   # версия по package-lock модулей @1d42a6728bf; исходник прочитан из установленной копии той же версии
+snapshot_at: 2026-09-30T10:59:41Z
+inspected: >-
+  дифф редакций 3→4 замысла (35fb66f6b..aa40211f4, 538 строк); З2, З3, З7, З9, З13, З18, З20, §8,
+  §9, §11, §11а целиком; пересверка defdbe67 и ревью замысла defdbe67 целиком; tasks.md по ссылкам
+  на И19, Е6, T1/T2. Дерево kacho @1d42a6728bf: configmap-nginx.yaml (перечень location и таймауты
+  проксирования), shared/src/api/client.ts (fetchJson), счёт useMutation/useQuery/AbortController в
+  ui-future; замеры M19–M23 и предикат переписи З20 перепрогнаны. @tanstack/query-core 5.101.2:
+  notifyManager.ts (планировщик), mutation.ts (execute), react-query useMutation.ts. Приёмка NTF-3:
+  Р9, Р10 — закоммиченная редакция 88ad95c6 и незакоммиченная правка автора NTF-3 в рабочем дереве
+  (c481e642, Р10 с Д25 и сценарий NTF3-161). Приёмка NTF-1: отпечаток и запись вердикта. Kaname не
+  перемерялся; записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт первичного разбора и прежних пересверок отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      CX6-01…25: строк §11 — 26, уникальных пунктов 25 из 25, все выдерживают; условия к коду
+      пересверки defdbe67 (CX6-25 — поздний подписчик снимком; CX6-10 строка 31 — форма блока
+      шаблона) исполнены в З14, И17, З3, §10 строка 31, З18. Красное — из новых пунктов этой
+      пересверки: CX6-26…30 строк §11 не имеют; CX6-30 в нынешней форме замысла не выдерживает
+      (предикат снятия Е6 слеп), CX6-27 требует правки довода, CX6-28 и CX6-29 — условия к коду.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: red
+    detail: >-
+      новых сетевых адресов нет, но замысел опирается на новую семантику существующего вызова
+      PATCH /notify/v1/preferences — монотонную отметку соседа (Д25, Е6). Заведено пунктом CX6-30;
+      не отображено.
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: >-
+      четыре новых: дедлайн T1 с отменой запроса (CX6-26), дедлайн T2 без отмены, хвост запросов
+      без получателя (CX6-27), охрана мутации в полёте (CX6-28), перечитывание пары «настройки +
+      лента» после отметки (CX6-29). Строк §11 нет.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      новых значений на проводе и в состоянии нет: исход дедлайна T1 — существующее unreadable,
+      исход T2 — существующее «unavailable»/"!"; флаг «исход применён» у цикла и хранимый последний
+      исход rememberLoad — внутреннее состояние механизмов, разобраны в CX6-27 и CX6-25.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → только «потому»; §13 «Нет», выбор по I1 сделан Д25"
+
+mapping_check:
+  - {id: CX6-01, design: З11, verdict: holds}
+  - {id: CX6-02, design: "З6, З7, З2, И7", verdict: holds}
+  - {id: CX6-03, design: З10, verdict: holds}
+  - {id: CX6-04, design: "З2, З3", verdict: holds}
+  - id: CX6-05
+    design: "З9, И14, З20"
+    verdict: holds
+    note: "однократность исхода (первое из «ответ пары» и «дедлайн T2») не ослабляет поколение; условие хвоста — CX6-27"
+  - {id: CX6-06, design: "З3 (а); З6, З13, И4 (б)", verdict: holds}
+  - {id: CX6-07, design: З12, verdict: holds}
+  - {id: CX6-08, design: "З6, З10, З13", verdict: holds}
+  - {id: CX6-09, design: "З8, Е5", verdict: holds}
+  - id: CX6-10
+    design: "§10 (32 строки), З3 «Форма блока», З14, И16"
+    verdict: holds
+    note: "условие строки 31 пересверки defdbe67 внесено в З3 и §10 дословно, держатель — З18 (полоса E1)"
+  - {id: CX6-11, design: З13, verdict: holds}
+  - {id: CX6-12, design: З13, verdict: holds}
+  - {id: CX6-13, design: З15, verdict: holds}
+  - {id: CX6-14, design: З16, verdict: holds}
+  - {id: CX6-15, design: "З3, И9", verdict: holds}
+  - id: CX6-16
+    design: "З2, И3, З20"
+    verdict: holds
+    note: "выход из unreadable теперь не зависит от ответа зависшего чтения — после T1 фокус и «Повторить» начинают новое (CX6-26)"
+  - {id: CX6-17, design: "З7, И5", verdict: holds}
+  - {id: CX6-18, design: З12, verdict: holds}
+  - {id: CX6-19, design: З10, verdict: holds}
+  - {id: CX6-20, design: "З10, И15", verdict: holds}
+  - {id: CX6-21, design: "З2 п.1, п.6, И12", verdict: holds}
+  - {id: CX6-22, design: "З6, З13, И13", verdict: holds}
+  - {id: CX6-23, design: "З9, И14", verdict: holds}
+  - {id: CX6-24, design: "З13, §9", verdict: holds}
+  - id: CX6-25
+    design: "З14, И17, З20"
+    verdict: holds
+    note: >-
+      условие пересверки defdbe67 исполнено: последний исход хранится, useLoadOutcome читает его
+      через useSyncExternalStore, проба «подписка после успеха — available сразу, вызовов 1» в З18 и
+      S5. Решение «у загрузки дедлайна нет» (З20) верно: pending не закрывает ни одного пути, а
+      предела нет у всех восьми обёрток сегодня (M19 перемерен: 0).
+
+new_items:
+  - id: CX6-26
+    decision: "З2 п.3 — дедлайн T1 чтения /console-config.json: свой AbortController на чтение, setTimeout(T1) окна сам завершает чтение исходом unreadable, применение однократно по идентичности inFlight"
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (третий исход «не получил ответа»); §«Умолчание, которое становится утверждением»"
+    must_hold_in_code: >-
+      (а) исход дедлайна — unreadable, никогда disabled/enabled; (б) таймер ставится тем же
+      синхронным вызовом, что кладёт inFlight, и снимается применением любого исхода; (в) ветка
+      отказа fetch после abort() находит inFlight не своим и ничего не применяет; (г) T1 читается
+      одной константой §8, литерала 10000 в console-config.ts вне неё нет.
+    held_by: "console-config.test.ts — три пробы B1 (З2, З18); (г) — рецензент диффа"
+    design_mapping: "З2 п.3–4, З20, И18, §8 — по существу выдерживает; строки §11 нет"
+    verdict: holds-unmapped
+  - id: CX6-27
+    decision: "З9 — дедлайн T2 цикла счётчика без отмены запроса; исход цикла — первое из «ответ пары» и «дедлайн»; запросы после дедлайна — хвост без получателя"
+    class: "code-authoring §«Решение и его следствие разнесены» (исход решён дедлайном, а запрос-следствие живёт дальше)"
+    must_hold_in_code: >-
+      (а) предел хвоста назван и держится раздачей: префикс notify стоит в том же location
+      `~ ^/(…|notify)/`, что несёт `proxy_read_timeout 30s` (configmap-nginx.yaml @1d42a6728bf,
+      location на строке 132, таймауты 140–141), — отдельный location для notify без таймаута
+      сделал бы хвост неограниченным при зависшем апстриме (новая пара каждые 60 с); (б) флаг «исход
+      применён» — на объекте цикла, не общий на механизм.
+    design_defect: >-
+      З9 и §8 утверждают «каждый срабатывающий таймер находит прежний цикл завершённым», потому что
+      T2 < 60 с. Это ложно: цикл, начатый фокусом или NOTIFY_SEEN_EVENT меньше чем за T2 до таймера,
+      к таймеру исхода не имеет, и таймер в него схлопывается. Схлопывание верно (цикл получит исход
+      не позже T2), неверен довод. «Живут, сколько их держит сеть» — предел хвоста не назван, а он
+      есть (а).
+    held_by: "unread-poll.test.ts (пробы B1, I3); (а) — рецензент диффа чарта: гейта, требующего таймаут у location префикса notify, в дереве нет"
+    design_mapping: "З9, З20, И14, И18, §8 — строки §11 нет; довод T2 < 60 с и предел хвоста — к правке текста"
+    verdict: holds-with-condition-unmapped
+  - id: CX6-28
+    decision: "З10, З13, И19 — одна мутация на действие: «Подписаться», отметка, сохранение матрицы, период, снятие подписки, контакт недоступны, пока мутация в полёте; охрана — `isPending` её `useMutation` (З10)"
+    class: "code-authoring §«Решение и его следствие разнесены» (решение «действие недоступно» и его видимое следствие разнесены планировщиком)"
+    measured: >-
+      useMutation в дереве консоли — 23 файла ui-future (без node_modules) @1d42a6728bf, охрана
+      отрисованным isPending (строки с isPending и disabled|loading вне тестов) — 11: замысел
+      повторяет принятый в дереве образец. В @tanstack/query-core 5.101.2 состояние мутации
+      доходит до React через notifyManager.batchCalls → schedule → defaultScheduler =
+      systemSetTimeoutZero (setTimeout(cb, 0)); useMutation подписан через useSyncExternalStore с
+      notifyManager.batchCalls(onStoreChange). Отрисованный isPending отстаёт от mutate() на одну
+      макрозадачу. В окне человеческих нажатий (десятки миллисекунд) задача таймера исполняется
+      раньше второго нажатия — наблюдаемого дефекта в браузере не ожидается; но в пробах на
+      jest.useFakeTimers (З18: часы управляемые) setTimeout(0) не исполняется, пока часы не
+      сдвинуты: проба «двойное нажатие — один запрос» с двумя синхронными нажатиями покраснеет на
+      верной по замыслу реализации, а проба, сдвигающая часы между нажатиями, будет зелёной и
+      гонки не испытает. Держатель И19 в нынешней форме не различает исправную и неисправную охрану,
+      а граница I3 (З9, «не больше одной отметки на время ответа PATCH») опирается на И19 строго.
+    must_hold_in_code: >-
+      охрана читается синхронно в обработчике нажатия: флаг в useRef, поднятый до mutate() и
+      снятый в onSettled, либо queryClient.isMutating({ mutationKey }) (мутация попадает в кэш и
+      получает status 'pending' синхронно внутри mutate); отрисованный isPending — только для вида
+      кнопки. Проба: два нажатия в одном синхронном блоке без сдвига часов — запросов 1; близнец —
+      нажатие после исхода первой мутации — запросов 2.
+    design_note: "З10 называет охраной `isPending` её `useMutation`; сохранить его как вид кнопки и назвать синхронную охрану — одной фразой в З10, И19"
+    held_by: "ResourceDetailExtensions.test.tsx, NotificationCenterPage.test.tsx, NotificationSettingsPage.test.tsx, NotificationContactsPage.test.tsx — в форме «два нажатия в одном синхронном блоке без сдвига часов»"
+    design_mapping: "З10, З13, И19 — по существу выдерживает при условии к коду; строки §11 нет"
+    verdict: holds-with-condition-unmapped
+  - id: CX6-29
+    decision: "З13 «Центр» — после успешной отметки перечитываются настройки И загруженные страницы ленты; действующая позиция ищется в перечитанной ленте (I1, Д25)"
+    class: "code-authoring §«Решение и его следствие разнесены» (одно решение — пометки — из двух независимых чтений)"
+    must_hold_in_code: >-
+      пометки после отметки вычисляются из пары, оба чтения которой начаты после успеха; промежуточная
+      пара «новые настройки + прежняя лента» пометок не пересчитывает. Иначе в сценарии I1 (сервер
+      оставил позицию новее верхней загруженной строки) настройки, отвечающие первыми, дают
+      «не найдено, токен есть» → Р18 помечает новым всё загруженное до прихода ленты. Проба:
+      управляемые ответы, настройки отвечают раньше ленты — ни в один момент не помечено всё
+      загруженное; близнец — лента раньше настроек.
+    held_by: "NotificationCenterPage.test.tsx (строка I1 З18 расширяется порядком ответов)"
+    design_mapping: "З13, П3 — по существу выдерживает («ищет её в перечитанной ленте»); строки §11 нет"
+    verdict: holds-with-condition-unmapped
+  - id: CX6-30
+    decision: "З13, П3, Е6 — опора на монотонную отметку соседа (Д25): владелец пишет наибольшее из хранимого и присланного"
+    class: "code-authoring §«Контракт, который нельзя выразить» (позиция на проводе — строка, у владельца — последовательность базы; «наибольшее» строкой и числом расходятся на смене числа разрядов); measurement-discipline §«Предикат — только с контролем»"
+    measured: >-
+      предикат снятия Е6 (`sed -n '/^\*\*Р10\./,/^\*\*Р11\./p' <приёмка NTF-3> | grep -ciE
+      'GREATEST|только вперёд'` ≥ 1) на закоммиченной редакции 88ad95c6 → 0 (верно: Д25 нет); на
+      незакоммиченной правке автора NTF-3 (рабочее дерево issue-880, c481e642), которая Д25 вносит
+      («Сервер записывает наибольшее … откат назад невозможен», сценарий NTF3-161), → тоже 0.
+      Предикат отвечает «нет» и тогда, когда зависимость снята: он судит слово, а не предмет.
+    must_hold: >-
+      (а) Е6 снимается по якорю, а не по слову: сценарий монотонности (сейчас NTF3-161) есть в Р10
+      одобренного отпечатка NTF-3 — предикат по ID сценария и записи APPROVED; (б) «наибольшее»
+      у владельца — в порядке позиции ленты (последовательность Р9), а не в строковом порядке; у
+      сценария соседа позиции пересекают смену числа разрядов (например 9 → 10), иначе строковое
+      сравнение пройдёт его зелёным.
+    held_by: "(а) — правка Е6 замысла и tasks.md Е6; (б) — приёмка NTF-3 и её держатель (заказ)"
+    design_mapping: "Е6, З13 — предикат снятия слеп; строки §11 нет"
+    verdict: does-not-hold
+
+measurements:
+  - claim: "M19: у фабрики обёрток предела времени загрузки нет"
+    command: "git show 1d42a6728bf:ui-future/host/src/remotes/makeRemote.tsx | grep -ciE 'timeout|setTimeout|deadline|AbortSignal'"
+    result: "подтверждено: 0"
+  - claim: "M20: отмены по сроку в host/src и shared/src нет; fetch в client.ts один"
+    command: "git grep -c 'AbortSignal\\|AbortController' 1d42a6728bf -- ui-future/host/src ui-future/shared/src ':!*test*' | wc -l; контроль: git grep -l … -- ui-future"
+    result: "подтверждено: 0 файлов; контроль находит 2 файла вне области (e2e/specs/subscription-stream.spec.ts, scripts/check-federation-pin-still-needed.mjs) — предикат способен найти; fetch — client.ts:115"
+  - claim: "M21: шапка config.ts утверждает, что все runtime-параметры — env"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/config.ts | sed -n 3,6p"
+    result: "подтверждено"
+  - claim: "M22: Р10 приёмки NTF-3 монотонности не записывает"
+    command: "sed -n '/^\\*\\*Р10\\./,/^\\*\\*Р11\\./p' <приёмка NTF-3> | grep -ciE 'GREATEST|назад|только вперёд|монотон'"
+    result: >-
+      подтверждено на закоммиченной 88ad95c6 (блок 32 строки, 0). В рабочем дереве ветки идёт
+      незакоммиченная правка автора NTF-3 (c481e642: блок 40 строк, попаданий 3 — «монотонна (Д25)»,
+      «откат назад невозможен»); это не одобренная редакция, вывод М22 для Е2/Е6 не меняет.
+  - claim: "M23: четыре шапки синтетических входов называют состав «настоящим»"
+    command: "git grep -n -P 'настоящ\\S* (состав дерева|формы из этого дерева)' 1d42a6728bf -- internal/repohygiene"
+    result: "подтверждено: 4 файла"
+  - claim: "З20: перепись механизмов с попыткой в полёте — З2, З9, З14 (+З18 таблица)"
+    command: "предикат З20 на 4e2b4621a (design.md = defdbe67, отпечаток сверен)"
+    result: "подтверждено: З14. З18. З2. З9.; тот же обход на редакции 4 с добавлением «дедлайн|недоступн[оа], пока» — З10, З13, З20 сверх того: мутации (CX6-28) и сама перепись"
+  - claim: "§0, Е1: приёмка NTF-1 — 29cfa368, APPROVED; строк о флаге в разнице 0"
+    command: "sha256sum <приёмка NTF-1>; grep verdict <запись 29cfa368…yaml>; git diff 2fa62337b HEAD -- <приёмка NTF-1> | grep -E '^[-+][^-+]' | grep -ciE 'notifications\\.enabled|NTF1-N01|global\\.kacho'"
+    result: "подтверждено: 29cfa368, verdict: APPROVED, 0 — заказ пересверки defdbe67 исполнен"
+  - claim: "хвост запросов после T2 не ограничен ничем, кроме сети (З9)"
+    command: "git show 1d42a6728bf:ui-future/deploy/templates/configmap-nginx.yaml | grep -n 'location\\|timeout'"
+    result: "опровергнуто в пользу замысла: префиксы края стоят в location ~ ^/(vpc|compute|storage|geo|nlb|registry|operations)/ с proxy_read_timeout 30s; З3 вносит notify в тот же location — зависший апстрим ограничен 30 с. Условие — CX6-27 (а)"
+  - claim: "охрана «isPending её useMutation» синхронна с нажатием (З10)"
+    command: "git grep -l useMutation 1d42a6728bf -- ui-future | grep -v node_modules | wc -l → 23; git grep -n isPending 1d42a6728bf -- ui-future | grep -v node_modules | grep -v test | grep -ciE 'disabled|loading' → 11; чтение query-core 5.101.2 notifyManager.ts, mutation.ts, react-query useMutation.ts"
+    result: "опровергнуто: отрисованное состояние отстаёт на setTimeout(0); образец в дереве тот же (11) — CX6-28, условие к коду и форма пробы"
+
+not_measurable:
+  - "поток HTTP/1.1 или HTTP/2 между браузером и раздачей на стендах — свойство входа кластера, не дерева; для CX6-27 не нужен: предел хвоста держит proxy_read_timeout независимо от протокола"
+  - "обрыв сети между браузером и раздачей (не апстрима) таймаутом прокси не ограничен; хвост тогда растёт на пару запросов за период, но все запросы окна висят одинаково — дефектом механизма это не делается, дедлайн T2 значок при этом держит «!»"
+
+outcome: к-замыслу
+unmapped: [CX6-26, CX6-27, CX6-28, CX6-29, CX6-30]
+return_to_acceptance: []
+
+to_design:
+  - "§11: строки CX6-26…30 с решением и держателем"
+  - "З10, И19: назвать синхронную охрану (useRef до mutate() либо queryClient.isMutating({ mutationKey })), isPending — вид кнопки; пробы И19 — «два нажатия в одном синхронном блоке без сдвига часов — запросов 1» с близнецом (CX6-28)"
+  - "З9 и §8: снять довод «каждый срабатывающий таймер находит прежний цикл завершённым»; назвать предел хвоста — proxy_read_timeout 30 s location префиксов края, куда З3 вносит notify (CX6-27)"
+  - "З13, З18: условие пары перечитываний после отметки и проба порядка ответов (CX6-29)"
+  - "Е6 и tasks.md Е6: предикат снятия — по ID сценария монотонности в Р10 одобренного отпечатка NTF-3, не по слову; порядок «наибольшего» — порядок позиции ленты (CX6-30)"
+  - "имя T1 занято дважды: дедлайн §8 и полоса tasks.md T1 (§11а ссылается на «tasks.md T1») — развести имена"
+
+orders:
+  - to: design author (NTF-6)
+    what: "правки to_design одной редакцией; затем пересверка на новом отпечатке"
+    basis: "change-graph.md §4; code-authoring §«Решение и его следствие разнесены»"
+  - to: acceptance author (NTF-3, через диспетчера)
+    what: "Р10 / NTF3-161: «наибольшее» — в порядке позиции ленты (последовательность Р9), не строкой; позиции сценария пересекают смену числа разрядов (близнец 9 → 10)"
+    basis: "code-authoring §«Контракт, который нельзя выразить»"
+  - to: go/ts implementer (NTF-6, полоса E1)
+    what: "префикс notify — в существующем location префиксов края с proxy_read_timeout 30s, не отдельным location"
+    basis: "CX6-27 (а)"
