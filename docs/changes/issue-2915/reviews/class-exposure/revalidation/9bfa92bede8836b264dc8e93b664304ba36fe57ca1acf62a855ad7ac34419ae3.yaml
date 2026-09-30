@@ -1,0 +1,387 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 1 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичные разборы (initial/b347b81f…, 530e2296…, d524e7bd…,
+# 05828e42…, 390b5a33…, 29cfa368…) свидетельствуют о своих редакциях приёмки и здесь не
+# переписываются. Это первая пересверка изменения, дельты против прежней пересверки нет: судится
+# замысел целиком — (1) отображение каждого из 57 пунктов CX1-01…57 и то, выдерживает ли решение
+# условие пункта; (2) новые внешние вызовы, (3) новые асинхронные пути, (4) новые sentinel-значения,
+# которые вносит сам замысел; (5) маркеры отсрочки и открытые решения; (6) применимые ревью замысла —
+# отдельно. Утверждения замысла о деревьях (М1–М21) перемерены на тех же ревизиях. SQL уборщика
+# (З10) исполнен на PostgreSQL 16. Итог: 57 из 57 отображены; новых пунктов пять (CX1-58…62), все
+# открыты решениями самого замысла и в нём не отображены; одно противоречие приёмки (L03 против
+# Р11 и B31 (а)), которое замысел назвал зависимостью Е2, возвращается в приёмку. Права писать
+# реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 9bfa92bede8836b264dc8e93b664304ba36fe57ca1acf62a855ad7ac34419ae3
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true   # рабочий файл и `git show HEAD:<путь>` дают тот же отпечаток; `git log 01c6ea987..HEAD -- docs/changes/issue-2915` пуст
+  revision: 1
+  content_commit: 01c6ea987
+  previous_judged: null          # пересверок на замысел до этой записи нет
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml
+initial_records:
+  - docs/changes/issue-2915/reviews/class-exposure/initial/b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3.yaml
+  - docs/changes/issue-2915/reviews/class-exposure/initial/530e22968ff16ae2f6f9deb88037faffa7eed1c83fda5aaca36f9b8d601e23d6.yaml
+  - docs/changes/issue-2915/reviews/class-exposure/initial/d524e7bdd133b70da9335f027a83007800be4bdc567ab9ec740e08e7d497d31e.yaml
+  - docs/changes/issue-2915/reviews/class-exposure/initial/05828e42f3f5bce888a7dad5e7ada2d77ef538a37490075d53c12e0772f22130.yaml
+  - docs/changes/issue-2915/reviews/class-exposure/initial/390b5a33368bc84b6d0b9351a85413d91bdab031c893391fa23ae5132c6b524e.yaml
+  - docs/changes/issue-2915/reviews/class-exposure/initial/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 9a2644ede53c1a6fde183be1ec2299b8de654213   # вершина issue-880 на момент разбора; предмет не менялся с 01c6ea987
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что замысел §0
+  kaname: 734f69fb4f7f2cadf1d3887ece90b22bf7793a0b      # origin/357, та же ревизия, что замысел §0
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562     # origin/main = v1.9.0, та же ревизия, что замысел §0
+  modules: "github.com/jackc/pgx/v5 v5.10.0 (go.mod corelib@34bc8104a; исходник — кэш модулей)"
+  postgres: "postgres:16-alpine, одноразовый контейнер (замер CX1-62, CX1-58)"
+snapshot_at: 2026-09-30T10:01:50Z
+inspected: >-
+  замысел целиком (1284 строки: §0–§13, З1–З31, И1–И25, §5 набросок контракта, §6 схема, §8 ручки,
+  §11 — 57 строк отображения, §11а — УК1–УК70, §13 Е1–Е6); tasks.md — наличие полос, на которые
+  ссылается §11а (44 обозначения, все найдены, кроме номеров сценариев K02/N02/N03/N06/N07 и C0 —
+  это не полосы); запись первичного разбора 29cfa368… целиком и условия CX1-10, 15, 26, 27 записи
+  d524e7bd…. Приёмка 29cfa368… по местам: §1.8 (строки 308–313), Р7 (700–712), Р8 (938–948), Р10
+  (1086–1100), таблица Р11 (1160–1170), B31 (1703–1710), L05 и L03 (2557–2570). corelib@34bc8104a:
+  outbox/retention.go целиком (NewQueueSweeper, queueSweepSQL, QueueRetentionConfig), замеры
+  М4–М14 заново. pgx v5.10.0: pgtype/timestamptz.go, pgtype/builtin_wrappers.go (timeWrapper).
+  Решения диспетчера Д1–Д22 и registerSharePause = 1 — по заданию. Записки vault не читались: новых
+  ресурсов и рёбер замысел сверх приёмки не заводит.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (TODO, TBD; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож|пока ' по файлу на 9bfa92be → 4 попадания:
+      строка 18 «пересверок … пока нет» (факт о пакете, эта запись его снимает), 176, 297, 543
+      «потому что». Маркеров нет
+  - condition: "нет нерешённых вопросов (open decision; CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      §13: «Открытых решений нет: З1–З31 приняты». Е1–Е6 — зависимости от соседних документов с
+      предикатом снятия. Е2 по существу не решение замысла, а противоречие приёмки — возвращено в
+      приёмку (return_to_acceptance), а не засчитано открытым решением
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      CX1-01…57 — 57 из 57 отображены (§11), каждое условие к коду шести записей — в §11а; отображения
+      выдерживают (mapping_check), четыре — с условием к коду этой записи (УК71–УК74). Красное — пять
+      новых пунктов CX1-58…62: их открыли решения самого замысла (sentinel `-infinity`, уборка
+      закрытых строк, ключ окна без длины окна, пошаговые лимиты в `Put`, возврат вклада оператором
+      `UPDATE … FROM`), и отображения у них нет
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      новых внешних вызовов нет: notify → источник (Subscribe, Claim, Ack), notify → kaname
+      (ResolveSend), notify → ретранслятор (SMTP) — рёбра приёмки (§9 замысла = Р8, Р5, Р11) и пункты
+      CX1-04, 06, 07, 17, 24, 27
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: >-
+      уборка закрытых строк ленты `outbox.NewQueueSweeper` (§6, строка 1028) — новый асинхронный путь
+      замысла, пункта не было — CX1-59; уборки строк окна `<svc>_notification_window` нет вовсе —
+      CX1-60 (в). Уборщик истечения (CX1-55), цикл Claim (CX1-27, 57) и уборка notify по окну сетки
+      (строка 1038, окно — колонка `window`, устаревание разрешимо) пунктами покрыты
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: red
+    detail: >-
+      `not_before timestamptz NOT NULL DEFAULT '-infinity'` (§6, строка 1010) — sentinel «отсрочки не
+      было» внутри домена времени — CX1-58. Остальные значения дельты — не sentinel либо покрыты:
+      `first_claimed_at IS NULL` — отсутствие, представимое отдельно (CX1-53); `outcome_token = NULL`
+      у уборщика (CX1-26 (г)); нулевое `HostForm` = пара (CX1-33); ключа нет = атрибут не задан
+      (CX1-50); `bound_to_server = false` — прежнее поведение аннотации (CX1-04)
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: >-
+      до этой записи пересверки не было (М20 замысла). Эта запись привязана к 9bfa92be — отпечатку
+      файла на 01c6ea987 и в рабочем дереве; change.yaml несёт hashes.design_sha256 = 9bfa92be.
+      Комментарий change.yaml «пересверки на него нет» этой записью устаревает — заказ пакету
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: >-
+      записей reviews/design/ в пакете — 0 (`git ls-tree -r --name-only HEAD
+      docs/changes/issue-2915/reviews | grep -c design/` → 0). Применимые роли: design-reviewer;
+      db-architect-reviewer (§6: лента, окно, вклад источника, две таблицы kaname, две таблицы
+      notify); proto-api-reviewer (§5: feed.proto, internal_notification_grant_service.proto, поле
+      `bound_to_server`). Ревью замысла — следующий шаг по заданию; DESIGN_APPROVED до них запрещён
+
+mapping_check:
+  - id: "CX1-01…09"
+    design: "З13, З14, З17, З18, З19, З23"
+    verdict: holds
+    note: >-
+      перемерено на ревизиях §0: М4 (2 вызова NewInterceptor, serve.go 252, 267; третья строка —
+      комментарий interceptor.go:109), М5 (serverPair :171, unaryChain :578, streamChain :608), М7
+      (FormatSubject :290, TenantSubject :329, 4 вызова FGASubjectRef), М8 (у ScopeExtractor поля
+      1–3, номер 4 свободен), М9 (DenyRateLimitPerSec — только own_door.go:294, 348). Условия (а)–(в)
+      каждого пункта исполнены названными решениями
+  - id: CX1-10
+    design: З7
+    verdict: holds
+    note: >-
+      для одного лимита. Для шаблона с несколькими `limits` (A01: на адресата И на инициатора) шаг 5
+      замысла — последовательные операторы; первый прошедший вклад остаётся в транзакции, которую
+      вызывающий по Р10 вправе закоммитить после `ErrLimitExhausted` второго — новый пункт CX1-61
+  - {id: CX1-11, design: З10, verdict: holds, note: "замещён CX1-53 перечнем `feed.RefundReasons()`"}
+  - {id: "CX1-12, CX1-13", design: "З3, З7, З24; З9", verdict: holds, note: "ключи окна и сетки — от `address.Normalize`; Ack — см. CX1-26"}
+  - id: CX1-14
+    design: "З23, З8"
+    verdict: holds
+    note: "`not_before`, `defer_for` в Ack, Claim будущих не выдаёт; условие к коду — УК72 (`defer_for` при виде ≠ DEFER); значение колонки по умолчанию — CX1-58"
+  - {id: "CX1-15, CX1-17…25", design: "З24, З26, З2, З25, З11, З12, З28, З15, З20, З21, З8", verdict: holds, note: "условия исполнены названными решениями; CX1-22 — фикстура пробы (tasks)"}
+  - id: CX1-16
+    design: З10
+    verdict: holds
+    note: "условие аренды в том же операторе, что перевод — да; возврат вклада тем же оператором недосчитывает — CX1-62"
+  - id: CX1-26
+    design: З9
+    verdict: holds
+    note: "(а)–(д) исполнены; (г) называет пустой токен, токен не по форме UUID — УК73"
+  - id: CX1-27
+    design: "З20, З21"
+    verdict: holds
+    note: "срок обработки — под контекстом до `lease_until − ackMargin`; страж старта по нижней границе; оговорка часов — УК71"
+  - {id: "CX1-28…42", design: "З23, З3, З2, З7, З15, З13, З5, З16, З22", verdict: holds, note: "М6, М12–М14 перемерены и совпали; CX1-32, 37 — без кода NTF-1 (приёмка; Е4 с предикатом снятия)"}
+  - {id: CX1-43, design: З16, verdict: holds, note: "реестр исключений в гейте: довод и исполняемый предикат снятия, запись без них — красный; норма в правилах — Е3"}
+  - {id: "CX1-44…49", design: "З2, З4, З22, З27, З31", verdict: holds, note: "каноническая форма `v1:sha256` с классом и presence, пересчёт базы, узкое чтение; порядок клеток — список; `direction` из одного сравнения"}
+  - {id: CX1-50, design: "З2, З5, З7", verdict: holds, note: "`form.Presence` — одна функция, порядок «нормализовать → решить → проверить»; SendX без литералов; Put отвергает нуль `optional`"}
+  - {id: CX1-51, design: "З4, З25", verdict: holds, note: "`spec.RefSites` — исчерпывающий switch по восьми видам; рендер по `deliver.Resolved.attrs`"}
+  - {id: CX1-52, design: З22, verdict: holds, note: "`deliver.Resolved` без колонки `class`; одно чтение `row.Class` держит гейт пакета — сильнее, чем «вниманием» в записи 29cfa368…"}
+  - id: CX1-53
+    design: "З6, З8, З10"
+    verdict: holds
+    note: "`first_claimed_at` монотонен, причина в операторе перевода, перечень возврата один; но исполнение возврата в SQL З10 недосчитывает общее окно — CX1-62"
+  - {id: CX1-54, design: З27, verdict: holds, note: "правило `unless` одной пары; метки через `feed.observeOutcome(Class, Outcome)`; G27 по перечням corelib"}
+  - {id: CX1-55, design: З10, verdict: holds, note: "`StartSweeper` в корне вне ветки флага, гейт B25; два уборщика — вклад по строкам своего оператора ровно раз"}
+  - {id: CX1-56, design: "З3, З16", verdict: holds, note: "выбрана форма (а), записывается в шапке гейта; инъекция (4) и близнец названы"}
+  - id: CX1-57
+    design: "З8, З21, §5"
+    verdict: holds
+    note: >-
+      выбрана форма «абсолютный момент по часам источника» (`lease_until`), которую допускала запись
+      29cfa368…; но notify вычитает из него СВОИ часы (`lease_until − now`, `min(lease_until −
+      ackMargin, …)`), и расхождение часов базы источника и узла notify входит в срок без предела —
+      поправка собственного условия записи 29cfa368… — УК71
+
+conditions_to_code:
+  - id: УК71
+    item: "CX1-57, CX1-27"
+    class: "rule architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ» (одна величина, двое часов)"
+    condition: >-
+      крайний момент строки в notify вычисляется по часам notify от момента ОТПРАВКИ запроса Claim:
+      `t_send + (lease_until − source_now)`, где `source_now` — момент базы источника, которым
+      выставлена аренда (ответ Claim несёт его рядом с `lease_until`, либо несёт остаток аренды
+      длительностью). Разность `lease_until − now_notify` в вычислении срока не встречается. Иначе —
+      расхождение часов, съедающее `ackMargin` (5 с), названо ценой в замысле с тревогой на
+      расхождение
+    held_by: >-
+      проба notify: фикстурный сервер ленты отдаёт `lease_until` по часам, сдвинутым на +10 с
+      относительно часов notify, при аренде 20 с и SMTP-узле, отвечающем на DATA через 25 с →
+      SMTP-сессий по строке не больше одной, Ack не опаздывает; близнец без сдвига — то же
+  - id: УК72
+    item: CX1-14
+    class: "rule api-conventions api-accepted-ignored; api-outcome-reject"
+    condition: "`defer_for`, заданный в Ack при виде ≠ DEFER, — синхронный INVALID_ARGUMENT с именем поля до SQL, а не молча проигнорированное поле"
+    held_by: "модульная проба сервера ленты: Ack(SENT, defer_for = 1m) → INVALID_ARGUMENT `defer_for`; близнец Ack(SENT) без поля — успех"
+  - id: УК73
+    item: CX1-26
+    class: "code-authoring §«Порядок операций внутри кода»; rule api-conventions api-gotcha-malformed"
+    condition: >-
+      `lease_token` разбирается как UUID до SQL: непустой токен не по форме — INVALID_ARGUMENT с именем
+      поля, а не ошибка приведения 22P02 из оператора `lease_token = $T` (она уходит в INTERNAL)
+    held_by: "модульная проба Ack и Claim-повтора: токен «x» → INVALID_ARGUMENT `lease_token`; близнец — UUID чужой аренды → LEASE_LOST"
+  - id: УК74
+    item: CX1-60
+    class: "doc-truthfulness §«Два места об одном предмете»"
+    condition: "таблица вклада описана одним местом: З6 (`notification_id, window_key, window_start`) и §6 (`notification_id, template, scope, key, window_start`, PK `(notification_id, scope)`) — разные формы одной таблицы; остаётся одна, та, что исполняет CX1-60 (а)"
+    held_by: "ревью замысла"
+
+items:
+  - id: CX1-58
+    decision: "§6 `not_before … DEFAULT '-infinity'`; З23"
+    class: "code-authoring §«Умолчание, которое становится утверждением» (sentinel внутри домена значения); §«Контракт, который нельзя выразить» (два написания «отсрочки не было»)"
+    exposure: >-
+      «отсрочки не было» записано значением в домене времени. Отбор Claim (`not_before <= now()`) с ним
+      работает (замер: `'-infinity'::timestamptz <= now()` → t), но каждый читатель колонки в Go
+      сканирует её в `time.Time`, а pgx v5.10.0 на этом значении возвращает ошибку «cannot scan
+      -Infinity into *time.Time» (builtin_wrappers.go:455). Читатели названы самим замыслом: четвёртый
+      вход `outboxobservedgate` (B20) и возраст отсроченных; метрика «сколько ждёт до not_before»
+      получит бесконечность. Ошибка сканирования на пути наблюдения — пустая метрика, неотличимая от
+      «отсрочек нет»
+    condition: >-
+      (а) «отсрочки не было» — `NULL`, отбор Claim — `(not_before IS NULL OR not_before <= now())`,
+      частичный индекс по `pending` это условие покрывает; либо (б) колонка остаётся `NOT NULL`, но
+      умолчание — момент вставки (`now()`), и «отсрочки не было» тогда значит «не раньше постановки» —
+      без значения вне домена; ни один читатель колонки не получает бесконечность
+    held_by: "интеграционная проба ленты: строка без DEFER читается сервером ленты и наблюдателем без ошибки сканирования; близнец — строка после DEFER"
+  - id: CX1-59
+    decision: "§6 строка 1028 «уборка закрытых строк — `outbox.NewQueueSweeper` по сроку хранения»"
+    class: "measurement-discipline §«Чужое измерение и чужое заявление» (приёмка §1.8 и Р8: «годятся»); code-authoring §«Унификация и стоимость» (сведение к чужой реализации берёт её семантику)"
+    exposure: >-
+      новый асинхронный путь. `outbox.NewQueueSweeper` (corelib@34bc8104a outbox/retention.go:144)
+      зашит на колонку `sent_at`: снимает строки `sent_at IS NOT NULL AND sent_at < now() − grace`,
+      требует `PartitionColumn` (без него — отказ сборки) и щадит доставленную строку, у которой в
+      партиции есть недоставленный предшественник. В схеме ленты (§6) колонки `sent_at` нет, ключ
+      партиции не назван. Как записано, уборщик либо не собирается, либо каждый проход — ошибка 42703;
+      если добавить `sent_at`, но ставить её только на SENT, строки `expired`, `invalid`, `denied`,
+      `dropped`, `recipient_rejected` не снимаются никогда; если назвать партицию по шаблону или
+      модулю, одна строка `pending` с `ttl` до 720 ч держит все более поздние закрытые строки своей
+      партиции. Приёмка (§1.8, Р8) называет уборщик «годным» без замера этой формы — по Д22 это не
+      возврат: наблюдаемого исхода уборки приёмка не утверждает
+    condition: >-
+      замысел выбирает одно: (а) лента несёт отметку закрытия, которую ставит КАЖДЫЙ переход в
+      терминальное состояние (Ack терминального вида, уборщик истечения, закрытие Claim
+      `sealed_mismatch`/`key_unavailable`) — под именем `sent_at` либо обёрткой corelib над
+      `queueSweepSQL` с именованной колонкой; ключ партиции — `id` (каждая строка — своя партиция,
+      предикат «щадить защищающую» пуст, довод записан), срок хранения — `outbox.DeliveredRetention`
+      либо своя константа с читателем; либо (б) своя уборка `feed` с тем же набором свойств (партия,
+      пощада `pending`, терминальные виды перечнем словаря Р11), и строка 1028 снята
+    held_by: "интеграционная проба ленты: по одной закрытой строке каждого терминального вида старше срока хранения → снята; строка `pending` старше срока хранения — не снята; близнец — закрытая строка моложе срока — не снята"
+  - id: CX1-60
+    decision: "§6 `<svc>_notification_window` PK `(template, scope, key, window_start)`, `<svc>_notification_contrib` PK `(notification_id, scope)`; З5 `X<Scope>Per<Window>`"
+    class: "code-authoring §«Контракт, который нельзя выразить» (два разных лимита — одна строка); §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      длина окна в ключе окна не участвует. Формат допускает два лимита одной области с разными окнами
+      (имена констант замысла `X<Scope>Per<Window>`; notify у себя держит час и сутки на адресата
+      отдельной колонкой `window` — §6, recipient_net). Выровненные `date_bin` начала часового и
+      суточного окон совпадают в полночь: оба лимита считают одну строку, и меньший лимит исчерпывает
+      больший; строка вклада второго лимита той же области нарушает PK `(notification_id, scope)` —
+      23505 внутри `Put`, транзакция вызывающего в aborted, что прямо противоречит И9. Третье: без
+      длины окна в строке уборка устаревших строк окна невыразима, а уборки строк окна у источника в
+      замысле нет вовсе — таблица растёт на строку в окно на ключ
+    condition: >-
+      (а) ключ окна и ключ вклада содержат тождество лимита (область И длину окна, либо имя лимита из
+      описания): PK окна `(template, scope, window, key, window_start)`, PK вклада `(notification_id,
+      scope, window)`; либо валидатор `notify/spec` отвергает второй лимит той же области находкой (это
+      наблюдаемый исход формата — тогда он идёт в приёмку по Д22); (б) описание вклада — одно место
+      (УК74); (в) строки окна, чей `window_start + window` старше `now()`, снимает уборка источника
+      тем же путём, что CX1-59
+    held_by: "модульная проба `notify/spec` либо интеграционная проба Put: шаблон с лимитами на адресата «1 в час» и «3 в сутки», четыре постановки на один адрес в разные часы → строк 3, четвёртая — ErrLimitExhausted; близнец — один лимит"
+  - id: CX1-61
+    decision: "З7 шаг 5 «для каждого `limits` — один оператор»"
+    class: "code-authoring §«Решение и его следствие разнесены» («списать» частично до отказа); §«Порядок операций внутри кода»"
+    exposure: >-
+      у шаблона с несколькими лимитами (A01: адресат и инициатор) операторы шага 5 идут по очереди.
+      Если первый прошёл, а второй вернул ноль строк, `Put` возвращает `ErrLimitExhausted`, но вклад
+      первого остаётся в транзакции вызывающего, а Р10 прямо разрешает вызывающему её закоммитить
+      («откатывать ли её, решает глагол источника»). Итог — вклад в окно без строки ленты: фантомный
+      счёт, который тратит лимит адресата до конца окна и не возвращается уборщиком (вклада без строки
+      он не видит). В notify та же форма решена откатом транзакции двух окон (З24) — у источника нет
+    condition: >-
+      вклад во все окна шаблона — всё или ничего внутри `Put`: шаг 5 идёт под точкой сохранения
+      (`tx.Begin` вложенной транзакции pgx), и ноль строк любого лимита откатывает к ней до возврата
+      `ErrLimitExhausted`; транзакция вызывающего после этого пригодна к коммиту (CX1-10) и не несёт
+      ни одного вклада
+    held_by: "интеграционная проба Put: шаблон с лимитами на адресата (L) и на инициатора (1), окно инициатора исчерпано → ErrLimitExhausted, вызывающий коммитит, счётчик окна адресата не изменился; близнец — оба окна свободны → оба +1"
+  - id: CX1-62
+    decision: "З10 оператор уборщика `WITH x AS (UPDATE … RETURNING) UPDATE <window> w SET count = w.count - 1 FROM <contrib> c JOIN x …`"
+    class: "code-authoring §«Порядок операций внутри кода» (кратность соединения в UPDATE … FROM); rule data-integrity concurrent-integration-test"
+    exposure: >-
+      в PostgreSQL `UPDATE … FROM` меняет целевую строку не больше одного раза, сколько бы строк
+      соединения на неё ни пришлось. Две строки одного адресата и одного окна, истёкшие `unclaimed` в
+      одном проходе, возвращают вклад один раз вместо двух. Замер (postgres:16-alpine): окно 5, две
+      строки ленты с вкладом в него, оператор З10 → строк EXPIRED 2, окно 4 (ожидалось 3). Именно
+      этот случай — массовый: остановленный notify (L03, L04) истекает пачкой строк одного адресата
+      в одном окне. Недосчёт необратим: вклад остаётся до конца окна, получатель упирается в лимит,
+      которого не исчерпал
+    condition: >-
+      возврат суммирует вклад по окну до обновления:
+      `UPDATE w SET count = w.count - d.n FROM (SELECT <ключ окна>, count(*) AS n FROM contrib c JOIN x … WHERE x.outcome_reason = ANY($refund) GROUP BY <ключ окна>) d WHERE w.<ключ> = d.<ключ>`;
+      свойство «ровно раз при двух уборщиках» (CX1-55 (б)) сохраняется, потому что `x` — строки этого
+      оператора
+    held_by: "интеграционная проба уборщика: две строки `unclaimed` одного адресата в одном окне, счётчик 5 → после прохода 3; близнец — строки в разных окнах, по −1 каждому; вместе с пробой двух уборщиков (CX1-55)"
+
+measurements:
+  - claim: "предмет — 9bfa92be, коммит 01c6ea987; после него правок пакета и приёмки нет"
+    command: "sha256sum docs/changes/issue-2915/design.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum; git log 01c6ea987..HEAD -- docs/changes/issue-2915 docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md"
+    result: "9bfa92be в обоих; журнал пуст (единственный коммит после — 9a2644ede, пакет NTF-5)"
+  - claim: "приёмка — 29cfa368…, APPROVED; cutover пройден"
+    command: "sha256sum <приёмка>; git merge-base --is-ancestor 1202e3cf HEAD"
+    result: "29cfa368…; 0"
+  - claim: "М1, М3–М9, М12–М14 замысла"
+    command: "git -C project/<репо> ls-tree / grep на 34bc8104a, 1d42a6728bf, 734f69fb4 — предикаты замысла §1 дословно"
+    result: "совпали все: 0 и 0; 2 и 3 файла; 2 вызова + комментарий; 171/578/608; М6 (граф импорта) не перемерялся; :290, :329, 4 вызова; поля 1–3 ScopeExtractor; own_door.go:294, 348; contract.go:460, surface.go:78; bootposture.go:256; 0 файлов AEAD"
+  - claim: "М21: L03 противоречит Р11 (Е2 замысла)"
+    command: "sed -n 1160,1170p и 2557,2570p <приёмка>; sed -n 1703,1707p <приёмка>"
+    result: "подтверждено и шире: Р11 (строка 1169) — строка без DEFER, не выданная ни одним Claim, → EXPIRED(unclaimed); B31 (а) (строка 1705) утверждает ровно это при notify, которого нет; L03 (строки 2566–2568, «условия L05, но notify остановлен») утверждает EXPIRED(platform_unavailable)"
+  - claim: "CX1-59: NewQueueSweeper годится ленте как есть (приёмка §1.8, Р8; замысел §6)"
+    command: "git -C project/corelib show 34bc8104a:outbox/retention.go | sed -n 76,160p"
+    result: "опровергнуто: queueSweepSQL зашит на `sent_at IS NOT NULL AND sent_at < now() − grace`, пощада по партиции `p.sent_at IS NULL`; PartitionColumn обязателен (отказ сборки); в схеме §6 нет ни `sent_at`, ни названной партиции"
+  - claim: "CX1-62: оператор З10 возвращает вклад по разу на строку"
+    command: "docker run postgres:16-alpine; w(k,count)=('a',5); o — две pending; c — обе с k='a'; оператор З10 дословно (WITH x AS (UPDATE o … RETURNING id, reason) UPDATE w SET count = w.count - 1 FROM c JOIN x ON c.nid = x.id WHERE x.reason = ANY(ARRAY['unclaimed']) AND w.k = c.k)"
+    result: "опровергнуто: UPDATE 1; строк expired 2; счётчик окна 4 (ожидалось 3)"
+  - claim: "CX1-58: `-infinity` в not_before безвреден"
+    command: "SELECT '-infinity'::timestamptz <= now() (postgres:16); sed -n 444,460p ~/go/pkg/mod/github.com/jackc/pgx/v5@v5.10.0/pgtype/builtin_wrappers.go"
+    result: "отбор Claim работает (t); сканирование в time.Time — ошибка «cannot scan -Infinity into *time.Time»"
+  - claim: "применимые ревью замысла на 9bfa92be"
+    command: "git ls-tree -r --name-only HEAD docs/changes/issue-2915/reviews | grep -c design/"
+    result: "0"
+
+not_measurable:
+  - "поведение `feed.Put`, уборщика, сервера ленты, уборки закрытых строк и цикла notify — кода нет (М1); CX1-58…62 и УК71–УК74 проверяются по диффу и пробами из held_by"
+  - "будут ли у реальных шаблонов два лимита одной области (CX1-60) — шаблонов в деревьях 0 (М2); формат их допускает, и противоядие нужно независимо от частоты"
+  - "расхождение часов базы источника и узла notify на стенде (УК71) — число стенда и момента; условие от величины не зависит"
+
+outcome: вернуть-в-приёмку
+outcome_note: >-
+  возврат — только NTF1-L03 (одна строка «Тогда»). Независимо от него замысел идёт к-замыслу:
+  CX1-58…62 открыты его собственными решениями и должны получить отображение до одобрения; следующая
+  пересверка — на новый отпечаток замысла и судит дельту
+unmapped: [CX1-58, CX1-59, CX1-60, CX1-61, CX1-62]
+return_to_acceptance:
+  - id: NTF1-L03
+    what: >-
+      «Тогда» L03 «строка EXPIRED(platform_unavailable)» противоречит таблице Р11 (строка 1169) и B31
+      (а) (строка 1705): строка без DEFER, которую не выдал ни один Claim (notify остановлен с начала),
+      — EXPIRED(unclaimed). Обе причины возвращают вклад, поэтому исправление — только причина в L03
+      (либо Р11 называет для «notify не поднимался» иную причину, и тогда правится B31 (а))
+    basis: >-
+      Д22: документ обязан утверждать исход этого сценария и утверждает два несовместимых; кодом это
+      не решается — замысел держит Р11 (Е2), и L03 до правки не зеленеет. Пропуск записи первичного
+      разбора 29cfa368…: дельта редакций 17–18 ввела `unclaimed` и L03 не сверила
+
+orders:
+  - to: автор приёмки NTF-1
+    what: "NTF1-L03: причина истечения — `unclaimed` (Р11, B31 (а)); одна строка «Тогда». Заодно §1.8 и Р8 «`outbox.NewQueueSweeper` годится» — утверждение о дереве неверно как есть (CX1-59, measurements); по Д22 не возврат, правится тем же заходом, если автор трогает документ"
+    basis: "Д22; measurement-discipline §«Чужое измерение и чужое заявление»"
+  - to: автор замысла NTF-1 (design.md)
+    what: >-
+      отображение CX1-58 (NULL либо `now()` вместо `-infinity`), CX1-59 (отметка закрытия на каждом
+      терминальном переходе, партиция `id`, либо своя уборка), CX1-60 (длина окна в ключах окна и
+      вклада, уборка строк окна, одна форма таблицы вклада — УК74), CX1-61 (точка сохранения вокруг
+      шага 5 `Put`), CX1-62 (возврат суммой по окну); строки УК71–УК74 в §11а; Е2 снять или
+      переписать ссылкой на возврат L03; М20 и строку 18 — ссылкой на эту запись
+    basis: "code-authoring §«Умолчание, которое становится утверждением», §«Контракт, который нельзя выразить», §«Решение и его следствие разнесены», §«Порядок операций внутри кода», §«Унификация и стоимость»; rule architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: автор проб corelib (исполнитель corelib#77)
+    what: "пробы из held_by CX1-58…62 и УК72, УК73: not_before без бесконечности; уборка по каждому терминальному виду; два лимита одной области; фантомный вклад после ErrLimitExhausted второго лимита; две строки в одном окне → −2"
+    basis: "rule testing §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» п.1; rule data-integrity concurrent-integration-test"
+  - to: автор проб notify (исполнитель kacho#2915)
+    what: "УК71: сдвиг часов фикстурного сервера ленты на +10 с при аренде 20 с → не больше одной SMTP-сессии по строке"
+    basis: "rule architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: автор пакета (change.yaml)
+    what: "комментарий «пересверки на него нет» — ссылкой на эту запись"
+    basis: "change-graph §4 (привязка к отпечатку)"
+  - to: design-reviewer, db-architect-reviewer, proto-api-reviewer
+    what: "записи ревью на отпечаток замысла (reviews/design/<role>/<sha>.yaml) — их 0; целесообразно на следующую редакцию, после отображения CX1-58…62 (две из пяти — схема §6, одна — контракт §5 через УК71)"
+    basis: "SDD-1 §5; policy.yaml review_authority"
+  - to: tooling-maintainer
+    what: "без изменений с 29cfa368…: норма видов (1)–(7) в `.claude/rules/` (Е3); кандидат class-guard «ошибка `Value()` в `_`» после посадки S1; ссылка тела агента на `Skill rule-change-graph` (такого скилла нет, есть change-graph; правила change-graph.md в `.claude/rules/` нет)"
+    basis: ".claude/hooks/class-guard/README.md §«Как добавить предикат»; doc-truthfulness §«Утверждение пережило свой предмет»"
