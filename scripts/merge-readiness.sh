@@ -374,7 +374,7 @@ if [ "$missing_count" -gt 0 ]; then
       echo "    $ctx — идёт"
     elif grep -qF -- "$ctx" <<<"$red"; then
       echo "    $ctx — красный"
-    elif printf '%s\n' "$other" | grep -qF -- "$ctx ["; then
+    elif grep -qF -- "$ctx [" <<<"$other"; then
       printf '%s\n' "$other" | grep -F -- "$ctx [" | sed 's/$/ — не зелёный/; s/^/    /'
     else
       # Тот самый случай из kacho#614: контекста на ревизии НЕТ ВОВСЕ.
