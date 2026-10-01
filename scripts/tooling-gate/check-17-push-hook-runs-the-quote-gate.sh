@@ -128,9 +128,14 @@ build() {
 }
 
 # push <копия> — настоящий `git push` ветки в голый удалённый; код и вывод — в rc/out.
+# Имя отправляемой ветки — законной формы `<N>-<суффикс>` (`git-issues.md`
+# §«Имя ветки»): хук судит имя ДО наборов (`check-18`), и создание ветки с голым
+# номером получало бы отказ по имени, а не по цитате — близнецы краснели бы не по
+# своему предмету, а дефект краснел бы и без гейта цитат.
+BRANCH="816-quote-gate"
 push() {
-    out="$(cd "$1" && KACHO_QUOTE_HOOK_PROBE="$NAME" sandbox_run git push origin HEAD:refs/heads/816 2>&1 < /dev/null)"; rc=$?
-    remote="$(sandbox_run git -C "$1" ls-remote origin refs/heads/816 | cut -f1)"
+    out="$(cd "$1" && KACHO_QUOTE_HOOK_PROBE="$NAME" sandbox_run git push origin "HEAD:refs/heads/$BRANCH" 2>&1 < /dev/null)"; rc=$?
+    remote="$(sandbox_run git -C "$1" ls-remote origin "refs/heads/$BRANCH" | cut -f1)"
     head="$(sandbox_run git -C "$1" rev-parse HEAD)"
 }
 has() { [[ "$out" == *"$1"* ]]; }
