@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-20 — перепись каскада читает ОБА отношения дочерних и не выдаёт пустой
+# check-14 — перепись каскада читает ОБА отношения дочерних и не выдаёт пустой
 # уровень за «открытых ноль».
 #
 # НОМЕР 20, А НЕ 11 (сведение 786 × 771, 2026-09-26). Номер 11 в сведённом наборе
@@ -52,7 +52,7 @@ set -euo pipefail
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 TOOL_REL="scripts/cascade-census.sh"
 
@@ -237,7 +237,7 @@ probe() {
         return
     fi
     for needle in "$@"; do
-        if ! printf '%s\n' "$out" | grep -qF -- "$needle"; then
+        if ! grep -qF -- "$needle" <<<"$out"; then
             tooling_gate_fail "$NAME" "$title — код $rc верен, но в выводе нет «$needle»"
             printf '%s\n' "$out" | sed 's/^/      /' >&2
             findings=$((findings + 1))

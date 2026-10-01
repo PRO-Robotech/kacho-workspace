@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-22 — ПОДПИСЬ ГИТА БЕРЁТСЯ ТОЛЬКО ИЗ КОРНЕВОГО GITCONFIG, И В ПЕСОЧНИЦЕ
+# check-16 — ПОДПИСЬ ГИТА БЕРЁТСЯ ТОЛЬКО ИЗ КОРНЕВОГО GITCONFIG, И В ПЕСОЧНИЦЕ
 # ПРОБЫ ТОЖЕ.
 #
 # ПРЕДМЕТ. П.7 правила подписи (`.claude/rules/git-issues.md`,
@@ -30,6 +30,9 @@ set -uo pipefail
 
 name="$(basename "${BASH_SOURCE[0]}" .sh)"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-root="${TOOLING_GATE_ROOT:-$(cd "$here/../.." && pwd)}"
+# shellcheck source=_lib.sh
+. "$here/_lib.sh"
+# Корень — общим резолвером наборов (ws#757), а не своим порядком без `GATE_ROOT`.
+root="$(tooling_gate_workspace_root)" || exit 2
 
 exec python3 "$here/signature_forms.py" "$root" "$name"

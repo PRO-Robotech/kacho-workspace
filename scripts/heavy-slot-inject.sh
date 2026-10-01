@@ -165,7 +165,7 @@ if systemd-run --user --scope --quiet --collect -p MemoryMax=32M -- true 2>/dev/
    grep -qw memory "/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers" 2>/dev/null; then
     assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 16 0)" "16 МиБ под бюджетом 64 — код 0"
     assert "76 да" "$(slot HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 256 0) $(has "$W/err" 'OOM в cgroup слота')" "256 МиБ под бюджетом 64 — 76, причина названа"
-    assert "да" "$(grep ' leave ' "$HEAVY_SLOT_DIR/journal.log" | tail -n 1 | grep -q 'limiter=systemd.*cut=OOM' && echo да || echo нет)" "выход с пиком и причиной обрыва — в журнале"
+    assert "да" "$(grep -q 'limiter=systemd.*cut=OOM' <<<"$(grep ' leave ' "$HEAVY_SLOT_DIR/journal.log" | tail -n 1)" && echo да || echo нет)" "выход с пиком и причиной обрыва — в журнале"
 
     # Объявленный, но НЕ действующий предел: подставной systemd-run запускает
     # команду без cgroup. Слот обязан это увидеть по memory.max и уйти в запасной путь.
@@ -214,7 +214,7 @@ if docker image inspect "$IMAGE" >/dev/null 2>&1; then
         mem 1400; wait "$g"; local r=$?; mem 1000; export HEAVY_SLOT_LIMIT_MIB=100000
         echo "$r"
     }
-    running() { docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null | grep -qx true && echo да || echo нет; }
+    running() { grep -qx true <<<"$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" && echo да || echo нет; }
     n="hs-probe-g-$$"
     rc="$(guarded "$n" "$W/errG")"
     assert "76 да нет" "$rc $(has "$W/errG" 'контейнеры слота остановлены') $(running "$n")" "сторож машины: 76, контейнер из bash -c снят, сказано"

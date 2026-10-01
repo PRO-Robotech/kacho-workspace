@@ -9,7 +9,7 @@
 # покрывал каждую ветку и каждый PR, причём дважды — событием `push` и событием
 # `pull_request`. Правило описывало намерение, дерево исполняло обратное.
 #
-# Утверждений три, и третье — контроль в обратную сторону:
+# Утверждения ниже, и последнее — контроль в обратную сторону:
 #   A. `push`/`pull_request`/`pull_request_target` СУЖЕНЫ по ветке
 #      (`branches` либо `branches-ignore`, непустые). Иначе ветка задачи
 #      оплачивается полным прогоном.
@@ -43,7 +43,7 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="check-05-workflow-triggers-narrowed"
 
 mapfile -t WORKFLOWS < <(tooling_gate_files "$WS" '.github/workflows/*')

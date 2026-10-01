@@ -19,6 +19,13 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$HERE/../.." && pwd)"
+# Окружение — своё: унаследованный `KACHO_HOME_<ИМЯ>` сильнее мира песочницы, и
+# проба «дома рядом нет» получала бы дом вызывающего (scripts/lib/proofs.sh).
+# `KACHO_MONOREPO` — объявленный вход ниже, не снимается.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$HERE/../lib/proofs.sh"
+proof_own_environment
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -432,7 +439,7 @@ else
 fi
 fi
 
-# ── check-03-scope-row-scenario ─────────────────────────────────
+# ── check-08-scope-row-scenario ─────────────────────────────────
 #
 # Проверка требует: у каждой строки состава `| F<N> |` есть сценарий (When+Then)
 # либо передача в дочернюю приёмку, у которой такой раздел со сценарием есть.
@@ -455,7 +462,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 ## F1 — предмет
 Раздел есть, а сценария в нём нет.'
 run 1 "$b" "инъекция: строка состава без сценария — краснеет" \
-    check-03-scope-row-scenario.py "F1"
+    check-08-scope-row-scenario.py "F1"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -469,7 +476,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: у строки состава есть сценарий — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # Передача в дочернюю приёмку — законный второй способ, и без этой пробы
 # проверка ловила бы «сценарий в ЭТОМ файле», а не «сценарий существует».
@@ -488,7 +495,7 @@ mkspec "$b" "sub-phase-P1b-child-acceptance.md" '# Приёмка P1b
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: передача в дочернюю приёмку со сценарием — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # Передача, которая НЕ резолвится, обязана остаться находкой: иначе ссылка на
 # несуществующий документ становится способом закрыть любую строку состава.
@@ -502,13 +509,13 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 ## F1 — предмет
 Сценарий живёт в sub-phase-P9Z-missing-acceptance.md.'
 run 1 "$b" "инъекция: передача не резолвится — краснеет" \
-    check-03-scope-row-scenario.py "F1"
+    check-08-scope-row-scenario.py "F1"
 
 # Обе предпосылки: приёмок нет вовсе и приёмки есть, но состав объявлен иначе.
 # «Ноль находок» на них означало бы «ноль прочитанного».
 b="$(mksandbox docs/specs)"
 run 2 "$b" "предпосылка: приёмок нет — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -519,7 +526,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** шаг
 **Then** ответ'
 run 2 "$b" "предпосылка: состав объявлен не строками — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # ── ПОЛОСА ЧТЕНИЯ ДЕРЕВА ПРОДУКТА: СТВОЛ, А НЕ ИНДЕКС КОПИИ (ws#621) ─────────
 #
@@ -948,8 +955,22 @@ runh - 0 "$b" "$PROD_BARE" \
     "дом найден клоном в project/kaname — переменная не нужна" \
     "не проверяемо" "$HOME_ID"
 
+# ── Части доказательства набора ──────────────────────────────────────────────
+#
+# Этот файл — ЕДИНЫЙ вход доказательств набора: конвейер зовёт его, и только
+# его (`scripts/lib/run-suites.sh --proofs`). Части рядом (`inject-<N>*.sh` —
+# закрепления приёмки, второй дом приёмок, ведомость) прежде выписывались в
+# конвейер поимённо; теперь их исполняет вход — перечень выводится из каталога
+# (`scripts/lib/proofs.sh`, подключён в начале файла), и новая часть не может
+# остаться неисполненной.
+proof_parts "$HERE"; parts_rc=$?
+
 echo
-echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
+echo "[CENSUS] inject: проб исполнено $probes, провалов $failed; частей доказательства $PROOF_PARTS, не сошлось $PROOF_PARTS_BAD"
+if [ "$parts_rc" -ne 0 ]; then
+    echo "[FAIL] inject — части доказательства набора не сошлись (код $parts_rc)" >&2
+    exit 1
+fi
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] inject — ни одной пробы не исполнено" >&2
     exit 2

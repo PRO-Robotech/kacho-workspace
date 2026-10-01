@@ -32,7 +32,7 @@
 # I и J заведены возвратом check-verifier (#724): ветку убыли можно было снять,
 # и инъекция оставалась зелёной 26 из 26; клон kacho, отставший от ствола, давал
 # «РОСТ» при нетронутом воркспейсе. На прежней редакции `check-02` (без `rev`)
-# дефект J1 даёт 1 вместо 2, а снятая ветка убыли — 0 вместо 1 на осях I и J3.
+# дефект J1 даёт 1 вместо 2, а снятая ветка убыли на осях I и J3 — 0 вместо 1.
 #
 # F и G заведены приёмкой 2026-09-21: ось B проверяла НЕПОДВИЖНУЮ ТОЧКУ только
 # нерекурсивным случаем, и обе рекурсии — самоимпорт и цикл — были не покрыты
@@ -48,6 +48,15 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/foundation-inject.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 pass=0; fail=0
+
+# Окружение — своё (scripts/lib/proofs.sh, ws#757): унаследованный указатель на
+# дерево (`KACHO_HOME_*`, `GATE_ROOT`, `<НАБОР>_GATE_ROOT`) сильнее синтетического
+# мира песочницы, и вердикт зависел бы от того, кто запустил доказательство.
+# Пробы, которым указатель нужен, ставят и снимают его на своём вызове (`run`).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$HERE/../lib/proofs.sh"
+proof_own_environment
 
 # Подпись синтетических клонов — HOME песочницы со своим `.gitconfig` (ws#785).
 # shellcheck source-path=SCRIPTDIR
@@ -549,12 +558,20 @@ r="$WORK/K5"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
 sed -i '/^    kacho: /d' "$r/$LEDGER_REL"; rm -rf "$r/project/kaname"
 expect K5 "дефект: неполна и без клона — 1" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
 expect K5 "дефект: НАБОР — код 1" 1 "$(set_rc "$r")"
-echo "   K6 · ведомости нет вовсе: носитель снят отдельно от гейта."
+echo "   K6 · ведомости нет вовсе: носитель снят отдельно от гейта (гейт в судимом дереве есть)."
 r="$WORK/K6"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
 rm -f "$r/$LEDGER_REL"
+mkdir -p "$r/scripts/foundation-candidates"
+cp "$HERE/check-02-second-home-count-does-not-grow.py" "$r/scripts/foundation-candidates/"
 expect K6 "дефект: ведомости нет — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
 expect K6 "дефект: причина названа — ведомости нет" да "$(says "$r" 'ведомости .* нет в дереве')"
 expect K6 "дефект: НАБОР — код 1" 1 "$(set_rc "$r")"
+echo "   K7 · один факт против K6: гейта в судимом дереве нет — храповика нет, а не нарушение (ws#762)."
+r="$WORK/K7"; build "$r"; lane_pair "$r"; ledger "$r" 1 2 1 "$KEEP"
+rm -f "$r/$LEDGER_REL"
+expect K7 "близнец: ни ведомости, ни гейта — 2, а не находка" 2 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect K7 "близнец: причина строкой [VOID] — гейта нет" да "$(says "$r" '\[VOID\].*ни гейта')"
+expect K7 "близнец: НАБОР — код 2" 2 "$(set_rc "$r")"
 
 echo
 echo "inject foundation-candidates: сошлось $pass, разошлось $fail"

@@ -40,7 +40,7 @@ set -euo pipefail
 # shellcheck source=../lib/sandbox-git-home.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="check-10-push-hook-judges-what-is-pushed"
 CALLER="scripts/hooks/pre-push"
 Z="0000000000000000000000000000000000000000"
@@ -65,7 +65,7 @@ pgit() { sandbox_git -c core.hooksPath=/dev/null "$@"; }
 # `810-red-lane` = R (red), HEAD = main, копия чистая. Факт вызова заглушки пишется
 # в `<песочница>.calls` — вне дерева, чтобы не попасть ни в одну ревизию.
 # Имена отправляемых веток — законной формы `<N>-<суффикс>` (`git-issues.md`
-# §«Имя ветки»): хук судит имя ДО вершин (`check-23`), и проба с именем прежней
+# §«Имя ветки»): хук судит имя ДО вершин (`check-18`), и проба с именем прежней
 # формы получала бы отказ по имени, а не по своему предмету.
 mkbox() {
     local dir

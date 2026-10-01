@@ -218,7 +218,7 @@ EOF
         systemctl --user set-property --runtime "$S" ManagedOOMMemoryPressure=kill ManagedOOMMemoryPressureLimit=1% \
             ManagedOOMMemoryPressureDurationSec=2s 2>/dev/null
         sleep 0.5
-        if ! oomctl 2>/dev/null | grep -qF "Path: $UPATH/$S"; then
+        if ! grep -qF -- "Path: $UPATH/$S" <<<"$(oomctl 2>/dev/null)"; then
             kill "$N" 2>/dev/null; wait "$N" 2>/dev/null; systemctl --user stop "$S" 2>/dev/null
             echo "VOID oomd не следит за срезом пробы $S (нет в oomctl) — соблюдение omit не судимо"; return
         fi

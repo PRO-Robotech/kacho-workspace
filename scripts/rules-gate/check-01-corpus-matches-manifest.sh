@@ -130,14 +130,14 @@ PARSER="$SCRIPT_DIR/manifest-rows.awk"
 if [ -n "${RULES_GATE_ROOT:-}" ]; then
     WS="$(cd "$RULES_GATE_ROOT" 2>/dev/null && pwd)" || WS=""
 else
-    WS="$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd)" || WS=""
+    WS="$(python3 "$SCRIPT_DIR/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || WS=""
 fi
 
 gate_pass()   { echo "[PASS] $NAME${1:+ — $1}"; }
 gate_fail()   { echo "[FAIL] $NAME${1:+ — $1}" >&2; }
 gate_void()   { echo "[VOID] $NAME${1:+ — $1}" >&2; }   # «сверять не с чем» ≠ «находок 0»
 # Перепись называет КОРЕНЬ первым: все прочие числа — утверждения о дереве, и без
-# имени дерева их нельзя сверить между двумя прогонами (см. `check-11`, 2026-09-22).
+# имени дерева их нельзя сверить между двумя прогонами (см. `check-10`, 2026-09-22).
 gate_census() { echo "[CENSUS] $NAME: корень ${WS:-НЕ ВЫВЕДЕН}; $1"; }
 
 RULES_DIR="$WS/.claude/rules"

@@ -41,7 +41,7 @@ fi
 # правило, и черновик на удалённом публичен так же, как ветка, поэтому страж
 # стоит выше обоих; стоит он доли секунды. Стража нет рядом с хуком либо он не
 # смог судить — ОТКАЗ: хук без него выпускал бы нарушение молча. Держит это
-# scripts/tooling-gate/check-21-attribution-hooks-refuse-the-trailer.sh.
+# scripts/tooling-gate/check-15-attribution-hooks-refuse-the-trailer.sh.
 hooks_dir="${BASH_SOURCE[0]%/*}"
 [ "$hooks_dir" != "${BASH_SOURCE[0]}" ] || hooks_dir=.
 attribution_guard="$hooks_dir/prepush-attribution.sh"
@@ -102,7 +102,7 @@ cd "$ROOT" || exit 1
 # Вход — тот же `push_input`, прочитанный ОДИН раз в начале хука (там же сказано,
 # почему с терминала он не читается); второе чтение stdin получило бы пустоту.
 # Держатель поведения — поведенческая проба
-# `scripts/tooling-gate/check-23-push-refuses-unlawful-branch-name.sh`.
+# `scripts/tooling-gate/check-18-push-refuses-unlawful-branch-name.sh`.
 branch_name_lawful() {
     local name="$1" re='^[0-9]+-[a-z0-9][a-z0-9-]*$'
     case "$name" in
