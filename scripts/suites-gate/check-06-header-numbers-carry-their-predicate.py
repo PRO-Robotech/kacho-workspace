@@ -30,7 +30,21 @@
                    слово `git`/`grep`/`find`/`ls`, звенья трубы — только из
                    `wc`/`grep`/`sort`/`uniq`/`cut`/`sed`/`awk`/`head`/`tail`/`tr`,
                    без `;` `&` `$` `(` `)` `<` `>` вне одинарных кавычек. Документ —
-                   не место, откуда исполняется что угодно.
+                   не место, откуда исполняется что угодно;
+  ТОЛЬКО ЧИТАЮЩАЯ — и это часть политики, а не вежливость: у `git` подкоманда из
+                   `GIT_READ` (`ls-files`, `ls-tree`, `grep`, `log`, `rev-list`,
+                   `show`, `cat-file`, `rev-parse`, `shortlog`) без ключей вывода в
+                   файл и пейджера; у `find` нет `-delete`/`-exec*`/`-ok*`/`-fprint*`/
+                   `-fls`; у `sed` нет правки на месте и команд `w`/`e`; у `awk` нет
+                   `system`, `getline`, вывода в файл и трубы; у `sort` нет `-o`; у
+                   `uniq` нет файла вывода. Шапка — проза, и команда в ней чаще
+                   ПРЕДМЕТ рассказа, чем предикат («`git add -A -f` хешировал каждый
+                   файл»): прежде такая исполнялась над деревом, и `git add -A -f` из
+                   шапки `scripts/tooling-gate/inject.sh` индексировал игнорируемое в
+                   рабочей копии вызывающего, а `git ls-remote` ходил в сеть
+                   (сведение ws-816, 2026-10-01). Команда вне политики не исполняется,
+                   и находка называет её и причину. Вход команды — пустой (`/dev/null`):
+                   `git apply` из прозы ждал бы ввода до предела.
 Числа вне словаря единиц не судятся и перечисляются в переписи отдельным числом.
 
 ОБХОД. Скрипты ВЕРХНЕГО уровня каталогов наборов (`*.sh`, `*.py`) — шапки
@@ -53,6 +67,7 @@
 import ast
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -103,6 +118,13 @@ COMMAND = re.compile(r"`([^`\n]+)`")
 FIRST = ("git", "grep", "find", "ls")
 PIPED = ("wc", "grep", "sort", "uniq", "cut", "sed", "awk", "head", "tail", "tr")
 UNSAFE = set(";&$()<>`")
+GIT_READ = frozenset(("ls-files", "ls-tree", "grep", "log", "rev-list", "show", "cat-file",
+                      "rev-parse", "shortlog"))
+GIT_WRITE_ARG = ("--output", "--open", "-O")
+FIND_WRITE = ("-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fls")
+SED_WRITE_CMD = re.compile(r"(?:^|[;{}\n])\s*[0-9,$!/^.*\\\[\]a-zA-Z]*?\s*[wWe](?:\s|$)")
+SED_S_FLAGS = re.compile(r"s(.)(?:\\.|(?!\1).)*\1(?:\\.|(?!\1).)*\1[gpiImM0-9]*[we]")
+AWK_WRITE = re.compile(r"\bsystem\b|\bgetline\b|\bclose\b|\bfflush\b|\||\bprintf?\b[^;}]*>")
 
 
 def header(path, text):
@@ -152,31 +174,97 @@ def line_at(offsets, pos):
     return n
 
 
-def safe_command(cmd):
-    """Команда исполнима по политике проверки: первое слово и звенья — из закрытых
-    перечней, опасные знаки только внутри одинарных кавычек."""
+def _stages(cmd):
+    """Звенья трубы разобранными словами, либо None: кавычка не закрыта, опасный
+    знак вне одинарных кавычек, слово не разбирается."""
     quote = False
     outside = []
+    cuts, cur = [], []
     for ch in cmd:
         if ch == "'":
             quote = not quote
-            continue
-        if not quote:
+        elif not quote:
             outside.append(ch)
+            if ch == "|":
+                cuts.append("".join(cur))
+                cur = []
+                continue
+        cur.append(ch)
+    cuts.append("".join(cur))
     if quote or UNSAFE & set(outside):
-        return False
-    stages = "".join(outside).split("|")
-    words = [s.split() for s in stages]
-    if not words or not words[0] or words[0][0] not in FIRST:
-        return False
-    return all(w and w[0] in PIPED for w in words[1:])
+        return None
+    try:
+        return [shlex.split(c) for c in cuts]
+    except ValueError:
+        return None
+
+
+def _writes(argv):
+    """Причина, по которой звено пишет (дерево, индекс, файл, сеть), либо None."""
+    prog, args = argv[0], argv[1:]
+    opts = [a for a in args if a.startswith("-")]
+    if prog == "git":
+        sub = args[0] if args else ""
+        if sub not in GIT_READ:
+            return "подкоманда git «%s» не из только читающих" % (sub or "—")
+        bad = [a for a in args[1:] if a.startswith(GIT_WRITE_ARG)]
+        return "ключ %s пишет либо открывает пейджер" % bad[0] if bad else None
+    if prog == "find":
+        bad = [a for a in args if a.startswith(FIND_WRITE)]
+        return "ключ %s исполняет либо пишет" % bad[0] if bad else None
+    if prog == "sed":
+        if any(a.startswith("--in-place") or (not a.startswith("--") and "i" in a[1:])
+               for a in opts):
+            return "правка на месте (-i)"
+        for a in args:
+            if not a.startswith("-") and (SED_WRITE_CMD.search(a) or SED_S_FLAGS.search(a)):
+                return "команда w/e в сценарии sed"
+        return None
+    if prog == "awk":
+        if any(o in ("-i", "-l", "-E") or o.startswith(("--include", "--load", "--exec"))
+               for o in opts):
+            return "awk подгружает чужое"
+        return "awk пишет, исполняет или читает мимо трубы" if any(
+            AWK_WRITE.search(a) for a in args if not a.startswith("-")) else None
+    if prog == "sort":
+        return "sort -o пишет файл" if any(
+            o == "-o" or o.startswith(("--output", "--compress")) or
+            (not o.startswith("--") and "o" in o[1:]) for o in opts) else None
+    if prog == "uniq":
+        return "uniq с файлом вывода" if len([a for a in args
+                                               if a == "-" or not a.startswith("-")]) > 1 \
+            else None
+    return None
+
+
+def policy(cmd):
+    """Пусто, если команда исполнима по политике проверки (первое слово и звенья — из
+    закрытых перечней, опасные знаки только внутри одинарных кавычек, ни одно звено
+    не пишет); иначе — причина отказа."""
+    stages = _stages(cmd)
+    if not stages or not stages[0]:
+        return "не разбирается как труба читающих команд"
+    if stages[0][0] not in FIRST:
+        return "первое слово «%s» не из %s" % (stages[0][0], "/".join(FIRST))
+    for argv in stages[1:]:
+        if not argv or argv[0] not in PIPED:
+            return "звено «%s» не из %s" % (argv[0] if argv else "—", "/".join(PIPED))
+    for argv in stages:
+        why = _writes(argv)
+        if why:
+            return why
+    return ""
+
+
+def safe_command(cmd):
+    return policy(cmd) == ""
 
 
 def execute(ws, cmd, cache):
     if cmd not in cache:
         try:
             out = subprocess.run(["bash", "-c", cmd], cwd=ws, capture_output=True, text=True,
-                                 timeout=60, env=_lib.clean_env())
+                                 stdin=subprocess.DEVNULL, timeout=60, env=_lib.clean_env())
             val = out.stdout.strip()
             cache[cmd] = (out.returncode, val)
         except (OSError, subprocess.SubprocessError) as exc:
@@ -268,7 +356,9 @@ def main():
                           - sum(1 for _, tok, _ in found if tok[0].isdigit()))
             if not found:
                 continue
-            cmds = [c for c in COMMAND.findall(para) if safe_command(c)]
+            quoted = COMMAND.findall(para)
+            cmds = [c for c in quoted if safe_command(c)]
+            refused = [(c, policy(c)) for c in quoted if c not in cmds]
             results = [(c,) + execute(ws, c, cache) for c in cmds]
             for start, token, phrase in found:
                 claims += 1
@@ -285,9 +375,13 @@ def main():
                     findings.append("%s:%d — «%s»: объявлено %s, команды абзаца дают другое: %s"
                                     % (rel, n, phrase, token, got))
                 else:
+                    why = ""
+                    if refused:
+                        why = "; процитированное не исполнялось — %s" % "; ".join(
+                            "`%s`: %s" % (c, r) for c, r in refused[:3])
                     findings.append("%s:%d — «%s»: число названо фактом, а команды его "
                                     "воспроизведения в абзаце нет — единица счёта не объявлена, "
-                                    "и число стареет молча" % (rel, n, phrase))
+                                    "и число стареет молча%s" % (rel, n, phrase, why))
 
     # Вне обхода — не судится, но СЧИТАЕТСЯ тем же распознавателем: «ноль находок»
     # отличим от «не осмотрено», и число утверждений там названо.
