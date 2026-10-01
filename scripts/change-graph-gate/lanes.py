@@ -330,10 +330,13 @@ CI_MUST_CALL = (
      "дорогая полоса: доказательства падучести контура", None),
 )
 
-# Вывод перечня наборов — ОДИН дом вызова прогона и доказательства каждого набора
-# (задание `gate-suites`). Набор попадает в вывод, только если он есть в переписи
-# `scripts/lib/suites.py`; выпавший из неё набор выводом не исполняется, хотя
-# строка вызова цела, — поэтому перепись здесь спрашивается, а не подразумевается.
+# Вывод перечня наборов — ОДИН дом вызова прогона и доказательства каждого набора.
+# Набор попадает в вывод, только если он есть в переписи `scripts/lib/suites.py`;
+# выпавший из неё набор выводом не исполняется, хотя строка вызова цела, — поэтому
+# перепись здесь спрашивается, а не подразумевается. Вывод зовётся ПО ЗАДАНИЯМ
+# (`--job "$GITHUB_JOB"`, возврат по #816): задание исполняет наборы, объявившие его
+# (`scripts/<набор>/ci-job`), и какой вызов исполняет этот набор, отвечает
+# `scripts/lib/ci_suites.py` — тот же ответ, что у `suites-gate/check-04`.
 DERIVED = "scripts/lib/run-suites.sh"
 SUITE = os.path.basename(GATE_RELDIR)
 
@@ -386,6 +389,7 @@ def audit_ci_declaration():
         return void("разборщик YAML недоступен — объявление конвейера читать нечем")
     import suites as census_of_suites
     import ci_calls
+    import ci_suites
 
     wf_dir = os.path.join(ROOT, ".github", "workflows")
     try:
@@ -396,7 +400,8 @@ def audit_ci_declaration():
     if not names:
         return void("файлов конвейера в дереве нет — проверять нечего")
     try:
-        in_census = SUITE in census_of_suites.suites(ROOT)
+        suite_names = census_of_suites.suites(ROOT)
+        in_census = SUITE in suite_names
     except census_of_suites.CensusUnreadable as exc:
         return void("перепись наборов не снята (%s) — что исполняет вывод перечня, "
                     "не выводится" % exc)
@@ -411,8 +416,9 @@ def audit_ci_declaration():
     # снимают вместе с проверкой. Ось остаётся живой ровно пока автозапуск есть.
     auto_anywhere = False
     literal = {rel: [] for rel, _, _ in CI_MUST_CALL}
-    derived = []           # (процесс, задание, на стволе, с --proofs)
-    uncounted = []         # (скрипт, ci_calls.Call) — вызов есть, вердикт не доходит
+    uncounted = []         # (скрипт, ci_calls.Call, причина) — вызов есть, вердикт не доходит
+    docs = []              # (процесс, разобранное объявление) — для ответа ci_suites
+    on_main_of = {}
 
     for name in names:
         path = os.path.join(wf_dir, name)
@@ -425,7 +431,9 @@ def audit_ci_declaration():
         if not isinstance(doc, dict):
             continue
         files_read += 1
+        docs.append((name, doc))
         on_main = fires_on_main(doc)
+        on_main_of[name] = on_main
         if has_auto_trigger(doc):
             auto_anywhere = True
         jobs = doc.get("jobs") or {}
@@ -442,21 +450,26 @@ def audit_ci_declaration():
                 if c.counted:
                     literal[rel].append((name, c.job, on_main))
                 else:
-                    uncounted.append((rel, c))
-        for c in ci_calls.calls(doc, name, DERIVED):
-            if c.counted:
-                derived.append((name, c.job, on_main, "--proofs" in c.args))
-            else:
-                uncounted.append((DERIVED, c))
+                    uncounted.append((rel, c, c.why))
 
-    for rel, c in uncounted:
-        findings.append("%s — вызов %s не засчитан: %s" % (c.where, rel, c.why))
+    # Вызовы вывода перечня и то, какие из них исполняют ЭТОТ набор, — ответ
+    # `scripts/lib/ci_suites.py`; незасчитанные (в том числе `--job` чужого
+    # задания) приходят оттуда же с причиной.
+    cov = ci_suites.Coverage(ROOT, suite_names, docs)
+    uncounted += [(rel, c, why) for rel, c, why in cov.uncounted if rel == DERIVED]
+    derived = [(r.workflow, r.job, on_main_of.get(r.workflow, False), r.proofs)
+               for r in cov.runs]
+    mine = [(r.workflow, r.job, on_main_of.get(r.workflow, False), r.proofs)
+            for r in cov.runs_of(SUITE)] if in_census else []
+
+    for rel, c, why in uncounted:
+        findings.append("%s — вызов %s не засчитан: %s" % (c.where, rel, why))
 
     def via_derived(how):
         if how == "run":
-            return [(w, j, m) for w, j, m, _ in derived]
+            return [(w, j, m) for w, j, m, _ in mine]
         if how == "proofs":
-            return [(w, j, m) for w, j, m, p in derived if p]
+            return [(w, j, m) for w, j, m, p in mine if p]
         return []
 
     if derived and not in_census:
@@ -475,11 +488,15 @@ def audit_ci_declaration():
         rows = by_name + by_list
         homes[rel] = (len(by_name), len(by_list))
         if not rows:
+            # Вывод зовётся, а этот набор он не исполняет — причину называет разметка.
+            reason = ""
+            if how and in_census and derived and not mine:
+                reason = " (%s)" % cov.why_uncovered(SUITE)
             findings.append(
-                "ни одно задание конвейера не зовёт %s (%s) — ни поимённо%s; объявлено, но "
+                "ни одно задание конвейера не зовёт %s (%s) — ни поимённо%s%s; объявлено, но "
                 "не исполняется никем — ровно то состояние, из-за которого заведена ws#504"
                 % (rel, why, ", ни выводом перечня%s" % (" с --proofs" if how == "proofs" else "")
-                   if how else ""))
+                   if how else "", reason))
         elif auto_anywhere and not any(on_main for _, _, on_main in rows):
             findings.append(
                 "%s зовут только процессы, не срабатывающие на `main` (%s) — "

@@ -1,0 +1,53 @@
+name: предпосылки наборов проверок дерева
+# ОДНИ НА ВСЕ НАБОРЫ, объединением, а не перечнем по набору (ws#753). Их зовёт
+# каждое задание, исполняющее наборы выводом перечня по заданиям
+# (`scripts/lib/run-suites.sh --job`), и набор, заведённый завтра, получает их сам,
+# в каком бы задании он ни объявил себя (`scripts/<набор>/ci-job`): список «какому
+# набору что выложить» был бы вторым выписанным домом того же факта.
+#
+# Что здесь и зачем: корневая подпись ранера (песочницы проб переносят её в свой
+# HOME, ws#785); разборщик YAML; клоны всех репозиториев продукта с ПОЛНОЙ историей
+# (ревизии приёмок, стволы для пар, ствол службы, ревизии стволов, закреплённые
+# ведомостями храповиков `docs/foundation-candidates.yaml` и
+# `docs/comment-language.yaml` — мелкий клон их не несёт, ws#724). Полную историю
+# самого воркспейса (ведомость приёмок, освобождения ролей в пакетах, наборы,
+# судящие диапазон коммитов) выкладывает задание: локальное действие читается из
+# уже выложенного дерева, и `fetch-depth: 0` стоит у его `actions/checkout`.
+#
+# Чего предпосылка не создала, видно в прогоне, а не здесь: задание зовёт вывод с
+# `--void-is-failure`, и набор без предмета роняет его.
+description: подпись ранера, разборщик YAML и клоны продукта с полной историей
+runs:
+  using: composite
+  steps:
+    - name: корневая подпись ранера — учётная запись запустившего прогон
+      shell: bash
+      run: |
+        git config --global user.name "$GITHUB_ACTOR"
+        git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+    - uses: actions/setup-python@v7
+      with: { python-version: '3.12' }
+    - name: разборщик YAML
+      shell: bash
+      run: python3 -m pip install --quiet PyYAML
+    - name: checkout монорепо в project/kacho
+      uses: actions/checkout@v7
+      with:
+        repository: PRO-Robotech/kacho
+        ref: main
+        path: project/kacho
+        fetch-depth: 0
+    - name: checkout репозитория службы в project/kaname
+      uses: actions/checkout@v7
+      with:
+        repository: PRO-Robotech/kaname
+        ref: main
+        path: project/kaname
+        fetch-depth: 0
+    - name: checkout фундамента в project/corelib
+      uses: actions/checkout@v7
+      with:
+        repository: PRO-Robotech/corelib
+        ref: main
+        path: project/corelib
+        fetch-depth: 0

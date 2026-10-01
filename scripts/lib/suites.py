@@ -35,17 +35,28 @@
 нет» от «наборы есть и чисты»; модуль возвращает пустой список, а решение об
 исходе принимает проверка, которая знает свой предмет.
 
+ОБЪЯВЛЕНИЕ ЗАДАНИЯ — `scripts/<набор>/ci-job`: ключ задания конвейера, которое
+исполняет набор (возврат по #816). Имя контекста, которого требует защита `main`, —
+`name:` задания, и наборов под одним именем бывает несколько; кому какой набор
+принадлежит, объявляет сам набор, а не перечень в конвейере. Строка с `#` —
+комментарий; значимая строка ровно одна и состоит из латиницы, цифр, `-` и `_`.
+Чьё задание исполняет набор и покрывает ли разметка дерево, отвечает
+`scripts/lib/ci_suites.py`; здесь — только чтение объявления.
+
 Вызов из bash: `python3 suites.py suites <корень>` — имена наборов построчно;
 `python3 suites.py checks <корень> <набор>` — пути проверок набора.
 """
 import fnmatch
 import os
+import re
 import subprocess
 import sys
 
 RUNNER = "run-all.sh"
 CHECK_PATTERN = "check-*"
 PROOF = "inject.sh"
+JOB_DECL = "ci-job"
+JOB_KEY = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 # Окружение git, которое сильнее `git -C`: `git push` запускает хук с выставленным
@@ -104,6 +115,27 @@ def checks(root, name):
 def proof(root, name):
     rel = "scripts/%s/%s" % (name, PROOF)
     return rel if os.path.isfile(os.path.join(root, rel)) else None
+
+
+def declared_job(root, name):
+    """(ключ задания, None) — объявлено; (None, None) — объявления нет;
+    (None, причина) — объявление есть, но не разбирается."""
+    rel = "scripts/%s/%s" % (name, JOB_DECL)
+    if rel not in tracked(root, rel):
+        return None, None
+    try:
+        with open(os.path.join(root, rel), encoding="utf-8") as fh:
+            text = fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        return None, "%s не читается: %s" % (rel, exc)
+    keys = [ln.strip() for ln in text.splitlines()
+            if ln.strip() and not ln.strip().startswith("#")]
+    if len(keys) != 1:
+        return None, "%s — значимых строк %d, а ключ задания ровно один" % (rel, len(keys))
+    if not JOB_KEY.match(keys[0]):
+        return None, ("%s — «%s» не ключ задания: латиница, цифры, `-` и `_`"
+                      % (rel, keys[0]))
+    return keys[0], None
 
 
 def interpreter(path):

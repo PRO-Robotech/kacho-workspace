@@ -306,10 +306,14 @@ open(p, "w", encoding="utf-8").write(text)
 PY
 assert 1 "$(run "$d" "$C3")" "шаг, зовущий дорогую полосу, снят -> краснеет"
 
-# Дешёвую полосу и доказательство набора зовёт ВЫВОД ПЕРЕЧНЯ наборов (задание
-# `gate-suites`, ws#753) — это их единственный дом. Каждая фикстура ниже меняет
-# один факт этого дома и обязана ИЗМЕНИТЬ файл: правка, не нашедшая строки,
-# доказывала бы «на нетронутом молчит», а не «на дефекте краснеет».
+# Дешёвую полосу и доказательство набора зовёт ВЫВОД ПЕРЕЧНЯ наборов по заданию
+# (ws#753; по заданиям — возврат по #816): шаг задания `change-graph-proofs`, которое
+# набор объявил файлом `scripts/change-graph-gate/ci-job`. Это их единственный дом.
+# Тот же вызов стоит в КАЖДОМ задании наборов, поэтому фикстура адресует шаг по его
+# имени вместе со строкой `run:` — правка первого вхождения тронула бы чужое задание
+# и доказывала бы не то. Каждая фикстура меняет один факт этого дома и обязана
+# ИЗМЕНИТЬ файл: правка, не нашедшая строки, доказывала бы «на нетронутом молчит», а
+# не «на дефекте краснеет».
 # wf_edit <каталог> <старое> <новое> — замена в объявлении; строки нет — отказ.
 wf_edit() {
     python3 - "$1/.github/workflows/ci.yaml" "$2" "$3" <<'PYE'
@@ -321,7 +325,19 @@ if old not in text:
 open(p, "w", encoding="utf-8").write(text.replace(old, new, 1))
 PYE
 }
-DERIVED_CALL='bash scripts/lib/run-suites.sh --proofs --void-is-failure'
+# Строки ниже — ТЕКСТ шага конвейера, а не команда этой оболочки: подстановка в них
+# на этапе записи была бы дефектом.
+# shellcheck disable=SC2016
+DERIVED_CALL='KACHO_MONOREPO="$PWD/project/kacho" bash scripts/lib/run-suites.sh --proofs --void-is-failure --job "$GITHUB_JOB"'
+# shellcheck disable=SC2016
+NOPROOFS_CALL='bash scripts/lib/run-suites.sh --void-is-failure --job "$GITHUB_JOB"'
+# shellcheck disable=SC2016
+FOREIGN_CALL='KACHO_MONOREPO="$PWD/project/kacho" bash scripts/lib/run-suites.sh --proofs --void-is-failure --job tooling-gate'
+CG_STEP_NAME='      - name: дешёвая полоса контура и её доказательство — выводом перечня по заданию'
+CG_STEP="$CG_STEP_NAME
+        run: $DERIVED_CALL"
+# cg_step <строка run> — тот же шаг с другой строкой `run:`.
+cg_step() { printf '%s\n        run: %s' "$CG_STEP_NAME" "$1"; }
 
 # said <каталог> <проверка> <подстрока> — 0, если вердикт называет подстроку.
 said() {
@@ -333,14 +349,16 @@ said() {
 d="$(sandbox c3-cheap-gone)"
 # Вывод перечня снят: дешёвая полоса и доказательство набора перестали зваться
 # конвейером — обход хука законен, и гонять их было бы некому.
-if wf_edit "$d" "$DERIVED_CALL" "echo нечего"; then
+if wf_edit "$d" "$CG_STEP" "$(cg_step "echo нечего")"; then
     assert 1 "$(run "$d" "$C3")" "снят вывод перечня -> краснеет: конвейер перестал быть надмножеством хука"
+    assert 0 "$(said "$d" "$C3" "объявлено задание change-graph-proofs, а оно не зовёт вывод перечня")" \
+        "снят вывод перечня -> находка называет объявленное задание, которое его больше не зовёт"
 else
     assert 1 2 "фикстура «снят вывод перечня» не изменила объявление"
 fi
 
 d="$(sandbox c3-noproofs)"
-if wf_edit "$d" "$DERIVED_CALL" "bash scripts/lib/run-suites.sh --void-is-failure"; then
+if wf_edit "$d" "$CG_STEP" "$(cg_step "$NOPROOFS_CALL")"; then
     assert 1 "$(run "$d" "$C3")" "вывод перечня без --proofs -> доказательство набора не исполняется, краснеет"
     assert 0 "$(said "$d" "$C3" "ни одно задание конвейера не зовёт scripts/change-graph-gate/inject.sh")" \
         "вывод перечня без --proofs -> находка называет доказательство набора"
@@ -349,21 +367,23 @@ else
 fi
 
 # Вызов вывода есть, вердикт не доходит (круг 1): echo, `|| true`,
-# `continue-on-error`, `if: false` проходили подстрокой. Распознаватель общий с
-# suites-gate/check-04 (`scripts/lib/ci_calls.py`); каждая форма — однофактная правка.
+# `continue-on-error`, `if: false` проходили подстрокой; `--job` чужого задания
+# исполнил бы наборы под именем чужого контекста (возврат по #816). Распознаватель
+# общий с suites-gate/check-04 (`scripts/lib/ci_calls.py`, выбор задания —
+# `scripts/lib/ci_suites.py`); каждая форма — однофактная правка.
 c3_swallowed() {
     local form="$1" d
     d="$(sandbox "c3-$form")"
     case "$form" in
-        echo) wf_edit "$d" "$DERIVED_CALL" "echo \"$DERIVED_CALL\"" ;;
-        ortrue) wf_edit "$d" "$DERIVED_CALL" "$DERIVED_CALL || true" ;;
-        coe) wf_edit "$d" "      - name: наборы и их доказательства — перечень выведен из дерева" \
-            "      - name: наборы и их доказательства — перечень выведен из дерева
+        echo) wf_edit "$d" "$CG_STEP" "$(cg_step "echo '$DERIVED_CALL'")" ;;
+        ortrue) wf_edit "$d" "$CG_STEP" "$(cg_step "$DERIVED_CALL || true")" ;;
+        coe) wf_edit "$d" "$CG_STEP_NAME" "$CG_STEP_NAME
         continue-on-error: true" ;;
-        iffalse) wf_edit "$d" "  gate-suites:
-    name:" "  gate-suites:
+        iffalse) wf_edit "$d" "  change-graph-proofs:
+    name:" "  change-graph-proofs:
     if: false
     name:" ;;
+        foreign) wf_edit "$d" "$CG_STEP" "$(cg_step "$FOREIGN_CALL")" ;;
     esac || { assert 1 2 "фикстура «$form» не изменила объявление"; return; }
     assert 1 "$(run "$d" "$C3")" "вызов вывода перечня в форме «$form» -> вердикт до задания не доходит, краснеет"
     if [ "$form" != echo ]; then
@@ -371,7 +391,7 @@ c3_swallowed() {
             "форма «$form» -> находка называет незасчитанный вызов и причину"
     fi
 }
-for form in echo ortrue coe iffalse; do c3_swallowed "$form"; done
+for form in echo ortrue coe iffalse foreign; do c3_swallowed "$form"; done
 
 # Набор выпал из вывода: строка вызова цела, но перепись наборов его не видит
 # (прогонщик не в индексе и игнорируется) — вывод его не исполнит.
@@ -381,6 +401,21 @@ git -C "$d" rm -q --cached scripts/change-graph-gate/run-all.sh > /dev/null 2>&1
 assert 1 "$(run "$d" "$C3")" "набор выпал из переписи наборов -> вывод его не исполнит, краснеет"
 assert 0 "$(said "$d" "$C3" "набора change-graph-gate в переписи нет")" \
     "набор выпал из переписи -> находка называет причину"
+
+# Принадлежность заданию объявляет набор (`scripts/change-graph-gate/ci-job`): снятое
+# объявление — вывод по заданиям набор не исполнит, хотя шаг вызова цел. Близнец —
+# тот же набор, объявивший ДРУГОЕ задание, которое вывод по заданию зовёт: законный
+# дом, и проверка молчит.
+d="$(sandbox c3-undeclared)"
+git -C "$d" rm -q -f scripts/change-graph-gate/ci-job > /dev/null 2>&1
+assert 1 "$(run "$d" "$C3")" "объявление задания снято -> вывод по заданиям набор не исполнит, краснеет"
+assert 0 "$(said "$d" "$C3" "объявления scripts/change-graph-gate/ci-job нет")" \
+    "объявление снято -> находка называет причину"
+
+d="$(sandbox c3-declared-elsewhere)"
+printf '# близнец: набор объявил другое задание\ntooling-gate\n' > "$d/scripts/change-graph-gate/ci-job"
+git -C "$d" add -A > /dev/null 2>&1
+assert 0 "$(run "$d" "$C3")" "законный близнец: набор объявил другое задание, зовущее вывод по заданию -> молчит"
 
 # Второй дом: тот же прогон зовётся и выводом перечня, и поимённым шагом.
 d="$(sandbox c3-dup)"
@@ -397,7 +432,7 @@ fi
 # Законный близнец второй оси: дом ОДИН, но поимённый — вывода перечня нет,
 # прогон и доказательство вписаны шагами.
 d="$(sandbox c3-by-name)"
-if wf_edit "$d" "$DERIVED_CALL" "echo нечего" &&
+if wf_edit "$d" "$CG_STEP" "$(cg_step "echo нечего")" &&
    wf_edit "$d" "      - name: дорогая полоса — доказательства падучести контура" \
     "      - name: дешёвая полоса поимённо
         run: bash scripts/change-graph-gate/run-all.sh
