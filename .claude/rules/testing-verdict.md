@@ -26,9 +26,9 @@ exhausted-run-is-third-category · прогон НЕДЕЙСТВИТЕЛЕН: в
 exhaustion-corrupts-inflight-git · после срыва — перепись: размер .git/index, git ls-files · wc -l против git ls-tree -r HEAD · red: эти команды | дерево выглядит исправным, неверен только граф
 local-runner-exit-code-3 · коды 0 / 1 / 3 (недействителен) различаются; исчерпание — по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
-busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину; коды — шапка скрипта); 75 и 76 — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «машина занята» без кода 75; код 76 прочитан красным
-heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница стража — `BOUNDARY` в guard.py · .claude/hooks/heavy-guard/prove.sh: граница — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
-session-memcap · потолок сессии (MemoryMax её scope, формула — шапка `scripts/session-memcap.sh`) и метку oomd ставит хук SessionStart и сверяет чтением cgroup; запуск с потолком — `scripts/session-memcap.sh --launch -- claude`; убийцу называет журнал oomd по имени unit, не код 137 · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — OOM снимает всю сессию; потолок или метка без сверки по cgroup; 137 от ядра засчитан oomd
+busy-machine-step-zero · тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину, владелец 2026-09-24); 75 и 76 — «не выполнилось»; место — `df -h /` · heavy-slot-inject.sh; heavy-guard/prove.sh · red: тяжёлое без слота; код 76 прочитан красным
+heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница — `BOUNDARY` в guard.py · heavy-guard/prove.sh ([BOUND] — граница, [FAIL] — пойман) · red: обход стража назван «защищено»
+session-memcap · потолок сессии и метку oomd ставит хук SessionStart (`scripts/session-memcap.sh`) и сверяет по cgroup; запуск — `--launch -- claude`; убийцу называет журнал oomd, не код 137 · session-memcap-inject.sh · red: MemoryMax на scope со stop; 137 засчитан oomd
 
 ## Кэш: сохраняй только на доказанно полном исходе
 
@@ -70,8 +70,8 @@ columns-by-name-not-position · проси поля по имени (-o jsonpath
 
 pr-red-belongs-to-revision-headsha · сверяй headSha прогона с головой ветки, а не имя проверки с состоянием · TestWorkflowRunUsesTheSubjectCommit · red: прежние проверки висят красными после отправки починки
 delta-gate-asks-the-commit · спрашивай о коммите (origin/main...HEAD); закоммить, потом прогоняй · git diff --name-only --diff-filter=A origin/main...HEAD · red: пусто при непустом рабочем дереве
-asm-verdict-runs-on-head · вердикт сборки и её задач — последний прогон КАЖДОГО процесса PR сборки на headSha головы; у задачи своего прогона нет (решение владельца 2026-09-24); `gh pr checks` ручного запуска не видит · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят поштучным или локальным прогоном; «no checks reported» прочитано как отсутствие прогона
-no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай прибором `asm-verdict-runs-on-head` · `gh run list` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»
+asm-verdict-runs-on-head · вердикт сборки и задач — последний прогон КАЖДОГО процесса PR сборки на headSha (владелец 2026-09-24); `gh pr checks` ручного запуска не видит · `gh run list --commit <headSha>` · red: вердикт задачи поштучным прогоном
+no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай `asm-verdict-runs-on-head` · `gh run list` против процессов PR · red: «проверок 0» как «замечаний нет»
 
 ## Расхождение двух прогонов — разные предметы
 

@@ -335,3 +335,25 @@ shared-source-instead-of-reading-text · заведи общий источни�
 **exp-plan-old-hole-own-task** — прежняя редакция:
 
 exp-plan-old-hole-own-task · дыру, которую правка не вносила, заводи сразу отдельной задачей, в полосе не чини · `git-issues.md#gi-find-own-issue` · red: полоса разрослась прежней дырой; дыра названа и не заведена
+
+## Снято 2026-10-01 (ws-sync-main): сжатие корпуса под потолок check-06 на сведении `main` с `771`
+
+Сведённое дерево `main` × `771` дало 215 385 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе
+под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+final-verification-before-merge · go test ./... -race + golangci-lint run + govulncheck + newman гонит конвейер PR сборки в ветку волны — на сведение и пересведение; локально — быстрое своих пакетов и непокрытое конвейером, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх; прогон на задаче; `-race` или полный набор локально
+exp-plan-parallel · задаче, чей предмет — проба, гейт, страж или инвариант безопасности (заводимый или меняемый контроль; аннотация прав и строка каталога нового RPC — применение), `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции (дефект → какая проба краснеет), законные близнецы, слепые зоны; прочим плана нет · ЗАВЕСТИ · red: план заказан задаче не-проверке; код ждёт плана
+
+code-first-no-wait · исполнитель пишет код строгим TDD, локально — только быстрое своих пакетов (unit без `-race`, vet, gofmt, свои пробы), сдаёт коммитом и берёт следующую задачу пачки, не ожидая ревью и прогонов (решение владельца 2026-09-24 «приоритет написания кода») · вниманием исполнителя · red: ждёт вердикта или ревью задачи; `-race`, линт монорепо или стенд в цикле TDD
+
+final-verification-before-merge · go test ./... -race + golangci-lint + govulncheck + newman гонит конвейер PR сборки — на сведение и пересведение; локально — быстрое своих пакетов, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх; полный набор локально
+
+code-first-no-wait · исполнитель пишет код TDD, локально — быстрое своих пакетов (unit без `-race`, vet, gofmt, свои пробы), сдаёт коммитом и берёт следующую задачу, не ожидая ревью и прогонов (владелец 2026-09-24 «приоритет написания кода») · вниманием · red: ждёт вердикта; `-race` или стенд в цикле TDD
+
+exp-plan-parallel · задаче-проверке (проба, гейт, страж, инвариант безопасности — заводимый или меняемый контроль) `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции, законные близнецы, слепые зоны; прочим плана нет · ЗАВЕСТИ · red: план задаче не-проверке; код ждёт плана
+probe-must-be-read-by-its-subject · постусловие пробы — «проверка это ПРОЧИТАЛА», а не «песочница изменилась»: вывод на правленой копии отличен от контрольного на ней же · scripts/rules-gate/measure-monotonicity.sh · red: проба мимо предмета, проверка объявлена монотонной
+
+new-rpc-newman-case · новый RPC или HTTP-путь края — в том же PR newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative, пишет тестировщик (testing-newman.md#edge-author-black-box) · ЗАВЕСТИ (кандидат — coverage.py маршрут→кейс) · red: путь на крае есть, кейса нет
+per-service-fixture-isolation · свой account и home/cross проекты (setup.sh), scope через existingProjectId; shared-account — только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account — grant течёт в чужие ожидания
+e2e-fixture-step-must-assert · статус И захват id утверждай; поллер несёт идентификаторы фикстуры · TestNewmanPrecondMark_ProvenByInjection; TestCapturedVarGateSilentOnLawfulSameShape · red: if (!lastOpError); шаг захватил id без assert; кейс падает на три шага позже
