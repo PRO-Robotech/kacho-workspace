@@ -1,0 +1,27 @@
+role: go-style-reviewer
+change: issue-2915
+repo: PRO-Robotech/kacho
+branch: 2914-wave-p001-feed-contract
+head: dde70b17a3d888dc730320753316cb543fd288ef
+base: ac586885af5
+subject: [go.mod, go.sum, internal/repohygiene/foundationboundary.go]
+content_digest: 51768e69325a32abae9a8241e438493f7d4b201deb99c74bf839cf5b7182db22
+digest_command: git diff ac586885af5 dde70b17a3d -- go.mod go.sum internal/repohygiene/foundationboundary.go | sha256sum
+delta_commits: [15ac7e63798, cd88dfc9178]
+verdict: accepted
+blocking: false
+critical: []
+important: []
+foundation_candidates: []
+style:
+  - at: internal/repohygiene/foundationboundary.go:102
+    note: "«зовётся `go tool notifygen`» — так написано в шапке corelib cmd/notifygen/main.go:6; в go.mod kacho в блоке tool notifygen пока нет. Это верно как описание фундамента, но не как факт о kacho; не блокирует"
+measured:
+  - "corelib fe30208b617f -> 8a9eb14cd008: новых каталогов верхнего уровня ровно два — cmd, journaltx (diff ls каталогов модуля в кэше)"
+  - "journaltx импортирует прод-код фундамента вне себя: notify/feed/put_source.go, subscription/emit.go (grep без _test.go) — Ограничение сработало, класс corelib верен"
+  - "cmd/notifygen никем в corelib не импортируется; обходит дерево filepath.WalkDir (tree.go:50, migrate.go:106) — класс «оснастка сборки» (В1) верен"
+  - "инъекция: удаление строки journaltx -> TestEveryFoundationCatalogDeclaresItsClass красный с координатой pkg/journaltx; восстановлено"
+  - "go test ./internal/repohygiene -run Foundation: PASS 43, SKIP 2 (предсуществующие, вне дельты)"
+  - "go build ./... = 0; go mod verify: all modules verified; gofmt -l internal/repohygiene пусто"
+deferral_markers_in_delta: 0
+probes_in_same_pr: "не требуются: прод-код не тронут; предмет держит существующий гейт (проверено инъекцией)"

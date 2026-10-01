@@ -1,0 +1,279 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 27, маршрут
+# редакции 26.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакций 26 и 27 против последней пересверенной
+# (редакция 25, ba5ab10d…, запись revalidation/ba5ab10d….yaml — «к замыслу», CX2-89…94). На редакцию 26
+# (84da9b7e…) пересверки не было. Дельта не закоммичена: рабочее дерево issue-880 поверх a3662915b.
+#
+# Итог — к замыслу. CX2-89…94 и сторона NTF-2 пунктов CX1-106, CX1-108 отображены в замысле. Новые пункты:
+# (1) CX2-95. Маршрут (tasks.md) остался на редакции 26 и не отображает решений редакции 27 (Д70, Д71):
+# в маршруте ноль упоминаний I-1…I-3, Е21, правила `AnonMailReplicaClockSkew`, метрики расхождения часов.
+# E2 по-прежнему гонит NTF2-63 на П6, X1a и S5 — NTF2-69 (е) на П6, хотя приёмка редакции 30 и З8 перенесли
+# оба на П1. E1a читает ревизию kaname «из подписи образа», а З8 — «из метки, подписи нет»; строка CX2-91
+# в §11 замысла тоже говорит «подписи». (2) CX2-96. Ручки ключа ленты kaname нет нигде в документах
+# NTF-2. Источник с флагом `true` в боевой посадке без кольца ключей не стартует (NTF1-B05,
+# `corelib notify/feed/seal.go`), а Д67 включает флаг на стендах kaname, D1 — в зонтике, E1a — на П6.
+# (3) CX2-97. Срок доказательства судят часы базы (I1), часы ограничителя на П6 — часы пробы, которые
+# расходятся с базой по построению, и начальный момент этих часов не назван. Сценарии с доказательством
+# на П6 зависят от знака расхождения.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: d5dfafcffc9f990e5ba719fce1fe68c4da9402cd69e49c74804d4e5193f453de
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true
+  revision: 27
+  commit: "— (рабочее дерево поверх a3662915b, не закоммичено)"
+  route_sha256: 43c1aae06c3302d957354b30c33a52b4c96c2aa82a994f66ee4a176a1d44b1fe   # tasks.md, шапка — «Редакция 26, маршрут под редакцию 26 замысла»
+  change_yaml_design_sha256: d5dfafcffc9f990e5ba719fce1fe68c4da9402cd69e49c74804d4e5193f453de
+  previous_judged: ba5ab10d8a5a077ecdf3a9b6868df63b7af6fbf719b83923da32287d0838fa39   # редакция 25
+  decisions_judged:
+    - "Д67 (Е19 закрыт): стенды дерева kaname без notify, люди — посевами П3/П10, флаг стендов `true`; полоса S8d, одна посадка с S8; перепись радиуса двумя предикатами (7 и 14 файлов)"
+    - "Д68 (Е20 закрыт): П6 — сторона края (E1a), П6-k — сторона kaname (S9a), сценарии с настоящим notify — X1a"
+    - "Д69 / CX2-92: `PrometheusRule` чарта края под выключателем `global.kacho.alertRules.enabled`, страница и сверка; правило `unaddressed` тем же механизмом (D1)"
+    - "CX2-93: счётчик исчерпания по оператору строки ведра; ведро `memory` — семафор-канал со сроком"
+    - "CX2-89: правило доступа по имени свойством, пробы (8), (9); CX2-94 / CX1-108: блок `serviceIdentity` (S11); CX1-106: пути под `global.kacho.…` (D1)"
+    - "E1b и S5: производитель `Retry-After` отказа приглашения (метаданные `retry-after` → заголовок краем)"
+    - "I1 ревью схемы E2: срок доказательства — по часам базы в операторе пометки"
+    - "Д70 (приёмка редакции 30): NTF2-63 и NTF2-69 (е) — уровень E на П1; ревизия kaname на П6 — из метки образа"
+    - "Д71: I-1 строка ведра только под жетон; I-2 сигнал расхождения часов реплики с базой и правило `AnonMailReplicaClockSkew`; I-3 число правила до замера — с задачей (Е21) и предикатом снятия"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+  revision: 30
+  effective_verdict: "нет — редакция 29 круг 3 ⛔ (B-1), редакция 30 без вердикта"
+  changed_since_previous_record: true
+  initial_class_exposure_on_this_fingerprint: "нет (reviews/class-exposure/initial/eed36d11….yaml отсутствует)"
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/ba5ab10d8a5a077ecdf3a9b6868df63b7af6fbf719b83923da32287d0838fa39.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a3662915ba6ca52502001bda1410b47aa1287811   # плюс незакоммиченная дельта автора
+  kacho_epic_base: e201adbf36f407ff2481faa7d6d4d39c71da6ee5   # origin/2564
+  kaname_line: a5986266436b0052f6b933ac27770a7eec7f8cc7   # origin/484-notify
+  corelib_line: origin/77-notify
+  grpc_go: v1.83.2   # go.mod kacho @origin/2564
+  grpc_gateway: v2.30.0
+snapshot_at: 2026-10-01T20:26:53Z
+inspected: >-
+  Дельта design.md (697 строк диффа): шапки редакций 26, 27; З2; З4 (помощник над `.Values.global`); З6 «Одна
+  посадка»; З8 «Насыщение строки ведра» целиком (I-1, I-2, I-3, правила тревоги), «Стенды П6 и П6-k»; З9
+  (I1); З21 (SAN kaname); З24 «Retry-After»; §8 строки; §11 строки CX2-89…94; §11а УК85…УК95; §13 Е19…Е21.
+  Дельта tasks.md: шапки 25, 26; строки S5, S8, S8d, S9, S9a, S11, F2, F3, E1a, E1b, E2, D1, X1a, X2. Приёмка
+  редакции 30: шапка, §5 П6/П6-k, NTF2-63, NTF2-69, NTF2-72. kaname @484-notify: оба предиката S8d. corelib
+  @77-notify: `notify/feed/seal.go`, `put_source.go`. Модульный кэш: grpc-go v1.83.2 (`http2_server.go`
+  writeStatus, `http2_client.go` operateHeaders, `client_stream.go` Header), grpc-gateway v2.30.0
+  (`DefaultHTTPErrorHandler`, `handleForwardResponseServerMetadata`). NTF-1 design З11 и NTF1-B05. Пробы и
+  гейты не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "нет нерешённых вопросов (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: "§13 Е21 — задачу на перемер заводит диспетчер, она гейтит посадку E2. Номер задачи не назван — это предмет диспетчера, а не замысла. Е19 и Е20 закрыты"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: red
+    detail: "hashes.acceptance_sha256 = eed36d11… (редакция 30): вердикта и initial/eed36d11….yaml нет"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-95…97 новые; решения редакции 27 (Д70, Д71) не отображены в маршрут (CX2-95)"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "новые: чтение `clock_timestamp()` базы в операторе решения и сигнал расхождения (I-2), перенос метаданных `retry-after` краем (E1b); E1b отображён, I-2 в маршруте нет (CX2-95)"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = d5dfafcf… = предмет"
+  - condition: "ревью замысла на этот отпечаток (оценено отдельно)"
+    result: red
+    detail: "reviews/design на d5dfafcf нет"
+
+mapping_check:
+  - item: CX2-89
+    verdict: holds
+    text: "Б10, перечень «не выполнилось», УК85 — одной записью свойством; пробы (8), (9) с близнецом в D6"
+  - item: CX2-90
+    verdict: holds
+    text: >-
+      Полоса S8d садится одним сведением с S8. Оба предиката радиуса воспроизведены на a5986266: 7 и 14
+      файлов, перечень 14 совпадает с замыслом. Отказ стенда по снятому ключу — красный (код 1) с
+      инъекцией. Е19 закрыт решением Д67, исход §3б ушёл в приёмку редакции 29. Остаток — флаг `true` на
+      стендах без ключа ленты (CX2-96)
+  - item: CX2-91
+    verdict: holds_in_design_not_in_route
+    text: >-
+      В З8 (а)–(г) отображены, (б) поправлено Д70 на «метку образа». Строка CX2-91 в §11 и строка E1a
+      маршрута по-прежнему пишут «подпись образа» — CX2-95 (г)
+  - item: CX2-92
+    verdict: holds
+    text: >-
+      Выключатель под `global` объявлен явно в каждой цепочке, автоопределения по `.Capabilities` нет. Есть
+      инъекция «`.Values.alertRules`», сверка со страницей в обе стороны. Правило `unaddressed` (D1) идёт
+      тем же механизмом. Третье правило (I-2) в маршрут не попало — CX2-95
+  - item: CX2-93
+    verdict: holds
+    text: "ветка шага ведра в `Admit` и семафор-канал; различающие близнецы — в строке §11 и в E2"
+  - item: CX2-94
+    verdict: holds
+    text: "S11 — блок `serviceIdentity`, проба рендера, три случая; S11 ← NTF1-K5"
+  - item: "CX1-106 (сторона NTF-2)"
+    verdict: holds
+    text: "D1: флаг kaname и SAN kaname под `global.kacho.…`, `mtls.spiffe` снят с двумя читателями, проба D1 с двумя инъекциями; D1 после NTF1-J2"
+  - item: "E1b — Retry-After"
+    verdict: holds
+    text: >-
+      Исполнимость измерена. Сервер grpc-go 1.83.2 при заданном `SetHeader` шлёт отдельный кадр заголовков,
+      а не trailers-only (`writeStatus`: `len(s.header) > 0` → `writeHeaderLocked`). Клиент кладёт его в
+      `Header()`, и `DefaultHTTPErrorHandler` grpc-gateway 2.30.0 переносит `HeaderMD` через
+      `outgoingHeaderMatcher`. Через `SetTrailer` перенос не сработал бы — замысел называет `SetHeader`.
+      Своего `WithErrorHandler` край не заводит (api-http-status-table)
+
+new_items:
+  - id: CX2-95
+    decision: "редакция 27 замысла (Д70, Д71) при маршруте редакции 26"
+    class: >-
+      doc-truthfulness: два места об одном предмете, и верно одно из них. change-graph §4: решение замысла
+      без строки маршрута не исполняется никем
+    exposure: >-
+      (а) Д71 в маршруте не отражён. В tasks.md упоминаний 0: `clock_skew`, `AnonMailReplicaClockSkew`,
+      «только под жетон», I-1, I-2, I-3, Е21, Д70, Д71. В строке E2 нет держателей УК93 (шаг ведра не
+      вызван при `Reject`, ступени ключа и свежем доказательстве), УК94 (gauge, счётчик, WARN, третье
+      правило в объекте, на странице и в сверке) и УК95 (проба «число до замера без номера задачи»,
+      проба значений по цепочкам). Нет и зависимости E2 от Е21. (б) Д70 тоже не отражён. Строка E2: «NTF2-…
+      62, 63, 74, 79 на П6 зелёные». X1a: «NTF2-90…93, 95, 96, NTF2-69 (е)» на П6 и зависимость E1b. S5:
+      «NTF2-69 (е) — X1a на П6». Приёмка редакции 30 ставит NTF2-63 уровнем E в пробу NTF2-72 на П1, а
+      NTF2-69 (е) — уровнем E (newman) на П1. Строка X2 NTF2-63 не называет, полосы newman для NTF2-69 (е)
+      на П1 нет. (в) Шапка tasks.md — «Редакция 26, маршрут под редакцию 26 замысла»; маршрут
+      редакции 27 не написан. (г) E1a в маршруте и строка CX2-91 в §11 замысла пишут «подпись образа», а З8
+      (Д70) — «метка, подписи у образа kaname нет (`--provenance=false`)»
+    condition_on_code: >-
+      Маршрут редакции 27. (1) E2 несёт держателей УК93…УК95 дословно по З8: модульная проба (а)–(г) и
+      integration-проба удержанной строки; пробы 0,5 / 1,5 / −1,5 с, gauge ±100 мс, третье правило в
+      объекте, на странице и в сверке; проба «число до замера без номера» с близнецом; инъекция
+      «`false` по причине “не измерено”» в цепочке с видом `PrometheusRule`. Зависимость — Е21 (посадка).
+      (2) NTF2-63 — в строке X2 (проба NTF2-72 после шага 3), NTF2-69 (е) — в полосе newman на П1 с
+      зависимостью E1b и S5; из E2, X1a и S5 оба сняты. (3) «подпись» → «метка» в E1a и в §11 (CX2-91),
+      печать «метка = самоотчёт = пин»
+    held_by: "ревью маршрута; гейта полноты «решение замысла → строка маршрута» нет — держится вниманием"
+
+  - id: CX2-96
+    decision: "Д67: стенды дерева kaname поднимают kaname с `notifications.enabled: true` без читателя ленты (S8d «флаг стендов — true»); D1 — флаг kaname `true` в зонтике; E1a — процесс kaname из образа с флагом `true`; S11 — поставка kaname с флагом; S9a — kaname на П6-k"
+    class: >-
+      security-hardening `hard-missing-knob-vs-unseeded`: нужной ручки нет в продукте, и посевом её не
+      завести. code-authoring §«Умолчание, которое становится утверждением»: стенд с флагом `true`
+      утверждает, что kaname запечатывает секреты ленты, а ключом печати его никто не снабдил
+    exposure: >-
+      Строки ленты kaname несут секретный атрибут (код `recovery`, приглашение — приёмка NTF-2,
+      «секретный атрибут пуст» после `Ack`). Источник запечатывает его кольцом ключей ленты: `Keyring`
+      `{активный, прежний}` в `corelib notify/feed/seal.go` @77-notify, порт `put_source.go`. В NTF-1 З11
+      ключ — ручка источника, «без неё боевая посадка с флагом `true` не стартует» (NTF1-B05). В
+      документах NTF-2 ручки ключа ленты kaname нет: в design.md, tasks.md и приёмке совпадений
+      `keyring|ключ ленты|FEED_KEY` — 0. Ключи `authn.secrets.*` (F3) — другие: ключ окна и ключ метки
+      устройства. Без этой ручки (а) kaname с флагом `true` в боевой посадке либо не стартует — тогда
+      красные `stand-own.sh up`, `stand-chart.sh up`, `e2e-newman` kaname (S8d), подъём зонтика (D1) и
+      E1a, — либо запечатывает ключом, который приходит неизвестно откуда; (б) у поставки kaname (S11)
+      нет блока значений под этот ключ, и «установка kaname своим чартом рядом с notify» повторяет
+      CX2-94 с другой ручкой
+    condition_on_code: >-
+      (а) Замысел (З2 или З18) называет ручку ключа ленты kaname по конвенции kaname (ключ файла и/или
+      переменная пространства `__`), её форму («путь к секрету», активный и прежний) и поле
+      `feed.Config`, куда она идёт. Стражи старта — NTF1-B05: флаг `true` в боевой посадке без ключа —
+      отказ старта с именем ручки, самоотчёт называет ось ключа. Строка §8.
+      (б) Каждому производителю — строка маршрута: F3 (поле и страж), D1 (секрет в подчарте kaname
+      зонтика), S11 (блок поставки и проба рендера), S8d (ключ на `stand-own.sh` и `stand-chart.sh`), E1a
+      (процесс kaname на П6), S9a (П6-k).
+      (в) Пробы: старт kaname с флагом `true` без ключа — отказ с именем, близнец с ключом — старт.
+      `stand-own.sh up` на голове S8d печатает ось ключа в самоотчёте kaname
+    held_by: "NTF2-50 и стражи F3 ключа ленты не судят; гейта нет — нужен (а)"
+
+  - id: CX2-97
+    decision: "I1 (З9): оператор пометки вставляет строку `pow_spent` только при `$expiresAt > now()` по часам базы; Д68/E1a: на П6 часы пробы — у ограничителя, «расходятся с базой по построению» (Д71 I-2)"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены»: решение «срок судят часы базы» принято в З9, а
+      его следствие наступает на стенде П6, где часы ограничителя по построению не часы базы.
+      measurement-discipline §«Откуда читается предмет»: условие стенда (начальный момент часов) не
+      названо и не напечатано
+    exposure: >-
+      `$expiresAt` вычисляют часы реплики, на П6 — часы пробы. Если они отстают от часов базы testcontainers
+      больше срока доказательства (например, часы стартуют с фиксированного момента ради детерминизма), то
+      `$expiresAt > now()` ложно для каждого доказательства. Тогда каждое предъявление получает `Reject` с
+      новым вызовом, и NTF2-59…62, 74, 79 на П6 краснеют с причиной «ограничитель отверг», а не «стенд не
+      создан». Если часы пробы опережают базу, проверка I1 на П6 не срабатывает никогда. Её утверждает
+      только integration-проба E2 (сдвиг −10 с), и это законно, но П6 тогда I1 не испытывает. В З8 и E1a
+      начальный момент часов пробы не назван: в design.md «часы пробы» встречаются 7 раз, начальный
+      момент — 0
+    condition_on_code: >-
+      (а) Часы пробы на П6 стартуют с `clock_timestamp()` базы ограничителя, прочитанного при подъёме
+      стенда, и только идут вперёд. Положительный контроль печатает начальный момент и расхождение.
+      (б) Предпосылка стенда: часы пробы раньше часов базы — «не выполнилось» с обоими моментами, до
+      сценариев. Инъекция «начальный момент = база − (срок + 1 с)» → «не выполнилось», а не красный
+      сценария. (в) Сценарий П6, который сдвигает часы пробы назад, стенд отклоняет как «не выполнилось»
+      с причиной (тем же правилом, что «Тогда» на часах kaname/notify)
+    held_by: "положительный контроль E1a (запланирован); начальный момент и предпосылка не названы — до правки держится вниманием"
+
+remarks:
+  - >-
+    Д71 I-2: gauge `…_clock_skew_seconds` хранит последнее измерение реплики. Реплика без решений держит
+    старое значение, и правило по `max(abs(…))` может звонить по устаревшему замеру. Звено решений
+    анонимное и частое, поэтому пункта нет. Если правило будут судить на тихом флоте, нужна отметка
+    момента измерения
+  - >-
+    E1b: сопоставитель `retry-after` → `Retry-After` действует для всех служб за краем. Закрытый ключ
+    и отсутствие своего обработчика ошибок край держит пробой мультиплексора. Пункта нет
+
+return_to_acceptance: []
+
+measurements:
+  - claim: "предмет и маршрут"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "d5dfafcf…, 43c1aae0…, eed36d11…"
+  - claim: "маршрут не отображает Д70/Д71"
+    command: "for t in clock_skew AnonMailReplicaClockSkew 'только под жетон' I-1 I-2 I-3 Е21 Д70 Д71; do grep -c -- \"$t\" docs/changes/issue-2917/{design,tasks}.md; done"
+    result: "design: 4, 3, 4, 4, 3, 7, 4, 5, 11; tasks: все 0"
+  - claim: "маршрут держит NTF2-63 и NTF2-69 (е) на П6, приёмка — на П1"
+    command: "grep -n 'NTF2-63\\|NTF2-69 (е)' docs/changes/issue-2917/tasks.md; grep -n '\\*\\*ID:\\*\\* NTF2-63\\|\\*\\*ID:\\*\\* NTF2-69' <приёмка>"
+    result: "E2, X1a, S5 — П6; приёмка 2329: NTF2-63 · E (playwright, проба NTF2-72); 2539: NTF2-69 · E ((е), П1, Д70)"
+  - claim: "радиус S8d"
+    command: "git -C project/kaname grep -lE 'inviteMail|invite-mail|KANAME_INVITE_MAIL_' a5986266 -- deploy .github/scripts | wc -l; git -C project/kaname grep -lE 'standMailboxUrl|stand-mailbox|mailbox-url|mailboxUrl|/codes\\?to=' a5986266 -- ':!*.md' | wc -l"
+    result: "7; 14 (перечень совпадает с З6)"
+  - claim: "ручки ключа ленты kaname в документах NTF-2 нет; источник требует кольцо"
+    command: "grep -n -i 'keyring\\|ключ ленты\\|FEED_KEY' docs/changes/issue-2917/{design,tasks}.md docs/specs/sub-phase-NTF-2-…md; git -C project/corelib grep -n 'type Keyring' origin/77-notify; NTF-1 design.md З11, приёмка NTF1-B05"
+    result: "0; notify/feed/seal.go:42; «Без неё боевая посадка с флагом `true` не стартует»"
+  - claim: "SetHeader до ошибки доезжает до края заголовком"
+    command: "sed -n 1088,1108p $(go env GOMODCACHE)/google.golang.org/grpc@v1.83.2/internal/transport/http2_server.go; …/http2_client.go 1619-1636; grpc-gateway@v2.30.0 runtime/errors.go DefaultHTTPErrorHandler"
+    result: "заголовки при `len(s.header) > 0` идут отдельным кадром; клиент — `s.header`; обработчик ошибок шлюза зовёт `handleForwardResponseServerMetadata`"
+  - claim: "начальный момент часов пробы П6 не назван"
+    command: "grep -n 'часы пробы' docs/changes/issue-2917/design.md"
+    result: "7 строк (1476, 1495, 1655, 1684, 1694, 1708, 1738), начальный момент — нигде"
+
+not_measurable:
+  - item: "стартует ли kaname с флагом `true` без ключа ленты в посадке стендов kaname"
+    why: "ни поля, ни стража на ветках нет; вывод держится на NTF1-B05 и порте corelib. Покажет проба CX2-96 (в)"
+
+outcome: to_design
+unmapped_items: [CX2-95, CX2-96, CX2-97]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "маршрут редакции 27 (CX2-95); ручка ключа ленты kaname и её производители (CX2-96); начальный момент часов П6 (CX2-97); «подпись» → «метка» в §11"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "dispatcher"
+    subject: "задача трекера Е21 (перемер чисел правил тревоги) — номер нужен E2"
+    basis: "00-kacho-core ban11-three-outcomes"
+  - to: "acceptance-reviewer"
+    subject: "вердикт на приёмку NTF-2 редакции 30 (`eed36d11…`)"
+    basis: ".claude/rules/change-graph.md §2"
+  - to: "class-exposure-analyst"
+    subject: "первичный разбор на `eed36d11…` после вердикта"
+    basis: ".claude/rules/change-graph.md §4"

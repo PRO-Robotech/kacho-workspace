@@ -1,0 +1,77 @@
+# Пост-дифф ревью — роль security-auditor, полоса E2 (звено anonmail).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: security-auditor
+mode: поверхность до посадки
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565   # origin/2917-e1-trusted-hops
+  head: 47349c9f1a55575df73598d84e53cb04f66fcc58
+  content_digest: 9299e0c817750611358fe5c3637f327a646a2ea0cb4bf114eb012bc40c56273f
+  digest_predicate: git diff 853ab6ea4..47349c9f1a5 | sha256sum
+snapshot_at: 2026-10-01
+
+verdict: CHANGES_REQUESTED   # ⛔ возврат
+blocks: true
+return_to: rpc-implementer (исполнитель полосы E2)
+
+inspected: >-
+  54 файла диффа (5975+/46-), прочитаны целиком: anonmail/{doc,keys,gate,pow,ladder,store,store_memory,store_pg,retention}.go,
+  idempotencypg/{anon_mail.go,migrations/20261001180000_anon_mail_limiter.sql}, handler/login_lane_relay.go (дифф),
+  middleware/{login_lane_paths,idempotency}.go (дифф), config/anon_mail_bounds.go (дифф),
+  cmd/api-gateway/{anon_mail_store.go,main.go:205-290}, observability/metrics/anon_mail.go,
+  middleware/context_extractor.go:175-247 (оператор адреса, база E1 — контекст, не предмет).
+  Пробы прочитаны выборочно: store_memory_test.go, ladder_test.go (testLimits), store_pg_lifecycle_test.go (нагрузочный прогон).
+
+findings:
+  - id: SEC-E2-1
+    severity: medium
+    kind: correctness/security — счёт окна ограничителя
+    verdict: CONFIRMED
+    where:
+      - gateway/internal/middleware/anonmail/gate.go:104
+      - gateway/internal/middleware/anonmail/store.go:119-148
+      - gateway/internal/middleware/anonmail/store_pg.go:120
+      - gateway/internal/middleware/anonmail/store_memory.go:251
+    sign: >-
+      Момент решения берётся до сериализации по ключу, а окно счёта закрыто сверху этим моментом.
+      Пропуски, записанные соседними решениями того же ключа с более поздним моментом, в счёт
+      не входят. Неделимость «решение и счёт — одна операция» (З8, CX2-11) держится только
+      при совпадающих моментах; проба гонки нового ключа гоняется на управляемых часах с одним
+      моментом на всех и этого не видит. Между репликами флота то же расхождение даёт разность часов.
+    measured: >-
+      Временная проба на хранилище memory (файл снят, дерево чистое): три пропуска с моментами
+      позже, затем решение с более ранним моментом — Pass вместо Challenge. Пачка одновременных
+      решений одного источника на настоящих часах — число пропусков выше порога FREE.
+    direction: >-
+      Счёт ключа не должен зависеть от того, в каком порядке моменты решений пришли к
+      сериализации: момент решения выводится после взятия блокировок ключей либо окно не
+      ограничивается сверху моментом решения. Проба — на различающихся моментах, с близнецом.
+
+  - id: SEC-E2-2
+    severity: medium
+    kind: availability — общая точка сериализации флота
+    verdict: PLAUSIBLE
+    where:
+      - gateway/internal/middleware/anonmail/store.go:137
+      - gateway/internal/middleware/anonmail/store_pg.go:114
+    sign: >-
+      Строка ведра общего потока берётся FOR UPDATE каждым решением, в том числе тем, чей исход
+      от ведра не зависит (жёсткий отказ, вызов по ступени, предъявленное доказательство), и
+      держится до конца транзакции, включая чтения для Retry-After. Пропускная способность звена
+      флота — одна строка; нагрузочный прогон полосы печатает её порядок. Других ограничителей
+      темпа на крае нет. Поток сверх неё кончается 503 у всех анонимных глаголов почты.
+    direction: >-
+      Вопрос к замыслу и исполнителю: брать ведро только когда исход от него зависит и/или
+      отсекать уже отвергнутые ключи до хранилища; назвать допустимую цену отказа в
+      обслуживании решением, если оставить как есть.
+
+not_findings:
+  - Подпись вызова: HMAC-SHA256 по версии, id, сроку и сложности, сравнение постоянного времени, ключ >= 32 байт — дефекта нет.
+  - Одноразовость доказательства — PK pow_spent в транзакции решения, снимается при любом исходе кроме Pass — дефекта нет.
+  - Тексты отказов фиксированы, err.Error() наружу не уходит; журнал без адреса клиента и без тела.
+  - Звено обязательно для записей с признаком anonMail; ретранслятор без звена не строится.
+  - Совпадение путей точное; ветки «не смог спросить — пропустить» нет; адрес вне литерала IP — 503.

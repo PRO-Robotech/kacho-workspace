@@ -1,0 +1,124 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, полоса E2 (звено anonmail).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: system-design-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565
+  head: f2b0b18fa662bf46cf3ba77abc8a93be7459d5cc
+  content_digest: 0368d974af344b4d606d4741eb9a5b1f577544fb41fa53c56f0842174df86d96
+  digest_predicate: git -C tmp/2917-e2-anonmail-lane diff 853ab6ea f2b0b18f | sha256sum
+  premise_remeasured: >-
+    рабочая копия tmp/2917-e2-anonmail-lane: HEAD = f2b0b18fa662, рабочее дерево чистое;
+    дифф 71 файл, +8115/-47; дайджест совпал с записью db-architect-reviewer на тот же отпечаток.
+snapshot_at: 2026-10-01
+
+verdict: RETURNED      # ⛔ возврат
+blocks: true
+return_to: автор полосы E2 (rpc-implementer по tasks.md E2)
+distributed_surface: true      # общая строка ведра флота, транзакция решения, разрешение исхода COMMIT, часы реплик
+schema_overlap: true           # advisory-lock, FOR UPDATE ведра, pg_xact_status — ревью схемы на этот дайджест есть (db/0368d974…, ACCEPTED)
+
+checks_run:
+  - cmd: >-
+      go test -count=1 -v -run 'TestPg_(O1|O2|O3|CX2_11_Race|CX2_46|UK64|K1|CX2_43|CX2_28)'
+      ./internal/middleware/anonmail/   (gateway, @f2b0b18f, Postgres testcontainers)
+    result: "PASS 13 · FAIL 0 · SKIP 0 (прогон дважды, исход один)"
+
+axes:
+  commit_outcome_resolution: closed
+  # store_pg.go:519-557 resolveCommit: ошибка COMMIT не сводится к 503 — опрос pg_xact_status с шагом
+  # anonMailStoreWait до конца исходной транзакции, затем отдельным оператором чтение строки момента по
+  # decision_id (store_pg.go:148-150). Классы опроса закрыты (classifyPoll :481-502): 22023 после
+  # переключения — читать сразу; NULL — конец; иное — повтор. Остаток окна — 503 + WARN с decision_id.
+  # Срок разрешения 2×anonMailDecisionBudget покрывает idle_in_transaction_session_timeout исходной
+  # транзакции (COMMIT потерян — сервер снимает её не позже срока решения). COMMIT и откат — на
+  # context.WithoutCancel (store.go:277, :212). Пробы CX2_46a/b, UK64, остаток — зелёные.
+  idempotency_one_shot: closed
+  # pow_spent PK + INSERT … ON CONFLICT DO NOTHING RETURNING expires_at > clock_timestamp() (store_pg.go:121-122):
+  # одноразовость держит база, срок — часы базы, те же, что у уборщика (idempotencypg/anon_mail.go:47-48).
+  # Пометка фиксируется только с Pass; 503 вызов не истрачивает. O1 зелёный.
+  atomic_concurrency: closed
+  # Ключи — pg_advisory_xact_lock(int4,int4) по отсортированным парам; ведро — SELECT … FOR UPDATE
+  # последней блокировкой; цикла ожиданий нет (pow_spent ждётся до ведра). Check-then-act нет.
+  # O2 (BURST ровно B, tokens ≥ 0), O3 (порог подсети), CX2_11 — зелёные.
+  replica_coordination_shared_bucket: partially   # см. I-1
+  replica_clocks: partially                        # см. I-2
+  fail_closed_d66: closed
+  # Любой отказ хранилища, срок, неразрешённый исход — StoreUnavailable → 503 (gate.go:131-136); ветки
+  # «не смог спросить → пропустить» нет; NewGate отказывает на неполной провязке.
+  observability_d69: open                          # см. CRIT-1
+  per_call_deadline: closed
+  # Acquire 250 мс (store_pg.go:310); операторы — dctx 1,5 с + SET LOCAL statement/idle/lock_timeout;
+  # COMMIT 250 мс; откат 250 мс; каждый опрос разрешения 250 мс внутри срока разрешения; прогрев 30 с;
+  # уборка — min(ReapInterval, cap). Отмена — CancelRequest с DeadlineDelay (сокет не висит).
+  service_graph: closed       # новых межсервисных рёбер нет; база — собственная база края
+  edge_public_internal: closed  # звено стоит на публичной полосе формы; Internal*-методов дифф не трогает
+  replica_state_isolation: closed  # состояние флота — в БД; память процесса — только при memory и флоте 1
+
+critical:
+  - id: CRIT-1
+    where: gateway/internal/observability/metrics/anon_mail.go:17-35; gateway/deploy/templates/prometheusrule.yaml:49-60; gateway/internal/middleware/anonmail/gate.go:54-62
+    finding: >-
+      Условие Д66 к коду E2 (design.md:52-57, :1414-1439; tasks.md:360 предикат E2) — серия насыщения
+      kacho_api_gateway_anon_mail_bucket_hold_seconds_total (время удержания строки ведра, доля 0…1 по флоту)
+      и правило AnonMailBucketSaturation (warning, опережающий сигнал до первых 503) — НЕ реализовано:
+      grep 'hold_seconds|HoldSeconds' по не-тестовому дереву gateway — 0 попаданий; Stats несёт только
+      StoreUnavailable и BucketWaitTimeouts. Поставлены два ЗАПАЗДЫВАЮЩИХ правила (оба горят только после
+      того, как 503 уже отданы), без меток уровня (warning/critical по Д69 нет ни у одного). Отказ от
+      условия в сообщениях коммитов не назван. Принятая цена Д66 (fail-closed 503 на насыщении общей
+      строки флота) держится на том, что приближение к насыщению видно ДО отказов — этого сигнала нет.
+    requirement: >-
+      Ввести счётчик удержания строки ведра (от получения строки до COMMIT/ROLLBACK; у memory — до
+      отпускания семафора) на обоих хранилищах, зарегистрировать с нулём; правило насыщения по
+      sum(rate(…_bucket_hold_seconds_total[5m])) с уровнем warning и правило исчерпания с уровнем
+      critical, сверка со страницей observability.mdx в обе стороны; модульная проба «ведро свободно →
+      hold_seconds > 0, wait_timeouts +0». Либо — вернуть условие Д66 в замысел явным решением; молчаливое
+      расхождение кода с условием не принимается.
+
+important:
+  - id: I-1
+    where: gateway/internal/middleware/anonmail/store.go:233-271
+    finding: >-
+      Строка ведра (единственная точка сериализации флота) берётся FOR UPDATE на КАЖДОМ решении — и на
+      Reject (RungHard), и на Challenge при required>0, и на Pass по свежему доказательству, где жетон не
+      нужен (ladder.go:172-193: жетон читается только при proofAbsent && required==0). Счёт ключей
+      (1 + число подсетей операторов) и nthMoment исполняются уже под строкой ведра. Следствие: трафик
+      атакующего, который и так отвергается по своим ключам, занимает общую строку и доводит её до
+      насыщения Д66 — 503 получают законные анонимные запросы со всего флота. Порядок «ключи → пометка →
+      счёт → лестница → строка ведра ТОЛЬКО при политике с жетоном» не вводит check-then-act (ведро
+      читается и пишется под FOR UPDATE в той же транзакции, счёт стабилен под блокировками ключей) и
+      сокращает удержание строки до одного оператора.
+    requirement: вернуть порядок шагов З8 в замысел (design-reviewer) с этим доводом; на коде E2 не блокирует — порядок взят из замысла.
+  - id: I-2
+    where: gateway/cmd/api-gateway/main.go (GateConfig.Now = time.Now); store_pg.go:129-140, :398-401; ladder.go:198-204
+    finding: >-
+      Моменты пропуска, границы окон и момент ведра судят часы реплики; часы базы — только срок вызова
+      (I1 закрыт). Расхождение часов реплики с базой ничем не ограничено и не наблюдаемо: реплика, ушедшая
+      вперёд на d, пишет моменты в будущее — окно открыто сверху (SEC-E2-1), их считают все реплики d
+      времени, уборка их не берёт; та же реплика сдвигает at ведра вперёд — пополнение флота замирает на
+      d (все анонимные без доказательства получают PoW). Реплика, отстающая на d, недосчитывает на
+      границе окна (лишние пропуски ≤ темп×d). Направление отказа — закрытое, кроме недосчёта; величина
+      — неограниченная при сбое NTP.
+    requirement: >-
+      Сигнал расхождения: тем же оператором решения получать clock_timestamp() базы и при |r.Now − db| >
+      порога — WARN и счётчик; либо момент ведра ограничить часами базы. Порог и форма — решение замысла
+      (часы пробы — требование стенда П6, Д68).
+  - id: I-3
+    where: gateway/deploy/templates/prometheusrule.yaml:34-41; deploy/helm/umbrella/values.{a8f60d,fe3455,prorobotech}.yaml
+    finding: >-
+      Порог «первый отказ за 10 минут» помечен в шаблоне «ВРЕМЕННО… ПЕРЕМЕРИТЬ» без задачи и предиката
+      снятия (ban11-three-outcomes); нагрузочный прогон E2 с флотом 2 (tasks.md:360) не выполнен —
+      пропускная способность строки ведра не измерена. Правила выключены на трёх площадочных цепочках
+      с причиной «не измерено» — там цена Д66 не сигналит вовсе. Ключ выключателя — .Values.alertRules,
+      а не global.kacho.alertRules (CX2-92 (а)).
+
+orders:
+  - нагрузочный прогон звена с флотом 2 на postgres (решений/с, доля удержания строки ведра в момент первого 503, атрибуция R25-4) — до постановки порога
+  - пробы с конкурирующими горутинами на спорные пути есть и зелёные (O1, O2, O3, CX2_11) — дополнительных не заказываю
+  - новых межсервисных рёбер нет — правка polyrepo.md не нужна
+  - ревью схемы на этот дайджест есть (db/0368d974…, ACCEPTED) — повтора не заказываю

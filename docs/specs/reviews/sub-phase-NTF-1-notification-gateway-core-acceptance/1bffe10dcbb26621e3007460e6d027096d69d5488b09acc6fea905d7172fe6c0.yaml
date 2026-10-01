@@ -1,0 +1,171 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке строка редакции 19 говорит «вердикта на неё НЕТ». Эта запись шапку не правит, так и
+    задумано: вердикт привязан к отпечатку, а не к слову в заголовке. Действующий вердикт выводится
+    из этой записи и из внешнего события.
+  base_commit: a3662915ba6ca52502001bda1410b47aa1287811
+  content_commit: null
+  content_commit_note: >-
+    Редакция 19 не закоммичена: она лежит в рабочем дереве ветки issue-880. `git show
+    HEAD:<путь> | sha256sum` даёт 29cfa368… (редакция 18, одобрена кругом 18), а рабочий файл —
+    1bffe10d…. Судится рабочий файл по его отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3013
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-01T12:00:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода редакции 19. По документу в целом круг девятнадцатый (§9 нумерует круги сквозь
+  редакции). Судится только дельта `git diff HEAD -- <путь>` против одобренной 29cfa368…: 41 строка
+  добавлена, 18 удалено, 17 фрагментов, файл один. Предмет дельты — полоса W4a (замысел NTF-1
+  редакции 32, §13 Е16, CX1-106).
+previous_rounds:
+  - {round: "18 (круг 2 прохода редакции 17/18)", sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7, verdict: APPROVED}
+  - {round: "17 (круг 1 прохода редакции 17)", sha256: 97da33dc9a39ebc0d181fca385d66c88e62a351b818680b97b971a7fbedd8386, verdict: CHANGES_REQUESTED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+
+design_consistency:
+  source: docs/changes/issue-2915/design.md (редакция 32), §13 Е16, З28 «Флаг», «Декларации», карта CX1-106
+  E16_required: "Р9, Р12, NTF1-N02, J03, J05 называют пути под global.kacho.…"
+  E16_met: >-
+    Да. Р9 и N02 называют `global.kacho.notifications.modules.<модуль>.enabled`. Р12, J03 и J05
+    называют `global.kacho.spiffe.<служба>`. Тот же путь сверх перечня Е16 стоит в Р2 п.2, Р3, Р6,
+    §3 З11, §5 S4, C03, G22 и K03. Набор деклараций {notify, notifyProbe, kaname} совпадает с З28
+    «Декларации» (design.md:2094). Отказ рендера на ключе флага вне `global` совпадает с З28
+    (design.md:2041). Отрицание J05 «вне `global`» совпадает с критерием J2 в tasks.md:327.
+  w4a_predicate: >-
+    grep -nE '<модуль>\.notifications\.enabled|(notify|notifyProbe|kaname)\.spiffe' по документу без
+    вхождений `global.kacho` дал 1 строку (2939). Она лежит в §9, который начинается со строки 2934,
+    поэтому вне §9 — 0. Строка 1263 `bootstrapOperator.spiffe` — образец формы, а не декларация
+    notify; такой ключ в kacho `deploy/helm/umbrella/values.yaml` есть (строка 293, @1d42a6728bf).
+
+delta_findings:
+  producer: >-
+    У обоих новых отрицаний производитель есть. N02 «вне `global`» держит полоса D2: строка §6.1
+    «N01–N04 … J05» → `deploy/notifications_flag_test.go`, критерий D2 в tasks.md:337. J05 «вне
+    `global`» держит полоса J2: `deploy/tests/helm/service-identity-declaration-test.sh`, критерий в
+    tasks.md:327. Остальные правленые «Тогда» (C03, G22, J03, K03) поменяли только путь в Given или
+    When, их производители прежние.
+  twin: >-
+    N02 «вне `global`»: близнец — тот же ключ под `global.kacho.notifications.modules`, рендер
+    проходит, перечень `{probe-b}`. Различается один факт — место ключа. J05 «вне `global`»:
+    близнец — согласный рендер, различается один факт — место декларации. Оба близнеца записаны в
+    тексте сценария. Отдельных строк в §6.2 у них нет (N19-1).
+  hygiene: "В добавленных строках `tmp/`, имён чужих облаков и TODO/FIXME — 0."
+
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_findings: []
+
+non_blocking:
+  - id: N19-1
+    kind: TWIN
+    what: >-
+      Заголовок §6.2 обещает строку на каждое отрицание, а у двух новых отрицаний строк нет: N02
+      «ключ вне `global`» ↔ «тот же ключ под `global.kacho.notifications.modules`» и J05 «декларация
+      вне `global`» ↔ «согласный рендер». Близнецы названы прямо в сценариях, поэтому проверяемость
+      не страдает. Просьба: при следующей правке дописать две строки в §6.2.
+  - id: N19-2
+    kind: CONSTRUCTIBILITY
+    what: >-
+      У J05 «декларация вне `global` (тот же литерал под ключом её подчарта)» не сказано, остаётся ли
+      декларация под `global`. От этого зависит исход. Посев показал: если она остаётся (добавочная
+      форма), рендер проходит с кодом 0 и молча, а находит её только сверка путей значений. Если
+      декларацию перенесли, рендер падает раньше гейта, на помощнике. «Красный с путём» исполним в
+      обоих случаях, но только если гейт читает пути значений, а не один рендер. Просьба: назвать
+      добавочную форму инъекцией J05, потому что тихая ветка — именно она.
+  - id: N19-3
+    kind: FORMAT
+    what: >-
+      Строка 19 таблицы §9 называет род «CONTRACT». Его нет в закрытом словаре: прежние строки берут
+      роды SCOPE/FORMAT/…. Это косметика.
+  - id: N18-1
+    what: "Перенесено без изменений: вызов `address.NormalizeDomain` через значение-функцию (узел B27)."
+  - id: N18-2
+    what: "Перенесено: Given B31 не говорит «L ≥ 3»."
+
+out_of_subject_notes:
+  - >-
+    tasks.md:337 (D2) держит прежнюю инъекцию «`notifyProbe.notifications.enabled: true` в
+    `values.own-stand.yaml` без `notifyProbe.enabled` → красный переписи с именем `own`». При пути
+    редакции 32 этот ключ сначала отвергается рендером (З28, N02), и до переписи дело не доходит.
+    Инъекцию нужно перевести на `global.kacho.notifications.modules.notifyProbe.enabled`. Это предмет
+    маршрута и замысла, а не приёмки.
+
+measurement:
+  revisions_used:
+    workspace: a3662915b (ветка issue-880), предмет — рабочий файл
+    kacho: 1d42a6728bf (project/kacho), сверка образца `bootstrapOperator.spiffe` и отсутствия ключей `notifications:` в значениях зонтика и kaname
+  scenario_census:
+    predicate: "python: split по '^\\*\\*ID:\\*\\* ', id NTF1-([A-Z]\\d+), Given/When/Then в каждом блоке"
+    total: 159
+    unique: 159
+    gwt_missing: 0
+    delta: "+0 сценариев; добавлено два отрицания строками **And** внутри N02 и J05"
+  producer_coverage: {covered: 159, of: 159, note: "производители новых отрицаний — D2 (N02) и J2 (J05) по §6.1 и tasks.md"}
+  constructibility:
+    seeded: 3
+    of: 3
+    not_performed: 0
+    tool: helm v4.2.4+g3900f43, yq v4.53.6; фикстура-зонтик с подчартами notify и notifyProbe в scratchpad сессии
+    results:
+      - >-
+        Посылка Е16 «подчарт видит только свои значения и `global`» подтверждена: при `--set
+        notifyProbe.x=1` у подчарта notify `hasKey .Values "notifyProbe"` равен false, а помощник
+        над `.Values.global` даёт в notify и notifyProbe одинаковое значение `false` при
+        `global.kacho.notifications.modules.notifyProbe.enabled=false`.
+      - >-
+        N02 «вне `global`»: шаблон уровня зонтика видит `.Values.notifyProbe`. Ключ
+        `notifyProbe.notifications.enabled=false` даёт отказ рендера «notifyProbe.notifications.enabled
+        is outside global; …» с именем ключа. Близнец (тот же ключ под `global`) — код 0.
+      - >-
+        J05 «вне `global`»: при добавочной форме инъекции рендер даёт код 0, то есть молчит.
+        `yq '[.. | select(key == "spiffe") | path | join(".")] | .[] | select(test("^global") | not)'`
+        находит `notify.spiffe`, на согласных значениях выдача пуста. Отсюда N19-2.
+
+routing_note: >-
+  Блокирующих 0. Одобрение привязано к 1bffe10d…. Вердикт о 29cfa368… (одобрение редакции 18)
+  остаётся вердиктом о своём содержимом и на эту редакцию не переносится. По Е16 одобренный
+  отпечаток с путями под `global.kacho.…` снимает запрет на посадку D2 и J2. До этого редакцию 19
+  нужно закоммитить, а событие — опубликовать.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: a3662915ba6ca52502001bda1410b47aa1287811
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  role: acceptance-reviewer
+  subject_sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: "Рецензент событие не публикует. Тело для курьера лежит в event_body_for_courier."
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 1 прохода редакции 19, полоса W4a, блокирующих 0) ·
+    SHA-256 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0

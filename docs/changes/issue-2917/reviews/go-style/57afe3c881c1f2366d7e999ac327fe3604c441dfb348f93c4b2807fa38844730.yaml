@@ -1,0 +1,80 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, полоса E2 (звено anonmail), повтор после ⛔ 9299e0c8.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: go-style-reviewer
+supersedes_verdict_of: 9299e0c817750611358fe5c3637f327a646a2ea0cb4bf114eb012bc40c56273f
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565   # = origin/2917-e1-trusted-hops
+  head: 775eb117602bfb9c9c80fa3fbc76753f1346258f
+  content_digest: 57afe3c881c1f2366d7e999ac327fe3604c441dfb348f93c4b2807fa38844730
+  digest_predicate: git diff 853ab6ea4..775eb1176 | sha256sum
+  delta_reviewed: git diff 47349c9f1..775eb1176 — 16 файлов, +687/-83
+  premise_remeasured: >-
+    tmp/2917-e2-anonmail-lane: git rev-parse HEAD -> 775eb117602b; в рабочем дереве лишний неотслеживаемый
+    gateway/internal/middleware/anonmail/zz_audit_tmp_test.go (не в коммите), поэтому сборка и пробы
+    гнались на git archive 775eb1176 в scratchpad. go build ./... чисто; go vet по anonmail, metrics,
+    idempotencypg, cmd/api-gateway чисто; go test ./internal/middleware/anonmail/ ok (169 с, с Postgres),
+    ./internal/observability/metrics/ ok. cmd/api-gateway: красный TestNoRawCmuxNewOutsideFactory —
+    причина в экспорте без .git (treecorpus: git ls-files exit 128), к дельте отношения не имеет; вердикт
+    по этому пакету не выносится.
+snapshot_at: 2026-10-01
+
+verdict: ACCEPTED      # ✅ принято
+blocks: false
+
+census:
+  fresh_deferral_markers: 0      # grep TODO|FIXME|XXX по 16 файлам дельты
+  probes_in_same_pr: true        # store_decide_test.go, store_pg_order_test.go, metrics/anon_mail_test.go
+  panics_in_request_path: 0
+  context_background_in_prod: 0  # grep по не-тестовому gateway/
+  security_comments_contradicting_code: 0
+
+closure:
+  GS-E2-1: >-
+    ЗАКРЫТО. store.go: fail(ctx, step, err) оборачивает «anonmail: <шаг>: %w» на всех восьми шагах плюс
+    ветка вне набора; classifyStoreErr — закрытый набор из трёх классов (iota+1). 42/28/3D/3F дают ERROR,
+    55P03/57014/DeadlineExceeded/errMemWait — WARN с Saturated, прочее — WARN. Поле store.log читается.
+    Проба TestStore_GSE2_1_EveryStepFailureIsLoggedByStepAndClass проверяет уровень, шаг и err= и NotContains
+    адреса 198.51.100; близнец TestStore_GSE2_1_FailureIsNeverSilent.
+  GS-E2-2: >-
+    ЗАКРЫТО. rollback(ctx) у decisionTx/pgTx/memTx; Decide откатывает на WithoutCancel(ctx), pgTx — срок
+    anonMailStoreWait от WithoutCancel(ctx), форма как у commit. Проба TestStore_GSE2_2_RollbackKeepsTheRequestContext.
+  GS-E2-3: "ЗАКРЫТО. Все голые return err в store_pg.go обёрнуты именем оператора."
+  GS-E2-4: "ЗАКРЫТО. gate.go:114,123; store_pg.go:595 (resolveCommit); idempotencypg/anon_mail.go:107-112 — *Context."
+  GS-E2-5: >-
+    ЗАКРЫТО. GateConfig.Limits снят, второго источника пределов у звена нет; validateStoreWiring в
+    NewMemoryStore и NewPostgresStore. Единственный прод-вызов NewMemoryStore (cmd/api-gateway/anon_mail_store.go:46)
+    обновлён, ошибка уходит наверх.
+  GS-E2-6: "ЗАКРЫТО. Ключ «err»."
+  GS-E2-7: "ЗАКРЫТО. defer rows.Close() сразу после Query (store_pg.go:545)."
+
+findings:
+  critical: {}
+  important:
+    GS-E2-8:
+      kind: "прод-файл держит помощник, нужный только пробам"
+      where: gateway/internal/middleware/anonmail/store.go:304   # discardLogger
+      defect: >-
+        После GS-E2-5 прод-вызов discardLogger() из NewMemoryStore снят; все оставшиеся вызывающие —
+        в *_test.go. Помощник без прод-импортёров (arch-lean-no-vestigial).
+      requirement: "Перенести discardLogger в файл *_test.go пакета. Не блокирует."
+  style:
+    GS-E2-9: >-
+      store.go:351 — шаг "policy" строковым литералом рядом с набором констант step*; завести stepPolicy.
+    GS-E2-10: >-
+      Двойной префикс в тексте ошибки: fail оборачивает «anonmail: lock: …», а pgTx уже вернул
+      «anonmail: key lock: …» — в журнале «anonmail: lock: anonmail: key lock: …». Снять префикс «anonmail:»
+      у одного из уровней (адаптер или fail).
+
+foundation_candidates: []
+
+approved:
+  - "Класс отказа закрыт: нулевого значения нет, каждый отказ ровно в одном классе; насыщение отличимо от сбоя (TestStore_D66_SaturationIsTellableFromOutage)."
+  - "Серия saturated_total объявлена в Describe до первого сбора, подмножество unavailable_total, счёт только в ветке StoreUnavailable (gate.go:131-133)."
+  - "SEC-E2-1: окно (now−w, +∞) единообразно в countsSQL, nthMomentSQL и memTx.counts; параметры SQL пересчитаны согласованно; retryAfterFor ограничен снизу 1 с; пробы на memory и Postgres."
+  - "Журнал отказа хранилища не несёт ключей запроса; PgError.Error() деталей строки не включает."
+  - "context.Background()/TODO в прод-коде gateway/ нет; провязка только в cmd/api-gateway."

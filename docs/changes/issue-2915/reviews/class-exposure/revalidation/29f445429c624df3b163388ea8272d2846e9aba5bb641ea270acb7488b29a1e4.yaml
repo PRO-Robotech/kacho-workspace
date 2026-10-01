@@ -1,0 +1,223 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 32, маршрут редакции 33.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 32 против последней пересверенной
+# (редакция 31, 7bbe018c…, запись revalidation/7bbe018c….yaml, итог «к замыслу», CX1-104…108, N30, N31).
+# Дельта не закоммичена: рабочее дерево issue-880 поверх a3662915b. Пункты CX1-01…103 и УК1…УК94
+# запись не пересуживает.
+#
+# Итог — к замыслу. CX1-104, 105, 106, 108, N30, N31 отображены и выдерживают условие. CX1-107
+# отображён по форме, но пара K5 на голове K5 неисполнима так, как записана: зависимости K5 — K8 и
+# K3c, а модели `service`/`notification_feed` (K1), применителя служебного субъекта (K2) и исключения
+# надзора (K4) на её голове нет. Значит, звено прав откажет `service:notify` на `ResolveSend` и при
+# согласном ключе, и близнец `UNIMPLEMENTED` недостижим, а без звена прав «ключа нет →
+# PERMISSION_DENIED» производить некому — новый пункт CX1-109. Кроме того, приёмка NTF-1 правлена
+# (редакция 19, `1bffe10d…`, полоса W4a): вердикта и первичного разбора на неё нет, поэтому одобрение
+# замысла заблокировано независимо от пунктов.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 29f445429c624df3b163388ea8272d2846e9aba5bb641ea270acb7488b29a1e4
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 29f445429c624df3b163388ea8272d2846e9aba5bb641ea270acb7488b29a1e4   # рабочее дерево
+  tasks_sha256: 0e13b664aeb9129539de22692eef29266fae72b7364c55a48797be30286240eb   # маршрут редакции 33
+  revision: 32
+  content_commit: "— (рабочее дерево поверх a3662915b, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/7bbe018c9619c8e75febfac5887cad4c350b5606709ac01acd80abcddf8a0eda.yaml
+    sha256: 7bbe018c9619c8e75febfac5887cad4c350b5606709ac01acd80abcddf8a0eda
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md (рабочее дерево issue-880 @a3662915b)"
+  decisions_judged:
+    - "Е15 снята; K3c — три записи `CatalogPendingEntry`, строки реестра — генератором края, сверка копий зелёная с печатью ожидающих; новая полоса K3r снимает записи после посадки эпика в main kacho (CX1-104, N30)"
+    - "закрытый перечень ключей «только файл» в `strict_env.go`, проба на выведенных `KANAME_AUTHN__SERVICE_IDENTITY__{METHODS,SERVICES}` (CX1-105)"
+    - "флаг модуля и декларации SAN под `global.kacho.…`, помощники над `.Values.global`, общий помощник `kacho.spiffe.uri`, держатель J2 в одном рендере, порядок J2 → D1 NTF-2; возврат в приёмку — §13 Е16, полоса W4a (CX1-106)"
+    - "K5 — заглушка интерфейса K3c на тестовом слушателе, пара PERMISSION_DENIED / UNIMPLEMENTED (CX1-107)"
+    - "второй производитель ручки — блок `serviceIdentity` поставки kaname, полоса S11 NTF-2 (CX1-108)"
+    - "порядок на линии kaname#484: K5 раньше F2, F3; K3 раньше S6, S9; J2 раньше D1 NTF-2 (N31)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "нет — редакция 19 (полоса W4a) без вердикта; APPROVED было на редакцию 18 `29cfa368…` и не переносится"
+  changed_since_previous_record: true
+  initial_class_exposure_on_this_fingerprint: "нет (reviews/class-exposure/initial/1bffe10d….yaml отсутствует)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a3662915ba6ca52502001bda1410b47aa1287811   # плюс незакоммиченная дельта автора
+  kacho_epic_base: e201adbf36f407ff2481faa7d6d4d39c71da6ee5   # origin/2564 (сдвинулась с 6edea09c прошлой записи)
+  kacho_main: bea4495e934c5903fa010d762a199646a039c510
+  kaname_line: a5986266436b0052f6b933ac27770a7eec7f8cc7   # origin/484-notify
+  helm: v4.2.4+g3900f43
+snapshot_at: 2026-10-01T20:26:53Z
+inspected: >-
+  Дельта design.md целиком (шапки редакций 31, 32; З13 «Ручка kaname»; З28 «Флаг», «Перечень источников»,
+  «Декларации»; §8 три строки; §11 строки CX1-104…108, N30, N31, R31-*; §11а УК95…УК99; §13 Е15, Е16 и
+  абзац «Открытых решений нет»); дельта tasks.md (шапка редакции 33; строки Е15, Е16, K3, K3c, K3r, K5,
+  J2, D2, W4a; порядок пп.1, 5, 7). Приёмка NTF-1 — дельта редакции 19 (шапка, Р2 п.2, Р6, Р9, Р12) и
+  предикат W4a. Строка D1 tasks.md NTF-2 (сторона CX1-106 (в)). kacho @origin/2564:
+  `gateway/scripts/gen-permission-catalog.sh`, `gateway/scripts/lib/stage-proto-tree.sh` (сборка корня
+  контрактов), `deploy/helm/umbrella/Chart.yaml` (зависимости, `condition`). kaname @484-notify:
+  `tools/catalogparity/main.go` (печать ожидающих), путь `internal/apps/kaname/seed/embedded/permission_catalog.json`.
+  Строки K1, K2, K4, K8 маршрута и сценарии NTF1-M07, NTF1-F09 приёмки — для CX1-109. Ни go test, ни
+  make, ни helm template не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: "§13 Е16 — возврат в приёмку; приёмка редакции 19 написана (W4a), но вердикта нет. tasks.md: «Е16 — открыта». Абзац §13 «Открытых решений нет» с этим расходится (N33)"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: red
+    detail: "change.yaml hashes.acceptance_sha256 = 1bffe10d… (редакция 19): записи в docs/specs/reviews/<приёмка>/1bffe10d….yaml нет, reviews/class-exposure/initial/1bffe10d….yaml нет"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-109 новый, не отображён; CX1-107 отображён формой, условие на голове K5 неисполнимо (CX1-109)"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "новых нет: K3r — снятие записей, а не новый путь; `kacho.spiffe.uri` — помощник рендера"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 29f44542… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 29f44542 нет; шапка: «Вердикта на эту редакцию нет»"
+
+mapping_check:
+  - item: CX1-104
+    verdict: holds
+    text: >-
+      (а) K3c — три записи `CatalogPendingEntry`, `Removal` по форме условия; (б) генератор края принимает
+      корень контрактов с каталогом `kaname/` раньше модуля (`stage-proto-tree.sh`: корень из дерева идёт в
+      `from_tree`, модуль резолвится только при его отсутствии) и отбор доменов `KACHO_GEN_DOMAINS` — формулировка
+      «над деревом, где `kaname/` — контракт этой полосы» исполнима; (в) предикат — сверка зелёная, «ожидающих»
+      6 → 9, `printPendingEntries` в `tools/catalogparity` есть; (г) K3r. Зависимость от Е15 снята в обоих
+      документах. Остаток — окно красного kaname между посадкой эпика и K3r (N32)
+  - item: CX1-105
+    verdict: holds
+    text: "(а)–(г) переписаны в З13 и предикат K5; пути `strict_env.go` и его проба — в K5"
+  - item: CX1-106
+    verdict: holds
+    text: >-
+      (а) пути под `global.kacho.…`, вход помощников — `.Values.global` аргументом. Признак «объекты notify
+      отрендерены» вычислим в подчарте kaname: зависимость notify заводится без `condition` (З28, CX1-99),
+      рендер notify гейтит только непустой выведенный перечень, а его помощник берёт тот же `global` —
+      второго включателя, невидимого подчарту kaname, нет. Именованные шаблоны в helm общие для дерева
+      чартов, поэтому вызов помощника чарта notify из подчарта kaname с явным `global` исполним (повтор
+      автора, helm v4.2.4). (б) держатель J2 — один рендер, разобранные объекты, три инъекции. (в) порядок
+      J2 → D1 назван в обоих маршрутах, `kaname.spiffeURI` переводит D1. Наблюдаемое изменение путей ушло
+      в приёмку (Е16, W4a); на рабочей редакции 19 предикат W4a даёт 0 вне §правок
+  - item: CX1-107
+    verdict: mapped_but_unattainable
+    text: "см. CX1-109"
+  - item: CX1-108
+    verdict: holds
+    text: "строка S11 NTF-2 несёт блок `serviceIdentity` и пробу рендера по трём случаям; зависимость S11 ← NTF1-K5"
+  - item: N30
+    verdict: holds
+    text: "`Makefile` в путях K3c с предикатом `grep -n 'ОДНО ИСКЛЮЧЕНИЕ' Makefile`"
+  - item: N31
+    verdict: holds
+    text: "порядок назван в §3 обоих маршрутов, строки F2 и S9 NTF-2 называют зависимость от NTF1-K5 и NTF1-K3"
+
+new_items:
+  - id: CX1-109
+    decision: "K5 (CX1-107): проба регистрирует на тестовом слушателе заглушку интерфейса K3c и судит пару «ключа нет → PERMISSION_DENIED, обработчик не вызван» / «согласный ключ → UNIMPLEMENTED из заглушки»; зависимости K5 — K8, K3c"
+    class: >-
+      gate-authoring: исход вместо объявления — проба утверждает исход, производитель которого на её голове
+      не назван и не существует. code-authoring §«Порядок операций внутри кода»: исход определяется тем,
+      какое звено цепочки сработало первым, а проба этого не различает
+    exposure: >-
+      `ResolveSend` проходит два звена: Р2 (служебный субъект из SAN) и звено прав — `DenyDetailUnary` с
+      `PERMISSION_DENIED`/`AUTHZ_DENIED` (NTF1-F09). Звено прав пускает `service:notify` только по кортежу
+      `service:notify reader notification_feed:<пр>` модели K1, а применитель служебного субъекта даёт K2 и
+      исключение надзора — K4. Ни одна из них не в зависимостях K5. Тогда возможны два случая. Цепочка
+      боевая: при согласном ключе звено прав отказывает, обе ветви дают PERMISSION_DENIED, близнец
+      UNIMPLEMENTED недостижим, проба красна по построению. Цепочка собрана в пробе без звена прав: при
+      отсутствии ключа отказать некому, обработчик заглушки вызовется, и PERMISSION_DENIED возьмётся из
+      подставного звена. Ни одна форма не судит Р2
+    condition_on_code: >-
+      (а) Проба K5 собирает слушатель той же функцией корня, что `cmd/kaname/serve.go` (перехватчики и их
+      порядок — из одного конструктора, а не перечислены в пробе). Звено прав в ней — фиктивный порт Check,
+      который записывает предъявленный субъект и разрешает ровно `service:notify` на `ResolveSend`.
+      (б) Пара судит субъект, который дошёл до звена прав, а не только код. Ключа нет: порт видит «субъекта
+      нет», ответ — PERMISSION_DENIED от звена прав, обработчик не вызван. Согласный ключ: порт видит
+      `service:notify`, ответ — UNIMPLEMENTED заглушки. Печатаются оба субъекта.
+      (в) Инъекции: звено без таблицы при согласном ключе → порт видит «субъекта нет» — красный; слушатель
+      собран без звена Р2 → то же — красный.
+      Либо пара с боевым звеном прав переезжает в полосу, зависящую от K1, K2, K4 (K3 или позже), а K5
+      утверждает только (а)–(в) на фиктивном порте
+    held_by: "проба K5 (запланирована); форма цепочки и субъект на звене прав в предикате не названы — до правки держится вниманием"
+
+items: []
+
+notes:
+  - id: N32
+    blocking: false
+    where: "tasks.md строка K3r; порядок п.7"
+    text: >-
+      Сверка копий kaname берёт копию края с ветки kacho по умолчанию без `ref`. Когда эпик сядет в main
+      kacho, самоистечение трёх записей даст находку «запись, которой нечего исключать» на каждой ветке
+      kaname, и до посадки K3r конвейер kaname будет красным. Так задумано (так же срабатывало 2026-09-17 и
+      2026-09-18), но маршрут не называет срока: K3r открывается от головы линии до посадки эпика и садится
+      тем же заходом, а красный kaname в этом окне атрибутирован K3r
+    predicate: "строка порядка п.7 называет «K3r готова до посадки эпика, садится тем же заходом»"
+  - id: N33
+    blocking: false
+    where: "design.md §13 абзац «Открытых решений нет»"
+    text: "Е16 — возврат в приёмку без вердикта, а абзац пишет «Открытых решений нет»; в tasks.md Е16 — «открыта». Два места об одном состоянии расходятся (doc-truthfulness)"
+    predicate: "абзац называет Е16 открытой до одобрения приёмки редакции 19"
+
+measurements:
+  - claim: "предмет и маршрут; маркеров отсрочки нет"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "29f44542…, 0e13b664…; 0"
+  - claim: "приёмка NTF-1 правлена, вердикта и первичного разбора на неё нет"
+    command: "sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md; ls docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/ docs/changes/issue-2915/reviews/class-exposure/initial/ | grep -c 1bffe10d"
+    result: "1bffe10d…; 0"
+  - claim: "старых путей флага и деклараций в приёмке редакции 19 нет (предикат W4a)"
+    command: "grep -nE '(^|[^.a-zA-Z])(notify|notifyProbe|kaname)\\.spiffe|[a-zA-Z]+\\.notifications\\.enabled' <приёмка NTF-1> | grep -v 'global\\.kacho\\.'"
+    result: "пусто"
+  - claim: "генератор края берёт `kaname/` из корня дерева раньше модуля"
+    command: "git -C project/kacho show origin/2564:gateway/scripts/lib/stage-proto-tree.sh | sed -n 176,200p"
+    result: "`if [[ -d \"${dest}/${root}\" ]]; then from_tree+=(…); continue` — модуль `go list -m` только при отсутствии каталога"
+  - claim: "сверка kaname печатает ожидающие записи"
+    command: "git -C project/kaname show origin/484-notify:tools/catalogparity/main.go | grep -n printPendingEntries"
+    result: "строка 90"
+  - claim: "зависимость notify без condition, рендер гейтит перечень"
+    command: "design.md З28 «Запись notify в зависимостях зонтика»; git -C project/kacho show origin/2564:deploy/helm/umbrella/Chart.yaml | grep -n condition"
+    result: "запись `name: notify`, без `alias` и `condition`; у прочих file://-зависимостей `condition: <имя>.enabled`, у `api-gateway` нет"
+  - claim: "K5 не зависит от модели, применителя и исключения надзора"
+    command: "grep -nE '^\\| K[1-8]c? \\|' docs/changes/issue-2915/tasks.md"
+    result: "K5 ← K8, K3c; K1 — модель `service`/`notification_feed`; K2 — применитель `authz.ServiceSubject`; K4 — `SuperGateExempt`"
+
+not_measurable:
+  - item: "какое звено kaname вернёт PERMISSION_DENIED при отсутствии субъекта на `ResolveSend`"
+    why: "сервера и его записи каталога на ветках нет; вывод держится на NTF1-F09 (отказ от `DenyDetailUnary`) и графе полос. Различает это проба CX1-109 (б)"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-109]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "отобразить CX1-109 (З13 «Звено наблюдаемо на голове K5» и предикат K5); N32, N33"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "acceptance-reviewer"
+    subject: "вердикт на приёмку NTF-1 редакции 19 (`1bffe10d…`, дельта W4a)"
+    basis: ".claude/rules/change-graph.md §2"
+  - to: "class-exposure-analyst"
+    subject: "первичный разбор на `1bffe10d…` после вердикта (дельта путей по Д22)"
+    basis: ".claude/rules/change-graph.md §4"

@@ -1,0 +1,97 @@
+# Пост-дифф ревью схемы и repo-SQL — роль db-architect-reviewer, полоса E2 (звено anonmail).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565
+  head: 775eb117602bfb9c9c80fa3fbc76753f1346258f
+  content_digest: 57afe3c881c1f2366d7e999ac327fe3604c441dfb348f93c4b2807fa38844730
+  digest_predicate: git diff 853ab6ea..775eb117 | sha256sum
+  premise_remeasured: >-
+    рабочая копия tmp/2917-e2-anonmail-lane: HEAD = 775eb117602b, рабочее дерево чистое;
+    дифф 56 файлов, +6579/-46; дайджест пересчитан своей командой.
+snapshot_at: 2026-10-01
+
+migrations_touched: 1   # git diff --name-status base..head -- '*migrations*' -> A 20261001180000_anon_mail_limiter.sql
+repo_sql_files:
+  - gateway/internal/middleware/anonmail/store_pg.go
+  - gateway/internal/idempotencypg/anon_mail.go
+
+verdict: RETURNED      # ⛔ возврат: спорные инварианты без пробы с конкурирующими транзакциями
+blocks: true
+return_to: integration-tester (пробы O1–O3); автор полосы E2 (I1)
+
+checks_run:
+  - cmd: go test ./internal/middleware/anonmail/ -run 'TestPg_CX2_11_RaceOnANewKey|TestPg_SECE2_1_Race|TestPg_CX2_43' -count=1
+    result: "зелёных 3 · красных 0 · не выполнилось 0 (pgtest, живой Postgres)"
+
+findings:
+  critical: []
+  important:
+    - id: I1
+      tag: ONE-TIME-HOLE-BY-TWO-CLOCKS
+      where: gateway/internal/idempotencypg/anon_mail.go (reap pow_spent `expires_at <= now()`) против gateway/internal/middleware/anonmail/pow.go:129 (`p.now().Before(exp)`)
+      summary: >-
+        Одноразовость доказательства держит первичный ключ pow_spent лишь пока строка жива.
+        Строку снимают по часам БАЗЫ, срок доказательства проверяют по часам РЕПЛИКИ. Если часы
+        реплики отстают на d, в промежутке d строки уже нет, а доказательство ещё принимается:
+        повтор проходит markSpent как свежий. Флот с несверенными часами — посылка самого
+        замысла (SEC-E2-1).
+      requirement: >-
+        снимать pow_spent с запасом, покрывающим расхождение часов (например,
+        `expires_at <= now() - <предел расхождения>`, одно названное число), либо проверять срок
+        в той же транзакции по часам базы; плюс проба: строка истекла по базе, реплика с отстающими часами
+        предъявляет тот же вызов -> не Pass.
+  minor:
+    - id: M1
+      tag: CHECK
+      where: 20261001180000_anon_mail_limiter.sql, anon_mail_passes.key
+      summary: "у `key TEXT NOT NULL` нет `CHECK (key <> '')`: пустой ключ схема примет"
+    - id: M2
+      tag: OFFSET-NOT-PAGINATION
+      where: store_pg.go:126 nthMomentSQL
+      summary: >-
+        OFFSET здесь не пагинация: выбор n-го момента в окне для Retry-After, ограничен порогом HARD,
+        идёт по индексу (key, at). Принято, не нарушение.
+
+orders:
+  - id: O1
+    to: integration-tester
+    invariant: pow_spent PRIMARY KEY (одноразовость вызова)
+    probe: >-
+      одно и то же доказательство одновременно с ДВУХ разных источников (разные рекомендательные
+      блокировки, две реплики) -> ровно один Pass, прочие не Pass; pow_spent — одна строка.
+      Сейчас конкурирующих проб на этот ключ нет: последовательные есть, а гонка разных ключей не проверена.
+  - id: O2
+    to: integration-tester
+    invariant: anon_mail_bucket FOR UPDATE + CHECK (tokens >= 0) (ведро общего потока)
+    probe: >-
+      N одновременных решений с РАЗНЫХ источников ниже их порога при BURST=B на двух репликах ->
+      пропусков с жетоном ровно B, tokens в строке ведра не ниже 0. Сейчас глобальное ведро
+      проверено только на memory-хранилище/гейте (TestGate_NTF2_74), не гонкой на Postgres.
+  - id: O3
+    to: integration-tester
+    invariant: блокировка ключа подсети (ось подсети)
+    probe: >-
+      одновременные запросы РАЗНЫХ адресов одной подсети на пороге подсети, две реплики -> ровно
+      порог пропусков. Конкурирующие пробы сейчас только по ключу источника (CX2-11, SECE2-1).
+
+approved:
+  - "только новый файл миграции с новым номером (20261001180000 > 20260822140000 > 694001); применённые не тронуты"
+  - "-- +goose Up / Down на месте; все операторы одиночные, StatementBegin не нужен"
+  - "CHECK inline с CREATE TABLE: octet_length(decision_id)=16, octet_length(id)=16, id=1, tokens>=0"
+  - "одноразовость вызова — PRIMARY KEY + INSERT ... ON CONFLICT DO NOTHING RETURNING, без проверки-затем-записи"
+  - "счёт окна под блокировкой: pg_advisory_xact_lock(int4,int4) по отсортированным ключам, затем FOR UPDATE ведра последним — порядок единый, взаимной блокировки нет; счёт читается после блокировки (READ COMMITTED, снимок на оператор)"
+  - "решение и запись пропуска атомарны: моменты всех ключей и запись ведра в одной транзакции, фиксация только при Pass; Reject/Challenge откатывают и пометку вызова"
+  - "окно сверху не закрыто (at > now-w), счёт не зависит от порядка моментов реплик — проба SECE2-1 зелёная"
+  - "индексы обоснованы запросами: (key, at) — countsSQL, nthMomentSQL, momentRecordedSQL; (at) — уборка; (expires_at) — уборка pow_spent"
+  - "INSERT строки-якоря ведра в миграции — справочник продукта (обязана существовать у любой установки), ON CONFLICT без цели"
+  - "текст драйвера наружу не выходит: 503 фиксированным textUnavailable, ошибка только в журнале с классом и шагом, без клиентского адреса"
+  - "нет внешних ключей, нет ссылок через границу сервиса, нет ORM"
+
+intersects_distributed_properties: true   # разрешение исхода COMMIT через pg_xact_status, часы реплик флота

@@ -1,0 +1,56 @@
+role: go-style-reviewer
+change: issue-2915 / K7 NTF (kaname#484)
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: 484-k7-notify-check
+  base: a16d2da0f22ff0bd18c3586b6224af145cbc1f8c
+  head: c96320f1676dd17fe28db2576bc2aa7b9783f352
+  digest_predicate: "git diff a16d2da0f..c96320f16 | sha256sum"
+  digest: 446c41360de3820d31482e6f7d40bd36a11d215f5e491aa861e7db117a083cf9
+verdict: accepted   # ✅ принято на c96320f16
+blocking: false
+scope: "5 файлов, +721: три *_test.go в internal/check, Makefile, .github/workflows/ci.yml; прод-кода в диффе нет"
+fresh_deferral_markers: 0   # grep TODO|FIXME|XXX|HACK|t.Skip по добавленным строкам: rc=1
+probes_in_same_pr: yes      # дифф состоит из проб и их вызова
+critical: []
+important:
+  - id: GS1
+    kind: twin-differs-by-more-than-one-fact
+    at: internal/check/notify_wiring_test.go:78,89,133 (комментарий :68)
+    finding: "Близнец (drop=\"\") пишет файлы сырыми байтами, инъекция — через yaml.Marshal: копии различаются переразметкой YAML (отступы, кавычки, комментарии), а не только снятым шагом; комментарий :68 «различаются ровно одним шагом» шире, чем держит код."
+    require: "Провести близнеца тем же путём разбора и yaml.Marshal (или маршалить каждый .yml при любом drop), чтобы байтовый путь двух копий совпадал."
+  - id: GS2
+    kind: error-wrap
+    at: internal/check/notifytypesafety_test.go:287,300,304,310,313,318,321,337,340
+    finding: "buildInjectedKaname возвращает err без контекста: отказ копии называет «permission denied»/«no such file», но не rel-путь и не операцию."
+    require: "fmt.Errorf(\"<операция> %s: %w\", rel, err) на каждом возврате."
+  - id: GS3
+    kind: error-wrap
+    at: internal/check/notifytypesafety_test.go:345
+    finding: "errors.New со склейкой err.Error() рвёт цепочку ошибки (errors.Is/As по ней невозможны)."
+    require: "fmt.Errorf(\"git %s: %w: %s\", strings.Join(args, \" \"), err, out)."
+  - id: GS4
+    kind: diagnostics-lost
+    at: internal/check/notifytypesafety_test.go:77-80
+    finding: "logCorelibPin печатает только %v от *exec.ExitError («exit status 1»): stderr `go list -m` лежит в ExitError.Stderr и в отказ не попадает; соседний notifygenList (:105-111) stderr несёт."
+    require: "Захватить stderr так же, как в notifygenList, и печатать его в t.Fatalf."
+style:
+  - id: GS5
+    at: internal/check/notifytypesafety_test.go:74,105
+    finding: "exec.Command без контекста: `go run` и `go list -m` (возможный поход в прокси модулей) ограничены только -timeout пакета; при go 1.26 доступен exec.CommandContext(t.Context(), ...)."
+  - id: GS6
+    at: internal/check/notifytypesafety_test.go:92 (requireTreeCensus:90 → logCorelibPin:72)
+    finding: "`go list -m` исполняется на каждый вызов requireTreeCensus (9 подпроцессов за прогон); версию пина достаточно установить раз на корень (sync.OnceValue по root)."
+  - id: GS7
+    at: .github/workflows/ci.yml:289 и Makefile цель notify-tree-gates
+    finding: "Гейты не пропускаются при -short, поэтому семь проб (с копией дерева и `go run notifygen`) исполняются в CI дважды: в `go test ./... -race -short` и в `make notify-tree-gates`. Не дефект; стоимость прогона."
+foundation_candidates:
+  - "Отчёт автора о C10: treehygiene.CorelibVersion в тестовом бинаре печатает «не в графе модулей процесса» — правка в corelib, в kaname обход logCorelibPin; копии кода corelib в диффе нет."
+security_comments_contradicting_code: []
+approved:
+  - "Ошибки исполнения отделены от находок («проверка НЕ ИСПОЛНЯЛАСЬ» через t.Fatalf)"
+  - "Пустой обход — отказ: requireTreeCensus, r.Workflows/Steps, r.SQLFiles, r.Parsed/Generated"
+  - "Тонкие вызывающие: узлы и ведомости в corelib treehygiene, копии перечня в kaname нет"
+  - "Снятие шага — разбором YAML (yaml.Node), а не правкой текста"
+  - "Пин corelib без replace проверяется (go.mod:8, logCorelibPin)"
+  - "Идентификаторы латиницей; паники нет; init() нет; глобального состояния нет"

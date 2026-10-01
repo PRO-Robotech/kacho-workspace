@@ -1,0 +1,313 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 25, маршрут
+# редакции 25.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 25 против последней пересверенной
+# (редакция 24, cd516d1f…, запись revalidation/cd516d1f….yaml — «к замыслу», новый CX2-89). Дельта не
+# закоммичена: рабочее дерево issue-880 @a3662915b.
+#
+# Итог — к замыслу и вернуть в приёмку. (1) CX2-89 прошлой пересверки не отображён: в design.md и в
+# tasks.md упоминаний 0. Одно это запрещает одобрение. (2) Е20 подтверждён замером, это возврат в
+# приёмку строки П6. (3) S11 отображает одну строку группы §3б из шести (`stand-chart.sh`).
+# `stand-own.sh` экспортирует четыре `KANAME_INVITE_MAIL__*`, и после S8 строгий загрузчик откажет kaname
+# в старте — задание `e2e-newman` own будет красным, а не «не выполнилось». Предикат S11 красен по
+# построению. (4) Стенд E1a: kaname из образа ревизии пина go.mod kacho на сегодняшнем пине
+# (4af7fd4fafb4) не знает ключа `notifications` и не стартует. E1a не зависит от D1, которая поднимает
+# пин. (5) Правила тревоги Д66 — первый `PrometheusRule` в дереве kacho, без выключателя: установка
+# упадёт там, где оператора Prometheus нет. (6) Счётчик исчерпания различает причину только при
+# классификации по оператору. (7) Ручки службы в самостоятельной поставке kaname нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: ba5ab10d8a5a077ecdf3a9b6868df63b7af6fbf719b83923da32287d0838fa39
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  revision: 25
+  commit: "— (рабочее дерево поверх a3662915b, не закоммичено)"
+  route_sha256: 4e96bb2a216a6e2ab9492de59eb2f15a3eb5603d6229bf23271184830db1633f   # tasks.md редакции 25
+  change_yaml_design_sha256: ba5ab10d8a5a077ecdf3a9b6868df63b7af6fbf719b83923da32287d0838fa39
+  previous_judged: cd516d1f0ff26f1440536d80206a40eaa0cdb10cf0259e41a3a3e4ef881233e6   # редакция 24, 8d52c5e42
+  decisions_judged:
+    - "Д66 (З8): насыщение строки ведра → StoreUnavailable → 503, принятая цена; метрика `…_bucket_hold_seconds_total`, счётчик `…_bucket_wait_timeouts_total`, правила `AnonMailBucketSaturation`, `AnonMailBucketExhausted` в `gateway/deploy/templates/prometheusrule.yaml`; порог ниже доли из прогона E2; шардирование — §12"
+    - "E1a: стенд П6 стороны края — край в процессе пробы на её часах; kaname — процесс из образа ревизии пина go.mod kacho; notify — процесс из дерева; записывающий посредник край → kaname; E2 ← E1, E1a"
+    - "S11 ← S8, F3; S11 правит узел `inviteMail` в `.github/scripts/stand-chart.sh`; `observability.mdx` — S1 и S8"
+    - "§13 Е19 (вопрос владельцу о стенде kaname), Е20 (возврат в приёмку строки П6)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+  effective_verdict: APPROVED
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/cd516d1f0ff26f1440536d80206a40eaa0cdb10cf0259e41a3a3e4ef881233e6.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a3662915ba6ca52502001bda1410b47aa1287811   # плюс незакоммиченная дельта автора
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d   # origin/2564
+  kaname_line: a5986266436b0052f6b933ac27770a7eec7f8cc7   # origin/484-notify
+  kaname_pin_in_kacho: 4af7fd4fafb4   # go.mod:126 @origin/2564
+snapshot_at: 2026-10-01T18:35:20Z
+inspected: >-
+  Дельта целиком: design.md (шапка редакции 25, З8 «Насыщение строки ведра», З8 «Стенд П6 стороны края»,
+  строки таблицы путей, §12, §13 Е19, Е20), tasks.md (шапка, Е19, Е20, строки S8, S11, E1a, E2, порядок
+  пп.4, 6), change.yaml. Приёмка: §1.1 (предикат переписи), §3б, §5 (П6, П10), сценарии NTF2-59…63
+  (строки 2064–2200). kaname @484-notify: перепись §1.1 по группе `.github/`, `tests/`;
+  `.github/scripts/stand-own.sh` (255–300), `stand-chart.sh` (716), `.github/workflows/{docker-build.yml,
+  e2e-newman.yml}`, `deploy/templates/prometheusrule.yaml` и его гейт, `pkg/`; kaname @4af7fd4fafb4 —
+  `config.go`. kacho @origin/2564: `go.mod`, `gateway/deploy/templates/`, PrometheusRule и ServiceMonitor
+  по дереву, `internal/repohygiene/scrapedeclaration_test.go`. Пробы и гейты не запускались. Записки vault
+  не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "нет нерешённых вопросов (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: "§13: «Открыты два… Е19, Е20»"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-89 (пересверка cd516d1f) — 0 упоминаний в design.md и tasks.md; CX2-90…94 новые"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "новый путь вызова край → посредник → kaname на стенде E1a и новый механизм поставки тревог (PrometheusRule) — пункты CX2-91, CX2-92; не отображены"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = ba5ab10d… = предмет"
+  - condition: "ревью замысла на этот отпечаток (оценено отдельно)"
+    result: red
+    detail: "записи reviews/design на ba5ab10d нет"
+
+mapping_check:
+  - item: "S11 после S8 и F3; observability.mdx — S1 и S8"
+    verdict: holds_partially
+    text: >-
+      Порядок верен: ручки З6 снимаются вместе с читателями, а читателей снимает S8. Перепись
+      `kaname_invite_mail_` в `observability.mdx` S8 держит предикатом с контролем (2 на a59862664).
+      Радиус группы стендов §3б S11 не закрывает — CX2-90
+  - item: "Д66 — fail-closed 503"
+    verdict: holds_with_conditions
+    text: >-
+      Цена принята решением, ветки «пропустить без ведра» нет, исход совпадает с исходом
+      `StoreUnavailable` приёмки Р5 (NTF2-59). Наблюдаемое поведение не меняется, поэтому возврата в
+      приёмку нет. Условия к коду — CX2-92 (поставка правил) и CX2-93 (классификация счётчика,
+      ограниченное ожидание у `memory`)
+  - item: "Е20 — возврат в приёмку строки П6"
+    verdict: holds
+    text: >-
+      Замер подтверждает посылку: `kaname/pkg` @484-notify = `api`, `ownerregister`, `subjectchange`, то
+      есть экспортируемого хоста нет. notify — `services/notify/internal/...` дерева kacho, и из
+      `gateway/internal/ntf2stand` его не импортировать по правилу `internal` Go. Строка П6 «в процессе
+      пробы, общие управляемые часы» неисполнима, это возврат в приёмку, а не условие к коду
+
+unmapped_from_previous:
+  - id: CX2-89
+    record: docs/changes/issue-2917/reviews/class-exposure/revalidation/cd516d1f0ff26f1440536d80206a40eaa0cdb10cf0259e41a3a3e4ef881233e6.yaml
+    predicate: "grep -c 'CX2-89' docs/changes/issue-2917/design.md docs/changes/issue-2917/tasks.md → 0 и 0"
+    note: "Ревью замысла APPROVED на cd516d1f не снимает пункт пересверки. Отображение — (а) правило доступа по имени одной записью без «с неконстантным именем», (б) любое обращение к dunder-атрибуту, (в) пробы (8), (9) в §11, §11а и D6"
+
+new_items:
+  - id: CX2-90
+    decision: "S11: правит узел `inviteMail` только в `.github/scripts/stand-chart.sh`; предикат `git grep -nE 'inviteMail|invite-mail|KANAME_INVITE_MAIL_' -- deploy .github/scripts` → пусто; Е19 — вопрос владельцу о посеве стенда kaname"
+    class: >-
+      measurement-discipline §«Радиус: по имени механизма и по точкам применения»: радиус взят по одной
+      точке применения. verdict-and-landing: «не выполнилось» против красного — стенд, который откажет в
+      старте, даст находку (код 1), а не несозданное условие
+    exposure: >-
+      Перепись §1.1 приёмки по группе §3б «`.github/scripts/`, `tests/authz-fixtures/`, `tests/newman/` —
+      6» на 484-notify — тоже 6 файлов: `stand-chart.sh`, `stand-own.sh`, `review-event-silence.py`,
+      `tests/authz-fixtures/{seed_login_lane,seed_own_stand}.py`,
+      `tests/newman/cases/kaname-address-verification.py`. В маршруте назван 1 (`stand-chart.sh`, S11);
+      `seed_login_lane.py` упомянут только в Е19, остальные 4 — 0 раз в design.md и tasks.md.
+      `stand-own.sh:282–285` экспортирует `KANAME_INVITE_MAIL__{RELAY,FROM,TLS_MODE,CA_BUNDLE_FILE}`. Это
+      имена пространства `__`: после того как S8 снимет ключи `invite-mail.*` из декодера, строгий
+      загрузчик (`strict_env.go`, NTF2-48) откажет в старте с их именами. Шаг `e2e-newman.yml:442`
+      (`stand-own.sh up`) различает исходы: 1 — «служба отказалась стартовать по своей проверке посадки»,
+      75 — «условие не создано». Будет 1, то есть красный. Предикат S11 на 484-notify находит ещё
+      `stand-own.sh` и три пробы вне путей S11: `deploy/outbound_lane_has_an_operator_knob{,_injection}_test.go`,
+      `deploy/prod_profile_injection_test.go`. Предикат красен по построению. Е19: одобренная приёмка §3б
+      уже назначает группе исход «стенд читает письма из приёмника, куда пишет `notify`; посевы П3 и
+      П10». Вариант (б) Е19 противоречит первой половине исхода, вариант (а) заводит ребро стенда kaname
+      → образ kacho (обратное направлению `corelib←kaname←kacho`)
+    condition_on_code: >-
+      (а) Каждый из 6 файлов группы получает полосу и исход в маршруте. `stand-own.sh` снимает
+      `KANAME_INVITE_MAIL__*` той же полосой, что S8 снимает ключи из декодера (или раньше), иначе
+      между ними ствол линии красен. Пробы `deploy/*_test.go` из предиката — в путях S11 или в полосе,
+      снимающей их предмет.
+      (б) Предикат S11 печатает перепись на голове полосы и число осмотренных файлов: 0 строк по
+      `deploy` и `.github/scripts`. Контроль — та же команда на базе: 7 файлов.
+      (в) Е19 переписать как возврат в приёмку строки §3б группы стендов kaname, с выбором владельца
+      между (а) и (б). При (б) исход группы — посев П10 без письма, сценарии с письмом — на П1 kacho.
+      При (а) — решение о ребре стенда kaname → образ kacho по `polyrepo.md`. Отвечает
+      `tests/newman/cases/kaname-address-verification.py`, который сейчас читает письмо kaname: при (б)
+      он снимается или переписывается на П10 той же полосой
+    held_by: "предикат S11 с контролем (есть, но неполон по радиусу); прогон `e2e-newman` own — сегодня даст красный, а не «не выполнилось»"
+
+  - id: CX2-91
+    decision: "E1a: kaname — «процесс стенда из образа ревизии, которую пинит go.mod kacho»; E1a ← E1, Е5; «компонент не поднялся → не выполнилось»; «полоса не вызвана» судится числом записей записывающего посредника край → kaname"
+    class: >-
+      measurement-discipline §«Откуда читается предмет» (провенанс стенда); verdict-and-landing (третий
+      исход, известный заранее, и красный под видом «не выполнилось»); measurement-discipline §«Форма
+      числа» (единица записи посредника)
+    exposure: >-
+      (1) Пин kaname в kacho @origin/2564 — `v0.4.1-0.20260929105655-4af7fd4fafb4` (`go.mod:126`). Это
+      предок 484-notify, но `git grep -c notifications 4af7fd4fafb4 -- internal/apps/kaname/config/config.go`
+      → 0. Файл стенда с `notifications.enabled` строгий декодер отвергнет («ключ, которого не знает
+      декодер, — отказ старта»), kaname не стартует. Пин поднимает D1 NTF-2 («пин kaname на линию
+      kaname#484»), но в зависимостях E1a D1 нет. Положительный контроль E1a (письмо `recovery` через
+      notify) до D1 неисполним, а исход «процесс упал до готовности → не выполнилось» скроет отказ
+      конфигурации под видом инфраструктуры. (2) Образы kaname публикуются с тегом `<slug>-<sha8>` и только
+      для головы ствола и веток линии при посадке (`docker-build.yml:95–97, 177, 242`). Ревизия по тегу —
+      заявление; коммит, не бывший головой отправки, образа не имеет. (3) Ретрансляция край → kaname идёт
+      по TLS через пул соединений. Посредник уровня TCP считает соединения, и повторно использованное
+      соединение несёт вызов без новой записи: «полоса не вызвана» был бы ложным зелёным. Посредник,
+      завершающий TLS, предъявляет kaname свой сертификат, а kaname сужает отправителей по SAN
+      (`trusted-forwarder-sans`)
+    condition_on_code: >-
+      (а) E1a зависит от D1 (пин kacho достигает коммита S9 линии). На старте печатается
+      `git merge-base --is-ancestor <коммит S9> <ревизия пина>` → 0, иначе «не выполнилось» с этим
+      предикатом, ещё до подъёма. (б) Ревизия kaname на стенде читается из подписи образа
+      `org.opencontainers.image.revision` и из самоотчёта процесса (build info), сравнивается с пином и
+      печатается с дайджестом образа; тег — только способ найти образ. (в) Исходы подъёма различаются:
+      образа нет или docker недоступен — «не выполнилось»; процесс вышел с отказом стража старта (текст
+      отказа в журнале) — красный с текстом. Инъекция: стенд с ключом вне декодера → красный, а не «не
+      выполнилось». (г) Посредник записывает ЗАПРОСЫ (HTTP-запрос или поток HTTP/2) с методом и путём, а
+      не соединения. kaname он предъявляет сертификат с SAN края от УЦ стенда, и стенд это печатает.
+      Близнец: два запроса подряд по одному соединению → 2 записи
+    held_by: "положительный контроль E1a и трёхкратный вердикт (запланированы); (а)–(г) в предикате не названы"
+
+  - id: CX2-92
+    decision: "Д66: правила тревоги `AnonMailBucketSaturation`, `AnonMailBucketExhausted` — объектом `gateway/deploy/templates/prometheusrule.yaml`; проба рендера правил против реестра метрик"
+    class: >-
+      security-hardening «Контроль, у которого нет МЕХАНИЗМА исполниться»; security
+      `sec-values-prod-must-boot` (чарт обязан ставиться); doc-truthfulness (два места об одном правиле)
+    exposure: >-
+      В kacho @origin/2564 `kind: PrometheusRule` — 0 файлов, `- alert:` в чартах — 0. Сбор объявляется
+      аннотацией пода, а `ServiceMonitor`/`PodMonitor` — находка гейта
+      `internal/repohygiene/scrapedeclaration_test.go:472` («второй механизм»). E2 заводит в kacho первый
+      объект вида чужого оператора. В kaname тот же предмет уже решён (`deploy/templates/prometheusrule.yaml`
+      @484-notify): «ВЫКЛЮЧАТЕЛЬ ОБЯЗАТЕЛЕН… где оператора Prometheus нет, объект отвергнет схема
+      кластера, и отвергнет она ВСЮ установку». Там же сверка объекта со страницей документации в обе
+      стороны (`TestDeliveredAlertRulesMatchThePublishedPage`) и запрет третьего места
+      (`TestAlertRulesAreDeclaredByOneProducer`). Чарт края ставится зонтиком на стенды kind
+      (production-posture), где оператора Prometheus нет
+    condition_on_code: >-
+      (а) Объект правил под выключателем чарта края с названным умолчанием и значением по каждой цепочке
+      `deploy/stacks.txt`. Отказ из-за отсутствия CRD — предмет пробы: рендер и установка зонтика на
+      стенде без CRD проходят. (б) Правила описаны на странице документации края, сверка объекта со
+      страницей в обе стороны — в форме kaname. (в) Проба рендера правил: имена метрик берутся из
+      реестра (это уже в предикате E2), и включённый выключатель даёт оба правила. Инъекция «выключатель
+      `false` в цепочке, объявленной включённой» → красный с именем цепочки. (г) Строка NTF-2 D1 о
+      правиле `unaddressed` (CX2-07) поставляется тем же механизмом — один механизм поставки тревог на
+      дерево kacho
+    held_by: "проба рендера правил E2 (запланирована); выключатель и сверка со страницей не названы"
+
+  - id: CX2-93
+    decision: "Д66: `kacho_api_gateway_anon_mail_bucket_wait_timeouts_total` — «решения, не получившие строку ведра за `anonMailStoreWait`»; один предел ожидания `anonMailStoreWait` для `lock_timeout` и `pool.Acquire`; у `memory` — «за мьютексом ведра»"
+    class: >-
+      code-authoring §«Чужой ответ: классификация и бюджет»: один код ошибки (`55P03`, истёкший
+      `Acquire`) имеет несколько причин, и счётчик причины верен, только если классифицирует оператор, а
+      не код
+    exposure: >-
+      В транзакции решения строке ведра предшествуют рекомендательные блокировки ключей формы с двумя
+      `int4` (строка ведра последней, E2). `lock_timeout` даёт один и тот же `55P03` и на блокировке
+      ключа, и на `SELECT … FOR UPDATE` строки ведра. Исчерпанный пул ограничителя (CX2-44) тоже кончается
+      `StoreUnavailable`. Без привязки к оператору счётчик насыщения растёт от горячего ключа или
+      исчерпания пула, и правило `AnonMailBucketExhausted` (`critical`) звонит о насыщении, которого нет.
+      `sync.Mutex` в Go срока ожидания не имеет: если «мьютекс ведра» у `memory` — он, то ожидание
+      неограниченно, и проба E2 «на обоих хранилищах: ведро удержано дольше `anonMailStoreWait` → 503»
+      на `memory` неисполнима
+    condition_on_code: >-
+      (а) `…_bucket_wait_timeouts_total` растёт только на истёкшем ожидании оператора строки ведра (на
+      `postgres` — ошибка именно этого оператора, на `memory` — истёкшее ожидание ведра). Ожидание
+      блокировки ключа и `pool.Acquire` растят только `…_store_unavailable_total`.
+      (б) У `memory` ожидание ведра ограничено сроком (семафор-канал с контекстом), а не `sync.Mutex`.
+      (в) Пробы E2: ключ удержан соседним соединением → 503, `store_unavailable` +1,
+      `bucket_wait_timeouts` +0; пул исчерпан → то же +0; строка ведра удержана → +1 и +1. Инъекция
+      «счётчик по коду `55P03`» → первая проба красная
+    held_by: "пробы E2 на насыщение (запланированы); различающих близнецов (в) нет"
+
+  - id: CX2-94
+    decision: "S11: самостоятельная поставка kaname (NTF2-33) с флагом `notifications.enabled`"
+    class: "security-hardening `hard-missing-knob-vs-unseeded`; заказ CX1-108 пересверки NTF-1 7bbe018c"
+    exposure: >-
+      NTF-1 редакции 31 заводит ручку kaname `authn.service-identity`, без которой `ResolveSend` от
+      notify отказан, и называет производителем только подчарт зонтика. Поставка `kaname/deploy`
+      (@484-notify) объявляет ручки звена личности поимённо (`trustedForwarderSANs`, `values.yaml:499`), а
+      блока службы в ней нет и в S11 не заведено
+    condition_on_code: >-
+      S11 заводит блок `serviceIdentity: {methods, services}` → ключ `authn.service-identity` в
+      `deploy/templates/configmap.yaml`: пусто — ключа нет; задана половина — отказ рендера с именем
+      ручки. Проба рендера поставки — согласный блок, половина и пусто, по случаю на каждый
+    held_by: "нужна проба рендера поставки, её нет"
+
+remarks:
+  - >-
+    Порог `0.8` Д66 замысел честно называет ориентиром до замера, а порог ставит ниже доли из ОДНОГО
+    нагрузочного прогона E2 на машине полосы. Доля занятости в момент первого 503 зависит от времени
+    удержания строки, а оно — от задержки базы. Комментарий в шаблоне должен назвать ревизию, профиль
+    флота и машину прогона (атрибуция и срок годности числа), отдельный пункт для этого не нужен
+  - >-
+    `hold_seconds_total` прибавляется после отпускания строки, поэтому при исчезнувшем держателе
+    метрика отстаёт на срок удержания. Срок ограничен `anonMailDecisionBudget` (`idle_in_transaction`,
+    `statement_timeout`), и на окне `[5m]` правила отставание несущественно. Пункта нет
+
+return_to_acceptance:
+  - id: Е20
+    scenario_ids: "строка П6 §5 (сценарии уровня I на П6: NTF2-59…63, 74, 79 и сценарии стороны kaname)"
+    text: "«kaname, notify, край и тестовый SMTP-узел в процессе пробы, общие управляемые часы» неисполнимо: экспортируемого хоста kaname нет (`kaname/pkg` = api, ownerregister, subjectchange), notify — `internal` дерева kacho. Строка называет реализацию по судимому компоненту либо владелец заводит хост"
+  - id: "§3б (через Е19, CX2-90 (в))"
+    scenario_ids: "§3б строка «`.github/scripts/`, `tests/authz-fixtures/`, `tests/newman/` — 6»; П10"
+    text: "Исход группы «стенд читает письма из приёмника, куда пишет notify» на стендах дерева kaname (`stand-own.sh`, `stand-chart.sh`) без notify неисполним; правка — по выбору владельца в Е19"
+
+measurements:
+  - claim: "CX2-89 не отображён"
+    command: "grep -c 'CX2-89' docs/changes/issue-2917/design.md docs/changes/issue-2917/tasks.md"
+    result: "0 и 0"
+  - claim: "группа стендов §3б — 6 файлов, в маршруте назван 1"
+    command: "P='invite-mail|inviteMail|KANAME_INVITE_MAIL|invite_mail|net/smtp|MailKind|OurMailKinds'; git -C project/kaname grep -lE \"$P\" origin/484-notify -- '.github/' 'tests/' ':!*.md'; grep -c <имя> docs/changes/issue-2917/{design,tasks}.md"
+    result: "6 файлов (перечень в CX2-90); stand-chart — 4/3, seed_login_lane — 1/1 (только Е19), stand-own, seed_own_stand, kaname-address-verification, review-event-silence — 0/0. Вся перепись §1.1 на 484-notify — 92 (на caf1c95ca приёмка — 97)"
+  - claim: "предикат S11 на базе находит файлы вне путей S11"
+    command: "git -C project/kaname grep -c -E 'inviteMail|invite-mail|KANAME_INVITE_MAIL_' origin/484-notify -- deploy .github/scripts"
+    result: "7 файлов: deploy/{outbound_lane_has_an_operator_knob_injection_test.go 8, outbound_lane_has_an_operator_knob_test.go 1, prod_profile_injection_test.go 2, templates/configmap.yaml 2, values.yaml 1}, .github/scripts/{stand-chart.sh 2, stand-own.sh 4}"
+  - claim: "stand-own.sh задаёт почту kaname переменными пространства `__` и зовётся конвейером"
+    command: "git -C project/kaname show origin/484-notify:.github/scripts/stand-own.sh | sed -n 280,286p; git grep -n stand-own.sh origin/484-notify -- .github/workflows"
+    result: "282–285 KANAME_INVITE_MAIL__{RELAY,FROM,TLS_MODE,CA_BUNDLE_FILE}; e2e-newman.yml:436, 442, 727"
+  - claim: "пин kaname в kacho не знает флага почты"
+    command: "git -C project/kacho grep -n PRO-Robotech/kaname origin/2564 -- go.mod; git -C project/kaname grep -c notifications 4af7fd4fafb4 -- internal/apps/kaname/config/config.go; git merge-base --is-ancestor 4af7fd4fafb4 origin/484-notify"
+    result: "v0.4.1-0.20260929105655-4af7fd4fafb4; 0 (вывода нет — совпадений нет); предок 484-notify"
+  - claim: "образы kaname публикуются тегом slug-sha8 для голов ствола и линий"
+    command: "git -C project/kaname show origin/484-notify:.github/workflows/docker-build.yml | sed -n 95,98p; grep -n 'image_tag=\\|push=\\$landed'"
+    result: "push: branches [main, '[0-9]+', '[0-9]+-*'], tags v*; image_tag=\"$slug-${HEAD_SHA:0:8}\" (177); push=$landed (242)"
+  - claim: "PrometheusRule в kacho нет; в kaname — с обязательным выключателем"
+    command: "git -C project/kacho grep -ln 'kind: PrometheusRule' origin/2564; git -C project/kacho grep -ln 'alert:' origin/2564 -- '*.yaml' '*.tpl'; git -C project/kaname show origin/484-notify:deploy/templates/prometheusrule.yaml | sed -n 1,40p"
+    result: "0; 0; «ВЫКЛЮЧАТЕЛЬ ОБЯЗАТЕЛЕН… отвергнет ВСЮ установку»"
+  - claim: "экспортируемого хоста kaname нет"
+    command: "git -C project/kaname ls-tree --name-only origin/484-notify pkg/"
+    result: "pkg/api, pkg/ownerregister, pkg/subjectchange"
+  - claim: "предмет и маршрут"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "ba5ab10d…, 4e96bb2a…, 29b09f14…"
+
+not_measurable:
+  - item: "доля занятости строки ведра в момент первого 503"
+    why: "звена нет ни на одной ветке; число даёт нагрузочный прогон E2 (замысел так и пишет)"
+  - item: "исход kaname-address-verification.py после NTF-2"
+    why: "зависит от выбора владельца в Е19; при любом выборе у файла сегодня нет полосы"
+
+outcome: to_design
+unmapped_items: [CX2-89, CX2-90, CX2-91, CX2-92, CX2-93, CX2-94]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "отобразить CX2-89…94; Е19 переписать как возврат в приёмку §3б с выбором владельца (CX2-90 (в))"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "acceptance-author"
+    subject: "строка П6 §5 (Е20) и исход группы стендов §3б (после выбора владельца в Е19)"
+    basis: ".claude/rules/change-graph.md §2"

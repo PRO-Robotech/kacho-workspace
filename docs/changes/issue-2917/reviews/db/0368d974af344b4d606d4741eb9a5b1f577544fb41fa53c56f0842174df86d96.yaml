@@ -1,0 +1,104 @@
+# Пост-дифф ревью схемы и repo-SQL — роль db-architect-reviewer, полоса E2 (звено anonmail), повтор.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+# Предыдущая запись: 57afe3c881c1f2366d7e999ac327fe3604c441dfb348f93c4b2807fa38844730.yaml (⛔, head 775eb117).
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565
+  head: f2b0b18fa662bf46cf3ba77abc8a93be7459d5cc
+  content_digest: 0368d974af344b4d606d4741eb9a5b1f577544fb41fa53c56f0842174df86d96
+  digest_predicate: git diff 853ab6ea..f2b0b18fa66 | sha256sum
+  premise_remeasured: >-
+    рабочая копия tmp/2917-e2-anonmail-lane: HEAD = f2b0b18fa662, рабочее дерево чистое;
+    дифф 71 файл, +8115/-47; дайджест пересчитан своей командой.
+snapshot_at: 2026-10-01
+
+migrations_touched: 2   # git diff --name-status base..head -- '*migrations*' -> A 20261001180000, A 20261001190000
+repo_sql_files:
+  - gateway/internal/middleware/anonmail/store_pg.go
+  - gateway/internal/idempotencypg/anon_mail.go
+
+verdict: ACCEPTED      # ✅ принято
+blocks: false
+return_to: "—"
+
+checks_run:
+  - cmd: go test ./internal/middleware/anonmail/ -run 'TestPg_O1|TestPg_O2|TestPg_O3|TestPg_I1' -count=1 -race -v   (head f2b0b18fa66, живой Postgres)
+    result: "зелёных 4 теста (7 подтестов) · красных 0 · не выполнилось 0"
+  - cmd: "одноразовый worktree @f2b0b18fa66, порча store_pg.go одной заменой, откат git checkout, worktree снят"
+    result:
+      - "S1 markSpentSQL RETURNING true (снят фикс I1): TestPg_I1 — FAIL"
+      - "S2 bucketSQL без FOR UPDATE: TestPg_O2_BucketRace — FAIL; TestPg_O3 — зелёный"
+      - "S3 lockKeySQL без pg_advisory_xact_lock: TestPg_O3 и TestPg_O2_BucketRace — зелёные"
+      - "S4 S2+S3 вместе: TestPg_O3 оба подтеста — FAIL"
+
+closed_from_previous:
+  - id: I1
+    status: closed
+    how: >-
+      markSpentSQL `... ON CONFLICT (id) DO NOTHING RETURNING expires_at > clock_timestamp()`: срок вызова судят часы
+      БАЗЫ в операторе пометки, теми же часами, что уборка (`expires_at <= now()`). Довод упорядочения верен:
+      вставка, встретившая удаляемую строку, ждёт фиксации уборщика, RETURNING вычисляется после, и
+      clock_timestamp() позже now() уборщика >= expires_at. false -> proofRejected, решение не Pass, вставка откатывается.
+    probe: "TestPg_I1_* (store_pg_clock_test.go): зелёная на head, КРАСНАЯ при снятии фикса (S1); близнец «часы вровень» 200→429"
+  - id: M1
+    status: closed
+    how: "20261001190000: ALTER TABLE anon_mail_passes ADD CONSTRAINT anon_mail_passes_key_not_empty CHECK (key <> ''); Up/Down на месте"
+  - id: O1
+    status: closed
+    probe: >-
+      TestPg_O1_*: 16 раундов, одно доказательство с двух источников через две реплики -> pass 16, challenge 16,
+      pow_spent 16 строк. Близнец без PRIMARY KEY: 42P10 -> 503 на всех 32 решениях (закрыто отказом, не двойным пропуском);
+      контроль копии без порчи — ровно один.
+  - id: O2
+    status: closed
+    probe: >-
+      TestPg_O2_BucketRace: 16 решений при BURST=5 на двух репликах -> pass 5, tokens 0; КРАСНАЯ без FOR UPDATE (S2).
+      TestPg_O2_BucketCheck: 12 списаний с 5 жетонов -> 5 принято, 7 x 23514, остаток 0; близнец без CHECK -> 12 принято, остаток -7.
+  - id: O3
+    status: closed
+    probe: >-
+      TestPg_O3_*: 12 решений разных адресов одной /24 на пороге 4, две реплики -> pass 1, счёт подсети 4 (Ps и Hs).
+      Краснеет только при порче ОБОИХ механизмов (S4) — см. M4.
+
+findings:
+  critical: []
+  important: []
+  minor:
+    - id: M3
+      tag: CHECK-POST-HOC
+      where: gateway/internal/idempotencypg/migrations/20261001190000_anon_mail_passes_key_not_empty.sql
+      summary: >-
+        CHECK добавлен отдельной миграцией ALTER, хотя 20261001180000 ещё не в стволе
+        (git ls-tree origin/main и base 853ab6ea: 0 файлов 20261001*), то есть запрет #5 её не закрывал,
+        и конвенция «CHECK inline с CREATE TABLE» выполнима. Не нарушение: если 180000 уже накатана на стенды
+        полосы, отдельный файл честнее. Записью, без задачи.
+    - id: M4
+      tag: REDUNDANT-SERIALIZER
+      where: gateway/internal/middleware/anonmail/store.go Decide (lock -> markSpent -> bucket FOR UPDATE -> counts)
+      summary: >-
+        Строка ведра берётся FOR UPDATE КАЖДЫМ решением до чтения счётов, поэтому все решения флота сериализуются
+        одной строкой, и рекомендательная блокировка ключа для счёта окна избыточна: порча одной из двух не краснит O3
+        (S2, S3 — зелёные), краснеет только обе (S4). Инвариант держит база; пробой не различимо, какой механизм
+        несущий. Если когда-нибудь решение без жетона перестанет брать строку ведра, ось ключа повиснет на блокировке,
+        которую ни одна проба отдельно не судит. Записью; решение «оставить как второй механизм / снять» — за автором полосы.
+    - id: M2
+      tag: OFFSET-NOT-PAGINATION
+      summary: "без изменений с прошлой записи: nthMomentSQL OFFSET — выбор n-го момента, не пагинация; принято"
+
+orders: []
+
+approved:
+  - "только новые файлы миграций с новыми номерами (20261001180000, 20261001190000); применённые не тронуты"
+  - "-- +goose Up / Down в обеих миграциях; операторы одиночные"
+  - "I1 закрыт механизмом базы (часы базы в операторе пометки), проба краснеет на снятии фикса"
+  - "каждый спорный инвариант (PK pow_spent, FOR UPDATE + CHECK ведра, ось подсети) закрыт конкурентной пробой на двух репликах с порчей механизма"
+  - "текст драйвера наружу не выходит; префикс шага ставит единственный store.fail"
+  - "нет внешних ключей, нет ссылок через границу сервиса, нет ORM"
+
+intersects_distributed_properties: true   # часы реплик флота (I1), разрешение исхода COMMIT

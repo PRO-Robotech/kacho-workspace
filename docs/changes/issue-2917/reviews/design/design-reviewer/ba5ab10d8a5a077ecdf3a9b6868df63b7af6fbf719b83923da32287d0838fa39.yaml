@@ -1,0 +1,150 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-2 редакции 25 (маршрут — tasks.md редакции 25). Прежняя
+# запись роли — cd516d1f….yaml (редакция 24, APPROVED, коммит a3662915b). Судится дельта редакции 25:
+# рабочее дерево issue-880 поверх a3662915b, не закоммичено. Разделы вне дельты закрыты прежними
+# записями. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2917
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: ba5ab10d8a5a077ecdf3a9b6868df63b7af6fbf719b83923da32287d0838fa39
+  fingerprint_predicate: "sha256sum docs/changes/issue-2917/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с заданием и с change.yaml hashes.design_sha256 (рабочее дерево)"
+  revision: 25
+  tasks_sha256: 4e96bb2a216a6e2ab9492de59eb2f15a3eb5603d6229bf23271184830db1633f
+  previous_record: docs/changes/issue-2917/reviews/design/design-reviewer/cd516d1f0ff26f1440536d80206a40eaa0cdb10cf0259e41a3a3e4ef881233e6.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+revisions:
+  workspace: a3662915ba6ca52502001bda1410b47aa1287811
+  kacho_epic_base: 6edea09c2ee   # origin/2564; пин kaname 4af7fd4fafb4
+  kaname_line: a59862664         # origin/484-notify
+snapshot_at: 2026-10-01T18:42:29Z
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-2; строка П6 §5 и исход группы стендов §3б — acceptance-author"
+distributed_surface: true      # строка ведра — общий ресурс флота; S8/S11 — совместимость конфигурации и декодера; стенд П6
+schema_review_overlap: true    # Д66 опирается на SELECT … FOR UPDATE строки ведра и lock_timeout (55P03); пределы не меняются, классификация по оператору — CX2-93
+
+inspected: >-
+  Дельта design.md (шапка редакции 25, З8 «Насыщение строки ведра», З8 «Стенд П6 стороны края», строки
+  таблицы путей, §12, §13 Е19, Е20), tasks.md (шапка, Е19, Е20, строки S8, S11, E1a, E2, порядок
+  пп. 4, 6), change.yaml. Контекст: З8 «Срок всего решения» (решение фиксируется до ретрансляции в
+  kaname, и строка ведра на время внешнего вызова не держится). Пересверка разбора классов на этот
+  отпечаток (revalidation/ba5ab10d….yaml, outcome to_design, return_to_acceptance Е20 и §3б).
+  Перемерено своей командой на kaname origin/484-notify: stand-own.sh:282–285 экспортирует
+  KANAME_INVITE_MAIL__{RELAY,FROM,TLS_MODE,CA_BUNDLE_FILE}; stand-chart.sh (накладка стенда) задаёт
+  inviteMail.relay, а deploy/templates/configmap.yaml:764–766 при заданном relay рендерит ключ
+  invite-mail; load.go:39 — декодер ErrorUnused (UnmarshalExact); e2e-newman.yml:882 зовёт
+  stand-chart.sh up; kaname/pkg = api, ownerregister, subjectchange. На kacho origin/2564
+  kind: PrometheusRule — 0 файлов; пин kaname 4af7fd4fafb4 ключа notifications в config.go не несёт.
+  Маркеров отсрочки в design.md 0. Пробы не запускались: предмет — документ.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: "§13: открыты Е19 (вопрос владельцу) и Е20 (возврат в приёмку)"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "CX2-89 (пересверка cd516d1f) — 0 упоминаний; CX2-90…94 (пересверка ba5ab10d) не отображены"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "пересверка на ba5ab10d есть и совпадает с предметом"
+  - condition: "применимое ревью есть на отпечаток"
+    result: red
+    detail: "schema_review_overlap: true — записи db-architect-reviewer на ba5ab10d нет; заказ прежних записей открыт"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает; Admit и момент — одна транзакция (прежние записи)."
+  idempotency: "дельта не трогает."
+  cas_and_locking: >-
+    закрыта по существу Д66. Порядок захвата не меняется (ключи формы, затем строка ведра последней),
+    поэтому дедлок невозможен. Время удержания строки ограничено сроком решения, а не ожиданием, и
+    ретрансляция в kaname идёт после фиксации, так что внешний вызов строку не держит. hold_seconds
+    по флоту даёт верную долю занятости, потому что держатель строки в каждый момент один. Остаток —
+    CX2-93: счётчик исчерпания по коду 55P03 не различает строку ведра, ключ формы и пул.
+  fail_closed_503: >-
+    принято как решение Д66. Ветки «пропустить без ведра» нет, исход совпадает с StoreUnavailable Р5,
+    наблюдаемое поведение не меняется. Цена видна при условиях CX2-92 (поставка правил) и CX2-93.
+  observability_delivery: "возврат: CX2-92 (первый PrometheusRule в kacho без выключателя)."
+  deployment_compatibility: "возврат: R25-1 (окно S8 → S11), CX2-90."
+  stand_provenance: "возврат: CX2-91 (пин kaname без notifications; E1a не зависит от D1)."
+  edges_acyclicity: >-
+    закрыта для продукта. Е19 (а) («стенд kaname поднимает notify») заводит ребро CI kaname → артефакт
+    kacho. Кольца модулей это не даёт, но ребро обязано быть объявлено и решено по polyrepo.md, а не
+    молча. Сверка копий каталога уже читает ствол kacho, так что прецедент есть, хотя и другого вида.
+  public_vs_internal_edge: "дельта не трогает."
+  deadlines: "дельта не трогает; anonMailStoreWait, anonMailDecisionBudget без изменений."
+  replica_state_isolation: "закрыта; ведро — строка базы, памяти между репликами нет (у memory — одна реплика по построению)."
+
+critical:
+  - id: R25-1
+    where: "tasks.md шапка редакции 25 п.(1), строки S8, S11, порядок п.4"
+    finding: >-
+      Перестановка «S11 после S8» закрывает одно окно и открывает обратное. S8 снимает ключи
+      invite-mail.* (и прочие ручки З6) из декодера, а декодер kaname — UnmarshalExact (load.go:39).
+      Между посадкой S8 и S11 накладка stand-chart.sh всё ещё задаёт inviteMail.relay, чарт рендерит
+      invite-mail (configmap.yaml:764–766), stand-own.sh экспортирует KANAME_INVITE_MAIL__*. На голове
+      S8 kaname отказывает в старте на обоих стендах e2e-newman, и это красный, а не «не выполнилось».
+      CX2-90 (а) называет это только для stand-own.sh. Производитель ключа (чарт, накладка, окружение
+      стенда) и потребитель ключа (декодер) меняют совместимость в разных полосах без условия совместной
+      посадки.
+    requirement: >-
+      Снятие ключа из декодера (S8) и снятие всех его производителей (узел чарта, накладка stand-chart.sh,
+      экспорт stand-own.sh, пробы deploy/*_test.go с предиката S11) — одно изменение либо одна единица
+      посадки, а проверки идут на сведённой голове. Маршрут называет это строкой порядка, а предикат
+      печатает исход stand-chart.sh up и stand-own.sh up на голове S8: отказ старта по ключу — красный
+      с именем ключа.
+  - id: R25-2
+    where: "design.md §13; tasks.md Е19, Е20"
+    finding: >-
+      Е19 и Е20 открыты. Е20 подтверждён замером (экспортируемого хоста kaname нет, notify —
+      internal дерева kacho), то есть это возврат в приёмку строки П6. Е19 по сути тоже возврат в
+      приёмку: §3б одобренной приёмки назначает группе стендов kaname исход «читает письма из
+      приёмника notify» (CX2-90 (в)).
+    requirement: "Е20 — в приёмку (acceptance-author). Е19 переписать как возврат в приёмку §3б с выбором владельца; при (а) объявить ребро CI kaname → образ kacho по polyrepo.md."
+  - id: R25-3
+    where: "design.md, tasks.md — CX2-89…94"
+    finding: >-
+      Пункты пересверок не отображены. CX2-89 (с прошлой пересверки) — 0 упоминаний. CX2-90 — радиус
+      группы стендов. CX2-91 — стенд E1a на пине без notifications и посредник, считающий соединения, а
+      не запросы. CX2-92 — PrometheusRule без выключателя валит установку без CRD. CX2-93 — счётчик
+      исчерпания по коду, а не по оператору, и мьютекс memory без срока. CX2-94 — ручка служебной
+      личности в поставке kaname.
+    requirement: "Отобразить каждый пункт с его условием к коду."
+
+important: []
+
+minor:
+  - id: R25-4
+    note: >-
+      Порог 0.8 в AnonMailBucketSaturation ставится по одному прогону E2. В строке комментария шаблона
+      назвать ревизию, профиль флота, машину и задержку базы прогона: доля занятости при первом 503
+      зависит от RTT до базы, и на другом окружении число не переносится.
+
+orders:
+  - кому: "автор замысла NTF-2"
+    что: "R25-1, R25-3 (CX2-89…94); Е19 → возврат в приёмку §3б"
+  - кому: acceptance-author
+    что: "строка П6 §5 (Е20); исход группы стендов §3б после выбора владельца (Е19)"
+  - кому: db-architect-reviewer
+    что: "на ba5ab10d: классификация 55P03 по оператору строки ведра против ключа формы (CX2-93), и прежний заказ (SET LOCAL-пределы, decision_id, FOR SHARE users)"
+
+next: >-
+  Возврат автору замысла NTF-2 и в приёмку (П6, §3б). После правки отпечаток будет новый: заново нужны
+  пересверка разбора классов, эта роль и db-architect-reviewer.

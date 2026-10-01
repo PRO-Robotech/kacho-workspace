@@ -1,0 +1,301 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 31 замысла, маршрут редакции 32.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Режим — дельта к редакции 30 (5228b32b…, запись
+# revalidation/5228b32b….yaml, итог «к коду»). Дельта не закоммичена: рабочее дерево issue-880 на
+# a3662915b, `git diff -- docs/changes/issue-2915/`. Пункты CX1-01…103 и условия УК1…УК94 запись не
+# пересуживает.
+#
+# Итог — к замыслу. Пять новых пунктов. Главное: посылка Е15 опровергнута. Закрытый список
+# расхождений копий каталога прав в kaname уже несёт второй вид записи — `CatalogPendingEntry`
+# (kaname#181, «глагол службы, которого край ещё не видел»), с предикатом снятия ровно той формы,
+# которую Е15 предлагает завести решением владельца. Вид живой: 6 записей на cbbac984b и на
+# 484-notify, читатель — tools/catalogparity. Вопрос владельцу не нужен; K3c заводит три записи
+# этого вида. Второе: блок `authn.service-identity` в подчарте kaname не может прочитать
+# `notify.spiffe` и признак «объекты notify отрендерены» — подчарт не видит значений родителя
+# (замер helm v4.2.4). Третье: имена `KANAME_AUTHN__SERVICE_IDENTITY__METHODS` и `…__SERVICES`
+# строгий загрузчик kaname выведет законными сам, а replacer viper — прочитает: «переменной нет»
+# в замысле держится только явным исключением. Четвёртое: двойник fail-closed в K5
+# ненаблюдаем без зарегистрированного сервера. Пятое: в самостоятельной поставке kaname ручки нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 7bbe018c9619c8e75febfac5887cad4c350b5606709ac01acd80abcddf8a0eda
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 7bbe018c9619c8e75febfac5887cad4c350b5606709ac01acd80abcddf8a0eda   # рабочее дерево, не закоммичено
+  tasks_sha256: 50fc8322c862ae36339261f4a23fb3ec1a65e24ddef2eb6083c9994017d0eab5   # маршрут редакции 32
+  revision: 31
+  content_commit: "— (рабочее дерево поверх a3662915b, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/5228b32b212bb08d77bc5e0b400442b6e1bb7b37d8b3d82741b7535e204de7a7.yaml
+    sha256: 5228b32b212bb08d77bc5e0b400442b6e1bb7b37d8b3d82741b7535e204de7a7
+  delta_predicate: "git diff -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md docs/changes/issue-2915/change.yaml (рабочее дерево issue-880 @a3662915b)"
+  decisions_judged:
+    - "K3c — контрактная полоса (proto, сгенерированный код, три строки реестра прав); K3c ← K8; K5 ← K8, K3c; K3 ← K2, K3c, K5"
+    - "ручка kaname `authn.service-identity` (`methods` ⊆ {ResolveSend}, `services[{san,name}]`), только файл; источник — `notify.spiffe`; блок рендерит J2 в подчарте kaname ровно при отрендеренных объектах notify; J2 ← D9, D2"
+    - "fail-closed: ключа нет или обе части пусты — `NotApplicable`, `ResolveSend` от notify → PERMISSION_DENIED, строка в DEFER(platform_unavailable, misconfigured); половина или значение вне границы — отказ старта"
+    - "§13 Е15 — порядок копий каталога прав, вопрос владельцу; гейтит посадку K3c"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7
+  revision: 18
+  effective_verdict: APPROVED
+  changed_since_previous_record: false
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a3662915ba6ca52502001bda1410b47aa1287811   # плюс незакоммиченная дельта автора
+  kacho_epic_base: 6edea09c2ee2592ee8112981fe99c4f0a393677d   # origin/2564
+  kacho_main: bea4495e934c5903fa010d762a199646a039c510   # origin/main — то, что сверка kaname выбирает без ref
+  kaname_line: a5986266436b0052f6b933ac27770a7eec7f8cc7   # origin/484-notify
+  kaname_cited_by_design: cbbac984b
+snapshot_at: 2026-10-01T18:35:20Z
+inspected: >-
+  Дельта целиком: design.md (шапка редакции 31, абзац З13 «Ручка kaname», строка З28 «Декларации», строка
+  §8, §13 Е15), tasks.md (шапка редакции 32, строки K3, K3c, K5, J2, порядок пп.3, 5, строка Е15),
+  change.yaml. kaname @484-notify: `.github/workflows/ci.yml` (шаг выборки upstream-kacho и сверки
+  копий), `Makefile` (комментарий 495–510, цели check-permission-catalog, proto-lint, proto-gen-diff),
+  `internal/check/catalog_copy_parity.go` (оба вида записей, `compareCatalogCopiesWith`),
+  `internal/check/catalog_covers_own_contract_test.go`, `internal/apps/kaname/config/{load.go,strict_env.go,
+  env_names_documented_test.go}`, `cmd/kaname/serve.go` (identityUnary), `deploy/{values.yaml,templates/
+  configmap.yaml}`. kacho: `gateway/internal/middleware/embed/permission_catalog.json` на origin/main;
+  зонтик на origin/2564 (`charts/kaname/templates/*`, `templates/_trust-domain.tpl`, `values.yaml`).
+  NTF-2 tasks.md строка D1 (пути подчарта kaname). Синтетический зонтик helm v4.2.4 в scratchpad. Ни go
+  test, ни make не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: "§13 Е15 объявлено открытым («Открытое решение одно — Е15»). По CX1-104 вопрос снимается существующим механизмом: K3c заводит три записи `CatalogPendingEntry`"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-104…108 новые, не отображены"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "новых внешних вызовов нет: `ResolveSend` уже был пунктом (З18). `NotApplicable` — исход звена прежней редакции, не новое значение"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 7bbe018c… = предмет (рабочее дерево)"
+  - condition: "применимые ревью замысла есть на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "в reviews/design записи на 7bbe018c нет; шапка: «Вердикта на эту редакцию нет». В `clean` это условие не входит"
+
+mapping_check:
+  - item: "цикл K3 ↔ K5"
+    verdict: holds
+    text: >-
+      Граф маршрута без цикла: K3c ← K8; K5 ← K8, K3c; K3 ← K2, K3c, K5. K5 нужна строка реестра прав
+      (отказ старта «метод вне реестра»), её даёт K3c. Предикат K3c (`git diff --name-only` полосы —
+      ровно три пути и сгенерированное) отделяет контракт от реализации. Остаток — двойник fail-closed
+      в K5, который без сервера не наблюдаем: это CX1-107
+  - item: "J2 после D2"
+    verdict: holds_order_only
+    text: >-
+      Порядок оправдан: признак «объекты notify отрендерены» существует только после D2. Как J2
+      прочтёт этот признак и декларацию из подчарта kaname — не решено, это CX1-106
+
+new_items:
+  - id: CX1-104
+    decision: "§13 Е15 и строка K3c: «закрытый список расхождений объявлен только для переименований контракта фундамента», поэтому сверка копий будет красной до посадки эпика и нужно решение владельца"
+    class: >-
+      measurement-discipline §«Чужое измерение и чужое заявление»: посылка взята из комментария
+      Makefile, а не из кода, который судит. doc-truthfulness: комментарий пережил свой предмет. Итог —
+      ложный блокер маршрута и вопрос владельцу, на который дерево уже ответило
+    exposure: >-
+      kaname @cbbac984b и @484-notify (a59862664): `internal/check/catalog_copy_parity.go` объявляет ВТОРОЙ
+      вид записи — `CatalogPendingEntry`, «ГЛАГОЛ СЛУЖБЫ, КОТОРОГО КРАЙ ЕЩЁ НЕ ВИДЕЛ (kaname#181)». Окно в
+      нём описано ровно то же: «край порождает копию из нашего контракта по пину… промежуточного
+      состояния, в котором обе копии совпали бы, не существует». Записей 6 (глаголы ключа доступа,
+      kacho#1273). `compareCatalogCopiesWith(catalogFoundationRenames, catalogPendingEntries, …)`
+      исполняет их. Читатель — `tools/catalogparity/main.go:165`, а его зовёт `make
+      check-permission-catalog`. Самоистечение уже срабатывало дважды, 2026-09-17 и 2026-09-18. Копия
+      края на kacho origin/main@bea4495e несёт внутренние глаголы kaname
+      (`InternalClusterService/*`, `InternalIAMService/*` …), а `InternalNotificationGrantService` — 0
+      раз. Значит, предикат снятия «край назвал глагол» наступит посадкой эпика с подъёмом пина.
+      Комментарий Makefile 502–505 («ОДНО ИСКЛЮЧЕНИЕ») отстал от кода: N30
+    condition_on_code: >-
+      (а) Е15 закрыть без вопроса владельцу: K3c тем же изменением дописывает три записи
+      `CatalogPendingEntry` в `internal/check/catalog_copy_parity.go` (путь добавить в пути K3c) — по
+      записи на `InternalNotificationGrantService/{ResolveSend,Revoke,Restore}`. Why, Removal и Refs
+      заполняются по форме соседних записей; Removal — «копия края на стволе kacho несёт `<FQN>`».
+      (б) Три строки в `permission_catalog.json` порождены генератором края над контрактом этой ревизии,
+      а не написаны рукой. Этого требует шапка вида: содержимое записи ни с чем не сверяется, пока края
+      нет. В сообщении коммита — команда генерации.
+      (в) Предикат K3c: `make check-permission-catalog EDGE_TREE=<чекаут kacho main>` ЗЕЛЁНЫЙ, перепись
+      печатает «ожидающих 9». Красный здесь — дефект полосы, а не ожидаемое состояние. Строку «исход
+      напечатан как есть — посадка по Е15» снять, зависимость «Е15 (посадка)» у K3c тоже.
+      (г) Порядок снятия: после посадки эпика в kacho main с подъёмом пина сверка kaname даёт находку
+      «запись, которой нечего исключать». Тогда три записи снимаются, а копия синхронизируется тем
+      изменением, что поднимает пин. Назвать это строкой W-полосы либо §13 как предмет соседнего
+      изменения с этим предикатом
+    held_by: "сверка копий kaname (`catalog_copy_parity_test.go`, `make check-permission-catalog`) с самоистечением в обе стороны — гейт есть; после (а)–(в) красный на K3c невозможен без дефекта"
+
+  - id: CX1-105
+    decision: "З13 «Ручка kaname»: `authn.service-identity` — «только файл конфигурации, переменной нет; переменная с приставкой `KANAME_AUTHN__SERVICE_IDENTITY` — отказ старта с её именем»; поле `AuthNConfig.ServiceIdentity`, `mapstructure:\"service-identity\"`"
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить»: два написания одного значения. Строгость
+      окружения kaname ВЫВОДИТ законные имена из ключей декодера, и новое поле само заводит себе второй
+      вход
+    exposure: >-
+      `strict_env.go` @484-notify: законные имена пространства `__` — это `EnvNameOfKey(k)` для каждого
+      ключа `DecoderKeys()`. Обход декодера делает листом список скаляров (`methods`) и список структур
+      (`services`): «список при этом остаётся ключом». Поэтому поле с этой формой само добавит
+      `KANAME_AUTHN__SERVICE_IDENTITY__METHODS` и `KANAME_AUTHN__SERVICE_IDENTITY__SERVICES` в множество
+      законных имён: страж их пропустит, а не отвергнет. `load.go` ставит `SetEnvKeyReplacer(".", "__",
+      "-", "_")` и `AutomaticEnv()`. Ключ, который файл сделал известным, viper разрешает из окружения,
+      и окружение старше файла. Без явного исключения переменная перекрывает таблицу из `ConfigMap` —
+      SAN служебного субъекта задаётся окружением пода. Предикат K5 называет случай «переменная
+      `KANAME_AUTHN__SERVICE_IDENTITY…`». Проба на голом префиксе (имя, которого нет в выводе) пройдёт
+      и при этом дефекте
+    condition_on_code: >-
+      (а) В `strict_env.go` — закрытое объявление ключей «только файл» (один перечень, один читатель).
+      Его ключи и все их подпути исключены из `NestedEnvNames()`, а имя, выведенное из них, — отказ старта
+      с этим именем, до `Unmarshal`.
+      (б) Проба K5 ставит ровно выведенные имена `KANAME_AUTHN__SERVICE_IDENTITY__METHODS` и
+      `…__SERVICES` (по случаю на каждое), при согласном файле: отказ старта с именем переменной. Близнец
+      — тот же файл без переменной: старт, самоотчёт несёт таблицу из файла.
+      (в) Инъекция: запись снята из перечня «только файл» → проба (б) красная (переменная принята и
+      перекрыла файл).
+      (г) Гейт `TestRefusalNamedEnvVarReachesItsField` текстом отказа ручки не задевается: текст
+      называет ключ файла, а не переменную. Если тексту понадобится имя переменной, исключение (а)
+      предъявляется гейту явно
+    held_by: "нужна проба (б) с инъекцией (в), её нет; до неё держится вниманием"
+
+  - id: CX1-106
+    decision: "З13 / З28 «Декларации» / строка J2: блок `authn.service-identity` рендерит шаблон `ConfigMap` ПОДЧАРТА kaname; SAN — помощником из декларации `notify.spiffe`; блок рендерится «ровно тогда, когда рендерятся объекты notify (выведенный перечень источников непуст)»"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены»: решение «notify отрендерен» и SAN принимаются
+      в подчарте notify и в помощниках зонтика, а следствие — в подчарте, который этих значений не видит.
+      security-hardening «Контроль, у которого нет МЕХАНИЗМА исполниться»: адрес и удостоверение не
+      сходятся в одном месте. Вдобавок путь делят писатели двух пакетов без порядка
+    exposure: >-
+      Замер — helm v4.2.4, синтетический зонтик с `notify.spiffe` в values родителя и помощником
+      `u.notifySan` в `templates/` зонтика. Шаблон подчарта `kaname` получает `.Values.notify` = `{}`,
+      вызов помощника зонтика в контексте подчарта — пустую строку; видна только `.Values.global`.
+      Действующее устройство зонтика (origin/2564) это подтверждает. Подчарт kaname берёт свой домен из
+      СВОЕГО `.Values.spiffe` (`kaname.trustDomain`, `charts/kaname/templates/_helpers.tpl:132`), помощник
+      зонтика `umbrella.trustDomain` читает `.Values.mtls` зонтика. Перечень источников (З28) выводится
+      таблицей `_sources.tpl` ЧАРТА notify, и подчарт kaname его не видит. Путь тот же:
+      `charts/kaname/templates/configmap.yaml` и `values.yaml` зонтика правит и полоса D1 NTF-2 (строка
+      D1, tasks NTF-2), тоже меняя помощник SAN в подчарте kaname (`kaname.spiffeURI`). В маршрутах обоих
+      пакетов порядка J2 ↔ NTF2-D1 нет
+    condition_on_code: >-
+      (а) Замысел называет путь значений, который подчарт kaname читает, и признак «notify отрендерен»,
+      вычислимый там же. Например, декларации и флаги, от которых зависит перечень, — под `global.` —
+      либо блок пишется значением зонтика `kaname.config.authn.service-identity` с отдельным держателем
+      согласия. Выбор — в З28; гейт J05 судит выбранный путь как единственное объявление.
+      (б) Держатель J2 — в ОДНОМ рендере каждой из 7 цепочек: SAN строки таблицы в `ConfigMap` kaname
+      РАВЕН `spec.uris` объекта `Certificate` notify; блок есть ⇔ `Deployment` notify есть. Сравнение
+      идёт по разобранным объектам рендера, а не по значениям. Инъекции: (1) `notify.spiffe.saName`
+      изменён только у одного читателя → красный с именем цепочки; (2) notify есть, а блока нет →
+      красный.
+      (в) Назвать порядок J2 и D1 NTF-2 (оба правят `charts/kaname/templates/configmap.yaml` и
+      `values.yaml` зонтика) и общий помощник SAN, к которому сводятся `kaname.spiffeURI` NTF-2 и
+      помощник J2
+    held_by: "J05 и проба J2 (запланированы); сравнение объектов (б) в предикате J2 не названо — нужен заказ"
+
+  - id: CX1-107
+    decision: "строка K5: близнец «ключа нет → `ResolveSend` с сертификатом notify → PERMISSION_DENIED (fail-closed)»; сервер `InternalNotificationGrantService` регистрирует K3 (`cmd/kaname/grpc_register.go`), K3 ← K5"
+    class: >-
+      gate-authoring: исход вместо объявления. Отказ, который проба утверждает, обязан производиться
+      проверяемым механизмом, а не отсутствием обработчика
+    exposure: >-
+      На голове K5 сервера `ResolveSend` нет: K3c даёт контракт и строки, K3 регистрирует сервер позже.
+      В grpc-go вызов незарегистрированного сервиса до цепочки перехватчиков не доходит (`identityUnary`,
+      `cmd/kaname/serve.go:2378`, — перехватчик): ответ `Unimplemented`. Утверждение PERMISSION_DENIED в
+      K5 либо не исполнимо, либо будет исполнено на подставном пути. Положительный двойник «согласный
+      ключ → вызов проходит Р2» в K5 не наблюдаем вовсе
+    condition_on_code: >-
+      Проба K5 регистрирует на тестовом слушателе заглушку сгенерированного K3c интерфейса
+      (`Unimplemented…Server`) и судит пару, различающую звено: ключа нет → `PERMISSION_DENIED`
+      (обработчик не вызван); согласный ключ → `UNIMPLEMENTED` из заглушки (Р2 пропустил). Инъекция:
+      звено строится без таблицы → согласный ключ даёт PERMISSION_DENIED → красный. Либо пара переносится
+      в K3, и строка K5 её не утверждает
+    held_by: "проба K5 (запланирована); различающая пара в предикате не названа — до правки держится вниманием"
+
+  - id: CX1-108
+    decision: "§8 строка `authn.service-identity`: производитель значения — только подчарт kaname зонтика (J2)"
+    class: >-
+      security-hardening `hard-missing-knob-vs-unseeded` и security `sec-chart-carries-guard-knobs`:
+      ручки нет в поставке, а не значение не задано
+    exposure: >-
+      Самостоятельная поставка kaname (`kaname/deploy`, @484-notify) объявляет ручки звена личности
+      поимённо: `trustedForwarderSANs` (`values.yaml:499`, `configmap.yaml:226`). Флаг
+      `notifications.enabled` вводит S11 NTF-2 (`values.yaml:374–377`). Блока `serviceIdentity` в ней нет
+      и ни в одном маршруте не заведено. Установка kaname своим чартом рядом с notify и с флагом `true`
+      не может выдать notify `ResolveSend`. Каждое письмо уходит в отсрочку `misconfigured` навсегда, и
+      исправить это значением нельзя
+    condition_on_code: >-
+      §8 называет второго производителя — чарт `kaname/deploy`: блок `serviceIdentity: {methods,
+      services}` → `authn.service-identity`; пусто — ключа нет; задана половина — отказ рендера с именем
+      ручки. Строку маршрута даёт S11 NTF-2 (CX2-94 пересверки NTF-2 ba5ab10d): заказ NTF-2. Проба рендера
+      поставки: согласный блок → ключ в `ConfigMap`; половина → отказ с именем
+    held_by: "нужна проба рендера поставки kaname, её нет"
+
+items: []
+
+notes:
+  - id: N30
+    blocking: false
+    where: "kaname `Makefile` 495–510 @cbbac984b и @484-notify"
+    text: "Комментарий «ОДНО ИСКЛЮЧЕНИЕ ИЗ «ПОБАЙТОВО»… переименование контракта фундамента» отстал от кода: видов записи два (`CatalogPendingEntry`, kaname#181). На нём построена посылка Е15. Чинится в kaname отдельно — предмет tooling-maintainer kaname"
+    predicate: "grep -n 'ОДНО ИСКЛЮЧЕНИЕ' Makefile → 0 либо текст называет оба вида записи"
+  - id: N31
+    blocking: false
+    where: "строки K3 (`cmd/kaname/grpc_register.go`) и K5 (`internal/apps/kaname/config/config.go`)"
+    text: "Те же пути правят полосы NTF-2 на той же линии kaname#484: S6 и S9 — `grpc_register.go`, полосы конфигурации — `config.go`. Порядок между пакетами не назван. Предметы разные, конфликт текстовый — достаточно строки порядка сведения"
+
+measurements:
+  - claim: "второй вид записи закрытого списка существует и исполняется"
+    command: "git -C project/kaname show origin/484-notify:internal/check/catalog_copy_parity.go | sed -n 150,290p; git grep -n 'CatalogPendingEntries()' origin/484-notify; grep -c 'OwnFQN:' на cbbac984b и 484-notify"
+    result: "тип `CatalogPendingEntry` (kaname#181); 6 записей на обеих ревизиях; читатель — tools/catalogparity/main.go:165; сравнение — compareCatalogCopiesWith(…, catalogPendingEntries, …)"
+  - claim: "сверка kaname выбирает копию края с ветки по умолчанию kacho"
+    command: "git -C project/kaname show origin/484-notify:.github/workflows/ci.yml | grep -n -A5 'repository: PRO-Robotech/kacho$'"
+    result: "checkout без `ref`, sparse `gateway/internal/middleware/embed` (строки 819–823), сверка — строка 859"
+  - claim: "копия края несёт внутренние глаголы kaname, но не InternalNotificationGrantService"
+    command: "git -C project/kacho show origin/main:gateway/internal/middleware/embed/permission_catalog.json | grep -c InternalNotificationGrantService; … | grep -o '\"kaname.cloud.iam.v1.Internal[A-Za-z]*/' | sort -u"
+    result: "0; внутренних служб kaname в копии края ≥ 6 (InternalBootstrapTokenService, InternalClusterService, InternalHumanSessionService, InternalIAMService, InternalInteractiveClientService …)"
+  - claim: "строгость окружения выводит законные имена из ключей декодера, список — ключ"
+    command: "git -C project/kaname show origin/484-notify:internal/apps/kaname/config/strict_env.go | sed -n 1,175p; … load.go | sed -n 50,56p"
+    result: "NestedEnvNames = EnvNameOfKey(DecoderKeys()); срез скаляров и срез структур дают ключ пути; replacer `.`→`__`, `-`→`_`, AutomaticEnv"
+  - claim: "подчарт не видит значений родителя и помощника зонтика в своём контексте"
+    command: "синтетический зонтик в scratchpad/sub: values родителя `notify.spiffe`, помощник `u.notifySan` в templates/ зонтика, шаблон подчарта kaname печатает `.Values.notify`, include помощника, `.Values.global.marker`; helm template (v4.2.4+g3900f43)"
+    result: "direct: \"{}\"; viaHelper: \"\"; global: \"g\""
+  - claim: "самостоятельная поставка kaname не несёт ручки service-identity"
+    command: "git -C project/kaname show origin/484-notify:deploy/values.yaml | grep -n 'trustedForwarder\\|notifications\\|serviceIdentity'"
+    result: "trustedForwarderSANs — 499, notifications — 374–377, serviceIdentity — 0"
+  - claim: "предмет и маршрут; маркеров отсрочки нет"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md"
+    result: "7bbe018c…, 50fc8322…; 0"
+
+not_measurable:
+  - item: "поведение grpc-go на незарегистрированном сервисе именно в сборке kaname"
+    why: "сервера нет ни на одной ветке; вывод держится на устройстве grpc-go (перехватчики обёртывают зарегистрированные обработчики, `UnknownServiceHandler` в kaname не найден: git grep → 0). Проба CX1-107 его и покажет"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-104, CX1-105, CX1-106, CX1-107, CX1-108]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "отобразить CX1-104…108; Е15 снять из §13 и из зависимостей K3c (CX1-104 (а)–(в))"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "автор замысла NTF-2"
+    subject: "строка S11: блок `serviceIdentity` в поставке kaname (CX1-108 → CX2-94); порядок D1 ↔ NTF1-J2 (CX1-106 (в))"
+    basis: "security-hardening hard-missing-knob-vs-unseeded"
+  - to: "tooling-maintainer (kaname)"
+    subject: "комментарий Makefile о закрытом списке (N30)"
+    basis: "doc-truthfulness"

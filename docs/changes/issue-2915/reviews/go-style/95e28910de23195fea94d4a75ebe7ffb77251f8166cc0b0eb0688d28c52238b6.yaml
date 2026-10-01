@@ -1,0 +1,46 @@
+role: go-style-reviewer
+change: issue-2915
+repo: PRO-Robotech/kacho
+branch: 2914-wave-p001-feed-contract
+head: 124c314dde1d9e4d95fd6d360ac520c76383d918
+base: 2a7efc7c19f
+lanes:
+  - name: 2915-p1-catalog-bound
+    commits: [ecdf89ee4aa, b44ca408c63]
+  - name: 2915-p1-kaname-migrate
+    commits: [738ace52ef5]
+    go_part: [deploy/kaname_rendered_settings_are_known_to_the_pin_test.go, internal/repohygiene/standlogsinitcontainers_test.go]
+subject:
+  - deploy/kaname_rendered_settings_are_known_to_the_pin_test.go
+  - gateway/cmd/protoc-gen-kacho-permissions/bound_test.go
+  - gateway/cmd/protoc-gen-kacho-permissions/main.go
+  - gateway/internal/middleware/authz.go
+  - gateway/internal/middleware/authz_scope_bound_test.go
+  - gateway/internal/middleware/permission_catalog.go
+  - gateway/internal/middleware/resource_extractor.go
+  - internal/repohygiene/catalogparity_test.go
+  - internal/repohygiene/catalogparitybound_injection_test.go
+  - internal/repohygiene/standlogsinitcontainers_test.go
+content_digest: 95e28910de23195fea94d4a75ebe7ffb77251f8166cc0b0eb0688d28c52238b6
+digest_command: "F=$(git diff --name-only 2a7efc7c19f 124c314dde1 -- '*.go'); git diff 2a7efc7c19f 124c314dde1 -- $F | sha256sum"
+verdict: accepted
+blocking: false
+critical: []
+important: []
+foundation_candidates: []
+security_comments_contradicting_code: []
+style:
+  - at: gateway/internal/middleware/authz.go:983
+    note: "m.cfg.Logger.Warn без ctx (а decide держит ctx). Совпадает с прочими фазами файла (871, 1053, 1179), поэтому не блокирует; при следующей правке фаз стоит перевести все на *Context разом"
+  - at: gateway/internal/middleware/authz_scope_bound_test.go:81
+    note: "проба утверждает codes.PermissionDenied и ноль Check, но не ErrorInfo.Reason=AUTHZ_DENIED / текст; не блокирует (эхо текста здесь исключено safeDenyDescription)"
+  - at: gateway/internal/middleware/resource_extractor.go:138
+    note: "шапка ExtractFromHTTP не называет исход строки bound_to_server (\"\", nil); сказано только в теле со ссылкой на ExtractFromProto. Не блокирует"
+measured:
+  - "все три пути (unary authz.go:370, stream :426, http :498) идут через decide → phaseScopeBound (4c) до phaseResource; ExtractFromHTTP/ExtractFromProto вне decide не зовутся (grep без _test)"
+  - "isConcreteResourceScope на строке bound (from_request_field \"\") даёт false — 5b/stream-гейт не задеты (authz_util.go:37)"
+  - "reasons отказа до клиента не доходят: safeDenyDescription сводит к \"no authorization path to the resource\" (permission_denied_response.go:42)"
+  - "go vet трёх пакетов = 0; gofmt -l по 10 файлам дельты пусто; ASCII-идентификаторы"
+  - "go test -count=1: protoc-gen-kacho-permissions ok; middleware -run ScopeBound 3 PASS; repohygiene -run CatalogParity ok (замер ради находок, исход не объявляется)"
+deferral_markers_in_delta: 0
+probes_in_same_pr: "да — bound_test.go, authz_scope_bound_test.go, catalogparitybound_injection_test.go (с законными близнецами); Go-часть kaname-migrate сама есть пробы"

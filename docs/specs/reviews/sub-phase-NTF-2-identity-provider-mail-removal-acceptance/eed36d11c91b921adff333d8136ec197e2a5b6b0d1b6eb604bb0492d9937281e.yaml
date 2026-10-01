@@ -1,0 +1,201 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+  revision: 30
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа говорит «Статус: DRAFT», и эта запись её НЕ правит. Вердикт привязан к
+    отпечатку, а не к слову в заголовке. Действующий вердикт выводится из этой записи и внешнего
+    события.
+  content_commit: none   # рабочее дерево worktree issue-880, не закоммичено; база a3662915b
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4719
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-01T23:00:00Z'
+round: 4
+round_note: >-
+  Круг 4 по счёту каталога: следующий за записью 28ec3b81… (круг 3, редакция 29, ⛔). Редакция 29
+  не закоммичена, поэтому отдельной дельты 29 → 30 в дереве нет. Прочитаны: §11 «Редакция 29 → 30»,
+  каждое место из её таблицы (§3б, §5 П6 и три новых абзаца, NTF2-63, NTF2-69, NTF2-72, NTF2-90
+  Given, Р16 пп. 7–8, §6в признаки 3–4, §7 строки NTF2-06 и NTF2-69 (е), DoD пп. 5, 7, 8, 9).
+  Сверено с деревьями kacho @origin/2564 e201adbf36f и kaname @origin/484-notify a59862664, а также
+  с приёмкой NTF-1 в worktree. Прежние записи не правились.
+previous_rounds:
+  - pass: редакция 28, круг 2
+    sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+    verdict: APPROVED
+  - pass: редакция 29, круг 3
+    sha256: 28ec3b81162f375043079a769a57094df216fa0b1d84a52a0f1f12a5f6006317
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [CONSTRUCTIBILITY]
+decisions_applied:
+  D70: >-
+    ОТРАЖЕНО. NTF2-63 перенесён в playwright-пробу NTF2-72 и идёт после её шага 3. Ступень PoW
+    строит шаг 2. Близнец (`register` без доказательства) стоит первым и последним запросом. Если
+    ступени нет, исход «не выполнилось». NTF2-69 (е) идёт на П1 аккаунтом П5, и это E-уровень.
+    Состав края в П6 закрыт. Канал глаголов мимо края назван: внешний слушатель kaname с сессией
+    `login`, а `ForceLogout` — на внутреннем слушателе. Сверка класса шла по When (таблица
+    «When сценариев П6 → состав П6»), и маршрутов REST-шлюза среди этих When нет. B-1 круга 3
+    закрыт.
+prior_items:
+  B-1: закрыто (D70)
+  N-1: закрыто. Вне §11 старых путей ноль (S-5)
+  N-2: закрыто. В NTF2-06 и §7 названы источники счёта и исход «не выполнилось»
+  N-3: закрыто. Названа метка образа; условие публикации вынесено в Р16 п.7
+  N-4: закрыто. Дефолт записан в Р16 п.8 вместе с предикатом
+  N-5: закрыто. Список наследников выведен из таблицы «кейс → сценарий»
+  N-6: закрыто. Таблица на 15 кейсов, перепись воспроизведена разбором AST (S-2), держатели в дереве есть (S-3)
+  N-7: закрыто. Формулировка переведена на типы атрибутов NTF-1
+blocking_count: 0
+blocking_kinds_distinct: []
+defaults_fixed:
+  Q1: >-
+    Форма запросов полосы формы на уровне E (NTF2-63, а по тому же образцу и 03, 81, 82, 85, 94).
+    В When NTF2-63 запросы записаны сокращённо. Если читать буквально, «Тогда» не выполняется на
+    kaname @a59862664. `GET /iam/v1/auth/csrf` без `?form=` даёт 400 INVALID_ARGUMENT
+    (`loginlanehttp/handler.go:479–482`), а не 200. `login` без `csrfToken` отвергается до глагола
+    (`:503`, `judgeForm`). `recovery/complete` без `csrfToken` и `newPassword` отвергается раньше
+    сверки кода (`:663–668`), так что 401 `code` 16 не наступает. ФИКСИРУЮ ДЕФОЛТ: каждый запрос
+    полосы формы уровня E несёт `csrfToken` своего вида. Токен берётся `GET /iam/v1/auth/csrf?form=<вид>`
+    с печеньем контекста формы того же клиента, а тело содержит все обязательные поля формы:
+    у `recovery/complete` — годный `newPassword`, у `register/confirm` — `password`. В NTF2-63
+    `GET /iam/v1/auth/csrf?form=login` идёт до `login`, а утверждение «`csrf` — 200» относится к
+    запросу с годным `form`. Если реализация не может так построить запрос, это возврат в приёмку,
+    а не правка пробы. При следующей правке документа стоит записать это одной строкой в абзац
+    «Форма запроса и ответа уровня E» (§6).
+non_blocking:
+  N-1: >-
+    [CONSTRUCTIBILITY, дефолтабельный] NTF2-69 (е): для (а)–(д) печатается условие
+    `pending-max > account-per-day`, а для (е) условие `invite.pending-max > Y` не печатается. Если
+    в рендере `dev` `pending-max ≤ Y`, запрос `Y + 1` встретит `INVITATION_PENDING_LIMIT` (400,
+    `code` 9) раньше потолка. Поставляемые значения Р8 (200 против 50; `stand-own.sh:326–328`
+    kaname) условие выполняют, а `deploy/` kacho @e201adbf36f ручек приглашений не переопределяет
+    (git grep -i 'young|pendingMax' → пусто). Дефолт: проба (е) печатает `pending-max` и `Y`, а
+    при `pending-max ≤ Y` даёт исход «не выполнилось».
+  N-2: >-
+    [FORMAT] DoD п.8 называет NTF2-69 (е) «уровень E на П1 через край», но не говорит, в какой
+    коллекции newman лежит кейс. В п.4 коллекция названа: `gateway/tests/newman/cases/`, с записью
+    ведомости производителя. Дефолт: (е) идёт в той же коллекции п.4, а если коллекция новая,
+    ей нужна запись ведомости производителя.
+  N-3: >-
+    [FORMAT] П6, «Канал глаголов мимо края»: «сессия … перенесённая так, как её переносит край».
+    Это описание конкретно ровно настолько, насколько конкретен край. На П6 шлюза нет, поэтому
+    фикстура должна воспроизводить перенос личности сама: заголовок доверенного отправителя под
+    сертификатом края (`.claude/rules/security.md` `sec-forwarded-trust-aware-extract`).
+    Рекомендую назвать заголовок поимённо при следующей правке. Положительный контроль П6 уже
+    печатает оба слушателя, и отказ переноса проявится там как красное на первом же глаголе, а
+    не тихо.
+return_to: none
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+  declared_verdict: APPROVED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_approved
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Событие публикует не рецензент, тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку eed36d11…. Документ не закоммичен: одобрение действует, когда в линии лежит
+    ровно этот отпечаток.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 4, редакция 30, блокирующих 0) · SHA-256
+    eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: рабочее дерево issue-880 (sha256 eed36d11…), база a3662915b
+    kacho: origin/2564 e201adbf36f (project/kacho)
+    kaname: origin/484-notify a59862664 (project/kaname)
+  results:
+    - id: S-1
+      claim: маршрут приглашения — REST-шлюз края; поля тела — по InviteUserRequest
+      command: >-
+        git grep -n 'users:invite' origin/2564 -- gateway/internal/middleware/rest_route_table_gen.go;
+        git grep -n -A6 'message InviteUserRequest' origin/484-notify -- '*.proto'
+      outcome: >-
+        `:177` → `UserService/Invite`. Поля: `account_id = 1` и `email = 2`, в JSON — `accountId`
+        и `email`. Payload (е) верен.
+    - id: S-2
+      claim: в трёх наборах 15 кейсов kaname, читающих приёмник писем (6/6, 5/8, 4/17)
+      command: >-
+        Python-AST над git show origin/484-notify:tests/newman/cases/{kaname-address-verification,
+        kaname-recovery-lane,kaname-second-factor}.py; вызов `Case(...)`, транзитивно — по функциям
+        модуля к {_await_letter,_letters_total,_await_code,_fp_await_letter}
+      outcome: >-
+        6 из 6, 5 из 8, 4 из 17, всего 15. Множество id совпало с таблицей §3б поимённо. Посылка
+        автора подтверждена.
+    - id: S-3
+      claim: Go-держатели снятых ненаследуемых кейсов существуют
+      command: git show origin/484-notify:<файл> | grep -c 'func <имя>(' по четырём парам таблицы §3б
+      outcome: 'по 1 у каждой: TestRecovery_F5_05…, TestRecoveryCodes_F5_03_05…, TestOnRecoveryCompleted_S02…, TestF12_19…'
+    - id: S-4
+      claim: полоса формы требует csrfToken и `?form=` (основание дефолта Q1)
+      command: git show origin/484-notify:internal/handler/loginlanehttp/handler.go | sed -n '434,560p;650,680p'
+      outcome: >-
+        `csrf` без годного `form` → 400. `login`, `register` и `recovery/complete` вызывают
+        `judgeForm` до глагола; `requireFields` проверяет `newPassword` раньше кода. Буквальная
+        форма When NTF2-63 даёт отказ полосы, а не утверждаемые исходы. Это зафиксировано
+        дефолтом Q1.
+    - id: S-5
+      claim: старых путей значений вне истории нет; пути NTF-2 совпадают с редакцией 19 NTF-1
+      command: >-
+        grep -nE '(^|[^.a-zA-Z])(kaname|notify|notifyProbe)\.(spiffe|notifications\.enabled)' <приёмка> | awk -F: '$1<4129';
+        grep -cE 'global\.kacho\.notifications\.modules\.<модуль>\.enabled|global\.kacho\.spiffe\.kaname' <приёмка NTF-1>
+      outcome: >-
+        0 строк вне §11. Предикат Р16 п.8 на рабочей копии NTF-1 даёт 7. NTF-1 ещё не одобрена,
+        поэтому п.8 остаётся условием старта, и это верно.
+    - id: S-6
+      claim: у NTF2-63 после переноса есть производитель в §7
+      command: sed -n '/^## §7/,/^## §8/p' <приёмка> | grep -nE '6[0-3]'
+      outcome: строка «NTF2-60…63, 74, 79, 71 (край)» → новое звено края, NTF-2 (`kacho#2917`).
+constructibility:
+  seeded: 0
+  of: 3
+  not_performed: 2
+  named_fixture: 3
+  note: >-
+    Новые нетривиальные Given редакции 30 разобраны по одному. (1) NTF2-63: ступень PoW источника
+    раннера П1 строит шаг 2 NTF2-72 той же пробы, это названная фикстура. Наличие ступени проверяет
+    близнец в начале и в конце When; если ступени нет, исход «не выполнилось». Посев не выполнен:
+    стенд П1 с посаженной NTF-2 ещё не существует (звено ограничителя заводит полоса реализации),
+    и разрешения на подъём не было. (2) NTF2-69 (е): аккаунт П5 появляется в исходе NTF2-80, это
+    названная фикстура, а возраст ниже `Ya` следует из построения, длительность печатается. Посев
+    не выполнен по той же причине. (3) Таблица «кейс → сценарий» §3б — перепись по дереву, она
+    воспроизведена разбором (S-2, S-3).
+route_flags:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true          # NTF2-72/63/58 — экраны консоли (как в прежних редакциях)
+  new_domain: false
+  security_surface: true   # ограничитель края, Retry-After, SAN ленты под global, канал мимо края на П6

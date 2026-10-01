@@ -1,0 +1,267 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 28ec3b81162f375043079a769a57094df216fa0b1d84a52a0f1f12a5f6006317
+  revision: 29
+  static_status: DRAFT
+  static_status_note: >-
+    Строка истории шапки: «редакция 29 · 2026-10-01 · вердикта нет». Эта запись шапку НЕ правит:
+    вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из этой
+    записи и внешнего события.
+  content_commit: none   # рабочее дерево worktree issue-880, не закоммичено; база a3662915b
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true   # совпал с отпечатком из отчёта автора
+  lines: 4571
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-01T12:00:00Z'
+round: 3
+round_note: >-
+  Круг 3 по счёту каталога: задание велит брать номер, следующий за последним (запись 29b09f14…,
+  круг 2). По прежнему обычаю серии правка одобренной редакции открывала круг 1, так что это
+  расхождение нумерации, а не новый смысл. Редакция 29 правит одобренную редакцию 28 (`29b09f14…`),
+  и одобрение редакции 28 на этот отпечаток не переносится. Прочитана вся дельта
+  `git diff HEAD -- <приёмка>` (HEAD = a3662915b, документ на HEAD = 29b09f14…; +226 −77): шапка,
+  Р1, Р4, Р16 п.6, §3б (таблица «стенды дерева kaname»), §5 (П3, П4, П6, П6-k, П6-off/П6-k-off,
+  П6-age, П10, П11, «сценарий уровня I → стенд», «как читается „Тогда“ на П6-k», «источник на
+  П6-k»), §6 «Уровни», Given всех I-сценариев, NTF2-06, 07, 51, 53, 68, 69 (е), 71, 88, 89, §6б,
+  §6в, §7 (строки NTF2-07, 09 и NTF2-69 (е)), DoD пп. 3, 5, 8, 10, 11, 13, 17, §11 «Редакция 28 → 29».
+  Сверено с деревьями kacho @origin/2564 6edea09c2ee и kaname @origin/484-notify a59862664, с
+  приёмкой NTF-1 в worktree, с замыслом issue-2917 (§ З8, Д69) и маршрутом issue-2915 (W4a, Е16).
+  Прежние записи не правятся.
+previous_rounds:
+  - pass: редакция 27, круг 1
+    sha256: 81b95b646f716b58f68a4b07d74b189d7a5539ad9fc5891ee6b9e7e089c12aa1
+    verdict: CHANGES_REQUESTED
+    blocking_kinds: [PRODUCER]
+  - pass: редакция 28, круг 2
+    sha256: 29b09f140b808281415b5b938d75af50c1bd586218f0be491c40881602bb7014
+    verdict: APPROVED
+    blocking_kinds: []
+series_note: >-
+    За всю серию записей этого документа (24 файла) род CONSTRUCTIBILITY блокировал на 14 кругах.
+    Блокирующее этого круга — снова CONSTRUCTIBILITY, и это тот класс, который автор сам назвал в
+    §11 («Given приписан построению, которое не собирается») и сверил. Сверка шла по Given, а по
+    пути, которым ходит When, не шла (ниже, B-1). Что делать с повтором рода, решает диспетчер
+    (§14а).
+decisions_applied:
+  D67: >-
+    ОТРАЖЕНО. §3б: стенды дерева kaname без notify, люди заводятся посевами П3 и П10, сценарии с
+    письмом уходят на П1. Радиус перемерен вторым предикатом, у каждого из 14 файлов назван исход.
+    Снятие ключей из декодера и снятие всех их производителей садятся одной посадкой (DoD п.17).
+    Отказ старта — красный. Ребро «CI kaname → образ kacho» не заводится.
+  D68: >-
+    ОТРАЖЕНО ПО ЗАМЫСЛУ, НЕ ПО КОНСТРУИРУЕМОСТИ. П6 разделён: на П6 край в процессе и на часах пробы,
+    kaname — процесс из образа пина, notify — процесс из дерева. Добавлен П6-k, где kaname в процессе
+    и на часах пробы, а вместо notify — читатель ленты. Экспортируемого хоста нет. Таблица «сценарий
+    → стенд» покрывает все 40 I-сценариев (перепись, S-1). Но П6 перечисляет состав края закрыто,
+    и двум сценариям на П6 этого состава не хватает (B-1).
+  D69: >-
+    ОТРАЖЕНО в объёме приёмки: второе исключение DoD п.13 (`global.kacho.alertRules.enabled: false` в
+    `values.dev.yaml`), проверка (2) ждёт две строки. Профиль цепочки `dev` — только этот файл
+    (`deploy/stacks.txt` @6edea09c2ee: `dev:values.dev.yaml`). Само правило и его сверку со
+    страницей держит замысел (З8, `alert_rules_delivered_test.go`), приёмка их не утверждает.
+    Принимаю.
+  CX1-106: >-
+    ОТРАЖЕНО. Переопределение флага модуля перенесено в `global.kacho.notifications.modules.<м>.enabled`,
+    SAN — в `global.kacho.spiffe.kaname`. Осталась одна строка со старым путём, см. N-1. Новый путь
+    пока не назван в одобренной приёмке NTF-1, см. N-4.
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_kinds_by_item:
+  B-1: CONSTRUCTIBILITY
+blocking:
+  B-1: >-
+    [CONSTRUCTIBILITY] П6 описывает край закрыто: «звено ограничителя и ретрансляция полосы формы,
+    собранные функциями корня края» (§5, строка П6). Два сценария на П6 идут через край путями,
+    которых в этом составе нет. (1) NTF2-63, When: `GET /iam/v1/projects` сессией человека; Then:
+    «200». (2) NTF2-69 (е), When: «через край `POST /iam/v1/users:invite`»; Then: `429`, `code` `8`,
+    `Retry-After`. Оба пути — маршруты REST-шлюза края, а не полосы формы:
+    `gateway/internal/middleware/rest_route_table_gen.go:136` (`/iam/v1/projects` →
+    `ProjectService/List`) и `:177` (`/iam/v1/users:invite` → `UserService/Invite`) @6edea09c2ee. В
+    перечне полосы формы (`login_lane_paths.go:91–118`) их нет. Чтобы пройти этими путями, нужны
+    REST-маршрутизатор, проверка JWT по JWKS kaname, список разрешённого
+    (`allowlist/list.go:274`), запись каталога прав `iam.users.invite` со своей проверкой и
+    обработчик ошибок шлюза. Обработчик ошибок и есть производитель того, что утверждает (е): перенос
+    метаданных `retry-after` в заголовок, полоса E1b (§7, строка NTF2-69 (е)). На П6 в нынешней
+    редакции ничего из этого не собирается. Значит, Given (е) не строится, и её «Тогда» на П6 не
+    имеет производителя. Редакция 28 этого дефекта не имела: состав края в ней не был ограничен.
+    Сужение внесла Д68-правка этой редакции. Как исправить (одно из двух, выбор за автором):
+    (а) включить в П6 состав края, обслуживающий эти маршруты (REST-шлюз корня края с цепочкой
+    authN/authZ и обработчиком ошибок), и назвать, кто даёт JWKS и проверку прав: процесс kaname
+    стенда. Положительный контроль тогда печатает смонтированные маршруты, и маршрута нет — значит
+    «не выполнилось» с его именем. (б) перенести (е) на уровень, где край собран целиком.
+    Например, E на П1: аккаунт П2, только что заведённый регистрацией, моложе `Ya` по построению,
+    а `young-account-per-day` берётся из Р8. Для NTF2-63 перенести на П1 или сузить When до путей
+    полосы формы, назвав держателя «`projects` без ограничителя». В обоих случаях поправить §5
+    («как читается „Тогда“ на П6-k», последний пункт), таблицу «сценарий → стенд» и DoD п.8. Тем же
+    проходом назвать в П6 канал глаголов, которые не идут через край: NTF2-90 (22 глагола, среди
+    них `ForceLogout` на внутреннем слушателе, `ResetSecondFactor`, регистрация ключа входа), 91,
+    92, 93, 96. У процесса kaname это внешний gRPC-слушатель с сессией от `login` и внутренний с
+    сертификатом стенда (N-6). Сверку класса провести по When каждого сценария на П6 против
+    состава П6, а не только по Given.
+non_blocking:
+  N-1: >-
+    [FORMAT] §7, строка NTF2-06, последний столбец: «подъём сервера ленты kaname с сертификатом из
+    `kaname.spiffe`». Это единственное место вне §11, где остался старый путь. По CX1-106 надо
+    `global.kacho.spiffe.kaname`, как в Р1, П4, NTF2-53 и DoD п.3.
+  N-2: >-
+    [PRODUCER] NTF2-06 на П6: «вызовов `Claim` на сервере ленты kaname 0», «вызовов `ResolveSend` у
+    kaname по пространству `kaname` 0». На П6 kaname — внешний процесс, а записывающий посредник
+    стоит только на ребре край → kaname. Источник счёта надо назвать: метрики клиента `notify`
+    (счётчик вызовов `ResolveSend`, которым NTF1-G22 утверждает «0», и метрики notify из NTF1-L01) и/или аренда
+    строки в базе kaname. При исполнении — «не выполнилось», если источник не печатает пространство.
+  N-3: >-
+    [FORMAT] П6: «ревизия читается из подписи образа». В дереве kaname @a59862664 подписи нет
+    (`--provenance=false`, cosign не используется). Есть метка `org.opencontainers.image.revision`,
+    файл `/etc/kacho/image-revision` (`Dockerfile:130–132`) и ряд `kaname_build_info`
+    (`serve.go:259`). Слово надо заменить на «метка». И ещё: образ публикуется только для `main`,
+    тегов и голов линий, которые служат базой запроса (`docker-build.yml`, шаг «гейт … посаженности»).
+    Если пин kacho стоит не на опубликованной голове, все сценарии П6 получают «не выполнилось».
+    Это стоит назвать условием в Р16, иначе П6 может молча не исполниться ни разу.
+  N-4: >-
+    [OPEN-QUESTION, дефолтабельный] NTF2-53 (б), Р4 и Р16 п.6 опираются на путь
+    `global.kacho.notifications.modules.<м>.enabled`. Одобренная приёмка NTF-1 его ещё не называет:
+    в worktree он не встречается ни разу, правку несёт W4a маршрута issue-2915. §11 это признаёт.
+    Порядок держится маршрутом: D2 NTF-1 ждёт W4a, NTF-2 начинается после NTF-1 (Р16 п.1). Если
+    утверждение тихо разойдётся, рендер это не скроет: неизвестный ключ `--set` даст у kaname `true`,
+    и (б) покраснеет. Фиксирую дефолт: путь NTF-2 = путь, который одобрит W4a. Если одобрен другой,
+    это возврат в приёмку NTF-2, а не правка пробы. Рекомендую внести это строкой в Р16.
+  N-5: >-
+    [FORMAT] §3б, строка группы `.github/scripts/, tests/authz-fixtures/, tests/newman/`: наследники
+    «NTF2-01, 02, 03, 19, 43 на П1». В таблице файлов ниже наследников шесть, там есть ещё 94.
+  N-6: >-
+    [COVERAGE] Наследник снятого newman-кейса kaname называется в сообщении коммита. Сообщение
+    коммита как держатель слабее, чем строка самого документа. Таблица наследования «кейс → сценарий
+    NTF-2» прямо в §3б была бы проверяемой. Канал глаголов П6 — см. хвост B-1.
+  N-7: >-
+    [FORMAT] NTF2-68: «атрибуты строки ленты ссылки не несут (проба печатает их имена)». Точнее
+    было бы сказать через типы NTF-1: в `notifications/mail-throttled/notification.yaml` нет
+    атрибута типа `path` или `token`. Кнопка строится только из них (NTF-1, формат тела). Смысл от
+    этого не меняется.
+return_to: acceptance-author
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 28ec3b81162f375043079a769a57094df216fa0b1d84a52a0f1f12a5f6006317
+  declared_verdict: CHANGES_REQUESTED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_changes_requested
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Событие публикует не рецензент: тело для курьера лежит в event_body_for_courier. Вердикт
+    относится только к отпечатку 28ec3b81…
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3, редакция 29, блокирующих 1: CONSTRUCTIBILITY) · SHA-256
+    28ec3b81162f375043079a769a57094df216fa0b1d84a52a0f1f12a5f6006317
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: рабочее дерево issue-880 (sha256 28ec3b81…), дельта против HEAD a3662915b
+    kacho: origin/2564 6edea09c2ee (project/kacho)
+    kaname: origin/484-notify a59862664 (project/kaname)
+  results:
+    - id: S-1
+      claim: таблица «сценарий уровня I → стенд» покрывает все I-сценарии
+      command: >-
+        grep -nE '^\*\*ID:\*\* NTF2-[0-9]+ · I' <приёмка> и первая строка Given каждого
+      outcome: >-
+        40 I-сценариев. У каждого стенд в Given совпадает со строкой таблицы. NTF2-48, 50 и 71 —
+        конфигурации старта, их стенд назван в таблице или в 71. Расхождений нет.
+    - id: S-2
+      claim: радиус читателей приёмника писем в kaname — 14 файлов
+      command: >-
+        LC_ALL=C git grep -lE 'standMailboxUrl|stand-mailbox|mailbox-url|mailboxUrl|/codes\?to='
+        origin/484-notify -- ':!*.md' | wc -l
+      outcome: >-
+        14, @a59862664. Все 14 файлов есть в таблице §3б. `review-event-silence.py` взят из первой
+        группы (`TestEveryMailKindHasExactlyOneSender` → 1 совпадение). Посылка автора подтверждена.
+    - id: S-3
+      claim: у края на П6 маршруты NTF2-63 и NTF2-69 (е) не относятся к полосе формы
+      command: >-
+        git grep -nE '"/iam/v1/projects"|/iam/v1/users:invite|auth/csrf' origin/2564 -- gateway/internal;
+        git show origin/2564:gateway/internal/middleware/login_lane_paths.go | grep '= "/iam'
+      outcome: >-
+        `/iam/v1/projects` и `/iam/v1/users:invite` находятся в `rest_route_table_gen.go:136,177`.
+        В полосе формы 17 путей (login, logout, password, csrf, register, recovery{,/complete},
+        second-factor*, step-up, verify-email{,/confirm}, authorize, token), этих двух среди них
+        нет. B-1 подтверждён.
+    - id: S-4
+      claim: производителя `Retry-After` у края на базе нет
+      command: git grep -n -i 'retry-after' origin/2564 -- gateway ':!*_test.go'
+      outcome: пусто. Посылка автора подтверждена, производитель — E1b NTF-2.
+    - id: S-5
+      claim: образ kaname несёт ревизию и публикуется для голов линий
+      command: >-
+        git show origin/484-notify:Dockerfile | grep -n OCI_IMAGE_REVISION;
+        git show origin/484-notify:.github/workflows/docker-build.yml (шаг «гейт … посаженности»)
+      outcome: >-
+        Метка `org.opencontainers.image.revision`, файл `/etc/kacho/image-revision` и ldflags
+        `main.buildRevision` (→ `kaname_build_info`) есть. Подписи нет (`--provenance=false`).
+        Публикуются main, теги и линии, служащие базой запроса. Источник ревизии для П6 есть, с
+        оговоркой N-3.
+    - id: S-6
+      claim: профиль цепочки dev — только values.dev.yaml
+      command: git show origin/2564:deploy/stacks.txt | grep -v '^#'
+      outcome: >-
+        `dev:values.dev.yaml`. Подтверждено. Тот же файл открывает цепочки dev-prod, prorobotech
+        и a8f60d. Как `false` наследуется ими, решает замысел З8 («в каждой цепочке явно»), это вне
+        предмета приёмки.
+    - id: S-7
+      claim: путь `global.kacho.notifications.modules.<м>` не назван одобренной приёмкой NTF-1
+      command: grep -nE 'notifications\.modules|global\.kacho\.spiffe' docs/specs/sub-phase-NTF-1-*-acceptance.md
+      outcome: 0 совпадений; W4a в docs/changes/issue-2915/tasks.md:352 открыта (N-4).
+    - id: S-8
+      claim: старые пути значений вне истории
+      command: >-
+        grep -nE '(^|[^.a-zA-Z])(kaname|notify|notifyProbe)\.(spiffe|notifications\.enabled)' <приёмка>
+      outcome: >-
+        Вне §11 и §13-истории одна строка, 3716 (§7 NTF2-06) — N-1.
+constructibility:
+  seeded: 0
+  of: 4
+  not_performed: 2
+  refuted_by_tree: 1
+  named_fixture: 1
+  note: >-
+    Новые нетривиальные Given редакции 29 разобраны по одному. (1) П6, kaname из образа пина:
+    источник ревизии в дереве есть (S-5). Посев не выполнен: пакета стенда ещё нет, его делает
+    полоса E1a, и разрешения на подъём не было — «не выполнилось». (2) П6-k: фикстура названа
+    (пакет стенда в дереве kaname, читатель ленты corelib). Посев не выполнен по той же причине —
+    «не выполнилось». (3) Стенды дерева kaname с флагом `true` без notify: держатель — DoD п.17
+    («stand-own.sh up» и «stand-chart.sh up» на голове одной посадки; отказ — красный), считается
+    как названная фикстура. (4) NTF2-69 (е) и NTF2-63 на П6: опровергнуто чтением дерева (S-3) — в
+    составе П6 нет маршрутов, по которым ходит When (B-1).
+route_flags:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true   # SAN ленты под global, Retry-After края, ручка прыжков; PrometheusRule края (Д69)

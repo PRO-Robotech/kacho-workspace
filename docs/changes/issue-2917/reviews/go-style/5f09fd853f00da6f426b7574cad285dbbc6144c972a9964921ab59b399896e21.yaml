@@ -1,0 +1,131 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+# Привязана к ОТПЕЧАТКУ диффа. Запись не правится: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: go-style-reviewer
+subject:
+  repository: PRO-Robotech/kaname
+  branch: origin/484-f2-strict-config
+  base: 05d1606882c961e25295908eed60baa78815d090   # d2a49bce4^
+  head: 36d923bc49a3e76331e4acad099a3f971ffded52
+  commits:
+    - d2a49bce4  # F2 строгая конфигурация
+    - 680f9e3b4  # F3 флаг почты, таблица границ Р8, ключи файлов секретов
+    - 36d923bc4  # чарт
+  content_digest: 5f09fd853f00da6f426b7574cad285dbbc6144c972a9964921ab59b399896e21
+  digest_predicate: git diff d2a49bce4^ 36d923bc4 | sha256sum
+  premise_remeasured: >-
+    git rev-parse origin/484-f2-strict-config -> 36d923bc49a3; git rev-parse d2a49bce4^ -> 05d1606882c9;
+    посылка подтверждена
+snapshot_at: 2026-10-01T11:55:13Z
+
+verdict: APPROVED      # ✅ принято
+blocks: false
+return_to: —
+
+inspected: >-
+  internal/apps/kaname/config/{mail_bounds,validate,load,strict_env,notifications,secrets,invite,login_lane,
+  required_settings,lane_requirements,service_link_collision,defaults,config}.go; пробы
+  config/{mail_bounds,mail_retention,strict_config,strict_env_injection}_test.go; cmd/kaname/{serve,wiring,loginlane}.go
+  и sa_key_issuance_warning_reach_test.go; deploy/*_test.go в диффе (mail_key_files_mounted, block_switch_is_boolean,
+  own_lane_knobs_declared{,_injection}, prod_profile{,_render}, delivery_roster). Чарт и shell — вне круга роли.
+
+measured:
+  guard_rows: >-
+    35 строк таблицы MailBounds = 32 ключа Р8 kaname (вид счёт/длительность) + флаг notifications.enabled + 2 пути
+    authn.secrets.*; «33» задания = 32 + флаг (пути файлов в чарте выводятся из mountPath). Отсутствие каждой из 35
+    строк судит TestMailBoundsHaveNoLoaderDefault (пустой профиль -> «<key> must be declared» по каждой строке),
+    поштучно — TestEveryR8KeyAbsenceRefusesStartNamingIt (32), TestSecretKeyFilesMustBeDeclared (2),
+    TestNotificationsFlagMustBeDeclared (1).
+  no_defaults: >-
+    defaults.go: SetDefault("invite.ttl") снят; ключи таблицы регистрируются BindEnv без значения
+    (mail_bounds.go:471); поля — указатели, nil = не объявлено.
+  secrets_in_refusals: >-
+    вид «объявление» (пути, флаг) в отказе значения не печатает (mail_bounds.go:249); значение печатается только у
+    счёта/длительности (mail_bounds.go:253); строгие отказы называют имя/путь ключа, не значение (strict_env.go:154,203).
+  deferral_markers_added: 0   # git diff ... | grep -cE '^\+.*\b(TODO|FIXME|XXX|HACK)\b'
+  skips_added_in_probes: 0    # git diff ... -- '*_test.go' | grep -cE '^\+.*(t\.Skip|SkipNow|Skipf)'
+  panic_ctx_logging_in_prod_diff: 0  # panic(/context.Background/TODO/log./fmt.Print/Must*/func init на + строках прод-кода
+  probes_in_same_change: true
+  strict_env_vs_tree: >-
+    имена KANAME_*__* в не-тестовом дереве (без docs) против NestedEnvNames(): расхождений, кроме префиксов в прозе
+    (`KANAME_AUTHN__LOGIN__*` и т.п.), нет — строгость не отвергает ни одного имени, которое чарт рендерит.
+  knob_consumers: >-
+    из 35 строк таблицы вне пакета config читаются recovery-code-ttl, verification-code-ttl (loginlane.go),
+    invite.ttl (serve.go, wiring.go); прочие 32 строки на 36d923bc4 потребителя поведения не имеют
+    (git grep по полям, ':!*_test.go' ':!internal/apps/kaname/config/').
+
+critical: []
+
+important:
+  - id: GS-1
+    kind: correctness-fragility
+    where: cmd/kaname/wiring.go:398, cmd/kaname/serve.go:537
+    finding: >-
+      serve.go проверяет объявленность invite.ttl через config.Declared и ВЫБРАСЫВАЕТ значение, а wiring.go
+      разыменовывает *cfg.Invite.TTL в другой функции. Защита держится на порядке вызовов в одном месте; второй
+      вызывающий buildServices получит панику на старте вместо отказа с именем ключа.
+    requirement: >-
+      передать в buildServices значение, полученное из config.Declared (как сделано в loginlane.go:533-541),
+      а не разыменовывать указатель повторно.
+  - id: GS-2
+    kind: doc-truthfulness
+    where: internal/apps/kaname/config/mail_bounds.go:41-46
+    finding: >-
+      комментарий о непокрытой границе recipient-per-day-all ≤ 50 называет владельцем «полосу шаблонов (F4)»;
+      по tasks.md вариант NTF2-71 (щ) стоит в строке S5 и гейтится Е8 (в) (экспорт лимита шаблона). Метка плана
+      воркспейса в публичном дереве продукта без координаты задачи стареет вместе с планом.
+    requirement: >-
+      назвать задачу трекера (kaname#…), а не метку полосы, и верного владельца (S5 / Е8 (в)); либо снять абзац
+      вместе с приходом границы.
+  - id: GS-3
+    kind: latent-false-refusal
+    where: internal/apps/kaname/config/strict_env.go:165-193; strict_env_injection_test.go:292-299
+    finding: >-
+      обход ключей декодера считает поле-отображение листом («map»), а суждение о файле отвергнет его подключи
+      (`map.a` не известен и не является секцией известного ключа) — хотя mapstructure их принимает. Проба обхода
+      утверждает «знает все формы поля», включая map, но суждения о файле на этой форме не прогоняет. В Config
+      сегодня полей-отображений нет (перемерено), поэтому дефект скрыт.
+    requirement: >-
+      либо принимать подключи поля-отображения (префикс листа вида map), либо запретить поле-отображение в Config
+      пробой; в обоих случаях — кейс unknownFileKeys на форме map.
+  - id: GS-4
+    kind: accepted-and-ignored-scope
+    where: internal/apps/kaname/config/mail_bounds.go:139-204; deploy/own_lane_knobs_declared_test.go:113-117
+    finding: >-
+      32 из 35 строк таблицы обязательны к объявлению, но на 36d923bc4 поведения не задают (потребители — в
+      полосах S*/G1 той же волны/эпика). Проба «ручка без читателя» теперь считает строку таблицы читателем и этого
+      класса не увидит ни сейчас, ни после эпика.
+    requirement: >-
+      не блокирует эту полосу (F3 по плану — конфигурация и страж); landing-reviewer сверяет, что запрос эпика в
+      main не уходит раньше потребителей. Предмета задачи не заводит.
+
+tests_quality:
+  - where: internal/apps/kaname/config/mail_bounds_test.go:185-243
+    note: >-
+      отрицательные варианты есть по каждой строке Р8; близнецов на ВКЛЮЧИТЕЛЬНОЙ границе (attempts.window = 1h,
+      per-day = 20, first-pause = 30s, trusted-device.ttl = 24h) нет — включительность утверждена только кодом.
+      Не блокирует.
+  - where: internal/apps/kaname/config/mail_bounds_test.go:287-328, strict_config_test.go:102-170
+    note: >-
+      Load читает os.Environ() целиком; посторонняя KANAME_*__* в окружении прогона уронит пробы чужим текстом.
+      Не блокирует.
+  - where: deploy/block_switch_is_boolean_test.go:462-470, deploy/own_lane_knobs_declared_injection_test.go:66-77
+    note: >-
+      исключение switchesRequiredWithoutDefault имеет причину и самоистечение (обе ветви drift); замена предмета
+      инъекции recovery-code-ttl -> session-ttl обоснована переносом строки в безусловную таблицу. Маскировки нет.
+
+style:
+  - mail_bounds.go:176,186 — две строки собраны литералом MailBound мимо помощников; для attempts.window стоит
+    помощник с явным «0 < x».
+  - тексты отказа смешивают английскую форму («must be declared») и русские пояснения; единообразие — на усмотрение.
+
+approved:
+  - fail-closed страж старта на всех 35 строках, в любом режиме и на любой посадке (validate.go:53-59)
+  - умолчаний у ручек Р8, флага и путей файлов нет; nil указателя = «не объявлено»
+  - строгая загрузка: UnmarshalExact + отказ на неизвестном ключе файла с полным путём + отказ на неизвестном имени `__`
+  - рассогласование таблицы и структуры Config — ошибка, а не молчаливое «не объявлено» (mail_bounds.go:308)
+  - Declared[T] в композиционном корне вместо нулевого значения (loginlane.go:533-541)
+  - паники в рабочем пути, context.Background, сторонних логгеров, init() в прод-диффе — нет
+  - пробы в том же изменении; свежих маркеров отсрочки 0; пропусков в пробах 0

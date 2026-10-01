@@ -1,0 +1,82 @@
+# Повторное пост-дифф ревью Go-кода — роль go-style-reviewer.
+# Привязана к ОТПЕЧАТКУ диффа. Запись не правится: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: go-style-reviewer
+supersedes_record: 5f09fd853f00da6f426b7574cad285dbbc6144c972a9964921ab59b399896e21.yaml   # на 36d923bc4
+subject:
+  repository: PRO-Robotech/kaname
+  branch: origin/484-f2-strict-config
+  base: 05d1606882c961e25295908eed60baa78815d090   # d2a49bce4^
+  head: f5a7e62fcfab5237a97d76056fa26bbe8e40084e
+  delta_from_reviewed: 36d923bc4..f5a7e62fc
+  delta_commits:
+    - 76bff03b9  # GS-1
+    - ffdf3c2e4  # GS-3
+    - bb4e12726  # GS-2
+    - f5a7e62fc  # чарт: проба прав тома, имя Secret из пробелов
+  content_digest: a02b3fdef077ca39327a3e05f21bfd112d1ac15cf986bc245e125cc2d49dbc69
+  digest_predicate: git diff d2a49bce4^ f5a7e62fc | sha256sum
+  premise_remeasured: >-
+    git fetch origin 484-f2-strict-config; git rev-parse origin/484-f2-strict-config -> f5a7e62fcfab; d2a49bce4^ -> 05d1606882c9;
+    рабочее дерево tmp/484-f2-strict-config на f5a7e62fc, чистое; посылка подтверждена
+snapshot_at: 2026-10-01
+
+verdict: APPROVED      # принято
+blocks: false
+return_to: —
+
+findings_closed:
+  GS-1: >-
+    ЗАКРЫТА. buildServices возвращает (*services, error); config.Declared(cfg.Invite.TTL, "invite.ttl") судится в
+    начале сборки (wiring.go:258), значение берётся из суждения (WithInviteTTL(inviteTTL)); повторного разыменования
+    *cfg.Invite.TTL в не-тестовом дереве нет (git grep). Единственный вызов в проде (serve.go:536) проверяет err;
+    второго места суждения в runServe нет. Проба cmd/kaname/invite_ttl_wiring_test.go: отказ с именем ключа и
+    переменной без паники + близнец «объявлен» (меняет один факт).
+  GS-2: >-
+    ЗАКРЫТА. mail_bounds.go:41-46 называет kaname#484 и kacho#2915 вместо метки полосы F4. Владелец перемерен:
+    тело kacho#2915 («Объём NTF-1: выгрузка лимита шаблона (заказ NTF-2, Е8 (в))», «потребитель PRO-Robotech/kaname#484»,
+    «зависимость открыта») — утверждение комментария верно. Метки «F4»/«полоса шаблонов» в internal/cmd/deploy не осталось.
+  GS-3: >-
+    ЗАКРЫТА выбором «запретить в Config пробой»: walkDecoder отделяет открытые формы (map, interface) от листьев;
+    TestConfigCarriesNoOpenKeyForm печатает перепись (полей 208 · ключей 172 · открытых форм 0), требует
+    fields > keys и непустой обход; TestDecoderKeyWalkDoesNotTakeAnOpenFormForALeaf — три формы + squash/вложенная
+    секция + близнец без открытых форм. Отдельного кейса unknownFileKeys на форме map нет — при запрете форма в Config
+    недостижима, дефект не проявим (см. style).
+
+critical: []
+
+important: []
+
+new_in_delta_checked:
+  build_services_signature: >-
+    вызовы: serve.go:536 (err проверен, возврат без повторной обёртки — текст уже «приглашения: …»), тест
+    invite_ttl_wiring_test.go:39; одноимённые buildServices() в module_catalog_verb_wiring_injection_test.go — строки
+    фикстур, не вызовы. Суждение стоит до сборки метрик и пулов — отказ ничего не регистрирует. go vet чист.
+  walk_decoder: >-
+    интерфейс, прежде лист, теперь открытая форма и ключом не выдаётся; в Config интерфейсных/отображаемых полей нет
+    (открытых форм 0). openKeyForms в проде не вызывается (только пробы) — не блокирует.
+  test_config_carries_no_open_key_form: >-
+    предпосылка и объём печатаются отдельно от находок; пустой обход — отказ. Прогон: зелёный (выполнено мной
+    выборочно, исход проб объявляет landing-reviewer).
+  helpers_tpl_trim: >-
+    `trim (toString ($mailKeys.secretName | default ""))`: имя из пробелов — отказ рендера с именем ключа.
+    Перемерено helm template на старом и новом _helpers.tpl со --set 'authn.secrets.secretName=  ': старый рендерит
+    молча, новый отказывает. Проба TestMailKeyFiles_BlankSecretNameRefusesTheRender зелёная на новом.
+    TestMailKeyFiles_VolumeModeIsOwnerAndGroupReadOnly: defaultMode 0440 (чарт уже нёс, deployment.yaml:177), записей 2,
+    со своим режимом 0.
+
+measured:
+  deferral_markers_added: 0   # весь дифф: git diff d2a49bce4^ f5a7e62fc | grep -cE '^\+.*\b(TODO|FIXME|XXX|HACK)\b'
+  skips_added_in_probes: 0
+  panic_ctx_logging_in_prod_diff: 0   # panic(/context.Background/TODO/log./fmt.Print/Must*/func init на + строках прод-Go
+  probes_in_same_change: true
+  protective_comments_contradicting_code: []
+
+style:
+  - deploy/templates/deployment.yaml:176 берёт secretName без trim (`$mailKeys.secretName | quote`), тогда как страж
+    судит обрезанное; имя «x » с краевыми пробелами страж пропустит. Не блокирует (кластер отвергнет имя).
+  - TestConfigCarriesNoOpenKeyForm судит только Config; кейса unknownFileKeys на форме map нет (недостижим при запрете).
+  - openKeyForms без прод-вызывающего — только пробы.
+  - GS-4 прежней записи (32 строки таблицы без читателей до потребителей эпика) остаётся для landing-reviewer; не блокирует.

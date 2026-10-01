@@ -1,0 +1,74 @@
+# Пост-дифф ревью — роль security-auditor, полоса E2 (звено anonmail), повтор.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: security-auditor
+mode: поверхность до посадки (повтор)
+supersedes: 9299e0c817750611358fe5c3637f327a646a2ea0cb4bf114eb012bc40c56273f
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565   # origin/2917-e1-trusted-hops
+  head: 775eb117602bfb9c9c80fa3fbc76753f1346258f
+  content_digest: 57afe3c881c1f2366d7e999ac327fe3604c441dfb348f93c4b2807fa38844730
+  digest_predicate: git diff 853ab6ea4..775eb1176 | sha256sum
+snapshot_at: 2026-10-01
+
+verdict: APPROVED   # ✅ по поверхности кода полосы
+blocks: false
+condition: >-
+  Д66 выполнено наполовину: серия насыщения есть, правила тревоги нет. Это не дефект полосы:
+  в дереве нет ни одного носителя правил тревоги (перепись ниже). Принятие цены отказа по Д66
+  полно только вместе с тревогой; где она живёт и чьей задачей — решает владелец/диспетчер
+  до посадки эпика в main.
+
+inspected: >-
+  Дельта 47349c9f1..775eb1176: 16 файлов (+687/-83) прочитана целиком в частях продукта:
+  anonmail/{store,store_pg,store_memory,gate}.go, observability/metrics/anon_mail.go,
+  idempotencypg/anon_mail.go, cmd/api-gateway/{main.go,anon_mail_store.go}; ladder.go:198-216
+  (refill, retryAfterFor) — контекст. Пробы: имена и исход прогона store_decide_test.go,
+  store_pg_order_test.go.
+
+findings_closed:
+  - id: SEC-E2-1
+    status: CLOSED
+    how: >-
+      Окно счёта (now−w, +∞) в countsSQL, nthMomentSQL, memTx.counts/nthMoment; memTx.commit
+      вставляет момент по порядку, поэтому sort.Search остаётся корректным.
+    measured: >-
+      Временная проба (снята, дерево чистое), memory: три пропуска с моментами +3s/+4s/+5s,
+      затем решение с моментом +0 → Challenge; то же при расхождении +60s → Challenge;
+      близнецы — возрастающие моменты → Challenge, два пропуска ниже FREE → Pass.
+      На 47349c9f1 та же проба: 2 FAIL («got pass want challenge»), близнецы зелёные.
+      На 775eb1176: 4/4 PASS. Пробы полосы с Postgres выполнялись (не пропущены):
+      TestPg_SECE2_1_CountDoesNotDependOnTheOrderOfMoments, ..._AcrossTwoReplicasPassesExactlyOne — PASS.
+    side_effects_checked: >-
+      Момент соседа «из будущего» (часы другой реплики) удлиняет Retry-After не больше чем на
+      расхождение и считается строже, а не мягче; refill при now<=at ведро не откатывает
+      (ladder.go:199) — ослабления нет.
+  - id: SEC-E2-2
+    status: RESOLVED_BY_DECISION
+    how: >-
+      Д66: отказ 503 при потоке выше пропускной способности строки ведра — принятая цена;
+      шардирование ведра — отдельная задача вне v1.
+
+d66:
+  metric: >-
+    Реализована: Verdict.Saturated → Gate.saturated → Stats.StoreSaturated →
+    kacho_api_gateway_anon_mail_store_saturated_total (Describe до первого сбора);
+    читатель провязан в корне (cmd/api-gateway/main.go:881). Классификация: 55P03/57014/
+    DeadlineExceeded/errMemWait — насыщение; 42/28/3D/3F — настройка (ERROR); прочее — сбой.
+    Пробы TestStore_D66_SaturationIsTellableFromOutage (8 подслучаев), TestGate_D66_SaturationCounter — PASS.
+  metric_limit: >-
+    Зависшее (а не отвергающее) хранилище даёт срок захвата соединения и считается насыщением —
+    названо автором; тревога по доле saturated/unavailable это различать не будет.
+  alert_rule: >-
+    НЕ реализовано. Перепись: git ls-files | grep -iE 'prometheusrule|alert|rules\.ya?ml|servicemonitor|podmonitor'
+    — только два файла консоли (LaneRefusalAlert), git grep 'kind: *PrometheusRule|alert: ' — ноль.
+    Чарты несут лишь аннотации сбора prometheus.io/*. Утверждение автора подтверждено.
+
+not_findings:
+  - Журнал отказа хранилища несёт шаг и err; ключей запроса (адреса) нет; PgError.Error() деталей строки не включает.
+  - Откат и фиксация — на WithoutCancel(ctx) со своим сроком; ушедший клиент соединение не отравляет.
+  - Пределы проверяются конструктором хранилища; второго источника пределов в звене нет.
