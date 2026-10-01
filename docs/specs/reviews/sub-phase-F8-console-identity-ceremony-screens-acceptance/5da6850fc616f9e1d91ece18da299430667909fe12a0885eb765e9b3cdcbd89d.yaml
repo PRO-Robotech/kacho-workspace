@@ -1,0 +1,317 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  sha256: 5da6850fc616f9e1d91ece18da299430667909fe12a0885eb765e9b3cdcbd89d
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью (change-graph.md §2). Шапка этой записью НЕ правится. Машинный читатель
+    docs-gate (`check-01`) по этой редакции ответит «не APPROVED» — это его объявленный предел
+    (он судит объявление), и с моим вердиктом он совпадает случайно, а не по построению.
+  base_commit: f3f480e0629d1eec9f37d2b38abbdc8356770e7e
+  content_commit: none
+  content_commit_note: >-
+    Редакция 4 — НЕзакоммиченная правка рабочего дерева копии
+    `tmp/acceptance-f8-console-ceremony-screens` (ветка `acceptance/f8-console-ceremony-screens`):
+    `git status --short` → ` M docs/specs/sub-phase-F8-…md`. В HEAD f3f480e0 лежит редакция 3:
+    `git show HEAD:<путь> | sha256sum` → 42b4230012ff…afcf, то есть коммит несёт ровно предмет
+    круга 3, и дельта этого круга — `git diff` рабочего дерева против HEAD (518 вставок, 202
+    удаления). Отпечаток — ЕДИНСТВЕННАЯ привязка этой записи.
+  branch: acceptance/f8-console-ceremony-screens
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/773
+  wave: https://github.com/PRO-Robotech/kacho-workspace/issues/772
+  epic: https://github.com/PRO-Robotech/kacho/issues/2564
+  doc_own_references: "эпик kacho#1266, задача kacho#1274 (так в шапке документа)"
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  fingerprint_reproduced: true
+  fingerprint_expected_prefix_from_task: 5da6850f
+  fingerprint_prefix_matches: true
+  lines: 1950
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T18:30:00Z'
+round: 4
+round_note: >-
+  Круг назван заданием ПОСЛЕДНИМ. Объём рассмотрения — по правилу владельца «повторный — только
+  дельта»: закрытие B3-1 и B3-2 и дельта редакции 4 против редакции 3. Единственное блокирующее
+  этого круга (B4-1) заякорено в ДЕЛЬТЕ — в строках, которые редакция 4 внесла (F8-18, DoD 14),
+  — и исправляется правкой двух мест; решение о круге 5 либо о вопросе владельцу — за диспетчером.
+previous_rounds:
+  - revision: 1
+    sha256: 95d91dfd733f9ea7343c640b80ee86e4096ce5e3b65849059a257ccc07f884e5
+    verdict: CHANGES_REQUESTED
+    blocking_count: 8
+  - revision: 2
+    sha256: cb4d4988d252ef7c9b1a71d9d880b94627d84b882efcb4e969d32bc3147ec681
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+  - revision: 3
+    sha256: 42b4230012ff99d03a32aaaf0467181dbd780a72427a94b1a7d373c2ebd9afcf
+    verdict: CHANGES_REQUESTED
+    blocking_count: 2
+blocking_count: 1
+blocking_kinds_distinct: [PRODUCER]
+blocking_kinds_by_item:
+  - B4-1 PRODUCER
+kind_recurrence_note: >-
+  CONSTRUCTIBILITY в этом круге НЕ повторился — серия из трёх кругов прервана. PRODUCER — род,
+  которого в кругах 1–3 не было. Повтора рода нет, поэтому условие §14а о переносе в форму
+  задания не наступает.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac f3f480e0 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: f3f480e0629d1eec9f37d2b38abbdc8356770e7e
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает, поэтому его
+    действительность от публикации внешнего события не зависит. Тело события для курьера дано
+    полем `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 4, блокирующих 1: PRODUCER) ·
+    SHA-256 5da6850fc616f9e1d91ece18da299430667909fe12a0885eb765e9b3cdcbd89d
+
+measurement:
+  revisions_used:
+    kaname: 497c44b7 (project/kaname, чтение объектов коммита `git show`/`git grep <rev>`)
+    kacho: f445aaaa554 (project/kacho, то же)
+    document: рабочее дерево копии, отпечаток 5da6850f…
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* F8-[0-9]+' <док>"
+    total: 44
+    unique: 44
+    duplicates: 0
+    removed_id: "F8-02 — снят по core-no-prod, номер не переиспользован; объявления F8-02 нет (проверено)"
+    positives: 21
+    negatives: 23
+    split_predicate: "строка объявления ID, несущая слово «близнец» → отрицательный"
+  producer_coverage:
+    method: раскрытие диапазонов §11.1 (F8-04…F8-19, F8-23…F8-32, F8-33…F8-36) и объединение с поимёнными строками
+    covered: 44
+    of: 44
+    uncovered: []
+  twin_coverage:
+    negatives_in_table: 23
+    twins_named: 23
+    set_equality: "множество строк §11.2 = множество отрицаний §11 (`diff` пуст); все близнецы — существующие ID"
+  budget_census:
+    predicate: "awk-разбор групп А–Г из §1.11 (N14), исполнен дословно"
+    groups: "А 7 · Б 12 · В 16 · Г 9 = 44"
+    in_two_groups: 0
+    set_equals_scenarios: true
+    group_a: "F8-05 · F8-09 · F8-23 · F8-24 · F8-28 · F8-34 · F8-40 → 1+5+1+1+1+1+1 = 11"
+
+premise_check:
+  claim: >-
+    ожидаемый отпечаток начинается 5da6850f; записи прошлых кругов лежат в каталоге записей;
+    круг 3 — CHANGES_REQUESTED на 42b42300…, блокирующие B3-1, B3-2
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 5da6850fc616f9e1…9d ; wc -l → 1950"
+    - "ls docs/specs/reviews/sub-phase-F8-…/ → 95d91dfd….yaml, cb4d4988….yaml, 42b42300….yaml"
+    - "git show HEAD:<док> | sha256sum → 42b4230012ff99d03a32…afcf (коммит несёт редакцию 3)"
+    - "запись 42b42300….yaml: verdict CHANGES_REQUESTED, blocking_findings B3-1 CONSTRUCTIBILITY, B3-2 COVERAGE"
+
+closure_of_round_3_blocking:
+  - id: B3-1
+    kind: CONSTRUCTIBILITY
+    status: CLOSED
+    remedy_in_doc: >-
+      Р9 ось 4, §11 преамбула, F8-27/28/30/31/33/34/35/36/43, §11.1 новая строка модульной
+      пробы, DoD 10б/16, §14 п. 26, §15 п. 17: посевное подтверждение считается ЕДИНСТВЕННЫМ
+      предъявлением кода по времени; всякое следующее предъявление второго фактора тем же
+      человеком — запасным кодом (`lookup_secret`); F8-43 не зовёт step-up.
+    verified_by_code_at_kaname_497c44b7:
+      - "подтверждение кладёт шаг: sf_enroll.go:252 `ActivateTOTP(…, res.Step, …)` → login_method_repo.go:335 `SET state='active', last_accepted_step = $3`"
+      - "подтверждение шага не читает: sf_enroll.go:211 `Verify(row.Verifier, totpverify.NoAcceptedStep(), …)`"
+      - "подтверждение выдаёт набор запасных кодов в ответе: sf_enroll.go (NewBackupCodes → ReplaceLookupSet) и handler.go:664 `\"backupCodes\": out.BackupCodes`; кодов 10 — passwordverify/hasher.go:120"
+      - "подтверждение само поднимает уровень: sf_enroll.go:240–241 `withMethod(…, MethodTOTP)` + `levelOf`, :277 `PresentInSession`; ответ несёт `session` (handler.go:665) с `assuranceLevel` строкой (handler.go:839); пароль + totp|lookup_secret → Level2 (assurance/level.go:226–229)"
+      - "запасной код оси времени не имеет: sf_present.go prepare — ветвь MethodLookupSecret не читает AcceptedStep; settle — замок набора, сравнение, ConsumeLookupElement (однократность потреблением)"
+      - "запасной код принимают все четыре сверяющих глагола: вызывающие `prepare` — login.go:287, step_up.go:121, sf_remove.go:79, sf_backup_codes.go:71; разборщики ParseSecondFactorMethod/ParseStepUpMethod допускают `lookup_secret` (humansession/second_factor.go:134, :149)"
+      - "свежесть требуют только заведение и подтверждение (git grep 'requireFresh(' → sf_enroll.go:98, :184); снятие, перечеканка, повышение её не требуют — посев с регистрацией секундами раньше годен (issue.go:79 LastPresentedAt = момент выдачи)"
+      - "F8-35 «вход без поля secondFactor → уровень 1» верно: login.go:455 `presented := {PasswordPresented()}`; наличие заведённого фактора вход без поля не отвергает"
+      - "F8-34 (неверный запасной код на входе) идёт в счёт: prepare → verdictMatched (кандидат готов), settle в issue() → verdictMismatched → refuseSecondFactor → countsAsAttempt → refuseWith → recordFailure → ErrAuthenticationFailed"
+      - "F8-32 и F8-36 (`lookup_secret` у незаведённого) — verdictNotEnrolled → ErrSecondFactorNotEnrolled, reason SECOND_FACTOR_NOT_ENROLLED (second_factor.go:203, :211), вне countsAsAttempt — ноль в бюджете верен"
+    residual: >-
+      Второго предъявления кода по времени одним человеком в §11 нет (перечитаны все «Дано/Когда»
+      групп H и I); противоречие F8-43 ↔ F8-45 снято: ждать нечего. Цена средства (ветвь `totp`
+      четырёх форм браузером против службы не проходится) названа, и держатель консольной стороны
+      (модульная проба формы, обе стороны) назван строкой §11.1 — принимаю.
+  - id: B3-2
+    kind: COVERAGE
+    status: CLOSED
+    remedy_in_doc: "Р7 перестроено по ГЛАГОЛАМ (семь), F8-41 — правило пары «путь · 401 · code 16 · authentication failed», DoD 10а, §14 пп. 20, 27, §15 п. 18"
+    verified_by_code_at_kaname_497c44b7:
+      - "писатель следов один: `git grep 'login_failures' 497c44b7` (без тестов и миграций) → INSERT только human_session_repo.go:373"
+      - "его метод зовут только rate.go:111, :116 (`git grep -nE 'RecordFailure\\(' 497c44b7 -- '*.go'` по ВСЕМУ дереву, шире предиката §1.11, ограниченного каталогом humansession; прочие попадания — reconcile_outbox.RecordFailure, чужой референт)"
+      - "до recordFailure доходят семь глаголов: login.go:411; change_password.go:244 (через :162 → :238); recovery_complete.go:299; подтверждение sf_enroll.go:220 → :316 → recordFailureTx :321 → :327; перечеканка sf_backup_codes.go:154; снятие sf_remove.go:163; повышение step_up.go:274 и :291"
+      - "наружу все семь дают один отказ: ErrAuthenticationFailed (refusals.go:38) → handler.go:859 `401, codeUnauthenticated, \"authentication failed\"`; снятие/перечеканка — refusalOf(verdictMismatched) → ErrAuthenticationFailed"
+      - "сторона ошибки безопасна по коду: ту же пару без следа дают исчерпание ёмкости (login.go, change_password.go, step_up.go) и сбой открытия писателя в refuseWith — сторож считает не меньше"
+    residual: "нет — перепись полна, счёт по ID сходится с §11 (44), нули названы поимённо"
+
+closure_of_round_3_important:
+  - "I3-1 ЗАКРЫТО: DoD 4а диапазона не несёт, множество берётся разбором §11; ложное утверждение §16.2 исправлено на месте с пометкой"
+  - "I3-2 ЗАКРЫТО: ось 3 разделена на 3а/3б; читатели 3б — sf_enroll.go:205, :136, sf_status.go:74, уборка login_method_repo.go:450 — перемерены, строки верны"
+  - "I3-3 ЗАКРЫТО: основание нуля F8-29 названо своё (ответ подставлен, повышение паролем успешно)"
+  - "I3-4 ЗАКРЫТО: F8-31 заводит своего человека, фактор не снят — формулировка однозначна"
+  - "I3-5 ЗАКРЫТО: F8-32 в группе Б поимённо"
+
+blocking_findings:
+  - id: B4-1
+    kind: PRODUCER
+    title: >-
+      Держатель, которому редакция 4 передала «выход не обращается к поставщику» (F8-18, DoD 14),
+      стоит на переписи `apiCalls(page)`, которая по построению НЕ ВИДИТ ни одного адреса
+      поставщика; вторая названная переписью F8-37 судит только «ведущие браузер» файлы, а DoD 14
+      приписывает ей ещё запросы и чтение сессии
+    anchored_in_delta:
+      - "F8-18, новое «И» редакции 4 (git diff, строка `+**And** не содержит ни одного адреса чужого поставщика — ни запроса к его потоку выхода, ни перехода на него (оба сегодня есть, §1.8)`)"
+      - "DoD 14, новый текст редакции 4: «…ни переходом, ни запросом к его потоку, ни чтением его сессии; перепись F8-37 это печатает числом. Места выхода (AuthContext.tsx, shared/src/api/auth.ts) снимаются уже на S1 — их держит F8-18»"
+      - "§11.1 строка 1 (переписана редакцией 4 при снятии F8-02): «перепись — `apiCalls(page)` из ui-future/e2e/specs/fixtures.ts»; Р6: «apiCalls(page) уже есть»"
+    coordinates:
+      doc: "§11.1 строка «F8-01, F8-03, F8-04…F8-19, …»; Р6; F8-18; DoD 14; F8-37; (тот же производитель у отрицательных половин F8-01, F8-04, F8-14, F8-20, F8-35)"
+      tree:
+        - "kacho@f445aaaa554:ui-future/e2e/specs/fixtures.ts:461–467 — `apiCalls`: `const u = new URL(r.url()).pathname; if (/\\/v1\\//.test(u)) seen.push(`${r.status()} ${u}`)`"
+        - "kacho@f445aaaa554:ui-future/shared/src/lib/config.ts:62 — база поставщика `/.ory/kratos/public`"
+        - "kacho@f445aaaa554:ui-future/shared/src/api/auth.ts:185 — `window.location.assign(\"/.ory/kratos/public/self-service/logout/browser\")`"
+        - "kacho@f445aaaa554:ui-future/shared/src/contexts/AuthContext.tsx:86 (`kratos.whoami()` при каждом монтировании), :142–143 (`initLogout`/`submitLogout`)"
+    predicate: >-
+      git grep -nE '/\.ory/[^"'"'"'` ]*/v1/' f445aaaa554 -- 'ui-future/**/*.ts' 'ui-future/**/*.tsx' | grep -v node_modules | wc -l → 0
+      (из 30 литералов `/.ory/` в прод-дереве консоли); контроль фильтра в обе стороны:
+      /\/v1\//.test('/iam/v1/auth/login') → true · '/.ory/kratos/public/sessions/whoami' → false ·
+      '/.ory/kratos/public/self-service/logout/browser' → false
+    measured: >-
+      Перепись, названная производителем, пропускает только пути с `/v1/`. Ни один адрес
+      поставщика `/v1/` не содержит. Значит утверждение «перепись не содержит ни одного адреса
+      чужого поставщика», построенное на ней, тождественно истинно — оно не краснеет ни при
+      переходе на поток выхода поставщика (auth.ts:185), ни при запросах к нему (AuthContext
+      :142–143), ни при чтении его сессии (:86). Положительного контроля у БРАУЗЕРНОЙ переписи
+      документ не требует нигде (F8-38 — инъекция статической переписи F8-37, другой прибор).
+      Вторая половина: F8-37 «Тогда» считает файлы, «ведущие браузер на адрес церемонии», а DoD 14
+      (редакция 4) приписывает ей «ни запросом к его потоку, ни чтением его сессии».
+    consequence: >-
+      Корректность, а не форма. (1) На S1 утверждение DoD 14 «места выхода снимаются уже на S1 —
+      их держит F8-18» не держит НИЧТО: F8-37 — сценарий S2, а отрицание F8-18 на названной
+      переписи не способно упасть; S1 садится зелёным с выходом, который по-прежнему ведёт
+      браузер на поток выхода поставщика и шлёт ему запросы. (2) После S2 чтение сессии
+      поставщика (AuthContext.tsx:86) и запросы к его потокам не видит ни браузерная перепись
+      (фильтр `/v1/`), ни F8-37 в своей формулировке — и эпик #2564 «снять Ory из kacho»
+      получает от приёмки подтверждение «консоль к поставщику не обращается», истинность которого
+      ни один держатель не проверяет. Текст документа при этом утверждает обратное («их держит
+      F8-18», «перепись F8-37 это печатает числом») — это ровно «вводящий в заблуждение текст»
+      критерия ban19.
+    fix_scope: >-
+      Два места, объём не растёт: (а) §11.1 строка 1 и Р6 — перепись отрицания «ни одного адреса
+      поставщика» записывает КАЖДЫЙ запрос и ответ страницы (метод, путь, запрос; `apiCalls` с
+      фильтром `/v1/` для неё непригоден), и у неё названа положительная сторона: одно
+      подсаженное обращение к адресу поставщика делает её красной с координатой, на снятой
+      подсадке — зелёной; (б) F8-37 «Тогда» расширить до «обращающихся к поставщику — переходом,
+      запросом к его потоку или чтением его сессии» (предмет N8), либо DoD 14 перестать
+      приписывать ей то, чего она не судит. Сценариев, ID и бюджета правка не меняет: подсадка
+      идёт во вход переписи, а не живым обращением.
+    why_not_raised_earlier: >-
+      Производитель `apiCalls(page)` назван с редакции 1, и круги 1–3 его фильтр не читали. Класс
+      старше этого круга, но несущее утверждение на нём — S1-держатель мест выхода (N8) — внесено
+      редакцией 4, и именно оно делает класс блокирующим сейчас. Найдено тем же приёмом, что B3-1
+      и B3-2: производитель прочитан на уровень глубже своего имени.
+
+important_findings:
+  - id: I4-1
+    kind: FORMAT
+    title: "Посев «Дано» в той же банке печенья, что и браузер, делает F8-33 неисполнимым"
+    note: >-
+      Регистрация посева выдаёт сессию, подтверждение перевыпускает носитель (sf_enroll.go — новый
+      bearer, handler.go:662 Set-Cookie). Если посев идёт `page.request` (общая банка с
+      браузером), у браузера живая сессия уровня 2, и `/login` по F8-11 формы не покажет — F8-33
+      не дойдёт до «Когда». Исполнимо отдельным контекстом запросов посева (или очисткой печенья
+      перед открытием `/login`); стоит сказать одной фразой в преамбуле §11. Следствия для
+      продукта нет — исполнитель увидит это первым же прогоном.
+  - id: I4-2
+    kind: FORMAT
+    title: "«Сторож считает не меньше истинного» верно только для отказов, прошедших через перепись страницы"
+    note: >-
+      Отказы, которые проба делает своим запросом, а не страницей (например «вход прежним паролем
+      даёт 401» в F8-23), в браузерную перепись не попадают, и сторож недосчитает — сторона
+      небезопасная. При запасе 17 из 50 угрозы потолку нет; достаточно сказать, что такие
+      обращения тоже идут во вход сторожа.
+  - id: I4-3
+    kind: FORMAT
+    title: "F8-33…F8-36 (S2) стоят в строке §11.1 пробы S1 с `// verifies #2780`, а DoD 4 требует у S2 `// verifies #1274`"
+    note: "перенесено из прежних редакций; противоречие двух мест о метке пробы, без следствия для продукта"
+
+delta_review:
+  core_no_prod_removals:
+    verdict: "все четыре снятия (С1–С4) приняты: каждое держало только сосуществование двух поставщиков или совместимость с людьми/ссылками прежнего"
+    checks:
+      - "С1: F8-02 снят, номер пуст; у F8-01 отрицательный близнец F8-03 остаётся; F8-42 получил положительный контроль инъекцией вместо цепочки сосуществования — прибор тот же, способность упасть сохранена"
+      - "С2: `/settings` свободен в консоли — N1 `path=…(…|settings|…)` → 0 на f445aaaa554, контроль `/dashboard` → host/src/App.tsx:84; второго места параметров нет"
+      - "С3: `/error`, `/consent` уходят под замыкающее правило (§12) — адреса чужих потоков, производителя ссылок после снятия нет"
+      - "С4: снят только абзац о переносе материала чужой службы; держатели Р4 (F8-39, F8-40) не тронуты"
+      - "держатели безопасности F8-07, F8-08, F8-13, F8-19, F8-25, F8-40 в дельте не ослаблены (сверено `git diff`)"
+  executable_output_1_11:
+    - "N7 ВОСПРОИЗВЕДЕНО: индекс f445aaaa554 → 843 прод-файла, из них называют поставщика 45"
+    - "N8 ВОСПРОИЗВЕДЕНО: auth.ts:185 навигация на поток выхода; AuthContext.tsx :86 whoami, :137 loginUrl, :142–143 initLogout/submitLogout — пятое живое место найдено верно (его держатель — B4-1)"
+    - "N9, N10, N12, N13 ВОСПРОИЗВЕДЕНЫ разбором кода (см. closure_of_round_3_blocking)"
+    - "N14 ВОСПРОИЗВЕДЕНО дословной командой: 7 · 12 · 16 · 9, пересечений 0, множество = 44 объявления"
+    - "замечание к N9: предикат `\\.RecordFailure\\(` в §1.11 сужен каталогом humansession; по всему дереву вывод тот же (прочие попадания — чужой референт), но печатать стоит широкую форму — это и есть обязанность 2"
+  census_after_edit: "44 сценария (21/23), производитель 44/44, близнец 23/23, осей в §11 — 6, решений в силе 18 из 19 — заявление §16.3 сходится с разбором"
+
+not_performed:
+  - subject: "посев Given второго фактора и входа запасным кодом живым стендом"
+    reason: "стенда с предусловием §4 нет (документ это предсказывает сам); конструируемость F8-27…F8-36 и F8-43 показана разбором кода службы на kaname@497c44b7, а не посевом"
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+  - subject: "§1.7 — рендер трёх цепочек умбреллы (N6)"
+    reason: "требует `helm template` с зависимостями подчартов на полосе; в этом круге не исполнялось (документ сам пометил N6 «не выполнилось»)"
+    counts_as: "не выполнилось"
+  - subject: "исполнение сценариев §11"
+    reason: "предусловие §4 в дереве не создано"
+    counts_as: "не выполнилось"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    Церемонии личности: неразличимость причин отказа (F8-40), открытая переадресация (F8-13),
+    признак формы (F8-07, F8-08), носитель при молчании службы (F8-19, F8-25). Дельта их не
+    ослабила.
+  disclosure_safe: true
+  disclosure_note: >-
+    B4-1 — о фильтре собственной пробной переписи, а не о дефекте защиты продукта; сборки
+    «координата + условие + следствие» о действующем дефекте защиты ни документ, ни запись не
+    несут. Координаты кода службы — места действующей защиты (однократность запасного кода,
+    отказ повтора шага), названные как основание посева.
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    Только B4-1, двумя правками: в §11.1 (строка 1) и Р6 заменить производителя отрицания «ни
+    одного адреса поставщика» переписью, записывающей каждый запрос/ответ страницы, с
+    положительным контролем подсадкой; расширить «Тогда» F8-37 до обращений (переход · запрос к
+    потоку · чтение сессии) или снять эту приписку из DoD 14. По желанию — I4-1…I4-3 одной
+    фразой каждое. Повторное рассмотрение — только эта дельта.
+  dispatcher_note: >-
+    Круг 4 был объявлен последним. Блокирующее одно, заякорено в дельте и исправляется в двух
+    местах; B3-1 и B3-2 закрыты. Как поступить с пределом кругов — вопрос диспетчера
+    (`.claude/rules/multi-agent-flow-orchestration.md` §14а), не рецензента.
+  owner_questions: []

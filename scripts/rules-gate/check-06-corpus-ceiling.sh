@@ -7,5 +7,18 @@
 # на КОПИИ дерева, куда `scripts/` не копируется.
 set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$(git rev-parse --show-toplevel)"
-exec python3 "$SELF_DIR/corpus_ceiling.py"
+# КОРЕНЬ ВЫВОДИТСЯ ИЗ СВОЕГО РАСПОЛОЖЕНИЯ, А НЕ ИЗ ТЕКУЩЕГО КАТАЛОГА (2026-09-22,
+# ws#757). Здесь стоял `cd "$(git rev-parse --show-toplevel)"`: проверка, запущенная
+# с cwd в соседнем worktree полосы, МОЛЧА судила чужое дерево и выходила нулём —
+# «полоса получает чужой вердикт». Порядок источников один на все наборы и живёт
+# в `scripts/lib/gate_root.py`: шов набора `RULES_GATE_ROOT` (им инъекция гоняет
+# проверку на КОПИИ дерева), общий `GATE_ROOT`, расположение файла.
+root="$(python3 "$SELF_DIR/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
+cd "$root" 2>/dev/null || {
+    echo "[VOID] check-06-corpus-ceiling — корень «$root» не открывается; обходить нечего" >&2
+    exit 2
+}
+# Корень передаётся РАЗБОРЩИКУ явно, а не оставляется на cwd: до 2026-09-22 он
+# читал `.claude/rules/*.md` относительным глобом, и корнем обоих был текущий
+# каталог. `cd` оставлен, чтобы координаты в находках печатались от корня.
+exec python3 "$SELF_DIR/corpus_ceiling.py" "$root"

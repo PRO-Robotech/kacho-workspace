@@ -51,7 +51,7 @@ def is_showcase(rel: str) -> bool:
 
 
 def main() -> int:
-    root = os.environ.get("VAULT_GATE_ROOT") or V.workspace_root(__file__)
+    root = V.workspace_root(__file__)
     files = V.vault_files(root)
     notes = V.notes(files)
     if not notes:

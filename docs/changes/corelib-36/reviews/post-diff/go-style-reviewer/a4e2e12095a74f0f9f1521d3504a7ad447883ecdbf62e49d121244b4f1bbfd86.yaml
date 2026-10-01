@@ -1,0 +1,170 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 2.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии ревьюера и НЕ закоммичена — её переносит оператор.
+schema_version: 1
+change_id: corelib-36
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: post-diff/go-style-reviewer/16c9281c0849429b885e1f96b6b8d06873cfe04f21143b4d8d3cb1f4498404a9.yaml
+subject: >-
+  oauthceremony: сессия, acr и auth_time — поля гранта и сеанса (круг 1), плюс правка круга:
+  случай повтора заносится в ведомость тем же вызовом, что помечает семейство
+  (markReplayedFamily), раньше сборки запроса по записи повторённого артефакта
+  (задача #36, волна #32)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: e2a451c63f2fe3ed7f6f5e1e99d9cc9958e160a0
+  head_tree: 69fcd115fd9f59e9ccfccdeb7731a95e7545287b
+  head_is: 'ветка 36 в tmp/corelib-36: 6289fbcf + 4ea638c1 + e2a451c6 поверх origin/32 @f213439a; не отправлена'
+  shortstat: '16 файлов, +934 / -61 (полный дифф от base)'
+  round_delta: '6289fbcf..e2a451c6 — 4 файла, +242 / -20: bridge.go, notes.go, translate.go, replay_build_test.go (новый)'
+content_digest: sha256:a4e2e12095a74f0f9f1521d3504a7ad447883ecdbf62e49d121244b4f1bbfd86
+digest_definition: |
+  git diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum
+  `git ls-remote origin 32` → f213439a = merge-base; перемерено своей командой, с заданием совпадает
+
+verdict: accepted              # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-24T01:50:00Z'
+return_to: '—'
+
+closure_of_previous_round:
+  note: >-
+    Круг 1 этой роли закончился вердиктом «принято»: критических находок не было, возврата
+    от этой роли не было. Возврат круга шёл от security-auditor (F1). Неблокирующие I1–I3 и
+    S1–S2 дельта не трогает: `git diff 6289fbcf..HEAD -- oauthceremony/logincontext.go
+    oauthceremony/types.go` пуст. Они остаются открытыми и неблокирующими; здесь не
+    переоткрываются.
+  items:
+    - {id: I1, at: 'oauthceremony/logincontext.go:38', status: 'открыт, не блокирует — SessionID судится по TrimSpace, в запись уходит без обрезки'}
+    - {id: I2, at: 'oauthceremony/logincontext.go:43', status: 'открыт, не блокирует — верхней границы AuthTime нет; решает полоса безопасности (у неё это N1)'}
+    - {id: I3, at: 'oauthceremony/logincontext.go:18, oauthceremony/types.go:403', status: 'открыт, не блокирует — «RFC 9470 §3» на месте, нужен §6 (у безопасности — N3)'}
+    - {id: S1, at: 'oauthceremony/logincontext.go:36', status: 'открыт, стиль'}
+    - {id: S2, at: 'oauthceremony/translate.go:441', status: 'открыт, стиль'}
+
+review_scope: >-
+  Дельта круга прочитана целиком. Прод: bridge.go (replayedCode, шапки GetAuthorizeCodeSession и
+  GetRefreshTokenSession, тело ветки CodeRefreshTokenRotated), notes.go (шапка ведомости,
+  markReplayedFamily), translate.go (комментарий у hydrateSession). Проба: replay_build_test.go.
+  Вне дельты прочитаны: record, preferRecorded, note, coarsenable, replayed (notes.go);
+  pairEngine, consumeCode, RotateRefreshToken, codeReplayed, refreshReplayed (bridge.go);
+  requesterFromGrant (translate.go:340-372); ответы Exchange/Introspect/Revoke по
+  replayed() и preferRecorded (ceremony.go:860-869, 967-976, 1025-1041); помощники проб
+  corruptRefreshRecords, requireRevokedFor, requireNotRevoked, requireCodeReplayRefusal,
+  requireReplayRefusal, TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily.
+  Перепись вызывающих markReplayedFamily: 4 места, все в bridge.go (:272, :321, :436, :484).
+  Все передают codeReplayed/refreshReplayed; оба случая есть в перечне coarsenable. Поэтому
+  то, что markReplayedFamily пишет precise мимо фильтра note, поведения не меняет. Пустой
+  грант до пометки не доходит: :243, :431 и :479 отвергают его раньше как нарушение
+  контракта. На путях нуля строк (:321, :484) pairEngine заносил тот же случай следом и до
+  правки, так что там поведение прежнее.
+
+premise_checks:
+  - claim: 'host go test ./oauthceremony/... ./acrlevel/...: 440 исполнено, 0 отказов'
+    result: подтверждено
+    how: 'go test -count=1 -json @e2a451c6: 440 pass / 0 fail / 0 skip, оба пакета pass, rc 0 (TMPDIR ~/.cache/gsr-36-r2/tmp, вне git-деревьев)'
+  - claim: 'TestReplayWithABrokenSessionRecordIsStillAReplay — 6 видов порчи × 4 точки, близнец без правки'
+    result: подтверждено
+    how: >-
+      четыре пробы (две новые, TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily,
+      TestStoredRecordWithoutAGoodLoginContextIsAContractBreach) @e2a451c6: 74 PASS / 0 FAIL
+  - claim: 'проба держит правку круга'
+    result: подтверждено
+    how: >-
+      две -overlay-инъекции поверх головы; рабочее дерево не тронуто (git status — 0 строк).
+      X — прод-файлы bridge/notes/translate из 6289fbcf: 49 PASS / 25 FAIL, красных клеток 24
+      (6 порч × 4 точки), все 4 близнеца зелёные, живой путь
+      TestStoredRecordWithoutAGoodLoginContextIsAContractBreach зелёный.
+      Y — снято только `n.precise = refusal` в markReplayedFamily: 47 PASS / 27 FAIL. Те же
+      24 клетки, плюс красные TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily и
+      TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily. Итог: механизм держат обе
+      пробы круга, и снятый клиент тоже.
+  - claim: '-race, golangci-lint, gosec зелёные'
+    result: 'не перемерялось — независимый перемер делает check-verifier'
+
+critical: []
+
+important:
+  - id: I4
+    tag: DOC-TRUTHFULNESS
+    at: oauthceremony/replay_build_test.go:10
+    related: 'oauthceremony/replay_build_test.go:77, :140, :158'
+    summary: >-
+      Шапка файла (:10-12) и шапка TestReplayWithABrokenSessionRecordIsStillAReplay (:76-77)
+      говорят про все клетки одно: «ответ — случай повтора, семейство отзывается с причиной
+      повтора». Так верно только для двух точек из четырёх, обмена кода и оборота. Клетка
+      отзыва обёрнутым токеном ждёт ответа nil и причины RevocationClientRevoke (:140).
+      Клетка интроспекции ждёт active=false и того, что отзыва нет (:158). Комментарии внутри
+      клеток и утверждения проб верны. Расходится только обобщение в шапках.
+    requirement: >-
+      в обеих шапках назвать исход по точкам: обмен и оборот — случай повтора и отзыв с
+      причиной повтора; отзыв обёрнутым токеном — успех, отзыв с причиной «просьба клиента»;
+      интроспекция — active=false без отзыва; порча записи сеанса не превращает ни один из
+      них в нарушение контракта.
+
+foundation_candidates: []
+foundation_candidates_note: 'дифф — сам фундамент; новых помощников вне пакета нет'
+
+style:
+  - id: S3
+    at: oauthceremony/notes.go:213
+    summary: >-
+      markReplayedFamily теперь делает два дела: помечает семейство и записывает точный случай
+      операции. Имя называет только первое, второе видно лишь в шапке. Кроме того, precise
+      пишется мимо фильтра coarsenable, который note ставит всем прочим. Сейчас это безвредно:
+      все 4 вызывающих передают случаи из перечня. Но инвариант держится на вызывающих, а не
+      на функции.
+  - id: S4
+    at: oauthceremony/replay_build_test.go:47
+    summary: >-
+      requireFamilyRevokedFor собирает те же три утверждения, что написаны прямо в теле
+      TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily (refresh_replay_test.go:362-368).
+      Там можно звать этот помощник. corruptCodeRecords повторяет corruptRefreshRecords
+      (login_context_test.go:349) над другой картой; generic тут не поможет (поле через
+      ограничение недоступно), так что дубль допустим.
+
+checklist:
+  error_wrap: 'ок — новых ошибок нет; случай повтора собирают прежние конструкторы codeReplayed/refreshReplayed; в пробах errors.Is через requireCodeReplayRefusal/requireReplayRefusal'
+  context: 'ок — notesFrom(ctx) берёт переданный ctx; новых IO-вызовов нет; context.Background только в пробах'
+  no_panic: ок
+  slog: 'не затронуто'
+  generics: 'не затронуто'
+  naming: 'ок, кроме S3; латиница в идентификаторах, кириллица только в именах подслучаев и комментариях'
+  init_side_effects: нет
+  concurrency: 'ок — запись precise в markReplayedFamily идёт под тем же n.mu, что record и preferRecorded'
+  thin_handler_clean_arch: 'не применимо — библиотека фундамента'
+  magic_numbers: нет
+  doc_truthfulness: >-
+    прод — ок: шапки replayedCode, GetAuthorizeCodeSession, GetRefreshTokenSession, ведомости,
+    markReplayedFamily и комментарий у hydrateSession совпадают с кодом на голове (сверено
+    инъекциями X/Y); проба — I4
+  gofmt: 'gofmt -l по 4 файлам дельты — пусто'
+
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: "git diff f213439a..e2a451c6 | grep -E '^\\+' | grep -c -E '\\b(TODO|FIXME|XXX|HACK)\\b|t\\.Skip' → 0"
+tests_in_same_pr: true
+tests_in_same_pr_note: 'replay_build_test.go +206 в том же коммите 4ea638c1, что и правка прод-кода'
+security_comments_contradicting_code: []
+trailers_check: >-
+  4ea638c1: тема 69 знаков, тело 10 строк; e2a451c6: тема 71 знак, тело 3 строки; обе темы
+  «#36 …»; Co-Authored-By / Claude-Session / Generated with — 0; автор и коммитер
+  pointpu <pointpu@in-cloud.io>
+
+relation_to_other_records:
+  security_auditor_F1: >-
+    правка кода, закрывающая F1, по оси стиля принята. Инъекции X/Y показывают, что проба
+    держит механизм. Закрытие F1 судит security-auditor в своём круге 2.
+
+runs:
+  - 'шаг 0: MemAvailable 32 ГБ; чужие go-процессы были, опрос раз в 60 с — 8 опросов, свободно в 01:45:27'
+  - 'четыре пробы @e2a451c6: 74 PASS / 0 FAIL'
+  - 'инъекция X (прод 6289fbcf): 25 FAIL, из них 24 клетки + 1 родитель; близнецы и живой путь зелёные'
+  - 'инъекция Y (без precise в markReplayedFamily): 27 FAIL — 24 клетки + 3 родителя, включая обе пробы снятого клиента'
+  - 'полный ./oauthceremony/... ./acrlevel/...: 440 PASS / 0 FAIL / 0 SKIP'
+  - '-race, линт и gosec не перегонялись'

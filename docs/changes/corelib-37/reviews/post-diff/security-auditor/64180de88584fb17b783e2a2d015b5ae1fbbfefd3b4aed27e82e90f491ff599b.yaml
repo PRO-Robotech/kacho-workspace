@@ -1,0 +1,158 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность».
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменится дайджест — новый запуск и новый файл. Запись лежит в копии
+# воркспейса ветки 825 и НЕ закоммичена.
+schema_version: 1
+change_id: corelib-37
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+subject: >-
+  corelib #37: секрет клиента сверяет порт службы Ports.ClientSecrets (ClientSecretVerifier,
+  закрытый SecretVerdict, PresentedSecret без печати); хешер настроек движка —
+  clientSecretHasher; Config.SecretHashCost и хеши ClientRegistration сняты; неизвестному
+  клиенту в доказательстве — представление без прав и та же одна сверка (4ac5dfbd); отказ
+  LookupClient — отказ операции (36a3bf0a).
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '37 (локальная; `git ls-remote origin 32 37` → только refs/heads/32; на origin ветки 37 нет)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: 36a3bf0a38b82dd6a8d1e1e3a9f72d5006045d2a
+  head_tree: f4d97975ecb0d030b59eec66c2d0a32bd7d6f992
+  shortstat: '17 файлов, +1097 / -63'
+content_digest: sha256:64180de88584fb17b783e2a2d015b5ae1fbbfefd3b4aed27e82e90f491ff599b
+digest_definition: >-
+  git -C tmp/corelib-37 diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum;
+  merge-base = origin/32 = f213439a (перемерено `git ls-remote origin 32`); совпадает с заданием
+verdict: returned
+blocks_landing: true
+timestamp: '2026-09-23T21:19:58Z'
+return_to: go-implementer (полоса corelib #37)
+
+review_scope: >-
+  весь дифф: 7 прод-файлов по ханкам целиком (bridge.go, ceremony.go, notes.go, ports.go,
+  translate.go, types.go, doc.go), 10 тестовых. Вне диффа прочитаны: bridge.go 60-152
+  (fromPort, contractBreach, pairEngine); notes.go 170-240, 329-345 (record, preferRecorded,
+  coarsenable, note); translate.go 100-200 (fromEngine); errors.go 120-190; ceremony.go
+  805-1110 (Exchange, Introspect, Revoke, postForm, tokenForm, tokenReservedNames).
+  Движок: internal/oauth2/client_authentication.go 60-270 (обе ветки
+  DefaultClientAuthenticationStrategy, checkClientSecret), introspection_request_handler.go
+  90-200; перепись вызывающих по дереву движка (`command grep -rn` по *.go без тестов):
+  Store.GetClient — 4 места (авторизация, утверждение клиента, секрет клиента,
+  интроспекция), GetSecretsHasher — 2 (оба в checkClientSecret), Hash() на пути запроса — 0.
+  Сборка запроса у моста зовёт LookupClient напрямую, не GetClient — ведомость
+  доказательства ею не трогается. Потребители: corelib origin/main без oauthceremony;
+  kaname origin/main (cbbac984b, пин corelib v1.9.0) и kacho origin/main (1d42a6728bf, пин
+  v1.8.0) пакет не импортируют. Прогоны на копии @36a3bf0a: `go vet ./oauthceremony/` чисто;
+  `go test -count=1 -json ./oauthceremony/` → 121 pass, 0 fail (верхний уровень); -race не
+  гонялся (контейнер golang:1.26.8 не поднимался — прогон «не выполнился», а не зелёный).
+
+premise: >-
+  подтверждена. Красное до кода перемерено инъекциями во временном worktree
+  (tmp/sa37-inj, снят): (A) снята ветка «неизвестный клиент в доказательстве» в GetClient →
+  TestUnknownClientIsRefusedExactlyLikeAWrongSecret красная в 7 из 9 пар (зелёные две —
+  интроспекция телом и без секрета, где движок отказывает до справочника), и
+  TestClientSecretIsVerifiedByTheServicePortExactlyOnce красная на 7 случаях неизвестного
+  клиента; (B) возврат ветки отказа справочника к note(ctx, ours) →
+  TestClientDirectoryFailureFailsTheOperation красная в 4 из 4 операций, близнецы зелёные.
+  Сверка ровно одна на клиента: представления клиента не реализуют оборота секретов движка,
+  хешер зовётся только из checkClientSecret. Представление неизвестного клиента не выходит
+  доказанным: «совпал» о нём — ErrPortContract (проба закрепляет на трёх операциях).
+  PresentedSecret не печатается ни одним из 9 глаголов, в составе, указателем и в закрытом
+  поле (13 печатей). Отказ хешера на Hash — движок его не зовёт.
+
+findings:
+  - id: F1
+    severity: medium
+    key: 'corelib:oauthceremony/bridge.go:proof-port-failure-code-becomes-op-verdict'
+    at: >-
+      oauthceremony/bridge.go:273-274 (verifyClientSecret, отказ порта сверки через fromPort) и
+      :200 (GetClient, ветка отказа справочника, коммит 36a3bf0a); читатели кода —
+      ceremony.go:1023 (Revoke) и :961 (Introspect); обещание, которое нарушается —
+      ports.go:604 и шапка verifyClientSecret.
+    sign: >-
+      fromPort сохраняет КОД отказа, если порт вернул нашу ошибку (обёрнутый часовой
+      пакета). Отказ записывается в ведомость и становится ответом операции
+      (preferRecorded). Отзыв и интроспекция часть кодов читают как исход протокола, а не
+      как отказ. Так несостоявшаяся сверка становится вердиктом, вопреки контракту порта:
+      «отказ порта — отказ операции».
+    failure_scenario: >-
+      реализация порта сверки у службы читает проверочное значение тем же помощником
+      хранилища, что отвечает часовым «записи нет» (документированный сигнал портов
+      хранения того же пакета), и возвращает его как ошибку. Клиент, у которого значения в
+      этот момент нет (сброс, оборот), отзывает токен обновления при выходе. Операция
+      отвечает успехом, а токен остаётся живым. То же с двумя другими часовыми «нечего
+      снимать». На интроспекции неаутентифицированный вызывающий при таком отказе порта
+      получает ответ «неактивен», а не отказ. У справочника (коммит 2) тот же класс:
+      до коммита 2 два из трёх таких кодов давали invalid_client, после коммита — успех отзыва.
+    proof: >-
+      аудиторские пробы в снятом worktree @36a3bf0a (файл вне дерева полосы). Известный
+      клиент, верный секрет, порт сверки отвечает ошибкой, обёрнутой в ErrGrantNotFound /
+      ErrNotFound / ErrUnhandledRequest: Revoke → nil, токен обновления после отзыва
+      active=true. Близнец — простая ошибка: server_error. Справочник с ErrNotFound /
+      ErrUnhandledRequest / ErrRefreshTokenRotated: Revoke → nil, токен жив; простая ошибка —
+      server_error. Та же проба на 4ac5dfbd: для справочника ErrNotFound / ErrUnhandledRequest
+      дают invalid_client, ErrRefreshTokenRotated — nil (поведение базы). Интроспекция
+      неизвестным клиентом при ошибке порта с ErrInactiveToken / ErrRefreshTokenRotated →
+      active=false, err=nil; простая ошибка — server_error. Обмен ни при одном коде не
+      выдаёт токенов: отказ, но с кодом порта.
+    fix_direction: >-
+      признак для исполнителя, диагноз он вправе опровергнуть. Отказ обоих портов
+      доказательства в операции, доказывающей клиента, получает закрытую классификацию.
+      Срок и отмена сохраняют свои коды, нарушение контракта — своё, всё прочее —
+      server_error. У порта сверки в контракте нет ни одного исхода-ошибки с протокольным
+      кодом, поэтому наш часовой из него — это нарушение контракта. У справочника
+      единственный протокольный сигнал — ErrGrantNotFound, и он уже разобран своей веткой.
+      Вариант исполнителя: отзыв и интроспекция не толкуют «безобидными» записанный отказ
+      порта, а толкуют только вердикт движка. Выбор за ним, предмет один. Закрепить пробой
+      на уровне обсервабла по трём операциям. Входы: каждый часовой пакета из закрытого
+      перечня (allSentinels, внутренняя проба) × оба порта. Ожидается: операция отказывает,
+      CodeOf ∈ {server_error, port_contract, port_deadline, port_canceled}, Revoke не
+      возвращает nil, Introspect не возвращает ответ без ошибки. Близнецы: исправный порт —
+      отзыв исполнен, токен мёртв; простая ошибка — server_error.
+
+below_bar:
+  - id: N1
+    severity: low
+    key: 'corelib:oauthceremony/bridge.go:public-client-vs-unknown'
+    note: >-
+      зарегистрированный публичный клиент на обмене и отзыве проходит доказательство без
+      сверки (ранний выход движка по IsPublic), а неизвестный получает отказ. Точка
+      авторизации отличает неизвестного клиента по построению (RFC 6749 §4.1.2.1). Для
+      публичного клиента нет отказа «неверный секрет», поэтому утверждение doc.go о
+      неразличимости верно. Идентификатор клиента — не секрет (RFC 6749 §2.2). Не блокирует.
+  - id: N2
+    severity: low
+    key: 'corelib:oauthceremony/ceremony.go:assertion-type-not-reserved'
+    note: >-
+      client_assertion_type и client_assertion не входят в tokenReservedNames. Служба,
+      пробрасывающая Additional от клиента, доводит запрос до ветки утверждения клиента. Для
+      известного и неизвестного клиента исход одинаков: представление не
+      OpenIDConnectClient, порт не зовётся. Находки нет, только наблюдение: закрыть
+      перечнем было бы дешевле, чем держать равенство исходов вниманием.
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    subject: >-
+      при подъёме пина на ревизию с #37 служба реализует ClientSecretVerifier. Страж цены
+      [10, 15] снят из corelib вместе с Config.SecretHashCost. Функция и цена проверочного
+      значения теперь у службы, и её собственный boot-guard ограничивает цену с обеих
+      сторон. Сравнение постоянного времени — по значениям фиксированной длины, а не по
+      сырым секретам. Приманка того же класса — для неизвестного клиента И для
+      зарегистрированного без проверочного значения: публичный клиент доходит до порта
+      через интроспекцию. Нынешнее и прежнее значение на время оборота — в одном вызове.
+      Reveal — только в сравнении. Для клиента, которого нет, — SecretMismatched, а не
+      ошибка с часовым пакета; пока F1 не исправлена, это держит отзыв. LookupClient
+      отвечает ровно ErrGrantNotFound. Проба сквозь обе стороны: неизвестный клиент против
+      неверного секрета — одно число вызовов (держит corelib) и одна цена сверки (держит
+      служба).
+
+commit_message_check: >-
+  трейлеров Co-Authored-By/Claude-Session/Generated with — 0 на f213439a..36a3bf0a. Тексты
+  называют свойство после правки. Состояние до правки восстанавливается только для пакета,
+  которого нет ни в corelib main, ни у одного потребителя (перепись выше), — признак
+  восстановимости не срабатывает. Сообщение и тело PR судит landing-reviewer.
+dry_round: false
+seen_keys:
+  - 'corelib:oauthceremony/bridge.go:proof-port-failure-code-becomes-op-verdict'

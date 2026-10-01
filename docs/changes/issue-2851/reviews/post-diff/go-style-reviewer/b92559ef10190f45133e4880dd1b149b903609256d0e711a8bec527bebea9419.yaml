@@ -1,0 +1,81 @@
+role: go-style-reviewer
+change: kacho#2851
+round: 2
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: 113f3b8b591c4caef55f19c51346a10ff98d8151   # origin/2796 = merge-base, remeasured
+  head: 86429336db975dee9898abc1f961313f1fc64960   # tree d9947cca = tree of 4301504e
+  digest: b92559ef10190f45133e4880dd1b149b903609256d0e711a8bec527bebea9419
+  digest_command: git diff --full-index origin/2796..86429336 | sha256sum
+  diff: 43 files, +502 -80; only non-test file is internal/privateloopback/privateloopback.go (test support, imports "testing"; 40 importers, all *_test.go)
+verdict: returned
+return_to: go-implementer (lane #2851)
+blocks: true
+
+round1_closure:
+  C1_httptest_form: 'closed. Independent AST census @86429336 (/home/dk/.cache/go-style-2851-r2/census): 3601 .go parsed (= git ls-files ''*.go''), 2346 *_test.go; httptest constructors left in tests 52, privateloopback calls 59. Among the 52, only two record arrivals: the helper''s twin (privateloopback_test.go:71, counts only its random mark) and dpop_e2e_test.go:75 jwksHits, which nothing reads. Matches the implementer''s census.'
+  I1: closed. Counting is full again (f1_harness_test.go:84); the attribution test counts derived paths (f1_harness_attribution_test.go:57-66).
+  S1: closed. The foreign-log cleanup was removed together with the foreign counter.
+  S2: closed. The probe uses t.Context() and ks.srv.Client().
+
+critical:
+  - id: C1-residual
+    class: fix-class-not-instance / recognizer-knows-all-lawful-forms (testing.md)
+    what: >
+      The census only knows the httptest.New*Server constructor. Loopback servers built on a raw
+      net.Listen("tcp", "127.0.0.1:0") plus grpc Serve are outside what it observes. Their fakes
+      count calls or keep the last arrival, and asserts sit on those values. The commit message
+      says "Серверов петли, наблюдающих прибытия на общем адресе ... осталось 2". The measured
+      number is higher.
+    measured: >
+      Raw listeners in *_test.go @86429336: 35 (33 on the literal 127.0.0.1:0, 2 via freeAddr).
+      At least 11 of them, in 10 files, host a fake that observes arrivals and is asserted. This
+      count is a lower bound from reading, not a full AST count.
+      gateway/internal/e2e/authz_e2e_test.go:100 (calls: Zero :253 :271 :289, Equal :341);
+      gateway/internal/clients/iam_authorize_client_test.go:68 (Equal :116 :173) and :185 (Equal :209);
+      gateway/internal/opsproxy/cancel_authorizes_before_mutating_test.go:53 (cancelCalls !=0 :90 :112, !=1 :138);
+      gateway/internal/opsproxy/cancel_by_non_creator_lane_test.go:171 (!=0 :225, !=1 :252);
+      gateway/internal/opsproxy/timeout_test.go:60 (getHadDL/cancelHadDL capture);
+      gateway/internal/e2e/f1b_two_issuer_e2e_test.go:248 (grpcPrincipal last-arrival, read :557 :559;
+      the REST half of the same stand at :238 was moved to privateloopback, the gRPC half was not);
+      services/compute/cmd/compute/principal_extract_integration_test.go:64 (observedPrinc/handlerInvoked);
+      services/compute/internal/check/check_client_propagation_test.go:50 (lastReq/lastMD);
+      services/vpc/internal/check/check_client_propagation_test.go:55 (lastReq/lastMD);
+      services/registry/internal/clients/iam/iam_client_test.go:61 (lastReq).
+    experiment: >
+      go test -overlay, lane tree unchanged (status --porcelain 0). The stub is the tree's
+      startStubServer (iam_authorize_client_test.go:66). A gRPC client that knows only
+      127.0.0.1:<port> calls Check. Result: "Should be zero, but was 1". Twin: the same stub on
+      privateloopback.Listen(t). The stranger does not reach it, and a lawful caller at the full
+      address is counted (Equal 1). Probe:
+      /home/dk/.cache/go-style-2851-r2/ovl/stranger_grpc_probe_test.go
+    requirement: >
+      Extend the census to the raw-listener constructor form, i.e. net.Listen / tls.Listen on
+      127.0.0.1 in *_test.go, together with the registered service or handler. Move every member
+      that observes arrivals to privateloopback.Listen(t), which is exported and has 0 callers
+      today. Name the number in the new commit. The alternative is to narrow the claim to
+      "серверы httptest" and file the raw-listener form as its own subject with a number and a
+      removal predicate. In that case the claim still has to be corrected, because
+      "осталось 2" is false for loopback servers.
+
+important: []
+
+foundation_candidates:
+  - what: internal/privateloopback. Kaname has candidate members of the same class at cbbac984b, e.g. internal/handler/loginlanehttp/handler_test.go (a counter plus 4 zero/exact asserts); not classified.
+    route: git-operator files an issue in PRO-Robotech/corelib. Moving it is cross-repo work. A copy into kaname is forbidden (ban20); it is taken by pin.
+
+style:
+  - internal/privateloopback/privateloopback_test.go:83-92. The factory closures capture the parent t. On failure, Fatalf goes to the parent from the subtest goroutine (FailNow from another goroutine). Take func(testing.TB, http.Handler) and pass the subtest's t.
+  - 'internal/privateloopback/privateloopback.go:73-76. httptest.NewUnstartedServer binds 127.0.0.1:0 and the listener is closed right away. Build &httptest.Server{Listener: l, Config: &http.Server{Handler: h}} directly, without taking a shared port.'
+  - 'internal/privateloopback/privateloopback.go:50-53,123-143. The retry on EADDRNOTAVAIL never changes the outcome: when the platform does not hand out a 127.x address, it does not hand out any of them. The comment "на случай, который сам по себе редок" names no case. Either name the case or remove the loop (arch-lean-no-vestigial).'
+  - internal/privateloopback/privateloopback.go:77-82. A certificate (ECDSA keygen) is issued for every server, including the 57 plain Start() ones. Issuing it lazily is not possible without a StartTLS wrapper. Non-blocking.
+
+counts:
+  fresh_deferral_markers: 0
+  probes_in_same_pr: yes
+  production_code_touched: no (only test support in internal/privateloopback; importers are *_test.go only)
+  forbidden_trailers: 0
+  security_comments_contradicting_code: none
+  cyrillic_identifiers_added: 0 (Cyrillic only in comments and strings)
+
+not_declared: linter and test outcomes are not declared by this role; the runs above were done only to support findings.

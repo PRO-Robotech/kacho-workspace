@@ -69,8 +69,37 @@ def check(name, condition, detail=""):
     sys.stdout.flush()
 
 
+# Подпись песочницы — её HOME со своим `.gitconfig`, в котором корневая учётная
+# запись вызывающего (ws#785): правило подписи действует и на клон, который на
+# origin не попадает никогда. Переменные подписи вызывающего в git песочницы не
+# доходят; HOME подменяется только для git, производитель зовётся со своим.
+SIGNATURE_ENV = ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME",
+                 "GIT_COMMITTER_EMAIL", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_PARAMETERS",
+                 "GIT_CONFIG_COUNT")
+SANDBOX_ENV = {}
+
+
+def sandbox_home(home):
+    """HOME песочницы с корневой подписью; False — корневой подписи нет."""
+    name = subprocess.run(["git", "config", "--global", "--get", "user.name"],
+                          capture_output=True, text=True).stdout.strip()
+    email = subprocess.run(["git", "config", "--global", "--get", "user.email"],
+                           capture_output=True, text=True).stdout.strip()
+    if not name or not email:
+        return False
+    os.makedirs(os.path.join(home, ".config"), exist_ok=True)
+    env = {k: v for k, v in os.environ.items() if k not in SIGNATURE_ENV}
+    env.update(HOME=home, XDG_CONFIG_HOME=os.path.join(home, ".config"))
+    subprocess.run(["git", "config", "--global", "user.name", name], env=env, check=True)
+    subprocess.run(["git", "config", "--global", "user.email", email], env=env, check=True)
+    SANDBOX_ENV.clear()
+    SANDBOX_ENV.update(env)
+    return True
+
+
 def git(cwd, *args):
-    out = subprocess.run(["git", "-C", cwd] + list(args), capture_output=True, text=True)
+    out = subprocess.run(["git", "-C", cwd] + list(args), capture_output=True, text=True,
+                         env=SANDBOX_ENV or None)
     if out.returncode != 0:
         raise RuntimeError("git %s в %s: %s" % (" ".join(args), cwd, out.stderr.strip()))
     return out.stdout.strip()
@@ -79,10 +108,6 @@ def git(cwd, *args):
 def init_repo(path):
     os.makedirs(path, exist_ok=True)
     git(path, "init", "-q", "-b", "main")
-    # Подпись — в конфиге выброшенного клона: он живёт до конца пробы и на origin
-    # не попадает никогда; без неё коммит на ранере без ~/.gitconfig отказывает.
-    git(path, "config", "user.name", "cg-applicability probe")
-    git(path, "config", "user.email", "probe@invalid")
     git(path, "config", "commit.gpgsign", "false")
 
 
@@ -642,6 +667,11 @@ def prove(tmp):
 
 def main():
     tmp = tempfile.mkdtemp(prefix="cg-applicability-")
+    if not sandbox_home(os.path.join(tmp, "home")):
+        shutil.rmtree(tmp, ignore_errors=True)
+        sys.stdout.write("prove_applicability: корневой подписи нет — песочнице не с чего "
+                         "взять подпись, опыт не поставлен\n")
+        return 2
     try:
         done = prove(tmp)
     except (RuntimeError, OSError, KeyError) as exc:

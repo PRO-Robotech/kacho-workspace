@@ -95,6 +95,9 @@ pairs:
   - path: proto/declared-breaks.yaml
     decision: own
     note: перечень объявленных разрывов СВОЕГО контракта
+  - path: scripts/hooks/pre-push
+    decision: own
+    note: локальный прогон СВОЕГО ci.yml — состав проверок у каждого дерева свой, как у ci.yml (решение 2026-09-30, kacho-workspace#888); расхождение по стволам — `git show origin/main:scripts/hooks/pre-push | grep -c <имя>`, prepush-groups.sh у платформы 2 и у фундамента 0, git-rule-push.sh наоборот; побайтовое совпадение ловит сам гейт
 
   # ── долг: копия, и она признана ─────────────────────────────────────────────
   - path: proto/corelib/api/v1/operation.proto
@@ -199,3 +202,7 @@ pairs:
   - path: internal/release/pack_test.go
     decision: debt
     issue: PRO-Robotech/kacho-workspace#655
+  - path: scripts/hooks/install.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#2779
+    note: один механизм переходника живёт копиями, и поведение разошлось — у платформы переходник v1 без адресата выходит нулём, у фундамента v2 отказывает (corelib#24); kacho#2779 называет этот переходник одним предметом и требует решения по паре тем же изменением (решение 2026-09-30, kacho-workspace#888)

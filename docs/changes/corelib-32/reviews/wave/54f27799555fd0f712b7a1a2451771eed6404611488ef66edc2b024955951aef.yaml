@@ -1,0 +1,137 @@
+# Сверка волны: роль wave-reviewer, сборка-5 ветки 32 (f213439a + #39 + #36 + #37).
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся: сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 5
+previous_record: 2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243.yaml
+subject: >-
+  corelib, волна 32, сборка-5: поверх origin/32@f213439a влиты #39 (d37289b9), #36 (506c82ea)
+  и #37 (801f558d), все --no-ff, remerge-diff каждого слияния пуст. Сверяются пары
+  #39↔#36, #36↔#37, #39↔#37 на собранном дереве; oauthceremony и tokenpolicy прогнаны
+  на сборке, в том числе при --cpus=1.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: f213439a409ecce4816d88121cf3301b9efbad33   # origin/32, перемерено ls-remote
+  head: 801f558de2cf55b3d63b6fa5b24ab8470996e9aa   # tmp/corelib-32, ветка 32, не отправлена, porcelain 0
+  tree: 645b7335848d1e9b183830890f258f9b8d02a673
+  shortstat: '30 файлов, +3294 / -151'
+  lanes:
+    '39': {head: fa1dd916efa65cdcc4946f97ae9ddf9557d71be2, base: f213439a4094, digest: 2d64eee748f22cfb65bc3bd9cef183493317fe8b2ff9bc61d8ca4ed3dae866c7, merge: d37289b999440cda9b59c6cec087e5f973d37377, order: 1}
+    '36': {head: e2a451c63f2fe3ed7f6f5e1e99d9cc9958e160a0, base: f213439a4094, digest: a4e2e12095a74f0f9f1521d3504a7ad447883ecdbf62e49d121244b4f1bbfd86, merge: 506c82ea26fd50c90260e493fe2a337837c3235b, order: 2}
+    '37': {head: be0d7cc81f557d58024598d1daf122b08b3c4551, base: f213439a4094, digest: b7f59f68d233c5c91c623f8fdb080eb8c0b13eb8f8b59f4abe85de60d727a564, merge: 801f558de2cf55b3d63b6fa5b24ab8470996e9aa, order: 3}
+content_digest: sha256:54f27799555fd0f712b7a1a2451771eed6404611488ef66edc2b024955951aef
+digest_definition: >-
+  git diff --full-index origin/32..HEAD | sha256sum в tmp/corelib-32 после fetch. Дайджесты
+  полос тем же предикатом от их голов совпали с заданием и с именами записей
+  go-style/security последних кругов (все accepted).
+
+verdict: returned
+blocks_landing: true
+timestamp: '2026-09-24T00:00:00Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-32e-KN0On1/corelib (git clone --shared от tmp/corelib-32,
+  HEAD 801f558d). GOCACHE, TMPDIR, GOLANGCI_LINT_CACHE там же, GOPROXY=off. Правки только через
+  -overlay (каталог ov/), дерево не правилось: porcelain 0 и в клоне, и в tmp/corelib-32.
+  Шаг 0: MemAvailable 32 ГБ; на старте шли чужие go test (kaname), к прогонам их не было.
+  Логи: .../wave-review-32e-KN0On1/logs/ (INDEX.txt).
+
+runs:
+  - 'go build ./... rc 0; go vet ./... rc 0; gofmt -l oauthceremony tokenpolicy → 0'
+  - 'R1 хост, go test -count=1 -json ./oauthceremony/ ./tokenpolicy/: rc 1. oauthceremony PASS 1468, FAIL 4 (2 верхних + 2 подпробы); tokenpolicy PASS 10. Упали TestConsumedCodeRecordOutlivesTheCodeLifespan (обе подпробы, code_record_retention_test.go:111 «НЕ ВЫПОЛНИЛОСЬ: мгновения GrantRecord — [IssuedAt Session.AuthTime Session.ExpiresAt Session.NotAfter], ageCodeRecord старит [IssuedAt Session.ExpiresAt Session.NotAfter]») и TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily (replay_build_test.go:204 «повтор кода отвергнут случаем invalid_client, ожидался authorization_code_consumed», :205 — семейство не отозвано)'
+  - 'R3 golang:1.26.8 --cpus=1, go test -race -count=1 -timeout 25m -json тех же пакетов: rc 1, тот же набор — PASS 1468+10, FAIL 4, те же 2 верхних, DATA RACE 0. От числа процессоров исход не зависит'
+  - 'R5 golang:1.26.8 --cpus=4, форма конвейера go test ./... -race -short -count=1 -timeout 25m -json | .github/scripts/go-test-verdict.py: пакетов 99 (прошло 79, упало 1, без проб 19), проб 4214, отказов 4, пропущено 191, вердикт КРАСНЫЙ rc 1. Упавших верхних ровно те же 2'
+  - 'R2/fix — -overlay обеих починок (C3 и C4, ниже), хост: rc 0, 1472 + 10 PASS, FAIL 0'
+  - 'R2/fixC3 только C3: rc 1, FAIL 1 — TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily. R2/fixC4 только C4: rc 1, FAIL 3 — TestConsumedCodeRecordOutlivesTheCodeLifespan. Причины независимы, каждой отвечает своя починка'
+  - 'R4 --cpus=1 -race с -overlay fix: rc 0, 1472 + 10 PASS, DATA RACE 0 (oauthceremony 6,9 с). R6 форма конвейера --cpus=4 с -overlay fix: пакетов 99 (прошло 80, упало 0), проб 4214, отказов 0, пропущено 191, ЗЕЛЁНЫЙ rc 0'
+  - 'R7 .github/scripts/oauthceremony-boundary.sh на сборке: rc 0, пробы границы 4 из 4, граница цела'
+  - 'R8 golangci-lint v2.12.2 run --config=.github/golangci.yml (свой кэш): rc 0, 0 issues'
+
+lanes:
+  - 'полоса 39 · вердикт принято · координата — · требование — · чем доказано: её дельта на сборке без правок; C3 чинится во второй по порядку полосе (36), у #39 поля AuthTime нет'
+  - 'полоса 36 · вердикт возврат · координата oauthceremony/fakes_test.go:468-470,489@801f558d · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений…» (столкновение ожиданий), .claude/rules/testing.md gate-checks-its-premise · чем доказано R1, R3, R5; R2/fixC3'
+  - 'полоса 37 · вердикт возврат · координата oauthceremony/replay_build_test.go:184-187@801f558d; bridge.go:465,634 × notes.go:246-248 · требование §14 «Классы столкновений…» (столкновение ожиданий; два решения одной задачи), .claude/rules/testing.md gate-checks-its-premise · чем доказано R1, R3, R5; R2/fixC4; R2/fix_no37, fix_no36, fix_noboth'
+
+collisions:
+  - id: C3
+    kind: 'столкновение ожиданий — §14 «Классы столкновений…»; видно только рядом'
+    lanes: ['39', '36']
+    status: 'НЕ разрешено при сведении, хотя записано прошлым проходом (corelib-39/reviews/post-diff/wave-reviewer/2d64eee7….yaml, next[0])'
+    subject: >-
+      #39 (565f5b50) требует, чтобы ageCodeRecord старил ровно поля GrantRecord с мгновением
+      (fakes_test.go:489 agedGrantInstants, :468-470). #36 (6289fbcf, types.go:203) добавил
+      SessionRecord.AuthTime. На сборке предпосылка срабатывает, проба не выполняется.
+    proof: 'R1/R3/R5 — 2 подпробы FAIL с текстом :111; R2/fixC3 (AuthTime в ageCodeRecord и в agedGrantInstants) — проба зелёная'
+    fix_in: >-
+      полоса 36 (вливается после #39): влить 32 и тем же касанием состарить Session.AuthTime в
+      ageCodeRecord и внести его в agedGrantInstants в порядке объявления. Порядок влития
+      может сменить диспетчер, тогда адресат — вторая полоса пары.
+  - id: C4
+    kind: 'столкновение ожиданий — §14 «Классы столкновений…»; видно только рядом'
+    lanes: ['36', '37']
+    subject: >-
+      #37 (4ac5dfbd) перенёс секрет клиента из ClientRegistration в порт сверки (подставка
+      store.secrets) и поправил единственного на своей базе близнеца-фикстуру второго клиента
+      (refresh_replay_test.go:345, +store.secrets[otherClientID]). #36 (4ea638c1) в то же время
+      завёл новую пробу той же формы, replay_build_test.go:184-187: второй клиент получен
+      копированием записи, секрет в порт не внесён. На сборке второй клиент не доказывается
+      (invalid_client), проба падает до своего предмета. Текст отказа читается как отказ
+      продукта, а на деле не создано условие пробы.
+    proof: 'R1/R3/R5 — FAIL replay_build_test.go:204-205; R2/fixC4 (+store.secrets[otherClientID] = testSecret после :187) — проба зелёная; с этой починкой снятие обоих механизмов C5 (fix_noboth) её снова краснит, т.е. проба различает'
+    fix_in: >-
+      полоса 37 (вливается после #36): влить 32 и тем же касанием внести секрет второго
+      клиента в подставку порта. Как отличить несозданное условие («второй клиент не
+      доказан») от отказа продукта — решает полоса; у близнеца refresh_replay_test.go:338
+      та же форма.
+  - id: C5
+    kind: 'два решения одной задачи — §14 «Классы столкновений…»; видно только рядом'
+    lanes: ['36', '37']
+    subject: >-
+      Обе полосы вторым кругом решили одну задачу: ответ операции на повтор — случай повтора,
+      даже если шаг сборки запроса между пометкой и выдачей запишет свой случай первым.
+      #36 (4ea638c1): markReplayedFamily сам ставит точный случай (notes.go:246-248), на всех
+      четырёх путях. #37 (2fbb0ed2): record(ours) перенесён до сборки (bridge.go:465, :634),
+      на двух путях. На сборке стоят оба. После markReplayedFamily вызов record(ours) ничего
+      не меняет; шапка replayedCode (от #36) и строчный комментарий (от #37) описывают разные
+      механизмы одного свойства.
+    proof: 'R2/fix_no37 (сняты bridge.go:465, :634): rc 0, 1472 PASS; R2/fix_no36 (снят notes.go:246-248): rc 0, 1472 PASS; R2/fix_noboth: rc 1, 31 FAIL в 4 пробах (TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily, TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily, TestReplayOutlivesADirectoryFailureWhileBuildingTheRequest, TestReplayWithABrokenSessionRecordIsStillAReplay). Каждый механизм держит свойство один'
+    fix_in: >-
+      полоса 37 тем же касанием, что C4: оставить один механизм и привести комментарии к нему.
+      Какой — не выбор ревьюера. Сам по себе посадку не блокирует, исход прогона одинаков.
+
+not_found:
+  - '#39 × #37: registerTestClient на сборке без bcrypt (секрет в store.secrets), проба #39 не зависит от времени; при --cpus=1 -race с починкой C3/C4 зелёная (R4)'
+  - 'добавление в удалённое / снят предмет, ведомость не знает: HashedSecret, RotatedHashedSecrets, SecretHashCost, engine.BCrypt, снятые #37, вне internal/oauth2 на сборке встречаются только как GetHashedSecret() → nil (translate.go:226-231, :290); сборка, vet ./... и lint чисты. Импортёров oauthceremony/tokenpolicy внутри модуля, кроме них самих, 0 (go list)'
+  - 'два имени одного предмета: контекст входа назван полями SessionRecord/AuthorizationGrant/IntrospectionResult только #36; #37 и #39 его не называют'
+  - 'шапка Config и validateConfig: сведены из #37 (снят SecretHashCost) и #39 (потолки кода и семейства) без потери строк, remerge-diff пуст'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Отчёты полос в задание не переданы, сверено по сообщениям коммитов и записям ревью. Сведение
+  («проверок не было») верно. Тело 506c82ea («Повтор кода и токена обновления остаётся ответом
+  операции при любой записи сеанса») на сборке верно для записи сеанса; проба пути «клиента
+  сняли» на сборке красная (C4), её тело не заявляет. Перенесено с прошлого прохода, не
+  блокирует: тело d37289b9 говорит о хранении записи погашенного кода сроком семейства как о
+  свершившемся, а в corelib это обязанность порта и подставки.
+
+form_not_blocking: >-
+  Коммитов в origin/32..HEAD 20, из них слияний 5 (все с двумя родителями), трейлеров 0 из 20,
+  подпись pointpu <pointpu@in-cloud.io> = ~/.gitconfig. Темы ≤72 у 19 из 20; ea40a529 — 78 знаков,
+  тело 16 строк (отмечено прошлыми кругами, без rebase не исправить).
+
+examined:
+  diffs: 7                     # 3 диффа полос от f213439a; дифф сборки origin/32..HEAD; remerge-diff 3 слияний (пусты)
+  lines: 8822                  # 1341 + 2360 + 767 + 4354 + 0 строк вывода git
+  read_line_by_line: 'bridge.go пути повтора и GetClient/grantClient/verifyClientSecret на сборке; notes.go record/markReplayedFamily; дифф #36 bridge/notes/translate; дифф #37 bridge/notes/translate; дифф сборки ceremony.go, doc.go, types.go; fakes_test.go ageCodeRecord…grantInstantFields и VerifyClientSecret; replay_build_test.go целиком; refresh_replay_test.go:330-370. НЕ прочитаны построчно client_secret_port_test.go (848) и login_context_test.go (492): они судились прогоном'
+  mechanical_census: 'фикстуры второго клиента store.clients[…] = по пробам: 6 мест (command grep; одно — сам registerTestClient), из них 2 копируют запись другого клиента (refresh_replay_test.go:344 с секретом, replay_build_test.go:187 без); вызовы markReplayedFamily вне проб 4, за двумя идёт record(ours)'
+
+next:
+  - 'go-implementer (полоса 36) — влить 32, состарить Session.AuthTime в ageCodeRecord и внести его в agedGrantInstants (C3)'
+  - 'go-implementer (полоса 37) — влить 32, внести секрет второго клиента в подставку порта в TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily (C4), оставить один механизм «повтор — первый случай» (C5)'
+  - 'go-style-reviewer и security-auditor — круг на новых дайджестах 36 и 37'
+  - 'сведение — пересобрать 32 (39 → 36 → 37), wave-reviewer — повторный проход по 36 и 37 на сборке'

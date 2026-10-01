@@ -43,6 +43,19 @@
 # его не подхватывает и состав фикстуры не меняется.
 _PRODUCT_FIXTURE_MARK=".git/product-fixture"
 
+# Подпись фикстуры — её собственный HOME со своим `.gitconfig` внутри `.git/`
+# (`git add -A` его не видит), в котором корневая учётная запись вызывающего.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=sandbox-git-home.sh
+. "$(dirname "${BASH_SOURCE[0]}")/sandbox-git-home.sh"
+_PRODUCT_FIXTURE_HOME=".git/sandbox-home"
+
+# _product_fixture_git <каталог> <аргументы git…> — git фикстуры под её HOME.
+_product_fixture_git() {
+    local dir="$1"; shift
+    SANDBOX_GIT_HOME="$dir/$_PRODUCT_FIXTURE_HOME" sandbox_git -C "$dir" "$@"
+}
+
 # _product_fixture_assert_own <каталог> — иначе отказ с кодом 2 и внятным текстом.
 _product_fixture_assert_own() {
     local dir="${1:-}"
@@ -59,12 +72,10 @@ _product_fixture_assert_own() {
 
 # product_fixture_init <каталог> — пустое дерево продукта с одним кандидатом ствола.
 #
-# Подпись ставится В КОНФИГ ВЫБРОШЕННОГО дерева, а не через `-c`/`GIT_AUTHOR_*`:
-# правило про подпись владельца связывает коммиты РЕПОЗИТОРИЯ, а это дерево живёт
-# до конца пробы и на origin не попадает НИКОГДА. Без подписи `commit` отказывает
-# (`empty ident name`) везде, где нет глобального конфига, — то есть на ранере, где
-# выкладка подменяет HOME; локально проба при этом зеленела бы на подписи
-# разработчика.
+# Подпись — HOME фикстуры со своим `.gitconfig`, а не конфиг выброшенного дерева:
+# правило подписи действует и на дерево, которое на origin не попадает никогда
+# (ws#785). Без подписи `commit` отказывает (`empty ident name`) везде, где нет
+# корневого конфига; нет его у вызывающего — init отказывает кодом 2.
 product_fixture_init() {
     local dir="${1:-}"
     if [ -z "$dir" ]; then
@@ -73,8 +84,11 @@ product_fixture_init() {
     fi
     mkdir -p "$dir"
     git -C "$dir" init -q
-    git -C "$dir" config user.name  'product fixture'
-    git -C "$dir" config user.email 'fixture@invalid'
+    # HOME вызывающего (`SANDBOX_GIT_HOME`) фикстура не перенимает и не сбивает:
+    # локальная переменная — область, куда `sandbox_git_home` пишет путь.
+    # shellcheck disable=SC2034
+    local SANDBOX_GIT_HOME=""
+    sandbox_git_home "$dir/$_PRODUCT_FIXTURE_HOME" || return 2
     git -C "$dir" config commit.gpgsign false
     # Маркер происхождения — его требуют все функции ниже (см. страж выше).
     : > "$dir/$_PRODUCT_FIXTURE_MARK"
@@ -88,7 +102,7 @@ product_fixture_seal_trunk() {
     local dir="${1:-}"
     _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" commit -q -m 'ствол' >/dev/null 2>&1
+    _product_fixture_git "$dir" commit -q -m 'ствол' >/dev/null 2>&1
     git -C "$dir" update-ref refs/remotes/origin/main "$(git -C "$dir" rev-parse HEAD)"
 }
 
@@ -100,7 +114,7 @@ product_fixture_seal_parked() {
     local dir="${1:-}"
     _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" commit -q -m 'припаркованная вершина' >/dev/null 2>&1
+    _product_fixture_git "$dir" commit -q -m 'припаркованная вершина' >/dev/null 2>&1
     git -C "$dir" checkout -q --detach HEAD
 }
 

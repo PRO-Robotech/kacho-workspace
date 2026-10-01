@@ -1,0 +1,94 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 2.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл. Запись НЕ закоммичена: в копии
+# идут параллельные записи других ролей, сдача — путём.
+schema_version: 1
+change_id: corelib-35
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+subject: >-
+  oauthceremony: крючок Config.NewGrantID после слияния ветки волны #32
+  (адреса точек из Config, привязка PKCE полями записи кода) и правки
+  литералов Config проб (задача #35, волна #32)
+supersedes_scope_of: 'post-diff/security-auditor/c35505471288e854253de490af23d90a4a718b036af86cf89f813e49890e998f.yaml (✅ на e5abaa5e против 84b9be87) — не переоткрыта; судится дельта слияния и литералов'
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '35 (от 32; origin/35 → e5abaa5e, слияние и правка литералов не отправлены)'
+  base: c22619552559cace2a30dc4b413a6df5c9944fc0
+  base_tree: 988ded607baa43b06ad9d0c3fd2f26020801bf45
+  base_is: 'origin/32 (`git fetch` + `git rev-parse origin/32` → c2261955); merge-base origin/32 HEAD → он же'
+  head: e90d570cd411fbc502254d892ef6987009329785
+  head_tree: ca4866c7345805573e991979f99d32b8fb1c58db
+  shortstat: '10 файлов, +650 / -2'
+  commits:
+    - 'e5abaa5e #35 oauthceremony: ID гранта чеканит крючок службы Config.NewGrantID, а не движок (отсужен кругом 1)'
+    - '329c3f01 #35 merge #32: адреса точек и PKCE полями кода — под крючок NewGrantID'
+    - 'e90d570c #35 каждый литерал Config проб несёт NewGrantID и проходит сборку'
+content_digest: sha256:c522adc52f24ab71fe228aef1a7e554e760efc92540b7a667c590190a8148a5d
+digest_definition: 'git diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum (перемерено — совпадает с заданием)'
+verdict: accepted              # ✅ принято — раунд сухой
+blocks_landing: false
+timestamp: '2026-09-23T19:08:35Z'
+return_to: '—'
+review_scope: >-
+  разрешение слияния целиком (`git show --remerge-diff 329c3f01`: ceremony.go —
+  только комментарий, ceremony_test.go и engineconfig_internal_test.go — форма
+  волны плюс NewGrantID, grant_id_test.go — снятое хранилище PKCE); правка
+  e90d570c целиком (2 файла проб); прод-дифф c2261955..HEAD (ids.go,
+  ceremony.go, doc.go, translate.go, types.go) против формы волны. Вне диффа
+  на голове: GetAuthorizeCodeSession/replayedCode/GetPKCERequestSession/
+  CreatePKCERequestSession (bridge.go), codeRecordFromRequester/
+  requesterFromCode (translate.go), сборка обработчиков (ceremony.go:254-319).
+
+premise:
+  status: confirmed
+  claim: 'слияние с формой волны не открыло пути, где движок чеканит свой ID или живая запись без ID принимается'
+  how: >-
+    перепись SetID вне _test и заглушек (`command grep -rn 'SetID(' internal/oauth2
+    oauthceremony`) → те же 4 места, что в круге 1: ceremony.go:681 и движковые
+    flow_authorize_code_token.go:94, flow_refresh.go:87/142. Набор обработчиков
+    не изменился: explicit + refresh + PKCE + интроспекция + отзыв. Читателей
+    записи — 7 вызовов, все сходятся в одну проверку requesterFromGrant
+    (translate.go:341); новый с #40 путь привязки PKCE (GetPKCERequestSession)
+    читает запись, уже принятую выборкой кода через requesterFromCode, и
+    CreatePKCERequestSession ничего не пишет. Config.Issuer из прод-кода снят
+    волной; дифф #35 его не возвращает.
+
+answers:
+  merge_resolution: 'конфликты — только литералы проб; в прод-коде слияние поменяло один комментарий (привязка PKCE — поля записи кода), правдивый на голове.'
+  pkce_path_after_40: 'обмен при записи кода без ID отказывает port_contract по полю GrantRecord.GrantID; проба судит поле в Debug, а не привязку — подмена отдаёт запись целиком, с годной привязкой.'
+  validation_order: 'NewGrantID судится до адресов точек; оба отказа — ErrCeremonyMisuse с именем поля; порядок безразличен для безопасности.'
+  literals_e90d570: 'только пробы; прод-кода не трогает. Близнец TestNewRejectsEveryMissingPort снимает зелёное «не по той причине».'
+
+experiments:
+  workdir: '/home/dk/.cache/sec-audit-corelib-35-r2 (git archive e90d570c; свой GOCACHE и TMPDIR вне git-деревьев; GOPROXY=off, -mod=readonly)'
+  command: 'go test -count=1 -p 1 -json ./oauthceremony/ — на контроле и на каждом варианте в своей копии; число — по событиям pass/fail с полем Test'
+  control: '291 зелёных / 0 красных'
+  injections:
+    I1_read_check_removed: '284 / 7 красных — TestStoredGrantWithoutAnIDIsAPortContractBreach'
+    I2_note_dropped: '288 / 3 красных — тот же тест, путь отзыва'
+    I3_setid_dropped: '280 / 11 красных — 4 теста гранта'
+    I4_empty_check_dropped: '289 / 2 красных — TestGrantIDHookRefusalRefusesTheGrantAndStoresNothing'
+    I5_port_deadline_dropped: '290 / 1 красный — TestGrantIDHookCallCarriesThePortDeadline'
+    I6_new_guard_dropped: '288 / 3 красных — TestNewRefusesACeremonyWithoutAGrantIDHook, TestNewRejectsEveryUnnamedSetting'
+  note: 'числа красных по вариантам совпали с кругом 1 — регрессионные замки кусают и на сведённом дереве. Прогон без -race шёл одновременно с чужим `go test -race` (kaname, cv-397), MemAvailable ≈ 34 ГБ.'
+  race_and_lint: 'не гонялись этой ролью — у исполнителя (321 зелёных под -race) и у check-verifier'
+
+findings:
+  high: []
+  medium: []
+below_bar:
+  - 'три пункта круга 1 (regression-lock пустого GrantID на 3 путях из 6; проводной текст отказа крючка называет хранилище; форма и уникальность ID — контракт службы) остаются как были; слияние их не меняет.'
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    kind: condition
+    text: 'условие круга 1 на потребителя крючка (уникальность ключа семейства схемой, запись семейства одной единицей работы с записью кода) в силе без изменений.'
+
+outside_role:
+  - 'коммит слияния 329c3f01 сам по себе красный (56 проб, текст сообщения это называет), зелёным дерево становится на e90d570c — предмет landing-reviewer.'
+
+dry_round: true
+seen_keys: []
+next: 'сбор пост-дифф записей — convergence-reviewer либо landing-reviewer'

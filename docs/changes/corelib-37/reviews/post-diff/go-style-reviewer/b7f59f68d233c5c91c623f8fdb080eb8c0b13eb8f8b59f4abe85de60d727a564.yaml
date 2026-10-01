@@ -1,0 +1,198 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 2.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса ветки 825 и НЕ закоммичена: задание велит
+# сдать её путём; в копии идут параллельные записи других ролей.
+schema_version: 1
+change_id: corelib-37
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: 64180de88584fb17b783e2a2d015b5ae1fbbfefd3b4aed27e82e90f491ff599b.yaml
+subject: >-
+  corelib #37, круг 2: закрытие возврата круга 1 (CRIT-1, IMP-1, IMP-2, S-1,
+  outside_diff[0]) и новая дельта — closedPortFailure (закрытый перечень
+  отказа портов доказательства клиента), grantClient (отказ справочника при
+  сборке запроса по гранту — отказ операции с записью в ведомость), запись
+  повтора до сборки запроса, срок вызова порта сверки под пробой, постоянный
+  провод отказа порта под пробой.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '37 (от origin/32; на origin 37 = 36a3bf0a, три новых коммита не отправлены)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  base_is: 'origin/32 после fetch (`git rev-parse origin/32` → f213439a409e) = merge-base origin/32 HEAD'
+  head: be0d7cc81f557d58024598d1daf122b08b3c4551
+  head_tree: 1630d05fd7c2b34f85cee0723401b12a28ea219e
+  shortstat: '17 файлов, +1778 / -78 (полный дифф); дельта круга 36a3bf0a..be0d7cc8 — 5 файлов, +715 / -49'
+  commits_this_round:
+    - '2fbb0ed2 #37 oauthceremony: отказ порта доказательства — закрытый перечень'
+    - '27aa0030 #37 oauthceremony: срок вызова порта сверки держит проба'
+    - 'be0d7cc8 #37 oauthceremony: каждый глагол пробы печати получает своё значение'
+content_digest: sha256:b7f59f68d233c5c91c623f8fdb080eb8c0b13eb8f8b59f4abe85de60d727a564
+digest_definition: |
+  git -C tmp/corelib-37 diff --full-index $(git -C tmp/corelib-37 merge-base origin/32 HEAD)..HEAD | sha256sum
+  (перемерено своей командой после fetch — совпадает с заданием)
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-23T23:07:20Z'
+return_to: '— (критических нет); по желанию — автор диффа pointpu <pointpu@in-cloud.io>, S-2…S-4'
+review_scope: >-
+  дельта круга целиком (bridge.go, ports.go, client_secret_port_test.go,
+  client_secret_test.go, fakes_test.go) и её окружение в полном диффе:
+  fromPort, contractBreach, closedPortFailure, GetClient, grantClient,
+  verifyClientSecret, replayedCode, GetAuthorizeCodeSession,
+  GetAccessTokenSession, GetRefreshTokenSession, GetPKCERequestSession
+  (bridge.go); record, coarsenable, note (notes.go); fromEngine,
+  requesterFromCode, requesterFromGrant (translate.go); doc ports.go
+  «Что общего у всех портов», ClientDirectory, ClientSecretVerifier. Движок —
+  по вендорной копии в том же дереве: internal/oauth2/client_authentication.go:201-203
+  (WithWrap отказа GetClient на точке токена и отзыва),
+  internal/oauth2/introspection_request_handler.go:142-149 (WithWrap отказа
+  GetClient; отказ checkClientSecret — без обёртки). Прежние находки круга 1
+  не переоткрыты. Скилы роли: evgeniy, code-authoring.
+
+premise:
+  status: confirmed
+  claim: >-
+    каждое требование возврата круга 1 закрыто кодом или текстом, и закрытие
+    держится пробой, которую краснит обратная правка
+  how: >-
+    инъекции J1…J7 ниже — каждая краснит пробу своего предмета; J8 — одна
+    зелёная, основание S-4 (не блокирует).
+
+experiments:
+  workdir: '/home/dk/.cache/review-go-style-corelib-37-r2 (git archive be0d7cc8; свой GOCACHE и TMPDIR вне git-деревьев; копия на инъекцию)'
+  preflight: >-
+    MemAvailable 33,6 GiB; чужой `go test ./... -race` шёл — ждал опросом раз
+    в 60 с по имени исполняемого (go, golangci-lint, compile, link, *.test)
+    до свободной машины в 02:04:40 местного (23:04:40Z). Первый опрос по `pgrep -f '\.test -test\.'`
+    находил сам себя и чужие циклы ожидания в их командной строке — снят и
+    заменён.
+  control: >-
+    go build ./... и go vet ./oauthceremony/ чисты; gofmt -l oauthceremony/
+    пуст; go test -count=1 ./oauthceremony/ → ok; `go test -list .` → 125 проб
+    верхнего уровня. Переписи новых проб: провод порта сверки — случаев 2 ·
+    отказов 6; справочника — случаев 1 · отказов 4; срок порта — операций 3 ·
+    доказательств 2 · судимо 6; матрица контракта — портов 2 · случаев 41 ·
+    форм 2 · судимо 812 из 812 · пропущено объявленных 8 · близнецов 14,
+    провод — случаев 2 · отказов 819; отказ после доказательства — судимо 129,
+    провод — случаев 3 · отказов 126; повтор — путей 3 · судимо 6; печать —
+    печатей 13 (глаголов 9).
+  injections:
+    - id: J1
+      change: 'verifyClientSecret: b.deadline(ctx) → context.WithCancel(ctx) (инъекция I3 круга 1)'
+      outcome: 'красное: TestClientSecretVerifierCallCarriesThePortDeadline (6 подпроб)'
+    - id: J2
+      change: 'GetClient: отказ справочника без notes.record'
+      outcome: 'красное: TestClientDirectoryFailureFailsTheOperation, TestProofPortFailureWithACaseOfThisPackageIsAContractBreach'
+    - id: J3
+      change: 'verifyClientSecret: closedPortFailure → fromPort'
+      outcome: 'красное: TestProofPortFailureWithACaseOfThisPackageIsAContractBreach (486 FAIL-строк)'
+    - id: J3b
+      change: 'GetClient: closedPortFailure → fromPort'
+      outcome: 'красное: та же проба (316 FAIL-строк)'
+    - id: J4
+      change: 'grantClient: отказ без notes.record'
+      outcome: 'красное: TestDirectoryFailureAfterTheClientProofFailsTheOperation (43 FAIL-строки)'
+    - id: J4b
+      change: 'все шесть мест сборки запроса снова зовут b.ports.Clients.LookupClient сырым (поведение до правки)'
+      outcome: 'красное: TestDirectoryFailureAfterTheClientProofFailsTheOperation (121 FAIL-строка)'
+    - id: J5
+      change: 'GetRefreshTokenSession: запись повтора снова после отказа сборки'
+      outcome: 'красное: TestReplayOutlivesADirectoryFailureWhileBuildingTheRequest'
+    - id: J5b
+      change: 'replayedCode: запись повтора снова после отказа сборки'
+      outcome: 'красное: та же проба'
+    - id: J6
+      change: 'closedPortFailure: отказ порта со случаем пакета оставлен в цепочке (cause = err)'
+      outcome: 'красное: TestProofPortFailureWithACaseOfThisPackageIsAContractBreach, TestDirectoryFailureAfterTheClientProofFailsTheOperation (909 FAIL-строк)'
+    - id: J7
+      change: 'closedPortFailure: описание отказа сервера несёт текст причины'
+      outcome: 'красное: четыре пробы провода (TestClientSecretVerifierFailureFailsTheOperation, TestClientDirectoryFailureFailsTheOperation, TestProofPortFailure…, TestDirectoryFailureAfter…)'
+    - id: J8
+      change: 'J1 плюс фикстура newTestCeremonyConfig: OperationTimeout 5s → 2s (= PortTimeout; Config.Validate равенство допускает)'
+      outcome: 'ЗЕЛЁНОЕ: TestClientSecretVerifierCallCarriesThePortDeadline — мощность пробы держится зазором фикстуры, которого проба не проверяет (основание S-4)'
+  restore: 'инъекции — в отдельных копиях архива; дерево полосы не тронуто (git status полосы не менялся)'
+  lint_and_suite: 'исход линтера и полного набора не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier; -race не гонял — у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # grep -cE '\b(TODO|FIXME|XXX|HACK)\b' по +строкам f213439a..HEAD; положительный контроль даёт 1
+  skips_in_added_test_lines: 0
+  panics_in_added_prod_lines: 0           # panic( | Must[A-Z] | log.Fatal
+  loggers_in_added_lines: 0
+  background_ctx_in_added_prod_lines: 0
+  cyrillic_identifiers: 0                 # пять файлов дельты целиком, вне комментариев и литералов; положительный контроль даёт находку
+  probes_in_same_pr: true                 # 4 новые пробы верхнего уровня + расширены 3 прежние
+  commit_form: 'первые строки 68/56/65 знаков, тела 3/4/10 строк, трейлеров 0, автор и коммиттер pointpu (вне роли — судит landing-reviewer)'
+
+closure_of_round_1:
+  - id: CRIT-1
+    status: closed
+    evidence: >-
+      bridge.go:211-224 — оговорка «на интроспекции — не оборачивая» снята;
+      назван механизм: движок оборачивает отказ GetClient на обоих путях
+      (client_authentication.go:202-203, introspection_request_handler.go:143-145 —
+      оба WithWrap), fromEngine поднимает из цепочки только coarsenable
+      (translate.go:133-135), CodeServerError в перечне нет (notes.go:329-337).
+      J2 краснит пробу — без записи ответ был бы отказом доказательства.
+  - id: IMP-1
+    status: closed
+    evidence: 'TestClientSecretVerifierCallCarriesThePortDeadline; подставка пишет остаток срока (fakes_test.go:479-482); J1 краснит 6 подпроб. Остаток — S-4.'
+  - id: IMP-2
+    status: closed
+    evidence: 'portFailureWires (client_secret_port_test.go:277-332): текст причины не в описании и подсказке, подсказки нет, одна форма провода на случай по всем операциям и причинам; J7 краснит четыре пробы.'
+  - id: S-1
+    status: closed
+    evidence: 'каждому указанию — своё значение, печать с «%!» краснит как «не выполнилось» (client_secret_port_test.go:226-238).'
+  - id: outside_diff[0]
+    status: closed
+    evidence: 'grantClient (bridge.go:259-267) на всех шести местах сборки; J4 и J4b краснят TestDirectoryFailureAfterTheClientProofFailsTheOperation.'
+
+findings:
+  critical: []
+  important: []
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-2
+      where: oauthceremony/bridge.go:127-133 против 88-94; bridge.go:264 против 227
+      summary: >-
+        closedPortFailure повторяет хвост fromPort (срок, отмена, отказ
+        сервера) дословно — семь строк в двух местах; grantClient пишет имя
+        вызова литералом, а GetClient держит его константой op.
+      requirement: >-
+        вынести общий хвост в один помощник, который зовут обе функции; имя
+        вызова справочника — одна константа пакета.
+    - id: S-3
+      where: oauthceremony/client_secret_port_test.go:648-695 (grantLookupFailures, TestDirectoryFailureAfterTheClientProofFailsTheOperation)
+      summary: 'безымянный struct{name; err; want} выписан четыре раза.'
+      requirement: 'один именованный тип случая отказа.'
+    - id: S-4
+      where: oauthceremony/client_secret_port_test.go:390
+      summary: >-
+        portTimeout выписан числом, а мощность пробы держится зазором фикстуры
+        OperationTimeout > PortTimeout в ceremony_test.go:60-61, которого проба
+        не проверяет: J8 (срок порта снят, OperationTimeout = PortTimeout,
+        равенство Config.Validate допускает) — проба зелёная.
+      requirement: >-
+        брать cfg := newTestCeremonyConfig(), сравнивать с cfg.PortTimeout и
+        ПРЕДПОСЫЛКОЙ падать, если cfg.OperationTimeout <= cfg.PortTimeout.
+        Та же форма у образца grant_id_test.go:336 — вне диффа, радиус 2.
+  security_comments_contradicting_code: []
+
+approved:
+  - 'closedPortFailure: закрытый перечень (срок, отмена, нарушение контракта, отказ сервера); наш случай из порта доказательства — contractBreach без cause, в цепочке его нет (J6); провод постоянный (J7)'
+  - 'GetClient: «клиента нет» разбирается до закрытого перечня (CodeOf), прочий отказ — в ведомость; комментарий правдив (CRIT-1 закрыт)'
+  - 'grantClient: «клиента нет» отдаётся как есть, прочий отказ — закрытым перечнем с записью; срок — от b.deadline метода-вызывающего на всех шести местах (GetAuthorizeCodeSession, replayedCode через него, GetAccessTokenSession, GetRefreshTokenSession ×2, GetPKCERequestSession)'
+  - 'запись повтора ДО сборки: record первым-выигрывает, пустой GrantID разобран раньше обоих путей (bridge.go:431, 616) — нарушение контракта повтором не затеняется'
+  - 'ctx первым аргументом; context.Background только в пробах; паники нет; журнала нет'
+  - 'комментарии closedPortFailure, grantClient, verifyClientSecret, ports.go (общее, ClientDirectory, ClientSecretVerifier) сверены с кодом и движком — правдивы'
+  - 'пробы: исход на наблюдаемом уровне, законный близнец у каждого отказа, переписи печатаются и падают на пустом; подпробы последовательны (t.Parallel нет) — отложенный requireOnePerCode видит все'
+
+outside_diff:
+  - 'grant_id_test.go:336 — та же форма, что S-4 (порт срока выписан числом без предпосылки зазора); не блокирует.'
+
+next: 'сбор пост-дифф записей — convergence-reviewer либо landing-reviewer; S-2…S-4 по желанию автора, посадку не держат'

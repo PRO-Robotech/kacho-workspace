@@ -153,3 +153,77 @@ region-, ни zone-контракта, Geography — в **geo** (KAC-эпик #8
 правка ConfigMap не меняет шаблон пода ⇒ под не перекатывается ⇒ boot-guard не сработал,
 потому что старта не было. Молчали оба гейта: `assert-rollout-ready` видел Ready-под,
 `assert-production-posture` читал ConfigMap вместо процесса, `envFrom` был ему невидим.
+
+## sec-posture-regression-assertions — код отказа и держатель выправлены 2026-09-23 (класс D — замер)
+
+Было «anonymous⇒403, forged HS256⇒403», держатель — только `assert-production-posture.sh`.
+Замер @kacho 1d42a6728bf: край отвечает `Unauthenticated` (HTTP 401) и без Bearer
+(`gateway/internal/middleware/auth.go:474`), и на HS256 в production (шапка того же файла,
+:12-13); строк `anonymous`, `HS256`, `403` в скрипте нет — он держит `pg_stat_ssl` (раздел B).
+Утверждение края — newman (`testing-newman.md#qa-access`, решение владельца 2026-09-23).
+Держатель края — не долг (замер 2026-09-23 @kacho 1d42a6728bf): `gateway/tests/newman/cases/authn_edge.py`,
+`IBT-10-ANONYMOUS-REJECTED` (:272) и `IBT-10-HS256-FORGED-REJECTED` (:320), утверждение `eql(401)` (:186);
+оба id в `collections/authn_edge.postman_collection.json`; гонит их шаг «newman — суиты шарда, строго
+по одной (+ live-отчёт)» (`e2e-newman.yml:825-834`, `newman-shard-run.sh`), судит шаг «гейт — newman
+зелёный (api-gateway)» (`:910-915`, `assert-suites-green.sh`), шард по `deploy/e2e-shards.json`.
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**sec-posture-regression-assertions** — прежняя редакция:
+
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous⇒401, forged HS256⇒401 (не 200) — newman, testing-newman.md#qa-access · deploy/scripts/assert-production-posture.sh (pg_stat_ssl); край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
+
+(второй проход того же сжатия)
+
+**sec-posture-regression-assertions** — прежняя редакция:
+
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401 (не 200) — newman, testing-newman.md#qa-access · deploy/scripts/assert-production-posture.sh (pg_stat_ssl); край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
+
+(второй проход того же сжатия)
+
+**абзац** — прежняя редакция:
+
+## Production-mode — ОБЯЗАТЕЛЕН ВЕЗДЕ, включая dev/локальный стенд (выведено из production-mode валидации 2026-07-21)
+
+**sec-internal-trusted-assumption-banned** — прежняя редакция:
+
+sec-internal-trusted-assumption-banned · не считать internal-периметр доверенным: «internal = trusted, mTLS достаточно» — запрещённое допущение (defense-in-depth против lateral movement) · ЗАВЕСТИ · red: код снимает Check на internal, ссылаясь на «доверенный периметр»
+
+## Снято 2026-09-26 (ws#786): сжатие корпуса под потолок check-06 на сведении 786 с 771
+
+Сведённое дерево `786` × `771` (волна-0 в волну-3) дало 208 847 знаков при потолке 200 000
+(решение владельца 2026-09-19); потолок не поднимался. Нормы каскада закрытия и снятия влитых
+веток (786) и требования волны-0 (771) сохранены под теми же id; ниже — ПРЕЖНИЕ редакции строк,
+сжатых этим изменением, дословно (редакция сведения до сжатия).
+
+sec-internal-trusted-assumption-banned · internal-периметр доверенным не считать: «internal = trusted, mTLS достаточно» — запрещённое допущение (defense-in-depth) · ЗАВЕСТИ · red: код снимает Check на internal, ссылаясь на «доверенный периметр»
+sec-forwarded-trust-aware-extract · извлекать личность только trust-aware парой (CertIdentityExtract→TrustedPrincipalExtract) на ОБОИХ листенерах · TestRawTrustedForwarderCircleIsReadInExactlyOnePlacePerService · red: безусловное чтение заголовка личности
+sec-identity-not-bound-to-cert · не верить заголовкам без verified-cert отправителя; сначала trust-aware пара, потом сужение · TestRawTrustedForwarderCircleIsReadInExactlyOnePlacePerService · red: заголовок личности читается до проверки пира
+sec-one-predicate-three-readers · читать РОВНО в одном месте на сервис; guard, самоотчёт и транспорт зовут один предикат · TestRawTrustedForwarderCircleIsReadInExactlyOnePlacePerService · red: guard считает элементы строки, транспорт — записи
+sec-ban6-internal-not-on-external · не публиковать на external TLS endpoint; REST-проброс только на cluster-internal · deploy/scripts/assert-ban6-external-isolation.py · red: Internal-метод резолвится на :8443
+sec-one-issuance-listener · не заводить второй слушатель об одном предмете; вид выдачи задаёт форма запроса · TestCompositionRootsRaiseNoNonGRPCListenerOfTheirOwn · red: свой listen в композиционном корне
+sec-issuance-path-not-elsewhere · не монтировать ни на внутреннем, ни на JWKS-, ни на метрик-слушателе; чужой метод ⇒ отказ с перечнем допустимых · TestEdgeMetricsRouteIsMountedOnTheDiagnosticSurfaceOnly · red: тот же путь отвечает на втором слушателе
+sec-no-silent-default-for-guarded-knob · запретить молчаливое умолчание в загрузчике; ненулевое умолчание = страж по ней мёртв · TestSpecWiringRedOnAQuietConstantInEveryPostureField · red: defaults.go задаёт значение, которое судит страж
+sec-admin-ui-rpc-internal-only · добавлять только в Internal*-сервис и регистрировать *InternalAddr-блоком в restmux/mux.go · deploy/scripts/assert-ban6-external-isolation.py · red: admin-метод в публичном сервисе
+sec-public-surface-intent-and-result · ограничивать id, name/labels, привязками, tenant-адресом, status · гейт публичных message против словаря инфра-полей · red: «как разложено по железу» в публичном ответе
+sec-page-then-check · Get — только прямая per-object проверка; List — курсор по своей БД + batch-check id страницы (≤100); предел перечисления не поднимать · TestListNarrowingHasExactlyOneImplementation · red: перечисление разрешённых объектов вместо проверки страницы
+sec-bootguard-fail-closed-axes · отказывать в старте при sslmode=disable, mTLS off на живом ребре, authz-интерсепторе вне цепочки, breakglass on · TestServiceDeclaringPostureKnobsHasABootGuard · red: сервис объявил посадочные ручки без стража
+sec-posture-judged-by-common-descriptor · доводить до общего дескриптора corelib/servicecontract в композиционном корне; своя проверка — только по оси, которой у общего нет · TestPostureReachGateRedWhenKnobsNeverReachTheDescriptor · red: ручки объявлены, до дескриптора не доходят
+sec-authmode-declared-never-read · обязана МЕНЯТЬ исход старта, а не только существовать; сервис без production-guard не мёржится · TestRefusalReachRedWhenTheProviderIsNeverCalled · red: ручка читается и отделывается WARN
+sec-dev-stand-in-production-mode · поднимать в боевой посадке: authMode=production + mTLS через cert-manager + sslmode=require + RS256; эталон values.dev-prod.yaml · make dev-prod-up · red: dev-insecure overlay на поднятом стенде
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401, не 200 (newman, testing-newman.md#qa-access) · deploy/scripts/assert-production-posture.sh; край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
+sec-gate-reads-process-and-db · сверять посадку, объявленную процессом при старте, и шифрование со стороны БД (pg_stat_ssl); ConfigMap доказательством не считать · deploy/scripts/assert-production-posture.sh · red: гейт читает манифест вместо процесса
+sec-iam-single-hydra-facade · только через iam (JWKS-proxy :9097, UserTokenService/SAKeyService.Issue, /iam/token); допустим лишь финальный OAuth2 client_assertion→JWT · TestProviderSurfaceIsBoundedByTheLedger · red: новое место или новая просьба к поставщику вне ведомости
+
+## Снято 2026-10-01 (ws-sync-main): сжатие корпуса под потолок check-06 на сведении `main` с `771`
+
+Сведённое дерево `main` × `771` дало 215 385 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе
+под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401, не 200 (newman) · deploy/scripts/assert-production-posture.sh; край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений

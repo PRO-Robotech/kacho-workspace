@@ -1,0 +1,218 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса ветки 825 и НЕ закоммичена: задание велит
+# сдать её путём; в копии идут параллельные записи других ролей.
+schema_version: 1
+change_id: corelib-37
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  corelib #37: секрет клиента сверяет порт службы Ports.ClientSecrets
+  (ClientSecretVerifier, закрытый вердикт SecretVerdict, непечатаемый
+  PresentedSecret); хешер настроек движка — clientSecretHasher, зовущий порт;
+  Config.SecretHashCost и хеши ClientRegistration сняты; неизвестному клиенту
+  в доказательстве — представление без прав и та же единственная сверка;
+  отказ справочника LookupClient — отказ операции.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '37 (от origin/32; на origin нет, два коммита не отправлены)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  base_is: 'origin/32 после fetch (`git rev-parse origin/32` → f213439a409e) = merge-base origin/32 HEAD'
+  head: 36a3bf0a38b82dd6a8d1e1e3a9f72d5006045d2a
+  head_tree: f4d97975ecb0d030b59eec66c2d0a32bd7d6f992
+  shortstat: '17 файлов, +1097 / -63'
+  commits:
+    - '4ac5dfbd #37 oauthceremony: секрет клиента сверяет порт службы, не хешер движка'
+    - '36a3bf0a #37 oauthceremony: отказ справочника в доказательстве — отказ операции'
+content_digest: sha256:64180de88584fb17b783e2a2d015b5ae1fbbfefd3b4aed27e82e90f491ff599b
+digest_definition: |
+  git -C tmp/corelib-37 diff --full-index $(git -C tmp/corelib-37 merge-base origin/32 HEAD)..HEAD | sha256sum
+  (перемерено своей командой после fetch — совпадает с заданием)
+
+verdict: returned              # возврат
+blocks_landing: true
+timestamp: '2026-09-23T21:19:59Z'
+return_to: 'автор диффа — pointpu <pointpu@in-cloud.io>'
+review_scope: >-
+  полный закоммиченный дифф, все 17 файлов. Прод-код прочитан вместе с
+  окружением: GetClient, verifyClientSecret, clientSecretHasher, fromPort,
+  contractBreach, deadline, pairEngine (bridge.go); note, record,
+  coarsenable, preferRecorded (notes.go); fromEngine, requesterFromGrant,
+  clientView, unregisteredClient (translate.go); Exchange, Introspect,
+  Revoke, postForm, validatePorts (ceremony.go). Движок сверен по вендорной
+  копии в том же дереве: checkClientSecret и DefaultClientAuthenticationStrategy
+  (internal/oauth2/client_authentication.go:201-247, 249-267), путь Basic у
+  интроспекции (internal/oauth2/introspection_request_handler.go:126-149),
+  GetSecretsHasher (internal/oauth2/config_default.go:260-264). Скилы роли:
+  evgeniy, code-authoring; правила по триггеру: security-disclosure, testing.
+
+premise:
+  status: confirmed
+  claim: >-
+    порт сверки зовётся ровно раз на доказательство клиента в обмене,
+    интроспекции (заголовком) и отзыве, для известного и неизвестного клиента;
+    отказ обоим один и тот же на проводе и целиком
+  how: >-
+    experiments.injections I2 и I6 (сверка снята с пути неизвестного клиента
+    либо отметка доказательства снята) краснят
+    TestClientSecretIsVerifiedByTheServicePortExactlyOnce и
+    TestUnknownClientIsRefusedExactlyLikeAWrongSecret. Перепись проб: 9 пар,
+    3 близнеца; 21 случай порта (17 с вызовом, 4 без). Порядок движка
+    GetClient → IsPublic → checkClientSecret прочитан; представления
+    клиента не реализуют ни OpenIDConnectClient, ни ClientWithSecretRotation
+    — путь до сверки у известного и неизвестного один, сверка одна.
+
+experiments:
+  workdir: '/home/dk/.cache/review-go-style-corelib-37 (git archive 36a3bf0a; свой GOCACHE и TMPDIR вне git-деревьев)'
+  preflight: 'MemAvailable 33,1 GiB; pgrep -x go|golangci-lint|compile|link — пусто'
+  control: >-
+    go build ./... и go vet ./oauthceremony/ ./internal/oauth2/... чисты;
+    gofmt -l oauthceremony/ пуст; go test -count=1 ./oauthceremony/ → ok;
+    `go test -list` → 121 проба верхнего уровня; 10 проб верхнего уровня
+    под фильтром новых предметов PASS. -race не гонял: гонок дифф не вводит
+    (ведомость под mu, подставка под mu), тяжёлый прогон — у check-verifier.
+  injections:
+    - id: I1
+      change: 'GetClient: отказ справочника снова через note() вместо record'
+      outcome: 'красное: TestClientDirectoryFailureFailsTheOperation (5 FAIL-строк)'
+    - id: I2
+      change: 'GetClient: неизвестный клиент в доказательстве → «клиента нет»'
+      outcome: 'красное: TestUnknownClientIsRefusedExactlyLikeAWrongSecret, TestClientSecretIsVerifiedByTheServicePortExactlyOnce'
+    - id: I3
+      change: 'verifyClientSecret: b.deadline(ctx) → context.WithCancel(ctx)'
+      outcome: 'ЗЕЛЁНОЕ на всём пакете (фильтр «.») — срок вызова порта не заперт ни одной пробой (находка IMP-1)'
+    - id: I4
+      change: 'verifyClientSecret: «совпал» о незарегистрированном принят'
+      outcome: 'красное: TestClientSecretVerdictOutsideTheContractIsAPortContractBreach'
+    - id: I5
+      change: 'verifyClientSecret: отказ без записи в ведомость'
+      outcome: 'красное: TestClientSecretVerifierFailureFailsTheOperation, TestSecretComparisonOutsideAClientProofIsRefusedWithoutThePort'
+    - id: I6
+      change: 'postForm: expectClientProof снят'
+      outcome: 'красное: обе пробы неразличимости и числа вызовов (35 FAIL-строк)'
+    - id: I7
+      change: 'PresentedSecret: значение не за указателем'
+      outcome: >-
+        с vet — сборка проб отвергнута vet (printf %d, client_secret_port_test.go:214);
+        с -vet=off — красное TestPresentedSecretIsNeverPrinted на %#v, %d и закрытом поле
+    - id: E1
+      change: >-
+        временная печать в Introspect: находит ли errors.As наш отказ в ошибке
+        движка (отказ справочника против отказа порта сверки)
+      outcome: >-
+        отказ справочника — ОБЁРНУТ («engine error wraps ours:
+        ClientDirectory.LookupClient: …»); отказ порта сверки — НЕ обёрнут.
+        Основание находки CRIT-1.
+    - id: E2
+      change: 'временная проба: справочник отвечает на первую выборку и отказывает на вторую; Introspect'
+      outcome: 'active=false, err=nil — основание записи outside_diff[0]'
+  restore: 'bridge.go, ceremony.go, ports.go копии сверены cmp с 36a3bf0a после каждой инъекции; временная проба удалена'
+  lint_and_suite: 'исход линтера и полного набора не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # grep -cE '\b(TODO|FIXME|XXX|HACK)\b' по +строкам; положительный контроль даёт 1
+  skips_in_added_test_lines: 0
+  panics_in_added_lines: 0
+  loggers_in_added_lines: 0
+  cyrillic_identifiers_in_added_lines: 0  # эвристика снимает //-комментарии и литералы; положительный контроль даёт 1
+  probes_in_same_pr: true                 # client_secret_test.go (1), client_secret_port_test.go (5), client_secret_internal_test.go (2), случай в TestNewRejectsEveryMissingPort
+
+findings:
+  critical:
+    - id: CRIT-1
+      where: oauthceremony/bridge.go:179-183 (doc GetClient, раздел «Отказ справочника — отказ операции»)
+      summary: >-
+        Комментарий называет ложный механизм: «движок сжимает всякий отказ
+        этого вызова в отказ доказательства (на интроспекции — не оборачивая)».
+        На интроспекции движок отказ справочника ОБОРАЧИВАЕТ
+        (internal/oauth2/introspection_request_handler.go:142-145, WithWrap(err)),
+        измерено E1 на 36a3bf0a. Оговорка скопирована с verifyClientSecret, где
+        она верна (там же :147-149 — без WithWrap). Настоящая причина, по которой
+        отказ пишется в ведомость, в комментарии не названа: fromEngine
+        (translate.go:132-135) поднимает вложенный наш отказ только для кодов
+        coarsenable, а CodeServerError в перечень не входит, поэтому обёртка на
+        обоих путях не помогает. Названный механизм — несущий: читатель,
+        поверивший, что на точке токена движок оборачивает, а дело в
+        интроспекции, вправе сузить запись до одного пути и вернуть дефект на
+        обоих.
+      requirement: >-
+        Снять оговорку «(на интроспекции — не оборачивая)» и назвать механизм,
+        который держит правило: движок оборачивает отказ справочника на обоих
+        путях, но fromEngine поднимает из цепочки только коды coarsenable, и
+        отказ сервера без записи в ведомость стал бы отказом доказательства.
+        Проба не нужна — поведение уже заперто I1; нужен правдивый текст.
+      predicate: >-
+        временная печать errors.As(engineErr, *ProtocolError) в Introspect на
+        TestClientDirectoryFailureFailsTheOperation/интроспекция/справочник_не_отвечает
+        печатает «wraps ours»; ревизия 36a3bf0a
+  important:
+    - id: IMP-1
+      where: oauthceremony/bridge.go:268 (verifyClientSecret) · пробы client_secret_port_test.go
+      summary: >-
+        Срок вызова порта сверки (Config.PortTimeout, обещан в doc
+        ClientSecretVerifier) в коде стоит, но не заперт: I3 заменил
+        b.deadline на WithCancel — весь пакет зелёный. Подставка
+        VerifyClientSecret контекст не читает.
+      requirement: >-
+        проба уровня TestGrantIDHookCallCarriesThePortDeadline
+        (grant_id_test.go:58): порт видит ctx.Deadline() не дальше PortTimeout;
+        инъекция I3 обязана её краснить.
+    - id: IMP-2
+      where: >-
+        client_secret_port_test.go — TestClientSecretVerifierFailureFailsTheOperation,
+        TestClientDirectoryFailureFailsTheOperation
+      summary: >-
+        Обе пробы отказа порта утверждают только FailureCode. Текст провода
+        сейчас постоянный (textPortFailed / textPortDeadline), причина уходит
+        в Debug — но ни одна новая проба этого не запирает
+        (security-hardening, hard-regression-asserts-message).
+      requirement: >-
+        утверждать wireForm отказа побайтно (Description постоянный, Hint
+        пуст) и NotContains(Description+Hint, текст причины подставки),
+        по всем операциям обеих проб.
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-1
+      where: oauthceremony/client_secret_port_test.go:207, 219-221
+      summary: >-
+        Глагол "%T %v" подаётся с одним аргументом: %v получает %!v(MISSING)
+        и судит ничего, так что в переписи «глаголов 9» один из них — только %T.
+      requirement: 'fmt.Sprintf("%T %v", presented, presented) либо снять запись из перечня.'
+  security_comments_contradicting_code:
+    - 'oauthceremony/bridge.go:181-182 — CRIT-1 (ложный механизм обёртки на интроспекции)'
+
+approved:
+  - 'обёртка ошибок: отказ порта — fromPort с именем вызова (срок → CodePortDeadline, наш случай → наш код); вердикт вне словаря и «совпал» о незарегистрированном — contractBreach; в пробах errors.Is/errors.As'
+  - 'закрытый словарь SecretVerdict с необъявленным нулём, Declared(); вне словаря — ErrPortContract, не толкуется (I4)'
+  - 'PresentedSecret: значение за указателем, String — метка; печать не выдаёт секрет ни одним глаголом (I7); конструктор публичен ради проб службы'
+  - 'сверка вне доказательства клиента — CodeCeremonyMisuse без вызова порта и с записью в ведомость; Hash отказывает'
+  - 'ctx первым аргументом порта; вызову свой context.WithTimeout(PortTimeout) — стоит (заперт ли — IMP-1)'
+  - 'паники в рабочем пути нет; журнала в диффе нет; context.Background только в пробах (7 вхождений в трёх файлах *_test.go)'
+  - 'обязательность порта — fail-closed в validatePorts, отказ называет поле; Config.SecretHashCost снят целиком вместе с проверкой и пробами'
+  - 'ведомость: proving/claim под mu, nil-безопасные методы, отметка без доказательства ничего не пишет'
+  - 'пробы утверждают наблюдаемое (провод побайтно, отказ целиком, журнал вызовов порта), каждый отказ в паре с законным близнецом, переписи печатаются и падают на пустом'
+  - 'комментарии ClientSecretVerifier, SecretVerdict, PresentedSecret, clientSecretHasher, verifyClientSecret, unregisteredClient, notes «Шестое», doc.go, ClientDirectory.LookupClient сверены с кодом и движком — правдивы; ложен только CRIT-1'
+  - 'Config и Ports — публичные типы вне тегов: oauthceremony нет ни в v1.9.0 (git ls-tree → 0), ни в origin/main'
+
+outside_diff:
+  - >-
+    Радиус механизма LookupClient (measurement-discipline §«Радиус»): мест
+    вызова два — GetClient (bridge.go:190, правлено) и requesterFromGrant
+    (translate.go:376-378, четыре вызывающих в bridge.go, не правлено).
+    Во втором отказ справочника уходит движку сырым: без fromPort (без имени
+    вызова) и без записи в ведомость. Измерено E2: справочник отказывает на
+    второй выборке — интроспекция отвечает active=false без ошибки, то есть
+    сбой справочника выдан за «токен неактивен». Исход закрытый (отказ, не
+    допуск), дифф этот код не трогает, поэтому посадку не блокирует; правило,
+    которое дифф вводит в GetClient («справочник, который не ответил, — не
+    „клиента нет“»), там не исполняется. Решение — отдельной задачей либо в
+    этом же изменении по выбору автора.
+  - >-
+    Вне роли (форма коммита — landing-reviewer / git-operator): первые строки
+    обоих коммитов — по 70 знаков, тела — 10 и 7 строк, трейлеров нет.
+
+next: 'автор диффа — CRIT-1 (текст комментария), по желанию IMP-1, IMP-2, S-1; после правки дайджест новый — повтор роли'

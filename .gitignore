@@ -73,3 +73,6 @@ foo
 tmp/*
 !tmp/README.md
 !tmp/rules-compression/
+
+# Байткод python — производное прогона проверок, а не исходник: в дереве не живёт.
+__pycache__/

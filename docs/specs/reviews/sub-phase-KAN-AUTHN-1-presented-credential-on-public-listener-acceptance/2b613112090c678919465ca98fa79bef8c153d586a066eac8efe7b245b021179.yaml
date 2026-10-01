@@ -1,0 +1,157 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance.md
+  sha256: 2b613112090c678919465ca98fa79bef8c153d586a066eac8efe7b245b021179
+  base_sha256: 24182104b6ec65cce2d945e4c73d4471647f01c16b138e855dbc644a95781d56
+  base_commit: af3c7c4b9d735c747fe1ae9215e9d0c7056bde4e
+  content_commit: none (рабочее дерево копии tmp/ws-618, ветка 618; коммита правки нет — по заданию)
+  task: https://github.com/PRO-Robotech/kacho/issues/618
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance.md
+  lines: 3655
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 10 о коммите ea4dfc9c (содержимое SHA-256 1b320c6a0e340778…).
+    Шапка не правлена намеренно (change-graph.md §2): на редакцию 2b613112 вердикт круга 10 не
+    переносится. Машинный читатель объявления (docs-gate) по этой редакции ответит APPROVED — это
+    его объявленный предел (судит объявление, а не одобрение). Действующий вердикт о редакции
+    2b613112 — эта запись.
+verdict: CHANGES_REQUESTED
+round: 11
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T19:23:31Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac af3c7c4b9d7
+    в PRO-Robotech/kacho-workspace вернул 0
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: acceptance-reviewer · CHANGES_REQUESTED · 2b613112090c678919465ca98fa79bef8c153d586a066eac8efe7b245b021179
+  rationale: >-
+    Вердикт — возврат. Событие публикует курьер отдельным действием, эта запись задним числом не
+    правится. Возврат полномочия не выдаёт и ничего не открывает.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Внешних записей ревью этого документа нет ни в docs/specs/reviews/, ни в docs/changes/ ни на
+      одной ветке origin (обход `git ls-tree -r` по refs/remotes/origin/* и `git grep` отпечатков
+      24182104…, 1b320c6a…, 2b613112… по origin/main — пусто). История кругов 1–10 живёт в теле
+      документа (§12–§17 и далее) и этой записью не правится.
+
+# ─────────────────────────────────────────────────────────────────────────────
+scope_of_this_verdict:
+  judged: >-
+    ТОЛЬКО дельта 24182104 → 2b613112 (5 ханков, +25/−6, один файл): предикат §7 п.4 в §1.7 и две
+    ссылки на него (§5, строка «4 — профиль посадки own»; §11, строка «посадка own не выбрана ни
+    одним профилем»). Вопросы задания: видит ли предикат корень чарта продукта; различает ли он
+    объявленную посадку own и её отсутствие.
+  not_judged: >-
+    Содержимое базы 24182104 сверх дельты. Одобрение круга 10 привязано к ea4dfc9c
+    (1b320c6a0e340778); между ним и базой три правки после вердикта — 396d9baf, 44b33cb5,
+    622ae99c (`git diff --shortstat ea4dfc9c 622ae99c -- <док>` → +207/−31). Внешнего вердикта о
+    них не найдено; эта запись их не судит. Одобрение ЦЕЛОГО отпечатка 2b613112 на следующем круге
+    покрыло бы и их — диспетчеру решать, судится ли следующий круг дельтой с явной оговоркой или
+    целиком.
+
+premise:
+  claim: база — одобренная приёмка; документ на origin/main и origin/772 одинаков
+  result: подтверждена частично
+  evidence:
+    - "`git diff --quiet origin/main origin/772 -- <док>` → 0 (одинаков); `git show origin/main:<док> | sha256sum` → 24182104b6ec… (совпало с названным автором)"
+    - "база 24182104 НЕ равна одобренному содержимому: круг 10 одобрил ea4dfc9c, чей отпечаток 1b320c6a0e340778 (`git show ea4dfc9c:<док> | sha256sum`)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+measurements:
+  tree: PRO-Robotech/kacho (project/kacho), ревизии caa48b770d14cf63 и fe0e5a60f3513fe8 резолвятся
+  isolation: >-
+    Посев — висячие коммиты поверх caa48b770d в отдельном голом репозитории
+    kacho-workspace/tmp/review-618-seed.git (alternates на объекты project/kacho), по одной
+    изменённой строке на посев; ни одна ссылка ни в одном клоне не тронута.
+  author_claims_reproduced:
+    - {claim: "e1 → 4 объявления, external ×3 · \"\" ×1", caa48b770d: 4, fe0e5a60f3: 4, result: подтверждено}
+    - {claim: "e2 → 0", caa48b770d: 0, fe0e5a60f3: 0, result: подтверждено}
+    - {claim: "e3 → 0 (форма --set)", caa48b770d: 0, fe0e5a60f3: 0, result: подтверждено}
+    - {claim: "external→own в services/iam/deploy/values.prod.yaml: e2 0→1", seeded: 1, result: подтверждено}
+    - {claim: "\"own\" и 'own' → 1", seeded: "1 · 1", result: подтверждено}
+    - {claim: "owner → 0; строка `# identityProvider: own` → 0", seeded: "0 · 0", result: подтверждено}
+    - {claim: "прежний предикат `git grep -c 'identityProvider: own' -- deploy` на том же изменённом дереве → 0", seeded: 0, result: подтверждено}
+    - {claim: "посадку объявляют три чарта; новый предикат видит каждый", seeded: "umbrella e2=1 (прежний 1) · gateway e2=1 (прежний 0) · iam base e2=1 (прежний 0)", result: подтверждено}
+    - {claim: "services/iam вынесен из ствола — без ревизии команда судила бы другое дерево", measured: "`git ls-tree -d origin/main services/iam` → 0, на caa48b770d → 1", result: подтверждено}
+    - {claim: "§5: e2 · e3 на fe0e5a60f3 → 0 · 0", measured: "0 · 0", result: подтверждено}
+  e3_control_not_in_document:
+    - {seed: "deploy/Makefile += `helm upgrade kaname . --set authn.identityProvider=own`", e3: 1}
+    - {seed: "то же с `=external` (близнец)", e3: 0}
+    - {seed: "`--set-string 'config.authn.identityProvider=\"own\"'`", e3: 1}
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking:
+  - id: R11-B1
+    kind: PRODUCER
+    where: §1.7 (единица и три выражения); наследуют §5 строка п.4 и §11 строка «посадка own»
+    defect: >-
+      Предикат производителя §7 п.4 не различает посадку own, объявленную переменной окружения
+      через env-блок профиля, — законным, документированным и живым в корне чарта продукта путём
+      объявления этого поля. Единица «строка-ключ YAML либо --set» — перечень форм, и он пропускает
+      форму ровно так, как прежний перечень корней пропускал корень: класс не снят, а переехал с оси
+      «корень» на ось «форма».
+    evidence:
+      - "services/iam/INSTALL.md:88 @caa48b770d: поле `authn.identity-provider` ⇔ переменная `KANAME_AUTHN__IDENTITY_PROVIDER`"
+      - "services/iam/internal/apps/kaname/config/load.go:58 @caa48b770d: явный BindEnv на эту переменную; TestDocumentedEnvName_IdentityProvider (identity_provider_test.go:171) — переменная доезжает до поля"
+      - "services/iam/deploy/templates/deployment.yaml:138 — `range .Values.env` → env контейнера; боевой профиль того же чарта values.prod.yaml объявляет этим путём 26 ручек (`git show caa48b770d:services/iam/deploy/values.prod.yaml | python3 -c 'import sys,yaml; print(len(yaml.safe_load(sys.stdin)[\"env\"]))'` → 26)"
+      - "тот же путь есть у подчарта зонта (charts/kaname/templates/deployment.yaml:522, профиль deploy/helm/umbrella/values.dev.yaml ведёт `kaname.env`) и у края (gateway/deploy/templates/deployment.yaml:461 `extraEnv`, переменная KACHO_API_GATEWAY_IDENTITY_PROVIDER)"
+    seeded_counterexample:
+      - seed: "services/iam/deploy/values.prod.yaml, в блок `env:` одна строка `  KANAME_AUTHN__IDENTITY_PROVIDER: own`"
+        predicate: "e1=4 · e2=0 · e3=0"
+        render: "`helm template t . -f values.prod.yaml` (helm v4.2.4) → env контейнера KANAME_AUTHN__IDENTITY_PROVIDER=\"own\" (конфиг при этом несёт identity-provider: \"external\"; старшинство окружения над файлом — порядок viper у загрузчика load.go, прочитано, не прогонялось; без него посадку own даёт тот же посев в базовом профиле, где строка конфига не рендерится вовсе)"
+      - seed: "deploy/helm/umbrella/values.dev.yaml, `kaname.env` += `KANAME_AUTHN__IDENTITY_PROVIDER: own`"
+        predicate: "e2=0 · e3=0"
+      - seed: "gateway/deploy/values.yaml, `extraEnv: {KACHO_API_GATEWAY_IDENTITY_PROVIDER: own}`"
+        predicate: "e2=0 · e3=0"
+    today_truth: >-
+      Утверждение «посадку own не объявляет ни один профиль» на обеих ревизиях ВЕРНО и по
+      env-форме: `git grep -nE '^[[:space:]]*(KANAME_AUTHN__IDENTITY_PROVIDER|KACHO_API_GATEWAY_IDENTITY_PROVIDER)[[:space:]]*:' <rev>`
+      → 1 (gateway/docs/content/install/configuration.mdx:190, значение external, не профиль).
+      Дефект — в способности предиката упасть, а не в сегодняшнем нуле: профиль own, заведённый
+      работой §7 п.4 так, как боевой профиль заводит соседние ручки, оставит признак §11 на 0, и
+      документ будет утверждать отсутствие производителя при его наличии.
+    same_class_same_fix: >-
+      Потоковое отображение (`authn: { identityProvider: own }`) e2 тоже не видит — посев в
+      values.prod.yaml → e2=0; форма живая в дереве (97 строк `{ key: … }` в *values*.yaml @caa48b770d),
+      для этой ручки не использована.
+    minimal_fix: >-
+      Единицу вывести из переписи путей объявления поля (ключ YAML · --set · env-блок профиля ·
+      потоковое отображение), каждый путь — своим выражением с посеянным контролем «1» и близнецом
+      «0», как сделано для ключа. Пример выражения для env-формы, проверенный посевом
+      (база 0 · посев iam 1): git grep -nE "(KANAME_AUTHN__IDENTITY_PROVIDER|KACHO_API_GATEWAY_IDENTITY_PROVIDER)[\"']?[[:space:]]*[:=][[:space:]]*[\"']?own([\"'[:space:],}]|\$)" caa48b770d -- '*.yaml' '*.yml' | wc -l.
+      Путь, оставленный вне предиката, назвать в тексте с причиной и замером его употребления для
+      этой ручки (сегодня 0). Та же подстановка — в строки §5 и §11.
+
+non_blocking:
+  - id: R11-N1
+    note: >-
+      У третьего выражения (--set) в документе нет контроля; замерен здесь (1 · близнец 0 ·
+      --set-string 1, см. measurements.e3_control_not_in_document) — стоит внести рядом с
+      контролем второго.
+
+totals:
+  blocking: 1
+  kinds: [PRODUCER]
+  constructibility: >-
+    посеяно 17 из 17 (7 однострочных вариантов в values.prod.yaml, 3 корня, 3 посева --set,
+    3 посева env-формы, 1 посев потоковой формы; «не выполнилось» 0)
+  route_signs: {proto: no, schema: no, public_rpc: no, ui: no, new_domain: no, security_surface: no}

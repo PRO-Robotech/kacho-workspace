@@ -1,0 +1,134 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность».
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл. Запись НЕ закоммичена: в копии
+# лежат незакоммиченные записи других ролей, коммит делает оператор.
+schema_version: 1
+change_id: corelib-34
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+subject: >-
+  oauthceremony: токен доступа выпускает порт службы, код и токен обновления
+  непрозрачны — после второго слияния ветки волны #32 (адреса точек из Config,
+  привязка PKCE полями записи кода) и пробы на выпуск опередившего после
+  отзыва (задача #34, волна #32)
+supersedes_scope_of: >-
+  ✅ на дайджесте 4271a38c (голова d3c3ea4 против 84b9be87) не переоткрыт.
+  Судятся разрешение слияния 8af040a и коммит cadf776
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '34 (от 32). Локально cadf776, origin/34 → d3c3ea4: слияние и проба не отправлены'
+  base: c22619552559cace2a30dc4b413a6df5c9944fc0
+  base_tree: 988ded607baa43b06ad9d0c3fd2f26020801bf45
+  base_is: 'origin/32 после `git fetch` → c2261955; merge-base origin/32 HEAD → тот же коммит'
+  head: cadf77688ffb73b2b9da8fef9dd768d2da3e7460
+  head_tree: af8fac548d3aba1e888b582a3f62b3c35d748866
+  shortstat: '21 файл, +2011 / -112'
+  commits:
+    - '588709b #34 oauthceremony: токен доступа выпускает порт службы, код и токен обновления непрозрачны (отсужен раньше)'
+    - 'cbd324e #34 merge #32 (отсужен раньше)'
+    - 'd3c3ea4 #34 правка круга 1 (отсужен раньше)'
+    - '8af040a #34 merge #32: адреса точек из Config, привязка PKCE — в записи кода'
+    - 'cadf776 #34 oauthceremony: выпуск опередившего после отзыва достижим — проба'
+content_digest: sha256:631eb5033c3ef65b081b38fda6a8ceebf73ea0e94dbb1e58d1cb5688f937d5aa
+digest_definition: 'git diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum (перемерено, совпадает с заданием)'
+verdict: accepted              # ✅ принято: раунд сухой
+blocks_landing: false
+timestamp: '2026-09-23T19:18:20Z'
+return_to: '—'
+review_scope: >-
+  (1) Слияние 8af040a прочитано целиком двумя способами. Первый: `git merge-tree
+  --write-tree d3c3ea4 c2261955` дал 7 файлов с конфликтом (ceremony.go,
+  ceremony_test.go, doc.go, engineconfig_internal_test.go, fakes_test.go,
+  ports.go, types.go). Затем `git diff <дерево merge-tree> 8af040a` по всем
+  10 файлам, где коммит расходится с автослиянием: сюда входят и три файла без
+  конфликта, access_issuer_test.go, endpoints_internal_test.go и
+  opaque_artifact_test.go. Второй: `git show --remerge-diff 8af040a`, 10 файлов.
+  (2) cadf776 прочитан целиком: code_replay_test.go, fakes_test.go, ports.go.
+  (3) Сохранность прод-вклада полосы. По strategy.go, bridge.go, notes.go и
+  translate.go изменённые строки полосы до слияния (84b9be87..d3c3ea4) и после
+  (c2261955..cadf776) побайтно равны. Сверял sha256 от строк +/- диффа по
+  каждому файлу. (4) Вне диффа на голове: consumeCode,
+  InvalidateAuthorizeCodeSession, DeletePKCERequestSession,
+  GetPKCERequestSession, GetAuthorizeCodeSession и replayedCode (bridge.go);
+  codeRecordFromRequester и requesterFromCode (translate.go); перечень
+  SanitationWhiteList (ceremony.go:222); подставка отзыва и выборок
+  (fakes_test.go:300-330, 534-600, 655-690).
+
+premise:
+  status: confirmed
+  claim: >-
+    После слияния с #40 опередивший гасит код при предъявлении, то есть раньше
+    своего выпуска. Поэтому его выпуск достижим ПОСЛЕ того, как отставший
+    отозвал семейство. Проба TestConcurrentCodeReplayWinnerMayIssueAfterTheRevocation
+    держит эту предпосылку: она краснеет, если погашение перенести на выдачу, а
+    близнец при этом остаётся зелёным.
+  how: >-
+    Инъекция накладкой `go test -overlay` (файлы вне git-деревьев,
+    ~/.cache/sa34-FZBeIC): тело DeletePKCERequestSession заменено на `return
+    nil`, так что код гасится только на выдаче. Проба FAIL, текст «ни один обмен
+    не прошёл: выпуск не дождался отзыва (port_deadline; port_deadline)».
+    Близнец TestConcurrentCodeRedemptionRevokesTheFamily — PASS в обоих
+    подслучаях. На голове `-count=3`: обе пробы PASS 3 из 3. После прогонов
+    `git status --porcelain` в копии полосы пуст.
+
+answers:
+  merge_resolution: >-
+    Все 18 участков конфликта сведены по существу, ни одна сторона не потеряна.
+    Config не несёт ни Issuer (его снял #38), ни SigningSecret (его сняла
+    полоса). Порт ProofKeyVault снят вместе с полем Ports.ProofKeys (#40), а
+    AccessTokenIssuer остаётся обязательным (validatePorts). Проверка
+    `AccessTokenLifespan ≤ tokenpolicy.MaxTokenTTL` на месте. Литералы проб
+    волны переведены на 20 минут: иначе их отверг бы сам New. Шапка
+    GrantRecord.Form правдива на голове: codeRecordFromRequester удаляет
+    code_challenge и code_challenge_method из Form записи кода и переносит их в
+    ProofKey (translate.go:295-304).
+  contract_change_revoker: >-
+    По существу слияние изменило один контрактный абзац — отсечку GrantRevoker
+    на месте предъявления. Раньше абзац утверждал, что выпуск победителя стоит
+    раньше отметки отзыва. После #40 это утверждение стало бы ложью, и абзац
+    заменён требованием: отсечка по ключу семейства действует на всякий токен
+    семейства, когда бы он ни был выпущен. Абзац согласован с соседними
+    требованиями того же порта: FetchAccessToken и FetchRefreshToken отвечают
+    «когда бы он ни был положен», а отметка отзыва лежит у семейства. Подставка
+    исполняет именно так: выборка сверяет revoked[grantID] и не смотрит на
+    момент записи.
+  public_text: >-
+    Сообщения 8af040a и cadf776 и новый абзац ports.go описывают требование к
+    реализации порта и пробу, а не действующий дефект: ни один потребитель
+    oauthceremony в kacho (main @4382f05c0) и kaname (@32637536f) порт ещё не
+    реализует (`git grep oauthceremony -- '*.go'` → 0). Признак
+    восстановимости не срабатывает: восстанавливать нечего.
+  trailers: 'c2261955..cadf776: строк трейлеров 0'
+
+findings:
+  high: []
+  medium: []
+dry_round: true
+
+cross_repo:
+  - addressee: PRO-Robotech/kaname
+    kind: условие на будущий код, а не находка
+    text: >-
+      Полоса, которая реализует GrantRevoker для oauthceremony, строит отсечку на
+      месте предъявления по ключу семейства (GrantID в токене) и не сравнивает
+      её с моментом выпуска. В kaname уже есть отсечка по моменту для
+      пользователя (RevokedBefore в session_revocations и iamhooks). Это другой
+      предмет, и его форма для семейства не годится, что абзац ports.go и
+      называет. Проба на стороне kaname проходит через обе стороны: отзыв
+      семейства, затем выпуск токена этого семейства, затем предъявление на
+      проверке ключами, и в ответ — отказ.
+
+outside_diff:
+  - >-
+    Опередивший на одновременном повторе получает ответом пару уже отозванного
+    семейства. Со стороны церемонии эта пара негодна: выборка и интроспекция
+    отвечают «нет». Место, которое сверяет токен доступа по ключам, отвергает
+    его только отсечкой службы. Контракт порта называет это требованием, поэтому
+    дефектом библиотеки это не считаю. Отказать опередившему в выдаче после
+    отзыва было бы защитой в глубину, а не исправлением.
+
+tests_run:
+  - 'go test -count=1 -json ./oauthceremony/ на cadf776: rc 0; тестов верхнего уровня 107 PASS / 0 FAIL / 0 SKIP, подтестов 207 PASS / 0 / 0 (счёт по событиям json)'
+  - 'инъекция и близнец — см. premise.how'
+not_run: '-race, golangci-lint и gosec не перезапускал: -race и линтер в числах автора, gosec автор не прогонял'

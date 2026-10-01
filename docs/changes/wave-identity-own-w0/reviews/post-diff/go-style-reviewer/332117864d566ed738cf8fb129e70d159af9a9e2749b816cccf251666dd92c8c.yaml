@@ -1,0 +1,118 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, круг 2 (последний
+# заход волны-0 цели identity-own). Судится ТОЛЬКО дельта прежняя голова → новая
+# (правка комментариев B1, 466b8e2cf63) и закрыта ли находка C1 записи
+# 707b05a4…1366. Принятое в круге 1 не пересуживается.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: docs/changes/wave-identity-own-w0/reviews/post-diff/go-style-reviewer/707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366.yaml
+subject: >-
+  Дельта 945b851ed52..b579b9eec9c: коммит 466b8e2cf63 «docs: читателя чужого
+  печенья под own выбирает множество, а не посадка» и слияние b579b9eec9c в ветку
+  волны. Два файла: gateway/deploy/login_console_test.go (Go, мой предмет) и
+  deploy/helm/umbrella/values.own.yaml (YAML; в круге 1 записан как радиус C1).
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pull_request: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: b579b9eec9c918e23c8e76a1dd2c68edd8688f09
+  previous_head: 945b851ed52e8e7a840f706015e8e088169ad032
+  files: 66
+content_digest: sha256:332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c
+digest_definition: 'sha256 сырого вывода `git diff bec320cf47d...b579b9eec9c` (трёхточечный)'
+
+subject_preflight:
+  digest_matches_declared: >-
+    ДА, дважды: до разбора и перед вердиктом, оба раза 332117864d…2c8c, после
+    `git fetch origin`.
+  merge_base: '`git merge-base origin/main b579b9eec9c` → bec320cf47d… = `git rev-parse origin/main`.'
+  head_on_origin: '`git rev-parse origin/wave/identity-own-w0-kacho` → b579b9eec9c…, равна объявленной.'
+  files: '66 — `git diff --name-only bec320cf47d...b579b9eec9c | wc -l`.'
+  delta: '`git diff --stat 945b851ed52 b579b9eec9c` → 2 файла, +49 −23.'
+  delta_is_comment_only: >-
+    ДА. Go: строк дельты в login_console_test.go, не начинающихся с `//` —
+    0 (`git diff -U0 945b851ed52 b579b9eec9c -- gateway/deploy/login_console_test.go`
+    без строк `^[+-]\s*//`). YAML: строк не начинающихся с `#` — 0; sha256
+    разобранного значения (yaml.safe_load → json, sort_keys) на обеих головах
+    равен: da1d5e94…a0fa.
+  round1_files_touched_by_delta: >-
+    Из 10 Go-файлов круга 1 дельта трогает один — gateway/deploy/login_console_test.go;
+    файлы находок I1–I5 не тронуты.
+
+c1_closure:
+  status: закрыта
+  checked_places:
+    - place: 'login_console_test.go:47-53 (круг 1) → :46-62 (голова)'
+      result: >-
+        Ссылка на TestOwnLane_F3_12 и число «мест 2 · заведено под own 0» сняты.
+        Текст разводит два предмета: полоса формы — предмет посадки, читатели
+        носителя — предмет множества; держатели названы именем символа.
+    - place: 'login_console_test.go:67-68 → :76-81'
+      result: '«он там не читается» снято; причина молчания гейта — предмет «есть ли чем войти», не читаемость чужого печенья.'
+    - place: 'login_console_test.go:325-326 → :336-339'
+      result: '«под own его никто не читает» снято; сказано, что читаемость решает множество носителей и на вопрос гейта не влияет.'
+    - place: 'values.own.yaml:98-110 (радиус C1) → :101-111; плюс шапка api-gateway :50-72'
+      result: 'Та же ложная посылка и ссылка на снятый тест убраны; путь main.go исправлен на gateway/cmd/api-gateway/main.go.'
+  radius_predicate: >-
+    `git grep -nE 'TestOwnLane_F3_12|не заводится ВОВСЕ|выбирает ПОСАДКА|заведено под own'`:
+    b579b9eec9c → 0 совпадений по 6691 отслеживаемому файлу; контроль в обратную
+    сторону 945b851ed52 → 2 файла (login_console_test.go:2, values.own.yaml:2).
+  claims_checked_against_code:
+    - claim: 'полосу формы под own заводит ветка `identityLane == identityposture.Own`; держит TestOwnLane_F3_45_TheLoginLaneRelayIsWiredUnderTheOwnPostureOnly'
+      evidence: 'gateway/cmd/api-gateway/main.go:260 (NewLoginLaneRelay внутри ветки); gateway/cmd/api-gateway/own_lane_readers_wiring_test.go:113 — требует ровно одну ретрансляцию под Own.'
+    - claim: 'читателя поставщика заводит `sessionCarriers.ReadsProvider()`, не посадка и не адрес'
+      evidence: 'main.go:229; адрес `disabled` лишь выключает провязку внутри ветки (:230).'
+    - claim: 'config.ResolvedSessionCarriers — объявленное ручкой либо выведенное из посадки; под own — только наш носитель'
+      evidence: 'gateway/internal/config/sessioncarriers.go:117 (пустая ручка → sessionCarriersFromPosture), Own → {own:true}; держит session_carriers_test.go:138 TestSessionCarriers_UndeclaredDerivesTodaysBehaviourFromThePosture.'
+    - claim: 'под own законны `own` и `own,external`, во втором чужое печенье читается'
+      evidence: 'gateway/cmd/api-gateway/session_carrier_validation.go:94 validateSessionCarrierConfig — Own без ReadsOwn отвергается, {own} и {own,external} проходят (второе — с моментом окна).'
+    - claim: 'страж старта отказывает объявленному чужому читателю без адреса (values.own.yaml)'
+      evidence: 'session_carrier_validation.go:190-199 — Declared && ReadsProvider при адресе "" или "disabled" → отказ; values.own.yaml:77 kratosPublicUrl: disabled.'
+    - claim: 'цепочка own множества не объявляет (`api-gateway.authn.sessionCarriers` пуст)'
+      evidence: >-
+        deploy/stacks.txt:48 own:values.prod.yaml,values.own.yaml,values.own-stand.yaml —
+        ключа нет ни в одном из трёх (слияние трёх слоёв python-скриптом: <absent>);
+        умолчание подчарта gateway/deploy/values.yaml:317 `sessionCarriers: ""`;
+        шаблон gateway/deploy/templates/deployment.yaml:231 выдаёт переменную
+        через `with`, пустое значение её не выдаёт.
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+
+critical: []
+important: []
+style: []
+
+found_along_the_way:
+  - >-
+    «Четыре глагола формы» не совпадает с перечнем ретрансляции: в
+    gateway/internal/middleware/login_lane_paths.go (var loginLaneRoutes) 13
+    глаголов, и на bec320cf47d их тоже 13. Термин общий для дерева: на
+    b579b9eec9c — 18 строк (`git grep -nE '(четыре|Четыре) глагол'`); второй
+    предикат (регистронезависимая основа `четыр… глагол`, по файлам через `git show`)
+    дал 19, лишняя строка — другой референт
+    (ui-future/shared/src/test/mutation-envelope.injection.test.ts:10). Из 18 на
+    базе было 15, волна добавила 3 (values.own-stand.yaml, login_console_test.go:49
+    и :204). Значит, это не утверждение дельты: login_console_test.go:49 повторяет
+    формулировку прежней редакции (:52 на 945b851ed52). Сам login_lane_paths.go:5
+    определяет термин как «четыре глагола Ф3» плюс регистрацию, восстановление и
+    т. д. Не блокирует: к C1 отношения не имеет, контроль комментарий не
+    искажает, только неполно называет охват. Нужна задача на весь радиус из 18 строк.
+
+approved:
+  - 'Дельта состоит только из комментариев: код гейта, его решение и разобранные значения профиля не изменились (замеры в subject_preflight).'
+  - 'Каждое утверждение новых комментариев подтверждено кодом на голове (claims_checked_against_code); держатели названы именами символов, номеров строк в новом тексте нет.'
+
+counts:
+  fresh_deferral_markers: '0 в дельте — `git diff 945b851ed52 b579b9eec9c | grep "^+" | grep -cE "\b(TODO|FIXME|XXX|HACK)\b[:(]|t\.Skip\("`'
+  probes_in_same_pr: 'да — в дельте нет изменений прод-кода; правка только комментариев в пробе и профиле'
+  security_comments_contradicting_code: '0 в дельте; C1 из круга 1 закрыт'
+  foundation_candidates: 0

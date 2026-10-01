@@ -1,0 +1,97 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 3.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена — её коммитит оператор.
+schema_version: 1
+change_id: corelib-38
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 3
+subject: >-
+  oauthceremony: Config.Issuer снят вместе с обеими проверками и настройками движка
+  AccessTokenIssuer/IDTokenIssuer; адрес точки отвергается, если разбор и обратная запись
+  его меняют (задача #38, волна #32)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8   # = origin/32 = merge-base(origin/32, head)
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  head: 60184d279a72bb1b6197335761f792dc012fee86
+  head_tree: 05bb62d51a2b415656ec17435c56b0b8918f8133
+  round_delta: '834b52d586f7..60184d279a72 — 4 файла, +79 / -146'
+  shortstat: '4 файла, +447 / -41 (полный дифф от base)'
+content_digest: sha256:1228065f34ccfd878e33aeb2b2fa45752beac3b86cdff2510e3399e019f95f70
+digest_definition: >-
+  git diff --full-index 84b9be87f789..60184d279a72 | sha256sum (перемерено своей командой
+  по полным sha — совпадает)
+supersedes: sha256:320314834f3df969118793a54475920649112e79b78393572880b609fb7ea124
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T17:09:55Z'
+review_scope: >-
+  дельта круга 3 целиком (ceremony.go, ceremony_test.go, endpoints_internal_test.go,
+  engineconfig_internal_test.go); вне дельты — validateEndpoint целиком, сборка движка в New
+  (ceremony.go:184-300), места синтеза запросов (ceremony.go:563, :947), путь проверки
+  утверждения клиента движка (client_authentication.go:60-190, :228-248), все читатели
+  издателя и TokenURL по дереву (git grep @60184d2, 740 отслеживаемых .go), писатели "iss"
+  в internal/oauth2 вне JWT/openid.
+merge_check: >-
+  слияние 834b52d чистое: ceremony_test.go, endpoints_internal_test.go,
+  engineconfig_internal_test.go побайтово равны ead5a64; у ceremony.go ханки #38
+  (9f0393c5..ead5a64) и (84b9be87..834b52d) совпадают построчно; git show --cc по
+  ceremony.go — пусто.
+against_round_1:
+  normalization: >-
+    прежний ответ стоит и усилен. Значения по-прежнему дословно: TokenURL = cfg.TokenEndpoint
+    (ceremony.go:211), запросы строятся из тех же строк (ceremony.go:563, :947). Новая
+    проверка обратной записи (ceremony.go:391-392) только СУЖАЕТ принимаемое: теперь адрес
+    запроса, который видит движок, равен строке из Config, и расхождения «опубликовано одно —
+    подано другое» не представимо. Единственный читатель TokenURL на подключённом пути —
+    сверка aud утверждения клиента (client_authentication.go:185) — по-прежнему недостижим:
+    clientView не реализует OpenIDConnectClient (держит engineconfig_internal_test.go:158,
+    TestClientAssertionIsRefused — зелёные). Второй читатель, rfc7523/handler.go:234, в New
+    не собирается (пять обработчиков, ceremony.go:255-297).
+  derivation_substitution: >-
+    держится. Инъекция через go test -overlay (TokenURL выводится из AuthorizationEndpoint
+    заменой пути): TestEndpointsReachTheEngineAsNamedInConfig — 2 из 4 случаев красные
+    («на разных хостах, с портом», «с экранированными знаками»), два законно совпадающих —
+    зелёные.
+  scheme: 'без изменений — схема в нижнем регистре не ограничена, читателя схемы нет; низкая.'
+against_round_2:
+  F1_residual: >-
+    снят вместе с предметом: поля Config.Issuer нет, издателя с запросом, фрагментом или
+    сведениями пользователя принять больше нечем. Снятие не снимает действующего контроля:
+    читатели GetAccessTokenIssuer/GetIDTokenIssuer — 2 (handler/oauth2/strategy_jwt.go:126,
+    handler/openid/strategy_jwt.go:217), оба в стратегиях JWT, New строит одну HMAC-стратегию
+    (ceremony.go:252); писателей "iss" вне JWT/openid в internal/oauth2 — 0 (introspection —
+    только пример в комментарии). Снятая проба TestNewRejectsAnIssuerWithoutAHost судила
+    снятое поле.
+  C1: 'стоит — хост адреса точки судится по Hostname() (ceremony.go:381); правка — только текст комментария.'
+new_branch_checks:
+  refusal_text: >-
+    постоянный, называет поле, значение не эхом; ошибка разбора в отказ не оборачивается.
+    Отказ по сведениям пользователя стоит ДО обратной записи — секрет из адреса в текст не
+    попадает ни одной веткой.
+  injection: >-
+    overlay без ветки обратной записи: TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress —
+    10 подслучаев красные (5 форм × 2 поля) плюс родитель, 61 зелёный (близнецы).
+findings: []
+future_surface_condition: >-
+  не находка этого диффа: если в New когда-либо соберут стратегию JWT или обработчик openid,
+  издатель обязан вернуться названным и проверяемым полем — иначе движок выпустит
+  утверждение с пустым iss. Причина названа у сборки настроек (ceremony.go:192-196).
+cross_repo: []
+dry_round: true
+runs:
+  - 'go test ./oauthceremony/... -count=1 -json @60184d2: 249 pass / 0 fail / 0 skip, пакет pass, rc=0'
+  - 'overlay i1 (TokenURL из адреса авторизации): 3 fail (2 подслучая + родитель) / 69 pass'
+  - 'overlay i2 (без обратной записи): 11 fail (10 подслучаев + родитель) / 61 pass'
+  - 'TMPDIR вне git-деревьев (git rev-parse — не репозиторий), MemAvailable 35 ГБ; git status копии после прогонов — 0 строк'
+commit_message_check: >-
+  трейлеров Co-Authored-By/Claude-Session/Generated with — 0 на 84b9be87..60184d2; текст
+  60184d2 не восстанавливает ничего сверх снятой настройки и правила записи адреса.
+outside_role_notes:
+  - >-
+    не предмет роли и не блокер этого вердикта, для landing-reviewer: первая строка у всех
+    четырёх коммитов 84b9be87..60184d2 длиннее 72 знаков (3535e77 — 86, ead5a64 — 84,
+    834b52d — 88, 60184d2 — 124); у 60184d2 в ней два утверждения через «;». Замер:
+    git log --format=%s 84b9be87..60184d2 и длина строки в символах.

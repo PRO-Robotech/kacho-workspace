@@ -1,0 +1,396 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  sha256: 42b4230012ff99d03a32aaaf0467181dbd780a72427a94b1a7d373c2ebd9afcf
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью (change-graph.md §2). Шапка этой записью НЕ правится: вердикт привязан к
+    отпечатку, а не к слову в заголовке. Машинный читатель docs-gate (`check-01`) по этой
+    редакции ответит «не APPROVED» — это его объявленный предел (он судит объявление), и с моим
+    вердиктом он совпадает случайно, а не по построению.
+  base_commit: 13e0d0c1eba08b5c9e6ebec78228719c5305ac88
+  content_commit: none
+  content_commit_note: >-
+    Документ по-прежнему НЕ закоммичен: `git status --porcelain` даёт
+    `?? docs/specs/sub-phase-F8-…md`. Записи кругов 1 и 2 в дереве лежат. Отпечаток —
+    ЕДИНСТВЕННАЯ привязка: посадка иного содержимого под тем же именем этой записью не покрыта.
+  branch: tooling-docfresh-recognition-boundary
+  branch_note: >-
+    Ветка о другом предмете (хук docfresh); разбор ветки назначен оркестратором, документ
+    переезжает вместе с обеими прежними записями. Дом-репозиторий и путь `docs/specs/` верны
+    (§0.3 не переоткрывается). Переезд ничего не рвёт: ни одна из трёх записей не ссылается на
+    ревизию ЭТОЙ ветки как на предмет — предмет привязан отпечатком, а измерения взяты на
+    ревизиях `project/kacho@f445aaaa554` и `project/kaname@497c44b7`, которые от ветки
+    воркспейса не зависят.
+  task: https://github.com/PRO-Robotech/kacho/issues/1274
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1634
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T09:40:00Z'
+round: 3
+previous_rounds:
+  - revision: 1
+    sha256: 95d91dfd733f9ea7343c640b80ee86e4096ce5e3b65849059a257ccc07f884e5
+    verdict: CHANGES_REQUESTED
+    blocking_count: 8
+  - revision: 2
+    sha256: cb4d4988d252ef7c9b1a71d9d880b94627d84b882efcb4e969d32bc3147ec681
+    verdict: CHANGES_REQUESTED
+    blocking_count: 4
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY, COVERAGE]
+blocking_kinds_by_item:
+  - B3-1 CONSTRUCTIBILITY
+  - B3-2 COVERAGE
+kind_recurrence_note: >-
+  CONSTRUCTIBILITY повторился ТРЕТИЙ круг подряд. После круга 2 форма задания автору была
+  изменена, и автор внёс четыре обязанности в документ разделом §1.0. Обе находки этого круга
+  получены применением обязанностей 1 и 3 НА ОДИН УРОВЕНЬ ГЛУБЖЕ, чем их применил автор, —
+  двумя командами. Вывод о методе — в `method_verdict`.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 13e0d0c1 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 13e0d0c1eba08b5c9e6ebec78228719c5305ac88
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает, поэтому его
+    действительность от публикации внешнего события не зависит. Тело события для курьера дано
+    полем `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3, блокирующих 2) ·
+    SHA-256 42b4230012ff99d03a32aaaf0467181dbd780a72427a94b1a7d373c2ebd9afcf
+
+measurement:
+  revisions_used:
+    kacho: f445aaaa554 (project/kacho, ветка main рабочей копии)
+    kacho_origin: bec320cf47d
+    kaname: 497c44b7 (перемерено по объекту коммита, а не по рабочему дереву — HEAD копии ушёл на 19c224cd)
+    kacho_lane: wave/identity-own-w0-kacho@0e0a85f936e
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* F8-[0-9]+' <док>"
+    total: 45
+    unique: 45
+    duplicates: 0
+    gaps: 0
+    positives: 21
+    negatives: 24
+    split_predicate: "строка объявления ID, несущая слово «близнец» → отрицательный"
+  producer_coverage:
+    method: раскрытие диапазонов таблицы §11.1 в множество ID и сравнение с множеством §11
+    covered: 45
+    of: 45
+    uncovered: []
+  twin_coverage:
+    negatives_in_table: 24
+    twins_named: 24
+    set_equality: >-
+      множество §11.2 поимённо совпадает с множеством отрицаний §11; F8-13, F8-41, F8-44, F8-45
+      несут положительную сторону ВНУТРИ сценария и в таблице отсутствуют осознанно — названо
+  seam_check:
+    claim: "ни один «Тогда» §11 не имеет производителя в PRO-Robotech/kaname"
+    outcome: confirmed
+    method: все 13 строк §11.1 — координаты в дереве kacho (ui-future/**, deploy/tests/helm/**)
+
+premise_check:
+  claim: "сценариев 45; производитель у 45 из 45; близнец у 24 из 24"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 42b4230012ff99d03a… ; wc -l → 1634"
+    - "grep -cE '^\\*\\*ID:\\*\\* F8-[0-9]+' <док> → 45; sort -u → 45; uniq -d → пусто"
+    - "раскрытие диапазонов §11.1 (F8-04…F8-19, F8-23…F8-32, F8-33…F8-36) → объединение = F8-01…F8-45, непокрытых 0"
+    - "перечёт строк §11.2 → 24 отрицания, у каждого назван близнец и ОДНО различие"
+    - "21 + 24 = 45 сходится"
+
+blocking_findings:
+  - id: B3-1
+    kind: CONSTRUCTIBILITY
+    title: >-
+      Ось 4 (шаг одноразового кода): принятый шаг пишет ТАКЖЕ `confirm` — через ActivateTOTP,
+      а не только RecordAcceptedStep. Посев «второй фактор заведён» сам предъявляет код,
+      поэтому средство Р9 «не более одного предъявления» невыполнимо для пяти сценариев
+    coordinates:
+      doc: "§1.10 ось 4; Р9 таблица, строка оси 4; F8-30, F8-31, F8-33, F8-35, F8-43; F8-45; DoD 10б и 16; §16.2 обязанность 3"
+      tree:
+        - kaname@497c44b7:internal/repo/kaname/pg/login_method_repo.go:335 — activateTOTPTx `SET state='active', last_accepted_step = $3`
+        - kaname@497c44b7:internal/repo/kaname/pg/login_method_repo.go:409 — recordAcceptedStepTx (ЕДИНСТВЕННЫЙ писатель, которого называет документ)
+        - kaname@497c44b7:internal/repo/kaname/pg/login_method_repo.go:317 — upsertPendingTOTPTx `last_accepted_step = NULL` (переzаведение — единственное, что ось сбрасывает)
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_enroll.go:251 — `w.ActivateTOTP(ctx, user.ID, row.CreatedAt, res.Step, now)`
+        - kaname@497c44b7:internal/totpverify/verifier.go:277 — `if last.known && step <= last.step { OutcomeReplayed }`
+        - kaname@497c44b7:internal/totpverify/verifier.go:72 — `Period = 30 * time.Second`
+        - kaname@497c44b7:internal/repo/kaname/pg/login_method_repo.go:169 — `m.AcceptedStep, m.StepAccepted = *step, true`
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_present.go:98…114 — prepare читает AcceptedStep
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_present.go:242 — countsAsAttempt(verdictMismatched) = true
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/login.go:287 — вход тоже идёт через presenter.prepare
+    predicate: "git grep -n 'last_accepted_step' 497c44b7 -- '*.go' | grep -v _test.go"
+    measured: >-
+      Писателей столбца ТРИ. Документ называет одного — `RecordAcceptedStep` — и по нему
+      заключает «принятый шаг запоминается». На деле шаг пишет и `confirm`: activateTOTPTx
+      кладёт `last_accepted_step = res.Step`, то есть ступень ПОДТВЕРЖДАЮЩЕГО кода. После
+      confirm строка активна и StepAccepted = true.
+    consequence: >-
+      §11 преамбула предписывает сеять второй фактор глаголами `enroll` и `confirm`, то есть
+      посев САМ предъявляет одноразовый код. Любое следующее предъявление в том же
+      30-секундном шаге даёт `step <= last.step` → OutcomeReplayed → verdictMismatched →
+      отказ `authentication failed` И след по ОБЕИМ осям. Значит средство оси 4, объявленное
+      Р9 («у каждого сценария свой человек и НЕ БОЛЕЕ ОДНОГО предъявления»), для пяти
+      сценариев невыполнимо by construction — посев уже израсходовал единственное
+      предъявление.
+    affected_scenarios:
+      - "F8-30 (снятие с предъявлением кода) — положительный, утверждает успех"
+      - "F8-31 (перечеканка запасных кодов) — положительный, утверждает успех"
+      - "F8-33 (вход с кодом второго фактора до уровня 2) — положительный, утверждает 200"
+      - "F8-35 (повышение уровня) — положительный, утверждает успешное повышение"
+      - "F8-43 (переезд оснастки: enroll → confirm → step-up без ожидания) — держатель переезда"
+    second_order: >-
+      Два следствия, и оба несущие. (1) Единственный способ развести шаги — дождаться
+      следующего, то есть вернуть `nextWindow()` (ui-future/e2e/specs/assurance.ts:104, зов на
+      :151), который F8-45 объявляет находкой, а DoD 10б — нулём. F8-43 и F8-45 на этой
+      редакции противоречат друг другу. (2) Если шаги иногда расходятся сами, вердикт набора
+      становится функцией ФАЗЫ стенных часов — DoD 5 «тот же вердикт трижды подряд»
+      превращается в жребий, ровно то, что Р9 называет отвергнутым исходом.
+    budget_impact: >-
+      Каждый повтор пишет след, идущий в счёт: +1 к бюджету на каждый из пяти сценариев. 11+5
+      = 16 за прогон, 48 за три при потолке 50 — 96 %, против объявленного порога 80 % (40).
+      То есть число 11 опровергнуто не только правилом счёта (B3-2), но и арифметически.
+    outcomes_available_to_author: >-
+      Исходов несколько и выбор за автором: посев второго фактора не через `confirm`
+      (фикстурой, кладущей строку сразу активной без принятого шага) · собственный секрет TOTP
+      у пробы с управляемым моментом · один разнос шагов на весь прогон с явной ценой · либо
+      перенос сценария к владельцу условия. Ревьюер исхода не выбирает; требуется, чтобы
+      средство было названо и чтобы оно не было ожиданием.
+
+  - id: B3-2
+    kind: COVERAGE
+    title: >-
+      Перепись пишущих след взята по НАПИСАНИЮ имени `recordFailure`: `sf_enroll.go:327` —
+      общий хвост ЧЕТЫРЁХ глаголов, а таблица Р7 приписывает его одному. Глаголов семь, а не
+      пять, и сторож F8-41 построен на пятистрочном правиле
+    coordinates:
+      doc: "Р7, таблица «место вызова → глагол» (5 строк); F8-41 «по пяти местам вызова»; DoD 10а; §16.2 обязанность 1; §14 п. 20"
+      tree:
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_enroll.go:321 — recordFailureTx, тело зовёт recordFailure на :327
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_enroll.go:317 — confirm (единственный глагол, который документ приписал :327)
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_backup_codes.go:154 — перечеканка запасных кодов, под `if countsAsAttempt(v)` (:153)
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/sf_remove.go:163 — снятие второго фактора, под `if countsAsAttempt(v)` (:162)
+        - kaname@497c44b7:internal/apps/kaname/api/humansession/step_up.go:291 — запасной путь повышения (recordRefusalAttempt), когда общая транзакция не сложилась
+    predicate: "git grep -n 'recordFailureTx(' 497c44b7 -- '*.go' | grep -v _test.go → 4 места вызова + определение"
+    measured: >-
+      Мест вызова СВОБОДНОЙ функции `recordFailure` действительно пять — здесь документ не
+      ошибся. Ошибка в колонке «глагол»: строка `sf_enroll.go:327 | подтверждение второго
+      фактора` неверна по предмету. Эта строка — хвост, в который сходятся ЧЕТЫРЕ глагола:
+      подтверждение второго фактора, перечеканка запасных кодов, снятие второго фактора и
+      запасной путь повышения. Глаголов, пишущих след, СЕМЬ.
+    consequence: >-
+      F8-41 утверждает счёт «по ПЯТИ местам вызова таблицы Р7». Браузерная проба мест вызова
+      не видит — она видит пары «глагол · отказ», и правило отображения берёт из этой таблицы.
+      Отказ `verdictMismatched` на `/second-factor/remove` и `/second-factor/backup-codes` в
+      таблице ОТСУТСТВУЕТ, значит сторож его не считает. §11 эти глаголы содержит (F8-30,
+      F8-31, F8-32), а с учётом B3-1 они этот отказ и производят. Сторож заведён ровно затем,
+      чтобы «первым о переполнении не сказал чужой сценарий, упавший по чужой причине», — и
+      на этом классе он неспособен упасть.
+    method_note: >-
+      Это обязанность 1 документа, не исполненная на один уровень глубже: «по местам вызова, а
+      не по шапке» применено к одному идентификатору и остановлено на его написании. Предикат
+      по предмету — «кто пишет след», а не «где написано слово recordFailure» — даёт семь
+      глаголов одной командой.
+
+important_findings:
+  - id: I3-1
+    kind: DoD
+    title: "DoD 4а несёт устаревший диапазон F8-01…F8-43, и §16.2 утверждает о нём обратное"
+    coordinates:
+      doc: "строка 1389 (DoD 4а) — `F8-01…F8-43`; строка 655 (Р8) — `F8-01…F8-45`; строка 1611 (§16.2) — «DoD 4а диапазон называл верно и не трогался»; §14 п. 24 «документ верен о себе»"
+    why_not_blocking: >-
+      Операционный предикат пункта верен и самообновляем: «множество ID, снятых с имён тестов,
+      сравнивается с МНОЖЕСТВОМ ID §11». Устаревший диапазон стоит в поясняющей половине
+      фразы, а не в предикате.
+    why_it_matters: >-
+      Это четвёртый случай одного класса за три круга (круг 2 нашёл документ «трижды неверным о
+      себе»), и на этот раз документ ОБЪЯВЛЯЕТ, что place проверен. Диапазон исключает ровно
+      F8-44 и F8-45 — держателей обязанностей 4 и 3.
+
+  - id: I3-2
+    kind: CONSTRUCTIBILITY
+    title: "Ось 3 названа одной, а у неё две разные семантики снятия, и читателей четыре, а не два"
+    coordinates:
+      doc: "§1.10 ось 3 — «читатель: sf_enroll.go:84 и sf_enroll.go:205», «снимается предъявлением в церемонии повышения»"
+      tree:
+        - kaname@497c44b7:sf_enroll.go:84 — `now.Sub(s.LastPresentedAt) > d.Freshness` — свежесть СЕССИИ, снимается предъявлением
+        - kaname@497c44b7:sf_enroll.go:205 — `now.Sub(row.CreatedAt) > uc.deps.Freshness` — срок НЕЗАВЕРШЁННОГО заведения, предъявлением НЕ снимается
+        - kaname@497c44b7:sf_enroll.go:136 — `ExpiresAt: now.Add(uc.deps.Freshness)`
+        - kaname@497c44b7:sf_status.go:74 — `PendingUntil: row.CreatedAt.Add(uc.deps.Freshness)`
+    predicate: "git grep -n 'Freshness' 497c44b7 -- 'internal/apps/kaname/api/humansession/*.go' | grep -v _test.go"
+    note: >-
+      Для F8-27/F8-43 обе величины — 15 минут, а enroll→confirm укладывается в секунды, поэтому
+      препятствием сегодня не становится. Но обязанность 3 требовала ПОЛНОГО перечня, и ось,
+      слитая из двух с разными условиями снятия, полной переписью не является.
+
+  - id: I3-3
+    kind: FORMAT
+    title: "Бюджетная строка «F8-29 · F8-36 → 0» верна числом, но основание названо чужое"
+    coordinates:
+      doc: "Р7 ч. 2, строка «F8-29 сессия не свежа · F8-36 повышать нечем | повышение: verdictNotEnrolled вне countsAsAttempt | 0»"
+    note: >-
+      Для F8-36 основание верно и ПЕРЕМЕРЕНО мной (см. verified.f8_36_zero). Для F8-29 оно
+      неверно: у F8-29 ответ ПОДСТАВЛЕН пробой (обращения к службе нет вовсе), а само повышение
+      в нём УСПЕШНО — verdictMatched. Ноль верен, причина приписана чужая.
+
+  - id: I3-4
+    kind: FORMAT
+    title: "F8-31 «Given условия F8-30, второй фактор заведён» читается двояко"
+    note: >-
+      F8-30 оканчивается СНЯТЫМ фактором. «Условия F8-30» = предусловия или исход? При втором
+      чтении «второй фактор заведён» ложно. Требуется однозначная формулировка — тем более что
+      от неё зависит, сколько предъявлений одноразового кода сценарий делает (B3-1).
+
+  - id: I3-5
+    kind: FORMAT
+    title: "F8-32 отсутствует в бюджетной таблице даже нулевой строкой"
+    note: >-
+      F8-29 и F8-36 названы нулевыми строками явно, F8-32 (снятие незаведённого →
+      verdictNotEnrolled → 0) не назван вовсе. Перепись, называющая нули выборочно, не даёт
+      знаменателя.
+
+method_verdict:
+  question: "вошёл ли метод §1.0 в документ КАК МЕТОД, или остался списком исправленных частностей"
+  answer: "как раздел и как форма изложения — да; как метод — нет"
+  evidence_for:
+    - "§1.0 записан не увещеванием, а четырьмя обязанностями, и у каждой колонка «чем круг 2 её доказал» — то есть свой опровергающий случай"
+    - "две производные формы названы и применены дословно: «предикат по написанию» против «предиката по предмету»; «проверка не зовёт предмет ≠ не зависит от предмета»"
+    - "обязанность 2 воспроизводима и ПЕРЕМЕРЕНА мной: /self-service/ даёт 4, предметный предикат даёт 5 (строки 141,143,153,154 и 125), расширение действительно даёт второй файл"
+    - "обязанность 4 породила §1.5а — перепись судеб с двумя законными исходами и ценой отвергнутого; довод перевода семи тестов я проверил своим разбором и признал верным"
+    - "обязанность 3 породила §1.10 и Р9 — средство построения на каждую ось"
+  evidence_against:
+    - "обязанность 1 применена к ОДНОМУ идентификатору (`recordFailure`) и остановлена на его написании; один уровень глубже (`recordFailureTx`) даёт ещё три глагола — B3-2"
+    - "обязанность 3 объявила перечень осей полным, но перепись ПИСАТЕЛЕЙ оси 4 снова взята по одному имени (`RecordAcceptedStep`), мимо `ActivateTOTP` — B3-1"
+    - "обязанность 2 применена к §1.5 — месту, которое назвал круг 2, — и не применена ни к Р7, ни к §1.10; расширенный предикат на `last_accepted_step` и на `recordFailureTx` даёт обе находки этого круга"
+    - "§14 п. 24 объявляет «документ верен о себе», а §16.2 утверждает, что DoD 4а проверен и верен, — на этой редакции неверно (I3-1)"
+  decisive_test: >-
+    Метод проверяется тем, находит ли он то, на что прошлый круг НЕ указывал. Все три
+    показанных применения §1.0 — к трём местам, которые круг 2 назвал поимённо. Ни одна из
+    четырёх обязанностей не прогнана по месту, которого в замечаниях круга 2 не было. Я прогнал
+    обязанности 1 и 3 на один уровень глубже — двумя командами
+    (`git grep recordFailureTx`, `git grep last_accepted_step`) — и получил оба блокирующих
+    этого круга.
+  consequence_for_task_form: >-
+    Поправка круга 2 приземлилась как СОДЕРЖАНИЕ документа, а не как порядок работы:
+    обязанности записаны, но исполнены только там, где на них указали. Записать метод в
+    документ и исполнить метод — разные действия, и §1.0 сегодня свидетельствует о первом.
+    Следующий шаг задания имеет смысл сделать ИСПОЛНЯЕМЫМ выходом, а не разделом: по каждому
+    числу о дереве автор обязан напечатать ОБА предиката (по написанию и по предмету) с их
+    выводами — включая те, где расширение не дало ничего. Решение о форме — за диспетчером
+    (`.claude/rules/multi-agent-flow-orchestration.md` §14а).
+
+verified:
+  fingerprint: "42b4230012ff99d03a67…afcf перемерен `sha256sum`; 1634 строки `wc -l` — сходится"
+  scenario_count: "45 объявлений, 45 уникальных, дублей 0, пропусков 0"
+  positives_negatives: "21 / 24 — перемерено разбором строк объявления, сходится с §11.2"
+  producer_45_of_45: "раскрытием диапазонов §11.1; непокрытых 0"
+  twin_24_of_24: "множества §11.2 и отрицаний §11 совпадают поимённо"
+  f8_36_zero: >-
+    ПОДТВЕРЖДЕНО, и это ноль ПО УСЛОВИЮ, а не «ноль, потому что не посмотрели»:
+    step_up.go:226 `if countsAsAttempt(v)`; sf_present.go:242 `countsAsAttempt(v) { return v ==
+    verdictMismatched }`; sf_present.go:110 `if !enrolled { out.verdict = verdictNotEnrolled }`;
+    refusalOf(verdictNotEnrolled) → ErrSecondFactorNotEnrolled. След не пишется.
+  five_provider_calls: >-
+    ПОДТВЕРЖДЕНО поимённо: assurance.ts строки 141 (initFlow settings), 143 (submitFlow totp),
+    153 (initFlow refresh=true&aal=aal2), 154 (submitFlow), 125 (GET /sessions/whoami под
+    expect.poll). `grep -c '/self-service/'` → 4; `grep -n 'page.request\.'` → 111, 117, 125.
+    KRATOS = "/.ory/kratos/public" (:33) — отсюда расхождение написания и предмета.
+  expanded_predicate_second_file: "ПОДТВЕРЖДЕНО: `grep -rln -iE 'kratos|\\.ory|KRATOS' *.ts` → assurance.ts + registration-refusal-named.spec.ts"
+  seven_tests: >-
+    ПОДТВЕРЖДЕНО: `grep -cE '^\\s*test\\('` → 7; восьмая строка — `test.describe` на :60.
+    Имена семи прочитаны.
+  refusal_migration_argument: >-
+    ДОВОД ВЕРЕН (судил довод, а не исход, как просило задание). Из семи тестов четыре — о
+    ПОРЯДКЕ решения и об ИСТОЧНИКЕ разбора (:143 «печенье решает РАНЬШЕ распознавателя», :247
+    «поле пароля решает РАНЬШЕ», :300 «разбор берётся из ТЕКСТА, а не из разметки», :197 «на
+    ПЕРВОМ шаге»), один — о том, что фикстура СООБЩАЕТ (:91), один — отрицательная сторона
+    предиката (:80 «обычная страница отказом НЕ считается»), и только один (:61) распознаёт
+    форму отказа поставщика. Форма отказа — ВХОД распознавателя и заменима; предмет остальных
+    шести принадлежит нашей фикстуре и переживает смену поставщика. Исход 2 законен.
+  units_28_23_5: "ПОДТВЕРЖДЕНО: *.spec.ts → 23; *.ts → 28; модули → 5 (assurance, fixtures, quota-posture, quota-showcase, stream-verdict)"
+  three_places_fixed: "ПОДТВЕРЖДЕНО: «четыре новых» в документе не встречается; F8-39…F8-43 названо диапазоном из пяти в трёх местах"
+  f8_41_two_halves: >-
+    Обе половины исполнимы КАЖДАЯ своим прибором — с оговоркой B3-2 о правиле счёта.
+    Ч. 1: браузерная проба считает пары «глагол · отказ» через apiCalls(page), величина
+    приходит переменной окружения — прибор адекватен. Ч. 2: проба уровня развёртывания читает
+    `sourceAttempts` профиля — прибор адекватен, требование к браузерной пробе снято верно.
+    Арифметика сходится: 33/50 = 66 %; порог 80 % от 50 = 40; 33 ≤ 40. Не назван КООРДИНАТОЙ
+    только «тот же рецепт подъёма, что применяет профиль» — обе половины держатся на нём, а
+    пути у него нет (минор, к исполнению).
+  s1_numbers:
+    pages_51_ceremonies_0: "ПОДТВЕРЖДЕНО на ui-future@f445aaaa554 тем же предикатом"
+    files_47: "ПОДТВЕРЖДЕНО"
+    catchall_route: "ПОДТВЕРЖДЕНО: ui-future/host/src/App.tsx — `<Route path=\"*\" element={<Navigate to=\"/dashboard\" replace />} />`"
+    login_route_zero: "ПОДТВЕРЖДЕНО: `grep -rn 'path=\"/login\"'` → 0"
+    lane_conditions: "ПОДТВЕРЖДЕНО: ствол → 0, гейта нет; wave@0e0a85f936e → 4 строгим образцом"
+    eight_addresses: "ПОДТВЕРЖДЕНО: configmap-nginx.yaml:239 `^/(login|registration|recovery|verification|settings|error|consent|logout)(/|$)` — settings в восьмёрке, основание Р3а верно"
+    account_prefix_free: "ПОДТВЕРЖДЕНО: `/account/` в дереве консоли отсутствует; `/accounts` — точное сравнение host-context.ts:65, другой предмет"
+    safe_internal_path: "ПОДТВЕРЖДЕНО: ui-future/shared/src/lib/redirect.ts:17-30 — резолв через `new URL(raw, origin)` и сравнение `url.origin`, плюс проверка протокола; закрывает все четыре формы F8-13"
+    uif_enabled: "ПОДТВЕРЖДЕНО: values.yaml:711 `enabled: false`; включают dev, a8f60d, fe3455; values.own.yaml не включает"
+    knob_values: "ПОДТВЕРЖДЕНО: values.prod.yaml:764 sessionTtl 24h, :769-772 addressAttempts 5 / addressWindow 15m / sourceAttempts 50 / sourceWindow 15m; values.own.yaml:47 selfServiceFreshness 15m"
+
+not_performed:
+  - subject: "§1.7 — рендер трёх цепочек умбреллы (30/0/0 источников, 1/0/0 полос, 2/0/0 блоков .ory)"
+    reason: "требует `helm template` с зависимостями подчартов на полосе wave/identity-own-w0-kacho; в этом круге не исполнялось"
+    partial: "причина нуля перемерена независимо — uif.enabled и перечень включающих профилей подтверждены"
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+  - subject: "исполнение самих сценариев §11"
+    reason: "предусловие §4 в дереве не создано (цепочки, разворачивающей консоль без чужой полосы, нет ни одной) — документ это предсказывает сам"
+    counts_as: "не выполнилось"
+  - subject: "посев Given второго фактора живым стендом"
+    reason: "стенда нет; B3-1 получен разбором кода службы на названной ревизии, а не посевом"
+    counts_as: "не выполнилось — но находка от этого не слабее: она о ДЕРЕВЕ, и предикат назван"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    Приёмка трогает церемонии личности: неразличимость причин отказа (Р4, F8-40), открытая
+    переадресация (F8-13), признак формы (F8-07, F8-08), негашение носителя при молчании
+    службы (F8-19, F8-25). Дефекта защиты документ не раскрывает: safeInternalPath в дереве
+    уже стоит, и сценарий делает его держателем, а не сообщает о дыре.
+  disclosure_safe: true
+  disclosure_note: >-
+    Ни документ, ни эта запись не несут сборки «координата + условие + следствие» о
+    действующем дефекте защиты. Названные координаты — места ДЕЙСТВУЮЩЕЙ защиты (защита от
+    повтора одноразового кода, счёт неверных предъявлений) и величины потолка, объявленные
+    профилем, который и так публичен. Повтор кода — свойство, которое служба ПРЕДОТВРАЩАЕТ;
+    названо оно здесь как препятствие посеву, а не как обход.
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    круг 4: назвать средство построения оси 4, учитывающее, что ПОСЕВ сам предъявляет код
+    (confirm пишет last_accepted_step через ActivateTOTP) — для F8-30, F8-31, F8-33, F8-35,
+    F8-43; пересчитать бюджет Р7 после этого; перестроить правило счёта F8-41 по ГЛАГОЛАМ
+    (их семь), а не по пяти написанным местам; выправить диапазон DoD 4а; добить миноры
+    I3-2…I3-5.
+  owner_questions: []

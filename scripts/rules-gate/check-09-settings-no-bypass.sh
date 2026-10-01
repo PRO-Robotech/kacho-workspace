@@ -3,9 +3,12 @@
 #
 # Предмет: `.claude/settings.json` едет в репозиторий, и блок `permissions` с
 # `defaultMode: bypassPermissions` — выбор про ОДНУ машину, принятый за каждого,
-# кто сделает клон. Место такого выбора — `.claude/settings.local.json`, который
-# git игнорирует (норма `ai-tooling.md` §«Оснастка: экземпляр, счёт правил и
-# доставка до агента», запись `at-settings-without-permissions`).
+# кто сделает клон. Режим обхода харнесс берёт только из личного
+# `~/.claude/settings.json`, policy или флага: проектный слой и локальный
+# `.claude/settings.local.json` (git его игнорирует) оба repo-controllable, и
+# режим оттуда не применяется (нормы `ai-tooling.md` §«Оснастка: экземпляр,
+# счёт правил и доставка до агента», записи `at-settings-without-permissions`
+# и `at-bypass-not-from-repo-layer`).
 #
 # ПОЧЕМУ ГЕЙТ, А НЕ АБЗАЦ. Держателем нормы стояло «вниманием», и норма
 # нарушилась: на 2026-09-20 ствол нёс `"permissions": {"defaultMode":
@@ -17,17 +20,28 @@
 # выносит вердикт ПОСЛЕ коммита; дерево судится ДО, и хук отправки ловит правку
 # раньше, чем она уедет. Вердикт — в КОДЕ ВЫХОДА: 0 молчит, 1 находка, 2 отказ.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# КОРЕНЬ ВЫВОДИТСЯ ИЗ СВОЕГО РАСПОЛОЖЕНИЯ, А НЕ ИЗ ТЕКУЩЕГО КАТАЛОГА (2026-09-22,
+# ws#757). Здесь стоял `cd "$(git rev-parse --show-toplevel)"`: проверка, запущенная
+# с cwd в соседнем worktree полосы, МОЛЧА судила чужое дерево и выходила нулём —
+# «полоса получает чужой вердикт». Порядок источников один на все наборы и живёт
+# в `scripts/lib/gate_root.py`: шов набора `RULES_GATE_ROOT` (им инъекция гоняет
+# проверку на КОПИИ дерева), общий `GATE_ROOT`, расположение файла.
+root="$(python3 "$SELF_DIR/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
+cd "$root" 2>/dev/null || {
+    echo "[VOID] check-09-settings-no-bypass — корень «$root» не открывается; обходить нечего" >&2
+    exit 2
+}
 
 S=".claude/settings.json"
 L=".claude/settings.local.json"
 
 if [ ! -f "$S" ]; then
-  printf 'ОТКАЗ — нет %s: предмет отсутствует, судить обход подтверждений не в чем\n' "$S"
+  printf '[VOID] ОТКАЗ — нет %s: предмет отсутствует, судить обход подтверждений не в чем\n' "$S"
   exit 2
 fi
 if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$S" 2> /dev/null; then
-  printf 'ОТКАЗ — %s не разбирается как JSON: вердикт был бы о форме, не о предмете\n' "$S"
+  printf '[VOID] ОТКАЗ — %s не разбирается как JSON: вердикт был бы о форме, не о предмете\n' "$S"
   exit 2
 fi
 
@@ -35,7 +49,7 @@ rc=0
 
 # ── ось A: блок permissions в отслеживаемых настройках ───────────────────────
 if python3 -c 'import json,sys; sys.exit(0 if "permissions" in json.load(open(sys.argv[1])) else 1)' "$S"; then
-  printf 'КРАСНОЕ %s несёт блок permissions — его место в %s (git игнорирует)\n' "$S" "$L"
+  printf 'КРАСНОЕ %s несёт блок permissions — обход решён за каждого, кто сделает клон; режим даёт только личный ~/.claude/settings.json\n' "$S"
   rc=1
 fi
 
@@ -46,13 +60,14 @@ if grep -q 'bypassPermissions' "$S"; then
 fi
 
 # ── ось C: локальные настройки существуют и НЕ игнорируются ──────────────────
-# Дом выбора назван нормой; дом, который git отслеживает, домом не является.
+# Локальный слой — выбор одной машины; файл, который git отслеживает, таким
+# выбором не является.
 if [ -f "$L" ] && ! git check-ignore -q "$L"; then
   printf 'КРАСНОЕ %s существует и НЕ игнорируется git — локальный выбор уедет в репозиторий\n' "$L"
   rc=1
 fi
 
-printf 'осмотрено: %s (ключей %s); локальные настройки %s\n' "$S" \
+printf 'корень %s; осмотрено: %s (ключей %s); локальные настройки %s\n' "$root" "$S" \
   "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$S")" \
   "$([ -f "$L" ] && echo 'есть, игнорируются' || echo 'нет')"
 exit "$rc"
