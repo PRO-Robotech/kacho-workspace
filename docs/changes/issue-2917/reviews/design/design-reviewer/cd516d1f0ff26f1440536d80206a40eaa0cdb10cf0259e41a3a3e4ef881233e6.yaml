@@ -1,0 +1,100 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла редакции 24. Прежняя запись этой роли — c2b5cf2d….yaml
+# (редакция 23, APPROVED; новое — М4, не блокирует). Поэтому судятся две вещи: дельта редакции 24
+# против редакции 23 (git diff 13d7fa226 8d52c5e42 -- docs/changes/issue-2917/{design.md,tasks.md})
+# и исполнение М4. Разделы вне дельты закрыты прежними записями и заново не судятся. Блокирующим
+# признаётся только распределённое свойство, инвариант или безопасность (задание). Запись не
+# правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2917
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: cd516d1f0ff26f1440536d80206a40eaa0cdb10cf0259e41a3a3e4ef881233e6
+  fingerprint_predicate: "git show HEAD:docs/changes/issue-2917/design.md | sha256sum"
+  fingerprint_remeasured: >-
+    совпадает с заданием. Ветка issue-880 @2afdd3a08 (HEAD), рабочее дерево по пакету чистое. Последний
+    раз файл менял коммит редакции 24 8d52c5e42; `sha256sum` рабочего файла даёт тот же отпечаток.
+  revision: 24
+  previous_record: docs/changes/issue-2917/reviews/design/design-reviewer/c2b5cf2d59e3d94254c0af24e90e71d0158685b456b5f08b657f197661f308fe.yaml
+  tasks_path: docs/changes/issue-2917/tasks.md
+revisions:
+  workspace: 2afdd3a08502b4bc0151d5d2e5272d6064f3fdf6
+  delta_base: 13d7fa226   # ревью редакции 23 (файл замысла — a3d081476)
+  delta_head: 8d52c5e42   # редакция 24
+snapshot_at: 2026-10-01T00:00:00Z
+
+verdict: APPROVED     # ✅ принято
+blocks: false
+return_to: —
+distributed_surface: true      # предмет замысла — край, транзакция решения, внутренний RPC; дельта эту поверхность не трогает
+schema_review_overlap: false   # дельта не меняет ни пределов транзакции, ни порядка блокировок, ни схемы
+
+inspected: >-
+  Дельта design.md — +48/−13 строк; tasks.md — +9/−1. Прочитаны: шапка «Что изменилось против
+  редакции 23», §0 (две новые строки ревью и пересверки), §1 М74, З28 «Файлы и значения» (строки
+  2513–2521), З28 (а) Б10 и абзац о носителях, перечень «не выполнилось», §11 CX2-87 и CX2-88, сводка
+  §11, §11а УК83 и УК84, tasks.md шапка редакции 24 и строка D6. Предикат механизма:
+  `git diff -U0 13d7fa226 8d52c5e42 -- docs/changes/issue-2917/design.md | grep -E '^[+-]' | grep -ciE
+  'SKIP LOCKED|FOR UPDATE|FOR SHARE|advisory|outbox|pg_notify|WithTimeout|COMMIT|Internal|9091|TrustedHops|trusted'`
+  → 0. Ни транзакции, ни блокировок, ни сроков, ни рёбер, ни поверхности RPC дельта не касается.
+
+prior_findings:
+  - id: М4
+    status: исполнено
+    where: "design.md З28 «Файлы и значения», строки 2517–2521"
+    note: >-
+      Фраза о возврате в приёмку теперь говорит «для прочих ручек» и стоит до исключения. Исключение
+      идёт отдельной фразой после неё и прямо называет строку в values.dev.yaml законной (DoD п.13,
+      полоса D6). Отнести возврат к ручке прыжков больше нельзя. С пунктом «Ручка прыжков — не из базы»
+      расхождения нет: в values.yaml значения нет, у prod умолчания нет, рендер без ручки отказывает.
+
+axes:
+  atomicity_no_dual_write: "закрыта; дельта не трогает."
+  idempotency: "закрыта; дельта не трогает."
+  cas_and_locking: "закрыта; дельта не трогает."
+  delivery_model: "закрыта; дельта не трогает."
+  worker_and_replica_coordination: "закрыта; дельта не трогает."
+  deadlines: "закрыта; дельта не трогает."
+  edges_acyclicity: "закрыта; §9 не менялся."
+  public_vs_internal_edge: "закрыта; дельта поверхности RPC не трогает."
+  security_client_address: >-
+    закрыта. К1 (ручка прыжков без умолчания) не ослаблен. Правка М4 только уточняет, где законна
+    строка ручки, и ни одного уровня, где значение появилось бы молча, не добавляет.
+  replica_state_isolation: "закрыта; дельта не трогает."
+  invariants_and_holders: >-
+    CX2-88 и УК84 уточняют держатель полосы D6, то есть распознаватель носителей Б10 в тестовой
+    оснастке (check-volume-mounts.py). Вхождение теперь определяется идентификатором в разборе, а
+    доступ по неконстантному имени считается нарушением. Пробы (6) и (7) идут с близнецом. Ни
+    распределённого свойства, ни инварианта продукта, ни безопасности это не несёт, поэтому роль не
+    судит, достаточно ли этого. Достаточность — предмет пересверки разбора классов (2afdd3a08 —
+    «к-замыслу», новый CX2-89).
+  tasks_correspondence: "соответствует: шапка редакции 24 и строка D6 несут CX2-88/УК84; новых полос и зависимостей нет."
+
+critical: []
+
+important: []
+
+minor: []
+
+orders:
+  - кому: db-architect-reviewer
+    что: >-
+      Прежний заказ записей 45992f0b и c2b5cf2d остаётся открытым: SET LOCAL-пределы транзакции
+      решения, anon_mail_passes.decision_id, FOR SHARE строки users против RESTRICT.
+  - кому: proto-api-reviewer
+    что: "Прежний заказ: ревью InternalNotificationRecipientService (§5)."
+
+next: >-
+  С этой роли возврата нет. Переход к реализации ещё зависит от пересверки разбора классов на
+  cd516d1f (запись 2afdd3a08 — «к-замыслу», новый CX2-89). Как этот исход решается, определяет диспетчер.
