@@ -1,0 +1,99 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, полоса E2 (звено anonmail), повтор после ⛔.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: system-design-reviewer
+mode: review
+supersedes_run: 0368d974af344b4d606d4741eb9a5b1f577544fb41fa53c56f0842174df86d96
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: 853ab6ea405658f2284f661715592f8a574de565
+  head: 56080205e21d1cf8f4b49477a6b15f0a8a0a67f8
+  delta_reviewed: f2b0b18fa66..56080205e21 (1 коммит, 25 файлов, +1074/-159)
+  content_digest: 8120feb128e94e8640da25eb28ebe8908b025d86b14ae9d1896d26499ee74377
+  digest_predicate: git -C tmp/2917-e2-anonmail-lane diff 853ab6ea 56080205e21d1cf8f4b49477a6b15f0a8a0a67f8 | sha256sum
+  premise_remeasured: >-
+    рабочая копия tmp/2917-e2-anonmail-lane: HEAD = 56080205e21, рабочее дерево чистое;
+    дайджест совпал с ожидаемым (8120feb1…).
+snapshot_at: 2026-10-02
+
+verdict: ACCEPTED      # ✅ принято
+blocks: false
+return_to: —
+distributed_surface: true      # общая строка ведра флота, порядок блокировок решения, часы реплик
+schema_overlap: true           # порядок FOR UPDATE ведра относительно счёта, новая колонка clock_timestamp() в countsSQL
+
+checks_run:
+  - cmd: go test -count=1 -race ./internal/middleware/anonmail/ ./internal/observability/metrics/ ./deploy/   (gateway @56080205e21)
+    result: "ok · ok · ok (3 пакета, Postgres testcontainers)"
+  - cmd: >-
+      go test -count=1 -v -run 'TestPg_I1|TestPg_.*Hold|TestPg_.*Clock|TestPg_.*Observ|TestDecide_I1|
+      TestPg_(O1|O2|O3|CX2_11_Race|CX2_46|UK64|CX2_43)' ./internal/middleware/anonmail/
+    result: "PASS 18 · FAIL 0 · SKIP 0"
+
+prior_findings:
+  CRIT-1: closed
+  # store.go:120-137 Observation.BucketHold; pg — от получения строки (store_pg.go bucket) до возврата
+  # COMMIT/ROLLBACK (endBucketHold в commit и rollback, обнуление не даёт двойного счёта); memory — до
+  # отпускания семафора (store_memory.go release). Часы удержания монотонные. Серия
+  # kacho_api_gateway_anon_mail_bucket_hold_seconds_total объявлена в Describe и отдаётся с нулём.
+  # Правило AnonMailBucketSaturation (warning, sum(rate[5m]) > 0.8, for 10m) — опережающее; Exhausted и
+  # StoreUnavailable — critical, StoreUnavailable вычитает насыщение (серии не дублируют тревогу).
+  # Сверка шаблон ↔ observability.mdx в обе стороны, включая уровень; D66_BucketHold… зелёная.
+  I-1: closed
+  # Порядок «ключи → пометка → счёт → лестница → ведро только при needsBucket» (store.go:283-312,
+  # ladder.go:170-212). Check-then-act нет: ведро читается и пишется под FOR UPDATE той же транзакции,
+  # счёт стабилен под advisory-блокировками ключей; строка ведра — по-прежнему последняя блокировка,
+  # цикла ожиданий нет. Пометка и ведро на одном пути не встречаются → самый длинный путь — 5 ожиданий
+  # из 6 бюджета. Пробы: TestDecide_I1 (исход без ведра от ведра не зависит, перебор),
+  # TestPg_I1_RejectAndProofPassDoNotWaitForTheBucketRow (удержанная строка: 429/200 без ожидания;
+  # близнец — 503), TestPg_I1_MixedRaceKeepsTheBucketExact (две реплики: pass = BURST, жетонов 0).
+  I-2: closed
+  # Смещение — четвёртой колонкой countsSQL (лишнего обращения нет), r.Now − clock_timestamp().
+  # Смещение вниз ограничено ожиданиями до счёта (захват + ключи + пометка ≤ 5×250 мс < 1,5 с), поэтому
+  # порог AnonMailClockSkew 2 с ложной тревоги от ожиданий не даёт. Серии нет до измерения и у memory.
+  # TestPg_I2 с близнецом «часы вровень» зелёная.
+  I-3: closed_in_code
+  # Выключатель — global.kacho.alertRules (чарт + 5 профилей зонтика, корневой ручки нет — проба).
+  # Порог 0,8 помечен «ориентир до замера» с предикатом снятия (ревизия, флот 2/postgres, машина,
+  # RTT R25-4, доля в момент первого 503). Задача на прогон — «заводит трекер» (Д71) — номера в дереве
+  # нет; это заказ диспетчеру, не дефект кода.
+
+axes:
+  atomicity_no_dual_write: closed            # одна транзакция решения, запись момента и ведра — тот же tx
+  idempotency_one_shot: closed               # pow_spent PK, без изменений в дельте
+  atomic_concurrency: closed                 # см. I-1; lock order сохранён
+  replica_coordination_shared_bucket: closed # строку держит только путь жетона
+  replica_clocks: closed                     # сигнал есть (Д71); граница — решение замысла/порога
+  fail_closed_d66: closed                    # ветки мягкого прохода не появилось
+  observability_d69: closed
+  per_call_deadline: closed                  # новых внешних вызовов нет; clock_timestamp — в существующем операторе
+  service_graph: closed                      # новых рёбер нет
+  edge_public_internal: closed
+  replica_state_isolation: closed            # новые величины процесса — только наблюдение, не источник истины
+
+critical: []
+
+important: []
+
+notes:
+  - id: N-1
+    where: gateway/internal/middleware/anonmail/store_pg.go (commit → endBucketHold после Commit с пределом 250 мс)
+    note: >-
+      При потерянном COMMIT удержание считается до возврата клиента, а сервер держит строку до снятия
+      транзакции (до 2 сроков решения) — серия насыщения занижена ровно на пути отказа. Тревогу в этом
+      случае несёт AnonMailStoreUnavailable (critical); не блокирует.
+  - id: N-2
+    where: gateway/internal/observability/metrics/anon_mail.go (clock_offset — значение последнего решения)
+    note: >-
+      Gauge хранит последнее измерение: реплика без анонимного трафика после исправления NTP продолжит
+      отдавать старое смещение, и AnonMailClockSkew не погаснет до следующего решения. Ложного ухода в
+      «открыто» нет; не блокирует.
+
+orders:
+  - db-architect-reviewer на дайджест 8120feb1… — порядок блокировок решения изменён (FOR UPDATE ведра после счёта и только на пути жетона), countsSQL получил колонку clock_timestamp(); записи db на этот дайджест нет
+  - задача на нагрузочный прогон звена с флотом 2 (предикат снятия порога 0,8 записан в prometheusrule.yaml) — заводит трекер по Д71
+  - пробы с конкурирующими горутинами на спорный путь есть и зелёные (I1_MixedRace, O1, O2, O3, CX2_11) — дополнительных не заказываю
+  - новых межсервисных рёбер нет — правка polyrepo.md не нужна

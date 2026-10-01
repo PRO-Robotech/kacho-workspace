@@ -1,0 +1,77 @@
+# Пост-дифф ревью repo-SQL — роль db-architect-reviewer, полоса E2 (звено anonmail), повтор узкой дельты.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+# Предыдущие записи роли: 0368d974… (✅, head f2b0b18fa66), d5dfafcf… (консультация З8, ⛔ по I1 замысла).
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  branch: 2917-e2-anonmail-lane
+  base: f2b0b18fa662bf46cf3ba77abc8a93be7459d5cc
+  head: 56080205e21d1cf8f4b49477a6b15f0a8a0a67f8
+  content_digest: b9db5dd101202eeec041b7a917a4904cc22a96f342db061ea37f06ab67e31709
+  digest_predicate: git diff f2b0b18fa66..56080205e21 | sha256sum
+  premise_remeasured: >-
+    рабочая копия tmp/2917-e2-anonmail-lane: HEAD = 56080205e21d, дельта — один коммит, 25 файлов,
+    +1074/-159; путей services/*/internal/migrations/*.sql — 0; repo-SQL — gateway/internal/middleware/anonmail/store_pg.go.
+snapshot_at: 2026-10-02
+
+migrations_touched: 0
+
+verdict: ACCEPTED   # ✅ принято на 56080205e21d
+blocks: false
+return_to: —
+
+checked:
+  - item: "I-1 (Д71): строка ведра только на пути жетона"
+    result: >-
+      store.go Decide: lock → markSpent → counts → Ladder → decideWithoutBucket → bucket (SELECT … FOR UPDATE)
+      только при needsBucket → recordPass/bucketWrite в той же транзакции. needsBucket истинно лишь при
+      proofAbsent, поэтому вставка pow_spent и строка ведра на одном пути не встречаются. Строка ведра —
+      по-прежнему последняя блокировка; счёт блокировок не берёт; цикла ожиданий нет. Счёт ключа стабилен
+      под pg_advisory_xact_lock ключа (писатель момента ключа держит ту же блокировку до COMMIT).
+      Check-then-act нет: ведро читается и пишется под FOR UPDATE одной транзакции, CHECK (tokens >= 0) остаётся.
+  - item: "I-2: clock_timestamp() четвёртой колонкой countsSQL"
+    result: "лишнего обращения к базе нет; исход решения от часов базы не зависит; база снимается первым счётом транзакции"
+  - item: "Д66: удержание строки ведра"
+    result: "мерится монотонными часами процесса от возврата FOR UPDATE до возврата COMMIT/ROLLBACK; на SQL и инварианты не влияет"
+  - item: "отображение ошибок"
+    result: "новый шаг ведра идёт тем же s.fail(stepBucket); текст драйвера наружу не выходит (StoreUnavailable → 503)"
+
+probes:
+  run: "go test -count=1 -race -run 'TestPg_O|TestPg_I1|TestPg_I2|TestPg_D66|TestDecide_I1|TestMemoryStore_I|TestMemoryStore_D66' ./gateway/internal/middleware/anonmail/ @56080205e21"
+  result: "зелёных 13 верхних (O1, O2×2, O3, I1×4, I2, D66, Decide_I1, Memory×3) · красных 0 · не выполнилось 0"
+  mutations: # копия git archive 56080205e21 в scratchpad, дерево полосы не тронуто
+    - corruption: "bucketSQL без FOR UPDATE"
+      red: [TestPg_O2_BucketRaceAcrossTwoReplicasPassesExactlyBurst, TestPg_I1_MixedRaceKeepsTheBucketExact]
+    - corruption: "строка ведра берётся на каждом решении (откат I-1)"
+      red: [TestPg_I1_RejectAndProofPassDoNotWaitForTheBucketRow, TestMemoryStore_I1_RejectAndProofPassDoNotWaitForTheBucket]
+    - corruption: "lockKeySQL без pg_advisory_xact_lock (S3 ОДНА — заказ O1 записи d5dfafcf)"
+      red: [TestPg_O3_SubnetThresholdRaceAcrossTwoReplicasPassesExactlyOne]
+      runs: "3 из 3 красные"
+
+findings:
+  critical: []
+  important: []
+  minor:
+    - id: n1
+      tag: SKEW-BIAS-BY-THRESHOLD
+      where: gateway/internal/middleware/anonmail/store.go observe (r.Now − baseClock); gateway/deploy/templates/prometheusrule.yaml:49-54,97-98
+      summary: >-
+        Находка I1 консультации d5dfafcf (смещение смешано с ожиданием) закрыта не скобкой вокруг оператора,
+        а порогом тревоги 2 с = срок решения 1,5 с + 0,5 с: ложной тревоги под конкуренцией нет (ожидание ≤ 1,5 с),
+        но опережение реплики меньше ~0,5 с сверх ожидания не видно, а занижение до 1,5 с остаётся в значении
+        gauge. Предмет — распределённое свойство (часы флота), не механизм базы; не блокирует эту роль.
+        Решение о достаточности — system-design-reviewer.
+
+orders: []
+
+approved:
+  - "неделимость «решение и счёт» сохранена при ведре только под жетон"
+  - "порядок блокировок: рекомендательные (отсортированные) → pow_spent → строка ведра; цикла нет"
+  - "заказ O1 записи d5dfafcf исполнен: порча одной рекомендательной блокировки краснит O3"
+  - "миграций в дельте нет; внешних ключей через границу и ORM нет"
+
+intersects_distributed_properties: true   # часы реплик (I-2) — к system-design-reviewer
