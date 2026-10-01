@@ -33,8 +33,13 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/comment-language-inject.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 # Клоны берутся ТОЛЬКО из синтетики: переменные окружения, указывающие на
-# настоящие деревья, сделали бы вердикт функцией чужого дерева.
-unset KACHO_HOME_KACHO KACHO_HOME_KANAME KACHO_HOME_CORELIB
+# настоящие деревья, сделали бы вердикт функцией чужого дерева. Снимает их общий
+# помощник (scripts/lib/proofs.sh, ws#757): все роды указателей — `KACHO_HOME_*`,
+# `GATE_ROOT`, `<НАБОР>_GATE_ROOT`, — а не выписанные три имени.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$SELF/../lib/proofs.sh"
+proof_own_environment
 
 pass=0; fail=0
 
@@ -323,6 +328,11 @@ set_axis() {
 
 reset_tree
 rm -f "$TMP/root/docs/comment-language.yaml"
+# Один факт против оси I: гейта в судимом дереве нет — храповика нет, а не
+# нарушение (ws#762); причина — строкой [VOID].
+axis "I' ни ведомости, ни гейта" 2 "дерево без храповика — без предмета" "[VOID]"
+mkdir -p "$TMP/root/scripts/comment-language-gate"
+cp "$CHECK" "$TMP/root/scripts/comment-language-gate/"
 axis "I ведомости нет" 1 "носитель снят отдельно от гейта" "нет в дереве"
 set_axis "I набор: ведомости нет" 1 "отправку остановит"
 

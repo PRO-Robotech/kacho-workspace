@@ -60,9 +60,13 @@ set -uo pipefail
 # искать гейт, которого в наборе нет. Признак проверяется переименованием.
 name="$(basename "${BASH_SOURCE[0]}" .sh)"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=/dev/null
-. "$here/_lib.sh" 2>/dev/null || true
-root="${TOOLING_GATE_ROOT:-$(cd "$here/../.." && pwd)}"
+# shellcheck source=_lib.sh
+. "$here/_lib.sh"
+# Корень — общим резолвером наборов (ws#757): шов `TOOLING_GATE_ROOT`, общий
+# `GATE_ROOT`, расположение файла. Прежде здесь стоял свой порядок без
+# `GATE_ROOT`, и проба пустого дерева (suites-gate check-02) судила не пустоту,
+# а настоящее дерево — выход нулём.
+root="$(tooling_gate_workspace_root)" || exit 2
 
 python3 - "$root" "$name" <<'PY'
 import re, sys, pathlib, subprocess

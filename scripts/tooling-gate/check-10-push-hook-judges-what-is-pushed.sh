@@ -40,7 +40,7 @@ set -euo pipefail
 # shellcheck source=../lib/sandbox-git-home.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="check-10-push-hook-judges-what-is-pushed"
 CALLER="scripts/hooks/pre-push"
 Z="0000000000000000000000000000000000000000"

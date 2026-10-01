@@ -41,7 +41,7 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="check-05-workflow-triggers-narrowed"
 
 mapfile -t WORKFLOWS < <(tooling_gate_files "$WS" '.github/workflows/*')

@@ -5,7 +5,7 @@
 # Хук коммита: правило атрибуции в МОМЕНТ записи, до того как коммит станет
 # фактом (kacho-workspace#861). Предикат — scripts/hooks/attribution-rule.sh (там
 # же правило и решения); провязка — `bash scripts/hooks/install.sh`; проба —
-# scripts/tooling-gate/check-21-attribution-hooks-refuse-the-trailer.sh.
+# scripts/tooling-gate/check-15-attribution-hooks-refuse-the-trailer.sh.
 #
 # ИСХОДЫ: 0 — атрибуции нет, хук молчит; 1 — отказ, коммит не записан:
 #   · в сообщении атрибуция — строка названа, под ней «как правильно»;

@@ -562,7 +562,7 @@ assert_code 0 "КОНТРОЛЬ оси N'': нетронутая копия по
 n2_live="$(printf '%s\n' "$OUT" | grep -oE 'CLAUDE\.md — тело [0-9]+ Б при потолке [0-9]+ Б' | head -1)"
 n2_body="$(printf '%s' "$n2_live" | sed -E 's/.* тело ([0-9]+) Б.*/\1/')"
 n2_cap="$(printf '%s' "$n2_live" | sed -E 's/.* потолке ([0-9]+) Б.*/\1/')"
-if ! printf '%s' "$n2_body" | grep -qE '^[0-9]+$' || ! printf '%s' "$n2_cap" | grep -qE '^[0-9]+$'; then
+if ! grep -qE '^[0-9]+$' <<<"$n2_body" || ! grep -qE '^[0-9]+$' <<<"$n2_cap"; then
     echo "  [FAIL] ось N'': тело и потолок протокола не прочитаны из переписи (получено «$n2_live»)" >&2
     fail=$((fail + 1))
 elif [ $(( n2_cap - n2_body )) -lt 3 ]; then
@@ -633,7 +633,7 @@ print(m.group(field))
 ' "$1" "$2" "$OUT"
 }
 
-n3_is_num() { printf '%s' "$1" | grep -qE '^[0-9]+$'; }
+n3_is_num() { grep -qE '^[0-9]+$' <<<"$1"; }
 
 # n3_lt <a> <b> — оба числа и a < b; нечисло — ложь, а не ошибка разбора.
 n3_lt() { n3_is_num "$1" && n3_is_num "$2" && [ "$1" -lt "$2" ]; }

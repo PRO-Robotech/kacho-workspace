@@ -41,7 +41,7 @@ fi
 # правило, и черновик на удалённом публичен так же, как ветка, поэтому страж
 # стоит выше обоих; стоит он доли секунды. Стража нет рядом с хуком либо он не
 # смог судить — ОТКАЗ: хук без него выпускал бы нарушение молча. Держит это
-# scripts/tooling-gate/check-21-attribution-hooks-refuse-the-trailer.sh.
+# scripts/tooling-gate/check-15-attribution-hooks-refuse-the-trailer.sh.
 hooks_dir="${BASH_SOURCE[0]%/*}"
 [ "$hooks_dir" != "${BASH_SOURCE[0]}" ] || hooks_dir=.
 attribution_guard="$hooks_dir/prepush-attribution.sh"

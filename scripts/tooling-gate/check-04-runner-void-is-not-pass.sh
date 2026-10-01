@@ -39,7 +39,7 @@ set -euo pipefail
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="check-04-runner-void-is-not-pass"
 
 mapfile -t RUNNERS < <(tooling_gate_files "$WS" 'scripts/*/run-all.sh')

@@ -47,7 +47,7 @@ set -euo pipefail
 # shellcheck source=../lib/sandbox-git-home.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
-WS="$(tooling_gate_workspace_root)"
+WS="$(tooling_gate_workspace_root)" || exit 2
 NAME="check-08-caller-reads-the-three-outcomes"
 CALLER="scripts/hooks/pre-push"
 

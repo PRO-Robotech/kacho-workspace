@@ -95,7 +95,7 @@ spec.loader.exec_module(mod)
 print(mod.CEILING)
 PY
 )"
-if ! printf '%s' "$CEIL6" | grep -qE '^[0-9]+$'; then
+if ! grep -qE '^[0-9]+$' <<<"$CEIL6"; then
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — потолок у проверки не прочитан" \
          "(получено «$CEIL6»): расчёт фикстуры беспредметен" >&2
     exit 2
@@ -258,7 +258,7 @@ else
     d="$(sandbox i06_drop_twin)"; b="$(sandbox_digest "$d")"
     _row="$(LC_ALL=C awk -f "$GATE/manifest-rows.awk" "$d/.claude/rules/MANIFEST.md" \
         | awk -F'\t' -v n="$DROP6" '$2 == n { print $1 }')"
-    if ! printf '%s' "$_row" | grep -qE '^[0-9]+$'; then
+    if ! grep -qE '^[0-9]+$' <<<"$_row"; then
         echo "  [FAIL] БЛИЗНЕЦ оси S: строка таблицы о $DROP6 не найдена разборщиком" \
              "(получено «$_row») — законное снятие не собрать" >&2
         fail=$((fail + 1))

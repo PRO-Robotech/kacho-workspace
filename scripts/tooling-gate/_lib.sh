@@ -13,8 +13,19 @@
 # ТОЛЬКО inject.sh, чтобы прогонять гейт по временной копии дерева с внесённым
 # дефектом и не трогать рабочее (`gate-authoring` §Инъекция).
 tooling_gate_workspace_root() {
-    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757).
-    python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" TOOLING_GATE_ROOT "${BASH_SOURCE[1]}"
+    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757). Резолвер —
+    # python3, и его отказ любым кодом (нет интерпретатора, сломан, корень не
+    # выводится) есть «судить нечего», а не находка: строка [VOID] и код 2. Прежде
+    # код интерпретатора доходил до вызывающего как есть, и под `set -e` проверка
+    # выходила единицей — «нормы нет» там, где не прочитано ничего.
+    local out rc
+    out="$(python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" TOOLING_GATE_ROOT "${BASH_SOURCE[1]}")"
+    rc=$?
+    if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+        echo "[VOID] $(basename "${BASH_SOURCE[1]}" .sh) — корень судимого дерева не выведен: резолвер scripts/lib/gate_root.py вышел кодом $rc${out:+ и сказал «$out»}" >&2
+        return 2
+    fi
+    printf '%s\n' "$out"
 }
 
 tooling_gate_pass() { echo "[PASS] $1${2:+ — $2}"; }

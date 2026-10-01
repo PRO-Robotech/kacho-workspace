@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-21 — хук коммита и хук отправки ОТКАЗЫВАЮТ трейлеру атрибуции (ws#861).
+# check-15 — хук коммита и хук отправки ОТКАЗЫВАЮТ трейлеру атрибуции (ws#861).
 #
 # Правило (`.claude/rules/git-issues.md`, gi-no-attribution-trailers) держалось
 # вниманием, а среда подставляет трейлер в каждое задание. Механизм — два хука
@@ -12,7 +12,7 @@
 # `git commit`, отправки — настоящий `git push` с KACHO_SKIP_PREPUSH=1: обход
 # снимает наборы, а страж идёт раньше него):
 #
-#   настоящий вход — сообщения трёх коммитов полосы kacho, записанных с
+#   настоящий вход — сообщения коммитов полосы kacho, записанных с
 #       трейлерами (2840-trailered-b81c695; адрес сессии заменён) → хук коммита
 #       отказывает и называет строку; близнец без блока трейлеров → записан;
 #   по мутанту на ключ (Co-Authored-By с любым значением, Claude-Session:,
@@ -25,14 +25,17 @@
 #       отказ, а не молчание.
 #
 # Файлов правила в дереве нет — это НАХОДКА, а не VOID: предмет проверки и есть
-# их существование. VOID — только когда проверять нечем (нет git).
+# их существование. VOID — только когда проверять нечем: нет git либо дерево ПУСТО
+# (в его индексе ни одного файла) — «существования файлов в этом дереве» тогда не
+# спросить, условие не создано, и единица послала бы чинить то, чего нет
+# (suites-gate check-02, ws#762).
 set -uo pipefail
 
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-WS="$(tooling_gate_workspace_root)"
-NAME="check-21-attribution-hooks-refuse-the-trailer"
+WS="$(tooling_gate_workspace_root)" || exit 2
+NAME="check-15-attribution-hooks-refuse-the-trailer"
 HK="$WS/scripts/hooks"
 
 command -v git > /dev/null 2>&1 || { tooling_gate_void "$NAME" "нет git — проверять нечем"; exit 2; }
@@ -67,6 +70,12 @@ okp() { probes=$((probes + 1)); }
 badp() { probes=$((probes + 1)); bad "$1"; }
 
 KIT=(commit-msg attribution-rule.sh prepush-attribution.sh pre-push install.sh)
+tracked_n="$(git -C "$WS" ls-files 2>/dev/null | wc -l)"
+if [ "$tracked_n" -eq 0 ]; then
+    tooling_gate_void "$NAME" "в индексе дерева $WS файлов 0 — дерево пусто, существование файлов правила спрашивать не в чем"
+    tooling_gate_census "$NAME: файлов в индексе дерева 0, проб 0"
+    exit 2
+fi
 missing=()
 for f in "${KIT[@]}"; do
     [ -f "$HK/$f" ] || missing+=("scripts/hooks/$f")
