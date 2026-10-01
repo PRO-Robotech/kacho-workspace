@@ -50,6 +50,18 @@
 # прогон идёт при всех зелёных check-runs — код 1, а не 0; ответ о check-runs
 # усечён — код 2, а не 0; прогон без заданий (`startup_failure`) — код 1, а не 2.
 #
+# ЧТЕНИЕ ЗАЩИТЫ И ЧЕЙ НАБОР СУДИТ (ws#844, решение диспетчера 2026-10-01).
+# Подставной gh отдаёт ответ-отказ НАСТОЯЩЕЙ формы — тело в stdout и ненулевой
+# код. Прежняя фикстура «не защищена» была пустым ответом, а настоящий gh пишет
+# 404 «Branch not protected» телом: инструмент брал его за защиту без
+# контекстов, и проба C этого не видела. Случаи C-* держат три исхода чтения,
+# EP-* — набор ствола для базы-ветки линии продукта (эпик, волна), NE-* — его
+# отсутствие для прочих баз. Путь воркспейса выбирается ТЕМ ЖЕ чтением: U — ветка
+# линии воркспейса без защиты судится ручным прогоном, а не набором ствола (его
+# контекстов на её PR не бывает: `pull_request` воркспейса сужен по `main`);
+# U-EMPTY и U-403 — непрочитанная защита базы воркспейса приходит кодом 2, а не
+# уходом в ручной прогон, как при прежней записи `$(gh api … || true)`.
+#
 # ИСТОЧНИК ВЫБИРАЕТ ЗАЩИТА БАЗЫ, А НЕ ИМЯ РЕПОЗИТОРИЯ (ws#886). С решения владельца
 # 2026-10-01 задания `ci.yaml` — обязательные контексты `main` воркспейса, и PR
 # воркспейса в защищённую контекстами базу судится путём контекстов: зелёный ручной
@@ -98,11 +110,16 @@ cat > "$STUB/gh" <<'STUBEOF'
 # Ответ выбирается по ПУТИ запроса, а не по глаголу: у инструмента три разных
 # вопроса к `gh api`, и один ответ на все три провязку не доказывал бы.
 set -u
+# Фикстура защиты — СВОЯ НА КАЖДУЮ ВЕТКУ (`protection@<ветка>`): чтение защиты
+# ветки, у которой фикстуры нет (например, ствола там, где набор ствола брать
+# не положено), — отказ 98, а не ответ.
 case "${1:-}" in
     pr)  target="${MR_FIXTURE:?}/pr" ;;
     api)
         case "${2:-}" in
-            repos/*/branches/*/protection)      target="${MR_FIXTURE:?}/protection" ;;
+            repos/*/branches/*/protection)
+                br="${2#*/branches/}"; br="${br%/protection}"
+                target="${MR_FIXTURE:?}/protection@$br" ;;
             repos/*/actions/workflows/*/runs\?*) target="${MR_FIXTURE:?}/runs" ;;
             repos/*/commits/*/check-runs\?*)     target="${MR_FIXTURE:?}/checkruns" ;;
             *) echo "gh-stub: незнакомый путь api: $*" >&2; exit 99 ;;
@@ -113,6 +130,9 @@ if [ -e "$target.unavailable" ]; then exit 1; fi
 # Вопрос, на который фикстура не заготовлена, — отказ 98, а не пустой ответ.
 [ -e "$target.json" ] || { echo "gh-stub: нет фикстуры $target.json на: $*" >&2; exit 98; }
 cat "$target.json"
+# `<цель>.rc` — код выхода настоящего gh при ответе-отказе: тело отказа он
+# пишет в STDOUT и выходит ненулевым (замер gh 2.100.0, 2026-10-01, ws#844).
+if [ -e "$target.rc" ]; then exit "$(cat "$target.rc")"; fi
 STUBEOF
 chmod +x "$STUB/gh"
 
@@ -134,14 +154,16 @@ mk_protection() {  # <файл> <контекст>...
 HEAD_SHA="1111111111111111111111111111111111111111"
 OLD_SHA="2222222222222222222222222222222222222222"
 
+# База PR — `MR_BASE` (по умолчанию `main`): для случаев ветки линии задаётся
+# на вызов.
 mk_pr() {  # <файл> <состояние> <состояние-слияния> <зелёный-контекст>...
     local f="$1" st="$2" ms="$3"; shift 3
     local rollup='[]'
     if [ "$#" -gt 0 ]; then
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
-    jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --argjson r "$rollup" \
-        '{state:$st, baseRefName:"main", headRefName:"788", headRefOid:$h,
+    jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
+        '{state:$st, baseRefName:$b, headRefName:"788", headRefOid:$h,
           mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
 }
 
@@ -156,8 +178,17 @@ mk_pr_mixed() {
     rollup="$(printf '%s\n' "$@" | jq -R 'capture("^(?<name>.*)=(?<c>[A-Z_]*)$")
         | {name, status:(if .c=="" then "IN_PROGRESS" else "COMPLETED" end),
            conclusion:(if .c=="" then null else .c end)}' | jq -s .)"
-    jq -n --arg ms "$ms" --argjson r "$rollup" \
-        '{state:"OPEN", baseRefName:"main", mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+    jq -n --arg ms "$ms" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
+        '{state:"OPEN", baseRefName:$b, mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+}
+
+# mk_refusal <каталог> <ветка> <код> <тело> — ответ-отказ настоящей формы:
+# тело в stdout и ненулевой код. Тело 404 «Branch not protected» — дословно
+# то, что gh 2.100.0 вернул 2026-10-01 на `branches/2914-notify/protection`.
+BODY_UNPROTECTED='{"message":"Branch not protected","documentation_url":"https://docs.github.com/rest/branches/branch-protection#get-branch-protection","status":"404"}'
+mk_refusal() {
+    printf '%s\n' "$4" > "$1/protection@$2.json"
+    printf '%s\n' "$3" > "$1/protection@$2.rc"
 }
 
 # mk_runs <файл> <id,sha,status,conclusion,created_at,suite>... — ответ о ручных
@@ -178,45 +209,60 @@ mk_checkruns() {
         | jq -s '{total_count: length, check_runs: .}' > "$f"
 }
 
-# Защита `main` воркспейса, как она есть: `enforce_admins` включён, контекстов нет.
+# Защита без требования контекстов: `enforce_admins` включён, контекстов нет
+# (такой была защита `main` воркспейса до ws#886; с ним `main` требует контексты).
 mk_ws_protection() { printf '{"enforce_admins":{"enabled":true}}\n' > "$1"; }
 
 # A — все обязательные зелены.
 A="$(mkcase A)"
-mk_protection "$A/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+mk_protection "$A/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 mk_pr "$A/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 
 # B — обязательный контекст не появлялся на ревизии (случай kacho#614).
 B="$(mkcase B)"
-mk_protection "$B/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+mk_protection "$B/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 mk_pr "$B/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH"
 
-# C — защита ветки не настроена.
+# C — защита ветки не настроена: ответ настоящей формы, 404 «Branch not
+# protected» в stdout и код 1. Прежняя фикстура (пустой ответ) этой формы не
+# знала, и инструмент, бравший тело отказа за защиту без контекстов, проходил
+# пробу (ws#844). База `main` — не ветка линии, набора ствола ей не положено.
 C="$(mkcase C)"
 mk_pr "$C/pr.json" OPEN CLEAN "$CTX_LAT"
-: > "$C/protection.unavailable"
-: > "$C/protection.json"
+mk_refusal "$C" main 1 "$BODY_UNPROTECTED"
+
+# C-<отказ> — защита НЕ ПРОЧИТАНА: отказ, который не говорит «не защищена».
+# Против C меняется ровно ответ соседа. Каждый обязан прийти третьим исходом
+# чтения, а не «НЕ ЗАЩИЩЕНА» и не «защита есть, контекстов ноль».
+#   EMPTY — код 1 без тела (сеть, обрыв);
+#   403   — тело JSON другого статуса;
+#   404NF — тот же статус 404, но «Not Found» (у токена нет права читать защиту).
+d="$(mkcase C-EMPTY)"; mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT"; : > "$d/protection@main.unavailable"
+d="$(mkcase C-403)";   mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT"
+mk_refusal "$d" main 1 '{"message":"Resource not accessible by integration","status":"403"}'
+d="$(mkcase C-404NF)"; mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT"
+mk_refusal "$d" main 1 '{"message":"Not Found","status":"404"}'
 
 # D — PR недоступен.
 D="$(mkcase D)"
 : > "$D/pr.unavailable"
 : > "$D/pr.json"
-mk_protection "$D/protection.json" "$CTX_LAT"
+mk_protection "$D/protection@main.json" "$CTX_LAT"
 
 # E — ответ о защите не разбирается.
 E="$(mkcase E)"
 mk_pr "$E/pr.json" OPEN CLEAN "$CTX_LAT"
-printf '<html><head><title>503</title></head></html>\n' > "$E/protection.json"
+printf '<html><head><title>503</title></head></html>\n' > "$E/protection@main.json"
 
 # F — ответ о PR не разбирается.
 F="$(mkcase F)"
 printf '<html><head><title>502</title></head></html>\n' > "$F/pr.json"
-mk_protection "$F/protection.json" "$CTX_LAT"
+mk_protection "$F/protection@main.json" "$CTX_LAT"
 
 # G — защита есть, обязательных контекстов ноль.
 G="$(mkcase G)"
 mk_pr "$G/pr.json" OPEN CLEAN
-printf '{"required_status_checks":{"contexts":[]}}\n' > "$G/protection.json"
+printf '{"required_status_checks":{"contexts":[]}}\n' > "$G/protection@main.json"
 
 # H — два обязательных имени, различающихся ТОЛЬКО длинным тире.
 #
@@ -226,13 +272,13 @@ printf '{"required_status_checks":{"contexts":[]}}\n' > "$G/protection.json"
 # где обязан сказать «нельзя». Ложное зелёное здесь дороже ложного красного:
 # именно его этот инструмент и заведён предотвращать.
 H="$(mkcase H)"
-mk_protection "$H/protection.json" "проба — раз" "проба - раз"
+mk_protection "$H/protection@main.json" "проба — раз" "проба - раз"
 mk_pr "$H/pr.json" OPEN CLEAN "проба — раз"
 
 # I — PR уже не открыт.
 I="$(mkcase I)"
 mk_pr "$I/pr.json" MERGED CLEAN "$CTX_LAT"
-mk_protection "$I/protection.json" "$CTX_LAT"
+mk_protection "$I/protection@main.json" "$CTX_LAT"
 
 # ── С ОБЯЗАТЕЛЬНЫМИ КОНТЕКСТАМИ: ЗЕЛЁНЫЙ — ТОЛЬКО ИСХОД SUCCESS ────────────────
 # RC-<исход> — обязательный контекст на ревизии ЕСТЬ, но не зелёный: идёт
@@ -252,7 +298,7 @@ RC_OTHER="STALE NEUTRAL SKIPPED"
 RC_OUTCOMES="running $RC_RED $RC_OTHER"
 for oc in $RC_OUTCOMES; do
     d="$(mkcase "RC-$oc")"
-    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     c="$oc"; [ "$oc" = running ] && c=""
     mk_pr_mixed "$d/pr.json" CLEAN "$CTX_LAT=SUCCESS" "$CTX_DASH=SUCCESS" "$CTX_CYR=$c"
 done
@@ -266,12 +312,12 @@ MS_HELD="BLOCKED DIRTY BEHIND DRAFT UNKNOWN"
 MS_LAWFUL="UNSTABLE HAS_HOOKS"
 for ms in $MS_HELD; do
     d="$(mkcase "A-$ms")"
-    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     mk_pr "$d/pr.json" OPEN "$ms" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 done
 for ms in $MS_LAWFUL; do
     d="$(mkcase "Z-$ms")"
-    mk_protection "$d/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     mk_pr "$d/pr.json" OPEN "$ms" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 done
 
@@ -279,8 +325,67 @@ done
 # зелёные. Путь — контекстов (ws#886), а не ручного прогона: фикстуры прогонов нет,
 # и уход в ручной путь дал бы отказ заглушки, а не «можно».
 WA="$(mkcase WA)"
-mk_protection "$WA/protection.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+mk_protection "$WA/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 mk_pr "$WA/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+
+# ── БАЗА — ВЕТКА ЛИНИИ: СУДИТ НАБОР СТВОЛА (решение диспетчера 2026-10-01) ────
+# Ветка эпика или волны (`[0-9]+` либо `[0-9]+-*`, формы фильтра Д59) своей
+# защиты не несёт (Д62), и инструмент судит её PR набором ствола `main`.
+# Каждый случай меняет против EP-GREEN ровно один факт. Пробы этого блока идут
+# именем продукта: ветка линии воркспейса судится ручным прогоном (проба U).
+EPIC="2914-notify"; WAVE="2796"
+ep_case() {  # <имя> <база> — каталог с незащищённой базой и защищённым стволом
+    local d; d="$(mkcase "$1")"
+    mk_refusal "$d" "$2" 1 "$BODY_UNPROTECTED"
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    printf '%s' "$d"
+}
+# EP-GREEN — законный близнец: эпик не защищён, набор ствола зелен целиком.
+d="$(ep_case EP-GREEN "$EPIC")"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# EP-RED — один контекст из набора ствола красный.
+d="$(ep_case EP-RED "$EPIC")"
+MR_BASE="$EPIC" mk_pr_mixed "$d/pr.json" CLEAN "$CTX_LAT=SUCCESS" "$CTX_DASH=SUCCESS" "$CTX_CYR=FAILURE"
+# EP-MISSING — один контекст из набора ствола на ревизии не появлялся.
+d="$(ep_case EP-MISSING "$EPIC")"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH"
+# EP-WAVE — вторая форма имени: волна голым номером.
+d="$(ep_case EP-WAVE "$WAVE")"
+MR_BASE="$WAVE" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# EP-ZERO — эпик защищён, но обязательных контекстов у него ноль: собственного
+# набора нет так же, как при 404.
+d="$(mkcase EP-ZERO)"
+printf '{"required_status_checks":{"contexts":[]}}\n' > "$d/protection@$EPIC.json"
+mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# EP-OWN — у эпика СВОЙ непустой набор: судит он, ствол не читается. Фикстуры
+# ствола нет нарочно — чтение её подставной gh отвергает кодом 98.
+d="$(mkcase EP-OWN)"
+mk_protection "$d/protection@$EPIC.json" "$CTX_LAT"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT"
+# EP-BARE — не защищены ни эпик, ни ствол: судить нечем.
+d="$(mkcase EP-BARE)"
+mk_refusal "$d" "$EPIC" 1 "$BODY_UNPROTECTED"
+mk_refusal "$d" main 1 "$BODY_UNPROTECTED"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# EP-TRUNK-<отказ> — эпик не защищён, а защита СТВОЛА не прочитана (403 либо
+# пустой ответ): это третий исход чтения, а не «ствол не защищён» — против
+# EP-BARE меняется ровно ответ о стволе.
+d="$(mkcase EP-TRUNK-403)"
+mk_refusal "$d" "$EPIC" 1 "$BODY_UNPROTECTED"
+mk_refusal "$d" main 1 '{"message":"Resource not accessible by integration","status":"403"}'
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+d="$(mkcase EP-TRUNK-EMPTY)"
+mk_refusal "$d" "$EPIC" 1 "$BODY_UNPROTECTED"
+: > "$d/protection@main.unavailable"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# NE-<имя> — база НЕ формы линии и не защищена. Ствол защищён и его набор на
+# ревизии зелен: инструмент, ошибочно взявший набор ствола, ответил бы «можно».
+NE_BASES="notify-2914 v2914-notify release"
+for nb in $NE_BASES; do
+    d="$(ep_case "NE-$nb" "$nb")"
+    MR_BASE="$nb" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+done
 
 # ── ИСТОЧНИК ВОРКСПЕЙСА: РУЧНОЙ ПРОГОН НА ГОЛОВЕ ────────────────────────────────
 T0="2026-09-26T10:00:00Z"; T1="2026-09-26T11:00:00Z"
@@ -288,7 +393,7 @@ T0="2026-09-26T10:00:00Z"; T1="2026-09-26T11:00:00Z"
 # J — зелёный ручной прогон на голове при пустом rollup (три check-runs).
 J="$(mkcase J)"
 mk_pr "$J/pr.json" OPEN CLEAN
-mk_ws_protection "$J/protection.json"
+mk_ws_protection "$J/protection@main.json"
 mk_runs "$J/runs.json" "501,$HEAD_SHA,completed,success,$T1,9001"
 mk_checkruns "$J/checkruns.json" "9001|$CTX_LAT|completed|success" \
     "9001|$CTX_DASH|completed|success" "9001|$CTX_CYR|completed|success"
@@ -296,13 +401,13 @@ mk_checkruns "$J/checkruns.json" "9001|$CTX_LAT|completed|success" \
 # K — ручного прогона на голове нет.
 K="$(mkcase K)"
 mk_pr "$K/pr.json" OPEN CLEAN
-mk_ws_protection "$K/protection.json"
+mk_ws_protection "$K/protection@main.json"
 printf '{"total_count":0,"workflow_runs":[]}\n' > "$K/runs.json"
 
 # L — на голове красный ручной прогон (один check-run упал).
 L="$(mkcase L)"
 mk_pr "$L/pr.json" OPEN CLEAN
-mk_ws_protection "$L/protection.json"
+mk_ws_protection "$L/protection@main.json"
 mk_runs "$L/runs.json" "502,$HEAD_SHA,completed,failure,$T1,9002"
 mk_checkruns "$L/checkruns.json" "9002|$CTX_LAT|completed|success" \
     "9002|$CTX_CYR|completed|failure"
@@ -310,7 +415,7 @@ mk_checkruns "$L/checkruns.json" "9002|$CTX_LAT|completed|success" \
 # M — ручной прогон на голове идёт.
 M="$(mkcase M)"
 mk_pr "$M/pr.json" OPEN CLEAN
-mk_ws_protection "$M/protection.json"
+mk_ws_protection "$M/protection@main.json"
 mk_runs "$M/runs.json" "503,$HEAD_SHA,in_progress,,$T1,9003"
 mk_checkruns "$M/checkruns.json" "9003|$CTX_LAT|completed|success" \
     "9003|$CTX_CYR|in_progress|"
@@ -318,14 +423,14 @@ mk_checkruns "$M/checkruns.json" "9003|$CTX_LAT|completed|success" \
 # N — зелёный прогон есть, но на ПРЕЖНЕЙ голове; сосед вернул его на вопрос о новой.
 N="$(mkcase N)"
 mk_pr "$N/pr.json" OPEN CLEAN
-mk_ws_protection "$N/protection.json"
+mk_ws_protection "$N/protection@main.json"
 mk_runs "$N/runs.json" "504,$OLD_SHA,completed,success,$T1,9004"
 mk_checkruns "$N/checkruns.json" "9004|$CTX_LAT|completed|success"
 
 # O — на голове два прогона: прежний зелёный, последний красный.
 O="$(mkcase O)"
 mk_pr "$O/pr.json" OPEN CLEAN
-mk_ws_protection "$O/protection.json"
+mk_ws_protection "$O/protection@main.json"
 mk_runs "$O/runs.json" "505,$HEAD_SHA,completed,success,$T0,9005" \
     "506,$HEAD_SHA,completed,failure,$T1,9006"
 mk_checkruns "$O/checkruns.json" "9005|$CTX_LAT|completed|success" \
@@ -334,7 +439,7 @@ mk_checkruns "$O/checkruns.json" "9005|$CTX_LAT|completed|success" \
 # S — близнец O: прежний красный, последний зелёный; красное прежнего не в счёт.
 S="$(mkcase S)"
 mk_pr "$S/pr.json" OPEN CLEAN
-mk_ws_protection "$S/protection.json"
+mk_ws_protection "$S/protection@main.json"
 mk_runs "$S/runs.json" "507,$HEAD_SHA,completed,failure,$T0,9007" \
     "508,$HEAD_SHA,completed,success,$T1,9008"
 mk_checkruns "$S/checkruns.json" "9007|$CTX_LAT|completed|failure" \
@@ -348,7 +453,7 @@ mk_checkruns "$S/checkruns.json" "9007|$CTX_LAT|completed|failure" \
 # «можно сливать» при красном последнем. Отличие от O — только порядок записей.
 Y="$(mkcase Y)"
 mk_pr "$Y/pr.json" OPEN CLEAN
-mk_ws_protection "$Y/protection.json"
+mk_ws_protection "$Y/protection@main.json"
 mk_runs "$Y/runs.json" "517,$HEAD_SHA,completed,failure,$T1,9017" \
     "516,$HEAD_SHA,completed,success,$T0,9016"
 mk_checkruns "$Y/checkruns.json" "9016|$CTX_LAT|completed|success" \
@@ -358,30 +463,48 @@ mk_checkruns "$Y/checkruns.json" "9016|$CTX_LAT|completed|success" \
 # прогон на голове зелёный: судят контексты (ws#886), прогон их не заменяет.
 P="$(mkcase P)"
 mk_pr "$P/pr.json" OPEN CLEAN
-mk_protection "$P/protection.json" "$CTX_LAT"
+mk_protection "$P/protection@main.json" "$CTX_LAT"
 mk_runs "$P/runs.json" "509,$HEAD_SHA,completed,success,$T1,9009"
 mk_checkruns "$P/checkruns.json" "9009|$CTX_LAT|completed|success"
 
 # Q — ответ о прогонах не разбирается.
 Q="$(mkcase Q)"
 mk_pr "$Q/pr.json" OPEN CLEAN
-mk_ws_protection "$Q/protection.json"
+mk_ws_protection "$Q/protection@main.json"
 printf '<html><head><title>502</title></head></html>\n' > "$Q/runs.json"
 
 # R — прогон зелёный, а его check-runs нет: на sha лежат только чужие.
 R="$(mkcase R)"
 mk_pr "$R/pr.json" OPEN CLEAN
-mk_ws_protection "$R/protection.json"
+mk_ws_protection "$R/protection@main.json"
 mk_runs "$R/runs.json" "510,$HEAD_SHA,completed,success,$T1,9010"
 mk_checkruns "$R/checkruns.json" "7777|$CTX_LAT|completed|success"
 
-# U — база воркспейса не защищена (ветка волны), ручной прогон зелёный.
+# U — база воркспейса не защищена (ветка эпика `771`, форма ветки линии), ручной
+# прогон зелёный. Ответ о защите — настоящей формы (404 «Branch not protected»,
+# код 1). Фикстуры защиты ствола нет нарочно: инструмент, взявший для ветки линии
+# воркспейса набор ствола, получил бы отказ заглушки 98 — и код 2, а не 0.
+WS_LINE="771"
 U="$(mkcase U)"
-mk_pr "$U/pr.json" OPEN CLEAN
-: > "$U/protection.unavailable"
-: > "$U/protection.json"
+MR_BASE="$WS_LINE" mk_pr "$U/pr.json" OPEN CLEAN
+mk_refusal "$U" "$WS_LINE" 1 "$BODY_UNPROTECTED"
 mk_runs "$U/runs.json" "511,$HEAD_SHA,completed,success,$T1,9011"
 mk_checkruns "$U/checkruns.json" "9011|$CTX_LAT|completed|success"
+
+# U-<отказ> — близнецы U, у которых защита базы воркспейса НЕ ПРОЧИТАНА: пустой
+# отказ и 403. Против U меняется ровно ответ о защите; зелёный ручной прогон на
+# голове остаётся, и уход в ручной путь ответил бы «можно» там, где вердикта нет.
+for rf in EMPTY 403; do
+    d="$(mkcase "U-$rf")"
+    MR_BASE="$WS_LINE" mk_pr "$d/pr.json" OPEN CLEAN
+    if [ "$rf" = EMPTY ]; then
+        : > "$d/protection@$WS_LINE.unavailable"
+    else
+        mk_refusal "$d" "$WS_LINE" 1 '{"message":"Resource not accessible by integration","status":"403"}'
+    fi
+    mk_runs "$d/runs.json" "512,$HEAD_SHA,completed,success,$T1,9012"
+    mk_checkruns "$d/checkruns.json" "9012|$CTX_LAT|completed|success"
+done
 
 # Три пробы ниже держат по одной охране, которую до них не держало ничего: снятие
 # каждой оставляло набор зелёным (опыты check-verifier M1–M3 по ws#788). У каждой
@@ -391,7 +514,7 @@ mk_checkruns "$U/checkruns.json" "9011|$CTX_LAT|completed|success"
 # которых ещё нет, в перечне не видно. Отличие от J — только состояние прогона.
 V="$(mkcase V)"
 mk_pr "$V/pr.json" OPEN CLEAN
-mk_ws_protection "$V/protection.json"
+mk_ws_protection "$V/protection@main.json"
 mk_runs "$V/runs.json" "513,$HEAD_SHA,in_progress,,$T1,9013"
 mk_checkruns "$V/checkruns.json" "9013|$CTX_LAT|completed|success" \
     "9013|$CTX_DASH|completed|success" "9013|$CTX_CYR|completed|success"
@@ -401,7 +524,7 @@ mk_checkruns "$V/checkruns.json" "9013|$CTX_LAT|completed|success" \
 # total_count ответа.
 W="$(mkcase W)"
 mk_pr "$W/pr.json" OPEN CLEAN
-mk_ws_protection "$W/protection.json"
+mk_ws_protection "$W/protection@main.json"
 mk_runs "$W/runs.json" "514,$HEAD_SHA,completed,success,$T1,9014"
 mk_checkruns "$W/checkruns.json" "9014|$CTX_LAT|completed|success" \
     "9014|$CTX_DASH|completed|success" "9014|$CTX_CYR|completed|success"
@@ -412,7 +535,7 @@ jq '.total_count = 150' "$W/checkruns.json" > "$W/checkruns.tmp" && mv "$W/check
 # записан явно — `mk_checkruns` без строк породил бы одну пустую запись.
 X="$(mkcase X)"
 mk_pr "$X/pr.json" OPEN CLEAN
-mk_ws_protection "$X/protection.json"
+mk_ws_protection "$X/protection@main.json"
 mk_runs "$X/runs.json" "515,$HEAD_SHA,completed,startup_failure,$T1,9015"
 printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
 
@@ -517,8 +640,13 @@ probe "$PRODUCT_REPO" "$A" 0 "все обязательные зелены — �
 probe "$PRODUCT_REPO" "$B" 1 "обязательный контекст не появлялся — «сливать нельзя», имя названо" \
     "СЛИВАТЬ НЕЛЬЗЯ" "НЕ ПОЯВЛЯЛСЯ" "$CTX_CYR"
 
-probe "$PRODUCT_REPO" "$C" 2 "защита ветки не настроена — беспредметно, а не «нельзя»" \
-    "НЕ ЗАЩИЩЕНА"
+probe "$PRODUCT_REPO" "$C" 2 "защита ветки не настроена (404 «Branch not protected») — «НЕ ЗАЩИЩЕНА», а не «защита есть»" \
+    "НЕ ЗАЩИЩЕНА" "Branch not protected"
+
+for rf in EMPTY 403 404NF; do
+    probe "$PRODUCT_REPO" "$TMP/case-C-$rf" 2 "ответ о защите — отказ ($rf), а не состояние — «НЕ ПРОЧИТАНА»" \
+        "защита ветки 'main' НЕ ПРОЧИТАНА" "отказ чтения, а не состояние защиты"
+done
 
 probe "$PRODUCT_REPO" "$D" 2 "PR недоступен — беспредметно, а не «нельзя»" \
     "недоступен"
@@ -537,6 +665,29 @@ probe "$PRODUCT_REPO" "$H" 1 "имена, различные только дли
 
 probe "$PRODUCT_REPO" "$I" 2 "PR уже не открыт — беспредметно, а не «нельзя»" \
     "сливать нечего"
+
+probe "$PRODUCT_REPO" "$TMP/case-EP-GREEN" 0 "база-эпик без защиты, набор ствола зелен — «сливать можно» по набору ствола" \
+    "можно сливать" "набор обязательных: ствола 'main'" "(ветка не защищена)" "обязательных контекстов: 3"
+probe "$PRODUCT_REPO" "$TMP/case-EP-RED" 1 "база-эпик, контекст из набора ствола красный — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — красный" "набор обязательных: ствола 'main'"
+probe "$PRODUCT_REPO" "$TMP/case-EP-MISSING" 1 "база-эпик, контекст из набора ствола не появлялся — «нельзя», без слов о защите базы" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — НЕ ПОЯВЛЯЛСЯ" "у базы защиты нет"
+probe "$PRODUCT_REPO" "$TMP/case-EP-WAVE" 0 "база-волна голым номером — та же ветка линии, набор ствола" \
+    "можно сливать" "у ветки линии '$WAVE'" "обязательных контекстов: 3"
+probe "$PRODUCT_REPO" "$TMP/case-EP-ZERO" 0 "база-эпик с защитой без контекстов — набор ствола, а не «ничем не гейтится»" \
+    "можно сливать" "у ветки линии '$EPIC' собственного нет (защита есть" "обязательных контекстов: 3"
+probe "$PRODUCT_REPO" "$TMP/case-EP-OWN" 0 "база-эпик со своим набором — судит он, ствол не читается" \
+    "можно сливать" "набор обязательных: собственный ветки '$EPIC'" "обязательных контекстов: 1"
+probe "$PRODUCT_REPO" "$TMP/case-EP-BARE" 2 "не защищены ни эпик, ни ствол — беспредметно" \
+    "ствол 'main' НЕ ЗАЩИЩЕН"
+for rf in 403 EMPTY; do
+    probe "$PRODUCT_REPO" "$TMP/case-EP-TRUNK-$rf" 2 "база-эпик, защита ствола не прочитана ($rf) — «НЕ ПРОЧИТАНА», а не «ствол НЕ ЗАЩИЩЕН»" \
+        "защита ветки 'main' НЕ ПРОЧИТАНА" "отказ чтения, а не состояние защиты"
+done
+for nb in $NE_BASES; do
+    probe "$PRODUCT_REPO" "$TMP/case-NE-$nb" 2 "база '$nb' не формы линии, без защиты — «НЕ ЗАЩИЩЕНА», набор ствола не берётся" \
+        "ветка '$nb' НЕ ЗАЩИЩЕНА"
+done
 
 probe "$WS_REPO" "$WA" 0 "воркспейс: база требует контексты, все зелёны — путь контекстов, «сливать можно»" \
     "можно сливать" "обязательных контекстов: 3" "ручной прогон их не заменяет"
@@ -599,8 +750,13 @@ probe "$WS_REPO" "$Q" 2 "воркспейс: ответ о прогонах не
 probe "$WS_REPO" "$R" 2 "воркспейс: у прогона нет своих check-runs — «не выполнилось», чужие не в счёт" \
     "НЕ ВЫПОЛНИЛОСЬ" "зелёных 0 из 0"
 
-probe "$WS_REPO" "$U" 0 "воркспейс: база без защиты, ручной прогон зелёный — «сливать можно»" \
-    "можно сливать"
+probe "$WS_REPO" "$U" 0 "воркспейс: ветка линии без защиты (404) судится ручным прогоном, а не набором ствола — «сливать можно»" \
+    "можно сливать" "источник вердикта: ручной прогон ci.yaml"
+
+for rf in EMPTY 403; do
+    probe "$WS_REPO" "$TMP/case-U-$rf" 2 "воркспейс: защита базы не прочитана ($rf) — «НЕ ПРОЧИТАНА», а не уход в ручной прогон" \
+        "защита ветки '$WS_LINE' НЕ ПРОЧИТАНА" "отказ чтения, а не состояние защиты"
+done
 
 probe "$WS_REPO" "$V" 1 "воркспейс: прогон идёт при всех зелёных check-runs — «нельзя сейчас», а не «можно»" \
     "СЛИВАТЬ НЕЛЬЗЯ" "идёт" "прогон 513 целиком [IN_PROGRESS]"
@@ -625,4 +781,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, источник выбирает защита базы, ручной прогон судится на голове"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове"
