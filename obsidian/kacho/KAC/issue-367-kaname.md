@@ -134,8 +134,12 @@ verified_against: "kaname 357@73dc6598c (дерево 5bdd770f6) и main@cbbac98
 Возвраты полос волны-4 поля «затронуто в vault» не несут: где поле есть, стоит «—». Узкие записки
 по ним не заводились — без данных полосы предмет не выдумывается.
 
-Пробел шире этой волны: трейлов эпика kaname#357 и волн 1–3 (#365, #358, #366) в хранилище нет, а из
-задач службы после kaname#270 не записана ни одна.
+Здесь стояло «трейлов эпика kaname#357 и волн 1–3 (#365, #358, #366) в хранилище нет, а из задач
+службы после kaname#270 не записана ни одна». Это было неверно уже в день записи: трейлы
+[[KAC/issue-358-kaname]] и [[KAC/issue-365-kaname]] лежали в хранилище с 2026-09-24 и 2026-09-26,
+записки задач службы после kaname#270 — с 2026-09-24 (например, [[KAC/issue-287-kaname]];
+`git log --diff-filter=A`). Трейлов эпика и волны-3 действительно не было; они заведены
+2026-10-01 — [[KAC/issue-357-kaname]] и [[KAC/issue-366-kaname]].
 
 ## Затронутые сущности vault
 
@@ -144,8 +148,9 @@ verified_against: "kaname 357@73dc6598c (дерево 5bdd770f6) и main@cbbac98
 
 ## Связанные задачи
 
-- kaname#357 — эпик identity-own, запрос в `main` [kaname#359](https://github.com/PRO-Robotech/kaname/pull/359)
-- kaname#366 — волна-3, влита в `357` запросом [kaname#481](https://github.com/PRO-Robotech/kaname/pull/481) коммитом `734f69fb4`
+- [[KAC/issue-357-kaname|kaname#357]] — эпик identity-own, запрос в `main` [kaname#359](https://github.com/PRO-Robotech/kaname/pull/359)
+- [[KAC/issue-366-kaname|kaname#366]] — волна-3, влита в `357` запросом [kaname#481](https://github.com/PRO-Robotech/kaname/pull/481) коммитом `734f69fb4`
+- [[KAC/issue-493-kaname|kaname#493]] — волна-5, следующая
 - PRO-Robotech/kacho#2798 — волна-4 платформы; PRO-Robotech/corelib#29 — волна-4 фундамента
 
 #kac #kacho-iam #iam #go #proto #migrations

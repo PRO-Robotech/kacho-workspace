@@ -7,12 +7,19 @@
 # «все цитаты исполнимы». Поэтому спрашивается всё три:
 #   (+) цитата цели, которой в Makefile нет → КРАСНЫЙ и НАЗЫВАЕТ координату;
 #   (−) законная цитата той же формы (та же строка, живая цель) → МОЛЧИТ;
-#   (∅) документов без единой цитаты → VOID (код 2), а не успех.
+#   (∅) документов без единой цитаты → VOID (код 2), а не успех;
+#   (∅∅) дерева продукта нет вовсе → VOID (код 2) со строкой [VOID], а не код
+#        находки (ws#463): «условие не создано» — не находка о документах;
+#   (≡) дерево продукта названо `KACHO_MONOREPO` — тем же порядком, что у
+#        наборов (`scripts/docs-gate/_lib.py`, функция `monorepo`): второго
+#        способа найти дерево продукта в одном репозитории нет.
 #
-# Дерево пробы строится ВОКРУГ СКРИПТА: он выводит корень из собственного пути,
+# Дерево пробы строится ВОКРУГ СКРИПТА: без переопределения корня он выводит его
+# из расположения (общий резолвер наборов `scripts/lib/gate_root.py`, ws#816),
 # поэтому копия скрипта в `<врем>/scripts/` смотрит на `<врем>/docs` и
-# `<врем>/project/kacho`. Никакой тестовой ручки в самом гейте для этого не
-# заводится — ручка была бы второй поверхностью поведения, которую никто не читает.
+# `<врем>/project/kacho`. Переопределения корня (`DOCS_GATE_ROOT`, `GATE_ROOT`) —
+# контракт наборов, а не ручка этой пробы: здесь они сняты, а то, что гейт как
+# проверка набора их читает, доказывает `scripts/docs-gate/inject-09.sh`.
 #
 # Запуск: bash scripts/check-doc-commands-inject.sh   (код 0 — все три сошлись)
 #
@@ -32,13 +39,44 @@ PASS=0; FAIL=0
 
 # Основание пробы — настоящий Makefile с настоящей целью: выдуманное основание
 # доказывало бы лишь, что скрипт совпадает сам с собой.
-mkdir -p "$TMP/scripts" "$TMP/docs" "$TMP/project/kacho/deploy"
+# Резолвер дерева продукта — общий с наборами (`scripts/docs-gate/_lib.py`), и
+# копия гейта берёт его рядом с собой, как в настоящем дереве.
+mkdir -p "$TMP/scripts/docs-gate" "$TMP/scripts/lib" "$TMP/docs"
 cp "$GATE" "$TMP/scripts/"
-printf 'dev-up:\n\t@true\n' > "$TMP/project/kacho/deploy/Makefile"
+cp "$WS/scripts/docs-gate/_lib.py" "$TMP/scripts/docs-gate/"
+cp "$WS/scripts/lib/gate_root.py" "$TMP/scripts/lib/"
 
-run_gate() { python3 "$TMP/scripts/$(basename "$GATE")" 2>&1; }
+run_gate() { env -u KACHO_MONOREPO -u DOCS_GATE_ROOT -u GATE_ROOT python3 "$TMP/scripts/$(basename "$GATE")" 2>&1; }
 
 echo "== check-doc-commands: инъекция =="
+
+# (∅∅) дерева продукта нет — «условие не создано», код 2 и [VOID], а не 1
+printf 'Поднять стенд — `make -C deploy dev-up`.\n' > "$TMP/docs/legit.md"
+out="$(run_gate)"; rc=$?
+if [ "$rc" -eq 2 ] && grep -qF '[VOID]' <<<"$out"; then
+  echo "  ✔ (∅∅) дерева продукта нет — VOID (код 2), а не код находки"; PASS=$((PASS+1))
+else
+  echo "  ✘ (∅∅) без дерева продукта код $rc — «не создано условие» пришло кодом находки либо без [VOID]"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | sed 's/^/      /'
+fi
+
+# (≡) дерево продукта названо KACHO_MONOREPO и лежит вне корня — находится
+alt="$TMP/elsewhere/kacho"
+mkdir -p "$alt/deploy"; git -C "$alt" init -q
+printf 'dev-up:\n\t@true\n' > "$alt/deploy/Makefile"
+out="$(env -u DOCS_GATE_ROOT -u GATE_ROOT KACHO_MONOREPO="$alt" python3 "$TMP/scripts/$(basename "$GATE")" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -qE 'all 1 make citations' <<<"$out"; then
+  echo "  ✔ (≡) KACHO_MONOREPO читается тем же порядком, что у наборов"; PASS=$((PASS+1))
+else
+  echo "  ✘ (≡) KACHO_MONOREPO не прочитан (код $rc)"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | sed 's/^/      /'
+fi
+rm -f "$TMP/docs/legit.md"
+
+# Основание остальных проб — клон на обычном месте `project/kacho`. `.git` —
+# признак клона у общего резолвера: каталог без него деревом продукта не считается.
+mkdir -p "$TMP/project/kacho/deploy"; git -C "$TMP/project/kacho" init -q
+printf 'dev-up:\n\t@true\n' > "$TMP/project/kacho/deploy/Makefile"
 
 # (∅) предмета нет — VOID, а не «чисто»
 out="$(run_gate)"; rc=$?

@@ -30,27 +30,31 @@
 # только на него. Он НЕ судит о содержании изменения, НЕ заменяет обзор и НЕ
 # знает про требования, живущие вне своего источника вердикта.
 #
-# ИСТОЧНИКОВ ВЕРДИКТА ДВА, и выбирает их устройство репозитория, а не вкус.
-# Там, где у базы есть обязательные контексты (монорепо продукта), — сверка по
-# их именам, описанная выше. В воркспейсе автозапуска нет по решению владельца
-# 2026-09-20, дословно: «Заливай правки и сделай весь ci что бы на любом бранче
-# был не активен»; «Снимай любой ci что бы совсе. Не работал но был описан в
-# ямл». Обязательных контекстов у его `main` нет тем же решением, а
-# `statusCheckRollup` PR ручного прогона не несёт: «проверок 0» там не значит,
-# что прогона не было. Вердикт воркспейса (ws#788) — check-runs ПОСЛЕДНЕГО
-# ручного прогона `ci.yaml` (`workflow_dispatch`) на голове PR: все зелёные —
-# зелёное; хоть один красный — «сливать нельзя»; идёт — «нельзя сейчас»;
-# прогона на голове нет — «не выполнилось». Прогон на другой sha не
-# засчитывается, даже если сосед его вернул.
+# ИСТОЧНИКОВ ВЕРДИКТА ДВА, и выбирает их ЗАЩИТА БАЗЫ, а не вкус.
 #
-# Объявление самоистекает: если защита базы воркспейса снова требует контексты,
-# источник вердикта больше не один, и скрипт отвечает кодом 2, а не выбирает
-# молча.
+# База требует обязательных контекстов — сверка по их именам, описанная выше.
+# Так судится монорепо продукта и `main` воркспейса: решение владельца
+# 2026-10-01 (ws#886) — «обычный PR-конвейер», задания `ci.yaml` стали
+# обязательными контекстами защиты `main`, и инструмент судит по ним
+# стандартно. Зелёный ручной прогон контекстов НЕ заменяет: требование защиты
+# выполняют только они.
+#
+# База воркспейса контекстов не требует (ветка эпика и ветка волны не защищены,
+# а событие `pull_request` у `ci.yaml` сужено по `main`, и PR в них конвейер не
+# поднимает): `statusCheckRollup` такого PR пуст, и «проверок 0» там не значит,
+# что прогона не было. Вердикт (ws#788) — check-runs ПОСЛЕДНЕГО ручного прогона
+# `ci.yaml` (`workflow_dispatch`) на голове PR: все зелёные — зелёное; хоть один
+# красный — «сливать нельзя»; идёт — «нельзя сейчас»; прогона на голове нет —
+# «не выполнилось». Прогон на другой sha не засчитывается, даже если сосед его
+# вернул. Прежде этот путь стоял на решении 2026-09-20 «на любом бранче ci не
+# активен», и требование контекстов у базы давало код 2 «источников два»;
+# решение 2026-10-01 выбор сделало — контексты, — и код 2 этого случая снят.
 #
 # Код возврата: 0 — сливать можно; 1 — нельзя (сказано, почему);
 #               2 — вердикта нет: вопрос беспредметен (нет PR, нет доступа,
-#                   защита не настроена) либо проверка не выполнилась (ручного
-#                   прогона на голове нет). Это НЕ «сливать нельзя».
+#                   защита не настроена, контекстов у защищённой базы продукта
+#                   ноль) либо проверка не выполнилась (ручного прогона на
+#                   голове нет). Это НЕ «сливать нельзя».
 
 # ПОЧЕМУ СВЕРКА МНОЖЕСТВ ИДЁТ ПОД LC_ALL=C — И НА sort, И НА comm (ws#530).
 #
@@ -160,11 +164,31 @@ if [ "$state" != "OPEN" ]; then
   exit 2
 fi
 
-# ── ИСТОЧНИК ВЕРДИКТА ВОРКСПЕЙСА: РУЧНОЙ ПРОГОН НА ГОЛОВЕ PR (ws#788) ──────────
+# ── ИСТОЧНИК ВЕРДИКТА ВОРКСПЕЙСА: ЗАЩИТА БАЗЫ ВЫБИРАЕТ ПУТЬ (ws#788, ws#886) ──
 # Имя репозитория GitHub регистр не различает, поэтому сравнение — без регистра.
 manual_workflow=""
+ctx_source_note=""
 if [ "${REPO,,}" = "pro-robotech/kacho-workspace" ]; then
   manual_workflow="ci.yaml"
+fi
+
+if [ -n "$manual_workflow" ]; then
+  # Выбор пути, а не источник вердикта: требует ли защита базы контекстов.
+  # Требует — путь контекстов ниже (решение владельца 2026-10-01, ws#886), и
+  # зелёный ручной прогон его не заменяет. Не требует либо базы без защиты
+  # (ветка волны, ветка эпика) — ручной прогон; непустой ответ, не являющийся
+  # JSON, — отказ соседа, а не «защиты нет».
+  protection=$(gh api "repos/$REPO/branches/$base/protection" 2>/dev/null || true)
+  if [ -n "$protection" ]; then
+    jq -e 'type == "object"' >/dev/null 2>&1 <<<"$protection" \
+      || parse_broken "ответ о защите ветки '$base' не разбирается как объект JSON" \
+                      "выбрать источник вердикта — контексты или ручной прогон — нечем."
+    ws_required=$(jq -r '.required_status_checks.contexts[]?' <<<"$protection" | grep -c . || true)
+    if [ "${ws_required:-0}" -gt 0 ]; then
+      manual_workflow=""
+      ctx_source_note="  источник вердикта: обязательные контексты защиты '$base' ($ws_required) — ручной прогон их не заменяет (ws#886)"
+    fi
+  fi
 fi
 
 if [ -n "$manual_workflow" ]; then
@@ -173,23 +197,6 @@ if [ -n "$manual_workflow" ]; then
   [ -n "$head_sha" ] \
     || parse_broken "у PR $REPO#$PR в ответе нет headRefOid" \
                     "голова неизвестна — прогон на ней не найти."
-
-  # Предпосылка объявления, а не источник вердикта: защита базы НЕ требует
-  # контекстов. Незащищённая база (ветка волны, ветка эпика) здесь законна — её
-  # вердикт тот же ручной прогон; непустой ответ, не являющийся JSON, — отказ соседа.
-  protection=$(gh api "repos/$REPO/branches/$base/protection" 2>/dev/null || true)
-  if [ -n "$protection" ]; then
-    jq -e 'type == "object"' >/dev/null 2>&1 <<<"$protection" \
-      || parse_broken "ответ о защите ветки '$base' не разбирается как объект JSON" \
-                      "предпосылку «контекстов защита не требует» проверить нечем."
-    ws_required=$(jq -r '.required_status_checks.contexts[]?' <<<"$protection" | grep -c . || true)
-    if [ "${ws_required:-0}" -gt 0 ]; then
-      echo "merge-readiness: защита ветки '$base' требует обязательных контекстов: $ws_required —"
-      echo "                 объявление «вердикт воркспейса — ручной прогон» расходится с сервером."
-      echo "                 Источников вердикта стало два; вердикта нет, пока не выбран заново (ws#788)."
-      exit 2
-    fi
-  fi
 
   runs_json=$(gh api "repos/$REPO/actions/workflows/$manual_workflow/runs?event=workflow_dispatch&head_sha=$head_sha&per_page=100" 2>/dev/null) || {
     echo "merge-readiness: прогоны $manual_workflow репозитория $REPO недоступны" >&2; exit 2; }
@@ -306,9 +313,20 @@ fi
 
 # Исходы на ревизии PR. Один контекст может встретиться дважды (перезапуск),
 # поэтому зелёным считается имя, у которого ЕСТЬ успешный исход.
+#
+# ЗЕЛЁНЫЙ — ТОЛЬКО SUCCESS, и это определение, а не дополнение к перечню
+# красных. Исходов у проверки девять (SUCCESS, FAILURE, CANCELLED, TIMED_OUT,
+# ACTION_REQUIRED, STARTUP_FAILURE, STALE, NEUTRAL, SKIPPED) плюс «идёт»;
+# «зелёный = не красный» пропустил бы за «можно» любой исход, забытый в
+# перечне красных (возврат check-verifier @5f3080335: STARTUP_FAILURE и STALE).
+# Прочие неуспешные исходы — `other`: не красные, но и не зелёные, и вывод
+# называет их своим исходом, а не «не появлялся».
 green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
-red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
+red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED" or .conclusion=="STARTUP_FAILURE") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
 running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
+other=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "") as $c
+                 | $c != "" and (["SUCCESS","FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","STARTUP_FAILURE"] | index($c) | not))
+               | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
 
 printf '%s\n' "$required" > "$workdir/required"
 printf '%s\n' "$green"    > "$workdir/green"
@@ -336,10 +354,12 @@ green_req=$(printf '%s' "$(set_diff -12)" | grep -c . || true)
 missing_count=$(printf '%s\n' "$missing" | grep -c . || true)
 red_count=$(printf '%s\n' "$red" | grep -c . || true)
 running_count=$(printf '%s\n' "$running" | grep -c . || true)
+other_count=$(printf '%s\n' "$other" | grep -c . || true)
 
 echo "merge-readiness: $REPO#$PR → $base"
+[ -z "$ctx_source_note" ] || echo "$ctx_source_note"
 echo "  обязательных контекстов: $req_count · с зелёным исходом: $green_req · без него: $missing_count"
-echo "  красных на ревизии: $red_count · ещё идут: $running_count · состояние слияния: $merge_state"
+echo "  красных на ревизии: $red_count · ещё идут: $running_count · с иным незелёным исходом: $other_count · состояние слияния: $merge_state"
 
 if [ "$red_count" -gt 0 ]; then
   echo "  КРАСНЫЕ:"
@@ -350,10 +370,12 @@ if [ "$missing_count" -gt 0 ]; then
   echo "  ОБЯЗАТЕЛЬНЫЕ БЕЗ ЗЕЛЁНОГО ИСХОДА:"
   printf '%s\n' "$missing" | while read -r ctx; do
     [ -z "$ctx" ] && continue
-    if printf '%s\n' "$running" | grep -qxF "$ctx"; then
+    if grep -qxF -- "$ctx" <<<"$running"; then
       echo "    $ctx — идёт"
-    elif printf '%s\n' "$red" | grep -qF "$ctx"; then
+    elif grep -qF -- "$ctx" <<<"$red"; then
       echo "    $ctx — красный"
+    elif grep -qF -- "$ctx [" <<<"$other"; then
+      printf '%s\n' "$other" | grep -F -- "$ctx [" | sed 's/$/ — не зелёный/; s/^/    /'
     else
       # Тот самый случай из kacho#614: контекста на ревизии НЕТ ВОВСЕ.
       echo "    $ctx — НЕ ПОЯВЛЯЛСЯ на этой ревизии (защита сейчас не действует)"

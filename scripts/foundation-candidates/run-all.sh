@@ -19,33 +19,16 @@
 #       ревизии, закреплённой ведомостью, — второй прописки считать не по чему.
 # Третий исход НЕ засчитывается за успех: «кандидатов ноль» и «ноль прочитанных
 # деревьев» — разные вещи, и вторая опаснее.
+#
+# Устройство прогона — одно на все наборы: `scripts/lib/suite-runner.sh` (три
+# исхода и их коды, пустой обход — находка, объём осмотренного обязателен,
+# двойка — только со строкой `[VOID]`, рабочий каталог проверки — пустой чужой
+# репозиторий, машинная строка переписи для `scripts/lib/run-suites.sh`). Своей
+# копии цикла у набора нет (ws#762): копия этого цикла не печатала машинной
+# строки переписи и засчитывала ноль без объёма — `scripts/suites-gate/check-03-*`.
+# shellcheck source-path=SCRIPTDIR
 set -uo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-ok=0; bad=0; void=0; count=0
-for c in "$SCRIPT_DIR"/check-*; do
-    [ -f "$c" ] || continue
-    count=$((count + 1))
-    case "$c" in
-        *.py) python3 "$c" ;;
-        *)    bash "$c" ;;
-    esac
-    case $? in
-        0) ok=$((ok + 1)) ;;
-        2) void=$((void + 1)) ;;
-        *) bad=$((bad + 1)) ;;
-    esac
-done
-
-if [ "$count" -gt 0 ]; then
-    echo
-    echo "foundation-candidates: рассмотрено проверок $count; пройдено $ok, провалено $bad, без предмета $void"
-else
-    echo "foundation-candidates: рассмотрено проверок 0 в $SCRIPT_DIR — прогонять нечего" >&2
-fi
-
-[ "$count" -gt 0 ] || exit 1
-[ "$bad" -eq 0 ] || exit 1
-[ "$void" -eq 0 ] || exit 2
-exit 0
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/suite-runner.sh
+. "$here/../lib/suite-runner.sh"
+suite_run "$here"

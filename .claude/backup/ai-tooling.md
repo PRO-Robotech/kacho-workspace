@@ -96,7 +96,7 @@ at-handrun-predicate-engine-agnostic · выписанный для прогон
 
 **at-markup-is-not-a-script** — прежняя редакция:
 
-at-markup-is-not-a-script · исключение по роли не выдаётся разметке, чем бы ни начинался файл, и файлу без строки запуска: `#!` в первых двух байтах исполнимости не доказывает, а перечень каталогов ту же дыру заводит заново — судится ФОРМАТ файла · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh`, пары 2 и 4 в его инъекции · red: корпус, агент, навык или корневой протокол изъял себя из переписи одной строкой
+at-markup-is-not-a-script · исключение по роли не выдаётся разметке, чем бы ни начинался файл, и файлу без строки запуска: `#!` в первых двух байтах исполнимости не доказывает, а перечень каталогов ту же дыру заводит заново — судится ФОРМАТ файла · `scripts/rules-gate/check-10-rule-address-exists-as-written.sh`, пары 2 и 4 в его инъекции · red: корпус, агент, навык или корневой протокол изъял себя из переписи одной строкой
 
 **перечень канонических агентов** — прежняя редакция (описания — копии `description` файлов агентов):
 
@@ -151,11 +151,11 @@ at-claim-about-own-check-runs-or-lies · утверждение об оснас�
 
 **at-rule-address-debt-only-shrinks** — прежняя редакция:
 
-at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и может только сокращаться; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh` вместе с `scripts/rules-gate/rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
+at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и может только сокращаться; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-10-rule-address-exists-as-written.sh` вместе с `scripts/rules-gate/rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
 
 **at-rule-address-as-written** — прежняя редакция:
 
-at-rule-address-as-written · ссылка на правило и на скил-привязку резолвится ТЕМ адресом, которым написана; архив целью не считается — он не грузится и `Skill` его не откроет · scripts/rules-gate/check-11-rule-address-exists-as-written.sh · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
+at-rule-address-as-written · ссылка на правило и на скил-привязку резолвится ТЕМ адресом, которым написана; архив целью не считается — он не грузится и `Skill` его не откроет · scripts/rules-gate/check-10-rule-address-exists-as-written.sh · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
 
 **at-two-grep-engines** — прежняя редакция:
 
@@ -165,7 +165,7 @@ at-two-grep-engines · `grep` в Bash-инструменте агента и в 
 
 **at-markup-is-not-a-script** — прежняя редакция:
 
-at-markup-is-not-a-script · исключение по роли не выдаётся разметке и файлу без строки запуска: судится ФОРМАТ файла, а не `#!` и не перечень каталогов · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh`, пары 2 и 4 его инъекции · red: корпус, агент, навык или корневой протокол изъял себя из переписи одной строкой
+at-markup-is-not-a-script · исключение по роли не выдаётся разметке и файлу без строки запуска: судится ФОРМАТ файла, а не `#!` и не перечень каталогов · `scripts/rules-gate/check-10-rule-address-exists-as-written.sh`, пары 2 и 4 его инъекции · red: корпус, агент, навык или корневой протокол изъял себя из переписи одной строкой
 
 **перечень канонических скилов** — прежняя редакция (описания — копии `description` из `SKILL.md`):
 
@@ -199,8 +199,8 @@ at-claim-about-own-check-runs-or-lies · утверждение об оснас�
 at-bypass-not-from-repo-layer · режим обхода из проектного и локального слоёв харнесс игнорирует (оба repo-controllable); даёт его только личный `~/.claude/settings.json`, policy или флаг · claude --debug-file <лог> -p … → нет строки `settings defaultMode "bypassPermissions" ignored`; `[session-notices] mode=bypassPermissions` (измерено 2026-09-21, CC 2.1.278) · red: объявление режима лежит в дереве, подтверждения продолжают приходить
 at-two-grep-engines · `grep` в Bash-инструменте агента и в скрипте — РАЗНЫЕ движки: обёртка харнесса (ugrep, `-G`) не экспортируется, дочерний bash берёт GNU grep · проба предпосылки в scripts/tooling-gate/inject.sh · red: вердикт команды, набранной руками, перенесён на скрипт без перемера
 at-handrun-predicate-engine-agnostic · выписанный для прогона руками предикат не ставит якорь ветвью альтернативы (`(^|X)` в обёртке молча не совпадает); границу слова пиши `-P` просмотром назад либо `\b` · scripts/tooling-gate/check-12-handrun-predicate-survives-both-greps.sh · red: перепись на образце, в обёртке всегда пустом
-at-rule-address-as-written · ссылка на правило и скил-привязку резолвится ТЕМ адресом, которым написана; архив целью не считается — он не грузится · scripts/rules-gate/check-11-rule-address-exists-as-written.sh · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
-at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и только сокращается; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh` с `rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
+at-rule-address-as-written · ссылка на правило и скил-привязку резолвится ТЕМ адресом, которым написана; архив целью не считается — он не грузится · scripts/rules-gate/check-10-rule-address-exists-as-written.sh · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
+at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и только сокращается; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-10-rule-address-exists-as-written.sh` с `rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
 lc4-crossrepo-order · вести в порядке proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по каждому модулю зелен, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
 lc7-final-verification · go test ./... -race, golangci-lint run, govulncheck, make audit-list-filter, newman — все зелёные на PR сборки в ветку волны (`testing.md#final-verification-before-merge`) · .github/workflows/ci.yaml даёт зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 
@@ -229,3 +229,15 @@ lc6-role-reviews · провести ревью четырьмя ролями (p
 определению раздела, а единственное исключение (`<svc>-load-testing`, пометка «(repo)») названо
 абзацем над перечнем и осталось. Разборщик перечня (`skills-gate` check-03) берёт имя из
 обратных кавычек, пометку не читал. Объём после — 199881 из 200000.
+
+## Снято 2026-10-01 (ws-sync-main): сжатие корпуса под потолок check-06 на сведении `main` с `771`
+
+Сведённое дерево `main` × `771` дало 215 385 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе
+под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+at-bypass-not-from-repo-layer · режим обхода из проектного и локального слоёв харнесс игнорирует (оба repo-controllable); даёт его лишь личный `~/.claude/settings.json`, policy или флаг · claude --debug-file <лог> -p … → нет строки `settings defaultMode "bypassPermissions" ignored`; `[session-notices] mode=bypassPermissions` (измерено 2026-09-21, CC 2.1.278) · red: объявление режима лежит в дереве, подтверждения продолжают приходить
+
+at-bypass-not-from-repo-layer · режим обхода из проектного и локального слоёв харнесс игнорирует; даёт его лишь личный `~/.claude/settings.json`, policy или флаг · `claude --debug-file` — `[session-notices] mode=bypassPermissions` нет (CC 2.1.278, 2026-09-21) · red: объявление режима в дереве, подтверждения приходят
+
+at-claim-about-own-check-runs-or-lies · утверждение об оснастке, проверяемое только ИСПОЛНЕНИЕМ, пиши с координатой, которую резолвит обход, и со знаменателем; числа печатает прибор · scripts/tooling-gate/measure-claims-about-checks.py · red: держатель назван, артефакта нет; «не найдено» без числа осмотренного

@@ -593,8 +593,12 @@ if { read -r KIND _ peak oom < "$P.res"; } 2>/dev/null && [ "$KIND" = rc ]; then
 cids="$(slot_cids "$P")"
 if [ -n "$cids" ]; then
     filt=(); for c in $cids; do filt+=(--filter "container=$c"); done
-    docker events --since "$(( t_run - 5 ))" --until "$(( $(now) + 1 ))" "${filt[@]}" \
-        --filter event=oom --format '{{.Action}}' 2>/dev/null | grep -q oom && coom=1
+    # Чтение и поиск разведены (ws#395): `grep -q` в конце трубы под pipefail
+    # рвёт писателя на первом совпадении, и труба отвечала бы «не нашёл» именно
+    # тогда, когда OOM был.
+    devents="$(docker events --since "$(( t_run - 5 ))" --until "$(( $(now) + 1 ))" "${filt[@]}" \
+        --filter event=oom --format '{{.Action}}' 2>/dev/null)"
+    grep -q oom <<<"$devents" && coom=1
 fi
 [ "${oom:-0}" -gt 0 ] && cut_by="OOM в cgroup слота (oom_kill=$oom)"
 [ "$coom" -gt 0 ] && cut_by="OOM контейнера (--memory=$(mib "$BUDGET"))"

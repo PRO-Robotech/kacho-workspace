@@ -6,7 +6,7 @@
 # scripts/hooks/attribution-rule.sh; зовёт его scripts/hooks/pre-push ПЕРВЫМ —
 # до обхода KACHO_SKIP_PREPUSH и до пропуска черновиков: обход снимает проверки
 # дерева, а не правило, и черновик на удалённом так же публичен. Проба —
-# scripts/tooling-gate/check-21-attribution-hooks-refuse-the-trailer.sh.
+# scripts/tooling-gate/check-15-attribution-hooks-refuse-the-trailer.sh.
 #
 # Хук коммита мог не исполниться (--no-verify, cherry-pick, rebase, am,
 # commit-tree, клон без провязки): здесь судятся уже ЗАПИСАННЫЕ коммиты, чем бы
