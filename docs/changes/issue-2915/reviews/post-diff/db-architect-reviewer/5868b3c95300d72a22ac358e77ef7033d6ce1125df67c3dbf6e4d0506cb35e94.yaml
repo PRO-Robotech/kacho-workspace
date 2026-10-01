@@ -1,0 +1,70 @@
+# Пост-дифф ревью схемы и repo-SQL — роль db-architect-reviewer, полосы K2+K6 изменения issue-2915.
+#
+# Имя файла — content_digest отсуженного содержимого. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+subject: >-
+  K2 (строка notifications манифеста, применитель с authz.ServiceSubject,
+  WriteServiceTuple) и K6 (отказ тенантских поверхностей, гейт писателя)
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: 484-k2-service-manifest
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/484-k2-service-manifest
+  base: 05d1606882c961e25295908eed60baa78815d090   # родитель K2; merge-base --is-ancestor → 0
+  head: 59ab7203fb26d9bef6c37823fe8572bd5fcbd007
+content_digest: sha256:5868b3c95300d72a22ac358e77ef7033d6ce1125df67c3dbf6e4d0506cb35e94
+digest_definition: sha256 сырого вывода `git diff 05d160688...59ab7203f` в копии kaname
+migrations_touched: 0
+repo_sql_touched: 1   # internal/repo/kaname/pg/module_seed_writer.go — WriteServiceTuple, один оператор
+verdict: approved
+blocking: false
+design_conditions_checked:
+  - id: З17 «Конструктор кортежа» / УК1
+    result: held
+    evidence: >-
+      субъект — authz.ServiceSubject(grpcsrv.ServiceName(r)); ServiceSubject судит name.Valid()
+      и даёт "" вне формы → ErrServiceName, отказ посева (corelib @fe30208b617f
+      authz/caller_subject.go:26). Писатель хранилища кортеж не строит: ServiceTuple с
+      неэкспортируемыми полями, нулевое значение отвергается до SQL.
+  - id: З17 «Тенантские поверхности service: не производят» (K6)
+    result: held_no_db_surface
+    evidence: refuseServiceSubjects — проверка формы запроса до разрешения набора, SQL нет.
+mechanisms:
+  - invariant: «одно право service:notify reader notification_feed:<лента>»
+    mechanism: >-
+      PK relation_fact(object_type, object_id, relation, subject) + ON CONFLICT в триггере
+      relation_fact_from_journal (0001_initial.sql:2351, :4253; переопределение
+      20260916020000). Новых ограничений не заводит, опирается на существующее.
+  - property: «повтор посева не пишет журнал»
+    mechanism: >-
+      INSERT … SELECT … WHERE NOT EXISTS (relation_fact) одним оператором. Держит повтор
+      ПОСЛЕДОВАТЕЛЬНЫЙ; под гонкой — нет, и комментарий у функции это называет
+      (лишняя строка журнала, не второе право).
+measurements:
+  - command: >-
+      go test ./internal/repo/kaname/pg/ -run 'TestZZDBRev|TestNTF1F01|TestNTF1F21' -count=3
+      (отдельный detached worktree @59ab7203f, разовая проба рецензента, 16 горутин
+      ApplyAll одновременно, после — снят)
+    outcome: "9 PASS, 0 FAIL; факт = 1 во всех трёх; строк журнала 8, 7, 8 из 16"
+findings: []
+notes:
+  - >-
+    Гонка подтверждена числом: 16 одновременных стартов кладут 7–8 строк fga_outbox об
+    одном кортеже. Право одно (PK), дубли записей в движок гасит read-delta писателя.
+    Не дефект корректности; посылка комментария «гонка даёт лишнюю строку журнала» верна.
+  - >-
+    Пересечение с распределёнными свойствами: да — NOT EXISTS судит по проекции
+    relation_fact, а не по движку; если строка журнала стала ядовитой (MaxAttempts) или
+    хранилище движка пересоздано, повтор посева кортеж не перевыпустит — закрывает ли это
+    реконсайлер, судит system-design-reviewer.
+orders:
+  - to: integration-tester
+    what: >-
+      проба с конкурирующими транзакциями на WriteServiceTuple в дереве: N параллельных
+      ApplyAll → ровно один факт relation_fact, строк журнала 1..N (форма — запись выше,
+      measurements). Не блокирует: нового механизма-инварианта (CAS/partial UNIQUE/EXCLUDE/
+      SKIP LOCKED) дифф не вводит.
