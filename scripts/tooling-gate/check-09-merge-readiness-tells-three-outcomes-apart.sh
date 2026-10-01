@@ -302,6 +302,17 @@ d="$(mkcase EP-BARE)"
 mk_refusal "$d" "$EPIC" 1 "$BODY_UNPROTECTED"
 mk_refusal "$d" main 1 "$BODY_UNPROTECTED"
 MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# EP-TRUNK-<отказ> — эпик не защищён, а защита СТВОЛА не прочитана (403 либо
+# пустой ответ): это третий исход чтения, а не «ствол не защищён» — против
+# EP-BARE меняется ровно ответ о стволе.
+d="$(mkcase EP-TRUNK-403)"
+mk_refusal "$d" "$EPIC" 1 "$BODY_UNPROTECTED"
+mk_refusal "$d" main 1 '{"message":"Resource not accessible by integration","status":"403"}'
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+d="$(mkcase EP-TRUNK-EMPTY)"
+mk_refusal "$d" "$EPIC" 1 "$BODY_UNPROTECTED"
+: > "$d/protection@main.unavailable"
+MR_BASE="$EPIC" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 # NE-<имя> — база НЕ формы линии и не защищена. Ствол защищён и его набор на
 # ревизии зелен: инструмент, ошибочно взявший набор ствола, ответил бы «можно».
 NE_BASES="notify-2914 v2914-notify release"
@@ -413,13 +424,17 @@ probe "$TMP/case-EP-RED" 1 "база-эпик, контекст из набор�
 probe "$TMP/case-EP-MISSING" 1 "база-эпик, контекст из набора ствола не появлялся — «нельзя», без слов о защите базы" \
     "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — НЕ ПОЯВЛЯЛСЯ" "у базы защиты нет"
 probe "$TMP/case-EP-WAVE" 0 "база-волна голым номером — та же ветка линии, набор ствола" \
-    "можно сливать" "у ветки линии '$WAVE'"
+    "можно сливать" "у ветки линии '$WAVE'" "обязательных контекстов: 3"
 probe "$TMP/case-EP-ZERO" 0 "база-эпик с защитой без контекстов — набор ствола, а не «ничем не гейтится»" \
-    "можно сливать" "у ветки линии '$EPIC' собственного нет (защита есть"
+    "можно сливать" "у ветки линии '$EPIC' собственного нет (защита есть" "обязательных контекстов: 3"
 probe "$TMP/case-EP-OWN" 0 "база-эпик со своим набором — судит он, ствол не читается" \
     "можно сливать" "набор обязательных: собственный ветки '$EPIC'" "обязательных контекстов: 1"
 probe "$TMP/case-EP-BARE" 2 "не защищены ни эпик, ни ствол — беспредметно" \
     "ствол 'main' НЕ ЗАЩИЩЕН"
+for rf in 403 EMPTY; do
+    probe "$TMP/case-EP-TRUNK-$rf" 2 "база-эпик, защита ствола не прочитана ($rf) — «НЕ ПРОЧИТАНА», а не «ствол НЕ ЗАЩИЩЕН»" \
+        "защита ветки 'main' НЕ ПРОЧИТАНА" "отказ чтения, а не состояние защиты"
+done
 for nb in $NE_BASES; do
     probe "$TMP/case-NE-$nb" 2 "база '$nb' не формы линии, без защиты — «НЕ ЗАЩИЩЕНА», набор ствола не берётся" \
         "ветка '$nb' НЕ ЗАЩИЩЕНА"

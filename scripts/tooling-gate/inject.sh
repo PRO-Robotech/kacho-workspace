@@ -916,6 +916,29 @@ if mr_patch "$b/$MR_REL" 's/(судить нечем\. Это находка, а
     run_c09_red "$b" "инъекция: ветка линии при незащищённом стволе — «можно» — краснеет" EP-BARE
 fi
 
+# Отказ чтения СТВОЛА засчитан незащищённым стволом: непрочитанное выдано за
+# состояние только на пути набора ствола. Флаг ставится лишь на чтение ствола,
+# поэтому собственное чтение базы `main` (пробы C-*) порча не задевает.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  read_protection) ("\$TRUNK" "\$trunk_file")$/$1_trunk $2/m; s/^(read_protection\(\) \{)/read_protection_trunk() { TRUNK_READ=1 read_protection "\$@"; }\n$1/m; s/^(  echo "merge-readiness: защита ветки .\$branch. НЕ ПРОЧИТАНА)/  [ -n "\$\{TRUNK_READ:-\}" ] \&\& { prot_state=unprotected; return 0; }\n$1/m' \
+    "отказ чтения ствола засчитан незащищённым"; then
+    run_c09_red "$b" "инъекция: отказ чтения ствола засчитан незащищённым стволом — краснеет" \
+        EP-TRUNK-403 EP-TRUNK-EMPTY
+fi
+
+# Набор ствола подменён пустым, и пустой набор проходит. Краснеют шесть проб:
+# EP-RED, EP-MISSING и G — кодом (0 вместо 1 и 2); EP-GREEN, EP-WAVE и EP-ZERO,
+# где ствол зелен целиком и код совпадает, — строкой «обязательных контекстов: N».
+# Замер 2026-10-01: ровно эти шесть, и ни одной сверх.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^  set_file="\$trunk_file"$/  set_file="\$own_file"/m; s/^if \[ "\$\{req_count:-0\}" -eq 0 \]; then$/if false; then/m' \
+    "пустой набор проходит"; then
+    run_c09_red "$b" "инъекция: набор ствола подменён пустым и пустой набор проходит — краснеет" \
+        EP-GREEN EP-WAVE EP-ZERO EP-RED EP-MISSING G
+fi
+
 # Близнец: та же форма ветки линии другой записью.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" 's/^LINE_BRANCH_RE=\x27.*\x27$/LINE_BRANCH_RE=\x27^[[:digit:]]{1,}(-[^\/]*)?\$\x27/m' \
