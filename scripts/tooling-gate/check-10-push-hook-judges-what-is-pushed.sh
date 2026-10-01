@@ -62,8 +62,11 @@ fi
 pgit() { sandbox_git -c core.hooksPath=/dev/null "$@"; }
 
 # mkbox <вызывающий> — печатает путь песочницы: `main` = G (state.txt green),
-# `red-lane` = R (red), HEAD = main, копия чистая. Факт вызова заглушки пишется
+# `810-red-lane` = R (red), HEAD = main, копия чистая. Факт вызова заглушки пишется
 # в `<песочница>.calls` — вне дерева, чтобы не попасть ни в одну ревизию.
+# Имена отправляемых веток — законной формы `<N>-<суффикс>` (`git-issues.md`
+# §«Имя ветки»): хук судит имя ДО вершин (`check-23`), и проба с именем прежней
+# формы получала бы отказ по имени, а не по своему предмету.
 mkbox() {
     local dir
     dir="$(mktemp -d "$TMP/b.XXXXXX")"
@@ -82,7 +85,7 @@ mkbox() {
     pgit -C "$dir" init -q -b main
     pgit -C "$dir" add -A
     pgit -C "$dir" commit -q -m G
-    pgit -C "$dir" checkout -q -b red-lane
+    pgit -C "$dir" checkout -q -b 810-red-lane
     echo red > "$dir/state.txt"
     pgit -C "$dir" commit -q -am R
     pgit -C "$dir" checkout -q main
@@ -119,7 +122,7 @@ bad() { tooling_gate_fail "$NAME" "$1"; findings=$((findings + 1)); }
 for caller in "${CALLERS[@]}"; do
     box="$(mkbox "$caller")"
     G="$(git -C "$box" rev-parse main)"
-    R="$(git -C "$box" rev-parse red-lane)"
+    R="$(git -C "$box" rev-parse 810-red-lane)"
 
     green="$(push "$box" "refs/heads/main $G refs/heads/main $Z"$'\n')"
     probes=$((probes + 1))
@@ -139,7 +142,7 @@ for caller in "${CALLERS[@]}"; do
         bad "$caller — удаление без прогона закончилось строкой чистого («$(tail_of "$green")»): «не проверялось» подано как «зелено»"
     fi
 
-    r="$(push "$box" "(delete) $Z refs/heads/gone $G"$'\n'"refs/heads/red-lane $R refs/heads/red-lane $Z"$'\n')"
+    r="$(push "$box" "(delete) $Z refs/heads/gone $G"$'\n'"refs/heads/810-red-lane $R refs/heads/810-red-lane $Z"$'\n')"
     probes=$((probes + 1))
     if [ "$(calls "$r")" -eq 0 ] || [ "$(rc "$r")" != 1 ]; then
         bad "$caller — удаление рядом с красной вершиной: код $(rc "$r"), вызовов $(calls "$r") — удаление стало маской для отправки"
@@ -150,46 +153,46 @@ for caller in "${CALLERS[@]}"; do
         bad "$caller — пустой вход: наборы не вызваны — пустое принято за «только удаления»"
     fi
 
-    r="$(push "$box" "refs/heads/main $G refs/heads/green-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/main $G refs/heads/810-green-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 0 ]; then
         bad "$caller — копия красная незакоммиченным, уезжает зелёная вершина: код $(rc "$r") вместо 0 — судилась копия"
     fi
 
     pgit -C "$box" checkout -q -- state.txt   # копия снова чистая и зелёная
-    r="$(push "$box" "refs/heads/red-lane $R refs/heads/red-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-red-lane $R refs/heads/810-red-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — копия зелёная, уезжает красная вершина: код $(rc "$r") вместо 1 — красное уехало как зелёное"
-    elif ! grep -q 'red-lane' "$box.out"; then
-        bad "$caller — отказ по красной вершине не назвал ссылку refs/heads/red-lane"
+    elif ! grep -q '810-red-lane' "$box.out"; then
+        bad "$caller — отказ по красной вершине не назвал ссылку refs/heads/810-red-lane"
     fi
 
-    r="$(push "$box" "refs/heads/red-lane $R refs/heads/wip/y $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-red-lane $R refs/heads/wip/y $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(calls "$r")" -ne 0 ] || [ "$(rc "$r")" != 0 ]; then
         bad "$caller — уезжает черновик wip/y: код $(rc "$r"), вызовов $(calls "$r") вместо 0/0 — черновик взят не по отправляемой ссылке"
     fi
 
     pgit -C "$box" checkout -q -b wip/x
-    r="$(push "$box" "refs/heads/red-lane $R refs/heads/red-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-red-lane $R refs/heads/810-red-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — HEAD = wip/x, уезжает красная не-черновая вершина: код $(rc "$r") вместо 1 — черновик взят по HEAD"
     fi
 
     # ── Перечень наборов — из дерева ВЕРШИНЫ, в обе стороны ─────────────────
-    # `extra-lane` = G + красный набор `scripts/extra/`; копия стоит на `main`.
+    # `810-extra-lane` = G + красный набор `scripts/extra/`; копия стоит на `main`.
     pgit -C "$box" checkout -q main
-    pgit -C "$box" checkout -q -b extra-lane
+    pgit -C "$box" checkout -q -b 810-extra-lane
     mkdir -p "$box/scripts/extra"
     printf '#!/usr/bin/env bash\necho "extra: красное"\nexit 1\n' > "$box/scripts/extra/run-all.sh"
     pgit -C "$box" add scripts/extra/run-all.sh
     pgit -C "$box" commit -q -m X
-    X="$(git -C "$box" rev-parse extra-lane)"
+    X="$(git -C "$box" rev-parse 810-extra-lane)"
     pgit -C "$box" checkout -q main
 
-    r="$(push "$box" "refs/heads/extra-lane $X refs/heads/extra-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-extra-lane $X refs/heads/810-extra-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — красный набор есть только у вершины: код $(rc "$r") вместо 1 — перечень наборов взят из копии, а не из вершины"
     fi
-    pgit -C "$box" checkout -q extra-lane
+    pgit -C "$box" checkout -q 810-extra-lane
     r="$(push "$box" "refs/heads/main $G refs/heads/main $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 0 ]; then
         bad "$caller — красный набор есть только в копии, у вершины его нет: код $(rc "$r") вместо 0 — перечень наборов взят из копии, а не из вершины"
@@ -211,33 +214,33 @@ for caller in "${CALLERS[@]}"; do
         '[ -f "$f" ] || { echo "[VOID] cond: условия вне дерева нет"; exit 2; }' \
         '[ "$(cat "$f")" = red ] && { echo "cond: красное"; exit 1; }' \
         'exit 0' > "$box.cond"
-    pgit -C "$box" checkout -q -b loose-lane
+    pgit -C "$box" checkout -q -b 810-loose-lane
     cp "$box.cond" "$box/scripts/cond/run-all.sh"
     pgit -C "$box" add scripts/cond/run-all.sh
     pgit -C "$box" commit -q -m L
-    L="$(git -C "$box" rev-parse loose-lane)"
-    pgit -C "$box" checkout -q -b cond-lane main
+    L="$(git -C "$box" rev-parse 810-loose-lane)"
+    pgit -C "$box" checkout -q -b 810-cond-lane main
     mkdir -p "$box/scripts/cond"
     cp "$box.cond" "$box/scripts/cond/run-all.sh"
     printf 'outside/\ntmp/*\n__pycache__/\n' > "$box/.gitignore"
     pgit -C "$box" add .gitignore scripts/cond/run-all.sh
     pgit -C "$box" commit -q -m C
-    C="$(git -C "$box" rev-parse cond-lane)"
+    C="$(git -C "$box" rev-parse 810-cond-lane)"
     mkdir -p "$box/outside/clone" "$box/tmp/stale" "$box/scripts/cond/__pycache__"
     : > "$box/scripts/cond/__pycache__/run.cpython.pyc"
     echo red > "$box/outside/clone/verdict"
 
-    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-cond-lane $C refs/heads/810-cond-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — у копии есть игнорируемое вершиной outside/, набор по нему красный: код $(rc "$r") вместо 1 — условие вне дерева в копию вершины не доехало"
     fi
     echo green > "$box/outside/clone/verdict"
-    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-cond-lane $C refs/heads/810-cond-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 0 ] || [ "$(tail_of "$r")" != "$(tail_of "$green")" ]; then
         bad "$caller — условие вне дерева зелёное: код $(rc "$r"), завершающая строка «$(tail_of "$r")» вместо строки чистого; набор сказал: «$(grep -m1 -o 'cond: .*' "$box.out" || echo 'ничего')»"
     fi
     echo red > "$box/outside/clone/verdict"
-    r="$(push "$box" "refs/heads/loose-lane $L refs/heads/loose-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-loose-lane $L refs/heads/810-loose-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 0 ]; then
         bad "$caller — вершина outside/ НЕ игнорирует (для неё это незакоммиченная работа), копия — игнорирует: код $(rc "$r") вместо 0 — условие взято по правилам копии, а не вершины"
     fi
@@ -248,7 +251,7 @@ for caller in "${CALLERS[@]}"; do
     rm -rf "$box/tmp/stale" "$box/scripts/cond/__pycache__"
     pgit -C "$box" checkout -q main
     ln -s "$box.ext" "$box/outside"
-    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n')"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-cond-lane $C refs/heads/810-cond-lane $Z"$'\n')"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — у копии outside — ссылка на каталог, вершина его игнорирует, набор по нему красный: код $(rc "$r") вместо 1 — условие вне дерева в копию вершины не доехало"
     fi
@@ -263,7 +266,7 @@ for caller in "${CALLERS[@]}"; do
     rm -f "$box/outside"
     mv "$box.ext" "$box/outside"   # у канонического условие — настоящий каталог
     lane="$box/tmp/lane"
-    if ! pgit -C "$box" worktree add -q "$lane" cond-lane >/dev/null 2>&1; then
+    if ! pgit -C "$box" worktree add -q "$lane" 810-cond-lane >/dev/null 2>&1; then
         tooling_gate_void "$NAME" "$caller — связанная копия $lane не собралась; пробы отправки из полосы недоказательны"
         exit 2
     fi
@@ -279,19 +282,19 @@ for caller in "${CALLERS[@]}"; do
 
     ln -s "$box/outside" "$lane/outside"
     echo red > "$box/outside/clone/verdict"
-    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-cond-lane $C refs/heads/810-cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — отправка из связанной копии tmp/lane, её outside — ссылка на каталог канонического, набор по нему красный: код $(rc "$r") вместо 1 — условие копии полосы снято как дом копий, красное уехало; хук сказал: «$(grep -m1 -o 'перенесено .*' "$box.out" || echo 'ничего')»"
     fi
     echo green > "$box/outside/clone/verdict"
-    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-cond-lane $C refs/heads/810-cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 0 ] || [ "$(tail_of "$r")" != "$(tail_of "$green")" ]; then
         bad "$caller — отправка из связанной копии tmp/lane, условие зелёное: код $(rc "$r"), завершающая строка «$(tail_of "$r")» вместо строки чистого; набор сказал: «$(grep -m1 -o 'cond: .*' "$box.out" || echo 'ничего')»"
     fi
     rm "$lane/outside"
     mkdir -p "$lane/outside/clone"
     echo red > "$lane/outside/clone/verdict"
-    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
+    r="$(push "$box" "refs/heads/810-cond-lane $C refs/heads/810-cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — отправка из связанной копии tmp/lane, её outside — свой каталог, набор по нему красный: код $(rc "$r") вместо 1 — условие копии полосы снято как дом копий, красное уехало; хук сказал: «$(grep -m1 -o 'перенесено .*' "$box.out" || echo 'ничего')»"
     fi

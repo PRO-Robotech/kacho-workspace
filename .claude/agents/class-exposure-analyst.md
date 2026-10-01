@@ -8,6 +8,7 @@ skills:
   - rule-data-integrity
   - rule-security
   - rule-security-hardening
+  - rule-flow-acceleration
 ---
 
 # Class-exposure-analyst — разбор замысла на классы дефектов и условия на код, до первой строки
