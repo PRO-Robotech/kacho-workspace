@@ -20,13 +20,14 @@ related_packages:
   - "[[packages/corelib-ids]]"
 related_tickets:
   - "[[KAC/issue-339-kaname]]"
+  - "[[KAC/issue-366-kaname]]"
 tags:
   - resource
   - kacho-iam
   - iam
   - internal
   - migrations
-verified_against: "DDL прочитан в `internal/migrations/20260920175117_authorization_code_is_our_record.sql` и словарь причин — в `internal/migrations/20260923225650_consent_leaves_the_schema.sql`, оба на ветке эпика 357 (fc9f5aff) продукта PRO-Robotech/kaname (2026-09-26); колонки и ограничения сверены построчно; на origin/main (cbbac984) таблицы нет, поведение на стенде не наблюдалось. Разделы о детях и о читателе — по разделам Up тех же миграций и `20260923231545_access_token_belongs_to_its_family.sql` на fc9f5aff19c, 2026-09-26; поведение писателей и проб не перезапускалось"
+verified_against: "2026-10-01, голова ветки эпика 357 @ 7c5409f5e: Up-разделы миграций, добавленных после fc9f5aff и трогающих таблицу (`20260925121413_token_family_carries_its_login_level.sql`, `20260926141908_token_family_person_is_the_person_of_its_session.sql`, `20260927001324_family_revocation_reason_names_the_client_revocation.sql`, `20260927072645_family_revocation_reason_leaves_the_words_without_a_writer.sql`; перечень — `git diff --name-status fc9f5aff19c origin/357 -- internal/migrations`), и словарь `internal/domain/oauth_ceremony.go`; на origin/main @ cbbac984b таблицы нет (`git grep token_families` по миграциям — 0 файлов). Остальные разделы этой сверкой построчно не пересматривались. Прежняя сверка: DDL прочитан в `internal/migrations/20260920175117_authorization_code_is_our_record.sql` и словарь причин — в `internal/migrations/20260923225650_consent_leaves_the_schema.sql`, оба на ветке эпика 357 (fc9f5aff) продукта PRO-Robotech/kaname (2026-09-26); колонки и ограничения сверены построчно; на origin/main (cbbac984) таблицы нет, поведение на стенде не наблюдалось. Разделы о детях и о читателе — по разделам Up тех же миграций и `20260923231545_access_token_belongs_to_its_family.sql` на fc9f5aff19c, 2026-09-26; поведение писателей и проб не перезапускалось"
 ---
 
 # token_families (kaname)
@@ -38,7 +39,7 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
 
 > [!warning] Состояние — `test`: предмета на стволе нет
 > Таблица заведена полосой `kn-313`, живёт в ветке эпика `357` (волна
-> [[KAC/issue-358-kaname|kaname#358]]) и в `main` не влита (сверено 2026-09-26). Всё ниже
+> [[KAC/issue-358-kaname|kaname#358]]) и в `main` не влита (сверено 2026-09-26 и 2026-10-01). Всё ниже
 > описывает ветку эпика, а не поднятую посадку. Внешнего API у ресурса нет: пишет и читает его
 > только церемония службы.
 
@@ -57,6 +58,7 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
 | `user_id` | text | FK `users(id)` CASCADE |
 | `session_id` | text | FK `human_sessions(id)` CASCADE — сессия **обязательна** |
 | `scope` | text[] | непуста, без `NULL` и без пустых имён |
+| `acr` | text | уровень входа гранта, `NOT NULL`, словарь `1`/`2`/`3` — **снимок** на выдаче кода: обмен и оборот его не пересчитывают, у сессии уровень подвижен |
 | `created_at` | timestamptz | `now()` |
 | `revoked_at` | timestamptz | NULL, пока семейство живо |
 | `revoked_reason` | text | закрытый словарь, см. ниже |
@@ -78,6 +80,10 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
   её как область нельзя.
 - `token_families_revoked_pair_ck` — отметка и причина появляются и исчезают вместе.
 - `token_families_revoked_reason_ck` — словарь причин **закрыт**, корзины «прочее» нет.
+- `token_families_acr_ck` — уровень входа из того же словаря, что у `human_sessions.assurance_level`.
+- `token_families_session_user_fk` — (`session_id`, `user_id`) ссылается на пару
+  `human_sessions(id, user_id)` с каскадом удаления: человек семейства — это человек его сессии,
+  разойтись они не могут (ключ пары `human_sessions_id_user_uniq` заведён той же миграцией).
 
 ## Дети и как до них доезжает отзыв
 
@@ -96,16 +102,20 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
 
 ## Словарь причин отзыва
 
-`code-replay` · `refresh-replay` · `logout` · `session-ended` · `client-removed`.
+`code-replay` · `refresh-replay` · `session-ended` · `client-revoke`.
 
-Значение `consent-withdrawn` снято миграцией `20260923225650_consent_leaves_the_schema.sql`
-вместе с таблицей согласий ([[KAC/issue-404-kaname]]). Какие причины имеют писателя —
-предмет [[KAC/issue-339-kaname]]; перепись там сделана на ревизии `229a0693`, когда значений
-было шесть.
+Словарь домена `FamilyRevocationReason` и ограничение схемы совпадают в обе стороны — это держит
+проба живой схемы `TestIntegration_RevocationVocabularyAgreesWithTheDomain`; у каждого слова есть
+писатель — гейт `TestFamilyRevocationVocabulary_KN_FRV_17_EveryWordHasAWriter`.
 
-Словарь причин фундамента (`code-replay`, `refresh-replay`, `client-revoke`) служба сопрягает со
-своим; `client-revoke` своего слова в словаре семейств ещё не имеет — это вынесенная в волну-3
-задача kaname#406.
+Как словарь пришёл к этому виду: `consent-withdrawn` снято миграцией
+`20260923225650_consent_leaves_the_schema.sql` вместе с таблицей согласий
+([[KAC/issue-404-kaname]]); `client-revoke` добавлено миграцией
+`20260927001324_family_revocation_reason_names_the_client_revocation.sql` (kaname#406) — написание
+дословно причина фундамента, потому что адаптер порта отзыва сопрягает словари по значению;
+`logout` и `client-removed` сняты миграцией
+`20260927072645_family_revocation_reason_leaves_the_words_without_a_writer.sql`
+([[KAC/issue-339-kaname]]) — писателя у них не было.
 
 ## Кто читает
 
@@ -134,6 +144,10 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
   словарь фундамента): в основе той линии этой записки ещё не было.
 - 2026-09-27 (#846) — обе записки сведены в одну при слиянии линий: оболочка и инварианты —
   отсюда, разделы о детях, читателе и словаре фундамента — из второй.
+- 2026-10-01 — сверена с головой `357` @ `7c5409f5e` по миграциям волны-3
+  ([[KAC/issue-366-kaname|kaname#366]]): колонка `acr` и ключ пары сессии и человека
+  (kaname#423), слово `client-revoke` (kaname#406), снятие `logout` и `client-removed`
+  ([[KAC/issue-339-kaname|kaname#339]]). Словарь записки стоял на пяти словах ревизии `fc9f5aff`.
 
 ## See also
 
