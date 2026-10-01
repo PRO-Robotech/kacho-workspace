@@ -144,7 +144,7 @@ echo "inject[01]: пройдено $ok, провалено $bad"
 # ── Доказательства остальных проверок набора ─────────────────────────────────
 #
 # Этот файл — ЕДИНЫЙ вход доказательств: его, и только его, зовёт конвейер
-# (`.github/workflows/ci.yaml`, шаг «vault-gate доказывает свою работоспособность»).
+# (`scripts/lib/run-suites.sh --proofs`, задание `gate-suites`).
 # До 2026-08-18 он доказывал одну проверку из четырёх, а inject-02/03/04 не
 # исполнялись НИГДЕ автоматически: они существовали, были зелёными и ничего не
 # гарантировали — доказательство, которое никто не прогоняет, отличается от
@@ -152,28 +152,15 @@ echo "inject[01]: пройдено $ok, провалено $bad"
 #
 # Перечень ВЫВОДИТСЯ из каталога, а не выписывается: рукописный разошёлся бы с
 # деревом молча и ровно в ту сторону, где новое доказательство перестаёт
-# исполняться. Ноль найденных — ОТКАЗ, а не успех: пустой обход здесь означал бы
-# «доказано всё» ровно тогда, когда не доказано ничего.
-siblings=()
-while IFS= read -r f; do
-    siblings+=("$f")
-done < <(find "$SCRIPT_DIR" -maxdepth 1 -name 'inject-[0-9]*.sh' -type f | sort)
-
-if [ "${#siblings[@]}" -eq 0 ]; then
-    echo "inject: ОТКАЗ — рядом нет НИ ОДНОГО inject-<N>.sh; доказывать нечем" >&2
-    exit 1
-fi
-
-sib_bad=0
-for s in "${siblings[@]}"; do
-    echo
-    echo "── $(basename "$s")"
-    if ! bash "$s"; then
-        sib_bad=$((sib_bad + 1))
-    fi
-done
+# исполняться. Ноль найденных — ОТКАЗ, а не успех. Устройство — общее для всех
+# наборов (`scripts/lib/proofs.sh`).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$SCRIPT_DIR/../lib/proofs.sh"
+proof_parts "$SCRIPT_DIR"
+[ $? -eq 2 ] && exit 1
 
 echo
-echo "inject: доказательств рассмотрено $((${#siblings[@]} + 1)) (01 + ${#siblings[@]} сиблингов); провалено $((bad > 0 ? 1 : 0)) + $sib_bad"
+echo "inject: доказательств рассмотрено $((PROOF_PARTS + 1)) (01 + $PROOF_PARTS сиблингов); провалено $((bad > 0 ? 1 : 0)) + $PROOF_PARTS_BAD"
 
-[ "$bad" -eq 0 ] && [ "$sib_bad" -eq 0 ]
+[ "$bad" -eq 0 ] && [ "$PROOF_PARTS_BAD" -eq 0 ]

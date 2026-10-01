@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check-03 — строка Scope приёмки обязана иметь сценарий, который её проверяет.
+"""check-08 — строка Scope приёмки обязана иметь сценарий, который её проверяет.
 
 Что запрещает эта проверка. Приёмка — документ СЦЕНАРИЕВ: запрет #1
 (`.claude/rules/00-kacho-core.md`) велит не кодить без APPROVED приёмки
@@ -51,7 +51,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _lib  # noqa: E402
 
-NAME = "check-03-scope-row-scenario"
+NAME = "check-08-scope-row-scenario"
 
 # Строка таблицы Scope: первая ячейка — идентификатор фичи `F<число>[буква]`.
 ROW = re.compile(r"^\|\s*\**\s*(F\d+[A-Za-z]?)\s*\**\s*\|")

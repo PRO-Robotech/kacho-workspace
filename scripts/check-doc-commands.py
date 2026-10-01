@@ -29,9 +29,15 @@ There is no exception list. If something here cannot be made to run, the documen
 should say so in prose instead of quoting a command that does not exist.
 
 Three outcomes, not two: 0 — every citation resolves (and their number is printed);
-1 — at least one does not (each failure printed); 2 — VOID, no make citation was found
-at all, which means the extractor or the docs root moved rather than that the prose is
-clean. A census line (documents read · citations examined · Makefiles and targets in the
+1 — at least one does not (each failure printed); 2 — VOID: either no make citation was
+found at all (the extractor or the docs root moved rather than the prose being clean),
+or there is no product tree to check against (ws#463) — a condition not created, which
+must not reach the caller with the code of a finding.
+
+Where the product tree is looked for: `KACHO_MONOREPO`, otherwise `project/kacho` under
+the workspace root — resolved by `scripts/docs-gate/_lib.py` (`monorepo`), the same
+resolver the gate suites use. A second way of finding the product tree in this
+repository would be a second place about one subject. A census line (documents read · citations examined · Makefiles and targets in the
 ground truth) is printed before the verdict in every case, so "no findings" can be told
 apart from "nothing read".
 """
@@ -41,7 +47,10 @@ import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MONO = os.path.join(REPO, "project", "kacho")
+sys.path.insert(0, os.path.join(REPO, "scripts", "docs-gate"))
+import _lib  # noqa: E402  общий резолвер дерева продукта (ws#463)
+
+MONO = _lib.monorepo(REPO)
 DOCS = os.path.join(REPO, "docs")
 
 FENCE = re.compile(r"^\s*(```+|~~~+)\s*([A-Za-z0-9_+-]*)")
@@ -188,10 +197,19 @@ def commands(snippet):
 
 
 def main():
+    if MONO is None:
+        print("census: документов прочитано 0, цитат make рассмотрено 0 — дерева продукта нет")
+        print("[VOID] check-doc-commands — дерево продукта не найдено (ни KACHO_MONOREPO, ни "
+              "%s): сверять цитаты не с чем, условие не создано — это не находка о документах"
+              % os.path.join(REPO, "project", "kacho"), file=sys.stderr)
+        return 2
     targets = declared_targets()
     if not targets:
-        print("cannot check: no Makefile found under %s" % MONO, file=sys.stderr)
-        return 1
+        print("census: документов прочитано 0, цитат make рассмотрено 0 — в дереве продукта "
+              "нет ни одного Makefile")
+        print("[VOID] check-doc-commands — в %s не найдено ни одного Makefile: основание "
+              "сверки пусто, судить цитаты не по чему" % MONO, file=sys.stderr)
+        return 2
     failures = []
     docs_read = 0
     citations = 0

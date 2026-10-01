@@ -35,6 +35,12 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
 
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Окружение — своё: `KACHO_HOME_*` читает `applicability.py` (check-04), и
+# унаследованный дом был бы сильнее мира песочницы (scripts/lib/proofs.sh).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$WS/scripts/lib/proofs.sh"
+proof_own_environment
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -72,6 +78,10 @@ sandbox() {
     rm -rf "$dir"
     mkdir -p "$dir/scripts" "$dir/.github"
     cp -r "$WS/scripts/change-graph-gate" "$dir/scripts/"
+    # Общая библиотека наборов — предпосылка копии: корень проверки берётся
+    # через `scripts/lib/gate_root.py` (ws#757), и без неё копия набора не
+    # запустилась бы вовсе, а проба судила бы раскладку песочницы.
+    cp -r "$WS/scripts/lib" "$dir/scripts/"
     cp -r "$WS/.github/workflows" "$dir/.github/"
     local rel
     for rel in "${HOOK_PROBES[@]}"; do
@@ -296,19 +306,108 @@ open(p, "w", encoding="utf-8").write(text)
 PY
 assert 1 "$(run "$d" "$C3")" "шаг, зовущий дорогую полосу, снят -> краснеет"
 
-d="$(sandbox c3-cheap-gone)"
-python3 - "$d" <<'PY2'
-import re
+# Дешёвую полосу и доказательство набора зовёт ВЫВОД ПЕРЕЧНЯ наборов (задание
+# `gate-suites`, ws#753) — это их единственный дом. Каждая фикстура ниже меняет
+# один факт этого дома и обязана ИЗМЕНИТЬ файл: правка, не нашедшая строки,
+# доказывала бы «на нетронутом молчит», а не «на дефекте краснеет».
+# wf_edit <каталог> <старое> <новое> — замена в объявлении; строки нет — отказ.
+wf_edit() {
+    python3 - "$1/.github/workflows/ci.yaml" "$2" "$3" <<'PYE'
 import sys
-# Дешёвая полоса перестала зваться конвейером: обход хука объявлен законным,
-# поэтому надмножество ломается — гонять её было бы некому.
-p = sys.argv[1] + "/.github/workflows/ci.yaml"
+p, old, new = sys.argv[1:4]
 text = open(p, encoding="utf-8").read()
-text = re.sub(r"^( +)run: bash scripts/change-graph-gate/run-all\.sh$",
-              r"\1run: echo нечего", text, flags=re.M)
-open(p, "w", encoding="utf-8").write(text)
-PY2
-assert 1 "$(run "$d" "$C3")" "снят вызов ДЕШЁВОЙ полосы -> краснеет: конвейер перестал быть надмножеством хука"
+if old not in text:
+    sys.exit("фикстура не нашла строки: " + old)
+open(p, "w", encoding="utf-8").write(text.replace(old, new, 1))
+PYE
+}
+DERIVED_CALL='bash scripts/lib/run-suites.sh --proofs --void-is-failure'
+
+# said <каталог> <проверка> <подстрока> — 0, если вердикт называет подстроку.
+said() {
+    local out
+    out="$( cd "$1" && CG_GATE_ROOT="$1" bash "$1/scripts/change-graph-gate/$2" 2>&1 )"
+    if grep -qF -- "$3" <<<"$out"; then echo 0; else echo 1; fi
+}
+
+d="$(sandbox c3-cheap-gone)"
+# Вывод перечня снят: дешёвая полоса и доказательство набора перестали зваться
+# конвейером — обход хука законен, и гонять их было бы некому.
+if wf_edit "$d" "$DERIVED_CALL" "echo нечего"; then
+    assert 1 "$(run "$d" "$C3")" "снят вывод перечня -> краснеет: конвейер перестал быть надмножеством хука"
+else
+    assert 1 2 "фикстура «снят вывод перечня» не изменила объявление"
+fi
+
+d="$(sandbox c3-noproofs)"
+if wf_edit "$d" "$DERIVED_CALL" "bash scripts/lib/run-suites.sh --void-is-failure"; then
+    assert 1 "$(run "$d" "$C3")" "вывод перечня без --proofs -> доказательство набора не исполняется, краснеет"
+    assert 0 "$(said "$d" "$C3" "ни одно задание конвейера не зовёт scripts/change-graph-gate/inject.sh")" \
+        "вывод перечня без --proofs -> находка называет доказательство набора"
+else
+    assert 1 2 "фикстура «без --proofs» не изменила объявление"
+fi
+
+# Вызов вывода есть, вердикт не доходит (круг 1): echo, `|| true`,
+# `continue-on-error`, `if: false` проходили подстрокой. Распознаватель общий с
+# suites-gate/check-04 (`scripts/lib/ci_calls.py`); каждая форма — однофактная правка.
+c3_swallowed() {
+    local form="$1" d
+    d="$(sandbox "c3-$form")"
+    case "$form" in
+        echo) wf_edit "$d" "$DERIVED_CALL" "echo \"$DERIVED_CALL\"" ;;
+        ortrue) wf_edit "$d" "$DERIVED_CALL" "$DERIVED_CALL || true" ;;
+        coe) wf_edit "$d" "      - name: наборы и их доказательства — перечень выведен из дерева" \
+            "      - name: наборы и их доказательства — перечень выведен из дерева
+        continue-on-error: true" ;;
+        iffalse) wf_edit "$d" "  gate-suites:
+    name:" "  gate-suites:
+    if: false
+    name:" ;;
+    esac || { assert 1 2 "фикстура «$form» не изменила объявление"; return; }
+    assert 1 "$(run "$d" "$C3")" "вызов вывода перечня в форме «$form» -> вердикт до задания не доходит, краснеет"
+    if [ "$form" != echo ]; then
+        assert 0 "$(said "$d" "$C3" "вызов scripts/lib/run-suites.sh не засчитан")" \
+            "форма «$form» -> находка называет незасчитанный вызов и причину"
+    fi
+}
+for form in echo ortrue coe iffalse; do c3_swallowed "$form"; done
+
+# Набор выпал из вывода: строка вызова цела, но перепись наборов его не видит
+# (прогонщик не в индексе и игнорируется) — вывод его не исполнит.
+d="$(sandbox c3-dropped)"
+printf 'scripts/change-graph-gate/run-all.sh\n' >> "$d/.git/info/exclude"
+git -C "$d" rm -q --cached scripts/change-graph-gate/run-all.sh > /dev/null 2>&1
+assert 1 "$(run "$d" "$C3")" "набор выпал из переписи наборов -> вывод его не исполнит, краснеет"
+assert 0 "$(said "$d" "$C3" "набора change-graph-gate в переписи нет")" \
+    "набор выпал из переписи -> находка называет причину"
+
+# Второй дом: тот же прогон зовётся и выводом перечня, и поимённым шагом.
+d="$(sandbox c3-dup)"
+if wf_edit "$d" "      - name: дорогая полоса — доказательства падучести контура" \
+    "      - name: дубль
+        run: bash scripts/change-graph-gate/run-all.sh
+      - name: дорогая полоса — доказательства падучести контура"; then
+    assert 1 "$(run "$d" "$C3")" "поимённый вызов рядом с выводом перечня -> второй дом, краснеет"
+    assert 0 "$(said "$d" "$C3" "run-all.sh зовётся дважды")" "второй дом -> находка называет оба места"
+else
+    assert 1 2 "фикстура «второй дом» не изменила объявление"
+fi
+
+# Законный близнец второй оси: дом ОДИН, но поимённый — вывода перечня нет,
+# прогон и доказательство вписаны шагами.
+d="$(sandbox c3-by-name)"
+if wf_edit "$d" "$DERIVED_CALL" "echo нечего" &&
+   wf_edit "$d" "      - name: дорогая полоса — доказательства падучести контура" \
+    "      - name: дешёвая полоса поимённо
+        run: bash scripts/change-graph-gate/run-all.sh
+      - name: доказательство набора поимённо
+        run: bash scripts/change-graph-gate/inject.sh
+      - name: дорогая полоса — доказательства падучести контура"; then
+    assert 0 "$(run "$d" "$C3")" "законный близнец: дом один и поимённый -> молчит"
+else
+    assert 0 2 "фикстура «дом поимённый» не изменила объявление"
+fi
 
 d="$(sandbox c3-comment)"
 python3 - "$d" <<'PY'

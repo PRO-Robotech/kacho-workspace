@@ -350,9 +350,9 @@ if [ "$missing_count" -gt 0 ]; then
   echo "  ОБЯЗАТЕЛЬНЫЕ БЕЗ ЗЕЛЁНОГО ИСХОДА:"
   printf '%s\n' "$missing" | while read -r ctx; do
     [ -z "$ctx" ] && continue
-    if printf '%s\n' "$running" | grep -qxF "$ctx"; then
+    if grep -qxF -- "$ctx" <<<"$running"; then
       echo "    $ctx — идёт"
-    elif printf '%s\n' "$red" | grep -qF "$ctx"; then
+    elif grep -qF -- "$ctx" <<<"$red"; then
       echo "    $ctx — красный"
     else
       # Тот самый случай из kacho#614: контекста на ревизии НЕТ ВОВСЕ.

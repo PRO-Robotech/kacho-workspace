@@ -13,27 +13,19 @@
 
 ПОЧЕМУ ПОЛОС ДВЕ, А НЕ ОДНА. Прямое включение всего контура в хук отправки
 заплатило бы КАЖДОЙ отправкой воркспейса за прогон, которого она не касается.
-Замер на `61fddcc` (одна машина, последовательно, свободная очередь):
-
-    полоса `hook`  · 58 с суммарно
-      tests/run_matrix.py final          31.8 с   196 кейсов
-      selftest/prove.py                  19.8 с   177 утверждений
-      selftest/prove_census_policy.py     3.0 с    38 утверждений
-      tests/selfcheck/prove.sh            2.8 с    34 утверждения
-      selftest/laneparity.py              0.1 с     6 полос
-
-    полоса `ci`    · 17.3 мин суммарно
-      selftest/inject.py                865.7 с   46 инъекций с контролем
-      selftest/prove_run_progress.py     73.6 с    8 утверждений
-      tests/selfcheck/prove_matrix_listing.sh 58.0 с 11 утверждений
-      tests/selfcheck/inject.sh          34.2 с   10 инъекций
+Граница выбрана замером на `61fddcc` (одна машина, последовательно, свободная
+очередь): полоса `hook` стоила порядка минуты, полоса `ci` — порядка четверти
+часа, и основную её цену давал `selftest/inject.py`. Поимённые секунды и счёты
+утверждений прежде стояли здесь таблицей и устаревали молча с каждой новой
+пробой (ws#760); состав полос сегодня печатает
+`python3 scripts/change-graph-gate/lanes.py --list`, а цену — сам прогон полосы.
 
 ГРАНИЦА СОВПАЛА С ПРЕДМЕТОМ, И ЭТО НЕ СОВПАДЕНИЕ. Дешёвое отвечает на вопрос
 «работает ли контур», дорогое — на вопрос «СПОСОБЕН ли контур упасть». Второе
 дороже первого ровно потому, что доказательство падучести есть повторный прогон
-испытуемого по разу на каждую инъекцию: 42 прогона `prove.py` по 20 с и дают те
-самые четырнадцать минут. Полоса `ci` уходит на MR в ствол — туда, где работа
-садится, и где её красное видно в перечне проверок PR.
+испытуемого по разу на каждую инъекцию: полный прогон `prove.py` на каждую
+инъекцию и даёт ту самую четверть часа. Полоса `ci` уходит на MR в ствол — туда,
+где работа садится, и где её красное видно в перечне проверок PR.
 
 ПОЛОСА `none` — НЕ ДЫРА, А РЕШЕНИЕ С ПРИЧИНОЙ. Точка входа, не являющаяся
 пробой, обязана иметь строку с написанной причиной. Иначе перечень «что мы не
@@ -52,7 +44,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Корень воркспейса. Переопределяется `CG_GATE_ROOT` — этим пользуется ТОЛЬКО
 # песочница инъекций (`inject.sh`), чтобы доказать обе стороны каждой оси, не
 # трогая рабочую копию.
-ROOT = os.path.abspath(os.environ.get("CG_GATE_ROOT", os.path.join(HERE, "..", "..")))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+from gate_root import gate_root  # noqa: E402  порядок и отказ рабочему каталогу — ws#757
+ROOT = gate_root("CG_GATE_ROOT", __file__)
 
 # Каталог оснастки контура относительно корня.
 GATE_RELDIR = os.path.join("scripts", "change-graph-gate")
@@ -323,44 +317,25 @@ def audit_roster():
 # быть НАДМНОЖЕСТВОМ хука, иначе отправка с `--no-verify` (законный и объявленный
 # обход) прошла бы мимо дешёвой полосы, а вслед за ней мимо неё прошло бы и
 # слияние — дешёвую полосу не гонял бы никто.
+#
+# Третье поле — чем ещё артефакт законно вызывается: выводом перечня наборов
+# (`scripts/lib/run-suites.sh`, ws#753) — прогон набора всегда, доказательство —
+# при `--proofs`. Дорогая полоса в перечень наборов не входит и зовётся поимённо.
+RUN_ALL = "scripts/change-graph-gate/run-all.sh"
+PROOF = "scripts/change-graph-gate/inject.sh"
 CI_MUST_CALL = (
-    ("scripts/change-graph-gate/run-all.sh",
-     "дешёвая полоса: конвейер обязан быть надмножеством хука"),
-    ("scripts/change-graph-gate/inject.sh",
-     "доказательство падучести самого набора"),
+    (RUN_ALL, "дешёвая полоса: конвейер обязан быть надмножеством хука", "run"),
+    (PROOF, "доказательство падучести самого набора", "proofs"),
     ("scripts/change-graph-gate/prove-all.sh",
-     "дорогая полоса: доказательства падучести контура"),
+     "дорогая полоса: доказательства падучести контура", None),
 )
 
-
-def strip_shell_comments(block):
-    """Исполняемая часть блока `run:`.
-
-    Читается ИСПОЛНЯЕМОЕ, а не текст: имя скрипта встречается и в объяснении
-    рядом с ним, и предикат по подстроке зеленел бы на собственном комментарии.
-    Строка целиком под `#` снимается; хвостовой комментарий снимается только
-    вне кавычек — грубее было бы резать по первой решётке, а она законно стоит
-    внутри строкового литерала.
-    """
-    out = []
-    for raw in block.split("\n"):
-        line = raw
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            continue
-        quote = None
-        cut = None
-        for i, ch in enumerate(line):
-            if quote:
-                if ch == quote:
-                    quote = None
-            elif ch in ("'", '"'):
-                quote = ch
-            elif ch == "#" and (i == 0 or line[i - 1].isspace()):
-                cut = i
-                break
-        out.append(line if cut is None else line[:cut])
-    return "\n".join(out)
+# Вывод перечня наборов — ОДИН дом вызова прогона и доказательства каждого набора
+# (задание `gate-suites`). Набор попадает в вывод, только если он есть в переписи
+# `scripts/lib/suites.py`; выпавший из неё набор выводом не исполняется, хотя
+# строка вызова цела, — поэтому перепись здесь спрашивается, а не подразумевается.
+DERIVED = "scripts/lib/run-suites.sh"
+SUITE = os.path.basename(GATE_RELDIR)
 
 
 def has_auto_trigger(doc):
@@ -409,6 +384,8 @@ def audit_ci_declaration():
         import yaml
     except ImportError:
         return void("разборщик YAML недоступен — объявление конвейера читать нечем")
+    import suites as census_of_suites
+    import ci_calls
 
     wf_dir = os.path.join(ROOT, ".github", "workflows")
     try:
@@ -418,6 +395,11 @@ def audit_ci_declaration():
         names = []
     if not names:
         return void("файлов конвейера в дереве нет — проверять нечего")
+    try:
+        in_census = SUITE in census_of_suites.suites(ROOT)
+    except census_of_suites.CensusUnreadable as exc:
+        return void("перепись наборов не снята (%s) — что исполняет вывод перечня, "
+                    "не выводится" % exc)
 
     findings = []
     files_read = 0
@@ -428,7 +410,9 @@ def audit_ci_declaration():
     # исправное дерево от испорченного — она стала бы вечной, а вечную находку
     # снимают вместе с проверкой. Ось остаётся живой ровно пока автозапуск есть.
     auto_anywhere = False
-    callers = {rel: [] for rel, _ in CI_MUST_CALL}
+    literal = {rel: [] for rel, _, _ in CI_MUST_CALL}
+    derived = []           # (процесс, задание, на стволе, с --proofs)
+    uncounted = []         # (скрипт, ci_calls.Call) — вызов есть, вердикт не доходит
 
     for name in names:
         path = os.path.join(wf_dir, name)
@@ -447,44 +431,79 @@ def audit_ci_declaration():
         jobs = doc.get("jobs") or {}
         if not isinstance(jobs, dict):
             continue
-        for job_id, job in jobs.items():
-            if not isinstance(job, dict):
-                continue
-            jobs_read += 1
-            for step in job.get("steps") or []:
-                if not isinstance(step, dict):
-                    continue
-                run = step.get("run")
-                if not isinstance(run, str):
-                    continue
-                executable = strip_shell_comments(run)
-                for rel, _ in CI_MUST_CALL:
-                    if rel in executable:
-                        callers[rel].append((name, str(job_id), on_main))
+        jobs_read += sum(1 for job in jobs.values() if isinstance(job, dict))
+        # Вызов узнаёт ОБЩИЙ распознаватель (`scripts/lib/ci_calls.py`, тот же, что
+        # у suites-gate/check-04): путь в положении команды, вердикт доходит до
+        # задания, задание и шаг безусловны. Незасчитанный вызов — находка с
+        # причиной: `echo "…"`, `|| true`, `continue-on-error`, `if:` прежде
+        # проходили подстрокой.
+        for rel, _, _ in CI_MUST_CALL:
+            for c in ci_calls.calls(doc, name, rel):
+                if c.counted:
+                    literal[rel].append((name, c.job, on_main))
+                else:
+                    uncounted.append((rel, c))
+        for c in ci_calls.calls(doc, name, DERIVED):
+            if c.counted:
+                derived.append((name, c.job, on_main, "--proofs" in c.args))
+            else:
+                uncounted.append((DERIVED, c))
 
-    for rel, why in CI_MUST_CALL:
-        rows = callers[rel]
+    for rel, c in uncounted:
+        findings.append("%s — вызов %s не засчитан: %s" % (c.where, rel, c.why))
+
+    def via_derived(how):
+        if how == "run":
+            return [(w, j, m) for w, j, m, _ in derived]
+        if how == "proofs":
+            return [(w, j, m) for w, j, m, p in derived if p]
+        return []
+
+    if derived and not in_census:
+        findings.append(
+            "конвейер зовёт вывод перечня (%s), но набора %s в переписи нет — "
+            "%s не в индексе либо игнорируется: вывод его не исполнит, хотя строка "
+            "вызова цела" % (", ".join("%s/%s" % (w, j) for w, j, _, _ in derived),
+                             SUITE, RUN_ALL))
+    if derived and not os.path.isfile(os.path.join(ROOT, DERIVED)):
+        findings.append("%s — конвейер называет вывод перечня, которого в дереве нет" % DERIVED)
+
+    homes = {}
+    for rel, why, how in CI_MUST_CALL:
+        by_name = literal[rel]
+        by_list = via_derived(how) if in_census else []
+        rows = by_name + by_list
+        homes[rel] = (len(by_name), len(by_list))
         if not rows:
             findings.append(
-                "ни одно задание конвейера не зовёт %s (%s) — объявлено, но не "
-                "исполняется никем; ровно то состояние, из-за которого заведена ws#504"
-                % (rel, why)
-            )
+                "ни одно задание конвейера не зовёт %s (%s) — ни поимённо%s; объявлено, но "
+                "не исполняется никем — ровно то состояние, из-за которого заведена ws#504"
+                % (rel, why, ", ни выводом перечня%s" % (" с --proofs" if how == "proofs" else "")
+                   if how else ""))
         elif auto_anywhere and not any(on_main for _, _, on_main in rows):
             findings.append(
                 "%s зовут только процессы, не срабатывающие на `main` (%s) — "
                 "задание, которое не начинается, не зеленеет и не краснеет"
                 % (rel, ", ".join("%s/%s" % (w, j) for w, j, _ in rows))
             )
+        if by_name and by_list:
+            findings.append(
+                "%s зовётся дважды — поимённо (%s) и выводом перечня (%s): второй "
+                "выписанный дом одного вызова, и расходятся они молча; дом один — вывод "
+                "перечня" % (rel, ", ".join("%s/%s" % (w, j) for w, j, _ in by_name),
+                             ", ".join("%s/%s" % (w, j) for w, j, _ in by_list)))
         if not os.path.isfile(os.path.join(ROOT, rel)):
             findings.append("%s — конвейер называет скрипт, которого в дереве нет" % rel)
 
-    census("объявление конвейера: прочитано процессов %d, заданий %d, "
-           "обязательных вызовов %d, из них объявлено на `main` %d, находок %d"
+    census("объявление конвейера: прочитано процессов %d, заданий %d, обязательных "
+           "вызовов %d (%s); вывод перечня: %s, набор %s в переписи — %s; вызовов не "
+           "засчитано %d; находок %d"
            % (files_read, jobs_read, len(CI_MUST_CALL),
-              sum(1 for rel, _ in CI_MUST_CALL
-                  if any(m for _, _, m in callers[rel])),
-              len(findings)))
+              "; ".join("%s поимённо %d, выводом %d" % (os.path.basename(r), a, b)
+                        for r, (a, b) in homes.items()),
+              ", ".join("%s/%s%s" % (w, j, " --proofs" if p else "")
+                        for w, j, _, p in derived) or "нет",
+              SUITE, "да" if in_census else "нет", len(uncounted), len(findings)))
     if jobs_read == 0:
         return void("ни одного задания не разобрано — предикат остался без предмета")
     for f in findings:
