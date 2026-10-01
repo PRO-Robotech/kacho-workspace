@@ -219,3 +219,11 @@ sec-dev-stand-in-production-mode · поднимать в боевой поса�
 sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401, не 200 (newman, testing-newman.md#qa-access) · deploy/scripts/assert-production-posture.sh; край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
 sec-gate-reads-process-and-db · сверять посадку, объявленную процессом при старте, и шифрование со стороны БД (pg_stat_ssl); ConfigMap доказательством не считать · deploy/scripts/assert-production-posture.sh · red: гейт читает манифест вместо процесса
 sec-iam-single-hydra-facade · только через iam (JWKS-proxy :9097, UserTokenService/SAKeyService.Issue, /iam/token); допустим лишь финальный OAuth2 client_assertion→JWT · TestProviderSurfaceIsBoundedByTheLedger · red: новое место или новая просьба к поставщику вне ведомости
+
+## Снято 2026-10-01 (ws-sync-main): сжатие корпуса под потолок check-06 на сведении `main` с `771`
+
+Сведённое дерево `main` × `771` дало 215 385 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе
+под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401, не 200 (newman) · deploy/scripts/assert-production-posture.sh; край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений

@@ -72,13 +72,13 @@ gate-judges-ast-node · предмет опознаётся узлом синт�
 
 sub-owner-test-transaction · утверждай ТРАНЗАКЦИЮ: откат мутации не оставляет события · integration-проба · red: утверждение «событие эмитировано»
 sub-tree-property-by-gate · держи гейтом дерева · subscriptionformsingularity · red: проба сервиса, зелёная при любом числе форм
-sub-e2e-observable · утверждай наблюдаемое: изменение другим клиентом видно в консоли без перезагрузки и опроса, строка без метки уходит из суженного списка — playwright; поток края — отказы до открытия (401, 403, 405, 429, 501), кадры, возобновление по `Last-Event-ID` без потерь и повторов — newman · ui-future/e2e/specs/subscription-*; newman — ЗАВЕСТИ new-rpc-newman-case · red: проба утверждает вызов, а не наблюдаемое; поток края без newman-кейса
+sub-e2e-observable · утверждай наблюдаемое: чужое изменение видно в консоли без перезагрузки — playwright; поток края — отказы до открытия, кадры, возобновление по `Last-Event-ID` без потерь и повторов — newman · e2e/specs/subscription-*; newman — ЗАВЕСТИ · red: проба утверждает вызов
 sub-read-body-not-code · читай ТЕЛО ответа, а не код · subscription-stream-reachable · red: край отвечает 200 HTML на неизвестный путь — код меряет не тот производитель
 sub-uncovered-named · называй числом и счётчиком · ЗАВЕСТИ · red: остаток, оставленный молча
 
 ## Заводишь новый сервис с подпиской — порядок
 
-sub-new-service-order · 1 миграция `<svc>_outbox`; 2 запись в writer-TX мутации; 3 `internal/subscriptionjournal/journal.go`; 4 сервер фундамента на внутреннем слушателе; 5 владелец краю; 6 `subjects.ts`; 7 ребро в `polyrepo.md`; 8 страница арендатора; 9 пробы: интеграционная на транзакцию, сквозная консоли на наблюдаемое, newman на поток края · internal/repohygiene/subscription*.go, journal*.go · red: пропущенный шаг
+sub-new-service-order · 1 `<svc>_outbox`; 2 запись в writer-TX; 3 `subscriptionjournal/journal.go`; 4 сервер фундамента на внутреннем слушателе; 5 владелец краю; 6 `subjects.ts`; 7 ребро в `polyrepo.md`; 8 страница арендатора; 9 пробы транзакции, консоли, края · repohygiene/subscription*.go · red: пропущенный шаг
 sub-internal-listener · на ВНУТРЕННЕМ слушателе, имя службы с префиксом Internal · ban #6: метод не попадает во внешний маршрутизатор by construction · red: поток на публичном слушателе
 
 ## Урок эпика

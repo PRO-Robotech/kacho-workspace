@@ -115,7 +115,7 @@ stub/skeleton и «happy-path пока», разрешая ровно одно �
   канона, а не с соседей (`.claude/rules/testing-verdict.md` §12).
 - Спека развёртывания и конвейера: `docs/specs/03-deployment-and-operations.md` — перемерь:
   это спека воркспейса, её отпечаток называет задание.
-- Ветка `issue-<N>`, worktree, база `origin/<ствол>`.
+- Ветка `<N>-<суффикс>`, worktree, база `origin/<ствол>`.
 
 ## Целевая структура (`SVC` = имя службы)
 

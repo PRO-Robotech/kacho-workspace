@@ -199,3 +199,21 @@ same-method-twice-is-not-evidence · считай свидетельством �
 parser-discards-known-form · сперва проверь, знает ли он её и ОТБРАСЫВАЕТ · ЗАВЕСТИ · red: пополнение словаря закрыло экземпляр, отбрасывание осталось
 fix-the-guard-measure-its-radius · чини охрану, не словарь, и мерь её радиус по дереву ДО правки · ЗАВЕСТИ · red: «сузил» неотличимо от «сузил слишком сильно»
 promise-removal-knows-all-forms · ищи по ВСЕМ формулировкам; в отчёте назови перечень форм и счёт по каждой · internal/repohygiene/deferredwork_test.go · red: «исправлено 4» без перечня форм
+
+## Снято 2026-10-01 (ws-sync-main): сжатие корпуса под потолок check-06 на сведении `main` с `771`
+
+Сведённое дерево `main` × `771` дало 215 385 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе
+под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину; коды — шапка скрипта); 75 и 76 — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «машина занята» без кода 75; код 76 прочитан красным
+session-memcap · потолок сессии (MemoryMax её scope, формула — шапка `scripts/session-memcap.sh`) и метку oomd ставит хук SessionStart и сверяет чтением cgroup; запуск с потолком — `scripts/session-memcap.sh --launch -- claude`; убийцу называет журнал oomd по имени unit, не код 137 · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — OOM снимает всю сессию; потолок или метка без сверки по cgroup; 137 от ядра засчитан oomd
+asm-verdict-runs-on-head · вердикт сборки и её задач — последний прогон КАЖДОГО процесса PR сборки на headSha головы; у задачи своего прогона нет (решение владельца 2026-09-24); `gh pr checks` ручного запуска не видит · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят поштучным или локальным прогоном; «no checks reported» прочитано как отсутствие прогона
+
+session-memcap · потолок сессии (MemoryMax её scope, формула — шапка `scripts/session-memcap.sh`) и метку oomd ставит хук SessionStart и сверяет чтением cgroup; запуск — `session-memcap.sh --launch -- claude`; убийцу называет журнал oomd, не код 137 · session-memcap-inject.sh · red: MemoryMax на scope со stop; потолок без сверки; 137 засчитан oomd
+asm-verdict-runs-on-head · вердикт сборки и её задач — последний прогон КАЖДОГО процесса PR сборки на headSha (владелец 2026-09-24); у задачи прогона нет; `gh pr checks` ручного запуска не видит · `gh run list --commit <headSha>` · red: вердикт задачи поштучным прогоном; «no checks reported» прочитано как отсутствие прогона
+
+busy-machine-step-zero · тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину, владелец 2026-09-24; коды — шапка); 75 и 76 — «не выполнилось»; место — `df -h /` · heavy-slot-inject.sh; heavy-guard/prove.sh · red: тяжёлое без слота; код 76 прочитан красным
+
+heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница стража — `BOUNDARY` в guard.py · .claude/hooks/heavy-guard/prove.sh: граница — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
+no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай прибором `asm-verdict-runs-on-head` · `gh run list` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»

@@ -61,7 +61,7 @@ fga-write-atomic-per-object · весь verb-набор объекта — од�
 role-rule-selectors-all · проекция в `role_rule_selectors` миграцией + boot-backfill `SyncAllSystemRoleSelectors` · ЗАВЕСТИ · red: binding невидим discovery, creator получает 403 на своём ресурсе
 edit-comaterializes-delete · `v_delete` co-материализуется с `v_update`, но НЕ на hierarchy-scope · ЗАВЕСТИ authz-edge-matrix · red: delete на account/project-scope
 containment-transitive · транзитивно: account-scoped binding матчит объект в project ∈ account; mirror несёт `parent_project_id` · резолв на read-boundary · red: binding не матчит вложенный объект
-authz-edge-matrix · матрицу verb×role×scope верифицируй newman через край (testing-newman.md#qa-access): edit@project full-CRUD, owner@account на project+child, cross-account DENY; запись набора глаголов в хранилище — Go integration · ЗАВЕСТИ · red: доступ края утверждён только Go-пробой
+authz-edge-matrix · матрицу verb×role×scope верифицируй newman через край (testing-newman.md#qa-access): edit@project full-CRUD, owner@account на project+child, cross-account DENY; запись глаголов в хранилище — Go integration · ЗАВЕСТИ · red: доступ края только Go-пробой
 group-member-ec · intent в `fga_outbox` в writer-TX членства → at-least-once drainer → reconciler; слово «co-commit» запрещено · Operation.done члена не ждёт видимость · red: sync dual-write в FGA из tx группы
 grant-by-email-pending · pending email-grant intent, ремап в `usr-<id>` reconciler-ом на первом OIDC-login · conformance: grant→login→доступ, revoke-before-login чистит intent · red: tuple на email либо серверный confirm-барьер
 grant-to-group · выдавай ГРУППЕ, людей и SA — в группу; перечисление субъектов законно только при единственном неизменном получателе · ЗАВЕСТИ · red: перечисление субъектов в привязке
@@ -73,7 +73,7 @@ drainer-commutativity-question · включай только ответив «�
 write-only-outbox-parallel · `ApplyConcurrency=N` безопасен · outboxorderinggate_test.go · red: ApplyConcurrency сужен «на всякий случай» без замера
 write-delete-noncommutative · считай НЕкоммутативной · outboxorderinggate_test.go · red: наивный `ApplyConcurrency>1` → tuple выживает → over-grant
 groupbykey-insufficient · не считай решением: claim `ORDER BY (attempt_count, id)` разводит предшественника и преемника по разным батчам · outboxorderinggate_test.go · red: внутрибатчевая re-sort вместо claim-предиката
-partition-head-claim · не клейми при доставляемом предшественнике в партиции: `NOT EXISTS` неотправленной строки той же `<part>` с меньшим id и `attempt_count < MaxAttempts`, плюс partial-index `((<part>), id) WHERE sent_at IS NULL` · `outboxorderinggate_test.go`, `outboxpendingindexperservice_test.go` · red: claim без предиката головы партиции
+partition-head-claim · не клейми при доставляемом предшественнике в партиции: `NOT EXISTS` неотправленной строки той же `<part>` с меньшим id и `attempt_count < MaxAttempts`, плюс partial-index `((<part>), id) WHERE sent_at IS NULL` · `outboxorderinggate_test.go` · red: claim без предиката головы партиции
 poison-not-blocking · исключай из блокирующего набора (`p.attempt_count < MaxAttempts`) · outboxorderinggate_test.go · red: вечный wedge партиции на poison
 wedge-observability · per-partition WARN + table-wide oldest-pending gauge · outboxobservedgate_test.go · red: застрявший revoke без сигнала
 crossbatch-ordering-test · CROSS-BATCH: bumped-WRITE (attempt=5) + fresh-DELETE (attempt=0) + ≥ApplyConcurrency filler'ов · RED без фикса, GREEN с фиксом · red: внутрибатчевый тест
@@ -88,7 +88,7 @@ placement-anchor-subnet · каноничный — Subnet; NIC/Address зону
 coherence-enforce-db · когерентность — на DB-уровне внутри attach/link-CAS: `… AND (peer.placement_type='REGIONAL' OR peer.zone_id = $my_zone) …` · ЗАВЕСТИ · red: software check-then-act
 coherence-enforce-peer · peer-validate на пути запроса, владелец несёт placement в self-describing payload и валидирует СВОЮ строку · fail-closed Unavailable · red: владелец зовёт потребителя (цикл)
 zone-existence-peer · peer-вызов `geo.v1.ZoneService.Get` / `RegionService.Get`, fail-closed · вызов в Create/Update · red: локальная проверка или её пропуск
-no-region-from-zone-name · регион — ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием · red: срез суффикса, префиксное сравнение имён; предикат, истинный на пустой строке
+no-region-from-zone-name · регион — ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля (`Subnet.RegionID`); деривация из имени запрещена · вниманием · red: срез суффикса, префиксное сравнение имён; предикат, истинный на пустой строке
 instance-nic-same-zone · подсеть каждого интерфейса — в той же зоне (кроме REGIONAL) на пути запроса Create/Update · negative-кейс · red: проверка отложена в сагу запуска
 coherence-error-texts · часть контракта: зона — `"<A> is in zone %s, <B> zone is %s"` → FailedPrecondition/InvalidArgument · регион — `"... must be in the same region"` · newman-кейс на точный текст · red: свой текст отказа
 coherence-instances · Instance↔Volume · Instance↔NIC(subnet) · NLB(ZONAL)↔subnet/address (включая v4/v6 dualstack в одной зоне) · NLB(REGIONAL)↔subnet/address · Address↔subnet · новый placement-scoped ресурс дописывает свою · red: инстанс без проверки

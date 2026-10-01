@@ -205,3 +205,15 @@ seed-guard-occupancy · ограждай вставку проверкой за�
 seed-verbatim-identity · бери идентичность строки дословно у соседнего посева · `standanycastpoolidentity_test.go`, `seedaddressplanparity_test.go` · red: два автора у одного слота
 seed-parity-gate · держи гейтом, не комментарием · seedaddressplanparity_test.go · red: расхождение блоков, не покрывающих друг друга
 seed-asserts-capability · утверждай СПОСОБНОСТЬ, а не существование строки · .github/workflows/console-e2e.yml:693 · red: пул существует с пустым списком свободных адресов
+
+## Снято 2026-10-01 (ws-sync-main): сжатие корпуса под потолок check-06 на сведении `main` с `771`
+
+Сведённое дерево `main` × `771` дало 215 385 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе
+под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+partition-head-claim · не клейми при доставляемом предшественнике в партиции: `NOT EXISTS` неотправленной строки той же `<part>` с меньшим id и `attempt_count < MaxAttempts`, плюс partial-index `((<part>), id) WHERE sent_at IS NULL` · `outboxorderinggate_test.go`, `outboxpendingindexperservice_test.go` · red: claim без предиката головы партиции
+
+authz-edge-matrix · матрицу verb×role×scope верифицируй newman через край (testing-newman.md#qa-access): edit@project full-CRUD, owner@account на project+child, cross-account DENY; запись набора глаголов в хранилище — Go integration · ЗАВЕСТИ · red: доступ края утверждён только Go-пробой
+
+no-region-from-zone-name · регион — ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием · red: срез суффикса, префиксное сравнение имён; предикат, истинный на пустой строке

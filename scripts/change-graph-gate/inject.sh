@@ -280,18 +280,27 @@ assert 2 "$(run "$d" "$C2")" "точек входа в дереве ноль -> 
 echo
 echo "=== check-03: конвейер зовёт все артефакты набора, а при автозапуске — на стволе ==="
 
-# ФИКСТУРА ЗАВОДИТ АВТОЗАПУСК САМА. С решения владельца 2026-09-20 его в дереве нет
-# вовсе, и близнец на нетронутой копии доказывал бы «ось спит», а не «задание
-# объявлено и срабатывает со ствола».
-d="$(sandbox c3-twin)"
-python3 - "$d" <<'PYWF'
+# ФИКСТУРА ЗАДАЁТ АВТОЗАПУСК САМА — ЦЕЛИКОМ ЗАМЕНЯЯ БЛОК `on:`, а не вставляя строку
+# перед известным образцом. Объявление менялось решениями владельца (2026-09-20 снято,
+# 2026-10-01 возвращено), и вставка, чей образец перестал совпадать, была бы пустой
+# операцией: проба судила бы дерево как есть. Блок не найден — провал фикстуры.
+# set_on <песочница> <новый блок on>
+set_on() {
+    WF_ON="$2" python3 - "$1" <<'PYWF'
+import os
+import re
 import sys
 p = sys.argv[1] + "/.github/workflows/ci.yaml"
 text = open(p, encoding="utf-8").read()
-text = text.replace("on:\n  workflow_dispatch:",
-                    "on:\n  push:\n    branches: [main]\n  workflow_dispatch:", 1)
+text, n = re.subn(r"^on:\n(?:[ \t]+\S.*\n)+", os.environ["WF_ON"], text, count=1, flags=re.M)
+if n != 1:
+    sys.exit("фикстура НЕ ВНЕСЕНА: блок on: в ci.yaml песочницы не найден")
 open(p, "w", encoding="utf-8").write(text)
 PYWF
+}
+
+d="$(sandbox c3-twin)"
+set_on "$d" $'on:\n  push:\n    branches: [main]\n  workflow_dispatch:\n' || exit 2
 assert 0 "$(run "$d" "$C3")" "законный близнец: задание объявлено и срабатывает на main -> молчит"
 
 d="$(sandbox c3-gone)"
@@ -459,18 +468,11 @@ open(p, "w", encoding="utf-8").write(text)
 PY
 assert 1 "$(run "$d" "$C3")" "имя скрипта осталось только в комментарии блока run -> краснеет"
 
-# Предмет оси — автозапуск, который ЕСТЬ и идёт МИМО ствола. Прежде фикстура правила
-# строку `branches: [main]`; строки больше нет, правка стала пустой операцией — и
-# проба зеленела, ничего не доказав.
+# Предмет оси — автозапуск, который ЕСТЬ и идёт МИМО ствола. Блок `on:` заменяется
+# целиком: оставь фикстура живые триггеры на `main` рядом с посторонним, задание
+# срабатывало бы со ствола, и проба судила бы не свою ось.
 d="$(sandbox c3-offmain)"
-python3 - "$d" <<'PYWF'
-import sys
-p = sys.argv[1] + "/.github/workflows/ci.yaml"
-text = open(p, encoding="utf-8").read()
-text = text.replace("on:\n  workflow_dispatch:",
-                    "on:\n  push:\n    branches: [never-fires]\n  workflow_dispatch:", 1)
-open(p, "w", encoding="utf-8").write(text)
-PYWF
+set_on "$d" $'on:\n  push:\n    branches: [never-fires]\n  workflow_dispatch:\n' || exit 2
 assert 1 "$(run "$d" "$C3")" "автозапуск есть, но мимо ствола -> задание не начнётся, краснеет"
 
 d="$(sandbox c3-noscript)"
