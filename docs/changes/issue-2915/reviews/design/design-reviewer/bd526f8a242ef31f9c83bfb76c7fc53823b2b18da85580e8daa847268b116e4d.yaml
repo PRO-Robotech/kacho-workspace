@@ -1,0 +1,206 @@
+# Ревью замысла NTF-1 — роль design-reviewer (исполнитель — агент system-design-reviewer в режиме
+# «замысел», docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к ОТПЕЧАТКУ замысла (редакция 10). Прежняя запись роли —
+# dba7c388….yaml (редакция 8, CHANGES_REQUESTED по К1). По Д26 повтор судит строки отображения
+# SDR-К1…SDR-М1, CX1-71, CX1-72 и дельту 6464ba4aa..d0573311b по design.md и tasks.md. Запись не
+# правится: сменился отпечаток — пишется новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_matches_task: true   # перемерено на ветке issue-880 @2bcea10e0; design.md последним менял d0573311b
+  revision: 10
+  tasks_path: docs/changes/issue-2915/tasks.md
+  tasks_sha256: 74f69f6c1cacab15eccc5473390d582ce86b5901f514e0d8f539fa3cda72a02a
+previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/dba7c3883a98dc59e9c17b633fdaa95a2bebae1b15c73bd5e05a5f887efc2074.yaml
+class_exposure:
+  revalidation: docs/changes/issue-2915/reviews/class-exposure/revalidation/bd526f8a242ef31f9c83bfb76c7fc53823b2b18da85580e8daa847268b116e4d.yaml
+  revalidation_on_current_fingerprint: true   # outcome к-коду, неотображённых 0 (коммит 2bcea10e0)
+revisions:
+  workspace: 2bcea10e0fd9c4afb1cc8be4006fffbb060378e2
+  delta: 6464ba4aa..d0573311b   # 6464ba4aa — редакция 8 (отпечаток dba7c388, перемерено), d0573311b — редакция 10
+  kacho: 1d42a6728bf    # ревизия замеров §0 замысла; дерево продукта не перемерялось
+  corelib: 34bc8104a    # перечитан subscription/ на этой ревизии (см. М3)
+snapshot_at: 2026-09-30
+
+scope_note: >-
+  По Д26 заход судит только строки отображения и дельту. Дельта design.md и tasks.md
+  6464ba4aa..d0573311b прочитана целиком: шапка редакций 9 и 10, §0 (строка ревью dba7c388),
+  §1 М34, З21 (срок Claim, установление Subscribe, остаток отмены после коммита аренды, контекст
+  Ack), З24 (ключи и порядок освобождения, контекст освобождения, серверный предел, пять операторов
+  записи ограды), З27 (два счётчика), §3 И33, И35, §6, §8 (константы и два довода чисел), §9,
+  §11 строки SDR-К1, SDR-Н1, SDR-Н2, SDR-Н3, SDR-М1, CX1-71, CX1-72, §11а итог, §13 Е6; tasks.md
+  шапка, N2, N3, N7. Сверх дельты перечитаны З24 строки 1225–1280 и 1395–1410 (уборка ничьих
+  строк сетки, global_daily) — чтобы проверить порядок замков освобождения против остальных
+  писателей строк сетки.
+
+inspected: >-
+  git diff 6464ba4aa d0573311b -- docs/changes/issue-2915/design.md docs/changes/issue-2915/tasks.md;
+  design.md строки 1225–1280, 1395–1410, 1740–1770; прежняя запись dba7c388 (К1, Н1–Н3, М1);
+  пересверка bd526f8a (outcome к-коду); corelib @34bc8104a: git grep -n -i
+  'heartbeat|keepalive|SubscriptionOpened' -- subscription/ (4 совпадения, ни одного heartbeat или
+  keepalive).
+
+prior_conditions:
+  - id: К1
+    status: исполнено
+    evidence: >-
+      З24 (строки 1260–1272): первые операторы транзакций резерва, освобождения и записи ограды —
+      SET LOCAL statement_timeout и SET LOCAL idle_in_transaction_session_timeout; «первый оператор»
+      И33, И35 и З24 переопределён как первый, берущий замок; запись ограды — пять операторов.
+      §8: TxStatementTimeout = 10 с, TxIdleTimeout = 2 с с доводом чисел. Довод держится:
+      lock_timeout записи ограды 5 с < statement_timeout 10 с, поэтому исход по пределу записи
+      остаётся 55P03; наибольшее ожидание одного оператора резерва — очередь за LOCK TABLE, не
+      больше FenceLockTimeout = 5 с < 10 с; между операторами транзакций нет ни сети, кроме базы,
+      ни ввода-вывода — проверено по З24 (резерв коммитится до MAIL FROM, освобождение ограду не
+      читает). Ожидание соседа при ушедшем держателе ≈ TxIdleTimeout (2 с) < его statement_timeout,
+      поэтому сосед сам по пределу не падает. Исходы по пределу — только существующие. И35
+      дополнен формулировкой инварианта. Держатель TestReserveHolderVanishedDoesNotStallFleet с
+      близнецом-инъекцией (оба SET LOCAL сняты) и положительным близнецом — в §11 SDR-К1 и N7.
+  - id: Н1
+    status: исполнено
+    evidence: >-
+      З21 (строки 1155–1161) и З24 (строки 1256–1259): Ack под WithDeadline(WithoutCancel(строка),
+      t_send + lease_remaining) по монотонным часам с повтором UNAVAILABLE и DEADLINE_EXCEEDED
+      (идемпотентен по З9); освобождение под WithTimeout(WithoutCancel(строка), TxStatementTimeout),
+      неудача — остаток до конца окна. Пробы TestAckAfterRowDeadlineStillLands (N3) и
+      TestReleaseAfterRowDeadlineReturnsReserve (N7) с инъекциями. Уточнение — М2.
+  - id: Н2
+    status: исполнено
+    evidence: >-
+      З21 (строки 1133–1154): Claim под WithTimeout(цикл, sourceCallTimeout = 10 с) — константа, не
+      ручка claimInterval; у потока Subscribe своего срока нет, срок только до SubscriptionOpened
+      (CX1-71); остаток «отмена после коммита аренды» назван, ограничен LeaseTTL, дубля не даёт,
+      виден notify_claim_call_timeouts_total (CX1-72). Довод числа §8: 300 − 10 = 290 с ≥ 155 с
+      суммы сроков строки. Один цикл на источник — зависший источник держит только свой цикл.
+      Пробы N2 с инъекциями. Уточнение — М3.
+  - id: Н3
+    status: исполнено
+    evidence: >-
+      З24 (строки 1249–1256): ключи окна и day хранятся с резерва, освобождение их не вычисляет;
+      порядок замков — строки сетки по первичному ключу, затем global_daily, одинаковый у резерва и
+      освобождения. Резерв дополнительно берёт ограду FOR SHARE первым; освобождение ограду не
+      читает, а LOCK TABLE записи ограды конфликтует только с ROW SHARE, поэтому цикла через ограду
+      нет. Пробы TestReleaseConcurrentWithReserveNoDeadlock и TestReleaseAcrossMidnightUsesReserveKeys
+      с инъекциями — N7. Уточнение — М1.
+  - id: М1
+    status: исполнено
+    evidence: §9 ссылается на записанные рёбра polyrepo.md по именам; задаче #881 оставлена docs/specs/01.
+
+delta_no_new_mechanism: >-
+  Дельта вносит три константы (TxStatementTimeout, TxIdleTimeout, sourceCallTimeout), два счётчика
+  и срок установления потока. Всё это — параметры и наблюдаемость уже существующих вызовов и
+  транзакций, которых требовали запись dba7c388 и пересверка e7a6ae15. Новых механизмов, решений,
+  сторожей, асинхронных путей и внешних вызовов нет — Д26 соблюдён.
+
+axes:
+  atomicity_no_dual_write: >-
+    Закрыта, дельтой не затронута. Резерв и освобождение — по одной транзакции базы notify,
+    SET LOCAL живёт в той же транзакции и уходит с её откатом.
+  idempotency: >-
+    Закрыта. Повтор Ack на UNAVAILABLE и DEADLINE_EXCEEDED идемпотентен по З9 (outcome_token и
+    пара). Освобождение ровно один раз по признаку в записи обработки строки. Отмена Claim после
+    коммита аренды дубля не даёт: письма по строкам не было, их выдаст следующий Claim после
+    LeaseTTL.
+  cas_and_locking: >-
+    Закрыта. Порядок замков резерва и освобождения один: ограда (только резерв), строки сетки по
+    первичному ключу, global_daily. Серверный предел держит замки горячей строки и ограды не дольше
+    бюджета при любом состоянии процесса-держателя. Пробы с конкурирующими горутинами названы (N7).
+  delivery_model: >-
+    Закрыта. Watch RPC нет. Поток Subscribe — только сигнал перечитать; срок на жизни потока
+    не ставится, чтобы доставка по событию не выродилась в опрос (CX1-71). Остаток полуоткрытого
+    потока — М3.
+  worker_and_replica_coordination: >-
+    Закрыта. Один цикл на источник, вызов Claim последователен, такты не копятся. Ack и
+    освобождение отвязаны от отмены контекста строки, но ограничены сроком — WithoutCancel без
+    срока нигде не введён.
+  deadlines: >-
+    Закрыта. Свой срок теперь есть у каждого внешнего вызова и у каждой транзакции горячей строки:
+    Claim и установление Subscribe — sourceCallTimeout; Ack — конец аренды; освобождение —
+    TxStatementTimeout на клиенте и серверный предел в базе; резерв и запись ограды — серверный
+    предел плюс lock_timeout записи. Замечание о сроке одной попытки Ack — М2.
+  edges_acyclicity: >-
+    Закрыта. Новых рёбер нет. §9 ссылается на poly-edge-notify-sources, poly-edge-notify-kaname,
+    poly-edge-notify-acyclic.
+  public_vs_internal_edge: Закрыта, дельтой не затронута.
+  clean_architecture: >-
+    Закрыта, дельтой не затронута. Константы живут в limits и notify, проводка — через корень.
+  tasks_correspondence: >-
+    Соответствует. Каждая строка отображения (SDR-К1, SDR-Н1–Н3, CX1-71, CX1-72) названа условием
+    к коду и пробой-держателем с близнецом в полосах N2, N3, N7 tasks.md. Новой полосы нет,
+    пересечения путей нет.
+
+verdict: APPROVED     # ✅ принято
+blocks: false
+return_to: —
+distributed_surface: true
+schema_review_overlap: true   # SET LOCAL statement_timeout и idle_in_transaction_session_timeout, их величины, порядок замков освобождения, ограда
+
+critical: []
+
+important: []
+
+minor:
+  - id: М1
+    lane: N7
+    coordinate: design.md З24 (строки 1253–1255); tasks.md N7
+    finding: >-
+      «Строки сетки по первичному ключу» — это порядок, который резерв и освобождение получают
+      независимо. Если резерв запирает оба окна notice одним оператором INSERT … ON CONFLICT по
+      нескольким строкам, а освобождение — поштучными UPDATE, то порядок строк у первого задаёт
+      план, а не сортировка. Проба с инъекцией «обратный порядок» ловит только явное обращение.
+    requirement: >-
+      Условие к коду N7: резерв и освобождение получают список ключей строк сетки одной функцией
+      limits (единственный дом сортировки) и запирают строки поштучно в этом порядке. Не блокирует:
+      нарушение даёт 40P01 — ошибку базы с существующим исходом, инвариант счётчиков не портится.
+  - id: М2
+    lane: N3
+    coordinate: design.md З21 (строки 1155–1161); §11 SDR-Н1; tasks.md N3
+    finding: >-
+      Повтор Ack на DEADLINE_EXCEEDED вызова имеет смысл, только если у одной попытки есть свой
+      срок короче общего t_send + lease_remaining. Без него одна зависшая попытка съедает весь
+      остаток аренды, повтора не будет, строка уйдёт следующему Claim.
+    requirement: >-
+      Условие к коду N3: срок одной попытки Ack — sourceCallTimeout или меньший, ограниченный общим
+      сроком; вариант пробы TestAckAfterRowDeadlineStillLands — первая попытка зависает дольше срока
+      попытки → повтор записан до конца аренды, писем 1. Не блокирует: исход — дубль в окне DATA → Ack,
+      ратифицированный Р14, ограниченный арендой.
+  - id: М3
+    lane: N2
+    coordinate: design.md З21 (строки 1140–1147); corelib @34bc8104a subscription/server.go:363
+    finding: >-
+      После SubscriptionOpened у потока нет ни срока, ни сердцебиения: в corelib subscription нет
+      heartbeat, а клиент notify keepalive не называет. Если поток становится полуоткрытым (источник
+      отрезан без RST), доставка по событию молча переходит на такт claimInterval, и
+      notify_source_stream_opens_total этого не показывает. Живость сохраняется за счёт Claim по
+      такту под sourceCallTimeout, поэтому это не останов.
+    requirement: >-
+      В форме Д26 без нового механизма: назвать в З21 остаток «полуоткрытый поток после
+      SubscriptionOpened — доставка по такту claimInterval до ошибки транспорта». Выбор keepalive
+      клиента, если он понадобится, — отдельный предмет, не этот заход. Не блокирует.
+
+orders:
+  - кому: db-architect-reviewer
+    что: >-
+      Пересечение со схемой (Е6) на этот же отпечаток bd526f8a: SET LOCAL statement_timeout и
+      idle_in_transaction_session_timeout и их величины 10 с и 2 с; порядок замков освобождения
+      (SDR-Н3, М1); ограда recipient_key_fence, пять операторов записи; CAS сетки и global_daily.
+      Записи этой роли на отпечаток нет.
+  - кому: автор замысла issue-2915
+    что: М1–М3 — строками условий к коду N2, N3, N7 в следующем заходе либо в handoff writing-plans; ревью диффа держит их без правки замысла.
+
+next: >-
+  db-architect-reviewer на bd526f8a (Е6); затем proto-api-reviewer (§5) по Е6. После этого у Е6
+  не остаётся открытых ролей, кроме тех, что назовёт сама запись db-architect-reviewer.

@@ -1,0 +1,322 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 5 замысла.
+#
+# Привязана к отпечатку ЗАМЫСЛА. Первичный разбор (initial/47bd8b70….yaml) и пересверки на
+# редакции 1 (7613071f), 2 (deeea79a), 3 (defdbe67) и 4 (7294a684) свидетельствуют о своих
+# редакциях и здесь не переписываются. Проверено: (1) каждый пункт CX6-01…30 отображён и
+# отображение выдерживает условие пункта; (2) новые внешние вызовы, (3) новые асинхронные пути,
+# (4) новые sentinel-значения, внесённые редакцией 5 сверх редакции 4. Редакция 5 заводит хук
+# синхронной охраны мутаций и снимок пары «настройки + лента», собираемый из перечитываний
+# клиента запросов. Оба механизма разобраны против исходника @tanstack/query-core 5.101.2 и
+# против общего компонента `ResourceListPage`, на котором стоит центр; отсюда новые пункты
+# CX6-31…34.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2925/design.md
+  sha256: dd683a304e4358d09524aaeaefc4a98b0331c012931478385ecbf0a87152e611
+  fingerprint_predicate: sha256sum docs/changes/issue-2925/design.md
+acceptance:
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+initial_record: docs/changes/issue-2925/reviews/class-exposure/initial/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+previous_revalidation: docs/changes/issue-2925/reviews/class-exposure/revalidation/7294a684eba8da35c8033b9cbb6a76ec568161624320b647354cd3b634836da9.yaml
+design_review_on_previous: docs/changes/issue-2925/reviews/design/design-reviewer/defdbe6725e089a090d420afe06df6d1f0676b8e542c03bae119631ea5f48dde.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 3590477cc671af0cc2244e1a477513b61efb64b1   # ветка issue-880; design.md на ней = dd683a30 (коммит 8085f06a6)
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # та же ревизия, что в замысле §0
+  tanstack_query: "5.101.2"   # версия по lock-файлам модулей @1d42a6728bf; исходник прочитан из установленной копии той же версии
+snapshot_at: 2026-09-30T11:14:04Z
+inspected: >-
+  дифф редакций 4→5 замысла (aa40211f4..8085f06a6: design.md 236 строк, tasks.md 26); З9, З10, З13,
+  З18, З20, §8, §9, §11, §11а целиком; tasks.md строки G1, S2, S5, Е6; пересверка 7294a684
+  целиком. Дерево kacho @1d42a6728bf: ResourceListPage.tsx (Props, вызов useResourceList, кнопка
+  «Показать ещё»), use-resource-list.ts (useInfiniteQuery, refetchInterval, staleTime),
+  use-resource-stream.ts (условие streamed), configmap-nginx.yaml (M24), счёт useMutation,
+  isPending, isMutating, useRef по ui-future (M26). @tanstack/query-core 5.101.2: queryClient.ts
+  refetchQueries, query.ts fetch (cancelRefetch, silent-отмена), queryObserver.ts, infiniteQueryObserver.ts
+  fetchNextPage, mutation.ts execute; react-query useMutation.ts. Приёмка NTF-3: Р10 и NTF3-161 на
+  cbb30df7f, 88fa559c7, HEAD; записи ревью приёмки NTF-3 — поле verdict во всех 19. Приёмка NTF-6:
+  §1.4 (общие компоненты), Р4. Kaname не перемерялся; записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт первичного разбора и прежних пересверок отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      строк §11 — 31, уникальных пунктов 30 из 30 (CX6-06 двумя строками); CX6-01…28 выдерживают
+      (CX6-28 — с условиями к коду CX6-33, CX6-34), CX6-30 выдерживает с условием к тексту Е6.
+      CX6-29 не выдерживает: механизм снимка пары, которым он отображён, на центре,
+      построенном на ResourceListPage, не исполним (CX6-31), а refetchQueries + Promise.all
+      складывает отказ, пропуск и подмену перечитывания в «успех пары» (CX6-32). Новые пункты
+      CX6-31…34 строк §11 не имеют.
+  - condition: "новый внешний вызов заведён пунктом и отображён (CG_CLASS_NEW_EXTERNAL_CALL)"
+    result: green
+    detail: >-
+      новых сетевых адресов и новой семантики существующих вызовов редакция 5 не вводит:
+      перечитывания пары повторяют существующие GET /notify/v1/preferences и GET /notify/v1/inbox;
+      хук охраны оборачивает существующие мутации.
+  - condition: "новый асинхронный путь заведён пунктом и отображён (CG_CLASS_NEW_ASYNC_PATH)"
+    result: red
+    detail: >-
+      три новых: сбор снимка пары после Promise.all двух refetchQueries (CX6-31, CX6-32); снятие
+      флага охраны в finally по исходу mutateAsync, отделённое от чтения, которое делает следствие
+      видимым (CX6-33); цепочка обещания mutateAsync, которую хук «не глотает» (CX6-34). Строк §11
+      нет.
+  - condition: "новое sentinel-значение заведено пунктом и отображено (CG_CLASS_NEW_SENTINEL)"
+    result: green
+    detail: >-
+      на проводе и в состоянии новых значений нет: снимок {seenUpTo, pages} — состояние экрана с
+      названным исходом «загрузка» до первой пары; флаг useRef — внутреннее состояние охраны,
+      разобран в CX6-33.
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -niE 'TODO|TBD|FIXME|XXX|позже|потом|отлож' → «не позже» (срок) и «потому»; §13 «Нет»"
+
+mapping_check:
+  - {id: CX6-01, design: З11, verdict: holds}
+  - {id: CX6-02, design: "З6, З7, З2, И7", verdict: holds}
+  - {id: CX6-03, design: З10, verdict: holds}
+  - {id: CX6-04, design: "З2, З3", verdict: holds}
+  - {id: CX6-05, design: "З9, И14, З20", verdict: holds}
+  - {id: CX6-06, design: "З3 (а); З6, З13, И4 (б)", verdict: holds}
+  - {id: CX6-07, design: З12, verdict: holds}
+  - {id: CX6-08, design: "З6, З10, З13", verdict: holds}
+  - {id: CX6-09, design: "З8, Е5", verdict: holds}
+  - {id: CX6-10, design: "§10, З3, З14, И16", verdict: holds}
+  - {id: CX6-11, design: З13, verdict: holds}
+  - {id: CX6-12, design: З13, verdict: holds}
+  - {id: CX6-13, design: З15, verdict: holds}
+  - {id: CX6-14, design: З16, verdict: holds}
+  - {id: CX6-15, design: "З3, И9", verdict: holds}
+  - {id: CX6-16, design: "З2, И3, З20", verdict: holds}
+  - {id: CX6-17, design: "З7, И5", verdict: holds}
+  - {id: CX6-18, design: З12, verdict: holds}
+  - {id: CX6-19, design: З10, verdict: holds}
+  - {id: CX6-20, design: "З10, И15", verdict: holds}
+  - {id: CX6-21, design: "З2 п.1, п.6, И12", verdict: holds}
+  - {id: CX6-22, design: "З6, З13, И13", verdict: holds}
+  - {id: CX6-23, design: "З9, И14", verdict: holds}
+  - {id: CX6-24, design: "З13, §9", verdict: holds}
+  - {id: CX6-25, design: "З14, И17, З20", verdict: holds}
+  - id: CX6-26
+    design: "З2 п.3–4, З20, И18, §8"
+    verdict: holds
+    note: "условия к коду пересверки 7294a684 внесены в З2 п.3 «Условия к коду» дословно по существу"
+  - id: CX6-27
+    design: "З9, З20, И14, И18, §8, M24"
+    verdict: holds
+    note: >-
+      ложный довод снят (З9 «Что даёт POLL_DEADLINE_MS…»), предел хвоста назван; M24 перемерен:
+      location префиксов края — строка 132, proxy_read_timeout 30s — 140; в шаблоне
+      proxy_read_timeout 15 строк, из них 30s — 13. Поле «исход применён» — у объекта цикла.
+  - id: CX6-28
+    design: "З10, З13, З20, И19, M26"
+    verdict: holds-with-condition
+    note: >-
+      синхронная охрана названа (useGuardedMutation, useRef до mutateAsync), isPending — вид
+      кнопки, пробы в форме «без сдвига часов» с близнецом. M26 перемерен: useMutation — 23 файла,
+      охрана отрисованным isPending — 11; синхронной охраны в дереве нет (isMutating/useIsMutating
+      вне тестов — 0; useRef в файлах с useMutation — 1, lockedPathsRef формы, к охране не
+      относится). Условия — новые пункты CX6-33 (момент снятия флага) и CX6-34 (обещание хука).
+  - id: CX6-29
+    design: "З13 «Пометки — только из согласованной пары», И20, П3"
+    verdict: does-not-hold
+    note: >-
+      условие пункта верно перенесено в текст, но механизм, которым оно исполняется, не держит:
+      (1) лента центра — ResourceListPage, который сам владеет запросом ленты, её опросом каждые
+      3 с и кнопкой «Показать ещё» (CX6-31); (2) refetchQueries + Promise.all разрешается успехом
+      при отказе, при паузе сети, при отключённом или не найденном ключе и при подмене
+      перечитывания ленты вызовом fetchNextPage (CX6-32). Пробы порядка ответов пары в З18
+      выдерживают, но ни одна из них не испытывает эти ветки.
+  - id: CX6-30
+    design: "З13, Е6, §9, M22, M25"
+    verdict: holds-with-condition
+    note: >-
+      предикат (1) Е6 по ID сценария перемерен: NTF3-161 в блоке Р10 — cbb30df7f (88ad95c6) 0,
+      88fa559c7 и HEAD (c481e642) 1; предикат по слову GREATEST|только вперёд — 0 на всех трёх
+      (слово не ловит предмет, как и сказано). Условие (2) «запись с verdict: APPROVED» дано
+      прозой без команды (Д24), и наивная команда неверна: grep 'verdict: APPROVED' находит
+      строку в 10 из 19 записей ревью приёмки NTF-3, у которых верхний verdict НЕ APPROVED —
+      во вложенном previous_rounds; среди них сама c481e642 (верхний verdict: CHANGES_REQUESTED,
+      коммит a05bc83ff). Наивный grep снял бы Е6 сегодня. Кроме того, §0 и M25 утверждают «записи
+      ревью на c481e642 нет», а коммит a05bc83ff с этой записью — предок коммита редакции 5
+      (git merge-base --is-ancestor a05bc83ff 8085f06a6 → 0): утверждение устарело на ревизии
+      самого замысла. Вывод «Е6 открыта» не меняется.
+
+new_items:
+  - id: CX6-31
+    decision: "З13 — центр стоит на ResourceListPage (приёмка §1.4, NTF6-04), и одновременно пометки берутся из снимка пары, «Показать ещё» дописывает страницу к снимку, а «самостоятельного перечитывания одного ключа центра нет»"
+    class: "code-authoring §«Унификация и стоимость» (опора на общий компонент берёт его семантику: он опрашивает и владеет дочитыванием); §«Решение и его следствие разнесены» (строки видны из одного источника, пометки считаются из другого)"
+    measured: >-
+      ResourceListPage.tsx @1d42a6728bf: Props — 7 полей (spec, parentField, parentParam,
+      parentValue, pageSize, panelForms, disableChildRoute), ни одно не принимает строки, не
+      отключает опрос и не перехватывает дочитывание; запрос ленты — свой useResourceList
+      (строка 123), кнопка «Показать ещё» — свой fetchMore (строка 724). use-resource-list.ts:
+      useInfiniteQuery, refetchInterval `streamed ? false : 3_000` (строка 208), staleTime 0
+      (строка 212); streamed истинно только для предмета потока (use-resource-stream.ts:140),
+      а ленте поток не открывается (приёмка Р4) — лента центра перечитывается каждые 3 с всеми
+      загруженными страницами. Полоса S2 (tasks.md) пишет только
+      ui-future/notify/src/pages/NotificationCenterPage/** и InboxItemRow/** — shared
+      ResourceListPage в её путях нет.
+    must_hold: >-
+      одно из двух, выбранное в замысле с держателем: (а) ResourceListPage получает названные
+      свойства — источник строк извне (снимок) и управляемое дочитывание, опрос выключаем, — и
+      правка shared идёт полосой с путями ResourceListPage и пробами на всех существующих
+      потребителях (поведение по умолчанию прежнее); либо (б) центр строит ленту своим запросом
+      на общих ResourceTable и прочих компонентах §1.4, без ResourceListPage, — это расходится с
+      приёмкой NTF6-04 («NotificationCenterPage на ResourceListPage») и тогда — вернуть в
+      приёмку. В обоих случаях строки на экране и пометки считаются из ОДНОГО снимка: строка,
+      пришедшая опросом и не вошедшая в снимок, не показывается без пометки, вычисленной по
+      той же паре. Проба: опрос ленты приносит новую верхнюю строку между парами — строки и
+      пометки меняются одним переходом либо не меняются вовсе.
+    held_by: "NotificationCenterPage.test.tsx (новая ветка «опрос между парами»); при (а) — пробы ResourceListPage на существующих потребителях"
+    design_mapping: "нет: З13 называет ResourceListPage и снимок, не называя, как одно встаёт на другое; «одиночного перечитывания нет» ложно при refetchInterval 3 с"
+    verdict: does-not-hold
+  - id: CX6-32
+    decision: "З13 п.(2) — снимок после отметки: refetchQueries обоих ключей с cancelRefetch: true, снимок — после Promise.all; «отказ любого из двух — экран в «отвергнуто», снимок не обновляется»; п.(3) «Показать ещё» дописывает к снимку"
+    class: "code-authoring §«Чужой ответ: классификация и бюджет» (отказ, «не спрашивали» и «ответил не тот запрос» свёрнуты в успех); gate-authoring — пустой вход как всеразрешение (ключ не найден — пара «успешна»)"
+    measured: >-
+      queryClient.ts refetchQueries (5.101.2, строки 313–337): возвращает Promise<void>
+      (.then(noop)) — данных пары не отдаёт; без throwOnError каждое обещание обёрнуто
+      .catch(noop) — отказ перечитывания разрешает Promise.all успехом; ключи с isDisabled() и
+      isStatic() отфильтрованы, при fetchStatus 'paused' — Promise.resolve() сразу; ни одного
+      найденного ключа — Promise.all([]) успехом. query.ts fetch: при cancelRefetch и данных в
+      кэше идущее чтение снимается silent-отменой, и его обещание подменяется обещанием НОВОГО
+      чтения (строки 411–413, 589–593). infiniteQueryObserver.fetchNextPage идёт через fetch с
+      cancelRefetch ?? true (queryObserver.ts:328): «Показать ещё» во время пары снимает
+      перечитывание ленты, и обещание пары разрешается ответом дочитывания — прежние страницы
+      плюс одна, при новых настройках. Это та самая пара «новые настройки + прежняя лента»
+      сценария I1, которую CX6-29 запрещает. Отказ перечитывания оставляет в кэше прежние
+      данные ключа (данные при ошибке не сбрасываются) — снимок из кэша после Promise.all
+      собрал бы ту же несогласованную пару.
+    must_hold_in_code: >-
+      (а) снимок собирается из значений, которые вернули ДВА чтения этой пары (fetchQuery /
+      fetchInfiniteQuery или refetchQueries с throwOnError: true и чтением состояния обоих ключей
+      с dataUpdatedAt позже успеха отметки и status 'success'), а не из кэша после Promise.all;
+      (б) отказ любого — «отвергнуто» (И4); ноль найденных ключей, пауза сети или отключённый
+      ключ — не успех пары; (в) дочитывание «Показать ещё» недоступно, пока пара в полёте (или
+      его ответ в пару не входит — выбрать одно); (г) перечитываются только активные ключи центра
+      (type: 'active'), иначе Promise.all ждёт закэшированные ленты других фильтров модуля.
+      Пробы: перечитывание ленты отвечает 503 — «отвергнуто», пометки прежние; «Показать ещё»
+      во время пары — пометки не пересчитаны по прежним страницам; близнец — оба 200 — пометки
+      по новой паре.
+    held_by: "NotificationCenterPage.test.tsx — три ветки выше; (г) — рецензент диффа"
+    design_mapping: "нет: З13 п.(2) называет refetchQueries + Promise.all как достаточный механизм"
+    verdict: does-not-hold
+  - id: CX6-33
+    decision: "З10 — useGuardedMutation опускает флаг «по исходу этого вызова (finally)»; «Вы подписаны» — только из перечитанного списка, отправитель лишь бросает NOTIFY_SUBSCRIPTIONS_EVENT, слушатель инвалидирует ключ"
+    class: "code-authoring §«Решение и его следствие разнесены» (решение «действие недоступно» снимается исходом мутации, а следствие, делающее действие ненужным, приходит отдельным чтением)"
+    measured: >-
+      mutation.ts execute (5.101.2): обещание mutateAsync разрешается после await
+      options.onSuccess/onSettled (строки 246, 263); onSuccess действия подписки лишь вызывает
+      dispatchEvent, слушатель зовёт invalidateQueries, чьё обещание никто не ждёт (З10) — флаг
+      падает раньше, чем перечитанный список вернётся. В этом окне кнопка «Подписаться» видна и
+      доступна: второе нажатие даёт POST → ALREADY_EXISTS (NTF3-91) → текст отказа рядом с «Вы
+      подписаны» — ровно дефект I2, который охрана закрывает, в более узком окне (одно время
+      ответа списка). То же у снятия подписки: второй DELETE → NOT_FOUND. У отметки, :setEntries,
+      периода и контакта повтор идемпотентен (Д25; набор значений) — видимого дефекта нет.
+    must_hold_in_code: >-
+      для создания и снятия подписки флаг охраны опускается не раньше, чем завершится
+      перечитывание списка подписок, начатое после исхода (например, хук принимает
+      необязательное «дождаться следствия», которое действие подписки заполняет чтением своего
+      ключа), либо кнопка недоступна, пока ключ ["notify","subscriptions"] перечитывается после
+      исхода; локальный флаг «подписан» по-прежнему не заводится. Проба: POST 200, список
+      отвечает позже (управляемый ответ) — нажатие в промежутке запроса не делает; после ответа
+      списка — «Вы подписаны», кнопки нет; близнец — отказ POST 503 — после перечитывания кнопка
+      снова доступна.
+    held_by: "ResourceDetailExtensions.test.tsx, NotificationSettingsPage.test.tsx (снятие подписки)"
+    design_mapping: "нет: З10 называет снятие флага по исходу вызова без оговорки о следствии"
+    verdict: holds-with-condition-unmapped
+  - id: CX6-34
+    decision: "З10 — «Отказ mutateAsync хук не глотает: он доходит до onError действия, как у useMutation»"
+    class: "code-authoring §«Унификация и стоимость» (сведение шести действий в один хук берёт самую узкую семантику — useMutation.mutate)"
+    measured: >-
+      react-query useMutation.ts (5.101.2, строки 52–56): mutate = observer.mutate(...).catch(noop)
+      — onError доходит через опции, а обещание вызывающему не отказывает; mutateAsync — голое
+      обещание. «Как у useMutation» и «не глотает» — разные семантики: хук, возвращающий
+      обещание mutateAsync обработчику onClick без catch, даёт необработанный отказ на каждый
+      отказ мутации. В дереве каждый из 5 вызовов mutateAsync вне тестов обёрнут своим try/catch
+      (например RoutesPanel.tsx:284–289); ловца необработанных отказов в ui-future нет
+      (git grep pageerror|unhandledrejection|unhandledRejection → 0) — гейт этого не увидит.
+    must_hold_in_code: >-
+      вызов, который хук отдаёт действию, — форма mutate: возвращает void, onError доходит один
+      раз через опции, цепочка кончается catch(noop) после finally; либо хук отдаёт обещание и
+      каждый вызывающий обязан его ловить — выбрать одно и записать в З10. Проба в
+      useGuardedMutation.test.tsx: mutationFn отказывает — onError вызван 1 раз, необработанных
+      отказов 0 (process.on('unhandledRejection') в пробе), флаг опущен.
+    held_by: "useGuardedMutation.test.tsx (ветка «отказ»)"
+    design_mapping: "нет: формулировка З10 допускает обе семантики"
+    verdict: holds-with-condition-unmapped
+
+measurements:
+  - claim: "M24: префиксы края в location с proxy_read_timeout 30s"
+    command: "git show 1d42a6728bf:ui-future/deploy/templates/configmap-nginx.yaml | grep -nE 'location|timeout'; … | grep -c 'proxy_read_timeout'; … | grep -c 'proxy_read_timeout 30s'"
+    result: "подтверждено: location ~ ^/(vpc|…|operations)/ — строка 132, таймауты 140–141; 15 и 13"
+  - claim: "M25: NTF3-161 в Р10 различает редакции 20 и 21"
+    command: "F=docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md; git show <rev>:$F | sed -n '/^\\*\\*Р10\\./,/^\\*\\*Р11\\./p' | grep -c 'NTF3-161' для cbb30df7f, 88fa559c7, HEAD"
+    result: "подтверждено: 0, 1, 1 (отпечатки 88ad95c6, c481e642, c481e642); по слову GREATEST|только вперёд — 0, 0, 0"
+  - claim: "M25, §0: записи ревью на c481e642 нет"
+    command: "ls docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/ | grep -c '^c481e642'; git merge-base --is-ancestor a05bc83ff 8085f06a6"
+    result: "опровергнуто на ревизии замысла: 1, предок → 0; верхний verdict записи — CHANGES_REQUESTED. Вывод «Е6 открыта» не меняется"
+  - claim: "Е6 (2): запись с verdict: APPROVED — различимо grep'ом"
+    command: "для каждой записи docs/specs/reviews/sub-phase-NTF-3-…/*.yaml: grep -c '^verdict: APPROVED' против grep -c 'verdict: APPROVED'"
+    result: "опровергнуто: верхний APPROVED у 4 из 19, строка 'verdict: APPROVED' где-либо — у 14; 10 записей дают ложное «одобрено», включая c481e642. Контроль в обе стороны: 88ad95c6 — 1 и 1"
+  - claim: "M26: useMutation 23 файла, охрана отрисованным isPending 11; синхронной охраны нет"
+    command: "git grep -l useMutation 1d42a6728bf -- ui-future | grep -v node_modules | wc -l; git grep -n isPending … | grep -v test | grep -ciE 'disabled|loading'; git grep -n 'isMutating\\|useIsMutating' … | grep -v test | wc -l; контроль: grep -c isMutating query-core/src/queryClient.ts"
+    result: "подтверждено: 23, 11, 0 (контроль 1 — предикат способен найти)"
+  - claim: "З13: самостоятельного перечитывания одного ключа центра нет (refetchOnWindowFocus: false)"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/use-resource-list.ts | grep -nE 'refetchInterval|staleTime'; git show 1d42a6728bf:ui-future/shared/src/components/organisms/ResourceListPage/ResourceListPage.tsx | sed -n '/^interface Props/,/^}/p' | grep -cE '^  [a-zA-Z]+\\??:'"
+    result: "опровергнуто: refetchInterval streamed ? false : 3_000 (208), staleTime 0 (212); Props 7, ни одного для опроса, строк или дочитывания — CX6-31"
+  - claim: "З13: refetchQueries + Promise.all отличает успех пары от отказа"
+    command: "чтение query-core 5.101.2 queryClient.ts:313–337, query.ts:400–425, 580–600, queryObserver.ts:328, infiniteQueryObserver.ts:112–115"
+    result: "опровергнуто — CX6-32"
+  - claim: "З10: флаг, опущенный по исходу mutateAsync, держит «одна мутация на действие» до видимого следствия"
+    command: "чтение mutation.ts execute (await onSuccess/onSettled, 246, 263) и З10 (слушатель события, инвалидация без ожидания)"
+    result: "опровергнуто для создания и снятия подписки — CX6-33"
+  - claim: "З10: «не глотает … как у useMutation»"
+    command: "react-query/src/useMutation.ts:52–56, 68; git grep -n mutateAsync 1d42a6728bf -- ui-future ':!*node_modules*' | grep -v test | wc -l → 5; git grep -n 'pageerror\\|unhandledrejection\\|unhandledRejection' 1d42a6728bf -- ui-future ':!*node_modules*' → 0"
+    result: "противоречие двух семантик — CX6-34"
+  - claim: "to_design 6 пересверки 7294a684: имена T1/T2 разведены"
+    command: "grep -nE '\\bT[12]\\b' docs/changes/issue-2925/design.md"
+    result: "подтверждено: 7 попаданий — абзацы редакций 4 и 5, строки §8 «в редакции 4 — T1/T2», строки §11а о полосе T1"
+
+not_measurable:
+  - "насколько часто окно CX6-33 ловится человеком — зависит от времени ответа списка на стенде; для вывода не нужно: окно не пусто по построению (обещание списка не ожидается), и дефект видим при любом его размере"
+  - "как поведёт себя Jest окружения консоли на необработанный отказ (падение прогона или предупреждение) — свойство версии и настроек раннера, не замысла; условие CX6-34 требует пробу, считающую отказы явно, и от этого свойства не зависит"
+
+outcome: к-замыслу
+unmapped: [CX6-31, CX6-32, CX6-33, CX6-34]
+does_not_hold: [CX6-29, CX6-31, CX6-32]
+return_to_acceptance: []
+return_to_acceptance_note: >-
+  пусто при выборе (а) CX6-31 (правка ResourceListPage свойствами). Выбор (б) — центр без
+  ResourceListPage — расходится с NTF6-04 и §1.4 приёмки и тогда возвращается в приёмку.
+
+to_design:
+  - "§11: строки CX6-31…34 с решением и держателем; CX6-29 — переотобразить после правки механизма"
+  - "З13, §4, tasks.md S2: как снимок пары встаёт на ResourceListPage — свойства общего компонента (источник строк, дочитывание, опрос) с полосой и путями shared, либо иной путь с возвратом в приёмку; снять утверждение «самостоятельного перечитывания одного ключа центра нет» либо сделать его верным (CX6-31)"
+  - "З13 п.(2)–(3), З18: снимок из значений двух чтений пары, отказ/пауза/ноль ключей — не успех, дочитывание во время пары, type 'active'; пробы 503 перечитывания и «Показать ещё» во время пары (CX6-32)"
+  - "З10, И19: для создания и снятия подписки флаг держится до перечитывания списка после исхода; проба с поздним ответом списка (CX6-33)"
+  - "З10: семантика обещания хука — форма mutate (void, catch(noop) после finally) либо обязательный catch у каждого вызывающего; проба «необработанных отказов 0» (CX6-34)"
+  - "Е6 (2) и tasks.md Е6: условие APPROVED — командой по верхнему ключу (например yq '.verdict' <запись> = APPROVED или grep -c '^verdict: APPROVED' = 1), не поиском строки; §0 и M25 — запись ревью на c481e642 есть (CHANGES_REQUESTED, a05bc83ff) (CX6-30, Д24)"
+
+orders:
+  - to: design author (NTF-6)
+    what: "правки to_design одной редакцией; затем пересверка на новом отпечатке и ревью замысла"
+    basis: "change-graph.md §4; code-authoring §«Унификация и стоимость», §«Чужой ответ: классификация и бюджет», §«Решение и его следствие разнесены»"
+  - to: acceptance author (NTF-3, через диспетчера)
+    what: "повтор заказа пересверки 7294a684: NTF3-161 сегодня (рабочее дерево) задаёт позиции абстрактно P1 < P2 < P3 — близнеца смены числа разрядов (9 → 10) нет; «наибольшее» — в порядке позиции ленты"
+    basis: "code-authoring §«Контракт, который нельзя выразить»"

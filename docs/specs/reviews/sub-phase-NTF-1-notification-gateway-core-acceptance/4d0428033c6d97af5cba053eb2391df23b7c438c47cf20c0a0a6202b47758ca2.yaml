@@ -1,0 +1,243 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 4d0428033c6d97af5cba053eb2391df23b7c438c47cf20c0a0a6202b47758ca2
+  revision: 11
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит DRAFT, и строка редакции 11 говорит «вердикта на неё НЕТ». Эта запись шапку не
+    правит, и так задумано: вердикт привязан к отпечатку, а не к слову в заголовке. Действующий
+    вердикт выводится из этой записи и из внешнего события.
+  base_commit: e90b7042f5b5b4c92257573cd1e51454510d4956
+  content_commit: 89250d24e17fc5e335a649053609160426e3fd2b
+  content_commit_note: >-
+    Редакция 11 внесена коммитом 89250d24e. У blob этого коммита и у blob HEAD e90b7042f отпечаток
+    тот же, что у рабочего файла: соседние коммиты aca35e65b (NTF-4) и e90b7042f (NTF-2) документ
+    не трогали. У родителя 89250d24e~1 лежит редакция 10 (d524e7bd…), одобренная прошлым кругом.
+    На редакцию 11 тот вердикт не переносится.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2411
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T08:40:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода по редакции 11 (решения Д1–Д17). По документу в целом это одиннадцатый круг.
+  Редакция 11 отвечает на возврат первичного разбора классов на d524e7bd… (RA-10, запись
+  docs/changes/issue-2915/reviews/class-exposure/initial/d524e7bdd133b70da9335f027a83007800be4bdc567ab9ec740e08e7d497d31e.yaml).
+  Предмет круга — весь документ. По существу проверен дифф 89250d24e~1..89250d24e: 76 строк
+  добавлено, 18 удалено. Весь документ дополнительно сверен с Д1–Д17.
+previous_rounds:
+  - {round: 1, sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136, verdict: CHANGES_REQUESTED}
+  - {round: 2, sha256: a31661de35b29200d8016ea3957b50a87a36867cf939b7fbcb648075cf0a89d0, verdict: CHANGES_REQUESTED}
+  - {round: 3, sha256: 077e9fff783bad06b1a3f2f2e051e85fa26d0960d7c3aea0f16e221ea10b5260, verdict: CHANGES_REQUESTED}
+  - {round: 4, sha256: 46af7f65567c232d1567255cda83f9185cb0e4c716c5a282f9ac1e859057808b, verdict: CHANGES_REQUESTED}
+  - {round: 5, sha256: a6cb0c1f1e022e6715abb37ba91ac03b82c44968c1c5ebfc6bbb883210dc6e89, verdict: CHANGES_REQUESTED}
+  - {round: 6, sha256: 0311f05f091e1abe32482e8ba06bc85e3192b1402cd2bc11e82327aa90909cbb, verdict: CHANGES_REQUESTED}
+  - {round: 7, sha256: 12a6692569ca4c0dbfa93cbd84fc7a2f5fab645955092b1e1ee32ed0715430a4, verdict: CHANGES_REQUESTED}
+  - {round: 8, sha256: b347b81f330b3a3a0e5694eaf05e303493d16148067c4309ebee9da2602736b3, verdict: APPROVED}
+  - {round: 9, sha256: 530e22968ff16ae2f6f9deb88037faffa7eed1c83fda5aaca36f9b8d601e23d6, verdict: APPROVED}
+  - {round: 10, sha256: d524e7bdd133b70da9335f027a83007800be4bdc567ab9ec740e08e7d497d31e, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+
+class_exposure_return_checked:
+  RA-10: >-
+    Вариант (а) разбора выбран, и в основном выполнен верно. Пять типов значений сделаны
+    структурами с неэкспортируемым полем, так что пути преобразования, константы, сложения, среза
+    и составного литерала держит компилятор. Это проверяют пробы B27 (форма типа) и B28 (форма
+    типа) на go/types с инъекцией строкового типа. Нулевое значение отвергают названные приёмники
+    (B27 (нуль), B28 (нуль)). Но редакция добавила новое утверждение: у записи через `unsafe` есть
+    держатель, гейт B27/B28 с узлом «выражение этих типов в пакете, импортирующем unsafe». Этот
+    держатель закрывает не все пути записи через `unsafe` — замер ниже, блокирующее B11-1. Там же
+    назван второй экземпляр класса, который редакция объявила закрытым по всему документу:
+    держатель B28 (`Put`) судит набор значений по описанию, которое прислал сам вызывающий.
+
+blocking_count: 1
+blocking_kinds_distinct: [PRODUCER]
+blocking_kinds_by_item:
+  - {id: B11-1, kind: PRODUCER}
+blocking_findings:
+  - id: B11-1
+    kind: PRODUCER
+    anchors: [Р7, Р8, Р11 строка «прочие атрибуты не по схеме", "NTF1-B27 (гейт)", "NTF1-B28 (гейт)", "NTF1-B28 (`Put`)", "§1.8", "§9 строка 10 «класс … закрыт по всему документу»"]
+    text: >-
+      Возвращённый класс — «свойство приписано держателю, который закрывает часть путей» — снова
+      есть в тексте, который его закрывает. Экземпляров два.
+      (1) Р7 и Р8 говорят: «мимо функций пакета остаются два пути, и у каждого свой держатель…
+      запись через unsafe — находка гейта». Узел гейта — «в не-тестовом пакете, импортирующем
+      unsafe, выражение типа form.Path/… или указателя на них». Путь мимо узла, измерено:
+      вспомогательный пакет импортирует `reflect` и `unsafe` и объявляет
+      `SetFirstString(dst any, s string)`, внутри —
+      `reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem().SetString(s)`. Выражения типа
+      Path в нём нет. Пакет-потребитель не импортирует unsafe и вызывает
+      `helper.SetFirstString(&p, "//evil.example")` над `var p form.Path`. Значение вне формы
+      получено, и ни одно место гейт не видит: в пакете с unsafe нет выражения типа, а в пакете с
+      выражением типа нет unsafe. Второй пробел — объём обхода. В kacho обходится только
+      `services/notify/...`. Не-тестовый пакет kacho вне этого каталога, импортируемый notify, с
+      прямой записью через unsafe в выражение `form.Path` в обход не входит вовсе.
+      (2) Строка Р11 «прочие атрибуты не по схеме» говорит, что вызов `feed.Put` мимо `SendX`
+      «держит сам Put». Но Р7 (:594–595) называет описание атрибутов тем, «которое генератор
+      вписывает в SendX», то есть его передаёт вызывающий. B28 (`Put`) (б) это подтверждает:
+      прямой вызов «с пустым описанием атрибутов». Значит, прямой вызывающий передаёт описание,
+      которое расходится с шаблоном: с атрибутом `extra` или с `target` видом `text` вместо
+      `path`. Put такую строку примет, и в notify она станет `INVALID(attrs_invalid)`. Получается
+      класс RA-09 «проверка стоит только у потребителя» на пути, про который написано, что его
+      держит источник. Замысел этого не решил: у разбора он заказан как CX1-35.
+    required: >-
+      По каждому экземпляру — одно из двух, и выбор записать в Р7/Р8/Р11.
+      (1) Узел гейта охватывает все пути записи через unsafe. Пример: не-тестовый файл, который
+      импортирует `unsafe` (или вызывает `reflect.NewAt`, `reflect.Value.UnsafeAddr` либо
+      `UnsafePointer`), в собственных модулях corelib/kacho/kaname, входящих в импортное
+      замыкание пакетов с этими типами. Сгенерированные стабы узнаются по заголовку
+      `Code generated … DO NOT EDIT.`. Обход kacho — импортное замыкание `services/notify`, а не
+      только его каталог. Прецедент узла «импорт unsafe в файле» уже есть в kaname:
+      `internal/check/envelope_composition_root.go`, `envRootUnsafeImports`. Нужна инъекция
+      вспомогательного пакета, не знающего типа, и близнец — стабы `.pb.go`. Либо: утверждение
+      сужено до пути, который гейт действительно видит, а оставшийся путь назван без держателя.
+      (2) У `Put` одно происхождение описания, недоступное вызывающему. Например, `Put` берёт
+      описание по (пространство, шаблон) из реестра, который заполняет сгенерированный код. Или
+      гейт дерева требует, чтобы `feed.Put` вызывался только из файлов, сгенерированных
+      notifygen, — по образцу B19, с инъекцией и близнецом. Либо: утверждение «держит сам Put»
+      заменено честным «Put судит по переданному описанию; расхождение описания с шаблоном
+      ловит только notify (`INVALID(attrs_invalid)`)» с ценой в таблице Р11.
+      Строку §9 «класс закрыт по всему документу» после этого перемерить.
+    evidence: >-
+      Модуль в scratchpad (go 1.22+): пакет `form` с `type Path struct{ v string }`, `ParsePath` и
+      `Value() (string, error)`; пакет `helper` (reflect+unsafe, без упоминания form); `consumer`
+      без unsafe. `go run ./consumer` → `//evil.example <nil>`; `grep -l '"unsafe"' -r consumer` →
+      пусто. Экземпляр (2) — чтение: строки документа 594–595, 840, 1270.
+
+non_blocking:
+  - id: N11-1
+    kind: FORMAT
+    anchors: ["§1.8", "NTF1-B27 (гейт)"]
+    text: >-
+      Замер импорта `unsafe` считал строковый литерал импортом. Предикат `git grep -l '"unsafe"'`
+      находит в kaname `internal/check/envelope_composition_root.go` из-за выражения
+      `p == "unsafe"` на строке 1209. В блоке import этого файла unsafe нет. Реальных импортов
+      (спецификации импорта, в том числе `unsafe "unsafe"`) на kaname 734f69fb4 — 41, и все в
+      `.pb.go`; на corelib 34bc810 — 8, тоже все в `.pb.go`. Это ban17-gates «поиск по образцу
+      вместо разбора» в самом замере. Нужно исправить «42 … и envelope_composition_root.go» в §1.8
+      и в B27 (гейт) той же правкой.
+  - id: N11-2
+    kind: PRODUCER
+    anchors: [Р7 «нулевое значение — каждый приёмник трёх типов отвергает", Р8 то же для address]
+    text: >-
+      «Каждый приёмник» держат пробы перечисленных приёмников: сборщик ссылки, сборщик
+      заголовков, ключ окна, ключ сетки. Будущий приёмник, который читает значение методом без
+      ошибки, получит пустую строку, и никто этого не увидит. Держатель станет компиляторным, если
+      единственный метод чтения поля у пяти типов возвращает `(string, error)` с `ErrUnset` на
+      нуле. Эту форму стоит назвать в Р7/Р8 и пробе формы типа. Не блокирует: RA-10 (а) принимал
+      перечень приёмников.
+  - id: N11-3
+    kind: FORMAT
+    anchors: [Р8 «Приёмник address.Domain вне notify/address в объёме NTF-1 один — Normalize в самом пакете»]
+    text: >-
+      Фраза противоречит сама себе: приёмник «вне пакета» — это «Normalize в самом пакете». Смысл
+      такой: вне пакета приёмников в NTF-1 нет, а единственный внутренний — Normalize.
+  - id: N10-1-carry
+    kind: SCOPE
+    anchors: [Р1, NTF1-G19, "§4 строка NTF-4"]
+    text: >-
+      Переходит из круга 10 без изменений. По Д17 форма хоста «только внутренний слушатель»
+      действует и для notify NTF-1. Р1 и допустимый набор G19 («gRPC-слушателя нет»,
+      `Register…Server` — 0) — состояние на посадку NTF-1, и NTF-4 З9 его меняет. В §4, в строке
+      NTF-4, это не сказано. Нужна ссылка: Р1 и G19 после Х5 правит NTF-4 (З9).
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac e90b7042f → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: e90b7042f5b5b4c92257573cd1e51454510d4956
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: acceptance_review
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Рецензент событие не публикует: тело для курьера лежит в event_body_for_courier. Это возврат,
+    а не одобрение. Одобрение круга 10 относится к d524e7bd… и на редакцию 11 не переносится. По
+    Д16 документ в main не идёт.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода редакции 11, блокирующих 1: PRODUCER) ·
+    SHA-256 4d0428033c6d97af5cba053eb2391df23b7c438c47cf20c0a0a6202b47758ca2
+
+measurement:
+  revisions_used:
+    workspace: e90b7042f (ветка issue-880); предмет — 89250d24e
+    corelib: 34bc810
+    kaname: 734f69fb4
+    kacho: 1d42a6728bf
+  scenario_census:
+    predicate: "python re '^\\*\\*ID:\\*\\* NTF1-([A-Z]\\d+)' по документу; Given/When/Then в каждом блоке"
+    total: 149
+    unique: 149
+    delta: "0 к редакции 10; новые пункты — And-ветви B27 (форма типа), B27 (нуль), B28 (`Put`), B28 (форма типа), B28 (нуль)"
+    gwt_missing: 0
+  producer_coverage:
+    covered: 149
+    of: 149
+    note: >-
+      Строка §6.1 «B01–B18, B20–B28» называет производителей новых ветвей: `notify/address`,
+      `notify/form` (go/types), `notify/feed`, модульные пробы `services/notify`. У каждого «Тогда»
+      держатель есть. Пробел B11-1 — в утверждениях Р7/Р8/Р11 о держателе ПУТИ: он шире, чем узел
+      названного держателя. Производителя у «Тогда» он не лишает.
+  twin_coverage:
+    note: >-
+      §6.2: B27/B28 (форма типа) — инъекция строкового типа против значения из функции пакета;
+      B27/B28 (нуль) — нулевое значение против значения из функции; B28 (`Put`) — атрибут вне
+      описания или пустое описание против описания `probe/probe-link`; гейты — инъекция unsafe
+      против стабов с unsafe. В каждой паре меняется один факт.
+  dod_coverage: >-
+    S1 п.7 — B01…B28, приёмники notify B27 (нуль), B28 (нуль) — в S3; S3 п.12 их перечисляет.
+  decisions_crosscheck:
+    source_note: >-
+      Д1–Д13 — из транскрипта агента author:NTF-1 прогона wf_8cc21fed-1ec (поля prompt в
+      journal.jsonl нет, задание — первое сообщение агента). Д14–Д16 — из транскрипта
+      author:NTF-1 прогона wf_f705806c-629, раздел «плюс новые решения». Д17 — из задания этого
+      круга.
+    Д1–Д13: "согласно; редакция 11 их предмета не меняет"
+    Д14: "согласно; §1.11, F12 и BatchCheck не менялись"
+    Д15: "согласно; API настроек и контактов в NTF-1 не описан"
+    Д16: "согласно; запись коммитится в issue-880, документ не утверждает, что он в main"
+    Д17: >-
+      Согласно по существу. У notify NTF-1 gRPC-слушателя нет, так что публичного нет по
+      построению. Цепочку прав на стороне notify NTF-1 не строит. Звено Р2 стоит в
+      `grpcsrv`/`listnarrow`/`authz`, и строитель хоста Х5 переиспользует его на стороне NTF-4.
+      Недосказанность §4 переходит как N10-1-carry.
+    hygiene: >-
+      Путей во временный каталог нет (`grep -c 'tmp/'` → 0). Имён чужих облаков нет. Маркеров
+      отсрочки и оговорок о фиксации нет. Новый текст не описывает текущих слабых мест дерева:
+      unsafe-пути даны как требования к гейту кода, которого ещё нет.
+  facts_remeasured:
+    - "sha256sum документа = 4d042803…a2 при 2411 строках; тот же отпечаток у blob 89250d24e и e90b7042f; у 89250d24e~1 — d524e7bd…"
+    - "git show --stat 89250d24e: 76 вставок, 18 удалений, один файл"
+    - "реальные импорты unsafe (спецификация импорта, включая псевдоним) в не-тестовых .go: corelib 34bc810 — 8, все .pb.go; kaname 734f69fb4 — 41, все .pb.go; `git -C kaname grep -l '\"unsafe\"'` даёт 42 из-за строкового литерала в internal/check/envelope_composition_root.go:1209 (N11-1)"
+    - "обход через reflect+unsafe во вспомогательном пакете без выражения типа: go run → значение вне формы в непрозрачном типе (B11-1)"
+  constructibility:
+    seeded: 0
+    premises_checked_by_reading: 4
+    confirmed:
+      - "B27/B28 (форма типа): фрагменты go/types строятся без стенда"
+      - "B27 (нуль), ключ окна: модульная проба внутри пакета `notify/feed`"
+      - "B28 (нуль): модульная проба сборщиков `services/notify`"
+      - "B28 (`Put`): прямой вызов `feed.Put` фикстурного источника на testcontainers"
+    refuted: []
+    not_performed: >-
+      Посевов не было. Кода предмета (`corelib notify/*`, `services/notify`) в дереве нет, стенд
+      и изоляцию задание не назвало. Эти проверки не засчитываются ни в зелёное, ни в красное.

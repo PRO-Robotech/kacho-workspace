@@ -1,0 +1,247 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке 7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c.
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1092
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-29T22:40:29Z'
+round: 3
+previous_rounds:
+  - round: 1
+    sha256: fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21.yaml
+    blocking_count: 6
+  - round: 2
+    sha256: 1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a.yaml
+    blocking_count: 3
+round2_closure:
+  B2-1: >-
+    закрыто в своей части — перепись §3а воспроизведена поштучно (39 файлов @2267b405220, тем же
+    предикатом), MAIL-14…18, 51, 52 внесены, MAIL-52 передан NTF2-19. Тот же класс повторился на
+    другом месте — B3-1, B3-2 (посев дерева после NTF-2)
+  B2-2: закрыто — NTF2-06 только уровнем I; П4 только на П6; правило «Состояние, общее для кейсов» сверено по E-сценариям
+  B2-3: закрыто — множества R, L выводятся из рендера; Р13 решает приёмник без читателя
+  I2-1: закрыто (→ 2 в §1.4 и §7)
+  I2-2: закрыто (свой человек NTF2-03, близнец — шаг 2)
+  I2-3: закрыто (DoD п.8 — факт NTF-1 З4)
+  I2-4: закрыто — пары (в/г); `auth_own_session.go:146` и `address_refusal.go:43-44` @2267b405220 совпали; `/iam/v1/projects` есть в `gateway/internal/e2e/f6b_address_gate_e2e_test.go:453`
+  I2-5: закрыто
+repeated_kinds_note: >-
+  Род COVERAGE — третий круг подряд (B1-4, B2-1, B3-1, B3-2), и оба раза исправление было
+  «перепись по чтению». Посылка переписи «исход файла выводится из чтения» опровергнута
+  экспериментом: посев дерева после NTF-2 и прогон всего пакета deploy. По
+  multi-agent-flow-orchestration §14а решение о переносе класса в форму задания автора — за
+  диспетчером; предлагаемая форма шага — «исход каждой строки §3а подтверждается прогоном пакета
+  deploy на посеянном дереве после NTF-2, перечень красных прикладывается».
+blocking_count: 2
+blocking_kinds_distinct: [COVERAGE]
+blocking_kinds_by_item:
+  - B3-1 COVERAGE
+  - B3-2 COVERAGE
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Возврат полномочия не выдаёт, и от публикации события его сила не
+    зависит. Тело события для курьера — поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 3, блокирующих 2) ·
+    SHA-256 7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c
+
+measurement:
+  revisions_used:
+    kacho: origin/2797 2267b40522015f2dd527f0c1a1081edaf8d8df3d (та же, что у круга 2); origin/main 1d42a6728bf
+  census_reproduced:
+    command: предикат §3а документа дословно, R=origin/2797
+    result: 39 файлов; множество совпало с таблицей §3а поштучно
+  seed_post_ntf2:
+    isolation: >-
+      временный worktree kacho @origin/2797 вне дерева продукта (снят после замера);
+      ствол не менялся; дельта посева сохранена в каталоге сессии рецензента (135 строк diff)
+    seeded_changes: >-
+      по DoD п.4 и п.5: из `_kratos-identity.tpl` сняты раздел `courier`, переменная
+      `COURIER_SMTP_CONNECTION_URI` (ссылка `smtpConnectionURI`), ветка `KANAME_IDENTITY_SMTP_CREDENTIAL`
+      и её имя в перечне подстановки, хуки `show_verification_ui` (2) и `require_verified_address` (2);
+      `code.enabled`, `recovery.enabled`, `verification.enabled` → false; отмеченный перечень методов
+      приведён к объявлению («ВЫКЛЮЧЕНЫ: code, link, oidc / ВКЛЮЧЕНЫ: profile»); в `values.yaml`
+      добавлен `kratos.courier.enabled: false`
+    command: "cd deploy && go test -count=1 -v ."
+    base_result: "ok (все зелёные)"
+    seeded_result: "подтестов PASS 930, FAIL 29; верхнеуровневых FAIL 17"
+    failures_expected_by_table: >-
+      identity_verification_mirrors_the_requirement{,_injection} (строки 14–15, «снят»),
+      identity_verified_address_required_on_both_lanes{,_injection} (16–17, «снят»),
+      identity_mail_lane_feeds_both_senders{,_injection} (19–20, «переписан»),
+      identity_step_declaration_parses_injection (34, якорь)
+    failures_not_expected_by_table:
+      - "identity_mail_lane_single_declaration_injection_test.go — TestMailLaneGateFailsOnAReturnedDefect/ось3_инъекция (строка 22, исход «остаётся») — B3-2"
+      - "identity_method_comment_matches_declaration_injection_test.go — 6 тестов TestIdentityMethodCommentInjection_* (файла нет в §3а) — B3-1"
+    green_for_the_wrong_reason:
+      - >-
+        TestMailLaneIsDeclaredOnce (строка 21): с `kratos.courier.enabled: false` — PASS,
+        «объявлений найдено 1», и это ключ в values.yaml, засчитанный как «встроенный блок courier»;
+        без ключа — FAIL «объявлений почтовой полосы 0, а решение Р27 требует РОВНО ОДНО» — B3-2
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 19
+    positive: 6
+    negative: 13
+  producer_coverage: {method: сверка таблицы §7 с множеством ID §6, covered: 19, of: 19}
+  twin_coverage: {negatives: 13, twins_named: 13}
+  constructibility_seeding:
+    seeded: 2
+    of: 9
+    not_performed: 7
+    items:
+      - "Given «дерево после NTF-2» (DoD п.4, п.5, §3а): строится — посев выше; строится, но с двумя расхождениями с §3а (B3-1, B3-2)"
+      - "перепись §3а на базе: воспроизведена, 39"
+      - "П1, П7-kratos: не выполнилось в этом круге — в изоляции не собраны зависимости зонтика (`helm dependency build`: vpc, compute, …); ревизия базы та же, что у круга 2, где оба посева воспроизведены поштучно"
+      - "П2, П3, П4, П6: не выполнилось — производители заводит NTF-1 (services/notify на базе нет)"
+      - "NTF2-22: не выполнилось повторно — опора на посев круга 1 (образ v26.2.0)"
+
+premise_check:
+  claim: >-
+    задание: судить редакцию 7e6e8bb8… круга 3; роды прошлых кругов CONSTRUCTIBILITY, SCOPE,
+    NEGATIVE, COVERAGE, PRODUCER, FORMAT, COVERAGE, CONSTRUCTIBILITY. Документ §3а: исход
+    каждого файла дерева развёртывания, задевающего предмет, назван, и перепись полна.
+  outcome: refuted_in_part
+  commands:
+    - "sha256sum <док> → 7e6e8bb881ad…"
+    - "предикат §3а @origin/2797 → 39 (совпало)"
+    - "посев дерева после NTF-2 + go test -count=1 -v ./deploy → 17 верхнеуровневых FAIL, из них 2 файла вне ожиданий таблицы"
+
+blocking_findings:
+  - id: B3-1
+    kind: COVERAGE
+    title: Перепись §3а не видит предмета Р6 (метод `code`) — гейт отмеченного перечня методов выпал из таблицы
+    coordinates:
+      doc: "§3а (предикат слов и таблица из 39 строк); Р6; DoD п.4 последний пункт («его держит существующий гейт перечня»)"
+      tree_at: kacho origin/2797 2267b405220
+      tree:
+        - deploy/identity_method_comment_matches_declaration_test.go
+        - 'deploy/identity_method_comment_matches_declaration_injection_test.go (`realClaimLines` — «ВЫКЛЮЧЕНЫ: link, oidc / ВКЛЮЧЕНЫ: code, profile»; инъекции строятся на том, что `code` включён)'
+    measured: >-
+      Предикат §3а не содержит слова предмета Р6 (`code`, перечень методов); обоих файлов в
+      выводе предиката и в документе 0 (`grep -c identity_method_comment <док>` → 0). Посев дерева
+      после NTF-2 с перечнем, ПРИВЕДЁННЫМ к объявлению: 6 тестов TestIdentityMethodCommentInjection_*
+      красные («отмеченный перечень … не найден в ожидаемой форме»).
+    consequence: >-
+      На верной реализации инъекционный держатель гейта перечня методов красный, а у исполнителя
+      нет исхода для файла: §3а его не знает, и правило «файл без строки — возврат» не срабатывает,
+      потому что перемер тем же предикатом его не найдёт. Путь наименьшего сопротивления — оставить
+      `code` включённым, что противоречит Р6 и NTF2-21.
+    remedy: >-
+      Добавить в предикат §3а слова предмета Р6 (метод `code`, отмеченный перечень методов) и
+      внести оба файла с исходом «переписан»: новый настоящий вход инъекций — перечень после NTF-2,
+      в котором `code` выключен; назвать, что утверждения гейта (перечень = объявление) не
+      меняются. Правило §3а о допустимых правках «остаётся» дополнить этими строками либо
+      перевести их в «переписан». Проверить класс, а не место: подтвердить исход каждой строки
+      прогоном пакета deploy на посеянном дереве после NTF-2.
+
+  - id: B3-2
+    kind: COVERAGE
+    title: MAIL-54 (строки 21–22) помечен «остаётся, утверждения не меняются», а его пара 1 теряет предмет — гейт зелёный по чужой причине
+    coordinates:
+      doc: "§3 строка MAIL-54; §3а строки 21–22 и правило для «остаётся»; DoD п.5, п.8"
+      tree_at: kacho origin/2797 2267b405220
+      tree:
+        - "deploy/identity_mail_lane_single_declaration_test.go — пара 1: `len(declarations) != 1` → находка; единственное законное объявление — наш шаблон, рендерящий `courier:`; любой `courier:` в значениях засчитывается как объявление"
+        - "deploy/identity_mail_lane_single_declaration_injection_test.go — ось 3: настоящий вход называет разделы `courier` и `serve`"
+    measured: >-
+      Посев дерева после NTF-2: с ключом DoD п.5 (`kratos:\n  courier:\n    enabled: false`) —
+      TestMailLaneIsDeclaredOnce PASS, «объявлений найдено 1», и это ключ выключения в values.yaml;
+      без ключа — FAIL «объявлений почтовой полосы 0, а решение Р27 требует РОВНО ОДНО». Инъекция
+      оси 3 красная в обоих вариантах (разделов после снятия `courier` 7, вход называет один).
+    consequence: >-
+      Пара 1 утверждает «раздел `courier` объявлен ровно одним местом — нашим шаблоном». NTF-2
+      снимает этот раздел, и гейт становится зелёным только потому, что засчитывает ключ
+      выключения почтового процесса как «встроенный блок courier». Правило §3а («остаётся» красный →
+      возврат) здесь не срабатывает: главный гейт зелёный. Держатель, объявленный документом за
+      MAIL-54, после NTF-2 не утверждает ничего о своём предмете, и DoD п.8 («утверждения не
+      менялись, обход непуст») это пропускает.
+    remedy: >-
+      Строки 21–22 — исход «переписан»: пара 1 после NTF-2 утверждает «разделов `courier` в
+      объявлениях 0» (либо снимается с передачей предмета NTF2-21, NTF2-23 — назвать), ключ
+      `kratos.courier.enabled` гейт различает от блока настроек; пары 2 и 3 (координата раскатки,
+      рукописный перечень) остаются за ручкой `notify`; ось 3 инъекции получает новый настоящий вход.
+      Исправить строку MAIL-54 в §3 и строку-ссылку DoD п.11.
+
+important_findings:
+  - id: I3-1
+    kind: DoD
+    text: >-
+      DoD п.4 не называет вычисления почтовой полосы в шаблоне, которые после снятия `courier`
+      не читает никто: `$mailScheme`, `$mailParts`, `$mailSpliced`, `$mailOut` и обе декларации
+      `$mailCredDeclared` (`_kratos-identity.tpl:586-621, 787` @2267b405220), а также абзац о
+      ссылке `${KANAME_IDENTITY_SMTP_CREDENTIAL}`. Снять вместе с подпираемым (ban #11) и назвать в п.4.
+  - id: I3-2
+    kind: DoD
+    text: >-
+      DoD п.8 предикат `git grep -nE 'courier|statefulSet' <база> -- deploy/helm ':!*.md'` → «только
+      ключ … и страж NTF2-23»: объяснительный комментарий при ключе в values.yaml (он нужен по
+      Р2) сделает предикат ложным на верной реализации. Назвать допустимые строки точно либо
+      исключить комментарии.
+
+not_performed:
+  - "П1, П7-kratos — рендер в изоляции этого круга не собран (зависимости зонтика); ревизия та же, что у круга 2"
+  - "П2, П3, П4, П6 — производители заводит NTF-1"
+  - "NTF2-22 повторно не гонялся — опора на посев круга 1"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    снятие хука подтверждённости у поставщика и перенос держателя MAIL-52 на NTF2-19 (закрыто);
+    держатели оснастки дерева развёртывания (B3-1, B3-2)
+  disclosure_safe: true
+  disclosure_note: >-
+    Замечания — о гейтах, теряющих предмет, без сборки «координата + условие + следствие» для
+    постороннего.
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    Редакция 4 NTF-2: внести в §3а гейт отмеченного перечня методов (B3-1) и перевести MAIL-54
+    в «переписан» (B3-2); исход каждой строки §3а подтвердить прогоном пакета deploy на посеянном
+    дереве после NTF-2 и приложить перечень красных.
+  owner_questions: []

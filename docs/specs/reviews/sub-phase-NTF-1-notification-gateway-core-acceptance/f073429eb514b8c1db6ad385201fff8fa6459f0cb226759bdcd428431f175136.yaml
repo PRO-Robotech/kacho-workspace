@@ -1,0 +1,173 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Шапка этой записью НЕ правится: вердикт привязан к отпечатку, а не к слову
+    в заголовке.
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136.
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1427
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T00:00:00Z'
+round: 1
+previous_rounds: []
+blocking_count: 5
+blocking_kinds_distinct: [CONSTRUCTIBILITY, NEGATIVE, FORMAT, TWIN]
+blocking_kinds_by_item:
+  - B1-1 CONSTRUCTIBILITY
+  - B1-2 CONSTRUCTIBILITY
+  - B1-3 NEGATIVE
+  - B1-4 FORMAT
+  - B1-5 TWIN
+
+blocking:
+  - id: B1-1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      Р3 противоречит NTF1-F03: строка, поставленная ДО первой выдачи, по таблице Р3 получает
+      REVOKED, а F03 «And» требует её отправки после выдачи.
+    evidence: >-
+      Р3, таблица исходов: REVOKED = «надгробие … ЛИБО enqueued_at < выдано текущей выдачи»;
+      ALLOW требует enqueued_at ≥ выдано. F03: строка поставлена при отсутствии выдачи, затем
+      «после появления строки манифеста и посева строка отправлена». Её enqueued_at < выдано ⇒
+      по Р3 REVOKED, терминально. Тот же класс в F07: близнец «без Revoke перезапуск даёт ALLOW»
+      не фиксирует enqueued_at строки, поэтому не отличает «посев идемпотентен» от «посев при
+      каждом старте сдвигает выдано и терминально убивает все письма, поставленные до
+      перезапуска».
+    fix: >-
+      Разделить «выдано впервые» и «восстановлено после надгробия» (правило enqueued_at-отсечки
+      действует только от Restore); добавить в F07 близнец со строкой, поставленной ДО
+      перезапуска, → ALLOW; назвать идемпотентность посева требованием к записи выдачи.
+  - id: B1-2
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      Субъекта service_account, выведенного из проверенного сертификата, в дереве нет —
+      Given E01, E02, C03, J03 и Р2 опираются на несуществующий механизм, а документ подаёт его
+      как существующий (§1.3, Р2 со ссылкой на sec-forwarded-trust-aware-extract).
+    evidence: >-
+      corelib grpcsrv/cert_identity.go:331-374 @34bc810 — withTrustedPrincipal берёт принципала
+      ТОЛЬКО из пересланных метаданных; комментарий: «deliberately NOT seeded … trust is a
+      property of the FORWARDER». При непустом круге пересылающих (principalIsTrusted, :378-397)
+      пересылка от notify не доверена ⇒ принципала нет ⇒ listnarrow.SubjectFromContext
+      (listnarrow/subject.go) ⇒ PERMISSION_DENIED «subscription requires an authenticated
+      caller» (subscription/server.go шаг 1). Утверждение §1.3 про освобождение от acr тоже
+      неточно: в kaname пол acr действует только на наборе gateway-fronted
+      (internal/authzguard/acr_floor.go:66-80 @734f69fb4), а освобождение ключуется пересланным
+      типом принципала.
+    fix: >-
+      Завести решение (S1, corelib grpcsrv): где и для каких слушателей/методов проверенный
+      сертификат становится субъектом service_account, как это соотносится с пересланным
+      принципалом и с предикатом владения операций; добавить сценарии: пересылка личности от
+      не-пересылающего по-прежнему отбрасывается; субъект из сертификата не становится
+      владельцем операций чужих вызовов; прочие внутренние вызовы модулей не меняют исхода.
+      Исправить формулировки §1.3.
+  - id: B1-3
+    kind: NEGATIVE
+    summary: >-
+      У новых RPC ResolveSend / Revoke / Restore / Claim нет отрицательных сценариев на вход и
+      на конкуренцию.
+    evidence: >-
+      §6 группы C и F: нет INVALID_ARGUMENT на негодный id ленты (с именем поля); нет NOT_FOUND
+      на неизвестную ленту для Revoke/Restore и названного исхода ResolveSend на неизвестную
+      ленту/шаблон; нет Restore без надгробия и повторного Revoke; нет гонки Revoke∥Restore на
+      записи выдачи (инвариант CAS, data-integrity); нет Claim с max вне границ (0, сверх
+      предела).
+    fix: Добавить сценарии с кодом, reason и близнецом по каждому пункту.
+  - id: B1-4
+    kind: FORMAT
+    summary: >-
+      «Тогда» без gRPC-кода: NTF1-H06 («отказ формы, объявленной MAIL-25») и NTF1-F08 («отказ с
+      именем типа»).
+    evidence: >-
+      ID-MAIL-1 MAIL-25 (sub-phase-ID-MAIL-1-mail-delivery-acceptance.md:1939-1947) кода не
+      называет и требует неотличимости отказа, что расходится с «с именем исчерпанной оси» в H06.
+    fix: Назвать код, reason/details; для H06 решить, какой отказ и почему он не оракул.
+  - id: B1-5
+    kind: TWIN
+    summary: >-
+      L03/L04 сравниваются с L02 из другого стенда (newman на зонтике против integration с
+      управляемыми часами) — «побайтово равен L02» не исполним; E02 проходит вакуумно, если
+      поток второй службы не открыт.
+    fix: >-
+      Близнец L03/L04 — положительный контроль в том же integration-стенде (notify поднят);
+      E02 утверждает, что поток открыт (положительное событие в том же потоке либо явный
+      признак открытия), иначе «событий нет» неотличимо от «потока нет».
+
+non_blocking:
+  - Введение не ссылается на 04-roadmap-and-phasing.md §3; в книге строки о нотификациях нет — внести через kacho-workspace#881.
+  - Claim/Ack унарны без Operation — записать в §2 основание (очередь работ, не ресурсная мутация), чтобы ревью контракта не переоткрывало ban09.
+  - Отступление от hard-cloud-admin-cascade записано только в приёмке — вынести в §3 как правку правила (#881).
+  - NTF1-E04 объявлен отрицательным с близнецом, но отсутствует в таблице §6.2.
+  - NoServedServices в kacho origin/main нет — в §6.1 пометить G16 как новый элемент самоотчёта.
+  - Р3 сравнивает enqueued_at (часы БД источника) с «выдано» (часы kaname) — в NTF-1 одна БД, для NTF-3 назвать допуск рассинхрона.
+  - Имя файла расходится со ссылками задач (документ сам это называет).
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac d473742c → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d473742c19170677777d58a55044825f17cb6627
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: Вердикт — отказ; полномочия не выдаёт, действительность от публикации не зависит.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1, блокирующих 5) ·
+    SHA-256 f073429eb514b8c1db6ad385201fff8fa6459f0cb226759bdcd428431f175136
+
+measurement:
+  revisions_used:
+    corelib: 34bc810
+    kaname: 734f69fb4 (origin/357)
+    kacho: origin/main
+  scenario_census:
+    predicate: "grep -oE '\\*\\*ID:\\*\\* NTF1-[A-L][0-9]{2}' <док>"
+    total: 108
+    unique: 108
+    by_group: {A: 9, B: 20, C: 7, D: 6, E: 5, F: 12, G: 21, H: 11, I: 6, J: 4, K: 3, L: 4}
+  producer_coverage:
+    method: раскрытие диапазонов таблицы §6.1 в множество ID и сравнение с множеством §6
+    covered: 108
+    of: 108
+    uncovered: []
+  twin_coverage:
+    rows_in_6_2: 70
+    declared_negative_missing_in_table: [E04]
+  constructibility:
+    seeded: 0
+    premises_checked_by_reading: 4
+    confirmed:
+      - посев модулей до net.Listen — kaname cmd/kaname/serve.go:478 против :1158 @734f69fb4
+      - вид без ObjectType/Action отвергается — corelib subscription/journal.go:491-506 @34bc810
+      - TenantSubject принимает service_account — corelib authz/types.go:329-339 @34bc810
+    refuted:
+      - субъект из проверенного сертификата — corelib grpcsrv/cert_identity.go:331-374 @34bc810 (B1-2)
+    not_performed: >-
+      Посев не ставился: предмет — код, которого в дереве нет; стенда и изоляции задание не
+      назвало. Конструируемость судилась чтением ограничений.

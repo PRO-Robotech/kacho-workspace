@@ -11,8 +11,14 @@ description: "Поток изменений ресурсов: что берут 
 
 sub-form-singularity · одна на всех владельцев, в `proto/corelib/subscription/`; своей не заводи · subscriptionformsingularity · red: git grep -h 'returns (stream' -- proto | wc -l > 1
 sub-server-singularity · один, в `corelib/subscription/`; владелец поднимает, не пишет · subscriptionserversingularity · red: второй сервер потока в дереве
-sub-consumer-opens · открывает ПОТРЕБИТЕЛЬ (край); владелец о подписчиках не знает · ребро потребитель→владелец в polyrepo.md · red: владелец зовёт потребителя (цикл в графе)
+sub-consumer-opens · открывает ПОТРЕБИТЕЛЬ — край либо служба `notify` (NTF-1, kacho#2915); владелец о подписчиках не знает · ребро потребитель→владелец в polyrepo.md (`notify` — polyrepo.md#poly-edge-notify-sources) · red: владелец зовёт потребителя (цикл в графе)
 sub-poll-not-retired · не отзывается: подписка — второй путь, для операций опрос единственный · api-conventions.md §подписок на операции нет · red: опрос снят вслед за подпиской
+
+## Подписчик-служба `notify` и вид `notification` (эпик kacho#2914)
+
+sub-notification-kind · вид `notification` источника привязывай к типу модели `notification_feed`; объект события — лента модуля (`notification_feed:<модуль>`, имя модуля — неизменяемый идентификатор из закрытого перечня), не строка ленты; событие несёт только id ленты и род изменения, состояние — словом в `state_unavailable` · ЗАВЕСТИ sub-notification-kind · red: атрибут, адресат или имя шаблона в событии журнала подписки
+sub-notify-rereads · по событию `notify` перечитывает ленту вызовом `Claim`; `Claim` зовётся и при каждом (пере)открытии потока, и по таймеру — сигнал ускоряет доставку, но не условие её корректности · ЗАВЕСТИ sub-notify-rereads · red: строка ленты лежит неотправленной, пока не пришло событие
+sub-no-second-stream-for-notify · тело письма (секретные атрибуты) берут унарным `Claim`/`Ack` ленты `corelib notify/feed`, второго потокового контракта не заводят · subscriptionformsingularity · red: git grep -h 'returns (stream' -- proto | wc -l > 1
 
 ## Откуда берут готовое — перечень, а не поиск
 

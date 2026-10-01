@@ -1,0 +1,338 @@
+# Экспозиция классов — первичный разбор (initial), под-фаза NTF-6 (консоль: центр уведомлений,
+# личные настройки, контакты аккаунта), редакция 6.
+#
+# Разбор ДО кода. Привязан к отпечатку одобренной приёмки, а не к будущему замыслу: после
+# появления design.md каждый пункт CX6-* обязан получить точное отображение в решение замысла
+# и отдельную пересверку на отпечаток замысла (class-exposure/revalidation/<design-sha256>.yaml).
+# Разрешения писать реализацию эта запись не даёт.
+#
+# Прежний первичный разбор (initial/d5fe4734…yaml) свидетельствует о своей редакции и не
+# переписывается. Номера CX6-01…14 сохранены, чтобы отображение в замысел шло по одним ID;
+# у каждого — состояние на ЭТОЙ редакции. Новые пункты этой редакции — CX6-15…19.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2925
+issue: https://github.com/PRO-Robotech/kacho/issues/2925
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  sha256: 47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-6-console-notification-center-acceptance.md
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-6-console-notification-center-acceptance/47bd8b7054c3313c535fe74b53cffc21ae9f59f922e4dae23281453bc47c5328.yaml
+  previous_initial: docs/changes/issue-2925/reviews/class-exposure/initial/d5fe473466312246fd20516bc44dbb686f4af33376dc2f3214a75b017baa3544.yaml
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: d4824b21330ce6df1323c92d25e6962672e95f74   # ветка issue-880 на момент замеров
+  kacho: 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2       # origin/main, та же ревизия, что в приёмке
+  kaname: cbbac984b                                      # та же ревизия, что в приёмке
+  corelib: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
+  # Соседи — отпечаток СОДЕРЖИМОГО на момент разбора. Приёмка цитирует NTF-1 @b347b81f,
+  # NTF-3 @ee6f908e, NTF-5 @263b95d0; ни один в ветке больше не текущий. Для NTF-3 сверено,
+  # что поверхность, которую потребляет консоль, между ee6f908e и 4e2ffe87 не менялась
+  # (см. measurements); NTF-1 и NTF-5 допускаются Р13 «или более поздней с той же формой».
+  neighbour_ntf1_acceptance_sha256: 530e22968ff16ae2f6f9deb88037faffa7eed1c83fda5aaca36f9b8d601e23d6
+  neighbour_ntf3_acceptance_sha256: 4e2ffe870904bf519f5416b42e3be1f3ce46975c008bd263a61d5f6362b04001
+  neighbour_ntf5_acceptance_sha256: fb0aeac365adce0cc2711d77d5494cb5d8031db345799ef4376b95c89114a6be
+snapshot_at: 2026-09-30T04:26:18Z
+inspected: >-
+  приёмка целиком (1528 строк, 55 живых сценариев NTF6-01…61, решения Р1–Р20 и Р10а, §1.8, §3,
+  §5, §6, §8, §9); дифф редакций d5fe4734 → 47bd8b70 (git diff 9afe86465 ff46eb4ec);
+  прежний первичный разбор d5fe4734. NTF-3 @ee6f908e (коммит 720cd711f) — Р9 (проект у
+  scope = cluster), Р11, Р25, Р29 (таблица 18 ячеек), NTF3-93, NTF3-149; дифф ee6f908e → 4e2ffe87.
+  NTF-1 @530e2296 — Р9 (флаг, таблица подключаемых). Дерево kacho @1d42a6728bf:
+  ui-future/shared/src/lib/subscription/subjects.ts (STREAM_SUBJECTS, JournalOwner),
+  ui-future/shared/src/components/molecules/ResourceLink/ResourceLink.tsx (resourceDetailHref),
+  ui-future/shared/src/lib/resource-registry.tsx (resourceProjectPath),
+  ui-future/shared/src/lib/{config,use-operation}.ts, ui-future/host/vite.config.ts,
+  ui-future/deploy/templates/{configmap-nginx.yaml,deployment-host.yaml,_helpers.tpl},
+  ui-future/host/{nginx.conf,Dockerfile}, ui-future/deploy/console_stream_kind_dictionary_test.go,
+  services/*/internal/subscriptionjournal (каталоги), services/nlb/internal/subscriptionjournal/journal.go,
+  proto/kacho/cloud/loadbalancer/v1/{target_group_service,health_check}.proto,
+  deploy/helm/umbrella/Chart.yaml, deploy/stacks.txt (шапка). corelib @34bc8104a: ids/ids.go.
+  kaname @cbbac984b: internal/domain/derived_id.go, internal/migrations/0001_initial.sql
+  (форма id). Записки vault не читались.
+
+decisions:
+  D1: 'вход в рейле, счётчик нового — опрос в хосте (Р1, Р18)'
+  D2: 'признак Р2 — ответ раздачи /console-config.json, отрендеренный чартом из global.kacho.notifications.enabled; загрузчик shared/src/lib/console-config.ts с тремя исходами (true, false, «не прочитано»); названные страницы'
+  D3: 'счётчик — опрос 60 с, по фокусу и после своей отметки; один цикл в полёте, устаревший ответ отбрасывается; сигнал «отметка сделана» — событие окна NOTIFY_SEEN_EVENT (Р4, Р18)'
+  D4: '«просмотрено» — PATCH одной позиции (Р19)'
+  D5: 'модули, виды, каналы, подписи и порядок — только из каталога notify (Р5)'
+  D6: 'ALWAYS фактом, :setEntries строится только из SWITCHABLE (Р6)'
+  D7: 'адрес ресурса строит консоль из (resourceType, resourceId, projectId); сегменты из ответа проходят isPlatformId (shared/src/lib/id-form.ts) до ResourceLink (Р7)'
+  D8: 'данные ответа — только текстом, инициатор дословно (Р8)'
+  D9: '«Подписаться на изменения» — собственная часть общей карточки, не registerDetailExtension; видимость — признак Р2, STREAM_SUBJECTS и ячейка (RESOURCE_CHANGE, EMAIL) модуля notifyModuleOf(spec); «Вы подписаны» — из списка своих подписок (Р10)'
+  D9a: 'переход «спека → ключ модуля каталога» — NOTIFY_SOURCE_BY_OWNER: Record<JournalOwner, string> рядом со STREAM_SUBJECTS; гейт console_notify_source_key_test.go (Р10а)'
+  D10: 'контакты — выбор из пользователей аккаунта, источник словами поля source (Р11)'
+  D11: 'замена текста FORBIDDEN_EXPLANATION (Р17)'
+  D12: 'мутации — Operation; опрос OperationService.Get только при done = false (Р3)'
+  D13: 'новый модуль ui-future/notify, объекты чарта по флагу, префикс notify в перечне проксирования раздачи, матрица конвейера (Р12, Р20, §3, NTF6-47, 48)'
+  D14: 'клиент /notify/v1/*, функция счёта Р18 и загрузчик признака Р2 — в shared, по одному (Р20, DoD 6)'
+
+items:
+  # ── Пункты прежнего разбора: состояние на редакции 6 ─────────────────────────
+  - id: CX6-01
+    decision: D9a
+    class: "code-authoring §«Контракт, который нельзя выразить» (два написания одного значения); polyrepo.md warning «Ключ домена и имя каталога — РАЗНЫЕ словари»"
+    exposure: "решено приёмкой (Р10а): переход объявлен одним отображением по владельцу, исчерпывающим по типу; вывод из написания запрещён"
+    condition: >-
+      NOTIFY_SOURCE_BY_OWNER — Readonly<Record<JournalOwner, string>> (владелец без записи — ошибка
+      проверки типов); notifyModuleOf — единственный читатель; ни одно место консоли не ищет модуль
+      каталога по owner, сегменту пути или приставке вида.
+    held_by: "покраснеет console_notify_source_key_test.go (инъекция loadbalancer: \"loadbalancer\"), subjects.test.ts (23 записи против каталога), NTF6-60 на стенде — все названы DoD 5, 6"
+  - id: CX6-02
+    decision: D14
+    class: "code-authoring §«Унификация и стоимость»; §«Инвариант и оснастка — это тоже прод-код»"
+    exposure: "решено приёмкой (Р20): клиент, счёт и загрузчик — в shared; предикаты DoD 6 названы на эту раскладку"
+    condition: >-
+      хост, карточка и модуль notify импортируют клиента, счёт и загрузчик из @shared; второго
+      клиента /notify/v1/*, второй функции счёта и второго чтения /console-config.json нет.
+    held_by: >-
+      DoD 6 (git grep по пути /notify/v1/ и по именам четырёх функций). Предикат по ИМЕНИ доказывает
+      одно определение каждого имени, но не отсутствие второй реализации под другим именем
+      (локальный подсчёт «нового» в модуле) — эта половина держится вниманием рецензента диффа.
+  - id: CX6-03
+    decision: D9
+    class: "code-authoring §«Решение и его следствие разнесены» (регистрация, заменяющая чужое)"
+    exposure: "решено приёмкой (Р10): действие — часть карточки, составляемая с расширением спеки"
+    condition: "ни одна спека не теряет headerActions/overviewExtra/extraTabs от появления действия; registerDetailExtension для действия подписки не вызывается"
+    held_by: "покраснеет ResourceDetailExtensions.test.tsx (спека networks со своим расширением показывает и его, и действие) — DoD 6"
+  - id: CX6-04
+    decision: D2
+    class: "code-authoring §«Умолчание, которое становится утверждением»; architecture.md §«Конфигурация, впервые ставшая ЧИТАЕМОЙ, перебивает умолчание поставщика»"
+    exposure: "решено приёмкой (Р2): канал во время работы, три исхода, запасного значения нет"
+    condition: "признак не читается из import.meta.env; исход «не прочитано» не сводится ни к true, ни к false"
+    held_by: "покраснеют NTF6-61 (а)–(в) на стенде, console-config.test.ts (DoD 2), NTF6-47 (тело ответа в рендере), DoD 6 (notificationsEnabled только в console-config.ts)"
+  - id: CX6-05
+    decision: D3
+    class: "code-authoring §«Решение и его следствие разнесены» (темп производителя и применения)"
+    exposure: >-
+      Р18 теперь требует один цикл в полёте и отбрасывание устаревшего ответа, а сигнал отметки —
+      событием окна. Но модульных проб у host/src/lib/unread-poll.ts DoD 2 не называет (перечень
+      ветвей — только unread-count.ts): ветки «опоздавший ответ прежнего цикла» и «опрос, ушедший до
+      PATCH отметки» не держит ни один сценарий; NTF6-12 и NTF6-13 проходят и при нарушении, потому
+      что на стенде ответы приходят по порядку.
+    condition: >-
+      (а) у цикла номер поколения, ответ цикла старше последнего начатого отбрасывается; (б) событие
+      NOTIFY_SEEN_EVENT делает начатые циклы устаревшими и начинает новый; (в) таймер и фокус при
+      цикле в полёте схлопываются.
+    held_by: "нужна модульная проба unread-poll.test.ts с управляемыми ответами (обе ветки) — её нет, заказ"
+  - id: CX6-06
+    decision: D2
+    class: "code-authoring §«Умолчание, которое становится утверждением» (200 без формы ответа)"
+    exposure: >-
+      (а) префикс notify в перечне проксирования — решён (Р20, NTF6-47). (б) Р2 требует считать
+      ответ 200 не той формы отказом на каждом экране; для счётчика ветка названа DoD 2, для трёх
+      экранов (лента, настройки, контакты) и карточки проб нет — сценарии NTF6-56, 58, 59 подменяют
+      только 503.
+    condition: "проверка формы ответа — одна, в shared/src/api/notify.ts; иная форма при 200 возвращается вызывающему тем же исходом, что не-200"
+    held_by: "(а) — NTF6-47, NTF6-22; (б) — модульная проба клиента notify.ts «200 с HTML → отказ» по каждому методу, её нет — заказ"
+  - id: CX6-07
+    decision: D7
+    class: "code-authoring §«Контракт, который нельзя выразить» (перечень входных поверхностей); security-surface: адрес из данных ответа"
+    exposure: "решено приёмкой (Р7): isPlatformId до ResourceLink, не прошедшее — текст"
+    condition: "в ResourceLink из строки ленты не передаётся значение, не прошедшее isPlatformId; адрес строит только resourceDetailHref"
+    held_by: "покраснеют NTF6-16 (ветки gamma, delta) и id-form.test.ts (DoD 3, §8)"
+  - id: CX6-08
+    decision: D9
+    class: "code-authoring §«Умолчание, которое становится утверждением» (отсутствие на первой странице ≠ отсутствие)"
+    exposure: >-
+      без изменений: «Вы подписаны» и перечень кандидатов контакта выводятся из постраничных
+      списков (NTF3-93; /iam/v1/users); чтение первой страницы превращает «не нашлось на странице» в
+      «нет». Фильтра по цели у GET /notify/v1/subscriptions нет (NTF-3 Р11).
+    condition: >-
+      (а) оба вывода — после обхода до пустого nextPageToken; (б) после любого отказа создания
+      подписки состояние карточки перечитывается из списка, а не остаётся локальным флагом.
+    held_by: "вниманием; модульная проба «цель на второй странице → «Вы подписаны»» — её нет, заказ"
+  - id: CX6-09
+    decision: D12
+    class: "code-authoring §«Чужой ответ: классификация и бюджет»"
+    exposure: >-
+      без изменений: общий useOperation делает хотя бы один GET /operations/{id} и при done = true;
+      край выбирает владельца операции по приставке ручной картой, приставки операций notify в ней
+      нет, и ни NTF-1, ни NTF-3 (@ee6f908e и текущая) её не заводят (0 упоминаний).
+    condition: "при done = true исход берётся из ответа мутации, GET /operations не выполняется; опрос — только при done = false и только общим useOperation"
+    held_by: "NTF6-27, 36, 38, 43, 52 на стенде (ждут успеха, красят лишний опрос); маршрут приставки notify на краю для ветки done = false — заказ соседу, не закрыт"
+  - id: CX6-10
+    decision: D13
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения»"
+    exposure: >-
+      радиус не менялся: модули консоли перечислены руками в 13 не-тестовых файлах ui-future;
+      приёмка называет из них moduleCatalog.ts, App.tsx, configmap-nginx.yaml, values.yaml,
+      ingress.yaml, deployment-notify.yaml и ui.yml. Непоименованные прежним разбором места
+      (_helpers.tpl, hpa.yaml, service.yaml, host/Dockerfile, host/jest.config.cjs,
+      host/vite.config.ts, host/src/lib/module-navigation.tsx, ui-future/package.json,
+      shared/src/lib/entity-names.ts) решения по-прежнему не имеют.
+    condition: "замысел перечисляет все 13 мест с решением по каждому (правится / notify туда не входит — с основанием)"
+    held_by: "частично DoD 9, 10 (переписи модулей гейтами); прочие места — вниманием"
+  - id: CX6-11
+    decision: D2
+    class: "code-authoring §«Умолчание, которое становится утверждением» (отказ, показанный пустотой)"
+    exposure: "экран настроек читает каталог и настройки; сценария отказа на нём нет (NTF6-56…59 — лента, контакты, подписка), `?? []` дал бы пустую матрицу «ничего не подключено»"
+    condition: "одно состояние загрузки на экран (загрузка / отвергнуто / пусто / данные); подстановки пустого значения вместо отказа в модуле нет"
+    held_by: "модульная проба NotificationSettingsPage.test.tsx «каталог не 200 и 200 не той формы → текст отказа, матрицы нет» — её нет в перечне DoD, заказ"
+  - id: CX6-12
+    decision: D6
+    class: "code-authoring §«Контракт, который нельзя выразить»"
+    exposure: "запрос :setEntries, собранный из состояния формы целиком, несёт ALWAYS-ячейки или неизменённые SWITCHABLE и делает explicit = true там, где человек ничего не выбирал"
+    condition: "запрос строится из разницы «загружено → выбрано» только по SWITCHABLE-ячейкам каталога"
+    held_by: "покраснеют NTF6-27 (ровно одна запись), NTF6-28, NTF6-31"
+  - id: CX6-13
+    decision: D11
+    class: "measurement-discipline §«Радиус: по имени механизма и по точкам применения»"
+    exposure: "FORBIDDEN_EXPLANATION используется словарём REFUSALS и запасным разбором 403 — замена текста меняет пояснение на всех экранах с 403"
+    condition: "меняется только значение константы; своего пояснения модуль notify не заводит"
+    held_by: "DoD 12 (git grep прежнего текста → 0; проба словаря утверждает новый текст)"
+  - id: CX6-14
+    decision: D8
+    class: "security-surface: вывод данных ответа"
+    exposure: "решено приёмкой: DoD 11 обходит и файлы shared, импортирующие @shared/api/notify (карточка, строки подписок)"
+    condition: "всё, что выводит данные notify, — текстом; dangerouslySetInnerHTML в этих файлах ноль"
+    held_by: "покраснеют гейт DoD 11 (инъекция) и NTF6-18"
+
+  # ── Новые пункты редакции 6 ────────────────────────────────────────────────
+  - id: CX6-15
+    decision: D2
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (объявление, которое наследуется не так, как читается); security-surface: заголовки защиты ответа раздачи"
+    exposure: >-
+      Р2 заводит в шаблоне раздачи новый location = /console-config.json с собственным add_header
+      (Cache-Control: no-store). В nginx location со своим add_header НЕ наследует заголовки уровня
+      server: без повторного включения ui.securityHeaders ответ теряет X-Content-Type-Options,
+      X-Frame-Options, Referrer-Policy и CSP. В шаблоне это соблюдается соглашением: у 4 из 4
+      location хоста с собственным add_header include есть; гейта, сверяющего это, в дереве нет
+      (тестов, называющих securityHeaders / X-Frame-Options / nosniff в ui-future, — 0).
+      NTF6-47 и NTF6-61 (а) утверждают тело, тип и Cache-Control, но не заголовки защиты.
+    condition: >-
+      новый location включает ui.securityHeaders тем же образцом, что = /index.html; пара рендеров
+      NTF6-47 утверждает у /console-config.json тот же набор заголовков защиты, что у /index.html.
+    held_by: "держится вниманием, гейта нет — нужна строка в паре рендеров DoD 8 либо гейт «каждый location с add_header включает ui.securityHeaders», заказ"
+  - id: CX6-16
+    decision: D2
+    class: "code-authoring §«Решение и его следствие разнесены» (одно решение, прочитанное несколько раз); §«Умолчание, которое становится утверждением» (третий исход, ставший постоянным)"
+    exposure: >-
+      shared компилируется в каждый бандл отдельно (§1.8), поэтому «один загрузчик при старте
+      бандла» исполняется хостом и каждым загруженным модулем, несущим карточку, — отдельными
+      запросами с независимыми исходами. Кратковременный сбой одного из чтений даёт вход в рейле
+      при «true» и карточку того же окна в «не прочитано» (действия подписки нет, без объяснения на
+      карточке). Р2 не называет пути выхода из «не прочитано» без перезагрузки: одно неудачное
+      чтение при старте фиксирует исход на всю жизнь вкладки.
+    condition: >-
+      (а) чтение признака — одно на окно: результат (включая «не прочитано») хранится на window под
+      именем-константой из shared, и все бандлы получают один исход; (б) у исхода «не прочитано»
+      есть объявленный путь выхода — повторное чтение (по фокусу или по действию на названной
+      странице) либо текст названной страницы прямо предлагает перезагрузку.
+    held_by: "нужна модульная проба console-config.test.ts «два вызова загрузчика — один запрос, один исход» и ветка восстановления — её нет, заказ"
+  - id: CX6-17
+    decision: D3
+    class: "code-authoring §«Унификация и стоимость» (одна функция на два входа разной формы); §«Умолчание, которое становится утверждением»"
+    exposure: >-
+      Р18 определяет правило на ПЕРВОЙ странице (хост, pageSize=100) и говорит «те же правила
+      помечают строки на экране центра». Центр же показывает страницы по 50 с «Показать ещё»
+      (NTF6-06). Правило «seenUpTo не найден на странице — новое всё» при применении постранично
+      помечает «новым» вторую страницу, хотя seenUpTo был найден на первой и все строки второй
+      старше него (порядок position DESC). Ни один сценарий не держит пометки за первой страницей:
+      NTF6-06 — без seenUpTo, NTF6-13, 14 — три-четыре строки.
+    condition: >-
+      центр применяет unreadCount к сцепке всех загруженных страниц, а не к каждой; после того как
+      seenUpTo найден, ни одна строка ниже него не помечена «новое»; неточный исход (seenUpTo не
+      найден среди загруженного и есть nextPageToken) помечает только загруженное выше конца.
+    held_by: "нужна ветка unread-count.test.ts / NotificationCenterPage.test.tsx «seenUpTo на первой странице → строки второй не новые» — её нет в DoD 2, заказ"
+  - id: CX6-18
+    decision: D7
+    class: "code-authoring §«Умолчание, которое становится утверждением» (законное отсутствие, слитое с негодным значением)"
+    exposure: >-
+      Р7 передаёт в ResourceLink resourceId и projectId, «только если каждый — непустая строка в
+      алфавите». Но projectId — сегмент адреса не у всех спек: у спек службы доступа
+      resourceDetailHref строит /iam/<route>/<id> без проекта, а у события scope = cluster проект
+      пуст законно (NTF-3 Р9). В объёме это не наблюдаемо: у kaname в каталоге нет ячейки CONSOLE
+      (NTF-3 Р29), cluster-строки vpc_address_pool спеки в STREAM_SUBJECTS не имеют. Когда модуль
+      службы доступа получит вид RESOURCE_CHANGE с лентой (Р5 обещает приход без правки консоли),
+      все её строки потеряют ссылку молча.
+    condition: >-
+      проверка алфавита отвергает НЕГОДНОЕ значение, а пустой projectId передаётся как null
+      (resourceDetailHref сам решает, нужен ли проект спеке); строка с негодным непустым projectId —
+      по-прежнему текст.
+    held_by: "держится вниманием, в объёме наблюдать нечем — предикат пересмотра: в каталоге notify появилась ячейка CONSOLE у модуля, чьи спеки не несут проект в адресе (kaname) либо спека вида scope = cluster в STREAM_SUBJECTS; тогда — ветка NTF6-16 с пустым projectId"
+  - id: CX6-19
+    decision: D9
+    class: "code-authoring §«Унификация и стоимость» (стоимость страницы принадлежит запросу)"
+    exposure: >-
+      каждое открытие карточки любой спеки из STREAM_SUBJECTS при признаке true читает каталог и
+      полный список своих подписок (обход до пустого токена, CX6-08; потолок подписок —
+      ручка NTF-3 с границей 1000); общий QueryClient бандлов не делится (react-query в перечне общих
+      библиотек федерации нет, §1.8).
+    condition: >-
+      каталог и список подписок кэшируются в бандле одним ключом запроса на всё окно бандла и
+      сбрасываются только своей мутацией подписки; список читается pageSize = 1000 с обходом токена.
+    held_by: "держится вниманием; число запросов на открытие карточки — модульной пробой ResourceDetailExtensions.test.tsx (две карточки подряд → каталог 1 раз), её нет, заказ"
+
+measurements:
+  - claim: "Р10а: у STREAM_SUBJECTS 23 записи и 6 владельцев"
+    command: "git show 1d42a6728bf:ui-future/shared/src/lib/subscription/subjects.ts | grep -cE '^\\s*(\"?[a-z-]+\"?)\\s*:\\s*\\{\\s*owner:'; … | grep -oE 'owner: \"[a-z]+\"' | sort | uniq -c"
+    result: "подтверждено: 23 (vpc 8, iam 7, loadbalancer 3, storage 3, compute 1, registry 1)"
+  - claim: "Р10а: гейт выводит каталог службы из журнала, объявляющего виды владельца; iam — из ведомости journalsOutsideThisTree"
+    command: "git ls-tree -d --name-only 1d42a6728bf 'services/*/internal/subscriptionjournal'; git grep -n ObjectType 1d42a6728bf -- services/nlb/internal/subscriptionjournal; git show 1d42a6728bf:ui-future/deploy/console_stream_kind_dictionary_test.go | sed -n 668,671p"
+    result: "подтверждено: журналов 5 (compute, nlb, registry, storage, vpc), виды loadbalancer объявляет services/nlb; ведомость называет iam → github.com/PRO-Robotech/kaname"
+  - claim: "Р7: алфавит «строчные, цифры, дефис, ≤64» принимает законные id всех видов STREAM_SUBJECTS"
+    command: "sed -n 21,28p project/corelib/ids/ids.go; git -C project/kaname show cbbac984b:internal/domain/derived_id.go | grep -n DerivedIDSuffix; git -C project/kaname show cbbac984b:internal/migrations/0001_initial.sql | grep -oE \"'(acc|grp)[0-9a-z]{17}'\""
+    result: "подтверждено: crockford-base32 строчный, 20 знаков; производные id ролей — строчный hex; рукописные id первой миграции — строчные буквы и цифры"
+  - claim: "Р7: projectId — сегмент адреса у каждой спеки"
+    command: "git show 1d42a6728bf:ui-future/shared/src/components/molecules/ResourceLink/ResourceLink.tsx | sed -n 50,57p; grep -n 'пусто у `scope = cluster`' NTF-3@720cd711f"
+    result: "опровергнуто: у спек службы доступа адрес /iam/<route>/<id> без проекта; у scope = cluster проект пуст законно (NTF-3 Р9). В объёме не наблюдаемо (NTF-3 Р29: у kaname ячейки CONSOLE нет) — CX6-18"
+  - claim: "Р2: смена флага доходит до процесса раздачи"
+    command: "git show 1d42a6728bf:ui-future/deploy/templates/deployment-host.yaml | sed -n 23,24p"
+    result: "подтверждено: checksum/nginx от рендера configmap-nginx.yaml в аннотации шаблона пода — правка значения перекатывает раздачу"
+  - claim: "Р2: новый location в шаблоне раздачи сохраняет заголовки защиты"
+    command: "awk по блоку server хоста в configmap-nginx.yaml: location с собственным add_header и наличие include ui.securityHeaders; git grep -ln 'X-Frame-Options\\|securityHeaders\\|nosniff' 1d42a6728bf -- '*_test.go' '*.test.ts' '*.test.mjs' '*.bats' '*.sh'"
+    result: "соглашение соблюдено у 4 из 4 таких location; гейта в ui-future нет (единственное попадание — gateway/internal/restmux, о крае) — CX6-15"
+  - claim: "Р18 / Р20: сигнал модуль → хост событием окна — существующий механизм"
+    command: "git grep -c 'window.dispatchEvent\\|new CustomEvent' 1d42a6728bf -- ui-future/host/src ui-future/shared/src"
+    result: "0 — канал новый; держатель — только сценарий NTF6-13 и заказ CX6-05"
+  - claim: "DoD 6: предикат по имени функции видит определение"
+    command: "git grep -hE '^export (async )?function ' 1d42a6728bf -- 'ui-future/shared/src/lib/*.ts' ':!*test*' | wc -l; то же для '^export const X = ('"
+    result: "123 объявления против 2 стрелочных констант — форма объявления преобладает, предикат ложно-зелёным по форме не станет; вторую реализацию под другим именем он не видит (CX6-02)"
+  - claim: "DoD 6: путь /notify/v1/ встретится только в клиенте, реестры путей служб его не требуют"
+    command: "git grep -l '/vpc/v1/' 1d42a6728bf -- 'ui-future/*/src/*.ts*' ':!*test*' | wc -l"
+    result: "35 файлов несут путь vpc (реестры модулей, operations-subroute, ReachabilityPage, admin-plane-posture); для notify приёмка их не заводит — предикат DoD 6 исполним, если замысел не добавит notify в эти реестры (CX6-10)"
+  - claim: "NTF6-60: тело Create группы целей исполнимо"
+    command: "git show 1d42a6728bf:proto/kacho/cloud/loadbalancer/v1/target_group_service.proto | grep -n 'message CreateTargetGroupRequest' -A30; git show 1d42a6728bf:proto/kacho/cloud/loadbalancer/v1/health_check.proto | grep -n 'oneof\\|Duration\\|int64'"
+    result: "подтверждено: project_id, name, region_id, health_check{interval, timeout (Duration), unhealthy_threshold, healthy_threshold, oneof options: tcp{port}}, port"
+  - claim: "опрос операции notify через край (CX6-09)"
+    command: "grep -c 'opsproxy\\|prefixToBackend' docs/specs/sub-phase-NTF-{1,3,6}-*.md; git show 720cd711f:docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md | grep -c 'opsproxy\\|prefixToBackend'; git show 1d42a6728bf:ui-future/shared/src/lib/use-operation.ts"
+    result: "0 во всех трёх и в NTF-3 @ee6f908e; useOperation опрашивает хотя бы раз и при done = true — заказ прежнего разбора не закрыт"
+  - claim: "сосед NTF-3: поверхность, потребляемая консолью, одна и та же в цитируемой и текущей редакции"
+    command: "git show 720cd711f:<NTF-3> | sha256sum; git diff 720cd711f HEAD -- <NTF-3> | grep -E '^[-+]' | grep -E 'GET /notify/v1|CONSOLE|seen_up_to|:setEntries|NotificationSubscription\\{'"
+    result: "720cd711f = ee6f908e; между ee6f908e и 4e2ffe87 на поверхности консоли одна добавленная строка — обход страниц ленты (NTF3-73), формы не меняет"
+
+not_measurable:
+  - "поведение notify-api и края по /notify/v1/* и /operations/* для операций notify — кода нет (NTF-1 и NTF-3 не посажены); CX6-06 (а), CX6-09 проверяются по диффу и прогону стенда"
+  - "нагрузка опроса счётчика (страница 100 с постраничной проверкой прав раз в 60 с на вкладку) и чтений карточки (CX6-19) — числа нет без notify-api; предмет нагрузочной пробы NTF-3"
+  - "расхождение исходов признака между бандлами (CX6-16) на стенде — вероятностно, воспроизводится только управляемой подменой в модульной пробе"
+
+outcome: к-коду
+return_to_acceptance: []
+
+orders:
+  - to: acceptance author (NTF-3)
+    what: "маршрут приставки операций notify в карте края (opsproxy) либо записанное «done = false у notify-api не бывает» с держателем — заказ прежнего разбора, не закрыт"
+    basis: "CX6-09; api-conventions.md api-operation-shape"
+  - to: go/ts implementer (NTF-6)
+    what: >-
+      модульные пробы: CX6-05 (unread-poll: опоздавший ответ, опрос в полёте во время отметки),
+      CX6-06 (б) (клиент notify.ts: 200 с HTML → отказ по каждому методу), CX6-08 (цель на второй
+      странице), CX6-11 (экран настроек: каталог не 200 и не той формы), CX6-16 (одно чтение
+      признака на окно, выход из «не прочитано»), CX6-17 (пометка «новое» за первой страницей
+      центра), CX6-19 (две карточки подряд — каталог один раз); строка пары рендеров DoD 8 о
+      заголовках защиты /console-config.json (CX6-15)
+    basis: "gate-authoring; testing.md §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки»"
+  - to: design author (NTF-6)
+    what: "отображение CX6-01…19 в решения замысла; перечень 13 мест ручного перечисления модулей с решением по каждому (CX6-10); решение о пустом projectId (CX6-18)"
+    basis: "change-graph.md §4"

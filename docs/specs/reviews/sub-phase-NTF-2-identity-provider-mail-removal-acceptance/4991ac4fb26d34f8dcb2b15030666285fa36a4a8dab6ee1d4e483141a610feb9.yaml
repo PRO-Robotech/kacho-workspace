@@ -1,0 +1,222 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9
+  revision: 6
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью. Эта запись шапку НЕ правит: вердикт привязан к отпечатку, а не к слову в
+    заголовке.
+  base_commit: 5662ad8abf762312bd34d2a780c28c97f665e7db
+  content_commit: none
+  content_commit_note: >-
+    Редакция на отпечатке 4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9.
+    Отпечаток — единственная привязка.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2046
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-30T05:10:00Z'
+round: 1
+round_note: >-
+  Круг 1 прохода после смены предмета (редакция 6: «почта личности»). Прежние круги 1–4 судили
+  предмет «снятие почты поставщика»; их записи не правятся.
+previous_rounds:
+  - round: 1
+    sha256: fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/fc9628df0bb9a136327b89f776db28f58368616449a2b94d4a63285455250b21.yaml
+    blocking_count: 6
+  - round: 2
+    sha256: 1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/1658e6f5e93312d524f1b5a8ad670691ed1d05566a7d62b53f053f1a338d491a.yaml
+    blocking_count: 3
+  - round: 3
+    sha256: 7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/7e6e8bb881ad3d68207345532ef664bad8547898bbd22bd5db4d7b1540c2536c.yaml
+    blocking_count: 2
+  - round: 4
+    sha256: 3fb89e6b74a02454f3911da0c7421b4ba51befdf3a546e5dcf8c5d181016cc97
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/3fb89e6b74a02454f3911da0c7421b4ba51befdf3a546e5dcf8c5d181016cc97.yaml
+    blocking_count: 1
+round4_closure:
+  B4-1: >-
+    закрыто — предикат снятия Д12 (Р19, §0); ни один сценарий не утверждает отсутствия раздела
+    `courier`; NTF2-21 утверждает «листьев 0» у умолчания подчарта.
+dispatcher_decisions_check:
+  Д1: соблюдено — кредов у kaname нет (Р2), NTF2-33 судит самостоятельную поставку
+  Д2: >-
+    соблюдено; посылка «TestMRW07 не запрещает service:kaname» подтверждена — тест судит
+    `seed.serviceAccounts`/`seed.joins` встроенного манифеста (kaname @734f69fb4
+    internal/servicemanifest/seed_form_test.go:88-101)
+  Д3: соблюдено — сигнал подпиской, Claim/Ack только service:notify (NTF2-46)
+  Д4: соблюдено — строка sender одна (NTF2-47), три исхода (Р14), ребро только notify→kaname
+  Д5: соблюдено — блоки, cid, origin из конфигурации (NTF2-01), bundle при сборке
+  Д7: >-
+    соблюдено по перечню действий; толкование «письма аудита класса S при выключенном флаге не
+    порождаются, действия исполняются» названо в Р4 без пометки «толкование Д7» — см. I-1
+  Д8: соблюдено в части личности (Р11); исключение «адресат — ввод» для invite/registration обосновано
+  Д9: >-
+    перечень перенесён (Р3); смена адреса — решение автора со строкой спора (Р13) — законная форма
+    отступления; держатель перечня неполон — B-2
+  Д11: >-
+    оси перенесены (Р5–Р8, Р12); у двух осей нет держателя, у регистрации противоречие правил — B-1, B-3
+  Д12: соблюдено — предикат §0/Р19 дословно по Д12; §3 замещает Р23 и MAIL-47 явно
+  Д13: соблюдено — Р16, Р18
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, COVERAGE]
+blocking_kinds_by_item:
+  - B-1 CONSTRUCTIBILITY
+  - B-2 COVERAGE
+  - B-3 COVERAGE
+blocking:
+  B-1:
+    kind: CONSTRUCTIBILITY
+    where: Р6 п.1 и п.3, Р9, NTF2-84 Given
+    text: >-
+      Р6 держит ключ окна по назначению `registration` и правило «пока код жив, повторный запрос
+      шлёт тот же код»; Given NTF2-84 строит две ожидающие регистрации одного адреса с РАЗНЫМИ
+      кодами K1 и K2 «после паузы окна» — в срок первого кода. По правилам документа такое
+      состояние не строится: второй `register` в срок K1 обязан прислать K1. Корень —
+      контракт не определяет исход повторного `register` на свободный адрес при живой ожидающей
+      регистрации: заводится ли вторая ожидающая запись, какой код она получает и к какому
+      паролю привязан код, предъявляемый в `register/confirm`.
+    required: >-
+      Назвать в Р9 один исход (код привязан к паролю того запроса, в ответ на который он
+      выпущен; повтор — новая запись с новым кодом либо замена прежней — выбрать и обосновать)
+      и согласовать с Р6 (регистрация либо исключается из правила «тот же код», либо правило
+      распространяется, и тогда Given NTF2-84 переписывается). Добавить пару сценариев: повтор
+      `register` на свободный адрес в срок кода другим паролем — исход подтверждения и близнец
+      с тем же паролем.
+  B-2:
+    kind: COVERAGE
+    where: Р3, NTF2-90 (заголовок «каждое событие перечня»), DoD п.11
+    text: >-
+      Таблица NTF2-90 держит 18 строк, а перечень Р3 называет ещё пять видов событий аудита без
+      держателя: `session.force_logout`, `user.second_factor_removed`, `user.second_factor_reset`,
+      `access_key.revoked`, `access_key.transferred`. У `access-key-changed` уникальное правило
+      адресата «владелец ключа до и после события» — его не держит ни один сценарий. DoD п.11
+      судит «каждую строку таблицы NTF2-90», поэтому пять видов выпадают из приёмки молча.
+      Виды существуют в аудите kaname (измерено: git grep -hoE '"iam\.[a-z_]+\.[a-z_]+"'
+      @734f69fb4, 61 вид, все пять в выдаче).
+    required: >-
+      Добавить пять строк в таблицу NTF2-90 (для `access_key.transferred` — оба адресата) либо
+      отдельный сценарий; число событий и писем в печати пробы пересчитать.
+  B-3:
+    kind: COVERAGE
+    where: Р5 п.3, Р6 п.1, Р8 строки «край · общий поток» и «kaname · адресат (registration)»
+    text: >-
+      Две объявленные защитные оси не имеют держателя. (а) Общий поток края: «при превышении
+      общего потока вызов PoW получают все» (ручка `KACHO_API_GATEWAY_ANON_MAIL_GLOBAL_*`, граница
+      > 0) — ни NTF2-60…63, ни страж NTF2-71 её не судят. (б) Окно адресата по назначению
+      `registration` (ручки `authn.login.mail-window.registration.*`): NTF2-64/65 судят только
+      `recovery`. Для регистрации на свободный адрес Р6 даёт два несовместимых исхода — «ключ —
+      нормализованный ввод» и «строка счётчика для адреса, которого нет, не заводится»; какой
+      из них действует, документ не решает, и это ровно ось Д11 «защита владельца почты».
+    required: >-
+      (а) Сценарий I: общий поток выше порога — вызов PoW на запрос с источника ниже своих
+      порогов; близнец — поток ниже порога; вариант стража NTF2-71 для ручки общего потока.
+      (б) Разрешить противоречие Р6 для регистрации и добавить сценарий ряда `register` на один
+      свободный адрес (с разных источников ниже порогов края): письма только в моменты
+      прогрессии, ответ побайтово один; близнец — занятый адрес (`registration-existing`).
+important:
+  I-1: >-
+    Р4: «письма аудита (класс S) при выключенном флаге не порождаются, а действия исполняются» —
+    толкование Д7 («письма класса security не глотаются», перечень действий в скобках). Пометить
+    строкой «толкование Д7: отказ получают действия перечня; действия класса S исполняются без
+    письма — основание …», чтобы это не читалось молчаливым отступлением.
+  I-2: >-
+    NTF2-70 (а): «исход по оси устройства» — закрытого набора `kaname_mail_intents_total` (Р6)
+    такого значения нет. Назвать значение и внести его в набор Р6.
+  I-3: >-
+    NTF2-99: производитель «перечень Р3 — NTF-2» без координаты — где лежит перечень, по которому
+    `notifygen -check` отличает обязательный класс `security`; без него инъекция «класс заменён»
+    может остаться зелёной.
+  I-4: >-
+    Р7/Р8: потолки приглашений на адресата от одного аккаунта (`recipient-per-hour`,
+    `recipient-per-day`) и `pending-max` не держит ни один сценарий (NTF2-69 судит только
+    поперёк аккаунтов).
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — возврат. Возврат полномочия не выдаёт, и от публикации события его сила не
+    зависит. Тело события для курьера — поле `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 редакции 6, блокирующих 3: CONSTRUCTIBILITY,
+    COVERAGE, COVERAGE) · SHA-256 4991ac4fb26d34f8dcb2b15030666285fa36a4a8dab6ee1d4e483141a610feb9
+measurement:
+  revisions_used:
+    kacho: origin/2564 6edea09c2ee (ствол origin/main 1d42a6728bf)
+    kaname: origin/357 734f69fb4
+    corelib: origin/main 34bc8104a83
+  isolation: >-
+    дерево `deploy` и локальные подчарты kacho @6edea09c2ee извлечены `git archive` в каталог
+    сессии рецензента; локальные подчарты упакованы `helm package`; ствол не менялся.
+  facts_reproduced:
+    kaname_1_1: >-
+      net/smtp — 2 файла (internal/check/mail_send_paths.go, internal/clients/invite_mail.go);
+      виды писем — 3; перепись 94 файла, не-тестовых 48 — как в §1.1
+    kaname_1_2: 61 вид события аудита; все виды перечня §1.2 в выдаче
+    kaname_1_5: TestMRW07 судит seed.serviceAccounts/seed.joins (seed_form_test.go:88-101)
+    kaname_dod17: >-
+      миграции с предикатом — 0001_initial, 20260916100000_invite_mail_windows,
+      20260917015400_…, 20260927190000_…, retired.json (+ один _test.go); исключения DoD п.17
+      покрывают все применённые — предикат после NTF-2 достижим
+    kacho_1_6: >-
+      рендер 7 цепочек: объектов 203/217/186/219/137/216/146; держатель секрета — только
+      Deployment/kaname в a8f60d (KANAME_INVITE_MAIL_PASSWORD); ConfigMap kaname-config с
+      адресом узла — dev, dev-prod, own, prorobotech, a8f60d; приёмник — те же 5 — как в таблице
+    kacho_1_7_p7_kratos: >-
+      dev + IDENTITY_STORE_UP_ARGS: объектов поставщика (без наших карт kaname-*) 10, почтового
+      процесса 2 (StatefulSet и Service r-kratos-courier), ссылок key smtpConnectionURI 2
+    kacho_dod16: >-
+      `courier|statefulSet` в deploy/helm @6edea09c2ee — 6 файлов, все с исходом «правится» в §3а
+      (строки 1, 3, 4, 5, 6, 7); предикат п.16 после NTF-2 достижим
+    kacho_producers: >-
+      TestOwnPostureRaisesNoForeignIdentityService, TestOwnPostureForeignIdentityGate_FindsTheInheritedFlag,
+      gateway/internal/middleware/{auth_own_session,address_refusal}.go, текст
+      `email address is not verified`/EMAIL_NOT_VERIFIED, путь GET /iam/v1/projects без
+      обязательного accountId, gateway/tests/newman/cases, ui-future — существуют
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* NTF2-[0-9]{2}' <док>"
+    total: 62
+    positive: 19
+    negative: 43
+  producer_coverage: {method: сверка таблицы §7 с множеством ID §6, covered: 62, of: 62}
+  twin_coverage: {negatives: 43, twins_named: 43}
+  constructibility_seeding:
+    seeded: 4
+    seeded_items: NTF2-18 (база), NTF2-20 и NTF2-21 настоящим входом П7-kratos, NTF2-31 (д)
+    not_executed: >-
+      остальные Given уровней E/I/G — производители (notify, notifygen, лента, окна) на базе
+      отсутствуют; заводят NTF-1 и NTF-2 (условие Р16)
+    refuted_by_reading: NTF2-84 (B-1)
+route_signs:
+  proto: да
+  schema: да
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
