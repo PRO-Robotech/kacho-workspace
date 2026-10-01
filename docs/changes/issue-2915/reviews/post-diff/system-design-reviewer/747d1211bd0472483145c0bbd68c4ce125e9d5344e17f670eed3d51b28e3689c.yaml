@@ -1,0 +1,62 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, полосы C2+C4+C6 изменения issue-2915, круг 2.
+#
+# Имя файла — content_digest отсуженного содержимого. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+mode: review
+round: 2
+supersedes_digest: sha256:2e6fc5e5c0630de661ac6d02a18413d720558c8dd26a548ea73bb55b73df4d12
+subject: >-
+  C2 (notify/address), C4 (notify/feed), C6 (cmd/notifygen) плюс возврат 105f53f:
+  срок отката точки сохранения, шов AAD Sealer.Seal(service,…), вид таблицы вне перечня, -base без ревизии
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: 77-c2-notify-address
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/77-c2-notify-address
+  base: 5065868f8c8be60e51991eb3e2648ff5dbe996fd   # merge-base --is-ancestor 5065868 105f53f → 0
+  head: 105f53fb28ab977c047fec2e3b941f612811fc30   # fab5323 — предок (→ 0); git status --short пуст
+content_digest: sha256:747d1211bd0472483145c0bbd68c4ce125e9d5344e17f670eed3d51b28e3689c
+digest_definition: sha256 сырого вывода `git diff 5065868...105f53f` в копии corelib (37 файлов, +5437)
+verdict: approved
+blocking: false
+return_to: null
+distributed_surface: true
+schema_review_overlap: true   # CAS окна, savepoint, порядок замков — дельта круга 2 их не меняет
+runs:
+  - cmd: go build ./... && go vet ./notify/... ./cmd/notifygen/... && go test -count=1 ./notify/... ./cmd/notifygen/...
+    result: 7 пакетов ok
+  - cmd: go test -tags integration -count=1 -v ./notify/feed/ (слот 2)
+    result: 30 PASS, 0 FAIL (B01/B02/B08/B09, UK75/77/78/85/86/89, N05–N09, новые пробы срока и шва AAD)
+  - cmd: инъекция в put.go:142 — WithoutCancel без срока, затем WithTimeout(ctx) без отвязки; файл возвращён git checkout
+    result: TestSavepointRollbackRunsUnderItsOwnDeadline красный в обоих случаях («идёт без срока», «унаследовал отмену»)
+prior_findings:
+  - at: notify/feed/put.go:120 (fab5323)
+    status: closed
+    evidence: >-
+      put.go:140-145 rollbackSavepoint — context.WithTimeout(context.WithoutCancel(ctx), savepointRollbackTimeout)
+      плюс defer cancel; константа 5s (put.go:47). Других WithoutCancel в notify/ и cmd/ нет
+      (grep вне _test). Проба put_savepoint_internal_test.go держит обе стороны: срок есть,
+      отмена вызывающего не унаследована — доказано инъекцией.
+  - at: put.go:105 (шов AAD с C5)
+    status: closed_in_this_lane
+    evidence: >-
+      порт переименован Seal(service, …), контракт AAD записан в put_source.go:27-35
+      (Config.Service; Open в C5 собирает из того же значения); TestSealerReceivesTheServicePrefixUnderItsOwnName
+      судит и переданное значение, и имя параметра разбором. Заказ в C5 остаётся: Open — то же выражение.
+  - at: put.go УК85 (порядок вычисления списка выборки)
+    status: unchanged_non_blocking
+    evidence: держится пробой UK85 (зелёная, с инъекцией и близнецами)
+critical: []
+important:
+  - at: notify/feed/internal/tablename/tablename.go:45
+    note: >-
+      вид вне перечня теперь даёт `""` вместо паники; оператор отвергается разбором (42601) до записи,
+      поэтому распределённого следствия нет. Это программная ошибка, и до счётчика дефекта она не доходит:
+      исход виден только как ошибка оператора. Не блокирует.
+orders: []
+edges:
+  new_runtime: none
+  build_inside_corelib: feed → {journaltx, subscription, address, form, ids}; без изменений
