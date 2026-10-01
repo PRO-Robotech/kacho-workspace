@@ -1,0 +1,106 @@
+# Пост-дифф ревью схемы и repo-SQL — роль db-architect-reviewer, полосы C2+C4+C6 изменения issue-2915.
+#
+# Имя файла — content_digest отсуженного содержимого. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+subject: >-
+  C2 (notify/address: профиль IDNA, Normalized/Domain), C4 (notify/feed: схема ленты v1,
+  Put, окно лимита, флаг), C6 (cmd/notifygen: init миграции ленты, -check побайтовой сверки)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: 77-c2-notify-address
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/77-c2-notify-address
+  base: 5065868f8c8be60e51991eb3e2648ff5dbe996fd   # родитель C2; merge-base --is-ancestor → 0
+  head: fab53231e4a4677af7f6c16e3a7a39844fce97e6
+content_digest: sha256:2e6fc5e5c0630de661ac6d02a18413d720558c8dd26a548ea73bb55b73df4d12
+digest_definition: sha256 сырого вывода `git diff 5065868...fab5323` в копии corelib (36 файлов)
+migrations_touched: 0   # файлов *.sql в диффе нет; DDL порождается notify/feed/schema (генератор миграции)
+repo_sql_touched: 3     # notify/feed/schema/schema.go (DDL v1), notify/feed/window.go (оператор окна), notify/feed/put.go (вставки ленты/вклада, отметка)
+verdict: approved
+blocking: false
+design_conditions_checked:
+  - id: З3 / УК12, УК34, УК36, УК41 (C2)
+    result: held
+    evidence: >-
+      profile — одно значение (address.go, idna.New с MapForLookup, Transitional(false), BidiRule,
+      ValidateLabels, StrictDomainName — дословно З3); ErrMalformed до SQL, Put отображает в
+      ErrRecipientInvalid (put.go шаг 3); Normalized{v}/Domain{v}, нуль → ErrUnset, ключ окна
+      только через recipientKey(Normalized.Value()). Интеграционная проба NTF1-B27 судит ключ окна
+      в базе: регистр домена и Unicode/A-label — одно окно, ß/ss и регистр локальной части — два.
+  - id: §6 / З6 схема ленты (C4)
+    result: held
+    evidence: >-
+      DDL v1Up совпадает с §6 по колонкам, CHECK (schema_rev, class, state, not_before isfinite,
+      closed_carries_no_secret, outcome_matches_state, outcome_pair из OutcomePairs), PK окна
+      (template, scope, window_seconds, key, window_start), PK вклада (notification_id, scope,
+      window_seconds), FK вклада → строка ленты ON DELETE CASCADE (та же база), FK вклада на
+      окно отсутствует по решению §6. CHECK inline, функций/процедур/триггеров нет (УК87 (а)).
+  - id: З7 шаг 5 — лимит держит база (C4)
+    result: held
+    evidence: >-
+      один оператор INSERT … ON CONFLICT (ключ окна) DO UPDATE SET count = w.count + 1
+      WHERE w.count < $max RETURNING (window.go); ноль строк → ErrLimitExhausted, точка
+      сохранения откатывает вклады прошедших лимитов; чтения счётчика с последующей записью нет.
+  - id: УК85 отметка второй постановки с лимитами (C4)
+    result: held
+    evidence: >-
+      set_config('kacho_feed.limited_put','1', true) первым оператором в точке сохранения;
+      откат точки сохранения снимает отметку (близнец «первая ErrLimitExhausted, вторая проходит»).
+  - id: З5 / D04 — применённая миграция не правится (C6)
+    result: held
+    evidence: >-
+      init пишет только новый файл с меткой max(время, старшая+1) и только при смене версии;
+      -check сверяет каждый файл *_notification_feed_v<N>.sql побайтово с выпущенным
+      содержимым по заголовку service/version (migrate.go checkMigrations).
+mechanisms:
+  - invariant: «не больше max писем на ключ области за окно»
+    mechanism: условный upsert строки окна (CAS по count под замком строки), CHECK (count >= 0)
+  - invariant: «одно окно на (template, scope, window_seconds, key, window_start)»
+    mechanism: PRIMARY KEY окна
+  - invariant: «один вклад на пару строка ленты × лимит»
+    mechanism: PRIMARY KEY contrib; повтор пары отсекает Validate до SQL (LimitLess строго)
+  - invariant: «отметка закрытия ровно у закрытой строки; закрытая без секрета; пара вид × причина»
+    mechanism: CHECK outcome_matches_state, closed_carries_no_secret, outcome_pair
+measurements:
+  - command: >-
+      go test -race -count=3 ./notify/feed/... ./notify/address/... ./cmd/notifygen/...
+      (heavy-slot 1, MemoryMax=10G)
+    outcome: "5 пакетов ok, rc=0"
+  - command: go test -count=3 -v ./notify/feed/ (heavy-slot 1)
+    outcome: >-
+      84 PASS, 0 FAIL, 0 SKIP; конкурентные пробы TestNTF1B08 (6 горутин при лимите 6 → 6 строк)
+      и TestNTF1B09 (10 горутин при лимите 6 → 6 строк, 4 ErrLimitExhausted, сумма окна 6,
+      вкладов 6) зелёные во всех трёх прогонах
+  - command: >-
+      мутация в отдельном detached worktree @fab5323 (после — снят): предикат
+      `WHERE w.count < $5` заменён на `WHERE $5::integer > 0`;
+      go test -count=1 -run 'TestNTF1B0[89]_|TestNTF1B27_One' ./notify/feed/
+    outcome: >-
+      TestNTF1B09_BeyondLimitExactlyLRows FAIL, TestNTF1B27_OneWindowPerMailbox FAIL,
+      близнец TestNTF1B08 PASS — проба держит механизм базы, а не его объявление
+findings: []
+notes:
+  - >-
+    Закрытые перечни scope окна и вклада ('recipient','initiator') держит только
+    TemplateDesc.Validate; CHECK в таблицах нет (§6 его не требует). Писатель окна в дереве —
+    только Put, который судит описание до SQL; дефекта корректности нет. Добавление CHECK
+    после выпуска — только версией схемы v2 (новой миграцией), поэтому решение дешевле принять
+    до первого применения init в службах; судит автор замысла, не блокирует.
+  - >-
+    Согласованность колонок аренды (lease_token и lease_until вместе) и записанного Ack
+    (recorded_kind/recorded_reason/outcome_token) CHECK не закреплена; их писатели — Claim/Ack
+    полосы C5. Сверить на ревью C5: инвариант пары — CHECK либо обоснование его отсутствия.
+  - >-
+    address.Normalize не ограничивает длину адреса; адрес длиннее ~2,7 КБ дал бы ошибку
+    индекса 54000 на PK окна/вклада — ошибку хранилища, а не сторож; точка сохранения
+    оставляет транзакцию вызывающего пригодной. На корректность не влияет; входы вызывающих
+    (NTF-2/NTF-3) длину ограничивают сами — сверить в их замыслах.
+  - >-
+    Пересечение с распределёнными свойствами: да — порядок замков строк окна между Put и
+    уборщиком (УК83, УК86) держится на стороне уборщика, которого в этом диффе нет (C5);
+    судит system-design-reviewer вместе с C5.
+orders: []
