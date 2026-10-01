@@ -1,0 +1,73 @@
+role: go-style-reviewer
+phase: post-diff
+change: issue-2976
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2976-gateway-id-shape
+  base: 706bd9486cae9b747dd51b758ef44d240eb09eee   # origin/2914-notify, предок головы
+  head: 0a8fe5649000c71b367d58f0af7e574ba0355323   # origin/2976-gateway-id-shape, перемерено git fetch + rev-parse
+  digest_predicate: git diff 706bd9486ca 0a8fe564900 | sha256sum
+  content_digest: a50de7d18e5e07094acd3f8a4846b4eb267d5c8ddfbfae2fcfdde2840c08751e
+  diff_scope: 5 файлов gateway/internal/middleware, +285 −12, один коммит
+verdict: accepted
+blocks: false
+fresh_deferral_markers_in_diff: 0      # grep TODO|FIXME|XXX по пяти файлам диффа
+probes_in_same_pr: true                # authz_id_shape_test.go, 5 тестов
+critical: []
+important: []
+foundation_candidates:
+  - at: gateway/internal/middleware/resource_id_shape.go:41-52
+    what: >
+      hasCanonicalIDShape судит дефисную форму, подставляя тело к чужому префиксу
+      (ids.PrefixNetwork + body) ради ids.HasKnownPrefix. Сам комментарий фиксирует,
+      что пары HasKnownPrefix для дефисной формы у фундамента нет. Предикат
+      горизонтальный (форма id чеканки) — кандидат в corelib/ids (например,
+      HasKnownHyphenShape рядом с NewHyphenID), потом импорт пином.
+    blocks: false
+style:
+  - at: gateway/internal/middleware/resource_id_shape.go:79-80
+    what: >
+      числа «40 записей методов kacho, 5 записей kaname.cloud.iam» в комментарии
+      протухнут с каталогом (сейчас верны: jq по embed/permission_catalog.json
+      @0a8fe56 даёт 40 и 5). Довод держится без чисел.
+  - at: gateway/internal/middleware/authz_id_shape_test.go:9-10
+    what: >
+      «validate.ResourceID смотрит только на первые три символа» — неполно: он же
+      принимает сегмент до дефиса из hyphen-словаря (corelib@v1.10.0-rc.5
+      validate/validate.go:475). На суть пробы не влияет.
+observations:
+  - >
+    строгость `project` выводится из наличия в каталоге kaname-строк с конкретной
+    областью project (сейчас 5). Каталог без них (фикстура authz_scope_source_test)
+    делает project строгим — поэтому фикстуры и сменены. Проды kaname чеканят
+    project через ids.NewID(prj) (kaname internal/apps/kaname/api/account/create.go:228,
+    user/mirror_tx.go:81), так что регресса на живых id не видно.
+checked:
+  no_alphabet_or_length_copy: >
+    в прод-коде гейтвея литералов алфавита и длины нет; суд — ids.HasKnownPrefix и
+    ids.KnownHyphenPrefixes (corelib v1.10.0-rc.5 по go.mod:125). Цифра 17 —
+    только в комментариях и во входах пробы.
+  load_marking_order_independent: >
+    markIDShapeJudged — два прохода: сначала полное множество foreign, затем
+    пометка; от порядка записей не зависит. Присваивание существующему ключу во
+    время range допустимо спецификацией. Дубликаты FQN отсеяны раньше.
+  fixture_edit_not_weakening: >
+    authz_scope_source_test.go: сменены только значения двух констант (19 знаков
+    с `l` → 20 знаков Crockford), обе остались различными; утверждения
+    (assert/require, строки 103–298) не тронуты.
+  authz_comment_586_592: >
+    исправлен: прежнее «unknown 3-char prefix / wrong length» (ложь — ResourceID
+    длину не судил) заменено описанием двух судов; второй комментарий у 1153 тоже.
+  minted_prefix_radius: >
+    все префиксы, которые чеканят services/** через ids.NewID/NewHyphenID для 18
+    строгих типов (vol snp img net sub sgr rtb gtw nic adr lst nlb tgr reg cdg ins
+    mt plg gak), входят в ids.KnownPrefixes либо KnownHyphenPrefixes — замер
+    одноразовой пробой против corelib@v1.10.0-rc.5; засеянных фиксированных id
+    этих типов в миграциях не найдено.
+  red_on_base: >
+    TestAuthz_KachoTypeIdOfKnownPrefixButWrongShapeIsRefusedByTheEdge и
+    TestAuthz_KachoTypeHyphenFormIsJudgedByItsShape красные на прод-файлах базы
+    (одноразовый worktree, снят); близнецы зелёные.
+  error_handling_ctx_logging: >
+    новых путей ошибок, контекстов и журналов дифф не вводит; отказ — прежний
+    invalidResourceIDMessage, InvalidArgument, без эха; паники нет.
