@@ -1,0 +1,102 @@
+# Сверка волны: роль wave-reviewer, сборка-6 ветки 32 (f213439a + #36 + #37 + #39 + #21).
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся: сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 6
+previous_record: 54f27799555fd0f712b7a1a2451771eed6404611488ef66edc2b024955951aef.yaml
+subject: >-
+  corelib, волна 32, сборка-6: поверх origin/32@f213439a влиты #36 (0bffecb), #37 (39a12da),
+  #39 (c9e37ff), #21 (6401936), все --no-ff, remerge-diff каждого пуст. Головы 36, 37, 39 —
+  те же, что в сборке-5, дерево после трёх слияний 645b7335 — то же. Новая полоса — #21.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: f213439a409ecce4816d88121cf3301b9efbad33   # origin/32, перемерено ls-remote после fetch
+  head: 64019361707d8582a47ef747eacb555a170f4efe   # tmp/corelib-32, ветка 32, не отправлена, porcelain 0
+  tree: 7496980f
+  shortstat: '37 файлов, +4707 / -162'
+  lanes:
+    '36': {head: e2a451c63f2fe3ed7f6f5e1e99d9cc9958e160a0, base: f213439a, digest: a4e2e12095a74f0f9f1521d3504a7ad447883ecdbf62e49d121244b4f1bbfd86, merge: 0bffecb, order: 1}
+    '37': {head: be0d7cc81f557d58024598d1daf122b08b3c4551, base: f213439a, digest: b7f59f68d233c5c91c623f8fdb080eb8c0b13eb8f8b59f4abe85de60d727a564, merge: 39a12da, order: 2}
+    '39': {head: fa1dd916efa65cdcc4946f97ae9ddf9557d71be2, base: f213439a, digest: 2d64eee748f22cfb65bc3bd9cef183493317fe8b2ff9bc61d8ca4ed3dae866c7, merge: c9e37ff, order: 3}
+    '21': {head: dd8df2c1e167bd17e74dafe849b9bc695177227d, base: f213439a, digest: 696a1dbba2c61bfde2bc97fc91e452ea31e7f43bedd5581ac967b45dc778349e, merge: 6401936, order: 4}
+content_digest: sha256:330c23fc4d424eab6d1c231e5bf1cba56e5773b3b58fc1025bc401d5469efe3a
+digest_definition: >-
+  git diff --full-index origin/32..HEAD | sha256sum в tmp/corelib-32 после fetch. Дайджесты полос —
+  тем же предикатом от merge-base (f213439a у всех четырёх); 36/37/39 совпали с записями круга 5,
+  21 — с записью check-verifier круга 3 (696a1dbb…, accepted).
+
+verdict: returned
+blocks_landing: true
+timestamp: '2026-09-24T01:40:00Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-32f-NlQWrG/corelib (git clone --shared от tmp/corelib-32,
+  HEAD 64019361). GOCACHE, TMPDIR, GOLANGCI_LINT_CACHE там же, GOPROXY=off. Починки — только
+  -overlay (ov/); пробные сборки подмножеств — во временных worktree этого клона, сняты. Хук
+  провязан только в .git этого клона. tmp/corelib-32 не тронута: porcelain 0, HEAD 64019361.
+  Шаг 0: MemAvailable 32 ГБ, чужих golangci-lint и pre-push 0. Логи: .../logs/.
+
+runs:
+  - 'go build ./... rc 0; go vet (3 пакета) rc 0; gofmt -l по индексу: 0 из 759; golangci-lint v2.12.2 --config=.github/golangci.yml: 0 issues, rc 0'
+  - 'R1 хост, go test -count=1 -json ./oauthceremony/ ./acrlevel/ ./tokenpolicy/: rc 1. oauthceremony PASS 1468 FAIL 4; acrlevel PASS 14; tokenpolicy PASS 10. Упали TestConsumedCodeRecordOutlivesTheCodeLifespan (2 подпробы, code_record_retention_test.go:111 «НЕ ВЫПОЛНИЛОСЬ: мгновения GrantRecord — [IssuedAt Session.AuthTime Session.ExpiresAt Session.NotAfter], ageCodeRecord старит [IssuedAt Session.ExpiresAt Session.NotAfter]») и TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily (replay_build_test.go:204 «отвергнут случаем invalid_client, ожидался authorization_code_consumed», :205 семейство не отозвано)'
+  - 'R3 golang:1.26.8 --cpus=1, go test -race -count=1 -timeout 25m тех же пакетов: rc 1, PASS 1468+14+10, FAIL 4, те же 2 верхних, DATA RACE 0'
+  - 'R5 golang:1.26.8 --cpus=4, форма конвейера go test ./... -race -short -count=1 | go-test-verdict.py сборки: пакетов 99 (прошло 79, упало 1, без проб 19), исполнено 4216, отказов 4, пропущено 191, КРАСНЫЙ rc 1'
+  - 'R9 хук отправки #21 на сборке (провязан в своём клоне, вход пуст): проверок объявлено 5, исполнено 5, красных 1 (go test -short: 99 пакетов, 4216 исполнено, 4 отказа), rc 1 — «pre-push ОТКАЗ … Отправка остановлена»'
+  - 'R10 scripts/hooks/inject.sh на сборке: утверждений 90, сошлось 90, rc 0; go-test-verdict.py --self-test: 9/0'
+  - 'R2 -overlay на сборке, хост, ./oauthceremony: fixC3 — rc 1, FAIL только TestCodeReplayOfAClientThatIsGone…; fixC4 — rc 1, FAIL только TestConsumedCodeRecordOutlives…; обе — rc 0, PASS 1472, FAIL 0. Корни независимы'
+  - 'T-B пробная сборка f213439a + #37 + #39 + #21 (свой worktree): -short ./... хост — 99 пакетов, исполнено 4123, отказов 0, ЗЕЛЁНЫЙ; --cpus=1 -race трёх пакетов — PASS 1403, FAIL 0, DATA RACE 0'
+  - 'T-A пробная сборка f213439a + #36 + #21: -short ./... хост — 99 пакетов, исполнено 3168, отказов 0, ЗЕЛЁНЫЙ'
+
+lanes:
+  - 'полоса 36 · вердикт возврат · координата oauthceremony/fakes_test.go:468-470,489; replay_build_test.go:184-187; notes.go:246-248 × bridge.go:465,634 @64019361 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений…» (столкновение ожиданий ×2; два решения одной задачи), .claude/rules/testing.md gate-checks-its-premise · чем доказано R1, R3, R5, R9; R2'
+  - 'полоса 37 · вердикт принято · координата — · требование — · чем доказано T-B (с #39 и #21 зелёная, в т.ч. --cpus=1 -race); C4/C5 закрываются в #36, см. next'
+  - 'полоса 39 · вердикт принято · координата — · требование — · чем доказано T-B; C3 закрывается в #36, см. next'
+  - 'полоса 21 · вердикт принято · координата — · требование — · чем доказано R9 (хук на сборке отказывает ровно по красному go test), R10 90/90, R5 (gitenv зелёный), T-A/T-B зелёные; запись check-verifier 696a1dbb accepted'
+
+collisions:
+  - {id: C3, kind: 'столкновение ожиданий — §14 «Классы столкновений…»', lanes: ['39', '36'], status: 'не разрешено, головы полос с круга 5 не менялись', proof: 'R1/R3/R5; R2 fixC3'}
+  - {id: C4, kind: 'столкновение ожиданий — §14 «Классы столкновений…»', lanes: ['36', '37'], status: 'не разрешено', proof: 'R1/R3/R5; R2 fixC4'}
+  - {id: C5, kind: 'два решения одной задачи — §14 «Классы столкновений…»', lanes: ['36', '37'], status: 'не разрешено; сам посадку не блокирует', proof: 'замер круга 5 (снят один механизм — зелёное, оба — 31 FAIL); код на сборке тот же'}
+  - id: C6
+    kind: 'работа × утверждение о дереве — §14 «Четвёртый вид…» (здесь добавление, а не снятие); не блокирует'
+    lanes: ['21', '36+37+39']
+    subject: >-
+      Шапка scripts/hooks/pre-push:16-17 «Замер на дереве волны 32: 99 пакетов, 3073 пробы,
+      пропущено 191, 30 с». На сборке той же волны: 99 пакетов, 4216 исполнено, 191 пропущено,
+      38 с (R9). Число верно для базы полосы, не для волны; ревизии при нём нет.
+    fix_in: 'полоса 21 при следующем касании — предикат либо ревизия вместо числа'
+
+route_correction: >-
+  Возврат круга 5 («влить 32 и тем же касанием») неисполним: origin/32 = f213439a не содержит
+  ни одной из трёх полос (merge-base --is-ancestor → 1 для e2a451c, be0d7cc, fa1dd91); в ней нет
+  ageCodeRecord (0), AuthTime (0) и replay_build_test.go. Все три столкновения — пары с #36, а
+  подмножество без #36 зелёное (T-B). Исполнимый путь: отправить 32 = f213439a + #37 + #39 + #21,
+  затем #36 вливает origin/32 и одним касанием закрывает C3, C4, C5. Порядок — решение диспетчера;
+  второй путь — отправить #36 + #21 (T-A зелёная), тогда C3 чинит #39, C4 и C5 — #37.
+
+not_found:
+  - '#21 × #36/#37/#39: общих файлов 0; -short в oauthceremony/tokenpolicy/acrlevel пропусков не даёт (testing.Short() — 0 вхождений), хук гонит их все; правило «исполнено 0 → код 2» на сборке не срабатывает (исполнено 4216)'
+  - 'добавление в удалённое / снят предмет: удалений путей в полосах нет; сборка, vet, lint чисты'
+
+lanes_without_verdict: —
+reports_wider_than_done: 'C6 (шапка хука, не блокирует). Сведение («проверок не было») верно.'
+form_not_blocking: >-
+  Коммитов origin/32..HEAD 32, слияний 7, трейлеров 0. Тема >72 и тело >12 строк — только
+  ea40a529 (78 знаков, 18 строк), с прошлых кругов. fef469d (#21, уже на origin/issue-21) — тема
+  без «#21», автор pointpu@prorobotech.ru при ~/.gitconfig pointpu@in-cloud.io; без rebase не
+  исправить.
+
+examined:
+  diffs: 9                     # 4 диффа полос от f213439a; дифф сборки; remerge-diff 4 слияний (пусты)
+  lines: 11818                 # 1341 + 2360 + 767 + 1498 + 5852 + 0
+  read_line_by_line: 'дифф #21 целиком (.github, Makefile, gitenv, pre-push); на сборке — ageCodeRecord/agedGrantInstants, replay_build_test.go:175-207, markReplayedFamily, bridge.go:455-470,625-640. Диффы 36/37/39 не менялись с круга 5 и судились прогоном'
+
+next:
+  - 'сведение — пересобрать 32 = f213439a + #37 + #39 + #21, прогон в форме конвейера, landing, отправка 32'
+  - 'go-implementer (полоса 36) — влить origin/32 и одним касанием: Session.AuthTime в ageCodeRecord и agedGrantInstants (C3); store.secrets[otherClientID] в replay_build_test.go (C4); оставить один механизм «повтор — первый случай» и привести комментарии к нему (C5)'
+  - 'go-style-reviewer и security-auditor — круг на новом дайджесте 36; затем сборка с #36 и повторный проход wave-reviewer по 36'

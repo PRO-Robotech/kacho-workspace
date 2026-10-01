@@ -1,0 +1,127 @@
+# Вердикт ДО ПОСАДКИ, роль landing-reviewer. Предмет: область зелёного, сохранность
+# работы, способ внесения, публичный текст.
+#
+# Имя файла совпадает с content_digest отсуженного содержимого. Запись лежит вне git,
+# потому что харнесс не даёт писать в общий checkout воркспейса. Отдельный шаг перенесёт
+# её без правки в kacho-workspace/docs/changes/issue-2825/reviews/pre-landing/landing-reviewer/.
+#
+# Запись публична: механизма дефекта безопасности в ней нет, потому что у предмета его нет.
+
+schema_version: 1
+change_id: issue-2825
+holder: pre-landing/landing-reviewer
+owner: landing-reviewer
+mode: до посадки
+round: 1
+timestamp: '2026-09-24'
+
+subject: >-
+  kacho #2825: ветвь «отправка одних удалений» в scripts/hooks/pre-push, её проба
+  (scripts/hooks/prepush-range-inject.sh, раздел «одни удаления», 18 утверждений)
+  и комментарии производителей prepush-groups.sh и prepush-range.sh. Ветка 2825,
+  два коммита, 9b720570e604909f56b6542e0dd822126be39edd и
+  9c3b89d7c2a965b9d8676ddf2db2912f57f4c470. Вносится в волну 2796 коммитом
+  слияния --no-ff.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  lane_worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kacho-2825
+  base: 113f3b8b591c4caef55f19c51346a10ff98d8151        # origin/2796 и `git ls-remote origin refs/heads/2796`
+  head: 9c3b89d7c2a965b9d8676ddf2db2912f57f4c470
+  head_tree: faea85a5fb32b320307a377ebab1cb5df497781b
+  content_digest: sha256:4e46690a56a27d252aafe1263377b7ceb99e402058c8ad9e8715e6b23fe47894
+  measured: >-
+    `git diff --full-index origin/2796..9c3b89d7c2a965b9d8676ddf2db2912f57f4c470 | sha256sum`
+    дал 4e46690a…47894, это совпадает с заданием и с записью check-verifier.
+    `git status --porcelain` в копии полосы пуст (0 строк),
+    `git merge-base --is-ancestor origin/2796 HEAD` вернул rc=0. На origin ссылки 2825 нет,
+    копия волны tmp/kacho-2796 чиста и стоит на 113f3b8b591.
+  diff: 4 файла, +326/-46; все в scripts/hooks/
+
+verdict: accepted          # принято
+blocks_landing: false
+
+outcome:
+  mine:
+    green: 4
+    red: 0
+    not_executed: 0
+    runs:
+      - 'prepush-range-inject.sh @9c3b89d7c2a (git archive, TMPDIR свой): rc=0 · строк `^  ok   [настоящий]` 54 · `^  FAIL [настоящий]` 0 · сводка: у настоящего 0 провалов во всех разделах, раздел «одни удаления» 18 утверждений, дефекты «удаление гонит прогон» 6, «глотает смешанную» 4, «пустой вход — одни удаления» 5'
+      - 'prepush-groups-inject.sh: rc=0 · 6 утверждений × 3 прогона · у настоящего 0 · у дефектов 1 и 1'
+      - 'install-inject.sh: rc=0 · 25 утверждений, 0 провалов'
+      - 'go test -short -count=1 -v -run «TestPipefailVerdictNeverComesFromAPipe|TestHookAndHelperScrubTheSameVariables|TestOperatorMessagePathsExist|TestNoDeferredWorkInTheTree|TestIdentifiersAreASCII» ./internal/repohygiene/ в собственном --shared клоне на 9c3b89d7c2a: rc=0 · PASS 5 · FAIL 0 · SKIP 0'
+  check_verifier: >-
+    Запись 4e46690a….yaml, принято. Проба прогнана 15 раз, из них 9 инъекций. Все инъекции
+    кроме законной перестановки краснят пробу. I1 (снятый конъюнкт «строки есть»)
+    теперь даёт 5 FAIL, а проба круга 1 на нём же давала 48/0. Опыты с настоящим
+    `git push` — 3 прогона по 8 случаев. `go test -short ./internal/repohygiene/`
+    целиком дал PASS 2504 · FAIL 0 · SKIP 3. shellcheck дал одну SC2086, ту же, что на базе.
+  author: 'в теле 9c3b89d7c2a: раздел «одни удаления» 18 утверждений. Воспроизведено (18)'
+
+scope_of_green: >-
+  Коммит 9c3b89d7c2a, база 113f3b8b591. Мои прогоны без фильтров, кроме -run у
+  repohygiene (5 тестов, которые читают скрипты хуков и дерево). Сервисы и стенд не
+  участвовали: предмет — локальный shell-хук, прогонщик заменён заглушкой пробы.
+  НЕ исполнялось ни мной, ни check-verifier: go test всего дерева, -race,
+  golangci-lint, govulncheck, newman, настоящий scripts/ci-local.sh, конвейер. Эти
+  пробы входят в go-группу ci-local.sh (строки proof «hooks: …»), так что их повторит
+  pre-push при отправке волны.
+
+preservation:
+  merge_simulation: '`git merge-tree --write-tree origin/2796 9c3b89d7c2a` дал rc=0, дерево faea85a5fb32…, оно равно дереву головы: конфликтов нет, содержимое переносится без изменений'
+  proof_after_merge: 'git diff 9c3b89d7c2a965b9d8676ddf2db2912f57f4c470 <слияние> -- scripts/hooks/pre-push scripts/hooks/prepush-groups.sh scripts/hooks/prepush-range-inject.sh scripts/hooks/prepush-range.sh   # ожидается пусто; плюс git merge-base --is-ancestor 9c3b89d7c2a <слияние> rc=0'
+  neighbours: 'полоса 2851 (tmp/kacho-2851) scripts/hooks/ не трогает: 0 файлов из `git diff --name-only origin/2796...HEAD`'
+
+public_text:
+  checked_by_recoverability: да
+  finding: >-
+    Раскрывать нечего. Предмет — удобство разработчика, и обход хука назван в его
+    шапке законным (--no-verify, KACHO_SKIP_PREPUSH). Дефект I1 жил только в
+    неопубликованной ревизии 9b720570e60. Тексты называют номера задач (#2594, #2828)
+    и поведение хука, координаты уязвимого состояния в них нет. Переписывать нечего.
+  identity_and_trailers: 'оба коммита: author = committer = pointpu <pointpu@in-cloud.io>, это ~/.gitconfig (`git config --show-origin`). Трейлеров Co-Authored-By, Claude-Session и Generated нет (grep 0). Заголовки по 66 знаков, форма `#2825 …`'
+
+convergence:
+  contour: 'пакета изменения нет: holders.yaml и docs/changes/issue-2825 в дереве отсутствуют. Соседняя #2828 влита в волну так же. Записи схождения предмет не требует. Распределённой поверхности нет, потому что хук исполняется только локально'
+  required_roles_present: 'check-verifier на текущем дайджесте — accepted. go-style-reviewer неприменим: в диффе нет Go'
+
+observations_non_blocking:
+  - 'Тело 9b720570e60 несёт «Closes #2825». Волна влита в main коммитом слияния, так что трекер сам закроет #2825, когда волна дойдёт до ствола. Это законно: артефакт к тому моменту в стволе. Но метку status:test надо снять тем же заходом (git-issues §«Состояние — метками…», gi-label-same-action). Так же поступили #2802, #2809 и #2815 этой волны'
+  - 'Тела коммитов — 11 и 14 непустых строк при норме gi-body-says-why «до 12». В теле 9c3b89d7c2a есть ход работы («Круг 2 по возврату приёмки проверки»), а это запрещает gi-body-excludes. Гейта у нормы нет (ЗАВЕСТИ). В волне тело длиннее 12 строк у 20 коммитов из 48 (без слияний). Если переписать, сменятся головы и отпечаток head в записи check-verifier, а rebase правила владельца исключают. Поэтому не переписывать'
+  - 'Оснастка: в «Правилах по триггеру» landing-reviewer стоят Skill rule-multi-agent-flow-shared-tree, rule-git-issues-issue-lifecycle, rule-change-graph и другие. Их файлы перенесены в .claude/backup/ коммитом c9e8d4fa (#706), и скиллов с такими именами нет'
+
+merge_condition: >-
+  (1) На момент слияния `git -C tmp/kacho-2796 status --porcelain` пуст и
+  `git ls-remote origin refs/heads/2796` = 113f3b8b591c4caef55f19c51346a10ff98d8151.
+  Если волна сдвинулась, заново прогнать `git merge-tree --write-tree origin/2796 9c3b89d7c2a`
+  и `git diff --name-only 113f3b8b591 origin/2796 -- scripts/hooks/`. Если пересечение
+  непустое, вернуть на landing-reviewer.
+  (2) В tmp/kacho-2796 выполнить `git merge --no-ff 9c3b89d7c2a965b9d8676ddf2db2912f57f4c470`.
+  Первая строка — `#2796 merge #2825: отправка одних удалений не гонит проверки` (60 знаков).
+  В теле — «Вливается 9c3b89d7c2a (с 9b720570e60)» и почему. Ход работы и трейлеры не ставить,
+  подпись брать из ~/.gitconfig.
+  (3) До отправки должны выполниться все условия: дифф сохранности по 4 файлам пуст,
+  `git merge-base --is-ancestor 9c3b89d7c2a HEAD` вернул rc=0,
+  `git log -1 --format=%B HEAD | command grep -ciE 'co-authored|claude-session|generated with'` = 0,
+  `git log -1 --format='%an %ae|%cn %ce'` = `pointpu pointpu@in-cloud.io|pointpu pointpu@in-cloud.io`.
+  (4) Отправить `git push origin 2796` один раз, с хуком, без --no-verify и --force.
+  Исход судить по `git ls-remote origin refs/heads/2796` = sha слияния, а не по коду
+  возврата. Красный либо недействительный вердикт хука читать по его числам, повтор
+  «до зелёного» запрещён.
+  (5) Затем #2825 получает status:test и комментарий-артефакт: sha слияния, вывод
+  ls-remote, числа пробы 54/0, раздел 18, дефекты 6/4/5 и ссылку на записи
+  check-verifier и эту. Задача НЕ закрывается. Ветку 2825 и копию tmp/kacho-2825 снимать
+  только после `git merge-base --is-ancestor 9c3b89d7c2a origin/2796` rc=0. На origin
+  ссылки 2825 нет, удалять там нечего.
+
+blockers: '—'
+
+isolation:
+  dir: /home/dk/.cache/landing-2825-lr
+  note: 'git archive головы и --shared клон. Копия полосы не тронута: porcelain 0, HEAD 9c3b89d7c2a. Каталог снимается после записи'
+
+next:
+  - 'git-operator: слияние и отправка по merge_condition (1)–(5), затем status:test и комментарий в #2825'
+  - 'перенос записей check-verifier (0006b7c6…, 4e46690a…) и этой в kacho-workspace/docs/changes/issue-2825/reviews/ без правки'
+  - 'tooling-maintainer: переадресовать «Правила по триггеру» landing-reviewer на существующие правила либо снять строки, чьи файлы ушли в .claude/backup/'

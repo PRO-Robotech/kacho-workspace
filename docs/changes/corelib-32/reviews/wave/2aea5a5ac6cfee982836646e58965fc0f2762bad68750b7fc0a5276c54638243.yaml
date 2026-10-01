@@ -1,0 +1,140 @@
+# Сверка волны: роль wave-reviewer, сборка-4 ветки 32 (f213439a + #39).
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся: сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 4
+previous_record: 276c2b2ea54f751f642dc9a8ee77dafd0062445d5befc129feab7b864b1f0c0e.yaml
+subject: >-
+  corelib, волна 32, сборка-4: поверх origin/32@f213439a (в ней #35 и #34) влита #39
+  слиянием 50fb658c. Сверяются пары #39↔#34 и #39↔#35 на собранном дереве, а также
+  проба #39 в той форме, в какой волну судит конвейер (-race -short по всему модулю).
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: f213439a409ecce4816d88121cf3301b9efbad33   # origin/32, перемерено ls-remote
+  head: 50fb658c3bf8fd0fcc6dcdc89d028165aafcb66c   # tmp/corelib-32, ветка 32, не отправлена
+  tree: 7a6cc77f0d1737a3e91e75a041fc539ac73ca531   # = дерево головы полосы d167e009
+  shortstat: '11 файлов, +462 / -19'
+  lanes:
+    '39': {head: d167e009effc6580f311279c1b85aa6e73e1d12d, base: f213439a4094, digest: 2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243, shortstat: '11 файлов, +462 / -19', in_assembly: true, merge: 50fb658c3bf8fd0fcc6dcdc89d028165aafcb66c}
+content_digest: sha256:2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243
+digest_definition: >-
+  git diff --full-index origin/32..HEAD | sha256sum в tmp/corelib-32 после fetch.
+  Дайджест полосы, git diff --full-index $(merge-base origin/32 d167e009)..d167e009,
+  тот же: база одна (f213439a), деревья равны. Совпадает с заданием и с именами записей
+  круга 3 полосы (go-style и security, обе accepted, в ws-825 не закоммичены).
+
+verdict: returned              # по полосе 39; сборка сама по себе зелёная
+blocks_landing: true
+timestamp: '2026-09-23T21:55:00Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-32d-zlgdYX/corelib (git clone --shared от
+  tmp/corelib-32), рабочая копия базы f213439a там же. GOCACHE и TMPDIR там же, GOPROXY=off.
+  Инъекции внесены через -overlay, дерево не правилось (porcelain 0). Копия tmp/corelib-32
+  не тронута: porcelain 0, HEAD 50fb658c.
+
+runs:
+  - 'go build ./... rc 0; go vet ./oauthceremony/ ./tokenpolicy/ rc 0; gofmt -l oauthceremony tokenpolicy → 0'
+  - 'go test -count=1 -json ./oauthceremony/ ./tokenpolicy/ @50fb658c, хост: rc 0, oauthceremony 340 PASS / 0 FAIL, tokenpolicy 10 PASS'
+  - 'то же @f213439a: 333 + 8 = 341 PASS. Имён пропало 0, новых 9, все из #39. 333 + 8 совпадает с записью сборки-3'
+  - 'golang:1.26.8, go test -race -short -count=1 -json тех же пакетов: rc 0, 340 / 10 PASS, DATA RACE 0, oauthceremony 241,7 с. Параллельно шёл чужой compile (cv-2851-r3)'
+  - 'golang:1.26.8 --cpus=4, в форме конвейера: go test ./... -race -short -count=1 -timeout 25m -json, затем .github/scripts/go-test-verdict.py. Код 0: пакетов 99 (прошло 80, упало 0, без проб 19), проб 3082, отказов 0, пропущено 191, DATA RACE 0. У сборки-3 в конвейере было 3073 и 191: 3073 + 9 = 3082'
+  - 'дерево сборки = дерево d167e009 (7a6cc77f); remerge-diff 50fb658c пуст, слияние ничего не разрешало. Поэтому прогон головы полосы отдельно не повторялся'
+
+lanes:
+  - 'полоса 39 · вердикт возврат · координата oauthceremony/code_record_retention_test.go:87-94@50fb658c · требование .claude/rules/testing.md gate-checks-its-premise и third-category-not-pass; .claude/rules/testing-verdict.md local-run-same-tool-and-version · чем доказано: см. return_39'
+
+return_39:
+  to: go-implementer (полоса corelib #39)
+  what: >-
+    TestConsumedCodeRecordOutlivesTheCodeLifespan даёт срок кода 1 с по настоящим часам.
+    Первый обмен обязан пройти внутри этой секунды, но в неё входит проверка секрета
+    клиента: registerTestClient регистрирует конфиденциального клиента с bcrypt cost 10.
+    Под -race на этом и тратится почти весь бюджет. Если окно не выдержано, проба падает
+    текстом «первый обмен отказал: invalid_grant». Для читателя это отказ продукта, хотя
+    на деле не создано условие пробы. Обратную предпосылку («срок истёк к повтору») проба
+    судит сама (requireCodePastItsLifespan), а эту — нет.
+  proof:
+    - 'замер через -overlay (TestZZRetentionTimeline, 8 прогонов), -race, машина свободна: сравнение bcrypt 612–682 мс; от выдачи кода до конца первого обмена 639–698 мс из 1000. Без -race 52 мс'
+    - 'go test -race -count=5 -run ^TestConsumedCodeRecordOutlivesTheCodeLifespan$ в контейнере: --cpus=1 — красная 5 из 5, обе половины, текст «первый обмен отказал: oauthceremony: invalid_grant…»; --cpus=2 — зелёная 5 из 5; --cpus=4 — зелёная 5 из 5'
+    - 'причина измерена (TestZZFirstExchangeCause, -race -count=3, две параллельные половины): --cpus=1 — первый обмен кончается через 242–298 мс ПОСЛЕ записанного срока кода, 6 из 6 invalid_grant; --cpus=4 — за 321–357 мс ДО срока, 6 из 6 успешны'
+    - 'в форме конвейера при --cpus=4 проба прошла (6,4 и 7,0 с). Запас до срока — треть секунды, скорость ранера конвейера деревом не задана'
+  requirement: >-
+    Первый обмен не должен зависеть от того, сколько настоящего времени съела проверка
+    секрета. Как именно (клиент без bcrypt в бюджете, другой срок кода, собственная
+    предпосылка окна) решает полоса. Если окно всё же не выдержано, отказ называет
+    причину, а не выглядит отказом продукта. Тем же касанием: go-style I-3 (комментарий
+    codeRetentionWait в том же файле, :30-33, про округление Round(time.Second), которого
+    у кода нет) и столкновение C1 ниже.
+  note_on_37: >-
+    В локальной полосе 37 (6289fbc/36a3bf0, в сборку не входит, волна задачей не названа)
+    registerTestClient уже без bcrypt: секрет проверяет порт (store.secrets). После её
+    влития бюджет, скорее всего, освободится сам. Но это зависит от порядка влития, а не
+    от пробы, поэтому довод к возврату не прибавляется и не отнимается.
+
+collisions:
+  - id: C1
+    kind: 'две проверки на один класс — .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений…»; видно только рядом'
+    lanes: ['34', '39']
+    subject: >-
+      Отказ New на AccessTokenLifespan = MaxTokenTTL + 1 нс держат две пробы.
+      #34: TestNewRefusesAnAccessLifespanAboveTheTokenCeiling (access_issuer_test.go:552-569).
+      #39: TestNewRefusesAnArtifactLifespanAboveItsCeiling/токен_доступа
+      (lifespan_ceiling_test.go:34-40). Близнец тот же — срок, равный потолку, собирает
+      церемонию. Проба #39 строже: она ещё требует имя потолка в тексте. Слияние 8676ffe
+      свело к одной проверку в validateConfig, а пробы оставило обе.
+    proof: >-
+      Инъекция через -overlay: из validateConfig снят case AccessTokenLifespan > MaxTokenTTL
+      (ceremony.go:371-374). Красные ровно две пробы, по одной от каждой полосы:
+      access_issuer_test.go:562 «срок токена доступа выше потолка принят: <nil>» и
+      lifespan_ceiling_test.go:73 «…срок 30m0.000000001s выше потолка 30m0s принят».
+      Остальные пробы пакета зелёные. Без инъекции обе зелёные.
+    fix_in: 'полоса 39 тем же касанием, что return_39: одна проба на класс. Какую снять — решает полоса. Посадку само не блокирует'
+  - id: C2
+    kind: 'два решения одной задачи — §14 «Классы столкновений…»; разрешено до сборки, проверено'
+    lanes: ['34', '39']
+    subject: >-
+      Обе полосы завели в validateConfig отказ AccessTokenLifespan > MaxTokenTTL, у каждой
+      свой текст. 8676ffe оставил один отказ с текстом #34. Шапку Config свёл из обеих
+      сторон без потери абзацев. Абзац tokenpolicy о подписи токена доступа переписан под
+      AccessTokenIssuer и на сборке верен.
+    proof: 'git show --remerge-diff 8676ffe (215 строк, 5 файлов, 16+/65−); на сборке command grep -c «AccessTokenLifespan > tokenpolicy.MaxTokenTTL» oauthceremony/ceremony.go → 1'
+    fix_in: '— (разрешено)'
+
+not_found:
+  - 'столкновение ожиданий (как #35 × литералы #38): на сборке 6 литералов Config в пробах (ceremony_test.go ×4, endpoints_internal_test.go, engineconfig_internal_test.go) держат код 30 с, токен доступа 20 мин, токен обновления 24 ч, то есть ниже потолков. Прогон дал 0 отказов, ни одна отрицательная проба New не зеленеет от чужой причины'
+  - 'добавление в удалённое: SigningSecret и импорт token/hmac, снятые #34, в строках #39 на сборке встречаются 0 раз (сборка и vet rc 0)'
+  - 'столкновение раскладок: на сборке новый абзац контракта FetchAuthorizationCode (ports.go:173-179) и шапка MaxAuthorizationCodeTTL опираются на путь моста #34 (bridge.go:246-247 replayedCode до ValidateAuthorizeCode, strategy.go:93-96). Правдивость держит проба #39: 340/0, в том числе под -race'
+  - 'два имени одного предмета: в tokenpolicy на сборке второго потолка кода или семейства нет; в прод-коде oauthceremony срок судится MaxTokenTTL в одном месте (ceremony.go:371)'
+  - '#39 ↔ #35 (крючок NewGrantID): общих строк и предмета нет, их пробы на сборке зелёные'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Отчёты полосы в задание не переданы. Сверено по сообщениям коммитов, записям ревью
+  круга 3 и сведению. Заявление сведения «дерево сборки совпадает с деревом головы полосы,
+  слияние ничего не разрешало» верно: деревья 7a6cc77f, remerge-diff пуст. Его «проверок
+  не было» тоже верно. Одна фраза шире сделанного, не блокирует: тело 50fb658c и тема
+  d167e00 говорят «запись погашенного кода хранится/живёт сроком семейства», как о
+  свершившемся. В corelib это обязанность порта (ports.go:173-179) и подставка пробы;
+  реализаций порта у потребителя 0 — по записи security-auditor круга 3.
+
+form_not_blocking: >-
+  Коммитов в origin/32..HEAD 8, трейлеров 0 из 8, подпись pointpu. Тема и тело в пределах
+  у 7 из 8 (50fb658c — 71 знак, тело 8 строк). ea40a52 — тема 78 знаков, тело 16 строк;
+  это уже было отмечено на прошлых кругах, без rebase не исправить.
+
+examined:
+  diffs: 3                     # #39 = сборка origin/32..HEAD; remerge-diff 8676ffe (сведение #39 с #34/#35); remerge-diff 50fb658c (пуст)
+  lines: 855                   # 640 + 215 + 0 строк вывода git
+  read_line_by_line: 'весь дифф #39. Со стороны #34 — access_issuer_test.go:540-570, strategy.go:80-110, 160-200, 285-315, ports.go (контракты портов), doc.go целиком. Хелперы проб registerTestClient, issueCode, codeExchange'
+  mechanical_census: 'литералы сроков по дереву сборки (command grep, 29 строк вне internal/oauth2); множества имён проб на двух ревизиях; пересечение путей #39 с локальными 36/37'
+
+next:
+  - 'go-implementer (полоса 39) — снять зависимость первого обмена в TestConsumedCodeRecordOutlivesTheCodeLifespan от времени на проверку секрета под -race; тем же касанием I-3 и C1'
+  - 'go-style-reviewer и security-auditor — круг 4 полосы 39 на новом дайджесте'
+  - 'сведение — пересобрать 32 на новой голове 39; wave-reviewer — повторный проход по полосе 39'

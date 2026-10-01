@@ -1,0 +1,161 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, круг четвёртый
+# (по дельте 65dcdea5..d2bfdd67 на полном диффе base..head).
+#
+# Имя файла — content_digest. Прежние записи этой роли (c577c4fc…, 54e97360…,
+# 538d367c…) не правятся: вердикт привязан к отпечатку, дайджест сменился —
+# новый запуск и новый файл.
+#
+# Запись лежит в рабочей копии ПУБЛИЧНОГО репозитория и по заданию НЕ
+# коммитится. Текст — на уровне свойства: координата и требование.
+# Перенесена в воркспейс из рабочей копии ветки 340 (исходный файл sha256
+# 5c9271c8e574581cfc7c4b0d420c22507225a047180c72ebaa38601561e1b6c3): сняты
+# локальные пути рабочей копии, прочий текст не менялся.
+schema_version: 1
+change_id: kn-340
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 4
+previous_record: docs/changes/kn-340/reviews/post-diff/go-style-reviewer/538d367c2924eadffc30d2de9e4ffb753d09045bdedb85d8a367b5eb6364eae5.yaml
+subject: >-
+  #340, круг после возврата go-style C1 и записи db-architect о пятом писателе
+  нескольких строк сессии. Отказ транзакции принудительного выхода несёт шаг
+  из закрытого словаря и признак конца контекста ЭТОГО шага; решение о
+  частичном исходе и ответ выводятся из них. Уборка сессий берёт кандидатов,
+  не ожидая занятых строк; перепись писателей нескольких строк сессии
+  записана у замка личности.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '340'
+  base: 9dc46b4722bea058c3642c803aae6a102ad1f98f   # = merge-base HEAD origin/358
+  head: d2bfdd67910efb719f3d4c88b114193013e59354
+  commits_over_base: 16
+  commits_since_previous_round: 6   # 7a35f7a9 · 32a601d1 · 2ec5d583 · 4153dab6 · 5a89f85f · d2bfdd67
+  authorship: 'все шесть новых коммитов — pointpu; трейлеров атрибуции 0 (git log --format=%B | grep -ciE)'
+content_digest: sha256:17b655ab2544fda24c24fbe81cd994d87b6784f5b620f36bf320ce219d2a5f28
+digest_command: >-
+  git diff --full-index 9dc46b47..d2bfdd67910efb719f3d4c88b114193013e59354 -- . ':!docs/changes' | sha256sum
+
+verdict: accepted            # принято
+blocks_landing: false
+timestamp: '2026-09-23T11:45:00Z'
+review_scope: >-
+  полный закоммиченный дифф base..head: 29 файлов, 4342+/296-; дельта круга
+  65dcdea5..head: 9 файлов, 825+/125- (прод-файлов 3, проб 6)
+return_to: '—'
+
+files_reviewed_prod_delta:
+  - internal/apps/kaname/api/internal_iam/force_logout.go
+  - internal/repo/kaname/pg/human_session_repo.go
+  - internal/repo/kaname/pg/oauth_ceremony_repo.go
+
+previous_findings:
+  C1:
+    status: closed
+    how: >-
+      Коммиты 7a35f7a9 (пробы) и 2ec5d583 (исправление). Отказ классифицируется
+      по шагу, а конец контекста судится по контексту самого шага: у фиксации —
+      её отвязанный срок, у прочих — контекст попытки. Отказ фиксации к
+      частичному исходу не ведёт ни при какой причине. Шапки commitOwnForceLogout
+      и forceLogoutOwnSessions описывают то же решение, что исполняет код.
+    measured: >-
+      Прогон на отсоединённых выгрузках ревизий (git archive, вне git-деревьев).
+      На 7a35f7a9 (прод = 65dcdea5) две пробы по фиксации красные, законный
+      близнец зелёный. На d2bfdd67 все три зелёные, пять повторов из пяти.
+  I1:
+    status: closed
+    how: >-
+      Коммиты 32a601d1 (проба) и 2ec5d583. Отказ без частичного исхода пишет в
+      журнал шаг и причину до перевода. Проба журнала на 32a601d1 красная (2 из
+      2 подпроб), на head зелёная.
+  I3:
+    status: closed
+    how: 'три поля заменены типом отказа с шагом; шапка переписана под это решение'
+  I4: {status: open, see: important.I4}
+  S1..S8: {status: 'без изменений; S1, S2, S5, S6, S7, S8 в силе'}
+
+critical: []
+
+important:
+  - id: I6
+    tag: TEST COVERAGE — UNGUARDED BRANCH OF A CLOSED DISPATCH
+    new: true
+    at: internal/apps/kaname/api/internal_iam/force_logout.go:629
+    also_at: internal/apps/kaname/api/internal_iam/force_logout.go:725
+    property: >-
+      Решение о частичном исходе для шага открытия транзакции не удерживает ни
+      одна проба пакета. Инверсия решения этого шага в отсоединённой копии
+      оставила пакет internal_iam зелёным, включая интеграционные пробы, которые
+      в этом прогоне исполнились. Ветки отсечки, записи события, снятия и
+      фиксации пробами удержаны.
+    requirement: >-
+      Завести пару unit-проб на мок-портах. Первая: открытие отказало кодом
+      хранилища при живом контексте, транзакция одна, ответ по переводу. Вторая:
+      открытие отказало, потому что кончился контекст попытки; частичный исход
+      ложится. Нужен и законный близнец. Дублёру открытия нужна ручка отказа,
+      сейчас он отказывает только на уже кончившемся контексте.
+  - id: I7
+    tag: DOC TRUTHFULNESS
+    new: true
+    at: internal/repo/kaname/pg/human_session_repo.go:235-236
+    property: >-
+      Шапка уборки утверждает, что партия, в которой занятые строки пропущены,
+      не полна. Предел партии добирается следующими незанятыми кандидатами, и
+      признак full выставляется по числу удалённых, поэтому это верно не во
+      всех случаях. Верно другое: пропущенная строка остаётся кандидатом
+      следующего прохода.
+    requirement: 'сузить утверждение до того, что держит код'
+  - id: I4
+    tag: TWO PRODUCERS OF ONE RECORD SHAPE
+    carried_from: round 1
+    at: internal/apps/kaname/api/internal_iam/force_logout.go:673-679
+    also_at: internal/repo/kaname/pg/hook_pool_adapters.go:198-203
+    note: 'нужен один построитель общей части либо проба паритета двух производителей'
+
+foundation_candidates: []
+
+style:
+  - {id: S1, carried_from: round 1, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:671', note: 'параметр `teardown string` против закрытого словаря; нужен именованный тип (evgeniy D.8)'}
+  - {id: S2, carried_from: round 1, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:676', note: '`"subject_type": "user"` — литерал'}
+  - {id: S5, carried_from: round 1, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:14', note: '«второе действие»: под own снятие идёт в транзакции первым оператором'}
+  - {id: S6, carried_from: round 2, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:644-649', note: 'один класс отказа отвечает Unavailable на посадке own и Internal на прочих посадках'}
+  - {id: S7, carried_from: round 2, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:535', note: 'четвёртая константа «бюджет отвязанной записи» 5 с; равенство держится только комментарием'}
+  - {id: S8, carried_from: round 2, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:518-527', note: 'довод о сроке вызывающего опирается на чужое дерево'}
+  - {id: S9, new: true, at: 'internal/apps/kaname/api/internal_iam/force_logout.go:610', note: 'refusalAt принимает контекст вторым параметром; по конвенции Go контекст идёт первым'}
+  - {id: S10, new: true, at: 'internal/apps/kaname/api/internal_iam/force_logout_own_session_test.go:478-482', note: 'в пробе первая функция отмены перезаписывается, не будучи вызвана'}
+
+security_comments_contradicting_code: []
+
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: >-
+  По 773 добавленным строкам дельты искал TODO|FIXME|XXX|HACK|позже|потом|
+  временно|пока что|later (без or-later). Два совпадения, оба «потому»,
+  маркеров нет; то же совпадение служит положительным контролем образца.
+  Итог по полному диффу — 0: прошлый круг 0 и дельта 0.
+tests_in_same_pr: true
+tests_in_same_pr_note: >-
+  В дельте 6 файлов проб. Unit-пробы обработчика идут на мок-портах, сроки — на
+  управляемых часах (testing/synctest). Интеграционная проба уборки против
+  снятия — на testcontainers; единственный t.Skip в добавленных строках стоит
+  под testing.Short().
+
+approved:
+  banned_calls: 'context.Background/TODO, panic, Must*, log.Fatal, fmt.Print в 238 добавленных прод-строках — 0'
+  ascii_identifiers: 'разбор go/ast 9 изменённых Go-файлов: не-ASCII идентификаторов 0; положительный контроль 1 из 1'
+  error_type: 'отказ — конкретный указатель, не интерфейс; сравнение с nil без ловушки типизированного nil'
+  structured_log: 'шаг, признак конца контекста и причина — структурными полями slog'
+  gofmt_vet: 'gofmt -l на 9 файлах — 0; go vet на двух пакетах — код 0'
+  census_predicate: 'предикат переписи писателей из шапки замка личности исполнен: 5 операторов, из них по условию не по id — 2 (уборка, дверь снятия), совпадает с перечнем шапки'
+  layering: 'импорты дельты: снят только errors; pgx в вариант использования не протёк'
+
+measurements:
+  premise: 'подтверждена: пробы C1 на 7a35f7a9 — 2 красных, близнец зелёный; проба журнала на 32a601d1 — красная'
+  head_package: 'go test -count=1 ./internal/apps/kaname/api/internal_iam/ на d2bfdd67: ok, PASS 205 (с подпробами), FAIL 0, SKIP 0'
+  repeat: 'пробы дельты -count=5: 10 из 10 имён, по 5 PASS каждое'
+  race: 'не выполнилось: -race требует cgo, компилятора C на машине нет'
+  sweep_integration_scene: 'не запускалась этой ролью: машина нагружена; ось порядка замков — db-architect / system-design'
+
+linter_probes_outcome: not-claimed-by-this-role
+next_requested: >-
+  Сбор пост-дифф записей на этом дайджесте. I6 и I7 не блокируют посадку;
+  исправлять их можно тем же PR, если автор диффа вернётся в полосу.

@@ -1,0 +1,97 @@
+# Пост-дифф ревью консоли — роль ui-reviewer. Круг 2 полосы A (#2780 + #1274).
+# Имя файла = content_digest. Вердикт круга 1 (⛔ 2fdbc167…@5361b338555) на этот
+# отпечаток не переносится.
+schema_version: 1
+change_id: issue-1274
+holder: post-diff/ui-reviewer
+owner: ui-reviewer
+round: 2
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: "1274"
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kacho-1274
+  base: 5d1d034719c12895f5c75279cee393fcd6dc9994   # ветка волны 2796
+  head: 85741b9410344b571ff308e42820c04489bdb234
+  prev_round_head: 5361b338555
+  includes: "2780@ae17375a7a5e7350c06b36434fad62e31d18c56b (слито коммитом 90cadce459d)"
+  predicate: "git diff --full-index 5d1d034719c..85741b94103 | sha256sum"
+content_digest: sha256:cb4fca94b0507c38e3da9986a78c58d87b971b5e6644b82f0abb277177ea1497
+verdict: "⛔ возврат"
+blocking: true
+round1_closure:
+  - item: "1. Правила 1 и 8: своя геометрия формы и свой отказ у поля"
+    state: закрыт
+    at: c69d5546ee7
+    evidence: >-
+      FieldRow/FactRow/CeremonyField сняты, формы на FormGrid (+onSubmit/label/embedded),
+      отказ — FieldError/fieldErrorId; копия в NlbVipSourceField снята тем же механизмом.
+      Гейты FormGrid.single-source (обход всего shared/src, 3 формы записи) и
+      FieldError.single-source красные до (jest-RED-ui.log: 5 рукописных + 2 объявления),
+      зелёные после. Перепрогон ревьюера через vpc @85741b94103: 16 суит, 806 проб, rc=0.
+  - item: "2. Правило 12 / e2e-flow §6: условие §4 броском в beforeAll"
+    state: закрыт по устройству
+    at: ae17375a7a5, 2a03c902b0c
+    evidence: >-
+      Условие — свой проект precondition (playwright.config.ts:166-169), гейт узнаёт его по
+      projectName и отдаёт код 3 с числом сценариев. Против дублёра с чужим /login: до rc=1
+      («не в состоянии прошла: 23»), после rc=3 «сценариев без вердикта 23 из 23», весь набор
+      138 из 138. Самопроверки: гейт 37/37, разметчик 18/18 (перепрогон ревьюера rc=0).
+  - item: "3. Нет «красная до / зелёная после» браузером"
+    state: открыт
+    evidence: >-
+      Ни один браузерный сценарий F8 на стенде не исполнялся (стенда own с консолью нет).
+      Правкой ui-implementer не снимается: условие §4 (#2777, #2735, #2724).
+  - item: "важное: StepUpModal — вызов края без acr_values открывал ветвь пароля"
+    state: закрыт
+    at: 85741b94103
+    evidence: >-
+      StepUpRequest {cause: floor|freshness}; пароль только на freshness. Вызовов два, оба
+      переведены: api/client.ts:123 (floor), AccountSettingsPage.tsx:54 (freshness).
+      Модульная проба красная до (jest-RED-ui.log), зелёная после.
+  - item: "jest модулей не доказан"
+    state: закрыт
+    evidence: "9 пакетов rc=0 по коду и строке Tests:, смертей по памяти 0; /home/dk/tmp/lane-a-2780-1274-r2/modules"
+findings:
+  - id: R2-1
+    rule: "правило 12 (доказательство), приёмка F8 §4"
+    coordinate: "ui-future/e2e/specs/identity-ceremony.spec.ts, account-settings.spec.ts"
+    blocking: true
+    requirement: >-
+      Стенд own с консолью @85741b94103 без чужого экрана; прогон набора трижды; красное до —
+      на ревизии до экранов (49e1f9cd235). До этого #2780 не закрыт. Следствие 2a03c902b0c:
+      весь набор зависит от условия, поэтому на нынешней посадке CI (make dev-up, kratosUi в
+      ui-future/deploy/values.yaml:142) console-e2e даёт «не выполнилось» по всем пробам
+      (на дублёре 138 из 138). Волна не сядет с вердиктом console-e2e, пока не сели #2777/#2735.
+  - id: R2-2
+    rule: "не канон; два места об одном предмете, одно ложно"
+    coordinate: "ui-future/e2e/README.md:84-86"
+    blocking: true
+    requirement: >-
+      Абзац утверждает, что условие включает ретрансляцию полосы краем и что «проба называет
+      несозданное условие отдельным отказом». Это противоречит
+      preconditions/ceremony-landing.precondition.ts:42-45 (ретрансляции в условии нет, её
+      поломка — красное) и разделу README «Условие прогона — свой проект». Переписать или снять.
+  - id: R2-3
+    rule: "не канон; ложное утверждение в чарте"
+    coordinate: "ui-future/deploy/values.yaml:128-131"
+    blocking: false
+    requirement: >-
+      «собственных экранов входа у консоли нет ни одного» — ложно с 5361b338555 (есть
+      LoginPage.tsx, RegistrationPage.tsx). Поправить в полосе, снимающей kratosUi (#2777), или сейчас.
+  - id: R2-4
+    rule: "правило 8, вне диффа"
+    coordinate: "ui-future/iam: 6 литералов labelCol flex 200px в 5 файлах"
+    blocking: false
+    requirement: >-
+      Появились до этого изменения (есть на базе 5d1d034719c). Гейт FormGrid.single-source
+      читает только shared/src. Завести отдельной задачей.
+probe:
+  exists: true
+  verifies_inside_test: true
+  subject: наблюдаемое
+  retries: 0
+  time_waits: 0
+experiment_needed: true
+not_executed: "все браузерные сценарии набора (условие §4 не создано) — это НЕ красный"
+unheld_rules: "1 вне shared/src; 8 в iam; 9; 10; из 12 — «проба написана» и «утверждает наблюдаемое»"
+premise: "подтверждена — merge-base --is-ancestor ae17375a7a5 85741b94103; worktree чистые; запрещённых трейлеров 0; branch -r --contains = 0"

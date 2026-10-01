@@ -8,12 +8,29 @@
 # классе C). Остальное классов C и D уезжает в `.claude/backup/`.
 import argparse
 import json
+import os
 import pathlib
 import re
 import sys
 
-INV = 'tmp/rules-compression/inventory-2026-09-19.json'
-OUT = pathlib.Path('tmp/rules-compression')
+# КОРЕНЬ — ИЗ РАСПОЛОЖЕНИЯ ЭТОГО ФАЙЛА, А НЕ ИЗ ТЕКУЩЕГО КАТАЛОГА (2026-09-22).
+#
+# Вторая законная форма того же класса, что `git rev-parse --show-toplevel`:
+# ОТНОСИТЕЛЬНЫЙ путь. Здесь их было три — `INV`, `OUT` и `.claude/rules/<файл>`, —
+# и все резолвились от cwd. Различающий опыт на чужом дереве, где `testing.md`
+# укорочен на 500 Б (оба прогона — один и тот же файл прибора):
+#   cwd = ЧУЖОЕ дерево: testing.md: ожидается 79, найдено 78, ПОТЕРЯНО 1, объём 19393 (код 1)
+#   cwd = СВОЁ  дерево: testing.md: ожидается 79, найдено 79, ПОТЕРЯНО 0, объём 19723 (код 0)
+# Для ПРИБОРА это хуже, чем для гейта: его число цитируют в отчётах и в шапках
+# проверок, и разошедшееся число некому опровергнуть. Тот же класс — `check-11`,
+# `corpus_ceiling.py`. Порядок источников один на весь набор: `RULES_GATE_ROOT`
+# (им пользуется инъекция), затем своё расположение; cwd не участвует.
+ROOT = os.path.abspath(
+    os.environ.get('RULES_GATE_ROOT')
+    or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+INV = os.path.join(ROOT, 'tmp/rules-compression/inventory-2026-09-19.json')
+OUT = pathlib.Path(ROOT) / 'tmp/rules-compression'
+RULES = os.path.join(ROOT, '.claude/rules')
 DOT = ' · '
 DASH = '—'
 HAND = 'ПИСАТЬ РУКАМИ'
@@ -68,6 +85,10 @@ def main(argv):
         return 1
     inv = json.load(open(INV, encoding='utf-8'))
     OUT.mkdir(parents=True, exist_ok=True)
+    # Корень — первым: все числа ниже суть утверждения о ДЕРЕВЕ, и без имени
+    # дерева два прогона нечем сверить между собой.
+    print('корень %s; опись %s; записей %d'
+          % (ROOT, os.path.relpath(INV, ROOT), len(inv)))
     rc = 0
     for f in files:
         sel = [n for n in inv if n['src'] == f and keep(n)]
@@ -78,12 +99,12 @@ def main(argv):
             continue
         if verify:
             have = set()
-            for line in open('.claude/rules/' + f, encoding='utf-8'):
+            for line in open(os.path.join(RULES, f), encoding='utf-8'):
                 if DOT in line:
                     have.add(line.split(DOT)[0].strip())
             want = {n['id'] for n in sel}
             miss = sorted(want - have)
-            size = len(open('.claude/rules/' + f, encoding='utf-8').read())
+            size = len(open(os.path.join(RULES, f), encoding='utf-8').read())
             print('%s: ожидается %d, найдено %d, ПОТЕРЯНО %d, объём %d'
                   % (f, len(want), len(want & have), len(miss), size))
             if miss:

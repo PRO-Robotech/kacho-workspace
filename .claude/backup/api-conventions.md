@@ -253,3 +253,73 @@ iam — **6**; у geo, compute, storage, nlb, registry — **0**. Свойств
 > обрывалась на контракте у одного ресурса и на чтении у другого, при том что три независимые
 > поверхности (провайдер инфраструктуры, сквозной кейс и сам столбец) исходили из того, что
 > поле есть.
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**api-standard-methods** — прежняя редакция:
+
+api-standard-methods · Get/List — sync, Create/Update/Delete — Operation; доп. действия — отдельный RPC с :verb · ЗАВЕСТИ api-standard-methods · red: Create/Update/Delete отвечает ресурсом вместо Operation
+
+**api-gotcha-truncate** — прежняя редакция:
+
+api-gotcha-truncate · .Truncate(time.Second) на КАЖДОМ ресурсе И под-записи; микросекунды БД не текут на wire · ЗАВЕСТИ api-gotcha-truncate · red: микросекунды из БД доехали до клиента
+
+**api-gotcha-malformed** — прежняя редакция:
+
+api-gotcha-malformed · corevalidate.ResourceID первым стейтментом RPC → InvalidArgument; без format-check malformed-id уезжает в repo.Get → NotFound (неверно) · ЗАВЕСТИ api-gotcha-malformed · red: malformed-id уехал в repo.Get и вернул NotFound
+
+**api-id-addressing-dup** — прежняя редакция:
+
+api-id-addressing-dup · адресация только по `id` (ban #15): immutable, глобально-уникален, идёт в URL/ссылки/authz-target; `name` косметический, в URL никогда; слаг в URL вместо id запрещён · ЗАВЕСТИ api-id-addressing-dup · red: слаг или `name` в URL либо в authz-target
+
+**api-json-camel-dup** — прежняя редакция:
+
+api-json-camel-dup · JSON (REST через api-gateway) — camelCase: `<resource>Id`, `projectId`, `createdAt` · ЗАВЕСТИ api-json-camel-dup · red: snake_case в теле REST-ответа
+
+**api-name-rationale** — прежняя редакция:
+
+api-name-rationale · сервер проставляет имя вместо требования (breaking change, адресация по id — ban #15); имя от id, не «первое свободное» — иначе check-then-act (ban #10); форма — чужой RFC 1123 DNS label, не переизобретается · ЗАВЕСТИ api-name-rationale · red: имя требуют от клиента либо выбирают «первое свободное»
+
+(второй проход того же сжатия)
+
+**api-subscription-axes** — прежняя редакция:
+
+api-subscription-axes · глагол один на всех владельцев · фильтр три иммутабельных оси конъюнкцией (виды · проект · идентификаторы) · возобновление позицией или якорем · сужение пообъектное на каждой строке (`scope_filtered`) · TestSubscriptionShapeAxisLedgerCanFail · red: один вопрос доступа при открытии
+
+(второй проход того же сжатия)
+
+**абзац** — прежняя редакция:
+
+## Пустое значение обязано означать «пусто» — иначе оно лжёт (обязательно, выведено 2026-08-12)
+
+## Снято 2026-09-26 (ws#786): сжатие корпуса под потолок check-06 на сведении 786 с 771
+
+Сведённое дерево `786` × `771` (волна-0 в волну-3) дало 208 847 знаков при потолке 200 000
+(решение владельца 2026-09-19); потолок не поднимался. Нормы каскада закрытия и снятия влитых
+веток (786) и требования волны-0 (771) сохранены под теми же id; ниже — ПРЕЖНИЕ редакции строк,
+сжатых этим изменением, дословно (редакция сведения до сжатия).
+
+api-no-operation-subscription · только полл Get(id); подписки на операции нет; «без поллинга» = долгий Get с серверным сроком · TestSubscriptionFormIsDeclaredOnce · red: server-stream в операционном контракте
+api-subscription-axes · глагол один на всех владельцев · фильтр — три иммутабельных оси конъюнкцией (виды · проект · идентификаторы) · возобновление позицией или якорем · сужение пообъектное на каждой строке (`scope_filtered`) · TestSubscriptionShapeAxisLedgerCanFail · red: один вопрос доступа при открытии
+api-polling-not-revoked · опрос остаётся штатным путём, не отзывается: подписка — второй путь, не замена · ЗАВЕСТИ · red: опрос снят как «заменённый подпиской»
+api-ban-must-expire · называет, чем истечёт при появлении предмета · TestClientDocsDoNotDenyTheSubscriptionTheTreeHas · red: «такого механизма нет» после его появления
+api-operation-done · = ресурс закоммичен, и только это; запрещено гейтить на видимость downstream (FGA-tuple, зеркало, drain outbox) · TestPublishedResourceIdIsGuardedByOperationOutcome · red: confirm-барьер рождает phantom-ресурс
+api-hyphen-prefix · форма `<prefix>-<crockford>`; каталог префиксов один — `ids.KnownHyphenPrefixes()` + KACHO_EXTRA_RESOURCE_ID_HYPHEN_PREFIXES; legacy-форма принимается аддитивно · TestCt2IdCanonHyphenMinting · red: свой список префиксов в сервисе
+api-name-rationale · имя проставляет сервер, не требуя от клиента (breaking change; адресация по id — ban #15), от id, а не «первое свободное» (check-then-act — ban #10); форма — RFC 1123 DNS label, не переизобретается · ЗАВЕСТИ · red: имя требуют от клиента либо выбирают «первое свободное»
+api-name-holder · утверждает обе стороны каждой оси: цифра первой принимается; заглавная, подчёркивание, точка, пустая, 64 символа отвергаются с именем поля · TestIntegration_NameForm · red: односторонняя проба
+api-b4-recorded-exceptions · только записанное решением (docs/architecture сервиса + ссылка из правила) и в трёх границах: family-agnostic каталог · общий артефакт corelib · тип решает владелец · вниманием (запись в docs/architecture сервиса) · red: молчаливая проверка чужого id
+api-resourceid-empty · несёт свой required-check → INVALID_ARGUMENT `"<field>: required"`, потому что `corevalidate.ResourceID` пустую строку пропускает · — (КАНДИДАТ НА ГЕЙТ: обязательное поле-ссылка без required-check) · red: "subnet  not found" с вырезанным id
+api-default-outcome-remove · по умолчанию снять с контракта; подсистема заводится своим доменом, а не полем в чужом сообщении · ЗАВЕСТИ · red: поле «на будущее»
+api-mask-empty-full-patch · full-object PATCH: все mutable применяются, immutable из тела игнорируются · ЗАВЕСТИ · red: пустая маска трактуется как «ничего»
+api-ref-header · три семантики ссылки — три типа; переименование landed-типов запрещено, disambiguation — именами, не relocation · ЗАВЕСТИ · red: три семантики ссылки сведены к одному типу либо landed-тип переименован
+api-repeated-order · ровно два состояния: упорядоченное (ORDER BY по колонке ПОРЯДКА, проба на ≥3 элементах) либо набор (сказано в комментарии поля) · — (КАНДИДАТ НА ГЕЙТ: 218 repeated-полей без объявленного порядка) · red: третье состояние
+api-repeated-order-holder · у вызывающего — модель без индексов (SetNestedAttribute) + проба на переставленный ответ; у владельца — integration-проба на ≥3 элементах · ЗАВЕСТИ · red: сверка по индексу
+api-projection-holder · читает один ресурс обоими путями и требует совпадения по объявленным полям · ЗАВЕСТИ · red: «лёгкий список» неотличим от потери данных
+api-regression-two-levels · парная проба use-case-уровня (один мусорный курсор у названного вызывающего и у замыкающегося) + положительный контроль, плюс tree-wide AST-гейт · TestEmptyPageNeverPrecedesPaginationValidation · red: одна сторона
+api-field-one-owner · проверка входа принимает её незаданной: 0 и пустая строка = «ещё не назначено»; отвергается только названное неверно · ЗАВЕСТИ · red: required на поле, которое назначает INSERT
+api-written-not-read · проверяется вся цепочка: контракт → домен → запись → чтение → транспорт · TestEveryDescriptorFieldHasAReader · red: столбец пишут, а проекция чтения не выбирает

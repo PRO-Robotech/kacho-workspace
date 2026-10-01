@@ -43,6 +43,9 @@ set -euo pipefail
 
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
 WS="$(tooling_gate_workspace_root)"
 NAME="check-08-caller-reads-the-three-outcomes"
@@ -56,6 +59,10 @@ fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+if ! sandbox_git_home "$TMP/home"; then
+    tooling_gate_void "$NAME" "корневой подписи нет — коммит песочницы не родится, вызывающего судить не на чем"
+    exit 2
+fi
 
 # probe <вызывающий> <код>… — печатает «<код выхода>|<завершающая строка>» для
 # песочницы, где лежит по одному прогонщику на каждый переданный код.
@@ -67,9 +74,8 @@ trap 'rm -rf "$TMP"' EXIT
 # запуском: унаследованный `GIT_DIR` сильнее рабочего каталога и увёл бы запись в
 # ЭТУ рабочую копию.
 #
-# Коммит делается пустым и «через силу не берётся»: на машине без объявленной
-# личности он не состоится, HEAD останется неродившимся, и хук получит пустое имя
-# ветки — черновиком (`wip/`, `tmp/`) оно не является, поэтому путь пробы тот же.
+# Хук судит дерево ревизии (ws#811), поэтому коммит обязан состояться: подпись
+# песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
 probe() {
     local caller="$1"; shift
     local dir i=90 rc out code
@@ -77,6 +83,10 @@ probe() {
     mkdir -p "$dir/scripts/hooks"
     cp "$WS/$caller" "$dir/scripts/hooks/pre-push"
     chmod +x "$dir/scripts/hooks/pre-push"
+    # Страж атрибуции едет рядом с хуком (ws#861): без него хук отказывает
+    # всякой отправке, и проба судила бы отказ стража, а не свой предмет.
+    cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
+        "$dir/scripts/hooks/" 2>/dev/null
     for rc in "$@"; do
         mkdir -p "$dir/scripts/stub-$i"
         printf '#!/usr/bin/env bash\necho "stub-%s: исход %s"\nexit %s\n' "$i" "$rc" "$rc" \
@@ -86,14 +96,16 @@ probe() {
     done
     git -C "$dir" init -q
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" commit -q --allow-empty -m fixture >/dev/null 2>&1 || true
+    sandbox_git -C "$dir" commit -q --allow-empty -m fixture >/dev/null 2>&1
 
     out="$(
         cd "$dir" || exit 111
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
               KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        bash ./scripts/hooks/pre-push 2>&1
+        # Вход отправки хук читает со stdin (ws#810): унаследованный открытый
+        # поток держал бы пробу до его закрытия. Пустой вход судит HEAD.
+        bash ./scripts/hooks/pre-push </dev/null 2>&1
     )"; code=$?
     printf '%s|%s\n' "$code" "$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
 }

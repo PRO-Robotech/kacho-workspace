@@ -28,10 +28,29 @@
 #
 # ГРАНИЦА. Скрипт отвечает на вопрос «готов ли PR к слиянию по проверкам» и
 # только на него. Он НЕ судит о содержании изменения, НЕ заменяет обзор и НЕ
-# знает про требования, живущие вне списка обязательных контекстов.
+# знает про требования, живущие вне своего источника вердикта.
+#
+# ИСТОЧНИКОВ ВЕРДИКТА ДВА, и выбирает их устройство репозитория, а не вкус.
+# Там, где у базы есть обязательные контексты (монорепо продукта), — сверка по
+# их именам, описанная выше. В воркспейсе автозапуска нет по решению владельца
+# 2026-09-20, дословно: «Заливай правки и сделай весь ci что бы на любом бранче
+# был не активен»; «Снимай любой ci что бы совсе. Не работал но был описан в
+# ямл». Обязательных контекстов у его `main` нет тем же решением, а
+# `statusCheckRollup` PR ручного прогона не несёт: «проверок 0» там не значит,
+# что прогона не было. Вердикт воркспейса (ws#788) — check-runs ПОСЛЕДНЕГО
+# ручного прогона `ci.yaml` (`workflow_dispatch`) на голове PR: все зелёные —
+# зелёное; хоть один красный — «сливать нельзя»; идёт — «нельзя сейчас»;
+# прогона на голове нет — «не выполнилось». Прогон на другой sha не
+# засчитывается, даже если сосед его вернул.
+#
+# Объявление самоистекает: если защита базы воркспейса снова требует контексты,
+# источник вердикта больше не один, и скрипт отвечает кодом 2, а не выбирает
+# молча.
 #
 # Код возврата: 0 — сливать можно; 1 — нельзя (сказано, почему);
-#               2 — вопрос беспредметен (нет PR, нет доступа, защита не настроена).
+#               2 — вердикта нет: вопрос беспредметен (нет PR, нет доступа,
+#                   защита не настроена) либо проверка не выполнилась (ручного
+#                   прогона на голове нет). Это НЕ «сливать нельзя».
 
 # ПОЧЕМУ СВЕРКА МНОЖЕСТВ ИДЁТ ПОД LC_ALL=C — И НА sort, И НА comm (ws#530).
 #
@@ -89,7 +108,40 @@ parse_broken() {
   exit 2
 }
 
-pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,mergeStateStatus,statusCheckRollup 2>/dev/null) || {
+# ПРОВЕРКИ ЗЕЛЁНЫЕ — ЕЩЁ НЕ «СЛИВАЙ». Сервер держит слияние и по другим причинам:
+# незавершённая НЕобязательная проверка, конфликт с базой, требование обзора,
+# устаревшая ветка при строгом режиме. Молча сказать «можно» значит подтолкнуть к
+# `gh pr merge`, который откажет, — и читатель пойдёт искать причину в этом выводе,
+# которого в нём нет. Наблюдалось на самом этом скрипте 2026-08-17: восемь из восьми
+# зелёных при `BLOCKED` и одной идущей необязательной. Общий конец обоих источников
+# вердикта: судит одно и то же состояние слияния.
+#
+# merge_state_verdict <что зелёное> <что пройдено>
+merge_state_verdict() {
+  case "$merge_state" in
+    CLEAN|UNSTABLE|HAS_HOOKS)
+      echo
+      echo "merge-readiness: можно сливать — $1"
+      exit 0
+      ;;
+    *)
+      echo
+      echo "  $2 — все зелёные, но состояние слияния: $merge_state"
+      case "$merge_state" in
+        BLOCKED)  echo "    сервер держит слияние: идёт необязательная проверка, требуется обзор либо ветка устарела" ;;
+        DIRTY)    echo "    конфликт с базовой веткой — догнать её и разрешить" ;;
+        BEHIND)   echo "    ветка отстала от базы, а режим строгий — догнать" ;;
+        DRAFT)    echo "    PR — черновик" ;;
+        UNKNOWN)  echo "    сервер ещё считает состояние — спросить снова через несколько секунд" ;;
+      esac
+      echo
+      echo "merge-readiness: проверки пройдены, СЛИЯНИЕ ЗАДЕРЖАНО не ими"
+      exit 1
+      ;;
+  esac
+}
+
+pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup 2>/dev/null) || {
   echo "merge-readiness: PR $REPO#$PR недоступен" >&2; exit 2; }
 
 # Ответ соседа проверяется на разбираемость ДО первого чтения поля. Без этого
@@ -106,6 +158,125 @@ merge_state=$(jq -r '.mergeStateStatus' <<<"$pr_json")
 if [ "$state" != "OPEN" ]; then
   echo "merge-readiness: PR $REPO#$PR в состоянии $state — сливать нечего"
   exit 2
+fi
+
+# ── ИСТОЧНИК ВЕРДИКТА ВОРКСПЕЙСА: РУЧНОЙ ПРОГОН НА ГОЛОВЕ PR (ws#788) ──────────
+# Имя репозитория GitHub регистр не различает, поэтому сравнение — без регистра.
+manual_workflow=""
+if [ "${REPO,,}" = "pro-robotech/kacho-workspace" ]; then
+  manual_workflow="ci.yaml"
+fi
+
+if [ -n "$manual_workflow" ]; then
+  head_sha=$(jq -r '.headRefOid // empty' <<<"$pr_json")
+  head_ref=$(jq -r '.headRefName // empty' <<<"$pr_json")
+  [ -n "$head_sha" ] \
+    || parse_broken "у PR $REPO#$PR в ответе нет headRefOid" \
+                    "голова неизвестна — прогон на ней не найти."
+
+  # Предпосылка объявления, а не источник вердикта: защита базы НЕ требует
+  # контекстов. Незащищённая база (ветка волны, ветка эпика) здесь законна — её
+  # вердикт тот же ручной прогон; непустой ответ, не являющийся JSON, — отказ соседа.
+  protection=$(gh api "repos/$REPO/branches/$base/protection" 2>/dev/null || true)
+  if [ -n "$protection" ]; then
+    jq -e 'type == "object"' >/dev/null 2>&1 <<<"$protection" \
+      || parse_broken "ответ о защите ветки '$base' не разбирается как объект JSON" \
+                      "предпосылку «контекстов защита не требует» проверить нечем."
+    ws_required=$(jq -r '.required_status_checks.contexts[]?' <<<"$protection" | grep -c . || true)
+    if [ "${ws_required:-0}" -gt 0 ]; then
+      echo "merge-readiness: защита ветки '$base' требует обязательных контекстов: $ws_required —"
+      echo "                 объявление «вердикт воркспейса — ручной прогон» расходится с сервером."
+      echo "                 Источников вердикта стало два; вердикта нет, пока не выбран заново (ws#788)."
+      exit 2
+    fi
+  fi
+
+  runs_json=$(gh api "repos/$REPO/actions/workflows/$manual_workflow/runs?event=workflow_dispatch&head_sha=$head_sha&per_page=100" 2>/dev/null) || {
+    echo "merge-readiness: прогоны $manual_workflow репозитория $REPO недоступны" >&2; exit 2; }
+  jq -e 'type == "object" and (.workflow_runs | type == "array")' >/dev/null 2>&1 <<<"$runs_json" \
+    || parse_broken "ответ о прогонах $manual_workflow не разбирается как объект со списком workflow_runs" \
+                    "сосед вернул не то, что обещает контракт API."
+
+  # ПОСЛЕДНИЙ ручной прогон на ЭТОЙ голове. Фильтр по sha и событию стоит и здесь,
+  # а не только в запросе: прогон на прежней голове судил другое дерево.
+  run=$(jq -c --arg sha "$head_sha" \
+    '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch")]
+     | sort_by(.created_at, .id) | last // empty' <<<"$runs_json")
+
+  echo "merge-readiness: $REPO#$PR → $base"
+  echo "  источник вердикта: ручной прогон $manual_workflow (workflow_dispatch) на голове $head_sha"
+  echo "  statusCheckRollup PR: проверок $(jq '[.statusCheckRollup[]?] | length' <<<"$pr_json") — источником вердикта не служит"
+
+  if [ -z "$run" ]; then
+    echo "  ручных прогонов на голове: 0"
+    echo
+    echo "merge-readiness: НЕ ВЫПОЛНИЛОСЬ — ручного прогона на голове нет; вердикта нет, это НЕ «сливать нельзя»"
+    echo "                 запуск: gh workflow run $manual_workflow -R $REPO --ref ${head_ref:-<ветка PR>}"
+    exit 2
+  fi
+
+  run_id=$(jq -r '.id' <<<"$run")
+  run_status=$(jq -r '.status // ""' <<<"$run")
+  run_concl=$(jq -r '.conclusion // ""' <<<"$run")
+  run_suite=$(jq -r '.check_suite_id // empty' <<<"$run")
+  [ -n "$run_suite" ] \
+    || parse_broken "у прогона $run_id нет check_suite_id" \
+                    "его check-runs от чужих на той же sha не отличить."
+
+  cr_json=$(gh api "repos/$REPO/commits/$head_sha/check-runs?per_page=100&filter=latest" 2>/dev/null) || {
+    echo "merge-readiness: check-runs коммита $head_sha недоступны" >&2; exit 2; }
+  jq -e 'type == "object" and (.check_runs | type == "array")' >/dev/null 2>&1 <<<"$cr_json" \
+    || parse_broken "ответ о check-runs коммита не разбирается как объект со списком check_runs" \
+                    "сосед вернул не то, что обещает контракт API."
+  # Усечённый ответ — не вердикт: недочитанная страница могла нести красное.
+  jq -e '(.total_count // 0) <= (.check_runs | length)' >/dev/null 2>&1 <<<"$cr_json" \
+    || parse_broken "check-runs коммита усечены: $(jq -r '"получено \(.check_runs | length) из \(.total_count)"' <<<"$cr_json")" \
+                    "непрочитанная страница могла нести красное."
+
+  # Только check-runs ЭТОГО прогона: на той же sha бывают прогоны прежних запусков.
+  suite_runs=$(jq -c --argjson s "$run_suite" '[.check_runs[] | select(.check_suite.id == $s)]' <<<"$cr_json")
+  RED_SET='["failure","timed_out","cancelled","action_required","startup_failure","stale"]'
+  cr_total=$(jq 'length' <<<"$suite_runs")
+  cr_green=$(jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length' <<<"$suite_runs")
+  cr_red=$(jq -r --argjson r "$RED_SET" '.[] | select(.status == "completed" and (.conclusion as $c | $r | index($c)) != null) | .name + " [" + (.conclusion | ascii_upcase) + "]"' <<<"$suite_runs" | LC_ALL=C sort)
+  cr_running=$(jq -r '.[] | select(.status != "completed") | .name' <<<"$suite_runs" | LC_ALL=C sort)
+  cr_void=$(jq -r --argjson r "$RED_SET" '.[] | select(.status == "completed" and .conclusion != "success" and (.conclusion as $c | $r | index($c)) == null) | .name + " [" + ((.conclusion // "без исхода") | ascii_upcase) + "]"' <<<"$suite_runs" | LC_ALL=C sort)
+  red_count=$(printf '%s\n' "$cr_red" | grep -c . || true)
+  running_count=$(printf '%s\n' "$cr_running" | grep -c . || true)
+  void_count=$(printf '%s\n' "$cr_void" | grep -c . || true)
+
+  echo "  прогон: $run_id · состояние $run_status · исход ${run_concl:-нет}"
+  echo "  check-runs: $cr_total · зелёных: $cr_green · красных: $red_count · идут: $running_count · без исхода: $void_count · состояние слияния: $merge_state"
+
+  # Исход прогона целиком — отдельно от его check-runs: прогон, не поднявший ни
+  # одного задания (`startup_failure`), красен при пустом перечне.
+  run_red=$(jq -n --arg c "$run_concl" --argjson r "$RED_SET" 'if ($r | index($c)) != null then 1 else 0 end')
+  if [ "$red_count" -gt 0 ] || [ "$run_red" -eq 1 ]; then
+    echo "  КРАСНЫЕ:"
+    [ "$red_count" -gt 0 ] && printf '%s\n' "$cr_red" | sed 's/^/    /'
+    [ "$run_red" -eq 1 ] && echo "    прогон $run_id целиком [$(printf '%s' "$run_concl" | tr '[:lower:]' '[:upper:]')]"
+    echo
+    echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — ручной прогон на голове красный"
+    exit 1
+  fi
+  if [ "$running_count" -gt 0 ] || [ "$run_status" != "completed" ]; then
+    echo "  ИДУТ:"
+    printf '%s\n' "$cr_running" | sed '/^$/d; s/^/    /'
+    # Прогон идёт и тогда, когда все поднятые им check-runs уже зелёные: задания,
+    # которых ещё нет, в перечне не видны, а их исход может быть красным.
+    [ "$run_status" != "completed" ] && echo "    прогон $run_id целиком [$(printf '%s' "$run_status" | tr '[:lower:]' '[:upper:]')]"
+    echo
+    echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — ручной прогон на голове идёт"
+    exit 1
+  fi
+  if [ "$cr_total" -eq 0 ] || [ "$void_count" -gt 0 ] || [ "$cr_green" -ne "$cr_total" ]; then
+    [ "$void_count" -gt 0 ] && { echo "  БЕЗ ИСХОДА:"; printf '%s\n' "$cr_void" | sed 's/^/    /'; }
+    echo
+    echo "merge-readiness: НЕ ВЫПОЛНИЛОСЬ — зелёных $cr_green из $cr_total check-runs прогона $run_id; вердикта нет"
+    exit 2
+  fi
+
+  merge_state_verdict "все $cr_total check-runs ручного прогона $run_id на голове зелёные" "Check-runs ручного прогона"
 fi
 
 # Обязательные контексты целевой ветки. Отсутствие защиты — НЕ повод молчать:
@@ -193,30 +364,5 @@ if [ "$missing_count" -gt 0 ]; then
   exit 1
 fi
 
-# ОБЯЗАТЕЛЬНЫЕ ЗЕЛЁНЫЕ — ЕЩЁ НЕ «СЛИВАЙ». Сервер держит слияние и по другим причинам:
-# незавершённая НЕобязательная проверка, конфликт с базой, требование обзора,
-# устаревшая ветка при строгом режиме. Молча сказать «можно» значит подтолкнуть к
-# `gh pr merge`, который откажет, — и читатель пойдёт искать причину в этом выводе,
-# которого в нём нет. Наблюдалось на самом этом скрипте 2026-08-17: восемь из восьми
-# зелёных при `BLOCKED` и одной идущей необязательной.
-case "$merge_state" in
-  CLEAN|UNSTABLE|HAS_HOOKS)
-    echo
-    echo "merge-readiness: можно сливать — каждый обязательный контекст имеет зелёный исход"
-    exit 0
-    ;;
-  *)
-    echo
-    echo "  Обязательные — все зелёные, но состояние слияния: $merge_state"
-    case "$merge_state" in
-      BLOCKED)  echo "    сервер держит слияние: идёт необязательная проверка, требуется обзор либо ветка устарела" ;;
-      DIRTY)    echo "    конфликт с базовой веткой — догнать её и разрешить" ;;
-      BEHIND)   echo "    ветка отстала от базы, а режим строгий — догнать" ;;
-      DRAFT)    echo "    PR — черновик" ;;
-      UNKNOWN)  echo "    сервер ещё считает состояние — спросить снова через несколько секунд" ;;
-    esac
-    echo
-    echo "merge-readiness: обязательные пройдены, СЛИЯНИЕ ЗАДЕРЖАНО не ими"
-    exit 1
-    ;;
-esac
+# Обязательные зелёные — дальше судит состояние слияния (`merge_state_verdict`).
+merge_state_verdict "каждый обязательный контекст имеет зелёный исход" "Обязательные"

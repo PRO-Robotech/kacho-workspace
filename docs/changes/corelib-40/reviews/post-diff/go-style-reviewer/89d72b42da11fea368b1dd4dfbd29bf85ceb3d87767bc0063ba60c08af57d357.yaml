@@ -1,0 +1,124 @@
+# Пост-дифф ревью — роль go-style-reviewer, круг 1.
+# Имя файла — content_digest отсуженного диффа. Место записи — воркспейс
+# docs/changes/corelib-40/reviews/post-diff/go-style-reviewer/; переносит и коммитит оператор
+# задачей волны-2 воркспейса (запись в общий checkout воркспейса из полосы заблокирована харнессом).
+schema_version: 1
+change_id: corelib-40
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+subject: >-
+  oauthceremony: привязка PKCE стала полями записи кода (AuthorizationCodeRecord,
+  ProofKeyBinding, ProofKeyMethod{S256}); порт ProofKeyVault и Ports.ProofKeys сняты;
+  RequireProofKey* сняты, PKCE S256 обязателен всем (задача #40, волна #32)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  head: 1c931b82d0ff38b3bcea94e5cf46c978a6267a60
+  head_tree: ae7e6b4d5fb862120d56370156101881a274478d
+  shortstat: '14 файлов, +876 / -359'
+content_digest: sha256:89d72b42da11fea368b1dd4dfbd29bf85ceb3d87767bc0063ba60c08af57d357
+digest_definition: >-
+  git diff --full-index $(git merge-base origin/32 1c931b82)..1c931b82 | sha256sum,
+  merge-base = 84b9be87f789 = origin/32. Перемерено по деревьям 1ebe75c1faae..ae7e6b4d5fb8 —
+  совпадает.
+verdict: accepted
+blocks_landing: false
+review_scope: >-
+  дифф целиком (14 файлов oauthceremony/). Вне диффа сверено: обработчик PKCE движка
+  (internal/oauth2/handler/pkce/handler.go:136, :150), обработчик кода
+  (handler/oauth2/flow_authorize_code_token.go:33, :127, :156, :168), fromEngine/coarsenable,
+  toEngine (Debug на провод не идёт), BeginTX моста, ведомость операции.
+measurements:
+  - 'go test ./oauthceremony/... -count=1 @1c931b82 — rc 0, 218 событий pass (90 верхнего уровня), 0 fail, 0 skip'
+  - 'gofmt -l oauthceremony/ — пусто; go vet ./oauthceremony/ — чисто'
+  - 'предикат снятия п.1: git grep ProofKeyVault @head -- oauthceremony/ — 0; ProofKeys — 0; RequireProofKey по всему дереву — 0'
+  - 'потребители: git grep corelib/oauthceremony в kacho@1d42a6728bf и kaname@cbbac984b — 0 файлов; oauthceremony нет ни в одном теге (v1.9.0 ls-tree — пусто)'
+  - 'инъекция overlay: проверка bindingDefect на выборке снята — TestCodeRecordWithoutAnS256ProofKeyIsAContractBreach 4 из 4 красные, близнец TestExchangeChecksTheProofKeyOfTheCodeRecord 2 из 2 зелёный'
+  - 'инъекция overlay: requireProofKey в Authorize снят — 12 из 12 отказных случаев красные, близнец «S256 и вызов верной формы» зелёный'
+not_run: 'golangci-lint и -race не гонял — их исход не мой предмет (landing-reviewer / check-verifier)'
+findings:
+  - id: I1
+    severity: important
+    blocks: false
+    class: ctx-value-dependency-not-in-contract
+    file: oauthceremony/bridge.go
+    line: 289
+    summary: >-
+      Успешный обмен кода теперь зависит от того, что ведомость операции доезжает сквозь
+      UnitOfWork.Begin: погашение на выдаче (внутри транзакции движка) признаёт своё погашение
+      только по consumedHere из контекста. Контракт порта (ports.go:381) не требует, чтобы
+      возвращённый контекст был потомком переданного.
+    measured: >-
+      overlay-инъекция в recordingUnitOfWork.Begin: вернуть context.Background() с тем же
+      сроком. @1c931b82 TestUnitOfWorkIsEngagedWhenNamed — FAIL «Exchange отказал:
+      authorization_code_consumed»; @84b9be87 та же инъекция — PASS. Зависимость внесена этим
+      диффом.
+    requirement: >-
+      либо BeginTX (bridge.go:585) переносит ведомость операции в возвращённый контекст,
+      либо контракт Begin называет требование «возвращённый контекст — потомок переданного»;
+      в обоих случаях проба с такой единицей работы.
+  - id: I2
+    severity: important
+    blocks: false
+    class: misuse-not-in-notes (тот же класс, что corelib#55)
+    file: oauthceremony/bridge.go
+    line: 550
+    summary: >-
+      GetPKCERequestSession отдаёт движку CodeCeremonyMisuse мимо ведомости; coarsenable его
+      не знает, и вызывающий получает server_error. Сегодня путь недостижим (порядок
+      обработчиков задан в New).
+    measured: >-
+      overlay-инъекция «GetAuthorizeCodeSession не заносит предъявленный код»: Exchange →
+      CodeOf=server_error, misuse=false. Близнец без инъекции — err=<nil>. Перепись по
+      механизму: мест CodeCeremonyMisuse в bridge.go — 1 @84b9be87 (revocationReasonFor, #55),
+      2 @1c931b82 (+ :550).
+    requirement: >-
+      дописать координату bridge.go:550 в corelib#55 (предикат снятия #55 — на оба места),
+      либо закрыть здесь тем же механизмом, что выберет #55.
+  - id: S1
+    severity: style
+    blocks: false
+    file: oauthceremony/ceremony.go
+    line: 168
+    summary: >-
+      «запись кода без привязки невыразима (AuthorizationCodeRecord)» — тип нулевую привязку
+      выражает; держит свойство проверка в рантайме (codeRecordFromRequester + bindingDefect,
+      requireProofKey). Само свойство верно — инъекции выше это подтверждают.
+    requirement: назвать настоящий механизм вместо типа.
+  - id: S2
+    severity: style
+    blocks: false
+    file: oauthceremony/bridge.go
+    line: 222
+    summary: >-
+      шапка GetAuthorizeCodeSession: «на погашенном коде привязка не судится». На коде,
+      погашенном этой же операцией, привязка судится (ветка consumedHere проваливается к
+      bindingDefect).
+    requirement: сузить до «на коде, погашенном не этой операцией (повтор)».
+  - id: S3
+    severity: style
+    blocks: false
+    file: oauthceremony/ports.go
+    line: 162
+    summary: >-
+      довод к третьему исходу FetchAuthorizationCode называет только отзыв; теперь на нём
+      стоит и обычный обмен: вторая выборка той же операции видит код погашенным при
+      предъявлении.
+    requirement: добавить второй довод в шапку порта.
+  - id: S4
+    severity: style
+    blocks: false
+    file: oauthceremony/doc.go
+    line: 43
+    summary: строка не переформатирована после правки; рваные переносы также doc.go:58 и ceremony.go:721.
+    requirement: переформатировать абзацы.
+foundation_candidates: []
+fresh_deferral_markers: 0
+probes_in_same_pr: true
+security_comments_contradicting_code: []
+commit_message_check: >-
+  один коммит, первая строка «#40 …», автор и коммиттер pointpu <pointpu@in-cloud.io>,
+  трейлеров Co-Authored-By/Claude-Session/Generated with — 0.
+return_to: go-implementer (автор полосы #40) — только по I1/I2/S*, не блокирует

@@ -110,6 +110,9 @@ LANES = (
     (LANE_NONE, "applicability.py", (),
      "производитель свидетельства освобождений, а не проба: вердикт о дереве выносит "
      "check-04, о собственной падучести — selftest/prove_applicability.py"),
+    (LANE_NONE, "digestform.py", (),
+     "распознаватель команды дайджеста в записях ревью: вердикт о дереве выносит "
+     "check-05, о собственной падучести — inject.sh"),
     (LANE_NONE, "tests/run_case.py", (),
      "matrix command: исполняется по кейсу из run_matrix.py и отвечает holder-кодами 0/10/20/40"),
     (LANE_NONE, "tests/selfcheck/fake_sut.py", (),

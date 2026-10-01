@@ -155,7 +155,10 @@ restore
 run 0 "чистое дерево (законный близнец: перечень = дерево)" check-03-roster-matches-tree.sh
 
 restore
-perl -0pi -e 's/^- `measurement-discipline` \(workspace\).*?\n//ms' "$AT"
+# Строка снимается по имени, а не по пометке после него: пометка «(workspace)» снята
+# из перечня сборкой ws#873, и образец с ней молча не совпадал — перечень оставался
+# целым, а инъекция краснела «ждали 1, получили 0» не от гейта.
+perl -0pi -e 's/^- `measurement-discipline`[^\n]*\n//m' "$AT"
 run 1 "инъекция: скил есть в дереве, но выпал из перечня" check-03-roster-matches-tree.sh
 grep -q 'measurement-discipline' <<<"${LAST_OUT:-}" \
     && printf '  [ok]   инъекция названа именем скила\n' && pass=$((pass + 1)) \

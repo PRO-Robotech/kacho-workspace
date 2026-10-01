@@ -1,0 +1,107 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 2.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся.
+# Запись лежит в копии воркспейса ветки 825 и НЕ закоммичена (как и соседние).
+schema_version: 1
+change_id: corelib-36
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 2
+previous_record: 16c9281c0849429b885e1f96b6b8d06873cfe04f21143b4d8d3cb1f4498404a9.yaml
+subject: >-
+  corelib #36, круг 2: закрытие F1 прошлого круга. Правка: markReplayedFamily делает случай
+  повтора точным случаем операции (первым, как record); из replayedCode и
+  GetRefreshTokenSession снята запись случая после отказа сборки. Второй коммит правит только
+  текст шапки.
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '36 (локальная; `git branch -a --contains HEAD` → только 36; не отправлена)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  previous_head: 6289fbcf1ac7d9a07dab4dea5d90595e92a2a8db
+  head: e2a451c63f2fe3ed7f6f5e1e99d9cc9958e160a0
+  head_tree: 69fcd115fd9f59e9ccfccdeb7731a95e7545287b
+  shortstat_full: '16 файлов, +934 / -61'
+  shortstat_round: '6289fbcf..e2a451c6: 4 файла, +242 / -20 (bridge.go, notes.go, translate.go, replay_build_test.go)'
+content_digest: sha256:a4e2e12095a74f0f9f1521d3504a7ad447883ecdbf62e49d121244b4f1bbfd86
+digest_definition: >-
+  git -C tmp/corelib-36 diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum;
+  merge-base = origin/32 = f213439a (перемерено `git ls-remote origin 32`); совпадает с заданием
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T22:45:19Z'
+return_to: '—'
+
+review_scope: >-
+  Дельта круга целиком (4 файла). Коммит 4ea638c1..e2a451c6 — только комментарии: diff без
+  строк-комментариев пуст. Вне дельты прочитаны: notes.go 1-340 (record, preferRecorded,
+  markReplayedFamily, coarsenable, note); bridge.go 130-170, 225-500 (все четыре вызова
+  markReplayedFamily: выборка кода, ноль строк погашения, выборка токена обновления, ноль строк
+  оборота); translate.go 325-375 (requesterFromGrant: что он заносит в ведомость);
+  ceremony.go 820-1040 (Exchange, revokeReplayedFamily, Introspect, Revoke — сверка клиента по
+  RFC 7009 §2.1). Хелперы проб: requireCodeReplayRefusal, requireReplayRefusal,
+  requireRevokedFor, requireNotRevoked.
+  Прогоны на выгрузке головы (git archive e2a451c6 → ~/.cache/sec-audit-corelib-36/r2/head,
+  TMPDIR там же; дерево полосы не тронуто, `git status` — 0 строк):
+  `go test -count=1 -json ./oauthceremony/... ./acrlevel/...` → 440 pass, 0 fail, 0 skip, rc 0;
+  новые пробы → 30 pass (1 родитель + 28 подслучаев + 1 одиночная).
+
+closure_of_previous:
+  - id: F1
+    key: 'corelib:oauthceremony/translate.go:replay-case-shadowed-by-session-breach'
+    status: закрыта
+    how: >-
+      проба F1 прошлого круга, прогнанная без изменений на голове e2a451c6 (4 вида записи:
+      близнец, NotAfter нулевой, SessionID пустой, ACR "0"): повтор токена обновления при обмене →
+      refresh_token_rotated / invalid_grant; повтор кода → authorization_code_consumed /
+      invalid_grant; отзыв обёрнутым токеном → nil; интроспекция → active=false без ошибки;
+      семейство отозвано во всех случаях. Совпадает с базой f213439a прошлого круга.
+      На 6289fbcf было port_contract. Комментарии моста и ведомости теперь говорят то же, что
+      делает код.
+    injections: >-
+      через -overlay поверх головы, обе красные, близнецы зелёные во всех клетках:
+      J1 — из markReplayedFamily снято `n.precise = refusal`: 27 провалов (24 подслучая =
+      4 поверхности × 6 видов порчи, плюс TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily,
+      TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily и родитель).
+      J2 — в replayedCode пометка перенесена после сборки: 8 провалов (6 подслучаев обмена кода,
+      одиночная проба снятого клиента, родитель). Значит, утверждение «семейство отозвано»
+      в пробе рабочее.
+
+delta_surface:
+  premise: >-
+    подтверждена. Семантика меняется ровно в одном месте: отказ сборки на путях повтора.
+    На путях «ноль строк» pairEngine и раньше заносил случай сразу после пометки. На выборках
+    requesterFromGrant заносит в ведомость только два случая. Первый — пустой GrantID, но его
+    оба пути отвергают раньше пометки, а пометка пустой идентификатор игнорирует. Второй —
+    отказ hydrateSession, и это исправляемый случай. Отказ справочника клиентов уходит движку
+    как есть, в ведомость не попадает, поэтому для него повтор первым был и раньше. Решение
+    об отзыве обёрнутым токеном принимается по клиенту из пометки, а не по точному случаю,
+    так что чужой клиент по-прежнему получает успех без действия. Правка этого не затрагивает.
+  findings: []
+  below_bar:
+    - id: N4
+      severity: low
+      key: 'corelib:oauthceremony/translate.go:dead-artifact-breach-unobservable'
+      note: >-
+        на путях повтора нарушение контракта в записи сеанса погашенного артефакта теперь не
+        видно вызывающему: ответ — повтор, подробность отказа сборки уходит движку и дальше не
+        доезжает. Семейство отозвано, отказ fail-closed. Если адаптер службы не переносит
+        сессию, это громко видно на каждом живом пути (TestStoredRecordWithoutAGoodLoginContextIsAContractBreach).
+        Заметка для службы, не блокирует.
+  public_text: >-
+    сообщения 4ea638c1 и e2a451c6 проверены на восстановимость: описано поведение, которое
+    вызывающий видит на повторе. Условие (порченая запись в хранилище службы) извне не
+    создаётся, а отзыв исполнялся и до правки, так что воспользоваться прочитанным нечем.
+    Проходят. Трейлеров 0.
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    subject: >-
+      без изменений против круга 1: адаптер портов хранилища переносит
+      SessionRecord.SessionID/ACR/AuthTime во все три записи. Шаг вверх (LAX-7) и прекращение
+      семейства при завершении сессии исполняет служба.
+
+dry_round: true
+seen_keys:
+  - 'corelib:oauthceremony/translate.go:replay-case-shadowed-by-session-breach'
+  - 'corelib:oauthceremony/translate.go:dead-artifact-breach-unobservable'
