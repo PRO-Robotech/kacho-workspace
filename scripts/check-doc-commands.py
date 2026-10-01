@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Every make command quoted in docs/ must run, unchanged, from the monorepo root.
 
-There is no Makefile at the root of `project/kacho`. Targets live in `deploy/`,
-`gateway/` and the per-service `services/*/` directories, so a bare `make <target>`
-copied out of a document fails with "No rule to make target" for whoever runs it.
+Most targets of `project/kacho` live in `deploy/`, `gateway/` and the per-service
+`services/*/` directories, not in its root Makefile, so a bare `make <target>` copied
+out of a document fails with "No rule to make target" for whoever runs it, unless
+the root Makefile declares that target.
 This check reads every make invocation quoted in `docs/**/*.md` and asserts that the
 directory it would run in really declares that target.
 
@@ -16,7 +17,8 @@ are not commands and are not checked. Neither is Go's `make(` — it has no spac
 How the working directory is resolved, in order:
   1. an explicit `-C <dir>`;
   2. otherwise a `cd <dir>` earlier in the same quoted command;
-  3. otherwise the monorepo root — which has no Makefile, so the citation fails.
+  3. otherwise the monorepo root — the citation fails unless the root Makefile
+     declares the target.
 `{a,b}` brace lists are expanded the way bash expands them; every branch is checked.
 
 Scope note, so the boundary is not mistaken for an omission: only make citations are
@@ -34,9 +36,13 @@ found at all (the extractor or the docs root moved rather than the prose being c
 or there is no product tree to check against (ws#463) — a condition not created, which
 must not reach the caller with the code of a finding.
 
-Where the product tree is looked for: `KACHO_MONOREPO`, otherwise `project/kacho` under
-the workspace root — resolved by `scripts/docs-gate/_lib.py` (`monorepo`), the same
-resolver the gate suites use. A second way of finding the product tree in this
+Which workspace is judged: the root resolved by `scripts/docs-gate/_lib.py`
+(`workspace_root` — `DOCS_GATE_ROOT`, `GATE_ROOT`, otherwise this file's location),
+the same way every check of the gate suites resolves it: the gate is also a check of
+the `docs-gate` suite (`scripts/docs-gate/check-09-quoted-make-commands-resolve.sh`,
+ws#816), and the push hook runs it through that suite. Where the product tree is
+looked for: `KACHO_MONOREPO`, otherwise `project/kacho` under that root — resolved by
+`scripts/docs-gate/_lib.py` (`monorepo`), the same resolver the gate suites use. A second way of finding the product tree in this
 repository would be a second place about one subject. A census line (documents read · citations examined · Makefiles and targets in the
 ground truth) is printed before the verdict in every case, so "no findings" can be told
 apart from "nothing read".
@@ -46,10 +52,15 @@ import os
 import re
 import sys
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(REPO, "scripts", "docs-gate"))
-import _lib  # noqa: E402  общий резолвер дерева продукта (ws#463)
+_HOME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_HOME, "scripts", "docs-gate"))
+import _lib  # noqa: E402  общий резолвер дерева продукта (ws#463) и корня (ws#816)
 
+# Корень судимого дерева — тем же резолвером, что у каждой проверки наборов: гейт
+# входит в набор docs-gate, и проба пустого дерева (`GATE_ROOT`) обязана судить
+# пустоту, а не дерево, в котором лежит код гейта. Код гейта и его помощники
+# берутся рядом с этим файлом (`_HOME`).
+REPO = _lib.workspace_root()
 MONO = _lib.monorepo(REPO)
 DOCS = os.path.join(REPO, "docs")
 

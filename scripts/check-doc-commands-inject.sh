@@ -14,10 +14,12 @@
 #        наборов (`scripts/docs-gate/_lib.py`, функция `monorepo`): второго
 #        способа найти дерево продукта в одном репозитории нет.
 #
-# Дерево пробы строится ВОКРУГ СКРИПТА: он выводит корень из собственного пути,
+# Дерево пробы строится ВОКРУГ СКРИПТА: без переопределения корня он выводит его
+# из расположения (общий резолвер наборов `scripts/lib/gate_root.py`, ws#816),
 # поэтому копия скрипта в `<врем>/scripts/` смотрит на `<врем>/docs` и
-# `<врем>/project/kacho`. Никакой тестовой ручки в самом гейте для этого не
-# заводится — ручка была бы второй поверхностью поведения, которую никто не читает.
+# `<врем>/project/kacho`. Переопределения корня (`DOCS_GATE_ROOT`, `GATE_ROOT`) —
+# контракт наборов, а не ручка этой пробы: здесь они сняты, а то, что гейт как
+# проверка набора их читает, доказывает `scripts/docs-gate/inject-09.sh`.
 #
 # Запуск: bash scripts/check-doc-commands-inject.sh   (код 0 — все три сошлись)
 #
@@ -39,11 +41,12 @@ PASS=0; FAIL=0
 # доказывало бы лишь, что скрипт совпадает сам с собой.
 # Резолвер дерева продукта — общий с наборами (`scripts/docs-gate/_lib.py`), и
 # копия гейта берёт его рядом с собой, как в настоящем дереве.
-mkdir -p "$TMP/scripts/docs-gate" "$TMP/docs"
+mkdir -p "$TMP/scripts/docs-gate" "$TMP/scripts/lib" "$TMP/docs"
 cp "$GATE" "$TMP/scripts/"
 cp "$WS/scripts/docs-gate/_lib.py" "$TMP/scripts/docs-gate/"
+cp "$WS/scripts/lib/gate_root.py" "$TMP/scripts/lib/"
 
-run_gate() { env -u KACHO_MONOREPO python3 "$TMP/scripts/$(basename "$GATE")" 2>&1; }
+run_gate() { env -u KACHO_MONOREPO -u DOCS_GATE_ROOT -u GATE_ROOT python3 "$TMP/scripts/$(basename "$GATE")" 2>&1; }
 
 echo "== check-doc-commands: инъекция =="
 
@@ -61,7 +64,7 @@ fi
 alt="$TMP/elsewhere/kacho"
 mkdir -p "$alt/deploy"; git -C "$alt" init -q
 printf 'dev-up:\n\t@true\n' > "$alt/deploy/Makefile"
-out="$(KACHO_MONOREPO="$alt" python3 "$TMP/scripts/$(basename "$GATE")" 2>&1)"; rc=$?
+out="$(env -u DOCS_GATE_ROOT -u GATE_ROOT KACHO_MONOREPO="$alt" python3 "$TMP/scripts/$(basename "$GATE")" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -qE 'all 1 make citations' <<<"$out"; then
   echo "  ✔ (≡) KACHO_MONOREPO читается тем же порядком, что у наборов"; PASS=$((PASS+1))
 else
