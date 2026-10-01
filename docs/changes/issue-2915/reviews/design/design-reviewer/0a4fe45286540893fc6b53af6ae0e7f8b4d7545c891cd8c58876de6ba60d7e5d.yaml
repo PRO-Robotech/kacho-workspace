@@ -1,0 +1,140 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 33 (маршрут — tasks.md редакции 34). Прежняя
+# запись роли — 7bbe018c….yaml (редакция 31, RETURNED). На редакцию 32 (29f44542) записи роли нет; её
+# пересверка — revalidation/29f44542….yaml. Судятся: закрытие пунктов R31-1…R31-6 и дельта редакций 32–33
+# (CX1-104…109, N32, N33). Рабочее дерево issue-880 поверх c61a112cd, не закоммичено. Запись не правится:
+# при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с заданием и с change.yaml hashes.design_sha256 (рабочее дерево)"
+  revision: 33
+  tasks_sha256: b00a256ba69f5f13afc5e222d2ccf07dc3cabd895719186763172fd5f4b6479b   # маршрут редакции 34
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/7bbe018c9619c8e75febfac5887cad4c350b5606709ac01acd80abcddf8a0eda.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0   # перемерено sha256sum
+  verdict: "APPROVED, blocking_count 0 (docs/specs/reviews/…/1bffe10d….yaml:26, :69)"
+revisions:
+  workspace: c61a112cd67d453be25aff34fbd125365c9793ae   # плюс незакоммиченная дельта автора
+  kaname_line: a5986266                                  # origin/484-notify
+  corelib_line: 8a9eb14c                                 # origin/77-notify
+snapshot_at: 2026-10-01T22:55:25Z
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # звено Р2 kaname, место решения о праве ResolveSend, сборка внутренней цепочки
+schema_review_overlap: false   # дельта 32–33 не трогает транзакций, CAS, xmin, advisory-lock
+
+inspected: >-
+  design.md: шапка редакций 32–33, З13 «Звено наблюдаемо на голове K5» (строки 1215–1245), З18 «Право
+  вызова» (1541), §11 строки CX1-104…109, §11а УК100, §13 (3582…). tasks.md: строки K1…K8, K3r, Е15, Е16,
+  шапка. Пересверки revalidation/29f44542 (CX1-104…108 — holds, CX1-107 → CX1-109) и revalidation/0a4fe452
+  (outcome to_design, unmapped [CX1-110]). Перемерено своей командой: kaname origin/484-notify
+  cmd/kaname/serve.go:1085–1108 — внутренняя цепочка latency, panic, DenyDetailUnary, identityUnary,
+  internalCallerPolicy, addressGate, internalSystemViewerFloor, internalACRFloor, порта проверки прав нет;
+  internal/authzguard/deny_details.go:6 — «the machine-readable reason on a refusal iam decides itself»
+  (декоратор отказа, а не место решения); corelib origin/77-notify authz/caller_subject.go:121
+  `CallerSubject(ctx) (Caller, bool)`. Граф зависимостей K-полос ацикличен (K8←C12; K1←K8; K2,K4←K1;
+  K3c←K8; K5←K8,K3c; K3←K2,K3c,K4,K5). Пробы и гейты не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R31-1
+    status: закрыт
+    evidence: "§13: «Е15 (редакция 31) снята редакцией 32 — её посылка опровергнута … держит существующий вид записи CatalogPendingEntry»; CX1-104 — holds (revalidation/29f44542)"
+  - id: R31-2
+    status: закрыт
+    evidence: "CX1-105 — holds (29f44542); strict_env.go и его проба — в путях K5"
+  - id: R31-3
+    status: закрыт
+    evidence: "CX1-106 — holds (29f44542): пути под global.kacho.…, помощники с .Values.global аргументом"
+  - id: R31-4
+    status: закрыт
+    evidence: "CX1-108 — holds (29f44542): S11 NTF-2 несёт serviceIdentity и пробу рендера трёх случаев"
+  - id: R31-5
+    status: "заменён — отображение CX1-107 недостижимо (CX1-109), CX1-109 отображён, но на ошибочной посылке → CX1-110 (ниже R33-1)"
+  - id: R31-6
+    status: "не судится (форма)"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "§13 «Открытых решений нет»; Е15 снята (CX1-104), Е16 закрыта одобрением 1bffe10d (N33)"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 0a4fe452: unmapped [CX1-110]; grep -c 'CX1-110' design.md tasks.md → 0, 0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/0a4fe452….yaml — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: red
+    detail: "первичного разбора классов на одобренную приёмку 1bffe10d нет (reviews/class-exposure/initial/1bffe10d….yaml отсутствует); ревью схемы не применимо к дельте (schema_review_overlap: false)"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает; отказ ResolveSend по-прежнему уходит в отсрочку З23 (запись 7bbe018c)."
+  edges_acyclicity: "закрыта: новых рёбер нет, граф полос ацикличен (K3 ← K4 новое ребро, K4 ← K1, кольца нет)."
+  public_vs_internal_edge: "дельта не трогает; ResolveSend — только внутренний слушатель."
+  authz_decision_locality: "возврат: R33-1 (одно место решения о праве ResolveSend)."
+  replica_state_isolation: "дельта не трогает."
+  mixed_version_window: "закрыта: K3r открывается от головы kaname#484 и садится заходом эпика в main, красный в окне атрибутирован K3r (N32)."
+
+critical:
+  - id: R33-1
+    where: "design.md З13 «Звено наблюдаемо на голове K5» (а)–(в) и «боевая пара — в K3» (строки 1222–1244); §11а УК100 (3523); tasks.md K5, K3, шапка строки 15–16"
+    finding: >-
+      Замысел помещает решение о праве вызова ResolveSend в перехватчик («звено прав в deps — порт
+      проверки», «DenyDetailUnary с отказом PERMISSION_DENIED/AUTHZ_DENIED»). Код и собственный З18
+      замысла говорят иначе: DenyDetailUnary только дописывает reason к отказу, решённому ниже
+      (deny_details.go:6), порта проверки прав во внутренней цепочке kaname нет (serve.go:1085–1108), а
+      право решает обработчик первым стейтментом (authz.CallerSubject, затем CheckRelation; З18, 1541).
+      Последствия по распределённой оси. (1) Порт прав в deps — либо второе место решения о праве рядом с
+      обработчиком (два текста отказа, два reason, расхождение при правке одного), либо конструкция только
+      пробы, и тогда проба K5 судит не боевой состав. (2) Инъекция «цепочка без звена Р2 через deps»
+      требует боевого конструктора, принимающего deps без звена личности, — молчаливая сборка сервера
+      без извлечения служебного субъекта. (3) K3 «обработчик ResolveSend не вызван» противоречит З18:
+      проба краснеет на законной реализации либо толкает проверку в перехватчик, то есть в (1).
+    requirement: >-
+      Отобразить CX1-110 (а)–(г): решение о праве ResolveSend — одно место, обработчик K3, перехватчика
+      проверки прав нет; internalUnaryChain(deps) собирает существующие звенья, порта прав в deps нет, nil
+      или пустая зависимость звена — ошибка сборки с именем звена (проба конструктора с близнецом); K5 —
+      заглушка K3c записывает authz.CallerSubject(ctx) и отвечает UNIMPLEMENTED, пара «(—,false)» /
+      «service:notify,true», одна инъекция через вход конфигурации; K3 — «обработчик не вызван» снять,
+      судить вызов CheckRelation и 0 чтений записи выдачи; в З18 назвать ветку «субъекта нет». Строку
+      1223 («звено прав (DenyDetailUnary …)») исправить: она утверждает о коде то, чего в нём нет.
+
+important: []
+
+minor: []
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R33-1 (CX1-110)"
+  - кому: class-exposure-analyst
+    что: "первичный разбор классов на одобренную приёмку 1bffe10d (заказ записей 29f44542 и 0a4fe452 не исполнен)"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток будет новый: заново нужны пересверка разбора
+  классов и эта роль.

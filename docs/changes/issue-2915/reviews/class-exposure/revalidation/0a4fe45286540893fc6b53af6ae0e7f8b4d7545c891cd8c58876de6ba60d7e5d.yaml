@@ -1,0 +1,199 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 33, маршрут редакции 34.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 33 против последней пересверенной
+# (редакция 32, 29f44542…, запись revalidation/29f44542….yaml — «к замыслу», CX1-109, N32, N33).
+# Дельта не закоммичена: рабочее дерево issue-880 поверх c61a112cd (на c61a112cd design.md = 29f44542…,
+# tasks.md = 0e13b664… — ровно пересверенные). Пункты CX1-01…108 и УК1…УК99 запись не пересуживает.
+#
+# Итог — к замыслу. N32 и N33 отображены и выдерживают условие. CX1-109 отображён дословно, но его
+# условие (а) стояло на неверной посылке ПРОШЛОЙ записи этой роли: «звено прав — `DenyDetailUnary`».
+# Код судит иначе. `DenyDetailUnary` только дописывает `reason` к отказу, который решил кто-то другой
+# (`internal/authzguard/deny_details.go`: «the machine-readable reason on a refusal iam decides itself»).
+# Решение о праве вызова `ResolveSend` по З18 замысла принимает ОБРАБОТЧИК: «первый стейтмент после
+# проверки формы — `authz.CallerSubject`, затем `AuthorizeService.CheckRelation`». В цепочке внутреннего
+# слушателя kaname (`serve.go` 1085–1108 @a5986266) порта проверки прав нет. Отсюда новый пункт CX1-110:
+# фиктивный порт «звена прав в `deps`» не имеет боевого двойника, а боевая пара K3 утверждает
+# «обработчик не вызван», хотя по З18 отказ производит сам обработчик.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d   # рабочее дерево
+  tasks_sha256: b00a256ba69f5f13afc5e222d2ccf07dc3cabd895719186763172fd5f4b6479b   # маршрут редакции 34
+  revision: 33
+  content_commit: "— (рабочее дерево поверх c61a112cd, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/29f445429c624df3b163388ea8272d2846e9aba5bb641ea270acb7488b29a1e4.yaml
+    sha256: 29f445429c624df3b163388ea8272d2846e9aba5bb641ea270acb7488b29a1e4
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @c61a112cd)"
+  decisions_judged:
+    - "K5: внутренняя цепочка из функции корня `internalUnaryChain(deps)`, общей для `runServe` и пробы; звено прав пробы — фиктивный порт, записывающий субъект; пара судит субъект; две инъекции (CX1-109)"
+    - "боевая пара Р2 переезжает в K3; K3 ← K2, K3c, K4, K5 (CX1-109)"
+    - "K3r открывается от головы линии до посадки эпика и садится тем же заходом (N32)"
+    - "Е16 закрыта одобрением приёмки редакции 19 (N33)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml (verdict: APPROVED, blocking_count: 0; коммит fd3470cb6)"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "нет (reviews/class-exposure/initial/1bffe10d….yaml отсутствует)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: c61a112cd67d453be25aff34fbd125365c9793ae   # плюс незакоммиченная дельта автора
+  kaname_line: a5986266436b0052f6b933ac27770a7eec7f8cc7   # origin/484-notify
+  corelib_line: 8a9eb14cd008c4cf4d85056e1e38188f1c52f3ae   # origin/77-notify
+snapshot_at: 2026-10-01T22:50:51Z
+inspected: >-
+  Дельта design.md (шапка редакции 33; З13 «Звено наблюдаемо на голове K5» (а)–(в) и «боевая пара — в K3»;
+  таблица входов §0; §11 строки CX1-109, N32, N33; §11а УК100; §13 абзац и Е16). Дельта tasks.md (шапка
+  редакции 34; строки Е16, K3, K3r, K5; порядок пп.3, 7). Небоевая часть: design.md З18 «Право вызова».
+  kaname @a5986266: `cmd/kaname/serve.go` (сборка внутренней цепочки 1046–1125, `identityUnary` 2349–2384),
+  `internal/authzguard/deny_details.go` (шапка, `DenyDetailUnary`), `caller_policy.go`
+  (`GatewayFrontedInternalRPCs`), `system_viewer_floor.go` (`ReadFloorRPCs`). corelib @8a9eb14c:
+  `authz/caller_subject.go` (`CallerSubject(ctx) (Caller, bool)`). Записи вердикта приёмки 1bffe10d.
+  Ни go test, ни make не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "нет нерешённых вопросов (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "§13 «Открытых решений нет»; Е16 закрыта в §13 и в tasks.md одной формулировкой; приёмка 1bffe10d — APPROVED"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: red
+    detail: "приёмка 1bffe10d — APPROVED; reviews/class-exposure/initial/1bffe10d….yaml нет (заказ записи 29f44542 не исполнен)"
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-110 новый, не отображён; CX1-109 отображён, условие (а) стоит на опровергнутой посылке (CX1-110)"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "новых нет: `internalUnaryChain` — вынос существующей сборки, не новый путь"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 0a4fe452… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 0a4fe452 нет; шапка: «Вердикта на эту редакцию нет»"
+
+mapping_check:
+  - item: CX1-109
+    verdict: mapped_premise_refuted
+    text: >-
+      Отображение дословное: З13 (а)–(в), «боевая пара — в K3», строки K5 и K3, УК100, порядок п.3. Но
+      посылка условия (а) неверна, и ошибка — этой роли в записи 29f44542, а не автора. Там «звено прав»
+      названо `DenyDetailUnary`. На самом деле `DenyDetailUnary` — декоратор отказа: он добавляет `reason`
+      к статусу, который вернул кто-то ниже. Решения о праве он не принимает. По З18 право вызова
+      `ResolveSend` решает обработчик: `authz.CallerSubject`, затем `AuthorizeService.CheckRelation`.
+      Перехватчика с портом проверки в цепочке внутреннего слушателя нет. Цепочку составляют
+      `identityUnary`, `internalCallerPolicy`, `addressGate`, `internalSystemViewerFloor` и
+      `internalACRFloor`. Метода `ResolveSend` нет ни в `GatewayFrontedInternalRPCs`, ни в `ReadFloorRPCs`.
+      Поэтому «фиктивный порт проверки в `deps`» либо заводит в боевую цепочку второе место решения о
+      праве `ResolveSend` (рядом с обработчиком З18), либо существует только в пробе — и тогда (а)
+      «состав цепочки в пробе не перечисляется» не выполнен. Что верно в пункте и остаётся в силе: цепочка
+      собирается одной функцией корня, а пара судит субъект, а не код. Исправленное условие — CX1-110
+  - item: N32
+    verdict: holds
+    text: "строка K3r и порядок п.7 называют «готова от головы линии `kaname#484` до посадки эпика, садится тем же заходом», красный kaname в окне атрибутирован K3r"
+  - item: N33
+    verdict: holds
+    text: >-
+      запись docs/specs/reviews/…/1bffe10d….yaml — `verdict: APPROVED`, `blocking_count: 0`; Е16 закрыта
+      в §13 и в tasks.md §1; абзац «Открытых решений нет» с маршрутом не расходится. Таблица входов §0
+      честно пишет «первичного разбора классов на 1bffe10d… нет»
+
+new_items:
+  - id: CX1-110
+    decision: "CX1-109 в редакции 33: звено прав пробы K5 — фиктивный порт в `deps` функции `internalUnaryChain`; инъекция «цепочка без звена Р2 (в `deps`)»; боевая пара K3 «ключа нет → `PERMISSION_DENIED`, обработчик `ResolveSend` не вызван»"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены»: решение о праве вызова живёт в обработчике
+      (З18), а проба K5 ищет его в цепочке, где его нет. Без поправки получится второе место решения о
+      праве — или проба утвердит конструкцию, которой нет в бою. code-authoring §«Умолчание, которое
+      становится утверждением»: `deps`, из которого можно собрать цепочку без звена Р2, — это боевой путь
+      сборки без звена личности
+    exposure: >-
+      (1) Перехватчика с портом проверки прав во внутренней цепочке kaname нет. Порт, внесённый ради
+      пробы, либо становится перехватчиком решения о `ResolveSend` рядом с `CheckRelation` обработчика
+      (два места одного решения, разные тексты отказа и `reason`), либо остаётся только в пробе (проба
+      судит не боевой состав). (2) Инъекция «цепочка без звена Р2 через `deps`» требует, чтобы
+      боевой конструктор принимал такой `deps`. Это ручка, при которой сервер поднимается без
+      извлечения служебного субъекта, причём молча: отсутствие зависимости читается как «звена нет».
+      (3) В K3 «ключа нет → обработчик `ResolveSend` не вызван» противоречит З18: отказ производит
+      сам обработчик, первым стейтментом после формы. Проба либо краснеет на законной реализации, либо
+      её подгонят — вынесут проверку в перехватчик, и это опять (1)
+    condition_on_code: >-
+      (а) Решение о праве `ResolveSend` — одно место, обработчик K3 (З18); перехватчика проверки прав для
+      `ResolveSend` в цепочке нет. `internalUnaryChain(deps)` собирает существующие звенья: личность,
+      политику вызывающего, адресный гейт, пол чтения, пол acr и `DenyDetailUnary`. Порта проверки прав
+      в `deps` нет.
+      (б) K5: заглушка интерфейса K3c — обработчик пробы, который первым стейтментом зовёт ту же функцию,
+      что З18, — `authz.CallerSubject(ctx)` из corelib (`(Caller, bool)`). Он записывает результат и
+      отвечает `UNIMPLEMENTED`. Пара: ключа нет → записано `(—, false)`; согласный ключ → записано
+      `service:notify`, `true`. Печатаются оба. Цепочка — из `internalUnaryChain` с боевым `deps`.
+      (в) Инъекция одна — «звено Р2 строится без таблицы при согласном ключе» (вход конфигурации, а не
+      форма `deps`) → записано `(—, false)` — красный. Инъекцию «цепочка без звена Р2» как форму `deps`
+      не заводить. `internalUnaryChain` не принимает `deps`, из которого звено личности выпадает: nil
+      или пустая зависимость звена — ошибка сборки с именем звена, а не пропуск. Это проверяется пробой
+      конструктора с близнецом.
+      (г) K3: ключа нет → `PERMISSION_DENIED` `AUTHZ_DENIED`, `CheckRelation` вызван с отсутствующим
+      субъектом либо не вызван (по З18 — какое из двух), чтения записи выдачи нет (счётчик вызовов
+      репозитория — 0). «Обработчик не вызван» из K3 снять. Близнецы прежние: согласный ключ и кортеж →
+      решение; согласный ключ без кортежа → `PERMISSION_DENIED`
+    held_by: "проба K5 и проба конструктора (запланированы); до правки держится вниманием"
+
+items: []
+
+notes: []
+
+measurements:
+  - claim: "предмет и маршрут; на c61a112cd — пересверенные редакции"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum"
+    result: "0a4fe452…, b00a256b…; HEAD — 29f44542…"
+  - claim: "приёмка 1bffe10d одобрена, первичного разбора на неё нет"
+    command: "grep -n '^verdict:\\|^blocking_count:' docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml; ls docs/changes/issue-2915/reviews/class-exposure/initial | grep -c 1bffe10d"
+    result: "verdict: APPROVED, blocking_count: 0; 0"
+  - claim: "`DenyDetailUnary` — декоратор отказа, а не звено решения"
+    command: "git -C project/kaname show origin/484-notify:internal/authzguard/deny_details.go | sed -n 1,30p"
+    result: "«the machine-readable reason on a refusal iam decides itself»; интерфейс — поиск по методу (`DenyActionLookup`), субъект в ответ не входит"
+  - claim: "во внутренней цепочке нет порта проверки прав; ResolveSend не в перечнях полов"
+    command: "git -C project/kaname show origin/484-notify:cmd/kaname/serve.go | sed -n 1085,1108p; …/caller_policy.go GatewayFrontedInternalRPCs; …/system_viewer_floor.go ReadFloorRPCs"
+    result: "звенья: latency, panic, DenyDetailUnary, identityUnary, internalCallerPolicy, addressGate, internalSystemViewerFloor, internalACRFloor; перечни — явные списки FQN, ResolveSend в них нет"
+  - claim: "право вызова ResolveSend решает обработчик"
+    command: "design.md З18 «Право вызова»"
+    result: "«Первый стейтмент после проверки формы — `authz.CallerSubject` (З13). Затем `AuthorizeService.CheckRelation`… Отказ — `PERMISSION_DENIED` через `DenyDetailUnary`»"
+  - claim: "функция субъекта с признаком присутствия есть"
+    command: "git -C project/corelib grep -n 'func CallerSubject' origin/77-notify -- authz"
+    result: "authz/caller_subject.go:121 `func CallerSubject(ctx context.Context) (Caller, bool)`"
+  - claim: "функции `internalUnaryChain` на линии ещё нет (вынос — работа K5)"
+    command: "git -C project/kaname show origin/484-notify:cmd/kaname/serve.go | grep -c internalUnaryChain"
+    result: "0"
+
+not_measurable:
+  - item: "зовёт ли обработчик K3 `CheckRelation` при отсутствующем субъекте или отказывает до него"
+    why: "обработчика на ветках нет; З18 называет порядок «CallerSubject, затем CheckRelation», ветку «субъекта нет» — нет. Различает проба CX1-110 (г)"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-110]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "отобразить CX1-110: З13 «Звено наблюдаемо на голове K5» (порт прав из `deps` снять, заглушка записывает `authz.CallerSubject`, одна инъекция, конструктор без выпадающего звена), строки K5 и K3, УК100; в З18 назвать ветку «субъекта нет»"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "class-exposure-analyst"
+    subject: "первичный разбор на `1bffe10d…` (приёмка одобрена; дельта путей по Д22)"
+    basis: ".claude/rules/change-graph.md §4"

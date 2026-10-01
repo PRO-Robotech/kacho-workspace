@@ -1,0 +1,236 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2 (почта личности), редакция 28, маршрут
+# редакции 27.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 28 против последней пересверенной
+# (редакция 27, d5dfafcf…, запись revalidation/d5dfafcf….yaml — «к замыслу», CX2-95…97). Дельта не
+# закоммичена: рабочее дерево issue-880 поверх c61a112cd (на c61a112cd design.md = d5dfafcf…, tasks.md =
+# 43c1aae0… — ровно пересверенные).
+#
+# Итог — к замыслу. CX2-95, CX2-96, CX2-97 и правки консультации схемы (I1, m1, m3, O1) отображены и
+# выдерживают условие. По CX2-97 автор отступил от буквы прошлой записи, и довод автора верен: буква
+# записи была ошибкой этой роли (подробно в mapping_check). Новый пункт CX2-98 — в m2. Класс ожидания
+# «истёкший срок контекста решения» на шаге ведра считает исчерпанием ведра и тот случай, когда общий
+# бюджет решения (1,5 с = 6 × 250 мс) съели предыдущие шаги — блокировки ключей. Под атакой, которая
+# держит блокировки подсети, это `critical` `AnonMailBucketExhausted` без насыщения ведра, то есть тот
+# самый ложный сигнал, ради которого m2 и заводился.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 680ce12332f3ae491e2f7ef789a4373a1572f913ea8e218070677db7bd40421a
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true
+  revision: 28
+  commit: "— (рабочее дерево поверх c61a112cd, не закоммичено)"
+  route_sha256: 14163eb259df75ac7d6cc06a9979670b62791738b83a4bd6e3bc5498de558f44   # tasks.md редакции 27
+  change_yaml_design_sha256: 680ce12332f3ae491e2f7ef789a4373a1572f913ea8e218070677db7bd40421a
+  previous_judged: d5dfafcffc9f990e5ba719fce1fe68c4da9402cd69e49c74804d4e5193f453de   # редакция 27
+  decisions_judged:
+    - "CX2-95: маршрут редакции 27 — E2 с УК93…УК95, УК99, посадка после Е21; NTF2-63 → X2, NTF2-69 (е) → X1 на П1; «метка образа»"
+    - "CX2-96: ручка `notifications.feed-keyring-file` (`KANAME_NOTIFICATIONS__FEED_KEYRING_FILE`), разбор `feed.LoadKeyring`, одно кольцо, стражи NTF1-B05, производители F3, S9, S11, D1, S8d, E1a, S9a"
+    - "CX2-97: часы пробы П6 стартуют с `clock_timestamp()` базы; предпосылка «отставание + `anonMailDecisionBudget` < срок вызова» перед каждым предъявлением"
+    - "I1: смещение часов — скобка `(t0 + t1)/2 − clock_timestamp()` вокруг оператора счёта; проба «блокировка ключа 200 мс → |gauge| < 100 мс» с инъекцией"
+    - "m1: удержание строки ведра — хвост транзакции; m2: счётчик исчерпания — шаг ведра И класс ожидания (`55P03`, `57014`, срок контекста решения); m3: `NOT NULL`/`CHECK` в наброске §6; O1: ось ключа держит одна рекомендательная блокировка"
+    - "§13: Е21 — зависимость посадки E2, не открытое решение"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+  revision: 30
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/eed36d11….yaml (verdict: APPROVED, blocking_count: 0; коммит fd3470cb6)"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "нет (reviews/class-exposure/initial/eed36d11….yaml отсутствует)"
+previous_revalidation: docs/changes/issue-2917/reviews/class-exposure/revalidation/d5dfafcffc9f990e5ba719fce1fe68c4da9402cd69e49c74804d4e5193f453de.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: c61a112cd67d453be25aff34fbd125365c9793ae   # плюс незакоммиченная дельта автора
+  kaname_line: a5986266436b0052f6b933ac27770a7eec7f8cc7   # origin/484-notify
+  corelib_line: 8a9eb14cd008c4cf4d85056e1e38188f1c52f3ae   # origin/77-notify
+snapshot_at: 2026-10-01T22:50:51Z
+inspected: >-
+  Дельта design.md (247 строк диффа): шапка редакции 28; таблица входов §0; З2 «Ключ ленты kaname»;
+  З8 «Насыщение строки ведра» (классификация, m1, O1), «Расхождение часов» (I1), «Стенды П6 и П6-k»
+  (CX2-97); §6 набросок края; §8 строка ручки; §11 CX2-91, CX2-95…97; §11а УК87, УК94, УК96…УК99; §11б
+  консультация схемы; §13 абзац, Е21. Небоевая часть: З8 «срок решения» (довод 6 × 250 мс). Дельта
+  tasks.md: шапка редакции 27; строки Е21, E1a, E1b, E2, F3, S5, S8d, S9, S9a, S11, D1, X1, X1a, X2;
+  порядок п.7. Приёмка редакции 30: Given NTF2-59…62, 74, 79 (часы П6). NTF-1: design.md З11 (ручка
+  ключа источника), приёмка NTF1-B05. corelib @8a9eb14c: `notify/feed/seal.go` (`ParseKeyring`,
+  `LoadKeyring`, `Report`), `server.go` (`ServerConfig.Keyring`), `put_source.go` (`Sealer`). Миграции
+  E2 (m3) не читались. Пробы и гейты не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "нет нерешённых вопросов (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "§13 «Нет»; Е21 переведена в зависимость посадки E2: решение о числах до замера принято Д71, номер задачи — предмет диспетчера"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: red
+    detail: "приёмка eed36d11 — APPROVED; reviews/class-exposure/initial/eed36d11….yaml нет"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-98 новый, не отображён"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "новое чтение файла кольца при старте kaname — CX2-96, отображено; новых путей запроса нет"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 680ce123… = предмет"
+  - condition: "ревью замысла на этот отпечаток (оценено отдельно)"
+    result: red
+    detail: "reviews/design на 680ce123 нет"
+
+mapping_check:
+  - item: CX2-95
+    verdict: holds
+    text: >-
+      (1) Строка E2 несёт УК93, УК94, УК95, УК99 и O1; зависимость «посадка — Е21»; Е21 — строка §1
+      маршрута, «открыта», гейтит посадку, а не старт. (2) NTF2-63 — только X2 и шапка; NTF2-69 (е) — X1
+      (зависимость E1b, S5), строки S5 и E1b называют «уровень E на П1, X1». X1a зависит от E1a, D1, G3,
+      S4, S5, S9 — E1b снята. (3) «подпись образа» в tasks.md → 0; в design.md осталось 2 вхождения, оба
+      в истории (шапка и строка §11 CX2-95). Строка CX2-91 и УК87 пишут «метка образа». (4) Сигнал часов
+      (`clock_skew`, `AnonMailReplicaClockSkew`, `clock_timestamp`) есть в строке E2
+  - item: CX2-96
+    verdict: holds
+    text: >-
+      (а) Ручка, форма файла, поле (`feed.ServerConfig.Keyring` и `Sealer`), стражи NTF1-B05, ось
+      самоотчёта, отсутствие умолчания — З2 и §8. API corelib, названный замыслом, существует на
+      @8a9eb14c: `LoadKeyring(knob, lookup, readFile)` отказывает с именем ручки, текст разбора — без
+      материала (ошибка декодера заменена фиксированной строкой), `Report` печатает только
+      идентификаторы. (б) Строка маршрута есть у каждого производителя: F3, S9, S11, D1, S8d, E1a, S9a.
+      S9 получает поле через G1 ← F3. (в) Пробы в F3: `true` без ключа → отказ, близнец → старт;
+      `false` → `NotApplicable`. Имя ручки расходится по форме с NTF-1 З11 (`KACHO_<SVC>_NOTIFICATIONS_FEED_KEYRING`)
+      так же, как флаг kaname `notifications.enabled` с `KACHO_<SVC>_NOTIFICATIONS_ENABLED`: это конвенция
+      kaname, а не второе имя одной ручки. Гейт `AuditNotifyWiring` судит рабочие процессы и Makefile, а
+      не имена ручек. Остаток — форма предиката одного разбора (N-CX2-98a)
+  - item: CX2-97
+    verdict: holds
+    text: >-
+      Буква прошлой записи — «предпосылка: часы пробы раньше часов базы → не выполнилось» — была ошибкой
+      этой роли. Управляемые часы стоят, база идёт, поэтому строгое отставание есть на каждом стенде, и
+      условие запрещало бы все сценарии. Автор вывел предпосылку из того, что судит I1. При часах пробы,
+      стоящих между выдачей вызова и предъявлением, `expiresAt = часы_пробы + срок вызова`, и база
+      принимает доказательство тогда и только тогда, когда отставание плюс задержка оператора меньше
+      срока вызова. Задержку ограничивает `anonMailDecisionBudget`, значит «отставание + бюджет < срок»
+      — достаточное условие. Если сценарий двигает часы пробы вперёд (NTF2-62 (б), истёкший вызов), то
+      отставание уменьшается или становится отрицательным, и это законно: I1 на П6 не испытывается, его
+      держит integration-проба E2. Рост отставания за время прогона ограничен тем, что «каждая проба
+      поднимает свой стенд» (строка E1a, design.md 1807). Сдвиг назад — «не выполнилось»
+  - item: "I1 консультации схемы"
+    verdict: holds
+    text: >-
+      Скобка `(t0+t1)/2` вокруг оператора счёта, который блокировок не берёт. Погрешность —
+      полуоборот. Инъекция «skew от момента решения» при удержанной блокировке ключа 200 мс даёт
+      ≈ −200 мс при пороге 100 мс — различима. Знак согласован с `skew = now реплики − база`
+  - item: "m1, m3, O1"
+    verdict: holds
+    text: >-
+      m1 — текст. m3 — набросок §6 несёт `NOT NULL`/`CHECK`, держатель — миграции E2 (не читались). O1 —
+      порча одной `lockKeySQL` краснит пробу гонки и её вариант по доказательству, оба в строке E2
+  - item: "m2 консультации схемы"
+    verdict: mapped_with_new_exposure
+    text: "шаг И класс введены, близнец «обрыв соединения» есть; класс «срок контекста решения» открывает CX2-98"
+
+new_items:
+  - id: CX2-98
+    decision: "m2 (редакция 28): `…_bucket_wait_timeouts_total` растёт, когда ошибку вернул шаг строки ведра и класс — ожидание: `55P03`, `57014` либо истёкший срок контекста решения"
+    class: >-
+      code-authoring §«Чужой ответ: классификация и бюджет»: срок контекста — общий бюджет всех шагов
+      решения, и его истечение на шаге ведра не говорит, что ждали ведро.
+      code-authoring §«Решение и его следствие разнесены»: причину (бюджет съели блокировки ключей) и
+      место, где она проявилась (шаг ведра), счётчик сливает
+    exposure: >-
+      Бюджет решения — 1,5 с = 6 × `anonMailStoreWait` (250 мс), по одному ожиданию на захват. На шаг
+      ведра приходит остаток после захвата соединения, блокировок ключей (до трёх у IPv6) и пометки
+      доказательства. Каждое из этих ожиданий ограничено `lock_timeout` порознь и может длиться почти
+      250 мс, не давая `55P03`. Поэтому под атакой, которая держит блокировки подсети, решение доходит до
+      шага ведра с остатком в единицы миллисекунд. Срок контекста истекает на операторе ведра, даже
+      если строка ведра свободна. По m2 это «шаг ведра + класс ожидания»: `…_bucket_wait_timeouts_total`
+      +1 и `AnonMailBucketExhausted` (`critical`) — о насыщении, которого нет. Именно такой ложный
+      сигнал m2 должен был снять для обрыва соединения
+    condition_on_code: >-
+      (а) Срок контекста считается исчерпанием ведра только если оператор ведра отправлен с остатком
+      бюджета не меньше `anonMailStoreWait`. Тогда истечение срока на нём означает, что ведро ждали не
+      меньше предела одного ожидания. Остаток на входе шага функция решения знает (`ctx.Deadline()`).
+      Меньший остаток — исход «бюджет исчерпан до шага ведра»: только `…_store_unavailable_total`.
+      Вариант формы: шаг ведра идёт на своём контексте со сроком `min(остаток, anonMailStoreWait)`, а
+      классификация — по тому, чей срок истёк. Перечень классов ожидания остаётся одним объявлением.
+      (б) Близнец в E2: внешняя транзакция держит блокировки ключей подсети так, что решение входит в
+      шаг ведра с остатком меньше `anonMailStoreWait`, строка ведра свободна → `…_bucket_wait_timeouts_total`
+      +0, `…_store_unavailable_total` +1. Положительный: строку ведра держат дольше `anonMailStoreWait`
+      при полном остатке → +1. Инъекция «срок контекста — ожидание без условия остатка» → близнец даёт
+      +1 — красный. Остаток на входе шага печатается
+    held_by: "проба E2 (запланирована); до правки держится вниманием"
+
+notes:
+  - id: N-CX2-98a
+    blocking: false
+    where: "tasks.md строка S9; design.md З2 «Держатели» (инъекция «два разбора»)"
+    text: >-
+      Предикат `git grep -c 'feed\.\(ParseKeyring\|LoadKeyring\)(' -- cmd/kaname internal → 1` печатает
+      счёт по каждому файлу («путь:N»), а не сумму. Тестовые файлы он не исключает, хотя пробы F3, S9a и
+      фикстуры кольца законно зовут `ParseKeyring`. На первой же пробе с фикстурой кольца предикат даст
+      больше одной строки — и красный на верной реализации, или его ослабят. Единица счёта и область не
+      названы (measurement-discipline §«Форма числа»)
+    predicate: "предикат исключает `':!*_test.go'` и называет единицу: число файлов либо сумму вхождений (`| awk -F: '{s+=$NF} END{print s}'`)"
+
+remarks:
+  - >-
+    CX2-96: путь к файлу кольца уходит в текст отказа `LoadKeyring` (`%w` от ошибки чтения). Это путь,
+    а не материал, и правилу «текст материала ключа не несёт» он не противоречит. Пункта нет
+
+return_to_acceptance: []
+
+measurements:
+  - claim: "предмет и маршрут; на c61a112cd — пересверенные редакции"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD:docs/changes/issue-2917/{design,tasks}.md | sha256sum"
+    result: "680ce123…, 14163eb2…; HEAD — d5dfafcf…, 43c1aae0…"
+  - claim: "приёмка eed36d11 одобрена, первичного разбора на неё нет"
+    command: "grep -n '^verdict:\\|^blocking_count:' docs/specs/reviews/sub-phase-NTF-2-…/eed36d11….yaml; ls docs/changes/issue-2917/reviews/class-exposure/initial | grep -c eed36d11"
+    result: "verdict: APPROVED, blocking_count: 0; 0"
+  - claim: "NTF2-63 и NTF2-69 (е) — только X1, X2 (плюс ссылки S5, E1b на X1)"
+    command: "grep -n 'NTF2-63\\|NTF2-69 (е)' docs/changes/issue-2917/tasks.md"
+    result: "строки шапки, S5, E1b, X1, X2, порядок п.7; E2 и X1a — нет"
+  - claim: "держатели E2 и зависимость"
+    command: "grep '^| E2 |' tasks.md | grep -o 'УК9[0-9]' | sort -u; awk -F'|' '/^\\| E2 \\|/{print $(NF-2)}' tasks.md"
+    result: "УК93 УК94 УК95 УК99; «E1, E1a …; посадка — Е21 (номер задачи)»"
+  - claim: "строка кольца у каждого производителя"
+    command: "grep -n 'feed-keyring\\|ключ ленты' docs/changes/issue-2917/tasks.md"
+    result: "F3, S8d, S9, S9a, S11, E1a, D1"
+  - claim: "«подпись образа» снята из маршрута"
+    command: "grep -c 'подпись образа\\|подписи образа' docs/changes/issue-2917/{tasks,design}.md"
+    result: "tasks 0; design 2 (история: шапка, строка CX2-95)"
+  - claim: "API кольца corelib"
+    command: "git -C project/corelib grep -nE 'func (LoadKeyring|ParseKeyring)|Keyring \\*Keyring|type Sealer|func \\(r \\*Keyring\\) Report' origin/77-notify -- notify/feed"
+    result: "seal.go:106 ParseKeyring, :135 LoadKeyring, Report; server.go:87 `Keyring *Keyring`; put_source.go:36 `type Sealer`"
+  - claim: "бюджет решения — сумма шести ожиданий, остаток на шаге ведра зависит от предыдущих шагов"
+    command: "design.md З8 «срок решения» (1)"
+    result: "«anonMailDecisionBudget = anonMailDecisionWaits × anonMailStoreWait … 6 … срок = 1,5 с … под конкуренцией действующий предел — срок решения, а не lock_timeout»"
+
+not_measurable:
+  - item: "как часто под атакой решение доходит до шага ведра с остатком меньше `anonMailStoreWait`"
+    why: "зависит от распределения ожиданий блокировок подсети под нагрузкой; ветки E2 под нагрузкой никто не гонял. Наличие исхода выводится из довода бюджета замысла; частоту покажет нагрузочный прогон Е21"
+
+outcome: to_design
+unmapped_items: [CX2-98]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "CX2-98 (З8 «Причина классифицируется по шагу решения и классу ожидания», строка E2, УК99); N-CX2-98a (предикат одного разбора в S9 и З2)"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "class-exposure-analyst"
+    subject: "первичный разбор на `eed36d11…` (приёмка одобрена)"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "dispatcher"
+    subject: "задача трекера Е21 — номер нужен посадке E2 (на 2026-10-02 её нет со слов автора)"
+    basis: "00-kacho-core ban11-three-outcomes"
