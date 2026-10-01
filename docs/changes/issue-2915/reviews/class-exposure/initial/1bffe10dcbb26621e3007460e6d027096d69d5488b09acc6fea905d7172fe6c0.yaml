@@ -1,0 +1,287 @@
+# Экспозиция классов — первичный разбор (initial), под-фаза NTF-1, редакция 19.
+#
+# Разбор делается ДО кода и привязан к отпечатку одобренной приёмки. Судится только дельта
+# редакции 19 против последней разобранной редакции 18 (29cfa368…, dbe97c78c). Дельта —
+# `git diff dbe97c78c fd3470cb6` по файлу приёмки, предмет — полоса W4a: путь флага модуля
+# `global.kacho.notifications.modules.<модуль>.enabled`, путь деклараций SAN
+# `global.kacho.spiffe.<служба>`, два новых отрицания (N02 и J05: ключ вне `global`).
+# Записи о прежних редакциях остаются свидетельствами о своих редакциях и не правятся. Пункты
+# CX1-01…CX1-57 перенесены ссылкой; пункты, которые задела дельта, несут новое состояние.
+# CX1-111…CX1-113 — классы, открытые решениями редакции 19. Номера CX1-58…CX1-110 заняты
+# записями пересверки. Права писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  content_commit: fd3470cb6
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true   # рабочий файл и `git show fd3470cb6:<путь>` дают 1bffe10d…; на HEAD d18e79082 рабочее дерево по файлу чистое
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0.yaml
+  verdict_event: >-
+    НЕ опубликовано. Поле `event.status` записи вердикта — `not_performed`. Комментариев kacho#2915,
+    несущих `1bffe10dcbb26621`, 0 из 12. Контроль предиката: комментариев с `29cfa368` 2. Запись
+    вердикта есть, а событие полномочия на этот отпечаток ещё не опубликовано. Разбор сделан по
+    заданию, и его событие публикуется не раньше события вердикта.
+  previous_initial: docs/changes/issue-2915/reviews/class-exposure/initial/29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7.yaml
+  delta_base: dbe97c78c   # редакция 18, отпечаток 29cfa368… — последняя разобранная
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: d18e79082f20e0883f5f7ee780c32d7fcfcca1ab   # вершина issue-880; предмет не менялся с fd3470cb6
+  kacho_epic: e415e59a225b4f7a0ff8d327df16d65f59485c20  # origin/2914-notify после fetch 2026-10-02
+  kacho_main: bea4495e934c5903fa010d762a199646a039c510  # origin/main после fetch
+  helm: v4.2.4+g3900f43
+snapshot_at: 2026-10-02T00:00:00Z
+inspected: >-
+  Приёмка: дельта редакций 18 → 19 целиком (41 строка добавлена, 18 удалено, файл один: шапка, Р2
+  п.2, Р3, Р6, Р9, Р12, §3 З11, §5 S4, C03, G22, N02, J03, J05, K03, §9 строка 19). Прочитаны запись
+  вердикта на 1bffe10d… (N19-1…N19-3, замер конструируемости), прежний первичный разбор на
+  29cfa368…, CX1-106 пересверки 7bbe018c…, замысел design.md (0a4fe452…) — З28 «Флаг», «Перечень
+  источников», «Декларации», запись зависимости notify. Прочитана Р4 приёмки NTF-2 (eed36d11…).
+  В продукте на ветке эпика e415e59a2 сделана перепись ключей `notifications` и `global` по всем
+  файлам значений зонтика и подчартов, найдены читатели `.Values.global.kacho.*` и
+  `.Values.config.notifications`, прочитан гейт `deploy/identity_global_defaults_agree_test.go`.
+  Опыт helm v4.2.4 в scratchpad: зонтик с двумя подчартами — умолчание `global` в подчарте,
+  видимость значений подчарта в зонтике, одноимённый `define` в двух чартах, `define` зонтика в
+  подчарте, подчарт под `condition`, рендер подчарта без зонтика. Записки vault не читались:
+  предмет — пути значений, новых типов записок нет.
+
+decisions:
+  # D1…D28 — как в записях 29cfa368… и ранее; ниже — решения, внесённые редакцией 19
+  D29: "(W4a, Е16) переопределение флага модуля — `global.kacho.notifications.modules.<модуль>.enabled`; действующее значение читают чарт notify (перечень) и подчарт модуля (переменная процесса); ключ флага модуля под ключом его подчарта — отказ рендера с именем ключа (Р9, NTF1-N02)"
+  D30: "(W4a, Е16) декларация SAN — `global.kacho.spiffe.<служба>` в `values.yaml` зонтика литералом; набор {notify, notifyProbe, kaname}; читатели — выпуск сертификата, перечень notify, таблицы Р2 (Р2 п.2, Р3, Р6, Р12, C03, G22, J03, K03)"
+  D31: "новые отрицания: N02 — ключ вне `global` отвергается рендером; J05 — декларация вне `global` даёт красный с путём"
+
+decisions_crosscheck:
+  D1–D28: "дельта их предмета не меняет, кроме путей у D9 (флаг) и D12 (декларация) — ниже"
+  CX1-106: >-
+    Ветвь (а) условия выбрана приёмкой: путь под `global`. Ветви (б) — держатель J2 в одном рендере
+    по объектам — и (в) — порядок J2 ↔ D1 NTF-2 — отображены в З28 замысла и дельтой приёмки не
+    затронуты. Новый пункт CX1-112 показывает, что `global` сам по себе ещё не даёт «одного значения
+    у всех читателей»
+
+items:
+  # --- перенос CX1-01…CX1-57: состояние на редакции 19 ---
+  - {id: "CX1-01…CX1-19", status: без изменений, condition_ref: "29cfa368… (там же — ссылки на d524e7bd…, 05828e42…)"}
+  - id: CX1-20
+    decision: "D9, D29"
+    status: >-
+      Условие d524e7bd… CX1-20 («значение модуля — через hasKey/kindIs "bool", не default/or») стоит.
+      Изменился путь: переопределение теперь `global.kacho.notifications.modules.<модуль>.enabled`.
+      Замысел З28 отображает условие одним помощником `kacho.notifications.enabledFor` над
+      `.Values.global`. Чего это условие не покрывает, сказано в CX1-111, CX1-112, CX1-113
+    condition_ref: "d524e7bd… CX1-20"
+  - {id: CX1-21, decision: D9, status: без изменений, condition_ref: "d524e7bd… CX1-21"}
+  - {id: CX1-22, decision: D4, status: без изменений, condition_ref: "d524e7bd… CX1-22"}
+  - {id: CX1-23, decision: D1, status: без изменений, condition_ref: "05828e42… CX1-23"}
+  - id: CX1-24
+    decision: "D3, D30"
+    status: >-
+      Условие стоит («certificate принимается только у записи kaname И SAN из декларации kaname»).
+      Декларация теперь `global.kacho.spiffe.kaname`; читатель — тот же, что у J05
+    condition_ref: "d524e7bd… CX1-24"
+  - {id: "CX1-25…CX1-57", status: "без изменений на редакции 19", condition_ref: "29cfa368… (CX1-27, CX1-43, CX1-45, CX1-46, CX1-50…CX1-57 — там же; прочие — d524e7bd…, 05828e42…, 390b5a33…)"}
+
+  # --- новые пункты: классы, открытые редакцией 19 ---
+  - id: CX1-111
+    decision: "D29, D31"
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» — у одного значения два написания, и
+      отказ ловит только одно из них. rule polyrepo warning «Ключ домена и имя каталога — РАЗНЫЕ
+      словари»: имя модуля в ключе `modules.<модуль>`, ключ его подчарта, имя источника, переменная
+      процесса и пространство — пять словарей. rule api-conventions api-accepted-ignored: значение
+      принято и никем не прочитано
+    exposure: >-
+      Р9 и N02 называют форму «ключ флага модуля под ключом его подчарта» образцом
+      `<модуль>.notifications.enabled` (N02: `notifyProbe.notifications.enabled`). У kaname ключ флага
+      другой — `config.notifications.enabled`, и на ветке эпика e415e59a2 он уже живёт в трёх местах:
+      умолчание `true` в `charts/kaname/values.yaml` (e0e0204114f, решение Д64), `kaname.config.notifications`
+      в `values.dev.yaml` и в `values.prod.yaml`. Читатель — `charts/kaname/templates/configmap.yaml`
+      (`.Values.config.notifications`, ConfigMap kaname), а не `global`. Замер helm v4.2.4: шаблон
+      зонтика видит умолчания подчарта в `.Values.<подчарт>` (`kid.config.notifications.enabled=true`
+      при пустых значениях зонтика). Отсюда две ловушки. (1) Отказ по образцу
+      `<модуль>.notifications.enabled` ключа kaname не видит. Тогда kaname берёт флаг из своего
+      ключа, а notify строит перечень из `global`, и они расходятся без ошибки рендера, хотя Р9
+      именно это и запрещает. (2) Если расширить отказ до `kaname.config.notifications.enabled`, он
+      сработает на каждом рендере из-за умолчания подчарта. Третий случай: опечатка в имени модуля
+      (`modules.notifyprobe`, `modules.notify-probe`) принимается и не читается никем — флаг модуля
+      не выключен, а оператор считает, что выключил
+    condition_on_code: >-
+      (а) Закрытая таблица подключаемых источников (`_sources.tpl`, NTF1-N03) несёт на каждый модуль
+      ключ `modules.<ключ>` И путь собственного ключа флага модуля в его подчарте (kaname —
+      `config.notifications.enabled`, notifyProbe — `notifications.enabled`). Отказ «ключ вне
+      `global`» строится по этой таблице, а не одним образцом. (б) В рендере зонтика значение
+      `notifications.enabled` в ConfigMap kaname берётся только через `kacho.notifications.enabledFor`
+      над `.Values.global`. Ключ `kaname.config.notifications.enabled` в любом слое зонтика —
+      отказ рендера с именем ключа. Умолчание `true` в `charts/kaname/values.yaml` снимается (оно же —
+      умолчание, которое Р9 и NTF-2 Р4 запрещают). Одиночный рендер kaname получает ключ из слоя
+      значений пробы. Профили `values.dev.yaml` и `values.prod.yaml` теряют
+      `kaname.config.notifications` тем же изменением. (в) Ключ под
+      `global.kacho.notifications.modules`, которого нет в таблице, — отказ рендера с именем ключа
+    held_by: >-
+      Нужен гейт, его нет. N02 утверждает отказ только для формы notifyProbe. Заказ — инъекции к N02
+      (полоса D2): (1) `kaname.config.notifications.enabled: false` при глобальном `true` → отказ с
+      именем ключа; близнец — `global.kacho.notifications.modules.kaname.enabled: false` → перечень
+      без kaname, ConfigMap kaname `false`. (2) `global.kacho.notifications.modules.notifyprobe.enabled:
+      false` → отказ с именем ключа; близнец — `modules.notifyProbe` → перечень `{probe-b}`. (3)
+      Согласие значений по цепочкам: в одном рендере `notifications.enabled` ConfigMap kaname равен
+      «kaname в перечне notify» (NTF2-53 (а) с той же стороны)
+
+  - id: CX1-112
+    decision: "D29, D30"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением»; rule architecture
+      §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ». Посылка Е16 «под
+      `global` все подчарты видят одно значение» верна только для значений зонтика
+    exposure: >-
+      Замер helm v4.2.4: умолчание `global.kacho.notifications.enabled: true` в `values.yaml`
+      подчарта видно лишь этому подчарту. Соседний подчарт и сам зонтик видят «нет ключа». Значение
+      зонтика перекрывает умолчание подчарта во всех. Значит, `global.kacho.notifications.modules.kaname.enabled:
+      false` в `charts/kaname/values.yaml` при молчащем зонтике выключит kaname, а перечень notify
+      kaname сохранит, и рендер пройдёт. Тот же механизм у `global.kacho.spiffe.*`: поле, которое
+      зонтик не задал, подчарт возьмёт из своего умолчания. Это не гипотеза. В дереве уже есть такое
+      устройство: `charts/kaname/values.yaml` объявляет второй `global.kacho.identity` ради одиночного
+      рендера подчарта. Согласие двух объявлений держит `deploy/identity_global_defaults_agree_test.go`,
+      но его узел — константа `{"global","kacho","identity"}`, и узлов `global.kacho.notifications` и
+      `global.kacho.spiffe` он не видит. Этот же класс делает добавочную форму инъекции J05 молчащей
+      (N19-2 записи вердикта): рендер код 0, находит только сверка путей значений
+    condition_on_code: >-
+      (а) Ни один `values.yaml` подчарта (kaname, notifyProbe, `deploy/helm/notify/values.yaml`) не
+      объявляет `global.kacho.notifications.*` и `global.kacho.spiffe.*`. Одиночные рендеры подчартов
+      получают эти узлы из слоя значений своей пробы. Если второе объявление неизбежно, гейт
+      согласия ведёт ПЕРЕЧЕНЬ узлов, а не один (identity, notifications, spiffe). `modules.*` в
+      подчарте не объявляется ни при каком исходе. (б) Гейты N01, N02 и J05 читают пути значений
+      всех файлов значений (зонтик, профили, `charts/*/values.yaml`, `deploy/helm/notify/values.yaml`),
+      а не только рендер, и печатают число осмотренных файлов. Пустой обход — красный
+    held_by: >-
+      Частично: `identity_global_defaults_agree_test.go` держит класс для одного узла. Для новых
+      узлов нужен гейт, его нет. Заказ — J05 (полоса J2) и N01/N02 (полоса D2). Инъекция (1):
+      `global.kacho.notifications.modules.kaname.enabled: false` в `charts/kaname/values.yaml` при
+      молчащем зонтике → красный с путём файла; близнец — тот же ключ в `values.yaml` зонтика →
+      согласный рендер. Инъекция (2): `global.kacho.spiffe.notify.saName` другим значением в
+      `charts/kaname/values.yaml` → красный с путём; близнец — без ключа
+
+  - id: CX1-113
+    decision: "D29, D30"
+    class: >-
+      code-authoring §«Инвариант и оснастка — это тоже прод-код»: одно имя с двумя телами, и победитель
+      выбирается молча. code-authoring §«Решение и его следствие разнесены»: помощник живёт в одном
+      чарте, а вызывают его в другом
+    exposure: >-
+      Замер helm v4.2.4. (1) Именованные шаблоны общие на весь релиз. Одноимённый `define` в двух
+      подчартах ошибки не даёт, побеждает один из них. Победитель зависит от набора включённых
+      подчартов: при выключенном `kid` побеждает `sib`. (2) Подчарт видит `define` зонтика. Значит,
+      помощник `kacho.spiffe.uri` (`deploy/helm/umbrella/templates/_spiffe.tpl`) и помощник перечня из
+      `deploy/helm/notify/templates/_sources.tpl` подчарт kaname в рендере зонтика вызвать может. (3)
+      Без зонтика у подчарта `.Values.global` = nil. `dig` над ним падает с текстом «interface
+      conversion: interface {} is nil», и имени ручки в этом тексте нет. Помощника зонтика или
+      notify в таком рендере нет вовсе. Одиночный рендер `charts/kaname` в дереве нужен: так говорит
+      шапка `identity_global_defaults_agree_test.go` (самопроверка гейта сетевых политик); сам вызов
+      не перемерялся. Замысел назначает трём помощникам по одному телу, но место
+      `kacho.notifications.enabledFor` не названо. Запрета второго тела и исхода одиночного рендера
+      kaname в замысле нет
+    condition_on_code: >-
+      (а) Имена `kacho.notifications.enabledFor`, помощника перечня и `kacho.spiffe.uri` определены по
+      одному разу во всём `deploy/helm/**`. `kaname.spiffeURI` — вызов `kacho.spiffe.uri`, а не
+      переопределение. Место `kacho.notifications.enabledFor` названо в замысле, и это чарт,
+      который входит в каждый рендер, где помощник вызывают. (б) Вход помощников безопасен для nil:
+      если `global` или узла нет, отказ называет ручку (`global.kacho.notifications.enabled`,
+      `global.kacho.spiffe.<служба>`), а не падает внутри `dig`. (в) Для одиночного рендера
+      `charts/kaname` исход назван явно: вызов помощника зонтика или notify ограждён, либо проба
+      одиночного рендера подаёт слой значений и помощник. В обоих случаях одиночный рендер не
+      меняет вердикт гейта, который на нём стоит
+    held_by: >-
+      Нужен гейт, его нет. Заказ: перепись `define "kacho.notifications.enabledFor"`,
+      `define "kacho.spiffe.uri"` и имени помощника перечня по `deploy/helm/**` с числом 1 на имя и
+      печатью числа осмотренных файлов. Инъекция — второй `define` того же имени в
+      `charts/kaname/templates/_helpers.tpl` → красный с обоими путями; близнец — вызов `include`.
+      Для (б): рендер подчарта без `global` → отказ с именем ручки. Однофайлового признака у класса
+      нет (сравниваются файлы между собой), поэтому в class-guard он не годится
+
+measurements:
+  - claim: "предмет — 1bffe10d… на fd3470cb6; вердикт APPROVED записан; событие не опубликовано"
+    command: "sha256sum <приёмка>; for c in $(git log --format=%h -8 -- <приёмка>); do git show $c:<приёмка> | sha256sum; done; yq поля verdict/event.status записи вердикта; gh api repos/PRO-Robotech/kacho/issues/2915/comments --paginate --jq 'select(.body|contains(\"1bffe10dcbb26621\"))'"
+    result: "fd3470cb6 → 1bffe10d…, dbe97c78c → 29cfa368…; verdict APPROVED, event.status not_performed; комментариев с 1bffe10d — 0 из 12, контроль с 29cfa368 — 2"
+  - claim: "дельта — W4a, и только она"
+    command: "git diff --stat dbe97c78c fd3470cb6 -- <приёмка>"
+    result: "файл один, +41 −18; фрагменты: шапка, Р2, Р3, Р6, Р9, Р12, З11, S4, C03, G22, N02, J03, J05, K03, §9"
+  - claim: "флаг kaname на ветке эпика живёт вне `global` (CX1-111)"
+    command: "по каждому values*.yaml под deploy/helm/umbrella @e415e59a2: yq '[.. | select(key==\"notifications\") | path | join(\".\")]'; git grep -n notifications -- charts/kaname/templates; git log -S'notifications:' -- charts/kaname/values.yaml values.prod.yaml"
+    result: "charts/kaname/values.yaml `config.notifications` (enabled: true); values.dev.yaml и values.prod.yaml `kaname.config.notifications`; читатель — configmap.yaml:651 `.Values.config.notifications`; внесено e0e0204114f; на origin/main bea4495e9 ключей `notifications` в values.prod.yaml 0"
+  - claim: "`global.kacho` уже есть, и подчарт уже объявляет свой `global` (CX1-112)"
+    command: "yq '.global | keys' и '.global.kacho | keys' values.yaml зонтика; для каждого charts/*/values.yaml — yq -e '.global'; git grep -oh '\\.Values\\.global\\.kacho\\.[A-Za-z.]*' -- deploy | sort | uniq -c"
+    result: "global: labels, kacho, imageRegistry, imageTag; global.kacho: domain, region, cluster, registry, identity, hydraAdminTls; `global` объявляет один подчарт — kaname (`global.kacho.identity`); читатели `.Values.global.kacho.identity*` — 20 вхождений, все в подчарте kaname и тестах deploy"
+  - claim: "умолчание `global` подчарта не видно соседу и зонтику; умолчания подчарта видны зонтику под его ключом (CX1-111, CX1-112)"
+    command: "helm template над фикстурой scratchpad helmglob/u (подчарты kid, sib); в kid/values.yaml `global.kacho.notifications.enabled: true` и `config.notifications.enabled: true`; печать через dig"
+    result: "kid=true, sib=ABSENT, зонтик: global ABSENT, `.Values.kid.config.notifications.enabled`=true. С `--set global.kacho.notifications.enabled=false`: false во всех трёх"
+  - claim: "одноимённый define — молчаливый победитель, зависящий от включённых подчартов; define зонтика виден подчарту; одиночный рендер — nil global (CX1-113)"
+    command: "та же фикстура: define \"kacho.flag\" в kid и sib; define \"kacho.parentOnly\" в зонтике; kid под condition; helm template r . [--set kid.enabled=false]; helm template r charts/sib"
+    result: "kid включён → kid-def у всех; kid выключен → sib-def; sib видит from-parent; одиночный sib — ошибка `dig … interface {} is nil, not map[string]interface {}` без имени ручки"
+  - claim: "гейт согласия `global` подчарта и зонтика держит один узел"
+    command: "git show e415e59a2:deploy/identity_global_defaults_agree_test.go | sed -n 1,60p"
+    result: "identityGlobalsPath = {\"global\",\"kacho\",\"identity\"} — одна константа"
+  - claim: "посылка Е16 «подчарт видит только свои значения и `global`»"
+    command: "атрибуция: замер рецензента приёмки (запись вердикта 1bffe10d…, constructibility), helm v4.2.4, 2026-10-01"
+    result: "подтверждается и этим замером для значений зонтика; для умолчаний `global`, объявленных подчартом, посылка неполна — CX1-112"
+
+not_measurable:
+  - "Вызывает ли самопроверка сетевых политик `helm template charts/kaname` без зонтика: известно со слов шапки `identity_global_defaults_agree_test.go`, сам вызов не перемерялся. Условие CX1-113 (в) нужно при любом ответе: одиночный рендер kaname требует и NTF2-33"
+  - "Каким будет итоговый текст ключей в чартах notify и notifyProbe: этих чартов нет ни на e415e59a2, ни на bea4495e9. CX1-111…113 проверяются только по диффу полос D2 и J2"
+
+outcome: к-замыслу
+return_to_acceptance: []
+return_to_acceptance_note: >-
+  Приёмка утверждает исход «ключ флага модуля под ключом его подчарта — отказ рендера с именем
+  ключа» в общем виде (Р9). Ключ kaname `config.notifications.enabled` под это утверждение подпадает,
+  так что CX1-111 (а) и (б) — форма кода под уже утверждённым исходом. Отказ на имени модуля вне
+  таблицы (CX1-111 (в)) приёмка не утверждает, но и не запрещает. Это ужесточение, которое делается
+  в замысле. При следующей правке приёмки его стоит дописать в N02 отрицанием с близнецом (не
+  блокирует)
+
+orders:
+  - to: автор замысла NTF-1 (design.md, З28)
+    what: >-
+      CX1-111: в таблице подключаемых источников — путь собственного ключа флага на модуль; отказ
+      «вне `global`» строить по таблице; в зонтике ConfigMap kaname берёт флаг только из помощника;
+      снять умолчание `config.notifications.enabled: true` подчарта kaname и ключи
+      `kaname.config.notifications` в values.dev/prod (порядок с D1 NTF-2 — тот же, что у CX1-106 (в));
+      отказ на имени модуля вне таблицы. CX1-112: `global.kacho.{notifications,spiffe}` в подчартах не
+      объявляются; гейты читают пути всех файлов значений. CX1-113: одно тело на имя помощника,
+      место `kacho.notifications.enabledFor`, вход без nil-паники, исход одиночного рендера kaname
+    basis: "code-authoring §«Контракт, который нельзя выразить», §«Умолчание, которое становится утверждением», §«Инвариант и оснастка — это тоже прод-код»; rule architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»"
+  - to: автор проб полос D2 и J2 (kacho#2915, kacho#2916)
+    what: "инъекции CX1-111 (1)–(3), CX1-112 (1)–(2), CX1-113 (второй define, рендер без global); инъекцию D2 tasks.md:337 перевести на `global.kacho.notifications.modules.notifyProbe.enabled` (out_of_subject_notes записи вердикта)"
+    basis: "rule testing §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» пп. 1, 7"
+  - to: автор замысла и полосы D1 NTF-2 (issue-2917)
+    what: "ключ kaname `config.notifications.enabled`: умолчание `true` подчарта (Д64, e0e0204114f) противоречит «без умолчания» Р4 NTF-2 и Р9 NTF-1 в зонтике; вывод из `global` — CX1-111 (б)"
+    basis: "code-authoring §«Умолчание, которое становится утверждением»"
+  - to: курьер
+    what: "сначала опубликовать событие вердикта acceptance-reviewer на 1bffe10d…, затем событие этого разбора"
+    basis: ".claude/rules/change-graph.md §4; SDD-1 §5 ACCEPTANCE_APPROVED → CLASS_EXPOSURE_RECORDED"
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  role: class-exposure-analyst
+  subject_sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  publication_mode: courier
+  precondition: "событие вердикта acceptance-reviewer на 1bffe10d… опубликовано"
+  event_body_for_courier: >-
+    class-exposure-analyst · первичный разбор · к-замыслу · SHA-256
+    1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0 · новые CX1-111…CX1-113

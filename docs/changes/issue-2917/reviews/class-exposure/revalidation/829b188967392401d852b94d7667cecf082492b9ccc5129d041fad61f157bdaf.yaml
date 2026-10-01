@@ -1,0 +1,155 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2, редакция 29, маршрут редакции 28.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 29 против последней пересверенной
+# (редакция 28, 680ce123…, запись revalidation/680ce123….yaml — «к замыслу», CX2-98, N-CX2-98a) плюс
+# пункты НОВОГО первичного разбора на приёмку eed36d11… (initial/eed36d11….yaml, CX2-99…CX2-105).
+# Дельта не закоммичена: рабочее дерево issue-880 поверх d18e79082 (на d18e79082 design.md = 680ce123…,
+# tasks.md = 14163eb2… — ровно пересверенные).
+#
+# Итог — к замыслу. CX2-98 и N-CX2-98a отображены и выдерживают условие; R28-2 закрыта. CX2-99…CX2-105
+# первичного разбора eed36d11 в замысле не отображены (вхождений 0 в design.md и tasks.md). Нового класса
+# дельта не вносит; заметка N29-1 — опора замысла на приёмку NTF-1 не перепроверена по одобренной
+# редакции 19 (1bffe10d), хотя Р16 п.8 зависит именно от неё.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 829b188967392401d852b94d7667cecf082492b9ccc5129d041fad61f157bdaf
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 829b188967392401d852b94d7667cecf082492b9ccc5129d041fad61f157bdaf   # рабочее дерево
+  tasks_sha256: ad2b39c18a744c43a10e132c6ba203556f5f19c6aa3baaa85878c5ff54fb2c4f   # маршрут редакции 28
+  revision: 29
+  content_commit: "— (рабочее дерево поверх d18e79082, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2917/reviews/class-exposure/revalidation/680ce12332f3ae491e2f7ef789a4373a1572f913ea8e218070677db7bd40421a.yaml
+    sha256: 680ce12332f3ae491e2f7ef789a4373a1572f913ea8e218070677db7bd40421a
+  delta_predicate: "git diff -- docs/changes/issue-2917/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @d18e79082)"
+  decisions_judged:
+    - "CX2-98 / R28-1: срок контекста на шаге ведра — исчерпание только при остатке ≥ anonMailStoreWait; memory — то же; близнец, положительный, инъекция, печать остатка в E2"
+    - "R28-3 / N-CX2-98a: предикат одного разбора кольца — сумма вызовов по нетестовым файлам"
+    - "R28-2: Е6 закрыта одобрением eed36d11"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+  revision: 30
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/eed36d11….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/eed36d11….yaml (к замыслу, CX2-99…CX2-105; файл не закоммичен)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: d18e79082f20e0883f5f7ee780c32d7fcfcca1ab   # плюс незакоммиченная дельта автора
+  kacho_line: ae4bde452f6   # origin/2564
+  kaname_line: a59862664    # origin/484-notify
+  corelib_line: 8a9eb14     # origin/77-notify
+snapshot_at: 2026-10-01T23:20:23Z
+inspected: >-
+  Дельта design.md (шапка редакции 29; З2 предикат одного разбора; З8 «Насыщение строки ведра» —
+  классификация, близнец, memory; §11 строка CX2-98 и счёт строк; §11а УК99, УК100; §11б таблица R28).
+  Дельта tasks.md (шапка редакции 28; Е6; S9; E2). Первичный разбор initial/eed36d11… целиком
+  (CX2-99…105). Таблица входов §0 замысла (строки приёмки NTF-2 и опоры NTF-1). Ни go test, ни make,
+  ни newman не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "eed36d11 — APPROVED; initial/eed36d11….yaml есть (не закоммичен). Строка §0 замысла «первичного разбора на eed36d11 нет» устарела — N29-1"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-99…CX2-105 — вхождений 0 в design.md и tasks.md"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "дельта нового не вводит: условие остатка — уточнение существующего классификатора"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 829b1889… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 829b1889 нет; шапка: «Вердикта на неё нет»"
+
+mapping_check:
+  - item: CX2-98
+    verdict: holds
+    text: >-
+      (а) З8: остаток читает функция решения перед оператором ведра и передаёт классификатору; порог —
+      та же `anonMailStoreWait`, второй ручки нет; 55P03/57014 от остатка не зависят; у memory —
+      `ctx.Done()` при остатке меньше порога — только store_unavailable. (б) E2/УК100: близнец «ключи
+      съели бюджет» +0/+1, положительный «строку держат при полном остатке» +1, инъекция «без условия
+      остатка» — красный, печать остатка; остаток не в той стороне порога — «не выполнилось», а не
+      зелёный. Сверх условия, верно
+  - item: N-CX2-98a
+    verdict: holds
+    text: "З2 и S9: сумма вхождений по нетестовым файлам `':!*_test.go' | awk -F: '{s+=$NF} END{print s+0}'` → 1; единица — вызов, основание исключения названо"
+  - item: "R28-2"
+    verdict: holds
+    text: "Е6 закрыта записью eed36d11 (APPROVED, blocking_count 0); запись 28ec3b81 — CHANGES_REQUESTED, не действующая"
+  - item: CX2-99
+    verdict: unmapped
+    text: "порядок «принадлежность пути → ярус» в звене ограничителя и близнец по ярусу HARD на П6 (E2) — нет"
+  - item: CX2-100
+    verdict: unmapped
+    text: "проверка начала D1/D0 по Р16 п.8 двумя счётами или рендером — нет; см. N29-1"
+  - item: CX2-101
+    verdict: unmapped
+    text: "предпосылки NTF2-69 (е) в X1: pending-max > Y с печатью, величины у процесса стенда, Y+1 различных адресатов — нет"
+  - item: CX2-102
+    verdict: unmapped
+    text: "одна функция срока повтора (retryAfterSeconds в общем пакете kaname) для приглашения и граничная проба в S5 — нет"
+  - item: CX2-103
+    verdict: unmapped
+    text: "экспорт пересылки личности из restmux для стенда П6 и положительный контроль канала (E1a, E1b) — нет"
+  - item: CX2-104
+    verdict: unmapped
+    text: "проба NTF2-68 загрузчиком corelib notify/spec по всем телам, инъекции (S9a) — нет"
+  - item: CX2-105
+    verdict: unmapped
+    text: "разборка S8d от признака адреса приёмника, сверка двух предикатов §3б, инъекция — нет"
+
+new_items: []
+items: []
+notes:
+  - id: N29-1
+    blocking: false
+    where: "design.md §0, строка «приёмка NTF-1 (ядро) — прежняя опора» (опора — 390b5a33…, редакция 16); строка приёмки NTF-2 «первичного разбора классов на eed36d11… нет»"
+    text: >-
+      Строка опоры сама ставит условие: «если следующая редакция NTF-1 сменит опору, §0.2
+      перепроверяется по ней». Одобрена редакция 19 NTF-1 (1bffe10d…), и Р16 п.8 приёмки NTF-2 прямо
+      зависит от путей, которые она утвердила (W4a). В замысле NTF-2 вхождений `1bffe10d` — 0. Без
+      перепроверки §0.2 отображение CX2-100 повиснет на шаблонном тексте. Отображать вместе с CX2-100;
+      строку «первичного разбора нет» заменить ссылкой на initial/eed36d11….
+    predicate: "grep -c '1bffe10d' docs/changes/issue-2917/design.md ≥ 1 и §0.2 перепроверен по 1bffe10d"
+
+measurements:
+  - claim: "предмет и маршрут; на d18e79082 — пересверенные редакции"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD:docs/changes/issue-2917/{design,tasks}.md | sha256sum"
+    result: "829b1889…, ad2b39c1…; HEAD — 680ce123…, 14163eb2…"
+  - claim: "пункты первичного разбора eed36d11 в замысле не отображены"
+    command: "for id in CX2-99 … CX2-105; do grep -c $id docs/changes/issue-2917/{design,tasks}.md; done"
+    result: "0 во всех 14 счётах. Контроль: CX2-98 — design 12, tasks 5; N-CX2-98a — 4 и 3"
+  - claim: "опора на NTF-1 — редакция 16"
+    command: "grep -c '1bffe10d' docs/changes/issue-2917/{design,tasks}.md; grep -n 'прежняя опора' docs/changes/issue-2917/design.md"
+    result: "0 и 0; строка 685 — 390b5a33… (редакция 16)"
+
+not_measurable: []
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX2-99, CX2-100, CX2-101, CX2-102, CX2-103, CX2-104, CX2-105]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "отобразить CX2-99…105 по заказу initial/eed36d11 (E2 — порядок решения и близнец HARD; D1/D0 — Р16 п.8 двумя счётами или рендером; X1 — предпосылки (е); S5 — одна функция срока и граничная проба; E1a/E1b — общая пересылка личности и положительный контроль канала; S9a — загрузчик corelib; S8d — разборка от признака адреса); N29-1 — §0.2 по 1bffe10d"
+    basis: ".claude/rules/change-graph.md §4"

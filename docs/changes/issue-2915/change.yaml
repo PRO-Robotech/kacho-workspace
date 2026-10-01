@@ -152,7 +152,16 @@
 # корня internalUnaryChain, звено прав пробы K5 — фиктивный порт с записью субъекта, боевая пара Р2 — в K3,
 # K3 ← K4; K3r — от головы линии до посадки эпика, садится тем же заходом; Е16 закрыта одобрением приёмки
 # редакции 19) — отпечаток — `hashes.design_sha256`; вердикта и пересверки на него нет.
-# Маршрут работ — `tasks.md` редакции 34 (проект; TASKS_READY не объявлено).
+# Пересверка на редакцию 33 (0a4fe452…) — revalidation/0a4fe452….yaml (к замыслу, CX1-110); ревью замысла
+# на редакцию 33 — reviews/design/design-reviewer/0a4fe452….yaml (RETURNED, R33-1 = CX1-110).
+# Редакция 34 замысла (2026-10-02, отображение CX1-110/R33-1: право ResolveSend решает обработчик K3,
+# перехватчика прав нет, internalUnaryChain без порта прав, заглушка K5 записывает CallerSubject, K3 —
+# CheckRelation не вызван и чтений записи выдачи 0 на ветке «субъекта нет»; решения Д72 — authorization
+# resolveSend, Д73 — регистрация notify в гейтах дерева (N1), запись platformmodules (C13), перепин
+# N11r, K8r; Д74 — накат kacho_notifyprobe точкой services/notify/cmd/migrator, правило «два процесса
+# одного каталога» (D4), вид notification_feed только внутренний) — отпечаток — `hashes.design_sha256`;
+# вердикта и пересверки на него нет.
+# Маршрут работ — `tasks.md` редакции 35 (проект; TASKS_READY не объявлено).
 schema_version: 1
 change_id: issue-2915
 lifecycle_state: ISSUE_READY
@@ -189,7 +198,7 @@ coordinates:
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
   acceptance_sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
-  design_sha256: 0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d
+  design_sha256: 80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a
   holders_sha256: e055c88d97caff277361e6715d15453c27bb3cccff9a2b4ac48b6031f13b760e
 
 links:

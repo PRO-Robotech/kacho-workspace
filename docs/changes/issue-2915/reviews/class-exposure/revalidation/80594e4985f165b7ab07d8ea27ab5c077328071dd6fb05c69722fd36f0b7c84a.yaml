@@ -1,0 +1,211 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 34, маршрут редакции 35.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 34 против последней пересверенной
+# (редакция 33, 0a4fe452…, запись revalidation/0a4fe452….yaml — «к замыслу», CX1-110) плюс решения
+# диспетчера Д72–Д74 плюс пункты НОВОГО первичного разбора на приёмку 1bffe10d… (initial/1bffe10d….yaml,
+# CX1-111…CX1-113). Дельта не закоммичена: рабочее дерево issue-880 поверх d18e79082 (на d18e79082
+# design.md = 0a4fe452…, tasks.md = b00a256b… — ровно пересверенные).
+#
+# Итог — к замыслу. CX1-110 отображён полностью и выдерживает условие (а)–(г). Д72, Д73 отображены.
+# Д74 отображён, но решение «точка наката одна, цепочек две, вторая — `services/notify/cmd/notify-probe/
+# internal/migrations`» открывает новый класс CX1-114: 20 файлов дерева kacho выводят каталог цепочки из
+# имени службы (`services/<svc>/internal/migrations`), и цепочку пробы — с журналом подписки — они не
+# видят по построению. CX1-111, CX1-112, CX1-113 первичного разбора 1bffe10d в замысле не отображены
+# (вхождений 0 в design.md и tasks.md); автор круга 5 сам назвал эти записи непокрытыми.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a   # рабочее дерево
+  tasks_sha256: f798ae8c46eb184dfa44f4a9fc655667eea748d9f42681afc28b8b777be9362d   # маршрут редакции 35
+  revision: 34
+  content_commit: "— (рабочее дерево поверх d18e79082, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d.yaml
+    sha256: 0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @d18e79082)"
+  decisions_judged:
+    - "CX1-110 / R33-1: право ResolveSend — обработчик K3; internalUnaryChain(deps) без порта прав, пустая зависимость — ошибка сборки; заглушка K5 записывает CallerSubject; одна инъекция; K3 — CheckRelation не вызван, чтений 0"
+    - "Д72: authorization ∈ {resolveSend, certificate}, закрытый перечень, отказ старта"
+    - "Д73: регистрация notify в гейтах дерева — N1; запись platformmodules — C13; перепин N11r, K8r"
+    - "Д74: точка наката services/notify/cmd/migrator, выбор цепочки по имени базы из закрытой таблицы; правило двух процессов — D4; notification_feed только внутренний — гейты края"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml (к замыслу, CX1-111…CX1-113; файл не закоммичен)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: d18e79082f20e0883f5f7ee780c32d7fcfcca1ab   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kaname_line: a59862664    # origin/484-notify
+  corelib_line: 8a9eb14     # origin/77-notify
+snapshot_at: 2026-10-01T23:20:23Z
+inspected: >-
+  Дельта design.md (+148 −34, шапка редакции 34; З13 «Звено наблюдаемо на голове K5» (а)–(г); З18 «Право
+  вызова» с ветками; З20/З28 значения authorization; новый З32; §11 строки CX1-109, CX1-110, Д72–Д74; §11а
+  УК98, УК100, УК101). Дельта tasks.md (шапка редакции 35; строки C13, K8r, K3, K5, N11r, N1, N7, D4, D1,
+  D3, D7; порядок). Первичный разбор initial/1bffe10d… целиком (CX1-111…113). kacho @e415e59a2:
+  `internal/migratorapply/apply_test.go` (applyPoints, migrationsDirOf, chainLength), `doc.go`;
+  перепись выводящих каталог цепочки из имени службы по `internal/**`, `services/**`, `tools/**`;
+  `dropguardproducer_test.go`, `subscriptionjournalretention_test.go`, `schemaversionreader_test.go`,
+  `outboxpendingindexperservice_test.go`, `migrationsqltext_test.go` (места вывода); `Makefile`
+  (PG_OUTSIDE_SELECTION_PKGS). Ни go test, ни make, ни helm не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED; initial/1bffe10d….yaml есть (не закоммичен; событие вердикта и разбора не опубликованы)"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-111, CX1-112, CX1-113 (initial 1bffe10d) — вхождений 0 в design.md и tasks.md; CX1-114 новый"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "Д74 вводит закрытую таблицу «имя базы → цепочка» и вторую цепочку вне `services/<svc>/internal/migrations` — пункт CX1-114, не отображён"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 80594e49… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 80594e49 нет; шапка: «Вердикта на эту редакцию нет»"
+
+mapping_check:
+  - item: CX1-110
+    verdict: holds
+    text: >-
+      (а) З13 и З18: решение о праве ResolveSend — одно место, обработчик K3; перехватчика прав нет;
+      `DenyDetailUnary` назван декоратором; строка редакции 33 снята. `internalUnaryChain(deps)` — только
+      существующие звенья, порта прав нет; нулевая/пустая зависимость — ошибка сборки с именем звена,
+      проба конструктора с близнецом. (б) заглушка K5 зовёт `authz.CallerSubject`, код UNIMPLEMENTED в
+      обоих случаях, печать двух результатов. (в) одна инъекция — вход конфигурации. (г) K3: ветка
+      «субъекта нет» названа в З18 — CheckRelation не вызван, чтений записи выдачи 0; близнецы с печатью
+      субъекта и числа чтений. Строки K3, K5, УК101 согласны с З13
+  - item: "Д72"
+    verdict: holds
+    text: "З18/З20/З28: перечень {resolveSend, certificate} закрыт, иное — отказ старта с именем записи и значением; чарт выводит значение из закрытой таблицы источников. resolveSend совпадает с З18 — условие Д72 выполнено"
+  - item: "Д73"
+    verdict: holds
+    text: >-
+      З32: обязанность каркаса — N1 (пути расширены), запись «не применимо» с причиной, а не «как у
+      соседа»; C13 — запись platformmodules в corelib; N11r той же волной, что N1 и D4 (гейт словаря
+      сверяет колонки в обе стороны), K8r отдельно. Держатель — сами гейты на сведённой голове, печать
+      `notify` в осмотренном
+  - item: "Д74 — правило двух процессов, вид notification_feed"
+    verdict: holds
+    text: "держатель правила — D4 с инъекцией третьего корня и близнецом; вид — существующие гейты края (assert-ban6, TestGRPCMountParity) и запись D7"
+  - item: "Д74 — накат kacho_notifyprobe"
+    verdict: mapped_with_new_exposure
+    text: "точка, таблица, держатели D4/N7/D3/D1 названы; размещение цепочки пробы и перечисление цепочек доказательством наката открывают CX1-114"
+  - item: "CX1-111"
+    verdict: unmapped
+    text: "ключ флага kaname `config.notifications.enabled` вне `global` (умолчание true подчарта, профили dev/prod), таблица источников с путём собственного ключа флага, отказ по таблице, отказ на имени модуля вне таблицы — в замысле нет (grep `config\\.notifications` по design.md → 0)"
+  - item: "CX1-112"
+    verdict: unmapped
+    text: "запрета объявлять `global.kacho.{notifications,spiffe}` в values.yaml подчартов и чтения гейтами путей всех файлов значений нет; `identity_global_defaults_agree_test` в замысле не упомянут"
+  - item: "CX1-113"
+    verdict: unmapped
+    text: "место `kacho.notifications.enabledFor` не названо (З28 строка 2110 — имя без чарта); запрета второго тела, nil-безопасного входа и исхода одиночного рендера `charts/kaname` нет"
+
+new_items:
+  - id: CX1-114
+    decision: "Д74 (редакция 34, З32): одна точка наката `services/notify/cmd/migrator` на две цепочки; цепочка пробы — `services/notify/cmd/notify-probe/internal/migrations`; `internal/migratorapply` «приводит перечисление цепочек к таблице точки»"
+    class: >-
+      measurement-discipline §«Радиус: по имени механизма и по точкам применения» — гейты, читающие
+      цепочки миграций, находят их выводом `services/<svc>/internal/migrations`, и цепочка в ином месте
+      им не видна. gate-authoring: «ноль находок неотличимо от ноль прочитанного» на уровне единицы
+      обхода. code-authoring §«Контракт, который нельзя выразить»: таблица «имя базы → цепочка» живёт в
+      пакете `main` под `services/notify/`, а её второй читатель — корневой пакет, которому правило
+      `internal` и `main` импорт запрещают, — значит, второе объявление той же таблицы
+    exposure: >-
+      (1) Перепись @e415e59a2: 20 файлов выводят каталог цепочки из имени службы
+      (`"internal", "migrations"` / `"/internal/migrations"` после имени службы), среди них общие обходчики
+      `internal/migratorapply/apply_test.go` (`migrationsDirOf`: одна точка → одна цепочка
+      `services/<svc>/internal/migrations`), `dropguard*_test.go`, `migrationsqltext_test.go`,
+      `schemaversionreader_test.go`, `subscriptionjournalretention_test.go`, `outbox*_test.go`.
+      Цепочка `services/notify/cmd/notify-probe/internal/migrations` им не видна по построению, а у пробы
+      по З29 есть лента и журнал подписки — ровно предмет `subscriptionjournalretention` и outbox-гейтов.
+      Гейты останутся зелёными, осмотрев `services/notify/internal/migrations` (цепочку шлюза), и
+      «notify осмотрен» прочтётся как полнота. (2) `migratorapply` на голове D4 (до N7) выведет каталог
+      `services/notify/internal/migrations`, которого ещё нет: эталон длины 0 и накат 0 — сверка «0 = 0»
+      зелёная при ненакаченной цепочке пробы. (3) «Перечисление цепочек по таблице точки» исполнимо
+      только вторым литералом в `migratorapply` или собственным разбором исходника точки — таблица живёт в
+      `package main` под `services/notify/cmd/migrator`, импорт её корнем невозможен (doc.go migratorapply
+      сам фиксирует запрет импорта `services/<svc>/internal/...`)
+    condition_on_code: >-
+      (а) Таблица «имя базы → каталог цепочки» объявлена ОДИН раз в форме, читаемой и точкой наката, и
+      корневыми гейтами без импорта `main`/`internal` (файл данных рядом с точкой либо экспортируемый
+      пакет вне `internal`), либо замысел называет иное размещение цепочки пробы, которое существующие
+      обходчики видят без правки. Второго литерала таблицы в `migratorapply` нет. (б) Каждый гейт дерева
+      kacho, выводящий каталог цепочки из имени службы, переходит на перечень цепочек (обход
+      `services/**/internal/migrations` или таблица (а)) — тем же изменением, что вводит вторую цепочку
+      (D4); перепись таких гейтов — в строке D4 поимённо с числом осмотренных. (в) `migratorapply` и
+      гейты, читающие цепочки, печатают число осмотренных цепочек по `services/notify` (2 после N7, 1 на
+      голове D4) и красные на нуле
+    held_by: >-
+      Нужен гейт, его нет. Инъекции на голове D4: (1) нарушение формы SQL (предмет
+      `migrationsqltext`) в файле цепочки пробы → красный с путём; близнец — то же в цепочке шлюза →
+      красный (видимость обеих). (2) Строка таблицы `kacho_notifyprobe` снята → `migratorapply` красный с
+      именем базы, а не «0 = 0». (3) Журнал подписки в цепочке пробы без правила хранения →
+      `subscriptionjournalretention` красный. Однофайлового признака нет (вывод пути разнесён по
+      файлам), в class-guard не годится
+
+items: []
+notes:
+  - id: N34-1
+    blocking: false
+    where: "design.md З32 «Регистрация notify в гейтах дерева» — «запись „не применимо“ … с причиной и предикатом снятия, если ведомость такую форму требует»"
+    text: >-
+      Не противоречит Д73, но «если требует» оставляет исход на усмотрение полосы. Запись «не применимо»
+      без предиката снятия в ведомости, которая её допускает, — то самое умолчание, ставшее утверждением,
+      когда notify заведёт List или Operation. Предлагается: предикат снятия — всегда (ban11-three-outcomes)
+
+measurements:
+  - claim: "предмет и маршрут; на d18e79082 — пересверенные редакции"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git show HEAD:docs/changes/issue-2915/{design,tasks}.md | sha256sum"
+    result: "80594e49…, f798ae8c…; HEAD — 0a4fe452…, b00a256b…"
+  - claim: "пункты первичного разбора 1bffe10d в замысле не отображены"
+    command: "for id in CX1-111 CX1-112 CX1-113; do grep -c $id docs/changes/issue-2915/{design,tasks}.md; done; grep -c 'config\\.notifications' docs/changes/issue-2915/design.md"
+    result: "0 во всех шести счётах; config.notifications — 0. Контроль: CX1-110 — design 8, tasks 4"
+  - claim: "гейты выводят каталог цепочки из имени службы (CX1-114)"
+    command: "git -C project/kacho grep -lE '\"internal\", \"migrations\"|\\+ \"/internal/migrations\"|svc\\+\"/internal/migrations' origin/2914-notify -- '*.go' | wc -l"
+    result: "20 файлов (16 под internal/, 3 под services/, 1 tools/). Контроль обратной стороны: `Contains(rel, \"/internal/migrations/\")` — 6 файлов, эти цепочку пробы увидят"
+  - claim: "migratorapply: одна точка → одна цепочка, каталог из имени службы"
+    command: "git -C project/kacho show origin/2914-notify:internal/migratorapply/apply_test.go | sed -n 28,35p"
+    result: "migrationsDirOf → filepath.Join(\"services\", service, \"internal\", \"migrations\"); точки — Glob services/*/cmd/migrator/main.go"
+  - claim: "путь цепочки пробы внесён редакцией 34"
+    command: "git show HEAD:docs/changes/issue-2915/design.md | grep -c 'notify-probe/internal/migrations'; grep -c … design.md"
+    result: "0 на HEAD; 1 в редакции 34 (З32)"
+
+not_measurable:
+  - item: "сколько из 20 файлов по предмету касаются цепочки пробы"
+    why: "часть — частные гейты vpc/compute/nlb; разбор по референту нужен на голове D4, когда известно содержимое цепочки пробы (журнал, outbox). Условие (б) требует переписи поимённо в D4"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-111, CX1-112, CX1-113, CX1-114]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "отобразить CX1-111…113 (initial 1bffe10d: таблица источников с путём собственного ключа флага и отказ по ней; ключ kaname `config.notifications` — снять умолчание подчарта и профили, флаг из помощника; запрет `global.kacho.{notifications,spiffe}` в values подчартов, гейты по всем файлам значений; место и одно тело помощников, nil-вход, одиночный рендер kaname) в З28 и строки D2, J2, D1; и CX1-114 в З32 и строку D4"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "автор замысла NTF-2 / полоса D1"
+    subject: "порядок снятия умолчания `config.notifications.enabled: true` подчарта kaname (Д64) с D1 NTF-2 — CX1-111 (б)"
+    basis: "code-authoring §«Умолчание, которое становится утверждением»"

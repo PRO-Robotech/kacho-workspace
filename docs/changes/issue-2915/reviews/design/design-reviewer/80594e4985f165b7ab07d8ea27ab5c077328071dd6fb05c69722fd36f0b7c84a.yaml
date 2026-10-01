@@ -1,0 +1,137 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 34 (маршрут — tasks.md редакции 35). Прежняя
+# запись роли — 0a4fe452….yaml (редакция 33, RETURNED: R33-1, нет первичного разбора на 1bffe10d).
+# Судятся: закрытие R33-1, исполнение заказа первичного разбора, отображение Д72–Д74 и пять условий
+# одобрения. Рабочее дерево issue-880 поверх d18e79082, не закоммичено. Запись не правится: при смене
+# отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml hashes.design_sha256 и с пересверкой revalidation/80594e49"
+  revision: 34
+  tasks_sha256: f798ae8c46eb184dfa44f4a9fc655667eea748d9f42681afc28b8b777be9362d   # маршрут редакции 35
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/0a4fe45286540893fc6b53af6ae0e7f8b4d7545c891cd8c58876de6ba60d7e5d.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась)"
+revisions:
+  workspace: d18e79082   # плюс незакоммиченная дельта автора
+  kacho_line: e415e59a2  # origin/2914-notify, перемерено rev-parse
+  kaname_line: a59862664
+  corelib_line: 8a9eb14
+snapshot_at: 2026-10-01T23:24:21Z
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # место решения о праве ResolveSend; точка наката двух цепочек (Д74)
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает; точка наката — предмет db-architect по миграциям, не по параллелизму
+
+inspected: >-
+  design.md: шапка редакции 34, З13 «Звено наблюдаемо на голове K5» (1236–1262), З18, §11 строка CX1-110
+  (3505), §13 (3696). tasks.md: шапка редакции 35, строки K3, K5. Пересверка revalidation/80594e49
+  (outcome to_design, unmapped [CX1-111, CX1-112, CX1-113, CX1-114]) и первичный разбор initial/1bffe10d
+  (outcome к-замыслу, CX1-111…113) целиком по пунктам. Перемерено своей командой: счёт вхождений CX1-110…114
+  в design.md/tasks.md — 8/4, 0/0, 0/0, 0/0, 0/0; kacho origin/2914-notify@e415e59a2
+  internal/migratorapply/apply_test.go:31 migrationsDirOf → filepath.Join("services", service,
+  "internal", "migrations") — посылка CX1-114 подтверждена. Пробы и гейты не запускались: предмет —
+  документ.
+
+closure_of_previous:
+  - id: R33-1
+    status: закрыт
+    evidence: "З13 1239–1262: решение о праве — одно место, обработчик K3; перехватчика прав нет; DenyDetailUnary — декоратор; internalUnaryChain(deps) без порта прав, пустая зависимость — ошибка сборки с именем звена, проба конструктора с близнецом; заглушка K5 записывает CallerSubject, UNIMPLEMENTED в обоих; K3 — CheckRelation не вызван и 0 чтений на ветке «субъекта нет». Пересверка 80594e49: CX1-110 выдерживает (а)–(г)"
+  - id: "заказ: первичный разбор на 1bffe10d"
+    status: исполнен
+    evidence: "reviews/class-exposure/initial/1bffe10d….yaml существует, outcome к-замыслу (CX1-111…113)"
+
+dispatcher_decisions:
+  - id: Д72
+    status: отображено
+    evidence: "authorization — закрытый перечень {resolveSend, certificate}; resolveSend совпадает с З18 (решает обработчик kaname) — условие Д72 выполнено"
+  - id: Д73
+    status: отображено
+    evidence: "N1 регистрирует notify в гейтах дерева kacho; C13 — запись platformmodules {notify, notify, \"\"} в corelib; перепин — N11r (та же волна, что N1 и D4) и K8r"
+  - id: Д74
+    status: "отображено; накат kacho_notifyprobe открывает CX1-114 (ниже)"
+    evidence: "точка наката services/notify/cmd/migrator, таблица «имя базы → цепочка», контейнер migrate (D3, D1); правило двух процессов — держатель D4; notification_feed — только внутренний, гейты края и запись D7"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "§13 «Открытых решений нет» (3698); Д72–Д74 приняты диспетчером"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 80594e49: unmapped [CX1-111, CX1-112, CX1-113, CX1-114]; перемер вхождений — 0 в design.md и в tasks.md по каждому"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/80594e49….yaml — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "первичный разбор на одобренную приёмку 1bffe10d есть; ревью схемы к дельте не применимо по оси параллелизма"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "закрыта: C13 → N11r/K8r — пины по графу corelib←kaname←kacho, кольца нет; межсервисных рёбер дельта не вводит."
+  public_vs_internal_edge: "закрыта: notification_feed — только внутренний (ban06), держат существующие гейты края и запись D7; ResolveSend — внутренний слушатель."
+  authz_decision_locality: "закрыта (R33-1): одно место — обработчик K3."
+  replica_state_isolation: "дельта не трогает."
+  migration_point: "возврат: CX1-114 — вторая цепочка вне services/<svc>/internal/migrations невидима обходчикам дерева, migratorapply на голове D4 сверит «0 = 0»."
+
+critical:
+  - id: R34-1
+    where: "design.md З32 и §11 (строк отображения CX1-111…114 нет); tasks.md D4, N7, N1"
+    finding: >-
+      Пересверка 80594e49 возвращает к замыслу четыре пункта, ни один не отображён (вхождений 0 и 0).
+      CX1-114 по распределённой оси: одна точка наката на две цепочки при двух процессах одного каталога —
+      обходчики дерева (migrationsDirOf и ещё не менее 16 файлов по моему предикату, 20 по предикату
+      пересверки) выводят одну цепочку на службу; цепочка пробы с журналом подписки не судится ни гейтом
+      хранения журнала, ни outbox-гейтами, а «notify осмотрен» читается как полнота. На голове D4 (до N7)
+      сверка наката — 0 = 0 при ненакаченной цепочке. Таблица «имя базы → цепочка» в package main точки
+      не читается корнем — второй литерал неизбежен, если форма не названа.
+    requirement: >-
+      Отобразить CX1-111, CX1-112, CX1-113 (initial/1bffe10d) и CX1-114 (а)–(в) с держателями: одна
+      таблица «имя базы → каталог цепочки», читаемая точкой и корневыми гейтами без импорта main/internal,
+      либо размещение цепочки пробы, видимое существующим обходчикам; перевод обходчиков на перечень
+      цепочек тем же изменением D4 поимённо с числом осмотренных; печать числа цепочек по services/notify
+      (1 на голове D4, 2 после N7), красный на нуле; инъекции (1)–(3) пересверки.
+
+important: []
+
+minor:
+  - id: R34-2
+    note: >-
+      change.yaml шапка (строки 20–21) утверждает «первичного разбора классов на него нет
+      (reviews/class-exposure/initial/1bffe10d….yaml отсутствует)» — запись теперь существует. Снять
+      утверждение тем же заходом.
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R34-1 (CX1-111…114), R34-2"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток будет новый: заново нужны пересверка разбора
+  классов и эта роль.

@@ -1,0 +1,118 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-2 редакции 29 (маршрут — tasks.md редакции 28). Прежняя
+# запись роли — 680ce123….yaml (редакция 28, RETURNED: R28-1, R28-2, R28-3, нет первичного разбора на
+# eed36d11). Судятся закрытие этих пунктов и пять условий одобрения. Рабочее дерево issue-880 поверх
+# d18e79082, не закоммичено. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2917
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 829b188967392401d852b94d7667cecf082492b9ccc5129d041fad61f157bdaf
+  fingerprint_predicate: "sha256sum docs/changes/issue-2917/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml hashes.design_sha256 и с пересверкой revalidation/829b1889"
+  revision: 29
+  tasks_sha256: ad2b39c18a744c43a10e132c6ba203556f5f19c6aa3baaa85878c5ff54fb2c4f
+  previous_record: docs/changes/issue-2917/reviews/design/design-reviewer/680ce12332f3ae491e2f7ef789a4373a1572f913ea8e218070677db7bd40421a.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+  verdict: "APPROVED (не менялась)"
+revisions:
+  workspace: d18e79082
+  kacho_line: ae4bde452f6   # origin/2564, со слов пересверки
+  kaname_line: a59862664
+  corelib_line: 8a9eb14
+snapshot_at: 2026-10-01T23:24:52Z
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-2"
+distributed_surface: true      # классификация исхода общего бюджета решения (ведро флота)
+schema_review_overlap: false   # дельта не трогает CAS, xmin, advisory-lock; lock_timeout ведра — без изменения механизма
+
+inspected: >-
+  design.md: шапка редакции 29 (14–30), З8 (anonMailStoreWait, 1269–1313), §13 (4299). tasks.md: шапка,
+  строка Е6 (302), S9. Пересверка revalidation/829b1889 (outcome to_design, unmapped [CX2-99…CX2-105]) и
+  первичный разбор initial/eed36d11 (outcome к-замыслу, CX2-99…105). Перемерено: вхождения CX2-99…105 в
+  design.md/tasks.md — 0/0 по каждому; CX2-98 — 9/3. Пробы не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R28-1
+    status: закрыт
+    evidence: "шапка 22–25 и З8: срок контекста — исчерпание ведра только при остатке на входе шага ≥ anonMailStoreWait, меньший — только …_store_unavailable_total; близнец «ключи съели бюджет», положительный, инъекция и печать остатка — в E2. Пересверка 829b1889: CX2-98 выдерживает"
+  - id: R28-2
+    status: закрыт
+    evidence: "tasks.md:302 — Е6 закрыта одобрением eed36d11 (APPROVED, blocking_count 0), запись 28ec3b81 названа CHANGES_REQUESTED и недействующей"
+  - id: R28-3
+    status: закрыт
+    evidence: "З2/S9: предикат одного разбора кольца — сумма вызовов по нетестовым файлам; пересверка — N-CX2-98a выдерживает"
+  - id: "заказ: первичный разбор на eed36d11"
+    status: исполнен
+    evidence: "reviews/class-exposure/initial/eed36d11….yaml существует, outcome к-замыслу (CX2-99…105)"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "§13 «Открытые решения — Нет»; Е21 — внешняя зависимость полосы E2 (Д71), не решение замысла"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 829b1889: unmapped [CX2-99, CX2-100, CX2-101, CX2-102, CX2-103, CX2-104, CX2-105]; перемер — 0 в design.md и в tasks.md по каждому"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/829b1889….yaml — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "первичный разбор на одобренную приёмку eed36d11 есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает механизм; меняется только классификация исхода по остатку бюджета."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "дельта не трогает."
+  public_vs_internal_edge: "дельта не трогает."
+  shared_budget_attribution: "закрыта (R28-1): причина (ключи) и место проявления (ведро) разведены условием остатка."
+  replica_state_isolation: "дельта не трогает."
+  parallel_lanes_reconciliation: "возврат через CX2-103 (полосы одного механизма не сверяются между собой) — не отображён."
+
+critical:
+  - id: R29-1
+    where: "design.md §11 (строк отображения CX2-99…105 нет); tasks.md — держатели в полосах"
+    finding: >-
+      Первичный разбор eed36d11 возвращает к замыслу семь пунктов (R30-2, R30-4, R30-8…R30-11, R30-13
+      приёмки: отрицание без положительного, предикат без контроля, величина из рендера вместо процесса,
+      N-я реализация правила, полосы одного механизма без взаимной сверки, собственный разборщик формата),
+      ни один не отображён. CX2-103 — распределённая ось: свойство нескольких полос одного механизма
+      проверяется только их сравнением.
+    requirement: "Отобразить CX2-99…CX2-105 строками §11 с держателями в полосах tasks.md; затем пересверка."
+
+important: []
+
+minor:
+  - id: R29-2
+    note: >-
+      change.yaml шапка (строки 30–31) утверждает «первичного разбора классов на него нет
+      (reviews/class-exposure/initial/eed36d11….yaml отсутствует)» — запись существует. Снять тем же заходом.
+
+orders:
+  - кому: "автор замысла NTF-2"
+    что: "R29-1 (CX2-99…105), R29-2"
+
+next: >-
+  Возврат автору замысла NTF-2. После правки — пересверка разбора классов и эта роль на новом отпечатке.
