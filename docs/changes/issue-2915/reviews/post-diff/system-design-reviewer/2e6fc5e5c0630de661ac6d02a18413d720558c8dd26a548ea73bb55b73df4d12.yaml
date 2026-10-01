@@ -1,0 +1,94 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, полосы C2+C4+C6 изменения issue-2915.
+#
+# Имя файла — content_digest отсуженного содержимого. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+mode: review
+subject: >-
+  C2 (notify/address: профиль IDNA, типы ключа), C4 (notify/feed: схема, Put, окно, флаг),
+  C6 (cmd/notifygen: SendX, ревизия, -check, -base, -list, init)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: 77-c2-notify-address
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/77-c2-notify-address
+  base: 5065868f8c8be60e51991eb3e2648ff5dbe996fd   # родитель C2; merge-base --is-ancestor → 0
+  head: fab53231e4a4677af7f6c16e3a7a39844fce97e6
+content_digest: sha256:2e6fc5e5c0630de661ac6d02a18413d720558c8dd26a548ea73bb55b73df4d12
+digest_definition: sha256 сырого вывода `git diff 5065868...fab5323` в копии corelib (36 файлов, +5132)
+verdict: returned
+blocking: true
+return_to: go-implementer (автор полос C2/C4/C6)
+distributed_surface: true
+schema_review_overlap: true   # CAS окна, savepoint, row-lock порядок
+runs:
+  - cmd: go build ./... && go test -count=1 ./notify/address/... ./cmd/notifygen/... ./notify/feed/...
+    result: 5 пакетов ok
+  - cmd: go test -tags integration -count=1 -v ./notify/feed/ -run 'NTF1B0|UK7|UK8|NTF1N' (слот 2)
+    result: 20 PASS, 0 FAIL (в т.ч. B08/B09 параллельные постановки, UK85 близнецы и инъекция)
+critical:
+  - at: notify/feed/put.go:120
+    rule: architecture.md arch-per-call-deadline
+    finding: >-
+      sp.Rollback(context.WithoutCancel(ctx)) — WithoutCancel снимает и отмену, и ДЕДЛАЙН
+      вызывающего; оператор ROLLBACK TO SAVEPOINT идёт без предела. На подвисшем соединении
+      горутина запроса и транзакция вызывающего висят неограниченно. Прочие места corelib,
+      отвязывающие отмену, ограничивают её WithTimeout (outbox/drainer/internal.go:26, :657).
+    requirement: >-
+      ограничить откат собственным пределом: context.WithTimeout(context.WithoutCancel(ctx), <предел>)
+      с defer cancel (предел — константа пакета или поле Config, судимое NewSource), либо звать
+      Rollback с ctx; проба — откат на контексте с истёкшим дедлайном возвращает ошибку за предел.
+important:
+  - at: notify/feed/put.go:105
+    finding: >-
+      Sealer.Seal получает s.service как аргумент table, а З11 называет частью AAD таблицу;
+      порт объявлен как (table, id, template). Сейчас расхождения нет (сервер ленты — C5), но
+      если Open в C5 возьмёт tablename.Of(svc, Outbox), каждая строка с секретом закроется
+      sealed_mismatch. Заказ C5: одно значение AAD-таблицы для Seal и Open — одним выражением.
+  - at: notify/feed/put.go:178-180
+    finding: >-
+      чтение и установка отметки УК85 в одном SELECT держатся порядком вычисления списка
+      выборки слева направо; порядок не гарантирован документацией PostgreSQL, держит его
+      проба UK85 (зелёная). Не блокирует: инъекция и близнецы есть.
+design_conditions_checked:
+  - id: З7 шаг 5 (CAS окна, CX1-10, NTF1-B09)
+    result: held
+    evidence: INSERT … ON CONFLICT DO UPDATE SET count = w.count + 1 WHERE w.count < $max RETURNING (window.go:247-253); 0 строк → ErrLimitExhausted; B09 параллельно L+k → ровно L.
+  - id: З7 точка сохранения (CX1-61), всё-или-ничего
+    result: held
+    evidence: tx.Begin → sp; любая ошибка write → sp.Rollback; вклады, отметка, замки снимаются (UK78, UK85 близнец 2).
+  - id: З7 полный порядок замков (CX1-63, УК86)
+    result: held
+    evidence: Validate требует строгого возрастания по LimitLess (desc.go:122); takeWindows идёт порядком описания; UK86 инъекция убывающего — сторож до SQL.
+  - id: З7 УК85 одна постановка с лимитами на транзакцию
+    result: held
+    evidence: set_config(..., true) под savepoint, coalesce(…,'') = ''; ErrSecondLimitedPut + счётчик дефекта (put.go:176-188).
+  - id: З7 шаг 6 / NTF1-B01, B02 (атомарность с журналом)
+    result: held
+    evidence: строка ленты, contrib и строка журнала — одним соединением в точке сохранения транзакции вызывающего; B02 откат → 0/0/0/0.
+  - id: З6 схема
+    result: held
+    evidence: CHECK not_before isfinite, outcome_matches_state, closed_carries_no_secret, window PK (template, scope, window_seconds, key, window_start), contrib FK ON DELETE CASCADE.
+  - id: З12 флаг
+    result: held
+    evidence: ParseEnabled ровно true|false; NewSource отвергает неразобранный Enabled; notice → nil, security → ErrDeliveryNotConfigured.
+  - id: З3 / C2
+    result: held_no_distributed_surface
+    evidence: чистая функция над пакетным idna.Profile (безопасен для конкурентного использования), SQL и вызовов нет.
+  - id: З5 / C6 init
+    result: held
+    evidence: применённые файлы не трогаются, новая метка = max(now, maxLabel+1); -check сверяет побайтово по заголовку.
+acyclicity:
+  result: held
+  evidence: >-
+    новых runtime-рёбер нет (библиотека в транзакции вызывающего); build-рёбра внутри corelib
+    feed → {journaltx, subscription, address, form, ids}, journaltx notify не импортирует; go build ./... зелёный.
+deadlines:
+  result: finding
+  evidence: put.go:120 (critical выше); прочие операторы Put — на ctx вызывающего, его предел действует.
+idempotency:
+  result: held
+  evidence: Put — ровно один раз относительно коммита вызывающего; откат вызывающего уносит строку, вклад и журнал (B02).
+next: go-implementer — ограничить откат точки сохранения пределом (put.go:120) с пробой; затем повтор этой роли на новом дайджесте.
