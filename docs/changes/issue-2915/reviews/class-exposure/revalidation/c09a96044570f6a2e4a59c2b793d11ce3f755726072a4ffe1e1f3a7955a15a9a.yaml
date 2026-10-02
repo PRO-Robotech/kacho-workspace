@@ -1,0 +1,230 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 39, маршрут редакции 40.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 39 против последней пересверенной
+# (редакция 38, 5c24973c…, запись revalidation/5c24973c….yaml: «к замыслу», CX1-120, CX1-121, CX1-122,
+# N38-1) и решения диспетчера Д79…Д82 (2026-10-02; Д75…Д78 действуют). Дельта не закоммичена: рабочее
+# дерево issue-880 поверх bbb4346d5, где design.md = 5c24973c….
+#
+# Итог — к замыслу. Пункты прошлой пересверки отображены все, и предметные утверждения перемерены на
+# 1192e5e48c0. Д79, Д80 и Д81 отображены. Д82 отображён абзацем З32 и строками D1s, но вносит новый пункт
+# CX1-123. Регистрация notify в гейте покрытия шардов делается не в assert-shard-coverage.py: строк о
+# доменах у скрипта нет, они лежат в deploy/e2e-shards.json (0 вхождений в замысле и маршруте). Кроме
+# того, единственные формы этой регистрации — переключаемый компонент (`--set <gate>.enabled=false`) или
+# образ ядра. Первая — второй включатель, который Д76 запрещает. При второй живая проба ban #6 спрашивает
+# notify на стенде, где до D2 объектов notify 0.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: c09a96044570f6a2e4a59c2b793d11ce3f755726072a4ffe1e1f3a7955a15a9a
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: c09a96044570f6a2e4a59c2b793d11ce3f755726072a4ffe1e1f3a7955a15a9a   # рабочее дерево
+  tasks_sha256: e841ee17e6ed510df1155b74bd14430615e2796a2ed21e1037f514ed0e317274   # маршрут редакции 40
+  revision: 39
+  content_commit: "— (рабочее дерево поверх bbb4346d5, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/5c24973c42d17467af548af47070a63f486dcd5669ad28ffbddb325a2b3a900a.yaml
+    sha256: 5c24973c42d17467af548af47070a63f486dcd5669ad28ffbddb325a2b3a900a
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @bbb4346d5)"
+  decisions_judged:
+    - "CX1-120, CX1-121, CX1-122, N38-1 — пункты пересверки 5c24973c"
+    - "Д79 — C13a влита (corelib#83, 77-notify @fe0dccf1794e), K8r2 (484-notify @57f1841789bd, образ 484-notify-57f18417); kacho D4 1192e5e48c0 — пин, knobNames, корень обхода конфига notify-probe"
+    - "Д80 — ветка «не выполнилось: перечень пуст» по ПУСТОЙ ТАБЛИЦЕ МОДУЛЕЙ, D2 её снимает; image-rollout-binding закрывает D1s; D2, E1/E2/D6 ждут kacho#1276"
+    - "Д81 — исполнение Д80 для image-rollout-binding = копия осмотра (карты A и B), 8 из 8, истекает с D2"
+    - "Д82 — notify в таблицы assert-ban6-external-isolation.py, assert-shard-coverage.py, assert-metrics-surfaces-answer.sh — D1s; самопроверка console-serves-identity-flows-test.sh (cp -r теряет mtime) — D1s"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: bbb4346d53984eea59a68e861cd8594738a395f4   # плюс незакоммиченная дельта автора
+  kacho_tree_d78: 1192e5e48c0   # ветка 2915-d4-notify-probe, рабочая копия tmp/2915-d4-notify-probe, чистая
+  corelib_line: fe0dccf1794e   # origin/77-notify
+  kaname_line: 57f1841789bd    # origin/484-notify
+snapshot_at: 2026-10-02T06:37:59Z
+inspected: >-
+  Дельта design.md (шапка редакции 39; З28 абзацы «Ветку включает предпосылка, а не исход», «Гейт привязки
+  образа — тоже на копии осмотра», «Форма чтения global»; З32 «C13a исполнена», «Окно отзыва кеша
+  вердиктов notify-probe…», «Регистрация notify в deploy-гейтах — D1s»; §11 строки CX1-120…122, N38-1,
+  Д79…Д82), строки tasks.md C13a, N11r, D4, D1, D1s, D2, change.yaml. corelib @fe0dccf1794e:
+  authz/revocation_policy.go:240-256, platformmodules.go:80-84. kacho @1192e5e48c0: сообщение и состав
+  коммита, go.mod:125-126, прогон шести гейтов окна отзыва и словаря модулей, строка dig в
+  deploy/helm/notify/templates/deployment.yaml, console-serves-identity-flows-test.sh (сам гейт и
+  --self-test, строки 486-600), assert-shard-coverage.py (прогон и п.8, 8а), deploy/e2e-shards.json,
+  перепись e2e-ban6-domains.py. Записки vault не читались. Живые гейты (ban #6, поверхности метрик) не
+  гонялись: стенда нет.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED, не менялась; initial/1bffe10d….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-120 (6/4), CX1-121 (5/5), CX1-122 (5/4), N38-1 (4/3), Д79 (6/5), Д80 (14/6), Д81 (5/2), Д82 (4/3) отображены; новый CX1-123 — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "Д82 вводит регистрацию notify в манифесте шардов e2e и живых гейтах — CX1-123"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = c09a9604… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на c09a9604 нет"
+
+mapping_check:
+  - item: CX1-120
+    verdict: holds
+    text: >-
+      Все условия (а)–(д) отображены. Гейт в путях D1s, notify из рендера копии обеими картами, notify
+      остаётся в SERVICES, итог 8 из 8, печать источника, истечение с копией и перевод в D2 (путь в
+      строке D2). Флаг Д80 до D2 не читает никто. Инъекции: снята аннотация и dig по "vpc", близнец
+      8 из 8
+  - item: CX1-121
+    verdict: holds
+    text: >-
+      (а) Ключ: перемерено @fe0dccf1794e, revocation_policy.go:250 —
+      "notify KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL": 5 * time.Second. (б) Атомарность: коммит 1192e5e48c0
+      одним изменением несёт go.mod (corelib fe0dccf1794e, kaname 57f1841789bd), тег, knobNames и
+      revocationScanRoots. Шесть гейтов перемерены: PASS 6; «площадок сопоставлено=12, записей
+      политики=12»; «ручек … 11 из 11»; «процессов держит окно=8 … держателей без ручки=0». (в) Счёт по
+      корням отнесён к D4 с инъекцией «держатель в cmd/notify». Старый счёт по каталогу на этой
+      инъекции молчит, новый краснеет, значит инъекция различает
+  - item: CX1-122
+    verdict: holds
+    text: >-
+      Предпосылка ветки — таблица модулей, оба красных сочетания названы. Снятие в D2: путь в строке D2,
+      предикат git grep → 0. Сдача D1 печатает вывод хука. Инъекция и близнец есть
+  - item: N38-1
+    verdict: holds
+    text: "Форма dig с default dict, полоса D1s, предикат. Строка @1192e5e48c0 deployment.yaml:39 пока без default dict — правка в D1s"
+  - item: "Д82 — самопроверка консоли"
+    verdict: holds
+    text: >-
+      Перемерено @1192e5e48c0. Сам гейт PASS («7 assertions, находок 0»). --self-test красный: 12 из 13
+      проб «код 2», FATAL «свежесть собранного архива НЕ подтверждена: notify (исходник новее
+      архива…)». Механизм — сравнение mtime исходника с архивом в копии, собранной cp -r, а порядок
+      копирования решает, кто «новее». Диагноз Д82 подтверждён. Условие (cp -a и вердикт, не зависящий
+      от порядка) с инъекцией держит свойство. См. заметку N39-1
+  - item: "Д82 — регистрация notify в deploy-гейтах"
+    verdict: unmapped_with_new_exposure
+    text: "Отображено абзацем З32, но с изъяном предмета: см. CX1-123"
+
+new_items:
+  - id: CX1-123
+    decision: "Д82: notify вносится в таблицы assert-ban6-external-isolation.py, assert-shard-coverage.py, assert-metrics-surfaces-answer.sh полосой D1s, в этой волне; по замыслу на каждый гейт инъекция «строка notify снята → красный» и близнец «как есть → зелёный с числом»"
+    class: >-
+      code-authoring §«Инвариант и оснастка — это тоже прод-код»: строку правят в скрипте гейта, а
+      данные гейта лежат в манифесте. code-authoring §«Решение и его следствие разнесены»: регистрация
+      в живом гейте проходит в D1s, а предмет гейта (объекты notify на стенде) появляется только в D2.
+      code-authoring §«Умолчание, которое становится утверждением»: «зелёный с числом» живого гейта
+      на стенде без notify
+    exposure: >-
+      Измерено @1192e5e48c0. (1) assert-shard-coverage.py: «НАХОДКА: домен 'notify' несёт
+      Internal*-контракт, ПРОВЯЗАННЫЙ прод-кодом, но ban #6 для него не измеряет НИ ОДИН шард», «FAIL:
+      находок 1». Перепись e2e-ban6-domains.py: served включает notify, hosts notify = [notify]. Строк
+      о доменах у скрипта нет (grep -c notify → 0). Охват берётся из deploy/e2e-shards.json
+      (core_ban6_domains = [geo], gate_ban6_domains, gate_images, gates). Этого файла нет ни в замысле,
+      ни в маршруте (0/0), а пути D1s называют скрипт. (2) Форм регистрации домена в манифесте две.
+      Переключаемый компонент gates выключается «--set <gate>.enabled=false» (шапка манифеста), а это
+      второй включатель notify, который Д76 запрещает (строка D1: «второго включателя (notify.enabled,
+      condition) … нет»). Образ ядра core_images ставит notify на каждый шард. В обоих случаях живая
+      проба ban #6 спрашивает Internal*-метод notify на стенде, где рендер зонтика на дереве Д78 даёт 0
+      объектов notify (Д76, замер пересверки 5c24973c). Встречный контроль пробы уронит прогон как
+      «невыполненное измерение» (п.8 скрипта). Это не изоляция и не зелёный. (3) assert-metrics-surfaces-answer.sh
+      и assert-ban6-external-isolation.py — живые, опрашивают поды. Для notify на стенде этой волны у
+      них нет предмета, поэтому близнец замысла «как есть → зелёный с числом» на дереве Д78
+      неисполним. Без условия исполнитель выберет одно из простых решений: заведёт notify.enabled,
+      внесёт notify в ядро с красными шардами или вычеркнет notify из переписи served. Все три
+      запрещены (Д76; ban #6; самоистечение у переписи выведено из дерева)
+    condition_on_code: >-
+      (а) Пути D1s называют deploy/e2e-shards.json и, если меняются веса, deploy/E2E-SHARDS.md, а
+      предикат D1s — зелёный assert-shard-coverage.py на дереве Д78 с печатью notify. Слова «строки
+      notify в assert-shard-coverage.py» заменены координатой данных. (б) Замысел решает, чем notify
+      представлен в манифесте до D2, не нарушая Д76, и называет исход живых гейтов для notify на
+      стенде волны. Допустимая форма — та же, что у CX1-122: предпосылка — пустая таблица модулей.
+      Тогда живая проба ban #6 и проба поверхностей метрик по домену notify дают «НЕ ВЫПОЛНИЛОСЬ:
+      перечень пуст» с печатью предпосылки, а не зелёный и не красный. Таблица непуста и подов notify
+      0 → красный. Ветку снимает D2, предикат git grep → 0. Перепись served в assert-shard-coverage
+      notify не вычёркивает. Если такая форма противоречит решению Д82 («в этой волне»), это вопрос
+      диспетчеру, а не заведение notify.enabled. (в) Инъекции живых гейтов, утверждающие «зелёный с
+      числом» по notify, переносятся на сведённую голову D1 и D2 либо на стенд после D2. На дереве Д78
+      утверждается только статический гейт покрытия шардов. Инъекция: запись notify снята из манифеста →
+      красный «НИ ОДИН шард». Близнец — запись есть → зелёный с числом доменов
+    held_by: >-
+      Статическая часть — assert-shard-coverage.py на дереве Д78 и инъекция (в). Живая часть до D2 —
+      нужна ветка «не выполнилось» по предпосылке таблицы с инъекцией CX1-122 (таблица непуста, подов
+      0 → красный). Однофайлового признака нет
+
+items: []
+notes:
+  - id: N39-1
+    blocking: false
+    where: "deploy/tests/helm/console-serves-identity-flows-test.sh --self-test @1192e5e48c0 (предмет D1s, Д82)"
+    text: >-
+      Измеренный отказ — проверка свежести архива («исходник новее архива»): cp -r выставляет файлам
+      копии mtime по порядку копирования. Инъекция «обратная сортировка входа» обязана воспроизводить
+      именно этот механизм, то есть копировать архив раньше исходника и наоборот. Перестановка обхода в
+      самом гейте этот механизм не затрагивает. До правки инъекция красная («код 2 … исходник новее
+      архива»), после cp -a даёт тот же вердикт, что и близнец
+    predicate: "bash deploy/tests/helm/console-serves-identity-flows-test.sh --self-test → «✗» 0 на голове D1s"
+
+measurements:
+  - claim: "предмет и маршрут; на bbb4346d5 — пересверенная редакция"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum"
+    result: "c09a9604…, e841ee17…; HEAD — 5c24973c…"
+  - claim: "отображение"
+    command: "for p in CX1-120 CX1-121 CX1-122 N38-1 Д79 Д80 Д81 Д82 e2e-shards; do grep -c -- $p design.md tasks.md; done"
+    result: "6/4, 5/5, 5/4, 4/3, 6/5, 14/6, 5/2, 4/3, 0/0"
+  - claim: "запись окна и словаря модулей в corelib (Д79, CX1-121 (а))"
+    command: "git -C project/corelib show fe0dccf1794e:authz/revocation_policy.go | sed -n 240,256p; … platformmodules.go | sed -n 80,84p; merge-base --is-ancestor fe0dccf1794e origin/77-notify"
+    result: "\"notify KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL\": 5 * time.Second; {Service: \"notify\", CatalogModule: \"notify\"}; предок 0; origin/77-notify = fe0dccf1794e, origin/484-notify = 57f1841789bd"
+  - claim: "D4 1192e5e48c0 — одно изменение (CX1-121 (б))"
+    command: "git show --stat 1192e5e48c0"
+    result: "umbrella/values.yaml, go.mod, go.sum, revocationwindow_test.go, tools/revocationwindowgate/gate.go — 5 файлов"
+  - claim: "гейты окна отзыва и словаря на дереве Д78"
+    command: "go test ./internal/repohygiene/ -run '<шесть гейтов>' -count=1 -v @1192e5e48c0"
+    result: "PASS 6; площадок 12 / записей 12; ручек 11 из 11; процессов держит окно=8, держателей без ручки=0"
+  - claim: "самопроверка консоли (Д82)"
+    command: "bash deploy/tests/helm/console-serves-identity-flows-test.sh [--self-test] @1192e5e48c0"
+    result: "гейт: PASS 7 assertions, рендеров 14; --self-test: rc 1, ✓ 1 · ✗ 12, FATAL «исходник новее архива» по notify"
+  - claim: "гейт покрытия шардов и его данные (CX1-123)"
+    command: "python3 deploy/scripts/assert-shard-coverage.py; grep -c notify deploy/scripts/{assert-shard-coverage.py,assert-ban6-external-isolation.py,assert-metrics-surfaces-answer.sh}; чтение deploy/e2e-shards.json; e2e-ban6-domains.census"
+    result: "FAIL находок 1 (notify, НИ ОДИН шард); 0 / 1 (комментарий «close notify») / 0; core_ban6_domains [geo], gates без notify, выключение — --set <gate>.enabled=false; served ∋ notify, hosts notify=[notify]"
+  - claim: "N38-1 ещё не исполнена"
+    command: "git grep -n 'dig \"kachoImageIds\"' -- deploy/helm/notify/ @1192e5e48c0"
+    result: "deployment.yaml:39 — .Values.global без default dict"
+
+not_measurable:
+  - item: "исход живых assert-ban6-external-isolation.py и assert-metrics-surfaces-answer.sh по notify на стенде волны"
+    why: "стенда с деревом Д78 нет; что notify на нём нет, следует из 0 объектов рендера зонтика (Д76), но исход самих проб — только прогоном"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-123]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: >-
+      CX1-123: в путях и предикате D1s — deploy/e2e-shards.json, а не скрипт гейта. Форма
+      представления notify в манифесте до D2 без notify.enabled (Д76). Исход живых гейтов ban #6 и
+      поверхностей метрик по notify на стенде волны — «не выполнилось» по пустой таблице, со снятием в
+      D2. Инъекции «зелёный с числом» живых гейтов — на сведённую голову D1+D2. Заметка N39-1
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Инвариант и оснастка — это тоже прод-код», §«Решение и его следствие разнесены», §«Умолчание, которое становится утверждением»"

@@ -1,0 +1,183 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 39 (маршрут — tasks.md редакции 40). Прежняя
+# запись роли — 5c24973c….yaml (редакция 38, RETURNED: R38-1…R38-4). Судятся закрытие R38-1…4,
+# отображение решений диспетчера Д79…Д82 (2026-10-02; Д75…Д78 действуют) и пять условий одобрения.
+# Рабочее дерево issue-880 поверх bbb4346d5, не закоммичено. Запись не правится: при смене отпечатка
+# заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: c09a96044570f6a2e4a59c2b793d11ce3f755726072a4ffe1e1f3a7955a15a9a
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml:248 hashes.design_sha256 и с пересверкой revalidation/c09a9604"
+  revision: 39
+  tasks_sha256: e841ee17e6ed510df1155b74bd14430615e2796a2ed21e1037f514ed0e317274   # маршрут редакции 40, = пересверке
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/5c24973c42d17467af548af47070a63f486dcd5669ad28ffbddb325a2b3a900a.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась с прошлой записи)"
+revisions:
+  workspace: bbb4346d53984eea59a68e861cd8594738a395f4   # плюс незакоммиченная дельта автора
+  kacho_d78_tree: 1192e5e48c0   # ветка 2915-d4-notify-probe; рабочая копия tmp/2915-d4-notify-probe НЕ чистая (см. important)
+  corelib_line: fe0dccf1794e    # origin/77-notify, после fetch
+  kaname_line: 57f1841789bd     # origin/484-notify, после fetch
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # регистрация notify в живых гейтах ban #6 и поверхностей метрик, манифест шардов e2e
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  Пересверка revalidation/c09a9604 (итог to_design, unmapped [CX1-123], заметка N39-1); дельта
+  design.md против HEAD bbb4346d5 (шапка редакции 39; З28 «Ветку включает предпосылка…», «Гейт привязки
+  образа — тоже на копии осмотра», «Форма чтения global»; З32 «C13a исполнена», «Окно отзыва…»,
+  «Регистрация notify в deploy-гейтах — D1s»; §11 строки CX1-120…122, N38-1, Д79…Д82). corelib
+  @fe0dccf1794e, kaname @57f1841789bd, kacho @1192e5e48c0: состав коммита, go.mod, dig в шаблоне notify,
+  assert-shard-coverage.py (прогон), deploy/e2e-shards.json, cp -r в console-serves-identity-flows-test.sh.
+  Шесть go-гейтов окна отзыва и --self-test консоли не перегонялись (опираюсь на замер пересверки);
+  живые гейты не гонялись: стенда нет.
+
+closure_of_previous:
+  - id: R38-1
+    status: закрыт
+    evidence: "З28 «Гейт привязки образа — тоже на копии осмотра» (а)–(д), инъекции и близнец; §11 строка CX1-120; пересверка c09a9604 — holds"
+  - id: R38-2
+    status: закрыт
+    evidence: "З32 «Окно отзыва кеша вердиктов notify-probe…» (а)–(в); ключ перемерен: revocation_policy.go:250 @fe0dccf1794e; коммит 1192e5e48c0 — 5 файлов одним изменением"
+  - id: R38-3
+    status: закрыт
+    evidence: "З28 абзац «Ветку включает предпосылка, а не исход»: оба красных сочетания, снятие в D2 с предикатом git grep → 0, инъекция и близнец; пересверка — holds"
+  - id: R38-4
+    status: "закрыт в замысле (форма dig с default dict, полоса D1s, проба и предикат); в коде не исполнен — deployment.yaml:39 @1192e5e48c0 без default dict, это предмет D1s"
+    evidence: "git grep 'dig \"kachoImageIds\"' — deployment.yaml:39 `.Values.global` без default dict"
+
+remeasured_author_claims:   # выборочно 5, своей командой после fetch
+  - claim: "C13a влита: origin/77-notify = fe0dccf1794e, запись окна \"notify KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL\": 5s, platformmodules notify CatalogModule \"notify\""
+    command: "git -C project/corelib rev-parse --short=12 origin/77-notify; git show origin/77-notify:authz/revocation_policy.go | grep -n NOTIFYPROBE; … platformmodules.go | grep -n '\"notify\"'"
+    result: "fe0dccf1794e; 250: \"notify KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL\": 5 * time.Second; 82: {Service: \"notify\", CatalogModule: \"notify\", ObjectDomain: \"\"} — подтверждено"
+  - claim: "K8r2: origin/484-notify = 57f1841789bd"
+    command: "git -C project/kaname rev-parse --short=12 origin/484-notify"
+    result: "57f1841789bd — подтверждено"
+  - claim: "1192e5e48c0 — одно изменение: пины, тег, knobNames, корень обхода (5 файлов)"
+    command: "git -C tmp/2915-d4-notify-probe show --stat HEAD; git show HEAD:go.mod | grep -nE 'PRO-Robotech/(corelib|kaname) '"
+    result: "HEAD=1192e5e48c0; umbrella/values.yaml, go.mod, go.sum, revocationwindow_test.go, revocationwindowgate/gate.go — 5 файлов; go.mod:125 corelib …-fe0dccf1794e, 126 kaname …-57f1841789bd — подтверждено"
+  - claim: "assert-shard-coverage.py @1192e5e48c0 → FAIL находок 1 (notify, НИ ОДИН шард)"
+    command: "python3 deploy/scripts/assert-shard-coverage.py (tmp/2915-d4-notify-probe; e2e-shards.json не изменён)"
+    result: "«НАХОДКА: домен 'notify' … НИ ОДИН шард», «FAIL: находок 1» — подтверждено"
+  - claim: "самопроверка консоли собирает копию cp -r (строка 502)"
+    command: "grep -n 'cp -r' deploy/tests/helm/console-serves-identity-flows-test.sh"
+    result: "502, 505, 506, 527 — четыре места cp -r; замысел называет только 502 (см. minor R39-3)"
+
+dispatcher_decisions:
+  - id: Д79
+    status: "отображено (шапка (1), З32 «C13a исполнена», «Окно отзыва…», §11)"
+  - id: Д80
+    status: "отображено (З28, tasks D1/D1s/D2)"
+  - id: Д81
+    status: "отображено (З28 «Гейт привязки образа…» (д), §11)"
+  - id: Д82
+    status: >-
+      самопроверка консоли — отображена; регистрация notify в deploy-гейтах — отображена с изъяном предмета
+      (CX1-123 пересверки, 0/0 в design/tasks): данные гейта покрытия лежат в deploy/e2e-shards.json
+      (в скрипте grep -c notify → 0), а исход живых гейтов для notify на стенде без объектов notify не решён
+  - id: "Д75…Д78"
+    status: "в силе; дельта их не меняет"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: >-
+      чем notify представлен в манифесте шардов до D2 без второго включателя (Д76) и каков исход живых
+      проб ban #6 и поверхностей метрик по notify на стенде волны, где объектов notify 0, — не решено;
+      близнец «как есть → зелёный с числом» на дереве Д78 неисполним
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка c09a9604: unmapped [CX1-123]; перемер — CX1-123 0/0, e2e-shards 0/0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/c09a9604 — на текущий отпечаток; tasks_sha256 e841ee17 совпадает"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 1bffe10d APPROVED, первичный разбор initial/1bffe10d есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "закрыта: новых межсервисных рёбер нет; порядок пинов corelib←kaname←kacho соблюдён (1192e5e48c0)."
+  public_vs_internal_edge: >-
+    возврат: notify несёт Internal*-контракт, а ни один шард не измеряет для него ban #6
+    (assert-shard-coverage FAIL 1). Замысел правит не тот файл (скрипт вместо манифеста) и не решает исход
+    живой пробы изоляции, пока notify на стенде нет (CX1-123).
+  revocation_window: "закрыта (R38-2): одна запись в corelib, пин и словарь kacho — одно изменение; счёт корней — D4 с инъекцией."
+  rollout_binding: "закрыта (R38-1): копия осмотра, 8 из 8, истечение с D2."
+  probe_outcome_branch: "закрыта (R38-3): ветка по предпосылке таблицы, оба красных сочетания, снятие в D2."
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R39-1
+    where: "design.md З32 «Регистрация notify в deploy-гейтах — D1s»; tasks.md строка D1s (пути и предикат); §11 строка Д82"
+    finding: >-
+      CX1-123 (Д82) не отображён (0/0). (а) Регистрация домена для гейта покрытия делается в
+      deploy/e2e-shards.json (core_ban6_domains, gate_ban6_domains, gates, core_images, gate_images), а не
+      в assert-shard-coverage.py (grep -c notify → 0 в скрипте и в манифесте); пути D1s его не называют.
+      (б) Обе формы регистрации — переключаемый компонент (выключение «--set <gate>.enabled=false») или
+      ядро — ведут либо ко второму включателю notify (запрет Д76), либо к живой пробе ban #6 и метрик по
+      notify на стенде, где объектов notify до D2 нет. (в) Обещанный близнец «как есть → зелёный с
+      числом» для живых гейтов на дереве Д78 неисполним.
+    requirement: >-
+      По условию CX1-123 пересверки: пути и предикат D1s — deploy/e2e-shards.json (и E2E-SHARDS.md при
+      смене весов), предикат — зелёный assert-shard-coverage.py с печатью notify; замысел решает форму
+      notify в манифесте до D2 без notify.enabled; исход живых гейтов по notify на стенде волны —
+      «НЕ ВЫПОЛНИЛОСЬ: перечень пуст» по пустой таблице модулей (таблица непуста и подов 0 → красный),
+      снятие в D2 с предикатом git grep → 0; перепись served notify не вычёркивает; инъекции живых гейтов
+      «зелёный с числом» — на сведённую голову D1+D2. Если это противоречит Д82 «в этой волне» — вопрос
+      диспетчеру, не notify.enabled.
+
+important:
+  - id: R39-2
+    note: >-
+      Рабочая копия tmp/2915-d4-notify-probe не чистая (пересверка записала «чистая»): изменены
+      check-volume-mounts.py, run-gate-self-tests.sh, image-rollout-binding-test.sh (+63), не отслеживаются
+      render-notify-inspect.sh и testdata/notify-inspect/ — код D1s пишется до одобрения замысла.
+      Замеры этой записи сделаны по HEAD 1192e5e48c0 либо по не затронутым дельтой файлам
+      (e2e-shards.json, deployment.yaml, console-serves-identity-flows-test.sh). Диспетчеру — сверить,
+      что переход к коду для D1s открыт, и чья это дельта.
+
+minor:
+  - id: R39-3
+    note: >-
+      N39-1 пересверки (0 вхождений): в console-serves-identity-flows-test.sh cp -r четыре (502, 505, 506,
+      527), замысел называет 502; инъекция обязана воспроизводить механизм mtime (архив скопирован раньше
+      исходника и наоборот), а не перестановку обхода в самом гейте. Предикат: --self-test → «✗» 0 на голове D1s.
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R39-1 (CX1-123), R39-3 (N39-1)"
+  - кому: "диспетчер"
+    что: "R39-2 — чья незакоммиченная дельта D1s в tmp/2915-d4-notify-probe при неодобренном замысле"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.
