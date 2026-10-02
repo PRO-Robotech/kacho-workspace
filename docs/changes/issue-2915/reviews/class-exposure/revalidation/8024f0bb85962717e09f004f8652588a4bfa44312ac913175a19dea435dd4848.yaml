@@ -1,0 +1,275 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 37, маршрут редакции 38.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 37 против последней пересверенной
+# (редакция 36, 22fa57a4…, запись revalidation/22fa57a4….yaml — «к замыслу», CX1-116, CX1-117), ревью
+# замысла 22fa57a4 (RETURNED, R36-1…R36-3) и решения диспетчера Д74/Д77, Д75, Д76 (2026-10-02). Дельта
+# не закоммичена: рабочее дерево issue-880 поверх 1a5aa6684 (на 1a5aa6684 design.md = 22fa57a4…).
+#
+# Итог — к замыслу. CX1-117, R36-2 и Д77 в части «точка и механизм» отображены, посылки замера Д77
+# воспроизводятся по invocation_test.go @e415e59a225. CX1-116 отображён не полностью: пробы полосы D1s
+# тоже утверждают отрендеренные объекты notify, а на её голове таблица пуста. Решение Д77 «гейты приводит
+# D4» вводит два новых пункта. CX1-118: предикат «манифест службы называет KACHO_MIGRATOR_DSN» без области.
+# Переменная общая для всех служб, и проверка по всему дереву молча переведёт пять служб с полосы
+# KACHO_<SVC>_DB_* на новую полосу, а близнец «число форм до и после равно» этого не увидит. CX1-119:
+# форма шлюза D1 зависит от распознавателя D4, а в колонке зависимостей D1 полосы D4 нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 8024f0bb85962717e09f004f8652588a4bfa44312ac913175a19dea435dd4848
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 8024f0bb85962717e09f004f8652588a4bfa44312ac913175a19dea435dd4848   # рабочее дерево
+  tasks_sha256: 4cdc8f1ab2d7e39daf9671c1d261d9542b3447cfd9345afd90edfb88e08189af   # маршрут редакции 38
+  revision: 37
+  content_commit: "— (рабочее дерево поверх 1a5aa6684, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/22fa57a407ec18cf4d7d654f79831fa6992c605f8a439e2f137e4e77d9073e04.yaml
+    sha256: 22fa57a407ec18cf4d7d654f79831fa6992c605f8a439e2f137e4e77d9073e04
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @1a5aa6684)"
+  decisions_judged:
+    - "CX1-116 / R36-1 (Д76 (1)): пустая таблица модулей на голове D1"
+    - "CX1-117 / R36-1 (Д76 (2)): тег notify.image.tag без умолчания"
+    - "R36-2: K8r исполнена 960d9875b"
+    - "R36-3: база старта волны — диспетчеру"
+    - "Д74/Д77 (диспетчер, 2026-10-02): накат kacho_notify точкой services/notify/cmd/migrator; гейты формы наката приводит D4; D4 одной волной с D3"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false   # sha256sum → 1bffe10d…
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 1a5aa66841b6759e6106f1d10fa496a40071e4c4   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify, после fetch
+  kacho_line_2564: 5a5e3870efe   # origin/2564 (ушла с fca17e1b8)
+  kaname_line: 0f2395a624f    # origin/484-notify, после fetch
+  corelib_line: 1a37f81d0e9   # origin/77-notify
+snapshot_at: 2026-10-02T02:53:38Z
+inspected: >-
+  Дельта design.md (шапка редакции 37; З28 «Пустая таблица модулей на голове D1», «Тег образа notify —
+  без умолчания»; З32 «Накат схемы `kacho_notify` — та же точка и тот же механизм»; §11 строки CX1-116,
+  CX1-117, R36-2, R36-3, Д77) и change.yaml. tasks.md редакции 38: шапка, строки D1, D1s, D2, D3, D4, N7,
+  §3 п.4 и п.6. kacho @e415e59a225: internal/migratorapply/invocation_test.go целиком (624 строки),
+  apply_test.go (applyPoints, migrationsDirOf), internal/productnaming/productnaming.go (ServiceDir,
+  SourcesInThisTree, MigratorBinary). Перепись манифестов, упоминающих накатчик, и полос DSN шести
+  служб. kaname @0f2395a624f: go.mod, 960d9875b. Ни go test, ни helm не запускались. Записки vault не
+  читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED, не менялась; initial/1bffe10d….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-117 отображён (вхождений design/tasks 4/5). CX1-116 (6/4) отображён без D1s. Новые CX1-118 и CX1-119 — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "Д77 вводит новую полосу доставки DSN в доказательство наката (CX1-118) и межполосную зависимость формы от распознавателя (CX1-119)"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 8024f0bb… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 8024f0bb нет"
+
+mapping_check:
+  - item: CX1-116
+    verdict: mapped_incomplete
+    text: >-
+      Для D1 условие выполнено целиком. Таблица пуста, перечень `[]`, объектов 0. Печать идёт по каждой
+      цепочке и по ноге без зонтика. Второго включателя, строки вне `_sources.tpl` и запасной строки нет.
+      Инъекция с близнецом есть. Пробы D1, которым нужны объекты, получают вердикт на сведённой голове
+      D1+D2 (З28, строка D1). Но тот же класс задевает полосу D1s, и её строка этого не говорит. База D1s —
+      голова D1, где таблица пуста. Её предикаты утверждают отрендеренные объекты notify:
+      «`check-volume-mounts.py` … гейт зелёный с печатью workload notify» и «IaC-скан … осмотрен N целей
+      `deploy/helm/notify/`, N ≥ 1». Рендер ноги без зонтика на голове D1s даёт 0 объектов. Тогда N ≥ 1
+      краснеет без дефекта, а инъекции «из helm.values снят mail-node/operator.yaml → непокрытых 1» и
+      «гасит находку чужого чарта» судят пустой рендер, то есть вырождаются в сверку нуля с нулём.
+      Перечень З28 (design.md, «Пробы D1, утверждающие объекты рендера notify (I01, I02, I05, I06, …)»)
+      гейтов D1s не называет. Строка D1s о Д76 молчит: «Д76», «сведённой», «перечень пуст» — 0 вхождений
+  - item: CX1-117
+    verdict: holds
+    text: >-
+      (а) Тег берётся только через `required`, без AppVersion, `latest` и `default`. Отказ называет имя
+      ручки. (б) Порядок такой: тег не позже D2 и не позже стенда fe3455. Если образа нет, D2 даёт «не
+      выполнилось» с ревизией. (в) Предикат снятия — на внешнем факте: imagetools inspect плюс метка
+      `org.opencontainers.image.revision`. Держатель — `deploy/notify_image_tag_test.go`: инъекция
+      `default .Chart.AppVersion` и два близнеца. Однофайловый признак назван кандидатом class-guard.
+      Заметка N37-2 — об имени ручки в отказе на ноге без зонтика
+  - item: R36-2
+    verdict: holds
+    text: "960d9875b — предок origin/484-notify (0). go.mod kaname — corelib …-1a37f81d0e94. kacho @e415e59a225 пинит corelib 8a9eb14cd008 и kaname a5986266436b (go.mod:125,126). N11r не исполнена, как и записано"
+  - item: R36-3
+    verdict: holds
+    text: "Маршрут линии; предикат старта перенесён на всю волну; ae4bde452f6 по-прежнему не предок origin/2914-notify (1)"
+  - item: "Д74/Д77 — точка и механизм"
+    verdict: holds
+    text: >-
+      Действует первая ветвь Д77. Точка одна — services/notify/cmd/migrator, бинарь kacho-migrator,
+      контейнер `migrate`, форма `["/usr/local/bin/kacho-migrator", "up"]`. Отдельной точки замысел не
+      заводит и не запрещает. Все посылки замера воспроизводятся @e415e59a225. serviceOfManifest (:115)
+      знает только `services/` и `deploy/helm/umbrella/charts/`. Запасной путь serviceForForm берёт ключ
+      подчарта, а имена вроде `spec` и `containers` productnaming.ServiceDir не узнаёт, отсюда отказ
+      `ЧЬЮ — не выводится` (:215). Перепись по точкам на :303. В обратную сторону форма без точки — тоже
+      находка: `orphan` при SourcesInThisTree(notify) = true (:320–340). Доказательство берёт
+      migrationsDirOf (apply_test.go:31, вызов :546), NewEmptyDB (:566), `KACHO_MIGRATOR_DSN=` (:452)
+  - item: "Д77 — «гейты приводит D4»"
+    verdict: mapped_with_new_exposure
+    text: "Полоса DSN `KACHO_MIGRATOR_DSN` без области предиката — CX1-118. Форма D1 опирается на распознаватель D4 без зависимости — CX1-119"
+  - item: "Д75, Д64"
+    verdict: holds
+    text: "дельта не трогает"
+
+new_items:
+  - id: CX1-118
+    decision: "Д77 (в): у доказательства наката четвёртая полоса доставки DSN — `KACHO_MIGRATOR_DSN`, «если манифест службы её называет»"
+    class: >-
+      code-authoring §«Инвариант и оснастка — это тоже прод-код»: гейт решает полосу по тексту и должен
+      судить по идентичности, а не по имени. code-authoring §«Умолчание, которое становится
+      утверждением»: если полоса выбрана неверно, доказательство не отказывает, а молча доказывает другое
+    exposure: >-
+      У прежней проверки полосы `manifestNamesConfigPath` (invocation_test.go:491) область — все манифесты
+      под `services/` и `deploy/`, а иголка у каждой службы своя: `KACHO_<SVC>_CONFIG_PATH`. У
+      `KACHO_MIGRATOR_DSN` иголка общая для всех служб. Если новую проверку написать по тому же образцу,
+      то, как только notify впишет переменную в свой шаблон, проверка «называет ли манифест службы
+      переменную» начнёт отвечать «да» каждой службе. Сейчас @e415e59a225 переменная встречается в
+      манифестах 0 раз. Пять служб, которые ходят полосой `KACHO_<SVC>_DB_*` (compute, geo, nlb,
+      registry, storage), молча переедут на DSN-полосу. Это ровно та полоса, «которой пользуются все
+      развёртывания дерева», и ради её доказательства переменная здесь гасится (комментарий :443–445).
+      Близнец замысла сверяет «исход и число доказанных форм до и после правки». Накат проходит в любой
+      полосе, поэтому оба числа останутся равны, и близнец этого не увидит
+    condition_on_code: >-
+      (а) Полоса DSN выбирается по манифестам, приписанным этой службе, — тем же serviceOfManifest или
+      serviceForForm, что дают форму, — либо по файлу самой формы (`form.origin`). Подстрока по всему
+      дереву не годится. (б) Доказательство печатает полосу DSN по каждой прежней службе и утверждает, что
+      она не изменилась: до правки vpc — конфигурация (KACHO_VPC_CONFIG_PATH, 1 файл @e415e59a225), прочие
+      пять — окружение. Перемерить на базе D4. (в) Для служб вне DSN-полосы `KACHO_MIGRATOR_DSN=`
+      по-прежнему гасится
+    held_by: >-
+      Нужна инъекция D4, в замысле её нет. `KACHO_MIGRATOR_DSN` в шаблоне notify плюс проверка полосы по
+      всему дереву → у прежней службы полоса сменилась → красный с именем службы и обеими полосами.
+      Близнец — проверка по манифестам службы → полосы шести служб равны прежним (печать). Однофайлового
+      признака нет
+  - id: CX1-119
+    decision: "Д77: форма шлюза — у D1 (`deploy/helm/notify/templates/**`), распознаватель пути и точка наката — у D4; волна D1, D1s, D2, D3, D4"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены»: форма вызова — в одной полосе, а распознаватель
+      её службы и точка — в другой. Без порядка между полосами голова одной из них краснеет на чужом
+      предмете
+    exposure: >-
+      Колонка «зависит от» у D1 — «N1, D9». У D3 есть D4, у D1 его нет. В §3 п.6 перечень идёт «D9, D4,
+      D1, …», но это перечень, не зависимость. Перепись форм читает исходный текст шаблонов, а не рендер.
+      Поэтому форма `command: ["/usr/local/bin/kacho-migrator", "up"]` в `deploy/helm/notify/templates/**`
+      видна ей и при пустой таблице модулей. Если голова D1 нарезана без D4, `manifestForms` падает через
+      t.Fatalf `ЧЬЮ — не выводится` (:215). Падают обе пробы `internal/migratorapply`, обе зовут
+      manifestForms, и перепись прочих шести служб не печатается вовсе. В строке D1 этот исход не назван.
+      Для D4 он назван: «форм 0 (красный) — вердикт на сведённой голове с D3». Если D1 стоит на D4, на
+      голове D1 у notify одна форма, и перепись зелёная. Доказательство проходит форму шлюза по строке
+      `kacho_notifyprobe`, совпадающие формы схлопывает uniqueForms. Тогда утверждение «перепись
+      красная до D3» относится только к голове D4
+    condition_on_code: >-
+      (а) Строка D1 называет D4 в «зависит от» (база D1 содержит распознаватель D4 и точку). Иначе строка
+      D1 называет исход обеих проб `internal/migratorapply` на своей голове. Ослабления пробы, исключения
+      notify и формы-заглушки при этом быть не должно. (б) Шапка §3 п.6 говорит прямо: перепись форм на
+      голове D4 красная, на голове D4+D1 — зелёная, одна форма notify. На голове волны форм две (D1, D3)
+    held_by: >-
+      Держится вниманием и гейтом. Полоса D1 печатает вывод `go test ./internal/migratorapply/ -run
+      'TestEveryApplyPointHasItsInvocationFormDerived' -v` на своей голове: служба notify, форм 1,
+      источник формы — `deploy/helm/notify/templates/…`. Это строка маршрута, отдельной пробы не нужно
+
+items: []
+notes:
+  - id: N37-1
+    blocking: false
+    where: "tasks.md §3 п.6 «Волна по Д76 и Д77»; строка N7"
+    text: >-
+      N7 зависит от D4 (точка наката) и стоит раньше D2 (строка `kacho_notify`). D4 и D2 в одной волне,
+      значит N7 не может сесть ни раньше волны, ни после неё — только в ней. В перечне состава волны N7
+      нет: там «D1, D1s, D2, D3, D4 … N1 и N11r». Внести N7 в перечень и напечатать состав волны числом
+      полос
+    predicate: "перечень состава волны в §3 п.6 называет N7"
+  - id: N37-2
+    blocking: false
+    where: "design.md З28 «Тег образа notify — без умолчания»; строка D1"
+    text: >-
+      Отказ по тегу называет ручку зонтика `notify.image.tag`. На ноге без зонтика
+      (`deploy/testdata/notify-standalone/values.yaml`, чарт notify напрямую) оператор ставит `image.tag`.
+      Отказ с именем, которого в этом установочном пути нет, ручку не называет. Чтобы ручку называл каждый
+      путь, отказ должен печатать оба пути либо путь того слоя, в котором его читают. Близнец — нога без
+      зонтика с непустым перечнем и пустым тегом → отказ с `image.tag`
+    predicate: "проба тега D1 несёт случай ноги без зонтика"
+  - id: N37-3
+    blocking: false
+    where: "строка D1 «по Д74, Д77»"
+    text: >-
+      Точка выбирает цепочку по имени базы в DSN. Поэтому имя базы в DSN контейнера `migrate` шлюза — это
+      выбор цепочки, а не просто адрес. Строка D3 утверждает рендером «DSN с базой `kacho_notifyprobe`».
+      Строка D1 пишет «DSN базы `kacho_notify`» как требование, но пробы с инъекцией под ним нет. Нужен
+      рендер на сведённой голове D1+D2: имя базы и sslmode в DSN контейнера `migrate` берутся из тех же
+      ручек, что у процесса шлюза. Инъекция — ручка базы контейнера отличается от ручки процесса →
+      красный, близнец — общая ручка
+    predicate: "строка D1 несёт рендерное утверждение имени базы DSN `migrate` с инъекцией"
+
+measurements:
+  - claim: "предмет и маршрут; на 1a5aa6684 — пересверенная редакция"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum"
+    result: "8024f0bb…, 4cdc8f1a…; HEAD — 22fa57a4…"
+  - claim: "отображение пунктов и решений"
+    command: "for id in CX1-116 CX1-117 R36-1 R36-2 R36-3 Д76 Д77; do grep -c -- $id design.md tasks.md; done"
+    result: "6/4, 4/5, 5/1, 2/2, 3/3, 8/4, 8/7"
+  - claim: "посылки Д77 (номера строк)"
+    command: "git -C project/kacho show origin/2914-notify:internal/migratorapply/invocation_test.go | sed -n '95,160p;200,225p;285,345p;440,611p'"
+    result: "serviceOfManifest :115; ЧЬЮ :215; НЕТ ни одной формы :303; orphan при SourcesInThisTree; KACHO_MIGRATOR_DSN= :452; migrationsDirOf :546; NewEmptyDB :566 — подтверждено, 624 строки"
+  - claim: "манифесты с накатчиком сейчас; в umbrella/templates — ни одного (новое правило имени файла прежних форм не перераспределяет)"
+    command: "git -C project/kacho grep -l -E '/usr/local/bin/(kacho|kaname)-migrator' origin/2914-notify -- 'deploy/**/*.yaml' 'deploy/**/*.tpl' 'services/**/*.yaml' 'services/**/*.tpl'"
+    result: "8 файлов: 5 × services/<svc>/deploy/templates/deployment.yaml, charts/kacho-geo/templates/deployment.yaml, charts/kaname/values.yaml, umbrella/values.dev.yaml; под deploy/helm/umbrella/templates/ — 0"
+  - claim: "KACHO_MIGRATOR_DSN в манифестах и текущие полосы DSN (CX1-118)"
+    command: "git -C project/kacho grep -n KACHO_MIGRATOR_DSN origin/2914-notify -- '{services,deploy}/**/*.{yaml,yml,tpl}'; по каждой службе git grep -l KACHO_<SVC>_CONFIG_PATH …"
+    result: "KACHO_MIGRATOR_DSN — 0; KACHO_VPC_CONFIG_PATH — 1 файл; compute, geo, nlb, registry, storage — 0 (полоса окружения)"
+  - claim: "зависимости D1 и D3 (CX1-119)"
+    command: "awk -F'|' '$2==\" D1 \" || $2==\" D3 \" {print $(NF-2)}' docs/changes/issue-2915/tasks.md"
+    result: "D1: «N1, D9; посадка — одной волной с D2 (Д76), D3 и D4 (Д77)»; D3: «D1, D9, D4; …»"
+  - claim: "D1s о пустой таблице (CX1-116)"
+    command: "awk -F'|' '$2==\" D1s \"' tasks.md | grep -c -E 'Д76|сведённой|перечень пуст'"
+    result: "0; в предикате D1s — «гейт зелёный с печатью workload notify», «осмотрен N целей `deploy/helm/notify/`, N ≥ 1»; база — голова D1"
+  - claim: "R36-2"
+    command: "git -C project/kaname merge-base --is-ancestor 960d9875b origin/484-notify; git -C project/kaname show origin/484-notify:go.mod | grep corelib; git -C project/kacho show origin/2914-notify:go.mod | grep -n 'corelib\\|kaname v'"
+    result: "0; v1.10.0-rc.5.0.20261001232603-1a37f81d0e94; :125 corelib 8a9eb14cd008, :126 kaname a5986266436b"
+  - claim: "посылка задания: ae4bde452f6 не в ветке эпика"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; echo $?"
+    result: "1"
+
+not_measurable:
+  - item: "чем гейты D1s получат объекты notify на голове D1s"
+    why: "чарта notify в дереве нет (на e415e59a225 deploy/helm/ — только umbrella и vendor). Ответить может только маршрут: вердикт D1s на сведённой голове с D2 либо иное"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-116 (часть D1s), CX1-118, CX1-119]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: >-
+      CX1-116 — строка D1s: её гейты, утверждающие объекты notify (печать workload notify в
+      check-volume-mounts, N ≥ 1 целей IaC-скана и инъекции по ним), получают вердикт на сведённой голове
+      с D2. На голове D1s — «НЕ ВЫПОЛНИЛОСЬ: перечень пуст» с печатью предпосылки; гейты D1s дописать в
+      перечень З28. CX1-118 — область предиката полосы `KACHO_MIGRATOR_DSN` (манифесты службы или файл
+      формы); утверждение «полосы шести служб не изменились»; инъекция с близнецом в строке D4. CX1-119 —
+      D4 в «зависит от» строки D1 либо названный исход проб migratorapply на голове D1. Заметки N37-1…N37-3
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Решение и его следствие разнесены», §«Инвариант и оснастка — это тоже прод-код»"

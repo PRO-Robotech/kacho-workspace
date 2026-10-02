@@ -1,0 +1,194 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2, редакция 32, маршрут редакции 31.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 32 против последней пересверенной
+# (редакция 31, fa6ab427…, запись revalidation/fa6ab427….yaml — «к замыслу», CX2-107, CX2-108, N31-1)
+# плюс ревью замысла fa6ab427 (RETURNED, R31-1…R31-3) и следствия замысла NTF-1 редакции 37. Дельта не
+# закоммичена: рабочее дерево issue-880 поверх 1a5aa6684 (на 1a5aa6684 design.md = fa6ab427…).
+#
+# Итог — к замыслу. CX2-108, N31-1 и R31-1…R31-3 отображены. CX2-107 тоже отображён, но с одним дефектом
+# порядка. Перед (г) нужно прочитать следы по ключу источника, а источником назван заголовок
+# `X-Forwarded-For` из запросов (г), то есть из запросов, которых к этому моменту ещё не было. Этот
+# дефект и инъекцию, которая от него зависит, разбирает новый пункт CX2-109.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 3e58f41868670c91a9a7578231c506dd3a862e085347a03fee933157e2d85c9c
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 3e58f41868670c91a9a7578231c506dd3a862e085347a03fee933157e2d85c9c   # рабочее дерево
+  tasks_sha256: b9f3f083000d9fcf2ccfc9ec8edd7547044b0dbfeaee5a1474e5949cbe5f3af9
+  revision: 32
+  content_commit: "— (рабочее дерево поверх 1a5aa6684, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2917/reviews/class-exposure/revalidation/fa6ab427198ea13378257b925d83144053511f1e20c954d197f677ab929b2083.yaml
+    sha256: fa6ab427198ea13378257b925d83144053511f1e20c954d197f677ab929b2083
+  delta_predicate: "git diff -- docs/changes/issue-2917/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @1a5aa6684)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  revision: 32
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5606cbc0….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/5606cbc0….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 1a5aa66841b6759e6106f1d10fa496a40071e4c4   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kacho_line_2564: 5a5e3870efe   # origin/2564
+  kaname_line: 0f2395a624f    # origin/484-notify, после fetch
+  corelib_line: 1a37f81d0e9   # origin/77-notify
+snapshot_at: 2026-10-02T02:53:38Z
+inspected: >-
+  Дельта design.md (шапка редакции 32; З8 «Второй страж на путях вне ограничителя» — «Какой страж судит
+  что», «A и S1», «Ключ источника», «Чтение», «Перед (г)», «Контроль в обе стороны», «Инъекции»; З15 «На
+  `recovery/complete` после S3 судит только `AttemptGuard`», «Хранилище стража»; §6 абзац миграции S3; §11
+  строки CX2-101, CX2-106, CX2-107, CX2-108, N31-1, R31-1…R31-3) и change.yaml. tasks.md: строки S3, E2,
+  X1. Приёмка 5606cbc0: NTF2-60 Given и When (а), абзац «Перебор кода держат оси kaname». kaname
+  @0f2395a624f: миграция 20260916190000 (login_failures), iface.go (FailureScope, Store), human_session_repo.go
+  (SQL счёта и записи), recovery_complete.go:176. Пробы не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "5606cbc0 — APPROVED, не менялась; initial/5606cbc0….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-107 (12/3), CX2-108 (11/5), N31-1 (5/3) отображены; новый CX2-109 — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "новых путей продукта дельта не вводит; новые значения FailureScope — оси существующего хранилища, их держит CX2-108"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 3e58f418… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 3e58f418 нет"
+
+mapping_check:
+  - item: CX2-107
+    verdict: mapped_with_new_exposure
+    text: >-
+      (б)–(е) выполнены. `A` каноническая, проверка `A == lower(A)` и ASCII, отсюда `Account(A) = A`. Окно
+      считается по `now()` базы в том же запросе. Ошибка или отсутствие таблицы или столбца дают «не
+      выполнилось», а не 0. Контроль после (г) — 1/1 по `address_source` и `address_ceiling`. Соль попытки
+      печатается. Инъекция — заглавная буква с близнецом. (а) отображён с дефектом порядка, см. CX2-109
+  - item: CX2-108
+    verdict: holds
+    text: >-
+      Решение принято: `gate.check` с `recovery_complete.go` снимается (сейчас :176 @0f2395a624f),
+      предъявление судит только `AttemptGuard`. Это совпадает с приёмкой: «Перебор кода держат оси
+      kaname, одинаковые на всех путях предъявления» — две оси «адрес + источник» и потолок по адресу.
+      Гейт вызывающих печатает 3 / 6 / 0 и несёт инъекцию с близнецом. Хранилище — существующая
+      `login_failures` (scope, key, failed_at), её CHECK `scope` сейчас допускает `address` и `source`
+      (миграция 20260916190000:120). Расширяет его новая миграция S3, применённая не правится. E2
+      печатает ревизию kaname и `pg_constraint`, без `address_source` — «не выполнилось»
+  - item: N31-1
+    verdict: holds
+    text: "X1 и строка CX2-101: момент изменения — максимум `.metadata.managedFields[].time`; нет поля или `time` — «не выполнилось»; инъекция `kubectl patch` с близнецом"
+  - item: "R31-1, R31-2"
+    verdict: holds
+    text: "Строка CX2-106 называет ось адреса `mailkey.Account(A)`, а не снимаемую `AddressKey`; R31-2 = N31-1"
+  - item: R31-3
+    verdict: holds
+    text: "Маршрут линии, к диспетчеру; ae4bde452f6 не предок origin/2914-notify (1)"
+  - item: "следствия NTF-1 редакции 37"
+    verdict: holds
+    text: >-
+      Д76 и Д77 NTF-2 не касаются. В NTF-1 строки таблицы модулей вносит D2, и это та же опора для полей
+      источника, которые добавляет D1 NTF-2. Волна D1…D4 NTF-1 сдвигает момент, когда начинается D1
+      NTF-2, но не порядок
+
+new_items:
+  - id: CX2-109
+    decision: "CX2-107 (а) в редакции 32: ключ источника — значение `X-Forwarded-For`, «увиденное посредником край → kaname в запросах (г)»; перед (г) — чтение следов по осям `source` и `address_source` этим ключом и инъекция «неудачи пары (A, S1) в хранилище AttemptGuard до (г)»"
+    class: >-
+      code-authoring §«Порядок операций внутри кода»: значение читается раньше, чем появляется.
+      measurement-discipline §«Предикат — только с контролем»: ноль, прочитанный по ключу, которого ещё
+      нет, означает «не умею сказать», а не «следов нет»
+    exposure: >-
+      В строке E2 и в З8 стоят рядом два шага. Первый — «перед (г) … следы по осям `address`, `source`,
+      `address_source` (ключ `<длина S>:<S><A>`), `address_ceiling` — все 0». Второй — «ключ источника —
+      значение `X-Forwarded-For`, увиденное посредником … в запросах (г)». Пока (г) не прошла, посредник
+      её запросов не видел, и ключа для двух осей из четырёх нет. Исполнитель решит это одним из двух
+      способов, и оба плохие: подставит литерал `S1` (второе написание ключа, ровно то, что снимал
+      CX2-107) или пропустит чтение до (г), и ноль окажется напечатан без предмета. Инъекция «неудачи
+      пары (`A`, `S1`) … до (г)» тоже нуждается в ключе пары до (г). Контроль 1/1 после (г) ловит неверный
+      ключ только у `AttemptGuard`. Ось `source` у `attemptGate` после (г) печатается без утверждения
+      («печатаются без утверждения»), и её чтение до (г) по неверному ключу останется ложным нулём.
+      Источник есть уже в сценарии. По приёмке, NTF2-60 When (а), с `S1` идут запросы `POST
+      /iam/v1/auth/recovery`, и `H` из них звено пропускает до kaname. Значит, посредник видит значение
+      источника ещё до (г)
+    condition_on_code: >-
+      (а) Ключ источника для чтения до (г) и для инъекции берётся из запросов (а) этого же прогона: тех,
+      что посредник пропустил к kaname. Если таких запросов 0 — «не выполнилось». Печатаются значение и
+      число запросов. (б) Значение `X-Forwarded-For` в запросах (г) обязано совпасть с ним. Расхождение
+      или больше одного значения — «не выполнилось» с обоими. (в) К значению применяется то же
+      преобразование, что у полосы формы kaname (`strings.TrimSpace`), — одной функцией. Своего
+      написания ключа проба не заводит
+    held_by: >-
+      Нужна инъекция E2, её нет. Посредник подаёт в (г) значение источника, отличное от значения в (а) →
+      «не выполнилось» с обоими значениями, а не зелёный и не красный. Близнец — значения равны → чтение
+      до (г) по этому ключу, 0 по четырём осям, после (г) 1/1. Однофайлового признака нет
+
+items: []
+notes:
+  - id: N32-1
+    blocking: false
+    where: "design.md §6 абзац «Страж попыток (З15)»; строка S3"
+    text: >-
+      Миграция S3 расширяет CHECK `scope` снятием и созданием ограничения. У сужения, то есть у `-- +goose
+      Down`, на таблице со строками `address_source` и `address_ceiling` есть два исхода: отказ отката либо
+      молчаливая потеря строк. Сейчас ни один не назван. Надо назвать, что делает Down: удаляет строки
+      новых осей до сужения (`DELETE … WHERE scope IN ('address_source','address_ceiling')`) или
+      откатывается отказом с причиной. Integration-проба S3 делает Down и Up на таблице со строкой новой оси
+    predicate: "строка S3 называет поведение Down при строках новых осей и пробу Down/Up"
+
+measurements:
+  - claim: "предмет и маршрут; на 1a5aa6684 — пересверенная редакция"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD:docs/changes/issue-2917/design.md | sha256sum"
+    result: "3e58f418…, b9f3f083…; HEAD — fa6ab427…"
+  - claim: "отображение пунктов"
+    command: "for id in CX2-107 CX2-108 N31-1 managedFields R31-1 R31-2 R31-3; do grep -c -- $id design.md tasks.md; done"
+    result: "12/3, 11/5, 5/3, 3/2, 6/1, 3/0, 3/2"
+  - claim: "ключ источника из (г) читается до (г) (CX2-109)"
+    command: "awk -F'|' '$2==\" E2 \"' docs/changes/issue-2917/tasks.md | grep -o 'по CX2-107, CX2-108.*'"
+    result: "«ключ источника — значение `X-Forwarded-For`, увиденное посредником край → kaname в запросах (г)» и «перед (г) — … следы по осям … `source`, `address_source` (ключ `<длина S>:<S><A>`) … все `0`»"
+  - claim: "источник наблюдаем до (г): (а) с S1 доходит до kaname"
+    command: "sed -n '2285,2288p' docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md"
+    result: "«(а) с `S1` идут запросы `POST /iam/v1/auth/recovery` … пока звено не пропустило `H` запросов»"
+  - claim: "хранилище и ограничение kaname"
+    command: "git -C project/kaname show origin/484-notify:internal/migrations/20260916190000_human_session_is_our_record.sql | sed -n '116,122p'; git -C project/kaname grep -n 'FailureScope = ' origin/484-notify -- '*.go'"
+    result: "login_failures(scope, key, failed_at); CHECK scope ∈ {address, source}; FailureByAddress, FailureBySource @0f2395a624f"
+  - claim: "gate.check на recovery/complete сейчас"
+    command: "git -C project/kaname grep -n 'gate.check' origin/484-notify -- internal/apps/kaname/api/humansession/recovery_complete.go"
+    result: "recovery_complete.go:176 — подтверждено"
+  - claim: "mailkey.Account и AttemptGuard — предметы S3, на базе их нет"
+    command: "git -C project/kaname grep -c 'AttemptGuard' origin/484-notify -- '*.go'; git -C project/kaname grep -n 'func Account' origin/484-notify -- '*.go'"
+    result: "0; в mailkey нет (вводит S3, З11) — замысел говорит о ревизии после S3, это согласуется"
+
+not_measurable:
+  - item: "значение `X-Forwarded-For`, которое край пересылает kaname на стенде П6"
+    why: "стенд П6 не поднят. Число различных значений на прогон может дать только сам прогон, условие (б) это и требует"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX2-109]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "CX2-109 — ключ источника для чтения до (г) и для инъекции брать из запросов (а), пропущенных к kaname; в (г) сверять равенство; одна функция преобразования; инъекция с близнецом в E2. Заметка N32-1 — Down миграции S3"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Порядок операций внутри кода»; measurement-discipline §«Предикат — только с контролем»"

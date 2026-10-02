@@ -1,0 +1,174 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 37 (маршрут — tasks.md редакции 38). Прежняя
+# запись роли — 22fa57a4….yaml (редакция 36, RETURNED: R36-1 — CX1-116/CX1-117, R36-2, R36-3). Судятся
+# закрытие R36-1…3, отображение Д74/Д77, Д75, Д76 и пять условий одобрения. Рабочее дерево issue-880
+# поверх 1a5aa6684, не закоммичено. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 8024f0bb85962717e09f004f8652588a4bfa44312ac913175a19dea435dd4848
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с пересверкой revalidation/8024f0bb и change.yaml:229 hashes.design_sha256"
+  revision: 37
+  tasks_sha256: 4cdc8f1ab2d7e39daf9671c1d261d9542b3447cfd9345afd90edfb88e08189af   # маршрут редакции 38
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/22fa57a407ec18cf4d7d654f79831fa6992c605f8a439e2f137e4e77d9073e04.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась; change.yaml:228)"
+revisions:
+  workspace: 1a5aa6684   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify, перемерено после fetch
+  kaname_line: 0f2395a624f   # origin/484-notify, перемерено после fetch
+  corelib_line: 1a37f81d0e9   # origin/77-notify, перемерено после fetch
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # точка и форма наката kacho_notify, полоса DSN доказательства, порядок полос волны
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  Пересверка revalidation/8024f0bb целиком; design.md §11 строки CX1-116, CX1-117, R36-2, Д77
+  (3849–3853), З28 (2284); tasks.md строки D1 (колонка «зависит от»), D1s. Счёт вхождений
+  design/tasks/change.yaml: CX1-116 6/4/2, CX1-117 4/5/2, CX1-118 0/0/0, CX1-119 0/0/0, R36-1 5/1/1,
+  R36-2 2/2/1, R36-3 3/3/1, Д76 8/4/1, Д77 8/7/2, N37-1…3 0/0/0; строка D1s по «Д76|сведённой|перечень
+  пуст» — 0; TODO|TBD|FIXME 0/0. kacho invocation_test.go @e415e59a225 — шесть координат. Пробы, go test
+  и helm не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R36-1
+    status: "закрыт частично — CX1-117 закрыт; CX1-116 закрыт для D1, не для D1s (переходит в R37-1)"
+    evidence: "пересверка 8024f0bb: CX1-117 holds, CX1-116 mapped_incomplete; строка D1s — 0 вхождений Д76/сведённой/перечень пуст"
+  - id: R36-2
+    status: закрыт
+    evidence: "§11:3851 — K8r исполнена 960d9875b; перемерено: предок origin/484-notify (0), corelib …-1a37f81d0e94"
+  - id: R36-3
+    status: "остаётся у диспетчера (не дефект замысла)"
+    evidence: "ae4bde452f6 не предок origin/2914-notify (1, перемерено)"
+
+remeasured_author_claims:   # выборочно 5 из таблицы автора (§11), своей командой после fetch
+  - claim: "Д77: посылки гейтов — invocation_test.go :115, :215, :303, :452, :546, :566 @e415e59a225"
+    command: "git -C project/kacho show origin/2914-notify:internal/migratorapply/invocation_test.go | sed -n '115p;215p;303p;452p;546p;566p'; … | wc -l"
+    result: "serviceOfManifest / «ЧЬЮ — не выводится» / «НЕТ ни одной формы» / KACHO_MIGRATOR_DSN= / migrationsDirOf / pgtest.NewEmptyDB; 624 строки — подтверждено"
+  - claim: "R36-2: K8r исполнена — 960d9875b в линии 484-notify, kaname пинит corelib 1a37f81d0e94"
+    command: "git -C project/kaname merge-base --is-ancestor 960d9875b origin/484-notify; git -C project/kaname show origin/484-notify:go.mod | grep corelib"
+    result: "0; v1.10.0-rc.5.0.20261001232603-1a37f81d0e94 — подтверждено"
+  - claim: "N11r не исполнена: kacho go.mod:125,126 — corelib 8a9eb14cd008, kaname a5986266436b"
+    command: "git -C project/kacho show origin/2914-notify:go.mod | sed -n '125,126p'"
+    result: "corelib …-8a9eb14cd008, kaname …-a5986266436b — подтверждено"
+  - claim: "KACHO_MIGRATOR_DSN в манифестах дерева сейчас — 0 (основа CX1-118)"
+    command: "git -C project/kacho grep -n KACHO_MIGRATOR_DSN origin/2914-notify -- 'services/*.yaml' 'services/*.tpl' 'deploy/*.yaml' 'deploy/*.tpl' | wc -l"
+    result: "0 — подтверждено"
+  - claim: "чарта notify в дереве нет (deploy/helm/ — umbrella и vendor)"
+    command: "git -C project/kacho ls-tree --name-only origin/2914-notify deploy/helm/"
+    result: "deploy/helm/umbrella, deploy/helm/vendor — подтверждено"
+
+dispatcher_decisions:
+  - id: "Д74/Д77"
+    status: "отображено в части точки и механизма (первая ветвь: services/notify/cmd/migrator); следствие «гейты приводит D4» вводит CX1-118, CX1-119 — не отображены"
+    evidence: "§11:3853; CX1-118 0/0/0, CX1-119 0/0/0"
+  - id: Д75
+    status: "отображено (без изменений; форму утверждает proto-api-reviewer на D4)"
+    evidence: "§11:3844"
+  - id: Д76
+    status: "отображено для D1 (пустая таблица — закрытый исход; тег без умолчания); для D1s — нет"
+    evidence: "§11:3849–3850; строка D1s — 0"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: "чем гейты D1s получают объекты notify на голове с пустой таблицей — не решено (not_measurable пересверки 8024f0bb); исход проб migratorapply на голове D1 без D4 не назван (CX1-119)"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 8024f0bb: unmapped [CX1-116 (часть D1s), CX1-118, CX1-119]; перемер — CX1-118 0/0/0, CX1-119 0/0/0, D1s 0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/8024f0bb….yaml — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 1bffe10d APPROVED, первичный разбор initial/1bffe10d есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает; накат up идемпотентен по построению goose."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "закрыта: новых межсервисных рёбер нет; K8r исполнена, N11r по графу corelib←kaname←kacho."
+  public_vs_internal_edge: "закрыта (InternalNotifyProbeService — внутренний слушатель)."
+  migration_point: >-
+    точка и механизм закрыты (Д77, первая ветвь). Возврат по оснастке: полоса DSN доказательства наката
+    выбирается предикатом без области — общая переменная KACHO_MIGRATOR_DSN переведёт пять служб с полосы
+    KACHO_<SVC>_DB_* на DSN-полосу, близнец «исход и число форм равны» этого не увидит (CX1-118).
+  rollout_ordering: >-
+    возврат: форма шлюза у D1 читается распознавателем D4, но D4 нет в «зависит от» строки D1 (CX1-119);
+    гейты D1s судят объекты notify на голове с пустой таблицей (CX1-116, часть D1s).
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R37-1
+    where: "tasks.md строка D1s; design.md З28 (перечень проб с вердиктом на сведённой голове, 2284)"
+    finding: >-
+      CX1-116 для D1s не отображён: база D1s — голова D1 с пустой таблицей (объектов notify 0), а её
+      предикаты утверждают «печать workload notify» и «N ≥ 1 целей IaC-скана», инъекции по ним вырождаются
+      в сверку нуля с нулём.
+    requirement: >-
+      Вердикт гейтов D1s, утверждающих объекты notify, — на сведённой голове с D2; на голове D1s —
+      «НЕ ВЫПОЛНИЛОСЬ: перечень пуст» с печатью предпосылки; гейты D1s внести в перечень З28.
+  - id: R37-2
+    where: "tasks.md строка D4; design.md §11 строка Д77 (3853)"
+    finding: >-
+      CX1-118 не отображён (0/0/0): предикат «манифест службы называет KACHO_MIGRATOR_DSN» без области;
+      иголка общая, при появлении её в шаблоне notify проверка по всему дереву ответит «да» каждой службе.
+    requirement: >-
+      Полоса DSN — по манифестам, приписанным службе (serviceOfManifest/serviceForForm) или по файлу формы;
+      доказательство печатает полосу DSN каждой прежней службы и утверждает, что она не изменилась (vpc —
+      конфигурация, пять — окружение, перемерить на базе D4); для служб вне полосы KACHO_MIGRATOR_DSN=
+      гасится. Инъекция D4: переменная в шаблоне notify + проверка по всему дереву → красный с именем
+      службы и обеими полосами; близнец — проверка по манифестам службы → полосы шести служб прежние.
+  - id: R37-3
+    where: "tasks.md строка D1, колонка «зависит от»; §3 п.6"
+    finding: >-
+      CX1-119 не отображён (0/0/0): форма `deploy/helm/notify/templates/**` видна переписи по исходному
+      тексту и при пустой таблице; без D4 в базе голова D1 падает t.Fatalf «ЧЬЮ — не выводится» (:215).
+    requirement: >-
+      D4 в «зависит от» строки D1 либо строка D1 называет исход обеих проб internal/migratorapply на своей
+      голове без ослабления пробы, исключения notify и формы-заглушки; §3 п.6: перепись на голове D4 —
+      красная, на D4+D1 — зелёная (форма notify 1), на голове волны — 2. Печать в сдаче D1 — вывод
+      TestEveryApplyPointHasItsInvocationFormDerived -v.
+
+important: []
+
+minor:
+  - id: R37-4
+    note: "N37-1…N37-3 пересверки 8024f0bb (0 вхождений): N7 в составе волны §3 п.6 с числом полос; отказ тега на ноге без зонтика называет image.tag; рендерное утверждение имени базы DSN контейнера migrate с инъекцией."
+  - id: R37-5
+    note: "R36-3 — база старта волны (ae4bde452f6 не предок origin/2914-notify, 1): вопрос маршрута линии, диспетчеру."
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R37-1 (CX1-116/D1s), R37-2 (CX1-118), R37-3 (CX1-119), R37-4 (N37-1…3)"
+  - кому: "диспетчер"
+    что: "R37-5 — база старта волны"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.

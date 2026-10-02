@@ -1,0 +1,133 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-2 редакции 32 (маршрут tasks.md b9f3f083…). Прежняя
+# запись роли — fa6ab427….yaml (редакция 31, RETURNED: R31-1 — CX2-107/CX2-108, R31-2, R31-3). Приёмка
+# не менялась (5606cbc0…, APPROVED). Рабочее дерево issue-880 поверх 1a5aa6684, не закоммичено.
+# Запись не правится.
+schema_version: 1
+kind: design_review
+change_id: issue-2917
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 3e58f41868670c91a9a7578231c506dd3a862e085347a03fee933157e2d85c9c
+  fingerprint_predicate: "sha256sum docs/changes/issue-2917/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с пересверкой revalidation/3e58f418 и change.yaml:122 hashes.design_sha256"
+  revision: 32
+  tasks_sha256: b9f3f083000d9fcf2ccfc9ec8edd7547044b0dbfeaee5a1474e5949cbe5f3af9
+  previous_record: docs/changes/issue-2917/reviews/design/design-reviewer/fa6ab427198ea13378257b925d83144053511f1e20c954d197f677ab929b2083.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  verdict: "APPROVED (не менялась; change.yaml:121; запись влита 1a5aa6684)"
+  changed_since_previous_record: false
+revisions:
+  workspace: 1a5aa6684
+  kacho_epic: e415e59a225   # origin/2914-notify, перемерено после fetch
+  kaname_line: 0f2395a624f  # origin/484-notify, перемерено после fetch
+  corelib_line: 1a37f81d0e9
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-2"
+distributed_surface: true      # проба kacho читает хранилище стража kaname; ключ источника пересылает край
+schema_review_overlap: false   # миграция S3 (CHECK scope) — предмет db-architect-reviewer на диффе
+
+inspected: >-
+  Пересверка revalidation/3e58f418 целиком; tasks.md строка E2 (фраза «в запросах (г)»). Счёт вхождений
+  design/tasks/change.yaml: CX2-107 12/3/2, CX2-108 11/5/2, CX2-109 0/0/0, R31-1 6/1/2, R31-2 3/0/0,
+  R31-3 3/2/2, N31-1 5/3/2, N32-1 0/0/0; TODO|TBD|FIXME 0/0. kaname recovery_complete.go @0f2395a624f.
+  Пробы не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R31-1
+    status: "CX2-108 закрыт; CX2-107 отображён с новым дефектом порядка (переходит в R32-1)"
+    evidence: "пересверка 3e58f418: CX2-108 holds, CX2-107 mapped_with_new_exposure → CX2-109 (0/0/0)"
+  - id: R31-2
+    status: закрыт
+    evidence: "N31-1 holds: момент изменения — максимум .metadata.managedFields[].time, инъекция kubectl patch с близнецом"
+  - id: R31-3
+    status: "остаётся у диспетчера (не дефект замысла)"
+    evidence: "ae4bde452f6 не предок origin/2914-notify (1, перемерено)"
+
+remeasured_author_claims:   # выборочно, своей командой после fetch
+  - claim: "gate.check на recovery/complete сейчас — recovery_complete.go:176 (снимается S3, CX2-108)"
+    command: "git -C project/kaname grep -n 'gate.check' origin/484-notify -- internal/apps/kaname/api/humansession/recovery_complete.go"
+    result: ":176 — подтверждено"
+  - claim: "ae4bde452f6 не в ветке эпика"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; echo $?"
+    result: "1 — подтверждено"
+  - claim: "ключ источника назван значением из запросов (г) (основа CX2-109)"
+    command: "awk -F'|' '$2==\" E2 \"' docs/changes/issue-2917/tasks.md | grep -o 'в запросах (г)'"
+    result: "1 вхождение — подтверждено"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: "откуда берётся ключ источника для чтения следов до (г) и для инъекции — не решено: назван источник, наблюдаемый только в (г)"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 3e58f418: unmapped [CX2-109]; перемер — 0/0/0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/3e58f418 — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 5606cbc0 одобрена, первичный разбор initial/5606cbc0 есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "дельта не трогает."
+  public_vs_internal_edge: "дельта не трогает."
+  cross_service_state: >-
+    возврат: проба читает следы по осям source и address_source до (г) ключом, который назван значением
+    X-Forwarded-For из запросов (г) — до (г) его нет; исполнитель подставит литерал S1 (второе написание
+    ключа) либо напечатает 0 без предмета; ось source у attemptGate после (г) не утверждается, ложный ноль
+    останется незамеченным (CX2-109).
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R32-1
+    where: "design.md З8 «Ключ источника», «Перед (г)», «Инъекции»; tasks.md строка E2"
+    finding: "CX2-109 пересверки 3e58f418 не отображён (0/0/0): значение читается раньше, чем появляется."
+    requirement: >-
+      Ключ источника для чтения до (г) и для инъекции — из запросов (а) этого прогона, пропущенных
+      посредником к kaname (0 запросов — «не выполнилось»; печать значения и числа запросов); в (г)
+      значение обязано совпасть, расхождение или больше одного — «не выполнилось» с обоими; преобразование
+      — та же функция, что у полосы формы kaname (strings.TrimSpace), своего написания ключа нет. Инъекция
+      E2: значение в (г) ≠ значению в (а) → «не выполнилось»; близнец — равны → 0 по четырём осям до (г),
+      1/1 после.
+
+important: []
+
+minor:
+  - id: R32-2
+    note: "N32-1 (0 вхождений): строка S3 называет поведение Down миграции при строках address_source/address_ceiling (DELETE до сужения либо отказ с причиной) и пробу Down/Up."
+  - id: R32-3
+    note: "R31-3 — база старта D2/D3/D6/E1 (ae4bde452f6 вне ветки эпика): диспетчеру."
+
+orders:
+  - кому: "автор замысла NTF-2"
+    что: "R32-1 (CX2-109), R32-2 (N32-1)"
+  - кому: "диспетчер"
+    что: "R32-3 — база старта полос, зависящих от kacho#1276"
+
+next: >-
+  Возврат автору замысла NTF-2. После правки — пересверка разбора классов и эта роль на новом отпечатке.
