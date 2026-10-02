@@ -1,0 +1,141 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2, редакция 33, маршрут редакции 32.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 33 против последней пересверенной
+# (редакция 32, 3e58f418…, запись revalidation/3e58f418….yaml — «к замыслу», CX2-109, N32-1) и решения
+# диспетчера Д79, Д80 (2026-10-02; Д75…Д78 действуют). Дельта не закоммичена: рабочее дерево issue-880
+# поверх f2696940e (на f2696940e design.md = 3e58f418…).
+#
+# Итог — чистая. CX2-109 отображён целиком. Ключ источника берётся из запросов (а), пропущенных к
+# kaname, в (г) сверяется равенство, приведение и ключ пары — одни функции публичного пакета kaname
+# pkg/attemptkey, инъекция с близнецом. N32-1 отображена: Down удаляет строки новых осей до сужения,
+# есть проба Down/Up с инъекцией. Новых путей продукта, внешних вызовов и sentinel дельта не вводит.
+# Д80 о старте E1, E2, D6 после kacho#1276 совпадает с маршрутом: условие начала Е12 у E1 и D6, E2
+# идёт через E1. Д79 NTF-2 не касается.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true   # ожидалось a84a1db8… — совпало
+  change_yaml_design_sha256: a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee   # рабочее дерево
+  tasks_sha256: e98069a7775df0643913e6da241d481d350419f43babaa0bc130dc38f68ad723
+  revision: 33
+  content_commit: "— (рабочее дерево поверх f2696940e, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2917/reviews/class-exposure/revalidation/3e58f41868670c91a9a7578231c506dd3a862e085347a03fee933157e2d85c9c.yaml
+    sha256: 3e58f41868670c91a9a7578231c506dd3a862e085347a03fee933157e2d85c9c
+  delta_predicate: "git diff -- docs/changes/issue-2917/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @f2696940e)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  revision: 32
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5606cbc0….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/5606cbc0….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: f2696940ed1264f2951907f50fdb8b501ee25e56   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kaname_line: 0f2395a624f    # origin/484-notify
+  corelib_line: 1a37f81d0e94   # origin/77-notify
+snapshot_at: 2026-10-02T04:23:54Z
+inspected: >-
+  Дельта design.md (шапка редакции 33; З8 «Ключ источника», «Перед (г)», «Инъекции»; З15 «Приведение и
+  ключи — один публичный пакет»; §6 «Откат»; §11 строки CX2-109, N32-1, R32-3; счёт строк отображения) и
+  tasks.md: строки S3, E1, E2, D6. kaname @0f2395a624f: internal/handler/loginlanehttp/handler.go
+  (source :942–945, все производители Source в humansession-входах — 9 вызовов h.source),
+  internal/issuingsource/source.go (другой читатель X-Forwarded-For, правило выдачи, к осям попыток не
+  подключён), humansession (recordFailure пишут только пути предъявления; запрос recovery списывает
+  SourcePacer, а не login_failures). Пробы не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "5606cbc0 — APPROVED, не менялась; initial/5606cbc0….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: "CX2-109 (7/4), N32-1 (4/3) отображены; новых пунктов нет"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "pkg/attemptkey — вынос существующего приведения и ключа в публичный пакет kaname по ребру kaname ← kacho, не новый путь; держит CX2-109"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = a84a1db8… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на a84a1db8 нет"
+
+mapping_check:
+  - item: CX2-109
+    verdict: holds
+    text: >-
+      (а) Ключ источника — из запросов (а) этого прогона, пропущенных посредником к kaname. 0 таких
+      запросов — «не выполнилось», печатаются значение и число. (б) В (г) значение обязано совпасть,
+      расхождение или больше одного значения — «не выполнилось» с обоими. (в) Приведение —
+      attemptkey.Source, ключ пары — attemptkey.AddressSource, их зовут полоса формы, AttemptGuard и E2.
+      Своего написания у пробы нет. Посылка подтверждена: сейчас единственное тело — handler.go:944
+      strings.TrimSpace(r.Header.Get(HeaderForwardedFor)), и все 9 производителей Source во входах
+      humansession идут через h.source. Запросы (а) следов в login_failures не оставляют (recordFailure —
+      только на путях предъявления), поэтому чтение «0 по четырём осям» до (г) законно
+  - item: N32-1
+    verdict: holds
+    text: "Down: DELETE строк address_source, address_ceiling, затем сужение; строки address и source целы; проба Up → Down → Up; инъекция «Down без DELETE» → 23514 с близнецом на таблице без строк новых осей"
+  - item: "R32-3 / Д80 (старт после kacho#1276)"
+    verdict: holds
+    text: "E1 и D6 несут условие начала Е12 (SHA вливания kacho#1276 достижим из базы), E2 зависит от E1; ae4bde452f6 не предок origin/2914-notify (1) — старт не открыт, как Д80 и требует"
+  - item: "Д79"
+    verdict: holds
+    text: "к NTF-2 не относится: запись platformmodules и окна отзыва notify-probe — полосы NTF-1"
+
+new_items: []
+items: []
+notes:
+  - id: N33-1
+    blocking: false
+    where: "design.md З15 «Приведение и ключи — один публичный пакет», предикат git grep"
+    text: >-
+      Предикат «git grep -n 'TrimSpace(r.Header.Get(HeaderForwardedFor))' -- ':!*_test.go' → 0» ловит
+      только одну запись второго тела. Его положительный контроль на базе — 1 (handler.go:944
+      @0f2395a624f), это стоит напечатать в сдаче S3 до правки. Второе тело в другой записи (через
+      переменную, через Values) предикат не видит. Держит его integration-проба равенства ключей, и
+      замысел её называет. Поэтому предикат — сопровождающий, а не держатель
+    predicate: "сдача S3 печатает число по предикату до правки (1) и после (0)"
+
+measurements:
+  - claim: "предмет и маршрут; на f2696940e — пересверенная редакция"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD:docs/changes/issue-2917/design.md | sha256sum"
+    result: "a84a1db8…, e98069a7…; HEAD — 3e58f418…"
+  - claim: "отображение пунктов"
+    command: "for id in CX2-109 N32-1 R32-1 R32-2 R32-3 attemptkey; do grep -c -- $id design.md tasks.md; done"
+    result: "7/4, 4/3, 3/1, 2/0, 3/2, 6/4"
+  - claim: "единственное тело приведения источника и его производители"
+    command: "git -C project/kaname grep -c 'TrimSpace(r.Header.Get(HeaderForwardedFor))' origin/484-notify -- ':!*_test.go'; git -C project/kaname grep -n 'Source: *h.source' origin/484-notify -- 'internal/handler/**/*.go'"
+    result: "1 (handler.go:944); 9 вызовов h.source во входах humansession"
+  - claim: "запросы (а) не пишут login_failures"
+    command: "git -C project/kaname grep -n 'recordFailure\\|gate.check' origin/484-notify -- 'internal/apps/kaname/api/humansession/*.go' ':!*_test.go'"
+    result: "login, change_password, recovery_complete, sf_*, step_up — пути предъявления; запрос recovery — SourcePacer.ChargeSource (verification.go:607)"
+  - claim: "старт после kacho#1276"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; awk -F'|' '$2 ~ /^ (E1|E2|D6) $/' docs/changes/issue-2917/tasks.md"
+    result: "1; E1, D6 — условие начала Е12, E2 ← E1"
+
+not_measurable: []
+
+outcome: clean
+returned_to_acceptance: []
+unmapped_items: []
+orders: []

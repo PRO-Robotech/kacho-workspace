@@ -1,0 +1,182 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 38 (маршрут — tasks.md редакции 39). Прежняя
+# запись роли — 8024f0bb….yaml (редакция 37, RETURNED: R37-1…R37-5). Судятся закрытие R37-1…5,
+# отображение решений диспетчера Д79 и Д80 (2026-10-02; Д75…Д78 действуют) и пять условий одобрения.
+# Рабочее дерево issue-880 поверх f2696940e, не закоммичено. Запись не правится: при смене отпечатка
+# заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 5c24973c42d17467af548af47070a63f486dcd5669ad28ffbddb325a2b3a900a
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с пересверкой revalidation/5c24973c и change.yaml:238 hashes.design_sha256"
+  revision: 38
+  tasks_sha256: 778c431eb564de3212944802a186741ab25c9e0d4a1454d4763dc0e05e27d99e   # маршрут редакции 39, = пересверке
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/8024f0bb85962717e09f004f8652588a4bfa44312ac913175a19dea435dd4848.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0   # перемерено sha256sum
+  verdict: "APPROVED (запись 1bffe10d….yaml:26; не менялась)"
+revisions:
+  workspace: f2696940e   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify, после fetch
+  kacho_d78_tree: 55581ad526d   # локальная ветка 2915-d4-notify-probe
+  kaname_line: 0f2395a624f   # origin/484-notify, после fetch
+  corelib_line: 1a37f81d0e9   # origin/77-notify, после fetch
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # окно отзыва кеша вердиктов notify-probe (две записи в двух модулях), гейт привязки образа, исход проб D1
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  Пересверка revalidation/5c24973c (итог to_design, unmapped [CX1-120, CX1-121, CX1-122], N38-1);
+  design.md шапка редакции 38 (17–40), З28 (2302–2340), З32 (3460, 3480), §11 строки 3974–3985;
+  tasks.md строки C13a, K8r2, N11r, D4, D1, D1s, D2, §3 п.6. Счёт вхождений design/tasks/change.yaml:
+  CX1-120 0/0/0, CX1-121 0/0/0, CX1-122 0/0/0, Д79 0/0/0, Д80 0/0/0, N38-1 0/0/0,
+  KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL 0/0, RevocationPolicy 0/0, revocationwindowgate 0/0,
+  image-rollout-binding 0/0, kacho.cloud/image-id 0/0; R37-1 5/5/2, R37-2 3/1/1, R37-3 3/1/1, R37-4 4/0/0;
+  TODO|TBD|FIXME 0/0. corelib authz/revocation_policy.go и platformmodules.go @1a37f81d0e9; kacho
+  tools/revocationwindowgate и services/notify/cmd/notify-probe/internal/config @55581ad526d. Пробы,
+  go test и helm не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R37-1
+    status: "закрыт в части R37 (копия осмотра для гейтов D1s, З28 «Копия осмотра…», §11:3979); Д80 заменяет путь закрытия гейта image-rollout-binding — переходит в R38-1"
+    evidence: "пересверка 5c24973c: CX1-116 (D1s) отображён; CX1-120 — новый пункт по Д80"
+  - id: R37-2
+    status: закрыт
+    evidence: "З32 (в) design.md:3460, §11:3980 — полоса DSN по form.origin с эталоном, инъекция с близнецом"
+  - id: R37-3
+    status: закрыт
+    evidence: "З32 «Порядок» design.md:3480, §11:3981; tasks D1 зависит от D4 (дерево Д78)"
+  - id: R37-4
+    status: закрыт
+    evidence: "§11:3982–3984 — N37-1…N37-3 отображены"
+  - id: R37-5
+    status: "закрыт решением диспетчера Д80 (полосы, зависящие от kacho#1276, ждут его посадки); замысел держит строку §11:3985"
+    evidence: "ae4bde452f6 не предок origin/2914-notify (merge-base --is-ancestor → 1, перемерено)"
+
+remeasured_author_claims:   # выборочно 5, своей командой после fetch
+  - claim: "дерево Д78 = локальная ветка 2915-d4-notify-probe@55581ad526d"
+    command: "git -C project/kacho rev-parse --short=11 2915-d4-notify-probe"
+    result: "55581ad526d — подтверждено"
+  - claim: "N11r не исполнена: kacho go.mod:125,126 — corelib 8a9eb14cd008, kaname a5986266436b"
+    command: "git -C project/kacho show origin/2914-notify:go.mod | grep -n -E 'PRO-Robotech/(corelib|kaname) '"
+    result: "125 corelib …-8a9eb14cd008, 126 kaname …-a5986266436b — подтверждено"
+  - claim: "М68: запись notify в platformmodules с пустым CatalogModule (основа C13a)"
+    command: "git -C project/corelib grep -n 'Service: \"notify\"' origin/77-notify -- platformmodules/platformmodules.go"
+    result: "platformmodules.go:85 {Service: \"notify\", CatalogModule: \"\", ObjectDomain: \"\"} — подтверждено"
+  - claim: "окна notify-probe нет ни в RevocationPolicy.Windows, ни в словаре гейта kacho (основа CX1-121)"
+    command: "git -C project/corelib show origin/77-notify:authz/revocation_policy.go | sed -n '205,225p'; git -C project/kacho grep -n NOTIFYPROBE 55581ad526d -- tools/"
+    result: "в Windows записей notify 0; в tools/ 0; держатель ручки — notify-probe config.go:98 — подтверждено"
+  - claim: "kacho#1276 не в ветке эпика (R37-5, Д80)"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; echo $?"
+    result: "1 — подтверждено"
+
+dispatcher_decisions:
+  - id: Д79
+    status: "не отображено: C13a в tasks несёт CatalogModule \"notify\" (tasks:353), записи окна отзыва KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL в RevocationPolicy.Windows и парной записи в словаре tools/revocationwindowgate kacho нет (0/0)"
+  - id: Д80
+    status: "не отображено (0/0/0): ни путь закрытия image-rollout-binding через аннотацию kacho.cloud/image-id и самостоятельный рендер notify с флагом, ни ветка «не выполнилось: перечень пуст» у проб D1 с условием включения и снятия; часть о старте D2 и цепочки NTF-2 после kacho#1276 по содержанию совпадает с §11:3985"
+  - id: "Д75…Д78"
+    status: "в силе, отображены прежними редакциями; дельта их не меняет"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: >-
+      чем гейт image-rollout-binding получает объект notify на дереве Д78, где «самостоятельный рендер с
+      флагом» даёт 0 объектов (у флага до D2 нет читателя), — не решено; ключ и атомарность записи окна
+      отзыва notify-probe в двух модулях — не решены
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 5c24973c: unmapped [CX1-120, CX1-121, CX1-122]; перемер — 0/0/0 у каждого"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/5c24973c — на текущий отпечаток; tasks_sha256 778c431e совпадает"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 1bffe10d APPROVED, первичный разбор initial/1bffe10d есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "закрыта: новых межсервисных рёбер нет; порядок C13a → K8r2 → N11r по графу corelib←kaname←kacho (Д79)."
+  public_vs_internal_edge: "дельта не трогает."
+  revocation_window: >-
+    возврат: окно отзыва кеша вердиктов notify-probe объявляется в corelib RevocationPolicy.Windows и
+    сверяется закрытым словарём гейта kacho — два модуля, одно утверждение. Если пин C13a сядет без
+    записи словаря (или наоборот), гейты окна красные на голове N11r; сейчас 3 из 4 красные на дереве Д78
+    (каталог печатается одним процессом «notify», 11 площадок при 11 записях без ручки notify-probe) (CX1-121).
+  rollout_binding: >-
+    возврат: notify в SERVICES гейта image-rollout-binding с D1, объектов рендера notify до D2 нет; путь
+    Д80 не записан, ветка не истекает вместе с D2 (CX1-120).
+  probe_outcome_branch: >-
+    возврат: «не выполнилось: перечень пуст» у проб D1 включается по исходу (0 объектов), а не по
+    предпосылке (пустая таблица модулей); непустая таблица с 0 объектов прошла бы как «не выполнилось»
+    вместо красного (CX1-122).
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R38-1
+    where: "tasks.md строка D1s; design.md З28 «Копия осмотра…», §11"
+    finding: "CX1-120 (Д80) не отображён (0/0/0): гейт image-rollout-binding на дереве Д78 красный (7 из 8, «notify: НЕ ДОЕХАЛ»), а рендер ноги без зонтика даёт 0 объектов с флагом и без."
+    requirement: >-
+      Гейт image-rollout-binding — в пути и предикат D1s; объект notify берётся из рендера копии осмотра
+      (карты A и B), notify остаётся в SERVICES, итог 8 из 8; ветка истекает вместе с D2; замысел прямо
+      говорит, что флаг Д80 до D2 никто не читает. Инъекция D1s: в копии снята аннотация
+      kacho.cloud/image-id → красный с именем notify; близнец → 8 из 8.
+  - id: R38-2
+    where: "tasks.md строки C13a и N11r (или D4); design.md З32 / §11"
+    finding: "CX1-121 (Д79) не отображён (0/0/0): запись окна отзыва notify-probe в RevocationPolicy.Windows не названа, парной записи словаря tools/revocationwindowgate kacho нет."
+    requirement: >-
+      C13a несёт ключ буквально "notify KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL" со значением 5s; ручка вносится в
+      словарь tools/revocationwindowgate тем же изменением kacho, что пин на голову C13a (N11r); гейты окна
+      печатают корни процессов (notify и notify-probe раздельно) либо замысел несёт предикат «у шлюза notify
+      кеша вердиктов нет». Держат сами гейты окна после пина и инъекция D4: держатель ручки в cmd/notify
+      без записи → красный.
+  - id: R38-3
+    where: "design.md З28 «Пустая таблица модулей на голове D1 — закрытый исход»; tasks.md строка D1"
+    finding: "CX1-122 (Д80) не отображён (0/0/0): ветка «не выполнилось: перечень пуст» без условия включения по предпосылке и без самоистечения."
+    requirement: >-
+      Ветку включает пустая таблица модулей, а не ноль объектов; таблица непуста и объектов 0 → красный;
+      D2 снимает ветку; сдача D1 печатает вердикт хука отправки на этом исходе. Инъекция D1: строка в
+      таблице и 0 объектов → красный; близнец — пустая таблица → «не выполнилось: перечень пуст».
+
+important: []
+
+minor:
+  - id: R38-4
+    note: "N38-1 пересверки 5c24973c (0 вхождений): dig по .Values.global без default dict в шаблоне notify — на helm v4.2.4 при неопределённом global ошибка interface conversion; отказ с причиной либо default dict, проба рендера без global."
+  - id: R38-5
+    note: "config.go:98 notify-probe: envconfig default:\"5s\" у ручки окна отзыва — проверить на D4 против sec-no-silent-default-for-guarded-knob (страж окна не мёртв ли при молчаливом умолчании); вне предмета замысла, к ревью диффа D4."
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R38-1 (CX1-120), R38-2 (CX1-121), R38-3 (CX1-122), R38-4 (N38-1)"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.
