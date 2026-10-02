@@ -1,0 +1,160 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2, редакция 31, маршрут редакции 30.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 31 против последней пересверенной
+# (редакция 30, 9c4a238a…, запись revalidation/9c4a238a….yaml — «к замыслу», CX2-106, N30-1…N30-3).
+# Сверх неё — пункты нового первичного разбора на приёмку 5606cbc0… (initial/5606cbc0….yaml, CX2-107,
+# CX2-108) и следствия замысла NTF-1 редакции 36. Дельта не закоммичена: рабочее дерево issue-880
+# поверх a6dfdd9b4 (на a6dfdd9b4 design.md = 9c4a238a… — ровно пересверенная редакция).
+#
+# Итог — к замыслу. CX2-106, N30-1 и N30-2 отображены. N30-3 отображён, но без источника «момента
+# изменения ConfigMap» (заметка N31-1). Отображение CX2-106 читает ось адреса через `AddressKey(A)`,
+# а её снимает полоса S3 этого же замысла (З11, И16). Этот след ведёт к CX2-107 нового первичного
+# разбора. CX2-107 и CX2-108 не отображены: замысел писался до них.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: fa6ab427198ea13378257b925d83144053511f1e20c954d197f677ab929b2083
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: fa6ab427198ea13378257b925d83144053511f1e20c954d197f677ab929b2083   # рабочее дерево
+  tasks_sha256: 422d091be14339af272807cc4a595039d3c7d30e0214d949dc00ccb02c9c1d45
+  revision: 31
+  content_commit: "— (рабочее дерево поверх a6dfdd9b4, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2917/reviews/class-exposure/revalidation/9c4a238a640a248b32f1f220d7e7acfa242e47c53fd2ce5142975210f9f2b38f.yaml
+    sha256: 9c4a238a640a248b32f1f220d7e7acfa242e47c53fd2ce5142975210f9f2b38f
+  delta_predicate: "git diff -- docs/changes/issue-2917/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @a6dfdd9b4)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  revision: 32
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5606cbc0….yaml (круг 6, не закоммичена, событие не опубликовано)"
+  changed_since_previous_record: true   # было 5b1a7e41… (редакция 31)
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/5606cbc0….yaml (эта сессия; к замыслу, CX2-107, CX2-108)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a6dfdd9b4181a01f24fd1d1c8f3bee52c02585df   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kacho_line_2564: fca17e1b8   # origin/2564
+  kaname_line: 0f2395a62    # origin/484-notify
+  corelib_line: 1a37f81     # origin/77-notify
+snapshot_at: 2026-10-02T02:00:54Z
+inspected: >-
+  Дельта design.md (шапка редакции 31; §0 строки приёмки редакций 31 и 32; З8 «Второй страж на путях
+  вне ограничителя»; §11 строки CX2-101, CX2-102, CX2-106, N30-1…N30-3, R30-1…R30-3; перепись шапок
+  прежних редакций). Дельта tasks.md (шапка, Е6, X1, S5, E2). Замысел: З11 (снятие AddressKey), З15
+  (AttemptGuard). kaname @0f2395a62: предикат округления по всему дереву; места первичного разбора
+  5606cbc0. Пробы не запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "5606cbc0 — APPROVED (запись не закоммичена, событие не опубликовано, Е6 маршрута это отражает); initial/5606cbc0….yaml — эта сессия"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-106, N30-1, N30-2, N30-3 отображены (вхождений design/tasks: 9/4, 3/1, 4/2, 5/3); CX2-107, CX2-108 (initial 5606cbc0) — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "дельта нового пути продукта не вводит; чтение базы kaname пробой — оснастка пробы, её классы — CX2-107"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = fa6ab427… = предмет; hashes.acceptance_sha256 = 5606cbc0…"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на fa6ab427 нет"
+
+mapping_check:
+  - item: CX2-106
+    verdict: mapped_with_new_exposure
+    text: >-
+      З8 «Второй страж…», §11 и E2 переносят Given редакции 32: A и S1 из идентификатора прогона, печать
+      ручек и следов перед (г), вход до предъявления, TOO_MANY_ATTEMPTS — «не выполнилось». Инъекция
+      (фикстурные следы по S1 → «не выполнилось») и близнец заведены. Но строка §11 называет ключ оси
+      адреса `AddressKey(A)`, а её снимает полоса S3 этого же замысла (З11, И16 «`AddressKey` нет»). Ключ
+      источника назван «`S1` из пересылки края», а способ получить его пробой не назван. Контроля, что
+      чтение способно сказать «не 0», нет. Это CX2-107 нового первичного разбора
+  - item: N30-1
+    verdict: holds
+    text: "§0 называет запись вердикта 5b1a7e41 и initial/5b1a7e41; строка о редакции 32 ссылается на запись по отпечатку"
+  - item: N30-2
+    verdict: holds
+    text: >-
+      S5: предикат по всему нетестовому дереву kaname, разбор по референту, печать «найдено · срок
+      повтора · вне retryafter = 0». Перемер @0f2395a62: 9 мест (то же на bd8413637), сроков повтора 3 —
+      ceremonyhttp/authorize.go:271, clienttokenhttp/handler.go:488, loginlanehttp/handler.go:1062
+  - item: N30-3
+    verdict: holds_with_note
+    text: "X1 печатает «момент последнего изменения ConfigMap» и момент старта пода, «новее» → «не выполнилось». Источник момента не назван — N31-1"
+  - item: "R30-2 (шапки)"
+    verdict: holds
+    text: "наличие записей о текущей редакции шапки не выписывают; о прежних — ссылки на записи или «нет (перепись 2026-10-02)»"
+  - item: "следствия NTF-1 редакции 36"
+    verdict: holds
+    text: >-
+      Дельта NTF-1 (CX1-115, N35-1, N35-2) NTF-2 не касается. Д76 (пустая таблица модулей на голове D1
+      NTF-1, пустой тег notify) — пункты CX1-116 и CX1-117 пересверки NTF-1 22fa57a4. NTF-2 D1 добавляет
+      поля источника строке kaname, и это предполагает строку, которую вносит D2 NTF-1. Порядок прежний
+  - item: CX2-107
+    verdict: unmapped
+    text: "новый пункт initial/5606cbc0: ключи чтения следов, окно по часам базы, ошибка ≠ 0, контроль 1/1 после (г), попытка в выводе A и S1 — 0 вхождений"
+  - item: CX2-108
+    verdict: unmapped
+    text: "новый пункт initial/5606cbc0: какой страж судит recovery/complete после S3 и печать каждого судящего стража — 0 вхождений; З15 не говорит, остаётся ли gate.check на recovery/complete"
+
+new_items: []
+items: []
+notes:
+  - id: N31-1
+    blocking: false
+    where: "design.md §11 строка CX2-101, маршрут X1 (N30-3)"
+    text: >-
+      У объекта ConfigMap нет поля «момент последнего изменения». `creationTimestamp` при `helm upgrade`
+      и `kubectl patch` не сдвигается, и сравнение «ConfigMap новее пода» по нему никогда не скажет «да».
+      Ровно тот случай, ради которого N30-3 заведена (правка мимо helm), останется незамеченным.
+      Источник момента — максимум `.metadata.managedFields[].time`. Инъекция: `kubectl patch` ConfigMap
+      без перекатки → «не выполнилось»; близнец — перекатка после правки → проход
+    predicate: "X1 называет поле, из которого берётся момент изменения, и несёт инъекцию с близнецом"
+
+measurements:
+  - claim: "предмет и маршрут; на a6dfdd9b4 — пересверенная редакция"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD:docs/changes/issue-2917/design.md | sha256sum"
+    result: "fa6ab427…, 422d091b…; HEAD — 9c4a238a…"
+  - claim: "отображение пунктов"
+    command: "for id in CX2-106 N30-1 N30-2 N30-3 CX2-107 CX2-108; do grep -c -- $id design.md tasks.md; done"
+    result: "9/4, 3/1, 4/2, 5/3, 0/0, 0/0"
+  - claim: "AddressKey снимается замыслом, отображение CX2-106 на него ссылается"
+    command: "grep -n 'AddressKey' docs/changes/issue-2917/design.md"
+    result: "З11 «`humansession.AddressKey` снимается тем же изменением», И16 «`AddressKey` нет»; строка §11 CX2-106 — «по адресу (`AddressKey(A)`)»"
+  - claim: "N30-2: места округления"
+    command: "git -C project/kaname grep -nE 'math\\.Ceil|/ time\\.Second' <rev> -- '*.go' ':!*_test.go' | wc -l (bd8413637, origin/484-notify)"
+    result: "9 и 9; срок повтора — 3"
+  - claim: "N31-1: источник момента изменения в замысле"
+    command: "grep -c 'managedFields\\|creationTimestamp' docs/changes/issue-2917/{design,tasks}.md"
+    result: "0 и 0"
+
+not_measurable:
+  - item: "знаменатели наборов newman для S8d на текущей голове kaname"
+    why: "не перемерялись в этом круге; условие требует печати на базе полосы"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX2-107, CX2-108]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "отобразить CX2-107 и CX2-108 (initial/5606cbc0) в З8 «Второй страж…», З15 и строках E2, S3; в §11 CX2-106 заменить `AddressKey(A)` ключом стража на ревизии kaname стенда; N31-1 — источник момента изменения ConfigMap в X1"
+    basis: ".claude/rules/change-graph.md §4; measurement-discipline §«Предикат — только с контролем»"

@@ -1,0 +1,157 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-2 редакции 31 (маршрут tasks.md 422d091b…). Прежняя
+# запись роли — 9c4a238a….yaml (редакция 30, RETURNED: R30-1 — CX2-106, R30-2, R30-3). Приёмка
+# сменилась: редакция 32, 5606cbc0… (APPROVED, круг 6, blocking_count 0; одобрение 5b1a7e41 не
+# переносится). Рабочее дерево issue-880 поверх a6dfdd9b4, не закоммичено. Запись не правится.
+schema_version: 1
+kind: design_review
+change_id: issue-2917
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: fa6ab427198ea13378257b925d83144053511f1e20c954d197f677ab929b2083
+  fingerprint_predicate: "sha256sum docs/changes/issue-2917/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с пересверкой revalidation/fa6ab427 и change.yaml hashes.design_sha256"
+  revision: 31
+  tasks_sha256: 422d091be14339af272807cc4a595039d3c7d30e0214d949dc00ccb02c9c1d45
+  previous_record: docs/changes/issue-2917/reviews/design/design-reviewer/9c4a238a640a248b32f1f220d7e7acfa242e47c53fd2ce5142975210f9f2b38f.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5606cbc0….yaml (verdict APPROVED :23, blocking_count 0 :65; не закоммичена)"
+  changed_since_previous_record: true   # было 5b1a7e41…
+revisions:
+  workspace: a6dfdd9b4
+  kacho_epic: e415e59a225   # origin/2914-notify, перемерено после fetch
+  kacho_line_2564: fca17e1b8
+  kaname_line: 0f2395a62    # origin/484-notify, перемерено
+  corelib_line: 1a37f81
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-2"
+distributed_surface: true      # исход (г) стоит на страже kaname; проба kacho читает хранилище kaname
+schema_review_overlap: false
+
+inspected: >-
+  Пересверка revalidation/fa6ab427 и первичный разбор initial/5606cbc0 (CX2-107, CX2-108) целиком;
+  design.md: §11 строка CX2-106 (4178), R30-2 (4183), N30-1 (4179), CX2-102 (4171), AddressKey (2050,
+  3591), AttemptGuard (2394), §13 (4437–); tasks.md S5 (383); change.yaml шапка (12–62). Счёт вхождений
+  design/tasks/change.yaml: CX2-106 9/4/4, CX2-107 0/0/0, CX2-108 0/0/0, N30-2 4/2/1, N30-3 5/3/2,
+  N31-1 0/0/0, managedFields 0/0/0, R30-1 5/2/3, R30-2 3/0/2, R30-3 2/1/1; TODO|TBD|FIXME 0/0. Пробы не
+  запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R30-1
+    status: "отображён, но держатель указывает на снимаемый предмет — переходит в R31-1"
+    evidence: >-
+      design.md:4178 — ось адреса названа `AddressKey(A)`, а З11 (2050) и И16 (3591) этого же замысла
+      снимают `humansession.AddressKey`; ключ источника «`S1` из пересылки края» без способа его получить;
+      контроля «чтение способно сказать не 0» нет (пересверка fa6ab427: mapped_with_new_exposure).
+  - id: R30-2
+    status: закрыт
+    evidence: "change.yaml:16–21 шапка о текущей редакции наличия записей не выписывает; оставшиеся «вердикта нет» — о прежних редакциях с датой переписи"
+  - id: R30-3
+    status: "закрыт по N30-2; по N30-3 — с заметкой N31-1"
+    evidence: >-
+      S5 (tasks.md:383): предикат по всему нетестовому дереву kaname, «9, 3, 0» (перемерено: 9 на
+      0f2395a62). X1: печать «ConfigMap новее пода» без источника момента изменения (managedFields 0/0).
+
+remeasured_author_claims:   # выборочно, своей командой после fetch
+  - claim: "kaname: 7 вызовов gate.check в humansession, пути (г) — login.go и recovery_complete.go"
+    command: "git -C project/kaname grep -n 'gate.check' origin/484-notify -- internal/apps/kaname/api/humansession/ | cut -d: -f2 | sort | uniq -c"
+    result: "7 файлов по 1 (change_password, login, recovery_complete, sf_backup_codes, sf_enroll, sf_remove, step_up) @0f2395a62 — подтверждено"
+  - claim: "N30-2: мест округления по всему нетестовому дереву kaname — 9"
+    command: "git -C project/kaname grep -nE 'math\\.Ceil|/ time\\.Second' origin/484-notify -- '*.go' ':!*_test.go' | wc -l"
+    result: "9 @0f2395a62 — подтверждено"
+  - claim: "ae4bde452f6 не в ветке эпика (старт D2/D3/D6/E1)"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; echo $?"
+    result: "1 — подтверждено"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: >-
+      CX2-108: судит ли recovery/complete после S3 attemptGate (`gate.check`) или AttemptGuard — замысел
+      не решает (З15 и строка S3 молчат), а от этого зависит предмет печати перед (г). §13 Е18 — внешняя
+      зависимость с гейтом полос, как в прежних кругах.
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка fa6ab427: unmapped [CX2-107, CX2-108]; перемер — 0/0/0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/fa6ab427 — на текущий отпечаток; hashes.acceptance_sha256 = 5606cbc0"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 5606cbc0 одобрена (круг 6), первичный разбор initial/5606cbc0 есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "дельта не трогает."
+  public_vs_internal_edge: "дельта не трогает."
+  cross_service_state: >-
+    возврат: проба kacho читает внутреннюю схему kaname (`login_failures`, `scope`, `key`) по ключам,
+    которые kaname вычисляет сам (`AddressKey` → `mailkey.Account` после S3; X-Forwarded-For «как есть»).
+    Два написания одного ключа, окно по часам пробы, ошибка чтения ≠ 0 и отсутствие контроля «умеет
+    сказать не 0» делают напечатанный «0 и 0» недоказанным (CX2-107); какой страж судит предъявление
+    после S3 — не решено (CX2-108).
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R31-1
+    where: "design.md §11 строка CX2-106 (4178), З8 «Второй страж…», З15; tasks.md строки E2, S3"
+    finding: >-
+      CX2-107 и CX2-108 первичного разбора initial/5606cbc0 не отображены (0 вхождений). Строка CX2-106
+      держит ось адреса ключом `AddressKey(A)`, который снимает S3 этого же изменения; ключ источника —
+      литерал S1, а не значение, которое край переслал kaname; контроля в обе стороны нет; страж,
+      судящий recovery/complete после S3, не назван.
+    requirement: >-
+      Отобразить в §11, З8, З15 и строках E2, S3: (CX2-107) ключ источника — значение X-Forwarded-For,
+      увиденное посредником пробы в запросе края к kaname (больше одного — «не выполнилось»); A в
+      канонической форме с проверкой; окно по `now()` базы в том же запросе; ошибка чтения или отсутствие
+      таблицы/столбца — «не выполнилось» с текстом, не 0; контроль после (г) — ровно 1 след по каждой оси
+      у судившего стража; соль попытки в выводе A и S1, печатается; инъекция — A с заглавной → контроль
+      0 → «не выполнилось», близнец — каноническая A → 1/1. (CX2-108) замысел решает, остаётся ли
+      `gate.check` на recovery/complete после S3 или его заменяет AttemptGuard; гейт «вызывающих стража»
+      печатает это; E2 печатает ручки и числа следов каждого стража, судящего вход и предъявление на
+      ревизии kaname стенда (ревизия печатается); инъекция — неудачи пары (A, S1) в хранилище
+      AttemptGuard → «не выполнилось», близнец — чистая пара → (г) зелёный.
+
+important: []
+
+minor:
+  - id: R31-2
+    note: >-
+      N31-1 пересверки fa6ab427 (0 вхождений): у ConfigMap нет поля «момент изменения»;
+      `creationTimestamp` при helm upgrade и kubectl patch не сдвигается. X1 называет источник — максимум
+      `.metadata.managedFields[].time` — и несёт инъекцию (`kubectl patch` без перекатки → «не
+      выполнилось») с близнецом (перекатка после правки → проход).
+  - id: R31-3
+    note: "Старт D2/D3/D6/E1 на базе линии: ae4bde452f6 не предок origin/2914-notify (1) — вопрос маршрута линии, диспетчеру."
+
+orders:
+  - кому: "автор замысла NTF-2"
+    что: "R31-1 (CX2-107, CX2-108), R31-2 (N31-1)"
+  - кому: "диспетчер"
+    что: "R31-3 — база старта полос, зависящих от kacho#1276"
+
+next: >-
+  Возврат автору замысла NTF-2. После правки — пересверка разбора классов и эта роль на новом отпечатке.

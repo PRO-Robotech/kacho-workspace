@@ -1,0 +1,165 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 36 (маршрут — tasks.md редакции 37). Прежняя
+# запись роли — 0eb2a42e….yaml (редакция 35, RETURNED: R35-1 — CX1-115, R35-2, R35-3). Судятся
+# закрытие R35-1…3, отображение Д64, Д75, Д76 и пять условий одобрения. Рабочее дерево issue-880
+# поверх a6dfdd9b4, не закоммичено. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 22fa57a407ec18cf4d7d654f79831fa6992c605f8a439e2f137e4e77d9073e04
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с пересверкой revalidation/22fa57a4 и change.yaml hashes.design_sha256"
+  revision: 36
+  tasks_sha256: 9d3ab1d5f08a41395dbafea90aaf2c795b1633456090a929f4b7948171e8f770   # маршрут редакции 37
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/0eb2a42efc9b8bde63392a1915e2ad720b2047123adc92aab0a1304b8d2b1a2a.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась; перемерено sha256sum)"
+revisions:
+  workspace: a6dfdd9b4   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify, перемерено после fetch
+  kacho_line_2564: fca17e1b8   # origin/2564, перемерено
+  kaname_line: 0f2395a62   # origin/484-notify, перемерено
+  corelib_line: 1a37f81d0e944c00b2abfa2882a2ed9b0ccdb6d5   # origin/77-notify, перемерено
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # включение notify в цепочках зонтика и образ notify по профилям
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  Пересверка revalidation/22fa57a4 целиком; design.md: шапка (24–42), З29 команда прецедента
+  (3088–3096), §11 строки Д64 и R35-3 (3736, 3741); tasks.md: K8r (336), N11r (352); change.yaml шапка
+  (12–30). Счёт вхождений design/tasks/change.yaml: CX1-115 6/3/1, N35-1 5/1/1, N35-2 4/3/1, R35-1
+  3/1/1, R35-2 4/0/2, R35-3 3/1/2, Д64 6/6/1, Д75 7/3/1, Д76 0/0/0, CX1-116 0/0/0, CX1-117 0/0/0;
+  TODO|TBD|FIXME 0/0. Пробы и гейты не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R35-1
+    status: закрыт
+    evidence: "CX1-115 6/3; пересверка 22fa57a4 — holds: потребители Chain.Database названы, NewEmptyDB при пустом, CREATE DATABASE + replaceDBName при непустом, инъекция с близнецом"
+  - id: R35-2
+    status: закрыт
+    evidence: "З29: команда и `30 11` @e415e59a225 рядом (перемерено, ниже); знаменатель 43 (перемерено)"
+  - id: R35-3
+    status: закрыт
+    evidence: "change.yaml:16–21 — шапка о текущей редакции наличия записей не выписывает; поиск «вердикта/пересверки на него нет» о текущей — 0"
+
+remeasured_author_claims:   # выборочно 5 из таблицы утверждений автора, своей командой после fetch
+  - claim: "прецедент Send: `30 11` @e415e59a225"
+    command: "команда З29 (design.md:3090–3094) дословно, R=origin/2914-notify"
+    result: "30 11 — подтверждено"
+  - claim: "знаменатель одиночных рендеров charts/kaname — 43"
+    command: "git -C project/kacho grep -lE 'charts/kaname' origin/2914-notify -- ':!*.md' ':!*.yaml' ':!*.tpl' | wc -l"
+    result: "43 — подтверждено"
+  - claim: "ae4bde452f6 (kacho#1276) не в ветке эпика"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; echo $?"
+    result: "1 — подтверждено"
+  - claim: "приёмка NTF-1 не тронута, 1bffe10d…"
+    command: "sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md"
+    result: "1bffe10dcbb26621… — подтверждено"
+  - claim: "голова C13 corelib — 1a37f81d0e94…"
+    command: "git -C project/corelib rev-parse origin/77-notify"
+    result: "1a37f81d0e944c00b2abfa2882a2ed9b0ccdb6d5 — подтверждено"
+
+dispatcher_decisions:
+  - id: Д64
+    status: отображено
+    evidence: "tasks.md K8r (336), N11r (352); design.md 3164–3165, §11 3736"
+  - id: Д75
+    status: "отображено; форму утверждает proto-api-reviewer на D4"
+    evidence: "З29, команда и числа 30/11 рядом"
+  - id: Д76
+    status: "НЕ отображено"
+    evidence: "0 вхождений в design.md, tasks.md, change.yaml; пересверка 22fa57a4 — CX1-116, CX1-117 unmapped"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: "Д76 принят диспетчером, но замысел его не несёт: чем пробы D1 получают объекты notify при пустой таблице — не решено (not_measurable пересверки 22fa57a4)"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 22fa57a4: unmapped [CX1-116, CX1-117]; перемер — 0/0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/22fa57a4….yaml — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 1bffe10d APPROVED, первичный разбор initial/1bffe10d есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает; Send пробы — одна транзакция feed.Put, ответ после коммита."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "закрыта: C13 → K8r → N11r по графу corelib←kaname←kacho; новых межсервисных рёбер нет."
+  public_vs_internal_edge: "закрыта: InternalNotifyProbeService — внутренний слушатель (ban06)."
+  migration_point: "закрыта (CX1-115)."
+  rollout_enablement: >-
+    возврат: решение «включён ли notify в цепочке» (выведенный перечень, NTF1-N04) и его следствия
+    (объекты чарта, образ с тегом) разнесены по D1, D2 и конвейеру; пустая таблица и пустой тег —
+    sentinel без названного потребителя, порядка и предиката снятия (Д76, CX1-116, CX1-117).
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R36-1
+    where: "design.md З28 (запись notify в зависимостях зонтика, NTF1-N04), §11; tasks.md строки D1, D2"
+    finding: >-
+      Д76 (2026-10-02) не отображён: CX1-116 и CX1-117 пересверки 22fa57a4 — 0 вхождений. На голове D1
+      пустая `_sources.tpl` даёт пустой перечень → объектов notify 0 (NTF1-N04), пробам D1 (I01, I02, I05,
+      I06) нечего проверять; короткие пути — второй включатель или строка таблицы в фикстуре. Пустой тег
+      kacho-notify без порядка «тег не позже полосы, делающей перечень непустым» оставляет D2 выбор между
+      падающим рендером и подстановкой умолчания (AppVersion, latest).
+    requirement: >-
+      Отобразить в З28, §11 и строках D1, D2: (CX1-116) на голове D1 — печать по каждой цепочке перечня и
+      числа объектов notify (ожидается 0), пустая таблица → `[]`, рендер не падает, запасной строки нет;
+      назвать, чем пробы D1 получают объекты, без `notify.enabled`, condition и строки вне `_sources.tpl` —
+      либо перенести эти пробы в D2 маршрутом; проба с инъекцией (помощник отдаёт строку по умолчанию →
+      красный) и близнецом (одна строка → объекты есть). (CX1-117) у тега notify нет умолчания; непустой
+      перечень и пустой тег → отказ рендера с именем ручки; порядок «тег не позже D2 и стенда»; полоса без
+      образа — «не выполнилось» с ревизией; предикат снятия — команда, находящая образ линии в реестре;
+      проба с инъекцией `default .Chart.AppVersion` и близнецом.
+
+important: []
+
+minor:
+  - id: R36-2
+    note: >-
+      Строка K8r (tasks.md:336) — состояние уже наступило: `origin/484-notify:go.mod` пинит corelib
+      `v1.10.0-rc.5.0.20261001232603-1a37f81d0e94` (перемерено). kacho на `e415e59a225` пинит corelib
+      8a9eb14 и kaname a5986266436b — N11r не исполнен. Отметить K8r исполненной с ревизией kaname.
+  - id: R36-3
+    note: >-
+      Старт D2 на базе линии NTF: ae4bde452f6 (kacho#1276) не предок origin/2914-notify (1, перемерено),
+      предикат старта D2 даёт 1/1. Не дефект замысла — вопрос маршрута линии (подтянуть 2564 в 2914-notify
+      либо сменить базу); диспетчеру.
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R36-1 (Д76 → CX1-116, CX1-117), R36-2"
+  - кому: "диспетчер"
+    что: "R36-3 — база старта D2 (ae4bde452f6 вне ветки эпика)"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.

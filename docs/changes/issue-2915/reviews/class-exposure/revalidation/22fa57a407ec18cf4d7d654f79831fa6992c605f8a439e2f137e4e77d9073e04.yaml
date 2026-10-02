@@ -1,0 +1,207 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 36, маршрут редакции 37.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 36 против последней пересверенной
+# (редакция 35, 0eb2a42e…, запись revalidation/0eb2a42e….yaml — «к замыслу», CX1-115, N35-1, N35-2)
+# плюс решения диспетчера Д64, Д75, Д76 (2026-10-02). Дельта не закоммичена: рабочее дерево issue-880
+# поверх a6dfdd9b4 (на a6dfdd9b4 design.md = 0eb2a42e… — ровно пересверенная редакция).
+#
+# Итог — к замыслу. CX1-115, N35-1 и N35-2 отображены, условия выдерживаются, числа замысла
+# воспроизводятся его же командами. Но решение диспетчера Д76 (вопросы D1) в замысле не отображено:
+# 0 вхождений в design.md и tasks.md. Д76 вводит два sentinel-значения: пустую таблицу модулей
+# `_sources.tpl` на голове D1 и пустой тег образа kacho-notify. По §7 это новые пункты CX1-116 и CX1-117.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 22fa57a407ec18cf4d7d654f79831fa6992c605f8a439e2f137e4e77d9073e04
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 22fa57a407ec18cf4d7d654f79831fa6992c605f8a439e2f137e4e77d9073e04   # рабочее дерево
+  tasks_sha256: 9d3ab1d5f08a41395dbafea90aaf2c795b1633456090a929f4b7948171e8f770   # маршрут редакции 37
+  revision: 36
+  content_commit: "— (рабочее дерево поверх a6dfdd9b4, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/0eb2a42efc9b8bde63392a1915e2ad720b2047123adc92aab0a1304b8d2b1a2a.yaml
+    sha256: 0eb2a42efc9b8bde63392a1915e2ad720b2047123adc92aab0a1304b8d2b1a2a
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @a6dfdd9b4)"
+  decisions_judged:
+    - "CX1-115: потребители `Chain.Database` названы; migratorapply — NewEmptyDB при пустом, CREATE DATABASE + replaceDBName при непустом; запрет запасной ветки и флага; печать на строку; инъекция с близнецом"
+    - "N35-1: `30 11` выводом записанной команды @e415e59a225"
+    - "N35-2: знаменатель одиночных рендеров charts/kaname — 43 выводом предиката"
+    - "Д76 (диспетчер, 2026-10-02): (1) пустая таблица `_sources.tpl` в D1, D2 дописывает — при детерминированном закрытом исходе, с пробой; (2) образ kacho-notify без тега, пока notify выключен; включение без тега — отказ рендера с именем ручки, проба; тег — когда конвейер линии опубликовал образ"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false   # git diff --quiet HEAD -- <приёмка> → 0
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a6dfdd9b4181a01f24fd1d1c8f3bee52c02585df   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kacho_line_2564: fca17e1b8   # origin/2564 (ушла с ae4bde452f6)
+  kaname_line: 0f2395a62    # origin/484-notify
+  corelib_line: 1a37f81     # origin/77-notify
+snapshot_at: 2026-10-02T02:00:54Z
+inspected: >-
+  Дельта design.md (шапка редакции 36; З28 знаменатель 43; З29 команда прецедента; З32 «Потребители
+  `Chain.Database`»; §11 строки CX1-115, N35-1, N35-2; перепись шапок прежних редакций). kacho
+  @e415e59a225: `internal/migratorapply/apply_test.go` (t.Run без t.Parallel, NewEmptyDB, replaceDBName);
+  corelib @8a9eb14 `pgtest/pgtest.go` (экспортируемые функции). Места замысла о чарте notify: зависимость
+  без condition (З28 «Запись notify в зависимостях зонтика»), рендер только при непустом перечне
+  (NTF1-N04), таблица модулей `_sources.tpl` (D2). Поиск Д76, тега образа notify. Ни go test, ни helm не
+  запускались. Записки vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED, не менялась; initial/1bffe10d….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-115, N35-1, N35-2 отображены (вхождений design/tasks: 6/3, 5/1, 4/3); Д76 — 0/0, пункты CX1-116, CX1-117 не отображены"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "Д76 вводит два sentinel: пустую таблицу модулей на голове D1 и пустой тег образа kacho-notify"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 22fa57a4… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 22fa57a4 нет"
+
+mapping_check:
+  - item: CX1-115
+    verdict: holds
+    text: >-
+      Все три части условия выполнены. (а) Потребители `Chain.Database` названы поимённо: migratorapply
+      при пустом значении берёт NewEmptyDB, при непустом — создаёт базу ровно с именем строки (CREATE DATABASE
+      по DSN NewEmptyDB и replaceDBName, снятие в t.Cleanup). Гейты, переведённые на List, по `Database` не
+      ветвятся. Имени из имени службы не выводит никто. Посылка «помощника именованной базы в pgtest нет»
+      верна: 6 экспортируемых функций, имя не принимает ни одна. (б) Запрет запасной ветки и флага держит
+      инъекция (г). (в) Печать на строку с числом строк notify 1/2. Подтесты migratorapply идут без
+      t.Parallel, так что одноимённая база в общем контейнере конфликта не даст
+  - item: N35-1
+    verdict: holds
+    text: "Команда в З29 воспроизводится: `30 11` @e415e59a225. Названы оба числа и ближайший аналог Send"
+  - item: N35-2
+    verdict: holds
+    text: "Предикат воспроизводится: 43 @e415e59a225. D2 перемеряет на базе, печать «переведено + отброшено = знаменатель»"
+  - item: "Д64, Д75"
+    verdict: holds
+    text: "без изменений против 0eb2a42e (строки §11 и З29, З32 не тронуты дельтой, кроме числа N35-1)"
+  - item: "Д76"
+    verdict: unmapped
+    text: "0 вхождений в design.md и tasks.md; оба решения вводят sentinel, ниже CX1-116, CX1-117"
+
+new_items:
+  - id: CX1-116
+    decision: "Д76 (1): в D1 таблица модулей `deploy/helm/notify/templates/_sources.tpl` заводится пустой, строки notifyProbe и kaname вносит D2"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением»: пустая таблица — sentinel, и её смысл
+      («никого», а не «не объявлено, значит всех») обязан быть одним на всех читателях.
+      code-authoring §«Решение и его следствие разнесены»: в замысле решение «рендерить ли notify» уже
+      принимает непустой выведенный перечень (NTF1-N04, зависимость без condition), а пробы D1 (I01, I02,
+      I05, I06) требуют объектов notify в рендере
+    exposure: >-
+      Замысел говорит, что шаблоны notify рендерятся только при непустом перечне (NTF1-N04) и что при пустом
+      перечне объектов notify в каждой цепочке 0. Значит, на голове D1 с пустой таблицей у проб D1 нет
+      предмета, а исход у них будет «не выполнилось» или ложно-зелёный на нуле объектов. Есть два коротких
+      пути «починить» это, и оба — второе написание одного решения: (1) свой включатель notify для D1
+      (`notify.enabled`, condition зависимости, ветка «таблица пуста — рендерить всё равно»); (2) строка
+      таблицы в фикстуре проб вне `_sources.tpl`. А если D1 не вносит гейт N04 вовсе, у Д76 (2) не будет
+      посылки «объектов notify 0»: зависимость без condition рендерит notify в каждой цепочке зонтика, prod
+      в том числе
+    condition_on_code: >-
+      (а) Замысел называет на голове D1, чем решается число объектов notify в каждой цепочке зонтика. Это
+      тот же предикат «выведенный перечень непуст», что в D2, без второго включателя. D1 печатает по каждой
+      цепочке перечень и число объектов notify (ожидается 0). (б) Замысел называет, чем пробы D1 получают
+      объекты notify. Строка в таблице вне `_sources.tpl`, ключ `notify.enabled` и ветка «пусто, но
+      рендерить» запрещены. Если иначе нельзя, пробы D1 с объектами переезжают в D2, и маршрут это
+      выражает. (в) Пустая таблица → помощник перечня отдаёт `[]`, рендер не падает, источников не
+      выдумывает. Запасной строки по умолчанию (например kaname) нет
+    held_by: >-
+      Нужна проба D1, её нет. Рендер каждой цепочки зонтика на голове D1 → объектов notify 0, перечень
+      `[]`, печать числа цепочек; пустой обход — красный. Инъекция: помощник перечня на пустой таблице
+      отдаёт строку по умолчанию → объектов > 0 → красный. Близнец: таблица с одной строкой (голова D2) →
+      объекты есть. Однофайлового признака нет
+  - id: CX1-117
+    decision: "Д76 (2): образ kacho-notify пинится без тега, пока notify в профилях выключен; включение без тега — отказ рендера с именем ручки; тег ставится, когда конвейер линии опубликовал образ"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением»: пустой тег — sentinel. Штатная идиома
+      чарта `default .Chart.AppVersion .Values.image.tag` превращает его в утверждение «образ этой
+      версии существует». code-authoring §«Решение и его следствие разнесены»: выключение notify решает
+      одна полоса, публикацию образа — конвейер, тег — третья точка
+    exposure: >-
+      Из замысла выходит, что notify включается в цепочке зонтика, как только перечень становится непуст.
+      Это D2: строки notifyProbe и kaname, флаг `global.kacho.notifications.enabled: true` в values.yaml.
+      Окно «выключен, тег пуст» тогда равно голове D1, и только ей. Если тег не проставлен к D2, у D2 два
+      пути: рендер, падающий в каждой цепочке, или подстановка тега «чего-нибудь» (AppVersion, `latest`,
+      тег соседнего образа). Ни порядок «тег не позже включения», ни событие, которое ставит тег, ни
+      предикат его снятия в замысле не названы. По ban #11 пустой тег — предмет с причиной и предикатом
+      снятия, а не умолчание
+    condition_on_code: >-
+      (а) У тега образа notify в чарте нет умолчания: ни AppVersion, ни `latest`, ни `default`. При
+      непустом выведенном перечне и пустом теге рендер падает с именем ручки (`notify.image.tag` или как её
+      назовёт D1). (б) Замысел называет порядок: тег ставится не позже полосы, которая делает перечень
+      непустым в какой-либо цепочке (D2 и стенд fe3455). Пока образа нет, та полоса не садится с исходом
+      «не выполнилось», с ревизией и отсутствующим тегом, — как у N11r по Д64. (в) У предмета «тег пуст»
+      есть причина и предикат снятия на внешнем факте: команда, которая находит образ линии с этим тегом
+      в реестре, плюс ревизия
+    held_by: >-
+      Нужна проба D1, её нет. Рендер с непустым перечнем и пустым тегом → ошибка с именем ручки. Близнец
+      — тег задан → рендер; выключено и пусто → объектов 0. Инъекция — `default .Chart.AppVersion` в
+      шаблоне → проба красная. Однофайловый признак есть: `default .Chart.AppVersion` или `| default
+      "latest"` в `deploy/helm/notify/templates/**` (см. блок кандидата)
+
+items: []
+notes: []
+
+measurements:
+  - claim: "предмет и маршрут; на a6dfdd9b4 — пересверенная редакция"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git show HEAD:docs/changes/issue-2915/design.md | sha256sum"
+    result: "22fa57a4…, 9d3ab1d5…; HEAD — 0eb2a42e…"
+  - claim: "отображение пунктов и решений"
+    command: "for id in CX1-115 N35-1 N35-2 Д64 Д75 Д76; do grep -c -- $id design.md tasks.md; done"
+    result: "6/3, 5/1, 4/3, 6/6, 7/3, 0/0"
+  - claim: "число прецедента Send (N35-1)"
+    command: "команда З29 дословно, R=origin/2914-notify"
+    result: "30 11"
+  - claim: "знаменатель одиночных рендеров (N35-2)"
+    command: "git -C project/kacho grep -lE 'charts/kaname' origin/2914-notify -- ':!*.md' ':!*.yaml' ':!*.tpl' | wc -l"
+    result: "43"
+  - claim: "migratorapply гонит точки последовательно; pgtest без именованной базы (CX1-115)"
+    command: "git -C project/kacho show origin/2914-notify:internal/migratorapply/apply_test.go | grep -n 't.Parallel\\|t.Run(\\|NewEmptyDB'; git -C project/corelib show 8a9eb14:pgtest/pgtest.go | grep -n '^func [A-Z]'"
+    result: "t.Run на :232, t.Parallel нет; 6 экспортируемых функций, NewDB/NewEmptyDB без имени"
+  - claim: "notify рендерится при непустом перечне, зависимость без condition (посылки CX1-116, CX1-117)"
+    command: "grep -n 'без `condition`\\|непустом перечне\\|объектов чарта notify' docs/changes/issue-2915/design.md"
+    result: "З28: зависимость без alias и condition; «шаблоны notify рендерятся только при непустом перечне (NTF1-N04)»; «при пустом выведенном перечне объектов чарта notify 0 в каждой цепочке»"
+  - claim: "посылка задания: ae4bde452f6 не в ветке эпика"
+    command: "git -C project/kacho merge-base --is-ancestor ae4bde452f6 origin/2914-notify; echo $?"
+    result: "1 (подтверждена); origin/2564 теперь fca17e1b8"
+
+not_measurable:
+  - item: "чем пробы D1 получают объекты notify на голове D1 при пустой таблице"
+    why: "чарта notify в дереве нет (git ls-tree origin/2914-notify deploy/helm/notify → пусто), а замысел этого не говорит. Ответить может только замысел"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-116, CX1-117]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "отобразить Д76 пунктами CX1-116 (голова D1: число объектов notify по цепочкам, чем пробы D1 получают объекты, без второго включателя; пустая таблица → `[]`) и CX1-117 (тег notify без умолчания, отказ с именем ручки, порядок «тег не позже включения», предикат снятия) в З28 и строках D1, D2"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Умолчание, которое становится утверждением»; .claude/rules/00-kacho-core.md ban #11"

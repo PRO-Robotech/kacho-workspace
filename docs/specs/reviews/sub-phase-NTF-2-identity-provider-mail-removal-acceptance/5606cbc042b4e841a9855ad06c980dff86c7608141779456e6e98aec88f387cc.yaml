@@ -1,0 +1,160 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  revision: 32
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит «Статус: DRAFT», а строка редакции 32 — «вердикта нет». Эта запись
+    шапку НЕ правит, и это намеренно: вердикт привязан к отпечатку, а не к слову в заголовке.
+    Действующий вердикт определяется этой записью и внешним событием.
+  content_commit: none   # рабочее дерево worktree issue-880, не закоммичено; HEAD a6dfdd9b4
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4809
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-02T00:00:00Z'
+round: 6
+round_note: >-
+  Круг 6 по счёту каталога, следующий за записью 5b1a7e41… (круг 5, редакция 31, ✅). Это правка
+  одобренной редакции, поэтому одобрение 5b1a7e41 на этот отпечаток не переносится. Судилась
+  дельта 31 → 32: `git diff` рабочего дерева против HEAD a6dfdd9b4, +45/−1. Прочитаны все ханки:
+  шапка, NTF2-60 Given, NTF2-60 (г), строка §7 «NTF2-60 (г), kaname», §11. Содержимое HEAD
+  совпадает с отпечатком 5b1a7e41 (`git show HEAD:<док> | sha256sum`), значит дельта судится
+  ровно против одобренного. Прежние записи не правились.
+previous_rounds:
+  - pass: редакция 31, круг 5
+    sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+    verdict: APPROVED
+delta_items:
+  CX2-106a_run_scoped_A_S1: >-
+    ПРИНЯТО. A и S1 выводятся из идентификатора прогона, другие сценарии того же подъёма П6 их не
+    используют, оба печатаются. Это убирает чужие следы по обеим осям, накопленные до (г).
+  CX2-106b_known_window_position: >-
+    ПРИНЯТО. Ручки `authn.login.{address,source}-{attempts,window}` существуют (kaname INSTALL.md
+    :223–226 @bd8413637). Счёт следов по оси за окно — `CountFailures(scope, key, since)`
+    (`internal/repo/kaname/pg/human_session_repo.go:122`); это ровно тот вопрос, который задаёт
+    `attemptGate.exhausted`, так что напечатанный «0» — то положение, в котором страж не откажет.
+    Если число не 0, исход «не выполнилось» с обоими числами: это третий исход, ни зелёный, ни
+    красный.
+  CX2-106cd_order_and_refusal: >-
+    ПРИНЯТО. Вход идёт до предъявления, и это верно: rate.go прямо пишет, что успешный вход попыткой
+    не считается и обнуляет счёт по адресу. Предъявление после входа остаётся при нулях.
+    `TOO_MANY_ATTEMPTS` — 429 / 8 / `too many attempts; try again later` (auth-lane.mdx:401). Разделение
+    «отказ стража kaname — не выполнилось, вызов PoW / RATE_LIMITED / счёт посредника ≠ 1 — красный»
+    сохраняет предмет (г): путь вне ограничителя края. Противоречия с «Тогда» (а)–(в) нет.
+  N-1_password: >-
+    ПРИНЯТО. Теперь в тексте «человек П11 с паролем и подтверждённым адресом A». П11 — фикстура записью
+    в базу kaname (строка §5 :1728), поэтому человека с паролем построить можно.
+  producer_row_s7: >-
+    ПРИНЯТО. Строка «NTF2-60 (г), kaname» называет держатель, attemptGate в rate.go. Замер повторён:
+    `git grep -n 'gate.check' bd8413637 -- internal/apps/kaname/api/humansession/` → 7, среди них
+    login.go:224 и recovery_complete.go:176.
+  N-2_not_applied: >-
+    ПРИНЯТО как обоснованное. В одобренной NTF-1 1bffe10d… `grep -c 'modules\.kaname'` → 0, NTF-1 в
+    рабочем дереве не изменена. N-2 была неблокирующей.
+blocking_count: 0
+blocking_kinds_distinct: []
+defaults_fixed: []
+non_blocking:
+  - id: N-1
+    kind: FORMAT
+    text: >-
+      Строка §7 приводит предикат на `origin/484-notify`, а ревизию — @bd8413637. Ветка с тех пор ушла
+      на 0f2395a62, счёт там тот же (7). Предикат с подвижным реф и числом на закреплённой ревизии со
+      временем разойдутся. При следующей правке поставить ревизию в сам предикат:
+      `git grep … bd8413637 -- …`.
+  - id: N-2
+    kind: CONSTRUCTIBILITY
+    text: >-
+      Ключ источника у kaname — адрес из X-Forwarded-For края (INSTALL.md:225). Число следов по S1
+      проба обязана читать под тем же ключом, который край ставит для S1 на доверенной глубине (NTF2-74).
+      Иначе «0» можно напечатать по ключу, которого страж не спрашивает. Сейчас это следует из текста
+      «по S1», но явной сверки нет. В пробе стоит печатать ключ, под которым велось чтение.
+return_to: none
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  declared_verdict: APPROVED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_approved
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Событие публикует не рецензент, тело для курьера лежит в event_body_for_courier. Вердикт относится
+    только к отпечатку 5606cbc0…. Документ не закоммичен, поэтому одобрение действует, только когда в
+    линии лежит ровно этот отпечаток.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 6, редакция 32, блокирующих 0) · SHA-256
+    5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: рабочее дерево issue-880 (sha256 5606cbc0…), HEAD a6dfdd9b4 (HEAD-содержимое = 5b1a7e41…)
+    kaname: project/kaname bd8413637 (origin/484-notify сейчас 0f2395a62)
+    ntf1_acceptance: sha256 1bffe10d… (рабочее дерево не изменено, git diff --quiet HEAD)
+  results:
+    - id: S-1
+      claim: держатель (г) — attemptGate, 7 вызовов, среди них вход и предъявление
+      command: git -C project/kaname grep -n 'gate.check' bd8413637 -- internal/apps/kaname/api/humansession/ | wc -l
+      outcome: 7 (то же на origin/484-notify@0f2395a62); login.go:224, recovery_complete.go:176
+    - id: S-2
+      claim: успешный вход не оставляет следа и обнуляет счёт по адресу
+      command: git -C project/kaname show bd8413637:internal/apps/kaname/api/humansession/rate.go | sed -n 6,12p
+      outcome: «Что не считается … успешный вход (он обнуляет счёт по адресу)»
+    - id: S-3
+      claim: ручки и форма отказа kaname
+      command: git -C project/kaname grep -n 'TOO_MANY_ATTEMPTS\|authn.login.address-attempts' bd8413637 -- INSTALL.md docs/content/api/auth-lane.mdx
+      outcome: INSTALL.md:223–226 — четыре ручки; auth-lane.mdx:401 — 429 / 8 / TOO_MANY_ATTEMPTS
+    - id: S-4
+      claim: счёт следов по оси за окно читается из хранилища
+      command: git -C project/kaname grep -n 'func (r \*HumanSessionRepo) CountFailures' bd8413637
+      outcome: internal/repo/kaname/pg/human_session_repo.go:122
+    - id: S-5
+      claim: ключ modules.kaname отсутствует в одобренной NTF-1
+      command: grep -c 'modules\.kaname' docs/specs/sub-phase-NTF-1-*-acceptance.md
+      outcome: "0"
+constructibility:
+  seeded: 0
+  of: 2
+  not_performed: 2
+  named_fixture: 2
+  note: >-
+    Посев не выполнялся: стенда П6 с посаженной NTF-2 ещё нет, разрешения на подъём не было.
+    Конструируемость показана названной фикстурой. Человек с паролем — П11, запись в базу kaname.
+    Нули окон — свойство A и S1, своих на прогон, и их проверяет печать перед (г); не ноль — «не
+    выполнилось».
+route_flags:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true

@@ -1,0 +1,198 @@
+# Экспозиция классов — первичный разбор (initial) приёмки NTF-2, редакция 32.
+#
+# Запись привязана к отпечатку ПРИЁМКИ 5606cbc0…. Предмет — дельта редакции 32 против одобренной
+# редакции 31 (5b1a7e41…, первичный разбор initial/5b1a7e41….yaml — CX2-106). Дельта: Given NTF2-60
+# (A и S1 свои на прогон, печать следов неверных предъявлений по A и S1 перед (г)), (г) (вход до
+# предъявления, TOO_MANY_ATTEMPTS — «не выполнилось»), П11 с паролем, строка §7 «NTF2-60 (г), kaname».
+# Пункты CX2-01…CX2-106 переносятся без изменений.
+#
+# Итог — к замыслу. Правка закрывает CX2-106 на уровне приёмки. Однако новое Given требует напечатать
+# число из ЧУЖОГО хранилища (база kaname) по ключам, написание которых проба воспроизводит сама. Отсюда
+# CX2-107: «0» по неверному ключу неотличим от «0» по верному. Кроме того, строка §7 называет держателем
+# пути предъявления attemptGate — так на базе, а полоса S3 этого же изменения переводит
+# recovery/complete на AttemptGuard (Р6) с другими ручками и осями. Отсюда CX2-108. Возврата в
+# приёмку нет: классификация TOO_MANY_ATTEMPTS → «не выполнилось» ложного красного не даёт.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  revision: 32
+  content_commit: "— (рабочее дерево поверх a6dfdd9b4, не закоммичено)"
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc.yaml   # verdict APPROVED, blocking_count 0, круг 6; файл не закоммичен, событие не опубликовано
+  change_yaml_acceptance_sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+previous_initial: docs/changes/issue-2917/reviews/class-exposure/initial/5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368.yaml
+delta_predicate: "git diff -- docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (рабочее дерево issue-880 @a6dfdd9b4; на a6dfdd9b4 — 5b1a7e41…)"
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: a6dfdd9b4181a01f24fd1d1c8f3bee52c02585df
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kaname_line: 0f2395a62    # origin/484-notify (приёмка мерила на bd8413637)
+  corelib_line: 1a37f81     # origin/77-notify
+  ntf1_acceptance: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+snapshot_at: 2026-10-02T02:00:54Z
+inspected: >-
+  Дифф приёмки (+45 −1): шапка, NTF2-60 Given, (г), §7, §11. Контекст: NTF2-60 целиком, Р6 (оси
+  перебора «адрес + источник» и потолок), строка §3 о ручках `authn.login.source-*` (остаются за
+  входом). kaname @0f2395a62: `humansession/rate.go` (attemptGate, AddressKey — нижний регистр,
+  recordFailure по двум осям), `recovery_complete.go:176`, `login.go:224`,
+  `handler/loginlanehttp/handler.go:943` (источник — значение X-Forwarded-For «как есть, цепочка не
+  разбирается»), `repo/kaname/pg/human_session_repo.go:122` (`login_failures(scope, key, failed_at)`),
+  `config/login_lane.go:121` (ручки Р6 объявлены, AttemptGuard в дереве нет), `refusals.go:33`.
+  Замысел NTF-2: З11 (AddressKey снимается, ключ стража — mailkey.Account), З15 (AttemptGuard на трёх
+  путях). Пробы не запускались. Записки vault не читались.
+
+decisions:
+  R32-1: "A и S1 выводятся из идентификатора прогона, другой сценарий подъёма П6 их не берёт; печатаются"
+  R32-2: "перед (г) печать ручек `authn.login.{address,source}-{attempts,window}` и числа следов неверных предъявлений по A за address-window и по S1 за source-window чтением хранилища kaname; не 0 — «не выполнилось»"
+  R32-3: "вход до предъявления; 429/8/TOO_MANY_ATTEMPTS kaname — «не выполнилось» с повторной печатью чисел; красный — PoW, RATE_LIMITED или счёт посредника ≠ 1"
+  R32-4: "человек П11 с паролем"
+  R32-5: "§7 строка «NTF2-60 (г), kaname» — держатель attemptGate, 7 вызовов gate.check @bd8413637, пути (г) — login.go и recovery_complete.go"
+
+already_raised_confirmed:
+  - id: CX2-106
+    text: "Given приёмки теперь ставит окна в известное положение и печатает их, а отказ стража kaname классифицирован. Условия CX2-106 перенесены в приёмку дословно; отображение в замысле — дело пересверки"
+
+items:
+  - id: CX2-107
+    decision: "R32-2: число следов по A и по S1 читается пробой края из хранилища kaname стенда"
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» — два написания одного значения: ключ, под
+      которым kaname пишет след, и ключ, под которым проба его ищет. measurement-discipline §«Предикат —
+      только с контролем»: напечатанный «0» доказывает известное положение, только если тот же запрос
+      умеет сказать «не 0». code-authoring §«Умолчание, которое становится утверждением»: ошибка чтения
+      или пустой результат не равны «следов нет»
+    exposure: >-
+      kaname пишет след под ключами, которых проба не видит. (1) Ось адреса: на базе `AddressKey(A)` —
+      нижний регистр и обрезка (rate.go). После S3 этого же изменения — `mailkey.Account(A)`: локальная
+      часть в нижнем регистре, домен A-label (З11). Проба живёт в kacho и не может импортировать ни то, ни
+      другое (`internal/` kaname). Если A, выведенный из идентификатора прогона, несёт заглавные буквы
+      (вывод из идентификатора прогона их не исключает: Given формы не задаёт), чтение по `A` как есть даёт 0 при любом
+      числе следов. (2) Ось источника: полоса входа берёт значение X-Forwarded-For «как есть, цепочка не
+      разбирается». Ключ — это строка, которую край переслал в kaname, а не `S1`, которую проба поставила
+      краю. Если край дописывает цепочку или нормализует адрес (IPv6, отображённый IPv4), чтение по `S1`
+      даёт 0. (3) Таблица и значения `scope` — внутренняя схема kaname, а S3 правит этот же код. При
+      переименовании `count(*)` вернёт 0, а не ошибку. (4) Окно `failed_at > now − window`, посчитанное по
+      часам пробы (в NTF2-60 они управляемые), отличается от окна стража. Во всех четырёх случаях Given
+      печатает «0», и (г) продолжается. Ложного красного нет: TOO_MANY_ATTEMPTS даёт «не выполнилось». Но
+      «известное положение», которое обещает Given, не доказано, а диагностика «не выполнилось» печатает
+      «0 и 0» рядом с отказом стража — ложь, которая уводит разбор
+    condition_on_code: >-
+      (а) Ключ источника для чтения — значение X-Forwarded-For, которое посредник пробы увидел в запросе
+      края к kaname. Литерал `S1` для этого не годится, ключ печатается. Если посредник видел больше
+      одного значения, исход «не выполнилось». (б) A порождается в канонической форме: ASCII, локальная
+      часть в нижнем регистре, без пробелов. Проба печатает A и проверяет, что A равен своей нижнерегистровой
+      форме; иначе «не выполнилось». (в) Окно считается по часам базы (`now()` в том же запросе), а не по
+      часам пробы. (г) Ошибка чтения или отсутствие таблицы и столбца дают «не выполнилось» с текстом
+      ошибки, никогда не 0. (д) Контроль в обе стороны. Сразу после (г) проба перечитывает следы того
+      стража, который судил предъявление (CX2-108), и ждёт ровно 1 по каждой оси: это след одного неверного
+      предъявления. Число ≠ 1 — исход (г) «не выполнилось» с текстом «чтение следов не способно сказать
+      „не 0“». (е) Вход в вывод A и S1 различает повторный запуск против той же базы стенда (номер попытки
+      либо одноразовая соль, печатается). Иначе повтор упавшего задания найдёт след прошлой попытки и
+      детерминированно даст «не выполнилось»
+    held_by: >-
+      Нужна проба E2, её нет. Инъекция: A с заглавной буквой в локальной части, чтение по A как есть →
+      контроль (д) печатает 0 → «не выполнилось», а не зелёный. Близнец: каноническая A → контроль 1/1.
+      Однофайлового признака нет
+  - id: CX2-108
+    decision: "R32-2, R32-5: печатаются окна attemptGate (Р10, `authn.login.{address,source}-*`), держатель обоих путей (г) в §7 — attemptGate"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены»: какой страж судит предъявление, решает полоса
+      S3 (kaname), а что печатать перед (г), решает проба E2 (kacho). measurement-discipline §«Радиус: по
+      имени механизма и по точкам применения»: держатель измерен на базе, а изменение само переносит точку
+      применения
+    exposure: >-
+      На bd8413637 и 0f2395a62 recovery/complete зовёт `gate.check` (attemptGate, Р10). Замысел NTF-2 З15 и
+      приёмка Р6 ставят на recovery/complete AttemptGuard: ось «адрес + источник»
+      (`authn.login.attempts.address-source-per-window` за `window`) и потолок неудач адреса
+      (`address-failure-ceiling`, окно от первой неудачи). Ручки Р6 в kaname уже объявлены
+      (`config/login_lane.go:121`), стража ещё нет. Приёмка (строка §3) оставляет ручки
+      `authn.login.source-*` только за входом. Из этого следует одно из двух. Либо после S3 предъявление
+      судит AttemptGuard, и тогда напечатанные окна Р10 — не про тот страж, а строка §7 устареет посадкой
+      самого изменения. Либо S3 оставляет на recovery/complete оба стража, и тогда печать неполна. Замысел
+      не говорит, какой вариант верен. Пока A и S1 свои на прогон, пара (A, S1) и потолок по A тоже чисты
+      по построению, так что исход (г) не ломается. Не определён только предмет печати и контроля (CX2-107
+      (д))
+    condition_on_code: >-
+      (а) Замысел (З15 и строка S3) решает и называет, остаётся ли `gate.check` на recovery/complete после
+      S3 или его заменяет AttemptGuard. Гейт «вызывающих стража ровно 3» печатает и это. (б) Проба E2
+      печатает ручки и числа следов каждого стража, который на ревизии kaname стенда судит вход и
+      предъявление. Для AttemptGuard это `authn.login.attempts.{address-source-per-window,window,address-failure-ceiling}`,
+      число неудач пары (A, S1) и число неудач по A от первой неудачи. Ревизия kaname стенда печатается.
+      (в) Контроль CX2-107 (д) читает хранилище того стража, который судил предъявление
+    held_by: >-
+      Нужна проба E2, её нет. Инъекция: перед (г) записать в фикстуру `address-source-per-window` неудач
+      пары (A, S1) в хранилище AttemptGuard → печать не 0 → «не выполнилось». Близнец — чистая пара →
+      (г) зелёный. Однофайлового признака нет
+
+measurements:
+  - claim: "предмет; HEAD — одобренная редакция 31"
+    command: "sha256sum <приёмка>; git show HEAD:<приёмка> | sha256sum"
+    result: "5606cbc0…; HEAD — 5b1a7e41…"
+  - claim: "вердикт на 5606cbc0"
+    command: "grep -n '^verdict\\|blocking_count' docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5606cbc0….yaml"
+    result: "verdict: APPROVED, blocking_count: 0 (файл не закоммичен, event.status not_performed)"
+  - claim: "ключ адреса нормализуется, ключ источника — заголовок как есть"
+    command: "git -C project/kaname show origin/484-notify:internal/apps/kaname/api/humansession/rate.go | grep -n AddressKey; … handler/loginlanehttp/handler.go | sed -n 941,945p"
+    result: "AddressKey = strings.ToLower(strings.TrimSpace(email)); source = strings.TrimSpace(r.Header.Get(X-Forwarded-For)) — «цепочка не разбирается»"
+  - claim: "хранилище следов и форма запроса"
+    command: "git -C project/kaname show origin/484-notify:internal/repo/kaname/pg/human_session_repo.go | sed -n 121,131p"
+    result: "SELECT count(*) FROM login_failures WHERE scope=$1 AND key=$2 AND failed_at > $3"
+  - claim: "держатель recovery/complete на голове линии; Р6 — объявлен, не исполнен"
+    command: "git -C project/kaname grep -n 'gate.check\\|AttemptGuard\\|AddressSourcePerWindow' origin/484-notify -- 'internal/**/*.go' ':!*_test.go'"
+    result: "gate.check — 7 мест, в том числе recovery_complete.go:176 и login.go:224; AttemptGuard — 0; AddressSourcePerWindow — config/login_lane.go:121,123"
+  - claim: "причина отказа стража kaname одна"
+    command: "git -C project/kaname grep -n 'RATE_LIMITED\\|TOO_MANY_ATTEMPTS' origin/484-notify -- 'internal/**/*.go' ':!*_test.go'"
+    result: "refusals.go:33 TOO_MANY_ATTEMPTS; RATE_LIMITED в kaname 0 — краевой и kaname-отказ различимы по reason"
+  - claim: "окно запроса восстановления (ChargeSource) — другое хранилище, ряд (а) следов неверных предъявлений не оставляет"
+    command: "git -C project/kaname grep -n ChargeSource origin/484-notify -- ':!*_test.go'"
+    result: "recovery_request.go:120 → verification_code_repo; login_failures не пишет"
+
+not_measurable:
+  - item: "что край пересылает в X-Forwarded-For kaname для S1 на П6"
+    why: "это свойство поднятого стенда. Его держит проба E2 «адрес края = адрес в kaname» (CX2-12); CX2-107 (а) требует брать ключ из её захвата"
+
+outcome: к-замыслу
+return_to_acceptance: []
+return_to_acceptance_note: >-
+  Не возврат. (г) исполним: TOO_MANY_ATTEMPTS даёт «не выполнилось», так что ложного красного нет, а
+  свежие на прогон A и S1 делают чистыми все ключи обоих стражей. При следующей правке приёмки (не
+  блокирует): строка §7 «NTF2-60 (г), kaname» называет держателем recovery_complete.go attemptGate по
+  базе. Держателем после S3 станет решение CX2-108 (а). Там же — ревизия в самом предикате (N-1 круга 6).
+unmapped_items_revalidation: "— (режим initial)"
+
+orders:
+  - to: "автор замысла NTF-2 (issue-2917)"
+    what: "отобразить CX2-107 (ключ источника из захвата посредника, каноническая A, окно по часам базы, ошибка чтения ≠ 0, контроль 1/1 после (г), попытка в выводе A и S1) и CX2-108 (какой страж судит recovery/complete после S3; печать ручек и следов каждого судящего стража) в З8 «Второй страж…», З15, строках E2 и S3; исправить в §11 CX2-106 `AddressKey(A)` — S3 его снимает"
+    basis: ".claude/rules/change-graph.md §4; measurement-discipline §«Предикат — только с контролем»; code-authoring §«Контракт, который нельзя выразить»"
+
+class_proposal: "— (CX2-107 и CX2-108 ложатся в существующие разделы code-authoring и measurement-discipline)"
+single_file_predicate_candidate: "—"
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: class-exposure-analyst
+  subject_sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+  publication_mode: courier
+  precondition: "событие вердикта acceptance-reviewer на 5606cbc0… опубликовано"
+  event_body_for_courier: >-
+    class-exposure-analyst · первичный разбор · к-замыслу · SHA-256
+    5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc · новые CX2-107, CX2-108
