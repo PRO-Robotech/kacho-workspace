@@ -1,0 +1,153 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+  revision: 31
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа говорит «Статус: DRAFT», а строка редакции 31 — «вердикта нет». Эта запись шапку
+    НЕ правит, так и задумано: вердикт привязан к отпечатку, а не к слову в заголовке. Действующий
+    вердикт выводится из этой записи и внешнего события.
+  content_commit: none   # рабочее дерево worktree issue-880, не закоммичено; HEAD 3227baa93
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4765
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-02T00:00:00Z'
+round: 5
+round_note: >-
+  Круг 5 по счёту каталога, следующий за записью eed36d11… (круг 4, редакция 30, ✅). Правка
+  одобренной редакции, поэтому одобрение eed36d11 на этот отпечаток не переносится и нужен новый
+  вердикт. Судилась дельта 30 → 31: `git diff` рабочего дерева против HEAD 3227baa93, +55/−9, все
+  ханки прочитаны (шапка, Р16 п.8, §5 строка NTF2-60, NTF2-60 ID и (г), NTF2-69 Given (е), §6б
+  строки Р5 и `…IP_HARD_*`, §11). Прежние записи не правились.
+previous_rounds:
+  - pass: редакция 30, круг 4
+    sha256: eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e
+    verdict: APPROVED
+delta_items:
+  CX2-100_R16_p8: >-
+    ПРИНЯТО. Вместо одного образца через «или» стоят два отдельных счёта, каждый должен быть не 0;
+    печатаются оба счёта и отпечаток NTF-1. На одобренной NTF-1 1bffe10d… измерено: путь флага → 3,
+    SAN → 4. Это совпадает с замером автора. Дефект прежнего предиката снят: SAN больше не отвечает
+    за путь флага.
+  CX2-101a_NTF2-69e: >-
+    ПРИНЯТО. В Given (е) есть `pending-max > Y`, оба числа печатаются, иначе «не выполнилось».
+    Логика верна: отказ по ожидающим наступает при pending ≥ pending-max, а перед запросом Y+1
+    висит ровно Y. Условие согласовано с (а)–(д): там `pending-max > account-per-day`. Умолчания Р8
+    (200 > 50) его выполняют, так что «не выполнилось» по построению не постоянно. Адресаты разные,
+    `<i>` в адресе, их число печатается: ось получателя не мешает.
+  CX2-99b_NTF2-60g: >-
+    ПРИНЯТО. Отрицание (вход и предъявление кода не режутся при исчерпанном HARD) стоит в паре с
+    положительным близнецом (`recovery` того же S1 → RATE_LIMITED). Близнец отличается одним
+    фактом, путём, и стоит после проверяемых запросов, так что подтверждает исчерпание на момент
+    проверки. Иной ответ близнеца даёт «не выполнилось». Производитель — строка §7 «NTF2-60…63, 74,
+    79, 71 (край)». Оба пути входят в состав полосы формы П6 (§5 П6, «Канал глаголов мимо края»:
+    `login`, `recovery/complete`). Посредник считает запросы, поэтому утверждение «ответ дал kaname»
+    измеримо. Строки §5, §6б Р5 и `…IP_HARD_*` обновлены согласованно.
+blocking_count: 0
+blocking_kinds_distinct: []
+defaults_fixed: []
+non_blocking:
+  - id: N-1
+    kind: CONSTRUCTIBILITY
+    text: >-
+      В Given NTF2-60 A — «подтверждённый адрес A (П11)», а (г) входит «с A и его паролем». Пароль
+      в Given не назван. Сейчас его выводят из строки П11 («вход … глаголом login»), но в kaname
+      есть форма человека без пароля (вход без пароля). При следующей правке написать «человек П11
+      с паролем и подтверждённым адресом A». Тогда фикстура П11 не построит A без пароля, и (г) не
+      покраснеет на верной работе.
+  - id: N-2
+    kind: FORMAT
+    text: >-
+      Р16 п.8: подстановку `<модуль>` → `kaname` счёт не проверяет, он считает шаблон. Ключ модуля
+      kaname назван в замысле NTF-1 (design.md issue-2915, ред. 35, CX1-111: `modules.kaname`), а
+      в одобренной приёмке NTF-1 1bffe10d его нет: `grep -c 'modules\.kaname'` → 0. Довод «неизвестный
+      ключ `--set` молча оставил бы флаг kaname true» ослаблен решением CX1-111: ключ под `modules`,
+      которого нет в таблице, — отказ рендера с именем. Блокирующим это не является: неверный ключ
+      проявится громко, а не молча. При правке NTF-1 под CX1-111 добавить третий счёт по
+      `modules.kaname` или привести довод к новому замыслу.
+return_to: none
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: acceptance-reviewer
+  subject_sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+  declared_verdict: APPROVED
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review_approved
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  rationale: >-
+    Событие публикует не рецензент, тело для курьера — в event_body_for_courier. Вердикт относится
+    только к отпечатку 5b1a7e41…. Документ не закоммичен: одобрение действует, когда в линии лежит
+    ровно этот отпечаток.
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 5, редакция 31, блокирующих 0) · SHA-256
+    5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  courier_publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+measurement:
+  revisions_used:
+    document: рабочее дерево issue-880 (sha256 5b1a7e41…), HEAD 3227baa93
+    ntf1_acceptance: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md sha256 1bffe10d… (APPROVED, запись 1bffe10d….yaml; в рабочем дереве не изменена)
+  results:
+    - id: S-1
+      claim: два счёта Р16 п.8 на одобренной NTF-1 не 0
+      command: >-
+        grep -cF 'global.kacho.notifications.modules.<модуль>.enabled' <NTF-1>;
+        grep -cF 'global.kacho.spiffe.kaname' <NTF-1>
+      outcome: 3 и 4. Посылка автора подтверждена.
+    - id: S-2
+      claim: ключ модуля kaname назван в одобренной приёмке NTF-1
+      command: grep -c 'modules\.kaname' <NTF-1>; grep -n 'modules\.kaname' docs/changes/issue-2915/design.md
+      outcome: 0 в приёмке; в замысле :2165, :2172, :2181, :2193. Отсюда N-2.
+    - id: S-3
+      claim: login и recovery/complete входят в состав полосы формы П6
+      command: sed -n 1709p <приёмка>
+      outcome: «Глагол, у которого есть путь полосы формы (`login`, `recovery`, `recovery/complete`, …), идёт через полосу формы края П6».
+    - id: S-4
+      claim: умолчания Р8 выполняют `pending-max > Y`
+      command: sed -n 922p <приёмка>
+      outcome: young-account-per-day 50, pending-max 200.
+constructibility:
+  seeded: 0
+  of: 2
+  not_performed: 2
+  named_fixture: 2
+  note: >-
+    Посев не выполнен: стенды П6 и П1 с посаженной NTF-2 ещё не существуют (звено края заводит
+    полоса реализации), разрешения на подъём не было. Источник (г) — состояние, оставленное
+    (а) той же пробы. Его наличие проверяет близнец, при отсутствии — «не выполнилось». Для
+    NTF2-69 (е) условие печатается, умолчания Р8 его выполняют (S-4).
+route_flags:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true   # ограничитель края: область действия звена при исчерпанном HARD

@@ -1,0 +1,206 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-2, редакция 30, маршрут редакции 29.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 30 против последней пересверенной
+# (редакция 29, 829b1889…, запись revalidation/829b1889….yaml — «к замыслу», CX2-99…CX2-105, N29-1).
+# Кроме неё судятся следствия замысла NTF-1 редакции 35 и пункт НОВОГО первичного разбора на приёмку
+# 5b1a7e41… (initial/5b1a7e41….yaml, CX2-106). Дельта не закоммичена: рабочее дерево issue-880 поверх
+# 3227baa93 (на 3227baa93 design.md = 829b1889…, tasks.md = ad2b39c1… — ровно пересверенные).
+#
+# Итог — к замыслу. CX2-99…CX2-105 и N29-1 отображены, условия выдерживаются. Следствия NTF-1
+# (помощники в чарте notify, собственный ключ флага kaname) перенесены согласованно. Не отображён
+# только CX2-106 нового первичного разбора 5b1a7e41: замысел писался до него. Заметки N30-1…N30-3 не
+# блокируют.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 9c4a238a640a248b32f1f220d7e7acfa242e47c53fd2ce5142975210f9f2b38f
+  fingerprint_predicate: sha256sum docs/changes/issue-2917/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 9c4a238a640a248b32f1f220d7e7acfa242e47c53fd2ce5142975210f9f2b38f   # рабочее дерево
+  tasks_sha256: c465721530eb8a0047b883f332384cd8bcdb21a139472568daf3d8c3458b441b   # маршрут редакции 29
+  revision: 30
+  content_commit: "— (рабочее дерево поверх 3227baa93, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2917/reviews/class-exposure/revalidation/829b188967392401d852b94d7667cecf082492b9ccc5129d041fad61f157bdaf.yaml
+    sha256: 829b188967392401d852b94d7667cecf082492b9ccc5129d041fad61f157bdaf
+  delta_predicate: "git diff -- docs/changes/issue-2917/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @3227baa93)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+  revision: 31
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5b1a7e41….yaml (не закоммичена)"
+  changed_since_previous_record: true   # было eed36d11… (редакция 30)
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/5b1a7e41….yaml (эта сессия; к замыслу, CX2-106)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 3227baa93da502ae565b4a491ab6c8fbb7901495   # плюс незакоммиченная дельта автора
+  kacho_line: ae4bde452f6   # origin/2564
+  kacho_epic: e415e59a225   # origin/2914-notify
+  kaname_line: bd8413637    # origin/484-notify
+  corelib_line: 1a37f81     # origin/77-notify; пин kaname — 8a9eb14
+snapshot_at: 2026-10-02T01:21:02Z
+inspected: >-
+  Дельта design.md (+117 −14): шапка редакции 30; §0 строки приёмки 5b1a7e41, первичного разбора
+  eed36d11, опор NTF-1; §0.2 «Перепроверка по действующей опоре 1bffe10d»; З4; З8 «Принадлежность пути
+  решается до любого яруса», «личность канала глаголов мимо края — функцией края»; З21; З24 «Секунды
+  считает одна функция правила»; карта путей (строка зонтика); §11 CX2-99…105, N29-1, R29-1, R29-2;
+  сводка. Дельта tasks.md (строки E2, D0, D1, X1, S5, S9a, E1a, S8d). kacho @ae4bde452f6:
+  `gateway/internal/principalmeta/request.go`, `restmux/mux.go`; kaname @bd8413637: места округления
+  срока повтора, дом глагола приглашения; corelib @8a9eb14: `notify/spec`, `notify/form`; kacho
+  @2564: аннотация конфигурации подчарта kaname. Ни go test, ни newman не запускались. Записки vault
+  не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2917/design.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "5b1a7e41 — APPROVED (запись есть, не закоммичена); initial/5b1a7e41….yaml — эта сессия. В §0 замысла по-прежнему стоит «вердикта нет», см. N30-1"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX2-99…105 и N29-1 отображены (вхождений design/tasks: 9/3, 4/3, 3/2, 3/3, 4/2, 2/2, 4/2, 5/1); CX2-106 (initial 5b1a7e41) — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "дельта нового не вводит. Обёртка хранилища ограничителя считает вызовы в процессе пробы — это оснастка пробы, а не путь продукта"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 9c4a238a… = предмет; hashes.acceptance_sha256 = 5b1a7e41…"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 9c4a238a нет"
+
+mapping_check:
+  - item: CX2-99
+    verdict: holds
+    text: >-
+      (а) З8: первым оператором звена стоит одна функция принадлежности над признаком `anonMail`
+      таблицы путей. Путь вне перечня уходит дальше до любого обращения к ярусам, вызовов хранилища 0.
+      (б) Держатель — E2 через NTF2-60 (г) приёмки 31: два пути, близнец recovery → RATE_LIMITED,
+      инъекция «ярус HARD до проверки пути». Счёт вызовов хранилища ведёт обёртка в процессе пробы.
+      /projects держится одним перечнем
+  - item: CX2-100
+    verdict: holds
+    text: >-
+      D0 ведёт два счёта с печатью отпечатка, любой 0 — возврат в приёмку. D1 даёт рендерную половину:
+      `--set …modules.kaname.enabled=false` выводит kaname из перечня, близнец — true. Предикат
+      проверен в обе стороны: 3/4 на 1bffe10d, 0/0 на 29cfa368
+  - item: CX2-101
+    verdict: holds
+    text: >-
+      X1: `pending-max > Y`, «не выполнилось» с обоими числами; адресаты Y+1 печатаются; инъекция
+      `pending-max = Y`. Для (б) выбран ConfigMap стенда с именем и resourceVersion, а рендер допускается
+      только с печатью двух ревизий. Это объявление, а не процесс, см. N30-3
+  - item: CX2-102
+    verdict: holds
+    text: >-
+      `internal/retryafter.Seconds` — одна функция. Три существующих места переводятся на неё
+      (loginlanehttp `int64(d / time.Second)` + остаток, ceremonyhttp и clienttokenhttp
+      `math.Ceil(after.Seconds())` — подтверждено). Проба границ 0/0,4/1/1,2 с, печать дробного остатка
+      в S9a. Предикат «новой копии нет» ограничен `internal/handler/**`, а глагол приглашения живёт
+      вне его, см. N30-2
+  - item: CX2-103
+    verdict: holds
+    text: >-
+      Посылка проверена: `principalmeta.MetadataFromRequest` (request.go:38 @ae4bde452f6) один, его
+      зовут restmux (mux.go:154, в замысле :153) и subscriptionstream. Константы заголовков
+      экспортированы (keys.go). Стенд зовёт ту же функцию, литералов 0. Положительный контроль канала
+      печатает актора U, отказ аутентификации — «не выполнилось», инъекция заведена
+  - item: CX2-104
+    verdict: holds
+    text: "`spec.Load`/`LoadFS`, `spec.BlockButton`, `form.KindPath`, `form.KindToken` в corelib @8a9eb14 есть; счёт по всем телам; две инъекции и близнец"
+  - item: CX2-105
+    verdict: holds
+    text: "S8d: функции чтения выводятся из образцов адреса приёмника транзитивно, сверка двух предикатов с «разошлось», две инъекции; знаменатели 6/8/17 не перемерялись (на a59862664 совпадали)"
+  - item: N29-1
+    verdict: holds
+    text: "§0 опора — 1bffe10d; §0.2 перепроверен (2 строки опор, 38 строк W4a); ссылка на initial/eed36d11 вместо «нет»"
+  - item: "следствия NTF-1 редакции 35 (CX1-111, CX1-113)"
+    verdict: holds
+    text: >-
+      З4, З21 и карта путей переведены. Помощники лежат в `deploy/helm/notify/templates/{_flag,_sources,
+      _spiffe}.tpl`. Собственный ключ флага kaname — `kaname.config.notifications.enabled`, отказ —
+      по таблице NTF-1. Инъекция (1) D1 переведена на этот ключ. NTF-2 D1 добавляет только поля
+      источника строке kaname. Порядок снятия умолчания подчарта (заказ прошлой пересверки NTF-1) снят:
+      теперь это NTF-1 D2
+  - item: CX2-106
+    verdict: unmapped
+    text: "новый пункт initial/5b1a7e41: A и S1 своих на прогон, печать следов неверных предъявлений перед (г), TOO_MANY_ATTEMPTS kaname → «не выполнилось» — в замысле 0 вхождений"
+
+new_items: []
+items: []
+notes:
+  - id: N30-1
+    blocking: false
+    where: "design.md §0 строка «приёмка NTF-2 — правка редакции 30»; change.yaml комментарий редакции 31"
+    text: >-
+      «Вердикта нет; одобрение редакции 30 к ней не переносится». Сейчас запись
+      `5b1a7e41….yaml` есть: verdict APPROVED, blocking_count 0. Утверждение пережило свой предмет.
+      Заменить ссылкой на запись вердикта и на initial/5b1a7e41
+    predicate: "строка §0 о 5b1a7e41 называет запись вердикта"
+  - id: N30-2
+    blocking: false
+    where: "design.md §11 строка CX2-102, держатель S5"
+    text: >-
+      Предикат «нового округления нет» — `git grep -nE 'math\\.Ceil|/ time\\.Second'` по нетестовым
+      файлам `internal/handler/**`. Глагол приглашения, у которого появится срок, живёт в
+      `internal/apps/kaname/api/user/handler.go` @bd8413637, то есть вне области. Четвёртая копия в
+      `internal/apps/**` даст печать 0 при наличии копии. По всему нетестовому дереву kaname образец
+      находит 9 мест, 3 из них — срок повтора (все три в `internal/handler/**`), прочие 6 — иные
+      величины. Значит, предикат по всему дереву с разбором по референту исполним и способен сказать «да»
+    predicate: "область предиката S5 — `'*.go' ':!*_test.go'`, печать: найдено, срок повтора, вне retryafter = 0"
+  - id: N30-3
+    blocking: false
+    where: "design.md §11 строка CX2-101, маршрут X1"
+    text: >-
+      ConfigMap kaname со своим resourceVersion — объявление, а не процесс. Подчарт kaname несёт
+      `kacho.cloud/config-checksum` от рендера ConfigMap (deployment.yaml:90 @ae4bde452f6), так что под
+      перекатывается при helm-смене. Правка объекта мимо helm под не перекатит. Достаточно, чтобы
+      проба X1 печатала момент последнего изменения ConfigMap и момент старта пода kaname и при
+      «ConfigMap новее пода» давала «не выполнилось». Либо брать величины из самоотчёта процесса, если
+      он их печатает
+    predicate: "X1 печатает связь ConfigMap ↔ работающий под либо читает процесс"
+
+measurements:
+  - claim: "предмет и маршрут; на 3227baa93 — пересверенные редакции"
+    command: "sha256sum docs/changes/issue-2917/{design,tasks}.md; git show HEAD:… | sha256sum"
+    result: "9c4a238a…, c4657215…; HEAD — 829b1889…, ad2b39c1…"
+  - claim: "пункты прошлой пересверки отображены, CX2-106 — нет"
+    command: "for id in CX2-99 … CX2-105 N29-1 CX2-106; do grep -c -- $id design.md tasks.md; done"
+    result: "9/3, 4/3, 3/2, 3/3, 4/2, 2/2, 4/2, 5/1; CX2-106 — 0/0"
+  - claim: "строитель личности один и экспортирован (CX2-103)"
+    command: "git -C project/kacho grep -n MetadataFromRequest origin/2564 -- '*.go' ':!*_test.go'"
+    result: "request.go:38 (определение), restmux/mux.go:154, subscriptionstream/handler.go:517"
+  - claim: "три копии округления срока и дом глагола приглашения (CX2-102, N30-2)"
+    command: "git -C project/kaname grep -n -E 'math\\.Ceil|/ time\\.Second' origin/484-notify -- '*.go' ':!*_test.go'; то же по 'internal/handler/**'; git grep -ln -E 'func \\(.*\\) (Invite|InviteUser)\\(' origin/484-notify -- '*.go' ':!*_test.go'"
+    result: "9 по дереву, 4 под internal/handler (3 срока повтора + MaxAge сессии); Invite — internal/apps/kaname/api/user/handler.go"
+  - claim: "загрузчик формата тела (CX2-104)"
+    command: "git -C project/corelib grep -n -E 'func (Load|LoadFS)\\(|BlockButton|KindPath|KindToken' 8a9eb14 -- 'notify/**/*.go' ':!*_test.go'"
+    result: "spec/load.go:80, :89; spec/model.go:47 BlockButton; form/form.go:40–41"
+  - claim: "аннотация конфигурации подчарта kaname (N30-3)"
+    command: "git -C project/kacho grep -n checksum origin/2564 -- deploy/helm/umbrella/charts/kaname/templates/deployment.yaml"
+    result: "deployment.yaml:90 `kacho.cloud/config-checksum` — sha256 рендера configmap.yaml"
+
+not_measurable:
+  - item: "знаменатели наборов newman для S8d на текущей голове kaname"
+    why: "не перемерялись (AST-разбор); на a59862664 — 6/8/17; условие требует печати на базе полосы"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX2-106]
+orders:
+  - to: "автор замысла NTF-2"
+    subject: "отобразить CX2-106 (initial/5b1a7e41) в З8 и строке E2; заметки N30-1 (строка §0 о вердикте 5b1a7e41), N30-2 (область предиката S5 — всё дерево), N30-3 (X1 — связь ConfigMap с процессом)"
+    basis: ".claude/rules/change-graph.md §4; measurement-discipline §«Радиус: по имени механизма и по точкам применения»"

@@ -1,0 +1,249 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 35, маршрут редакции 36.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 35 против последней пересверенной
+# (редакция 34, 80594e49…, запись revalidation/80594e49….yaml — «к замыслу», CX1-111…CX1-114, N34-1)
+# плюс решения диспетчера Д64 и Д75 (2026-10-02). Дельта не закоммичена: рабочее дерево issue-880 поверх
+# 3227baa93 (на 3227baa93 design.md = 80594e49…, tasks.md = f798ae8c… — ровно пересверенные).
+#
+# Итог — к замыслу. CX1-111, CX1-112, CX1-113, CX1-114, N34-1, Д64 и Д75 отображены, и условия
+# выдерживаются. Однако отображение CX1-114 вводит новое sentinel-значение: пустое `Chain.Database` у
+# точки без `chains.yaml`. По §7 это новый пункт, CX1-115. Его условие маленькое: потребитель пустого
+# значения назван, а доказательство наката получает базу с именем строки таблицы. Плюс две заметки
+# (N35-1, N35-2): числа замысла не воспроизводятся названным предикатом, вывод от этого не меняется.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 0eb2a42efc9b8bde63392a1915e2ad720b2047123adc92aab0a1304b8d2b1a2a
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: 0eb2a42efc9b8bde63392a1915e2ad720b2047123adc92aab0a1304b8d2b1a2a   # рабочее дерево
+  tasks_sha256: f3307d1d5ce38a7d114b53226b7355d9e1cece202863e55403d0c3dace356a04   # маршрут редакции 36
+  revision: 35
+  content_commit: "— (рабочее дерево поверх 3227baa93, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a.yaml
+    sha256: 80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @3227baa93)"
+  decisions_judged:
+    - "CX1-111: таблица модулей `_sources.tpl` с путём собственного ключа флага; три отказа по таблице; ConfigMap kaname — только через enabledFor; умолчание подчарта и ключи профилей сняты в D2"
+    - "CX1-112: узлы global.kacho.{notifications,spiffe} объявляет только зонтик; гейт согласия — перечень узлов; N01, N02, J05 обходят все файлы значений"
+    - "CX1-113: три помощника по одному телу в чарте notify; nil-безопасный вход; одиночный рендер charts/kaname — обёрткой"
+    - "CX1-114: цепочка пробы services/notify/internal/probemigrations; chains.yaml; internal/migrationchains.List; 13 гейтов переводятся, 7 — с причиной"
+    - "N34-1: «не применимо» всегда с предикатом снятия"
+    - "Д64: K8r → corelib 1a37f81d; N11r → corelib 1a37f81d, kaname — голова 484-notify и тег образа той же ревизии"
+    - "Д75: InternalNotifyProbeService/Send синхронный, SendResponse{notification_id}; форму утверждает proto-api-reviewer на D4"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml (к замыслу, CX1-111…CX1-113)"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 3227baa93da502ae565b4a491ab6c8fbb7901495   # плюс незакоммиченная дельта автора
+  kacho_epic: e415e59a225   # origin/2914-notify (не сдвинулась с прошлой записи)
+  kacho_line_2564: ae4bde452f6
+  kaname_line: bd8413637    # origin/484-notify (было a59862664; сверху K7 #550)
+  corelib_line: 1a37f81     # origin/77-notify = голова C13 «#77 platformmodules: служба notify (#82)»
+snapshot_at: 2026-10-02T01:21:02Z
+inspected: >-
+  Дельта design.md (+207 −12; шапка редакции 35; З28 «Таблица модулей…», «global.kacho… объявляет только
+  зонтик», «Помощники — по одному телу, в чарте notify», «Декларации»; З29 «Глагол Send»; З32 —
+  предикат снятия, порядок перепина Д64, «Накат схемы kacho_notifyprobe» с chains.yaml и
+  migrationchains; §5 набросок proto; §11 строки CX1-111…114, N34-1, R34-2, Д64, Д75). Дельта tasks.md
+  (строки D2, D4, N7, J2, K8r, N11r). kacho @e415e59a2: `internal/migratorapply/apply_test.go`
+  (TestEveryMigratorAppliesItsChainToALiveDatabase, migrationsDirOf, NewEmptyDB); corelib @8a9eb14
+  `pgtest/pgtest.go` (имя базы `kacho_<cfg>_tNNNN`, контейнер на процесс); перепись глаголов
+  `Internal*`; места `kaname.image` в values*.yaml зонтика; `charts/kaname/templates/configmap.yaml`;
+  перепись одиночных рендеров `charts/kaname`; corelib 1a37f81 (platformmodules); kaname
+  `deploy/Chart.yaml` (собственный чарт службы). Ни go test, ни helm, ни make не запускались. Записки
+  vault не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' docs/changes/issue-2915/design.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED; initial/1bffe10d….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-111…114 и N34-1 отображены (вхождений в design/tasks: 7/4, 3/3, 6/3, 8/3, 4/3); новый CX1-115 не отображён"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "редакция 35 вводит sentinel: пустое `Chain.Database` («точка одна на цепочку и по имени базы не выбирает») — пункт CX1-115"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = 0eb2a42e… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на 0eb2a42e нет; шапка: «Вердикта на эту редакцию нет»"
+
+mapping_check:
+  - item: CX1-111
+    verdict: holds
+    text: >-
+      (а) Таблица модулей: строка несёт ключ `modules.<ключ>` и путь собственного ключа флага от корня
+      значений зонтика: `kaname.config.notifications.enabled` и `notifyProbe.notifications.enabled`. Три
+      отказа строятся по таблице. Страж зонтика `notifications-flag-guard.yaml` помещён в шаблон зонтика:
+      только там видно `.Values.<подчарт>` (замер разбора 1bffe10d). (б) Если ключ отсутствует в
+      таблице, рендер отказывает с его именем и перечнем ключей таблицы. (в) ConfigMap kaname берёт флаг
+      только через enabledFor. Умолчание подчарта и ключи профилей снимаются тем же изменением D2, что
+      переводит читателя. Окна «принят и не прочитан» нет. Инъекция (3) с фикстурой
+      `probeB.config.notifications.enabled` доказывает, что отказ построен по таблице, а не по образцу.
+      Сверх условия, верно
+  - item: CX1-112
+    verdict: holds
+    text: >-
+      Узлы `global.kacho.{notifications,spiffe}` объявлены только в зонтике. Гейт согласия
+      `identity_global_defaults_agree_test.go` переходит на перечень узлов: для identity сверяет
+      согласие, для notifications и spiffe ждёт 0 объявлений. N01, N02, J05 обходят все файлы значений,
+      печатают число файлов и краснеют на пустом обходе. Инъекции (1) и (2) заведены с близнецами
+  - item: CX1-113
+    verdict: holds
+    text: >-
+      Место выбрано верно: чарт notify входит в рендер зонтика (зависимость без condition) и в ногу без
+      зонтика, а зонтик в ногу не входит. Помощники разнесены по файлам `_flag.tpl`, `_sources.tpl`,
+      `_spiffe.tpl`, на каждое имя один define. Гейт `notify_helpers_single_define_test.go` печатает
+      число 1 на имя. Вход nil-безопасен: `kindIs "map"` проверяется по шагу, отказ называет ручку.
+      Одиночный рендер kaname идёт обёрткой: копия файлов помощников во временном каталоге, узлы global
+      выписываются yq из values.yaml зонтика. В отслеживаемом дереве тело по-прежнему одно. Пропущенный
+      при переводе одиночный рендер упадёт громко («no template»), молчать он не будет. Число переписи
+      «22» не воспроизводится, см. N35-2
+  - item: CX1-114
+    verdict: mapped_with_new_exposure
+    text: >-
+      Посылка о правиле internal верна: импорт `services/notify/cmd/notify-probe/internal/…` из
+      `services/notify/cmd/migrator` запрещён, `services/notify/internal/…` разрешён (корень правила —
+      `services/notify`). (а) chains.yaml читается один раз, точка берёт его через go:embed, гейты —
+      по пути. Страж старта сверяет множества каталогов таблицы и встроенных FS, второго литерала нет.
+      (б) 13 гейтов переводятся поимённо, 7 оставлены с причиной. Предикаты сегмента пути (4 и 42) D4
+      перемеряет. (в) Число цепочек печатается, ноль — красный. Инъекции (1)–(3) заведены.
+      Отображение вводит sentinel `Database = ""`, отсюда CX1-115
+  - item: N34-1
+    verdict: holds
+    text: "З32: «не применимо» — всегда с причиной и предикатом снятия (событие и команда); ведомость без поля — комментарий строки"
+  - item: "Д64"
+    verdict: holds
+    text: >-
+      Порядок K8r → N11r выражен, голова C13 = 1a37f81 подтверждена (`#77 platformmodules: служба notify
+      (#82)`). Тег `kaname.image.tag` объявлен в одном месте, `values.yaml` зонтика (`484-notify-a5986266`).
+      `values.fe3455.yaml` и `values.prorobotech.yaml` его не повторяют, `values.digests.example.yaml` —
+      пример с заглушкой дайджеста. Пин модуля и тег образа одной ревизии считаются одним фактом. Если
+      образа нет, исход «не выполнилось», с прежним тегом полоса не садится. Голова линии kaname
+      сдвинулась на bd8413637 (K7), цель N11r названа «голова линии после K8r», а не фиксированным sha:
+      верно
+  - item: "Д75"
+    verdict: holds
+    text: >-
+      Условие диспетчера выполнено. Прецедент синхронных глаголов Internal* есть: 28 (замер
+      подтверждает). Замысел Operation у Send не требует: одна транзакция feed.Put, ответ после
+      коммита. Держатель формы — proto-api-reviewer на D4. Его отказ переводит глагол в форму Operation с
+      done=true по коммиту, асинхронного пути при этом нет, и к замыслу возвращаться не нужно. Число
+      «против 2 с Operation» не воспроизводится, см. N35-1
+
+new_items:
+  - id: CX1-115
+    decision: "CX1-114 (редакция 35, З32): `migrationchains.Chain{Service, Point, Database, Dir}`; у точки без chains.yaml — `Database` пусто («точка одна на цепочку и по имени базы не выбирает»); `migratorapply` гоняет точку «по каждой строке таблицы»"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением»: пустая строка — sentinel «не
+      выбирает», и потребитель, которому нужно имя базы, получит его не из записи, а из догадки.
+      code-authoring §«Решение и его следствие разнесены»: решение о цепочке точка принимает по имени
+      базы в DSN, а доказательство наката выдаёт базу, имя которой это решение не учитывает
+    exposure: >-
+      Доказательство наката `TestEveryMigratorAppliesItsChainToALiveDatabase` @e415e59a2 даёт каждой
+      точке `pgtest.NewEmptyDB(t)`. corelib @8a9eb14 называет такую базу `kacho_<cfg>_tNNNN`, контейнер
+      один на процесс. Точка notify выбирает цепочку по имени базы из закрытой таблицы
+      `{kacho_notifyprobe, kacho_notify}`, и на любом ином имени отказывает. Значит, строки notify
+      требуют базу с ровно тем именем, что записано в таблице. Как её получает `migratorapply`, замысел
+      не говорит: «по каждой строке таблицы» назван без способа. Отказ здесь громкий, проба покраснеет,
+      и чтобы её «починить», у исполнителя два коротких пути. (1) Запасной путь в точке: незнакомое имя
+      при одной законной строке, или флаг выбора цепочки для проб. Оба прямо запрещены замыслом («иное
+      имя — отказ»; «выбор по конфигурации был бы третьим местом решения о цепочке»). (2) Вывод имени
+      базы для пустого `Database` из имени службы (`kacho_<svc>`). Это второй источник истины об имени
+      базы, которое объявляет чарт. Ни один потребитель пустого значения в замысле не назван
+    condition_on_code: >-
+      (а) Замысел называет потребителей `Chain.Database` и их ветку на пустом значении: `migratorapply`
+      при пустом берёт `NewEmptyDB` (как сейчас), при непустом создаёт в контейнере пробы базу ровно с
+      этим именем (`CREATE DATABASE` + `replaceDBName` либо помощник pgtest для именованной базы).
+      Имени из имени службы не выводит никто. (б) В точке наката нет ни запасной ветки на незнакомое
+      имя, ни флага или ручки выбора цепочки для проб. Это проверяется по диффу D4. (в) `migratorapply`
+      печатает на строку: точку, `Database` (или «не выбирает»), имя базы в DSN, применено/объявлено.
+      Строк notify — 1 на голове D4 и 2 после N7
+    held_by: >-
+      Нужен держатель в D4, его нет. Инъекция: строке `kacho_notifyprobe` подать `NewEmptyDB` (имя
+      `kacho_*_tNNNN`). Точка отказывает с именем базы, `migratorapply` красный с именем точки и базы.
+      Близнец: имя из таблицы → накат, применено = объявлено. Однофайлового признака нет
+
+items: []
+notes:
+  - id: N35-1
+    blocking: false
+    where: "design.md З29 «Глагол `InternalNotifyProbeService/Send` — синхронный ответ», §11 строка Д75"
+    text: >-
+      «28 глаголов с ответом не Operation против 2 с Operation» по названному предикату (rpc в
+      `internal*.proto` без Get*/List*) @e415e59a2 даёт 28 против 11. Девять из одиннадцати —
+      Internal Create/Update/Delete трёх служб, два остальных — TriggerGarbageCollection и
+      CreateOwnedAddress. «2» получается, только если исключить и стандартные мутации, а этого в
+      предикате нет. Вывод «прецедент есть» стоит. Но для proto-api-reviewer ближайший аналог Send —
+      Internal Create: он ставит строку и возвращает Operation. Значит, контрпрецедент тоже 9, и
+      замыслу стоит назвать оба числа с предикатом каждого
+    predicate: "число в З29 воспроизводится командой, записанной рядом с ним"
+  - id: N35-2
+    blocking: false
+    where: "design.md З28 «Помощники — по одному телу, в чарте notify» — «грубый счёт … 22 файла (верхняя граница)»"
+    text: >-
+      Названный предикат `git grep -lE 'charts/kaname' -- ':!*.md' ':!*.yaml' ':!*.tpl'` @e415e59a2
+      находит 43 файла. «С образцом вызова helm» без записанного образца не воспроизводится: `helm` —
+      40, `helm ` — 19, `helm (template|lint)` — 11. Верхняя граница не может быть меньше результата
+      своего предиката. Полоса D2, начавшая разбор с 22, может закончить раньше времени. Знаменатель
+      разбора по референту — 43 (на базе полосы — перемер), печать: переведено + отброшено с причиной = 43
+    predicate: "знаменатель переписи в З28 — результат записанной команды"
+
+measurements:
+  - claim: "предмет и маршрут; на 3227baa93 — пересверенные редакции"
+    command: "sha256sum docs/changes/issue-2915/{design,tasks}.md; git show HEAD:docs/changes/issue-2915/{design,tasks}.md | sha256sum"
+    result: "0eb2a42e…, f3307d1d…; HEAD — 80594e49…, f798ae8c…"
+  - claim: "пункты прошлой пересверки отображены"
+    command: "for id in CX1-111 CX1-112 CX1-113 CX1-114 N34-1 Д64 Д75; do grep -c -- $id design.md tasks.md; done"
+    result: "7/4, 3/3, 6/3, 8/3, 4/3, 6/6, 5/3"
+  - claim: "доказательство наката даёт базу со случайным именем (CX1-115)"
+    command: "git -C project/kacho show origin/2914-notify:internal/migratorapply/apply_test.go | sed -n 204,260p; git -C project/corelib show 8a9eb14:pgtest/pgtest.go | grep -n 'kacho_%s_t%04d\\|one per process'"
+    result: "dsn := pgtest.NewEmptyDB(t) на каждую точку; имя `kacho_%s_t%04d`; контейнер — один на процесс"
+  - claim: "прецедент синхронных Internal*-глаголов (N35-1)"
+    command: "по каждому proto/kacho/cloud/**/internal*.proto @origin/2914-notify: склейка строк, `rpc X(...) returns (...)`, без Get/List, Operation в ответе — счёт"
+    result: "не-Operation 28, Operation 11 (Create/Update/Delete ×3, TriggerGarbageCollection, CreateOwnedAddress), файлов 14. Контроль: построчный счёт без склейки — 30/11 (многострочные объявления), поэтому склейка обязательна"
+  - claim: "тег kaname объявлен один раз (Д64)"
+    command: "yq '.kaname.image' по values.yaml, values.fe3455.yaml, values.prorobotech.yaml, values.digests.example.yaml зонтика @origin/2914-notify"
+    result: "tag только в values.yaml (`484-notify-a5986266`); fe3455 и prorobotech — repository и pullPolicy, тег не повторяют; digests.example — заглушка дайджеста"
+  - claim: "голова C13 и линии"
+    command: "git -C project/corelib log -1 1a37f81; git -C project/kaname rev-parse origin/484-notify; git -C project/kaname log --oneline a59862664..origin/484-notify"
+    result: "1a37f81 «#77 platformmodules: служба notify (#82)»; kaname bd8413637, сверху 6 коммитов K7"
+  - claim: "перепись одиночных рендеров charts/kaname (N35-2)"
+    command: "git -C project/kacho grep -lE 'charts/kaname' origin/2914-notify -- ':!*.md' ':!*.yaml' ':!*.tpl' | wc -l; тот же список, отфильтрованный grep -qE '<образец>' по содержимому"
+    result: "43; `helm` 40, `helm ` 19, `helm_|helm ` 20, `helm (template|lint)` 11; 22 не получено ни одним"
+
+not_measurable:
+  - item: "сработают ли обёртки render_kaname_alone / renderKanameAlone без расхождения вердикта переведённых гейтов"
+    why: "обёрток нет в дереве; держится печатью «до/после» и инъекциями D2 по замыслу"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-115]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "отобразить CX1-115 в З32 «Накат схемы kacho_notifyprobe» и строке D4: потребители `Chain.Database` и ветка на пустом; migratorapply создаёт базу с именем строки; запрет запасной ветки и флага выбора цепочки; печать на строку; инъекция NewEmptyDB для строки notify. Заметки N35-1, N35-2 — числа с предикатом"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Умолчание, которое становится утверждением»"

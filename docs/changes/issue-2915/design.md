@@ -12,6 +12,26 @@ SPDX-License-Identifier: BUSL-1.1
 > владелец — приёмка `docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md`.
 > Где замысел называет исход, он ссылается на её сценарий. Порядок работ — `tasks.md` рядом.
 >
+> **Редакция 35 · 2026-10-02 — отображение первичного разбора `1bffe10d`, пересверки и ревью замысла на
+> `80594e49` (редакция 34); решения Д64, Д75** (первичный разбор `reviews/class-exposure/initial/1bffe10d….yaml`
+> — к замыслу, CX1-111…113; пересверка `reviews/class-exposure/revalidation/80594e49….yaml` — к замыслу,
+> CX1-111…114, заметка N34-1; ревью `reviews/design/design-reviewer/80594e49….yaml` — `RETURNED`, R34-1,
+> R34-2). Приёмка редакции 19 (`1bffe10d…`, `APPROVED`) не меняется. (1) **CX1-111** — таблица
+> `_sources.tpl` — таблица модулей с путём собственного ключа флага; отказы «собственный ключ в слое»,
+> «ключ модуля вне таблицы» — по таблице; `ConfigMap` kaname берёт флаг только из `enabledFor`; умолчание
+> подчарта kaname и ключи профилей сняты тем же изменением (З28, D2). (2) **CX1-112** — узлы
+> `global.kacho.{notifications,spiffe}` объявляет только зонтик; гейт согласия ведёт перечень узлов; N01,
+> N02, J05 читают все файлы значений с числом осмотренных и краснеют на пустом обходе. (3) **CX1-113** —
+> три помощника по одному телу в чарте notify (не в зонтике: зонтик не входит в ногу без зонтика);
+> nil-безопасный вход; одиночный рендер `charts/kaname` — обёрткой, перевод — D2. (4) **CX1-114** —
+> цепочка пробы `services/notify/internal/probemigrations` (правило `internal` запрещало точке наката
+> прежнее место); таблица «имя базы → каталог» — один файл `chains.yaml`; перечень цепочек — одна функция
+> `internal/migrationchains`; 13 гейтов переводит D4 поимённо, число цепочек печатается, ноль — красный
+> (З32). (5) **N34-1** — запись «не применимо» всегда с предикатом снятия (З32). (6) **Д64** — K8r пинит
+> kaname на голову C13 `1a37f81d…`, затем N11r — kacho на неё же, kaname на голову линии и тег образа
+> (З32). (7) **Д75** — `InternalNotifyProbeService/Send` синхронный, прецедент измерен; утверждает
+> `proto-api-reviewer` на D4 (З29, §5). Маршрут — `tasks.md` редакции 36. Вердикта на эту редакцию нет.
+
 > **Редакция 34 · 2026-10-02 — отображение пересверки и ревью замысла на `0a4fe452` (редакция 33);
 > решения Д72–Д74** (пересверка `reviews/class-exposure/revalidation/0a4fe452….yaml` — к замыслу, CX1-110;
 > ревью `reviews/design/design-reviewer/0a4fe452….yaml` — `RETURNED`, R33-1). Приёмка редакции 19
@@ -2114,8 +2134,9 @@ SQL либо выражено нулём строк условного опер�
   видит только свои значения и `global` (замер helm v4.2.4, пересверка `7bbe018c`), и чарт `notify`
   не прочёл бы переопределения `<модуль>.notifications.enabled`, лежащего под ключом другого подчарта
   (`kaname`, `notifyProbe`): перечень источников notify разошёлся бы с флагом модуля без единой
-  ошибки рендера. Ключ `<модуль>.notifications.enabled` вне `global` — отказ рендера с его именем
-  (второй путь к значению не заводится).
+  ошибки рендера. Собственный ключ флага модуля под ключом его подчарта — отказ рендера с его именем
+  (второй путь к значению не заводится); путь этого ключа у каждого модуля свой и берётся из таблицы
+  модулей, а не из одного образца (CX1-111, ниже).
 - **Перечень источников** выводится из закрытой таблицы подключаемых источников
   (`deploy/helm/notify/templates/_sources.tpl`) и того же помощника; помощник перечня тоже принимает
   только `.Values.global` и потому даёт один ответ в чарте notify и в подчарте kaname (блок
@@ -2123,6 +2144,89 @@ SQL либо выражено нулём строк условного опер�
   литералом: `kaname` — `certificate`, прочие — `resolveSend` (З20, Д72).
   `notify.sources` в values — красный гейт (NTF1-N03). Ключ `notify.sourceLimits`, которого нет в
   таблице, и источник перечня без записи `sourceLimits` — `fail` рендера.
+- **Таблица модулей несёт путь собственного ключа флага** (редакция 35, CX1-111). Имя модуля в ключе
+  `modules.<ключ>`, ключ его подчарта, имя источника, переменная процесса и пространство — пять
+  словарей, и путь собственного ключа флага из имени модуля не выводится: у kaname он
+  `config.notifications.enabled` (читатель — `ConfigMap` подчарта kaname), у пробы —
+  `notifications.enabled`. Поэтому закрытая таблица `deploy/helm/notify/templates/_sources.tpl` —
+  таблица **модулей**: строка несёт ключ модуля под `global.kacho.notifications.modules`, путь
+  собственного ключа флага в значениях его подчарта (от корня значений зонтика) и, у модуля-источника,
+  поля записи перечня. Строки на голове D2: `notifyProbe` (ключ `notifyProbe`, собственный ключ
+  `notifyProbe.notifications.enabled`, поля источника) и `kaname` (ключ `kaname`, собственный ключ
+  `kaname.config.notifications.enabled`, полей источника нет — их вносит D1 NTF-2, и только тогда kaname
+  входит в перечень; NTF-2 З4). Перечень источников — модули с полями источника и с действующим флагом
+  `true`. Три отказа рендера строятся **по таблице**: (а) собственный ключ флага любой строки, заданный
+  в любом слое зонтика, — отказ с полным путём ключа (страж зонтика
+  `deploy/helm/umbrella/templates/notifications-flag-guard.yaml`: только шаблон зонтика видит
+  `.Values.<подчарт>`, и он зовёт помощник таблицы чарта notify); (б) ключ под
+  `global.kacho.notifications.modules`, которого нет в таблице, — отказ с именем ключа и перечнем
+  ключей таблицы (`modules.notifyprobe`, `modules.notify-probe` иначе были бы приняты и не прочитаны
+  никем); (в) `ConfigMap` kaname в рендере зонтика берёт `notifications.enabled` **только** через
+  `kacho.notifications.enabledFor` над `.Values.global` с модулем `kaname`. Умолчание
+  `config.notifications.enabled: true` подчарта kaname и ключи `kaname.config.notifications` в
+  `values.dev.yaml` и `values.prod.yaml` (внесены `e0e0204114f` линии `2914-notify` по Д64) снимаются
+  **тем же изменением**, что переводит читателя на помощник (D2): читатель и значения уходят вместе,
+  окна, где ключ принят и не прочитан, нет; оставленное умолчание подчарта сделало бы отказ (а)
+  срабатывающим на каждом рендере (зонтик видит умолчания подчарта под его ключом — замер разбора
+  `1bffe10d`). Держатель — D2: инъекции (1) `kaname.config.notifications.enabled: false` при глобальном
+  `true` → отказ с именем ключа, близнец — `global.kacho.notifications.modules.kaname.enabled: false` →
+  `ConfigMap` kaname `false`, перечень без kaname; (2) `modules.notifyprobe.enabled: false` → отказ с
+  именем ключа, близнец — `modules.notifyProbe` → перечень `{probe-b}` (форма NTF1-N02); (3) строка
+  фикстурной копии `probe-b` с собственным ключом не формы `<модуль>.notifications.enabled`
+  (`probeB.config.notifications.enabled`) задана слоем → отказ с этим путём: отказ построен по таблице,
+  а не по образцу. Согласие «флаг kaname в `ConfigMap` = kaname в перечне notify» по цепочкам — NTF2-53
+  (D1 NTF-2), когда у строки kaname появляются поля источника.
+- **`global.kacho.notifications.*` и `global.kacho.spiffe.*` объявляет только зонтик** (CX1-112).
+  Умолчание `global`, объявленное подчартом, видно лишь этому подчарту: сосед и зонтик видят «нет
+  ключа», и `global.kacho.notifications.modules.kaname.enabled: false` в `charts/kaname/values.yaml` при
+  молчащем зонтике выключило бы kaname, сохранив его в перечне notify (замер helm v4.2.4 разбора
+  `1bffe10d`). Поэтому ни один `values.yaml` подчарта (`charts/kaname`, подчарт пробы,
+  `deploy/helm/notify/values.yaml`) эти узлы не объявляет; одиночные рендеры подчартов получают их
+  слоем своей пробы (нога notify без зонтика — `deploy/testdata/notify-standalone/values.yaml`,
+  одиночный рендер kaname — обёртка ниже). Гейт согласия `deploy/identity_global_defaults_agree_test.go`
+  ведёт **перечень узлов**, а не константу `{"global","kacho","identity"}`: `identity` — согласие
+  объявления подчарта kaname с зонтиком по значению (как сейчас), `notifications` и `spiffe` —
+  объявлений в `values.yaml` подчартов 0; печать — узлы, число осмотренных файлов значений подчартов,
+  пустой обход — красный. Гейты N01, N02 (D2) и J05 (J2) читают пути значений **всех** файлов значений
+  — `values.yaml` зонтика и профилей цепочек `deploy/stacks.txt`, `charts/*/values.yaml`,
+  `deploy/helm/notify/values.yaml` — а не только рендер, печатают число осмотренных файлов, пустой
+  обход — красный. Инъекции: (1) `global.kacho.notifications.modules.kaname.enabled: false` в
+  `charts/kaname/values.yaml` при молчащем зонтике → красный с путём файла; близнец — тот же ключ в
+  `values.yaml` зонтика → согласный рендер (D2); (2) `global.kacho.spiffe.notify.saName` другим
+  значением в `charts/kaname/values.yaml` → красный с путём; близнец — без ключа (J2).
+- **Помощники — по одному телу, в чарте notify** (CX1-113). Именованные шаблоны общие на весь релиз:
+  одноимённый `define` в двух чартах ошибки не даёт, побеждает один, и победитель зависит от набора
+  включённых подчартов (замер разбора `1bffe10d`). Место помощников —
+  чарт notify: он входит в **каждый** рендер зонтика (зависимость без `condition`, CX1-99) и в рендер
+  ноги без зонтика (NTF1-I06), а зонтик во второй не входит — помощник в
+  `deploy/helm/umbrella/templates/` оставил бы ногу без зонтика без перечня и SAN. Имена и файлы:
+  `kacho.notifications.enabledFor` — `deploy/helm/notify/templates/_flag.tpl` (D2);
+  `kacho.notifications.sources` (перечень) и помощник таблицы модулей — `deploy/helm/notify/templates/_sources.tpl`
+  (D2); `kacho.spiffe.uri` — `deploy/helm/notify/templates/_spiffe.tpl` (J2). Каждое имя определено в
+  `deploy/helm/**` ровно один раз; `kaname.spiffeURI` подчарта kaname — вызов `kacho.spiffe.uri`, а не
+  своё тело (переводит D1 NTF-2). Вход помощников безопасен для nil: `global`, `global.kacho`, узел —
+  каждый проверяется `kindIs "map"` по шагу, и отсутствие любого — `fail` с именем ручки
+  (`global.kacho.notifications.enabled`, `global.kacho.spiffe.<служба>`), а не падение `dig` с текстом
+  «interface conversion: interface {} is nil». **Одиночный рендер `charts/kaname`** (на нём стоят
+  самопроверка гейта сетевых политик и пробы `deploy/tests/helm/iam-*`) помощников чарта notify не
+  видит, поэтому идёт только через обёртку `render_kaname_alone` (шелл, `deploy/tests/helm/lib/render-chain.sh`)
+  и `renderKanameAlone` (Go, `deploy/`): обёртка собирает во временном каталоге копию `charts/kaname`,
+  кладёт в её `templates/` побайтовую копию файлов помощников чарта notify (в отслеживаемом дереве тело
+  по-прежнему одно) и подаёт первым слоем узлы `global.kacho.notifications` и `global.kacho.spiffe`,
+  выписанные `yq` из `values.yaml` зонтика в момент рендера (второго объявления значений нет). D2
+  переводит на обёртку каждый одиночный рендер `charts/kaname` дерева тем же изменением, что вводит
+  вызов помощника в шаблон kaname: перепись — по предикату `git grep -lE 'charts/kaname' -- ':!*.md'
+  ':!*.yaml' ':!*.tpl'` с разбором по референту (вызов `helm template`/`helm lint` над каталогом
+  подчарта, а не упоминание пути); грубый счёт предиката с образцом вызова `helm` @`e415e59a2` — 22
+  файла (верхняя граница, разбор — в полосе), печать — число переведённых и число отброшенных с
+  причиной. Вердикт гейта, стоящего на одиночном рендере, переводом не меняется: каждый переведённый
+  гейт печатает свой исход до и после на базе полосы, и его инъекция краснеет и после перевода.
+  Держатель CX1-113 — гейт `deploy/notify_helpers_single_define_test.go` (D2; J2 дописывает имя
+  `kacho.spiffe.uri`): перепись `define` трёх имён по `deploy/helm/**` с числом 1 на имя и печатью
+  числа осмотренных файлов; инъекция — второй `define "kacho.notifications.enabledFor"` в
+  `charts/kaname/templates/_helpers.tpl` → красный с обоими путями, близнец — `include` → молчание;
+  рендер чарта notify без узла `global.kacho.notifications` → отказ с именем ручки; прямой
+  `helm template … charts/kaname` вне обёртки в переведённом файле → находка с именем файла.
 - **Рендер notify** — при непустом перечне (NTF1-N04). Объекта секрета почты чарт notify **не
   рендерит** (CX1-82 (а)). Удостоверение — ссылка `secretKeyRef` на объект и ключ, названные узлом
   `global.kacho.identity.smtp.credentialSecret`. Ссылка рендерится ровно при непустом
@@ -2172,9 +2276,9 @@ SQL либо выражено нулём строк условного опер�
   `global.kacho.spiffe.notifyProbe`, `global.kacho.spiffe.kaname`, каждая `{trustDomain, namespace,
   saName}` литералом в `values.yaml` зонтика (редакция 32, CX1-106: декларацию читают подчарты
   `notify`, kaname и проба, а соседний подчарт значений чужого ключа не видит). Строку URI строит один
-  помощник `kacho.spiffe.uri` (`deploy/helm/umbrella/templates/_spiffe.tpl`, вход — декларация
-  аргументом; полоса J2); помощник подчарта kaname `kaname.spiffeURI` — его вызов (переводит D1
-  NTF-2). Читатели:
+  помощник `kacho.spiffe.uri` (`deploy/helm/notify/templates/_spiffe.tpl` — в чарте notify, а не в
+  зонтике, по CX1-113, редакция 35; вход — декларация аргументом; полоса J2); помощник подчарта kaname
+  `kaname.spiffeURI` — его вызов (переводит D1 NTF-2). Читатели:
   - выпуск сертификата;
   - перечень источников notify;
   - таблицы Р2 kaname и `notify-probe`. Таблица kaname — ключ `authn.service-identity` в
@@ -2966,6 +3070,18 @@ SQL либо выражено нулём строк условного опер�
   `global.kacho.spiffe.notify`) (NTF1-M08).
 - Второй процесс каталога `services/notify`: образ, точка наката `kacho_notifyprobe`, правило счёта
   процессов, вид `notification_feed` — З32 (Д74).
+- **Глагол `InternalNotifyProbeService/Send` — синхронный ответ** (решение Д75, 2026-10-02). Условие Д75
+  проверено: (1) прецедент синхронных мутирующих глаголов у `Internal*`-служб kacho есть —
+  `git grep -h -E '^\s*rpc [A-Z]' -- 'proto/kacho/cloud/**/internal*.proto'` без `Get*`/`List*`
+  @`e415e59a2`: 28 глаголов с ответом не `Operation` против 2 с `Operation`, в 14 файлах (среди них
+  `InternalVolumeService/Attach`, `InternalAddressService/AllocateInternalIP`); (2) замысел NTF-1
+  `Operation` у `Send` не требует: глагол — стендовый источник, постановка строки — одна транзакция
+  `feed.Put` (З7), ответ возвращается после коммита, асинхронной работы после ответа нет, и приёмка
+  (NTF1-L01) утверждает письмо у приёмника и метрики notify, а не операцию. Форма:
+  `rpc Send(SendRequest) returns (SendResponse)`, `SendResponse{notification_id}` — `id` поставленной
+  строки (`ntf-…`), отказ — `status.Error` с кодом. Утверждает форму `proto-api-reviewer` на ревью
+  контракта полосы D4 по прецеденту и этому замыслу (держатель); его отказ — форма `Operation`
+  (`done = true` по коммиту строки) тем же изменением D4, без возврата к замыслу.
 
 ### З30. NS: политика выпуска и одна декларация SAN
 
@@ -3001,8 +3117,12 @@ SQL либо выражено нулём строк условного опер�
   образов конвейера (`.github/workflows/docker-build.yml`), прочие гейты с перечнем служб. Значение
   каждой записи — факт о службе, а не умолчание: у notify в NTF-1 нет публичного RPC, нет `List`, нет
   `Operation` и нет собственного вида подписки (подписка — у источников, notify — подписчик), поэтому
-  запись несёт исход «не применимо» в форме своей ведомости — с причиной и предикатом снятия, если
-  ведомость такую форму требует; запись «как у соседа» без этого факта — дефект. Исполняет полоса N1
+  запись несёт исход «не применимо» в форме своей ведомости — **всегда** с причиной и предикатом снятия
+  (редакция 35, N34-1; ban11-three-outcomes): предикат называет событие, которое делает запись ложной
+  (у notify появился публичный RPC, `List`, `Operation` или свой вид подписки), и команду, которой оно
+  проверяется; ведомость, чья форма поля предиката не несёт, получает его комментарием строки в том же
+  изменении. Запись «не применимо» без предиката — умолчание, которое станет утверждением, когда notify
+  заведёт `List` или `Operation`; запись «как у соседа» без этого факта — дефект. Исполняет полоса N1
   (её пути расширены на эти гейты kacho). Держатель — сами гейты: на голове N1 полный набор гейтов
   дерева kacho зелёный, каждый перечисляющий службы гейт печатает `notify` в осмотренном; красный,
   называющий `notify` или `services/notify`, — дефект N1, а не повод к исключению.
@@ -3015,6 +3135,16 @@ SQL либо выражено нулём строк условного опер�
   есть), проверки — на сведённой голове. Пин kaname на голове C13 (**K8r**) — отдельной полосой; читатели
   объявления в kaname (`internal/authzmap/module_set_drift_test.go`, `internal/authzguard/public_caller_*`)
   зелёные на новом пине, красный — дефект K8r, исправляемый тем же изменением.
+  **Порядок перепина — решение Д64 (2026-10-02)**: kaname трогать можно. Голова C13 —
+  `1a37f81d0e944c00b2abfa2882a2ed9b0ccdb6d5` (слияние `#82` в `origin/77-notify`, замер
+  `git -C corelib branch -r --contains 1a37f81d…` → `origin/77-notify`). Сначала K8r — линия `kaname#484`
+  (`484-notify`) пинит corelib на `1a37f81d…`; затем N11r — kacho пинит corelib на `1a37f81d…`, kaname —
+  на голову линии `484-notify` после K8r и `kaname.image.tag` в `deploy/helm/umbrella/values.yaml`
+  (единственное место тега, форма `484-notify-<sha8>`, сейчас `484-notify-a5986266`) — на тег образа этой
+  головы. Образ головы линии публикует конвейер kaname; N11r печатает ревизию пина `go.mod`, тег и дайджест
+  образа, чья метка `org.opencontainers.image.revision` равна этой ревизии; образа нет — N11r не
+  садится («не выполнилось» с ревизией), а не садится с прежним тегом: пин модуля и тег образа одной
+  ревизии — один факт двумя записями, расхождение между ними — дефект N11r.
 - **Два процесса одного каталога** (Д74). Каталог `services/notify` несёт два корня процессов —
   `cmd/notify` (шлюз, N1) и `cmd/notify-probe` (стендовый источник, D4) — и точку наката `cmd/migrator`.
   Правило для гейтов kacho, считающих процессы по каталогу службы: процесс — корень
@@ -3033,10 +3163,48 @@ SQL либо выражено нулём строк условного опер�
   `corelib/migratorcli` и `corelib/migratorrun`, форма `docs/architecture/migrator-form.md`, CLI
   `docs/architecture/migrator-cli.md` без новых флагов) и инициализирующий контейнер `migrate`
   развёртывания процесса (`kacho-migrator up` до старта процесса). Баз у каталога две (database per
-  service): `kacho_notifyprobe` (цепочка `services/notify/cmd/notify-probe/internal/migrations`, D4) и
-  `kacho_notify` (цепочка `services/notify/internal/migrations`, N7). Цепочку точка выбирает **по имени
+  service): `kacho_notifyprobe` (цепочка `services/notify/internal/probemigrations`, D4) и
+  `kacho_notify` (цепочка `services/notify/internal/migrations`, N7). Цепочка пробы лежит **под
+  `services/notify/internal/`**, а не под `cmd/notify-probe/internal/` (редакция 35, CX1-114): точка
+  наката встраивает FS обеих цепочек импортом, а правило `internal` языка запрещает пакету
+  `services/notify/cmd/migrator` импорт `services/notify/cmd/notify-probe/internal/…` (замер: `go build`
+  такого импорта → «use of internal package … not allowed», `services/notify/internal/probemigrations`
+  — собирается; фикстура в scratchpad, go1.26.8). Цепочку точка выбирает **по имени
   базы в DSN** по закрытой таблице `{kacho_notifyprobe, kacho_notify}`; иное имя — отказ с именем базы
-  и перечнем допустимых, без наката. DSN — только `--dsn` или `KACHO_MIGRATOR_DSN` (конфигурации
+  и перечнем допустимых, без наката.
+  **Таблица «имя базы → каталог цепочки» объявлена один раз — файлом данных**
+  `services/notify/cmd/migrator/chains.yaml` (строки `{database, dir}`; CX1-114 (а)). Точка читает его
+  `//go:embed`; корневые гейты — по пути, без импорта `main` и `internal`. Встроенная FS каталога —
+  импорт пакета цепочки в точке; соответствие «каталог строки ↔ встроенная FS» сверяет точка при старте:
+  множества каталогов таблицы и встроенных FS не равны — отказ старта с обоими множествами (второго
+  литерала таблицы нет, есть проверка равенства). Перечень цепочек дерева выводит **одна функция**
+  корневого пакета `internal/migrationchains` (`List(root) ([]Chain, error)`, `Chain{Service, Point,
+  Database, Dir}`): у точки с `chains.yaml` — его строки; у точки без него — одна строка с каталогом
+  `services/<svc>/internal/migrations` и пустым `Database` (пусто = «точка одна на цепочку и по имени
+  базы не выбирает», сказано в комментарии поля); точек ноль либо у точки с `chains.yaml` строк ноль —
+  ошибка с именем точки, а не пустой перечень. **Гейты, выводящие каталог цепочки из имени службы,
+  переходят на `migrationchains.List` тем же изменением D4, что вводит вторую цепочку** (CX1-114 (б)).
+  Перепись @`e415e59a2` (`git grep -lE '"internal", "migrations"|\+ "/internal/migrations"|svc\+"/internal/migrations' -- '*.go'`
+  → 20 файлов), по референту: обходят все службы и переводятся — 13:
+  `internal/migratorapply/apply_test.go`, `internal/repohygiene/{dropguard_test.go,
+  dropguardproducer_test.go, migrationsqltext_test.go, outboxeventdictionary_test.go,
+  outboxobservedgate_test.go, outboxpendingindexperservice_test.go, outboxpendingindexset_test.go,
+  quotaabsentauthority_test.go, quotaauthoritydeclared.go, retiredenginedbnames_test.go,
+  schemaversionreader_test.go, subscriptionjournalretention_test.go}`; не переводятся — 7, с
+  причиной: `services/compute/internal/check/{retired_block_storage_test.go,
+  retired_table_identifier_test.go}`, `services/vpc/internal/subscriptionjournal/producers_test.go` —
+  частные гейты своей службы с одной цепочкой; `internal/repohygiene/listcursorindex_injection_test.go`
+  — фикстура `services/alpha` во временном корне; `internal/repohygiene/{quotarefusal_test.go,
+  quotatenantread_test.go}`, `tools/quota-refusal-migration/main.go` — перечень владельцев квот, notify
+  в нём нет. Узнающие цепочку по сегменту пути цепочку пробы не видят тоже (её путь сегмента
+  `/internal/migrations/` не несёт): `git grep -l 'Contains(rel, "/internal/migrations/")' -- '*.go'`
+  @`e415e59a2` → 4 файла (`internal/repohygiene/{acceptanceledger_test.go, journalwriteforms.go,
+  nameformdbprobe.go, nameformdbprobe_test.go}`), более широкий предикат `'/internal/migrations/'` → 42
+  файла. D4 перемеряет оба предиката на своей базе и разбирает по референту: файл, который обходит
+  цепочки (а не называет путь в тексте), переводится на `migrationchains.List`; прочие — поимённо с
+  причиной; печать — число переведённых и отброшенных. Каждый переведённый гейт и `migratorapply` печатают число
+  осмотренных цепочек по `services/notify` — 1 на голове D4 (`kacho_notifyprobe`), 2 после N7 — и
+  краснеют на нуле (CX1-114 (в)). DSN — только `--dsn` или `KACHO_MIGRATOR_DSN` (конфигурации
   процесса точка не читает: у каталога их две, и выбор по ней был бы третьим местом решения о цепочке);
   инициализирующий контейнер собирает DSN из ручек базы своего процесса и ссылки на секрет пароля.
   Точку и строку `kacho_notifyprobe` заводит D4, строку `kacho_notify` — N7 (N7 ← D4); контейнер
@@ -3044,9 +3212,15 @@ SQL либо выражено нулём строк условного опер�
   Держатели: гейты формы наката (`internal/repohygiene/migratorform.go`, `TestMigratorBinaryIsNamedTheSameEverywhere`)
   видят точку по существующему пути `services/*/cmd/migrator`; доказательство наката
   `internal/migratorapply` гоняет бинарь точки на живой базе **по каждой строке таблицы** — D4 приводит
-  его перечисление цепочек к таблице точки; проба точки — DSN с `kacho_notifyprobe` → накат цепочки пробы,
+  его перечисление цепочек к `migrationchains.List`; проба точки — DSN с `kacho_notifyprobe` → накат цепочки пробы,
   `kacho_notify` → цепочки шлюза (после N7), чужое имя базы → отказ с именем; инъекция — строка таблицы
-  снята → накат пробы отказывает с именем базы — красный.
+  снята → накат пробы отказывает с именем базы — красный. Инъекции CX1-114 на голове D4: (1) нарушение
+  формы SQL (предмет `migrationsqltext`) в файле цепочки пробы → красный с путём, близнец — то же в
+  цепочке шлюза (после N7; на голове D4 — в цепочке соседней службы) → красный: обе цепочки видимы;
+  (2) строка `kacho_notifyprobe` снята из `chains.yaml` → `migratorapply` красный с именем точки
+  («строк 0»), а не сверка «0 = 0»; (3) журнал подписки в цепочке пробы без правила хранения →
+  `subscriptionjournalretention` красный с путём цепочки пробы. Эталон длины цепочки `migratorapply`
+  берёт у индекса git по каталогу строки таблицы; 0 миграций у строки — красный с именем базы.
 - **Вид `notification_feed` — только внутренний** (Д74). Лента и подписка с видом `notification_feed`
   доступны только на внутреннем слушателе: `corelib.subscription.InternalSubscriptionService/Subscribe`
   и `Claim`/`Ack` сервера ленты; наружу (край, `:8443`) они не маршрутизируются (ban #6). Держат
@@ -3165,6 +3339,15 @@ service InternalNotificationGrantService {
 message ResolveSendRequest { string namespace = 1; string template = 2; google.protobuf.Timestamp enqueued_at = 3; }
 message ResolveSendResponse { SendDecision decision = 1; }   // UNSPECIFIED = 0 читатель считает «отказом» (З23)
 message NotificationGrantRequest { string namespace = 1; optional string template = 2; }
+```
+
+```proto
+// kacho proto/kacho/cloud/notify/v1/internal_notify_probe_service.proto — стендовый источник (З29, Д75)
+service InternalNotifyProbeService {
+  rpc Send(SendRequest) returns (SendResponse);   // синхронно: прецедент Internal*-глаголов kacho; утверждает proto-api-reviewer (D4)
+}
+message SendRequest { string address = 1; }
+message SendResponse { string notification_id = 1; }   // ntf-…, строка ленты пробы закоммичена
 ```
 
 - Тексты отказов, `reason` и `ErrorInfo` — таблица отказов Р5 и границы Р8 приёмки. Замысел их
@@ -3506,6 +3689,14 @@ CX1-72), порог и охлаждение размыкателя notify.
 | Д72 | З20 «Значения `authorization`», З28 «Перечень источников» | решение диспетчера Д72, полосы N1, D2. Значение `resolveSend` полосы N1 принято: право источника на строку решает `ResolveSend`, то есть обработчик kaname (З18) — совпадает с замыслом. Перечень значений закрыт: `resolveSend`, `certificate`; чарт выводит `certificate` у `kaname`, `resolveSend` у прочих | N1: значение вне перечня → отказ старта с именем записи и значением, близнец — `resolveSend` → старт; D2: рендер перечня — `kaname` → `certificate`, `notify-probe` → `resolveSend` |
 | Д73 | З32 «Регистрация новой службы в гейтах дерева», «Запись в `corelib/platformmodules`» | решение диспетчера Д73, полосы N1 (пути расширены на гейты и ведомости kacho, перечисляющие службы), C13 (corelib), N11r, K8r (перепин). Запись каждой ведомости — факт о службе в форме ведомости, а не «как у соседа» | N1: полный набор гейтов дерева kacho зелёный на голове N1, каждый перечисляющий службы гейт печатает `notify`; C13: запись `platformmodules`; N11r: `TestPlatformModuleVocabularyMatchesTheTree` зелёный на сведённой голове N1, D4, N11r; K8r: читатели объявления в kaname зелёные на новом пине |
 | Д74 | З32 «Два процесса одного каталога», «Накат схемы `kacho_notifyprobe`», «Вид `notification_feed` — только внутренний»; З29 | решение диспетчера Д74, полосы D4 (точка наката, строка `kacho_notifyprobe`, правило счёта процессов, запись вида), N7 (строка `kacho_notify`), D3 и D1 (контейнер `migrate`), D7 (`INTERNAL_ENDPOINTS`). Правило счёта: процесс — корень `services/<svc>/cmd/<корень>` вне `migrator`; держатель правила — D4. Вид `notification_feed` судят существующие гейты края | D4: гейт, считающий процессы, печатает два корня `services/notify`, инъекция — третий корень без строки образа → находка с именем; проба точки наката по таблице баз, инъекция «строка снята» → отказ с именем базы; `internal/migratorapply` по каждой строке таблицы; D3: рендер развёртывания пробы с контейнером `migrate` (`kacho-migrator up`); D7: `assert-ban6-external-isolation.py` — `ISOLATED` |
+| CX1-111 (`1bffe10d`) · R34-1 | З28 «Таблица модулей несёт путь собственного ключа флага» | первичный разбор `1bffe10d`, редакция 35. Таблица `_sources.tpl` — таблица модулей: ключ `modules.<ключ>`, путь собственного ключа флага (kaname — `kaname.config.notifications.enabled`, проба — `notifyProbe.notifications.enabled`), поля источника у модуля-источника. Отказы рендера по таблице: собственный ключ любой строки в любом слое — с путём; ключ под `modules`, которого нет в таблице, — с именем и перечнем; `ConfigMap` kaname — флаг только через `enabledFor`. Умолчание `config.notifications.enabled: true` подчарта kaname и `kaname.config.notifications` в `values.dev.yaml`, `values.prod.yaml` (`e0e0204114f`, Д64) сняты тем же изменением, что переводит читателя | D2: инъекции (1) `kaname.config.notifications.enabled: false` → отказ с путём, близнец `modules.kaname.enabled: false` → `ConfigMap` kaname `false`; (2) `modules.notifyprobe` → отказ, близнец `modules.notifyProbe` → `{probe-b}`; (3) собственный ключ `probeB.config.notifications.enabled` → отказ с этим путём; согласие флага kaname с перечнем — NTF2-53 (D1 NTF-2) |
+| CX1-112 (`1bffe10d`) · R34-1 | З28 «`global.kacho.notifications.*` и `global.kacho.spiffe.*` объявляет только зонтик» | первичный разбор `1bffe10d`, редакция 35. Подчарты эти узлы не объявляют; одиночные рендеры получают их слоем своей пробы (нога notify — её файл значений, kaname — обёртка). Гейт согласия ведёт перечень узлов: `identity` — согласие, `notifications`, `spiffe` — объявлений 0. N01, N02, J05 читают пути значений всех файлов значений, печатают число файлов, пустой обход — красный | D2 (N01, N02, гейт согласия; инъекция (1) с близнецом), J2 (J05; инъекция (2) с близнецом) |
+| CX1-113 (`1bffe10d`) · R34-1 | З28 «Помощники — по одному телу, в чарте notify», «Декларации» | первичный разбор `1bffe10d`, редакция 35. `kacho.notifications.enabledFor` — `deploy/helm/notify/templates/_flag.tpl`, перечень и таблица — `_sources.tpl`, `kacho.spiffe.uri` — `_spiffe.tpl` того же чарта (он входит в каждый рендер зонтика и в ногу без зонтика); по одному `define` на имя; `kaname.spiffeURI` — вызов; вход помощников nil-безопасен, отказ называет ручку; одиночный рендер `charts/kaname` — только обёрткой `render_kaname_alone` / `renderKanameAlone` с копией файлов помощников и узлами `global` из `values.yaml` зонтика, перевод каждого одиночного рендера — D2 | гейт `deploy/notify_helpers_single_define_test.go` (D2; J2 — имя `kacho.spiffe.uri`): число 1 на имя, печать осмотренных; инъекция — второй `define` в `charts/kaname/templates/_helpers.tpl` → красный с обоими путями, близнец — `include`; рендер без узла → отказ с именем ручки; переведённые гейты печатают исход до и после, их инъекции красные |
+| CX1-114 (`80594e49`) · R34-1 | З32 «Накат схемы `kacho_notifyprobe`» | пересверка `80594e49`, редакция 35. Цепочка пробы — `services/notify/internal/probemigrations` (импорт из `services/notify/cmd/notify-probe/internal/…` точке наката запрещён правилом `internal`, замер `go build`); таблица «имя базы → каталог» — один файл данных `services/notify/cmd/migrator/chains.yaml` (точка — `go:embed`, гейты — по пути), равенство каталогов таблицы и встроенных FS — страж старта точки; перечень цепочек — одна функция `internal/migrationchains.List`; 13 гейтов, выводящих каталог из имени службы, переведены поимённо, 7 — с причиной, предикаты сегмента пути (4 и 42 файла) — разбор в D4 | D4: печать числа цепочек по `services/notify` (1 на голове D4, 2 после N7), красный на нуле; инъекции (1) нарушение формы SQL в цепочке пробы → красный с путём, близнец — в другой цепочке; (2) строка `kacho_notifyprobe` снята → `migratorapply` красный с именем точки; (3) журнал без правила хранения в цепочке пробы → `subscriptionjournalretention` красный; N7 — строка `kacho_notify` в `chains.yaml` |
+| N34-1 (`80594e49`) | З32 «Регистрация новой службы в гейтах дерева» | заметка пересверки, не блокирует; редакция 35. Запись «не применимо» ведомости — всегда с причиной и предикатом снятия (событие и команда); форма ведомости без поля предиката — комментарий строки | N1: каждая запись notify «не применимо» печатается с предикатом; запись без предиката — дефект полосы |
+| R34-2 (ревью `80594e49`) | `change.yaml`, шапка | ревью замысла `80594e49`, редакция 35. Фраза «первичного разбора классов на него нет (…1bffe10d….yaml отсутствует)» снята; запись `reviews/class-exposure/initial/1bffe10d….yaml` названа | — (текст) |
+| Д64 (2026-10-02) | З32 «Запись в `corelib/platformmodules`» — порядок перепина | решение диспетчера Д64: kaname трогать можно. K8r — `484-notify` пинит corelib на голову C13 `1a37f81d0e944c00b2abfa2882a2ed9b0ccdb6d5`; затем N11r — kacho пинит corelib на неё же, kaname — на голову `484-notify` после K8r и `kaname.image.tag` на образ той же ревизии | K8r: `go build ./...` и читатели `platformmodules` зелёные с числом; N11r: печать ревизии пина kaname, тега и дайджеста образа с меткой ревизии, образа нет — «не выполнилось»; `TestPlatformModuleVocabularyMatchesTheTree` на сведённой голове N1, D4, N11r |
+| Д75 (2026-10-02) | З29 «Глагол `InternalNotifyProbeService/Send`», §5 | решение диспетчера Д75: синхронный ответ при прецеденте и без требования `Operation` замыслом. Прецедент: 28 синхронных мутирующих глаголов `Internal*` kacho против 2 с `Operation` @`e415e59a2`; замысел `Operation` у `Send` не требует (одна транзакция `feed.Put`, ответ после коммита). Форма — `SendResponse{notification_id}` | `proto-api-reviewer` на контракте D4 (утверждает или возвращает к форме `Operation` тем же изменением D4); NTF1-L01 |
 | N16 (`efff0ee7`) | З28 «Контракт шелл-обёртки несёт ось каталога» | заметка пересверки, не блокирует; редакция 23, полоса D9. Прежняя форма — `render_chain_args prod <образец>` (как в Е12 (8)), новая — `render_chain_args prod <каталог> <образец>` | D9: прежняя форма → отказ «`<образец>` — не каталог»; близнец — новая форма → строка цепочки |
 | N17 (`efff0ee7`) | §13 Е13 | заметка пересверки, не блокирует; редакция 23. Путь каталога `deploy/testdata/mail-node/` заводит D9 NTF-1, строку ручки в каждый его файл вписывает D6 NTF-2; порядок — D9 первой, предикат старта D6 NTF-2 — изменение D9 влито в ветку эпика `2564` | предикат старта D6 NTF-2 (Е12 (9)): `git ls-tree --name-only origin/2564 deploy/testdata/mail-node/` называет `operator.yaml`, иначе D6 не стартует |
 | N18 (`efff0ee7`) | З28 «Рендер профиля `prod` по имени — тоже точка применения» | заметка пересверки, не блокирует; редакция 23, полоса D2. В `prod-profile-fail-closed-test.sh` через обёртку идёт каждый рендер `prod`: полный `helm_try … -f "$PROD"` и каждый `render_only … --show-only`; сигнатура помощника берёт аргументы цепочки целиком | D2: перепись судит каждую строку рендера `prod` в файле, а не первую; инъекция — один `render_only` с прямым `-f values.prod.yaml` → красный с координатой строки |
@@ -3635,6 +3826,10 @@ CX1-72 пересверки `e7a6ae15` и CX1-73…CX1-75 пересверки `
 | УК99 | `7bbe018c` · CX1-108 | блок `serviceIdentity` поставки kaname | З13, §8 | S11 NTF-2 |
 | УК100 | `29f44542` · CX1-109 | внутренняя цепочка kaname — из функции корня `internalUnaryChain`, общей для `runServe` и пробы; звено прав пробы — фиктивный порт, записывающий субъект; пара K5 судит субъект на звене прав; боевая пара — в K3; посылка звена прав опровергнута, форма — УК101 | З13 «Звено наблюдаемо на голове K5» | заменено УК101 |
 | УК101 | `0a4fe452` · CX1-110; ревью `0a4fe452` · R33-1 | право `ResolveSend` — одно место, обработчик K3 (`CallerSubject`, затем `CheckRelation`), перехватчика проверки прав нет; `internalUnaryChain(deps)` без порта прав, нулевая или пустая зависимость звена — ошибка сборки с именем звена; заглушка K5 записывает `CallerSubject`; одна инъекция — вход конфигурации; K3 — «`CheckRelation` не вызван, чтений записи выдачи 0» на ветке «субъекта нет» | З13 «Звено наблюдаемо на голове K5», З18 «Право вызова» | K5 (пара субъекта, инъекция, проба конструктора), K3 (боевая пара) |
+
+Условия к коду пунктов CX1-111…CX1-113 первичного разбора `1bffe10d` и CX1-114 пересверки `80594e49`
+(редакция 35) записаны в их строках §11 и в З28, З32 с полосой и пробой; отдельных номеров УК записи
+им не дают.
 
 Заказы, чей дом — не код NTF-1, — строками §13: автору NTF-3 (CX1-37; ведомость G19 для
 `notify-api`; `schema_rev` ведомости сборки из `revision.yaml`), автору NTF-4 (Х5 — значение оси

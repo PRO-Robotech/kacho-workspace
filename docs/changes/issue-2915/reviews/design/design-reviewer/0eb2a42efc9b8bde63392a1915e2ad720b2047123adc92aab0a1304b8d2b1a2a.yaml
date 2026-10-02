@@ -1,0 +1,149 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 35 (маршрут — tasks.md редакции 36). Прежняя
+# запись роли — 80594e49….yaml (редакция 34, RETURNED: R34-1 — CX1-111…114 не отображены, R34-2).
+# Судятся: закрытие R34-1, R34-2, N34-1, отображение Д64 и Д75 и пять условий одобрения. Рабочее
+# дерево issue-880 поверх 3227baa93, не закоммичено. Запись не правится: при смене отпечатка
+# заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 0eb2a42efc9b8bde63392a1915e2ad720b2047123adc92aab0a1304b8d2b1a2a
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml:212 hashes.design_sha256 и с пересверкой revalidation/0eb2a42e"
+  revision: 35
+  tasks_sha256: f3307d1d5ce38a7d114b53226b7355d9e1cece202863e55403d0c3dace356a04   # маршрут редакции 36
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/80594e4985f165b7ab07d8ea27ab5c077328071dd6fb05c69722fd36f0b7c84a.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась; перемерено sha256sum)"
+revisions:
+  workspace: 3227baa93   # плюс незакоммиченная дельта автора
+  kacho_line: e415e59a225  # origin/2914-notify, перемерено rev-parse
+  kaname_line: bd8413637   # origin/484-notify, перемерено rev-parse
+  corelib_line: 1a37f81    # голова C13 «#77 platformmodules: служба notify (#82)», перемерено log -1
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # точка наката выбирает цепочку по имени базы (две цепочки, один каталог)
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  design.md: шапка редакции 35 (33), З32 «Накат схемы kacho_notifyprobe» (3165–3215), §13 (3891).
+  change.yaml: шапка 16–24 (R34-2), 170–176, hashes (211–212). Пересверка revalidation/0eb2a42e (outcome
+  to_design, unmapped [CX1-115], заметки N35-1, N35-2) целиком. Перемерено своей командой: sha256 design,
+  tasks, приёмки; счёт вхождений в design.md/tasks.md — CX1-111 7/4, CX1-112 3/3, CX1-113 6/3, CX1-114
+  8/3, N34-1 4/3, R34-2 2/1, Д64 6/6, Д75 5/3, CX1-115 0/0, N35-1 0/0, N35-2 0/0; kacho
+  origin/2914-notify@e415e59a225 internal/migratorapply/apply_test.go:241 `dsn := pgtest.NewEmptyDB(t)`
+  на каждую точку, :327 `replaceDBName` существует; corelib 8a9eb14 pgtest/pgtest.go:406
+  `kacho_%s_t%04d` — посылка CX1-115 подтверждена. Пробы и гейты не запускались: предмет — документ.
+
+closure_of_previous:
+  - id: R34-1
+    status: "закрыт по CX1-111…114; отображение CX1-114 открыло CX1-115 (ниже)"
+    evidence: "вхождения 7/4, 3/3, 6/3, 8/3; пересверка 0eb2a42e: CX1-111…113 holds, CX1-114 mapped_with_new_exposure"
+  - id: R34-2
+    status: закрыт
+    evidence: "change.yaml:20–21 — «первичный разбор классов на него — reviews/class-exposure/initial/1bffe10d….yaml (к-замыслу, CX1-111…113)»"
+  - id: N34-1
+    status: закрыт
+    evidence: "З32: «не применимо» — с причиной и предикатом снятия; пересверка 0eb2a42e — holds"
+
+dispatcher_decisions:
+  - id: Д64
+    status: отображено
+    evidence: "K8r → corelib 1a37f81 (голова C13 подтверждена), затем N11r — пин kaname на голову линии после K8r и тег образа одной ревизии; тег kaname.image.tag объявлен один раз (values.yaml зонтика, со слов пересверки)"
+  - id: Д75
+    status: "отображено; форму утверждает proto-api-reviewer на D4"
+    evidence: >-
+      З29: Send синхронный, одна транзакция feed.Put, ответ после коммита, асинхронного пути нет. По
+      распределённой оси синхронный ответ безопасен: работы после ответа нет, Operation не нужна для
+      завершения. Отказ proto-api-reviewer переводит в Operation done=true по коммиту без возврата к
+      замыслу. Число прецедента — N35-1 (28 против 11, не 2; ближайший аналог — 9 Internal
+      Create/Update/Delete с Operation): proto-api-reviewer должен видеть оба числа.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "§13 (3893) «Открытых решений нет»; Д64, Д75 приняты диспетчером"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 0eb2a42e: unmapped [CX1-115]; перемер — 0 вхождений в design.md и tasks.md"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/0eb2a42e….yaml — на текущий отпечаток"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "первичный разбор initial/1bffe10d есть на одобренную приёмку; ревью схемы по оси параллелизма к дельте не применимо"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает. Send пробы — одна транзакция feed.Put, ответ после коммита."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает; notification_feed — внутренний."
+  edges_acyclicity: "закрыта: C13 → K8r → N11r — пины по графу corelib←kaname←kacho, кольца нет; межсервисных рёбер дельта не вводит."
+  public_vs_internal_edge: "закрыта: InternalNotifyProbeService — внутренний слушатель (ban06)."
+  migration_point: >-
+    возврат: CX1-115 — решение о цепочке (имя базы в DSN, закрытая таблица) и доказательство наката
+    (база со случайным именем kacho_<cfg>_tNNNN) разнесены; способ получения базы с именем строки не
+    назван, «починка» красной пробы открывает запасную ветку или вывод имени из имени службы.
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R35-1
+    where: "design.md З32 «Накат схемы kacho_notifyprobe» (3182–3184, 3212–3215); tasks.md строка D4"
+    finding: >-
+      Пустое `Chain.Database` — новое sentinel-значение без названного потребителя. Точка notify
+      принимает только имена из `chains.yaml` и на ином отказывает; `migratorapply` @e415e59a225 даёт
+      каждой точке `pgtest.NewEmptyDB(t)` с именем `kacho_<cfg>_tNNNN`. «По каждой строке таблицы» назван
+      без способа получить базу с именем строки — на голове D4 доказательство наката для notify красное
+      по построению, а короткие пути его «починить» (запасная ветка на незнакомое имя, флаг выбора
+      цепочки, вывод имени из имени службы) замысел сам запрещает, но держателя запрета нет.
+    requirement: >-
+      Отобразить CX1-115 в З32 и строке D4: (а) назвать потребителей `Chain.Database` и ветку на пустом —
+      при пустом `NewEmptyDB`, при непустом база ровно с именем строки (CREATE DATABASE + replaceDBName
+      либо помощник pgtest именованной базы); имени из имени службы не выводит никто; (б) в точке нет
+      запасной ветки и флага выбора цепочки — проверяется по диффу D4; (в) печать на строку: точка,
+      Database (или «не выбирает»), имя базы в DSN, применено/объявлено; строк notify 1 на голове D4, 2
+      после N7; (г) инъекция: строке kacho_notifyprobe подать NewEmptyDB → красный с именем точки и
+      базы; близнец — имя из таблицы → применено = объявлено.
+
+important: []
+
+minor:
+  - id: R35-2
+    note: >-
+      N35-1 и N35-2 пересверки (0 вхождений): число «против 2» в З29 — 28 против 11 по названному
+      предикату; «22 файла (верхняя граница)» в З28 — 43 по названному предикату. Записать числа
+      результатом команды рядом с ними; для D2 знаменатель переписи — 43 (перемер на базе полосы).
+  - id: R35-3
+    note: >-
+      change.yaml:174 «вердикта и пересверки на него нет» — пересверка revalidation/0eb2a42e теперь
+      существует; тот же класс, что R34-2. Снять тем же заходом.
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R35-1 (CX1-115), R35-2 (N35-1, N35-2), R35-3"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.

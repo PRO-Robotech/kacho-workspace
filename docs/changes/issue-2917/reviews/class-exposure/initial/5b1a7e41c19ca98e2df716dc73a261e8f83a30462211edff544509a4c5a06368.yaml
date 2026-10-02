@@ -1,0 +1,154 @@
+# Экспозиция классов — первичный разбор (initial) приёмки NTF-2, редакция 31.
+#
+# Запись привязана к отпечатку ПРИЁМКИ 5b1a7e41…. Предмет — дельта редакции 31 против одобренной
+# редакции 30 (eed36d11…, первичный разбор initial/eed36d11….yaml — CX2-99…CX2-105). В неё вошли три
+# уточнения из return_to_acceptance_note того разбора: Р16 п.8 — два счёта; NTF2-69 (е) — `pending-max > Y`;
+# NTF2-60 (г) — пути вне ограничителя при исчерпанном HARD на П6. Пункты CX2-01…CX2-105 переносятся без
+# изменений.
+#
+# Итог — к замыслу. Первое и второе уточнения новых классов не открывают. Предикат Р16 п.8 теперь
+# отвечает в обе стороны: 3/4 на 1bffe10d и 0/0 на 29cfa368. Третье вводит новый Then о путях, на
+# которых у kaname есть СОБСТВЕННЫЙ страж неверных предъявлений по адресу и источнику. Given его
+# состояние не задаёт — отсюда пункт CX2-106. Возврата в приёмку нет.
+schema_version: 1
+kind: class_exposure_initial
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  revision: 31
+  content_commit: "— (рабочее дерево поверх 3227baa93, не закоммичено)"
+  effective_verdict: APPROVED
+  verdict_record: docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368.yaml   # verdict APPROVED, blocking_count 0; файл не закоммичен
+  change_yaml_acceptance_sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+previous_initial: docs/changes/issue-2917/reviews/class-exposure/initial/eed36d11c91b921adff333d8136ec197e2a5b6b0d1b6eb604bb0492d9937281e.yaml
+delta_predicate: "git diff -- docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (рабочее дерево issue-880 @3227baa93; на 3227baa93 — eed36d11…)"
+role: class-exposure-analyst
+mode: initial
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 3227baa93da502ae565b4a491ab6c8fbb7901495
+  kacho_line: ae4bde452f6   # origin/2564
+  kaname_line: bd8413637    # origin/484-notify
+  corelib_line: 1a37f81     # origin/77-notify
+  ntf1_acceptance: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+snapshot_at: 2026-10-02T01:21:02Z
+inspected: >-
+  Дифф приёмки (+55 −9): шапка редакции 31; Р16 п.8; §5 таблица «When сценариев П6 → состав П6»
+  (строка NTF2-60); NTF2-60 ID и (г); NTF2-69 Given (е); §6б строки Р5 «область действия звена» и
+  `…IP_HARD_*`; §11 «Редакция 30 → 31». Контекст: NTF2-60 целиком (условие `H > source-attempts`), §5
+  П6 и П11, строка §3 о замещении kaname#456. kaname @bd8413637:
+  `internal/apps/kaname/api/humansession/{rate.go,login.go,change_password.go}` (страж неверных
+  предъявлений), `config/login_lane.go` (ручки `authn.login.*`). Приёмка NTF-1 на fd3470cb6 и dbe97c78c
+  (контроль предиката Р16 п.8). Пробы не запускались. Записки vault не читались.
+
+decisions:
+  R31-1: "Р16 п.8: два отдельных счёта по одобренной NTF-1, каждый не 0 — `grep -cF 'global.kacho.notifications.modules.<модуль>.enabled'` и `grep -cF 'global.kacho.spiffe.kaname'`; печать обоих и отпечатка; любой 0 — возврат в приёмку NTF-2"
+  R31-2: "NTF2-69 (е) Given: `invite.pending-max > Y`, оба числа печатаются, иначе «не выполнилось»; адресаты по одному на запрос, свои на runId, число Y+1 печатается"
+  R31-3: "NTF2-60 (г): после запроса сверх H с S1 — login с A и паролем → 200; recovery/complete с A и чужим кодом → 401 `authentication failed`; ни вызова PoW, ни RATE_LIMITED; посредник — по одному запросу к kaname на каждый; близнец — recovery с S1 → RATE_LIMITED, иное — «не выполнилось»"
+
+already_raised_confirmed:
+  - decisions: "R31-1"
+    items: "CX2-100"
+    status: "уточнение внесено. Предикат отвечает в обе стороны: на 1bffe10d — 3 и 4, на 29cfa368 (до W4a) — 0 и 0. Рендерная половина остаётся за замыслом (D1). Нового класса нет"
+  - decisions: "R31-2"
+    items: "CX2-101 (а), (в)"
+    status: "уточнение внесено в Given. Часть (б) — величины у процесса стенда, а не у рендера: приёмка по-прежнему говорит «из рендера цепочки dev», и это поле замысла (X1). Нового класса нет"
+  - decisions: "R31-3"
+    items: "CX2-99 (б)"
+    status: "держатель «путь вне ограничителя при исчерпанном HARD» назван — NTF2-60 (г). Новый Then открывает CX2-106 (ниже)"
+
+items:
+  - {id: "CX2-01…CX2-105", status: "без изменений на редакции 31", condition_ref: "initial/eed36d11… и предыдущие записи по цепочке previous_initial"}
+  - id: CX2-106
+    decision: R31-3
+    class: >-
+      gate-authoring §«Отрицание только в паре с положительным»: «Тогда» (г) утверждает положительный
+      ответ kaname («вход — 200», «предъявление — 401»). На этих путях у kaname есть второй страж, и
+      Given не ставит его в известное положение. measurement-discipline §«Откуда читается предмет»:
+      исход зависит от состояния, которое сценарий не создаёт и не печатает
+    exposure: >-
+      На kaname @bd8413637 вход и предъявление кода восстановления (сессия восстановления идёт путём
+      смены пароля, `change_password.go`) проходят `attemptGate.check`. Это два окна неверных
+      предъявлений: по адресу (`AddressKey(A)`) и по источнику (`in.Source` = S1 из пересылки края).
+      Пороги — `authn.login.{address,source}-{attempts,window}`. Счёт хранится в базе kaname, это
+      `CountFailures` за окно. Исчерпанное окно даёт `429`, `code 8`, `TOO_MANY_ATTEMPTS`, и до проверки
+      пароля или кода дело не доходит. В (а) того же сценария следов нет: recovery попыткой не
+      считается. Однако П11 обещает к началу сценария только «без глаголов почты, окон адресата и строк
+      ленты». О следах неверных предъявлений по A и по S1 Given молчит. Если A или адрес источника S1
+      использован в другом сценарии того же подъёма П6 в пределах окна (NTF2-6x предъявляют неверные
+      коды и пароли), kaname ответит `TOO_MANY_ATTEMPTS`. Тогда (г) покраснеет на верной работе края:
+      посредник насчитает по одному запросу, RATE_LIMITED не будет, а 200/401 не придут. Ответ kaname
+      `TOO_MANY_ATTEMPTS` отличается от краевого `RATE_LIMITED` только `reason`, и разбор красного по
+      коду 429 их не различит
+    condition: >-
+      (а) A и S1 сценария NTF2-60 свои на прогон: адрес и источник выводятся из runId, повторного
+      использования другим сценарием на том же подъёме П6 нет. Печатаются. (б) Перед (г) проба
+      печатает число следов неверных предъявлений по A и по S1 в окнах kaname (чтение базы kaname
+      стенда или самоотчёт стража). Ненулевое значение — «не выполнилось» с обоими числами. (в) Ответ
+      kaname `TOO_MANY_ATTEMPTS` на вход или предъявление в (г) даёт «не выполнилось» с текстом и
+      `reason`, а не красный сценария. Красный — только `RATE_LIMITED` или вызов PoW от края либо
+      расхождение счёта посредника. (г) Порядок внутри (г) — вход до предъявления, как в приёмке: успех
+      входа обнуляет окно по адресу, и предъявление идёт с нулём
+    held_by: "нужен держатель — E2 (проба NTF2-60 на П6). До отображения держится вниманием"
+
+measurements:
+  - claim: "предмет — 5b1a7e41…, одобрен; на 3227baa93 — eed36d11…"
+    command: "sha256sum <приёмка>; git show HEAD:<приёмка> | sha256sum; yq '.verdict, .blocking_count' <запись 5b1a7e41>"
+    result: "5b1a7e41…; HEAD — eed36d11…; APPROVED, 0"
+  - claim: "дельта — три уточнения §11"
+    command: "git diff --numstat -- <приёмка>"
+    result: "+55 −9: шапка, Р16 п.8, §5 строка NTF2-60, NTF2-60 (г), NTF2-69 (е), §6б две строки, §11"
+  - claim: "предикат Р16 п.8 отвечает в обе стороны"
+    command: "for c in fd3470cb6 dbe97c78c; do git show $c:docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md | grep -cF 'global.kacho.notifications.modules.<модуль>.enabled'; … | grep -cF 'global.kacho.spiffe.kaname'; done"
+    result: "1bffe10d: 3 и 4; 29cfa368: 0 и 0; конкретного `modules.kaname.enabled` — 0 и 0"
+  - claim: "вход и предъявление восстановления проходят страж kaname по адресу и источнику (CX2-106)"
+    command: "git -C project/kaname show origin/484-notify:internal/apps/kaname/api/humansession/rate.go; git -C project/kaname grep -n 'gate.check' origin/484-notify -- internal/apps/kaname/api/humansession/"
+    result: "attemptGate.check(addressKey, source): окно по адресу, затем по источнику; вызовы — login.go:224, change_password.go:135; шапка change_password: «Сессия восстановления идёт этим же путём»; попыткой считаются отказы входа и неподошедшее подтверждение смены пароля; ручки `authn.login.source-{attempts,window}` — config/login_lane.go:47–48"
+  - claim: "П11 не обещает чистоты окон неверных предъявлений"
+    command: "grep -n '\\*\\*П11\\*\\*' <приёмка>"
+    result: "строка 1719: «без глаголов почты, окон адресата и строк ленты к началу сценария»"
+
+not_measurable:
+  - "Сколько сценариев подъёма П6 используют тот же A или тот же адрес источника: проб нет; условие (а) снимает вопрос по построению"
+
+outcome: к-замыслу
+return_to_acceptance: []
+return_to_acceptance_note: >-
+  Не возврат: (г) исполним при условии CX2-106, и «не выполнилось» с текстом относится к замыслу пробы.
+  При следующей правке приёмки (не блокирует) стоит добавить в Given NTF2-60 или в П11 «следов неверных
+  предъявлений по A и по S1 в окнах kaname нет, проба печатает» — так же, как (а) уже печатает
+  `authn.login.source-attempts`.
+unmapped_items_revalidation: "— (режим initial)"
+
+orders:
+  - to: "автор замысла NTF-2 (issue-2917)"
+    what: "отобразить CX2-106 в З8 «Стенды П6 и П6-k» / NTF2-60 (г) и в строке E2: A и S1 из runId, печать следов неверных предъявлений перед (г), `TOO_MANY_ATTEMPTS` kaname — «не выполнилось», порядок вход → предъявление"
+    basis: ".claude/rules/change-graph.md §4; gate-authoring §«Отрицание только в паре с положительным»"
+
+class_proposal: "— (CX2-106 ложится в существующие разделы gate-authoring и measurement-discipline)"
+single_file_predicate_candidate: "— (признак не однофайловый)"
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2917
+  role: class-exposure-analyst
+  subject_sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+  publication_mode: courier
+  precondition: "событие вердикта acceptance-reviewer на 5b1a7e41… опубликовано"
+  event_body_for_courier: >-
+    class-exposure-analyst · первичный разбор · к-замыслу · SHA-256
+    5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368 · новый CX2-106

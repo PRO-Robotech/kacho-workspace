@@ -1,0 +1,135 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-2 редакции 30 (маршрут — tasks.md редакции 29). Прежняя
+# запись роли — 829b1889….yaml (редакция 29, RETURNED: R29-1 — CX2-99…105 не отображены, R29-2).
+# Приёмка сменилась: редакция 31, 5b1a7e41… (APPROVED, blocking_count 0; одобрение eed36d11 не
+# переносится). Судятся закрытие R29-1, R29-2, N29-1 и пять условий одобрения. Рабочее дерево
+# issue-880 поверх 3227baa93, не закоммичено. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2917
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: 9c4a238a640a248b32f1f220d7e7acfa242e47c53fd2ce5142975210f9f2b38f
+  fingerprint_predicate: "sha256sum docs/changes/issue-2917/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml:112 hashes.design_sha256 и с пересверкой revalidation/9c4a238a"
+  revision: 30
+  tasks_sha256: c465721530eb8a0047b883f332384cd8bcdb21a139472568daf3d8c3458b441b   # маршрут редакции 29
+  previous_record: docs/changes/issue-2917/reviews/design/design-reviewer/829b188967392401d852b94d7667cecf082492b9ccc5129d041fad61f157bdaf.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5b1a7e41c19ca98e2df716dc73a261e8f83a30462211edff544509a4c5a06368
+  verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/5b1a7e41….yaml (verdict: APPROVED, blocking_count: 0; не закоммичена)"
+  changed_since_previous_record: true   # было eed36d11…
+revisions:
+  workspace: 3227baa93
+  kacho_line: ae4bde452f6   # origin/2564, со слов пересверки
+  kacho_epic: e415e59a225   # origin/2914-notify, перемерено
+  kaname_line: bd8413637    # origin/484-notify, перемерено
+  corelib_line: 1a37f81
+snapshot_at: 2026-10-02
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-2"
+distributed_surface: true      # исход kaname под вторым стражем (окна неверных предъявлений в базе kaname)
+schema_review_overlap: false
+
+inspected: >-
+  design.md: шапка редакции 30 (14–30), §0 строка приёмки 5b1a7e41 (673), §13 (4402). change.yaml:
+  шапка 26–40 (R29-2), hashes (111–112). Пересверка revalidation/9c4a238a (outcome to_design, CX2-106
+  unmapped, заметки N30-1…N30-3) и первичный разбор initial/5b1a7e41 (outcome к-замыслу, CX2-106).
+  Запись вердикта приёмки 5b1a7e41: verdict APPROVED, blocking_count 0. Перемерено своей командой:
+  sha256; вхождения в design.md/tasks.md — CX2-99 9/3, CX2-100 4/3, CX2-101 3/2, CX2-102 3/3, CX2-103
+  4/2, CX2-104 2/2, CX2-105 4/2, N29-1 5/1, R29-2 3/1, CX2-106 0/0, N30-1 0/0. Пробы не запускались:
+  предмет — документ.
+
+closure_of_previous:
+  - id: R29-1
+    status: закрыт
+    evidence: "CX2-99…105 — вхождения выше; пересверка 9c4a238a — holds по каждому, CX2-103 (взаимная сверка полос одного механизма) держится одной функцией principalmeta.MetadataFromRequest"
+  - id: R29-2
+    status: "закрыт по прежней формулировке; класс повторился (R30-2)"
+    evidence: "change.yaml:30 — «первичный разбор классов на неё — reviews/class-exposure/initial/eed36d11….yaml»"
+  - id: N29-1
+    status: закрыт
+    evidence: "§0 опора — 1bffe10d; ссылка на initial/eed36d11; пересверка 9c4a238a — holds"
+  - id: "смена приёмки на 5b1a7e41"
+    status: "вердикт есть (APPROVED), первичный разбор есть — CX2-106 к замыслу"
+    evidence: "docs/specs/reviews/…/5b1a7e41….yaml; reviews/class-exposure/initial/5b1a7e41….yaml"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "§13 (4404) «Нет»; Е21 — внешняя зависимость полосы E2 (Д71)"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 9c4a238a: CX2-106 unmapped; перемер — 0 в design.md и tasks.md"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/9c4a238a….yaml — на текущий отпечаток; change.yaml hashes.acceptance_sha256 = 5b1a7e41"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 5b1a7e41 одобрена, первичный разбор initial/5b1a7e41 есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "дельта не трогает."
+  public_vs_internal_edge: "закрыта: канал глаголов мимо края строит личность той же функцией края (CX2-103), литералов 0."
+  parallel_lanes_reconciliation: "закрыта (CX2-103): один строитель личности на restmux и subscriptionstream."
+  cross_service_state: >-
+    возврат через CX2-106: исход (г) зависит от второго стража kaname (окна неверных предъявлений по
+    адресу и источнику, счёт в базе kaname), которого Given не ставит в известное положение; при
+    исчерпанном окне kaname отвечает TOO_MANY_ATTEMPTS — это «не выполнилось», а не красное.
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R30-1
+    where: "design.md — §11 (строки CX2-106 нет), полосы проб пути восстановления; tasks.md — держатель"
+    finding: >-
+      Первичный разбор initial/5b1a7e41 возвращает к замыслу CX2-106 (R31-3 приёмки): положительный
+      исход (г) — «вход 200», «предъявление 401» — зависит от состояния окон attemptGate kaname по
+      AddressKey(A) и источнику S1, которое сценарий не создаёт и не печатает. Не отображён (0 и 0).
+    requirement: >-
+      Отобразить CX2-106 строкой §11 с держателем в полосе: свои A и S1 на прогон; печать следов неверных
+      предъявлений по обоим окнам перед (г); TOO_MANY_ATTEMPTS kaname → «не выполнилось» с причиной, а не
+      красное; инъекция исчерпанного окна и близнец на чистых A/S1.
+
+important: []
+
+minor:
+  - id: R30-2
+    note: >-
+      Утверждение пережило свой предмет (класс R29-2): change.yaml:33 «Редакция 31 приёмки … вердикта и
+      первичного разбора классов не имеет», change.yaml:38 «вердикта и пересверки на редакцию 30 нет»,
+      design.md:21 и §0 строка 673 «вердикта нет» (N30-1) — запись APPROVED 5b1a7e41, initial/5b1a7e41 и
+      revalidation/9c4a238a существуют. Заменить ссылками на записи.
+  - id: R30-3
+    note: >-
+      N30-2 (область предиката S5 — всё нетестовое дерево kaname, глагол приглашения вне
+      internal/handler/**) и N30-3 (X1 печатает связь ConfigMap ↔ работающий под либо читает процесс)
+      пересверки — отобразить тем же заходом.
+
+orders:
+  - кому: "автор замысла NTF-2"
+    что: "R30-1 (CX2-106), R30-2, R30-3"
+
+next: >-
+  Возврат автору замысла NTF-2. После правки — пересверка разбора классов и эта роль на новом отпечатке.
