@@ -118,12 +118,12 @@ PY
   local ok=1
   [ "$failed" = "$want_failed" ] || ok=0
   if [ -n "$want_named" ]; then
-    printf '%s\n' "$out" | grep -q "FAIL $want_named" || ok=0
+    grep -q -- "FAIL $want_named" <<<"$out" || ok=0
   fi
   # Находка, называющая симптом вместо причины, посылает читателя искать не там,
   # поэтому инъекция сверяет и ТЕКСТ отказа, а не только его наличие.
   if [ -n "$want_phrase" ]; then
-    printf '%s\n' "$out" | grep -q -- "$want_phrase" || ok=0
+    grep -q -- "$want_phrase" <<<"$out" || ok=0
   fi
   if [ "$ok" = "1" ]; then
     GOOD=$((GOOD + 1))

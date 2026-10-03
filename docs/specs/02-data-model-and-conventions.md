@@ -256,8 +256,8 @@ accounts        (id PK, owner_user_id FK→users RESTRICT, name UNIQUE, descript
                  labels JSONB, created_at)
 projects        (id PK, account_id FK→accounts RESTRICT, name, labels, created_at,
                  UNIQUE (account_id, name))                 -- Move = atomic CAS
-users           (id PK, external_id UNIQUE,                 -- Zitadel sub (mirror identity)
-                 email, display_name, created_at)
+users           (id PK, external_id, email, display_name, created_at,
+                 partial UNIQUE (external_id) WHERE external_id <> '')  -- субъект входа; пуст у PENDING
 service_accounts(id PK, account_id FK→accounts RESTRICT, name, ...,
                  UNIQUE (account_id, name))
 groups          (id PK, account_id FK→accounts RESTRICT, name, ...)
@@ -275,6 +275,11 @@ access_binding_emitted_tuples  (binding_id FK→access_bindings CASCADE, fga_use
 operations      (см. §8; + principal_*)
 iam_outbox
 ```
+
+`users.external_id` — субъект входа человека, а не отражение чужой личности: внешней личности,
+копией которой была бы строка `users`, в модели нет. Кто пишет значение, в какой форме и когда
+оно перестаёт меняться — у поля `external_id` ресурса `User` в контракте службы доступа
+(`PRO-Robotech/kaname`); здесь это не пересказывается.
 
 ### `kacho_vpc`
 

@@ -1,0 +1,237 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+  sha256: e6c08a823485a2536c01b8d8d754baaf86804a120d77a9c3a0a1dd30d6044864
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и намеренно не правлена (change-graph.md §2 — вердикт привязан к
+    ОТПЕЧАТКУ, а не к слову в заголовке). Действующий вердикт о ЭТОЙ редакции — эта запись плюс
+    внешнее событие; машинный читатель docs-gate по редакции отвечает DRAFT — это его объявленный
+    предел (судит объявление, а не одобрение).
+  base_commit: 870e3132e553baf36976bb7cc8b7a47787d0d1a4
+  content_commit: 8a99fe58ada268572a4b12a491231c7fd47430b9
+  branch: acceptance/line-a-1
+  task: PRO-Robotech/kacho#2564
+  fingerprint_predicate: >-
+    sha256sum <путь> в worktree tmp/wt-line-a-1 @ 8a99fe58 → e6c08a82…; совпал с отпечатком задания
+  lines: 685
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 8a99fe58 в
+    PRO-Robotech/kacho-workspace вернул 0 → content_commit пост-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 8a99fe58ada268572a4b12a491231c7fd47430b9
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает, поэтому от внешнего события
+    не зависит. Тело события для публикации приведено в возврате диспетчеру.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Первый круг по этому документу — соседних записей ревью нет (каталог reviews/
+      sub-phase-LINE-A-1-… создан этой записью). Ни одна прежняя запись не правлена и не удалена.
+
+# ─────────────────────────────────────────────────────────────────────────────
+fingerprint_binding:
+  question: совпал ли отпечаток задания с содержимым в worktree
+  answer: ДА
+  evidence: >-
+    sha256sum tmp/wt-line-a-1/docs/specs/sub-phase-LINE-A-1-…-acceptance.md →
+    e6c08a823485a2536c01b8d8d754baaf86804a120d77a9c3a0a1dd30d6044864; HEAD worktree 8a99fe58,
+    ветка acceptance/line-a-1 — оба совпали с заданием.
+
+measured_bases:
+  workspace_doc: PRO-Robotech/kacho-workspace @ 8a99fe58 (сам документ и записи ревью)
+  service: >-
+    PRO-Robotech/kaname @ b673325f (дом службы; все числа §1 и статусы соседних приёмок сняты здесь;
+    b673325f существует, `git cat-file -t` → commit, «release: волна 6»)
+
+premise:
+  statement: >-
+    Центральная посылка сужения объёма: «поведение входа НЕ переизобретается — оно уже одобрено
+    (F4d/F4e/ID-PW-1)», поэтому A-1 сажает и интегрирует его, но НЕ несёт его сценариев.
+  status: ОПРОВЕРГНУТА ЧАСТИЧНО — для ID-PW-1 (проверяющий пароля) и своей сессии человека.
+  method: >-
+    Прочитаны шапки соседних приёмок в дереве службы и в воркспейсе, по своей ревизии b673325f.
+    F4d и F4e — APPROVED (воркспейс, круг 3), посылка для них ВЕРНА. ID-PW-1 — НЕ одобрена нигде на
+    базе (см. blocking_findings B1).
+
+section1_predicates_reproduced:
+  note: >-
+    §1 утверждает, что ни своего входа, ни церемонии authorization_code в дереве службы нет.
+    Перепроверено на kaname @ b673325f — совпало:
+  results:
+    - 'A) authorization_code в internal/handler/clienttokenhttp/*.go (не тест) → пусто'
+    - 'D) pkce|code_challenge|code_verifier в internal (не тест) → пусто'
+    - 'G) oauth-authorization-server в internal|cmd (не тест) → пусто'
+    - 'H) LoginAuthority|login-authority в internal|cmd (не тест) → пусто'
+  conclusion: >-
+    Посылка «нашими силами этого ещё нет» — подтверждена. Это усиливает B1: проверяющий пароля и
+    своя сессия человека в КОДЕ отсутствуют И не имеют одобренной приёмки — A-1 S1 построил бы их
+    под несуществующей санкцией (ban #1).
+
+producers_walk:
+  existing_named_producers_exist_at_b673325f:
+    verified: >-
+      Все производители таблицы §1 «Что УЖЕ наше» и §9 «есть» присутствуют @ b673325f (git cat-file -e):
+      internal/tokensigner/signer.go · internal/handler/clienttokenhttp/handler.go ·
+      internal/apps/kaname/config/lane_requirements.go · internal/apps/kaname/config/identity_provider.go ·
+      internal/authzguard/acr_floor.go · internal/domain/interactive_client.go ·
+      internal/apps/kaname/api/session_revocations/session_cutoff.go ·
+      internal/handler/iamhooks/refresh_hook_handler.go · internal/clients/hydra_interactive_clients.go ·
+      cmd/kaname/serve_client_token_wiring_test.go — 10 из 10 существуют.
+  not_started_producers_are_the_impl_subject:
+    note: >-
+      Производители своего входа, эндпоинта авторизации, хранилища кода, полос
+      authorization_code/refresh_token, эндпоинта обнаружения — в дереве отсутствуют. Для приёмки ДО
+      кода (ban #1) это ожидаемо; §9 по каждому «Тогда» называет производителя и исход «заказан у
+      реализации LINE-A-1». Требование «производитель НАЗВАН» выполнено для всех 30 сценариев.
+  then_axis_producer_named: '30 из 30 (§9 покрывает все ID 01–30; проверено перечислением)'
+
+scenario_coverage:
+  count: 30
+  ids: LINE-A-1-01 … LINE-A-1-30 (непрерывно, без дыр)
+  positive_negative_edge: >-
+    positive/happy (04, 12, 20, 22), negative с конкретными кодами (05–09, 13–18, 23 — invalid_grant/
+    invalid_client/invalid_request/unsupported_response_type + 400/401/302/404/405), конкуренция
+    (19, 30), анти-оракул (26), PII/инфра (27), инварианты хранилища DB-уровня (28–29).
+  async_contract: >-
+    OAuth-выдача синхронна по RFC 6749 §5.1 (не ресурсная мутация) — верно; рутинный глагол края
+    (20) корректно через Operation + полл. Конфликта с ban #9 нет.
+  twins:
+    status: полны
+    detail: >-
+      У каждого отрицательного сценария назван положительный близнец, отличающийся ровно одним
+      фактом (05→04, 06→04, 07→04, 08→04, 09→04, 13→12, 14→12, 15→12, 16→12, 17→12, 18→12, 19→«два
+      РАЗНЫХ кода», 23→22); у I-сценариев — положительный контроль (26, 27, 28, 29). TWIN-дефектов нет.
+
+constructibility:
+  method: >-
+    Приёмка ДО кода: хранилища кода и семейства refresh-токенов не существуют, посев их Given
+    неисполним by construction (предмет реализации). Проверено то, что проверяемо на базе: не
+    запрещён ли схемой хотя бы один нетривиальный Given из уже существующих ресурсов.
+  interactive_client_given:
+    result: КОНСТРУИРУЕМ (не запрещён схемой)
+    evidence: >-
+      internal/domain/interactive_client.go несёт InteractiveClientStatus {ACTIVE, DELETING}
+      (зеркалится DB CHECK), RedirectURIs (≥1, каждый https://), id `ic-<17>` hyphen-canon; локальный
+      репозиторий internal/repo/kaname/pg/interactive_client_repo.go существует @ b673325f — то есть
+      redirect_uris хранятся ЛОКАЛЬНО, и посев ACTIVE-клиента с локальным списком возможен без
+      провайдера. Заявление §1 «локальный redirect_uris читается уже сейчас» — подтверждено деревом.
+  login_authority_given: >-
+    Уровень I: Given аутентифицированного человека — посев ответа порта LoginAuthority (тест-оснастка),
+    конструируем by construction. Уровни доверия «1»/«2» — собственность F4e (APPROVED).
+  seeded_of_total: >-
+    посеяно 0 из N ИСПОЛНЕНИЕМ (стенд/изоляция заданием не назван, хранилища кода не существуют);
+    конструируемость interactive-client Given установлена ЧТЕНИЕМ схемы, а не посевом — см. remainders.
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  - id: B1
+    class: '[SCOPE] сужение объёма опирается на ЛОЖНОЕ одобрение — A-1 S1 сажает поведение (проверяющий пароля + своя сессия), у которого на базе НЕТ одобренной приёмки (ban #1)'
+    sign: >-
+      Документ трижды объявляет поведение входа уже одобренным: Обзор (стр. 57–63) «поведение входа
+      НЕ переизобретается — оно уже одобрено … sub-phase-ID-PW-1-* (проверяющий пароля). Эти приёмки
+      владеют наблюдаемым поведением входа»; §4 (стр. 267) «F4d / F4e / ID-PW-1 (одобрены)»; §7 (стр.
+      558) «ID-PW-1 (проверяющий пароля, ✅ APPROVED)». §9 (стр. 608) приписывает поведение проверки
+      пароля владельцу ID-PW-1. A-1 S1 при этом ЯВНО сажает это поведение: Р1 «сажает … свой
+      проверяющий пароля (ID-PW-1), свою сессию человека»; §10 DoD п. 2 «хранилище способов входа
+      человека и хранилище своей сессии провязаны».
+    subject: >-
+      На базе ID-PW-1 (проверяющий пароля) и своя сессия человека НЕ одобрены НИГДЕ, и это держат
+      три места:
+      (1) воркспейсная приёмка sub-phase-ID-PW-1-…-acceptance.md сама объявляет: «Статус: SUPERSEDED
+      … Одобрения здесь не было: прежняя редакция — DRAFT, кругов ревью ноль, запрет #1 по ней не
+      снимался ни разу», и указывает дом — PRO-Robotech/kaname:docs/engineering/acceptance/
+      password-verifier-follows-the-stored-value.md (kaname#94);
+      (2) этот дом на b673325f НЕ существует: `git cat-file -e b673325f:docs/engineering/acceptance/
+      password-verifier-follows-the-stored-value.md` → ошибка; строки password-verifier-follows и
+      kaname#94 в дереве службы не встречаются;
+      (3) фактический владелец поведения входа/сессии/удостоверений в службе —
+      docs/engineering/acceptance/login-session-and-credentials-are-our-contract.md (iam Ф1), и он
+      DRAFT: «Статус: DRAFT — вердикт не вынесен; санкции на код нет (ban #1)»; он же несёт проверку
+      пароля (argon2id, «проверка пароля по существующему хешу», §2 Р1). Документ LINE-A-1 этого
+      владельца НЕ цитирует ВОВСЕ — только ID-PW-1 по снятому воркспейсному имени.
+      Итог: одобрить A-1 значит санкционировать написание проверяющего пароля и своей сессии человека
+      без одобренной приёмки — ровно то, что запрещает ban #1 и что я как единственный гейт пропускать
+      не вправе. F4d (посадка/маршрутизация) и F4e (уровни/шаг вверх) — APPROVED и предметом B1 НЕ
+      являются; B1 сужен строго до проверяющего пароля и своей сессии.
+    experiment: >-
+      Прочитаны шапки на b673325f: `git show b673325f:docs/engineering/acceptance/
+      login-session-and-credentials-are-our-contract.md | head` → DRAFT; `git cat-file -e
+      b673325f:docs/engineering/acceptance/password-verifier-follows-the-stored-value.md` → отсутствует;
+      воркспейсная ID-PW-1 → SUPERSEDED, «одобрения не было». F4d/F4e воркспейсные шапки → APPROVED
+      (круг 3). Числа сверены командами, приведёнными в возврате.
+    predicate_of_removal: >-
+      В Обзоре, §4, §7 и §9 утверждение о владельце поведения входа называет НАСТОЯЩЕГО владельца
+      (login-session-and-credentials-are-our-contract.md, kaname — либо преемника password-verifier)
+      и его НАСТОЯЩИЙ статус, а не «ID-PW-1 ✅ APPROVED»; и выполнено ОДНО из двух:
+      (а) A-1 объявляет посадку своего входа S1 (проверяющий пароля + своя сессия) ЗАВИСЯЩЕЙ от
+      одобрения этой приёмки — переключение развёрнутой посадки на `own` не садится, пока владелец не
+      APPROVED; ЛИБО (б) A-1 несёт сценарии проверки пароля и своей сессии сам.
+      Проверяемо: `grep -niE 'ID-PW-1.*APPROVED|одобрен' <doc>` не даёт ложного одобрения проверяющего
+      пароля; `git show <base>:docs/engineering/acceptance/login-session-and-credentials-are-our-contract.md
+      | head` показывает статус, на который документ ссылается.
+
+non_blocking_findings:
+  - id: N1
+    class: '[SCOPE, минор] введение не ссылается на 04-roadmap-and-phasing.md §3'
+    text: >-
+      Чек-лист §3.1 требует ссылку на roadmap §3 как источник объёма под-фазы. Здесь §3 roadmap — это
+      «Уровни тестов», а Линия A / #2564 в roadmap не упомянуты ВООБЩЕ (grep пуст): это линейная
+      декомпозиция эпика, чей источник объёма — #2564 и решения владельца 2026-09-19, и они в
+      документе названы. Не блокирует: авторитет объёма назван и трассируем. Пожелание: одной строкой
+      сказать, что roadmap §3 к линейному эпику не применяется как источник объёма.
+  - id: N2
+    class: '[TRACEABILITY, минор] §7 не называет дом поведения входа в службе'
+    text: >-
+      Строка §7 про ID-PW-1 даст читателю мёртвую координату (воркспейсная ID-PW-1 SUPERSEDED). При
+      правке B1 назвать дом — login-session-and-credentials-are-our-contract.md (kaname) — чтобы
+      трассируемость шва вход→церемония вела в живой артефакт.
+
+remainders:
+  - subject: посев Given исполнением
+    status: >-
+      не выполнилось — стенд/изоляция заданием не названы, а хранилища кода и семейства refresh-токенов
+      в дереве не существуют (предмет реализации). Конструируемость interactive-client Given установлена
+      ЧТЕНИЕМ схемы (локальный репозиторий + допустимый ACTIVE), а не посевом. В зелёное не зачитывается.
+  - subject: внешние события F4d/F4e
+    status: >-
+      не проверялись — их фингерпринт-привязка и внешнее полномочие не мой предмет (я сужу отпечаток
+      LINE-A-1). Их APPROVED взят с ОБЪЯВЛЕНИЯ воркспейсных шапок (круг 3); это опора B1 на стороне
+      F4d/F4e, а не самостоятельная проверка их одобрения.
+
+scope:
+  reviewed: >-
+    весь документ (§Обзор–§10, 30 сценариев); отпечаток сверен sha256sum; §1-предикаты воспроизведены
+    на kaname@b673325f; статусы соседних приёмок сняты по своей ревизии; существование названных
+    производителей проверено @ b673325f; конструируемость interactive-client Given — чтением схемы.
+  blocking_count: 1
+  blocking_kinds: [SCOPE]
+  non_blocking_count: 2
+  next: >-
+    acceptance-author правит B1 (владелец поведения входа назван настоящий и настоящим статусом; либо
+    зависимость посадки own объявлена, либо сценарии проверки пароля/сессии внесены), рецензент
+    перечитывает НОВУЮ редакцию по её отпечатку (прежний вердикт остаётся вердиктом о редакции 1).

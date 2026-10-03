@@ -5,7 +5,7 @@
 #   здесь намеренны на весь файл, как и в соседнем `inject.sh`. Директива стоит
 #   пофайлово, а не построчно, ровно потому, что намерение общее у всех пяти
 #   мест: подстановки не хотим НИГДЕ, и точечное глушение прятало бы это решение.
-# Доказательство check-03 инъекцией — на ВРЕМЕННОЙ копии дерева воркспейса.
+# Доказательство check-07 инъекцией — на ВРЕМЕННОЙ копии дерева воркспейса.
 # Настоящий документ не трогается; дерево продукта читается только на чтение.
 #
 # У каждого запрета — настоящий вход из дерева, законный близнец той же формы, на
@@ -23,13 +23,19 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$HERE/../.." && pwd)"
-CHECK="check-03-acceptance-tree-claims.py"
+CHECK="check-07-acceptance-tree-claims.py"
 DOC="docs/specs/sub-phase-XC-7-iam-unified-contour-acceptance.md"
 
 : "${KACHO_MONOREPO:?inject-03.sh требует KACHO_MONOREPO — предикаты закреплений меряются по дереву продукта}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+# Подпись выброшенного клона — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "[VOID] inject-03 — корневой подписи нет: вершине пробы не с чего взять подпись" >&2; exit 2; }
 
 seq_n=0
 probes=0
@@ -75,7 +81,7 @@ run() {
     echo "  ok   $name (код $got)"
 }
 
-echo "== check-03: закреплённое число приёмки меряется по дереву продукта =="
+echo "== check-07: закреплённое число приёмки меряется по дереву продукта =="
 
 # (1) Положительный контроль. Без него отрицания ниже зеленели бы на гейте,
 # который краснеет всегда (`gate-authoring` §Отрицание только в паре с положительным).
@@ -171,15 +177,11 @@ if [ -z "$BASE_SHA" ]; then
 else
     git clone -q --shared --no-checkout "$KACHO_MONOREPO" "$SIDE" 2>/dev/null
     git -C "$SIDE" update-ref refs/remotes/origin/main "$BASE_SHA"
-    # Подпись — В КОНФИГЕ ВЫБРОШЕННОГО КЛОНА, а не через `-c`/`GIT_AUTHOR_*`: правило
-    # про подпись владельца связывает коммиты РЕПОЗИТОРИЯ, а этот клон живёт до конца
-    # пробы и на origin не попадает НИКОГДА. Без подписи `commit-tree` отказывает
-    # (`empty ident name`) везде, где нет глобального конфига, — то есть на ранере,
-    # где `actions/checkout` подменяет HOME на временный. Локально проба при этом
-    # зеленела: там подпись брали из ~/.gitconfig разработчика.
-    git -C "$SIDE" config user.name  'docs-gate probe'
-    git -C "$SIDE" config user.email 'probe@invalid'
-    OFFSHOOT="$(git -C "$SIDE" commit-tree "$BASE_SHA^{tree}" -p "$BASE_SHA" -m 'проба: вершина, ушедшая в сторону от main' 2>/dev/null || true)"
+    # Подпись — HOME песочницы со своим `.gitconfig`, а не конфиг выброшенного клона:
+    # правило подписи действует и на клон, который на origin не попадает никогда
+    # (ws#785). Без подписи `commit-tree` отказывает (`empty ident name`) везде, где
+    # нет корневого конфига, — поэтому его заводит `sandbox_git_home` выше.
+    OFFSHOOT="$(sandbox_git -C "$SIDE" commit-tree "$BASE_SHA^{tree}" -p "$BASE_SHA" -m 'проба: вершина, ушедшая в сторону от main' 2>/dev/null || true)"
     OFFSHOOT_SHORT="$(git -C "$SIDE" rev-parse --short=9 "$OFFSHOOT" 2>/dev/null || true)"
     # ЧИСЛО, СТОЯЩЕЕ В ТОЙ ЖЕ СТРОКЕ, ВЫЧИСЛЯЕТСЯ ПОД НОВУЮ РЕВИЗИЮ — иначе ось
     # меняет ДВА факта вместо одного.

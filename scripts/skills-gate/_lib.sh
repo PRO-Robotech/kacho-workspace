@@ -10,13 +10,8 @@
 # ТОЛЬКО inject.sh, чтобы прогонять гейт по временному дереву с внесённым
 # дефектом и не трогать рабочее (`gate-authoring` §Инъекция).
 skills_gate_workspace_root() {
-    if [ -n "${SKILLS_GATE_ROOT:-}" ]; then
-        cd "$SKILLS_GATE_ROOT" && pwd
-        return
-    fi
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
-    cd "$script_dir/../.." && pwd
+    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757).
+    python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" SKILLS_GATE_ROOT "${BASH_SOURCE[1]}"
 }
 
 skills_gate_pass() { echo "[PASS] $1${2:+ — $2}"; }
@@ -157,7 +152,7 @@ skills_gate_section_resolves() {
     headers="$(grep -E '^#{2,3} ' "$rulefile" | sed -E 's/^#+[[:space:]]*//' | tr -d '[:space:]')"
     while [ -n "$token" ]; do
         needle="$(printf '%s' "$token" | tr -d '[:space:]')"
-        if [ -n "$needle" ] && printf '%s\n' "$headers" | grep -qF -- "$needle"; then
+        if [ -n "$needle" ] && grep -qF -- "$needle" <<<"$headers"; then
             return 0
         fi
         # отбросить последнее слово и повторить

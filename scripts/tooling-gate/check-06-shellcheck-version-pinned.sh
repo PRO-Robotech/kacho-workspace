@@ -8,13 +8,24 @@
 # другой — другой, на каждой строке её тела. Локальный прогон при этом зелен, а
 # конвейер красен на том же файле без единой правки между.
 #
-# Утверждений три, и третье — контроль в обратную сторону:
-#   1. значение версии объявлено РОВНО ОДИН раз (иначе два задания исполнят
+# Утверждения ниже; третье — контроль в обратную сторону:
+#   1. значение версии объявлено РОВНО ОДИН раз (иначе задания исполнят
 #      разные версии, и расхождение будет невидимым);
 #   2. каждое задание, зовущее `shellcheck`, СНАЧАЛА ставит запиннутую (иначе
 #      берёт из образа — то есть ту же лотерею, только тише);
 #   3. установка печатает установленную версию (вердикт обязан нести с собой,
-#      чем он получен).
+#      чем он получен);
+#   4. задание, поставившее пин, НЕ ставит анализатор вторым способом (ws#464):
+#      `apt-get install … shellcheck` рядом с пином кладёт версию дистрибутива в
+#      /usr/bin, и пин действует только по побочному обстоятельству — порядку
+#      PATH на образе. Установка «только при отсутствии» (шаг под
+#      `command -v shellcheck`) рядом с пином не срабатывает никогда и находкой не
+#      является, но считается — перепись называет, сколько установок осмотрено,
+#      а не только сколько заданий. Установка узнаётся по ЛОГИЧЕСКОЙ строке шага
+#      (`\`-перенос сводится: многострочная `apt-get install -y \` + `shellcheck`
+#      — обычная форма блока `run: |`) и по закрытому перечню менеджеров пакетов,
+#      включая npm/yarn/pnpm, gem, dnf/yum, apk, zypper, pacman, nix-env, uv
+#      (круг 1: многострочная форма и npm проходили молча).
 set -uo pipefail
 
 name="check-06-shellcheck-version-pinned"
@@ -24,7 +35,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # СВОЁ дерево при любой песочнице — то есть отвечала бы всегда одно и то же.
 # shellcheck source=/dev/null
 . "$here/_lib.sh" 2>/dev/null || true
-root="${TOOLING_GATE_ROOT:-$(cd "$here/../.." && pwd)}"
+root="$(python3 "$here/../lib/gate_root.py" TOOLING_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 
 python3 - "$root" "$name" <<'PY'
 import re, sys, pathlib
@@ -41,6 +52,40 @@ declared_total = 0
 jobs_calling = 0
 jobs_installing = 0
 prints_version = 0
+installs_pinned = 0
+installs_other = 0
+installs_conditional = 0
+
+# Вторая установка — менеджером пакетов. Судится исполняемая строка шага, не
+# комментарий: слова `apt-get install shellcheck` стоят и в объяснениях.
+MANAGERS = ("apt-get", "apt", "aptitude", "snap", "brew", "pip", "pip3", "pipx", "uv",
+            "conda", "mamba", "cabal", "stack", "npm", "yarn", "pnpm", "gem", "dnf", "yum",
+            "apk", "zypper", "pacman", "port", "nix-env", "choco", "scoop", "winget")
+OTHER_INSTALL = re.compile(
+    r"(?<![\w-])(?:" + "|".join(re.escape(m) for m in MANAGERS) + r")(?![\w-])"
+    r"[^\n#]*(?<!\S)(?:install|add|i|-S\w*)(?!\S)[^\n#]*\bshellcheck(?:-py)?\b",
+    re.I)
+
+
+def logical(step):
+    """Текст шага со сведёнными `\\`-переносами: команда, продолженная на следующую
+    строку, — одна строка, и установка через перенос не выпадает из предиката."""
+    return re.sub(r"\\\n[ \t]*", " ", step)
+
+
+def steps_of(block):
+    """Шаги задания: текст от `      - ` до следующего такого же, без строк-комментариев."""
+    out, cur = [], None
+    for line in block.split("\n"):
+        if re.match(r"^\s{4,8}- ", line):
+            if cur is not None:
+                out.append("\n".join(cur))
+            cur = [line]
+        elif cur is not None:
+            cur.append(line)
+    if cur is not None:
+        out.append("\n".join(cur))
+    return ["\n".join(l for l in st.split("\n") if not l.strip().startswith("#")) for st in out]
 
 # Разбор построчный, а не YAML-ом: предмет — ТЕКСТ шага (`run:`), и он всё равно
 # читается строками. YAML тут дал бы ложную точность, а зависимость — лишнюю.
@@ -60,6 +105,22 @@ for f in files:
             continue
         jobs_calling += 1
         installs = "shellcheck-v${SHELLCHECK_VERSION}" in b or "SHELLCHECK_VERSION}/shellcheck" in b
+        head = (b.strip().splitlines() or ["?"])[0].strip().rstrip(":")
+        second = []
+        for st in steps_of(b):
+            if "SHELLCHECK_VERSION}/shellcheck" in st or "shellcheck-v${SHELLCHECK_VERSION}" in st:
+                installs_pinned += 1
+            m = OTHER_INSTALL.search(logical(st))
+            if m:
+                if "command -v shellcheck" in st:
+                    installs_conditional += 1
+                else:
+                    installs_other += 1
+                    second.append(m.group(0).strip())
+        if installs and second:
+            findings.append(
+                f"{f.name}: задание «{head}» ставит пин и ставит анализатор ВТОРЫМ способом "
+                f"(`{second[0]}`) — вердикт принадлежит порядку PATH на образе, а не пину")
         if installs:
             jobs_installing += 1
             if "shellcheck --version" in b:
@@ -67,9 +128,8 @@ for f in files:
             else:
                 findings.append(f"{f.name}: задание ставит пин, но не печатает установленную версию")
         else:
-            head = (b.strip().splitlines() or ["?"])[0]
             findings.append(
-                f"{f.name}: задание «{head.strip().rstrip(':')}» зовёт shellcheck, "
+                f"{f.name}: задание «{head}» зовёт shellcheck, "
                 f"не поставив запиннутую — исполнится версия образа ранера"
             )
 
@@ -83,7 +143,9 @@ elif declared_total > 1:
 
 print(f"[CENSUS] {name}: процессов прочитано {len(files)}; заданий, зовущих анализатор, "
       f"{jobs_calling}; из них ставят пин {jobs_installing}; печатают версию {prints_version}; "
-      f"объявлений значения {declared_total}")
+      f"объявлений значения {declared_total}; установок осмотрено "
+      f"{installs_pinned + installs_other + installs_conditional} (пиннутых {installs_pinned}, "
+      f"прочих {installs_other}, условных {installs_conditional})")
 
 for f_ in findings:
     print(f"[FAIL] {name} — {f_}", file=sys.stderr)

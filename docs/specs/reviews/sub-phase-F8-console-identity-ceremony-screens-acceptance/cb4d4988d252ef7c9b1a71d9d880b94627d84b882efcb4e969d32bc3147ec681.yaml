@@ -1,0 +1,346 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  sha256: cb4d4988d252ef7c9b1a71d9d880b94627d84b882efcb4e969d32bc3147ec681
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью (change-graph.md §2). Шапка этой записью НЕ правится: вердикт привязан к
+    отпечатку, а не к слову в заголовке. Машинный читатель docs-gate (`check-01`) по этой
+    редакции ответит «не APPROVED» — это его объявленный предел (он судит объявление), и с моим
+    вердиктом он совпадает случайно, а не по построению.
+  base_commit: 5f77d665fd81b6d54a2ade7cb1d9733243b1f61e
+  content_commit: none
+  content_commit_note: >-
+    Документ по-прежнему НЕ закоммичен: `git status --porcelain` даёт
+    `?? docs/specs/sub-phase-F8-…md`. При этом запись круга 1 закоммичена (a1598318) — то есть
+    в дереве лежит вердикт о содержимом, которого в дереве нет. Отпечаток — ЕДИНСТВЕННАЯ
+    привязка: посадка иного содержимого под тем же именем этой записью не покрыта.
+  branch: tooling-docfresh-recognition-boundary
+  branch_note: >-
+    Ветка о другом предмете (хук docfresh), и на ней параллельно пишет другой исполнитель
+    (за время этого круга HEAD ушёл a1598318 → 5f77d665 тремя чужими коммитами). Вердикт о доме
+    — в `findings_home`.
+  task: https://github.com/PRO-Robotech/kacho/issues/1274
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1354
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T05:54:54Z'
+round: 2
+previous_round:
+  revision: 1
+  sha256: 95d91dfd733f9ea7343c640b80ee86e4096ce5e3b65849059a257ccc07f884e5
+  verdict: CHANGES_REQUESTED
+  blocking_count: 8
+blocking_count: 4
+blocking_kinds_distinct: [CONSTRUCTIBILITY, COVERAGE]
+blocking_kinds_by_item:
+  - B2-1 CONSTRUCTIBILITY
+  - B2-2 CONSTRUCTIBILITY
+  - B2-3 CONSTRUCTIBILITY
+  - B2-4 COVERAGE
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 5f77d665 → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 5f77d665fd81b6d54a2ade7cb1d9733243b1f61e
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает, поэтому его
+    действительность от публикации внешнего события не зависит. Тело события для курьера дано
+    полем `event_body_for_courier`.
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2, блокирующих 4) ·
+    SHA-256 cb4d4988d252ef7c9b1a71d9d880b94627d84b882efcb4e969d32bc3147ec681
+
+measurement:
+  revisions_used:
+    kacho: f445aaaa554 (рабочая копия project/kacho, ветка main)
+    kaname: 497c44b7 (рабочая копия project/kaname, ветка lane/address-verification-acceptance-20260922)
+    kacho_lane: wave/identity-own-w0-kacho@0e0a85f936e
+  scenario_census:
+    predicate: "grep -cE '^\\*\\*ID:\\*\\* F8-[0-9]{2}' <док>"
+    total: 43
+    ids: F8-01…F8-43
+    duplicates: 0
+    gaps: 0
+  producer_coverage:
+    method: раскрытие диапазонов таблицы §11.1 в множество ID и сравнение с множеством §11
+    covered: 43
+    of: 43
+    uncovered: []
+  twin_coverage:
+    negatives_in_table: 24
+    twins_named: 24
+    positives_by_arithmetic: 19
+    note: >-
+      24 строки таблицы §11.2 пересчитаны поимённо; 19 = 43 − 24 сходится. F8-13 и F8-41 несут
+      положительную сторону внутри сценария и в таблице отсутствуют осознанно — это названо.
+
+premise_check:
+  claim: "сценариев 43; производитель у 43 из 43; близнец у 24 из 24"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → cb4d4988d2…"
+    - "grep -cE '^\\*\\*ID:\\*\\* F8-[0-9]{2}' <док> → 43"
+    - "раскрытие §11.1 → объединение покрывает F8-01…F8-43 без пропусков"
+    - "перечёт строк §11.2 → 24 отрицания, у каждого назван близнец и одно различие"
+
+blocking_findings:
+  - id: B2-1
+    kind: CONSTRUCTIBILITY
+    title: >-
+      Бюджет оси источника (Р7 ч. 2) построен на неверной посылке: «что идёт в счёт» взято из
+      шапки rate.go, а не из мест записи следа
+    coordinates:
+      doc: "Р7 ч. 2 (таблица бюджета); сценарий F8-41; DoD п. 10а; §14 п. 16"
+      tree:
+        - project/kaname/internal/apps/kaname/api/humansession/rate.go:109 (recordFailure — след по ОБЕИМ осям)
+        - project/kaname/internal/apps/kaname/api/humansession/login.go:411
+        - project/kaname/internal/apps/kaname/api/humansession/change_password.go:162
+        - project/kaname/internal/apps/kaname/api/humansession/sf_enroll.go:220
+        - project/kaname/internal/apps/kaname/api/humansession/recovery_complete.go:299
+        - project/kaname/internal/apps/kaname/api/humansession/step_up.go:274
+    measured: >-
+      recordFailure зовут ПЯТЬ мест, а не два. Документ называет «отказы входа и неподошедшее
+      подтверждение смены пароля» — это шапка rate.go, и она уже, чем код: след пишут также
+      ConfirmSecondFactor (несовпавший код) и StepUp (суждённое предъявление).
+    consequence: >-
+      F8-28 («неверный первый код» на second-factor/confirm) даёт след по оси источника и в
+      таблицу бюджета не внесён. Настоящий счёт — 11 за прогон и 33 за три, а не 10 и 30.
+      F8-41 в нынешней редакции («не превышает 10 … не превышает 30») краснеет на ВЕРНОЙ
+      реализации, и первым побуждением будет подправить число — ровно тот дрейф, против
+      которого Р7 заведено.
+    also:
+      - >-
+        Перечень исключений неполон: в коде четвёртым стоит «исчерпание ёмкости проверяющего
+        (PWV-15.3)» (step_up.go:288 и шапка rate.go).
+      - >-
+        «Ось адреса снимается успешным входом» — ResetFailures(FailureByAddress) зовут также
+        step_up.go:165, sf_enroll.go:280, sf_remove.go:129, sf_backup_codes.go:127,
+        recovery_complete.go:280.
+      - >-
+        F8-41 не называет, ЧЕМ сторож читает потолок «из профиля прогона»: браузерная проба
+        доступа к values умбреллы не имеет, и средство не названо ни одно.
+      - >-
+        «Краснеет, когда бюджет к нему приблизился» — порог не квантифицирован; предикат без
+        числа исполнить нельзя.
+    verified_not_counting:
+      - "F8-36 (SECOND_FACTOR_NOT_ENROLLED) — step_up.go:223-231: отказ по состоянию следа не оставляет"
+      - "F8-29 — sf_enroll.go:205: ErrEnrollmentNotPending без recordFailure"
+      - "F8-32 — sf_remove.go / sf_backup_codes.go recordFailure не зовут"
+      - "F8-06, F8-07 — форма судится до gate.check; F8-08 — отказ формы; F8-10 — недоступность"
+    measured_values:
+      addressAttempts: 5
+      addressWindow: 15m
+      sourceAttempts: 50
+      sourceWindow: 15m
+      source: project/kacho/deploy/helm/umbrella/values.prod.yaml:769-772
+      source_axis_reset: "ResetFailures(FailureBySource) в дереве — 0 мест; «только временем» подтверждено"
+
+  - id: B2-2
+    kind: CONSTRUCTIBILITY
+    title: "F8-29 требует сессии старше окна свежести, а средства построения не названо"
+    coordinates:
+      doc: "§11 группа H, F8-29 («предъявление в сессии старше окна свежести»); §11 преамбула («ожидание — условия, не времени»); DoD п. 5 («трижды подряд»)"
+      tree:
+        - project/kacho/deploy/helm/umbrella/values.own.yaml:47 (selfServiceFreshness 15m)
+        - project/kaname/internal/apps/kaname/api/humansession/sf_enroll.go:84
+    measured: "окно свежести на цепочке own — 15m; посев старением сессии в §11 не описан"
+    consequence: >-
+      Третья ось, снимаемая ТОЛЬКО временем, — и она осталась вне Р7, хотя Р7 заведено ровно
+      про такие оси. Либо ждать 15 минут на каждом из трёх прогонов, либо назвать средство
+      (управляемые часы, посев отметки предъявления, своя величина в профиле прогона).
+      Не названо ни одно — Given не конструируем.
+
+  - id: B2-3
+    kind: CONSTRUCTIBILITY
+    title: >-
+      §1.5: число и перечень второго пути посева не совпадают с предметом; заменяющий предикат
+      снова по НАПИСАНИЮ пути, контроля в обе стороны против него не исполнено
+    coordinates:
+      doc: "§1.5 («четыре обращения»); DoD п. 16 (ссылается на §1.5); §14 п. 3 (требует контроля в обе стороны от каждого числа §1)"
+      tree:
+        - project/kacho/ui-future/e2e/specs/assurance.ts:141,143,153,154 (четыре /self-service/)
+        - project/kacho/ui-future/e2e/specs/assurance.ts:125 (GET /sessions/whoami — пятое)
+        - project/kacho/ui-future/e2e/specs/assurance.ts:161-166 (whoami под expect.poll — многократно)
+    measured: >-
+      assurance.ts трогает чужого поставщика в ПЯТИ местах, не в четырёх. Документ говорит
+      «четыре обращения» и перечисляет четыре, подставив чтение уровня ВМЕСТО отправки потока
+      повышения (:154). Число получено `grep -rln '/self-service/'` — предикатом по написанию
+      пути, а не по предмету «ведёт чужую церемонию»; whoami под него не попадает by
+      construction. Расширение предиката до предмета (`kratos|\.ory|KRATOS`) даёт второй файл
+      — registration-refusal-named.spec.ts, — то есть контроля в обе стороны исполнено не было
+      ни в одну.
+    consequence: >-
+      Формулировка правки («о методе, а не о числе») верна, но метод не применён: класс
+      воспроизведён на следующем предикате. Сценарий F8-43 при этом предмет закрывает целиком
+      («уровень уверенности читается ответом НАШЕГО глагола»), поэтому правка — к §1.5, не к
+      сценарию.
+    verified_correct:
+      - "§1.5: 24 различных файла вместо 47 — воспроизведено (47 без sort -u, 24 с ним); 23 из 23 спецификаций + fixtures.ts — воспроизведено comm-сверкой"
+      - "§1.6: 4 условия вместо 5 — воспроизведено; пятым попаданием была проза (configmap-nginx.yaml:281 на полосе)"
+
+  - id: B2-4
+    kind: COVERAGE
+    title: >-
+      Переезд фикстуры (F8-20/F8-21) убивает предмет целой спецификации, и её судьба не
+      названа ни в §3, ни в §12, ни в DoD
+    coordinates:
+      doc: "§11 группа E (F8-20, F8-21); §1.5 («три следствия»); §3; §12; DoD п. 12"
+      tree:
+        - project/kacho/ui-future/e2e/specs/registration-refusal-named.spec.ts (6 тестов)
+        - project/kacho/ui-future/e2e/specs/fixtures.ts (identityRefusalFromText, identityRefusalOnPage)
+    measured: >-
+      Предмет спецификации — РАСПОЗНАВАНИЕ страницы отказа ЧУЖОГО поставщика: её разметка
+      вшита дословно (REFUSAL_PAGE, «webhook failed with status code 401»), страница подаётся
+      setContent. После F8-20 register() ведёт `POST /iam/v1/auth/register`, отвечающий
+      google.rpc.Status JSON — распознавать нечего.
+    consequence: >-
+      testing.md §subject-removal-two-outcomes: исходов ровно два — снять вместе с предметом
+      ОДНИМ изменением либо перевести на признак, производимый деревом, с инъекцией. Документ
+      не называет ни одного, а DoD п. 12 («ни одна спецификация набора не зовёт чужой поток»)
+      этого не ловит: спецификация чужой поток не ЗОВЁТ, она его МОКАЕТ. Это четвёртое
+      следствие переезда, которого «три следствия» §1.5 не перечислили — тот же недобор
+      предиката, что в B2-3.
+
+important_findings:
+  - kind: FORMAT
+    title: "Документ трижды неверен о самом себе: новых сценариев ПЯТЬ, а не четыре"
+    coordinates: "строка 522 (Р8: «какой из F8-01…F8-42»); строка 690 (§11 преамбула: «несут F8-39…F8-42»); строка 1349 (§16: «четыре новых взяли F8-39…F8-43»)"
+    measured: "38 → 43 даёт 5; §16 сам заводит F8-39, F8-40, F8-41, F8-42, F8-43 пятью строками; DoD п. 4а (строка 1192) диапазон называет верно — F8-01…F8-43"
+    note: "Решение «ID не переприсваиваются» преамбулой НАЗВАНО и обосновано — возражения к нему нет; неверен перечень новых."
+  - kind: FORMAT
+    title: "«Двадцать восемь спецификаций» — единица счёта названа неверно"
+    coordinates: "§1.5, абзац «И ни одна из двадцати восьми спецификаций…»"
+    measured: "ls *.ts = 28, ls *.spec.ts = 23; пять из 28 — модули, и assurance.ts сам о себе говорит «Модуль НЕ является пробой». Утверждение истинно, единица — «файл .ts», не «спецификация»."
+
+accepted_as_closed:
+  - id: B1
+    kind: SCOPE
+    outcome: closed
+    evidence: >-
+      Р3а несёт цену (два места параметров на посадке сосуществования), отвергнутый исход
+      (вынуть settings из полосы — сломал бы посадку сосуществования) и предикат истечения
+      (DoD п. 18). Свобода адреса воспроизведена: host/src/utils/host-context.ts:65 —
+      точное сравнение `/accounts`; префикса `/account/` в ui-future нет ни одного.
+      Посылка Р3а подтверждена: configmap-nginx.yaml:239 — полоса
+      `^/(login|registration|recovery|verification|settings|error|consent|logout)(/|$)`,
+      settings среди восьми.
+  - id: B2
+    kind: COVERAGE
+    outcome: closed
+    evidence: "F8-39 заведён и несёт положительный контроль ВНУТРИ сценария (переход на /registration есть) — «перехода нет» не зеленеет тождественно."
+  - id: B3
+    kind: NEGATIVE
+    outcome: closed
+    evidence: "F8-40 заведён, утверждает ПОБАЙТОВОЕ равенство экрана с F8-05 и отсутствие различимости по тексту, полю и наблюдаемой длительности."
+  - id: B4
+    kind: TWIN
+    outcome: closed
+    evidence: "F8-02 переведён на прибор близнеца (браузер), различие сведено к одному факту; наблюдение рендером вынесено в F8-42, и тот несёт знаменатель обхода (число источников подчарта консоли по каждой цепочке)."
+  - id: B5
+    kind: CONSTRUCTIBILITY
+    outcome: partially_closed
+    evidence: >-
+      Формулировка правки — о МЕТОДЕ: названо, на какой вопрос отвечал прежний предикат («кто
+      зовёт нашу фикстуру») и на какой обязан («кто ведёт чужую церемонию»). Второй путь посева
+      найден, F8-43 заведён, производитель и DoD п. 16 даны. НЕ закрыто: заменяющий предикат
+      снова по написанию пути, число неверно (B2-3), и четвёртое следствие переезда пропущено
+      (B2-4).
+  - id: B6
+    kind: CONSTRUCTIBILITY
+    outcome: partially_closed
+    evidence: >-
+      Двухосевость потолка перемерена верно (5/15m по адресу, 50/15m по источнику;
+      ResetFailures по оси источника в дереве ноль — «только временем» подтверждено). Часть 1
+      решения (свой адрес у каждого отрицания) годна. НЕ закрыто: арифметика бюджета и посылка
+      «что идёт в счёт» (B2-1), и третья ось свежести не рассмотрена вовсе (B2-2).
+  - id: B7
+    kind: DoD
+    outcome: closed
+    evidence: "Р8 заведено, цена названа (имя теста связано с документом ⇒ ID не переприсваиваются); DoD пп. 4а, 10, 13 требуют печати разности множеств ID поимённо в обе стороны."
+  - id: B8
+    kind: FORMAT
+    outcome: closed
+    evidence: >-
+      F8-13 перечисляет четыре формы поимённо и называет положительного близнеца. Держатель
+      воспроизведён: ui-future/shared/src/lib/redirect.ts, safeInternalPath — резолв
+      `new URL(raw, origin)` и сравнение `url.origin !== origin` закрывает ВСЕ четыре, включая
+      `//чужое` (резолв поднимает его в чужое происхождение) и `/\чужое` (WHATWG нормализует
+      обратную косую); плюс отдельная проверка протокола против `javascript:`. Второй предикат
+      не заведён — верно.
+
+findings_home:
+  verdict: не_годен_как_дом
+  measured:
+    - "ветка — tooling-docfresh-recognition-boundary; её предмет — хук docfresh, не приёмка F8"
+    - "документ НЕ отслеживается: git status --porcelain → `?? docs/specs/sub-phase-F8-…md`"
+    - "запись круга 1 ЗАКОММИЧЕНА (a1598318) на той же ветке — вердикт в дереве есть, судимого содержимого нет"
+    - "за время круга HEAD ушёл a1598318 → 5f77d665 тремя чужими коммитами: на ветке параллельно пишет другой исполнитель"
+  reasoning: >-
+    Выбор РЕПОЗИТОРИЯ (§0.3, воркспейс docs/specs/) обоснован и принимается: три довода
+    проверяемы, прецедент F4d в дереве есть. Спор не о нём. Негоден ВЕТОЧНЫЙ дом: приёмку
+    ищут по эпику #1266 / задаче #1274, а ветка названа по хуку оснастки; единица запроса на
+    слияние — волна, и через эту ветку приёмка утащила бы в запрос чужую правку docfresh.
+    Плюс общий клон с параллельным писателем.
+  remedy: >-
+    Отдельная ветка, названная предметом (эпик/под-фаза), с приёмкой и ОБЕИМИ записями ревью
+    в ней; запрос на слияние — в составе волны identity, не волны оснастки. Дом §0.3 при этом
+    не меняется: путь остаётся docs/specs/.
+  note: "Это находка о размещении, а не блокирующее замечание к контракту; в blocking_count не входит."
+
+not_performed:
+  - subject: "§1.7 — рендер трёх цепочек умбреллы (30/0/0 источников, 1/0/0 полос, 2/0/0 блоков .ory)"
+    reason: "требует helm template с зависимостями подчартов на полосе wave/identity-own-w0-kacho; в этом круге не исполнялось"
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+  - subject: "исполнение самих сценариев §11"
+    reason: "предусловие §4 в дереве не создано (цепочки, разворачивающей консоль без чужой полосы, нет ни одной) — документ это предсказывает сам"
+    counts_as: "не выполнилось"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    Приёмка трогает церемонии личности: неразличимость причин отказа (Р4, F8-40), открытая
+    переадресация (F8-13), признак формы (F8-07, F8-08), негашение носителя при молчании
+    службы (F8-19, F8-25). Дефекта защиты документ не раскрывает: safeInternalPath в дереве
+    уже стоит, и сценарий делает его держателем, а не сообщает о дыре.
+  disclosure_safe: true
+  disclosure_note: >-
+    Ни документ, ни эта запись не несут сборки «координата + условие + следствие» о
+    действующем дефекте защиты. Названные координаты — это места ДЕЙСТВУЮЩЕЙ защиты и
+    величины потолка, объявленные профилем, который и так публичен.
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    круг 3: перемерить посылку бюджета Р7 по местам вызова recordFailure и внести F8-28;
+    назвать средство построения Given F8-29; выправить §1.5 (пять обращений, предикат по
+    предмету, контроль в обе стороны) и назвать исход для registration-refusal-named.spec.ts;
+    попутно — три места о «четырёх новых» и единица счёта «28 спецификаций».
+  owner_questions: []

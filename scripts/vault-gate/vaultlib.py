@@ -3,7 +3,7 @@
 frontmatter, резолв wikilink'ов ровно так, как это делает Obsidian.
 
 Почему резолв вынесен сюда и почему он не «просто путь». Obsidian разрешает
-ссылку по трём правилам подряд: путь относительно файла-источника, путь от корня
+ссылку по правилам подряд: путь относительно файла-источника, путь от корня
 хранилища, базовое имя файла где угодно в дереве. Проверка, знающая только
 третье правило, объявляет висячими 1 700 живых ссылок вида `[[../KAC/KAC-94]]`;
 проверка, знающая только первые два, пропускает короткую форму `[[KAC-94]]`.
@@ -23,7 +23,11 @@ LINK_RE = re.compile(r"(?<!!)\[\[([^\]|#^]+)(?:[#^][^\]|]*)?(?:\\?\|[^\]]*)?\]\]
 
 
 def workspace_root(script_file: str) -> str:
-    return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(script_file)), "..", ".."))
+    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757).
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+    from gate_root import gate_root
+    return gate_root("VAULT_GATE_ROOT", script_file)
 
 
 def vault_files(root: str) -> list[str]:

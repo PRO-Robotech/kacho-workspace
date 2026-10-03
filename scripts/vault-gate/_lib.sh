@@ -11,13 +11,8 @@
 # inject.sh, чтобы прогнать гейт по временному дереву с внесённым дефектом и не
 # трогать рабочее (`gate-authoring` §Инъекция).
 vault_gate_workspace_root() {
-    if [ -n "${VAULT_GATE_ROOT:-}" ]; then
-        cd "$VAULT_GATE_ROOT" && pwd
-        return
-    fi
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
-    cd "$script_dir/../.." && pwd
+    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757).
+    python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" VAULT_GATE_ROOT "${BASH_SOURCE[1]}"
 }
 
 # Монорепо. `project/` лежит под gitignore и в свежем клоне/worktree его нет

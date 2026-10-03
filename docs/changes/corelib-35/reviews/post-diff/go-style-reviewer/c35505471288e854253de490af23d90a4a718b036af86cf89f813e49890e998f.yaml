@@ -1,0 +1,147 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса ветки 825 и НЕ закоммичена: задание велит
+# сдать её путём; в копии идут параллельные записи других ролей.
+schema_version: 1
+change_id: corelib-35
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  corelib #35: идентификатор гранта чеканит крючок службы Config.NewGrantID —
+  обязателен (New без него отказывает), зовётся ровно раз на грант в
+  CompleteAuthorization со сроком PortTimeout; живая запись хранилища без
+  GrantID — ErrPortContract; ids: дефис-префикс tfm внесён в канон.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '35 (от 32@84b9be87; `git branch -a --contains e5abaa5e` → только локальная 35, не отправлена)'
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  base_is: 'origin/32 (`git rev-parse origin/32` → 84b9be87f789); предок головы (`git merge-base --is-ancestor` → да)'
+  head: e5abaa5e06b45257b9c84253089a6e432502cc4f
+  head_tree: 9749b8a83ca321105b20ab7bb57e91a8d8cfc3e9
+  shortstat: '9 файлов, +628 / -1'
+  commits:
+    - 'дерево 9749b8a83ca3 #35 oauthceremony: ID гранта чеканит крючок службы Config.NewGrantID, а не движок'
+content_digest: sha256:c35505471288e854253de490af23d90a4a718b036af86cf89f813e49890e998f
+digest_definition: |
+  git -C tmp/corelib-35 diff --full-index 84b9be87..e5abaa5e06b45257b9c84253089a6e432502cc4f | sha256sum
+  (перемерено своей командой — совпадает с заданием)
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-23T17:11:53Z'
+return_to: 'автор диффа — pointpu <pointpu@in-cloud.io>; только неблокирующее'
+review_scope: >-
+  полный закоммиченный дифф, все 9 файлов. Прод-код прочитан вместе с
+  окружением: CompleteAuthorization и Authorize (ceremony.go), validateConfig,
+  fromPort/contractBreach/checkDeclared (bridge.go), note/coarsenable
+  (notes.go), все шесть вызывающих requesterFromGrant (bridge.go:219, 230,
+  320, 362, 373, 543), grantFromRequester (translate.go), Request.GetID/SetID
+  движка (internal/oauth2/request.go:40-49) и все места чтения/установки ID
+  запроса в обработчиках движка (flow_authorize_code_token.go:42/94,
+  flow_refresh.go:87/142/144/191/195, revocation.go:58). Набор обработчиков
+  церемонии — explicit + refresh + PKCE + интроспекция + отзыв
+  (ceremony.go:290-298); client_credentials не собран.
+
+premise:
+  status: confirmed
+  claim: 'движок своего ID не чеканит ни на одном пути церемонии; крючок зовётся ровно раз на грант'
+  how: >-
+    Request.GetID чеканит uuid только на пустом ID (internal/oauth2/request.go:40-45).
+    Перепись `grep -rn '\.GetID()'` по internal/oauth2 без *_test.go (кроме ID клиента):
+    каждый запрос, чей ID читается, либо собран requesterFromGrant из записи
+    (теперь с отказом на пустом GrantID), либо получил SetID от такого запроса
+    (flow_authorize_code_token.go:94, flow_refresh.go:87/142), либо — единственный
+    новый — получил SetID(grantID) от крючка перед NewAuthorizeResponse
+    (ceremony.go:601). Пути повтора кода/оборота уже отвергали пустой GrantID до
+    сборки (bridge.go:225, 368). Грант без записи (client_credentials) не собран.
+
+experiments:
+  workdir: '/home/dk/.cache/review-go-style-corelib-35 (git archive e5abaa5e; свой GOCACHE и TMPDIR вне git-деревьев)'
+  control: >-
+    go test -count=1 ./ids/ ./oauthceremony/ → ok оба; под фильтром
+    GrantID|TokenFamilyPrefix|StoredGrantWithoutAnID|NewRejectsEveryUnnamedSetting|HyphenPrefixConstants
+    — 10 проб верхнего уровня PASS. -race в контейнере golang:1.26.8 тем же
+    фильтром → ok оба пакета. go build ./... и go vet ./... по модулю чисты,
+    gofmt -l по ids/ и oauthceremony/ пуст.
+  injections:
+    - change: 'ceremony.go:601 SetID(grantID) снят'
+      outcome: 'красное: TestEveryStoredRecordCarriesTheGrantIDTheHookMinted, TestGrantIDHookIsCalledOncePerGrant, TestGrantIDHookRefusal…/близнец'
+    - change: 'mintGrantID: WithTimeout(PortTimeout) → WithCancel'
+      outcome: 'красное: TestGrantIDHookCallCarriesThePortDeadline'
+    - change: 'mintGrantID: проверка пустого ID выключена'
+      outcome: 'красное: TestGrantIDHookRefusal…/крючок_отдал_пустой_идентификатор'
+    - change: 'requesterFromGrant: проверка пустого GrantID выключена'
+      outcome: 'красное: TestStoredGrantWithoutAnIDIsAPortContractBreach — все три пути (обмен кода, оборот, отзыв)'
+    - change: 'requesterFromGrant: note() снят, contractBreach возвращается без ведомости'
+      outcome: >-
+        красное только на пути отзыва — ровно то, что утверждает комментарий
+        translate.go («на пути отзыва это временно недоступно, и без ведомости
+        точный случай не доехал бы»). Комментарий правдив, запись в ведомость нужна.
+    - change: 'validateConfig: case cfg.NewGrantID == nil выключен'
+      outcome: 'красное: TestNewRejectsEveryUnnamedSetting/NewGrantID_не_назван, TestNewRefusesACeremonyWithoutAGrantIDHook'
+    - change: 'ids.go: PrefixTokenFamilyHyphen снят из hyphenFormPrefixes'
+      outcome: 'красное: TestHyphenPrefixConstants_InCanon, TestTokenFamilyPrefix_InCanon'
+  lint_and_suite: 'исход линтера и полного набора не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # grep -cE '\b(TODO|FIXME|XXX|HACK)\b|t\.Skip' по +строкам диффа
+  skips_in_added_test_lines: 0
+  cyrillic_identifiers_in_added_lines: 0  # эвристика снимает //-комментарии и строки; положительный контроль даёт 1
+  probes_in_same_pr: true                 # grant_id_test.go (6 проб), ids/tokenfamily_prefix_test.go (2), случай в TestNewRejectsEveryUnnamedSetting
+
+findings:
+  critical: []
+  important: []
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-1
+      where: oauthceremony/ceremony.go:627-631 (mintGrantID) через bridge.go:71-91
+      summary: >-
+        Отказ крючка и пустой ID идут через fromPort/contractBreach, чьи тексты
+        провода говорят о хранилище: Description «The storage backing the
+        authorization server failed.» / «A storage port … broke its contract.»,
+        Hint «Fix the port implementation». Крючок — не порт хранилища. Debug
+        называет Config.NewGrantID верно, так что оператор предмет увидит;
+        текст провода непрозрачен и ничего не раскрывает — только называет не
+        тот предмет. Не блокирует.
+      requirement: 'по желанию — свой конструктор отказа крючка с нейтральным Description («The authorization server could not issue a grant.»), разбор кодов fromPort оставить.'
+    - id: S-2
+      where: oauthceremony/grant_id_test.go:388-390, 403-405, 418-420
+      summary: >-
+        store.codes / store.refresh читаются без store.mu, тогда как соседние
+        помощники (storedGrantIDs, grantOfStored в code_replay_test.go:339)
+        берут замок. Сейчас чтение последовательно и -race зелёный; форма
+        расходится с фикстурой.
+      requirement: 'брать store.mu, как grantOfStored.'
+  security_comments_contradicting_code: []   # комментарии о пустом GrantID и сроке крючка сверены инъекциями выше
+
+approved:
+  - 'обёртка ошибок: отказ крючка — fromPort с именем вызова в Debug (истёкший срок → CodePortDeadline, наш случай → наш код); пустой ID — contractBreach; в пробах errors.Is/errors.As'
+  - 'ctx первым аргументом крючка; вызову свой context.WithTimeout(PortTimeout) — измерено инъекцией'
+  - 'паники в рабочем пути нет (panic только в подставке uncalledGrantIDHook внутренней пробы — громкое красное, как у соседних uncalled*); журнала в диффе нет'
+  - 'обязательность — fail-closed в validateConfig до первого запроса, отказ называет поле'
+  - 'чеканка — последним шагом перед выпуском: отвергнутая проверками выдача ID не расходует; отказ крючка — без записи в хранилище (проба)'
+  - 'запись без GrantID отвергается в requesterFromGrant — единственной точке сборки запроса из записи (шесть вызывающих), и заносится в ведомость (coarsenable содержит CodePortContract)'
+  - 'пробы утверждают наблюдаемое — записи подставки и интроспекцию, — каждый отказ в паре с законным близнецом'
+  - 'ids: константа внесена в hyphenFormPrefixes; проба формы берёт схему ВНЕШНИМ литералом, пара NewHyphenID/NewID меняет один факт'
+  - 'Config — публичный тип вне тегов: oauthceremony ни в одном теге (git ls-tree последнего тега → 0), новое обязательное поле semver не ломает'
+  - 'комментарии Config.NewGrantID, mintGrantID, doc.go, GrantRecord.GrantID, requesterFromGrant, ids.PrefixTokenFamilyHyphen сверены с кодом — правдивы'
+
+outside_diff:
+  - >-
+    Внешний факт, на который опираются ids.go:364-368 и
+    ids/tokenfamily_prefix_test.go:11-16 (ограничение схемы `^tfm-[0-9a-hjkmnp-tv-z]{17}$`),
+    живёт в kaname только на ветке 334
+    (internal/migrations/20260920175117_authorization_code_is_our_record.sql:191,
+    token_families_id_form_ck), на origin/main kaname его нет. Литерал пробы
+    совпадает с ограничением побайтно. Сведения для посадки, не находка.
+  - >-
+    Вне роли (форма коммита — landing-reviewer / git-operator): первая строка
+    коммита e5abaa5e — 81 знак (`git log -1 --format=%s | python3 len`), правило
+    владельца — не больше 72. Тело — 12 строк, трейлеров нет.
+
+next: 'сбор пост-дифф записей — convergence-reviewer либо landing-reviewer'

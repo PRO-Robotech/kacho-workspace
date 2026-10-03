@@ -69,7 +69,7 @@ except: pass
       echo
       echo "📂 OPEN PR'Ы С ЗАДАЧАМИ:"
       echo "$OPEN"
-      echo "   → scout: состояние каждого (база, headSha, проверок всего/зелёных/красных)."
+      echo "   → scout: состояние каждого (база, headSha, прогонов на голове всего/зелёных/красных)."
       echo "   → vault-scribe по влитым: PR-URL и затронутые сущности в KAC/issue-<N>.md."
     fi
   fi

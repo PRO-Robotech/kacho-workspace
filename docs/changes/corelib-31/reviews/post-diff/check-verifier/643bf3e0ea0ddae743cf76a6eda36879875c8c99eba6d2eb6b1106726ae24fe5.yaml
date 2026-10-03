@@ -1,0 +1,143 @@
+# Приёмка работы-проверки — роль check-verifier. Имя файла — content_digest.
+#
+# Круг 3 на этом дайджесте однажды уже дал ✅, но записи не оставил (в журнале
+# record «—»). Эта запись — не пересказ того вердикта: все опыты поставлены
+# заново 2026-09-23 в своём каталоге, числа ниже — этого захода.
+schema_version: 1
+change_id: corelib-31
+holder: post-diff/check-verifier
+owner: check-verifier
+round: 3
+previous_record: 2f6db43644b7c7cff3251f1d8a34224510b263a4ae1823d0353355e9df5e1480.yaml   # ⛔ N1
+mode: приёмка работы-проверки (повтор по возврату круга 2)
+subject: >-
+  .github/scripts/pr-target-branches.py @542e525: цепочка needs вычисляется
+  (граф, зелёный путь в порядке зависимостей, пропуск вышестоящего гасит
+  нижестоящее с условием, ложным при пропуске); самопроба 69 → 86 проб.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '31'
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869   # merge-base(origin/32 @84b9be87, 542e525)
+  head: 542e525212a5fea2af419409678bbab5f38fd88e
+  commits_in_delta: 3          # f6203c0, cc3ef3c, 542e525
+  shortstat: '2 files changed, 1020 insertions(+), 4 deletions(-)'
+  this_round_delta: 'cc3ef3c..542e525 — 1 файл, .github/scripts/pr-target-branches.py, +235 −28'
+content_digest: sha256:643bf3e0ea0ddae743cf76a6eda36879875c8c99eba6d2eb6b1106726ae24fe5
+digest_definition: >-
+  git diff --full-index 9f0393c540d7..542e525212a5 | sha256sum — полоса после
+  сборки-1, база — merge-base с origin/32. Измерен дважды: в копии tmp/corelib-31
+  и в своём клоне — 643bf3e0…, совпал с заявленным. Для сведения: от 84b9be87
+  (`git diff --full-index 84b9be87..542e525`) выходит 58031835…, потому что
+  такой дифф несёт обращение чужих полос (acrlevel/, oauthceremony/, grpcsrv/ —
+  18 файлов вместо 2); это не дайджест полосы.
+
+isolation:
+  dir: 'kacho-workspace/tmp/cv-corelib-31-r3b-DtdF (клон копии, detached @542e525; scratch-клон внутри); TMPDIR ~/.cache/cv-tmp-c31r3b'
+  foreign_state: 'копия tmp/corelib-31 — только чтение: HEAD 542e525, `git status --porcelain` 0 строк до опытов; ws-825 — только этот файл, чужой неотслеживаемый файл security-auditor #38 не тронут'
+  removed: >-
+    файлов чужого владельца после контейнера 0 (find ! -user); rm -rf обоих
+    каталогов, ls -d → «No such file or directory» оба; копия tmp/corelib-31
+    после: HEAD 542e525, porcelain 0, stash 0
+
+premises:
+  task_premise: 'записи круга 3 нет — подтверждена: git ls-tree origin/825 -- docs/changes/corelib-31/ → 2 файла (75953b89, 2f6db436), 643bf3e0* нет'
+  ci_yml_delta_additive: >-
+    свой разбор yaml.safe_load, дифф по листьям 9f0393c → 542e525: 9 листьев, все
+    добавлены (pull_request.branches[1] '[0-9]+' и шаги build 7–10: setup-python,
+    pyyaml 6.0.3, --self-test, гейт); ни один лист не снят и не изменён.
+    ci.yml @f6203c0 == @542e525 после разбора → True.
+  tools: 'хост: Python 3.14.4, PyYAML 6.0.3; контейнер python:3.13-slim: Python 3.13.15, PyYAML 6.0.3, git 2.47.3; actionlint собран из исходника v1.7.7 (модкэш, GOPROXY=off; --version печатает (devel))'
+
+experiments:
+  control: >-
+    гейт на настоящем ci.yml → rc 0: процессов 1, заданий 9, условий if 1,
+    заданий с needs 0, гаснут вслед за вышестоящим 0. --self-test → rc 0,
+    проб исполнено 86, провалов 0 (хост и контейнер).
+  old_gates_defect_confirmed: >-
+    9 прогонов, все rc 0 «ЗЕЛЁНЫЙ»: f6203c0 на B1, B4, B5, B6, B7; cc3ef3c на
+    N1, N1b, N1c, N1 рядом с близнецом.
+  injections_new_gate:   # каждая — один факт против настоящего ci.yml; факт сверен разбором (число изменённых листьев)
+    B1 types [closed]: 'rc 1, нарушений 3 (opened, synchronize, reopened)'
+    B1b types [opened, synchronize]: 'rc 1, «reopened»'
+    B4 if github.event['pull_request']['base']['ref']: 'rc 2, ПРЕДПОСЫЛКА НЕ ДЕРЖИТСЯ, задание build'
+    B3 if github.event.pull_request.base.ref: 'rc 2'
+    B5 if github.event_name: 'rc 2'
+    B6 if false: 'rc 1, «не истинно ни на одном пути»'
+    B7 ключ branch: 'rc 2, «ключ ''branch'' разбору не известен»'
+    B8 шаг gosec#7 if env.X: 'rc 2'
+    D1 [main]: 'rc 1'
+    D2 pull_request снят: 'rc 1, «ни один процесс не гонится на запрос»'
+    D3 '[0-9]*': 'rc 1, «26a»'
+    D4 paths: 'rc 1, on.pull_request.paths'
+    D5 main снят: 'rc 1, «main»'
+    D6 '**': 'rc 1, пять имён не-номер'
+    N1 без if ниже отчётного zz-report: >-
+      rc 1, «задание zz-after — на зелёном пути НЕ исполняется: вышестоящее
+      zz-report на зелёном пути пропущено, а неявное условие success() (`if:`
+      нет) при пропуске вышестоящего ложно»; перепись «гаснут вслед за вышестоящим 1»
+    N1b if success(): 'rc 1, условие «success()» названо'
+    N1c needs [build, zz-report]: 'rc 1, названо ровно zz-report'
+    N1 рядом с близнецом: 'rc 1, нарушений 1, zz-twin в находках 0 раз'
+    X1 N1 записан выше отчётного: 'rc 1 — порядок записи не влияет'
+    X2 отчётное ← always ← always ← без if: 'rc 1, звенья always() не названы'
+    X4 отчётное cancelled(), под ним без if: 'rc 1'
+    X10 success() && always() ниже отчётного: 'rc 1'
+    X11 отчётное ниже отчётного, под ним без if: 'rc 1, названы оба пропущенных (zz-report, zz-r2)'
+    X8 needs на отсутствующее: 'rc 2, «такого задания в процессе нет»'
+    X12 второй процесс extra.yml с [main]: 'rc 1, называет extra.yml и «7», «26», «2564» — свой опыт сверх круга 3'
+    X14 вышестоящее if false, под ним без if: 'rc 1, два нарушения: zz-never и zz-after — свой опыт'
+  twins_silent: >-
+    16 из 16 rc 0: types явным умолчанием; блочный список + labeled; always();
+    ${{ !cancelled() }}; true; T1 блочный список; T2 обратный порядок; N1 с
+    always(); X3 !failure(); X5 ${{ !success() }}; X6 needs строкой на
+    исполняемое; X7 needs []; X12t второй процесс без события запроса; X13
+    вложенный каталог (хостинг его не читает); X15 ${{ failure() }} + ${{ always() }};
+    контроль.
+  tally: >-
+    43 формы на 542e525 + 9 на прежних гейтах = 52 прогона, все с ожидаемым
+    кодом; в python:3.13-slim те же 52 прогона — вывод побайтно совпал с хостом
+    (diff без строк actionlint пуст).
+  empty_walk: 'ci.yml снят с индекса scratch (на диске остался): rc 2 «обход пуст»; cc3ef3c — тоже rc 2'
+  selftest_mutations: >-
+    10 мутаций, каждая в своей копии, образец ровно 1 раз; зелёных 0. Падает
+    проба своего механизма: M1 нехватка типа не пишется → 4 провала; M2 Unknown
+    условия проглочен → 7; M3 success() без вышестоящих → 8; M4 только прямые
+    вышестоящие → 1 (транзитивная проба); M5 находка о цепочке не пишется → 8;
+    M6 без if: = always() → 6; M7 needs не читается → 18; M10 отчётное без
+    вышестоящих → 2; M8 кольцо не распознаётся и M9 имя вне процесса не
+    отвергается → rc 1 падением KeyError (красное, не зелёное). В контейнере — то же.
+  actionlint: 'принял 39 форм из 43, отверг 4: B7, X7 (needs []), X8, X9 (дубль ключа)'
+  no_git: 'python:3.13-slim без git: --self-test → rc 1 (FileNotFoundError, красное); гейт → rc 2 «индекс git не прочитан»'
+  own_experiment_defect: >-
+    первая постановка D3 и D6 правила первое вхождение '[0-9]+', а оно в
+    комментарии ci.yml:65 — сверка «один факт» показала 0 изменённых листьев,
+    гейт честно дал 0. Якорь перенесён на строку фильтра (ci.yml:88), перепрогон
+    → rc 1 оба. В итог вошёл перепрогон.
+
+not_distinguished:   # неблокирующие, с предикатом
+  - item: 'дубль ключа YAML (X9: второй needs у задания)'
+    measured: 'гейт rc 0 — PyYAML берёт последний ключ; actionlint rc 1 «key "needs" is duplicated»'
+    why_not_blocking: 'ложное зелёное возможно лишь на файле, который отвергает линтер; что хостинг такой файл отвергает, живым запуском не измерено'
+    predicate: 'exp X9 на гейте → rc 1 или 2; близнец без дубля → 0'
+  - item: 'success() задания по всей цепочке needs, а не по прямым вышестоящим'
+    measured: 'только по документации хостинга (jobs.<id>.needs), живым запуском не измерено; мутация M4 (только прямые) самопробой ловится'
+    why_not_blocking: 'выбрано строгое прочтение: если хостинг судит по прямым, гейт даст ложное красное на X2, ложного зелёного не даст'
+    predicate: >-
+      форма X2 в процессе на запросе в ветку-номер во временном репозитории;
+      gh run view <id> --json jobs --jq '.jobs[]|[.name,.conclusion]' → у zz-after
+      «skipped» — прочтение гейта подтверждено; «success» — снять транзитивность (M4)
+  - item: 'needs: [] (X7)'
+    measured: 'гейт rc 0, actionlint отвергает'
+    why_not_blocking: 'задание исполняется при любом прочтении — ложного зелёного нет'
+  - item: 'отчётное условие у проверки против отчётного у отчёта'
+    measured: 'различие не синтаксическое, объявлено в шапке гейта, перепись печатает число'
+  - item: 'чтение шаблона ветки хостингом'
+    measured: 'не перемерялось; доказывает только живой запрос (statusCheckRollup на запросе в ветку-номер) — вне дерева'
+masks: >-
+  не найдено. Осмотрено: git diff cc3ef3c..542e525 — run() в самопробе 48 → 65,
+  check() 14 → 14, из снятых строк с run(/check( две — подпись run() и её
+  check(), расширенные must_not (усиление); ci.yml — 9 листьев, все добавлены;
+  9 заданий ci.yml.
+
+verdict: ✅ принято

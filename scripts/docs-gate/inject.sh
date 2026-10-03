@@ -19,9 +19,22 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$HERE/../.." && pwd)"
+# Окружение — своё: унаследованный `KACHO_HOME_<ИМЯ>` сильнее мира песочницы, и
+# проба «дома рядом нет» получала бы дом вызывающего (scripts/lib/proofs.sh).
+# `KACHO_MONOREPO` — объявленный вход ниже, не снимается.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$HERE/../lib/proofs.sh"
+proof_own_environment
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+# Подпись синтетических деревьев — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "[VOID] docs-gate inject — корневой подписи нет: синтетическим деревьям не с чего взять подпись" >&2; exit 2; }
 
 # mksandbox [путь-который-выбросить] — печатает путь СВЕЖЕЙ песочницы.
 # Состав берётся ровно тем же предикатом, что и у самих проверок:
@@ -313,8 +326,7 @@ mkprod() { # → путь к синтетическому дереву прод�
     printf 'package repohygiene\n\nfunc TestSyntheticTrunkProbe(t *testing.T) {}\n' \
         > "$dir/internal/repohygiene/probe_test.go"
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -qm 'синтетический ствол продукта' >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -qm 'синтетический ствол продукта' >/dev/null 2>&1
     git -C "$dir" update-ref refs/remotes/origin/main HEAD
     # Линия: каталог переименован — ровно то, что дала линия выноса службы, — и
     # рядом заведён файл, которого в стволе нет вовсе.
@@ -324,8 +336,7 @@ mkprod() { # → путь к синтетическому дереву прод�
     printf 'package repohygiene\n\nfunc TestSyntheticLineOnly(t *testing.T) {}\n' \
         > "$dir/internal/repohygiene/lineonly_test.go"
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -qm 'линия: каталог переименован' >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -qm 'линия: каталог переименован' >/dev/null 2>&1
     printf '%s' "$dir"
 }
 
@@ -428,7 +439,7 @@ else
 fi
 fi
 
-# ── check-03-scope-row-scenario ─────────────────────────────────
+# ── check-08-scope-row-scenario ─────────────────────────────────
 #
 # Проверка требует: у каждой строки состава `| F<N> |` есть сценарий (When+Then)
 # либо передача в дочернюю приёмку, у которой такой раздел со сценарием есть.
@@ -453,7 +464,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 ## F1 — предмет
 Раздел есть, а сценария в нём нет.'
 run 1 "$b" "инъекция: строка состава без сценария — краснеет" \
-    check-03-scope-row-scenario.py "F1"
+    check-08-scope-row-scenario.py "F1"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -469,7 +480,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: у строки состава есть сценарий — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # Передача в дочернюю приёмку — законный второй способ, и без этой пробы
 # проверка ловила бы «сценарий в ЭТОМ файле», а не «сценарий существует».
@@ -490,7 +501,7 @@ mkspec "$b" "sub-phase-P1b-child-acceptance.md" '# Приёмка P1b
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: передача в дочернюю приёмку со сценарием — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # Передача, которая НЕ резолвится, обязана остаться находкой: иначе ссылка на
 # несуществующий документ становится способом закрыть любую строку состава.
@@ -506,7 +517,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 ## F1 — предмет
 Сценарий живёт в sub-phase-P9Z-missing-acceptance.md.'
 run 1 "$b" "инъекция: передача не резолвится — краснеет" \
-    check-03-scope-row-scenario.py "F1"
+    check-08-scope-row-scenario.py "F1"
 
 # Строкой Scope считается строка `| F<N> |` ТОЛЬКО в разделе `## … Scope …`.
 # Пара ниже меняет ОДИН факт — раздел, в котором стоит одна и та же таблица
@@ -534,7 +545,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" "# Приёмка P1
 
 $SCEN_TABLE"
 run 0 "$b" "близнец: таблица сценариев с F-ID вне раздела Scope — молчит и видна переписью" \
-    check-03-scope-row-scenario.py "вне раздела Scope (не состав, не судятся) — 2 в 1"
+    check-08-scope-row-scenario.py "вне раздела Scope (не состав, не судятся) — 2 в 1"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" "# Приёмка P1
@@ -553,13 +564,13 @@ $SCEN_TABLE
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено"
 run 1 "$b" "инъекция: та же таблица внутри раздела Scope — ложная строка Scope без сценария, краснеет" \
-    check-03-scope-row-scenario.py "F02: раздела"
+    check-08-scope-row-scenario.py "F02: раздела"
 
 # Обе предпосылки: приёмок нет вовсе и приёмки есть, но состав объявлен иначе.
 # «Ноль находок» на них означало бы «ноль прочитанного».
 b="$(mksandbox docs/specs)"
 run 2 "$b" "предпосылка: приёмок нет — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -570,7 +581,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** шаг
 **Then** ответ'
 run 2 "$b" "предпосылка: состав объявлен не строками — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # Строки `| F<N> |` есть, но ни одной в разделе Scope: предмета нет, и это VOID,
 # а не «находок ноль» — иначе снятый заголовок Scope прятал бы весь состав.
@@ -581,7 +592,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" "# Приёмка P1
 
 $SCEN_TABLE"
 run 2 "$b" "предпосылка: строки F-ID есть, раздела Scope нет — VOID, а не успех" \
-    check-03-scope-row-scenario.py "вне раздела Scope: 2"
+    check-08-scope-row-scenario.py "вне раздела Scope: 2"
 
 # НЕОТОБРАЖАЕМЫЕ ОБЛАСТИ: блок кода и HTML-комментарий. Внутри них строка `# …`
 # не заголовок, `| F<N> |` не строка таблицы, `**When**` не маркер сценария.
@@ -609,7 +620,7 @@ $BASH_BLOCK
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено"
 run 1 "$b" "инъекция E1: \`# …\` в блоке кода не закрывает раздел Scope — строка без раздела краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" "# Приёмка P1
@@ -631,7 +642,7 @@ $BASH_BLOCK
 **When** вызывающий делает второй шаг
 **Then** ответ таков, как объявлено"
 run 0 "$b" "близнец E1: тот же блок кода, у строки есть сценарий — молчит, строк Scope 2" \
-    check-03-scope-row-scenario.py "строк Scope прочитано 2"
+    check-08-scope-row-scenario.py "строк Scope прочитано 2"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -646,7 +657,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 |---|---|
 | F99 | предмет без раздела |'
 run 1 "$b" "инъекция: \`## …\` в блоке тильдами не закрывает раздел Scope — краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -661,7 +672,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 |---|---|
 | F99 | предмет без раздела |'
 run 1 "$b" "инъекция: \`# …\` в HTML-комментарии не закрывает раздел Scope — краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 
 # Заголовок раздела фичи внутри блока кода — не раздел: иначе пример формы с
 # `**When**`/`**Then**` в блоке закрывал бы строку Scope, у которой сценария нет.
@@ -682,7 +693,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **Then** ответ
 ```'
 run 1 "$b" "инъекция: раздел фичи есть только в блоке кода — строка краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 
 # Строка `| F<N> |` внутри блока кода в разделе Scope — пример формы, а не
 # состав: не судится, но СЧИТАЕТСЯ переписью.
@@ -703,7 +714,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: \`| F<N> |\` в блоке кода — не состав, молчит и виден переписью" \
-    check-03-scope-row-scenario.py "в блоках кода и HTML-блоках (не таблица, не судятся) — 1"
+    check-08-scope-row-scenario.py "в блоках кода и HTML-блоках (не таблица, не судятся) — 1"
 
 # Блок кода внутри пункта списка закрывается ОТСТУПЛЕННОЙ оградой. Распознаватель,
 # не узнающий ограду после маркера списка, принял бы эту отступленную ограду за
@@ -722,7 +733,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 |---|---|
 | F99 | предмет без раздела |'
 run 1 "$b" "инъекция: блок кода в пункте списка не прячет строки после себя — краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 
 # Незакрытый блок поглощает остаток документа: ни читатель, ни проверка его
 # структуры не видят. Это находка с координатой открытия. Близнец — ограда на
@@ -739,7 +750,7 @@ git ls-files docs/specs
 |---|---|
 | F99 | предмет без раздела |'
 run 1 "$b" "инъекция: незакрытый блок кода поглощает состав — краснеет с координатой открытия" \
-    check-03-scope-row-scenario.py "sub-phase-P1-probe-acceptance.md:5 — незакрытый блок кода"
+    check-08-scope-row-scenario.py "sub-phase-P1-probe-acceptance.md:5 — незакрытый блок кода"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -755,7 +766,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **Then** ответ таков, как объявлено
 ```'
 run 0 "$b" "близнец: ограда на последней строке ничего не поглощает — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # ВТОРОЙ КРУГ ТОГО ЖЕ РОДА — правила вложенности CommonMark. Построчная регулярка
 # закрывала блок ЛЮБОЙ оградой (с отступом 4 и после маркера списка), не знала
@@ -795,10 +806,10 @@ MD
 ```'
 b="$(mksandbox docs/specs)"; mkpx "$b" "$P1_BLOCK" ""
 run 1 "$b" "инъекция p1: ограда с отступом 4 внутри блока не закрывает его — строка без раздела краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 b="$(mksandbox docs/specs)"; mkpx "$b" "$P1_BLOCK" "$F99_OK"
 run 0 "$b" "близнец p1: тот же блок, у F99 сценарий — молчит, строк Scope 2" \
-    check-03-scope-row-scenario.py "строк Scope прочитано 2"
+    check-08-scope-row-scenario.py "строк Scope прочитано 2"
 
 # p1b: «- ```» внутри блока — строка содержимого, а не ограда пункта списка.
 P1B_BLOCK='```markdown
@@ -807,10 +818,10 @@ P1B_BLOCK='```markdown
 ```'
 b="$(mksandbox docs/specs)"; mkpx "$b" "$P1B_BLOCK" ""
 run 1 "$b" "инъекция p1b: «- \`\`\`» внутри блока его не закрывает — строка без раздела краснеет" \
-    check-03-scope-row-scenario.py "F99: раздела"
+    check-08-scope-row-scenario.py "F99: раздела"
 b="$(mksandbox docs/specs)"; mkpx "$b" "$P1B_BLOCK" "$F99_OK"
 run 0 "$b" "близнец p1b: тот же блок, у F99 сценарий — молчит, строк Scope 2" \
-    check-03-scope-row-scenario.py "строк Scope прочитано 2"
+    check-08-scope-row-scenario.py "строк Scope прочитано 2"
 
 # p2: маркеры сценария внутри блока кода в цитате — текст блока, не сценарий.
 b="$(mksandbox docs/specs)"; mkpx "$b" "" '
@@ -820,7 +831,7 @@ b="$(mksandbox docs/specs)"; mkpx "$b" "" '
 > **Then** ответ таков, как объявлено
 > ```'
 run 1 "$b" "инъекция p2: маркеры в блоке кода внутри цитаты — сценария нет, краснеет" \
-    check-03-scope-row-scenario.py "F99: раздел есть, сценария"
+    check-08-scope-row-scenario.py "F99: раздел есть, сценария"
 b="$(mksandbox docs/specs)"; mkpx "$b" "" '
 ## F99 — второй предмет
 >
@@ -828,7 +839,7 @@ b="$(mksandbox docs/specs)"; mkpx "$b" "" '
 > **Then** ответ таков, как объявлено
 >'
 run 0 "$b" "близнец p2: те же маркеры в цитате без блока кода — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # p3: комментарий, открытый посреди строки, прячет маркеры.
 b="$(mksandbox docs/specs)"; mkpx "$b" "" '
@@ -838,14 +849,14 @@ b="$(mksandbox docs/specs)"; mkpx "$b" "" '
 **Then** ответ таков, как объявлено
 -->'
 run 1 "$b" "инъекция p3: комментарий посреди строки прячет маркеры — краснеет" \
-    check-03-scope-row-scenario.py "F99: раздел есть, сценария"
+    check-08-scope-row-scenario.py "F99: раздел есть, сценария"
 b="$(mksandbox docs/specs)"; mkpx "$b" "" '
 ## F99 — второй предмет
 Пояснение
 **When** вызывающий делает второй шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец p3: та же строка без комментария — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # p3b: комментарий в пункте списка прячет маркеры.
 b="$(mksandbox docs/specs)"; mkpx "$b" "" '
@@ -855,14 +866,14 @@ b="$(mksandbox docs/specs)"; mkpx "$b" "" '
   **Then** ответ таков, как объявлено
   -->'
 run 1 "$b" "инъекция p3b: комментарий в пункте списка прячет маркеры — краснеет" \
-    check-03-scope-row-scenario.py "F99: раздел есть, сценария"
+    check-08-scope-row-scenario.py "F99: раздел есть, сценария"
 b="$(mksandbox docs/specs)"; mkpx "$b" "" '
 ## F99 — второй предмет
 - пункт
   **When** вызывающий делает второй шаг
   **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец p3b: тот же пункт без комментария — молчит" \
-    check-03-scope-row-scenario.py
+    check-08-scope-row-scenario.py
 
 # Предпосылка: разборщика нет — VOID с причиной, а не зелёное и не падение
 # с трассировкой. Подмена модуля — каталог в начале PYTHONPATH, чей
@@ -871,7 +882,7 @@ b="$(mksandbox docs/specs)"; mkpx "$b" "" "$F99_OK"
 mkdir -p "$TMP/no-md/markdown_it"
 printf 'raise ImportError("проба: разборщика нет")\n' > "$TMP/no-md/markdown_it/__init__.py"
 probes=$((probes + 1))
-out="$(PYTHONPATH="$TMP/no-md" DOCS_GATE_ROOT="$b" "$HERE/check-03-scope-row-scenario.py" 2>&1)"; got=$?
+out="$(PYTHONPATH="$TMP/no-md" DOCS_GATE_ROOT="$b" "$HERE/check-08-scope-row-scenario.py" 2>&1)"; got=$?
 if [ "$got" -eq 2 ] && [[ "$out" == *"разборщика CommonMark нет"* ]]; then
     echo "  ok   предпосылка: разборщика CommonMark нет — VOID (код $got)"
 else
@@ -1149,13 +1160,19 @@ spech() {
 # чужой. Запрещённая подстрока в фиксированном гнезде — этим прогон и различает,
 # ЧТО именно покраснело: «покраснело» само по себе не говорит, что покраснела
 # проверяемая полоса.
+#
+# «БЕЗ ДОМА» ЗНАЧИТ БЕЗ ДОМА И У ВЫЗЫВАЮЩЕГО (ws#804). Переменную дома законно
+# задаёт тот, кто гонит `run-all.sh`: сама проверка называет её способом создать
+# условие. Унаследованная, она превращала пробу «дома рядом нет» в пробу с домом —
+# ждали код 2, получали 0. Поэтому ветка `-` снимает её явно, `env -u`.
 runh() {
     local home="$1" want="$2" box="$3" prod="$4" name="$5" forbid="$6"
     shift 6
     local got out need
     probes=$((probes + 1))
     if [ "$home" = "-" ]; then
-        out="$(DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" "$HERE/$HOLDING" 2>&1)"; got=$?
+        out="$(env -u KACHO_HOME_KANAME DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" \
+               "$HERE/$HOLDING" 2>&1)"; got=$?
     else
         out="$(DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" KACHO_HOME_KANAME="$home" \
                "$HERE/$HOLDING" 2>&1)"; got=$?
@@ -1301,8 +1318,22 @@ runh - 0 "$b" "$PROD_BARE" \
     "дом найден клоном в project/kaname — переменная не нужна" \
     "не проверяемо" "$HOME_ID"
 
+# ── Части доказательства набора ──────────────────────────────────────────────
+#
+# Этот файл — ЕДИНЫЙ вход доказательств набора: конвейер зовёт его, и только
+# его (`scripts/lib/run-suites.sh --proofs`). Части рядом (`inject-<N>*.sh` —
+# закрепления приёмки, второй дом приёмок, ведомость) прежде выписывались в
+# конвейер поимённо; теперь их исполняет вход — перечень выводится из каталога
+# (`scripts/lib/proofs.sh`, подключён в начале файла), и новая часть не может
+# остаться неисполненной.
+proof_parts "$HERE"; parts_rc=$?
+
 echo
-echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
+echo "[CENSUS] inject: проб исполнено $probes, провалов $failed; частей доказательства $PROOF_PARTS, не сошлось $PROOF_PARTS_BAD"
+if [ "$parts_rc" -ne 0 ]; then
+    echo "[FAIL] inject — части доказательства набора не сошлись (код $parts_rc)" >&2
+    exit 1
+fi
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] inject — ни одной пробы не исполнено" >&2
     exit 2

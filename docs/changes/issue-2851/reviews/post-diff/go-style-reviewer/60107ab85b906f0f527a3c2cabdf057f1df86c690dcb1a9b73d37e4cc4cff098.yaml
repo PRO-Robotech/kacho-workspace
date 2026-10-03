@@ -1,0 +1,84 @@
+role: go-style-reviewer
+change: kacho#2851
+round: 3
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: 113f3b8b591c4caef55f19c51346a10ff98d8151   # origin/2796 = merge-base, remeasured
+  head: 7a5ca5dd65bf19d177bced1de238ba5abb973303
+  digest: 60107ab85b906f0f527a3c2cabdf057f1df86c690dcb1a9b73d37e4cc4cff098
+  digest_command: git -C kacho-workspace/tmp/kacho-2851 diff --full-index origin/2796..HEAD | sha256sum
+  diff: 61 files, +612 -142; only non-test file is internal/privateloopback/privateloopback.go (58 importers, 0 of them non-test)
+verdict: returned
+return_to: go-implementer (lane #2851)
+blocks: true
+
+prior_rounds_closure:
+  round1_C1_I1_S1_S2: 'still closed. services/registry/internal/clients/jwks/ has no changes in 86429336..HEAD. Counting stays full (f1_harness_test.go:85).'
+  round2_C1_residual_raw_listeners: >
+    Mostly closed. I wrote my own AST census @7a5ca5dd (/home/dk/.cache/go-style-2851-r3/census/main.go,
+    output head.txt). It parses 3601 .go files, 2346 of them *_test.go. Loopback server sites: httptest 47,
+    privateloopback 81 (NewServer 60, NewUnstartedServer 4, Listen 17), raw net.Listen 18 + tls.Listen 1.
+    These match the implementer's numbers: 52-5 httptest, 59+22 privateloopback, 35-17 raw plus one new twin.
+    Every raw listener still on the shared address was read by hand. Direct observation of arrivals is
+    limited to the two lawful twins: privateloopback_test.go:72 (httptest) and :132 (the net.Listen twin that
+    dabad7fb adds). The other 16 whose consumer does not resolve are the edge mux, "port released",
+    "one accepted connection" and stateless doubles, as dabad7fb says. One residual remains; see critical.
+  round2_style:
+    factory_closures_capture_parent_t: closed (privateloopback_test.go:85-96, the factory takes testing.TB)
+    unstarted_server_took_shared_port: closed (privateloopback.go:87-94, httptest literal with its own listener)
+    retry_loop_vestigial: closed (privateloopback.go:132-134, one attempt, and the comment names why)
+    cert_per_server: carried, not blocking (see style)
+
+critical:
+  - id: C1-residual-front
+    class: fix-class-not-instance. The observing server is behind a front, and the front is on the shared address.
+    where: gateway/internal/e2e/authz_e2e_test.go:170
+    what: >
+      buildE2E moved the counting AuthorizeService stub (authzStub.calls, :75) to privateloopback.Listen
+      (:100). The front that calls it is still ts := httptest.NewServer(handler) on 127.0.0.1. A client that
+      knows only the port reaches the front, the middleware calls Check, and the stub counts that call as if
+      it came from the probe. This is the same "one half of the stand" shape as f1b_two_issuer_e2e_test.go,
+      where both halves (REST front :237 and gRPC :247) were moved. Here only the gRPC half was moved.
+      Asserts on the counter reachable this way: :196 GreaterOrEqual 1 (can false-green), :252, :270, :288
+      Zero, :318 LessOrEqual 1, :340 Equal 2. buildE2E has 12 callers, all in that file.
+    measured: >
+      go test -overlay, lane tree unchanged (status --porcelain 0). The probe is
+      /home/dk/.cache/go-style-2851-r3/ovl/front_stranger_probe_test.go. A stranger sends
+      GET 127.0.0.1:<ts port>/vpc/v1/networks/enp_x in the probe's own request shape, and the result is
+      "Should be zero, but was 1". Twin: the same handler and stub behind privateloopback.NewServer. There
+      the stranger is not counted and the lawful caller at the full address is (Equal 1, PASS).
+    claim_false: >
+      The dabad7fb message says "стало: на общем адресе наблюдает 1 — законный близнец пробы помощника".
+      The measured count is two lawful twins (privateloopback_test.go:72 and :132) plus this front.
+    requirement: >
+      Put the front on privateloopback.NewServer(t, handler) at authz_e2e_test.go:170. In the new commit,
+      state the corrected number and how fronts were enumerated. Arrivals at a front reach the observer over
+      a network hop, which an AST cannot follow. I enumerated fronts by reading every shared-address server
+      that sits in the same test composition as an observing privateloopback server: 53 co-located sites,
+      and only one of them is a front.
+
+important: []
+
+foundation_candidates:
+  - what: internal/privateloopback (carried from round 2). Kaname has members of the same class. It moves to PRO-Robotech/corelib by pin; a copy is ban20.
+    route: git-operator files the issue in corelib.
+
+style:
+  - 'internal/privateloopback/privateloopback.go:82. A certificate (ECDSA keygen) is still issued for every server, including plain Start() ones. Not blocking (carried).'
+  - 'Sibling mechanism, separate subject and not this class. A probe client aimed at a released port reaches the next owner of that port and gets a flaky red. Examples: gateway/internal/handler/login_lane_relay_test.go:249 (a closed httptest used as the unreachable address), and freeAddr in gateway/cmd/api-gateway/observability_test.go:134 and services/geo/cmd/kacho-geo/observability_test.go:28. I did not count these. Candidate for its own issue with a number and a removal predicate.'
+
+checked_and_fine:
+  - '#nosec G112 at privateloopback.go:92 uses the tree dialect ("#nosec RULE -- reason", 113 in non-test .go). The reason is true: httptest.NewUnstartedServer sets no ReadHeaderTimeout either.'
+  - TestStrangerKnowingOnlyThePortIsNotAcceptedByListen tests acceptance with a lawful twin; the Accept deadline is reset before each check.
+  - 22 moved sites are mechanical (net.Listen + error check -> privateloopback.Listen(t)); the listeners are closed by grpc Stop/GracefulStop or an explicit Close.
+
+counts:
+  fresh_deferral_markers: 0
+  probes_in_same_pr: yes
+  production_code_touched: no (only test support internal/privateloopback; 0 non-test importers)
+  forbidden_trailers: 0
+  subject_lines: 4, each <=72 chars, each starts with "#2851"
+  security_comments_contradicting_code: none
+  cyrillic_identifiers_added: 0
+
+not_declared: linter and test outcomes are not declared by this role; the overlay run above was only to support the finding.

@@ -31,7 +31,7 @@
 ЧИТАТЕЛИ РЕЗОЛЮЦИИ СТВОЛА (перечень обязан сходиться с деревом; предикат —
 `git grep -ln "_lib" -- scripts/docs-gate scripts/skills-gate`):
 
-  * `scripts/docs-gate/check-03-acceptance-tree-claims.py`;
+  * `scripts/docs-gate/check-07-acceptance-tree-claims.py`;
   * `scripts/docs-gate/check-03-holding-claim-resolves.py`;
   * `scripts/docs-gate/check-04-product-acceptance-verdict.py`;
   * `scripts/skills-gate/check-06-docs-layout-matches-tree.sh` — через режим CLI
@@ -46,10 +46,11 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def workspace_root():
-    override = os.environ.get("DOCS_GATE_ROOT")
-    if override:
-        return os.path.abspath(override)
-    return os.path.dirname(os.path.dirname(_HERE))
+    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757).
+    import sys
+    sys.path.insert(0, os.path.join(_HERE, "..", "lib"))
+    from gate_root import gate_root
+    return gate_root("DOCS_GATE_ROOT", __file__)
 
 
 def tracked(root, pattern):

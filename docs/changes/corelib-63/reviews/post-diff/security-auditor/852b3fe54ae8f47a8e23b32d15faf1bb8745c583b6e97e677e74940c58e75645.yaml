@@ -1,0 +1,127 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 1.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменится дайджест — новый запуск и новый файл. Запись лежит в копии
+# воркспейса ветки 825 и НЕ закоммичена.
+schema_version: 1
+change_id: corelib-63
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 1
+subject: >-
+  corelib #63 — сопряжение полос #36, #37 и #39 на сборке 32 (K1/C3, K2/C4, C5 сборки-6):
+  из моста сняты два вызова record(ours) сразу за markReplayedFamily (55adf31); второй клиент
+  проб повтора заведён и у порта сверки секрета, предпосылка requireAuthenticatedBy (0e2414d);
+  старение записи кода в подставке — обходом значения agedCopy со сверкой исходом (dafe2b9).
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '63 (`git branch -a --contains HEAD` → только локальная 63)'
+  base: 64019361707d8582a47ef747eacb555a170f4efe
+  base_is: 'голова сборки 32 (локальная, не отправлена); merge-base(base, HEAD) = base'
+  head: 55adf317da2373568aecd6ce76fc0d5800ac2449
+  shortstat: '6 файлов, +477 / -68; прод-код — только bridge.go, -10 строк'
+  commits: ['dafe2b9', '0e2414d', '55adf31']
+content_digest: sha256:852b3fe54ae8f47a8e23b32d15faf1bb8745c583b6e97e677e74940c58e75645
+digest_definition: 'git -C tmp/corelib-63 diff --full-index 64019361..55adf317 | sha256sum (перемерено, совпадает с заданием)'
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-24T02:05:00Z'
+
+review_scope: >-
+  дифф целиком (6 файлов) и его соприкосновение с продом: bridge.go:403-466 (GetAuthorizeCodeSession,
+  replayedCode), :478-515 (consumeCode), :596-632 (GetRefreshTokenSession), :650-676 (RotateRefreshToken),
+  :182 (pairEngine); notes.go:189-250 (notesFrom, record, preferRecorded, markReplayedFamily), :353 (note);
+  translate.go:380-395 (hydrateSession на пути повтора); types.go:184-280 (SessionRecord, GrantRecord);
+  fakes_test.go:37-48 (codeRow), :440-690 (ageCodeRecord, agedCopy, instantsOf, instantsNotShifted),
+  :760-802 (VerifyClientSecret, secretVerdict, verificationLog); client_secret_port_test.go:735-800.
+  Возвраты сборки-6 (прогон, wave-reviewer) прочитаны в журнале wf_be4f9232-93f, строки 13-14.
+experiments:
+  tmpdir: '/var/tmp/sa63.RXUI (вне git-деревьев); дерево corelib-63 после прогонов — 0 строк git status --porcelain'
+  machine: 'MemAvailable ≈ 32 ГБ; golangci-lint и pre-push чужих нет; рядом шёл чужой go test в /var/tmp/gsr63 — TMPDIR разведён'
+  head_full: >-
+    go test -count=1 -json ./oauthceremony ./tokenpolicy ./acrlevel → проб прошло 1485 + 10 + 14, упало 0.
+  head_race_one_cpu: >-
+    docker golang:1.26.8 --cpus=1 (cpu.max 100000 100000), go test -race -count=3 по 13 пробам верхнего
+    уровня (повтор, сохранность записи, старение, потолки) → 39 из 39 прошли, DATA RACE 0.
+  injection_M_head: >-
+    -overlay notes.go, где markReplayedFamily не делает повтор точным случаем: КРАСНЫЕ 4 пробы верхнего
+    уровня (TestReplayOutlivesADirectoryFailureWhileBuildingTheRequest, TestReplayOfATokenWhoseClientIsGone…,
+    TestReplayWithABrokenSessionRecordIsStillAReplay, TestCodeReplayOfAClientThatIsGone…), 27 строк FAIL подпроб.
+  injection_M_base: >-
+    та же инъекция на 64019361: красные только K1 и K2 (TestConsumedCodeRecordOutlives…,
+    TestCodeReplayOfAClientThatIsGone…), три пробы механизма повтора зелёные — второй механизм прятал снятие.
+    Посылка 55adf31 («два места одного решения прятали друг друга») подтверждена.
+  injection_X_head: >-
+    -overlay bridge.go, где погашенный код с истёкшим сроком отдаётся движку как «кода нет»:
+    TestConsumedCodeRecordOutlivesTheCodeLifespan/запись_цела КРАСНАЯ, 7 утверждений (invalid_grant вместо
+    authorization_code_consumed; семейство не отозвано; RevokeGrant* вызовов 0; пара жива); близнец
+    «запись снята» зелёный. Проба #39 о хранении записи снова живая.
+  injection_K1_head: >-
+    -overlay fakes_test.go, где старение оставляет Session.AuthTime прежним: обе подпробы
+    «НЕ ВЫПОЛНИЛОСЬ: мгновения [GrantRecord.Session.AuthTime] … не сдвинуты» — не красное, а отказ предпосылки.
+  injection_P_head: >-
+    -overlay ceremony_test.go, где registerClientLike не кладёт секрет второго клиента порту сверки (форма K2):
+    обе пробы повтора «НЕ ВЫПОЛНИЛОСЬ: порт сверки не признал секрет клиента svc-other» — прежняя подмена
+    предмета теперь отличима от красного.
+
+premise: >-
+  подтверждена по коду: снятые record(ours) мертвы при любом состоянии ведомости. markReplayedFamily
+  (notes.go:237-249) ставит precise при тех же условиях, что record (ведомость есть, precise пуст), и
+  без условия coarsenable, как и прямой record; единственный ранний выход — пустой grantID, а он до
+  replayedCode и до пометки на пути токена обновления не доходит (bridge.go:431, :619 — нарушение
+  контракта порта). Прочие пути пометки (consumeCode, RotateRefreshToken) record не звали и не меняются.
+
+lanes_judged:
+  '36':
+    decision: 'повтор — ответ операции и тогда, когда сборка запроса отказала; семейство отзывается по записанному гранту'
+    holds: 'один механизм — markReplayedFamily; его снятие краснит 4 пробы (injection_M_head), до #63 — 0'
+    weakened: false
+  '37':
+    decision: 'закрытая классификация отказов портов; клиент доказывает себя до того, как движок видит артефакт'
+    holds: >-
+      прод-классификации дифф не касается; K2 разобран как ошибка подставки, а не регресс продукта:
+      предъявитель, чей секрет порт не признал, получает invalid_client до выборки кода — это решение #37,
+      и не отзывать семейство по предъявлению без доказательства клиента верно (иначе отзыв чужого
+      семейства доступен без удостоверения клиента). Предмет пробы #36 — снятый клиент гранта, а не
+      неопознанный предъявитель; предпосылка requireAuthenticatedBy теперь это держит (injection_P_head).
+      Подставка сверки лишь записывает вердикт в журнал, вердикт считается тем же кодом под тем же замком.
+    weakened: false
+  '39':
+    decision: 'потолки сроков трёх артефактов; запись погашенного кода переживает срок кода'
+    holds: >-
+      прод-кода #39 дифф не касается; пробы потолков зелёные (TestNewRefuses*); проба хранения снова
+      судит свой предмет (injection_X_head красная, injection_K1_head — отказ предпосылки). agedCopy даёт
+      глубокую копию: записи токенов не старятся, «пара жива» у близнеца осмысленна.
+    weakened: false
+
+findings: []
+
+notes:
+  - >-
+    не находка безопасности (правдивость подставки, предмет go-style-reviewer): agedCopy и instantsOf
+    одинаково не видят мгновения, несомые именованным типом над time.Time или числом эпохи (например, в
+    Session.Claims). Слепота та же, что у снятого перечня carriesInstant; сроков по Claims церемония не
+    судит (fakes_test.go, шапка carriesInstant). Исход не требуется.
+
+surface: >-
+  новой поверхности дифф не заводит: ни RPC, ни слушателя, ни записи каталога, ни ручки, ни внешнего
+  вызова, ни кэша вердиктов, ни отношения модели. Прод-правка — снятие мёртвого вызова внутри моста.
+
+disclosure: >-
+  признак восстановимости прогнан по трём сообщениям коммитов и новым комментариям проб: они говорят о
+  механике проб и подставки (перечень мгновений, журнал сверок, дубль записи случая); живого дефекта в
+  продукте не было и нет — сборка координаты, условия и следствия не складывается. Трейлеров атрибуции 0
+  (git log --format=%B 64019361..HEAD); заголовки 58/64/67 знаков, тела 6/8/8 строк; автор и коммиттер
+  pointpu <pointpu@in-cloud.io> по корневому ~/.gitconfig; слияний в дельте 0.
+
+cross_repo: 'нет: поведение моста для реализаций портов у потребителя неизменно (семантика снятого вызова тождественна пометке).'
+
+relation_to_other_records:
+  wave_record: 'corelib-32/reviews/wave/330c23fc….yaml — C3, C4, C5 этой дельтой закрыты; C6 (шапка pre-push) не предмет этой роли.'
+  lane_records: 'corelib-36 a4e2e120….yaml, corelib-37 b7f59f68….yaml, corelib-39 2d64eee7….yaml — не переоткрывались.'
+
+dry_round: true
+seen_keys:
+  - 'corelib:oauthceremony/bridge.go:replay-precise-recorded-twice'
+  - 'corelib:oauthceremony/fakes_test.go:code-record-aging-list-missed-authtime'
+  - 'corelib:oauthceremony/replay_build_test.go:second-client-unknown-to-secret-port'

@@ -1,0 +1,529 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: kn-313
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  kaname#313 — собственный исполнитель заведению/снятию интерактивного клиента и
+  снятию сессии входа при принудительном выходе; отсечка предъявления получает
+  писателя
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: lane/kn-own-interactive-and-logout
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/wt-kn-own-ic-logout
+  base: d4aadfa790660d804d3672ca9ecc42dedf71a93a
+  head: bc7de4a92c76379b4f50da9308031f9a7b81d840
+
+base_established_by_traversal: >-
+  База взята НЕ у ствола. `git merge-base HEAD origin/main` даёт
+  cbbac984b7b17f22bcc4a83f7533fff3494c809a, и от него до головы 18 коммитов, из
+  которых первые четыре (d4aadfa7, fc3a5edf, 9ee76fb7, 69f3d733 и предки)
+  принадлежат ветке issue-313-own-authorization-code-exchange: `git rev-parse
+  issue-313-own-authorization-code-exchange` = d4aadfa790660d804d3672ca9ecc42dedf71a93a,
+  и `git merge-base HEAD issue-313-own-authorization-code-exchange` даёт то же
+  значение — то есть эта ветка есть точка отведения, а её коммиты предки головы.
+  Предметом ЭТОЙ полосы являются 14 коммитов d4aadfa7..bc7de4a9. Перемер по
+  составу подтверждает выбор: дифф от d4aadfa7 даёт 32 файла (11 новых тестовых,
+  6 правленых тестовых, 15 прод-файлов) — ровно ту раскладку, которую называет
+  задание; дифф от origin/main дал бы 42 файла и захватил бы чужую полосу.
+
+content_digest: sha256:2919da5a86f6b77c07c9688cbba035032a26aace0b9fc11cce9ab4358d48e12a
+digest_command: >-
+  cd /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/wt-kn-own-ic-logout
+  && git diff d4aadfa790660d804d3672ca9ecc42dedf71a93a..bc7de4a92c76379b4f50da9308031f9a7b81d840 | sha256sum
+digest_definition: >-
+  sha256 сырого вывода `git diff <base>..<head>` (двухточечный дифф полного
+  изменения полосы от точки отведения до головы). Рабочее дерево worktree чисто
+  (`git status --porcelain` пуст), поэтому дайджест воспроизводим у любой роли,
+  повторившей команду выше дословно.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-21T00:00:00Z'
+review_scope: >-
+  полный дифф d4aadfa7..bc7de4a9, 32 файла, 2938 вставок / 97 удалений; запрет
+  отсрочки и требование проб судятся по всему диффу
+return_to: 'автор диффа полосы lane/kn-own-interactive-and-logout (задание)'
+
+# ── счётчики по всему диффу ────────────────────────────────────────────────
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: >-
+  `git diff <base>..<head> | grep '^+' | grep -iE 'TODO|FIXME|XXX|HACK'` — ноль.
+  Совпадения на `later` — это `SPDX-License-Identifier: AGPL-3.0-or-later`;
+  совпадение на «позже» — проза гейта о том, когда приходит отказ. Латентные
+  остатки БЕЗ маркера см. important[3].
+tests_in_same_pr: true
+tests_in_same_pr_predicate: >-
+  `git diff <base>..<head> -- '*_test.go' | grep -cE '^\+func Test'` = 27,
+  снятых `-func Test` = 1 (переименование
+  TestForceLogout_SessionsNotWired_StillRecordsTheCutoff →
+  TestForceLogout_ProviderSessionsNotWired_OwnTeardownStillRuns), то есть 26
+  новых проб в 11 новых тестовых файлах плюс 6 правленых. Каждая прод-правка
+  диффа имеет пробу в том же изменении.
+go_mod_touched: false        # go.mod/go.sum не тронуты — новой зависимости нет
+
+# ── КРИТИЧЕСКИЕ (блокируют посадку) ────────────────────────────────────────
+critical:
+  - id: CUTOFF-HALF-WRITTEN-ON-SELF-SERVICE-PATHS
+    tag: '[HALF-APPLIED CONTROL]'
+    coordinate: internal/repo/kaname/pg/human_session_repo.go:434
+    claim: >-
+      Полоса закрыла «отсечка пишется в одну запись, а читатель предъявления
+      спрашивает другую» ТОЛЬКО на пути распорядителя. Тот же дефект остался
+      живым на четырёх путях полосы входа: `humanSessionWriter.UpsertCutoff`
+      исполняет ОДИН оператор `upsertRevokeAllSQL`
+      (`internal/repo/kaname/pg/user_token_revocations_repo.go:44`), то есть
+      пишет только `user_token_revocations`, и НЕ пишет
+      `minted_token_revocations`.
+    live_callers:
+      - internal/apps/kaname/api/humansession/logout.go:92        # собственный выход человека
+      - internal/apps/kaname/api/humansession/change_password.go:203  # смена пароля
+      - internal/apps/kaname/api/humansession/recovery_complete.go:234 # завершение восстановления
+      - internal/apps/kaname/api/user/reset_second_factor.go:184  # сброс второго фактора
+    measured: >-
+      Читатель пути запроса — `tokenrevocation.Revoked` над
+      `MintedTokenRevocationRepo.RevokedBefore`
+      (`internal/repo/kaname/pg/minted_token_revocation_repo.go:43`,
+      `SELECT revoke_before FROM kaname.minted_token_revocations`), и именно он
+      провязан публичному слушателю (`cmd/kaname/serve.go:941`, `:1474`) — это
+      утверждает и новая проба диффа
+      `force_logout_minted_cutoff_integration_test.go`. Схемные писатели этой же
+      строки закрывают ДРУГИЕ события: триггеры
+      `sa_oauth_client_removal_cuts_minted_tokens`,
+      `service_account_deactivation_cuts_minted_tokens`,
+      `user_deactivation_cuts_minted_tokens`,
+      `user_oauth_client_removal_cuts_minted_tokens`
+      (`internal/migrations/0001_initial.sql:5255,5276,5297,5304`) — снятие
+      клиента и деактивация владельца; выход, смену пароля, восстановление и
+      сброс второго фактора они не покрывают. Иных писателей
+      `minted_token_revocations` в Go-дереве нет: единственный оператор —
+      `upsertMintedCutoffSQL`.
+    consequence: >-
+      Дословно тот довод, который дифф сам выписал в
+      `hook_pool_adapters.go:199`: «снятие доступа, дошедшее до одной и не
+      дошедшее до другой, есть контроль, исполненный наполовину и выглядящий
+      исполненным целиком». После смены пароля личный токен, выпущенный до неё,
+      продолжает проходить предъявление.
+    requirement: >-
+      Провести `upsertMintedCutoff` в ту же транзакцию писателя полосы входа —
+      тем же приёмом, что применён на пути распорядителя
+      (`internal/repo/kaname/pg/hook_pool_adapters.go:242`), — либо завести
+      предмет с причиной и предикатом снятия. Радиус ищется по имени механизма
+      («писатель отсечки предъявления»), а не по диффу, в котором дефект
+      замечен.
+    note_on_the_fix: >-
+      Правка немедленно упрётся в important[6]: два оператора отсечки расходятся
+      семантикой конфликта, и запись полосы входа несёт момент РАНЬШЕ
+      административного.
+
+  - id: SESSION-END-LANES-DIVERGE-ON-FAMILY-REVOCATION
+    tag: '[HALF-APPLIED CONTROL]'
+    coordinate: internal/repo/kaname/pg/human_session_repo.go:287
+    claim: >-
+      Оператор снятия сведён ВЕРНО (см. approved.operator_consolidation), но
+      расхождение, ради устранения которого его сводили, переехало на уровень
+      выше — в функции вокруг оператора. Из двух исполнителей `endSessionsOfSQL`
+      семейства выданного отзывает только `EndAllSessions`
+      (`human_session_repo.go:376` → `revokeFamiliesOfSessionsTx`);
+      `EndOtherSessions` получает от `endSessionsOf` ТЕ ЖЕ идентификаторы снятых
+      записей и отбрасывает их (`return len(ended), nil`,
+      `human_session_repo.go:292`).
+    live_callers_of_the_uncovered_lane:
+      - internal/apps/kaname/api/humansession/change_password.go:196
+      - internal/apps/kaname/api/humansession/sf_remove.go:123
+      - internal/apps/kaname/api/humansession/recovery_complete.go:231
+    measured: >-
+      Ротацию обновляющего токена останавливает РОВНО отзыв семейства:
+      `rotateRefreshSQL`
+      (`internal/repo/kaname/pg/oauth_ceremony_repo.go:287-296`) гасит ротацию
+      условием `NOT EXISTS (… token_families f WHERE f.id = t.family_id AND
+      f.revoked_at IS NOT NULL)` и НЕ смотрит ни на `human_sessions.ended_at`,
+      ни на одну из двух отсечек (в файле нет ни одного вхождения
+      `revoke_before`). Привязка `token_families_session_fk … ON DELETE CASCADE`
+      (`internal/migrations/20260920175117_authorization_code_is_our_record.sql:76`)
+      срабатывает на УДАЛЕНИИ строки, а снятие строку не удаляет.
+    consequence: >-
+      Дословно тот вред, который дифф сам выписал в
+      `oauth_ceremony_repo.go:436`: «обновляющий токен снятой сессии живёт и
+      ротируется в свежие, а окно равно величине УДЕРЖАНИЯ — то есть настройке
+      хранения, а не решению о безопасности». После смены пароля и после сброса
+      второго фактора это ровно так и есть, а после принудительного выхода — нет.
+      Асимметрия ЗАВЕДЕНА этим диффом: до него семейства не отзывал ни один путь
+      снятия сессии.
+    requirement: >-
+      Либо `EndOtherSessions` зовёт `revokeFamiliesOfSessionsTx` той же `w.tx`
+      теми же возвращёнными идентификаторами, либо расхождение названо предметом
+      с предикатом снятия и шапка `endSessionsOfSQL`
+      (`human_session_repo.go:268`) перестаёт обещать, что сведение оператора
+      закрывает расхождение полос.
+
+# ── ВАЖНЫЕ ─────────────────────────────────────────────────────────────────
+important:
+  - id: SIBLING-METHOD-WRITES-ONE-RECORD
+    coordinate: internal/repo/kaname/pg/hook_pool_adapters.go:154
+    claim: >-
+      `SessionRevocationsAdapter.RevokeAllUserTokens` (пул) пишет ОДНУ запись
+      отсечки, а его близнец `RevokeAllUserTokensTx` теперь пишет ДВЕ.
+      Производственного вызывающего у пулового метода ни одного (перемерено:
+      `grep -rn 'RevokeAllUserTokens\b' --include=*.go` даёт только объявление,
+      комментарии и поля proto-сообщения). Метод остаётся половинным путём,
+      доступным следующему писателю.
+    requirement: >-
+      Снять метод вместе с его единственным делегатом либо провести в него
+      `upsertMintedCutoff` так же, как в Tx-близнеца.
+
+  - id: SECURITY-COMMENT-CONTRADICTS-CODE
+    coordinate: internal/repo/kaname/pg/hook_pool_adapters.go:167
+    text_in_tree: >-
+      «The cutoff upsert is identical to RevokeAllUserTokens (monotonic
+      GREATEST); only the tx ownership + audit row differ.»
+    claim: >-
+      После этого диффа утверждение неправда: Tx-путь дополнительно кладёт
+      `minted_token_revocations` (`:242`), пуловый — нет. Комментарий на
+      механизме снятия доступа зовёт следующего писателя выбрать половинный путь.
+    requirement: >-
+      Привести шапку в соответствие с кодом ОДНОЙ правкой того же коммита, что и
+      решение по important[1].
+
+  - id: LATENT-REMAINDERS-WITHOUT-A-SUBJECT
+    coordinates:
+      - internal/apps/kaname/api/internal_iam/force_logout.go:390   # «РЕШЕНО: нужна миграция, добавляющая в словарь admin-force-logout»
+      - internal/apps/kaname/api/internal_iam/force_logout.go:399   # «ПРЕДИКАТ СНЯТИЯ ОСТАТКА: словарь … несёт admin-force-logout»
+      - internal/check/provider_road_posture_answer.go:50           # «ПРЕДИКАТ СНЯТИЯ ОСТАТКА: у каждого потребителя … своё решение о посадке»
+      - cmd/kaname/wiring.go:1183                                   # «остаток заводится своей задачей»
+    claim: >-
+      Маркера отсрочки (TODO/FIXME) ни одного — запрет #11 в его буквальной
+      форме соблюдён. Но третий законный исход ban11 требует «завести ПРЕДМЕТ с
+      причиной и предикатом снятия»: причина и предикат у всех трёх остатков
+      выписаны образцово, а заведённого предмета не назван ни один (`wiring.go`
+      прямо говорит «заводится своей задачей», то есть ещё не заведена). Для
+      сравнения — на соседней строке `wiring.go:1218` предмет назван числом
+      (#1120), и там форма полная.
+    requirement: >-
+      Назвать номер заведённой задачи в каждом из трёх мест либо завести их и
+      назвать. Остаток без ответственного — долг, а не будущее.
+
+  - id: GATE-BLIND-SPOT-NOT-NAMED
+    coordinate: internal/check/revocation_writer_has_a_caller.go:26
+    claim: >-
+      Шапка гейта называет предметом «ПУТЬ СНЯТИЯ ДОСТУПА, НЕ ДОСТИГАЮЩИЙ
+      НОСИТЕЛЯ, КОТОРЫМ СУДИТ ЧИТАТЕЛЬ», а раздел «ЧЕГО РАЗБОР НЕ ВИДИТ»
+      перечисляет три слепых пятна (мёртвая цепочка, SQL из кусков, писатель в
+      схеме) и НЕ называет четвёртого — пути, который пишет ОДНУ из записей
+      отсечки, а не ни одной. Именно оно и пропустило critical[1]: у
+      `UpsertCutoff` вызывающий есть, имя однозначно, поэтому гейт молчит
+      законно, а потолок 0 читается как утверждение о классе, которого гейт не
+      судит.
+    requirement: >-
+      Добавить четвёртое слепое пятно в перечень шапки; предмет самого гейта
+      («у писателя есть исполнитель») при этом не меняется.
+
+  - id: DUPLICATE-BUILDER-CALL
+    coordinate: internal/apps/kaname/api/internal_iam/force_logout_test.go:123
+    claim: >-
+      `WithOwnSessions(&recordingOwnSessions{})` вызван дважды подряд (строки 123
+      и 127, второй — под комментарием). Первый двойник перекрыт вторым
+      (`h.ownSessions = s`) и недостижим.
+    requirement: 'Снять строку 123 — комментарий принадлежит оставшемуся вызову.'
+
+  - id: TWO-CUTOFF-OPERATORS-DIVERGE-ON-CONFLICT-SEMANTICS
+    coordinates:
+      - internal/repo/kaname/pg/minted_token_revocation_repo.go:77
+      - internal/repo/kaname/pg/user_token_revocations_repo.go:44
+    claim: >-
+      Две записи, которые дифф сделал сиблингами одного вызова, имеют РАЗНУЮ
+      семантику конфликта. `upsertRevokeAllSQL` защищает причину и актора замком
+      Ф1-63/67 (`reason = CASE WHEN EXCLUDED.revoke_before >= … END`), и шапка
+      называет прежнее безусловное переписывание «отрицательным контролем
+      замка». `upsertMintedCutoffSQL` переписывает `reason` и `revoked_by`
+      БЕЗУСЛОВНО. Комментарий `minted_token_revocation_repo.go:74` утверждает
+      «форма совпадает со схемными писателями … монотонный GREATEST одинаков у
+      всех» — это верно про МОМЕНТ и умалчивает о расхождении с записью-сиблингом
+      ровно в том, ради чего замок и заводился.
+    live_today: false
+    measured: >-
+      Сегодня расхождение латентно: все живые писатели minted кладут `now()`
+      (`RevokeAllUserTokensTx` — `revokeBefore = now` из handler'а; триггеры —
+      `now()`), то есть проигравшей записи не бывает. Оно становится живым ровно
+      в тот момент, когда исполняется требование critical[1]: `UpsertCutoff`
+      несёт момент, вычисленный `revocationMoment` — РАНЬШЕ первой
+      аутентификации, — и такая запись переписала бы причину и актора
+      административной отсечки на записи предъявления.
+    requirement: >-
+      Назвать расхождение в шапке `upsertMintedCutoffSQL` и решить его тем же
+      коммитом, которым закрывается critical[1].
+
+  - id: RUSSIAN-COMMENTS-NOT-FULLY-OBSERVED
+    claim: >-
+      Требование владельца соблюдено почти целиком, но не целиком. Перемер:
+      добавленных строк комментария 1097 (без строк лицензии и копирайта), с
+      кириллицей 882, без кириллицы 215, из них непустых и не-разделителей 26. Из
+      этих 26 — 16 законны (имена проб обязаны быть латиницей по запрету #17;
+      строки-координаты кода продолжают русские фразы). Остаются ДВА блока НОВОЙ
+      английской прозы, 10 строк.
+    coordinates:
+      - cmd/kaname/wiring.go:761-765                                   # блок переписан этим диффом
+      - internal/apps/kaname/api/internal_iam/force_logout.go:89-93    # блок написан этим диффом
+    count: 2
+    lines: 10
+    requirement: 'Переписать оба блока по-русски либо назвать исключение решением.'
+
+# ── СТИЛЬ (не блокирует) ───────────────────────────────────────────────────
+style:
+  - coordinate: internal/check/revocation_writer_has_a_caller.go:196
+    note: '`_ = fset` — мёртвая строка: `fset` уже использован в `parser.ParseFile` выше.'
+  - coordinate: internal/check/provider_road_posture_answer.go:183
+    note: >-
+      `classifyAnswerTargets` судит `lhs[1].(*ast.Ident)`: форма `road, s.built =
+      f()` (ответ связан с ПОЛЕМ) классифицируется как «ответ отброшен в `_`» —
+      ложная находка. В дереве такой формы сегодня нет; либо различить селектор,
+      либо назвать в перечне «чего разбор не видит».
+  - coordinate: internal/repo/kaname/pg/oauth_ceremony_repo.go:466
+    note: >-
+      Ручной `rows.Close()` в трёх местах вместо `defer` здесь НЕСУЩИЙ (pgx не
+      даёт второй запрос по той же транзакции при открытых rows, а следом идут
+      три `tx.Exec`), но нигде не сказан; соседний `endSessionsOf` использует
+      `defer`. Одна строка комментария защитит от «уборки» в defer.
+  - coordinate: internal/repo/kaname/pg/oauth_ceremony_repo.go:81
+    note: >-
+      Текст «interactive client %s: not found» расходится по форме с соседом
+      `interactive_client_repo.go:46` «InteractiveClient %s not found» (канон
+      `<Resource> <id> not found`). Наружу сегодня не выходит — `Deregister`
+      глотает признак, — но форма расходится.
+  - coordinate: internal/apps/kaname/api/internal_iam/force_logout.go:410
+    note: >-
+      `if err == nil { log }` и следом `if err != nil { … return }` вместо
+      раннего возврата с последующим журналом — работает, но читается как две
+      несвязанные ветви одного условия.
+  - coordinate: internal/repo/kaname/pg/human_session_repo.go:376
+    note: >-
+      Число отозванных семейств отброшено в `_`, хотя эта же полоса заводила
+      коммит «снятое число наблюдаемо». `sessions_ended` в журнале есть,
+      `families_revoked` — нет.
+  - coordinate: internal/check/revocation_writer_has_a_caller_test.go:76
+    note: >-
+      Обход читает каждый прод-файл дважды с диска и разбирает трижды во втором
+      проходе (ScanRevocationWriters + CollectCalledNames + CollectDeclaredNames),
+      итого ~4 разбора на файл. Корректности не трогает, стоимость прогона —
+      трогает.
+
+# ── комментарии о защите, противоречащие коду ──────────────────────────────
+security_comments_contradicting_code:
+  - coordinate: internal/repo/kaname/pg/hook_pool_adapters.go:167
+    text: 'The cutoff upsert is identical to RevokeAllUserTokens … only the tx ownership + audit row differ'
+    why_false: 'Tx-путь кладёт ДВЕ записи отсечки, пуловый — одну (см. important[1], important[2]).'
+  - coordinate: internal/repo/kaname/pg/user_token_revocations_repo.go:35
+    text: 'upsertRevokeAllSQL — ОДНА операция записи отсечки на всё дерево'
+    why_false: >-
+      Записей отсечки в дереве две, и у второй свой оператор
+      (`upsertMintedCutoffSQL`). Утверждение было верно до этого диффа и стало
+      вторым местом об одном предмете после него.
+  - coordinate: internal/repo/kaname/pg/human_session_repo.go:268
+    text: 'endSessionsOfSQL … расхождение здесь означает «по одной полосе человек выведен, по другой нет»'
+    why_false: >-
+      Про сам оператор — правда (третьего писателя нет). Про полосы — нет:
+      расхождение существует уровнем выше, в отзыве семейств (critical[2]).
+
+# ── кандидаты в фундамент ──────────────────────────────────────────────────
+foundation_candidates: []
+foundation_note: >-
+  Горизонтального выноса изменение не порождает. Обход дерева взят пином у
+  фундамента (`corelib/treecorpus`), идентификаторы — `corelib/ids`, операции —
+  `corelib/operations`, пул — `corelib/db`; ни одной локальной копии чужого
+  файла в диффе нет, `go.mod`/`go.sum` не тронуты. `endSessionsOfSQL`,
+  `upsertMintedCutoff`, `revokeFamiliesOfSessionsTx` — доменная логика kaname и
+  остаются в службе. Разборы `internal/check` привязаны к именам предметов этого
+  дерева.
+
+# ── одобрено: что проверено и на чём ───────────────────────────────────────
+approved:
+  two_cutoffs_one_transaction: >-
+    ПОДТВЕРЖДЕНО. Обе записи лежат на одной `tx`, открытой
+    `hook_pool_adapters.go:175` и закоммиченной `:254`:
+    `userRepo.UpsertRevokeAllTx(ctx, tx, …)` на `:180` и
+    `upsertMintedCutoff(ctx, tx, …)` на `:242`, между ними — событие журнала
+    `emitAuditTx(ctx, tx, …)`. `defer tx.Rollback(ctx)` на `:179` покрывает отказ
+    в середине: отказ второй записи откатывает первую, частичного снятия не
+    бывает by construction. Пути, где кладётся только одна, ВНУТРИ этого метода
+    нет. Путь СНАРУЖИ — есть, и это critical[1] и important[1].
+  minted_cutoff_executor_port: >-
+    `mintedCutoffExecutor` — узкий интерфейс на один метод `Exec`, объявленный у
+    потребителя; пул и транзакция исполняют его одинаково, проверки входа (пустой
+    субъект, пустой решивший) стоят в одном месте `upsertMintedCutoff`, а не у
+    каждого вызывающего. Ограничение схемы
+    `minted_token_revocations_decider_ck` (длина 1..128) замещающим значением
+    `"kaname:" + eventType` удовлетворяется: самое длинное сегодня —
+    `kaname:iam.session.force_logout`, 31 символ.
+  non_atomicity_of_teardown_argument: >-
+    ДОВОД ПРИНЯТ в границах этого диффа. Отсечка коммитится первой
+    (`force_logout.go:320`), снятие идёт следом своей транзакцией
+    (`EndAllSessions`, `human_session_repo.go:351`), и `EndAllSessions` ВНУТРИ
+    атомарна: снятие строк и отзыв семейств лежат на одной `tx`
+    (`:355`…`:381`). Направление отказа безопасное — отсечка остаётся, глагол
+    отвечает Unavailable, повтор накладывает ту же отсечку и повторяет то же
+    снятие; обе операции идемпотентны (`GREATEST` у отсечки, `ended_at IS NULL` у
+    снятия, `revoked_at IS NULL` у семейств). Порядок тот же, каким уже шёл путь
+    чужого поставщика.
+  non_atomicity_unverified_leg: >-
+    ОДНА НОГА ДОВОДА НЕ ПЕРЕМЕРЕНА ЗДЕСЬ. «Отсечка защитна сама по себе»
+    опирается на то, что край сравнивает момент аутентификации с отсечкой
+    (приёмка Ф3-25). Дифф про край ничего не утверждает и правильно делает; но
+    из этого следует, что при отказе ПОСЛЕ коммита отсечки и ДО снятия защита
+    держится краем, которого этот дифф не измеряет. Предмет — не моя роль
+    (system-design-reviewer / security-auditor); называю, чтобы довод не читался
+    как измеренный целиком.
+  operator_consolidation: >-
+    ПОДТВЕРЖДЕНО, третьего писателя нет. Перемер:
+    `grep -rn -A3 'UPDATE human_sessions' --include=*.go` по не-тестовому дереву
+    даёт четыре оператора — `endSessionsOfSQL` (:279), `EndSession` по одному id
+    (:260), `RotateBearer` (:394) и обновление предъявленного (:417); последние
+    три меняют ДРУГИЕ колонки либо адресуют одну строку. У `endSessionsOfSQL`
+    ровно два исполнителя: `EndOtherSessions` (:288) и `EndAllSessions` (:361),
+    оба через `endSessionsOf`. Оговорка о семантике вокруг оператора —
+    critical[2].
+  absence_marker_compared_by_value: >-
+    ПОДТВЕРЖДЕНО. `refuseNoSuchClient` (`oauth_ceremony_repo.go:80`) несёт
+    признак `iamerr.ErrNotFound`, и обёртка причину НЕ теряет: `iamerr.Wrapf`
+    (`internal/errors/errors.go:190`) собирает `fmt.Errorf("%w: "+format,
+    sentinel, …)`, то есть признак стоит в цепочке. Потребитель сравнивает ПО
+    ЗНАЧЕНИЮ — `stderrors.Is(err, iamerr.ErrNotFound)`
+    (`own_interactive_client_provider.go:166`), не по тексту. Три копии текста
+    (`:641`, `:660`, `:679`) сведены в одного производителя. Проба
+    `own_interactive_client_provider_integration_test.go` утверждает признак
+    отдельным положительным контролем прежде, чем опереть на него
+    идемпотентность.
+  gates_as_code: >-
+    Оба гейта судят ДЕРЕВО, а не ведомость; предмет подаётся ИМЕНЕМ
+    (`postureAnswerBuilder = "mustProviderAdminClient"`, суффикс `_revocations`),
+    а не выводится. Потолки — замер по факту (оба 0), и оба называют число, на
+    котором заводились (4 и 1). Предпосылка отдельной функцией
+    (`ProviderRoadCallPremise`, `RevocationWriterPremise`), и проверяется она
+    ВЫЗОВОМ на синтетике, а не чтением ветви. Пустой обход вердикта не выносит;
+    порог файлов (300) отделяет «предмета нет» от «до дерева не дошли». Инъекция
+    в обе стороны, дефект и близнец отличаются ровно одним фактом, каждая
+    инъекция сверх исхода утверждает ПЕРЕПИСЬ. Ведомостей исключений,
+    allowlist'ов и skip-списков ни одного. Текст находки несёт координату
+    `файл:строка`, имя функции, таблицу и ПРИЧИНУ отдельным полем (`Form`,
+    `Why`) — «его не зовут» и «по имени не разобрать» не слиты в одно. Оговорка
+    о неназванном слепом пятне — important[4].
+  posture_answer_by_value: >-
+    Решение «дорога есть / дороги нет» вынесено ВТОРЫМ возвращаемым значением
+    (`wiring.go:1059`), а не предикатом, который можно позвать и не прочесть:
+    связанное и неиспользованное имя — ошибка сборки, поэтому «связан» влечёт
+    «прочитан». Все потребители ответ принимают
+    (`provider_compensation_wiring.go:64`, `wiring.go:1111`, `:1132`, `:1211`).
+  clean_nil_not_typed_nil: >-
+    `forceLogoutProviderSessions` и `forceLogoutOwnSessions` возвращают ЧИСТЫЙ
+    nil интерфейса (`return nil, nil` / `return nil` при объявленном интерфейсном
+    типе результата), поэтому страж провязки `if p == nil` / `if s == nil`
+    (`force_logout.go:119`, `:171`) срабатывает. Типизированного nil, который
+    прошёл бы стража насквозь и упал бы на разыменовании, в диффе нет.
+  nil_task_is_checked: >-
+    `buildProviderCompensationDrainer` возвращает `(nil, nil)` третьим законным
+    исходом, и вызывающий проверяет задачу на nil ПРЕЖДЕ постановки в очередь
+    (`serve.go:1796`): nil-задача уронила бы под на разыменовании. Форма возврата
+    названа в шапке сборщика (`provider_compensation_wiring.go:45`).
+  closed_refusal_instead_of_silent_success: >-
+    «Ни одного исполнителя снятия не провязано» стало ЗАКРЫТЫМ отказом
+    (`force_logout.go:347`) с пометкой операции ошибкой; прежняя проба,
+    утверждавшая обратное, переписана, а не снята
+    (`TestForceLogout_NoTeardownWired_RefusesAndKeepsTheCutoff`).
+  no_panic_in_prod_path: >-
+    `panic(`, `log.Fatal`, `MustParse` в добавленных строках прод-кода — ноль
+    (`git diff … | grep '^+' | grep -E 'panic\(|log\.Fatal|Must…'` пуст).
+    `log.Fatalf` в `mustProviderAdminClient` — прежний, стоит в композиционном
+    корне `cmd/kaname` и исполняется при старте.
+  no_error_echo: >-
+    Оба новых отказа несут ФИКСИРОВАННЫЙ текст: `codes.Unavailable, "no
+    login-session teardown is wired: the cutoff alone does not end a session"`
+    и `codes.Unavailable, "could not end the login session"`. `err.Error()` уходит
+    в журнал оператору, а не вызывающему.
+  no_pii_in_logs: >-
+    В добавленных строках журнала — `operation_id`, `user_id`, `sessions_ended`,
+    имена ручек (`authn.identity-provider`, `authn.client-token.enabled`).
+    Ни адреса, ни телефона, ни носителя, ни свёртки.
+  layering: >-
+    Направление зависимостей цело. Порты объявлены у потребителя-use-case
+    (`ProviderClients` в `interactive_client/ports.go`, `OwnSessions` /
+    `ProviderSessions` / `ExternalIDResolver` в `internal_iam/force_logout.go`)
+    и несут нейтральные типы (`domain.UserID`, `time.Time`, DTO слоя) — ни
+    pgx, ни grpc-стабов в сигнатурах. Адаптер `OwnInteractiveClientProvider`
+    живёт в `internal/repo/kaname/pg` и импортирует пакет use-case ради его DTO —
+    это норма дерева (так же делают `access_key_repo.go`,
+    `human_session_repo.go`, `login_method_repo.go`, `catalog_plan_reader.go` и
+    зеркало чужого реестра `internal/clients/hydra_interactive_clients.go`).
+    Выбор исполнителя по посадке сделан в композиционном корне, а не ветвью в
+    use-case. Глобальных синглтонов и `init()` с побочным эффектом в диффе нет.
+  ports_exported_with_reason: >-
+    Четыре порта именованы наружу, и причина названа в каждом: корню нужен ТИП,
+    чтобы вернуть «никого» чистым nil и чтобы выбор исполнителя был выразим
+    типом, а не ветвью внутри use-case.
+  error_wrapping: >-
+    Новые обёртки несут признак и контекст: `iamerr.Wrapf(iamerr.ErrInvalidArg,
+    …)`, `wrapPgErr(err, "TokenFamily", …)`, `mapErr(err, "HumanSession.EndAll",
+    …)`. `%v` вместо `%w` в новых строках нет; `err.Error() == "…"` нет.
+  naming_ascii: >-
+    Все новые идентификаторы латиницей (запрет #17): `endSessionsOfSQL`,
+    `upsertMintedCutoff`, `mintedCutoffExecutor`, `refuseNoSuchClient`,
+    `revokeFamiliesOfSessionsTx`, `OwnInteractiveClientProvider`,
+    `ClientSecretStore`, `ownInteractiveClientIDPrefix`,
+    `ownPublicClientAuthMethod`, `ScanProviderRoadCalls`,
+    `RevocationWritersWithoutACaller` и прочие. Магических чисел нет — приставка,
+    метод удостоверения и причины вынесены константами.
+  tests_on_mock_ports: >-
+    Пробы слоя use-case стоят на двойниках портов (`recordingOwnSessions`,
+    `ownClientRegistryDouble`, `fakeForceLogoutRecorder`) без Postgres; пробы,
+    которым нужна база, объявлены интеграционными и снимаются `testing.Short()`.
+    Утечки адаптера в пробу слоя нет. Фикстура сессии кладётся ТЕМ ЖЕ писателем,
+    что и продукт (`seedOwnLoginSession` → `repo.Writer(ctx).InsertSession`), а
+    не своим INSERT'ом — фикстура не снисходительнее продукта.
+  cascade_claims_verified: >-
+    Утверждения шапки `own_interactive_client_provider.go` о каскадах перемерены
+    по схеме: `token_families_client_fk` и `consent_grants` ссылаются на
+    `interactive_clients(client_id) ON DELETE CASCADE`
+    (`20260920175117…sql:73`, `20260920175119…sql:62`), а
+    `authorization_codes_family_fk` и парный ему у `refresh_tokens` — на
+    составной ключ `token_families` с тем же каскадом
+    (`20260920175117…sql:122`, `:178`). Утверждение о закрытом словаре причин снятия
+    сессии тоже верно: `human_sessions_ended_reason_check` несёт `logout`,
+    `password-change`, `second-factor-removed`
+    (`20260917160000…sql:101`), и `domain.RevokeReasonLogout = "logout"` в нём
+    есть.
+
+# ── перемеренное, что НЕ является находкой этого диффа ─────────────────────
+measured_not_a_finding:
+  per_call_deadline: >-
+    Ни `EndAllSessions`, ни `revokeFamiliesOfSessionsTx`, ни `upsertMintedCutoff`
+    не ставят собственный `context.WithTimeout`. Это НОРМА дерева, а не регрессия
+    диффа: из 79 не-тестовых файлов `internal/repo/kaname/pg` собственный предел
+    ставит ОДИН (`reconcile_notify.go`, и там это LISTEN/NOTIFY). Предмет —
+    тревое решение, а не эта полоса; называю, чтобы следующая роль не
+    перепроверяла.
+  internal_check_has_no_prod_importer: >-
+    `internal/check/*.go` — не-тестовые файлы без прод-импортёров, и это
+    установленная форма этого дерева (так же живёт `internal/repohygiene`):
+    разбор вынесен из `_test.go` затем, чтобы инъекционная проба могла подать ему
+    настоящий вход из дерева. Под `arch-lean-no-vestigial` не подпадает.
+  known_red_on_this_branch: >-
+    Со слов задания: три пакета красны по дефекту ЧУЖОГО предиката отбора
+    миграций, один — по подписи автора, проверок с обнаружением гонок на машине
+    нет (нет компилятора C — третий исход, не красное). Ни одно из этого не
+    предмет этого ревью и в вердикт не входит.
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход линтера и проб НЕ объявляется: сырой вывод читает landing-reviewer,
+# независимый перемер делает check-verifier. Здесь — только находки по коду,
+# каждая с координатой и требованием.
+linter_probes_outcome: not-claimed-by-this-role
+
+next_requested: >-
+  автор диффа полосы lane/kn-own-interactive-and-logout — закрыть critical[1] и
+  critical[2] с пробами в том же изменении; после фикса дайджест новый, роль
+  повторяется.

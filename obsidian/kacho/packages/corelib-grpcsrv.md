@@ -2,19 +2,21 @@
 title: corelib-grpcsrv
 category: packages
 repo: kacho-corelib
+path: PRO-Robotech/corelib:grpcsrv
 layer: shared
 tags:
   - packages
   - kacho-corelib
   - grpc
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "адрес пакета и раздел об acr перемерены по PRO-Robotech/corelib@227ed2b77b4 (коммит слияния волны 32 в ветку эпика 26) и PRO-Robotech/kacho@7190c3e5274, 2026-09-26: каталога pkg/grpcsrv в kacho нет (`git ls-tree -d 7190c3e5274 pkg/`), импортируют github.com/PRO-Robotech/corelib/grpcsrv 27 непробных файлов kacho; grpcsrv/acr.go прочитан. Прочие разделы и перечень импортёров — по 96b2879a, построчно не пересматривались"
 ---
 
 # pkg/grpcsrv — серверная сборка, личность пира и граница доверия
 
-**Каталог**: `pkg/grpcsrv/` · импорт `github.com/PRO-Robotech/kacho/pkg/grpcsrv`
-**Прежде** (полирепо): `kacho-corelib/grpcsrv`.
+**Каталог**: `PRO-Robotech/corelib:grpcsrv/` · импорт `github.com/PRO-Robotech/corelib/grpcsrv`
+**Прежде**: `pkg/grpcsrv/` монорепо kacho (каталога там больше нет — перемер 2026-09-26), ещё раньше
+(полирепо) `kacho-corelib/grpcsrv`.
 **Импортирует**: `crypto/tls`, `crypto/x509`, `log/slog`, `google.golang.org/grpc` +
 `health`, `health/grpc_health_v1`, `reflection`, `credentials`,
 `credentials/insecure`, `keepalive`, `peer`, а также `pkg/operations` (тип личности).
@@ -102,7 +104,7 @@ func (l *ServerLatency) StreamServerInterceptor(on Listener) grpc.StreamServerIn
 - `MDKeyTokenACR = "x-kacho-token-acr"` — trusted metadata-ключ с validated JWT `acr` (api-gateway forwards на mTLS-verified gateway→iam re-dial, рядом с `x-kacho-principal-*`).
 - `UnaryTrustedPrincipalExtract` доп. читает `acr` и кладёт в trusted-carrier **только когда trusted** (тот же FD-4 boundary): на untrusted/unverified peer `acr` отбрасывается вместе с principal (anti-spoof). `acr` едет по той же границе, что и личность, — иначе шаг-ап подделывался бы отдельно от того, за кого говорят.
 - `TrustedACRFromContext(ctx) (acr string, trusted bool)` — accessor. `WithTrustedACR(ctx, acr, trusted)` — test-support helper (mirror `WithCertIdentity`).
-- `ACRRank(acr) int` (`""/"0"<"1"<"2"<"3"`, неизвестное ⇒ 0) + `ACRSatisfies(presented, required) bool` (`required==""/"0"` ⇒ пропуск) — **единая** точка ранжирования, общая для гейта повышения уровня на крае и порога в iam, чтобы две стороны не разъехались.
+- `ACRRank(acr) int` и `ACRSatisfies(presented, required) bool` — с волны [[KAC/issue-32-corelib|corelib#32]] **устаревшие псевдонимы** с абзацем `Deprecated:`: тело переадресует в `acrlevel.Rank` / `acrlevel.Satisfies` и своей таблицы не держит. Единая таблица ранжирования (`""/"0"<"1"<"2"<"3"`, неизвестное ⇒ 0) теперь в [[packages/corelib-acrlevel]], пакете без транспорта; адрес здесь оставлен для потребителей, закреплённых на v1.9.0, и снимается только мажорным выпуском модуля. Гейт повышения уровня зовёт `EvaluateStepUp`, а не псевдонимы.
 - `EvaluateStepUp(in StepUpInput) StepUpVerdict` (+ типы `StepUpInput`/`StepUpVerdict`) — само правило повышения уровня, вынесенное в фундамент отдельно от места применения. Прежней редакции записки эта тройка известна не была.
 
 ### Извлечение личности без привязки к доверию (`principal_extract.go`)
@@ -117,6 +119,17 @@ func (l *ServerLatency) StreamServerInterceptor(on Listener) grpc.StreamServerIn
 Это **не** trust-aware пара: у `*PrincipalExtract` нет требования проверенного
 сертификата. На развёрнутом сервисе принимать переданную личность полагается
 **только** парой `*CertIdentityExtract` → `*TrustedPrincipalExtract`.
+
+## History
+
+- 2026-09-23 — таблица ранжирования `acr` переехала в новый пакет `acrlevel`, `ACRRank` и
+  `ACRSatisfies` из `grpcsrv` сняты ([[KAC/issue-49-corelib|corelib#49]]).
+- 2026-09-24 — оба имени возвращены устаревшими псевдонимами, переадресующими в `acrlevel`,
+  потому что снятое имя в минорном выпуске ломало сборку потребителя
+  ([[KAC/issue-64-corelib|corelib#64]], ветка `45`, сборка 1 волны). Обе правки — в ветке
+  эпика `26` (PR #62, `227ed2b77b4`), в `main` фундамента их нет; kacho на `7190c3e5274`
+  закреплён на corelib v1.8.0.
+- 2026-09-26 — исправлен адрес пакета: `pkg/grpcsrv/` монорепо kacho → `grpcsrv/` фундамента.
 
 ## Конвенция
 

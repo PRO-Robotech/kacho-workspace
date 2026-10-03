@@ -1,0 +1,379 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+#
+# Каталога изменения в дереве воркспейса НЕ БЫЛО: перепись
+# `ls docs/changes/ | grep -iE "carrier|session|gw-|gateway"` дала ноль строк.
+# Каталог заведён под именем ветки предмета — `gw-session-carrier-set`. Если у
+# предмета есть номер задачи, запись переносится под `issue-<N>` тем же
+# изменением; чужих каталогов и чужих записей эта роль не трогала.
+schema_version: 1
+change_id: gw-session-carrier-set
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  край платформы переведён с одной ручки выбора читателя браузерного носителя на
+  МНОЖЕСТВО читателей (`config.SessionCarrierSet`, ручка
+  `KACHO_API_GATEWAY_SESSION_CARRIERS`): три состояния — только чужой · оба ·
+  только наш; плюс страж старта пары (посадка, множество), гейт провязки по
+  композиционному корню и общий предикат присутствия носителя на обе полосы.
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: feat/gateway-session-carrier-set
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/gw-session-carrier-set
+  base: bec320cf47d
+  head: 6e05f762cac93dbd2b601d621b99ece8c1146c73
+  commits_over_base: 6
+content_digest: sha256:9a0f48829a888f218126177a04d9492de221da06f9f72ceebb52a68b04671e2a
+digest_definition: >-
+  sha256 сырого вывода `git diff bec320cf47d..6e05f762cac93dbd2b601d621b99ece8c1146c73`,
+  снят своей командой в worktree предмета (не принят со слов задания).
+  Вердикт ниже относится ТОЛЬКО к этому отпечатку.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-21T00:00:00Z'
+review_scope: >-
+  полный дифф: 16 файлов, 1431 вставка / 116 удалений. Запрет отсрочки и
+  требование проб судятся по ВСЕМУ диффу, а не по выборке.
+
+files_reviewed:
+  - gateway/cmd/api-gateway/main.go
+  - gateway/cmd/api-gateway/session_carrier_validation.go
+  - gateway/cmd/api-gateway/session_carrier_validation_test.go
+  - gateway/cmd/api-gateway/session_carrier_wiring_test.go
+  - gateway/cmd/api-gateway/own_lane_readers_wiring_test.go
+  - gateway/internal/config/config.go
+  - gateway/internal/config/sessioncarriers.go
+  - gateway/internal/config/session_carriers_test.go
+  - gateway/internal/middleware/auth.go
+  - gateway/internal/middleware/auth_own_session.go
+  - gateway/internal/middleware/session_carrier_names.go
+  - gateway/internal/middleware/session_carrier_readers.go
+  - gateway/internal/middleware/session_carrier_precedence_test.go
+  - gateway/internal/middleware/session_identity_handler.go
+  - gateway/internal/handler/logout_carrier_states_test.go
+  - gateway/docs/content/install/configuration.mdx
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical:
+  - id: C1
+    class: PROFILE-REFUSED-BY-ITS-OWN-GUARD
+    coordinates:
+      - gateway/docs/content/install/configuration.mdx:190
+      - gateway/docs/content/install/configuration.mdx:213
+      - gateway/cmd/api-gateway/session_carrier_validation.go:71
+    finding: >-
+      Единственный опубликованный пример профиля края несёт в ОДНОМ блоке
+      `KACHO_API_GATEWAY_IDENTITY_PROVIDER: external` (строка 190) и
+      `KACHO_API_GATEWAY_SESSION_CARRIERS: "own,external"` (строка 213) — ровно
+      ту пару, которую страж старта ЭТОГО ЖЕ изменения отвергает
+      (`session_carrier_validation.go:71`: ReadsOwn при посадке != own) и
+      которую как отказ утверждает собственная проба изменения
+      `session_carrier_validation_test.go:TestSessionCarrierGuard_OurReaderUnderThe
+      ForeignPostureIsRefused`. Текст, добавленный тем же коммитом на семь строк
+      выше значения (строка 208), сам говорит «Наша сторона требует посадки own
+      … под external выдать его на этом стенде некому» — документ противоречит
+      себе и коду. Оператор, скопировавший пример, получает стенд, который не
+      поднимается.
+    requirement: >-
+      Привести пример к исполнимой паре: либо посадка `own` рядом с
+      `own,external`, либо множество `external` под посадкой `external`. Плюс
+      проба, связывающая опубликованный профиль со стражем (декларативный гейт
+      по объявлениям примера, не по рендеру, — см. hard-declarative-values-test),
+      иначе расхождение вернётся при следующей правке одной из сторон.
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+  - id: C2
+    class: PREDICATE-STILL-DIVERGES
+    coordinates:
+      - gateway/internal/middleware/session_identity_handler.go:228
+      - gateway/internal/middleware/session_identity_handler.go:149
+      - gateway/internal/middleware/session_identity_handler.go:214
+      - gateway/internal/middleware/session_carrier_readers.go:20
+    finding: >-
+      Общий предикат присутствия НАШЕГО носителя заведён верно и зовётся обеими
+      полосами решения (`auth_own_session.go:91`, `session_identity_handler.go:149`),
+      но в дереве осталась ТРЕТЬЯ, встроенная копия того же предиката:
+      `meFromOwnSession` читает носитель заново — `r.Cookie(OurSessionCarrierName)`
+      плюс `err != nil || carrier.Value == ""` (строки 228-231). Файл-заголовок
+      `session_carrier_readers.go:20-24` при этом утверждает «Предикат поэтому
+      ОДИН на сторону, и обе полосы зовут именно его» — утверждение о дереве,
+      которое дерево не исполняет (arch-doc-truthfulness). Следствия два:
+      (1) расхождение полос осталось ПРЕДСТАВИМЫМ ровно в том файле, который
+      объявляет его невозможным, — правка одной копии молча разведёт «чья
+      личность действует» на двух путях одного запроса;
+      (2) вызывающий `Me` уже вычислил значение и выбросил его (`_, ours :=`),
+      а докстрока `meFromOwnSession` (строка 214) говорит «Зовётся только когда
+      наш носитель ПРЕДЪЯВЛЕН» — значит ветка 229-231 через единственного
+      вызывающего недостижима и «документирует контракт» (arch-lean-no-vestigial).
+    requirement: >-
+      Одно место решает: `Me` передаёт уже прочитанный носитель в
+      `meFromOwnSession` (сигнатура принимает bearer), либо `meFromOwnSession`
+      зовёт `ourSessionCarrierOf`. Недостижимая ветка снимается вместе со своей
+      докстрокой тем же изменением. Проба — сравнением полос, как уже устроено в
+      `session_carrier_precedence_test.go`, а не чтением кода.
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+  - id: C3
+    class: GUARD-CLAIMS-MORE-THAN-IT-ENFORCES
+    coordinates:
+      - gateway/cmd/api-gateway/session_carrier_validation.go:60
+      - gateway/cmd/api-gateway/session_carrier_validation.go:71
+      - gateway/cmd/api-gateway/main.go:205
+      - gateway/cmd/api-gateway/main.go:220
+    finding: >-
+      Докстрока стража объявляет ОБЩЕЕ свойство: «отвергает пару (посадка,
+      множество), при которой провязка не состоится или состоится ВПУСТУЮ»
+      (строка 60). Пара (посадка `own`, множество `external`) этому свойству
+      противоречит и принимается: правило на строке 71 спрашивает ReadsOwn и на
+      ней не срабатывает, правило на строке 81 спрашивает только адрес чужой
+      стороны. На такой паре край поднимает ретрансляцию формы входа
+      (`main.go:220`), наша полоса чеканит `kaname_session`, и НИ ОДИН читатель
+      его не читает (`main.go:205` и `main.go:1172` не срабатывают): человек
+      проходит форму входа и остаётся анонимом. Это зеркало правила «читатель
+      без производителя», которое страж как раз отвергает, — и ровно тот
+      наблюдаемый исход (молчаливая потеря входа), ради устранения которого
+      множество и заводится. Пробы на эту пару нет ни в
+      `session_carrier_validation_test.go`, ни в `session_carriers_test.go`:
+      `TestSessionCarrierGuard_TheThreeLawfulStatesPass` перечисляет три пары,
+      представимых пар при двух посадках — четыре.
+    requirement: >-
+      Выбрать исход и исполнить его: либо страж отвергает пару
+      (посадка `own` ∧ ¬ReadsOwn) отказом, называющим ОБЕ ручки, либо докстрока
+      сужается до двух перечисленных правил и перестаёт утверждать общее
+      свойство. В обоих случаях — проба на эту пару в том же изменении, с
+      переписью «представимых пар N · отвергнуто M · принято K».
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+important:
+  - id: I1
+    class: REFUSAL-TEXT-CONTRADICTS-THE-PARSER
+    coordinates:
+      - gateway/internal/config/sessioncarriers.go:169
+      - gateway/internal/config/sessioncarriers.go:152
+      - gateway/internal/config/sessioncarriers.go:113
+    finding: >-
+      Текст отказа разбора утверждает «case is not folded, whitespace is not
+      trimmed» (строка 169), а разбор пробелы СНИМАЕТ: `strings.TrimSpace(part)`
+      на строке 152 и `strings.TrimSpace(c.SessionCarriers)` на строке 113.
+      Значение `" own , external "` принимается. Текст заимствован у посадки
+      (`corelib@v1.8.0/identityposture.Parse`), где он верен — там сравнение
+      точное; здесь верна только половина про регистр. Ручка решает, ЧЬЁ печенье
+      читает край, и её отказ объясняет оператору не ту дисциплину.
+    requirement: >-
+      Убрать из текста утверждение, которого код не исполняет, либо прекратить
+      обрезку и принимать значение точно. Плюс проба на вход с пробелами — обе
+      стороны, как у остальных отказов этого файла; сегодня такой строки в
+      `session_carriers_test.go` нет.
+
+  - id: I2
+    class: ERROR WRAP
+    coordinates:
+      - gateway/internal/config/sessioncarriers.go:124
+    finding: >-
+      `return SessionCarrierSet{}, err` — отказ `ResolvedIdentityProvider()`
+      уезжает оператору без контекста вызова: спрашивали о множестве читателей,
+      а отказ говорит только о посадке.
+    requirement: >-
+      `fmt.Errorf("derive %s from the posture: %w", SessionCarriersKnob, err)`.
+
+  - id: I3
+    class: TWO-FAILURES-ONE-PREFIX
+    coordinates:
+      - gateway/cmd/api-gateway/main.go:178
+      - gateway/cmd/api-gateway/main.go:186
+    finding: >-
+      Два разных отказа старта печатаются одним префиксом
+      `"session carrier startup-validation: %v"`: разбор объявления и сверка
+      пары (посадка, множество) в журнале старта неразличимы, хотя правит
+      оператор разное.
+    requirement: >-
+      Разные префиксы — например `session carrier set parse:` и
+      `session carrier startup-validation:`.
+
+  - id: I4
+    class: TEST-INPUT-COMES-FROM-THE-AMBIENT-ENV
+    coordinates:
+      - gateway/internal/config/session_carriers_test.go:51
+      - gateway/internal/config/session_carriers_test.go:190
+    finding: >-
+      `resolveCarriers` зовёт `t.Setenv` только когда аргумент непуст, а
+      `TestSessionCarriers_UndeclaredWithUndeclaredPostureIsRefused` зовёт
+      `config.Load()` вовсе без `t.Setenv`. Вход пробы берётся из ОКРУЖЕНИЯ
+      прогона: машина, где `KACHO_API_GATEWAY_IDENTITY_PROVIDER` задан в среде,
+      получает чужой вердикт (ложный красный) на ровном месте — вход
+      недетерминирован (gate-authoring §«Детерминизм входа»).
+    requirement: >-
+      Обе ручки задавать явно на каждом кейсе, пустую — как `t.Setenv(knob, "")`.
+
+  - id: I5
+    class: CLOSED-ROSTER-HOLDS-ITSELF
+    coordinates:
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:44
+    finding: >-
+      Перечень `carrierReaderConstructors` закрыт двумя именами, и гейт это
+      называет вслух, но удержание («читателей носителя ровно два») стоит на
+      самом объявлении: третий конструктор-читатель, заведённый завтра, гейтом
+      не осматривается и красного не даёт, а перепись напечатает прежние два.
+      Признак, производимый деревом, рядом уже есть —
+      `middleware/session_carrier_names_gate_test.go` вяжет каждое имя носителя
+      с его читателем.
+    requirement: >-
+      Вывести перечень читателей из того же признака дерева, что и перечень
+      имён, либо добавить сверку числа сторон носителя с
+      `middleware.SessionCarrierNames()`. Не блокирует.
+
+foundation_candidates: []
+# Горизонтального выноса изменение не порождает: словарь сторон взят из
+# фундамента пином (`github.com/PRO-Robotech/corelib v1.8.0`,
+# `identityposture.Parse/Names/String`), второго словаря не заведено, копии
+# чужого файла в дереве нет. `go.mod`/`go.sum` дифф не трогает.
+
+style: []
+
+security_comments_contradicting_code:
+  - >-
+    gateway/cmd/api-gateway/session_carrier_validation.go:60 — докстрока стража
+    старта объявляет общее свойство, которого код не исполняет (см. C3).
+  - >-
+    gateway/internal/middleware/session_carrier_readers.go:20 — заголовок
+    утверждает «обе полосы зовут именно его» при третьей встроенной копии
+    предиката в `session_identity_handler.go:228` (см. C2).
+  - >-
+    gateway/internal/config/sessioncarriers.go:169 — текст отказа ручки,
+    решающей чьё печенье читает край, утверждает «whitespace is not trimmed»
+    при снятии пробелов на строках 113 и 152 (см. I1).
+
+# ── счёт по полному диффу ──────────────────────────────────────────────────
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: >-
+  `git diff bec320cf47d..6e05f762cac93dbd2b601d621b99ece8c1146c73 |
+  grep -cE "^\+.*(TODO|FIXME|XXX|t\.Skip)"` = 0, перемерено своей командой;
+  расширенный предикат (плюс HACK, «позже», «пока не») тоже даёт ноль строк.
+  Объявление автора подтверждено.
+
+tests_in_same_pr: true
+tests_in_same_pr_note: >-
+  На каждый заведённый класс проба лежит в том же диффе:
+  разбор объявления — `config/session_carriers_test.go` (три состояния,
+  безразличие к порядку записи, вывод из посадки, четыре отказа);
+  страж старта — `cmd/api-gateway/session_carrier_validation_test.go`
+  (три законные пары, две отвергаемые, выведенное множество на выключенном
+  адресе);
+  гейт провязки — `cmd/api-gateway/session_carrier_wiring_test.go`
+  (перепись, инъекция в обе стороны на синтетике, плюс отдельное утверждение,
+  что состояние носителя не достаёт до приёма токена);
+  старшинство — `middleware/session_carrier_precedence_test.go` (счётчик
+  обращений к чужой стороне, законный близнец);
+  гашение — `handler/logout_carrier_states_test.go` (четыре состава
+  предъявленных печений, перечень берётся у производителя).
+  Пробелы в покрытии названы находками C3 (четвёртая пара) и I1 (вход с
+  пробелами) — это НЕ «проб нет», а проба, которой не хватает строки.
+
+# ── что отсужено в пользу автора ───────────────────────────────────────────
+approved:
+  - >-
+    Предикат присутствия носителя ДЕЙСТВИТЕЛЬНО общий, а не скопирован: по
+    одному на сторону в `middleware/session_carrier_readers.go`, и решение обеих
+    полос идёт через них — `ourSessionCarrierOf` зовут `auth_own_session.go:91`
+    и `session_identity_handler.go:149`, `providerSessionCarrierPresented` —
+    `auth.go:1165` и `session_identity_handler.go:156`. Перепись вызывающих в
+    не-тестовом дереве: третьих копий чтения носителя по литералу нет; остаётся
+    одна встроенная копия предиката в `meFromOwnSession` — находка C2.
+  - >-
+    Старшинство при двух предъявленных носителях объявлено РЕШЕНИЕМ, а не
+    порядком строк, и держится НАБЛЮДЕНИЕМ: дублёр чужой стороны считает
+    обращения, ноль — измеренная величина, а не объявление; дублёр отвечает
+    ЖИВОЙ сессией, то есть отказать в выигрыше не может.
+  - >-
+    Старшинство проверено на ОБЕИХ полосах одним прогоном (путь платформы и
+    `/iam/v1/auth/me` в одной цепочке боевой формы), законный близнец («носителя
+    нет вовсе») на месте — без него проба падала бы на любом запросе.
+  - >-
+    Порядок в множестве непредставим по устройству: поля
+    `config.SessionCarrierSet` неэкспортируемые, собрать значение иначе, чем
+    разбором, нечем, и проба утверждает равенство результатов на `own,external`
+    и `external,own`. Старшинство оператору не принадлежит — это удержано, а не
+    обещано.
+  - >-
+    Прежний гейт снят ВМЕСТЕ со своим требованием одним изменением
+    (`own_lane_readers_wiring_test.go`): двух правил об одном предмете в дереве
+    не осталось, остаточный предмет файла (ретрансляция формы — предмет
+    посадки) назван и сохранён, перепись печатает обе величины.
+  - >-
+    Гашение носителя намеренно НЕ привязано к множеству, довод записан, и проба
+    берёт перечень гасимых имён у производителя
+    (`middleware.SessionCarrierNames()`), а не выписывает его у себя; близнец
+    ловит рост перечня.
+  - >-
+    Чистая архитектура: разбор объявления — в `internal/config`, предикаты — в
+    `internal/middleware`, провязка — только в `cmd/api-gateway/main.go`
+    (композиционный корень). Обратных рёбер дифф не заводит.
+  - >-
+    Паники в рабочем пути нет; `log.Fatalf` — только в `cmd/api-gateway/main.go`
+    на старте (строки 178, 186), в обработке запроса — ни одного.
+  - >-
+    Контекст: новых `context.Background()`/`context.TODO()` в рабочем коде дифф
+    не вносит; `r.Context()` прокидывается в оба читателя. Внешний вызов чужой
+    стороны несёт свой предел (`middleware/kratos_session.go:96`,
+    `http.Client{Timeout: 5s}`) — существующий, не ослабленный этим диффом.
+  - >-
+    Журнал: `log/slog`, структурные поля, новая запись старта
+    (`main.go:188`) несёт только имена состояний и посадку — персональных
+    данных в ней нет.
+  - >-
+    Переиспользование: словарь сторон взят у фундамента пином, второго разбора
+    тех же имён не заведено; довод, почему словарь общий, записан у места.
+
+# ── суждение по вопросу задания: посторонняя ли правка `/iam/v1/auth/me` ────
+in_subject_ruling:
+  question: >-
+    Автор починил внутри этой же полосы дефект выбора читателя на
+    `/iam/v1/auth/me` («провязан» вместо «предъявлен»), не заводя отдельной
+    задачи. Внутри предмета или посторонняя правка в чужом PR?
+  ruling: ВНУТРИ ПРЕДМЕТА
+  grounds: >-
+    До этого диффа `h.humanSession != nil` было равносильно «посадка own», а под
+    `own` наш носитель — единственный читатель: «провязан» и «предъявлен»
+    совпадали, и разойтись им было негде. Представимым расхождение делает ровно
+    то состояние, которое ЭТОТ дифф и заводит (оба читателя живы). Посадить
+    множество без этой правки значило бы посадить наблюдаемую потерю входа:
+    человек с одной живой ЧУЖОЙ сессией проходит полосу личности и видит себя
+    невошедшим на маршруте, по которому консоль решает «вошёл ли я». Правка
+    поэтому не сторонний ремонт, а следствие собственного изменения, и по
+    ban14-production-grade («production-complete в своих границах») ей место в
+    том же PR. Проба на неё в том же диффе есть —
+    `TestBothCarriersWired_AForeignOnlyCarrierKeepsItsSignIn`. Отдельной задачи
+    не требуется.
+
+# ── объявления автора: что перемерено, что не моё ──────────────────────────
+authors_claims:
+  - claim: 'маркеров отсрочки в диффе 0'
+    status: подтверждено — перемерено своей командой на полном диффе
+  - claim: 'зелёных 819 (config 41 · middleware 596 · handler 16 · cmd 166), красных 0'
+    status: не моё — исход прогона объявляет landing-reviewer, перемеряет check-verifier
+  - claim: '`make lint` — 0 issues; `scripts/ci-local.sh go` — 22 проверки, отказов 0'
+    status: не моё — та же причина
+  - claim: '`-race` НЕ выполнен (нет компилятора C)'
+    status: >-
+      принято как «не выполнилось» — не зелёное и не красное, в зачёт проходу не
+      ставится. По коду отмечу: общего изменяемого состояния дифф не заводит —
+      `SessionCarrierSet` есть значение, читается один раз на старте и дальше
+      только копируется, — поэтому непрогнанный `-race` не несущий для находок
+      выше. Вердикт о прогоне остаётся за landing-reviewer.
+
+linter_probes_outcome: not-claimed-by-this-role
+
+# ── возврат ────────────────────────────────────────────────────────────────
+return_to: автор диффа feat/gateway-session-carrier-set
+next_requested: >-
+  автор диффа — C1, C2, C3; после фикса дайджест новый, роль повторяется на нём.
+  Каталог изменения в воркспейсе заведён как `gw-session-carrier-set`; если у
+  предмета есть номер задачи, перенос записи под `issue-<N>` — отдельным
+  изменением, чужих записей эта роль не трогала.

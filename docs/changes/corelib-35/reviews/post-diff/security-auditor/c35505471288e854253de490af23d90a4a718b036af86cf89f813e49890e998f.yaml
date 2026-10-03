@@ -1,0 +1,118 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность».
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл. Запись НЕ закоммичена — по заданию.
+schema_version: 1
+change_id: corelib-35
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+subject: >-
+  oauthceremony: идентификатор гранта чеканит крючок службы Config.NewGrantID
+  (обязателен, один вызов на грант, срок PortTimeout); живая запись хранилища
+  без GrantID — ErrPortContract (задача #35, волна #32)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '35 (от 32; `git rev-parse --verify origin/35` → нет, не отправлена)'
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  base_is: 'origin/32 (`git rev-parse origin/32` → 84b9be87f789); предок головы (`git merge-base --is-ancestor` → да)'
+  head: e5abaa5e06b45257b9c84253089a6e432502cc4f
+  head_tree: 9749b8a83ca321105b20ab7bb57e91a8d8cfc3e9
+  shortstat: '9 файлов, +628 / -1'
+content_digest: sha256:c35505471288e854253de490af23d90a4a718b036af86cf89f813e49890e998f
+digest_definition: 'git diff --full-index 84b9be87..e5abaa5e | sha256sum (перемерено — совпадает с заданием)'
+verdict: accepted              # ✅ принято — раунд сухой
+blocks_landing: false
+timestamp: '2026-09-23T17:14:09Z'
+return_to: '—'
+review_scope: >-
+  весь дифф (9 файлов); вне диффа прочитаны сборка обработчиков движка
+  (ceremony.go: код авторизации, оборот, PKCE, интроспекция, отзыв — других
+  видов гранта нет), все четыре читателя моста (bridge.go: код, токен доступа,
+  токен обновления, PKCE — каждый через requesterFromGrant, одно место),
+  fromPort/contractBreach/note/coarsenable, ProtocolError.Error, Ceremony.Revoke
+  и Introspect, TokenRevocationHandler движка, Request.GetID/SetID движка и все
+  их вызывающие в internal/oauth2 (без _test и заглушек).
+
+premise:
+  status: confirmed
+  how: >-
+    перепись мест, где движок назначает идентификатор запросу:
+    `command grep -rn 'SetID(' internal/oauth2 oauthceremony` без _test и
+    заглушек → 4 места: церемония ceremony.go:601 (выдача кода) и движок
+    flow_authorize_code_token.go:94, flow_refresh.go:87, flow_refresh.go:142 —
+    все три движковые копируют идентификатор из записи, выданной мостом.
+    Request.GetID (request.go:40) чеканит свой только на пустом ID; все
+    читатели записи отдают запрос с ID из записи и отказывают на пустом.
+    Вид гранта, где запрос токена рождается без записи (client_credentials,
+    implicit, PAR, OIDC), в сборке отсутствует. «Движок своего идентификатора
+    не чеканит ни на одном пути церемонии» (doc.go) на голове верно.
+
+answers:
+  hook_required: 'New без крючка отказывает, называя поле; проба красная при снятом отказе (I6).'
+  exactly_once: 'Authorize, DenyAuthorization, обмен, оборот, интроспекция, отзыв крючок не зовут; лишний вызов в Exchange — проба красная (I7).'
+  set_before_first_read: 'снятый SetID — движок чеканит свой, 11 красных (I3); все записи семейства (код, PKCE, токены после обмена и оборота) несут выданный крючком ID.'
+  hook_failure_and_empty: 'отказ крючка → server_error, пустой → port_contract, в обоих записей нет и кода клиенту нет; снятая проверка пустого — красная (I4).'
+  deadline: 'вызову крючка назначен PortTimeout; снятый срок — красная (I5).'
+  error_echo: >-
+    текст отказа крючка оседает только в Debug; ProtocolError.Error Debug не
+    печатает (errors.go:54-68), движку назначено SendDebugMessagesToClients=false
+    (ceremony.go:209). hard-no-err-echo держится.
+  stored_record_without_id: >-
+    все шесть путей чтения закрыты и громки: обмен кода, оборот, отзыв токена
+    обновления (проба в диффе; снятая проверка — 7 красных, I1) и, замером
+    вне дерева, интроспекция токена доступа (Active=false + port_contract, не
+    активный токен без семейства), отзыв токена доступа с подсказкой и без
+    (port_contract, вызовов порта отзыва 0 — не «успех без действия»), обмен
+    при записи PKCE без ID (port_contract); близнецы каждого — успех.
+  note_is_load_bearing: >-
+    снятое занесение в ведомость краснит ровно путь отзыва (3 красных, I2):
+    движок огрубил бы случай до temporarily_unavailable. Комментарий
+    translate.go об этом правдив.
+  ids_prefix: >-
+    tfm внесён в канон дефисных форм; NewHyphenID берёт энтропию из crypto/rand
+    (85 бит). Канон расширяет лишь форму, принимаемую validate.ResourceID;
+    маршрутизации по префиксу в corelib нет. Не находка.
+
+experiments:
+  workdir: '/home/dk/.cache/sec-audit-corelib-35 (git archive e5abaa5e; свой GOCACHE и TMPDIR вне git-деревьев)'
+  control: 'go test -count=1 -p 1 -json ./oauthceremony/ → 214 зелёных / 0 красных; ./ids/ → ok'
+  injections:
+    I1_read_check_removed: '207 / 7 красных — TestStoredGrantWithoutAnIDIsAPortContractBreach (3 пути)'
+    I2_note_dropped: '211 / 3 красных — только путь отзыва'
+    I3_setid_dropped: '203 / 11 красных — записи и интроспекция несут чужой ID'
+    I4_empty_check_dropped: '212 / 2 красных — случай пустого ID'
+    I5_port_deadline_dropped: '213 / 1 красный — TestGrantIDHookCallCarriesThePortDeadline'
+    I6_new_guard_dropped: '211 / 3 красных — обе пробы сборки'
+    I7_extra_call_in_exchange: '213 / 1 красный — TestGrantIDHookIsCalledOncePerGrant'
+  adhoc_uncovered_paths: >-
+    временный файл пробы (удалён после прогона): интроспекция и отзыв токена
+    доступа, обмен при записи PKCE — по паре «без ID / с ID»; исходы выше в
+    answers.stored_record_without_id.
+  race_and_lint: 'не гонялись этой ролью — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+findings:
+  high: []
+  medium: []
+below_bar:                      # ниже планки, не находки; планку решает владелец
+  - 'regression-lock пустого GrantID закрывает 3 пути из 6; остальные три держатся тем же единственным местом проверки и измерены вне дерева.'
+  - 'проводное описание отказа крючка называет хранилище (общий fromPort); случай и код верны, текст непрозрачен.'
+  - 'форма и уникальность ID крючка церемонией не сверяются — по замыслу, контракт переложен на службу (см. cross_repo).'
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    kind: condition            # условие на код потребителя, не находка corelib
+    text: >-
+      крючок Config.NewGrantID чеканит ids.NewHyphenID(ids.PrefixTokenFamilyHyphen);
+      уникальность ключа семейства держит схема (UNIQUE + CHECK формы), а запись
+      семейства ложится той же единицей работы, что запись кода, — дубликат
+      обязан отказывать выдаче, а не молча сливать семейства. Проба — на
+      наблюдаемом уровне: два гранта → два семейства, отзыв одного не трогает
+      другого.
+
+outside_role:
+  - 'первая строка коммита e5abaa5e — 81 знак при норме ≤72 (`git log -1 --format=%B | head -1`, длина в символах) — предмет landing-reviewer.'
+
+dry_round: true
+seen_keys: []
+next: 'сбор пост-дифф записей — convergence-reviewer либо landing-reviewer'

@@ -1,0 +1,163 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность».
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменится дайджест — новый запуск и новый файл. Запись лежит в копии
+# воркспейса ветки 825 и НЕ закоммичена.
+schema_version: 1
+change_id: corelib-36
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+subject: >-
+  corelib #36: сессия, acr и auth_time — поля AuthorizationGrant, SessionRecord и
+  IntrospectionResult. Один судья (loginContextDefect) на выдачу (ErrCeremonyMisuse) и на
+  запись из хранилища (ErrPortContract). Порча записи сеанса теперь заносится в ведомость
+  операции (requesterFromGrant).
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '36 (локальная; `git branch -a --contains 6289fbcf` → только 36; на origin ветки нет)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: 6289fbcf1ac7d9a07dab4dea5d90595e92a2a8db
+  head_tree: cf10606e7714b47be472f08c393deb0370ecabe8
+  shortstat: '13 файлов, +693 / -42'
+content_digest: sha256:16c9281c0849429b885e1f96b6b8d06873cfe04f21143b4d8d3cb1f4498404a9
+digest_definition: >-
+  git -C tmp/corelib-36 diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum;
+  merge-base = origin/32 = f213439a (перемерено `git ls-remote origin 32`); совпадает с заданием
+verdict: returned
+blocks_landing: true
+timestamp: '2026-09-23T21:03:58Z'
+return_to: go-implementer (полоса corelib #36)
+
+review_scope: >-
+  весь дифф (13 файлов, из них 6 прод-файлов прочитаны целиком по ханкам). Вне диффа
+  прочитаны: acrlevel/acrlevel.go (Rank, Satisfies); oauthceremony/ceremony.go 240-330
+  (набор обработчиков: код, оборот, PKCE, интроспекция, отзыв — выдач без контекста входа
+  нет), 644-705, 824-870, 942-1040, 1226-1257; bridge.go 64-130, 195-280, 405-450;
+  notes.go 1-340; translate.go 260-620; errors.go 1-80, 160-190; failure.go 1-140;
+  internal/oauth2/handler/oauth2/flow_refresh.go:48,88,108-112;
+  flow_authorize_code_token.go:33,93,170-173; internal/oauth2/request.go:164-181 (Sanitize
+  сохраняет сеанс). Тело corelib#36. Замысел LINE-A-1 ред. 14 (коммит 1881d023, sha256
+  ce859407…be052c): строки 1069, 2279 (E6), 2406-2407 (LAX-6, LAX-7), 2549-2561, 2998-3005.
+  Схема kaname@358: human_sessions (идентификатор строки отделён от свёртки носителя;
+  assurance_level CHECK '1'..'3'), token_families.session_id.
+  Прогоны на выгрузке головы (/home/dk/.cache/sec-audit-corelib-36/head, git archive
+  6289fbcf): `go test -count=1 -json ./oauthceremony/... ./acrlevel/...` → 410 pass, 0 fail.
+  Инъекции через -overlay (translate.go), все красны:
+  I1 Clone не копирует login → 9 провалов (8 верхнего уровня, в т.ч.
+  TestLoginContextIsOneSnapshotAcrossTheFamily); I2 hydrateSession не судит контекст
+  входа → 25; I3 requesterFromGrant не заносит порчу в ведомость → 19.
+  Проба F1 — на выгрузках головы и базы f213439a, файлы пробы вне дерева полосы.
+
+premise: >-
+  подтверждена. Снимок входа переносится без пересчёта: выдача → запись кода → обмен
+  (сеанс из записи кода) → оборот (Clone копирует login) → каждая запись и интроспекция.
+  Словарь уровня закрыт и один: acrlevel.Rank — точное совпадение строк, без нормализации;
+  годны "1".."3", как и CHECK у kaname. Отказ по порче записи несёт подробность только в
+  Debug (на провод не идёт); текст выдачи называет лишь значение, поданное самой службой.
+  Отказ ключам sid/acr/auth_time в Claims строже, чем «поле перекрывает ключ» из п. 3
+  предиката снятия; по оси безопасности это правильная трактовка: у значения одно место,
+  и порт выпуска не выбирает между двумя.
+
+findings:
+  - id: F1
+    severity: medium
+    key: 'corelib:oauthceremony/translate.go:replay-case-shadowed-by-session-breach'
+    at: >-
+      oauthceremony/translate.go:362-364 (строки диффа); затронутые, но не правленные
+      утверждения — bridge.go:219-220, 268-270, 410-413, 434-436; notes.go:38-40
+    sign: >-
+      requesterFromGrant теперь сам заносит в ведомость отказ hydrateSession. На двух путях
+      повтора (replayedCode и ветка обёрнутого токена в GetRefreshTokenSession) мост
+      помечает семейство и собирает запрос, а случай повтора заносит ПОСЛЕ отказа сборки.
+      Ведомость хранит первый случай, поэтому повтор больше не записывается. Операция
+      отвечает случаем port_contract (на проводе server_error), а не
+      authorization_code_consumed / refresh_token_rotated (invalid_grant). Семейство
+      по-прежнему отзывается. Но комментарии моста говорят «церемония ответит повтором», а
+      правило ведомости — что причиной считается первый отказ хранилища, и первым был
+      повтор. Для отказа сборки по справочнику клиентов инвариант закреплён пробой
+      TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily. Для отказа сборки по
+      записи сеанса близнеца нет, и дифф этот инвариант сломал.
+    failure_scenario: >-
+      хранилище службы отдаёт погашенный код или обёрнутый токен обновления вместе с записью,
+      которую hydrateSession не принимает. На этой ревизии таких записей больше: сюда
+      попадает и запись, чей адаптер ещё не переносит сессию, acr или auth_time. Затем
+      погашенный артефакт предъявляют повторно. Служба получает ErrPortContract вместо
+      случая повтора. Повтор — сигнал возможной кражи, и её журнал и реакция на этот сигнал
+      не срабатывают. Клиент получает server_error вместо invalid_grant. Отзыв по обёрнутому
+      токену (RFC 7009) отвечает отказом, хотя семейство отозвано. Это не обход контроля
+      (отзыв исполняется), а потеря классификации события безопасности и ложные
+      утверждения у самого контроля.
+    proof: >-
+      одна и та же проба на базе f213439a и голове 6289fbcf, порча одной записи
+      повторяемого артефакта (NotAfter с нулевым сроком — вид порчи, существовавший до
+      диффа):
+      база — refresh-replay/exchange refresh_token_rotated invalid_grant;
+      code-replay/exchange authorization_code_consumed invalid_grant;
+      refresh-replay/revoke nil; family_revoked=true во всех трёх.
+      голова — во всех трёх port_contract server_error, family_revoked=true.
+      На голове то же при SessionID="" и ACR="0". Близнец без порчи на обеих ревизиях
+      отвечает повтором. Интроспекция обёрнутого токена: база active=false, голова отказ
+      port_contract. Это fail-closed, не находка.
+    fix_direction: >-
+      признак для исполнителя, диагноз он вправе опровергнуть. На путях повтора случай
+      повтора обязан остаться ответом операции и тогда, когда запрос не собран из-за записи
+      сеанса. Например, заносить его в ведомость ДО сборки, а нарушение контракта оставить в
+      Debug/cause. Занесение порчи в ведомость на живых путях (отзыв и интроспекция живого
+      артефакта) сохраняется: его держит TestStoredRecordWithoutAGoodLoginContextIsAContractBreach,
+      и инъекция I3 это подтверждает. Закрепить пробой-близнецом
+      TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily: повтор кода и обёрнутого
+      токена с записью сеанса, которую не принимает hydrateSession. Ожидается: случай
+      повтора, invalid_grant, семейство отозвано с причиной повтора; отзыв обёрнутым
+      токеном отвечает nil. Если исполнитель решит, что нарушение контракта важнее повтора,
+      то тем же коммитом комментарии bridge.go:219-220, 268-270, 410-413, 434-436 и
+      notes.go:38-40 должны говорить именно это, и проба закрепляет такой ответ.
+
+below_bar:
+  - id: N1
+    severity: low
+    key: 'corelib:oauthceremony/logincontext.go:auth-time-not-bounded-by-issuance'
+    note: >-
+      судья отвергает только нулевой AuthTime. Момент аутентификации позже момента выдачи
+      (с учётом tokenpolicy.ClockSkew) проходит и на выдаче, и из хранилища. Значение
+      подаёт служба, не клиент. На него опираются проверки края по моменту аутентификации
+      (замысел, стр. 2998-3005). Направление: AuthTime ≤ момент выдачи + ClockSkew на
+      выдаче. Не блокирует.
+  - id: N2
+    severity: low
+    key: 'corelib:oauthceremony/types.go:session-id-is-identifier-not-bearer'
+    note: >-
+      SessionID хранится в каждой записи и называется интроспекцией. В шапке поля не
+      сказано, что это идентификатор сессии, а не её носитель. У kaname носитель отделён
+      (bearer_digest), так что сейчас это верно. Одна фраза в types.go закрыла бы это для
+      любого потребителя. Не блокирует.
+  - id: N3
+    severity: low
+    key: 'corelib:oauthceremony/types.go:rfc9470-section'
+    note: >-
+      ссылка «RFC 9470 §3» у acr/ACR (types.go, logincontext.go). В §3 определены
+      параметры вызова acr_values/max_age, а передача acr и auth_time в токене и
+      интроспекции описана в §6. Правдивость текста, не безопасность.
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    subject: >-
+      адаптер портов хранилища переносит SessionRecord.SessionID/ACR/AuthTime без потерь
+      во все три записи (код, токен доступа, токен обновления). Иначе после пина каждая
+      выборка — ErrPortContract, а пока F1 не исправлена, повтор тоже читается как
+      нарушение контракта. Решение о шаге вверх (acr_values выше уровня сессии, LAX-7)
+      остаётся за службой: церемония сверяет ACR только со словарём, не с запросом.
+      Прекращение семейства вместе с сессией (шапка AuthorizationGrant.SessionID) исполняет
+      служба. Отметка ended_at каскад не запускает, поэтому это отзыв семейства по сессии
+      (kaname #319, #322, #340), а не внешний ключ.
+
+relation_to_other_records:
+  issue_predicate: >-
+    п. 3 предиката снятия corelib#36 («в Claims ключи acr и auth_time с другими
+    значениями — в запись идут значения полей») исполнен отказом, а не перекрытием. По оси
+    безопасности отказ принимается. Сверку тела задачи с кодом при посадке ведёт
+    landing-reviewer.
+
+dry_round: false
+seen_keys:
+  - 'corelib:oauthceremony/translate.go:replay-case-shadowed-by-session-breach'

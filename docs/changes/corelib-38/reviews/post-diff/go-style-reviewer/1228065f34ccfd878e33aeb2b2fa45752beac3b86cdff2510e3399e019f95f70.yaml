@@ -1,0 +1,135 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 3.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса (ветка 805) и НЕ закоммичена — её коммитит оператор.
+schema_version: 1
+change_id: corelib-38
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 3
+previous_record: 320314834f3df969118793a54475920649112e79b78393572880b609fb7ea124.yaml
+subject: >-
+  oauthceremony: Config.Issuer снят вместе с проверками, настройками движка и пробами;
+  адрес точки отвергается, если разбор и обратная запись его меняют (задача #38, волна #32)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8   # merge-base(origin/32, head) = origin/32
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  head: 60184d279a72bb1b6197335761f792dc012fee86
+  head_tree: 05bb62d51a2b415656ec17435c56b0b8918f8133
+  round_delta: '834b52d586f7..60184d279a72 — 4 файла, +79 / -146'
+  head_is: 'ветка 38 в tmp/corelib-38: 3535e77, ead5a64, слияние 834b52d (origin/32 @84b9be8), 60184d2; не отправлена'
+  shortstat: '4 файла, +447 / -41 (полный дифф от base)'
+content_digest: sha256:1228065f34ccfd878e33aeb2b2fa45752beac3b86cdff2510e3399e019f95f70
+digest_definition: |
+  git diff --full-index $(git merge-base origin/32 60184d279a72bb1b6197335761f792dc012fee86)..60184d279a72bb1b6197335761f792dc012fee86 | sha256sum
+  (перемерено своей командой, merge-base = 84b9be87f789)
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-23T15:44:31Z'
+return_to: '—'
+review_scope: >-
+  дельта круга (4 файла) целиком; полный дифф от base для счёта маркеров и проб.
+  Вне диффа: все читатели GetAccessTokenIssuer / GetIDTokenIssuer в дереве, упоминания
+  issuer/издател в oauthceremony/ и по дереву вне internal/oauth2, наличие oauthceremony
+  в выпущенных тегах, потребители в kaname и kacho, тело задачи corelib#38.
+
+premise_checks:
+  - claim: 'издатель на пути церемонии не читает никто'
+    result: подтверждено
+    how: >-
+      git grep -n -E 'GetAccessTokenIssuer|GetIDTokenIssuer' 60184d2 -- '*.go' ':!*_test.go' —
+      вызывающих 2: internal/oauth2/handler/oauth2/strategy_jwt.go:126,
+      internal/oauth2/handler/openid/strategy_jwt.go:217; New строит только
+      NewHMACSHAStrategyUnPrefixed (ceremony.go:252).
+  - claim: 'новые отрицательные случаи «другого написания» красные без новой проверки'
+    result: подтверждено
+    how: >-
+      go test -overlay (ceremony.go без ветки `endpoint.String() != value`, TMPDIR вне git-деревьев,
+      git status копии не изменился): 10 подслучаев FAIL = 5 форм × 2 поля, плюс 1 родитель;
+      годные формы (6 × 2) зелёные. На голове: 56 PASS / 0 FAIL в двух пробах адресов.
+  - claim: 'снятие Config.Issuer не ломает выпущенный API'
+    result: подтверждено
+    how: "git ls-tree -r <tag> -- oauthceremony/ceremony.go для v1.5.0..v1.9.0 → 0; git grep oauthceremony в project/kaname@cbbac984b и project/kacho@1d42a6728bf → 0"
+
+round2_findings:
+  C2: >-
+    закрыта. git grep -nE 'cfg\.Issuer|Config\.Issuer' 60184d2 -- oauthceremony/ ':!*_test.go' → 0;
+    упоминаний issuer/издател в oauthceremony/ — 1, это пояснение у сборки настроек движка
+    (ceremony.go:192), и оно правдиво. Сняты обе проверки, AccessTokenIssuer и IDTokenIssuer,
+    случаи в пробах, TestNewRejectsAnIssuerWithoutAHost и утверждение в endpoints_internal_test.go.
+    go test ./oauthceremony/... -count=1 — код 0, 249 проб исполнено.
+  I2: >-
+    закрыта шире требования: validateEndpoint отвергает строку, не равную endpoint.String()
+    (ceremony.go:391-393). Хвостовой и неразрывный пробел, пробел внутри, буква не-ASCII,
+    схема в верхнем регистре отвергаются с именем поля; близнецы с экранированными знаками
+    проходят. Отказ — постоянный текст, значение не эхом.
+  S1: 'закрыта — шапка recordedRequest называет поле query (endpoints_internal_test.go:37-38)'
+  S2: 'закрыта — пустая строка как «как в наборе» снята, годная форма названа адресом'
+
+critical: []
+
+important:
+  - id: I3
+    tag: PROBE-HEADER-OVERCLAIMS
+    at: oauthceremony/ceremony_test.go:569-574
+    summary: >-
+      Шапка TestNewRejectsEveryUnnamedSetting называет годный набор «ровно теми полями, которые
+      церемония читает» и «предикатом того, что New не требует лишнего», где «лишнее» — поле,
+      которое New требует, но не читает. Проба этого не держит. Она держит только одно: New
+      принимает этот набор и сверх него ничего не требует. Если завести обязательное поле
+      без читателя (класс C2) и вписать его в `valid`, проба останется зелёной. Снятие C2
+      держится ревью, а не этой пробой.
+    requirement: >-
+      сузить шапку до того, что держится: New принимает этот набор, а каждый случай портит
+      одно поле. Либо удержать заявленное пробой, которая краснеет на обязательном поле без
+      читателя. Не блокирует.
+
+foundation_candidates: []
+foundation_candidates_note: 'дельта — сам фундамент; второго помощника разбора адреса в corelib нет'
+
+style:
+  - id: S3
+    at: oauthceremony/ceremony.go:392
+    summary: >-
+      Подсказка в отказе «write the address percent-encoded and in lower case» верна только для
+      пути и схемы. Хост не-ASCII, записанный экранированно, проходит обратную запись
+      (замер: "https://%D1%82%D0%B5%D1%81%D1%82.example/…" rt=true, Hostname "тест.example"),
+      хотя для публикации клиентам хост пишется A-меткой (xn--…). Кроме того, «in lower case»
+      при буквальном чтении предлагает понизить регистр пути, а путь к регистру чувствителен.
+    requirement: >-
+      назвать в подсказке, что к чему относится: путь — экранированно, хост не-ASCII — A-меткой,
+      схема — в нижнем регистре.
+
+non_code_notes:
+  - >-
+    Предикат 3 в теле corelib#38 («издатель с путём … не меняет TokenURL») после снятия
+    Config.Issuer потерял предмет. Проба TestEndpointsReachTheEngineAsNamedInConfig теперь
+    утверждает равенство адресам из Config в 4 случаях. Тело задачи стоит поправить при сдаче,
+    это предмет git-operator.
+
+checklist:
+  error_wrap: 'ок — отказы через misuse с постоянным текстом, поле названо, значение не эхом; errors.Is в пробах'
+  context: 'не затронуто'
+  no_panic: ок
+  slog: 'не затронуто'
+  naming: 'ок — в добавленных идентификаторах не-ASCII 0; кириллица только в именах подслучаев, строках и комментариях'
+  init_side_effects: нет
+  clean_arch: 'не затронуто (библиотека фундамента)'
+  lean_no_vestigial: 'ок — Config.Issuer снят вместе со всеми читателями в пробах'
+  doc_truthfulness: 'ок, кроме I3 — шапки Config, New и validateEndpoint совпадают с кодом на голове'
+
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: "git diff 84b9be8..60184d2 -U0 | grep '^+' | grep -c -E 'TODO|FIXME|XXX|HACK|t\\.Skip' → 0"
+tests_in_same_pr: true
+security_comments_contradicting_code: []
+trailers_check: 'git log --format=%B 84b9be8..60184d2 | grep -c -i -E "Co-Authored-By|Claude-Session|Generated with" → 0; первые строки «#38 …»'
+runs:
+  - 'go test ./oauthceremony/... -count=1 -json @60184d2: 249 pass / 0 fail / 0 skip, пакет pass, rc=0'
+  - 'overlay без проверки обратной записи: TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress — 10 подслучаев FAIL, годные зелёные'
+  - 'две пробы адресов @60184d2: 56 PASS; перепись «полей 2 · годных форм 6 · негодных форм 19 · случаев 50», «перехвачено запросов 4» ×4'
+  - 'go run: проба url.Parse/String на 10 краевых формах (хост не-ASCII, A-метка, IPv6 с зоной, пустой порт, sub-delims в пути)'
+  - 'перед прогонами: MemAvailable 37 ГБ, чужих golangci-lint и pre-push 0; -race и линт не перегонялись — их перемер у check-verifier'
