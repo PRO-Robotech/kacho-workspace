@@ -227,7 +227,6 @@
 1	response-shape-changed-check-did-not
 2	rounds-discover-classes-gates-hold-them
 1	rpc/<service>
-1	sec-hat-provider-admin-hop-terminator
 1	self-expiry-made-vacuous-by-its-own-change
 5	step-up-acr-sensitive-only
 1	sub-phase-T3.3-unify-iam-label-scope-acceptance
