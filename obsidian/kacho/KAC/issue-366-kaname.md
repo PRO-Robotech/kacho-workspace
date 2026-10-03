@@ -5,7 +5,7 @@ aliases:
   - волна-3 kaname identity-own
 ticket_id: 366
 category: kac
-status: test
+status: done
 type: epic
 repos:
   - kaname
@@ -47,6 +47,8 @@ verified_against: "PRO-Robotech/kaname, 2026-10-01: коммит слияния 
 > Трекер волны закрыт 2026-09-29T17:36:05Z, её задачи — каскадом тем же заходом. В `main`
 > службы волна не влита: запрос эпика kaname#359 — черновик. Поэтому `test` до посадки эпика,
 > см. [[KAC/issue-357-kaname]].
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-29 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 
