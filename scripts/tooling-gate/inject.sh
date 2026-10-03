@@ -1368,6 +1368,48 @@ if mr_patch "$b/$MR_REL" 's/^LINE_BRANCH_RE=\x27.*\x27$/LINE_BRANCH_RE=\x27^[[:d
     run 0 "$b" "близнец: форма ветки линии другой записью — молчит" "$C09"
 fi
 
+# ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА (ws#909) ───────────────────────────────────────
+# Предмет — PR синхронизации вниз, чья голова — ветка эпика или волны: вливание её
+# снимает (kaname#576). Каждая порча роняет одно решение и обязана покраснить
+# держащую его пробу CL-*; близнец пишет то же решение другой формой и молчит.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(        echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — голова PR будет снята вливанием"\n)        exit 1\n/$1/m' \
+    "вниз пропускается к проверкам"; then
+    run_c09_red "$b" "инъекция: голова-уровень вниз пропущена к проверкам — краснеет" \
+        CL-DOWN CL-WAVE-DOWN CL-EPIC-LABEL CL-CROSS-PARENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  head_epic=\$\(jq -r ).*$/$1\x27 0\x27 <"\$issue_file")/m' \
+    "метка epic не судится"; then
+    run_c09_red "$b" "инъекция: метка epic не делает уровнем — краснеет" CL-EPIC-LABEL
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$\{parent_url,,\}" = "https:\/\/github\.com\/\$\{REPO,,\}\/issues\/\$\{base%%-\*\}" \]; then/if [ "\${parent_url##*\/}" = "\${base%%-*}" ]; then/' \
+    "родитель сверяется только номером"; then
+    run_c09_red "$b" "инъекция: родитель из чужого репозитория с номером базы — вверх — краснеет" CL-CROSS-PARENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  \[ "\$rc" -eq 0 \] \|\| )cascade_unknown "задача .*$/$1printf \x27{}\x27 >"\$issue_file"/m' \
+    "непрочитанная задача — не уровень"; then
+    run_c09_red "$b" "инъекция: непрочитанная задача головы засчитана «не уровнем» — краснеет" CL-ISSUE-403
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/elif ! jq -e \x27\.message == "No parent issue found"\x27 >\/dev\/null 2>&1 <"\$parent_file"; then/elif false; then/' \
+    "непрочитанный родитель — «родителя нет»"; then
+    run_c09_red "$b" "инъекция: отказ чтения родителя засчитан «родителя нет» — краснеет" CL-PARENT-403
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$head_subs" -eq 0 \] && \[ "\$head_epic" -eq 0 \]; then/if [ \$(( head_subs + head_epic )) -eq 0 ]; then/' \
+    "признак уровня другой записью"; then
+    run 0 "$b" "близнец: признак уровня каскада другой записью — молчит" "$C09"
+fi
+
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C09"
 
