@@ -4,7 +4,7 @@ aliases:
   - issue-2881
 ticket_id: 2881
 category: kac
-status: to-do
+status: done
 type: fix
 repos:
   - kacho
@@ -13,6 +13,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2881
 opened: 2026-09-26
+closed: 2026-09-30
 tags:
   - kac
   - fix
@@ -26,6 +27,8 @@ verified_against: "PRO-Robotech/kacho: трекер — задача откры�
 `size:S`, `area:ui`, `area:ci`, `release:platform`; родителя нет. Заведена 2026-09-26T12:15:18Z
 по итогам выкатки линии эпика `2564` (координата, не живая ссылка). Роль — `deploy-engineer`.
 Работы по ней нет.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-30 (`completed`); эпик kacho#2564 влит в `main` запросом #2824 2026-10-02 коммитом слияния `e702195f599` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

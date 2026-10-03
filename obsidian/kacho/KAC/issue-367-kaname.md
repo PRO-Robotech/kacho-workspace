@@ -5,7 +5,7 @@ aliases:
   - волна-4 kaname identity-own
 ticket_id: 367
 category: kac
-status: test
+status: done
 type: refactor
 repos:
   - kaname
@@ -48,6 +48,8 @@ verified_against: "kaname 357@73dc6598c (дерево 5bdd770f6) и main@cbbac98
 > слияния не было. Задача закрыта 2026-09-30, её задачи — каскадом тем же заходом. В `main`
 > службы волна не влита: запрос эпика [kaname#359](https://github.com/PRO-Robotech/kaname/pull/359)
 > открыт черновиком (замер 2026-09-30), поэтому здесь `test`, и у каждой задачи волны тоже.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-30 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]]. Сказанное выше о том, что работа не в `main`, верно на дату своей записи.
 
 ## Что и зачем
 

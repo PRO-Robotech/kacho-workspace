@@ -29,6 +29,8 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммит e5d1e4
 эпика `771` (координата, не живая ссылка) коммитом слияния `3956217c`; `status:test` снята, метки:
 `bug`, `tech-debt`, `P2`, `size:M`, `area:tooling`, `release:gates`, `release:identity-own`. В `main` работа **не** доехала: посадка эпика #771 в ствол — предмет эпика, а не задачи; закрытая каскадом задача — `done` (`git-issues.md#gi-close-cascade`, решение владельца 2026-09-26).
 
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-26 (`completed`); эпик ws#771 влит в `main` запросом ws#777 2026-10-01 коммитом слияния `9fb4acd99f9` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
+
 ## Что и зачем
 
 Храповик `scripts/comment-language-gate` по стволам трёх чужих репозиториев требовал «убыло —
