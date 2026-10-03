@@ -4,7 +4,7 @@ aliases:
   - issue-1276
 ticket_id: 1276
 category: kac
-status: to-do
+status: done
 type: refactor
 repos:
   - kacho
@@ -15,6 +15,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1276
 opened: 2026-08-24
+closed: 2026-10-01
 tags:
   - kac
   - refactor
@@ -25,6 +26,8 @@ verified_against: "PRO-Robotech/kacho: трекер — задача откры�
 # kacho#1276: снятие компонента чужой личности — чарты, база, гейты, спеки
 
 **Состояние на момент записи**: `to-do` — 2026-09-26. Задача **открыта**, метки: `tech-debt`, `blocked`, `P2`, `size:L`, `area:deploy`, `release:identity-own`; родитель — волна-4 kacho#2798. Тело несёт `Blocked by #1274`, а [[KAC/issue-1274|#1274]] закрыта 2026-09-26T09:40:55Z вместе с волной #2796 — метка `blocked` пережила свой блокер. Работы по задаче нет.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-10-01 (`completed`); эпик kacho#2564 влит в `main` запросом #2824 2026-10-02 коммитом слияния `e702195f599` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

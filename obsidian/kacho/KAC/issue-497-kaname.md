@@ -5,7 +5,7 @@ aliases:
   - волна-6 kaname identity-own
 ticket_id: 497
 category: kac
-status: test
+status: done
 type: epic
 repos:
   - kaname
@@ -19,6 +19,7 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/498
 issue_url: https://github.com/PRO-Robotech/kaname/issues/497
 opened: 2026-10-01
+closed: 2026-10-02
 tags:
   - kac
   - kacho-iam
@@ -34,6 +35,8 @@ verified_against: "PRO-Robotech/kaname, 2026-10-01T07:56Z: коммит слия
 > Трекер волны **открыт**: предикат закрытия на голове `357` не сошёлся (комментарий вливания
 > 2026-10-01T07:30Z), все три задачи открыты со `status:test`. Артефакт волны в ветке эпика есть,
 > ждёт он закрытия задач и посадки эпика в `main` — отсюда `test`, а не `in-progress`.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-10-02 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

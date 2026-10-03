@@ -4,7 +4,7 @@ aliases:
   - issue-2778
 ticket_id: 2778
 category: kac
-status: to-do
+status: done
 type: fix
 repos:
   - kacho
@@ -15,6 +15,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2778
 opened: 2026-09-22
+closed: 2026-09-30
 tags:
   - kac
   - kacho-api-gateway
@@ -27,6 +28,8 @@ tags:
 **Состояние на момент записи**: `to-do`. Задача **открыта**, PR нет
 (`gh issue view 2778 --repo PRO-Robotech/kacho --json state` → `OPEN`, 2026-09-22).
 Часть эпика `kacho#2564`, метка линии `release:identity-own`.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-30 (`completed`); эпик kacho#2564 влит в `main` запросом #2824 2026-10-02 коммитом слияния `e702195f599` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 
