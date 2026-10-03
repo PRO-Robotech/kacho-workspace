@@ -1,0 +1,196 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: a49b712571b5af906e1d81c64e22f09fdb15a0a775db35996543b8e401242f68
+  revision: 21
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке строка редакции 21 говорит «вердикта на неё НЕТ». Эта запись шапку не правит, так и
+    задумано: вердикт привязан к отпечатку, а не к слову в заголовке.
+  base_commit: 5f65e0036cfe584ce72d4cac29144343c64a0bdf
+  content_commit: null
+  content_commit_note: >-
+    Редакция 21 не закоммичена, она лежит в рабочем дереве ветки issue-880. `git show HEAD:<путь> |
+    sha256sum` даёт 1bffe10d… (редакция 19, одобрена). Рабочий файл даёт a49b7125…. Судится рабочий
+    файл по его отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3300
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-03T22:00:00Z'
+round: 1
+round_note: >-
+  Это круг 1 прохода редакции 21 (по документу — круг двадцать первый), режим Д97: один круг,
+  блокирующим считается только дефект корректности или безопасности, у которого есть предикат.
+  Редакции 20 в дереве нет, поэтому дельту 20→21 нельзя получить командой. Её предмет взят из строк
+  §9 «21» и сверен построчно с `git diff HEAD -- <путь>` (294 строки добавлено, 7 удалено, против
+  одобренной 1bffe10d…). Одобренные на 1bffe10d… разделы не переоткрыты. Части группы P, внесённые
+  редакцией 20 и в редакции 21 не изменённые, тоже заново не судились.
+previous_rounds:
+  - {round: "20 (круг 1 прохода редакции 20)", sha256: 5abe23366aa798859b4b04360d18ec5bfdd9c31aced44b050da3621ce5ef2bd8, verdict: CHANGES_REQUESTED}
+  - {round: "19 (круг 1 прохода редакции 19)", sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+
+prior_findings_closure:
+  R20-1:
+    status: closed
+    evidence: >-
+      Добавлен NTF1-P13. В нём проверяются обе стороны каждой границы (9 с и 10 мин 1 с; 59 с и 24 ч 1 с)
+      и отдельно для каждой ручки — что она не задана. Текст отказа называет ручку и нарушенную
+      границу. Близнец — значения ровно на границах. Есть строка §6.1 на `services/notify/internal/config/*_test.go`
+      с инъекцией «граница снята», строка §6.2 и пункт DoD 20. Р19 «Ручки и границы» ссылается на P13.
+  R20-2:
+    status: closed
+    evidence: >-
+      Появилась строка средств «старт notify в любой пробе». Она поставляет исправную зону испытания P01
+      каждому integration-старту и процедурному старту, в том числе в группах G, H, K, L03–L05 и P.
+      Для I06 заведена строка «зона испытания отдельной установки», Given I06 называет зону, строка I06
+      в §6.1 называет посев. DoD 17 — `dev-prod` как профиль стенда с посевом. DoD 22 утверждает
+      готовность на `dev-prod` с посевом, а установка оператора без записей в нём — отказ старта
+      P04…P08, P15, P16. Все три пути из R20-2 (I06, DoD 22, прочие integration-старты) названы.
+  R20-nonblocking:
+    status: closed
+    evidence: >-
+      P14 — отказ загрузки ключа и селектора, P15, P16 — записи DKIM или DMARC нет. Производители в
+      строке шапки редакции 21 названы через `dnscheck` и `dkim`.
+
+delta_passed:
+  producer: >-
+    У P13, P14, P15, P16, P17 и P18 есть строки §6.1. Способность упасть задана инъекциями: «граница
+    снята», «ошибка разборщика в тексте отказа», «страж сведён к `return nil`» (P15 и P16 вошли в
+    перечень DoD 21) и «перечитывание снято». Ответ `/healthz` в P08 держит инъекция «страж перенесён
+    до подъёма диагностической поверхности».
+  twins: >-
+    P13, P14, P15, P16 и P18 получили по строке §6.2, и каждая пара отличается одним фактом.
+  rotation_constructibility: >-
+    Перечитывание ключа во время работы требует файла тома, а не переменной окружения. В замысле
+    df2ce53e… §8 так и есть: `KACHO_NOTIFY_DKIM_KEY_FILE` и `_SELECTOR_FILE`, том без `subPath`.
+    Значит, P17 построится и на поде, а не только через порт в пробе.
+  d101: >-
+    Р19 «Адрес возврата в NTF-1»: envelope `MAIL FROM` — адрес отправителя установки. Части, которым
+    нужен отдельный домен возврата, остаются в NTF-4. Это совпадает с Д101.
+  d100_d103: >-
+    Д100 (носитель `notify-api` в Основе, волна Н3-Ф3а) и Д103 (R41-1, R41-2, N41-3, N41-4) — предмет
+    замысла и NTF-4, этой приёмки они не касаются. Замысел df2ce53e… закрывает Д103 переносом текста с
+    отпечатком источника df1ce64d…. Ссылок на NTF-4, которые требовали бы закрепления отпечатком, дельта
+    приёмки не вносит.
+
+blocking_count: 1
+blocking_kinds_distinct: [CONSTRUCTIBILITY]
+blocking_findings:
+  - id: R21-1
+    kind: CONSTRUCTIBILITY
+    where: "NTF1-P12, последний пункт «And» (инъекции и близнец); §6.2, строка «P12 (инъекция `dnsConfig` в `values.a8f60d.yaml`) | P12 (`dnsConfig` в `values.dev.yaml`)»"
+    claim: >-
+      Инъекция «`dnsConfig` пода notify в `values.a8f60d.yaml` → красный `a8f60d`» и близнец «`dnsConfig`
+      в `values.dev.yaml` → зелёный» не могут выполниться оба. Цепочка `a8f60d` целиком включает
+      `values.dev.yaml` (`deploy/stacks.txt`: `a8f60d:values.dev.yaml,values.dev-prod.yaml,values.a8f60d.yaml`).
+      Есть два варианта.
+      (1) Держатель судит слитые значения, как сказано в When P12. Тогда `dnsConfig`, объявленный в
+      `values.dev.yaml`, наследует профиль `a8f60d` с признаком «нет», и близнец краснеет с именем
+      `a8f60d`.
+      (2) Держатель судит рендер. В `a8f60d` notify не рендерится (Д102), и в `prod` тоже (перечень
+      пуст). Значит, `dnsConfig` пода notify, вписанный в values этих профилей, рендер не меняет,
+      инъекции зелёные, и держатель свойства Д102 упасть не может.
+      Ключа «`dnsConfig` пода notify» в values нет и в замысле df2ce53e…: под зоной стенда стоит одно
+      объявление `global.kacho.standDNS {enabled, serviceIP, clusterDomain}` и помощник
+      `notify.dnsConfig`. Профиль `a8f60d` наследует `standDNS` от `values.dev.yaml` и снимает его в
+      `values.a8f60d.yaml` значением `enabled: false`. Замысел держит P12 иначе: (в) `standDNS.enabled:
+      true` ⇒ признак `stand` судится по слитым значениям. Его инъекции — `standDNS.enabled: true` в
+      `values.a8f60d.yaml` и в `values.prod.yaml`, а также ключи пробы `a8f60d` сняты, отчего notify
+      попадает в рендер. В приёмке этих инъекций нет. Свойство, ради которого существует Д102 (страж не
+      должен проходить на собственном посеве в профиле с настоящей почтой), остаётся без держателя,
+      способного упасть.
+    predicate: >-
+      grep '^a8f60d:' project/kacho/deploy/stacks.txt → цепочка начинается с values.dev.yaml;
+      sed -n '2793p;2802,2803p' <NTF-1> — When «слитые значения», инъекция `dnsConfig` в
+      `values.a8f60d.yaml` и в `values.prod.yaml`, близнец в `values.dev.yaml`;
+      grep -n 'standDNS' <NTF-1> → 0 вхождений; grep -n 'standDNS' docs/changes/issue-2915/design.md →
+      §8 (4431), таблица профилей (5109–5115), держатель P12 (5146–5155).
+    fix: >-
+      В P12 и §6.2 назвать то, что держатель судит, по слоям. Слитые значения: «объявление зоны стенда
+      включено ⇒ признак `stand`». Инъекции: включение в `values.a8f60d.yaml` → красный `a8f60d`;
+      включение в `values.prod.yaml` → красный `prod`; ключи пробы `a8f60d` сняты, notify попал в
+      рендер → красный `a8f60d`. Рендер: у профиля `stand`, где notify рендерится, у пода есть
+      `dnsConfig`; у профиля не `stand` его нет. Близнец — `values.dev.yaml` как есть: `dev`, `dev-prod`,
+      `prorobotech` и `fe3455` зелёные, а `a8f60d` зелёный, потому что наследование из `values.dev.yaml`
+      снято его собственным файлом. Само наследование назвать в Р19 «Профиль стенда» одной фразой. Имя
+      ключа в приёмке можно не повторять, достаточно формы «объявление зоны стенда в values».
+
+non_blocking:
+  - kind: PRODUCER
+    note: >-
+      У близнеца P13 вторая половина звучит «notify на зоне испытания NTF1-P01 готов». Строка §6.1 P13
+      называет только `go test ./services/notify/internal/config/...`, а unit-проба загрузчика готовности
+      не наблюдает. Надо либо оставить в близнеце «загрузчик принимает», либо внести эту половину в строку
+      integration-стража.
+  - kind: COVERAGE
+    note: >-
+      Р19 «Ключ и селектор при старте» перечисляет как отказ и «селектор вне формы имени DNS». В P14 шесть
+      причин, а этой среди них нет. Исход здесь всё равно закрытый: такой селектор даст отказ `dkim` по
+      P15. Но текст отказа, который обещает Р19, ни одна проба не утверждает.
+  - kind: COVERAGE
+    note: >-
+      У проверки SPF «ровно одна запись `v=spf1`» отрицание есть только с одной стороны: две записи
+      (P07). Случай «записи нет» не утверждается.
+  - kind: FORMAT
+    note: >-
+      Приёмка говорит, что ключ и селектор лежат «в объекте секрета почты» (Р19, P14, P17, DoD 22). В
+      замысле §8 у DKIM свой узел `global.kacho.identity.smtp.dkim {secretName, …}`, а посев D10 создаёт
+      «объект ключа DKIM стенда». Надо назвать, один это объект или два, иначе проба I01 «секрет
+      смонтирован ровно в notify» допускает два прочтения.
+  - kind: DoD
+    note: >-
+      DoD 22 называет профили без notify в рендере (`prod`, `a8f60d`), но не называет `own`. Профиль
+      `fe3455` после D2 по замыслу — `stand`. Перечисление стоит выровнять с таблицей профилей замысла.
+
+out_of_subject_notes:
+  - >-
+    Д100: носитель `notify-api` и правила «ключ DKIM только в `notify-sender`» — это замысел и NTF-4.
+    На посадку NTF-1 развёртывание одно, и формулировки группы P («notify») ему не противоречат.
+
+measurement:
+  fingerprint: "sha256sum <путь> → a49b7125…; git show HEAD:<путь> | sha256sum → 1bffe10d… (одобрена)"
+  delta: "git diff --numstat HEAD -- <путь> → 294 добавлено, 7 удалено (накопительно 19→21; редакции 20 в дереве нет)"
+  scenarios_p: "12 строк `**ID:** NTF1-P` и 6 строк таблицы P04–P07, P15, P16 → 18"
+  profiles: "project/kacho/deploy/stacks.txt @ba01514b98b: 7 профилей — dev, dev-prod, prod, own, fe3455, prorobotech, a8f60d"
+  seeding: >-
+    Посев не ставился: стенда с зоной и фикстуры зоны испытания в дереве ещё нет, а задание посев не
+    называло. Конструируемость P13…P18 (значения ручек, ключи RSA 1024 и не RSA, строка-маркер,
+    отсутствие записи, смена пары под управляемыми часами) опирается на названную фикстуру «зона DNS
+    испытания» и на загрузчик. Посеяно 0 из 18, «не выполнилось» 18. R21-1 найдено чтением цепочки
+    `deploy/stacks.txt`, без посева.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 5f65e0036cfe584ce72d4cac29144343c64a0bdf
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  role: acceptance-reviewer
+  subject_sha256: a49b712571b5af906e1d81c64e22f09fdb15a0a775db35996543b8e401242f68
+  declared_verdict: 'CHANGES_REQUESTED'
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: "Рецензент событие не публикует. Тело для курьера лежит в event_body_for_courier."
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода редакции 21, блокирующих 1: CONSTRUCTIBILITY)
+    · SHA-256 a49b712571b5af906e1d81c64e22f09fdb15a0a775db35996543b8e401242f68
