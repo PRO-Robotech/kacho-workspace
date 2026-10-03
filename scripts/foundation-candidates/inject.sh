@@ -573,6 +573,43 @@ expect K7 "близнец: ни ведомости, ни гейта — 2, а н
 expect K7 "близнец: причина строкой [VOID] — гейта нет" да "$(says "$r" '\[VOID\].*ни гейта')"
 expect K7 "близнец: НАБОР — код 2" 2 "$(set_rc "$r")"
 
+echo "── ОСЬ L · ОБЁРТКА TestMain — НЕ ПРЕДМЕТ, НО ТОЛЬКО ОБЁРТКА (ws#903)"
+echo "   Две копии файла в двух пакетах kacho; ведомость объявляет ноль. Близнец —"
+echo "   обёртка, зовущая пакет фундамента: язык требует её в каждом пакете, и"
+echo "   предметом она не считается. Каждый дефект отличается от близнеца ОДНИМ"
+echo "   фактом: L1 — рядом объявлена вторая функция; L2 — зовётся пакет продукта,"
+echo "   а не фундамента; L3 — файл не тестовый."
+# shim <каталог> <пакет> <путь импорта> <имя файла> [лишнее объявление]
+shim() {
+    mkdir -p "$1"
+    { printf 'package %s\n\nimport (\n\t"os"\n\t"testing"\n\n\t"%s"\n)\n\n' "$2" "$3"
+      printf 'func TestMain(m *testing.M) {\n\tos.Exit(%s.Run(m, %s.Config{Name: "probe"}))\n}\n' \
+          "${3##*/}" "${3##*/}"
+      [ -n "${5:-}" ] && printf '\n%s\n' "$5"
+    } > "$1/$4"
+}
+for side in twin L1 L2 L3; do
+    r="$WORK/L-$side"; build "$r"
+    imp="github.com/PRO-Robotech/corelib/pgtest"; file="testmain_pgtest_test.go"; extra=""
+    case "$side" in
+        L1) extra='func helper() string { return "x" }' ;;
+        L2) imp="github.com/PRO-Robotech/kacho/pkg/pgtest" ;;
+        L3) file="testmain_pgtest.go" ;;
+    esac
+    for svc in alpha beta; do
+        shim "$r/project/kacho/services/$svc/internal/repo" "repo_test" "$imp" "$file" "$extra"
+    done
+    for p in kacho kaname corelib; do seal "$r/project/$p"; done
+    ledger "$r" 0 0 0
+    if [ "$side" = twin ]; then
+        expect L "близнец: две обёртки фундамента — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect L "близнец: обёртки названы в переписи" да "$(says "$r" 'обёрток TestMain снято 2')"
+    else
+        expect "$side" "дефект: та же пара — предмет, ведомость занижена" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect "$side" "дефект: обёрток не снято" да "$(says "$r" 'обёрток TestMain снято 0')"
+    fi
+done
+
 echo
 echo "inject foundation-candidates: сошлось $pass, разошлось $fail"
 [ "$fail" -eq 0 ] || exit 1

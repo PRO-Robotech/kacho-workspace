@@ -124,6 +124,64 @@ _COMMENT = re.compile(r"^\s*(//|/\*|\*/|\*)")
 _LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 _IMPORT_LINE = re.compile(r'^\s*(?:[A-Za-z_.][\w]*\s+)?"([^"]+)"')
 
+# ОБЁРТКА TestMain — НЕ ПРЕДМЕТ (ws#903). `TestMain` объявляется в КАЖДОМ
+# пакете, которому он нужен: разделить его между пакетами язык не позволяет,
+# поэтому файл, чья ВСЯ работа — вызов пакета фундамента, существует в N
+# копиях по построению, а его предмет уже живёт в фундаменте одним экземпляром.
+# Вынести такой файл некуда, и храповик, считавший его предметом, краснел на
+# каждом новом тестовом пакете со стандартной обёрткой — на штатном состоянии
+# (`cachedverdictmain_test.go` → `corelib/treecorpus`, `testmain_pgtest_test.go`
+# → `corelib/pgtest`).
+#
+# Признак УЗКИЙ и проверяется целиком: файл `_test.go`; объявление верхнего
+# уровня в нём ровно ОДНО, и это `func TestMain(<имя> *testing.M)`; тело зовёт
+# пакет, импортированный из модуля фундамента. Вторая функция, тип, переменная
+# или константа рядом — и файл снова предмет: копируемая логика уже не только
+# вызов фундамента. Пара проб в `inject.sh` (ось L) держит обе стороны.
+_TOPDECL = re.compile(r"^(func|type|var|const)\b")
+_TESTMAIN = re.compile(r"^func\s+TestMain\s*\(\s*\w+\s+\*testing\.M\s*\)\s*\{")
+_IMPORT_NAMED = re.compile(r'^\s*(?:([A-Za-z_][\w]*)\s+)?"([^"]+)"')
+
+
+def testmain_shim(rel, text):
+    """Путь импорта фундамента, который зовёт обёртка `TestMain`, либо None."""
+    if not rel.endswith("_test.go"):
+        return None
+    names, inside, decls, body = {}, False, [], []
+    for raw in text.split("\n"):
+        if _COMMENT.match(raw):
+            continue
+        st = raw.strip()
+        if st.startswith("import ("):
+            inside = True
+            continue
+        if inside:
+            if st.startswith(")"):
+                inside = False
+                continue
+            m = _IMPORT_NAMED.match(raw)
+            if m:
+                names[m.group(1) or m.group(2).rsplit("/", 1)[-1]] = m.group(2)
+            continue
+        if st.startswith("import "):
+            m = _IMPORT_NAMED.match(st[len("import "):])
+            if m:
+                names[m.group(1) or m.group(2).rsplit("/", 1)[-1]] = m.group(2)
+            continue
+        if _TOPDECL.match(raw):
+            decls.append(raw)
+            continue
+        if decls:
+            body.append(raw)
+    if len(decls) != 1 or not _TESTMAIN.match(decls[0]):
+        return None
+    joined = "\n".join(body)
+    for name, path in sorted(names.items()):
+        if (path == FOUNDATION_MODULE or path.startswith(FOUNDATION_MODULE + "/")) and \
+                re.search(r"\b%s\." % re.escape(name), joined):
+            return path
+    return None
+
 
 def clone(root, name):
     """Путь клона продукта либо None. Тот же порядок, что у crossrepo-gate."""
@@ -411,11 +469,15 @@ class Tree(object):
         self.paths = go_paths(repo, ref) or []
         self.text = read_blobs(repo, ref, self.paths)
         self.norm, self.pkg_imports, self.pkg_literals, self.pkg_files = {}, {}, {}, {}
+        self.shims = set()
         for p, t in self.text.items():
             d = os.path.dirname(p)
             self.pkg_files.setdefault(d, []).append(p)
             self.pkg_imports.setdefault(d, set()).update(imports_of(t))
             self.pkg_literals.setdefault(d, set()).update(literals_of(t))
+            if testmain_shim(p, t):
+                self.shims.add(p)
+                continue
             lines = normalize(t)
             if len(lines) >= MIN_LINES:
                 self.norm[p] = lines
@@ -750,6 +812,7 @@ def measure(root, threshold=0.70, relicense_busl=False, relicense_agpl=False, re
         "trees": {n: (t.repo, t.ref, getattr(t, "sha", t.ref), len(t.paths))
                   for n, t in trees.items()},
         "walked": walked, "comparable": comparable, "threshold": threshold,
+        "shims": sum(len(t.shims) for t in trees.values()),
         "subjects": len(subjects), "subject_files": subject_files,
         "second_home_dirs": second_home_dirs,
         # Файлы КАЖДОГО пакета ствола: этим `check-01` проверяет, что координата
