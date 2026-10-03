@@ -1,0 +1,142 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db
+  revision: 22
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке строка редакции 22 говорит «вердикта на неё НЕТ». Эта запись шапку не правит, так и
+    задумано: вердикт привязан к отпечатку, а не к слову в заголовке.
+  base_commit: e68a3945115869300ef640b53fa00715355fb512
+  content_commit: null
+  content_commit_note: >-
+    Редакция 22 не закоммичена, она лежит в рабочем дереве ветки issue-880. `git show HEAD:<путь> |
+    sha256sum` даёт 1bffe10d… (редакция 19, одобрена). Рабочий файл даёт c19490f9…. Судится рабочий
+    файл по его отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3331
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-03T23:00:00Z'
+round: 1
+round_note: >-
+  Это круг 1 прохода редакции 22 (по документу — круг двадцать второй), режим Д97: один круг, блокирующим
+  считается только дефект корректности или безопасности, у которого есть предикат. Редакции 21 в дереве нет,
+  поэтому дельта 21→22 командой не получается. Её предмет взят из строк §9 «22» и шапки редакции 22 и сверен
+  с текстом в местах правки: P12, Р19 «Профиль стенда», Р19 «Подпись», «Ключ и селектор при старте», P13, P14,
+  таблица P04–P07, P15, P16, P19, I01, §6.1, §6.2 и DoD 20–22. Одобренное на 1bffe10d… и дельта 20–21, которую
+  прошлый круг признал прошедшей, заново не судились: причины в дельте 22 для этого нет.
+  Посылка задания опровергнута по форме: последняя запись в каталоге — a49b7125… (R21-1), а не R20-1/R20-2.
+  R20-1 и R20-2 закрыты этой записью (prior_findings_closure), сверено.
+previous_rounds:
+  - {round: "21 (круг 1 прохода редакции 21)", sha256: a49b712571b5af906e1d81c64e22f09fdb15a0a775db35996543b8e401242f68, verdict: CHANGES_REQUESTED}
+  - {round: "20 (круг 1 прохода редакции 20)", sha256: 5abe23366aa798859b4b04360d18ec5bfdd9c31aced44b050da3621ce5ef2bd8, verdict: CHANGES_REQUESTED}
+  - {round: "19 (круг 1 прохода редакции 19)", sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+
+prior_findings_closure:
+  R21-1:
+    status: closed
+    evidence: >-
+      P12 судит два слоя. Слитые значения: «объявление зоны стенда включено ⇒ признак «да»». Рендер:
+      «да» и notify рендерится ⇒ у пода `dnsConfig`; «нет» ⇒ ни `dnsConfig`, ни сервера зоны. Отдельно
+      утверждается, что `a8f60d` notify не рендерит. Каждая из трёх инъекций теперь падает на своём слое.
+      (1) Объявление включено в `values.a8f60d.yaml`: слитые значения `a8f60d` (признак «нет») →
+      красный `a8f60d`. (2) То же в `values.prod.yaml` → красный `prod`, хотя notify в рендере `prod` нет:
+      слой слитых значений от рендера не зависит. (3) Ключи, выключающие notify в `a8f60d`, сняты →
+      красный по утверждению «`a8f60d` notify не рендерит». Близнец (`values.dev.yaml` как есть) теперь
+      выполним вместе с инъекциями: `dev`, `dev-prod`, `prorobotech` наследуют объявление и имеют признак
+      «да»; `a8f60d` наследование снимает своим файлом. Р19 «Профиль стенда» называет наследование.
+      §6.1 P12 и три строки §6.2 P12 переписаны, каждая пара отличается одним фактом. С замыслом e25cc91d…
+      (§12а, держатель P12, утверждения (а)…(г)) совпадает.
+    predicate: >-
+      grep -v '^#' project/kacho/deploy/stacks.txt @ba01514b98b → цепочки `prorobotech` и `a8f60d`
+      начинаются с values.dev.yaml, `fe3455`, `own`, `prod` с ним не связаны;
+      sed -n '2809,2830p;2926p;3114,3116p' <NTF-1>; sed -n '5118,5170p' docs/changes/issue-2915/design.md.
+  R21-nonblocking:
+    status: closed
+    evidence: >-
+      Близнец P13 теперь звучит «загрузчик принимает, конфигурация несёт значение», и unit-проба
+      это наблюдает. В P14 добавлена седьмая причина — `sel_1`, текст `вне формы имени DNS`. Новый P19
+      (записи `v=spf1` нет) появился в таблице отказов, в §6.1 (строка стража), в §6.2 (близнец P01) и
+      в DoD 20, 21; в перечень инъекции «return nil» он вошёл. Объект ключа DKIM теперь отдельный объект
+      (Р19 «Подпись»), I01 печатает его перепись отдельной строкой, сервер зоны стенда даёт 0, как в замысле
+      (посев). DoD 22 называет все семь профилей с признаком.
+  R20-1_R20-2:
+    status: closed
+    evidence: "Закрытие засвидетельствовано записью a49b7125…, в дельте 22 эти места не менялись."
+
+decisions_checked:
+  d100: "Носитель notify-api входит в Основу — это предмет замысла и маршрута работ. Сценариев приёмки NTF-1 не меняет; противоречия в группе P нет."
+  d101: "Р19 «Адрес возврата в NTF-1» и «Тогда» P02: envelope `MAIL FROM` — адрес отправителя установки; rua, выравнивание, MX, длина, dns_posture — в NTF-4. Совпадает."
+  d102: "Р19 «Профиль стенда» и P12: перечень семи профилей с явным признаком; `a8f60d` notify не рендерит; посев туда запрещён; P12 судит все семь, инъекции на `a8f60d`. Совпадает."
+  d103: "Предмет NTF-4 и замысла. Дельта 22 ссылок на NTF-4, которые требовали бы отпечатка, не вносит."
+
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_findings: []
+
+non_blocking:
+  - kind: TWIN
+    note: >-
+      Близнец инъекций P12 называет зелёными пять профилей, а `prod` и `own` не называет. Их цепочки
+      `values.dev.yaml` не включают, и на дереве как есть они тоже зелёные. Полный перечень из семи профилей
+      сделал бы близнец замкнутым: «падает на пустом обходе» и «печатает 7» уже есть.
+  - kind: COVERAGE
+    note: >-
+      Замысел (держатель P12) называет четвёртую инъекцию: строка профиля удалена из
+      `deploy/stacks-mail.txt` → красный. В приёмке это утверждение есть только как «падает на профиле,
+      которого нет в перечне признаков», без инъекции в §6.1. Держатель всё равно её несёт, исход закрыт
+      замыслом. Можно дописать к инъекциям P12 при следующей правке.
+
+out_of_subject_notes:
+  - >-
+    Публикация записей DKIM, SPF и DMARC домена `From` профиля `a8f60d` — задача владельцу установки
+    (внешний DNS, Д102). Условием Основы она не является.
+
+measurement:
+  fingerprint: "sha256sum <путь> → c19490f9…; git show HEAD:<путь> | sha256sum → 1bffe10d… (одобрена)"
+  delta: "git diff --numstat HEAD -- <путь> → 325 добавлено, 7 удалено (накопительно 19→22; редакции 21 в дереве нет)"
+  scenarios_p: "grep -c '^\\*\\*ID:\\*\\* NTF1-P\\|^| NTF1-P' <путь> → 19 (P01…P19)"
+  profiles: "project/kacho/deploy/stacks.txt @ba01514b98b: 7 профилей — dev, dev-prod, prod, own, fe3455, prorobotech, a8f60d"
+  design: "docs/changes/issue-2915/design.md sha256 e25cc91d30ef32184436e9515f2cf76de3c48cbedc9fded40125d93f8d730eea"
+  seeding: >-
+    Посев не ставился: в дереве ещё нет ни notify, ни объявления зоны стенда, ни держателя P12, а задание
+    посев не называло. Конструируемость R21-1 доказана разбором цепочек `deploy/stacks.txt` и таблицы
+    профилей замысла (названная фикстура — `deploy/notify_dns_profiles_test.go` на копии дерева).
+    Конструируемость P13, P14, P19 держится на названных фикстурах «зона DNS испытания» и загрузчике.
+    Посеяно 0 из 19, «не выполнилось» 19: стенда и фикстур ещё нет.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: e68a3945115869300ef640b53fa00715355fb512
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  role: acceptance-reviewer
+  subject_sha256: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db
+  declared_verdict: 'APPROVED'
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: "Рецензент событие не публикует. Тело для курьера лежит в event_body_for_courier."
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 1 прохода редакции 22, блокирующих 0) ·
+    SHA-256 c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db
