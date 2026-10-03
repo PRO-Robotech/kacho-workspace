@@ -10,6 +10,9 @@ SPDX-License-Identifier: BUSL-1.1
 > (`.claude/rules/change-graph.md` §2 «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»)
 > **История review:** только дописывается; прежние строки не редактируются
 > — редакция 1 · 2026-10-03 · вердикта на неё нет
+> — редакция 2 · 2026-10-03 · вердикта на неё нет · прежняя sha256 `bb549309…f90b` · посев сценариев, близнецы KA1-24/25/34,
+>   производители и замеры KA1-14/31/34, вызов `401` и `domain` выбраны здесь, перепись Р6
+>   дополнена; отпечаток — в записи ревью
 > **Дата:** 2026-10-03
 > **Эпик/issue:** корень `PRO-Robotech/kacho#1266`; волна `PRO-Robotech/kacho#2964` (полоса KA1);
 > задачи `PRO-Robotech/kacho#2728`, `#2958`, `#2713`, `#2738`, `#2758`
@@ -48,7 +51,7 @@ SPDX-License-Identifier: BUSL-1.1
 **Р1. Наш авторитет не ответил → `503 UNAVAILABLE`, один и тот же ответ на всех полосах,
 носитель цел.** Полосы — предъявитель (оба читателя отзыва: авторитет нашей чеканки и запись
 отзыва), наша браузерная сессия (оба вопроса: о сессии и об отсечке) и базовое удостоверение.
-«Не ответил» включает: нет ответа в пределах бюджета (Р3), `UNAVAILABLE`, `UNIMPLEMENTED` на
+«Не ответил» включает: нет ответа в пределах бюджета (Р4), `UNAVAILABLE`, `UNIMPLEMENTED` на
 вопрос, без которого полоса не может решить (о сессии, об отзыве, о годности базового
 удостоверения), ответ не той формы. Тело — одно на все полосы:
 
@@ -86,16 +89,30 @@ Content-Type: application/json
 ```
 HTTP/1.1 401 Unauthorized
 Content-Type: application/json
-WWW-Authenticate: Bearer realm="kacho"
+WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 
-{"code":16,"message":"authentication failed","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"AUTHN_REQUIRED","domain":"<D>"}]}
+{"code":16,"message":"authentication failed","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"AUTHN_REQUIRED","domain":"kaname.cloud.iam.v1"}]}
 ```
 
-`<D>` — одна константа на все отказы `401` края; её значение здесь не выбирается (предмет
-`sub-phase-XC-1-error-reason-token-acceptance.md`, S5) — утверждается только, что оно одно и
-что `metadata` у `ErrorInfo` пуст. Нативная поверхность — `UNAUTHENTICATED`, текст
-`authentication failed`, деталь — ровно одна `ErrorInfo` с теми же `reason` и `domain`, без
-`metadata`.
+`metadata` у `ErrorInfo` нет (сегодня там имя глагола и причины отказа). Нативная поверхность —
+`UNAUTHENTICATED`, текст `authentication failed`, деталь — ровно одна `ErrorInfo` с теми же
+`reason` и `domain`, без `metadata`.
+
+Выбор вызова и `domain` — здесь, не отложен:
+
+- **Вызов** соединяет две сегодняшние формы: `realm="kacho"` (отказ «удостоверения нет»,
+  `writeHTTPUnauth`) и `error="invalid_token"` (отказ проверки, `writeHTTPUnauthorized`), а
+  `error_description`, нёсший причину, снят. `error="invalid_token"` сохранён, потому что у него
+  есть читатель: консоль по нему повторяет вопрос о сессии
+  (`ui-future/shared/src/api/login-lane.ts`, `sessionIdentity`) и выбирает действие
+  (`refusal-action.ts`); разбор `step-up.ts` (`/(?:^|[\s,])error="([^"]*)"/`) берёт его и после
+  `realm`. Этим ответ отступает от «SHOULD NOT» RFC 6750 §3.1 для запроса без удостоверения:
+  неразличимость причин (`security.md`, `sec-authn-failures-byte-identical`) здесь весит больше.
+- **`domain`** — `kaname.cloud.iam.v1`: это значение сегодня несут все четыре места, строящие
+  `AUTHN_REQUIRED` и `AUTHZ_DENIED` края (`permission_denied_response.go`;
+  `git grep -c '"kaname.cloud.iam.v1"' e801c0f7844 -- gateway/internal/middleware/permission_denied_response.go`
+  → 4). Смена значения — предмет `sub-phase-XC-1-error-reason-token-acceptance.md` (S5) и
+  делается там одновременно для `401` и `403`; KA1 её не предрешает и не ждёт.
 
 Сравнение «побайтово одинаково» идёт по статусу, телу и **каждому** заголовку ответа, кроме
 двух, различных у любых двух ответов по построению: `Date` и `X-Request-Id`.
@@ -165,13 +182,19 @@ WWW-Authenticate: Bearer realm="kacho"
 |---|---|---|
 | `PRO-Robotech/kaname:docs/engineering/acceptance/login-lane-issues-our-session-and-logout-ends-it-server-side.md` | F4d-23 и держатель Ф3-13: «тот же код, статус и текст, что у отказа по отсечке» на недоступности авторитета | Р1 (`503`, носитель цел — последнее не меняется) |
 | тот же | текст отказа F4d-22 (`session ended; sign in again`) | Р2 (тело и заголовки); гашение носителя F4d-22 не меняется |
-| `sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md`, `sub-phase-F8-console-identity-ceremony-screens-acceptance.md`, `sub-phase-F1b-edge-issuer-set-acceptance.md`, `sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md`, `PRO-Robotech/kaname:docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md` | упоминания текстов `401` края (`session ended; sign in again`, `credential refused`, `token validation failed`) как ответа края | Р2 |
+| `PRO-Robotech/kaname:docs/engineering/acceptance/login-session-and-credentials-are-our-contract.md` (строка сверки F4d-23: «`401`, а не `503`»), `PRO-Robotech/kaname:docs/engineering/acceptance/second-factor-totp-and-recovery-codes.md` (ссылки на F4d-23 как на ответ края) | статус ответа края на недоступность авторитета | Р1 (`503`); «носитель цел» и «не ретранслируется» не меняются |
+| `sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md`, `sub-phase-F8-console-identity-ceremony-screens-acceptance.md`, `sub-phase-F1b-edge-issuer-set-acceptance.md`, `sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md`, `PRO-Robotech/kaname:docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md` | упоминания текстов `401` края (`session ended; sign in again`, `credential refused`, `token validation failed`, `token revoked`) и вызова `error_description=` как ответа края | Р2 |
+| `sub-phase-SEC-M-sa-key-expiry-enforcement-acceptance.md`, `sub-phase-W2.C-stream-c-api-tokens-acceptance.md`, `sub-phase-3.5-iam-workload-identity-federation-acceptance.md` | `401` края с текстом или `error_description` `token revoked` | Р2 |
 
 Перепись носителей прежних текстов — предикат, а не перечень по памяти:
 `git grep -l -F '<текст>' -- 'docs/specs/*-acceptance.md'` здесь и
-`git grep -l -F '<текст>' -- 'docs/engineering/acceptance/*.md'` в `PRO-Robotech/kaname`, по
-каждому из четырёх текстов `session ended; sign in again` · `credential refused` ·
-`token validation failed` · `token revoked`. Ответы, которые край **ретранслирует** от службы
+`git grep -l -F '<текст>' -- 'docs/engineering/acceptance/*.md'` в `PRO-Robotech/kaname`
+(`origin/main`), по каждому из пяти текстов `session ended; sign in again` · `credential refused` ·
+`token validation failed` · `token revoked` · `revocation check unavailable`, и
+`git grep -l -F 'F4d-23'` в `PRO-Robotech/kaname`. Попадание, где текст — не ответ края (например
+`token revoked` в `sub-phase-3.11-iam-production-deploy-observability-acceptance.md` — о чужом
+токене развёртывания), заменой не затрагивается; кроме этого документа, носителей
+`revocation check unavailable` нет. Ответы, которые край **ретранслирует** от службы
 (отказ смены пароля, глаголов второго фактора, входа), этим документом не затрагиваются.
 
 ## Что НЕ входит
@@ -182,7 +205,11 @@ WWW-Authenticate: Bearer realm="kacho"
   счётчиком (окно раската, `ErrSessionCutoffUnsupported`) остаётся как есть.
 - Закрытие открытых потоков при молчании авторитета (перепрос на потоке, `authn.mdx`) — своё
   окно и своя полоса.
-- Значение `domain` у `ErrorInfo` отказа `401` — предмет `XC-1` (S5).
+- Смена значения `domain` у `ErrorInfo` отказов `401` и `403` края — предмет `XC-1` (S5); KA1
+  сохраняет нынешнее (Р2).
+- Правка текстов документов, перечисленных в Р6: одобрение каждого привязано к его отпечатку, и
+  замена объявлена здесь, таблицей Р6, а не переписыванием их; в части ответа края действует этот
+  документ.
 - Отказ `403` и его форма — без изменений.
 - `kacho#2740` (клетки прибора у полосы предъявителя), `#2741` (классификация чужого отказа;
   ответ арендатору по её же DoD не меняется), `#2742` (перепись точек чтения вердикта) —
@@ -199,19 +226,36 @@ WWW-Authenticate: Bearer realm="kacho"
 ## Сценарии
 
 Общее «Дано» всех сценариев, если не сказано иное: край поднят в боевой посадке
-(`authMode=production`), наш издатель объявлен, каталог прав содержит
-`kaname.cloud.iam.v1.AccountService/List` с `permission="<exempt>"` и без `required_acr_min`;
-маршрут проб — `GET /iam/v1/accounts` (REST) и `kaname.cloud.iam.v1.AccountService/List`
-(нативная поверхность): на нём положительный и отрицательный исходы отличаются ровно
-предъявленным.
+(`authMode=production`), наш издатель объявлен; маршрут проб — `GET /iam/v1/accounts` (REST) и
+`kaname.cloud.iam.v1.AccountService/List` (нативная поверхность). Строка каталога прав этого
+глагола — `permission="iam.accounts.list"`, `scope_filtered=true`, без `required_acr_min`
+(`gateway/internal/middleware/embed/permission_catalog.json`): край пропускает любого
+признанного субъекта, выдачу сужает владелец (`authz.go`, `phaseScopeFiltered`). Поэтому на
+этом маршруте положительный и отрицательный исходы отличаются ровно предъявленным, а не правами.
 
-**Посев.** Внутрипроцессные пробы края берут «Дано» из харнесса, засеянного до запроса:
-дублёр службы доступа знает пользователя `usr-00000000000000ka1`, его сессию по носителю нашей сессии (печенье с именем
-`OurSessionCarrierName`) со значением `ka1-live` (момент аутентификации `T0`), его отсечку (по сценарию — нет или `T0`),
-базовое удостоверение `bas-00000000000000ka1` с секретом из посева и запись отзыва по
-идентификатору `jti-ka1-revoked`; подписант харнесса держит ключ записи нашего издателя.
-Пробы стенда берут «Дано» из посева подъёма стенда (ключ первичного служебного удостоверения,
-который `gateway/tests/newman/cases/authn_edge.py` уже читает как `jwtBootstrap`).
+**Посев.** Каждое «Дано» берётся из посева, сделанного до первого запроса пробы; проба не
+заводит состояние по ходу. Внутрипроцессные пробы края — из харнесса (база —
+`newF1bStandWith`, `gateway/internal/e2e/f1b_two_issuer_e2e_test.go`: две записи приёма, две
+поверхности, авторитеты отзыва с переключателями «не ответил» и «отозван»), дополненного
+строками, помеченными «заводится»:
+
+| ключ | что засеяно | есть / заводится |
+|---|---|---|
+| П1 | подписант записи нашего издателя `https://kaname.kacho.local` (`f1bPlatformIssuer`, `ReadRevocation`) и его авторитет отзыва: состояния `отвечает` · `молчит` (принимает соединение и держит ответ до освобождения пробой) · `UNAVAILABLE` | есть, кроме `молчит` — заводится |
+| П2 | подписант второй записи `https://legacy.api.kacho.cloud` (`f1bLegacyIssuer`, не нашей чеканки); его отзыв читается вопросом `IsRevoked` к дублёру службы доступа | запись есть; вопрос через дублёр — заводится |
+| П3 | дублёр службы доступа (внутренний слушатель): пользователь `usr-00000000000000ka1`; сессия по печенью `kaname_session` (`OurSessionCarrierName`) со значением `ka1-live`, момент аутентификации `T0`; отсечка — по сценарию нет или `T0`; базовое удостоверение `bas-00000000000000ka1` уровня `1` с секретом посева; запись отзыва `jti-ka1-revoked`; на каждый вопрос (`Resolve`, `SessionCutoffOf`, `IsRevoked`, годность базового) — состояние `отвечает` · `молчит` · `UNAVAILABLE` · `UNIMPLEMENTED` и управляемая задержка | заводится |
+| П4 | токены, чеканенные из П1/П2 по строкам сценария: `jti` (`jti-ka1-live` · `jti-ka1-revoked`), `acr`, `exp` относительно управляемых часов харнесса, с `sub` и без, с привязкой ключа (`cnf`) и без, DPoP-привязанный | есть (чеканка), строки — заводятся |
+| П5 | каталог глагола с полом `required_acr_min="2"`, доступного церемонией повышения | заводится |
+| П6 | дублёр бэкенда домена за мостом с управляемой задержкой ответа на `Get` | заводится |
+| П7 | запись приёма `https://issuer.example.test/realm/` с набором ключей харнесса и записью отзыва «жив» для её `jti` (Предмет 4) | заводится |
+| П8 | клиентский сертификат A для соединения и токен, привязанный к сертификату A; второй сертификат B | заводится |
+| П9 | дублёр владельца журнала за потоком подписки: держит поток открытым и шлёт событие раз в `500ms` | заводится |
+
+Пробы стенда берут «Дано» из посева подъёма стенда: ключ первичного служебного удостоверения,
+который `gateway/tests/newman/cases/authn_edge.py` уже читает как `jwtBootstrap`, и токен нашего
+издателя, который та же коллекция чеканит для `list-accounts-as-platform-issuer`.
+Пробы старта (KA1-20, 21, 32, 33) засеивают только окружение процесса; пробы профилей (KA1-25,
+34) — только дерево профилей.
 
 ### Предмет 1 — молчание нашего авторитета (kacho#2728, Р1)
 
@@ -219,8 +263,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-01
 
-**Given** токен нашего издателя с `jti=jti-ka1-live`, подписанный ключом записи
-**And** читатель отзыва нашей чеканки не отвечает (сервер харнесса принимает соединение и не отвечает дольше бюджета)
+**Given** токен нашего издателя с `jti=jti-ka1-live`, подписанный ключом записи (П1, П4)
+**And** авторитет отзыва нашей чеканки в состоянии `молчит` (П1): соединение принято, ответа нет дольше бюджета
 
 **When** клиент вызывает `GET /iam/v1/accounts` с `Authorization: Bearer <токен>`
 
@@ -232,8 +276,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-02
 
-**Given** токен второго объявленного издателя (не нашей чеканки) с `jti=jti-ka1-live`
-**And** вопрос `IsRevoked` к службе доступа не получает ответа в пределах бюджета
+**Given** токен второго объявленного издателя (не нашей чеканки) с `jti=jti-ka1-live` (П2, П4)
+**And** вопрос `IsRevoked` дублёра службы доступа в состоянии `молчит` (П3)
 
 **When** клиент вызывает `GET /iam/v1/accounts` с этим предъявителем
 
@@ -244,8 +288,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-03
 
-**Given** носитель нашей сессии `ka1-live` из посева
-**And** вопрос `Resolve` о сессии не получает ответа в пределах бюджета — в варианте (б) служба отвечает `UNAVAILABLE`, в варианте (в) — `UNIMPLEMENTED`
+**Given** носитель нашей сессии `ka1-live` (П3)
+**And** вопрос `Resolve` о сессии по вариантам (П3): (а) `молчит`; (б) `UNAVAILABLE`; (в) `UNIMPLEMENTED`
 
 **When** клиент вызывает `GET /iam/v1/accounts` с этим носителем (и, отдельным запросом, `GET /iam/v1/auth/me`)
 
@@ -256,19 +300,19 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-04
 
-**Given** носитель нашей сессии `ka1-live`; `Resolve` отвечает живой сессией с моментом `T0`
-**And** вопрос `SessionCutoffOf` не получает ответа в пределах бюджета (вариант (б) — `UNAVAILABLE`)
+**Given** носитель нашей сессии `ka1-live`; `Resolve` отвечает живой сессией с моментом `T0` (П3)
+**And** вопрос `SessionCutoffOf` по вариантам (П3): (а) `молчит`; (б) `UNAVAILABLE`
 
 **When** клиент вызывает `GET /iam/v1/accounts` с этим носителем
 
-**Then** ответ побайтово равен ответу KA1-01, `Set-Cookie` нет
+**Then** на обоих вариантах ответ побайтово равен ответу KA1-01, `Set-Cookie` нет
 
 ## Сценарий 05: Базовое удостоверение — служба молчит
 
 **ID:** KA1-05
 
-**Given** базовое удостоверение `bas-00000000000000ka1` из посева
-**And** вопрос о его годности не получает ответа в пределах бюджета
+**Given** базовое удостоверение `bas-00000000000000ka1` с секретом посева (П3)
+**And** вопрос о его годности в состоянии `молчит` (П3)
 
 **When** клиент вызывает `GET /iam/v1/accounts` с `Authorization: Bearer <базовое удостоверение>`
 
@@ -279,8 +323,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-06
 
-**Given** те же предъявленные, что в KA1-01…KA1-05, по одному на строку
-**And** каждый вопрос службе отвечает в пределах бюджета: токен не отозван, сессия жива и моложе отсечки (отсечки нет), базовое удостоверение годно
+**Given** те же предъявленные, что в KA1-01…KA1-05, по одному на строку (П1–П4)
+**And** авторитет П1 и каждый вопрос дублёра П3 в состоянии `отвечает`; каждый вопрос службе отвечает в пределах бюджета: токен не отозван, сессия жива и моложе отсечки (отсечки нет), базовое удостоверение годно
 
 **When** клиент вызывает `GET /iam/v1/accounts` с тем же предъявленным
 
@@ -293,8 +337,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-07
 
-**Given** харнесс, в котором один и тот же дублёр службы доступа обслуживает все три полосы
-**And** состояние дублёра задаётся одной величиной: `отвечает` · `молчит` · `UNAVAILABLE`
+**Given** харнесс, в котором один и тот же дублёр службы доступа (П3) и авторитет нашей чеканки (П1) обслуживают все три полосы
+**And** состояние обоих задаётся одной величиной: `отвечает` · `молчит` · `UNAVAILABLE`
 
 **When** на каждом состоянии подаются три запроса — предъявитель нашей чеканки, носитель нашей сессии, базовое удостоверение
 
@@ -307,7 +351,7 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-10
 
-**Given** по одному предъявленному на каждую причину из закрытого перечня:
+**Given** по одному предъявленному на каждую причину из закрытого перечня (токены — П4 из подписантов П1/П2, базовые — П3; для (ж) харнесс с обязательной привязкой — `newF1bStandWithRequirement`):
   - (а) удостоверения нет;
   - (б) токен нашего издателя с одним изменённым байтом подписи;
   - (в) токен, подписанный ключом, `iss` которого не объявлен;
@@ -320,7 +364,7 @@ WWW-Authenticate: Bearer realm="kacho"
   - (к) базовое удостоверение уровня `1` на глаголе с полом `2`;
   - (л) DPoP-привязанный токен без доказательства — только при включённом `KACHO_API_GATEWAY_AUTHN_ENABLE_DPOP` (харнесс с переключателем)
 
-**When** клиент вызывает `GET /iam/v1/accounts` с каждым предъявленным (для (к) — глагол с полом `2` из каталога, который харнесс объявляет)
+**When** клиент вызывает `GET /iam/v1/accounts` с каждым предъявленным (для (к) — глагол с полом `2` из П5)
 
 **Then** каждый ответ — `401` по Р2
 **And** ответы всех причин попарно побайтово равны по правилу сравнения Р2
@@ -331,19 +375,19 @@ WWW-Authenticate: Bearer realm="kacho"
 **ID:** KA1-11
 
 **Given** предъявленные (а)–(к) из KA1-10, а также:
-  - (м) токен, привязанный к сертификату, предъявленный по соединению с другим сертификатом;
+  - (м) токен, привязанный к сертификату A, предъявленный по соединению с сертификатом B (П8);
   - (н) DPoP-привязанный токен на нативной поверхности
 
 **When** клиент вызывает `kaname.cloud.iam.v1.AccountService/List` с каждым
 
-**Then** каждый статус — `UNAUTHENTICATED`, текст `authentication failed`, деталь — ровно одна `ErrorInfo` (`reason=AUTHN_REQUIRED`, одна `domain`, пустой `metadata`)
+**Then** каждый статус — `UNAUTHENTICATED`, текст `authentication failed`, деталь — ровно одна `ErrorInfo` (`reason=AUTHN_REQUIRED`, `domain=kaname.cloud.iam.v1`, `metadata` нет)
 **And** статусы всех причин равны после сериализации (`proto.Marshal` статуса)
 
 ## Сценарий 12: Наша сессия — отказ одинаков и заканчивает носитель
 
 **ID:** KA1-12
 
-**Given** три носителя нашей сессии: (а) `ka1-unknown` — сессии нет; (б) `ka1-live` при отсечке, равной `T0`; (в) `ka1-live` при отсечке и ответе о сессии без момента аутентификации
+**Given** три носителя нашей сессии (П3): (а) `ka1-unknown` — сессии нет; (б) `ka1-live` при отсечке, равной `T0`; (в) `ka1-live` при отсечке и ответе о сессии без момента аутентификации
 
 **When** клиент вызывает `GET /iam/v1/accounts` с каждым носителем
 
@@ -375,8 +419,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **ID:** KA1-15
 
-**Given** токен нашего издателя, годный, с `acr=1`
-**And** харнесс объявляет глагол с `required_acr_min="2"`, доступный церемонией повышения
+**Given** токен нашего издателя, годный, с `acr=1` (П1, П4)
+**And** глагол с `required_acr_min="2"`, доступный церемонией повышения (П5)
 
 **When** клиент вызывает этот глагол
 
@@ -429,7 +473,7 @@ WWW-Authenticate: Bearer realm="kacho"
 **ID:** KA1-22
 
 **Given** `KACHO_API_GATEWAY_IDENTITY_CALL_BUDGET=200ms`
-**And** дублёр службы доступа отвечает на вопрос через `5s`; вопрос — по строкам: (а) `Resolve` для носителя `ka1-live`; (б) `SessionCutoffOf` для того же носителя; (в) `IsRevoked` для токена второго издателя; (г) годность `bas-00000000000000ka1`
+**And** дублёр службы доступа (П3) отвечает на вопрос с управляемой задержкой `5s`; вопрос — по строкам: (а) `Resolve` для носителя `ka1-live`; (б) `SessionCutoffOf` для того же носителя; (в) `IsRevoked` для токена второго издателя; (г) годность `bas-00000000000000ka1`
 
 **When** клиент вызывает `GET /iam/v1/accounts` с соответствующим предъявленным
 
@@ -443,7 +487,7 @@ WWW-Authenticate: Bearer realm="kacho"
 **ID:** KA1-23
 
 **Given** `KACHO_API_GATEWAY_BACKEND_CALL_BUDGET=300ms`
-**And** бэкенд домена отвечает на `Get` через `5s`; вызывающий предъявил годный токен
+**And** дублёр бэкенда (П6) отвечает на `Get` с управляемой задержкой `5s`; вызывающий предъявил годный токен (П1, П4)
 
 **When** клиент вызывает REST-путь этого `Get` через мост
 
@@ -456,11 +500,13 @@ WWW-Authenticate: Bearer realm="kacho"
 **ID:** KA1-24
 
 **Given** `KACHO_API_GATEWAY_IDENTITY_CALL_BUDGET=200ms`, `KACHO_API_GATEWAY_BACKEND_CALL_BUDGET=300ms`, `KACHO_API_GATEWAY_SUBSCRIPTION_STREAM_BUDGET=3s`
-**And** владелец журнала держит поток открытым и шлёт событие раз в `500ms`
+**And** владелец журнала держит поток открытым и шлёт событие раз в `500ms` (П9)
 
-**When** клиент открывает поток подписки с годным токеном
+**When** клиент открывает поток подписки с годным токеном (П1, П4)
 
 **Then** поток получает события дольше `1s` и закрывается не раньше `3s`, по своему сроку
+
+**Близнец:** то же окружение, тот же предъявленный, вызов — унарный `Get` через мост к П6 с задержкой `5s`: `504` раньше `2s` (KA1-23). Отличие — один факт: поток против унарного вызова; бюджет моста действует на второй и не действует на первый.
 
 ## Сценарий 25: Профили объявляют обе ручки
 
@@ -472,14 +518,16 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **Then** окружение контейнера края несёт `KACHO_API_GATEWAY_IDENTITY_CALL_BUDGET=1s` и `KACHO_API_GATEWAY_BACKEND_CALL_BUDGET=30s`; проба печатает число отрисованных профилей и падает на нуле
 
+**Близнец:** копия одного профиля без `KACHO_API_GATEWAY_BACKEND_CALL_BUDGET` — проба красна и называет этот профиль и ручку; с ручкой — зелёна.
+
 ### Предмет 4 — канон издателя (kacho#2758, Р5)
 
 ## Сценарий 30: Предъявленный `iss` в другой форме того же издателя — принят
 
 **ID:** KA1-30
 
-**Given** в перечне и привязке объявлен издатель `https://issuer.example.test/realm/` с записью набора ключей харнесса; подписант держит ключ этой записи
-**And** `jti` каждого токена известен записи отзыва как «жив»
+**Given** в перечне и привязке объявлен издатель `https://issuer.example.test/realm/` с записью набора ключей харнесса; подписант держит ключ этой записи (П7)
+**And** `jti` каждого токена известен записи отзыва как «жив» (П7, П3)
 
 **When** клиент вызывает `GET /iam/v1/accounts` и `AccountService/List` с токеном, чей `iss` по строкам:
   - (а) `https://issuer.example.test/realm`
@@ -544,6 +592,8 @@ WWW-Authenticate: Bearer realm="kacho"
 
 **Then** в каждом профиле их канонические формы равны; проба печатает число сравнённых профилей и падает на нуле
 
+**Близнец:** копия одного профиля, где краю объявлен издатель с другим путём (`/realm2`), — проба красна и называет профиль и оба значения; та же копия с тем же издателем в другой канонически равной форме (завершающая `/`) — зелёна.
+
 ## Сценарий → производитель
 
 | ID сценария | что производит «Тогда» | координата в дереве | чем измерено |
@@ -555,27 +605,40 @@ WWW-Authenticate: Bearer realm="kacho"
 | KA1-05 | отказ `503` JSON полосы базового удостоверения | заказан: go-implementer, kacho#2728 — сегодня `http.Error` с `text/plain` (`auth.go`, `tryBasicCredential`) | чтение `auth.go` @ `e801c0f7844`, ветка `ErrCredentialStateUnknown` |
 | KA1-06 | `200` трёх полос | есть: цепочка края; харнессы `newF1bStand`, `newF6bStand` (`gateway/internal/e2e/`) | `git grep -n 'func newF1bStand(\|func newF6bStand(' e801c0f7844 -- gateway/internal/e2e \| wc -l` → 2 |
 | KA1-07 | равенство ответов полос | заказан: go-implementer, kacho#2728 — проба сравнения полос по образцу `TestBrowserSessionLanesAgree` (`gateway/internal/middleware/session_lanes_agree_test.go`) | `git grep -n 'func TestBrowserSessionLanesAgree' e801c0f7844 -- gateway` → 2 |
-| KA1-10 | единый `401` REST | заказан: go-implementer, kacho#2958 — один писатель на всех производителей `401` края; сегодня писатели `writeHTTPUnauthorized` (`auth.go`), `writeHTTPUnauth` (`permission_denied_response.go`), `challenge` (`dpop_http_middleware.go`) | `git grep -n 'writeHTTPUnauthorized(\|StatusUnauthorized' e801c0f7844 -- 'gateway/**/*.go' ':!*_test.go'` |
-| KA1-11 | единый `UNAUTHENTICATED` | заказан: go-implementer, kacho#2958 — сегодня `status.Error(codes.Unauthenticated, …)` в `auth.go`, `cnf_grpc_interceptor.go`, `buildGRPCUnauthStatus` | `git grep -n 'codes.Unauthenticated' e801c0f7844 -- 'gateway/internal/middleware/*.go' ':!*_test.go'` |
-| KA1-12 | единый `401` полосы сессии с гашением носителя | гашение есть: `EndSessionCarriers` (`auth_own_session.go`); тело — заказан: go-implementer, kacho#2958 | чтение `auth_own_session.go` @ `e801c0f7844` |
+| KA1-10 | единый `401` REST | заказан: go-implementer, kacho#2958 — один писатель на всех производителей `401` края; сегодня писатели `writeHTTPUnauthorized` (`auth.go`), `writeHTTPUnauth` (`permission_denied_response.go`), `challenge` (`dpop_http_middleware.go`) | `git grep -c 'writeHTTPUnauthorized(\|StatusUnauthorized' e801c0f7844 -- 'gateway/**/*.go' ':!*_test.go'` → 27 строк в 7 файлах |
+| KA1-11 | единый `UNAUTHENTICATED` | заказан: go-implementer, kacho#2958 — сегодня `status.Error(codes.Unauthenticated, …)` в `auth.go`, `cnf_grpc_interceptor.go`, `buildGRPCUnauthStatus` | `git grep -n 'codes.Unauthenticated' e801c0f7844 -- 'gateway/internal/middleware/*.go' ':!*_test.go' \| wc -l` → 16 |
+| KA1-12 | единый `401` полосы сессии с гашением носителя | гашение есть: `EndSessionCarriers` и `SessionCarrierEndings` (`session_carrier_names.go`); тело — заказан: go-implementer, kacho#2958 | `git grep -n 'func SessionCarrierEndings\|func EndSessionCarriers' e801c0f7844 -- gateway/internal/middleware` → 2 |
 | KA1-13 | `401` выхода и потока подписки | заказан: go-implementer, kacho#2958 — сегодня `gateway/internal/handler/logout_handler.go` (`writeJSON … invalid_token`), `gateway/internal/subscriptionstream/handler.go` (`writeRefusal … 401`) | `git grep -n 'StatusUnauthorized' e801c0f7844 -- gateway/internal/handler gateway/internal/subscriptionstream ':!*_test.go'` |
-| KA1-14 | `200` близнецов | есть: цепочка края, харнессы `gateway/internal/e2e/`, обработчик выхода, обработчик подписки | — |
-| KA1-15 | указание повышения уровня | есть: `enforceStepUpHTTP` (`auth_stepup.go`), `BuildStepUpChallenge` | чтение `auth_stepup.go` @ `e801c0f7844` |
-| KA1-16 | равенство отказов на стенде | заказан: integration-tester, kacho#2958 — утверждение равенства тел в `gateway/tests/newman/cases/authn_edge.py`; входы есть (тот же файл) | `git grep -c 'name="list-accounts-' e801c0f7844 -- gateway/tests/newman/cases/authn_edge.py` |
+| KA1-14 | `200` близнецов | есть: цепочка края на харнессе `newF1bStandWith` (проходы обеих записей приёма), обработчик выхода, обработчик подписки; строки посева П3, П5, П8 — заказаны: go-implementer, kacho#2958 | `git grep -n 'func newF1bStandWith(' e801c0f7844 -- gateway/internal/e2e` → 1 |
+| KA1-15 | указание повышения уровня | есть: `enforceStepUpHTTP` (`auth_stepup.go`), `BuildStepUpChallenge` (`stepup_gate.go`) | `git grep -n 'func (a \*AuthInterceptor) enforceStepUpHTTP\|func BuildStepUpChallenge' e801c0f7844 -- gateway/internal/middleware` → 2 |
+| KA1-16 | равенство отказов на стенде | заказан: integration-tester, kacho#2958 — утверждение равенства тел в `gateway/tests/newman/cases/authn_edge.py`; входы есть (тот же файл) | `git grep -c 'name="list-accounts-' e801c0f7844 -- gateway/tests/newman/cases/authn_edge.py` → 8 |
 | KA1-20 | страж старта бюджета службы доступа | заказан: go-implementer, kacho#2738 | ручки нет: `git grep -c 'IDENTITY_CALL_BUDGET' e801c0f7844 -- gateway` → 0 |
 | KA1-21 | страж старта бюджета моста | заказан: go-implementer, kacho#2713 | `git grep -c 'BACKEND_CALL_BUDGET' e801c0f7844 -- gateway` → 0 |
 | KA1-22 | отказ в бюджете на зависшем соседе | заказан: go-implementer, kacho#2713 (вопросы о сессии и отсечке), kacho#2738 (бюджет ручкой на всех вопросах) — сегодня у адаптера `session_revocations_client.go` предела нет | `git grep -c 'WithTimeout\|WithDeadline' e801c0f7844 -- gateway/internal/clients/session_revocations_client.go` → нет строк |
 | KA1-23 | `504` моста | заказан: go-implementer, kacho#2713 — сегодня `optsFor` (`gateway/internal/restmux/mux.go`) предела не ставит; статус `504` даёт таблица края (`runtime.HTTPStatusFromCode`) | `git grep -c 'WithChainUnaryInterceptor\|WithTimeout' e801c0f7844 -- gateway/internal/restmux/mux.go` → нет строк |
-| KA1-24 | поток подписки живёт по своему сроку | есть: `gateway/internal/subscriptionstream/` (срок `KACHO_API_GATEWAY_SUBSCRIPTION_STREAM_BUDGET`, `gateway/internal/config/config.go`) | `git grep -n 'SUBSCRIPTION_STREAM_BUDGET' e801c0f7844 -- gateway/internal/config/config.go` → 1 |
-| KA1-25 | ручки в профилях | заказан: go-implementer, kacho#2738 (чарт края и профили `deploy/helm/umbrella/`) | `git ls-tree --name-only e801c0f7844 deploy/helm/umbrella/ \| grep -c 'values\..*\.yaml'` |
+| KA1-24 | поток подписки живёт по своему сроку; близнец — по KA1-23 | есть: `gateway/internal/subscriptionstream/` (срок `KACHO_API_GATEWAY_SUBSCRIPTION_STREAM_BUDGET`, `gateway/internal/config/config.go`); дублёр П9 — заказан: go-implementer, kacho#2713 | `git grep -n 'SUBSCRIPTION_STREAM_BUDGET' e801c0f7844 -- gateway/internal/config/config.go` → 1 |
+| KA1-25 | ручки в профилях | заказан: go-implementer, kacho#2738 (чарт края и профили `deploy/helm/umbrella/`) | `git ls-tree --name-only e801c0f7844 deploy/helm/umbrella/ \| grep -c 'values\..*\.yaml'` → 10 |
 | KA1-30 | приём по канону | заказан: go-implementer, kacho#2758 — сегодня запись ищется точным равенством (`gateway/internal/config/tokenissuers.go`, `TokenAcceptance`; `jwt_verifier.go`, поиск записи) | чтение `tokenissuers.go` @ `e801c0f7844` |
-| KA1-31 | отказ чужому издателю | есть: отказ «записи нет» (`jwt_verifier.go`); форма — по KA1-10 | — |
+| KA1-31 | отказ чужому издателю | есть: отказ «записи нет» (`jwt_verifier.go`, `ErrNoIssuerRecord`); форма ответа — по KA1-10 (kacho#2958); строки (а)–(е) после канона — kacho#2758 | `git show e801c0f7844:gateway/internal/middleware/jwt_verifier.go \| grep -c 'return nil, ErrNoIssuerRecord'` → 1 |
 | KA1-32 | старт и полоса нашей чеканки на разных формах | заказан: go-implementer, kacho#2758 | чтение `TokenAcceptance` @ `e801c0f7844`: три сравнения строк точным равенством |
 | KA1-33 | отказ в старте на неразличимом и не-URL объявлении | заказан: go-implementer, kacho#2758 — сегодня дубликат ловится только точным равенством (`AcceptedTokenIssuers`) | чтение `tokenissuers.go` @ `e801c0f7844` |
-| KA1-34 | перепись профилей | заказан: go-implementer, kacho#2758 — проба развёртывания над профилями | — |
+| KA1-34 | перепись профилей | заказан: go-implementer, kacho#2758 — проба над профилями: край — `api-gateway.tokenAcceptance.issuers` и `.platformIssuer`, служба — `kaname.…tokenSigning.issuer` | `git grep -c 'platformIssuer:' e801c0f7844 -- 'deploy/helm/umbrella/values.*.yaml'` → 4 профиля (`dev-prod`, `dev`, `fe3455-prod`, `prod`) |
 
 Сценариев без производителя, оставленных без исхода, — 0: у каждой строки производитель есть
-либо заказан с исполнителем и задачей.
+либо заказан с исполнителем и задачей. Строки посева, помеченные «заводится», заказаны тому же
+исполнителю в задаче сценария, который их читает: П1 (`молчит`), П3, П4 (строки) — kacho#2728 и
+kacho#2958; П5, П8 — kacho#2958; П6, П9 — kacho#2713; П7 — kacho#2758.
+
+Сценарий → близнец: KA1-01…05 → KA1-06; KA1-07 — состояние `отвечает` внутри сценария; KA1-10…13
+→ KA1-14; KA1-15, 16, 20…25, 33, 34 — строка «Близнец» сценария; KA1-30 (е) — близнец KA1-31 и
+положительный контроль точной формы; KA1-32 — положительный сценарий, его отрицательный близнец —
+KA1-33 (а). Отрицательного сценария без близнеца — 0.
+
+## Открытые вопросы
+
+Открытых вопросов — 0. Решения, которые прежде могли бы стать вопросами, приняты в Р1–Р6: ответ на молчание
+авторитета (`503`, заменяет F4d-23), форма вызова `401` и значение `domain` (Р2), величины
+бюджетов (Р4), правила канона (Р5).
 
 ## DoD
 
@@ -595,7 +658,10 @@ S2 → S3 (S2 и S3 пользуются формой отказа S1).
 - [ ] Пробы, утверждавшие прежние тексты (`session ended; sign in again`, `credential refused`,
       `token validation failed`, `token revoked` как ответ края), переведены на Р2 в том же PR;
       консольные пробы `ui-future` (`api-client.test.ts` и e2e-спеки, утверждающие текст `401`
-      края) — тоже; поведение консоли на `401` (вход) и на указании повышения не меняется.
+      края или вызов отказа с `error_description=`; перепись — `git grep -l 'error_description=' -- 'ui-future/**'`,
+      9 файлов @ `e801c0f7844`, вызов повышения уровня в них не меняется) — тоже; поведение консоли на `401` (вход, повтор вопроса о
+      сессии по `error="invalid_token"`) и на указании повышения не меняется, а на `503` Р1
+      консоль не уводит на вход (исход `unknown` в `sessionIdentity`).
 - [ ] Коллекция `authn_edge` утверждает KA1-16; стенд в боевой посадке, прогон зелёный числом.
 - [ ] `gateway/docs/content/architecture/authn.mdx` описывает Р1, Р2, Р3 так, как их производит
       код; раздел «Отказ на этой полосе один и неразличимый» распространён на все полосы.
