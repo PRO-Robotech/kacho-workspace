@@ -1,0 +1,38 @@
+# ВЕРДИКТ: ✅ на 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+role: system-design-reviewer
+moment: post-diff
+change: issue-2915
+repo: PRO-Robotech/kacho
+base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 2fdbc6b523a5
+head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+digest: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f
+digest_command: git diff e415e59a225b..2fdbc6b523a5 | sha256sum
+verdict: accepted
+blocks: false
+distributed_surface: true
+schema_intersection: true   # REPEATABLE READ + age(xmin); ревью db на этот дайджест есть: reviews/db/9ea306ee….yaml
+checks:
+  executed: 3 пакета зелёные (send, cmd/migrator, internal/migrationchains), гонка TestParallelSendsGetTheirOwnIDs исполнена (4 раунда x 48), не пропущена
+  injection: overlay send.go IsoLevel=ReadCommitted -> TestParallelSendsGetTheirOwnIDs красная (Send N: Internal) — проба способна упасть
+axes:
+  atomicity: closed — строка ленты (точка сохранения) и строка журнала (journal.Emit через journaltx) в одной транзакции; pg_notify триггером, доставляется на коммите, полезная нагрузка sequence_no — та же форма, что у compute/geo/nlb
+  idempotency: n/a-with-note — Send синхронный по Д75; повтор после потерянного ответа ставит второе письмо (класс notice, право system_admin)
+  concurrency: closed — age(xmin)<=0 под REPEATABLE READ корректен (снимок до выдачи xid; своя строка — xid подтранзакции >= top xid; GetStableLatestTransactionId кешируется после выдачи xid); Limits у probe-hello пусты — upsert окна (40001 под RR) недостижим
+  delivery_model: closed — журнал внутренний, поток подписки только на внутреннем слушателе
+  workers: closed — уборщики ленты и журнала фундаментом, гашение с бюджетом 15s до закрытия пула
+  replica_isolation: closed — состояния в памяти нет
+  edge: closed — registerPublic пуст; InternalNotifyProbeService/Feed/Subscription только во внутреннем; ban6-гейт несёт notify
+  cross_service: closed — notify-probe→iam (сужение) покрыто *→iam; новых рёбер нет
+  deadlines: closed — БД под statement_timeout=30s пула corelib/db; ребро iam — listnarrow Timeout=AuthZCheckTimeout
+important:
+  - at: services/notify/cmd/notify-probe/internal/send/send.go:63
+    what: SELECT id FROM <feed_outbox> WHERE age(xmin)<=0 — неиндексируемый полный проход всей ленты на каждый Send (закрытые строки живут до уборщика), под снимком RR
+    require: id из feed.Put (corelib) вместо вывода из xmin; до того цена ограничена объёмом пробы — не блокирует
+  - at: services/notify/cmd/notify-probe/internal/send/send.go:33-35
+    what: шапка утверждает, что на READ COMMITTED ответ отдал бы чужой id; измерено overlay-инъекцией — исход Internal (страж len(ids)!=1), а не чужой id
+    require: поправить формулировку шапки (doc-truthfulness), не блокирует
+notes:
+  - deploy/helm/notify/templates/deployment.yaml:86 мигратор на базе kacho_notify, а services/notify/cmd/migrator/chains.yaml несёт только kacho_notifyprobe — отказ fail-closed при первом рендере; порядок «N7 до D2» записан в tasks.md:48, рендер 0 объектов до D2 (Д80/Д81)
+  - миграции init-контейнером на каждую реплику (replicaCount 2) через goose без замка сеанса — тот же класс, что у kacho-geo; предмет не этого диффа
+orders: []
+return_to: —

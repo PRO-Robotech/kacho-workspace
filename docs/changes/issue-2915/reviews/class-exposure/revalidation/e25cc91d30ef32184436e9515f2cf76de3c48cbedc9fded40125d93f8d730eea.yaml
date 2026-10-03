@@ -1,0 +1,252 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 44 (e25cc91d…).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакций 43 и 44 против последней пересверенной
+# (редакция 42, 4f78d66c…, «к замыслу», не отображены CX1-127…CX1-133). На редакцию 43 пересверки нет;
+# она судится здесь вместе с 44. Перечень к отображению: CX1-127…CX1-133 (4f78d66c…) плюс CX1-134…CX1-139
+# первичного разбора на одобренную приёмку редакции 22 (initial/c19490f9….yaml).
+#
+# Итог — к замыслу. Редакции 43 и 44 отобразили все семь прежних пунктов (CX1-127…CX1-133), условия
+# 4f78d66c исполнены текстом §12а. Шесть пунктов первичного разбора c19490f9 (CX1-134…CX1-139) в замысле не
+# отображены. По имени: 0 вхождений. По содержанию: признаков их условий нет (measurements). Первичный разбор
+# записан на тот же отпечаток e25cc91d, что эта пересверка (его inspected), поэтому редакция их и не
+# могла исполнить. По Д97 блокирующие, то есть корректность или безопасность с предикатом: CX1-134,
+# CX1-135, CX1-137, CX1-138. Не блокирующие, это доступность стенда: CX1-136, CX1-139. По §4 контура
+# одобрение замысла запрещает любой неотображённый пункт, и CX1-136 и CX1-139 тоже: Д97 задаёт режим
+# ревью кода волны, а отображение пунктов он не отменяет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: e25cc91d30ef32184436e9515f2cf76de3c48cbedc9fded40125d93f8d730eea
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: e25cc91d30ef32184436e9515f2cf76de3c48cbedc9fded40125d93f8d730eea   # change.yaml:292 — совпадает (M3 исполнен)
+  change_yaml_sha256: d77d9059ab94bbefa6baacf2bab865c4ef98d1bef342117857b30dcbade3243e
+  tasks_sha256: a9483f9213c211c9c73b730a4e9fb7307494f14157c5254e16620e92a51a1fb9
+  revision: 44
+  content_commit: "— (рабочее дерево tmp/issue-880 поверх acfbe0d18, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/4f78d66c713a92ef09ddd0d212aeb0e858b1addeaba9f017777d28d9286829f8.yaml
+    sha256: 4f78d66c713a92ef09ddd0d212aeb0e858b1addeaba9f017777d28d9286829f8
+  initial_on_approved_acceptance:
+    record: docs/changes/issue-2915/reviews/class-exposure/initial/c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db.yaml
+    note: "написан по e25cc91d (его inspected), то есть после этой редакции. Его CX1-134…CX1-139 эта редакция не видела"
+  delta_predicate: >-
+    Шапки «Редакция 43» и «Редакция 44» (design.md:14-38); §12а целиком (:4931-5236). Текста 4f78d66c в
+    дереве нет: HEAD несёт c09a9604, то есть редакцию 39. Поэтому прочий текст сверен переписью имён
+    CX1-127…CX1-139 и признаков условий, а не дифом
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256_in_tree: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db   # редакция 22
+  verdict_on_tree: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/c19490f9….yaml:25"
+  change_yaml_acceptance_sha256: "1bffe10d… (редакция 19). Отстаёт от одобренной 22; это шаг события ACCEPTANCE_APPROVED, не замысла"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace_lane: acfbe0d18   # tmp/issue-880, плюс незакоммиченная дельта автора
+  workspace_main_clone: 13e0d0c1e
+  kacho_cited_by_subject: 910ccddeadc   # замеры §12а «Перемер редакции 43»; заново дерево kacho не мерилось
+decisions_judged:
+  - "Д100: носитель notify-api в Основе. Два развёртывания, всё DKIM и DNS только в notify-sender"
+  - "Д101: MAIL FROM = адрес отправителя установки. rua, выравнивание, MX и длина адреса возврата, dns_posture остаются в NTF-4"
+  - "Д102: a8f60d вне рендера notify (вариант 3). Признак «приёмник стенда» объявлен в deploy/stacks-mail.txt, P12 судит 7 профилей"
+  - "Д103: R41-1/R41-2 (M1, M2), N41-3, N41-4 закрыты; механизм перенесён с отпечатком df1ce64d…"
+  - "Редакция 44: слои P12 (в)/(г), «записи нет» у spf, седьмая причина P14, объект ключа DKIM — отдельный узел global.kacho.identity.smtp.dkim"
+inspected: >-
+  design.md: шапки редакций 43, 44, 42; §12а целиком (:4931-5236); §13 первый абзац. Перепись вхождений
+  CX1-127…CX1-139 по design.md и tasks.md. Признаки условий CX1-134…CX1-139 и N22-1/N22-2 grep-ом по
+  design.md и tasks.md. Приёмка NTF-1 c19490f9: Р19 «Проверки» (:1385-1401), таблица P04…P07
+  (:2774-2777), P12, P14 (заголовки). Записи: revalidation/4f78d66c (целиком), initial/c19490f9 (items,
+  notes), вердикт ревью приёмки c19490f9. change.yaml: hashes. Дерево kacho заново не мерилось:
+  §12а несёт перемер @910ccddeadc, а исполняемых правок S6 нет. Пробы и гейты не гонялись. Записки vault
+  не читались.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md tasks.md → 0, 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "c19490f9 — APPROVED; initial/c19490f9….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-127…CX1-133 отображены. CX1-134…CX1-139 — 0 вхождений, признаков условий нет"
+  - condition: "change.yaml несёт отпечаток предмета"
+    result: green
+    detail: "change.yaml:292 design_sha256 = e25cc91d…"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design/design-reviewer/e25cc91d….yaml нет (последнее — 4f78d66c, RETURNED)"
+
+mapping_check:
+  - item: "CX1-127 (R41-1, M1)"
+    verdict: holds
+    text: >-
+      §12а «Закрытое этой редакцией»: в переписи Д93 два разбора DSN (dsnField, dbEnv). Предикат включает
+      url.Parse и печатает объём (6 вхождений в 5 файлах, осмотрено 3730), контроль — harness_test.go:268.
+      dbEnv переходит на pgx.ParseConfig, инъекция задана формой ключа, близнец назван
+  - item: "CX1-128 (R41-2, M2)"
+    verdict: holds
+    text: >-
+      Один не-_test носитель рендера internal/chainrender.Render(profile). Помощники deploy_test переезжают в
+      него. «Вне опроса» — только при нуле в каждом профиле, с печатью по профилю, предикат снятия
+      _sources.tpl:27. Инъекция и близнец названы
+  - item: "N41-3, N41-4 (Д103)"
+    verdict: holds
+    text: >-
+      Выбор записан: Д93 — по коду волны, replaceDBName переходит в D4, четыре места вне notify выносятся.
+      Два прод-места vpc — вопрос корректности, отдельная задача через диспетчера (orders)
+  - item: "CX1-129 (а)…(г)"
+    verdict: holds
+    text: >-
+      Перепись 7 профилей с цепочкой, узлом, признаком, рендером, источником зоны и исходом. Признак объявлен
+      в deploy/stacks-mail.txt, равенство множеств и признак против узла — P12 (а), (б). a8f60d вне рендера
+      (Д102). Предикат D10 и DoD 22 переписаны на dev-prod с посевом
+  - item: "CX1-130 (а), (б)"
+    verdict: holds
+    text: >-
+      dnsPolicy None, сервер зоны авторитетен только для домена From, forward . /etc/resolv.conf, search и
+      ndots как у ClusterFirst. Обе отвергнутые формы названы. P01 с инъекцией «пересылка снята» → /readyz
+      называет database
+  - item: "CX1-131 (а)…(г)"
+    verdict: holds
+    text: >-
+      Порядок runServe из шести шагов, страж после поверхности (шаг 6), довод — бюджет liveness около 50 с.
+      dnscheck.New отказывает на nil, корень передаёт net.DefaultResolver явно. boot.env получает ручки и
+      файлы. Помощник dnstest на каждом in-process старте, перепись «стартов N, со зоной N» в сдаче N14
+  - item: "CX1-132 (а)…(в)"
+    verdict: holds_with_new_exposure
+    text: >-
+      Текст собственный, источник закреплён: df1ce64d…, ac0cc65a5, имена разделов. Таблица отличий закрыта
+      (З4, З23, §8, Р12, З21, П7, держатели). Смена ключа — перечитывание на такте перепроверки, окно описано.
+      При переносе потеряно условие поколения З4 источника — это CX1-134, он не отображён
+  - item: "CX1-133 (а)…(в)"
+    verdict: holds
+    text: >-
+      Фиксированные тексты на семь причин, разбор без %w/%v и без журнала, инъекция байтами-маркером,
+      близнец RSA 2048, проба на каждую причину P14
+  - item: "N42-1"
+    verdict: holds
+    text: "Метка check — закрытый перечень пакета, выставляет одна типизированная функция"
+  - item: "N42-2"
+    verdict: holds
+    text: >-
+      Д100: два развёртывания. Всё DKIM и DNS — только в notify-sender. I01 печатает по развёртываниям, у
+      notify-api ссылок 0. Е11 остаётся в NTF-4 с условием вступления
+  - item: "N42-3"
+    verdict: holds
+    text: "Приёмка 22 одобрена, первичный разбор на неё есть"
+  - item: "CX1-134 — поколение пары «ключ, селектор» при перечитывании"
+    verdict: unmapped
+    text: >-
+      §12а «Смена ключа DKIM»: «страж перечитывает два файла тома». grep -c -E 'Readlink|\.\.data|поколени'
+      design.md tasks.md → 0, 0. Одна функция чтения для старта и для перепроверки не названа: загрузчик
+      З20 и перечитывание описаны раздельно
+  - item: "CX1-135 — запрет зоны стенда вне профиля stand исполняется рендером"
+    verdict: unmapped
+    text: >-
+      §12а «Зона стенда»: рендер отвергает только пустые serviceIP или clusterDomain. P12 (в) «enabled ⇒
+      stand» судит профили дерева. Слой значений вне перечня профилей не судится, и замысел не говорит
+      этого прямо. Исход (в) первичного разбора не выбран
+  - item: "CX1-136 — serviceIP наследуется между кластерами"
+    verdict: unmapped
+    text: >-
+      Таблица профилей §12а: standDNS объявлен в values.dev.yaml, prorobotech и dev-prod его наследуют.
+      Источник serviceIP по профилю P12 не печатает, проверки диапазона в рецепте нет
+  - item: "CX1-137 — кодировка частей тела после подписи"
+    verdict: unmapped
+    text: "grep -c -E 'Content-Transfer|quoted-printable|8bit|8BITMIME|7bit|998' design.md tasks.md → 0, 0"
+  - item: "CX1-138 — таблицы разбора содержимого SPF/DMARC/DKIM, валидатор селектора, абсолютные имена"
+    verdict: unmapped
+    text: >-
+      Таблица рода ответа есть, таблицы содержимого нет. grep 'redirect|?all|+all|квалификатор|SPKI|PKCS#1'
+      → одно вхождение (PKCS#1 в абзаце о разборщике ключа, :5048), к записи DKIM оно не относится. P14
+      «вне формы имени DNS» (`sel_1`) не называет валидатор: один label или многоуровневый селектор RFC 6376.
+      Абсолютные имена запросов при ndots 5 и search из dnsConfig не названы. P06 (+all) приёмка утверждает
+      сама, но голый `all`, `?all` и `redirect=` остаются решением реализации
+  - item: "CX1-139 — посев стенда: зона из ключа объекта, а не из новой пары"
+    verdict: unmapped
+    text: >-
+      §12а «Посев»: «существующий объект не трогается… выпускает пару RSA 2048 и создаёт объект ключа DKIM.
+      Отдельно он создаёт объект зоны». Оба объекта ограждены по отдельности, сверки согласия нет
+
+new_items: []   # дельта 43/44 новых классов сверх CX1-134…CX1-139 не открывает; находка о порядке проверок — заметка N44-1
+
+items: []
+notes:
+  - id: N44-1
+    blocking: false
+    where: "§12а «Резолвер и срок запроса»: «в наименьший KACHO_NOTIFY_DNS_BOOT_DEADLINE (10 с) входят две попытки»"
+    text: >-
+      Проверок три, срок запроса 5 с, нижняя граница срока старта 10 с. Как идут проверки внутри одной попытки
+      стража, не сказано: последовательно или параллельно. Если последовательно и зона молчит, за 10 с
+      исполняются dkim и spf, а dmarc не запрашивается ни разу. Тогда отказ «исчерпан срок, проверка <check>»
+      называет ту проверку, на которой кончилось время, а не ту, что молчит. Нужно одной строкой: проверки
+      одной попытки идут параллельно, каждая под своим queryTimeout, либо фраза «две попытки» читается как
+      «две попытки каждой проверки», и тогда нижняя граница срока ≥ 3 × 2 × 5 с
+    predicate: "§12а называет форму попытки (параллельно | последовательно) и пересчитывает нижнюю границу срока старта под неё"
+  - id: N22-1, N22-2
+    blocking: false
+    where: "initial/c19490f9 notes"
+    text: >-
+      Не отображены: grep 'организационн|OrgDomain' → 0; про исход перезапуска при паре B без записи B текста
+      нет. Остаются заметками первичного разбора, одобрение не блокируют
+
+measurements:
+  - claim: "предмет, маршрут, change.yaml"
+    command: "sha256sum design.md tasks.md change.yaml; grep -n design_sha256 change.yaml"
+    result: "e25cc91d…, a9483f92…, d77d9059…; change.yaml:292 = e25cc91d (совпадает)"
+  - claim: "приёмка одобрена, первичный разбор есть"
+    command: "sha256sum <приёмка NTF-1>; grep -n '^verdict' docs/specs/reviews/<приёмка>/c19490f9*.yaml; ls reviews/class-exposure/initial/"
+    result: "c19490f9 — APPROVED (:25); initial/c19490f9….yaml есть"
+  - claim: "прежние пункты отображены по имени"
+    command: "grep -o -E 'CX1-1(2[7-9]|3[0-9])' design.md | sort | uniq -c"
+    result: "CX1-127…CX1-133 по 3–4 вхождения; CX1-134…CX1-139 — 0"
+  - claim: "признаки условий CX1-134, CX1-137, CX1-138, N22-1 по содержанию"
+    command: >-
+      grep -c -E '<образец>' design.md tasks.md для образцов 'Readlink|\.\.data|поколени',
+      'Content-Transfer|quoted-printable|8bit|8BITMIME|7bit|998', 'redirect|\?all|\+all|квалификатор|SubjectPublicKeyInfo|PKCS#1|SPKI',
+      'организационн|OrgDomain'
+    result: "0/0; 0/0; 1/0 (:5048, разборщик ключа — не запись DKIM); 0/0. Контроль образца: 'форм[аы] имени DNS' → 2 (:20, :5053), найдено"
+  - claim: "форма попытки стража (N44-1)"
+    command: "sed -n 4931,5237p design.md | grep -c -E 'параллел|последовательн|по очереди|errgroup|одновременн'"
+    result: "0"
+  - claim: "ревью замысла на предмет"
+    command: "ls reviews/design/design-reviewer/ | grep e25cc91d"
+    result: "нет"
+  - claim: "отсрочки"
+    command: "grep -c -E 'TODO|TBD|FIXME' design.md tasks.md"
+    result: "0, 0"
+
+not_measurable:
+  - item: "точный диф 4f78d66c → e25cc91d"
+    why: "Текст 4f78d66c в дереве не сохранён (HEAD = c09a9604, редакция 39). Дельта ограничена шапками 43/44 и §12а и переписью имён"
+  - item: "числа §12а «Перемер редакции 43» о дереве kacho"
+    why: "Приняты по атрибуции: автор, @910ccddeadc, 2026-10-03. Заново не мерились, на вывод этой записи не влияют: она судит отображение, а не дерево"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-134, CX1-135, CX1-136, CX1-137, CX1-138, CX1-139]
+unmapped_blocking_by_D97: [CX1-134, CX1-135, CX1-137, CX1-138]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: >-
+      Отобразить CX1-134…CX1-139 по условиям initial/c19490f9 в §12а. CX1-134: поколение через ..data, одна
+      функция чтения пары для старта и перепроверки, строка в таблице отличий. CX1-135: чарт отказывает в
+      рендере при standDNS.enabled и узле, который не приёмник стенда, либо прямо сказано, что P12 держит
+      только профили дерева. CX1-136: источник serviceIP по профилю без наследования между кластерами либо
+      названная форма без закреплённого адреса. CX1-137: части тела — QP или base64, 7bit, строки ≤ 998. CX1-138:
+      закрытые таблицы разбора SPF/DMARC/DKIM, валидатор селектора, абсолютные имена запросов. CX1-139:
+      зона выводится из ключа существующего объекта, после посева сверка согласия. Плюс N44-1: форма попытки
+      стража. Строки в §11 и §11а
+  - to: "диспетчер"
+    subject: "Завести задачу трекера о двух прод-местах vpc с url.Parse(dsn), это корректность (§12а N41-3: services/vpc/cmd/vpc/main.go:1487, services/vpc/internal/apps/kacho/config/load.go:155 @910ccddeadc)"

@@ -1,0 +1,89 @@
+ВЕРДИКТ: ⛔ на 910ccddeadc42de98f9260130bf12a2987044570
+reviewer: security-auditor
+mode: поверхность до посадки (пост-дифф, круг 3), планка — высокая и средняя; предмет задания — Д93, Д94
+subject:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  head: 910ccddeadc42de98f9260130bf12a2987044570
+  base: origin/2914-notify @ e415e59a225b4f7a0ff8d327df16d65f59485c20
+  merge_base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 910ccddeadc — перемерено, не сдвинулась
+  digest_cmd: git diff e415e59a225b..910ccddeadc | sha256sum
+  digest: 2495d687b9d33237168ab1059c8cbcb9862fcafcb4a358aab0fcb9e0244791ca
+  diff_volume: 176 файлов, +15521/-500, 65 коммитов; дельта к прошлой записи (5f195517e81..910ccddeadc): 26 файлов, +1951/-319, 18 коммитов
+decisions_applied: [Д75, Д76, Д77, Д78, Д79, Д80, Д81, Д82, Д83, Д84, Д86, Д87, Д88, Д89, Д90, Д91, Д92, Д93, Д94]   # Д85 для живых гейтов заменён Д91
+previous_record: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004.yaml (✅ на 5f195517e81)
+
+findings:
+  - id: SEC-W1-02
+    severity: средняя по решению (Д93 — обязательная граница волны, названа заданием); собственная тяжесть утечки — низкая (тестовые учётные данные pgtest)
+    status: подтверждена по коду
+    key: kacho:services/notify/cmd/notify-probe/harness_test.go:own-dsn-parse-in-test
+    where:
+      - services/notify/cmd/notify-probe/harness_test.go:266-280 dbEnv — url.Parse(dsn), имя базы как u.Path[1:], узел/порт/пользователь/пароль полями url.URL; файл НОВЫЙ в волне (на e415e59a225b его нет)
+      - internal/migratorapply/apply_test.go:215-223 replaceDBName — url.Parse(dsn) и подмена u.Path; функция была на базе, волна завела НОВОГО вызывающего (chainDSN, :100) — имя базы цепочки, на которую идёт накат в пробе, теперь выставляет свой разбор
+    sign: >
+      Д93: «свой разбор DSN нигде не заводится — ни в коде, ни в тестах; только
+      pgconn.ParseConfig». В диффе волны осталось два места, где строку соединения
+      разбирает url.Parse, а не драйвер. deploy/notify_secret_layout_test.go dsnField
+      снят (теперь migrationchains.DatabaseOf) — названная заданием координата закрыта,
+      а эти две нет.
+    failure_scenario: >
+      Предпосылка проб — DSN pgtest в форме URL с базой в пути. DSN, где база задана
+      вторым источником (query-параметр dbname/database или ключевая форма — тот
+      DSN-DB-DIVERGENCE, который Д83/Д93 закрыли в DatabaseOf), url.Parse читает иначе,
+      чем драйвер: dbEnv отдаёт процессу пробы KACHO_NOTIFYPROBE_DB_NAME из пути, а не
+      базу, к которой соединяется драйвер; replaceDBName меняет путь, а драйвер
+      соединяется с базой из query — накат пробы идёт не в ту базу, которую назвала
+      строка таблицы (сверка current_database() точки это поймает отказом, то есть
+      красный будет не о продукте). На ключевой форме оба падают Fatalf с текстом
+      url.Parse, который несёт строку целиком, с паролем, в журнал теста.
+    predicate: >
+      git diff e415e59a225b..<head> -- '*.go' | grep -nE '^\+.*url\.Parse\((dsn|base)' → 0
+      и git grep -n 'replaceDBName\|u\.Path\[1:\]' <head> -- services/notify internal/migratorapply
+      → только вызовы над разбором драйвера (pgconn.ParseConfig / migrationchains)
+    direction_for_fix: признак, не диагноз — исполнитель вправе опровергнуть; чтение полей — pgconn.ParseConfig (Host, Port, User, Password, Database); подмена имени базы — без своего разбора строки
+    return_to: go-implementer
+
+closure_of_previous:
+  - SEC-W1-01 (dsn-parse-error-echoes-password): остаётся ЗАКРЫТОЙ. DatabaseOf перешёл с pgconn.ParseConfig на pgx.ParseConfig (тот же вызов, что migratorcli.OpenDB; GS-C3) — отказ по-прежнему без текста драйвера; TestPointRefusalCarriesNoPasswordMarker и TestDatabaseOfRefusalCarriesNoPieceOfTheDSN зелёные @910ccddeadc.
+  - наблюдение «launches() не видит шаблонный запуск»: ЗАКРЫТО (d7cfd810503). Измерено: assert-shard-coverage.launches(deployment.yaml чарта notify, "kacho-notify", resolver по 126 шаблонам и 52 файлам значений) = True; "kacho-notify-probe" = False (близнец).
+  - наблюдение «ветка Д85 ключуется таблицей чарта, а носитель — процесс пробы»: ЗАКРЫТО по Д91/Д94. Ветка теперь судит рендер профиля по процессу носителя из карты INTERNAL_ENDPOINTS (kacho-notify-probe); поды шлюза kacho-notify носителем не считаются (самопроверка, случай е).
+  - наблюдение «ключевая форма DSN чарта без кавычек у password»: без изменений, ниже планки (deployment.yaml по-прежнему `password=$(KACHO_NOTIFY_DB_PASSWORD)`; пароль задаёт оператор; чарт выключен до D2).
+
+d94_render_key_length:
+  status: исполнено
+  how: recipient-key-secret.yaml — required, затем `lt (len $recipientKey) 32` → fail с именем ручки и границей; значение и длина в текст не идут; граница в байтах, как у стража старта (Go len).
+  evidence:
+    - TestNotifyRecipientKeyShorterThanTheHashIsRefusedAtRender @910ccddeadc → PASS (31 байт и 30 байт кириллицей — отказ; 32 байта ASCII и кириллицей — рендер, объект несёт ключ)
+    - инъекция в копии: граница 32→31 → FAIL «31 байт ASCII: рендер прошёл»; возврат → PASS
+  d94_ban6: ветка судит собственный слушатель носителя (svc/kacho-notify-probe :9091 по карте гейта); самопроверка через main() — 6 случаев ОК, включая «дерево как есть» на настоящем рендере dev-prod (в копии с собранными зависимостями зонтика)
+
+d91_gates:
+  - profile_launches.py: пустое имя профиля, отказ helm, ноль документов → NotRun (2), а не «не рендерит». Измерено на копии: dev-prod — документов 223, нагрузок 33, запускают kacho-notify-probe 0; близнец kacho-vpc 1.
+  - assert-metrics-surfaces-answer.sh --self-test: 19 утверждений, провалов 0 (пять — Д91)
+  - ложного зелёного нет: вне опроса только при ответе рендера; рендер дал носителя, а подов 0 — код 1
+
+observations_below_bar:
+  - ban6, случай «профиль не рендерит»: гейт кластер не спрашивает вовсе. Стенд, поднятый не тем профилем, что назван в --stack/KACHO_STAND_STACK, с живым носителем notify оставил бы его вне опроса. В конвейере e2e ban6 вызывается без --stack, и notify не входит в домены ни одного шарда — ветка там не срабатывает; обратная сверка (профиль не рендерит, а поды носителя есть → красный) сняла бы класс.
+  - самопроверка ban6 (случай д) на дереве без собранных зависимостей зонтика печатает ПРОВАЛ вместо «не выполнилось» (helm отказал → ветки нет). Измерено в рабочей копии волны: helm dependency не собран → «самопроверка: ПРОВАЛЕНА»; в копии со сборкой — ПРОЙДЕНА. Это неверная категория исхода самопроверки, а не дефект безопасности.
+  - комментарий migrationchains_test.go:213 называет pgconn.ParseConfig, код — pgx.ParseConfig (правдивость, не безопасность).
+  - url.Parse разбирает DSN вне диффа волны (vpc cmd/config, registry config_test, nlb/vpc testmain_integration) — вне предмета волны; если Д93 распространяется на дерево, это предмет отдельного заказа.
+
+checks_run:   # @910ccddeadc
+  - go test -count=1 ./internal/migrationchains ./services/notify/cmd/migrator ./services/notify/internal/config ./services/notify/cmd/notify-probe/internal/config ./services/notify/cmd/notify-probe/internal/send → ok 5
+  - (cd deploy && go test -count=1 -run 'Notify|MigrateDSN' .) → ok
+  - go test -count=1 -run 'TestNotifyFormIsNotAThirdCategory|Form|Database' ./internal/migratorapply → ok
+  - python3 deploy/scripts/assert-ban6-external-isolation.py --self-test → ПРОЙДЕНА (копия с helm dependency build); в рабочей копии без зависимостей — случай д ПРОВАЛ (см. выше)
+  - python3 deploy/scripts/assert-shard-coverage.py → OK (58 коллекций); --self-test → OK
+  - GOWORK=off bash deploy/scripts/assert-metrics-surfaces-answer.sh --self-test → 19/0
+  - python3 deploy/scripts/profile_launches.py --stack dev-prod --process kacho-notify-probe → 0; --process kacho-vpc → 1
+  - инъекция Д94 (граница 31) → красный своим текстом; возврат → зелёный
+
+inspected:
+  revision: 910ccddeadc42de98f9260130bf12a2987044570
+  files_read: 17 из 26 файлов дельты целиком/по диффу — dsn.go, migrationchains.go, migrator/main.go, recipient-key-secret.yaml, notify_secret_layout_test.go, assert-ban6-external-isolation.py, profile_launches.py, assert-shard-coverage.py (launches/resolver), deploy/Makefile, Makefile, ci.yaml, services/notify/Makefile, formoutofpoll_test.go, formdatabase_test.go (manifestDatabase), apply_test.go (chainDSN, replaceDBName), harness_test.go (dbEnv), e2e-newman.yml (вызов ban6); прочие 9 — прогоном их проб
+  census_own_dsn_parse: все файлы волны (176) по признаку url.Parse/ParseConfig/u.Path[1:]/Fields(dsn — 14 файлов с совпадением, разобраны по референту: 2 — свой разбор DSN (находка), остальные — разбор URI SAN/origin/SMTP либо драйвер
+  handlers: 0 изменено в дельте
+  catalog_rows: 0 изменено
+
+dry_round: нет — подтверждённых 1 (SEC-W1-02)

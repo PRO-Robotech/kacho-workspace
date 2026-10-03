@@ -1,0 +1,81 @@
+# ВЕРДИКТ: ⛔ на 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+role: db-architect-reviewer
+mode: review
+repo: PRO-Robotech/kacho
+branch: 2914-wave-ntf1-core-1
+base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 2fdbc6b5
+head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+content_digest: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f  # git diff base..head | sha256sum
+verdict: return
+blocking: true
+migrations_touched: 2
+migration_paths:
+  - services/notify/internal/probemigrations/20261002090000_notifyprobe_journal.sql
+  - services/notify/internal/probemigrations/20261002090001_notification_feed_v1.sql
+repo_sql_paths:
+  - services/notify/cmd/notify-probe/internal/send/send.go  # ownRowQuery
+critical:
+  - id: DSN-DB-DIVERGENCE
+    where: internal/migrationchains/dsn.go:DatabaseOf; services/notify/cmd/migrator/main.go:selectChain
+    defect: >
+      Цепочка выбирается по имени базы, которое разбирает DatabaseOf, а соединяется
+      драйвер по своему разбору; они расходятся. Измерено pgconn.ParseConfig
+      (pgx/v5, на дереве head):
+      "postgres://u@h/kacho_notifyprobe?dbname=kacho_notify" -> DatabaseOf=kacho_notifyprobe, pgx=kacho_notify;
+      "dbname=kacho_notifyprobe database=kacho_notify" -> DatabaseOf=kacho_notifyprobe, pgx=kacho_notify.
+      Точка накатывает цепочку пробы в ЧУЖУЮ базу без отказа — утверждение
+      «имя вне таблицы — отказ без наката» ложно для этих записей DSN.
+    requirement: >
+      Решение о цепочке судит базу, к которой точка соединится: либо имя из
+      разбора драйвера при пустом окружении PG*, плюс отказ на любом втором
+      источнике имени (query-параметр dbname/database в URL, ключ database в
+      ключевой форме); либо после соединения сверка `SELECT current_database()`
+      со строкой таблицы до первого оператора goose — отказ при неравенстве.
+      Пробу TestDatabaseOfReadsBothDSNForms дополнить обоими DSN выше (красные
+      сейчас) с близнецом без второго источника.
+    return_to: автор D4 (точка наката / migrationchains)
+important:
+  - id: ORPHAN-CHAIN-BLIND
+    where: internal/migrationchains/migrationchains.go:FromTree (hasSQL по "services/<svc>/internal/migrations")
+    defect: >
+      «Цепочка без точки наката» ищется только под каноническим именем каталога.
+      Снятие строки kacho_notifyprobe из chains.yaml вместе с ключом embedded
+      (sameSets остаётся равным) оставляет services/notify/internal/probemigrations
+      с двумя .sql вне всех гейтов — ровно класс, ради которого пакет заведён.
+    requirement: >
+      Признак сироты — любой .sql под services/<svc>/internal/** вне каталогов
+      перечня; инъекция «строка и FS сняты» -> красный.
+  - id: OWN-ROW-SEQSCAN
+    where: services/notify/cmd/notify-probe/internal/send/send.go:ownRowQuery
+    defect: >
+      `SELECT id FROM …_notification_outbox WHERE age(xmin) <= 0` без индексируемого
+      предиката — последовательный проход всей ленты (pending + закрытые до уборки)
+      на каждый Send. Корректность по снимку REPEATABLE READ разобрана и держится
+      пробой TestParallelSendsGetTheirOwnIDs (48x4); стоимость растёт с таблицей.
+    requirement: >
+      Механизм — id из самой вставки (feed.Put/порождённый Send… возвращает id,
+      INSERT … RETURNING id) — заказ в corelib; до того ограничение принято только
+      для пробы со стендовым трафиком.
+  - id: RR-SERIALIZATION-LATENT
+    where: services/notify/cmd/notify-probe/internal/send/send.go:repeatableRead
+    defect: >
+      На REPEATABLE READ upsert окна feed (window.go: ON CONFLICT DO UPDATE)
+      при конкурирующей постановке даёт 40001, а Send отдаёт его как INTERNAL без
+      повтора. Сегодня не срабатывает: у probe-hello нет limits (notification.yaml),
+      окно не трогается. Появление limits у шаблона — ложные отказы под параллелью.
+    requirement: >
+      Либо повтор транзакции на 40001, либо запрет limits у шаблона пробы проверкой;
+      снимается вместе с OWN-ROW-SEQSCAN (id из вставки -> RR не нужен).
+approved:
+  - journal: CHECK inline с CREATE TABLE, закрытые словари kind/event_type, payload object
+  - journal: initiator NOT NULL DEFAULT NULLIF(current_setting(...)) — запись мимо journaltx отвергается базой
+  - journal: индекс created_at обоснован предикатом уборки; имена _idx/_trg по конвенции
+  - goose Up/Down, StatementBegin/End вокруг plpgsql
+  - feed v1: сгенерирована notifygen (побайтовая сверка -check), FK contrib->outbox в той же базе ON DELETE CASCADE
+  - нет FK через границу сервиса; отдельная база kacho_notifyprobe (database per service)
+  - chains.yaml: закрытая таблица, повтор базы/каталога и каталог вне services/<svc>/internal/ — отказ; sameSets таблица==embed
+  - Send: текст драйвера наружу не выходит (codes.Internal "internal error")
+  - frozenLegacyMigrations: probemigrations под надзором с пустой эрой
+orders:
+  - integration-tester: красная проба точки наката на DSN с query-параметром dbname (applied chain != current_database())
+crosses_distributed: no

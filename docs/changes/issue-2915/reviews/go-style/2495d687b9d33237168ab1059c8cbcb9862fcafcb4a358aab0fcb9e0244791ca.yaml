@@ -1,0 +1,67 @@
+# ВЕРДИКТ: ✅ на 910ccddeadc42de98f9260130bf12a2987044570
+role: go-style-reviewer
+change: issue-2915 / волна ядра NTF-1, круг 3 (после Д91–Д95)
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 910ccddeadc = голова origin/2914-notify
+  head: 910ccddeadc42de98f9260130bf12a2987044570
+  digest_predicate: "git diff e415e59a225b..910ccddeadc | sha256sum"
+  digest: 2495d687b9d33237168ab1059c8cbcb9862fcafcb4a358aab0fcb9e0244791ca
+  previous: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004 (head 5f195517e81)
+verdict: accepted
+blocking: false
+scope: "176 файлов, +15521/-500; дельта к кругу 2 — 26 файлов (5f195517e81..910ccddeadc); прод-Go дельты: internal/migrationchains/{dsn,migrationchains}.go, services/notify/cmd/migrator/main.go, notify-probe/internal/send/send.go (только шапка)"
+fresh_deferral_markers: 0      # grep TODO|FIXME|XXX|HACK по добавленным строкам полного диффа
+probes_in_same_pr: yes
+return_to: "—"
+
+previous_items:
+  GS-C2: {status: closed, evidence: "main.go:73-80 const confirmTimeout=10s; confirmDatabase:249-256 context.WithTimeout+defer cancel, поздний ответ при истёкшем cctx — отказ; OpenDB вынесен из читателя (confirmConnection), defer Close. Пробы: TestConfirmDatabaseRefusesWhenTheNameDoesNotArriveInTime (+близнец с проверкой Deadline), TestPointConfirmsTheConnectedDatabaseBeforeGoose на живой pgtest. Инъекции перемерены: WithTimeout→WithCancel — красный текстом «ответ, пришедший через 2.0s при пределе 100ms, принят»; вызов сверки снят из main() — красный «точка вышла успехом» + «таблица goose есть (применено 2)»; исходник — оба зелёные."}
+  GS-C3: {status: closed, evidence: "dsn.go:40 pgx.ParseConfig — ровно вызов OpenDB; комментарий правдив (pgconn + три ключа драйвера). TestDatabaseOfRefusesWhatTheConnectionRefuses: 3 DSN (URL и ключевая форма) — отказ без кусков строки, близнецы приняты. Инъекция pgx→pgconn — 3 красных строки «принят с базой»."}
+  GS-I4: {status: open-nonblocking, evidence: "services/notify/internal/config/config.go:235 panic в KnobOfField не изменён (вне дельты)"}
+  style-RecipientKey-accessor: {status: open-nonblocking, evidence: "config.go:302 RecipientKey() — прод-читателей по-прежнему ноль (grep вне *_test.go)"}
+  style-probe-5s-literal: {status: open-nonblocking, evidence: "notify-probe/internal/config/config.go:164 литерал «5s» в тексте отказа"}
+
+critical: []
+
+important:
+  - id: GS-I4
+    carried_from: 9ea306ee42de
+    at: services/notify/internal/config/config.go:235
+    finding: "KnobOfField паникует на неизвестном имени поля вне cmd/; не блокирует (имена — литералы)."
+    require: "перепись имён KnobOfField против полей Config, либо возврат (Knob, bool)."
+
+foundation_candidates: []
+
+style:
+  - at: services/notify/cmd/migrator/main.go:88 (var currentDatabaseQuery)
+    note: >-
+      Изменяемая пакетная переменная в прод-бинаре ради подмены в процессе-помощнике пробы.
+      Ограничено пакетом main и честно описано; альтернатива без глобала — передать запрос
+      параметром confirmConnection и подменять его через env только в TestHelperRunsMain-обёртке.
+      Не блокирует.
+  - at: services/notify/config.go:302, notify-probe/internal/config/config.go:164
+    note: "перенесено из круга 2 без изменений (см. previous_items)."
+
+d93_note: >-
+  Д93 называет pgconn.ParseConfig; DatabaseOf стоит на pgx.ParseConfig — это pgconn.ParseConfig плюс
+  три ключа драйвера (тот же вызов, что migratorcli.OpenDB), не свой разбор. Свои разборы DSN в
+  дельте сняты: deploy/notify_secret_layout_test.go dsnField удалён, migrateFindings и
+  internal/migratorapply/formdatabase_test.go:240 читают имя через migrationchains.DatabaseOf;
+  TestMigrateDSNDatabaseIsReadByTheDriverParse держит кавычки и пробелы вокруг «=».
+  Оставшийся url.Parse в internal/migratorapply/apply_test.go:217 (replaceDBName) — построитель
+  контроля, до базы волны (8f59aa111ee предок e415e59a225b), вне диффа.
+
+approved:
+  - "Survey/SurveyTree + Census: сирота-цепочка под любым internal/**; объём осмотренного печатается и пустой обход — Fatalf (TestTheTreeHasItsChains); TestOrphanSQLAnywhereUnderInternalIsRefused с близнецом"
+  - "ошибки обёрнуты %w с контекстом шага; отказы сверки называют обе базы и «наката нет»"
+  - "паники в рабочем пути нет; context.Background только в cmd/*/main.go и пробах; log/slog; init() без эффектов"
+  - "send.go: шапка цены прохода ленты и условие снятия с предикатом (go doc …feed Put); предпосылка REPEATABLE READ держится TestSentTemplateDeclaresNoLimits"
+
+measured:
+  - "merge-base origin/2914-notify 910ccddeadc = e415e59a225b (= голова origin/2914-notify)"
+  - "go vet ./services/notify/... ./internal/migrationchains/... — чисто @910ccddeadc"
+  - "go test -count=1 ./services/notify/... ./internal/migrationchains/... — 10 пакетов ok, 2 без тестов @910ccddeadc"
+  - "go test -v -run 'TestPointConfirms|TestConfirmDatabaseRefuses' ./services/notify/cmd/migrator — оба PASS, живой: близнец применено 2 / объявлено 2"
+  - "инъекции во временном worktree tmp/gsr3-inj (снят): pgx→pgconn в dsn.go — 3 красных; WithTimeout→WithCancel — красный; вызов confirmConnection снят — красный (2 находки)"

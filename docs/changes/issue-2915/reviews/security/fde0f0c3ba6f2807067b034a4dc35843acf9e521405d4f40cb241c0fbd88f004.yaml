@@ -1,0 +1,74 @@
+ВЕРДИКТ: ✅ на 5f195517e8149233436235927e337a4fe65cc0c5
+reviewer: security-auditor
+mode: поверхность до посадки (пост-дифф, повтор на новом дайджесте), планка — высокая и средняя
+subject:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  head: 5f195517e8149233436235927e337a4fe65cc0c5
+  base: origin/2914-notify @ e415e59a225b4f7a0ff8d327df16d65f59485c20
+  merge_base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 5f195517e81 — перемерено, не сдвинулась
+  digest_cmd: git diff e415e59a225b..5f195517e81 | sha256sum
+  digest: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004
+  diff_volume: 170 файлов, +13877/-488, 47 коммитов; дельта к прошлой записи (2fdbc6b523a..5f195517e81): 26 файлов, +1499/-188, 13 коммитов
+decisions_applied: [Д75, Д76, Д77, Д78, Д79, Д80, Д81, Д82, Д83, Д84, Д85, Д86, Д87, Д88, Д89, Д90]
+previous_record: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f.yaml (⛔ на 2fdbc6b523a)
+
+closure_of_previous:
+  - id: SEC-W1-01
+    key: kacho:internal/migrationchains/dsn.go:dsn-parse-error-echoes-password
+    status: ЗАКРЫТА наблюдаемо (stderr процесса точки наката)
+    how: >
+      DatabaseOf разбирает DSN pgconn.ParseConfig (тот же разбор, что у тракта наката) и
+      на отказе отдаёт только вид записи («запись URL» / «ключевая запись libpq»), текст
+      драйвера не переносит ни целиком, ни обёрткой (dsn.go @5f195517e81). После соединения
+      сверка SELECT current_database() со строкой таблицы до первого оператора goose
+      (services/notify/cmd/migrator/main.go confirmDatabase), ошибка чтения — отказ.
+    evidence:
+      - cmd: go build -o kmig ./services/notify/cmd/migrator @5f195517e81; KACHO_MIGRATOR_DSN='postgres://notifyprobe:Sup3r%Secret@db:5432/kacho_notifyprobe?sslmode=require' kmig up
+        out: 'Error: точка наката services/notify/cmd/migrator: DSN не разобран драйвером (запись URL); текст разбора не печатается — он несёт куски строки соединения'
+      - cmd: KACHO_MIGRATOR_DSN="host=db port=5432 user=notify password=Tail0f Secret dbname=kacho_notifyprobe sslmode=require" kmig up
+        out: 'Error: точка наката …: DSN не называет базу: имени нет ни в строке, ни в окружении PGDATABASE'   # маркера нет
+      - cmd: ключевая форма с незакрытой кавычкой и мусорным ключом → 'DSN не разобран драйвером (ключевая запись libpq); …' — маркера нет
+      - regression_lock: services/notify/cmd/migrator/main_test.go TestPointRefusalCarriesNoPasswordMarker — исполняет main() отдельным процессом, судит stderr, обе формы + близнец (годный DSN, база вне таблицы → имя базы названо, маркера нет)
+      - injection: go test -overlay (dsn.go @2fdbc6b523a подменён) ./services/notify/cmd/migrator -run TestPointRefusalCarriesNoPasswordMarker → FAIL, 4 строки «stderr точки несёт кусок пароля» (Sup3r, Secret, %Se; Secret ключевой формы); на голове → ok
+      - unit: internal/migrationchains TestDatabaseOfRefusalCarriesNoPieceOfTheDSN (маркеры пароля, узла, пользователя), TestDatabaseOfFollowsTheDriverOnEnvironment, второй источник имени (DSN-DB-DIVERGENCE) — ok
+
+previous_observations_fate:
+  - KACHO_NOTIFY_RECIPIENT_KEY без читателя → ЗАКРЫТО (Д89): ручка в перечне notify, читается os.LookupEnv, тип RecipientKey не раскрывает значение в String; страж старта fail-closed — незадан → отказ, короче 32 байт → отказ, значение и длина в текст отказа не идут; тесты recipientkey_test.go (0/1/31 байт — отказ, 32 — старт) ok.
+  - checksum/recipient-key как оракул перебора → смягчено стражем длины (≥32 байт); энтропию страж не судит — остаётся ниже планки (материал задаёт оператор).
+  - migrate init с dbname=kacho_notify при строке только kacho_notifyprobe → по Д84 исход «НЕ ВЫПОЛНИЛОСЬ до N7»; чарт notify выключен до D2; deploy-тест сверяет dbname точным значением (близнец kacho_notifyprobe краснит — прогнан).
+  - notify-probe baseDSN склейкой → ЗАКРЫТО: url.URL + UserPassword; TestDSNCarriesCredentialsTheDriverReadsBack (пароли с @ / ? # % пробел :) ok.
+  - отрицательная проба Send на живом носителе — без изменений, ниже планки (держится каталогом и стражем старта).
+
+new_delta_findings: []   # высокой и средней тяжести не найдено
+
+observations_below_bar:
+  - ключевая форма DSN чарта notify (`password=$(…)` без кавычек): пароль с пробелом драйвер разбирает так, что хвост пароля становится именем стартового параметра (pgconn.ParseConfig → RuntimeParams{"<хвост> dbname": …}). В порядке полей чарта (password → dbname → sslmode) имя базы поглощается, и точка отказывает «DSN не называет базу» без маркера (измерено). Если порядок полей шаблона сменится (dbname до password), хвост уйдёт серверу стартовым параметром, а отказ сервера — в журнал соединения. Пароль задаёт оператор; кавычение значения в шаблоне сняло бы класс целиком.
+  - assert-shard-coverage launches(): распознаёт запуск первым элементом command/args литералом или последним сегментом литерального образа; шаблонное значение (`image: {{ include … }}`, `command: {{ toJson … }}`) не распознаётся — на дереве так записан запуск самого kacho-notify (launches(deployment.yaml, "kacho-notify") = False, измерено). Для записи kacho-notify-probe форма безопасна по Dockerfile (общий образ с ENTRYPOINT kacho-notify ⇒ шаблон пробы обязан назвать kacho-notify-probe командой), но шаблонная команда в D3 оставила бы запись неистёкшей при живом носителе, и ban #6 по notify не мерился бы. Вопрос к полосе D3, не к этой волне.
+  - ветка Д85 в assert-ban6-external-isolation.py ключуется таблицей чарта notify, а Internal*-носитель домена notify — процесс пробы (D3). При развёрнутой пробе и пустой таблице домен notify получит «НЕ ВЫПОЛНИЛОСЬ» (код 2) — ложного зелёного нет (шаг конвейера не зеленеет на 2), но и меры нет; порядок D2/D3 снимает.
+
+held_by_construction:
+  - SEC-W1-01-соседи: отказ OpenDB после успешного DatabaseOf не достигает ветки разбора (тот же разбор уже прошёл); ошибки соединения pgconn пароль не несут.
+  - Send: отказ постановки обёрнут шагом в журнале, наружу "internal error" (побайтно, проба); InvalidArgument отдаёт текст фундамента без значения адреса, префикс ровно один (проба).
+  - notify-probe: окно отзыва ≤0 — отказ загрузки с именем ручки (GS-C1), близнец 5s принят; перепись окна отзыва зелёная.
+  - ban #6 гейт: самопроверка ветки Д85 (6 случаев + дерево как есть) ПРОЙДЕНА, Internal*-методов 67, все в предмете; третий исход не вычитается в зелёный.
+  - метрики-поверхности: Д85 — таблица пуста → код 2, непуста и пода нет → код 1 (самопроверка в диффе).
+  - listfilter (Д88): перепись читает noListingSurface — списочной поверхности у notify нет, listauthz не требуется.
+
+checks_run:   # все @5f195517e81
+  - go test -count=1 ./internal/migrationchains ./services/notify/cmd/migrator ./services/notify/internal/config ./services/notify/cmd/notify-probe/internal/config ./services/notify/cmd/notify-probe/internal/send ./internal/migratorapply → ok 6
+  - go test -count=1 ./internal/repohygiene -run '<listfilter census, retired-engine, mount parity, catalog reachability, MRR, annotation lane, error tail, status tail, boot guard, posture knobs, verdict cache, revocation window, list narrowing, empty page>' → ok, PASS 37
+  - go test -count=1 ./tools/revocationwindowgate/... → ok
+  - (cd deploy && go test -count=1 -run Notify .) → ok
+  - python3 deploy/scripts/assert-shard-coverage.py → OK (58 коллекций); --self-test → OK
+  - python3 deploy/scripts/assert-ban6-external-isolation.py --self-test → ПРОЙДЕНА (Internal*-методов 67)
+  - инъекция SEC-W1-01 через go test -overlay (старый dsn.go) → FAIL, как и должно
+  - бинарь точки наката: 6 входов (2 исходных из SEC-W1-01, незакрытая кавычка, пароль с @ без базы, база вне таблицы, недоступный сервер) — маркера пароля в stderr нет ни в одном
+
+inspected:
+  revision: 5f195517e8149233436235927e337a4fe65cc0c5
+  files_read: 22  # дельта целиком (26 файлов): dsn.go, migrationchains_test.go, migrator/{main,main_test}.go, notify/internal/config/{config.go,recipientkey_test.go}, notify-probe/internal/config/{config,config_test}.go, send/{send.go,send_wrap_test.go}, proto+grpc.pb (комментарии), assert-ban6-external-isolation.py, assert-shard-coverage.py, assert-metrics-surfaces-answer.sh, e2e-shards.json, notify_secret_layout_test.go, chart notify deployment.yaml+_helpers.tpl, Dockerfile notify, corelib migratorcli OpenDB; гейт-диффы listfilter/retired-engine/migratorapply — прогоном
+  handlers: 1 (Send — изменён текст отказов)
+  catalog_rows: 0 изменено
+
+dry_round: да — подтверждённых находок высокой и средней тяжести 0; SEC-W1-01 закрыта наблюдаемо

@@ -1,0 +1,66 @@
+# ВЕРДИКТ: ✅ на 910ccddeadc42de98f9260130bf12a2987044570
+# Пост-дифф ревью формы контракта — proto-api-reviewer, круг 3; волна ядра NTF-1 (2914-wave-ntf1-core-1), изменение issue-2915.
+# Новый файл на дайджест; прежние записи 9ea306ee…, fde0f0c3… не правятся (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+verdict: accepted
+blocking: false
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 910ccddeadc == origin/2914-notify (перемерено)
+  head: 910ccddeadc42de98f9260130bf12a2987044570   # == origin/2914-wave-ntf1-core-1
+content_digest: sha256:2495d687b9d33237168ab1059c8cbcb9862fcafcb4a358aab0fcb9e0244791ca
+digest_definition: "git diff e415e59a225..910ccddeadc | sha256sum (176 файлов, +15521/-500)"
+previous_record: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004.yaml (head 5f195517e81)
+proto_files_touched: 2
+proto_files:
+  - proto/kacho/cloud/notify/v1/internal_notify_probe_service.proto   # без изменений с прошлой записи
+  - proto/kacho/cloud/notify/v1/package_options.proto                 # без изменений с прошлой записи
+checks:
+  - cmd: "git diff 5f195517e81..910ccddeadc -- proto pkg/api | wc -l"
+    output: "0"
+    outcome: green
+  - cmd: "buf lint (proto/ из git archive 910ccddeadc, buf 1.72.0)"
+    rc: 0
+    outcome: green
+  - cmd: "buf breaking --against '<kacho>/.git#ref=e415e59a225,subdir=proto'"
+    rc: 0
+    outcome: green
+  - cmd: "контроль breaking: SendResponse.notification_id string→bytes в копии против ref=910ccddeadc"
+    rc: 100
+    outcome: green   # прибор способен упасть; находка с координатой :62:3
+  - cmd: "git diff 5f195517e81..910ccddeadc -- send.go | строки +/- кроме комментариев"
+    output: "0 (дельта send.go — только шапка-комментарий; limits_test.go — новая проба)"
+    outcome: green
+  - cmd: "git diff --name-only 5f195517e81..910ccddeadc | grep permission_catalog|restmux|gateway/"
+    output: "0"
+    outcome: green
+prior_findings:
+  - id: PAR-1
+    status: closed
+    evidence: "закрыт на fde0f0c3…; контракт и логика Send с тех пор не менялись (дельта send.go — только комментарий), закрытие держится"
+  - id: PAR-2
+    status: open-note
+    severity: minor
+    evidence: "proto не правился в этом круге — повод «при следующей правке файла» не наступил; остаётся записью, не задачей"
+findings_critical: []
+findings_important: []
+notes:
+  - id: PAR-3
+    severity: minor   # не контракт, не корректность — запись
+    file: deploy/scripts/assert-ban6-external-isolation.py
+    line: 978
+    summary: >-
+      Самопроверка гейта ban6 строит синтетическую строку ("kacho.cloud.notify.v1",
+      "InternalNotifyProbeService", "Emit") — метода Emit в контракте нет (единственный RPC — Send).
+      Строка — фикстура самопроверки, вердикт гейта о дереве не меняет; имя метода из настоящего
+      контракта читалось бы честнее (Send).
+approved:
+  - "Д91–Д95 предмета в контракте не имеют: дельта 5f195517e81..910ccddeadc в proto/ и pkg/api — 0 строк"
+  - "package kacho.cloud.notify.v1; go_package без изменений; Internal* в отдельном файле и службе, google.api.http не объявлен"
+  - "регистрация: RegisterInternalNotifyProbeServiceServer только в services/notify/cmd/notify-probe/feed_wiring.go:190 (внутренний слушатель); внешних Handler-регистраций 0"
+  - "запись каталога прав gateway/internal/middleware/embed/permission_catalog.json:809 на месте, файл в дельте не менялся"
+  - "Д75: Send синхронный, ресурс не возвращается — форма не менялась; инфра-полей нет; совместимость — только добавление пакета"

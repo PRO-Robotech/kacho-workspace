@@ -1,0 +1,75 @@
+# ВЕРДИКТ: ✅ на 910ccddeadc42de98f9260130bf12a2987044570
+role: system-design-reviewer
+moment: post-diff
+round: 3
+change: issue-2915
+repo: PRO-Robotech/kacho
+branch: 2914-wave-ntf1-core-1
+base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 910ccddeadc4 (база не сдвинулась)
+head: 910ccddeadc42de98f9260130bf12a2987044570
+digest: 2495d687b9d33237168ab1059c8cbcb9862fcafcb4a358aab0fcb9e0244791ca
+digest_command: git diff e415e59a225b..910ccddeadc4 | sha256sum
+previous: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004 (head 5f195517e814)
+delta_since_previous: 26 файлов, +1951/-319 (git diff --stat 5f195517e814..910ccddeadc4), 18 коммитов
+verdict: accepted
+blocks: false
+distributed_surface: true
+schema_intersection: true   # current_database() в точке наката; REPEATABLE READ + age(xmin) у Send — семантика не менялась
+checks:
+  executed: >-
+    make test-integration SVC=notify — «пакетов: 3 (из осмотренных 10)», все ok, «пакетов исполнило пробы 3, без проб 0»;
+    -v send: 8 PASS, в т.ч. TestParallelSendsGetTheirOwnIDs и TestSentTemplateDeclaresNoLimits, SKIP 0;
+    -v migrator: TestPointConfirmsTheConnectedDatabaseBeforeGoose PASS на живой базе («близнец применено 2 / объявлено 2»),
+    TestConfirmDatabaseRefusesWhenTheNameDoesNotArriveInTime PASS;
+    internal/migrationchains, internal/migratorapply (35s), internal/repohygiene — ok
+  injections:
+    - point: main.go:137 вызов confirmConnection снят (overlay)
+      result: RED TestPointConfirmsTheConnectedDatabaseBeforeGoose — «точка вышла успехом», «учётная таблица goose есть (применено 2)»; близнец зелёный
+    - point: main.go confirmDatabase WithTimeout -> WithCancel
+      result: RED TestConfirmDatabaseRefusesWhenTheNameDoesNotArriveInTime — «ответ через 2.0s при пределе 100ms принят»
+    - point: dsn.go pgx.ParseConfig -> pgconn.ParseConfig
+      result: RED TestDatabaseOfRefusesWhatTheConnectionRefuses — 3 DSN с негодным ключом драйвера приняты
+    - point: migrationchains.go поиск сирот сужен до каталога migrations
+      result: RED TestOrphanSQLAnywhereUnderInternalIsRefused (оба подслучая) + TestTheTreeHasItsChains
+axes:
+  atomicity: closed — Send без изменений семантики; дельта send.go — только шапка (цена прохода, предпосылка RR)
+  idempotency: n/a-with-note — как в прошлых записях (Send синхронный по Д75)
+  concurrency: >-
+    closed — предпосылка RR «limits у шаблона пусты» теперь держится пробой (инъекция limit -> находка с именем шаблона);
+    гонка параллельных Send исполнена в цели integration (notify)
+  migration_chain_selection: >-
+    closed — выбор цепочки и соединение наката читают имя базы одним вызовом pgx.ParseConfig (corelib fe0dccf1794e
+    migratorcli/dialect.go:177); свой разбор DSN снят и в deploy/notify_secret_layout_test.go (dsnField нет, DatabaseOf);
+    сирота-цепочка ищется под любым services/<svc>/internal/** с переписью объёма (Census)
+  current_database_confirmation: >-
+    closed — confirmConnection: соединение трактом OpenDB, чтение под confirmTimeout=10s, ответ после предела не принимается,
+    ошибка/неоткрытое соединение — отказ без наката; проводка в main() держится живой пробой (инъекция снятия -> красный)
+  delivery_model: closed — без изменений
+  workers: closed — без изменений
+  replica_isolation: closed — без изменений
+  edge: >-
+    closed — новых служб на внешнем слушателе нет; ban6 по Д94 судит собственный слушатель носителя notify
+    (INTERNAL_ENDPOINTS), «не отрендерен» — по рендеру профиля, рендерит без подов — RED (Д91)
+  cross_service: closed — новых рёбер нет
+  deadlines: closed — прошлая заметка (SELECT current_database() на context.Background()) закрыта WithTimeout
+previous_items:
+  - item: important[0] main.go:118 сверка current_database() без пробы
+    status: закрыт — 8dc282ba33a, TestPointConfirmsTheConnectedDatabaseBeforeGoose; инъекция исполнена мной, красная
+  - item: important[1] ci.yaml:590 Д90 не применён
+    status: закрыт по Д92 — 58e120a4a77/e35cff1fce3: notify в матрице и SERVICES, отбор цели расширен, ноль исполненных — отказ, записи test-pg-outside-selection сняты, вторая запись своего шага для отобранного пакета — находка гейта; required-contexts — после вливания волны (Д92)
+  - item: note connectedDatabase без WithTimeout
+    status: закрыт
+  - item: send.go:63 полный проход ленты по age(xmin)
+    status: открыт, не блокирует; шапка называет цену и предикат снятия (feed.Put, возвращающий id)
+  - item: goose init-контейнером на каждую реплику без замка сеанса
+    status: без изменений, предмет не этого диффа
+notes:
+  - >-
+    Д93 дословно — «только pgconn.ParseConfig»; на голове DatabaseOf зовёт pgx.ParseConfig (надстройка над pgconn, ровно вызов
+    OpenDB). Своего разбора нет — по сути Д93 исполнено строже (один разбор и один отказ с соединением); буква решения
+    расходится — подтвердить у диспетчера, не блок моей оси
+  - >-
+    сверка открывает отдельное соединение, накат — своё; оба одним DSN и трактом, расхождение возможно лишь при
+    маршрутизации пулером по соединению — вне модели стенда
+orders: []
+return_to: —

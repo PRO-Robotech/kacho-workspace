@@ -1,0 +1,76 @@
+ВЕРДИКТ: ⛔ на 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+reviewer: security-auditor
+mode: поверхность до посадки (пост-дифф), планка — высокая и средняя
+subject:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+  base: origin/2914-notify @ e415e59a225b4f7a0ff8d327df16d65f59485c20
+  merge_base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 2fdbc6b523a
+  digest_cmd: git diff e415e59a225b..2fdbc6b523a | sha256sum
+  digest: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f
+  diff_volume: 164 файла, +12534/-456, 34 коммита
+decisions_applied: [Д75, Д76, Д77, Д78, Д79, Д80, Д81, Д82]
+
+findings:
+  - id: SEC-W1-01
+    severity: medium
+    status: подтверждена (воспроизведена командой)
+    key: kacho:internal/migrationchains/dsn.go:dsn-parse-error-echoes-password
+    where: internal/migrationchains/dsn.go:28 (форма URL), :69 (ключевая форма); печать — services/notify/cmd/migrator/main.go:175 fail → stderr init-контейнера migrate
+    sign: >
+      Отказ разбора DSN в DatabaseOf несёт содержимое строки соединения. Форма URL —
+      обёртка ошибки url.Parse, а она печатает исходную строку целиком, с паролем.
+      Ключевая форма — имя «ключа» берётся из непокавыченного значения, поэтому
+      хвост пароля с пробелом печатается как имя ключа. Соседние точки наката
+      (corelib migratorrun → pgconn) тот же вход печатают с паролем, заменённым на xxxxxx.
+    failure_scenario: >
+      Оператор задаёт пароль базы kacho_notifyprobe/kacho_notify со знаком '%' без двух hex
+      после него (URL-форма) либо с пробелом (ключевая форма — её и собирает чарт notify:
+      `password=$(KACHO_NOTIFY_DB_PASSWORD)` без кавычек). Точка наката отказывает до
+      соединения, и пароль (целиком либо хвостом) попадает в журнал init-контейнера — его
+      читает каждый, у кого есть pods/log, без права читать Secret.
+    evidence:
+      - cmd: KACHO_MIGRATOR_DSN='postgres://notifyprobe:Sup3r%Secret@db:5432/kacho_notifyprobe?sslmode=require' kmig up
+        out: 'Error: точка наката services/notify/cmd/migrator: DSN не разобран как URL: parse "postgres://notifyprobe:Sup3r%Secret@db:5432/…": invalid URL escape "%Se"'
+      - cmd: KACHO_MIGRATOR_DSN="host=db port=5432 user=notify password=Tail0f Secret dbname=kacho_notifyprobe sslmode=require" kmig up
+        out: 'Error: точка наката …: DSN не разобран: у ключа "Secret" нет `=`'
+      - twin: тот же URL-вход в services/storage/cmd/migrator → "cannot parse `postgres://storage:xxxxxx@db:5432/…`"
+      - build: go build -o kmig ./services/notify/cmd/migrator @2fdbc6b523a
+    fix_direction: >
+      Ошибка DatabaseOf не несёт ни строки DSN, ни её фрагментов (только вид отказа);
+      либо имя базы берётся из разбора pgconn.ParseConfig, который маскирует пароль и
+      знает обе формы. Regression-lock на уровне наблюдаемого: отказ точки наката на
+      DSN с паролем-маркером в обеих формах → stderr не содержит маркера ни целиком, ни
+      частью; близнец — годный DSN → цепочка выбрана.
+    owner: go-implementer (internal/migrationchains, полоса D4)
+
+observations_below_bar:   # не находки; низкая тяжесть или предмет чужой полосы
+  - чарт notify монтирует KACHO_NOTIFY_RECIPIENT_KEY, а у config notify читателя ручки нет (grep RECIPIENT_KEY по services/notify — 0); объектов notify в этой волне 0 (Д80), читатель — полоса ограды ключа (CX1-66, N7).
+  - init-контейнер migrate чарта notify зовёт точку с dbname=kacho_notify, а chains.yaml несёт только kacho_notifyprobe — под не встанет; объектов 0, строку вносит N7 (комментарий chains.yaml).
+  - checksum/recipient-key — sha256 отрендеренного Secret в аннотации пода: при низкоэнтропийном ключе — оракул перебора для читателя pods; принято замыслом (CX1-66), страж длины ключа не заведён.
+  - notify-probe baseDSN склеивает пароль в URL без экранирования (operator-controlled; та же форма, что у соседей).
+  - отрицательной пробы Send на живом носителе (не system_admin → отказ) нет; право держит носитель по каталогу (метод вне каталога — отказ старта, TestCarrierRaisesTheProbeWithoutAStartRefusal зелёный), отношение system_admin на cluster подстановкой не выполняется.
+
+held_by_construction:   # проверено, дефекта нет
+  - ban #6: InternalNotifyProbeService/Send и сервер ленты/подписки — только registerInternal; registerPublic пуст; pb.gw.go не зарегистрирован нигде вне pkg/api (grep); строка notify в INTERNAL_ENDPOINTS; запись ban6_undeployed_carriers самоистекает по шаблону, называющему kacho-notify-probe (бинарь образа носит это имя), самопроверка у1–у5 красная где надо.
+  - каталог прав: запись Send — system_admin на cluster, acr 1, scope_extractor есть; звено идентичности служб — {Subscribe, Claim, Ack}, Send вне перечня; M08 с близнецом зелёные на обоих слушателях.
+  - окно отзыва: KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL в переписи окна (процессов с окном 8, держателей без ручки 0).
+  - notify: форма no-grpc, единственная поверхность — диагностика cluster-internal; страж старта fail-closed (боевой режим, mTLS-файлы пары, sslmode у дескриптора); ошибка разбора SMTP-адреса маскируется (redactURLError).
+  - чарт: automountServiceAccountToken false, runAsNonRoot, readOnlyRootFilesystem, drop ALL; лист ECDSA, client auth, SAN из учётки; ключ сетки — отдельный Secret, только secretKeyRef, не порождается шаблоном.
+  - Send: err.Error() в codes.Internal нет; адрес в отказ не эхируется (проба).
+
+checks_run:
+  - go test ./internal/repohygiene -run '<17 гейтов: mount parity, catalog reachability, MRR, annotation lane, revocation window, verdict cache, forwarder circle, boot guard, posture knobs, scope filtered, error tail, status tail, authz window knob, list narrowing, empty page, blind principal>' → PASS 40
+  - go test ./services/notify/... → ok 8 пакетов (pgtest не пропущены: Send*, M08*, Parallel* — PASS)
+  - go test ./gateway/internal/{middleware,allowlist,principalmeta} ./tools/{revocationwindowgate,softopengate}/... ./internal/migrationchains → ok
+  - python3 deploy/scripts/assert-shard-coverage.py (+ --self-test у1–у5) → OK
+  - python3 deploy/scripts/assert-ban6-external-isolation.py --self-test → ПРОЙДЕНА (Internal*-методов 67)
+
+inspected:
+  revision: 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+  files_read: 31  # notify: cmd/notify/{main,serve,peertls,bootposture,diagnostics}.go, servesurface_ledger.go, internal/config/{config,sources}.go; notify-probe: {main,serve,describe,service_identity,feed_wiring,bootposture,m08_integration_test}.go, internal/{config/config,send/send,send/send_test,authzfilter/authzfilter}.go; proto x2; chart notify: values, deployment, configmap, certificate, recipient-key-secret, serviceaccount, _helpers, _sources; umbrella values diff; migrationchains/dsn.go; migrator/{main.go,chains.yaml}; Dockerfile; ban6/shard-coverage diffs; permission_catalog diff; credential_strip census diff; testdata notify-standalone/inspect
+  handlers: 1 (Send) + 3 фундаментных (Claim, Ack, Subscribe — регистрация и звено)
+  catalog_rows: 1 (kacho.cloud.notify.v1.InternalNotifyProbeService/Send)
+
+dry_round: нет (1 подтверждённая, medium)

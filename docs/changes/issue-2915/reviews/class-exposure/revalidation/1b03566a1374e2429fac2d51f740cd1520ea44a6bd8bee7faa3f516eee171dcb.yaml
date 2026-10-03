@@ -1,0 +1,231 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 45 (1b03566a…).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта против последней пересверки (редакция 44, e25cc91d…,
+# «к замыслу», не отображены CX1-134…CX1-139 первичного разбора initial/c19490f9…) и решения Д104, Д105.
+#
+# Итог — к замыслу. Шесть пунктов CX1-134…CX1-139 отображены (§12а, таблица «Условия CX1-134…CX1-139»), и
+# условия CX1-136…CX1-139 исполнены текстом полностью. Не закрыто два места. (1) CX1-140, новый пункт.
+# Механизм, который вводит редакция 45 (`dkimkey.ReadPair`: `Readlink(..data)` один раз, затем чтение из
+# каталога поколения), не называет исход, когда kubelet удалил прежний каталог поколения между Readlink и
+# чтением. Крючок пробы этот случай не моделирует. (2) CX1-141: часть (а) условия CX1-135 («…или
+# приёмник не включён») передана стражу дерева TestNamedMailNodeIsRaisedByTheDelivery. Этот страж читает
+# только профили дерева, а класс CX1-135 — именно установка вне дерева. Д105 предикатом не держится:
+# предикат судит ветку полосы, а голова запроса #2991 ни догона, ни полосы не несёт (N45-1, не блокирует).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 1b03566a1374e2429fac2d51f740cd1520ea44a6bd8bee7faa3f516eee171dcb
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  differs_from_previous: true   # e25cc91d… ≠ 1b03566a…
+  change_yaml_design_sha256: 1b03566a1374e2429fac2d51f740cd1520ea44a6bd8bee7faa3f516eee171dcb   # change.yaml:298 — совпадает
+  change_yaml_sha256: 657d6b5ff0994b767c8b8b9485ec233ecf488c17d2ff2d9a809ee854176d84b6
+  tasks_sha256: 1a01ca271d4d1ae239ba2f4b1f4d6321f4ee90a2065bd44d4c226243e526d426   # tasks.md редакция 46
+  revision: 45
+  content_commit: "— (рабочее дерево tmp/issue-880 поверх acfbe0d18, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/e25cc91d30ef32184436e9515f2cf76de3c48cbedc9fded40125d93f8d730eea.yaml
+    sha256: e25cc91d30ef32184436e9515f2cf76de3c48cbedc9fded40125d93f8d730eea
+  initial_on_approved_acceptance:
+    record: docs/changes/issue-2915/reviews/class-exposure/initial/c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db.yaml
+  delta_predicate: >-
+    Шапка «Редакция 45» (design.md:15-32); §8 строки ключа DKIM, standDNS, KACHO_NOTIFY_STAND_DNS
+    (:4459-4461, :4474-4475); §11 строки R44-1…R44-7, Д104, Д105 (:4756-4763); §12а «Проверки и род ответа»,
+    «Форма попытки», «Порядок подъёма», «Ключ и селектор DKIM», «Смена ключа DKIM», «Подпись», таблица
+    отличий, «Зона стенда…», «serviceIP и clusterDomain…», «Посев», «Держатель P12» (д), (е), таблицы
+    «Условия CX1-134…CX1-139» и «Перемер редакции 45» (:5017-5494); §13 Е19 (:5524); tasks.md §4 «Догон
+    kacho для волны ядра» (:573-581)
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256_in_tree: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db   # редакция 22, APPROVED
+  change_yaml_acceptance_sha256: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db   # change.yaml:297
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace_lane: acfbe0d18
+  kacho_origin_main: ba01514b98b
+  kacho_epic: origin/2914-notify@e415e59a225
+  kacho_lane_local: 2915-d4-notify-probe@e1da5fb21ab   # origin/2915-d4-notify-probe@44e3cf381b3, 159 коммитов позади
+  kacho_wave_head: 2914-wave-ntf1-core-1@910ccddeadc   # = headRefOid #2991, локально и на origin
+  corelib: origin/77-notify@f8aa88d1998d
+  kaname: origin/484-notify@06966a081c7a
+  kubernetes_source: k8s.io/kubernetes@v1.31.0 pkg/volume/util/atomic_writer.go (кэш модулей)
+decisions_judged:
+  - "Д104: исход (а) CX1-135. Отказ рендера в помощнике notify.standDNS, закрытый отказ старта по KACHO_NOTIFY_STAND_DNS"
+  - "Д105: догон main для kacho — внутри волны ядра через ветку полосы 2915-d4-notify-probe; пины corelib f8aa88d1998d, kaname 06966a081c7a"
+  - "Д75…Д84, Д86…Д103 в силе, дельтой не тронуты"
+
+mapping:
+  - id: CX1-134
+    mapped_to: "§12а «Ключ и селектор DKIM» (одно поколение), «Смена ключа DKIM» (держатель поколения), таблица отличий (строка З4), «Условия…» CX1-134"
+    conditions: "(а) да — Readlink один раз, чтение из каталога поколения; (б) да — одна функция ReadPair для шага 1 runServe и для перепроверки; (в) да — строка таблицы отличий; (г) да — dkimtest, каталог формы kubelet, путь вне него отказывает"
+    status: mapped
+    residual: "CX1-140 — новый пункт: механизм, который вводит само отображение"
+  - id: CX1-135
+    mapped_to: "§12а «Зона стенда — только у приёмника стенда…», «Порядок подъёма» шаг 1, «Держатель P12» (д); §8; Д104"
+    conditions: >-
+      (а) половина «адрес узла ≠ приёмник релиза» — да: помощник notify.standDNS, отказ рендера с ключом и
+      хостом. Половина «или приёмник не включён» передана стражу TestNamedMailNodeIsRaisedByTheDelivery
+      («помощник её не дублирует»). Этот страж — тест дерева (deploy/mail_receiver_core_test.go:317
+      @ba01514b98b, обходит umbrellaProfiles), на слое вне дерева он не действует — CX1-141. (б) да — один
+      помощник, три вызывающих, перепись `git grep standDNS -- deploy/helm`. (в) не требуется, (а) выбрано
+      Д104. Закрытый отказ старта сверх условия — да
+    status: partially_mapped
+    residual: CX1-141
+  - id: CX1-136
+    mapped_to: "§12а «serviceIP и clusterDomain берутся из файла своего кластера», «Держатель P12» (е); §8"
+    conditions: "(а) да — третье поле stacks-mail.txt, P12 печатает слой-источник, prorobotech без своего объявления → красный; (б) да — `kubectl create service … --dry-run=server` до helm upgrade"
+    status: mapped
+  - id: CX1-137
+    mapped_to: "§12а «Подпись» («Части тела — 7bit до подписи»)"
+    conditions: "(а) да — 7bit или quoted-printable, 8bit/binary не выпускаются, 8BITMIME не запрашивается; (б) да — bh над этими байтами; P02 с кириллическим телом — да"
+    status: mapped
+  - id: CX1-138
+    mapped_to: "§12а «Проверки и род ответа»: «Имена запросов абсолютные», «Разбор содержимого — закрытые таблицы», «Валидатор селектора»"
+    conditions: >-
+      (а) да — три таблицы, первая подходящая строка, строки «прочее → ok» нет; `all` без квалификатора, `?`,
+      `+` → spf_all_permissive; redirect без all — своей строкой; модификаторы после all допустимы; регистр;
+      v=spf10 не SPF; DMARC v= первым тегом; DKIM по (N, E), SPKI и PKCS#1, пустой p= → dkim_revoked, k≠rsa.
+      (б) да — ValidSelector по RFC 6376 §3.1, многоуровневый селектор принят, валидатор имени ресурса не взят.
+      (в) да — queryName с завершающей точкой, перепись LookupTXT
+    status: mapped
+  - id: CX1-139
+    mapped_to: "§12а «Посев»"
+    conditions: "(а) да — источник один, объект ключа; пара выпускается только при его отсутствии; зона выводится каждый прогон. (б) да — сверка (N, E) и селектора после посева"
+    status: mapped
+  - id: N22-1
+    status: mapped   # «Организационный домен в NTF-1 не используется»
+  - id: N22-2
+    status: mapped   # текст WARN P18 называет исход перезапуска; D11 (DoD 23)
+
+new_items:
+  - id: CX1-140
+    decision: "редакция 45: dkimkey.ReadPair — Readlink(<каталог>/..data) один раз, чтение файлов из <каталог>/<поколение>/<имя>"
+    class: >-
+      code-authoring §«Порядок операций внутри кода» (порядок снятия ресурса: читатель держит имя того, что
+      писатель после переключения удаляет). code-authoring §«Чужой ответ: классификация и бюджет»: у отказа
+      «файла нет в разрешённом поколении» исхода нет. gate-authoring «фикстура не снисходительнее продукта»:
+      крючок пробы только переключает `..data`, а прежнее поколение не удаляет
+    exposure: >-
+      Запись kubelet AtomicWriter (atomic_writer.go:95-138 @k8s v1.31.0). Шаг 9 — атомарное переименование
+      `..data_tmp` → `..data`, шаг 12 — «The previous timestamped directory is removed» (`os.RemoveAll(oldTsPath)`,
+      :260-261). ReadPair, разрешивший поколение A до шага 9, читает файлы из `..A` после шага 12 и получает
+      ENOENT. Окно узкое, но попадание в него при смене ключа — ровно тот случай, ради которого механизм заведён.
+      Замысел называет исход только для «ссылки `..data` нет или она не читается»: на старте отказ P14 «не
+      читается», на перепроверке пара прежняя, WARN, признак не меняется. Для «поколение разрешено, файл в нём
+      исчез» исхода нет. Реализация решит молча. Если исход будет как у ошибки чтения ключа, старт на
+      исправной смене откажет по P14. Если исход будет как у «пара сменилась и не прошла», перепроверка
+      поставит dkim = 0 и напишет ложную WARN: тот же дефект, который закрывает CX1-134, только другим путём
+    condition_on_code: >-
+      (а) ReadPair различает «файла нет в разрешённом поколении». В этом случае он разрешает `..data` заново,
+      ограниченно: повтор один или постоянная кода с именем в §8. Если поколение сменилось, пара читается
+      целиком из нового. Отказ «не читается» — только когда файла нет при неизменном поколении либо исчерпан
+      повтор. (б) Тот же исход на старте и на перепроверке (функция одна, CX1-134 (б)): на перепроверке
+      исчерпанный повтор = «поколение не читается» — пара прежняя, признак не меняется, одна WARN. (в) Порт
+      pairFS умеет удалить каталог поколения, а крючок пробы моделирует шаги 9 и 12 kubelet, а не только шаг 9
+    held_by: >-
+      Нужна проба, её нет. Заказ к N14 (P17), тот же крючок «между чтениями»: `..data` переключён на B, и `..A`
+      удалён. Ожидание: ReadPair отдаёт пару B целиком, отказа старта нет, на перепроверке переход на B без
+      ложной WARN. Инъекция «повтора разрешения нет» → отказ P14 на старте либо WARN/dkim = 0 на перепроверке
+      → красный. Близнец — переключение без удаления (сегодняшний крючок) → пара A целиком
+    blocking_by_D97: "да (корректность: ложный отказ старта либо dkim = 0 на исправной смене; предикат — проба выше)"
+  - id: CX1-141
+    decision: "Д104 / CX1-135 (а): пара «узел ⇔ приёмник поднят» передана существующему стражу зонтика"
+    class: >-
+      security-hardening «Отношение, выполнимое подстановочным знаком, не сужает НИЧЕГО» в форме ручки (тот же,
+      что CX1-135): контроль, который судит только перепись дерева, на установке вне дерева не действует.
+      doc-truthfulness: текст «держит существующий страж» неверен для слоя, о котором класс
+    exposure: >-
+      TestNamedMailNodeIsRaisedByTheDelivery (deploy/mail_receiver_core_test.go:317 @ba01514b98b) — Go-тест над
+      профилями дерева (umbrellaProfiles, readProfile). Слой оператора поверх цепочки `prod` с
+      `standDNS.enabled: true`, хостом узла `<релиз>-mailpit` и `mailpit.enabled` выключенным (имя хоста
+      оператор дал своей службе, например ExternalName на внешний ретранслятор) проходит помощник
+      notify.standDNS: хост совпал. Ручка старта тоже согласна. Под notify ходит в зону стенда, а письма уходят
+      на внешний узел — обход Р19 вне дерева, тот случай, который закрывает CX1-135. Помощник notify этой пары
+      видеть не может (подчарт видит только global), зато шаблон зонтика stand-dns.yaml видит `mailpit.enabled`
+      и рендерится при `enabled: true` при любом перечне подключаемых (§12а)
+    condition_on_code: >-
+      (а) stand-dns.yaml (или помощник зонтика, которого он зовёт) отказывает в рендере при
+      `global.kacho.standDNS.enabled: true` и `mailpit.enabled` ≠ true. Текст называет оба ключа. Либо (б)
+      §12а прямо говорит, что пару «узел ⇔ приёмник поднят» держит только перепись дерева, и называет, чем она
+      держится на установке оператора (вопрос владельцу, CX1-135 (в)). Фраза «помощник её не дублирует» при
+      (а) остаётся верной: решает зонтик, а не второй помощник notify
+    held_by: >-
+      Нужен гейт, его нет. Заказ к P12 (д): второй фикстурный слой поверх `prod` — `standDNS.enabled: true`,
+      connectionURI на `<релиз>-mailpit`, `mailpit.enabled: false` → отказ рендера с `mailpit.enabled`.
+      Близнец — `dev` как есть → рендер
+    blocking_by_D97: "да (безопасность, класс CX1-135; предикат — фикстурный рендер выше). Отдельно §4 контура: неотображённая часть пункта запрещает одобрение"
+
+notes:
+  - id: N45-1
+    blocking: false
+    where: "tasks.md §4 «Догон kacho для волны ядра» (Д105); design.md «Перемер редакции 45» строки Д105"
+    text: >-
+      Предикат Д105 судит ветку полосы `2915-d4-notify-probe` (локально e1da5fb21ab: origin/main внутри,
+      6c420acff45 внутри, пины f8aa88d1998d / 06966a081c7a, тег образа kaname `484-notify-06966a08`). А
+      утверждение Д105 — о запросе #2991, голова которого `2914-wave-ntf1-core-1@910ccddeadc` (headRefOid). В
+      этой голове нет ни origin/main, ни полосы, пины прежние (corelib fe0dccf1794e, kaname 57f1841789bd).
+      Origin-ветка полосы (44e3cf381b3) догона тоже не несёт: 159 коммитов только локально. Предикат, чтобы
+      отвечать за «#2991 приносит и волну, и догон», судит headRefOid #2991: `git merge-base --is-ancestor
+      origin/main <headRefOid>` и `git show <headRefOid>:go.mod`. Вердикт волны (Д97) берётся на этой
+      сведённой голове. Механика посадки, не корректность продукта — по Д97 не блокирует
+    predicate: "gh pr view 2991 --json headRefOid → merge-base --is-ancestor origin/main <oid> = да; go.mod <oid> несёт оба пина"
+  - id: N45-2
+    blocking: false
+    where: "§12а «Форма попытки», близнец срока «попыток ровно две»"
+    text: >-
+      Срок запроса (queryTimeout) идёт по реальному времени сетевого стека, а срок старта и пауза — по
+      внедрённым часам. Утверждение «зона молчит, срок 10 с → попыток ровно две» верно, только если в пробе
+      часы идут вместе с реальным временем запросов. Пробе N14 стоит назвать, как связаны часы (реальные часы
+      в этой пробе либо продвижение внедрённых на время ожидания запроса). Иначе число попыток зависит от
+      расписания. Это конструкция пробы, а не замысел
+    predicate: "проба N14 печатает вид часов и число попыток; три прогона подряд → то же число"
+
+measurements:
+  - claim: "отпечаток сменился"
+    command: "sha256sum design.md"
+    result: "1b03566a… ≠ e25cc91d…; change.yaml:298 design_sha256 = 1b03566a…"
+  - claim: "CX1-134…139 упомянуты и механизм поколения назван"
+    command: "grep -c 'CX1-13[4-9]' design.md; grep -c -E 'Readlink|\\.\\.data' design.md"
+    result: "36 строк; 14 строк (в e25cc91d: 0; 0)"
+  - claim: "удаление прежнего поколения в замысле не названо"
+    command: "grep -n -i -E 'удаля|RemoveAll|прежн(ее|ий) (каталог|поколен)|ENOENT' design.md"
+    result: "1 строка (:2885), к DKIM не относится; в разделах ReadPair — 0"
+  - claim: "kubelet удаляет прежний каталог поколения после переключения"
+    command: "grep -n 'previous timestamped\\|RemoveAll(oldTsPath)' ~/go/pkg/mod/k8s.io/kubernetes@v1.31.0/pkg/volume/util/atomic_writer.go"
+    result: ":138 «12. The previous timestamped directory is removed», :261 os.RemoveAll(oldTsPath)"
+  - claim: "страж «узел ⇔ приёмник поднят» — тест дерева"
+    command: "git -C project/kacho show origin/main:deploy/mail_receiver_core_test.go | sed -n 317,365p"
+    result: "обходит umbrellaProfiles(t)/readProfile; рендер не исполняет, слоя вне дерева не читает"
+  - claim: "Д105: дерева services/notify в эпике нет; догон и пины — в локальной ветке полосы"
+    command: "git ls-tree -d --name-only origin/2914-notify services/notify; git merge-base --is-ancestor origin/main 2915-d4-notify-probe; git merge-base --is-ancestor 6c420acff45 2915-d4-notify-probe; git show 2915-d4-notify-probe:go.mod | grep -E 'corelib v|kaname v'"
+    result: "пусто; да; да; corelib …-f8aa88d1998d, kaname …-06966a081c7a (утверждения замысла подтверждены)"
+  - claim: "Д105: голова запроса #2991 догона не несёт"
+    command: "gh pr view 2991 --repo PRO-Robotech/kacho --json state,baseRefName,headRefName,headRefOid; git merge-base --is-ancestor origin/main 910ccddeadc; git merge-base --is-ancestor 2915-d4-notify-probe 910ccddeadc"
+    result: "OPEN, 2914-wave-ntf1-core-1 → 2914-notify, head 910ccddeadc; нет; нет"
+  - claim: "Д98 выше по графу исполнен: пины несут свои main"
+    command: "git -C project/corelib merge-base --is-ancestor origin/main f8aa88d1998d; git -C project/kaname merge-base --is-ancestor origin/main 06966a081c7a; git -C project/kaname show 06966a081c7a:go.mod | grep 'corelib v'"
+    result: "да; да; corelib …-f8aa88d1998d (граф corelib←kaname←kacho согласован)"
+
+not_measurable:
+  - what: "частота попадания ReadPair в окно между шагами 9 и 12 kubelet"
+    why: "зависит от расписания kubelet и узла; поэтому держатель CX1-140 — проба с управляемым крючком, а не наблюдение стенда"
+
+outcome: к-замыслу
+return_to_acceptance: "—. CX1-140 и CX1-141 — форма кода под утверждёнными P14, P17 и P12; новых Given не требуют"
+unmapped_items: [CX1-141]   # CX1-140 — новый пункт, отображения ещё нет
+orders:
+  - "автор замысла · CX1-140 (а)–(в) и CX1-141 (а) или (б) в §12а и в таблице «Условия…» · code-authoring §«Порядок операций внутри кода», change-graph.md §4"
+  - "автор замысла · N45-1: предикат Д105 на headRefOid #2991 · measurement-discipline §«Откуда читается предмет»"
+  - "исполнитель N14 · крючок pairFS с удалением прежнего поколения (CX1-140) и вид часов пробы попыток (N45-2) · gate-authoring «фикстура не снисходительнее продукта»"
+  - "исполнитель D10 · фикстурный слой P12 (д) с mailpit.enabled: false (CX1-141) · testing.md §«Гейт на класс…» п.7"

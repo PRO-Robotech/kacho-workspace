@@ -1,0 +1,321 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 41, маршрут редакции 42.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 41 против последней пересверенной
+# (редакция 40, dfac7c9c…, запись revalidation/dfac7c9c….yaml: «к замыслу», CX1-124…126, N40-1, N40-2),
+# решения диспетчера Д91…Д95 (2026-10-03; Д75…Д84, Д86…Д90 действуют, Д85 для живых гейтов заменён Д91)
+# и возвраты ревью кода волны fde0f0c3…. Дельта не закоммичена: рабочее дерево issue-880 поверх 842a3eb8b.
+#
+# Итог — к замыслу. CX1-124, CX1-125, CX1-126, N40-1, N40-2, Д91…Д95 и возвраты fde0f0c3… отображены.
+# Два новых пункта, оба измерены на голове волны 5f195517e81:
+#   CX1-127 — перепись «свой разбор DSN в диффе волны» (Д93) нашла одно место, а их два. Предикат замысла
+#             не ищет url.Parse. Волна завела services/notify/cmd/notify-probe/harness_test.go:268 dbEnv —
+#             url.Parse(dsn), из него берутся узел, порт, пользователь, пароль и база (u.Path[1:]);
+#   CX1-128 — пара формы и строки (CX1-126 по Д91) получает факт «не рендерит» «рендером ногами проб D1
+#             (renderNotify / standaloneLeg)». Эти помощники лежат в _test.go пакета deploy, и из
+#             internal/migratorapply они недоступны. Кроме того, «ноль объектов — ноль в каждом
+#             профиле» верно, пока таблица литерально пуста. Перечень читает .Values.global, и с D2
+#             (флаг global.kacho.notifications.enabled) рендер ног фикстуры и рендер профиля стенда
+#             расходятся.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: faf921d97bcc023b50706f09b1afdcc3754ec24d9eefa066a8cf51d71ab515cc
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: faf921d97bcc023b50706f09b1afdcc3754ec24d9eefa066a8cf51d71ab515cc   # рабочее дерево, change.yaml:275
+  change_yaml_sha256: 1a4bde189b97a373225f19f69e3b55a74c2bebe1018f8252f620062cd6d6b823
+  tasks_sha256: 607f0471f691803880a4c07ed6ab957b4202722eac1f965d4c8e33d4571bbec8   # маршрут редакции 42
+  revision: 41
+  content_commit: "— (рабочее дерево поверх 842a3eb8b, не закоммичено; git diff --stat: 3 файла, +665 −30)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/dfac7c9c2a72e77a47d21cb8690dacf4988123648a7f0c46c58114b342b18ba9.yaml
+    sha256: dfac7c9c2a72e77a47d21cb8690dacf4988123648a7f0c46c58114b342b18ba9
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @842a3eb8b); шапка редакции 41, З24, З28, З32 (г)–(и), «Имя базы…» (1)–(4), «Пара формы и строки» (б), (в), «Проба D1…», «notify — в матрице integration…» (Д92), «Перемер редакции 41», §11 строки CX1-124…Д95; tasks.md §0 «Таблица инъекций исполнителя»"
+  decisions_judged:
+    - "CX1-124, CX1-125, CX1-126, N40-1, N40-2 — пункты пересверки dfac7c9c (R40-1…R40-3 ревью замысла)"
+    - "Д91 — знаменатель живых и рендерных гейтов — носители, отрендеренные профилем; notify вне рендера — строка «вне опроса», код 0; факт «не отрендерен» — по рендеру; D1 — не t.Skip; цель — production-posture и trivy зелёные до D2"
+    - "Д92 — матрица integration notify и цель — в волне (N1); ноль исполненных — отказ; контекст — в защиту после вливания волны"
+    - "Д93 — свой разбор DSN нигде не заводится, в тестах тоже (dsnField); только ParseConfig"
+    - "Д94 — длина ключа ≥ 32 байт и при рендере; ban #6 по notify — собственный слушатель носителя, поды шлюза — существующий канон"
+    - "Д95 — таблица инъекций исполнителя «пункт ревью — инъекция — исход» как условие готовности"
+    - "возвраты ревью кода волны fde0f0c3… (GS-C2, GS-C3, GS-I4, ORPHAN-CHAIN-BLIND, OWN-ROW-SEQSCAN, RR-SERIALIZATION-LATENT, system-design important ×2)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 842a3eb8b95872529770c42b031fa3fa99b2065c   # плюс незакоммиченная дельта автора
+  kacho_wave_head: 5f195517e8149233436235927e337a4fe65cc0c5   # = origin/2914-wave-ntf1-core-1, рабочая копия tmp/2914-wave-ntf1-core-1, чистая
+  kacho_epic_base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # = origin/2914-notify
+  corelib_pin: fe0dccf1794e
+  pgx: v5.10.0
+snapshot_at: 2026-10-03T15:21:56Z
+inspected: >-
+  Дельта design.md: шапка редакции 41, З24 «Ключ сетки…» (Д94), З28 «Шаблон объекта ключа…», З32
+  «Исполнение CX1-123…» (г)–(и), «Имя базы точки наката…» (1)–(4), «Пара формы и строки» (б), (в), «Проба D1
+  сверяет имя…», «notify — в матрице integration…» (Д92), «Перемер редакции 41» (30 строк), §11 строки
+  Д78, CX1-123…Д95. tasks.md §0 «Таблица инъекций исполнителя». kacho @5f195517e81: gh run list по
+  голове (9 конвейеров), журналы 37129845803 и задания 37129845864; deploy/Makefile:926-933;
+  deploy/helm/umbrella/Chart.yaml:104-116; deploy/helm/notify/templates/{_helpers.tpl:37-39, _sources.tpl,
+  recipient-key-secret.yaml}; recipientKey по deploy/ и .github/ (профили, фикстуры); ci.yaml (setup-helm
+  :393, :2060; задание pg-outside-selection :682-723); security-scan.yml :216;
+  services/storage/tools/release_gates_rg11_scan_test.go:205-230, 429-439; инструменты
+  deploy/scripts/render-notify-inspect.sh; internal/migrationchains/dsn.go; corelib migratorcli/dialect.go:163-190;
+  перепись своего разбора DSN по диффу волны (170 файлов, из них 121 .go) и по дереву (url.Parse); помощники
+  рендера в deploy/notify_secret_layout_test.go и их пакет. Записки vault не читались. Живые гейты и
+  самопроверки не гонялись: стенда нет, а исполняемых правок D1s ещё нет.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -n -E 'TODO|TBD|FIXME' design.md tasks.md | wc -l → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED, не менялась; initial/1bffe10d….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-124 (7/2), CX1-125 (7/3), CX1-126 (7/3), R40-1…3 (4/2, 5/2, 4/2), N40-1 (5/3), N40-2 (6/1), Д91 (25/12), Д92 (8/2), Д93 (7/4), Д94 (8/4), Д95 (3/3), fde0f0c3 (10/3) отображены; новые CX1-127, CX1-128 — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: green
+    detail: "Д91 снимает sentinel «НЕ ВЫПОЛНИЛОСЬ: перечень пуст» (код 2) и запись notRunUntilRow; новый вызов гейтов — helm get manifest (исход 5 назван, заметка N41-1)"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = faf921d9… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на faf921d9 нет"
+
+mapping_check:
+  - item: "CX1-124 = R40-1 · Д91 (поверхности метрик)"
+    verdict: holds
+    text: >-
+      Перемерено @5f195517e81: production-posture 37129845803 — failure; журнал — «notify — НЕ ВЫПОЛНИЛОСЬ:
+      перечень пуст (Д85)», «Makefile:1170: assert-metrics-surfaces-answer Error 2», «Makefile:927: dev-prod-up
+      Error 2», «категория: КРАСНОЕ — подъём сорвался». Посылка «только workflow_dispatch» снята. Пять
+      исходов, предикат D1s и инъекции «код 2 на исходе 1» и «суд по таблице» названы. Рецепт не меняется,
+      и при исходе 1 код 0 доводит рецепт до assert-outbox-autovacuum. Исход 5 — заметка N41-1
+  - item: "Д91 — профиль: у зависимости notify нет condition/alias"
+    verdict: holds
+    text: >-
+      deploy/helm/umbrella/Chart.yaml:114-116: name notify, repository file://../notify, condition и alias
+      нет. Живые гейты судят манифест релиза стенда, то есть настоящий профиль. Для пробы пары эта посылка
+      не держится после D2 — CX1-128 (б)
+  - item: "Д94 · ban #6 (ж)"
+    verdict: holds
+    text: >-
+      Ветка Д85 по подам шлюза снимается целиком. Носитель — svc/kacho-notify-probe:9091, знаменатель —
+      Service в манифесте релиза. Поды шлюза ban #6 не судит. Самопроверка покрывает три случая:
+      Service без ответа, Service нет и возврат ветки Д85
+  - item: "Д91 · trivy (и)"
+    verdict: holds
+    text: >-
+      Перемерено: security-scan 37129845864 — trivy (fs + IaC) failure, gosec success. Перечень харнесса
+      RG1.1 (:214): bash python3 git cp cmp mktemp rm dirname tail sed grep. rg11CleanEnv снимает PATH,
+      TMPDIR, GITHUB_*, RG11_*, TRIVY_*, а HOME оставляет. render-notify-inspect.sh зовёт ещё helm (:74,
+      :119, :140), diff (:134), sha256sum и cut (:198), и в перечне харнесса их нет. Условие D1s («каждый
+      инструмент, который зовёт обёртка, перепись — в сдаче») это покрывает. Пин setup-helm 9bc31f4… v4.2.4
+      есть в ci.yaml:393 и :2060
+  - item: "CX1-125 = R40-2 · Д93 · GS-C3 (разбор)"
+    verdict: holds_with_new_exposure
+    text: >-
+      dsn.go @5f195517e81 — pgconn.ParseConfig, отказ errors.New. corelib OpenDB:177 — pgx.ParseConfig →
+      stdlib.OpenDB. Значит, DatabaseOf на pgx.ParseConfig — та же функция, что у соединения. Проба
+      ключевой формы на отвергаемом DSN, печать ветки, errors.Unwrap == nil, инъекция %w — названы. Перепись
+      Д93 неполна — CX1-127
+  - item: "GS-C2 · N40-2 · system-design (живая проба точки)"
+    verdict: holds
+    text: "Срок сверки — WithTimeout с именованной константой. Держатель — процесс точки на kacho_x, goose_db_version NULL, инъекция «вызов снят»"
+  - item: "CX1-126 = R40-3 · Д91 (пара формы и строки)"
+    verdict: holds_with_new_exposure
+    text: >-
+      notRunUntilRow снимается, подтеста-пропуска нет, рендер-отказ — t.Fatalf. Счёт P + F и строки без формы
+      утверждаются. В задании pg-outside-selection (ci.yaml:682-723) setup-helm сегодня нет, и замысел его
+      вносит. Носитель рендера и его профиль — CX1-128
+  - item: "Д91 — D1 (форма kacho_notify)"
+    verdict: holds
+    text: "TestNotifyChartRendersNothingWithAnEmptyRoster — утверждение о рендере выключенного чарта; копия пробы берёт тело таблицы у фикстуры копии осмотра (один источник)"
+  - item: "Д92"
+    verdict: holds
+    text: >-
+      services/notify в эпике нет (замер автора @e415e59a225). Матрица, литерал отбора и снятие двух записей
+      shortgatedselection — в N1. Ноль исполненных проб по событиям go test -json — отказ с текстом.
+      Инъекция «альтернатива снята» → «исполнено проб 0»
+  - item: "Д94 (ключ при рендере)"
+    verdict: holds
+    text: >-
+      recipient-key-secret.yaml:26 — только required | b64enc, шаблон под notify.renders. len строки
+      значения — байты, та же величина, что у стража старта. Фикстуры проб @5f195517e81 — 32, 33, 34 и 44
+      байта, поэтому проверка ни одну не роняет. Профили стенда recipientKey не задают. Значение для D2
+      задаёт D2: пока notify не рендерится, профилю оно не нужно
+  - item: "N40-1 (у8)"
+    verdict: holds
+    text: "_argv0/launches исполнены (4d74f8c8eed), у8 — условие D1s, близнец у2"
+  - item: "Д95"
+    verdict: holds
+    text: "tasks.md:347-353: строк не меньше, чем пунктов ревью и условий полосы; пункт без инъекции — строка с причиной; ревизия прогона"
+  - item: "GS-I4, ORPHAN-CHAIN-BLIND, OWN-ROW-SEQSCAN, RR-SERIALIZATION-LATENT (fde0f0c3)"
+    verdict: holds
+    text: "Не исполнены @5f195517e81. Условия прежних редакций в силе, полосы D4, N1, N7"
+
+new_items:
+  - id: CX1-127
+    decision: "Д93: «свой разбор DSN нигде не заводится — ни в коде, ни в тестах»; перепись замысла по диффу волны — «одно место: dsnField»"
+    class: >-
+      measurement-discipline §«Предикат — только с контролем»: регулярное выражение переписи
+      (strings.Fields|Split|Cut с dsn) не ищет url.Parse и не проверено живым положительным случаем этого
+      вида. code-authoring §«Контракт, который нельзя выразить»: второй разбор одного значения
+    exposure: >-
+      Измерено @5f195517e81. Дифф e415e59a225..HEAD — 170 файлов, из них 121 .go. Широкий предикат
+      (url.Parse | Contains/Index/Split/Fields/Cut по dsn | dbname= | ParseConfig) находит в диффе ещё одно
+      место: services/notify/cmd/notify-probe/harness_test.go:266-279 dbEnv. Это url.Parse(dsn), а
+      KACHO_NOTIFYPROBE_DB_{HOST,PORT,USER,PASSWORD,NAME} берутся из u.Hostname(), u.Port(), u.User и
+      u.Path[1:]. Файла нет в e415e59a225, его завела волна (f3289c2fe47). Разбор только для формы URL:
+      ключевую форму он молча отдаёт с пустыми полями, а на пустом пути u.Path[1:] паникует. Во всём дереве
+      url.Parse(<dsn>) — 6 вхождений в 5 файлах. Пять из них были до волны: vpc cmd/vpc/main.go,
+      vpc config/load.go, registry config_test.go (2), internal/migratorapply/apply_test.go:217
+      replaceDBName (есть в e415e59a225:150). Контроль — предикат находит harness_test.go (1)
+    condition_on_code: >-
+      (а) Строка «Перемер редакции 41 — свой разбор DSN в диффе волны» исправляется на два места:
+      dsnField и dbEnv. Предикат переписи включает url.Parse и печатает число осмотренных файлов.
+      (б) Условие D4: dbEnv берёт поля у pgconn.ParseConfig (или у DatabaseOf/pgx.ParseConfig для имени), а
+      не у url.Parse. cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Database. (в) Инъекция — DSN pgtest в
+      ключевой форме → проба с url.Parse отдаёт пустые переменные и красная. Близнец с ParseConfig —
+      зелёная. Если инъекция в pgtest невыразима, условие держит перепись (а) с контролем.
+      (г) Судьба replaceDBName в internal/migratorapply/apply_test.go — его правит полоса D4 — решается
+      явно: вопрос N41-3
+    held_by: "Перепись (а) с контролем на harness_test.go. Гейта нет. Однофайловый признак есть: url.Parse от переменной с dsn в имени, кандидат в предикат — заметка N41-3"
+  - id: CX1-128
+    decision: "Д91 · CX1-126 (б): пара формы и строки (internal/migratorapply) получает факт «не рендерит» «рендером того же чарта ногами проб D1 (renderNotify / standaloneLeg)»; «ноль объектов чарта — ноль в каждом профиле», потому что у зависимости нет condition/alias"
+    class: >-
+      code-authoring §«Унификация и стоимость» и §«Решение и его следствие разнесены»: носитель
+      рендера не назван в достижимой форме, и второй вызов рендера с собственными ногами — два места об
+      одном предмете. measurement-discipline §«Живость предмета»: посылка верна на сегодня и истекает
+      в D2
+    exposure: >-
+      Измерено @5f195517e81. (1) renderNotify (:184), mustRenderNotify (:199) и standaloneLeg (:213) объявлены
+      в deploy/notify_secret_layout_test.go, а это _test.go пакета deploy. Из internal/migratorapply их
+      не импортировать. Исполнитель либо скопирует вызов helm и перечень ног, и тогда у «профиля» станет два
+      источника, либо вынесет помощник. Замысел формы не называет. (2) notify.renders
+      (_helpers.tpl:37-39) — len(notify.sourceRoster(dict "global" .Values.global)) > 0. Сегодня таблица —
+      `list | toJson`, ответ от значений не зависит, и «ноль в каждом профиле» верно. Шапка _sources.tpl
+      говорит, что D2 вносит флаг global.kacho.notifications.enabled и помощник enabledFor. После D2 ответ
+      зависит от global профиля. Ноги фикстуры (deploy/testdata/notify-standalone/values.yaml) — не профиль
+      стенда. Проба пары может сказать «вне опроса» при профиле, который notify рендерит, и тогда это зелёный
+      по объёму, которого стенд не имеет. Может и наоборот. Посылка теряет силу ровно на D2, когда пара
+      начинает требовать строку kacho_notify
+    condition_on_code: >-
+      (а) Замысел называет единственный носитель рендера для пробы пары и для проб D1. Это импортируемый
+      не-_test помощник (пакет и путь названы) либо вызов обёртки копии осмотра render-notify-inspect.sh.
+      Второго перечня ног и второго вызова helm нет. Инъекция — ноги меняются в одном месте → меняются оба
+      исхода. (б) «Профиль» пробы пары — объявленные профили стендов. Источник — таблица стендов
+      (deploy/stacks.txt) или перечень, названный в замысле. «Вне опроса» печатается, только если объектов
+      0 в каждом профиле, и печать называет профиль и число объектов на профиль. Хотя бы один профиль
+      рендерит notify — пара обязательна. (в) Фраза «ноль объектов чарта — ноль в каждом профиле»
+      получает срок: «верно, пока notify.pluggableSources — пустой литерал; D2 снимает». Предикат —
+      git grep -n 'list | toJson' -- deploy/helm/notify/templates/_sources.tpl. (г) Инъекция на копии:
+      таблица непуста под флагом global, профиль A флаг ставит, ноги фикстуры — нет, строки в таблице
+      цепочек нет → проба красная с именем профиля. Близнец — флаг не стоит ни в одном профиле → «вне опроса»
+    held_by: "Проба пары D4 с инъекцией (г). Гейта нет. Однофайлового признака нет"
+
+items: []
+notes:
+  - id: N41-1
+    blocking: false
+    where: "З32 «Исполнение CX1-123…» (г), исход 5; (ж) «манифест не прочитан — код 2»"
+    text: >-
+      Исход 5 («НЕ ВЫПОЛНИЛОСЬ: манифест релиза не прочитан», код 2) заводит путь кода 2 в гейт, который
+      рецепт dev-prod-up зовёт под set -e. stand-up.sh прочтёт его как «КРАСНОЕ — подъём сорвался». Это
+      fail-closed и Д91 допустимо, но метка ложная по той же механике, что в CX1-124. Самопроверка гейта
+      должна покрывать случай 5 подставным отказом чтения манифеста. В замысле стоит одна фраза: на
+      конвейере исход 5 читается как «подъём сорвался». Сюда же относится вопрос, есть ли helm и права
+      на секреты релиза в шаге гейта на e2e-newman (ban #6) и на production-posture
+    predicate: "run-gate-self-tests.sh: случай 5 обоих гейтов → код 2 с текстом «манифест релиза не прочитан»"
+  - id: N41-2
+    blocking: false
+    where: "З32 (и) (1) — перепись инструментов обёртки для харнесса RG1.1"
+    text: >-
+      Измерено: в перечне харнесса нет helm, diff, sha256sum и cut, а render-notify-inspect.sh их зовёт
+      (:74/:119/:140, :134, :198). Перечень для сверки со сдачей исполнителя
+    predicate: "сдача D1s печатает перепись; real_clean — «утверждений 7; пройдено 7»"
+  - id: N41-3
+    blocking: false
+    where: "Д93 «нигде» — до волны"
+    text: >-
+      В дереве до волны пять вхождений url.Parse(<dsn>): vpc main.go, vpc load.go, registry config_test.go ×2,
+      internal/migratorapply/apply_test.go:217 replaceDBName. Покрывает ли Д93 места, заведённые до
+      волны, решает диспетчер. apply_test.go лежит в пакете, который правит D4. Однофайловый признак
+      (url.Parse от идентификатора с dsn/DSN) — кандидат в class-guard при живом отрицательном близнеце
+      (pgconn.ParseConfig(dsn) в config_test.go notify-probe)
+    predicate: "git grep -n -E 'url\\.Parse\\((dsn|DSN|[a-zA-Z]*[dD]sn)\\)' -- '*.go' | wc -l → 6 @5f195517e81"
+
+measurements:
+  - claim: "предмет, маршрут, change.yaml"
+    command: "sha256sum docs/changes/issue-2915/{design.md,tasks.md,change.yaml}; grep -n design_sha256 change.yaml"
+    result: "faf921d9…, 607f0471…, 1a4bde18…; change.yaml:275 design_sha256 = faf921d9…"
+  - claim: "отображение"
+    command: "for p in CX1-124 CX1-125 CX1-126 R40-1 R40-2 R40-3 N40-1 N40-2 Д91 Д92 Д93 Д94 Д95 fde0f0c3; do grep -c -- $p design.md tasks.md; done"
+    result: "7/2, 7/3, 7/3, 4/2, 5/2, 4/2, 5/3, 6/1, 25/12, 8/2, 7/4, 8/4, 3/3, 10/3"
+  - claim: "исходы конвейеров на голове волны"
+    command: "gh run list -R PRO-Robotech/kacho --commit 5f195517e81…; gh run view 37129845803 --log-failed; gh run view 37129845864 --json jobs"
+    result: "production-posture failure (Д85, Error 2, «КРАСНОЕ — подъём сорвался»); security-scan failure — только trivy (fs + IaC), gosec success; сводный вердикт failure; ci, e2e-newman, console-e2e, ui — success"
+  - claim: "зависимость notify в зонтике и решение рендера"
+    command: "sed -n 104,116p deploy/helm/umbrella/Chart.yaml; git grep -A8 'define \"notify.renders\"'; _sources.tpl"
+    result: "без condition/alias; renders = len(sourceRoster(.Values.global)) > 0; pluggableSources = list | toJson; флаг global — с D2"
+  - claim: "помощники рендера D1 и их пакет (CX1-128)"
+    command: "git grep -n -E 'func (renderNotify|standaloneLeg|mustRenderNotify)\\b'"
+    result: "все три — deploy/notify_secret_layout_test.go (:184, :199, :213), _test.go пакета deploy"
+  - claim: "свой разбор DSN в диффе волны (CX1-127)"
+    command: "git diff --name-only --diff-filter=AM e415e59a225..HEAD | xargs grep -n -E 'url\\.Parse\\(…dsn…\\)|(Contains|Index|…|Cut)\\(…dsn…\\)|ParseConfig|…'"
+    result: "осмотрено 170 файлов (121 .go); собственный разбор — dsnField (:1025) и harness_test.go:268 dbEnv (url.Parse); прочие попадания — pgconn.ParseConfig и комментарии"
+  - claim: "url.Parse(<dsn>) по дереву"
+    command: "git grep -n -E 'url\\.Parse\\((dsn|DSN|[a-zA-Z]*[dD]sn)\\)' -- '*.go'; git show e415e59a225:internal/migratorapply/apply_test.go | grep -n 'url.Parse(dsn)'"
+    result: "6 вхождений в 5 файлах; до волны — 5 (apply_test.go в базе :150); контроль harness_test.go → 1"
+  - claim: "разбор OpenDB"
+    command: "grep -n ParseConfig corelib@fe0dccf1794e/migratorcli/dialect.go; sed -n 31,41p internal/migrationchains/dsn.go"
+    result: "OpenDB:177 pgx.ParseConfig → :190 stdlib.OpenDB; DatabaseOf — pgconn.ParseConfig, errors.New"
+  - claim: "харнесс RG1.1 и инструменты обёртки (N41-2)"
+    command: "sed -n 205,230p, 429-439 release_gates_rg11_scan_test.go; grep по render-notify-inspect.sh"
+    result: "перечень из 11 инструментов без helm/diff/sha256sum/cut; HOME сохраняется"
+  - claim: "helm в заданиях"
+    command: "grep -n 'setup-helm\\|pg-outside-selection' .github/workflows/ci.yaml"
+    result: "setup-helm v4.2.4 — :393, :2060; задание pg-outside-selection :682-723 — без setup-helm"
+  - claim: "ключ сетки: фикстуры и профили (Д94)"
+    command: "git grep -n recipientKey -- 'deploy/**' '.github/**'"
+    result: "профили значения не задают; фикстуры проб — 32, 33, 34, 44 байта; шаблон под notify.renders"
+  - claim: "рецепт dev-prod-up"
+    command: "sed -n 926,933p deploy/Makefile"
+    result: "set -e; rollout-ready → production-posture → metrics-surfaces → outbox-autovacuum"
+
+not_measurable:
+  - item: "исход production-posture и trivy на запросе волны после D1s"
+    why: "D1s не исполнена. Цель Д91 проверяется прогоном запроса, а не текстом"
+  - item: "доступ helm get manifest в шагах гейтов на раннерах (N41-1)"
+    why: "Шаг гейта с новым вызовом ещё не существует. Права и наличие helm в шаге e2e-newman видны только по прогону"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-127, CX1-128]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: >-
+      CX1-127: исправить строку переписи Д93 (два места, предикат с url.Parse и контролем) и добавить
+      условие D4 на dbEnv в harness_test.go. CX1-128: назвать единственный носитель рендера для пробы пары
+      и проб D1, «профиль» пробы пары — объявленные профили стендов, срок посылки «ноль в каждом профиле»
+      до D2, инъекция с флагом global. Заметки N41-1 (исход 5 под set -e), N41-2 (перепись инструментов
+      харнесса), N41-3 (url.Parse до волны — вопрос диспетчеру)

@@ -1,0 +1,52 @@
+# ВЕРДИКТ: ✅ на 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+# Пост-дифф ревью формы контракта — proto-api-reviewer, волна ядра NTF-1 (2914-wave-ntf1-core-1), изменение issue-2915.
+# Новый файл на дайджест; прежние записи не правятся (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+verdict: accepted
+blocking: false
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify <head> == origin/2914-notify
+  head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+content_digest: sha256:9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f
+digest_definition: "git diff e415e59a225..2fdbc6b523a | sha256sum (164 файла, +12534/-456)"
+proto_files_touched: 2
+proto_files:
+  - proto/kacho/cloud/notify/v1/internal_notify_probe_service.proto
+  - proto/kacho/cloud/notify/v1/package_options.proto
+checks:
+  - cmd: "buf lint (proto/, buf 1.72.0, scratch worktree @head)"
+    rc: 0
+    outcome: green
+  - cmd: "buf breaking --against '<kacho>/.git#ref=e415e59a225,subdir=proto'"
+    rc: 0
+    outcome: green
+  - cmd: "контроль breaking: Network.description string→bytes в копии → rc=100, находка напечатана"
+    rc: 100
+    outcome: green   # прибор способен упасть
+  - cmd: "предикат прецедента Д75 из design.md З29 дословно @e415e59a225"
+    output: "30 11"
+    outcome: green   # совпадает с записанным в замысле
+findings_critical: []
+findings_important:
+  - id: PAR-1
+    file: proto/kacho/cloud/notify/v1/internal_notify_probe_service.proto
+    summary: >-
+      Комментарий Send: «Проверка формы стоит первой» и перечень отказов без FAILED_PRECONDITION
+      DeliveryNotConfigured. Реализация (services/notify/cmd/notify-probe/internal/send/send.go, Send)
+      и замысел (CX1-21, З12: DeliveryConfigured() первым стейтментом) ставят флаг первым — при
+      выключенной доставке и пустом address клиент получает FAILED_PRECONDITION, а не INVALID_ARGUMENT.
+      Текст контракта расходится с поведением; форма и номера не затронуты.
+    fix: "в комментарии: флаг доставки первым (FAILED_PRECONDITION, reason DeliveryNotConfigured), затем форма address, до базы"
+    return_to: rpc-implementer (автор контракта D4)
+approved:
+  - "package kacho.cloud.notify.v1; go_package pkg/api/kacho/cloud/notify/v1;notifyv1 — как у соседних доменов; package_options.proto — та же форма, что у 7 других доменов"
+  - "Internal* в отдельном файле и службе, google.api.http не объявлен, RegisterInternalNotifyProbeServiceHandler вне pkg/api не вызывается (0 вхождений); gw-стаб — общая генерация, как у 15 Internal-файлов"
+  - "аннотации прав: permission + required_relation system_admin + scope cluster/'*' (форма 59 записей дерева) + acr_min 1; запись каталога gateway/internal/middleware/embed/permission_catalog.json:809 совпадает"
+  - "Д75: Send синхронный — ресурс не возвращается (только id строки ленты), одна транзакция, ответ после коммита; прецедент 30 не-Operation против 11 Operation перемерен; форма SendResponse{notification_id} утверждена"
+  - "инфра-полей нет; оба поля имеют читателя/писателя в send.go; имён чужих продуктов нет; validation.proto у Internal-файлов не применяется (0 из 15) — отсутствие не находка"
+  - "совместимость: только добавление нового пакета; reserved не требуется"

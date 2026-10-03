@@ -1,0 +1,160 @@
+# Ревью замысла от роли design-reviewer (исполнитель system-design-reviewer, режим «замысел», Д97:
+# один круг, блокирует только корректность/безопасность «Основы» и только с предикатом).
+# Запись привязана к отпечатку замысла NTF-1 редакции 46 (cf479ca8…). Прошлая запись роли — 1b03566a…
+# (редакция 45, RETURNED: R45-1, R45-2 блокируют; R45-3, R45-4 — замечания). Рабочее дерево tmp/issue-880
+# поверх acfbe0d18, дельта не закоммичена.
+# Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: cf479ca85f675022bfbbb25ce45722631a1b81e5fb9b70c9bca873bf6c445be8
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "design cf479ca8… = change.yaml:303 design_sha256 = revalidation/cf479ca8… subject.sha256"
+  revision: 46
+  tasks_sha256: ee4cc1d1c2be89a7f67ab3837d084dc15877dedb72a76078bf77002be951eff9
+  change_yaml_sha256: 0c79eeb1a950de663d33af5f80ca6835a293df4bf54bd49c5019ff2f702ac0e6
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/1b03566a1374e2429fac2d51f740cd1520ea44a6bd8bee7faa3f516eee171dcb.yaml
+  premise_of_task: "подтверждена: последняя запись роли — 1b03566a… RETURNED R45-1, R45-2 (ls -t); текущий отпечаток cf479ca8… (sha256sum design.md); записи роли на cf479ca8… до этой не было"
+  content_commit: "— (дельта не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256_in_tree: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db
+  verdict_in_tree: APPROVED
+revisions:
+  workspace: acfbe0d18
+  kacho_render_subject: ffab65faee1
+  helm: v4.2.4
+  kubernetes_source: k8s.io/kubernetes@v1.31.0 pkg/volume/util/atomic_writer.go (шаги 9 и 12 — из прошлой записи, не перемерялись)
+snapshot_at: 2026-10-04
+
+verdict: APPROVED
+effective_verdict: APPROVED
+blocks: false
+return_to: "—"
+distributed_surface: true
+schema_review_overlap: false
+
+inspected: >-
+  design.md: шапка ред. 46 (:15-32); §11 строки R45-1…R45-4, Д106 (:4786-4790); §12а «Ключ и селектор DKIM»
+  шаг 4, таблица исходов, порт pairFS и помощник dkimtest (:5186-5235), держатели поколения и удаления
+  поколения (:5267-5284); «Зона стенда», абзац «Приёмник поднят» (:5374-5420); «Держатель P12» (д), (е)
+  (:5495-5510); «serviceIP и clusterDomain…» (:5438-5464); таблица «Условия…» строки CX1-140, CX1-141
+  (:5588-5589). tasks.md :14-19, :586, :594. Записи: прошлая роли 1b03566a (целиком), пересверка cf479ca8
+  (outcome, unmapped_items, N46-1…N46-5). Kacho @ffab65faee1: identity-mail-lane-guard.yaml (внешних
+  условий нет, блок (6) :205-230), mail-receiver.yaml:44-46. Перемерено рендером (helm v4.2.4, чарт из
+  git archive ffab65faee1, helm dependency build): prod + слой {connectionURI smtp://kacho-mailpit:1025,
+  fromAddress, fromName, mailpit.enabled: false} → код 1, identity-mail-lane-guard.yaml:225 «приёмник
+  ВЫКЛЮЧЕН (`mailpit.enabled` не взведён)»; близнец с узлом relay.example → код 0. Тот же слой без
+  fromAddress → код 1 на :82 (подтверждает N46-3). Пробы и гейты сервиса не гонялись.
+
+closure_of_previous:
+  - id: R45-1
+    maps: CX1-140
+    status: >-
+      закрыт по (а)-(в). (а) шаг 4 ReadPair: повтор разрешения ..data только на fs.ErrNotExist, не больше
+      generationRetries = 2 (§8), сменившееся поколение читается целиком; неизменное — «нет в объекте» без
+      повтора; исчерпано — «не читается». (б) одна таблица исходов для старта и перепроверки (:5219-5226).
+      (в) удаление — у помощника пробы dkimtest (Swap / RemoveGeneration = шаги 9 и 12 kubelet), порт чтения
+      удаления не несёт. Держатель N14 (P17) с инъекцией «повтора нет» и тремя близнецами, включая счёт
+      Readlink = 2. Предикат ревью дословно исполнен.
+  - id: R45-2
+    maps: "CX1-141 · Д106 (а)"
+    status: >-
+      закрыт по существу. Свойство «зона включена ⇒ приёмник поднят» держит рендер одним местом — блоком (6)
+      стража почтовой полосы; при on помощника хост = <релиз>-mailpit, имя приёмника выводится тем же
+      printf "%s-mailpit" .Release.Name без переопределения (mail-receiver.yaml:44-46), значит блок (6)
+      срабатывает на любой установке, в дереве и вне его. Перемерено рендером (выше). Текст отказа
+      дополняется ключом зоны — оба ключа названы. Расхождение с буквой Д106 (а) («stand-dns.yaml») — см.
+      R46-1, вопрос диспетчеру, не блокирует: безопасность обеспечена.
+  - id: R45-3
+    maps: N45-1
+    status: "отображён: предикат Д105 на headRefOid запроса волны, голова 2915-wave-ntf1-core-1 (tasks.md §4). Источник вердикта назван неточно — N46-4 пересверки, механика посадки, не блокирует."
+  - id: R45-4
+    maps: N45-2
+    status: "закрыт: часы пробы попыток — реальные (§12а «Форма попытки» :5135)."
+
+dispatcher_decisions:
+  - id: "Д106 (а)"
+    status: "исполнено иначе по месту: блок (6) identity-mail-lane-guard.yaml вместо проверки в stand-dns.yaml; поведение (отказ рендера, оба ключа в тексте, P12 (д) с близнецом dev) совпадает с решением. Принятие места — за диспетчером (R46-1)"
+  - id: "Д106 (б)"
+    status: "отображено (§12а «serviceIP и clusterDomain…», шапка (3), P12 (е) и рендер prorobotech)"
+  - id: "Д106 (в)"
+    status: "подтверждено, правки нет"
+  - id: "Д106 (г)"
+    status: "отображено (З32, tasks.md N1 — счёт по событиям go test -json)"
+  - id: "Д106 (д)"
+    status: "отображено (tasks.md §4 :594, голова 2915-wave-ntf1-core-1); источник вердикта merge-readiness — N46-4"
+  - id: "Д96…Д105, Д75…Д84, Д86…Д95"
+    status: "в силе, противоречий в дельте нет"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md tasks.md → 0, 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "механизм CX1-141 выбран (блок (6)); ветка «если диспетчер настаивает — перенос целиком» — условная альтернатива с тем же свойством, а не открытый вопрос механизма; принятие места — строкой вопросов диспетчеру"
+  - condition: "каждый пункт пересверки отображён"
+    result: green
+    detail: "revalidation/cf479ca8 unmapped_items: [] , new_items: []; CX1-140, CX1-141 — строки таблицы «Условия…» :5588-5589"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/cf479ca8: subject.sha256 = cf479ca8…, tasks_sha256 ee4cc1d1… и change_yaml_sha256 0c79eeb1… совпадают с перемером"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка c19490f9 APPROVED (sha256sum в дереве совпадает); initial и revalidation на отпечаток есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "без изменений."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "новых межсервисных рёбер нет."
+  per_call_deadline: "без изменений; часы пробы попыток названы."
+  consistent_read: "закрыт: повтор разрешения поколения ограничен, исход один для старта и перепроверки."
+  secret_hygiene: "без изменений."
+  replica_state_isolation: "без изменений; разделяемого состояния нет."
+  public_vs_internal_edge: "дельта не трогает."
+  render_fail_closed: "закрыт: зона при выключенном приёмнике не рендерится — перемерено."
+
+critical: []
+
+remarks:
+  - id: R46-1
+    maps: "N46-1"
+    text: >-
+      Шапка (2) (:22-23) утверждает «шаблон зонтика stand-dns.yaml отказывает в рендере», тело («Приёмник
+      поднят») и таблица — блок (6) стража почтовой полосы, а в stand-dns.yaml проверки нет. Два места об
+      одном предмете, верно одно; исполнитель D10 по шапке завёл бы второе место. Переписать шапку (2) на
+      «блок (6) стража почтовой полосы; текст называет оба ключа» и оставить одну, узкую форму предиката
+      места (таблица `git grep -n 'mailpit' …stand-dns.yaml` против P12 (д) `'mailpit).enabled\|mailpit.enabled'`).
+      Отступление от буквы Д106 (а) принимает диспетчер — вопрос ниже. Не блокирует: свойство обеспечено.
+  - id: R46-2
+    maps: "N46-3"
+    text: >-
+      Слой receiver-off.yaml в описании P12 (д) поверх одной цепочки prod падает раньше блока (6) — на :82
+      «адрес отправителя НЕ задан» (перемерено). Слой обязан нести fromAddress и fromName (или лечь поверх
+      слоя образца узла D9), иначе инъекция «блок (6) снят» краснеет по чужой причине. Проба при этом не
+      ложно-зелёная (текст обязан назвать mailpit.enabled), поэтому к исполнителю D10, не блокирует.
+  - id: R46-3
+    maps: "N46-2"
+    text: "Предикат CX1-140 `git grep … Remove(All)?\\( -- services/notify/internal/dkimkey ':!*_test.go'` → 0 ловит сам dkimtest (не _test.go, импортируемый). Добавить границу ':!services/notify/internal/dkimkey/dkimtest'. Предикат гейта, к исполнителю N14."
+  - id: R46-4
+    maps: "N46-4"
+    text: "Источник вердикта merge-readiness для запроса волны в kacho — обязательные контексты ствола main на statusCheckRollup, а не ручной прогон ci.yaml. Механика посадки, по Д97 не блокирует."
+
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "R46-1…R46-4 — правки текста следующей редакцией (не блокируют, вердикт на cf479ca8 не снимают; новая редакция — новый отпечаток и повтор ролей по правилу контура)"
+  - to: "диспетчер"
+    subject: "принять исполнение Д106 (а) блоком (6) identity-mail-lane-guard.yaml вместо проверки в stand-dns.yaml (поведение совпадает, место одно) либо настоять на переносе блока (6) в stand-dns.yaml целиком"

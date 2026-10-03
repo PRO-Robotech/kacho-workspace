@@ -1,0 +1,79 @@
+# ВЕРДИКТ: ✅ на 910ccddeadc42de98f9260130bf12a2987044570
+role: db-architect-reviewer
+mode: review
+round: 3
+repo: PRO-Robotech/kacho
+branch: 2914-wave-ntf1-core-1
+base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 910ccddeadc (перемерено после fetch)
+head: 910ccddeadc42de98f9260130bf12a2987044570
+content_digest: 2495d687b9d33237168ab1059c8cbcb9862fcafcb4a358aab0fcb9e0244791ca  # git diff base..head | sha256sum
+previous_record: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004.yaml (head 5f195517e81)
+verdict: accept
+blocking: false
+migrations_touched: 2
+migration_paths:
+  - services/notify/internal/probemigrations/20261002090000_notifyprobe_journal.sql   # без изменений с 5f195517e81 (запрет #5 соблюдён)
+  - services/notify/internal/probemigrations/20261002090001_notification_feed_v1.sql  # без изменений с 5f195517e81
+repo_sql_paths:
+  - services/notify/cmd/notify-probe/internal/send/send.go  # ownRowQuery — запрос не менялся, шапка дописана
+  - services/notify/cmd/migrator/main.go                    # SELECT current_database() под пределом confirmTimeout
+
+prior_items:
+  - id: ORPHAN-CHAIN-BLIND
+    status: closed
+    evidence: >
+      migrationchains.go SurveyTree/sqlUnderInternal: сирота — любой .sql под services/<svc>/internal/**
+      вне каталогов перечня; Census печатается в TestTheTreeHasItsChains, ноль файлов — отказ.
+      Инъекции (worktree @910ccddeadc, GOWORK=off, go test -count=1):
+      (а) services/notify/internal/strayq/1_x.sql (git add -N) на настоящем дереве -> TestTheTreeHasItsChains
+      FAIL «services/notify/internal/strayq несёт миграции … без точки наката (каталогов-сирот 1)»;
+      (б) отказ по сиротам выключен -> TestOrphanSQLAnywhereUnderInternalIsRefused FAIL в 3 подкейсах
+      (строка снята/файлы на месте, каталог вне канона, вложенный каталог); близнец — PASS с кодом head.
+  - id: OWN-ROW-SEQSCAN
+    status: closed
+    evidence: >
+      send.go шапка §«Цена: полный проход ленты на каждый Send»: названа линейная цена, граница применимости
+      (только сквозная проба стенда) и предикат снятия — feed.Put возвращает id (INSERT … RETURNING id),
+      проверка `go doc …/corelib/notify/feed Put`.
+  - id: RR-SERIALIZATION-LATENT
+    status: closed
+    evidence: >
+      limits_test.go TestSentTemplateDeclaresNoLimits: каталог дерева -> probe-hello без limits (прочитано 1, судимых 1);
+      встроенная инъекция limit в копию каталога -> одна находка с именем шаблона и 40001. Исполнено: PASS,
+      лог инъекции напечатан.
+  - id: order-integration-tester-D83
+    status: closed
+    evidence: >
+      main_test.go TestPointConfirmsTheConnectedDatabaseBeforeGoose на живом Postgres (pgtest): чужое имя kacho_x ->
+      отказ с обоими именами, to_regclass('goose_db_version') IS NULL; близнец -> применено 2 / объявлено 2. PASS 6.1s.
+      Инъекция «вызов confirmConnection снят из main()» -> FAIL: «учётная таблица goose … есть (применено 2)» и отказ
+      не называет kacho_x — порядок «сверка до goose» теперь доказан исполнением.
+  - id: GS-C3 (DSN, ключи драйвера)
+    status: closed
+    evidence: >
+      dsn.go — pgx.ParseConfig (тот же вызов, что migratorcli.OpenDB). Инъекция pgx->pgconn ->
+      TestDatabaseOfRefusesWhatTheConnectionRefuses: 3 красных «принят с базой» (3 из 3 ключей драйвера).
+  - id: GS-C2 (предел сверки)
+    status: closed
+    evidence: TestConfirmDatabaseRefusesWhenTheNameDoesNotArriveInTime PASS — отказ по пределу и непринятие позднего ответа.
+
+critical: []
+important: []
+
+notes:
+  - >
+    Д93 сформулирован «только pgconn.ParseConfig»; в коде — pgx.ParseConfig (pgconn.ParseConfig плюс три ключа
+    драйвера), строже и совпадает с трактом соединения; deploy/notify_secret_layout_test.go:1045 и internal/migratorapply/*
+    своего разбора не несут — читают migrationchains.DatabaseOf. Расхождение формулировки, не дефект; решает диспетчер.
+  - >
+    currentDatabaseQuery и chainsTable — изменяемые переменные пакета main, подменяемые только процессом-помощником
+    теста; SQL склейка в TestHelperRunsMain — тестовый бинарь. Предмет go-style, не схемы.
+
+approved:
+  - миграции probemigrations не менялись (запрет #5); пункты approved двух прошлых записей в силе
+  - нет FK через границу сервиса; отдельная база kacho_notifyprobe
+  - текст драйвера наружу не выходит (Send — codes.Internal; отказы разбора DSN без кусков строки)
+  - сверка базы соединения — на живом сервере до первого оператора goose, под своим пределом
+
+orders: []
+crosses_distributed: no

@@ -1,0 +1,70 @@
+# ВЕРДИКТ: ✅ на 5f195517e8149233436235927e337a4fe65cc0c5
+role: system-design-reviewer
+moment: post-diff
+change: issue-2915
+repo: PRO-Robotech/kacho
+base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 5f195517e814 (база не сдвинулась с прошлой записи)
+head: 5f195517e8149233436235927e337a4fe65cc0c5
+digest: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004
+digest_command: git diff e415e59a225b..5f195517e814 | sha256sum
+previous: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f (head 2fdbc6b523a5)
+delta_since_previous: 26 файлов, +1499/-188 (git diff --stat 2fdbc6b523a5..5f195517e814)
+verdict: accepted
+blocks: false
+distributed_surface: true
+schema_intersection: true   # Send: REPEATABLE READ + age(xmin) — без изменений семантики; накат: current_database()
+checks:
+  executed: >-
+    9 пакетов зелёные: internal/migrationchains, internal/migratorapply (39.8s), services/notify/cmd/migrator (8 проб),
+    cmd/notify-probe и 4 подпакета, services/notify/internal/config;
+    TestParallelSendsGetTheirOwnIDs исполнена (4 раунда, PASS 2.71s), не пропущена
+  injection: >-
+    overlay main.go — вызов confirmDatabase снят (if false) -> migrator, migratorapply, migrationchains ВСЕ ЗЕЛЁНЫЕ:
+    вторая половина Д83 (сверка current_database() до goose) ничем не держится, см. important[0]
+axes:
+  atomicity: closed — Send без изменений семантики: строка ленты и журнал одной транзакцией journaltx; правка — только обёртки ошибок шагов
+  idempotency: n/a-with-note — как в прошлой записи (Send синхронный по Д75)
+  concurrency: closed — ownRowQuery стал const, запрос тот же; гонка исполнена; шапка send.go:30-38 теперь говорит измеренное (INTERNAL, а не чужой id) — прошлый пункт закрыт
+  migration_chain_selection: >-
+    closed по главной половине — DatabaseOf = pgconn.ParseConfig, тот же разбор, что migratorcli.OpenDB (pgx.ParseConfig над pgconn,
+    corelib fe0dccf1794e migratorcli/dialect.go:177); второй источник имени (?dbname=, ?database=, ключ database) и PGDATABASE решают
+    одинаково у выбора и у соединения (migrationchains_test.go:217-222); пустое имя — отказ (сервер подставил бы базу=пользователь);
+    текст отказа — только вид записи, без кусков DSN (обе формы, проба TestDatabaseOfRefusalCarriesNoPieceOfTheDSN).
+    Сверка current_database() стоит в main.go:118-121 до run(), отказ fail-closed и на ошибке чтения — но проводка не держится пробой
+  delivery_model: closed — без изменений
+  workers: closed — без изменений
+  replica_isolation: closed — состояния в памяти нет; recipientKey — неизменяемый материал конфигурации, копия по Bytes()
+  edge: closed — новых служб на внешнем слушателе нет; delta proto — только комментарии/контракт Send внутренней службы
+  cross_service: closed — новых рёбер нет
+  deadlines: >-
+    closed с заметкой — notify-probe: окно отзыва ≤0 теперь отказ загрузки (одно значение у двух читателей); migrator:
+    connectedDatabase открывает соединение через OpenDB (барьер dbready с бюджетом), но SELECT current_database() идёт на
+    context.Background() без своего предела — после успешного барьера риск зависания мал, класс arch-per-call-deadline
+previous_items:
+  - item: send.go:63 полный проход ленты по age(xmin) на каждый Send
+    status: открыт, не блокирует (как и был); цена ограничена объёмом пробы
+  - item: send.go:33-35 шапка про READ COMMITTED
+    status: закрыт — 42cfe116542, шапка называет INTERNAL «строк ленты этой транзакции 2»
+  - item: note — мигратор чарта notify на kacho_notify при таблице только с kacho_notifyprobe
+    status: закрыт решением Д84 — 6a344d40cf3/9d041de4163: форма в паре только со строкой своей базы, kacho_notify — НЕ ВЫПОЛНИЛОСЬ до N7, dbname сверяется точным значением
+  - item: note — goose init-контейнером на каждую реплику без замка сеанса
+    status: без изменений, предмет не этого диффа
+decisions_on_my_axes:
+  D83: исполнено (разбор драйвера, отказ без DSN, сверка current_database()); проводка сверки без пробы — important[0]
+  D89: исполнено — recipientKey назван ключевым материалом HMAC-SHA256, страж fail-closed <32 байт, незаданный ловит общий перебор unset (config.go:286-290), значение и длина в текст не попадают
+  D90: НЕ исполнено на голове — ci.yaml:590 svc [vpc, compute, geo, nlb, storage, registry]; required-contexts.txt без integration (notify); shortgatedselection_test.go:273-274 записи на месте. Гонка Send при этом исполняется в CI через make test-pg-outside-selection (ci.yaml:723, Makefile:384-385) — распределённое свойство не осиротело, пункт плана N1 открыт
+important:
+  - at: services/notify/cmd/migrator/main.go:118
+    what: сверка current_database() (Д83, вторая половина) не держится ни одной пробой — снятие вызова overlay-инъекцией оставляет зелёными все три пакета; connectedDatabase ни разу не исполнен против живого Postgres, поэтому и поломка самого чтения (она fail-closed и остановила бы весь накат) не видна до стенда
+    require: проба точки наката на pgtest — живой путь main (TestHelperRunsMain) против базы строки -> накат прошёл и сверка исполнена (печать/счётчик), инъекция — вызов снят -> красный; либо main получает сверку параметром и проба судит порядок «сверка до первого оператора goose»
+    return_to: автор D4
+  - at: .github/workflows/ci.yaml:590
+    what: Д90 не применён (см. decisions_on_my_axes.D90)
+    require: исполнить пункт N1 по Д90 (матрица, required-contexts, литерал отбора Makefile, снятие записей shortgatedselection_test.go:273-274)
+    return_to: автор N1
+notes:
+  - main.go connectedDatabase — QueryRowContext на context.Background() без WithTimeout
+  - recipientKey: ключ 32 байта печатными символами из Secret даёт <256 бит энтропии; граница длины — по Д89, энтропия не предмет стража
+orders:
+  - integration-tester — живая проба сверки current_database() в точке наката notify-probe (красная инъекцией снятия вызова)
+return_to: —

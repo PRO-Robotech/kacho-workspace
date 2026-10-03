@@ -1,0 +1,346 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 40, маршрут редакции 41.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта редакции 40 против последней пересверенной
+# (редакция 39, c09a9604…, запись revalidation/c09a9604….yaml: «к замыслу», CX1-123, N39-1) и решения
+# диспетчера Д83…Д90 (2026-10-02; Д75…Д82 действуют). Дельта не закоммичена: рабочее дерево issue-880
+# поверх 842a3eb8b, где design.md = c09a9604….
+#
+# Итог — к замыслу. CX1-123 и N39-1 отображены, Д83…Д90 отображены. Три новых пункта, все измерены на
+# голове волны 2fdbc6b523a:
+#   CX1-124 — посылка «production-posture.yml — только workflow_dispatch» опровергнута. Конвейер идёт на
+#             pull_request в ветки `[0-9]+-*`, в том числе в 2914-notify, и шёл на запросе волны #2991.
+#             Код 2 по Д85 под `set -e` в dev-prod-up станет красным «Стенд не поднялся» на каждом
+#             запросе в ветку эпика до D2;
+#   CX1-125 — проба Д83 (б) по ключевой форме может пройти, не задев ветку отказа разбора, а у
+#             ParseConfig текст отказа этой формы несёт хвост пароля;
+#   CX1-126 — исход Д84 «НЕ ВЫПОЛНИЛОСЬ» как пропуск подтеста в internal/migratorapply красит шаг
+#             test-pg-outside-selection: пропуск там — отказ, код 1.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [PRO-Robotech/corelib#77, PRO-Robotech/kaname#484, PRO-Robotech/kacho#2916]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: dfac7c9c2a72e77a47d21cb8690dacf4988123648a7f0c46c58114b342b18ba9
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  change_yaml_design_sha256: dfac7c9c2a72e77a47d21cb8690dacf4988123648a7f0c46c58114b342b18ba9   # рабочее дерево
+  change_yaml_sha256: 14f8ec082329fb805d8aa4d1446d6c6747376638838e88a1faa7891e1e50b2a3
+  tasks_sha256: 5b25ea0424a142a9cd3f147d3469440b3c5d911f6ad1a329d8d43757f1eee23d   # маршрут редакции 41
+  revision: 40
+  content_commit: "— (рабочее дерево поверх 842a3eb8b, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/c09a96044570f6a2e4a59c2b793d11ce3f755726072a4ffe1e1f3a7955a15a9a.yaml
+    sha256: c09a96044570f6a2e4a59c2b793d11ce3f755726072a4ffe1e1f3a7955a15a9a
+  delta_predicate: "git diff -- docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево issue-880 @842a3eb8b)"
+  decisions_judged:
+    - "CX1-123, N39-1 — пункты пересверки c09a9604"
+    - "Д83 — имя базы через pgconn.ParseConfig; текст отказа разбора без DSN; current_database() до goose"
+    - "Д84 — строку kacho_notify вносит N7; форма D1 — «НЕ ВЫПОЛНИЛОСЬ» по самоистекающей записи; dbname — точным значением; пара формы и строки"
+    - "Д85 — «вне опроса» живых гейтов по notify — третья категория; таблица непуста, подов 0 — красный; D2 снимает ветку; стенд для D1s не поднимается"
+    - "Д86 — deploy/e2e-shards.json; истечение записи ban6_undeployed_carriers судит запуск процесса"
+    - "Д87 — пункты самостоятельного рендера notify сняты; судьба переписей М49/М50 перемерена"
+    - "Д88 — перепись анализаторов списка читает noListingSurface"
+    - "Д89 — recipientKey — ключевой материал, страж старта ≥ 32 байт"
+    - "Д90 — notify в матрице integration"
+    - "возвраты ревью кода волны 9ea306ee… (GS-C1, GS-I1…I4, PAR-1, ORPHAN-CHAIN-BLIND, OWN-ROW-SEQSCAN, RR-SERIALIZATION-LATENT, system-design)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  revision: 19
+  effective_verdict: "APPROVED — docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/1bffe10d….yaml"
+  changed_since_previous_record: false
+  initial_class_exposure_on_this_fingerprint: "есть — reviews/class-exposure/initial/1bffe10d….yaml"
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 842a3eb8b95872529770c42b031fa3fa99b2065c   # плюс незакоммиченная дельта автора
+  kacho_wave_head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515   # origin/2914-wave-ntf1-core-1, рабочая копия tmp/2914-wave-ntf1-core-1, чистая
+  corelib_pin: fe0dccf1794e   # go.mod волны, v1.10.0-rc.5.0.20261002043402-fe0dccf1794e
+  pgx: v5.10.0
+snapshot_at: 2026-10-03T12:52:40Z
+inspected: >-
+  Дельта design.md: шапка редакции 40; З24 «Ключ сетки — ключевой материал…»; З28 (б)–(г) с пометками,
+  (е); З32 «Исполнение CX1-123…» (а)–(е), «Имя базы точки наката…», «Сирота-цепочка…», «Пара формы и
+  строки», «Проба D1 сверяет имя точным значением», «Перепись анализаторов списка…», «notify — в матрице
+  integration…», «Возвраты ревью кода волны…» (а)–(и); §11 строки CX1-123…GS-*. tasks.md — шапка
+  редакции 41, строки N1, N7, D4, D1, D1s, D2. change.yaml. kacho @2fdbc6b523a:
+  deploy/scripts/assert-shard-coverage.py:247-300 (undeployed_carriers), deploy/e2e-shards.json
+  (ban6_undeployed_carriers), git grep имени процесса пробы по */templates/*, перепись потребителей
+  assert-metrics-surfaces-answer (Makefile, workflows, run-gate-self-tests.sh), deploy/Makefile:926-933
+  (dev-prod-up), .github/workflows/production-posture.yml (on:, шаг stand), .github/scripts/stand-up.sh
+  (классификация кода), прогоны production-posture по ветке волны, .github/required-contexts.txt,
+  internal/migrationchains/dsn.go, services/notify/cmd/migrator/main.go:92-140, corelib migratorrun
+  runner.go (Config, open, Up), pgconn.ParseConfig на шести DSN (временный модуль в scratchpad, PGDATABASE
+  снят), Makefile test-integration и test-pg-outside-selection, shortgatedselection_test.go:265,268-274,
+  classify-pg-outside-selection.sh (п.4, 228-235), go-test-verdict.py verdict(), gateskipledger_test.go
+  (gateSkipRoots), invocation_test.go:578-590, noListingSurface (listfiltercoverage_test.go),
+  RECIPIENT_KEY по services/notify и чарту, git diff e415e59a225..2fdbc6b523a по путям Д87, ci.yaml
+  матрица integration. Записки vault не читались. Живые гейты и перепись анализаторов списка
+  (TestCensus_…) не гонялись: стенда нет, а число FAIL по notify приведено со слов автора замысла.
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "одобренная приёмка и первичный разбор на её отпечаток"
+    result: green
+    detail: "1bffe10d — APPROVED, не менялась; initial/1bffe10d….yaml есть"
+  - condition: "каждый пункт отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "CX1-123 (11/2), N39-1 (5/2), Д83 (6/4), Д84 (5/6), Д85 (9/3), Д86 (6/1), Д87 (9/4), Д88 (3/2), Д89 (4/2), Д90 (5/3) отображены; новые CX1-124, CX1-125, CX1-126 — 0"
+  - condition: "новый внешний вызов, асинхронный путь, sentinel заведены пунктом и отображены"
+    result: red
+    detail: "Д85 меняет код выхода живого гейта, у которого есть потребитель в конвейере запросов (CX1-124); Д84 вводит sentinel «НЕ ВЫПОЛНИЛОСЬ» в полосу, где пропуск — отказ (CX1-126)"
+  - condition: "пересверка не устарела (CG_CLASS_REVALIDATION_STALE)"
+    result: green
+    detail: "change.yaml hashes.design_sha256 = dfac7c9c… = предмет"
+  - condition: "ревью замысла на этот отпечаток (CG_PRECODE_REVIEW_MISSING) — оценено отдельно"
+    result: red
+    detail: "reviews/design на dfac7c9c нет"
+
+mapping_check:
+  - item: "CX1-123 (а) — координата данных"
+    verdict: holds
+    text: >-
+      Пути D1s называют deploy/e2e-shards.json (запись ban6_undeployed_carriers.notify). Перемерено
+      @2fdbc6b523a: запись есть, поля process/reason/lifted_by заполнены, notify.enabled в манифесте нет
+  - item: "CX1-123 (б) — исход живых гейтов по предпосылке таблицы"
+    verdict: holds_with_new_exposure
+    text: >-
+      Форма Д85 отображена: пустая таблица → код 2, таблица непуста без пода → код 1, снятие в D2 с
+      предикатом. Следствие для потребителя кода выведено из неверной посылки — см. CX1-124
+  - item: "CX1-123 (в) — инъекции «зелёный с числом» на D1+D2 / после D3"
+    verdict: holds
+    text: "З32 (д), строка D2"
+  - item: "Д86 — истечение по запуску процесса"
+    verdict: holds
+    text: >-
+      Перемерено @2fdbc6b523a: assert-shard-coverage.py:293 — `named = … if proc in text` (подстрока).
+      git grep 'kacho-notify-probe' -- '*/templates/*' → 0, поэтому сегодня запись не истекла. Инъекции у6
+      и у7 различают подстроку и запуск. Уточнение формы — заметка N40-1
+  - item: N39-1 / R39-3
+    verdict: holds
+    text: "Перепись шести cp -r и механизм инъекции (порядок копирования относительно архива) названы, предикат «✗ 0»"
+  - item: Д83
+    verdict: holds_with_new_exposure
+    text: >-
+      Перемерено ParseConfig (pgx v5.10.0, PGDATABASE снят): `postgres://u@h/kacho_notifyprobe?dbname=kacho_notify`
+      → db kacho_notify; `dbname=kacho_notifyprobe database=kacho_notify` → kacho_notify. Расхождение с
+      DatabaseOf подтверждено. Ключевая форма с пробелом в пароле и dbname после него принимается с db "",
+      как в замысле. Изъян держателя (б) — CX1-125. Сверка (в): migratorrun.Runner открывает базу внутри Up
+      (runner.go open → migratorcli.OpenDB), крючка до goose нет. Сверку можно выполнить только отдельным
+      соединением точки до runner.Up — заметка N40-2
+  - item: Д84
+    verdict: holds_with_new_exposure
+    text: >-
+      Перемерено: deploy/notify_secret_layout_test.go:989 — strings.Contains(dsn, "dbname=kacho_notify").
+      Пара формы и строки, две записи и инъекции названы. Носитель исхода «НЕ ВЫПОЛНИЛОСЬ» в полосе
+      test-pg-outside-selection — CX1-126
+  - item: Д85
+    verdict: holds_with_new_exposure
+    text: "См. CX1-123 (б) и CX1-124"
+  - item: Д87
+    verdict: holds
+    text: "git diff --stat e415e59a225..2fdbc6b523a -- trivy.yaml <гейт заглушек и инъекция> services/storage/tools/ → пусто. Судьба восемнадцати переписей названа поимённо"
+  - item: Д88
+    verdict: holds
+    text: >-
+      noListingSurface читают listfiltercoverage_test.go:146,191,266,314 (три соседних теста). Условие:
+      одна запись, инъекции в обе стороны, цели audit-list-filter нет. FAIL переписи по notify не
+      перемерялся (со слов автора замысла @2fdbc6b523a)
+  - item: Д89
+    verdict: holds
+    text: >-
+      Перемерено: читателя RECIPIENT_KEY в services/notify 0, чарт монтирует переменную (deployment.yaml:126).
+      Страж старта ≥ 32 байт, отказ без значения, проба 31/32 и инъекция названы. Ключ ниже 32 байт рендер
+      пропускает (`required` судит только пустоту) — тогда отказ случается при старте пода. Это fail-closed
+      и разрешено Д89
+  - item: Д90
+    verdict: holds
+    text: >-
+      Перемерено: ci.yaml:590 svc без notify; required-contexts — шесть integration (…); отбор
+      `/internal/(repo|clients|reconciler|subscriptionjournal)` при пустом результате даёт «пропуск», exit 0.
+      Без правки отбора строка notify в матрице дала бы зелёный при нуле исполненных проб. Замысел это
+      называет и правит отбор; записи shortgatedselection_test.go:273-274 снимаются тем же изменением
+  - item: "GS-C1, GS-I1…GS-I4, PAR-1, ORPHAN-CHAIN-BLIND, OWN-ROW-SEQSCAN, RR-SERIALIZATION-LATENT, system-design"
+    verdict: holds
+    text: "По каждому пункту — условие и проба в строках D4 и N1. OWN-ROW-SEQSCAN принят только для пробы, предикат снятия есть"
+
+new_items:
+  - id: CX1-124
+    decision: "Д85: живой гейт поверхностей метрик при пустой таблице notify выходит кодом 2 («НЕ ВЫПОЛНИЛОСЬ: перечень пуст») вместо 0; замысел: «стенда в волне нет, production-posture.yml — только workflow_dispatch», решение о рецепте dev-prod-up — вопрос диспетчеру"
+    class: >-
+      code-authoring §«Решение и его следствие разнесены»: код выхода меняется в гейте, а читает его
+      рецепт под `set -e` и классификатор подъёма в конвейере. measurement-discipline §«Чужое измерение
+      и чужое заявление»: посылка о триггерах конвейера не измерена
+    exposure: >-
+      Измерено @2fdbc6b523a. production-posture.yml `on:` — workflow_dispatch, pull_request (branches:
+      main, '[0-9]+', '[0-9]+-*'), schedule. Ветка эпика 2914-notify подходит под '[0-9]+-*'. Запрос волны
+      #2991 (база 2914-notify) прогнал production-posture на 2fdbc6b523a, исход success, событие
+      pull_request (gh run list). Шаг stand зовёт `stand-up.sh -- make dev-prod-up`. Рецепт
+      (deploy/Makefile:926-933) под `set -e` зовёт assert-metrics-surfaces-answer раньше
+      assert-outbox-autovacuum. stand-up.sh: при ненулевом коде без отметки чужой причины —
+      «категория: КРАСНОЕ — подъём сорвался» и `::error`. Третья категория возможна только по отметке
+      чужой причины, и она же выставляет STAND_PRECONDITION_UNMET, который пропускает все шаги ниже. Значит,
+      после D1s каждый запрос в 2914-notify до D2 получает красный production-posture (в
+      required-contexts его нет, слияние не заблокировано). assert-outbox-autovacuum на этих прогонах не
+      исполняется, и снаружи это не видно. D2 ждёт kacho#1276 (Д80), так что окно длится
+      несколько волн. Посылка замысла «стенд в волне не поднимается» верна для полосы D1s и неверна для
+      конвейера запроса волны
+    condition_on_code: >-
+      (а) Абзац З32 (г) называет измеренные триггеры production-posture.yml и исход конвейера на запросе
+      волны после D1s. Ссылка на «только workflow_dispatch» снимается. (б) Выбирается одно, и выбор
+      записывается в замысле: либо диспетчер принимает красный production-posture на запросах в
+      2914-notify до D2 (решение с предикатом снятия «D2 влита»), либо рецепт dev-prod-up исполняет все
+      гейты и выходит худшей категорией, а код 2 одного гейта не прячет красный и не пропускает
+      остальные. Во втором случае stand-up.sh различает «гейт после подъёма — НЕ ВЫПОЛНИЛОСЬ» и «подъём
+      сорвался», и у этого есть самопроба. Какая форма — решает диспетчер. Замысел не вправе молча оставить
+      рецепт с `set -e`, опираясь на неверную посылку. (в) При второй форме — инъекция «assert-metrics
+      выходит 2» → assert-outbox-autovacuum исполнен и напечатан, итог 2. Близнец — все 0 → итог 0.
+      Инъекция «один гейт 1, другой 2» → итог 1
+    held_by: >-
+      Сейчас — ничем: конвейер покраснеет на первом запросе после D1s. При второй форме — самопроба
+      stand-up.sh и рецепта. Однофайлового признака нет
+  - id: CX1-125
+    decision: "Д83 (б): текст отказа разбора DSN — фиксированный, без DSN и его кусков в обеих формах; держатель — отказ точки на DSN с паролем-маркером в обеих формах, stderr без подстрок маркера длиной ≥ 4"
+    class: >-
+      code-authoring §«Инвариант и оснастка — это тоже прод-код»: держатель обязан задевать ветку, которую
+      держит. gate-authoring: инъекция настоящим входом
+    exposure: >-
+      Измерено ParseConfig (pgx v5.10.0). Ключевая форма с пробелом в пароле и `dbname=` после него
+      ПРИНИМАЕТСЯ: db "", пароль обрезан до первого слова. Отказ точки идёт веткой «DSN не называет
+      базу», ветку отказа разбора она не задевает. Та же форма, где за паролем ничего нет, даёт отказ
+      ParseConfig «failed to parse as keyword/value», и его текст несёт `password=xxxxx <хвост пароля>`.
+      Редакция pgconn скрывает только первое слово пароля, поэтому посылка замысла «ParseConfig печатает с
+      паролем xxxxxx» верна для формы URL и неверна для ключевой. Пробу из замысла («маркер в обеих
+      формах») можно собрать так, что ключевая форма пройдёт веткой пустой базы. Тогда обёртка `%w`
+      вокруг ошибки ParseConfig останется зелёной. Скобка замысла «(`%w` её текста не несёт)» неверна:
+      `fmt.Errorf("…: %w", err).Error()` текст err несёт
+    condition_on_code: >-
+      (а) Проба D4 по ключевой форме берёт DSN, который ParseConfig ОТВЕРГАЕТ (маркер — хвост пароля после
+      пробела, за ним ни одной пары), и печатает, какой веткой прошёл отказ. Отдельный случай — DSN,
+      который ParseConfig принимает с пустой базой, тоже без маркера в stderr. (б) Ошибка ParseConfig не
+      входит в возвращаемую цепочку ни `%w`, ни `%v`. Наружу — значение без Unwrap к ней. (в) Инъекция —
+      отказ разбора обёрнут `fmt.Errorf("…: %w", err)` → проба красная по ключевой форме. Близнец — как
+      требуется → зелёная. Скобку «(`%w` её текста не несёт)» замысел исправляет на «не оборачивается ни
+      `%w`, ни `%v`»
+    held_by: "Проба D4 с инъекцией (в). Однофайлового признака нет"
+  - id: CX1-126
+    decision: "Д84 (б), (в): форма без строки своей базы (kacho_notify до N7) и строка без формы (kacho_notifyprobe до D3) — «НЕ ВЫПОЛНИЛОСЬ» по самоистекающим записям; в замысле — «подтест — пропуск с этим текстом, за зелёное не идёт» в internal/migratorapply/invocation_test.go"
+    class: >-
+      code-authoring §«Умолчание, которое становится утверждением»: третья категория выражена средством,
+      которое у потребителя значит другое. code-authoring §«Решение и его следствие разнесены»: исход
+      решается в тесте, а судит его классификатор полосы
+    exposure: >-
+      Измерено @2fdbc6b523a. TestEveryMigratorAppliesItsChainInItsManifestForm под -short пропускается и
+      исполняется шагом `make test-pg-outside-selection` (shortgatedselection_test.go:265
+      "internal/migratorapply"). Цель гонит `go test -v` и отдаёт лог deploy/scripts/classify-pg-outside-selection.sh.
+      Пункт 4 его шапки и строки 231-235: «пропуск здесь — ОТКАЗ», findings+1, код 1. Самопроба: «пропущенная
+      проба — находка». Значит, подтест-пропуск по Д84 красит шаг на голове D4 и держит его красным до N7
+      и D3, а не даёт «не выполнилось». В юнит-прогоне (-short) пропуски вне internal/repohygiene
+      go-test-verdict.py считает «ожидаемыми» (gateSkipRoots = internal/repohygiene), так что третья
+      категория там неотличима от зелёного. Ни одна из двух полос не читает пропуск как «НЕ ВЫПОЛНИЛОСЬ»
+    condition_on_code: >-
+      (а) Замысел называет носитель исхода Д84 в полосе test-pg-outside-selection. t.Skip для этого не
+      годится. Допустимая форма — как у ban6_undeployed_carriers (Д86): тест судит запись (предмет, причина,
+      предикат снятия, истечение) и печатает «НЕ ВЫПОЛНИЛОСЬ: строки kacho_notify нет (N7), запись жива» и
+      «пар форма-строка: N». Подтеста-пропуска нет. Красное — запись истекла, база вне таблицы и записи,
+      пар 0 при пустых записях. Любая другая форма — вопрос диспетчеру, а не правка
+      classify-pg-outside-selection.sh в этой волне. (б) Печать различает «пара исполнена» и «запись жива»
+      числами, и сумма равна числу форм плюс числу строк без формы. (в) Инъекции Д84 остаются. Добавляется
+      близнец полосы: `make test-pg-outside-selection` на голове D4 → код 0, «пропущено 0», и строка
+      «НЕ ВЫПОЛНИЛОСЬ … (N7)» в логе
+    held_by: "classify-pg-outside-selection.sh (пропуск — красный) и инъекции Д84. Однофайлового признака нет"
+
+items: []
+notes:
+  - id: N40-1
+    blocking: false
+    where: "З32 «Исполнение CX1-123…» (б), Д86 — распознаватель запуска процесса в assert-shard-coverage.py (D1s)"
+    text: >-
+      «Элемент command/args называет бинарь (токен пути)» снимает запись и тогда, когда НЕ-первый элемент
+      args несёт URI идентичности пробы: последний сегмент `spiffe://…/sa/kacho-notify-probe` — тот же токен.
+      Запускает процесс argv[0]: первый элемент command, а без command — первый элемент args при входной
+      точке образа каталога notify. Инъекция у8 — контейнер шлюза с args
+      `["serve", "--source=spiffe://…/sa/kacho-notify-probe"]` без command → запись не истекла. Близнец —
+      у2
+    predicate: "самопроверка assert-shard-coverage.py на голове D1s: у8 → «НЕ ИЗМЕРЯЕТСЯ… снимается: D3»"
+  - id: N40-2
+    blocking: false
+    where: "З32 «Имя базы точки наката…» (в), D4 — services/notify/cmd/migrator/main.go"
+    text: >-
+      corelib migratorrun.Runner открывает базу внутри Up (open → migratorcli.OpenDB) и крючка «до первого
+      оператора goose» не даёт. Сверку current_database() в путях D4 (только kacho) можно выполнить
+      только отдельным соединением точки до runner.Up, тем же DSN и тем же migratorcli.OpenDB. Правка
+      corelib в маршрут D4 не входит. Замысел называет эту форму, чтобы исполнитель не завёл поле в
+      migratorrun.Config вне путей полосы. Остаток — две сессии одного DSN — назван
+    predicate: "git diff --stat <база D4>..<голова D4> -- go.mod: пин corelib не меняется ради Д83"
+
+measurements:
+  - claim: "предмет, маршрут, change.yaml"
+    command: "sha256sum docs/changes/issue-2915/{design.md,tasks.md,change.yaml} @ issue-880 842a3eb8b + рабочее дерево"
+    result: "dfac7c9c…, 5b25ea04…, 14f8ec08…; hashes.design_sha256 = dfac7c9c…"
+  - claim: "отображение"
+    command: "for p in CX1-123 N39-1 R39-3 Д83 Д84 Д85 Д86 Д87 Д88 Д89 Д90 e2e-shards у6 у7 GS-C1 PAR-1 ORPHAN-CHAIN-BLIND OWN-ROW-SEQSCAN RR-SERIALIZATION; do grep -c -- $p design.md tasks.md; done"
+    result: "11/2, 5/2, 4/3, 6/4, 5/6, 9/3, 6/1, 9/4, 3/2, 4/2, 5/3, 5/2, 4/2, 4/2, 3/2, 3/2, 3/2, 3/2, 3/2"
+  - claim: "триггеры production-posture и прогон на запросе волны (CX1-124)"
+    command: "awk '/^on:/,/^jobs:/' .github/workflows/production-posture.yml; gh pr list --head 2914-wave-ntf1-core-1; gh run list --workflow production-posture.yml --branch 2914-wave-ntf1-core-1"
+    result: "workflow_dispatch, pull_request [main, '[0-9]+', '[0-9]+-*'], schedule; PR #2991 база 2914-notify; прогон pull_request на 2fdbc6b523a — success"
+  - claim: "потребители кода гейта поверхностей метрик (CX1-124)"
+    command: "git grep -n assert-metrics-surfaces-answer -- . ':!*.md'; sed -n 926,933p deploy/Makefile; stand-up.sh 283-404"
+    result: "dev-prod-up (set -e, до assert-outbox-autovacuum), run-gate-self-tests.sh (самопроба); ненулевой код без отметки → «КРАСНОЕ — подъём сорвался»; production-posture в required-contexts нет"
+  - claim: "ParseConfig на формах DSN (Д83, CX1-125)"
+    command: "временный модуль (pgx v5.10.0, GOWORK=off, PGDATABASE снят): pgconn.ParseConfig на шести DSN"
+    result: "?dbname= и database= → kacho_notify; URL с %Se → отказ, пароль xxxxxx; ключевая форма «password=<слово> <хвост> dbname=…» → принята, db \"\"; та же без пар после хвоста → отказ, текст несёт хвост пароля после xxxxx; без dbname → db \"\""
+  - claim: "точка наката открывает базу внутри migratorrun (N40-2)"
+    command: "sed -n 92,140p services/notify/cmd/migrator/main.go; corelib@fe0dccf1794e migratorrun/runner.go Config, open, Up"
+    result: "selectChain → DatabaseOf; migratorrun.New(Config{DSN}) → Up → open → migratorcli.OpenDB; крючка до goose нет"
+  - claim: "полоса исполнения invocation_test и судьба пропуска (CX1-126)"
+    command: "sed -n 578-590p internal/migratorapply/invocation_test.go; grep migratorapply shortgatedselection_test.go; classify-pg-outside-selection.sh п.4, 228-235; go-test-verdict.py verdict(); gateskipledger_test.go gateSkipRoots"
+    result: "под -short — Skip, исполняет test-pg-outside-selection; там пропуск — отказ, код 1; в юнит-прогоне пропуски вне internal/repohygiene считаются ожидаемыми"
+  - claim: "Д86 — сегодняшнее истечение по подстроке"
+    command: "sed -n 247,300p deploy/scripts/assert-shard-coverage.py; git grep -n kacho-notify-probe -- '*/templates/*'; python3 -c 'json … ban6_undeployed_carriers'"
+    result: "`named = … if proc in text`; шаблонов с именем 0; запись notify (process kacho-notify-probe, reason, lifted_by D3)"
+  - claim: "Д84 — проба D1 по подстроке"
+    command: "grep -n 'strings.Contains(dsn' deploy/notify_secret_layout_test.go"
+    result: "989: strings.Contains(dsn, \"dbname=kacho_notify\")"
+  - claim: "Д87 — формы helm.values в волне нет"
+    command: "git diff --stat e415e59a225..2fdbc6b523a -- trivy.yaml deploy/scripts/assert-scan-stubs-hide-nothing.py deploy/scripts/assert-scan-stubs-hide-nothing-inject.sh services/storage/tools/"
+    result: "пусто"
+  - claim: "Д89 — читателя ключа нет"
+    command: "git grep -n RECIPIENT_KEY -- services/notify deploy/helm/notify"
+    result: "только deploy/helm/notify/templates/deployment.yaml:126"
+  - claim: "Д90 — матрица и отбор"
+    command: "grep -n 'svc: \\[' ci.yaml; grep integration required-contexts.txt; awk test-integration Makefile; sed -n 268,274p shortgatedselection_test.go"
+    result: "ci.yaml:590 [vpc, compute, geo, nlb, storage, registry]; шесть контекстов; пустой отбор → «пропуск», exit 0; две записи notify-probe → test-pg-outside-selection"
+  - claim: "Д88 — читатели noListingSurface"
+    command: "git grep -n noListingSurface -- internal/"
+    result: "listfiltercoverage_test.go:146,156,191,265-266,314,383"
+
+not_measurable:
+  - item: "исход production-posture на запросе волны после D1s"
+    why: "D1s не исполнена. Красный выведен из кода рецепта и классификатора, а не из прогона"
+  - item: "FAIL TestCensus_EveryTransportListingIsSeenByItsAnalyser по notify"
+    why: "не гонялся (зовёт make цели анализатора); приведено со слов автора замысла @2fdbc6b523a"
+
+outcome: to_design
+returned_to_acceptance: []
+unmapped_items: [CX1-124, CX1-125, CX1-126]
+orders:
+  - to: "автор замысла NTF-1"
+    subject: >-
+      CX1-124: измеренные триггеры production-posture.yml и исход конвейера на запросах в 2914-notify после
+      D1s. Выбор формы — принять красный до D2 или рецепт с худшей категорией — передать вопросом
+      диспетчеру. CX1-125: проба ключевой формы, задевающая ветку отказа ParseConfig, инъекция `%w`,
+      исправить скобку. CX1-126: носитель «НЕ ВЫПОЛНИЛОСЬ» Д84 в полосе test-pg-outside-selection —
+      суд записи с печатью, без t.Skip. Заметки N40-1 (argv[0], у8), N40-2 (отдельное соединение сверки)
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Решение и его следствие разнесены», §«Умолчание, которое становится утверждением», §«Инвариант и оснастка — это тоже прод-код»; measurement-discipline §«Чужое измерение и чужое заявление»"

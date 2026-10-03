@@ -1,0 +1,88 @@
+# ВЕРДИКТ: ⛔ на 5f195517e8149233436235927e337a4fe65cc0c5
+role: db-architect-reviewer
+mode: review
+repo: PRO-Robotech/kacho
+branch: 2914-wave-ntf1-core-1
+base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 5f195517e81 (перемерено)
+head: 5f195517e8149233436235927e337a4fe65cc0c5
+content_digest: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004  # git diff base..head | sha256sum
+previous_record: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f.yaml (head 2fdbc6b523a)
+verdict: return
+blocking: true
+migrations_touched: 2
+migration_paths:
+  - services/notify/internal/probemigrations/20261002090000_notifyprobe_journal.sql   # без изменений с 2fdbc6b523a
+  - services/notify/internal/probemigrations/20261002090001_notification_feed_v1.sql  # без изменений с 2fdbc6b523a
+repo_sql_paths:
+  - services/notify/cmd/notify-probe/internal/send/send.go  # ownRowQuery
+  - services/notify/cmd/migrator/main.go                    # SELECT current_database()
+
+prior_items:
+  - id: DSN-DB-DIVERGENCE
+    status: closed
+    evidence: >
+      internal/migrationchains/dsn.go: собственный разбор снят, имя — pgconn.ParseConfig(dsn).Database;
+      corelib@fe0dccf1794e migratorcli.OpenDB соединяется pgx.ParseConfig (обёртка того же pgconn) —
+      один разбор. Обе формы второго источника имени (URL ?dbname= и ?database=, ключ database= в
+      ключевой форме) в TestDatabaseOfReadsBothDSNForms. Инъекция: dsn.go @2fdbc6b523a на дереве
+      head -> 3 кейса второго источника красные («= kacho_notifyprobe; ожидалось kacho_notify»),
+      плюс красные TestDatabaseOfFollowsTheDriverOnEnvironment и ...RefusalCarriesNoPieceOfTheDSN;
+      с кодом head — PASS (go test -count=1, GOWORK=off). Сверка после соединения:
+      main.go confirmDatabase(connectedDatabase(...), row.Database) стоит до run() — до первого
+      оператора goose; неравенство и ошибка чтения — отказ (TestConnectedDatabaseMustBeTheRowDatabase).
+      Текст отказа разбора без кусков DSN в обеих формах — проба на уровне функции и процесса (stderr).
+  - id: ORPHAN-CHAIN-BLIND
+    status: open
+    evidence: >
+      internal/migrationchains/migrationchains.go:179 — признак сироты по-прежнему только
+      "services/<svc>/internal/migrations" (hasSQL); файл в диапазоне 2fdbc6b523a..head не менялся.
+      Инъекция: services/notify/internal/strayq/1_x.sql (git add -N) -> go test ./internal/migrationchains/
+      ok — сирота вне канонического каталога не видна. Условие З32 «Сирота-цепочка видна вне
+      канонического каталога» и строка D4 редакции 41 tasks.md не исполнены.
+  - id: OWN-ROW-SEQSCAN
+    status: open
+    evidence: >
+      send.go:24-41 (шапка) не называет цену полного прохода outbox на каждый Send и предикат
+      снятия (id из feed.Put / INSERT … RETURNING id) — условие (ж) З32 и строки D4 ред. 41.
+      Запрос ownRowQuery не изменён (var -> const).
+  - id: RR-SERIALIZATION-LATENT
+    status: open
+    evidence: >
+      Пробы «у шаблона probe-hello limits пусты» с инъекцией (limits в фикстурном описании ->
+      красный с именем шаблона) нет: grep 'limits' по services/notify/cmd/notify-probe/**/*_test.go
+      — 0 попаданий. Повтора на 40001 тоже нет. Условие (з) З32 не исполнено.
+
+critical: []
+important:
+  - id: ORPHAN-CHAIN-BLIND
+    where: internal/migrationchains/migrationchains.go:FromTree (строки 178-185), hasSQL
+    requirement: >
+      Сирота — любой .sql под services/<svc>/internal/** вне каталогов перечня; печать числа .sql и
+      каталогов; инъекция «строка и встраивание сняты при файлах на месте» -> красный с каталогом,
+      близнец -> молчание.
+    return_to: автор D4 (migrationchains)
+  - id: OWN-ROW-SEQSCAN
+    where: services/notify/cmd/notify-probe/internal/send/send.go шапка
+    requirement: шапка называет цену полного прохода и предикат снятия (id из feed.Put), как принято замыслом.
+    return_to: автор D4 (notify-probe)
+  - id: RR-SERIALIZATION-LATENT
+    where: services/notify/cmd/notify-probe/internal/send/send.go:repeatableRead
+    requirement: проба «limits у probe-hello пусты» с инъекцией и близнецом (либо повтор на 40001).
+    return_to: автор D4 (notify-probe)
+
+approved:
+  - DSN-DB-DIVERGENCE закрыт: один разбор с драйвером, обе формы второго источника, сверка current_database() до goose
+  - окружение PGDATABASE теперь решает и выбор цепочки — согласно Д83 (судится база, к которой соединится драйвер)
+  - миграции probemigrations не менялись с прошлой записи (запрет #5 соблюдён); пункты approved прошлой записи в силе
+  - нет FK через границу сервиса; отдельная база kacho_notifyprobe
+  - текст драйвера наружу не выходит (Send — codes.Internal; отказ разбора DSN — фиксированный текст)
+
+orders:
+  - to: integration-tester
+    what: >
+      integration-проба Д83 из строки D4 ред. 41: база kacho_x при строке kacho_notifyprobe -> отказ с
+      обоими именами, to_regclass('goose_db_version') в kacho_x IS NULL; близнец — имена равны ->
+      применено = объявлено; инъекция «сверка снята» -> таблица версий появилась -> красный.
+      Сейчас сверку держит только unit-проба с подставной функцией — порядок «сверка до goose» в main()
+      доказан чтением, не исполнением.
+crosses_distributed: no

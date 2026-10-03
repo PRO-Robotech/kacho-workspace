@@ -1,0 +1,97 @@
+role: go-style-reviewer
+change: issue-2915 / волна ядра NTF-1 (N1, D1/D1s, D4, перепины)
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # merge-base origin/2914-notify, = голова origin/2914-notify
+  head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515
+  digest_predicate: "git diff e415e59a225b..2fdbc6b523a5 | sha256sum"
+  digest: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f
+verdict: returned   # ⛔ возврат на 2fdbc6b523a
+blocking: true
+scope: "164 файла, +12534/-456; прод-Go: services/notify/** (cmd/notify, cmd/notify-probe, cmd/migrator, internal/config, internal/probemigrations, порождённый notifications_probe-hello.gen.go), tools/revocationwindowgate/gate.go"
+fresh_deferral_markers: 0   # grep -E '\b(TODO|FIXME|XXX|HACK)\b' по добавленным строкам диффа: пусто
+probes_in_same_pr: yes      # *_test.go рядом с каждым прод-пакетом services/notify
+return_to: автор диффа волны (исполнитель D4 — cmd/notify-probe/internal/config)
+
+r38_5:
+  question: "умолчание default:\"5s\" ручки KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL (config.go:98) — молчаливое?"
+  judgement: >-
+    Само ЧИСЛО не молчаливое: оно равно числу соседей (compute, storage), ручка внесена в перепись
+    окна отзыва (tools/revocationwindowgate/gate.go knobNames: "check"; корень обхода в
+    internal/repohygiene/revocationwindow_test.go), и гейт сверяет умолчание тега с
+    pkg/authz.RevocationPolicy — TestRevocationWindowIsDeclaredPolicy PASS @2fdbc6b523a.
+    Молчит и лжёт КОММЕНТАРИЙ при поле: «Ноль — объявленная политика платформы» (config.go:96-97).
+    У ручки два читателя с разным смыслом нуля: servicecontract.Spec.CacheWindow (describe.go:83)
+    при Authz=AuthzViaIAM отвергает <=0 отказом старта (corelib contract.go:1275, «умолчания у такой
+    величины быть не может»), а listnarrow.Config.CacheTTL (serve.go:159) подставляет 5s
+    (corelib listnarrow/narrower.go:215). Измерено: describe() с AuthZCacheTTL=0 — 3 находки
+    дескриптора, с 5s — 2 (лишняя — CacheWindow).
+  verdict: критическая находка GS-C1 (комментарий о защите противоречит коду); число 5s — принято.
+
+critical:
+  - id: GS-C1
+    kind: security-comment-contradicts-code / one-knob-two-meanings-of-zero
+    at: services/notify/cmd/notify-probe/internal/config/config.go:96-98
+    finding: >-
+      Комментарий окна отзыва утверждает, что ноль — объявленная политика; на деле ноль роняет
+      старт через дескриптор (CacheWindow) и одновременно означает «умолчание политики» у сужателя
+      потока. Одна ручка безопасности — два несовместимых смысла нуля, и комментарий называет третий.
+    require: >-
+      Свести к одному смыслу на загрузке: load() отвергает AuthZCacheTTL<=0 отказом с именем ручки
+      (KACHO_NOTIFYPROBE_AUTHZ_CACHE_TTL), комментарий поля называет: число 5s — значение
+      RevocationPolicy, держится переписью revocationwindowgate; неположительное — отказ старта.
+      Проба в config_test.go: «=0s → отказ с именем ручки» и близнец «=5s → принято».
+    return_to: автор D4
+
+important:
+  - id: GS-I1
+    kind: dsn-unescaped-credentials
+    at: services/notify/cmd/notify-probe/internal/config/config.go:194
+    finding: >-
+      baseDSN склеивает пароль и имя пользователя Sprintf'ом без экранирования: пароль с '@', '/',
+      '?', '#' даёт неверную строку подключения. Шлюз того же каталога (internal/config/config.go:277)
+      строит DSN через url.URL — в одном каталоге два способа.
+    require: "url.URL{User: url.UserPassword(...)} как в cmd/notify; проба с паролем, несущим '@' и '?'."
+    radius: "тот же класс вне диффа: services/compute/internal/config/config.go:523, services/geo/internal/apps/kacho/config/config.go:235, services/storage/internal/config/config.go:452 — не предмет этой волны"
+  - id: GS-I2
+    kind: error-wrap
+    at: services/notify/cmd/notify-probe/internal/send/send.go:110,115
+    finding: "put возвращает err от journaltx.Begin и notify.SendProbeHello без контекста; журнал Send (:102) не различит, на каком шаге отказ."
+    require: "fmt.Errorf(\"начало транзакции постановки: %w\", err) / fmt.Errorf(\"постановка probe-hello: %w\", err) — %w сохраняет errors.Is для ErrDeliveryNotConfigured/ErrRecipientInvalid."
+  - id: GS-I3
+    kind: error-text-doubled-prefix
+    at: services/notify/cmd/notify-probe/internal/send/send.go:89
+    finding: >-
+      "address: "+err.Error() поверх ошибки фундамента, которая уже начинается с "address: "
+      (corelib notify/address/address.go:37) — клиент получает "address: address: адрес не
+      разбирается: нет «@»". Проба send_test.go:105 утверждает только HasPrefix и этого не видит.
+    require: "Отдавать текст ошибки фундамента без второго префикса (значение адреса он не несёт — проверено) и утверждать сообщение побайтно (hard-regression-asserts-message)."
+  - id: GS-I4
+    kind: panic-outside-cmd
+    at: services/notify/internal/config/config.go:199
+    finding: "KnobOfField паникует на неизвестном имени поля в пакете internal/config; вызывается и из корня (cmd/notify/peertls.go). Сегодня имена — литералы, достижимо только при расхождении кода."
+    require: "Не блокирует. Предпочтительно — тест-перепись, что каждое имя, переданное в KnobOfField, есть поле Config, и возврат (Knob, bool) вместо panic."
+
+foundation_candidates: []
+
+style:
+  - at: services/notify/cmd/notify-probe/internal/send/send.go:63
+    note: "ownRowQuery собран из констант — может быть const, а не var."
+
+approved:
+  - "context: ctx первым аргументом, прокинут в pgx/фундамент; context.Background только в композиционных корнях (cmd/*/main.go, serve.go — гашение диагностики после слушателей, задокументировано)"
+  - "паники в рабочем пути нет; log.Fatal/os.Exit — только в main"
+  - "журнал — только log/slog структурными полями; Send не пишет адрес в журнал"
+  - "codes.Internal отдаёт фиксированный \"internal error\" (send.go:103), err — только в журнал"
+  - "init() с побочными эффектами нет; связывание — в cmd/<proc>"
+  - "Internal*-службы только на внутреннем слушателе (registerPublic пуст)"
+  - "переиспользование: сервер ленты, подписка, сужатель, дескриптор, мигратор — из corelib пином fe0dccf1794e, локальных дубликатов не найдено"
+  - "sentinel через errors.Is (send.go:97,99); migrator selectChain — закрытая таблица без запасной ветки"
+  - "Send синхронный, не Operation: решение Д75, обосновано в шапке send.go (одна транзакция, ответ = закоммиченному); вне ban #9 по решению владельца"
+
+measured:
+  - "go vet ./services/notify/... — чисто @2fdbc6b523a"
+  - "go test -count=1 ./services/notify/... — 8 пакетов ok, 2 без тестов @2fdbc6b523a"
+  - "go test ./internal/repohygiene -run Revocation — 8 PASS @2fdbc6b523a"
+  - "describe() с AuthZCacheTTL 0s vs 5s: 3 vs 2 находки дескриптора (временная проба, удалена; дерево чистое)"

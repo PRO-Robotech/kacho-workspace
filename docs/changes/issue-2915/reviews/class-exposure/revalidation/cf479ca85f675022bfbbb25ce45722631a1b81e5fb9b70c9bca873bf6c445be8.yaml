@@ -1,0 +1,201 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-1, редакция 46 (cf479ca8…).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Судится дельта против прошлой пересверки (редакция 45, 1b03566a…,
+# «к замыслу»: CX1-140 новый, CX1-141 не отображён) и решение Д106 (а)–(д).
+#
+# Итог — чистая. CX1-140 отображён полностью: (а)–(в) исполнены текстом, у условия есть предикат и
+# держатель. CX1-141 отображён исходом (а) Д106. Место отказа — существующий блок (6) стража зонтика
+# identity-mail-lane-guard.yaml, второго места в stand-dns.yaml нет. Посылку автора («пару уже держит
+# рендер, и на слое вне дерева тоже») я перемерил рендером: подтверждена. Новых классов дельта не вносит.
+# Неотображённых пунктов нет. Пять замечаний, ни одно по Д97 не блокирует (не корректность и не
+# безопасность продукта): N46-1 — шапка и предикат CX1-141 расходятся с телом; N46-2 — предикат CX1-140
+# краснеет на коде, написанном по замыслу; N46-3 — фикстура P12 (д) отказывает по чужой причине; N46-4 —
+# неверно назван источник вердикта merge-readiness для kacho; N46-5 — радиус исхода `null` у Д106 (б).
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2915
+issue: https://github.com/PRO-Robotech/kacho/issues/2915
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: cf479ca85f675022bfbbb25ce45722631a1b81e5fb9b70c9bca873bf6c445be8
+  fingerprint_predicate: sha256sum docs/changes/issue-2915/design.md
+  fingerprint_reproduced: true
+  differs_from_previous: true   # 1b03566a… ≠ cf479ca8…
+  change_yaml_design_sha256: cf479ca85f675022bfbbb25ce45722631a1b81e5fb9b70c9bca873bf6c445be8   # change.yaml:303 — совпадает
+  change_yaml_sha256: 0c79eeb1a950de663d33af5f80ca6835a293df4bf54bd49c5019ff2f702ac0e6
+  tasks_sha256: ee4cc1d1c2be89a7f67ab3837d084dc15877dedb72a76078bf77002be951eff9
+  revision: 46
+  content_commit: "— (рабочее дерево tmp/issue-880 поверх acfbe0d18, не закоммичено)"
+  previous_judged:
+    record: docs/changes/issue-2915/reviews/class-exposure/revalidation/1b03566a1374e2429fac2d51f740cd1520ea44a6bd8bee7faa3f516eee171dcb.yaml
+    sha256: 1b03566a1374e2429fac2d51f740cd1520ea44a6bd8bee7faa3f516eee171dcb
+  initial_on_approved_acceptance:
+    record: docs/changes/issue-2915/reviews/class-exposure/initial/c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db.yaml
+  delta_predicate: >-
+    Шапка «Редакция 46» (design.md:15-32); З32 «Ноль исполненных проб» (:4144-4152); §8 dkimkey.generationRetries
+    (:4495-4497); §11 R45-1…R45-4, Д106 (:4786-4790); §12а «Ключ и селектор DKIM» шаг 4 и таблица исходов
+    (:5201-5233), «Держатель удаления поколения» (:5274-5283), «Приёмник поднят» (:5389-5420), «Значения
+    prorobotech — обязательные» (:5454-5464), P12 (д) второй слой (:5502-5507), таблицы «Условия
+    CX1-134…CX1-141» (:5588-5591) и «Перемер редакции 46» (:5615-5629); tasks.md §4 «Голова запроса волны…»
+    (:594-614)
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256_in_tree: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db   # редакция 22, APPROVED
+  change_yaml_acceptance_sha256: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db   # change.yaml:302
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace_lane: acfbe0d18
+  workspace_origin_main: ad4e28c88   # версия scripts/merge-readiness.sh, по которой судится Д106 (д)
+  kacho_origin_main: 14a09acd6f6
+  kacho_lane: 2915-d4-notify-probe@ffab65faee1
+  kacho_wave_head: 2914-wave-ntf1-core-1@5d22136c5fe   # = headRefOid #2991
+  kubernetes_source: k8s.io/kubernetes@v1.31.0 pkg/volume/util/atomic_writer.go (по замеру прошлой записи)
+  helm: v4.2.4
+decisions_judged:
+  - "Д106 (а): вариант (а) CX1-141, отказ рендера с обоими ключами. Исполнен существующим блоком (6) стража зонтика; текст блока при `on` дополняется ключом зоны"
+  - "Д106 (б): serviceIP и clusterDomain prorobotech обязательны, без умолчания"
+  - "Д106 (в): чтение Д104 подтверждено, правки нет"
+  - "Д106 (г): счёт исполненного integration — по событиям go test -json с непустым Test"
+  - "Д106 (д): голова волны — 2915-wave-ntf1-core-1, правки merge-readiness нет"
+  - "Д75…Д84, Д86…Д105 в силе, дельтой не тронуты"
+
+mapping:
+  - id: CX1-140
+    mapped_to: "§12а «Ключ и селектор DKIM» шаг 4 и таблица исходов; «Держатель удаления поколения»; §8 dkimkey.generationRetries = 2; «Условия…» CX1-140"
+    conditions: >-
+      (а) да. Повтор только на fs.ErrNotExist в разрешённом поколении. Сменилось поколение — пара читается
+      из нового целиком; то же поколение — P14 «нет в объекте»; повторы исчерпаны — «не читается»; граница —
+      постоянная §8 с доводом. (б) да: таблица исходов одна на старт и перепроверку, функция одна. (в) да:
+      порт чтения удаления не несёт; удаление делает помощник dkimtest.RemoveGeneration, его зовёт крючок
+      пробы; шаги 9 и 12 kubelet смоделированы
+    status: mapped
+    residual: "N46-2 (предикат), не блокирует"
+  - id: CX1-141
+    mapped_to: "§12а «Приёмник поднят» (Д106 (а)); P12 (д) второй слой receiver-off.yaml; «Условия…» CX1-141"
+    conditions: >-
+      (а) да, по сути. При включённой зоне и выключенном приёмнике рендер отказывает, текст называет оба ключа.
+      Место проверки — блок (6) identity-mail-lane-guard.yaml, это проверка зонтика: условие CX1-141 (а)
+      допускало «stand-dns.yaml или помощник зонтика». Блок безусловен внутри `if $uriSet`; при `on` хост
+      узла равен `<релиз>-mailpit`, суффикс выводится из `kacho.mailReceiver.fullname` (printf "%s-mailpit"
+      .Release.Name, без переопределения), поэтому `hasSuffix` истинно и проверка `mailpit.enabled`
+      исполняется. Перемерено (ниже): слой вне дерева → код 1; близнец → код 0
+    status: mapped
+    residual: "N46-1 (шапка и предикат расходятся с телом), N46-3 (фикстура P12 (д)); не блокируют"
+
+new_items: []   # дельта новых решений с классом не вносит: Д106 (б) и (г) ужесточают уже отображённые CX1-136 и З32, (д) — механика посадки
+
+notes:
+  - id: N46-1
+    blocking: false
+    where: "шапка, п. (2) (design.md:22-23); строка CX1-141 таблицы «Условия…» (:5589) против P12 (д) (:5507)"
+    text: >-
+      В шапке написано: «шаблон зонтика stand-dns.yaml отказывает в рендере». По телу («Приёмник поднят»)
+      проверки в stand-dns.yaml нет, отказывает блок (6) identity-mail-lane-guard.yaml. Это два места об
+      одном предмете, и верно одно из них. Исполнитель D10, прочитав шапку, заведёт вторую проверку — тот
+      самый исход, который тело запрещает. Предикат места тоже записан двумя формами: в таблице
+      `git grep -n 'mailpit' -- …/stand-dns.yaml` → 0, в P12 (д) — `'mailpit).enabled\|mailpit.enabled'` →
+      0. Широкая форма краснеет на поясняющем комментарии в stand-dns.yaml («почему здесь нет проверки
+      приёмника»), и этот красный не дефект. Нужно: шапку (2) переписать на «блок (6) стража почтовой полосы,
+      текст называет оба ключа»; в таблице оставить узкую форму. Отдельно: Д106 (а) диспетчера дословно
+      называет stand-dns.yaml, автор исполнил его иначе и оставил ветку «если диспетчер настаивает».
+      Принять исполнение должен диспетчер, это строка «вопросы владельцу»; класс исполнение закрывает
+    predicate: "grep -n 'stand-dns.yaml' design.md: в шапке нет утверждения об отказе stand-dns.yaml; одна форма предиката места"
+  - id: N46-2
+    blocking: false
+    where: "таблица «Условия…», строка CX1-140, столбец «предикат» (design.md:5588)"
+    text: >-
+      Предикат `git grep -n -E 'Remove(All)?\(' -- services/notify/internal/dkimkey ':!*_test.go'` → 0 судит и
+      подпакет dkimkey/dkimtest. Замысел велит держать RemoveGeneration (os.RemoveAll) именно там. dkimtest —
+      импортируемый помощник: его зовут boot.env/fixtureEnv в cmd/notify и integration-пробы других пакетов.
+      Поэтому его файлы не могут быть `_test.go`: пакет из одних `_test.go` не импортируется. На коде, написанном
+      точно по замыслу, предикат даёт ≥ 1 — ложный красный. Нужна граница
+      `':!services/notify/internal/dkimkey/dkimtest'`, и тогда предикат умеет и упасть (Remove в ReadPair), и
+      промолчать (Remove только в помощнике)
+    predicate: "предикат CX1-140 исключает dkimtest; контроль — Remove в dkimtest не находится, Remove в dkimkey/*.go находится"
+  - id: N46-3
+    blocking: false
+    where: "§12а «Держатель P12» (д), второй фикстурный слой receiver-off.yaml (design.md:5502-5507)"
+    text: >-
+      Слой, как он описан (поверх одной цепочки prod: standDNS, connectionURI на `<релиз>-mailpit`,
+      mailpit.enabled: false), откажет раньше блока (6). Цепочка prod не задаёт
+      global.kacho.identity.smtp.fromAddress, и первым срабатывает отказ (1) :82 «адрес отправителя НЕ задан»
+      (измерено ниже). Утверждение текста держит пробу от ложного зелёного, но инъекция «блок (6) снят» станет
+      красной по чужой причине, а положительный случай упадёт вместе с ней. Слой обязан пройти блоки (1)–(4б)
+      стража: нести fromAddress и fromName либо лечь поверх слоя образца узла D9, как первый слой (д)
+    predicate: "рендер prod + receiver-off.yaml падает на identity-mail-lane-guard.yaml:225, а не на :82"
+  - id: N46-4
+    blocking: false
+    where: "tasks.md §4 «Голова запроса волны…» («база … не защищена, вердикт — ручной прогон ci.yaml»); design.md «Перемер редакции 46», строка «база волны не защищена — вердикт даёт ручной прогон»"
+    text: >-
+      Сам шаг каскада прочитан верно: у #2915 дочерних 0, метки epic нет, значит «не уровень каскада», и путь
+      идёт к проверкам. Правка скрипта не нужна, это подтверждено. Неверно названо, что судит дальше. Путь
+      ручного прогона в merge-readiness.sh @ad4e28c88 включается только для kacho-workspace
+      (`manual_workflow="ci.yaml"` внутри `if REPO == kacho-workspace`). Для kacho при незащищённой базе-линии
+      скрипт берёт обязательные контексты защиты ствола main (их 42) и сверяет их со statusCheckRollup запроса.
+      Контексты на запросе в 2914-notify поднимает событие pull_request: фильтр ci.yaml — main, '[0-9]+',
+      '[0-9]+-*'. Ручной прогон контекстов не заменяет и вердиктом не служит. Нужно: в tasks.md §4 и в строке
+      перемера назвать источник «42 обязательных контекста ствола на statusCheckRollup запроса волны»
+    predicate: "scripts/merge-readiness.sh PRO-Robotech/kacho <запрос> печатает набор «ствола 'main' — у ветки линии '2914-notify' собственного нет», а не «источник вердикта: ручной прогон»"
+  - id: N46-5
+    blocking: false
+    where: "§12а «Значения prorobotech — обязательные, без умолчания» (design.md:5454-5464)"
+    text: >-
+      Механизм исхода «null снимает наследованное» подтверждён: null в позднем слое -f даёт отказ стража по
+      пустому ключу (измерено на соседнем ключе). Но null — не выход для посадки, а остановка. Перепись: 9
+      go-тестов в deploy/ читают stacks.txt и рендерят профили через `helm template`; prorobotech стоит в
+      stacks.txt:50. При null они упадут на prorobotech, а не только P12. Замысел говорит «D10 не снимается»,
+      это согласно. Стоит назвать, что при null краснеет и чужой набор, чтобы красный этих 9 не разбирали как
+      дефект их предмета
+    predicate: "— (текстовое уточнение)"
+
+measurements:
+  - claim: "отпечаток сменился и совпадает с change.yaml"
+    command: "sha256sum design.md; grep -n design_sha256 change.yaml"
+    result: "cf479ca8… ≠ 1b03566a…; change.yaml:303 = cf479ca8…"
+  - claim: "блок (6) отказывает при узле <релиз>-mailpit и mailpit.enabled: false на слое вне дерева (посылка автора)"
+    command: "git archive ffab65faee1 deploy services gateway/deploy ui-future/deploy; локальные подчарты file:// разложены в umbrella/charts; helm template kacho … -f values.yaml -f values.prod.yaml -f слой{connectionURI smtp://kacho-mailpit:1025, fromAddress, fromName, mailpit.enabled: false}; близнец — relay.example; релиз other с other-mailpit"
+    result: "код 1, identity-mail-lane-guard.yaml:225 «приёмник ВЫКЛЮЧЕН (`mailpit.enabled` не взведён)»; близнец код 0; other — код 1, тот же текст. Подтверждено"
+  - claim: "суффикс приёмника неподменяем"
+    command: "git show ffab65faee1:deploy/helm/umbrella/templates/mail-receiver.yaml | sed -n 44,46p"
+    result: "printf \"%s-mailpit\" .Release.Name — переопределения имени нет"
+  - claim: "слой без fromAddress поверх prod отказывает раньше блока (6) (N46-3)"
+    command: "тот же рендер со слоем только {connectionURI, mailpit.enabled: false}"
+    result: "код 1, identity-mail-lane-guard.yaml:82 «адрес отправителя НЕ задан»"
+  - claim: "null в позднем слое снимает наследованное значение (Д106 (б))"
+    command: "helm template … -f twin.yaml -f {global.kacho.identity.smtp.fromAddress: null}"
+    result: "код 1, отказ :82 по пустому fromAddress — механизм null работает"
+  - claim: "радиус null у prorobotech (N46-5)"
+    command: "в deploy/ (без моих копий подчартов) файлы *_test.go с 'stacks.txt' и '\"template\"'; grep -n prorobotech deploy/stacks.txt"
+    result: "9 файлов из 214 осмотренных *_test.go; stacks.txt:50 prorobotech"
+  - claim: "шаг каскада для #2915 — «не уровень» (Д106 (д))"
+    command: "gh api repos/PRO-Robotech/kacho/issues/2915 (sub_issues_summary.total, labels); …/issues/2915/parent; чтение merge-readiness.sh @ad4e28c88 :214-300"
+    result: "дочерних 0, метки epic нет; parent 404 «No parent issue found»; ветка скрипта subs=0 и epic=0 → «не уровень каскада», дальше — к проверкам. Подтверждено"
+  - claim: "для kacho ручного пути нет, судят контексты ствола (N46-4)"
+    command: "merge-readiness.sh @ad4e28c88 :346-352, :450-470; gh api repos/PRO-Robotech/kacho/branches/main/protection --jq '.required_status_checks.contexts|length'; git show 5d22136c5fe:.github/workflows/ci.yaml (on:)"
+    result: "manual_workflow только при REPO=kacho-workspace; при незащищённой базе-линии — набор ствола; 42 контекста; pull_request branches: main, '[0-9]+', '[0-9]+-*'"
+  - claim: "предикат CX1-140 судит dkimtest (N46-2)"
+    command: "чтение design.md:5232-5233 («помощником dkimkey/dkimtest», boot.env) и :5588 (pathspec services/notify/internal/dkimkey ':!*_test.go')"
+    result: "подпакет внутри pathspec; помощник импортируемый, его файлы не _test.go"
+  - claim: "Д106 (г) различает тест и пакет"
+    command: "чтение design.md:4146-4152"
+    result: "считаются pass/fail с непустым Test; skip не считается; пакетное pass не считается — «все пропущены» и «ни один не отобран» дают 0 → отказ. Условие исполнимо"
+
+not_measurable:
+  - what: "поведение ReadPair на томе kubelet вживую"
+    why: "окно между шагами 9 и 12 зависит от расписания kubelet; держатель — проба N14 с теми же вызовами os.Rename и os.RemoveAll, как и в прошлой записи"
+
+outcome: чистая
+return_to_acceptance: "—"
+unmapped_items: []
+orders:
+  - "автор замысла · N46-1…N46-5: текстовые правки шапки (2), предикатов CX1-140 и CX1-141, слоя P12 (д), источника вердикта в tasks.md §4 · doc-truthfulness (два места об одном предмете), measurement-discipline §«Предикат — только с контролем»"
+  - "исполнитель D10 · слой receiver-off.yaml проходит блоки (1)–(4б) стража (N46-3) · gate-authoring «фикстура не снисходительнее продукта»"
+  - "диспетчер · принять исполнение Д106 (а) блоком (6) вместо дословного stand-dns.yaml (N46-1)"

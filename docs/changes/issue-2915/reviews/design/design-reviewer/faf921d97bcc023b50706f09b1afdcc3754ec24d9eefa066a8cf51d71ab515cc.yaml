@@ -1,0 +1,187 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 41 (маршрут — tasks.md редакции 42). Прежняя
+# запись роли — dfac7c9c….yaml (редакция 40, RETURNED: R40-1…R40-3). Судятся закрытие R40-1…3,
+# отображение решений диспетчера Д91…Д95 (2026-10-03; Д75…Д84, Д86…Д90 действуют, Д85 для живых гейтов
+# заменён Д91), пять условий одобрения и пять выборочно перемеренных утверждений автора. Рабочее дерево
+# issue-880 поверх 842a3eb8b, не закоммичено. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: faf921d97bcc023b50706f09b1afdcc3754ec24d9eefa066a8cf51d71ab515cc
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml hashes.design_sha256 и с пересверкой revalidation/faf921d9"
+  revision: 41
+  tasks_sha256: 607f0471f691803880a4c07ed6ab957b4202722eac1f965d4c8e33d4571bbec8
+  change_yaml_sha256: 1a4bde189b97a373225f19f69e3b55a74c2bebe1018f8252f620062cd6d6b823
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/dfac7c9c2a72e77a47d21cb8690dacf4988123648a7f0c46c58114b342b18ba9.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась)"
+revisions:
+  workspace: 842a3eb8b95872529770c42b031fa3fa99b2065c   # плюс незакоммиченная дельта автора
+  kacho_wave_head: 5f195517e8149233436235927e337a4fe65cc0c5   # = origin/2914-wave-ntf1-core-1 после fetch; копия tmp/2914-wave-ntf1-core-1 чистая (status --short: 0)
+  kacho_epic_base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # = origin/2914-notify
+  corelib_pin: fe0dccf1794e
+  pgx: v5.10.0
+snapshot_at: 2026-10-03
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # исход живых гейтов в конвейере запросов; носитель рендера для пробы пары полосы pg
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  Пересверка revalidation/faf921d9 (итог to_design, unmapped [CX1-127, CX1-128], заметки N41-1…3); прежняя
+  запись роли dfac7c9c; design.md: шапка редакции 41, З32 (г) «Поверхности метрик — знаменатель по рендеру
+  профиля», «Имя базы точки наката…» с абзацем «Редакция 41 — разбор, срок…» (1), «Пара формы и строки» (б),
+  таблица «Перемер редакции 41». kacho @5f195517e81: production-posture.yml on:, required-contexts.txt,
+  ci.yaml матрица integration, recipient-key-secret.yaml, umbrella Chart.yaml:104-116,
+  notify-probe/harness_test.go:262-282, url.Parse(<dsn>) по дереву, помощники рендера в
+  deploy/notify_secret_layout_test.go, notify.renders и _sources.tpl. Живые гейты не гонялись: стенда нет,
+  исполняемых правок D1s нет.
+
+closure_of_previous:
+  - id: R40-1
+    status: "закрыт: посылка «только workflow_dispatch» снята и заменена измеренными триггерами и исходом 37129845803; Д91 — пять исходов, исход 1 даёт код 0, рецепт доводит до assert-outbox-autovacuum; инъекции и предикат D1s названы"
+    evidence: "design.md З32 (г) :3626-3661; awk '/^on:/,/^jobs:/' production-posture.yml @5f195517e81 — pull_request main, '[0-9]+', '[0-9]+-*'"
+  - id: R40-2
+    status: "закрыт: проба ключевой формы на отвергаемом DSN с печатью ветки, отдельный случай принятой с пустой базой, ошибка разбора не входит в цепочку ни %w, ни %v, инъекция %w; скобка исправлена"
+    evidence: "design.md «Имя базы…» (б) :3828-3830; строка §11 CX1-125 :4671"
+  - id: R40-3
+    status: "закрыт по форме (t.Skip и notRunUntilRow снимаются, исход — по рендеру, t.Fatalf на отказе рендера, setup-helm в pg-outside-selection); носитель рендера и его профиль — новая находка R41-2 (CX1-128)"
+    evidence: "design.md «Пара формы и строки» (б) :3977-3996"
+
+remeasured_author_claims:   # выборочно 5 строк таблицы «Перемер редакции 41», своей командой @5f195517e81
+  - claim: "триггеры production-posture: workflow_dispatch; pull_request main, '[0-9]+', '[0-9]+-*'; schedule"
+    command: "awk '/^on:/,/^jobs:/' .github/workflows/production-posture.yml"
+    result: "подтверждено (cron '17 2 * * *')"
+  - claim: "контекста production-posture в защите нет"
+    command: "grep -c production-posture .github/required-contexts.txt"
+    result: "0 — подтверждено"
+  - claim: "services/notify нет в эпике"
+    command: "git ls-tree --name-only origin/2914-notify services/ | grep -c notify"
+    result: "0 @e415e59a225 — подтверждено"
+  - claim: "матрица integration без notify"
+    command: "grep -n 'svc: \\[' .github/workflows/ci.yaml"
+    result: "590: [vpc, compute, geo, nlb, storage, registry] — подтверждено"
+  - claim: "ключ сетки в чарте — только required, длины нет"
+    command: "grep -rn recipientKey deploy/helm/notify/templates"
+    result: "recipient-key-secret.yaml:26 required … | b64enc | quote — подтверждено"
+  - claim: "(сверх пяти, по предмету CX1-127) свой разбор DSN в диффе волны — одно место, dsnField"
+    command: "git grep -n -E 'url\\.Parse\\((dsn|DSN|[a-zA-Z]*[dD]sn)\\)' -- '*.go'; sed -n 262,282p services/notify/cmd/notify-probe/harness_test.go; git log --diff-filter=A --format=%h -- …/harness_test.go"
+    result: "ОПРОВЕРГНУТО: предикат автора не ищет url.Parse; harness_test.go:268 dbEnv — url.Parse(dsn), поля из u.Hostname/Port/User/u.Path[1:]; файл заведён волной (f3289c2fe47); по дереву 6 вхождений в 5 файлах"
+
+dispatcher_decisions:
+  - id: Д91
+    status: "отображено (З32 (г), (ж), (и); «Пара формы и строки» (б); D1 TestNotifyChartRendersNothingWithAnEmptyRoster); носитель рендера пробы пары и срок посылки «ноль в каждом профиле» — R41-2"
+  - id: Д92
+    status: "отображено (матрица и цель integration notify — в N1; ноль исполненных — отказ; контекст — после вливания волны)"
+  - id: Д93
+    status: "отображено частично: dsnField снимается, DatabaseOf — pgx.ParseConfig (внутри pgconn.ParseConfigWithOptions); перепись «одно место» ложна — dbEnv на url.Parse не назван — R41-1"
+  - id: Д94
+    status: "отображено (длина ключа при рендере; ban #6 — svc/kacho-notify-probe:9091, поды шлюза по существующему канону)"
+  - id: Д95
+    status: "отображено (tasks.md §0 «Таблица инъекций исполнителя»)"
+  - id: "Д75…Д84, Д86…Д90"
+    status: "в силе"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md tasks.md → 0/0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "вопрос формы R40-1 решён Д91 и записан; N41-3 (url.Parse до волны) — заметка пересверки к диспетчеру, не открытый вопрос замысла"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка faf921d9: unmapped [CX1-127, CX1-128]; grep -c в design/tasks → 0/0 у каждого; по существу: dbEnv/harness_test.go — 0 вхождений, носитель рендера не назван"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/faf921d9 — на текущий отпечаток; tasks_sha256 607f0471 совпадает"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 1bffe10d APPROVED, первичный разбор initial/1bffe10d есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "новых межсервисных рёбер нет."
+  public_vs_internal_edge: "закрыта: ban #6 по notify судится собственным слушателем носителя (Д94)."
+  outcome_propagation: "закрыта для поверхностей метрик (Д91, исход 1 → код 0); исход 5 под set -e метится «подъём сорвался» — заметка N41-1 пересверки, не блокирует."
+  secret_hygiene: "R40-2 закрыт; второй разбор DSN в пробе notify-probe (url.Parse) — R41-1."
+  replica_state_isolation: "дельта не трогает."
+  single_source_of_truth: "возврат: факт «профиль не рендерит» у пробы пары берётся из помощников _test.go другого пакета на ногах фикстуры, а не из профиля стенда (R41-2)."
+
+critical:
+  - id: R41-1
+    maps: CX1-127
+    where: "design.md:3859-3862 и строка таблицы «Перемер редакции 41» :4148 «свой разбор DSN в диффе волны — одно место»; kacho services/notify/cmd/notify-probe/harness_test.go:266-279 dbEnv"
+    finding: >-
+      Перепись Д93 ложна: предикат не ищет url.Parse и не имеет контроля. Волна завела dbEnv — url.Parse(dsn),
+      из которого берутся узел, порт, пользователь, пароль и u.Path[1:]; ключевая форма даёт пустые поля,
+      пустой путь — панику. Это второй разбор одного значения, который Д93 запрещает и в тестах.
+    requirement: >-
+      Строку переписи исправить: два места (dsnField, dbEnv), предикат включает url.Parse, печатает число
+      осмотренных файлов, контроль — harness_test.go → 1. Условие D4: dbEnv берёт cfg.Host/Port/User/Password/
+      Database у pgconn.ParseConfig. Инъекция — DSN в ключевой форме → вариант с url.Parse красный, близнец с
+      ParseConfig зелёный; если инъекция в pgtest невыразима — держит перепись с контролем. Судьба
+      replaceDBName (internal/migratorapply/apply_test.go:217, полоса D4) — решена явно либо вопросом N41-3.
+  - id: R41-2
+    maps: CX1-128
+    where: "design.md:3986-3988 «Пара формы и строки» (б): «рендером того же чарта ногами проб D1 (renderNotify / standaloneLeg) … ноль объектов чарта — ноль в каждом профиле»"
+    finding: >-
+      renderNotify (:184), mustRenderNotify (:199), standaloneLeg (:213) — в deploy/notify_secret_layout_test.go,
+      _test.go пакета deploy; из internal/migratorapply недоступны, форма носителя не названа, и исполнитель
+      заведёт второй вызов helm со вторым перечнем ног. notify.renders читает .Values.global
+      (_helpers.tpl:37-39); сегодня таблица — литерал `list | toJson` (_sources.tpl:27), но D2 вносит флаг
+      global.kacho.notifications.enabled, и ноги фикстуры перестают совпадать с профилем стенда ровно тогда,
+      когда пара начинает требовать строку kacho_notify.
+    requirement: >-
+      Назвать единственный носитель рендера для пробы пары и проб D1 (импортируемый не-_test помощник с
+      пакетом и путём либо обёртка render-notify-inspect.sh); второго перечня ног и вызова helm нет; инъекция —
+      ноги меняются в одном месте → меняются оба исхода. «Профиль» пробы пары — объявленные профили стендов
+      (источник назван); «вне опроса» — только при 0 объектов в каждом, с печатью профиля и числа объектов.
+      Фразе «ноль в каждом профиле» дать срок «пока pluggableSources — пустой литерал; D2 снимает» с
+      предикатом git grep -n 'list | toJson' -- deploy/helm/notify/templates/_sources.tpl. Инъекция на копии:
+      флаг global в профиле A, не в ногах фикстуры, строки нет → красный с именем профиля; близнец — флаг
+      нигде → «вне опроса».
+
+important: []
+
+minor:
+  - id: N41-1
+    note: "пересверка: исход 5 (манифест не прочитан, код 2) под set -e читается stand-up.sh как «подъём сорвался»; одна фраза в замысле и случай 5 в самопроверке."
+  - id: N41-2
+    note: "пересверка: перепись инструментов харнесса RG1.1 — helm, diff, sha256sum, cut отсутствуют; сверить со сдачей D1s."
+  - id: N41-3
+    note: "пересверка: url.Parse(<dsn>) до волны — 5 вхождений; покрывает ли их Д93 — решает диспетчер."
+  - id: N41-4
+    note: "Д93 говорит «только pgconn.ParseConfig», замысел берёт pgx.ParseConfig (внутри pgconn.ParseConfigWithOptions + три ключа pgx) ради совпадения с OpenDB. Довод замысла держится, но это прочтение буквы решения — стоит подтвердить диспетчеру одной строкой."
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R41-1 (CX1-127), R41-2 (CX1-128); заметки N41-1, N41-2"
+  - кому: "диспетчер"
+    что: "N41-3 — охват Д93 до волны; N41-4 — подтвердить pgx.ParseConfig как исполнение Д93"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.

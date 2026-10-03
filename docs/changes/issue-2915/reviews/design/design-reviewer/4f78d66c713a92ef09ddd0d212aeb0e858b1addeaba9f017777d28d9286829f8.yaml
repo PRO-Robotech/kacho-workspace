@@ -1,0 +1,202 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 42 (маршрут — tasks.md редакции 43). Задание
+# называло прошлой записью dfac7c9c… (R40-1…3). Но последняя запись роли — faf921d9… (редакция 41,
+# RETURNED: R41-1, R41-2), и шапка редакции 42 ссылается на неё. Поэтому дельта меряется от faf921d9.
+# Режим владельца Д97: один круг. Блокирует только то, что ломает корректность или безопасность «Основы»,
+# и только с предикатом. Остальное идёт замечаниями. Рабочее дерево issue-880 поверх 5f65e0036, дельта не
+# закоммичена. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 4f78d66c713a92ef09ddd0d212aeb0e858b1addeaba9f017777d28d9286829f8
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "design 4f78d66c… = revalidation/4f78d66c…; tasks d84fd387…; change.yaml 1a4bde18… (его hashes.design_sha256 :275 = faf921d9…, отстаёт)"
+  revision: 42
+  tasks_sha256: d84fd3877eb8d46edd9b3df6f9c1c6f0f3efd8f5ca4bfad3d8131c5f5afe5a77
+  change_yaml_sha256: 1a4bde189b97a373225f19f69e3b55a74c2bebe1018f8252f620062cd6d6b823
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/faf921d97bcc023b50706f09b1afdcc3754ec24d9eefa066a8cf51d71ab515cc.yaml
+  premise_of_task: "опровергнута: прошлая запись — faf921d9…, а не dfac7c9c…; ls -lt reviews/design/design-reviewer, шапка design.md:15-20"
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256_in_tree: 5abe23366aa798859b4b04360d18ec5bfdd9c31aced44b050da3621ce5ef2bd8   # редакция 20, её исполняет §12а (S6, Р19)
+  verdict_in_tree: "CHANGES_REQUESTED (docs/specs/reviews/…/5abe2336….yaml:25)"
+  sha256_approved: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0   # редакция 19 = HEAD, группы P нет
+  initial_class_exposure_on_tree: "нет (ls reviews/class-exposure/initial — 7 записей, 5abe нет)"
+revisions:
+  workspace: 5f65e0036cfe584ce72d4cac29144343c64a0bdf
+  kacho_wave_head: 910ccddeadc42de98f9260130bf12a2987044570   # tmp/2914-wave-ntf1-core-1, status --short: 0
+  ntf4_design: "issue-2919/design.md df1ce64d… (на него ссылается §12а без отпечатка)"
+snapshot_at: 2026-10-03
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1; по B1 — acceptance-author NTF-1"
+distributed_surface: true      # новый внешний вызов (DNS), асинхронная перепроверка, закрытый отказ старта
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  design.md: шапка редакции 42 (:15-20), §12а целиком (:4881-4923), §11 строки Д96…Д98; упоминания a8f60d
+  (:420, :435, :779-780, :1851); grep dnsPolicy|ClusterFirst → 0; grep df1ce64d → 0. Пересверка
+  revalidation/4f78d66c (to_design, CX1-127…CX1-133, N42-1…3), прошлая запись роли faf921d9. kacho
+  @910ccddeadc: values.a8f60d.yaml:115-122, serve.go:20-21, notify deployment.yaml:140-152, stacks.txt (7).
+  Живые гейты не гонялись: исполняемых правок N14/N15/D10 нет.
+
+closure_of_previous:
+  - id: "R40-1…R40-3 (dfac7c9c)"
+    status: "закрыты редакцией 41 (faf921d9 closure_of_previous); дельта 42 их не трогает — держатся"
+  - id: R41-1
+    maps: CX1-127
+    status: "не исполнено (§12а «Открытое»: «эта редакция их не исполняет»). По Д97 — замечание: предмет — тестовая обвязка notify-probe, на корректность продукта не влияет"
+  - id: R41-2
+    maps: CX1-128
+    status: "не исполнено (там же). По Д97 — замечание: носитель рендера пробы пары — достоверность гейта, не поведение продукта"
+
+dispatcher_decisions:
+  - id: Д96
+    status: "отображено составом (§12а, tasks.md ярус 5а N14/N15/D10/D11). Механизм S6 отдан ссылкой на NTF-4 без отпечатка (B4); у закрытого отказа нет переписи профилей (B2)"
+  - id: Д97
+    status: "отображено (§12а «Режим ревью волны»); применён к этой записи"
+  - id: Д98
+    status: "отображено (§11, tasks.md §4); механизма в коде нет — экспозиции нет"
+  - id: "владелец 2026-10-03: мгновенные письма, перенос DKIM, сначала Основа"
+    status: "отображено (§12а)"
+  - id: "Д75…Д84, Д86…Д95"
+    status: "в силе"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md tasks.md → 0, 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: "у профиля a8f60d (внешний ретранслятор, From info@prorobotech.ru) исход под закрытым отказом не выбран. Выбор за владельцем стенда (B2 (в))"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "revalidation/4f78d66c unmapped: CX1-127…CX1-133; по Д97 блокирующие из них — B2…B6, CX1-127/128 — замечания"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/4f78d66c — на текущий отпечаток, tasks d84fd387 совпадает. change.yaml:275 отстаёт (замечание M3)"
+  - condition: "применимое ревью есть на отпечаток"
+    result: red
+    detail: "замысел исполняет приёмку ред. 20 (5abe2336) — CHANGES_REQUESTED, initial на неё нет; одобренная 1bffe10d группы P не содержит (B1)"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает (мгновенные письма — механизм NTF-3 п.3, отображён ранее)."
+  edges_acyclicity: "новых межсервисных рёбер нет; DNS — внешний вызов, не ребро графа."
+  per_call_deadline: "дедлайн запроса DNS — постоянная queryTimeout NTF-4 §8; в NTF-1 дом постоянной не назван (часть B4 (б))."
+  outcome_propagation: "возврат: закрытый отказ старта при ожидании дольше liveness даёт цикл перезапусков без имени проверки (B3)."
+  secret_hygiene: "возврат: текст отказа разбора ключа DKIM может нести байты ключа (B5)."
+  replica_state_isolation: "перепроверка — своя в каждой реплике, признак — на под; разделяемого состояния нет. Ключ в памяти процесса после смены секрета — B4 (в)."
+  public_vs_internal_edge: "дельта не трогает."
+
+critical:
+  - id: B1
+    maps: "условие «применимое ревью есть»; R20-1, R20-2 записи 5abe2336"
+    where: "design.md §12а :4889 «стадия S6 приёмки, Р19» → приёмка 5abe2336 (ред. 20)"
+    finding: "Замысел исполняет приёмку, которая не одобрена. Р19 и группа P есть только в редакции 20 (CHANGES_REQUESTED). Первичного разбора классов на её отпечаток нет. Это ban #1: механизма без APPROVED-приёмки не бывает."
+    requirement: "Приёмка редакции N ≥ 20 получает APPROVED. На её отпечаток заводится initial-разбор. Замысел ссылается на этот отпечаток."
+    predicate: "grep '^verdict: APPROVED' docs/specs/reviews/sub-phase-NTF-1-…/<sha приёмки в дереве>.yaml && test -f reviews/class-exposure/initial/<тот же sha>.yaml"
+    return_to: "acceptance-author NTF-1"
+  - id: B2
+    maps: CX1-129
+    where: "§12а :4910-4911 «dnsConfig пода notify — только в профиле стенда; P12 судит values всех профилей»; kacho values.a8f60d.yaml:119-120"
+    finding: >-
+      Понятие «профиль стенда» не определено. У a8f60d почта уходит через внешний ретранслятор smtps://…:465 с
+      From info@prorobotech.ru. По замеру пересверки, на 2026-10-03 у этого домена нет ни SPF, ни DMARC.
+      Возможны два исхода. Если профилю посеять зону стенда, страж станет обходом и подпись проверится на
+      зоне, которой нет у получателей (безопасность). Если не сеять, notify не стартует (корректность).
+    requirement: >-
+      (а) Перепись 7 профилей stacks.txt: приёмник, источник зоны, исход стража; печатает число профилей.
+      (б) P12: «dnsConfig есть ⇔ connectionURI указывает на приёмник стенда» на каждом профиле. Инъекция —
+      dnsConfig в values.a8f60d.yaml даёт красный с именем профиля. Близнец — values.dev.yaml, зелёный.
+      (в) Исход для a8f60d выбирает владелец и записывает в замысел.
+    predicate: "проба P12 красная на инъекции в a8f60d и зелёная на dev; строка a8f60d в переписи §12а с выбранным исходом"
+  - id: B3
+    maps: CX1-131
+    where: "§12а (порядок стража в runServe не назван); kacho serve.go:20-21, notify deployment.yaml:146-151"
+    finding: >-
+      Сегодня runServe отдаёт ошибки до подъёма поверхности диагностики. Liveness чарта — 5 с + 15 с × 3,
+      около 50 с, а поставляемый срок KACHO_NOTIFY_DNS_BOOT_DEADLINE — 2 мин. Если страж встанет до
+      диагностики, kubelet убьёт под раньше, чем появится отказ с именем проверки. Получится цикл
+      перезапусков без причины.
+    requirement: >-
+      Назвать порядок: загрузчик → дескриптор посадки → пул → диагностика → страж DNS как компонент /readyz →
+      по сроку выход с именем проверки. Другой порядок допустим, если бюджет liveness не меньше верхней
+      границы срока, и это утверждает проба рендера. Конструктор стража отказывает на nil-резолвере,
+      корень явно передаёт net.DefaultResolver. fixtureEnv в boot_test.go получает новые ручки и ключ.
+    predicate: "проба N14: страж перенесён до поверхности → /healthz молчит дольше бюджета → красная; близнец в названном порядке — зелёная"
+  - id: B4
+    maps: CX1-132
+    where: "§12а :4889-4892 «Механизм — замысел NTF-4 З14, З15 … второго описания здесь не заводится»"
+    finding: >-
+      Механизм «Основы» лежит в чужом документе без отпечатка (grep df1ce64d → 0). Приёмка NTF-4 в дереве уже
+      изменилась (78603409 ≠ 01b28881), значит З14/З15 будут править, а одобрение NTF-1 при этом не
+      обесценится. Перечень отличий не закрыт: в нём нет З4 (перечитывание секрета), З23 (часы), §8
+      (queryTimeout). Не сказано, как смена ключа DKIM доходит до процесса. Объект секрета внешний,
+      checksum/ на него нет, поэтому после ротации notify подписывает старым ключом, а перепроверка
+      сверяет DNS со старым ключом. Отказ подписи у получателей (корректность).
+    requirement: >-
+      (а) Закрепить ссылку отпечатком df1ce64d… с именами разделов либо перенести текст в замысел NTF-1.
+      (б) Перечень отличий дополнить строками З4, З23, §8. (в) Назвать путь смены ключа: перечитывание или
+      перезапуск с названным механизмом. Назвать, что видит перепроверка в окне между сменой DNS и
+      перезапуском.
+    predicate: "grep -c 'df1ce64d' design.md ≥ 1 (или grep З14 в design.md → 0 и текст механизма в §12а); строки З4/З23/§8 в перечне; проба N15 «ключ в объекте сменён → следующее письмо подписано новым селектором/ключом»"
+  - id: B5
+    maps: CX1-133
+    where: "§12а :4898-4900 «отказ старта на нечитаемом ключе, RSA короче 2048 бит или пустом селекторе»"
+    finding: "Не сказано, попадает ли текст ошибки разборщика PEM/PKCS в отказ или журнал. Класс уже был: CX1-125, хвост пароля DSN в тексте ParseConfig. Ключ DKIM — секрет."
+    requirement: "Тексты отказа фиксированы: имя ключа объекта и причина. Ошибка разборщика не уходит ни через %w/%v, ни в журнал."
+    predicate: "инъекция N14: повреждённый ключ с байтами-маркером → текст отказа и журнал маркера не содержат; близнец — исправный RSA 2048 проходит загрузчик"
+  - id: B6
+    maps: CX1-130
+    where: "§12а :4910 «dnsConfig пода notify»; grep -E 'dnsPolicy|ClusterFirst' design.md → 0"
+    finding: >-
+      Форма резолвера пода не названа. При dnsPolicy None DNS кластера пропадает, и база, kaname и mailpit
+      по именам кластера не резолвятся: notify не готов. При ClusterFirst DNS кластера отвечает первым, и
+      посеянная зона не читается: страж отказывает в старте. В обоих случаях notify на стенде не работает.
+    requirement: "Назвать форму: dnsPolicy None + сервер зоны авторитетен для домена From и пересылает остальное на DNS кластера (search-домены кластера в dnsConfig), либо иную форму с тем же исходом."
+    predicate: "P01: notify готов (база и kaname по именам кластера) и notify_mail_dns_posture{check}=1 по трём проверкам; инъекция «пересылка снята» → не готов с именем пира"
+
+remarks:   # не блокируют по Д97; условия на полосы сохраняются
+  - id: M1
+    maps: "CX1-127 (R41-1)"
+    text: "dbEnv в notify-probe/harness_test.go:266-279 разбирает DSN через url.Parse. Условие на полосу D4 — pgconn.ParseConfig; перепись Д93 исправить на «два места»."
+    predicate: "git grep -n -E 'url\\.Parse\\([a-zA-Z]*[dD]sn\\)' -- services/notify → 0 после D4"
+  - id: M2
+    maps: "CX1-128 (R41-2)"
+    text: "Для пробы пары формы и строки и проб D1 назвать носитель рендера: профиль стенда, а не помощники _test.go чужого пакета."
+    predicate: "проба называет файл values профиля, который рендерит; инъекция объекта в профиль → красная"
+  - id: M3
+    text: "change.yaml:275 hashes.design_sha256 = faf921d9… при предмете 4f78d66c…; обновить вместе со следующей редакцией."
+    predicate: "grep design_sha256 change.yaml = sha256sum design.md"
+  - id: M4
+    maps: "N42-1"
+    text: "Метка check — закрытый перечень (dkim, spf, dmarc) с типизированной функцией наблюдения, как у feed.observeOutcome."
+  - id: M5
+    maps: "N42-2"
+    text: "Если на В1 ответят «да», посылка «развёртывание одно» истекает. Тогда назвать, где монтируется ключ DKIM."
+
+orders:
+  - to: "acceptance-author NTF-1"
+    subject: "B1: R20-1, R20-2 записи 5abe2336 и определение «профиль стенда» для Р19/P12; затем class-exposure-analyst — initial на новый отпечаток"
+  - to: "автор замысла NTF-1"
+    subject: "B2…B6 после B1; M1…M3 — тем же заходом"
+  - to: "владелец (через диспетчера)"
+    subject: "B2 (в): исход для a8f60d — опубликовать DKIM/SPF/DMARC домена prorobotech.ru, сменить fromAddress или исключить notify из рендера профиля"

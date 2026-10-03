@@ -1,0 +1,210 @@
+# Ревью замысла от роли design-reviewer. Роль держит агент system-design-reviewer в режиме
+# «замысел» (docs/changes/policy.yaml §review_authority.design-reviewer).
+#
+# Запись привязана к отпечатку замысла NTF-1 редакции 40 (маршрут — tasks.md редакции 41). Прежняя
+# запись роли — c09a9604….yaml (редакция 39, RETURNED: R39-1…R39-3). Судятся закрытие R39-1…3,
+# отображение решений диспетчера Д83…Д90 (2026-10-02; Д75…Д82 действуют), пять условий одобрения и
+# пять выборочно перемеренных утверждений автора. Рабочее дерево issue-880 поверх 842a3eb8b, не
+# закоммичено. Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: dfac7c9c2a72e77a47d21cb8690dacf4988123648a7f0c46c58114b342b18ba9
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/design.md (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "совпадает с change.yaml:261 hashes.design_sha256 и с пересверкой revalidation/dfac7c9c"
+  revision: 40
+  tasks_sha256: 5b25ea0424a142a9cd3f147d3469440b3c5d911f6ad1a329d8d43757f1eee23d   # маршрут редакции 41, = пересверке
+  change_yaml_sha256: 14f8ec082329fb805d8aa4d1446d6c6747376638838e88a1faa7891e1e50b2a3
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/c09a96044570f6a2e4a59c2b793d11ce3f755726072a4ffe1e1f3a7955a15a9a.yaml
+  content_commit: "— (дельта автора не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0
+  verdict: "APPROVED (не менялась)"
+revisions:
+  workspace: 842a3eb8b95872529770c42b031fa3fa99b2065c   # плюс незакоммиченная дельта автора
+  kacho_wave_head: 2fdbc6b523a5f90e93c10fb0828333694e8f8515   # = origin/2914-wave-ntf1-core-1 после fetch, копия tmp/2914-wave-ntf1-core-1 чистая
+  kacho_d4_copy: 42cfe116542   # tmp/2915-d4-notify-probe, рабочее дерево чистое (status --short пуст)
+  corelib_pin: fe0dccf1794e
+  pgx: v5.10.0
+snapshot_at: 2026-10-03
+
+verdict: RETURNED          # ⛔ возврат
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true      # код выхода живого гейта, его потребитель в конвейере запросов; носитель третьей категории в полосе pg
+schema_review_overlap: false   # CAS, xmin, advisory-lock дельта не трогает
+
+inspected: >-
+  Пересверка revalidation/dfac7c9c (итог to_design, unmapped [CX1-124, CX1-125, CX1-126], заметки N40-1,
+  N40-2); шапка редакции 40 design.md; З32 (г) «Поверхности метрик — третья категория…» (строки 3565-3578),
+  (е) перепись cp -r; §11 строка R39-2 (4376). kacho @2fdbc6b523a: production-posture.yml on:, шаг stand,
+  stand-up.sh (классификация), deploy/Makefile dev-prod-up, required-contexts.txt, e2e-shards.json,
+  console-serves-identity-flows-test.sh, notify_secret_layout_test.go:989, classify-pg-outside-selection.sh,
+  shortgatedselection_test.go:265; gh run list production-posture по ветке волны; pgconn.ParseConfig
+  (pgx v5.10.0) на двух ключевых DSN во временном модуле scratchpad. Живые гейты и TestCensus_… не
+  гонялись: стенда нет.
+
+closure_of_previous:
+  - id: R39-1
+    status: "закрыт по предмету (CX1-123 → 11/2 в design/tasks; данные — deploy/e2e-shards.json, запись ban6_undeployed_carriers.notify без notify.enabled — перемерено); следствие формы (б) для конвейера — новая находка R40-1 (CX1-124)"
+    evidence: "З32 «Исполнение CX1-123…» (а)–(е); e2e-shards.json: notify {process kacho-notify-probe, reason, lifted_by D3}, grep -c notify.enabled → 0"
+  - id: R39-2
+    status: "снят как предмет замысла: рабочая копия tmp/2915-d4-notify-probe теперь чистая (HEAD 42cfe116542); вопрос «код D1s до одобрения замысла» замысел передаёт диспетчеру (§11:4376) — это законная передача"
+    evidence: "git -C tmp/2915-d4-notify-probe status --short → пусто"
+  - id: R39-3
+    status: закрыт
+    evidence: "З32 (е): шесть cp -r (513, 514, 521, 524, 525, 546), механизм — порядок копирования относительно архива, предикат «✗ 0»; grep -n 'cp -r' @2fdbc6b523a — те же шесть строк (плюс комментарий 502)"
+
+remeasured_author_claims:   # выборочно 5, своей командой @2fdbc6b523a
+  - claim: "`production-posture.yml` — только `workflow_dispatch` (design.md:3577)"
+    command: "awk '/^on:/,/^jobs:/' .github/workflows/production-posture.yml; gh pr view 2991 --json baseRefName; gh run list --workflow production-posture.yml --branch 2914-wave-ntf1-core-1"
+    result: "ОПРОВЕРГНУТО: on: workflow_dispatch, pull_request branches [main, '[0-9]+', '[0-9]+-*'], schedule; PR #2991 база 2914-notify; прогон event=pull_request на 2fdbc6b523a — success"
+  - claim: "рецепт dev-prod-up зовёт assert-metrics-surfaces-answer под set -e раньше assert-outbox-autovacuum (deploy/Makefile:931)"
+    command: "sed -n 924,934p deploy/Makefile"
+    result: "@set -e; … assert-metrics-surfaces-answer; assert-outbox-autovacuum — подтверждено"
+  - claim: "шесть cp -r в console-serves-identity-flows-test.sh: 513, 514, 521, 524, 525, 546"
+    command: "grep -n 'cp -r' deploy/tests/helm/console-serves-identity-flows-test.sh"
+    result: "513, 514, 521, 524, 525, 546 (+502 — комментарий) — подтверждено"
+  - claim: "notify внесён в e2e-shards.json записью ban6_undeployed_carriers.notify без notify.enabled"
+    command: "python3 -c json… ban6_undeployed_carriers.notify; grep -c notify.enabled deploy/e2e-shards.json"
+    result: "запись есть (process, reason, lifted_by D3); notify.enabled 0 — подтверждено"
+  - claim: "проба D1 сверяет dbname подстрокой (основание Д84 «точным значением»)"
+    command: "grep -n 'strings.Contains(dsn' deploy/notify_secret_layout_test.go"
+    result: "989: strings.Contains(dsn, \"dbname=kacho_notify\") — подтверждено"
+
+remeasured_revalidation_items:
+  - item: CX1-124
+    result: "подтверждено (см. первое утверждение выше); stand-up.sh:288 гонит `make dev-prod-up`, ненулевой код без отметки чужой причины → «КРАСНОЕ»; production-posture в required-contexts.txt — 0"
+  - item: CX1-125
+    command: "pgconn.ParseConfig (pgx v5.10.0, PGDATABASE снят), временный модуль в scratchpad"
+    result: >-
+      `host=h user=u password=abc MARKERTAIL dbname=kacho_notify` → принят, db "" (ветка «DSN не называет базу»);
+      `host=h user=u dbname=kacho_notify password=abc MARKERTAIL` → отказ с текстом «… password=xxxxx MARKERTAIL …»;
+      fmt.Errorf("wrap: %w", err).Error() этот текст несёт — подтверждено
+  - item: CX1-126
+    result: "shortgatedselection_test.go:265 internal/migratorapply → make test-pg-outside-selection; classify-pg-outside-selection.sh:62, 232 «пропуск здесь — ОТКАЗ» — подтверждено"
+
+dispatcher_decisions:
+  - id: Д83
+    status: "отображено (шапка (2), З32 «Имя базы точки наката…»); держатель (б) не задевает ветку отказа разбора и скобка про %w неверна — R40-2 (CX1-125)"
+  - id: Д84
+    status: "отображено (шапка (3), «Пара формы и строки»); носитель «НЕ ВЫПОЛНИЛОСЬ» — t.Skip в полосе, где пропуск — отказ — R40-3 (CX1-126)"
+  - id: Д85
+    status: "отображено (З32 (г), (д)); следствие для конвейера выведено из опровергнутой посылки — R40-1 (CX1-124)"
+  - id: Д86
+    status: "отображено (e2e-shards.json, истечение по запуску; уточнение argv[0] — заметка N40-1, не блокирует)"
+  - id: Д87
+    status: "отображено (З28 (е))"
+  - id: Д88
+    status: "отображено (noListingSurface)"
+  - id: Д89
+    status: "отображено (З24, ≥ 32 байт)"
+  - id: Д90
+    status: "отображено (матрица integration и отбор цели)"
+  - id: "Д75…Д82"
+    status: "в силе"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md → 0, tasks.md → 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: >-
+      З32 (г) оставляет судьбу рецепта dev-prod-up «вопросом диспетчеру» на опровергнутой посылке; при
+      истинной посылке (конвейер идёт на каждом запросе в 2914-notify) выбор формы — принять красный до D2
+      или рецепт с худшей категорией — не записан
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка dfac7c9c: unmapped [CX1-124, CX1-125, CX1-126]; grep -c в design/tasks → 0/0 у каждого"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/dfac7c9c — на текущий отпечаток; tasks_sha256 5b25ea04 совпадает"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка 1bffe10d APPROVED, первичный разбор initial/1bffe10d есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "новых межсервисных рёбер нет."
+  public_vs_internal_edge: "закрыта для замысла (R39-1): notify в e2e-shards.json записью с причиной и истечением по запуску процесса."
+  outcome_propagation: >-
+    возврат: новый исход третьей категории (код 2 живого гейта; «НЕ ВЫПОЛНИЛОСЬ» подтеста D1) решён в
+    производителе, а его потребители — рецепт под set -e со stand-up.sh в конвейере запросов и
+    классификатор полосы pg, где пропуск — отказ, — читают его как красный (R40-1, R40-3).
+  secret_hygiene: "возврат: ключевая форма DSN проходит пробу мимо ветки отказа разбора; текст отказа ParseConfig несёт хвост пароля (R40-2)."
+  replica_state_isolation: "дельта не трогает."
+
+critical:
+  - id: R40-1
+    maps: CX1-124
+    where: "design.md:3565-3578 З32 (г), фраза «`production-posture.yml` — только `workflow_dispatch`»"
+    finding: >-
+      Посылка опровергнута: конвейер идёт на pull_request в ветки '[0-9]+-*', включая 2914-notify, и уже шёл
+      на запросе волны #2991. После D1s код 2 гейта поверхностей метрик под set -e в dev-prod-up станет
+      «КРАСНОЕ — подъём сорвался» на каждом запросе в ветку эпика до D2, а assert-outbox-autovacuum молча не
+      исполнится (в required-contexts проверки нет — слияние не заперто, но и не судится).
+    requirement: >-
+      Записать измеренные триггеры и исход конвейера после D1s; снять «только workflow_dispatch». Выбор формы —
+      вопросом диспетчеру с записью решения в замысле: (1) красный production-posture на запросах в 2914-notify
+      до D2 с предикатом снятия «D2 влита»; либо (2) рецепт исполняет все гейты и выходит худшей категорией,
+      stand-up.sh различает «гейт после подъёма — НЕ ВЫПОЛНИЛОСЬ» и «подъём сорвался», самопроба: инъекция
+      «metrics → 2» → autovacuum исполнен, итог 2; «1 и 2» → 1; близнец все 0 → 0.
+  - id: R40-2
+    maps: CX1-125
+    where: "design.md З32 «Имя базы точки наката…» (б), скобка «(`%w` её текста не несёт)»; tasks.md D4"
+    finding: >-
+      Проба «маркер в обеих формах» по ключевой форме может пройти веткой пустой базы (ParseConfig принимает
+      `password=abc MARKERTAIL dbname=…` с db ""), не задев ветку отказа разбора; при отказе текст ParseConfig
+      несёт хвост пароля после xxxxx, а `%w` этот текст несёт — скобка ложна.
+    requirement: >-
+      Проба D4 по ключевой форме берёт DSN, который ParseConfig отвергает (хвост пароля последним), и печатает
+      ветку отказа; отдельный случай — принятый с пустой базой, тоже без маркера. Ошибка ParseConfig не входит
+      в возвращаемую цепочку ни %w, ни %v. Инъекция — обёртка %w → проба красная; близнец — зелёная. Скобку
+      исправить на «не оборачивается ни %w, ни %v».
+  - id: R40-3
+    maps: CX1-126
+    where: "design.md З32 «Пара формы и строки» / Д84 (б), (в); internal/migratorapply/invocation_test.go (носитель «подтест — пропуск»)"
+    finding: >-
+      internal/migratorapply исполняется шагом test-pg-outside-selection (shortgatedselection_test.go:265), а
+      там classify-pg-outside-selection.sh считает пропуск отказом (код 1). t.Skip как носитель «НЕ
+      ВЫПОЛНИЛОСЬ» красит полосу на голове D4 до N7/D3; в юнит-прогоне тот же пропуск неотличим от зелёного.
+    requirement: >-
+      Носитель — суд записи (как ban6_undeployed_carriers): предмет, причина, предикат снятия, истечение; печать
+      «НЕ ВЫПОЛНИЛОСЬ: строки kacho_notify нет (N7), запись жива» и «пар форма-строка: N», сумма = формы +
+      строки без формы; без подтеста-пропуска. Красное — запись истекла, база вне таблицы и записи, пар 0 при
+      пустых записях. Близнец полосы: make test-pg-outside-selection на голове D4 → код 0, «пропущено 0».
+      Иная форма — вопрос диспетчеру, не правка классификатора в этой волне.
+
+important: []
+
+minor:
+  - id: N40-1
+    note: "пересверка: распознаватель запуска — argv[0] (первый элемент command, иначе args при входной точке образа); инъекция у8 — URI пробы в не-первом элементе args → запись не истекла."
+  - id: N40-2
+    note: "пересверка: migratorrun.Runner открывает базу внутри Up; сверку current_database() делать отдельным соединением тем же DSN и migratorcli.OpenDB до runner.Up, без правки corelib."
+
+orders:
+  - кому: "автор замысла NTF-1"
+    что: "R40-1 (CX1-124), R40-2 (CX1-125), R40-3 (CX1-126); заметки N40-1, N40-2"
+  - кому: "диспетчер"
+    что: "R40-1 — выбор формы для production-posture на запросах в 2914-notify до D2 (красный с предикатом снятия либо рецепт с худшей категорией)"
+
+next: >-
+  Возврат автору замысла NTF-1. После правки отпечаток новый: пересверка разбора классов и эта роль
+  заново.

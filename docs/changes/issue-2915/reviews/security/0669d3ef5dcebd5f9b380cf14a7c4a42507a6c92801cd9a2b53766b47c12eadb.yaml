@@ -1,0 +1,66 @@
+ВЕРДИКТ: ✅ на 5d22136c5fef84af2356d147a57a6395709c458f
+reviewer: security-auditor
+mode: пост-дифф по Д97 (один круг; блокирует только корректность/безопасность с предикатом), поверхность до посадки — слушатель, каталог прав, чарт и профили, секреты, Д93, Д94; планка — высокая и средняя
+subject:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  head: 5d22136c5fef84af2356d147a57a6395709c458f
+  base: origin/2914-notify @ e415e59a225b4f7a0ff8d327df16d65f59485c20
+  merge_base: e415e59a225b4f7a0ff8d327df16d65f59485c20
+  digest_cmd: git diff $(git merge-base origin/2914-notify 5d22136c5fe)..5d22136c5fe | sha256sum
+  digest: 0669d3ef5dcebd5f9b380cf14a7c4a42507a6c92801cd9a2b53766b47c12eadb
+  diff_volume: 572 файла, +66455/-34814 к базе (догон main, Д105); дельта волны к origin/main (14a09acd6f6, тройная точка) — 332 файла, +25493/-1467
+  previous_record: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004.yaml (✅ на 5f195517e81; 5f195517e81 — предок e1da5fb21ab, т. е. прежде судимое содержимое в голове)
+decisions_applied: [Д75–Д84, Д86–Д105]
+
+scope:
+  - дельта волны после прошлой записи (5f195517e81..e1da5fb21ab, 22 некоммита слияния): notify-пути, migrationchains, чарт notify, гейты ban6/shard-coverage/metrics, пины
+  - разрешение конфликтов: git show --remerge-diff 6c420acff45 (25 файлов, догон main), ffab65faee1 (7 файлов, Д105), 5d22136c5fe (без конфликтов)
+  - пины: corelib fe0dccf1794e → f8aa88d1998d, kaname 57f1841789bd → 06966a081c7a — diff модульного кэша по пакетам, которые импортирует kacho
+
+new_delta_findings: []   # высокой и средней тяжести подтверждённых нет
+
+delta_judged:
+  - чарт notify recipient-key-secret.yaml: ключ короче 32 байт — fail рендера той же границей, что страж старта (Д94); значение и длина в текст отказа не идут — прочитано, держится.
+  - migrationchains.DatabaseOf → pgx.ParseConfig (тот же вызов, что migratorcli.OpenDB): отказ разбора несёт только вид записи (SEC-W1-01 не возвращается); сирота-цепочка ищется под любым internal/ (ORPHAN-CHAIN-BLIND) — тесты ok.
+  - точка наката notify: confirmConnection открывает соединение трактом наката, сверка current_database() под пределом 10s, ответ после предела — отказ; ошибка OpenDB оборачивается %w — разбор уже прошёл в DatabaseOf, ошибки соединения pgconn пароля не несут (как в прошлой записи).
+  - notify-probe config: текст отказа окна отзыва берёт значение из corelib authz.RevocationPolicy — отказ при ≤0 сохранён.
+  - send.go: только шапка (цена прохода ленты, предпосылка REPEATABLE READ держится TestSentTemplateDeclaresNoLimits).
+  - ban6 Д94: носитель домена notify — процесс kacho-notify-probe; kacho-notify gRPC-серверов не регистрирует (services/notify/cmd/notify — ни одного Register*Server), поэтому «рендерится лишь шлюз → вне опроса» не прячет Internal*-поверхность.
+  - corelib f8aa88d1998d против fe0dccf1794e: из Go-кода изменены только grpcsrv/acr.go и identityposture/provider.go — перевод комментариев, код EvaluateStepUp побайтно тот же; прочее — CI/хуки.
+  - kaname 06966a081c7a: изменения в pkg/api/kaname/cloud/iam/v1 (*.pb.go) — снятие поставщика стволом main; каталог прав 351 записей, перепись достижимости и ban6 зелёные на сведённом дереве.
+
+merge_resolutions_judged:   # 6c420acff45 / ffab65faee1
+  - assert-production-posture.sh: обе секции живы и исполняются — D (assert-identity-provider-absent.sh, main) и E (assert-cert-issuance-policy.sh, волна), обе с fail; сводка печатает D и E.
+  - values.yaml: тег kaname 484-notify-06966a08 — одно место (Д64); values.fe3455-prod.yaml копии тега не несёт; hydraAdminTls снят вместе с поставщиком, блок certIssuancePolicy волны сохранён.
+  - values.dev.yaml: identityProvider у службы снят (main), флаг почты и ключи ленты сохранены.
+  - kaname _helpers.tpl: kaname.mailCount и отказ при пустом secretName сохранены рядом с consoleOrigin ствола.
+  - dev-prod-secrets.sh: засевает 4 секрета службы доступа (jwks-enc, second-factor-enc, mail-keys, bootstrap-sa-key) — совпадает с «Ещё четыре» в stack-secrets.sh; kaname-hook-token только в прозе о снятии.
+  - run-injection-proofs.sh: admin-hop-cluster-half-inject снят (предмет снят стволом), cert-issuance-policy-verdict-inject волны и identity-provider-absent-cluster-half-inject ствола — оба в DECLARED; прогон 35/35.
+  - docker-build.yml и assert-workflow-run-publish-guard.py: взята редакция ствола (KAC-* снята из правила и фильтра) — сужение, не расширение; самопроверка 99/0.
+
+observations_below_bar:
+  - Перенесены из прошлой записи без изменений (ниже планки): ключевая форма DSN чарта notify без кавычек у password; launches() не распознаёт шаблонную команду (вопрос к D3); ветка Д85/Д91 в ban6 до развёртывания носителя.
+  - Самопроверка ban6, случай «д» (настоящий рендер dev-prod) в свежем worktree без helm dependency build даёт «ПРОВАЛЕНА»: profile_launches.answer → NotRun (charts/ пуст), ветка Д91 падает в MEASURE, и проверка ждёт строку «вне опроса». После `helm dependency build deploy/helm/umbrella` — ПРОЙДЕНА. Дефекта продукта нет; прочтение для конвейера — шаг сборки зависимостей обязан предшествовать самопроверке (замечание, не блок).
+
+checks_run:   # все @5d22136c5fe, worktree tmp/sec-2915-5d22136
+  - go build ./... → ok
+  - go test -count=1 ./internal/migrationchains ./services/notify/... ./internal/migratorapply ./tools/revocationwindowgate/... ./tools/softopengate/... → ok 12 пакетов, красных 0
+  - go test -count=1 ./internal/repohygiene → ok
+  - go test -count=1 ./tools/... → ok, красных 0
+  - go test -count=1 ./gateway/... → ok, красных 0
+  - (cd deploy && go test -count=1 ./...) → ok, красных 0
+  - make -C gateway permission-catalog-check → OK (351 entries), доменов 8 включая notify
+  - python3 deploy/scripts/assert-ban6-external-isolation.py --self-test → ПРОЙДЕНА после helm dependency build (Internal*-методов 67, в предмете 67); до сборки зависимостей — случай «д» не выполнился (см. замечание)
+  - python3 deploy/scripts/assert-shard-coverage.py → OK (67 коллекций); --self-test → OK
+  - python3 .github/scripts/assert-workflow-run-publish-guard.py --self-test → подпроб 99, провалов 0
+  - bash deploy/scripts/run-gate-self-tests.sh → PASS 84/84
+  - bash deploy/scripts/run-injection-proofs.sh → PASS 35/35
+
+inspected:
+  revision: 5d22136c5fef84af2356d147a57a6395709c458f
+  files_read: 19 — дельта notify-путей (9 непробных файлов из 16), remerge-diff 10 файлов посадки/чартов/секретов/CI, vpc service_identity.go+bootposture.go+describe.go, ban6 ветка Д91 (assert-ban6-external-isolation.py), список серверов cmd/notify и cmd/notify-probe; corelib — 2 файла; kaname — перечень изменённых файлов импортируемых пакетов
+  handlers: 0 изменено (Send — только шапка)
+  catalog_rows: 351 — перемерено make permission-catalog-check; строк, изменённых этой дельтой, 0
+
+dry_round: да — подтверждённых находок высокой и средней тяжести 0

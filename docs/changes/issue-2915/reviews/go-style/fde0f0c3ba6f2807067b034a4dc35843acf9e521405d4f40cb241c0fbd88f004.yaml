@@ -1,0 +1,95 @@
+# ВЕРДИКТ: ⛔ на 5f195517e8149233436235927e337a4fe65cc0c5
+role: go-style-reviewer
+change: issue-2915 / волна ядра NTF-1 (N1, D1/D1s, D4, перепины), повтор после Д83–Д90
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify HEAD = голова origin/2914-notify
+  head: 5f195517e8149233436235927e337a4fe65cc0c5
+  digest_predicate: "git diff e415e59a225b..5f195517e814 | sha256sum"
+  digest: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004
+  previous: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f (head 2fdbc6b523a)
+verdict: returned
+blocking: true
+scope: "170 файлов, +13877/-488; прод-Go в диффе 44 файла; дельта к прошлому кругу 26 файлов (12 коммитов 10fbcde4b42..4d74f8c8eed + слияние)"
+fresh_deferral_markers: 0      # grep -cE '\b(TODO|FIXME|XXX|HACK)\b' по добавленным строкам полного диффа
+probes_in_same_pr: yes
+return_to: автор диффа волны (исполнитель D4 / Д83 — services/notify/cmd/migrator, internal/migrationchains)
+
+previous_items:
+  GS-C1: {status: closed, evidence: "config.go:162-165 отказ AuthZCacheTTL<=0 с именем ручки; комментарий поля правдив; TestAuthZCacheTTLNonPositiveRefusesNamingTheKnob + близнец ...PositiveIsAccepted"}
+  GS-I1: {status: closed, evidence: "baseDSN — url.URL+url.UserPassword+net.JoinHostPort (config.go:205-218); TestDSNCarriesCredentialsTheDriverReadsBack с паролями 'p@ss/w?rd#1%2', 'a b:c' и именем 'u@x' — обратный разбор драйвером"}
+  GS-I2: {status: closed, evidence: "send.go:114,119 — %w с шагом; TestSendInternalRefusalNamesTheStepInTheLog"}
+  GS-I3: {status: closed, evidence: "send.go:93 текст фундамента без второго префикса; TestSendMalformedAddressCarriesTheFoundationTextOnce — побайтно msg == nerr.Error() и Count('address: ')==1"}
+  GS-I4: {status: open-nonblocking, evidence: "services/notify/internal/config/config.go:235 panic в KnobOfField не изменён"}
+  style-ownRowQuery: {status: closed, evidence: "send.go:65 const"}
+
+critical:
+  - id: GS-C2
+    kind: external-call-without-deadline
+    at: services/notify/cmd/migrator/main.go:118-121,238-240
+    finding: >-
+      Новая сверка Д83 читает SELECT current_database() контекстом context.Background() без
+      собственного дедлайна. Бюджет есть только у барьера готовности внутри migratorcli.OpenDB
+      (dbready.Wait); сам запрос — без предела. Сервер, принявший соединение и замерший
+      (failover, зависший пулер), держит init-контейнер в Init бесконечно — отказа нет, есть
+      зависание; подсказка «сверить не удалось = отказ» (комментарий confirmDatabase) на этом
+      исходе не исполняется.
+    require: >-
+      В confirmDatabase — context.WithTimeout(ctx, <именованная константа>) вокруг current(ctx),
+      defer cancel(); истечение — отказ с тем же текстом «сверка не пройдена — наката нет».
+      Проба в main_test.go: current, ждущий ctx.Done(), даёт отказ за предел; близнец — ответ
+      в пределе принят.
+    return_to: автор D4/Д83
+  - id: GS-C3
+    kind: security-comment-contradicts-code / two-parsers-one-dsn
+    at: internal/migrationchains/dsn.go:15-17,34
+    finding: >-
+      Комментарий утверждает, что DatabaseOf разбирает DSN «ТЕМ ЖЕ» разбором, что накат
+      (migratorcli.OpenDB → pgx.ParseConfig). Это не так: pgx.ParseConfig = pgconn.ParseConfig
+      плюс три своих ключа (statement_cache_capacity, description_cache_capacity,
+      default_query_exec_mode; pgx v5.10.0 conn.go:173-206). Измерено временной пробой
+      @5f195517e81 (удалена, дерево чистое): DSN
+      'postgres://u:s3cr%40t@h:5432/kacho_notifyprobe?statement_cache_capacity=zz' и ключевая
+      форма с default_query_exec_mode=zz — DatabaseOf принимает (kacho_notifyprobe, nil), а
+      pgx.ParseConfig отказывает текстом «cannot parse `postgres://u:xxxxx@h:5432/kacho_notifyprobe?...`».
+      Этот текст доходит до журнала init-контейнера через confirmDatabase(%w)→fail(): узел,
+      пользователь и база — куски DSN, которые Д83 из текста отказа исключает (пароль маскирован).
+    require: >-
+      DatabaseOf — на pgx.ParseConfig (ровно разбор OpenDB; pgx/v5 уже в графе), тогда любой DSN,
+      прошедший DatabaseOf, проходит разбор OpenDB, и отказ разбора остаётся только у DatabaseOf.
+      Проба в migrationchains_test.go: DSN с statement_cache_capacity=zz — отказ DatabaseOf без
+      кусков строки (узел/пользователь/база не в тексте); близнец — тот же DSN с =10 принят.
+    return_to: автор D4/Д83
+
+important:
+  - id: GS-I4
+    carried_from: 9ea306ee42de
+    at: services/notify/internal/config/config.go:235
+    finding: "KnobOfField паникует на неизвестном имени поля вне cmd/; не блокирует (имена — литералы)."
+    require: "перепись имён, передаваемых в KnobOfField, против полей Config, либо возврат (Knob, bool)."
+
+foundation_candidates: []
+
+style:
+  - at: services/notify/internal/config/config.go:302 (RecipientKey()), :160 (RecipientKey.Bytes)
+    note: >-
+      У аксессора ключа сетки прод-читателя нет (grep RecipientKey() вне *_test.go — только
+      объявление): страж Д89 читает поле напрямую, HMAC-потребителя в дереве нет. Не блокирует —
+      ключ guarded по Д89; при отсутствии потребителя в волне аксессор — кандидат на снятие
+      (arch-lean-no-vestigial) либо приходит вместе с потребителем.
+  - at: services/notify/cmd/notify-probe/internal/config/config.go:164
+    note: "литерал «5s» в тексте отказа дублирует pkg/authz.RevocationPolicy — при смене политики текст солжёт; брать значение из политики."
+
+approved:
+  - "Д89: recipientKey — ключевой материал HMAC; страж fail-closed незадан/≤31 байт, граница 32 включена; значение и длина не в тексте отказа; String() не раскрывает; пробы в обе стороны (recipientkey_test.go)"
+  - "Д83: DatabaseOf — отказ без кусков DSN при отказе разбора (TestDatabaseOfRefusalCarriesNoPieceOfTheDSN), PGDATABASE учитывается как у драйвера; сверка current_database() стоит до наката, ошибка чтения — отказ (TestConnectedDatabaseMustBeTheRowDatabase) — за вычетом GS-C2/GS-C3"
+  - "connectedDatabase: defer Close сразу после открытия; ошибки обёрнуты %w"
+  - "repohygiene/retiredenginedbnames.go: кавычки и схема в идентификаторах, Path находки — тестовая оснастка, проба-инъекция retiredenginedbnames_quoted_injection_test.go"
+  - "паники в рабочем пути нет; log/slog; init() без эффектов; Internal-служба только на внутреннем слушателе — без изменений к прошлому кругу"
+
+measured:
+  - "merge-base origin/2914-notify 5f195517e81 = e415e59a225b (команда git merge-base)"
+  - "go vet ./services/notify/... ./internal/migrationchains/... — чисто @5f195517e81"
+  - "go test -count=1 ./services/notify/... ./internal/migrationchains/... — 9 пакетов ok, 2 без тестов @5f195517e81"
+  - "временная проба pgconn vs pgx (internal/zzprobe, удалена): 2 DSN — DatabaseOf принимает, pgx.ParseConfig отказывает с DSN в тексте"

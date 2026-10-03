@@ -1,0 +1,66 @@
+# ВЕРДИКТ: ✅ на 5f195517e8149233436235927e337a4fe65cc0c5
+# Пост-дифф ревью формы контракта — proto-api-reviewer, повтор на новом дайджесте; волна ядра NTF-1 (2914-wave-ntf1-core-1), изменение issue-2915.
+# Новый файл на дайджест; прежняя запись 9ea306ee…aeb8991f не правится (change-graph §2).
+schema_version: 1
+change_id: issue-2915
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+verdict: accepted
+blocking: false
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 5f195517e81 == origin/2914-notify
+  head: 5f195517e8149233436235927e337a4fe65cc0c5   # == origin/2914-wave-ntf1-core-1
+content_digest: sha256:fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004
+digest_definition: "git diff e415e59a225..5f195517e81 | sha256sum (170 файлов, +13877/-488)"
+previous_record: 9ea306ee42de5e8aa10079a600b65c9d611de12e1f1db209c662e6d5aeb8991f.yaml (head 2fdbc6b523a)
+proto_files_touched: 2
+proto_files:
+  - proto/kacho/cloud/notify/v1/internal_notify_probe_service.proto   # изменён с прошлой записи: только комментарий Send (+8/-4)
+  - proto/kacho/cloud/notify/v1/package_options.proto                 # без изменений с прошлой записи
+checks:
+  - cmd: "buf lint (proto/ из git archive 5f195517e81, buf 1.72.0)"
+    rc: 0
+    outcome: green
+  - cmd: "buf breaking --against '<kacho>/.git#ref=e415e59a225,subdir=proto'"
+    rc: 0
+    outcome: green
+  - cmd: "контроль breaking: SendResponse.notification_id string→bytes в копии против ref=5f195517e81"
+    rc: 100
+    outcome: green   # прибор способен упасть, находка напечатана с координатой :62:3
+  - cmd: "git diff 2fdbc6b523a..5f195517e81 -- pkg/api | строки +/- кроме комментариев"
+    output: "0 (один файл internal_notify_probe_service_grpc.pb.go — регенерированный комментарий)"
+    outcome: green
+  - cmd: "git grep RegisterInternalNotifyProbeServiceHandler 5f195517e81 -- ':!pkg/api'"
+    output: "0"
+    outcome: green
+prior_findings:
+  - id: PAR-1
+    status: closed
+    evidence: >-
+      Комментарий Send теперь: флаг доставки первым — FAILED_PRECONDITION
+      «email delivery is not configured in this installation», ErrorInfo NOTIFICATION_DELIVERY_NOT_CONFIGURED,
+      до чтения адреса; вторым — форма адреса (address: required / отказ с именем поля без значения); обе до базы.
+      Сверено с services/notify/cmd/notify-probe/internal/send/send.go (Send: DeliveryConfigured → "" → Normalize → put)
+      и с corelib@fe0dccf1794e notify/feed/errors.go:19, flag.go:46,51 (текст и reason совпадают);
+      тексты address.Normalize (address.go:100–142) значения адреса не несут — «без его значения» правда.
+findings_critical: []
+findings_important: []
+notes:
+  - id: PAR-2
+    severity: minor   # не корректность/безопасность — в записи, не задачей
+    file: proto/kacho/cloud/notify/v1/internal_notify_probe_service.proto
+    summary: >-
+      Перечень отказов в комментарии Send покрывает проверки до базы; отказы из транзакции постановки
+      (INVALID_ARGUMENT "address: recipient is invalid" на feed.ErrRecipientInvalid, повторный
+      FAILED_PRECONDITION на feed.ErrDeliveryNotConfigured, INTERNAL "internal error") не названы.
+      Ложного утверждения нет («Порядок проверок … обе до обращения к базе» верно); при следующей правке
+      файла — дописать строку о линии внутри транзакции.
+approved:
+  - "package kacho.cloud.notify.v1; go_package pkg/api/kacho/cloud/notify/v1;notifyv1 — без изменений"
+  - "Internal* в отдельном файле и службе, google.api.http не объявлен, внешней регистрации 0"
+  - "аннотации прав без изменений; запись каталога gateway/internal/middleware/embed/permission_catalog.json:810 совпадает (permission, system_admin, cluster/'*', acr_min 1)"
+  - "Д75 действует: Send синхронный, ресурс не возвращается — форма с прошлой записи не менялась"
+  - "Д83–Д90 предмета в контракте не имеют: дельта 2fdbc6b523a..5f195517e81 в proto/ — только комментарий Send"
+  - "инфра-полей нет; имён чужих продуктов в proto/kacho/cloud/notify — 0; совместимость: только добавление пакета"

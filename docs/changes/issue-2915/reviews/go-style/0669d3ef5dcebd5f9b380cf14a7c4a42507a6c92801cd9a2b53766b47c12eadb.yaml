@@ -1,0 +1,80 @@
+# ВЕРДИКТ: ✅ на 5d22136c5fef84af2356d147a57a6395709c458f
+role: go-style-reviewer
+change: issue-2915 / волна ядра NTF-1 (N1, D1/D1s, D4) с догоном main (Д98, Д105), режим Д97 — один круг
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: 2914-wave-ntf1-core-1
+  base: e415e59a225b4f7a0ff8d327df16d65f59485c20   # git merge-base origin/2914-notify 5d22136c5fe = голова origin/2914-notify
+  head: 5d22136c5fef84af2356d147a57a6395709c458f
+  digest_predicate: "git diff e415e59a225b..5d22136c5fe | sha256sum"
+  digest: 0669d3ef5dcebd5f9b380cf14a7c4a42507a6c92801cd9a2b53766b47c12eadb
+  previous: fde0f0c3ba6f2807067b034a4dc35843acf9e521405d4f40cb241c0fbd88f004 (head 5f195517e81)
+verdict: accepted
+blocking: false
+scope: >-
+  полный дифф к базе 572 файла +66455/-34814 (догон main); судимо: дельта волны к origin/main
+  (git diff origin/main...head) — 332 файла, Go 179 файлов; дельта к прошлому кругу по notify,
+  internal/migrationchains, internal/migratorapply — 16 файлов; разрешения конфликтов —
+  git show --cc 6c420acff45 (5 Go/go.mod), ffab65faee1 (2 Go), 5d22136c5fe (0 Go)
+fresh_deferral_markers: 0      # grep -cE '\b(TODO|FIXME|XXX|HACK)\b' по добавленным строкам: и к origin/main, и к базе
+probes_in_same_pr: yes
+return_to: "—"
+
+previous_items:
+  GS-C2: {status: closed, evidence: "services/notify/cmd/migrator/main.go:73-80 confirmTimeout=10s (именованная константа), :248-266 context.WithTimeout + defer cancel, ответ после предела отвергается; TestConfirmDatabaseRefusesWhenTheNameDoesNotArriveInTime (+близнец в пределе) и проводка на живой базе TestPointConfirmsTheConnectedDatabaseBeforeGoose — обе исполнены PASS"}
+  GS-C3: {status: closed, evidence: "internal/migrationchains/dsn.go:39-49 — DatabaseOf на pgx.ParseConfig (ровно разбор OpenDB), текст отказа без кусков DSN; TestDatabaseOfRefusesWhatTheConnectionRefuses, TestDatabaseOfRefusalBranchCarriesNoMarker — PASS; комментарий правдив"}
+  GS-I4: {status: closed, evidence: "config.go:232-240 паника остаётся, но вызовы под переписью TestKnobOfFieldIsCalledOnlyWithExistingFields (knoboffield_census_test.go); шапка называет держателя"}
+  style-revocation-literal: {status: closed, evidence: "notify-probe/internal/config/config.go:57,170 — значение из corelib/authz.RevocationPolicy.Windows[revocationWindowKey]; TestAuthZCacheTTLRefusalNamesThePolicyValue требует существования записи"}
+  style-RecipientKey-accessor: {status: open-nonblocking, evidence: "без изменений к прошлому кругу"}
+
+critical: []
+
+important:
+  - id: GS-I5
+    at: services/notify/cmd/migrator/main.go:257-259
+    finding: >-
+      Текст отказа сверки «имя базы соединения не прочитано за 10s» печатается на ЛЮБОЙ ошибке
+      чтения (отказ прав, обрыв соединения, ошибка Scan), а не только на истечении предела:
+      оператор init-контейнера читает таймаут там, где его не было. Отказ fail-closed — исход
+      верный, лжёт только формулировка; не блокирует.
+    require: "различить errors.Is(err, context.DeadlineExceeded) («не прочитано за %s») и прочее («не прочитано: %w»); проба на ветку не-таймаута."
+  - id: GS-I6
+    at: internal/migrationchains/dsn.go:40-44
+    finding: >-
+      pgx.ParseConfig отказывает не только на содержимом строки: он читает файлы sslrootcert/
+      sslcert/sslkey и passfile при разборе. Под production-posture (sslmode=require/verify-full)
+      несмонтированный сертификат теперь даёт в журнале init-контейнера «DSN не разобран
+      драйвером» — причина (файл) скрыта целиком. Подавление текста драйвера оправдано (SEC-W1-01),
+      но вид отказа «файл материала TLS не прочитан» от него неотделим. Диагностика, не
+      корректность; не блокирует.
+    require: "классифицировать отказ разбора хотя бы на «строка» vs «файл материала» (errors.As на *fs.PathError / os.ErrNotExist в цепочке) и назвать во втором случае имя ключа (sslrootcert и т.п.) без значения."
+
+foundation_candidates: []
+
+style:
+  - at: services/notify/cmd/migrator/main.go:88
+    note: "currentDatabaseQuery — изменяемая пакетная переменная ради подмены в процессе-помощнике пробы; шов приемлем (прод не меняет, шапка честна), но чище — параметр confirmConnection."
+  - at: services/notify/internal/config/config.go:160,302
+    note: "аксессор RecipientKey() без прод-читателя — перенесено из прошлого круга."
+
+merge_resolutions:
+  - "6c420acff45 go.mod: пины corelib v1.10.1-0.20261003193218-f8aa88d1998d, kaname v0.4.1-0.20261003203040-06966a081c7a (Д105); replace нет; go mod verify — all modules verified"
+  - "6c420acff45/ffab65faee1 gateway permission_catalog_acr_invariant_test.go: 292·29·351 — обе стороны сведены (две записи ленты, снятая OnRecoveryCompleted, Send пробы); TestPermissionCatalog_ACR_Counts PASS"
+  - "ffab65faee1 internal/repohygiene/catalogreachability_test.go: строки ленты сняты из knownInertCatalogRows вместе с mountAllow (ленту монтирует notify-probe); TestCatalogReachability_* 9 PASS"
+  - "6c420acff45 kanamenameresidue.go: lanePlatformName 21/7 = 19/7 (main) + 2 SAN storage (волна); TestKanameSurfaceNameResidueMatchesItsLedgers PASS"
+  - "6c420acff45 deploy/own_ceilings_and_access_keys_umbrella_test.go: только комментарий о пине; Umbrella-пробы PASS"
+
+approved:
+  - "сверка current_database() под своим пределом; соединение сверки тем же трактом OpenDB, defer Close сразу"
+  - "один разбор DSN у выбора цепочки и у наката; отказ без кусков строки"
+  - "поиск сирот-цепочек по любому каталогу под services/<svc>/internal/** с объёмом осмотренного (Census)"
+  - "context.Background() в добавленном прод-коде — только в cmd-корнях (signal.NotifyContext, migrator main); паник в рабочем пути нет; log/slog; init() без эффектов"
+  - "ось ServiceIdentity в 6 службах — изъятие с причиной, одна функция кормит дескриптор и самоотчёт"
+
+measured:
+  - "git merge-base origin/2914-notify 5d22136c5fe = e415e59a225b"
+  - "git diff e415e59a225b..5d22136c5fe | sha256sum = 0669d3ef5dce…eadb"
+  - "go build ./... — чисто @5d22136c5fe (worktree tmp/2914-wave-ntf1-core-1)"
+  - "go vet ./services/notify/... ./internal/migrationchains/... — чисто"
+  - "go test -count=1 ./services/notify/... ./internal/migrationchains/... — 9 пакетов ok, 2 без тестов"
+  - "go test -v: TestConfirmDatabaseRefusesWhenTheNameDoesNotArriveInTime, TestPointConfirmsTheConnectedDatabaseBeforeGoose (живой Postgres, 5.65s), 5 TestDatabaseOf* — PASS (исполнены, не SKIP)"

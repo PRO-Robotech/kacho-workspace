@@ -1,0 +1,153 @@
+# Ревью замысла от роли design-reviewer (исполнитель system-design-reviewer, режим «замысел», Д97:
+# один круг, блокирует только корректность/безопасность «Основы» и только с предикатом).
+# Запись привязана к отпечатку замысла NTF-1 редакции 45 (1b03566a…). Прошлая запись роли — e25cc91d…
+# (редакция 44, RETURNED: R44-1…R44-4). Рабочее дерево tmp/issue-880 поверх acfbe0d18, дельта не закоммичена.
+# Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2915
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2915/design.md
+  sha256: 1b03566a1374e2429fac2d51f740cd1520ea44a6bd8bee7faa3f516eee171dcb
+  fingerprint_predicate: "sha256sum docs/changes/issue-2915/{design.md,tasks.md,change.yaml} (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "design 1b03566a… = revalidation/1b03566a…; change.yaml:298 design_sha256 = 1b03566a…"
+  revision: 45
+  tasks_sha256: 1a01ca271d4d1ae239ba2f4b1f4d6321f4ee90a2065bd44d4c226243e526d426
+  change_yaml_sha256: 657d6b5ff0994b767c8b8b9485ec233ecf488c17d2ff2d9a809ee854176d84b6
+  previous_record: docs/changes/issue-2915/reviews/design/design-reviewer/e25cc91d30ef32184436e9515f2cf76de3c48cbedc9fded40125d93f8d730eea.yaml
+  premise_of_task: "подтверждена: последняя запись роли — e25cc91d… RETURNED R44-1…R44-4 (ls -lt); текущий отпечаток 1b03566a… (sha256sum design.md)"
+  content_commit: "— (дельта не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256_in_tree: c19490f97c3f6200eede4cdbdaa31ed74b4da34dd7007d93d0994372dc81c5db
+  verdict_in_tree: APPROVED
+revisions:
+  workspace: acfbe0d18
+  kacho_origin_main: ba01514b98b
+  kacho_epic: origin/2914-notify@e415e59a225
+  kacho_lane_local: 2915-d4-notify-probe@e1da5fb21ab
+  kacho_wave_head: origin/2914-wave-ntf1-core-1@910ccddeadc
+  corelib: f8aa88d1998d
+  kaname: 06966a081c7a
+  kubernetes_source: k8s.io/kubernetes@v1.31.0 pkg/volume/util/atomic_writer.go
+snapshot_at: 2026-10-04
+
+verdict: RETURNED
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-1"
+distributed_surface: true
+schema_review_overlap: false
+
+inspected: >-
+  design.md: шапка ред. 45 (:15-32); §8 строки DKIM, standDNS, KACHO_NOTIFY_STAND_DNS (:4459-4461);
+  §11 R44-2/Д104 (:4757); §12а «Ключ и селектор DKIM», «Смена ключа DKIM» (:5160-5218), таблица отличий З4
+  (:5258), «Зона стенда» (:5296-5330), таблица «Условия…» (:5468-5469), перемер (:5483-5485); tasks.md :569-581.
+  Записи: прошлая роли e25cc91d (целиком), пересверка 1b03566a (целиком). Перемерено: kubelet atomic_writer.go
+  :138/:261; deploy/mail_receiver_core_test.go:317 @ba01514b98b; ревизии kacho, предок origin/main в полосе и
+  в голове волны, пины go.mod полосы. Пробы и гейты не гонялись.
+
+closure_of_previous:
+  - id: R44-1
+    status: "закрыт по (а)-(в): ReadPair, Readlink один раз, одна функция для старта и перепроверки, строка З4 (:5161-5178, :5258). Остаток — новый пункт CX1-140 (R45-1), механизм самой ред. 45"
+  - id: R44-2
+    status: "частично: исход (а) Д104 — отказ рендера помощником notify.standDNS и закрытый отказ старта (:5305-5330). Половина «приёмник не поднят» передана тесту дерева — CX1-141 (R45-2)"
+  - id: R44-3
+    status: "закрыт: части 7bit/quoted-printable до подписи, bh над ними, P02 с кириллицей (CX1-137 mapped)"
+  - id: R44-4
+    status: "закрыт: три закрытые таблицы без «прочее → ok», ValidSelector RFC 6376 §3.1, абсолютные имена (CX1-138 mapped)"
+  - id: "R44-5, R44-6, R44-7"
+    status: "отображены (CX1-136, CX1-139, N44-1, N22-1, N22-2 — mapped)"
+
+dispatcher_decisions:
+  - id: Д104
+    status: "отображено (§8 :4460-4461, §11 :4757, §12а «Зона стенда»); полнота — см. R45-2"
+  - id: Д105
+    status: "отображено (tasks.md :573-581). Факт: полоса e1da5fb21ab несёт origin/main и оба пина; голова волны 910ccddeadc origin/main не несёт — план, не исполнен. Предикат судит полосу, а не headRefOid #2991 (N45-1, R45-3, не блокирует)"
+  - id: "Д96…Д103, Д75…Д84, Д86…Д95"
+    status: "в силе, противоречий в дельте нет"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -c -E 'TODO|TBD|FIXME' design.md tasks.md → 0, 0"
+  - condition: "нет нерешённого вопроса"
+    result: green
+    detail: "CX1-135 (в) снят решением Д104 (исход (а))"
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "revalidation/1b03566a unmapped_items: [CX1-141]; CX1-140 новый без отображения; grep -c 'CX1-14[01]' design.md tasks.md → 0, 0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/1b03566a — на текущий отпечаток, tasks 1a01ca27 совпадает"
+  - condition: "применимое ревью есть на отпечаток"
+    result: green
+    detail: "приёмка c19490f9 APPROVED; initial и revalidation на отпечаток есть"
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "посев: один источник, сверка (N, E) и селектора (CX1-139) — закрыто."
+  cas_and_locking: "дельта не трогает."
+  delivery_model: "дельта не трогает."
+  edges_acyclicity: "новых межсервисных рёбер нет."
+  per_call_deadline: "queryTimeout на запрос и форма попытки названы (N44-1 закрыт); связь часов пробы — N45-2, к исполнителю N14."
+  consistent_read: "возврат: исход «файла нет в разрешённом поколении» не назван (R45-1)."
+  secret_hygiene: "закрыт."
+  replica_state_isolation: "без изменений; разделяемого состояния нет."
+  public_vs_internal_edge: "дельта не трогает."
+
+critical:
+  - id: R45-1
+    maps: CX1-140
+    where: "design.md §12а :5166-5175 (ReadPair: Readlink один раз, чтение из <каталог>/<поколение>/<имя>; исход назван только для «..data нет / не читается»); grep -n -i -E 'RemoveAll|ENOENT|файла нет в' design.md → 0 в разделах DKIM"
+    finding: >-
+      kubelet AtomicWriter после переключения ..data удаляет прежний каталог поколения (atomic_writer.go:138
+      «12. The previous timestamped directory is removed», :261 os.RemoveAll(oldTsPath) @k8s v1.31.0).
+      ReadPair, разрешивший поколение A до переключения, читает ..A/<имя> после удаления и получает ENOENT.
+      Исход этого случая в замысле не назван: реализация отнесёт его либо к P14 «не читается» (ложный закрытый
+      отказ старта на исправной смене ключа), либо к «пара сменилась и не прошла» (dkim = 0, ложная WARN) —
+      тот самый дефект, который закрывает CX1-134, другим путём. Окно попадания — именно смена ключа. Корректность.
+    requirement: >-
+      (а) ReadPair различает «файла нет в разрешённом поколении» и в этом случае разрешает ..data заново
+      ограниченно (один повтор либо постоянная в §8); сменившееся поколение читается целиком; «не читается» —
+      только при неизменном поколении или исчерпанном повторе. (б) Один исход на старте и перепроверке; на
+      перепроверке исчерпанный повтор = «поколение не читается» (пара прежняя, признак не меняется, одна WARN).
+      (в) Порт pairFS умеет удалить каталог поколения; крючок пробы моделирует шаги 9 и 12 kubelet. Строка
+      CX1-140 в таблице «Условия…».
+    predicate: "проба N14 (P17): крючок между чтениями переключает ..data на B и удаляет ..A → ReadPair отдаёт пару B целиком, отказа старта нет, на перепроверке переход на B без WARN; инъекция «повтора разрешения нет» → отказ P14 либо dkim = 0 → красный; близнец — переключение без удаления → пара A целиком"
+  - id: R45-2
+    maps: CX1-141
+    where: "design.md §12а :5326-5328 «Пару узел ⇔ приёмник поднят … держит существующий страж зонтика (TestNamedMailNodeIsRaisedByTheDelivery), помощник её не дублирует»; страж — Go-тест по umbrellaProfiles/readProfile (deploy/mail_receiver_core_test.go:317-345 @ba01514b98b)"
+    finding: >-
+      Класс CX1-135 — установка со слоем значений вне дерева; страж, на который замысел передаёт половину
+      условия, судит только профили дерева. Слой оператора поверх prod: standDNS.enabled: true, узел
+      <релиз>-mailpit (служба оператора, например ExternalName на внешний ретранслятор), mailpit.enabled
+      выключен — помощник notify.standDNS (хост совпал) и ручка старта согласны; под notify сверяет
+      DKIM/SPF/DMARC с подсаженной зоной стенда, а письма уходят наружу. Утверждение «ручки, пропускающей
+      проверку, нет» на такой установке ложно. Безопасность; пункт пересверки не отображён (§4 контура).
+    requirement: >-
+      (а) Шаблон зонтика stand-dns.yaml (или зовомый им помощник зонтика — он видит mailpit.enabled)
+      отказывает в рендере при global.kacho.standDNS.enabled: true и mailpit.enabled ≠ true; текст называет
+      оба ключа. Либо (б) §12а прямо записывает, что пару держит только перепись дерева, и чем она держится на
+      установке оператора — тогда это вопрос владельцу. Строка CX1-141 в таблице «Условия…».
+    predicate: "P12 (д): фикстурный слой поверх prod — standDNS.enabled: true, connectionURI на <релиз>-mailpit, mailpit.enabled: false → helm template отказывает с именем mailpit.enabled; близнец dev как есть → рендер с dnsConfig"
+
+remarks:
+  - id: R45-3
+    maps: N45-1
+    text: "Предикат Д105 судит локальную полосу (e1da5fb21ab — да), а утверждение — о запросе #2991, голова которого 910ccddeadc origin/main не несёт (перемерено). Перевести предикат на headRefOid #2991: merge-base --is-ancestor origin/main <oid> и go.mod <oid> с обоими пинами. Механика посадки — по Д97 не блокирует."
+  - id: R45-4
+    maps: N45-2
+    text: "Проба попыток стража называет вид часов (реальные либо продвижение внедрённых на время запроса); к исполнителю N14, замысла не блокирует."
+
+orders:
+  - to: "автор замысла NTF-1"
+    subject: "R45-1 (CX1-140 (а)-(в)) и R45-2 (CX1-141 (а) или (б)) в §12а и таблице «Условия…»; R45-3 — предикат Д105 на headRefOid #2991; затем class-exposure-analyst — пересверка на новый отпечаток, затем повтор design-reviewer"
