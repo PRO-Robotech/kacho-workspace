@@ -28,6 +28,9 @@
 #   J  закрепление против ствола КЛОНА · вердикт не идёт за состоянием `fetch`
 #      (шесть пар: ствол позади, ствол впереди с ростом, убыль на стволе — запас,
 #      ревизия не на стволе, ревизии нет в клоне, сокращённая ревизия)
+#   K  форма ведомости — находка с ИМЕНЕМ поля, а не «клона нет» (#856)
+#   L  обёртка TestMain — не предмет, но ТОЛЬКО обёртка: тело сверяется с
+#      закрытым перечнем форм целиком (четыре близнеца, семь дефектов, ws#903)
 #
 # I и J заведены возвратом check-verifier (#724): ветку убыли можно было снять,
 # и инъекция оставалась зелёной 26 из 26; клон kacho, отставший от ствола, давал
@@ -572,6 +575,72 @@ rm -f "$r/$LEDGER_REL"
 expect K7 "близнец: ни ведомости, ни гейта — 2, а не находка" 2 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
 expect K7 "близнец: причина строкой [VOID] — гейта нет" да "$(says "$r" '\[VOID\].*ни гейта')"
 expect K7 "близнец: НАБОР — код 2" 2 "$(set_rc "$r")"
+
+echo "── ОСЬ L · ОБЁРТКА TestMain — НЕ ПРЕДМЕТ, НО ТОЛЬКО ОБЁРТКА (ws#903)"
+echo "   Две копии файла в двух пакетах kacho; ведомость объявляет ноль. Обёрткой"
+echo "   засчитывается файл, у которого ТЕЛО TestMain — ровно одна из ЗАКРЫТОГО"
+echo "   перечня законных форм вызова фундамента; любая иная строка тела — предмет."
+echo "   Законных близнецов четыре — по одному на форму, которой обёртки записаны"
+echo "   на стволах: P1 однострочный Config; PM многострочный Config с комментарием"
+echo "   и миграцией; PN \`pgtest.Run\` без \`os.Exit\`; T отказ кэшированного вердикта"
+echo "   \`treecorpus\`. Каждый дефект отличается от СВОЕГО близнеца ОДНИМ фактом:"
+echo "   L1 — рядом вторая функция (P1); L2 — пакет продукта, а не фундамента (P1);"
+echo "   L3 — файл не тестовый (P1); L4 — в теле лишний \`os.Setenv\` (PM); L5 —"
+echo "   вызов фундамента только в хвостовом комментарии строки (P1); L6 — лишняя"
+echo "   строка в форме T (T); L7 — вызов фундамента только в блочном комментарии (P1)."
+echo "   L4 и L5 заведены возвратом check-verifier (ws#903): прежнее ядро искало"
+echo "   имя пакета фундамента где угодно в теле и засчитывало обе обёрткой."
+# tm <форма> — текст функции TestMain (и только её) для формы обёртки.
+tm() {
+    case "$1" in
+        P1) printf 'func TestMain(m *testing.M) {\n\tos.Exit(pgtest.Run(m, pgtest.Config{Name: "probe"}))\n}\n' ;;
+        PM) printf 'func TestMain(m *testing.M) {\n\tos.Exit(pgtest.Run(m, pgtest.Config{\n\t\t// Приведение схемы — один раз на пакет, у выдающего базу.\n\t\tSearchPath: "kacho_probe,public",\n\t\tName:       "probe",\n\t\tMigrate:    pgtest.Goose(migrations.FS),\n\t}))\n}\n' ;;
+        PN) printf 'func TestMain(m *testing.M) {\n\tpgtest.Run(m, pgtest.Config{\n\t\tName:    "probe",\n\t\tMigrate: pgtest.Goose(migrations.FS),\n\t})\n}\n' ;;
+        T)  printf 'func TestMain(m *testing.M) {\n\tif msg := treecorpus.CachedVerdictRefusal(); msg != "" {\n\t\tfmt.Fprintln(os.Stderr, "probe: "+msg)\n\t\tos.Exit(1)\n\t}\n\tos.Exit(m.Run())\n}\n' ;;
+        L4) printf 'func TestMain(m *testing.M) {\n\tos.Setenv("KACHO_PROBE_MODE", "1")\n\tos.Exit(pgtest.Run(m, pgtest.Config{\n\t\t// Приведение схемы — один раз на пакет, у выдающего базу.\n\t\tSearchPath: "kacho_probe,public",\n\t\tName:       "probe",\n\t\tMigrate:    pgtest.Goose(migrations.FS),\n\t}))\n}\n' ;;
+        L5) printf 'func TestMain(m *testing.M) {\n\tos.Exit(m.Run()) // pgtest.Run(m, pgtest.Config{Name: "probe"})\n}\n' ;;
+        L6) printf 'func TestMain(m *testing.M) {\n\tif msg := treecorpus.CachedVerdictRefusal(); msg != "" {\n\t\tfmt.Fprintln(os.Stderr, "probe: "+msg)\n\t\tos.Exit(1)\n\t}\n\tos.Setenv("KACHO_PROBE_MODE", "1")\n\tos.Exit(m.Run())\n}\n' ;;
+        L7) printf 'func TestMain(m *testing.M) {\n\t/* os.Exit(pgtest.Run(m, pgtest.Config{Name: "probe"})) */\n\tos.Exit(m.Run())\n}\n' ;;
+    esac
+}
+# shim <каталог> <пакет> <путь импорта фундамента> <имя файла> <форма> [лишнее объявление]
+# Импорты — ровно те, что форма зовёт: живая форма PN не импортирует `os`, и
+# близнец, импортирующий его, не доказывал бы, что `os` для неё не обязателен.
+shim() {
+    mkdir -p "$1"
+    { printf 'package %s\n\nimport (\n' "$2"
+      case "$5" in T|L6) printf '\t"fmt"\n' ;; esac
+      case "$5" in PN) ;; *) printf '\t"os"\n' ;; esac
+      printf '\t"testing"\n\n\t"%s"\n' "$3"
+      case "$5" in PM|PN|L4) printf '\t"github.com/PRO-Robotech/kacho/pkg/migrations"\n' ;; esac
+      printf ')\n\n'
+      tm "$5"
+      [ -n "${6:-}" ] && printf '\n%s\n' "$6"
+    } > "$1/$4"
+}
+for side in P1 PM PN T L1 L2 L3 L4 L5 L6 L7; do
+    r="$WORK/L-$side"; build "$r"
+    imp="github.com/PRO-Robotech/corelib/pgtest"; file="testmain_pgtest_test.go"; extra=""; form="$side"
+    case "$side" in
+        T|L6) imp="github.com/PRO-Robotech/corelib/treecorpus"; file="cachedverdictmain_test.go" ;;
+        L1) form=P1; extra='func helper() string { return "x" }' ;;
+        L2) form=P1; imp="github.com/PRO-Robotech/kacho/pkg/pgtest" ;;
+        L3) form=P1; file="testmain_pgtest.go" ;;
+    esac
+    for svc in alpha beta; do
+        shim "$r/project/kacho/services/$svc/internal/repo" "repo_test" "$imp" "$file" "$form" "$extra"
+    done
+    for p in kacho kaname corelib; do seal "$r/project/$p"; done
+    ledger "$r" 0 0 0
+    case "$side" in
+        P1|PM|PN|T)
+            expect "$side" "близнец: две обёртки фундамента — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+            expect "$side" "близнец: обёртки названы в переписи" да "$(says "$r" 'обёрток TestMain снято 2')" ;;
+        *)
+            expect "$side" "дефект: та же пара — предмет, ведомость занижена" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+            expect "$side" "дефект: обёрток не снято" да "$(says "$r" 'обёрток TestMain снято 0')" ;;
+    esac
+done
 
 echo
 echo "inject foundation-candidates: сошлось $pass, разошлось $fail"

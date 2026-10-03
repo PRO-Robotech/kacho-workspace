@@ -1,0 +1,75 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md
+  sha256: 0c22212d474395087a4205936998f2e62071cc3d972822df4dd75c2287eb8e6a
+  revision: 9
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 2 о редакции 1 (433b47f2); шапка не правлена намеренно
+    (change-graph.md §2), рецензент её не трогал. Прежние вердикты: ae24921b… (ред. 6) — APPROVED;
+    3c78c5ee…, a0aca460… (ред. 7), a8b67d27… (ред. 8) — CHANGES_REQUESTED; ни один к этому
+    отпечатку не переносится. Действующий вердикт о редакции 9 — эта запись.
+  base_commit: 1f40870948de8b613951ea1368e76adfb7b15fef
+  content_commit: 78b223480924feb8f80fc7ce5dbe1ddcff269114
+  branch: 896-main-gates-green
+  branch_head: 78b223480924feb8f80fc7ce5dbe1ddcff269114
+  pull_request: https://github.com/PRO-Robotech/kacho-workspace/pull/904
+  fingerprint_predicate: >-
+    sha256sum <путь> в копии tmp/ws-896-gates @78b223480 → 0c22212d…; git show 1f4087094:<путь> |
+    sha256sum → a8b67d27…; рабочее дерево по пути чистое. Снято рецензентом самостоятельно.
+  lines: 3274
+  delta_against_previous: >-
+    git diff -U0 1f4087094 78b223480 -- <путь>: ханки @19 (врезка 9), @130, @137, @144 (врезка 8),
+    @208, @214 (врезка 7), @1540, @1542 (§1.8 абзацы над осью «Дано»), @3101 (§8), @3173 (DoD S2),
+    @3194, @3210, @3232 (§9 блок долга, строка 17, п. 2 предиката). Тела сценариев (стр. 2351–2360
+    для 17) ни один ханк не задевает; перечень «Правлены / Не тронуто» врезки 9 сходится с диффом.
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-03T09:59:33Z'
+expected_actor: pointpu
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: 'acceptance-reviewer · APPROVED · 0c22212d474395087a4205936998f2e62071cc3d972822df4dd75c2287eb8e6a'
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publication_mode: courier_of_agent_verdict
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: 'a747e468, 0db91d59, a5261c4f, ae24921b, 3c78c5ee, a0aca460, a8b67d27 — не правлены'
+round_numbering:
+  convention: Круг называется редакцией, которую прочитал.
+  prior_rounds_on_this_fingerprint: none
+change_graph_s3_judgement:
+  scenarios_and_meaning_changed: 'нет — тела сценариев и клаузы «Тогда» не правлены'
+  given_changed: 'нет в тексте; формула производителя сужена до «человек с уровнем входа перед краем» — сверено с деревом'
+  producer_changed: 'да — у машинной отрицательной пары 17 назван положительный близнец на стенде'
+  header_matches: 'да — шапка статична, врезка «РЕДАКЦИЯ 9 — ждёт вердикта», врезка 8 помечена вердиктом круга'
+prior_findings_status:
+  B1_TWIN_a8b67d27: >-
+    закрыта — близнец IAM-ACC-ID-K2-GENERATED назван в §8 (стр. 3101), DoD S2 (стр. 3173), строке 17
+    долга (стр. 3210) и п. 2 предиката снятия (стр. 3232, «на той же ревизии»); формула долга сужена;
+    решение по клаузам 17 записано с основанием (полы Get=1, Delete=2), число 15 обосновано.
+verified_true:
+  - 'kacho@e801c0f7844c prodseed_matrix.py: 851 h_plain, 853 tok_plain_human = user_platform_token, 862/867/869 слоты людей, 675/876 jwtPureNoBindings — SA acctA без выдач (subject(acctA, …) без grants)'
+  - 'iam-account-id-at-create.py: кейс IAM-ACC-ID-K2-GENERATED (стр. 302), jwtPlainHuman, тело {name}, assert_status(200) + конверт Operation, опрос до response.id; страж слота — require_env_slot (третий исход, не молчаливый пропуск)'
+  - 'permission_catalog.json @e801c0f7844c: AccountService/Create <exempt>; Get iam.accounts.get acr 1; Delete acr 2; UserService/Get acr 1; OperationService/Get <exempt> — вывод совпал с врезкой'
+  - 'acr у персонального токена нашего издателя отсутствует — комментарий в prodseed_matrix.py стр. 357–363 и iam-account-id-at-create.py стр. 80–87'
+  - 'git grep -c IAM-INT-1-17 @e801c0f7844c — пусто (rc=1)'
+blocking_findings: []
+non_blocking_findings:
+  - 'Врезка 9 ссылается на prodseed_matrix.py:352; утверждение об отсутствии acr стоит на стр. 357–363 (352 — return предыдущей функции). Координату поправить при следующей правке.'
+  - 'kacho#2571 и предикат KA4a в kacho#2966 называют только 21, 22, 24, 25 — расширить до 10, 12, 14, 15, 16.1, 17 (заказ трекеру вне документа; документ это признаёт).'
+constructibility:
+  seeded: 0
+  of: 1
+  not_executed: 1
+  named_fixture: 'tests/authz-fixtures/prodseed_matrix.py (слоты jwtPlainHuman, jwtPureNoBindings) @kacho e801c0f7844c'
+  reason: 'стенда и разрешения на посев в задании нет; Given близнеца показан названной фикстурой; 15 клауз долга неконструируемы по дереву — это утверждает документ и держит блок долга с предикатом снятия'
+premise:
+  status: подтверждена
+  predicate: 'sha256sum <путь> @78b223480 → 0c22212d…; git show 1f4087094:<путь> | sha256sum → a8b67d27… (запись на ред. 8 есть, на ред. 9 — нет)'
