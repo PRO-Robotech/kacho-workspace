@@ -155,12 +155,12 @@ def main():
     got = nums(mt)
     slack = dict((k, max(0, want[k] - got[k])) for k in KEYS)
 
-    _lib.census("%s: закреплено %s, осмотрено `.go` %d, сравнимых %d, замерено на нём %s; "
-                "объявлено %s; стволы клонов %s%s"
-                % (NAME, revs_line(ps["pins"]), mp["walked"], mp["comparable"],
+    _lib.census("%s: закреплено %s, осмотрено `.go` %d, сравнимых %d, обёрток TestMain "
+                "снято %d, замерено на нём %s; объявлено %s; стволы клонов %s%s"
+                % (NAME, revs_line(ps["pins"]), mp["walked"], mp["comparable"], mp["shims"],
                    fmt(at_pin), fmt(want), revs_line(ps["trunks"]),
-                   ("; осмотрено на них `.go` %d, замерено %s, запас %s"
-                    % (mt["walked"], fmt(got), fmt(slack))) if moved
+                   ("; осмотрено на них `.go` %d, обёрток TestMain снято %d, замерено %s, "
+                    "запас %s" % (mt["walked"], mt["shims"], fmt(got), fmt(slack))) if moved
                    else " — вровень с закреплёнными"))
 
     findings = []

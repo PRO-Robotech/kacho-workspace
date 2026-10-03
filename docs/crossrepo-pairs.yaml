@@ -206,3 +206,15 @@ pairs:
     decision: debt
     issue: PRO-Robotech/kacho#2779
     note: один механизм переходника живёт копиями, и поведение разошлось — у платформы переходник v1 без адресата выходит нулём, у фундамента v2 отказывает (corelib#24); kacho#2779 называет этот переходник одним предметом и требует решения по паре тем же изменением (решение 2026-09-30, kacho-workspace#888)
+  - path: scripts/hooks/install-inject.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#2779
+    note: проба того же переходника, что `scripts/hooks/install.sh` выше; копии у платформы и службы разные (blob f0f9ad7a и 99ef4e3a на 2026-10-03), и решение по переходнику обязано снять их вместе
+  - path: scripts/hooks/commit-msg
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#902
+    note: страж одного правила git тремя копиями с разными предикатами — attribution-rule.sh у платформы, branch-rule.sh у службы, git-rule.sh у фундамента
+  - path: .github/scripts/pr-rule-check.sh
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#902
+    note: тот же страж на запросе слияния — у службы и фундамента, предикаты branch-rule.sh и git-rule.sh

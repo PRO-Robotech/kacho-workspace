@@ -124,6 +124,234 @@ _COMMENT = re.compile(r"^\s*(//|/\*|\*/|\*)")
 _LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 _IMPORT_LINE = re.compile(r'^\s*(?:[A-Za-z_.][\w]*\s+)?"([^"]+)"')
 
+# ОБЁРТКА TestMain — НЕ ПРЕДМЕТ (ws#903). `TestMain` объявляется в КАЖДОМ
+# пакете, которому он нужен: разделить его между пакетами язык не позволяет,
+# поэтому файл, чья ВСЯ работа — вызов пакета фундамента, существует в N
+# копиях по построению, а его предмет уже живёт в фундаменте одним экземпляром.
+# Вынести такой файл некуда, и храповик, считавший его предметом, краснел на
+# каждом новом тестовом пакете со стандартной обёрткой — на штатном состоянии
+# (`cachedverdictmain_test.go` → `corelib/treecorpus`, `testmain_pgtest_test.go`
+# → `corelib/pgtest`).
+#
+# Признак УЗКИЙ и проверяется целиком: файл `_test.go`; объявление верхнего
+# уровня в нём ровно ОДНО, и это `func TestMain(<имя> *testing.M)`; ТЕЛО
+# TestMain — РОВНО одна из форм ЗАКРЫТОГО перечня `SHIM_FORMS` ниже, а не
+# «где-то в теле упомянут пакет фундамента». Вторая функция, тип, переменная
+# или константа рядом — и файл снова предмет; любая иная строка тела — тоже:
+# копируемая логика уже не только вызов фундамента.
+#
+# Почему тело судится ФОРМОЙ, а не поиском имени (возврат check-verifier,
+# ws#903). Первая редакция засчитывала обёрткой тело, в котором имя пакета
+# фундамента встречалось хоть раз — и хвостовой комментарий строки
+# (`os.Exit(m.Run()) // pgtest.Run(…)`) этим упоминанием был, и лишний
+# `os.Setenv` перед вызовом файл из обёрток не выводил. На живых стволах
+# 2026-10-03 так снималась `kaname:internal/repo/kaname/pg/testmain_test.go`:
+# её тело собирает модель процесса и судит окружение до вызова фундамента —
+# это предмет, а не обёртка. Комментарии снимаются РАЗБОРОМ лексем (строковые
+# литералы целы, `//` внутри строки комментарием не считается), пробелы вне
+# литералов сжимаются, и сжатое тело сверяется с формой ЦЕЛИКОМ.
+#
+# ЗАКРЫТЫЙ перечень законных форм — ровно те, которыми обёртки записаны на
+# стволах (выведено обходом `Tree.shims` по трём стволам 2026-10-03, ось L
+# `inject.sh` держит каждую законным близнецом):
+#   pgtest-exit   `os.Exit(pgtest.Run(m, pgtest.Config{…}))`;
+#   pgtest-bare   `pgtest.Run(m, pgtest.Config{…})` — без `os.Exit`;
+#   treecorpus    `if msg := treecorpus.CachedVerdictRefusal(); msg != "" {
+#                 fmt.Fprintln(os.Stderr, "<метка>"+msg); os.Exit(1) };
+#                 os.Exit(m.Run())`.
+# `Config{…}` — однострочный или многострочный составной литерал; каждое его
+# поле — `Имя: выражение`, и выражение не несёт функционального литерала
+# (`func(`): логика, спрятанная в значение поля, — тоже иная строка тела.
+# Новая форма обёртки заводится строкой этого перечня И близнецом оси L, а не
+# расширением образца: без близнеца её законность ничем не доказана.
+_TOPDECL = re.compile(r"^(func|type|var|const)\b")
+_TESTMAIN = re.compile(r"^func\s+TestMain\s*\(\s*(\w+)\s+\*testing\.M\s*\)\s*\{")
+_IMPORT_NAMED = re.compile(r'^\s*(?:([A-Za-z_][\w]*)\s+)?"([^"]+)"')
+
+PGTEST = FOUNDATION_MODULE + "/pgtest"
+TREECORPUS = FOUNDATION_MODULE + "/treecorpus"
+SHIM_FORMS = ("pgtest-exit", "pgtest-bare", "treecorpus")
+
+
+def strip_go_comments(text):
+    """Текст без комментариев; литералы целы, переводы строк сохранены.
+
+    Разбор лексем, а не образец по строке: `//` внутри строкового литерала —
+    не комментарий, а хвостовой `// …` после кода — комментарий. Блочный
+    комментарий заменяется пробелом (и своими переводами строк), чтобы строки
+    файла не сливались.
+    """
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "/" and text.startswith("//", i):
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if c == "/" and text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append(" " + "\n" * text.count("\n", i, j))
+            i = j
+            continue
+        if c in "\"'`":
+            j = i + 1
+            while j < n and text[j] != c:
+                if c != "`" and text[j] == "\\":
+                    j += 1
+                elif c != "`" and text[j] == "\n":
+                    break
+                j += 1
+            out.append(text[i:j + 1])
+            i = j + 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _squeeze(code):
+    """Пробелы вне литералов сняты; строка — `""` пустая, `"S"` непустая; руна — `'R'`."""
+    out, i, n = [], 0, len(code)
+    while i < n:
+        c = code[i]
+        if c in "\"`'":
+            j = i + 1
+            while j < n and code[j] != c:
+                j += 2 if (c != "`" and code[j] == "\\") else 1
+            out.append("'R'" if c == "'" else ('""' if j == i + 1 else '"S"'))
+            i = j + 1
+            continue
+        if not c.isspace():
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _closing(s, i):
+    """Индекс скобки, закрывающей открывающую `s[i]`, либо -1 (литералы уже сжаты)."""
+    pair = {"(": ")", "{": "}", "[": "]"}
+    stack = []
+    for j in range(i, len(s)):
+        if s[j] in pair:
+            stack.append(pair[s[j]])
+        elif s[j] in ")}]":
+            if not stack or stack.pop() != s[j]:
+                return -1
+            if not stack:
+                return j
+    return -1
+
+
+def _top_split(s, sep=","):
+    parts, depth, cur = [], 0, []
+    for ch in s:
+        if ch in "({[":
+            depth += 1
+        elif ch in ")}]":
+            depth -= 1
+        if ch == sep and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+            continue
+        cur.append(ch)
+    parts.append("".join(cur))
+    return parts
+
+
+_CFG_FIELD = re.compile(r"^[A-Z]\w*:.+$")
+
+
+def _config_ok(inner):
+    """Поля составного литерала `Config{…}`: каждое `Имя: выражение` без `func(`."""
+    fields = [f for f in _top_split(inner) if f != ""]
+    return bool(fields) and all(_CFG_FIELD.match(f) and "func(" not in f for f in fields)
+
+
+def _pgtest_form(body, m, alias, std_os):
+    """Имя законной формы pgtest для сжатого тела либо None."""
+    for form, head, tail in (("pgtest-exit", "os.Exit(%s.Run(%s,%s.Config{" % (alias, m, alias), "}))"),
+                             ("pgtest-bare", "%s.Run(%s,%s.Config{" % (alias, m, alias), "})")):
+        if form == "pgtest-exit" and not std_os:
+            continue
+        if not body.startswith(head):
+            continue
+        brace = len(head) - 1
+        close = _closing(body, brace)
+        if close < 0 or body[close:] != tail:
+            continue
+        inner = body[brace + 1:close]
+        if inner.endswith(","):
+            inner = inner[:-1]
+        if _config_ok(inner):
+            return form
+    return None
+
+
+def _treecorpus_form(body, m, alias):
+    pat = (r'^if(\w+):=%s\.CachedVerdictRefusal\(\);\1!=""\{'
+           r'fmt\.Fprintln\(os\.Stderr,"S"\+\1\)os\.Exit\(1\)\}'
+           r'os\.Exit\(%s\.Run\(\)\)$') % (re.escape(alias), re.escape(m))
+    return "treecorpus" if re.match(pat, body) else None
+
+
+def testmain_shim(rel, text):
+    """Путь импорта фундамента, который зовёт обёртка `TestMain`, либо None.
+
+    Обёртка — только файл, у которого тело TestMain целиком совпадает с одной из
+    форм `SHIM_FORMS`; см. шапку выше.
+    """
+    if not rel.endswith("_test.go"):
+        return None
+    code = strip_go_comments(text)
+    names, inside, decls = {}, False, []
+    for raw in code.split("\n"):
+        st = raw.strip()
+        if st.startswith("import ("):
+            inside = True
+            continue
+        if inside:
+            if st.startswith(")"):
+                inside = False
+                continue
+            mm = _IMPORT_NAMED.match(raw)
+            if mm:
+                names[mm.group(1) or mm.group(2).rsplit("/", 1)[-1]] = mm.group(2)
+            continue
+        if st.startswith("import "):
+            mm = _IMPORT_NAMED.match(st[len("import "):])
+            if mm:
+                names[mm.group(1) or mm.group(2).rsplit("/", 1)[-1]] = mm.group(2)
+            continue
+        if _TOPDECL.match(raw):
+            decls.append(raw)
+    if len(decls) != 1:
+        return None
+    head = _TESTMAIN.match(decls[0])
+    if not head:
+        return None
+    m = head.group(1)
+    squeezed = _squeeze(code)
+    start = squeezed.find("funcTestMain(")
+    if start < 0:
+        return None
+    brace = squeezed.find("{", start)
+    close = _closing(squeezed, brace)
+    if close < 0:
+        return None
+    body = squeezed[brace + 1:close]
+    by_path = dict((path, name) for name, path in names.items())
+    alias = by_path.get(PGTEST)
+    # `os` и `fmt` в формах — пакеты стандартной библиотеки, а не одноимённый
+    # импорт продукта: иначе `os.Exit` под чужим именем прошёл бы формой.
+    std_os, std_fmt = names.get("os") == "os", names.get("fmt") == "fmt"
+    if alias and _pgtest_form(body, m, alias, std_os):
+        return PGTEST
+    alias = by_path.get(TREECORPUS)
+    if alias and std_os and std_fmt and _treecorpus_form(body, m, alias):
+        return TREECORPUS
+    return None
+
 
 def clone(root, name):
     """Путь клона продукта либо None. Тот же порядок, что у crossrepo-gate."""
@@ -411,11 +639,15 @@ class Tree(object):
         self.paths = go_paths(repo, ref) or []
         self.text = read_blobs(repo, ref, self.paths)
         self.norm, self.pkg_imports, self.pkg_literals, self.pkg_files = {}, {}, {}, {}
+        self.shims = set()
         for p, t in self.text.items():
             d = os.path.dirname(p)
             self.pkg_files.setdefault(d, []).append(p)
             self.pkg_imports.setdefault(d, set()).update(imports_of(t))
             self.pkg_literals.setdefault(d, set()).update(literals_of(t))
+            if testmain_shim(p, t):
+                self.shims.add(p)
+                continue
             lines = normalize(t)
             if len(lines) >= MIN_LINES:
                 self.norm[p] = lines
@@ -750,6 +982,7 @@ def measure(root, threshold=0.70, relicense_busl=False, relicense_agpl=False, re
         "trees": {n: (t.repo, t.ref, getattr(t, "sha", t.ref), len(t.paths))
                   for n, t in trees.items()},
         "walked": walked, "comparable": comparable, "threshold": threshold,
+        "shims": sum(len(t.shims) for t in trees.values()),
         "subjects": len(subjects), "subject_files": subject_files,
         "second_home_dirs": second_home_dirs,
         # Файлы КАЖДОГО пакета ствола: этим `check-01` проверяет, что координата
