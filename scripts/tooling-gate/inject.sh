@@ -1409,6 +1409,28 @@ if mr_patch "$b/$MR_REL" \
     "признак уровня другой записью"; then
     run 0 "$b" "близнец: признак уровня каскада другой записью — молчит" "$C09"
 fi
+# Подсказка исполнима в репозитории PR (ws#910): kaname отвергает голову `tmp/*` и
+# `<N>-<суть>` — ветка там голый номер задачи. Порча снимает kaname-форму, подсказка
+# kaname уходит в общую — краснеет CL-DOWN-KANAME; порча общей формы в `tmp/sync-…`
+# — CL-DOWN. Близнец пишет выбор репозитория другим образцом и молчит.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^    pro-robotech\/kaname\) printf .*\n//m' \
+    "kaname-форма ветки синхронизации снята"; then
+    run_c09_red "$b" "инъекция: kaname получает форму <N>-sync-…, которую отвергает его правило ветки — краснеет" CL-DOWN-KANAME
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(    \*\) printf \x27)<N>-sync-%s-into-%s(\x27)/$1tmp\/sync-%s-into-%s$2/m' \
+    "общая форма — tmp/sync-…"; then
+    run_c09_red "$b" "инъекция: общая форма ветки синхронизации — tmp/sync-…, черновик без проверок — краснеет" CL-DOWN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^    pro-robotech\/kaname\) printf/    *\/kaname) printf/m' \
+    "выбор репозитория другим образцом"; then
+    run 0 "$b" "близнец: kaname узнаётся образцом */kaname — молчит" "$C09"
+fi
 
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C09"
