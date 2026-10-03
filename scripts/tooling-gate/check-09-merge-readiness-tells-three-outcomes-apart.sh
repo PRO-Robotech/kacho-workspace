@@ -170,7 +170,7 @@ mkcase() {
 # mk_issue <каталог> <номер> <дочерних> [<метка>...] — ответ о задаче ветки головы.
 mk_issue() {
     local d="$1" n="$2" subs="$3"; shift 3
-    printf '%s\n' "$@" | jq -R 'select(. != "") | {name: .}' | jq -s \
+    printf '%s\n' "$@" | jq -R 'select(length > 0) | {name: .}' | jq -s \
         --argjson n "$n" --argjson s "$subs" \
         '{number: $n, labels: ., sub_issues_summary: {total: $s, completed: 0}}' > "$d/issue@$n.json"
 }
