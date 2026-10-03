@@ -1,0 +1,164 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  sha256: 5abe23366aa798859b4b04360d18ec5bfdd9c31aced44b050da3621ce5ef2bd8
+  revision: 20
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке строка редакции 20 говорит «вердикта на неё НЕТ». Эта запись шапку не правит, так и
+    задумано: вердикт привязан к отпечатку, а не к слову в заголовке.
+  base_commit: 842a3eb8b95872529770c42b031fa3fa99b2065c
+  content_commit: null
+  content_commit_note: >-
+    Редакция 20 не закоммичена и лежит в рабочем дереве ветки issue-880. `git show HEAD:<путь> |
+    sha256sum` даёт 1bffe10d… (редакция 19, одобрена). Рабочий файл даёт 5abe2336…. Судится
+    рабочий файл по его отпечатку.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+  fingerprint_reproduced: true
+  lines: 3190
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-03T12:00:00Z'
+round: 1
+round_note: >-
+  Это круг 1 прохода редакции 20, а по документу в целом — круг двадцатый. Судится только дельта
+  `git diff HEAD -- <путь>` против одобренной 1bffe10d…: добавлена 181 строка, удалено 4. Предмет
+  дельты — Р19 и группа P (NTF1-P01…P12), перенесённые из NTF-4 решением владельца 2026-10-03 (Д96).
+  Разделы, которых дельта не касается, заново не открываются. Исключение — сценарии, у которых дельта
+  меняет условие конструируемости (блокирующее 2).
+previous_rounds:
+  - {round: "19 (круг 1 прохода редакции 19)", sha256: 1bffe10dcbb26621e3007460e6d027096d69d5488b09acc6fea905d7172fe6c0, verdict: APPROVED}
+  - {round: "18", sha256: 29cfa368c3f1ecd9803fb83bc7424bf716584006ad6e4a5fb2a3a8ff101e08e7, verdict: APPROVED}
+previous_rounds_records_dir: docs/specs/reviews/sub-phase-NTF-1-notification-gateway-core-acceptance/
+
+delta_passed:
+  producer: >-
+    Каждый «Тогда» группы P входит в строку §6.1: P01 — в две строки (стенд и integration), P02 и
+    P03 — сквозные на стенде, P04–P09 и P10–P11 — `services/notify/internal/dnscheck`, P12 — держатель
+    профилей чарта с инъекцией `dnsConfig` в `values.prod.yaml`. Способность упасть для P04–P08
+    задаёт инъекция «страж сведён к `return nil`». P09 правильно исключён из этой инъекции.
+  twins: >-
+    Отрицаний шесть: P03, P04…P07, P08, P10 и половина P12. У каждого есть близнец в §6.2, и каждый
+    отличается ровно одним фактом.
+  transfer_fidelity: >-
+    Сверено с HEAD-редакцией NTF-4. NTF4-40, 41, 70, 42…45, 48…52 перенесены, их «Тогда» не ослаблены.
+    Исключения названы в Р19: NTF4-46, 47, 75, 76, 79. Подмена Given P02 (письмо L01 вместо письма
+    kaname) и Given P10 (фикстурный источник kaname) объяснена в §9 стр. 20 и законна.
+  scope: >-
+    Решение владельца записано в О17 и в шапке, §4 строка NTF-4 сужена согласованно. Состояние
+    envelope `MAIL FROM` «на посадку NTF-1» объявлено явно, в той же форме, что у Р1 и G19.
+
+blocking_count: 2
+blocking_kinds_distinct: [COVERAGE, CONSTRUCTIBILITY]
+blocking_findings:
+  - id: R20-1
+    kind: COVERAGE
+    where: "Р19, «Ручки и границы» (стр. 1374–1381); §6.1; DoD 20–23"
+    claim: >-
+      Р19 утверждает, что незаданная ручка или значение вне границы — это отказ в старте с именем
+      ручки и границы, для `KACHO_NOTIFY_DNS_BOOT_DEADLINE` (10 с … 10 мин) и
+      `KACHO_NOTIFY_DNS_RECHECK_INTERVAL` (1 мин … 24 ч). В NTF-1 ни один сценарий и ни один держатель
+      этого не утверждает. NTF1-H08 перечисляет только ручки Р10. В NTF-4 эти две ручки держала проба
+      `required_knobs_test.go`: она судит обе стороны каждой границы и снятие каждой ручки (HEAD NTF-4
+      §8 стр. 3610). Новая редакция NTF-4 исключила их из своей группы (стр. 1348 и 4572: «в перечне их
+      нет»). При переносе держатель потерян, и это противоречит фразе Р19 «Содержание не ослаблено».
+    predicate: >-
+      grep -n 'DNS_BOOT_DEADLINE\|DNS_RECHECK_INTERVAL' <NTF-1> — вхождения только в Р19, P08–P11,
+      §6.2 и §9. Ни в одном Given или When нет значения вне границы или незаданного значения.
+    fix: >-
+      Нужен сценарий с близнецом. Например, NTF1-P13: каждая из двух ручек по отдельности не задана,
+      задана за нижней границей или за верхней → отказ старта с именем ручки и нарушенной границей.
+      Близнец — значения ровно на границах, notify стартует. Добавить строку §6.1 на загрузчик notify
+      (`services/notify/internal/config/*_test.go`, как у H08) с инъекцией снятой границы. Добавить
+      P13 в DoD 20.
+  - id: R20-2
+    kind: CONSTRUCTIBILITY
+    where: "Р19 «Отказ закрытый», «Резолвер»; средства стр. 1488–1489; NTF1-I06 (стр. 2569); DoD 17 и 22; integration-стенды групп G, H, K, L03–L05"
+    claim: >-
+      После S6 каждый старт notify требует исправной зоны DNS домена `From`, видимой резолвером пода
+      или портом резолвера. Иначе notify отказывает в старте или не готов до
+      `KACHO_NOTIFY_DNS_BOOT_DEADLINE`. Средство «зона DNS испытания» названо только для P01, P04–P11,
+      а «зона стенда» — только для P01–P03. При этом в Given не сказано, откуда исправная зона берётся:
+      (а) у NTF1-I06 — отдельный чарт notify с собственными значениями ставится на кластере
+      `production-posture.yml` и утверждает «rollout notify готов»;
+      (б) у DoD 22 — «`helm install` в боевой посадке с этими значениями доходит до готовности», хотя
+      в `values.prod.yaml` переопределения `dnsConfig` по P12 нет, а реальной зоны домена `From` у
+      кластера CI нет;
+      (в) у прочих integration-стартов notify (G, H, K01–K03, L03–L05), которые теперь проходят через
+      страж.
+      Сценарии (а) и (в) одобрены на прежних отпечатках. Дельта меняет условие их конструируемости,
+      поэтому они входят в её предмет. Названия у таких Given нет — это класс «Given описан, но не
+      построится».
+    predicate: >-
+      grep -n 'зон[аыу] DNS' <NTF-1> — 9 вхождений, из них ни одно не относится к I06, DoD 17, G, H, K
+      или L. В строке I06 §6.1 стоит `deploy/tests/helm/notify-standalone-test.sh` и
+      `production-posture.yml`, а зоны нет.
+    fix: >-
+      В средствах написать одной строкой: «каждый integration-старт notify получает исправную зону
+      испытания P01 через порт резолвера». В Given I06 и в DoD 22 назвать, на каком профиле идёт
+      установка и откуда зона: стендовый профиль с `dnsConfig` и посевом либо зона испытания на
+      кластере CI. Если установка в боевой посадке без зоны не может стать готовой, переформулировать
+      DoD 22 как ожидаемый отказ старта с именем проверки, у которого близнец — стендовый профиль.
+
+non_blocking:
+  - kind: COVERAGE
+    note: >-
+      У RSA короче 2048 бит, у отсутствия ключа или селектора в объекте секрета и у отсутствия записи
+      DMARC или DKIM нет отрицательного сценария. Этот пробел перенесён из NTF-4 без изменений и не
+      внесён дельтой. Рекомендую добавить его вместе с R20-1.
+  - kind: FORMAT
+    note: >-
+      Строка в шапке говорит, что производители — «страж старта и подпись `services/notify`». В §9 они
+      названы через пакеты `dnscheck` и `dkim`. Разночтения нет, но формулировку в шапке лучше
+      выровнять по §9.
+
+out_of_subject_notes:
+  - >-
+    Оговорка автора о В1: часть «Основы» из NTF-3 зависит от NTF-4. Это не предмет этого документа,
+    его решают диспетчер и владелец.
+  - >-
+    Правка NTF-4 (снятие 40…52, ручек и строк счёта) — отдельный документ со своим отпечатком.
+    Вердикт об NTF-1 её не судит.
+
+measurement:
+  fingerprint: "sha256sum <путь> → 5abe2336…; git show HEAD:<путь> | sha256sum → 1bffe10d… (одобрена)"
+  delta: "git diff --numstat HEAD -- <путь> → 181 добавлено, 4 удалено"
+  transfer_source: "git show HEAD:docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md (до правки)"
+  seeding: >-
+    Посев не ставился: стенда и фикстуры зоны в дереве ещё нет, задание посев не называло.
+    Конструируемость P04–P11 (две записи `v=spf1`, `+all`, `p=none`, SERVFAIL, смена записи под
+    управляемыми часами) обоснована названной фикстурой «зона DNS испытания» с управляемыми записями
+    и отказами. Посеяно 0 из 12, «не выполнилось» 12.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 842a3eb8b95872529770c42b031fa3fa99b2065c
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2915
+  role: acceptance-reviewer
+  subject_sha256: 5abe23366aa798859b4b04360d18ec5bfdd9c31aced44b050da3621ce5ef2bd8
+  declared_verdict: 'CHANGES_REQUESTED'
+  policy_field: review_authority.acceptance-reviewer
+  record_event_type: acceptance_review
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: "Рецензент событие не публикует. Тело для курьера лежит в event_body_for_courier."
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 прохода редакции 20, блокирующих 2: COVERAGE,
+    CONSTRUCTIBILITY) · SHA-256 5abe23366aa798859b4b04360d18ec5bfdd9c31aced44b050da3621ce5ef2bd8
