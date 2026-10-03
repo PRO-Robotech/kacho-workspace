@@ -1,0 +1,104 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 3 — эта запись и внешнее событие.
+  base_commit: 9fb4acd99f9da30bc629d61c2a9e26106cdc0436
+  content_commit: 0453c1d0502ddf7c7ac38e7923505bca9aa2d9fa
+  branch: 897-ka1-acceptance (локальная, не отправлена)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 758
+  code_base: PRO-Robotech/kacho @ e801c0f7844c06727947fca7f32ffac9b006ea1b
+verdict: CHANGES_REQUESTED
+round: 2
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-03T00:00:00Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315.yaml (круг 1, редакция 2)
+
+prior_round_blockers:
+  B1_KA1-24_constructibility: снят — уровень П10, ручка потока 5s/2s; NewHandler требует лишь StreamBudget > Heartbeat (handler.go:153)
+  B2_P3_email_verified: снят — П3 несёт EmailVerified=true
+  B3_KA1-11n_twin: снят — близнец (н) — тот же токен без cnf.jkt
+  B4_DoD_red_split: снят — таблица «уровень и исход на базе», DoD выведен из неё
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    where: KA1-14, близнец «уровень 2» причины (к) KA1-10 и KA1-11
+    claim: >-
+      Базового удостоверения уровня 2 не существует: уровень полосы — константа «1»,
+      проставляемая каждому удостоверению; посев П3 тоже заводит только уровень 1. Близнец
+      не строится, и отказ (к) неотличим от «полосы нет».
+    evidence:
+      code: "gateway/internal/middleware/basic_credential_lane.go:41 (const BasicCredentialLevel = \"1\"), :236 (AuthenticationLevel: BasicCredentialLevel)"
+    fix: >-
+      Близнец (к) — тот же bas-00000000000000ka1 на глаголе без пола (или с полом 1) → 200 / OK;
+      отличие — один факт, пол глагола. Для нативной строки (к) назвать в П5 пол на методе ProbeService/Ping.
+  - id: B2
+    kind: CONSTRUCTIBILITY
+    where: KA1-32, раздел «Посев» («пробы старта … засеивают только окружение процесса»)
+    claim: >-
+      «Тогда» требует 200 на GET /iam/v1/accounts и ответ KA1-01 при молчащем авторитете, то есть
+      набор ключей по «адресу набора харнесса», авторитет отзыва нашей чеканки для
+      issuer.example.test (П1 — для kaname.kacho.local) и путь до обработчика. Посев объявлен
+      «только окружение», а на уровне процесса 200 на этом маршруте требует ещё каталог прав и
+      владельца выдачи. Уровень «старт процесса и харнесс» не говорит, как харнесс получает
+      разобранную процессом конфигурацию.
+    fix: >-
+      Разделить: (1) старт процесса с тремя объявлениями — стартует; (2) харнесс слоя
+      аутентификации, собранный из конфигурации, разобранной тем же загрузчиком, с записью
+      П7-подобного набора и авторитетом нашей чеканки для issuer.example.test (новая строка посева).
+  - id: B3
+    kind: COVERAGE
+    where: Р4, строка KACHO_API_GATEWAY_IDENTITY_CALL_BUDGET — «а также отзыв сессий при выходе»
+    claim: >-
+      Решение без сценария и без исхода: ни один сценарий не утверждает бюджет на Revoke выхода,
+      а «исход превышения» Р4 называет только путь аутентификации (503) и мост (504). Выход
+      сегодня best-effort — 200 с warnings при сбое отзыва, свой срок 5s. Реализация вправе
+      не тронуть этот вызов, и ничего не покраснеет.
+    evidence:
+      code: gateway/internal/handler/logout_handler.go — context.WithTimeout(…, 5*time.Second) вокруг Verify и Revoke; «Failures … do not surface as HTTP 5xx»
+    fix: >-
+      Назвать исход (200 c warnings в пределах бюджета, отказ не меняется) и добавить сценарий
+      с близнецом: Revoke дублёра молчит → ответ выхода раньше бюджета+допуск; Revoke отвечает → 200 без warnings.
+
+non_blocking:
+  - KA1-24 помечен «зелен до и после», но его «Дано» называет ручки, которых на базе нет — до S2 проба не собирается; честнее «зелена на голове S2 с первой сборки».
+  - KA1-10 (к) в таблице уровня назван без каталога П5 — назвать, как у KA1-15.
+  - KA1-31 «зелен до» на базе только по коду отказа; форма Р2 — с головы S1 (в таблице сказано, оставить).
+
+checks:
+  scope: да (Что НЕ входит есть; over/under-scope не найден; roadmap §3 предмета не держит — scope по задачам, как у F1b)
+  producer_per_then: 25 из 25
+  twin_per_negative: 1 разрыв (B1 — близнец назван, но не строится)
+  constructibility: >-
+    прочитано кодом 3 (KA1-24 П10: handler.go:153 при 5s/2s проходит; П3 уровень базового — B1;
+    logout — B3); не выполнилось — посев харнессов П1–П10 (заводятся) не ставился: стенд и
+    копия kacho для посева заданием не названы
+  open_questions: 0
+repeat_class_note: >-
+  Род CONSTRUCTIBILITY повторился второй круг подряд (круг 1: 2, круг 2: 2; близнец, которого
+  нет по построению, — оба раза). Блокирующих 4 → 3, убывает.
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}
