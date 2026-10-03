@@ -2413,6 +2413,16 @@ echo "== commit-msg: трейлер атрибуции отвергается х
 # ПРИНАДЛЕЖНОСТЬ КРАСНОГО. Та же инъекция без `scripts/hooks/commit-msg` обязана
 # ПРОЙТИ с «проверок НЕ БЫЛО» — иначе отказ мог бы прийти от чего угодно, кроме хука.
 
+# Подпись песочницы — корневая учётная запись вызывающего в своём HOME
+# (`scripts/lib/sandbox-git-home.sh`, ws#785; держит check-16): переопределения на
+# репозиторий здесь нет. Корневой подписи нет — пробам не с чего взять подпись,
+# и это срыв предпосылки, а не красное.
+# shellcheck source=scripts/lib/sandbox-git-home.sh
+. "$WS/scripts/lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/hookhome" ||
+    premise_broken "корневой подписи нет — пробам commit-msg не с чего взять подпись"
+premise_or_void
+
 # mkhookrepo <с-хуком: 1|0> — печатает путь репозитория с провязанными хуками.
 mkhookrepo() {
     local with="$1" dir
@@ -2420,9 +2430,8 @@ mkhookrepo() {
     (
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
         cd "$dir" || exit 1
+        git() { sandbox_git "$@"; }
         git init -q
-        git config user.name "inject"
-        git config user.email "inject@invalid"
         git config commit.gpgsign false
         mkdir -p scripts/hooks
         cp "$WS/scripts/hooks/install.sh" scripts/hooks/
@@ -2448,7 +2457,7 @@ runcommit() {
     git -C "$repo" add f.txt
     out="$(
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
-        cd "$repo" && git commit "$@" 2>&1
+        cd "$repo" && sandbox_git commit "$@" 2>&1
     )"
     after="$(git -C "$repo" rev-parse HEAD 2>/dev/null)"
     if [ "$before" = "$after" ]; then got=reject; else got=accept; fi
@@ -2495,7 +2504,8 @@ runcommit accept "$h" "близнец: имя трейлера в середин
     -m "fix: предмет" -m "Правило запрещает строку Co-Authored-By: в теле коммита."
 GIT_EDITOR="$ED_COMMENT" runcommit accept "$h" "близнец: трейлер в строке комментария (# ...) — принят" "" -- \
     -e -m "fix: предмет" -m "Почему верно."
-if git -C "$h" log -1 --format=%B | grep -qi 'co-authored-by'; then
+last_msg="$(git -C "$h" log -1 --format=%B)"
+if grep -qi 'co-authored-by' <<<"$last_msg"; then
     probes=$((probes + 1)); failed=$((failed + 1))
     echo "  ПРОВАЛ близнец-комментарий: строка комментария попала в коммит — проба не про то" >&2
 fi
