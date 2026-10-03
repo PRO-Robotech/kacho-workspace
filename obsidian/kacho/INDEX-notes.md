@@ -352,7 +352,7 @@ tags:
 | [[edges/iam-to-apigw-cache-invalidation\|kacho-iam → kacho-api-gateway (authz-cache invalidation push)]] | история (superseded) |
 | [[edges/iam-to-clickhouse-audit\|iam ↔ clickhouse: audit query interface]] | в работе (planned) |
 | [[edges/iam-to-hsm\|iam → hsm: PKCS#11 signing]] | в работе (planned) |
-| [[edges/iam-to-hydra-admin\|iam → hydra-admin: OAuth2 client lifecycle]] | живо (active) |
+| [[edges/iam-to-hydra-admin\|iam → hydra-admin: OAuth2 client lifecycle]] | история (superseded) |
 | [[edges/iam-to-jackson-saml\|iam → jackson: SAML bridge]] | история (deprecated) |
 | [[edges/iam-to-kafka-audit\|iam → kafka: audit event producer]] | в работе (planned) |
 | [[edges/iam-to-kratos-admin\|iam → kratos-admin: Identity / Session lifecycle]] | в работе (planned) |
