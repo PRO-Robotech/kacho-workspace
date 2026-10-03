@@ -133,6 +133,18 @@ put() {
     advance kacho
 }
 
+# pins <тело блока или прозы> — PROVENANCE.md у СОСЕДНЕГО каталога `vendored/`;
+# проба лежит в `deps/x/`, предка с PROVENANCE.md у неё нет. Ввезённой её
+# делает только строка `local_path:` машинного блока (ws#896).
+pins() {
+    mkdir -p "$TMP/root/project/kacho/vendored" "$TMP/root/project/kacho/deps/x"
+    printf '%s\n' "$1" > "$TMP/root/project/kacho/vendored/PROVENANCE.md"
+}
+PIN_PROBE='package x
+
+// The upstream keeps this comment verbatim for the diff to stay empty.
+func f() {}'
+
 echo "── ОСИ КРАСНОТЫ: гейт обязан упасть ────────────────────────────────────"
 
 reset_tree
@@ -192,6 +204,23 @@ ledger
 axis "G дефект: та же шапка ПРОЗОЙ" 1 "метки SPDX в строке нет"
 
 reset_tree
+pins 'Зависимость внесена рядом.
+
+local_path: deps/x'
+put deps/x/probe.go "$PIN_PROBE"
+ledger
+axis "U дефект: local_path прозой, вне блока" 1 "строка не в блоке upstream-pins — проба не ввезена" "ввезённых 0"
+
+reset_tree
+pins '```upstream-pins
+upstream_module: example.org/up
+local_path: deps/y
+```'
+put deps/x/probe.go "$PIN_PROBE"
+ledger
+axis "V дефект: блок называет другой каталог" 1 "local_path не тот каталог — проба не ввезена" "ввезённых 0"
+
+reset_tree
 ledger "kacho=${BASE[kacho]}:1:1:1"
 axis "H ведомость не воспроизводится" 1 "на закреплённой объявлено больше замера" "НЕ ВОСПРОИЗВОДИТСЯ"
 
@@ -240,6 +269,15 @@ put vendored/probe.go 'package vendored
 func f() {}'
 ledger
 axis "D близнец: ввезённое поддерево" 0 "рядом PROVENANCE.md — И4"
+
+reset_tree
+pins '```upstream-pins
+upstream_module: example.org/up
+local_path: deps/x
+```'
+put deps/x/probe.go "$PIN_PROBE"
+ledger
+axis "U/V близнец: local_path в блоке пинов" 0 "каталог назван записью происхождения — И4"
 
 reset_tree
 put probe.go 'package probe

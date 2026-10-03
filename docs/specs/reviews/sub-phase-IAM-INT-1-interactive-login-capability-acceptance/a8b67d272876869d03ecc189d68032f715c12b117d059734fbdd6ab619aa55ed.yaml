@@ -1,0 +1,91 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md
+  sha256: a8b67d272876869d03ecc189d68032f715c12b117d059734fbdd6ab619aa55ed
+  revision: 8
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 2 о редакции 1 (433b47f2); шапка не правлена намеренно
+    (change-graph.md §2), рецензент её не трогал. Действующие вердикты: ae24921b… (ред. 6) —
+    APPROVED; 3c78c5ee… (правка 58559cf3d) и a0aca460… (ред. 7) — CHANGES_REQUESTED; ни один
+    к этому отпечатку не переносится.
+  base_commit: d39040230bcde8c7d3c5429e7db6642e1f950f7a
+  content_commit: 1f40870948de8b613951ea1368e76adfb7b15fef
+  branch: 896-main-gates-green
+  branch_head: 1f40870948de8b613951ea1368e76adfb7b15fef
+  pull_request: https://github.com/PRO-Robotech/kacho-workspace/pull/904
+  fingerprint_predicate: >-
+    sha256sum <путь> в копии tmp/ws-896-gates @1f4087094 → a8b67d27…; git show 44fe8dd85:<путь> |
+    sha256sum → 3c78c5ee…; git show d39040230:<путь> | sha256sum → a0aca460…; рабочее дерево по
+    пути чистое. Снято рецензентом самостоятельно.
+  lines: 3178
+  delta_against_previous: >-
+    git diff -U0 d39040230 1f4087094 -- <путь>: ханки @19 и @72 (врезки 8 и 7), @1399–1405 (§1.8
+    ось «Дано»: абзац ред. 8, строки 12, 14, 16, 22), @2952–2955 (§8), @2968, @3023, @3034, @3041
+    (§9: DoD S1/S2/S3 и блок «Долг стенда»). Ни один ханк не попадает в тела сценариев
+    (стр. 2100–2752 новой редакции).
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-03T09:18:58Z'
+expected_actor: pointpu
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: 'acceptance-reviewer · CHANGES_REQUESTED · a8b67d272876869d03ecc189d68032f715c12b117d059734fbdd6ab619aa55ed'
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publication_mode: courier_of_agent_verdict
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: 'a747e468, 0db91d59, a5261c4f, ae24921b, 3c78c5ee, a0aca460 — не правлены'
+round_numbering:
+  convention: Круг называется редакцией, которую прочитал.
+  prior_rounds_on_this_fingerprint: none
+change_graph_s3_judgement:
+  scenarios_and_meaning_changed: 'нет — тела сценариев и клаузы «Тогда» не правлены (ханки вне стр. 2100–2752)'
+  given_changed: 'нет в тексте; производитель «Дано» 10/12/14/15/16.1/17/22 на стенде — «никто», это сказано'
+  producer_changed: 'да — задача на производителя названа (kacho#2571); DoD S1/S2/S3 переведены на долг с числом 15'
+  header_matches: 'да — шапка статична, врезка «РЕДАКЦИЯ 8 — ждёт вердикта» с перечнем правленого и нетронутого'
+prior_findings_status:
+  B1_DoD_a0aca460: 'закрыта по форме — блок «Долг стенда», число 15, предикат снятия из трёх пунктов, задача названа'
+verified_true:
+  - 'awk-перепись врезки воспроизведена: 14 сценариев (10 12 14 15 16 17 18 21 22 24 25 28 30 33)'
+  - 'счёт клауз 10:2, 12:2, 14:3, 15:2, 16.1:1, 17:2, 22:3 = 15 — сверено с телами сценариев (стр. 2103–2275, 2420–2431)'
+  - 'kacho#2571 OPEN, P1, blocked; тело называет только 21, 22, 24, 25 и «производители в дереве есть» — врезка говорит это честно'
+  - 'kacho#2966 стр. 30: предикат KA4a для #2571 — «IAM-INT-1-21/22/24/25» — полоса KA4a подтверждена'
+blocking_findings:
+  - id: B1
+    kind: TWIN
+    sign: >-
+      §8 (стр. 3008) и DoD S2 (стр. 3080) оставляют в DoD «машинную отрицательную пару 17» как кейс
+      стенда, а её положительную половину (человек создаёт аккаунт) уводят в долг; предикат снятия
+      (стр. 3136) называет эту отрицательную пару «близнецом». Блок долга (стр. 3150) утверждает:
+      «человека, предъявленного краю платформы, не производит ни один посев».
+    subject: >-
+      kacho@e801c0f7844c: tests/authz-fixtures/prodseed_matrix.py стр. 848–869 производит людей перед
+      краем (jwtPlainHuman, jwtCloudAdminHuman; acr не несут), стр. 56 — Account.Create `<exempt>`
+      от пола; gateway/tests/newman/cases/iam-account-id-at-create.py кейс IAM-ACC-ID-K2-GENERATED —
+      jwtPlainHuman POST /iam/v1/accounts → 200 + Operation, done c response. Положительный близнец
+      машинного отказа 17 (один факт — род принципала) на стенде есть и не назван; отказ без него
+      неотличим от «Create мёртв». Утверждение «ни один посев» противоречит и строке 16 §1.8
+      (jwtUserTokenPlatformIssuer — человек).
+    fix: >-
+      Назвать IAM-ACC-ID-K2-GENERATED близнецом машинного отказа 17 в §8/DoD S2; сузить формулу
+      долга до «человека с уровнем входа (acr) перед краем»; решить и записать, остаются ли клаузы
+      17 (Account.Create вне пола) в долге при существующем производителе — с пересчётом числа.
+non_blocking_findings:
+  - 'kacho#2571 и предикат KA4a в #2966 не называют 10, 12, 14, 15, 16.1, 17 — расширить тело (заказ вне документа; документ это признаёт).'
+constructibility:
+  seeded: 0
+  of: 7
+  not_executed: 7
+  reason: 'стенда и разрешения на посев в задании нет; суждение по дереву @e801c0f7844c'
+premise:
+  status: опровергнута
+  predicate: >-
+    задание называет предмет 3c78c5ee на голове 44fe8dd8; на ветке 1f4087094 (ред. 8):
+    sha256sum <путь> → a8b67d27…; записи на 3c78c5ee и a0aca460 уже есть. Судим a8b67d27.

@@ -423,11 +423,25 @@ def vendored_prefixes(src):
         переведённой строки расхождением с оригиналом — навсегда, на каждом
         обновлении апстрима;
       · каталог-предок несёт `PROVENANCE.md` — координата апстрима и сверяющий
-        скрипт рядом.
+        скрипт рядом;
+      · каталог назван строкой `local_path:` в машинном блоке «```upstream-pins»
+        какого-либо `PROVENANCE.md` дерева. Этой формой фундамент объявляет
+        зависимости движка, внесённые РЯДОМ с ним, а не под ним
+        (`corelib:internal/oauth2/PROVENANCE.md` → `internal/oauth2deps/errorsx`,
+        `…/stringslice`): у таких каталогов предка с `PROVENANCE.md` нет, и без
+        третьего признака их ввезённый текст судился как наш — рост на четыре
+        файла ствола corelib 9e7e036 пришёл ровно отсюда (ws#896). Читается
+        ТОЛЬКО блок: тот же `local_path:` в прозе файла каталога ввезённым не
+        делает — блок есть то, что разбирает и судит гейт происхождения дерева,
+        проза не судится никем.
     """
     prefixes, files = set(), set()
-    for rel in src.paths("PROVENANCE.md") or ():
+    provenance = src.paths("PROVENANCE.md") or ()
+    for rel in provenance:
         prefixes.add(os.path.dirname(rel) + "/")
+    for rel, text in src.read_many(provenance).items():
+        for local in upstream_pin_paths(text or ""):
+            prefixes.add(local.rstrip("/") + "/")
     manifests = src.paths("vendor-provenance.json") or ()
     for rel, text in src.read_many(manifests).items():
         if text is None:
@@ -439,6 +453,31 @@ def vendored_prefixes(src):
         for item in _walk_json_paths(doc):
             files.add(item)
     return prefixes, files
+
+
+_PIN_FENCE = re.compile(r"^```upstream-pins\s*$")
+_PIN_LOCAL = re.compile(r"^local_path:\s*(\S+)\s*$")
+
+
+def upstream_pin_paths(text):
+    """`local_path:` записей машинного блока «```upstream-pins» — и только его."""
+    out, inside = [], False
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if not inside:
+            inside = bool(_PIN_FENCE.match(line))
+            continue
+        if line.startswith("```"):
+            inside = False
+            continue
+        m = _PIN_LOCAL.match(line)
+        if m:
+            local = m.group(1)
+            while local.startswith("./"):
+                local = local[2:]
+            if local.strip("/"):
+                out.append(local)
+    return out
 
 
 def _walk_json_paths(node):
