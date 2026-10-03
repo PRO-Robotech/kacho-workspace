@@ -353,6 +353,7 @@ printf '#!/usr/bin/env bash\n./inner.sh\n' > "$M/sh/outer.sh"
 printf '#!/usr/bin/env bash\nnewman run c.json\n' > "$M/sh/inner.sh"
 printf '#!/usr/bin/env python3\nimport os; os.system("true")\n# kind create cluster\n' > "$M/sh/tool"
 printf '#!/usr/bin/env bash\ngo test ./...\n' > "$M/sh/unit.sh"
+printf '#!/usr/bin/env bash\ndocker run --rm alpine true\n' > "$M/sh/box.sh"
 chmod +x "$M/sh/"*
 denies go-race 'make t' "$M"
 denies go-race 'make -C sub unit' "$M"
@@ -367,6 +368,7 @@ denies stand   'bash sh/heavy.sh' "$M"
 denies stand   './sh/heavy.sh' "$M"
 denies stand   'source sh/heavy.sh' "$M"
 denies newman  'bash sh/outer.sh' "$M"
+denies docker  'bash sh/box.sh' "$M"
 passes         'bash sh/light.sh' "$M"
 passes         './sh/tool' "$M"
 denies stand   'for s in sh/h*.sh; do bash "$s"; done' "$M"
@@ -413,9 +415,18 @@ if [ -f "$PRODUCT/Makefile" ] && [ -f "$PRODUCT/deploy/Makefile" ]; then
     denies stand       'make -C deploy stack-up STACK=dev' "$PRODUCT"
     denies stand       'bash deploy/kind/create-cluster.sh' "$PRODUCT"
     denies newman      'bash services/vpc/tests/newman/scripts/run.sh' "$PRODUCT"
-    denies docker      'bash deploy/tests/conformance/oidc/run-oidc-conformance.sh' "$PRODUCT"
     denies newman      'bash deploy/scripts/newman-parallel.sh vpc' "$PRODUCT"
     denies newman      './deploy/scripts/newman-e2e.sh vpc' "$PRODUCT"
+    # Предпосылка: скрипт, названный пробой продукта, есть в его дереве. Снятый
+    # скрипт страж молча пропускает — без этой строки находка говорит «получено 0»,
+    # а не «предмета нет» (так было при снятии прогона соответствия OIDC).
+    subjects="$(sed -n "s/^    denies [a-z-]* *'\(bash \|\.\/\)\([^ ']*\.sh\).*\"\$PRODUCT\"\$/\2/p" "${BASH_SOURCE[0]}")"
+    assert "да" "$([ -n "$subjects" ] && echo да || echo нет)" "скриптов-предметов продукта найдено $(printf '%s' "$subjects" | grep -c .) (ноль — разбор ослеп)"
+    while IFS= read -r sc; do
+        [ -n "$sc" ] || continue
+        have="$(git -C "$PRODUCT" ls-files --error-unmatch -- "$sc" >/dev/null 2>&1 && echo да || echo нет)"
+        assert "да" "$have" "скрипт-предмет «$sc» есть в дереве продукта (нет — снять утверждение вместе с ним)"
+    done <<< "$subjects"
     passes             'make help' "$PRODUCT"
     passes             'make -n test-unit' "$PRODUCT"
     passes             'make -C deploy dev-down' "$PRODUCT"
