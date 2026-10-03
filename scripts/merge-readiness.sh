@@ -26,11 +26,12 @@
 # необязательный контекст закрыл бы недостающий обязательный. Поэтому берётся
 # РАЗНОСТЬ МНОЖЕСТВ: какие из обязательных имён не имеют зелёного исхода.
 #
-# ГРАНИЦА. Скрипт отвечает на вопрос «готов ли PR к слиянию по проверкам» и
-# только на него. Он НЕ судит о содержании изменения, НЕ заменяет обзор и НЕ
-# знает про требования, живущие вне своего источника вердикта (правила
-# наборов — rulesets — не читаются: у `2914-notify` их ноль, замер 2026-10-01
-# `gh api repos/PRO-Robotech/kacho/rules/branches/2914-notify` → `[]`).
+# ГРАНИЦА. Скрипт отвечает на вопрос «готов ли PR к слиянию по проверкам» и на
+# один вопрос до них: не снимет ли вливание ветку уровня каскада, стоящую головой
+# PR (ws#909, раздел «ГОЛОВА PR — УРОВЕНЬ КАСКАДА?» ниже). Он НЕ судит о
+# содержании изменения, НЕ заменяет обзор и НЕ знает про требования, живущие
+# вне своего источника вердикта (правила наборов — rulesets — не читаются:
+# у `2914-notify` их ноль, замер 2026-10-01 `gh api repos/PRO-Robotech/kacho/rules/branches/2914-notify` → `[]`).
 #
 # ИСТОЧНИКОВ ВЕРДИКТА ДВА, и выбирает их ЗАЩИТА БАЗЫ, а не вкус.
 #
@@ -209,6 +210,94 @@ TRUNK="main"
 # Ветка линии — эпик или волна. Обе формы фильтра Д59; `*` провайдера не
 # берёт `/`, поэтому и здесь хвост без косой черты.
 LINE_BRANCH_RE='^[0-9]+(-[^/]*)?$'
+
+# ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА? (ws#909) ───────────────────────────────────────
+# Вливание снимает голову PR: `delete_branch_on_merge=true` во всех репозиториях.
+# Для ветки эпика или волны это законно ровно при вливании ВВЕРХ — в ствол либо в
+# ветку задачи-родителя (`git-issues.md#gi-close-cascade`). Синхронизация ВНИЗ своей
+# головой снимает верхний уровень: так ушла ветка эпика kaname `296` (PR #576
+# `296` → `535`, 2026-10-03T09:47:03Z, восстановлена на той же голове). Законная
+# голова синхронизации — ветка задачи синхронизации по правилу ветки репозитория
+# (`git-issues.md#gi-sync-down-via-sync-branch`, `sync_head_form` ниже).
+#
+# УРОВЕНЬ — ПРИЗНАК ТРЕКЕРА, А НЕ ИМЕНИ. Имя ветки задачи и ветки волны одной формы
+# (`<N>-<суффикс>`), поэтому спрашивается задача N в репозитории PR: уровень — у неё
+# есть дочерние (`sub_issues_summary.total`) либо метка `epic`. Связь «база PR есть
+# ветка задачи-родителя» — ответ `issues/N/parent`, сверка по адресу родителя целиком:
+# номер базы из другого репозитория родителем не считается.
+#
+# Исходы: не уровень либо вверх — путь идёт дальше, к проверкам; вниз — код 1;
+# задача или родитель не прочитаны, номер ветки — запрос — код 2, уровень НЕ УСТАНОВЛЕН:
+# непрочитанный трекер не выдаётся ни за «не уровень», ни за «вниз».
+head_ref=$(jq -r '.headRefName // ""' <<<"$pr_json")
+# sync_head_form <номер источника> <база> — имя ветки синхронизации, которое пропустит
+# правило имени ветки РЕПОЗИТОРИЯ PR (ws#910): `tmp/*` kaname отвергает.
+#   kaname — `scripts/hooks/branch-rule.sh`: ветка — номер задачи, `^[0-9]+$`;
+#   прочие — `<N>-<суть>` (corelib `scripts/hooks/git-rule.sh`, kacho и воркспейс —
+#   `git-issues.md#gi-branch-name-form`; `tmp/*` там черновик, проверки отправки пропущены).
+sync_head_form() {
+  case "${REPO,,}" in
+    pro-robotech/kaname) printf '<N> (ветка — номер задачи, ^[0-9]+$)' ;;
+    *) printf '<N>-sync-%s-into-%s' "$1" "${2%%-*}" ;;
+  esac
+}
+cascade_unknown() {  # <что не установлено> <файл отказа>
+  echo "merge-readiness: уровень каскада головы '$head_ref' НЕ УСТАНОВЛЕН — $1"
+  [ -s "$2" ] && head -c 300 "$2" | sed 's/^/                 /'
+  echo "                 вердикта нет; это НЕ «сливать нельзя»."
+  exit 2
+}
+if [[ ! "$head_ref" =~ $LINE_BRANCH_RE ]]; then
+  echo "голова PR: '$head_ref' — не формы ветки задачи, уровнем каскада не бывает"
+else
+  head_num="${head_ref%%-*}"
+  issue_file="$workdir/head-issue.json"
+  gh api "repos/$REPO/issues/$head_num" >"$issue_file" 2>"$workdir/api.err" && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] || cascade_unknown "задача $REPO#$head_num не прочитана (код gh $rc)" "$issue_file"
+  jq -e 'type == "object"' >/dev/null 2>&1 <"$issue_file" \
+    || parse_broken "ответ о задаче $REPO#$head_num не разбирается как объект JSON"
+  if jq -e '.pull_request != null' >/dev/null <"$issue_file"; then
+    cascade_unknown "номер ветки — запрос, а не задача: $REPO#$head_num" /dev/null
+  fi
+  head_subs=$(jq -r '.sub_issues_summary.total // 0' <"$issue_file")
+  head_epic=$(jq -r 'if any(.labels[]?; .name == "epic") then 1 else 0 end' <"$issue_file")
+  if [ "$head_subs" -eq 0 ] && [ "$head_epic" -eq 0 ]; then
+    echo "голова PR: '$head_ref' — задача $REPO#$head_num без дочерних и без метки epic, не уровень каскада"
+  else
+    why="дочерних $head_subs"; [ "$head_epic" -eq 1 ] && why="$why, метка epic"
+    if [ "$base" = "$TRUNK" ]; then
+      echo "голова PR: '$head_ref' — уровень каскада ($why), вверх — в ствол '$TRUNK': снятие головы законно"
+    else
+      parent_url="родителя нет"
+      if [[ "$base" =~ $LINE_BRANCH_RE ]]; then
+        parent_file="$workdir/head-parent.json"
+        gh api "repos/$REPO/issues/$head_num/parent" >"$parent_file" 2>"$workdir/api.err" && rc=0 || rc=$?
+        if [ "$rc" -eq 0 ]; then
+          parent_url=$(jq -r '.html_url // empty' <"$parent_file" 2>/dev/null) \
+            || parse_broken "ответ о родителе задачи $REPO#$head_num не разбирается как объект JSON"
+          [ -n "$parent_url" ] \
+            || parse_broken "в ответе о родителе задачи $REPO#$head_num нет адреса"
+        elif ! jq -e '.message == "No parent issue found"' >/dev/null 2>&1 <"$parent_file"; then
+          cascade_unknown "родитель задачи $REPO#$head_num НЕ ПРОЧИТАН (код gh $rc)" "$parent_file"
+        fi
+      fi
+      if [ "${parent_url,,}" = "https://github.com/${REPO,,}/issues/${base%%-*}" ]; then
+        echo "голова PR: '$head_ref' — уровень каскада ($why), вверх — в родителя $parent_url: снятие головы законно"
+      else
+        echo "голова PR: '$head_ref' — уровень каскада ($why); база '$base' — не ствол и не ветка родителя ($parent_url)"
+        echo
+        echo "  голова PR '$head_ref' — уровень каскада: вливание снимет её (delete_branch_on_merge)"
+        echo "  синхронизация вниз — ветка задачи синхронизации N в $REPO от '$base' со слиянием"
+        echo "  '$head_ref' (--no-ff, «#<N> merge #$head_num: …»), имя — по правилу ветки репозитория:"
+        echo "    git push origin <ветка>:refs/heads/$(sync_head_form "$head_num" "$base")"
+        echo "  и PR из неё в '$base' (git-issues.md#gi-sync-down-via-sync-branch)"
+        echo
+        echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — голова PR будет снята вливанием"
+        exit 1
+      fi
+    fi
+  fi
+fi
 
 prot_state=""   # protected | unprotected — выставляет read_protection
 read_protection() {  # <ветка> <файл ответа>
