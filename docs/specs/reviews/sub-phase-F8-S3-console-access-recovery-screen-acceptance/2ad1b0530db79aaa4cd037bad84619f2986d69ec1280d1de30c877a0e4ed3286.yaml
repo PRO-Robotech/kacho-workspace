@@ -79,14 +79,39 @@ authority:
 
 event:
   type: issue_comment
-  status: pending_courier
-  published: false
+  status: published
+  published: true
   publication_mode: courier
   publication_expected_from_orchestrator: true
-  target: https://github.com/PRO-Robotech/kacho/issues/1274
-  event_body_for_courier: >-
-    acceptance-reviewer · APPROVED (круг 1, редакция 1, блокирующих 0) ·
-    SHA-256 2ad1b0530db79aaa4cd037bad84619f2986d69ec1280d1de30c877a0e4ed3286
+  url: https://github.com/PRO-Robotech/kacho/issues/1274#issuecomment-5975763816
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5975763816
+  issue: PRO-Robotech/kacho#1274
+  database_id: 5975763816
+  node_id: IC_kwDOTZqgWM8AAAABZC7raA
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-04T02:25:23Z'
+  updated_at: '2026-10-04T02:25:23Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: 95fd0ce496e85deea53cee26bac8af4baac310e631860c4e0f8add920674f328
+  header:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kacho-workspace:docs/specs/sub-phase-F8-S3-console-access-recovery-screen-acceptance.md
+    subject_revision: 4f0530720349970ae1b4784ebffcadc5fc97849f
+    subject_sha256: 2ad1b0530db79aaa4cd037bad84619f2986d69ec1280d1de30c877a0e4ed3286
+  subject_revision_on_origin_before_event: true
+  subject_sha256_on_origin_reproduced: true
+  verified_at: '2026-10-04'
+  verified_predicates:
+    body: >-
+      gh api repos/PRO-Robotech/kacho/issues/comments/5975763816 -q .body | sha256sum
+    subject: >-
+      git show origin/897-ws1-s3-recovery-acceptance:docs/specs/sub-phase-F8-S3-console-access-recovery-screen-acceptance.md | sha256sum
+  note: >-
+    Блок дописан отдельным коммитом после публикации события; вердикт, разбор и блок
+    effective_approval этой записи не правились. Решение о санкции принимается перемером
+    четырёх условий change-graph.md §3, а не этим блоком.
 
 attribution:
   reviewer_kind: claude_agent
