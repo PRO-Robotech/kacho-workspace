@@ -141,9 +141,14 @@ case "${1:-}" in
                 target="${MR_FIXTURE:?}/protection@$br" ;;
             repos/*/actions/workflows/*/runs\?*) target="${MR_FIXTURE:?}/runs" ;;
             repos/*/commits/*/check-runs\?*)     target="${MR_FIXTURE:?}/checkruns" ;;
+            # Комментарии — по ПАРЕ репозиторий и номер (`comments@<владелец>~<репо>#<N>`):
+            # фикстура по одному номеру отдавала доказательство задачи kacho#500
+            # на вопрос о kaname#500, и чтение не из того репозитория проходило
+            # (возврат check-verifier, ws#920).
             repos/*/issues/*/comments\?*)
+                r="${2#repos/}"; r="${r%%/issues/*}"
                 n="${2#*/issues/}"; n="${n%%/*}"
-                target="${MR_FIXTURE:?}/comments@$n" ;;
+                target="${MR_FIXTURE:?}/comments@${r//\//\~}#$n" ;;
             repos/*/issues/*/parent)
                 n="${2#*/issues/}"; n="${n%/parent}"
                 target="${MR_FIXTURE:?}/parent@$n" ;;
@@ -215,11 +220,12 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
           mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd, closingIssuesReferences:$ci}' > "$f"
 }
 
-# mk_comments <каталог> <номер> <тело>... — комментарии задачи строки закрытия.
+# mk_comments <каталог> <владелец/репо> <номер> <тело>... — комментарии задачи
+# строки закрытия, ключ фикстуры — пара репозиторий и номер.
 mk_comments() {
-    local d="$1" n="$2"; shift 2
+    local d="$1" r="$2" n="$3"; shift 3
     printf '%s\0' "$@" | jq -Rs 'split("\u0000") | map(select(length > 0)) | map({body: .})' \
-        > "$d/comments@$n.json"
+        > "$d/comments@${r//\//\~}#$n.json"
 }
 
 # mk_pr_mixed <файл> <состояние-слияния> <имя=ИСХОД>... — rollup с НЕзелёными
@@ -653,36 +659,42 @@ pf_case() {  # <имя> <тело PR> [<closingIssuesReferences JSON>]
     printf '%s' "$d"
 }
 d="$(pf_case PROOF $'Сборка 3 волны 2.\n\nCloses #500')"
-mk_comments "$d" 500 "PR: https://example.invalid/pr/1" "$PROOF_OK"
+mk_comments "$d" PRO-Robotech/kacho 500 "PR: https://example.invalid/pr/1" "$PROOF_OK"
 d="$(pf_case MISSING $'Сборка 3 волны 2.\n\nCloses #500')"
-mk_comments "$d" 500 "PR: https://example.invalid/pr/1" "готово, всё зелёное"
+mk_comments "$d" PRO-Robotech/kacho 500 "PR: https://example.invalid/pr/1" "готово, всё зелёное"
 # Маркер не в начале строки — пересказ, а не доказательство.
 d="$(pf_case MIDLINE $'Closes #500')"
-mk_comments "$d" 500 "ждём DoD-proof @0123abcd от исполнителя"
+mk_comments "$d" PRO-Robotech/kacho 500 "ждём DoD-proof @0123abcd от исполнителя"
 # Иное ключевое слово, иной регистр, чужой репозиторий — та же строка закрытия.
 d="$(pf_case FORMS $'fixes PRO-Robotech/kaname#77')"
-mk_comments "$d" 77 "готово"
+mk_comments "$d" PRO-Robotech/kaname 77 "готово"
 # Две строки: одна доказана, другая нет — нельзя, названа именно недоказанная.
 d="$(pf_case MULTI $'Closes #500\nCloses #501')"
-mk_comments "$d" 500 "$PROOF_OK"
-mk_comments "$d" 501 "готово"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+mk_comments "$d" PRO-Robotech/kacho 501 "готово"
 # Refs не закрывает — комментарии не читаются вовсе: фикстуры нет, и чтение дало бы 98.
 d="$(pf_case REFS $'Refs #500')"
 # Комментарии не прочитаны — вердикта нет.
 d="$(pf_case UNREAD $'Closes #500')"
-: > "$d/comments@500.unavailable"
+: > "$d/comments@PRO-Robotech~kacho#500.unavailable"
 # Форма-адрес в теле: хостинг закрывает и по ней (возврат check-verifier, ws#920).
 d="$(pf_case URL $'Closes https://github.com/PRO-Robotech/kacho/issues/600')"
-mk_comments "$d" 600 "готово"
+mk_comments "$d" PRO-Robotech/kacho 600 "готово"
+# Тот же номер в двух репозиториях: доказательство лежит в задаче репозитория PR,
+# а у задачи строки закрытия его нет. Чтение комментариев не из репозитория
+# строки закрытия нашло бы чужое доказательство (возврат check-verifier, ws#920).
+d="$(pf_case XREPO $'Closes PRO-Robotech/kaname#500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+mk_comments "$d" PRO-Robotech/kaname 500 "готово"
 # Ручная привязка: строки в теле нет, закрытие объявил хостинг.
 host_ref() {  # <владелец> <репозиторий> <номер> — элемент closingIssuesReferences
     jq -nc --arg o "$1" --arg r "$2" --argjson n "$3" '{number:$n, repository:{name:$r, owner:{login:$o}}}'
 }
 d="$(pf_case HOST $'Сборка 3 волны 2.' "[$(host_ref PRO-Robotech kacho 600)]")"
-mk_comments "$d" 600 "готово"
+mk_comments "$d" PRO-Robotech/kacho 600 "готово"
 # Близнец: одна задача и в теле, и у хостинга — судится один раз, доказана.
 d="$(pf_case HOSTPROOF $'Closes #500' "[$(host_ref PRO-Robotech kacho 500)]")"
-mk_comments "$d" 500 "$PROOF_OK"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
 # Поле хостинга не массив — разбор сломан, а не «закрывать нечего».
 d="$(pf_case HOSTBROKEN $'Refs #500' 'null')"
 
@@ -962,6 +974,8 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-REFS" 0 "Refs не закрывает — д
     "можно сливать" "задач, закрываемых PR (хостинг и тело): 0"
 probe "$PRODUCT_REPO" "$TMP/case-PF-UNREAD" 2 "комментарии задачи не прочитаны — вердикта нет, а не «можно»" \
     "комментарии задач НЕ ПРОЧИТАНЫ" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-XREPO" 1 "тот же номер, доказательство только в репозитории PR — «нельзя», задача названа с репозиторием" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kaname#500"
 probe "$PRODUCT_REPO" "$TMP/case-PF-URL" 1 "Closes формой-адресом без доказательства — «нельзя», задача названа" \
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOST" 1 "закрытие объявил хостинг, строки в теле нет — «нельзя», задача названа" \

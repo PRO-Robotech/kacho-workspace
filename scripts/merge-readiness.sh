@@ -340,7 +340,7 @@ else
   proof_ok=0
   while IFS= read -r ref; do
     ref_repo="${ref%%#*}"; ref_num="${ref##*#}"
-    cfile="$workdir/comments-$ref_num.json"
+    cfile="$workdir/comments-${ref_repo//\//_}-$ref_num.json"
     if ! gh api "repos/$ref_repo/issues/$ref_num/comments?per_page=100" --paginate >"$cfile" 2>"$workdir/api.err"; then
       proof_unread+=("$ref_repo#$ref_num")
       continue

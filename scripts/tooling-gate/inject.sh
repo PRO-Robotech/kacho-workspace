@@ -1472,6 +1472,15 @@ if mr_patch "$b/$MR_REL" \
     "чужой репозиторий строки закрытия подменён репозиторием PR"; then
     run_c09_red "$b" "инъекция: задача чужого репозитория ищется в репозитории PR — краснеет" PF-FORMS
 fi
+# Опыт check-verifier (ws#920): комментарии читаются из репозитория PR, а номер
+# печатается прежний. Фикстура по одному номеру это пропускала; держит PF-XREPO.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/gh api "repos\/\$ref_repo\/issues\/\$ref_num\/comments/gh api "repos\/\$REPO\/issues\/\$ref_num\/comments/' \
+    "комментарии читаются из репозитория PR"; then
+    run_c09_red "$b" "инъекция: комментарии задачи читаются из репозитория PR, номер напечатан прежний — краснеет" \
+        PF-XREPO PF-FORMS
+fi
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
     's/\.closingIssuesReferences\[\] \|/.closingIssuesReferences[0:0][] |/' \
@@ -2321,6 +2330,39 @@ b="$(mksandbox)"
 if mr_patch "$b/$CC_REL" 's/elif \[ "\$WANT_CLOSED" = 1 \] && \[ "\$open_n" -gt 0 \]/elif false/' \
     "--children-closed не исполняется"; then
     run 1 "$b" "инъекция: --children-closed принят и не судит открытых — краснеет" "$C14"
+fi
+
+# Ключ закрытия задач влитой волны: доказательство DoD (возврат check-verifier,
+# ws#920). Каждая порча роняет одно решение режима --proof.
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/if \[ -n "\$proof_missing" \]; then/if false; then/' \
+    "--proof не исполняется"; then
+    run 1 "$b" "инъекция: --proof принят, задача без доказательства не находка — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/"repos\/\$r\/issues\/\$n\/comments"/"repos\/\$REPO\/issues\/\$n\/comments"/' \
+    "комментарии читаются из репозитория волны"; then
+    run 1 "$b" "инъекция: комментарии задачи читаются из репозитория волны — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\/\$r\/issues/' \
+    "комментарии одной страницей"; then
+    run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/test\("\(\^\|\\n\)DoD-proof/test("DoD-proof/' \
+    "маркер в любом месте строки"; then
+    run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/proof_unread="\$proof_unread \$ref"/proof_ok=\$((proof_ok + 1))/' \
+    "непрочитанные комментарии — доказательство"; then
+    run 1 "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/\[\.\[\] \| \(\.body \/\/ ""\) \| test\(("[^"]*")\)\] \| any/any(.[]; (.body \/\/ "") | test($1))/' \
+    "маркер ищется any с генератором"; then
+    run 0 "$b" "близнец: доказательство ищется any(генератор; условие) — молчит" "$C14"
 fi
 
 # Близнец: тот же набор маркеров списка, записанный иначе. Проверка судит
