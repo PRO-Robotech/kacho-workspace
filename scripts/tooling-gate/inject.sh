@@ -1468,9 +1468,39 @@ if mr_patch "$b/$MR_REL" \
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/ref_repo="\$\{ref_repo:-\$REPO\}"/ref_repo="\$REPO"/' \
+    's/s\|\^#\|\$REPO#\|/s|^.*#|\$REPO#|/' \
     "чужой репозиторий строки закрытия подменён репозиторием PR"; then
     run_c09_red "$b" "инъекция: задача чужого репозитория ищется в репозитории PR — краснеет" PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\.closingIssuesReferences\[\] \|/.closingIssuesReferences[0:0][] |/' \
+    "ответ хостинга о закрываемых задачах не читается"; then
+    run_c09_red "$b" "инъекция: закрытие, объявленное хостингом, не судится — краснеет" PF-HOST
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(https\?:\/\/github\\\.com\/\[\[:alnum:\]_\.-\]\+\/\[\[:alnum:\]_\.-\]\+\/issues\/\[0-9\]\+\|/(/' \
+    "форма-адрес в теле не разбирается"; then
+    run_c09_red "$b" "инъекция: Closes формой-адресом не видна разбору тела — краснеет" PF-URL
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\.closingIssuesReferences \| type == "array"\x27/true/' \
+    "поле хостинга не массивом принято за пустое"; then
+    run_c09_red "$b" "инъекция: поле хостинга не массивом прочитано как «закрывать нечего» — краснеет" PF-HOSTBROKEN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/LC_ALL=C sort -u \|\| true\)\nif \[ -z "\$closes_refs" \]/LC_ALL=C sort \|\| true)\nif [ -z "\$closes_refs" ]/' \
+    "задача хостинга и тела судится дважды"; then
+    run_c09_red "$b" "инъекция: задача из обоих источников посчитана дважды — краснеет" PF-HOSTPROOF
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\.closingIssuesReferences\[\] \| "\\\(\.repository\.owner\.login\)\/\\\(\.repository\.name\)#\\\(\.number\)"/.closingIssuesReferences | map(.repository.owner.login + "\/" + .repository.name + "#" + (.number | tostring)) | .[]/' \
+    "ссылки хостинга собраны иной записью"; then
+    run 0 "$b" "близнец: ссылки хостинга собраны map и сложением строк — молчит" "$C09"
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \

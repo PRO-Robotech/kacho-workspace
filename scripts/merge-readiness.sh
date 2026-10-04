@@ -170,7 +170,7 @@ merge_state_verdict() {
   esac
 }
 
-pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup,body 2>/dev/null) || {
+pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup,body,closingIssuesReferences 2>/dev/null) || {
   echo "merge-readiness: PR $REPO#$PR недоступен" >&2; exit 2; }
 
 # Ответ соседа проверяется на разбираемость ДО первого чтения поля. Без этого
@@ -306,7 +306,7 @@ fi
 # закрывают на хостинге) законна лишь у задачи, где исполнитель опубликовал
 # комментарий-доказательство DoD: строка `DoD-proof @<ревизия>` в начале строки
 # комментария, дальше команда, сырой итог, код возврата
-# (`flow-acceleration.md#fa-c2-closes-by-proof`). Прочим задачам — `Refs`.
+# (`git-issues.md#gi-closes-last-line`). Прочим задачам — `Refs`.
 # Замер релиза kacho#1266, волны 1–3: Closes без доказательства — возврат
 # посадочного и новый круг (kacho#2741, #2878, #2885, #2879, #2886, #2909).
 #
@@ -314,17 +314,32 @@ fi
 # команды и итога сверяет посадочный. Исходы: у всех строк закрытия доказательство
 # есть либо строк нет — путь идёт дальше; хоть у одной нет — код 1 с номерами;
 # комментарии хоть одной задачи не прочитаны — код 2 (находка рядом с ним — 1).
+#
+# МНОЖЕСТВО ЗАДАЧ — ОБЪЕДИНЕНИЕ ДВУХ ИСТОЧНИКОВ. Первый — ответ хостинга
+# `closingIssuesReferences`: ровно то, что он закроет вливанием, в любой форме
+# записи, включая ручную привязку без строки в теле. Второй — разбор тела, в том
+# числе формы-адреса `Closes https://github.com/<o>/<r>/issues/<N>`: хостинг ведёт
+# поле только для PR в ветку по умолчанию, а запрос волны идёт в ветку эпика, и
+# строка его тела переезжает в запрос эпика. Разбор одного тела форму-адрес не
+# видел (возврат check-verifier, ws#920: код 0 и «строк 0»). Поле не массив —
+# разбор сломан (код 2), а не «закрывать нечего».
 pr_body=$(jq -r '.body // ""' <<<"$pr_json")
-closes_refs=$(grep -oiE '(^|[^[:alnum:]_])(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]*:?[[:space:]]+([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+' <<<"$pr_body" \
-  | grep -oE '([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+$' | LC_ALL=C sort -u || true)
+jq -e '.closingIssuesReferences | type == "array"' >/dev/null 2>&1 <<<"$pr_json" \
+  || parse_broken "поле closingIssuesReferences ответа о PR $REPO#$PR не массив" \
+                  "без него множество закрываемых задач неизвестно — «закрывать нечего» было бы подменой."
+host_refs=$(jq -r '.closingIssuesReferences[] | "\(.repository.owner.login)/\(.repository.name)#\(.number)"' <<<"$pr_json")
+text_refs=$(grep -oiE '(^|[^[:alnum:]_])(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]*:?[[:space:]]+(https?://github\.com/[[:alnum:]_.-]+/[[:alnum:]_.-]+/issues/[0-9]+|([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+)' <<<"$pr_body" \
+  | grep -oE '([[:alnum:]_.-]+/[[:alnum:]_.-]+(/issues/|#)|#)[0-9]+$' \
+  | sed -E "s|/issues/|#|; s|^#|$REPO#|" || true)
+closes_refs=$(printf '%s\n%s\n' "$host_refs" "$text_refs" | grep -v '^$' | LC_ALL=C sort -u || true)
 if [ -z "$closes_refs" ]; then
-  echo "строк закрытия в теле PR: 0 — доказательства DoD сверять не с чем"
+  echo "задач, закрываемых PR (хостинг и тело): 0 — доказательства DoD сверять не с чем"
 else
   proof_missing=()
   proof_unread=()
   proof_ok=0
   while IFS= read -r ref; do
-    ref_repo="${ref%%#*}"; ref_repo="${ref_repo:-$REPO}"; ref_num="${ref##*#}"
+    ref_repo="${ref%%#*}"; ref_num="${ref##*#}"
     cfile="$workdir/comments-$ref_num.json"
     if ! gh api "repos/$ref_repo/issues/$ref_num/comments?per_page=100" --paginate >"$cfile" 2>"$workdir/api.err"; then
       proof_unread+=("$ref_repo#$ref_num")
@@ -338,7 +353,7 @@ else
       proof_missing+=("$ref_repo#$ref_num")
     fi
   done <<<"$closes_refs"
-  echo "строк закрытия в теле PR: $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]}"
+  echo "задач, закрываемых PR (хостинг и тело): $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]}"
   if [ "${#proof_missing[@]}" -gt 0 ]; then
     echo
     echo "  Closes без комментария-доказательства DoD (строка «DoD-proof @<ревизия>»):"

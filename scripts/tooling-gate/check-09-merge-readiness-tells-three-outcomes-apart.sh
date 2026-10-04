@@ -210,9 +210,9 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
     jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" \
+        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" --argjson ci "${MR_CLOSING:-[]}" \
         '{state:$st, baseRefName:$b, headRefName:$hd, headRefOid:$h,
-          mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd}' > "$f"
+          mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd, closingIssuesReferences:$ci}' > "$f"
 }
 
 # mk_comments <каталог> <номер> <тело>... — комментарии задачи строки закрытия.
@@ -234,7 +234,8 @@ mk_pr_mixed() {
         | {name, status:(if .c=="" then "IN_PROGRESS" else "COMPLETED" end),
            conclusion:(if .c=="" then null else .c end)}' | jq -s .)"
     jq -n --arg ms "$ms" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        '{state:"OPEN", baseRefName:$b, mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+        '{state:"OPEN", baseRefName:$b, mergeStateStatus:$ms, statusCheckRollup:$r,
+          closingIssuesReferences:[]}' > "$f"
 }
 
 # mk_refusal <каталог> <ветка> <код> <тело> — ответ-отказ настоящей формы:
@@ -645,10 +646,10 @@ printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
 # задач. Против PF-PROOF меняется ровно один факт; PF-PROOF и PF-REFS — законные
 # близнецы, молчащие там, где порча судила бы лишнее.
 PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
-pf_case() {  # <имя> <тело PR>
+pf_case() {  # <имя> <тело PR> [<closingIssuesReferences JSON>]
     local d; d="$(mkcase "PF-$1")"
     mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
-    MR_BODY="$2" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    MR_BODY="$2" MR_CLOSING="${3:-[]}" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
     printf '%s' "$d"
 }
 d="$(pf_case PROOF $'Сборка 3 волны 2.\n\nCloses #500')"
@@ -670,6 +671,20 @@ d="$(pf_case REFS $'Refs #500')"
 # Комментарии не прочитаны — вердикта нет.
 d="$(pf_case UNREAD $'Closes #500')"
 : > "$d/comments@500.unavailable"
+# Форма-адрес в теле: хостинг закрывает и по ней (возврат check-verifier, ws#920).
+d="$(pf_case URL $'Closes https://github.com/PRO-Robotech/kacho/issues/600')"
+mk_comments "$d" 600 "готово"
+# Ручная привязка: строки в теле нет, закрытие объявил хостинг.
+host_ref() {  # <владелец> <репозиторий> <номер> — элемент closingIssuesReferences
+    jq -nc --arg o "$1" --arg r "$2" --argjson n "$3" '{number:$n, repository:{name:$r, owner:{login:$o}}}'
+}
+d="$(pf_case HOST $'Сборка 3 волны 2.' "[$(host_ref PRO-Robotech kacho 600)]")"
+mk_comments "$d" 600 "готово"
+# Близнец: одна задача и в теле, и у хостинга — судится один раз, доказана.
+d="$(pf_case HOSTPROOF $'Closes #500' "[$(host_ref PRO-Robotech kacho 500)]")"
+mk_comments "$d" 500 "$PROOF_OK"
+# Поле хостинга не массив — разбор сломан, а не «закрывать нечего».
+d="$(pf_case HOSTBROKEN $'Refs #500' 'null')"
 
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
@@ -944,9 +959,17 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-FORMS" 1 "fixes строчными в чуж
 probe "$PRODUCT_REPO" "$TMP/case-PF-MULTI" 1 "две строки закрытия, одна без доказательства — «нельзя», названа она" \
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#501" "с доказательством DoD: 1 · без: 1"
 probe "$PRODUCT_REPO" "$TMP/case-PF-REFS" 0 "Refs не закрывает — доказательство не спрашивается, «сливать можно»" \
-    "можно сливать" "строк закрытия в теле PR: 0"
+    "можно сливать" "задач, закрываемых PR (хостинг и тело): 0"
 probe "$PRODUCT_REPO" "$TMP/case-PF-UNREAD" 2 "комментарии задачи не прочитаны — вердикта нет, а не «можно»" \
     "комментарии задач НЕ ПРОЧИТАНЫ" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-URL" 1 "Closes формой-адресом без доказательства — «нельзя», задача названа" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HOST" 1 "закрытие объявил хостинг, строки в теле нет — «нельзя», задача названа" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTPROOF" 0 "задача и в теле, и у хостинга — судится один раз, доказана" \
+    "можно сливать" "задач, закрываемых PR (хостинг и тело): 1 · с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга не массив — разбор сломан, а не «закрывать нечего»" \
+    "РАЗБОР СЛОМАН — поле closingIssuesReferences"
 
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты (продукт, проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон либо контексты воркспейса по защите базы (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 tooling_gate_census "$NAME: $locale_note"
@@ -962,4 +985,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, строка закрытия — только с доказательством DoD"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD"
