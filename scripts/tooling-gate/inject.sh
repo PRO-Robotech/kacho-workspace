@@ -1432,6 +1432,59 @@ if mr_patch "$b/$MR_REL" \
     run 0 "$b" "близнец: kaname узнаётся образцом */kaname — молчит" "$C09"
 fi
 
+# ── CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ (ws#918) ─────────────────────────────────
+# Каждая порча роняет одно решение и обязана покраснить держащую его пробу PF-*;
+# близнецы пишут то же решение другой формой и молчат.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(    echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD"\n)    exit 1\n/$1/m' \
+    "Closes без доказательства пропущен к проверкам"; then
+    run_c09_red "$b" "инъекция: Closes без доказательства пропущен к проверкам — краснеет" \
+        PF-MISSING PF-MIDLINE PF-FORMS PF-MULTI
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(close\[sd\]\?\|fix\(e\[sd\]\)\?\|resolve\[sd\]\?\)/(closes)/' \
+    "строка закрытия — только Closes"; then
+    run_c09_red "$b" "инъекция: Fixes и Resolves не считаются строкой закрытия — краснеет" PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/test\("\(\^\|\\n\)DoD-proof/test("DoD-proof/' \
+    "маркер в любом месте строки"; then
+    run_c09_red "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" PF-MIDLINE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/proof_unread\+=\("\$ref_repo#\$ref_num"\)/proof_ok=\$((proof_ok + 1))/' \
+    "непрочитанные комментарии — доказательство"; then
+    run_c09_red "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" PF-UNREAD
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(      proof_ok=\$\(\(proof_ok \+ 1\)\)\n)/$1      break\n/m' \
+    "судится только первая строка закрытия"; then
+    run_c09_red "$b" "инъекция: после первой доказанной строки закрытия прочие не судятся — краснеет" PF-MULTI
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/ref_repo="\$\{ref_repo:-\$REPO\}"/ref_repo="\$REPO"/' \
+    "чужой репозиторий строки закрытия подменён репозиторием PR"; then
+    run_c09_red "$b" "инъекция: задача чужого репозитория ищется в репозитории PR — краснеет" PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/test\("\(\^\|\\n\)DoD-proof @\[0-9a-f\]\{7,40\}"\)/split("\\n") | any(.[]; test("^DoD-proof @[0-9a-f]{7,40}"))/' \
+    "маркер построчным разбором"; then
+    run 0 "$b" "близнец: маркер ищется построчным разбором — молчит" "$C09"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(close\[sd\]\?\|fix\(e\[sd\]\)\?\|resolve\[sd\]\?\)/(resolve[sd]?|fix(e[sd])?|close[sd]?)/' \
+    "ключевые слова закрытия в ином порядке"; then
+    run 0 "$b" "близнец: ключевые слова закрытия в ином порядке — молчит" "$C09"
+fi
+
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C09"
 

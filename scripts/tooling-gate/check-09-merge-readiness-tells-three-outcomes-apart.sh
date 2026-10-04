@@ -141,6 +141,9 @@ case "${1:-}" in
                 target="${MR_FIXTURE:?}/protection@$br" ;;
             repos/*/actions/workflows/*/runs\?*) target="${MR_FIXTURE:?}/runs" ;;
             repos/*/commits/*/check-runs\?*)     target="${MR_FIXTURE:?}/checkruns" ;;
+            repos/*/issues/*/comments\?*)
+                n="${2#*/issues/}"; n="${n%%/*}"
+                target="${MR_FIXTURE:?}/comments@$n" ;;
             repos/*/issues/*/parent)
                 n="${2#*/issues/}"; n="${n%/parent}"
                 target="${MR_FIXTURE:?}/parent@$n" ;;
@@ -207,9 +210,16 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
     jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        --arg hd "${MR_HEAD:-788}" \
+        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" \
         '{state:$st, baseRefName:$b, headRefName:$hd, headRefOid:$h,
-          mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+          mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd}' > "$f"
+}
+
+# mk_comments <каталог> <номер> <тело>... — комментарии задачи строки закрытия.
+mk_comments() {
+    local d="$1" n="$2"; shift 2
+    printf '%s\0' "$@" | jq -Rs 'split("\u0000") | map(select(length > 0)) | map({body: .})' \
+        > "$d/comments@$n.json"
 }
 
 # mk_pr_mixed <файл> <состояние-слияния> <имя=ИСХОД>... — rollup с НЕзелёными
@@ -630,6 +640,37 @@ mk_ws_protection "$X/protection@main.json"
 mk_runs "$X/runs.json" "515,$HEAD_SHA,completed,startup_failure,$T1,9015"
 printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
 
+# ── CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ (ws#918, решение владельца 2026-10-04) ──
+# Каждый случай — A (все обязательные зелены, «можно») с телом PR и комментариями
+# задач. Против PF-PROOF меняется ровно один факт; PF-PROOF и PF-REFS — законные
+# близнецы, молчащие там, где порча судила бы лишнее.
+PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
+pf_case() {  # <имя> <тело PR>
+    local d; d="$(mkcase "PF-$1")"
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    MR_BODY="$2" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    printf '%s' "$d"
+}
+d="$(pf_case PROOF $'Сборка 3 волны 2.\n\nCloses #500')"
+mk_comments "$d" 500 "PR: https://example.invalid/pr/1" "$PROOF_OK"
+d="$(pf_case MISSING $'Сборка 3 волны 2.\n\nCloses #500')"
+mk_comments "$d" 500 "PR: https://example.invalid/pr/1" "готово, всё зелёное"
+# Маркер не в начале строки — пересказ, а не доказательство.
+d="$(pf_case MIDLINE $'Closes #500')"
+mk_comments "$d" 500 "ждём DoD-proof @0123abcd от исполнителя"
+# Иное ключевое слово, иной регистр, чужой репозиторий — та же строка закрытия.
+d="$(pf_case FORMS $'fixes PRO-Robotech/kaname#77')"
+mk_comments "$d" 77 "готово"
+# Две строки: одна доказана, другая нет — нельзя, названа именно недоказанная.
+d="$(pf_case MULTI $'Closes #500\nCloses #501')"
+mk_comments "$d" 500 "$PROOF_OK"
+mk_comments "$d" 501 "готово"
+# Refs не закрывает — комментарии не читаются вовсе: фикстуры нет, и чтение дало бы 98.
+d="$(pf_case REFS $'Refs #500')"
+# Комментарии не прочитаны — вердикта нет.
+d="$(pf_case UNREAD $'Closes #500')"
+: > "$d/comments@500.unavailable"
+
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
 # незнакомый отвергается кодом 99, а не тишиной. Проверяется БЕЗ участия
@@ -892,6 +933,21 @@ probe "$WS_REPO" "$W" 2 "воркспейс: ответ о check-runs усечё
 probe "$WS_REPO" "$X" 1 "воркспейс: прогон без заданий (startup_failure) — «сливать нельзя», а не «не выполнилось»" \
     "СЛИВАТЬ НЕЛЬЗЯ" "прогон 515 целиком [STARTUP_FAILURE]"
 
+probe "$PRODUCT_REPO" "$TMP/case-PF-PROOF" 0 "Closes с комментарием-доказательством — «сливать можно»" \
+    "можно сливать" "с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-MISSING" 1 "Closes без комментария-доказательства — «сливать нельзя», задача названа" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-MIDLINE" 1 "маркер не в начале строки — пересказ, не доказательство" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-FORMS" 1 "fixes строчными в чужой репозиторий — та же строка закрытия, «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kaname#77"
+probe "$PRODUCT_REPO" "$TMP/case-PF-MULTI" 1 "две строки закрытия, одна без доказательства — «нельзя», названа она" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#501" "с доказательством DoD: 1 · без: 1"
+probe "$PRODUCT_REPO" "$TMP/case-PF-REFS" 0 "Refs не закрывает — доказательство не спрашивается, «сливать можно»" \
+    "можно сливать" "строк закрытия в теле PR: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-UNREAD" 2 "комментарии задачи не прочитаны — вердикта нет, а не «можно»" \
+    "комментарии задач НЕ ПРОЧИТАНЫ" "PRO-Robotech/kacho#500"
+
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты (продукт, проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон либо контексты воркспейса по защите базы (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 tooling_gate_census "$NAME: $locale_note"
 for n in "${by_code[0]:-0}" "${by_code[1]:-0}" "${by_code[2]:-0}"; do
@@ -906,4 +962,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, строка закрытия — только с доказательством DoD"
