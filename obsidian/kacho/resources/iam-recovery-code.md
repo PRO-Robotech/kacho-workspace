@@ -66,8 +66,21 @@ verified_against: "ветка issue-1271-recovery от release/iam-lines@af0ca8f
 - Уборка — предмет реестра `retention` (`recovery_codes`, порог 0): применённые и истёкшие
   строки, которые оператор применения уже не обслужит.
 
+## Частота запроса кода (сверено 2026-10-04)
+
+Путь запроса кода применяет **окно писем адресата** (kaname#456): отказ `ErrLetterWindowFull` в
+`internal/apps/kaname/api/humansession/recovery_request.go` — на `origin/main` и на `origin/296`
+(`git grep -c` → 1 на каждой). Форма отказа по частоте — **тот же ответ**, что и успех (Р8 приёмки Ф5,
+редакция 5): отдельного кода нет. Величины окон — существующие ручки. Держатели окна писем адресата и окна
+обращений источника (Ф5-26, Ф5-27) — в ветке эпика `296`, [[KAC/issue-246-kaname]]. Задача платформы,
+считавшая путь неограниченным, закрыта опровержением — [[KAC/issue-2700]].
+
 ## See also
 
-[[resources/iam-recovery-completions]] · [[rpc/iam-internal-user-service]] · [[KAC/issue-1271]]
+[[resources/iam-recovery-completions]] · [[rpc/iam-internal-user-service]] · [[KAC/issue-1271]] · [[KAC/issue-246-kaname]]
+
+## History
+
+- 2026-10-04 — раздел о частоте запроса кода (#246, kacho#2700). Повод: kacho#2700 закрыта опровержением, волна [[KAC/issue-536-kaname]] влита в ветку эпика.
 
 #resource #kacho-iam #iam #internal #migrations

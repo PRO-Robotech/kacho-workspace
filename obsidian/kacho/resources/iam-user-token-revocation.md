@@ -63,13 +63,26 @@ verified_against: "DDL прочитан в `internal/migrations/0001_initial.sql
 ## Чего дверь НЕ делает
 
 Непредставимым состояние сделано **в пределах пакета**, а не схемы: писатель на голом SQL
-мимо двери по-прежнему положит одну запись. Держит это сегодня гейт дерева
-`TestSubjectCutoffWritersWriteBothRecords`. Предмет — [[KAC/issue-336-kaname]], класс —
+мимо двери по-прежнему положит одну запись. Держит это на `main` гейт дерева
+`TestSubjectCutoffWritersWriteBothRecords`; в ветке эпика `296` — схема (раздел ниже). Предмет — [[KAC/issue-336-kaname]], класс —
 [[lessons/invariant-held-by-the-package-not-the-schema]].
+
+## Что меняет ветка эпика `296` (`77dae639`, 2026-10-04; в `main` службы не влито)
+
+- писатель на голом SQL мимо двери больше не кладёт одну запись: триггер на этой записи той же
+  транзакцией пишет вторую — [[KAC/issue-336-kaname]];
+- граница отсечки у всех читателей включающая: полномочие, возникшее не позже отсечки, запрещено —
+  [[KAC/issue-171-kaname]];
+- момент выдачи долговременного удостоверения и отсечка ставятся одними часами процесса;
+  остаток (реплик больше одной) — [[KAC/issue-388-kaname]], [[KAC/issue-589-kaname]].
 
 ## See also
 
 [[resources/iam-minted-token-revocation]] · [[edges/kaname-cutoff-door-vs-schema-writers]] ·
 [[resources/iam-human-session]] · [[resources/iam-session-revocation]]
+
+## History
+
+- 2026-10-04 — раздел о ветке эпика `296` (#336, #171, #388). Повод: волна [[KAC/issue-536-kaname]] влита в ветку эпика.
 
 #resource #kacho-iam #iam #internal #migrations
