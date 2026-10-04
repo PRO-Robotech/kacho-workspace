@@ -1,0 +1,131 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3
+  revision: 25
+  static_status: DRAFT
+  static_status_note: >-
+    Шапку документа эта запись не правит, и это сделано намеренно. Действующий вердикт выводится из
+    внешнего события и записи ревью. Он привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 25 не закоммичена: рабочее дерево issue-880@1b710f252 с изменённым документом. Отпечаток
+    снят с рабочего файла командой `sha256sum`. HEAD-версия (редакция 23) — 78603409…, одобренная
+    редакция 22 (e80741ed8) — 01b28881…, редакция 24 (круг 22, возврат) — a1da95a2….
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4782
+verdict: APPROVED
+review_mode: >-
+  Д97: блокирующее — только то, что ломает однозначность, конструируемость или производителя «Тогда».
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-04T09:00:00Z'
+round: 23
+round_note: >-
+  Двадцать третий круг. Предмет — дельта 22 → 25, как требовала запись круга 22: дельта 22 → 23
+  (`git diff e80741ed8 1b710f252 -- <док>`, перенос DKIM в NTF-1, Д96) и дельта 23 → 25
+  (`git diff HEAD -- <док>`: §0а, NTF4-122, правки круга 22, §32, §33). Часть «Основы» (Д100)
+  судилась отдельно: таблица §0а, Given в Основе, близнецы, DoD в части, зависимости.
+premise_check:
+  premise: >-
+    «B22-1 и B22-2 закрыты небольшими правками; N22-1…N22-3 закрыты; N22-4 не правлен».
+  result: confirmed
+  command: >-
+    sed -n 181,300p <док> (§0а: строки 92, 119, абзац «Зависимости»); sed -n 2880,2885p (тело 92,
+    абзац «В Основе»); sed -n 3056,3063p (тело 119, абзац «В Основе»); grep -n '^| 91, 92\|^| 122\|^| 119' (§8);
+    опоры перемерены: `git -C project/corelib grep -n 'ни одного домена' v1.10.0 -- servicehost/` →
+    serve.go:497; `git -C project/corelib show v1.10.0:servicehost/wiring_test.go` — protodesc.NewFile
+    в строке 128, protoregistry.GlobalFiles.RegisterFile — 132.
+previous_rounds:
+  - {round: 21, sha256: 01b2888142bdb25baeaf14f4ba9dc56007153bf8eb91410f2b5a5934d9cf2bc5, verdict: APPROVED}
+  - {revision: 23, sha256: 78603409fdc7743043c364c1f59e498e2b32a2a692c48f616ee0c14241276c6e, verdict: none}
+  - {round: 22, sha256: a1da95a2c760fbd7ece5f791b4fe02b7e8b59347968538fa5a205090e7d7ae81, verdict: CHANGES_REQUESTED}
+blocking_count: 0
+blocking_kinds_distinct: []
+trend_note: "Круг 22 — 2 блокирующих (CONSTRUCTIBILITY, TWIN), круг 23 — 0. Повтора рода нет."
+closed_findings:
+  - id: B22-1
+    status: closed
+    note: >-
+      §0а строка 119 и абзац «В Основе» тела 119: круг {SAN края}, испытательная регистрация NTF4-122 в
+      Given, дерево Н3-Ф3а. Абзац «Зависимости» снимает зависимость от Е10 и не допускает пустого
+      служимого набора. Given (а) строится; фикстура названа (§8, строка 122).
+  - id: B22-2
+    status: closed
+    note: >-
+      Близнец 92 в Основе — 119 (а), отличие ровно в круге (пустой против {SAN края}). Замена близнеца
+      NTF4-88 и Given «то же, что в NTF4-88» записана одинаково в трёх местах: §0а, тело 92, §8 строка 91, 92.
+  - {id: N22-1, status: closed, note: "§0а «После Основы»: NTF4-30 в Основе держит только NTF4-112"}
+  - {id: N22-2, status: closed, note: "§8 строка 122: динамический дескриптор, образец corelib v1.10.0 wiring_test.go:128, путь вне proto/kacho/cloud/notify/v1/"}
+  - {id: N22-3, status: closed, note: "§33 и строка редакции 25 в шапке; прежние строки не правлены — допустимо"}
+  - {id: N22-4, status: open_route, note: "место постоянной Х1 (Е8) — маршрут, решает диспетчер до старта S3-C4н"}
+non_blocking_findings:
+  - id: N23-1
+    kind: FORMAT
+    anchor: "§1.1, таблица, строка «самоотчёт посадки: ось DNS» (строка 672)"
+    what: >-
+      Ячейка «Свойство доказывается иначе» осталась из редакции 22: держателями названы NTF4-42…NTF4-48,
+      положительный близнец NTF4-49, отсутствие ручки обхода NTF4-52. Эти сценарии перенесены в NTF-1
+      (NTF1-P04…P09, P12). Тот же список в NTF4-40 (строка 3153) приведён верно: NTF1-P04…P08, NTF4-46,
+      47, 75, 76, 79, NTF1-P12. В двух местах один предмет описан по-разному. На однозначность «Тогда»
+      это не влияет: ячейка — обоснование, а не утверждение сценария. Привести к строке 3153.
+  - id: N23-2
+    kind: CONSTRUCTIBILITY
+    anchor: "NTF4-122 Given, NTF4-119 «В Основе»: «экземпляр собран тем же путём сборки, что корень, и проба добавляет к нему одну регистрацию»"
+    what: >-
+      Как корень принимает добавочную регистрацию, документ не говорит. Это форма фикстуры, а не
+      контракта, и производитель назван (NTF-4, полоса S3-C2н). Полосе стоит следить, чтобы точка
+      добавления не оказалась вызовом `Register…Server` в не-тестовом корне вне записи З9: такой
+      вызов краснит инъекцию DoD S3 п.8.
+dispatcher_decisions_check:
+  - {decision: Д100, honoured: true, note: "часть Основы без InternalSuppressionService; Р1–Р22 не меняются, новых «Тогда» в ред. 25 нет"}
+  - {decision: Д96, honoured: true, note: "перенос Р9/Р10 в NTF-1; остаток о домене возврата и признаке репутации"}
+  - {decision: "ban #14", honoured: true, note: "§0а: часть production-complete в своих границах"}
+authority:
+  role: acceptance-reviewer
+  note: >-
+    Имя роли — координата, а не доказательство личности. Событие полномочия публикует курьер.
+event:
+  body: "acceptance-reviewer · APPROVED · d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3"
+measurement:
+  revision: "issue-880@1b710f252 + рабочее дерево; corelib v1.10.0"
+  counts:
+    scenarios: {value: 106, command: "grep -c '^\\*\\*ID:\\*\\* NTF4-' <док>"}
+    s3_scenarios: {value: 27, command: "awk '/^### Стадия S3/,/^### Стадия S4/' <док> | grep -c '^\\*\\*ID:\\*\\* NTF4-'"}
+    basis_scenarios: "8: 92, 108, 109, 112, 117 (в части), 118, 119 (в части), 122 — таблица §0а"
+    ntf1_p_scenarios: {value: 12, command: "grep -c 'ID:\\*\\* NTF1-P' docs/specs/*NTF-1*acceptance*.md"}
+    delta_23_to_25_lines: {value: 216, command: "git diff HEAD -- <док> | grep -c '^[+-]'"}
+  twin_coverage:
+    basis_negatives: "92 → 119 (а) (отличие — круг); 122 (б) → 122 (а) (отличие — SAN пира); 119 (б)–(г) → 119 (а)"
+    ntf4_s5_remainder: "46, 47, 75, 76, 79 → 40 (один факт зоны); 51 ↔ 50"
+    basis_negatives_without_twin: []
+  producer_coverage:
+    note: >-
+      Новых «Тогда» в ред. 25 нет. Строки §8 91–92, 119, 122 называют производителя (services/notify,
+      полоса S3-C2н, corelib grpcsrv/authz). Остаток S5 опирается на NTF1-P01, P02, P10, P11 — производитель
+      NTF-1, зависимость записана в DoD S5 п.1.
+  constructibility:
+    seeded: 0
+    of: 8
+    not_executed: 8
+    by_named_fixture: ["NTF4-119 (а) в Основе", "NTF4-92 в Основе", "NTF4-122"]
+    reason: >-
+      Стенда и разрешения на посев в задании нет; посев не выполнялся. Конструируемость Given Основы
+      показана названной фикстурой: динамический дескриптор по образцу corelib v1.10.0
+      servicehost/wiring_test.go:128-132, домен notify выводится из пакета kacho.cloud.notify.v1,
+      отказ «ни одного домена» (serve.go:497) этим снимается.
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: false
+  edge: true
+  ui: false
+  new_domain: false
+  security_surface: true
