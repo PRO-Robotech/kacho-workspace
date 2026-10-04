@@ -50,9 +50,35 @@ non_blocking:
   - 'Держатели названы каталогами без коммита; коммит изменения в kaname — 5483a4b3d ветки 522.'
 event:
   type: github_issue_comment
-  status: not_performed
-  published: false
+  status: performed
+  published: true
   publication_expected_from_orchestrator: true
+  url: https://github.com/PRO-Robotech/kaname/issues/522#issuecomment-5975142524
+  api_url: https://api.github.com/repos/PRO-Robotech/kaname/issues/comments/5975142524
+  issue: PRO-Robotech/kaname#522
+  database_id: 5975142524
+  node_id: IC_kwDOUO26pM8AAAABZCVwfA
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-04T00:51:10Z'
+  updated_at: '2026-10-04T00:51:10Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: 5d5048944b52e13ef1b138ed59e8e2e2e14ce35d74fd2c8043de17d44c375e36
+  subject_revision_in_body: 489ad476cf4e57a0086e055fb7becd22d2450e7a
+  verified_at: '2026-10-04'
+  verified_predicates:
+    existence: >-
+      gh api --paginate repos/PRO-Robotech/kaname/issues/522/comments --jq '.[].id'
+      → 3 комментария; 5975142524 среди них, автор pointpu.
+    body_carries_this_fingerprint: >-
+      gh api repos/PRO-Robotech/kaname/issues/comments/5975142524 --jq .body
+      | grep -c '32ec1594d4b0f4e561cbd45d1764b12023dfbdbaea3984f364368e4e4cb26e7f' → 2 (строка subject_sha256 и путь записи).
+    body_sha256: >-
+      gh api repos/PRO-Robotech/kaname/issues/comments/5975142524 --jq .body | sha256sum
+      → 5d5048944b52e13ef1b138ed59e8e2e2e14ce35d74fd2c8043de17d44c375e36
+  fact_alignment_note: >-
+    Блок приведён к факту публикации отдельным коммитом, как обещал комментарий-событие;
+    вердикт, отпечаток и находки записи не менялись.
   required_body_for_courier:
     role: acceptance-reviewer
     verdict: APPROVED
@@ -66,6 +92,6 @@ authority:
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
-  publishing_actor: none
+  publishing_actor: pointpu
   publication_mode: courier_of_agent_verdict
   personal_review_by_publishing_actor_claimed: false
