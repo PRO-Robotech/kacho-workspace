@@ -1,0 +1,71 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-BAT-1-basic-access-token-acceptance.md
+  sha256: 32ec1594d4b0f4e561cbd45d1764b12023dfbdbaea3984f364368e4e4cb26e7f
+  revision: post-verdict-edit-2026-10-04
+  static_status: APPROVED
+  static_status_note: >-
+    Шапка объявляет «✅ APPROVED — круг 4» (статическая форма до контура отпечатков) и не правлена
+    как вердикт: правка добавила в неё одну строку-запись о замещении. Объявление относится к
+    прежнему содержимому (origin/main → 6391b1e4…); действующее одобрение ЭТОЙ редакции — эта
+    запись ПЛЮС внешнее событие (change-graph.md §2). Каталог записей заведён этой записью.
+  base_commit: ad4e28c88
+  content_commit: 489ad476cf4e57a0086e055fb7becd22d2450e7a
+  content_state: committed
+  fingerprint_predicate: >-
+    git show 489ad476:docs/specs/sub-phase-BAT-1-basic-access-token-acceptance.md | sha256sum
+    → 32ec1594…6e7f; прежнее (origin/main) → 6391b1e4…aecd1.
+  branch: 522-na24-ledger
+  pull_request: https://github.com/PRO-Robotech/kacho-workspace/pull/912
+  task: PRO-Robotech/kaname#522
+  delta: "git diff origin/main...HEAD по файлу: +26 / −0 (удалённых строк 0)"
+verdict: APPROVED
+expected_actor: pointpu
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-04T00:00:00Z'
+round: 6
+blocking: 0
+findings_checked:
+  scope: >-
+    Правка — только запись о замещении (строка шапки + врезка под BAT-1-44). Текст сценариев не
+    тронут: удалённых строк 0; сценариев 71 (grep -c '^\*\*ID: BAT-1-' → 71).
+  sanction: >-
+    Замещение решено Р3 одобренной приёмки kaname:credential-verbs-refusal-outcomes.md; отпечаток
+    98f727e2… перемерен (git show origin/536:<путь> | sha256sum → совпал); её запись ревью →
+    verdict APPROVED, expected_actor pointpu, событие kaname#522#issuecomment-5969148055. Р3 сам
+    называет запись о замещении в BAT-1 пунктом своего DoD п.9.
+  fidelity: >-
+    Врезка передаёт Р1–Р3 без искажения: NOT_FOUND, «<Resource> <id> not found», без операции, три
+    случая неразличимы; сохранённые утверждения BAT-1-44 (снятие строки, положительный контроль)
+    названы верно.
+  holders: >-
+    TestRevoke_RepeatAbsentAndForeignShareOneOutcome и TestRevokeSAKey_… в kaname @55c2bf7d
+    утверждают sync NotFound (const refusal …NotFound…); на origin/536 — ещё прежний успех:
+    изменение не влито в ветку волны.
+  producer_twin_constructibility: 'новых сценариев и Given нет; близнец BAT-1-44 (второе удостоверение проходит) не тронут'
+non_blocking:
+  - 'Врезка говорит «синхронно, без операции»; Р2 оговаривает гонку двух отзывов — проигравший получает операцию с тем же кодом и текстом. Достаточно ссылки на Р2; можно назвать явно.'
+  - 'Держатели названы каталогами без коммита; коммит изменения в kaname — 5483a4b3d ветки 522.'
+event:
+  type: github_issue_comment
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  required_body_for_courier:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: docs/specs/sub-phase-BAT-1-basic-access-token-acceptance.md
+    subject_sha256: 32ec1594d4b0f4e561cbd45d1764b12023dfbdbaea3984f364368e4e4cb26e7f
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
