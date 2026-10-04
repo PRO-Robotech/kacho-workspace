@@ -1,0 +1,44 @@
+# ВЕРДИКТ: ✅ на sha256 565f3e59a9ce1734dc3564d887e370e2d66b3a61cde5321b0d6a6f3608601db8
+role: db-architect-reviewer
+mode: review
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом)
+repo: PRO-Robotech/kacho
+pr: 3021
+base: 2c283f99f4bcb549671fc8e3a0101713ff7b6289   # merge-base(origin/2914-notify, head), перемерено; = голова origin/2914-notify
+head: bb9533bbcd7092e9851c5d0f665a1711eb7630e3
+digest: 565f3e59a9ce1734dc3564d887e370e2d66b3a61cde5321b0d6a6f3608601db8  # git diff base..head | sha256sum
+migrations_touched: 1
+paths:
+  - services/notify/internal/migrations/20261004063500_recipient_net_limits.sql
+  - services/notify/internal/migrations/migrations.go
+  - services/notify/cmd/migrator/chains.yaml
+  - services/notify/cmd/migrator/main.go
+  - services/notify/internal/limits/limiter.go
+  - services/notify/internal/limits/fence.go
+  - services/notify/internal/limits/retention.go
+  - services/notify/cmd/notify-probe/internal/send/send.go
+  - services/notify/cmd/notify-probe/internal/journal/journal.go
+blocking: []
+accepted:
+  - "новая цепочка kacho_notify: новый файл, goose Up/Down, CHECK inline (count>=0, octet_length key=32 / fingerprint=16, class/period IN), PK (key,class,period,window_start); применённые миграции не тронуты"
+  - "резерв — CAS INSERT … ON CONFLICT DO UPDATE … WHERE count < $limit RETURNING; 0 строк -> сторож; отдельного «есть ли место» нет (ban10); вставочная ветка ставит 1 при пределе >= 1 (Grid.Validate)"
+  - "ограда: FOR SHARE (ROW SHARE) против LOCK TABLE IN EXCLUSIVE MODE — режимы конфликтуют; строка-одиночка CHECK(singleton) PK"
+  - "порядок замков резерва и освобождения одинаков (окна day<hour по PK, затем global_daily) — взаимоблокировки нет"
+  - "освобождение: UPDATE count-1 WHERE … AND count>0 по ключам резерва; CHECK count>=0 держит пол"
+  - "уборка: DELETE … IN (SELECT … LIMIT … FOR UPDATE SKIP LOCKED) только окон, закончившихся раньше now()-LeaseTTL"
+  - "внешних ключей через границу нет; ошибки базы наружу не уходят (ошибка базы != сторож, счётчик notify_reserve_db_errors_total)"
+  - "Д109: send.go — id из feed.PutID (queued.ID()), прямое чтение ленты, journal.FeedOutbox и REPEATABLE READ сняты"
+concurrent_probes:
+  - TestLimits_NTF1H03_NetIsExactAcrossReplicas
+  - TestReleaseConcurrentWithReserveNoDeadlock
+  - TestReserveHolderVanishedDoesNotStallFleet
+  - TestLimits_CX168b_ReserveStartedBeforeFenceWriteCommits
+  - TestSendReturnsItsOwnIDUnderACompetingWrite
+experiment: "go test -count=1 -race ./services/notify/internal/limits/ ./services/notify/cmd/migrator/ ./services/notify/cmd/notify-probe/internal/send/ @bb9533bbcd7 — ok x3; -v: 35 PASS верхнего уровня, 0 SKIP (testcontainers исполнены)"
+non_blocking:
+  - "схема: таблицы в public без CREATE SCHEMA kacho_notify, тогда как цепочка пробы — kacho_notifyprobe; прецедент смешанный (compute, iam тоже без схемы). На PG15+ CREATE в public требует владения базой ролью наката — предпосылку держит развёртывание"
+  - "освобождение однократно лишь в памяти (Reservation.released): потерянный ответ на COMMIT и повтор снимут вклад дважды — недосчёт сетки на 1, пол держит CHECK"
+  - "уборка recipient_net идёт последовательным проходом (индекса по концу окна нет); объём ограничен самой уборкой"
+  - "global_daily — одна горячая строка на сутки: каждый резерв сериализуется на ней (пропускная способность, не корректность)"
+cross_distributed: "нет"

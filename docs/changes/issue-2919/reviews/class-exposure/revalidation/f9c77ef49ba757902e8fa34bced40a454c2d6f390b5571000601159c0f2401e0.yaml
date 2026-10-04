@@ -1,0 +1,204 @@
+# Экспозиция классов: пересверка (revalidation) замысла NTF-4, редакция 8 (дельта Д100, §2а).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА в рабочем дереве (не закоммичен). Пересверки на редакции 1–7
+# относятся к своим редакциям и здесь не переписываются. Судится дельта df1ce64d… (HEAD 24f31fd00) →
+# f9c77ef4… (рабочее дерево): шапка редакции 8, §2а, абзац §13, строки Е8–Е10; tasks.md §1 Е8–Е10, §2б.
+#
+# Проверено четыре условия. Два из них красные: открытые решения (Е8, Е10) и закрепление §0.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: f9c77ef49ba757902e8fa34bced40a454c2d6f390b5571000601159c0f2401e0
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 8
+  content_commit: null          # рабочее дерево, не закоммичено (задание: не коммитить)
+  tasks_sha256: 0707ca41773fdf19f7f171b4aa4be1e526b7a1649854f3a1e598612d9bd06dbd
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256_in_tree: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3
+  revision_in_tree: 25
+  effective_verdict: APPROVED    # круг 23, коммит 24f31fd00
+  verdict_record: docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3.yaml
+  design_pins: "cb947e50… (редакция 21) — §0 замысла, строки 86–100"
+  note: >-
+    Первичного разбора на d337b360 (и на 01b28881) в initial/ нет. Перечень пунктов — по
+    initial/cb947e50…; пункты §0а приёмки (Д100) первичным разбором не размечены.
+initial_records:
+  - docs/changes/issue-2919/reviews/class-exposure/initial/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 24f31fd0076fc0ac75a5b27890e48507e3c12207   # HEAD issue-880; design.md/tasks.md — рабочее дерево поверх
+  corelib: 9e7e0369a340a30d32f0d7d110fef1cc1b7ca115     # v1.10.0; плюс объект 4dabea4 (origin/77-notify)
+  kacho: f4c74ba1aa18d7afa0fa5f15daf1025e28588615       # origin/main рабочей копии; не читался
+snapshot_at: 2026-10-04T04:29:46Z
+inspected: >-
+  design.md: git diff HEAD (шапка ред. 8, §2а целиком, §13 абзац, Е8–Е10), плюс §0 (86–100), З22
+  (1368–1392), §11 CX4V-23 (1820), З14 (976–985), §8 (1743). tasks.md: git diff HEAD (§1 Е8–Е10, §2б),
+  S1-A6 (120). Приёмка d337b360: §0а (181–285), строка 122 §8, DoD S3 п.6а, история Д96 (4712).
+  Приёмка NTF-3: строки 1536–1546, NTF3-159 (3700–3735). Маршрут NTF-3 tasks.md 260–300.
+  corelib: servicehost/serve.go 485–505 @v1.10.0; ids/ids.go @v1.10.0 и @4dabea4. Записки vault не
+  читались.
+
+approval_conditions:
+  - condition: "каждый неотображённый пункт пересверки df1ce64d отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: "В df1ce64d unmapped: []. Строк §11 — 67, уникальных пунктов — 67, строк Д26 — 9."
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения или механизма без выдерживающего отображения"
+    result: green
+    detail: >-
+      В тексте, как он записан, §2а делит существующие механизмы. Внешних вызовов, асинхронных путей
+      и sentinel нет. Исключение — варианты Е8 (б) и Е10 (а): они вносят механизм, но не выбраны.
+      Они учтены в условии 4.
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "grep -noE 'TODO|TBD|FIXME|XXX' design.md tasks.md → 0"
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: >-
+      §13 пишет «Открытых решений этого замысла нет. Е8–Е10 — выбор диспетчера». По существу Е8 и
+      Е10 — выбор из двух вариантов, и один вариант в каждом вносит содержание замысла: Е8 (б) — второго
+      производителя постоянной `nop`, Е10 (а) — условие рендера развёртывания `notify-api`. Это та же
+      форма, что Е7 в b46bd023 и 72f13d01: там она судилась красной. Е9 — зависимость от чужого
+      документа, её предикат разобран в RV8-05.
+  - condition: "замысел закреплён на одобренной редакции приёмки, которой он отвечает"
+    result: red
+    detail: >-
+      §0 (строки 86–100) закреплён на редакции 21 (cb947e50) и пишет «редакция 22 — вердикта нет». На
+      деле 01b28881 одобрена кругом 21, d337b360 (ред. 25) — кругом 23. Шапка ред. 8 называет
+      «приёмка — редакция 24, §0а». §2а опирается на §0а и на счёт ручек по Д96, а в закреплённой
+      редакции 21 нет ни того, ни другого.
+
+findings:
+  - id: RV8-01
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код»; doc: два места об одном предмете"
+    subject: "счёт ручек Р16"
+    measured: >-
+      §2а (стр. 1473): «21 ручка стадии S1», «сверка 31 ручки». З22 (1377, 1386): «23 ручки GroupNTF4
+      стадии S1», «33 ручки NTF-4 по двум загрузчикам». §11 CX4V-23 (1820): «33 ручки». tasks S1-A6 (120):
+      «23 ручки S1». Приёмка d337b360 (стр. 1962, 4712; Д96, решение владельца 2026-10-03): ручки
+      `KACHO_NOTIFY_DNS_BOOT_DEADLINE` и `…_DNS_RECHECK_INTERVAL` перенесены в NTF-1, Р16 — 31, S1 — 21.
+      З14 (976–985) и §8 (1743) по-прежнему относят их к Р16.
+    condition_on_code: >-
+      В `knobs.go` у двух DNS-ручек нет `GroupNTF4`, их объявляет NTF-1. `required_knobs_test.go`
+      утверждает 31 ручку NTF-4 и 21 ручку у `notify-sender` числом в коде пробы. Поэтому замысел
+      приводит З22, З14, §8, §11 CX4V-23 и tasks S1-A6 к 21/31 одной правкой.
+    held_by: "держатель Р16 (required_knobs_test.go) — после правки числа; до неё он утверждал бы неверное число"
+    outcome: к-замыслу
+  - id: RV8-02
+    class: "code-authoring §«Решение и его следствие разнесены»; data-integrity seed-condition-step"
+    subject: "Е10 — развёртывание `notify-api` с пустым служимым набором на волне Н3-Ф3а"
+    measured: >-
+      corelib servicehost/serve.go @v1.10.0 (9e7e0369), строки 496–498: `len(out) == 0` → ошибка «Ноль
+      целей есть ОТКАЗ». Регистрации NTF-3 (S2-B7) садятся волной Н3-Ф4, регистраций NTF-4 в Основе нет.
+    condition_on_code: >-
+      Замысел выбирает один исход, и в обоих он конструктивен. (а) — назвать, ЧЕМ зонтик решает
+      рендерить `notify-api`. Это не новая ручка-флаг: признак выводится из того же источника, что
+      `kacho.notify.present`, иначе получится второй признак об одном предмете. (б) — S3-C2н/S3-C6н с
+      S2-B7 одной волной; это ребро маршрута, чарт без условия. До выбора S3-C6н не включает
+      `notify-api` в рендер зонтика стенда. Иначе rollout-ready стенда красный по причине «процесс не
+      стартует», и это читается как поломка продукта.
+    held_by: "нужен гейт, его нет: рендер зонтика Основы без регистраций не содержит Deployment `notify-api` либо содержит его только вместе с ними"
+    outcome: к-замыслу
+  - id: RV8-03
+    class: "code-authoring §«Контракт, который нельзя выразить» — два написания одного значения; api-hyphen-prefix (каталог префиксов один)"
+    subject: "Е8 — постоянная `nop` для `prefixToBackend` в Основе"
+    measured: >-
+      `git -C corelib grep -c '"nop"' v1.10.0 -- ids/ids.go` → 0 (вывода нет). @4dabea4
+      (origin/77-notify, «префиксы nsp и nop notify в каталоге префиксов (2919 X1)») ids/ids.go:127
+      `PrefixOperationNotify = "nop"`.
+    condition_on_code: >-
+      Ключ `prefixToBackend` для notify — только `ids.PrefixOperationNotify` из corelib. Литерала
+      `"nop"` в не-тестовом дереве `gateway/` 0. Вариант Е8 (б) «другой производитель постоянной»
+      допустим, только если производитель — тот же каталог `ids` (тег Х1 раньше), а не локальная
+      постоянная края. Замысел либо закрывает Е8 вариантом (а), либо записывает этот запрет в (б).
+    held_by: "нужен гейт, его нет: литерал приставки в gateway вне ids → красный (кандидат — однофайловый предикат)"
+    outcome: к-замыслу
+  - id: RV8-04
+    class: "contour: пин замысла на одобренную редакцию"
+    subject: "§0 замысла и Е1"
+    measured: "verdict_record d337b360: APPROVED (круг 23); в истории того же файла 01b28881 — APPROVED (круг 21)"
+    condition_on_code: >-
+      §0 перезакреплён на d337b360. Строка «редакция 22 — вердикта нет» снята, Е1 пересчитана
+      против ред. 25, шапка ред. 8 называет ту редакцию, на которую закреплён §0.
+    held_by: "испытуемый контура (cg.*) по отпечатку; вниманием до него"
+    outcome: к-замыслу
+  - id: RV8-05
+    class: "code-authoring §«Механизм накопления опыта» (предикат снятия обязан уметь ответить «да»)"
+    subject: "Е9 — предикат снятия"
+    measured: >-
+      `grep -c 'S3-C2н' docs/changes/issue-2918/tasks.md` → 0 @24f31fd00. При этом маршрут NTF-3
+      (стр. 266–269, ред. 18) уже ответил по-другому: «до тегов пины — на головы эпиков (Д64); теги X1,
+      X2, X3, X2-F … Основу не гейтят».
+    condition_on_code: >-
+      Предикат Е9 формулируется на внешнем факте: теги NTF-3 не гейтят Основу. Подходит предикат
+      `grep -c 'Основу не гейтят' docs/changes/issue-2918/tasks.md` ≥ 1 либо ребро волны. Требовать от
+      чужого документа конкретное написание нельзя. Ещё одно расхождение: «S3-C2н пинит corelib на
+      тег Х5» (§2а, tasks §2б) против правила Д64 NTF-3 «внутри Основы — пины на головы». Замысел
+      называет, что Х5 — исключение из Д64 и почему.
+    held_by: "вниманием"
+    outcome: к-замыслу
+  - id: RV8-06
+    class: "code-authoring §«Решение и его следствие разнесены»"
+    subject: "маршрут `nop` → notify в Основе без `OperationService` на `notify-api`"
+    measured: >-
+      Приёмка §0а: NTF4-93/94 — после Основы, регистрации `OperationService` от NTF-4 в Основе нет.
+      В замысле NTF-3 `OperationService` не встречается ни разу (grep). Мутации NTF-3 отвечают `nop`,
+      `done = true`.
+    condition_on_code: >-
+      Проба п.6а в Основе утверждает только проверку происхождения и выбор соединения.
+      `internal_only_backend_test.go`: внешний → отказ до поиска, внутренний → соединение `notify`.
+      Ответа `OperationService` на внутреннем входе она не утверждает. §2а называет, что внутренний
+      опрос `nop` в Основе ответа сервиса не получает, пока регистрацию не принесёт NTF-3 или S3
+      после Основы.
+    held_by: "internal_only_backend_test.go (инъекции DoD S3 п.6а)"
+    outcome: к-коду
+  - id: RV8-07
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (пустой обход)"
+    subject: "S3-C7н — проба З9 на волне Н3-Ф3а, строк NTF-3 ещё 0"
+    condition_on_code: >-
+      Знаменатель пробы — корни (2) и вызовы носителя (`notify-api` — 1), а не строки записи. Ноль
+      строк у `notify-api` — законное состояние: проба печатает его числом и не зеленеет на
+      пустоте. Инъекция «`Register…Server` вне записи в корне `notify-api`» красная на дереве без
+      строк.
+    held_by: "servesurface_test.go — две инъекции DoD S3 п.8 части Основы"
+    outcome: к-коду
+  - id: RV8-08
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код»"
+    subject: "испытательная регистрация NTF4-122 (общая для NTF4-119, 92)"
+    condition_on_code: >-
+      Дескриптор регистрируется в `protoregistry.GlobalFiles` один раз на процесс (`sync.Once` или
+      `TestMain`). Путь файла уникален и не пересекается с `proto/kacho/cloud/notify/v1/`. Фикстура
+      лежит только в `_test.go`/`internal/testkit`: повторная регистрация того же пути — паника, а
+      фикстура в прод-сборке становится служимым доменом.
+    held_by: "проба NTF4-122 — исход (а) и (б); гейта на «фикстура вне прод-сборки» нет — вниманием"
+    outcome: к-коду
+
+unmapped: []
+return_to_acceptance: []
+questions_to_dispatcher:
+  - "Е8: вариант (а) — Х1 в Основе, или (б) с производителем только из `ids` (RV8-03)"
+  - "Е10: вариант (а) — с условием рендера от источника `kacho.notify.present` — или (б) одна волна (RV8-02)"
+  - "tasks §2б: место S3-C8н («Д100 этой полосы не называет»)"
+orders:
+  - to: "автор замысла NTF-4"
+    subject: "RV8-01 (счёт 21/31 в З22, З14, §8, §11, tasks S1-A6), RV8-04 (пин §0 на d337b360), RV8-05 (предикат Е9), запись выбранных Е8/Е10"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Контракт, который нельзя выразить»"
+  - to: "class-exposure-analyst (первичный разбор)"
+    subject: "первичный разбор на d337b360: пункты §0а приёмки первичным разбором не размечены"
+    basis: ".claude/rules/change-graph.md §4 «Классы риска размечаются ДВАЖДЫ»"
+findings_outside_subject:
+  - "Приёмка NTF-3, NTF3-159 (е) — близнец «тот же опрос с внутреннего слушателя края доходит до notify (NTF4-94)». NTF4-94 по §0а NTF-4 — после Основы. Если NTF3-159 входит в Основу NTF-3, близнец в Основе не строится → автору приёмки NTF-3"
+outcome: к-замыслу

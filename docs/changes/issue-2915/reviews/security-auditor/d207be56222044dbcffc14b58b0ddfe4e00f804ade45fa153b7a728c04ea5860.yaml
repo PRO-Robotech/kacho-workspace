@@ -1,0 +1,49 @@
+ВЕРДИКТ: ✅ на d207be56222044dbcffc14b58b0ddfe4e00f804ade45fa153b7a728c04ea5860
+role: security-auditor
+mode: пост-дифф, повтор по блокирующему (Д97)
+repo: PRO-Robotech/kaname
+pr: 600
+head: 38f6b7eca318ac684eadf63a1eb6842544c42e3c
+prev_head: 5acc548bf46d25ed1ac67fac64779b895e89f63a   # предок головы (git merge-base --is-ancestor)
+base_branch: 484-notify
+merge_base: a3c0158af93ee3d3105c07a84c2620ed6e94e04d   # перемерено: git merge-base origin/484-notify <head>
+digest_cmd: git diff a3c0158af93ee3d3105c07a84c2620ed6e94e04d..38f6b7eca318ac684eadf63a1eb6842544c42e3c | sha256sum
+prev_record: 81ae6f8e684dfbdeb3b36c8fe52f852c0cc5feddc9dbbb95f767ebf0ba0f81d7.yaml
+delta:
+  commits: 1   # 38f6b7eca «чарт и стенды: полоса отсечки и звено Р2 службы выдачи (Д112 (в))»
+  files: 10    # git diff --stat 5acc548bf..38f6b7eca; +327 -2
+  read_whole: [deploy/templates/configmap.yaml (оба блока в контексте authn/notifications),
+               deploy/values{,.dev,.prod}.yaml (дифф), .github/scripts/stand-chart.sh (дифф, $NS/$DOMAIN),
+               .github/scripts/stand-own.sh (дифф), deploy/notification_grant_knobs_render_test.go,
+               deploy/prod_profile_test.go (дифф bootGuardVerdict, configBridge), deploy/prod_profile_render_test.go (дифф)]
+closed:
+  - id: kaname:cmd/kaname/notification_grant_wiring.go:cutoff-guard-not-in-chart
+    status: закрыт
+    predicate: >
+      git grep 'cutoff-guard|cutoffGuard|serviceIdentity' 38f6b7eca -- deploy/ .github/ (без _test.go) → 21 строка (было 0);
+      GOWORK=off go test ./deploy/ -count=1 -v @38f6b7eca → 219 PASS, 0 FAIL, 1 SKIP; среди них
+      TestCutoffGuard_EverySuppliedProfileDeclaresItAndTheBuilderAcceptsIt (каждый values.*.yaml → рендер →
+      config.Load → CutoffGuardValue принят) с отрицательным близнецом TestCutoffGuard_BuilderRefusesABodyWithoutTheKey;
+      CI PR 600: задания «автономный стенд — служба без платформы» и «… волна церемонии», падавшие
+      «notifications.cutoff-guard must be declared» (run 37192538905), на этой голове pass.
+    shape: >
+      notifications.cutoffGuard — ручка без умолчания, рендерится всегда; пусто/null/не-длительность/ноль — отказ
+      рендера с именем ключа (П2, 4 случая + близнец 45s); граница [1s..10m] — страж процесса.
+      serviceIdentity — блок → authn.service-identity в конфигмапе (не env); пусто — ключа нет (звено
+      NotApplicable, ResolveSend fail-closed); половина блока или строка без san/name — отказ рендера;
+      перечень методов закрыт {ResolveSend} стражем процесса. Оба стенда объявляют оба (Д112 (в)).
+blocking: []
+non_blocking:
+  - id: kaname:.github/scripts/stand-chart.sh:stand-notify-san-has-no-holder
+    note: >
+      стенды объявляют строку звена для spiffe://<домен стенда>/ns/<ns>/sa/notify, а служба уведомлений
+      на стендах kaname не поднимается; строка открывает только ResolveSend, за которым по-прежнему
+      Check reader на notification_feed. Расширения поверхности нет; кандидат на запись ревью.
+cross_repo:
+  - repo: PRO-Robotech/kacho
+    note: >
+      values.prod.yaml kaname блока serviceIdentity не несёт (по Д112 (в) обязательны только стенды):
+      в боевой посадке ResolveSend от notify — отказ fail-closed, пока зонт (подчарт kaname, дерево kacho)
+      не объявит serviceIdentity с SAN notify. Не дефект этой головы; предмет волны kacho (Д112 (а)).
+accepted_not_reopened: см. prev_record.confirmed_clean
+ci_pending_at_review: [интеграция (Postgres в контейнерах), пробы -race -short, стенд посадки own (kind)]

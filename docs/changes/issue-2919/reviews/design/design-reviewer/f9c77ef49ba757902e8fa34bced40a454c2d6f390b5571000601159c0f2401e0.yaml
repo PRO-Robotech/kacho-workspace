@@ -1,0 +1,156 @@
+# Ревью замысла от роли design-reviewer (исполнитель system-design-reviewer, режим «замысел», Д97:
+# один круг, блокирует только корректность, конструируемость или безопасность «Основы», и только с предикатом).
+# Запись привязана к отпечатку замысла NTF-4 редакции 8 (f9c77ef4…, дельта Д100, §2а). Прошлая запись роли —
+# df1ce64d… (редакция 7, APPROVED). Рабочее дерево tmp/issue-880 поверх 24f31fd00, дельта не закоммичена.
+# Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2919
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: f9c77ef49ba757902e8fa34bced40a454c2d6f390b5571000601159c0f2401e0
+  fingerprint_predicate: "sha256sum docs/changes/issue-2919/{design.md,tasks.md} (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "design f9c77ef4… = заданию = revalidation/f9c77ef4…; tasks 0707ca41… = tasks_sha256 пересверки"
+  revision: 8
+  tasks_sha256: 0707ca41773fdf19f7f171b4aa4be1e526b7a1649854f3a1e598612d9bd06dbd
+  previous_record: docs/changes/issue-2919/reviews/design/design-reviewer/df1ce64d56e00247b34a650d60a49d1d7784e5e68da4b00aa427ef99730338c6.yaml
+  premise_of_task: "подтверждена: HEAD tmp/issue-880 = 24f31fd00; design.md и tasks.md — M в рабочем дереве (git status); пересверка f9c77ef4 — ?? (новый файл)"
+  content_commit: "— (дельта не закоммичена; вердикт — о содержимом с этим отпечатком)"
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256_in_tree: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3
+  verdict_in_tree: APPROVED   # запись d337b360….yaml:25
+  pinned_by_design_section_0: "cb947e50… (редакция 21) — design.md:86-99"
+revisions:
+  workspace: 24f31fd00
+  corelib: "v1.10.0 (9e7e0369) и объект 4dabea4 (origin/77-notify)"
+snapshot_at: 2026-10-04
+
+verdict: RETURNED
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-4"
+distributed_surface: true
+schema_review_overlap: false   # дельта не меняет CAS, xmin, advisory-lock: замок мигратора — прежний З18
+
+inspected: >-
+  git diff HEAD -- docs/changes/issue-2919/ целиком: шапка ред. 8, §2а (таблица З18–З22, Х5), §13
+  (абзац, Е8–Е10); tasks.md шапка ред. 9, §1 Е8–Е10, §2б. Плюс design.md:84-99 (§0), :1377, :1386 (З22),
+  :1820 (§11 CX4V-23); tasks.md:120 (S1-A6). Записи: прошлая роли df1ce64d (целиком), пересверка
+  f9c77ef4 (целиком), ссылочная запись Д97 issue-2915/1b03566a (форма условий). Перемерено: corelib
+  servicehost/serve.go:496-499 @v1.10.0; ids/ids.go @v1.10.0 и @4dabea4. Пробы и гейты не гонялись.
+
+closure_of_previous:
+  - id: "М4, М5 (df1ce64d, не блокировали)"
+    status: "дельта их не трогает; остаются заказом к handoff S1-A3/S1-A5 и следующей правке З11"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -cE 'TODO|TBD|FIXME|XXX' design.md tasks.md → 0, 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: >-
+      Е8 и Е10 — выбор из двух вариантов, ответа нет (tasks §1: «открыта»); вариант Е8 (б) и Е10 (а) вносят
+      содержание замысла. Формулировка §13 «открытых решений этого замысла нет» этого не меняет: та же
+      форма, что Е7 до Д28. Плюс место S3-C8н («Д100 этой полосы не называет» — tasks §2б).
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка f9c77ef4: RV8-01…RV8-05 с исходом «к-замыслу»; grep -c 'RV8-' design.md tasks.md → 0, 0"
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/f9c77ef4 — на текущий отпечаток; tasks_sha256 0707ca41 совпадает с перемером"
+  - condition: "применимое ревью есть на отпечаток"
+    result: red
+    detail: >-
+      §0 закреплён на редакции 21 (cb947e50) и пишет «редакция 22 — вердикта нет», а §2а опирается на §0а
+      и NTF4-122 редакции 25 (d337b360, APPROVED). Первичного разбора классов на d337b360 нет
+      (initial/: 6 файлов, d337b360 среди них нет) — пункты §0а не размечены.
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "замок мигратора pg_advisory_lock(hashtext('kacho_notify.migrate')) — прежний З18; новых CAS нет."
+  delivery_model: "опрос Operation; маршрут nop → notify без OperationService на notify-api в Основе — RV8-06 (к-коду), см. R8-5."
+  edges_acyclicity: "новых межсервисных рёбер нет; край → notify — прежнее ребро З19."
+  per_call_deadline: "дельта внешних вызовов не вводит."
+  workers_and_replicas: "реплики ≥ 2 и PDB notify-api; выкатка с пустым служимым набором — R8-1."
+  replica_state_isolation: "без изменений."
+  public_vs_internal_edge: "InternalOnly и listenerorigin.IsExternal до поиска соединения, отказ Internal* звеном маршрута (NTF4-112), инъекция маршрута на …/Send — ban #6 закрыт, если Е8 закрыта."
+  clean_architecture: "регистрации только в apiserver; связывание в cmd/notify-api — без замечаний."
+
+critical:
+  - id: R8-1
+    maps: "RV8-02, Е10"
+    where: "design.md §13 Е10; tasks.md §1 Е10, §2б S3-C6н; corelib servicehost/serve.go:496-499 @v1.10.0"
+    finding: >-
+      На волне Н3-Ф3а у notify-api служимый набор пуст (регистрации NTF-3 S2-B7 — волна Н3-Ф4, своих в Основе
+      нет). serve.go: len(out) == 0 → ошибка «Ноль целей есть ОТКАЗ», Х5 распространяет отказ на форму
+      «только внутренний слушатель». Развёртывание с replicas ≥ 2 и maxUnavailable: 0 на такой волне —
+      CrashLoopBackOff, rollout-ready стенда красный и читается как поломка продукта. Исход не выбран.
+      Корректность Основы.
+    requirement: >-
+      Записать один исход: (а) зонтик рендерит Deployment notify-api только вместе с регистрациями, признак
+      выводится из того же источника, что kacho.notify.present (не новая ручка-флаг); либо (б) S3-C2н/S3-C6н
+      и S2-B7 — одна волна, ребро маршрута. Гейт под выбранный исход назвать в DoD S3-C6н.
+    predicate: >-
+      (а) helm template зонтика Основы без регистраций NTF-3 → Deployment notify-api отсутствует; близнец с
+      регистрациями → присутствует. (б) tasks §2б: S3-C6н зависит от S2-B7 issue-2918 той же волны.
+  - id: R8-2
+    maps: "RV8-03, Е8"
+    where: "design.md §2а строка З19, §13 Е8; tasks.md §2б S3-C4н"
+    finding: >-
+      prefixToBackend[ids.PrefixOperationNotify] в Основе не собирается: git -C corelib grep -c '"nop"' v1.10.0
+      -- ids/ids.go → нет совпадений; постоянная есть только в 4dabea4 (ids/ids.go:127). Вариант (б) «другой
+      производитель» без ограничения разрешает локальную постоянную края — второе написание одного префикса
+      и расхождение каталога. Конструируемость.
+    requirement: >-
+      Закрыть Е8 вариантом (а) (Х1 в Основе, тег в окне Основы) либо (б) с явным запретом: производитель —
+      только каталог corelib ids; литерала "nop" в не-тестовом gateway/ нет.
+    predicate: "git grep -c '\"nop\"' -- 'gateway/**/*.go' ':!*_test.go' → 0; ключ записи — ids.PrefixOperationNotify"
+  - id: R8-3
+    maps: RV8-01
+    where: "design.md:1377 «23 ручки GroupNTF4 стадии S1», :1386 «33 ручки», :1820 «33 ручки»; tasks.md:120 «23 ручки S1» против §2а design.md:1473 «21 ручка … 31 ручки»"
+    finding: >-
+      Два места об одном числе, держатель Р16 (required_knobs_test.go) утверждает число в коде пробы:
+      исполнитель S1-A6/S3-C2н получает противоречивое требование. После Д96 (DNS-ручки ушли в NTF-1) верно
+      21/31. Конструируемость.
+    requirement: "Привести З22, З14, §8, §11 CX4V-23 и tasks S1-A6 к 21/31 одной правкой."
+    predicate: "grep -cE '\\b(23|33) ручк' design.md tasks.md → 0, 0"
+  - id: R8-4
+    maps: RV8-04
+    where: "design.md:84-99 (§0, «редакция 22 — вердикта нет»), шапка ред. 8 («приёмка — редакция 24»)"
+    finding: >-
+      Замысел закреплён на редакции 21, а §2а судится по §0а редакции 25; три разных номера редакции
+      приёмки в одном файле. Одобрение на незакреплённой опоре — вердикт не о том предмете.
+    requirement: "Перезакрепить §0 на d337b360 (ред. 25), снять «вердикта нет», пересчитать Е1; шапка ред. 8 — тот же номер."
+    predicate: "grep -c 'd337b360' design.md ≥ 1 в §0; grep -c 'редакция 24' design.md → 0"
+
+remarks:
+  - id: R8-5
+    maps: RV8-06
+    text: "Проба п.6а в Основе утверждает только происхождение и выбор соединения, не ответ OperationService; §2а называет, что внутренний опрос nop в Основе ответа сервиса не получает. К-коду, не блокирует."
+  - id: R8-6
+    maps: RV8-05
+    text: "Предикат Е9 требует написания 'S3-C2н' в чужом документе, а маршрут NTF-3 уже ответил «Основу не гейтят» — предикат перевести на этот факт; S3-C2н на теге Х5 против Д64 «пины на головы» — назвать исключение. Механика посадки, по Д97 не блокирует."
+  - id: R8-7
+    maps: "RV8-07, RV8-08"
+    text: "S3-C7н: проба З9 не зеленеет на пустоте (знаменатель — корни и вызовы носителя); NTF4-122: регистрация дескриптора один раз на процесс, фикстура только в _test.go/testkit. К-коду."
+
+orders:
+  - to: "автор замысла NTF-4"
+    subject: "R8-3, R8-4; R8-6 (предикат Е9); записать исходы Е8, Е10 после решения диспетчера (R8-1, R8-2)"
+  - to: "class-exposure-analyst"
+    subject: "первичный разбор на d337b360 (§0а не размечен); затем пересверка на новый отпечаток замысла"
+  - to: "диспетчер"
+    subject: "решения Е8 (а|б с производителем только ids), Е10 (а|б), место S3-C8н"
+
+next: "диспетчер — решения Е8/Е10; затем автор замысла NTF-4; class-exposure-analyst; повтор design-reviewer на новом отпечатке"

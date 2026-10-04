@@ -1,0 +1,29 @@
+role: go-style-reviewer
+change: issue-2915
+pr: 3019
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: origin/2914-notify (merge-base e415e59a225b4f7a0ff8d327df16d65f59485c20)
+  head: 4954f14f08afb575bc6cd1654a6a979d77933503
+  content_digest: 9ee1b36806ba2788b80d17f66bbfebf1e37b2f3b399bd84ab94ce28a1c643309
+  previous_record: 0669d3ef5dcebd5f9b380cf14a7c4a42507a6c92801cd9a2b53766b47c12eadb.yaml (5d22136c, accepted)
+scope: delta 5d22136c5fef..4954f14f08a — 13 files, +324/-97 (pgdsn new, notify-probe config window param, DSN parsing in probes, Makefile test-integration json census, RG1.1 probe)
+mode: D97 — one round, blocking only correctness/security with predicate
+verdict: accepted
+blocking: false
+critical: []
+important: []
+foundation_candidates:
+  - internal/pgdsn/pgdsn.go:36 — WithDatabase is test-harness DSN helper next to corelib/pgtest.WithSearchPath; if kaname needs it, home is corelib/pgtest by pin. Not blocking.
+style:
+  - services/nlb/internal/repo/kacho/pg/testmain_integration_test.go:147 — panic in test harness (pre-existing form, test-only); no change required.
+approved:
+  - errors: pgdsn refusal texts are fixed and carry no DSN fragments (pinned by TestWithDatabaseRefusesWithoutLeakingTheDSN)
+  - no panic on production path; changes in prod code limited to notify-probe config.load window parameter (pure)
+  - Makefile: SHELL bash + pipefail, PIPESTATUS indexes match pipeline (xargs=1, verdict=2); census absent -> refusal
+  - probes in same PR: yes (pgdsn_test, config_test TestAuthZCacheTTLRefusalSubstitutesTheGivenPolicyValue, RG11_06b)
+fresh_deferral_markers: 0
+measured:
+  - go vet -tags=integration (pgdsn, migratorapply, notify-probe/..., storage/tools) @4954f14: clean
+  - go test pgdsn, notify-probe/internal/config, registry config -run DSN @4954f14: ok
+  - go test -tags=integration -run TestRG11_0[0-9] ./services/storage/tools @4954f14: ok

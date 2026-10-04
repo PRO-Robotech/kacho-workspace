@@ -1,0 +1,56 @@
+role: proto-api-reviewer
+phase: post-diff
+change: issue-2915
+repo: PRO-Robotech/kaname
+pr: 600
+base_ref: 484-notify
+merge_base: a3c0158af93ee3d3105c07a84c2620ed6e94e04d
+head: 5acc548bf46d25ed1ac67fac64779b895e89f63a
+content_digest: 81ae6f8e684dfbdeb3b36c8fe52f852c0cc5feddc9dbbb95f767ebf0ba0f81d7
+digest_command: git diff a3c0158a..5acc548b | sha256sum
+verdict: accepted
+blocking: false
+proto_files_touched: 1
+proto_files:
+  - proto/kaname/cloud/iam/v1/internal_notification_grant_service.proto
+checks:
+  - cmd: "cd proto && buf lint"
+    rc: 0
+    outcome: green
+  - cmd: "cd proto && buf breaking --against '../.git#ref=a3c0158af93ee3d3105c07a84c2620ed6e94e04d,subdir=proto'"
+    rc: 0
+    outcome: green
+    note: "against-образ собран (buf build того же ref -> 757914 байт), то есть сравнение не пустое"
+  - cmd: "buf generate --template <buf.gen.yaml с out в scratchpad> --path kaname/cloud/iam/v1/internal_notification_grant_service.proto; cmp с pkg/api"
+    rc: 0
+    outcome: green
+    note: "три стаба (.pb.go, _grpc.pb.go, .pb.gw.go) побайтово совпадают с закоммиченными; рабочее дерево не тронуто"
+internal_surface:
+  service_prefix_internal: true
+  google_api_http_annotations: 0
+  rest_handler_registered: false   # git grep RegisterInternalNotificationGrantServiceHandler вне pkg/api -> 0
+  grpc_registered_only_in: cmd/kaname/grpc_register.go:149 (registerInternalServices)
+  infra_fields_on_public_message: []
+  catalog_rows: 3   # permission_catalog.json:3023,3033,3043 совпадают с аннотациями proto
+shape:
+  mutations_return_operation: [Revoke, Restore]
+  sync_read: [ResolveSend]
+  envelope_fields: none
+  upsert_or_watch: none
+breaking_changes: none (новый файл, новый сервис)
+findings_blocking: []
+findings_nonblocking:
+  - id: N1
+    where: internal_notification_grant_service.proto:62
+    what: >
+      exempt_reason = INTERNAL_LISTENER, хотя право ResolveSend решает обработчик
+      (resolve_send.go:72-85: CallerSubject + reader на notification_feed). По словарю
+      authz_options.proto:225-234 точнее SERVICE_SIDE_AUTHZ/HANDLER_DECIDES — тогда гейт
+      дерева требовал бы живую координату решающего кода. Дефекта доступа нет: проверка
+      исполняется; это запись ревью, не задача.
+  - id: N2
+    where: internal_notification_grant_service.proto:141-143
+    what: >
+      ResolveSendRequest.template фактически обязателен (nameform.OK("") = false ->
+      "template: invalid name ''"), а комментарий говорит только «не DNS label». Текст
+      отказа для пустого — не форма "<field>: required". Корректности не задевает.

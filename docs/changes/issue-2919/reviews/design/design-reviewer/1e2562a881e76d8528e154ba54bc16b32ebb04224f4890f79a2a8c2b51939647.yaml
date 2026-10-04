@@ -1,0 +1,149 @@
+# Ревью замысла от роли design-reviewer (исполнитель system-design-reviewer, режим «замысел», Д97:
+# второй круг — только по блокирующему, и только с предикатом). Запись привязана к отпечатку замысла NTF-4
+# редакции 9 (1e2562a8…). Прошлая запись роли — f9c77ef4… (редакция 8, RETURNED, R8-1…R8-4). Рабочее дерево
+# tmp/issue-880 поверх 24f31fd00, дельта не закоммичена (задание: не коммитить).
+# Запись не правится: при смене отпечатка заводится новый файл.
+schema_version: 1
+kind: design_review
+change_id: issue-2919
+role: design-reviewer
+executor: system-design-reviewer
+mode: design
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.design-reviewer
+  actor: pointpu
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: 1e2562a881e76d8528e154ba54bc16b32ebb04224f4890f79a2a8c2b51939647
+  fingerprint_predicate: "sha256sum docs/changes/issue-2919/{design.md,tasks.md} (рабочее дерево tmp/issue-880)"
+  fingerprint_remeasured: "design 1e2562a8… = заданию = revalidation/1e2562a8…; tasks 009af687… = tasks_sha256 пересверки"
+  revision: 9
+  tasks_sha256: 009af687fa9dcf231cb006940b82d6ef73692367f199485a70aaf94ecfc8b18a
+  previous_record: docs/changes/issue-2919/reviews/design/design-reviewer/f9c77ef49ba757902e8fa34bced40a454c2d6f390b5571000601159c0f2401e0.yaml
+  premise_of_task: "подтверждена: git rev-parse HEAD (tmp/issue-880) = 24f31fd0076f…; design.md, tasks.md, change.yaml — M в рабочем дереве"
+  content_commit: null
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256_in_tree: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3
+  pinned_by_design_section_0: "d337b360… (редакция 25) — design.md:115"
+revisions:
+  workspace: 24f31fd0076fc0ac75a5b27890e48507e3c12207
+  corelib: "v1.10.0 (9e7e0369); origin/77-notify @21c784a (со слов пересверки 1e2562a8)"
+  kacho: "f4c74ba (со слов пересверки 1e2562a8)"
+snapshot_at: 2026-10-04
+
+verdict: RETURNED
+effective_verdict: RETURNED
+blocks: true
+return_to: "автор замысла NTF-4; автор маршрута NTF-3 (Н3-Ф3а/Н3-Ф4)"
+distributed_surface: true
+schema_review_overlap: false
+
+inspected: >-
+  design.md:79-150 (шапка ред. 9, §0, решения диспетчера), :1398, :1407, :1491-1530 (З19, З21, Е8 «префикс nop»,
+  Е10 «служимый набор», место S3-C8н), :2049-2065 (§13 Е1, Е2, Е8-Е10); tasks.md:34-40, :102, :125, :230-248 (§2б);
+  docs/changes/issue-2918/tasks.md:120, :286-303 (§4 волны, файл без правки в рабочем дереве); пересверка
+  revalidation/1e2562a8 целиком; прошлая запись роли f9c77ef4 целиком. Пробы и гейты не гонялись (замысел).
+
+closure_of_previous:
+  - id: R8-1
+    status: "частично: исход (б) записан (design.md:1511-1523, tasks.md:230-248, S3-C6н зависит от S2-B7 «один запрос волны»). Предикат R8-1 (б) по tasks §2б — выполнен. Исполнимость исхода — нет: маршрут NTF-3 ставит S2-B7 в более позднюю волну (R9-1)"
+  - id: R8-2
+    status: "закрыта: производитель только ids (design.md:2063, З19 :1491), гейт литерала opprefixliteral_test.go с инъекцией и близнецом (:1497-1509)"
+  - id: R8-3
+    status: "закрыта: grep -cE '\\b(23|33) ручк' design.md tasks.md → 0, 0; 21/31 в З14, З22, CX4V-23, S1-A6"
+  - id: R8-4
+    status: "закрыта: §0 на d337b360 (design.md:115), Е1 снята; grep -c 'редакция 24' → 0 (в выводе :79-115 нет)"
+  - id: "R8-5…R8-7"
+    status: "отображены (RV8-05…08 в §2а и §2б); к-коду, не блокировали"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -cE 'TODO|TBD|FIXME|XXX' design.md tasks.md → 0, 0"
+  - condition: "нет нерешённого вопроса"
+    result: red
+    detail: >-
+      Е8, Е10 сняты Д113, место S3-C8н выбрано (design.md:1525-1530). Но исполнимость Е10 (б) зависит от
+      соседнего документа, который сейчас пишет обратное, а зависимость не заведена строкой §13 с предикатом
+      снятия: «Состав волны в своём маршруте записывает автор маршрута NTF-3» (design.md:2065) — то же «открыто»
+      под словом «снята» (R9-1).
+  - condition: "каждый пункт пересверки отображён"
+    result: red
+    detail: "пересверка 1e2562a8: RV9-01, RV9-02, RV9-03 с исходом «к-замыслу»; grep -c 'RV9-' design.md tasks.md → 0, 0. RV8-01…08 отображены."
+  - condition: "пересверка не устарела"
+    result: green
+    detail: "revalidation/1e2562a8 — на текущий отпечаток; tasks_sha256 009af687 совпадает с перемером"
+  - condition: "применимое ревью есть на отпечаток"
+    result: red
+    detail: "первичного разбора классов на d337b360 в initial/ по-прежнему нет (6 файлов, d337b360 нет). Не дефект замысла — открытый заказ class-exposure-analyst из f9c77ef4."
+
+axes:
+  atomicity_no_dual_write: "дельта не трогает."
+  idempotency: "дельта не трогает."
+  cas_and_locking: "новых CAS и замков нет; замок мигратора — прежний З18."
+  delivery_model: "опрос Operation; маршрут nop через ids.PrefixOperationNotify — закрыт (R8-2)."
+  edges_acyclicity: "новых runtime-рёбер нет; край → notify — прежнее ребро З19."
+  per_call_deadline: "дельта внешних вызовов не вводит."
+  workers_and_replicas: "replicas ≥ 2, maxUnavailable: 0 у notify-api при пустом служимом наборе — CrashLoop; защита — только состав волны, который маршрут NTF-3 не исполняет (R9-1, R9-2)."
+  replica_state_isolation: "без изменений."
+  public_vs_internal_edge: "InternalOnly + listenerorigin.IsExternal до поиска соединения; ban #6 закрыт. Д112 (б) — гейт ban6 с профилем стенда — предмет волны NTF-1/kaname; замысел это называет (design.md:148-150)."
+  clean_architecture: "без замечаний."
+
+critical:
+  - id: R9-1
+    maps: "RV9-01, Е10, R8-1"
+    where: "design.md:2065 (Е10 «снята… состав волны записывает автор маршрута NTF-3»), :1511-1516; tasks.md:230, :248; против docs/changes/issue-2918/tasks.md:302-303"
+    finding: >-
+      Маршрут NTF-3 (@24f31fd00, без правки в рабочем дереве): «Н3-Ф3а | … S3-C2, S3-C4, S3-C5, S3-C6, S3-C7 NTF-4
+      в части носителя | до Н3-Ф4», а S2-B7 — в «Н3-Ф4». Исход Д113 (б) («S3-C2н, S3-C6н и S2-B7 — один запрос
+      волны») этим маршрутом не исполняется: диспетчер, раскладывающий волны по маршруту NTF-3, выкатит
+      развёртывание notify-api с пустым служимым набором (serve.go:496-498 → отказ старта, CrashLoop, красный
+      rollout-ready). Решение записано в одном документе, следствие исполняет другой, который ему противоречит.
+      Корректность Основы, тот же дефект, что R8-1.
+    requirement: >-
+      Завести в §13 зависимость (Е11) на автора маршрута NTF-3 с предикатом снятия на внешнем факте; пока
+      предикат «нет», S3-C6н и S3-C8н не стартуют. В §2б назвать следствие: запрос волны ждёт цепочку NTF-3
+      S2-B4 → S2-B1 и Е2. Параллельно — правка маршрута NTF-3 (снять «Н3-Ф3а … до Н3-Ф4», одна строка волны).
+    predicate: >-
+      Замысел: grep -c 'Е11' в §13 design.md ≥ 1 со ссылкой на issue-2918/tasks.md. Маршрут:
+      в docs/changes/issue-2918/tasks.md §4 есть одна строка волны, содержащая и 'S2-B7', и 'S3-C6';
+      grep -c 'до Н3-Ф4' docs/changes/issue-2918/tasks.md → 0.
+  - id: R9-2
+    maps: "RV9-03, Е10"
+    where: "design.md:1517-1523 (предикат посадки); tasks.md:240 (DoD S3-C6н)"
+    finding: >-
+      Держатель исхода (б) вычисляется на слиянии C, уже лежащем в ветке эпика, и читает напечатанное
+      пробой З9 число, а З9 по RV8-07 ноль строк считает законным и не падает. Утверждение «коммита ветки
+      эпика с развёртыванием и пустым набором не бывает» ничем не удерживается до вливания — это
+      ретроспективный замер, а не держатель. Корректность держателя решения.
+    requirement: >-
+      Шаг на сведённой голове волны до запроса в ветку эпика: если дельта волны к базе ветки эпика добавляет
+      deploy/helm/notify/templates/deployment-api.yaml, проверка «строк записи у notify-api ≥ 1» завершается
+      ненулевым кодом на нуле. Назвать исполнителя шага (сборщик волны или посадка) и место команды.
+      Предикат на C оставить ретроспективным контролем.
+    predicate: >-
+      В DoD S3-C6н (или S3-C7н) записан шаг с ненулевым кодом на нуле и инъекция: сведённая голова с
+      deployment-api.yaml без S2-B7 → красный; близнец с S2-B7 → зелёный.
+
+remarks:
+  - id: R9-3
+    maps: RV9-02
+    text: "S3-C7н и S2-B7 пишут один файл services/notify/servesurface_ledger.go, а §2б зовёт их параллельными («общих путей нет» без S2-B7). Назвать порядок: S3-C2н → S3-C7н → S2-B7. Механика раздачи, по Д97 не блокирует; закрыть той же правкой, что R9-1."
+  - id: R9-4
+    maps: RV9-04
+    text: "Гейт литерала nop: сравнение после strconv.Unquote, вторая инъекция «const prefixOperationNotify = \"nop\" в крае»; пин S3-C2н — на 77-notify (4dabea4 в main нет). К-коду."
+
+orders:
+  - to: "автор замысла NTF-4"
+    subject: "R9-1 (Е11 в §13 с предикатом, следствие в §2б), R9-2 (шаг на сведённой голове, красный на нуле), R9-3 (порядок S3-C7н/S2-B7)"
+  - to: "автор маршрута NTF-3"
+    subject: "свести S2-B7 и полосы NTF-4 части носителя в одну волну по Д113 (б), снять «до Н3-Ф4» (R9-1, предикат выше)"
+  - to: "class-exposure-analyst"
+    subject: "первичный разбор на d337b360 (заказ f9c77ef4 открыт); затем пересверка нового отпечатка замысла"
+  - to: "диспетчер"
+    subject: "кто и в каком заходе правит маршрут NTF-3 (вопрос пересверки 1e2562a8)"
+
+next: "автор замысла NTF-4 и автор маршрута NTF-3 — R9-1, R9-2; затем class-exposure-analyst; повтор design-reviewer на новом отпечатке только по R9-1, R9-2 (Д97)"

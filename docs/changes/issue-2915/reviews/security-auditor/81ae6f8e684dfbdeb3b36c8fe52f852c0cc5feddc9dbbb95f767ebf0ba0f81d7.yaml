@@ -1,0 +1,62 @@
+ВЕРДИКТ: ⛔ на 81ae6f8e684dfbdeb3b36c8fe52f852c0cc5feddc9dbbb95f767ebf0ba0f81d7
+role: security-auditor
+mode: поверхность до посадки (пост-дифф, один круг, Д97)
+repo: PRO-Robotech/kaname
+pr: 600
+head: 5acc548bf46d25ed1ac67fac64779b895e89f63a
+base_branch: 484-notify
+merge_base: a3c0158af93ee3d3105c07a84c2620ed6e94e04d   # перемерено: git merge-base origin/484-notify <head>
+digest_cmd: git diff a3c0158af93ee3d3105c07a84c2620ed6e94e04d..5acc548bf46d25ed1ac67fac64779b895e89f63a | sha256sum
+scope:
+  files_in_diff: 55   # git diff --stat; +4869 -77
+  read_whole: [proto контракт, notificationgrant/{handler,ports,refusals,resolve_send,transition}.go,
+               notification_grant_repo.go, миграция 20261004113000, domain/notification_grant.go,
+               serve.go (внутренняя цепочка, serviceIdentityLink), notification_grant_wiring.go, wiring.go,
+               grpc_register.go, bootposture.go, config/{service_identity,strict_env,notifications}.go,
+               moduleseed/{apply,service_tuple}.go, module_seed_writer.go, address_gate.go, deny_details.go,
+               permission_catalog.json (3 записи), catalog_copy_parity.go, restfront frontparity,
+               corelib@21c784a9b1dc authz/caller_subject.go, grpcsrv/service_identity.go]
+  catalog_rows: 3
+  handlers: 3
+probes_run:
+  - cmd: go test ./cmd/kaname/ -run TestNTF1 -count=1 -v   # @5acc548bf, Postgres pgtest
+    result: 28 PASS, 0 FAIL
+  - cmd: helm template deploy -f deploy/values.prod.yaml → config.Load → Notifications.CutoffGuardValue()
+    result: "notifications.cutoff-guard must be declared" — отказ
+blocking:
+  - id: kaname:cmd/kaname/notification_grant_wiring.go:cutoff-guard-not-in-chart
+    severity: high
+    category: correctness
+    claim: >
+      buildServices безусловно зовёт buildNotificationGrantServer, а тот отказывает в старте без
+      notifications.cutoff-guard; чарт (deploy/templates/configmap.yaml, values*.yaml) ключа не
+      рендерит и переменной не задаёт — служба не стартует ни в одном профиле чарта.
+    predicate: >
+      git grep -n 'cutoff-guard\|CUTOFF_GUARD' 5acc548bf -- deploy/  → пусто;
+      helm template -f values.prod.yaml → config.Load → CutoffGuardValue() = ошибка;
+      CI kaname run 37192538905 jobs 111407583276 и 111407583192: "kaname exited with error ...
+      notifications.cutoff-guard must be declared" на шаге подъёма стенда.
+    direction: >
+      first-class ручка в чарте (sec-chart-carries-guard-knobs): значение в каждом профиле явно,
+      незаданное — отказ рендера; рядом ручка authn.service-identity (файловый ключ) в конфигмапе —
+      без неё звено Р2 пусто и ResolveSend отказывает notify (fail-closed, функционально мёртвый путь).
+    fix_owner: go-implementer (чарт kaname в той же ветке 484-k2-grant)
+non_blocking:
+  - id: kaname:internal/restfront/frontparity_test.go:routeless-not-judged
+    note: >
+      инвариант NTF1-C01/C02 («нет REST ни на одном слушателе») держится только отсутствием
+      строки в internal/restfront/registration.go; гейт парности фронта явно снимает такие службы с
+      вердикта, а pb.gw.go генерирует маршруты по умолчанию. Пробы, падающей на регистрации службы
+      на фронте, нет. Не дефект на этой голове; кандидат на запись ревью.
+confirmed_clean:
+  - ResolveSend: форма → субъект (authz.CallerSubject: пересланный тип service отвергается, служебный
+    субъект только из проверенного листа с единственным SPIFFE-SAN) → reader на notification_feed
+    дверью Check → чтение записи; ошибка двери — UNAVAILABLE, не ALLOW.
+  - Revoke/Restore: RequireClusterAdmin fail-closed; CAS одним оператором; операция и намерение
+    кортежа в той же транзакции; отказ — без Operation.
+  - посев: ON CONFLICT DO NOTHING, sender пишется только для вставленной записи — отзыв перезапуском
+    не оживает (F08 зелёная).
+  - authn.service-identity: только файл, выведенная переменная — отказ старта; перечень методов закрыт
+    {ResolveSend}.
+  - регистрация только на внутреннем gRPC-слушателе; на публичном и REST-фронте службы нет.
+  - текст отказов фиксированный, err.Error() в статус не уходит.

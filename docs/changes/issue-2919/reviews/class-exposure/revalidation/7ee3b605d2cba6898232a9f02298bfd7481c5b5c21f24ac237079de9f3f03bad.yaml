@@ -1,0 +1,140 @@
+# Экспозиция классов: пересверка замысла NTF-4, редакция 10, дельта R9-1 (RV9-01), вместе с маршрутом
+# NTF-3 редакции 19.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА NTF-4 в рабочем дереве (не закоммичен). Пересверка 1e2562a8…
+# относится к редакции 9 и здесь не переписывается. Судится дельта R9-1: §13 Е10, Е11 и §2а «Служимый
+# набор носителя на посадке» замысла NTF-4; tasks.md NTF-4 §1 Е11, §2б; маршрут NTF-3
+# docs/changes/issue-2918/tasks.md редакции 19 (шапка, §1 Е2, §4 строки Н3-Ф3а и Н3-Ф4).
+#
+# Замысел NTF-3 (docs/changes/issue-2918/design.md) не менялся: отпечаток 409f4aee… тот же, что на HEAD,
+# и пересверка на него уже есть (коммит dfa879fff, к-коду). Отдельной записи по NTF-3 нет: координата
+# занята свидетельством той же редакции, а новой редакции замысла NTF-3 не появилось. Правка NTF-3 этой
+# дельты лежит в маршруте, и судится она здесь как предикатный факт зависимости Е11.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: 7ee3b605d2cba6898232a9f02298bfd7481c5b5c21f24ac237079de9f3f03bad
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 10
+  content_commit: null          # рабочее дерево, не закоммичено (задание: не коммитить)
+  tasks_sha256: 4c3131b595348c77c55810f132fd281463b1db875325a2600c0e695e63761c12
+related_subject:
+  path: docs/changes/issue-2918/design.md
+  sha256: 409f4aee22e4ae8b9b2e51e29bb179e4d9ffada6745661a81bd0ebf00c0606d2   # не изменён, равен HEAD
+  existing_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/409f4aee22e4ae8b9b2e51e29bb179e4d9ffada6745661a81bd0ebf00c0606d2.yaml
+  route_path: docs/changes/issue-2918/tasks.md
+  route_sha256: 3c5846b2e70322fe48492fb52e8e00d7b9f5895522f73b4dd4df837a5346880a   # редакция 19, совпадает с change.yaml
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/1e2562a881e76d8528e154ba54bc16b32ebb04224f4890f79a2a8c2b51939647.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256_in_tree: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3
+  revision_in_tree: 25
+  effective_verdict: APPROVED
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 24f31fd0076fc0ac75a5b27890e48507e3c12207   # HEAD issue-880; оба пакета — рабочее дерево поверх
+snapshot_at: 2026-10-04T12:02:22Z
+inspected: >-
+  design.md NTF-4: шапка редакции 10 (строки 93–99), §2а строки 1519–1560, §13 Е10, Е11 (строки
+  2074–2091). tasks.md NTF-4: §1 Е10, Е11, §2б абзац о волне и строки S3-C4н…S3-C8н. Маршрут NTF-3:
+  git diff HEAD целиком (change.yaml +2, tasks.md +12/−6), §1 Е2, §4 абзац «Носитель notify-api» и
+  таблица волн, строка полосы S2-B7. design.md NTF-3: sha256 и grep 'Н3-Ф4|Н3-Ф3а|Д113' → 0 строк.
+  Скрипт change-graph-gate klass.py — правило class.item-mapping (судит exposure_items записей, не
+  таблицу в замысле). Записки vault не читались; дерево kacho и corelib в этой дельте не мерилось.
+
+approval_conditions:
+  - condition: "каждый пункт пересверки 1e2562a8 отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      Шапка редакции 10 отображает RV9-01…04 поимённо: RV9-01 → §13 Е11 и абзац «Следствие (RV9-01)» §2а;
+      RV9-02 → порядок S3-C2н → S3-C7н → S2-B7 (§2а, Е11); RV9-03 → «Шаг на сведённой голове волны» §2а и
+      DoD S3-C6н; RV9-04 → «Условия к коду» §2а. Таблицы «Отображение пересверки 1e2562a8» в §2а нет, в
+      отличие от f9c77ef4; правило class.item-mapping судит exposure_items записей, поэтому форма прозой
+      держателя не роняет. Пунктов предмета R9-1 — один (RV9-01), и он отображён.
+  - condition: "предикат Е11 на внешнем факте и умеет ответить «нет»"
+    result: green
+    detail: >-
+      Предикат «строка волны §4 маршрута NTF-3 содержит S2-B7 и S3-C6; grep -c 'до Н3-Ф4' → 0» прогнан в обе
+      стороны. Рабочее дерево: строк с S2-B7 и S3-C6 — 1, 'до Н3-Ф4' — 0 → «да». HEAD 24f31fd00: 0 и 1 → «нет».
+      Состояние «открыта до коммита» записано верно и одинаково в design.md и tasks.md NTF-4.
+  - condition: "маршрут NTF-3 исполняет Д113 (б) без противоречия с замыслом NTF-4"
+    result: green
+    detail: >-
+      Строка Н3-Ф3а: X5 → S3-C2н → S3-C7н → S2-B7, S3-C4н/S3-C5/S3-C6н параллельно после S3-C2н, S3-C8н
+      последней на сведённой голове; один запрос волны; шаг notify-api-served-set-wave-check.sh; «после
+      Н3-Ф3 (S2-B7 ждёт S2-B4)»; общий файл servesurface_ledger.go — последовательно. Это дословно то, что
+      записано в §2а и Е11 NTF-4 и в «Месте S3-C8н». Н3-Ф4 — без S2-B7, «после посадки Н3-Ф3а», поэтому
+      прежний запрет «пути … с Н3-Ф4 не параллельно» поглощён полным порядком волн, а не снят. Е2 маршрута
+      NTF-3 раздвоена по предикату: для S2-B7 — ls-tree на сведённой голове волны, для S2-B8, S2-B10 — на
+      origin/main. Строка полосы S2-B7 не называет S3-C7н в зависимостях, но несёт **Е2**, а Е2 называет
+      «на голове после S3-C2н и S3-C7н», так что порядок до полосы доходит.
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения, ручки"
+    result: green
+    detail: "Дельта R9-1 — состав и порядок волны. Механизмов продукта не вводит."
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "grep -noE 'TODO|TBD|FIXME|XXX' по design.md, tasks.md NTF-4 и tasks.md NTF-3 → 0"
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: >-
+      Е11 — зависимость с предикатом и состоянием, а не вариантная строка. Е10 снята в части выбора, а
+      исполнимость выбора отдана Е11, и это сказано в §13 открытым текстом.
+
+findings:
+  - id: RV10-01
+    class: "measurement-discipline §«Предикат — только с контролем» (разбор совпадений по референту)"
+    subject: "предикат Е11: подстрока `S3-C6` в маршруте NTF-3"
+    measured: >-
+      В маршруте NTF-3 есть СВОЯ полоса S3-C6 (сквозные стенда NTF3-146…148), и она стоит в волне Н3-Ф5:
+      `grep -n '^| Н3-Ф5' docs/changes/issue-2918/tasks.md` → «S1-A6, S2-B11, S3-C5, S3-C6». Значит подстрока
+      `S3-C6` в предикате называет два референта. Перенос S2-B7 в Н3-Ф5 дал бы «да» без исполнения Д113 (б).
+      Форма с референтом NTF-4 `S3-C6н` прогнана: рабочее дерево → 1, HEAD → 0, так что она тоже живая в обе
+      стороны. Форма `S3-C6` пришла из моего же условия RV9-01, и автор взял её дословно.
+    condition_on_code: >-
+      В строке Е11 (design.md §13 и tasks.md §1) предикат читает `S3-C6н`, а не `S3-C6`. На исход
+      сейчас не влияет: обе формы дают «да» в рабочем дереве и «нет» на HEAD.
+    held_by: "вниманием; правится одной заменой в двух строках Е11"
+    outcome: к-коду          # не блокирует одобрение: ложное «да» требует переноса S2-B7 в чужую волну
+
+numbers_before_code:
+  - claim: "Е11: маршрут NTF-3 держит S2-B7 и S3-C6н в одной строке волны, 'до Н3-Ф4' нет"
+    how: "grep по таблице волн §4 docs/changes/issue-2918/tasks.md; рабочее дерево и git show HEAD"
+    result: "рабочее дерево: 1 строка, 'до Н3-Ф4' 0 → да; HEAD 24f31fd00: 0 строк, 1 → нет"
+  - claim: "предикат с референтом `S3-C6н` различает состояния"
+    how: "тот же grep с 'S3-C6н'"
+    result: "рабочее дерево 1, HEAD 0"
+  - claim: "change.yaml NTF-3 называет отпечаток маршрута редакции 19"
+    how: "sha256sum docs/changes/issue-2918/tasks.md"
+    result: "3c5846b2… — совпадает"
+  - claim: "замысел NTF-3 не менялся и волн не называет"
+    how: "sha256sum design.md NTF-3; grep -n 'Н3-Ф4|Н3-Ф3а|Д113'"
+    result: "409f4aee… (равен HEAD), 0 строк"
+
+unmeasurable:
+  - "Снятие Е11 наступит только коммитом, который несёт обе правки. Сядут ли они одним коммитом, по дереву до коммита не узнать. Предикат Е11 проверит это на ревизии коммита."
+
+unmapped: []
+return_to_acceptance: []
+orders:
+  - to: "автор замысла NTF-4"
+    subject: "RV10-01: в предикате Е11 (design.md §13, tasks.md §1) `S3-C6` → `S3-C6н`; можно тем же заходом, что и коммит"
+    basis: "measurement-discipline §«Предикат — только с контролем»"
+  - to: "git-operator / автор маршрута"
+    subject: "редакции 10 замысла NTF-4 и 19 маршрута NTF-3 — одним коммитом (условие снятия Е11)"
+    basis: ".claude/rules/change-graph.md §4"
+  - to: "class-exposure-analyst (первичный разбор)"
+    subject: "первичный разбор на d337b360 — заказ f9c77ef4 остаётся открытым"
+    basis: ".claude/rules/change-graph.md §4"
+outcome: чистая

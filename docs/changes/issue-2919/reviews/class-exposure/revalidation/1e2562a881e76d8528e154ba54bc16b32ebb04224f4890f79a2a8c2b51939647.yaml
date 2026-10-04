@@ -1,0 +1,193 @@
+# Экспозиция классов: пересверка замысла NTF-4, редакция 9 (дельта R8-1…4, R8-6, RV8-01…08, Д113).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА в рабочем дереве, он не закоммичен. Пересверка f9c77ef4… относится
+# к редакции 8 и здесь не переписывается. Судится дельта f9c77ef4… → 1e2562a8…: шапка редакции 9, §0
+# (строка приёмки), «Решения диспетчера» (Д100, Д113, Д112), З14 (DNS-ручки), З22, §2а целиком, §8,
+# §11 CX4V-23, §13 (Е1, Е8–Е10); tasks.md (редакция 10) §1 Е1, Е8–Е10, S1-A6, §2б.
+#
+# Все восемь пунктов f9c77ef4 отображены. Красных условий два. Первое: решение Д113 (б) расходится с
+# маршрутом NTF-3, и это расхождение не записано зависимостью. Второе: держатель посадки исхода (б)
+# срабатывает только после слияния.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: 1e2562a881e76d8528e154ba54bc16b32ebb04224f4890f79a2a8c2b51939647
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 9
+  content_commit: null          # рабочее дерево, не закоммичено (задание: не коммитить)
+  tasks_sha256: 009af687fa9dcf231cb006940b82d6ef73692367f199485a70aaf94ecfc8b18a
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/f9c77ef49ba757902e8fa34bced40a454c2d6f390b5571000601159c0f2401e0.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256_in_tree: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3
+  revision_in_tree: 25
+  effective_verdict: APPROVED    # круг 23, коммит 24f31fd00
+  design_pins: "d337b360… (редакция 25) — §0 замысла"
+  note: >-
+    Первичного разбора на d337b360 в initial/ по-прежнему нет. Замысел называет это заказом из f9c77ef4,
+    а не своим предметом, и это верно.
+initial_records:
+  - docs/changes/issue-2919/reviews/class-exposure/initial/cb947e50e922fb717ddf9638259f957b7eb1bb786468ad2bd708fa2660d42a88.yaml
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 24f31fd0076fc0ac75a5b27890e48507e3c12207   # HEAD issue-880; design.md, tasks.md, change.yaml — рабочее дерево поверх
+  corelib: 21c784a9b1dcb2a5bd116c1916fac09dfc5fcb1a     # origin/77-notify; плюс v1.10.0 (9e7e0369)
+  kacho: f4c74ba1aa18d7afa0fa5f15daf1025e28588615       # origin/main
+snapshot_at: 2026-10-04T10:50:33Z
+inspected: >-
+  design.md: git diff HEAD целиком (270 строк диффа, редакции 8 и 9). tasks.md: git diff HEAD (§1, S1-A6,
+  §2б). change.yaml: diff. Маршрут NTF-3 docs/changes/issue-2918/tasks.md @24f31fd00 (файл не изменён в
+  рабочем дереве): шапки ред. 17–18, §4 (строки 255–305), строки полос X4, S2-B4, S2-B7, S2-B9. kacho
+  @f4c74ba: gateway/internal/opsproxy/proxy.go:80–109, prefix_routing_test.go. corelib: origin/77-notify,
+  предок 4dabea4. Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт пересверки f9c77ef4 отображён (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: >-
+      Таблица §2а «Отображение пересверки f9c77ef4» — 8 строк на 8 пунктов. Отображение сверено по
+      содержанию. RV8-01: `grep -n '33 ручк\|23 ручк\|ровно 33' design.md tasks.md` → 0 строк. RV8-04: §0
+      на d337b360, Е1 снята. RV8-05: Е9 — предикат на внешнем факте (`grep -c 'Основу не гейтят'
+      docs/changes/issue-2918/tasks.md` → 1, и на HEAD → 1), исключения Х5 из Д64 нет. RV8-03: запрет
+      записан в Д113 (б) и в §2а. RV8-06…08 — строки S3-C4н, S3-C7н, S3-C2н §2б.
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения или механизма без выдерживающего отображения"
+    result: green
+    detail: >-
+      Механизмов продукта дельта не вводит. Вводятся два держателя: гейт литерала `nop` и предикат
+      посадки волны. Оба судятся ниже (RV9-03, RV9-04).
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "grep -noE 'TODO|TBD|FIXME|XXX' design.md tasks.md → 0"
+  - condition: "нет открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "Е8 и Е10 сняты Д113 (б), Е9 и Е1 сняты по предикату. Других вариантных строк в §13 нет."
+  - condition: "каждая зависимость от соседнего документа записана в §13 с предикатом снятия"
+    result: red
+    detail: >-
+      Исход Д113 (б) Е10 исполним, только если маршрут NTF-3 сведёт S3-C2н…C8н и S2-B7 в одну волну.
+      Сейчас маршрут NTF-3 пишет обратное (RV9-01). Замысел упоминает это одной фразой «Состав волны в
+      своём маршруте записывает автор маршрута NTF-3». Строки §13 с предикатом снятия у этого нет, а Е10
+      помечена «снята».
+  - condition: "держатель решения Е10 (б) способен остановить запрещённое состояние до того, как оно наступит"
+    result: red
+    detail: "RV9-03: предикат посадки вычисляется на коммите C ветки эпика, то есть после слияния."
+
+findings:
+  - id: RV9-01
+    class: "code-authoring §«Решение и его следствие разнесены» (решение записано в одном документе, следствие исполняет другой)"
+    subject: "Е10, Д113 (б) — одна волна S3-C2н/S3-C6н/S3-C7н/S3-C8н с S2-B7 NTF-3"
+    measured: >-
+      docs/changes/issue-2918/tasks.md @24f31fd00 (в рабочем дереве файл не изменён), §4 «Волны»: строка
+      «Н3-Ф3а (Д100) | corelib, kacho | X5 NTF-4 → S3-C2, S3-C4, S3-C5, S3-C6, S3-C7 NTF-4 в части носителя |
+      до Н3-Ф4; … пути `cmd/notify-api/**`, `gateway/**`, `deploy/helm/notify/**` — с Н3-Ф4 не параллельно».
+      Строка «Н3-Ф4 | kacho | S2-B9, S2-B7 → …». То есть S2-B7 стоит в ДРУГОЙ, более поздней волне.
+      `grep -rln 'Д113' docs` → только три файла issue-2919. Строка S2-B7 зависит от «S2-B4, X5, Е2», S2-B4 — от
+      «X2, Е3, S2-B1» (волна Н3-Ф3).
+    condition_on_code: >-
+      В §13 заводится зависимость, например Е11: «маршрут NTF-3 сводит S2-B7 и полосы NTF-4 части носителя
+      в одну волну». Чей предмет — автор маршрута NTF-3 и диспетчер. Предикат снятия — на внешнем факте и
+      способный ответить «нет»: в `docs/changes/issue-2918/tasks.md` §4 одна строка волны содержит и `S2-B7`,
+      и `S3-C6` NTF-4. Строки «Н3-Ф3а … до Н3-Ф4» там больше нет. Пока предикат даёт «нет», полосы S3-C6н и
+      S3-C8н не стартуют. В Е10 «снята» относится к выбору варианта, а исполнимость выбора держит Е11. §2б
+      дополнительно называет следствие: из-за S2-B7 слияние части носителя ждёт цепочку NTF-3 S2-B4 → S2-B1
+      (волна Н3-Ф3) и Е2. Фраза «От S3-C1, X2, X3, X4 и стадий S1, S2 эти полосы не зависят» верна о полосах,
+      но не о запросе волны, и её нельзя читать как «посадка части носителя независима».
+    held_by: "вниманием до записи зависимости; после неё — предикат Е11 на тексте маршрута NTF-3"
+    outcome: к-замыслу
+  - id: RV9-02
+    class: "code-authoring §«Решение и его следствие разнесены» (параллельные писатели одного файла в одной волне)"
+    subject: "S3-C7н и S2-B7 в одной волне — общий файл `services/notify/servesurface_ledger.go`"
+    measured: >-
+      §2б, строка S3-C7н, пути: `services/notify/servesurface_test.go`, `services/notify/servesurface_ledger.go`.
+      Маршрут NTF-3, строка S2-B7, пути: `…/services/notify/servesurface_ledger.go`, `services/notify/cmd/notify-api/**`,
+      `services/notify/internal/{apiserver,inbox}/**`. Порядок §2б: «Х5 → S3-C2н → S2-B7 на голове; S3-C4н,
+      S3-C5, S3-C6н, S3-C7н параллельно после S3-C2н». Фраза «Общих путей у них нет» перечисляет C4н, C5, C6н и
+      C7н, S2-B7 в ней нет. Пересечение S2-B7 с S3-C2н (`cmd/notify-api/**`, `internal/apiserver/**`) порядком
+      снято, пересечение с S3-C7н — нет.
+    condition_on_code: >-
+      Порядок в §2б (и в строке волны маршрута NTF-3) называет S3-C7н и S2-B7 последовательными.
+      Естественный порядок — S3-C2н → S3-C7н → S2-B7 на голове: запись З9 и её проба заводятся с нулём строк
+      у `notify-api`, инъекция RV8-07 «на дереве без строк» исполняется на этом дереве, а S2-B7 добавляет
+      строки к существующей записи. Обратный порядок тоже допустим, если назван.
+    held_by: "вниманием (порядок маршрута); пересечение путей проверяет разведчик до раздачи"
+    outcome: к-замыслу
+  - id: RV9-03
+    class: "code-authoring §«Решение и его следствие разнесены»; gate-authoring — исход вместо объявления"
+    subject: "предикат посадки исхода (б) Е10 (§2а, DoD S3-C6н)"
+    measured: >-
+      Предикат: `git log --first-parent -m --diff-filter=A … <ветка эпика> -- …/deployment-api.yaml | tail -1`
+      → коммит C, затем проба З9 на C печатает строк у `notify-api` ≥ 1. C — слияние, уже лежащее в ветке
+      эпика. Проба З9 по RV8-07 и строке S3-C7н считает ноль строк законным состоянием и печатает число,
+      не падая. Значит «≥ 1» никакая проба не утверждает: это чтение напечатанного числа.
+    condition_on_code: >-
+      Утверждение «запрос, несущий S3-C6н без S2-B7, не вливается» держится проверкой на СВЕДЁННОЙ голове
+      волны до запроса в ветку эпика. Если дельта волны к базе ветки эпика добавляет
+      `deploy/helm/notify/templates/deployment-api.yaml`, проба З9 на этой голове печатает у `notify-api`
+      строк ≥ 1, а ноль даёт ненулевой код шага (красный, а не напечатанное число). В замысле названо, кто
+      исполняет шаг — сборщик волны или посадка — и где лежит команда. Посадочный предикат на C остаётся
+      ретроспективным контролем, а не держателем.
+    held_by: "нужен шаг, его нет: проверка сведённой головы волны «развёртывание `notify-api` добавлено ⇒ строк записи у `notify-api` ≥ 1», красная на нуле"
+    outcome: к-замыслу
+  - id: RV9-04
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (судить узел, а не образец текста); api-hyphen-prefix"
+    subject: "гейт литерала `nop` `internal/repohygiene/opprefixliteral_test.go` (Е8, Д113 (б))"
+    measured: >-
+      `git -C kacho grep -c '"nop"' f4c74ba -- '*.go'` → вывода нет (0). Обратных кавычек `nop` и `"nop-` → 0.
+      `gateway/internal/opsproxy/proxy.go:86–102` @f4c74ba: из 8 ключей `prefixToBackend` 3 — локальные
+      постоянные края (`prefixOperationVPCSubnet`, `prefixOperationIAM`, `prefixOperationGeo`). Значит форма
+      «своя постоянная края» в дереве живая, и гейт на `nop` — не формальность.
+      `git -C corelib merge-base --is-ancestor 4dabea4 origin/77-notify` → 0, `… 4dabea4 origin/main` → 1.
+    condition_on_code: >-
+      Гейт сравнивает значение литерала после `strconv.Unquote`, поэтому `"nop"` и обратные кавычки `nop`
+      дают одну находку. Пакет `gateway/internal/opsproxy` из обхода не исключается. `prefix_routing_test.go`
+      исключён как `_test.go`: его набор `want` законно несёт литерал. Объявление
+      `const prefixOperationNotify = "nop"` в крае — находка гейта. Это и есть инъекция «своя постоянная»,
+      и её стоит прогнать вторым случаем рядом с литералом-ключом. Пин corelib у S3-C2н — на голову
+      `origin/77-notify` (или её потомка), а не на `main`: 4dabea4 в `main` нет.
+    held_by: "покраснеет `opprefixliteral_test.go` (инъекции: литерал-ключ и своя постоянная края; близнец `ids.PrefixOperationNotify`)"
+    outcome: к-коду
+
+numbers_before_code:
+  - claim: "в маршруте NTF-3 волна с S2-B7 и полосами NTF-4 одна"
+    how: "чтение docs/changes/issue-2918/tasks.md §4 @24f31fd00 (рабочее дерево без правки)"
+    result: "нет: Н3-Ф3а «до Н3-Ф4», S2-B7 в Н3-Ф4 (RV9-01)"
+  - claim: "Е9: маршрут NTF-3 пишет, что теги Основу не гейтят"
+    how: "grep -c 'Основу не гейтят' docs/changes/issue-2918/tasks.md — рабочее дерево и HEAD"
+    result: "1 и 1 — подтверждено"
+  - claim: "литерала `nop` в не-тестовом Go kacho нет"
+    how: "git grep -c по трём формам, kacho @f4c74ba, модуль один"
+    result: "0 — подтверждено"
+  - claim: "голова линии corelib с Х5 — потомок 4dabea4"
+    how: "merge-base --is-ancestor 4dabea4 origin/77-notify (@21c784a)"
+    result: "0 — подтверждено для 77-notify; для main — нет (1)"
+
+unmeasurable:
+  - "Сядет ли код Х5 именно в `origin/77-notify`: Х5 ещё не написан. Предикат «голова — потомок 4dabea4» в строке Е8 tasks.md проверит это на ревизии пина."
+
+unmapped: []
+return_to_acceptance: []
+questions_to_dispatcher:
+  - "Д113 (б) записан только в issue-2919. Маршрут NTF-3 (Н3-Ф3а «до Н3-Ф4») ему противоречит. Кто правит маршрут NTF-3 и в каком заходе (RV9-01)?"
+orders:
+  - to: "автор замысла NTF-4"
+    subject: "RV9-01 (зависимость Е11 с предикатом на тексте маршрута NTF-3; следствие для запроса волны в §2б), RV9-02 (порядок S3-C7н/S2-B7), RV9-03 (шаг на сведённой голове волны, красный на нуле)"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Решение и его следствие разнесены»"
+  - to: "автор маршрута NTF-3"
+    subject: "свести S2-B7 и полосы NTF-4 части носителя в одну волну по Д113 (б), снять «Н3-Ф3а … до Н3-Ф4», назвать порядок S2-B7 относительно S3-C7н NTF-4"
+    basis: "Д113; code-authoring §«Решение и его следствие разнесены»"
+  - to: "class-exposure-analyst (первичный разбор)"
+    subject: "первичный разбор на d337b360 (заказ f9c77ef4 остаётся открытым)"
+    basis: ".claude/rules/change-graph.md §4"
+outcome: к-замыслу

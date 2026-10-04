@@ -1,0 +1,40 @@
+ВЕРДИКТ: ✅ 87e3487a7004fd129a523c60dccd77b557e1e59a8bc0a586cf766f387e362441
+role: go-style-reviewer
+repo: PRO-Robotech/corelib
+pr: 88
+base_ref: origin/77-notify
+merge_base: f8aa88d1998d0f962252e8737b074cfa8c68848f
+head: 5de95bd3b7153366c0825b6241811d19bdd4d189
+digest_cmd: git diff f8aa88d1998d0f962252e8737b074cfa8c68848f..5de95bd3b7153366c0825b6241811d19bdd4d189 | sha256sum
+digest: 87e3487a7004fd129a523c60dccd77b557e1e59a8bc0a586cf766f387e362441
+verdict: accepted
+blocking: false
+critical: []
+deferral_markers_added: 0
+probes_in_same_pr: true
+security_comments_contradicting_code: []
+foundation_candidates: []
+measured:
+  - cmd: go test -count=1 ./notify/feed/ ./cmd/notifygen/ ; go test -run NTF1B28 ./treehygiene/
+    result: ok x3 (green 3 packages; new tests TestPutID* x5, TestNTF1D01_* x4, TestNTF1B28PutGate_PutID* x2 PASS, verbose)
+  - cmd: mutation case "Put","PutID" -> "Put" in treehygiene/notify_feedput.go:128
+    result: 2 FAIL (gate tests able to go red)
+  - cmd: mutation put.go return Queued{id,queued:true} -> Queued{}
+    result: 3 FAIL (PutID tests able to go red)
+non_blocking:
+  - file: notify/feed/put.go:84-92
+    note: >-
+      Put оставлен обёрткой без прод-вызывающих в corelib@head (git grep feed.Put по *.go вне тестов — только
+      комментарии); живые вызовы в потребителях идут только из порождённых файлов, которые после бампа пина
+      перегенерируются в PutID. Причина и предикат снятия названы в комментарии; задачи-держателя нет.
+      Корректности не касается — снятие тем же каскадом пинов (kaname internal/check/notifytypesafety_test.go:262
+      использует feed.Put как инъекцию — перевести на PutID при снятии).
+  - file: notify/feed/put_id_integration_test.go:76
+    note: >-
+      f.begin(t) (require.NoError -> t.FailNow) зовётся из горутины, не из горутины теста; при отказе
+      Goexit гасит только рабочую горутину (wg.Done отложен — зависания нет), но это против контракта testing.T.
+      Стиль пробы, не корректность продукта.
+  - file: cmd/notifygen/render.go:186
+    note: >-
+      Сигнатура порождённого SendX меняется на (feed.Queued, error) — ломающая для вызывающих в kacho/kaname;
+      пин-каскад corelib -> kaname -> kacho обязан перегенерировать и поправить вызывающих тем же изменением.

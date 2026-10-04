@@ -1,0 +1,72 @@
+# ВЕРДИКТ: ⛔ на sha256 565f3e59a9ce1734dc3564d887e370e2d66b3a61cde5321b0d6a6f3608601db8
+role: security-auditor
+mode: post-diff (поверхность до посадки; один круг, Д97)
+verdict: returned
+repo: PRO-Robotech/kacho
+pr: 3021
+base: 2c283f99f4bcb549671fc8e3a0101713ff7b6289   # merge-base(origin/2914-notify, head), перемерено; равен голове origin/2914-notify
+head: bb9533bbcd7092e9851c5d0f665a1711eb7630e3
+digest: 565f3e59a9ce1734dc3564d887e370e2d66b3a61cde5321b0d6a6f3608601db8  # git diff base..head | sha256sum
+scope_read:
+  diff_files: 96          # git diff --stat base..head
+  read_in_full:
+    - services/notify/internal/source/source.go
+    - services/notify/internal/source/loop.go (клиент, exactSANCreds, Claim/Subscribe)
+    - services/notify/internal/config/sources.go (checkSPIFFE, поля записи)
+    - services/notify/internal/smtp/sender.go
+    - services/notify/internal/smtp/attempt.go
+    - services/notify/internal/smtp/classify.go
+    - services/notify/internal/grant/grant.go
+    - services/notify/internal/peeranswer/peeranswer.go (Classify, таблица кодов)
+    - services/notify/cmd/notify/serve.go (дифф)
+    - services/notify/cmd/notify-probe/internal/send/send.go (дифф, Д109)
+    - deploy/helm/umbrella/templates/notify-probe.yaml
+    - deploy/helm/umbrella/charts/kaname/templates/certificate.yaml (сравнение серверного листа)
+    - deploy/helm/umbrella/templates/cert-issuance-policy.yaml (ветвь certificates)
+    - deploy/scripts/assert-ban6-external-isolation.py (дифф)
+    - deploy/helm/umbrella/values.yaml, values.a8f60d.yaml (дифф)
+  scanned_by_grep: "весь дифф: InsecureSkipVerify, codes.Internal с err, PII-атрибуты журнала — 0 совпадений в прод-коде"
+blocking:
+  - id: SEC-2915-W2-1
+    severity: medium
+    class: части исправны порознь и не сходятся (hard-parts-must-converge; rule-architecture «параллельные полосы одного механизма»)
+    subject: серверный лист пробы-источника против клиента notify с точным SAN
+    sign: >-
+      клиент ленты источника (N2, loop.go exactSANCreds) принимает сервер только если лист несёт
+      ровно один URI-SAN, равный записи перечня (`san`, форма spiffe://<домен>/ns/<ns>/sa/kacho-notify-probe);
+      серверный лист пробы, заведённый этим же диффом (D3, notify-probe.yaml, Certificate $srvSecret),
+      несёт только dnsNames и ни одного URI. Тот же облик у серверного листа kaname
+      (charts/kaname/templates/certificate.yaml, ветка serverSecretName) — второй источник перечня.
+    failure_scenario: >-
+      полоса, наполняющая перечень источников (строка notify-probe) и включающая циклы источников,
+      поднимает notify: каждое рукопожатие с пробой (и с kaname) отвергается VerifyConnection,
+      тревога source_identity_mismatch, ни Subscribe, ни Claim не доходят — письмо пробы на стенде
+      не доставляется никогда. Отказ fail-closed (утечки нет), дефект корректности: механизм
+      доставки на стенде не сходится.
+    why_not_seen: >-
+      фикстура N2 выпускает серверу лист с URI (fixture_test.go:147), развёртывание D3 судится
+      рендером без клиента notify; циклы источников ещё не подняты в serve.go и таблица
+      notify.pluggableSources пуста — пробы порознь зелёные.
+    predicate: >-
+      git show <head>:deploy/helm/umbrella/templates/notify-probe.yaml | awk '/^kind: Certificate/{n++} n==1' | awk '/^---/{exit}{print}' | grep -c 'uris:'  → 0 (ожидается 1);
+      git show <head>:services/notify/internal/source/loop.go | grep -n 'len(uris) == 1'  → строка требования
+    direction: >-
+      серверный лист пробы несёт uris: [spiffe://<umbrella.trustDomain>/ns/<ns>/sa/kacho-notify-probe]
+      (ветвь certificates политики выпуска это допускает — пространство запроса совпадает); то же —
+      серверный лист kaname, либо явное решение, каким листом kaname предъявляет ленту. Держать
+      гейтом сходимости: SAN записи перечня ∈ URI серверного листа той же службы в рендере
+      (инъекция — лист без uris → красный; близнец — с uris → зелёный).
+    executor: go-implementer (гейт дерева deploy на Go) + правка шаблона
+approved:
+  - "клиент ленты: MinVersion ≥ TLS1.2, штатная проверка цепочки сохранена (InsecureSkipVerify нет), сверх неё — ровно один URI-SAN, равный записи; отказ до первого вызова; запись san проходит checkSPIFFE (схема spiffe, без userinfo/порта/query)"
+  - "исключение authorization: certificate допустимо только записи kaname — страж Start и конструктор grant; прочие — ResolveSend"
+  - "grant: ответ вне контракта, неразборный и DecisionUnset — отказ (DEFER + misconfigured), не разрешение; недоступность — DEFER; срок вызова — ручка в границах"
+  - "SMTP: TLS обязателен в обоих режимах (нет STARTTLS → no_tls, 5xx на STARTTLS → no_tls), ServerName = узел, RootCAs обязателен (nil — отказ NewSender), MinVersion TLS1.2; AUTH PLAIN только после TLS; после STARTTLS новый textproto — буфер открытого текста отброшен; конверт без CR/LF/пробела/<> (envelopeSafe); текст ответа ретранслятора в Attempt не попадает"
+  - "проба: Service ClusterIP только :9091, внешнего края нет; оба слушателя и ребро к владельцу модели прав — mTLS, рендер отказывает без внутреннего УЦ; клиентский лист — SPIFFE учётки; automountServiceAccountToken false, nonroot, RO rootfs; пустой круг пересылающих — отказ старта процесса"
+  - "Д109: Send берёт id из feed.PutID, прямое чтение ленты и строковое имя таблицы сняты; ответ наружу — фиксированный 'internal error'"
+  - "assert-ban6-external-isolation.py: изменены только комментарии, карта носителя notify не тронута"
+non_blocking: []
+checks_run:
+  - "git diff 2c283f99..bb9533bb | sha256sum → 565f3e59…01db8"
+  - "предикат SEC-2915-W2-1 (выше) @bb9533bb → uris: 0 у серверного листа пробы и у серверного листа kaname"
+  - "helm template зонта не выполнен: зависимости подчартов не собраны в архиве — суждение по тексту шаблона (условных uris в блоке нет)"

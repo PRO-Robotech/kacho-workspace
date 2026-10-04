@@ -1,0 +1,34 @@
+ВЕРДИКТ: ✅ на 4954f14f08afb575bc6cd1654a6a979d77933503
+reviewer: security-auditor
+mode: пост-дифф по Д97 (один круг; блокирует только корректность/безопасность с предикатом); поверхность до посадки — дельта Д93-остаток и проба окна отзыва; планка — высокая и средняя
+subject:
+  repo: PRO-Robotech/kacho
+  pr: 3019
+  head: 4954f14f08afb575bc6cd1654a6a979d77933503
+  base: origin/2914-notify @ e415e59a225b4f7a0ff8d327df16d65f59485c20
+  merge_base: e415e59a225b4f7a0ff8d327df16d65f59485c20
+  digest_cmd: git diff $(git merge-base origin/2914-notify 4954f14f08a)..4954f14f08a | sha256sum
+  digest: 9ee1b36806ba2788b80d17f66bbfebf1e37b2f3b399bd84ab94ce28a1c643309
+  previous_record: 0669d3ef5dcebd5f9b380cf14a7c4a42507a6c92801cd9a2b53766b47c12eadb.yaml (✅ на 5d22136c5fef; 5d22136c5fef — предок головы, прежде принятое не переоткрывается)
+  delta: git diff 5d22136c5fef..4954f14f08a — 5 коммитов (2415be314cc, c36143dd43b, a8944534418, d97d9dbab59, слияние 4954f14f08a), 13 файлов, +324/-97
+decisions_applied: [Д75–Д84, Д86–Д106]
+
+new_delta_findings: []   # подтверждённых высокой и средней тяжести нет
+
+delta_judged:
+  - internal/pgdsn.WithDatabase (новый пакет): строку соединения читает только pgconn.ParseConfig; текст отказа фиксированный, кусков строки не несёт (TestWithDatabaseRefusesWithoutLeakingTheDSN проверяет пароль, узел, базу, учётку); TLS, запасные узлы и сокет — отказ, а не молча изменённый канал, поэтому понижения канала нет. Вызывающие только в *_test.go (git grep pgdsn @4954f14f08a: migratorapply/apply_test, vpc и nlb testmain_integration_test) — sslmode=disable остаётся во фикстуре, в прод-путь не попадает.
+  - splitDSN (migratorapply/invocation_test), dbEnv (notify-probe/harness_test): переведены на разбор драйвером; t.Fatal без цитаты строки.
+  - registry config_test: проба процентного кодирования пароля теперь судится разбором драйвера, тем, с каким он соединяется; утверждение «host не берётся из секрета» сохранено; sslmode=disable выражено как TLSConfig==nil и отсутствие запасных узлов — это строже прежней проверки строки.
+  - notify-probe config: значение политики окна приходит в load параметром, Load подаёт policyWindow() = authz.RevocationPolicy.Windows[...]; отказ при окне ≤0 не тронут; проба подаёт 7s ≠ значению политики, так что литерал краснеет; есть близнец с положительным окном.
+  - Makefile test-integration (Д106 (г)): счёт исполненного идёт по событиям go test -json через go-test-verdict.py. Индексы PIPESTATUS (1 — xargs/go test, 2 — прогонщик) верны для конвейера echo|xargs|python3|tee; SHELL := bash. Регулярное выражение переписи совпадает с форматом строки прогонщика («проб исполнено N · упало N · … ПРОПУЩЕНО N · НЕ ВЫПОЛНИЛОСЬ N»); если перепись не напечатана — отказ; если исход зелёный, а pass+fail = 0 или прогонщик вернул ненулевой код — отказ. RG1.1-06b держит строку «ok» без событий отказом, а близнец с одним pass — зелёным.
+  - tools/carrydrift/declared-removals.txt: одна запись о приспособлении шапки пина, предмет безопасности не задет.
+
+not_in_delta:
+  - Д106 (а) stand-dns.yaml и mailpit, (б) обязательные serviceIP и clusterDomain у prorobotech, (д) переименование ветки — в дельте 5d22136c5fef..4954f14f08a этого нет (git diff --stat); здесь не судилось.
+
+below_bar_not_blocking:
+  - registry config_test: require.NoError(err) на ParseConfig при падении напечатает текст разбора с куском синтетической строки теста — только тестовый вывод, секрета нет; ниже планки.
+
+volume: 13 файлов дельты прочитаны целиком; go-test-verdict.py прочитан в части разбора событий и переписи (строки 1–60, 130–250, 516–581); git grep вызывающих pgdsn @4954f14f08a
+checks_run: go test -count=1 ./internal/pgdsn/ ./services/notify/cmd/notify-probe/internal/config/ @4954f14f08a (worktree tmp/2915-wave-ntf1-core-1) — 2 пакета ok; pgdsn — 2 события pass по -json
+dry_round: да (по дельте)

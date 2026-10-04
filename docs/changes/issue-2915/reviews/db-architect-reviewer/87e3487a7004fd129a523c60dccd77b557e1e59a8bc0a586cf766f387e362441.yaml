@@ -1,0 +1,28 @@
+# ВЕРДИКТ: ✅ на sha 87e3487a7004fd129a523c60dccd77b557e1e59a8bc0a586cf766f387e362441
+role: db-architect-reviewer
+mode: review
+decision: D97 (один круг), D109
+fingerprint:
+  repo: PRO-Robotech/corelib
+  pr: 88
+  base: f8aa88d1998d0f962252e8737b074cfa8c68848f   # merge-base origin/77-notify, перемерен
+  head: 5de95bd3b7153366c0825b6241811d19bdd4d189
+  digest: 87e3487a7004fd129a523c60dccd77b557e1e59a8bc0a586cf766f387e362441  # git diff base..head | sha256sum
+verdict: accepted
+blocking: false
+migrations_touched: 0
+sql_text_changed: 0   # операторы INSERT в notify/feed/put.go:194,202 не менялись
+findings:
+  critical: []
+  important: []
+checked:
+  - "id отвечает именно записанной строке: id порождается в Go до вставки (put.go ids.NewHyphenID) и уходит в безусловный INSERT ленты без ON CONFLICT; триггеров в notify/ нет (git grep -i trigger -- 'notify/**' вне тестов — 0); Exec без ошибки = ровно одна строка с этим id; RETURNING не требуется"
+  - "id отдаётся только после sp.Commit; ошибка вставки/вклада/сигнала/отката точки сохранения — Queued{} без id"
+  - "отсутствие id выражено типом (Queued.ID() -> \"\", false), не пустой строкой"
+  - "проба с конкурирующими транзакциями: TestPutIDParallelPutsGetTheirOwnIDs — 8 горутин, множество ответов == множество закоммиченных строк"
+  - "Put оставлен обёрткой над PutID с предикатом снятия (git grep 'feed\\.Put\\b' в kacho и kaname пуст)"
+  - "гейт B28 расширен на PutID, не ослаблен (treehygiene/notify_feedput.go case \"Put\", \"PutID\")"
+evidence:
+  - "go test -count=1 -v -run PutID ./notify/feed/ @5de95bd3b: PASS 5/5, 0 skip"
+cross_distributed_properties: false
+return_to: —

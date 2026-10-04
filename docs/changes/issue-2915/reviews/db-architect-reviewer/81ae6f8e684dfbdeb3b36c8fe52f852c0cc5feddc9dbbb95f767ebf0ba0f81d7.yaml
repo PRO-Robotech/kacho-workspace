@@ -1,0 +1,34 @@
+# ВЕРДИКТ: ✅ на sha256 81ae6f8e684dfbdeb3b36c8fe52f852c0cc5feddc9dbbb95f767ebf0ba0f81d7
+role: db-architect-reviewer
+mode: review
+verdict: accepted
+repo: PRO-Robotech/kaname
+pr: 600
+base: a3c0158af93ee3d3105c07a84c2620ed6e94e04d   # merge-base(origin/484-notify, head), перемерено
+head: 5acc548bf46d25ed1ac67fac64779b895e89f63a
+digest: 81ae6f8e684dfbdeb3b36c8fe52f852c0cc5feddc9dbbb95f767ebf0ba0f81d7  # git diff base..head | sha256sum
+migrations_touched: 1
+paths:
+  - internal/migrations/20261004113000_notification_grants.sql
+  - internal/repo/kaname/pg/notification_grant_repo.go
+  - internal/repo/kaname/pg/module_seed_writer.go
+  - internal/repo/kaname/pg/check_value_lanes.go
+blocking: []
+approved:
+  - "новый файл миграции, применённые не тронуты (в диффе ровно один .sql); номер 20261004113000 старше головы origin/484-notify (20261003194341) и origin/main (20261002120000)"
+  - "goose Up/Down присутствуют; Down снимает дочернюю таблицу первой"
+  - "CHECK формы DNS label inline с CREATE TABLE; ограничения названы <table>_<desc>_ck/_fk/_pkey"
+  - "одна запись на пространство — PRIMARY KEY(namespace); одна запись шаблона на пару — PRIMARY KEY(namespace, template)"
+  - "шаблон без пространства невыразим — FK ON DELETE RESTRICT в той же базе; PK дочерней таблицы ведёт с namespace, проверка FK индексирована"
+  - "посев — INSERT … ON CONFLICT (namespace) DO NOTHING одним оператором, проекция sender пишется только при inserted в той же транзакции (надгробие не оживает)"
+  - "переходы Revoke/Restore — CAS одним оператором по revoked_at; первый Revoke шаблона — INSERT…SELECT…ON CONFLICT DO UPDATE WHERE revoked_at IS NULL RETURNING; 0 строк классифицируется чтением ПОСЛЕ записи в той же транзакции; check-then-act нет"
+  - "отказ перехода откатывает всю транзакцию (CAS + намерение кортежа + операция); прочие ошибки — shared.MapRepoErr, текст драйвера наружу не выходит; чтение решения — фиксированный UNAVAILABLE"
+  - "внешних ключей через границу сервиса нет; check_value_lanes называет обе таблицы (форма судится службой до записи)"
+concurrent_probes:
+  - "TestNTF1F18_ConcurrentTransitionsYieldExactlyOne — 8 горутин на каждый CAS (Revoke/Restore пространства и шаблона, первый Revoke шаблона без записи), ровно 1 успех + 7 NOTIFICATION_GRANT_STATE, одна запись шаблона; Revoke∥Restore; последовательный близнец"
+checks_run:
+  - "go test -tags integration -run 'TestNTF1F18_|TestNTF1F08_|TestNTF1F15_' ./cmd/kaname/ @5acc548 — 3 PASS (14 подтестов), 0 SKIP"
+  - "go test -tags integration ./internal/migrations/ @5acc548 — ok 149.8s"
+  - "go test -run 'CheckValue|Lane' ./internal/repo/kaname/pg/ @5acc548 — ok"
+non_blocking: []
+distributed_overlap: "да — отсечка/полоса ResolveSend против Restore и проекция sender через журнал (eventual) — предмет system-design-reviewer"

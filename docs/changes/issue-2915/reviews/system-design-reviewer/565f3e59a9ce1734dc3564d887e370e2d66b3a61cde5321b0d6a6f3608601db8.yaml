@@ -1,0 +1,44 @@
+# ВЕРДИКТ: ✅ на sha256 565f3e59a9ce1734dc3564d887e370e2d66b3a61cde5321b0d6a6f3608601db8
+role: system-design-reviewer
+mode: post-diff
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом); Д109 проверен
+repo: PRO-Robotech/kacho
+pr: 3021
+base: 2c283f99f4bcb549671fc8e3a0101713ff7b6289   # merge-base(origin/2914-notify, head), перемерено; = голова origin/2914-notify
+head: bb9533bbcd7092e9851c5d0f665a1711eb7630e3
+digest: 565f3e59a9ce1734dc3564d887e370e2d66b3a61cde5321b0d6a6f3608601db8  # git diff base..head | sha256sum
+distributed_surface: true
+schema_overlap: true   # CAS, FOR SHARE/LOCK TABLE, SKIP LOCKED; db-architect-reviewer на этот дайджест — принято
+blocking: []
+runs:
+  - cmd: "GOWORK=off go test -count=1 -race -v ./services/notify/internal/limits/... ./services/notify/cmd/notify-probe/internal/send/... ./services/notify/internal/source/..."
+    at: bb9533bbcd7092e9851c5d0f665a1711eb7630e3
+    result: "50 PASS верхнего уровня, 0 SKIP, 0 FAIL; -race чист"
+    concurrency_probes_green: [TestLimits_NTF1H03_NetIsExactAcrossReplicas, TestReleaseConcurrentWithReserveNoDeadlock, TestLimits_CX168b_ReserveStartedBeforeFenceWriteCommits, TestReserveHolderVanishedDoesNotStallFleet, TestSendReturnsItsOwnIDUnderACompetingWrite, TestSendIssuesOnlyTheFoundationStatements]
+  - cmd: "GOWORK=off go test -count=1 ./services/notify/internal/{grant,peeranswer,smtp/...}"
+    result: "ok x4"
+accepted:
+  D4_feed_id: "corelib@21c784a9b1dc feed.PutID: id выдаётся до INSERT (ids.NewHyphenID) и возвращается из той же точки сохранения; Queued{id,queued} — отсутствие типом; send.go больше не читает ленту, REPEATABLE READ и FeedOutbox сняты; порождённый SendProbeHello зовёт PutID. Пины согласованы: kaname@a3c0158af93e требует corelib@21c784a9b1dc"
+  N7_net_ceiling: "резерв — одна RC-транзакция без сетевых вызовов: FOR SHARE ограды, CAS окон по порядку PK, CAS потолка; 0 строк -> сторож, откат всего резерва; освобождение однократно (mutex+released), по ключам резерва, своим сроком WithoutCancel+TxStatementTimeout; порядок замков резерв=освобождение; SET LOCAL statement/idle timeout"
+  N7_fence: "LOCK TABLE EXCLUSIVE конфликтует с ROW SHARE от FOR SHARE; lock_timeout 5s -> 55P03 -> отказ старта; superseded — однократный перевод реплики в отказ"
+  N7_retention: "уборка — DELETE … FOR UPDATE SKIP LOCKED партиями, порог LeaseTTL сверх конца окна; несколько реплик безопасны"
+  N2_claim_loop: "цикл на источник; Claim под своим сроком 10s; выдачу между репликами разводит аренда сервера ленты (SKIP LOCKED); событие подписки — только пробуждение (wake ёмк. 1), состояние не применяется; срок потока только на установление; соединение открывает потребитель (notify)"
+  N4_resolve_send: "каждый вызов под своим CallTimeout; классификатор закрыт таблицей кодов; недоступен/отказ/без решения -> DEFER, не ALLOW (fail-closed); REVOKED -> DENIED; кэша нет"
+  N6_smtp: "сессия под SessionTimeout, AfterFunc рвёт I/O на отмене; нет TLS -> письмо не уходит; классификатор без default"
+  edge: "notify -> источники (kaname, notify-probe): Claim/Subscribe/ResolveSend; обратных вызовов источник->notify нет — ацикличен"
+important:
+  - coord: services/notify/internal/limits/limiter.go:441
+    what: "CeilingReached — pool.QueryRow на контексте вызывающего без своего WithTimeout и без SET LOCAL; потолок — только statement_timeout пула 30s, ожидание соединения пула не ограничено (arch-per-call-deadline). Прод-вызывающего пока нет"
+    require: "свой context.WithTimeout(ctx, TxStatementTimeout) внутри метода до подключения к циклу Claim"
+  - coord: services/notify/internal/grant/grant.go:165
+    what: "исключение certificate принимается для любого модуля; ограничение «только kaname» живёт лишь в source.Config.validate (source.go:145). Два читателя одного перечня, страж у одного; композиционного корня, зовущего оба, ещё нет"
+    require: "предикат «certificate только у kaname» — в config.validateSources (один дом), grant.New и source.Start читают уже проверенный перечень"
+  - coord: services/notify/internal/source/loop.go:160
+    what: "цикл Claim не читает SourceGate (Take/Classes) и CeilingReached — H04/H05/H06 на живом пути не действуют; серве не поднимает циклы, поэтому дефекта исполнения сейчас нет"
+    require: "полоса проводки цикла обязана вести размер через Take, классы через Classes(CeilingReached)"
+  - coord: services/notify/internal/smtp/sender.go
+    what: "разрыв после тела DATA -> relay_disconnect -> DEFER: возможен повтор письма, уже принятого ретранслятором (неоднозначность SMTP). Принято как at-least-once, но в замысле не названо"
+    require: "назвать в замысле семантику «не более одного письма» не гарантируется"
+orders:
+  - "ребро notify -> kaname (Claim, Subscribe, ResolveSend) и notify -> notify-probe в перечне runtime-рёбер не записано; перечень вынесен в .claude/backup/polyrepo.md (poly-edges-catalog) — tooling-maintainer"
