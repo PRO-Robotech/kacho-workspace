@@ -460,12 +460,15 @@ tags:
 | [[packages/kacho-ci-runners\|CI монорепы — ранеры и раскладка job'ов]] | живо (stable) |
 | [[packages/kacho-declaredbreak\|Гейт объявленных разрывов контракта — три исхода и отказ, который не гадает]] | живо (stable) |
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
+| [[packages/kacho-migrationchains\|internal/migrationchains — какую цепочку миграций какая точка наката применяет и на какую базу]] | в работе (test) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
 | [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
+| [[packages/kacho-pgdsn\|internal/pgdsn — подмена базы в строке соединения Postgres разбором драйвера]] | в работе (test) |
 | [[packages/kacho-prepush-hook\|Локальный хук отправки — о каком дереве он выносит вердикт]] | живо (stable) |
 | [[packages/kacho-repohygiene-gitrevcause\|internal/repohygiene/gitrevcause.go — глубина клона и словарь ремонта в одном доме]] | в работе (test) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
+| [[packages/notify-service\|services/notify — шлюз уведомлений: шлюз, проба-источник и точка наката]] | в работе (test) |
 
 **домен: kacho-api-gateway**
 
@@ -1256,6 +1259,7 @@ tags:
 | [[KAC/issue-287\|#287: перепись читала машинно собираемый файл как расщеплённую работу]] | живо (done) |
 | [[KAC/issue-291-quota-v2\|Квоты на число ресурсов: каталог, учёт, отказ и арендаторское чтение (#291)]] | в работе (test) |
 | [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
+| [[KAC/issue-2915\|kacho#2915: служба notify NTF-1 — ядро шлюза уведомлений]] | в работе (in-progress) |
 | [[KAC/issue-292\|#292: клетка Ф2 приёмки XC-7 называла шесть обёрток, их три]] | живо (done) |
 | [[KAC/issue-293\|#293: у проверки состава приёмок не было ни одной пробы]] | живо (done) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
