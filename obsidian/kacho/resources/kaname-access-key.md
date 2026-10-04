@@ -47,7 +47,7 @@ verified_against: "kaname release/iam-lines@4b674bf5 — миграция 202609
 
 `access_key_challenges` — испытание: `purpose ∈ {registration, assertion}`, `challenge` ровно
 32 байта, `expires_at > issued_at`, привязано к человеку; одноразовое, гасится только успехом;
-уборка — пятый предмет реестра полосы.
+уборка — пятый предмет реестра полосы; порог — срок испытания (в ветке эпика `296`, см. History).
 
 ## Что снято намеренно
 
@@ -71,5 +71,8 @@ verified_against: "kaname release/iam-lines@4b674bf5 — миграция 202609
   `5ea26ad0` ([[KAC/issue-269-kaname]]; закрыты и [[KAC/issue-345-kaname]], [[KAC/issue-346-kaname]],
   [[KAC/issue-347-kaname]]); сквозной набор newman шести глаголов ([[KAC/issue-268-kaname]]); снято
   обещание регистрации ключом ([[KAC/issue-2703]]).
+- 2026-10-04 — волна-2 эпика `296` ([[KAC/issue-536-kaname]], `77dae639`, в `main` службы не влито): уборка
+  `access_key_challenges` снимает испытание не раньше его срока (`ChallengeTTL`), а не первым проходом —
+  [[KAC/issue-590-kaname]]; ошибка чтения ключей на отзыве — внутренняя ошибка ([[KAC/issue-586-kaname]]).
 
 #resource #kacho-iam #iam
