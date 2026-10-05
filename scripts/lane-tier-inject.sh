@@ -116,6 +116,17 @@ for key_form in 'password: "%s"' 'PASSWORD="%s"' 'DB_PASSWORD: "%s"' 'apiToken =
     printf "$key_form\n" "$val" > "$W/a"
     assert "0 R2" "$(run --paths-file "$W/p" --added-file "$W/a") $(field tier)" "литерал секрета «$key_form» → R2"
 done
+# Значения со спецсимволами (check-verifier ws#933 A-r2, п.1) — тоже из частей.
+# shellcheck disable=SC2016  # `$def` — знаки значения пробы, а не подстановка
+for pair in 'password := "%s"|p@ss''w0rd!Xy' 'DB_PASSWORD=%s|Qw3r''ty!@#2024' 'clientSecret: "%s"|abc$def''%ghi^jkl' \
+            'token: %s|t0k&en''*value~1' 'API_KEY="%s"|k3y:wi''th:colons'; do
+    # shellcheck disable=SC2059  # формат — сам вход пробы
+    printf "${pair%%|*}\n" "${pair#*|}" > "$W/a"
+    assert "0 R2" "$(run --paths-file "$W/p" --added-file "$W/a") $(field tier)" "литерал со спецсимволами «${pair%%|*}» → R2"
+done
+# shellcheck disable=SC2016  # литералы «$X» — сам вход пробы
+printf 'password: "$DB_PASSWORD"\nDB_PASSWORD=$FROM_VAULT_VALUE\nclientSecret: secretFromConfig(cfg)\n' > "$W/a"
+assert "0 R0" "$(run --paths-file "$W/p" --added-file "$W/a") $(field tier)" "близнец: \$X в кавычках и голым, вызов функции — R0"
 # shellcheck disable=SC2016  # литерал «${DB_PASSWORD}» — сам вход пробы
 printf 'password: "${DB_PASSWORD}"\ntoken = os.Getenv("X")\npassword: ${DB_PASSWORD}\ntoken := req.Token\napiKey = apiKeyFromEnvironment\nToken: tokenFromHeader,\n' > "$W/a"
 assert "0 R0" "$(run --paths-file "$W/p" --added-file "$W/a") $(field tier)" "близнец: ссылка на переменную и выражение кода — R0"

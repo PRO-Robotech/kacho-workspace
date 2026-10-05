@@ -32,6 +32,17 @@ F="$WAVE_ERRORS_DIR/errors.md"
 echo "== счётчик не вёлся — не «ноль»"
 assert "2 да" "$(run rate 7 10) $(has 'счётчик волны не вёлся')" "файла нет → код 2"
 
+echo "== волна без ошибок — законный зелёный по заведённому счётчику"
+Z="$W/wave-z"
+assert "0" "$(WAVE_ERRORS_DIR="$Z" bash "$E" open z > "$W/out" 2>&1; echo $?)" "open заводит счётчик"
+assert "0 да" "$(WAVE_ERRORS_DIR="$Z" bash "$E" rate z 10 > "$W/out" 2>&1; echo $?) $(has 'строк 0')" "заведённый счётчик без строк → код 0, «строк 0»"
+: > "$Z/errors.md"
+assert "2 да" "$(WAVE_ERRORS_DIR="$Z" bash "$E" rate z 10 > "$W/out" 2>&1; echo $?) $(has 'нет шапки')" "пустой файл без шапки — не «ошибок ноль»: код 2"
+WAVE_ERRORS_DIR="$Z" bash "$E" open z > /dev/null 2>&1
+WAVE_ERRORS_DIR="$Z" bash "$E" add z truncation 1 A x y > /dev/null 2>&1
+WAVE_ERRORS_DIR="$Z" bash "$E" open z > /dev/null 2>&1
+assert "3" "$(grep -c '^|' "$Z/errors.md")" "повторный open строк не стирает"
+
 echo "== запись"
 assert "0" "$(run add 7 false-fail 0.25 A ci-watcher повтор на той же голове)" "законная строка записана"
 assert "3" "$(grep -c '^|' "$F")" "шапка, разделитель и строка в таблице"
