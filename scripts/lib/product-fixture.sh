@@ -70,6 +70,59 @@ _product_fixture_assert_own() {
     return 0
 }
 
+# ── СТРАЖ: каталог фикстуры лежит ВНЕ рабочей копии git (ws#924) ─────────────
+#
+# ЗАЧЕМ. Фикстура — целый репозиторий. Внутри чужой рабочей копии она становится
+# её неотслеживаемым каталогом: `git status` общего клона перестаёт быть признаком
+# чистоты, гейты состава дерева дают находку на исправном дереве, соседняя полоса
+# судит чужой файл. Каталог задаёт `mktemp -p`, то есть `TMPDIR` вызывающего, и
+# свойство держалось его вниманием. Измерено: в общем клоне kaname лежали три
+# каталога `h.XXXXXX` с коммитом «ствол» этой фикстуры (бывшая kaname#350). А если
+# путём оказался корень самой копии, `init` перевёл бы её HEAD на `parked`.
+#
+# ПРИЗНАК — ответ git, а не перечень известных мест: от ближайшего существующего
+# предка пути git ищет репозиторий вверх, и любой найденный — отказ, в том числе
+# игнорируемый подкаталог (форма `tmp/` воркспейса): фикстура пишет только во
+# временный каталог. Указатели окружения, подменяющие поиск (`GIT_DIR`,
+# `GIT_WORK_TREE`, `GIT_CEILING_DIRECTORIES`), снимаются, а граница файловой
+# системы поиск не обрывает — оба послабления дали бы «вне копии» молча.
+#
+# Доказательство — `scripts/docs-gate/inject-10.sh`.
+
+# product_fixture_outside_worktree <путь> — 0, если путь вне любой рабочей копии
+# и вне любого репозитория; иначе 1 и строка, называющая найденную копию.
+product_fixture_outside_worktree() {
+    local path="${1:-}" probe found
+    [ -n "$path" ] || { echo "product-fixture: пустой путь — место фикстуры не определено" >&2; return 1; }
+    probe="$path"
+    while [ ! -d "$probe" ]; do
+        probe="$(dirname "$probe")"
+    done
+    if found="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_CEILING_DIRECTORIES \
+            GIT_DISCOVERY_ACROSS_FILESYSTEM=1 \
+            git -C "$probe" rev-parse --path-format=absolute --git-dir 2>/dev/null)"; then
+        local top
+        top="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_CEILING_DIRECTORIES \
+            GIT_DISCOVERY_ACROSS_FILESYSTEM=1 \
+            git -C "$probe" rev-parse --show-toplevel 2>/dev/null)" || top="$found"
+        echo "product-fixture: '$path' лежит внутри рабочей копии git '${top:-$found}' — фикстура пишет только во временный каталог вне копий (TMPDIR вызывающего указывает в дерево?)" >&2
+        return 1
+    fi
+    return 0
+}
+
+# product_fixture_root_census <корень> — перепись места фикстур для вывода
+# доказательства: 0 и строка с путём, если корень вне копий; иначе 2 и `[VOID]`.
+product_fixture_root_census() {
+    local root="${1:-}"
+    if product_fixture_outside_worktree "$root"; then
+        echo "фикстуры продукта: под $root — вне рабочей копии git"
+        return 0
+    fi
+    echo "[VOID] фикстуры продукта: корень $root внутри рабочей копии git — синтетические деревья встали бы в чужое дерево" >&2
+    return 2
+}
+
 # product_fixture_init <каталог> — пустое дерево продукта с одним кандидатом ствола.
 #
 # Подпись — HOME фикстуры со своим `.gitconfig`, а не конфиг выброшенного дерева:
@@ -82,6 +135,7 @@ product_fixture_init() {
         echo "product-fixture: product_fixture_init вызван с пустым путём" >&2
         return 2
     fi
+    product_fixture_outside_worktree "$dir" || return 2
     mkdir -p "$dir"
     git -C "$dir" init -q
     # HOME вызывающего (`SANDBOX_GIT_HOME`) фикстура не перенимает и не сбивает:
