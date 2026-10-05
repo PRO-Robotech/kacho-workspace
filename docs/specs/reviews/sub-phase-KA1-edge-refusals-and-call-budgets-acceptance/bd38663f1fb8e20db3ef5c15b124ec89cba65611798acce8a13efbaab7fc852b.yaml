@@ -1,0 +1,131 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: bd38663f1fb8e20db3ef5c15b124ec89cba65611798acce8a13efbaab7fc852b
+  revision: 9
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 9 — эта запись и внешнее событие.
+  base_commit: 9a5d25bb1f1b72721dc9e60b09ffde15a9672cc0
+  content_commit: 0071bf1d6f0144960dea3a6809cf26059129dbb7
+  branch: 897-ka1-exit-outcome
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 1156
+  code_base: >-
+    PRO-Robotech/kacho: голова ствола волны e3476f0bc28 (ветка 2967), голова полосы kacho#2996
+    03b3dec9fe6 (= origin/2996 на момент ревью)
+verdict: APPROVED
+round: 8
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-05T00:00:00Z'
+event:
+  type: issue_comment
+  status: published
+  published: true
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-5993599751
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/5993599751
+  issue: PRO-Robotech/kacho-workspace#897
+  database_id: 5993599751
+  node_id: IC_kwDOSVvpIM8AAAABZT8TBw
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-05T11:33:37Z'
+  updated_at: '2026-10-05T11:33:37Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: c9bbb4f16e3869e27dc23c5e6941344d67dfbaac9d79222f0f700ce2b948130a
+  header:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kacho-workspace:docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+    subject_revision: 0071bf1d6f0144960dea3a6809cf26059129dbb7
+    subject_sha256: bd38663f1fb8e20db3ef5c15b124ec89cba65611798acce8a13efbaab7fc852b
+  subject_revision_on_origin_before_event: true
+  subject_sha256_on_origin_reproduced: true
+  verified_at: '2026-10-05'
+  verified_predicates:
+    body: >-
+      gh api repos/PRO-Robotech/kacho-workspace/issues/comments/5993599751 -q .body | sha256sum
+    subject: >-
+      git show origin/897-ka1-exit-outcome:docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md | sha256sum
+  note: >-
+    Блок дописан отдельным коммитом после публикации события; вердикт и разбор этой записи не
+    правились. Решение о санкции принимается перемером условий change-graph.md §3 и предиката
+    §4 документа, а не этим блоком.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315.yaml (круг 1, редакция 2)
+    - d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a.yaml (круг 2, редакция 3)
+    - f1dda7d293a3e9cbfc6d788501e4b32e554359d9a21e8dc38918ceb3f7080f05.yaml (круг 3, редакция 4)
+    - a472352819656522d77dec6c4b43c6a0f1c5b17806dd27fc8d6b51a3c8564463.yaml (круг 4, редакция 5)
+    - 6fe252979623475e1349ea5458236615f908017dde2560e4bcef795e021bf628.yaml (круг 5, редакция 6)
+    - e88968ad6d11ad1793fe9881841809e711cd084f6dbbf90846de023cbd723cd8.yaml (круг 6, редакция 7, APPROVED)
+    - 1ebb12d5d759fd27dbfa150693575bd8b7a98ffd5058956d4304b7adec25099a.yaml (круг 7, редакция 8)
+
+task_premise: >-
+  Подтверждена: sha256sum редакции 9 = bd38663f…7fc852b, 1156 строк, HEAD копии 0071bf1d6; запись круга 7
+  о редакции 8 есть (CHANGES_REQUESTED, B1 COVERAGE); записи на отпечаток редакции 9 нет.
+
+delta_reviewed: >-
+  git diff ee22cee73 0071bf1d6 -- <документ>: журнал, Р4 (проверку предъявителя на выходе ручка Р4 не
+  ограничивает), Р7 (неответивший источник ключей — «не выполнен» 503; 401 — только решивший проверяющий),
+  «Что НЕ входит», П12/П13, новый П14, сценарии KA1-36 и KA1-37, строки производителей, строимости и
+  уровня, «Открытые вопросы», DoD «Р7». Прочие сценарии не тронуты.
+
+prior_round_blockers:
+  B1_COVERAGE: >-
+    снят по варианту (а) с решением о бюджете: Р7 называет исход «источник ключей не ответил» (503 тело Р7),
+    близнец — проверяющий решил «негоден» (401 по Р2), предикат — тот же KeySourceUnanswerable, что на пути
+    запроса (auth.go tryBearerJWT @ 03b3dec9fe6); Р4 решает, что срок проверки — объявленный бюджет
+    чтения набора (newJWKSHopClient(… JWKSFetchTimeoutSeconds), http.Client{Timeout}), а не ручка Р4;
+    полоса снимает свой срок вокруг Verify (DoD KA1-37). Перепин на 03b3dec9fe6 сделан. Проверено:
+    Verify ходит наружу только через rec.jwks.Resolve (jwt_verifier.go @ 03b3dec9fe6), ErrKeyNotFound в
+    KeySourceUnanswerable не входит.
+
+blocking: []
+
+non_blocking:
+  - >-
+    Р4, фраза «срок, через который клиент выхода узнаёт исход, — сумма двух бюджетов» верна лишь для
+    неоспоренного чтения: ожидание на fetchMu (JWKSCache.refresh, single-flight) срок запроса не
+    соблюдает, и при неответившем источнике запрос может ждать чужое чтение и затем делать своё.
+    Свойство общее с путём запроса и предметом KA1 не является; формулировку стоит сузить до «одно
+    чтение набора — не дольше его бюджета», утверждения «Тогда» это не меняет.
+  - >-
+    Ветка 503 и смена срока на голове полосы kacho#2996 написаны до одобрения редакции 9 — факт для
+    диспетчера по ban #1, не дефект документа.
+  - >-
+    Строка KA1-34 таблицы производителей (вне дельты, одобрена в круге 6) цитирует домен стенда в
+    значении registry-token.issuer; документ публичен — заменить на «адрес издателя реестра стенда».
+
+checks:
+  scope: да; дельта остаётся в предмете Р7/Р4, величину KACHO_JWKS_FETCH_TIMEOUT_SECONDS не меняет.
+  producer_per_then: 29 из 29 (ID сценариев — 29, строк таблицы производителей — 29); KA1-37 и часть клеток KA1-36 — заказаны kacho#2996.
+  twin_per_negative: >-
+    0 разрывов; KA1-36 (1),(2) ↔ (3),(4) — один факт (решил ли проверяющий); KA1-37 (2) ↔ (1) — один факт
+    (какой вызов несёт задержку).
+  constructibility: >-
+    посеяно 2 из 2 новых сценариев, git archive 03b3dec9fe6 и e3476f0bc28 в tmp/ka1-r9-seed, go test в слоте.
+    KA1-36: на 03b3dec9fe6 пробы полосы зелены (8 подтестов: (1),(2)×(а)–(в), (3),(4)×(а));
+    на e3476f0bc28 с файлом проб полосы — красных 6 исходом (401 тело Р2 вместо 503), (3),(4) зелены — как
+    заявлено. KA1-37 своим дублёром (верификатор с задержкой 400ms, соблюдающий срок, бюджет 150ms):
+    @ 03b3dec9fe6 — (1) 503 вместо 200 (красный, как заявлено), (2) 503 зелен;
+    @ e3476f0bc28 — (1) 200 {"ok":true}, (2) 200 с warnings — оба исходом, как заявлено.
+    TestLogout_VerificationIsBoundedByTheCallBudget красен на базе (4.999s > 150ms), зелен на полосе.
+    Не выполнилось 0.
+  open_questions: 0.
+repeat_class_note: >-
+  Блокирующих 4 → 3 → 1 → 1 → 1 → 0 → 1 → 0. Род COVERAGE снят за один круг.
+route_flags: {proto: no, schema: no, public_rpc: no, ui: no, new_domain: no, security_surface: yes}
