@@ -24,11 +24,40 @@ reviewer_role: acceptance-reviewer
 expected_actor: pointpu
 reviewed_at: '2026-10-05T00:00:00Z'
 event:
-  type: none
-  status: not_performed
-  published: false
+  type: issue_comment
+  status: published
+  published: true
+  publication_mode: courier
   publication_expected_from_orchestrator: true
-  body: "acceptance-reviewer · APPROVED · sha256 bd38663f1fb8e20db3ef5c15b124ec89cba65611798acce8a13efbaab7fc852b"
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-5993599751
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/5993599751
+  issue: PRO-Robotech/kacho-workspace#897
+  database_id: 5993599751
+  node_id: IC_kwDOSVvpIM8AAAABZT8TBw
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-05T11:33:37Z'
+  updated_at: '2026-10-05T11:33:37Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: c9bbb4f16e3869e27dc23c5e6941344d67dfbaac9d79222f0f700ce2b948130a
+  header:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kacho-workspace:docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+    subject_revision: 0071bf1d6f0144960dea3a6809cf26059129dbb7
+    subject_sha256: bd38663f1fb8e20db3ef5c15b124ec89cba65611798acce8a13efbaab7fc852b
+  subject_revision_on_origin_before_event: true
+  subject_sha256_on_origin_reproduced: true
+  verified_at: '2026-10-05'
+  verified_predicates:
+    body: >-
+      gh api repos/PRO-Robotech/kacho-workspace/issues/comments/5993599751 -q .body | sha256sum
+    subject: >-
+      git show origin/897-ka1-exit-outcome:docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md | sha256sum
+  note: >-
+    Блок дописан отдельным коммитом после публикации события; вердикт и разбор этой записи не
+    правились. Решение о санкции принимается перемером условий change-graph.md §3 и предиката
+    §4 документа, а не этим блоком.
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
