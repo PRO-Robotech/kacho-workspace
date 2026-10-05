@@ -1,0 +1,37 @@
+# ВЕРДИКТ: принято на sha256 4b63ad6e10d3b16e8416c63ce127adfbfe51113e3c4e49d16e281c043ca5f444
+role: system-design-reviewer
+mode: post-diff
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом)
+repo: PRO-Robotech/kacho
+pr: 3039
+base: 4517cc69c135cc5804916c0f6fce8542e9e6b093   # merge-base(origin/2914-notify, head), перемерено; = голова origin/2914-notify
+head: ebb7485b0157fc87a70eeac061305ca912e46939
+digest: 4b63ad6e10d3b16e8416c63ce127adfbfe51113e3c4e49d16e281c043ca5f444  # git diff base..head | sha256sum
+distributed_surface: true    # исполнители строк Claim, Ack ленты источника, резерв сетки, тревоги реплик
+schema_overlap: false        # дифф не вводит SQL, CAS, xmin, advisory-lock; резерв сетки (N7) не менялся
+blocking: []
+runs:
+  - cmd: "GOWORK=off go test -count=1 -race -v ./services/notify/internal/deliver/... ./services/notify/internal/metrics/... ./deploy/tests/alerts/..."
+    at: ebb7485b0157fc87a70eeac061305ca912e46939 (чистое дерево, отдельный worktree)
+    result: "37 PASS верхнего уровня, 0 SKIP, 0 FAIL; -race чист; ok x3"
+accepted:
+  ack_own_context: "ack.go:43 — WithTimeout(WithoutCancel(rowCtx), clock.Until(leaseEnd)): срок строки Ack не отменяет, конец аренды ограничивает; повтор только UNAVAILABLE/DEADLINE_EXCEEDED ВЫЗОВА (ctx.Err()==nil), пауза 100ms→1s; повтор идемпотентен тем же (id, lease_token) по З9; пробы TestAckAfterRowDeadlineStillLands, TestAckRetriesTransientRefusalUntilLeaseEnd"
+  row_deadline: "decide.go handle — min(Until(leaseEnd)−AckMargin, resolve+session) от внедряемых монотонных часов; t_send снят ДО отправки Claim (loop.go:170), поэтому конец аренды для notify не позже настоящего; часы источника (enqueued_at) в срок не входят"
+  lease_budget_silent: "клетка 8 — остаток аренды < суммы сроков либо срок строки прошёл → без Ack: строку выдаст следующий Claim после конца аренды; второго письма при живой аренде нет (SMTP не начат)"
+  release_once: "Release на любом исходе, кроме SENT, однократно (mutex+released в limits), свой WithoutCancel+TxStatementTimeout; Reserve при ошибке базы — без Ack (CX1-68 б)"
+  shutdown: "Deliver отвязывает строки от отмены цикла (WithoutCancel), путь строки ограничен её сроком, Ack — концом аренды; память между строками не держится"
+  no_new_edge: "межсервисных рёбер дифф не заводит: Ack идёт по существующему ребру notify → источник (Claim/Ack ленты); обратных вызовов нет"
+  alerts: "PrometheusRule рендерится только при наличии вида у кластера; правила без for; ряды — счётчики на реплику, сводка по source — агрегатом, состояния реплик не разделяют"
+important:
+  - coord: services/notify/internal/deliver/deliver.go:245
+    what: "Free() — проверка-затем-действие над общим пулом исполнителей: Worker один на процесс, циклов Claim — по одному на источник (source.Start), каждый читает Free() и зовёт Claim(min(free,500)) независимо. Два цикла, увидевшие Free()=W, арендуют 2W строк; половина ждёт слота в Deliver (deliver.go:264) и стареет внутри аренды — ровно то, что З21 («хвост пачки не стареет в очереди внутри аренды») запрещает. Исход — строки доходят до клетки 8 без бюджета и выдаются лишь после конца аренды (задержка на lease, не потеря и не второе письмо); заодно Deliver блокирует цикл источника B исполнителями источника A. Сейчас Worker в cmd не проведён (git grep 'deliver\\.' services/notify/cmd — пусто), живого дефекта нет"
+    require: "до проводки Worker в композиционный корень: слоты занимаются атомарно на стороне Claim — Acquire(n) под мьютексом возвращает число реально занятых слотов, Claim(max=занято), лишние возвращаются после ответа; проба — два цикла, W=2, оба Claim одновременно → суммарный max ≤ 2, ни одна строка не ждёт слота"
+  - coord: services/notify/internal/deliver/deliver.go:277
+    what: "Wait() — sync.WaitGroup.Wait, тогда как wg.Add зовётся в Deliver из циклов источников; Wait при нулевом счётчике параллельно с Add — гонка WaitGroup. Проводки нет"
+    require: "композиционный корень зовёт Worker.Wait строго после Loops.Wait (циклы остановлены, Deliver больше не вызывается); закрепить порядок пробой остановки"
+  - coord: services/notify/internal/deliver/ack.go:53
+    what: "у отдельной попытки Ack нет своего срока короче конца аренды: зависший вызов съедает весь остаток аренды, и повтора не будет. arch-per-call-deadline формально соблюдён (срок есть), повтор по SDR-Н1 фактически выключен для зависания"
+    require: "попытка — WithTimeout(ctx, min(Until(leaseEnd), ackCallTimeout)), повтор под общим сроком аренды; проба — первая попытка висит, вторая отвечает → исход записан"
+orders: []
+convergence_next: "convergence-reviewer (пакет есть) либо landing-reviewer"
