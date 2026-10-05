@@ -13,6 +13,8 @@
   * задача без комментария-доказательства — строка DoD говорит «нет», а не адрес;
   * задача, закрытая как не планируемая, — `wontfix`;
   * задача открыта — отказ кодом 1, файла нет;
+  * событие закрытия — 101-е в хронологии (вторая страница трекера): sha закрытия в
+    блоке его, а не ревизия доказательства — список читается всеми страницами;
   * генератор указателя хранилища вышел ненулевым кодом — отказ кодом 1, в выводе — его код и
     выводом, а не «записано».
 Каждый отказ судится по коду И по причине в выводе (возврат check-verifier к ws#930).
@@ -31,7 +33,7 @@ import _probe as P  # noqa: E402
 import yaml  # noqa: E402 — наличие проверено песочницей (иначе VOID)
 
 R = "PRO-Robotech/kacho-workspace"
-N1, N2, N3, N4 = 990001, 990002, 990003, 990004
+N1, N2, N3, N4, N5 = 990001, 990002, 990003, 990004, 990005
 PR_URL = "https://github.com/%s/pull/990100" % R
 CLOSE_SHA = "5" * 40
 
@@ -118,6 +120,15 @@ def body(pr):
     fm, text = front(note(root, N4))
     pr.ok("не планируемая — wontfix", fm.get("status") == "wontfix", str(fm))
     pr.ok("без доказательства: строка DoD говорит «нет»", "комментария-доказательства DoD нет" in text, text)
+
+    # событие закрытия на второй странице хронологии
+    w = world()
+    w["issues"]["%s#%d" % (R, N5)] = issue(N5)
+    w["comments"]["%s#%d" % (R, N5)] = w["comments"]["%s#%d" % (R, N1)]
+    w["timeline"]["%s#%d" % (R, N5)] = [{"event": "labeled"} for _ in range(100)] + [{"event": "closed", "commit_id": CLOSE_SHA}]
+    rc, out, err, _ = pr.run("vault-trails", [R, str(N5)], pr.state(w), extra=extra)
+    text = open(note(root, N5), encoding="utf-8").read() if os.path.isfile(note(root, N5)) else ""
+    pr.ok("закрытие 101-м событием хронологии: sha закрытия в блоке", "- sha: `%s`" % CLOSE_SHA in text, err[-600:] + text)
 
     rc, out, err, _ = pr.run("vault-trails", [R, str(N2)], pr.state(world()), extra=extra)
     pr.refused("открытая задача", rc, err, "открыта — trail закрытия пишется закрытой задаче")

@@ -19,6 +19,9 @@
               (трекер принял, а закрытие не состоялось — так ритуал обязан перечитывать)
   comment_extra {поле: значение} — дописывается в ответ о созданном комментарии
 
+Списки (комментарии, подзадачи, коммиты PR, хронология) отдаются страницами по
+`per_page` и `page` запроса, как у настоящего трекера.
+
 Неизвестный путь — отказ с текстом, как у настоящего трекера на 404: двойник не
 сочиняет ответа, которого ему не задали.
 """
@@ -48,6 +51,7 @@ def main(argv):
     raw = args[0]
     path, _, query = raw.partition("?")
     page = int((re.search(r"(?:^|&)page=(\d+)", query) or [None, "1"])[1])
+    per_page = int((re.search(r"(?:^|&)per_page=(\d+)", query) or [None, "30"])[1])
     st.setdefault("log", []).append({"method": method, "path": path, "body": body})
 
     def done(out, rc=0):
@@ -71,8 +75,11 @@ def main(argv):
     key = "%s#%s" % (repo, num)
     issues = st.setdefault("issues", {})
 
+    # Страница — как у настоящего трекера: `per_page` (по умолчанию 30) элементов
+    # с номера `page`. Двойник, отдающий всё первой страницей, не отличил бы ритуал,
+    # читающий одну страницу, от читающего все (возврат check-verifier к ws#930, C25).
     def paged(items):
-        return items if page == 1 else []
+        return items[(page - 1) * per_page:page * per_page]
 
     if kind == "commits":
         for k, v in st.get("commits", {}).items():

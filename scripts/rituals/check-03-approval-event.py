@@ -14,6 +14,8 @@ false`; подставной трекер.
   * инъекция «событие без правки блока»: запись не записываема — отказ ДО публикации,
     событий 0; коммит отвергнут хуком — отказ кодом 1, напечатано «СОБЫТИЕ ОПУБЛИКОВАНО»
     с адресом, чтобы недоделанное не уехало молча;
+  * в записи нет `verdict` либо `reviewer_role` — отказ, событий 0 (событие с
+    `verdict: None` не публикуется);
   * отпечаток документа не равен записи, отпечаток из одних цифр без кавычек (YAML
     читает его числом), запись судит другой документ, ревизия не опубликована — отказ,
     событий 0;
@@ -48,11 +50,13 @@ SHA = hashlib.sha256(TEXT.encode()).hexdigest()
 REC = "docs/specs/reviews/a/%s.yaml" % SHA
 
 
-def record(event=True, path=DOC, sha=SHA, quoted=True, note=""):
+def record(event=True, path=DOC, sha=SHA, quoted=True, note="", drop=()):
     out = ("schema_version: 1\nkind: acceptance_review\n# комментарий записи сохраняется\n%ssubject:\n"
            "  path: %s\n  sha256: %s\nverdict: APPROVED\nreviewer_role: acceptance-reviewer\n"
            "effective_approval:\n  issued: false\n  why: ждёт события\n"
            % (note, path, ('"%s"' % sha) if quoted else sha))
+    for key in drop:
+        out = "".join(ln for ln in out.splitlines(True) if not ln.startswith(key + ":"))
     if event:
         out += "event:\n  type: none\n  status: not_performed\n"
     return out + "checks:\n  coverage: 3 из 3\n"
@@ -133,6 +137,12 @@ def body(pr):
     url4 = st["comments"]["%s#549" % R][0]["html_url"] if posts(st) else "?"
     pr.ok("коммит отвергнут: код 1", rc == 1, err)
     pr.ok("коммит отвергнут: напечатано «СОБЫТИЕ ОПУБЛИКОВАНО» с адресом", "СОБЫТИЕ ОПУБЛИКОВАНО" in err and url4 in err, err)
+
+    for key in ("verdict", "reviewer_role"):
+        dk = fixture(pr, "no-" + key, record(drop=(key,)))
+        rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dk)
+        pr.refused("в записи нет %s" % key, rc, err, "нет verdict, reviewer_role либо subject.sha256")
+        pr.ok("в записи нет %s: событий 0" % key, not posts(st), str(posts(st)))
 
     d5 = fixture(pr, "fp", record(sha="f" * 64))
     rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d5)

@@ -31,6 +31,16 @@
 #   M18 общий распознаватель DoD: маркер посреди прозы засчитан
 #       (`scripts/lib/dod_proof.jq` — один на ритуалы, merge-readiness и cascade-census) → check-01
 #
+# Второй возврат check-verifier к ws#930 (B-r2): мутанты, выжившие при зелёных самопробах.
+#   M19 approval-event: запись без verdict/reviewer_role не судится → check-03
+#   M20 pr-body: атрибуция в собранном теле не судится (пришла из заголовка задачи) → check-01
+#   M21 dod_proof.jq: ревизия любого вида, а не 7–40 шестнадцатеричных → check-01
+#   M22 dod_proof: первое доказательство вместо последнего           → check-01
+#   M23–M25 gh_list: только первая страница списка трекера — двойник отдаёт
+#       страницы по `per_page`, и каждая самопроба, чей ритуал читает список,
+#       несёт предмет на второй странице                         → check-01, -02, -04
+#       (`approval-event` списков трекера не читает: мутанту в check-03 предмета нет)
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -167,6 +177,29 @@ inject "M18 dod_proof.jq: маркер посреди прозы засчита�
     '(^|\n)DoD-proof' \
     'DoD-proof' \
     ../lib/dod_proof.jq
+inject "M19 approval-event: нет verdict/reviewer_role — не судится" check-03-approval-event.py \
+    '    if not verdict or not role or want is None:' \
+    '    if want is None:'
+inject "M20 pr-body: атрибуция в собранном теле не судится" check-01-pr-body.py \
+    '    line = attribution(body)
+    if line:
+        raise Refused("атрибуция в собранном теле' \
+    '    line = None
+    if line:
+        raise Refused("атрибуция в собранном теле'
+inject "M21 dod_proof.jq: ревизия любого вида" check-01-pr-body.py \
+    '[0-9a-f]{7,40}' \
+    '[0-9A-Za-z]{1,40}' \
+    ../lib/dod_proof.jq
+inject "M22 dod_proof: первое доказательство вместо последнего" check-01-pr-body.py \
+    'select(.revs | length > 0)] | last |' \
+    'select(.revs | length > 0)] | first |'
+inject "M23 gh_list: только первая страница (pr-body)" check-01-pr-body.py \
+    '        if len(chunk) < 100:' '        if True:'
+inject "M24 gh_list: только первая страница (close-wave)" check-02-close-wave.py \
+    '        if len(chunk) < 100:' '        if True:'
+inject "M25 gh_list: только первая страница (vault-trails)" check-04-vault-trails.py \
+    '        if len(chunk) < 100:' '        if True:'
 
 echo
 echo "rituals/inject: доказательств $((ok + bad)), прошло $ok, провалено $bad"

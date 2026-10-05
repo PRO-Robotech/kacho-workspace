@@ -13,6 +13,13 @@
     является;
   * инъекция «атрибуция»: коммит с трейлером `Co-Authored-By:` — отказ кодом 1, тело не
     выдано, sha назван; близнец — слово в середине строки прозы — тело собрано;
+  * распознаватель доказательства (общий `dod_proof.jq`): ревизия — 7–40
+    шестнадцатеричных знаков, `DoD-proof @main` и `DoD-proof @abc12` доказательством не
+    являются, полный sha — является; из нескольких доказательств берётся ПОСЛЕДНЕЕ;
+  * доказательство на второй странице комментариев (101-й из 101) находится: список
+    трекера читается всеми страницами, а не первой;
+  * атрибуция, пришедшая в тело не из коммита, а из заголовка задачи, — отказ «атрибуция
+    в собранном теле», тело не выдано; близнец — обычный заголовок, тело собрано;
   * тот же разбор по номеру PR (коммиты — из трекера);
   * задача не прочитана либо коммитов ноль — код 2, а не тело.
 Каждый отказ судится по коду И по причине в выводе: красное от соседнего отказа пробу
@@ -40,12 +47,18 @@ def closes(out):
     return [ln for ln in out.splitlines() if ln.startswith("Closes #")]
 
 
-def world(proof="DoD-proof @abc1234\nкоманда — код 0", proof43=None):
+def comment41(i, text):
+    return {"id": i, "body": text, "html_url": "https://github.com/%s/issues/41#issuecomment-%d" % (R, i)}
+
+
+def world(proof="DoD-proof @abc1234\nкоманда — код 0", proof43=None, comments41=None, title41=None):
     w = {
         "issues": {"%s#41" % R: issue(41), "%s#42" % R: issue(42), "%s#43" % R: issue(43, "closed"),
                    "%s#50" % R: issue(50, pr=True)},
-        "comments": {"%s#41" % R: [{"id": 1, "body": proof, "html_url": "https://github.com/%s/issues/41#issuecomment-1" % R}]},
+        "comments": {"%s#41" % R: comments41 if comments41 is not None else [comment41(1, proof)]},
     }
+    if title41 is not None:
+        w["issues"]["%s#41" % R]["title"] = title41
     if proof43:
         w["comments"]["%s#43" % R] = [{"id": 3, "body": proof43,
                                        "html_url": "https://github.com/%s/issues/43#issuecomment-3" % R}]
@@ -81,6 +94,35 @@ def body(pr):
     pr.ok("без доказательства: Refs #41, ни одного Closes", "Refs #41" in out and not closes(out), out)
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof="см. DoD-proof @abc1234 в соседней")), cwd=d)
     pr.ok("близнец: DoD-proof посреди прозы — не доказательство", rc == 0 and not closes(out), out + err)
+
+    # распознаватель: ревизия — только 7–40 шестнадцатеричных знаков
+    for text in ("DoD-proof @main\nкод 0", "DoD-proof @abc12\nкод 0"):
+        rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof=text)), cwd=d)
+        pr.ok("не ревизия «%s» — не доказательство: Refs #41" % text.splitlines()[0],
+              rc == 0 and "Refs #41" in out and not closes(out), out + err)
+    full = "0123456789abcdef0123456789abcdef01234567"
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof="DoD-proof @%s\nкод 0" % full)), cwd=d)
+    pr.ok("близнец: полный sha — доказательство, Closes #41",
+          rc == 0 and closes(out) == ["Closes #41"] and ("DoD-proof @%s" % full) in out, out + err)
+
+    # из нескольких доказательств — последнее (докстринг `dod_proof`)
+    two = [comment41(1, "DoD-proof @abc1234\nпервое"), comment41(2, "обсуждение"),
+           comment41(3, "DoD-proof @def5678\nпоследнее")]
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(comments41=two)), cwd=d)
+    pr.ok("несколько доказательств: названо последнее (@def5678, issuecomment-3)",
+          rc == 0 and "issuecomment-3 (`DoD-proof @def5678`)" in out and "@abc1234" not in out, out + err)
+
+    # доказательство на второй странице комментариев трекера
+    many = [comment41(i, "обсуждение %d" % i) for i in range(1, 101)] + [comment41(101, "DoD-proof @abc1234\nкод 0")]
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(comments41=many)), cwd=d)
+    pr.ok("доказательство 101-м комментарием (вторая страница): Closes #41",
+          rc == 0 and closes(out) == ["Closes #41"] and "issuecomment-101" in out, out + err)
+
+    # атрибуция в собранном теле — из заголовка задачи, а не из коммита
+    link = "claude" + ".ai/code"
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(title41="разбор %s/session" % link)), cwd=d)
+    pr.refused("атрибуция из заголовка задачи", rc, err, "атрибуция в собранном теле")
+    pr.ok("атрибуция из заголовка задачи: тело не выдано", out == "", out)
 
     # по номеру PR: коммиты — из трекера
     w = world()
