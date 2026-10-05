@@ -1,0 +1,74 @@
+ВЕРДИКТ: ⛔ на adefbe6e0511ef1ec42586f0c8d55ef4dcfe5596b83b740dbe4930c645004a70
+role: security-auditor
+mode: пост-дифф, один круг (Д97); блокирующее — только корректность/безопасность с предикатом
+verdict: returned
+repo: PRO-Robotech/kacho
+pr: 3041
+head: ad4cc6fa0b6404543d0595b5910f1d339427eb78
+base_branch: 2914-notify
+merge_base: 58248816f540c7f12124e128caaa469659bea69b   # git merge-base origin/2914-notify <head>; равен голове origin/2914-notify
+digest_cmd: git diff 58248816f540c7f12124e128caaa469659bea69b..ad4cc6fa0b6404543d0595b5910f1d339427eb78 | sha256sum
+acceptances: NTF-1, NTF-3 (ред. 34, b05c8b80), NTF-4 — APPROVED; решения Д96–Д128
+scope:
+  files_in_diff: 124   # git diff --stat merge_base..head; +11376 -1063; 22 коммита
+  surface: секреты стенда (Д123), ключ DKIM, зона DNS стенда, флаг установки
+  read_whole:
+    - deploy/scripts/seed-notify-stand-secrets.sh
+    - deploy/scripts/seed-stand-dkim.sh
+    - deploy/helm/notify/templates/_standdns.tpl
+    - deploy/helm/notify/templates/_flag.tpl
+    - deploy/helm/umbrella/templates/stand-dns.yaml
+    - deploy/helm/umbrella/templates/notifications-flag-guard.yaml
+    - deploy/helm/umbrella/cutover-creds-layer.sh
+    - services/notify/internal/dkimkey/dkimkey.go
+    - services/notify/internal/config/{dns,relay}.go
+    - services/notify/cmd/notify/relay.go
+  read_diff:
+    - services/notify/internal/config/config.go, cmd/notify/{serve,main,bootposture}.go
+    - deploy/helm/notify/templates/{configmap,deployment,recipient-key-secret}.yaml
+    - deploy/helm/umbrella/charts/kaname/{templates/configmap.yaml,values.yaml}
+    - deploy/helm/umbrella/templates/{identity-mail-lane-guard,notify-probe}.yaml
+    - deploy/helm/umbrella/values.{dev,prod,fe3455,prorobotech,a8f60d}.yaml
+    - deploy/scripts/{stack-secrets.sh,assert-ban6-external-isolation.py,assert-iac-scan-covers-every-chart.py,assert-iac-scan-covers-every-chart-inject.sh}
+    - deploy/Makefile, deploy/stacks-mail.txt, deploy/kind/kind-config.yaml, trivy.yaml
+  scanned_by_grep: "dnscheck/guard.go — вызовы журнала (6): домен, селектор, имена проверок; ни ключа, ни записи TXT"
+probes_run:
+  - cmd: go test -count=1 ./services/notify/internal/{config,dkimkey,dnscheck}/... ./services/notify/cmd/notify/...   # @ad4cc6fa0
+    result: ok ×4 (dnstest — без проб)
+  - cmd: (cd deploy && go test -count=1 -run 'Notify|Notifications|StandDNS|Dkim|DKIM|SecretLayout|KanameAlone|D2' .)   # @ad4cc6fa0
+    result: ok
+  - cmd: helm template kacho-umbrella deploy/helm/umbrella $(stacks_args <профиль>) для dev, prod, fe3455, prorobotech, a8f60d
+    result: "рендер 5/5; зона стенда и dnsPolicy: None — только dev; KACHO_NOTIFY_STAND_DNS=kacho-umbrella-mailpit равен узлу почты; в prod/fe3455/prorobotech/a8f60d notify с зоной не рендерится"
+  - cmd: python3 deploy/scripts/assert-iac-scan-covers-every-chart.py   # trivy 0.70.0 (версия CI), @ad4cc6fa0
+    result: "код 1; НАХОДКА: deploy/helm/notify/ — чарт с шаблонами НЕ ДАЛ сканеру ни одной цели"
+checked:
+  - предмет: секреты стенда notify (Д123)
+    итог: держится — четыре объекта заводятся однажды, отказ сервера, отличный от NotFound, — отказ посева, а не перечеканка; величины идут подстановкой процесса и не печатаются; ключ сетки объектом стенда исключает ключ значением (оба — отказ рендера), длину судит страж старта (Д89)
+  - предмет: ключ DKIM
+    итог: держится — пара выпускается только при отсутствии объекта, закрытый ключ во временном каталоге mktemp -d, снимается после разбора и ловушкой EXIT; сервер зоны закрытого ключа не монтирует; чтение пары из одного поколения тома, тексты отказов фиксированы, ошибка разборщика отбрасывается; RSA ≥ 2048
+  - предмет: зона DNS стенда
+    итог: держится — включение зоны требует узла почты, равного приёмнику ЭТОГО релиза, дважды (рендер notify.standDNS и страж процесса validateStandDNS); подсаженная зона не может сопровождать отправку на внешний узел; сервер зоны без токена учётки, non-root, RO ФС, добавлена ровно NET_BIND_SERVICE
+  - предмет: флаг установки
+    итог: держится — одно тело помощника, незаданное и не-булево — отказ с именем ручки; собственный ключ подчарта — отказ стража зонтика
+blocking:
+  - id: kacho:deploy/helm/notify/templates/deployment.yaml:iac-scan-misses-notify
+    severity: medium
+    category: security-gate
+    claim: >
+      Узел DKIM, ставший обязательным в рендере чарта notify (defd00a9e64), не подан заглушкой
+      прохода скана; с ним чарт notify под настройками trivy.yaml отказывает в рендере и
+      выпадает из IaC-скана целиком — скан отчитывается по чарту, который монтирует ключ DKIM,
+      не прочитав его.
+    failure_scenario: >
+      helm template с полным набором helm.set из trivy.yaml → «Error: … global.kacho.identity.smtp.dkim.secretName:
+      объект ключа DKIM установки не назван»; с добавленным secretName — следующий отказ на
+      dkim.privateKeyKey. Гейт IaC-покрытия красный (код 1, notify «НЕ ДАЛ ни одной цели»);
+      заданные гейтом инъекции (assert-iac-scan-covers-every-chart-inject.sh, «notify осмотрен своим каталогом») — тоже.
+    predicate: >
+      python3 deploy/scripts/assert-iac-scan-covers-every-chart.py → код 0 и строка
+      «осмотрен N целей  deploy/helm/notify/» (N > 0); assert-scan-stubs-hide-nothing.py зелёный
+      по каждой новой заглушке; bash deploy/scripts/assert-iac-scan-covers-every-chart-inject.sh — знаменатель 31 пройден.
+    owner: go-implementer (полоса D10)
+non_blocking: []
+cross_repo: []
+dry_round: нет — 1 подтверждённая находка
