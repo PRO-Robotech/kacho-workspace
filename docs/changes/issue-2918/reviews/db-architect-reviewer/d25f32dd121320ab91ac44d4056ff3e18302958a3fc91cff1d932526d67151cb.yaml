@@ -1,0 +1,64 @@
+ВЕРДИКТ: ✅ на c97db1d2b398ec022974d315d7ddeeffd9d72025
+role: db-architect-reviewer
+mode: ревью (пост-дифф, один круг, Д97; блокирующее — только корректность)
+verdict: accepted
+blocking: false
+fingerprint:
+  repo: PRO-Robotech/kaname
+  pr: 616
+  base: 484-notify
+  merge_base: c1b397b735d5ad980608c7519adb02ddc324b482
+  head: c97db1d2b398ec022974d315d7ddeeffd9d72025
+  digest: d25f32dd121320ab91ac44d4056ff3e18302958a3fc91cff1d932526d67151cb
+  digest_cmd: git diff c1b397b735d5ad980608c7519adb02ddc324b482..c97db1d2b398ec022974d315d7ddeeffd9d72025 | sha256sum
+  pr_head_confirmed: gh pr view 616 -R PRO-Robotech/kaname -> headRefOid c97db1d2b, OPEN, base 484-notify
+migrations_touched: 0   # git diff --name-only merge_base..head | grep -cE 'migrations/.*\.sql$' -> 0
+applied_migrations_edited: 0
+repo_sql_touched: 2     # internal/repo/kaname/pg/module_seed_writer.go, catalog_writer.go — смена открывающего, SQL не менялся
+subject: >-
+  Д122 — посев модулей (и каталог модулей) открывал пишущую транзакцию через corelib/db.Transactor
+  мимо journalwrite, инициатора журнала не выставлял; на стенде без ролевой настройки строка журнала
+  отвергалась 23502. Фикс: journalwrite.InTx над пулом; гейт internal/check расширен формами W1-функция
+  (pgx.BeginFunc/BeginTxFunc) и W4 (чужой открывающий corelib/db.NewTransactor).
+db_mechanism:
+  invariant: строка resource_journal несёт инициатора
+  held_by: >-
+    kaname.resource_journal.initiator text NOT NULL DEFAULT NULLIF(current_setting('kacho_journal.initiator', true), '')
+    (internal/migrations/20261004160000_resource_journal_carries_the_initiator.sql:69-70, в базе ветки, этим диффом не тронута).
+    Умолчание переносит настройку транзакции, константы-подстановки нет — с Д122 согласуется.
+  seed_initiator: >-
+    system:kaname-seed — пара (kaname, seed) из закрытого перечня internal/apps/kaname/shared/journal_component.go:41-47;
+    применитель посева ставит её moduleseed/apply.go:259 (InitiatedOrJournalComponent).
+measured:
+  gate: >-
+    go test -count=1 ./internal/check -run 'WriteOpener|WriteTransactions' -v @c97db1d2b -> PASS 2 теста, 12 подкейсов
+    инъекции (W1 функция + read-only близнец, W4 + близнец не-открывающий — каждая пара в обе стороны);
+    перепись: пакетов 160 · файлов 906 · вызовов на пуле/соединении 124 · передач пула чужому пакету 16 ·
+    журналируемых таблиц 10; находок 0
+  integration: >-
+    go test -count=1 ./internal/repo/kaname/pg -run 'TestModuleSeed(JournalRowsCarryTheSeedInitiator|BypassingTheJournalOpenerIsRefusedByTheDatabase)' -v
+    @c97db1d2b -> PASS 2: посев на пуле без инициатора соединения пишет 4 строки журнала, все system:kaname-seed
+    (положительный контроль total>0); тот же посев транзакцией мимо открывающего -> 23502, column initiator,
+    ни одной строки журнала. Пара отличается одним фактом — кто открыл транзакцию.
+census_completeness: >-
+  Пишущие исполнители транзакций в не-тестовом дереве (git grep 'func (.*) RunInWriteTx|InTx' @c97db1d2b):
+  ModuleSeedWriteRepo, CatalogWriteRepo (оба переведены на journalwrite.InTx), moduleroles.repoTxRunner
+  (через shared.DoWithWriteTxVoid -> репозиторий -> открывающий). Остальные пути — гейт, 0 находок.
+checklist:
+  cross_service_fk: нет
+  check_then_act: не вводится
+  sqlstate_mapping: не менялось (каталог отдаёт отказы сырыми — решение в шапке catalog_writer.go, этим диффом не тронуто)
+  concurrent_probe: не требуется — новых CAS / UNIQUE / EXCLUDE / SKIP LOCKED нет
+  distributed_overlap: нет
+non_blocking:
+  - id: N1
+    note: >-
+      16 передач пула чужому пакету гейт пересчитывает, но содержимого не судит; утверждение «журналируемых таблиц
+      среди них нет» стоит в комментарии write_tx_opener.go:56-63. Корректность держит база (NOT NULL -> 23502 громко,
+      не молча), поэтому не блокирует; перечень переживёт ревизию только как число.
+  - id: N2
+    note: >-
+      journalwrite.InTx: откат в defer на context.WithoutCancel, фиксация на ctx — отменённый запрос откатывается,
+      паника fn откатывает и всплывает. Замечаний нет; отмечено как проверенное.
+return_to: —
+next: landing-reviewer (либо convergence-reviewer, если пакет есть) — сбор пост-дифф записей на d25f32dd
