@@ -41,6 +41,12 @@
 #       несёт предмет на второй странице                         → check-01, -02, -04
 #       (`approval-event` списков трекера не читает: мутанту в check-03 предмета нет)
 #
+# Третий возврат check-verifier к ws#932 (932-r3): мутанты распознавателя, выжившие
+# потому, что близнецы `@main`/`@abc12` отбивались длиной, а не алфавитом.
+#   M26–M27 dod_proof.jq: ревизия из [0-9a-z] (длина прежняя) — `@develop`
+#       засчитан доказательством                                  → check-01, -02
+#   M28–M29 dod_proof.jq: маркер без `@` засчитан (`DoD-proof abc1234`) → check-01, -02
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -200,6 +206,12 @@ inject "M24 gh_list: только первая страница (close-wave)" ch
     '        if len(chunk) < 100:' '        if True:'
 inject "M25 gh_list: только первая страница (vault-trails)" check-04-vault-trails.py \
     '        if len(chunk) < 100:' '        if True:'
+for c in check-01-pr-body.py check-02-close-wave.py; do
+    inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
+        '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq
+    inject "M28–M29 dod_proof.jq: маркер без @ ($c)" "$c" \
+        'DoD-proof @(?<rev>' 'DoD-proof ?@?(?<rev>' ../lib/dod_proof.jq
+done
 
 echo
 echo "rituals/inject: доказательств $((ok + bad)), прошло $ok, провалено $bad"
