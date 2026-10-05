@@ -11,7 +11,8 @@
 # под ним и копия вне его. Трекер — обёртка `LANE_PRECHECK_GH` над файлами
 # комментариев: без сети, тем же выражением jq, что зовёт предпроверка. Журнал
 # отправки — форма из шапки предпроверки, итог хука — дословные строки хуков.
-# Каждая порча меняет ОДИН факт против контроля.
+# Каждая порча меняет ОДИН факт против контроля. Вывод дома копий без
+# переопределения — предпроверкой, скопированной в клон под `tmp/` песочницы.
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — jq нет, часть
 # про трекер не построена.
 set -uo pipefail
@@ -98,6 +99,35 @@ assert "1 да" "$(run "$M" 1-lane origin/main --issue o/r#7 --hook-log "$W/push
 L2="$W/ws/tmp/lane2"
 git clone -q "$W/srv/kacho-workspace.git" "$L2" 2> /dev/null && git -C "$L2" checkout -q 1-lane 2> /dev/null
 assert "0" "$(run "$L2" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log")" "близнец: та же ветка из копии под tmp/ → 0"
+
+echo "== незакоммиченное в копии"
+echo e >> "$L/b.md"
+assert "1 да" "$(run "${ok_args[@]}") $(has 'REASON UNCOMMITTED')" "правленный отслеживаемый файл → UNCOMMITTED"
+git -C "$L" checkout -q -- b.md
+echo 'package x' > "$L/untracked.go"
+assert "1 да" "$(run "${ok_args[@]}") $(has 'REASON UNCOMMITTED')" "новый файл вне git add → UNCOMMITTED"
+rm -f "$L/untracked.go"
+mkdir -p "$L/.git/info" && echo 'build.out' >> "$L/.git/info/exclude" && echo x > "$L/build.out"
+assert "0" "$(run "${ok_args[@]}")" "близнец: игнорируемый файл — не незакоммиченное → 0"
+rm -f "$L/build.out"
+
+echo "== дом копий без переопределения: worktree и клон под tmp/ — один корень"
+# Предпроверка лежит в КЛОНЕ под <ws2>/tmp/ (у клона свой .git): корень обязан
+# выйти <ws2>, а не корень клона (check-verifier ws#933, п. 6).
+WS2="$W/ws2"
+git init -q -b main "$WS2" && mkdir -p "$WS2/tmp"
+C="$WS2/tmp/tools-clone"
+git init -q -b main "$C" && mkdir -p "$C/scripts/lib"
+cp "$P" "$C/scripts/" && cp "$HERE/lib/ws-home.sh" "$C/scripts/lib/"
+git clone -q "$W/srv/kacho-workspace.git" "$WS2/tmp/lane" 2> /dev/null && git -C "$WS2/tmp/lane" checkout -q 1-lane 2> /dev/null
+git -C "$WS2/tmp/lane" remote set-url origin "$(git -C "$L" remote get-url origin)"
+git -C "$WS2/tmp/lane" fetch -q origin 2> /dev/null; git -C "$WS2/tmp/lane" checkout -q -B 1-lane origin/1-lane
+runc() { env -u LANE_PRECHECK_WS bash "$C/scripts/lane-precheck.sh" "$@" > "$W/out" 2>&1; echo $?; }
+assert "0" "$(runc "$WS2/tmp/lane" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log")" "предпроверка из клона под tmp/, копия под <ws>/tmp/ → 0, не MAIN-COPY"
+git clone -q "$W/srv/kacho-workspace.git" "$WS2/outside" 2> /dev/null
+git -C "$WS2/outside" remote set-url origin "$(git -C "$L" remote get-url origin)"
+git -C "$WS2/outside" fetch -q origin 2> /dev/null; git -C "$WS2/outside" checkout -q -B 1-lane origin/1-lane
+assert "1 да" "$(runc "$WS2/outside" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log") $(has "REASON MAIN-COPY копия $WS2/outside вне $WS2/tmp/")" "близнец: копия вне <ws>/tmp/ из того же клона → MAIN-COPY с корнем <ws>"
 
 echo "== доказательство DoD"
 assert "1 да" "$(run "$L" 1-lane main --hook-log "$W/push.log") $(has 'REASON ISSUES-NONE')" "задач ноль → ISSUES-NONE"

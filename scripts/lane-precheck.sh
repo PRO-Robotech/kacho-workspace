@@ -20,6 +20,8 @@
 #   HEAD-DIVERGED       голова на origin ≠ голове ветки в копии: ревью судило бы
 #                       не то, что отправлено;
 #   BASE-NOT-ANCESTOR   база не предок головы: полоса ответвлена не от того;
+#   UNCOMMITTED         в копии есть правка или новый файл вне коммита
+#                       (`git status --porcelain`, неотслеживаемые — тоже);
 #   MAIN-COPY           копия вне `<WS>/tmp/` (ws#923: отправка из основной копии
 #                       исполняет устаревший хук);
 #   ISSUES-NONE         задач полосы ноль: доказательство судить не о чем;
@@ -49,7 +51,7 @@
 #
 # ТРЕКЕР — через `LANE_PRECHECK_GH` (по умолчанию `gh`): инъекция подставляет
 # обёртку без сети. Дом копий — `LANE_PRECHECK_WS` либо корень воркспейса,
-# выведенный из общего каталога git этого скрипта.
+# выведенный `scripts/lib/ws-home.sh` (worktree и клон под `tmp/` — один корень).
 #
 # Коды: 0 — причин ноль и всё судимое осуждено; 1 — хотя бы одна причина;
 # 2 — причин ноль, но часть не судима (VOID: ветка не читается, трекер не
@@ -83,8 +85,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 if [ -n "${LANE_PRECHECK_WS:-}" ]; then
     WS="$(cd "$LANE_PRECHECK_WS" 2> /dev/null && pwd -P)" || WS="$LANE_PRECHECK_WS"
 else
-    common="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2> /dev/null)" || common=""
-    WS="${common%/.git}"
+    # shellcheck source=lib/ws-home.sh
+    . "$HERE/lib/ws-home.sh"
+    WS="$(ws_home "$HERE")" || WS=""
 fi
 
 top="$(git -C "$dir" rev-parse --show-toplevel 2> /dev/null)" || top=""
@@ -96,6 +99,18 @@ top="$(cd "$top" && pwd -P)"
 
 head="$(git -C "$top" rev-parse --verify --quiet "refs/heads/$branch^{commit}" 2> /dev/null)" || head=""
 [ -n "$head" ] || void BRANCH-UNKNOWN "ветки $branch в копии нет"
+
+# ── незакоммиченное в копии ─────────────────────────────────────────────
+# Правка или новый файл, не попавшие в коммит, ревью не увидит, а исполнитель
+# сочтёт сданными: класс «незакоммичено» замера 2026-10-06. Неотслеживаемые
+# файлы считаются тоже — новый файл, забытый в `git add`, и есть этот класс;
+# игнорируемые (`.gitignore`) не считаются.
+if ! dirty="$(git -C "$top" status --porcelain --untracked-files=all 2> /dev/null)"; then
+    void STATUS-UNREADABLE "состояние копии $top не читается"
+elif [ -n "$dirty" ]; then
+    n_dirty="$(printf '%s\n' "$dirty" | grep -c .)"
+    reason UNCOMMITTED "в копии $n_dirty путей вне коммита: $(printf '%s\n' "$dirty" | head -5 | tr '\n' ';' | sed 's/;$//')"
+fi
 
 # ── копия ─────────────────────────────────────────────────────────────────
 if [ -z "$WS" ]; then

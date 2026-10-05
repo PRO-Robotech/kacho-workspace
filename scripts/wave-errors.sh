@@ -13,8 +13,8 @@
 # такую строку отвергает.
 #
 # ФАЙЛ — `<WS>/tmp/wave-<N>/errors.md` (каталог — `WAVE_ERRORS_DIR`, иначе
-# выводится из общего каталога git этого скрипта): таблица markdown, строка на
-# возврат. Пишет её исполнитель механики (лёгкая модель) по возврату шага.
+# выводится `scripts/lib/ws-home.sh`: worktree и клон под `tmp/` пишут в одну
+# волну): таблица markdown, строка на возврат. Пишет её исполнитель механики (лёгкая модель) по возврату шага.
 #
 # usage:
 #   wave-errors.sh add  <волна> <класс> <часы> <полоса> <шаг> <заметка…>
@@ -46,11 +46,13 @@ usage() {
 }
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=lib/ws-home.sh
+. "$HERE/lib/ws-home.sh"
 dir_of() {
     if [ -n "${WAVE_ERRORS_DIR:-}" ]; then echo "$WAVE_ERRORS_DIR"; return; fi
-    local common
-    common="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2> /dev/null)" || return 1
-    echo "${common%/.git}/tmp/wave-$1"
+    local ws
+    ws="$(ws_home "$HERE")" || return 1
+    echo "$ws/tmp/wave-$1"
 }
 num_re='^[0-9]+([.][0-9]+)?$'
 class_ok() {

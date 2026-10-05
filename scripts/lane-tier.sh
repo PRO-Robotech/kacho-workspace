@@ -26,19 +26,31 @@
 #   R0  путь документа, пробы или оснастки: `*.md`, `docs/`, `obsidian/`,
 #       `.claude/`, `scripts/`, `.github/`, `tests/`, `testdata/`, `*_test.go`,
 #       `*.test.ts(x)`, `*.spec.ts(x)`, `e2e/`;
-#   R2  (если путь не R0) миграции и SQL (`migrations/`, `*.sql`) → роль
-#       `db-architect-reviewer`; контракт (`*.proto`, `proto/`, `openapi`,
-#       `swagger`) → `proto-api-reviewer` и приёмка; публичный край (`gateway/`)
-#       → `proto-api-reviewer`; вход и права (сегмент пути authz, authn, auth,
-#       iam, listauthz, permission(s), rbac, policy/policies, jwks, oidc,
-#       token(s), session(s), credential(s), identity; любой Go-путь репозитория
-#       `kaname` — продукта управления доступом) → `security-auditor`; секреты и
-#       посадка (`secret`, `*.pem`, `*.key`, `*.crt`, `tls`, `cert`, values-файлы
-#       чартов) → `security-auditor`; согласованность (`outbox`, `subscription`,
+#   R2  (если путь не R0) миграция (`migrations/`) → роль `db-architect-reviewer`
+#       и приёмка: ban01 и гейт продукта `TestNewMigrationCitesAnApprovedAcceptance`
+#       требуют её у каждой новой миграции, пока гейт не снят владельцем; SQL вне
+#       миграций (`*.sql`) → `db-architect-reviewer` без приёмки; контракт
+#       (`*.proto`, `proto/`, `openapi`, `swagger`) → `proto-api-reviewer` и
+#       приёмка; публичный край (`gateway/`) → `proto-api-reviewer`; вход и права
+#       → `security-auditor`: слово В ЛЮБОМ МЕСТЕ пути — authz, authn, oauth,
+#       authoriz/authoris, permission, rbac, jwks, oidc, credential, token,
+#       identit, policy/policies, session (`authzfilter/`, `objectauthz.go`,
+#       `tokenverifier.go`); короткое auth — началом слова, но не author
+#       (`auth/`, `authmw.go`; `author.go` — нет); короткое iam — началом или
+#       концом слова (`IamRemote.tsx`, `narrowiam/`; `diameter.go` — нет);
+#       любой Go-путь репозитория `kaname` — продукта
+#       управления доступом; секреты и посадка (`secret`, `*.pem`, `*.key`,
+#       `*.crt`, сегмент `tls`/`cert(s)`, values-файлы чартов) →
+#       `security-auditor`; согласованность (`outbox`, `subscription`,
 #       `reconcile`) → `system-design-reviewer`;
 #   R2  по СОДЕРЖИМОМУ — для любого пути, включая R0: добавленная строка несёт
-#       закрытый ключ (`BEGIN … PRIVATE KEY`) или присваивание секрета литералом
-#       (password|passwd|secret|api_key|token = 8+ символов) → `security-auditor`;
+#       закрытый ключ (`BEGIN … PRIVATE KEY`) или присваивание секрета литералом,
+#       без различия регистра: ключ, СОДЕРЖАЩИЙ password|passwd|secret|api_key|
+#       apikey|token (`DB_PASSWORD`, `apiToken`, `clientSecret`), затем `:`,
+#       `=` или `:=` и значение 8+ символов — в кавычках, либо без кавычек до
+#       конца строки в форме `КЛЮЧ=значение` и `ключ: значение` →
+#       `security-auditor`; ссылка на переменную (`${X}`, `os.Getenv(…)`) и
+#       выражение кода (`token := req.Token`) — не литерал;
 #   R1  прочее.
 # Ролей не больше трёх (`git-issues.md#gi-asm-one-round`), в порядке выше.
 #
@@ -47,8 +59,11 @@
 #
 # ГРАНИЦА (не ловится, названо): правка одного лишь уровня журнала в коде по
 # пути не отличима от правки кода — такая полоса получает R1, то есть строже
-# решения владельца, а не мягче; признак по содержимому видит только литералы
-# названных форм, секрет, собранный из частей, он не увидит.
+# решения владельца, а не мягче; слово пути, совпавшее случайно (`tokenizer`),
+# поднимает до R2 — тоже строже; признак по содержимому видит только литералы
+# названных форм, секрет, собранный из частей, он не увидит. Поэтому фикстуры
+# секретов в пробах собираются из частей во время прогона: литерал в диффе
+# поднял бы полосу оснастки до R2.
 #
 # ВЫВОД — строками `ключ: значение` (перепись первой), с `--json` — объектом.
 # Коды: 0 — уровень вычислен; 1 — находка (TIER-UNDERSTATED); 2 — уровня нет:
@@ -125,11 +140,13 @@ function seg(p, re) { return (("/" p "/") ~ ("/(" re ")(/|[._-])")) }
     if (low ~ /\.md$/ || low ~ /^(docs|obsidian|\.claude|scripts|\.github)\// ||
         low ~ /(^|\/)(tests?|testdata|e2e)\// || low ~ /_test\.go$/ ||
         low ~ /\.(test|spec)\.tsx?$/) { print "R0\t-\tдокумент, проба или оснастка\t" p; next }
-    if (low ~ /(^|\/)migrations\// || low ~ /\.sql$/) { print "R2\tdb-architect-reviewer\tданные и миграции\t" p; next }
+    if (low ~ /(^|\/)migrations\//) { print "R2\tdb-architect-reviewer\tмиграция\t" p; next }
+    if (low ~ /\.sql$/) { print "R2\tdb-architect-reviewer\tданные\t" p; next }
     if (low ~ /\.proto$/ || low ~ /(^|\/)proto\// || low ~ /openapi/ || low ~ /swagger/) {
         print "R2\tproto-api-reviewer\tпубличный контракт\t" p; next }
     if (low ~ /^gateway\//) { print "R2\tproto-api-reviewer\tпубличный край\t" p; next }
-    if (seg(low, "authz|authn|auth|iam|listauthz|permissions?|rbac|polic(y|ies)|jwks|oidc|tokens?|sessions?|credentials?|identity")) {
+    if (low ~ /(authz|authn|authori[sz]|oauth|permission|rbac|jwks|oidc|credential|token|identit|polic(y|ies)|session)/ ||
+        low ~ /(^|[\/._-])auth([^o]|o[^r]|$)/ || low ~ /(^|[\/._-])iam/ || low ~ /iam([\/._-]|$)/) {
         print "R2\tsecurity-auditor\tвход и права\t" p; next }
     if (repo == "kaname" && low ~ /\.go$/) { print "R2\tsecurity-auditor\tвход и права (продукт управления доступом)\t" p; next }
     if (low ~ /secret/ || low ~ /\.(pem|key|crt)$/ || seg(low, "tls|certs?") ||
@@ -141,7 +158,11 @@ function seg(p, re) { return (("/" p "/") ~ ("/(" re ")(/|[._-])")) }
 }' "$W/paths" > "$W/class"
 
 # Признак по содержимому — для любого пути.
-secret_hits="$(LC_ALL=C grep -cE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|(password|passwd|secret|api[_-]?key|token)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9/+_=-]{8,}' "$W/added" || true)"
+# Ключ — слово, СОДЕРЖАЩЕЕ имя секрета; значение — литерал в кавычках либо
+# голый до конца строки в формах env (`КЛЮЧ=значение`) и YAML (`ключ: значение`).
+k='(password|passwd|secret|api[_-]?key|token)[a-z0-9_.-]*["'"'"']?'
+v='[a-z0-9/+_=.-]{8,}'
+secret_hits="$(LC_ALL=C grep -ciE -- "-----BEGIN [A-Z ]*PRIVATE KEY-----|${k}[[:space:]]*(:=|=|:)[[:space:]]*[\"'\`]${v}[\"'\`]|${k}(=|:[[:space:]]+)${v}[[:space:]]*(#.*)?\$" "$W/added" || true)"
 
 r0="$(grep -c '^R0' "$W/class" || true)"
 r1="$(grep -c '^R1' "$W/class" || true)"
@@ -179,7 +200,7 @@ if [ "$tier" = R2 ]; then
     [ -n "$roles" ] || roles="go-style-reviewer"
 fi
 acceptance=no
-grep -q $'^R2\tproto-api-reviewer\tпубличный контракт\t' "$W/class" && acceptance=yes
+grep -qE $'^R2\t(proto-api-reviewer\tпубличный контракт|db-architect-reviewer\tмиграция)\t' "$W/class" && acceptance=yes
 
 # Соответствие «уровень → шаги» — единственное в дереве.
 case "$tier" in

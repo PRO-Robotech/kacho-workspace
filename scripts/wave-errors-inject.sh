@@ -9,7 +9,10 @@
 # Каталог волны — свой временный (`WAVE_ERRORS_DIR`): счётчики настоящих волн
 # проба не видит и не трогает. Граница предела проверяется ровно на 5 %:
 # законный близнец «доля 5,0 %» обязан пройти, «5,1 %» — покраснеть.
-# Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет.
+# Каталог без переопределения проверяется копией счётчика в клоне и в worktree
+# под `tmp/` песочницы — их корень выводит `scripts/lib/ws-home.sh`.
+# Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — корневой подписи
+# нет, посев worktree не построить.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,6 +51,26 @@ assert "2" "$(run rate 7 0)" "часы волны 0 → вердикта нет"
 echo "== строка, правленная руками"
 echo '| 2026-10-06T00:00Z | C | x | misc | 1 | y |' >> "$F"
 assert "1 да" "$(run rate 7 100) $(has 'вне формы 1')" "строка вне словаря в файле → отказ, а не тихий пропуск"
+
+echo "== каталог волны без переопределения: счётчик в клоне под tmp/ пишет в общую волну"
+# Счётчик лежит в КЛОНЕ под <ws>/tmp/ (у клона свой .git): волна обязана выйти
+# <ws>/tmp/wave-N, а не <клон>/tmp/wave-N (check-verifier ws#933, п. 6).
+WS2="$W/ws2"
+git init -q -b main "$WS2" && mkdir -p "$WS2/tmp"
+C="$WS2/tmp/tools-clone"
+git init -q -b main "$C" && mkdir -p "$C/scripts/lib"
+cp "$E" "$C/scripts/" && cp "$HERE/lib/ws-home.sh" "$C/scripts/lib/"
+env -u WAVE_ERRORS_DIR bash "$C/scripts/wave-errors.sh" add 8 truncation 0.1 A x y > "$W/out" 2>&1
+assert "да нет" "$([ -s "$WS2/tmp/wave-8/errors.md" ] && echo да || echo нет) $([ -e "$C/tmp/wave-8" ] && echo да || echo нет)" "строка — в <ws>/tmp/wave-8, а не в клоне"
+WT="$WS2/tmp/wt"
+# Подпись посева — корневая учётная запись через HOME песочницы (check-16).
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/home" || exit 2
+sandbox_git -C "$WS2" commit -q --allow-empty -m base
+git -C "$WS2" worktree add -q "$WT" 2> /dev/null && mkdir -p "$WT/scripts/lib" && cp "$E" "$WT/scripts/" && cp "$HERE/lib/ws-home.sh" "$WT/scripts/lib/"
+env -u WAVE_ERRORS_DIR bash "$WT/scripts/wave-errors.sh" add 8 truncation 0.1 B x y > "$W/out" 2>&1
+assert "2" "$(grep -c '| truncation |' "$WS2/tmp/wave-8/errors.md")" "близнец: из worktree под tmp/ — та же волна"
 
 echo
 echo "wave-errors-inject: утверждений $((pass + fail)); сошлось $pass, разошлось $fail"
