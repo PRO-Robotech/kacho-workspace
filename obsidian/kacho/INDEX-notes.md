@@ -189,6 +189,7 @@ tags:
 | [[rpc/iam-service-account-service\|ServiceAccountService]] | в работе (planned) |
 | [[rpc/iam-trust-policy-service\|TrustPolicyService]] | история (deprecated) |
 | [[rpc/iam-user-service\|UserService]] | живо (done) |
+| [[rpc/kaname-internal-notification-recipient-service\|InternalNotificationRecipientService — справочник адресов уведомлений (kaname)]] | в работе (test) |
 
 **домен: nlb**
 
@@ -511,6 +512,7 @@ tags:
 | [[packages/corelib-grpcclient\|corelib-grpcclient]] | живо (stable) |
 | [[packages/corelib-grpcsrv\|corelib-grpcsrv]] | живо (stable) |
 | [[packages/corelib-ids\|corelib-ids]] | живо (stable) |
+| [[packages/corelib-journaltx\|corelib/journaltx — инициатор в журнале ресурсов модулей]] | в работе (test) |
 | [[packages/corelib-observability\|corelib-observability]] | живо (stable) |
 | [[packages/corelib-operations\|corelib-operations]] | живо (stable) |
 | [[packages/corelib-outbox-drainer\|corelib-outbox-drainer]] | живо (stable) |
@@ -1260,6 +1262,7 @@ tags:
 | [[KAC/issue-291-quota-v2\|Квоты на число ресурсов: каталог, учёт, отказ и арендаторское чтение (#291)]] | в работе (test) |
 | [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
 | [[KAC/issue-2915\|kacho#2915: служба notify NTF-1 — ядро шлюза уведомлений]] | в работе (in-progress) |
+| [[KAC/issue-2918\|kacho#2918: notify NTF-3 — модули kacho, уведомления о событиях ресурсов]] | в работе (in-progress) |
 | [[KAC/issue-292\|#292: клетка Ф2 приёмки XC-7 называла шесть обёрток, их три]] | живо (done) |
 | [[KAC/issue-293\|#293: у проверки состава приёмок не было ни одной пробы]] | живо (done) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
