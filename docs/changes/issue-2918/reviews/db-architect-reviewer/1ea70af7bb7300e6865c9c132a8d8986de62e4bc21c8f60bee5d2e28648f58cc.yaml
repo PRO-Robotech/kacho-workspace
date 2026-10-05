@@ -1,0 +1,60 @@
+ВЕРДИКТ: ✅ на 4e79ae53222c65d66e4b7974b5527ab5989c7911
+role: db-architect-reviewer
+mode: ревью (пост-дифф, повтор по своему блокирующему, Д97; §8а п.8 — только дельта)
+verdict: accepted
+blocking: false
+fingerprint:
+  repo: PRO-Robotech/kacho
+  pr: 3027
+  base: 2914-notify
+  merge_base: 230c0812425980df62c31497ea384c7b3daccff7
+  head: 4e79ae53222c65d66e4b7974b5527ab5989c7911
+  digest: 1ea70af7bb7300e6865c9c132a8d8986de62e4bc21c8f60bee5d2e28648f58cc
+  digest_cmd: git diff 230c0812425..4e79ae53222 | sha256sum
+  delta_judged: 8eb9659313cf..4e79ae53222 (20 коммитов, 283 файла; .sql в дельте 0)
+prior: eefdde7fc1ab98b128d88639e8ab2bd4988384ec7fd2ef619c644aadd21adcb8.yaml (⛔ B1/SD-1 на 8eb9659)
+migrations_touched: 6   # весь дифф merge-base..head; в дельте 0 (git diff --name-only 8eb9659..4e79ae5 | grep -c '\.sql$' -> 0)
+applied_migrations_edited: 0   # --diff-filter=M по migrations/*.sql -> 0
+closed:
+  - id: B1 (SD-1)
+    class: correctness — initiator NOT NULL без производителя
+    status: закрыт
+    fix: >-
+      S1-A2 влит в волну (f9539cc merge 2918-s1a2-journaltx-writers, Д119): пишущие транзакции
+      пяти модулей открываются помощником journaltx (vpc repository.go; compute instance/placement_group/
+      guest_access_key; nlb repository.go, announce_store.go, jobs free_ip/target_drain; registry
+      registry.go, repository_config.go, orphan_sweep.go, dataplane/initiator.go; storage journal_tx.go,
+      reconciler/store.go и репозитории ресурсов). Миграции не тронуты.
+    measured:
+      gate: >-
+        go test -count=1 ./internal/repohygiene -run 'JournaledWrites|JournalInitiatorFault' @4e79ae5 ->
+        PASS 14; TestJournaledWritesGoThroughTheHelper перепись модулей 5, находок 0; инъекции
+        (autocommit, транзакция мимо помощника, сессионная настройка, INSERT с колонкой initiator,
+        неназванный фоновый путь, пустой обход) — каждая красная
+      integration: >-
+        go test -tags=integration -count=1 по ./services/{vpc,storage,compute,registry,nlb}/internal/repo/...,
+        storage/internal/reconciler, nlb/internal/apps/kacho/... @4e79ae5 -> pass 1739 · fail 0 · skip 0;
+        subscriptionjournal + migrations + clients пяти модулей (23 пакета) -> pass 760 · fail 0;
+        'null value in column "initiator"' в выводе -> 0 (на 8eb9659 было vpc 45, storage 59, compute 6, nlb free-ip 14)
+      ci_head: на момент записи джобы integration/pg-outside-selection на 4e79ae5 в очереди — вердикт держится на локальном замере выше
+conditions_of_consultation:
+  S1A1-c3: >-
+    met — pkg/journalfault.Initiator опознаёт 23502 по колонке initiator и 23514 по ограничению
+    <таблица>_initiator_form по координатам сервера; 12 мапперов 23514 пяти модулей (vpc 1, compute 1,
+    nlb 2, registry 2, storage 6) спрашивают его ДО pgfault-полосы и отдают ErrInternal (наружу —
+    фиксированный codes.Internal, существующая конвенция); ERROR оператору без DETAIL строки.
+    Колонка initiator вне журналов в миграциях — 0 (git grep -nwi initiator ... | grep -vi journal -> 0).
+    Проба TestJournalInitiatorRefusalMapsToInternal пяти пакетов PASS, близнец (соседнее ограничение)
+    остаётся отказом по вводу; гейт TestJournalInitiatorFaultIsDecidedBeforeTheCheckClass: 704 файла,
+    3783 функции, мапперов 12/12 под охраной, инъекция снятой охраны красная.
+  P1: met вместе с S1-A2 (см. B1)
+carried_from_prior:   # не блокировали и дельтой не меняются; адресаты в прежней записи
+  - S1A1-c1 partial — строки сигнала по журналам кроме nlb (integration-tester)
+  - S1A1-c2 partial — близнец «непустой журнал -> 23502 при миграции» (integration-tester)
+  - P2 SAVEPOINT/ROLLBACK TO после set_config, P3 конкурирующие lb_status_recompute / storage_outbox_emit_attachment (integration-tester)
+critical: []
+remarks:
+  - nlb errors.go/vpc unique.go оборачивают текст драйвера в ErrInternal через %v — наружу не выходит (serviceerr → codes.Internal фиксированным текстом); прежняя конвенция модулей, не находка дельты
+concurrency_probe_orders: []   # новых CAS / UNIQUE / EXCLUDE / SKIP LOCKED в дельте нет
+cross_service_fk: none
+distributed_overlap: да — настройка транзакции как носитель инициатора на пуле (P1/P2) остаётся предметом system-design-reviewer
