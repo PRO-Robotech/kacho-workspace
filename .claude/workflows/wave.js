@@ -139,9 +139,15 @@ const runLane = async l => {
       if (!impl || !sha40(impl.head) || impl.head === prev) return { ...out, stage: 'ревью ролей: голова не сменилась — повтора нет' }
       pc = await precheck(l, impl)
       if (!pc || pc.code !== 0) return { ...out, stage: 'предпроверка после ревью', reasons: pc ? pc.reasons : [] }
+      // Второй круг — только вернувшим, по дельте (база диспетчера §8а п.8).
+      // Вердикт принявшей роли остаётся на голове, которую она СМОТРЕЛА: sha
+      // не переписывается (ws#933). Голову новее её вердикта никто из неё не
+      // видел — полоса стоит здесь, до сборки, и решает диспетчер.
       const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))
       if (again.some(v => !v || v.verdict !== 'accept')) return { ...out, stage: 'ревью ролей: второй круг — тупик, решает диспетчер' }
-      vs = vs.map((v, i) => (v && v.verdict === 'accept') ? { ...v, sha: impl.head } : again[back.findIndex(x => x.r === roles[i])])
+      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })
+      const unseen = roles.filter((r, i) => !vs[i] || vs[i].sha !== impl.head)
+      if (unseen.length) return { ...out, head: impl.head, stage: 'ревью ролей: ' + unseen.join(', ') + ' приняли ' + prev.slice(0, 12) + ', новую голову ' + impl.head.slice(0, 12) + ' не видели (повтор принявших запрещён §8а п.8) — решает диспетчер', unseen }
       out.head = impl.head
     }
     out.reviews = vs.map((v, i) => ({ role: roles[i], sha: v.sha, verdict: v.verdict, blocking: v.blocking }))

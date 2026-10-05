@@ -26,7 +26,11 @@
 #   шаг уровня, шаблону неизвестный, — остановка на плане, а не пропуск;
 #   corelib разный — полоса перепина первой и повтор плана;
 #   причины тела PR — правка тела механиком и повтор landing-precheck;
-#   вердикт роли не на сведённой голове полосы — остановка, sha не подменяется.
+#   вердикт роли не на сведённой голове полосы — остановка, sha не подменяется;
+#   одна роль вернула, другая приняла прежнюю голову — повтор только
+#   вернувшей (§8а п.8), sha принявшей не переписан, полоса стоит до сборки:
+#   новую голову принявшая не видела (ws#933, опыт check-verifier r3); близнец —
+#   одна роль уровня вернула и приняла дельту — полоса идёт дальше.
 #
 # ИНЪЕКЦИИ — без довода проба после контроля прогоняет МУТАНТОВ шаблона (по
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
@@ -53,6 +57,8 @@ planout() { # planout <файл> <jq-массив полос>
 planout "$W/r0.json" '[{key:"A",repo:"kacho-workspace",paths:["docs/a.md"]},{key:"B",repo:"kacho-workspace",paths:["docs/b.md"]}]'
 planout "$W/r1.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"B",repo:"kacho-workspace",paths:["services/x/b.go"],deps:["A"]}]'
 planout "$W/r2.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql"]}]'
+planout "$W/r2two.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql","services/x/internal/authz/a.go"]}]'
+jq -e '.lanes[0].roles | length >= 2' "$W/r2two.json" > /dev/null || { echo "wave-template-inject: VOID — план R2 без двух ролей: предпосылка сценария возврата одной роли" >&2; exit 2; }
 
 cat > "$W/probe.mjs" <<'JS'
 import fs from 'node:fs'
@@ -90,6 +96,7 @@ async function run(sc) {
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
+    if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
     if (label.startsWith('review-') || label.startsWith('acceptance-review-')) return { verdict: 'accept', sha: sc.staleRole ? H('old', 0) : heads[lane] || '', blocking: [], report: 'r' }
     if (label.startsWith('mech:assemble:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r' }
     if (label.startsWith('mech:ci:')) return { head: HW, total: 3, passed: 3, report: 'r', ...take('ci', () => ({ state: 'green' })) }
@@ -135,6 +142,19 @@ ok(by(r.calls, c => c.label.startsWith('census:')) === 1, 'перепись по
 ok(r.calls.findIndex(c => c.label.startsWith('census:')) < r.calls.findIndex(c => c.label.startsWith('impl:')), 'перепись — раньше исполнителя')
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], staleRole: true })
 ok(r.res.ok === false && /не на сведённой голове/.test(r.res.stage || ''), 'вердикт роли на чужой голове — остановка, sha не подменяется', JSON.stringify(r.res).slice(0, 200))
+
+const two = P('r2two.json'), roles2 = two.lanes[0].roles
+const ret = roles2[0], kept = roles2[1]
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'go-implementer', branch: '9-m', text: 't' }] }, plan: [two], ret })
+const head2 = H('M', 2)
+const atHead = (role, h) => r.calls.some(c => c.agentType === role && c.label.startsWith('review-') && c.prompt.includes('@' + h))
+const laneM = (r.res.lanes || {}).M || {}
+ok(r.res.ok === false && /не видели/.test(laneM.stage || '') && laneM.unseen + '' === kept, 'принявшая ' + kept + ' новую голову не видела — полоса стоит, роль названа', JSON.stringify(r.res).slice(0, 300))
+ok(atHead(ret, head2) && !atHead(kept, head2), 'повтор — только вернувшей ' + ret + ' (§8а п.8), принявшая не переоткрыта')
+ok(by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'остановка — до сборки, а не после CI')
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], ret: P('r2.json').lanes[0].roles[0] })
+const revOne = ((r.res.lanes || {}).M || {}).reviews || []
+ok(r.res.ok === true && revOne.length === 1 && revOne[0].sha === head2 && atHead(revOne[0].role, head2), 'близнец: единственная роль вернула и приняла дельту — полоса идёт, вердикт на новой голове', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== «идёт» и «уже сделано» — не провал')
 r = await run({ args, plan: [P('r0.json')], ci: [{ state: 'running' }, { state: 'running' }, { state: 'green' }] })
@@ -205,6 +225,11 @@ mutant "«идёт» — провал" "if (!ci || ci.state !== 'running') break
 mutant "шаги не из плана" "const has = s => t.steps.includes(s)" "const has = s => true"
 mutant "неизвестный шаг пропускается" "if (unknown.length) return" "if (false) return"
 mutant "sha вердикта подменяется" "const stale = (d.reviews || []).filter(r => r.sha !== d.head)" "const stale = []"
+# Прежний дефект (ws#933 r3, wave.js:144): принявшим роль sha вердикта
+# переписан на новую голову — сверка непросмотренной головы слепнет.
+mutant "принявшим роль переписывается sha новой головы" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? v : again[j] })" "      vs = vs.map((v, i) => { const j = back.findIndex(x => x.r === roles[i]); return j < 0 ? { ...v, sha: impl.head } : again[j] })"
+mutant "непросмотренная голова не останавливает полосу" "      if (unseen.length) return" "      if (false) return"
+mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"

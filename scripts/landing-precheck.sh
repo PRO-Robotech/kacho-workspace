@@ -16,7 +16,8 @@
 #   landing-precheck.sh <владелец/репозиторий> <номер PR> [--reviews <файл JSON>]
 #
 # --reviews — массив структурных вердиктов ревью: [{"role": "...", "sha": "<40 hex>",
-# "verdict": "accept"|"return" (необязательно), "blocking": [...] (необязательно)}].
+# "verdict": "accept"|"return"|"invalid", "blocking": [...] (необязательно)}].
+# Вердикт без поля verdict — не «принят» (REVIEW-NOT-ACCEPTED).
 # Ровно та форма, которую возвращают роли шаблона `.claude/workflows/wave.js`;
 # текст ответа роли не разбирается нигде (класс 7).
 #
@@ -24,7 +25,8 @@
 #   REASON<TAB><код><TAB><пояснение>
 #   (а) REVIEW-STALE        — sha вердикта роли ≠ headRefOid PR: правка после
 #                             ревью, роль смотрела не ту голову;
-#       REVIEW-NOT-ACCEPTED — у роли verdict ≠ accept либо непустой blocking;
+#       REVIEW-NOT-ACCEPTED — у роли verdict ≠ accept (в том числе нет поля)
+#                             либо непустой blocking;
 #       REVIEW-MALFORMED    — файл не массив объектов {role, sha} либо массив пуст
 #                             (пустой набор вердиктов — не «все приняли»);
 #   (б) TITLE-FORM          — заголовок не формы `^#<N> <не пробел>`. Канон — общий
@@ -235,7 +237,7 @@ if rev_path:
                 if r["sha"] != head:
                     reason("REVIEW-STALE", f"роль {r['role']}: вердикт на {r['sha'][:12] or '<пусто>'}, голова PR {head[:12]} — смотреть дельту на новой голове")
                 v, b = r.get("verdict"), r.get("blocking")
-                if (v is not None and v != "accept") or (b not in (None, [])):
+                if v != "accept" or (b not in (None, [])):
                     reason("REVIEW-NOT-ACCEPTED", f"роль {r['role']}: verdict={v!r}, blocking={len(b) if isinstance(b, list) else b!r}")
             census.append(f"ревью: вердиктов {len(reviews)}")
 else:

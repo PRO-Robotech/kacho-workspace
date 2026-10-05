@@ -61,7 +61,7 @@ twin() {
     rm -rf "$W/case"; mkdir -p "$W/case"
     jq '.state = "open" | .body |= sub(" вместе с #3028"; "")' "$FIX/pull.json" > "$W/case/pull.json"
     cp "$FIX/commits.json" "$FIX/check-runs.json" "$W/case/"
-    printf '[{"role":"go-style-reviewer","sha":"%s","verdict":"accept","blocking":[]},{"role":"system-design-reviewer","sha":"%s"}]\n' \
+    printf '[{"role":"go-style-reviewer","sha":"%s","verdict":"accept","blocking":[]},{"role":"system-design-reviewer","sha":"%s","verdict":"accept"}]\n' \
         "$HEAD_SHA" "$HEAD_SHA" > "$W/case/reviews.json"
     # Доказательство DoD каждой закрываемой задачи — на коммите её номера в
     # диапазоне (так пишет его исполнитель); у #3020 — на голове сборки.
@@ -118,8 +118,8 @@ expect 1 $'REASON\tBODY-FOREIGN-TASK\tтело называет #3028' "захв
 expect 1 $'REASON\tPR-NOT-OPEN' "захват как есть: запрос влит" many
 
 echo "== (а) вердикты ревью"
-twin; printf '[{"role":"go-style-reviewer","sha":"%s"}]\n' "${HEAD_SHA%?}0" > "$W/case/reviews.json"
-[ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || printf '[{"role":"go-style-reviewer","sha":"%s"}]\n' "${HEAD_SHA%?}1" > "$W/case/reviews.json"
+twin; printf '[{"role":"go-style-reviewer","sha":"%s","verdict":"accept"}]\n' "${HEAD_SHA%?}0" > "$W/case/reviews.json"
+[ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || printf '[{"role":"go-style-reviewer","sha":"%s","verdict":"accept"}]\n' "${HEAD_SHA%?}1" > "$W/case/reviews.json"
 run 0 --reviews "$W/case/reviews.json"; expect 1 $'REASON\tREVIEW-STALE\tроль go-style-reviewer' "вердикт на прежней голове"
 twin; echo '[]' > "$W/case/reviews.json"; run 0 --reviews "$W/case/reviews.json"
 expect 1 $'REASON\tREVIEW-MALFORMED' "пустой набор вердиктов — не «все приняли»"
@@ -127,6 +127,8 @@ twin; edit reviews.json '.[0].verdict = "return"'; run 0 --reviews "$W/case/revi
 expect 1 $'REASON\tREVIEW-NOT-ACCEPTED\tроль go-style-reviewer' "роль вернула"
 twin; edit reviews.json '.[0].blocking = ["находка"]'; run 0 --reviews "$W/case/reviews.json"
 expect 1 $'REASON\tREVIEW-NOT-ACCEPTED' "непустой blocking при verdict accept"
+twin; edit reviews.json 'del(.[1].verdict)'; run 0 --reviews "$W/case/reviews.json"
+expect 1 $'REASON\tREVIEW-NOT-ACCEPTED\tроль system-design-reviewer' "вердикт без verdict — не «принят»"
 twin; edit reviews.json 'del(.[1].sha)'; run 0 --reviews "$W/case/reviews.json"
 expect 1 $'REASON\tREVIEW-MALFORMED' "вердикт без sha"
 
