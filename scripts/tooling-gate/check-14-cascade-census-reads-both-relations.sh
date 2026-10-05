@@ -41,6 +41,15 @@
 # фикстурой H — код 1, — и законным близнецом L: открытый эпик, все дочерние
 # закрыты — код 0.
 #
+# РЕЖИМ ЗАКРЫТИЯ ЗАДАЧ ВЛИТОЙ ВОЛНЫ. `Closes` в ветку эпика не исполняется, и
+# задачи волны закрывает каскад явным действием — мимо `merge-readiness.sh`.
+# Ключ `--proof` судит доказательство DoD у открытых дочерних
+# (`git-issues.md#gi-cascade-no-auto-close`, возврат check-verifier, ws#920):
+# проба P — одной задаче его не хватает, маркер у неё в середине строки, а у
+# задачи другого репозитория с тем же номером он есть; законный близнец Q —
+# доказательство на второй странице комментариев, закрытый дочерний не читается;
+# S — комментарии не прочитаны, код 2.
+#
 # КАЖДАЯ ПРОБА СВЕРЯЕТ КОД И ТЕКСТ: код 1 дают и расхождение, и закрытый
 # уровень с открытыми, и проба, читающая только код, зеленела бы на чужой
 # ветке.
@@ -197,6 +206,39 @@ L="$(mkcase L)"
 mk_issue "$L" "$R" 900 open $'- [x] #1\n- [x] #2\n'
 mk_sub "$L" "$R" 900 1 "$R:1:closed" "$R:2:closed"
 
+# mk_comments <каталог> <репо> <номер> <страница: 1|2…> <тело>... — комментарии задачи.
+mk_comments() {
+    local d="$1/repos/$2/issues/$3" page="$4" f; shift 4
+    mkdir -p "$d"
+    if [ "$page" = 1 ]; then f="$d/comments.json"; else f="$d/comments.p$page.json"; fi
+    printf '%s\0' "$@" | jq -Rs 'split("\u0000") | map(select(length > 0)) | map({body: .})' > "$f"
+}
+PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
+
+# P — волна влита, открыты три задачи: kacho#1 доказана, у kacho#2 маркер в
+# середине строки, kaname#2 (тот же номер в другом репозитории) доказана.
+P="$(mkcase P)"
+mk_issue "$P" "$R" 1000 open "Волна."
+mk_sub "$P" "$R" 1000 1 "$R:1:open" "$R:2:open" "PRO-Robotech/kaname:2:open"
+mk_comments "$P" "$R" 1 1 "PR: https://example.invalid/pr/1" "$PROOF_OK"
+mk_comments "$P" "$R" 2 1 "ждём DoD-proof @0123abcd от исполнителя"
+mk_comments "$P" PRO-Robotech/kaname 2 1 "$PROOF_OK"
+
+# Q — близнец P: доказательство kacho#2 на второй странице, закрытый kacho#3
+# без комментариев — его закрыло не это действие, он не читается.
+Q="$(mkcase Q)"
+mk_issue "$Q" "$R" 1100 open "Волна."
+mk_sub "$Q" "$R" 1100 1 "$R:1:open" "$R:2:open" "$R:3:closed"
+mk_comments "$Q" "$R" 1 1 "$PROOF_OK"
+mk_comments "$Q" "$R" 2 1 "PR: https://example.invalid/pr/2"
+mk_comments "$Q" "$R" 2 2 "$PROOF_OK"
+
+# S — комментарии открытого дочернего не читаются.
+S="$(mkcase S)"
+mk_issue "$S" "$R" 1200 open "Волна."
+mk_sub "$S" "$R" 1200 1 "$R:1:open"
+mkdir -p "$S/repos/$R/issues/1"; : > "$S/repos/$R/issues/1/comments.unavailable"
+
 # K — ответ о задаче не разбирается.
 K="$(mkcase K)"
 mkdir -p "$K/repos/$R/issues"
@@ -219,6 +261,7 @@ probes=0
 findings=0
 declare -A by_code=([0]=0 [1]=0 [2]=0)
 flagged=0
+proofed=0
 # Ключи вызова инструмента для следующей пробы; пусто — вызов без ключа.
 FLAGS=()
 
@@ -229,6 +272,7 @@ probe() {
     probes=$((probes + 1))
     by_code[$want]=$(( ${by_code[$want]:-0} + 1 ))
     [ "${FLAGS[*]:-}" = "--children-closed" ] && flagged=$((flagged + 1))
+    [ "${FLAGS[*]:-}" = "--proof" ] && proofed=$((proofed + 1))
     out="$(PATH="$STUB:$PATH" CC_FIXTURE="$dir" bash "$WS/$TOOL_REL" ${FLAGS[@]+"${FLAGS[@]}"} "$R" "$num" 2>&1)" && rc=0 || rc=$?
     if [ "$rc" -ne "$want" ]; then
         tooling_gate_fail "$NAME" "$title — ждали код $want, получили $rc"
@@ -293,16 +337,30 @@ probe "$D" 200 1 "--children-closed: уровень закрыт, дочерни
 probe "$E" 300 2 "--children-closed: дочерних ноль — вердикта нет, режим пустоту не зеленит" \
     "дочерних ноль" "вердикта НЕТ"
 
+FLAGS=(--proof)
+probe "$P" 1000 1 "--proof: у открытой задачи нет доказательства (маркер в середине строки) — находка, названа она одна" \
+    "режим:      --proof" "с доказательством 2 · без: $R#2 · не прочитано: —" "переводятся остатком"
+
+probe "$Q" 1100 0 "--proof: доказательство на второй странице, закрытый не читается — законный близнец молчит" \
+    "с доказательством 2 · без: — · не прочитано: —" "ИТОГ: дочерних 3"
+
+probe "$S" 1200 2 "--proof: комментарии не прочитаны — вердикта нет, а не «доказано»" \
+    "не прочитаны: $R#1" "вердикта НЕТ"
+
+FLAGS=()
+probe "$P" 1000 0 "без ключа: те же открытые задачи без доказательства законны — доказательство не спрашивается" \
+    "ИТОГ: дочерних 3"
+
 FLAGS=(--children-open)
 probe "$L" 900 2 "незнакомый ключ — отказ разбора вызова, а не вердикт" \
     "usage:"
 FLAGS=()
 
-tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — ${by_code[0]} проб, 1 — ${by_code[1]} проб, 2 — ${by_code[2]} проб); с ключом --children-closed — $flagged"
+tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — ${by_code[0]} проб, 1 — ${by_code[1]} проб, 2 — ${by_code[2]} проб); с ключом --children-closed — $flagged, с ключом --proof — $proofed"
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings из $probes"
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "перепись каскада читает оба отношения, печатает total, расхождение — находка, пустой уровень — не зелёное, --children-closed краснеет на открытом дочернем открытого уровня"
+tooling_gate_pass "$NAME" "перепись каскада читает оба отношения, печатает total, расхождение — находка, пустой уровень — не зелёное, --children-closed краснеет на открытом дочернем открытого уровня, --proof краснеет на открытом дочернем без доказательства DoD в его собственном репозитории"
