@@ -52,9 +52,18 @@ SPDX-License-Identifier: BUSL-1.1
 >   ключей `issuer` два); близнецы KA1-25 и KA1-34 перенесены на уровень разобранной отрисовки, которую
 >   судит проба, — копии таблицы и слоя ни один читатель дерева не принимает; слои рецептов поверх цепочки
 >   названы; отпечаток — в записи ревью
-> **Дата:** 2026-10-03
+> — ревью редакции 7 · 2026-10-03 · круг 6 · APPROVED · sha256 `e88968ad…ed081315` · запись
+>   `docs/specs/reviews/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance/e88968ad6d11ad1793fe9881841809e711cd084f6dbbf90846de023cbd723cd8.yaml`
+> — редакция 8 · 2026-10-05 · вердикта на неё нет · исход выхода пути токенов (`POST /oauth/logout`)
+>   приведён к исходу выхода полосы входа (kaname, приёмка Ф3, Р4): Р4 в части «отзыв сессий при
+>   выходе», строка выхода KA1-14 и KA1-26 — `200` `{}` при выполненном отзыве, `503` «выход не
+>   выполнен» при отзыве, не ответившем в бюджете, гашения носителя на этом пути нет (Р7);
+>   производители этих строк — голова полосы `kacho#2996`; KA1-15 не тронут (решение по
+>   `kaname#511` не принято); остальные сценарии, их ID и прочие «Тогда» не тронуты; отпечаток — в
+>   записи ревью
+> **Дата:** 2026-10-03 (редакция 8 — 2026-10-05)
 > **Эпик/issue:** корень `PRO-Robotech/kacho#1266`; волна `PRO-Robotech/kacho#2964` (полоса KA1);
-> задачи `PRO-Robotech/kacho#2728`, `#2958`, `#2713`, `#2738`, `#2758`
+> задачи `PRO-Robotech/kacho#2728`, `#2958`, `#2713`, `#2738`, `#2758`; редакция 8 — `#2996`, `#2959`
 
 ## 0. Рамка
 
@@ -186,10 +195,10 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 пришедший с запросом.
 
 Исход превышения: вопрос службе доступа на пути аутентификации → Р1 (`503`); отзыв сессий при
-выходе → выход сохраняет свой исход: `200`, тело `{"ok":true,…}` с непустым `warnings`, набор
-`Set-Cookie`, гасящий носитель, — тот же, что у выхода с ответившим отзывом; отказа и `5xx` нет
-(обработчик выхода — best-effort по отзыву, `logout_handler.go`), меняется только срок, через который
-ответ приходит: бюджет ручки вместо нынешних `5s`; вызов моста к
+выходе → выход **не выполнен**: `503`, тело Р7 «выход не выполнен», носитель не гасится, — исход
+выхода полосы входа на недоступном хранилище (Р7); бюджет ручки задаёт срок, через который клиент
+это узнаёт (редакция 8; прежняя редакция называла здесь `200` с `warnings` и гашением носителя —
+этот исход Ф3 Р4 отвергла поимённо, и он снят); вызов моста к
 бэкенду → `504` / `DEADLINE_EXCEEDED` (`4`). Код моста — `DEADLINE_EXCEEDED`, а не
 `UNAVAILABLE`, потому что исход вызова бэкенда при истечении срока неизвестен (мутация могла
 быть закоммичена), и `UNAVAILABLE` предлагал бы повтор как безопасный. Статус `504` край
@@ -241,7 +250,60 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 `revocation check unavailable` нет. Ответы, которые край **ретранслирует** от службы
 (отказ смены пароля, глаголов второго фактора, входа), этим документом не затрагиваются.
 
+**Р7. Исход выхода пути токенов — исход выхода полосы входа (редакция 8).** `POST /oauth/logout`
+гасит на сервере предъявленный токен доступа — пишет отзыв в нашу запись (П12) — и отвечает теми же
+двумя исходами, что выход полосы входа (`PRO-Robotech/kaname:docs/engineering/acceptance/login-lane-issues-our-session-and-logout-ends-it-server-side.md`,
+Р4; страница службы `docs/content/api/auth-lane.mdx`, «Выход»):
+
+- **выход выполнен** — отзыв ответил успехом: `200`, `Content-Type: application/json`, тело ровно `{}`;
+- **выход не выполнен** — отзыв не ответил в бюджете Р4 либо ответил ошибкой:
+
+```
+HTTP/1.1 503 Service Unavailable
+Content-Type: application/json
+
+{"code":14,"message":"logout not performed; try again later","details":[]}
+```
+
+Удостоверение цело и годно, выход можно повторить. Текст — тот, что производит служба на выходе
+полосы входа (`internal/apps/kaname/api/humansession/refusals.go`, `TextLogoutNotPerformed`):
+одно наблюдаемое «выход не выполнен» на обоих путях.
+
+Ни один из двух исходов не несёт `Set-Cookie`: этот путь гасит токен, а не браузерную сессию, и
+печенья не трогает; выход браузерной сессии — `POST /iam/v1/auth/logout` полосы входа (ответ
+службы, «Что НЕ входит»). Отказы пути (`401` по Р2 — KA1-13 (а)) этим решением не меняются.
+
+Основания:
+
+- Ф3 Р4 отвергла поимённо исход «гасить носитель и при отказе хранилища» и назвала его поведением
+  выхода края: `200` при живом удостоверении оставляет клиенту нечем узнать, что выход надо
+  повторить, а удостоверение на сервере живо. Редакции 1…7 этого документа держали ровно этот
+  исход (Р4, KA1-26 столбец (2): `200` с `warnings` и гашением носителя) — он снят;
+- тело `{"ok":true,…}` выход полосы входа не производит; два тела одного «вышли» на двух путях —
+  два контракта об одном исходе. Читателя прежнего тела в консоли нет:
+  `git grep -ln '/oauth/logout' d7710e33530 -- 'ui-future/**' ':!*.test.*' ':!*e2e*' | wc -l` → 0
+  (`PRO-Robotech/kacho`).
+
+Что заменяется: в этом документе — исход «отзыв сессий при выходе» в Р4 и «Тогда» строки выхода
+KA1-14 и KA1-26 редакций 1…7. В другом одобренном документе —
+`PRO-Robotech/kaname:docs/engineering/acceptance/login-session-and-credentials-are-our-contract.md`,
+строка «отзыв сессии при выходе» таблицы сверки («наш выход (`/oauth/logout`) гасит печенье у
+клиента…»), в части ответа края: в ней действует Р7; текст документа не переписывается (как в Р6).
+Перепись носителей — предикат: `git grep -l -F '/oauth/logout' -- 'docs/specs/*-acceptance.md'`
+здесь → этот документ и `sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md`
+(F6b-04 утверждает только отсутствие `EMAIL_NOT_VERIFIED`, исход выхода не называет — не
+затрагивается); `git grep -l -F '/oauth/logout' origin/538 -- 'docs/engineering/acceptance/*.md'`
+в `PRO-Robotech/kaname` → `login-lane-issues-our-session-and-logout-ends-it-server-side.md`
+(называет путь в перечне уборки, исхода не называет) и `login-session-and-credentials-are-our-contract.md`
+(строка выше).
+
 ## Что НЕ входит
+
+- Ответ `POST /oauth/logout` на предъявленное печенье нашей браузерной сессии и на сборку
+  обработчика без проверяющего или без писателя отзыва — предмет `kacho#2959` и `kacho#2996`;
+  их держатель — `gateway/internal/handler/logout_outcome_test.go` (голова полосы `kacho#2996`).
+  KA1 судит на этом пути только отказ `401` (KA1-13 (а)), исход Р7 при годном предъявителе
+  (строка выхода KA1-14) и срок отзыва (KA1-26).
 
 - Ретранслируемые ответы службы доступа на записях объявления (вход, выход, признак формы,
   регистрация, восстановление) — их исход судит служба; край их тело не переписывает.
@@ -511,7 +573,7 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 
 **When** подан тот же запрос (тот же маршрут или метод, кроме (к), где отличающийся факт — сам глагол)
 
-**Then** `200` (нативная — `OK`; выход — `200` с `ok:true`; поток — открыт)
+**Then** `200` (нативная — `OK`; выход — `200` с телом ровно `{}` и без `Set-Cookie`, Р7; поток — открыт)
 
 ## Сценарий 15: Указание повысить уровень остаётся различимым
 
@@ -628,7 +690,7 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 
 **Близнец.** Проба — три звена: читатель таблицы (`deployStacks`, `deploy/dbtls_declaration_test.go`) → отрисовка цепочки (`renderStack`, `deploy/edge_retired_knobs_render_test.go`) → суждение над множеством «стенд → цепочка, исход отрисовки, разобранные документы». Копию таблицы или слоя не читает ни одно звено: `deployStacks` читает постоянную координату `stacks.txt`, `stacks.sh` — путь от своего файла, `renderStack` склеивает каждый слой с каталогом чарта. Поэтому близнецы подаются **суждению** значением, а читатель остаётся тем, что держат его собственные гейты (`deploy/stack_table_test.go`). (а) разобранная отрисовка стенда, из окружения контейнера края которой удалена одна запись `KACHO_API_GATEWAY_BACKEND_CALL_BUDGET`, — проба красна и называет стенд и ручку; та же отрисовка без удаления — зелёна. (б) множество из одного стенда `dev-prod` с цепочкой `values.dev-prod.yaml` (нижний слой снят), отрисованной тем же `renderStack`, — проба красна отказом отрисовки этого стенда; та же строка с цепочкой из таблицы — зелёна. Отличие каждой пары — один факт.
 
-## Сценарий 26: Отзыв при выходе — в бюджете, исход выхода прежний
+## Сценарий 26: Отзыв при выходе — в бюджете, исход выхода по Р7
 
 **ID:** KA1-26
 
@@ -639,11 +701,12 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 
 **When** клиент вызывает `POST /oauth/logout` с `Authorization: Bearer <токен>` и формой `revoke_all=true`
 
-**Then** в столбце (2) — статус `200`, тело несёт `"ok":true` и непустой массив `warnings`; набор `Set-Cookie` равен производимому `SessionCarrierEndings()`; ответ пришёл раньше `2s` от начала запроса
-**And** в столбце (1) — статус `200`, тело несёт `"ok":true` и **не** несёт `warnings`; тот же набор `Set-Cookie`; дублёр принял ровно один запрос `Revoke` с `token_jti=jti-ka1-live`, `user_id=usr-00000000000000ka1`, `revoke_all_user_tokens=true`
+**Then** в столбце (2) — выход не выполнен (Р7): статус `503`, тело ровно `{"code":14,"message":"logout not performed; try again later","details":[]}`, `Set-Cookie` нет; ответ пришёл раньше `2s` от начала запроса
+**And** в столбце (1) — выход выполнен (Р7): статус `200`, тело ровно `{}`, `Set-Cookie` нет; дублёр принял ровно один запрос `Revoke` с `token_jti=jti-ka1-live`, `user_id=usr-00000000000000ka1`, `revoke_all_user_tokens=true`
 
-Близнец столбца (2) — столбец (1): отличие — один факт, уложился ли отзыв в бюджет. Текст элемента
-`warnings` не утверждается: это журнал для отладки, не контракт (шапка `LogoutHandler`).
+Близнец столбца (2) — столбец (1): отличие — один факт, уложился ли отзыв в бюджет. Срок «раньше
+`2s`» при бюджете `300ms` отличает бюджет ручки от прежней константы `5s`: с ней ответ столбца (2)
+пришёл бы не раньше `5s`, и проба зафиксировала бы «ответа нет за `3s`» (раздел «Срок пробы»).
 
 ### Предмет 4 — канон издателя (kacho#2758, Р5)
 
@@ -767,7 +830,8 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 | KA1-11 | единый `UNAUTHENTICATED` | заказан: go-implementer, kacho#2958 — сегодня `status.Error(codes.Unauthenticated, …)` в `auth.go`, `cnf_grpc_interceptor.go`, `buildGRPCUnauthStatus` | `git grep -n 'codes.Unauthenticated' e801c0f7844 -- 'gateway/internal/middleware/*.go' ':!*_test.go' \| wc -l` → 16 |
 | KA1-12 | единый `401` полосы сессии с гашением носителя | гашение есть: `EndSessionCarriers` и `SessionCarrierEndings` (`session_carrier_names.go`); тело — заказан: go-implementer, kacho#2958 | `git grep -n 'func SessionCarrierEndings\|func EndSessionCarriers' e801c0f7844 -- gateway/internal/middleware` → 2 |
 | KA1-13 | `401` выхода и потока подписки | заказан: go-implementer, kacho#2958 — сегодня `gateway/internal/handler/logout_handler.go` (`writeJSON … invalid_token`), `gateway/internal/subscriptionstream/handler.go` (`writeRefusal … 401`) | `git grep -n 'StatusUnauthorized' e801c0f7844 -- gateway/internal/handler gateway/internal/subscriptionstream ':!*_test.go'` |
-| KA1-14 | `200` близнецов | есть: цепочка края на харнессе `newF1bStandWith` (проходы обеих записей приёма), пол на глаголе без пола (`catalogPermissionLookup.Lookup` → пустое требование), обработчик выхода, обработчик подписки; строки посева П3, П5 (монтаж и нативный глагол с полом), П8, П12 — заказаны: go-implementer, kacho#2958 | `git grep -n 'func newF1bStandWith(' e801c0f7844 -- gateway/internal/e2e` → 1; `git grep -n 'func TestF1b10_EdgeRequiresBindingFromOurIssuersMachineTokens\|func newLaneRig' e801c0f7844 -- gateway \| wc -l` → 2 |
+| KA1-14 | `200` близнецов (строка выхода — по строке ниже) | есть: цепочка края на харнессе `newF1bStandWith` (проходы обеих записей приёма), пол на глаголе без пола (`catalogPermissionLookup.Lookup` → пустое требование), обработчик выхода, обработчик подписки; строки посева П3, П5 (монтаж и нативный глагол с полом), П8, П12 — заказаны: go-implementer, kacho#2958 | `git grep -n 'func newF1bStandWith(' e801c0f7844 -- gateway/internal/e2e` → 1; `git grep -n 'func TestF1b10_EdgeRequiresBindingFromOurIssuersMachineTokens\|func newLaneRig' e801c0f7844 -- gateway \| wc -l` → 2 |
+| KA1-14 строка выхода (редакция 8) | `200` `{}` без `Set-Cookie` (Р7) | есть: `LogoutHandler.ServeHTTP` — голова полосы kacho#2996 `d7710e33530`; держатели — близнец в `TestKA1_13a_LogoutRefusalIsTheOneRefusal` (`gateway/internal/handler/ka1_logout_refusal_test.go`: статус и тело) и `TestLogout_2996_OutcomeIsTheLoginLaneOutcomeOnEveryAcceptedPresentation` (`logout_outcome_test.go`: тело, `Content-Type`, отсутствие `Set-Cookie` на каждом принимаемом предъявлении) | `git grep -c 'func TestKA1_13a_LogoutRefusalIsTheOneRefusal\|func TestLogout_2996_OutcomeIsTheLoginLaneOutcomeOnEveryAcceptedPresentation' d7710e33530 -- gateway/internal/handler` → 2 строки в 2 файлах |
 | KA1-15 | указание повышения уровня | есть: `enforceStepUpHTTP` (`auth_stepup.go`), `BuildStepUpChallenge` (`stepup_gate.go`) | `git grep -n 'func (a \*AuthInterceptor) enforceStepUpHTTP\|func BuildStepUpChallenge' e801c0f7844 -- gateway/internal/middleware` → 2 |
 | KA1-16 | равенство отказов на стенде | заказан: integration-tester, kacho#2958 — утверждение равенства тел в `gateway/tests/newman/cases/authn_edge.py`; входы есть (тот же файл) | `git grep -c 'name="list-accounts-' e801c0f7844 -- gateway/tests/newman/cases/authn_edge.py` → 8 |
 | KA1-20 | страж старта бюджета службы доступа | заказан: go-implementer, kacho#2738 | ручки нет: `git grep -c 'IDENTITY_CALL_BUDGET' e801c0f7844 -- gateway` → 0 |
@@ -775,7 +839,7 @@ WWW-Authenticate: Bearer realm="kacho", error="invalid_token"
 | KA1-22 | отказ в бюджете на зависшем соседе; величина предела — из ручки | заказан: go-implementer, kacho#2713 (вопросы о сессии и отсечке), kacho#2738 (бюджет ручкой на всех вопросах) — сегодня у адаптера `session_revocations_client.go` предела нет, а вопросы об отзыве и о базовом ограничены константой `1s` | `git grep -c 'WithTimeout\|WithDeadline' e801c0f7844 -- gateway/internal/clients/session_revocations_client.go` → нет строк; `git grep -n 'const BasicCredentialCallBudget = time.Second\|const OwnRevocationCallBudget = BasicCredentialCallBudget' e801c0f7844 -- gateway/internal/middleware` → 2 |
 | KA1-23 | `504` моста | заказан: go-implementer, kacho#2713 — сегодня `optsFor` (`gateway/internal/restmux/mux.go`) предела не ставит; статус `504` даёт таблица края (`runtime.HTTPStatusFromCode`) | `git grep -c 'WithChainUnaryInterceptor\|WithTimeout' e801c0f7844 -- gateway/internal/restmux/mux.go` → нет строк |
 | KA1-24 | поток подписки живёт по своему сроку; близнец — по KA1-23 | есть: ручка `gateway/internal/subscriptionstream/` (`NewHandler`: срок потока обязан превосходить служебный кадр) и её харнесс `newHandler` (`5s` / `2s`); сборка П10 и дублёр П9 — заказаны: go-implementer, kacho#2713 | `git show e801c0f7844:gateway/internal/subscriptionstream/harness_test.go \| grep -c 'StreamBudget: *5 \* time.Second\|Heartbeat: *2 \* time.Second'` → 2 |
-| KA1-26 | выход: отзыв в бюджете, исход `200` прежний | заказан: go-implementer, kacho#2738 — сегодня отзыв выхода ограничен своей константой `5s` (`logout_handler.go`, `context.WithTimeout` вокруг `Verify` и `Revoke`); исход `200` с `warnings` есть | `git grep -c 'context.WithTimeout(r.Context(), 5\*time.Second)' e801c0f7844 -- gateway/internal/handler/logout_handler.go` → 2 |
+| KA1-26 (редакция 8) | выход по Р7: `503` «не выполнен» при молчащем отзыве в бюджете, `200` `{}` при ответившем, `Set-Cookie` нет | есть: `LogoutHandler.ServeHTTP` (`gateway/internal/handler/logout_handler.go`) — тела `logoutDoneBody`, `logoutNotPerformedBody`, бюджет `CallBudget` вокруг `Revoke`; проба `TestKA1_26_LogoutRevocationIsBoundedAndTheOutcomeStays` (`gateway/internal/e2e/ka1budget/budget_test.go`) — голова полосы kacho#2996 `d7710e33530` | `git show d7710e33530:gateway/internal/handler/logout_handler.go \| grep -c 'logout not performed; try again later'` → 2; `… \| grep -c 'CallBudget time.Duration'` → 1; `… \| grep -c 'SetCookie\|EndSessionCarriers'` → 0; `git grep -c 'func TestKA1_26_LogoutRevocationIsBoundedAndTheOutcomeStays' d7710e33530 -- gateway/internal/e2e/ka1budget` → 1 |
 | KA1-25 | ручки в отрисовке каждого стенда | заказан: go-implementer, kacho#2738 (чарт края и слои `deploy/helm/umbrella/`); перечень стендов и цепочек — существующий читатель `deploy/tests/helm/stacks.sh` | `bash deploy/tests/helm/stacks.sh --names` @ e801c0f7844 → 7 стендов (`dev`, `dev-prod`, `prod`, `own`, `fe3455`, `prorobotech`, `a8f60d`); `helm template` цепочкой каждого → код 0 у 7 из 7, Deployment `api-gateway` есть в 7 из 7. Тот же файл в одиночку поверх базового `values.yaml`: код 0 у 3 из 9 (`dev`, `fe3455-prod`, `prod`) — отсюда единица отбора «стенд» |
 | KA1-30 | приём по канону | заказан: go-implementer, kacho#2758 — сегодня запись ищется точным равенством (`gateway/internal/config/tokenissuers.go`, `TokenAcceptance`; `jwt_verifier.go`, поиск записи) | чтение `tokenissuers.go` @ `e801c0f7844` |
 | KA1-31 | отказ чужому издателю | есть: отказ «записи нет» (`jwt_verifier.go`, `ErrNoIssuerRecord`); форма ответа — по KA1-10 (kacho#2958); строки (а)–(е) после канона — kacho#2758 | `git show e801c0f7844:gateway/internal/middleware/jwt_verifier.go \| grep -c 'return nil, ErrNoIssuerRecord'` → 1 |
@@ -815,7 +879,7 @@ KA1-10/11 (к) — строка (к) KA1-14 (то же удостоверени�
 | машинный токен «с привязкой» проходит харнесс с обязательной привязкой | присутствие `cnf` достаточно слою аутентификации | `TestF1b10_EdgeRequiresBindingFromOurIssuersMachineTokens`, строка «С привязкой» | строится |
 | отказ (м) «сертификат B» и его близнец | сверка привязки с сертификатом соединения | `NewCnfBindingInterceptor`; монтируется только при `KACHO_API_GATEWAY_AUTHN_ENABLE_DPOP` (`main.go`) | строится при включённом переключателе и TLS (П8) |
 | вызов повышения на полосе предъявителя (KA1-15) | `enforceStepUpHTTP` → `BuildStepUpChallenge` | `auth_stepup.go`, `stepup_gate.go` | строится; строка вызова несёт и `error_description` — сценарий утверждает параметры |
-| `200` с `warnings` на выходе при молчащем отзыве (KA1-26) | best-effort отзыв, исход выхода не меняется | `logout_handler.go`, шапка `LogoutHandler` и `out["warnings"]` | исход строится и сегодня (срок — `5s`); проба с величиной бюджета собирается с головы S2 (раздел «Собираемость») |
+| редакция 8: `503` «не выполнен» без `Set-Cookie` при молчащем отзыве и `200` `{}` при ответившем (KA1-26, строка выхода KA1-14) | исход Р7 обработчика выхода | `logout_handler.go` @ `d7710e33530`: `logoutNotPerformedBody` на ошибке `Revoke`, `logoutDoneBody` на успехе, гашения носителя нет | строится на голове полосы kacho#2996; на голове ствола волны `e3476f0bc28` — прежний исход (`{"ok":true}`, `warnings`, гашение носителя): `git show e3476f0bc28:gateway/internal/handler/logout_handler.go \| grep -c 'EndSessionCarriers(w)'` → 1 — отсюда «красны до» в DoD «Р7» |
 | старт на трёх формах объявления без сети (KA1-32) | конструктор проверяющего к сети не ходит; исход старта и запись журнала старта | `main.go`: `TokenAcceptance` → запись `token verifier wired into principal path` | строится после S3; до S3 — отказ старта |
 | запись приёма нашей чеканки для `issuer.example.test` (KA1-35) | `TokenAcceptance` ставит `ReadRevocation` записи, совпавшей с `PLATFORM_TOKEN_ISSUER`; в боевой посадке требует `https` у адреса набора и у авторитета отзыва | `tokenissuers.go`: `iss == platform`, `requireSecureKeySetURL`, `requirePlatformRevocationAuthority` | строится после S3 на посеве П11 |
 | ручка потока со сроком `5s` и кадром `2s` (KA1-24) | `NewHandler` требует лишь срок больше кадра | `subscriptionstream/handler.go`, харнесс `newHandler` | строится |
@@ -873,14 +937,15 @@ S2, вынос перевода — первый шаг S3), а не измер�
 | KA1-06 | то же | — | все пять строк | сегодняшний положительный путь |
 | KA1-07 | то же | состояние `UNAVAILABLE` — S1; `молчит` — S2 | состояние `отвечает` | полоса сессии расходится с двумя другими; на `молчит` полоса сессии не отвечает за `3s` и на голове S1; собирается, как KA1-03 |
 | KA1-10, 11, 12, 13 | харнесс слоя аутентификации с полом П5 (строка (к) — глагол с полом); (м) — с П8; KA1-13 (а) — обработчик выхода, (б) — обработчик потока | все строки (равенство тел и форма Р2) | — | писателей `401` несколько, тексты различны |
-| KA1-14 | то же; строка выхода — обработчик выхода с П12 | — | все строки | сегодняшний положительный путь; (к) — тот же путь, что KA1-06 для базового удостоверения |
+| KA1-14 | то же, кроме строки выхода (строка ниже) | — | все строки | сегодняшний положительный путь; (к) — тот же путь, что KA1-06 для базового удостоверения |
+| KA1-14 строка выхода (редакция 8) | обработчик выхода с П12 | на `e3476f0bc28` (база «Р7»): тело `{"ok":true}` вместо `{}` | — | исход Р7 заводит полоса kacho#2996; прежняя строка «охрана» снята вместе с прежним «Тогда» |
 | KA1-15 | харнесс слоя аутентификации с полом П5 | — | сценарий и его близнец | указание повышения не меняется (Р3); утверждаются параметры вызова, а не строка |
 | KA1-16 | стенд | пять отказов (равенство тел) | `list-accounts-as-bootstrap` | писатели отказов различны |
 | KA1-20, 21 | старт процесса | (а)–(д) | близнец (`1s`, `30s`) | ручек нет: процесс стартует на любом варианте |
 | KA1-22 | харнесс слоя аутентификации | вся проба — на голове S1 не собирается (отсутствие испытуемого, раздел «Собираемость») | — (столбец (1) — (а), (б) зелены на голове S2 с первой сборки, охраной не считаются) | параметра бюджета у сборки на голове S1 нет; поведение строк — разница столбцов и константа `1s` на (в), (г) — впервые измеряется на голове S2 |
 | KA1-23 | харнесс П10 (мост) | сценарий — на голове S1 не собирается (отсутствие испытуемого) | — (близнец зелен на голове S2 с первой сборки, охраной не считается) | у `restmux.NewMux` параметра бюджета нет |
 | KA1-24 | харнесс П10 | сценарий — на голове S1 не собирается (отсутствие испытуемого) | — | сценарий и близнец зелены на голове S2 с первой сборки; доказательство KA1-24 — что бюджеты S2 не тронули поток |
-| KA1-26 | обработчик выхода с П12 | сценарий — на голове S1 не собирается (отсутствие испытуемого) | — (столбец (1) зелен на голове S2 с первой сборки, охраной не считается) | у `LogoutHandlerConfig` параметра бюджета нет; срок `5s` нынешнего обработчика проба измерить не может, потому что без параметра не собирается |
+| KA1-26 (редакция 8) | обработчик выхода с П12 | на `e3476f0bc28` (база «Р7»; параметр `CallBudget` там есть — проба собирается): (2) — `200` с `warnings` и гашением носителя вместо `503`; (1) — `{"ok":true}` и гашение носителя вместо `{}` без `Set-Cookie` | — | бюджет на `e3476f0bc28` уже передаётся (`CallBudget`); краснота — только исход Р7. На голове S1 (база S2) проба не собиралась — отсутствие испытуемого (раздел «Собираемость», DoD S2); это прежний исход стадии S2 и редакцией 8 не меняется |
 | KA1-25 | отрисовка стендов | сценарий | — (строки близнеца — самопроверка новой пробы) | 7 стендов отрисовываются, край есть в 7; ручек Р4 в окружении края нет ни в одном |
 | KA1-30 | харнесс слоя аутентификации с записью П7 | (а)–(д) | (е) | запись ищется точным равенством |
 | KA1-31 | то же | — | все строки (после S1 — в форме Р2) | точное равенство отвергает их и сегодня; строки держат, что канон не расширил приём |
@@ -891,9 +956,9 @@ S2, вынос перевода — первый шаг S3), а не измер�
 
 ## Открытые вопросы
 
-Открытых вопросов — 0. Решения, которые прежде могли бы стать вопросами, приняты в Р1–Р6: ответ на молчание
+Открытых вопросов — 0. Решения, которые прежде могли бы стать вопросами, приняты в Р1–Р7: ответ на молчание
 авторитета (`503`, заменяет F4d-23), форма вызова `401` и значение `domain` (Р2), величины
-бюджетов (Р4), правила канона (Р5).
+бюджетов (Р4), правила канона (Р5), исход выхода пути токенов (Р7; KA1-15 и пара `kaname#511` редакцией 8 не тронуты).
 
 ## DoD
 
@@ -960,6 +1025,23 @@ S2 → S3 (S2 и S3 пользуются формой отказа S1).
       KA1-33, KA1-34 — доказательством починки не считаются.
 - [ ] Канон применяется в одном месте; второе место нормализации — находка.
 - [ ] KA1-34: перепись стендов печатает стендов, отрисованных и сравнённых, расхождений 0; вывод — в описании PR.
+
+### Р7 — исход выхода пути токенов (редакция 8; kacho#2996, kacho#2959)
+
+База — голова ствола волны `e3476f0bc28` (`PRO-Robotech/kacho`, ветка `2967`): S2 там есть, параметр
+`CallBudget` у обработчика выхода есть, исход выхода — прежний.
+
+- [ ] Пробы строки выхода KA1-14 и KA1-26 по Р7 написаны до правки обработчика. **Красны** на
+      `e3476f0bc28` исходом, а не сборкой: строка выхода KA1-14 — тело `{"ok":true}`; KA1-26 (2) —
+      `200` вместо `503`; KA1-26 (1) — тело и `Set-Cookie`. Вывод прогона до и после — в комментарии
+      DoD задачи kacho#2996.
+- [ ] После правки зелены числом: строка выхода KA1-14, KA1-26 оба столбца, KA1-13 (а) (отказ `401`
+      не изменился), `TestLogout_2996_OutcomeIsTheLoginLaneOutcomeOnEveryAcceptedPresentation`.
+- [ ] Тела `200` и `503` — дословно Р7; ни один исход пути не несёт `Set-Cookie`
+      (`git show <голова>:gateway/internal/handler/logout_handler.go | grep -c 'SetCookie\|EndSessionCarriers'` → 0).
+- [ ] Шапка `LogoutHandler` и `gateway/docs/content/architecture/authn.mdx` называют исходы Р7 так,
+      как их производит код; прежних `warnings` и `ok:true` в описании выхода пути токенов нет.
+- [ ] `go build ./...`, `go vet`, `go test -race ./gateway/...`, линтеры — зелёные числом.
 
 ### Общее
 
