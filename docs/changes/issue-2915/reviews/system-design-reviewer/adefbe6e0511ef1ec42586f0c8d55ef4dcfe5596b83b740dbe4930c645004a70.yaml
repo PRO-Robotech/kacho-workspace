@@ -1,0 +1,36 @@
+# ВЕРДИКТ: ✅ на sha256 adefbe6e0511ef1ec42586f0c8d55ef4dcfe5596b83b740dbe4930c645004a70
+role: system-design-reviewer
+mode: post-diff
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом); Д124 проверен
+repo: PRO-Robotech/kacho
+pr: 3041
+base: 58248816f540c7f12124e128caaa469659bea69b   # merge-base(origin/2914-notify, head), перемерено; = голова origin/2914-notify
+head: ad4cc6fa0b6404543d0595b5910f1d339427eb78
+digest: adefbe6e0511ef1ec42586f0c8d55ef4dcfe5596b83b740dbe4930c645004a70  # git diff base..head | sha256sum
+distributed_surface: true
+schema_overlap: false   # схемы и CAS дифф не трогает; ограда ключа сетки и уборка — без изменений, только переставлены после стража
+blocking: []
+runs:
+  - cmd: "go test -count=1 -race ./services/notify/internal/dnscheck/... ./services/notify/internal/dkimkey/... ./services/notify/cmd/notify/... ./services/notify/internal/config/..."
+    at: ad4cc6fa0b6404543d0595b5910f1d339427eb78   # worktree tmp/2915-stand-up, чистое дерево
+    result: "ok x4 (dnscheck 12.4s, dkimkey, cmd/notify 14.2s, config); -race чист"
+accepted:
+  D124_boot_order: "serve.go:108 guard.Boot -> :113 coredb.NewPool -> ограда -> уборка -> :151 guard.Run. Слоты здоровья database/dns «не готов» до Install (fail-closed). Предикат: TestNTF1P08DiagnosticSurfaceAnswersWhileTheDNSGuardWaits — база на закрытом порту, отказ называет исчерпание срока и проверку, а не базу; при пуле до стража отказ был бы о базе. abort гасит поверхность на каждом отказе после подъёма"
+  per_call_deadline: "каждый LookupTXT под своим WithTimeout(min(queryTimeout=5s, остаток срока)); срок старта и пауза — по внедрённым часам; резолвер передаётся корнем явно, net.DefaultResolver внутри пакета нет; SMTP-сессия — WithTimeout(SessionTimeout)"
+  dns_classification: "closed: nil -> ответ, IsNotFound -> записи нет, прочее (таймаут, отмена, сеть) -> «ответа нет»; нарушение отменяет соседей, их отмена признак не меняет; на старте «ответа нет» = повтор до срока, на перепроверке = без изменения признака"
+  dkim_pair_swap: "пара читается из одного поколения ..data с ограниченным числом повторов; смена подписи — atomic.Pointer только после ok проверки dkim по новой записи; нарушение/«ответа нет» оставляет прежнюю пару"
+  replica_isolation: "страж и пара — на реплику, общего состояния в памяти нет; признак notify_mail_dns_posture — на реплику"
+  stand_seed: "seed-stand-dkim.sh и seed-notify-stand-secrets.sh: create-once с разбором NotFound/AlreadyExists, «не знаю» != «нет»; зона выводится из объекта ключа, серийный от содержимого (идемпотентно), сверка (N,E)+селектор после записи"
+  edge: "новых межсервисных рёбер нет; notify -> сервер зоны стенда — DNS, не gRPC-ребро графа"
+important:
+  - coord: services/notify/internal/dnscheck/guard.go (adopt)
+    what: "переход на новую пару DKIM — на такте перепроверки каждой реплики отдельно (до DNSRecheckInterval, верхняя граница 24 ч); пока такт не пришёл, реплики подписывают разными селекторами"
+    require: "в замысле/руководстве оператора: прежняя DKIM-запись снимается не раньше чем через интервал перепроверки после публикации новой"
+  - coord: services/notify/cmd/notify/serve.go:108
+    what: "SIGTERM во время ожидания стража возвращает «страж DNS установки прерван» -> main пишет «отказ старта» и выходит кодом 1; штатный останов на шаге 5 выглядит как отказ"
+    require: "отмену родителя на стражe отличать от отказа (выход 0 при ctx.Err() от сигнала)"
+  - coord: deploy/helm/umbrella/templates/stand-dns.yaml
+    what: "при включённой зоне весь DNS пода notify (база, узел почты, источники) идёт через сервер зоны replicas: 1 (forward . /etc/resolv.conf) — единая точка отказа стенда; на площадке зона выключена"
+    require: "принято для стенда; на площадку профиль включать не допускать (страж Д104 уже требует приёмник стенда)"
+orders: []
