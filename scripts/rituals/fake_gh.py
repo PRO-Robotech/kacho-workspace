@@ -15,6 +15,9 @@
   timeline    {"<вл>/<имя>#N": [событие]}
   user        {login}
   fail        ["<М> <путь без запроса>"] — эти вызовы выходят кодом 1
+  stuck       ["<вл>/<имя>#N"] — PATCH этой задачи отвечает успехом, но состояние не меняет
+              (трекер принял, а закрытие не состоялось — так ритуал обязан перечитывать)
+  comment_extra {поле: значение} — дописывается в ответ о созданном комментарии
 
 Неизвестный путь — отказ с текстом, как у настоящего трекера на 404: двойник не
 сочиняет ответа, которого ему не задали.
@@ -95,6 +98,8 @@ def main(argv):
     if sub is None and method == "GET":
         return done(it)
     if sub is None and method == "PATCH":
+        if key in st.get("stuck", []):
+            return done(it)
         it.update(body or {})
         if it.get("state") == "closed":
             it.setdefault("closed_at", "2026-10-06T00:00:00Z")
@@ -114,6 +119,7 @@ def main(argv):
             "author_association": "MEMBER",
             "created_at": "2026-10-06T00:00:00Z",
         }
+        c.update(st.get("comment_extra", {}))
         lst.append(c)
         return done(c)
     if sub == "sub_issues" and method == "GET":

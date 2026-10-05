@@ -12,7 +12,10 @@
     `status`, `prs` и блок закрытия;
   * задача без комментария-доказательства — строка DoD говорит «нет», а не адрес;
   * задача, закрытая как не планируемая, — `wontfix`;
-  * задача открыта — отказ кодом 1, файла нет.
+  * задача открыта — отказ кодом 1, файла нет;
+  * генератор указателя хранилища вышел ненулевым кодом — отказ кодом 1 с его кодом и
+    выводом, а не «записано».
+Каждый отказ судится по коду И по причине в выводе (возврат check-verifier к ws#930).
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет либо хранилище
 красное ещё до ритуала (контроль).
 """
@@ -98,7 +101,8 @@ def body(pr):
         pr.ok("адрес доказательства DoD в блоке", "issuecomment-1" in text and "DoD-proof @abcdef1" in text, text)
 
     rc, out, err, _ = pr.run("vault-trails", [R, str(N1)], pr.state(world()), extra=extra)
-    pr.ok("повтор: блок закрытия один", open(path, encoding="utf-8").read().count("<!-- ritual:closure -->") == 1)
+    pr.ok("повтор: блок закрытия один", os.path.isfile(path)
+          and open(path, encoding="utf-8").read().count("<!-- ritual:closure -->") == 1, err[-600:])
 
     existing = note(root, N3)
     open(existing, "w", encoding="utf-8").write(
@@ -116,7 +120,16 @@ def body(pr):
     pr.ok("без доказательства: строка DoD говорит «нет»", "комментария-доказательства DoD нет" in text, text)
 
     rc, out, err, _ = pr.run("vault-trails", [R, str(N2)], pr.state(world()), extra=extra)
-    pr.ok("открытая задача: отказ кодом 1, файла нет", rc == 1 and not os.path.exists(note(root, N2)), err)
+    pr.refused("открытая задача", rc, err, "открыта — trail закрытия пишется закрытой задаче")
+    pr.ok("открытая задача: файла нет", not os.path.exists(note(root, N2)))
+
+    # генератор указателя отказал — ритуал обязан сказать это кодом и причиной
+    gen = os.path.join(root, "scripts", "vault-index", "generate.py")
+    saved = open(gen, encoding="utf-8").read()
+    open(gen, "w", encoding="utf-8").write("import sys\nprint('проба: генератор отказал', file=sys.stderr)\nsys.exit(3)\n")
+    rc, out, err, _ = pr.run("vault-trails", [R, str(N1)], pr.state(world()), extra=extra)
+    open(gen, "w", encoding="utf-8").write(saved)
+    pr.refused("генератор указателя отказал", rc, err, "генератор указателя хранилища вышел кодом 3: проба: генератор отказал")
 
     # хранилище красное — ритуал обязан сказать это кодом, а не «записано»
     broken = os.path.join(root, "obsidian", "kacho", "KAC", "zz-ritual-probe-broken.md")

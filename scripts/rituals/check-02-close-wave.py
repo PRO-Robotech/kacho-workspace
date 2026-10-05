@@ -11,7 +11,10 @@
   * волна закрыта, и открытых подзадач у неё 0 — перечитано после действий;
   * остаток есть, а `--next` не назван — код 2 и НИ ОДНОГО изменяющего вызова;
   * коммит вливания не найден либо подзадач ноль — код 2 без изменений;
-  * следующая волна закрыта — отказ кодом 1 без изменений.
+  * следующая волна закрыта — отказ кодом 1 без изменений;
+  * трекер принял закрытие, а задача осталась открытой — перечитывание после действий
+    это видит: отказ кодом 1 с номером оставшейся открытой.
+Каждый отказ судится по коду И по причине в выводе (возврат check-verifier к ws#930).
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет.
 """
 import os
@@ -63,19 +66,28 @@ def body(pr):
           rc == 0 and st["issues"]["%s#12" % R]["state"] == "open", err)
 
     rc, out, err, st = pr.run("close-wave", [R, "10", SHA[:12]], pr.state(world()))
-    pr.ok("остаток без --next: код 2", rc == 2, err)
+    pr.refused("остаток без --next", rc, err, "следующая волна не названа", want=2)
     pr.ok("остаток без --next: изменений 0", not P.writes(st), str(P.writes(st)))
 
     rc, out, err, st = pr.run("close-wave", [R, "10", "deadbeef", "--next", "20"], pr.state(world()))
-    pr.ok("коммит вливания не найден: код 2 без изменений", rc == 2 and not P.writes(st), err)
+    pr.refused("коммит вливания не найден", rc, err, "GET repos/%s/commits/deadbeef — код 1" % R, want=2)
+    pr.ok("коммит вливания не найден: изменений 0", not P.writes(st), str(P.writes(st)))
 
     w = world()
     w["parent"] = {}
     rc, out, err, st = pr.run("close-wave", [R, "10", SHA[:12], "--next", "20"], pr.state(w))
-    pr.ok("подзадач ноль: код 2 без изменений", rc == 2 and not P.writes(st), err)
+    pr.refused("подзадач ноль", rc, err, "подзадач ноль", want=2)
+    pr.ok("подзадач ноль: изменений 0", not P.writes(st), str(P.writes(st)))
 
     rc, out, err, st = pr.run("close-wave", [R, "10", SHA[:12], "--next", "20"], pr.state(world(next_state="closed")))
-    pr.ok("следующая волна закрыта: код 1 без изменений", rc == 1 and not P.writes(st), err)
+    pr.refused("следующая волна закрыта", rc, err, "следующая волна #20 закрыта")
+    pr.ok("следующая волна закрыта: изменений 0", not P.writes(st), str(P.writes(st)))
+
+    # трекер ответил успехом, а #11 осталась открытой: только перечитывание это видит
+    w = world()
+    w["stuck"] = ["%s#11" % R]
+    rc, out, err, st = pr.run("close-wave", [R, "10", SHA[:12], "--next", "20"], pr.state(w))
+    pr.refused("закрытие не состоялось", rc, err, "у закрытой волны открытые подзадачи (#11)")
 
     w = world(proof12="DoD-proof @def5678")
     rc, out, err, st = pr.run("close-wave", [R, "10", SHA[:12]], pr.state(w))

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Ритуалы потока скриптами, а не агентами: тело PR, закрытие волны, событие одобрения, trail.
 
-ОСНОВАНИЕ. Решение владельца 2026-10-06 (процесс по уровням риска): «Ритуалы (записи,
-события, тела PR, закрытие, trail vault) — скриптами, не агентами». Задача ws#930,
-подзадача эпика ws#896. Входы — четыре обёртки рядом (`pr-body.sh`, `close-wave.sh`,
+ОСНОВАНИЕ — постановка задачи ws#930 (подзадача эпика ws#896), пересказом, а не
+цитатой: ритуалы потока — записи, события, тела PR, закрытие волны, trail хранилища —
+исполняются скриптами, а не агентами. Дословных слов владельца об этом в дереве нет. Входы — четыре обёртки рядом (`pr-body.sh`, `close-wave.sh`,
 `approval-event.sh`, `vault-trails.sh`); вся логика — здесь, одна на всех.
 
 ТРЕКЕР — ЧЕРЕЗ ОБЁРТКУ. Каждый вызов трекера идёт командой из `RITUAL_GH` (по умолчанию
@@ -12,9 +12,11 @@
 «не выполнилось» (код 2), а не пустой список.
 
 ДОКАЗАТЕЛЬСТВО DoD — комментарий задачи со строкой `DoD-proof @<ревизия>` в начале
-строки: та же форма, что судят `scripts/merge-readiness.sh` и `scripts/cascade-census.sh
---proof` (`git-issues.md#gi-closes-last-line`). Задача без него закрывающей строки не
-получает: `Refs`, а не `Closes`.
+строки (`git-issues.md#gi-closes-last-line`). Распознаватель — общий файл
+`scripts/lib/dod_proof.jq`, тот же, что подключают `scripts/merge-readiness.sh` и
+`scripts/cascade-census.sh --proof`; своего выражения здесь нет. Нет файла или `jq` —
+судить нечем, код 2. Задача без доказательства закрывающей строки не получает: `Refs`,
+а не `Closes`.
 
 АТРИБУЦИЯ — предикатом хуков дерева `scripts/hooks/attribution-rule.sh` (функция
 `attribution_line`), а не своей копией: два распознавателя одной нормы разъехались бы
@@ -37,10 +39,11 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ATTRIBUTION_RULE = os.path.join(HERE, "..", "hooks", "attribution-rule.sh")
+DOD_LIB = os.path.join(HERE, "..", "lib")
 
 OK, REFUSED, UNMET = 0, 1, 2
 
-DOD_PROOF = re.compile(r"(?:^|\n)DoD-proof @([0-9a-f]{7,40})")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 REPO_RE = re.compile(r"^[\w.-]+/[\w.-]+$")
 EVENT_FIELDS = ("role", "verdict", "subject", "subject_revision", "subject_sha256")
 
@@ -99,13 +102,26 @@ def issue(repo: str, n: int) -> dict:
 
 
 def dod_proof(repo: str, n: int):
-    """(адрес комментария, ревизия) последнего доказательства DoD либо None."""
-    found = None
-    for c in gh_list("repos/%s/issues/%d/comments" % (repo, n)):
-        m = DOD_PROOF.search(c.get("body") or "")
-        if m:
-            found = (c.get("html_url") or "", m.group(1))
-    return found
+    """(адрес комментария, ревизия) последнего доказательства DoD либо None.
+
+    Распознаёт общий `scripts/lib/dod_proof.jq` — тот же, что у merge-readiness и
+    cascade-census; ревизия — первая строка-доказательство последнего такого комментария.
+    """
+    comments = gh_list("repos/%s/issues/%d/comments" % (repo, n))
+    if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
+        raise Unmet("распознавателя доказательства DoD нет (%s) — судить нечем"
+                    % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
+    expr = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.body // "") | dod_proof_revisions)}'
+            ' | select(.revs | length > 0)] | last | if . == null then null else [.url, .revs[0]] end')
+    try:
+        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", expr], input=json.dumps(comments),
+                           capture_output=True, text=True)
+    except OSError as e:
+        raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
+    if p.returncode != 0:
+        raise Unmet("распознаватель доказательства DoD вышел кодом %d: %s" % (p.returncode, p.stderr.strip()[:200]))
+    got = json.loads(p.stdout or "null")
+    return tuple(got) if got else None
 
 
 # ── атрибуция ───────────────────────────────────────────────────────────────
@@ -346,7 +362,59 @@ def yaml_load(text: str, where: str):
 
 
 def q(v) -> str:
+    """Скаляр YAML в двойных кавычках: значение ответа трекера с переводом строки или
+    двоеточием не заведёт в записи нового ключа, а отпечаток из одних цифр не станет числом."""
     return json.dumps(str(v), ensure_ascii=False)
+
+
+def event_block(posted: dict, url: str, actor: str, hrepo: str, hnum: int, role, verdict, body: str, want: str,
+                revision: str) -> str:
+    """Текст блока `event` записи по ответу трекера; каждое значение ответа — в кавычках."""
+    return "\n".join([
+        "event:",
+        "  type: issue_comment",
+        "  target: %s#%d" % (hrepo, hnum),
+        "  status: performed",
+        "  published: true",
+        "  database_id: %s" % (posted["id"] if type(posted.get("id")) is int else q(posted.get("id") or "")),
+        "  node_id: %s" % q(posted.get("node_id") or ""),
+        "  url: %s" % q(url),
+        "  api_url: %s" % q(posted.get("url") or ""),
+        "  actor: %s" % q((posted.get("user") or {}).get("login") or actor),
+        "  role: %s" % q(role),
+        "  author_association: %s" % q(posted.get("author_association") or ""),
+        "  created_at: %s" % q(posted.get("created_at") or ""),
+        "  body_sha256: %s" % q(hashlib.sha256(body.encode("utf-8")).hexdigest()),
+        "  subject_sha256: %s" % q(want),
+        "  subject_revision_commit: %s" % q(revision),
+        "  verdict: %s" % q(verdict),
+        "  publication_mode: scripts/rituals/approval-event.sh",
+        "",
+    ])
+
+
+def edited_record(before: str, rec: dict, record: str, event: str, url: str, issued_at: str) -> str:
+    """Текст записи с блоком `event` и `effective_approval.issued: true`; отказ, если правка
+    не дала события с адресом либо задела другие поля (границу блока ищет текстовый
+    разбор, и многострочное значение другого поля способно её обмануть)."""
+    span = top_block(before, "event")
+    after = (before[:span[0]] + event + before[span[1]:]) if span else (before.rstrip("\n") + "\n\n" + event)
+    ea = top_block(after, "effective_approval")
+    if ea:
+        blk = after[ea[0]:ea[1]]
+        blk2 = re.sub(r"(?m)^  issued: false\s*$", "  issued: true", blk)
+        if blk2 != blk and not re.search(r"(?m)^  issued_at:", blk2):
+            stamp = "  issued: true\n  issued_at: %s" % q(issued_at)
+            blk2 = re.sub(r"(?m)^  issued: true$", lambda _m: stamp, blk2, count=1)
+        after = after[:ea[0]] + blk2 + after[ea[1]:]
+    check = yaml_load(after, record + " (после правки)")
+    cev = check.get("event") or {}
+    if cev.get("status") != "performed" or cev.get("url") != url:
+        raise Refused("правка блока event не дала status: performed с адресом события")
+    drop = lambda d: {k: v for k, v in d.items() if k not in ("event", "effective_approval")}  # noqa: E731
+    if drop(check) != drop(rec):
+        raise Refused("правка блока event задела другие поля записи %s" % record)
+    return after
 
 
 def approval_event(argv: list[str]) -> int:
@@ -371,8 +439,13 @@ def approval_event(argv: list[str]) -> int:
     verdict, role = rec.get("verdict"), rec.get("reviewer_role")
     subj = rec.get("subject") if isinstance(rec.get("subject"), dict) else {}
     want = subj.get("sha256")
-    if not verdict or not role or not want:
+    if not verdict or not role or want is None:
         raise Refused("в записи %s нет verdict, reviewer_role либо subject.sha256" % record)
+    # Отпечаток из одних цифр YAML читает ЧИСЛОМ и теряет ведущие нули: сравнивать
+    # было бы уже не то значение. Такая запись — отказ с причиной, а не «нет поля».
+    if not isinstance(want, str) or not SHA256_RE.match(want):
+        raise Refused("subject.sha256 записи %s — не строка из 64 шестнадцатеричных знаков (YAML прочёл %s %r); "
+                      "заключите отпечаток в кавычки" % (record, type(want).__name__, want))
     if subj.get("path") and subj["path"] != doc:
         raise Refused("запись судит %s, а назван документ %s" % (subj["path"], doc))
 
@@ -409,50 +482,25 @@ def approval_event(argv: list[str]) -> int:
     if not actor:
         raise Unmet("учётка трекера не прочитана")
 
+    # Правка записи проверяется ДО публикации на пробном ответе трекера: запись, блок
+    # которой не правится без порчи других полей, события не получает вовсе — иначе
+    # событие осталось бы опубликованным при записи, не приведённой к факту.
+    probe_url = "https://github.com/%s/issues/%d#issuecomment-0" % (hrepo, hnum)
+    try:
+        edited_record(before, rec, record, event_block({"id": 0, "html_url": probe_url}, probe_url, actor, hrepo,
+                                                       hnum, role, verdict, body, want, revision), probe_url, "")
+    except Refused as e:
+        raise Refused("%s — событие не публикуется" % e)
+
     posted = gh("POST", "repos/%s/issues/%d/comments" % (hrepo, hnum), {"body": body})
     url = (posted or {}).get("html_url")
     if not url:
         raise Unmet("ответ трекера о событии без адреса — опубликовано ли событие, неизвестно; сверьте задачу %s#%d" % (hrepo, hnum))
 
     try:
-        event = "\n".join([
-            "event:",
-            "  type: issue_comment",
-            "  target: %s#%d" % (hrepo, hnum),
-            "  status: performed",
-            "  published: true",
-            "  database_id: %s" % posted.get("id"),
-            "  node_id: %s" % q(posted.get("node_id") or ""),
-            "  url: %s" % url,
-            "  api_url: %s" % (posted.get("url") or ""),
-            "  actor: %s" % ((posted.get("user") or {}).get("login") or actor),
-            "  role: %s" % role,
-            "  author_association: %s" % (posted.get("author_association") or ""),
-            "  created_at: %s" % q(posted.get("created_at") or ""),
-            "  body_sha256: %s" % hashlib.sha256(body.encode("utf-8")).hexdigest(),
-            "  subject_sha256: %s" % want,
-            "  subject_revision_commit: %s" % revision,
-            "  verdict: %s" % verdict,
-            "  publication_mode: scripts/rituals/approval-event.sh",
-            "",
-        ])
-        span = top_block(before, "event")
-        after = (before[:span[0]] + event + before[span[1]:]) if span else (before.rstrip("\n") + "\n\n" + event)
-        ea = top_block(after, "effective_approval")
-        if ea:
-            blk = after[ea[0]:ea[1]]
-            blk2 = re.sub(r"(?m)^  issued: false\s*$", "  issued: true", blk)
-            if blk2 != blk and not re.search(r"(?m)^  issued_at:", blk2):
-                stamp = "  issued: true\n  issued_at: %s" % q(posted.get("created_at") or "")
-                blk2 = re.sub(r"(?m)^  issued: true$", lambda _m: stamp, blk2, count=1)
-            after = after[:ea[0]] + blk2 + after[ea[1]:]
-        check = yaml_load(after, record + " (после правки)")
-        cev = check.get("event") or {}
-        if cev.get("status") != "performed" or cev.get("url") != url:
-            raise Refused("правка блока event не дала status: performed с адресом события")
-        drop = lambda d: {k: v for k, v in d.items() if k not in ("event", "effective_approval")}  # noqa: E731
-        if drop(check) != drop(rec):
-            raise Refused("правка блока event задела другие поля записи")
+        after = edited_record(before, rec, record, event_block(posted, url, actor, hrepo, hnum, role, verdict,
+                                                                 body, want, revision), url,
+                              posted.get("created_at") or "")
         with open(rec_path, "w", encoding="utf-8") as fh:
             fh.write(after)
         git("add", "--", record)

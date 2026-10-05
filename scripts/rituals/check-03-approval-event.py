@@ -14,10 +14,24 @@ false`; подставной трекер.
   * инъекция «событие без правки блока»: запись не записываема — отказ ДО публикации,
     событий 0; коммит отвергнут хуком — отказ кодом 1, напечатано «СОБЫТИЕ ОПУБЛИКОВАНО»
     с адресом, чтобы недоделанное не уехало молча;
-  * отпечаток документа не равен записи либо ревизия не опубликована — отказ, событий 0.
+  * отпечаток документа не равен записи, отпечаток из одних цифр без кавычек (YAML
+    читает его числом), запись судит другой документ, ревизия не опубликована — отказ,
+    событий 0;
+  * повтор судится на ОПУБЛИКОВАННОЙ ревизии (коммит ритуала отправлен), чтобы отказ
+    пришёл от запрета повтора, а не от «ревизия не опубликована»;
+  * многострочное значение другого поля обманывает текстовую границу блока event —
+    правка проверяется ДО публикации: отказ, событий 0, запись не тронута;
+  * правка, задевшая другое поле записи, — отказ «задела другие поля»: блок event с
+    лишним ключом верхнего уровня подаётся в `edited_record` ритуала ПРОВЕРЯЕМОГО дерева
+    (в настоящем пути значения ответа трекера в кавычках, и такой блок не собрать —
+    поэтому сама сверка доказывается прямым входом, а кавычки — пробой ниже);
+  * ответ трекера с переводом строки в поле не заводит в записи нового ключа.
+Каждый отказ судится по коду И по причине в выводе: красное от соседнего отказа пробу
+не проходит (возврат check-verifier к ws#930).
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет.
 """
 import hashlib
+import importlib.util
 import os
 import stat
 import sys
@@ -34,10 +48,11 @@ SHA = hashlib.sha256(TEXT.encode()).hexdigest()
 REC = "docs/specs/reviews/a/%s.yaml" % SHA
 
 
-def record(event=True, path=DOC, sha=SHA):
-    out = ("schema_version: 1\nkind: acceptance_review\n# комментарий записи сохраняется\nsubject:\n"
+def record(event=True, path=DOC, sha=SHA, quoted=True, note=""):
+    out = ("schema_version: 1\nkind: acceptance_review\n# комментарий записи сохраняется\n%ssubject:\n"
            "  path: %s\n  sha256: %s\nverdict: APPROVED\nreviewer_role: acceptance-reviewer\n"
-           "effective_approval:\n  issued: false\n  why: ждёт события\n" % (path, sha))
+           "effective_approval:\n  issued: false\n  why: ждёт события\n"
+           % (note, path, ('"%s"' % sha) if quoted else sha))
     if event:
         out += "event:\n  type: none\n  status: not_performed\n"
     return out + "checks:\n  coverage: 3 из 3\n"
@@ -93,8 +108,10 @@ def body(pr):
     pr.ok("коммит трогает только запись", pr.git(d, "show", "--name-only", "--format=", "HEAD").split() == [REC])
     pr.ok("адрес события напечатан в stdout", out.strip() == url, out)
 
+    pr.git(d, "push", "-q", "origin", "main")
     rc, out, err, st2 = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(st), cwd=d)
-    pr.ok("повтор: отказ кодом 1, второго события нет", rc == 1 and len(posts(st2)) == len(posts(st)), err)
+    pr.refused("повтор", rc, err, "событие уже исполнено")
+    pr.ok("повтор: второго события нет", len(posts(st2)) == len(posts(st)), str(posts(st2)))
 
     d2 = fixture(pr, "noblock", record(event=False))
     rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d2)
@@ -105,7 +122,8 @@ def body(pr):
     d3 = fixture(pr, "readonly", record())
     os.chmod(os.path.join(d3, REC), stat.S_IRUSR)
     rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d3)
-    pr.ok("запись не записываема: отказ до публикации, событий 0", rc == 1 and not posts(st), err)
+    pr.refused("запись не записываема", rc, err, "не записываема — событие без правки блока event не публикуется")
+    pr.ok("запись не записываема: событий 0", not posts(st), str(posts(st)))
 
     d4 = fixture(pr, "hook", record())
     hook = os.path.join(d4, ".git", "hooks", "commit-msg")
@@ -116,13 +134,65 @@ def body(pr):
     pr.ok("коммит отвергнут: код 1", rc == 1, err)
     pr.ok("коммит отвергнут: напечатано «СОБЫТИЕ ОПУБЛИКОВАНО» с адресом", "СОБЫТИЕ ОПУБЛИКОВАНО" in err and url4 in err, err)
 
-    d5 = fixture(pr, "fp", record(sha="0" * 64))
+    d5 = fixture(pr, "fp", record(sha="f" * 64))
     rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d5)
-    pr.ok("отпечаток не равен записи: отказ, событий 0", rc == 1 and not posts(st), err)
+    pr.refused("отпечаток не равен записи", rc, err, "не равен subject.sha256 записи")
+    pr.ok("отпечаток не равен записи: событий 0", not posts(st), str(posts(st)))
+
+    d5n = fixture(pr, "fpnum", record(sha="0" * 64, quoted=False))
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d5n)
+    pr.refused("отпечаток из цифр без кавычек", rc, err, "не строка из 64 шестнадцатеричных знаков")
+    pr.ok("отпечаток из цифр без кавычек: событий 0", not posts(st), str(posts(st)))
+
+    d5p = fixture(pr, "path", record(path="docs/acceptance/other.md"))
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d5p)
+    pr.refused("запись судит другой документ", rc, err, "запись судит docs/acceptance/other.md")
+    pr.ok("запись судит другой документ: событий 0", not posts(st), str(posts(st)))
 
     d6 = fixture(pr, "unpub", record(), push=False)
     rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d6)
-    pr.ok("ревизия не опубликована: отказ, событий 0", rc == 1 and not posts(st), err)
+    pr.refused("ревизия не опубликована", rc, err, "не опубликована ни в одной удалённой ветке")
+    pr.ok("ревизия не опубликована: событий 0", not posts(st), str(posts(st)))
+
+    # многострочное значение поля, строка которого начинается с «event:» — текстовая
+    # граница блока ошибается; правка проверена до публикации
+    tricky = record(note='note: "первая строка\nevent: в прозе"\n')
+    d7 = fixture(pr, "tricky", tricky)
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d7)
+    pr.refused("граница блока обманута", rc, err, "— событие не публикуется")
+    pr.ok("граница блока обманута: событий 0, запись не тронута",
+          not posts(st) and open(os.path.join(d7, REC), encoding="utf-8").read() == tricky, str(posts(st)))
+
+    # сверка «прочие поля не тронуты» — прямым входом ритуала проверяемого дерева
+    spec = importlib.util.spec_from_file_location("rituals_under_test", os.path.join(P.RIT, "rituals.py"))
+    rit = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rit)
+    url9 = "https://github.com/%s/issues/549#issuecomment-9" % R
+    text9 = record()
+    extra = "event:\n  status: performed\n  url: %s\nstray: подкинуто\n" % url9
+    try:
+        rit.edited_record(text9, yaml.safe_load(text9), REC, extra, url9, "")
+        why = "отказа нет"
+    except rit.Refused as e:
+        why = str(e)
+    pr.ok("правка задела другое поле: отказ «задела другие поля»", "задела другие поля записи" in why, why)
+    fine = "event:\n  status: performed\n  url: %s\n" % url9
+    try:
+        rit.edited_record(text9, yaml.safe_load(text9), REC, fine, url9, "")
+        why = ""
+    except rit.Refused as e:
+        why = str(e)
+    pr.ok("близнец: правка только блока event — без отказа", why == "", why)
+
+    # ответ трекера с переводом строки в поле не заводит ключа в записи
+    w = world()
+    w["comment_extra"] = {"url": "https://api.example/x\nchecks:\n  coverage: подменено"}
+    d8 = fixture(pr, "inject", record())
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(w), cwd=d8)
+    got = yaml.safe_load(pr.git(d8, "show", "HEAD:" + REC))
+    pr.ok("перевод строки в ответе трекера: код 0, прочие поля не тронуты, значение цело",
+          rc == 0 and keep(got) == keep(orig) and (got.get("event") or {}).get("api_url") == w["comment_extra"]["url"],
+          err + str(got))
 
 
 if __name__ == "__main__":

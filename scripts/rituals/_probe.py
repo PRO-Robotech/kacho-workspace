@@ -65,7 +65,21 @@ class Probe:
         # передаётся явно, иначе ритуал ответил бы «не выполнилось» не по предмету.
         env["PYTHONPATH"] = os.pathsep.join(filter(None, [os.path.dirname(os.path.dirname(yaml.__file__)),
                                                            env.get("PYTHONPATH")]))
-        return env
+        # Распознаватель доказательства DoD — общий `scripts/lib/dod_proof.jq`, ритуал
+        # зовёт `jq`. Обёртка `jq`, зависящая от HOME, под HOME песочницы не исполнится:
+        # берётся первый `jq` из PATH, который исполняется В ЭТОМ окружении, и ставится
+        # первым в PATH песочницы. Ни одного — предмета нет.
+        jq_dir = os.path.join(self.tmp, "bin")
+        os.makedirs(jq_dir)
+        for d in env.get("PATH", "").split(os.pathsep):
+            cand = os.path.join(d, "jq")
+            if not (d and os.access(cand, os.X_OK)):
+                continue
+            if subprocess.run([cand, "-n", "1"], env=env, capture_output=True).returncode == 0:
+                os.symlink(cand, os.path.join(jq_dir, "jq"))
+                env["PATH"] = jq_dir + os.pathsep + env["PATH"]
+                return env
+        raise Void("jq, исполнимого в песочнице, нет — доказательство DoD судить нечем")
 
     def git(self, cwd, *args):
         p = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, env=self.env)
@@ -103,6 +117,12 @@ class Probe:
                            text=True, env=env, cwd=cwd or self.tmp)
         st = json.load(open(state_path, encoding="utf-8"))
         return p.returncode, p.stdout, p.stderr, st
+
+    def refused(self, label, got, err, reason, want=1):
+        """Отказ судится по коду И по причине: красное от соседнего отказа (другой текст)
+        пробу не проходит — иначе снятая проверка пряталась бы за чужим отказом."""
+        self.ok("%s: код %d и причина «%s»" % (label, want, reason), got == want and reason in err,
+                "код %d; %s" % (got, err))
 
     def ok(self, label, cond, detail=""):
         if cond:

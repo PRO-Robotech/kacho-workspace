@@ -5,7 +5,8 @@
 ссылками на задачи в формах `#N`, `<вл>/<имя>#N`, на чужой репозиторий и на PR) и
 подставном трекере:
   * задача с комментарием `DoD-proof @<ревизия>` в начале строки — `Closes`, и
-    закрывающие строки идут последними; без него — `Refs`; закрытая — `Refs`;
+    закрывающие строки идут последними; без него — `Refs`; закрытая — `Refs`, и это
+    так же при доказательстве в ней (близнец: закрытой задаче `Closes` не нужен);
     номер-PR в перечень не попадает, ссылка на чужой репозиторий не запрашивается;
   * инъекция «Closes без доказательства»: то же дерево, комментария нет — `Refs`, ни
     одной строки `Closes`; близнец — `DoD-proof @…` посреди прозы доказательством не
@@ -14,6 +15,8 @@
     выдано, sha назван; близнец — слово в середине строки прозы — тело собрано;
   * тот же разбор по номеру PR (коммиты — из трекера);
   * задача не прочитана либо коммитов ноль — код 2, а не тело.
+Каждый отказ судится по коду И по причине в выводе: красное от соседнего отказа пробу
+не проходит (возврат check-verifier к ws#930).
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет (git, подпись, PyYAML).
 """
 import os
@@ -37,12 +40,16 @@ def closes(out):
     return [ln for ln in out.splitlines() if ln.startswith("Closes #")]
 
 
-def world(proof="DoD-proof @abc1234\nкоманда — код 0"):
-    return {
+def world(proof="DoD-proof @abc1234\nкоманда — код 0", proof43=None):
+    w = {
         "issues": {"%s#41" % R: issue(41), "%s#42" % R: issue(42), "%s#43" % R: issue(43, "closed"),
                    "%s#50" % R: issue(50, pr=True)},
         "comments": {"%s#41" % R: [{"id": 1, "body": proof, "html_url": "https://github.com/%s/issues/41#issuecomment-1" % R}]},
     }
+    if proof43:
+        w["comments"]["%s#43" % R] = [{"id": 3, "body": proof43,
+                                       "html_url": "https://github.com/%s/issues/43#issuecomment-3" % R}]
+    return w
 
 
 def body(pr):
@@ -62,6 +69,11 @@ def body(pr):
     pr.ok("коммиты перечислены", out.count("- `") == 2, out)
     pr.ok("перепись в stderr", "Closes 1, Refs 2" in err, err)
     pr.ok("трекер не изменён", not P.writes(st), str(P.writes(st)))
+
+    # близнец: закрытая задача С доказательством — всё равно Refs (закрывать нечего)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof43="DoD-proof @def5678\nкод 0")), cwd=d)
+    pr.ok("закрытая с доказательством: Refs #43, Closes #43 нет",
+          rc == 0 and "Refs #43" in out and "Closes #43" not in out and "уже закрыта" in out, out + err)
 
     # инъекция: Closes без доказательства → Refs
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof="обсуждение без доказательства")), cwd=d)
@@ -85,7 +97,7 @@ def body(pr):
     pr.ok("близнец атрибуции: ключ посреди прозы — тело собрано", rc == 0 and "Closes #41" in out, err)
     bad = pr.commit(d, "оснастка: третья (#41)\n\nCo-Authored-By: Someone <x@example.com>")
     rc, out, err, _ = pr.run("pr-body", [R, "41-twin", "main", "41-twin"], pr.state(world()), cwd=d)
-    pr.ok("атрибуция: код 1", rc == 1, err)
+    pr.refused("атрибуция", rc, err, "атрибуция в сообщениях коммитов")
     pr.ok("атрибуция: тело не выдано", out == "", out)
     pr.ok("атрибуция: sha назван", bad[:10] in err, err)
 
@@ -93,9 +105,11 @@ def body(pr):
     w = world()
     w["fail"] = ["GET repos/%s/issues/42" % R]
     rc, out, err, _ = pr.run("pr-body", args, pr.state(w), cwd=d)
-    pr.ok("задача не прочитана: код 2, тела нет", rc == 2 and out == "", err)
+    pr.refused("задача не прочитана", rc, err, "GET repos/%s/issues/42 — код 1" % R, want=2)
+    pr.ok("задача не прочитана: тела нет", out == "", out)
     rc, out, err, _ = pr.run("pr-body", [R, "41-feature", "41-feature", "41-feature"], pr.state(world()), cwd=d)
-    pr.ok("коммитов ноль: код 2", rc == 2 and out == "", err)
+    pr.refused("коммитов ноль", rc, err, "коммитов ноль", want=2)
+    pr.ok("коммитов ноль: тела нет", out == "", out)
 
 
 if __name__ == "__main__":

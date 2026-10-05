@@ -810,6 +810,9 @@ run 2 "$b" "предпосылка: вызывающего нет — VOID, а �
 
 echo "== check-09: merge-readiness перестал различать три исхода =="
 MR_REL="scripts/merge-readiness.sh"
+# Распознаватель доказательства DoD — общий файл, который подключают и
+# merge-readiness, и cascade-census (ws#930): порча маркера вносится в него.
+DOD_REL="scripts/lib/dod_proof.jq"
 
 # ЗАМЕР СРЕДЫ ПЕЧАТАЕТСЯ ВСЕГДА — и это не оформление.
 #
@@ -1449,8 +1452,8 @@ if mr_patch "$b/$MR_REL" \
     run_c09_red "$b" "инъекция: Fixes и Resolves не считаются строкой закрытия — краснеет" PF-FORMS
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/test\("\(\^\|\\n\)DoD-proof/test("DoD-proof/' \
+if mr_patch "$b/$DOD_REL" \
+    's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
     "маркер в любом месте строки"; then
     run_c09_red "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" PF-MIDLINE
 fi
@@ -1512,8 +1515,8 @@ if mr_patch "$b/$MR_REL" \
     run 0 "$b" "близнец: ссылки хостинга собраны map и сложением строк — молчит" "$C09"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$MR_REL" \
-    's/test\("\(\^\|\\n\)DoD-proof @\[0-9a-f\]\{7,40\}"\)/split("\\n") | any(.[]; test("^DoD-proof @[0-9a-f]{7,40}"))/' \
+if mr_patch "$b/$DOD_REL" \
+    's/capture\("\(\^\|\\n\)DoD-proof @\(\?<rev>\[0-9a-f\]\{7,40\}\)"; "g"\)/split("\\n")[] | capture("^DoD-proof @(?<rev>[0-9a-f]{7,40})")/' \
     "маркер построчным разбором"; then
     run 0 "$b" "близнец: маркер ищется построчным разбором — молчит" "$C09"
 fi
@@ -2350,7 +2353,7 @@ if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\
     run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$CC_REL" 's/test\("\(\^\|\\n\)DoD-proof/test("DoD-proof/' \
+if mr_patch "$b/$DOD_REL" 's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
     "маркер в любом месте строки"; then
     run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
 fi
@@ -2360,7 +2363,7 @@ if mr_patch "$b/$CC_REL" 's/proof_unread="\$proof_unread \$ref"/proof_ok=\$((pro
     run 1 "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" "$C14"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$CC_REL" 's/\[\.\[\] \| \(\.body \/\/ ""\) \| test\(("[^"]*")\)\] \| any/any(.[]; (.body \/\/ "") | test($1))/' \
+if mr_patch "$b/$CC_REL" 's/\[\.\[\] \| \(\.body \/\/ ""\) \| dod_proof\] \| any/any(.[]; (.body \/\/ "") | dod_proof)/' \
     "маркер ищется any с генератором"; then
     run 0 "$b" "близнец: доказательство ищется any(генератор; условие) — молчит" "$C14"
 fi
