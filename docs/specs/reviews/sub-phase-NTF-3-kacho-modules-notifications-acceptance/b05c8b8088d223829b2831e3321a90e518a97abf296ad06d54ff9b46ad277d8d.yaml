@@ -1,0 +1,172 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: b05c8b8088d223829b2831e3321a90e518a97abf296ad06d54ff9b46ad277d8d
+  revision: 34
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT. Запись шапку не правит: вердикт привязан к отпечатку, а не к
+    слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 34 не закоммичена: судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD 9523f59d6). git show HEAD:<документ> | sha256sum → ac1f9fc9…4ac1 (одобренная редакция 33);
+    git diff --shortstat -- <документ> → 45 вставок, 9 удалений. Вердикт действителен ровно для
+    отпечатка b05c8b80…7d8d: коммит содержимого обязан дать тот же sha256.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → b05c8b80…7d8d
+  fingerprint_reproduced: true
+  lines: 4645
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-05T12:00:00Z'
+round: 1
+round_note: >-
+  Круг 1 на редакцию 34. Предмет — дельта 33 → 34 по Д127 (в), (г) и Д128. Блокирующими по заданию
+  судились только однозначность, конструируемость Given и производитель «Тогда». Прочее судилось в
+  прошлых кругах и не перепроверялось.
+previous_rounds:
+  - round: 1
+    revision: 33
+    sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1.yaml
+    note: Одобрение редакции 33 на редакцию 34 не переносится; эта запись — новое рассмотрение.
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_findings: []
+delta_conformance:
+  - claim: "Д127 (в): событие Repository любого рода — state_unavailable.reason = NOT_PRODUCED, клиентский отбор по меткам неисполним и назван исключением"
+    where: "Р2 (новый абзац), §2.1 строка Д127 (в), NTF3-61 новое «И», §11 строка NTF3-61, §12.1 п.2"
+    ok: true
+  - claim: "Д127 (г): имя в форме правила имени вида у владельца, у реестра допускается '.'"
+    where: "Р2 (абзац об имени снятия), Р3, Р6, §5 В9, NTF3-59 (б) с близнецом prod-images, §10, §11"
+    ok: true
+  - claim: "Д128: name во всех трёх строках resource-event NTF3-68; поле name события подписки — только на DELETED"
+    where: "Р3, NTF3-68 Then; Р3 явно разводит ленту и событие подписки — с NTF3-59 (CREATED без name) не конфликтует"
+    ok: true
+constructibility:
+  seeded: 0
+  named_fixture_or_tree_fact: 3
+  not_executed: 0
+  items:
+    - given: "NTF3-59 (б): реестр с именем prod.images"
+      evidence: >-
+        project/kacho @ffbe930dbef: services/registry/internal/domain/registry.go:28
+        dnsName = ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$; Create зовёт reg.Validate() →
+        ValidateName (create.go:61, registry.go:139); CHECK на name в
+        services/registry/internal/migrations/*.sql нет (grep 'CHECK.*name' → пусто).
+        prod.images и prod-images оба принимаются.
+    - given: "NTF3-61: события plg-1, gak-1, apl-1 несут state с полем labels"
+      evidence: >-
+        map<string,string> labels есть у PlacementGroup (compute/v1/placement_group.proto),
+        GuestAccessKey (compute/v1/guest_access_key.proto), AddressPool
+        (vpc/v1/internal_address_pool_service.proto) @ffbe930dbef.
+    - given: "NTF3-61: Repository — NOT_PRODUCED"
+      evidence: >-
+        subscription.StateNotProduced существует в corelib v1.10.0 и уже используется
+        (services/registry/internal/subscriptionjournal/journal.go:278, services/nlb/…/journal.go:397).
+  seeding_note: >-
+    Посев не ставился: стенд заданием не назван. Конструируемость показана фактами дерева,
+    перечисленными выше, — в зелёное посевом не зачтена.
+producers:
+  then_without_producer: []
+  checked:
+    - "NTF3-59 (б) → новая миграция registries_journal_emit + services/registry/internal/subscriptionjournal/journal.go (§11)"
+    - "NTF3-61 «И» → journal.go compute/vpc/registry (ветвь StateNotProduced), gateway/docs/content/api/subscription.mdx, docs/architecture/subscription-label-filter.md, internal/repohygiene/subscriptionstatelabels_test.go — все три файла существуют @ffbe930dbef (§11)"
+    - "NTF3-68 → прежний производитель строки ленты; новое утверждение — значение атрибута, не новый путь"
+twins:
+  - "NTF3-59 (б) prod.images ↔ prod-images — один факт ('.' в имени)"
+  - "NTF3-61 Repository ↔ plg-1 — пара видов одного Given, не отрицательный кейс; помечено в §10 явно"
+non_blocking_findings:
+  - id: N1
+    kind: CONVENTION
+    anchor: "Р2, абзац об имени снятия (стр. 731-735); шапка, строка редакции 34; §2.1 строка Д127 (г)"
+    what: >-
+      Утверждение «у пулов адресов — имена пулов, заведённых до единой формы» дерево опровергает.
+      project/kacho @ffbe930dbef, services/vpc/internal/migrations/715001_resource_name_single_form.sql:
+      address_pools входит в перечень таблиц; имя не по форме (включая пустое) заменяется на id
+      (UPDATE … SET name = id WHERE name IS NULL OR name !~ form), затем ставится
+      CHECK (name ~ '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$'). Домен: RcNameVPC.Validate → nameform.OK.
+      В мигрированной базе пул с именем вне DNS-метки не существует. Это подтверждает замер автора,
+      который правило про пулы тоже не подтвердил. Ни один «Тогда» на это не опирается: снимок несёт
+      хранимое имя как есть, и для пула оно — DNS-метка. Поэтому замечание не блокирует, но при
+      следующей правке пулы надо убрать из списка исключений Р2, шапки и §2.1, а не держать там
+      ложное основание.
+  - id: N2
+    kind: FORMAT
+    anchor: "§2.1, стр. 705-710"
+    what: >-
+      Между строкой Д31 и строками Д127 (в), Д127 (г), Д128 стоит пустая строка, а заголовок
+      «### 2.2» идёт сразу за ними без пустой строки. В CommonMark/GFM три новые строки отрываются
+      от таблицы (у них нет заголовка и разделителя) и отображаются абзацем с вертикальными чертами.
+      На смысл не влияет; исправить — убрать пустую строку перед Д127 и поставить её перед «### 2.2».
+  - id: N3
+    kind: COVERAGE
+    anchor: "§11 строка NTF3-61; §12.1 п.2"
+    what: >-
+      Что исключение «отбор по меткам неисполним» названо на клиентской странице подписки и в записи
+      решения, держится строкой гейта subscriptionstatelabels_test.go в §11, но ни один сценарий
+      это не утверждает. Держатель назван, производитель назван — не блокирует; при желании —
+      отдельное «И» к NTF3-61 с предикатом (гейт красный, если вид без типа состояния не назван
+      на странице).
+measurement:
+  scenario_ids: 164
+  withdrawn: 10
+  live: 154
+  count_predicate: >-
+    grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> | sort -u | wc -l → 164;
+    grep -cE '^\*\*ID:\*\* NTF3-[0-9]+ — \*\*снят' <документ> → 10. Совпадает с шапкой редакции 34.
+  delta_scope: >-
+    git diff -- <документ> трогает шапку (две строки), §2.1 (заголовок, три строки), Р2, Р3, Р6,
+    §5 В9, NTF3-59 (б), NTF3-61 «И», NTF3-68 Then, §10 (две строки), §11 (две строки), §12.1 п.2.
+    Совпадает с «Правлено только» строки редакции 34.
+premise_check:
+  task_premise: >-
+    Редакция 34 не закоммичена, вердикта на неё нет; правило про пулы из Д127 (г) замером автора
+    не подтверждено. Подтверждено: sha256sum рабочего файла → b05c8b80…7d8d, HEAD-версия →
+    ac1f9fc9…4ac1, записи на b05c8b80 в каталоге ревью не было. Утверждение про пулы опровергнуто
+    миграцией 715001 (N1).
+method_verdict: >-
+  Проверена дельта 33 → 34 против Д127 (в), (г) и Д128. Каждое утверждение найдено в решении и у
+  держателя, производитель назван в §11, файлы производителя в дереве продукта есть. Given NTF3-59 (б)
+  и NTF3-61 конструируемы по правилам дерева @ffbe930dbef. Однозначность: CREATED без name в NTF3-59
+  и name во всех строках ленты в NTF3-68 разведены Р3 явно. Блокирующих нет. Три замечания:
+  ложное основание про пулы, разрыв таблицы §2.1, исключение на странице подписки без
+  сценария — не блокируют.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: b05c8b8088d223829b2831e3321a90e518a97abf296ad06d54ff9b46ad277d8d
+  declared_verdict: 'APPROVED'
+  record_event_type: acceptance_approval
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: "Рецензент событие не публикует: тело события отдаётся курьеру строкой."
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 1 на редакцию 34, Д127 (в), (г), Д128, блокирующих 0) ·
+    SHA-256 b05c8b8088d223829b2831e3321a90e518a97abf296ad06d54ff9b46ad277d8d
+route_signals:
+  proto: false
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: false
