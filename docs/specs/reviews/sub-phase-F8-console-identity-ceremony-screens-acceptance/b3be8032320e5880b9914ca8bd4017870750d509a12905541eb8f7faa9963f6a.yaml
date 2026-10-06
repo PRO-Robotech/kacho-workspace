@@ -77,4 +77,21 @@ constructibility:
 
 route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}
 
-event: acceptance-reviewer · APPROVED · b3be8032320e5880b9914ca8bd4017870750d509a12905541eb8f7faa9963f6a
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho-workspace#897
+  status: performed
+  published: true
+  database_id: 6027041668
+  node_id: "IC_kwDOSVvpIM8AAAABZz1bhA"
+  url: "https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-6027041668"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/6027041668"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-06T23:03:36Z"
+  body_sha256: "4879a07294857ac75567592409fd875a632d43a61a7b3a30992ae2b58f4dda3d"
+  subject_sha256: "b3be8032320e5880b9914ca8bd4017870750d509a12905541eb8f7faa9963f6a"
+  subject_revision_commit: "f8dd2bf012b4ed503cb8530aef62e96671688584"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
