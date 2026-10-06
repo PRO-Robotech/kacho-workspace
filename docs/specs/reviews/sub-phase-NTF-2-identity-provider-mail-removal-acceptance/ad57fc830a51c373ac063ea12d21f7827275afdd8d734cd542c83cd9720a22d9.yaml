@@ -1,0 +1,135 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: ad57fc830a51c373ac063ea12d21f7827275afdd8d734cd542c83cd9720a22d9
+  revision: 33
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит «Статус: DRAFT», а строка редакции 33 — «вердикта нет». Эта запись
+    шапку НЕ правит, и это намеренно: вердикт привязан к отпечатку, а не к слову в заголовке.
+    Действующий вердикт определяется этой записью и внешним событием.
+  content_commit: none   # рабочее дерево worktree issue-880, не закоммичено; HEAD b077b9340
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4850
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T00:00:00Z'
+round: 1
+round_of: 2
+round_note: >-
+  Круг 1 из 2 по правке одобренной редакции 32 (5606cbc0…, круг 6, ✅). Одобрение 5606cbc0 на этот
+  отпечаток не переносится. Судилась дельта 32 → 33: `git diff` рабочего дерева против HEAD
+  b077b9340, +69/−28; содержимое HEAD совпадает с 5606cbc0 (`git show HEAD:<док> | sha256sum`).
+  Соседи сверены на тех же отпечатках в дереве: NTF-3 редакция 36 — 17635b5a… (одобрена, коммит
+  b077b9340), NTF-1 — c19490f9…c5db.
+publication_mode: record-plus-external-event-by-courier
+previous_rounds:
+  - pass: редакция 32, круг 6
+    sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+    verdict: APPROVED
+delta_items_accepted:
+  D96_section4: >-
+    ПРИНЯТО. Подпись DKIM и проверки DKIM, SPF, DMARC при старте отнесены к NTF-1 (Р19). У NTF-4
+    остались домен возврата, выравнивание, MX и `rua`.
+  D129_section4_ntf3_row: >-
+    ПРИНЯТО. Слова «право получателя `v_get` на ресурс» заменены снимком аудитории (NTF-3 Р30).
+  removed_audience_methods: >-
+    ПРИНЯТО по существу. NTF-3 Р7 действительно заводит форму `account_owner` своего справочника,
+    а NTF-3 Р30 включает администратора облака в снимок через `or super_admin` (строки 1848–1852).
+    Без этого методы остались бы без читателя.
+  class_s_not_resource_event: >-
+    ПРИНЯТО. Новый пункт Р11 согласован с NTF-3 Р1 и §3: у видов службы доступа снимка нет.
+blocking:
+  - id: B1-1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      Форма адресата строк ленты пространства `kaname` противоречит двум соседним приёмкам, а
+      справочник, который остаётся в NTF-2, — второй механизм рядом с NTF-3 Р7.
+    evidence:
+      - >-
+        NTF-2 Р11 (строки 1086–1092): строка класса S несёт вид адресата `subject` или
+        `account_security_contact` и идентификатор пользователя. Адрес `notify` разрешает в момент
+        отправки «внутренним методом справочника подтверждённых адресов».
+      - >-
+        NTF-1 Р6 (c19490f9, строка 743): «форма адресата в NTF-1 одна — адрес … из пространства
+        `kaname`».
+      - >-
+        NTF-3 Р27 (17635b5a, строка 1750): «`kaname` и стендовое пространство — `{address}` (NTF-1
+        Р6, без изменения)». Строку с формой, не разрешённой пространству, `notify` отвергает при
+        приёме: `INVALID(recipient_form_not_allowed)`, 0 SMTP-сессий. Формы
+        `account_security_contact` в закрытом перечне Р27 нет.
+      - >-
+        NTF-3 Р7 и Р28: справочник — `kaname.cloud.iam.v1.InternalNotificationRecipientService`, в
+        перечне звена ровно три метода (`Resolve`, `ListEventAudience`, `ListExpiringCredentials`).
+        Право проверяется дверью `Check(service:notify, reader, notification_recipient_directory:root)`,
+        «отдельного набора вызывающих у справочника нет». NTF-2 метод не называет, а право описывает
+        как «закрытый перечень методов, Д2».
+    consequence: >-
+      Положительный путь NTF2-90, NTF2-92, NTF2-93, NTF2-96 (письмо адресату-субъекту доставлено)
+      при одобренных NTF-1 и NTF-3 построить нельзя: строку отвергнет приём `notify`. When сценария
+      NTF2-88 не называет вызов (метод, `namespace`, `audience`). Остаются две возможности, и обе
+      плохие: либо это четвёртый метод, и тогда ложно утверждение NTF-3 «три метода», либо это
+      `Resolve`, и тогда для `kaname` нужна форма, которую NTF-3 Р27 запрещает.
+    required: >-
+      Нужна одна форма. Строка `kaname` несёт ту форму, которую разрешает NTF-3 Р27, либо NTF-3
+      Р27 и NTF-1 Р6 расширяются под формы NTF-2, но тогда это правка тех приёмок, а не только
+      этой. Справочник NTF-2 называется методом NTF-3 Р7 с конкретным запросом. Then NTF2-88
+      утверждает форму отказа двери NTF-3 Р7 (`PERMISSION_DENIED` `permission denied`,
+      `ErrorInfo{reason: AUTHZ_DENIED}`) парой код + reason.
+  - id: B1-2
+    kind: OPEN-QUESTION
+    summary: >-
+      «Контакт безопасности аккаунта» разрешается двумя механизмами, и текст Р11 редакции 33 их
+      смешивает.
+    evidence:
+      - >-
+        NTF-2 Р11 (строки 1094–1096): событие о субъекте, который не может быть адресатом
+        (сервисный аккаунт и т.п.), уходит «для аккаунта — его владельцам (контакт безопасности
+        аккаунта, назначаемый владельцем, заводит NTF-3 Р20 …)». Механизм — снимок владельцев в
+        транзакции события kaname.
+      - >-
+        NTF-3 Р20 (строки 1587–1612): контакт хранится в `notify`
+        (`/notify/v1/accounts/{accountId}/contacts`) и «решает, кому уходят письма о чужих учётных
+        данных аккаунта (ключи его сервисных аккаунтов)». Его разрешает `notify` через `Resolve`
+        с `account_reader`, а запасной вариант — `account_owner`.
+    consequence: >-
+      Возьмём явно назначенный контакт, который не владелец. Напоминание NTF-3 об истечении ключа
+      сервисного аккаунта он получит. Письмо класса S NTF-2 о выпуске или отзыве того же ключа он не
+      получит: kaname в своей транзакции контакт из `notify` прочитать не может. Выходит, что одно
+      понятие имеет два правила адресата, а это противоречит основанию Р11 «одно правило адресата
+      на все каналы». Ни один сценарий этого случая не утверждает.
+    required: >-
+      Решить, получает ли явно назначенный контакт NTF-3 Р20 письма класса S kaname о субъектах
+      области. Если получает — по какому одному механизму. Если не получает — убрать отсылку к Р20
+      из Р11 и прямо сказать, что для класса S адресаты — владельцы, а не контакт. Решение
+      закрепить сценарием с близнецом.
+important:
+  - id: I1-1
+    kind: FORMAT
+    summary: >-
+      Then NTF2-88 утверждает только `code` 7, без `reason`. Если вызов — дверь NTF-3 Р7, нужна пара
+      код + reason (`AUTHZ_DENIED`), иначе отказ другой природы окажется неотличим.
+route_signs:
+  proto: yes
+  schema: yes
+  public_rpc: yes
+  ui: yes
+  new_domain: no
+  security_surface: yes
+constructibility:
+  seeded: 0
+  not_executed: 2
+  note: >-
+    Посев не ставился: предмет круга — согласованность с соседними приёмками, и её дал разбор
+    текста на зафиксированных отпечатках. Конструируемость положительного пути NTF2-90/92/93/96
+    опровергнута разбором (B1-1), а не посевом.
+external_event_body: "acceptance-reviewer · RETURNED · sha256:ad57fc830a51c373ac063ea12d21f7827275afdd8d734cd542c83cd9720a22d9"
