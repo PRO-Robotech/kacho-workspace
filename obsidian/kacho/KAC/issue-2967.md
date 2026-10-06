@@ -118,7 +118,7 @@ verified_against: "kacho 1266@680d1794b6b8 (коммит слияния PR #3043
 
 - [[KAC/issue-1266]] — эпик
 - [[KAC/issue-2966]] — волна-3
-- kacho#2968 — волна-5 (trail не заведён)
+- [[KAC/issue-2968]] — волна-5
 - [[KAC/issue-538-kaname]] — волна-4 службы
 
 #kac #epic #kacho-api-gateway #kacho-deploy

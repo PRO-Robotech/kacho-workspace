@@ -125,6 +125,10 @@ verified_against: "каталог пакета есть в дереве прод
   `TestEdgeRefusalNamesNoInternalService` (`internal/repohygiene/edgerefusalinternalname.go`,
   [[KAC/issue-3029]]); правка текста отказа неподтверждённого адреса откачена к значению приёмки
   (`81f7bf3504e`) — [[lessons/edge-refusal-text-changed-past-its-acceptance]].
+- 2026-10-07 — волна-5 эпика `1266` ([[KAC/issue-2968]], PR kacho#3055, `0ae22f8f8c67`; в `main` не влито):
+  аутентификация читает тот же список публичных методов, что и проверка прав — источник один, читателей два
+  ([[KAC/issue-3033]]); в перечне путей полосы входа — два глагола входа ключом доступа Ф13 ([[KAC/issue-3037]],
+  [[edges/api-gateway-to-kaname-login-lane]]); маршруты службы ключей доступа Ф7 при поднятом пине ([[KAC/issue-2718]]).
 
 ## См. также
 
