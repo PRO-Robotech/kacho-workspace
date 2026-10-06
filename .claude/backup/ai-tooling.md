@@ -241,3 +241,8 @@ at-bypass-not-from-repo-layer · режим обхода из проектног
 at-bypass-not-from-repo-layer · режим обхода из проектного и локального слоёв харнесс игнорирует; даёт его лишь личный `~/.claude/settings.json`, policy или флаг · `claude --debug-file` — `[session-notices] mode=bypassPermissions` нет (CC 2.1.278, 2026-09-21) · red: объявление режима в дереве, подтверждения приходят
 
 at-claim-about-own-check-runs-or-lies · утверждение об оснастке, проверяемое только ИСПОЛНЕНИЕМ, пиши с координатой, которую резолвит обход, и со знаменателем; числа печатает прибор · scripts/tooling-gate/measure-claims-about-checks.py · red: держатель назван, артефакта нет; «не найдено» без числа осмотренного
+
+## lc1, lc6 до 2026-10-06 (ws#931)
+
+lc1-acceptance-first · новая работа — только после APPROVED Given-When-Then; без APPROVED не кодить (ban #1) · docs-gate check-01 · red: код без APPROVED-приёмки
+lc6-role-reviews · ревью — по `git-issues.md#gi-asm-one-round` · ЗАВЕСТИ · red: посадка без роли задетой области; четвёртая роль на задачу

@@ -4,7 +4,7 @@ aliases:
   - issue-2966
 ticket_id: 2966
 category: kac
-status: in-progress
+status: test
 type: epic
 repos:
   - kacho
@@ -12,22 +12,25 @@ areas:
   - gateway
   - deploy
   - ui-future
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/3036
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2966
 opened: 2026-10-01
+closed: 2026-10-05
 tags:
   - kac
   - epic
   - kacho-deploy
   - kacho-api-gateway
-verified_against: "kacho 1266@9b14ae7f01c (коммит слияния PR #3016, родители 656955b66b7 + be1d233cc8c; голова origin/1266 = этот коммит, 2026-10-04): состав — git log 656955b66b7..9b14ae7f01c --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям-доказательствам задачи; пробы и конвейер этой записью не перезапускались"
+verified_against: "kacho 1266@9b14ae7f01c (коммит слияния PR #3016, родители 656955b66b7 + be1d233cc8c; голова origin/1266 = этот коммит, 2026-10-04): состав — git log 656955b66b7..9b14ae7f01c --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям-доказательствам задачи; пробы и конвейер этой записью не перезапускались; 2026-10-06 — только состояние: волна закрыта (gh issue view → CLOSED 2026-10-05), запрос kacho#3036 влит коммитом слияния e3476f0bc28 (gh pr list --base 1266 --state merged); состав волны-3 этой записью не переписывался"
 ---
 
 # kacho#2966: identity-own · #1266 · волна-3 — сквозные пробы через край; отсечка на проводе
 
-> [!note] Состояние — `in-progress`: волна открыта
-> Ветка волны `2966` заведена от `1266`@`9b14ae7f01c` (голова совпадает, 2026-10-04). Запросов в `2966`
-> нет (`gh pr list --base 2966` → пусто).
+> [!note] Состояние — `test`: волна ЗАКРЫТА вливанием в ветку эпика `1266` (2026-10-05), в `main` не влито
+> Запрос [kacho#3036](https://github.com/PRO-Robotech/kacho/pull/3036) влит коммитом слияния `e3476f0bc28`. Trail закрытия волны-3 (состав, перенесённое)
+> этой записью не написан — исправлено только устаревшее состояние «волна открыта»; остальной текст ниже —
+> состояние на 2026-10-04.
 
 ## Что и зачем
 

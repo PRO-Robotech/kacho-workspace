@@ -123,6 +123,11 @@ command -v jq >/dev/null 2>&1 || { echo "merge-readiness: jq не найден" 
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
+# Распознаватель доказательства DoD — общий для всего дерева (`lib/dod_proof.jq`),
+# своей копии выражения здесь нет. Нет файла — судить нечем, код 2.
+dod_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
+[ -r "$dod_lib/dod_proof.jq" ] || { echo "merge-readiness: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq)" >&2; exit 2; }
+
 # ОТКАЗ РАЗБОРА — ЭТО КОД 2, А НЕ 1. Единственная точка, где скрипт объявляет,
 # что вердикта у него нет. Всё, что не сошлось при чтении ответа соседа или при
 # сверке множеств, обязано приходить сюда: иначе вызывающий прочитает поломку
@@ -347,7 +352,7 @@ else
     fi
     jq -e -s 'all(.[]; type == "array")' >/dev/null 2>&1 <"$cfile" \
       || parse_broken "ответ о комментариях задачи $ref_repo#$ref_num не разбирается как список"
-    if jq -e -s 'add // [] | any(.[]; (.body // "") | test("(^|\n)DoD-proof @[0-9a-f]{7,40}"))' >/dev/null <"$cfile"; then
+    if jq -L "$dod_lib" -e -s 'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof)' >/dev/null <"$cfile"; then
       proof_ok=$((proof_ok + 1))
     else
       proof_missing+=("$ref_repo#$ref_num")
@@ -553,6 +558,18 @@ if [ "${req_count:-0}" -eq 0 ]; then
   echo "merge-readiness: у ветки '$set_branch' защита есть, а обязательных контекстов ноль —"
   echo "                 слияние ничем не гейтится. Это находка, а не норма."
   exit 2
+fi
+
+# НАБОР — ВЫЗЫВАЮЩЕМУ СТРУКТУРНО (landing-precheck.sh, пункт (г)). Предпроверка
+# снимает `skipped` только у необязательного задания (и только при невыполнимом
+# на событии прогона условии `if` — ws#947), skipped обязательного — незелёный; чей набор
+# обязателен для ЭТОГО PR (база или ствол для ветки линии), решает только этот
+# скрипт — второй копии выбора нет. Имя за строкой; файла нет — набор не выведен
+# (ранний выход, путь ручного прогона воркспейса), и вызывающий обязан считать
+# `skipped` незелёным.
+if [ -n "${MERGE_READINESS_REQUIRED_OUT:-}" ]; then
+  printf '%s\n' "$required" > "$MERGE_READINESS_REQUIRED_OUT" || {
+    echo "merge-readiness: набор обязательных не записан в $MERGE_READINESS_REQUIRED_OUT" >&2; exit 2; }
 fi
 
 # Исходы на ревизии PR. Один контекст может встретиться дважды (перезапуск),

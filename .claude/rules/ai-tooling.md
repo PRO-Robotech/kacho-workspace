@@ -104,11 +104,11 @@ at-no-nested-launches · агент не зовёт другого напрям�
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
 
 at-lifecycle-preamble · порядок lifecycle выставляет диспетчер по возвратам; шаг не запускает следующий сам · check-05 · red: шаг цепляет следующий без диспетчера
-lc1-acceptance-first · новая работа — только после APPROVED Given-When-Then; без APPROVED не кодить (ban #1) · docs-gate check-01 · red: код без APPROVED-приёмки
+lc1-acceptance-first · приёмка — `00-kacho-core.md#ban01-acceptance` · docs-gate check-01 · red: смена контракта без APPROVED
 lc2-issue-branch-trail · фича — issue + ветка `<N>-<суффикс>` (`git-issues.md` §«Имя ветки») + trail в vault · docs-gate check-02 · red: код без issue, ветки или trail
 lc4-crossrepo-order · порядок proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по модулям, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
 lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
-lc6-role-reviews · ревью — по `git-issues.md#gi-asm-one-round` · ЗАВЕСТИ · red: посадка без роли задетой области; четвёртая роль на задачу
+lc6-role-reviews · ревью — по уровню, `git-issues.md#gi-asm-one-round` · ЗАВЕСТИ · red: R2 без роли области; четвёртая роль
 lc7-final-verification · `testing.md#final-verification-before-merge` и make audit-list-filter — зелёные на PR сборки · ci.yaml — зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 lc8-trail-and-close · обновить vault (resources/rpc/edges + записка) и закрыть issue с артефактами · vault-gate, docs-gate check-02 · red: issue закрыт без trail
 

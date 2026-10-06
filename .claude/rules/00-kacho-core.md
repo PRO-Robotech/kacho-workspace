@@ -20,7 +20,7 @@ naming-json-camel · camelCase: <resource>Id, projectId, createdAt · TestClient
 
 ## Non-negotiables (детали — в модулях правил)
 
-ban01-acceptance · не пишется без APPROVED acceptance Given-When-Then · acceptance-reviewer, TestNewMigrationCitesAnApprovedAcceptance · red: коммит без приёмки
+ban01-acceptance · смена публичного контракта — только по APPROVED Given-When-Then, прочее — по задаче и TDD (владелец 2026-10-06); миграция — пока гейт не снят · acceptance-reviewer, `lane-tier.sh`, TestNewMigrationCitesAnApprovedAcceptance · red: контракт без приёмки
 ban02-no-foreign-clouds · ни одного упоминания в коде/доках/env/именах · TestForeignProductInjection_ForeignNameIsFoundWithItsCoordinate · red: yandex/aws в дереве
 ban03-no-orm · только sqlc + рукописный pgx · ЗАВЕСТИ · red: ORM в go.mod
 ban04-no-cross-service-cascade · только same-DB FK cascade · ЗАВЕСТИ · red: каскад через границу сервиса
