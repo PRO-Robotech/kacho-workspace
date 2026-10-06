@@ -1,0 +1,90 @@
+# Пост-дифф ревью схемы — роль db-architect-reviewer, PRO-Robotech/kaname PR #628 (волна def1: E-X4 + D-F1).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kaname
+  pr: 628
+  branch: 484-wave-notify-def1
+  base: cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479   # = origin/484-notify = merge-base
+  head: 0f9af7654d6f68c32a75ac33c90a0f6a9f4a074b
+  content_digest: efbfb07b5cf4e5b37c1a80e322d9d3e66d92d1247617fda4544adb8a67dbee77
+  digest_predicate: git diff cbd729cfa..0f9af7654 | sha256sum   # перемерено дважды, совпало; совпадает с записью system-design-reviewer
+  premise_remeasured: >-
+    tmp/484-wave-notify-def1: HEAD = 0f9af765 = origin/484-wave-notify-def1 = headRefOid PR #628;
+    база PR 484-notify = cbd729cf. Дифф: 7 файлов, +707/-4; путей миграций 2 (обе новые, A),
+    repo-SQL 0. Обе версии (20261006145953, 20261006151313) старше последней базы (20261004160000).
+  acceptance: NTF-2 d06cdcd2… (sha256sum перемерен); замысел design.md §6 «Схема БД (набросок)»
+snapshot_at: 2026-10-06
+
+migrations_touched: 2
+verdict: ACCEPTED   # ✅ принято
+blocks: false
+return_to: —
+
+runs:
+  - cmd: go test -count=1 ./internal/migrations/ -json   # @0f9af765, Postgres в контейнере
+    outcome: "rc=0; исполнено зелёными 312 (с подпробами), красных 0, пропусков 0"
+  - cmd: "go test -run '<11 проб mail_admission + 2 пробы статистики>' -v ./internal/migrations/"
+    outcome: "13 PASS — NTF2_44 Feed, MomentCarriesFeedRow, CX2_35, CX2_33, InviteActLettered, CX2_21, OneLiveCodePerPerson, LiveRecoveryCodesNarrowed, SmallerInvariants, RollsBackAndForward, SecretMaterial x2 (+ClientSecretVerifier)"
+  - cmd: make notifications-check BASE=cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479
+    outcome: "rc=0; notifygen corelib bdb379942934; «миграций ленты 1» — файл ленты сверен с генератором пина"
+
+approved:
+  - "мигр. ленты 20261006145953 — порождена notifygen init, сверена генератором (rc=0); предмет схемы ленты — corelib, здесь не судится"
+  - "mail_windows: PK (purpose, key_digest), CHECK purpose ∈ 3, CHECK длины 32 — inline"
+  - "mail_window_letters: FK (purpose,key_digest) → mail_windows ON DELETE RESTRICT (CX2-35), feed_id NOT NULL + <> '' (CX2-32), CHECK kind↔device_label_id; индекс окна покрывает FK"
+  - "pending_registrations: UNIQUE (address_digest, code_digest) (CX2-33), FK RESTRICT на якорь, CHECK expires_at > created_at; индекс полный — живость от часов в предикат не входит (верно)"
+  - "invite_acts: внешних ключей нет намеренно (CX2-21, проба pg_constraint с контролем); CHECK lettered = (feed_id IS NOT NULL)"
+  - "trusted_devices: UNIQUE label_digest, FK users ON DELETE CASCADE (та же база), индекс под FK и под уборку"
+  - "security_notice_ledger: PK (audit_event_id, template, recipient_user_id) — ON CONFLICT DO NOTHING держит И11"
+  - "recovery_codes: перенос одним оператором (самый поздний по (issued_at,id) живой), CHECK superseded_at >= issued_at, CHECK одного конца, частичный UNIQUE (user_id) WHERE живой — форма З12; email_verification_codes уже несёт ту же форму (20260927190000), проба 23505 зелёная"
+  - "SET STATISTICS 0 на секретный материал (password_hash, password_probe, code_digest, label_digest, secret_attrs ленты); ведомость keeps дописана, проба кандидатов зелёная"
+  - "Down обратим, проба отката и повторного наката зелёная; внешних ключей через границу сервиса 0; ORM 0; применённые миграции не тронуты"
+
+findings_nonblocking:
+  - id: DB628-n1
+    where: internal/repo/kaname/pg/recovery_code_repo.go:126-128 (ConsumeRecoveryCode, не в диффе)
+    summary: >-
+      Схема вводит состояние «вытеснен», оператор применения его не знает: WHERE consumed_at IS NULL без
+      AND superseded_at IS NULL. Предъявление вытесненного кода → UPDATE нарушает recovery_codes_one_end_check
+      → 23514 → ErrStoreUnavailable (наблюдатель StoreFailed) вместо «код отвергнут» с учётом попытки.
+    why_not_blocking: >-
+      Отказ fail-closed (доступа не даёт), строки «вытеснен» в этой фазе появляются только переносом —
+      после исторической гонки двух запросов на стендах (прода нет, замысел §6); прежний код при следующей
+      выдаче их удаляет. Предикат: строка с superseded_at, UPDATE consumed_at по ней → 23514 (та же форма
+      утверждена пробой OneLiveCodePerPerson, последний шаг).
+    order: "полоса кода восстановления (перевод вытеснения DELETE→UPDATE superseded_at) — добавить AND superseded_at IS NULL в оператор применения тем же изменением, что начнёт писать superseded_at; проба: вытесненный код → CodeRejected"
+  - id: DB628-n2
+    where: internal/apps/kaname/api/humansession/recovery_request.go:185-189
+    summary: >-
+      Прежний путь DELETE-затем-INSERT под новым частичным UNIQUE: при гонке двух запросов второй получает
+      23505 → лог «code and letter not recorded» + StoreFailed, письма нет. Инвариант З12 держит база (верно);
+      ответ вызывающему не меняется (постановка вне пути ответа) — оракула нет. Ложная классификация метрики.
+    order: "та же полоса — вытеснение UPDATE под блокировкой якоря (recovery, key) по З11 сериализует запросы, гонка уходит"
+  - id: DB628-n3
+    summary: >-
+      Замысел §6 снимает invite_mail_outbox / invite_mail_windows / source_request_windows той же миграцией;
+      здесь — фаза расширения, снятие отложено в фазу сужения (живой код их читает). Это expand→contract, не обход;
+      DROP и запись retired.json — обязанность полосы сужения (S8), NTF2-44 «таблицы очереди нет» до неё не зелёный.
+  - id: DB628-n4
+    summary: >-
+      keeps-записи статистики для key_digest/address_digest держатся на утверждении «свёртка адреса С КЛЮЧОМ службы».
+      Писателей этих колонок в диффе нет; при свёртке без ключа запись стала бы ложной (pg_stats понесёт
+      словарно-обратимые свёртки адресов).
+    order: "полоса, пишущая key_digest/address_digest, — проба, что свёртка ключевая (HMAC), иначе SET STATISTICS 0"
+
+orders_concurrency_probes:
+  items:
+    - invariant: recovery_codes_one_live_per_user (частичный UNIQUE) на ПУТИ КОДА — N параллельных запросов восстановления → живой код 1, писем 1
+      to: integration-tester (на полосе кода восстановления; схема одна — проба кода)
+    - invariant: якорь окна (вставка ON CONFLICT DO NOTHING + FOR UPDATE) против уборки якоря — параллельные момент и уборка → 23503 ни разу не доходит до вызывающего
+      to: integration-tester (на полосе транзакции окна З11)
+  note: >-
+    В этом диффе кода записи нет — все инварианты держит база (PK/UNIQUE/FK/CHECK), пробы парные
+    (отрицание + близнец) последовательные. Конкурентная проба осмысленна на пути кода, поэтому — заказ, не возврат.
+
+crosses_distributed_properties: false   # лента/claim/lease — corelib notifygen, вне этой роли
