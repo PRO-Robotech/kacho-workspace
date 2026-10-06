@@ -31,6 +31,14 @@
 #   вернувшей (§8а п.8), sha принявшей не переписан, полоса стоит до сборки:
 #   новую голову принявшая не видела (ws#933, опыт check-verifier r3); близнец —
 #   одна роль уровня вернула и приняла дельту — полоса идёт дальше.
+#   номер PR сборки — целое ≥ 1 и в схеме, и в теле: нет поля, 0, строка, адрес —
+#   остановка на сборке с причиной, «PR #undefined» не уходит ни в одно задание
+#   (ws#935); близнец — pr 7 доходит до CI и посадки;
+#   вердикт роли — только поле verdict словаря accept | return | void: «✅» в
+#   report без поля — не принят; void — не принят;
+#   CI «идёт» и после ожидания, landing-precheck только с CI-PENDING — state
+#   running, а не провал; близнецы — красный CI и CI-PENDING с другой причиной —
+#   state failed.
 #
 # ИНЪЕКЦИИ — без довода проба после контроля прогоняет МУТАНТОВ шаблона (по
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
@@ -89,16 +97,16 @@ async function run(sc) {
   const take = (key, def) => { const q = (sc[key] || []); const i = (cnt[key] = (cnt[key] || 0) + 1) - 1; return i < q.length ? q[i] : def() }
   const agent = async (prompt, opts = {}) => {
     const label = opts.label || ''
-    calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt })
+    calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
     const lane = label.split(':').pop()
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: JSON.stringify(o), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
-    if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
+    if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
     if (sc.ret && label === 'review-' + sc.ret + ':' + lane) return { verdict: 'return', sha: heads[lane], blocking: ['x'], report: 'r' }
     if (label.startsWith('review-') || label.startsWith('acceptance-review-')) return { verdict: 'accept', sha: sc.staleRole ? H('old', 0) : heads[lane] || '', blocking: [], report: 'r' }
-    if (label.startsWith('mech:assemble:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r' }
+    if (label.startsWith('mech:assemble:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('asm', () => ({})) }
     if (label.startsWith('mech:ci:')) return { head: HW, total: 3, passed: 3, report: 'r', ...take('ci', () => ({ state: 'green' })) }
     if (label.startsWith('mech:landing:')) return { out: '', head: HW, ...take('land', () => ({ code: 0, reasons: [] })) }
     if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40) }
@@ -187,6 +195,36 @@ ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:pr-edit') === 1, 'п�
 r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['MERGE-READINESS'] }] })
 ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'merge-readiness не 0 — вливания нет')
 
+console.log('== номер PR — целое ≥ 1, иначе остановка с причиной (ws#935)')
+for (const [name, v] of [['нет поля', { pr: undefined }], ['0', { pr: 0 }], ['строка «—»', { pr: '—' }], ['адрес', { pr: 'https://github.com/o/r/pull/7' }]]) {
+  r = await run({ args, plan: [P('r1.json')], asm: [v] })
+  const after = by(r.calls, c => c.agentType === 'wave-reviewer' || c.label.startsWith('mech:ci:') || c.label.startsWith('mech:landing:') || c.label.startsWith('mech:merge'))
+  const undef = r.calls.some(c => /PR #(undefined|0\b|—|null)/.test(c.prompt || ''))
+  ok(r.res.ok === false && r.res.state === 'failed' && /номер PR не целое/.test(r.res.stage || '') && after === 0 && !undef, 'pr ' + name + ' — остановка на сборке, рецензента, CI и посадки нет, «PR #undefined» не подставлен', JSON.stringify(r.res).slice(0, 200))
+}
+r = await run({ args, plan: [P('r1.json')] })
+const prSchema = (((r.calls.find(c => c.label.startsWith('mech:assemble:')) || {}).schema || {}).properties || {}).pr || {}
+const revSchema = (((r.calls.find(c => c.label === 'review-wave') || {}).schema || {}).properties || {}).verdict || {}
+ok(prSchema.type === 'integer' && prSchema.minimum === 1, 'схема сборки требует pr целым ≥ 1', JSON.stringify(prSchema))
+ok(JSON.stringify(revSchema.enum) === JSON.stringify(['accept', 'return', 'void']), 'словарь вердикта роли закрыт: accept | return | void', JSON.stringify(revSchema))
+ok(r.res.ok === true && r.calls.filter(c => c.label.startsWith('mech:ci:') || c.label.startsWith('mech:landing:')).every(c => /PR #7\b|\s7\s/.test(c.prompt)), 'близнец: pr 7 — номер идёт в CI и посадку')
+
+console.log('== вердикт рецензента — только поле verdict')
+r = await run({ args, plan: [P('r1.json')], wave: [{ verdict: undefined, report: '✅ принято' }] })
+ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'нет поля verdict, в тексте «✅ принято» — не принят, вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r1.json')], wave: [{ verdict: 'void', report: 'прогон недействителен' }] })
+ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:ci:')) === 0, 'verdict void — не принят, CI не зовётся')
+
+console.log('== «идёт» после ожидания — состояние, а не провал')
+r = await run({ args, plan: [P('r0.json')], ci: Array(12).fill({ state: 'running' }) })
+ok(r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все 12 ожиданий — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], ci: [{ state: 'red' }] })
+ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI красный — state failed')
+r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['CI-PENDING'] }, { code: 1, reasons: ['CI-PENDING'] }] })
+ok(r.res.ok === false && r.res.state === 'running' && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'landing-precheck: только CI-PENDING и после повтора — state running, не провал', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['CI-PENDING'] }, { code: 1, reasons: ['CI-PENDING', 'MERGE-READINESS'] }] })
+ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI-PENDING и MERGE-READINESS — state failed')
+
 console.log(`RESULT ${pass} ${fail}`)
 process.exit(fail ? 1 : 0)
 JS
@@ -232,6 +270,11 @@ mutant "непросмотренная голова не останавлива�
 mutant "повтор — и принявшим" "const again = await Promise.all(back.map(x => review(x.r, l, impl.head, prev, 'review-' + x.r + '-2')))" "const again = await Promise.all(roles.map(r => review(r, l, impl.head, prev, 'review-' + r + '-2')))"
 mutant "перепин не заводится" "onlySkew && round === 1)" "onlySkew && round === 0)"
 mutant "рецензент волны на каждую полосу" "if (steps.has('wave-reviewer')) {" "for (const _ of order) if (steps.has('wave-reviewer')) {"
+mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
+mutant "pr в схеме — любое число" "pr: { type: 'integer', minimum: 1 }" "pr: { type: 'number' }"
+mutant "CI идёт после ожидания — провал" "if (ci && ci.state === 'running' && ci.head === asm.head) return" "if (false) return"
+mutant "CI-PENDING посадки — провал" "if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return" "if (false) return"
+mutant "вердикт волны — по значку в тексте" "if (!wr || wr.verdict !== 'accept')" "if (!wr || !(wr.verdict === 'accept' || /✅/.test(wr.report || '')))"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo

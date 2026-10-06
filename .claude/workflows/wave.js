@@ -24,6 +24,9 @@ export const meta = {
 //    при НОВОЙ голове;
 //  - механика (скрипты, git, трекер, чтение CI) — дешёвой моделью;
 //  - возврат не из-за кода — строкой wave-errors.sh (часы), доля в итоге.
+//  - номер PR сборки — целое ≥ 1 (схема и проверка), иначе остановка с причиной;
+//    вердикт роли — только поле verdict (accept | return | void);
+//  - итог несёт state: running (CI ещё идёт — не провал) | failed.
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
@@ -39,8 +42,10 @@ const C = [
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
 const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'report'] }
-const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'invalid'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'report'] }
-const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'number' }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
+// Вердикт роли — ТОЛЬКО поле verdict закрытого словаря (accept | return | void —
+// «прогон недействителен»); значок или слово в report не читаются нигде (класс 7).
+const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'report'] }
+const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'integer', minimum: 1 }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
 const S_CI = { type: 'object', properties: { state: { type: 'string', enum: ['green', 'red', 'running', 'not_run', 'unread'] }, head: { type: 'string' }, total: { type: 'number' }, passed: { type: 'number' }, report: { type: 'string' } }, required: ['state', 'head', 'total', 'passed', 'report'] }
 const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 const rep = (lane, step) => D + '/' + lane + '/' + step + '.md'
@@ -170,7 +175,11 @@ const steps = new Set(lanes.flatMap(l => tierOf[l.key].steps))
 const order = layers.flat()
 const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
-if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
+if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
+// Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
+// (нет поля, 0, строка «—», адрес) — остановка ЗДЕСЬ с причиной: иначе шаги ниже
+// получили бы «PR #undefined» и судили бы не тот запрос либо никакой (ws#935).
+if (!Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors }
 const waveReviews = []
 if (steps.has('wave-reviewer')) {
   const wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + D + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_REV })
@@ -183,7 +192,10 @@ for (let i = 0; i < 12; i++) {
   ci = await agent(C + '\n\nРежим CI: ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + asm.head + '. Прочти check-runs НА ЭТОЙ голове; идёт — подожди до 10 минут и верни running. Отчёт — ' + D + '/ci-' + i + '.md. Верни state, head, total, passed, report.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci:' + i, phase: 'Сборка', schema: S_CI })
   if (!ci || ci.state !== 'running') break
 }
-if (!ci || ci.state !== 'green' || ci.head !== asm.head) return { ok: false, stage: 'CI ' + (ci ? ci.state : 'нет ответа'), report: ci ? ci.report : '', errors }
+// «Идёт» и после ожидания — СОСТОЯНИЕ, а не провал: волна не влита и не сломана,
+// повтор шаблона продолжит с той же головы (state running отличим от failed).
+if (ci && ci.state === 'running' && ci.head === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' — ожидание исчерпано, провала нет', pr: asm.pr, head: asm.head, report: ci.report, errors }
+if (!ci || ci.state !== 'green' || ci.head !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + (ci ? ci.state : 'нет ответа'), report: ci ? ci.report : '', errors }
 
 // ── Посадка ─────────────────────────────────────────────────────────────
 phase('Посадка')
@@ -212,6 +224,7 @@ if (lp && lp.code === 1) {
     lp = await landCheck(2)
   }
 }
-if (!lp || lp.code !== 0) return { ok: false, stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], errors }
+if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, errors }
+if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], errors }
 const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + asm.head + '; основание — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи волны со ссылкой на их DoD-proof. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
 return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), pr: asm.pr, head: asm.head, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
