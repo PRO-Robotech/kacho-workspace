@@ -24,7 +24,7 @@ tags:
   - iam
   - internal
   - migrations
-verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался. 2026-09-21: словарь `ended_reason` пересверен по обеим миграциям на ревизии 229a0693 — значений три, не два; остальные строки таблицы колонок при этой сверке не пересматривались. Перемер 2026-09-26: словарь ended_reason прочитан в миграциях 20260917160000_second_factor_rows_carry_state_and_step.sql (есть в origin/main службы cbbac984b7b) и 20260923160455_human_session_end_reason_names_the_forced_exit.sql (только в ветке эпика 357, PRO-Robotech/kaname@fc9f5aff19c)"
+verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался. 2026-09-21: словарь `ended_reason` пересверен по обеим миграциям на ревизии 229a0693 — значений три, не два; остальные строки таблицы колонок при этой сверке не пересматривались. Перемер 2026-09-26: словарь ended_reason прочитан в миграциях 20260917160000_second_factor_rows_carry_state_and_step.sql (есть в origin/main службы cbbac984b7b) и 20260923160455_human_session_end_reason_names_the_forced_exit.sql (только в ветке эпика 357, PRO-Robotech/kaname@fc9f5aff19c); 2026-10-06 — ветка эпика 296@2cf9c8528b1f: наличие гейта единственного писателя уровня — git grep TestSessionLevelHasOneWriterCallSite (humansession/session_level_writer_test.go); колонки не пересматривались"
 ---
 
 # human_sessions (iam)
@@ -116,6 +116,11 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 - 2026-09-27 (#846) — две правки 2026-09-26 из параллельных линий сведены: строка словаря
   называет и `main`, и ветку эпика; врезка об административном выходе ограничена `main`
   службы — в ветке эпика `357` предмет снят задачами #334 и #340.
+- 2026-10-06 — волна-4 эпика `296` ([[KAC/issue-538-kaname]], PR kaname#623, `2cf9c8528b1f`; в `main` службы
+  не влито): колонку `assurance_level` пишет один вызов, гейт `TestSessionLevelHasOneWriterCallSite`
+  ([[KAC/issue-343-kaname]]); копия уровня в ответе смены пароля читает записанное значение
+  ([[KAC/issue-208-kaname]]); сессию выдаёт и вход ключом доступа ([[KAC/issue-613-kaname]]). Колонки не
+  правились.
 
 ## See also
 

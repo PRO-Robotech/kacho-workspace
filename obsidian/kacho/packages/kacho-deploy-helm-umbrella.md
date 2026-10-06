@@ -12,7 +12,7 @@ tags:
   - packages
   - kacho-deploy
   - config
-verified_against: "Перемер 2026-09-26 на PRO-Robotech/kacho@7190c3e5274 (коммит слияния волны 2796 в ветку эпика 2564): цепочки — deploy/stacks.txt, посадка identityProvider обеих половин — слиянием YAML values.yaml и файлов каждой цепочки (рендеров helm не гонялось), содержимое values.own.yaml — git show. Прочие ручки таблицы — по записи 2026-09-22: ствол bec320cf47d и ветка issue-2735-loginlane-prereq @6e222f9c1b9"
+verified_against: "Перемер 2026-09-26 на PRO-Robotech/kacho@7190c3e5274 (коммит слияния волны 2796 в ветку эпика 2564): цепочки — deploy/stacks.txt, посадка identityProvider обеих половин — слиянием YAML values.yaml и файлов каждой цепочки (рендеров helm не гонялось), содержимое values.own.yaml — git show. Прочие ручки таблицы — по записи 2026-09-22: ствол bec320cf47d и ветка issue-2735-loginlane-prereq @6e222f9c1b9; 2026-10-06 — раздел о волне-4 — по коммитам b84d96b6b45 и bd49e5dda80 ветки эпика 1266@680d1794b6b8 (git show --stat), рендеров не гонялось"
 ---
 
 # deploy/helm/umbrella — зонт: один чарт, семь цепочек, объявления по корням
@@ -94,5 +94,9 @@ verified_against: "Перемер 2026-09-26 на PRO-Robotech/kacho@7190c3e5274
   посадка по семи цепочкам. Исправлена таблица цепочек: у `own` три файла — `values.own-stand.yaml`
   есть в `deploy/stacks.txt` и ствола `1d42a6728bf`, и головы эпика, прежняя редакция его не называла.
   `values.own.yaml` на голове эпика несёт `uif.enabled: true`. В `main` переезда нет.
+- 2026-10-06 — волна-4 эпика `1266` ([[KAC/issue-2967]], PR kacho#3043, `680d1794b6b8`; в `main` не влито):
+  ручки `global.kacho` без читателя в шаблонах сняты, суд — исходом рендера каждой цепочки
+  (`deploy/global_knob_has_a_reader_render_test.go`, [[KAC/issue-2997]]); поды чарта консоли перекатываются
+  на новый образ по дайджесту платформенного манифеста ([[KAC/issue-3026]]). Таблица цепочек не пересматривалась.
 
 #packages #kacho-deploy #config
