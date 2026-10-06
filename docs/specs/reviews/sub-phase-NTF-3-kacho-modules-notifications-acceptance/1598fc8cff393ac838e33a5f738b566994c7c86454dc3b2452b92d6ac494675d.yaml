@@ -1,0 +1,256 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 1598fc8cff393ac838e33a5f738b566994c7c86454dc3b2452b92d6ac494675d
+  revision: 38
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, строка редакции 38 говорит «вердикта на неё НЕТ». Запись шапку не
+    правит намеренно: вердикт привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 38 не закоммичена; судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD f55e6dacb). Отпечаток HEAD-версии файла — ac1f9fc9… (более ранняя редакция). Копии
+    редакции 37 для построчного диффа 37→38 в дереве нет; дельта читалась по строке редакции 38
+    шапки (строка 83) и по местам, которые она называет (Р30, §1.15, §3 шаг (14), С16, С24, С26,
+    NTF3-171 (и), NTF3-174 (а), (в), (м), (н), NTF3-175 (в), NTF3-179…182, §10, §11).
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → 1598fc8c…675d
+  fingerprint_reproduced: true
+  lines: 5607
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T22:00:00Z'
+round: 2
+round_note: >-
+  Круг 2 из 2 прохода Д133. Посылка задания «отпечаток отличается от 17635b5a…» подтверждена
+  (1598fc8c… ≠ 17635b5a… и ≠ 39166c6b…). Блокирующие круга 1 B1 (PRODUCER), B2 (COVERAGE),
+  B3 (CONSTRUCTIBILITY) закрыты по существу; N1, N2 закрыты. Возврат — по двум новым находкам,
+  обе внесены редакцией 38 (механика B2), обе проверены по дереву kaname @8a84dcff6.
+previous_rounds:
+  - pass: Д129
+    round: 2
+    revision: 36
+    sha256: 17635b5a0951bc8afc1d7175d0e1aa22d899a72ed62fedecc2a71df863d5a2f9
+    verdict: APPROVED
+  - pass: Д133
+    round: 1
+    revision: 37
+    sha256: 39166c6b0fd2b58bd7a20625b03d0ed24cdfd5aab7caba0117c8842fcec7690d
+    verdict: RETURNED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/39166c6b0fd2b58bd7a20625b03d0ed24cdfd5aab7caba0117c8842fcec7690d.yaml
+round1_closure:
+  - id: B1
+    kind: PRODUCER
+    closed: true
+    where: "Р30 «Производитель токена», §3 шаг (14) и ребро, С16, С24, С26, NTF3-175 (в), NTF3-179 (а)–(г), §11"
+    note: >-
+      Метод CurrentAuthzRevision, круг вызывающих = круг RegisterResource, notify — PERMISSION_DENIED с
+      близнецом; момент — до открытия транзакции записи, обоснование «ответ только меньше» дано и
+      держится NTF3-179 (б) с близнецом; отказ пути — UNAVAILABLE PEER_UNAVAILABLE fail-closed с
+      близнецом; флаг false — токен не берётся.
+  - id: B2
+    kind: COVERAGE
+    closed: true
+    where: "Р30 «Колонка версии прав», «Поколение и проекция», «Паритет ограды»; NTF3-180, 181, 182, 174 (н)"
+    note: "Механика (а)–(д) внесена; но (г) внесена шире решения владельца — см. B2 этого круга."
+  - id: B3
+    kind: CONSTRUCTIBILITY
+    closed: true
+    where: "Р30 «Какие строки читает вопрос с оградой», «Запись снятого»; NTF3-174 (а), (в), (м), NTF3-178"
+  - id: N1
+    closed: true
+    where: "§1.15 — 4 столбца, перечень с координатами"
+  - id: N2
+    closed: true
+    where: "NTF3-171 (и) с близнецом"
+blocking_count: 2
+blocking_kinds_distinct: [COVERAGE, PRODUCER]
+blocking_findings:
+  - id: B1
+    kind: COVERAGE
+    anchor: "Р30 «Колонка версии прав» («триггер BEFORE INSERT OR UPDATE … идентификатор транзакции, последней записавшей строку»), «Вопрос с оградой»; NTF3-180 (б), NTF3-181 (б)"
+    what: >-
+      Ограда определяет «право не менялось с R_E» как «строку права никто не ПИСАЛ после R_E», а
+      служба доступа переписывает исходные строки прав без изменения права на каждом своём старте.
+      Измерено @8a84dcff6: cmd/kaname/serve.go:2040–2073 на каждом старте зовёт
+      seed.BackfillOwnerBindings → syncAllSystemRoleSelectorsTx
+      (internal/apps/kaname/seed/migrate_backfill.go:197, 286), который для КАЖДОЙ системной роли
+      делает INSERT INTO kaname.role_rule_selectors … ON CONFLICT (role_id, rule_fp) DO UPDATE SET …,
+      updated_at = now() без WHERE (:384–393), и seed.ReseedSystemRoleVerbs → RolesW().ReplaceRoleVerbs
+      (internal/apps/kaname/seed/role_verb_reseed.go:195), то есть
+      DELETE FROM kaname.role_verb WHERE role_id = $1 + INSERT заново
+      (internal/repo/kaname/pg/role_repo.go:956, :961). Обе таблицы Р30 относит к исходным строкам
+      («роль, её глаголы и правила»), обе получат триггер authz_rev. Следствие: после любого
+      перезапуска или выкатки службы доступа у каждого события с R_E, снятым до старта, ограда
+      отбрасывает всех субъектов, чьё право идёт через системную роль (admin, edit, view), — аудитория
+      ожидающих строк молча сужается почти до пустой; отказа, счётчика и сигнала нет. То же для любой
+      правки строки права, не меняющей права (служебные столбцы updated_at, состояние учёта). Ни
+      одного сценария на это состояние нет: NTF3-181 (а) снимает токен ПОСЛЕ последнего посева и
+      этого не видит, NTF3-181 (б) правит значимое поле. Предикат:
+      grep -nEi 'reseed|SyncAllSystemRole|досев|старт службы доступа|IS DISTINCT' <документ> → 0.
+    fix_direction: >-
+      Определить в Р30, что двигает authz_rev: только изменение права (перечень значимых столбцов
+      каждой таблицы вопроса; триггер ставит новую версию лишь при NEW IS DISTINCT FROM OLD по ним,
+      на INSERT — всегда), и что досев старта строк с прежним содержимым версию не двигает
+      (замена роли «снять всё — положить заново» становится разностной либо сохраняет версию
+      неизменной пары). Добавить сценарий: событие с R_E; служба доступа перезапущена (досев
+      системных ролей и проекции глаголов отработал); вопрос с R_E — аудитория та же, что до
+      перезапуска; близнец по одному факту — между R_E и вопросом изменён набор глаголов системной
+      роли посевом: субъекты этой роли выпали. Плюс инъекция в гейт NTF3-180: триггер без сравнения
+      значимых столбцов — красный, близнец — с сравнением. Строки §10, §11, §12.
+  - id: B2
+    kind: PRODUCER
+    anchor: "Р30 «Поколение и проекция — один производитель» («четыре столбца source_version (§1.15) переводятся … в поколение bigint, одна форма на всех её местах»); §1.15 «все четыре — версия объекта от его владельца»; NTF3-182 Then"
+    what: >-
+      Д133 (1) решает «зеркало: версия-bigint». Редакция 38 переводит в поколение bigint все четыре
+      столбца §1.15, включая kaname.relation_fact.source_version и
+      kaname.public_read_publication.source_version, и утверждает, что все четыре — версия объекта от
+      владельца. Для relation_fact это неверно: столбец пишет триггер журнала
+      kaname.relation_fact_from_journal (AFTER INSERT ON kaname.fga_outbox) значением
+      coalesce(payload->>'source_version', NEW.created_at) — у строк выдач (прямые кортежи прав,
+      владелец аккаунта) версии владельца нет, это время строки журнала
+      (internal/migrations/20260916020000_public_read_publication_is_ordered_by_its_owner.sql, функция
+      Up: `v_version := coalesce(v_owner::timestamptz, NEW.created_at)`; столбец DEFAULT '-infinity',
+      0001_initial.sql:2359 @8a84dcff6). Тем же значением судится порядок записи и снятия кортежа
+      (`… WHERE relation_fact.source_version < EXCLUDED.source_version`,
+      `DELETE … AND source_version <= v_version`) — это страж от воскрешения снятого права. Какое целое
+      поколение получает строка выдачи без объекта-владельца и чем после перевода упорядочены запись и
+      снятие кортежа выдачи, документ не говорит: у значения нет производителя, а «Тогда» NTF3-182
+      «четыре столбца … переведены в bigint» требует его. Реализация вынуждена либо придумать
+      значение (риск перестановки write/delete кортежа права — лишний доступ), либо разойтись с
+      документом. Аналогично public_read_publication: её версию пишет путь публикации реестра
+      (fga_outbox.EmitPublicationTx), а Р30 не говорит, что публикация несёт g_E.
+    fix_direction: >-
+      Сузить перевод до решения владельца: поколение bigint — у зеркала, рёбер и головы объекта
+      (то, что пишет приём регистрации/снятия), с поимённым перечнем столбцов; relation_fact и
+      public_read_publication — либо остаются на своём упорядочении (и это сказано, с причиной), либо
+      назван производитель целого значения для строк выдач и публикаций и сохранность стража порядка
+      write/delete кортежа (сценарий: снятие кортежа выдачи, затем запоздалая запись той же выдачи с
+      прежней версией — права нет; близнец — запись новее снятия — право есть). Поправить §1.15
+      («все четыре — версия объекта от владельца») и NTF3-182.
+security_check:
+  token_method_internal_only: "Соблюдено: Р30, §3 ребро; NTF3-179 (г) с близнецом."
+  token_fail_closed: "Соблюдено: NTF3-179 (а) с близнецом."
+  cluster_rights_not_audience: "Соблюдено (без изменений против круга 1): Р30, NTF3-174 (и), NTF3-176, NTF3-181 (а) класс usr-ca."
+  conditional_rights_not_audience: "Соблюдено: Р30, NTF3-177."
+  facts_only_from_notify: "Соблюдено: NTF3-171 (и) с близнецом (N2 круга 1 закрыт)."
+  single_mechanism: "Соблюдено: Р30 «Второго механизма нет»; §4 снимает хранимый снимок."
+  relation_fact_order_guard: "Под угрозой — B2: страж порядка write/delete кортежа выдачи завязан на столбец, который редакция переводит без производителя."
+  audience_silent_collapse: "B1: сужение аудитории без сигнала после каждого старта службы доступа."
+delta_conformance:
+  - claim: "Д133 (1) токен R_E, поколение g_E, факты"
+    ok: true
+    where: "Р3, Р30, NTF3-175, NTF3-179"
+  - claim: "Д133 (1) authz_rev xid8 триггером BEFORE INSERT OR UPDATE + гейт таблиц Resolve"
+    ok: false
+    where: "Р30, NTF3-180"
+    note: "Внесено; семантика «строку писали» ≠ «право менялось» — B1"
+  - claim: "Д133 (1) барьер UNAVAILABLE; DELETED на g_E−1; горизонт со счётчиком"
+    ok: true
+    where: "Р30, NTF3-174 (в), (г), (ж), (л)"
+  - claim: "Д133 (1) зеркало: версия-bigint, надгробие, CAS, один производитель"
+    ok: false
+    where: "Р30, NTF3-174 (д), (к), (н), NTF3-180 (г), NTF3-182"
+    note: "Зеркало — да; перевод распространён на relation_fact и public_read_publication без производителя — B2"
+  - claim: "Д133 (1) паритет ограды на бесконечности = relverdict.Subjects"
+    ok: true
+    where: "Р30, NTF3-181 (а) с инъекцией"
+  - claim: "Д133 (1) метки от вызывающего — только круг notify"
+    ok: true
+    where: "Р7, Р30, NTF3-171 (и)"
+  - claim: "Д133 (2) DELETED держателям каскадно снятых выдач"
+    ok: true
+    where: "Р30 «Запись снятого», NTF3-174 (в) с близнецом, NTF3-178"
+  - claim: "Д133 (3) права уровня кластера — только по подписке"
+    ok: true
+  - claim: "Д133 (4) условные права исключены"
+    ok: true
+constructibility:
+  seeded: 0
+  named_fixture_or_tree_fact: 6
+  not_executed: 0
+  refuted: 0
+  undetermined: 0
+  items:
+    - given: "С26 «пауза» и «отказ» на CurrentAuthzRevision"
+      evidence: "перехватчик обвязки на внутреннем слушателе — конструируемо; метод вводится под-фазой"
+    - given: "NTF3-174 (в) выдача AccessTarget.resources на vol-41 и её каскадное снятие"
+      evidence: "access_binding_target_members FK ON DELETE CASCADE, 0001_initial.sql:5370 @8a84dcff6 (круг 1)"
+    - given: "NTF3-174 (а) аудитория CREATED при ограде R1"
+      evidence: "Р30: вопрос не читает объектную сторону; создатель тома получает право через привязку проекта, а не кортеж применения — fgaregister.go @ffbe930dbef пишет только project#project (структурный)"
+    - given: "NTF3-181 (а) relverdict.Subjects"
+      evidence: "internal/repo/kaname/pg/relverdict/subjects.go:192 @8a84dcff6"
+    - given: "NTF3-182 перевод relation_fact.source_version в bigint"
+      evidence: "значение для строк выдач не определено (B2) — Then без производителя"
+    - given: "состояние «служба доступа перезапущена между R_E и вопросом»"
+      evidence: "достижимо в любом развёртывании (serve.go:2040–2073 @8a84dcff6); сценария нет (B1)"
+  seeding_note: >-
+    Посев не ставился: стенд и изоляцию задание не назвало. Конструируемость судилась фактами
+    дерева kaname @8a84dcff6 и kacho @ffbe930dbef.
+producers:
+  then_without_producer:
+    - "NTF3-182 «четыре столбца … переведены в bigint» — значение поколения для строк выдач relation_fact и публикаций public_read_publication (B2); кандидат — сузить перевод до зеркала/рёбер/головы"
+  checked:
+    - "NTF3-179…182 — §11 строки 5413–5416"
+twins:
+  checked: "§10 строки 5277, 5301–5302, 5310–5320 — у новых букв редакции 38 близнец по одному факту есть"
+  missing:
+    - "Ограда после холостой перезаписи строки права (перезапуск службы доступа) — сценария и близнеца нет (B1)"
+non_blocking_findings:
+  - id: N1
+    kind: FORMAT
+    anchor: "Р30 «Какие строки читает вопрос с оградой»; NTF3-180"
+    what: >-
+      kaname.relation_fact смешанная: в ней и исходные прямые кортежи прав (читаются), и структурные
+      кортежи объект→проект (объектная сторона, не читаются). Гейт NTF3-180 судит по ТАБЛИЦАМ и
+      смешение не видит; держатель остаётся поведенческим (NTF3-174 (а) покраснеет). Назвать в Р30
+      признак строки (отношение), по которому вопрос отделяет структурные строки relation_fact.
+  - id: N2
+    kind: FORMAT
+    anchor: "Р30 «Производитель токена» («передаёт значение этой транзакции»), §3 шаг (14)"
+    what: >-
+      Не названо, как токен доходит до функций базы, пишущих журнал (nlb lb_status_recompute, registry
+      registries_journal_emit) — параметром функции либо настройкой транзакции. Держатель наблюдаемый
+      есть (NTF3-175 «наблюдаемое» и отказ строки без токена), поэтому не блокирует.
+measurement:
+  scenario_ids: 182
+  withdrawn: 16
+  live: 166
+  count_predicate: >-
+    grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> | sort -u | wc -l → 182;
+    grep -cE '^\*\*ID:\*\* NTF3-[0-9]+ — \*\*снят' <документ> → 16. Совпадает с шапкой редакции 38.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: 1598fc8cff393ac838e33a5f738b566994c7c86454dc3b2452b92d6ac494675d
+  declared_verdict: RETURNED
+  record_event_type: acceptance_return
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 2 на Д133, редакция 38, блокирующих 2: COVERAGE ·
+    PRODUCER) · SHA-256 1598fc8cff393ac838e33a5f738b566994c7c86454dc3b2452b92d6ac494675d
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
