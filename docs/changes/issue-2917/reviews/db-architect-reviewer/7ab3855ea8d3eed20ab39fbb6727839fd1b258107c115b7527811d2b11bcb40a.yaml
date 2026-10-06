@@ -1,0 +1,65 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kaname PR #628, повтор на новой голове.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: если дайджест сменился, заводится новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kaname
+  pr: 628
+  branch: 484-wave-notify-def1
+  base: 460e8f32802b8eab585b76f681cdc6137750b9fc   # = origin/484-notify = merge-base(origin/484-notify, head)
+  head: 99ec8096cbe16ce76df53476eb680e9e533dcf45
+  previous_head: 2ab1bd5d5c65eb60f200b4bfd7e5489207a1eb9d   # прежняя запись 1fda082a…yaml, ACCEPTED
+  content_digest: 7ab3855ea8d3eed20ab39fbb6727839fd1b258107c115b7527811d2b11bcb40a
+  digest_predicate: git diff 460e8f328..99ec8096c | sha256sum   # перемерено дважды, совпало
+  premise_remeasured: >-
+    gh pr view 628: headRefOid = 99ec8096, base 484-notify, state OPEN, mergeable MERGEABLE.
+    Дельта 2ab1bd5d5..99ec8096: 7 коммитов, 15 файлов (+2642/-3065). Путей миграций в дельте 1 (A):
+    internal/migrations/20261006203126_notification_feed_v3_from_v1.sql; проба
+    notification_feed_schema_matches_pin_test.go (A); прочее — коллекции newman и gen.py/op_success_poll_test.py
+    (не предмет роли). Repo-SQL в дельте 0. Изменённых (M) миграций в дельте 0.
+    Версия 20261006203126 — старшая в дереве (за 20261006151313). Пин corelib v1.10.1-0.20261006190655-67ba3443c149.
+  acceptance: NTF-2 d06cdcd2… (Д132), NTF-4 52dfa29a…, NTF-5 ccbb0102… (sha256sum перемерен, совпал)
+  out_of_scope: адресация событий ресурсов (линия B, Д133/Д134) не судится; схема ленты как предмет — corelib
+snapshot_at: 2026-10-07
+
+migrations_touched: 3   # во всём диффе база..голова; в дельте повтора 1
+verdict: ACCEPTED   # принято
+blocks: false
+return_to: —
+
+runs:
+  - cmd: go test -count=1 -v ./internal/migrations/ -run TestNotificationFeedSchemaMatchesThePinnedLibrary   # @99ec8096
+    outcome: "rc=0, PASS 1; перепись: миграций 53, ленты 2; генератор пина: «схема ленты v3 уже применена, изменений 0»"
+  - cmd: go run github.com/PRO-Robotech/corelib/cmd/notifygen -check -base origin/484-notify   # @99ec8096
+    outcome: "rc=0; «миграций ленты 2» — файл v3_from_v1 байт-в-байт равен выпуску генератора пина (правок руками нет)"
+  - cmd: go test -count=1 ./internal/migrations/ -json   # @99ec8096, postgres в testcontainers
+    outcome: "rc=0; pass 313, fail 0, skip 0 (было 312 @0f9af765; +1 — проба пина)"
+  - cmd: go test -count=1 -tags integration ./internal/repo/kaname/pg/ -run 'TestIntegration_CheckLedgerCoversTheLiveSchema|TestCheckValueCensus' -v   # @99ec8096
+    outcome: "rc=0; PASS 5 — перепись проверок покрывает живую схему с expiry_matches_class и thread_key_present"
+  - cmd: "postgres:16-alpine (docker), psql: v1 Up → 2 строки прежних классов (notice pending, security expired/unclaimed) → v3 Up → 7 вставок → v3 Down → v3 Up"
+    outcome: >-
+      v3 Up на непустой таблице v1 проходит (новые CHECK валидируются на прежних строках).
+      obligation без expires_at — вставлена; obligation с expires_at — 23514 expiry_matches_class;
+      notice без expires_at — 23514 expiry_matches_class; thread_key='' — 23514 thread_key_present;
+      superseded без причины — 23514 outcome_pair; superseded/not_current — вставлена;
+      sent с причиной — 23514 outcome_pair. Имена неявных CHECK (kaname_notification_outbox_class_check,
+      _state_check) совпали с порождёнными PG у v1 — DROP CONSTRAINT находит их.
+      v3 Down при строке obligation — отказ «column expires_at contains null values» (транзакция goose откатится);
+      после удаления строк v3/obligation/superseded — Down и повторный Up проходят.
+
+checked:
+  - "запрет #5: применённые миграции не правятся — дельта добавляет новый файл; v1 не тронут (git diff --diff-filter=M пуст)"
+  - "инварианты ленты выражены базой: класс↔срок (expiry_matches_class), непустой ключ нити (thread_key_present), пара состояние↔причина (outcome_pair) — CHECK, не код"
+  - "индекс kaname_notification_outbox_thread_idx обоснован запросом вытеснения пина: corelib notify/feed/core.go:88 (WHERE o.thread_key = t.thread_key AND o.state = 'pending')"
+  - "внешних ключей через границу сервиса нет; ORM нет; goose Up/Down присутствуют; многоинструкционных тел функций нет (StatementBegin не нужен)"
+  - "кода kaname, читающего/пишущего kaname_notification_outbox мимо библиотеки, нет (git grep: только миграции и проба статистики) — NULL expires_at не встретит сканер kaname"
+  - "проба пина судит генератором пина, а не своим разбором имён; отрицательная форма (каталог из одной v1 → «изменений 1») исполнена"
+
+non_blocking:
+  - "Down v3 не исполним при строках obligation/superseded/suppressed: отказ fail-closed, без потери данных; форма Down — выпуск генератора corelib, предмет corelib, не kaname. Записано для того, кто будет откатывать стенд."
+
+cas_or_concurrency_probes_required: []   # дельта не вводит CAS / partial UNIQUE / EXCLUDE / SKIP LOCKED; только CHECK и неуникальный частичный индекс
+crosses_distributed_properties: false
