@@ -1,0 +1,22 @@
+role: go-style-reviewer
+repo: PRO-Robotech/kacho
+pr: 3042
+base_branch: 2914-notify
+delta: 19d521349be3d6238629aa34c8159270589791eb..a799636c82c240b7840d06df2e0795d18995cafc
+head: a799636c82c240b7840d06df2e0795d18995cafc
+diff_sha256: 62c46f0ba282ca0c8d3472d60725c31bc0b87d20fda033a1aa172fa96f0ce835
+acceptance: NTF-3 ред. 34 (APPROVED)
+verdict: accept
+blocking: []
+scope: 5 коммитов, 32 файла (+867/-65); Go прод-файлов 8, проб 13, вспомогательный пакет проб 1
+checked:
+  - nlb listener Delete: RETURNING name, pgx no-rows -> ErrNotFound с %w; шаг 2 не пишет вторую строку DELETED на повторе; утверждение «строку снимает только этот путь» сверено - FK listeners.load_balancer_id ON DELETE RESTRICT (0001_initial.sql:279), иных DELETE FROM kacho_nlb.listeners в прод-дереве нет
+  - форма нагрузки DELETED совпадает с loadbalancer/delete.go:204 и targetgroup/delete.go:167
+  - feedjournal.Relations вызывается только из конструкторов, которые зовутся в композиционных корнях (compute main.go:1191, nlb main.go:913, storage serve.go:1131, vpc main.go:949, registry serve.go:496/783); на пути запроса не исполняется
+  - feedjournaltest импортируется только из _test.go
+  - ctx проброшен, slog не затронут, маркеров отсрочки в добавленных строках 0, пробы в том же PR - да
+non_blocking:
+  - pkg/feedjournal/feedjournal.go:66 - panic в библиотечной функции; достижима только программной ошибкой модуля на старте (вход - константная карта), пробы модулей строят сужатель и уронили бы её. Допустимо как must-класс; вариант - вернуть error и упасть в cmd.
+  - services/nlb/internal/apps/kacho/api/listener/delete.go:204 - fmt.Errorf("%w: ...: %v", ErrInternal, err) теряет цепочку причины (%v); образец унаследован от соседних строк, не новый класс.
+foundation_candidates: []
+security_comment_contradictions: []
