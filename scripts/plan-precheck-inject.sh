@@ -132,6 +132,13 @@ plan "$ONE | .crossRepo = true | del(.targets.kacho)"
 assert "2 да" "$(run) $(has 'TARGET-MISSING')" "явный crossRepo без головы соседа — судить не смог, код 2"
 plan "$ONE | .crossRepo = \"yes\""
 assert "2 да" "$(run) $(has 'crossRepo — не true/false')" "crossRepo не булево — план неразборчив, код 2"
+plan "$ONE | .crossRepo = 1"
+assert "2 да" "$(run) $(has 'crossRepo — не true/false: 1')" "crossRepo 1 — не булево (в Python 1 == True), код 2"
+plan "$ONE | .crossRepo = 0"
+assert "2 да" "$(run) $(has 'crossRepo — не true/false: 0')" "crossRepo 0 — не булево (в Python 0 == False), код 2"
+plan "$ONE | .crossRepo = false"
+bash "$P" "$W/plan.json" --json 2> "$W/out" > "$W/j"
+assert "0 - 0 да" "$(jq -r '.code' "$W/j") $(reasons) $(jq -r '.autoRepin | length' "$W/j") $(has 'один репозиторий (kaname), crossRepo не объявлен')" "близнец: crossRepo false — как без флага, сосед не судится"
 plan '.'
 assert "1 CORELIB-SKEW" "$(run) $(reasons)" "близнец: полосы обоих репозиториев — сверка как прежде"
 printf 'module github.com/PRO-Robotech/kaname\n\nrequire github.com/PRO-Robotech/corelib v1.10.0\n' > "$KN/go.mod"
@@ -190,6 +197,9 @@ echo "== инъекции: мутанты проверки"
 mutant "сосед судится на плане одного репозитория" 'if len(repos) == 2 or cross is True:' 'if repos:'
 mutant "явный crossRepo не включает сверку" 'if len(repos) == 2 or cross is True:' 'if len(repos) == 2:'
 mutant "отставшему соседу без полос — autoRepin" '                if not own:' '                if False:'
-mutant "crossRepo не булево не судится" 'if cross not in (None, True, False):' 'if False:'
+mutant "crossRepo не булево не судится" 'if cross is not None and not isinstance(cross, bool):' 'if False:'
+# Опыт check-verifier ws#939: равенство вместо типа пропускает 1 и 0.
+mutant "crossRepo 1 и 0 — как булевы" 'if cross is not None and not isinstance(cross, bool):' 'if cross not in (None, True, False):'
+mutant "crossRepo false включает сверку" 'if len(repos) == 2 or cross is True:' 'if len(repos) == 2 or cross is not None:'
 echo "plan-precheck-inject: контроль разошлось $ctl; мутантов $((mpass + mfail)), красных $mpass, выживших $mfail"
 [ "$ctl" -eq 0 ] && [ "$mfail" -eq 0 ]

@@ -46,7 +46,16 @@
 #   сводка конфликтует либо не содержит головы dep — остановка с причиной,
 #   исполнитель не зван, сборки нет; сводки сняты шагом вливания; близнец —
 #   полоса без deps сводки не зовёт, база — база волны; флаг crossRepo задания
-#   доходит до плана, без флага его в плане нет.
+#   доходит до плана, без флага его в плане нет;
+#   ответ сводки не годен по одному факту — нет ответа, статус failed, голова не
+#   sha40 — остановка со своей причиной, без исключения; близнец — already-done;
+#   повторы зависимой полосы (доводка и вторая предпроверка, доводка и
+#   предпроверка после возврата роли) — от той же головы сводки; ревью роли
+#   зависимой — дельта сводка..голова, близнец без deps — без дельты; в сводку —
+#   только deps полосы, при любом порядке окончания соседей (A позже C и C позже
+#   A); база сводки — база полосы; имя сводки не по форме либо совпавшее у двух
+#   полос — остановка на плане, близнец — два разных имени (ws#939, опыт
+#   check-verifier: 11 мутантов выжили на aeb93941).
 #
 # ИНЪЕКЦИИ — без довода проба после контроля прогоняет МУТАНТОВ шаблона (по
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
@@ -79,6 +88,12 @@ jq -e '[.layers[] | join(",")] | join("|") == "A,C|B"' "$W/r1c.json" > /dev/null
 planout "$W/r2.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql"]}]'
 planout "$W/r2two.json" '[{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql","services/x/internal/authz/a.go"]}]'
 jq -e '.lanes[0].roles | length >= 2' "$W/r2two.json" > /dev/null || { echo "wave-template-inject: VOID — план R2 без двух ролей: предпосылка сценария возврата одной роли" >&2; exit 2; }
+# Зависимая полоса уровня R2 (роли есть): дельта ревью и повтор после ролей.
+planout "$W/r2dep.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"M",repo:"kacho-workspace",paths:["services/x/migrations/0001.sql"],deps:["A"]}]'
+jq -e '(.lanes[] | select(.key == "M") | (.steps | index("roles")) != null and (.roles | length) >= 1) and ([.layers[] | join(",")] | join("|") == "A|M")' "$W/r2dep.json" > /dev/null || { echo "wave-template-inject: VOID — план A|M с ролями у M не получен: предпосылка сценария ревью зависимой" >&2; exit 2; }
+# Две зависимые полосы: ключи, сводящиеся к одному имени сводки, и близнец.
+planout "$W/r1coll.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"B-1",repo:"kacho-workspace",paths:["services/x/b.go"],deps:["A"]},{key:"B_1",repo:"kacho-workspace",paths:["services/x/e.go"],deps:["A"]}]'
+planout "$W/r1two.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"B-1",repo:"kacho-workspace",paths:["services/x/b.go"],deps:["A"]},{key:"B-2",repo:"kacho-workspace",paths:["services/x/e.go"],deps:["A"]}]'
 
 cat > "$W/probe.mjs" <<'JS'
 import fs from 'node:fs'
@@ -113,7 +128,7 @@ async function run(sc) {
     const lane = label.split(':').pop()
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: JSON.stringify(o), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
-    if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); heads['stack:' + lane] = r.head; return { branch: '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
+    if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
@@ -205,12 +220,59 @@ const argsDepD = { ...args, lanes: [...argsDepC.lanes, { key: 'D', repo: 'kacho-
 r = await run({ args: argsDepD, plan: [P('r1d.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
 ok(r.res.ok === true && idx(r.calls, 'mech:stack:D') >= 0 && idx(r.calls, 'mech:stack:D') < r.calls.map(c => c.label).lastIndexOf('mech:precheck:A'), 'D (от C) стартует, когда прошла C, не дожидаясь A чужого слоя', JSON.stringify(r.calls.map(c => c.label)).slice(0, 400))
 ok(prm(r.calls, 'mech:stack:D').includes('9-c@') && !prm(r.calls, 'mech:stack:D').includes('9-a@'), 'в сводку D — только её deps (C), чужая A не вливается')
+// Тот же предмет без опоры на тайминг: A с доводкой заканчивает ПОСЛЕ C, и в
+// момент сводки B полоса C уже прошла — в сводку B она попасть не должна.
+ok(prm(r.calls, 'mech:stack:B').includes('9-a@') && !prm(r.calls, 'mech:stack:B').includes('9-c@') && idx(r.calls, 'mech:stack:B') > r.calls.map(c => c.label).lastIndexOf('mech:precheck:C'), 'в сводку B — только A, хотя C прошла раньше её сводки', prm(r.calls, 'mech:stack:B').slice(-300))
+r = await run({ args: argsDepD, plan: [P('r1d.json')], 'pre:C': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
+ok(r.res.ok === true && prm(r.calls, 'mech:stack:D').includes('9-c@') && !prm(r.calls, 'mech:stack:D').includes('9-a@') && idx(r.calls, 'mech:stack:D') > r.calls.map(c => c.label).lastIndexOf('mech:precheck:A'), 'зеркально: C с доводкой, A прошла раньше сводки D — в сводке D только C', prm(r.calls, 'mech:stack:D').slice(-300))
 r = await run({ args: argsDepC, plan: [P('r1c.json')], 'pre:A': [{ code: 2, reasons: [] }] })
 ok(r.res.ok === false && by(r.calls, c => c.label === 'impl:B' || c.label === 'mech:stack:B') === 0 && /не начата: deps A/.test(((r.res.lanes || {}).B || {}).stage || '') && by(r.calls, c => c.label === 'mech:precheck:C') === 1 && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'A не прошёл — B не начата (причина названа), C прошла, сборки нет', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'conflict', head: '', conflicts: ['go.mod'] }] })
 ok(r.res.ok === false && r.res.stage === 'полосы' && /конфликт в go\.mod/.test(((r.res.lanes || {}).B || {}).stage || '') && by(r.calls, c => c.label === 'impl:B') === 0 && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'сводка конфликтует — остановка с путём, исполнитель B не зван, сборки нет', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'done', head: hS, contains: [] }] })
 ok(r.res.ok === false && /нет голов 9-a@/.test(((r.res.lanes || {}).B || {}).stage || '') && by(r.calls, c => c.label === 'impl:B') === 0, 'сводка «готова», но головы A в ней нет — остановка, исполнитель не зван', JSON.stringify(r.res).slice(0, 300))
+// Ответ сводки не годен — по одному факту против близнеца «done»: ответа нет,
+// статус вне {done, already-done}, голова не sha40. Исполнитель не зван, шаблон
+// не падает исключением, причина названа своими словами.
+const stB = () => ((r.res.lanes || {}).B || {}).stage || ''
+const stopB = () => !r.res.thrown && r.res.ok === false && r.res.stage === 'полосы' && by(r.calls, c => c.label === 'impl:B') === 0 && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0
+r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [null] })
+ok(stopB() && /нет ответа/.test(stB()), 'сводка не ответила — остановка «нет ответа», а не исключение на st.status', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'failed', head: hS }] })
+ok(stopB() && /статус failed/.test(stB()), 'сводка вернула failed при голове sha40 и всех головах deps — остановка, исполнитель не зван', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'done', head: 'abc123' }] })
+ok(stopB() && /не sha40/.test(stB()), 'голова сводки не sha40 — остановка с этой причиной, исполнитель не зван', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'already-done', head: hS }] })
+ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('@' + hS), 'близнец: сводка already-done (уже есть на origin) — полоса идёт от её головы', JSON.stringify(r.res).slice(0, 300))
+
+// Повторы зависимой полосы — от той же сводки, а не от базы волны: доводка после
+// предпроверки, вторая предпроверка, доводка и предпроверка после возврата ролей.
+const allFrom = (label, s) => { const xs = r.calls.filter(c => c.label === label); return xs.length && xs.every(c => c.prompt.includes(s)) ? xs.length : 0 }
+r = await run({ args: argsDep, plan: [P('r1.json')], 'pre:B': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
+ok(r.res.ok === true && allFrom('impl:B', 'сводки deps 9-stack-b@' + hS) === 2 && !r.calls.some(c => c.label === 'impl:B' && /ветка 9-b от main/.test(c.prompt)), 'доводка B после красной предпроверки — от сводки, не от базы волны', JSON.stringify(r.calls.filter(c => c.label === 'impl:B').map(c => c.prompt.slice(0, 160))))
+ok(allFrom('mech:precheck:B', ' b-B ' + hS + ' ') === 2, 'вторая предпроверка B — база та же голова сводки (BASE-NOT-ANCESTOR не теряется)', JSON.stringify(r.calls.filter(c => c.label === 'mech:precheck:B').map(c => c.prompt.slice(-260))))
+const hSM = H('SM', 0), roleM = P('r2dep.json').lanes.find(x => x.key === 'M').roles[0]
+const argsDepM = { ...args, lanes: [lanes2[0], { key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't', deps: ['A'] }] }
+r = await run({ args: argsDepM, plan: [P('r2dep.json')] })
+const revM = r.calls.find(c => c.agentType === roleM && c.label === 'review-' + roleM + ':M')
+ok(r.res.ok === true && !!revM && revM.prompt.includes('git diff ' + hSM + '..' + H('M', 1)), 'ревью зависимой полосы — своя дельта сводка..голова, код принятых deps не предмет', revM ? revM.prompt.slice(0, 400) : 'ревью роли не звано')
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
+ok(r.calls.some(c => c.label.startsWith('review-') && c.label.endsWith(':M') && c.agentType !== 'acceptance-reviewer') && !r.calls.some(c => /своя дельта|git diff/.test(c.prompt) && c.label.startsWith('review-') && c.label.endsWith(':M')), 'близнец: полоса без deps — ревью всей головы, дельты сводки нет')
+r = await run({ args: argsDepM, plan: [P('r2dep.json')], ret: roleM })
+ok(r.res.ok === true && allFrom('impl:M', 'сводки deps 9-stack-m@' + hSM) === 2 && allFrom('mech:precheck:M', ' b-M ' + hSM + ' ') === 2, 'возврат роли зависимой полосы — доводка и предпроверка от той же сводки', JSON.stringify(r.calls.filter(c => c.label === 'impl:M' || c.label === 'mech:precheck:M').map(c => c.label + ' ' + c.prompt.slice(0, 120))))
+
+// База сводки — база ПОЛОСЫ (l.base), а не волны: у B своя база release-x.
+r = await run({ args: { ...argsDep, lanes: [lanes2[0], { ...lanes2[1], deps: ['A'], base: 'release-x' }] }, plan: [P('r1.json')] })
+ok(r.res.ok === true && prm(r.calls, 'mech:stack:B').includes('от свежего origin/release-x ') && !prm(r.calls, 'mech:stack:B').includes('origin/main'), 'сводка полосы со своей базой — от origin/<база полосы>, не от базы волны', prm(r.calls, 'mech:stack:B').slice(0, 300))
+
+// Имя сводки: форма <N>-<суффикс> и столкновение — остановка на плане.
+r = await run({ args: { ...argsDep, wave: 'x9' }, plan: [P('r1.json')] })
+ok(r.res.ok === false && r.res.stage === 'план' && /не по форме/.test(r.res.why || '') && by(r.calls, c => c.label.startsWith('impl:') || c.label.startsWith('mech:stack:')) === 0, 'номер волны не число — имя сводки не по форме, остановка на плане', JSON.stringify(r.res).slice(0, 300))
+const dl = k => ({ key: k, repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-' + k.toLowerCase(), text: 't', deps: ['A'] })
+r = await run({ args: { ...args, lanes: [lanes2[0], dl('B-1'), dl('B_1')] }, plan: [P('r1coll.json')] })
+ok(r.res.ok === false && r.res.stage === 'план' && /совпало у двух/.test(r.res.why || '') && by(r.calls, c => c.label.startsWith('impl:')) === 0, 'ключи B-1 и B_1 дают одно имя сводки — остановка на плане', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: { ...args, lanes: [lanes2[0], dl('B-1'), dl('B-2')] }, plan: [P('r1two.json')] })
+ok(r.res.ok === true && prm(r.calls, 'mech:stack:B-1').includes('9-stack-b-1 ') && prm(r.calls, 'mech:stack:B-2').includes('9-stack-b-2 '), 'близнец: ключи B-1 и B-2 — две сводки со своими именами', JSON.stringify(r.res).slice(0, 300))
 
 r = await run({ args: { ...args, crossRepo: true }, plan: [P('r0.json')] })
 ok(prm(r.calls, 'mech:plan:1').includes('"crossRepo":true'), 'явный crossRepo задания уходит в план (межрепозиторная сверка — по флагу)')
@@ -336,6 +398,21 @@ mutant "dep не прошёл — зависимая всё равно идёт"
 mutant "конфликт сводки не останавливает" "    if (!st || st.status === 'conflict' || !['done', 'already-done'].includes(st.status) || !sha40(st.head) || missing.length) {" "    if (false) {"
 mutant "голова dep вне сводки не судится" "|| !sha40(st.head) || missing.length) {" "|| !sha40(st.head)) {"
 mutant "сводка не снимается при вливании" "(stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '')" "''"
+# Мутанты check-verifier ws#939 (выжили на aeb93941) — те же образцы.
+mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))"
+mutant "статус failed принимается" "!['done', 'already-done'].includes(st.status) ||" ""
+mutant "ревью без дельты сводки" "(stack ? ' — своя дельта" "(false ? ' — своя дельта"
+mutant "доводка предпроверки — от базы" "rep(l.key, 'lane-precheck'), stack)" "rep(l.key, 'lane-precheck'), null)"
+mutant "второй precheck — от базы" $'    pc = await precheck(l, impl, stack)\n  }' $'    pc = await precheck(l, impl, null)\n  }'
+mutant "доводка после ролей — от базы" "rep(l.key, 'review-' + x.r)).join('; '), stack)" "rep(l.key, 'review-' + x.r)).join('; '), null)"
+mutant "коллизия имён сводки не судится" "if (Object.values(stackNames).includes(s)) return" "if (false) return"
+mutant "форма имени сводки не судится" "if (!/^[0-9]+-[a-z0-9][a-z0-9-]*\$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return" "if (false) return"
+mutant "сводка от базы волны, а не l.base" "от свежего origin/' + (l.base || A.base)" "от свежего origin/' + (A.base)"
+mutant "голова сводки не сверяется sha40" "|| !sha40(st.head) || missing.length) {" "|| missing.length) {"
+mutant "отсутствующий ответ сводки — не стоп" "    if (!st || st.status === 'conflict'" "    if (st.status === 'conflict'"
+# Соседние точки того же свойства (повтор зависимой — от сводки).
+mutant "первая предпроверка зависимой — от базы" "let pc = await precheck(l, impl, stack)" "let pc = await precheck(l, impl, null)"
+mutant "предпроверка после ролей — от базы" "      pc = await precheck(l, impl, stack)" "      pc = await precheck(l, impl, null)"
 mutant "crossRepo задания не доходит до плана" "crossRepo: A.crossRepo === true || undefined," ""
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"

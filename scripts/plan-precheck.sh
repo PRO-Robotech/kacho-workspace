@@ -248,7 +248,9 @@ def ver_key(v):
 auto = []
 repos = {str(l.get("repo")) for l in lanes} & {"kacho", "kaname"}
 cross = plan.get("crossRepo")
-if cross not in (None, True, False):
+# Тип, а не равенство: в Python 1 == True и 0 == False, поэтому `not in (None,
+# True, False)` пропустил бы 1 и 0 как булевы (опыт check-verifier ws#939).
+if cross is not None and not isinstance(cross, bool):
     void("PLAN-MALFORMED", f"crossRepo — не true/false: {cross!r}")
     cross = None
 if len(repos) == 2 or cross is True:
