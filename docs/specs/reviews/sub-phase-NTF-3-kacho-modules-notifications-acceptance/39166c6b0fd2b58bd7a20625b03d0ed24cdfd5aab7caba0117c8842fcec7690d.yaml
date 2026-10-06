@@ -1,0 +1,253 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 39166c6b0fd2b58bd7a20625b03d0ed24cdfd5aab7caba0117c8842fcec7690d
+  revision: 37
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, строка редакции 37 говорит «вердикта на неё НЕТ». Запись шапку не
+    правит намеренно: вердикт привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 37 не закоммичена; судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD f9ba09b34). Отпечаток HEAD-версии файла — ac1f9fc9… (более ранняя редакция), не 17635b5a…:
+    редакции 35–37 в истории не лежат, дельта 36→37 читалась по строке редакции 37 шапки и по
+    местам, которые она называет.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → 39166c6b…690d
+  fingerprint_reproduced: true
+  lines: 5349
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T20:00:00Z'
+round: 1
+round_note: >-
+  Круг 1 из 2 прохода Д133 (решения владельца 2026-10-06: «Ограда (Recommended)»; удаление — «Да,
+  получает»; system_admin — «Нет, только по подписке»; условные права — «Нет, исключать»).
+  Посылка задания «отпечаток должен отличаться от 17635b5a…» подтверждена; посылка автора
+  «17635b5a — редакция 36, одобрена кругом 2» подтверждена записью 17635b5a….yaml (verdict APPROVED,
+  revision 36). Одобрение редакции 36 на редакцию 37 не переносится.
+previous_rounds:
+  - pass: Д129
+    round: 2
+    revision: 36
+    sha256: 17635b5a0951bc8afc1d7175d0e1aa22d899a72ed62fedecc2a71df863d5a2f9
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/17635b5a0951bc8afc1d7175d0e1aa22d899a72ed62fedecc2a71df863d5a2f9.yaml
+blocking_count: 3
+blocking_kinds_distinct: [PRODUCER, COVERAGE, CONSTRUCTIBILITY]
+blocking_findings:
+  - id: B1
+    kind: PRODUCER
+    anchor: "Р3 (атрибут authz_rev), Р30 «Версия события», §3 шаг (13) и рёбра, §8 С24, NTF3-175, §11 строка NTF3-175"
+    what: >-
+      Д133 (1) требует, чтобы событие модуля несло токен версии прав службы доступа R_E — полный
+      pg_snapshot службы доступа. Модуль kacho пишет событие в своей транзакции и в своей базе
+      (database-per-service), снимка транзакций чужой базы у него нет. Как и когда модуль этот токен
+      получает, документ не говорит нигде: шаг (13) §3 называет только намерение регистрации с
+      поколением; ребра «модуль → служба доступа» за токеном в §3 нет; RPC выдачи токена в поверхности
+      Р7 нет; §11 для NTF3-175 называет производителем «функцию фундамента Р3, функции базы notifygen,
+      намерения модулей», ни одна из которых токена службы доступа произвести не может. С24 ссылается
+      на путь, которого нет: «токен … проба получает у службы доступа тем же путём и в тот же момент,
+      что модуль при записи события». Не определено и поведение при недоступной службе доступа в
+      момент мутации модуля (мутация отказывает UNAVAILABLE? событие пишется без токена? позже
+      дописывается?) и момент снятия токена относительно коммита транзакции модуля (до коммита —
+      окно между снятием и коммитом; после — уже не «той же транзакцией»). Предикат:
+      grep -n 'authz_rev\|R_E\|токен версии' <документ> — ни одно из 40+ попаданий не называет источник
+      значения; grep -n 'xid8\|pg_snapshot\|снимок транзакций' — только определение «полный снимок».
+    fix_direction: >-
+      Назвать производителя токена: метод службы доступа (внутренний слушатель, кто вправе звать),
+      момент снятия относительно транзакции модуля и почему он корректен для ограды «< R_E», исход при
+      недоступности службы доступа (fail-closed мутации — либо иной, с сценарием и близнецом); внести
+      ребро в §3 и в polyrepo-карту рёбер; переписать С24 на этот метод; добавить производителя в §11
+      и пробу (строку сценария) на отказ пути токена.
+  - id: B2
+    kind: COVERAGE
+    anchor: "Р30, §12 DoD, группа W — против дословного Д133 (1) задания"
+    what: >-
+      Д133 (1) называет механику ограды, которой в документе нет ни одним словом: (а) колонка
+      authz_rev типа xid8 на ВСЕХ путевых таблицах прав, ставится триггером BEFORE INSERT OR UPDATE (не
+      DEFAULT); (б) гейт «таблицы, которые читает Resolve = таблицы с authz_rev»; (в) проба паритета
+      «Resolve с оградой на бесконечности = живому relverdict.Subjects»; (г) версия зеркала — bigint
+      (сегодня source_version timestamptz — §1.15 сам это меряет, смена типа в документе не названа);
+      (д) один производитель проекции и поколения (триггер resource-event). Предикат:
+      grep -nE 'xid8|BEFORE INSERT|relverdict|Subjects|bigint|бесконечност|путев' <документ> → 0
+      попаданий по механике ограды. Без (а)+(б) ограда пропускает изменённое право молча через любую
+      путевую таблицу без колонки (членство группы, выдачи, правила ролей, материализованные кортежи), и
+      поведенческие буквы NTF3-174 (е), (з) этого не ловят — они проверяют две таблицы из многих. Без
+      (в) ограда может отличаться от живого ответа прав на неизменённом состоянии, и держателя нет.
+      relverdict.Subjects в дереве есть: project/kaname @8a84dcff6
+      internal/repo/kaname/pg/relverdict/subjects.go:192.
+    fix_direction: >-
+      Внести (а)–(д) решениями (дополнить Р30) и держателями: гейт паритета таблиц Resolve ↔ authz_rev
+      с инъекцией (таблица без колонки → красный, близнец — с колонкой) и пустым обходом красным;
+      интеграционную пробу паритета ограды на бесконечности с relverdict.Subjects по всем охватам GW;
+      пробу «колонку ставит триггер, а не DEFAULT» (UPDATE строки права меняет authz_rev); строку
+      миграции смены типа версии зеркала. Каждое — в §10 (близнец), §11 (производитель), §12 (DoD).
+  - id: B3
+    kind: CONSTRUCTIBILITY
+    anchor: "Р30 «Вопрос с оградой» («отбрасывая каждую строку прав, изменённую не раньше R_E»); NTF3-174 (а), (в); NTF3-178; NTF3-165"
+    what: >-
+      «Строка прав» не определена, и от этого зависит, достижимо ли «Тогда». Токен R_E снимается при
+      записи события модулем, а намерение регистрации применяется службой доступа ПОЗЖЕ (асинхронно,
+      С23 это и моделирует). Применение поколения пишет строки службы доступа — кортежи владения
+      (документ сам их называет: NTF3-174 «кортежи владения … сняты/не восстановлены») и
+      материализованные кортежи привязок на объект (kaname @8a84dcff6, таблица
+      access_binding_emitted_tuples — 20 упоминаний в 0001_initial.sql; запись круга 1 Д129 опиралась
+      на неё как на форму, которую читает перечисление). Их версия ≥ R_E по построению. Если Resolve
+      читает их — буквальная ограда «версия < R_E» выбрасывает всех, чьё право на новый объект пришло
+      этим применением, и аудитория CREATED пуста; тогда NTF3-174 (а) (9 субъектов на v1 с R1) и
+      NTF3-165 недостижимы. Если Resolve читает только исходные строки (привязки, правила, членство) —
+      это надо сказать, и тогда же назвать, откуда для DELETED берутся «держатели выдач на объект,
+      снятых каскадом этим удалением» (NTF3-174 (в), NTF3-178): каскад удаляет строки, и по «текущему
+      состоянию прав» отличить выдачу, снятую каскадом E, от снятой до E отдельным Delete (близнец
+      NTF3-178) нечем, если удалённое нигде не сохраняется. Документ не называет ни исключения строк,
+      записанных применением самого g_E, ни хранения каскадно снятых выдач.
+    fix_direction: >-
+      В Р30 перечислить, какие строки прав читает вопрос с оградой (это же — предмет гейта B2 (б)), и
+      правило для строк, записанных применением поколения g_E того же объекта (вне ограды либо
+      судятся по поколению, а не по R_E); назвать, где и сколько живёт запись о выдачах, снятых
+      каскадом удаления (с поколением снятия), и кто её пишет; пересчитать NTF3-174 (а)–(в), NTF3-178
+      под выбранное правило. Если правило требует решения владельца — вопрос владельцу.
+security_check:
+  cluster_rights_not_audience: >-
+    Соблюдено: Р5, Р30, Р7 (AUDIENCE_DENIED «право только уровня кластера без via_subscription»),
+    NTF3-174 (и), NTF3-176 с близнецами по подписке и по уровню права.
+  conditional_rights_not_audience: >-
+    Соблюдено: Р30, NTF3-177 с близнецом; фикстура С25 строже продукта (у v_get продукта условий 0 —
+    перемерено: grep 'define v_get:.* with ' @8a84dcff6 → 0; condition — 6).
+  facts_only_from_notify: >-
+    Соблюдено: Р7 «факты от вызывающего принимает только круг notify (только service:notify, Р28)».
+    Проверочного сценария «чужой вызывающий с facts → отказ» с близнецом в дельте не нашёл — включить
+    при правке B1/B2 (неблокирующее N2).
+  no_addresses_in_audience: "Соблюдено: Р30 «Адресов в ответе нет»."
+  single_mechanism: >-
+    Соблюдено по тексту: §4 снимает хранимый снимок редакций 35–36 и исход AUDIENCE_PENDING; Р30
+    «Второго механизма нет». Расширение правки на Р30 и NTF3-174 сверх четырёх мест Д133 признано
+    обоснованным (хранимый неизменный снимок несовместим с «право, снятое после события, закрывает
+    доставку»).
+delta_conformance:
+  - claim: "Д133 (1) токен R_E полный снимок, поколение g_E, факты объекта в событии"
+    where: "Р3, Р30"
+    ok: false
+    note: "Поля названы, производитель токена — нет (B1)"
+  - claim: "Д133 (1) authz_rev xid8 триггером на путевых таблицах + гейт таблиц Resolve"
+    where: "—"
+    ok: false
+    note: "B2 (а), (б)"
+  - claim: "Д133 (1) барьер поколения UNAVAILABLE"
+    where: "Р30, Р7, NTF3-170, NTF3-174 (г), (л)"
+    ok: true
+  - claim: "Д133 (1) зеркало: версия-bigint, надгробие, CAS приёма (object_head, REJECTED_STALE)"
+    where: "Р30, NTF3-174 (д), (к)"
+    ok: false
+    note: "Надгробие и CAS есть; bigint и один производитель проекции и поколения — нет (B2 (г), (д))"
+  - claim: "Д133 (1) DELETED на g_E−1; горизонт со счётчиком"
+    where: "Р6, Р30, NTF3-174 (в), (ж)"
+    ok: true
+  - claim: "Д133 (1) проба паритета ограды на бесконечности с relverdict.Subjects"
+    where: "—"
+    ok: false
+    note: "B2 (в)"
+  - claim: "Д133 (1) метки от вызывающего — только круг notify"
+    where: "Р7, Р30"
+    ok: true
+  - claim: "Д133 (2) DELETED держателям каскадно снятых выдач на объект"
+    where: "Р6, Р30, NTF3-174 (в), NTF3-178"
+    ok: true
+    note: "Правило записано; механизм различения каскад/до-E не назван (B3)"
+  - claim: "Д133 (3) права уровня кластера — только по подписке"
+    where: "Р5, Р11, Р30, NTF3-76, NTF3-176"
+    ok: true
+  - claim: "Д133 (4) условные права исключены"
+    where: "Р30, NTF3-177, С25"
+    ok: true
+constructibility:
+  seeded: 0
+  named_fixture_or_tree_fact: 5
+  not_executed: 0
+  refuted: 0
+  undetermined: 2
+  items:
+    - given: "С25 условное v_get у storage_volume"
+      evidence: "условия в модели есть (6 @8a84dcff6); фикстура меняет модель обвязки — конструируемо"
+    - given: "NTF3-176 usr-ca system_admin на cluster, путь any_admin from cluster"
+      evidence: "grep 'any_admin from cluster' fga_model.fga @8a84dcff6 → 4 определения"
+    - given: "NTF3-178 выдача AccessTarget.resources на объект"
+      evidence: "kaname @8a84dcff6 access_binding_target_members с FK ON DELETE CASCADE (0001_initial.sql:5370)"
+    - given: "Барьер/CAS: object_head, REJECTED_STALE сегодня отсутствуют"
+      evidence: "grep authz_rev|object_head|REJECTED_STALE @8a84dcff6 → 0 (совпадает с §1.15) — вводятся под-фазой"
+    - given: "relverdict.Subjects для пробы паритета"
+      evidence: "internal/repo/kaname/pg/relverdict/subjects.go:192 @8a84dcff6"
+    - given: "NTF3-174 (а), NTF3-165 аудитория CREATED при ограде R_E"
+      evidence: "не определено — зависит от B3 (какие строки читает Resolve)"
+    - given: "С24 «токен тем же путём, что модуль»"
+      evidence: "не определено — путь не назван (B1)"
+  seeding_note: >-
+    Посев не ставился: стенд и изоляцию задание не назвало. Конструируемость судилась фактами дерева
+    kaname @8a84dcff6.
+producers:
+  then_without_producer:
+    - "NTF3-175 «у каждой строки задан authz_rev» — производитель значения токена не назван (B1); кандидат — служба доступа, новый внутренний метод"
+  checked:
+    - "NTF3-176, 177, 178 — §11 строки 5173–5175: kaname (вопрос об аудитории), notify"
+twins:
+  checked: "§10 строки 5054, 5068, 5078–5083 — новые буквы NTF3-171 (з), 173 (н), 175–178 имеют близнеца по одному факту"
+  missing: []
+non_blocking_findings:
+  - id: N1
+    kind: FORMAT
+    anchor: "§1.15, «Зеркало объекта и его версия»"
+    what: >-
+      «'source_version timestamp' → 3 строки на обеих ревизиях» неверно: перемер
+      git -C project/kaname grep -nE 'source_version timestamp' 8a84dcff6 -- 'internal/migrations/*.sql'
+      → 4 (то же на 734f69fb4); четвёртая —
+      20260916020000_public_read_publication_is_ordered_by_its_owner.sql:74. Абзац тянется с
+      редакции 35; поправить число и перечень при правке B2 (г).
+  - id: N2
+    kind: NEGATIVE
+    anchor: "Р7, Р30 «факты принимает только круг notify»"
+    what: >-
+      Правило безопасности без отрицательного сценария с близнецом: вызывающий вне круга notify
+      передаёт facts → PERMISSION_DENIED; близнец — service:notify. Добавить при правке.
+measurement:
+  scenario_ids: 178
+  withdrawn: 16
+  live: 162
+  count_predicate: >-
+    grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> | sort -u | wc -l → 178;
+    grep -cE '^\*\*ID:\*\* NTF3-[0-9]+ — \*\*снят' <документ> → 16. Совпадает с шапкой редакции 37.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: 39166c6b0fd2b58bd7a20625b03d0ed24cdfd5aab7caba0117c8842fcec7690d
+  declared_verdict: RETURNED
+  record_event_type: acceptance_return
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 на Д133, редакция 37, блокирующих 3: PRODUCER · COVERAGE ·
+    CONSTRUCTIBILITY) · SHA-256 39166c6b0fd2b58bd7a20625b03d0ed24cdfd5aab7caba0117c8842fcec7690d
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
