@@ -5,7 +5,7 @@ aliases:
   - kaname#537
 ticket_id: 537
 category: kac
-status: in-progress
+status: test
 type: epic
 repos:
   - kaname
@@ -14,21 +14,24 @@ areas:
   - deploy
   - docs
   - proto
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kaname/pull/607
 issue_url: https://github.com/PRO-Robotech/kaname/issues/537
 opened: 2026-10-01
+closed: 2026-10-04
 tags:
   - kac
   - kacho-iam
   - epic
-verified_against: "kaname 296@77dae639 (коммит слияния PR #599, родители d2f6f182 + 594af5af; голова origin/296 = этот коммит, 2026-10-04): состав — git log d2f6f182..77dae639 --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям задачи и телу PR #599; пробы и конвейер этой записью не перезапускались"
+verified_against: "kaname 296@77dae639 (коммит слияния PR #599, родители d2f6f182 + 594af5af; голова origin/296 = этот коммит, 2026-10-04): состав — git log d2f6f182..77dae639 --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям задачи и телу PR #599; пробы и конвейер этой записью не перезапускались; 2026-10-06 — только состояние: волна закрыта (gh issue view → CLOSED 2026-10-04), запрос kaname#607 влит коммитом слияния 115db76949bd (gh pr list --base 296 --state merged); состав волны-3 этой записью не переписывался"
 ---
 
 # kaname#537: identity-own · #296 · волна-3 — Ф13 вход ключом; чарт; проза и контракт
 
-> [!note] Состояние — `in-progress`: волна открыта
-> Ветка волны `537` отстаёт от `296`: догон волны-2 (`77dae639`) — открытый запрос
-> [kaname#602](https://github.com/PRO-Robotech/kaname/pull/602) временной веткой (2026-10-04).
+> [!note] Состояние — `test`: волна ЗАКРЫТА вливанием в ветку эпика `296` (2026-10-04), в `main` не влито
+> Запрос [kaname#607](https://github.com/PRO-Robotech/kaname/pull/607) влит коммитом слияния `115db76949bd`. Trail закрытия волны-3 (состав, перенесённое)
+> этой записью не написан — исправлено только устаревшее состояние «волна открыта»; остальной текст ниже —
+> состояние на 2026-10-04.
 
 ## Что и зачем
 

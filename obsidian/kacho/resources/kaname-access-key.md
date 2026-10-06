@@ -22,7 +22,7 @@ tags:
   - resource
   - kacho-iam
   - iam
-verified_against: "kaname release/iam-lines@4b674bf5 — миграция 20260917221000_access_keys_are_our_record.sql, приёмка access-keys-are-ours.md (APPROVED, круг 6); 2026-10-03 — ветка эпика 296@d2f6f182: запись ревью Ф7 на отпечаток 5ea26ad0 — APPROVED (sha256sum документа → docs/specs/reviews/access-keys-are-ours/), кейс tests/newman/cases/kaname-access-keys.py есть (git ls-tree); схема построчно не пересматривалась"
+verified_against: "kaname release/iam-lines@4b674bf5 — миграция 20260917221000_access_keys_are_our_record.sql, приёмка access-keys-are-ours.md (APPROVED, круг 6); 2026-10-03 — ветка эпика 296@d2f6f182: запись ревью Ф7 на отпечаток 5ea26ad0 — APPROVED (sha256sum документа → docs/specs/reviews/access-keys-are-ours/), кейс tests/newman/cases/kaname-access-keys.py есть (git ls-tree); схема построчно не пересматривалась; 2026-10-06 — ветка эпика 296@2cf9c8528b1f: имена двух миграций волны-4 — git ls-tree internal/migrations, глаголы — loginlanehttp.Paths() (git show); схема построчно не пересматривалась"
 ---
 
 # `user_access_keys` — ключ доступа человека (WebAuthn), наш ресурс
@@ -74,5 +74,10 @@ verified_against: "kaname release/iam-lines@4b674bf5 — миграция 202609
 - 2026-10-04 — волна-2 эпика `296` ([[KAC/issue-536-kaname]], `77dae639`, в `main` службы не влито): уборка
   `access_key_challenges` снимает испытание не раньше его срока (`ChallengeTTL`), а не первым проходом —
   [[KAC/issue-590-kaname]]; ошибка чтения ключей на отзыве — внутренняя ошибка ([[KAC/issue-586-kaname]]).
+- 2026-10-06 — волна-4 эпика `296` ([[KAC/issue-538-kaname]], PR kaname#623, `2cf9c8528b1f`; в `main` службы
+  не влито): вход ключом доступа без пароля — два глагола полосы формы, испытание, привязанное к
+  контексту формы (миграция `20261005032942_login_challenge_is_bound_to_the_form_context.sql`), и выдача
+  сессии — [[KAC/issue-613-kaname]]; описание рукоятки называет оба поколения строк (миграция
+  `20261005024608_…`, [[KAC/issue-344-kaname]]). Край глаголы ещё не ретранслирует (kacho#3037, волна-5).
 
 #resource #kacho-iam #iam
