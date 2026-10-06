@@ -1,0 +1,46 @@
+role: db-architect-reviewer
+mode: review
+subject: PRO-Robotech/kaname PR #632 (wave fence, lane K1, kacho#2918) — повтор по дельте
+fingerprint:
+  repo: PRO-Robotech/kaname
+  base: 460e8f32802b8eab585b76f681cdc6137750b9fc  # origin/484-notify, merge-base
+  head: 358a9039a596c873ed9156f863ec5bccb594ad50
+  delta_from: 0e9bb4567955d40e675f7b26b83b85b23fed1260  # прежняя запись a386062e…, verdict return
+  content_digest: 17b35683d76d9737d9f7febc50b6e6e3214b1b955dd71d486c8ecb37fab735fd  # sha256(git diff base...head)
+verdict: accept
+migrations_touched: 1
+migration_paths:
+  - internal/migrations/20261006170224_rights_rows_carry_their_authz_revision.sql  # только комментарий (4 строки)
+delta_files:
+  - internal/migrations/20261006170224_rights_rows_carry_their_authz_revision.sql (комментарий: имя гейта)
+  - internal/migrations/authz_rev_fenced_tables_integration_test.go (комментарий)
+  - internal/repohygiene/audiencefence_test.go -> authzrevcolumn_test.go (R060)
+  - internal/repohygiene/audiencefence_injection_test.go -> authzrevcolumn_injection_test.go (R051)
+  - internal/repo/kaname/pg/scalegrid/REPORT-R7-{1,2,3}*.txt (пересъёмка @497540dbf)
+prior_blocking:
+  - id: fence-gate-red-at-head
+    status: closed
+    evidence: >-
+      гейт переформулирован на писателя версии (NTF3-180 (б),(д)): V непусто, тип xid8, без умолчания,
+      BEFORE INSERT OR UPDATE построчно, поведение на копии строки; суд равенства F = V входит одним
+      изменением с запросом вопроса (шапка authzrevcolumn_test.go). Не skip и не отложенная работа:
+      предмет назван, предикат снятия — появление запроса вопроса с оградой.
+    predicate: "go test -tags=integration -count=1 ./internal/repohygiene/ @358a9039a -> ok"
+blocking: []
+non_blocking:
+  - id: xid8-not-portable-across-clusters
+    status: carried over from a386062e, без изменений; адресат system-design-reviewer / runbook
+checks:
+  - "DDL в дельте не меняется: diff .sql — только строки комментария; миграция новая в PR (нет в origin/484-notify и origin/main) — запрет #5 не затронут"
+  - "гейт TestAuthzRevisionIsStampedByItsTrigger: 12 таблиц V, у каждой непустой перечень значимых столбцов, находок 0"
+  - "самопроверки гейта: умолчание без триггера названо; триггер на любой UPDATE назван; пустое V — красное"
+  - "старое имя TestAudienceFence* в дереве @head: 0 вхождений (git grep)"
+  - "отчёты scalegrid сняты на ревизии 497540dbf, где правлен .sql; гейт свежести зелёный"
+runs:
+  - "go test -tags=integration -count=1 -v -run 'AuthzRev|Authz' ./internal/repohygiene/ @358a9039a -> ok (4 PASS)"
+  - "go test -tags=integration -count=1 ./internal/repohygiene/ @358a9039a -> ok"
+  - "go test -count=1 ./internal/repo/kaname/pg/scalegrid/ @358a9039a -> ok (TestScaleGridFullReportIsFreshAndItsSubjectHasNotMoved PASS)"
+  - "go vet -tags=integration ./internal/migrations/ ./internal/repohygiene/ -> ok"
+  - "./internal/migrations/ интеграция не перепрогонялась: в дельте только комментарии (последний прогон ok @0e9bb456)"
+concurrent_probe_missing: []
+crosses_distributed_properties: no  # в дельте; токен снимка R_E не тронут
