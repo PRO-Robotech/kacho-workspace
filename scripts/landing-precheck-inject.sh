@@ -27,11 +27,23 @@
 # предпроверка обязана назвать обе причины, то есть настоящий влитой запрос этой
 # линии нарушал §8а п.4, и это видно без синтетики.
 #
-# НАБОР ОБЯЗАТЕЛЬНЫХ (пункт (г), skipped необязательного): у близнеца — все имена
-# захвата, заглушка merge-readiness отдаёт его файлом MERGE_READINESS_REQUIRED_OUT,
-# как настоящий; задание «только push main» добавляется четырьмя skipped (форма
-# kaname#624). В «(д) настоящий» набор отдаёт сам merge-readiness из защиты случая,
+# НАБОР ОБЯЗАТЕЛЬНЫХ (пункт (г), skipped): у близнеца — все имена захвата,
+# заглушка merge-readiness отдаёт его файлом MERGE_READINESS_REQUIRED_OUT, как
+# настоящий. В «(д) настоящий» набор отдаёт сам merge-readiness из защиты случая,
 # а его мутант без записи набора обязан оставить skipped причиной.
+#
+# УСЛОВИЕ IF (пункт (г), ws#947): skipped законен только по разобранному условию
+# задания в файле workflow на голове. Вход — второй захват,
+# `landing-precheck-fixtures/kaname-629/` (2026-10-06, kaname#629 @88c4e475):
+# четыре настоящих skipped check-run (`…/commits/<sha>/check-runs`, поля name,
+# status, conclusion, head_sha, check_suite.id), прогоны workflow головы
+# (`…/actions/runs?head_sha=<sha>`) и три файла workflow на голове, обрезанные до
+# `jobs.<ключ>.{name,if}` — значения `if` дословны. Он ПРИВИВАЕТСЯ к случаю
+# kacho#3036 (addskip): head_sha и ветка push-прогона переписаны на голову
+# случая, больше правок нет. Подменный gh отдаёт файл workflow ТОЛЬКО на ref,
+# равный голове случая: чтение на другой ревизии — «не прочитан», то есть причина.
+# Мутанты самой предпроверки («любой skipped законен», «список имён») обязаны
+# провалить пробу (2) «skipped без такого if».
 #
 # Каждая инъекция меняет ОДИН факт против близнеца и обязана дать код 1 и строку
 # REASON со своим кодом причины; близнец — код 0 и ни одной строки REASON.
@@ -73,6 +85,14 @@ case "$2" in
         n="${2#*/issues/}"; n="${n%%/*}"
         if [ -f "$FAKE/comments-$n.json" ]; then cat "$FAKE/comments-$n.json"; else echo '[]'; fi ;;
     */issues/*/comments\?*)     echo '[]' ;;
+    */actions/runs\?*page=1)
+        if [ -f "$FAKE/runs.json" ]; then cat "$FAKE/runs.json"; else echo '{"total_count":0,"workflow_runs":[]}'; fi ;;
+    */actions/runs\?*)         echo '{"total_count":0,"workflow_runs":[]}' ;;
+    */contents/*\?ref=*)
+        p="${2#*/contents/}"; ref="${p##*\?ref=}"; p="${p%%\?ref=*}"
+        [ "$ref" = "$(cat "$FAKE/head" 2>/dev/null)" ] || { echo "fake gh: файл $p на $ref — не голова случая" >&2; exit 1; }
+        [ -f "$FAKE/wf/$p" ] || { echo "fake gh: Not Found $p" >&2; exit 1; }
+        printf '{"encoding":"base64","content":"%s"}\n' "$(base64 -w0 < "$FAKE/wf/$p")" ;;
     */issues/[0-9]*)
         n="${2##*/}"; printf '{"number":%s,"labels":[],"sub_issues_summary":{"total":0,"completed":0}}\n' "$n" ;;
     *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
@@ -87,6 +107,7 @@ for c in 0 1 2; do printf '#!/usr/bin/env bash\n[ -z "${MERGE_READINESS_REQUIRED
 # twin — свежий близнец в $W/case: захват + две названные правки.
 twin() {
     rm -rf "$W/case"; mkdir -p "$W/case"
+    echo "$HEAD_SHA" > "$W/case/head"
     jq '.state = "open" | .body |= sub(" вместе с #3028"; "")' "$FIX/pull.json" > "$W/case/pull.json"
     cp "$FIX/commits.json" "$FIX/check-runs.json" "$W/case/"
     # Набор обязательных случая — все имена захвата (как защита в «(д) настоящий»).
@@ -186,19 +207,97 @@ expect 0 - "близнец: ссылка в чужой репозиторий ka
 echo "== (г) CI на голове"
 twin; edit check-runs.json '.check_runs[0].conclusion = "skipped"'; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\tсводный вердикт юнитов (все шарды) — skipped (контекст обязательный)' "skipped обязательного контекста — не зелёный"
-# Задание «только push main» (kaname ci.yml, e2e-newman.yml): на PR skipped по
-# построению и в наборе обязательных его нет. Форма — как на kaname#624: одно имя
-# несколькими прогонами.
+# Задание «только push main» (kaname ci.yml, docker-build.yml, e2e-newman.yml):
+# на PR skipped по построению, в наборе обязательных его нет. Вход — захват
+# kaname#629, привитый к случаю (шапка, «УСЛОВИЕ IF»).
 TRUNKJOB='вердикт ствола — красное не остаётся без читателя'
-# shellcheck disable=SC2016  # $n и ${…} — переменные jq и текст образца, не оболочки
-addskip() { edit check-runs.json --arg n "$TRUNKJOB" '.check_runs += [range(4) as $i | {name: $n, status: "completed", conclusion: "skipped", head_sha: .check_runs[0].head_sha}] | .total_count += 4'; }
+K629="$FIX/kaname-629"
+# shellcheck disable=SC2016  # $h, $b, $s — переменные jq
+addskip() {
+    local s b
+    s="$(jq -r '.check_runs[0].head_sha' "$W/case/check-runs.json")"
+    b="$(jq -r '.head.ref' "$W/case/pull.json")"
+    jq --slurpfile k "$K629/skipped-check-runs.json" --arg h "$s" \
+        '.check_runs += [$k[0][] | .head_sha = $h] | .total_count += ($k[0] | length)' \
+        "$W/case/check-runs.json" > "$W/case/check-runs.new" && mv "$W/case/check-runs.new" "$W/case/check-runs.json"
+    jq --arg h "$s" --arg b "$b" '.workflow_runs |= map(.head_sha = $h | .head_branch = $b)' "$K629/runs.json" > "$W/case/runs.json"
+    rm -rf "$W/case/wf"; cp -r "$K629/wf" "$W/case/wf"
+}
+# setif <yq-выражение для значения if задания trunkverdict | del> — во всех трёх файлах.
+setif() {
+    local f
+    for f in "$W"/case/wf/.github/workflows/*.yml; do
+        if [ "$1" = del ]; then yq -i 'del(.jobs.trunkverdict.if)' "$f"
+        else V="$1" yq -i '.jobs.trunkverdict.if = strenv(V)' "$f"; fi
+    done
+}
 twin; addskip; run 0
-expect 0 - "skipped необязательного «только push main» ×4 — не причина"
-if grep -qxF $'CENSUS\tci: skipped необязательного не причина — '"$TRUNKJOB"' ×4' "$W/out"; then
-    echo "  [OK]   снятый skipped назван в переписи поимённо и счётом"; pass=$((pass + 1))
+expect 0 - "(1) skipped задания с if push-в-main ×4 на запросе — не причина"
+if grep -q $'^CENSUS\tci: .*skipped по невыполнимому if 4; набор обязательных' "$W/out" \
+    && [ "$(grep -c $'^CENSUS\tci: skipped не причина — условие if невыполнимо: '"$TRUNKJOB"' ×1 (.github/workflows/' "$W/out")" = 4 ]; then
+    echo "  [OK]   снятый skipped назван в переписи поимённо, файлом и событием"; pass=$((pass + 1))
 else echo "  [FAIL] перепись не называет снятый skipped:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+if grep -q $'^CENSUS\tci: .*docker-build.yml на push)$' "$W/out"; then
+    echo "  [OK]   push-прогон ветки головы судится тем же условием"; pass=$((pass + 1))
+else echo "  [FAIL] push-прогон не снят по условию:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addskip; setif del; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(2) skipped без условия if — CI-NOT-SUCCESS"
+if [ "$(grep -c $'^REASON\tCI-NOT-SUCCESS\t.*условия if нет' "$W/out")" = 4 ]; then
+    echo "  [OK]   (2) все четыре названы причиной «условия if нет»"; pass=$((pass + 1))
+else echo "  [FAIL] (2) не четыре причины «условия if нет»:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addskip; setif "\${{ always() }}"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(2) skipped при if: always() — пропущен не условием"
+twin; addskip; setif "\${{ !cancelled() && github.event_name == 'pull_request' }}"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(3) if с event_name == pull_request — skipped на запросе провал"
+if [ "$(grep -c '^REASON' "$W/out")" = 3 ]; then
+    echo "  [OK]   (3) причин три — прогоны pull_request; push-прогон этим условием и правда невыполним"; pass=$((pass + 1))
+else echo "  [FAIL] (3) ожидалось три причины:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addskip; setif "\${{ github.event_name == 'push' || github.event_name == 'pull_request' }}"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(3) if push || pull_request — skipped провал"
+twin; addskip; setif "\${{ github.event_name == 'pull_request' && github.base_ref == 'main' }}"; run 0
+expect 0 - "близнец (3): if на pull_request только в main, база запроса 1266 — невыполним, не причина"
+twin; addskip; setif "\${{ github.event_name == 'pull_request' && github.base_ref == '1266' }}"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "(3) if на pull_request в ЭТУ базу — skipped провал"
+twin; addskip; setif "\${{ !cancelled() && github.event_name == 'PUSH' && github.ref == 'refs/heads/main' }}"; run 0
+expect 0 - "близнец (1): строки сравниваются без регистра — 'PUSH' то же условие"
+twin; addskip; setif "\${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2966') }}"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/docker-build.yml: условие выполнимо' "if push в main ИЛИ в ветку головы — push-прогон выполним, причина"
+twin; addskip; setif "\${{ github.event_name == 'push' && github.ref == 'refs/heads/main'"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (.github/workflows/' "условие без закрытия }} — не разобрано, причина"
+twin; addskip; jq '.workflow_runs = [] | .total_count = 0' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (прогон workflow набора' "прогон workflow check-run не найден — условие не прочитать, причина"
+twin; addskip; rm "$W/case/wf/.github/workflows/ci.yml"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (файл .github/workflows/ci.yml на' "файл workflow на голове не прочитан — причина"
+twin; addskip; echo "0000000000000000000000000000000000000000" > "$W/case/head"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (файл .github/workflows/' "файл есть только на другой ревизии — читается голова, причина"
+twin; addskip; yq -i '.jobs.trunkverdict.name = "другое имя"' "$W/case/wf/.github/workflows/e2e-newman.yml"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (в .github/workflows/e2e-newman.yml нет задания' "задания с этим именем в файле нет — причина"
+twin; addskip; jq '(.workflow_runs[] | select(.event == "push") | .event) |= "workflow_dispatch"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие прогона '"'workflow_dispatch'" "событие прогона вне моделируемых — причина"
+twin; addskip; jq '(.workflow_runs[] | select(.event == "push") | .head_branch) |= "main"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие прогона '"'push'"' (ветка '"'main'" "push-прогон не ветки головы — не моделируется, причина"
+# Мутанты самой предпроверки: обязаны провалить пробу (2) «skipped без такого if».
+mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"
+mutant() {  # mutant <имя> <строка, вставляемая первой в тело skip_lawful>
+    local out="$W/mut/precheck-$1.sh"
+    awk -v ins="$2" '{print} /^def skip_lawful\(r\):$/ {getline; print; print "    " ins}' "$TOOL" > "$out"
+    if cmp -s "$TOOL" "$out"; then
+        echo "  [FAIL] мутант «$1»: образец def skip_lawful не найден" >&2; fail=$((fail + 1)); return
+    fi
+    twin; addskip; setif del
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
+        bash "$out" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    local code=$?
+    if [ "$code" = 0 ] && ! grep -q '^REASON' "$W/out"; then
+        echo "  [OK]   мутант «$1» проваливает пробу (2): код 0 там, где skipped без if"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] мутант «$1» не пойман пробой (2): код $code" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
+    fi
+}
+mutant any-skipped 'return True, "мутант: любой skipped законен"'
+mutant name-list 'return r.get("name") in {"вердикт ствола — красное не остаётся без читателя"}, "мутант: список имён"'
 twin; addskip; echo "$TRUNKJOB" >> "$W/case/required"; run 0
-expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "близнец: то же задание в наборе обязательных — skipped не зелёный"
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "близнец: то же задание в наборе обязательных — skipped не зелёный и при невыполнимом if"
 twin; addskip; rm "$W/case/required"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "набор от merge-readiness не получен — skipped не снимается"
 twin; addskip; : > "$W/case/required"; run 0
@@ -295,9 +394,9 @@ mrskip() {
     jq --arg n "$TRUNKJOB" '.statusCheckRollup += [range(4) | {name: $n, conclusion: "SKIPPED"}]' "$W/case/prview.json" > "$W/case/prview.new" && mv "$W/case/prview.new" "$W/case/prview.json"
 }
 mrskip; runreal
-expect 0 - "настоящий merge-readiness отдал набор: skipped вне защиты ×4 — не причина"
+expect 0 - "настоящий merge-readiness отдал набор: skipped вне защиты с невыполнимым if ×4 — не причина"
 nreq="$(jq '.required_status_checks.contexts | length' "$W/case/protection.json")"
-if grep -q $'^CENSUS\tci: .*skipped необязательных 4; набор обязательных '"$nreq"'$' "$W/out"; then
+if grep -q $'^CENSUS\tci: .*skipped по невыполнимому if 4; набор обязательных '"$nreq"'$' "$W/out"; then
     echo "  [OK]   перепись: набор обязательных $nreq — из защиты случая"; pass=$((pass + 1))
 else echo "  [FAIL] перепись не называет набор $nreq:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
 mrskip
