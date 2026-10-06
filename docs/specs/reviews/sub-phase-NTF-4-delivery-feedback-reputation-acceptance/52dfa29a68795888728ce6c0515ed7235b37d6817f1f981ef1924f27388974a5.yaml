@@ -1,0 +1,153 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 52dfa29a68795888728ce6c0515ed7235b37d6817f1f981ef1924f27388974a5
+  revision: 27
+  static_status: DRAFT
+  static_status_note: >-
+    Запись шапку документа не правит, и так задумано. Действующий вердикт определяют внешнее
+    событие и запись ревью; он привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 27 не закоммичена: рабочее дерево issue-880@2fbb571d3 с изменённым документом.
+    Отпечаток снят с рабочего файла `sha256sum`. HEAD-версия — редакция 25 (d337b360…, одобрена в
+    круге 23); редакция 26 (7fe698fa…) в дереве не сохранена.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 4854
+verdict: APPROVED
+publication_mode: >-
+  Запись создана новым файлом рядом с прежними; прежние записи не правились. Событие полномочия
+  публикует курьер; тело — в поле event.body.
+review_mode: >-
+  Блокирует только то, что ломает однозначность, конструируемость Given, производителя «Тогда»,
+  близнеца у отрицания, свойство безопасности, либо оставляет второй механизм одного события.
+  Круг 2 из 2 по общему процессу волн 2026-10-06.
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T16:30:00Z'
+round: 25
+round_note: >-
+  Двадцать пятый круг документа, второй из двух для дельты «Основа / Д129». Предмет — правки
+  редакции 27 по записи круга 24 (§35): B24-1 и N24-1…N24-3. Дельта 25 → 27 в целом —
+  `git diff HEAD -- <док>`, 222 строки +/-; правки 26 → 27 названы §35 и сверены по каждому месту.
+premise_check:
+  premise: >-
+    «B24-1 закрыт: NTF4-117 утверждает, что на объект ключа DKIM ссылается только `notify-sender`,
+    томом целиком, и красен на инъекциях (10) и (11); правка внесена в §7 S6, §8 строка 117,
+    DoD S6 п.2 и §0а; N24-1…N24-3 закрыты в несколько строк».
+  result: confirmed
+  command: >-
+    sed -n 3541,3570p <док> (NTF4-117: Given со ссылкой на NTF-1 Р19, «ссылающихся на объект ключа
+    DKIM — 1 (`notify-sender`)», «у каждой из четырёх ссылок том целиком — без subPath, secretKeyRef,
+    envFrom», инъекции (10), (11)); sed -n 205,233p (§0а п.6 и строка NTF4-117 — держатель NTF4-117);
+    sed -n 3766p (§8 строка 117); sed -n 4025,4029p (DoD S6 п.2: «на объект ключа DKIM (1)»,
+    «одиннадцати инъекциях»); sed -n 2072p (З13: правка NTF1-P02 той же стадией S5); sed -n 4014p
+    (DoD S5 п.5); sed -n 837p (Д23 «DKIM — замещено Д96»); sed -n 3604,3610p (NTF4-58: нет ряда вне
+    закрытого набора `mail`, `address_key`, Р12 строка 1387).
+previous_rounds:
+  - {round: 22, sha256: a1da95a2c760fbd7ece5f791b4fe02b7e8b59347968538fa5a205090e7d7ae81, verdict: CHANGES_REQUESTED}
+  - {round: 23, sha256: d337b360040d5e5c91958ed9d24e35e91c4ee17af3e5de2e730d98478949dfe3, verdict: APPROVED}
+  - {round: 24, sha256: 7fe698fa6256cac6374f0175a43f2e54974d0d02c08801ca1f5916d656ab951f, verdict: CHANGES_REQUESTED}
+blocking_count: 0
+blocking_kinds_distinct: []
+trend_note: "Круг 24: 1 (PRODUCER). Круг 25: 0."
+closed_findings:
+  - {id: B24-1, status: closed, evidence: "NTF4-117 Then + инъекции (10), (11); §0а п.6 называет NTF4-117; §8 строка 117; DoD S6 п.2"}
+  - {id: N24-1, status: closed, evidence: "З13 и DoD S5 п.5 называют правку пробы NTF1-P02 той же стадией S5 и правку её «Тогда» редакцией приёмки NTF-1"}
+  - {id: N24-2, status: closed, evidence: "Д23, колонка «решение»: «DKIM — замещено Д96»"}
+  - {id: N24-3, status: closed, evidence: "NTF4-58: отсутствие ряда `object` вне закрытого набора Р12 вместо тривиально истинного «ряд mail не вырос»"}
+  - {id: N24-4, status: transferred, evidence: "предмет NTF-1; §34 «Названный разрыв» называет его; место одно"}
+second_mechanism_check:
+  result: none_in_acceptance
+  note: >-
+    У смены пары DKIM один механизм — NTF-1 Р19 (NTF1-P17/P18), один сигнал — признак `dkim`;
+    в Р11 два исхода, метки `deferred` нет, NTF4-99 снят. Монтирование объекта ключа DKIM теперь
+    держит один держатель — NTF4-117; NTF1-I01 считает его по службам (ровно notify), NTF4-117 — по
+    развёртываниям notify. Это два разных разреза одного свойства, а не два механизма. Замечание
+    круга 24 о `docs/changes/issue-2919/design.md` (исход `deferred` и проверка `dkim` в Р11) вне
+    предмета этого ревью и остаётся строкой «нужен следующий».
+security_check:
+  note: >-
+    Свойство «`notify-api` (на нём внутренний слушатель, куда приходит край) не монтирует ключ
+    подписи» теперь имеет проверку, способную упасть: инъекция (10) поднимает счёт ссылок до 2 и
+    называет развёртывание. Форма «том целиком» на объекте ключа DKIM держится инъекцией (11) —
+    она же условие для NTF4-59 на стенде (при `subPath` новое поколение до пода не доходит).
+non_blocking_findings:
+  - id: N25-1
+    kind: FORMAT
+    anchor: "NTF4-117 Given (строки 3545–3547): «объект ключа DKIM и его монтирование в `notify-sender` в рендере есть»"
+    what: >-
+      Сам объект ключа DKIM чарт не рендерит: по NTF-1 Р19 его создаёт оператор (боевая посадка) или
+      посев стенда, а чарт ссылается на него по имени из узла почты. Измерено на ветке NTF-1
+      `2915-dkim-sign`: deployment.yaml монтирует `secretName: {{ $dkim.secretName }}` томом без
+      `subPath`, объекта `kind: Secret` с ключом DKIM в шаблонах нет. Утверждения «Тогда» считают
+      ссылки, а не объект, поэтому исход однозначен и Given строится. Точнее писать: «в рендере есть
+      монтирование объекта ключа DKIM в `notify-sender` по имени из узла почты; сам объект вне
+      рендера (NTF-1 Р19)». Тогда автор гейта не станет утверждать присутствие объекта в рендере.
+  - id: N25-2
+    kind: FORMAT
+    anchor: "DoD S3 п.8г (строки 3959–3961): «стадия S6 дополняет его … (случаи (1)–(6), DoD S6 п.2)»"
+    what: >-
+      Перечень случаев, которые добавляет S6, не обновлён: по §0а и DoD S6 п.2 их восемь —
+      (1)–(6), (10), (11). Неоднозначности для исполнителя S6 нет, потому что DoD S6 п.2 называет
+      одиннадцать инъекций явно. Но один предмет описан в двух местах по-разному. Нужно дописать
+      «(10), (11)».
+  - id: N25-3
+    kind: FORMAT
+    anchor: "§8 строка 117, колонка «производитель»: «два развёртывания, два объекта и две учётки»; DoD S6 п.4 «называет два объекта секрета»"
+    what: >-
+      Заголовок сценария теперь говорит «три объекта секрета», а эти два места — «два». Различие
+      законно: собственных объектов NTF-4 два, третий заводит NTF-1. Однако для читателя это не
+      названо. Стоит добавить «(третий — объект ключа DKIM, NTF-1)».
+dispatcher_decisions_check:
+  - {decision: Д96, honoured: true, note: "ключ и селектор — объект ключа DKIM NTF-1; смена пары — механизм NTF-1; монтирование у развёртываний notify — NTF4-117"}
+  - {decision: Д101, honoured: true, note: "З13 и DoD S5 п.5: замещение envelope MAIL FROM с названным правщиком пробы NTF1-P02"}
+  - {decision: Д129, honoured: true, note: "NTF-4 адресатов не выбирает; подавление применяется к адресу; дельта 26 → 27 этого не касается"}
+  - {decision: Д100, honoured: true, note: "§0а: часть Основы NTF4-117 не расширена; (10), (11) — после Основы, стадия S6"}
+authority:
+  role: acceptance-reviewer
+  note: >-
+    Имя роли — координата, а не доказательство личности. Событие полномочия публикует курьер.
+event:
+  body: "acceptance-reviewer · APPROVED · 52dfa29a68795888728ce6c0515ed7235b37d6817f1f981ef1924f27388974a5"
+measurement:
+  revision: "issue-880@2fbb571d3 + рабочее дерево; NTF-1 c19490f9… (sha256sum совпал); ветка kacho 2915-dkim-sign"
+  counts:
+    scenario_id_lines: {value: 106, command: "grep -c '^\\*\\*ID:\\*\\* NTF4-' <док>", note: "105 живых и строка снятого NTF4-99; без изменений к кругу 24"}
+    delta_25_to_27_lines: {value: 222, command: "git diff HEAD -- <док> | grep -c '^[+-]'"}
+    ntf4_117_injections: {value: 11, command: "sed -n 3560,3567p <док>", note: "(1)–(11), каждая одна"}
+    notify_api_in_ntf1: {value: 0, command: "grep -c 'notify-api' <NTF-1>", note: "держатель по развёртываниям — только NTF4-117"}
+  twin_coverage:
+    delta_negatives: "NTF4-117 (10), (11) → рендер без инъекции (одно отличие на инъекцию)"
+    delta_negatives_without_twin: []
+  producer_coverage:
+    note: >-
+      Утверждение Р22 «`notify-api` не монтирует объект ключа DKIM» — производитель чарт notify
+      (развёртывание `notify-api` заводит NTF-4), держатель NTF4-117 рендер-гейт. Сценариев дельты
+      без производителя нет.
+  constructibility:
+    seeded: 0
+    of: 1
+    named_fixture: 1
+    not_executed: 0
+    note: >-
+      Given NTF4-117 (монтирование объекта ключа DKIM в `notify-sender`) показан существующей
+      фикстурой, а не посевом: ветка NTF-1 `2915-dkim-sign`,
+      `deploy/helm/notify/templates/deployment.yaml` — том `dkim` с `secretName` из узла почты, без
+      `subPath`. Рендер не исполнялся: стенда и разрешения на посев в задании нет. Given NTF4-58/59
+      (вторая пара, зона s2) не менялись с круга 24 — там «не выполнилось» 2, причина та же.
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: false
+  edge: false
+  ui: false
+  new_domain: false
+  security_surface: true
