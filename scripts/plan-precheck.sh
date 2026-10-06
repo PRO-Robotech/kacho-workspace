@@ -18,7 +18,7 @@
 # usage: plan-precheck.sh <план.json> [--json]
 #
 # ПЛАН — объект:
-#   {"wave": "<N>",
+#   {"wave": "<N>", "crossRepo": true?,
 #    "targets": {"kacho": {"dir": "<клон>", "rev": "<ревизия>"},
 #                "kaname": {"dir": "<клон>", "rev": "<ревизия>"}},
 #    "lanes": [{"key": "A", "repo": "kacho", "dir": "<клон>", "base": "<ревизия>",
@@ -26,8 +26,15 @@
 #               "deps": ["B"]?, "declared": "R0|R1|R2"?, "repin": "corelib"?}]}
 # Объём полосы — `paths` (план до кода; каталог — с `/` на конце) либо дифф
 # `base...head` (полоса уже писала). `targets` — головы, на которые полосы
-# лягут (ветка волны или эпика); обязательны, когда в плане есть полоса kacho
-# или kaname.
+# лягут (ветка волны или эпика); обязательны, когда corelib судится.
+#
+# МЕЖРЕПОЗИТОРНАЯ СВЕРКА (corelib) судится, только когда в плане есть полосы
+# ОБОИХ репозиториев kacho и kaname либо план объявил `"crossRepo": true`
+# (ws#938): на плане одного репозитория голова соседа — не предмет его волны, и
+# прежняя сверка вставляла перепин соседа в чужую волну либо останавливала
+# раздачу на TARGET-MISSING. С флагом и отставшим соседом, у которого полос в
+# плане нет, — CORELIB-SKEW-NEIGHBOUR без `autoRepin`: перепин соседа — его
+# волной, шаблон его сюда не вставит.
 #
 # ЧТО СУДИТ (строка `REASON<TAB><код><TAB><текст>` на причину):
 #   LANE-NO-SCOPE     у полосы нет ни `paths`, ни `head`: уровень и пересечения
@@ -46,7 +53,9 @@
 #                     репозитории нет либо его прочие полосы от неё не зависят.
 #                     В выводе `--json` — `autoRepin`: шаблон волны
 #                     (`.claude/workflows/wave.js`) заводит такую полосу первой
-#                     сам и зовёт проверку заново.
+#                     сам и зовёт проверку заново;
+#   CORELIB-SKEW-NEIGHBOUR  то же при `crossRepo`, но отстаёт репозиторий, полос
+#                     которого в плане нет: остановка без `autoRepin`.
 #
 # ВЫВОД. Перепись и причины — строками; с `--json` в stdout один объект
 # {code, lanes:[{key, repo, tier, computed, steps, roles, acceptance, review,
@@ -238,7 +247,13 @@ def ver_key(v):
 
 auto = []
 repos = {str(l.get("repo")) for l in lanes} & {"kacho", "kaname"}
-if repos:
+cross = plan.get("crossRepo")
+# Тип, а не равенство: в Python 1 == True и 0 == False, поэтому `not in (None,
+# True, False)` пропустил бы 1 и 0 как булевы (опыт check-verifier ws#939).
+if cross is not None and not isinstance(cross, bool):
+    void("PLAN-MALFORMED", f"crossRepo — не true/false: {cross!r}")
+    cross = None
+if len(repos) == 2 or cross is True:
     targets = plan.get("targets") or {}
     pins = {}
     for r in ("kacho", "kaname"):
@@ -260,12 +275,17 @@ if repos:
                 if v == hi:
                     continue
                 own = [str(l.get("key")) for l in lanes if str(l.get("repo")) == r]
+                if not own:
+                    reason("CORELIB-SKEW-NEIGHBOUR", f"{r} на corelib {v}, план — {hi} (crossRepo), а полос {r} в плане нет: перепин {r} — волной {r}, сюда не вставляется")
+                    continue
                 rep = [k for k in own if by[k].get("repin") == "corelib"]
                 others = [k for k in own if k not in rep]
                 ok = bool(rep) and all(set(rep) & ancestors(k) for k in others)
                 if not ok:
                     auto.append({"repo": r, "from": v, "to": hi})
                     reason("CORELIB-SKEW", f"{r} на corelib {v}, соседний репозиторий — {hi}: полоса перепина corelib в {r} — первой, прочие полосы {r} — от неё")
+elif repos:
+    census.append(f"corelib: в плане один репозиторий ({', '.join(sorted(repos))}), crossRepo не объявлен — сосед не судился")
 else:
     census.append("corelib: полос kacho и kaname нет — не судился")
 

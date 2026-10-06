@@ -1,10 +1,10 @@
 export const meta = {
   name: 'wave',
   description: 'Волна по уровням риска: план скриптом, полосы по шагам своего уровня, сборка, один рецензент на волну, CI, предпроверка посадки скриптом, вливание и каскад',
-  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, targets?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
+  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
   phases: [
     { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения' },
-    { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; lane-precheck.sh до ревью' },
+    { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью' },
     { title: 'Сборка', detail: 'сведение, рецензент волны, CI' },
     { title: 'Посадка', detail: 'landing-precheck.sh, вливание, каскад, счётчик ошибок' },
   ],
@@ -26,7 +26,14 @@ export const meta = {
 //  - возврат не из-за кода — строкой wave-errors.sh (часы), доля в итоге.
 //  - номер PR сборки — целое ≥ 1 (схема и проверка), иначе остановка с причиной;
 //    вердикт роли — только поле verdict (accept | return | void);
-//  - итог несёт state: running (CI ещё идёт — не провал) | failed.
+//  - итог несёт state: running (CI ещё идёт — не провал) | failed;
+//  - полоса с deps стартует, когда ВСЕ её deps прошли (отправлены, предпроверка
+//    код 0, ревью уровня), и её ветка заводится от временной сводки их голов:
+//    ветка `<N>-stack-<ключ>` от свежей базы, головы deps — коммитами слияния,
+//    без переписывания; база её предпроверки — голова сводки (BASE-NOT-ANCESTOR
+//    lane-precheck судит, что код предшественников в ветке есть). Сводка
+//    конфликтует или не содержит головы dep — остановка с причиной, исполнитель
+//    не зовётся (ws#938). Независимые полосы идут сразу, не ожидая чужого слоя.
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
@@ -46,6 +53,7 @@ const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: [
 // «прогон недействителен»); значок или слово в report не читаются нигде (класс 7).
 const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'report'] }
 const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'integer', minimum: 1 }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
+const S_STACK = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, contains: { type: 'array', items: { type: 'string' } }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'contains', 'conflicts', 'report'] }
 const S_CI = { type: 'object', properties: { state: { type: 'string', enum: ['green', 'red', 'running', 'not_run', 'unread'] }, head: { type: 'string' }, total: { type: 'number' }, passed: { type: 'number' }, report: { type: 'string' } }, required: ['state', 'head', 'total', 'passed', 'report'] }
 const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 const rep = (lane, step) => D + '/' + lane + '/' + step + '.md'
@@ -62,7 +70,7 @@ const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-CO
 // ── План ────────────────────────────────────────────────────────────────
 phase('План')
 const runPlan = async (lanes, round) => {
-  const plan = { wave: N, targets: A.targets || {}, lanes: lanes.map(l => ({ key: l.key, repo: l.repo, dir: l.dir || '', base: l.base || A.base, head: l.head || undefined, paths: l.paths || undefined, deps: l.deps || [], declared: l.tier || undefined, repin: l.repin || undefined })) }
+  const plan = { wave: N, targets: A.targets || {}, crossRepo: A.crossRepo === true || undefined, lanes: lanes.map(l => ({ key: l.key, repo: l.repo, dir: l.dir || '', base: l.base || A.base, head: l.head || undefined, paths: l.paths || undefined, deps: l.deps || [], declared: l.tier || undefined, repin: l.repin || undefined })) }
   return agent(C + '\n\nРежим план: запиши ровно этот JSON в ' + D + '/plan-' + round + '.json: ' + JSON.stringify(plan) + '\nВыполни `bash ' + WS + '/scripts/wave-errors.sh open ' + N + '` и `bash ' + WS + '/scripts/plan-precheck.sh ' + D + '/plan-' + round + '.json --json > ' + D + '/plan-' + round + '.out.json`. Верни code (код plan-precheck), out (содержимое .out.json дословно), reasons (коды причин из него), head "".', { ...MECH, label: 'mech:plan:' + round, phase: 'План', schema: S_MECH })
 }
 let lanes = (A.lanes || []).map(l => ({ ...l }))
@@ -95,13 +103,29 @@ for (const l of lanes) {
   if (unknown.length) return { ok: false, stage: 'план', why: 'шаги ' + unknown.join(',') + ' шаблону неизвестны — правка шаблона, а не пропуск шага' }
 }
 
+// Имя временной сводки — по правилу репозитория `<N>-<суффикс>` (git-issues.md
+// §«Имя ветки»): N — задача волны, суффикс — `stack-<ключ>` kebab-case ≤ 40.
+const stackName = l => N + '-stack-' + (String(l.key).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 34).replace(/-+$/, '') || 'lane')
+const stackNames = {}
+for (const l of lanes) {
+  if (!(l.deps || []).length) continue
+  const s = stackName(l)
+  if (!/^[0-9]+-[a-z0-9][a-z0-9-]*$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» полосы ' + l.key + ' не по форме <N>-<суффикс> — номер волны не число' }
+  if (Object.values(stackNames).includes(s)) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» совпало у двух полос — ключи различаются только знаками' }
+  stackNames[l.key] = s
+}
+
 // ── Полосы ──────────────────────────────────────────────────────────────
 phase('Полосы')
-const review = async (role, l, head, prevHead, label) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : '') + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
-const precheck = async (l, impl) => agent(C + '\n\nРежим lane-precheck: `bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (l.base || A.base) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
-const implement = async (l, tdd, extra) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (l.base || A.base) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. Верни status, branch, head, copy, hookLog, issues (владелец/репо#N), report.', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
+const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck: `bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
+const implement = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)' : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. Верни status, branch, head, copy, hookLog, issues (владелец/репо#N), report.', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+// Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
+// (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
+// содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
+const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
 
-const runLane = async l => {
+const runLane = async (l, stack) => {
   const t = tierOf[l.key]
   const has = s => t.steps.includes(s)
   const out = { key: l.key, tier: t.tier, ok: false, reviews: [] }
@@ -118,31 +142,32 @@ const runLane = async l => {
     await agent(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + l.text + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
   }
   const tdd = has('implementer-tdd')
-  let impl = await implement(l, tdd, has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '')
+  let impl = await implement(l, tdd, has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', stack)
   if (!impl || ['blocked', 'failed'].includes(impl.status) || !sha40(impl.head)) return { ...out, stage: 'исполнитель', report: rep(l.key, 'implement') }
   // предпроверка; повтор — только при новой голове
-  let pc = await precheck(l, impl)
+  let pc = await precheck(l, impl, stack)
   if (pc && pc.code === 1) {
     const mech = (pc.reasons || []).filter(x => mechanicsReasons.has(x))
     await err(mech.length ? 'executor-mechanics' : 'new:lane-precheck-' + String((pc.reasons || ['unknown'])[0]).toLowerCase(), l.key, 'implement', (pc.reasons || []).join(','))
     const prev = impl.head
-    impl = await implement(l, tdd, 'lane-precheck вернул ' + (pc.reasons || []).join(', ') + ' — ' + rep(l.key, 'lane-precheck'))
+    impl = await implement(l, tdd, 'lane-precheck вернул ' + (pc.reasons || []).join(', ') + ' — ' + rep(l.key, 'lane-precheck'), stack)
     if (!impl || !sha40(impl.head)) return { ...out, stage: 'исполнитель (доводка предпроверки)' }
     if (impl.head === prev && impl.status !== 'already-done') return { ...out, stage: 'предпроверка: голова не сменилась — повтора нет', reasons: pc.reasons }
-    pc = await precheck(l, impl)
+    pc = await precheck(l, impl, stack)
   }
   if (!pc || pc.code !== 0) return { ...out, stage: 'предпроверка', code: pc ? pc.code : null, reasons: pc ? pc.reasons : [] }
   out.head = impl.head
   out.copy = impl.copy
+  if (stack) out.stack = { branch: stack.branch, head: stack.head }
   if (has('roles')) {
     const roles = t.roles.length ? t.roles : ['go-style-reviewer']
-    let vs = await Promise.all(roles.map(r => review(r, l, impl.head, '', 'review-' + r)))
+    let vs = await Promise.all(roles.map(r => review(r, l, impl.head, '', 'review-' + r, stack)))
     const back = vs.map((v, i) => ({ v, r: roles[i] })).filter(x => !x.v || x.v.verdict !== 'accept')
     if (back.length) {
       const prev = impl.head
-      impl = await implement(l, tdd, 'возврат ролей: ' + back.map(x => x.r + ' — ' + rep(l.key, 'review-' + x.r)).join('; '))
+      impl = await implement(l, tdd, 'возврат ролей: ' + back.map(x => x.r + ' — ' + rep(l.key, 'review-' + x.r)).join('; '), stack)
       if (!impl || !sha40(impl.head) || impl.head === prev) return { ...out, stage: 'ревью ролей: голова не сменилась — повтора нет' }
-      pc = await precheck(l, impl)
+      pc = await precheck(l, impl, stack)
       if (!pc || pc.code !== 0) return { ...out, stage: 'предпроверка после ревью', reasons: pc ? pc.reasons : [] }
       // Второй круг — только вернувшим, по дельте (база диспетчера §8а п.8).
       // Вердикт принявшей роли остаётся на голове, которую она СМОТРЕЛА: sha
@@ -159,15 +184,35 @@ const runLane = async l => {
   }
   return { ...out, ok: true }
 }
-// слои: полосы слоя параллельно, слой N+1 — после своих зависимостей
+// Порядок — по deps (слои плана): полоса стартует, когда ВСЕ её deps прошли;
+// независимая — сразу. Зависимая — от сводки голов deps (ws#938): без неё в
+// ветке полосы нет кода предшественника, а сводит полосы только сборка.
 const layers = plan.layers && plan.layers.length ? plan.layers : [lanes.map(l => l.key)]
 const done = {}
-for (const layer of layers) {
-  const res = await Promise.all(layer.map(k => lanes.find(l => l.key === k)).filter(Boolean).map(runLane))
-  for (const r of res) done[r.key] = r
-  const bad = res.filter(r => !r.ok)
-  if (bad.length) return { ok: false, stage: 'полосы', lanes: done, errors }
-}
+const stacks = []
+const started = {}
+const launch = k => started[k] || (started[k] = (async () => {
+  const l = lanes.find(x => x.key === k)
+  if (!l) return (done[k] = { key: k, ok: false, stage: 'полосы ' + k + ' нет в задании' })
+  const deps = await Promise.all((l.deps || []).map(launch))
+  const notReady = deps.filter(d => !d.ok)
+  let r
+  if (notReady.length) r = { key: k, ok: false, stage: 'не начата: deps ' + notReady.map(d => d.key).join(', ') + ' не прошли' }
+  else if (!deps.length) r = await runLane(l, null)
+  else {
+    const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))
+    const st = await stackOf(l, ds)
+    const missing = st ? ds.filter(d => !(st.contains || []).includes(d.head)) : ds
+    if (st && sha40(st.head)) stacks.push(st.branch || stackNames[k])
+    if (!st || st.status === 'conflict' || !['done', 'already-done'].includes(st.status) || !sha40(st.head) || missing.length) {
+      r = { key: k, ok: false, stage: 'сводка deps ' + stackNames[k] + ': ' + (st && st.status === 'conflict' ? 'конфликт в ' + ((st.conflicts || []).join(', ') || 'путях без имени') : !st ? 'нет ответа' : !['done', 'already-done'].includes(st.status) ? 'статус ' + st.status : !sha40(st.head) ? 'голова сводки не sha40 (' + JSON.stringify(st.head === undefined ? null : st.head).slice(0, 60) + ')' : missing.length ? 'нет голов ' + missing.map(d => d.branch + '@' + String(d.head).slice(0, 12)).join(', ') : 'причина не названа') + ' — исполнитель не зван, решает диспетчер', conflicts: st ? st.conflicts || [] : [], report: rep(k, 'stack') }
+    } else r = await runLane(l, { branch: st.branch || stackNames[k], head: st.head })
+  }
+  done[k] = r
+  return r
+})())
+await Promise.all(layers.flat().map(launch))
+if (Object.values(done).some(r => !r.ok)) return { ok: false, stage: 'полосы', lanes: done, stacks, errors }
 
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
@@ -226,5 +271,5 @@ if (lp && lp.code === 1) {
 }
 if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, errors }
 if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], errors }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + asm.head + '; основание — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи волны со ссылкой на их DoD-proof. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
-return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), pr: asm.pr, head: asm.head, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
+const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + asm.head + '; основание — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи волны со ссылкой на их DoD-proof. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: asm.head, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
