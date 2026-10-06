@@ -60,24 +60,32 @@
 #       CI-PENDING          — check-run на headSha не завершён;
 #       CI-NOT-SUCCESS      — завершён не success (neutral, cancelled, failure —
 #                             всегда; skipped — см. ниже).
-#       ИСКЛЮЧЕНИЕ ОДНО — skipped НЕОБЯЗАТЕЛЬНОГО задания. Задание, чьё условие
-#                             на событии pull_request ложно по построению
-#                             (`if: github.event_name == 'push' && github.ref ==
-#                             'refs/heads/main'`), на PR кончается skipped всегда:
-#                             kaname `.github/workflows/ci.yml` и `e2e-newman.yml`,
-#                             задание «вердикт ствола — красное не остаётся без
-#                             читателя» — замер 2026-10-06: kaname#621/#622/#623/#624
-#                             несут 7/4/4/4 таких skipped при 46/23/24/23 check-runs.
-#                             Признак — conclusion=skipped И имени нет в наборе
-#                             обязательных контекстов, которым судит ЭТОТ PR
-#                             `merge-readiness.sh` (набор отдаёт он сам файлом
-#                             MERGE_READINESS_REQUIRED_OUT — выбор «база или ствол
-#                             для ветки линии» второй копии здесь не имеет).
-#                             Текст условия `if` не разбирается: он в YAML другого
-#                             репозитория, а набор защиты — ответ площадки.
-#                             skipped ОБЯЗАТЕЛЬНОГО — CI-NOT-SUCCESS; набор не
-#                             получен (merge-readiness вышел раньше, путь ручного
-#                             прогона воркспейса) — любой skipped CI-NOT-SUCCESS.
+#       ИСКЛЮЧЕНИЕ ОДНО — skipped задания, чьё условие `if` НЕВЫПОЛНИМО на
+#                             событии его прогона. Признак (ws#947) — все три:
+#                             1) имени нет в наборе обязательных контекстов, которым
+#                             судит ЭТОТ PR `merge-readiness.sh` (набор он отдаёт
+#                             файлом MERGE_READINESS_REQUIRED_OUT; набор не получен
+#                             или пуст — любой skipped причина);
+#                             2) прогон workflow этого check-run найден
+#                             (`actions/runs?head_sha=`, ключ — check_suite.id), его
+#                             событие — pull_request в базу запроса либо push ветки
+#                             головы; иное событие не моделируется — причина;
+#                             3) файл workflow прочитан на ГОЛОВЕ запроса
+#                             (`contents/<path>?ref=<head sha>`), задание найдено по
+#                             имени, и его `if` разобран выражением трёхзначно и ЛОЖЕН
+#                             при любых неизвестных: функция (`cancelled()`,
+#                             `success()`, …), контекст вне github.{event_name, ref,
+#                             ref_name, base_ref, head_ref, ref_type}, ошибка разбора —
+#                             «может выполниться». Нет `if` — skipped не им (упавшая
+#                             зависимость `needs`) — причина.
+#                             Форма, ради которой исключение есть: kaname
+#                             `.github/workflows/{ci.yml,docker-build.yml,
+#                             e2e-newman.yml}`, задание «вердикт ствола — красное не
+#                             остаётся без читателя», `if: ${{ !cancelled() &&
+#                             github.event_name == 'push' && github.ref ==
+#                             'refs/heads/main' }}` — замер 2026-10-06 на kaname#629
+#                             @88c4e475: 4 skipped из 24 check-runs. Маски по именам
+#                             нет: имя — только ключ к записи задания в файле.
 #                             Снятые skipped печатаются строкой CENSUS поимённо;
 #   (д) MERGE-READINESS     — `scripts/merge-readiness.sh` из origin/main
 #                             воркспейса дал не 0 (1 — нельзя; 2 — вердикта нет;
@@ -101,14 +109,15 @@
 #   0 — причин нет, все семь пунктов осуждены (без --reviews пункт (а) печатается
 #       строкой CENSUS «не судился» — посадка шаблоном волны --reviews передаёт);
 #   1 — причины есть, перечислены строками REASON;
-#   2 — судить не смог: строка VOID<TAB><почему> (нет gh/jq/python3, ответ
+#   2 — судить не смог: строка VOID<TAB><почему> (нет gh/jq/python3/python3-yaml, ответ
 #       площадки не разбирается, коммитов в запросе больше, чем отдаёт площадка,
 #       merge-readiness из origin/main не извлечь, предиката атрибуции нет,
 #       комментарии закрываемой задачи не прочитаны). Это НЕ «сажать можно».
 #
 # ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/landing-precheck-inject.sh):
 #   LANDING_PRECHECK_GH                — вместо `gh` (только `gh api <путь>`;
-#                                        комментарии задач — тем же путём);
+#                                        комментарии задач, прогоны workflow и
+#                                        файлы workflow на голове — тем же путём);
 #   LANDING_PRECHECK_MERGE_READINESS   — путь к скрипту вместо merge-readiness из
 #                                        origin/main; подмена печатается в CENSUS;
 #   LANDING_PRECHECK_WS                — репозиторий, чей origin/main даёт
@@ -136,6 +145,7 @@ done
 [[ "$PR" =~ ^[0-9]+$ ]] || void "номер PR «$PR» не число"
 [ -z "$REVIEWS" ] || [ -r "$REVIEWS" ] || void "файл ревью «$REVIEWS» не читается"
 for t in jq python3 git; do command -v "$t" >/dev/null 2>&1 || void "нет $t в PATH"; done
+python3 -c 'import yaml' 2>/dev/null || void "нет python3-yaml — условие if задания не разобрать"
 [ -n "${LANDING_PRECHECK_GH:-}" ] || command -v gh >/dev/null 2>&1 || void "нет gh в PATH"
 
 W="$(mktemp -d)"
@@ -326,21 +336,287 @@ if os.path.exists(f"{W}/required"):
     required = {l.rstrip("\n") for l in open(f"{W}/required", encoding="utf-8") if l.strip()}
     if not required:
         required = None  # пустой набор — не «все необязательны»
-skipped_free = [r for r in bad if r.get("conclusion") == "skipped"
-                and required is not None and r.get("name") not in required]
+
+# skipped законен, ТОЛЬКО если условие `if` задания в файле workflow на ГОЛОВЕ
+# невыполнимо для события его прогона. Условие читается из файла на head sha и
+# разбирается выражением трёхзначно: неизвестное (функция, контекст вне перечня,
+# ошибка разбора) — «может выполниться», значит skipped НЕ законен. Маски по
+# именам нет: имя задания служит только ключом к его записи в файле.
+import base64, subprocess
+import yaml  # наличие проверено до входа в разбор (VOID «нет python3-yaml»)
+
+def gh_json(path):
+    p = subprocess.run([os.environ.get("GH") or "gh", "api", path], capture_output=True, text=True)
+    if p.returncode != 0:
+        return None, (p.stderr.strip() or f"код {p.returncode}")[:160]
+    try:
+        return json.loads(p.stdout), ""
+    except ValueError:
+        return None, "ответ не JSON"
+
+UNK = object()    # значение неизвестно, истинность неизвестна
+UNK_T = object()  # значение неизвестно, истинно (`a || b` с истинным b)
+UNK_F = object()  # значение неизвестно, ложно (`a && b` с ложным b)
+
+class ExprError(Exception):
+    pass
+
+TOK = re.compile(r"\s*(?:(?P<str>'(?:[^']|'')*')|(?P<num>-?[0-9]+(?:\.[0-9]+)?)|(?P<op>==|!=|<=|>=|&&|\|\||[<>!()\[\].,])|(?P<id>[A-Za-z_][A-Za-z0-9_-]*))")
+
+def tokens(s):
+    out, i = [], 0
+    while i < len(s):
+        if s[i:].strip() == "":
+            break
+        m = TOK.match(s, i)
+        if not m or m.end() == i:
+            raise ExprError(f"знак {s[i:i+10]!r} не разбирается")
+        i = m.end()
+        kind = m.lastgroup
+        out.append((kind, m.group(kind)))
+    return out
+
+def truth(v):
+    if v is UNK:
+        return None
+    if v is UNK_T or v is UNK_F:
+        return v is UNK_T
+    return not (v is None or v is False or v == 0 or v == "")
+
+class Expr:
+    """Выражение условия: (значение | UNK, истинность True/False/None)."""
+    def __init__(self, src, ctx):
+        self.t, self.i, self.ctx = tokens(src), 0, ctx
+    def peek(self, val=None):
+        if self.i >= len(self.t):
+            return None
+        k, v = self.t[self.i]
+        return (k, v) if val is None or (k == "op" and v == val) else None
+    def take(self, val=None):
+        tk = self.peek(val)
+        if tk is None:
+            raise ExprError(f"ждали {val or 'знак'} на месте {self.i}")
+        self.i += 1
+        return tk
+    def parse(self):
+        v = self.p_or()
+        if self.i != len(self.t):
+            raise ExprError(f"лишний хвост с места {self.i}")
+        return v
+    def p_or(self):
+        a = self.p_and()
+        while self.peek("||"):
+            self.take()
+            b = self.p_and()
+            ta, tb = truth(a), truth(b)
+            if ta is True:
+                pass
+            elif ta is False:
+                a = b
+            else:
+                a = UNK_T if tb is True else UNK
+        return a
+    def p_and(self):
+        a = self.p_eq()
+        while self.peek("&&"):
+            self.take()
+            b = self.p_eq()
+            ta, tb = truth(a), truth(b)
+            if ta is False:
+                pass
+            elif ta is True:
+                a = b
+            else:
+                a = UNK_F if tb is False else UNK
+        return a
+    def p_eq(self):
+        a = self.p_cmp()
+        while self.peek() and self.peek()[0] == "op" and self.peek()[1] in ("==", "!="):
+            op = self.take()[1]
+            b = self.p_cmp()
+            if any(x is UNK or x is UNK_T or x is UNK_F for x in (a, b)):
+                a = UNK
+                continue
+            if isinstance(a, str) and isinstance(b, str):
+                eq = a.casefold() == b.casefold()  # строки сравниваются без регистра
+            elif type(a) is type(b):
+                eq = a == b
+            else:
+                a = UNK  # приведение типов выражений — не моделируется
+                continue
+            a = eq if op == "==" else not eq
+        return a
+    def p_cmp(self):
+        a = self.p_not()
+        while self.peek() and self.peek()[0] == "op" and self.peek()[1] in ("<", ">", "<=", ">="):
+            self.take()
+            self.p_not()
+            a = UNK
+        return a
+    def p_not(self):
+        if self.peek("!"):
+            self.take()
+            v = self.p_not()
+            tv = truth(v)
+            return UNK if tv is None else (not tv)
+        return self.p_primary()
+    def p_primary(self):
+        k, v = self.take()
+        if k == "str":
+            return v[1:-1].replace("''", "'")
+        if k == "num":
+            return float(v)
+        if k == "op" and v == "(":
+            x = self.p_or()
+            self.take(")")
+            return x
+        if k != "id":
+            raise ExprError(f"знак {v!r} не начинает значение")
+        if v in ("true", "false"):
+            return v == "true"
+        if v == "null":
+            return None
+        if self.peek("("):  # вызов функции: success(), cancelled(), contains(…) — неизвестно
+            self.take("(")
+            depth = 1
+            while depth:
+                kk, vv = self.take()
+                if kk == "op" and vv == "(":
+                    depth += 1
+                elif kk == "op" and vv == ")":
+                    depth -= 1
+            return UNK
+        path, known = [v], True
+        while self.peek(".") or self.peek("["):
+            if self.peek("."):
+                self.take(".")
+                k2, v2 = self.take()
+                if k2 != "id":
+                    raise ExprError("после точки не имя")
+                path.append(v2)
+            else:
+                self.take("[")
+                idx = self.p_or()
+                self.take("]")
+                if isinstance(idx, str):
+                    path.append(idx)
+                else:
+                    known = False
+        if known and len(path) == 2 and path[0] == "github" and path[1] in self.ctx:
+            return self.ctx[path[1]]
+        return UNK
+
+def if_unexecutable(cond, ctx):
+    """True — условие ложно на этом событии при ЛЮБЫХ неизвестных; иначе (False, почему)."""
+    if cond is None:
+        return False, "условия if нет — задание пропущено не им"
+    if isinstance(cond, bool):
+        return (not cond), "условие if: true"
+    s = str(cond).strip()
+    m = re.fullmatch(r"\$\{\{(.*)\}\}", s, re.S)
+    if m and "${{" not in m.group(1):
+        s = m.group(1)
+    elif "${{" in s:
+        return False, "условие с подстановкой внутри текста не разбирается"
+    try:
+        v = Expr(s, ctx).parse()
+    except ExprError as e:
+        return False, f"условие не разобрано: {e}"
+    t = truth(v)
+    if t is False:
+        return True, ""
+    return False, "условие выполнимо на этом событии" if t else "условие не решается без исхода прогона"
+
+wf_runs, wf_err = None, ""
+wf_files = {}
+
+def runs_by_suite():
+    global wf_runs, wf_err
+    if wf_runs is not None or wf_err:
+        return wf_runs
+    acc, page = [], 1
+    while True:
+        d, err = gh_json(f"repos/{os.environ['REPO']}/actions/runs?head_sha={head}&per_page=100&page={page}")
+        if d is None or not isinstance(d.get("workflow_runs"), list):
+            wf_err = f"прогоны workflow не прочитаны: {err or 'нет workflow_runs'}"
+            return None
+        acc += d["workflow_runs"]
+        if len(d["workflow_runs"]) < 100:
+            break
+        page += 1
+    wf_runs = {r.get("check_suite_id"): r for r in acc if isinstance(r, dict)}
+    return wf_runs
+
+def workflow_jobs(path):
+    if path not in wf_files:
+        d, err = gh_json(f"repos/{os.environ['REPO']}/contents/{path}?ref={head}")
+        if d is None or d.get("encoding") != "base64" or not d.get("content"):
+            wf_files[path] = (None, f"файл {path} на {head[:12]} не прочитан: {err or 'нет содержимого'}")
+        else:
+            try:
+                doc = yaml.safe_load(base64.b64decode(d["content"]).decode("utf-8"))
+                jobs = doc.get("jobs") if isinstance(doc, dict) else None
+                if not isinstance(jobs, dict):
+                    raise ValueError("нет jobs")
+                wf_files[path] = (jobs, "")
+            except Exception as e:  # noqa: BLE001 — любой отказ разбора одинаково «не прочитан»
+                wf_files[path] = (None, f"файл {path} на {head[:12]} не разобран: {e}")
+    return wf_files[path]
+
+def skip_lawful(r):
+    """(законен ли skipped, почему нет | где условие)."""
+    if required is None:
+        return False, "набор обязательных от merge-readiness не получен — необязательность не установлена"
+    if r.get("name") in required:
+        return False, "контекст обязательный"
+    suite = (r.get("check_suite") or {}).get("id")
+    runs_map = runs_by_suite()
+    if runs_map is None:
+        return False, wf_err
+    run = runs_map.get(suite)
+    if run is None:
+        return False, f"прогон workflow набора {suite} не найден — условие не прочитать"
+    ev, branch = run.get("event"), run.get("head_branch") or ""
+    if ev == "pull_request":
+        ctx = {"event_name": "pull_request", "ref": f"refs/pull/{os.environ['PR']}/merge",
+               "ref_name": f"{os.environ['PR']}/merge", "base_ref": base_ref, "head_ref": head_ref,
+               "ref_type": "branch"}
+    elif ev == "push" and branch and branch == head_ref:
+        ctx = {"event_name": "push", "ref": f"refs/heads/{branch}", "ref_name": branch,
+               "base_ref": "", "head_ref": "", "ref_type": "branch"}
+    else:
+        return False, f"событие прогона {ev!r} (ветка {branch!r}) не моделируется"
+    path = run.get("path") or ""
+    jobs, err = workflow_jobs(path)
+    if jobs is None:
+        return False, err
+    mine = [j for k, j in jobs.items() if isinstance(j, dict) and (j.get("name") or k) == r.get("name")]
+    if not mine:
+        return False, f"в {path} нет задания с именем {r.get('name')!r}"
+    for j in mine:
+        ok, why = if_unexecutable(j.get("if"), ctx)
+        if not ok:
+            return False, f"{path}: {why}"
+    return True, f"{path} на {ev}"
+
+skipped_lawful, skip_why = [], {}
+for r in bad:
+    if r.get("conclusion") != "skipped":
+        continue
+    ok, why = skip_lawful(r)
+    if ok:
+        skipped_lawful.append(r)
+    skip_why[id(r)] = why
 for r in pending:
     reason("CI-PENDING", f"{r.get('name')} — {r.get('status')}")
 for r in bad:
-    if r in skipped_free:
+    if r in skipped_lawful:
         continue
-    why = ""
-    if r.get("conclusion") == "skipped":
-        why = (" (контекст обязательный)" if required is not None
-               else " (набор обязательных от merge-readiness не получен — необязательность не установлена)")
+    why = f" ({skip_why[id(r)]})" if id(r) in skip_why else ""
     reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, success {len(own_runs) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_free)}, skipped необязательных {len(skipped_free)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}")
-for nm in sorted({r.get("name") for r in skipped_free}):
-    census.append(f"ci: skipped необязательного не причина — {nm} ×{sum(1 for r in skipped_free if r.get('name') == nm)}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, success {len(own_runs) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}")
+for key in sorted({(r.get("name"), skip_why[id(r)]) for r in skipped_lawful}):
+    census.append(f"ci: skipped не причина — условие if невыполнимо: {key[0]} ×{sum(1 for r in skipped_lawful if (r.get('name'), skip_why[id(r)]) == key)} ({key[1]})")
 
 # (д) merge-readiness
 mr = int(os.environ["MR_CODE"])
