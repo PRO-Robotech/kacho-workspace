@@ -1,0 +1,241 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: f439f897f61f5b37cd719861a70b6f56c4b1f26bf69e8aaa48495d7a4265bd29
+  revision: 35
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, а строка редакции 35 говорит «вердикта на неё НЕТ». Запись шапку
+    не правит, так и задумано: вердикт привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 35 не закоммичена. Судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD 47e9979b1). git show HEAD:<документ> | sha256sum → ac1f9fc9…4ac1. Вердикт относится ровно к
+    отпечатку f439f897…bd29.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → f439f897…bd29
+  fingerprint_reproduced: true
+  lines: 5096
+  neighbour_ntf1: >-
+    NTF-1 не правился: sha256sum docs/specs/sub-phase-NTF-1-notification-gateway-core-acceptance.md
+    → c19490f9…c5db, в git diff его нет. Запись ревью на этот отпечаток есть, verdict APPROVED.
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T12:00:00Z'
+round: 1
+round_note: >-
+  Круг 1 из 2 на редакцию 35. Предмет — дельта 34 → 35 по Д129. Блокирующими по заданию судились:
+  однозначность, конструируемость Given, производитель «Тогда», близнец у отрицания и безопасность
+  (подстановочное право не делает адресатом, в снимке нет адресов, механизм один).
+previous_rounds:
+  - round: 1
+    revision: 34
+    sha256: b05c8b8088d223829b2831e3321a90e518a97abf296ad06d54ff9b46ad277d8d
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/b05c8b8088d223829b2831e3321a90e518a97abf296ad06d54ff9b46ad277d8d.yaml
+    note: Одобрение редакции 34 на редакцию 35 не переносится.
+blocking_count: 2
+blocking_kinds_distinct: [CONSTRUCTIBILITY, FORMAT]
+blocking_findings:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    anchor: "Группа W, общее «Дано» GW (usr-R); NTF3-165 (д) и «ровно 10 субъектов»; NTF3-171 (10 субъектов, страницы 4+4+2)"
+    what: >-
+      В GW у usr-R до When стоит правило, закреплённое по имени: resource_names: ["vol-31"]. Сам том
+      vol-31 создаётся только в When, публичным VolumeService.Create, и id ему выдаёт ids.NewID.
+      Служба доступа сравнивает resource_names с id объекта:
+      project/kaname @8a84dcff6 internal/apps/kaname/api/access_binding/reconcile/forward.go:564
+      `containsStringForward(sel.ResourceNames, o.ObjectID)`, а в комментарии role.proto сказано
+      «Pin-by-id … opaque-id». Значит, правило, записанное до создания, указывает на id, которого
+      ещё нет. Под него не попадёт ни один том, созданный в When. Тот же запрет документ формулирует
+      и сам, в Р11а: «id, которого производитель не чеканит, в «Дано» не посеять». Поэтому
+      usr-R в снимке CREATED vol-31 не окажется. Следствия: буква (д) недостижима, «ровно 10
+      субъектов» в NTF3-165 неверно, и всё, что на это число опирается, тоже не сходится: выдача
+      10 субъектов и страницы 4+4+2 в NTF3-171.
+    fix_direction: >-
+      Охват по закреплённому имени надо строить на объекте, чей id уже известен. Вариант 1: сначала
+      создать том, затем посевом С1 выдать usr-R правило с его id, а утверждать событие UPDATED
+      следующей версии (близнец — версия до выдачи). Вариант 2: утверждать эту букву на уровне
+      службы доступа через С24, с id, заданным пробой, как в NTF3-174. После этого пересчитать
+      числа в NTF3-165 и NTF3-171.
+  - id: B2
+    kind: FORMAT
+    anchor: "NTF3-170 (а) «запись и 10 строк аудитории (как NTF3-165)»; NTF3-170 (б) «все 10 строк аудитории» (оба раза и в близнецах)"
+    what: >-
+      vol-37 и vol-38 создаются без меток {env: prod}: метки в When не названы. Ни один из них не
+      vol-31. Отсюда по правилу Р30 и по самому GW: usr-L (сужение по меткам env: prod) и usr-R
+      (закреплён vol-31) в снимки этих томов не входят. Аудитория получается {usr-A, usr-B, usr-C,
+      usr-D, usr-M, usr-T, usr-blk, usr-own}, то есть 8 субъектов, а не 10. «Тогда» противоречит
+      правилу документа, и проба, написанная по такому тексту, либо падает, либо требует подгонки.
+      Однозначности нет.
+    fix_direction: >-
+      Указать число, которое следует из GW для тома без меток (8), и перечислить субъектов явно.
+      Другой вариант — создавать vol-37 и vol-38 с метками {env: prod}, тогда получится 9: usr-R по-прежнему
+      привязан к vol-31.
+security_check:
+  wildcard_not_audience: >-
+    Соблюдено. Р5, Р30 и NTF3-166 исключают user:*, sva-1 и system:*, у близнеца — привязка. Р11
+    отказывает в доставке тому, кто видит объект только по подстановке (NTF3-95).
+  snapshot_without_addresses: >-
+    Соблюдено. Р30 «Адресов в снимке нет». ListEventAudience отдаёт только user:<id> (NTF3-171:
+    «адресов в ответах нет»). Адрес выдаёт только Resolve после проверки ACTIVE и подтверждения
+    (Р6, Р7).
+  single_mechanism: >-
+    Соблюдено. Предикат grep -nE 'ListProjectAudience|visible_refs|resource_refs|якор|момент отправки|переходн'
+    по документу: все совпадения — либо шапка, либо §4 «замещение», либо записи о снятых сценариях,
+    либо фраза «у каналов notify нет». Отдельно разобрана проверка Check(v_get) при создании
+    подписки (Р11). Она отвечает на вопрос о существовании цели, а не на вопрос, кому доставлять,
+    и Р11 это прямо оговаривает. Переходного режима нет (шапка, Р30, §4).
+delta_conformance:
+  - claim: "Д129 (1): все охваты (аккаунт, проект, модуль, тип, имя, метки, группа) без отдельного правила «по проекту»"
+    where: "Р5, Р30, NTF3-165, NTF3-174"
+    ok: true
+    note: "Правило записано верно. Утверждение про охват по имени сейчас не конструируется (B1)"
+  - claim: "Д129 (2): снимок той же транзакцией; CREATED — после, UPDATED — объединение, DELETED — до"
+    where: "Р30, NTF3-167, NTF3-174 (а)–(г), NTF3-75"
+    ok: true
+  - claim: "Д129 (3): все три канала берут адресатов только из снимка, прежние пути сняты"
+    where: "Р9, Р11, Р12, Р13, §4 (строки 1991–1994), NTF3-168, NTF3-172"
+    ok: true
+  - claim: "Д129 (4): версия в событии с первой реализации"
+    where: "Р3 (source_version), Р30, NTF3-175 (гейт с инъекцией и пустым обходом)"
+    ok: true
+  - claim: "Д129 (5): адрес выдаёт только справочник после проверки"
+    where: "Р6, Р7"
+    ok: true
+  - claim: "Д129 (6): OWN_ACTIONS выключена по умолчанию и отключаема; в ленте консоли собственные действия видны"
+    where: "Р10, Р29, NTF3-169 (а)–(д)"
+    ok: true
+  - claim: "Д129 (7): срок снимка не короче максимального срока строки ленты; отбор по меткам — вне объёма"
+    where: "Р30 «Срок», NTF3-174 (ж), §6"
+    ok: true
+constructibility:
+  seeded: 0
+  named_fixture_or_tree_fact: 4
+  not_executed: 0
+  refuted: 1
+  items:
+    - given: "GW usr-L: правило match_labels на тип тома"
+      evidence: >-
+        kaname @8a84dcff6 internal/domain/feed_registry.go: "storage.volumes" — тип, который можно
+        выбирать по меткам (IsLabelSelectableType). Значит, на Role.Create правило с метками на
+        этот тип пройдёт проверку.
+    - given: "GW usr-M: resources: [\"*\"] у системной роли посева"
+      evidence: >-
+        role.proto Rule.resources: «Literal "*" — SYSTEM-ONLY». Роль задаёт посев С1, а не
+        пользовательский Role.Create.
+    - given: "Снимок = все, у кого есть v_get, с раскрытыми группами"
+      evidence: >-
+        У kaname есть перечисление ListUsers по реляционной форме: проходит каскады, scope_grant и
+        group#member, user_filters [user, service_account], подстановку не выдаёт
+        (internal/apps/kaname/api/access_binding/expand_access.go:11-25,58).
+    - given: "Снимок в той же транзакции, что зеркало и кортежи"
+      evidence: >-
+        Кортежи хранятся в реляционной форме в базе kaname (access_binding_emitted_tuples,
+        decision door over the relational form), а не во внешнем хранилище. Одна транзакция
+        поэтому возможна.
+    - given: "GW usr-R: resource_names: [\"vol-31\"] до создания vol-31"
+      evidence: "Опровергнуто, см. B1: reconcile/forward.go:564 сравнивает с ObjectID, а id выдаёт ids.NewID при создании."
+  seeding_note: >-
+    Посев не ставился: стенд и изоляцию задание не назвало. Конструируемость показана фактами
+    дерева @8a84dcff6 и @ffbe930dbef. Посевом в зелёное ничего не засчитано.
+producers:
+  then_without_producer: []
+  checked:
+    - "NTF3-165…175 — строки §11, стр. 4920–4928: notify (sender, api), kaname (справочник, применение регистрации), corelib (функция Р3), гейт repohygiene."
+twins:
+  checked: "Строки §10 4798–4839 закрывают каждую букву NTF3-165…175. В каждой меняется ровно один факт."
+  missing: []
+non_blocking_findings:
+  - id: N1
+    kind: FORMAT
+    anchor: "§8, строка С1"
+    what: "С1 ссылается на снятые NTF3-24 и NTF3-104. Ссылки надо заменить на NTF3-168 или убрать."
+  - id: N2
+    kind: OPEN-QUESTION
+    anchor: "Р30, «Намерение, устаревшее для зеркала»; NTF3-174 (д)"
+    what: >-
+      Для устаревшей версии правило «снимок по зеркалу на момент приёма» описано только на случай,
+      когда зеркало уже несёт более новую версию. Не описан случай, когда зеркала уже нет:
+      регистрация старой версии пришла после UnregisterResource. Такое возможно, когда отравленную
+      строку очереди обходят по MaxAttempts. Неясно, какой снимок получает такая версия и
+      восстанавливает ли она зеркало. Дефолт ревью: снимок пустой (READY, 0 субъектов), зеркало не
+      восстанавливается. Это надо записать в Р30 одной строкой.
+  - id: N3
+    kind: OPEN-QUESTION
+    anchor: "Р10 (ячейка OWN_ACTIONS: «Других писем ячейка не касается»), Р16, Р18"
+    what: >-
+      Д129 (6) документ читает так: под «собственное действие» попадают только письма resource-event
+      (сводка и подписка). Письмо о сбое операции, отправленное её инициатору, и письмо о сбое ресурса
+      инициатору намерения ячейкой не глушатся. Прочтение записано явно и разумно: иначе сигнал
+      о сбое по умолчанию бы пропадал. Дефолт ревью этот выбор принимает, подтверждение остаётся за диспетчером.
+  - id: N4
+    kind: OPEN-QUESTION
+    anchor: "Р30 «Владелец и администраторы аккаунта и администратор облака … в аудитории есть»; NTF3-76; NTF3-174 (и)"
+    what: >-
+      Вывод буквально следует из Д129 (1) и модели (or super_admin, any_admin from cluster), но
+      последствие нигде не названо. Каждый администратор облака попадает в снимок каждого события
+      каждого арендатора, и ему по умолчанию приходят сводки (ячейка RESOURCE_CHANGE EMAIL включена)
+      об изменениях всех ресурсов всех аккаунтов. Объём и выход данных арендаторов в почтовый ящик
+      оператора — это стратегический выбор, вопрос к владельцу. Дефолт ревью: держать как
+      написано, а последствие назвать в Р30.
+  - id: N5
+    kind: CONVENTION
+    anchor: "§1.12; шапка, «Ревизии измерения»"
+    what: >-
+      Документ опирается на NTF-1 @530e2296 (редакция 9). В дереве лежит одобренный NTF-1 c19490f9,
+      и сверка дельты 530e2296 → c19490f9 в §1.12 не сделана. Это не дельта Д129: так было уже на
+      одобренной редакции 34. При следующей правке строки таблицы §1.12 надо перемерить на c19490f9.
+measurement:
+  scenario_ids: 175
+  withdrawn: 16
+  live: 159
+  count_predicate: >-
+    grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> | sort -u | wc -l → 175;
+    grep -cE '^\*\*ID:\*\* NTF3-[0-9]+ — \*\*снят' <документ> → 16. Совпадает с шапкой редакции 35.
+premise_check:
+  task_premise: >-
+    Редакция 35 не закоммичена, отпечаток f439f897…bd29, вердикта нет, NTF-1 не правился.
+    Подтверждено: sha256sum рабочего файла → f439f897…bd29; записи на этот отпечаток в каталоге
+    ревью не было; git diff --stat: изменён только файл NTF-3 (975+/488−), NTF-1 c19490f9 вне диффа.
+method_verdict: >-
+  Дельта по Д129 записана полно, механизм один, требования безопасности соблюдены, у новых
+  сценариев есть производители и близнецы. Возврат по двум блокирующим. B1: Given с правилом,
+  закреплённым за id, которого ещё нет, — опровергнуто кодом сравнения в kaname. B2: число аудитории
+  в NTF3-170 противоречит собственному правилу документа. Оба исправляются узко, без пересмотра
+  решений.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: f439f897f61f5b37cd719861a70b6f56c4b1f26bf69e8aaa48495d7a4265bd29
+  declared_verdict: 'RETURNED'
+  record_event_type: acceptance_return
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  rationale: "Рецензент событие не публикует: тело события передаётся курьеру строкой."
+  event_body_for_courier: >-
+    acceptance-reviewer · ⛔ ВОЗВРАТ (круг 1 на редакцию 35, Д129, блокирующих 2: CONSTRUCTIBILITY · FORMAT) ·
+    SHA-256 f439f897f61f5b37cd719861a70b6f56c4b1f26bf69e8aaa48495d7a4265bd29
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
