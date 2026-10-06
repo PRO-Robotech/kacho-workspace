@@ -52,6 +52,9 @@
 #   M31 approval-event: граница номера ветки снята (`896x`, `0526` — номер) → check-03
 #   M32 approval-event: номер взят из задачи-держателя, а не из ветки  → check-03
 #   M33 approval-event: отсоединённая голова не судится отдельно        → check-03
+#   M34 approval-event: номер — последнее число имени ветки, а не число до
+#       первого дефиса (`896-r8-526` → 526)                              → check-03
+#   M35 approval-event: ветка читается из cwd, `RITUAL_REPO_DIR` пропущен  → check-03
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -220,6 +223,11 @@ inject "M32 approval-event: номер из задачи-держателя" che
     'head = "#%d " % task' 'head = "#%d " % hnum'
 inject "M33 approval-event: отсоединённая голова не судится" check-03-approval-event.py \
     'if p.returncode != 0 or not branch:' 'if False:'
+inject "M34 approval-event: номер — последнее число ветки" check-03-approval-event.py \
+    '    return int(m.group(1))' '    return int(re.findall(r"[0-9]+", branch)[-1])'
+inject "M35 approval-event: ветка из cwd, RITUAL_REPO_DIR пропущен" check-03-approval-event.py \
+    '["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "symbolic-ref"' \
+    '["git", "-C", os.getcwd(), "symbolic-ref"'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

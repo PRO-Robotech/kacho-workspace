@@ -29,9 +29,12 @@ false`; подставной трекер.
     поэтому сама сверка доказывается прямым входом, а кавычки — пробой ниже);
   * ответ трекера с переводом строки в поле не заводит в записи нового ключа;
   * первая строка коммита ритуала — «#<N> review: …», N из имени ветки (ws#941): ветка
-    `526` → `#526`, ветка `896-x` → `#896`, и такой коммит проходит хук, требующий
-    префикс номера ветки; ветка не по форме (`main`, `896x`, `x-896`, `0526`,
-    отсоединённая голова) — отказ ДО публикации, событий 0, запись и HEAD не тронуты.
+    `526` → `#526`, ветка `896-x` → `#896`, ветка `896-r8-526` → `#896` (число до первого
+    дефиса, а не последнее), и такой коммит проходит хук, требующий префикс номера
+    ветки; ветка не по форме (`main`, `896x`, `x-896`, `0526`,
+    отсоединённая голова) — отказ ДО публикации, событий 0, запись и HEAD не тронуты;
+  * ветка берётся из рабочей копии `RITUAL_REPO_DIR`, а не из каталога запуска: cwd на
+    ветке `777-other`, переменная — на `896-r8` → `#896`, копия cwd не тронута.
 Каждый отказ судится по коду И по причине в выводе: красное от соседнего отказа пробу
 не проходит (возврат check-verifier к ws#930).
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет.
@@ -152,6 +155,29 @@ def body(pr):
           subject_line(pr, db))
     cev = (yaml.safe_load(pr.git(db, "show", "HEAD:" + REC)).get("event") or {})
     pr.ok("ветка 896-x: блок event в HEAD к факту", cev.get("status") == "performed", str(cev))
+
+    # ветка <N>-…<цифры>: номер — число ДО первого дефиса, а не последнее число имени
+    # (реальные ветки `896-f6b-r8-526`, `2915-n12-fixture-sources`; возврат landing-reviewer, E7)
+    dm = fixture(pr, "branch-multi", record(), branch="896-r8-526")
+    prefix_hook(dm)
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dm)
+    pr.ok("ветка 896-r8-526: код 0 под хуком префикса", rc == 0, err)
+    pr.ok("ветка 896-r8-526: первая строка — «#896 review: …»", subject_line(pr, dm).startswith("#896 review: "),
+          subject_line(pr, dm))
+
+    # RITUAL_REPO_DIR сильнее cwd: ветка берётся из рабочей копии переменной, а не из каталога
+    # запуска (cwd — другая рабочая копия на ветке с другим номером; возврат landing-reviewer, E8)
+    dr = fixture(pr, "repo-dir", record(), branch="896-r8")
+    prefix_hook(dr)
+    dc = fixture(pr, "repo-dir-cwd", record(), branch="777-other")
+    head_c = pr.git(dc, "rev-parse", "HEAD").strip()
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dc,
+                              extra={"RITUAL_REPO_DIR": dr})
+    pr.ok("RITUAL_REPO_DIR ≠ cwd: код 0", rc == 0, err)
+    pr.ok("RITUAL_REPO_DIR ≠ cwd: первая строка — «#896 review: …» (номер ветки переменной, не cwd)",
+          subject_line(pr, dr).startswith("#896 review: "), subject_line(pr, dr))
+    pr.ok("RITUAL_REPO_DIR ≠ cwd: рабочая копия cwd не тронута", pr.git(dc, "rev-parse", "HEAD").strip() == head_c
+          and open(os.path.join(dc, REC), encoding="utf-8").read() == record())
 
     # ветка не по форме — отказ ДО публикации: событий 0, запись и HEAD не тронуты
     for label, br in (("без номера", "main"), ("номер без дефиса", "896x"), ("номер не в начале", "x-896"),
