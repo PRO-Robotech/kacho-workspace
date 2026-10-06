@@ -1,0 +1,85 @@
+ВЕРДИКТ: принято на 40174d196d5f91155cd016fd3893564ce0e37428161cd87b2fee9deb02f06f6c
+role: system-design-reviewer
+moment: post-diff
+round: 1  # Д97 — один круг; повтор только дельты по новой голове
+pr: PRO-Robotech/kacho#3042 (волна NTF-3 модули-2: S1-A3 виды, S1-A4 флаг, S1-A7 nlb)
+base: origin/2914-notify @bc3192f9ca1394f6dcc641849d67cc573a67b786 (= merge-base)
+head: a799636c82c240b7840d06df2e0795d18995cafc
+digest: 40174d196d5f91155cd016fd3893564ce0e37428161cd87b2fee9deb02f06f6c
+digest_command: git diff bc3192f9ca1394f6dcc641849d67cc573a67b786..a799636c82c240b7840d06df2e0795d18995cafc | sha256sum
+delta: 19d521349be3d6238629aa34c8159270589791eb..a799636c82c240b7840d06df2e0795d18995cafc (5 коммитов, 32 файла)
+delta_digest: 62c46f0ba282ca0c8d3472d60725c31bc0b87d20fda033a1aa172fa96f0ce835  # git diff 19d52134..a799636c | sha256sum
+previous_record: ef826f33ca78cc32610c975032d9930dc857f7e298077a82159705784c1d0806.yaml (возврат SD-1, SD-2)
+acceptance: sub-phase-NTF-3-kacho-modules-notifications-acceptance.md ред. 34 (APPROVED по заданию)
+distributed_surface: true   # писатель журнала nlb в tx снятия, флаг модуля из объявления зонтика, сужатель потока
+blocking: false
+schema_intersection: нет (миграций в дельте нет; CAS, xmin, advisory-lock не менялись)
+closed:
+  - id: SD-1
+    how: >
+      listenerWriter.Delete теперь `DELETE … RETURNING name` (QueryRow, ErrNoRows -> ErrNotFound),
+      DeleteUseCase пишет строку nlb_listener DELETED в той же tx с subscription.NamePayloadKey из RETURNING
+      (services/nlb/internal/apps/kacho/api/listener/delete.go:183-206, repo/kacho/pg/listener_repo.go:306-316).
+      На ErrNotFound вторая строка не пишется. Довод «снятие объявил выигравший» проверен: единственный
+      оператор, снимающий строку слушателя, — этот (git grep 'DELETE FROM kacho_nlb.listeners' -> 1 место),
+      FK listeners -> load_balancers ON DELETE RESTRICT (0001_initial.sql:279), каскада нет.
+    predicate: >
+      TestIntegration_DeleteListener_DeletedRowCarriesTheName (services/nlb/internal/apps/kacho/api/loadbalancer/,
+      testcontainers): @a799636c PASS; та же проба, подложенная в отсоединённую копию @19d52134 -> FAIL
+      (Code 13 "internal database error"). Контроль в обе стороны есть.
+  - id: SD-2
+    how: >
+      Зонтик рендерит ConfigMap kacho-notifications-module-flags из строк kacho.notifications.moduleTable с полем
+      knob, значение — kacho.notifications.enabledFor (тот же вывод, что решает перечень источников notify).
+      Пять модулей берут KACHO_<MODULE>_NOTIFICATIONS_ENABLED через configMapKeyRef; нет карты — под не стартует
+      (CreateContainerConfigError), «выключенным» не работает. Аннотация notifications-flag-checksum
+      перекатывает поды при смене объявления.
+    predicate: >
+      GOWORK=off go test -tags helmcharts ./deploy/ -run 'TestNTF366_' -count=1 -v (после helm dependency build)
+      -> 3 теста PASS, 14 подтестов по 7 стекам PASS, FAIL/SKIP 0. На 19d52134 те же пробы были красными
+      (запись ef826f33).
+axes:
+  atomicity: строка DELETED слушателя — та же tx, что DELETE; имя из RETURNING. Двойной записи нет.
+  idempotency: повторный Delete -> ErrNotFound из RETURNING, второй строки снятия нет.
+  concurrency: новых путей «чтение, правка, запись» нет; проигравший параллельный Delete не пишет строку.
+  delivery: модель опроса не меняется; Watch и стрим не вводятся.
+  workers: не тронуты.
+  deadline: новых внешних вызовов нет; сужатель сохраняет свой Timeout.
+  graph: новых межсервисных рёбер нет; Internal*-поверхность и край не тронуты.
+  replica_isolation: флаг читается один раз на процесс из переменной пода; feedjournal.Relations возвращает копию
+    карты, глобального состояния нет.
+  stream: сужатели пяти модулей спрашивают тип notification_feed отношением reader (feedjournal.Relations);
+    пробы *FeedSignal* в vpc, compute, nlb, storage, registry PASS (reader видит строку, подписчик без reader
+    не видит, партия не рвётся).
+important:
+  - id: SD-I4
+    where: services/{vpc,compute}/deploy/templates/deployment.yaml:8 (namespace: kacho) против
+      deploy/helm/umbrella/templates/notifications-module-flags.yaml (namespace: .Release.Namespace)
+    what: >
+      configMapKeyRef работает только в пространстве имён пода. vpc и compute жёстко стоят в kacho, карта —
+      в пространстве релиза. Сейчас это совпадает: все установки идут с -n kacho (50 вхождений в
+      deploy/Makefile и workflows, других нет). Установка в другое пространство оставит vpc и compute
+      в CreateContainerConfigError. Проба рендера пространство не сверяет. Класс уже был: так же устроена
+      security-txt-configmap. Этим дифф не введён, блокирующим не выставлено.
+  - SD-I1, SD-I2, SD-I3 из записи ef826f33 дельтой не тронуты и остаются в силе.
+runs:
+  - cmd: GOWORK=off go test -tags helmcharts ./deploy/ -run 'TestNTF366_' -count=1 -v
+    outcome: зелёных 3 (подтестов 14), красных 0
+  - cmd: GOWORK=off go test -count=1 -v -run TestIntegration_DeleteListener_DeletedRowCarriesTheName ./internal/apps/kacho/api/loadbalancer/ (services/nlb)
+    outcome: "@a799636c зелёный 1; @19d52134 (проба подложена) красный 1"
+  - cmd: GOWORK=off go test -count=1 ./internal/apps/kacho/api/{listener,loadbalancer,targetgroup}/ (services/nlb)
+    outcome: зелёных 3 пакета, красных 0
+  - cmd: GOWORK=off go test -count=1 -run FeedSignal ./internal/authzfilter/ (vpc, compute, nlb, storage) и ./internal/check/ (registry)
+    outcome: зелёных 5 пакетов, красных 0
+  - cmd: GOWORK=off go test -count=1 ./pkg/feedjournal/...
+    outcome: зелёный 1
+checklist:
+  no_dual_write: closed
+  idempotency: closed
+  cas: n/a
+  delivery_polling: closed
+  workers_coordination: n/a (не тронуто)
+  per_call_deadline: closed
+  graph_acyclic: closed (новых рёбер нет)
+  edge_ban6: n/a
+  boot: closed (SD-2)
