@@ -1,0 +1,96 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+  sha256: 78501adb81409eb9a7e364e279a7df7c191a8432ced76aad1e9d58ff0f75d866
+  revision: 8
+  static_status: DRAFT
+  static_status_note: >-
+    Слово в шапке — статическая форма объявления (change-graph §2); шапка этой записью НЕ правится.
+    Одобрение этой записи вступает в силу только внешним событием полномочия.
+  base_commit: b92cf121274c
+  content_commit: d0de30a14cbd
+  branch: 896-f6b-r8-526
+  branch_base: main
+  task: https://github.com/PRO-Robotech/kaname/issues/526
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  service_pair: PRO-Robotech/kaname docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md, редакция 7, aa40e652… (возвращена кругом 6 службы)
+  fingerprint_predicate: >-
+    sha256sum <путь> в копии ветки 896-f6b-r8-526 на d0de30a1 → 78501adb…d866, совпало с заданием;
+    wc -l → 2273. git show f1d5e21e:<путь> | sha256sum → 5c967d30… (одобрен кругом 7);
+    origin/896-f6b-r8-526 = d0de30a1.
+  fingerprint_reproduced: true
+  lines: 2273
+  task_premise_remeasured: >-
+    ПОДТВЕРДИЛАСЬ: отпечаток и строки совпали; сценариев 56 (grep -cE '^\*\*ID:\*\* F6b-[0-9]+' → 56),
+    повторов 0; отпечаток службы в §6 п. 1 и §8 (aa40e652…) совпадает с файлом службы на origin/526.
+
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T12:53:24Z'
+round: 8
+round_in_this_cycle: "1 из 2"
+predecessor_record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/5c967d30b6e3d3ad631d910a5dd2f3d77add060dbd7c2a88abb121e3ae78ec3d.yaml
+blocking_count: 1
+blocking_kinds_distinct: [CONVENTION]
+important_count: 0
+
+delta_against_approved:
+  approved_sha256: 5c967d30b6e3d3ad631d910a5dd2f3d77add060dbd7c2a88abb121e3ae78ec3d
+  diff_command: git diff f1d5e21e d0de30a1 -- <док> → 35 добавлений, 3 удаления, один файл
+  changes: >-
+    Строки истории круга 7 и редакции 8; §6 п. 1 — пара службы сменена с редакции 5 (94d6a4b6…) на
+    редакцию 7 (aa40e652…), одобрение 7 → 8 не переносится; раздел §8 «Редакция 8». Решения, ID,
+    «Дано», «Тогда», значение Р3 не тронуты — проверено диффом.
+
+blocking:
+  - id: B1
+    kind: CONVENTION
+    where: "§6 п. 1 (стр. ~1963–1968) и §8 «Редакция 8»"
+    finding: >-
+      Единственный предмет редакции — сменить устаревший отпечаток пары службы; новый отпечаток
+      aa40e652… принадлежит редакции 7 службы, которую этот же круг вернул (запись службы на aa40e652,
+      CHANGES_REQUESTED, FORMAT: неисполнимые команды §0.5). Исправление службы даст новый отпечаток,
+      и п. 1 устареет так же, как устарел 94d6a4b6… — это второй раз одного класса: круг 7 записал
+      его не блокирующим и назвал выход («сослаться на приёмку службы без отпечатка — её запись ревью
+      называет отпечаток сама»). Редакция 8 выход не взяла и повторила класс. Одобрять её — значит
+      заведомо выпустить устаревшую через одну правку ссылку и ещё одно событие полномочия впустую.
+    fix: >-
+      §6 п. 1 и §8: назвать пару службы ссылкой на документ и каталог её записей ревью
+      (действующее одобрение выводится из записи и события, change-graph §2), без отпечатка
+      неодобренной редакции; отпечаток допустим только у редакции, уже имеющей APPROVED-запись и
+      событие (60278225…, круг 5). Тогда следующая правка службы не требует редакции этого документа.
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 0
+  not_executed: 0
+  detail: "Дельта не меняет ни одного «Дано»; посев не требуется."
+
+producers:
+  without_producer: []
+twins:
+  note: "Дельта сценариев не трогает; пары прежние (запись круга 7)."
+
+disclosure: "Дельта — ссылки на приёмку и отпечатки; механики, адресов, секретов нет. Замечаний нет."
+
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: true
+  ui: true
+  new_domain: false
+  security_surface: false
+
+event_body_for_publication: "acceptance-reviewer · CHANGES_REQUESTED · 78501adb81409eb9a7e364e279a7df7c191a8432ced76aad1e9d58ff0f75d866"
+event:
+  status: not_performed
+  note: событие публикует курьер; блок дописывается к факту отдельным коммитом
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publication_mode: courier_of_agent_verdict
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: true
