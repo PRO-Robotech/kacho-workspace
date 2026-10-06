@@ -1,0 +1,78 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S5-console-and-edge-own-sessions-acceptance.md
+  sha256: b1d096cf49c2389b891ac2d576e717101a279d525774502ff7e2fa07fe992994
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит `**Статус:** DRAFT`, и этой записью она НЕ правится. check-01 судит
+    объявление и одобрения не увидит; так устроен читатель, содержимое тут ни при чём.
+    Действующий вердикт выводится из этой записи и внешнего события (change-graph.md §2).
+  base_commit: 0341e11d4
+  content_commit: null
+  content_commit_note: >-
+    На момент круга документ в ветке 3061-f8-s5-own-sessions-acceptance не закоммичен
+    (git status: ??). Отпечаток снят с рабочего дерева копии tmp/3061-f8-s5-own-sessions-acceptance.
+  branch: 3061-f8-s5-own-sessions-acceptance
+  task: PRO-Robotech/kacho#3061
+  related_tasks: [PRO-Robotech/kaname#634, PRO-Robotech/kacho#2969, PRO-Robotech/kacho-workspace#896]
+  lines: 421
+  round: 1
+  fingerprint_predicate: sha256sum <док> → b1d096cf…992994 (совпал с заданием)
+publication_mode: courier_of_agent_verdict
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07'
+approval_scope_note: >-
+  Одобрен контракт края и консоли. Ответы полосы, на которые ссылаются браузерные сценарии,
+  производит приёмка службы (kaname own-sessions, отпечаток b304ad58…). На этом круге она
+  возвращена ровно по одному блокирующему (COVERAGE, Р3/OS-04). Его исправление не трогает
+  ни одного «Тогда», которое этот документ цитирует (пути Р1, тексты SESSION_NOT_FOUND и
+  SESSION_IS_CURRENT, `ended`, `current`, `userAgent`). Если служба на следующем круге
+  поменяет любое из них, этот вердикт перестаёт покрывать затронутые сценарии.
+
+blocking: []
+
+important:
+  - kind: FORMAT
+    where: Р1, второй абзац
+    note: >-
+      «Перечень формы-записей края обязан совпадать с loginlanehttp.Paths() службы» — как норма
+      верно, но на базе не выполнено. Путей у службы 18 (handler.go:72–102), форма-записей у
+      края 17 (login_lane_paths.go:280–296 @0ae22f8f8c6). Не ретранслируется
+      `/iam/v1/auth/password/enroll` (kaname#213): `git grep 'password/enroll' 0ae22f8f8c6 --
+      gateway ui-future/shared/src` → пусто. §1.1 должен назвать это расхождение. Сам разрыв —
+      находка о корректности (глагол службы недостижим через край), и она уходит задачей, а не
+      в этот документ.
+  - kind: FORMAT
+    where: F8-S5-09, DoD п.2
+    note: >-
+      Имя TestLoginLanePaths_F6b_11_TwentyRecordsAndNineOpenBeforeAddressConfirmation
+      (login_lane_paths_test.go:185) несёт число 20. После правки записей 23, имя станет ложью,
+      и его нужно править тем же изменением.
+  - kind: DoD
+    where: Р8
+    note: >-
+      Нет базы, к которой прибавляется +8. Перемерено по прогону console-e2e 37513232839
+      (ветка 2968, 2026-10-06): «регистраций за прогон: 187 · бюджет 320». 187+8 = 195 ≤ 320,
+      утверждение DoD п.4 выполнимо.
+
+verified_true:
+  - "§1.1 @0ae22f8f8c6: записей 20, форма 17, путей sessions 0, openBeforeAddressConfirmation: true — 9"
+  - "Р5: refusalActionOf (refusal-action.ts) на поверхности ceremony даёт SESSION_NOT_FRESH→step-up-freshness, FORM_TOKEN_REJECTED→fresh-form-token, неизвестная причина / 401→show; на platform 401→sign-in. Таблица Р5 совпадает, новых веток не нужно"
+  - "«Дано B» конструируем: seedConfirmedHuman подтверждает адрес RotateBearer той же записи и снимает прочие (kaname verification.go:466–476). S_A — запись регистрации с UA посева A, S_B — вход посева B; живых ровно две, порядок по created_at БД"
+  - "producer-answers.ts несёт SESSION_NOT_FRESH и EDGE_CREDENTIAL_STATE_UNKNOWN; loginLaneWant и openBeforeAddressConfirmationWant есть"
+  - "User-Agent в credential_strip.go и login_lane_relay.go не упоминается: свойство «не снимается» сегодня не утверждено (0), его заводит F8-S5-09"
+
+counts:
+  scenarios: 12
+  producer_named: 12 of 12
+  twin_named: 12 of 12 (§6 и строки сценариев)
+  constructibility: >-
+    Посев «Дано B» показан названной фикстурой (ceremony-seed.ts) и чтением глагола
+    подтверждения службы. Живого посева не ставилось: браузерным сценариям нужны глаголы
+    kaname#634 на стенде (DoD п.4, «условие не создано»).
+
+event_body: "acceptance-reviewer · APPROVED · sha256 b1d096cf49c2389b891ac2d576e717101a279d525774502ff7e2fa07fe992994"
