@@ -47,6 +47,12 @@
 #       засчитан доказательством                                  → check-01, -02
 #   M28–M29 dod_proof.jq: маркер без `@` засчитан (`DoD-proof abc1234`) → check-01, -02
 #
+# ws#941: первая строка коммита approval-event — «#<N> », N из имени ветки.
+#   M30 approval-event: префикс номера снят («review: …»)              → check-03
+#   M31 approval-event: граница номера ветки снята (`896x`, `0526` — номер) → check-03
+#   M32 approval-event: номер взят из задачи-держателя, а не из ветки  → check-03
+#   M33 approval-event: отсоединённая голова не судится отдельно        → check-03
+#
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
 # Коды: 0 — все доказательства прошли; 1 — хоть одно нет; 2 — копию не завести.
@@ -206,6 +212,14 @@ inject "M24 gh_list: только первая страница (close-wave)" ch
     '        if len(chunk) < 100:' '        if True:'
 inject "M25 gh_list: только первая страница (vault-trails)" check-04-vault-trails.py \
     '        if len(chunk) < 100:' '        if True:'
+inject "M30 approval-event: префикс номера ветки снят" check-03-approval-event.py \
+    'head = "#%d " % task' 'head = ""'
+inject "M31 approval-event: граница номера ветки снята" check-03-approval-event.py \
+    'r"^([1-9][0-9]*)(?:-|$)"' 'r"^([0-9]+)"'
+inject "M32 approval-event: номер из задачи-держателя" check-03-approval-event.py \
+    'head = "#%d " % task' 'head = "#%d " % hnum'
+inject "M33 approval-event: отсоединённая голова не судится" check-03-approval-event.py \
+    'if p.returncode != 0 or not branch:' 'if False:'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

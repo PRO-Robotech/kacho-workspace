@@ -27,7 +27,11 @@ false`; подставной трекер.
     лишним ключом верхнего уровня подаётся в `edited_record` ритуала ПРОВЕРЯЕМОГО дерева
     (в настоящем пути значения ответа трекера в кавычках, и такой блок не собрать —
     поэтому сама сверка доказывается прямым входом, а кавычки — пробой ниже);
-  * ответ трекера с переводом строки в поле не заводит в записи нового ключа.
+  * ответ трекера с переводом строки в поле не заводит в записи нового ключа;
+  * первая строка коммита ритуала — «#<N> review: …», N из имени ветки (ws#941): ветка
+    `526` → `#526`, ветка `896-x` → `#896`, и такой коммит проходит хук, требующий
+    префикс номера ветки; ветка не по форме (`main`, `896x`, `x-896`, `0526`,
+    отсоединённая голова) — отказ ДО публикации, событий 0, запись и HEAD не тронуты.
 Каждый отказ судится по коду И по причине в выводе: красное от соседнего отказа пробу
 не проходит (возврат check-verifier к ws#930).
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет.
@@ -67,14 +71,34 @@ def world():
             "user": {"login": "pointpu"}}
 
 
-def fixture(pr, name, rec_text, push=True):
+def fixture(pr, name, rec_text, push=True, branch="526"):
     origin = os.path.join(pr.tmp, name + "-origin.git")
     pr.git(pr.tmp, "init", "-q", "--bare", origin)
-    d = pr.repo(name, {DOC: TEXT, REC: rec_text})
+    d = pr.repo(name, {DOC: TEXT, REC: rec_text}, branch=branch)
     pr.git(d, "remote", "add", "origin", origin)
     if push:
-        pr.git(d, "push", "-q", "origin", "main")
+        pr.git(d, "push", "-q", "origin", "HEAD")
     return d
+
+
+# Хук коммита веток вида <N> и <N>-…: первая строка обязана начинаться с «#<N> », где N —
+# номер ветки (форма хука kaname `scripts/hooks/commit-msg`, правило ws для веток задач).
+PREFIX_HOOK = """#!/bin/sh
+b=$(git symbolic-ref -q --short HEAD) || { echo 'проба: ветки нет' >&2; exit 1; }
+n=$(printf '%s' "$b" | sed -n 's/^\\([0-9][0-9]*\\)\\(-.*\\)\\{0,1\\}$/\\1/p')
+[ -n "$n" ] || { echo "проба: ветка $b без номера" >&2; exit 1; }
+head -n 1 "$1" | grep -q "^#$n " || { echo "проба: первая строка не начинается с #$n" >&2; exit 1; }
+"""
+
+
+def prefix_hook(d):
+    hook = os.path.join(d, ".git", "hooks", "commit-msg")
+    open(hook, "w").write(PREFIX_HOOK)
+    os.chmod(hook, 0o755)
+
+
+def subject_line(pr, d):
+    return pr.git(d, "log", "-1", "--format=%s").strip()
 
 
 def posts(st):
@@ -107,15 +131,43 @@ def body(pr):
     pr.ok("комментарий записи сохранён", "# комментарий записи сохраняется" in pr.git(d, "show", "HEAD:" + REC))
     msg = pr.git(d, "log", "-1", "--format=%B")
     pr.ok("коммит без атрибуции", "co-authored-by" not in msg.lower() and "claude" not in msg.lower(), msg)
+    pr.ok("ветка 526: первая строка — «#526 review: …»", subject_line(pr, d).startswith("#526 review: "),
+          subject_line(pr, d))
     pr.ok("коммит подписан корнем песочницы", pr.git(d, "log", "-1", "--format=%an").strip() ==
           pr.git(d, "config", "--global", "--get", "user.name").strip())
     pr.ok("коммит трогает только запись", pr.git(d, "show", "--name-only", "--format=", "HEAD").split() == [REC])
     pr.ok("адрес события напечатан в stdout", out.strip() == url, out)
 
-    pr.git(d, "push", "-q", "origin", "main")
+    pr.git(d, "push", "-q", "origin", "HEAD")
     rc, out, err, st2 = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(st), cwd=d)
     pr.refused("повтор", rc, err, "событие уже исполнено")
     pr.ok("повтор: второго события нет", len(posts(st2)) == len(posts(st)), str(posts(st2)))
+
+    # ветка <N>-…: номер берётся до первого дефиса, коммит проходит хук, требующий «#<N> »
+    db = fixture(pr, "branch-dash", record(), branch="896-x")
+    prefix_hook(db)
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=db)
+    pr.ok("ветка 896-x: код 0 под хуком префикса", rc == 0, err)
+    pr.ok("ветка 896-x: первая строка — «#896 review: …»", subject_line(pr, db).startswith("#896 review: "),
+          subject_line(pr, db))
+    cev = (yaml.safe_load(pr.git(db, "show", "HEAD:" + REC)).get("event") or {})
+    pr.ok("ветка 896-x: блок event в HEAD к факту", cev.get("status") == "performed", str(cev))
+
+    # ветка не по форме — отказ ДО публикации: событий 0, запись и HEAD не тронуты
+    for label, br in (("без номера", "main"), ("номер без дефиса", "896x"), ("номер не в начале", "x-896"),
+                      ("номер с ведущим нулём", "0526")):
+        dn = fixture(pr, "branch-" + br, record(), branch=br)
+        head0 = pr.git(dn, "rev-parse", "HEAD").strip()
+        rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dn)
+        pr.refused("ветка %s («%s»)" % (label, br), rc, err, "не в форме <N> либо <N>-…")
+        pr.ok("ветка %s: событий 0, HEAD и запись не тронуты" % label,
+              not posts(st) and pr.git(dn, "rev-parse", "HEAD").strip() == head0
+              and open(os.path.join(dn, REC), encoding="utf-8").read() == record(), str(posts(st)))
+    dd = fixture(pr, "detached", record())
+    pr.git(dd, "checkout", "-q", "--detach")
+    rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=dd)
+    pr.refused("отсоединённая голова", rc, err, "ветки нет")
+    pr.ok("отсоединённая голова: событий 0", not posts(st), str(posts(st)))
 
     d2 = fixture(pr, "noblock", record(event=False))
     rc, out, err, st = pr.run("approval-event", [R, DOC, REC, "549"], pr.state(world()), cwd=d2)
