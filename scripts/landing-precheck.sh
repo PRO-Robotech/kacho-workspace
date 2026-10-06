@@ -16,7 +16,7 @@
 #   landing-precheck.sh <владелец/репозиторий> <номер PR> [--reviews <файл JSON>]
 #
 # --reviews — массив структурных вердиктов ревью: [{"role": "...", "sha": "<40 hex>",
-# "verdict": "accept"|"return"|"invalid", "blocking": [...] (необязательно)}].
+# "verdict": "accept"|"return"|"void", "blocking": [...] (необязательно)}].
 # Вердикт без поля verdict — не «принят» (REVIEW-NOT-ACCEPTED).
 # Ровно та форма, которую возвращают роли шаблона `.claude/workflows/wave.js`;
 # текст ответа роли не разбирается нигде (класс 7).
@@ -96,11 +96,15 @@
 #   LANDING_PRECHECK_GH                — вместо `gh` (только `gh api <путь>`;
 #                                        комментарии задач — тем же путём);
 #   LANDING_PRECHECK_MERGE_READINESS   — путь к скрипту вместо merge-readiness из
-#                                        origin/main; подмена печатается в CENSUS.
+#                                        origin/main; подмена печатается в CENSUS;
+#   LANDING_PRECHECK_WS                — репозиторий, чей origin/main даёт
+#                                        merge-readiness и scripts/lib (песочница
+#                                        пробы настоящего пути (д)); по умолчанию —
+#                                        этот воркспейс.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WS="$(cd "$HERE/.." && pwd)"
+WS="${LANDING_PRECHECK_WS:-$(cd "$HERE/.." && pwd)}"
 GH="${LANDING_PRECHECK_GH:-gh}"
 
 void() { printf 'VOID\t%s\n' "$1"; exit 2; }
@@ -188,9 +192,15 @@ if [ -n "${LANDING_PRECHECK_MERGE_READINESS:-}" ]; then
     MR="$LANDING_PRECHECK_MERGE_READINESS"
     MR_SRC="подмена из окружения: $MR"
 else
-    MR="$W/merge-readiness.sh"
-    git -C "$WS" show origin/main:scripts/merge-readiness.sh > "$MR" 2>/dev/null \
-        || void "merge-readiness.sh из origin/main воркспейса не извлекается"
+    # Извлекается не один файл, а всё, что инструмент подключает рядом с собой:
+    # `scripts/lib/` (распознаватель DoD `lib/dod_proof.jq`). Без него
+    # merge-readiness выходил кодом 2 «распознавателя нет» на КАЖДОЙ посадке
+    # (ws#935, найдено на kacho#3043) — пункт (д) не судился ни разу.
+    mkdir -p "$W/mr"
+    git -C "$WS" archive --format=tar -o "$W/mr.tar" origin/main scripts/merge-readiness.sh scripts/lib 2>"$W/api.err" \
+        || void "merge-readiness.sh и scripts/lib из origin/main воркспейса не извлекаются: $(head -c 300 "$W/api.err")"
+    tar -xf "$W/mr.tar" -C "$W/mr" || void "архив merge-readiness из origin/main не распаковался"
+    MR="$W/mr/scripts/merge-readiness.sh"
     MR_SRC="origin/main@$(git -C "$WS" rev-parse --short=12 origin/main)"
 fi
 bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1

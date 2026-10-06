@@ -14,6 +14,11 @@
 # merge-readiness подменяется заглушкой с заданным кодом
 # (LANDING_PRECHECK_MERGE_READINESS) — его собственное доказательство живёт в
 # tooling-gate check-09.
+# Исключение — раздел «(д) настоящий»: там merge-readiness НЕ подменяется, а
+# извлекается предпроверкой из origin/main песочницы-воркспейса
+# (LANDING_PRECHECK_WS) вместе с `scripts/lib/`, и судит случай с DoD-proof через
+# подменный gh в PATH; инъекция — предпроверка, извлекающая один файл без `lib/`
+# (дефект ws#935), обязана дать MERGE-READINESS код 2 «распознавателя нет».
 #
 # БЛИЗНЕЦ — захват с ДВУМЯ правками, обе названы: состояние `closed` → `open`
 # (запрос уже влит) и в теле снято упоминание `#3028` (задача следующей волны,
@@ -39,8 +44,20 @@ pass=0; fail=0
 # Подмена gh: отвечает только на `gh api <путь>`; путь → файл песочницы пробы.
 cat > "$W/gh" <<'GH'
 #!/usr/bin/env bash
-[ "$1" = api ] || { echo "fake gh: только api" >&2; exit 64; }
+# `gh pr view` и чтения защиты, задачи головы и комментариев без `page=` зовёт
+# НАСТОЯЩИЙ merge-readiness (раздел «(д) настоящий»): ответы — файлы того же случая.
+if [ "$1" = pr ] && [ "$2" = view ]; then
+    [ -f "$FAKE/prview.json" ] || { echo "fake gh: pr view без prview.json" >&2; exit 64; }
+    cat "$FAKE/prview.json"; exit 0
+fi
+[ "$1" = api ] || { echo "fake gh: только api и pr view" >&2; exit 64; }
 case "$2" in
+    */branches/*/protection)
+        [ -f "$FAKE/protection.json" ] || { echo "fake gh: защиты в случае нет" >&2; exit 64; }
+        cat "$FAKE/protection.json" ;;
+    */issues/*/comments\?per_page=100)
+        n="${2#*/issues/}"; n="${n%%/*}"
+        if [ -f "$FAKE/comments-$n.json" ]; then cat "$FAKE/comments-$n.json"; else echo '[]'; fi ;;
     */pulls/*/commits\?*page=1) cat "$FAKE/commits.json" ;;
     */pulls/*/commits\?*)       echo '[]' ;;
     */check-runs\?*page=1*)     cat "$FAKE/check-runs.json" ;;
@@ -50,6 +67,8 @@ case "$2" in
         n="${2#*/issues/}"; n="${n%%/*}"
         if [ -f "$FAKE/comments-$n.json" ]; then cat "$FAKE/comments-$n.json"; else echo '[]'; fi ;;
     */issues/*/comments\?*)     echo '[]' ;;
+    */issues/[0-9]*)
+        n="${2##*/}"; printf '{"number":%s,"labels":[],"sub_issues_summary":{"total":0,"completed":0}}\n' "$n" ;;
     *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
 esac
 GH
@@ -106,6 +125,9 @@ expect() {
     fi
 }
 [ -x "$(command -v jq)" ] || { echo "VOID: нет jq" >&2; exit 2; }
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/home" || { echo "VOID: подписи песочницы нет — история песочницы-воркспейса не пишется" >&2; exit 2; }
 [ -n "$HEAD_SHA" ] && [ "$HEAD_SHA" != null ] || { echo "VOID: фикстура без head.sha" >&2; exit 2; }
 
 echo "== близнец и захват как есть"
@@ -186,6 +208,67 @@ twin
 printf '#!/usr/bin/env bash\ncase "$2" in */issues/*) echo boom >&2; exit 1 ;; esac\nexec "%s" "$@"\n' "$W/gh" > "$W/gh-broken"; chmod +x "$W/gh-broken"
 FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh-broken" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
 expect 2 $'VOID\tкомментарии PRO-Robotech/kacho#' "комментарии задачи не прочитаны — вердикта нет, а не «доказано»"
+
+echo "== (д) настоящий merge-readiness из origin/main — вместе с тем, что он подключает"
+# Подмены merge-readiness здесь НЕТ: предпроверка извлекает его из origin/main
+# песочницы-воркспейса (LANDING_PRECHECK_WS) так же, как из настоящего, и он судит
+# тот же случай через подменный gh в PATH. Песочница несёт файлы ЭТОГО дерева:
+# `scripts/merge-readiness.sh` и `scripts/lib/` — ровно то, что лежит в origin/main
+# после вливания. Прежний дефект (ws#935, найден на kacho#3043): извлекался один
+# файл, без `lib/`, и merge-readiness выходил кодом 2 «распознавателя нет» на
+# КАЖДОЙ посадке — пункт (д) не судился ни разу, а пробы выше этого не видели:
+# там merge-readiness — заглушка.
+# mrcase <с lib: 1|0> — близнец + ответы `gh pr view` и защиты + песочница.
+mrcase() {
+    twin
+    jq -n --slurpfile p "$W/case/pull.json" --slurpfile c "$W/case/check-runs.json" '
+        $p[0] as $p | {state: "OPEN", baseRefName: $p.base.ref, headRefName: $p.head.ref,
+          headRefOid: $p.head.sha, mergeStateStatus: "CLEAN", body: $p.body,
+          closingIssuesReferences: [],
+          statusCheckRollup: [$c[0].check_runs[] | {name, conclusion: (.conclusion | ascii_upcase)}]}' > "$W/case/prview.json"
+    jq '{required_status_checks: {contexts: [.check_runs[].name] | unique}}' "$W/case/check-runs.json" > "$W/case/protection.json"
+    rm -rf "$W/ws"; mkdir -p "$W/ws/scripts"
+    cp "$HERE/merge-readiness.sh" "$W/ws/scripts/"
+    [ "$1" = 0 ] || cp -r "$HERE/lib" "$W/ws/scripts/lib"
+    # Подпись песочницы — её корневой gitconfig (scripts/lib/sandbox-git-home.sh).
+    sandbox_git -C "$W/ws" init -q
+    sandbox_git -C "$W/ws" add -A
+    sandbox_git -C "$W/ws" commit -qm probe
+    sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
+}
+# runreal — предпроверка без подмены merge-readiness; gh — тот же подменный, и в PATH.
+runreal() {
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
+        bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    echo $? > "$W/code"
+}
+mrcase 1; runreal
+expect 0 - "Closes с DoD-proof: настоящий merge-readiness выносит вердикт (код 0), а не код 2"
+if grep -q $'^CENSUS\tmerge-readiness: код 0, источник origin/main@' "$W/out"; then
+    echo "  [OK]   перепись называет код 0 и источник origin/main — заглушки нет"; pass=$((pass + 1))
+else
+    echo "  [FAIL] перепись не называет «merge-readiness: код 0, источник origin/main@»:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
+fi
+mrcase 1; rm "$W/case/comments-2690.json"; runreal
+expect 1 $'REASON\tMERGE-READINESS\tкод 1' "Closes #2690 без DoD-proof — merge-readiness судит по существу (код 1)" many
+mrcase 0; runreal
+expect 2 $'VOID\tmerge-readiness.sh и scripts/lib из origin/main' "origin/main без scripts/lib — вердикта нет (код 2), а не «можно»"
+# Инъекция в САМУ предпроверку: извлечение одного файла без `lib/` (прежняя форма).
+# На том же случае с DoD-proof она обязана дать MERGE-READINESS код 2
+# «распознавателя нет» — иначе проба положительного случая выше слепа к дефекту.
+# Мутант живёт в каталоге песочницы рядом со ссылкой на `hooks/` дерева: предикат
+# атрибуции предпроверка берёт рядом с собой.
+mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"
+sed 's|origin/main scripts/merge-readiness.sh scripts/lib |origin/main scripts/merge-readiness.sh |' "$TOOL" > "$W/mut/precheck-nolib.sh"
+if cmp -s "$TOOL" "$W/mut/precheck-nolib.sh"; then
+    echo "  [FAIL] инъекция «извлечение без lib/»: образец не найден в предпроверке" >&2; fail=$((fail + 1))
+else
+    mrcase 1
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
+        bash "$W/mut/precheck-nolib.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    echo $? > "$W/code"
+    expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: распознавателя доказательства DoD нет' "инъекция: предпроверка извлекает merge-readiness без lib/ — код 2 «распознавателя нет»"
+fi
 
 echo "== предпосылка"
 twin; echo '<html>' > "$W/case/pull.json"; run 0
