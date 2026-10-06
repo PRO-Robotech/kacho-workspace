@@ -1,0 +1,102 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+  sha256: 5c967d30b6e3d3ad631d910a5dd2f3d77add060dbd7c2a88abb121e3ae78ec3d
+  revision: 7
+  static_status: DRAFT
+  static_status_note: >-
+    Слово в шапке — статическая форма объявления (change-graph §2); шапка этой записью НЕ правится.
+    Одобрение этой записи вступает в силу только внешним событием полномочия.
+  base_commit: a68edc466c7ad7704e2b4c58f21dca22064dde95
+  content_commit: f1d5e21e778b63993f9eb25455b177809fb72a94
+  branch: 896-f6b-r3-526
+  branch_base: main
+  task: https://github.com/PRO-Robotech/kaname/issues/526
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  service_pair: PRO-Robotech/kaname docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md, редакция 5, 94d6a4b6…
+  fingerprint_predicate: >-
+    sha256sum <путь> в копии ветки 896-f6b-r3-526 на f1d5e21e → 5c967d30…3ec3d, совпало с заданием;
+    wc -l → 2241. git show a68edc466:<путь> | sha256sum → eae68d22… (одобрен кругом 6).
+  fingerprint_reproduced: true
+  lines: 2241
+  task_premise_remeasured: >-
+    ПОДТВЕРДИЛАСЬ: отпечаток и строки совпали; круг 6 APPROVED на eae68d22 — запись существует;
+    сценариев 56 (grep -cE '^\*\*ID:\*\* F6b-[0-9]+' → 56), повторов 0.
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T10:02:37Z'
+round: 7
+round_in_this_cycle: "1 из 2"
+predecessor_record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/eae68d22c03804aa615fdfd9627ea38dab3b452abb5627c4fa7c85cb57d5eb14.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+important_count: 0
+
+delta_against_approved:
+  approved_sha256: eae68d22c03804aa615fdfd9627ea38dab3b452abb5627c4fa7c85cb57d5eb14
+  diff_command: git diff a68edc466 f1d5e21e -- <док>
+  changes: >-
+    Текст Р3 со шагом в таблице Р3, Р3а, преамбуле §4, F6b-45 (нативная), §1.9; абзацы о шаге и о
+    двух писателях с переписью; по одному «И» в F6b-01 (вырез пути из message — запись «доступна до
+    подтверждения») и F6b-10 (шаг из текста снимает отказ); строка производителя §5; §6 п. 1, п. 10,
+    п. 11; инвариант 2 §7; раздел §8 «Редакция 7»; строки истории круга 6 и редакции 7.
+
+remeasured:
+  - "git grep -n 'addressRefusalText *=' 680d1794 -- gateway ':!*_test.go' → address_refusal.go:43, значение прежнее — верно"
+  - "git grep -n 'email address is not verified\"' 680d1794 -- gateway ui-future | wc -l → 13 — верно (контроль предиката п. 10); новый текст образцом с закрывающей кавычкой не ловится"
+  - "git grep -c 'email address is not verified' 680d1794 -- ui-future/e2e/specs/address-confirmation.spec.ts → 1 — верно"
+  - "git grep -n 'TextNotVerified = ' 2cf9c8528b1f -- internal ':!*_test.go' → admission.go:59 — верно"
+  - "git grep -n 'PathVerifyEmailConfirm: PathAvailableInVerification' 2cf9c8528b1f -- internal → handler.go:136 — верно"
+  - "git log -S'confirm it with the code from the letter' 680d1794 -- gateway → 81f7bf3504e (откат), 97e018f606d, c13dd559ba2 — верно"
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 2
+  not_executed: 0
+  detail: >-
+    Новые «И» F6b-01 и F6b-10 строятся тем же, что сценарии: запись объявления края с
+    openBeforeAddressConfirmation для пути подтверждения существует
+    (gateway/internal/middleware/login_lane_paths.go:284 @ 680d1794), посев F6b-10 уже предъявляет
+    код этим путём. Новых «Дано» нет.
+
+producers:
+  without_producer: []
+twins:
+  note: "F6b-01 ↔ F6b-02 (EmailVerified); F6b-10 до шага ↔ после шага — отличающий факт назван"
+
+non_blocking:
+  - >-
+    §8, таблица, строка §6: «п. 1 — вердикты редакций 6 и 7 службы» — редакции 6 и 7 этого
+    документа; у службы — редакция 5.
+  - >-
+    §6 п. 1 цитирует отпечаток приёмки службы 94d6a4b6…, которую этот же круг вернул (её запись,
+    CHANGES_REQUESTED: DoD п. 16 и подстановка T в EV-14). Значение текста Р3 правка службы не
+    меняет, поэтому вердикт этого документа от неё не зависит; но новый отпечаток службы сделает
+    ссылку п. 1 устаревшей — правка ссылки будет новой редакцией и потребует своего круга.
+    Дешевле сослаться на приёмку службы без отпечатка (её запись ревью называет отпечаток сама).
+
+disclosure: >-
+  Путь в тексте публичный, опубликован в документации API службы; адресов развёртывания нет.
+
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: true
+  ui: true
+  new_domain: false
+  security_surface: false
+
+event_body_for_publication: "acceptance-reviewer · APPROVED · 5c967d30b6e3d3ad631d910a5dd2f3d77add060dbd7c2a88abb121e3ae78ec3d"
+event:
+  status: not_performed
+  note: событие публикует курьер; блок дописывается к факту отдельным коммитом
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publication_mode: courier_of_agent_verdict
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: true
