@@ -76,3 +76,22 @@ counts:
     kaname#634 на стенде (DoD п.4, «условие не создано»).
 
 event_body: "acceptance-reviewer · APPROVED · sha256 b1d096cf49c2389b891ac2d576e717101a279d525774502ff7e2fa07fe992994"
+
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#3061
+  status: performed
+  published: true
+  database_id: 6027092905
+  node_id: "IC_kwDOTZqgWM8AAAABZz4jqQ"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3061#issuecomment-6027092905"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6027092905"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-06T23:07:55Z"
+  body_sha256: "bc22bbfa9f0db80f434f738878ebb90e20c6e74c93f6109b2e2c69e2f4173692"
+  subject_sha256: "b1d096cf49c2389b891ac2d576e717101a279d525774502ff7e2fa07fe992994"
+  subject_revision_commit: "8f6749758c7cbd4826f86e340231b90f33f3a31d"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
