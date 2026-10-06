@@ -1,0 +1,146 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 17635b5a0951bc8afc1d7175d0e1aa22d899a72ed62fedecc2a71df863d5a2f9
+  revision: 36
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке документа стоит DRAFT, а строка редакции 36 говорит «вердикта на неё НЕТ». Запись шапку
+    не правит, так и задумано: вердикт привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 36 не закоммичена. Судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD 37077134f). Вердикт относится ровно к отпечатку 17635b5a…a2f9.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → 17635b5a…a2f9
+  fingerprint_reproduced: true
+  lines: 5127
+  neighbour_ntf1: >-
+    NTF-1 не правился: sha256sum → c19490f9…c5db, в git diff его нет; запись на этот отпечаток —
+    APPROVED.
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T16:00:00Z'
+round: 2
+round_note: >-
+  Круг 2 из 2 по Д129. Предмет — закрытие B1 (CONSTRUCTIBILITY) и B2 (FORMAT) круга 1 на редакцию 35
+  и проверка, что правка не внесла новых дефектов в группу W, Р30, §8 С1, §10.
+previous_rounds:
+  - round: 1
+    revision: 35
+    sha256: f439f897f61f5b37cd719861a70b6f56c4b1f26bf69e8aaa48495d7a4265bd29
+    verdict: RETURNED
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/f439f897f61f5b37cd719861a70b6f56c4b1f26bf69e8aaa48495d7a4265bd29.yaml
+blocking_count: 0
+closed_from_previous_round:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    status: closed
+    evidence: >-
+      GW (строки 2902–2911): usr-R без привязки. NTF3-165 When: том vol-31 создан, id взят из ответа
+      VolumeService.Create, затем С1 выдаёт правило resource_names: [<id vol-31>], выдача видна Check,
+      затем Update маской description (V31u). Правило сравнивается с ObjectID
+      (kaname reconcile/forward.go:564, круг 1) и id к моменту выдачи уже существует — Given
+      строится. С1 (строка 2211) прямо ограничивает правило по имени id уже созданного объекта.
+      Числа: CREATED V31 = 9 (без usr-R), UPDATED V31u = 10 (объединение до/после; правило выдано
+      до правки, usr-R в обеих половинах). NTF3-166 (10 у версии перехода после V31u), NTF3-171
+      (10, страницы 4+4+2), NTF3-174 (а) (9, оговорка об usr-R) согласованы.
+  - id: B2
+    kind: FORMAT
+    status: closed
+    evidence: >-
+      NTF3-170 (а), (б): 8 субъектов {usr-A, usr-B, usr-C, usr-D, usr-M, usr-T, usr-blk, usr-own},
+      перечислены явно; совпадает с 9 у тома с {env: prod} минус usr-L (NTF3-174 (а)) и с GW, где у
+      usr-R привязки нет.
+non_blocking_findings:
+  - id: N1-r2
+    kind: TWIN
+    anchor: "§10, строка 4829: NTF3-165 (usr-R у vol-32) против (usr-R у V31u)"
+    what: >-
+      Пара отличается не только закреплённым id: отрицание — CREATED vol-32, положительная сторона —
+      UPDATED vol-31. Исход для usr-R определяет только совпадение id (правило выдано до создания
+      vol-32), поэтому различение сохраняется; при следующей правке точнее взять положительной
+      стороной CREATED тома, созданного после выдачи правила с его id, либо назвать вид события
+      несущественным в строке.
+  - id: N3
+    kind: OPEN-QUESTION
+    status: carried
+    what: "Прочтение OWN_ACTIONS только для писем resource-event — дефолт круга 1 держится, подтверждение за диспетчером."
+  - id: N5
+    kind: CONVENTION
+    status: carried
+    what: "§1.12 перемерить на NTF-1 c19490f9 при следующей правке; вне дельты Д129."
+  - id: N4
+    kind: OPEN-QUESTION
+    status: carried_to_owner
+    what: >-
+      Р30 теперь называет следствие (администратор облака получает сводки всех аккаунтов по умолчанию).
+      Само решение — стратегический выбор владельца; блокирующим не считается, поскольку прямо следует
+      из Д129 (1) дословно.
+security_check:
+  wildcard_not_audience: "Соблюдено: Р30, NTF3-166 (usr-X по user:*, sva-1, system:* вне снимка; близнец — привязка)."
+  snapshot_without_addresses: "Соблюдено: Р30 «Адресов в снимке нет»; NTF3-171 «адресов в ответах нет»; адрес — только Resolve (Р6, Р7)."
+  single_mechanism: >-
+    Соблюдено. grep -nE 'ListProjectAudience|visible_refs|resource_refs|переходн' по документу: все
+    совпадения — шапка, строка Д129, §4 замещения (1998, 2001), записи снятых NTF3-117/121. Правка
+    редакции 36 нового пути не добавила.
+constructibility:
+  seeded: 0
+  named_fixture_or_tree_fact: 5
+  not_executed: 0
+  refuted: 0
+  seeding_note: >-
+    Посев не ставился: стенд и изоляцию задание не назвало. Конструируемость показана порядком
+    шагов, фикстурой С1 и фактами дерева kaname из круга 1 (forward.go:564, feed_registry.go,
+    expand_access.go). Посевом в зелёное ничего не засчитано.
+producers:
+  then_without_producer: []
+  checked: "§11 строки 4951–4959 покрывают NTF3-165…175."
+twins:
+  missing: []
+  checked: "§10 строки 4827–4866; новая пара (д) V31/V31u — строка 4828."
+measurement:
+  scenario_ids: 175
+  withdrawn: 16
+  live: 159
+  count_predicate: >-
+    grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <документ> | sort -u | wc -l → 175;
+    grep -cE '^\*\*ID:\*\* NTF3-[0-9]+ — \*\*снят' <документ> → 16.
+premise_check:
+  task_premise: >-
+    Редакция 36 не закоммичена, вердикта нет, правлено только NTF-3. Подтверждено: git status — M
+    только NTF-3; записи на 17635b5a в каталоге ревью не было; NTF-1 c19490f9 вне диффа.
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: 17635b5a0951bc8afc1d7175d0e1aa22d899a72ed62fedecc2a71df863d5a2f9
+  declared_verdict: APPROVED
+  record_event_type: acceptance_approval
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  event_body_for_courier: >-
+    acceptance-reviewer · ✅ ПРИНЯТО (круг 2 на Д129, редакция 36, блокирующих 0) ·
+    SHA-256 17635b5a0951bc8afc1d7175d0e1aa22d899a72ed62fedecc2a71df863d5a2f9
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: false
+  new_domain: false
+  security_surface: true
