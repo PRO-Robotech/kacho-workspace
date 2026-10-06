@@ -27,6 +27,12 @@
 # предпроверка обязана назвать обе причины, то есть настоящий влитой запрос этой
 # линии нарушал §8а п.4, и это видно без синтетики.
 #
+# НАБОР ОБЯЗАТЕЛЬНЫХ (пункт (г), skipped необязательного): у близнеца — все имена
+# захвата, заглушка merge-readiness отдаёт его файлом MERGE_READINESS_REQUIRED_OUT,
+# как настоящий; задание «только push main» добавляется четырьмя skipped (форма
+# kaname#624). В «(д) настоящий» набор отдаёт сам merge-readiness из защиты случая,
+# а его мутант без записи набора обязан оставить skipped причиной.
+#
 # Каждая инъекция меняет ОДИН факт против близнеца и обязана дать код 1 и строку
 # REASON со своим кодом причины; близнец — код 0 и ни одной строки REASON.
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет.
@@ -73,13 +79,18 @@ case "$2" in
 esac
 GH
 chmod +x "$W/gh"
-for c in 0 1 2; do printf '#!/usr/bin/env bash\necho "merge-readiness stub: код %s"\nexit %s\n' "$c" "$c" > "$W/mr$c"; done
+# Заглушка отдаёт набор обязательных так же, как настоящий merge-readiness: файлом
+# MERGE_READINESS_REQUIRED_OUT; набор случая — $FAKE/required (нет файла — набора нет).
+# shellcheck disable=SC2016  # тело заглушки — текст скрипта, подстановка — в нём
+for c in 0 1 2; do printf '#!/usr/bin/env bash\n[ -z "${MERGE_READINESS_REQUIRED_OUT:-}" ] || [ ! -f "$FAKE/required" ] || cp "$FAKE/required" "$MERGE_READINESS_REQUIRED_OUT"\necho "merge-readiness stub: код %s"\nexit %s\n' "$c" "$c" > "$W/mr$c"; done
 
 # twin — свежий близнец в $W/case: захват + две названные правки.
 twin() {
     rm -rf "$W/case"; mkdir -p "$W/case"
     jq '.state = "open" | .body |= sub(" вместе с #3028"; "")' "$FIX/pull.json" > "$W/case/pull.json"
     cp "$FIX/commits.json" "$FIX/check-runs.json" "$W/case/"
+    # Набор обязательных случая — все имена захвата (как защита в «(д) настоящий»).
+    jq -r '.check_runs[].name' "$FIX/check-runs.json" | LC_ALL=C sort -u > "$W/case/required"
     printf '[{"role":"go-style-reviewer","sha":"%s","verdict":"accept","blocking":[]},{"role":"system-design-reviewer","sha":"%s","verdict":"accept"}]\n' \
         "$HEAD_SHA" "$HEAD_SHA" > "$W/case/reviews.json"
     # Доказательство DoD каждой закрываемой задачи — на коммите её номера в
@@ -91,8 +102,8 @@ twin() {
     done
     printf '[{"body":"обсуждение"},{"body":"DoD-proof @%s"}]\n' "$HEAD_SHA" > "$W/case/comments-3020.json"
 }
-# edit <файл> <jq-выражение> — один факт против близнеца.
-edit() { jq "$2" "$W/case/$1" > "$W/case/$1.new" && mv "$W/case/$1.new" "$W/case/$1"; }
+# edit <файл> [--arg <имя> <значение>] <jq-выражение> — один факт против близнеца.
+edit() { if [ "$2" = --arg ]; then jq --arg "$3" "$4" "$5" "$W/case/$1" > "$W/case/$1.new"; else jq "$2" "$W/case/$1" > "$W/case/$1.new"; fi && mv "$W/case/$1.new" "$W/case/$1"; }
 # run <код заглушки merge-readiness> [доводы] — код в $W/code, вывод в $W/out.
 run() {
     local mr="$1"; shift
@@ -174,7 +185,32 @@ expect 0 - "близнец: ссылка в чужой репозиторий ka
 
 echo "== (г) CI на голове"
 twin; edit check-runs.json '.check_runs[0].conclusion = "skipped"'; run 0
-expect 1 $'REASON\tCI-NOT-SUCCESS' "один check-run skipped"
+expect 1 $'REASON\tCI-NOT-SUCCESS\tсводный вердикт юнитов (все шарды) — skipped (контекст обязательный)' "skipped обязательного контекста — не зелёный"
+# Задание «только push main» (kaname ci.yml, e2e-newman.yml): на PR skipped по
+# построению и в наборе обязательных его нет. Форма — как на kaname#624: одно имя
+# несколькими прогонами.
+TRUNKJOB='вердикт ствола — красное не остаётся без читателя'
+# shellcheck disable=SC2016  # $n и ${…} — переменные jq и текст образца, не оболочки
+addskip() { edit check-runs.json --arg n "$TRUNKJOB" '.check_runs += [range(4) as $i | {name: $n, status: "completed", conclusion: "skipped", head_sha: .check_runs[0].head_sha}] | .total_count += 4'; }
+twin; addskip; run 0
+expect 0 - "skipped необязательного «только push main» ×4 — не причина"
+if grep -qxF $'CENSUS\tci: skipped необязательного не причина — '"$TRUNKJOB"' ×4' "$W/out"; then
+    echo "  [OK]   снятый skipped назван в переписи поимённо и счётом"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет снятый skipped:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addskip; echo "$TRUNKJOB" >> "$W/case/required"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (контекст обязательный)' "близнец: то же задание в наборе обязательных — skipped не зелёный"
+twin; addskip; rm "$W/case/required"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "набор от merge-readiness не получен — skipped не снимается"
+twin; addskip; : > "$W/case/required"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "пустой набор — не «всё необязательно»"
+twin; addskip
+# shellcheck disable=SC2016  # $n — переменная jq
+edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "neutral"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — neutral' "необязательное neutral — снимается только skipped"
+twin; addskip
+# shellcheck disable=SC2016  # $n — переменная jq
+edit check-runs.json --arg n "$TRUNKJOB" '(.check_runs[] | select(.name == $n) | .conclusion) |= "failure"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — failure' "необязательное failure — красное остаётся причиной"
 twin; edit check-runs.json '.check_runs[0].status = "in_progress" | .check_runs[0].conclusion = null'; run 0
 expect 1 $'REASON\tCI-PENDING' "один check-run идёт"
 twin; edit check-runs.json '.check_runs = [] | .total_count = 0'; run 0
@@ -248,6 +284,31 @@ if grep -q $'^CENSUS\tmerge-readiness: код 0, источник origin/main@' 
     echo "  [OK]   перепись называет код 0 и источник origin/main — заглушки нет"; pass=$((pass + 1))
 else
     echo "  [FAIL] перепись не называет «merge-readiness: код 0, источник origin/main@»:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
+fi
+# Набор обязательных — от НАСТОЯЩЕГО merge-readiness (MERGE_READINESS_REQUIRED_OUT):
+# skipped задания вне защиты снимается, а тот же merge-readiness без записи набора
+# (инъекция в него) оставляет skipped причиной — снятие держится его набором, а не
+# заглушкой.
+mrskip() {
+    mrcase 1
+    addskip
+    jq --arg n "$TRUNKJOB" '.statusCheckRollup += [range(4) | {name: $n, conclusion: "SKIPPED"}]' "$W/case/prview.json" > "$W/case/prview.new" && mv "$W/case/prview.new" "$W/case/prview.json"
+}
+mrskip; runreal
+expect 0 - "настоящий merge-readiness отдал набор: skipped вне защиты ×4 — не причина"
+nreq="$(jq '.required_status_checks.contexts | length' "$W/case/protection.json")"
+if grep -q $'^CENSUS\tci: .*skipped необязательных 4; набор обязательных '"$nreq"'$' "$W/out"; then
+    echo "  [OK]   перепись: набор обязательных $nreq — из защиты случая"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет набор $nreq:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+mrskip
+# shellcheck disable=SC2016  # $n и ${…} — переменные jq и текст образца, не оболочки
+sed -i 's|if \[ -n "${MERGE_READINESS_REQUIRED_OUT:-}" \]; then|if false; then|' "$W/ws/scripts/merge-readiness.sh"
+if cmp -s "$HERE/merge-readiness.sh" "$W/ws/scripts/merge-readiness.sh"; then
+    echo "  [FAIL] инъекция «merge-readiness не отдаёт набор»: образец не найден" >&2; fail=$((fail + 1))
+else
+    sandbox_git -C "$W/ws" commit -qam mutant; sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
+    runreal
+    expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (набор обязательных' "инъекция: merge-readiness не отдаёт набор — skipped остаётся причиной"
 fi
 mrcase 1; rm "$W/case/comments-2690.json"; runreal
 expect 1 $'REASON\tMERGE-READINESS\tкод 1' "Closes #2690 без DoD-proof — merge-readiness судит по существу (код 1)" many

@@ -58,13 +58,27 @@
 #   (г) CI-EMPTY            — на headSha нет ни одного check-run: «проверок 0» —
 #                             не зелёное;
 #       CI-PENDING          — check-run на headSha не завершён;
-#       CI-NOT-SUCCESS      — завершён не success (skipped, neutral, cancelled —
-#                             тоже). ИСКЛЮЧЕНИЙ НЕТ: у merge-readiness.sh перечня
-#                             агрегатов-исключений нет (он судит обязательные
-#                             контексты по именам и состояние слияния), а на
-#                             зелёных запросах линии ни одного не-success нет —
-#                             замер 2026-10-06 по kacho#3036, #3039, #3035:
-#                             68, 71, 68 check-runs, все success;
+#       CI-NOT-SUCCESS      — завершён не success (neutral, cancelled, failure —
+#                             всегда; skipped — см. ниже).
+#       ИСКЛЮЧЕНИЕ ОДНО — skipped НЕОБЯЗАТЕЛЬНОГО задания. Задание, чьё условие
+#                             на событии pull_request ложно по построению
+#                             (`if: github.event_name == 'push' && github.ref ==
+#                             'refs/heads/main'`), на PR кончается skipped всегда:
+#                             kaname `.github/workflows/ci.yml` и `e2e-newman.yml`,
+#                             задание «вердикт ствола — красное не остаётся без
+#                             читателя» — замер 2026-10-06: kaname#621/#622/#623/#624
+#                             несут 7/4/4/4 таких skipped при 46/23/24/23 check-runs.
+#                             Признак — conclusion=skipped И имени нет в наборе
+#                             обязательных контекстов, которым судит ЭТОТ PR
+#                             `merge-readiness.sh` (набор отдаёт он сам файлом
+#                             MERGE_READINESS_REQUIRED_OUT — выбор «база или ствол
+#                             для ветки линии» второй копии здесь не имеет).
+#                             Текст условия `if` не разбирается: он в YAML другого
+#                             репозитория, а набор защиты — ответ площадки.
+#                             skipped ОБЯЗАТЕЛЬНОГО — CI-NOT-SUCCESS; набор не
+#                             получен (merge-readiness вышел раньше, путь ручного
+#                             прогона воркспейса) — любой skipped CI-NOT-SUCCESS.
+#                             Снятые skipped печатаются строкой CENSUS поимённо;
 #   (д) MERGE-READINESS     — `scripts/merge-readiness.sh` из origin/main
 #                             воркспейса дал не 0 (1 — нельзя; 2 — вердикта нет;
 #                             оба — не «можно»).
@@ -203,7 +217,8 @@ else
     MR="$W/mr/scripts/merge-readiness.sh"
     MR_SRC="origin/main@$(git -C "$WS" rev-parse --short=12 origin/main)"
 fi
-bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
+rm -f "$W/required"
+MERGE_READINESS_REQUIRED_OUT="$W/required" bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
 MR_CODE=$?
 
 export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen"
@@ -305,11 +320,27 @@ if not own_runs:
     reason("CI-EMPTY", f"на {head[:12]} ни одного check-run — «проверок 0» не зелёное")
 pending = [r for r in own_runs if r.get("status") != "completed"]
 bad = [r for r in own_runs if r.get("status") == "completed" and r.get("conclusion") != "success"]
+# Набор обязательных — тот, которым судит этот PR merge-readiness (файл пишет он).
+required = None
+if os.path.exists(f"{W}/required"):
+    required = {l.rstrip("\n") for l in open(f"{W}/required", encoding="utf-8") if l.strip()}
+    if not required:
+        required = None  # пустой набор — не «все необязательны»
+skipped_free = [r for r in bad if r.get("conclusion") == "skipped"
+                and required is not None and r.get("name") not in required]
 for r in pending:
     reason("CI-PENDING", f"{r.get('name')} — {r.get('status')}")
 for r in bad:
-    reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, success {len(own_runs) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad)}")
+    if r in skipped_free:
+        continue
+    why = ""
+    if r.get("conclusion") == "skipped":
+        why = (" (контекст обязательный)" if required is not None
+               else " (набор обязательных от merge-readiness не получен — необязательность не установлена)")
+    reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, success {len(own_runs) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_free)}, skipped необязательных {len(skipped_free)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}")
+for nm in sorted({r.get("name") for r in skipped_free}):
+    census.append(f"ci: skipped необязательного не причина — {nm} ×{sum(1 for r in skipped_free if r.get('name') == nm)}")
 
 # (д) merge-readiness
 mr = int(os.environ["MR_CODE"])
