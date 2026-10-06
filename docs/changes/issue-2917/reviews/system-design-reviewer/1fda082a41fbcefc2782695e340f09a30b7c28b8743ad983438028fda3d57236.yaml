@@ -1,0 +1,100 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, PRO-Robotech/kaname PR #628, повтор на новой голове.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: system-design-reviewer
+mode: review-delta
+subject:
+  repository: PRO-Robotech/kaname
+  pr: 628
+  branch: 484-wave-notify-def1
+  base_ref: 484-notify
+  base: cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479   # merge-base с головой; origin/484-notify ушёл на 460e8f328 (#624) — для посадки, не для этого вердикта
+  head: 2ab1bd5d5c65eb60f200b4bfd7e5489207a1eb9d
+  previous_head: 5ac74b6aca272063a69f1a0c0823fad6280f1446   # прежняя запись c30b3d77…yaml, ACCEPTED
+  content_digest: 1fda082a41fbcefc2782695e340f09a30b7c28b8743ad983438028fda3d57236
+  digest_predicate: git -C project/kaname diff cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479 2ab1bd5d5c65eb60f200b4bfd7e5489207a1eb9d | sha256sum   # перемерено дважды, совпало
+  delta: >-
+    5ac74b6ac..2ab1bd5d5: перепин corelib bdb3799 → 67ba344 (13a50dcc7), предикат isFeedTable в переписи
+    проверок (bfa7e1e20, 13a50dcc7), 24 шаблона класса security с порождёнными функциями постановки
+    feedgen.Send* и гейт обязательного класса (8d0b841e7, 0734050b7). Новых миграций в дельте 0.
+  acceptance: "NTF-2 d06cdcd2… (Д132), NTF-4 52dfa29a…, NTF-5 ccbb0102…; адресация событий ресурсов (линия B, Д133/Д134) не бралась"
+snapshot_at: 2026-10-06
+
+verdict: RETURNED
+blocks: true
+return_to: автор полосы перепина 13a50dcc7 (волна def1, линия NTF) — в задании автор не назван
+distributed_surface: true    # outbox-лента: функции постановки в транзакции вызывающего, схема ленты
+schema_overlap: true         # недостающая миграция ленты — предмет db-architect-reviewer на этот же дайджест
+
+checks_run:
+  - cmd: GOWORK=off go run github.com/PRO-Robotech/corelib/cmd/notifygen -check
+    at: 2ab1bd5d5
+    outcome: "green: шаблонов 24, файлов 97, миграций ленты 1 — слеп к отставанию версии схемы от пина"
+  - cmd: GOWORK=off go run github.com/PRO-Robotech/corelib/cmd/notifygen init -service kaname.kaname -migrations internal/migrations
+    at: 2ab1bd5d5 (отсоединённый worktree, файл удалён после замера)
+    outcome: "записана internal/migrations/<метка>_notification_feed_v3_from_v1.sql, изменений 1 — дерево отстаёт от пина на две версии схемы ленты"
+  - cmd: GOWORK=off go test -count=1 -tags integration -run TestProbe_FeedPutColumnsOnHeadSchema ./internal/migrations/   # временная проба, не закоммичена
+    at: 2ab1bd5d5
+    outcome: >-
+      вся цепь накатилась (последняя 20261006151313); INSERT набором столбцов feed.(*Source).write пина
+      (…, expires_at, thread_key) → SQLSTATE 42703 column "thread_key" does not exist;
+      близнец без thread_key → успех
+
+axes:
+  atomicity: "Send* пишут строку ленты, окно и вклад в tx вызывающего через точку сохранения (feed.put.go пина) — форма верна; но на схеме головы оператор вставки невыполним (critical C1)"
+  idempotency: n/a
+  cas_occ: "recovery_codes_one_live_per_user — инвариант на уровне БД; гонка двух выдач теперь даёт 23505 второй транзакции (см. important I1)"
+  delivery_polling: "сервер ленты и забор в этой дельте не заведены; отставание схемы ударит по ним тем же 42703"
+  workers: n/a
+  cross_service: "новых runtime-рёбер нет; build-ребро kaname→corelib пином (разрешено), пин на ветку 77-notify, не на ствол corelib — вопрос посадки эпика"
+  replica_isolation: n/a
+  edge: n/a
+  clean_arch: "isFeedTable в адаптере repo/pg, гейт в internal/check — слои не нарушены"
+
+critical:
+  - id: C1
+    coordinate: go.mod:8 (corelib v1.10.1-0.20261006190655-67ba3443c149) ⟂ internal/migrations/20261006145953_notification_feed_v1.sql:2 (version=1)
+    claim: >-
+      Перепин 13a50dcc7 поднял библиотеку ленты до схемы V3 (schema.Current() = V3: thread_key, класс
+      obligation с expires_at NULL, состояния suppressed/superseded), а миграции ленты в дереве остались
+      на V1 — апгрейда notifygen init не запущено. Оператор постановки пина вставляет thread_key, поэтому
+      каждая из 24 порождённых функций feedgen.Send* на применённой схеме падает 42703 и откатывает всю
+      транзакцию мутации, в которую её позовут. Сейчас вызывающих нет — дефект спящий, но голова волны
+      несовместна сама с собой, и notifygen -check его не видит.
+    predicate: "notifygen init -service kaname.kaname -migrations internal/migrations на голове пишет файл (изменений 1) ⇒ красное; 0 изменений ⇒ зелёное"
+    requirement: >-
+      Тем же изменением, что перепин: закоммитить порождённую notifygen init миграцию
+      *_notification_feed_v3_from_v1.sql (генератором, не руками; ban05 не задет — новый файл) и
+      пробу, падающую, когда применённая версия схемы ленты ниже schema.Current() пина (например, init в
+      режиме сверки должен давать 0 изменений). Повтор ревью на новой голове — эта роль и db-architect-reviewer.
+
+important:
+  - id: I1
+    coordinate: internal/apps/kaname/api/humansession/recovery_request.go:171-174
+    claim: >-
+      Две одновременные выдачи кода одной личности: обе DELETE видят 0 строк, вторая INSERT ждёт первую на
+      частичном UNIQUE и получает 23505 → ErrAlreadyExists → наблюдатель RecoveryRequestStoreFailed и
+      logger.Error. Инвариант держит база (один живой код, одно письмо), но законная гонка помечается
+      отказом хранилища. Снимается сериализацией на якоре окна (FOR UPDATE, З11) в фазе сужения; до того —
+      проба с конкурирующими горутинами на этот путь отсутствует.
+    blocks: false
+  - id: I2
+    coordinate: internal/repo/kaname/pg/recovery_code_repo.go:127-128 ⟂ миграция 20261006151313 (backfill superseded_at, CHECK recovery_codes_one_end_check)
+    claim: >-
+      Оператор применения не судит superseded_at: код, помеченный вытесненным переносом данных миграции,
+      им всё ещё выбирается, и UPDATE consumed_at нарушает one_end_check → 23514 → отказ класса службы
+      (INTERNAL) вместо чистого «код не принят». Касается только строк, оставленных гонкой до миграции, в
+      пределах TTL. Требование фазы сужения: `AND superseded_at IS NULL` в предикате применения. Выведено
+      чтением CHECK и предиката, пробой не исполнялось.
+    blocks: false
+
+notes:
+  - "PR #628 база 484-notify сдвинулась на 460e8f328 (#624 перепин на bdb3799); голова волны пинит 67ba344 — сведение пинов и merge базы — посадка, не этот вердикт. Переписывать историю нельзя: только merge."
+  - "Линия B (адресация событий ресурсов) дельтой не затронута; конфликтов с её веткой в моих путях не обнаружено."
+
+orders:
+  - "integration-tester: проба с конкурирующими горутинами на выдачу кода восстановления (I1) — ровно одна транзакция проходит, вторая не помечается отказом хранилища после сериализации на якоре"
+  - "db-architect-reviewer: на этот же дайджест — отсутствующая миграция ленты V1→V3 (C1)"
+  - "владелец notifygen (corelib, линия NTF): -check зелёный при отставании схемы ленты от пина — гейт не способен упасть на этом классе"
