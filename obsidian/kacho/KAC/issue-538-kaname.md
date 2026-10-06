@@ -104,7 +104,7 @@ kacho-workspace#924, #475, #609, #610, #608, #213, kacho#2702, #133, #589 — и
 
 - [[KAC/issue-296-kaname]] — эпик
 - [[KAC/issue-537-kaname]] — волна-3
-- kaname#539 — волна-5 (trail не заведён)
+- [[KAC/issue-539-kaname]] — волна-5
 - [[KAC/issue-2967]] — волна-4 платформы
 
 #kac #kacho-iam #epic
