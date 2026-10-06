@@ -1,0 +1,65 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kaname PR #628, повтор на новой голове.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: если дайджест сменился, заводится новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kaname
+  pr: 628
+  branch: 484-wave-notify-def1
+  base: cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479   # merge-base(origin/484-notify, head)
+  base_branch_tip: 460e8f32802b8eab585b76f681cdc6137750b9fc   # origin/484-notify ушла вперёд на 5 коммитов (только пин corelib и проба операции)
+  head: 2ab1bd5d5c65eb60f200b4bfd7e5489207a1eb9d
+  previous_head: 5ac74b6aca272063a69f1a0c0823fad6280f1446   # прежняя запись c30b3d77…yaml, ACCEPTED
+  content_digest: 1fda082a41fbcefc2782695e340f09a30b7c28b8743ad983438028fda3d57236
+  digest_predicate: git diff cbd729cfa..2ab1bd5d5 | sha256sum   # перемерено дважды, совпало
+  premise_remeasured: >-
+    gh pr view 628: headRefOid = 2ab1bd5d, base 484-notify, mergeable CONFLICTING.
+    git merge-tree origin/484-notify 2ab1bd5d: конфликт только в go.mod, go.sum и THIRD-PARTY-NOTICES.md
+    (пин corelib bdb3799 у базы против 67ba344 у головы). Схему и repo-SQL конфликт не задевает:
+    git diff --name-status cbd729cfa origin/484-notify -- internal/migrations/ check_value_lanes.go пуст.
+    Дельта 5ac74b6a..2ab1bd5d: 8 коммитов, 131 файл (+2791/-12). Путей миграций в дельте 0.
+    Repo-слой в дельте затронут: internal/repo/kaname/pg/check_value_lanes.go (перепись проверок),
+    pgmaperr_check_value_lane_test.go и recovery_code_repo_integration_test.go.
+    Во всём диффе путей миграций 2, те же, что в прежних записях, и их файлы не изменились.
+  acceptance: NTF-2 d06cdcd2… (Д132), NTF-4 52dfa29a…, NTF-5 ccbb0102… (sha256sum перемерен, совпал)
+  out_of_scope: адресация событий ресурсов (линия B, Д133/Д134) не судится
+snapshot_at: 2026-10-06
+
+migrations_touched: 2   # во всём диффе; в дельте повтора 0
+verdict: ACCEPTED   # принято
+blocks: false
+return_to: —
+
+runs:
+  - cmd: go test -count=1 ./internal/repo/kaname/pg/ -run TestCheckValueCensus   # @2ab1bd5d
+    outcome: "rc=0, ok"
+  - cmd: go test -count=1 -tags integration ./internal/repo/kaname/pg/ -run 'TestIntegration_CheckLedgerCoversTheLiveSchema|TestRecoveryCodes' -v   # @2ab1bd5d, postgres:16-alpine в testcontainers
+    outcome: "rc=0; PASS 8, FAIL 0, SKIP 0 (перепись на живой схеме и 7 проб кодов восстановления)"
+  - injection: "isFeedTable всегда возвращает false (check_value_lanes.go:92), затем откат"
+    outcome: >-
+      КРАСНОЕ: TestIntegration_CheckLedgerCoversTheLiveSchema называет 10 проверок трёх таблиц ленты
+      (kaname_notification_outbox ×7, kaname_notification_window ×2, kaname_notification_contrib ×1)
+      «решение не принято». Узнавание таблиц ленты держит проба на живой схеме, а не литерал.
+      После отката дерево чистое (git status пуст)
+
+approved:
+  - "Перепись проверок охватывает 6 новых таблиц миграции 20261006151313 (invite_acts, mail_windows, mail_window_letters, pending_registrations, security_notice_ledger, trusted_devices) записью «пишет служба целиком» (nil). Сверено с DDL: все CHECK этих таблиц судят значения, которые чеканит служба (свёртки длиной 32, идентификаторы, закрытые словари вида и назначения, сроки, связка lettered↔feed_id). Присланное вызывающим в эти таблицы не попадает. Значит, 23514 на них — ошибка службы и фиксированный INTERNAL, а не InvalidArgument. Отображение соответствует sqlstate-to-grpc"
+  - "Таблицы ленты распознаются предикатом corelib feed.TablesOf(\"kaname.kaname\").Has, литерала их имени нет (NTF1-B19). Негодный префикс отвергается сразу (проба TestCheckValueCensus_FeedPrefixIsAServiceName), законный близнец invite_mail_outbox лентой не признан. Проверки следующей версии схемы ленты попадают в полосу службы тем же предикатом"
+  - "Решение о классе отказа остаётся в одном доме (checkValueLaneOf и writtenWhollyByService); адаптеры его не дублируют"
+  - "Пробы кодов восстановления приведены к инварианту З12 (частичный UNIQUE recovery_codes_one_live_per_user): вторая выдача идёт порядком варианта использования (вытеснение, затем вставка в одной транзакции), а не обходом индекса. Индекс и прод-SQL не ослаблены"
+  - "Миграции 20261006145953 и 20261006151313 в дельте не тронуты. Суждение прежних записей о них в силе: CHECK inline, FK внутри схемы, частичный UNIQUE с названным предметом, Up/Down"
+
+blocking: []
+
+non_blocking:
+  - "Слияние PR #628 в 484-notify конфликтует по пину corelib (go.mod/go.sum/THIRD-PARTY-NOTICES). Схемы конфликт не касается. Его разрешает автор волны перед посадкой, после чего нужен перепрогон на новой голове. При разрешении в пользу 67ba344 база получает corelib со схемой ленты V3 (schema.Current()=V3), а миграция kaname остаётся V1. Перепись проверок при этом устойчива (isFeedTable). Пишет ли kaname исходы V2/V3 (SUPPRESSED/superseded/obligation) в таблицу V1 — предмет system-design-reviewer, не этой роли"
+  - "isFeedTable при каждом вызове заново строит feed.TablesOf (судит префикс). Вызывается только на пути отказа 23514, так что на корректность это не влияет"
+
+concurrent_probe:
+  - "Новых инвариантов дельта не вводит. Инвариант З12 (частичный UNIQUE) пробой с конкурирующими транзакциями держится в прежней записи (OneLiveCodePerPerson, LiveRecoveryCodesNarrowed)"
+
+crosses_distributed_properties: false   # совместимость версии схемы ленты с пином corelib — заказ system-design-reviewer (non_blocking[0])
+next: "сбор пост-дифф записей (convergence-reviewer либо landing-reviewer) на дайджесте 1fda082a…; до посадки разрешить конфликт пина с 484-notify и перепрогнать"
