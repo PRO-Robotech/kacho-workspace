@@ -1,0 +1,76 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, PRO-Robotech/kaname PR #628 (волна D/E: E-X4 + D-F1).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: system-design-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kaname
+  pr: 628
+  branch: 484-wave-notify-def1
+  base_ref: 484-notify
+  base: cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479   # = origin/484-notify = merge-base с головой
+  head: 0f9af7654d6f68c32a75ac33c90a0f6a9f4a074b
+  content_digest: efbfb07b5cf4e5b37c1a80e322d9d3e66d92d1247617fda4544adb8a67dbee77
+  digest_predicate: git -C project/kaname diff cbd729cfa9b13f5dd5e9d1e52a922e47e4c05479 0f9af7654d6f68c32a75ac33c90a0f6a9f4a074b | sha256sum
+  composition: "7 файлов +707/-4: пин corelib e7d6197→bdb3799, лента notifygen (20261006145953), схема почты личности (20261006151313), 2 интеграционных файла проб"
+  acceptance: "NTF-2 d06cdcd24d2e (перемерено sha256sum); NTF-3 — полосы адресации событий ресурсов не брались (линия B)"
+snapshot_at: 2026-10-06
+
+verdict: ACCEPTED        # принято
+blocks: false
+return_to: —
+distributed_surface: true   # новая лента (lease/outcome-колонки), окна писем с блокировкой якоря, частичный UNIQUE на живом пути выдачи кода
+schema_overlap: true        # частичный UNIQUE recovery_codes_one_live_per_user, FK RESTRICT на якорь, перенос данных в транзакции миграции
+
+checks_run:
+  - cmd: >-
+      GOWORK=off go test -count=1 -tags integration -v -run
+      'TestIntegration_(NTF2_44|MailWindow|CX2_|InviteAct|OneLive|LiveRecovery|MailAdmission|SecretMaterial)'
+      ./internal/migrations/   (@0f9af7654, worktree, Postgres testcontainers)
+    result: "PASS 10 · FAIL 0 · SKIP 0; повтор — тот же исход"
+
+axes:
+  no_dual_write: closed
+  # Кода-писателя в диффе нет (фаза расширения). Схема делает двойную запись невыразимой: момент окна и
+  # акт с письмом несут feed_id (NOT NULL/<>'' и CHECK lettered=(feed_id IS NOT NULL)) — строка ленты той же tx.
+  idempotency: closed
+  # security_notice_ledger PK (audit_event_id, template, recipient_user_id) под ON CONFLICT DO NOTHING;
+  # pending_registrations UNIQUE (address_digest, code_digest); trusted_devices UNIQUE (label_digest).
+  atomic_concurrency: closed
+  # Окно: якорь mail_windows ON CONFLICT DO NOTHING + FOR UPDATE (сериализация набора), FK моментов и записей
+  # на якорь ON DELETE RESTRICT — уборка не снимает якорь с живым моментом при любом порядке (проба CX2_35).
+  # Перенос данных recovery_codes: миграция транзакционна (маркера NO TRANSACTION нет), ADD COLUMN берёт
+  # ACCESS EXCLUSIVE до коммита — между UPDATE сужения и CREATE UNIQUE INDEX вставки старого кода невозможны.
+  delivery_model: closed     # лента — внутренняя доставка, lease_token/lease_until/outcome_token; публичного наблюдения не вводится
+  worker_coordination: n/a   # дренажа ленты и уборки окон в диффе нет
+  per_call_deadline: n/a     # внешних вызовов в диффе нет
+  cross_service_edges: closed  # новых runtime-рёбер нет; пин corelib трогает только treehygiene (3 файла, gate-время), рантайм не меняется
+  replica_state: closed
+  edge: n/a
+  clean_arch: n/a            # Go-прод-кода в диффе нет
+
+notes:
+  - id: IMP-1
+    where: internal/migrations/20261006151313_mail_admission_moments_and_one_live_recovery_code.sql (recovery_codes_one_live_per_user) × internal/apps/kaname/api/humansession/recovery_request.go:mintAndEnqueue
+    text: >-
+      Индекс садится под ЖИВОЙ код выдачи (DELETE consumed_at IS NULL → INSERT). Две параллельные выдачи одному
+      человеку: проигравшая tx не видит незакоммиченной вставки победителя, её INSERT ждёт и получает 23505.
+      Путь вне ответа, вызывающему ответ тот же, код победителя один и жив — свойство «живой код один» база
+      держит (прежде гонка давала два живых кода). Но исход классифицируется RecoveryRequestStoreFailed и
+      пишется Error — конкуренция за одну личность выдаётся за отказ хранилища. Блокирующим не считаю
+      (корректность и безопасность не нарушены); исправляется вместе с переводом писателя на ленту (З12, фаза
+      сужения): 23505 этого индекса — отдельный исход «вытеснен параллельным запросом».
+  - id: IMP-2
+    where: recovery_code_repo.go ConsumeRecoveryCode (WHERE … consumed_at IS NULL) × recovery_codes_one_end_check
+    text: >-
+      Строки, помеченные переносом superseded_at, живой оператор применения считает живыми; применение такой
+      строки отвергает CHECK (23514) — исход закрытый (вытесненный код не применяется), но иной, чем «код не
+      найден». Касается только строк-пережитков гонки до миграции. Предикат применения в фазе сужения обязан
+      нести superseded_at IS NULL; Supersede на живом коде удаляет и помеченные строки — расхождения нет.
+
+orders:
+  - "проба с конкурирующими горутинами на путь выдачи кода восстановления (две выдачи одной личности → ровно один живой код, проигравший — названный исход, не StoreFailed) — заказ полосе перевода писателя З12; в этом диффе путь не менялся"
+
+next: landing-reviewer (пакета схождения нет) — либо convergence-reviewer, если волна его несёт
