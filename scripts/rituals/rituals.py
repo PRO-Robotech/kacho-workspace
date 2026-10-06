@@ -417,6 +417,26 @@ def edited_record(before: str, rec: dict, record: str, event: str, url: str, iss
     return after
 
 
+# Ветка задачи — `<N>` (kaname) либо `<N>-…` (воркспейс, kacho): хук commit-msg таких
+# веток требует первую строку «#<N> » с номером ветки (ws#941). Ведущий ноль — не номер.
+BRANCH_TASK_RE = re.compile(r"^([1-9][0-9]*)(?:-|$)")
+
+
+def branch_task() -> int:
+    """Номер задачи из имени текущей ветки; ветки нет либо она не по форме — отказ."""
+    p = subprocess.run(["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "symbolic-ref", "-q",
+                        "--short", "HEAD"], capture_output=True, text=True)
+    branch = p.stdout.strip()
+    if p.returncode != 0 or not branch:
+        raise Refused("ветки нет (отсоединённая голова) — номера для первой строки коммита «#<N> review: …» "
+                      "взять неоткуда; событие не публикуется")
+    m = BRANCH_TASK_RE.match(branch)
+    if not m:
+        raise Refused("ветка «%s» не в форме <N> либо <N>-… — хук commit-msg отверг бы коммит записи без «#<N> »; "
+                      "событие не публикуется" % branch)
+    return int(m.group(1))
+
+
 def approval_event(argv: list[str]) -> int:
     if len(argv) != 4:
         raise Unmet("usage: approval-event.sh <владелец/имя> <документ> <запись> <задача-держатель>")
@@ -427,6 +447,8 @@ def approval_event(argv: list[str]) -> int:
     hrepo, hnum = (m.group(1) or repo), int(m.group(2))
 
     top = git("rev-parse", "--show-toplevel").strip()
+    # Номер ветки — ДО публикации: иначе коммит записи отвергался бы уже после события.
+    task = branch_task()
     rec_path = os.path.join(top, record)
     try:
         before = open(rec_path, encoding="utf-8").read()
@@ -504,7 +526,8 @@ def approval_event(argv: list[str]) -> int:
         with open(rec_path, "w", encoding="utf-8") as fh:
             fh.write(after)
         git("add", "--", record)
-        msg = ("review: событие одобрения опубликовано — блок event записи к факту\n\n"
+        head = "#%d " % task
+        msg = (head + "review: событие одобрения опубликовано — блок event записи к факту\n\n"
                "Запись %s, документ %s:%s (%s…), событие %s.\n" % (record, repo, doc, want[:12], url))
         if attribution(msg):
             raise Refused("атрибуция в сообщении коммита")
