@@ -810,6 +810,9 @@ run 2 "$b" "предпосылка: вызывающего нет — VOID, а �
 
 echo "== check-09: merge-readiness перестал различать три исхода =="
 MR_REL="scripts/merge-readiness.sh"
+# Распознаватель доказательства DoD — общий файл, который подключают и
+# merge-readiness, и cascade-census (ws#930): порча маркера вносится в него.
+DOD_REL="scripts/lib/dod_proof.jq"
 
 # ЗАМЕР СРЕДЫ ПЕЧАТАЕТСЯ ВСЕГДА — и это не оформление.
 #
@@ -1366,6 +1369,162 @@ b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" 's/^LINE_BRANCH_RE=\x27.*\x27$/LINE_BRANCH_RE=\x27^[[:digit:]]{1,}(-[^\/]*)?\$\x27/m' \
     "форма ветки линии другой записью"; then
     run 0 "$b" "близнец: форма ветки линии другой записью — молчит" "$C09"
+fi
+
+# ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА (ws#909) ───────────────────────────────────────
+# Предмет — PR синхронизации вниз, чья голова — ветка эпика или волны: вливание её
+# снимает (kaname#576). Каждая порча роняет одно решение и обязана покраснить
+# держащую его пробу CL-*; близнец пишет то же решение другой формой и молчит.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(        echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — голова PR будет снята вливанием"\n)        exit 1\n/$1/m' \
+    "вниз пропускается к проверкам"; then
+    run_c09_red "$b" "инъекция: голова-уровень вниз пропущена к проверкам — краснеет" \
+        CL-DOWN CL-WAVE-DOWN CL-EPIC-LABEL CL-CROSS-PARENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  head_epic=\$\(jq -r ).*$/$1\x27 0\x27 <"\$issue_file")/m' \
+    "метка epic не судится"; then
+    run_c09_red "$b" "инъекция: метка epic не делает уровнем — краснеет" CL-EPIC-LABEL
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$\{parent_url,,\}" = "https:\/\/github\.com\/\$\{REPO,,\}\/issues\/\$\{base%%-\*\}" \]; then/if [ "\${parent_url##*\/}" = "\${base%%-*}" ]; then/' \
+    "родитель сверяется только номером"; then
+    run_c09_red "$b" "инъекция: родитель из чужого репозитория с номером базы — вверх — краснеет" CL-CROSS-PARENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  \[ "\$rc" -eq 0 \] \|\| )cascade_unknown "задача .*$/$1printf \x27{}\x27 >"\$issue_file"/m' \
+    "непрочитанная задача — не уровень"; then
+    run_c09_red "$b" "инъекция: непрочитанная задача головы засчитана «не уровнем» — краснеет" CL-ISSUE-403
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/elif ! jq -e \x27\.message == "No parent issue found"\x27 >\/dev\/null 2>&1 <"\$parent_file"; then/elif false; then/' \
+    "непрочитанный родитель — «родителя нет»"; then
+    run_c09_red "$b" "инъекция: отказ чтения родителя засчитан «родителя нет» — краснеет" CL-PARENT-403
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$head_subs" -eq 0 \] && \[ "\$head_epic" -eq 0 \]; then/if [ \$(( head_subs + head_epic )) -eq 0 ]; then/' \
+    "признак уровня другой записью"; then
+    run 0 "$b" "близнец: признак уровня каскада другой записью — молчит" "$C09"
+fi
+# Подсказка исполнима в репозитории PR (ws#910): kaname отвергает голову `tmp/*` и
+# `<N>-<суть>` — ветка там голый номер задачи. Порча снимает kaname-форму, подсказка
+# kaname уходит в общую — краснеет CL-DOWN-KANAME; порча общей формы в `tmp/sync-…`
+# — CL-DOWN. Близнец пишет выбор репозитория другим образцом и молчит.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^    pro-robotech\/kaname\) printf .*\n//m' \
+    "kaname-форма ветки синхронизации снята"; then
+    run_c09_red "$b" "инъекция: kaname получает форму <N>-sync-…, которую отвергает его правило ветки — краснеет" CL-DOWN-KANAME
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(    \*\) printf \x27)<N>-sync-%s-into-%s(\x27)/$1tmp\/sync-%s-into-%s$2/m' \
+    "общая форма — tmp/sync-…"; then
+    run_c09_red "$b" "инъекция: общая форма ветки синхронизации — tmp/sync-…, черновик без проверок — краснеет" CL-DOWN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^    pro-robotech\/kaname\) printf/    *\/kaname) printf/m' \
+    "выбор репозитория другим образцом"; then
+    run 0 "$b" "близнец: kaname узнаётся образцом */kaname — молчит" "$C09"
+fi
+
+# ── CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ (ws#918) ─────────────────────────────────
+# Каждая порча роняет одно решение и обязана покраснить держащую его пробу PF-*;
+# близнецы пишут то же решение другой формой и молчат.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(    echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD"\n)    exit 1\n/$1/m' \
+    "Closes без доказательства пропущен к проверкам"; then
+    run_c09_red "$b" "инъекция: Closes без доказательства пропущен к проверкам — краснеет" \
+        PF-MISSING PF-MIDLINE PF-FORMS PF-MULTI
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(close\[sd\]\?\|fix\(e\[sd\]\)\?\|resolve\[sd\]\?\)/(closes)/' \
+    "строка закрытия — только Closes"; then
+    run_c09_red "$b" "инъекция: Fixes и Resolves не считаются строкой закрытия — краснеет" PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" \
+    's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
+    "маркер в любом месте строки"; then
+    run_c09_red "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" PF-MIDLINE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/proof_unread\+=\("\$ref_repo#\$ref_num"\)/proof_ok=\$((proof_ok + 1))/' \
+    "непрочитанные комментарии — доказательство"; then
+    run_c09_red "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" PF-UNREAD
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(      proof_ok=\$\(\(proof_ok \+ 1\)\)\n)/$1      break\n/m' \
+    "судится только первая строка закрытия"; then
+    run_c09_red "$b" "инъекция: после первой доказанной строки закрытия прочие не судятся — краснеет" PF-MULTI
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/s\|\^#\|\$REPO#\|/s|^.*#|\$REPO#|/' \
+    "чужой репозиторий строки закрытия подменён репозиторием PR"; then
+    run_c09_red "$b" "инъекция: задача чужого репозитория ищется в репозитории PR — краснеет" PF-FORMS
+fi
+# Опыт check-verifier (ws#920): комментарии читаются из репозитория PR, а номер
+# печатается прежний. Фикстура по одному номеру это пропускала; держит PF-XREPO.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/gh api "repos\/\$ref_repo\/issues\/\$ref_num\/comments/gh api "repos\/\$REPO\/issues\/\$ref_num\/comments/' \
+    "комментарии читаются из репозитория PR"; then
+    run_c09_red "$b" "инъекция: комментарии задачи читаются из репозитория PR, номер напечатан прежний — краснеет" \
+        PF-XREPO PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\.closingIssuesReferences\[\] \|/.closingIssuesReferences[0:0][] |/' \
+    "ответ хостинга о закрываемых задачах не читается"; then
+    run_c09_red "$b" "инъекция: закрытие, объявленное хостингом, не судится — краснеет" PF-HOST
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(https\?:\/\/github\\\.com\/\[\[:alnum:\]_\.-\]\+\/\[\[:alnum:\]_\.-\]\+\/issues\/\[0-9\]\+\|/(/' \
+    "форма-адрес в теле не разбирается"; then
+    run_c09_red "$b" "инъекция: Closes формой-адресом не видна разбору тела — краснеет" PF-URL
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\.closingIssuesReferences \| type == "array"\x27/true/' \
+    "поле хостинга не массивом принято за пустое"; then
+    run_c09_red "$b" "инъекция: поле хостинга не массивом прочитано как «закрывать нечего» — краснеет" PF-HOSTBROKEN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/LC_ALL=C sort -u \|\| true\)\nif \[ -z "\$closes_refs" \]/LC_ALL=C sort \|\| true)\nif [ -z "\$closes_refs" ]/' \
+    "задача хостинга и тела судится дважды"; then
+    run_c09_red "$b" "инъекция: задача из обоих источников посчитана дважды — краснеет" PF-HOSTPROOF
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\.closingIssuesReferences\[\] \| "\\\(\.repository\.owner\.login\)\/\\\(\.repository\.name\)#\\\(\.number\)"/.closingIssuesReferences | map(.repository.owner.login + "\/" + .repository.name + "#" + (.number | tostring)) | .[]/' \
+    "ссылки хостинга собраны иной записью"; then
+    run 0 "$b" "близнец: ссылки хостинга собраны map и сложением строк — молчит" "$C09"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" \
+    's/capture\("\(\^\|\\n\)DoD-proof @\(\?<rev>\[0-9a-f\]\{7,40\}\)"; "g"\)/split("\\n")[] | capture("^DoD-proof @(?<rev>[0-9a-f]{7,40})")/' \
+    "маркер построчным разбором"; then
+    run 0 "$b" "близнец: маркер ищется построчным разбором — молчит" "$C09"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(close\[sd\]\?\|fix\(e\[sd\]\)\?\|resolve\[sd\]\?\)/(resolve[sd]?|fix(e[sd])?|close[sd]?)/' \
+    "ключевые слова закрытия в ином порядке"; then
+    run 0 "$b" "близнец: ключевые слова закрытия в ином порядке — молчит" "$C09"
 fi
 
 b="$(mksandbox scripts/merge-readiness.sh)"
@@ -2174,6 +2333,39 @@ b="$(mksandbox)"
 if mr_patch "$b/$CC_REL" 's/elif \[ "\$WANT_CLOSED" = 1 \] && \[ "\$open_n" -gt 0 \]/elif false/' \
     "--children-closed не исполняется"; then
     run 1 "$b" "инъекция: --children-closed принят и не судит открытых — краснеет" "$C14"
+fi
+
+# Ключ закрытия задач влитой волны: доказательство DoD (возврат check-verifier,
+# ws#920). Каждая порча роняет одно решение режима --proof.
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/if \[ -n "\$proof_missing" \]; then/if false; then/' \
+    "--proof не исполняется"; then
+    run 1 "$b" "инъекция: --proof принят, задача без доказательства не находка — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/"repos\/\$r\/issues\/\$n\/comments"/"repos\/\$REPO\/issues\/\$n\/comments"/' \
+    "комментарии читаются из репозитория волны"; then
+    run 1 "$b" "инъекция: комментарии задачи читаются из репозитория волны — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\/\$r\/issues/' \
+    "комментарии одной страницей"; then
+    run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
+    "маркер в любом месте строки"; then
+    run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/proof_unread="\$proof_unread \$ref"/proof_ok=\$((proof_ok + 1))/' \
+    "непрочитанные комментарии — доказательство"; then
+    run 1 "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/\[\.\[\] \| \(\.body \/\/ ""\) \| dod_proof\] \| any/any(.[]; (.body \/\/ "") | dod_proof)/' \
+    "маркер ищется any с генератором"; then
+    run 0 "$b" "близнец: доказательство ищется any(генератор; условие) — молчит" "$C14"
 fi
 
 # Близнец: тот же набор маркеров списка, записанный иначе. Проверка судит

@@ -1,0 +1,102 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+  sha256: 064944099ae5f098ff5dcc89da854821387fd7d38a2219b18d2a25455233f639
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и намеренно не правлена (change-graph.md §2). Действующий вердикт о
+    ЭТОЙ редакции — эта запись ПЛЮС внешнее событие. check-01 по редакции отвечает DRAFT — его
+    объявленный предел (судит объявление, а не одобрение).
+  base_commit: ad4e28c88
+  content_commit: 489ad476cf4e57a0086e055fb7becd22d2450e7a
+  content_state: committed
+  fingerprint_predicate: >-
+    git show 489ad476:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+    | sha256sum → 064944099ae5…f639; рабочая копия tmp/ws-522-na24-ledger — то же. Прежняя
+    редакция (origin/main) → b755886f… (круг 3, APPROVED).
+  branch: 522-na24-ledger
+  pull_request: https://github.com/PRO-Robotech/kacho-workspace/pull/912
+  task: PRO-Robotech/kaname#525
+  delta: 'git diff origin/main...HEAD: +85 / −5 по этому файлу'
+verdict: APPROVED
+expected_actor: pointpu
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-04T00:00:00Z'
+round: 4
+blocking: 0
+findings_checked:
+  scope: >-
+    Предмет один: форма ответа точки авторизации в LINE-A-1-03/08 и Р7 приведена к Р11 одобренной
+    приёмки службы kaname:ceremony-pace-is-named-by-number.md (отпечаток 05dd1bef… перемерен:
+    git show origin/536:<путь> | sha256sum → совпал; запись ревью 05dd1bef….yaml → verdict
+    APPROVED, событие kaname#525#issuecomment-5969171805). Р11 п.7 сам заказывает эту правку.
+  scenarios_count: "grep -c '^\\*\\*ID: LINE-A-1-' → 30 (до и после)"
+  untouched: >-
+    git diff показывает изменённые строки только в шапке, Р7, Then 03, Then 08 (+ одно And),
+    строке 08 §9 и новом §11; Given/When/близнецы обоих сценариев — 0 изменённых строк.
+  producer: >-
+    §11.3 называет производителя и держателей; перемерено в kaname @55c2bf7d:
+    TestLINEA1_03_… (ceremony_authorize_integration_test.go:163), TestLINEA1_08_… (:315),
+    TestKNPACE43_… (ceremony_no_session_outcome_integration_test.go:81), TestKNPACE44_… (:148).
+  twin: 'близнецы 03 (сессия есть) и 08 (сессия уровня "2") — отличие в одном факте, не тронуты'
+  constructibility: >-
+    Given не менялись; фикстуры названы держателями выше (посев клиента ic-… и сессии уровня).
+    Собственного посева не ставил.
+  predicate_11_3: >-
+    git grep -n StatusUnauthorized @55c2bf7d -- internal/handler/ceremonyhttp/authorize.go → 0;
+    @9bac42bdc → 1. Изменение НЕ влито в ветку волны (merge-base --is-ancestor 55c2bf7d origin/536 → 1).
+non_blocking:
+  - '§3, строка S1 (стр. 331): «шаг вверх через повторную аутентификацию» — прежняя формулировка; по смыслу совместима с Р7 ред. 4 (повторную аутентификацию ведёт приложение), но читается как действие точки авторизации; уточнить следующей редакцией.'
+  - 'Шапка ред. 4 называет «полоса NA24 kaname#536»: #536 — ветка волны-2, полоса NA24 — #522.'
+event:
+  type: github_issue_comment
+  status: performed
+  published: true
+  publication_expected_from_orchestrator: true
+  url: https://github.com/PRO-Robotech/kaname/issues/525#issuecomment-5975142698
+  api_url: https://api.github.com/repos/PRO-Robotech/kaname/issues/comments/5975142698
+  issue: PRO-Robotech/kaname#525
+  database_id: 5975142698
+  node_id: IC_kwDOUO26pM8AAAABZCVxKg
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-04T00:51:11Z'
+  updated_at: '2026-10-04T00:51:11Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: 4c47c96514a766c3c49fc7eddf5cea4e73680a1d61b128f7a236fb608db96b58
+  subject_revision_in_body: 489ad476cf4e57a0086e055fb7becd22d2450e7a
+  verified_at: '2026-10-04'
+  verified_predicates:
+    existence: >-
+      gh api --paginate repos/PRO-Robotech/kaname/issues/525/comments --jq '.[].id'
+      → 3 комментария; 5975142698 среди них, автор pointpu.
+    body_carries_this_fingerprint: >-
+      gh api repos/PRO-Robotech/kaname/issues/comments/5975142698 --jq .body
+      | grep -c '064944099ae5f098ff5dcc89da854821387fd7d38a2219b18d2a25455233f639' → 2 (строка subject_sha256 и путь записи).
+    body_sha256: >-
+      gh api repos/PRO-Robotech/kaname/issues/comments/5975142698 --jq .body | sha256sum
+      → 4c47c96514a766c3c49fc7eddf5cea4e73680a1d61b128f7a236fb608db96b58
+  fact_alignment_note: >-
+    Блок приведён к факту публикации отдельным коммитом, как обещал комментарий-событие;
+    вердикт, отпечаток и находки записи не менялись.
+  required_body_for_courier:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+    subject_sha256: 064944099ae5f098ff5dcc89da854821387fd7d38a2219b18d2a25455233f639
+  supersedes_note: >-
+    Одобрение редакции 3 (b755886f…) остаётся вердиктом о прежнем содержимом; запись не правлена.
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: pointpu
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false

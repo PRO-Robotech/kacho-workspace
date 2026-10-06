@@ -23,7 +23,7 @@ tags:
   - kacho-iam
   - iam
   - mirror
-verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `proto/kaname/cloud/iam/v1/user_service.proto` в ОБЕ стороны 2026-09-17 (9 глаголов), каталог use-case `internal/apps/kaname/api/user/` прочитан по именам файлов; release/iam-lines@6acf8f19 — десятый глагол `ResendInvite`; семантика authz в таблице методов построчно не пересматривалась с 2026-08-05"
+verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `proto/kaname/cloud/iam/v1/user_service.proto` в ОБЕ стороны 2026-09-17 (9 глаголов), каталог use-case `internal/apps/kaname/api/user/` прочитан по именам файлов; release/iam-lines@6acf8f19 — десятый глагол `ResendInvite`; семантика authz в таблице методов построчно не пересматривалась с 2026-08-05; 2026-10-03: держатель `ResetSecondFactor` — по разделу WHO MAY `user_service.proto` и шапке `reset_second_factor.go` на ветке эпика 296@d2f6f182"
 ---
 
 # UserService (iam)
@@ -95,9 +95,21 @@ verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `p
 
 `ResetSecondFactor` (Ф12 Р10, [[KAC/issue-1281-kaname]]) — третий читатель `identity_suspender`
 с полом «2»: снимает у человека `totp` и `lookup_secret`, кроет все его сессии отсечкой
-`second-factor-reset` актором-распорядителем, событие `iam.user.second_factor_reset` с обоими
+`second-factor-reset` актором-администратором, событие `iam.user.second_factor_reset` с обоими
 акторами; без заведённого фактора (строки нет либо `pending`) — `FAILED_PRECONDITION` с токеном
 `SECOND_FACTOR_NOT_ENROLLED`, `pending` не тронута. Провязан только посадкой `own`.
+
+> [!important] Кто вправе — решение владельца 2026-09-18 ([[KAC/issue-254-kaname]])
+> Второй фактор сбрасывает **сам человек** (своим кодом, через `remove` полосы входа) либо
+> **администратор облака** (этот глагол). Администратор или владелец аккаунта, в котором человек
+> состоит, — **нет**: личность одна на все его аккаунты, а сброс гасит все её сессии. Всякий, кто не
+> администратор облака, сам человек тоже, получает `PERMISSION_DENIED` — одинаково на существующем и на
+> корректном отсутствующем `user_id`; `NOT_FOUND` отвечается только администратору облака.
+>
+> Модель это уже выражала; расходились слова. Контракт (раздел WHO MAY), страница `user.mdx` и
+> комментарии кода сведены к одному ответу коммитом `e15ed81e7` — в ветке эпика `296` @`d2f6f182`,
+> в `main` службы **не влито** на 2026-10-03 (`git merge-base --is-ancestor e15ed81e7 origin/main` → 1).
+> Прежняя редакция этой записки называла актора «распорядителем» — тем же словом, что код до правки.
 
 Пользователь **не создаётся** обычным `Create` — он приглашается (`Invite`) либо
 заводится апсертом по внешней личности через `InternalUserService.UpsertFromIdentity`.
@@ -143,6 +155,8 @@ git -C kaname ls-tree -r --name-only origin/main internal/apps/kaname/api/user/ 
 
 - `kn-313` (в `main` не влита на 2026-09-21) — писатели отсечки сведены к одной двери;
   отсюда [[KAC/issue-336-kaname]] и [[KAC/issue-335-kaname]].
+- kaname#254 (2026-10-03, ветка эпика `296`, в `main` не влито) — держатель `ResetSecondFactor` назван
+  одинаково в контракте, странице и коде; см. врезку «Кто вправе» и [[KAC/issue-535-kaname]].
 
 ## See also
 

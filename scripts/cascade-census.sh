@@ -34,6 +34,18 @@
 # открыт всегда. С ключом открытый дочерний — находка при любом состоянии
 # уровня.
 #
+# РЕЖИМ `--proof` — ПЕРЕД ТЕМ, КАК КАСКАД ЗАКРОЕТ ЗАДАЧИ ВЛИТОЙ ВОЛНЫ. Строка
+# `Closes` исполняется лишь в ветке по умолчанию, а запрос волны идёт в ветку
+# эпика: задачи волны закрывает `git-operator` явным действием каскада
+# (`git-issues.md#gi-cascade-no-auto-close`), и `merge-readiness.sh` такого
+# закрытия не видит. Поэтому доказательство DoD (`gi-closes-last-line`) судится
+# здесь: у каждого ОТКРЫТОГО дочернего — комментарий со строкой
+# `DoD-proof @<ревизия>` в начале строки. Нет хоть у одного — находка с номерами:
+# такая задача каскадом не закрывается, а переводится остатком
+# (`gi-cascade-remainder`). Комментарии не прочитаны — вердикта нет (код 2).
+# Закрытые дочерние не судятся: их закрыло не это действие. Без ключа
+# доказательство не спрашивается (возврат check-verifier, ws#920).
+#
 # ПЕРЕЧНЯ В ТЕЛЕ МОЖЕТ НЕ БЫТЬ: в kacho тело волны пишет «задачи волны — её
 # sub-issue, в теле они не перечисляются» (kacho#2795). Тогда сверяется одно
 # отношение, и это печатается строкой, а не молчанием. Перечень есть — он
@@ -44,21 +56,35 @@
 #                   с `--children-closed` — открытых ноль у любого уровня;
 #               1 — находка: отношения расходятся, либо уровень закрыт, а
 #                   дочерние открыты, либо с `--children-closed` открыт хоть
-#                   один дочерний;
+#                   один дочерний, либо с `--proof` у открытого дочернего нет
+#                   доказательства DoD;
 #               2 — вердикта нет: задача не читается, ответ не разбирается,
+#                   с `--proof` комментарии открытого дочернего не прочитаны,
 #                   либо дочерних ноль в обоих отношениях (пустая волна — не
 #                   «открытых ноль»).
 # Находка объявляется раньше беспредметности: расхождение отношений —
 # находка, даже если состояние части дочерних прочитать не удалось.
 set -uo pipefail
 
+# Распознаватель доказательства DoD — общий для всего дерева (`lib/dod_proof.jq`),
+# своей копии выражения здесь нет.
+dod_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
+
 usage() {
-    echo "usage: cascade-census.sh [--children-closed] <владелец/репо> <номер задачи>" >&2
+    echo "usage: cascade-census.sh [--children-closed | --proof] <владелец/репо> <номер задачи>" >&2
     exit 2
 }
 WANT_CLOSED=0
-if [ "${1:-}" = "--children-closed" ]; then WANT_CLOSED=1; shift; fi
+WANT_PROOF=0
+case "${1:-}" in
+    --children-closed) WANT_CLOSED=1; shift ;;
+    --proof) WANT_PROOF=1; shift ;;
+esac
 [ "$#" -eq 2 ] || usage
+if [ "$WANT_PROOF" = 1 ] && [ ! -r "$dod_lib/dod_proof.jq" ]; then
+    echo "cascade-census: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq) — судить нечем" >&2
+    exit 2
+fi
 REPO=$1
 NUM=$2
 case "$REPO" in */*) ;; *) usage ;; esac
@@ -164,6 +190,34 @@ else
 fi
 echo "  открытые:   $(refs < "$TMP/open")"
 
+# ── Доказательство DoD у открытых дочерних (`--proof`) ───────────────────────
+proof_missing=""
+proof_unread=""
+if [ "$WANT_PROOF" = 1 ]; then
+    proof_ok=0
+    while IFS=$'\t' read -r _ ref _; do
+        [ -n "$ref" ] || continue
+        r="${ref%#*}"
+        n="${ref##*#}"
+        # По странице — true/false; доказано, если true хоть на одной. Распознаватель —
+        # общий `lib/dod_proof.jq` (своей копии выражения здесь нет); отказ трекера
+        # роняет трубу (`pipefail`), и задача уходит в «не прочитано».
+        if pages="$(gh api --paginate "repos/$r/issues/$n/comments" 2> /dev/null \
+                | jq -L "$dod_lib" 'include "dod_proof"; [.[] | (.body // "") | dod_proof] | any' 2> /dev/null)" \
+            && [ -n "$pages" ] && ! grep -qvxE 'true|false' <<<"$pages"; then
+            if grep -qx true <<<"$pages"; then
+                proof_ok=$((proof_ok + 1))
+            else
+                proof_missing="$proof_missing $ref"
+            fi
+        else
+            proof_unread="$proof_unread $ref"
+        fi
+    done < "$TMP/open"
+    echo "  режим:      --proof — у открытого дочернего обязателен комментарий «DoD-proof @<ревизия>»"
+    echo "  DoD-proof:  открытых $open_n · с доказательством $proof_ok · без:${proof_missing:- —} · не прочитано:${proof_unread:- —}"
+fi
+
 only_b="$(count "$TMP/only_body" '*')"
 only_s=0
 [ "$b_total" -gt 0 ] && only_s="$(count "$TMP/only_sub" '*')"
@@ -180,7 +234,12 @@ elif [ "$WANT_CLOSED" = 1 ] && [ "$open_n" -gt 0 ]; then
     echo "НАХОДКА: --children-closed, а открытых дочерних $open_n — уровень закрывать рано"
     rc=1
 fi
+if [ -n "$proof_missing" ]; then
+    echo "НАХОДКА: --proof, у открытых дочерних нет доказательства DoD:$proof_missing — каскад их не закрывает, они переводятся остатком (gi-cascade-remainder)"
+    rc=1
+fi
 [ "$rc" -eq 1 ] && exit 1
+[ -z "$proof_unread" ] || void "комментарии открытых дочерних не прочитаны:$proof_unread — доказательство DoD не сверено"
 
 if [ "$all_total" -eq 0 ]; then
     void "дочерних ноль в обоих отношениях: пустой уровень — не «открытых ноль»"

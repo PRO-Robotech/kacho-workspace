@@ -4,14 +4,16 @@ aliases:
   - issue-351-kaname
 ticket_id: 351
 category: kac
-status: to-do
+status: in-progress
 type: docs
 repos:
   - kaname
 areas:
   - proto/kaname/cloud/iam/v1
   - docs/content/api
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kaname/pull/577
+  - https://github.com/PRO-Robotech/kaname/pull/599
 issue_url: https://github.com/PRO-Robotech/kaname/issues/351
 opened: 2026-09-22
 tags:
@@ -19,9 +21,18 @@ tags:
   - kacho-iam
   - iam
   - proto
+verified_against: "kaname 296@77dae639 (коммит слияния PR #599, родители d2f6f182 + 594af5af; голова origin/296 = этот коммит, 2026-10-04): состав — git log d2f6f182..77dae639 --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям задачи и телу PR #599; пробы и конвейер этой записью не перезапускались"
 ---
 
 # kaname#351: одно утверждение, два носителя, оба пережили свой предмет
+
+> [!warning] Состояние — `in-progress`: работа в ветке эпика есть, предикат не предъявлен
+> Полоса NA5 влита в `296` запросом [kaname#599](https://github.com/PRO-Robotech/kaname/pull/599) (`77dae639`): рукоятка церемонии — отдельные 64 случайных
+> байта человека, а не его id (`eff64f06e`, миграция `20261003212856_ceremony_handle_is_its_own_random_value.sql`),
+> замок рукоятки судит только идентификаторы человека (`35e72c8c3`), перепись полос проверок
+> (`f0f86a886`), набор ключей доступа утверждает рукоятку по Р3 (`35eb7dfd5`); приёмка Ф13 ред. 9 —
+> запрос kaname#577. Задача стоит в запросе волны строкой `Refs`: в теле нет вывода переписи до и после.
+> Перенесена в волну-3 [[KAC/issue-537-kaname]] (комментарий задачи 2026-10-04).
 
 **Состояние на момент записи**: `to-do`. Задача **открыта**, PR нет
 (`gh issue view 351 --repo PRO-Robotech/kaname --json state` → `OPEN`, 2026-09-22).

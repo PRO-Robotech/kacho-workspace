@@ -4,7 +4,7 @@ aliases:
   - issue-2874
 ticket_id: 2874
 category: kac
-status: test
+status: done
 type: refactor
 repos:
   - kacho
@@ -16,6 +16,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2874
 opened: 2026-09-26
+closed: 2026-09-30
 tags:
   - kac
   - refactor
@@ -33,6 +34,8 @@ verified_against: "PRO-Robotech/kacho: трекер — задача откры�
 отправлена. Числа той работы — в комментарии задачи, мной не перемерялись.
 
 **Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родитель — волна-3 kacho#2797. Работа сдана в ветку волны `2797`: PR #2884 влит коммитом слияния `11665355759` 2026-09-27T02:12:43Z (`gh pr view 2884`), голова полосы `e57f310cba5` — по комментарию задачи. Волна в ветку эпика не влита.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-30 (`completed`); эпик kacho#2564 влит в `main` запросом #2824 2026-10-02 коммитом слияния `e702195f599` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

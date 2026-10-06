@@ -4,7 +4,7 @@ aliases:
   - issue-428-kaname
 ticket_id: 428
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kaname
@@ -13,6 +13,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kaname/issues/428
 opened: 2026-09-26
+closed: 2026-09-29
 tags:
   - kac
   - kacho-iam
@@ -25,6 +26,8 @@ verified_against: "PRO-Robotech/kaname: трекер — задача откры
 **Состояние на момент записи**: `to-do` — 2026-09-26. Задача **открыта**, метки: `P2`, `size:S`, `area:iam`, `release:identity-own`. Заведена 2026-09-26T09:35:14Z при закрытии волны [[KAC/issue-365-kaname|#365]] как остаток п.3 задачи [[KAC/issue-337-kaname|#337]]; родитель — волна-3 kaname#366. Работы по ней нет.
 
 **Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родитель — волна-3 kaname#366. Ветка `428` (координата, не живая ссылка) @ `025080d9c` влита в ветку волны `366` сборкой 2 kaname#435 — запрос #437, коммит слияния `c083ad5bbfa`, влит 2026-09-27T10:57:27Z (`gh pr view 437`).
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-29 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

@@ -4,7 +4,7 @@ aliases:
   - issue-2873
 ticket_id: 2873
 category: kac
-status: test
+status: done
 type: refactor
 repos:
   - kacho
@@ -14,6 +14,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2873
 opened: 2026-09-26
+closed: 2026-09-30
 tags:
   - kac
   - refactor
@@ -26,6 +27,8 @@ verified_against: "PRO-Robotech/kacho: трекер — задача откры�
 **Состояние на момент записи**: `to-do` — 2026-09-26. Задача **открыта**, метки: `P2`, `size:M`, `area:iam`, `release:identity-own`. Заведена 2026-09-26T09:36:56Z при закрытии волны фундамента [[KAC/issue-29-corelib|corelib#29]] как остаток [[KAC/issue-30-corelib|corelib#30]]; родитель — волна-3 kacho#2797. Работы по ней нет.
 
 **Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родитель — волна-3 kacho#2797. Работа влита в ветку волны `2797` (координата, не живая ссылка) сборкой kacho#2888 — PR #2889, коммит слияния `499ad3085fd`, влит 2026-09-27T07:31:55Z (`gh pr view 2889`). Волна в ветку эпика не влита.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-30 (`completed`); эпик kacho#2564 влит в `main` запросом #2824 2026-10-02 коммитом слияния `e702195f599` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

@@ -18,7 +18,7 @@ tags:
   - iam
   - migrations
   - repo
-verified_against: "оба рода писателей прочитаны на одной ревизии: схемные — `internal/migrations/0001_initial.sql` на origin/main, Go — `internal/repo/kaname/pg/*_repo.go` на 229a0693 продукта PRO-Robotech/kaname (2026-09-21); поведение под конкуренцией на стенде не наблюдалось"
+verified_against: "2026-10-04 — миграция `20261003202945_…` прочитана на ветке эпика 296@77dae639 (раздел о состоянии в ветке эпика); ранее: оба рода писателей прочитаны на одной ревизии: схемные — `internal/migrations/0001_initial.sql` на origin/main, Go — `internal/repo/kaname/pg/*_repo.go` на 229a0693 продукта PRO-Robotech/kaname (2026-09-21); поведение под конкуренцией на стенде не наблюдалось"
 ---
 
 # kaname: Go-дверь отсечки vs схемные писатели отсечки
@@ -51,9 +51,27 @@ verified_against: "оба рода писателей прочитаны на о
 на первой записи, зеркалящий во вторую. Класс —
 [[lessons/invariant-held-by-the-package-not-the-schema]].
 
+## Состояние в ветке эпика `296` (`77dae639`, 2026-10-04; в `main` службы не влито)
+
+Оба свойства закрыты схемой одной миграцией `20261003202945_subject_cutoff_writes_both_records_under_one_lock.sql`
+(приёмка `subject-cutoff-writes-both-records-under-one-lock.md`, APPROVED):
+
+1. **замок** (Р1) — схемные писатели второй записи переписывают причину и решившего только вместе с
+   моментом, не меньшим стоящего, как оператор двери — [[KAC/issue-335-kaname]] (работа влита, задача
+   открыта: предикат не предъявлен);
+2. **зеркало** (Р2) — триггер на первой записи той же транзакцией пишет вторую; отказ второй записи
+   отвергает оператор целиком — [[KAC/issue-336-kaname]] (закрыта с волной-2).
+
+Обратного зеркала нет намеренно: вторую запись пишут и иные механизмы. Ребро остаётся в записке, пока
+миграция не в `main`: на стволе расхождение прежнее.
+
 ## See also
 
 [[resources/iam-user-token-revocation]] · [[resources/iam-minted-token-revocation]] ·
 [[rpc/iam-internal-iam-service]] · [[rpc/iam-user-service]]
+
+## History
+
+- 2026-10-04 — раздел о состоянии в ветке эпика `296` (#335, #336). Повод: волна [[KAC/issue-536-kaname]] влита в ветку эпика.
 
 #edge #kacho-iam #iam #migrations #repo

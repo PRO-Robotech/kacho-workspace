@@ -4,7 +4,7 @@ aliases:
   - issue-2879
 ticket_id: 2879
 category: kac
-status: to-do
+status: test
 type: fix
 repos:
   - kacho
@@ -12,19 +12,26 @@ areas:
   - deploy/scripts
   - deploy/Makefile
   - deploy/stacks.txt
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/3016
+  - https://github.com/PRO-Robotech/kacho/pull/3043
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2879
 opened: 2026-09-26
+closed: 2026-10-06
 tags:
   - kac
   - fix
   - kacho-deploy
-verified_against: "PRO-Robotech/kacho: трекер — задача открыта, родителя нет (`gh issue view 2879`, `gh api .../parent` → 404), PR и веток с номером нет, 2026-09-26. Файлы assert-production-posture.sh, assert-admin-hop-transport.sh, stand-provenance.sh есть на 7190c3e5274 (`git cat-file -e`); вердикты частей A–D на стенде — из тела задачи, мной не перемерялись"
+verified_against: "kacho 1266@9b14ae7f01c (коммит слияния PR #3016, родители 656955b66b7 + be1d233cc8c; голова origin/1266 = этот коммит, 2026-10-04): состав — git log 656955b66b7..9b14ae7f01c --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям-доказательствам задачи; пробы и конвейер этой записью не перезапускались; 2026-10-06 — закрытие волной-4: kacho 1266@680d1794b6b8 (коммит слияния PR #3043, родители e3476f0bc280 + a3d38ec4ebbb, git ls-remote), состояние — gh issue view, DoD — комментарий DoD-proof задачи; пробы этой записью не перезапускались"
 ---
 
 # kacho#2879: гейт посадки не судит стенд вне kind — часть D отказывает
 
-**Состояние на момент записи**: `to-do` — 2026-09-26. Задача **открыта**, метки: `bug`, `P2`,
+> [!note] Состояние — `test`: задача ЗАКРЫТА 2026-10-06 вливанием волны-4 в ветку эпика, в `main` не влито
+> Волна [[KAC/issue-2967]] влита в `1266` коммитом слияния `680d1794b6b8` ([kacho#3043](https://github.com/PRO-Robotech/kacho/pull/3043)). Абзац ниже —
+> состояние на 2026-09-26, история.
+
+**Состояние на момент записи**: `to-do` — 2026-09-26 (факт о прошлом; текущее — в поле `status`). Задача **открыта**, метки: `bug`, `P2`,
 `size:M`, `area:deploy`, `release:identity-own`; родителя нет. Заведена 2026-09-26T11:44:00Z по
 итогам выкатки линии эпика `2564` (координата, не живая ссылка) на управляемый кластер. Роль —
 `deploy-engineer`. Работы по ней нет.
@@ -61,7 +68,27 @@ kind.
 DoD — предикаты 1–3, п.1 на живом стенде вне kind. Артефакт — PR с `Closes` этой задачи; вывод
 гейта на стенде вне kind — комментарием.
 
+## Волна-2 и перенос в волну-3 (2026-10-04)
+
+Правка `4c3b09ccf34` (полоса KA3: пин по объявленному кластеру, `deploy/scripts/stand-cluster-pin.sh`,
+страж `guard-stand-cluster`) влита в `1266` запросом [kacho#3016](https://github.com/PRO-Robotech/kacho/pull/3016) (`9b14ae7f01c`); задача стоит в нём
+строкой `Refs`. Пп.2–3 — статические пробы и `--self-test` той же правки. П.1 — «не выполнилось»: стенда
+вне kind на машине исполнителя нет. Перенесена открытой в волну-3 [[KAC/issue-2966]]. Решение 2026-10-04
+(запись диспетчера): на внешнем кластере — только чтение; п.1 снимается выводом гейта оттуда, без
+изменения состояния кластера.
+
+## Волна-4 — закрыта (2026-10-06)
+
+Правка `4c3b09ccf34` — в `1266` с волны-2. Пп.1–2 на живом стенде вне kind предъявлены
+[комментарием задачи](https://github.com/PRO-Robotech/kacho/issues/2879#issuecomment-5982499653); п.3 —
+[DoD-proof @680d1794](https://github.com/PRO-Robotech/kacho/issues/2879#issuecomment-6012640467):
+`deploy/scripts/assert-identity-provider-absent.sh --self-test` → код 0, синтетических наблюдений и
+законных входов 36, ветка «не kind» в их числе. Коммитов волны-4 по задаче нет: закрыта доказательством
+на дереве слияния.
+
 ## Связанные задачи
+
+- [[KAC/issue-2967]] — волна-4, закрыла · [[KAC/issue-2966]] — волна-3 · [[KAC/issue-2965]] — волна-2
 
 kacho#1977 — карты «стенд → контекст» нет, объявление нечем сверить; kacho#2845 —
 самопроверка той же кластерной половины. Trail у обеих не заведён.

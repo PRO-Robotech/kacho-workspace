@@ -22,7 +22,7 @@ tags:
   - resource
   - kacho-iam
   - iam
-verified_against: "kaname release/iam-lines@4b674bf5 — миграция 20260917221000_access_keys_are_our_record.sql, приёмка access-keys-are-ours.md (APPROVED, круг 6)"
+verified_against: "kaname release/iam-lines@4b674bf5 — миграция 20260917221000_access_keys_are_our_record.sql, приёмка access-keys-are-ours.md (APPROVED, круг 6); 2026-10-03 — ветка эпика 296@d2f6f182: запись ревью Ф7 на отпечаток 5ea26ad0 — APPROVED (sha256sum документа → docs/specs/reviews/access-keys-are-ours/), кейс tests/newman/cases/kaname-access-keys.py есть (git ls-tree); схема построчно не пересматривалась; 2026-10-06 — ветка эпика 296@2cf9c8528b1f: имена двух миграций волны-4 — git ls-tree internal/migrations, глаголы — loginlanehttp.Paths() (git show); схема построчно не пересматривалась"
 ---
 
 # `user_access_keys` — ключ доступа человека (WebAuthn), наш ресурс
@@ -47,13 +47,15 @@ verified_against: "kaname release/iam-lines@4b674bf5 — миграция 202609
 
 `access_key_challenges` — испытание: `purpose ∈ {registration, assertion}`, `challenge` ровно
 32 байта, `expires_at > issued_at`, привязано к человеку; одноразовое, гасится только успехом;
-уборка — пятый предмет реестра полосы.
+уборка — пятый предмет реестра полосы; порог — срок испытания (в ветке эпика `296`, см. History).
 
 ## Что снято намеренно
 
 - **аттестация не читается** (Р4): формат `none`; обещание «проверка аттестации ключа» снято с
   документации и деривации `kaname_device_compliance` (Ф7-32/39);
 - **перенос ключей прежнего поставщика** — снят вместе с предметом (kaname#269).
+- **регистрация личности ключом без пароля** — её не будет: обещание снято с Ф1, Ф7 и Ф13, а не
+  исполнено ([[KAC/issue-2703]]).
 
 ## Gotchas
 
@@ -61,5 +63,21 @@ verified_against: "kaname release/iam-lines@4b674bf5 — миграция 202609
   строку (`KQ002`) раньше проверки формы, и проба судит не то;
 - отказ утверждения побайтово один на все четырнадцать полос — правя текст, правь пробу
   `refusal_bytes_test.go`, а не наоборот.
+
+## History
+
+- 2026-10-03 — волна-1 эпика `296` ([[KAC/issue-535-kaname]], ветка эпика @`d2f6f182`, в `main` службы не
+  влито): приёмка Ф7 сведена из двух одобренных ветвей в ред. 15 — запись ревью `APPROVED` на отпечаток
+  `5ea26ad0` ([[KAC/issue-269-kaname]]; закрыты и [[KAC/issue-345-kaname]], [[KAC/issue-346-kaname]],
+  [[KAC/issue-347-kaname]]); сквозной набор newman шести глаголов ([[KAC/issue-268-kaname]]); снято
+  обещание регистрации ключом ([[KAC/issue-2703]]).
+- 2026-10-04 — волна-2 эпика `296` ([[KAC/issue-536-kaname]], `77dae639`, в `main` службы не влито): уборка
+  `access_key_challenges` снимает испытание не раньше его срока (`ChallengeTTL`), а не первым проходом —
+  [[KAC/issue-590-kaname]]; ошибка чтения ключей на отзыве — внутренняя ошибка ([[KAC/issue-586-kaname]]).
+- 2026-10-06 — волна-4 эпика `296` ([[KAC/issue-538-kaname]], PR kaname#623, `2cf9c8528b1f`; в `main` службы
+  не влито): вход ключом доступа без пароля — два глагола полосы формы, испытание, привязанное к
+  контексту формы (миграция `20261005032942_login_challenge_is_bound_to_the_form_context.sql`), и выдача
+  сессии — [[KAC/issue-613-kaname]]; описание рукоятки называет оба поколения строк (миграция
+  `20261005024608_…`, [[KAC/issue-344-kaname]]). Край глаголы ещё не ретранслирует (kacho#3037, волна-5).
 
 #resource #kacho-iam #iam

@@ -76,6 +76,25 @@
 # её называет. Имя пробы начинается меткой случая `[<буква>]`: по ней `inject.sh`
 # сверяет, что порча решения покраснила ИМЕННО держащую его пробу.
 #
+# ГОЛОВА PR — УРОВЕНЬ КАСКАДА (ws#909). Вливание снимает голову PR
+# (`delete_branch_on_merge=true`), поэтому PR, чья голова — ветка эпика или волны, законен
+# только ВВЕРХ: в ствол либо в ветку задачи-родителя. Синхронизация вниз такой головой
+# сняла ветку эпика kaname `296` (PR #576, 2026-10-03). Уровень — задача ветки с дочерними
+# либо с меткой `epic`; признак берётся у трекера, имя ветки задачи от имени волны не
+# отличает. Случаи CL-* держат: вниз по дочерним, вниз по метке, родитель из чужого
+# репозитория с тем же номером — код 1; вверх в родителя, вверх в ствол, голова `tmp/*`,
+# ветка задачи синхронизации в форме каждого репозитория — код 0; задача не прочитана,
+# номер ветки — запрос, родитель не прочитан — код 2. Голова прочих случаев — задача
+# без дочерних (`issue@788`, её кладёт `mkcase`).
+#
+# ПОДСКАЗКА ОБЯЗАНА БЫТЬ ИСПОЛНИМОЙ В РЕПОЗИТОРИИ PR (ws#910). Прежняя называла
+# `tmp/sync-…`, а kaname такую голову отвергает (`branch-rule.sh`: ветка — `^[0-9]+$`,
+# исключение `main`): норма была невыполнима, и догон `296` → `536` прошёл веткой задачи
+# `584` (kaname#585). Форма — ветка задачи синхронизации N: в kaname `<N>`, в прочих
+# `<N>-sync-<M>-into-<цель>` (`<N>-<суть>`; `tmp/*` там черновик без проверок отправки).
+# CL-DOWN и CL-DOWN-KANAME сверяют форму по репозиторию, CL-SYNC-TASK и CL-SYNC-KANAME —
+# что голова этой формы проходит инструмент.
+#
 # Предпосылка проверки (исход VOID): в дереве есть сам инструмент, есть `jq`, и
 # подставной `gh` доказал обе свои стороны. Отсутствие любого из трёх — «не
 # выполнилось», а не «находок нет».
@@ -122,6 +141,19 @@ case "${1:-}" in
                 target="${MR_FIXTURE:?}/protection@$br" ;;
             repos/*/actions/workflows/*/runs\?*) target="${MR_FIXTURE:?}/runs" ;;
             repos/*/commits/*/check-runs\?*)     target="${MR_FIXTURE:?}/checkruns" ;;
+            # Комментарии — по ПАРЕ репозиторий и номер (`comments@<владелец>~<репо>#<N>`):
+            # фикстура по одному номеру отдавала доказательство задачи kacho#500
+            # на вопрос о kaname#500, и чтение не из того репозитория проходило
+            # (возврат check-verifier, ws#920).
+            repos/*/issues/*/comments\?*)
+                r="${2#repos/}"; r="${r%%/issues/*}"
+                n="${2#*/issues/}"; n="${n%%/*}"
+                target="${MR_FIXTURE:?}/comments@${r//\//\~}#$n" ;;
+            repos/*/issues/*/parent)
+                n="${2#*/issues/}"; n="${n%/parent}"
+                target="${MR_FIXTURE:?}/parent@$n" ;;
+            repos/*/issues/*)
+                target="${MR_FIXTURE:?}/issue@${2##*/}" ;;
             *) echo "gh-stub: незнакомый путь api: $*" >&2; exit 99 ;;
         esac ;;
     *)   echo "gh-stub: незнакомый вызов: $*" >&2; exit 99 ;;
@@ -144,7 +176,27 @@ CTX_LAT="bats-and-shellcheck"
 CTX_DASH="authz-fixtures bootstrap — lint (KAC-122)"
 CTX_CYR="доказательства хуков инъекцией исполняются, а не лежат"
 
-mkcase() { local d="$TMP/case-$1"; mkdir -p "$d"; printf '%s' "$d"; }
+# Каждый случай несёт задачу головы по умолчанию — `788`, лист без дочерних и без
+# метки `epic`: голова прочих случаев уровнем каскада не является.
+mkcase() {
+    local d="$TMP/case-$1"; mkdir -p "$d"
+    mk_issue "$d" 788 0
+    printf '%s' "$d"
+}
+
+# mk_issue <каталог> <номер> <дочерних> [<метка>...] — ответ о задаче ветки головы.
+mk_issue() {
+    local d="$1" n="$2" subs="$3"; shift 3
+    printf '%s\n' "$@" | jq -R 'select(length > 0) | {name: .}' | jq -s \
+        --argjson n "$n" --argjson s "$subs" \
+        '{number: $n, labels: ., sub_issues_summary: {total: $s, completed: 0}}' > "$d/issue@$n.json"
+}
+
+# mk_parent <каталог> <номер> <репозиторий родителя> <номер родителя> — родитель задачи.
+mk_parent() {
+    jq -n --argjson p "$4" --arg u "https://github.com/$3/issues/$4" \
+        '{number: $p, html_url: $u}' > "$1/parent@$2.json"
+}
 
 mk_protection() {  # <файл> <контекст>...
     local f="$1"; shift
@@ -163,8 +215,17 @@ mk_pr() {  # <файл> <состояние> <состояние-слияния>
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
     jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        '{state:$st, baseRefName:$b, headRefName:"788", headRefOid:$h,
-          mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+        --arg hd "${MR_HEAD:-788}" --arg bd "${MR_BODY:-}" --argjson ci "${MR_CLOSING:-[]}" \
+        '{state:$st, baseRefName:$b, headRefName:$hd, headRefOid:$h,
+          mergeStateStatus:$ms, statusCheckRollup:$r, body:$bd, closingIssuesReferences:$ci}' > "$f"
+}
+
+# mk_comments <каталог> <владелец/репо> <номер> <тело>... — комментарии задачи
+# строки закрытия, ключ фикстуры — пара репозиторий и номер.
+mk_comments() {
+    local d="$1" r="$2" n="$3"; shift 3
+    printf '%s\0' "$@" | jq -Rs 'split("\u0000") | map(select(length > 0)) | map({body: .})' \
+        > "$d/comments@${r//\//\~}#$n.json"
 }
 
 # mk_pr_mixed <файл> <состояние-слияния> <имя=ИСХОД>... — rollup с НЕзелёными
@@ -179,7 +240,8 @@ mk_pr_mixed() {
         | {name, status:(if .c=="" then "IN_PROGRESS" else "COMPLETED" end),
            conclusion:(if .c=="" then null else .c end)}' | jq -s .)"
     jq -n --arg ms "$ms" --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
-        '{state:"OPEN", baseRefName:$b, mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+        '{state:"OPEN", baseRefName:$b, mergeStateStatus:$ms, statusCheckRollup:$r,
+          closingIssuesReferences:[]}' > "$f"
 }
 
 # mk_refusal <каталог> <ветка> <код> <тело> — ответ-отказ настоящей формы:
@@ -387,6 +449,52 @@ for nb in $NE_BASES; do
     MR_BASE="$nb" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 done
 
+# ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА (ws#909) ─────────────────────────────────────────
+# Каждый случай — ep_case: база-линия без защиты, набор ствола зелен целиком, то есть
+# по проверкам PR сливаем, и код 1 приходит только от головы. Против CL-UP-WAVE
+# (законный близнец: волна в своего родителя-эпика) меняется ровно один факт.
+NO_PARENT='{"message":"No parent issue found","documentation_url":"https://docs.github.com/rest/issues/sub-issues#get-parent-issue","status":"404"}'
+cl_case() {  # <имя> <голова> <база>
+    local d; d="$(ep_case "$1" "$3")"
+    MR_HEAD="$2" MR_BASE="$3" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    printf '%s' "$d"
+}
+# CL-DOWN — случай kaname#576: эпик (дочерние и метка) догоняет волну своей головой.
+d="$(cl_case CL-DOWN 296 535)"; mk_issue "$d" 296 16 epic P1; mk_parent "$d" 296 PRO-Robotech/other 1266
+# CL-WAVE-DOWN — волна (только дочерние) в ветку своей сборки.
+d="$(cl_case CL-WAVE-DOWN 535-wave 7001-asm)"; mk_issue "$d" 535 23 P1; mk_parent "$d" 535 PRO-Robotech/kacho 296
+# CL-EPIC-LABEL — только метка `epic`, дочерних ноль, родителя нет.
+d="$(cl_case CL-EPIC-LABEL 296 535)"; mk_issue "$d" 296 0 epic
+printf '%s\n' "$NO_PARENT" > "$d/parent@296.json"; printf '1\n' > "$d/parent@296.rc"
+# CL-CROSS-PARENT — родитель с номером базы, но в ДРУГОМ репозитории.
+d="$(cl_case CL-CROSS-PARENT 535 296)"; mk_issue "$d" 535 23; mk_parent "$d" 535 PRO-Robotech/kaname 296
+# CL-UP-WAVE — законный близнец: волна в ветку своего эпика.
+d="$(cl_case CL-UP-WAVE 535 296-own)"; mk_issue "$d" 535 23; mk_parent "$d" 535 PRO-Robotech/kacho 296
+# CL-UP-TRUNK — эпик в ствол: вверх, родителя не спрашивают (фикстуры родителя нет).
+d="$(mkcase CL-UP-TRUNK)"; mk_issue "$d" 296 16 epic
+mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+MR_HEAD=296 mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+# CL-DOWN-KANAME — тот же случай в kaname: подсказка обязана назвать форму, которую
+# пропускает правило ветки kaname (`branch-rule.sh`: `^[0-9]+$`), а не `tmp/*`.
+d="$(cl_case CL-DOWN-KANAME 296 535)"; mk_issue "$d" 296 16 epic P1; mk_parent "$d" 296 PRO-Robotech/other 1266
+# CL-SYNC — голова не формы ветки задачи (`tmp/*`): уровнем не бывает, задачу не спрашивают.
+d="$(cl_case CL-SYNC tmp/sync-296-into-535 535)"
+# CL-SYNC-TASK — законная форма синхронизации вне kaname: ветка задачи-листа `<N>-sync-…`.
+d="$(cl_case CL-SYNC-TASK 910-sync-296-into-535 535)"; mk_issue "$d" 910 0
+# CL-SYNC-KANAME — законная форма в kaname: ветка — голый номер задачи-листа (kaname#584).
+d="$(cl_case CL-SYNC-KANAME 584 536)"; mk_issue "$d" 584 0 P1
+# CL-ISSUE-403 — задача ветки головы не прочитана.
+d="$(cl_case CL-ISSUE-403 296 535)"
+printf '%s\n' '{"message":"Resource not accessible by integration","status":"403"}' > "$d/issue@296.json"
+printf '1\n' > "$d/issue@296.rc"
+# CL-ISSUE-PR — номер ветки головы — запрос, а не задача.
+d="$(cl_case CL-ISSUE-PR 296 535)"
+jq -n '{number: 296, labels: [], pull_request: {url: "x"}}' > "$d/issue@296.json"
+# CL-PARENT-403 — уровень, база-линия, родитель не прочитан.
+d="$(cl_case CL-PARENT-403 535 296)"; mk_issue "$d" 535 23
+printf '%s\n' '{"message":"Resource not accessible by integration","status":"403"}' > "$d/parent@535.json"
+printf '1\n' > "$d/parent@535.rc"
+
 # ── ИСТОЧНИК ВОРКСПЕЙСА: РУЧНОЙ ПРОГОН НА ГОЛОВЕ ────────────────────────────────
 T0="2026-09-26T10:00:00Z"; T1="2026-09-26T11:00:00Z"
 
@@ -539,6 +647,57 @@ mk_ws_protection "$X/protection@main.json"
 mk_runs "$X/runs.json" "515,$HEAD_SHA,completed,startup_failure,$T1,9015"
 printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
 
+# ── CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ (ws#918, решение владельца 2026-10-04) ──
+# Каждый случай — A (все обязательные зелены, «можно») с телом PR и комментариями
+# задач. Против PF-PROOF меняется ровно один факт; PF-PROOF и PF-REFS — законные
+# близнецы, молчащие там, где порча судила бы лишнее.
+PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
+pf_case() {  # <имя> <тело PR> [<closingIssuesReferences JSON>]
+    local d; d="$(mkcase "PF-$1")"
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    MR_BODY="$2" MR_CLOSING="${3:-[]}" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    printf '%s' "$d"
+}
+d="$(pf_case PROOF $'Сборка 3 волны 2.\n\nCloses #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "PR: https://example.invalid/pr/1" "$PROOF_OK"
+d="$(pf_case MISSING $'Сборка 3 волны 2.\n\nCloses #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "PR: https://example.invalid/pr/1" "готово, всё зелёное"
+# Маркер не в начале строки — пересказ, а не доказательство.
+d="$(pf_case MIDLINE $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "ждём DoD-proof @0123abcd от исполнителя"
+# Иное ключевое слово, иной регистр, чужой репозиторий — та же строка закрытия.
+d="$(pf_case FORMS $'fixes PRO-Robotech/kaname#77')"
+mk_comments "$d" PRO-Robotech/kaname 77 "готово"
+# Две строки: одна доказана, другая нет — нельзя, названа именно недоказанная.
+d="$(pf_case MULTI $'Closes #500\nCloses #501')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+mk_comments "$d" PRO-Robotech/kacho 501 "готово"
+# Refs не закрывает — комментарии не читаются вовсе: фикстуры нет, и чтение дало бы 98.
+d="$(pf_case REFS $'Refs #500')"
+# Комментарии не прочитаны — вердикта нет.
+d="$(pf_case UNREAD $'Closes #500')"
+: > "$d/comments@PRO-Robotech~kacho#500.unavailable"
+# Форма-адрес в теле: хостинг закрывает и по ней (возврат check-verifier, ws#920).
+d="$(pf_case URL $'Closes https://github.com/PRO-Robotech/kacho/issues/600')"
+mk_comments "$d" PRO-Robotech/kacho 600 "готово"
+# Тот же номер в двух репозиториях: доказательство лежит в задаче репозитория PR,
+# а у задачи строки закрытия его нет. Чтение комментариев не из репозитория
+# строки закрытия нашло бы чужое доказательство (возврат check-verifier, ws#920).
+d="$(pf_case XREPO $'Closes PRO-Robotech/kaname#500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+mk_comments "$d" PRO-Robotech/kaname 500 "готово"
+# Ручная привязка: строки в теле нет, закрытие объявил хостинг.
+host_ref() {  # <владелец> <репозиторий> <номер> — элемент closingIssuesReferences
+    jq -nc --arg o "$1" --arg r "$2" --argjson n "$3" '{number:$n, repository:{name:$r, owner:{login:$o}}}'
+}
+d="$(pf_case HOST $'Сборка 3 волны 2.' "[$(host_ref PRO-Robotech kacho 600)]")"
+mk_comments "$d" PRO-Robotech/kacho 600 "готово"
+# Близнец: одна задача и в теле, и у хостинга — судится один раз, доказана.
+d="$(pf_case HOSTPROOF $'Closes #500' "[$(host_ref PRO-Robotech kacho 500)]")"
+mk_comments "$d" PRO-Robotech/kacho 500 "$PROOF_OK"
+# Поле хостинга не массив — разбор сломан, а не «закрывать нечего».
+d="$(pf_case HOSTBROKEN $'Refs #500' 'null')"
+
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
 # незнакомый отвергается кодом 99, а не тишиной. Проверяется БЕЗ участия
@@ -561,6 +720,12 @@ fi
 stub_runs="$(PATH="$STUB:$PATH" MR_FIXTURE="$J" gh api "repos/x/actions/workflows/ci.yaml/runs?head_sha=$HEAD_SHA" 2>/dev/null | jq -r '.workflow_runs[0].id' 2>/dev/null || true)"
 if [ "$stub_runs" != "501" ]; then
     tooling_gate_void "$NAME" "подставной gh не отдал фикстуру прогонов (получено '$stub_runs') — пробы воркспейса недоказательны"
+    exit 2
+fi
+
+stub_issue="$(PATH="$STUB:$PATH" MR_FIXTURE="$A" gh api "repos/x/issues/788" 2>/dev/null | jq -r '.sub_issues_summary.total' 2>/dev/null || true)"
+if [ "$stub_issue" != "0" ]; then
+    tooling_gate_void "$NAME" "подставной gh не отдал фикстуру задачи головы (получено '$stub_issue') — пробы уровня каскада недоказательны"
     exit 2
 fi
 
@@ -689,6 +854,34 @@ for nb in $NE_BASES; do
         "ветка '$nb' НЕ ЗАЩИЩЕНА"
 done
 
+probe "$PRODUCT_REPO" "$TMP/case-CL-DOWN" 1 "голова — эпик (дочерние и метка), база — его волна — «нельзя»: вливание снимет эпик" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "голова PR '296' — уровень каскада" "ветка задачи синхронизации N" \
+    "refs/heads/<N>-sync-296-into-535" "#<N> merge #296: "
+probe "PRO-Robotech/kaname" "$TMP/case-CL-DOWN-KANAME" 1 "kaname: подсказка называет форму правила ветки kaname — голый номер задачи" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "refs/heads/<N> " "^[0-9]+\$" "#<N> merge #296: "
+probe "$PRODUCT_REPO" "$TMP/case-CL-WAVE-DOWN" 1 "голова — волна (только дочерние), база — сборка — «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "голова PR '535-wave' — уровень каскада" "дочерних 23"
+probe "$PRODUCT_REPO" "$TMP/case-CL-EPIC-LABEL" 1 "голова — задача с меткой epic без дочерних и без родителя — «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "метка epic" "родителя нет"
+probe "$PRODUCT_REPO" "$TMP/case-CL-CROSS-PARENT" 1 "родитель с номером базы из другого репозитория — не вверх, «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "PRO-Robotech/kaname/issues/296"
+probe "$PRODUCT_REPO" "$TMP/case-CL-UP-WAVE" 0 "голова — волна, база — ветка её родителя — вверх, «сливать можно»" \
+    "можно сливать" "вверх — в родителя"
+probe "$PRODUCT_REPO" "$TMP/case-CL-UP-TRUNK" 0 "голова — эпик, база — ствол — вверх, «сливать можно»" \
+    "можно сливать" "вверх — в ствол"
+probe "$PRODUCT_REPO" "$TMP/case-CL-SYNC" 0 "голова не формы ветки задачи (tmp/*) — уровнем не бывает, «сливать можно»" \
+    "можно сливать" "не формы ветки задачи"
+probe "$PRODUCT_REPO" "$TMP/case-CL-SYNC-TASK" 0 "голова — ветка задачи синхронизации <N>-sync-… — не уровень, «сливать можно»" \
+    "можно сливать" "задача PRO-Robotech/kacho#910 без дочерних"
+probe "PRO-Robotech/kaname" "$TMP/case-CL-SYNC-KANAME" 0 "kaname: голова — голый номер задачи синхронизации — не уровень, «сливать можно»" \
+    "можно сливать" "задача PRO-Robotech/kaname#584 без дочерних"
+probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-403" 2 "задача ветки головы не прочитана — уровень НЕ УСТАНОВЛЕН, а не «можно»" \
+    "уровень каскада головы '296' НЕ УСТАНОВЛЕН"
+probe "$PRODUCT_REPO" "$TMP/case-CL-ISSUE-PR" 2 "номер ветки головы — запрос — уровень НЕ УСТАНОВЛЕН" \
+    "уровень каскада головы '296' НЕ УСТАНОВЛЕН" "запрос, а не задача"
+probe "$PRODUCT_REPO" "$TMP/case-CL-PARENT-403" 2 "родитель задачи-уровня не прочитан — НЕ УСТАНОВЛЕН, а не «нельзя»" \
+    "родитель задачи PRO-Robotech/kacho#535 НЕ ПРОЧИТАН"
+
 probe "$WS_REPO" "$WA" 0 "воркспейс: база требует контексты, все зелёны — путь контекстов, «сливать можно»" \
     "можно сливать" "обязательных контекстов: 3" "ручной прогон их не заменяет"
 
@@ -767,6 +960,31 @@ probe "$WS_REPO" "$W" 2 "воркспейс: ответ о check-runs усечё
 probe "$WS_REPO" "$X" 1 "воркспейс: прогон без заданий (startup_failure) — «сливать нельзя», а не «не выполнилось»" \
     "СЛИВАТЬ НЕЛЬЗЯ" "прогон 515 целиком [STARTUP_FAILURE]"
 
+probe "$PRODUCT_REPO" "$TMP/case-PF-PROOF" 0 "Closes с комментарием-доказательством — «сливать можно»" \
+    "можно сливать" "с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-MISSING" 1 "Closes без комментария-доказательства — «сливать нельзя», задача названа" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-MIDLINE" 1 "маркер не в начале строки — пересказ, не доказательство" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-FORMS" 1 "fixes строчными в чужой репозиторий — та же строка закрытия, «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kaname#77"
+probe "$PRODUCT_REPO" "$TMP/case-PF-MULTI" 1 "две строки закрытия, одна без доказательства — «нельзя», названа она" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#501" "с доказательством DoD: 1 · без: 1"
+probe "$PRODUCT_REPO" "$TMP/case-PF-REFS" 0 "Refs не закрывает — доказательство не спрашивается, «сливать можно»" \
+    "можно сливать" "задач, закрываемых PR (хостинг и тело): 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-UNREAD" 2 "комментарии задачи не прочитаны — вердикта нет, а не «можно»" \
+    "комментарии задач НЕ ПРОЧИТАНЫ" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-XREPO" 1 "тот же номер, доказательство только в репозитории PR — «нельзя», задача названа с репозиторием" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kaname#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-URL" 1 "Closes формой-адресом без доказательства — «нельзя», задача названа" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HOST" 1 "закрытие объявил хостинг, строки в теле нет — «нельзя», задача названа" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#600"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTPROOF" 0 "задача и в теле, и у хостинга — судится один раз, доказана" \
+    "можно сливать" "задач, закрываемых PR (хостинг и тело): 1 · с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга не массив — разбор сломан, а не «закрывать нечего»" \
+    "РАЗБОР СЛОМАН — поле closingIssuesReferences"
+
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты (продукт, проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон либо контексты воркспейса по защите базы (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 tooling_gate_census "$NAME: $locale_note"
 for n in "${by_code[0]:-0}" "${by_code[1]:-0}" "${by_code[2]:-0}"; do
@@ -781,4 +999,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD"
