@@ -91,9 +91,23 @@ route_signs:
 
 event_body_for_publication: "acceptance-reviewer · APPROVED · 5c967d30b6e3d3ad631d910a5dd2f3d77add060dbd7c2a88abb121e3ae78ec3d"
 event:
-  status: not_performed
-  note: событие публикует курьер; блок дописывается к факту отдельным коммитом
-
+  type: issue_comment
+  target: PRO-Robotech/kaname#526
+  status: performed
+  published: true
+  database_id: 6014341582
+  node_id: "IC_kwDOUO26pM8AAAABZnuRzg"
+  url: "https://github.com/PRO-Robotech/kaname/issues/526#issuecomment-6014341582"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kaname/issues/comments/6014341582"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-06T10:29:59Z"
+  body_sha256: "bbe915a2106bc9e718e2ff33f2e25b57e57ba4b62667330baf842ff307090f82"
+  subject_sha256: "5c967d30b6e3d3ad631d910a5dd2f3d77add060dbd7c2a88abb121e3ae78ec3d"
+  subject_revision_commit: "a7f4c02c300cde6866161e5c369b81be59c9c2f8"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
