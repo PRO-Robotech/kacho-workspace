@@ -1,0 +1,69 @@
+ВЕРДИКТ: принято на 17b35683d76d9737d9f7febc50b6e6e3214b1b955dd71d486c8ecb37fab735fd
+role: system-design-reviewer
+moment: post-diff
+round: повтор по новой голове, только дельта (Д97)
+pr: PRO-Robotech/kaname#632 (волна fence линии NTF, полоса K1)
+base: merge-base с origin/484-notify @460e8f32802b8eab585b76f681cdc6137750b9fc (ветка эпика ушла на 56bcb303, merge-base прежний)
+previous_head: 0e9bb4567955d40e675f7b26b83b85b23fed1260 (запись a386062e…, возврат по SD-1)
+head: 358a9039a596c873ed9156f863ec5bccb594ad50
+delta: 0e9bb4567955..358a9039a596 — 2 коммита, 7 файлов, +202/−415
+digest: 17b35683d76d9737d9f7febc50b6e6e3214b1b955dd71d486c8ecb37fab735fd
+digest_command: git diff 460e8f32802b8eab585b76f681cdc6137750b9fc..358a9039a596c873ed9156f863ec5bccb594ad50 | sha256sum
+distributed_surface: true   # унаследовано от диффа волны; дельта распределённых путей не трогает (тесты гигиены, комментарии, отчёты scalegrid)
+blocking: false
+schema_intersection: нет в дельте — миграция 0224 изменена только в комментарии (файл новый в волне, в базе его нет — ban #5 не задет)
+return_to: —
+
+closed:
+  - id: SD-1
+    how: >
+      Вариант (б): гейт сужен до предмета полосы K1 — писателя версии. Переименован в
+      TestAuthzRevisionIsStampedByItsTrigger (NTF3-180 (б), (д), пустое множество V); обход
+      литералов, множество F, проверки (а) и (в) сняты вместе с их инъекциями. Читателя в дереве
+      нет — требования к нему в дереве больше нет; гейт судит то, что в полосе есть.
+    predicate: >
+      cd tmp/sdr-632-358a9039 && GOWORK=off go test -count=1 -v -run 'TestAuthzRevision' ./internal/repohygiene/
+      -> PASS 4 из 4 (B, D, EmptySetIsRed, IsStampedByItsTrigger); на живой базе таблиц с authz_rev 12,
+      у каждой напечатан непустой перечень значимых столбцов.
+      Полный пакет без -short (форма задания интеграции): GOWORK=off go test -count=1 ./internal/repohygiene/ -> ok.
+
+axes_delta:
+  atomicity: не затронута дельтой
+  idempotency: не затронута дельтой
+  concurrency: не затронута; AuthzRev-пробы миграций зелёные на новой голове
+  delivery: модель опроса не меняется
+  graph: новых рёбер нет
+  edge_ban06: не затронут
+
+runs:
+  - cmd: GOWORK=off go test -count=1 -v -run 'TestAuthzRevision' ./internal/repohygiene/
+    outcome: зелёных 4 · красных 0 · SKIP 0
+  - cmd: GOWORK=off go test -count=1 ./internal/repohygiene/
+    outcome: ok (пакет целиком, без -short)
+  - cmd: GOWORK=off go test -count=1 -tags integration -p 1 -run 'AuthzRev' ./internal/migrations/
+    outcome: ok
+  - cmd: GOWORK=off go vet ./internal/repohygiene/
+    outcome: чисто
+
+remarks:  # не блокируют
+  - id: SD-R4
+    where: internal/repohygiene/authzrevcolumn_test.go:27-33
+    what: >
+      Гейт равенства F = V и инъекции NTF3-180 (а), (в) сняты, а держатель обязательства вернуть их
+      вместе с читателем — только этот комментарий. В трекере его нет (поиск по
+      TestAudienceFenceReadsOnlyRevisionedTables и NTF3-180 в kaname и kacho — 0 задач), полоса читателя K3
+      (ветка 484-ntf3-audience-resolve @65e0eebc1) гейта равенства не несёт. Приёмка NTF3-180 всё ещё
+      называет TestAudienceFenceReadsOnlyRevisionedTables, которого в дереве теперь нет, — это поймает
+      сверка приёмки на посадке эпика, но не посадка K3. Без гейта читатель может прочесть таблицу без
+      authz_rev и выдать право, выданное после события (over-grant). Требование: внести в задание K3
+      строкой «гейт F = V (NTF3-180 (а), (в)) входит одним изменением с запросом вопроса».
+  - id: SD-R5
+    where: internal/repohygiene/authzrevcolumn_test.go:33
+    what: >
+      «Здесь — писатель версии, у которого читатель не предполагается» неверно: читатель предполагается
+      (полоса K3), его просто нет в этом дереве. Поправить на «читателя в этом дереве ещё нет».
+  - id: SD-R1..R3
+    what: замечания прошлого раунда (досев без FOR UPDATE строки роли; порядок токена у потребителя; пул основного узла) дельтой не затронуты, остаются в силе
+
+orders:
+  - кому: диспетчер — SD-R4 в задание полосы K3 (gate F = V одним изменением с запросом вопроса)
