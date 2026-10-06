@@ -376,7 +376,7 @@ tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, int
 
 ## 8б. Уровни риска (владелец 2026-10-06; дословно — архив `flow-acceleration`)
 
-Уровень и шаги — `scripts/lane-tier.sh`: R0 без рецензентов, R1 — `wave-reviewer` на сборку, R2 — роли. Приёмка — при смене контракта, ≤ 2 кругов, спор решаю я. Волна — `.claude/workflows/wave.js`; план, полоса, посадка — по коду 0 `plan-`, `lane-`, `landing-precheck.sh`; ошибки — `wave-errors.sh`.
+Уровень и шаги — `scripts/lane-tier.sh`: R0 без рецензентов, R1 — `wave-reviewer` на сборку, R2 — роли. Приёмка — при смене контракта, ≤ 2 кругов, спор решаю я. Волна — `.claude/workflows/wave.js`; план, полоса, посадка — по коду 0 `plan-`, `lane-`, `landing-precheck.sh`; ошибки — `wave-errors.sh`. corelib соседа план судит при обоих репозиториях или `crossRepo` (ws#938).
 
 ## 9. Ожидание внешних событий
 

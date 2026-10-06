@@ -13,12 +13,16 @@
 # дать код 1 (2 — для «судить не смог») и строку своей причины; близнец — код 0
 # и ни одной строки REASON. Шаги уровня сверяются с прямым вызовом
 # `lane-tier.sh`: проверка плана их повторяет, а не выписывает.
-# Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — корневой подписи
-# нет, посев не построить.
+# ИНЪЕКЦИИ — после контроля проба прогоняет себя же против МУТАНТОВ проверки
+# (копия с одной правкой рядом с копией `lane-tier.sh`, путь — в
+# `PLAN_PRECHECK_UNDER_TEST`) и требует, чтобы каждый покраснел утверждением
+# (код 1 и строка [FAIL]), а не поломкой посева.
+# Коды: 0 — все утверждения сошлись (и все мутанты красные); 1 — хотя бы одно
+# нет; 2 — корневой подписи нет, посев не построить.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-P="$HERE/plan-precheck.sh"
+P="${PLAN_PRECHECK_UNDER_TEST:-$HERE/plan-precheck.sh}"
 W="$(mktemp -d)"
 trap 'rm -rf "$W"' EXIT
 pass=0 fail=0
@@ -110,6 +114,36 @@ assert "2 да" "$(run) $(has 'TARGET-MISSING')" "целевой головы н
 printf 'module github.com/PRO-Robotech/kaname\n\nrequire github.com/PRO-Robotech/corelib v1.11.0\n' > "$KN/go.mod"
 git -C "$KN" commit -qam repin
 
+echo "== план одного репозитория: сосед не судится (ws#938)"
+# kacho отстаёт; план — только kaname. Прежняя сверка вставляла перепин kacho в
+# волну kaname (autoRepin kacho), а без targets.kacho — останавливала на коде 2.
+printf 'module github.com/PRO-Robotech/kacho\n\nrequire github.com/PRO-Robotech/corelib v1.10.0\n' > "$KC/go.mod"
+git -C "$KC" commit -qam old
+ONE='.lanes = [.lanes[2]]'
+plan "$ONE"
+bash "$P" "$W/plan.json" --json 2> "$W/out" > "$W/j"
+assert "0 - 0 да" "$(jq -r '.code' "$W/j") $(reasons) $(jq -r '.autoRepin | length' "$W/j") $(has 'один репозиторий (kaname), crossRepo не объявлен')" "только kaname, kacho отстаёт — код 0, перепина kacho нет, перепись называет несудимое"
+plan "$ONE | del(.targets)"
+assert "0 - нет" "$(run) $(reasons) $(has 'TARGET-MISSING')" "только kaname и целей нет — код 0, не TARGET-MISSING"
+plan "$ONE | .crossRepo = true"
+bash "$P" "$W/plan.json" --json 2> "$W/out" > "$W/j"
+assert "1 CORELIB-SKEW-NEIGHBOUR 0" "$(jq -r '.code' "$W/j") $(reasons) $(jq -r '.autoRepin | length' "$W/j")" "явный crossRepo — сосед судится; отстал сосед без полос — остановка БЕЗ autoRepin"
+plan "$ONE | .crossRepo = true | del(.targets.kacho)"
+assert "2 да" "$(run) $(has 'TARGET-MISSING')" "явный crossRepo без головы соседа — судить не смог, код 2"
+plan "$ONE | .crossRepo = \"yes\""
+assert "2 да" "$(run) $(has 'crossRepo — не true/false')" "crossRepo не булево — план неразборчив, код 2"
+plan '.'
+assert "1 CORELIB-SKEW" "$(run) $(reasons)" "близнец: полосы обоих репозиториев — сверка как прежде"
+printf 'module github.com/PRO-Robotech/kaname\n\nrequire github.com/PRO-Robotech/corelib v1.10.0\n' > "$KN/go.mod"
+git -C "$KN" commit -qam old2
+printf 'module github.com/PRO-Robotech/kacho\n\nrequire github.com/PRO-Robotech/corelib v1.11.0\n' > "$KC/go.mod"
+git -C "$KC" commit -qam repin
+plan "$ONE | .crossRepo = true"
+bash "$P" "$W/plan.json" --json 2> "$W/out" > "$W/j"
+assert "1 CORELIB-SKEW kaname" "$(jq -r '.code' "$W/j") $(reasons) $(jq -r '.autoRepin[0].repo' "$W/j")" "явный crossRepo, отстаёт свой kaname — autoRepin своего"
+printf 'module github.com/PRO-Robotech/kaname\n\nrequire github.com/PRO-Robotech/corelib v1.11.0\n' > "$KN/go.mod"
+git -C "$KN" commit -qam repin2
+
 echo "== режим git: полоса уже писала"
 git -C "$KC" checkout -qb lane
 mkdir -p "$KC/services/vpc/internal/migrations" && echo 'SELECT 1;' > "$KC/services/vpc/internal/migrations/0001.sql"
@@ -129,4 +163,33 @@ assert "2" "$(run)" "ноль полос — код 2"
 echo
 echo "plan-precheck-inject: утверждений $((pass + fail)); сошлось $pass, разошлось $fail"
 [ $((pass + fail)) -gt 0 ] || exit 2
-[ "$fail" -eq 0 ]
+[ -n "${PLAN_PRECHECK_UNDER_TEST:-}" ] && { [ "$fail" -eq 0 ]; exit $?; }
+ctl=$fail
+
+mpass=0 mfail=0
+mutant() { # mutant <имя> <было> <стало>
+    local d="$W/mut-$((mpass + mfail))"
+    mkdir -p "$d" && cp "$HERE/lane-tier.sh" "$d/"
+    python3 - "$HERE/plan-precheck.sh" "$d/plan-precheck.sh" "$2" "$3" <<'PY' || { echo "  [FAIL] мутант «$1»: образец не найден" >&2; mfail=$((mfail + 1)); return; }
+import sys
+src, dst, a, b = sys.argv[1:5]
+s = open(src, encoding='utf-8').read()
+if s.count(a) != 1:
+    sys.exit(1)
+open(dst, 'w', encoding='utf-8').write(s.replace(a, b, 1))
+PY
+    PLAN_PRECHECK_UNDER_TEST="$d/plan-precheck.sh" bash "${BASH_SOURCE[0]}" > "$d/out" 2>&1
+    local rc=$?
+    if [ "$rc" -eq 1 ] && grep -q '^  \[FAIL\]' "$d/out"; then
+        echo "  [OK]   мутант «$1» красный: $(grep -m1 '^  \[FAIL\]' "$d/out" | sed 's/^  \[FAIL\] //' | cut -c1-90)"; mpass=$((mpass + 1))
+    else
+        echo "  [FAIL] мутант «$1» выжил либо упал не утверждением (код $rc)" >&2; mfail=$((mfail + 1))
+    fi
+}
+echo "== инъекции: мутанты проверки"
+mutant "сосед судится на плане одного репозитория" 'if len(repos) == 2 or cross is True:' 'if repos:'
+mutant "явный crossRepo не включает сверку" 'if len(repos) == 2 or cross is True:' 'if len(repos) == 2:'
+mutant "отставшему соседу без полос — autoRepin" '                if not own:' '                if False:'
+mutant "crossRepo не булево не судится" 'if cross not in (None, True, False):' 'if False:'
+echo "plan-precheck-inject: контроль разошлось $ctl; мутантов $((mpass + mfail)), красных $mpass, выживших $mfail"
+[ "$ctl" -eq 0 ] && [ "$mfail" -eq 0 ]
