@@ -48,11 +48,23 @@ scenarios: 13
 producer_named: 13 из 13 (без изменений с круга 2)
 twin_named: 6 из 6 отрицательных (без изменений с круга 2)
 event:
-  type: none
-  status: not_performed
-  published: false
-  publication_expected_from_orchestrator: true
-  body: "acceptance-reviewer · APPROVED · ee49b89ab32a52371635fa389c5afea7034ce16e74ac30e9fe0301ab3584fc83"
+  type: issue_comment
+  target: PRO-Robotech/kacho#3063
+  status: performed
+  published: true
+  database_id: 6029473525
+  node_id: "IC_kwDOTZqgWM8AAAABZ2J29Q"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3063#issuecomment-6029473525"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6029473525"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-07T02:16:42Z"
+  body_sha256: "7ad17703fea08f3a9556e2e511b53d4d698897362e8c5952435a79fdd8ca5526"
+  subject_sha256: "ee49b89ab32a52371635fa389c5afea7034ce16e74ac30e9fe0301ab3584fc83"
+  subject_revision_commit: "d85245be0fac3c968a9779021c3a4c1bf5169471"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
