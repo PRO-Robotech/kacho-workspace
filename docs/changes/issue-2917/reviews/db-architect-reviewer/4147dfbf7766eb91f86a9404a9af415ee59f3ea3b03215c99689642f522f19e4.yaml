@@ -1,0 +1,43 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kacho PR #3071, повтор на новой голове.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  pr: 3071
+  branch: 2917-wave-d1
+  base: 4d5295f1ae96ddb12fe2e228d4cf81d0101f8ec4   # = merge-base(origin/2914-notify, head), не сдвинулась
+  head: 8bd539f866887f64c1d82f49c974549343fcf02e
+  previous_head: bc5cab64ff8f48651ce1ca65f0003db4e95425cf   # прежняя запись c27b66fe…yaml, ACCEPTED
+  content_digest: 4147dfbf7766eb91f86a9404a9af415ee59f3ea3b03215c99689642f522f19e4
+  digest_predicate: git diff 4d5295f1a..8bd539f866 | sha256sum   # перемерено дважды, совпало
+  premise_remeasured: >-
+    Дельта bc5cab64..8bd539f8: 2 коммита полосы D1 (53f15de0 — проба, 8bd539f8 — фикс), 5 путей:
+    deploy/Makefile (текст echo), deploy/stacks.txt (цепочка dev-prod + values.run-stand.yaml),
+    deploy/helm/umbrella/values.dev-prod.yaml (−25: пороги anonMail сняты со среднего слоя),
+    deploy/helm/umbrella/values.run-stand.yaml (+44: пороги — слоем стенда прогона),
+    gateway/deploy/edge_stand_anon_mail_volume_test.go (проба цепочки; SQL/pgx нет).
+    Путей миграций и repo-SQL в дельте 0; git diff --stat bc5cab64 8bd539f8 -- gateway/internal/ пуст.
+    Ни пула соединений, ни параметров базы (sslmode/max_conns/database) в дельте нет.
+    Дифф база..голова: 138 путей, путей миграций 2 (A, те же, что в прежней записи):
+    gateway/internal/idempotencypg/migrations/20261001180000_anon_mail_limiter.sql,
+    20261001190000_anon_mail_passes_key_not_empty.sql.
+snapshot_at: 2026-10-07
+
+migrations_touched: 2   # во всём диффе; в дельте повтора 0
+verdict: ACCEPTED   # принято
+blocks: false
+return_to: —
+
+runs: []   # схема и repo-SQL не изменились с bc5cab64 (и с 2eba982e); пробы с конкурирующими транзакциями прежних записей относятся к тем же файлам
+
+approved:
+  - "суждения записей 1a2d7cb1…yaml, b3416b96…yaml, c27b66fe…yaml по схеме anonmail (pow_spent PK + ON CONFLICT DO NOTHING RETURNING, ведро CHECK id=1 / tokens>=0 + FOR UPDATE, ключ проходов непуст) остаются в силе: файлы не изменились"
+  - "дельта — раскладка слоёв значений чарта и проба на конфигурации; предмета схемы/инварианта базы в ней нет"
+
+findings: []
+orders: []
+distributed_overlap: false
