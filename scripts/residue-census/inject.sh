@@ -23,6 +23,11 @@
 #   V1 ось VOID в обоих снимках                  → код 2, не «следов 0»
 #   V2 снимок не читается                        → код 2
 #   V3 ось осмотрена лишь в снимке «до»          → код 2, ось названа неосмотренной
+#   V4 читатель оси вернул ненулевой код         → код 2, «читатель оси вернул код»
+#      (не «#axis ось 0»: отказ чтения, названный пустой осью, — VOID, объявленная
+#      чистой). Два настоящих отказа: worktree — репозиторий из RESIDUE_REPOS не
+#      существует (git отказывает); tmpdir — каталог есть, но закрыт 000 (find
+#      отказывает). Сравнивать в обоих случаях нечего.
 #
 # Запуск: bash scripts/residue-census/inject.sh   (код 0 — все случаи сошлись)
 #
@@ -33,7 +38,9 @@ set -uo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CENSUS="$SELF_DIR/census.sh"
 BOX="$(mktemp -d)" || { echo "inject: каталог пробы не создан" >&2; exit 2; }
-trap 'rm -rf -- "$BOX"' EXIT
+# chmod до rm: случай V4 закрывает каталог 000, и обрыв посреди него не должен
+# оставить нечитаемый след.
+trap 'chmod -R u+rwx -- "$BOX" 2>/dev/null; rm -rf -- "$BOX"' EXIT
 
 PASS=0
 FAIL=0
@@ -141,6 +148,26 @@ check V2-снимок-не-читается 2 "не читается"
 # V3
 reset_box; snap "$T" "$BOX/before"; snap "$BOX/нет-такого" "$BOX/after"
 check V3-ось-лишь-в-одном-снимке 2 "не осмотрено: tmpdir"
+
+# V4 — worktree: репозиторий из RESIDUE_REPOS не существует, git отказывает.
+reset_box
+RESIDUE_AXES=worktree RESIDUE_REPOS="$BOX/нет-такого-репозитория" bash "$CENSUS" snapshot >"$BOX/before"
+RESIDUE_AXES=worktree RESIDUE_REPOS="$BOX/нет-такого-репозитория" bash "$CENSUS" snapshot >"$BOX/after"
+check V4-читатель-worktree-отказал 2 "не осмотрено: worktree (читатель оси вернул код"
+
+# V4 — tmpdir: каталог есть, но закрыт; find отказывает. От root 000 не закрывает,
+# и случай тогда не выполнен — это провал пробы, а не тихий пропуск.
+reset_box
+L="$BOX/locked"
+mkdir -p "$L/внутри"; chmod 000 "$L"
+if [ -r "$L" ]; then
+    printf 'ПРОВАЛ V4-читатель-tmpdir-отказал: не выполнено — каталог 000 читается (uid %s)\n' "$(id -u)"
+    FAIL=$((FAIL + 1))
+else
+    snap "$L" "$BOX/before"; snap "$L" "$BOX/after"
+    check V4-читатель-tmpdir-отказал 2 "не осмотрено: tmpdir (читатель оси вернул код"
+fi
+chmod 700 "$L"; rm -rf -- "$L"
 
 printf 'residue-census inject: случаев %d · сошлось %d · разошлось %d\n' $((PASS + FAIL)) "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] && [ "$PASS" -gt 0 ]
