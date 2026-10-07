@@ -11,6 +11,11 @@ SPDX-License-Identifier: BUSL-1.1
 > **История review:** только дописывается; прежние строки не редактируются
 > — редакция 1 · 2026-10-07 · круг 1 · CHANGES_REQUESTED · `07a18c8e7e07f21ea33bc780c45714c3bca1387413b16bcb663df7431edced10` · `docs/specs/reviews/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance/07a18c8e7e07f21ea33bc780c45714c3bca1387413b16bcb663df7431edced10.yaml`
 > — редакция 2 · 2026-10-07 · правка по кругу 1 (F8r-04 — отдельный человек `W`; подсказка Р3 снята; F8r-13/F8r-14 — порядок; PENDING; экспорт посева `A₁`) · вердикта нет
+> — редакция 3 · 2026-10-07 · правка после вердикта круга 2 (APPROVED на `feb2d3d1bc33f00cf8f9a3f56c1d7eb7aa15b4cc93e9f0250e661ad0d799106e`,
+>   `docs/specs/reviews/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance/feb2d3d1bc33f00cf8f9a3f56c1d7eb7aa15b4cc93e9f0250e661ad0d799106e.yaml`):
+>   §7 S2 DoD п.4 — команда линтера получила каталог: `make -C gateway lint` (цель `lint` объявлена в
+>   `gateway/Makefile`, в корневом `Makefile` её нет, и прежняя форма без каталога не выполнялась из корня
+>   монорепо); сценарии, решения, объём и числа не тронуты · вердикта нет
 > **Дата:** 2026-10-07
 > **Задачи:** `PRO-Robotech/kacho#3063` (консоль, сброс второго фактора; волна-6 `#2969`, эпик
 > `#1266`); сторона края и консоли сброса пароля и ключей — `PRO-Robotech/kacho#2702`;
@@ -584,7 +589,7 @@ F8r-11 краснеет
    - F8r-13 — зелёная либо третья категория с названием `kacho#2952` (единственный пункт,
      зависящий от неё);
    - `git grep -c 'UserService/ResetLoginMethods' -- gateway/internal/allowlist/list.go` → 1;
-   - гейты паритета края и консоли, `make lint`, полный хук отправки — зелёные;
+   - гейты паритета края и консоли, `make -C gateway lint`, полный хук отправки — зелёные;
    - комментарий `DoD-proof @<sha>` в `kacho#2702` до «готово».
 
 ## §8 Дельта к одобренным соседям
