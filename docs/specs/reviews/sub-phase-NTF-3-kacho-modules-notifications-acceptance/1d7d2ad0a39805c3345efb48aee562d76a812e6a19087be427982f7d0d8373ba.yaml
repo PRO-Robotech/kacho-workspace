@@ -1,0 +1,164 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba
+  revision: 42
+  static_status: DRAFT
+  static_status_note: >-
+    Строка редакции 42 в шапке говорит «вердикта на неё НЕТ». Запись шапку не правит намеренно:
+    вердикт привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 42 не закоммичена; судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD 423f57c00). Дельта читалась построчным диффом против копии редакции 41
+    (tmp/issue-880-r42/rev41.md, отпечаток 9a97c368…de48): 1 файл, +100 / −20.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → 1d7d2ad0…73ba
+  fingerprint_reproduced: true
+  lines: 6133
+verdict: ACCEPTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07T21:00:00Z'
+round: 3
+round_note: >-
+  Круг 3 на предмет NTF3-182…189 (порядок публикации, атомарность событий, NTF3-189). Все три
+  блокирующих круга 2 закрыты по существу, проверено чтением дерева на названных ревизиях: B1
+  (CONSTRUCTIBILITY) — посев adm-189 даёт admin на объекте реестра путём ARM_NAMES; B2 (TWIN) — исход
+  близнеца NTF3-189 (а) выводится из правил Р30 «Приём поколения — CAS», «Публикация для анонимного
+  чтения», «Барьер поколения»; B3 (PRODUCER) — события переименования решены (Р30 «Переименование
+  репозитория — два события двух объектов»), производитель назван в §3 (15) и §11. Новых блокирующих
+  дельта не внесла. Род не повторился третий раз.
+previous_rounds:
+  - round: 1
+    revision: 40
+    sha256: 4d84d06f4425985b12d3628b63f3a4222b61187fd30a49573b1f71bebbf799f1
+    verdict: RETURNED
+    blocking_kinds: [COVERAGE, CONSTRUCTIBILITY]
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/4d84d06f4425985b12d3628b63f3a4222b61187fd30a49573b1f71bebbf799f1.yaml
+  - round: 2
+    revision: 41
+    sha256: 9a97c368f1377319d3d251395ee5273c5525bb82439a32fcfae9d9a6c017de48
+    verdict: RETURNED
+    blocking_kinds: [CONSTRUCTIBILITY, TWIN, PRODUCER]
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/9a97c368f1377319d3d251395ee5273c5525bb82439a32fcfae9d9a6c017de48.yaml
+    closed_by_this_revision: [B1, B2, B3, N1]
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_findings: []
+closure_evidence:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    status: closed
+    evidence: >-
+      kaname @8a84dcff6: правило с закреплённым именем (ARM_NAMES) резолвится
+      reconcile.go:1013-1015 (MatchByIDs) и материализуется desiredMemberForObject → ruleObjectTuples
+      (reconcile.go:1140, reconcile/tuples.go:33): кортежи v_<глагол> и ярусный кортеж; ярус —
+      ResolveVerbsAndTier (rule_verbs.go:63), delete → admin (verbBackCompatTier, :158); отношение
+      admin у registry_registry прямое [user, service_account, group#member] (fga_model.fga:1295) —
+      кортеж user:<s> admin registry_registry:<id> его даёт. kacho @ffbe930dbe: CreateRepository —
+      registryGate(v_create), затем requireRegistryAdmin при PUBLIC (handler/repository.go:52-60),
+      отказ — PERMISSION_DENIED с текстом «creating a public repository requires registry admin»
+      (listauthz.go:205-207), до Operation. Близнец (г): get, create → ярус editor, admin false,
+      v_create true — отказ ровно этим производителем.
+  - id: B2
+    kind: TWIN
+    status: closed
+    evidence: >-
+      Близнец NTF3-189 (а): CREATED поколения 1 при надгробии gT ≥ 2 — REJECTED_STALE по «Приём
+      поколения — CAS» (строка 2085); публикация object_generation 1 при надгробии — REJECTED_STALE по
+      «Публикация для анонимного чтения» (строки 2194-2196); вопрос об аудитории — без отказа: барьер
+      срабатывает только при «последнее применённое меньше g_E» (строка 2081). Все три исхода
+      производятся правилами документа; вред назван и держится гейтом NTF3-187 (г).
+  - id: B3
+    kind: PRODUCER
+    status: closed
+    evidence: >-
+      Р30 «Переименование репозитория — два события двух объектов» (строки 2112-2135): DELETED прежнего
+      id и CREATED нового, по строке журнала и намерению на каждое, поколения из счётчиков обоих id,
+      публикация нового — SetPublicReadPublication, второго снятия нет; производитель —
+      rename_repository.go (правится; сегодня renameIntents :315-325 ставит четыре намерения) в §3 (15)
+      и §11. NTF3-189 (в) утверждает обе стороны с числами поколений; близнец ALREADY_EXISTS —
+      Operation с ошибкой: в дереве конфликт имени отвергается в worker'е (doRename → assertTargetAvailable,
+      rename_repository.go:186-187, 239-257), а не синхронно — форма утверждения верна. Права
+      переименования: v_update на tmp (owner) и v_create на реестре (owner реестра) у usr-A есть.
+  - id: N1
+    kind: FORMAT
+    status: closed
+    evidence: "Р30 «Публикация для анонимного чтения» — начало воплощения узнаётся по голове на приёме (строки 2197-2200)."
+constructibility:
+  seeded: 0
+  named_fixture: 5
+  not_performed: 0
+  refuted_by_reading: 0
+  note: >-
+    Посева не было (стенда в задании нет). NTF3-185, 186 — фикстура С24; NTF3-187 — гейт дерева;
+    NTF3-188 — С1, С27, С28; NTF3-189 — С1 (adm-189 / ed-189), С24, С27: путь права проверен чтением
+    kaname @8a84dcff6 и kacho @ffbe930dbe (B1 выше), изменяющих путей переименования — rename handler и
+    use-case @ffbe930dbe.
+producers:
+  ok: "NTF3-182…189 — производители названы с координатами (§11, §3 шаг (15)); событие переименования — rename_repository.go (правится)."
+  gap: null
+twins:
+  ok: "NTF3-185 (а)–(г), 186 (а)–(д), 187 (а)–(д), 188 (а)–(в), 189 (а)–(г) — близнецы по одному факту названы (§10)."
+  gap: null
+defaults_fixed_at_review:
+  - id: D1
+    question: >-
+      NTF3-189 не объявляет порядок прогона букв и близнецов. Близнец (а) (внедрение снятия счётчика) и
+      близнец (б) (регистрация gT + 2 прямым вызовом С24) меняют состояние объекта …/pub; если они
+      исполнены в одной цепочке перед (в), DELETED usr-B получит поколение gT + 2, не новее головы
+      gT + 2 — REJECTED_STALE, и Given (в) («надгробие gT + 2») не построится.
+    default: >-
+      Близнецы (а) и (б) NTF3-189 — каждый отдельным прогоном от состояния, названного в их When; основная
+      цепочка — (а) → (б) → (в) без близнецов; (г) — отдельный прогон, как сказано в документе. Автор проб
+      вписывает это в шапку функции пробы; правка документа при следующей редакции — одной фразой, как у
+      NTF3-186 («каждая в отдельном прогоне от состояния после (а)»).
+non_blocking_findings:
+  - id: N1
+    kind: FORMAT
+    where: "NTF3-189 — порядок прогона букв и близнецов"
+    note: "Дефолт D1 зафиксирован выше; при следующей редакции вписать фразу о прогоне."
+  - id: N2
+    kind: FORMAT
+    where: "NTF3-187 (д), близнец; §10 строка NTF3-187 (д)"
+    note: >-
+      Близнец называет «одно намерение снятия прежнего и одно намерение регистрации нового», а у
+      переименования публичного репозитория законно и третье — публикация нового методом публикации
+      (Р30). Предмет гейта — число снятий одного объекта, поэтому дефекта нет, но формулировка
+      «одно и одно» читается как полный состав; уточнить «снятий прежнего объекта — одно».
+  - id: N3
+    kind: COVERAGE
+    where: "Р30 «Производитель поколения — счётчик объекта модуля»"
+    note: "Перенесено из круга 2 (N2): бессрочная строка счётчика — вопрос владельцу, если величина роста важна; не дефект редакции."
+measurement:
+  - "sha256sum документа в tmp/issue-880 → 1d7d2ad0…73ba (совпадает с заданием), 6133 строки"
+  - "git diff --no-index --stat rev41.md → документ: 1 файл, 100 insertions, 20 deletions"
+  - "kaname @8a84dcff6: internal/domain/rule_verbs.go (ResolveVerbsAndTier, verbBackCompatTier delete→admin); reconcile/reconcile.go:1013-1015, :1140; reconcile/tuples.go:33; internal/authzmodel/fga_model.fga registry_registry admin, registry_repository v_delete or owner"
+  - "kacho @ffbe930dbe: services/registry/internal/handler/repository.go:52-60 (CreateRepository), :140-155 (RenameRepository — v_update@old, v_create@registry); handler/listauthz.go:205-207; apps/kacho/api/registry/rename_repository.go:38-82 (Operation до doRename), :186-187, :239-257 (ALREADY_EXISTS в worker'е), :315-325 (renameIntents); proto registry_service.proto:275-279 (POST …/{repository=**}:rename, body *), :480-486"
+  - "KACHO_MONOREPO=project/kacho ./scripts/docs-gate/run-all.sh в tmp/issue-880 → рассмотрено 7, пройдено 6, провалено 0, без предмета 1 (check-03-holding-claim-resolves: 32 координаты приёмок IAM-INT-1 / KAN-AUTHN-1, не NTF-3)"
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba
+  declared_verdict: ACCEPTED
+  record_event_type: acceptance_approval
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  body: "acceptance-reviewer · ✅ ACCEPTED · 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba"
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
