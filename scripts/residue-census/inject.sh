@@ -17,6 +17,9 @@
 #   K3 файл под --keep                           → код 0, «оставлено как отчёт»
 #   K4 --keep не шире префикса: файл рядом       → код 1, след назван
 #   K5 каталог остался (не только файл)          → код 1, след назван
+#   K6 локаль со свёрткой: 20 записей лежали, одна добавлена → код 1, след ровно 1
+#      (порядок `sort` локали и побайтовый слияние `comm` расходятся, и лежавшее
+#      называется следом: на живом `tmp/` 49 «следов» вместо 2, 2026-10-07)
 #   V1 ось VOID в обоих снимках                  → код 2, не «следов 0»
 #   V2 снимок не читается                        → код 2
 #   V3 ось осмотрена лишь в снимке «до»          → код 2, ось названа неосмотренной
@@ -84,6 +87,40 @@ check K4-keep-не-шире-префикса 1 "СЛЕД: tmpdir $T/reportless.l
 # K5
 reset_box; snap "$T" "$BOX/before"; mkdir -p "$T/kacho-ci-local-12345678/run-1"; snap "$T" "$BOX/after"
 check K5-каталог-остался 1 "СЛЕД: tmpdir $T/kacho-ci-local-12345678"
+
+# K6 — локаль со свёрткой берётся из установленных; её нет — случай не выполнен,
+# и это провал пробы, а не тихий пропуск: без него свойство не доказано.
+COLLATE="$(locale -a 2>/dev/null | grep -m1 -iE '^(ru_RU|en_US)\.utf-?8$' || true)"
+if [ -z "$COLLATE" ]; then
+    printf 'ПРОВАЛ K6-локаль-со-свёрткой: не выполнено — локали ru_RU/en_US UTF-8 не установлены\n'
+    FAIL=$((FAIL + 1))
+else
+    reset_box
+    for n in ciw-611 \
+             ciw-616 \
+             ciw-622 \
+             ciw-624 \
+             ciw624 \
+             ciw-814-91dc3632-20260923T131405 \
+             ciw-90ab287.go-test-short.log \
+             ciw-90ab287.log \
+             ci-watch-183-run-35907735501 \
+             ci-watch-2820 \
+             ciwatch-2833-3f5041eb \
+             ci-watch-2833-jobs-final.tsv \
+             ci-watch-2833-jobs-t0.tsv \
+             ci-watch-2837 \
+             ci-watch-2861 \
+             ci-watch-2861-e305 \
+             ci-watch-2978 \
+             ci-watch-3043 \
+             ci-watch-305 \
+             ci-watch-314; do : >"$T/$n"; done
+    LC_ALL="$COLLATE" snap "$T" "$BOX/before"
+    : >"$T/2917-pr-body.3Z4L"
+    LC_ALL="$COLLATE" snap "$T" "$BOX/after"
+    LC_ALL="$COLLATE" check "K6-локаль-со-свёрткой($COLLATE)" 1 "новых следов 1"
+fi
 
 # V1
 reset_box; snap "$BOX/нет-такого" "$BOX/before"; snap "$BOX/нет-такого" "$BOX/after"
