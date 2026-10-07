@@ -6,7 +6,7 @@ aliases:
 ticket_id: 2915
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-06: PR #3041 MERGED в `2914-notify` 2026-10-05T22:10Z merge-коммитом bc3192f9ca13 (родители 58248816f540 и голова волны 454d0badd3bd), голова `2914-notify` = bc3192f9ca13, ветка `2915-stand-up` на origin снята (`git ls-remote`); задача #2915 OPEN; пины corelib e7d6197fc5dc и kaname cbd729cfa9b1 прочитаны в go.mod на bc3192f9ca13; прогоны мной не перезапускались. `gh` 2026-10-05: PR #3021 MERGED в `2914-notify` merge-коммитом 230c08124259 (голова волны ffb1b7d18256), затем #3027 (задача #2918) — 4517cc69c135, голова `2914-notify` = 4517cc69c135; задача #2915 и эпик #2914 OPEN, запрос воркспейса #885 OPEN. `gh` 2026-10-04: PR #3019 MERGED в `2914-notify` merge-коммитом 2c283f99f4bc (родители e415e59a225b и 71174f56e52e), задача #2915 OPEN, эпик #2914 OPEN; состав `services/notify`, `internal/migrationchains`, `internal/pgdsn`, `deploy/helm/notify` снят `git ls-tree` на 2c283f99f4bc; на `origin/main` (того же дня) ни одного из этих путей нет; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-07: PR #3039 MERGED в `2914-notify` 2026-10-05T11:36Z merge-коммитом 58248816f540 (голова волны 2ee3c2ca818), corelib PR #95 MERGED в `77-notify` (e7d6197fc5dc); голова `2914-notify` = 4d5295f1ae96 (после #3042 задачи #2918 и #3070 задачи #2924); задача #2915 и эпик #2914 OPEN, запрос воркспейса #885 OPEN; состав #3039 — со слов описания PR, прогоны мной не перезапускались. `gh` 2026-10-06: PR #3041 MERGED в `2914-notify` 2026-10-05T22:10Z merge-коммитом bc3192f9ca13 (родители 58248816f540 и голова волны 454d0badd3bd), голова `2914-notify` = bc3192f9ca13, ветка `2915-stand-up` на origin снята (`git ls-remote`); задача #2915 OPEN; пины corelib e7d6197fc5dc и kaname cbd729cfa9b1 прочитаны в go.mod на bc3192f9ca13; прогоны мной не перезапускались. `gh` 2026-10-05: PR #3021 MERGED в `2914-notify` merge-коммитом 230c08124259 (голова волны ffb1b7d18256), затем #3027 (задача #2918) — 4517cc69c135, голова `2914-notify` = 4517cc69c135; задача #2915 и эпик #2914 OPEN, запрос воркспейса #885 OPEN. `gh` 2026-10-04: PR #3019 MERGED в `2914-notify` merge-коммитом 2c283f99f4bc (родители e415e59a225b и 71174f56e52e), задача #2915 OPEN, эпик #2914 OPEN; состав `services/notify`, `internal/migrationchains`, `internal/pgdsn`, `deploy/helm/notify` снят `git ls-tree` на 2c283f99f4bc; на `origin/main` (того же дня) ни одного из этих путей нет; прогоны мной не перезапускались"
 type: feature
 repos:
   - kacho
@@ -23,7 +23,9 @@ prs:
   - https://github.com/PRO-Robotech/kacho/pull/2960
   - https://github.com/PRO-Robotech/kacho/pull/3019
   - https://github.com/PRO-Robotech/kacho/pull/3021
+  - https://github.com/PRO-Robotech/kacho/pull/3039
   - https://github.com/PRO-Robotech/kacho/pull/3041
+  - https://github.com/PRO-Robotech/corelib/pull/95
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2915
 opened: 2026-09-29
 closed:
@@ -34,7 +36,7 @@ tags:
 
 # kacho#2915: служба notify NTF-1 — ядро шлюза уведомлений
 
-**Состояние на момент записи**: `in-progress`. Четыре волны задачи влиты в ветку эпика
+**Состояние на момент записи**: `in-progress`. Пять волн задачи влиты в ветку эпика
 `2914-notify` (координата, не живая ссылка); в `main` не влито ничего. Задача открыта:
 по каскаду «задача → волна → эпик → main» она закрывается, когда закрыт её последний
 предмет, а N11r из Ф1 и Ф2 ещё впереди. Статус `done` записке не положен до посадки
@@ -75,6 +77,7 @@ tags:
 | P001 | [#2960](https://github.com/PRO-Robotech/kacho/pull/2960) | `e415e59a225b` | контракт ленты `corelib.notify`, пин kaname `484-notify` |
 | ядро-1 | [#3019](https://github.com/PRO-Robotech/kacho/pull/3019) | `2c283f99f4bc` | N1, D1/D1s, D4, догон `main` после посадки Ory |
 | волна 2 | [#3021](https://github.com/PRO-Robotech/kacho/pull/3021) | `230c0812425` | N7, N2, N4, N6, D4-фикс, N10, D3, D7; догон `main` @`f4c74ba1`; решения Д108–Д111 |
+| A | [#3039](https://github.com/PRO-Robotech/kacho/pull/3039) | `58248816f540` | A2 (N3), A5 (N8), пин prometheus v0.311.3 |
 | стенд | [#3041](https://github.com/PRO-Robotech/kacho/pull/3041) | `bc3192f9ca13` | D2, D6, D10, N5, N13/N14; решения Д123, Д124; пины corelib `e7d6197fc5dc`, kaname `cbd729cfa9b1` |
 
 Сведения о волне ядра-1 (голова `71174f56e52e`, влита 2026-10-04T02:23Z), из PR и
@@ -115,6 +118,22 @@ tags:
 
 Числа прогонов посадки в описании PR не названы и здесь не пишутся.
 
+Волна A (`2915-wave-ntf1-f3` — координата, не живая ссылка; голова `2ee3c2ca818`, влита
+2026-10-05T11:36Z, 17 файлов) — две полосы, по описанию PR:
+
+- **A2 (N3)** — `services/notify/internal/deliver`: исход строки пачки одной функцией,
+  крайний момент строки по аренде от внедряемых монотонных часов, контекст и повтор Ack
+  до конца аренды.
+- **A5 (N8)** — `PrometheusRule` чарта notify (тревоги Р18 и сетки) и ряд срока шаблонов
+  `notify_template_ttl_seconds` в `internal/metrics`.
+- Поверх сборки пин `github.com/prometheus/prometheus` поднят до v0.311.3 — гейт trivy fs
+  был красным на голове сборки; адрес правки — коммит `2ee3c2ca818`.
+
+Числа прогонов посадки в описании PR не названы и здесь не пишутся. В corelib под задачу
+влит [#95](https://github.com/PRO-Robotech/corelib/pull/95) (`e7d6197fc5dc`): его
+второй коммит чинит слепоту пробы УК83 (условие гонки строилось не в каждом окне часа);
+первый — флаг ленты в самоотчёте — относится к [[KAC/issue-2918]].
+
 Поверх волны 2 в ту же ветку эпика 2026-10-05 влита волна модули-1 задачи NTF-3
 ([#3027](https://github.com/PRO-Robotech/kacho/pull/3027), `4517cc69c135`); её состав — в
 [[KAC/issue-2918]], не здесь.
@@ -139,17 +158,19 @@ tags:
 - [x] волна P001 — контракт ленты — влита в `2914-notify` (#2960);
 - [x] волна ядра-1 (N1, D1/D1s, D4) влита в `2914-notify` (#3019);
 - [x] волна 2 (N7, N2, N4, N6, D4-фикс, N10, D3, D7) влита в `2914-notify` (#3021);
+- [x] волна A (N3, N8) влита в `2914-notify` (#3039);
 - [x] волна стенда (D2, D6, D10, N5, N13/N14) влита в `2914-notify` (#3041);
-- [ ] хвост Ф1: N11r — в составе #3021 и #3041 его нет (по описаниям PR);
+- [ ] хвост Ф1: N11r — в составе #3021, #3039 и #3041 его нет (по описаниям PR);
 - [ ] Ф2;
 - [ ] сценарии раздела «notify» приёмки зелёные исполненными пробами;
 - [ ] эпик #2914 посажен в `main` (только после этого статус записки — `done`).
 
 ## Связанные задачи
 
-- [[KAC/issue-2918]] — NTF-3, модули kacho; блокирована этой задачей.
+- [[KAC/issue-2917]], [[KAC/issue-2918]], [[KAC/issue-2919]], [[KAC/issue-2924]] —
+  NTF-2…NTF-5; все блокированы этой задачей.
 
-- https://github.com/PRO-Robotech/kacho/issues/2914 — эпик «Сервис уведомлений».
+- [[KAC/issue-2914]] — эпик «Сервис уведомлений».
 - https://github.com/PRO-Robotech/kacho/issues/3017 — DKIM, SPF и DMARC домена
   отправителя профиля a8f60d (P3, решение за владельцем).
 - https://github.com/PRO-Robotech/kacho/issues/3018 — агрегат «После Основы»: то, что
@@ -167,6 +188,9 @@ tags:
   Статус `in-progress`.
 - 2026-10-06 — внесена волна стенда (#3041, `bc3192f9ca13`, влита 2026-10-05): D2, D6, D10,
   N5, N13/N14; D2 снят с хвоста Ф1, остался N11r. Статус `in-progress`.
+- 2026-10-07 — внесена волна A (#3039, `58248816f540`, влита 2026-10-05; прошлыми
+  записями пропущена) и corelib #95; отмечены посадки #3042 (#2918) и #3070 (#2924) в ту
+  же ветку эпика. N11r в составе волн по-прежнему нет. Статус `in-progress`.
 
 ## Затронутые сущности vault
 

@@ -9,7 +9,7 @@ status: test
 repo: kacho
 layer: service
 path: services/notify
-verified_against: "Разделы «Порядок подъёма шлюза», «Флаг установки», «Страж DNS и пара DKIM», «Конфигурация и развёртывание» и «Чего на этой ревизии нет» сверены 2026-10-06 с `project/kacho` @`bc3192f9ca13` (merge-коммит PR #3041, голова `2914-notify`): прочитаны `cmd/notify/serve.go`, `cmd/notify/relay.go`, `internal/config/dns.go`, шапка `internal/dkimkey/dkimkey.go`, `deploy/helm/notify/templates/_flag.tpl` и `recipient-key-secret.yaml`, `values.yaml`; состав `internal/` и шаблонов чарта снят `git ls-tree`. Остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
+verified_against: "Разделы «Две базы — две цепочки» и «Схема извещений оператора (S1)» сверены 2026-10-07 с `project/kacho` @`4d5295f1ae96` (merge-коммит PR #3070, голова `2914-notify`): прочитаны `cmd/migrator/chains.yaml` и шапка с перечнем `CREATE TABLE` миграции `internal/migrations/20261006232858_operator_notices.sql`, состав `internal/migrations` снят `git ls-tree`. Разделы «Порядок подъёма шлюза», «Флаг установки», «Страж DNS и пара DKIM», «Конфигурация и развёртывание» и «Чего на этой ревизии нет» сверены 2026-10-06 с `project/kacho` @`bc3192f9ca13` (merge-коммит PR #3041, голова `2914-notify`): прочитаны `cmd/notify/serve.go`, `cmd/notify/relay.go`, `internal/config/dns.go`, шапка `internal/dkimkey/dkimkey.go`, `deploy/helm/notify/templates/_flag.tpl` и `recipient-key-secret.yaml`, `values.yaml`; состав `internal/` и шаблонов чарта снят `git ls-tree`. Остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
 tags:
   - packages
   - kacho
@@ -61,9 +61,28 @@ tags:
 
 У каталога две базы (database per service). Цепочка пробы — в
 `internal/probemigrations`, а не в `internal/migrations`. Таблица «база → каталог цепочки»
-объявлена у точки наката файлом `cmd/migrator/chains.yaml`. На `2c283f99f4bc` в таблице
-одна строка, `kacho_notifyprobe`. Как гейты дерева находят цепочку — в
-[[packages/kacho-migrationchains]].
+объявлена у точки наката файлом `cmd/migrator/chains.yaml`. На `4d5295f1ae96` в таблице
+две строки: `kacho_notifyprobe` → `internal/probemigrations` и `kacho_notify` →
+`internal/migrations` (на `2c283f99f4bc` строка была одна, пробы). Как гейты дерева
+находят цепочку — в [[packages/kacho-migrationchains]].
+
+## Схема извещений оператора (S1)
+
+С #3070 цепочка `kacho_notify` несёт миграцию `20261006232858_operator_notices.sql` —
+стадию S1 извещений оператора ([[KAC/issue-2924]]). Семь таблиц: `notice_create_requests`
+(заявка создания до проверки областей), `notices`, `notice_audience` (области в порядке
+запроса), `notice_affected_resources`, `notice_reminders`, `notice_stage_events`,
+`notice_counters`. Инварианты — на уровне базы, и каждое ограничение названо: имя
+ограничения — часть контракта, по нему отказ `23514` переводится в закрытый текст.
+Отсутствие пишется одним способом — `NULL`; пустая строка там, где отсутствие законно,
+закрыта `CHECK`.
+
+Чего в схеме нет, по шапке миграции: кэша областей, снимка аудитории у события этапа,
+строк адресатов, кандидатов, исходов областей и окна OB (стадия S2). Кода, который пишет
+или читает эти таблицы, на `4d5295f1ae96` нет: имена таблиц встречаются
+только в пробах схемы `notices_schema_integration_test.go` и в гейте
+`internal/repohygiene/tablegrowth_test.go` (`git grep` по `services/`, `gateway/`, `pkg/`,
+`internal/`).
 
 ## Записанные решения «поверхности нет»
 
@@ -142,5 +161,7 @@ tags:
   разделы о порядке подъёма (страж DNS до пула базы, Д124), флаге установки и пару DKIM;
   ключ сетки объектом стенда (Д123); «Чего на этой ревизии нет» обновлён — корень поднимает
   и стража DNS, отправки по-прежнему нет.
+- 2026-10-07 — #2924: раздел «Схема извещений оператора (S1)» по `4d5295f1ae96` (PR #3070);
+  в «Две базы» утверждение «одна строка» заменено состоянием на `4d5295f1ae96` (две строки).
 
 #packages #kacho #service #internal #go
