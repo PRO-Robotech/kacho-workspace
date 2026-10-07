@@ -89,7 +89,7 @@ OB (стадия S2, отдельная миграция), API извещени�
 - [[KAC/issue-2915]] — NTF-1, ядро шлюза; блокер из тела.
 - https://github.com/PRO-Robotech/kacho/issues/3044 — подъём lock-файлов сайтов
   документации (CLOSED), ушёл в эту же волну.
-- https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика.
+- https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика. Trail — [[KAC/issue-77-corelib]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
 
 ## History

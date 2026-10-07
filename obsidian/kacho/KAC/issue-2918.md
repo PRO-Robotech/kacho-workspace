@@ -146,8 +146,8 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 
 - [[KAC/issue-2915]] — NTF-1, ядро шлюза уведомлений; блокер из тела.
 - [[KAC/issue-2914]] — эпик «Сервис уведомлений».
-- https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика: лента, формат шаблона, `notifygen`.
-- https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика: нотификации kaname в ленту, снятие SMTP.
+- https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика: лента, формат шаблона, `notifygen`. Trail — [[KAC/issue-77-corelib]].
+- https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика: нотификации kaname в ленту, снятие SMTP. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
 
 ## History

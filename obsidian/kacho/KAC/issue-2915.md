@@ -26,6 +26,7 @@ prs:
   - https://github.com/PRO-Robotech/kacho/pull/3039
   - https://github.com/PRO-Robotech/kacho/pull/3041
   - https://github.com/PRO-Robotech/corelib/pull/95
+  - https://github.com/PRO-Robotech/corelib/pull/100
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2915
 opened: 2026-09-29
 closed:
@@ -134,6 +135,12 @@ tags:
 второй коммит чинит слепоту пробы УК83 (условие гонки строилось не в каждом окне часа);
 первый — флаг ленты в самоотчёте — относится к [[KAC/issue-2918]].
 
+2026-10-07 под задачу (по комментарию в ней) влит corelib
+[#100](https://github.com/PRO-Robotech/corelib/pull/100) (`1e6ade53645a`, слиянием без
+схлопывания): манифест модуля доставляется только цепочке, где модуль включён, наложение
+профилей производителя — правилом helm. Пин corelib в `2914-notify` на него ещё не поднят
+(на `4d5295f1ae96` — `e7d6197fc5dc`). Вся линия corelib — [[KAC/issue-77-corelib]].
+
 Поверх волны 2 в ту же ветку эпика 2026-10-05 влита волна модули-1 задачи NTF-3
 ([#3027](https://github.com/PRO-Robotech/kacho/pull/3027), `4517cc69c135`); её состав — в
 [[KAC/issue-2918]], не здесь.
@@ -175,7 +182,7 @@ tags:
   отправителя профиля a8f60d (P3, решение за владельцем).
 - https://github.com/PRO-Robotech/kacho/issues/3018 — агрегат «После Основы»: то, что
   отложено решением Д96.
-- https://github.com/PRO-Robotech/kaname/issues/484 — потребитель выгрузки лимита шаблона.
+- https://github.com/PRO-Robotech/kaname/issues/484 — потребитель выгрузки лимита шаблона. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела задачи.
 
 ## History
@@ -191,6 +198,9 @@ tags:
 - 2026-10-07 — внесена волна A (#3039, `58248816f540`, влита 2026-10-05; прошлыми
   записями пропущена) и corelib #95; отмечены посадки #3042 (#2918) и #3070 (#2924) в ту
   же ветку эпика. N11r в составе волн по-прежнему нет. Статус `in-progress`.
+- 2026-10-07 — внесён corelib #100 (`1e6ade53645a`); голова `77-notify` после него —
+  `117749095814` (#102, окна прав notify), `484-notify` — `33010d434767` (kaname #657, пин
+  corelib `18d105d`); пины kacho не менялись. Статус `in-progress`.
 
 ## Затронутые сущности vault
 

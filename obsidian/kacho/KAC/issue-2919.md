@@ -71,8 +71,8 @@ notify. Полный объём — в теле задачи.
 - [[KAC/issue-2915]] — NTF-1, ядро шлюза; блокер из тела.
 - https://github.com/PRO-Robotech/kacho/issues/3017 — DKIM, SPF и DMARC домена отправителя
   профиля a8f60d (P3, решение за владельцем).
-- https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика.
-- https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика.
+- https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика. Trail — [[KAC/issue-77-corelib]].
+- https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
 
 ## History
