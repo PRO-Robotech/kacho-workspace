@@ -1,0 +1,173 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 9a97c368f1377319d3d251395ee5273c5525bb82439a32fcfae9d9a6c017de48
+  revision: 41
+  static_status: DRAFT
+  static_status_note: >-
+    Строка редакции 41 в шапке говорит «вердикта на неё НЕТ». Запись шапку не правит намеренно:
+    вердикт привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 41 не закоммичена; судится рабочее дерево worktree tmp/issue-880 (ветка issue-880,
+    HEAD 8b87fe1ba). Копии редакции 40 для построчного диффа нет; дельта читалась по строке
+    редакции 41 шапки (строка 88) и местам, которые она называет: Р30 «Производитель поколения —
+    счётчик объекта модуля», «Публикация для анонимного чтения» (поле object_generation), §3 шаг (15),
+    §8 С27, С28, NTF3-174, 182, 185, 186, новые NTF3-187…189, §10, §11, §12.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2918
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum <путь> в tmp/issue-880 → 9a97c368…de48
+  fingerprint_reproduced: true
+  lines: 6053
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07T19:00:00Z'
+round: 2
+round_note: >-
+  Круг 2 на предмет «NTF3-182 и атомарность кортежей одного события» (редакция 41 — правки по
+  кругу 1 на редакцию 40). Оба блокирующих круга 1 закрыты по существу: B1 (COVERAGE) — гейт
+  стороны модуля NTF3-187 и наблюдаемая проба NTF3-188 с записью вызовов С27 и близнецами С28;
+  B2 (CONSTRUCTIBILITY) — производитель поколения назван (счётчик объекта модуля, переживающий
+  удаление), сценарий NTF3-189. Возврат — по трём новым дефектам, внесённым новым сценарием
+  NTF3-189: его Given не строится при действующей проверке прав реестра, близнец (а) утверждает
+  отказ, который правило барьера не производит, буква (в) утверждает событие переименования,
+  форма которого нигде не решена. Роды отличаются от рода круга 1 (CONSTRUCTIBILITY повторяется,
+  но предмет другой — права посева, а не производитель поколения).
+previous_rounds:
+  - round: 1
+    revision: 40
+    sha256: 4d84d06f4425985b12d3628b63f3a4222b61187fd30a49573b1f71bebbf799f1
+    verdict: RETURNED
+    blocking_kinds: [COVERAGE, CONSTRUCTIBILITY]
+    record: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/4d84d06f4425985b12d3628b63f3a4222b61187fd30a49573b1f71bebbf799f1.yaml
+    closed_by_this_revision: [B1, B2]
+blocking_count: 3
+blocking_kinds_distinct: [CONSTRUCTIBILITY, TWIN, PRODUCER]
+blocking_findings:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    anchor: "NTF3-189 Given (строка 3939) и When (а) (строка 3944); привязка из NTF3-188 Given (строка 3904)"
+    what: >-
+      NTF3-189 строит Given созданием репозитория pub пользователем usr-A с visibility = PUBLIC, а
+      When (а) — тем же созданием пользователем usr-B. Явный PUBLIC на создании требует отношения
+      admin на registry_registry реестра: services/registry/internal/handler/repository.go:57-60
+      @ffbe930dbe (requireRegistryAdmin, отказ PERMISSION_DENIED «creating a public repository
+      requires registry admin»). В модели admin у registry_registry — только прямой
+      ([user, service_account, group#member] or super_admin; internal/authzmodel/fga_model.fga:1295
+      @kaname 8a84dcff6), не выводится ни из owner, ни из предка. Создатель реестра получает лишь
+      кортежи project и owner (fga_intent.go:242, :254 @ffbe930dbe); привязка С1 из NTF3-188 —
+      «на prj-1 роли, дающей v_get и изменяющие глаголы», то есть кортеж на project:prj-1
+      (access_binding/tuples.go @8a84dcff6), admin на reg-1 не дающий. Ни usr-A, ни usr-B admin на
+      reg-1 не держат — оба создания отвергнуты PERMISSION_DENIED до Operation, Given NTF3-189 не
+      существует, (а)–(в) не исполнимы.
+    fix_direction: >-
+      Назвать в Given посев, дающий usr-A и usr-B admin на registry_registry:<id reg-1> (привязка,
+      нацеленная на объект реестра, роль с этим отношением), и утверждать его до When (Check admin —
+      true); либо строить публичность реестром с defaultRepositoryVisibility = PUBLIC, выставленной
+      администратором в Given, и утверждать наследование. Близнец по одному факту — без admin:
+      PERMISSION_DENIED, Operation нет.
+  - id: B2
+    kind: TWIN
+    anchor: "NTF3-189 (а), близнец (строки 3952-3955); таблица отказов справочника (строка 1181); Р30 «Барьер поколения»"
+    what: >-
+      Близнец (а) — счётчик снят вместе с репозиторием, CREATED нового несёт поколение 1 — утверждает
+      «вопрос об аудитории CREATED поколения 1 — UNAVAILABLE OBJECT_GENERATION_NOT_APPLIED». Отказ
+      определён документом так: «последнее применённое службой доступа поколение объекта меньше g_E
+      события» (строка 1181; Р30 «Барьер поколения»). В Given голова объекта — надгробие gT > g1 ≥ 1;
+      последнее применённое поколение gT не меньше 1 — барьер не срабатывает. Поколение 1 у этого id
+      применено — это CREATED прежнего воплощения (счётчик начинает с 1, g1 = 1), и по правилу
+      документа вопрос отвечает аудиторией прежнего репозитория без отказа — ровно та опасность,
+      которую круг 1 назвал («аудитория чужого объекта»). Утверждённый исход близнеца ни одним
+      правилом документа не производится: проба с такой строкой либо красна на верной реализации,
+      либо толкает реализацию к правилу, которого в Р30 нет.
+    fix_direction: >-
+      Привести Тогда близнеца к правилу: ответ без отказа, и он содержит usr-A (аудитория прежнего
+      воплощения) и не содержит usr-B — это и есть наблюдаемый вред снятого счётчика; либо, если
+      вопрос о поколении не выше надгробия должен отказывать, ввести это правило в Р30 и строку
+      1181 с производителем и сценарием-близнецом.
+  - id: B3
+    kind: PRODUCER
+    anchor: "NTF3-189 (в) (строки 3963-3968); §11 строка NTF3-189; §3 шаг (15); перепись видов registry (строки 885-896)"
+    what: >-
+      Буква (в) утверждает «строка resource-event CREATED объекта …/pub от переименования» и
+      применённую регистрацию его поколением. Что пишет журнал на RenameRepository, документ не решает
+      нигде: grep -n 'Rename\|переимен' по документу даёт лишь строку 734 (комментарий о «переименовании
+      назад») и саму букву (в); §11 называет производителем NTF3-189 только «счётчик объекта,
+      переживающий удаление», путь переименования — нет. Переименование меняет id объекта модели
+      (<реестр>/<имя>) и затрагивает два объекта; в дереве оно пишет четыре намерения одной
+      транзакцией: регистрацию нового, снятие старого, ОТДЕЛЬНОЕ снятие публикации старого и
+      регистрацию публикации нового (rename_repository.go:311-330 @ffbe930dbe, renameIntents) — два
+      снятия одного объекта в одном событии, что Р30 «Единица поколения — событие» и гейт NTF3-187
+      запрещают, а публикация через регистрацию запрещена NTF3-186. Целевая форма (DELETED старого
+      id и CREATED нового, каждое со своим поколением счётчика; публикация нового — методом
+      SetPublicReadPublication с object_generation его CREATED; аудитория DELETED старого) не названа,
+      и производителя у «Тогда» буквы (в) нет.
+    fix_direction: >-
+      Решить в Р30 (или в разделе Repository §2) события переименования: DELETED объекта старого
+      имени и CREATED объекта нового имени, по одной строке намерения на каждый, поколения — из
+      счётчиков обоих id той же транзакции, публикация нового — методом публикации; назвать
+      производителем services/registry/internal/apps/kacho/api/registry/rename_repository.go
+      (правится) в §11 и §3 шаге (15); в NTF3-189 (в) утверждать и снятие tmp (надгробие с поколением
+      его DELETED, кортежей нет). Гейт NTF3-187 — инъекция «два снятия одного объекта в событии
+      переименования» с близнецом.
+constructibility:
+  seeded: 0
+  named_fixture: 5
+  not_performed: 0
+  refuted_by_reading: 1
+  note: >-
+    Посева не было (стенда в задании нет). NTF3-185, 186 — фикстура С24, модель @kaname 8a84dcff6
+    их допускает (проверено кругом 1, правкой 41 не тронуто). NTF3-187 — гейт дерева, условия не
+    требует. NTF3-188 — С1, С27, С28; создание репозитория PRIVATE и правка description прав admin не
+    требуют (handler/repository.go @ffbe930dbe). NTF3-189 — опровергнут чтением (B1): создание PUBLIC
+    без admin на реестре отвергается до Operation.
+producers:
+  ok: "NTF3-185…188 — производители названы с координатами (§11); С27, С28 определены (§8)."
+  gap: "NTF3-189 (в) — событие переименования без производителя (B3)."
+twins:
+  ok: "NTF3-185 (а)–(г), 186 (а)–(д), 187 (а)–(г), 188 (а)–(в), 189 (б), (в) — близнецы по одному факту названы (§10)."
+  gap: "NTF3-189 (а) — исход близнеца противоречит правилу барьера (B2)."
+non_blocking_findings:
+  - id: N1
+    kind: FORMAT
+    where: "Р30 «Публикация для анонимного чтения» («поколение CREATED, начавшего это воплощение»)"
+    note: >-
+      У RegisterResourceRequest нет рода события; служба доступа узнаёт «начало воплощения» по
+      голове (нет головы либо надгробие на приёме). Назвать это одной фразой — иначе реализация может
+      искать поле рода, которого контракт не несёт.
+  - id: N2
+    kind: COVERAGE
+    where: "Р30 «Производитель поколения — счётчик объекта модуля»"
+    note: >-
+      Строка счётчика бессрочна по решению документа («цена названа»). Если величина роста важна
+      владельцу — это вопрос владельцу, а не дефект редакции.
+measurement:
+  - "sha256sum документа → 9a97c368…de48 (совпадает с заданием), 6053 строки"
+  - "kacho @ffbe930dbe: handler/repository.go:50-62 (requireRegistryAdmin на явный PUBLIC); handler/listauthz.go:205-207 (relation admin на registry_registry); domain/fga_intent.go:242,254 (кортежи создателя реестра — project, owner); apps/kacho/api/registry/rename_repository.go:168,311-330 (renameIntents — четыре намерения)"
+  - "kaname @8a84dcff6: internal/authzmodel/fga_model.fga:1290-1295 (registry_registry: owner [user, service_account]; admin [user, service_account, group#member] or super_admin); internal/apps/kaname/api/access_binding/tuples.go (кортеж привязки — на объекте области)"
+  - "документ: строка 1181 (определение OBJECT_GENERATION_NOT_APPLIED), 3952-3955 (близнец NTF3-189 (а)); grep -n 'Rename\\|переимен' → строки 734, 3963-3968, 5742"
+event:
+  type: issue_comment
+  status: not_performed
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 2918
+  role: acceptance-reviewer
+  subject_sha256: 9a97c368f1377319d3d251395ee5273c5525bb82439a32fcfae9d9a6c017de48
+  declared_verdict: RETURNED
+  record_event_type: acceptance_return
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  history_is_appended_not_rewritten: true
+  body: "acceptance-reviewer · ⛔ RETURNED · 9a97c368f1377319d3d251395ee5273c5525bb82439a32fcfae9d9a6c017de48"
+route_signals:
+  proto: true
+  schema: true
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
