@@ -1,0 +1,47 @@
+# ВЕРДИКТ: принято на sha256 033027627dcfe84684e3389066cf9178f43f9f3464a137f1563194eff2ea0cfd
+role: system-design-reviewer
+mode: post-diff
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом); повтор — только дельта
+repo: PRO-Robotech/corelib
+pr: 100
+base: 67ba3443c1492f5933086240229f9b8dd2d0a9bd   # merge-base(origin/77-notify, head) = голова origin/77-notify, перемерено
+head: c5379ff5c5c3743f6a68090ec38b6931c16b1c90
+tree: 411aae7a86b8e325efa3f43cdaf56e23ebf7ae48
+digest: 033027627dcfe84684e3389066cf9178f43f9f3464a137f1563194eff2ea0cfd  # git diff base..head | sha256sum
+delta:
+  from: 821724af18c550976baa609d1fe1a146dae8e3a1   # прежняя запись 036c9317… (возврат null-layer-diverges-from-helm)
+  to: c5379ff5c5c3743f6a68090ec38b6931c16b1c90
+  digest: 523ee0e544f39315c040bb00a76120f44a32b4cc6782e73ee4e952a48d63eabf  # git diff from..to | sha256sum
+  linear: true   # merge-base --is-ancestor, история не переписана
+  files: [modulemanifest/producer/producer.go, modulemanifest/producer/producer_layering_test.go]
+distributed_surface: false   # производитель ConfigMap времени выкатки: чистая функция над файлами профилей; ни мутации, ни Operation, ни outbox, ни воркера, ни межсервисного вызова, ни края
+schema_overlap: false
+prior_blocking:
+  - id: null-layer-diverges-from-helm
+    status: closed
+    how: >
+      lookup по каждому профилю заменён наложением цепочки mergeValues (отображение поверх
+      отображения — слияние по ключам, всё прочее, null в том числе, — замена целиком), затем
+      lookup по наложенному дереву: null на префиксе/листе — «не объявлено», скаляр на префиксе — находка.
+      Тот же закон для имени ConfigMap (kaname.manifests…) и перечня условных.
+    evidence:
+      helm: >
+        мини-чарт (values notifyProbe.enabled=false, шаблон `if (.Values.notifyProbe).enabled`),
+        helm template -f …: on → 1 объект; on+null → 0; null+on → 1; on+{} → 1; on+скаляр → ошибка рендера.
+        Измерено в scratchpad сессии, helm локальный.
+      producer: >
+        те же четыре цепочки — пробы producer_layering_test.go: null после включения — удержан;
+        близнецы (отображение без ключа, включение поверх null) — доставлен; скаляр — находка.
+        Совпадает с helm по всем пяти.
+      red_green: >
+        producer.go базы 821724a + новые пробы → FAIL: ParentResetByALaterProfileWithholds/родитель_null,
+        ScalarParentIsAFinding, DeliveryDeclarationResetByALaterProfileIsNotDeclared/{kaname:null,manifests:null},
+        DeliveryNameScalarIsAFinding; на c5379ff — ok (go test -count=1 ./modulemanifest/...; -race ok; go vet чист).
+blocking: []
+notes:
+  - Поведенческий сдвиг в строгую сторону: не-строка в имени ConfigMap прежде тихо игнорировалась
+    (nestedString → false), теперь — находка. Fail-closed, совпадает с отказом чарта; не блокирует.
+  - Умолчания values.yaml самого чарта в наложение не входят, если не перечислены в цепочке профилей;
+    это неизменно с прежней головы и вне дельты.
+orders: []
