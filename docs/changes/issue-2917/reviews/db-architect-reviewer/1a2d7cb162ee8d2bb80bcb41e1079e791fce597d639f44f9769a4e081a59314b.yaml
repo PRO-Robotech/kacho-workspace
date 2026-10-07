@@ -1,0 +1,87 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kacho PR #3071 (волна линии D: D0 + E2 anonmail).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  pr: 3071
+  branch: 2917-wave-d1
+  base: 829e1a26cb18753c869514317cd1d4b3302b0765   # = origin/2914-notify = merge-base(origin/2914-notify, head)
+  head: 8dd826d14db1622a0167e55a50345dd07da13cd7
+  content_digest: 1a2d7cb162ee8d2bb80bcb41e1079e791fce597d639f44f9769a4e081a59314b
+  digest_predicate: git diff 829e1a26c..8dd826d14 | sha256sum   # перемерено дважды, совпало; совпадает с записью system-design-reviewer того же имени
+  premise_remeasured: >-
+    gh pr view 3071: headRefOid = 8dd826d1, base 2914-notify, OPEN, MERGEABLE.
+    Дифф 93 файла (+11041/-155). Путей миграций 2, обе A (новые, на базе отсутствуют):
+    gateway/internal/idempotencypg/migrations/20261001180000_anon_mail_limiter.sql,
+    gateway/internal/idempotencypg/migrations/20261001190000_anon_mail_passes_key_not_empty.sql.
+    Старшая версия на базе — 20260822140000_dpop_replay.sql; обе новые старше неё. Изменённых (M) миграций 0.
+    Repo-SQL: gateway/internal/middleware/anonmail/store_pg.go (A), gateway/internal/idempotencypg/anon_mail.go (A),
+    gateway/internal/idempotencypg/store.go (M, вызов уборки в reapLoop).
+  acceptance: NTF-2 (линия D) — sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md, Р5, NTF2-59…63, 74, 79
+snapshot_at: 2026-10-07
+
+migrations_touched: 2
+verdict: ACCEPTED   # принято
+blocks: false
+return_to: —
+
+checked:
+  - invariant: вызов PoW расходуется ровно один раз
+    mechanism: pow_spent.id PRIMARY KEY + INSERT … ON CONFLICT (id) DO NOTHING RETURNING expires_at > clock_timestamp()
+    verdict: ok — одноразовость держит оператор базы; срок судят часы базы в том же операторе, что и уборщик (expires_at <= now()); удаление уборщиком в полёте — вставка ждёт его фиксации, затем RETURNING даёт false
+    probe: TestPg_O1_OneProofFromTwoSourcesAcrossTwoReplicasPassesExactlyOnce (с близнецом «pow_spent без первичного ключа»)
+  - invariant: ведро общего потока не уходит в минус и не пропускает больше BURST
+    mechanism: anon_mail_bucket — одна строка CHECK (id = 1), CHECK (tokens >= 0), SELECT … FOR UPDATE последней после ключей
+    verdict: ok
+    probe: TestPg_O2_BucketRaceAcrossTwoReplicasPassesExactlyBurst, TestPg_O2_BucketCheckKeepsTokensNonNegative (близнец без CHECK)
+  - invariant: счёт окна ключа/подсети не превышает порог при гонке реплик
+    mechanism: pg_advisory_xact_lock(int4,int4) по отсортированным парам ключей (порядок — без взаимной блокировки), затем счёт под READ COMMITTED свежим снимком оператора; окно сверху открыто (SEC-E2-1)
+    verdict: ok — сериализуется ключ, а не строка; коллизия пары int4 только сужает параллелизм, корректности не меняет
+    probe: TestPg_CX2_11_RaceOnANewKeyAcrossTwoReplicasPassesExactlyOne, TestPg_O3_SubnetThresholdRaceAcrossTwoReplicasPassesExactlyOne, TestPg_CX2_11_KeySpaceOfTheLockDoesNotMeetTheSchemaLock
+  - invariant: ключ момента непуст
+    mechanism: CHECK (key <> '') — anon_mail_passes_key_not_empty
+    verdict: ok
+    probe: TestAnonMailPasses_EmptyKeyIsRefusedBySchema
+  - invariant: decision_id / id ровно 16 байт
+    mechanism: CHECK (octet_length(…) = 16) inline
+    verdict: ok
+  - subject: уборка
+    verdict: ok — партиями DELETE … WHERE ctid IN (SELECT ctid … LIMIT $1); таблицы только на вставку, ctid устойчив; срок хранения = верхняя граница окон + 1 ч (config.AnonMailPassRetention), окна сверху ограничены таблицей границ
+    probe: TestPurgeAnonMail_RemovesOnlyWhatOutlivedItsTerm
+  - subject: код ошибки базы → ответ
+    verdict: ok — classifyStoreErr (55P03/57014 → ожидание, 42/28/3D/3F → конфигурация, прочее → сбой) только выбирает уровень журнала; наружу фиксированный 503 StoreUnavailable, текст драйвера только в журнал
+  - subject: ссылки через границу сервиса
+    verdict: ok — внешних ключей нет; таблицы в kacho_gateway, база хранилища однократности края
+  - subject: гигиена
+    verdict: ok — goose Up/Down в обеих; индексы обоснованы запросами (key,at — countsSQL/nthMomentSQL/momentRecordedSQL; at — уборка; expires_at — уборка); ORM нет
+  - subject: строка-якорь ведра в миграции
+    verdict: ok — справочник продукта, не посев стенда: строка обязана существовать у любой установки (seed-predicate), ON CONFLICT DO NOTHING без цели
+
+notes_nonblocking:
+  - id: N1
+    where: gateway/internal/idempotencypg/migrations/20261001190000_anon_mail_passes_key_not_empty.sql:1
+    text: >-
+      CHECK (key <> '') вынесен post-hoc ALTER, хотя обе миграции новые в одном неслитом диффе — конвенция
+      «CHECK inline с CREATE TABLE». Довод файла («применённую не правим») держится, если 20261001180000 уже
+      накатана на стенде; правка её теперь была бы хуже. Корректности не касается.
+  - id: N2
+    where: gateway/internal/middleware/anonmail/store_pg.go (nthMomentSQL)
+    text: >-
+      OFFSET в nthMomentSQL — выбор N-го момента окна для Retry-After, а не пагинация API; запрет OFFSET-пагинации
+      сюда не относится. Стоимость ограничена порогом окна (offset = счёт − порог), индекс (key, at).
+  - id: N3
+    where: config.AnonMailPassRetention / уборщик
+    text: >-
+      Граница окна считается часами реплики, уборка — часами базы; запас 1 ч покрывает смещение меньше часа.
+      Смещение меряется (ревью system-design I-2) — предмет system-design-reviewer, не схемы.
+
+runs:
+  - cmd: go test -count=1 -json -run 'TestPg_|TestPurgeAnonMail|TestAnonMailPasses' ./gateway/internal/middleware/anonmail/ ./gateway/internal/idempotencypg/   # @8dd826d1, worktree tmp/2917-dbrev-3071, Postgres corelib/pgtest
+    outcome: "rc=0; исполнено зелёными 47 (с подпробами и пакетами), красных 0, пропусков 0"
+
+invariants_without_concurrent_probe: []
+distributed_overlap: да — смещение часов реплики против часов базы (N3), разрешение исхода COMMIT через pg_xact_status; предмет system-design-reviewer (его запись на тот же дайджест есть)
