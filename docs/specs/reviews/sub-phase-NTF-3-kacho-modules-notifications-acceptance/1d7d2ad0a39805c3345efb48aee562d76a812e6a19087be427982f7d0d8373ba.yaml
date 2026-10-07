@@ -143,8 +143,9 @@ measurement:
   - "KACHO_MONOREPO=project/kacho ./scripts/docs-gate/run-all.sh в tmp/issue-880 → рассмотрено 7, пройдено 6, провалено 0, без предмета 1 (check-03-holding-claim-resolves: 32 координаты приёмок IAM-INT-1 / KAN-AUTHN-1, не NTF-3)"
 event:
   type: issue_comment
-  status: not_performed
-  published: false
+  status: performed
+  published: true
+  url: https://github.com/PRO-Robotech/kacho/issues/2918#issuecomment-6041202944
   repo: PRO-Robotech/kacho
   issue: 2918
   role: acceptance-reviewer
