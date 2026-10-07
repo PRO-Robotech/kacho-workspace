@@ -28,6 +28,8 @@ local-runner-exit-code-3 · коды 0 / 1 / 3 (недействителен) р
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
 busy-machine-step-zero · тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину, владелец 2026-09-24); 75 и 76 — «не выполнилось»; место — `df -h /` · heavy-slot-inject.sh; heavy-guard/prove.sh · red: тяжёлое без слота; код 76 прочитан красным
 heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница — `BOUNDARY` в guard.py · heavy-guard/prove.sh ([BOUND] — граница, [FAIL] — пойман) · red: обход стража назван «защищено»
+external-cluster-first · есть доступ к внешнему кластеру (профиль a8f60d) — сквозные, браузерные, нагрузочные пробы и стенд под них идут ТАМ; локально — сборка, unit, testcontainers слотом; доступа нет — локальный kind слотом, новых не заводить (владелец 2026-10-07, дословно — архив) · вниманием · red: стенд проб локально при рабочем доступе
+external-cluster-ns-per-run · там: ns на прогон с номером задачи, лимиты, снятие после (ns прогона — 0); ns kacho — только выкатка deploy-engineer; провенанс как у стенда; данные — посев; адреса и кубконфиг в тексты не идут · вниманием · red: прогон в ns kacho; ns пережил прогон
 session-memcap · потолок сессии и метку oomd ставит хук SessionStart (`scripts/session-memcap.sh`) и сверяет по cgroup; запуск — `--launch -- claude`; убийцу называет журнал oomd, не код 137 · session-memcap-inject.sh · red: MemoryMax на scope со stop; 137 засчитан oomd
 
 ## Кэш: сохраняй только на доказанно полном исходе
