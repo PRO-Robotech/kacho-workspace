@@ -1,0 +1,262 @@
+[
+  {
+    "sha": "67c6accf0cffd96512f06bdf94612a53efce1539",
+    "parents": [
+      {
+        "sha": "9b14ae7f01c344d355bb13b670870ec6f84b422e"
+      }
+    ],
+    "commit": {
+      "message": "#2690 gateway: перепрос открытых потоков судит сессию моментом из ответа о сессии"
+    }
+  },
+  {
+    "sha": "345c36be918a621005172264b553f5806e585c7f",
+    "parents": [
+      {
+        "sha": "9b14ae7f01c344d355bb13b670870ec6f84b422e"
+      }
+    ],
+    "commit": {
+      "message": "deploy: внешний вход консоли под TLS — законная регистрация больше не теряет печенье формы (#3024)"
+    }
+  },
+  {
+    "sha": "a8867d5f3fa37029429fc0e3ba18c44c37f42df2",
+    "parents": [
+      {
+        "sha": "9b14ae7f01c344d355bb13b670870ec6f84b422e"
+      }
+    ],
+    "commit": {
+      "message": "#3020 deploy: пин kaname на 296@77dae639 и почтовый узел боевых профилей"
+    }
+  },
+  {
+    "sha": "8cc8354bb5afad9e254b32c952ecaa8b8321e5f8",
+    "parents": [
+      {
+        "sha": "a8867d5f3fa37029429fc0e3ba18c44c37f42df2"
+      }
+    ],
+    "commit": {
+      "message": "#2885 deploy: шаг сборки зависимостей умбреллы записан один раз — цель helm-deps"
+    }
+  },
+  {
+    "sha": "3a2ae86a59a7d30dfd3b899deccc7f2539408d04",
+    "parents": [
+      {
+        "sha": "8cc8354bb5afad9e254b32c952ecaa8b8321e5f8"
+      }
+    ],
+    "commit": {
+      "message": "#2878 deploy: шаг подъёма own заводит администратора облака путём продукта"
+    }
+  },
+  {
+    "sha": "47367c41a0dd6f9697de24c627204689321fa711",
+    "parents": [
+      {
+        "sha": "9b14ae7f01c344d355bb13b670870ec6f84b422e"
+      }
+    ],
+    "commit": {
+      "message": "#1269 e2e: Ф3-14 и Ф3-26 сквозными пробами через край на живом стенде"
+    }
+  },
+  {
+    "sha": "8ff71359dac43209635108da9b1e978230c38d22",
+    "parents": [
+      {
+        "sha": "47367c41a0dd6f9697de24c627204689321fa711"
+      }
+    ],
+    "commit": {
+      "message": "#2707 e2e: Ф5-24 — сессия восстановления полноправна через край"
+    }
+  },
+  {
+    "sha": "573a32e9d915e782cdd2855c3be1319fe4901a66",
+    "parents": [
+      {
+        "sha": "8ff71359dac43209635108da9b1e978230c38d22"
+      }
+    ],
+    "commit": {
+      "message": "#1281 e2e: Ф12-20 — пол «2» через край отвергает сессию пароля и проходит после повышения"
+    }
+  },
+  {
+    "sha": "a050a561df41f94b14e972cb40a6ad39382b9d7e",
+    "parents": [
+      {
+        "sha": "3a2ae86a59a7d30dfd3b899deccc7f2539408d04"
+      }
+    ],
+    "commit": {
+      "message": "#2878 deploy: пробросы шага bootstrap-cloud-admin снимаются на выходе"
+    }
+  },
+  {
+    "sha": "6261ead0bae2582a686da9b1f736b932f4d4d848",
+    "parents": [
+      {
+        "sha": "573a32e9d915e782cdd2855c3be1319fe4901a66"
+      }
+    ],
+    "commit": {
+      "message": "#1281 e2e: Ф12-20 подтверждает свою группу чтением по адресу и назван местом тела вне реестра"
+    }
+  },
+  {
+    "sha": "30b2ed4e8ff9958772cdbf2d0cd1d7b728ea7b58",
+    "parents": [
+      {
+        "sha": "a050a561df41f94b14e972cb40a6ad39382b9d7e"
+      }
+    ],
+    "commit": {
+      "message": "#2878 deploy: адрес первого администратора — одна ручка на все стенды"
+    }
+  },
+  {
+    "sha": "18096a844ecb143d9d9bf939fddf29307da0fa93",
+    "parents": [
+      {
+        "sha": "9b14ae7f01c344d355bb13b670870ec6f84b422e"
+      }
+    ],
+    "commit": {
+      "message": "#2957 docs(gateway): кэш решений края — окно отзыва, а не выдачи"
+    }
+  },
+  {
+    "sha": "9d3b1afd100010c078691ef79aa33d24919fd628",
+    "parents": [
+      {
+        "sha": "18096a844ecb143d9d9bf939fddf29307da0fa93"
+      }
+    ],
+    "commit": {
+      "message": "#2957 docs(registry): кэш вердиктов registry не удлиняет окно выдачи"
+    }
+  },
+  {
+    "sha": "b6a19f30db684a88a495274a8eb3a6ce59411b07",
+    "parents": [
+      {
+        "sha": "9d3b1afd100010c078691ef79aa33d24919fd628"
+      }
+    ],
+    "commit": {
+      "message": "#2957 gateway(allowlist): комментарий края — обе ветви Membership.Create (kaname#505)"
+    }
+  },
+  {
+    "sha": "044f9c7187cbfe027a2f618f0437d7a35aacd442",
+    "parents": [
+      {
+        "sha": "b6a19f30db684a88a495274a8eb3a6ce59411b07"
+      }
+    ],
+    "commit": {
+      "message": "#2957 docs: ручка кэша вердиктов названа с умолчанием на страницах окна"
+    }
+  },
+  {
+    "sha": "442d6e48615cb9769ec147cb5f4a81bdfbe2b535",
+    "parents": [
+      {
+        "sha": "9b14ae7f01c344d355bb13b670870ec6f84b422e"
+      },
+      {
+        "sha": "30b2ed4e8ff9958772cdbf2d0cd1d7b728ea7b58"
+      }
+    ],
+    "commit": {
+      "message": "Merge branch '3020-ka3b' into 2966"
+    }
+  },
+  {
+    "sha": "5c09b0a42a8025a77f0d3561c544498a00080fda",
+    "parents": [
+      {
+        "sha": "442d6e48615cb9769ec147cb5f4a81bdfbe2b535"
+      },
+      {
+        "sha": "6261ead0bae2582a686da9b1f736b932f4d4d848"
+      }
+    ],
+    "commit": {
+      "message": "Merge branch '1269' into 2966"
+    }
+  },
+  {
+    "sha": "5ee35c5ba42cb26126834407bd35b6e42363e20a",
+    "parents": [
+      {
+        "sha": "5c09b0a42a8025a77f0d3561c544498a00080fda"
+      },
+      {
+        "sha": "67c6accf0cffd96512f06bdf94612a53efce1539"
+      }
+    ],
+    "commit": {
+      "message": "Merge branch '2690' into 2966"
+    }
+  },
+  {
+    "sha": "1cf4f1c8df6a7b3a842d4f1313528928d552becc",
+    "parents": [
+      {
+        "sha": "5ee35c5ba42cb26126834407bd35b6e42363e20a"
+      },
+      {
+        "sha": "044f9c7187cbfe027a2f618f0437d7a35aacd442"
+      }
+    ],
+    "commit": {
+      "message": "Merge branch '2957' into 2966"
+    }
+  },
+  {
+    "sha": "06cf5f559e429fa94b8b2ffbc58d28b8993c2bf5",
+    "parents": [
+      {
+        "sha": "1cf4f1c8df6a7b3a842d4f1313528928d552becc"
+      },
+      {
+        "sha": "345c36be918a621005172264b553f5806e585c7f"
+      }
+    ],
+    "commit": {
+      "message": "Merge branch 'issue-3024' into 2966"
+    }
+  },
+  {
+    "sha": "f6f843a632f50e8b1a8182bc8004297205873b4d",
+    "parents": [
+      {
+        "sha": "345c36be918a621005172264b553f5806e585c7f"
+      }
+    ],
+    "commit": {
+      "message": "deploy: профиль a8f60d без внешнего входа консоли до входа по доменному имени (#3024)"
+    }
+  },
+  {
+    "sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4",
+    "parents": [
+      {
+        "sha": "06cf5f559e429fa94b8b2ffbc58d28b8993c2bf5"
+      },
+      {
+        "sha": "f6f843a632f50e8b1a8182bc8004297205873b4d"
+      }
+    ],
+    "commit": {
+      "message": "Merge branch 'issue-3024' into 2966"
+    }
+  }
+]

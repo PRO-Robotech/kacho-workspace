@@ -1,0 +1,26 @@
+jobs:
+  build:
+    name: сборка · vet · gofmt
+  unit:
+    name: пробы -race -short (числовой вердикт)
+  lint:
+    name: golangci-lint (пин v2.12.2)
+  proto:
+    name: контракты — buf lint · стабы в синхроне
+  standalone:
+    name: цели рецепта работают в самостоятельном клоне
+  gosec:
+    name: gosec (пин v2.28.0)
+  integration:
+    name: интеграция (Postgres в контейнерах)
+  listfilter:
+    name: listauthz — списочные методы сужены по объекту
+  authzartifacts:
+    name: манифесты модулей · канон модели доступов
+  govulncheck:
+    name: govulncheck
+  catalogparity:
+    name: каталог прав — копия сходится с копией края
+  trunkverdict:
+    name: вердикт ствола — красное не остаётся без читателя
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}

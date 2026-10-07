@@ -66,6 +66,10 @@
 # находка, даже если состояние части дочерних прочитать не удалось.
 set -uo pipefail
 
+# Распознаватель доказательства DoD — общий для всего дерева (`lib/dod_proof.jq`),
+# своей копии выражения здесь нет.
+dod_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
+
 usage() {
     echo "usage: cascade-census.sh [--children-closed | --proof] <владелец/репо> <номер задачи>" >&2
     exit 2
@@ -77,6 +81,10 @@ case "${1:-}" in
     --proof) WANT_PROOF=1; shift ;;
 esac
 [ "$#" -eq 2 ] || usage
+if [ "$WANT_PROOF" = 1 ] && [ ! -r "$dod_lib/dod_proof.jq" ]; then
+    echo "cascade-census: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq) — судить нечем" >&2
+    exit 2
+fi
 REPO=$1
 NUM=$2
 case "$REPO" in */*) ;; *) usage ;; esac
@@ -191,9 +199,11 @@ if [ "$WANT_PROOF" = 1 ]; then
         [ -n "$ref" ] || continue
         r="${ref%#*}"
         n="${ref##*#}"
-        # По странице — true/false; доказано, если true хоть на одной.
-        if pages="$(gh api --paginate "repos/$r/issues/$n/comments" \
-                --jq '[.[] | (.body // "") | test("(^|\n)DoD-proof @[0-9a-f]{7,40}")] | any' 2> /dev/null)" \
+        # По странице — true/false; доказано, если true хоть на одной. Распознаватель —
+        # общий `lib/dod_proof.jq` (своей копии выражения здесь нет); отказ трекера
+        # роняет трубу (`pipefail`), и задача уходит в «не прочитано».
+        if pages="$(gh api --paginate "repos/$r/issues/$n/comments" 2> /dev/null \
+                | jq -L "$dod_lib" 'include "dod_proof"; [.[] | (.body // "") | dod_proof] | any' 2> /dev/null)" \
             && [ -n "$pages" ] && ! grep -qvxE 'true|false' <<<"$pages"; then
             if grep -qx true <<<"$pages"; then
                 proof_ok=$((proof_ok + 1))

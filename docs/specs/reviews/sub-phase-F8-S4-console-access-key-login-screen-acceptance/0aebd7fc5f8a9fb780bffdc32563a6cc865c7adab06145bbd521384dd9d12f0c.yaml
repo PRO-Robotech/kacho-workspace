@@ -1,0 +1,143 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  sha256: 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2). Слово DRAFT — статическая форма.
+    Действующий вердикт о редакции 2 — эта запись и внешнее событие.
+  content_commit: 080242ca2735d9c5dac5a5de0bbe5e4c7602c531
+  branch: 897-s4-passkey-acceptance (копия tmp/ws-a3-s4)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/1274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  fingerprint_reproduced: true
+  lines: 622
+  code_base: PRO-Robotech/kacho @ 9b14ae7f01c · PRO-Robotech/kaname @ d2f6f182fab
+verdict: CHANGES_REQUESTED
+round: 2
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-04T00:00:00Z'
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c"
+sanction:
+  granted: false
+  reason: >-
+    Вердикт — возврат, санкции на код S4 запись не даёт. Следующая редакция получает соседнюю
+    запись.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b.yaml
+
+premise_check:
+  claim: "редакция 2, sha256 0aebd7fc…, сценариев 15, решений 8; прошлый круг — 1"
+  result: >-
+    Подтверждено. `sha256sum` даёт 0aebd7fc…2f0c, `git log -1` даёт 080242ca2. В каталоге записей
+    одна запись, круга 1 (f5d41cfd…). Сценариев F8S4-01…15 — 15, решений Р1…Р8 — 8.
+
+prior_round_closure:
+  B1_CONSTRUCTIBILITY: >-
+    Закрыто. Посылку круга 1 «потолок 50» опровергает дерево. Перемерено на kacho@9b14ae7f01c:
+    values.dev.yaml:1188 sourceAttempts 400; values.dev-prod.yaml — 0 строк; stacks.txt:34–35
+    (dev-prod = dev + dev-prod); console-e2e.yml:661 → make dev-up. Ручка одна на оба счёта, это
+    видно в kaname@d2f6f182fab: rate.go:79 (FailureBySource) и loginlane.go:533 (SourcePace).
+    Ф13 строка 432: выдача испытания — попытка на счёте Ф3 Р10. N12 (ceremony-budget.ts:83
+    `status !== 401`), N13 (:55, :56, :115) и N14 (2 · 0 · контроль 11) воспроизведены.
+    Арифметика §6.3 сходится: 12 + 3 = 15, регистраций 8.
+  B2_TWIN: >-
+    Закрыто. «Дано» и адрес открытия F8S4-01 (строки 367–369) совпадают с F8S4-02 (376–378);
+    различие одно — нажатие.
+  I1_I2: закрыто (BE/BS названы; «Дано» модульных близнецов выровнено).
+  I3: >-
+    Принято как исход «предмет с предикатом снятия». Строка §12 F8 и её условие возврата — дом
+    этой половины.
+
+measurement:
+  seed_claims: >-
+    Проверены командой `git grep` @9b14ae7f01c: seedConfirmedHuman — ceremony-seed.ts:249,
+    seedSecondFactor — :379, ceremonyCensus — fixtures.ts:822. Приём postData есть в
+    identity-ceremony.spec.ts:1219. Самопроверка сторожа — console-e2e.yml:236, шаг
+    source-axis-budget — :931.
+  twin_claim: "awk по строкам 367–369 и 376–378 — тексты совпадают до глагола When"
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      F8S4-09 не строится так, как описан посев. Шаг 3 посева К кладёт копию одного удостоверения
+      в аутентификатор каждого из четырёх контекстов. Счётчик подписи `signCount` (обязательное
+      поле Credential CDP, protocol.d.ts:18741, 1.56.1) документ не называет вовсе: grep → 0.
+      Служба сверяет счётчик утверждения правилом Ф7 (Ф13 строка 559 «переиспользуется»,
+      строка 1666 (е)). В kaname@d2f6f182fab JudgeCounter (webauthnverify/verify.go:542)
+      отвергает утверждение, если присланное значение не больше хранимого, кроме случая 0/0
+      (finish_assertion.go:146 → RefusalCounter). Виртуальный аутентификатор сдвигает счётчик на
+      каждом предъявлении. Поэтому первый контекст сдвигает хранимое значение, а копии с тем же
+      начальным значением во втором–четвёртом контекстах получают единый отказ `401`. В итоге
+      «Тогда» F8S4-09 (успешный вход ×4) не наступает при верной реализации экрана. Перепись §6.3
+      для F8S4-09 (4 успеха, 0 отказов) тоже неверна.
+    fix: >-
+      Назвать `signCount` значением в шаге 3 и в authData регистрации шага 2: по контекстам
+      строго возрастающее начальное значение выше хранимого после предыдущего входа. Либо регистрация
+      Ф7 на каждый контекст (+3 регистрации в §6.3). Сверить перепись §6.3 и DoD п. 10.
+    evidence: >-
+      grep -ci signcount документа → 0; Ф13 @d2f6f182fab строки 559, 1666; verify.go:542;
+      finish_assertion.go:146–150.
+  - id: B2
+    kind: DoD
+    summary: >-
+      Предикат DoD п. 1 «git grep -c 'test("F8S4-' по двум файлам проб = 14» верная реализация
+      выполнить не может. Модульные пробы лежат в двух файлах: LoginPage.test.tsx и
+      carrier-order.test.ts. Вместе с браузерной пробой файлов три. Оба модульных файла пишут
+      пробы вызовом `it(`: @9b14ae7f01c `test("` → 0 и 0, `it(` → 16 и 11. F8-46 к тому же —
+      цикл `it(\`F8-46 · ${name}…\`)` по CARRIER_VERBS (строки 294–297). Строка F8S4-11 в этом
+      перечне получит имя «F8-46 · …», а не «F8S4-11». Предикат по форме дерева даёт 8, а не 14.
+      Условие «// verifies внутри вызова test(…)» для `it(` не определено.
+    fix: >-
+      Назвать три файла и форму вызова каждого (`test(` у playwright, `it(` у vitest). Предикат
+      должен считать ID в имени теста независимо от вызова. Для F8S4-11 назвать отдельную пробу с
+      ID в имени либо явное правило имени внутри цикла F8-46.
+    evidence: "git show 9b14ae7f01c:<файл> | grep -c 'test(\"' / '\\bit(' по трём файлам"
+
+important: []
+
+not_performed:
+  - subject: "посев К и К-снят, четыре контекста F8S4-09 на живом стенде"
+    reason: >-
+      Посева в дереве нет (N4 = 0), П1 и П2 — 0 из 2. Стенд с П4 не создан. B1 доказан чтением
+      кода службы, а не посевом.
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  new_edge: false
+  security_surface: true
+  disclosure_safe: true
+
+next:
+  needed_agent: acceptance-author
+  task: "редакция 3: закрыть B1 (signCount посева по контекстам F8S4-09 и §6.3) и B2 (предикат DoD п. 1)"
+  owner_questions: []

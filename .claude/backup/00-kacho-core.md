@@ -508,3 +508,11 @@ ban17-latin-identifiers · только латиница (функция, тип
 ban20-scope-is-our-trunks · предмет ban #20 — только одноимённый путь в ДВУХ НАШИХ стволах (kacho · kaname · corelib); чужое поддерево судит ban #21 (`polyrepo.md#poly-copy-scope-our-trunks`) · scripts/crossrepo-gate/check-01-paired-files-are-declared.py · red: ban #20 назван запретом ввоза чужого кода
 ban22-subject-is-go-today · предмет нормы — Go (замер только по Go); `.ts`, `.py`, `.sh`, `.sql`, `.proto`, шаблоны чартов — отдельным изменением с замером, строки вне Go называются вслух · docs/comment-language.yaml, поле `predicate` и ревизии замера · red: «в нашем коде» без оговорки о языке
 ban22-translation-may-trip-ban11 · перевод, называющий отложенную работу, краснит запрет #11; исход — `ban11-three-outcomes`, не «оставить английским» · project/corelib/treehygiene/deferral.go вместе с TestNoDeferredWorkInTheTree · red: английская формулировка отсрочки оставлена ради молчания гейта
+
+## ban01 до 2026-10-06 (ws#931, решение владельца об уровнях риска — `backup/flow-acceleration.md`)
+
+ban01-acceptance · не пишется без APPROVED acceptance Given-When-Then · acceptance-reviewer, TestNewMigrationCitesAnApprovedAcceptance · red: коммит без приёмки
+
+Сужено до смены публичного контракта. Гейт продукта `TestNewMigrationCitesAnApprovedAcceptance`
+(kacho `internal/repohygiene/acceptanceledger_test.go`) по-прежнему требует приёмку у каждой новой
+миграции; он не ослаблен — снимать его или сужать решает владелец, до того миграция идёт с приёмкой.
