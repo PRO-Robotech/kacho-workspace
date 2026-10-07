@@ -1,0 +1,47 @@
+ВЕРДИКТ: ✅ 373f7eb82ab4b6357a6af79c0eb176a3c77c63edb2a269339c67b846ed17cef1
+role: db-architect-reviewer
+mode: review
+verdict: accept
+fingerprint:
+  repo: PRO-Robotech/kacho
+  pr: 3098
+  base: 2914-notify
+  merge_base: 4d5295f1ae96ddb12fe2e228d4cf81d0101f8ec4
+  head: b1394d9e6ab3a289066791c41599a6a71e5bd632
+  digest: 373f7eb82ab4b6357a6af79c0eb176a3c77c63edb2a269339c67b846ed17cef1
+  digest_cmd: git diff 4d5295f1ae9..b1394d9e6ab | sha256sum
+migrations_touched: 6
+migrations:
+  - services/compute/internal/migrations/20261007154006_notification_feed_v3.sql
+  - services/compute/internal/migrations/20261007154007_notify_feed_resource_event.sql
+  - services/registry/internal/migrations/20261007154007_notification_feed_v3.sql
+  - services/registry/internal/migrations/20261007154008_notify_feed_resource_event.sql
+  - services/storage/internal/migrations/20261007154008_notification_feed_v3.sql
+  - services/storage/internal/migrations/20261007154009_notify_feed_resource_event.sql
+repo_sql_touched:
+  - services/storage/internal/repo/pg/fixture_initiator_ext_test.go (тест-фикстура, флаг ленты)
+  - services/storage/internal/repo/pg/volume_journal_initiator_ntf357_integration_test.go (тест)
+blocking: []
+checked:
+  - Все шесть миграций новые (статус A), версии старше применённых (20261005120000 и ниже); применённые не тронуты.
+  - goose Up/Down в каждой; тело функции в StatementBegin/End.
+  - Таблица ленты v3: CHECK inline с CREATE TABLE (state, class, outcome_pair, expiry_matches_class, closed_carries_no_secret, thread_key_present, not_before isfinite); FK contrib -> outbox в той же базе ON DELETE CASCADE; FK через границу сервиса нет.
+  - Функция resource-event: флаг kacho_feed.enabled обязателен (NULL -> RAISE, false -> ничего, иное -> RAISE); вид вне таблицы видов, род вне словаря, проектный вид без якоря, строка без инициатора -> RAISE, откат мутации целиком (fail-closed, а не подстановка).
+  - Таблица видов совпадает с journal.yaml и Go-журналом (TestJournalDeclaration_AgreesWithTheJournal x3); строки самого триггера (resource_kind='notification') исключены WHEN-условием, рекурсии нет.
+  - Сигнальная строка журнала не называет project_id/initiator: project_id у трёх журналов NOT NULL DEFAULT '', initiator берёт умолчание из той же настройки, что ставит journaltx.Begin вместе с флагом (corelib journaltx.go:186, оба set_config одним оператором).
+  - Все писатели журналов трёх модулей идут через journaltx (git grep вне тестов: compute 6, registry 8, storage 9 файлов; голых pool.Begin нет) — флаг выставлен в каждой пишущей транзакции.
+  - Идентификатор строки ленты: 17 символов Crockford из 85 случайных бит (байт 6 с нибблом версии пропущен), уникальность держит PRIMARY KEY.
+  - Инвариантов CAS / частичного UNIQUE / EXCLUDE / SKIP LOCKED в диффе нет — пробы с конкурирующими транзакциями не требуются.
+runs:
+  - "go test -tags integration -run 'TestResourceEvent_JournalRowPutsOneFeedRow|TestJournalDeclaration_AgreesWithTheJournal' ./internal/subscriptionjournal/ (compute, registry, storage) @b1394d9e: 6 PASS (-v), 0 FAIL"
+  - "go test -tags integration ./internal/migrations/ (compute, registry, storage) @b1394d9e: ok x3"
+  - "go test -tags integration -run Initiator storage ./internal/repo/pg/ ./internal/reconciler/... @b1394d9e: ok x2"
+  - "go test -run 'NameForm|NotifyFeedWrites|TableGrowth' ./internal/repohygiene/ @b1394d9e: ok"
+non_blocking:
+  - id: N1
+    summary: >
+      В registry и storage функция создаётся без схемы (CREATE OR REPLACE FUNCTION notify_feed_resource_event()),
+      хотя все прочие объекты этих модулей и тело самой функции квалифицированы kacho_<svc>; функция ляжет в первую
+      схему search_path мигратора. Работоспособности не мешает (триггер связан по OID, база на сервис), но расходится
+      с конвенцией схемы-на-сервис; исправляется в генераторе notifygen init -journal (corelib), не правкой миграции.
+cross_cutting_distributed: no
