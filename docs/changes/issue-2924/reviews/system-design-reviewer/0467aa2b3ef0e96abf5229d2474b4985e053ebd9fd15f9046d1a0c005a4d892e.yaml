@@ -1,0 +1,47 @@
+role: system-design-reviewer
+phase: post-diff
+change: issue-2924
+subject: PRO-Robotech/kacho PR #3070 — полный дифф волны F1 (схема извещений S1 + подъём сайтов docs)
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: 829e1a26cb18753c869514317cd1d4b3302b0765   # origin/2914-notify = merge-base, база не сдвигалась
+  head: e3f4cb0949f92c1798175039173921d739ee3ba3   # = headRefOid PR #3070 (gh pr view)
+  content_digest: 0467aa2b3ef0e96abf5229d2474b4985e053ebd9fd15f9046d1a0c005a4d892e
+  digest_command: "git diff 829e1a26cb18753c869514317cd1d4b3302b0765 e3f4cb0949f92c1798175039173921d739ee3ba3 | sha256sum   # в project/kacho, git 2.53.0; то же с --no-color --no-ext-diff и --no-renames"
+  digest_note: >
+    Прежние записи этой роли и db-architect-reviewer на ту же голову названы дайджестом 3c671eef…;
+    этой командой он не воспроизводится (получено 0467aa2b…, совпадает с записью security-auditor).
+    Голова и база те же, поэтому предмет один; расхождение — в способе снятия числа, не в дереве.
+verdict: accept
+blocking: []
+distributed_surface: yes   # схема: аренды взятия (З27), позиция раскрытия, уникальность события этапа, счётчики в базе
+schema_overlap: yes        # аренда-CAS, SKIP LOCKED, отложенный триггер-ограничение — db-architect-reviewer уже судил эту голову (accept)
+composition: "21 файл, +1146 −126: миграция 20261006232858_operator_notices.sql, её пробы и pgtest TestMain; Makefile (отбор test-pg-outside-selection), repohygiene (shortgated, tablegrowth); 7 пар */docs/package{,-lock}.json"
+axes:
+  dual_write: "n/a — кода записи нет; схема не требует второго коммита: заявка, извещение, события, напоминания и счётчики в одной базе kacho_notify, фиксация З3 п.5 — одна транзакция"
+  idempotency: >
+    держится базой: notice_create_requests PK notice_id + UNIQUE operation_id (повторная фиксация
+    упирается в notices_pkey, З3 п.5); notice_stage_events UNIQUE (notice_id, stage, revision, due_at);
+    notice_reminders PK (notice_id, at) под снятием DELETE … RETURNING (З7 п.3)
+  cas_occ: >
+    форма аренд З27 воплощена: lease_token uuid NULL + lease_until timestamptz NULL + CHECK парности
+    у обеих таблиц S1 (заявка, событие этапа); вставка без аренды; токен на взятие — колонка uuid.
+    notices.revision — опора CAS переходов З5. Индекс взятия заявки (accepted_at, notice_id) под
+    ORDER BY … FOR UPDATE SKIP LOCKED LIMIT 1; частичный индекс событий (due_at) WHERE closed_at IS
+    NULL AND fanned_out_at IS NULL — под взятие раскрытием и метрику pending
+  delivery_model: "n/a — Watch/стрима не вводится"
+  worker_coordination: "аренда + SKIP LOCKED вместо advisory-lock — законно (захват через CAS); код взятия — полосы N3/N4, не здесь"
+  cross_service: "новых runtime-рёбер нет; ссылки на чужие ресурсы (affected_*, scope_id, account_id) — TEXT без FK через границу (ban #4/#8)"
+  replica_isolation: "n/a — состояние только в базе; кэш областей снят приёмкой ред. 20 (Д131), в схеме его нет"
+  edge: "n/a — RPC и слушателей дифф не заводит"
+  clean_architecture: "n/a — Go-кода сервиса нет; пробы — testcontainers через corelib/pgtest в пакете миграций"
+checked:
+  - "отложенный триггер-ограничение формы аудитории (notices_audience_form_trg / notice_audience_form_trg): под READ COMMITTED две конкурентные транзакции, меняющие аудиторию одного извещения, могли бы разойтись (write skew: удаление последней + добавление следующей). Недостижимо: аудитория неизменяема после Create (приёмка NTF-5:844, сценарий NTF5-37 :2277), строки пишет только фиксация в той же транзакции, что извещение, а дописывание упирается в UNIQUE (notice_id, ordinal)"
+  - "notices_born_in_progress_chk и notices_state_moments_chk согласованы с переходами Р5 (OUTAGE/SUSPENSION/SECURITY_INCIDENT: started_at = created_at, CANCELLED/SCHEDULED невыразимы)"
+  - "audience-снимка у notice_stage_events нет — расхождение с З6 п.1 снято приёмкой ред. 20 (Д129), миграция называет причину в шапке"
+  - "*/docs/package*.json — сборка сайтов документации, не рантайм; распределённых свойств не касается"
+non_blocking:
+  - "notice_counters (З21): приращение в транзакции исхода одним оператором по (name, labels) сериализует все транзакции исхода одного набора ярлыков на одной строке. Это решение замысла (порядок «последним» снимает взаимоблокировку), не дефект корректности; темп записи исходов ограничен этой строкой — заметить при замере полосы наблюдателя"
+  - "дайджест 3c671eef… прежних записей не воспроизводится командой из их же поля digest_command; при следующей записи снимать число той же командой в project/kacho"
+orders:
+  - "проба с конкурирующими горутинами на взятие заявки и события раскрытием (З27 п.5, управляемые часы) — заказ полос N3/N4, где появляется код взятия; в этом диффе спорного пути нет"
