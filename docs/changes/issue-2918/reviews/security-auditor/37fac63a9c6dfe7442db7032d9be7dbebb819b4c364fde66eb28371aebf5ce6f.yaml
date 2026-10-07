@@ -1,0 +1,58 @@
+ВЕРДИКТ: ✅
+sha: 6e32861e021a10e5d5c0193c48924ff2546c80ff
+base: 484-notify
+delta: 358a9039a596..6e32861e021a
+digest: 37fac63a9c6dfe7442db7032d9be7dbebb819b4c364fde66eb28371aebf5ce6f  # git diff 358a9039..6e32861e | sha256sum
+role: security-auditor
+mode: пост-дифф, один круг по дельте (догон эпика + пересъёмка отчётов); блокирующее — только корректность/безопасность с предикатом
+pr: PRO-Robotech/kaname#632 (волна fence, полоса K1, PRO-Robotech/kacho#2918)
+acceptance: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md @ 6e7444a4… (Д133/Д134)
+premise:
+  status: подтверждена
+  detail: >-
+    голова PR = 6e32861e, база 484-notify (OPEN). Дельта — 2 собственных коммита поверх 358a9039:
+    слияние f9fedfacb (эпик 56bcb3036, влитый #628) и 6e32861e (пересъёмка трёх отчётов scalegrid).
+    Слияние = автоматическое плюс ровно одно ручное действие: переименование миграции K1
+    20261006170224 -> 20261006233658 (similarity 100%, содержимое не менялось). Файлов, изменённых
+    обеими сторонами слияния от merge-base 460e8f32, — ноль. Всё прочее в дельте (144 файла) —
+    содержимое эпика, уже прошедшее своё ревью в #628.
+  command: >-
+    gh pr view 632 -R PRO-Robotech/kaname --json headRefOid,baseRefName,state;
+    git show --remerge-diff f9fedfacb (единственный хунк — rename);
+    comm -12 <(git diff --name-only 460e8f32 358a9039|sort) <(git diff --name-only 460e8f32 56bcb3036|sort) -> пусто
+scope:
+  read:
+    - internal/migrations/20261006233658_rights_rows_carry_their_authz_revision.sql (целиком: 12 триггеров версии прав, порядок имён, исключение users)
+    - internal/migrations/20261006151313_mail_admission_moments_and_one_live_recovery_code.sql (целиком)
+    - internal/migrations/20261006203126_notification_feed_v3_from_v1.sql (целиком)
+    - internal/repo/kaname/pg/check_value_lanes.go (дифф целиком: isFeedTable, новые таблицы почты)
+    - internal/migrations/secret_material_statistics_integration_test.go (дифф целиком)
+    - шаблоны recovery, invite, sa-key-issued (notification.yaml + body.en.yaml)
+    - сообщения коммитов f9fedfacb, 6e32861e; remerge-diff слияния
+  not_read: >-
+    остальные 21 шаблон и порождённые *.gen.go (форма судится гейтами feedgen/check, прогнаны ниже);
+    отчёты scalegrid R7-1/2/3 (числа вне поверхности; свежесть — гейтами, по словам коммита)
+runs:
+  - "go build ./... и go vet (migrations, check, repohygiene, repo/kaname/pg, humansession, feedgen) @6e32861e — чисто"
+  - "go test -count=1 ./internal/check/ ./internal/repohygiene/ ./internal/apps/kaname/mail/feedgen/ @6e32861e — ok ×3"
+  - "go test -count=1 -v ./internal/migrations/ -run 'AuthzRev|MailAdmission|NotificationFeed|Monoton|SecretMaterial|Migrat' @6e32861e — PASS 29, FAIL 0; перепись соседей: таблиц с триггером версии 12, соседей после него 1 (users / users_email_change_drops_verification — объявленный); лента: миграций 54, из них ленты 2"
+  - "go test -count=1 -v ./internal/repo/kaname/pg/ -run 'RecoveryCode|AuthzRev|CheckValueLane|PgMapErr|Revision|CurrentAuthz' @6e32861e — PASS 8, FAIL 0"
+  - "go test -count=1 ./internal/apps/kaname/api/humansession/ @6e32861e — ok"
+  - "git grep -n 20261006170224 6e32861e — 0 вхождений; git ls-tree origin/main, origin/484-notify internal/migrations — старого номера нет ни там, ни там"
+conditions_checked:
+  - "Версия прав после слияния: слитые миграции эпика не заводят ни одного BEFORE-триггера на путевых таблицах и не переписывают значимых столбцов; перепись соседей триггера версии на сведённой схеме — без новых соседей. Право, выданное после события, по-прежнему двигает версию."
+  - "Порядок миграций: K1 теперь последняя (151313 < 203126 < 233658); её содержимое от порядка относительно почты и ленты не зависит — общих таблиц нет."
+  - "Секретный материал ленты: v3 не пересоздаёт колонку запечатанных атрибутов (ALTER ... ADD/DROP CONSTRAINT, ADD COLUMN thread_key), исключение из статистики, поставленное 151313, сохраняется — TestSecretMaterialValuesDoNotReachStatisticsAfterAnalyze PASS на сведённой цепочке."
+  - "Перепись отказов CHECK: таблицы ленты судятся как написанные службой целиком через предикат библиотеки, а не литерал; новые таблицы почты объявлены nil (значения чеканит служба) — отказ уходит фиксированным текстом службы, присланное в нём не эхом."
+  - "Шаблоны класса security: секреты и токены объявлены типами secret/token; адреса открытым текстом в схеме почты нет (только свёртки)."
+blocking: []
+non_blocking:
+  - id: SA-632-n5
+    статус: >-
+      наблюдение, не дефект продукта: локальная база полосы, накатанная с ветки волны до f9fedfacb,
+      несёт старый номер K1 и при накате сведённой ветки увидит 233658 новой — повторный ADD COLUMN
+      отвергнет база громко, тихого двойного применения нет. Общий стенд ветку волны не нёс
+      (выкатка — шагом после вливания волны). Проверка общего стенда — за db-architect-reviewer
+      (его запись d126e85d…).
+  - id: SA-632-n3
+    статус: остаётся в силе (условие на полосу читателя ограды K3 — суд F = V одним изменением с вопросом).
