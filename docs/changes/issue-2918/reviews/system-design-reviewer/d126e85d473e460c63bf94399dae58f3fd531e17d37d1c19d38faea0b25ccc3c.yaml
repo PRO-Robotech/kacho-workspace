@@ -1,0 +1,70 @@
+ВЕРДИКТ: принято на d126e85d473e460c63bf94399dae58f3fd531e17d37d1c19d38faea0b25ccc3c
+role: system-design-reviewer
+moment: post-diff
+round: повтор по новой голове, только дельта (Д97)
+pr: PRO-Robotech/kaname#632 (волна fence линии NTF, полоса K1)
+base: origin/484-notify @56bcb3036d714f24e387d7ed793c8fdd543251aa (= merge-base; эпик влит в волну)
+previous_head: 358a9039a596c873ed9156f863ec5bccb594ad50 (запись 17b35683…, принято)
+head: 6e32861e021a10e5d5c0193c48924ff2546c80ff
+digest: d126e85d473e460c63bf94399dae58f3fd531e17d37d1c19d38faea0b25ccc3c
+digest_command: git diff 56bcb3036d714f24e387d7ed793c8fdd543251aa..6e32861e021a10e5d5c0193c48924ff2546c80ff | sha256sum
+delta: 358a9039..6e32861e — слияние эпика f9fedfacb (16 коммитов эпика, уже влитых через #628) + 6e32861e0 (пересъёмка трёх отчётов scalegrid)
+delta_digest: 37fac63a9c6dfe7442db7032d9be7dbebb819b4c364fde66eb28371aebf5ce6f  # git diff 358a9039..6e32861e | sha256sum
+distributed_surface: true   # унаследовано от диффа волны; новая работа дельты — переименование миграции K1 и отчёты
+blocking: false
+schema_intersection: да по предмету (порядок миграций, BEFORE-триггеры версии прав) — смотрел только распределённую сторону; ревью схемы на этот дайджест — у db-architect-reviewer
+return_to: —
+
+judged:
+  - what: переименование миграции K1 20261006170224 → 20261006233658
+    finding: нет
+    facts:
+      - содержимое тождественно — blob 103e9278 у старого пути на 358a9039 и у нового на 6e32861e (git rev-parse <rev>:<path>)
+      - новая версия строго выше старшей в origin/484-notify (20261006203126, лента v3); origin/main — 20261002120000; старого номера в дереве нет (grep -r 20261006170224 → 0)
+      - старым номером несёт только ветка origin/484-ntf3-authz-rev (полоса K1); ни в эпике, ни в main его нет — ban #5 не задет
+  - what: сочетание триггеров версии прав (порядок BEFORE по имени, zz_) со схемой эпика
+    finding: нет
+    facts:
+      - миграции эпика (лента v1/v3, почта и код восстановления) триггеров на 12 таблицах прав не заводят; новые таблицы (invite_acts, trusted_devices, pending_registrations, mail_*, security_notice_ledger, kaname_notification_*) правом не являются
+      - проба соседей TestAuthzRevStampHasOnlyDeclaredLaterNeighbours зелёная на сведённой схеме — закрытый перечень последующих BEFORE-триггеров не расширился
+  - what: пин corelib
+    finding: нет — go.mod/go.sum совпадают с origin/484-notify (git diff 56bcb303..6e32861e -- go.mod go.sum пуст)
+  - what: отчёты R7-1/2/3
+    finding: нет распределённого предмета; гейты свежести зелёные
+
+axes_delta:
+  atomicity: не затронута (миграция побайтово та же; триггер ставит версию в транзакции правки)
+  idempotency: досев старта не двигает версию — NTF3183 зелёные на сведённой схеме
+  concurrency: ограда/поколение — NTF3181b, в том числе ConcurrentEdits и EditCommittedAfterTheToken, зелёные на сведённой схеме
+  barrier: CurrentAuthzRevision (NTF3179g) зелёный; модель опроса не меняется
+  graph: новых рёбер нет
+  edge_ban06: не затронут
+
+runs:  # дерево — worktree tmp/sdr-632-6e32861e @6e32861e, GOWORK=off
+  - cmd: go test -count=1 -v -run Monoton ./internal/check/
+    outcome: зелёных 7 · красных 0
+  - cmd: go test -count=1 -v -run TestAuthzRevision ./internal/repohygiene/
+    outcome: зелёных 4 · красных 0
+  - cmd: go test -count=1 ./internal/repohygiene/
+    outcome: ok
+  - cmd: go test -count=1 -tags integration -p 1 -run 'NTF3181b|AuthzRevStamp' ./internal/migrations/ -v
+    outcome: зелёных 7 · красных 0
+  - cmd: go test -count=1 -tags integration -p 1 ./internal/migrations/
+    outcome: ok (194.7 с, FAIL 0)
+  - cmd: go test -count=1 -tags integration -p 1 -run 'NTF3183|NTF3179g' ./internal/apps/kaname/seed/ ./cmd/kaname/ -v
+    outcome: зелёных 4 · красных 0
+  - cmd: go test -count=1 ./internal/repo/kaname/pg/scalegrid/
+    outcome: ok
+
+remarks:  # не блокируют
+  - id: SD-R4
+    what: остаётся в силе — гейт F = V (NTF3-180 (а), (в)) должен войти одним изменением с запросом читателя (полоса K3); дельтой не затронут
+  - id: SD-R5
+    where: internal/repohygiene/authzrevcolumn_test.go:31
+    what: остаётся в силе — «читатель не предполагается» неверно, читателя в этом дереве ещё нет
+  - id: SD-R6
+    what: >
+      Ветка origin/484-ntf3-authz-rev несёт миграцию K1 под старым номером 20261006170224 (ниже
+      ленты v3 эпика). Если полосу когда-либо сольют в эпик мимо волны fence, мигратор на базе
+      эпика откажет «missing migrations before current version». Это ветка полосы, уже сведённой в
+      волну, — снять при вливании волны (каскад закрытия), не решаю за неё.
