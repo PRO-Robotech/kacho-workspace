@@ -430,6 +430,29 @@ else
     expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: распознавателя доказательства DoD нет' "инъекция: предпроверка извлекает merge-readiness без lib/ — код 2 «распознавателя нет»"
 fi
 
+echo "== запуск: каталог scripts/ целиком из origin/main, а не один файл (шапка, «ЗАПУСК»)"
+# Близнец — РЕЦЕПТ шапки как он есть: песочница-воркспейс несёт в origin/main весь
+# каталог scripts/ этого дерева, `git archive origin/main scripts | tar -x` в
+# отдельный каталог и запуск оттуда с LANDING_PRECHECK_WS. Инъекция меняет ОДИН
+# факт — из того же архива рядом с собой у предпроверки ОДИН файл: соседей
+# (`hooks/attribution-rule.sh`) нет, и вердикта нет (код 2) с указанием на рецепт.
+mrcase 1
+rm -rf "$W/ws/scripts"; cp -r "$HERE" "$W/ws/scripts"
+sandbox_git -C "$W/ws" add -A
+sandbox_git -C "$W/ws" commit -qm whole-scripts
+sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
+rm -rf "$W/arch" "$W/single"; mkdir -p "$W/arch" "$W/single"
+git -C "$W/ws" archive origin/main scripts | tar -x -C "$W/arch"
+FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
+    bash "$W/arch/scripts/landing-precheck.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+echo $? > "$W/code"
+expect 0 - "рецепт: архив scripts/ из origin/main + LANDING_PRECHECK_WS — вердикт выносится (код 0)"
+cp "$W/arch/scripts/landing-precheck.sh" "$W/single/"
+FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
+    bash "$W/single/landing-precheck.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+echo $? > "$W/code"
+expect 2 $'VOID\tпредиката атрибуции нет: '"$W"'/single/hooks/attribution-rule.sh — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)' "инъекция: предпроверка скопирована одним файлом — код 2 с указанием на рецепт"
+
 echo "== предпосылка"
 twin; echo '<html>' > "$W/case/pull.json"; run 0
 expect 2 $'VOID\tответ о PR' "ответ площадки не разбирается — код 2"

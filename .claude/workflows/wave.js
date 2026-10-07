@@ -257,7 +257,7 @@ for (const d of Object.values(done)) {
   if (stale.length) return { ok: false, stage: 'вердикт роли не на сведённой голове полосы ' + d.key, stale, errors }
 }
 const reviews = waveReviews
-const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни `bash ' + WS + '/scripts/landing-precheck.sh ' + (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' > ' + D + '/landing-precheck-' + round + '.md 2>&1`. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
+const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни (каталог scripts/ целиком из origin/main — шапка landing-precheck.sh, «ЗАПУСК») `D=$(mktemp -d ' + D + '/wsg.XXXX) && git -C ' + WS + ' fetch -q origin main && git -C ' + WS + ' archive origin/main scripts | tar -x -C "$D" && LANDING_PRECHECK_WS=' + WS + ' bash "$D/scripts/landing-precheck.sh" ' + (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' > ' + D + '/landing-precheck-' + round + '.md 2>&1`. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
 let lp = await landCheck(1)
 if (lp && lp.code === 1) {
   const rs = lp.reasons || []

@@ -21,6 +21,20 @@
 # Ровно та форма, которую возвращают роли шаблона `.claude/workflows/wave.js`;
 # текст ответа роли не разбирается нигде (класс 7).
 #
+# ЗАПУСК — КАТАЛОГ scripts/ ЦЕЛИКОМ ИЗ origin/main ВОРКСПЕЙСА, НЕ ОДИН ФАЙЛ.
+# Скрипт подключает соседей по пути от себя: `hooks/attribution-rule.sh`
+# (пункт (е)) и — через merge-readiness — `lib/dod_proof.jq`. Скопированный
+# одним файлом, он их теряет и выходит VOID («предиката атрибуции нет»);
+# запущенный из рабочей копии воркспейса — судит той редакцией, что в ней
+# выписана, а не принятой. Рецепт (WS — путь воркспейса):
+#   D=$(mktemp -d "$TMPDIR/wsg.XXXX") && git -C "$WS" fetch -q origin main \
+#     && git -C "$WS" archive origin/main scripts | tar -x -C "$D" \
+#     && LANDING_PRECHECK_WS="$WS" bash "$D/scripts/landing-precheck.sh" <репо> <PR>
+# LANDING_PRECHECK_WS обязателен: без него WS — каталог над scripts/, то есть
+# распакованный архив; он не воркспейс (либо не git вовсе, либо — внутри tmp/
+# воркспейса — чужая рабочая копия), и origin/main для пункта (д) берётся не там.
+# merge-readiness.sh тем же архивом: `bash "$D/scripts/merge-readiness.sh" <репо> <PR>`.
+#
 # ЧТО СУДИТСЯ — по пункту на причину; каждая причина — ОДНА строка
 #   REASON<TAB><код><TAB><пояснение>
 #   (а) REVIEW-STALE        — sha вердикта роли ≠ headRefOid PR: правка после
@@ -190,7 +204,7 @@ while :; do
 done
 
 # (е) атрибуция — предикатом дерева, по каждому сообщению коммита и по телу.
-[ -r "$HERE/hooks/attribution-rule.sh" ] || void "предиката атрибуции нет: $HERE/hooks/attribution-rule.sh"
+[ -r "$HERE/hooks/attribution-rule.sh" ] || void "предиката атрибуции нет: $HERE/hooks/attribution-rule.sh — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)"
 # shellcheck source=hooks/attribution-rule.sh
 . "$HERE/hooks/attribution-rule.sh"
 declare -F attribution_line >/dev/null || void "в hooks/attribution-rule.sh нет attribution_line"
@@ -222,7 +236,7 @@ else
     # (ws#935, найдено на kacho#3043) — пункт (д) не судился ни разу.
     mkdir -p "$W/mr"
     git -C "$WS" archive --format=tar -o "$W/mr.tar" origin/main scripts/merge-readiness.sh scripts/lib 2>"$W/api.err" \
-        || void "merge-readiness.sh и scripts/lib из origin/main воркспейса не извлекаются: $(head -c 300 "$W/api.err")"
+        || void "merge-readiness.sh и scripts/lib из origin/main воркспейса «$WS» не извлекаются (запуск из архива — с LANDING_PRECHECK_WS, шапка «ЗАПУСК»): $(head -c 300 "$W/api.err")"
     tar -xf "$W/mr.tar" -C "$W/mr" || void "архив merge-readiness из origin/main не распаковался"
     MR="$W/mr/scripts/merge-readiness.sh"
     MR_SRC="origin/main@$(git -C "$WS" rev-parse --short=12 origin/main)"
