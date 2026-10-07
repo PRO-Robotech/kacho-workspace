@@ -357,3 +357,43 @@ probe-must-be-read-by-its-subject · постусловие пробы — «п�
 new-rpc-newman-case · новый RPC или HTTP-путь края — в том же PR newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative, пишет тестировщик (testing-newman.md#edge-author-black-box) · ЗАВЕСТИ (кандидат — coverage.py маршрут→кейс) · red: путь на крае есть, кейса нет
 per-service-fixture-isolation · свой account и home/cross проекты (setup.sh), scope через existingProjectId; shared-account — только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account — grant течёт в чужие ожидания
 e2e-fixture-step-must-assert · статус И захват id утверждай; поллер несёт идентификаторы фикстуры · TestNewmanPrecondMark_ProvenByInjection; TestCapturedVarGateSilentOnLawfulSameShape · red: if (!lastOpError); шаг захватил id без assert; кейс падает на три шага позже
+
+## Снято 2026-10-07 (ws#967): сжатие корпуса под потолок check-06 под норму «прогон не оставляет следов»
+
+Норма владельца 2026-10-07 («все тесты должны быть так, что бы не оставляли мусор») встала в `testing.md` §«Прогон не оставляет следов»; корпус на `origin/main` стоял в 7 знаках от потолка 200 000 (решение владельца 2026-09-19), потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+`fixture-cleanup-mandatory` перенесена из §«Пирамида и инфраструктура» в новый раздел и сужена до стенда: локальная уборка и кластер — соседние строки `no-residue`, `no-residue-cluster`.
+
+fixture-cleanup-mandatory · убирай за собой · TestSeededParentChildrenAreReclaimedBySuites; TestNestedReclaimGateRedsOnSeededParentLeak · red: пул растёт, list-контракты плывут
+e2e-ban-exit-code-loss · не теряй: запрещены · true`, `cmd · red: tee, вердикт с последнего звена | TestPipefailVerdictNeverComesFromAPipe; TestExitCodeReadGateFindsTheDefectiveForms | вердикт взят из трубы или из шага, следующего за прогоном
+e2e-ban-mask-whitelist · запрещены в прогонщике и в гейте · TestEveryGateSkipIsDeclaredInTheLedger; TestRunnerStemSetInjectionWrittenListIsFound · red: в прогонщике или гейте есть выписанный список исключаемых кейсов
+e2e-missing-dep-own-job · своя job/волна, создающая условие; нельзя — открытый долг с числом · TestActorExemptionRequiresAScarceRunnerThatExists · red: кейс замаскирован «здесь его не запустить», суита объявлена зелёной
+new-rpc-newman-case · новый RPC или HTTP-путь края — в том же PR newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative, пишет тестировщик (testing-newman.md#edge-author-black-box) · ЗАВЕСТИ (coverage.py маршрут→кейс) · red: путь на крае без кейса
+code-first-no-wait · исполнитель пишет код TDD, локально — быстрое своих пакетов (unit без `-race`, vet, gofmt, свои пробы), сдаёт коммитом и берёт следующую задачу, не ожидая ревью и прогонов (владелец 2026-09-24) · вниманием · red: ждёт вердикта; `-race` или стенд в цикле TDD
+exp-plan-parallel · задаче-проверке (проба, гейт, страж, инвариант безопасности) `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции, законные близнецы, слепые зоны; прочим плана нет · ЗАВЕСТИ · red: план задаче не-проверке; код ждёт плана
+exp-plan-self-run · план, пришедший до сдачи, прогони сам — исход по каждому пункту с командой; пришедший после гонит `check-verifier` на сборке · ЗАВЕСТИ · red: сдача без исхода по пункту плана из входа; «план прогнан» без команд
+security-fix-test-same-pr · behaviour-level regression-тест — в ТОМ ЖЕ PR; RPC без функционального теста — handler-level unit, путь края — и кейс тестировщика (testing-newman.md#flow-bug-regression) · ЗАВЕСТИ · red: фикс без теста либо тест только code-level
+ryw-retry-never-on-negatives · НИКОГДА — на негатив, cross-account, absent-id, lst-excludes, sync-4xx, давно существующий ресурс · TestDeleteRetryWindowGate_SilentWhenStepDeclares404AsItsOutcome · red: обёрнут negative-шаг — реальный deny замаскирован
+predicate-answers-what-doc-refutes · отвечай на «что этот документ опровергает», не «где встречается слово»; перебор так же негоден, как недобор · ЗАВЕСТИ · red: расширили поиск и назвали большее число починкой
+prop-against-growth-needs-subject · спроси, от чего защищает: от роста — это отсрочка с известной датой отказа, предмет обязателен · TestCiRelaxationSaysWhyItIsThere · red: поднят предел там, где растёт потребление
+regression-lock-at-observable · локай НАБЛЮДАЕМОЕ поведение, не только gRPC-код; видимое через край — и newman-кейсом · regression-тест в том же PR · red: рефактор возвращает баг, suite зелёный
+final-verification-before-merge · go test -race, golangci-lint, govulncheck, newman гонит конвейер PR сборки; локально — быстрое своих пакетов, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх
+gate-reads-code-not-text · различай код, строковый литерал и комментарий; предпочитай AST тексту · TestPhantomIdGateReadsCodeNotComment; TestPipefailCheckReadsCodeNotProse · red: слово найдено в комментарии, объясняющем снятую защиту
+blind-zone-measured-by-census · сравни осмотренное и найденное: перепись выросла при прежней полосе = была слепая зона · internal/repohygiene/removedpathcensus_injection_test.go · red: перепись не изменилась — расширение холостое
+fake-structurally-unable-to-be-green · сделай структурно неспособной дать зелёное; провязку доказывай тем, что её позвали · TestInjectedBothFormsBlindRecogniserIsNotGreen · red: заглушка сочиняет отчёт «1 утверждение, 0 упавших»
+injection-drops-only-its-subject · роняй ТОЛЬКО проверяемое; прогонов три — контроль, инъекция нового, инъекция старого · TestAxisSixAndAxisTwoRedSeparately · red: инъекция «завести ещё один элемент»; красное пришло от соседа
+e2e-no-skip-ever · НИКОГДА не пропускай, не маскируй, не ослабляй; зелёное — фиксом продукта или фикстуры · assert-suites-green.sh; TestSkippedVerdictDoesNotPassAsGreen · red: кейс исключён, assert ослаблен, вопрос сужен ради зелёного
+recognizer-knows-all-lawful-forms · назови КАЖДУЮ законную форму записи и докажи инъекцией по каждой · TestConsoleProbeTypeCoverageKnowsEveryLegalPatternForm · red: форма вне наблюдения: ни красного, ни зелёного — молчание
+gate-checks-its-premise · несёт проверку СВОЕЙ предпосылки и падает на её отказе · TestUseCaseLayoutPremiseHolds; TestConsoleMutationGatePremiseIsChecked · red: факт о дереве изменился, запрет стал ложью молча
+subject-removal-audit-by-sign · разбери проверки по ЗНАКУ: негативная замолкает молча, её инъекция остаётся зелёной · ЗАВЕСТИ · red: ветвь и счётчик целы, вход больше не представим
+double-must-honor-real-contract · выполняй контракт настоящего ТЕМ ЖЕ кодом, не своей копией · TestModuleMockFactoryResolvesItsDoubleStatically · red: дублёр глотает ввод, на котором настоящий отказывает
+e2e-red-means-investigate-product · разбирай продукт; маску не возвращай даже временно · TestEveryGateSkipIsDeclaredInTheLedger · red: запись «известное красное» живёт дольше своего фикса
+env-value-asked-not-written · спрашивай у самой полосы, не выписывай литералом · TestQuotaShowPosture_HardcodedDeclaredIsAFinding · red: рядом с литералом комментарий «объявлено посадкой»
+e2e-ban-mutually-exclusive-assert · запрещено принимать взаимоисключающие исходы · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: oneOf([200,400]) в кейсе, чей заголовок обещает отказ
+new-rpc-integration-test · в том же PR — integration_test.go на testcontainers Postgres с concurrent-race для CAS/UNIQUE/EXCLUDE · git diff PR: новый RPC → новый *integration_test.go · red: PR добавляет RPC без integration-теста
+no-tests-no-excuse · запрещено как обоснование отсутствия тестов; reviewer отклоняет PR без тестов · TestDeferralGateCatchesAMarkerInProductionCode · red: в PR стоит обещание вместо теста
+exclusion-self-expires · обязан истекать сам: запись без предмета — находка · TestPostureRelaxationExpiresWhenItsSubjectIsGone · red: гейт зелёный на записи, которой нечего исключать
+probe-must-be-read-by-its-subject · постусловие пробы — «проверка это ПРОЧИТАЛА»: вывод на правленой копии отличен от контрольного · rules-gate measure-monotonicity.sh · red: проба мимо предмета, проверка объявлена монотонной
+test-title-wider-than-body · закрепляй гейтом по дереву, не прямым вызовом проверки · ЗАВЕСТИ · red: тело зовёт проверку напрямую — заголовок шире тела
+known-failing-declared · объяви в RESULTS.md «Known failing — product bugs» + trail в vault · tools/knownfailingsubject · red: красный кейс не объявлен и читается как регрессия
+restructured-gate-reinjected · прогони инъекцию ЗАНОВО тем же дефектом · повторный *_injection_test.go · red: сверены только числа переписи и зелёное на чистом дереве

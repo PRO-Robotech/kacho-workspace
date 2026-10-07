@@ -336,6 +336,15 @@ qa-class-label · метка `classes` — из словаря CRUD, VAL, NEG, B
 qa-validation · (VAL, BVA) классы и границы поля (min−1, min, max, max+1, 0, пусто, переполнение) у вложенного и у элемента repeated; ловушки: JSON-тип, CIDR, IP, null против отсутствия, неизвестный enum, юникод; недопустимое → INVALID_ARGUMENT с именем поля · ЗАВЕСТИ qa-class-census · red: граница с одной стороны
 qa-create · (CRUD, VAL, NEG) минимум и полный набор полей; дубль уникального → ALREADY_EXISTS; нет обязательного → INVALID_ARGUMENT с именем поля; необязательное применено либо отвергнуто; свой `id` — форма и дубль; get после операции равен телу · ЗАВЕСТИ qa-class-census · red: поле принято и проигнорировано
 
+## Снято 2026-10-07 (ws#967): сжатие корпуса под потолок check-06 под норму «прогон не оставляет следов»
+
+Норма владельца 2026-10-07 («все тесты должны быть так, что бы не оставляли мусор») встала в `testing.md` §«Прогон не оставляет следов»; корпус на `origin/main` стоял в 7 знаках от потолка 200 000 (решение владельца 2026-09-19), потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+robust-ryw-not-masking · будь robust к read-your-writes окну (Kachō eventually-consistent), но НИКОГДА не маскируй дефект · ЗАВЕСТИ · red: retry/tolerance ради снятия красноты EC без диагноза — дефект спрятан за «flaky»
+layer5-collision-before-blaming-ec · shared-resource collision CIDR/pool/name — ПРЕЖДЕ eventual consistency; чинит run-random энтропия обоих октетов, не retry · TestCarveBandGateRedOnSharedBand · red: seq рестартит с 1 в каждом newman-процессе при общем октете
+fixture-self-seed-per-case · self-seed свежего ресурса per-case (discover_zone, create_suite_project) вместо shared-литерала env-var · TestFixtureNamesObeyTheCanonWhereTheServiceMigrated · red: кейс идёт по shared-ресурсу, который мог async-упасть
+edge-internal-consequence · внутренний слушатель — не край; его следствие, видимое через край, утверждай newman, создав условие средствами потребителя или админ-проекции (`{{internalBaseUrl}}`), иначе — Go integration с причиной в шапке · ЗАВЕСТИ · red: следствие видно через край, проба только Go и без причины
+
 ## Снято 2026-10-07 (ws#966): дословная цитата решения 2026-09-23 перенесена из корпуса в архив
 
 Место освобождено под норму `testing-verdict.md#external-cluster-first` при потолке check-06

@@ -218,6 +218,27 @@ busy-machine-step-zero · тяжёлое — только `scripts/heavy-slot.sh
 heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница стража — `BOUNDARY` в guard.py · .claude/hooks/heavy-guard/prove.sh: граница — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
 no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай прибором `asm-verdict-runs-on-head` · `gh run list` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»
 
+## Снято 2026-10-07 (ws#967): сжатие корпуса под потолок check-06 под норму «прогон не оставляет следов»
+
+Норма владельца 2026-10-07 («все тесты должны быть так, что бы не оставляли мусор») встала в `testing.md` §«Прогон не оставляет следов»; корпус на `origin/main` стоял в 7 знаках от потолка 200 000 (решение владельца 2026-09-19), потолок не поднимался. Норма (id · императив · держатель · red) осталась в корпусе под тем же id; ниже — ПРЕЖНИЕ редакции сжатых строк, дословно.
+
+diagnosis-from-refusal-text · по run.failures[].error.message и executions[].response.stream в out/<коллекция>.json; перечень имён шагов — не диагноз · вниманием (цитата из out/<коллекция>.json) · red: фикс по названию шага, число падений не изменилось
+precondition-guard-names-subject · страж предусловия: запрос не отправлен, предмет назван · TestNewmanPrecondMark_ProvenByInjection · red: дефект проявляется отказом уборки по фантому на три шага позже
+cache-saved-only-on-proven-complete · сохраняй только при доказанно ПОЛНОМ исходе шага; условие шага — наличие предмета, не попадание в кэш · TestCacheFillsOnTheRunThatPaidForIt · red: шаг пропущен «кэш попал», следующий падает «файла нет»
+flag-belongs-to-its-program · принадлежит ТОЙ программе, которой передан; у git grep отбор задаётся pathspec после -- · ЗАВЕСТИ · red: sort | uniq -c по составу | фильтруешь по типу, а в выводе другие типы
+job-composition-count-run-steps · не равно «прогнал джобу»: открой объявление и посчитай шаги run: · подсчёт run: в .github/workflows · red: падает последний шаг, а имя джобы называет первый предмет
+local-run-same-tool-and-version · значим лишь при том же инструменте и версии (пин workflow, go.mod) и воспроизведённой подготовке шага · scripts/ci-local.sh · red: локально зелено, в конвейере красно на том же коммите
+background-task-exit-code-is-wrapper · исход — из её собственного вывода, не из уведомления о завершении; предел — по длительности предмета · grep Terminated/143/137 в файле · red: «exit code 0» при SIGTERM внутри
+count-forms-before-naming-number · в скольких формах предмет записывается законно и знает ли о них твоё выражение · ЗАВЕСТИ · red: пропущена многострочная метка или голое число в ряду
+session-memcap · потолок сессии и метку oomd ставит хук SessionStart (`scripts/session-memcap.sh`) и сверяет по cgroup; запуск — `--launch -- claude`; убийцу называет журнал oomd, не код 137 · session-memcap-inject.sh · red: MemoryMax на scope со stop; 137 засчитан oomd
+task-gives-question-not-number · давай вопросом и требуй «перемерь» · ЗАВЕСТИ · red: число дано фактом — исполнитель разбирается с ним после выбора направления
+render-provenance-of-dependencies · зависимости — в ЭТОМ клоне, не копией из соседнего · ЗАВЕСТИ · red: проба падает на утверждении, которое ты минуту назад видел выполненным
+red-report-names-revision · назови в нём ревизию проверяемого · ЗАВЕСТИ · red: область не установлена — сказанное о причине про неизвестно что
+finding-born-from-way-of-looking · роди из дерева, не из способа смотреть: повтори свой же замер · ЗАВЕСТИ · red: обрыв head -2, неверная единица счёта, окно sed со смещением на глаз
+cache-restore-save-split-paid-run · cache/restore и cache/save раздельно; save — по признаку полноты от самого шага · TestCacheFillsOnTheRunThatPaidForIt · red: кэш наполняется только прогоном, которому он не был нужен
+pr-red-belongs-to-revision-headsha · сверяй headSha прогона с головой ветки, а не имя проверки с состоянием · TestWorkflowRunUsesTheSubjectCommit · red: прежние проверки висят красными после отправки починки
+cache-condition-carries-state-function · несёт функцию состояния: always(), !cancelled(), failure(); save-always не годится · TestCacheFillsOnTheRunThatPaidForIt · red: условие без функции состояния — подразумевается success()
+
 ## Решение владельца 2026-10-07 (ws#966): внешний кластер — первым
 
 Дословно: «добавь в рул, что если есть доступ к внешнему кластеру то тестируем там и по максимуму
