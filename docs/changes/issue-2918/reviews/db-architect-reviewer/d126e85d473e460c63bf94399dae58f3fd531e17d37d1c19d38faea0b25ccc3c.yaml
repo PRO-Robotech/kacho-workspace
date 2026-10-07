@@ -1,0 +1,77 @@
+role: db-architect-reviewer
+mode: review
+subject: PRO-Robotech/kaname PR #632 (wave fence, lane K1, kacho#2918) — повтор по дельте после догона эпика
+fingerprint:
+  repo: PRO-Robotech/kaname
+  base: 56bcb3036d714f24e387d7ed793c8fdd543251aa  # origin/484-notify, merge-base
+  head: 6e32861e021a10e5d5c0193c48924ff2546c80ff
+  delta_from: 358a9039a596c873ed9156f863ec5bccb594ad50  # прежняя запись 17b35683…, verdict accept
+  content_digest: d126e85d473e460c63bf94399dae58f3fd531e17d37d1c19d38faea0b25ccc3c  # sha256(git diff base...head)
+  delta_digest: 37fac63a9c6dfe7442db7032d9be7dbebb819b4c364fde66eb28371aebf5ce6f  # sha256(git diff delta_from..head)
+acceptance: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md @ 6e7444a4… (Д133/Д134)
+verdict: accept
+migrations_touched: 4  # в дельте 358a9039..6e32861e; новых для PR относительно эпика — 1 (переименованная K1)
+migration_paths:
+  - internal/migrations/20261006145953_notification_feed_v1.sql  # из эпика (#628), порождён notifygen
+  - internal/migrations/20261006151313_mail_admission_moments_and_one_live_recovery_code.sql  # из эпика (#628)
+  - internal/migrations/20261006203126_notification_feed_v3_from_v1.sql  # из эпика (#628), порождён notifygen
+  - internal/migrations/20261006170224_… -> 20261006233658_rights_rows_carry_their_authz_revision.sql  # R100, K1
+delta_composition:
+  - "f9fedfacb — слияние головы эпика 56bcb30 (#628: лента v1/v3, почта личности NTF-2, шаблоны security); текстовых конфликтов нет"
+  - "f9fedfacb — переименование K1 новым номером: 170224 был ниже влитой в эпик 203126 (лента v3)"
+  - "6e32861e0 — пересъёмка отчётов scalegrid (отпечаток состава сдвинут переименованием, содержимое ba0cf7dd… не менялось)"
+blocking: []
+findings_checked:
+  - id: k1-rename-vs-ban05
+    result: not-a-finding
+    evidence: >-
+      K1 нет ни в origin/484-notify, ни в origin/main (git ls-tree: 0 вхождений 20261006170224) — миграция
+      собственная для PR и применённой на базе эпика не является; запрет #5 судит применённые. Переименование
+      100% (содержимое байт в байт). Без него goose на базе эпика (203126 уже накатан) отказал бы
+      «missing migrations before current version» — переименование выше старшей в эпике есть целевая форма, не обход.
+  - id: migration-order-after-merge
+    result: ok
+    evidence: >-
+      добавленные относительно origin/main: 20261003194341 < 20261004113000 < 20261004160000 < 20261006145953 <
+      20261006151313 < 20261006203126 < 20261006233658; относительно эпика добавлена одна — 233658, старшая.
+      TestNewMigrationOutranksEveryAppliedOne @6e32861e0: вердикт вынесен, рассмотрено 141 файл / 54 миграции,
+      добавлено 7, сравнено 7, находок 0.
+  - id: k1-trigger-neighbours-after-epic
+    result: ok
+    evidence: >-
+      миграции эпика триггеров на 12 таблиц V не заводят (feed v1/v3 и mail_admission — только новые таблицы,
+      recovery_codes, outbox ленты); закрытый перечень соседей триггера версии на users держит
+      TestAuthzRevStampHasOnlyDeclaredLaterNeighbours — PASS на сведённой схеме.
+  - id: epic-schema-mechanisms
+    result: ok (вторым взглядом; предмет уже влит #628)
+    evidence: >-
+      инварианты выражены механизмами базы: частичный UNIQUE recovery_codes_one_live_per_user с переносом данных
+      до создания индекса; CHECK одного конца кода; FK на якорь окна ON DELETE RESTRICT; UNIQUE (address_digest,
+      code_digest); PK журнала извещений безопасности под ON CONFLICT DO NOTHING. Проба с конкурирующими
+      горутинами на «живой код один» есть (recovery_code_repo_integration_test.go: sync.WaitGroup, go func).
+  - id: repo-check-lanes
+    result: ok
+    evidence: >-
+      check_value_lanes.go: новые таблицы NTF-2 объявлены «целиком службой», таблицы ленты узнаются предикатом
+      isFeedTable через corelib feed.TablesOf, а не литералом; K1 CHECK-ограничений не заводит — записи ей не нужно.
+non_blocking:
+  - id: abandoned-version-170224-on-scratch-databases
+    note: >-
+      база, накатанная с ветки волны до f9fedfacb (локальный стенд полосы), несёт в goose_db_version 20261006170224
+      и колонку authz_rev; накат 233658 на ней упадёт «column authz_rev already exists». Кода это не касается:
+      такие базы пересоздаются. Предикат для стенда платформы перед выкаткой волны:
+      SELECT count(*) FROM goose_db_version WHERE version_id = 20261006170224  -> 0.
+      Выкатка — шаг после вливания волны в эпик; ветки эпика ветка волны не выкатывала.
+    addressee: deploy-engineer (проверка при выкатке)
+  - id: xid8-not-portable-across-clusters
+    status: перенесено из a386062e без изменений; адресат system-design-reviewer / runbook
+runs:
+  - "go test -count=1 -run 'Monoton|Outranks|NotificationFeedSchema|Migration' ./internal/check/ ./internal/migrations/ @6e32861e0 -> ok, ok"
+  - "go test -count=1 -v -run TestNewMigrationOutranksEveryAppliedOne ./internal/check/ @6e32861e0 -> PASS (добавлено 7, находок 0)"
+  - "go test -tags=integration -count=1 ./internal/migrations/ @6e32861e0 -> ok (196.5 s)"
+  - "go test -tags=integration -count=1 ./internal/repohygiene/ @6e32861e0 -> ok"
+  - "go test -tags=integration -count=1 -run 'RecoveryCode|CheckValue' ./internal/repo/kaname/pg/ @6e32861e0 -> ok"
+  - "go test -count=1 -run 'CheckValueLane|PgMapErr|pgmaperr' ./internal/repo/kaname/pg/ @6e32861e0 -> ok"
+  - "go test -tags=integration -v -run 'AuthzRev|OneLive|Neighbour' ./internal/migrations/ -> TestAuthzRevStampHasOnlyDeclaredLaterNeighbours, TestAuthzRevStampNeighbourInjection, TestAuthzRevStampDeclaredNeighbourWritesNoSignificantColumn, TestIntegration_OneLiveCodePerPerson — PASS"
+concurrent_probe_missing: []
+crosses_distributed_properties: no  # дельта — порядок версий и догон эпика; токен снимка R_E не тронут
