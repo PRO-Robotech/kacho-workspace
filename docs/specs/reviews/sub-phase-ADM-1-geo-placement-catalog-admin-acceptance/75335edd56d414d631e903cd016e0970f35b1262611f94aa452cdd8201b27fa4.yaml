@@ -1,0 +1,104 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance.md
+  sha256: 75335edd56d414d631e903cd016e0970f35b1262611f94aa452cdd8201b27fa4
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — то, что вписал
+    автор. Действующий вердикт о редакции 75335edd — эта запись плюс внешнее событие. Документ
+    на момент ревью не закоммичен (ветка 968-adm1-geo @dde7f0251, правка в рабочем дереве).
+  base_commit: dde7f0251
+  content_commit: none (uncommitted)
+  product_revision: PRO-Robotech/kacho@ffbe930dbefb845155dfab1eb4e455f9eddbf54e
+  corelib_pin: github.com/PRO-Robotech/corelib v1.10.0
+  task: https://github.com/PRO-Robotech/kacho/issues/3092
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance.md
+  lines: 668
+  prior_record: docs/specs/reviews/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance/52b153d5c0e6813286084d5b3f3f07692552b0f7330dd299d6adfe7c58869ead.yaml
+verdict: APPROVED
+round: 2
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07T18:07:45Z'
+blocking:
+  count: 0
+  kinds: []
+round_1_closure:
+  - kind: COVERAGE
+    status: closed
+    evidence: >-
+      §Р8 + П20/П21: гейт не приносится (corelib@v1.10.0 servicecontract/contract.go:1363-1371
+      отвергает BootGate при пустой/неприменимой оси Emits — прочитано), причина изъятия
+      переписывается на предмет (1), TestGeoServesNoGatedMutation (describe_test.go:133) снимается
+      и заменяется TestGeoBootGateExemptionRestsOnNoEmission с положительным контролем и счётом
+      гейтируемых методов; предикат перехода S1 исправлен и несёт git grep на отсутствие старой
+      пробы. Предикат IsGatedMutation (servicehost/links.go:196: суффикс /Create и нет ".Internal")
+      подтверждает, что RegionService/Create и ZoneService/Create станут гейтируемыми.
+  - kind: PRODUCER
+    status: closed
+    evidence: >-
+      Шаг GET /operations/{id} снят из сценария 01; опрос операции на внешнем крае вынесен в
+      «Что НЕ входит» со ссылкой на operation.py:14-21 (прочитано: снятие RED-лока как
+      неконтрактной поверхности); строка производителя 01 → syncop.go (файл существует).
+  - kind: FORMAT
+    status: closed
+    evidence: >-
+      Сценарий 17: REST 401 {"code":16,"message":"insufficient_user_authentication"} +
+      WWW-Authenticate; gRPC UNAUTHENTICATED с тем же текстом — сверено с
+      gateway/internal/middleware/auth_stepup.go:139-143,208,231.
+  - kind: FORMAT
+    status: closed
+    evidence: >-
+      Р2 → сценарий 15, Р7 → сценарий 12 (сверено по заголовкам ID); абзац о держателях отказов
+      переписан (08, 11 — integration + по одному newman-кейсу отображения; 09, 10 — оба; 12 —
+      Go-проба края + newman) и согласован с DoD пп. 2–4.
+  - kind: CONSTRUCTIBILITY
+    status: closed
+    evidence: >-
+      Сценарий 08: Given заводит adm1g-cp-{{runId}} и adm1g-other-{{runId}}; отрицательная нога
+      зоны отличается от близнеца ровно regionId (ValidateZoneCoupling, domain/geo.go:47-55).
+      Сценарий 18: фикстура registerAndSignIn (ui-future/e2e/specs/fixtures.ts:534); SystemPage.tsx
+      не снимает кнопки по отказу в правах (комментарий withoutMutations), значит 403 на форме
+      достижим.
+non_blocking:
+  - >-
+    Сценарий 18: «свежая регистрация с {{runId}} в адресе» — register() строит адрес через
+    runTag() (fixtures.ts:265), а не через {{runId}} newman; назвать суффикс фикстуры.
+  - >-
+    Р8: проба TestGeoBootGateExemptionRestsOnNoEmission дополняет, а не повторяет corelib —
+    конструктор не отвергает «эмитент без гейта» (contract.go:1362-1363 «эмитент без гейта сегодня
+    отказом не является»); в пробе это стоит сказать комментарием, чтобы её не сняли как дубль.
+  - >-
+    Публичный и внутренний Update идут через один use-case (П4), а known-set маски у них разный
+    (zoneUpdatable сегодня содержит infra.*). Реализации — передать known-set по пути, а не
+    ветвить внутри use-case по транспорту.
+  - >-
+    security.md sec-admin-ui-rpc-internal-only по-прежнему расходится с принятым родительской
+    ADM-1 решением — к владельцу правила (перенесено из круга 1).
+constructibility:
+  seeded: 0
+  by_named_fixture: >-
+    01–16: jwtBootstrap/jwtPureNoBindings (prodseed_matrix.py), объекты с {{runId}}, заводятся и
+    снимаются кейсом; 08 — Given теперь полный; 17 — Go-проба края; 18 — шаг-условие
+    администратора (заказан DoD п.5) + registerAndSignIn для близнеца; 19 — компонентная проба.
+  not_executed: >-
+    Посев на стенде не выполнялся: задание не называло изоляции и разрешения на посев; факты
+    сверены чтением дерева @ffbe930dbe и corelib@v1.10.0. П15 перемерен командой: 23 файла
+    (16 geo, 5 registry, 2 storage) — совпадает с документом.
+event:
+  type: acceptance_approval
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: acceptance-reviewer · APPROVED · 75335edd56d414d631e903cd016e0970f35b1262611f94aa452cdd8201b27fa4
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 52b153d5c0e6813286084d5b3f3f07692552b0f7330dd299d6adfe7c58869ead.yaml
