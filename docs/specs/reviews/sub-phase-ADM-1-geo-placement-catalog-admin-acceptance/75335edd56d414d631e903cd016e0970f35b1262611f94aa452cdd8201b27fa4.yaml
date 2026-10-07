@@ -88,11 +88,23 @@ constructibility:
     сверены чтением дерева @ffbe930dbe и corelib@v1.10.0. П15 перемерен командой: 23 файла
     (16 geo, 5 registry, 2 storage) — совпадает с документом.
 event:
-  type: acceptance_approval
-  status: not_performed
-  published: false
-  publication_expected_from_orchestrator: true
-  body: acceptance-reviewer · APPROVED · 75335edd56d414d631e903cd016e0970f35b1262611f94aa452cdd8201b27fa4
+  type: issue_comment
+  target: PRO-Robotech/kacho#3092
+  status: performed
+  published: true
+  database_id: 6044116164
+  node_id: "IC_kwDOTZqgWM8AAAABaEHkxA"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3092#issuecomment-6044116164"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6044116164"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-07T18:21:05Z"
+  body_sha256: "5c1d9e3916d26fddaebdbaa3eb9305a62e6a9b4118607cedcbbd623bde5afe4e"
+  subject_sha256: "75335edd56d414d631e903cd016e0970f35b1262611f94aa452cdd8201b27fa4"
+  subject_revision_commit: "4c0a828d76249d352b7dfa3da6f014b991c6142b"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
