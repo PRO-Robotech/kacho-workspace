@@ -1,0 +1,62 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance.md
+  sha256: ee49b89ab32a52371635fa389c5afea7034ce16e74ac30e9fe0301ab3584fc83
+  revision: 3
+  previous_sha256: feb2d3d1bc33f00cf8f9a3f56c1d7eb7aa15b4cc93e9f0250e661ad0d799106e
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово в заголовке — то, что
+    вписал автор; действующий вердикт о редакции 3 — эта запись и внешнее событие.
+  base_commit: 3c7d553cd
+  content_commit: none (файл не закоммичен на ветке 3063-f8r-login-methods-reset-acceptance)
+  tasks:
+    - https://github.com/PRO-Robotech/kacho/issues/3063
+    - https://github.com/PRO-Robotech/kacho/issues/2702
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance.md
+  lines: 609
+  measured_against:
+    kacho: ffbe930dbef
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+round: 3
+round_kind: confirmation (смысл одобрен на круге 2; правка — форма команды DoD)
+reviewed_at: '2026-10-07'
+blocking: []
+delta_against_approved:
+  diff_predicate: git diff HEAD -- docs/specs/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance.md
+  stat: 6 вставок, 1 удаление
+  changes:
+    - "§7 S2 DoD п.4: 'make lint' -> 'make -C gateway lint' (единственная удалённая строка)"
+    - "История review: дописана строка «редакция 3»; строки редакций 1 и 2 не тронуты"
+  scenarios_changed: 0
+  verified:
+    - "HEAD:<док> | sha256sum = feb2d3d1…106e — совпадает с одобренной на круге 2"
+    - "project/kacho/gateway/Makefile:58 'lint:' -> 'golangci-lint run ./...' @ffbe930dbef; в корневом Makefile цели lint нет (grep '^lint' пусто)"
+    - "grep 'make ' по документу: одна команда (строка 592) плюс её упоминание в строке истории; других команд make без каталога нет"
+    - "allowlist в gateway/internal/allowlist/list.go существует — пункт S2 относится к краю, каталог gateway верен"
+non_blocking:
+  - Строка истории утверждает «прежняя форма без каталога не выполнялась из корня монорепо» — верно для @ffbe930dbef; утверждение привязано к ревизии.
+checked:
+  premise: >-
+    Подтверждена: дифф против одобренной редакции feb2d3d1 — только форма команды DoD и
+    запись о правке; прежние записи ревью (07a18c8e…, feb2d3d1…) не тронуты.
+  constructibility_seeded: не применимо — сценарии не менялись; конструируемость унаследована от круга 2 (названные фикстуры)
+scenarios: 13
+producer_named: 13 из 13 (без изменений с круга 2)
+twin_named: 6 из 6 отрицательных (без изменений с круга 2)
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · APPROVED · ee49b89ab32a52371635fa389c5afea7034ce16e74ac30e9fe0301ab3584fc83"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
