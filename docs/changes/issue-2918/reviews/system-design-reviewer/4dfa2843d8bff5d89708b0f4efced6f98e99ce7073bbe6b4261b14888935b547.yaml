@@ -1,0 +1,52 @@
+ВЕРДИКТ: принято на 4dfa2843d8bff5d89708b0f4efced6f98e99ce7073bbe6b4261b14888935b547
+role: system-design-reviewer
+moment: post-diff
+round: повтор по дельте (один круг, решение владельца 2026-09-27)
+pr: PRO-Robotech/kacho#3098
+base: origin/2914-notify @4d5295f1ae96ddb12fe2e228d4cf81d0101f8ec4 (= merge-base)
+head: 586df8f25fe38748a268037e9762a2c0c5a0fb7d (= refs/pull/3098/head, git ls-remote)
+previous_record: 373f7eb82ab4b6357a6af79c0eb176a3c77c63edb2a269339c67b846ed17cef1.yaml (@b1394d9e, принято)
+delta: b1394d9e6ab3a289066791c41599a6a71e5bd632..586df8f25fe38748a268037e9762a2c0c5a0fb7d (1 коммит, 2 файла)
+digest: 4dfa2843d8bff5d89708b0f4efced6f98e99ce7073bbe6b4261b14888935b547
+digest_command: git diff 4d5295f1ae96ddb12fe2e228d4cf81d0101f8ec4 586df8f25fe38748a268037e9762a2c0c5a0fb7d | sha256sum
+delta_digest: b5bfa3d300a7096bfca39a821336458c40ee15f161e22e2bcb7b1b47972138dc   # git diff b1394d9e..586df8f2 | sha256sum
+distributed_surface: true   # точка входа ленты пробы и схема её outbox
+blocking: false
+schema_intersection: да по предмету (миграция V1→V3 таблицы ленты пробы); миграция — вывод генератора, предмет схемы у db-architect-reviewer
+return_to: —
+
+judged:
+  - what: feed_wiring.go — Observer: feed.NopObserver
+    finding: нет
+    facts:
+      - corelib@67ba3443c149 notify/feed/server.go:135 отвергает nil Observer (ErrNilObserver); NopObserver — явное значение фундамента (observer.go:43), ObserveOutcome возвращает nil без записи
+      - наблюдатель зовётся в транзакции Ack (core.go:249 recordOutcome); у пробы нет состояния, которое Ack обязан двигать атомарно с исходом — разрыва атомарности не вносится
+  - what: миграция 20261007213434_notification_feed_v3_from_v1.sql
+    finding: нет
+    facts:
+      - вывод генератора побайтово: `notifygen init -service kacho_notifyprobe.notifyprobe -migrations services/notify/internal/probemigrations` на 586df8f2 (пин corelib 67ba3443c149) — diff с закоммиченным файлом пуст, отличается лишь метка времени имени
+      - применённая V1 не правится (ban #5); новый файл позже последнего (20261002090001)
+      - новые CHECK совместимы с живыми строками V1: expires_at NOT NULL и class ∈ {security, notice} ⇒ expiry_matches_class истинно; state/outcome_pair только расширяются
+  - what: граф, край, воркеры
+    finding: нет — новых рёбер, Internal*, воркеров и состояния в памяти дельта не вводит
+
+important: []   # пункт «строки ленты compute/registry/storage без читателя и уборки» из записи 373f7eb8 дельтой не затронут и остаётся в силе (не блокирует, ветка эпика)
+
+runs:
+  - cmd: GOWORK=off go test -count=1 -json ./services/notify/cmd/notify-probe/...   # @586df8f2, testcontainers
+    result: пакетов 5 ok · проб pass 53 · fail 0 · skip 0
+  - cmd: GOWORK=off go test -count=1 ./services/notify/cmd/notify-probe/ ./services/notify/cmd/notify-probe/internal/send/   # @b1394d9e — контроль красного
+    result: красных 9 (5 в корне пробы, 4 в send, включая TestParallelSendsGetTheirOwnIDs и TestSendReturnsItsOwnIDUnderACompetingWrite) — дельта их чинит
+  - cmd: GOWORK=off go test -count=1 -run 'Feed|Outbox|NotifyFeed|Migration' ./internal/repohygiene/   # @586df8f2
+    result: ok
+  worktree: tmp/sdr3098b.qnjz/k (снят)
+
+axes:
+  atomicity: не затронута (NopObserver — без записи в tx Ack)
+  idempotency: не затронута
+  concurrency: не затронута; конкурентные пробы send зелёные
+  delivery: модель опроса, Watch не вводится
+  workers: не затронуты
+  replicas: не затронуты
+  graph: новых рёбер нет
+  edge: не затронут
