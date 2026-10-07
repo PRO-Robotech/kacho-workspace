@@ -1,0 +1,37 @@
+role: system-design-reviewer
+phase: post-diff
+change: issue-2924
+subject: PRO-Robotech/kacho PR #3070 — повтор по дельте b2efc5d8..e3f4cb09
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: 829e1a26cb18753c869514317cd1d4b3302b0765   # merge-base с origin/2914-notify
+  head: e3f4cb0949f92c1798175039173921d739ee3ba3
+  content_digest: 3c671eefd2620f9df0cbfdfee6fb80ae35c7ac4c8186f4e3cf42e41abc09f45c
+  digest_command: "git diff 829e1a26cb18753c869514317cd1d4b3302b0765 e3f4cb0949f92c1798175039173921d739ee3ba3 | sha256sum"
+  delta: b2efc5d814f7d8e049935a60ec3d14cccb92bb93..e3f4cb0949f92c1798175039173921d739ee3ba3
+  delta_digest: 03d2a56b7ea11d5ecb95f751c39fb2379da90e646cb1ea79dd6d2d77dc3956b6
+  previous_record: c512d3d0b18a8e36275bfbba5019d87ee4a3d9feee151870a7c1aa1c6a8a3f64.yaml  # @b2efc5d8, accept
+acceptance:   # sha256sum в tmp/issue-880, совпали с заданием
+  NTF-2: d06cdcd24d2e
+  NTF-4: 52dfa29a6879
+  NTF-5: ccbb0102ab70
+verdict: accept
+blocking: []
+distributed_surface: no   # дельта — только package.json/package-lock.json семи сайтов документации (Docusaurus)
+schema_overlap: no
+delta_composition: "2 коммита (eb6d148c, e3f4cb09, #3044); 14 файлов: {gateway,services/{compute,geo,nlb,registry,storage,vpc}}/docs/package{,-lock}.json; вне docs/package* — 0 файлов (git diff --name-only | grep -v '/docs/package' → пусто)"
+axes:
+  dual_write: n/a
+  idempotency: n/a
+  cas_occ: n/a
+  delivery_model: n/a
+  worker_coordination: n/a
+  cross_service: "n/a — новых runtime-рёбер нет"
+  replica_isolation: n/a
+  edge: n/a
+  clean_architecture: n/a
+notes:
+  - "Дельта поднимает транзитивные зависимости сборки сайтов (shell-quote ^1.11.0, tinypool ^2.1.2, compression, proxy-addr, source-map-js) — время сборки документации, не рантайм сервисов; распределённых свойств не касается."
+  - "Вывод прежней записи @b2efc5d8 (схема извещений S1) дельтой не затронут: файлов миграций и Go в дельте нет."
+  - "Адресация событий ресурсов (линия B, Д133/Д134) дельтой не тронута."
+orders: []
