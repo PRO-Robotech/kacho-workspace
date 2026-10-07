@@ -90,7 +90,15 @@ check K5-каталог-остался 1 "СЛЕД: tmpdir $T/kacho-ci-local-123
 
 # K6 — локаль со свёрткой берётся из установленных; её нет — случай не выполнен,
 # и это провал пробы, а не тихий пропуск: без него свойство не доказано.
-COLLATE="$(locale -a 2>/dev/null | grep -m1 -iE '^(ru_RU|en_US)\.utf-?8$' || true)"
+# Перечень локалей читается целиком в переменную, а выбор — из неё: `grep -m1`
+# в трубе под pipefail обрывал бы писателя, и найденное объявилось бы ненайденным.
+LOCALES="$(locale -a 2>/dev/null)" || LOCALES=""
+COLLATE=""
+while IFS= read -r loc; do
+    case "$loc" in
+        ru_RU.[uU][tT][fF]8|ru_RU.[uU][tT][fF]-8|en_US.[uU][tT][fF]8|en_US.[uU][tT][fF]-8) COLLATE="$loc"; break ;;
+    esac
+done <<<"$LOCALES"
 if [ -z "$COLLATE" ]; then
     printf 'ПРОВАЛ K6-локаль-со-свёрткой: не выполнено — локали ru_RU/en_US UTF-8 не установлены\n'
     FAIL=$((FAIL + 1))
