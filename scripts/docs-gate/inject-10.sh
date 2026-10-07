@@ -29,7 +29,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/../lib/proofs.sh"
 proof_own_environment
 
-TMP="$(mktemp -d)"
+TMP="$(mktemp -d)" || TMP=""
+if [ -z "$TMP" ] || [ ! -d "$TMP" ]; then
+    echo "[VOID] inject-10 — временный корень пробы не создан (mktemp -d отказал при TMPDIR='${TMPDIR:-}')" >&2
+    exit 2
+fi
 trap 'rm -rf "$TMP"' EXIT
 pass=0; fail=0
 
@@ -118,6 +122,15 @@ if [ "$rc" -eq 2 ] && grep -qF '[VOID]' <<<"$out" && grep -qF -- "$o6" <<<"$out"
     ok "W6' корень внутри копии: код 2, [VOID], копия названа"
 else
     bad "W6' — корень внутри копии: код $rc" "$out"
+fi
+# Пустой корень — умерший `mktemp` вызывающего. Причина обязана быть своя: прежде
+# пустая строка уходила в `git -C ""`, то есть в ТЕКУЩИЙ каталог, и вывод называл
+# «корень внутри рабочей копии», отправляя чинить TMPDIR вместо временного каталога.
+out="$(product_fixture_root_census "" 2>&1)"; rc=$?
+if [ "$rc" -eq 2 ] && grep -qF 'корня нет' <<<"$out" && ! grep -qF 'внутри рабочей копии' <<<"$out"; then
+    ok "W6'' пустой корень: код 2, причина — корня нет, а не «внутри копии»"
+else
+    bad "W6'' — пустой корень: код $rc" "$out"
 fi
 
 echo "[CENSUS] inject-10: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
