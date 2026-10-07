@@ -44,6 +44,7 @@ fi
 # shellcheck source=../lib/sandbox-git-home.sh
 . "$HERE/../lib/sandbox-git-home.sh"
 sandbox_git_home "$TMP/home" || { echo "[VOID] inject-10 — корневой подписи нет" >&2; exit 2; }
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/product-fixture.sh
 . "$HERE/../lib/product-fixture.sh"
 
