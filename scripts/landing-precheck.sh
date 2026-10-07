@@ -26,14 +26,25 @@
 # (пункт (е)) и — через merge-readiness — `lib/dod_proof.jq`. Скопированный
 # одним файлом, он их теряет и выходит VOID («предиката атрибуции нет»);
 # запущенный из рабочей копии воркспейса — судит той редакцией, что в ней
-# выписана, а не принятой. Рецепт (WS — путь воркспейса):
-#   D=$(mktemp -d "$TMPDIR/wsg.XXXX") && git -C "$WS" fetch -q origin main \
-#     && git -C "$WS" archive origin/main scripts | tar -x -C "$D" \
-#     && LANDING_PRECHECK_WS="$WS" bash "$D/scripts/landing-precheck.sh" <репо> <PR>
+# выписана, а не принятой. Рецепт — между строками-метками ниже; WS — путь
+# воркспейса, S — запускаемый скрипт (`landing-precheck.sh` либо
+# `merge-readiness.sh`), `<аргументы>` — его аргументы:
+# >>> рецепт ЗАПУСК
+#   ( set -o pipefail; D=$(mktemp -d "${TMPDIR:-$WS/tmp}/wsg.XXXX") \
+#       && git -C "$WS" fetch -q origin main \
+#       && git -C "$WS" archive origin/main scripts | tar -x -C "$D" \
+#       || { echo "ЗАПУСК: подготовка архива scripts/ из origin/main «$WS» не состоялась" >&2; rm -rf "${D:-}"; exit 2; }
+#     LANDING_PRECHECK_WS="$WS" bash "$D/scripts/$S" <аргументы>; c=$?; rm -rf "$D"; exit "$c" )
+# <<< рецепт ЗАПУСК
+# Рецепт не зависит от окружения: при снятом TMPDIR каталог берётся в tmp/
+# воркспейса. Сбой ПОДГОТОВКИ (каталога нет, origin недоступен, архива нет) —
+# код 2 «вердикта нет», а не код 1 «сливать нельзя»: подготовка не судит PR.
+# Код скрипта проходит наружу как есть. Проба — landing-precheck-inject.sh,
+# раздел «запуск»: она исполняет ЭТОТ текст, вырезанный по меткам.
 # LANDING_PRECHECK_WS обязателен: без него WS — каталог над scripts/, то есть
 # распакованный архив; он не воркспейс (либо не git вовсе, либо — внутри tmp/
 # воркспейса — чужая рабочая копия), и origin/main для пункта (д) берётся не там.
-# merge-readiness.sh тем же архивом: `bash "$D/scripts/merge-readiness.sh" <репо> <PR>`.
+# merge-readiness.sh переменную не читает — тем же рецептом с S=merge-readiness.sh.
 #
 # ЧТО СУДИТСЯ — по пункту на причину; каждая причина — ОДНА строка
 #   REASON<TAB><код><TAB><пояснение>

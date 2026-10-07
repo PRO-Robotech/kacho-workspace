@@ -430,23 +430,63 @@ else
     expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: распознавателя доказательства DoD нет' "инъекция: предпроверка извлекает merge-readiness без lib/ — код 2 «распознавателя нет»"
 fi
 
-echo "== запуск: каталог scripts/ целиком из origin/main, а не один файл (шапка, «ЗАПУСК»)"
-# Близнец — РЕЦЕПТ шапки как он есть: песочница-воркспейс несёт в origin/main весь
-# каталог scripts/ этого дерева, `git archive origin/main scripts | tar -x` в
-# отдельный каталог и запуск оттуда с LANDING_PRECHECK_WS. Инъекция меняет ОДИН
-# факт — из того же архива рядом с собой у предпроверки ОДИН файл: соседей
-# (`hooks/attribution-rule.sh`) нет, и вердикта нет (код 2) с указанием на рецепт.
+echo "== запуск: рецепт шапки «ЗАПУСК» как он есть, при снятом TMPDIR"
+# Близнец — ТЕКСТ рецепта, вырезанный из шапки предпроверки по меткам «рецепт
+# ЗАПУСК», исполненный при СНЯТОМ TMPDIR: песочница-воркспейс несёт в origin/main
+# весь каталог scripts/ этого дерева, origin — голый репозиторий рядом, так что
+# `git fetch origin main` рецепта настоящий. Обязан: код 0, временный каталог —
+# в tmp/ воркспейса и после прогона снят. Инъекции меняют по ОДНОМУ факту:
+#   — origin недоступен: подготовка не состоялась — код 2 (вердикта нет), а не 1;
+#   — рецепт, зависящий от TMPDIR (`"$TMPDIR/wsg.XXXX"`, дефект ревью #960):
+#     при снятом TMPDIR вердикта нет — проба близнеца его бы поймала (код ≠ 0);
+#   — из того же архива ОДИН файл предпроверки: соседей (`hooks/attribution-rule.sh`)
+#     нет — код 2 с указанием на рецепт.
 mrcase 1
 rm -rf "$W/ws/scripts"; cp -r "$HERE" "$W/ws/scripts"
 sandbox_git -C "$W/ws" add -A
 sandbox_git -C "$W/ws" commit -qm whole-scripts
-sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD
+rm -rf "$W/origin.git"
+sandbox_git init -q --bare "$W/origin.git"
+sandbox_git -C "$W/ws" push -q "$W/origin.git" HEAD:refs/heads/main
+sandbox_git -C "$W/ws" remote remove origin 2>/dev/null
+sandbox_git -C "$W/ws" remote add origin "$W/origin.git"
+sandbox_git -C "$W/ws" update-ref -d refs/remotes/origin/main
+rm -rf "$W/ws/tmp"; mkdir -p "$W/ws/tmp"
+RECIPE="$(sed -n '/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}' "$TOOL")"
+RECIPE="${RECIPE//<аргументы>/PRO-Robotech/kacho 3036}"
+# recipe <текст> — рецепт при снятом TMPDIR. HOME — вызывающего, как у прочих
+# прогонов предпроверки в этой пробе: рецепт истории не пишет (fetch и archive),
+# а подмена HOME меняет разрешение инструментов в PATH, не относящееся к рецепту.
+recipe() {
+    env -u TMPDIR WS="$W/ws" S=landing-precheck.sh \
+        FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
+        bash -c "$1" > "$W/out" 2>&1
+    echo $? > "$W/code"
+}
+# shellcheck disable=SC2016  # образец — текст рецепта, подстановка не нужна
+if [ -z "$RECIPE" ] || [[ "$RECIPE" != *'bash "$D/scripts/$S" PRO-Robotech/kacho 3036'* ]]; then
+    echo "  [FAIL] рецепт по меткам «рецепт ЗАПУСК» из шапки не вырезан либо без <аргументы>" >&2; fail=$((fail + 1))
+else
+    recipe "$RECIPE"
+    expect 0 - "рецепт шапки при снятом TMPDIR: архив scripts/ из origin/main — вердикт выносится (код 0)"
+    if [ -z "$(ls -A "$W/ws/tmp")" ]; then echo "  [OK]   рецепт снял свой каталог в tmp/ воркспейса"; pass=$((pass + 1))
+    else echo "  [FAIL] после рецепта в tmp/ воркспейса осталось: $(ls -A "$W/ws/tmp")" >&2; fail=$((fail + 1)); fi
+    sandbox_git -C "$W/ws" remote set-url origin "$W/no-such-origin.git"
+    recipe "$RECIPE"
+    sandbox_git -C "$W/ws" remote set-url origin "$W/origin.git"
+    expect 2 'ЗАПУСК: подготовка архива scripts/ из origin/main' "инъекция: origin недоступен — подготовка не состоялась, код 2, а не 1"
+    # shellcheck disable=SC2016  # замена текста рецепта, подстановка не нужна
+    MUT="${RECIPE//'${TMPDIR:-$WS/tmp}'/'$TMPDIR'}"
+    if [ "$MUT" = "$RECIPE" ]; then
+        echo "  [FAIL] инъекция «рецепт от TMPDIR»: образец \${TMPDIR:-\$WS/tmp} в рецепте не найден" >&2; fail=$((fail + 1))
+    else
+        recipe "$MUT"
+        if [ "$(cat "$W/code")" != 0 ]; then echo "  [OK]   инъекция: рецепт от TMPDIR при снятом TMPDIR вердикта не выносит (код $(cat "$W/code")) — близнец это ловит"; pass=$((pass + 1))
+        else echo "  [FAIL] инъекция: рецепт от TMPDIR дал код 0 при снятом TMPDIR — проба близнеца слепа" >&2; fail=$((fail + 1)); fi
+    fi
+fi
 rm -rf "$W/arch" "$W/single"; mkdir -p "$W/arch" "$W/single"
-git -C "$W/ws" archive origin/main scripts | tar -x -C "$W/arch"
-FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
-    bash "$W/arch/scripts/landing-precheck.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
-echo $? > "$W/code"
-expect 0 - "рецепт: архив scripts/ из origin/main + LANDING_PRECHECK_WS — вердикт выносится (код 0)"
+git -C "$W/ws" archive HEAD scripts | tar -x -C "$W/arch"
 cp "$W/arch/scripts/landing-precheck.sh" "$W/single/"
 FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
     bash "$W/single/landing-precheck.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
