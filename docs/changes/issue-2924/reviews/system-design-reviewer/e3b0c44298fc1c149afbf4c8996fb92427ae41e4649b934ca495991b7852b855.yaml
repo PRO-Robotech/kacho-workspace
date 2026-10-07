@@ -1,0 +1,34 @@
+role: system-design-reviewer
+phase: post-diff
+change: issue-2924
+subject: PRO-Robotech/kacho PR #3070 — повтор по дельте e3f4cb09..e3f4cb09 (пустая)
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: 829e1a26cb18753c869514317cd1d4b3302b0765   # merge-base с origin/2914-notify, не сдвигалась
+  head: e3f4cb0949f92c1798175039173921d739ee3ba3   # = headRefOid PR #3070 (gh pr view), state OPEN
+  content_digest: 0467aa2b3ef0e96abf5229d2474b4985e053ebd9fd15f9046d1a0c005a4d892e
+  digest_command: "git diff 829e1a26cb18753c869514317cd1d4b3302b0765 e3f4cb0949f92c1798175039173921d739ee3ba3 | sha256sum   # project/kacho, git 2.53.0"
+  delta: e3f4cb0949f9..e3f4cb0949f92c1798175039173921d739ee3ba3
+  delta_bytes: 0
+  delta_digest: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855   # sha256 пустого входа
+  previous_record: 0467aa2b3ef0e96abf5229d2474b4985e053ebd9fd15f9046d1a0c005a4d892e.yaml  # та же голова и тот же дайджест, accept
+record_name_note: >
+  Имя файла — дайджест судимой дельты (пустой), потому что запись на дайджест полного диффа
+  0467aa2b… уже существует, а прежние записи не перезаписываются (change-graph §2).
+verdict: accept
+blocking: []
+distributed_surface: no    # дельта пуста; полный дифф головы уже судим записью 0467aa2b… (distributed_surface: yes, accept)
+schema_overlap: no
+axes:
+  dual_write: n/a
+  idempotency: n/a
+  cas_occ: n/a
+  delivery_model: n/a
+  worker_coordination: n/a
+  cross_service: n/a
+  replica_isolation: n/a
+  edge: n/a
+  clean_architecture: n/a
+notes:
+  - "Голова PR не сдвигалась с прежней записи: повтор без новой головы предмета не имеет; вывод записи 0467aa2b… действует без изменений."
+orders: []
