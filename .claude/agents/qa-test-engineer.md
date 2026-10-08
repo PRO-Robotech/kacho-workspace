@@ -210,6 +210,7 @@ JSON). Порядок: `POST/PATCH/DELETE` → HTTP 200 и `Operation.id` по �
   `$WS/scripts/heavy-slot.sh <класс> -- …`, 75 и 76 — «не выполнилось»; держатель — потолок сессии
   и слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY`
   в guard.py.
+- Стенд проб — своё ns на внешнем кластере, снятие — в той же задаче: `Skill rule-testing-verdict` → `external-cluster-ns-per-run`.
 
 ## Возврат
 
