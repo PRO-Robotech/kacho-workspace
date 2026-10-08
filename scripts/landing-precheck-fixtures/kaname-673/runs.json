@@ -1,0 +1,44 @@
+{
+  "workflow_runs": [
+    {
+      "check_suite_id": 102222121315,
+      "event": "pull_request",
+      "head_branch": "484-wave-fence-2",
+      "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+      "id": 37732466197,
+      "path": ".github/workflows/pr-rule.yml"
+    },
+    {
+      "check_suite_id": 102228807031,
+      "event": "pull_request",
+      "head_branch": "484-wave-fence-2",
+      "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+      "id": 37734966167,
+      "path": ".github/workflows/pr-rule.yml"
+    },
+    {
+      "check_suite_id": 102228829745,
+      "event": "pull_request",
+      "head_branch": "484-wave-fence-2",
+      "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+      "id": 37734974806,
+      "path": ".github/workflows/pr-rule.yml"
+    },
+    {
+      "check_suite_id": 102228955164,
+      "event": "pull_request",
+      "head_branch": "484-wave-fence-2",
+      "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+      "id": 37735022664,
+      "path": ".github/workflows/pr-rule.yml"
+    },
+    {
+      "check_suite_id": 102229227503,
+      "event": "pull_request",
+      "head_branch": "484-wave-fence-2",
+      "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+      "id": 37735126316,
+      "path": ".github/workflows/pr-rule.yml"
+    }
+  ]
+}

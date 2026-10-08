@@ -365,6 +365,43 @@ for oc in $RC_OUTCOMES; do
     mk_pr_mixed "$d/pr.json" CLEAN "$CTX_LAT=SUCCESS" "$CTX_DASH=SUCCESS" "$CTX_CYR=$c"
 done
 
+# SUP-<случай> — у обязательного контекста НЕСКОЛЬКО записей rollup: перезапуск по
+# событию правки запроса поднимает новый прогон, прежний исход остаётся рядом
+# (kaname#673 @1197a78e: «правило запроса» success, cancelled, failure, success,
+# success). Судится ПОСЛЕДНИЙ исход проверки (имя и workflowName) по startedAt.
+# Против SUP-GREEN меняется один факт. Прежнее правило «зелёное, если ЕСТЬ
+# success» на SUP-LATE-RED и SUP-LATE-RUN отвечало «можно» — ранний success
+# прикрывал поздний красный и идущий.
+# mk_pr_timed <файл> <имя|workflow|startedAt|ИСХОД>... — пустой исход: идёт;
+# пустой startedAt — поля нет.
+mk_pr_timed() {
+    local f="$1"; shift
+    local rollup
+    rollup="$(printf '%s\n' "$@" | jq -R 'split("|") | {name: .[0], workflowName: .[1],
+        status: (if .[3] == "" then "IN_PROGRESS" else "COMPLETED" end),
+        conclusion: (if .[3] == "" then null else .[3] end)}
+        + (if .[2] == "" then {} else {startedAt: .[2]} end)' | jq -s .)"
+    jq -n --arg b "${MR_BASE:-main}" --argjson r "$rollup" \
+        '{state:"OPEN", baseRefName:$b, mergeStateStatus:"CLEAN", statusCheckRollup:$r,
+          closingIssuesReferences:[]}' > "$f"
+}
+SUP_T0="2026-10-08T05:57:02Z"; SUP_T1="2026-10-08T05:57:11Z"; SUP_T2="2026-10-08T05:58:55Z"
+sup_case() {  # <имя> <запись CTX_CYR>... — прочие обязательные зелёны
+    local d; d="$(mkcase "SUP-$1")"; shift
+    mk_protection "$d/protection@main.json" "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
+    mk_pr_timed "$d/pr.json" "$CTX_LAT|ci|$SUP_T0|SUCCESS" "$CTX_DASH|ci|$SUP_T0|SUCCESS" "$@"
+}
+# SUP-GREEN — законный близнец, форма kaname#673: cancelled и failure вытеснены поздним success.
+sup_case GREEN "$CTX_CYR|pr-rule|$SUP_T0|CANCELLED" "$CTX_CYR|pr-rule|$SUP_T1|FAILURE" "$CTX_CYR|pr-rule|$SUP_T2|SUCCESS"
+# SUP-LATE-RED — поздний failure после success.
+sup_case LATE-RED "$CTX_CYR|pr-rule|$SUP_T0|SUCCESS" "$CTX_CYR|pr-rule|$SUP_T2|FAILURE"
+# SUP-LATE-RUN — поздний прогон идёт, ранний success.
+sup_case LATE-RUN "$CTX_CYR|pr-rule|$SUP_T0|SUCCESS" "$CTX_CYR|pr-rule|$SUP_T2|"
+# SUP-WF — поздний success другого workflow: не та же проверка, failure не вытеснен.
+sup_case WF "$CTX_CYR|pr-rule|$SUP_T1|FAILURE" "$CTX_CYR|other|$SUP_T2|SUCCESS"
+# SUP-NOSTART — у раннего failure нет startedAt: порядок не установлен, судятся оба.
+sup_case NOSTART "$CTX_CYR|pr-rule||FAILURE" "$CTX_CYR|pr-rule|$SUP_T2|SUCCESS"
+
 # A-<состояние> — все обязательные зелены, а сервер держит слияние. Против A один
 # факт — состояние слияния, и каждое удерживающее — своей пробой: порча перечня
 # «можно» на любом из них — ложное «можно».
@@ -909,6 +946,17 @@ for oc in $RC_OUTCOMES; do
             "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [$oc]" "$CTX_CYR — красный"
     fi
 done
+
+probe "$PRODUCT_REPO" "$TMP/case-SUP-GREEN" 0 "обязательный контекст: cancelled и failure вытеснены поздним success той же проверки — «можно»" \
+    "можно сливать" "вытеснено поздним прогоном той же проверки: 2"
+probe "$PRODUCT_REPO" "$TMP/case-SUP-LATE-RED" 1 "обязательный контекст: поздний failure после success — «нельзя», ранний success не прикрывает" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — красный" "вытеснено поздним прогоном той же проверки: 1"
+probe "$PRODUCT_REPO" "$TMP/case-SUP-LATE-RUN" 1 "обязательный контекст: поздний прогон идёт после success — «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — идёт"
+probe "$PRODUCT_REPO" "$TMP/case-SUP-WF" 1 "обязательный контекст: success другого workflow не вытесняет failure — «нельзя»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — красный" "вытеснено поздним прогоном той же проверки: 0"
+probe "$PRODUCT_REPO" "$TMP/case-SUP-NOSTART" 1 "обязательный контекст: у записи нет startedAt — порядок не установлен, failure судится" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR — красный" "вытеснено поздним прогоном той же проверки: 0"
 
 probe "$WS_REPO" "$J" 0 "воркспейс: ручной прогон на голове зелёный при пустом rollup — «сливать можно»" \
     "можно сливать" "check-runs: 3" "проверок 0"

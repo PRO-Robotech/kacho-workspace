@@ -86,9 +86,20 @@
 #       и #3041: шесть sha-жетонов вне диапазона, все шесть законны.
 #   (г) CI-EMPTY            — на headSha нет ни одного check-run: «проверок 0» —
 #                             не зелёное;
-#       CI-PENDING          — check-run на headSha не завершён;
-#       CI-NOT-SUCCESS      — завершён не success (neutral, cancelled, failure —
-#                             всегда; skipped — см. ниже).
+#       CI-PENDING          — последний прогон проверки на headSha не завершён;
+#       CI-NOT-SUCCESS      — последний прогон проверки завершён не success
+#                             (neutral, cancelled, failure — всегда; skipped — см.
+#                             ниже).
+#       ПОСЛЕДНИЙ ПРОГОН ПРОВЕРКИ. Проверка — приложение, имя check-run, файл
+#                             workflow и событие его прогона; судится её прогон с
+#                             наибольшим started_at, прежние — вытеснены и печатаются
+#                             строкой CENSUS поимённо. Форма, ради которой это есть:
+#                             kaname#673 @1197a78e — «правило запроса» cancelled и
+#                             failure по прежнему заголовку, затем два success по
+#                             правленому; у каждого свой check suite, и
+#                             `filter=latest` их не сворачивает. Прогон workflow
+#                             набора не найден, started_at нет либо поздних
+#                             несколько — вытеснения нет, судятся все.
 #       ИСКЛЮЧЕНИЕ ОДНО — skipped задания, чьё условие `if` НЕВЫПОЛНИМО на
 #                             событии его прогона. Признак (ws#947) — все три:
 #                             1) имени нет в наборе обязательных контекстов, которым
@@ -357,8 +368,6 @@ if total >= 0 and total != len(runs):
 own_runs = [r for r in runs if r.get("head_sha", head) == head]
 if not own_runs:
     reason("CI-EMPTY", f"на {head[:12]} ни одного check-run — «проверок 0» не зелёное")
-pending = [r for r in own_runs if r.get("status") != "completed"]
-bad = [r for r in own_runs if r.get("status") == "completed" and r.get("conclusion") != "success"]
 # Набор обязательных — тот, которым судит этот PR merge-readiness (файл пишет он).
 required = None
 if os.path.exists(f"{W}/required"):
@@ -628,6 +637,50 @@ def skip_lawful(r):
             return False, f"{path}: {why}"
     return True, f"{path} на {ev}"
 
+# Судится ПОСЛЕДНИЙ прогон каждой проверки, а не каждый прогон на голове (находка
+# kaname#673 @1197a78e: «правило запроса» cancelled 05:57:02 и failure 05:57:11
+# вытеснены success 05:57:41 и 05:58:55 — новыми прогонами по событию правки
+# запроса; `filter=latest` их не сворачивает: у каждого свой check suite).
+# Проверка — приложение, имя, файл workflow и событие её прогона (`actions/runs`
+# по check_suite.id): одноимённые задания разных файлов (kaname «вердикт ствола»
+# в ci.yml, docker-build.yml, e2e-newman.yml) и прогоны push и pull_request
+# одного файла — разные проверки, и ни одна не вытесняет другую. Прогон
+# workflow набора не найден — ключ сам набор: вытеснять не из чего. Последний —
+# наибольший started_at; незавершённый последний — «идёт», а не зелёный;
+# нет started_at у кого-то из группы либо поздних несколько — судятся все.
+def check_key(r):
+    suite = (r.get("check_suite") or {}).get("id")
+    rm = runs_by_suite()
+    run = rm.get(suite) if rm is not None else None
+    if run is None:
+        return ("набор", suite)
+    return (run.get("path"), run.get("event"))
+
+by_check = {}
+for r in own_runs:
+    by_check.setdefault(((r.get("app") or {}).get("id"), r.get("name")), []).append(r)
+judged, superseded = [], []
+for group in by_check.values():
+    if len(group) == 1:
+        judged += group
+        continue
+    sub = {}
+    for r in group:
+        sub.setdefault(check_key(r), []).append(r)
+    for g in sub.values():
+        starts = [r.get("started_at") for r in g]
+        if len(g) == 1 or not all(isinstance(s, str) and s for s in starts):
+            judged += g
+            continue
+        last = max(starts)
+        judged += [r for r in g if r.get("started_at") == last]
+        superseded += [r for r in g if r.get("started_at") != last]
+collided = sum(1 for g in by_check.values() if len(g) > 1)
+if collided and wf_err:
+    census.append(f"ci: одноимённых проверок {collided}, {wf_err} — вытеснения нет, судятся все прогоны")
+pending = [r for r in judged if r.get("status") != "completed"]
+bad = [r for r in judged if r.get("status") == "completed" and r.get("conclusion") != "success"]
+
 skipped_lawful, skip_why = [], {}
 for r in bad:
     if r.get("conclusion") != "skipped":
@@ -643,7 +696,12 @@ for r in bad:
         continue
     why = f" ({skip_why[id(r)]})" if id(r) in skip_why else ""
     reason("CI-NOT-SUCCESS", f"{r.get('name')} — {r.get('conclusion')}{why}")
-census.append(f"ci: check-runs на голове {len(own_runs)}, success {len(own_runs) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}")
+census.append(f"ci: check-runs на голове {len(own_runs)}, судится последних {len(judged)}, вытеснено поздним прогоном той же проверки {len(superseded)}, success {len(judged) - len(pending) - len(bad)}, идут {len(pending)}, не-success {len(bad) - len(skipped_lawful)}, skipped по невыполнимому if {len(skipped_lawful)}; набор обязательных {len(required) if required is not None else 'НЕ ПОЛУЧЕН'}")
+for name in sorted({r.get("name") for r in superseded}):
+    gone = [r for r in superseded if r.get("name") == name]
+    gone = sorted(gone, key=lambda r: r.get("started_at") or "")
+    what = ", ".join(f"{r.get('started_at')} {r.get('conclusion') or r.get('status')}" for r in gone)
+    census.append(f"ci: вытеснены поздним прогоном: {name} ×{len(gone)} ({what})")
 for key in sorted({(r.get("name"), skip_why[id(r)]) for r in skipped_lawful}):
     census.append(f"ci: skipped не причина — условие if невыполнимо: {key[0]} ×{sum(1 for r in skipped_lawful if (r.get('name'), skip_why[id(r)]) == key)} ({key[1]})")
 

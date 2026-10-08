@@ -1,0 +1,67 @@
+[
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 102222121315
+    },
+    "conclusion": "success",
+    "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+    "name": "правило запроса (заголовок · голова · тело · коммиты)",
+    "started_at": "2026-10-08T05:27:31Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 102228807031
+    },
+    "conclusion": "cancelled",
+    "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+    "name": "правило запроса (заголовок · голова · тело · коммиты)",
+    "started_at": "2026-10-08T05:57:02Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 102228829745
+    },
+    "conclusion": "failure",
+    "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+    "name": "правило запроса (заголовок · голова · тело · коммиты)",
+    "started_at": "2026-10-08T05:57:11Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 102228955164
+    },
+    "conclusion": "success",
+    "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+    "name": "правило запроса (заголовок · голова · тело · коммиты)",
+    "started_at": "2026-10-08T05:57:41Z",
+    "status": "completed"
+  },
+  {
+    "app": {
+      "id": 15368
+    },
+    "check_suite": {
+      "id": 102229227503
+    },
+    "conclusion": "success",
+    "head_sha": "1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7",
+    "name": "правило запроса (заголовок · голова · тело · коммиты)",
+    "started_at": "2026-10-08T05:58:55Z",
+    "status": "completed"
+  }
+]
