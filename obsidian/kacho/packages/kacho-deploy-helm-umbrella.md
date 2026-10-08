@@ -85,5 +85,9 @@ verified_against: "`project/kacho`: ствол `bec320cf47d` и ветка `issu
   ёмкость проверяющего 2, предел 512Mi; ёмкость 1 отвергалась на старте правилом церемонии
   у пина `main-0dd03218`. PR #3023, `2afc06571c7`; trail — [[KAC/issue-3012]], класс —
   [[lessons/pin-bump-brings-a-start-refusal-the-gate-does-not-model]].
+- 2026-10-08 — `values.a8f60d.yaml`: `notify.returnDomain` — домен отправителя установки
+  вместо домена стенда из `values.dev.yaml`; рядом цель `installation-mail-dns` и
+  `deploy/stacks-mail-dns.txt`. Влито только в ветку эпика `2914-notify` (PR #3108,
+  `9bc6b9e89ae3`), в `main` этого нет; trail — [[KAC/issue-3017]].
 
 #packages #kacho-deploy #config
