@@ -1,0 +1,45 @@
+ВЕРДИКТ: ✅
+sha: 1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7
+base: 484-notify
+delta_from: bdc36c614e67264f07af2c71bd58ddcc4b1803f4
+digest: 5455207695dead0f3a66235f767f536407de0def52819cc1eb3ebba486d6c452  # git diff bdc36c61..1197a78e | sha256sum
+role: security-auditor
+mode: пост-дифф, повтор по дельте, один круг; блокирующее — только корректность/безопасность с предикатом
+pr: PRO-Robotech/kaname#673 (полоса K2/K3, NTF-3; PRO-Robotech/kacho#2918)
+prior: 00c1ad8f0c70d47a7fb975e1fe5dbea2344781b7e833735410b0bd7c560cb77c.yaml (⛔, SA-673-01)
+premise:
+  status: подтверждена
+  detail: голова PR = 1197a78e, база 484-notify; дельта — 2 коммита (14145b9c1 K3, 1197a78ed K2), 3 файла, +216/-2, все три — тестовые; прод-кода в дельте нет.
+  command: gh pr view 673 -R PRO-Robotech/kaname --json headRefOid,baseRefName; git diff --stat bdc36c614 1197a78ed
+scope:
+  read:
+    - internal/apps/kaname/api/internal_iam/proxy_write_rule_handler_integration_test.go (новый, целиком)
+    - cmd/kaname/audience_fence_fixture_test.go, cmd/kaname/ntf_grant_fixture_test.go (дельта)
+    - internal/apps/kaname/api/internal_iam/handler.go:195-259 (сверка проб с судимым кодом)
+    - сообщения обоих коммитов (автор pointpu, строк атрибуции 0)
+surface: >
+  Новой поверхности нет: ни RPC, ни слушателя, ни записи каталога, ни отношения модели, ни секрета.
+  Фикстура K3 берёт для удерживаемой транзакции своё соединение по адресу тестового клона — только тестовое дерево.
+closes:
+  - id: SA-673-01
+    итог: закрыта
+    доказательство:
+      - "M2 (validateObjectWithdrawal → return nil) — КРАСНЫЙ: TestUnregisterResource_ObjectOfAnotherModuleTypeIsRefusedAndWritesNothing, «снятие объекта чужого типа: вызов принят»"
+      - "M3 (цикл правила по set[:0]) — КРАСНЫЙ: TestRegisterResource_ObjectOfAnotherModuleType…, TestRegisterResource_SetWithOneRefusedTuple…"
+      - "M3b (правило только на первом кортеже, set[:1]) — КРАСНЫЙ: TestRegisterResource_SetWithOneRefusedTupleIsRefusedAsAWhole"
+      - "проба на наблюдаемом уровне: PERMISSION_DENIED, текст побайтно «permission denied», отпечаток каждой таблицы схемы kaname неизменён (с проверкой предпосылки — обход видит голову, кортежи, зеркало); положительный близнец по одному факту у каждого отказа"
+runs:
+  - "go test -count=1 -run '<три новые пробы>' -v ./internal/apps/kaname/api/internal_iam/ @1197a78e — PASS 3 (+3 подтеста), rc 0"
+  - "go test -count=1 ./internal/apps/kaname/api/internal_iam/ @1197a78e — ok, rc 0"
+  - "taskset -c 0-3 go test -count=1 ./cmd/kaname/ @1197a78e — ok 70.6 s, rc 0 (условие зависания K3 — четыре процессора — создано)"
+  - "go vet internal_iam, cmd/kaname — rc 0"
+injections_restore: "git checkout после каждой инъекции; git status --porcelain = 0 строк"
+blocking: []
+non_blocking:
+  - id: SA-673-N1..N3
+    предмет: прежние наблюдения прошлого круга остаются в силе, дельтой не затронуты.
+cross_repo: []
+dry_round: да — подтверждённых находок 0
+seen_keys:
+  - kaname:internal/apps/kaname/api/internal_iam/handler.go:withdrawal-type-ownership-unpinned (закрыта @1197a78e)
+  - kaname:internal/apps/kaname/api/internal_iam/handler.go:register-set-proxy-rule-unpinned (закрыта @1197a78e)
