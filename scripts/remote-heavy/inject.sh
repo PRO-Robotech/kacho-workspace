@@ -18,6 +18,7 @@
 #   K2 команда кодом 42                    → код 42; ns снято
 #   K3 TERM посреди идущей команды         → код 143; ns снято; выход ≤ 20 с
 #   K4 контейнер OOMKilled                 → код 76; ns снято
+#   K6 подготовка pod не удалась            → 69; ns снято; близнец K6b — код 125 команды
 #   K5 --keep 2                            → код команды; ns НЕ снято; срок ≈ +2 ч
 #   R1 NS=kacho                            → 64; ns не создавалось
 #   R2 --ns kacho                          → 64; ns не создавалось
@@ -99,9 +100,9 @@ case "$1 ${2:-}" in
             exit 0
         fi
         reason=Completed; [ "${FAKE_OOM:-0}" = 1 ] && reason=OOMKilled
-        jq -nc --argjson rc "${FAKE_EXIT:-0}" --arg r "$reason" '{items:[{metadata:{name:"run-x"},status:{phase:(if $rc == 0 then "Succeeded" else "Failed" end),
+        jq -nc --argjson rc "${FAKE_EXIT:-0}" --arg r "$reason" --arg m "${FAKE_MSG:-}" '{items:[{metadata:{name:"run-x"},status:{phase:(if $rc == 0 then "Succeeded" else "Failed" end),
             initContainerStatuses:[{name:"fetch",state:{terminated:{exitCode:0}}}],
-            containerStatuses:[{name:"run",state:{terminated:{exitCode:$rc,reason:$r}}}]}}]}' ;;
+            containerStatuses:[{name:"run",state:{terminated:{exitCode:$rc,reason:$r,message:$m}}}]}}]}' ;;
     "exec -i") cat > "$S/bundle"; touch "$S/delivered" ;;
     "logs -f")
         echo "строка лога команды"
@@ -190,6 +191,16 @@ fresh
 go_run k4 env FAKE_EXIT=137 FAKE_OOM=1 "${B[@]}" --short k4 -- true
 expect_rc K4 76
 expect_ns_gone K4 t1-heavy-k4
+
+# K6 — подготовка pod не удалась (termination-log): 69, не код 125 команды
+fresh
+go_run k6 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-prep: jq не поставлен" "${B[@]}" --short k6 -- true
+expect_rc K6 69
+expect_ns_gone K6 t1-heavy-k6
+# близнец K6: тот же код 125 без строки подготовки — код команды
+fresh
+go_run k6b env FAKE_EXIT=125 "${B[@]}" --short k6b -- true
+expect_rc K6b 125
 
 # K5 — --keep 2: ns остаётся, срок ≈ +2 ч, метки на месте
 fresh

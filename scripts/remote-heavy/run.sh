@@ -318,12 +318,21 @@ kc apply -f "$BOX/limits.json" >/dev/null || { say "квота ns не пост�
 # флаги (`bash -c …` терял `-c`, опыт 2026-10-08).
 CMD_JSON="$(printf '%s\0' "${CMD[@]}" | jq -Rsc 'split("\u0000")[:-1]')" || { say "команда не переведена в JSON"; exit 69; }
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
-PREP='set -e; export PATH=/tools:/work/bin:$PATH; cd "/work/src/$HEAVY_WORKDIR"'
+# Отказ подготовки — не код команды: он пишется в termination-log контейнера
+# строкой «remote-heavy-prep: …» и читается как 69, а не как красное (код 125
+# сам по себе не различим с кодом команды).
+PREP='pf() { echo "remote-heavy-prep: $1" | tee /dev/termination-log >&2; exit 125; }; export PATH=/tools:/work/bin:$PATH; cd "/work/src/$HEAVY_WORKDIR" || pf "каталог $HEAVY_WORKDIR в дереве не найден"'
+# Инструменты, которые пробы зовут из PATH, а ранер конвейера несёт в образе
+# (опыт 2026-10-08: internal/check kaname — «jq не исполняется», 2 пробы красные
+# только в pod). Перепись `exec.Command("…")` по дереву kacho и kaname: git, go,
+# bash, make, tar — в образе; jq, python3 с yaml, psql/pg_dump — ставятся здесь;
+# helm, gh, buf, trivy, gitleaks — нет, их пробы в pod не равны конвейеру.
+[ "$PROFILE" = lint ] || PREP="$PREP; command -v jq >/dev/null || { echo \"remote-heavy: ставлю jq, python3-yaml, postgresql-client\" >&2; apt-get -qq update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y --no-install-recommends jq python3-yaml postgresql-client >/dev/null || pf \"jq, python3-yaml, postgresql-client не поставлены\"; }"
 [ "$PROFILE" = lint ] || [ "$PROFILE" = ci-local ] && [ -n "$LINT_PIN" ] && \
-    PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN"
+    PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
-    PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN"
-PREP="$PREP; set +e; exec \"\$@\""
+    PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
+PREP="$PREP; exec \"\$@\""
 
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 FETCH='set -e; i=0; while [ ! -f /work/in.done ]; do i=$((i+1)); [ "$i" -le 600 ] || { echo "remote-heavy: исходники не доставлены за 600 с" >&2; exit 3; }; sleep 1; done
@@ -376,7 +385,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')"
 
-# pod_state — «имя|фаза|fetch|run|код run|причина run|ожидание|планирование».
+# pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|планирование».
 pod_state() {
     kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null | jq -r '
       (.items[0] // {}) as $p |
@@ -384,6 +393,7 @@ pod_state() {
       def kind($s): if $s.state.running then "running" elif $s.state.terminated then "terminated" elif $s.state.waiting then "waiting" else "none" end;
       [ ($p.metadata.name // ""), ($p.status.phase // ""), kind(st("fetch")), kind(st("run")),
         (st("run").state.terminated.exitCode // "" | tostring), (st("run").state.terminated.reason // ""),
+        ((st("run").state.terminated.message // "") | gsub("[|\n]"; " ")),
         ([($p.status.initContainerStatuses // [])[], ($p.status.containerStatuses // [])[]] | map(.state.waiting.reason // empty) | map(select(test("^PodInitializing$") | not)) | join(",")),
         (($p.status.conditions // []) | map(select(.type == "PodScheduled" and .status == "False") | .message) | join(" ")) ] | join("|")'
 }
@@ -401,7 +411,7 @@ git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
 POD=""
 while :; do
-    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ WAITR SCHED <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED <<< "$(pod_state)"
     [ "$FETCH_ST" = running ] && break
     case "$WAITR" in
         *ErrImagePull*|*ImagePullBackOff*|*InvalidImageName*|*CreateContainerConfigError*)
@@ -426,7 +436,7 @@ say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle"
 
 # ── команда ──────────────────────────────────────────────────────────────────
 while :; do
-    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ WAITR _ <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR _ <<< "$(pod_state)"
     [ "$RUN_ST" = running ] || [ "$RUN_ST" = terminated ] && break
     if [ "$PHASE" = Failed ] || [ -z "$POD" ]; then
         kc -n "$NSNAME" logs "$POD" -c fetch 2>/dev/null | tail -n 20 >&2
@@ -443,7 +453,7 @@ say "команда начата через $(( T1 - T0 )) с после соз�
 since=""
 while :; do
     kc_stream -n "$NSNAME" logs -f "$POD" -c run ${since:+--since-time="$since"} & wait_bg $!
-    IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON _ _ <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ <<< "$(pod_state)"
     [ "$RUN_ST" = terminated ] && break
     if [ -z "$POD" ] || [ "$PHASE" = Failed ]; then break; fi
     since="$(date -u -d '-5 seconds' +%Y-%m-%dT%H:%M:%SZ)"
@@ -458,6 +468,9 @@ if [ "$RUN_ST" != terminated ]; then
         *DeadlineExceeded*) say "Job снят по сроку $(( TIMEOUT_S + WAIT_START_S )) с — команда не завершилась (не выполнилось)"; exit 75 ;;
     esac
     say "результат команды не прочитан: pod ${POD:-нет}, фаза ${PHASE:-нет}, Job ${reason:-без условия} — не выполнилось"; exit 69
+fi
+if [[ "$RUN_MSG" == remote-heavy-prep:* ]]; then
+    say "подготовка pod не удалась: ${RUN_MSG#remote-heavy-prep: } — команда не запускалась (не выполнилось)"; exit 69
 fi
 if [ "$RUN_REASON" = OOMKilled ]; then
     say "команда оборвана пределом памяти $MEM_LIM (OOMKilled) через $(( T2 - T1 )) с — не выполнилось"; exit 76
