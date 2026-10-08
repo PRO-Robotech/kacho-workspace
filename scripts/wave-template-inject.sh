@@ -61,11 +61,21 @@
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
 #
 # usage: wave-template-inject.sh [<шаблон.js>]   (с доводом — только контроль)
+#        wave-template-inject.sh --landing-command <WS> <файл> [<шаблон.js>]
+#   — исполняет шаблон сценарием R0 с ws=<WS> и пишет в <файл> команду посадки
+#   (рецепт «ЗАПУСК»), которую шаблон отдал механику, как она есть. Её исполняет
+#   landing-precheck-inject.sh, раздел «запуск»: свойства самой команды
+#   (вырезает рецепт из origin/main, код наружу как есть) держит он.
 # Коды: 0 — все утверждения сошлись (и все мутанты красные); 1 — нет;
 #       2 — нет node, шаблона или вывода плана: вердикта нет.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LAND_WS="" LAND_OUT=""
+if [ "${1:-}" = --landing-command ]; then
+    [ $# -ge 3 ] || { echo "wave-template-inject: VOID — --landing-command <WS> <файл> [<шаблон.js>]" >&2; exit 2; }
+    LAND_WS="$2" LAND_OUT="$3"; shift 3
+fi
 TPL="${1:-$HERE/../.claude/workflows/wave.js}"
 command -v node > /dev/null 2>&1 || { echo "wave-template-inject: VOID — нет node" >&2; exit 2; }
 command -v jq > /dev/null 2>&1 || { echo "wave-template-inject: VOID — нет jq" >&2; exit 2; }
@@ -98,7 +108,7 @@ planout "$W/r1two.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.g
 cat > "$W/probe.mjs" <<'JS'
 import fs from 'node:fs'
 import vm from 'node:vm'
-const [tplPath, dir] = process.argv.slice(2)
+const [tplPath, dir, landWs, landOut] = process.argv.slice(2)
 const src = fs.readFileSync(tplPath, 'utf8')
 const P = n => JSON.parse(fs.readFileSync(dir + '/' + n, 'utf8'))
 let pass = 0, fail = 0
@@ -158,6 +168,14 @@ const prm = (calls, label) => (calls.find(c => c.label === label) || {}).prompt 
 const by = (calls, f) => calls.filter(f).length
 const mechOk = calls => calls.filter(c => c.label.startsWith('mech:')).every(c => c.model === 'haiku' && c.effort === 'low')
 
+if (landWs) {
+  // Режим --landing-command: команда посадки, отрисованная шаблоном, как есть.
+  const lr = await run({ args: { ...args, ws: landWs }, plan: [P('r0.json')] })
+  const lm = prm(lr.calls, 'mech:landing:1').match(/Выполни рецепт «ЗАПУСК»[^`]*`([^`]+)`/)
+  if (!lm) { console.error('wave-template-inject: VOID — в задании mech:landing:1 нет команды рецепта «ЗАПУСК» в обратных кавычках'); process.exit(2) }
+  fs.writeFileSync(landOut, lm[1] + '\n')
+  process.exit(0)
+}
 console.log('== R0: без рецензентов, механика дешёвой моделью')
 let r = await run({ args, plan: [P('r0.json')] })
 ok(r.res.ok === true, 'волна R0 влита', JSON.stringify(r.res).slice(0, 300))
@@ -344,6 +362,7 @@ console.log(`RESULT ${pass} ${fail}`)
 process.exit(fail ? 1 : 0)
 JS
 
+if [ -n "$LAND_WS" ]; then node "$W/probe.mjs" "$TPL" "$W" "$LAND_WS" "$LAND_OUT"; exit $?; fi
 control() { node "$W/probe.mjs" "$1" "$W"; }
 echo "== контроль: $TPL"
 control "$TPL"

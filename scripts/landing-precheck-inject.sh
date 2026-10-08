@@ -430,6 +430,147 @@ else
     expect 1 $'REASON\tMERGE-READINESS\tкод 2: merge-readiness: распознавателя доказательства DoD нет' "инъекция: предпроверка извлекает merge-readiness без lib/ — код 2 «распознавателя нет»"
 fi
 
+echo "== запуск: рецепт шапки «ЗАПУСК» и команда посадки шаблона волны"
+# Рецепт живёт ОДНИМ экземпляром — в шапке предпроверки между метками «рецепт
+# ЗАПУСК»; шаблон волны его не копирует, а вырезает из origin/main. Здесь
+# исполняются ОБА пути, которыми рецепт доходит до прогона:
+#   (р) текст, вырезанный из шапки по меткам, при СНЯТОМ TMPDIR;
+#   (в) команда посадки, которую ОТРИСОВАЛ шаблон `.claude/workflows/wave.js`
+#       (wave-template-inject.sh --landing-command), как она есть.
+# Песочница-воркспейс несёт в origin/main весь каталог scripts/ этого дерева,
+# origin — голый репозиторий рядом, так что `git fetch origin main` настоящий.
+# На каждом пути — три случая, и код снаружи обязан совпасть с кодом скрипта:
+#   0 — близнец; 1 — близнец с ОДНОЙ причиной (заголовок «[#2966] …» —
+#   TITLE-FORM); 2 — VOID самого скрипта (ответ о PR не разбирается), а не
+#   подготовки. Рецепт, глотающий код (`exit 0`), на случае 1 даёт 0 — это и
+#   ловит случай 1 (мутант прогоняется здесь же). Инъекции подготовки:
+#   — origin недоступен: код 2 (вердикта нет), а не 1;
+#   — рецепт, зависящий от TMPDIR (`"$TMPDIR/wsg.XXXX"`, дефект ревью #960):
+#     при снятом TMPDIR вердикта нет — близнец его ловит (код ≠ 0);
+#   — в шапке origin/main нет меток: команда шаблона — код 2, а не 0 (пустой
+#     текст под `bash -c` — код 0); её мутант без проверки пустоты обязан дать 0
+#     на этом случае — его ловит эта инъекция;
+#   — из того же архива ОДИН файл предпроверки: соседей нет — код 2.
+mrcase 1
+rm -rf "$W/ws/scripts"; cp -r "$HERE" "$W/ws/scripts"
+sandbox_git -C "$W/ws" add -A
+sandbox_git -C "$W/ws" commit -qm whole-scripts
+rm -rf "$W/origin.git"
+sandbox_git init -q --bare "$W/origin.git"
+sandbox_git -C "$W/ws" push -q "$W/origin.git" HEAD:refs/heads/main
+sandbox_git -C "$W/ws" remote remove origin 2>/dev/null
+sandbox_git -C "$W/ws" remote add origin "$W/origin.git"
+sandbox_git -C "$W/ws" update-ref -d refs/remotes/origin/main
+rm -rf "$W/ws/tmp"; mkdir -p "$W/ws/tmp"
+cp "$W/case/pull.json" "$W/case/pull.twin"
+# kind <0|1|2> — случай с этим кодом скрипта: близнец, одна причина, VOID.
+kind() {
+    cp "$W/case/pull.twin" "$W/case/pull.json"
+    case "$1" in
+        1) edit pull.json '.title |= sub("^#2966 "; "[#2966] ")' ;;
+        2) echo '<html>' > "$W/case/pull.json" ;;
+    esac
+}
+# expect_kind <код> <путь> — ожидание случая kind <код>.
+expect_kind() {
+    case "$1" in
+        0) expect 0 - "$2: близнец — код 0 наружу" ;;
+        1) expect 1 $'REASON\tTITLE-FORM' "$2: одна причина TITLE-FORM — код 1 наружу, а не 0" ;;
+        2) expect 2 $'VOID\tответ о PR' "$2: VOID скрипта — код 2 наружу" ;;
+    esac
+}
+RECIPE="$(sed -n '/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}' "$TOOL")"
+# recipe <текст> — рецепт при снятом TMPDIR. HOME — вызывающего, как у прочих
+# прогонов предпроверки в этой пробе: рецепт истории не пишет (fetch и archive),
+# а подмена HOME меняет разрешение инструментов в PATH, не относящееся к рецепту.
+recipe() {
+    env -u TMPDIR WS="$W/ws" S=landing-precheck.sh \
+        FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
+        bash -c "$1" _ PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    echo $? > "$W/code"
+}
+# shellcheck disable=SC2016  # образец — текст рецепта, подстановка не нужна
+if [ -z "$RECIPE" ] || [[ "$RECIPE" != *'bash "$D/scripts/$S" "$@"; c=$?'* ]]; then
+    echo "  [FAIL] рецепт по меткам «рецепт ЗАПУСК» из шапки не вырезан либо не передаёт позиционные \"\$@\"" >&2; fail=$((fail + 1))
+else
+    for k in 0 1 2; do kind "$k"; recipe "$RECIPE"; expect_kind "$k" "(р) рецепт шапки при снятом TMPDIR"; done
+    kind 0
+    if [ -z "$(ls -A "$W/ws/tmp")" ]; then echo "  [OK]   рецепт снял свой каталог в tmp/ воркспейса"; pass=$((pass + 1))
+    else echo "  [FAIL] после рецепта в tmp/ воркспейса осталось: $(ls -A "$W/ws/tmp")" >&2; fail=$((fail + 1)); fi
+    sandbox_git -C "$W/ws" remote set-url origin "$W/no-such-origin.git"
+    recipe "$RECIPE"
+    sandbox_git -C "$W/ws" remote set-url origin "$W/origin.git"
+    expect 2 'ЗАПУСК: подготовка архива scripts/ из origin/main' "инъекция: origin недоступен — подготовка не состоялась, код 2, а не 1"
+    # shellcheck disable=SC2016  # замена текста рецепта, подстановка не нужна
+    MUT="${RECIPE//'${TMPDIR:-$WS/tmp}'/'$TMPDIR'}"
+    if [ "$MUT" = "$RECIPE" ]; then
+        echo "  [FAIL] инъекция «рецепт от TMPDIR»: образец \${TMPDIR:-\$WS/tmp} в рецепте не найден" >&2; fail=$((fail + 1))
+    else
+        recipe "$MUT"
+        if [ "$(cat "$W/code")" != 0 ]; then echo "  [OK]   инъекция: рецепт от TMPDIR при снятом TMPDIR вердикта не выносит (код $(cat "$W/code")) — близнец это ловит"; pass=$((pass + 1))
+        else echo "  [FAIL] инъекция: рецепт от TMPDIR дал код 0 при снятом TMPDIR — проба близнеца слепа" >&2; fail=$((fail + 1)); fi
+    fi
+    # shellcheck disable=SC2016  # замена текста рецепта, подстановка не нужна
+    MUT="${RECIPE//'exit "$c"'/'exit 0'}"
+    if [ "$MUT" = "$RECIPE" ]; then
+        echo "  [FAIL] инъекция «рецепт глотает код»: образец exit \"\$c\" в рецепте не найден" >&2; fail=$((fail + 1))
+    else
+        kind 1; recipe "$MUT"; kind 0
+        if [ "$(cat "$W/code")" = 0 ]; then echo "  [OK]   инъекция: рецепт, глотающий код, на случае с кодом 1 даёт 0 — это ловит случай 1"; pass=$((pass + 1))
+        else echo "  [FAIL] инъекция: рецепт, глотающий код, дал $(cat "$W/code") на случае 1 — случай 1 не различает" >&2; fail=$((fail + 1)); fi
+    fi
+fi
+# (в) — команда посадки, отрисованная шаблоном волны для этой песочницы.
+WAVE_TPL="$HERE/../.claude/workflows/wave.js"
+if ! bash "$HERE/wave-template-inject.sh" --landing-command "$W/ws" "$W/wavecmd" "$WAVE_TPL" > "$W/wavecmd.log" 2>&1; then
+    echo "  [FAIL] шаблон волны не отрисовал команду посадки:" >&2; sed 's/^/           /' "$W/wavecmd.log" >&2; fail=$((fail + 1))
+else
+    WAVE_DIR="$(sed -n 's/.* > \(.*\)\/landing-precheck-1\.md 2>&1$/\1/p' "$W/wavecmd")"
+    # wavecmd <файл команды> — исполнить как есть, при снятом TMPDIR; вывод — её файл.
+    wavecmd() {
+        rm -rf "$WAVE_DIR"; mkdir -p "$WAVE_DIR"
+        env -u TMPDIR FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
+            bash -c "$(cat "$1")" > "$W/wave.stdout" 2>&1
+        echo $? > "$W/code"
+        cat "$WAVE_DIR/landing-precheck-1.md" "$W/wave.stdout" > "$W/out" 2>/dev/null
+    }
+    if [ -z "$WAVE_DIR" ] || [[ "$WAVE_DIR" != "$W/ws/"* ]]; then
+        echo "  [FAIL] команда посадки шаблона не пишет вывод в каталог волны песочницы: $(cat "$W/wavecmd")" >&2; fail=$((fail + 1))
+    else
+        for k in 0 1 2; do kind "$k"; wavecmd "$W/wavecmd"; expect_kind "$k" "(в) команда посадки шаблона волны"; done
+        kind 0
+        # Шапка origin/main без меток рецепта — одна правка, отправленная в origin.
+        # Метки СОХРАНЯЮТ рабочее дерево песочницы и её прежний origin/main
+        # (ссылка возвращена на коммит до правки): команда, читающая рецепт из
+        # рабочей копии либо не обновившая origin/main до вырезания, дала бы 0.
+        sed -i '/^# >>> рецепт ЗАПУСК$/d' "$W/ws/scripts/landing-precheck.sh"
+        sandbox_git -C "$W/ws" commit -qam no-markers
+        sandbox_git -C "$W/ws" push -q origin HEAD:refs/heads/main
+        sandbox_git -C "$W/ws" update-ref refs/remotes/origin/main HEAD~1
+        sandbox_git -C "$W/ws" checkout -q HEAD~1 -- scripts/landing-precheck.sh
+        wavecmd "$W/wavecmd"
+        expect 2 'ЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh' "инъекция: в шапке origin/main нет меток — команда шаблона даёт код 2, а не 0"
+        # shellcheck disable=SC2016  # образец — текст команды
+        sed 's/ && \[ -n "\$R" \]//' "$W/wavecmd" > "$W/wavecmd.mut"
+        if cmp -s "$W/wavecmd" "$W/wavecmd.mut"; then
+            echo "  [FAIL] инъекция «нет проверки пустоты»: образец && [ -n \"\$R\" ] в команде шаблона не найден" >&2; fail=$((fail + 1))
+        else
+            wavecmd "$W/wavecmd.mut"
+            if [ "$(cat "$W/code")" = 0 ]; then echo "  [OK]   инъекция: команда без проверки пустоты на шапке без меток даёт 0 — это ловит инъекция выше"; pass=$((pass + 1))
+            else echo "  [FAIL] инъекция: команда без проверки пустоты дала $(cat "$W/code") — инъекция «нет меток» не различает" >&2; fail=$((fail + 1)); fi
+        fi
+        sandbox_git -C "$W/ws" commit -qm restore-markers
+        sandbox_git -C "$W/ws" push -q origin HEAD:refs/heads/main
+    fi
+fi
+rm -rf "$W/arch" "$W/single"; mkdir -p "$W/arch" "$W/single"
+git -C "$W/ws" archive HEAD scripts | tar -x -C "$W/arch"
+cp "$W/arch/scripts/landing-precheck.sh" "$W/single/"
+FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_WS="$W/ws" PATH="$W:$PATH" \
+    bash "$W/single/landing-precheck.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+echo $? > "$W/code"
+expect 2 $'VOID\tпредиката атрибуции нет: '"$W"'/single/hooks/attribution-rule.sh — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)' "инъекция: предпроверка скопирована одним файлом — код 2 с указанием на рецепт"
+
 echo "== предпосылка"
 twin; echo '<html>' > "$W/case/pull.json"; run 0
 expect 2 $'VOID\tответ о PR' "ответ площадки не разбирается — код 2"

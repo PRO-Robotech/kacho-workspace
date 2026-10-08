@@ -56,6 +56,13 @@ const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['
 const S_STACK = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, contains: { type: 'array', items: { type: 'string' } }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'contains', 'conflicts', 'report'] }
 const S_CI = { type: 'object', properties: { state: { type: 'string', enum: ['green', 'red', 'running', 'not_run', 'unread'] }, head: { type: 'string' }, total: { type: 'number' }, passed: { type: 'number' }, report: { type: 'string' } }, required: ['state', 'head', 'total', 'passed', 'report'] }
 const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
+// Рецепт «ЗАПУСК» — ОДИН источник: шапка scripts/landing-precheck.sh на origin/main
+// между метками «рецепт ЗАПУСК». Текста рецепта шаблон не несёт: команда вырезает
+// его по меткам из origin/main и исполняет с WS, S и аргументами. Не вырезан —
+// код 2: пустой текст под `bash -c` дал бы код 0, то есть «можно». Код скрипта
+// проходит наружу как есть. Проба — landing-precheck-inject.sh, раздел «запуск»:
+// исполняет ЭТУ команду, отрисованную шаблоном, на случаях с кодом 0, 1 и 2.
+const recipeRun = (s, argv, out) => '( set -o pipefail; WS=' + WS + '; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n \'/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}\') && [ -n "$R" ] || { echo "ЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «$WS»" >&2; exit 2; }; WS="$WS" S=' + s + ' TMPDIR=' + D + ' bash -c "$R" _ ' + argv + ' ) > ' + out + ' 2>&1'
 const rep = (lane, step) => D + '/' + lane + '/' + step + '.md'
 const errors = []
 // Счётчик ошибок оркестровки: класс из закрытого словаря wave-errors.sh, часы —
@@ -257,7 +264,7 @@ for (const d of Object.values(done)) {
   if (stale.length) return { ok: false, stage: 'вердикт роли не на сведённой голове полосы ' + d.key, stale, errors }
 }
 const reviews = waveReviews
-const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни `bash ' + WS + '/scripts/landing-precheck.sh ' + (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' > ' + D + '/landing-precheck-' + round + '.md 2>&1`. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
+const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни рецепт «ЗАПУСК» шапки landing-precheck.sh (он вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2) `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : ''), D + '/landing-precheck-' + round + '.md') + '`; code — код этой команды. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
 let lp = await landCheck(1)
 if (lp && lp.code === 1) {
   const rs = lp.reasons || []

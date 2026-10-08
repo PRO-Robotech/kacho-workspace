@@ -82,7 +82,7 @@ skills:
   ПОСЛЕДНЕГО ручного прогона `ci.yaml` на голове PR, а не `statusCheckRollup` (ws#788):
   «проверок 0» в rollup при зелёном ручном прогоне той же sha — зелёное; ручного прогона на
   голове нет — «не выполнилось», вердикт ⟳, а не ✅; красный check-run — ⛔; сверяешь
-  выводом `scripts/merge-readiness.sh PRO-Robotech/kacho-workspace <PR>` с кодом;
+  выводом `scripts/merge-readiness.sh PRO-Robotech/kacho-workspace <PR>` с кодом (запуск — каталогом `scripts/` целиком из origin/main воркспейса (`git archive origin/main scripts`, у предпроверки — с `LANDING_PRECHECK_WS`; рецепт — шапка `scripts/landing-precheck.sh`, «ЗАПУСК»): скопированный одним файлом теряет соседей и даёт VOID либо код 2);
 - репозиторий, ветка, рабочая копия, base/head, планируемый способ внесения;
 - планируемые тексты: сообщение коммита, описание PR, комментарий закрытия; тело PR сборки и
   запроса волны — по форме `git-operator.md` §«Отправка и PR»: голову сверяешь по
