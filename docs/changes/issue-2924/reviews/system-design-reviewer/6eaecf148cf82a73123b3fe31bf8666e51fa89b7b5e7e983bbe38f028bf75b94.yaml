@@ -1,0 +1,73 @@
+role: system-design-reviewer
+phase: post-diff
+change: issue-2924
+subject: PRO-Robotech/kacho PR #3099 — волна S1 NTF-5 (извещения, notify-api, край, чарт)
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: cd20a05cfa721fd78a3c0a0619dcbc4a9e660a11   # origin/2914-notify = merge-base (git merge-base), база не сдвигалась
+  head: b874eac1d206c96f5f4dd2f5d79145a20c278e88   # = headRefOid PR #3099 (gh pr view), state OPEN
+  content_digest: 6eaecf148cf82a73123b3fe31bf8666e51fa89b7b5e7e983bbe38f028bf75b94
+  digest_command: "git diff cd20a05cfa721fd78a3c0a0619dcbc4a9e660a11 b874eac1d206c96f5f4dd2f5d79145a20c278e88 | sha256sum   # project/kacho"
+  composition: "30 коммитов, 131 файл, +16498 −263"
+acceptance:
+  NTF-5: ccbb0102ab7059b75a2289ff245e21277293d5432d1a6cc57c76814e224770e7   # sha256sum рабочего файла tmp/issue-880 (файл в рабочем дереве помечен M)
+verdict: accept
+blocking: []
+distributed_surface: yes   # мутации с Operation, переходы CAS, события этапа, край, ребро notify-api→kaname
+schema_overlap: yes        # CAS переходов по state/kind, миграция operations — предмет db-architect-reviewer
+axes:
+  dual_write: >
+    нет. Accept: notice_create_requests и операция Ф1 (CreatePendingTx) — одна транзакция inTx
+    (noticerepo.go Accept). Transit/Update: строка извещения, закрытие событий этапа, снятие и
+    вставка напоминаний, событие этапа и операция Ф2 (CreateDoneTx) — одна транзакция.
+    pg_notify в диффе нет; взятие заявки — опрос notify-sender (вне этого диффа).
+  idempotency: >
+    переходы — одна запись UPDATE … WHERE id AND state=$from AND kind=ANY RETURNING; повтор
+    перехода — 0 строк → refused() → синхронный отказ, операция не создаётся. Update с теми же
+    значениями — IS DISTINCT FROM даёт 0 строк → unchanged → успех без ревизии и события (Р5).
+    Create без ключа идемпотентности: каждый вызов — новый notice_id (замысел/приёмка его не
+    требуют; повтор оператора — второе извещение). notice_stage_events UNIQUE держит повтор события.
+  cas_occ: >
+    одноинструкционный CAS (запрет #10 соблюдён); классификация нуля строк — чтение той же
+    транзакции после оператора. Конкурирующие переходы сериализуются блокировкой строки, второй
+    пере-оценивает WHERE под READ COMMITTED и получает 0 строк. Проба с горутинами есть:
+    TestNoticeComplete_NTF533_TwoConcurrentCompletesExactlyOnePasses (transitions_integration_test.go:126);
+    в этом проходе не исполнялась.
+  delivery_model: >
+    опрос; Watch/стрима нет. Переходы и Update отдают операцию done=true с ответом. Create отдаёт
+    done=false с id `nop…`; её довершает notify-sender (N3), опрос через край — строка `nop` в
+    OpsProxy (Е4, NTF-4 Р20). Ни того ни другого на этой голове нет (prefixToBackend без `nop`,
+    gateway/internal/opsproxy/proxy.go:86-104) — см. notes[0].
+  worker_coordination: >
+    воркеров в диффе нет, кроме operations.StartRetentionSweep фундамента (удаляет только done=true;
+    координация реплик — свойство corelib). Каждый peer-вызов под сроком: Check — authzcheck.WithBudget
+    (context.WithTimeout на вызов), сужатель — listnarrow Timeout=AuthzCheckTimeout; запрос целиком —
+    HandlingBudget носителя (describe.go:71), страж: HandlingBudget > AuthzCheckTimeout.
+  cross_service: >
+    новые runtime-рёбра: api-gateway→notify-api (notifyInternal, mTLS), notify-api→kaname
+    (Check/BatchCheck, mTLS). Оба ациклические: ни kaname, ни notify-api не зовут потребителя.
+    Недоступный kaname — UNAVAILABLE PEER_UNAVAILABLE, мягкого прохода нет (SoftPassOnPeerFailure=false).
+    Ссылки области и затронутых ресурсов — TEXT без FK через границу домена.
+  replica_isolation: "состояния в памяти, служащего источником истины, нет; кеш вердиктов сужателя — окно TTL 5s по политике окон отзыва (C4)"
+  edge: >
+    InternalNoticeService регистрируется только при mux == internalMux (restmux/mux.go, блок
+    notify.v1 admin); в allowlist внешнего края — только 4 метода NoticeService; запрет #6 соблюдён.
+notes:
+  - >
+    [важное, не блокирует на ветке эпика] Операция Create рождается done=false, а на этой голове её
+    некому довершить (notify-sender N3 не в диффе) и нельзя опросить через край (`nop` нет в
+    prefixToBackend → NotFound). Это порядок стадий плана (tasks.md: S1 гейтится Е4; N3 входит в S1),
+    а не дефект кода диффа. Предикат для посадки эпика в main:
+    `git show <head>:gateway/internal/opsproxy/proxy.go | grep -c PrefixOperationNotify` ≥ 1 и корень
+    notify-sender с admit в дереве. До этого — запрос эпика в main не готов.
+  - >
+    Update без изменений: refused() и finish() — два чтения под READ COMMITTED без блокировки строки;
+    переход, закоммиченный между ними, попадёт в ответ операции. Линеаризуемо (Update «до» перехода),
+    вреда нет.
+  - >
+    Пробы гонки Update против Start/Cancel на одной строке нет; механизм тот же (блокировка строки +
+    условие на state), поэтому не заказ, а пожелание.
+  - >
+    Перечня runtime-рёбер в .claude/rules/polyrepo.md §«Runtime cross-domain edges» больше нет (сжатие
+    правила): записать новые рёбра некуда. Расхождение чек-листа роли и правила — tooling, не дифф.
+orders: []
