@@ -536,8 +536,8 @@ tags:
 | [[packages/corelib-grpcsrv\|corelib-grpcsrv]] | живо (stable) |
 | [[packages/corelib-identityposture\|corelib-identityposture]] | в работе (test) |
 | [[packages/corelib-ids\|corelib-ids]] | живо (stable) |
-| [[packages/corelib-oauthceremony\|corelib-oauthceremony]] | в работе (test) |
 | [[packages/corelib-journaltx\|corelib/journaltx — инициатор в журнале ресурсов модулей]] | в работе (test) |
+| [[packages/corelib-oauthceremony\|corelib-oauthceremony]] | в работе (test) |
 | [[packages/corelib-observability\|corelib-observability]] | живо (stable) |
 | [[packages/corelib-operations\|corelib-operations]] | живо (stable) |
 | [[packages/corelib-outbox-drainer\|corelib-outbox-drainer]] | живо (stable) |
@@ -1416,6 +1416,8 @@ tags:
 | [[KAC/issue-2997\|kacho#2997: deploy: профиль зонта объявляет ручки без читателя в шаблонах]] | в работе (test) |
 | [[KAC/issue-30-corelib\|corelib#30: значение посадки external снято со словаря фундамента]] | живо (done) |
 | [[KAC/issue-3002\|kacho#3002: repohygiene: потолок привязок к снятому поставщику судит прирост]] | в работе (test) |
+| [[KAC/issue-3011\|kacho#3011: запись перечня переноса пережила предмет — ствол красный]] | живо (done) |
+| [[KAC/issue-3012\|kacho#3012: стенд a8f60d отстал от main — перепин профиля и выкатка]] | живо (done) |
 | [[KAC/issue-3020\|kacho#3020: пин службы доступа с почтовым узлом — стенд и чарт задают inviteMail]] | в работе (to-do) |
 | [[KAC/issue-3022\|kacho#3022: deploy: проба пола ёмкости проверяющего у пиненной службы]] | в работе (test) |
 | [[KAC/issue-3026\|kacho#3026: deploy: own-up не перекатывает поды консоли на новый образ]] | в работе (test) |
@@ -1426,9 +1428,6 @@ tags:
 | [[KAC/issue-3033\|kacho#3033: край: аутентификация не читает список публичных методов]] | в работе (test) |
 | [[KAC/issue-3034\|kacho#3034: край: готовность пишет в журнал смену состояния, а не каждую пробу]] | в работе (test) |
 | [[KAC/issue-3037\|kacho#3037: край: ретрансляция двух глаголов входа ключом доступа (Ф13)]] | в работе (test) |
-| [[KAC/issue-3011\|kacho#3011: запись перечня переноса пережила предмет — ствол красный]] | в работе (in-progress) |
-| [[KAC/issue-3011\|kacho#3011: запись перечня переноса пережила предмет — ствол красный]] | живо (done) |
-| [[KAC/issue-3012\|kacho#3012: стенд a8f60d отстал от main — перепин профиля и выкатка]] | живо (done) |
 | [[KAC/issue-304\|#304: корпус фаззера уезжал в кэш только той ночью, которая ничего не нашла]] | в работе (test) |
 | [[KAC/issue-3044\|kacho#3044: docs: подъём уязвимых пакетов в lockfile сайтов документации]] | в работе (test) |
 | [[KAC/issue-305-kaname\|kaname#305: восстановление доступа — через единственного писателя]] | живо (done) |
@@ -1743,11 +1742,11 @@ tags:
 | [[KAC/issue-762\|#762: предел соединений базы vpc не выбирал никто]] | в работе (test) |
 | [[KAC/issue-767-ws\|ws#767: запись схождения волны 0 identity-own на дайджесте — в волне-3]] | история (wontfix) |
 | [[KAC/issue-767\|#767: отчёты прибора authzformbench накрыты отпечатком вперёд, граница напечатана]] | живо (done) |
+| [[KAC/issue-77-corelib\|corelib#77: линия corelib эпика notify — лента, формат шаблона, notifygen]] | в работе (in-progress) |
 | [[KAC/issue-771-ws\|ws#771: эпик identity-own воркспейса — приёмки и оснастка снятия стека Ory]] | живо (done) |
 | [[KAC/issue-772-ws\|ws#772: волна-1 воркспейса — приёмка F1, пересверка замысла LINE-A-1]] | живо (done) |
 | [[KAC/issue-773-ws\|ws#773: приёмка F8 — свои экраны церемоний личности в консоли]] | живо (done) |
 | [[KAC/issue-775-ws\|ws#775: записи wave-reviewer волны 0 identity-own — в волне-3]] | живо (done) |
-| [[KAC/issue-77-corelib\|corelib#77: линия corelib эпика notify — лента, формат шаблона, notifygen]] | в работе (in-progress) |
 | [[KAC/issue-777\|#777: перепись мест обращения к движку прав — дискриминатор по типу, не по имени]] | в работе (test) |
 | [[KAC/issue-778-ws\|ws#778: волна-0 identity-own воркспейса — оснастка волны 0, влита в эпик 771]] | живо (done) |
 | [[KAC/issue-779-ws\|ws#779: записи system-design волны 0 identity-own и wave-reviewer — в стволе воркспейса]] | живо (done) |
