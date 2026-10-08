@@ -67,7 +67,7 @@ teardown-always · под if: always() · console-e2e.yml · red: обрыв п�
 suite-two-consequences · оба следствия: шаг-гейт и путь артефактов · check-newman-suite-gates.py · red: набор исполняется, краснота не валит job, отчёты не сохраняются
 shard-coverage · ровно у одного шарда; сумма равна числу коллекций дерева · assert-shard-coverage.py · red: коллекция есть, её не берёт никто
 stand-provenance-before · ПЕРЕД прогоном, с печатью в отчёт · make stand-provenance (deploy/), остаток — долг D5 · red: «против чего гоняли» выясняют после вердикта
-stand-external-first · стенд проб — внешний кластер при доступе (testing-verdict.md#external-cluster-first) · вниманием · red: локальный kind при рабочем доступе
+stand-external-first · стенд проб — своё ns внешнего кластера при доступе (testing-verdict.md#external-cluster-ns-per-run) · вниманием · red: стенд проб вне своего ns
 ory-replacement-usable · замена Ory готова, лишь когда ею пользуются: служба, край, консоль, включение на стенде, сквозная проба (владелец 2026-10-07, дословно — архив) · ЗАВЕСТИ · red: задача закрыта, а возможность выключена или недоступна
 
 ## Перенос между newman и playwright без объявленного различия

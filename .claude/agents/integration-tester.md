@@ -185,6 +185,7 @@ cd project/kacho && go test ./services/<svc>/internal/repo/ -run '^Test<Resource
   `$WS/scripts/heavy-slot.sh <класс> -- …`, 75 и 76 — «не выполнилось»; держатель — потолок сессии
   и слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY`
   в guard.py.
+- Стенд проб — своё ns на внешнем кластере, снятие — в той же задаче: `testing-verdict.md#external-cluster-ns-per-run`.
 
 ## Запреты
 

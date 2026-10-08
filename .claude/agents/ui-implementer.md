@@ -136,6 +136,7 @@ cd project/kacho/ui-future/<модуль> && npm run typecheck && npm test
   `$WS/scripts/heavy-slot.sh <класс> -- …`, 75 и 76 — «не выполнилось»; держатель — потолок сессии
   и слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY`
   в guard.py.
+- Стенд проб — своё ns на внешнем кластере, снятие — в той же задаче: `testing-verdict.md#external-cluster-ns-per-run`.
 
 ## Провязка потока изменений в консоли
 

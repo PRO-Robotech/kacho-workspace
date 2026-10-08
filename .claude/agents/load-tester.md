@@ -145,6 +145,8 @@ production-посадке, «зелёный» dev-режим не доказыв
 слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY` в
 guard.py.
 
+Стенд замера — своё ns на внешнем кластере, снятие — в той же задаче: `testing-verdict.md#external-cluster-ns-per-run`.
+
 ## Скилы (инструментом `Skill`)
 
 `load-testing-coach` — устройство сценария подачи и лестницы; `measurement-discipline` — число,
