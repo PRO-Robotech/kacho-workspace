@@ -1,0 +1,38 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kacho PR #3103.
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  pr: 3103
+  branch: 2917-wave-edge-2
+  base: 515e017c873a1d1be23592e3e3757462a5a13e7e   # = origin/2914-notify = merge-base с головой
+  head: 8fa4b5ca8d801fc25a046da24339a31849b7bb11
+  content_digest: 0fb916e48865460020ff19be6c64518a617a74277b8c67afc688d2a19bb74c56
+  digest_predicate: git diff origin/2914-notify...8fa4b5ca8d | sha256sum   # перемерено дважды, совпало
+  premise_remeasured: >-
+    Дифф база..голова: 33 пути, 9 коммитов (полосы E1b, D6, E3, E4 и три слияния).
+    Путей services/*/internal/migrations/*.sql, *.sql и internal/repo/** — 0
+    (git diff --name-only … | grep -cE '(migrations/.*\.sql|internal/repo/|\.sql$)' → 0).
+    Прод-Go вне ui: только gateway/internal/restmux/mux.go — сопоставитель исходящих
+    заголовков (retry-after → Retry-After); базы, SQL, pgx, sqlstate не касается.
+    Упоминания postgres — лишь в пробе gateway/deploy/anonmail_fleet_test.go (фиктивный DSN
+    фикстуры .invalid, гейт пары хранилище↔флот на рендере чарта); пула соединений и
+    параметров базы прод-код не настраивает.
+snapshot_at: 2026-10-08
+
+migrations_touched: 0
+verdict: ACCEPTED   # роль неприменима по предикату no-migrations-in-change; находок нет
+blocks: false
+return_to: —
+
+runs: []   # предмета схемы нет — пробы с конкурирующими транзакциями не требуются
+approved:
+  - "в диффе нет миграций и repo-SQL; новых ссылочных полей, ограничений, индексов, триггеров нет"
+  - "схема anonmail (записи 1a2d7cb1…, b3416b96…, c27b66fe…, 4147dfbf…) этим диффом не затронута"
+findings: []
+orders: []
+distributed_overlap: false
