@@ -22,7 +22,7 @@ tags:
   - resource
   - kacho-iam
   - iam
-verified_against: "kaname release/iam-lines@4b674bf5 — миграция 20260917221000_access_keys_are_our_record.sql, приёмка access-keys-are-ours.md (APPROVED, круг 6); 2026-10-03 — ветка эпика 296@d2f6f182: запись ревью Ф7 на отпечаток 5ea26ad0 — APPROVED (sha256sum документа → docs/specs/reviews/access-keys-are-ours/), кейс tests/newman/cases/kaname-access-keys.py есть (git ls-tree); схема построчно не пересматривалась; 2026-10-06 — ветка эпика 296@2cf9c8528b1f: имена двух миграций волны-4 — git ls-tree internal/migrations, глаголы — loginlanehttp.Paths() (git show); схема построчно не пересматривалась"
+verified_against: "kaname release/iam-lines@4b674bf5 — миграция 20260917221000_access_keys_are_our_record.sql, приёмка access-keys-are-ours.md (APPROVED, круг 6); 2026-10-03 — ветка эпика 296@d2f6f182: запись ревью Ф7 на отпечаток 5ea26ad0 — APPROVED (sha256sum документа → docs/specs/reviews/access-keys-are-ours/), кейс tests/newman/cases/kaname-access-keys.py есть (git ls-tree); схема построчно не пересматривалась; 2026-10-06 — ветка эпика 296@2cf9c8528b1f: имена двух миграций волны-4 — git ls-tree internal/migrations, глаголы — loginlanehttp.Paths() (git show); схема построчно не пересматривалась; 2026-10-08 — kacho 1266@1fd076f80965 и kaname 296@aa253fa9bcad: состав волны-6 — тела PR kacho#3095 и kaname#672 (gh pr view); схема не пересматривалась"
 ---
 
 # `user_access_keys` — ключ доступа человека (WebAuthn), наш ресурс
@@ -79,5 +79,12 @@ verified_against: "kaname release/iam-lines@4b674bf5 — миграция 202609
   контексту формы (миграция `20261005032942_login_challenge_is_bound_to_the_form_context.sql`), и выдача
   сессии — [[KAC/issue-613-kaname]]; описание рукоятки называет оба поколения строк (миграция
   `20261005024608_…`, [[KAC/issue-344-kaname]]). Край глаголы ещё не ретранслирует (kacho#3037, волна-5).
+- 2026-10-08 — волна-6 ([[KAC/issue-2969]] и [[KAC/issue-540-kaname]]; в `main` не влито): консоль заводит,
+  перечисляет и удаляет ключи на `/settings` ([[KAC/issue-3057]]), вход ключом на `/login` — kacho#1282 (открыта);
+  сквозная браузерная проба жизненного цикла ключа — [[KAC/issue-3059]], сценарий F8S4-03 по редакции 4 приёмки
+  F8-S4 ([[KAC/issue-897-ws]]): уровень «2» ключа без проверки пользователя доказывает проба службы, браузер —
+  отказ и следующий шаг. Перечень происхождений ключа на стенде разработки выводится из консоли
+  (`originFromConsole`, [[packages/kacho-deploy-helm-umbrella]]). Сброс ключей распорядителем — приёмка
+  [[KAC/issue-638-kaname]] (редакция 5 одобрена записью круга 5; глагола в контракте ещё нет). Схема не пересматривалась.
 
 #resource #kacho-iam #iam
