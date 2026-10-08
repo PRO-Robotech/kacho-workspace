@@ -5,7 +5,7 @@ aliases:
 ticket_id: 484
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/kaname --base 484-notify --state all` — 17 PR MERGED (#533…#657), открытых 0; голова `484-notify` = 33010d434767 (merge-коммит #657, родители 22b70ea5d0a7 и 1316a650e); пин corelib на голове — `18d105d0f50a` (со слов описания #657); задача kaname#484 и эпик kacho#2914 OPEN; в `main` kaname из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-08: kaname#636 OPEN (заведена 2026-10-06, комментариев и PR нет), kaname#667 OPEN (2026-10-07, `Refs #484`, комментариев и PR нет) — `gh issue view`, `gh pr list --search`. `gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/kaname --base 484-notify --state all` — 17 PR MERGED (#533…#657), открытых 0; голова `484-notify` = 33010d434767 (merge-коммит #657, родители 22b70ea5d0a7 и 1316a650e); пин corelib на голове — `18d105d0f50a` (со слов описания #657); задача kaname#484 и эпик kacho#2914 OPEN; в `main` kaname из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
 type: feature
 repos:
   - kaname
@@ -95,7 +95,7 @@ go.sum, таблица третьих сторон, перепорождённа
 
 ## Потребитель
 
-- kacho `2914-notify` на `504bc7acdc51` (2026-10-08, после kacho #3098) пинит kaname
+- kacho `2914-notify` на `cd20a05cfa72` (2026-10-08, после kacho #3072; пин поднят #3098) пинит kaname
   `56bcb3036d71` (#628), corelib `67ba3443c149` (прочитано в `go.mod`). Голова `484-notify`
   впереди пина на 13 коммитов (`gh api compare`) — #632 и #657 потребителем kacho не взяты.
 
@@ -110,12 +110,17 @@ go.sum, таблица третьих сторон, перепорождённа
 - https://github.com/PRO-Robotech/kacho/issues/2914 — эпик.
 - https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib, блокер.
 - https://github.com/PRO-Robotech/kacho/issues/2917 — NTF-2, почта личности: сторона kacho.
+- https://github.com/PRO-Robotech/kaname/issues/636 — дефект факта права в kaname (bug, P1), найден красной пробой NTF3-184 под-фазы NTF-3 ([[KAC/issue-2918]]); OPEN, PR нет, проба не отправлена. Разбор — в задаче, здесь не пересказывается.
+- https://github.com/PRO-Robotech/kaname/issues/667 — мерцающая проба NTF3-174 (конкурентное снятие объекта с регистрациями); OPEN, PR нет. Предикат закрытия — в задаче.
 
 ## History
 
 - 2026-10-07 — trail заведён после вливания #657 (`33010d434767`) в `484-notify`; внесены
   все 17 PR ветки. Статус `in-progress`.
 - 2026-10-08 — потребитель: kacho #3098 поднял пин до `56bcb3036d71`. Статус `in-progress`.
+- 2026-10-08 — kacho #3072 (#2919) влит в `2914-notify`, пин kaname не тронул
+  (`56bcb3036d71`). В «Связанные задачи» внесены открытые дефекты линии kaname#636 и
+  kaname#667. Статус `in-progress`.
 
 ## Затронутые сущности vault
 

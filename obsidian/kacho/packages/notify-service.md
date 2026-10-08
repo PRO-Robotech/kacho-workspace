@@ -9,7 +9,7 @@ status: test
 repo: kacho
 layer: service
 path: services/notify
-verified_against: "Разделы «Две базы — две цепочки» и «Схема извещений оператора (S1)» сверены 2026-10-07 с `project/kacho` @`4d5295f1ae96` (merge-коммит PR #3070, голова `2914-notify`): прочитаны `cmd/migrator/chains.yaml` и шапка с перечнем `CREATE TABLE` миграции `internal/migrations/20261006232858_operator_notices.sql`, состав `internal/migrations` снят `git ls-tree`. Разделы «Порядок подъёма шлюза», «Флаг установки», «Страж DNS и пара DKIM», «Конфигурация и развёртывание» и «Чего на этой ревизии нет» сверены 2026-10-06 с `project/kacho` @`bc3192f9ca13` (merge-коммит PR #3041, голова `2914-notify`): прочитаны `cmd/notify/serve.go`, `cmd/notify/relay.go`, `internal/config/dns.go`, шапка `internal/dkimkey/dkimkey.go`, `deploy/helm/notify/templates/_flag.tpl` и `recipient-key-secret.yaml`, `values.yaml`; состав `internal/` и шаблонов чарта снят `git ls-tree`. Остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
+verified_against: "Раздел «Конфигурация и развёртывание» (абзац о ручках NTF-4) сверен 2026-10-08 с `project/kacho` @`cd20a05cfa72` (merge-коммит PR #3072, голова `2914-notify`) чтением через `gh api contents`: шапка `internal/config/ntf4.go`, шапка `deploy/helm/notify/templates/address-key-secret.yaml`; `cmd/notify/serve.go` и `relay.go` на ней ручек NTF-4 не читают (grep пуст); дельта #3072 новых каталогов `internal/` не заводит (`gh api compare 504bc7acdc51...cd20a05cfa72`). Разделы «Две базы — две цепочки» и «Схема извещений оператора (S1)» сверены 2026-10-07 с `project/kacho` @`4d5295f1ae96` (merge-коммит PR #3070, голова `2914-notify`): прочитаны `cmd/migrator/chains.yaml` и шапка с перечнем `CREATE TABLE` миграции `internal/migrations/20261006232858_operator_notices.sql`, состав `internal/migrations` снят `git ls-tree`. Разделы «Порядок подъёма шлюза», «Флаг установки», «Страж DNS и пара DKIM», «Конфигурация и развёртывание» и «Чего на этой ревизии нет» сверены 2026-10-06 с `project/kacho` @`bc3192f9ca13` (merge-коммит PR #3041, голова `2914-notify`): прочитаны `cmd/notify/serve.go`, `cmd/notify/relay.go`, `internal/config/dns.go`, шапка `internal/dkimkey/dkimkey.go`, `deploy/helm/notify/templates/_flag.tpl` и `recipient-key-secret.yaml`, `values.yaml`; состав `internal/` и шаблонов чарта снят `git ls-tree`. Остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
 tags:
   - packages
   - kacho
@@ -104,6 +104,13 @@ tags:
 - Ключ сетки на адресата задаётся одним способом из двух: значением `recipientKey` (тогда
   чарт рендерит объект сам и судит длину) или объектом стенда `recipientKeySecret.name`
   (тогда чарт объект не рендерит; Д123). Оба сразу — отказ рендера. Ключ чарт не порождает.
+- С #3072 (#2919) загрузчик несёт ручки NTF-4 стадии S1 (`internal/config/ntf4.go`, 21 —
+  со слов описания PR): ящик обратной связи, подавление, журнал отправленного,
+  перечитывание секрета, пороги репутации. Границы — таблица Р16 приёмки NTF-4, зависимые
+  границы судятся вместе. Чарт выводит те же ручки рендером. Ключ отпечатка адреса — свой
+  объект `<полное имя>-address-key`, монтируется томом целиком; задаётся тем же выбором из
+  двух, что ключ сетки, и чартом не порождается. На `cd20a05cfa72` эти ручки читает только
+  загрузчик: корень процесса их не потребляет.
 
 ## Порядок подъёма шлюза
 
@@ -163,5 +170,7 @@ tags:
   и стража DNS, отправки по-прежнему нет.
 - 2026-10-07 — #2924: раздел «Схема извещений оператора (S1)» по `4d5295f1ae96` (PR #3070);
   в «Две базы» утверждение «одна строка» заменено состоянием на `4d5295f1ae96` (две строки).
+- 2026-10-08 — #2919: в «Конфигурация и развёртывание» — ручки NTF-4 стадии S1 и ключ
+  отпечатка адреса по `cd20a05cfa72` (PR #3072).
 
 #packages #kacho #service #internal #go
