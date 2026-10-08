@@ -1,0 +1,152 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  sha256: 624996ea100adbb98f229d1ecda7e8b1fd47c70e6231a777bbac87073bab3adf
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): «редакция 4 · вердикта на неё НЕТ»
+    — статическая форма. Действующий вердикт о редакции 4 — эта запись и внешнее событие.
+  base_commit: ffaae161d
+  content_commit: null
+  content_commit_note: >-
+    Редакция 4 на момент ревью НЕ закоммичена (копия tmp/ws-f8s4-03, `git status` → M документа,
+    HEAD ffaae161d). Событие публикуется только после коммита и отправки этой редакции на origin:
+    subject_revision события — тот коммит, subject_sha256 — дословно этот отпечаток.
+  wave_task: PRO-Robotech/kacho#2969
+  epic: PRO-Robotech/kacho#1266
+  pull_request: PRO-Robotech/kacho#3095
+  trigger_run: console-e2e 37713769170 @ PRO-Robotech/kacho@2ae022da18c (225 прошло, 2 упало — обе F8S4-03)
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  fingerprint_reproduced: true
+  lines: 779
+  code_base: PRO-Robotech/kacho @ 2ae022da18c · PRO-Robotech/kaname @ 28b7acb117c
+
+verdict: APPROVED
+round: 4
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-08T00:00:00Z'
+previous_rounds:
+  - f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b.yaml
+  - 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c.yaml
+  - 68348903cc5f5bafc6df558c34b3d867963fa813f669c52530cd151124f567a9.yaml  # редакция 3, APPROVED
+blocking_count: 0
+blocking_kinds_distinct: []
+
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+  publication_pending:
+    required_for_sanction: true
+    expected_from: диспетчер/курьер волны
+    expected_actor: pointpu
+    expected_mode: courier_of_agent_verdict
+    expected_form: >-
+      issue_comment в PRO-Robotech/kacho#1274 либо kacho#2969 с полями role, verdict, subject,
+      subject_revision (коммит редакции 4, опубликованный на origin раньше события),
+      subject_sha256 дословно. Блок `event` дописывается ОТДЕЛЬНЫМ коммитом поверх этой записи;
+      вердикт и разбор задним числом не правятся.
+  sanction:
+    outcome: НЕ ВЫДАНА
+    why: >-
+      Роль без события полномочия не даёт (change-graph.md §3). Вердикт о редакции 3 на редакцию 4
+      не переносится; прежний остаётся вердиктом о 68348903….
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b.yaml
+    - 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c.yaml
+    - 68348903cc5f5bafc6df558c34b3d867963fa813f669c52530cd151124f567a9.yaml
+
+premise_check:
+  claim: >-
+    редакция 4 sha256 624996ea…3adf; одобрена редакция 3 68348903…; дельта — только F8S4-03 и
+    производители; браузер не выдаёт утверждения с UV = 0 при пустом allowCredentials
+  result: >-
+    Подтверждено. `sha256sum` → 624996ea…3adf (wc -l 779; задание называло 778 — расхождение
+    в счёте строк, не в отпечатке). `git show HEAD:<док> | sha256sum` → 68348903…67a9 = одобренная
+    редакция 3. `git diff -U0` — 15 ханков: шапка (журнал редакции 4), N10, N17, N18, §1.2, Р5
+    (четвёртая причина), F8S4-03, §6.1 (строка разделена), §6.2 (строка близнеца и абзац
+    вариантов), §6.3 (строка F8S4-03), §7 п.11, §12. Иных сценариев дельта не трогает.
+
+measurement:
+  n17_browser_remeasured: >-
+    Перемерено здесь, Chromium 1194 headless_shell (@playwright/test 1.56.1 из
+    project/kacho/ui-future/e2e), страница http://localhost, CDP WebAuthn ctap2/internal,
+    hasResidentKey, automaticPresenceSimulation. Восемь сочетаний: hasUV=false — пусто/preferred
+    NotAllowedError, пусто/discouraged NotAllowedError, названо → UV=0 ×2; hasUV=true — пусто/preferred
+    UV=1, пусто/discouraged UV=0, названо/preferred UV=1, названо/discouraged UV=0. Отдельно путём
+    посева К (WebAuthn.addCredential, isResidentCredential, signCount 100, BE=BS=false):
+    hasUV=false пусто/preferred → NotAllowedError; hasUV=true → UV=1. Совпадает с N17 дословно.
+    Транспорты usb/nfc/ble и ctap2_1 не перемерены (документ это так и называет).
+  service_coordinates: >-
+    kaname@28b7acb117c: access_key_login.go:114 "userVerification": out.UserVerification, :115
+    "allowCredentials": []any{}; deps.go:32 UserVerificationAssertion = "preferred";
+    access_key_login_integration_test.go:186 TestF13_05_…, :490 TestF13_10_11_12_…, :498 случай
+    «Ф13-10 без проверки» → "2". Производитель свойства уровня «2» в дереве существует.
+  console_coordinates: >-
+    kacho@2ae022da18c: AccessKeySignInButton.tsx:18 ACCESS_KEY_BROWSER_REFUSED = текст Р5 дословно;
+    `git grep -n F8S4-03 2ae022da18c -- ui-future` → access-key-login.spec.ts:263 и
+    access-key-lifecycle.spec.ts:418 (+ комментарии :31, :422) — ровно те, что называет DoD п.11.
+  twin_claim: >-
+    F8S4-03 против F8S4-02: §6.0 шаг 1 даёт hasUserVerification/isUserVerified true по умолчанию,
+    шаг 2 выводит UV регистрации из аутентификатора шага 1 — значит три названных в «Дано» поля
+    — одно различие (умеет ли аутентификатор проверять). F8S4-02 на том же экране входит, поэтому
+    «отвергнуто» отличимо от «кнопка мертва».
+  arithmetic: >-
+    §6.3: у F8S4-03 выдач 1, отказов 0, доля 1 — как в редакции 3; итоги 12 · 3 · 15 · 8 не
+    меняются; колонка успехов итога не несёт.
+
+blocking: []
+
+important:
+  - id: I1
+    summary: >-
+      Продуктовое следствие, не дефект контракта: человек с ключом без проверки пользователя
+      (старый ключ U2F-класса) войти без имени через браузер не может вовсе; путь для него — пароль.
+      Это следствие решения Ф13 (вход без имени, preferred), консоль его не переоткрывает (§0.2).
+      Если владельцу нужен вход такими ключами — это правка приёмки службы, не S4.
+  - id: I2
+    summary: >-
+      Проба службы N18 здесь не перепрогнана (существование и координаты подтверждены git grep).
+      DoD п.11 её прогон на голове ветки эпика службы требует — держит исполнитель.
+
+not_performed:
+  - subject: "N18 go test двух проб службы на 28b7acb117c"
+    reason: "testcontainers-прогон не запускался рецензентом; существование проверено чтением дерева"
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+  - subject: "F8S4-03 редакции 4 на живом стенде"
+    reason: "проба ещё не переутверждена (DoD п.11); конструируемость показана посевом в браузере"
+    counts_as: "не выполнилось"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  new_edge: false
+  security_surface: false
+  disclosure_safe: true
+
+event_body: "acceptance-reviewer · APPROVED · 624996ea100adbb98f229d1ecda7e8b1fd47c70e6231a777bbac87073bab3adf"
+
+next:
+  needed_agent: courier
+  task: >-
+    закоммитить редакцию 4 и эту запись, отправить на origin, опубликовать событие
+    acceptance-reviewer · APPROVED · 624996ea…; затем исполнитель KA6 переутверждает обе пробы
+    F8S4-03 по DoD п.11
+  owner_questions: []
