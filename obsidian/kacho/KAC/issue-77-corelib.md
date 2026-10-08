@@ -5,7 +5,7 @@ aliases:
 ticket_id: 77
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/corelib --base 77-notify --state all` — 13 PR MERGED (#82…#102), открытых 0; голова `77-notify` = 117749095814 (merge-коммит #102, родители 1e6ade53645a и 18d105d0f50a); `git diff 18d105d0f50a origin/77-notify` пуст; задача corelib#77 и эпик kacho#2914 OPEN; в `main` corelib из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-08 (после вливания kacho #3099): пин corelib на голове `2914-notify` 515e017c873a = 18d105d0f50a (`go.mod`); `gh api compare 18d105d0f50a...117749095814` — ahead 1, файлов 0. `gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/corelib --base 77-notify --state all` — 13 PR MERGED (#82…#102), открытых 0; голова `77-notify` = 117749095814 (merge-коммит #102, родители 1e6ade53645a и 18d105d0f50a); `git diff 18d105d0f50a origin/77-notify` пуст; задача corelib#77 и эпик kacho#2914 OPEN; в `main` corelib из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
 type: feature
 repos:
   - corelib
@@ -90,9 +90,10 @@ kacho; «—» — связь нигде не названа, и выводом 
 ## Потребители
 
 - kaname — [[KAC/issue-484-kaname]]: пин поднят на `18d105d` PR kaname #657.
-- kacho `2914-notify` на `504bc7acdc51` (2026-10-08, после kacho #3098) — пин corelib
-  `67ba3443c149` (#99; прочитано в `go.mod`); голова `77-notify` впереди на 5 коммитов
-  (`gh api compare`), #100 и #102 потребителем kacho не взяты.
+- kacho `2914-notify` на `515e017c873a` (2026-10-08, после kacho #3099, [[KAC/issue-2924]])
+  — пин corelib `18d105d0f50a` (прочитано в `go.mod`), дерево головы `77-notify`; голова
+  впереди лишь merge-коммитом #102 без отличий по файлам (`gh api compare`). #100 и #102
+  потребителем взяты; до #3099 пин стоял на `67ba3443c149` (#99, поднят #3098).
 
 ## DoD (из тела задачи)
 
@@ -110,6 +111,8 @@ kacho; «—» — связь нигде не названа, и выводом 
 - 2026-10-07 — trail заведён после вливания #102 (`117749095814`) в `77-notify`; внесены все
   13 PR ветки. Статус `in-progress`.
 - 2026-10-08 — потребитель: kacho #3098 поднял пин до `67ba3443c149`. Статус `in-progress`.
+- 2026-10-08 — потребитель: kacho #3099 (#2924) поднял пин до `18d105d0f50a` — дерева головы
+  ветки. Статус `in-progress`.
 
 ## Затронутые сущности vault
 

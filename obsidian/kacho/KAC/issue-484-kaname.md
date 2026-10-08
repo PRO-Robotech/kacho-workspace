@@ -5,7 +5,7 @@ aliases:
 ticket_id: 484
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-08: kaname#636 OPEN (заведена 2026-10-06, комментариев и PR нет), kaname#667 OPEN (2026-10-07, `Refs #484`, комментариев и PR нет) — `gh issue view`, `gh pr list --search`. `gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/kaname --base 484-notify --state all` — 17 PR MERGED (#533…#657), открытых 0; голова `484-notify` = 33010d434767 (merge-коммит #657, родители 22b70ea5d0a7 и 1316a650e); пин corelib на голове — `18d105d0f50a` (со слов описания #657); задача kaname#484 и эпик kacho#2914 OPEN; в `main` kaname из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-08 (после вливания kacho #3099): пин kaname на голове `2914-notify` 515e017c873a = 33010d434767 (`go.mod`), `gh api compare` с головой `484-notify` — identical; `gh pr list -R PRO-Robotech/kaname --base 484-notify --state open` — #673 (`484-wave-fence-2`, голова 1197a78edd8e, создан 2026-10-08T04:29Z, `Refs PRO-Robotech/kacho#2918`, вердикта посадки нет — со слов описания); в kaname#636 и kaname#667 — `DoD-proof @bdc36c614` и ссылка на #673; обе задачи и kaname#484 OPEN. `gh` 2026-10-08: kaname#636 OPEN (заведена 2026-10-06, комментариев и PR нет), kaname#667 OPEN (2026-10-07, `Refs #484`, комментариев и PR нет) — `gh issue view`, `gh pr list --search`. `gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/kaname --base 484-notify --state all` — 17 PR MERGED (#533…#657), открытых 0; голова `484-notify` = 33010d434767 (merge-коммит #657, родители 22b70ea5d0a7 и 1316a650e); пин corelib на голове — `18d105d0f50a` (со слов описания #657); задача kaname#484 и эпик kacho#2914 OPEN; в `main` kaname из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
 type: feature
 repos:
   - kaname
@@ -95,9 +95,18 @@ go.sum, таблица третьих сторон, перепорождённа
 
 ## Потребитель
 
-- kacho `2914-notify` на `cd20a05cfa72` (2026-10-08, после kacho #3072; пин поднят #3098) пинит kaname
-  `56bcb3036d71` (#628), corelib `67ba3443c149` (прочитано в `go.mod`). Голова `484-notify`
-  впереди пина на 13 коммитов (`gh api compare`) — #632 и #657 потребителем kacho не взяты.
+- kacho `2914-notify` на `515e017c873a` (2026-10-08, после kacho #3099, [[KAC/issue-2924]])
+  пинит kaname `33010d434767` — голову `484-notify` (`gh api compare`: identical) — и
+  corelib `18d105d0f50a` (прочитано в `go.mod`). #632 и #657 потребителем взяты; до #3099
+  пин стоял на `56bcb3036d71` (#628, поднят #3098).
+
+## Открытый запрос в `484-notify`
+
+- [#673](https://github.com/PRO-Robotech/kaname/pull/673) — волна ограды NTF-3
+  (`484-wave-fence-2`, координата, не живая ссылка; 16 коммитов над `33010d434767`): K2, K3 и
+  фиксы kaname#636 и kaname#667. OPEN, вердикта посадки нет (со слов описания). Состав и
+  разбор — в описании и диффе PR, здесь не пересказываются. После вливания голова
+  `484-notify` уйдёт вперёд пина kacho.
 
 ## DoD (из тела задачи)
 
@@ -110,8 +119,8 @@ go.sum, таблица третьих сторон, перепорождённа
 - https://github.com/PRO-Robotech/kacho/issues/2914 — эпик.
 - https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib, блокер.
 - https://github.com/PRO-Robotech/kacho/issues/2917 — NTF-2, почта личности: сторона kacho.
-- https://github.com/PRO-Robotech/kaname/issues/636 — дефект факта права в kaname (bug, P1), найден красной пробой NTF3-184 под-фазы NTF-3 ([[KAC/issue-2918]]); OPEN, PR нет, проба не отправлена. Разбор — в задаче, здесь не пересказывается.
-- https://github.com/PRO-Robotech/kaname/issues/667 — мерцающая проба NTF3-174 (конкурентное снятие объекта с регистрациями); OPEN, PR нет. Предикат закрытия — в задаче.
+- https://github.com/PRO-Robotech/kaname/issues/636 — дефект факта права в kaname (bug, P1), найден красной пробой NTF3-184 под-фазы NTF-3 ([[KAC/issue-2918]]); OPEN, фикс в #673. Trail — [[KAC/issue-636-kaname]].
+- https://github.com/PRO-Robotech/kaname/issues/667 — мерцающая проба NTF3-174 (конкурентное снятие объекта с регистрациями); OPEN, фикс в #673. Trail — [[KAC/issue-667-kaname]].
 
 ## History
 
@@ -121,6 +130,8 @@ go.sum, таблица третьих сторон, перепорождённа
 - 2026-10-08 — kacho #3072 (#2919) влит в `2914-notify`, пин kaname не тронул
   (`56bcb3036d71`). В «Связанные задачи» внесены открытые дефекты линии kaname#636 и
   kaname#667. Статус `in-progress`.
+- 2026-10-08 — потребитель: kacho #3099 (#2924) поднял пин до головы `33010d434767`. Открыт
+  #673 (волна ограды NTF-3 с фиксами kaname#636 и kaname#667), не влит. Статус `in-progress`.
 
 ## Затронутые сущности vault
 

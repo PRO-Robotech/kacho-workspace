@@ -9,7 +9,7 @@ status: test
 repo: kacho
 layer: service
 path: services/notify
-verified_against: "Раздел «Конфигурация и развёртывание» (абзац о ручках NTF-4) сверен 2026-10-08 с `project/kacho` @`cd20a05cfa72` (merge-коммит PR #3072, голова `2914-notify`) чтением через `gh api contents`: шапка `internal/config/ntf4.go`, шапка `deploy/helm/notify/templates/address-key-secret.yaml`; `cmd/notify/serve.go` и `relay.go` на ней ручек NTF-4 не читают (grep пуст); дельта #3072 новых каталогов `internal/` не заводит (`gh api compare 504bc7acdc51...cd20a05cfa72`). Разделы «Две базы — две цепочки» и «Схема извещений оператора (S1)» сверены 2026-10-07 с `project/kacho` @`4d5295f1ae96` (merge-коммит PR #3070, голова `2914-notify`): прочитаны `cmd/migrator/chains.yaml` и шапка с перечнем `CREATE TABLE` миграции `internal/migrations/20261006232858_operator_notices.sql`, состав `internal/migrations` снят `git ls-tree`. Разделы «Порядок подъёма шлюза», «Флаг установки», «Страж DNS и пара DKIM», «Конфигурация и развёртывание» и «Чего на этой ревизии нет» сверены 2026-10-06 с `project/kacho` @`bc3192f9ca13` (merge-коммит PR #3041, голова `2914-notify`): прочитаны `cmd/notify/serve.go`, `cmd/notify/relay.go`, `internal/config/dns.go`, шапка `internal/dkimkey/dkimkey.go`, `deploy/helm/notify/templates/_flag.tpl` и `recipient-key-secret.yaml`, `values.yaml`; состав `internal/` и шаблонов чарта снят `git ls-tree`. Остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
+verified_against: "Разделы «Четыре корня процессов», «Схема извещений оператора (S1)» (абзац о коде) и «Записанные решения о поверхности» сверены 2026-10-08 с `project/kacho` @`515e017c873a` (merge-коммит PR #3099, голова `2914-notify`) чтением через `gh api contents`: README службы (разделы «Поверхность» и «Решения, истёкшие с notify-api»), `servesurface_ledger.go`, `cmd/migrator/chains.yaml` (две строки, не менялась), `cmd/notify-api/serve.go` (пул `kacho_notify`, хранилище `noticerepo`); дерево `services/notify/` снято `git/trees`. Раздел «Конфигурация и развёртывание» (абзац о ручках NTF-4) сверен 2026-10-08 с `project/kacho` @`cd20a05cfa72` (merge-коммит PR #3072, голова `2914-notify`) чтением через `gh api contents`: шапка `internal/config/ntf4.go`, шапка `deploy/helm/notify/templates/address-key-secret.yaml`; `cmd/notify/serve.go` и `relay.go` на ней ручек NTF-4 не читают (grep пуст); дельта #3072 новых каталогов `internal/` не заводит (`gh api compare 504bc7acdc51...cd20a05cfa72`). Разделы «Две базы — две цепочки» и «Схема извещений оператора (S1)» сверены 2026-10-07 с `project/kacho` @`4d5295f1ae96` (merge-коммит PR #3070, голова `2914-notify`): прочитаны `cmd/migrator/chains.yaml` и шапка с перечнем `CREATE TABLE` миграции `internal/migrations/20261006232858_operator_notices.sql`, состав `internal/migrations` снят `git ls-tree`. Разделы «Порядок подъёма шлюза», «Флаг установки», «Страж DNS и пара DKIM», «Конфигурация и развёртывание» и «Чего на этой ревизии нет» сверены 2026-10-06 с `project/kacho` @`bc3192f9ca13` (merge-коммит PR #3041, голова `2914-notify`): прочитаны `cmd/notify/serve.go`, `cmd/notify/relay.go`, `internal/config/dns.go`, шапка `internal/dkimkey/dkimkey.go`, `deploy/helm/notify/templates/_flag.tpl` и `recipient-key-secret.yaml`, `values.yaml`; состав `internal/` и шаблонов чарта снят `git ls-tree`. Остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
 tags:
   - packages
   - kacho
@@ -29,18 +29,24 @@ tags:
 вызовом: забирает их сам из лент источников, у kaname спрашивает право на каждое письмо и
 отправляет. Замысел и приёмка — в [[KAC/issue-2915]].
 
-## Три корня процессов, один образ
+## Четыре корня процессов, один образ
 
-Образ `kacho-notify` несёт три бинаря:
+Образ `kacho-notify` несёт четыре бинаря (с #3099; до него — три):
 
 | корень | роль | поверхность | база |
 |---|---|---|---|
 | `cmd/notify` | шлюз (`kacho-notify serve`) | только диагностический HTTP: `/healthz`, `/readyz`, `/metrics`; gRPC-слушателя нет | `kacho_notify` |
+| `cmd/notify-api` | запросы оператора и арендаторов к извещениям (`kacho-notify-api serve`, #3099) | единственный внутренний mTLS-слушатель: `InternalNoticeService`, `NoticeService`, `corelib.operation.OperationService`; публичного слушателя нет | `kacho_notify` |
 | `cmd/notify-probe` | стендовая проба-источник (`kacho-notify-probe serve`) | внутренний gRPC-слушатель | `kacho_notifyprobe` |
 | `cmd/migrator` | точка наката (`kacho-migrator up`) | — | выбирает цепочку по имени базы в DSN |
 
 Набор служб каждого корня записан в ведомости `servesurface_ledger.go`. У `cmd/notify` этот
-набор пуст.
+набор пуст. Ресурс, который служит `cmd/notify-api`, — [[resources/notify-notice]]; край
+ходит к нему по одному внутреннему адресу, `InternalNoticeService` — только с внутреннего
+mux. Секрета почты и справочника службы доступа у развёртывания notify-api нет; ручки свои —
+`cmd/notify-api/internal/config`. Слой use-case — `internal/apps/kacho/api/{notice,publicnotice}`
+(метод — пакет), хранилище — `internal/repo/noticerepo`, правила видов и переходов —
+`internal/notice/rules`.
 
 ## Проба-источник
 
@@ -78,20 +84,22 @@ tags:
 закрыта `CHECK`.
 
 Чего в схеме нет, по шапке миграции: кэша областей, снимка аудитории у события этапа,
-строк адресатов, кандидатов, исходов областей и окна OB (стадия S2). Кода, который пишет
-или читает эти таблицы, на `4d5295f1ae96` нет: имена таблиц встречаются
-только в пробах схемы `notices_schema_integration_test.go` и в гейте
-`internal/repohygiene/tablegrowth_test.go` (`git grep` по `services/`, `gateway/`, `pkg/`,
-`internal/`).
+строк адресатов, кандидатов, исходов областей и окна OB (стадия S2). С #3099 таблицы пишет
+и читает хранилище `internal/repo/noticerepo` корня `cmd/notify-api`; на `4d5295f1ae96`
+такого кода не было. С #3099 в цепочке есть и миграция операций
+`20261007120000_operations.sql`.
 
-## Записанные решения «поверхности нет»
+## Записанные решения о поверхности
 
-В README службы записаны три решения о поверхности, которой нет. Каждое держит гейт дерева,
-и каждое снимается появлением предмета:
+В README службы записаны решения о поверхности, которой нет; каждое держит гейт дерева и
+снимается появлением предмета. На `515e017c873a` в силе одно:
 
-- шлюз не служит подписку, а сам открывает её к источникам;
-- публичного `List*` нет, поэтому нет и анализатора отбора списков;
-- слоя use-case `internal/apps/` нет.
+- шлюз не служит подписку, а сам открывает её к источникам.
+
+Два решения истекли с notify-api (#3099): «публичного `List*` нет» и «слоя use-case под
+`internal/apps/` нет». notify-api служит `List*`, несёт анализатор отбора списков
+(`tools/auditlistfilter`) и слой use-case; раздел README «Решения, истёкшие с notify-api»
+называет гейты, которые теперь судят их как у всех служб.
 
 ## Конфигурация и развёртывание
 
@@ -152,7 +160,8 @@ tags:
 `render`, `dnscheck` и `dkimkey`, но `cmd/notify/serve.go` поднимает из них стража DNS,
 пул базы и сетку лимитов (ограда ключа и уборка окон) рядом с диагностической
 поверхностью. Сборщик отправителя `newRelaySender` (`cmd/notify/relay.go`) объявлен, но из
-`serve.go` не вызывается. Подписчика лент и отправки почты в корне процесса нет, ведомость служб `cmd/notify` пуста.
+`serve.go` не вызывается. Подписчика лент и отправки почты в корне процесса нет, ведомость служб `cmd/notify` пуста
+(на `515e017c873a` — так же; #3099 корень шлюза не менял, а добавил отдельный `cmd/notify-api`).
 Поэтому нет и ребра «шлюз → источник» в `edges/`. Записка о ребре заводится той волной,
 которая посадит подписчика в корень процесса.
 
@@ -172,5 +181,9 @@ tags:
   в «Две базы» утверждение «одна строка» заменено состоянием на `4d5295f1ae96` (две строки).
 - 2026-10-08 — #2919: в «Конфигурация и развёртывание» — ручки NTF-4 стадии S1 и ключ
   отпечатка адреса по `cd20a05cfa72` (PR #3072).
+- 2026-10-08 — #2924: по `515e017c873a` (PR #3099) — четвёртый корень `cmd/notify-api`;
+  утверждения «три бинаря», «кода, который пишет таблицы извещений, нет» и решения «публичного
+  `List*` нет», «слоя use-case нет» опровергнуты README и деревом на этой ревизии и
+  исправлены.
 
 #packages #kacho #service #internal #go
