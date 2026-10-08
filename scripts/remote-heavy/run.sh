@@ -71,7 +71,8 @@
 # kubernetes.io/hostname): исполняемый код ветки и сторонних модулей не делит
 # узел со стендом. NetworkPolicy ns (F2): входящие запрещены; исходящие — к DNS
 # кластера (служба с портом 53/UDP, выводится из кластера) и в мир, кроме частных
-# диапазонов, адресов узлов и диапазонов служб. Предпосылка проверяется в pod до
+# диапазонов, адресов узлов, диапазонов служб и адресов управления кластера
+# (конечные точки default/kubernetes и адреса имени сервера кубконфига). Предпосылка проверяется в pod до
 # команды: DNS отвечает, мир (proxy.golang.org:443) доступен, а управление кластера
 # (kubernetes.default.svc:443) и служба ns kacho — нет; иначе 69.
 #
@@ -464,9 +465,18 @@ nodeaddr="$(kc get nodes -o json 2>/dev/null | jq -c '[.items[] | (.status.addre
     || { say "адреса узлов не прочитаны — сеть ns не построить (не выполнилось)"; exit 69; }
 [ "$(jq length <<< "$nodeaddr")" -gt 0 ] || { say "адресов узлов ноль — сеть ns не построить (не выполнилось)"; exit 69; }
 svccidr="$(kc get servicecidrs -o json 2>/dev/null | jq -c '[.items[].spec.cidrs[]?]')" || svccidr='[]'
-jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjson svc "$svccidr" '
+# Управление кластера бывает вне узлов (опыт 2026-10-08: конечная точка службы
+# kubernetes — публичный адрес, не адрес узла, и без этого предпосылка в pod
+# краснела): адреса конечных точек default/kubernetes и адреса имени сервера
+# кубконфига — тоже в исключение.
+apiaddr="$( { kc -n default get endpointslices -l kubernetes.io/service-name=kubernetes -o json 2>/dev/null \
+              | jq -r '.items[].endpoints[]?.addresses[]?'
+            [ -n "$SERVER_HOST" ] && getent ahosts "$SERVER_HOST" 2>/dev/null | awk '{print $1}'
+          } | sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"
+[ "$(jq length <<< "$apiaddr")" -gt 0 ] || { say "адреса управления кластера не выведены — сеть ns не построить (не выполнилось)"; exit 69; }
+jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjson svc "$svccidr" --argjson api "$apiaddr" '
   def cidr: if test("/") then . elif test(":") then . + "/128" else . + "/32" end;
-  ([$addr[], $svc[]] | map(cidr)) as $own |
+  ([$addr[], $svc[], $api[]] | map(cidr)) as $own |
   {apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy", metadata: {name: "heavy", namespace: $ns},
    spec: {podSelector: {}, policyTypes: ["Ingress", "Egress"], ingress: [],
     egress: [

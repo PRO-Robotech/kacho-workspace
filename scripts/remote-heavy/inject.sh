@@ -28,7 +28,7 @@
 #   U0 pod в своём пространстве пользователей (hostUsers: false)
 #   U1 профиль с dind: privileged нет нигде, dind на crun без cgroup (F1)
 #   N1 NetworkPolicy ns: входящих нет; исходящие — DNS (53) и мир без частных
-#      диапазонов, адресов узлов и диапазона служб (F2)
+#      диапазонов, адресов узлов, диапазона служб и управления кластера (F2)
 #   P1 проба закрытости в pod — служба kacho, не закрытая политикой kacho;
 #      близнец (закрытая) не выбран
 #   C1 идущих 2 при пределе 2              → 75, create не звался (F3)
@@ -61,7 +61,7 @@ SERVER_IP="203.0.113.7"
 TOKEN="SENTINEL-TOKEN-5f1c"
 # Адреса, которые настоящий кластер отдаёт в выводе: узла (в сеть ns) и pod/dind
 # (в лог команды). Ни один не должен дойти до вывода run.sh.
-export FAKE_NODE_IP="198.51.100.10" FAKE_NODE_IP6="2001:db8::10"
+export FAKE_NODE_IP="198.51.100.10" FAKE_NODE_IP6="2001:db8::10" FAKE_API_IP="198.51.100.77"
 export FAKE_POD_IP="192.0.2.44" FAKE_POD_IP6="2001:db8:0:1::44"
 PASS=0; FAIL=0; ALL_OUT="$BOX/all.out"; : > "$ALL_OUT"
 
@@ -145,6 +145,7 @@ case "$1 ${2:-}" in
     "get netpol") echo '{"items":[{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}' ;;
     "get nodes")
         jq -n --arg e "$FAKE_NODE_IP" --arg v6 "$FAKE_NODE_IP6" '{items: [{status: {addresses: [{type: "ExternalIP", address: $e}, {type: "InternalIP", address: "10.0.0.5"}, {type: "InternalIP", address: $v6}, {type: "Hostname", address: "n1"}]}}]}' ;;
+    "get endpointslices") jq -n --arg a "$FAKE_API_IP" '{items: [{endpoints: [{addresses: [$a]}]}]}' ;;
     "get servicecidrs") echo '{"items":[{"spec":{"cidrs":["10.96.0.0/12"]}}]}' ;;
     "get pods")
         if [ ! -e "$S/job.json" ]; then echo '{"items":[]}'; exit 0; fi
@@ -226,12 +227,12 @@ if jq -e '[.spec.template.spec.affinity.podAntiAffinity.requiredDuringScheduling
 else OUT="$J"; bad A1 "в Job нет podAntiAffinity required к pod ns kacho по kubernetes.io/hostname"; fi
 # N1 — сеть ns: входящих нет, исходящие — DNS и мир без частных, узлов и служб (F2)
 NP="$BOX/state/netpol.json"
-if jq -e --arg n4 "$FAKE_NODE_IP/32" --arg n6 "$FAKE_NODE_IP6/128" '
+if jq -e --arg n4 "$FAKE_NODE_IP/32" --arg n6 "$FAKE_NODE_IP6/128" --arg a4 "$FAKE_API_IP/32" '
      .spec.podSelector == {} and (.spec.policyTypes | sort) == ["Egress", "Ingress"] and (.spec.ingress // []) == []
      and ([.spec.egress[].to[]] | all(.ipBlock or (.namespaceSelector.matchLabels["kubernetes.io/metadata.name"] == "dns-sys" and .podSelector.matchLabels["k8s-app"] == "dns")))
      and ([.spec.egress[] | select(any(.to[]; .namespaceSelector)) | .ports[] | "\(.protocol)/\(.port)"] | sort) == ["TCP/53", "UDP/53"]
      and ([.spec.egress[].to[] | .ipBlock | select(.cidr == "0.0.0.0/0") | .except[]] as $e
-          | ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", $n4, "10.96.0.0/12"] | all(. as $x | $e | index($x)))
+          | ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", $n4, $a4, "10.96.0.0/12"] | all(. as $x | $e | index($x)))
      and ([.spec.egress[].to[] | .ipBlock | select(.cidr == "::/0") | .except[]] as $e | ["fc00::/7", "fe80::/10", $n6] | all(. as $x | $e | index($x)))' "$NP" >/dev/null 2>&1; then ok
 else OUT="$NP"; bad N1 "сетевой политики ns нет либо она пропускает кластер"; fi
 # P1 — проба закрытости в pod: служба ns kacho, НЕ закрытая собственной политикой kacho
@@ -439,7 +440,7 @@ if grep -qF "$FAKE_POD_IP" "$OUT" && grep -qF "$FAKE_POD_IP6" "$OUT"; then ok; e
 
 # L1 — ни адреса, ни IPv4, ни токена, ни пути кубконфига в выводе run.sh
 OUT="$ALL_OUT"
-for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$FAKE_NODE_IP" "$FAKE_NODE_IP6" "$FAKE_POD_IP" "$FAKE_POD_IP6"; do
+for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$FAKE_NODE_IP" "$FAKE_NODE_IP6" "$FAKE_API_IP" "$FAKE_POD_IP" "$FAKE_POD_IP6"; do
     if grep -qF -- "$s" "$ALL_OUT"; then bad L1 "в выводе run.sh — «$s»"; else ok; fi
 done
 if [ -s "$ALL_OUT" ]; then ok; else bad L1 "вывод пуст — судить нечего"; fi
