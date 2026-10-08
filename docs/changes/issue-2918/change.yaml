@@ -12,12 +12,11 @@
 # а не в `reviews/acceptance/` пакета, как раскладывает SDD-1 §3: записи
 # append-only и цитируются шапкой приёмки, перенос сменил бы её отпечаток.
 #
-# СОСТОЯНИЕ CLASS_EXPOSURE_RECORDED — приёмка на отпечатке `hashes.acceptance_sha256`
-# (редакция 33, правка по Д34 — числовой порядок позиций в `seen_up_to`) одобрена кругом 1
-# (запись docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1.yaml,
-# APPROVED), первичный разбор классов на тот же отпечаток записан
-# (reviews/class-exposure/initial/ac1f9fc9….yaml, исход «к-замыслу»). Прежняя одобренная
-# редакция 32 — `aa939edc…`, её разбор — initial/aa939edc….yaml.
+# СОСТОЯНИЕ ACCEPTANCE_APPROVED — приёмка на отпечатке `hashes.acceptance_sha256` (редакция 42)
+# одобрена кругом 3 (запись docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba.yaml,
+# ACCEPTED); первичного разбора классов на неё нет. Прежнее состояние CLASS_EXPOSURE_RECORDED стояло
+# на редакции 33 (`ac1f9fc9…`, запись …/ac1f9fc9….yaml APPROVED, разбор initial/ac1f9fc9….yaml).
+# Строки ниже о редакциях замысла 1–13 — история.
 # Замысел — `design.md` редакции 13 (2026-09-30; редакция 1 — первый заход в форме захода отображения
 # Д26, предмет сужен Д31; редакция 2 исполняет пересверку классов на редакцию 1 `89d1f0ad…`; редакция 3 —
 # пересверку на редакцию 2 `3730bca2…`; редакция 4 — пересверку на редакцию 3 `374789b5…`; редакция 5 —
@@ -42,15 +41,18 @@
 # Ревью замысла на редакцию 11 нет; пересверка на редакцию 11 — к-замыслу (коммит 9ef3435bc), исполнена редакцией 12.
 # Ревью замысла на редакцию 12 нет; пересверка на редакцию 12 — к-замыслу (коммит a5df02586), исполнена редакцией 13.
 # Пересверки, ревью замысла и вердикта на редакцию 13 нет.
-# Маршрут — tasks.md редакции 20 (2026-10-08, под приёмку редакции 42 `1d7d2ad0…73ba` и замысел
-# редакции 17: полосы ограды FC, FM0, FM-*, S2-B9 → S2-B4 на ListEventAudience, остаток B1, пп. 5–8);
-# прежний — редакция 19, sha256 3c5846b2e70322fe48492fb52e8e00d7b9f5895522f73b4dd4df837a5346880a.
-# Действующая приёмка — редакция 42 (ACCEPTED, запись docs/specs/reviews/…/1d7d2ad0….yaml); строка
-# hashes.acceptance_sha256 ниже называет редакцию 33, которая лежит в дереве ветки, пока текст
-# редакции 42 не закоммичен (шаг автора приёмки).
+# Маршрут — tasks.md редакции 21 (2026-10-08: каждая полоса — задание с версиями фундамента в after,
+# перепин — нулевой шаг волны (K0, K1, FM0, P5), неделимые цепочки в одной волне, S2-B7L снята как
+# полоса — открытое решение Е9); прежний — редакция 20 (коммит 32157bc64).
+# Замысел — редакция 18 (2026-10-08): отображение пересверки e63e3fb0 (CX3R-01…11, коммит c0a21101a),
+# З34 М1–М10, заказы УК3-72…78; прежний — редакция 17, sha256 e63e3fb0….
+# Действующая приёмка — редакция 42 (ACCEPTED, запись docs/specs/reviews/…/1d7d2ad0….yaml, коммит
+# 6b57d573c); текст закоммичен коммитом aed8aae55, и hashes.acceptance_sha256 называет её. Состояние
+# откатилось к ACCEPTANCE_APPROVED честно: первичного разбора классов на 1d7d2ad0 нет (заказ записи
+# e63e3fb0 class-exposure-analyst'у); разборы initial/ac1f9fc9… и ранее относятся к редакции 33.
 schema_version: 1
 change_id: issue-2918
-lifecycle_state: CLASS_EXPOSURE_RECORDED
+lifecycle_state: ACCEPTANCE_APPROVED
 
 coordinates:
   issue: https://github.com/PRO-Robotech/kacho/issues/2918
@@ -83,8 +85,8 @@ coordinates:
 # Отпечатки — `sha256sum` файла на ревизии, названной в сообщении коммита пакета.
 # Правка приёмки делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции.
 hashes:
-  acceptance_sha256: ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1
-  design_sha256: e63e3fb0c200ff2d7782b564bbe1d564ec5c8ae36461a765b9e37dd5fe76b1e8   # замысел редакции 17 (2026-10-08)
+  acceptance_sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba   # редакция 42, текст — коммит aed8aae55
+  design_sha256: bfff8bf17f2fa7d6f6d70cc1ad4ff7dd9f49aa840cd4f95e7db81c4757060f41   # замысел редакции 18 (2026-10-08)
   holders_sha256: d8072f8503df9f347e4799f7e24a94807465c30e81652d745d3b93df1e77c9db
 
 links:
@@ -93,7 +95,7 @@ links:
   acceptance: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
   acceptance_reviews: docs/specs/reviews/sub-phase-NTF-3-kacho-modules-notifications-acceptance/
   class_exposure_initial: docs/changes/issue-2918/reviews/class-exposure/initial/ac1f9fc91e4b13e248b9a9bc3a9d31a3c015021714a3461ecc02dbf651ca4ac1.yaml   # на редакцию 33 ac1f9fc9…, исход «к-замыслу»; прежний — initial/aa939edc….yaml (редакция 32)
-  class_exposure_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/5400c528c23011c21ced0906558a68e1e7123fa17f7149844aba81912539c47b.yaml   # на замысел редакции 12 (5400c528…), исход «к-замыслу», clean=false (коммит a5df02586; CX3N-01…05 — исполнено редакцией 13); прежние — revalidation/7bc43f21….yaml (редакция 11, к-замыслу, исполнено редакцией 12), revalidation/f6809e98….yaml (редакция 10, к-замыслу, исполнено редакцией 11), revalidation/97c51264….yaml (редакция 9, к-коду, clean); ревью замысла редакции 9 — reviews/design/design-reviewer/97c51264….yaml, возврат (коммит 38283c50d)
+  class_exposure_revalidation: docs/changes/issue-2918/reviews/class-exposure/revalidation/e63e3fb0c200ff2d7782b564bbe1d564ec5c8ae36461a765b9e37dd5fe76b1e8.yaml   # на замысел редакции 17 (e63e3fb0…), исход «к-замыслу», clean=false (коммит c0a21101a; CX3R-01…11 — отображено редакцией 18); прежние — revalidation/5400c528….yaml (редакция 12) и ранее
   epic_changes:
     - { id: NTF-1, change: docs/changes/issue-2915, issue: PRO-Robotech/kacho#2915 }
     - { id: NTF-2, change: docs/changes/issue-2917, issue: PRO-Robotech/kacho#2917 }
