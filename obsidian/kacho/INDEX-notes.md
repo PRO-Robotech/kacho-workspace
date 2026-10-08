@@ -457,11 +457,13 @@ tags:
 
 | Записка | Состояние |
 |---|---|
+| [[packages/gateway-anonmail\|gateway/anonmail — ограничитель анонимных почтовых глаголов края]] | в работе (test) |
 | [[packages/kacho-ci-determinism\|CI — детерминизм: пины версий и честные exit-коды]] | живо (stable) |
 | [[packages/kacho-ci-runners\|CI монорепы — ранеры и раскладка job'ов]] | живо (stable) |
 | [[packages/kacho-declaredbreak\|Гейт объявленных разрывов контракта — три исхода и отказ, который не гадает]] | живо (stable) |
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-migrationchains\|internal/migrationchains — какую цепочку миграций какая точка наката применяет и на какую базу]] | в работе (test) |
+| [[packages/kacho-module-resource-event\|resource-event модулей kacho — строка ленты из журнала функцией базы]] | в работе (test) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
 | [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
