@@ -1,0 +1,42 @@
+# ВЕРДИКТ: принято на sha256 adb619f8a70cc60a87d0d1975418a811cccdf3c8671eb21d8172301ce7c2083d
+role: system-design-reviewer
+mode: post-diff
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом)
+repo: PRO-Robotech/kacho
+pr: 3108
+issue: 3017
+base: 515e017c873a1d1be23592e3e3757462a5a13e7e   # merge-base(origin/2914-notify, head), перемерено; = голова origin/2914-notify
+head: 928857dd96d1cc1854450414b1edd1243a8b9c58
+digest: adb619f8a70cc60a87d0d1975418a811cccdf3c8671eb21d8172301ce7c2083d  # git diff base..head | sha256sum
+files: 10   # git diff --stat: +953 −1; deploy/{Makefile,README.md,stacks-mail-dns.txt,scripts/installation-mail-dns.sh,helm/umbrella/values.a8f60d.yaml,tests/helm/installation-mail-dns-test.sh,*_test.go}, services/notify/internal/dnscheck/installation_records_test.go, tools/foreignclouds/foreignclouds.go
+distributed_surface: false   # ручной скрипт оператора (seed/records/verify) и одно значение профиля; ни мутации с событием, ни Operation, ни outbox, ни воркера, ни межсервисного вызова, ни края, ни подписки
+schema_overlap: false        # SQL, CAS, xmin, advisory-lock дифф не вводит
+blocking: []
+runs:
+  - cmd: "GOWORK=off go test -count=1 -race ./deploy/ -run 'MailDNS|MailDomain|Mail' -v; GOWORK=off go test -count=1 -race ./services/notify/internal/dnscheck/"
+    at: 928857dd96d1cc1854450414b1edd1243a8b9c58 (отдельный detached worktree, чистое дерево)
+    result: "deploy: 17 PASS верхнего уровня, 0 FAIL, ok; dnscheck: ok"
+  - cmd: "GOWORK=off go test -count=1 ./deploy/ -run 'Align|Return' -v"
+    at: 928857dd96d1cc1854450414b1edd1243a8b9c58
+    result: "TestNotifyReturnDomainIsAlignedWithTheSenderDomain, TestNotifyReturnDomainAlignmentInjections — PASS"
+  - cmd: "helm dependency build deploy/helm/umbrella && bash deploy/tests/helm/installation-mail-dns-test.sh"
+    at: 928857dd96d1cc1854450414b1edd1243a8b9c58
+    result: "PASS (8 assertions), код 0; без зависимостей чарта — код 2 «условие не создано», не красное"
+accepted:
+  seed_idempotent: "installation-mail-dns.sh seed — get → NotFound → create; AlreadyExists при гонке двух запусков переиспользует объект, иной отказ сервера — код 2 (не «нет объекта»). Пара выпускается только при отсутствии объекта; существующий не перезаписывается — create-if-absent решает сервер API, а не проверка скрипта. Тот же образец, что seed-stand-dkim.sh @928857dd:deploy/scripts/seed-stand-dkim.sh:142-155"
+  secret_not_helm_owned: "kacho-notify-dkim заводится вне helm и чартом не создаётся (git grep @928857dd: только values.dev.yaml:138 secretName и два посева) — конфликта владения при helm install нет"
+  values_single_source: "домен From, объект ключа и returnDomain берутся из COMPUTED VALUES цепочки профиля, а не вторым написанием; DKIM выводится из открытого ключа объекта; SPF/DMARC — одна строка профиля, покрытие relay-профилей держит TestStacksMailDNSCoversExactlyTheRelayProfiles"
+  return_domain: "notify.returnDomain=prorobotech.ru в values.a8f60d.yaml = домен fromAddress info@prorobotech.ru (values.a8f60d.yaml:120) → KACHO_NOTIFY_RETURN_DOMAIN (deploy/helm/notify/templates/configmap.yaml:54); выравнивание держит TestNotifyReturnDomainIsAlignedWithTheSenderDomain"
+  verify_tristate: "verify различает ok/red/silent: нет ответа DNS — код 2, расхождение — код 1; dig ограничен +time=5 +tries=2"
+  no_new_edge: "межсервисных рёбер нет; notify в рендер a8f60d не возвращается этим диффом (Д102)"
+important:
+  - id: kubectl-no-request-timeout
+    where: deploy/scripts/installation-mail-dns.sh:152,155,162,177
+    note: >
+      вызовы kubectl (get namespace, get secret, create secret) идут без --request-timeout:
+      на неотвечающем сервере API ручной шаг повиснет, а не выйдет кодом 2 «кластер не ответил»,
+      как обещает шапка. Не блок: шаг ручной, оператор в переднем плане, порчи состояния нет.
+      Предикат: grep -c -- '--request-timeout' deploy/scripts/installation-mail-dns.sh → 0; правка —
+      общий KUBECTL="kubectl --request-timeout=20s" на все четыре вызова (и тот же класс в seed-stand-dkim.sh).
+orders: []
