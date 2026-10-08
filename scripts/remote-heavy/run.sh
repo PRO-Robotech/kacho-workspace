@@ -16,7 +16,8 @@
 #          [--profile go-race|integration|lint|ci-local] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] -- <команда> [аргументы…]
-#   run.sh --available      0 — кластер отвечает и ns создавать вправе; 69 — нет
+#   run.sh --available      0 — кластер отвечает и ns создавать вправе; 69 — нет;
+#                           75 — идущих тяжёлых прогонов уже предел (см. ПРЕДЕЛ)
 #   run.sh --profiles       профили, их ресурсы и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
@@ -24,7 +25,9 @@
 # KUBECONFIG и текущий контекст НЕ берутся: они могут смотреть на локальный kind или
 # на кластер с выкаткой, и прогон ушёл бы не туда молча. Путь, адрес сервера и имя
 # контекста в вывод не попадают: репозиторий публичный, вывод уходит в задачи, —
-# ошибки kubectl печатаются с адресом сервера, заменённым на «<кластер>».
+# ОБА потока kubectl (ошибки и вывод команды из `logs -f`) и свои строки run.sh идут
+# через маску: адрес сервера — «<кластер>», IPv4 и IPv6 — «<адрес>». Вывод команды
+# несёт адреса pod и dind (ревью ws#984, F4), поэтому маскируется и он.
 #
 # NS. Имя — t<задача>-heavy-<слово>, метки kacho.io/task=<N>, kacho.io/stand=test,
 # kacho.io/kind=heavy, kacho.io/repo, аннотация kacho.io/expires (RFC 3339, UTC) —
@@ -37,6 +40,40 @@
 # команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас + ч
 # (≤ 12). kill -9 trap не ловит: такое ns ловит перепись по expires
 # (`kubectl get ns -l kacho.io/kind=heavy` и аннотация).
+#
+# ЛОКАЛЬНАЯ УБОРКА. После kill -9 на машине остаются рабочий каталог
+# $TMPDIR/remote-heavy.* (bundle исходников), процессы kubectl (`logs -f`) и
+# временная ссылка refs/remote-heavy/* в клоне. Каждый запуск несёт метку владельца
+# «<pid>.<время старта процесса>.<случайное>»: она записана в $BOX/owner, в
+# окружении REMOTE_HEAVY_OWNER у всех его потомков, в имени временной ссылки и в
+# аннотации kacho.io/owner его ns. Следующий запуск переписывает остатки и снимает
+# те, чей владелец не жив (pid нет либо время старта другое — pid переиспользован):
+# каталог, процессы с этой меткой в окружении, ссылки, и ns, если запись говорит
+# «создано, не --keep» и аннотация ns совпадает с меткой (чужое ns того же имени
+# не снимается). Каталог прежней формы, без записи владельца, снимается, когда он
+# старше предельной жизни прогона. Ненулевая перепись печатается строкой
+# «уборка прежних запусков: …».
+#
+# ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
+# F3): число одновременных тяжёлых прогонов ограничено KACHO_REMOTE_HEAVY_MAX
+# (по умолчанию 2 — на узле без стенда 29,5 ГиБ, профиль go-race запрашивает
+# 14 ГиБ с dind). Идущим считается ns kacho.io/kind=heavy, не снимаемое, со сроком
+# в будущем и без завершённого Job. Перепись — до создания ns (предел достигнут —
+# 75, ns не создаётся) и после него: две гонки, прошедшие первую проверку разом,
+# разрешаются по времени создания — запуск, оказавшийся сверх предела, снимает
+# своё ns и выходит 75.
+#
+# ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
+# контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
+# SYS_PTRACE dind действуют только внутри него. privileged нет ни у одного
+# контейнера (ревью ws#984, F1). Сверх этого pod не встаёт на узел, где идёт
+# хотя бы один pod ns kacho (podAntiAffinity required, topologyKey
+# kubernetes.io/hostname): исполняемый код ветки и сторонних модулей не делит
+# узел со стендом. NetworkPolicy ns (F2): входящие запрещены; исходящие — к DNS
+# кластера (служба с портом 53/UDP, выводится из кластера) и в мир, кроме частных
+# диапазонов, адресов узлов и диапазонов служб. Предпосылка проверяется в pod до
+# команды: DNS отвечает, мир (proxy.golang.org:443) доступен, а управление кластера
+# (kubernetes.default.svc:443) и служба ns kacho — нет; иначе 69.
 #
 # ИСХОДНИКИ — git bundle ревизии и ствола, переданный в pod потоком kubectl exec
 # (тот же канал, что kubectl cp). Токена нет вовсе: ни git, ни реестра — в
@@ -51,16 +88,26 @@
 # неоднозначен или не найден — 69, а не «какая-нибудь версия».
 #
 # DOCKER. Профили go-race, integration и ci-local несут боковой docker:dind (сокет
-# unix в общем томе pod, без TCP) — testcontainers поднимают контейнеры в нём; ns
-# таких профилей получает pod-security enforce=privileged, прочие — baseline.
-# Ryuk выключен: контейнеры живут не дольше pod, а pod — не дольше ns.
+# unix в общем томе pod, без TCP) — testcontainers поднимают контейнеры в нём.
+# dind БЕЗ privileged: dockerd в пространстве пользователей pod, среда исполнения —
+# crun с --cgroup-manager=disabled (cgroup pod принадлежит root узла и в userns на
+# запись закрыт; runc на нём падает), контейнеры testcontainers живут в пределе
+# памяти самого dind. Опыт 2026-10-08 на кластере: alpine и postgres:16 с
+# пробросом порта — да; без SYS_PTRACE, без procMount Unmasked, с seccomp или
+# AppArmor RuntimeDefault — нет (зависание crun, keyctl, mount). Вложенный
+# `docker run --privileged` в таком dind отказывает (sysfs не монтируется) — это
+# свойство, а не дефект. Профили ns: с dind — pod-security enforce=privileged
+# (возможности, Unconfined и procMount вне baseline; привилегированных контейнеров
+# Job при этом нет), прочие — baseline. Ryuk выключен: контейнеры живут не дольше
+# pod, а pod — не дольше ns.
 #
 # КЭШ — emptyDir pod: модули и сборка холодные на каждом прогоне (PVC в кластере
 # нет). Это плата переноса, она видна во времени прогона.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен (кластер, образ, доставка, пин); 75 — pod не начал команду в срок либо
-# Job снят по сроку; 76 — команда оборвана пределом памяти. 69, 75, 76 —
+# недоступен (кластер, образ, доставка, пин, сеть pod); 75 — кластер занят (ПРЕДЕЛ),
+# pod не начал команду в срок либо Job снят по сроку; 76 — команда оборвана
+# пределом памяти. 69, 75, 76 —
 # «не выполнилось», а не красное: вердикта по предмету команды нет. Своё слово —
 # строкой «remote-heavy: …» в stderr.
 #
@@ -69,7 +116,9 @@
 set -uo pipefail
 export LC_ALL=C
 
-say() { printf 'remote-heavy: %s\n' "$*" >&2; }
+# say — своё слово в stderr, через ту же маску: в строку попадают тексты кластера
+# (сообщения планировщика, событий), а они бывают с адресами.
+say() { printf 'remote-heavy: %s\n' "$*" | mask >&2; }
 now() { date +%s; }
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -83,6 +132,7 @@ WAIT_START_S=900     # образ, планирование и доставка 
 DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
+MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"
 
 # профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Узел кластера —
 # 15,5 CPU и 29,5 ГиБ (замер 2026-10-08, kubectl get nodes); стенд kacho держит до
@@ -120,13 +170,17 @@ resolve_kubeconfig() {
     return 0
 }
 
-# mask — адрес сервера и IPv4 в выводе kubectl заменяются: ошибка соединения
-# печатает их дословно.
+# mask — адрес сервера, IPv4 и IPv6 в выводе заменяются: ошибка соединения
+# печатает их дословно, вывод команды — адреса pod и dind. IPv6 — полная форма
+# (8 групп) и сжатая с группой по обе стороны «::»: время «12:34:56» и «std::» не
+# задеваются, «::1» (петля) адресом узла не является.
+MASK_V4='([0-9]{1,3}\.){3}[0-9]{1,3}'
+MASK_V6='([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,6}(:[0-9A-Fa-f]{1,4}){1,6}'
 mask() {
     if [ -n "${SERVER_HOST:-}" ]; then
-        sed -E -e "s#${SERVER_HOST//./\\.}#<кластер>#g" -e 's#([0-9]{1,3}\.){3}[0-9]{1,3}#<адрес>#g'
+        sed -u -E -e "s#${SERVER_HOST//./\\.}#<кластер>#g" -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
     else
-        sed -E 's#([0-9]{1,3}\.){3}[0-9]{1,3}#<адрес>#g'
+        sed -u -E -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
     fi
 }
 
@@ -135,9 +189,11 @@ kc() {
     kubectl --kubeconfig "$KCFG" --request-timeout=30s "$@" 2> >(mask >&2)
 }
 # kc_stream — то же для потока лога: срок запроса оборвал бы поток через 30 с
-# (опыт 2026-10-08: переподключение каждые 30 с), поэтому срока у него нет.
+# (опыт 2026-10-08: переподключение каждые 30 с), поэтому срока у него нет. Вывод
+# команды — тоже через маску (F4). exec: зовётся фоном, и $! — сам kubectl, его и
+# снимает trap.
 kc_stream() {
-    kubectl --kubeconfig "$KCFG" "$@" 2> >(mask >&2)
+    exec kubectl --kubeconfig "$KCFG" "$@" 2> >(mask >&2) > >(mask)
 }
 
 available() {
@@ -156,16 +212,42 @@ available() {
     return 0
 }
 
+valid_max_par() {
+    [[ "$MAX_PAR" =~ ^[1-8]$ ]] || { say "KACHO_REMOTE_HEAVY_MAX — от 1 до 8, получено «$MAX_PAR»"; return 1; }
+}
+
+# busy_heavy — идущие тяжёлые ns, старшие первыми (время создания, затем имя).
+# Идущее — kacho.io/kind=heavy, не снимается, срок kacho.io/expires в будущем
+# (ns без срока — идущее: не знаем, что оно не занято) и ни один его Job не
+# завершён. Код 1 — перепись не прочитана.
+busy_heavy() {
+    local nsj jbj
+    nsj="$(kc get ns -l kacho.io/kind=heavy -o json 2>/dev/null)" || return 1
+    jbj="$(kc get jobs -A -l kacho.io/kind=heavy -o json 2>/dev/null)" || return 1
+    jq -nr --argjson ns "$nsj" --argjson jb "$jbj" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+      [$jb.items[] | select([.status.conditions[]? | select(.status == "True" and (.type == "Complete" or .type == "Failed"))] | length > 0)
+                   | .metadata.namespace] as $done
+      | [$ns.items[]
+         | select((.status.phase // "Active") != "Terminating")
+         | select((.metadata.annotations["kacho.io/expires"] // "9999") > $now)
+         | select(.metadata.name as $n | $done | any(. == $n) | not)]
+      | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name'
+}
+
 case "${1:-}" in
     --available)
-        if available; then echo "remote-heavy: кластер отвечает, создавать ns вправе"; exit 0; fi
-        say "$WHY"; exit 69 ;;
+        valid_max_par || exit 64
+        available || { say "$WHY"; exit 69; }
+        busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана"; exit 69; }
+        n="$(grep -c . <<< "$busy")"
+        if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n cr cl mr ml eph d basis; do
             printf '%-12s cpu %s/%s  память %s/%s  диск %s  dind %s\n%-12s основание: %s\n' "$n" "$cr" "$cl" "$mr" "$ml" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$basis"
         done <<< "$PROFILES"
         exit 0 ;;
-    ''|-h|--help) sed -n '13,20p' "$0" >&2; exit 64 ;;
+    ''|-h|--help) sed -n '/^# ФОРМА/,/^#$/p' "$0" >&2; exit 64 ;;
 esac
 
 # ── разбор вызова ────────────────────────────────────────────────────────────
@@ -196,6 +278,7 @@ ROW="$(profile_row "$PROFILE")" || { say "профиля «$PROFILE» нет: $(
 IFS='|' read -r _ CPU_REQ CPU_LIM MEM_REQ MEM_LIM EPH DIND _ <<< "$ROW"
 [[ "$TIMEOUT_S" =~ ^[0-9]+$ ]] && [ "$TIMEOUT_S" -ge 60 ] && [ "$TIMEOUT_S" -le "$MAX_TIMEOUT_S" ] \
     || { say "--timeout — от 60 до $MAX_TIMEOUT_S с, получено «$TIMEOUT_S»"; exit 64; }
+valid_max_par || exit 64
 if [ -n "$KEEP_H" ]; then
     [[ "$KEEP_H" =~ ^[0-9]+$ ]] && [ "$KEEP_H" -ge 1 ] && [ "$KEEP_H" -le "$MAX_KEEP_H" ] \
         || { say "--keep — от 1 до $MAX_KEEP_H часов, получено «$KEEP_H»"; exit 64; }
@@ -243,11 +326,77 @@ if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
 fi
 GO_IMAGE="$REGISTRY/golang:$GOVER"
 
+# ── владелец и уборка прежних запусков (ЛОКАЛЬНАЯ УБОРКА в шапке) ──────────────
+# proc_start <pid> — время старта процесса (поле 22 /proc/<pid>/stat, в тиках).
+proc_start() {
+    local st
+    st="$(cat "/proc/$1/stat" 2>/dev/null)" || return 1
+    st="${st##*) }"
+    # shellcheck disable=SC2086  # поля stat — слова
+    set -- $st
+    printf '%s\n' "${20}"
+}
+# owner_alive <метка> — жив ли запуск, поставивший метку «pid.старт.случайное».
+owner_alive() {
+    local pid="${1%%.*}" rest="${1#*.}"
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    [ "$(proc_start "$pid")" = "${rest%%.*}" ]
+}
+OWNER="$$.$(proc_start $$).$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
+
+reap_local() {
+    local d e o p tok ns created keep ref tail n_dir=0 n_proc=0 n_ref=0 n_ns=0 stale_min
+    # процессы с меткой мёртвого владельца — kubectl logs -f и прочие потомки
+    while IFS= read -r e; do
+        o="$(tr '\0' '\n' < "$e" 2>/dev/null | sed -n 's/^REMOTE_HEAVY_OWNER=//p' | head -n 1)"
+        [ -n "$o" ] || continue
+        owner_alive "$o" && continue
+        p="${e#/proc/}"; p="${p%/environ}"
+        kill "$p" 2>/dev/null && n_proc=$((n_proc + 1))
+    done < <(grep -lzas '^REMOTE_HEAVY_OWNER=' /proc/[0-9]*/environ 2>/dev/null)
+    # рабочие каталоги
+    stale_min=$(( (MAX_TIMEOUT_S + WAIT_START_S) / 60 + 10 ))
+    for d in "${TMPDIR:-/tmp}"/remote-heavy.*; do
+        [ -d "$d" ] || continue
+        if [ -f "$d/owner" ]; then
+            tok=""; ns=""; created=""; keep=""
+            { read -r tok; read -r ns; read -r created; read -r keep; } < "$d/owner"
+            owner_alive "$tok" && continue
+            if [ "$created" = 1 ] && [ -z "$keep" ] && [ "$ns" != kacho ] && [[ "$ns" =~ ^t[1-9][0-9]*-heavy-[a-z0-9-]+$ ]] \
+               && [ "$(kc get ns "$ns" -o json 2>/dev/null | jq -r '.metadata.annotations["kacho.io/owner"] // ""')" = "$tok" ]; then
+                kc delete ns "$ns" --wait=false >/dev/null 2>&1 && n_ns=$((n_ns + 1))
+            fi
+        else
+            [ -n "$(find "$d" -maxdepth 0 -mmin +"$stale_min" 2>/dev/null)" ] || continue
+        fi
+        rm -rf -- "$d" && n_dir=$((n_dir + 1))
+    done
+    # временные ссылки в клоне: «pid.старт.случайное» либо прежняя форма «pid-время»
+    while IFS= read -r ref; do
+        tail="${ref#refs/remote-heavy/}"
+        if [[ "$tail" == *.* ]]; then owner_alive "$tail" && continue
+        else kill -0 "${tail%%-*}" 2>/dev/null && continue; fi
+        git -C "$SRC" update-ref -d "$ref" 2>/dev/null && n_ref=$((n_ref + 1))
+    done < <(git -C "$SRC" for-each-ref --format='%(refname)' refs/remote-heavy/ 2>/dev/null)
+    if [ $((n_dir + n_proc + n_ref + n_ns)) -gt 0 ]; then
+        say "уборка прежних запусков (владелец не жив): каталогов $n_dir, процессов $n_proc, ссылок $n_ref, ns $n_ns"
+    fi
+}
+
 # ── кластер и уборка ─────────────────────────────────────────────────────────
 available || { say "$WHY (не выполнилось)"; exit 69; }
+reap_local
+export REMOTE_HEAVY_OWNER="$OWNER"
+busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
+n="$(grep -c . <<< "$busy")"
+if [ "$n" -ge "$MAX_PAR" ]; then
+    say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — ns не создаётся (не выполнилось)"; exit 75
+fi
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
 CREATED=0; BG=""; DONE=0; TMPREF=""
+record_owner() { printf '%s\n%s\n%s\n%s\n' "$OWNER" "$NSNAME" "$CREATED" "$KEEP_H" > "$BOX/owner"; }
+record_owner || { say "запись владельца не сделана"; exit 69; }
 # shellcheck disable=SC2329  # зовётся из trap
 cleanup() {
     [ "$DONE" = 1 ] && return 0
@@ -277,12 +426,12 @@ LIFE_S=$(( TIMEOUT_S + WAIT_START_S + 600 ))
 EXPIRES="$(date -u -d "@$(( $(now) + LIFE_S ))" +%Y-%m-%dT%H:%M:%SZ)"
 PSA=baseline; [ "$DIND" = 1 ] && PSA=privileged
 
-jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIRES" --arg psa "$PSA" '{
+jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIRES" --arg psa "$PSA" --arg owner "$OWNER" '{
   apiVersion: "v1", kind: "Namespace",
   metadata: {name: $ns,
     labels: {"kacho.io/task": $task, "kacho.io/stand": "test", "kacho.io/kind": "heavy", "kacho.io/repo": $repo,
              "pod-security.kubernetes.io/enforce": $psa},
-    annotations: {"kacho.io/expires": $exp}}}' > "$BOX/ns.json"
+    annotations: {"kacho.io/expires": $exp, "kacho.io/owner": $owner}}}' > "$BOX/ns.json"
 # create, а не apply: существующее ns create не трогает, а apply переписал бы его
 # метки, и trap снял бы чужое.
 if ! out="$(kc create -f "$BOX/ns.json" 2>&1 >/dev/null)"; then
@@ -292,7 +441,51 @@ if ! out="$(kc create -f "$BOX/ns.json" 2>&1 >/dev/null)"; then
     say "ns $NSNAME не создано: $(head -n 1 <<< "$out") (не выполнилось)"; exit 69
 fi
 CREATED=1
+record_owner
 say "ns $NSNAME создано: задача $TASK, $REPO@${SHA:0:12}, профиль $PROFILE, срок $EXPIRES"
+
+# Вторая перепись: гонка двух запусков, прошедших первую разом, решается временем
+# создания — сверх предела выходит младший.
+busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
+pos="$(grep -nxF -- "$NSNAME" <<< "$busy" | cut -d: -f1)"
+[ -n "$pos" ] || { say "своего ns $NSNAME в переписи идущих нет (не выполнилось)"; exit 69; }
+if [ "$pos" -gt "$MAX_PAR" ]; then
+    KEEP_H=""  # прогона не было — оставлять для разбора нечего
+    say "кластер занят: прогон $pos-й по времени создания при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — снимаю своё ns (не выполнилось)"; exit 75
+fi
+
+# ── сеть ns (ИЗОЛЯЦИЯ в шапке) ───────────────────────────────────────────────
+dns="$(kc get svc -A -o json 2>/dev/null | jq -c '[.items[]
+    | select(any(.spec.ports[]?; .port == 53 and (.protocol // "TCP") == "UDP"))
+    | select((.spec.selector // {}) | length > 0)
+    | {ns: .metadata.namespace, sel: .spec.selector}]')" || dns='[]'
+[ "$(jq length <<< "$dns")" = 1 ] || { say "служба DNS кластера не выводится однозначно (служб с 53/UDP и селектором: $(jq length <<< "$dns")) — сеть ns не построить (не выполнилось)"; exit 69; }
+nodeaddr="$(kc get nodes -o json 2>/dev/null | jq -c '[.items[] | (.status.addresses[]? | select(.type == "InternalIP" or .type == "ExternalIP") | .address), (.spec.podCIDRs[]?)] | unique')" \
+    || { say "адреса узлов не прочитаны — сеть ns не построить (не выполнилось)"; exit 69; }
+[ "$(jq length <<< "$nodeaddr")" -gt 0 ] || { say "адресов узлов ноль — сеть ns не построить (не выполнилось)"; exit 69; }
+svccidr="$(kc get servicecidrs -o json 2>/dev/null | jq -c '[.items[].spec.cidrs[]?]')" || svccidr='[]'
+jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjson svc "$svccidr" '
+  def cidr: if test("/") then . elif test(":") then . + "/128" else . + "/32" end;
+  ([$addr[], $svc[]] | map(cidr)) as $own |
+  {apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy", metadata: {name: "heavy", namespace: $ns},
+   spec: {podSelector: {}, policyTypes: ["Ingress", "Egress"], ingress: [],
+    egress: [
+     {to: [{namespaceSelector: {matchLabels: {"kubernetes.io/metadata.name": $dns[0].ns}}, podSelector: {matchLabels: $dns[0].sel}}],
+      ports: [{protocol: "UDP", port: 53}, {protocol: "TCP", port: 53}]},
+     {to: [{ipBlock: {cidr: "0.0.0.0/0", except: (["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16"]
+                                                   + ($own | map(select(test(":") | not))) | unique)}},
+           {ipBlock: {cidr: "::/0", except: (["fc00::/7", "fe80::/10"] + ($own | map(select(test(":")))) | unique)}}]}]}}' > "$BOX/netpol.json"
+kc create -f "$BOX/netpol.json" >/dev/null || { say "сетевая политика ns не поставлена (не выполнилось)"; exit 69; }
+# Служба ns kacho для пробы закрытости в pod: ClusterIP с TCP-портом, чьи pod не
+# закрыты собственной политикой ns kacho (иначе проба прошла бы и без нашей).
+DENY_PROBE="$(jq -nr --argjson svc "$(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}')" \
+                    --argjson np "$(kc get netpol -n kacho -o json 2>/dev/null || echo '{"items":[]}')" '
+  [$np.items[] | .spec.podSelector.matchLabels // {}] as $sel
+  | [$svc.items[] | select((.spec.type // "ClusterIP") == "ClusterIP" and .spec.clusterIP != "None")
+     | select((.spec.selector // {}) as $s | ($s | length > 0)
+              and ($sel | all(. as $m | ((($m | length) == 0) or ($m | to_entries | all(. as $e | $s[$e.key] == $e.value))) | not)))
+     | {n: .metadata.name, p: ([.spec.ports[]? | select((.protocol // "TCP") == "TCP") | .port] | first)}
+     | select(.p != null)] | sort_by(.n) | (first // empty) | "\(.n).kacho.svc:\(.p)"')"
 
 # Квота — сумма запросов профиля с запасом на init: ns не способно занять больше
 # одного прогона, даже если в нём появится второй pod.
@@ -322,6 +515,18 @@ CMD_JSON="$(printf '%s\0' "${CMD[@]}" | jq -Rsc 'split("\u0000")[:-1]')" || { sa
 # строкой «remote-heavy-prep: …» и читается как 69, а не как красное (код 125
 # сам по себе не различим с кодом команды).
 PREP='pf() { echo "remote-heavy-prep: $1" | tee /dev/termination-log >&2; exit 125; }; export PATH=/tools:/work/bin:$PATH; cd "/work/src/$HEAVY_WORKDIR" || pf "каталог $HEAVY_WORKDIR в дереве не найден"'
+# Предпосылка сети pod — до команды и до установки инструментов. Положительный
+# контроль (DNS, мир) обязателен: без него «закрыто» читалось бы и при мёртвом DNS.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+PREP="$PREP"'; tcp() { timeout "$1" bash -c "</dev/tcp/$2/$3" 2>/dev/null; }
+getent hosts kubernetes.default.svc >/dev/null || pf "сеть pod: DNS кластера не отвечает"
+tcp 15 proxy.golang.org 443 || pf "сеть pod: мир недоступен (proxy.golang.org:443)"
+! tcp 5 kubernetes.default.svc 443 || pf "сеть pod: управление кластера доступно — сетевая политика не исполняется"
+if [ -n "$HEAVY_DENY_PROBE" ]; then
+  getent hosts "${HEAVY_DENY_PROBE%:*}" >/dev/null || pf "сеть pod: имя ${HEAVY_DENY_PROBE%:*} не разрешается"
+  ! tcp 5 "${HEAVY_DENY_PROBE%:*}" "${HEAVY_DENY_PROBE##*:}" || pf "сеть pod: служба ns kacho доступна — сетевая политика не исполняется"
+fi
+echo "remote-heavy: сеть pod — DNS и мир есть, управление кластера${HEAVY_DENY_PROBE:+ и служба ns kacho} закрыты" >&2'
 # Инструменты, которые пробы зовут из PATH, а ранер конвейера несёт в образе
 # (опыт 2026-10-08: internal/check kaname — «jq не исполняется», 2 пробы красные
 # только в pod). Перепись `exec.Command("…")` по дереву kacho и kaname: git, go,
@@ -333,6 +538,14 @@ PREP='pf() { echo "remote-heavy-prep: $1" | tee /dev/termination-log >&2; exit 1
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
 PREP="$PREP; exec \"\$@\""
+
+# dind без privileged (DOCKER в шапке): crun с выключенным cgroup-менеджером —
+# средой исполнения по умолчанию; отказ установки — код 1 бокового, и pod не
+# начнёт команду (75 по сроку), а причина — в логе dind.
+DIND_SH='apk add -q --no-cache crun >/dev/null 2>&1 || { echo "remote-heavy: crun не поставлен" >&2; exit 1; }
+mkdir -p /etc/docker
+printf "%s" "{\"runtimes\":{\"crun\":{\"path\":\"/usr/bin/crun\",\"runtimeArgs\":[\"--cgroup-manager=disabled\"]}},\"default-runtime\":\"crun\"}" > /etc/docker/daemon.json
+exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'
 
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 FETCH='set -e; i=0; while [ ! -f /work/in.done ]; do i=$((i+1)); [ "$i" -le 600 ] || { echo "remote-heavy: исходники не доставлены за 600 с" >&2; exit 3; }; sleep 1; done
@@ -348,19 +561,24 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
+    --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" \
     --argjson cmd "$CMD_JSON" '{
   apiVersion: "batch/v1", kind: "Job",
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
    template: {metadata: {labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
-    spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false,
+    spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: false,
+     affinity: {podAntiAffinity: {requiredDuringSchedulingIgnoredDuringExecution: [
+       {labelSelector: {}, namespaceSelector: {matchLabels: {"kubernetes.io/metadata.name": "kacho"}},
+        topologyKey: "kubernetes.io/hostname"}]}},
      initContainers: ((if $dind == 1 then [
        {name: "tools", image: $cimg, command: ["cp", "/usr/local/bin/docker", "/tools/docker"],
         volumeMounts: [{name: "tools", mountPath: "/tools"}]},
-       {name: "dind", image: $dimg, restartPolicy: "Always", securityContext: {privileged: true},
-        command: ["dockerd-entrypoint.sh"],
-        args: ["dockerd", "--host=unix:///run/dind/docker.sock", "--registry-mirror=https://mirror.gcr.io"],
-        env: [{name: "DOCKER_TLS_CERTDIR", value: ""}],
+       {name: "dind", image: $dimg, restartPolicy: "Always",
+        securityContext: {privileged: false,
+                          capabilities: {add: ["SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE"]},
+                          seccompProfile: {type: "Unconfined"}, appArmorProfile: {type: "Unconfined"}, procMount: "Unmasked"},
+        command: ["sh", "-c", $dindsh],
         startupProbe: {exec: {command: ["docker", "-H", "unix:///run/dind/docker.sock", "info"]}, periodSeconds: 2, failureThreshold: 150},
         resources: {requests: {cpu: $dcr, memory: $dmr}, limits: {cpu: $dcl, memory: $dml}},
         volumeMounts: [{name: "dind-lib", mountPath: "/var/lib/docker"}, {name: "dind-sock", mountPath: "/run/dind"}]}]
@@ -370,7 +588,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: [{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
@@ -404,7 +622,7 @@ wait_bg() { BG="$1"; wait "$1"; local rc=$?; BG=""; return "$rc"; }
 # ── доставка ─────────────────────────────────────────────────────────────────
 # Bundle без ссылки git не собирает, а ревизия бывает голым sha: временная ссылка
 # в своём пространстве имён живёт до конца сборки bundle.
-TMPREF="refs/remote-heavy/$$-$(now)"
+TMPREF="refs/remote-heavy/$OWNER"
 git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
 git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" ${MAIN_SHA:+refs/remotes/origin/main} >/dev/null 2>&1; brc=$?
 git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
@@ -439,7 +657,7 @@ while :; do
     IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR _ <<< "$(pod_state)"
     [ "$RUN_ST" = running ] || [ "$RUN_ST" = terminated ] && break
     if [ "$PHASE" = Failed ] || [ -z "$POD" ]; then
-        kc -n "$NSNAME" logs "$POD" -c fetch 2>/dev/null | tail -n 20 >&2
+        kc -n "$NSNAME" logs "$POD" -c fetch 2>/dev/null | tail -n 20 | mask >&2
         say "подготовка дерева в pod не удалась (фаза ${PHASE:-нет pod}) — не выполнилось"; exit 69
     fi
     case "$WAITR" in *ErrImagePull*|*ImagePullBackOff*) say "образ не скачан: $WAITR (не выполнилось)"; exit 69 ;; esac
