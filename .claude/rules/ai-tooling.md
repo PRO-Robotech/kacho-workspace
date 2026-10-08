@@ -39,6 +39,7 @@ at-agents-roster-boundary · границы задачи: 5 read-only ролей
 at-agents-count-32 · число агентов — одно, у предиката ниже · check-07 · red: перечень и число расходятся
 at-executors-dont-launch-executors · у каждого агента, кроме `dispatcher`, `disallowedTools` содержит `Agent` · grep -rL disallowedTools .claude/agents/ · red: исполнитель запускает исполнителя
 at-no-nested-launches · агент не зовёт другого напрямую — возвращает диспетчеру «нужен следующий» · check-05 · red: вложенный вызов агента из тела другого
+at-agent-model-value · `model:` агента — псевдоним или `claude-…`; лёгкая — лишь чтению (`ci-watcher`) · check-11 · red: опечатка, чужая модель
 
 > Счёт: **32** агентов — предикат `git ls-files .claude/agents/ | wc -l`.
 > Перечень — адреса запуска, он сверяется с деревом в обе стороны (`check-03`):
