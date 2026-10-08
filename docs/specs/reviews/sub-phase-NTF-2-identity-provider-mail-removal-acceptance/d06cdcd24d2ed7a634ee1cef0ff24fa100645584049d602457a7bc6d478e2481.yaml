@@ -1,0 +1,201 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: d06cdcd24d2ed7a634ee1cef0ff24fa100645584049d602457a7bc6d478e2481
+  revision: "36 (повторно правленая; строки новой редакции в шапке и раздела в §11 нет — I3-3)"
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит «Статус: DRAFT», последняя строка истории — «редакция 36 · вердикта нет». Шапку эта
+    запись не правит намеренно: вердикт привязан к отпечатку, а не к слову в заголовке. Действующий
+    вердикт выводится из этой записи и внешнего события.
+  content_commit: null
+  content_commit_note: >-
+    Содержимое лежит в рабочем дереве копии tmp/issue-880 (ветка issue-880, HEAD 325e456f1) незакоммиченным
+    (`git status --porcelain` → M). `git show HEAD:<файл> | sha256sum` → 5606cbc0… (редакция 32, одобрена
+    кругом 6). Файл изменён 2026-10-06 16:50:54, через 4 минуты после записи круга 2 (99845fe4…, 16:47:04);
+    копии редакции 36 на 99845fe4… в tmp/ нет (поиск по отпечатку), поэтому дельта к ней построчно не
+    снималась — судилось текущее тело по предметам круга 2 и дельта к одобренной редакции 32
+    (`git diff -- <файл>`: 38 ханков).
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 5077
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-08T13:00:00Z'
+round: 3
+round_note: >-
+  Круг 3 по правке редакции 35 (третий после двухкругового прохода 35 → 36). Судилось закрытие B2-1, B2-2,
+  I3-1, I3-2 круга 2 (запись 99845fe4….yaml) на текущем теле. Факты о kaname сняты на `cbd729cfa`
+  (голова ветки NTF-2, «#484 deps: corelib на e7d6197f (#622)», 2026-10-05) и на пине `0dd03218a613`, клон
+  project/kaname. Род CONSTRUCTIBILITY повторяется в этом проходе второй раз (B2-1 → B3-1), род
+  PRODUCER/CONSTRUCTIBILITY держателя «один разрешитель» — второй раз (B2-2 → B3-2): по
+  multi-agent-flow-orchestration §14а решение о форме задания автору — за диспетчером.
+publication_mode: record-plus-external-event-by-courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+previous_rounds:
+  - pass: редакция 32, круг 6
+    sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+    verdict: APPROVED
+  - pass: редакция 35, круг 1 из 2
+    sha256: 5777b0b50baf7829e7c6d25221a5d23522fe6b924b8494b8c150e8c1132afe7d
+    verdict: RETURNED
+  - pass: редакция 36, круг 2 из 2
+    sha256: 99845fe48a19aba70b5e63c5589d7df89c11c37625ba67c0ec946031d3b92166
+    verdict: RETURNED
+previous_items:
+  B2-1: >-
+    ЗАКРЫТО в части П11 и начала When NTF2-90. Перечень заменён предикатом `git grep -nE
+    'required_acr_min\)\s*=\s*"2"'` с печатью ревизии и числа (воспроизведено: 0dd03218a613 → 30,
+    cbd729cfa → 32, как в тексте). Два способа заведения фактора названы, `sf_enroll.go:125-127` @cbd729cfa
+    подтверждён (`ErrSecondFactorAlreadyEnrolled`). NTF2-90: `user.second_factor_enrolled` первой, затем
+    повышение сессии `U`, затем `user_token.issued`. НЕ ЗАКРЫТО в хвосте таблицы: порядок после
+    `user.second_factor_reset` — см. B3-1 (это пункт «порядок removed → повторное заведение → Reset
+    согласовать» из required B2-1).
+  B2-2: >-
+    ЗАКРЫТО в части вселенной гейта: охват NTF2-101 — транзитивно по графу вызовов, включая вызовы через
+    порт и `internal/repo/kaname/pg`; добавлена инъекция (г); разрешитель назван пакетом и функцией
+    (`RecipientDirectoryRepo.ReadAccountOwner`, существует: recipientdirectory_repo.go:64 @cbd729cfa).
+    НЕ ЗАКРЫТО: близнец «находок 0» на дереве как есть неконструируем, а названная функция не та, что
+    определяет Р11 — см. B3-2.
+  I3-1: >-
+    НЕ ЗАКРЫТО (не блокирующее): NTF-3 на 1d7d2ad0… о разрешителе владельца аккаунта не говорит —
+    `grep -n разрешител <NTF-3>` даёт 4 строки, все о «разрешителе осиротевших операций» (2379, 2509, 2514,
+    шапка 70), ни одной о `account_owner`. Два места об одном предмете остаются.
+  I3-2: >-
+    НЕ ЗАКРЫТО (не блокирующее): П11 (строка 1809) по-прежнему перечисляет «заведение второго фактора»
+    среди событий посева, хотя способом (1) фактор заводит «посев той же формы» — состояние без события.
+blocking:
+  - id: B3-1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      В NTF2-90 строка `user.backup_codes_regenerated` (перевыпуск резервных кодов `U`) по предписанному
+      порядку исполняется после `user.second_factor_reset` — когда фактора у `U` нет. Перевыпуск требует
+      предъявить код заведённого фактора, поэтому глагол отвергается, и таблица 22 событий не сходится.
+    evidence:
+      - >-
+        NTF2-90 When (строки 3190–3196): кроме `user.second_factor_enrolled` и `user_token.issued`, вынесенных
+        вперёд, и четырёх, вынесенных назад, «прочие строки — в порядке таблицы». В таблице (строки
+        3213–3217): `user.second_factor_removed` → `user.second_factor_reset` («фактор `U` перед этим заведён
+        снова») → `user.backup_codes_regenerated`.
+      - >-
+        `UserService.ResetSecondFactor` — снятие фактора администратором (user_service.proto:451-463
+        @cbd729cfa). После него фактор `U` снова не заведён.
+      - >-
+        Перевыпуск: `internal/apps/kaname/api/humansession/sf_backup_codes.go` Execute — `p.prepare(ctx,
+        user.ID, in.Factor)`, при `verdict != verdictMatched` отказ (строки 69–78); `sf_present.go:85-94`:
+        «Состояние судится РАНЬШЕ кода: при «нет» и `pending` сверка холостая, исход — «не заведён»».
+    consequence: >-
+      Проба NTF2-90 получает отказ на построении в строке `user.backup_codes_regenerated`; счёт «строк =
+      адресатов = доставленных» по этой строке 0 ≠ 1 — красный, читаемый как дефект продукта, а не как
+      неверный сценарий.
+    required: >-
+      Задать исполнимый порядок для глаголов `U`, требующих заведённого фактора: например, перевыпуск
+      резервных кодов — до `user.second_factor_removed`, либо после `user.second_factor_reset` — второе
+      повторное заведение фактора `U` (вспомогательное событие, выведенное из счёта так же, как первое).
+      Пройти так же каждую строку `U` после `removed` и после `reset` (ключ входа, восстановление) на
+      требование фактора/уровня 2 и назвать построение для каждой.
+  - id: B3-2
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      Держатель NTF2-101 «один разрешитель владельца аккаунта» в текущей формулировке не может быть
+      зелёным на дереве как есть, а функция, названная разрешителем, не та, что определяет Р11. Правило
+      «любое достижимое чтение `owner_user_id` вне разрешителя — находка» ловит законные не-адресные чтения,
+      которые достижимы из пакетов, ставящих строки ленты класса S; и наоборот — второе понятие «ACTIVE и
+      подтверждён» гейту и NTF2-100 невидимо.
+    evidence:
+      - >-
+        Р11 (строки 1145–1150): разрешитель «читает `owner_user_id` аккаунта в транзакции вызывающего и
+        отдаёт пользователя и подтверждённый адрес, если этот пользователь ACTIVE и его адрес подтверждён;
+        иначе — «адресата нет»». NTF2-101 (строка 3423): разрешитель — `RecipientDirectoryRepo.ReadAccountOwner`.
+        @cbd729cfa recipientdirectory_repo.go:64-77: `r.pool.QueryRow(… SELECT owner_user_id …)` — пул, а не
+        транзакция вызывающего; возвращает `(string, bool, error)` — id владельца, без адреса, без ACTIVE и
+        без подтверждения. ACTIVE и подтверждённый адрес решает `ResolveUseCase.Execute`
+        (recipientdirectory/resolve.go: `ReadRecipient`, `!rec.Active`, `rec.HasConfirmedAddress`) — другая
+        функция.
+      - >-
+        Писатели аудита класса S живут в пакетах глаголов: `git grep -ln audit_outbox cbd729cfa -- '*.go'
+        ':!*_test.go'` → access_binding, account, cluster, group, project, role, sa_keys, service_account, …
+        Пакет `sa_keys` (событие NTF2-100 `sa_key.issued`) из `Issue` зовёт
+        `OwnerUserForServiceAccount` (sa_keys/usecases.go:383) → `SELECT a.owner_user_id FROM service_accounts
+        sa JOIN accounts a …` (repo/kaname/pg/iam_extension_repos.go:205) — не-адресное чтение (штамп
+        `created_by`). Пакет `access_binding` зовёт `rd.Accounts().Get` (helpers.go:215,225;
+        subject_read_authority.go:347) → `SELECT … owner_user_id …` (account_repo.go:40,51).
+      - >-
+        NTF2-101 When (строка 3434): «Законное чтение одно — внутри разрешителя; любое другое достижимое
+        чтение — находка, где бы оно ни лежало». Предиката «чтение для адресации» нет; required B2-2 просил
+        либо транзитивный охват, либо назвать такой предикат и показать «находок 0» на дереве как есть —
+        «находок 0» не показано.
+    consequence: >-
+      Либо близнец NTF2-101 красный на любом честном дереве (чтения из sa_keys и access_binding достижимы),
+      и реализатор вынужден ослаблять гейт или переписывать не относящиеся к адресации пути; либо, если
+      реализатор сузит охват на свой вкус, второй путь «своё понятие ACTIVE/подтверждения» поверх
+      `ReadAccountOwner` в писателе аудита останется невидим: гейт судит только чтение колонки, а NTF2-100
+      сравнивает адрес строки с ответом разрешителя лишь в положениях «оба ACTIVE и подтверждены».
+    required: >-
+      Назвать разрешителем функцию, которая отвечает на вопрос Р11 целиком (owner → пользователь → ACTIVE →
+      подтверждённый адрес → «адресата нет»), в транзакции вызывающего, — либо переписать Р11 под
+      существующую форму и назвать, кто держит единственность понятия ACTIVE/подтверждения. Начальные точки
+      обхода гейта — функции, ставящие строки ленты и отвечающие `Resolve{account_owner}`, а не все функции
+      пакетов; назвать судьбу известных не-адресных чтений (`OwnerUserForServiceAccount`,
+      `Accounts().Get`) — вне охвата по построению с основанием либо заменяются разрешителем — и показать
+      предикатом «находок 0» на ревизии. В NTF2-100 добавить положения, в которых ответ разрешителя —
+      «адресата нет» (владелец не ACTIVE; адрес владельца не подтверждён): строк 0 и равенство с ответом
+      разрешителя.
+important:
+  - id: I3-3
+    kind: FORMAT
+    summary: >-
+      Правка после круга 2 не оставила следа: в шапке нет ни строки круга 2 (⛔ 99845fe4…), ни строки новой
+      редакции; в §11 последний раздел — «Редакция 35 → редакция 36». Два разных содержимого
+      (99845fe4… и d06cdcd2…) носят один номер редакции, и что изменено против рассмотренного — по
+      документу не восстановить.
+  - id: I3-1
+    kind: CONVENTION
+    summary: перенесено из круга 2 — NTF-3 о разрешителе владельца аккаунта молчит (см. previous_items).
+  - id: I3-2
+    kind: FORMAT
+    summary: перенесено из круга 2 — «заведение второго фактора» в перечне событий посева П11.
+route_signs:
+  proto: yes
+  schema: yes
+  public_rpc: yes
+  ui: yes
+  new_domain: no
+  security_surface: yes
+producers_missing:
+  - id: NTF2-101 (близнец)
+    note: >-
+      держатель назван, но на дереве как есть зелёным быть не может (B3-2); кто мог бы им стать — тот же
+      гейт с начальными точками «функции адресации» и с разрешителем в форме Р11.
+constructibility:
+  seeded: 0
+  named_fixture: >-
+    П11 (уровень входа 2, способы (1)/(2), членство ACTIVE без `invite`) — конструируемо по
+    sf_enroll.go:125-127 и предикату acr (30/32 воспроизведено). NTF2-100 и близнец — конструируемы.
+    NTF2-90 — неконструируемо в строке `user.backup_codes_regenerated` (B3-1). Близнец NTF2-101 —
+    неконструируем как «находок 0» (B3-2).
+  not_executed: 1
+  note: >-
+    Посев не ставился: стенда и разрешения на посев в задании нет. Выводы — разбор кода kaname на cbd729cfa.
+premise: >-
+  Подтверждена: у NTF-2 записи на текущий отпечаток нет (`ls <каталог>/d06cdcd2….yaml` → No such file;
+  последние записи 99845fe4…, 5777b0b5…, 5e424f29…, ad57fc83… — другие отпечатки). У NTF-3 (1d7d2ad0…) и
+  NTF-5 (ccbb0102…) записи на текущий отпечаток есть — их этот круг не рассматривал.
+questions_to_owner:
+  - >-
+    (Перенесено, I2-3.) Письма о ключах сервисного аккаунта адресуются двумя правилами: выпуск — владельцу
+    аккаунта (NTF-2), истечение — назначенному контакту NTF-3 Р20 или, без него, владельцу. Оставляем два
+    правила или правим NTF-3?
+external_event_body: "acceptance-reviewer · RETURNED · sha256:d06cdcd24d2ed7a634ee1cef0ff24fa100645584049d602457a7bc6d478e2481"
