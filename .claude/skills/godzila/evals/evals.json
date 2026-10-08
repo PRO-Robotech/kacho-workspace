@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "skill": "godzila",
+  "cases": [
+    {
+      "id": "listen-connection",
+      "prompt": "Go service on Postgres with pgx. A server-streaming Watch RPC must push outbox events to clients using LISTEN/NOTIFY. The service already has a pgxpool.Pool. How should Watch obtain the connection it LISTENs on?\n1) pgxpool.Acquire a connection and hold it for the stream's lifetime, LISTEN on it.\n2) A dedicated pgx.Connect per stream (not from the pool), a per-stream concurrency cap returning ResourceExhausted, a bounded catch-up loop over the outbox, and a periodic re-poll fallback while waiting for notifications.\n3) One shared listener goroutine on a pooled connection, fanning out to streams via channels; no catch-up.\n4) Skip LISTEN: poll the outbox table once per second per stream.\nAnswer with the first line `ANSWER: <number>`, then justify in at most 100 words.",
+      "trap": "Without the skill the model takes the pool it already has (1): notifications are tied to the physical connection and are lost when a pooled connection goes back to the pool.",
+      "assertions": [
+        {
+          "id": "dedicated-conn",
+          "kind": "must",
+          "pattern": "ANSWER\\W{0,6}2(?!\\d)",
+          "desc": "dedicated connection chosen"
+        },
+        {
+          "id": "not-pool",
+          "kind": "must_not",
+          "pattern": "ANSWER\\W{0,6}[13](?!\\d)",
+          "desc": "pooled connection not chosen"
+        },
+        {
+          "id": "names-physical-conn",
+          "kind": "must",
+          "pattern": "(dedicated|pgx\\.Connect|physical|returned to the pool|back to the pool|выделенн|отдельн\\w* соедин|физическ|в пул)",
+          "desc": "justification names the dedicated/physical connection"
+        }
+      ]
+    },
+    {
+      "id": "create-returns-operation",
+      "prompt": "In this Go API style, what does a CreateNetwork RPC return, and where do the row insert and the event emission happen?\n1) The created Network synchronously; insert in a transaction, publish the event after commit.\n2) An Operation; a worker runs the insert plus the outbox emit inside one writer transaction and commits once.\n3) An Operation; the worker inserts in one transaction, then writes the outbox row in a second transaction after commit.\n4) The created Network synchronously; insert and outbox row in the same transaction.\nAnswer with the first line `ANSWER: <number>`, then justify in at most 100 words.",
+      "trap": "Without the skill the model returns the resource synchronously (1 or 4) — the common REST habit — or splits DML and outbox into two transactions, so state and events diverge on partial failure.",
+      "assertions": [
+        {
+          "id": "operation-single-tx",
+          "kind": "must",
+          "pattern": "ANSWER\\W{0,6}2(?!\\d)",
+          "desc": "Operation plus single writer TX"
+        },
+        {
+          "id": "not-sync",
+          "kind": "must_not",
+          "pattern": "ANSWER\\W{0,6}[14](?!\\d)",
+          "desc": "synchronous resource not chosen"
+        },
+        {
+          "id": "names-atomicity",
+          "kind": "must",
+          "pattern": "(atomic|same transaction|single transaction|one transaction|diverge|both or neither|neither|атомарн|одн\\w* транзакц|вместе или не|расход)",
+          "desc": "justification names DML+outbox atomicity"
+        }
+      ]
+    },
+    {
+      "id": "empty-update-mask",
+      "prompt": "UpdateNetwork takes a body and a google.protobuf.FieldMask `update_mask`. `owner_id` is immutable after Create. A client sends the full body including a different owner_id and an EMPTY update_mask. What does the server do?\n1) Reject with InvalidArgument: update_mask is required.\n2) Treat it as a full-object PATCH: apply mutable fields from the body, silently ignore immutable ones such as owner_id.\n3) Treat it as a full-object PATCH and apply every field from the body, owner_id included.\n4) Reject with InvalidArgument because the body carries an immutable field.\nAnswer with the first line `ANSWER: <number>`, then justify in at most 100 words.",
+      "trap": "Without the skill the model goes strict (1 or 4) or applies everything (3); the house rule is an empty mask = full PATCH with immutable fields silently ignored.",
+      "assertions": [
+        {
+          "id": "full-patch-ignore-immutable",
+          "kind": "must",
+          "pattern": "ANSWER\\W{0,6}2(?!\\d)",
+          "desc": "full PATCH, immutable silently ignored"
+        },
+        {
+          "id": "not-strict",
+          "kind": "must_not",
+          "pattern": "ANSWER\\W{0,6}[134](?!\\d)",
+          "desc": "no other option chosen"
+        },
+        {
+          "id": "names-immutable-ignored",
+          "kind": "must",
+          "pattern": "(ignor|not copied|never copied|skip|игнорир|не копир|пропуска)",
+          "desc": "justification says the immutable field is ignored"
+        }
+      ]
+    },
+    {
+      "id": "mask-immutable-and-soft-immutable",
+      "prompt": "Same UpdateNetwork. (a) update_mask contains `owner_id`, which is hard-immutable after Create. (b) update_mask contains `zone_id`, which is soft-immutable (kept for parity with an older API, cannot actually change). For each, what gRPC outcome? Answer two lines exactly in the form `A: <outcome>` and `B: <outcome>`, then at most 60 words.",
+      "trap": "Without the skill the model treats both alike — usually rejects the soft-immutable path too; the house rule rejects only the hard-immutable one and makes the soft-immutable path a no-op.",
+      "assertions": [
+        {
+          "id": "hard-invalid-argument",
+          "kind": "must",
+          "pattern": "^\\W*A\\W{0,4}[^\\n]*Invalid_?Argument",
+          "desc": "hard-immutable path → InvalidArgument"
+        },
+        {
+          "id": "soft-no-op",
+          "kind": "must",
+          "pattern": "^\\W*B\\W{0,4}[^\\n]*(no-?op|not an error|ignored|silently|\\bOK\\b|игнорир|не ошибк|молча)",
+          "desc": "soft-immutable path → no-op, not an error"
+        },
+        {
+          "id": "soft-not-rejected",
+          "kind": "must_not",
+          "pattern": "^\\W*B\\W{0,4}(codes\\.)?(Invalid_?Argument|Failed_?Precondition)",
+          "desc": "soft-immutable path not rejected"
+        }
+      ]
+    },
+    {
+      "id": "sqlstate-mapping",
+      "prompt": "Write the Go function that maps Postgres errors from pgx into repository sentinel errors for SQLSTATE 23503, 23505, 23514 and 23P01, and in one sentence say how the gRPC handler then picks the status code. Code only plus that sentence.",
+      "trap": null,
+      "assertions": [
+        {
+          "id": "fk-failed-precondition",
+          "kind": "must",
+          "pattern": "(23503[\\s\\S]{0,160}|foreign\\s*key[^\\n]{0,80})Failed_?Precondition",
+          "desc": "FK violation → FailedPrecondition"
+        },
+        {
+          "id": "unique-already-exists",
+          "kind": "must",
+          "pattern": "(23505[\\s\\S]{0,160}|unique\\w*[^\\n]{0,80})Already_?Exists",
+          "desc": "UNIQUE → AlreadyExists"
+        },
+        {
+          "id": "errors-is",
+          "kind": "must",
+          "pattern": "errors\\.(Is|As)",
+          "desc": "sentinel matched via errors.Is/As"
+        }
+      ]
+    },
+    {
+      "id": "peer-client-cache",
+      "prompt": "A Go service calls a peer service to check that a referenced folder exists, through a TTL+LRU cache decorator. Which caching policy?\n1) Cache positive answers ~30s, negative answers only briefly (~5s), never cache errors; fail open on Unavailable.\n2) Cache positive and negative answers 30s each, and cache Unavailable for 5s to protect the peer.\n3) No cache; do a synchronous Exists precheck on every request.\n4) Cache only positive answers, and cache errors for 1s.\nAnswer with the first line `ANSWER: <number>`, then justify in at most 100 words.",
+      "trap": "Without the skill the model caches failures to shield the peer (2 or 4) or does a synchronous precheck (3); the house rule caches only answers, briefly for negatives, never errors.",
+      "assertions": [
+        {
+          "id": "short-negative-no-errors",
+          "kind": "must",
+          "pattern": "ANSWER\\W{0,6}1(?!\\d)",
+          "desc": "short negative TTL, errors never cached"
+        },
+        {
+          "id": "not-cache-errors",
+          "kind": "must_not",
+          "pattern": "ANSWER\\W{0,6}[24](?!\\d)",
+          "desc": "error caching not chosen"
+        },
+        {
+          "id": "names-fresh-resource",
+          "kind": "must",
+          "pattern": "(freshly|newly|just created|404 forever|stale negative|recently created|только что созд|свежесозд|недавно созд|404)",
+          "desc": "justification names the freshly-created-resource reason for a short negative TTL"
+        }
+      ]
+    },
+    {
+      "id": "attach-cas",
+      "prompt": "Table `disks(id text primary key, used_by text not null default '')`. Two AttachDisk calls for the same disk may run concurrently on different replicas; a disk has at most one owner, and re-attaching to the same owner must be idempotent. Write the single SQL statement you run, and what the Go code does when it affects zero rows. SQL plus at most 50 words.",
+      "trap": "Without the skill the model writes SELECT ... FOR UPDATE, checks in Go, then UPDATE (Get → check → Update), or a software mutex; the house form is one conditional UPDATE ... RETURNING with idempotent ownership in the WHERE clause.",
+      "assertions": [
+        {
+          "id": "conditional-update",
+          "kind": "must",
+          "pattern": "UPDATE\\s+disks[\\s\\S]{0,300}WHERE[\\s\\S]{0,200}used_by\\s*(=\\s*''|IN\\s*\\(\\s*'')",
+          "desc": "single conditional UPDATE guarded by free owner"
+        },
+        {
+          "id": "idempotent-same-owner",
+          "kind": "must",
+          "pattern": "(OR\\s+used_by\\s*=\\s*(\\$\\d|@\\w+|\\?)|used_by\\s+IN\\s*\\(\\s*''\\s*,)",
+          "desc": "already-ours case in the same predicate"
+        },
+        {
+          "id": "zero-rows-precondition",
+          "kind": "must",
+          "pattern": "FailedPrecondition",
+          "desc": "zero rows → FailedPrecondition"
+        }
+      ]
+    }
+  ]
+}
