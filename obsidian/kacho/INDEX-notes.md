@@ -1413,7 +1413,7 @@ tags:
 | [[KAC/issue-3037\|kacho#3037: край: ретрансляция двух глаголов входа ключом доступа (Ф13)]] | в работе (test) |
 | [[KAC/issue-3011\|kacho#3011: запись перечня переноса пережила предмет — ствол красный]] | в работе (in-progress) |
 | [[KAC/issue-3011\|kacho#3011: запись перечня переноса пережила предмет — ствол красный]] | живо (done) |
-| [[KAC/issue-3012\|kacho#3012: стенд a8f60d отстал от main — перепин профиля и выкатка]] | в работе (in-progress) |
+| [[KAC/issue-3012\|kacho#3012: стенд a8f60d отстал от main — перепин профиля и выкатка]] | живо (done) |
 | [[KAC/issue-304\|#304: корпус фаззера уезжал в кэш только той ночью, которая ничего не нашла]] | в работе (test) |
 | [[KAC/issue-3044\|kacho#3044: docs: подъём уязвимых пакетов в lockfile сайтов документации]] | в работе (test) |
 | [[KAC/issue-305-kaname\|kaname#305: восстановление доступа — через единственного писателя]] | живо (done) |
@@ -1913,6 +1913,7 @@ tags:
 | [[lessons/one-trick-five-forms-only-a-run-tells-them-apart\|Один приём, пять форм: правило переезжает, а не чинится — различает только прогон]] | — |
 | [[lessons/orchestrator-and-its-own-agent-mistake-each-other-for-strangers\|Оркестратор и его собственный исполнитель принимают друг друга за постороннюю сессию]] | — |
 | [[lessons/own-command-checked-a-different-project\|Своя команда проверки судила о другом проекте: «ошибок 0» на файле, который не разбирался вовсе]] | живо (stable) |
+| [[lessons/pin-bump-brings-a-start-refusal-the-gate-does-not-model\|Сдвиг пина приносит отказ старта, которого гейт профиля не моделирует]] | живо (stable) |
 | [[lessons/predicate-by-name-measures-the-naming-convention\|Предикат верен для СВОЕЙ величины — и применён к соседней]] | — |
 | [[lessons/premise-expressed-as-a-proxy-breaks-before-its-subject\|Предпосылка, выраженная через прокси-величину, ломается раньше своего предмета]] | — |
 | [[lessons/probe-inherits-the-mechanism-own-variables\|Проба наследует переменные своего механизма — и обвиняет исправного производителя]] | — |
