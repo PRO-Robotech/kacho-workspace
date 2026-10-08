@@ -20,7 +20,7 @@ at-main-thread-is-agent · агент `dispatcher`, его тело — един
 at-rule-preloaded-by-symlink · правило закреплено предзагрузкой: `SKILL.md` — символьная ссылка, агент несёт её в `skills:` · readlink, check-04 · red: правило не в окне агента
 at-symlink-not-copy · символьная ссылка на файл правила, не копия · readlink .claude/skills/rule-<имя>/SKILL.md` = `../../rules/<имя>.md · red: копия правила в скиле
 at-rule-star-is-binding · `rule-*` — привязка к правилу, не экспертиза; в перечень канонических скилов не входит · check-03 (исключение в гейте) · red: rule-* учтён как канонический скил
-at-skills-roster · перечень канонических скилов (14, без `rule-*`) обязан совпадать с деревом в обе стороны · check-03 · red: строка без каталога либо каталог без строки
+at-skills-roster · перечень канонических скилов (15, без `rule-*`) обязан совпадать с деревом в обе стороны · check-03 · red: строка без каталога либо каталог без строки
 at-godzila-thirteenth · `godzila` — в перечне; приоритет ниже правил, выше локального `CLAUDE.md` · check-03 · red: отслеживаемый скил вне перечня
 at-ci-clone-carries-no-tooling · клон продукта не несёт оснастку; CI-проверки — в его дереве, не в `.claude/` · ЗАВЕСТИ · red: клон без своей CI-проверки продукта
 at-dead-asset-does-not-travel · ассет без предмета не заводить «про запас»; исключение обязано самоистекать · --check → STALE-EXCLUSION · red: мёртвый ассет на вид работающий
@@ -81,7 +81,7 @@ at-no-nested-launches · агент не зовёт другого напрям�
 ## Канонические скилы (`.claude/skills/<name>/SKILL.md`)
 
 Единица перечня — отслеживаемый git-каталог скила, кроме привязочных `rule-*`:
-`git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | grep -v '^rule-' | wc -l` (**14**).
+`git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | grep -v '^rule-' | wc -l` (**15**).
 Перечень обязан совпадать с выводом в обе стороны (`check-03`); `<svc>-load-testing`
 живёт в репо сервиса и в счёт не входит. Что делает скил — `description` его `SKILL.md`.
 
@@ -99,6 +99,7 @@ at-no-nested-launches · агент не зовёт другого напрям�
 - `doc-truthfulness`
 - `godzila`
 - `change-graph`
+- `go-idioms`
 - `<svc>-load-testing` (repo)
 
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
