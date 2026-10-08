@@ -140,6 +140,17 @@ route_signs:
   new_domain: false
   security_surface: true
 event:
+  type: issue_comment
+  status: performed
+  published: true
+  url: https://github.com/PRO-Robotech/kacho/issues/2919#issuecomment-6053810994
+  repo: PRO-Robotech/kacho
+  issue: 2919
+  role: acceptance-reviewer
+  subject_sha256: 71ec59d12d049aad833024716134270036414389d790cd0e21f515e841827714
+  declared_verdict: APPROVED
+  publication_mode: courier
+  history_is_appended_not_rewritten: true
   body: "acceptance-reviewer · APPROVED · 71ec59d12d049aad833024716134270036414389d790cd0e21f515e841827714"
 authority:
   role: acceptance-reviewer
