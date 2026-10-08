@@ -6,7 +6,7 @@ aliases:
 ticket_id: 2918
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-08: kacho PR #3098 MERGED в `2914-notify` 2026-10-08T01:16Z merge-коммитом 504bc7acdc51 (родители dc95c1d5dc9e и голова полосы 9780bf82912f), ветка `2918-b1-resource-event` снята; пины на 504bc7acdc51 прочитаны в `go.mod`: corelib 67ba3443c149, kaname 56bcb3036d71; `journal.yaml` и `notifications/resource-event/` есть у compute, registry, storage, у vpc нет (`git ls-tree`); задача #2918 и эпик #2914 OPEN. `gh` 2026-10-07: kacho PR #3042 MERGED в `2914-notify` 2026-10-06T01:44Z merge-коммитом 829e1a26cb18 (голова ветки `2918-kinds-flag` a799636c82c); kaname PR #632 MERGED в `484-notify` 2026-10-07T02:15Z (22b70ea5d0a7, голова волны 6e32861e021a), голова `484-notify` = 22b70ea5d0a7; corelib #95 (e7d6197fc5dc) и #96 (bdb379942934) MERGED в `77-notify`, голова = 1e6ade53645a; голова `2914-notify` = 4d5295f1ae96; задача #2918 и эпик #2914 OPEN; путь приёмки снят `git ls-tree origin/issue-880 docs/specs/` воркспейса; состав — со слов описаний PR, прогоны мной не перезапускались. `gh` 2026-10-05: kacho PR #3027 MERGED в `2914-notify` merge-коммитом 4517cc69c135 (голова волны 53c14dec394d), голова `2914-notify` = 4517cc69c135; corelib #89 MERGED в `77-notify` (fd6d603b52ca), запись реестра исключений снята #92, голова `77-notify` = 9e358e61e28d; kaname #605 (745640d6c296), #611 (c1b397b735d5), #616 (db080041cd95) MERGED в `484-notify`, голова = db080041cd95; задача #2918 и эпик #2914 OPEN. Пути журнала и справочника сняты `git ls-tree` на 4517cc69c135 и db080041cd95; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-08: kaname#636 OPEN (заведена 2026-10-06, комментариев и PR нет), kaname#667 OPEN (2026-10-07, `Refs #484`, комментариев и PR нет) — `gh issue view`, `gh pr list --search`. `gh` 2026-10-08: kacho PR #3098 MERGED в `2914-notify` 2026-10-08T01:16Z merge-коммитом 504bc7acdc51 (родители dc95c1d5dc9e и голова полосы 9780bf82912f), ветка `2918-b1-resource-event` снята; пины на 504bc7acdc51 прочитаны в `go.mod`: corelib 67ba3443c149, kaname 56bcb3036d71; `journal.yaml` и `notifications/resource-event/` есть у compute, registry, storage, у vpc нет (`git ls-tree`); задача #2918 и эпик #2914 OPEN. `gh` 2026-10-07: kacho PR #3042 MERGED в `2914-notify` 2026-10-06T01:44Z merge-коммитом 829e1a26cb18 (голова ветки `2918-kinds-flag` a799636c82c); kaname PR #632 MERGED в `484-notify` 2026-10-07T02:15Z (22b70ea5d0a7, голова волны 6e32861e021a), голова `484-notify` = 22b70ea5d0a7; corelib #95 (e7d6197fc5dc) и #96 (bdb379942934) MERGED в `77-notify`, голова = 1e6ade53645a; голова `2914-notify` = 4d5295f1ae96; задача #2918 и эпик #2914 OPEN; путь приёмки снят `git ls-tree origin/issue-880 docs/specs/` воркспейса; состав — со слов описаний PR, прогоны мной не перезапускались. `gh` 2026-10-05: kacho PR #3027 MERGED в `2914-notify` merge-коммитом 4517cc69c135 (голова волны 53c14dec394d), голова `2914-notify` = 4517cc69c135; corelib #89 MERGED в `77-notify` (fd6d603b52ca), запись реестра исключений снята #92, голова `77-notify` = 9e358e61e28d; kaname #605 (745640d6c296), #611 (c1b397b735d5), #616 (db080041cd95) MERGED в `484-notify`, голова = db080041cd95; задача #2918 и эпик #2914 OPEN. Пути журнала и справочника сняты `git ls-tree` на 4517cc69c135 и db080041cd95; прогоны мной не перезапускались"
 type: feature
 repos:
   - kacho
@@ -172,6 +172,8 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 - https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика: лента, формат шаблона, `notifygen`. Trail — [[KAC/issue-77-corelib]].
 - https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика: нотификации kaname в ленту, снятие SMTP. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
+- https://github.com/PRO-Robotech/kaname/issues/636 — дефект факта права в kaname (bug, P1), найден красной пробой NTF3-184 этой под-фазы; OPEN, PR нет, проба не отправлена. Разбор — в задаче, здесь не пересказывается.
+- https://github.com/PRO-Robotech/kaname/issues/667 — мерцающая проба NTF3-174 в kaname (конкурентное снятие объекта с регистрациями); OPEN, PR нет. Предикат закрытия — в задаче.
 
 ## History
 
@@ -184,6 +186,8 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 - 2026-10-08 — внесена полоса B1 (#3098, `504bc7acdc51`): resource-event у compute,
   registry, storage; vpc отложен; пины corelib `67ba3443c149`, kaname `56bcb3036d71`.
   Статус `in-progress`.
+- 2026-10-08 — в «Связанные задачи» внесены дефекты kaname, найденные пробами под-фазы:
+  kaname#636 (NTF3-184) и kaname#667 (NTF3-174), обе OPEN. Статус `in-progress`.
 
 ## Затронутые сущности vault
 
