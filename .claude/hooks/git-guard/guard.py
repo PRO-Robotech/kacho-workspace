@@ -13,16 +13,18 @@ Bash и Monitor и отказывает (код 2, текст в stderr — ви
 
 Что отказывается:
   · `--no-verify` у git commit/push/merge/pull/am/rebase/cherry-pick/revert, в
-    том числе сокращением (`--no-veri`) и `-n` в связке коротких флагов commit
-    (`-anm msg`); у merge и push `-n` — другое (--no-stat, --dry-run), не судится;
+    том числе сокращением (`--no-veri`) и `-n` в связке коротких флагов commit и am
+    (`-anm msg`, `am -n`: в git 2.53 у обоих `-n` = `--no-verify`); у merge,
+    rebase, pull, push, cherry-pick, revert `-n` — другое (--no-stat, --dry-run,
+    --no-commit), не судится;
   · присваивание `KACHO_SKIP_PREPUSH` не нулём — перед командой и `export`;
   · git push с `--force`, `-f` (и в связке), `--force-with-lease[=…]`, refspec с
     `+`, а также `--mirror`/`--all`/`--branches` (переписывают либо шлют ствол);
   · git push, чья цель — `main`/`master` (`origin main`, `HEAD:main`,
     `refs/heads/main`, удаление `:main`), и голый `git push` / `push origin [HEAD]`,
     когда текущая ветка — `main`/`master` (ветка читается `git symbolic-ref` в
-    каталоге команды: `cd`, `-C` учтены);
-  · `gh pr merge … --admin`;
+    каталоге команды: `cd`, `-C`, `--git-dir` и `GIT_DIR` учтены);
+  · `gh pr merge … --admin`, в том числе с `-R`/`--repo <репо>` перед `pr`;
   · перенаправление хуков: `git -c core.hooksPath=…`, `--config-env=core.hooksPath=…`,
     `GIT_CONFIG_KEY_<n>=core.hooksPath`, `GIT_CONFIG_PARAMETERS` с ним и запись
     `git config [set|--add|--replace-all] core.hooksPath …`.
@@ -45,10 +47,14 @@ Bash и Monitor и отказывает (код 2, текст в stderr — ви
 срабатывает и внутри сабагентов, и сломанный страж, отказывающий всему, остановил
 бы все полосы на любой команде; но молчать о поломке он не вправе.
 
-ГРАНИЦА — то, чего страж НЕ ловит, перечнем: BOUNDARY ниже; prove.sh исполняет
-каждый пример строкой [BOUND] («известно, не ловится»), пойманный пример — [FAIL]:
-перечень устарел. Предел держит сервер (защита ветки, способ вливания), страж —
-напоминание против случайных форм, а не барьер против намеренного обхода.
+ГРАНИЦА — ИЗВЕСТНЫЕ классы того, чего страж НЕ ловит: BOUNDARY ниже. Перечень
+НЕ исчерпывающий: это классы, найденные и проверенные к ревизии стража, а не
+доказанное «всё прочее ловится» — строку оболочки можно собрать бесконечным
+числом способов. prove.sh исполняет каждый пример строкой [BOUND] («известно, не
+ловится»), пойманный пример — [FAIL]: перечень устарел. Найденный новый обход —
+либо ветвь стража со строкой отказа в prove.sh, либо строка BOUNDARY; третьего
+нет. Предел держит сервер (защита ветки, способ вливания), страж — напоминание
+против случайных форм, а не барьер против намеренного обхода.
 """
 
 import importlib.util
@@ -71,6 +77,7 @@ SHORT_VALUE = {
     "push": "o",
     "merge": "mFsX",
     "pull": "sX",
+    "am": "Cp",
 }
 LONG_VALUE = {
     "commit": {"--message", "--file", "--template", "--reuse-message", "--reedit-message",
@@ -80,7 +87,14 @@ LONG_VALUE = {
     "merge": {"--message", "--file", "--strategy", "--strategy-option", "--into-name"},
     "pull": {"--strategy", "--strategy-option", "--depth", "--shallow-since",
              "--shallow-exclude", "--deepen", "--upload-pack", "--negotiation-tip"},
+    "am": {"--whitespace", "--directory", "--exclude", "--include", "--patch-format",
+           "--resolvemsg", "--quoted-cr", "--empty"},
 }
+# `-n` = `--no-verify` (git 2.53, `git <sub> -h`); у прочих подкоманд `-n` другое
+SHORT_NO_VERIFY = {"commit", "am"}
+# опции gh, берущие значение СЛЕДУЮЩИМ словом: оно — не подкоманда и не флаг
+GH_VALUE = {"-R", "--repo", "-b", "--body", "-F", "--body-file", "-t", "--subject",
+            "--match-head-commit", "-A", "--author-email"}
 CONFIG_VALUE = {"-f", "--file", "--blob", "--type", "--default", "--comment", "--value"}
 CONFIG_NOT_SET = {"--get", "--get-all", "--get-regexp", "--get-urlmatch", "--get-color",
                "--get-colorbool", "-l", "--list", "--unset", "--unset-all", "-e", "--edit",
@@ -209,10 +223,16 @@ def bundle_has(a, ch, short_v):
     return False
 
 
-def current_branch(path):
+def current_branch(path, gitdir=None):
+    """Текущая ветка каталога `path`; `gitdir` (`--git-dir`/`GIT_DIR`) перекрывает
+    обнаружение репозитория по каталогу — так же, как у самого git."""
+    cmd = ["git", "-C", path]
+    if gitdir:
+        cmd.append("--git-dir=" + os.path.join(path, os.path.expanduser(gitdir)))
     try:
-        out = subprocess.run(["git", "-C", path, "symbolic-ref", "--quiet", "--short", "HEAD"],
-                             capture_output=True, text=True, timeout=3)
+        out = subprocess.run(cmd + ["symbolic-ref", "--quiet", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=3,
+                             env={k: v for k, v in os.environ.items() if k != "GIT_DIR"})
     except (OSError, subprocess.SubprocessError):
         return None
     return out.stdout.strip() if out.returncode == 0 else None
@@ -223,7 +243,7 @@ def strip_heads(ref):
     return ref[len("refs/heads/"):] if ref.startswith("refs/heads/") else ref
 
 
-def push_findings(flags, pos, where):
+def push_findings(flags, pos, where, gitdir=None):
     shown = " ".join(["git", "push"] + flags + pos)
     for a in flags:
         head = a.split("=", 1)[0]
@@ -243,13 +263,13 @@ def push_findings(flags, pos, where):
     for r in refspecs:
         dst = strip_heads(r.split(":", 1)[1] if ":" in r else r)
         if dst in ("HEAD", "@"):
-            branch = branch or current_branch(where)
+            branch = branch or current_branch(where, gitdir)
             dst = branch or dst
         if dst in PROTECTED:
             yield "trunk", shown
             return
     if not refspecs and not tags_only:
-        if current_branch(where) in PROTECTED:
+        if current_branch(where, gitdir) in PROTECTED:
             yield "trunk", shown
 
 
@@ -275,12 +295,24 @@ def config_findings(rest):
         return
     if any(f in CONFIG_NOT_SET for f in flags):
         return
-    writes = any(f in ("--add", "--replace-all") for f in flags) or len(pos) >= 2
-    if writes and pos and is_hookspath(pos[0]):
+    # запись — ключ И значение позиционными (`--add`/`--replace-all` без значения
+    # git отвергает сам, поэтому отдельной ветви по этим флагам нет)
+    if len(pos) >= 2 and is_hookspath(pos[0]):
         yield "hookspath", shown
 
 
-def git_findings(args, cwd):
+def env_gitdir(assignments):
+    """Последнее присваивание GIT_DIR с буквальным значением; иначе None."""
+    found = None
+    for e in assignments:
+        name, _, val = e.partition("=")
+        if name == "GIT_DIR":
+            val = val.strip("'\"")
+            found = val if val and "$" not in val and "__SUBST__" not in val else None
+    return found
+
+
+def git_findings(args, cwd, gitdir=None):
     k, where = 0, cwd
     while k < len(args) and args[k].startswith("-"):
         a = args[k]
@@ -289,6 +321,8 @@ def git_findings(args, cwd):
             where = os.path.join(where or os.getcwd(), os.path.expanduser(args[k + 1]))
         if a == "-c" and k + 1 < len(args) and is_hookspath(args[k + 1].split("=", 1)[0]):
             yield "hookspath", "git -c " + args[k + 1]
+        if head == "--git-dir":
+            gitdir = val if eq else (args[k + 1] if k + 1 < len(args) else gitdir)
         if head == "--config-env":
             spec = val if eq else (args[k + 1] if k + 1 < len(args) else "")
             if is_hookspath(spec.split("=", 1)[0]):
@@ -300,22 +334,33 @@ def git_findings(args, cwd):
     if sub in NO_VERIFY_SUBS:
         flags, pos = split_opts(sub, rest)
         for a in flags:
-            if no_verify_word(a) or (sub == "commit" and bundle_has(a, "n", SHORT_VALUE["commit"])):
+            if no_verify_word(a) or (sub in SHORT_NO_VERIFY and bundle_has(a, "n", SHORT_VALUE[sub])):
                 yield "no-verify", " ".join(["git", sub] + rest)
                 return
         if sub == "push":
-            yield from push_findings(flags, pos, where or os.getcwd())
+            yield from push_findings(flags, pos, where or os.getcwd(), gitdir)
     elif sub == "config":
         yield from config_findings(rest)
 
 
 def gh_findings(args):
-    words = [a for a in args if not a.startswith("-")]
-    if words[:2] != ["pr", "merge"]:
-        return
-    for a in args:
+    """`gh [-R репо] pr [-R репо] merge … --admin`. Значения опций (`-R X`,
+    `--body X`) пропускаются: иначе `X` встаёт на место подкоманды и `--admin`
+    уходит мимо (возврат check-verifier ws#974)."""
+    words, flags, k = [], [], 0
+    while k < len(args):
+        a = args[k]
         if a == "--":
             break
+        if a.startswith("-") and len(a) > 1:
+            flags.append(a)
+            k += 2 if a in GH_VALUE else 1
+            continue
+        words.append(a)
+        k += 1
+    if words[:2] != ["pr", "merge"]:
+        return
+    for a in flags:
         head, eq, val = a.partition("=")
         if head == "--admin" and (not eq or val.lower() not in ("false", "0")):
             yield "admin", " ".join(["gh"] + args)
@@ -348,7 +393,7 @@ class Judge:
                 yield from env_findings(assigns)
                 vis.extend(assigns)
                 continue
-            yield from self.argv(argv, cur, depth)
+            yield from self.argv(argv, cur, depth, vis + env)
         for intro, body in bodies:
             # heredoc, поданный оболочке (`bash <<EOF`), — её команды; прочие — данные
             for seg in hg.split_commands(intro):
@@ -357,11 +402,11 @@ class Judge:
                     yield from self.text(body, cur, depth + 1)
                     break
 
-    def argv(self, argv, cur, depth):
+    def argv(self, argv, cur, depth, env=()):
         hg = self.hg
         base, args = os.path.basename(argv[0]), argv[1:]
         if base == "git":
-            yield from git_findings(args, cur)
+            yield from git_findings(args, cur, env_gitdir(env))
         elif base == "gh":
             yield from gh_findings(args)
         elif base in hg.SHELLS:
@@ -378,10 +423,10 @@ class Judge:
                         if w in (";", "+"):
                             break
                         sub.append(w)
-                    env, sub = hg.unwrap(sub)
-                    yield from env_findings(env)
+                    sub_env, sub = hg.unwrap(sub)
+                    yield from env_findings(sub_env)
                     if sub:
-                        yield from self.argv(sub, cur, depth)
+                        yield from self.argv(sub, cur, depth, list(env) + sub_env)
 
 
 def deny(kind, shown):
