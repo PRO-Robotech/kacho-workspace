@@ -1,0 +1,24 @@
+# Пост-дифф ревью консоли — роль ui-reviewer. Круг 2, ветка 2780 (входит в 1274).
+# Полный разбор — docs/changes/issue-1274/reviews/post-diff/ui-reviewer/cb4fca94….yaml
+schema_version: 1
+change_id: issue-2780
+holder: post-diff/ui-reviewer
+owner: ui-reviewer
+round: 2
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: "2780"
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kacho-2780
+  base: 5d1d034719c12895f5c75279cee393fcd6dc9994
+  head: ae17375a7a5e7350c06b36434fad62e31d18c56b
+  predicate: "git diff --full-index 5d1d034719c..ae17375a7a5 | sha256sum"
+content_digest: sha256:3f680adefdc4b3de564a387b28935e01db5f901ec53a0755b93d09dca8cae209
+verdict: "⛔ возврат"
+blocking: true
+round1_closure:
+  - {item: "2. условие §4 броском в beforeAll", state: "закрыт по устройству", at: ae17375a7a5}
+  - {item: "3. красная до / зелёная после браузером", state: "открыт — условие §4 (#2777, #2735, #2724)"}
+findings:
+  - {id: R2-1, blocking: true, coordinate: "ui-future/e2e/specs/identity-ceremony.spec.ts", requirement: "прогон на стенде own: красное до экранов, зелёное после, трижды"}
+  - {id: R2-2, blocking: true, coordinate: "ui-future/e2e/README.md (абзац о посадке сценариев церемоний; на 1274 — строки 84-86)", requirement: "снять утверждение о ретрансляции полосы и о «пробе, называющей условие»"}
+experiment_needed: true

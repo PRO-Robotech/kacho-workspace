@@ -1,0 +1,158 @@
+# Пост-дифф ревью СХЕМЫ И МИГРАЦИИ, роль db-architect-reviewer.
+#
+# Имя файла совпадает с content_digest. Прежних записей этой роли по kn-334 нет:
+# каталога docs/changes/kn-334 до этой записи не было.
+# Запись не правится: вердикт привязан к отпечатку (change-graph §2).
+schema_version: 1
+change_id: kn-334
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+subject: >-
+  kaname#334. Принудительный выход пишет в запись сессии своё слово
+  admin-force-logout. Словарь human_sessions_ended_reason_check получает
+  четвёртое значение новой миграцией 20260923160455. Домен объявляет перечень
+  HumanSessionEndReasons(). Глагол снятия берёт константу домена, а не
+  причину из запроса.
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '334'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kaname-334-acc
+  base: cca75858382bd366c44b4074eb6e67b4795fc826   # merge-base origin/358 HEAD; равен origin/358
+  head: bfdd949a7b08ef1d447788c1c3194d0bc46218bd
+  commits_over_base: 7
+  files_touched: 11                                   # вне docs/specs/reviews
+
+content_digest: sha256:b050a044ea246fca269bccd3dd7ecac4db7db47304f0aa97642f4fa8665943f3
+digest_command: >-
+  git -C /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kaname-334-acc
+  diff --full-index $(git -C … merge-base origin/358 HEAD)..bfdd949a7b08ef1d447788c1c3194d0bc46218bd
+  -- . ':!docs/specs/reviews' | sha256sum
+digest_definition: >-
+  Команда задания, исполнена дословно. Дерево чистое (`git status --short` = 0
+  строк), HEAD = bfdd949a7. Значит дифф закоммичен, и посылка режима «ревью»
+  выполнена.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted              # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-23T16:50:00Z'
+return_to: '—'
+migrations_touched: 1
+migrations_touched_predicate: >-
+  `git diff --name-status <base>..<head> -- 'internal/migrations/*.sql'` даёт одну
+  строку: `A 20260923160455_human_session_end_reason_names_the_forced_exit.sql`.
+  Модифицированных применённых файлов 0 (ban05). Предикат
+  `no-migrations-in-change` опровергнут, роль применима.
+
+# ── что осмотрено и чем ────────────────────────────────────────────────────
+examined:
+  - 'миграция целиком, :1-85; прецедент той же формы — 20260917160000:97-101 (накат), :128-133 (откат)'
+  - 'исходное ограничение и пара ended_at/ended_reason: 20260916190000:88-89. Индексов, триггеров и частичных индексов на ended_reason нет, найдено grep по internal/migrations'
+  - 'писатели колонки ended_reason, перепись вызывающих EndSession/EndOtherSessions без тестов. Их пять: force_logout.go:737, logout.go:78, change_password.go:197, recovery_complete.go:234, sf_remove.go:125. Каждый передаёт константу домена, причины из запроса не передаёт ни один'
+  - 'CAS снятия: human_session_repo.go:446-449 (`… AND ended_at IS NULL RETURNING id`); диф его не меняет'
+  - 'перевод 23514: pgmaperr.go:155 → :191; ответ глагола на отказ снятия: force_logout.go:836-857'
+  - 'соседние ветки origin, добавляющие миграции, которых нет в HEAD: 3 (20260919120000, 20260919130000, 20260921183000). Все ниже новой версии, human_sessions не трогает ни одна'
+
+# ── судимые предметы ───────────────────────────────────────────────────────
+judged:
+  constraint:
+    finding: none
+    notes: >-
+      Закрытый словарь выражен CHECK базы, а не проверкой в коде (ban10). Имя
+      ограничения сохранено, а это координата отката 20260917160000:130. Накат
+      только расширяет множество, операторов данных в нём 0 (Р4). Снятие и
+      заведение идут одной транзакцией goose: маркера `-- +goose NO TRANSACTION`
+      нет. Упоминание «NO TRANSACTION» на :27 стоит внутри комментария, это не
+      аннотация. ALTER вместо inline CHECK вынужден: применённую миграцию не
+      правят. Перечень домена и ограничение сверяются в обе стороны пробой
+      KN-SER-07 (N = 4, M = 4).
+  rollback_with_lock:
+    finding: none
+    notes: >-
+      :77 LOCK ACCESS EXCLUSIVE стоит первым, :79 переводит без правки ended_at,
+      :81-85 возвращают словарь из трёх. Захватывается одна таблица, поэтому
+      цикла с порядком «личность → строки сессии» нет: UPDATE неключевой колонки
+      RI-проверку не запускает, триггеров на таблице нет. Необходимость захвата
+      Я ИЗМЕРИЛ на postgres:16-alpine (одноразовый контейнер kn334-dbarch-pg,
+      после замера снят; таблица сокращена до id/ended_at/ended_reason
+      с тем же ограничением).
+      Сцена 1, без захвата: писатель зафиксировал admin-force-logout между
+      переводом и переустановкой. Откат упал целиком: `check constraint
+      "human_sessions_ended_reason_check" … is violated by some row`, словарь
+      остался из четырёх. Сцена 2, с захватом: писатель ждал 2,07 с, затем
+      получил 23514 `new row … violates check constraint`. Строка осталась
+      живой, откат прошёл, словарь из трёх. Оба утверждения комментария :67-71
+      подтверждены.
+  error_mapping:
+    finding: none-blocking
+    notes: >-
+      Отказ снятия на пути принудительного выхода ведёт к частичному исходу
+      (warrantsPartialOutcome → true). Вызывающему уходит фиксированный
+      UNAVAILABLE `could not end the login session` (force_logout.go:857), текст
+      драйвера наружу не выходит. В журнал идёт текст sentinel после перевода.
+      Detail строки не читается (pgmaperr.go:158-161). Свободная причина запроса
+      до колонки не доходит (Р2, KN-SER-02).
+  migration_probes:
+    finding: none
+    notes: >-
+      KN-SER-06 проверяет приём нового слова и отказ `sneeze`. KN-SER-08
+      проверяет, что накат не переписывает лежащие строки и версия новая.
+      KN-SER-09 проверяет откат до предшествующей версии: A → logout с прежним
+      ended_at, B не тронута, C жива, отказ после отката, приём после повторного
+      наката. KN-SER-07 — паритет домена и базы; инъекции паритета тоже есть.
+      Испытуемого проба ищет по содержимому, а не по номеру.
+
+# ── прогон (мой, дословно) ─────────────────────────────────────────────────
+run:
+  command: >-
+    TMPDIR=/home/dk/.cache/kn334-dbarch/tmp go test -p 1 -count=1 -json -run
+    'KN_SER_|SessionEndVocabularyDiff|SessionEndDomainList|ForcedExitWord|TestForceLogout_EndsOurOwnLoginSession|TestNewMigrationOutranksEveryAppliedOne|TestNewMigrationCitesAnApprovedAcceptance'
+    ./internal/migrations/ ./internal/apps/kaname/api/internal_iam/ ./internal/check/
+  revision: bfdd949a7b08ef1d447788c1c3194d0bc46218bd
+  exit_code: 0
+  result: >-
+    верхнего уровня: 20 pass, 0 fail, 0 skip; подтестов 20 pass; пакетов 3 из 3
+    pass. TestNewMigrationCitesAnApprovedAcceptance в kaname не существует и не
+    исполнен. Отпечаток приёмки, названный в шапке миграции :11, сверен
+    отдельно: `git show HEAD:<приёмка> | sha256sum` = ae35d0e1… (совпало).
+  stand: 'MemAvailable 38 ГБ; чужих golangci-lint и pre-push нет; -race не гонялся: на машине нет cgo'
+
+# ── критические / важные ───────────────────────────────────────────────────
+critical: []
+important: []
+
+# ── неблокирующие ──────────────────────────────────────────────────────────
+non_blocking:
+  - id: n1-check-lane-blames-the-caller
+    coordinate: 'internal/repo/kaname/pg/pgmaperr.go:155, :191 (умолчание checkText :747)'
+    text: >-
+      23514 на human_sessions_ended_reason_check падает в общую ветку
+      ErrInvalidArg («Illegal argument: value violates a constraint»). Значение
+      колонки у всех пяти писателей производит служба, поэтому отказ означает
+      расхождение кода и схемы, а не ввод вызывающего. Прецедент полосы
+      «наш дефект → INTERNAL» уже есть: pgmaperr.go:163
+      (user_login_methods_kind_check). На пути этого диффа отказ до вызывающего
+      не доходит (см. error_mapping). Остальные четыре писателя дифф не трогает.
+      Кому: автор Go-кода repo-слоя, если полоса будет заводиться. Посадку не
+      блокирует.
+  - id: n2-contested-rounds-one-sided
+    coordinate: 'internal/apps/kaname/api/internal_iam/force_logout_versus_own_logout_integration_test.go:557'
+    text: >-
+      KN-SER-05/3 на моём прогоне: `раундов 20: выход выиграл 20, принудительный
+      выход выиграл 0`. Под состязанием ветвь «выход ждёт замка принудительного
+      выхода» не пройдена ни разу. Обратный порядок покрыт детерминированно
+      пробами 05/2 и 05/4, обе зелёные. CAS `ended_at IS NULL` диф не меняет.
+      Посадку не блокирует; ту же находку записал прежний рецензент на e8e8d7f5.
+  - id: n3-rollback-lock-held-by-attention
+    coordinate: 'internal/migrations/20260923160455_…sql:67-77'
+    text: >-
+      Необходимость захвата в откате держит комментарий и мой замер выше. Пробы
+      в дереве на это нет. Приёмка её не требует, и пункт 6 чек-листа
+      (CAS / частичный UNIQUE / EXCLUDE / SKIP LOCKED) сюда не относится. Заказа
+      нет.
+
+orders: []
+distributed_properties_intersection: false
