@@ -251,6 +251,42 @@ t0="$(date +%s)"; kill -TERM "$S"; wait "$S"; rc=$?; t1="$(date +%s)"
 alive="нет"; kill -0 "$(cat "$W/cmdpid" 2>/dev/null || echo 999999)" 2>/dev/null && alive="да"
 assert "143 0 нет да" "$rc $(entries) $alive $([ $(( t1 - t0 )) -lt 10 ] && echo да || echo нет)" "TERM слоту → 143 сразу, записи нет, команда снята"
 
+echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
+# Двойник run.sh пишет свой argv и отвечает на --available кодом FAKE_AVAIL; клон —
+# настоящий git с origin вида PRO-Robotech/kaname и веткой 984-x.
+cat > "$W/fake-run.sh" <<'FAKE'
+#!/usr/bin/env bash
+if [ "${1:-}" = --available ]; then
+    [ "${FAKE_AVAIL:-0}" = 0 ] && exit 0
+    echo "remote-heavy: кластер не отвечает" >&2; exit 69
+fi
+printf '%s\n' "$@" > "$FAKE_ARGV"; exit 17
+FAKE
+R="$W/rclone"
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/ghome" || { echo "  [VOID] корневой подписи нет — клон маршрута не построен" >&2; exit 2; }
+git init -q -b 984-x "$R"
+git -C "$R" remote add origin https://github.com/PRO-Robotech/kaname.git
+echo a > "$R/f"; git -C "$R" add f; sandbox_git -C "$R" commit -q -m p
+mkdir -p "$R/sub"; echo b > "$R/sub/g"; git -C "$R" add sub; sandbox_git -C "$R" commit -q -m p2
+rslot() { (cd "${RDIR:-$R}" && env HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" FAKE_ARGV="$W/argv" "$@" 2> "$W/err" > "$W/out"); echo $?; }
+rm -f "$W/argv"
+assert "17 да" "$(RDIR="$R/sub" rslot bash "$SLOT" lint -- go version) $(has "$W/argv" '--profile')" "lint с go в чистом клоне → run.sh, его код (17)"
+assert "984 kaname sub $(git -C "$R" rev-parse HEAD)" "$(sed -n '/^--task$/{n;p}' "$W/argv") $(sed -n '/^--repo$/{n;p}' "$W/argv") $(sed -n '/^--workdir$/{n;p}' "$W/argv") $(sed -n '/^--ref$/{n;p}' "$W/argv")" "задача из ветки, repo из origin, каталог и коммит — в argv"
+assert "go version" "$(sed -n '/^--$/,$p' "$W/argv" | sed 1d | tr '\n' ' ' | sed 's/ $//')" "команда передана после «--» без искажения"
+rm -f "$W/argv"
+assert "0 да нет" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет)" "кластер не отвечает → локально, причина названа"
+rm -f "$W/argv"
+assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'не переносится') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
+echo c >> "$R/f"
+assert "0 да нет" "$(rslot bash "$SLOT" go-race -- make -v) $(has "$W/err" 'незакоммиченные правки') $([ -e "$W/argv" ] && echo да || echo нет)" "правка в отслеживаемом файле → локально, причина названа"
+git -C "$R" checkout -q -- f
+assert "17 да" "$(rslot bash "$SLOT" go-race -- timeout 60 make -v) $(has "$W/argv" 'go-race')" "близнец: тот же клон без правки, timeout перед make → run.sh"
+rm -f "$W/argv"
+assert "0 нет нет" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" 'локально') $([ -e "$W/argv" ] && echo да || echo нет)" "класс docker маршрут не судит: ни run.sh, ни строки"
+assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_REMOTE_RUN')" "над настоящей памятью двойник run.sh — ручка, 64"
+
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2

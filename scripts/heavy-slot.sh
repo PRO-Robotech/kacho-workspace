@@ -73,6 +73,12 @@
 # пределом памяти. 69, 75 и 76 — «не выполнилось», а не красное: вердикта по
 # предмету команды нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
 #
+# ВНЕШНИЙ КЛАСТЕР (ws#984): классы go-race, integration, lint и ci-local при
+# отвечающем кластере уходят Job-ом в scripts/remote-heavy/run.sh и слота машины не
+# занимают; код — код команды там (69/75/76 — «не выполнилось», как здесь).
+# Локально — только со строкой «heavy-slot: локально — <причина>»; условия — у
+# блока «внешний кластер» ниже.
+#
 # ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание, выход с пиком памяти,
 # обрыв. Пик — основание для пересмотра бюджетов: `grep ' leave ' journal.log`.
 #
@@ -328,7 +334,7 @@ fi
 shift
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S"
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -345,7 +351,7 @@ else
         exit 64
     fi
     for v in $KNOBS; do
-        [ "$v" = HEAVY_SLOT_LIMITER ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-45} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"
@@ -370,6 +376,60 @@ for a in "$@"; do
         exit 64
     fi
 done
+
+# ── внешний кластер (решения владельца 2026-10-07, 2026-10-08, ws#984) ─────────
+# Тяжёлые классы go-race, integration, lint и ci-local при отвечающем кластере
+# уходят Job-ом туда (scripts/remote-heavy/run.sh) и слота машины не занимают;
+# локально — только с причиной строкой «heavy-slot: локально — …». Удалённый прогон
+# судит КОММИТ, поэтому условий пять: команда переносима (go, make, линтеры,
+# ci-local.sh; `git push` — нет), каталог — клон kacho, kaname или corelib,
+# отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
+# имени ветки, кластер отвечает (`run.sh --available`). В режиме проб маршрут
+# судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над настоящей памятью
+# эта ручка — 64, как прочие.
+REMOTE_RUN="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/remote-heavy/run.sh"
+REMOTE_ON=1
+if [ "$MEMINFO" != /proc/meminfo ]; then
+    if [ -n "${HEAVY_SLOT_REMOTE_RUN:-}" ]; then REMOTE_RUN="$HEAVY_SLOT_REMOTE_RUN"; else REMOTE_ON=0; fi
+fi
+remote_route() {
+    local first="$1" i=0 top url repo branch task rel
+    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) return 1 ;; esac
+    [ "$first" = timeout ] && { i=1; [[ "${CMD_R[1]:-}" =~ ^[0-9.]+[smhd]?$ ]] && i=2; first="${CMD_R[$i]:-}"; }
+    case "$(basename -- "$first")" in
+        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) ;;
+        *) WHY_LOCAL="команда «$first» не переносится (go, make, golangci-lint, gosec, govulncheck, ci-local.sh)"; return 1 ;;
+    esac
+    top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git"; return 1; }
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    repo="${url%.git}"; repo="${repo##*/}"
+    case "$url" in
+        *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;;
+        *) WHY_LOCAL="клон не kacho, kaname или corelib"; return 1 ;;
+    esac
+    if [ -n "$(git -C "$top" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        WHY_LOCAL="в отслеживаемых файлах незакоммиченные правки — кластер судит коммит; закоммить и повтори"; return 1
+    fi
+    branch="$(git -C "$top" branch --show-current 2>/dev/null)"
+    task="${KACHO_TASK:-}"
+    [ -n "$task" ] || { [[ "$branch" =~ ^(issue-)?([0-9]+)([-_/].*)?$ ]] && task="${BASH_REMATCH[2]}"; }
+    [[ "$task" =~ ^[1-9][0-9]*$ ]] || { WHY_LOCAL="номер задачи не выводится: ни KACHO_TASK, ни ведущих цифр в имени ветки «$branch»"; return 1; }
+    local avail
+    if ! avail="$(bash "$REMOTE_RUN" --available 2>&1)"; then
+        WHY_LOCAL="кластер недоступен: ${avail#remote-heavy: }"; return 1
+    fi
+    rel="$(realpath --relative-to="$top" "$PWD")"
+    ROUTE=(bash "$REMOTE_RUN" --task "$task" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
+    return 0
+}
+if [ "$REMOTE_ON" = 1 ]; then
+    CMD_R=("$@"); WHY_LOCAL=""; ROUTE=()
+    if remote_route "$1"; then
+        say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
+        exec "${ROUTE[@]}" "$@"
+    fi
+    [ -n "$WHY_LOCAL" ] && say "локально — $WHY_LOCAL"
+fi
 
 ID="$(now)-$$"
 P="$DIR/active/$ID"
