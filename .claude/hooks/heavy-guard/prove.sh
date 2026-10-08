@@ -316,7 +316,7 @@ echo 'bash scripts/rules-gate/run-all.sh' > "$WORK/ws/scripts/hooks/pre-push"
 denies ci-local 'git push origin x' "$WORK/prod"
 denies ci-local "git -C $WORK/prod push"
 passes 'git push origin x' "$WORK/ws"
-passes "cd $WORK/prod && git push --no-verify"
+denies ci-local "cd $WORK/prod && git push --no-verify"
 : > "$WORK/ws/scripts/ci-local.sh"
 passes 'git push origin x' "$WORK/ws"
 

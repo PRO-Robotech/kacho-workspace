@@ -1018,3 +1018,12 @@ gi-security-finding-issue-now — владелец 2026-09-20 «не забыв�
 
 Снята строка (дубль ссылки на `00-kacho-core.md#ban01-acceptance` после сужения ban01):
 gi-coding-after-approved · кодинг-задача открывается только после APPROVED приёмки под-фазы · `acceptance-reviewer`; scripts/docs-gate/check-01-acceptance-verdict.py · red: код пошёл раньше вердикта приёмки
+
+## Снято 2026-10-08 (ws#974): разрешения на обход хука, `--force` и push в `main`
+
+Правило разрешало то, что страж `.claude/hooks/git-guard` отвергает без исключений; основание —
+решение владельца 2026-10-06 (запреты `--no-verify`/`--force`/`--admin`) и маршрут посадки только
+через PR. `gi-no-verify-by-request` переименована в `gi-no-verify-never`. Прежние строки, дословно:
+
+gi-no-direct-push-main · в `main` напрямую не пушить без ДОСЛОВНОГО разрешения диспетчера (`00-kacho-core.md#ban18-decides-dispatcher`), работа — через PR; `--force` по опубликованному — решением владельца · `enforce_admins` и обязательные контексты `ci.yaml` (ws#886) · red: коммит в `main` без PR; `--force` агентом
+gi-no-verify-by-request · `--no-verify` — только по ДОСЛОВНОМУ разрешению диспетчера во входе (`00-kacho-core.md#ban18-decides-dispatcher`) · ЗАВЕСТИ · red: хук обойдён, чтобы «пройти»; разрешение пересказано, а не процитировано

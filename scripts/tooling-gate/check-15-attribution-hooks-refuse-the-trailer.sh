@@ -9,8 +9,9 @@
 #
 # ЧТО ТРЕБУЕТСЯ (песочница: свой клон, провязанный штатной командой
 # `bash scripts/hooks/install.sh install`, и голый удалённый; коммиты — настоящий
-# `git commit`, отправки — настоящий `git push` с KACHO_SKIP_PREPUSH=1: обход
-# снимает наборы, а страж идёт раньше него):
+# `git commit`, отправки — настоящий `git push`; доставляемые близнецы едут
+# черновиком `wip/*`: черновик снимает наборы, а страж идёт раньше него, — обхода
+# хука переменной нет с ws#974):
 #
 #   настоящий вход — сообщения коммитов полосы kacho, записанных с
 #       трейлерами (2840-trailered-b81c695; адрес сессии заменён) → хук коммита
@@ -20,7 +21,7 @@
 #       близнец — ключ в середине строки прозы → записан;
 #   коммит мимо хука коммита (--no-verify, commit-tree) → отправка остановлена,
 #       sha назван; близнец → доехал; опубликованный коммит с трейлером в истории
-#       не судится; черновик `wip/*` не освобождён; обход стража не снимает;
+#       не судится; черновик `wip/*` не освобождён;
 #   судить нечем (пустое сообщение, нет файла, нет предиката или стража) →
 #       отказ, а не молчание.
 #
@@ -218,7 +219,7 @@ mv "$TMP/rule.away" "$F/scripts/hooks/attribution-rule.sh"
 
 # ── ОТПРАВКА ─────────────────────────────────────────────────────────────────
 remote_at() { git -C "$F" ls-remote origin "$1" | cut -f1; }
-push() { attempt env KACHO_SKIP_PREPUSH=1 git push -q origin "$@"; }
+push() { attempt git push -q origin "$@"; }
 delivered() { # <имя> <ссылка>
     if [ "$rc" -eq 0 ] && [ "$(remote_at "$2")" = "$(git -C "$F" rev-parse HEAD)" ] && has "нарушений нет"; then okp
     else badp "$1: код $rc, на удалённом «$(remote_at "$2")»"; fi
@@ -234,17 +235,21 @@ nv() { git -C "$F" commit -q --allow-empty --no-verify "$@"; }
 
 on 101; nv -F "$TMP/real-1.msg"; s="$(git -C "$F" rev-parse --short=10 HEAD)"; push 101
 stopped "настоящий вход мимо хука коммита" refs/heads/101 "$s атрибуция в сообщении: «$real_trailer»"
-if has "пропущен по KACHO_SKIP_PREPUSH"; then badp "обход KACHO_SKIP_PREPUSH снял страж атрибуции"; else okp; fi
-on 102; nv -F "$TMP/real-1.twin"; push 102
-delivered "близнец настоящего входа без трейлеров" refs/heads/102
+on wip/102; nv -F "$TMP/real-1.twin"; push wip/102
+delivered "близнец настоящего входа без трейлеров" refs/heads/wip/102
 on 103
 c="$(git -C "$F" commit-tree -p HEAD -m "#103 x" -m "Co-authored-by: Иван Петров <ivan@example.org>" "HEAD^{tree}")"
 git -C "$F" update-ref refs/heads/103 "$c"; push 103
 stopped "соавтор-человек через commit-tree" refs/heads/103 "${c:0:10} атрибуция в сообщении"
-on 104; nv -m "#104 x" -m "Снята строка шаблона Co-Authored-By: Claude Opus — подставлялась"; push 104
-delivered "близнец: ключ в середине строки прозы" refs/heads/104
-on 105; nv -m "#105 x"; push 105
-delivered "опубликованный коммит с трейлером в истории не судится" refs/heads/105
+on wip/104; nv -m "#104 x" -m "Снята строка шаблона Co-Authored-By: Claude Opus — подставлялась"; push wip/104
+delivered "близнец: ключ в середине строки прозы" refs/heads/wip/104
+on wip/105; nv -m "#105 x"; push wip/105
+delivered "опубликованный коммит с трейлером в истории не судится" refs/heads/wip/105
+# Переменная обхода снята из хука (ws#974): с ней отправка по-прежнему судится —
+# голый номер отвергает правило имени, стоящее ПОСЛЕ прежнего обхода.
+on 108; nv -m "#108 x"; attempt env KACHO_SKIP_PREPUSH=1 git push -q origin 108
+stopped "KACHO_SKIP_PREPUSH=1 не обходит хук" refs/heads/108 "голый номер"
+if has "пропущен по"; then badp "хук исполнил KACHO_SKIP_PREPUSH"; else okp; fi
 on wip/106; nv -m "#106 x" -m "$real_trailer"; push wip/106
 stopped "черновик wip/* с трейлером" refs/heads/wip/106 "атрибуция в сообщении"
 on 107; nv -m "#107 x"; mv "$F/scripts/hooks/prepush-attribution.sh" "$TMP/guard.away"

@@ -13,9 +13,9 @@ description: "Разметка задач и комментариев GitHub Iss
 gi-conventional-commits · Conventional Commits: `feat:` `fix:` `chore:` `docs:` `test:` `ci:` `refactor:` · ЗАВЕСТИ · red: тип не из набора либо тип отсутствует
 gi-identity-owner-only · author И committer — ТОЛЬКО корневой gitconfig владельца, в песочнице — её HOME; `--author=`, `GIT_*_NAME/EMAIL`, `-c user.*`, `config --local/--worktree` запрещены · `git log --format='%an %ae'` — одна подпись; tooling-gate check-16 · red: бот-подпись; переопределение в пробе
 gi-no-attribution-trailers · `Co-Authored-By` и attribution-трейлеры НЕ добавлять · хуки commit-msg, pre-push; tooling-gate check-15 · red: трейлер атрибуции в теле коммита
-gi-no-direct-push-main · в `main` напрямую не пушить без ДОСЛОВНОГО разрешения диспетчера (`00-kacho-core.md#ban18-decides-dispatcher`), работа — через PR; `--force` по опубликованному — решением владельца · `enforce_admins` и обязательные контексты `ci.yaml` (ws#886) · red: коммит в `main` без PR; `--force` агентом
+gi-no-direct-push-main · в `main` не пушить никогда — только PR; `--force`, `-f`, `--force-with-lease`, `+refspec`, `gh pr merge --admin` запрещены без исключений (владелец 2026-10-06) · `.claude/hooks/git-guard`; `enforce_admins` и обязательные контексты `ci.yaml` (ws#886) · red: коммит в `main` без PR; `--force` агентом
 gi-merge-method · вливание — коммитом слияния, сквоша и rebase опубликованного нет (владелец 2026-09-22); способ сверяй с настройками (`[false,true,false]`, Д56); сообщения всех коммитов ветки входят в ствол — признак восстановимости по каждому · сервер; признак — ЗАВЕСТИ · red: способ из памяти; `--squash`
-gi-no-verify-by-request · `--no-verify` — только по ДОСЛОВНОМУ разрешению диспетчера во входе (`00-kacho-core.md#ban18-decides-dispatcher`) · ЗАВЕСТИ · red: хук обойдён, чтобы «пройти»; разрешение пересказано, а не процитировано
+gi-no-verify-never · `--no-verify` и `core.hooksPath` запрещены без исключений, разрешить их некому (владелец 2026-10-06) · `.claude/hooks/git-guard` · red: хук обойдён, чтобы «пройти»
 
 ## Волна — единица запроса на слияние
 

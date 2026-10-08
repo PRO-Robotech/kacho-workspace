@@ -986,7 +986,9 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
                 k += 2
             else:
                 k += 1
-        if args[k:k + 1] == ["push"] and "--no-verify" not in args:
+        # Тяжесть — по хуку клона; `--no-verify` исключения не даёт: обход хука
+        # запрещён и отвергается git-guard (ws#974), исключение было мёртвым.
+        if args[k:k + 1] == ["push"]:
             base_dir = cwd or os.getcwd()
             path = os.path.join(base_dir, os.path.expanduser(where)) if where else base_dir
             if push_runs_ci_local(path):
