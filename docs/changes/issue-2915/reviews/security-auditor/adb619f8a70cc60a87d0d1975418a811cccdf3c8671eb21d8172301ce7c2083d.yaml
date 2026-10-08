@@ -1,0 +1,47 @@
+# ВЕРДИКТ: ✅ на sha256 adb619f8a70cc60a87d0d1975418a811cccdf3c8671eb21d8172301ce7c2083d
+role: security-auditor
+mode: пост-дифф, один круг (Д97); блокирующее — только корректность/безопасность с предикатом
+verdict: accepted
+repo: PRO-Robotech/kacho
+pr: 3108
+head: 928857dd96d1cc1854450414b1edd1243a8b9c58
+base_branch: 2914-notify
+merge_base: 515e017c873a1d1be23592e3e3757462a5a13e7e   # git merge-base origin/2914-notify <head>; равен голове origin/2914-notify
+digest_cmd: git diff 515e017c873a1d1be23592e3e3757462a5a13e7e..928857dd96d1cc1854450414b1edd1243a8b9c58 | sha256sum
+issue: kacho#3017 (Refs, не Closes)
+scope_read:
+  diff_files: 10            # gh pr view 3108 --json files
+  read_in_full: [deploy/scripts/installation-mail-dns.sh, deploy/stacks-mail-dns.txt, deploy/Makefile (дифф),
+                 deploy/helm/umbrella/values.a8f60d.yaml (дифф), deploy/README.md (дифф),
+                 deploy/notify_mail_domain_alignment_test.go, tools/foreignclouds/foreignclouds.go (дифф)]
+  traced: [notify.returnDomain — deploy/helm/notify/values.yaml:137 ("" по умолчанию), values.dev.yaml:595 (kacho.cloud),
+           configmap.yaml:54, services/notify/internal/config/config.go:181;
+           kacho-notify-dkim — заводится вне чарта, тем же образцом, что seed-stand-dkim.sh:142-149;
+           deploy/stacks-mail.txt — relay ровно у a8f60d, prod — operator]
+surface:
+  rpc: нет новых; слушателей, записей каталога, отношений модели — нет
+  secrets:
+    - закрытый ключ DKIM выпускается во временный каталог mktemp -d (0700, trap rm -rf), удаляется сразу после
+      заведения объекта/вывода открытого; в stdout/журнал не печатается; в дерево и values не попадает
+    - seed не перезаписывает существующий объект (NotFound — единственная ветка выпуска; гонка AlreadyExists — переиспользование;
+      прочий отказ сервера — код 2, а не выпуск)
+    - вывод helm --dry-run=client --debug (COMPUTED VALUES) не печатается; на отказе — tail -20 текста ошибки
+    - селектор из объекта проверяется формой метки RFC 6376 до подстановки в имя DNS
+  rights: скрипт действует правами kubeconfig оператора; новой учётки и гранта нет; кластер назван адресом API, не именем контекста
+  public_text: README и комментарии описывают публичные записи DNS; сборки «координата + условие + следствие» по живому
+               дефекту нет — прежнее наследование kacho.cloud снято этим же диффом, а notify у a8f60d вне рендера до записей (Д102)
+checks:
+  - cmd: GOWORK=off go test ./deploy/ -count=1 -run 'NotifyReturnDomain|StacksMailDNS' -v @928857dd96
+    result: 4 PASS, 0 FAIL (выравнивание домена возврата + 6 инъекций; покрытие relay-профилей + инъекции)
+  - cmd: (services/notify) GOWORK=off go test ./internal/dnscheck/ -count=1 @928857dd96
+    result: ok
+  - cmd: helm dependency build deploy/helm/umbrella && bash deploy/tests/helm/installation-mail-dns-test.sh @928857dd96
+    result: "PASS (8 assertions); первый прогон без зависимостей чарта — «не выполнилось», не красный"
+  - ci: голова PR — 70 проверок зелёные (со слов задания)
+blocking: []
+non_blocking:
+  - key: kacho:deploy/scripts/installation-mail-dns.sh:verify-dkim-only-NE
+    note: verify сверяет (N, E) и не судит v=DKIM1/k=rsa записи — форму судит страж notify на старте; не дефект безопасности
+  - key: kacho:deploy/tests/helm/installation-mail-dns-test.sh:render-count-zero
+    note: итоговая строка печатает «рендеров helm: 0» при 8 выполненных утверждениях — счётчик не тот предмет; качество отчёта пробы
+dry_round: да — подтверждённых находок 0 при прочитанных 10 файлах из 10
