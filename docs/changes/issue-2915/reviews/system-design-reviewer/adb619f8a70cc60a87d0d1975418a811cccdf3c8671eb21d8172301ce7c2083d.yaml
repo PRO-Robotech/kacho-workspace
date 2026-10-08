@@ -32,7 +32,7 @@ accepted:
   no_new_edge: "межсервисных рёбер нет; notify в рендер a8f60d не возвращается этим диффом (Д102)"
 important:
   - id: kubectl-no-request-timeout
-    where: deploy/scripts/installation-mail-dns.sh:152,155,162,177
+    where: deploy/scripts/installation-mail-dns.sh:153,155,162,182
     note: >
       вызовы kubectl (get namespace, get secret, create secret) идут без --request-timeout:
       на неотвечающем сервере API ручной шаг повиснет, а не выйдет кодом 2 «кластер не ответил»,
