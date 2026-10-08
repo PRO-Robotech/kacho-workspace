@@ -699,6 +699,112 @@ grep -qF -- "ствол дерева продукта" <<<"${LAST_OUT:-}" \
     && { printf '  [ok]   третья категория названа своим текстом\n'; pass=$((pass + 1)); } \
     || { printf '  [БЕДА] код 2 верен, но текст не называет ствол\n'; fail=$((fail + 1)); }
 
+# ── гейты 08 и 09 — состязательные evals скилов (ws#973) ─────────────────────
+#
+# Предмет гейта 08 — схема `.claude/skills/*/evals/evals.json`; гейта 09 — прогонщик
+# `scripts/skill-evals/skill_evals.py` СУДИМОГО дерева. Копия песочницы скриптов не
+# несёт, поэтому прогонщик кладётся в неё на время этих проб и снимается после.
+echo
+echo "== гейт 08 — схема evals.json =="
+
+EV="$TMP/.claude/skills/code-authoring/evals/evals.json"
+# evj <python-выражение над d> — правка evals.json code-authoring разобранной формой.
+evj() {
+    python3 -I - "$EV" "$1" <<'PY'
+import json, sys
+p, expr = sys.argv[1], sys.argv[2]
+d = json.load(open(p, encoding="utf-8"))
+exec(expr)
+json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+}
+
+restore
+run 0 "чистое дерево: три evals.json по схеме" check-08-skill-evals-schema.sh
+
+restore
+printf '\n{ сломано' >> "$EV"
+bit "хвост, ломающий JSON"
+run 1 "инъекция: evals.json не разбирается" check-08-skill-evals-schema.sh
+grep -q 'code-authoring/evals/evals.json' <<<"${LAST_OUT:-}" \
+    && { printf '  [ok]   инъекция названа координатой\n'; pass=$((pass + 1)); } \
+    || { printf '  [БЕДА] гейт покраснел, но файл не назвал\n'; fail=$((fail + 1)); }
+
+restore
+evj 'n=[c for c in d["cases"] if c["trap"]]
+for c in n[1:]: c["trap"] = None'
+bit "снятие ловушек"
+run 1 "инъекция: ловушка одна" check-08-skill-evals-schema.sh
+
+restore
+evj 'n=[c for c in d["cases"] if c["trap"]]
+for c in n[2:]: c["trap"] = None'
+bit "снятие ловушек до минимума"
+run 0 "законный близнец: ловушек ровно минимум" check-08-skill-evals-schema.sh
+
+restore
+evj 'd["cases"][0]["assertions"] = [a for a in d["cases"][0]["assertions"] if a["kind"] == "must_not"]'
+bit "снятие must"
+run 1 "инъекция: кейс из одних must_not проходит на пустом ответе" check-08-skill-evals-schema.sh
+
+restore
+evj 'd["cases"][0]["assertions"][0]["pattern"] = ".*"'
+bit "пустое выражение"
+run 1 "инъекция: must совпадает с пустой строкой" check-08-skill-evals-schema.sh
+
+restore
+evj 'd["cases"][0]["assertions"][0]["pattern"] = "ОТВЕТ\\W{0,6}[3]"'
+bit "законное выражение той же формы"
+run 0 "законный близнец: выражение переписано, пустоте не совпадает" check-08-skill-evals-schema.sh
+
+restore
+evj 'd["skill"] = "godzila"'
+bit "имя скила"
+run 1 "инъекция: skill не равен имени каталога" check-08-skill-evals-schema.sh
+
+restore
+evj 'd["cases"][1]["assertions"][0]["kind"] = "should"'
+bit "вид утверждения"
+run 1 "инъекция: kind вне закрытого словаря" check-08-skill-evals-schema.sh
+
+restore
+evj 'import copy; c = copy.deepcopy(d["cases"][0]); c["id"] = "extra-lawful-case"; d["cases"].append(c)'
+bit "добавленный кейс"
+run 0 "законный близнец: ещё один кейс той же формы" check-08-skill-evals-schema.sh
+
+restore
+printf 'заметка\n' > "$TMP/.claude/skills/godzila/evals/notes.md"
+run 1 "инъекция: посторонний файл в evals/" check-08-skill-evals-schema.sh
+rm -f "$TMP/.claude/skills/godzila/evals/notes.md"
+
+restore
+rm -rf "$TMP"/.claude/skills/*/evals
+run 2 "предпосылка: evals.json нет ни одного ⇒ VOID, а не успех" check-08-skill-evals-schema.sh
+restore
+
+echo
+echo "== гейт 09 — проба прогонщика evals =="
+
+restore
+run 2 "предпосылка: в судимом дереве нет прогонщика ⇒ VOID" check-09-skill-evals-runner-selftest.sh
+
+mkdir -p "$TMP/scripts/skill-evals"
+cp "$WS/scripts/skill-evals/skill_evals.py" "$TMP/scripts/skill-evals/skill_evals.py"
+RUNNER_T="$TMP/scripts/skill-evals/skill_evals.py"
+run 0 "чистый прогонщик: режимы различаются одним фактом" check-09-skill-evals-runner-selftest.sh
+
+sed -i 's/sysfile if mode == "with" else None/sysfile/' "$RUNNER_T"
+cmp -s "$RUNNER_T" "$WS/scripts/skill-evals/skill_evals.py" \
+    && { printf '  [БЕДА] инъекция НЕ СОСТОЯЛАСЬ: подача текста скила не найдена\n'; fail=$((fail + 1)); }
+run 1 "инъекция: текст скила подан в оба режима" check-09-skill-evals-runner-selftest.sh
+
+cp "$WS/scripts/skill-evals/skill_evals.py" "$RUNNER_T"
+sed -i 's/return 2 if voids else 0/return 0/' "$RUNNER_T"
+cmp -s "$RUNNER_T" "$WS/scripts/skill-evals/skill_evals.py" \
+    && { printf '  [БЕДА] инъекция НЕ СОСТОЯЛАСЬ: код третьей категории не найден\n'; fail=$((fail + 1)); }
+run 1 "инъекция: «не выполнилось» выходит нулём" check-09-skill-evals-runner-selftest.sh
+rm -rf "$TMP/scripts"
+
 restore
 echo
 echo "итог инъекций: проб пройдено $pass, провалено $fail, не выполнялось $void"
