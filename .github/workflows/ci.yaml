@@ -110,6 +110,8 @@ jobs:
         run: shellcheck -x -- scripts/vault-gate/*.sh
       - name: shellcheck residue-census (strict)
         run: shellcheck -x -- scripts/residue-census/*.sh
+      - name: shellcheck remote-heavy (strict)
+        run: shellcheck -x -- scripts/remote-heavy/*.sh
       # Порог — `warning`: у набора есть замечания уровня info (кавычки вокруг
       # регулярных выражений, `A && B || C`), и они здесь намеренные. Порог назван
       # прямо, а не спрятан за `|| true`: глушение кода возврата скрыло бы и
@@ -198,6 +200,13 @@ jobs:
       # способно назвать след, смолчать на близнеце и отличить «сравнивать нечего».
       - name: перепись следов прогона называет след и не путает пустое с чистым
         run: bash scripts/residue-census/inject.sh
+      # Тяжёлый прогон во внешнем кластере (ws#984) — инструмент, не набор: предмет
+      # его — кластер, которого у ранера нет. Доказательство гонит run.sh против
+      # двойника kubectl: ns снимается на успехе, падении команды, TERM и OOM, код
+      # команды доходит, адрес кластера в вывод не попадает, ns kacho и чужое ns —
+      # отказ.
+      - name: тяжёлый прогон в кластере снимает своё ns на каждом исходе
+        run: bash scripts/remote-heavy/inject.sh
       # Мутационный прогон того же инструмента (`mutants.py`, ~11 мин) вынесен в
       # задание `lane-schedule-mutants` ниже (Д55, ws#884): шагом этого задания он
       # обрывал всё задание по `timeout-minutes` (прогон 36783305602 — снят на
