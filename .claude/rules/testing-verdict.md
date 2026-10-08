@@ -27,9 +27,9 @@ exhaustion-corrupts-inflight-git · после срыва — перепись: 
 local-runner-exit-code-3 · коды 0 / 1 / 3 (недействителен) различаются; исчерпание — по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
 busy-machine-step-zero · тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (≤ 45 ГиБ на машину, владелец 2026-09-24); 75 и 76 — «не выполнилось»; место — `df -h /` · heavy-slot-inject.sh; heavy-guard/prove.sh · red: тяжёлое без слота; код 76 прочитан красным
-heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница — `BOUNDARY` в guard.py · heavy-guard/prove.sh ([BOUND] — граница, [FAIL] — пойман) · red: обход стража назван «защищено»
-external-cluster-first · есть доступ к внешнему кластеру (профиль a8f60d) — сквозные, браузерные, нагрузочные пробы и стенд под них идут ТАМ; локально — сборка, unit, testcontainers слотом; доступа нет — локальный kind слотом, новых не заводить (владелец 2026-10-07, дословно — архив) · вниманием · red: стенд проб локально при рабочем доступе
-external-cluster-ns-per-run · там: ns на прогон с номером задачи, лимиты, снятие после (ns прогона — 0); ns kacho — только выкатка deploy-engineer; провенанс как у стенда; данные — посев; адреса и кубконфиг в тексты не идут · вниманием · red: прогон в ns kacho; ns пережил прогон
+heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница — `BOUNDARY` в guard.py · heavy-guard/prove.sh · red: обход стража назван «защищено»
+external-cluster-first · есть доступ к внешнему кластеру (профиль a8f60d) — пробы на поднятом стеке и их стенд идут ТАМ; локально — сборка, unit, testcontainers слотом; доступа нет — локальный kind слотом, новых не заводить (владелец 2026-10-07, архив) · вниманием · red: kind create или make dev-up в задании при доступе
+external-cluster-ns-per-run · стенд проб на поднятом стеке (сквозные, консоль, newman, замеры, нагрузка) — только своё ns там с лимитами; прогон — `make stand-ns-run NS=t<задача>-<коротко> CMD='…'`: up → проба → down всегда, код — команды, 125 — не выполнилось; порознь — `stand-ns-up`/`stand-ns-down` той же задачей (trap, и на падении); после — `stand-ns-census` 0, просроченные — `--expired`; ns kacho — только выкатка deploy-engineer; провенанс и посев — как у стенда; адреса и кубконфиг — не в тексты (владелец 2026-10-08, архив) · цели `stand-ns-*` в kacho · red: прогон в ns kacho; ns пережил задачу
 session-memcap · потолок сессии и метку oomd ставит хук SessionStart (`scripts/session-memcap.sh`) и сверяет по cgroup; убийцу называет журнал oomd, не код 137 · session-memcap-inject.sh · red: MemoryMax на scope со stop; 137 засчитан oomd
 
 ## Кэш: сохраняй только на доказанно полном исходе
@@ -61,8 +61,8 @@ runner-prints-what-it-ran · печатай ЧТО прогнал, а не то�
 
 log-filter-verified-on-known-failure · на ОДНОМ заведомо упавшем шаге видна хотя бы одна строка текста отказа · ЗАВЕСТИ · red: видны имена упавших шагов и ни одной строки причины
 read-the-file-not-the-command-output · открывай файл целиком (wc -l), а не улучшай выражение · ЗАВЕСТИ · red: префикс имени задания, tail, фоновый вызов, якорь ^ съели диагностику
-pipestatus-not-pipe-exit-code · tail · читай ${PIPESTATUS[0]} либо пиши в файл и бери код напрямую · red: TestPipefailVerdictNeverComesFromAPipe | «код 0» после трубы прочитан как успех
-ask-which-step-failed · спроси имя упавшего шага: gh api repos/<o>/<r>/actions/jobs/<id> -q '.steps[] · select(.conclusion=="failure") · red: .name' | эта команда | локально перебраны шесть зелёных шагов
+pipestatus-not-pipe-exit-code · после трубы читай ${PIPESTATUS[0]} либо код из файла · TestPipefailVerdictNeverComesFromAPipe · red: «код 0» после трубы прочитан как успех
+ask-which-step-failed · спроси конвейер, какой шаг упал: gh api repos/<o>/<r>/actions/jobs/<id> -q '.steps[] | select(.conclusion=="failure") | .name' · эта команда · red: локально перебраны шесть зелёных шагов
 
 ## Колонки чужого вывода — по имени, не по номеру
 
@@ -73,7 +73,7 @@ columns-by-name-not-position · проси поля по имени (-o jsonpath
 pr-red-belongs-to-revision-headsha · сверяй headSha прогона с головой ветки, а не имя проверки с состоянием · TestWorkflowRunUsesTheSubjectCommit · red: красное прежней головы после починки
 delta-gate-asks-the-commit · спрашивай о коммите (origin/main...HEAD); закоммить, потом прогоняй · git diff --name-only --diff-filter=A origin/main...HEAD · red: пусто при непустом рабочем дереве
 asm-verdict-runs-on-head · вердикт сборки и задач — последний прогон КАЖДОГО процесса PR сборки на headSha (владелец 2026-09-24); `gh pr checks` ручного запуска не видит · `gh run list --commit <headSha>` · red: вердикт задачи поштучным прогоном
-no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай `asm-verdict-runs-on-head` · `gh run list` против процессов PR · red: «проверок 0» как «замечаний нет»
+no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) · `gh run list` против процессов PR · red: «проверок 0» как «замечаний нет»
 
 ## Расхождение двух прогонов — разные предметы
 
