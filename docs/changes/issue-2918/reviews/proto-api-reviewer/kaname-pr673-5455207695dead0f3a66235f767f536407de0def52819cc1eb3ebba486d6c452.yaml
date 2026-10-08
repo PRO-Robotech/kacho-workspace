@@ -1,0 +1,26 @@
+role: proto-api-reviewer
+phase: post-diff
+mode: повтор, только дельта (один круг)
+repo: PRO-Robotech/kaname
+pr: 673
+base: bdc36c614e67264f07af2c71bd58ddcc4b1803f4   # голова прошлого круга (запись kaname-pr673-00c1ad8f….yaml, accept); предок головы — git merge-base --is-ancestor, код 0
+head: 1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7   # == headRefOid PR (gh pr view 673)
+content_digest: 5455207695dead0f3a66235f767f536407de0def52819cc1eb3ebba486d6c452   # git diff bdc36c614 1197a78edd | sha256sum
+proto_files_touched: 0   # git diff --name-only bdc36c614 1197a78edd | grep -c '\.proto$' -> 0
+contract_bytes_changed: 0   # git diff bdc36c614 1197a78edd -- proto pkg/api | wc -c -> 0
+delta_files:
+  - M cmd/kaname/audience_fence_fixture_test.go
+  - M cmd/kaname/ntf_grant_fixture_test.go
+  - A internal/apps/kaname/api/internal_iam/proxy_write_rule_handler_integration_test.go
+verdict: accept
+blocking: []
+applicability: роль неприменима к дельте по предикату no-proto-in-change; контракт на голове побайтово равен контракту, принятому на bdc36c614
+checks:
+  - cmd: "git diff --name-only bdc36c614 1197a78edd | grep -c '\\.proto$'"
+    out: 0
+  - cmd: "git diff bdc36c614 1197a78edd -- proto pkg/api | wc -c"
+    out: 0
+  - note: "buf lint / buf breaking не перезапускались: дерево proto/ дельтой не тронуто, вердикт прошлого круга (buf lint rc 0, adjudicate-declared-breaks rc 0) стоит на том же содержимом proto/"
+breaks: []
+internal_surface:
+  changed: false
