@@ -5,13 +5,14 @@ aliases:
 ticket_id: 3012
 category: kac
 status: in-progress
-verified_against: "тело задачи, метки и голова main сверены `gh` 2026-10-04 (main ba01514b98b); пины values.a8f60d.yaml и счёт коммитов прочитаны на ba01514b98b; стенд мной не опрашивался"
+verified_against: "PR #3015 и состояние задачи сверены `gh` 2026-10-04: PR MERGED merge-коммитом f4c74ba1aa1 (два родителя), задача OPEN с меткой status:in-progress; пины до перепина прочитаны на ba01514b98b; стенд мной не опрашивался"
 type: fix
 repos:
   - kacho
 areas:
   - deploy/helm/umbrella
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/3015
 issue_url: https://github.com/PRO-Robotech/kacho/issues/3012
 opened: 2026-10-04
 tags:
@@ -21,12 +22,16 @@ tags:
 
 # kacho#3012: стенд a8f60d отстал от main — перепин профиля и выкатка
 
-**Состояние на момент записи**: `in-progress`. Задача **открыта**, PR нет. Метки: `P1`,
-`size:M`, `area:deploy`, `release:identity-own`; метки состояния `status:in-progress` на
-задаче нет (`gh issue view 3012 --repo PRO-Robotech/kacho --json labels`, 2026-10-04).
-Ветка `issue-3012` (координата, не живая ссылка) заведена в клоне продукта на
-`ba01514b98b` — голове `main`, коммитов сверх ствола нет; на `origin` её пока нет
-(`gh api repos/PRO-Robotech/kacho/branches/issue-3012` → 404).
+**Состояние на момент записи**: `in-progress`. PR
+https://github.com/PRO-Robotech/kacho/pull/3015 влит в `main` merge-коммитом
+`f4c74ba1aa18d7afa0fa5f15daf1025e28588615` (2026-10-04T00:07Z); состав — один файл,
+`deploy/helm/umbrella/values.a8f60d.yaml`. Способ вливания — merge-коммит: решение
+владельца 2026-10-04, squash в репозитории выключен. Задача **открыта**, метка
+`status:in-progress` (`gh issue view 3012 --repo PRO-Robotech/kacho --json state,labels`,
+2026-10-04): вливанием закрыт только первый пункт DoD.
+
+**Предикат закрытия**: выкатка `stack-up STACK=a8f60d` с влитого профиля и сверка
+провенанса применённого против пинов — ждёт владельца.
 
 **Роль исполнителя:** `deploy-engineer`. Тип в задании — «deploy»; канонического значения
 `type` для него нет, записано `fix` (см. возврат, вопрос владельцу).
@@ -45,7 +50,7 @@ tags:
 
 ## DoD (из тела задачи)
 
-- [ ] профиль перезакреплён и влит в `main`;
+- [x] профиль перезакреплён и влит в `main` — PR #3015, `f4c74ba1aa1`;
 - [ ] на `a8f60d` релиз `kacho-umbrella` стоит на образах из пинов влитого профиля,
       rollout-ready;
 - [ ] провенанс применённого сходится с пинами (образы релиза против пинов).
@@ -61,6 +66,8 @@ tags:
 ## History
 
 - 2026-10-04 — trail заведён вместе с веткой; PR и sha посадки нет.
+- 2026-10-04 — PR #3015 влит merge-коммитом `f4c74ba1aa1` (2026-10-04T00:07Z); задача
+  открыта — выкатка `stack-up` `a8f60d` и сверка провенанса ждут владельца.
 
 ## Затронутые сущности vault
 

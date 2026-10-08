@@ -4,28 +4,30 @@ aliases:
   - issue-3011
 ticket_id: 3011
 category: kac
-status: in-progress
-verified_against: "тело задачи, метки и голова main сверены `gh` 2026-10-04 (main ba01514b98b); строка 148 перечня прочитана на ba01514b98b; прогоны CI мной не перезапускались"
+status: done
+verified_against: "PR #3014, состояние задачи и push-прогон 37160208278 сверены `gh` 2026-10-04: PR MERGED merge-коммитом 14a09acd6f6 (два родителя), задача CLOSED; задание проверки «перенос ветки не откатил ствол» на 14a09acd6f6 — success; прогоны мной не перезапускались"
 type: fix
 repos:
   - kacho
 areas:
   - tools/carrydrift
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/3014
 issue_url: https://github.com/PRO-Robotech/kacho/issues/3011
 opened: 2026-10-04
+closed: 2026-10-03
 tags:
   - kac
 ---
 
 # kacho#3011: запись перечня переноса пережила предмет — ствол красный
 
-**Состояние на момент записи**: `in-progress`. Задача **открыта**, PR нет. Метки:
-`bug`, `P1`, `size:S`, `area:ci`, `release:gates`; метки состояния `status:in-progress`
-на задаче нет (`gh issue view 3011 --repo PRO-Robotech/kacho --json labels`, 2026-10-04).
-Ветка `issue-3011` (координата, не живая ссылка) заведена в клоне продукта на
-`ba01514b98b` — голове `main`, коммитов сверх ствола нет; на `origin` её пока нет
-(`gh api repos/PRO-Robotech/kacho/branches/issue-3011` → 404).
+**Состояние на момент записи**: `done`. PR
+https://github.com/PRO-Robotech/kacho/pull/3014 влит в `main` merge-коммитом
+`14a09acd6f6abf910dbb7db03b4c0273a976e2c5` (2026-10-03T22:58Z); задача **закрыта**
+(`gh issue view 3011 --repo PRO-Robotech/kacho --json state` → `CLOSED`, 2026-10-04).
+Состав PR — один файл, `tools/carrydrift/declared-removals.txt`. Способ вливания —
+merge-коммит: решение владельца 2026-10-04, squash в репозитории выключен.
 
 **Роль исполнителя:** `tooling-maintainer`.
 
@@ -45,8 +47,9 @@ tags:
 
 ## DoD (из тела задачи)
 
-- [ ] запись снята;
-- [ ] проверка «перенос ветки не откатил ствол» зелёная на голове `main` после вливания.
+- [x] запись снята — PR #3014;
+- [x] проверка «перенос ветки не откатил ствол» зелёная на посадке: push-прогон
+      `37160208278` на `14a09acd6f6`, задание — `success`.
 
 Артефакт — PR в `main` и зелёный прогон проверки на его посадке. До вливания в `main`
 статус записки не выше `test`.
@@ -58,6 +61,8 @@ tags:
 ## History
 
 - 2026-10-04 — trail заведён вместе с веткой; PR и sha посадки нет.
+- 2026-10-04 — PR #3014 влит merge-коммитом `14a09acd6f6` (2026-10-03T22:58Z), задача
+  закрыта; push-прогон `37160208278` — проверка переноса `success`; статус `done`.
 
 ## Затронутые сущности vault
 
