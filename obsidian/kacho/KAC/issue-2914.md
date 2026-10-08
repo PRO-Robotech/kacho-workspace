@@ -6,7 +6,7 @@ aliases:
 ticket_id: 2914
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-08 (после вливания #3099): голова `2914-notify` = 515e017c873a (merge-коммит #3099, родители cd20a05cfa72 и fc51651d5c83); пины в `go.mod` на ней — corelib 18d105d0f50a, kaname 33010d434767; `gh api compare` — `18d105d0f50a...117749095814` впереди на 1 коммит при 0 файлов (голова `77-notify` — merge-коммит с деревом пина), `33010d434767...33010d434767` identical (голова `484-notify` = пин); `gh pr list --base 2914-notify` — тринадцать MERGED, открытых нет; ветки `2924-*` сняты (`git ls-remote`); kaname PR #673 OPEN в `484-notify`; эпик и задачи OPEN. `gh` 2026-10-08 (после вливания #3072): голова `2914-notify` = cd20a05cfa72 (merge-коммит #3072, родители 504bc7acdc51 и db85f0174807); пины в `go.mod` на ней не менялись — corelib 67ba3443c149, kaname 56bcb3036d71; `gh pr list --base 2914-notify` — двенадцать MERGED, открытых нет; ветки `2919-*` сняты (`git ls-remote`); эпик и задачи OPEN. `gh` 2026-10-08 (после вливаний #3071 и #3098): голова `2914-notify` = 504bc7acdc51 (merge-коммит #3098), пины на ней прочитаны в `go.mod` — corelib 67ba3443c149, kaname 56bcb3036d71; `gh api compare` — голова `77-notify` 117749095814 впереди пина на 5 коммитов, `484-notify` 33010d434767 — на 13; `gh pr list --base 2914-notify` — одиннадцать MERGED, открыт #3072; ветки `2917-wave-d1` и `2918-b1-resource-event` сняты (`git ls-remote`); эпик и задачи OPEN. `gh` 2026-10-07 (после вливаний corelib #102 и kaname #657): голова `2914-notify` = 4d5295f1ae96 (merge-коммит #3070), пины corelib e7d6197fc5dc и kaname cbd729cfa9b1 прочитаны в `go.mod` на ней и на головах открытых #3071 и #3072; голова `77-notify` corelib = 117749095814 (#102), `484-notify` kaname = 33010d434767 (#657); `gh pr list --base 2914-notify --state merged` — девять PR (#2960, #2977, #3019, #3021, #3027, #3039, #3041, #3042, #3070), открыты #3071 и #3072; эпик #2914, задачи NTF-1…NTF-6, NS, corelib#77, kaname#484 OPEN; в `main` из веток эпиков не влито ничего"
+verified_against: "`gh` 2026-10-08 (после вливания #3108): голова `2914-notify` = 9bc6b9e89ae3 (merge-коммит #3108, родители 515e017c873a и 928857dd96d1; `git ls-remote`); дельта — 10 путей под `deploy/`, `services/notify/internal/dnscheck/` (тест) и `tools/foreignclouds/` (`git show --stat`), `go.mod` не тронут — пины прежние; `gh pr list --base 2914-notify` — четырнадцать MERGED, открыт #3103 (`2917-wave-edge-2`); ветки `3017-*` нет; головы `77-notify` 117749095814 и `484-notify` 33010d434767 не менялись, kaname #673 OPEN; эпик и задачи OPEN. `gh` 2026-10-08 (после вливания #3099): голова `2914-notify` = 515e017c873a (merge-коммит #3099, родители cd20a05cfa72 и fc51651d5c83); пины в `go.mod` на ней — corelib 18d105d0f50a, kaname 33010d434767; `gh api compare` — `18d105d0f50a...117749095814` впереди на 1 коммит при 0 файлов (голова `77-notify` — merge-коммит с деревом пина), `33010d434767...33010d434767` identical (голова `484-notify` = пин); `gh pr list --base 2914-notify` — тринадцать MERGED, открытых нет; ветки `2924-*` сняты (`git ls-remote`); kaname PR #673 OPEN в `484-notify`; эпик и задачи OPEN. `gh` 2026-10-08 (после вливания #3072): голова `2914-notify` = cd20a05cfa72 (merge-коммит #3072, родители 504bc7acdc51 и db85f0174807); пины в `go.mod` на ней не менялись — corelib 67ba3443c149, kaname 56bcb3036d71; `gh pr list --base 2914-notify` — двенадцать MERGED, открытых нет; ветки `2919-*` сняты (`git ls-remote`); эпик и задачи OPEN. `gh` 2026-10-08 (после вливаний #3071 и #3098): голова `2914-notify` = 504bc7acdc51 (merge-коммит #3098), пины на ней прочитаны в `go.mod` — corelib 67ba3443c149, kaname 56bcb3036d71; `gh api compare` — голова `77-notify` 117749095814 впереди пина на 5 коммитов, `484-notify` 33010d434767 — на 13; `gh pr list --base 2914-notify` — одиннадцать MERGED, открыт #3072; ветки `2917-wave-d1` и `2918-b1-resource-event` сняты (`git ls-remote`); эпик и задачи OPEN. `gh` 2026-10-07 (после вливаний corelib #102 и kaname #657): голова `2914-notify` = 4d5295f1ae96 (merge-коммит #3070), пины corelib e7d6197fc5dc и kaname cbd729cfa9b1 прочитаны в `go.mod` на ней и на головах открытых #3071 и #3072; голова `77-notify` corelib = 117749095814 (#102), `484-notify` kaname = 33010d434767 (#657); `gh pr list --base 2914-notify --state merged` — девять PR (#2960, #2977, #3019, #3021, #3027, #3039, #3041, #3042, #3070), открыты #3071 и #3072; эпик #2914, задачи NTF-1…NTF-6, NS, corelib#77, kaname#484 OPEN; в `main` из веток эпиков не влито ничего"
 type: epic
 repos:
   - kacho
@@ -48,7 +48,8 @@ tags:
 | #2918 | NTF-3, модули kacho | [[KAC/issue-2918]] |
 | #2919 | NTF-4, возвраты и репутация | [[KAC/issue-2919]] |
 | #2924 | NTF-5, извещения оператора | [[KAC/issue-2924]] |
-| #2925 | NTF-6, центр уведомлений консоли | — |
+| #2925 | NTF-6, центр уведомлений консоли | [[KAC/issue-2925]] |
+| #3017 | DKIM, SPF, DMARC домена отправителя `a8f60d` | [[KAC/issue-3017]] |
 | corelib#77 | линия corelib: лента, шаблон, `notifygen` | [[KAC/issue-77-corelib]] |
 | kaname#484 | линия kaname: нотификации в ленту, снятие SMTP | [[KAC/issue-484-kaname]] |
 
@@ -73,8 +74,10 @@ tags:
 | [#3098](https://github.com/PRO-Robotech/kacho/pull/3098) | `504bc7acdc51` | 2026-10-08 | #2918 |
 | [#3072](https://github.com/PRO-Robotech/kacho/pull/3072) | `cd20a05cfa72` | 2026-10-08 | #2919 |
 | [#3099](https://github.com/PRO-Robotech/kacho/pull/3099) | `515e017c873a` | 2026-10-08 | #2924 |
+| [#3108](https://github.com/PRO-Robotech/kacho/pull/3108) | `9bc6b9e89ae3` | 2026-10-08 | #3017 |
 
-Открытых запросов в `2914-notify` на 2026-10-08 после вливания #3099 нет.
+После вливания #3108 (2026-10-08) в `2914-notify` открыт один запрос —
+[#3103](https://github.com/PRO-Robotech/kacho/pull/3103) (ветка `2917-wave-edge-2`, задача #2917).
 
 ## Ветки эпиков фундамента
 
@@ -109,6 +112,9 @@ kaname#667): после его вливания голова снова уйдё
 - 2026-10-08 — внесён #3099 (`515e017c873a`, волна S1, #2924): контракт извещений,
   notify-api, край; пины подняты до голов фундамента — corelib `18d105d0f50a`, kaname
   `33010d434767`. Статус `in-progress`.
+- 2026-10-08 — внесён #3108 (`9bc6b9e89ae3`, #3017): порождение и сверка записей DKIM,
+  SPF, DMARC домена отправителя `a8f60d`; пины не менялись. Открыт #3103 (#2917). Статус
+  `in-progress`.
 
 ## Затронутые сущности vault
 
@@ -116,5 +122,6 @@ kaname#667): после его вливания голова снова уйдё
 - [[packages/gateway-anonmail]] — ограничитель анонимной почты края (#3071).
 - [[packages/kacho-module-resource-event]] — resource-event модулей (#3098).
 - [[resources/notify-notice]] — ресурс «извещение оператора» (#3099).
+- [[packages/kacho-deploy-helm-umbrella]] — профиль `a8f60d`, домен возврата notify (#3108).
 
 #kac #epic

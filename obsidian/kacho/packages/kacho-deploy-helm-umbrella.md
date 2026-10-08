@@ -115,5 +115,9 @@ verified_against: "Перемер 2026-09-26 на PRO-Robotech/kacho@7190c3e5274
   `originFromConsole: true` рендер отвергает. Корень CA больше не копируется в пространство имён релиза
   ([[KAC/issue-3054]]); пины профиля a8f60d выводятся без подстановок ([[KAC/issue-3052]]).
   Сверено `git show 5d50bc83a4` @`1fd076f80965`; таблица цепочек не пересматривалась.
+- 2026-10-08 — `values.a8f60d.yaml`: `notify.returnDomain` — домен отправителя установки
+  вместо домена стенда из `values.dev.yaml`; рядом цель `installation-mail-dns` и
+  `deploy/stacks-mail-dns.txt`. Влито только в ветку эпика `2914-notify` (PR #3108,
+  `9bc6b9e89ae3`), в `main` этого нет; trail — [[KAC/issue-3017]].
 
 #packages #kacho-deploy #config

@@ -90,7 +90,7 @@ notify. Полный объём — в теле задачи.
 - [[KAC/issue-2914]] — эпик «Сервис уведомлений».
 - [[KAC/issue-2915]] — NTF-1, ядро шлюза; блокер из тела.
 - https://github.com/PRO-Robotech/kacho/issues/3017 — DKIM, SPF и DMARC домена отправителя
-  профиля a8f60d (P3, решение за владельцем).
+  профиля a8f60d; часть в дереве влита в `2914-notify` (#3108). Trail — [[KAC/issue-3017]].
 - https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика. Trail — [[KAC/issue-77-corelib]].
 - https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
@@ -104,6 +104,9 @@ notify. Полный объём — в теле задачи.
 - 2026-10-08 — внесён вердикт приёмки NTF-4 «APPROVED» (отпечаток равен файлу на
   `origin/issue-880`). Посадка #3099 (#2924) в ту же ветку эпика предметов линии E, по
   описанию PR, не несёт. Статус `in-progress`.
+- 2026-10-08 — в ту же ветку эпика влит #3108 (`9bc6b9e89ae3`, задача #3017): порождение и
+  сверка записей DKIM, SPF, DMARC домена отправителя установки с ретранслятором. Пункт DoD
+  о DKIM/SPF/DMARC им не закрыт — подписи DKIM в notify #3108 не несёт. Статус `in-progress`.
 
 ## Затронутые сущности vault
 
