@@ -99,7 +99,7 @@ at-no-nested-launches · агент не зовёт другого напрям�
 - `doc-truthfulness`
 - `godzila`
 - `change-graph`
-- `go-idioms`
+- `golang-idioms`
 - `<svc>-load-testing` (repo)
 
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
