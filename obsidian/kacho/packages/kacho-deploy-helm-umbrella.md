@@ -94,6 +94,10 @@ verified_against: "Перемер 2026-09-26 на PRO-Robotech/kacho@7190c3e5274
   посадка по семи цепочкам. Исправлена таблица цепочек: у `own` три файла — `values.own-stand.yaml`
   есть в `deploy/stacks.txt` и ствола `1d42a6728bf`, и головы эпика, прежняя редакция его не называла.
   `values.own.yaml` на голове эпика несёт `uif.enabled: true`. В `main` переезда нет.
+- 2026-10-04 — `values.a8f60d.yaml`: у `kaname` своя разметка размеров вместо общего якоря —
+  ёмкость проверяющего 2, предел 512Mi; ёмкость 1 отвергалась на старте правилом церемонии
+  у пина `main-0dd03218`. PR #3023, `2afc06571c7`; trail — [[KAC/issue-3012]], класс —
+  [[lessons/pin-bump-brings-a-start-refusal-the-gate-does-not-model]].
 - 2026-10-06 — волна-4 эпика `1266` ([[KAC/issue-2967]], PR kacho#3043, `680d1794b6b8`; в `main` не влито):
   ручки `global.kacho` без читателя в шаблонах сняты, суд — исходом рендера каждой цепочки
   (`deploy/global_knob_has_a_reader_render_test.go`, [[KAC/issue-2997]]); поды чарта консоли перекатываются

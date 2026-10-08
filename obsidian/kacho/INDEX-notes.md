@@ -90,6 +90,12 @@ tags:
 | [[resources/nlb-target-group\|TargetGroup]] | живо (stable) |
 | [[resources/nlb-target\|Target]] | живо (stable) |
 
+**домен: notify**
+
+| Записка | Состояние |
+|---|---|
+| [[resources/notify-notice\|Notice (notify) — извещение оператора]] | в работе (test) |
+
 **домен: operation**
 
 | Записка | Состояние |
@@ -198,6 +204,7 @@ tags:
 | [[rpc/iam-service-account-service\|ServiceAccountService]] | в работе (planned) |
 | [[rpc/iam-trust-policy-service\|TrustPolicyService]] | история (deprecated) |
 | [[rpc/iam-user-service\|UserService]] | живо (done) |
+| [[rpc/kaname-internal-notification-recipient-service\|InternalNotificationRecipientService — справочник адресов уведомлений (kaname)]] | в работе (test) |
 
 **домен: nlb**
 
@@ -468,16 +475,21 @@ tags:
 
 | Записка | Состояние |
 |---|---|
+| [[packages/gateway-anonmail\|gateway/anonmail — ограничитель анонимных почтовых глаголов края]] | в работе (test) |
 | [[packages/kacho-ci-determinism\|CI — детерминизм: пины версий и честные exit-коды]] | живо (stable) |
 | [[packages/kacho-ci-runners\|CI монорепы — ранеры и раскладка job'ов]] | живо (stable) |
 | [[packages/kacho-declaredbreak\|Гейт объявленных разрывов контракта — три исхода и отказ, который не гадает]] | живо (stable) |
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
+| [[packages/kacho-migrationchains\|internal/migrationchains — какую цепочку миграций какая точка наката применяет и на какую базу]] | в работе (test) |
+| [[packages/kacho-module-resource-event\|resource-event модулей kacho — строка ленты из журнала функцией базы]] | в работе (test) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
 | [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
+| [[packages/kacho-pgdsn\|internal/pgdsn — подмена базы в строке соединения Postgres разбором драйвера]] | в работе (test) |
 | [[packages/kacho-prepush-hook\|Локальный хук отправки — о каком дереве он выносит вердикт]] | живо (stable) |
 | [[packages/kacho-repohygiene-gitrevcause\|internal/repohygiene/gitrevcause.go — глубина клона и словарь ремонта в одном доме]] | в работе (test) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
+| [[packages/notify-service\|services/notify — шлюз уведомлений: шлюз, проба-источник и точка наката]] | в работе (test) |
 
 **домен: kacho-api-gateway**
 
@@ -524,6 +536,7 @@ tags:
 | [[packages/corelib-grpcsrv\|corelib-grpcsrv]] | живо (stable) |
 | [[packages/corelib-identityposture\|corelib-identityposture]] | в работе (test) |
 | [[packages/corelib-ids\|corelib-ids]] | живо (stable) |
+| [[packages/corelib-journaltx\|corelib/journaltx — инициатор в журнале ресурсов модулей]] | в работе (test) |
 | [[packages/corelib-oauthceremony\|corelib-oauthceremony]] | в работе (test) |
 | [[packages/corelib-observability\|corelib-observability]] | живо (stable) |
 | [[packages/corelib-operations\|corelib-operations]] | живо (stable) |
@@ -1370,7 +1383,13 @@ tags:
 | [[KAC/issue-291-quota-v2\|Квоты на число ресурсов: каталог, учёт, отказ и арендаторское чтение (#291)]] | в работе (test) |
 | [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
 | [[KAC/issue-2911\|kacho#2911: решатель объявленных разрывов: запись прощает только свой разрыв — перемер на голове 1266]] | в работе (test) |
+| [[KAC/issue-2914\|kacho#2914: эпик «Сервис уведомлений» — единый почтовый шлюз]] | в работе (in-progress) |
+| [[KAC/issue-2915\|kacho#2915: служба notify NTF-1 — ядро шлюза уведомлений]] | в работе (in-progress) |
+| [[KAC/issue-2917\|kacho#2917: deploy NTF-2 — почта личности через ленту kaname]] | в работе (in-progress) |
+| [[KAC/issue-2918\|kacho#2918: notify NTF-3 — модули kacho, уведомления о событиях ресурсов]] | в работе (in-progress) |
+| [[KAC/issue-2919\|kacho#2919: notify NTF-4 — возвраты, жалобы, подавление, DKIM/SPF/DMARC]] | в работе (in-progress) |
 | [[KAC/issue-292\|#292: клетка Ф2 приёмки XC-7 называла шесть обёрток, их три]] | живо (done) |
+| [[KAC/issue-2924\|kacho#2924: notify NTF-5 — извещения оператора]] | в работе (in-progress) |
 | [[KAC/issue-293\|#293: у проверки состава приёмок не было ни одной пробы]] | живо (done) |
 | [[KAC/issue-2940\|kacho#2940: волна-5 identity-own — остатки: чарт kaname и пин, коллекция края]] | живо (done) |
 | [[KAC/issue-2947\|kacho#2947: край: values называет накладку own местом адреса полосы формы]] | в работе (test) |
@@ -1397,6 +1416,8 @@ tags:
 | [[KAC/issue-2997\|kacho#2997: deploy: профиль зонта объявляет ручки без читателя в шаблонах]] | в работе (test) |
 | [[KAC/issue-30-corelib\|corelib#30: значение посадки external снято со словаря фундамента]] | живо (done) |
 | [[KAC/issue-3002\|kacho#3002: repohygiene: потолок привязок к снятому поставщику судит прирост]] | в работе (test) |
+| [[KAC/issue-3011\|kacho#3011: запись перечня переноса пережила предмет — ствол красный]] | живо (done) |
+| [[KAC/issue-3012\|kacho#3012: стенд a8f60d отстал от main — перепин профиля и выкатка]] | живо (done) |
 | [[KAC/issue-3020\|kacho#3020: пин службы доступа с почтовым узлом — стенд и чарт задают inviteMail]] | в работе (to-do) |
 | [[KAC/issue-3022\|kacho#3022: deploy: проба пола ёмкости проверяющего у пиненной службы]] | в работе (test) |
 | [[KAC/issue-3026\|kacho#3026: deploy: own-up не перекатывает поды консоли на новый образ]] | в работе (test) |
@@ -1556,6 +1577,7 @@ tags:
 | [[KAC/issue-480-kaname\|kaname#480: Ф12-31 (г) и три исхода Ф12-32 утверждены набором и пробами уровня I]] | живо (done) |
 | [[KAC/issue-483-kaname\|kaname#483: сборка 1 волны-4 — одиннадцать слияний полос под один прогон]] | живо (done) |
 | [[KAC/issue-483\|issue-483 — ui: каждое мутирующее действие сообщает свой исход]] | в работе (test) |
+| [[KAC/issue-484-kaname\|kaname#484: линия kaname эпика notify — нотификации в ленту, снятие SMTP]] | в работе (in-progress) |
 | [[KAC/issue-484\|#484: у числа аккаунтов появился потолок, а у вида — носитель «личность»]] | в работе (test) |
 | [[KAC/issue-485\|#485: отсутствие признака СТРОИТСЯ, а не отыскивается среди кейсов]] | живо (done) |
 | [[KAC/issue-486-kaname\|kaname#486: сборка 2 волны-4 — снятие посадки external и запись выхода с исходом]] | живо (done) |
@@ -1654,6 +1676,7 @@ tags:
 | [[KAC/issue-630-kaname\|kaname#630: mailHeaders: добавить Date и Message-ID в SMTP]] | в работе (test) |
 | [[KAC/issue-631-kaname\|kaname#631: security: администратор в журнале без адреса]] | в работе (test) |
 | [[KAC/issue-633-kaname\|kaname#633: newman: Ф5-14 — доставка письма восстановления и возраст неотправленного]] | в работе (test) |
+| [[KAC/issue-636-kaname\|kaname#636: дефект факта права, найденный пробой NTF3-184]] | в работе (in-progress) |
 | [[KAC/issue-636\|#636: локатор строки формы попадал в объемлющий блок]] | в работе (test) |
 | [[KAC/issue-637-kaname\|kaname#637: docs: окно видимости выдачи — страница службы согласована с краем]] | в работе (test) |
 | [[KAC/issue-638-kaname\|kaname#638: сброс ключей доступа распорядителем — сторона службы (бывш. ResetLoginMethods)]] | в работе (in-progress) |
@@ -1669,6 +1692,7 @@ tags:
 | [[KAC/issue-661-kaname\|kaname#661: администраторы кластера через публичную службу (ADM-1)]] | в работе (in-progress) |
 | [[KAC/issue-665-kaname\|kaname#665: bug P2: удаление проекта оставляет факты выдачи в модели прав]] | в работе (test) |
 | [[KAC/issue-666-ws\|ws#666: проекция оснастки для чужих агентских сред снята целиком]] | в работе (test) |
+| [[KAC/issue-667-kaname\|kaname#667: мерцающая проба NTF3-174 — конкурентное снятие объекта с регистрациями]] | в работе (in-progress) |
 | [[KAC/issue-667\|#667: краснота сквозных проб линии квот — два корня, оба про утечку фикстуры]] | в работе (test) |
 | [[KAC/issue-68-corelib\|corelib#68: сборка 1 волны 32 — полосы 25, 45, 41, 42]] | живо (done) |
 | [[KAC/issue-691\|#691: журналы аудита пишутся и не читаются — класс закрыт гейтом по схеме]] | в работе (test) |
@@ -1718,6 +1742,7 @@ tags:
 | [[KAC/issue-762\|#762: предел соединений базы vpc не выбирал никто]] | в работе (test) |
 | [[KAC/issue-767-ws\|ws#767: запись схождения волны 0 identity-own на дайджесте — в волне-3]] | история (wontfix) |
 | [[KAC/issue-767\|#767: отчёты прибора authzformbench накрыты отпечатком вперёд, граница напечатана]] | живо (done) |
+| [[KAC/issue-77-corelib\|corelib#77: линия corelib эпика notify — лента, формат шаблона, notifygen]] | в работе (in-progress) |
 | [[KAC/issue-771-ws\|ws#771: эпик identity-own воркспейса — приёмки и оснастка снятия стека Ory]] | живо (done) |
 | [[KAC/issue-772-ws\|ws#772: волна-1 воркспейса — приёмка F1, пересверка замысла LINE-A-1]] | живо (done) |
 | [[KAC/issue-773-ws\|ws#773: приёмка F8 — свои экраны церемоний личности в консоли]] | живо (done) |
@@ -1906,6 +1931,7 @@ tags:
 | [[lessons/one-trick-five-forms-only-a-run-tells-them-apart\|Один приём, пять форм: правило переезжает, а не чинится — различает только прогон]] | — |
 | [[lessons/orchestrator-and-its-own-agent-mistake-each-other-for-strangers\|Оркестратор и его собственный исполнитель принимают друг друга за постороннюю сессию]] | — |
 | [[lessons/own-command-checked-a-different-project\|Своя команда проверки судила о другом проекте: «ошибок 0» на файле, который не разбирался вовсе]] | живо (stable) |
+| [[lessons/pin-bump-brings-a-start-refusal-the-gate-does-not-model\|Сдвиг пина приносит отказ старта, которого гейт профиля не моделирует]] | живо (stable) |
 | [[lessons/predicate-by-name-measures-the-naming-convention\|Предикат верен для СВОЕЙ величины — и применён к соседней]] | — |
 | [[lessons/premise-expressed-as-a-proxy-breaks-before-its-subject\|Предпосылка, выраженная через прокси-величину, ломается раньше своего предмета]] | — |
 | [[lessons/probe-inherits-the-mechanism-own-variables\|Проба наследует переменные своего механизма — и обвиняет исправного производителя]] | — |

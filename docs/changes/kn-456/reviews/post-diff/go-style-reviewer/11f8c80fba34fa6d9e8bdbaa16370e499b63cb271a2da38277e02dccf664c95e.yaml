@@ -1,0 +1,48 @@
+# Пост-дифф ревью Go-кода, роль go-style-reviewer: ПРОВЕРКА ИСПОЛНЕНИЯ возврата.
+# Имя файла совпадает с content_digest. Запись не правится (change-graph §2).
+schema_version: 1
+change_id: kn-456
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+mode: execution-check
+subject: >-
+  kaname#456, возврат go-style-reviewer: необязательное умение neutralDenier
+  не держалось в сборке корня, наблюдатель полос его не нёс, наружу уходил
+  запасной текст. Требование: метод в порт Authorizer, проход в декораторе,
+  снять запасной путь, пробу через сборку корня.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '456'
+  remote_head_ls_remote: fac1cbad83c230cb9e48af2cd193e4b85e642613
+  base: cbbac984b7b17f22bcc4a83f7533fff3494c809a   # merge-base origin/main fac1cbad8
+  head: fac1cbad83c230cb9e48af2cd193e4b85e642613
+  commits_under_check: [22ac7e847, fac1cbad8]
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/gsr-456-verify
+
+content_digest: sha256:11f8c80fba34fa6d9e8bdbaa16370e499b63cb271a2da38277e02dccf664c95e
+digest_command: >-
+  git diff --full-index cbbac984b7b1..fac1cbad83c2 -- . ':!docs/specs/reviews' | sha256sum
+
+verdict: accepted
+blocks_landing: false
+
+evidence:
+  - claim: порт Authorizer несёт NeutralDenyReasons, декоратор пропускает дословно
+    source: handler.go:69, authz_lanes.go:73 и 153 @fac1cbad8
+  - claim: запасной текст и необязательное умение сняты, disclosed зовёт порт
+    source: handler.go:186 @fac1cbad8; git grep neutralDenier|neutralDenyFallback = 0
+  - claim: проба идёт через buildAuthZServices, ту же функцию, что wiring.go:648
+    source: cmd/kaname/address_disclosure_root_integration_test.go:105
+  - claim: проба красная до фикса ровно на ветви с наблюдателем, actual [no path]
+    source: go test -run TestRootEdgeDisclosesNotVerifiedOnlyToTheSubject ./cmd/kaname/ @22ac7e847 — FAIL 1 из 2 подтестов
+  - claim: после фикса зелёная на обеих ветвях
+    source: тот же прогон @fac1cbad8 — PASS 2 из 2, 7.5 с, Postgres в контейнере
+  - claim: сборка и vet затронутых пакетов, юнит-пробы metrics и authorize
+    source: go build ./..., go vet, go test @fac1cbad8 — ok 2 пакета
+
+deferral_markers_new: 0
+probes_same_pr: true
+attribution_trailers: 0
+security_comments_contradicting_code: []
+foundation_candidates: []
