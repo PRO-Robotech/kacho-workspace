@@ -1,0 +1,33 @@
+role: system-design-reviewer
+phase: post-diff
+change: issue-2924
+subject: PRO-Robotech/kacho PR #3099 — повтор по дельте b874eac1..fc51651d (заглушки IaC-скана notify-api)
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: cd20a05cfa721fd78a3c0a0619dcbc4a9e660a11   # origin/2914-notify = merge-base (перемерено), база не сдвигалась
+  head: fc51651d5c838dcbacbd5ac0116f6bfdbe85b7cd   # = headRefOid PR #3099 (gh pr view), state OPEN
+  content_digest: 998140bd5cb95786ffbd4dc6ff5b8ef3ce6558001a0a784a1a416c53cf8bcbb8
+  digest_command: "git diff cd20a05cfa721fd78a3c0a0619dcbc4a9e660a11 fc51651d5c838dcbacbd5ac0116f6bfdbe85b7cd | sha256sum   # project/kacho"
+  delta: b874eac1d206c96f5f4dd2f5d79145a20c278e88..fc51651d5c838dcbacbd5ac0116f6bfdbe85b7cd
+  delta_digest: a7129e6af0f204cda9c16a4701e348088fe272597c0e6c60db7f13dd6be402d2
+  previous_record: 6eaecf148cf82a73123b3fe31bf8666e51fa89b7b5e7e983bbe38f028bf75b94.yaml  # @b874eac1, accept
+verdict: accept
+blocking: []
+distributed_surface: no   # дельта — только trivy.yaml (настройки IaC-скана), рантайм не затронут
+schema_overlap: no
+delta_composition: "1 коммит (fc51651d, автор pointpu); 1 файл trivy.yaml, +19 −0: девять --helm-set заглушек ТОЛЬКО ДЛЯ СКАНА под ручки notify-api"
+axes:
+  dual_write: n/a
+  idempotency: n/a
+  cas_occ: n/a
+  delivery_model: n/a
+  worker_coordination: n/a
+  cross_service: "n/a — новых runtime-рёбер нет; адрес authz.iamGRPCAddr — заглушка `.invalid`, helm install файл не читает"
+  replica_isolation: n/a
+  edge: "n/a — чарт и mux не меняются; заглушка api.networkPolicy.edgePodLabels только снимает fail рендера для скана"
+  clean_architecture: n/a
+notes:
+  - "Заглушки — домен `.invalid` и метка trivy-scan-only: за настоящее не принимаются; профили развёртывания (values*.yaml) дельтой не тронуты."
+  - "Области у --helm-set нет: одноимённые ключи (db.host, authz.*) попадают и в другие чарты. Утверждение «не гасят находок» держит deploy/scripts/assert-scan-stubs-hide-nothing.py — предмет security-auditor/гейта покрытия, не распределённых свойств; в этом проходе не исполнялся."
+  - "Выводы прежней записи @b874eac1 (CAS переходов, одна транзакция Accept/Transit, рёбра api-gateway→notify-api и notify-api→kaname, ban #6) дельтой не затронуты; её важное замечание о `nop` в OpsProxy и notify-sender остаётся условием посадки эпика в main, не этой ветки."
+orders: []
