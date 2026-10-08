@@ -453,7 +453,14 @@ say "команда начата через $(( T1 - T0 )) с после соз�
 since=""
 while :; do
     kc_stream -n "$NSNAME" logs -f "$POD" -c run ${since:+--since-time="$since"} & wait_bg $!
-    IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ <<< "$(pod_state)"
+    # Поток кончается и вместе с контейнером, а статус «terminated» kubelet
+    # публикует позже: без ожидания конец потока читался обрывом, и переподключение
+    # повторяло хвост лога (опыт 2026-10-08: 68 строк дважды).
+    for _ in 1 2 3 4 5 6; do
+        IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ <<< "$(pod_state)"
+        [ "$RUN_ST" = terminated ] && break
+        sleep 2 & wait_bg $!
+    done
     [ "$RUN_ST" = terminated ] && break
     if [ -z "$POD" ] || [ "$PHASE" = Failed ]; then break; fi
     since="$(date -u -d '-5 seconds' +%Y-%m-%dT%H:%M:%SZ)"
