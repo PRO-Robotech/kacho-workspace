@@ -5,7 +5,7 @@ aliases:
 ticket_id: 77
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-07: `gh pr list -R PRO-Robotech/corelib --base 77-notify --state all` — 13 PR MERGED (#82…#102), открытых 0; голова `77-notify` = 117749095814 (merge-коммит #102, родители 1e6ade53645a и 18d105d0f50a); `git diff 18d105d0f50a origin/77-notify` пуст; задача corelib#77 и эпик kacho#2914 OPEN; в `main` corelib из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-08: пин kacho на голове `2914-notify` 504bc7acdc51 прочитан в `go.mod`, отставание головы ветки посчитано `gh api compare`. `gh` 2026-10-07: `gh pr list -R PRO-Robotech/corelib --base 77-notify --state all` — 13 PR MERGED (#82…#102), открытых 0; голова `77-notify` = 117749095814 (merge-коммит #102, родители 1e6ade53645a и 18d105d0f50a); `git diff 18d105d0f50a origin/77-notify` пуст; задача corelib#77 и эпик kacho#2914 OPEN; в `main` corelib из ветки эпика не влито ничего. Состав PR — со слов их заголовков и описаний; прогоны мной не перезапускались"
 type: feature
 repos:
   - corelib
@@ -90,9 +90,9 @@ kacho; «—» — связь нигде не названа, и выводом 
 ## Потребители
 
 - kaname — [[KAC/issue-484-kaname]]: пин поднят на `18d105d` PR kaname #657.
-- kacho `2914-notify` на `4d5295f1ae96` — пин corelib `e7d6197fc5dc` (прочитано в `go.mod`);
-  открытые волны #3071 и #3072 несут тот же пин. До перепина kacho голова `77-notify`
-  потребителем kacho не проверена.
+- kacho `2914-notify` на `504bc7acdc51` (2026-10-08, после kacho #3098) — пин corelib
+  `67ba3443c149` (#99; прочитано в `go.mod`); голова `77-notify` впереди на 5 коммитов
+  (`gh api compare`), #100 и #102 потребителем kacho не взяты.
 
 ## DoD (из тела задачи)
 
@@ -109,6 +109,7 @@ kacho; «—» — связь нигде не названа, и выводом 
 
 - 2026-10-07 — trail заведён после вливания #102 (`117749095814`) в `77-notify`; внесены все
   13 PR ветки. Статус `in-progress`.
+- 2026-10-08 — потребитель: kacho #3098 поднял пин до `67ba3443c149`. Статус `in-progress`.
 
 ## Затронутые сущности vault
 
