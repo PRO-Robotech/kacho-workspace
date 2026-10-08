@@ -1,0 +1,308 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-3 редакции 18 и маршрута tasks.md
+# редакции 21 на ветке issue-880 @1a47de71c.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли); предмет задания — маршрут, поэтому его
+# отпечаток назван в subject.route. Первичные разборы и прежние пересверки относятся к своим
+# отпечаткам и здесь не переписываются. Проверено:
+#   (1) отображение живых сценариев приёмки редакции 42 и заказов УК3 в полосы маршрута;
+#   (2) полосы без предпосылок и разорванные цепочки (after, пути, порядок волн);
+#   (3) каскады пинов corelib и kaname между линиями и между маршрутами эпика;
+#   (4) устаревшие условия §0–§3 маршрута против голов веток эпиков на момент снимка;
+#   (5) классы дефектов ограды (З34 М1–М10) по радиусу, который полосы обязаны покрыть;
+#   (6) отображение пересверки e63e3fb0 (CX3R-01…11) в замысел редакции 18.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: bfff8bf17f2fa7d6f6d70cc1ad4ff7dd9f49aa840cd4f95e7db81c4757060f41
+  fingerprint_predicate: git show 1a47de71c:docs/changes/issue-2918/design.md | sha256sum
+  revision: 18
+  content_commit: 1a47de71c9cd279f1508869b70b5117bd6c55fce
+  route:
+    path: docs/changes/issue-2918/tasks.md
+    sha256: 627e6f595ac2d7cce91b9d2d48f73d7a1465ecc7cdf83e75effaf32bac16ff81
+    fingerprint_predicate: git show 1a47de71c:docs/changes/issue-2918/tasks.md | sha256sum
+    revision: 21
+    content_commit: 1a47de71c9cd279f1508869b70b5117bd6c55fce
+  holders_sha256: d8072f8503df9f347e4799f7e24a94807465c30e81652d745d3b93df1e77c9db   # совпадает с change.yaml
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/e63e3fb0c200ff2d7782b564bbe1d564ec5c8ae36461a765b9e37dd5fe76b1e8.yaml
+  subject_revision: 17
+  outcome: к-замыслу
+  clean: false
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba   # git show 1a47de71c:<путь> | sha256sum
+  revision: 42
+  effective_verdict: ACCEPTED
+  initial_class_exposure_on_this_sha: absent   # ls reviews/class-exposure/initial/ — 8 файлов, 1d7d2ad0 среди них нет
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover   # git merge-base --is-ancestor 1202e3cf HEAD → 0
+dispatcher_decisions:
+  applied: >-
+    Решения notify Д96–Д134 и Д12; владельца 2026-10-04 («код сразу, замысел не ворота»), 2026-10-07
+    (Terraform-источника NoticeService нет; манифест пробы — только на стенде) и 2026-10-08 (1)–(4).
+    Предмет NTF-3 задевают (1) — проба InternalNotifyProbeService/Send остаётся рабочим путём newman D5
+    (CX3S-01) — и (2) — подписка с отбором по меткам в этом релизе (CX3S-03). (3) kacho#3017 в маршрут
+    NTF-3 не входит.
+revisions:
+  workspace: 1a47de71c9cd279f1508869b70b5117bd6c55fce   # HEAD issue-880 = f4371cee5, дельта к 1a47de71c — одна запись ревью NTF-7, предмета не касается
+  kacho: 515e017c873a          # origin/2914-notify
+  corelib: 117749095814        # origin/77-notify; дерево совпадает с 18d105d0f50a (git diff --stat пуст)
+  kaname: 33010d434767         # origin/484-notify
+  kaname_pr673_head: 1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7   # OPEN
+  kacho_pr3103_head: ea771dfe44263a7c22e89da1d5ea51ab652884ce   # OPEN, go.mod не трогает
+snapshot_at: 2026-10-08T18:40:00Z
+inspected: >-
+  tasks.md редакции 21 целиком (§0–§7); design.md редакции 18: З34 (строки 1688–2000), §11 строки
+  CX3R-01…11, §11а номера УК3; приёмка редакции 42: 189 строк `**ID:** NTF3-NN`, снятые 16, DoD 12.2.
+  Приёмка NTF-1 @c19490f9 (Е5). kacho @515e017c87: вызовы journaltx.Begin и journaltx.NewOptions вне
+  тестов, пакет notify-probe, pkg/feedjournal/feedjournaltest, сгенерированные файлы resource-event
+  модулей, вхождения ListProjectAudience. Сборка kacho @515e017c87 с kaname, заменённым на голову #673
+  (go build ./... и go vet ./..., временные worktree под kacho-workspace/tmp/, сняты). corelib
+  @1177490: пакеты journaltx, outbox, notify/feed. kaname @1197a78: go.mod, journalwrite, notifygen в
+  Makefile, контракт. Открытые PR в ветки эпиков трёх репозиториев. Маршруты соседей issue-2915, 2917,
+  2919, 2924, 2925 — только строки о пинах. Стенд не поднимался, записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      CX3R-01…10 отображены в З34 М1–М10 и строки §11 (2381–2390). CX3R-11 отображён в открытое решение
+      Е9, а не в решение замысла. Отображение CX3R-01 (М1 (г)) не выдерживает: радиус назван (12 файлов,
+      notify-probe → WithoutJournal), но ни одна полоса маршрута notify-probe не правит, а 13-й файл
+      (pkg/feedjournal/feedjournaltest) в радиус не попал (CX3S-01).
+  - condition: "новый внешний вызов / асинхронный путь / sentinel заведены пунктом"
+    result: green
+    detail: "редакция 18 новых не вводит против e63e3fb0; ErrAuthzRevisionEmpty/Spent, ErrJournalMarkerConflict — значения М1, отображены в FC"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: "Е9 (подписка с отбором по меткам) — открытое решение при решении владельца 2026-10-08 (2) «в этом релизе» (CX3S-03)"
+
+clean: false
+
+mapping_check:
+  scenarios:
+    numbers: 189
+    withdrawn: [8, 11, 24, 41, 42, 44, 45, 104, 117, 118, 121, 123, 124, 158, 163, 164]
+    live: 173
+    mapped: 173
+    unmapped: []
+    predicate: >-
+      grep -oE '^\*\*ID:\*\* NTF3-[0-9]+' <приёмка> | sort -u → 189; снятые — заголовки
+      «Сценарий NTF3-NN: снят в редакции»; покрытие — разбор §3–§4 tasks.md с раскрытием диапазонов «A…B»
+      (разборщик сначала недобрал 16 номеров на «–» и обратной кавычке; каждый из 16 проверен глазами:
+      31…35, 37, 39, 40 — S1-A5; 105…111 — S2-B5; 155 — S2-B9)
+  orders_uk3:
+    in_lanes: 63
+    in_trees: "kacho 13 27 28 30 31 37 61 · corelib 04 11 13 49 50 · kaname 07 08"
+    not_used_or_withdrawn: [36, 58]
+    unmapped: []
+  design_cx3r:
+    mapped_to_decision: [CX3R-01, CX3R-02, CX3R-03, CX3R-04, CX3R-05, CX3R-06, CX3R-07, CX3R-08, CX3R-09, CX3R-10]
+    mapped_to_open_decision: [CX3R-11]
+
+stale_conditions_check:
+  - item: "§0 головы веток эпиков и пины"
+    verdict: current
+    note: "kacho 515e017c87, corelib 1177490, kaname 33010d434; пины kacho — corelib 18d105d0f50a, kaname 33010d434767; пин corelib kaname — 18d105d0f50a"
+  - item: "§2 Е7 — #673 OPEN, голова 1197a78edd8e"
+    verdict: current
+  - item: "§2 Е8 — ограды в corelib нет"
+    verdict: current
+    note: "git grep authz_rev|parent_chain|next_object_generation|AuthzRevision -- notify/ cmd/notifygen/ journaltx/ outbox/ → 1 совпадение, ложное (имя пробы TestNTF3_X2F_InitWithoutJournal…)"
+  - item: "§2 Е5 — «не проверена»"
+    verdict: measurable_and_unmet
+    note: "см. CX3S-04"
+  - item: "§4 В-1 — X2-F на C0"
+    verdict: current
+    note: "git grep -c fanout 18d105d0f50a -- cmd/notifygen/ → fanout.go:9"
+  - item: "§5 «plan-precheck код 0 у каждой из десяти волн»"
+    verdict: not_reproducible
+    note: "планов волн в пакете нет; вход проверки — пути §4, а они неполны у FM0 и FM-* (CX3S-05, CX3S-06): код 0 вынесен на неполном входе"
+
+new_items:
+  - id: CX3S-01
+    severity: blocking
+    class: "Радиус по имени механизма, а не по полосам (measurement-discipline §«Радиус: по имени механизма и по точкам применения»); «Решение и его следствие разнесены» (code-authoring)"
+    decision: "FM0 поднимает пин corelib в kacho на C1, где journaltx.Begin при включённом флаге требует токен или отметку WithoutJournal (М1 (б))"
+    finding: >-
+      Вызовов journaltx.Begin вне *_test.go в kacho @515e017c87 — 25 в 13 файлах (compute 11/3,
+      registry 6/2, storage 3/3, nlb 2/2, vpc 1/1, services/notify/cmd/notify-probe/internal/send/send.go
+      1, pkg/feedjournal/feedjournaltest/resourceevent.go 1). FM-c…FM-s покрывают 11 файлов модулей.
+      Два оставшихся не лежат в путях ни одной полосы: notify-probe (Send открывает
+      journaltx.Begin с NewOptions(source.Enabled()) — при включённом флаге после FM0 отвечает INTERNAL)
+      и общий тестовый помощник feedjournaltest (Begin с NewOptions(true); им пользуются интеграционные
+      пробы resource-event compute и registry). Замысел М1 (г) называет notify-probe → WithoutJournal,
+      а feedjournaltest не называет (замер записи 12 файлов). Решение владельца 2026-10-08 (1) держит
+      Send рабочим путём newman D5.
+    condition_on_route: >-
+      FM0 (нулевой шаг В-2, одно изменение с пином) правит оба файла: notify-probe —
+      journaltx.WithoutJournal на транзакции постановки; feedjournaltest — токен (тестовый источник) либо
+      WithoutJournal по факту «пишет ли транзакция строку журнала». Пути FM0 дополняются
+      `services/notify/cmd/notify-probe/internal/send/**` и `pkg/feedjournal/feedjournaltest/**`;
+      предикат FM0 — проба Send пробы с флагом true зелёная на голове FM0 и
+      `git grep -c 'journaltx.Begin(' -- '*.go' ':!*_test.go'` по дереву = число мест с токеном + число
+      мест с WithoutJournal (печать перечня).
+    held_by: "нужен гейт, его нет — заказ ORD-1"
+  - id: CX3S-02
+    severity: blocking
+    class: "Окно пина общего фундамента (Д37/Д41 — снятые редакцией 21 строки); «Решение и его следствие разнесены»"
+    decision: "Ф-C1 (FC) стартует «сейчас» в общую 77-notify; #673 (ломающий контракт) вливается в общую 484-notify; поднять пины в kacho маршрут разрешает только FM0"
+    finding: >-
+      Ветки 77-notify и 484-notify общие для всех маршрутов эпика #2914. Строки, запрещающей другим
+      изменениям поднимать пин corelib в kacho выше C0 (после вливания Ф-C1) или пин kaname выше
+      33010d434 (после вливания #673) до посадки В-2, в редакции 21 нет: поиск «окно|Д41|Д37|не
+      поднимает» по §0–§7 → 0. Цена измерена: kacho @515e017c87, собранный с kaname на голове #673, не
+      компилируется — 12 файлов в 9 пакетах пяти модулей (go build), 14 с тестами (go vet); поднятие
+      corelib до C1 без FM-* даёт ErrNoAuthzRevision на каждом пишущем пути при флаге true. Соседи
+      планируют подъёмы: NTF-5 C3 (тег T1, пин kacho и kaname), NTF-2 D1 (пин kaname на линию #484).
+    condition_on_route: >-
+      Окно пина: от вливания Ф-C1 (соответственно #673) до вливания В-2 пин corelib в kacho не поднимается
+      выше C0 и пин kaname — выше 33010d434 никаким изменением, кроме FM0; от вливания Ф-C2/Ф-K2 до В-5 —
+      ничем, кроме P5. Строка стоит в маршруте и рёбрами — в маршрутах соседей (NTF-2, NTF-4, NTF-5,
+      NTF-7), предикат проверки — plan-precheck на плане каждой волны kacho.
+    held_by: "plan-precheck CORELIB-SKEW ловит расхождение kacho↔kaname, но не подъём обоих сразу; нужен гейт — заказ ORD-2"
+  - id: CX3S-03
+    severity: blocking
+    class: "Разорванная цепочка закрытия; утверждение приёмки против решения владельца"
+    decision: "Е9 — подписка с отбором по меткам «после В-3» без полос; закрытие В-6 (S3-C5 — DoD 12.3, S3-C6 — сквозные стенда) зависит только от В-5"
+    finding: >-
+      Решение владельца 2026-10-08 (2): подписка с отбором по меткам — в этом релизе. Приёмка редакции 42
+      держит её вне объёма (§6, Д129 (7)). Маршрут не ставит В-6 после полос Е9 и не называет адресата и
+      срока дельты приёмки: закрытие релиза (DoD, страницы, сквозные) пройдёт без предмета, который
+      владелец включил в релиз, а полосы Е9 затем правят файлы S2-B7, S2-B8, S2-B10a уже закрытой цепочки.
+    condition_on_route: >-
+      В-6 зависит от волны Е9 (контракт → сервер → край → чарт подписки одной волной после В-3 и до
+      В-6); в §2 — заказ автору приёмки NTF-3 с адресатом; до одобренной дельты В-6 не раздаётся.
+    return_to_acceptance: "§6 и Д129 (7) — подписка с отбором по меткам вне объёма; противоречит решению владельца 2026-10-08 (2)"
+    held_by: "вниманием диспетчера; ребро в §5 — после правки"
+  - id: CX3S-04
+    severity: blocking
+    class: "Полоса без предпосылки: зависимость без производителя"
+    decision: "Е5 гейтит S2-B9 (голова В-3) и X4e (Ф-K2 → P5 → S3-C4)"
+    finding: >-
+      Е5 измерима сейчас и не выполнена: приёмка NTF-1 @c19490f9 (3331 строка) — вхождений
+      notification_recipient_directory 0, audience_pending 0, строк «NTF-3» с Р19/Р24/Р27/Р28 0 (из 8
+      строк «NTF-3»). DoD 12.2 п.4, п.5 приёмки NTF-3 требует строк-ссылок «её автором в той же волне».
+      Полосы или заказа с адресатом в маршруте нет: «диспетчер — по одобренному отпечатку».
+    condition_on_route: >-
+      Е5 — заказ автору приёмки NTF-1 (строки-ссылки на Р19, Р24, Р27, Р28 и перечни Р5/Д2/identityNamespaces
+      §4), круг ревью приёмки NTF-1; ребро — до старта В-3 и Ф-K2. Состояние §2 — «не выполнена, замер
+      0 вхождений», а не «не проверена».
+    held_by: "docs-gate check-01 приёмки NTF-1 — после правки; сейчас вниманием"
+  - id: CX3S-05
+    severity: route
+    class: "Перечень входных поверхностей полосы (code-authoring §«Контракт, который нельзя выразить»)"
+    decision: "FM0: «go build ./... зелёный — адаптация вызовов регистрации, которую требует компиляция, входит сюда»"
+    finding: >-
+      Пути FM0 — go.mod, go.sum, pkg/authzrev, gateway, internal/repohygiene. Компиляционный радиус
+      пина kaname на #673 лежит вне них: services/{compute,nlb,registry,storage,vpc}/internal/** — 12
+      файлов (iam_register_applier, sync_registrar, compute repo/outbox.go и portmock, storage api
+      image/snapshot/volume). Эти же файлы — пути FM-*; plan-precheck судил пересечения по неполному
+      перечню.
+    condition_on_route: "пути FM0 перечисляют 12 файлов (14 с тестами) поимённо; FM-* после FM0 — по-прежнему"
+    held_by: "lane-precheck — пути полосы против диффа (после правки перечня)"
+  - id: CX3S-06
+    severity: route
+    class: "Перечень входных поверхностей полосы"
+    decision: "FM-*: атрибуты ограды строки resource-event модуля (NTF3-68 «с атрибутами ограды»; И24 — смена Mapping/schema_rev — новая миграция; УК3-70)"
+    finding: >-
+      Атрибуты resource-event модуль объявляет в services/<svc>/notifications/resource-event/notification.yaml
+      (с revision.yaml), генератор пишет services/<svc>/notifications_resource-event.gen.go в корне
+      модуля (compute, registry, storage на 515e017c87; vpc, nlb — после B1v, B1n). Пути FM-* —
+      {internal,cmd}/** и journal.yaml: ни шаблон, ни сгенерированный файл в них не входят. После FM0
+      (генератор версии C1) `notifygen -check` пяти модулей красный до правки этих файлов.
+    condition_on_route: >-
+      Пути FM-* дополняются services/<svc>/notifications/resource-event/** и
+      services/<svc>/notifications_resource-event.gen.go; предикат FM0 называет `notifygen -check` в
+      числе ожидаемо красных до FM-*, предикат FM-* — зелёным по модулю.
+    held_by: "notifygen -check (есть) + lane-precheck по путям"
+  - id: CX3S-07
+    severity: to_code
+    class: "Умолчание, которое становится утверждением (code-authoring) — пропущенный путь токена"
+    decision: "FM-*: перепись путей до journaltx.Begin — первый шаг полосы, напечатанный в коммите"
+    finding: >-
+      Пропущенный путь ловит только прогон с флагом true (обвязки NTF3-160). Фоновые шаги, которых
+      обвязки не проходят (nlb free_ip_runner, storage reconciler/store.go, compute фоновые проходы),
+      дадут ErrNoAuthzRevision только на стенде.
+    condition_on_code: >-
+      Перепись первого шага сверяется с деревом числом: мест journaltx.Begin по модулю = мест с
+      WithAuthzRevision до него + мест с WithoutJournal; каждое место фонового пути — интеграционная
+      проба с флагом true в той же полосе.
+    held_by: "держится вниманием, пока нет гейта — заказ ORD-1"
+
+measurements:
+  - claim: "радиус М1 (г): 24 вызова в 12 файлах"
+    how: "git -C project/kacho grep -n 'journaltx\\.Begin(' origin/2914-notify -- '*.go' ':!*_test.go' | cut -d: -f2 | sort | uniq -c"
+    result: "25 вызовов в 13 файлах; лишний против замысла — pkg/feedjournal/feedjournaltest/resourceevent.go"
+  - claim: "FM0 компилирует модули на контракте #673 своими путями"
+    how: "worktree kacho @515e017c87 + go mod edit -replace kaname=worktree @1197a78; go build ./... ; go vet ./..."
+    result: "9 пакетов не собираются; 12 файлов (build), 14 (vet) — все в services/*/internal/**, вне путей FM0"
+  - claim: "notify-probe журнала модуля не пишет"
+    how: "git show origin/2914-notify:services/notify/cmd/notify-probe/internal/journal/journal.go"
+    result: "верно: журнал пробы несёт только ключ ленты; WithoutJournal допустим; полосы нет"
+  - claim: "Е5 не проверена"
+    how: "grep -c notification_recipient_directory|audience_pending по приёмке NTF-1 @c19490f9"
+    result: "0 и 0 — не выполнена"
+  - claim: "покрытие сценариев"
+    how: "разбор §3–§4 с раскрытием диапазонов + проверка глазами 16 недобранных номеров"
+    result: "173 из 173 живых"
+
+not_measurable: >-
+  (1) Код 0 plan-precheck на десяти волнах: планов в пакете нет, вход неполон — воспроизвести нечем.
+  (2) Поведение FC (C1) — ветки нет: Е8 открыта; радиус по Go-стороне выведен из М1 (б) текста замысла,
+  а не из кода. (3) Включён ли флаг ленты на стенде у notify-probe — стенд не поднимался; для вывода
+  CX3S-01 достаточно, что обвязки и newman D5 гоняются с флагом true.
+
+facts_for_dispatcher:
+  - "первичного разбора классов на приёмку 1d7d2ad0 нет (change.yaml, ls initial/) — заказ записи e63e3fb0 не исполнен"
+  - "HEAD issue-880 f4371cee5 опережает 1a47de71c на одну запись ревью NTF-7; предмет не менялся"
+
+outcome: блокер
+return_to_acceptance:
+  - "приёмка NTF-3 §6, Д129 (7): подписка с отбором по меткам вне объёма — против решения владельца 2026-10-08 (2) (CX3S-03)"
+unmapped_items: [CX3S-01, CX3S-02, CX3S-03, CX3S-04, CX3S-05, CX3S-06, CX3S-07]
+open_decisions: [Е9]
+orders:
+  - id: ORD-1
+    addressee: gate-authoring (go-implementer)
+    subject: "гейт дерева kacho: каждое место journaltx.Begin вне тестов при флаге true предварено WithAuthzRevision либо WithoutJournal; объём осмотренного, инъекция (снятая отметка у notify-probe), пустой обход — красный"
+    basis: "testing.md «Гейт на класс: измерить по дереву, доказать инъекцией»; CX3S-01, CX3S-07"
+  - id: ORD-2
+    addressee: tooling-maintainer
+    subject: "plan-precheck: подъём пина corelib/kaname в kacho внутри объявленного окна другим изменением, кроме нулевого шага волны, — причина отказа"
+    basis: "CX3S-02; memory orchestration-risk-tiers (условия плана — скриптом)"
+  - id: ORD-3
+    addressee: автор приёмки NTF-3
+    subject: "дельта приёмки на подписку с отбором по меткам (решение владельца 2026-10-08 (2))"
+    basis: "CX3S-03"
+  - id: ORD-4
+    addressee: автор приёмки NTF-1
+    subject: "строки-ссылки DoD 12.2 п.4, п.5 приёмки NTF-3 (Р19, Р24, Р27, Р28; перечни Р5, Д2, identityNamespaces)"
+    basis: "CX3S-04"
+  - id: ORD-5
+    addressee: автор маршрута (диспетчер → design-author)
+    subject: "редакция 22 tasks.md: CX3S-01, 02, 04, 05, 06 в карточки FM0, FM-*, §2, §5; Е5 — «не выполнена»"
+    basis: "change-graph.md §4"
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат (одно наблюдение с измеренной ценой — 12 файлов, 5 модулей, ствол эпика): «общая ветка
+  фундамента без окна пина» — изменение формы фундамента вливается в ветку, общую для нескольких
+  маршрутов, а запрет поднимать пин до волны-адаптера живёт только в маршруте-владельце. Второе
+  наблюдение — Д37/Д41 (окно тега X2-F) того же эпика: тот же класс, снятый как «решённый» строкой
+  маршрута, а не механизмом. Порог «дважды в независимых местах» — спорен (один эпик); предлагается
+  tooling-maintainer как норма плана (ORD-2), не как скилл.
