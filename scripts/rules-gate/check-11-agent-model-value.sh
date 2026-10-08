@@ -1,42 +1,34 @@
 #!/usr/bin/env bash
-# check-11 — ПОЛЕ `model:` ВО FRONTMATTER АГЕНТА НЕСЁТ ЗНАЧЕНИЕ, КОТОРОЕ ХАРНЕСС ПРИМЕТ.
+# check-11 — ПОЛЕ `model:` ВО FRONTMATTER АГЕНТА: ТОЛЬКО ПСЕВДОНИМ ИЗ ЗАКРЫТОГО
+# ПЕРЕЧНЯ, И ЛЁГКАЯ МОДЕЛЬ — ТОЛЬКО У АГЕНТОВ, КОТОРЫМ ЕЁ ОТВЁЛ ВЛАДЕЛЕЦ.
 #
-# Предмет: `.claude/agents/*.md`, строка `model:` между первыми `---`. С ws#975 у
-# механических агентов там стоит лёгкая модель (решение владельца 2026-09-27
-# «механика на лёгкой модели»). Опечатка в этом поле не видна ни в диффе, ни в
-# прогоне: харнесс получает строку, которой нет среди моделей, и агент либо не
-# стартует (строка уходит в запрос как имя модели), либо берёт модель родителя
-# (ветка списка разрешённых моделей) — то есть норма «механика на лёгкой модели»
-# перестаёт исполняться, а файл продолжает её объявлять.
+# Предмет: `.claude/agents/*.md`, строка `model:` между первыми `---`. Норма —
+# ai-tooling.md at-agent-model-value. Харнесс неизвестную строку не отвергает:
+# функция подбора модели сабагента зовёт резолвер псевдонима, а не-псевдоним
+# отдаёт как есть (CC 2.1.293) — опечатка не видна ни в диффе, ни в прогоне.
 #
-# ЗАКОННЫЕ ФОРМЫ ЗНАЧЕНИЯ ВЫВЕДЕНЫ ИЗ КОДА ХАРНЕССА, а не из описания поля
-# (ревизия CC 2.1.293, бинарь ~/.local/share/claude/versions/2.1.293, 2026-10-08).
-# Модель агента разрешает функция подбора модели сабагента; она зовёт резолвер
-# псевдонима и, если значение не псевдоним, отдаёт строку как есть — то есть
-# неизвестная строка не отвергается харнессом, а уходит дальше чужой моделью.
-# Поэтому проверка судит по тем двум распознавателям, которыми харнесс отличает
-# модель от произвольной строки:
-#   · ПСЕВДОНИМ — резолвер приводит значение к нижнему регистру, снимает суффикс
-#     окна `[1m]` и сверяет основу со списком псевдонимов харнесса:
-#     sonnet | opus | haiku | fable | best | opusplan (список целиком:
-#     `grep -ao '\["sonnet","opus","haiku","fable","best",[^;]*"opusplan"\]' <бинарь>`
-#     → ["sonnet","opus","haiku","fable","best","sonnet[1m]","opus[1m]","fable[1m]","opusplan"]);
-#     плюс `inherit` из схемы определения агента (тоже без учёта регистра);
-#   · ПОЛНЫЙ ИДЕНТИФИКАТОР — разборщик идентификатора модели харнесса: нижний
-#     регистр, без пробелов, необязательный суффикс `[1m]`/`[2m]`, необязательный
-#     путь до последнего `/`, необязательный префикс `<регион>.anthropic.`
-#     (регион из us|eu|apac|jp|au|us-gov|global), затем `claude-<семейство>-<мажор>
-#     [-<минор>]` или `claude-<мажор>[-<минор>]-<семейство>`, а хвост после основы
-#     пуст либо начинается с `-` или `@`. `claude-haiko` (нет версии) и
-#     `claude-sonnet-4-5x` (хвост без разделителя) этот разборщик отвергает.
-# Отсутствие поля — законно (агент берёт модель по умолчанию) и находкой не
-# является; пустое значение — находка: поле объявлено, а модели в нём нет.
-# `model:haiku` без пробела после двоеточия — не пара «ключ: значение» YAML:
-# харнесс поля не увидит, и это находка, а не законное объявление.
+# ПОЛНЫЙ ИДЕНТИФИКАТОР ЗАПРЕЩЁН (ws#975, круг 3, вариант «Б»). Два круга
+# распознаватель полного id по форме пропускал опечатку в семействе
+# (claude-haiko → claude-haikuu-4-5, claude-sonet-4-5, claude-opsu-4-5): форма
+# `claude-<слово>-<версия>` не знает, какие слова — модели. Перечень id из
+# бинаря (вариант «А») — второе представление чужого каталога, которое стареет с
+# каждой версией CC. Псевдоним же — закрытое множество, и опечатка в нём — просто
+# слово вне множества. Перечень — по норме: sonnet | opus | haiku | fable, каждый
+# с окном `[1m]`, плюс best | opusplan | inherit; регистр любой (резолвер
+# приводит к нижнему). Сверка с бинарём, если CC сменит список:
+#   grep -ao '\["sonnet","opus","haiku","fable","best",[^;]*"opusplan"\]' <бинарь>
+#
+# ЛЁГКАЯ МОДЕЛЬ (`haiku`, `haiku[1m]`) — только у агентов из LIGHT (владелец
+# 2026-10-08: «Только ci-watcher»). Сверка в обе стороны: `haiku` у агента вне
+# перечня — находка; агент перечня без `haiku` (поле снято или иное) — находка.
+#
+# Формы записи значения: простое, в кавычках, с комментарием ` #`, блочный
+# скаляр `>`/`|` (с индикатором `-`/`+`) — значение берётся из строк продолжения.
+# `model:x` без пробела — не пара YAML, харнесс поля не увидит: находка. Пустое
+# значение — находка. Отсутствие поля законно (кроме агентов LIGHT).
 #
 # Вердикт — в КОДЕ ВЫХОДА: 0 молчит, 1 находка, 2 отказ (агентов нет — судить
-# нечего). Перепись печатается всегда: сколько агентов осмотрено и у скольких
-# поле объявлено, чтобы «ноль находок» отличалось от «ноль прочитанного».
+# нечего). Перепись печатается всегда.
 set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Корень — общим швом набора (`scripts/lib/gate_root.py`, переменная
@@ -55,69 +47,73 @@ root = sys.argv[1]
 d = os.path.join(root, ".claude", "agents")
 names = sorted(n for n in os.listdir(d) if n.endswith(".md")) if os.path.isdir(d) else []
 
-ALIAS_BASES = {"sonnet", "opus", "haiku", "fable", "best", "opusplan"}
-REGIONS = {"us", "eu", "apac", "jp", "au", "us-gov", "global"}
-ID_FAMILY_FIRST = re.compile(r"^claude-([a-z]+)-(\d{1,2})(?!\d)(?:-(\d{1,2})(?!\d))?")
-ID_VERSION_FIRST = re.compile(r"^claude-(\d{1,2})(?!\d)(?:-(\d{1,2})(?!\d))?-([a-z]+)")
-
-
-def is_alias(v):
-    n = v.strip().lower()
-    if n == "inherit":
-        return True
-    return re.sub(r"\[1m\]$", "", n).strip() in ALIAS_BASES
-
-
-def is_model_id(v):
-    n = v.strip().lower()
-    if n == "" or re.search(r"\s", n):
-        return False
-    n = re.sub(r"\[[12]m\]$", "", n)
-    n = n[n.rfind("/") + 1:]
-    m = re.match(r"^(?:([a-z-]+)\.)?anthropic\.(claude-.*)$", n)
-    if m:
-        if m.group(1) is not None and m.group(1) not in REGIONS:
-            return False
-        n = m.group(2)
-    base = ID_FAMILY_FIRST.match(n) or ID_VERSION_FIRST.match(n)
-    if not base:
-        return False
-    tail = n[base.end():]
-    return tail == "" or tail[0] in "-@"
+WINDOWED = {"sonnet", "opus", "haiku", "fable"}
+ALIASES = WINDOWED | {w + "[1m]" for w in WINDOWED} | {"best", "opusplan", "inherit"}
+LIGHT_ALIASES = {"haiku", "haiku[1m]"}
+LIGHT = {"ci-watcher"}  # владелец 2026-10-08: «Только ci-watcher»
+BLOCK = re.compile(r"^[>|](?:[+-]?[1-9]?|[1-9][+-])$")
 
 
 rc = 0
 declared = 0
+light_seen = set()
 for n in names:
     rel = ".claude/agents/" + n
+    agent = n[:-3]
     lines = open(os.path.join(d, n), encoding="utf-8").read().split("\n")
     if not lines or lines[0].strip() != "---":
-        # Форму frontmatter агента судят соседние проверки (check-04, check-05);
-        # здесь у файла без frontmatter поля `model:` просто нет.
+        # Форму frontmatter агента судят соседние проверки (check-04, check-05).
         continue
-    for i, line in enumerate(lines[1:], start=2):
-        if line.strip() == "---":
-            break
-        m = re.match(r"^model[ \t]*:(.*)$", line)
+    try:
+        end = lines.index("---", 1)
+    except ValueError:
+        end = len(lines)
+    for i in range(1, end):
+        m = re.match(r"^model[ \t]*:(.*)$", lines[i])
         if not m:
             continue
         declared += 1
+        at = "%s:%d" % (rel, i + 1)
         if m.group(1) and m.group(1)[0] not in " \t":
-            print("КРАСНОЕ %s:%d — «%s»: после двоеточия нет пробела — это не пара «ключ: значение» "
-                  "YAML, харнесс поля model: не увидит" % (rel, i, line.strip()))
+            print("КРАСНОЕ %s — «%s»: после двоеточия нет пробела — это не пара «ключ: значение» "
+                  "YAML, харнесс поля model: не увидит" % (at, lines[i].strip()))
             rc = 1
             continue
         raw = m.group(1).split(" #", 1)[0].strip()
+        if BLOCK.match(raw):
+            cont = []
+            for j in range(i + 1, end):
+                if lines[j].strip() and lines[j][0] not in " \t":
+                    break
+                if lines[j].strip():
+                    cont.append(lines[j].strip())
+            raw = ("\n" if raw[0] == "|" else " ").join(cont)
         val = raw[1:-1].strip() if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'" else raw
+        low = val.lower()
         if not val:
-            print("КРАСНОЕ %s:%d — поле model: объявлено пустым; модели в нём нет" % (rel, i))
+            print("КРАСНОЕ %s — поле model: объявлено пустым; модели в нём нет" % at)
             rc = 1
-        elif not is_alias(val) and not is_model_id(val):
-            print("КРАСНОЕ %s:%d — model: «%s» не псевдоним харнесса (%s[1m]|inherit) и не "
-                  "идентификатор claude-<семейство>-<версия>: харнесс отдаст строку как есть, "
-                  "норма о модели агента не исполнится"
-                  % (rel, i, val, "|".join(sorted(ALIAS_BASES))))
+        elif low not in ALIASES:
+            why = ("полный идентификатор модели запрещён нормой at-agent-model-value — только псевдоним"
+                   if low.startswith("claude-") or ".anthropic." in low or "/" in low
+                   else "не псевдоним из перечня нормы")
+            print("КРАСНОЕ %s — model: «%s»: %s (%s); харнесс отдаст строку как есть"
+                  % (at, val, why, "|".join(sorted(ALIASES))))
             rc = 1
+        elif low in LIGHT_ALIASES:
+            light_seen.add(agent)
+            if agent not in LIGHT:
+                print("КРАСНОЕ %s — model: «%s»: лёгкая модель у агента «%s», а владелец отвёл её "
+                      "только %s (2026-10-08)" % (at, val, agent, ", ".join(sorted(LIGHT))))
+                rc = 1
+
+for agent in sorted(LIGHT - light_seen):
+    if agent + ".md" in names:
+        print("КРАСНОЕ .claude/agents/%s.md — агенту отведена лёгкая модель (владелец 2026-10-08), "
+              "а model: haiku во frontmatter нет: норма объявлена, не исполняется" % agent)
+    else:
+        print("КРАСНОЕ — перечень лёгкой модели называет агента «%s», которого в .claude/agents нет" % agent)
+    rc = 1
 
 print("корень %s; осмотрено агентов: %d; поле model: объявлено у %d" % (root, len(names), declared))
 if not names:

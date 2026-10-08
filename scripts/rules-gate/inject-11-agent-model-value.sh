@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# ЧАСТЬ инъекции набора: доказательство check-11 «поле `model:` агента несёт
-# значение, которое харнесс примет» — недопустимый псевдоним, идентификатор,
-# который разборщик харнесса (CC 2.1.293) не признаёт, пустое значение и
-# `model:x` без пробела краснеют; законные близнецы той же формы (каждый
-# псевдоним с окном [1m] и в любом регистре, полный идентификатор в каждой форме
-# разборщика, кавычки, отсутствие поля, `model:` в теле) молчат; агентов нет —
+# ЧАСТЬ инъекции набора: доказательство check-11 «`model:` агента — только
+# псевдоним из перечня нормы, лёгкая модель — только у ci-watcher» — опечатка
+# псевдонима, ЛЮБОЙ полный идентификатор (в том числе с опечаткой в семействе),
+# пустое значение, `model:x` без пробела, `haiku` у другого агента и снятое поле
+# у ci-watcher краснеют; законные близнецы (каждый псевдоним, с окном [1m] и в
+# любом регистре, кавычки, блочный скаляр, `model:` в теле) молчат; агентов нет —
 # отказ по предмету.
 #
 # Файл ПОДКЛЮЧАЕТСЯ (`.`) из `inject.sh` и пользуется его оснасткой.
@@ -71,17 +71,45 @@ capture "$d" "$C11"
 assert_code 1 "ДЕФЕКТ: model: без значения — краснеет"
 assert_says "пустым" "ДЕФЕКТ: находка называет пустое значение причиной"
 
-# ── ДЕФЕКТЫ: строка claude-…, которую разборщик идентификатора харнесса ─────
-#    (CC 2.1.293) не признаёт моделью: нет версии; хвост без разделителя;
-#    префикс провайдера с чужим регионом.
-for _i11_v in claude-haiko claude-sonnet-4-5x xx.anthropic.claude-sonnet-4-5; do
+# ── ДЕФЕКТЫ: полный идентификатор — запрещён нормой в любой форме; первые три —
+#    опечатка в семействе, которую распознаватель формы id пропускал два круга.
+for _i11_v in claude-haikuu-4-5 claude-sonet-4-5 claude-opsu-4-5 claude-haiko \
+              claude-haiku-4-5 claude-haiku-4-5-20251001 us.anthropic.claude-haiku-4-5 \
+              claude-mythos-5 claude-3-5-haiku; do
     d="$(sandbox "i11_badid_${_i11_v//[^a-zA-Z0-9]/_}")"
     i11_set "$d" "model: $_i11_v"
     capture "$d" "$C11"
-    assert_code 1 "ДЕФЕКТ: model: $_i11_v — не идентификатор модели харнесса, краснеет"
+    assert_code 1 "ДЕФЕКТ: model: $_i11_v — полный идентификатор, краснеет"
     assert_says "$_i11_v" "ДЕФЕКТ: находка называет значение $_i11_v"
 done
 unset -v _i11_v
+
+# ── ДЕФЕКТ (D2): лёгкая модель снята у ci-watcher — норма объявлена, не исполняется
+d="$(sandbox i11_light_removed)"; b="$(sandbox_digest "$d")"
+i11_set "$d" ""
+assert_fixture_changed "$d" "$b" "ДЕФЕКТ: у ci-watcher снято поле model:"
+capture "$d" "$C11"
+assert_code 1 "ДЕФЕКТ: у ci-watcher нет model: haiku — краснеет"
+assert_says "ci-watcher" "ДЕФЕКТ: находка называет агента"
+
+d="$(sandbox i11_light_other)"
+i11_set "$d" "model: sonnet"
+capture "$d" "$C11"
+assert_code 1 "ДЕФЕКТ: у ci-watcher model: sonnet вместо лёгкой — краснеет"
+
+# ── ДЕФЕКТ (D2): лёгкая модель у агента вне перечня владельца ───────────────
+d="$(sandbox i11_light_stranger)"; b="$(sandbox_digest "$d")"
+sed -i '0,/^name:/s//model: haiku\nname:/' "$d/.claude/agents/git-operator.md"
+assert_fixture_changed "$d" "$b" "ДЕФЕКТ: git-operator получил model: haiku"
+capture "$d" "$C11"
+assert_code 1 "ДЕФЕКТ: model: haiku у git-operator — краснеет"
+assert_says "git-operator" "ДЕФЕКТ: находка называет агента вне перечня"
+
+# ── БЛИЗНЕЦ: тяжёлая модель у агента вне перечня — законно ──────────────────
+d="$(sandbox i11_twin_heavy_other)"
+sed -i '0,/^name:/s//model: Opus\nname:/' "$d/.claude/agents/git-operator.md"
+capture "$d" "$C11"
+assert_code 0 "БЛИЗНЕЦ: model: Opus у git-operator — молчит"
 
 # ── ДЕФЕКТ: `default` — слово выбора модели, но не псевдоним агента ─────────
 d="$(sandbox i11_default)"
@@ -96,39 +124,44 @@ capture "$d" "$C11"
 assert_code 1 "ДЕФЕКТ: model:haiku без пробела — краснеет"
 assert_says "нет пробела" "ДЕФЕКТ: находка называет отсутствие пробела причиной"
 
-# ── БЛИЗНЕЦЫ: каждый псевдоним харнесса, с окном [1m] и в другом регистре ──
-#    Резолвер псевдонима CC 2.1.293 приводит значение к нижнему регистру и
-#    снимает суффикс [1m] до сверки со списком.
-for _i11_v in sonnet opus haiku fable best opusplan inherit \
-              'sonnet[1m]' 'opus[1m]' 'fable[1m]' 'opusplan[1m]' Haiku OPUS Inherit; do
+# ── БЛИЗНЕЦЫ: каждый псевдоним перечня, с окном [1m] и в другом регистре ────
+#    (у ci-watcher — лёгкая; прочие псевдонимы ставятся git-operator'у).
+for _i11_v in haiku 'haiku[1m]' Haiku 'HAIKU[1M]'; do
     d="$(sandbox "i11_twin_${_i11_v//[^a-zA-Z0-9]/_}")"
     i11_set "$d" "model: $_i11_v"
     capture "$d" "$C11"
-    assert_code 0 "БЛИЗНЕЦ: model: $_i11_v — молчит"
+    assert_code 0 "БЛИЗНЕЦ: model: $_i11_v у ci-watcher — молчит"
+done
+for _i11_v in sonnet opus fable best opusplan inherit \
+              'sonnet[1m]' 'opus[1m]' 'fable[1m]' OPUS Inherit; do
+    d="$(sandbox "i11_twin_go_${_i11_v//[^a-zA-Z0-9]/_}")"
+    sed -i "0,/^name:/s//model: $_i11_v\nname:/" "$d/.claude/agents/git-operator.md"
+    capture "$d" "$C11"
+    assert_code 0 "БЛИЗНЕЦ: model: $_i11_v у git-operator — молчит"
 done
 unset -v _i11_v
 
-# ── БЛИЗНЕЦЫ: полный идентификатор модели во всех формах разборщика ─────────
-for _i11_v in claude-fable-5 'claude-opus-5-5[1m]' claude-haiku-4-5-20251001 \
-              claude-3-5-sonnet-20241022 us.anthropic.claude-sonnet-4-5 claude-sonnet-4-5@20250929; do
-    d="$(sandbox "i11_twin_id_${_i11_v//[^a-zA-Z0-9]/_}")"
-    i11_set "$d" "model: $_i11_v"
+# ── БЛИЗНЕЦЫ: блочный скаляр — значение в строке продолжения ────────────────
+for _i11_v in '>-' '|' '>'; do
+    d="$(sandbox "i11_twin_block_${_i11_v//[^a-zA-Z0-9]/_}x")"
+    i11_set "$d" "model: $_i11_v
+  haiku"
     capture "$d" "$C11"
-    assert_code 0 "БЛИЗНЕЦ: model: $_i11_v (идентификатор) — молчит"
+    assert_code 0 "БЛИЗНЕЦ: model: $_i11_v + строка «haiku» — молчит"
 done
 unset -v _i11_v
+d="$(sandbox i11_block_typo)"
+i11_set "$d" "model: >-
+  haiko"
+capture "$d" "$C11"
+assert_code 1 "ДЕФЕКТ: model: >- + «haiko» — опечатка в блочном скаляре краснеет"
+assert_says "haiko" "ДЕФЕКТ: находка называет значение из строки продолжения"
 
 # ── БЛИЗНЕЦ: значение в кавычках ────────────────────────────────────────────
 d="$(sandbox i11_twin_quoted)"
 i11_set "$d" 'model: "haiku"'
 capture "$d" "$C11"
 assert_code 0 'БЛИЗНЕЦ: model: "haiku" в кавычках — молчит'
-
-# ── БЛИЗНЕЦ: поля нет вовсе — законно ───────────────────────────────────────
-d="$(sandbox i11_twin_absent)"
-i11_set "$d" ""
-capture "$d" "$C11"
-assert_code 0 "БЛИЗНЕЦ: поля model: нет — агент берёт модель по умолчанию, молчит"
 
 # ── БЛИЗНЕЦ: `model:` с чужим значением в ТЕЛЕ агента, а не во frontmatter ──
 d="$(sandbox i11_twin_body)"; b="$(sandbox_digest "$d")"
@@ -143,7 +176,8 @@ rm -f "$d"/.claude/agents/*.md
 capture "$d" "$C11"
 assert_code 2 "ДЕФЕКТ: агентов нет — ОТКАЗ по предмету, не зелёный вердикт"
 
-# ── нетронутая копия — молчит ───────────────────────────────────────────────
+# ── нетронутая копия — молчит (у 31 агента вне перечня лёгкой модели поля ──
+#    model: нет: отсутствие поля законно) ───────────────────────────────────────────────
 d="$(sandbox i11_clean)"
 capture "$d" "$C11"
 assert_code 0 "БЛИЗНЕЦ: нетронутая копия — молчит"
