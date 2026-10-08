@@ -6,7 +6,7 @@ aliases:
 ticket_id: 2918
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-05: kacho PR #3027 MERGED в `2914-notify` merge-коммитом 4517cc69c135 (голова волны 53c14dec394d), голова `2914-notify` = 4517cc69c135; corelib #89 MERGED в `77-notify` (fd6d603b52ca), запись реестра исключений снята #92, голова `77-notify` = 9e358e61e28d; kaname #605 (745640d6c296), #611 (c1b397b735d5), #616 (db080041cd95) MERGED в `484-notify`, голова = db080041cd95; задача #2918 и эпик #2914 OPEN. Пути журнала и справочника сняты `git ls-tree` на 4517cc69c135 и db080041cd95; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-07: kacho PR #3042 MERGED в `2914-notify` 2026-10-06T01:44Z merge-коммитом 829e1a26cb18 (голова ветки `2918-kinds-flag` a799636c82c); kaname PR #632 MERGED в `484-notify` 2026-10-07T02:15Z (22b70ea5d0a7, голова волны 6e32861e021a), голова `484-notify` = 22b70ea5d0a7; corelib #95 (e7d6197fc5dc) и #96 (bdb379942934) MERGED в `77-notify`, голова = 1e6ade53645a; голова `2914-notify` = 4d5295f1ae96; задача #2918 и эпик #2914 OPEN; путь приёмки снят `git ls-tree origin/issue-880 docs/specs/` воркспейса; состав — со слов описаний PR, прогоны мной не перезапускались. `gh` 2026-10-05: kacho PR #3027 MERGED в `2914-notify` merge-коммитом 4517cc69c135 (голова волны 53c14dec394d), голова `2914-notify` = 4517cc69c135; corelib #89 MERGED в `77-notify` (fd6d603b52ca), запись реестра исключений снята #92, голова `77-notify` = 9e358e61e28d; kaname #605 (745640d6c296), #611 (c1b397b735d5), #616 (db080041cd95) MERGED в `484-notify`, голова = db080041cd95; задача #2918 и эпик #2914 OPEN. Пути журнала и справочника сняты `git ls-tree` на 4517cc69c135 и db080041cd95; прогоны мной не перезапускались"
 type: feature
 repos:
   - kacho
@@ -23,11 +23,15 @@ areas:
   - deploy/scripts
 prs:
   - https://github.com/PRO-Robotech/kacho/pull/3027
+  - https://github.com/PRO-Robotech/kacho/pull/3042
   - https://github.com/PRO-Robotech/corelib/pull/89
   - https://github.com/PRO-Robotech/corelib/pull/92
+  - https://github.com/PRO-Robotech/corelib/pull/95
+  - https://github.com/PRO-Robotech/corelib/pull/96
   - https://github.com/PRO-Robotech/kaname/pull/605
   - https://github.com/PRO-Robotech/kaname/pull/611
   - https://github.com/PRO-Robotech/kaname/pull/616
+  - https://github.com/PRO-Robotech/kaname/pull/632
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2918
 opened: 2026-09-29
 closed:
@@ -38,10 +42,11 @@ tags:
 
 # kacho#2918: notify NTF-3 — модули kacho, уведомления о событиях ресурсов
 
-**Состояние на момент записи**: `in-progress`. Первая волна задачи (модули-1, пилот Д114)
-влита в ветки эпиков трёх репозиториев; в `main` не влито ничего. Задача открыта: волна
-модули-1 — фундамент (инициатор в журнале, справочник адресов), сами уведомления модулей
-и перепись «подключается / не подключается» ещё впереди. Статус `done` записке не положен
+**Состояние на момент записи**: `in-progress`. Две волны задачи (модули-1 и модули-2) и
+волна ограды аудитории kaname влиты в ветки эпиков трёх репозиториев; в `main` не влито
+ничего. Задача открыта: влит фундамент (инициатор в журнале, справочник адресов, виды
+журналов, флаг ленты модуля, ограда аудитории), сами уведомления модулей и перепись
+«подключается / не подключается» ещё впереди. Статус `done` записке не положен
 до посадки эпика в `main`.
 
 **Эпик:** https://github.com/PRO-Robotech/kacho/issues/2914. **Блокеры из тела:** #2915,
@@ -60,8 +65,9 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 - Приёмка: `docs/specs/sub-phase-NTF-3-kacho-modules-acceptance.md` (воркспейс; так её
   называет тело задачи, шапки миграций волны пишут
   `sub-phase-NTF-3-kacho-modules-notifications-acceptance.md`). На `origin/main` воркспейса
-  2026-10-05 нет ни одного из двух путей; в ветке `docs-ntf-approved` (координата, не
-  живая ссылка) приёмки NTF-3 тоже нет. Предикат снятия оговорки: путь приёмки резолвится
+  2026-10-07 нет ни одного из двух путей; в ветке `docs-ntf-approved` (координата, не
+  живая ссылка) приёмки NTF-3 тоже нет. Второе имя лежит в ветке `issue-880` (координата,
+  не живая ссылка) — сверено 2026-10-07. Предикат снятия оговорки: путь приёмки резолвится
   на `origin/main` воркспейса — тогда здесь остаётся одно имя.
 - Одобренная редакция, по которой шла волна corelib, — отпечаток `ac1f9fc9…` (со слов
   описания corelib #89).
@@ -99,6 +105,28 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 Механизм — в узких записках, здесь не пересказывается: [[packages/corelib-journaltx]] и
 [[rpc/kaname-internal-notification-recipient-service]].
 
+## Волна модули-2 и предметы рядом
+
+| репозиторий | ветка эпика | PR | merge-коммит | состав |
+|---|---|---|---|---|
+| corelib | `77-notify` | [#95](https://github.com/PRO-Robotech/corelib/pull/95) | `e7d6197fc5dc` | флаг ленты в самоотчёте (`notifications_enabled`), серия `kacho_notifications_enabled{module}` и при 0 |
+| corelib | `77-notify` | [#96](https://github.com/PRO-Robotech/corelib/pull/96) | `bdb379942934` | Д120: запись resource-event реестра исключений возвращена — полоса kacho с функциями resource-event садится после неё |
+| kacho | `2914-notify` | [#3042](https://github.com/PRO-Robotech/kacho/pull/3042) | `829e1a26cb18` | модули-2: S1-A3, S1-A4, S1-A7 (ниже) |
+| kaname | `484-notify` | [#632](https://github.com/PRO-Robotech/kaname/pull/632) | `22b70ea5d0a7` | волна fence: K1 — версия прав `authz_rev` на путевых таблицах, токен `CurrentAuthzRevision`, ограда аудитории в гигиене репозитория (Д133/Д134) |
+
+Состав kacho #3042 (влит 2026-10-06T01:44Z), из описания PR:
+
+- **S1-A3** — новые виды журналов, `NameForm` и `Scope` видов; снятие балансировщика и
+  группы целей nlb несёт имя из `RETURNING`; страница подписки называет четыре новых вида
+  (Д127).
+- **S1-A4** — флаг модуля `KACHO_<MODULE>_NOTIFICATIONS_ENABLED`: загрузчик без умолчания,
+  самоотчёт посадки и серия флага — через corelib; флаг ленты пяти модулей подаётся
+  зонтиком из одного объявления.
+- **S1-A7** — эмиттер nlb через функцию фундамента с дескриптором, личность компонента на
+  проводе.
+- Прямые коммиты ветки: сужатель потока модулей спрашивает о строке ленты отношение
+  `reader`; пин corelib `e7d6197f`, kaname `cbd729cf`; догон `2914-notify` после #3041.
+
 ## DoD (из тела задачи)
 
 Предикат задачи — сценарии приёмки NTF-3 зелёные; перепись модулей в приёмке сходится с
@@ -106,6 +134,8 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 
 - [x] волна модули-1 — фундамент журнала и справочника — влита в ветки эпиков corelib,
   kaname, kacho (#89, #92, #605, #611, #616, #3027);
+- [x] волна модули-2 — виды журналов, флаг модуля, эмиттер nlb — влита в `2914-notify`
+  (#3042); ограда аудитории K1 — в `484-notify` (kaname #632);
 - [ ] модули, которые шлют уведомления, ставят их в свою ленту; шаблоны и строки права;
 - [ ] модули без уведомлений помечены «не подключается»;
 - [ ] отложенные в приёмках уведомления получили предмет либо сняты;
@@ -115,7 +145,7 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 ## Связанные задачи
 
 - [[KAC/issue-2915]] — NTF-1, ядро шлюза уведомлений; блокер из тела.
-- https://github.com/PRO-Robotech/kacho/issues/2914 — эпик «Сервис уведомлений».
+- [[KAC/issue-2914]] — эпик «Сервис уведомлений».
 - https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика: лента, формат шаблона, `notifygen`.
 - https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика: нотификации kaname в ленту, снятие SMTP.
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
@@ -125,6 +155,9 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 - 2026-10-05 — trail заведён после вливания волны модули-1: kacho #3027 (`4517cc69c135`)
   в `2914-notify`, corelib #89 и #92 в `77-notify`, kaname #605, #611, #616 в
   `484-notify`. Статус `in-progress`.
+- 2026-10-07 — внесены волна модули-2 (#3042, `829e1a26cb18`, влита 2026-10-06), corelib
+  #95 и #96, kaname #632 (K1, `22b70ea5d0a7`); место приёмки уточнено. Статус
+  `in-progress`.
 
 ## Затронутые сущности vault
 
