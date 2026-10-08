@@ -22,6 +22,8 @@
 #   коммит мимо хука коммита (--no-verify, commit-tree) → отправка остановлена,
 #       sha назван; близнец → доехал; опубликованный коммит с трейлером в истории
 #       не судится; черновик `wip/*` не освобождён;
+#   законно названная ветка с красным набором и KACHO_SKIP_PREPUSH=1 → отказ
+#       наборов; близнец с зелёным набором и той же переменной → доехал;
 #   судить нечем (пустое сообщение, нет файла, нет предиката или стража) →
 #       отказ, а не молчание.
 #
@@ -245,11 +247,27 @@ on wip/104; nv -m "#104 x" -m "Снята строка шаблона Co-Authore
 delivered "близнец: ключ в середине строки прозы" refs/heads/wip/104
 on wip/105; nv -m "#105 x"; push wip/105
 delivered "опубликованный коммит с трейлером в истории не судится" refs/heads/wip/105
-# Переменная обхода снята из хука (ws#974): с ней отправка по-прежнему судится —
-# голый номер отвергает правило имени, стоящее ПОСЛЕ прежнего обхода.
-on 108; nv -m "#108 x"; attempt env KACHO_SKIP_PREPUSH=1 git push -q origin 108
-stopped "KACHO_SKIP_PREPUSH=1 не обходит хук" refs/heads/108 "голый номер"
-if has "пропущен по"; then badp "хук исполнил KACHO_SKIP_PREPUSH"; else okp; fi
+# Переменная обхода снята из хука (ws#974). Отправка ЗАКОННО названной ветки,
+# которую останавливают ТОЛЬКО наборы (красный run-all в её дереве), с
+# KACHO_SKIP_PREPUSH=1 обязана получить отказ наборов: так видна переменная,
+# исполненная в любом месте хука до наборов, а не только перед правилом имени.
+# Близнец — тот же вход с зелёным набором: доехал, наборы исполнены.
+stub_push() { # <ветка> <код набора>
+    on "$1"; mkdir -p "$F/scripts/stub"
+    printf '#!/usr/bin/env bash
+echo "stub run-all: код %s"
+exit %s
+' "$2" "$2" > "$F/scripts/stub/run-all.sh"
+    git -C "$F" add scripts/stub/run-all.sh; nv -m "#${1%%-*} x"
+    attempt env KACHO_SKIP_PREPUSH=1 git push -q origin "$1"
+}
+stub_push 108-red-suite 1
+stopped "KACHO_SKIP_PREPUSH=1 не снимает красный набор" refs/heads/108-red-suite \
+    "stub run-all: код 1" "исполнено наборов 1, провалено 1" "scripts/stub/run-all.sh"
+stub_push 109-green-suite 0
+if [ "$rc" -eq 0 ] && [ "$(remote_at refs/heads/109-green-suite)" = "$(git -C "$F" rev-parse HEAD)" ] &&
+    has "stub run-all: код 0" && has "локальные проверки воркспейса зелёные"; then okp
+else badp "близнец: зелёный набор с KACHO_SKIP_PREPUSH=1 — код $rc, на удалённом «$(remote_at refs/heads/109-green-suite)», вывод «${out//$'\n'/ | }»"; fi
 on wip/106; nv -m "#106 x" -m "$real_trailer"; push wip/106
 stopped "черновик wip/* с трейлером" refs/heads/wip/106 "атрибуция в сообщении"
 on 107; nv -m "#107 x"; mv "$F/scripts/hooks/prepush-attribution.sh" "$TMP/guard.away"
