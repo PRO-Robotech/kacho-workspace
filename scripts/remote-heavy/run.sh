@@ -76,6 +76,20 @@
 # команды: DNS отвечает, мир (proxy.golang.org:443) доступен, а управление кластера
 # (kubernetes.default.svc:443) и служба ns kacho — нет; иначе 69.
 #
+# Пространство пользователей — главный барьер, и потому оно проверяется ИСПОЛНЕНИЕМ,
+# а не манифестом (ревью ws#984, N1): API-сервер без UserNamespacesSupport молча
+# снимает hostUsers, вебхук — procMount или securityContext. Две проверки:
+#   • после create — сверка фактического spec Job и затем pod (до доставки
+#     исходников, то есть до первой строки кода ветки) с запрошенным: hostUsers
+#     false, нет hostNetwork/hostPID/hostIPC, у каждого контейнера запрошенные поля
+#     securityContext на месте, privileged и возможностей сверх запрошенного нет,
+#     procMount — запрошенный; незапрошенный контейнер — без расширенных прав;
+#   • первой строкой dind и run — /proc/self/uid_map и gid_map: uid 0 контейнера
+#     отображён НЕ в 0 узла, отображения 0 узла и тождественного «0 0 4294967295»
+#     нет. Отказ пишется в termination-log строкой «remote-heavy-userns: …»;
+#     run.sh читает её у любого контейнера (dind — из lastState перезапуска).
+# Расхождение и отказ — 69, ns снимается и при --keep.
+#
 # ИСХОДНИКИ — git bundle ревизии и ствола, переданный в pod потоком kubectl exec
 # (тот же канал, что kubectl cp). Токена нет вовсе: ни git, ни реестра — в
 # кластер не уходит ни одного секрета, а неотправленная ревизия доставляется так
@@ -518,6 +532,47 @@ jq -n --arg ns "$NSNAME" \
 kc apply -f "$BOX/limits.json" >/dev/null || { say "квота ns не поставлена (не выполнилось)"; exit 69; }
 
 # ── Job ──────────────────────────────────────────────────────────────────────
+# spec_drift <запрошенный spec pod> <фактический> — расхождения изоляции строками;
+# пусто — сервер исполнил запрошенное (ИЗОЛЯЦИЯ в шапке). Поля, которые сервер
+# добавил сам (procMount: Default и прочие умолчания), расхождением не являются;
+# снятое, изменённое и расширенное — являются.
+spec_drift() {
+    jq -nr --argjson q "$1" --argjson a "$2" '
+      def ctrs($s): [($s.initContainers // [])[], ($s.containers // [])[]];
+      def sc($c): ($c.securityContext // {});
+      def caps($s): (($s.capabilities // {}).add // []);
+      def wide($s): ($s.privileged == true) or (caps($s) | length > 0) or (($s.procMount // "Default") != "Default");
+      (ctrs($q) | map({key: .name, value: sc(.)}) | from_entries) as $qs
+      | (if $a.hostUsers == false then empty else "hostUsers \($a.hostUsers // "снято") при запрошенном false" end),
+        (["hostNetwork", "hostPID", "hostIPC"][] as $k | select($a[$k] == true) | "\($k) true без запроса"),
+        ($qs | keys[] as $n | select([ctrs($a)[] | select(.name == $n)] | length != 1) | "контейнер \($n): в pod не ровно один"),
+        (ctrs($a)[] as $c | sc($c) as $s | $qs[$c.name] as $r
+         | if $r == null then (select(wide($s)) | "контейнер \($c.name) не запрошен и несёт расширенные права")
+           else ($r | to_entries[] | select($s[.key] != .value)
+                 | "контейнер \($c.name): securityContext.\(.key) запрошено \(.value | tojson), у сервера \($s[.key] | tojson)"),
+                (select($s.privileged == true and $r.privileged != true) | "контейнер \($c.name): privileged без запроса"),
+                ((caps($s) - caps($r)) | select(length > 0) | "контейнер \($c.name): возможности сверх запрошенных: \(join(","))"),
+                (select(($s.procMount // "Default") != ($r.procMount // "Default"))
+                 | "контейнер \($c.name): procMount \($s.procMount // "Default") при запрошенном \($r.procMount // "Default")")
+           end)'
+}
+# verify_spec <что> <фактический spec> — расхождение либо непрочитанный spec — 69,
+# ns снимается и при --keep: прогона не было.
+verify_spec() {
+    local d l
+    if [ -z "$2" ]; then KEEP_H=""; say "$1: фактический spec не прочитан — изоляцию не сверить (не выполнилось)"; exit 69; fi
+    d="$(spec_drift "$REQ_SPEC" "$2")" || { KEEP_H=""; say "$1: сверка spec не исполнилась (не выполнилось)"; exit 69; }
+    if [ -z "$d" ]; then say "$1: spec сверен с запрошенным — hostUsers false, securityContext как запрошен"; return 0; fi
+    KEEP_H=""
+    while IFS= read -r l; do say "$1: $l"; done <<< "$d"
+    say "$1: сервер исполнил не то, что запрошено, — изоляции нет; команда не запускается, ns снимается (не выполнилось)"; exit 69
+}
+# userns_refused <строка> — отказ проверки пространства пользователей в pod.
+userns_refused() {
+    KEEP_H=""
+    say "пространство пользователей pod не изолировано — $1; команда не запускается, ns снимается (не выполнилось)"; exit 69
+}
+
 # Команда — JSON-массивом через NUL: позиционные аргументы jq разбирал бы как свои
 # флаги (`bash -c …` терял `-c`, опыт 2026-10-08).
 CMD_JSON="$(printf '%s\0' "${CMD[@]}" | jq -Rsc 'split("\u0000")[:-1]')" || { say "команда не переведена в JSON"; exit 69; }
@@ -525,6 +580,21 @@ CMD_JSON="$(printf '%s\0' "${CMD[@]}" | jq -Rsc 'split("\u0000")[:-1]')" || { sa
 # Отказ подготовки — не код команды: он пишется в termination-log контейнера
 # строкой «remote-heavy-prep: …» и читается как 69, а не как красное (код 125
 # сам по себе не различим с кодом команды).
+# Проверка пространства пользователей (ИЗОЛЯЦИЯ в шапке) — первой строкой dind и
+# run, в sh busybox и в bash. Маркер «# userns-end» — граница, по которой inject.sh
+# берёт этот текст из Job и исполняет его над поддельным /proc.
+USERNS_SH="$(cat <<'USERNS'
+uf() { echo "remote-heavy-userns: $1" | tee /dev/termination-log >&2; exit 125; }
+for m in /proc/self/uid_map /proc/self/gid_map; do
+  [ -r "$m" ] || uf "$m не читается"
+  awk '$1 == 0 && $2 != 0 && $3 < 4294967295 { z = 1 } $2 == 0 || $3 >= 4294967295 { bad = 1 } END { exit !(z && !bad) }' "$m" \
+    || uf "$m «$(tr -s ' ' < "$m" | tr '\n' ';')» — 0 контейнера отображён в 0 узла либо отображение тождественно: своего пространства пользователей нет"
+done
+echo "remote-heavy: пространство пользователей — uid 0 контейнера = uid $(awk '$1 == 0 { print $2 }' /proc/self/uid_map) узла" >&2
+# userns-end
+USERNS
+)"
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
 PREP='pf() { echo "remote-heavy-prep: $1" | tee /dev/termination-log >&2; exit 125; }; export PATH=/tools:/work/bin:$PATH; cd "/work/src/$HEAVY_WORKDIR" || pf "каталог $HEAVY_WORKDIR в дереве не найден"'
 # Предпосылка сети pod — до команды и до установки инструментов. Положительный
 # контроль (DNS, мир) обязателен: без него «закрыто» читалось бы и при мёртвом DNS.
@@ -548,12 +618,14 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
     PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
-PREP="$PREP; exec \"\$@\""
+PREP="$USERNS_SH
+$PREP; exec \"\$@\""
 
 # dind без privileged (DOCKER в шапке): crun с выключенным cgroup-менеджером —
 # средой исполнения по умолчанию; отказ установки — код 1 бокового, и pod не
 # начнёт команду (75 по сроку), а причина — в логе dind.
-DIND_SH='apk add -q --no-cache crun >/dev/null 2>&1 || { echo "remote-heavy: crun не поставлен" >&2; exit 1; }
+DIND_SH="$USERNS_SH
+"'apk add -q --no-cache crun >/dev/null 2>&1 || { echo "remote-heavy: crun не поставлен" >&2; exit 1; }
 mkdir -p /etc/docker
 printf "%s" "{\"runtimes\":{\"crun\":{\"path\":\"/usr/bin/crun\",\"runtimeArgs\":[\"--cgroup-manager=disabled\"]}},\"default-runtime\":\"crun\"}" > /etc/docker/daemon.json
 exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirror.gcr.io'
@@ -612,9 +684,14 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     > "$BOX/job.json"
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
 T0="$(now)"
+REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
+verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
 say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')"
 
-# pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|планирование».
+# pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
+# планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
+# termination-log ЛЮБОГО контейнера, текущем или прежнем (боковой dind после отказа
+# перезапускается, и его отказ — в lastState).
 pod_state() {
     kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null | jq -r '
       (.items[0] // {}) as $p |
@@ -624,7 +701,11 @@ pod_state() {
         (st("run").state.terminated.exitCode // "" | tostring), (st("run").state.terminated.reason // ""),
         ((st("run").state.terminated.message // "") | gsub("[|\n]"; " ")),
         ([($p.status.initContainerStatuses // [])[], ($p.status.containerStatuses // [])[]] | map(.state.waiting.reason // empty) | map(select(test("^PodInitializing$") | not)) | join(",")),
-        (($p.status.conditions // []) | map(select(.type == "PodScheduled" and .status == "False") | .message) | join(" ")) ] | join("|")'
+        (($p.status.conditions // []) | map(select(.type == "PodScheduled" and .status == "False") | .message) | join(" ") | gsub("[|\n]"; " ")),
+        ([($p.status.initContainerStatuses // [])[], ($p.status.containerStatuses // [])[]]
+         | map(.name as $n | ((.state.terminated.message // ""), (.lastState.terminated.message // ""))
+               | select(startswith("remote-heavy-userns:")) | "\($n): \(.)")
+         | first // "" | gsub("[|\n]"; " ")) ] | join("|")'
 }
 
 # wait_bg <pid> — ждать фонового: wait прерывается сигналом, и trap снимает ns сразу.
@@ -640,7 +721,8 @@ git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
 POD=""
 while :; do
-    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED USERNS <<< "$(pod_state)"
+    [ -z "$USERNS" ] || userns_refused "$USERNS"
     [ "$FETCH_ST" = running ] && break
     case "$WAITR" in
         *ErrImagePull*|*ImagePullBackOff*|*InvalidImageName*|*CreateContainerConfigError*)
@@ -659,13 +741,17 @@ while :; do
     fi
     sleep 3 & wait_bg $!
 done
+# Сверка pod — до доставки: без исходников в pod нет ни строки кода ветки.
+verify_spec "pod $POD" "$(kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null \
+                          | jq -c --arg p "$POD" '.items[] | select(.metadata.name == $p) | .spec' 2>/dev/null)"
 kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/in.bundle && touch /work/in.done' < "$BOX/src.bundle" & wait_bg $! \
     || { say "исходники не доставлены в pod (не выполнилось)"; exit 69; }
 say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job"
 
 # ── команда ──────────────────────────────────────────────────────────────────
 while :; do
-    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR _ <<< "$(pod_state)"
+    IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR _ USERNS <<< "$(pod_state)"
+    [ -z "$USERNS" ] || userns_refused "$USERNS"
     [ "$RUN_ST" = running ] || [ "$RUN_ST" = terminated ] && break
     if [ "$PHASE" = Failed ] || [ -z "$POD" ]; then
         kc -n "$NSNAME" logs "$POD" -c fetch 2>/dev/null | tail -n 20 | mask >&2
@@ -686,7 +772,7 @@ while :; do
     # публикует позже: без ожидания конец потока читался обрывом, и переподключение
     # повторяло хвост лога (опыт 2026-10-08: 68 строк дважды).
     for _ in 1 2 3 4 5 6; do
-        IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ <<< "$(pod_state)"
+        IFS='|' read -r POD PHASE _ RUN_ST RUN_RC RUN_REASON RUN_MSG _ _ USERNS <<< "$(pod_state)"
         [ "$RUN_ST" = terminated ] && break
         sleep 2 & wait_bg $!
     done
@@ -705,6 +791,7 @@ if [ "$RUN_ST" != terminated ]; then
     esac
     say "результат команды не прочитан: pod ${POD:-нет}, фаза ${PHASE:-нет}, Job ${reason:-без условия} — не выполнилось"; exit 69
 fi
+[ -z "$USERNS" ] || userns_refused "$USERNS"
 if [[ "$RUN_MSG" == remote-heavy-prep:* ]]; then
     say "подготовка pod не удалась: ${RUN_MSG#remote-heavy-prep: } — команда не запускалась (не выполнилось)"; exit 69
 fi
