@@ -1,0 +1,35 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kacho PR #3103 (повтор по дельте).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kacho
+  pr: 3103
+  branch: 2917-wave-edge-2
+  base: 515e017c873a1d1be23592e3e3757462a5a13e7e   # = origin/2914-notify = merge-base с головой
+  head: ea771dfe44263a7c22e89da1d5ea51ab652884ce
+  previous_head: 8fa4b5ca8d801fc25a046da24339a31849b7bb11   # запись 0fb916e4…
+  content_digest: 3419f711ca9c1a5de91a09aa225abb96cce1519869105cd077d4cab19f51401c
+  digest_predicate: git diff origin/2914-notify...ea771dfe44 | sha256sum   # перемерено дважды, совпало
+  premise_remeasured: >-
+    Дельта 8fa4b5ca..ea771dfe: 1 коммит (ea771dfe44, предок-проверка пройдена), 1 путь —
+    ui-future/e2e/specs/ntf2-58-limiter-refusal.spec.ts (путь к файлу векторов PoW от testDir
+    вместо import.meta.url). Полный дифф база..голова: 33 пути; путей
+    services/*/internal/migrations/*.sql, *.sql и internal/repo/** — 0
+    (git diff --name-only origin/2914-notify...ea771dfe44 | grep -cE '(migrations/.*\.sql|internal/repo/|\.sql$)' → 0).
+snapshot_at: 2026-10-08
+
+migrations_touched: 0
+verdict: ACCEPTED   # роль неприменима по предикату no-migrations-in-change; находок нет
+blocks: false
+return_to: —
+
+runs: []   # предмета схемы нет — пробы с конкурирующими транзакциями не требуются
+approved:
+  - "дельта касается только браузерной пробы; миграций, repo-SQL, ограничений, индексов нет"
+findings: []
+orders: []
+distributed_overlap: false
