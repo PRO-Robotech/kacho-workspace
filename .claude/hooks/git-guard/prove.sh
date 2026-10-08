@@ -19,6 +19,16 @@
 # в шапке стража устарел. Поломка стража (вход не JSON, нет разборщика) обязана
 # быть пропуском со словом «СЛОМАН», а не отказом всему.
 #
+# Сокращение опции — класс (git принимает однозначный префикс длинной опции, и
+# однозначность своя у каждой подкоманды): таблица префиксов ниже на каждую
+# запрещённую опцию несёт строку с минимальным однозначным префиксом (отказ) и
+# строку на знак короче (близнец: git называет его ambiguous — пропуск). Перед
+# судом стража каждая строка проверяет ПРЕДПОСЫЛКУ настоящим git: префикс отказа
+# git принимает, префикс близнеца git отвергает (`ambiguous`/`unknown option`) —
+# иначе таблица описывает не тот git, что стоит на машине. Инъекция «порог на
+# знак длиннее» (копия стража с `return n + 1`) обязана замолчать хотя бы на одной
+# строке отказа.
+#
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — вход не построен.
 # Команды ниже — ВХОДЫ стража, а не исполняемый код: раскрывать их нельзя.
 # shellcheck disable=SC2016
@@ -44,6 +54,15 @@ if ! git init -q -b main "$WORK/onmain" 2>/dev/null || ! git init -q -b 974-x "$
     exit 2
 fi
 mkdir -p "$WORK/onlane/sub"
+# конфиги для ветви «заранее записанный файл с core.hooksPath»: прямой, через
+# include и законный близнец без него
+printf '[core]\n\thooksPath = /dev/null\n' > "$WORK/hp.cfg"
+printf '[include]\n\tpath = hp.cfg\n' > "$WORK/inc.cfg"
+printf '[user]\n\tname = probe\n' > "$WORK/clean.cfg"
+# репозиторий предпосылки: в нём НАСТОЯЩИЙ git судит префиксы таблицы; удалённого
+# нет, mbox и ссылок нет — команда падает после разбора опций, ничего не меняя
+P="$WORK/premise"
+git init -q -b 974-x "$P" 2>/dev/null || { echo "[VOID] git-guard: репозиторий предпосылки не построен" >&2; exit 2; }
 
 assert() {
     if [ "$1" = "$2" ]; then
@@ -55,10 +74,11 @@ assert() {
     fi
 }
 
-# run <команда> [cwd] [инструмент] — код хука; вывод в $WORK/out
+# run <команда> [cwd] [инструмент] — код хука ($USE_HOOK, по умолчанию настоящий); вывод в $WORK/out
+USE_HOOK="$HOOK"
 run() {
     python3 -I -c 'import json,sys; print(json.dumps({"tool_name":sys.argv[3],"tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' \
-        "$1" "${2:-$WORK}" "${3:-Bash}" | bash "$HOOK" > "$WORK/out" 2>&1
+        "$1" "${2:-$WORK}" "${3:-Bash}" | bash "$USE_HOOK" > "$WORK/out" 2>&1
     echo $?
 }
 
@@ -96,8 +116,6 @@ denies no-verify    'git am --no-verify p.mbox' "$L"
 denies no-verify    'git am -n p.mbox' "$L"
 denies no-verify    'git am -3n p.mbox' "$L"
 denies no-verify    'git rebase --no-verify main' "$L"
-denies no-verify    'git cherry-pick --no-verify abc123' "$L"
-denies no-verify    'git revert --no-verify abc123' "$L"
 denies skip-prepush 'KACHO_SKIP_PREPUSH=1 git push -u origin 974-x' "$L"
 denies skip-prepush 'export KACHO_SKIP_PREPUSH=1; git push' "$L"
 denies force        'git push --force origin 974-x' "$L"
@@ -144,6 +162,15 @@ denies force        "printf '974-x' | xargs -I{} git push --force origin {}" "$L
 denies force        'find . -maxdepth 0 -exec git push -f origin 974-x \;' "$L"
 denies force        'eval "git push -f origin 974-x"' "$L"
 denies no-verify    'F=--no-verify; git commit $F -m x' "$L"
+denies hookspath    "GIT_CONFIG_GLOBAL=$WORK/hp.cfg git commit -m x" "$L"
+denies hookspath    "GIT_CONFIG_GLOBAL=$WORK/inc.cfg git commit -m x" "$L"
+denies hookspath    "export GIT_CONFIG_SYSTEM=$WORK/hp.cfg; git push" "$L"
+denies hookspath    "cd $WORK && GIT_CONFIG_GLOBAL=hp.cfg git commit -m x" "$L"
+denies hookspath    "git -c include.path=$WORK/hp.cfg commit -m x" "$L"
+denies hookspath    "git -c includeIf.onbranch:974-x.path=$WORK/inc.cfg commit -m x" "$L"
+denies hookspath    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=include.path GIT_CONFIG_VALUE_0=$WORK/hp.cfg git commit -m x" "$L"
+denies hookspath    "git config --global include.path $WORK/hp.cfg" "$L"
+denies hookspath    "git config set include.path $WORK/inc.cfg" "$L"
 
 echo "── законные близнецы → пропуск без единого слова"
 passes 'git push -u origin 974-x' "$L"
@@ -196,6 +223,123 @@ passes 'gh -R PRO-Robotech/kacho pr merge 12 --merge' "$L"
 passes 'gh --repo PRO-Robotech/kacho pr view 12' "$L"
 passes 'gh pr merge 12 --merge --admin=false' "$L"
 passes 'gh pr view 12 --json title' "$L"
+passes 'GIT_CONFIG_GLOBAL=/dev/null git commit -m x' "$L"
+passes "GIT_CONFIG_GLOBAL=$WORK/clean.cfg git commit -m x" "$L"
+passes "git -c include.path=$WORK/clean.cfg commit -m x" "$L"
+passes "git config include.path $WORK/clean.cfg" "$L"
+passes "git config --get include.path" "$L"
+
+echo "── cherry-pick и revert: --no-verify у них нет (предпосылка — перечень опций git)"
+for sub in cherry-pick revert; do
+    if git -C "$P" "$sub" --git-completion-helper-all 2>/dev/null | tr ' ' '\n' | grep -qx -- '--no-verify'; then
+        echo "  [FAIL] предпосылка: у git $sub есть --no-verify ($(git --version)) — вернуть $sub в NO_VERIFY_SUBS" >&2
+        fail=$((fail + 1))
+    else
+        echo "  [OK]   предпосылка: у git $sub нет --no-verify"; pass=$((pass + 1))
+    fi
+    passes "git $sub --no-verify abc123" "$L"
+done
+
+# git_says <sub> <слова…> — вердикт НАСТОЯЩЕГО git о разборе опций: refused | accepted
+git_says() {
+    local sub="$1"; shift
+    local err
+    err="$(LC_ALL=C GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+           timeout 10 git -C "$P" "$sub" "$@" 2>&1 < /dev/null | head -n 3)"
+    case "$err" in
+        *"ambiguous option"*|*"unknown option"*|*"unknown switch"*) echo refused ;;
+        *) echo accepted ;;
+    esac
+}
+
+# Таблица префиксов: вид|подкоманда|префикс|хвост|ожидание. Префикс — минимальный
+# однозначный (deny) либо на знак короче (pass, близнец). У --mirror и --branches
+# минимальный префикс — одна буква (`--m`, `--b`): короче только `--`, конец опций,
+# поэтому близнеца нет. Строки `--no-ver` у am, `--bran`/`--br`/`--mir` — длиннее
+# минимального, обязательные строки отказа задачи.
+PREFIX_ROWS="
+no-verify|commit|--no-veri|-m x|deny
+no-verify|commit|--no-ver|-m x|pass
+no-verify|push|--no-veri|origin 974-x|deny
+no-verify|push|--no-ver|origin 974-x|pass
+no-verify|merge|--no-verify|origin/main|deny
+no-verify|merge|--no-verif|origin/main|pass
+no-verify|pull|--no-verify|origin 974-x|deny
+no-verify|pull|--no-verif|origin 974-x|pass
+no-verify|am|--no-v|p.mbox|deny
+no-verify|am|--no-|p.mbox|pass
+no-verify|am|--no-ver|p.mbox|deny
+no-verify|rebase|--no-veri|main|deny
+no-verify|rebase|--no-ver|main|pass
+force|push|--force|origin 974-x|deny
+force|push|--forc|origin 974-x|pass
+force|push|--force-w|origin 974-x|deny
+force|push|--force-|origin 974-x|pass
+push-all|push|--m|origin|deny
+push-all|push|--mir|origin|deny
+push-all|push|--al|origin|deny
+push-all|push|--a|origin|pass
+push-all|push|--b|origin|deny
+push-all|push|--br|origin|deny
+push-all|push|--bran|origin|deny
+"
+echo "── сокращения: минимальный однозначный префикс → отказ, на знак короче → пропуск"
+prefix_deny=()
+while IFS='|' read -r kind sub pre tail want; do
+    [ -n "$kind" ] || continue
+    read -ra tw <<< "$tail"
+    said="$(git_says "$sub" "$pre" "${tw[@]}")"
+    expect_git=accepted; [ "$want" = pass ] && expect_git=refused
+    if [ "$said" != "$expect_git" ]; then
+        echo "  [FAIL] предпосылка: git $sub $pre — git $said, а таблица ждёт $expect_git ($(git --version))" >&2
+        fail=$((fail + 1))
+    else
+        pass=$((pass + 1))
+    fi
+    if [ "$want" = deny ]; then
+        denies "$kind" "git $sub $pre $tail" "$L"
+        prefix_deny+=("git $sub $pre $tail")
+    else
+        passes "git $sub $pre $tail" "$L"
+    fi
+done <<< "$PREFIX_ROWS"
+
+echo "── gh (pflag): сокращений нет — --admi не --admin"
+if command -v gh > /dev/null 2>&1; then
+    # вывод сначала в переменную: gh выходит кодом 1, и под pipefail труба в grep
+    # дала бы «не нашлось» при найденной строке
+    gh_said="$(GH_PROMPT_DISABLED=1 timeout 10 gh pr merge 12 --admi 2>&1 < /dev/null)"
+    if [[ "$gh_said" == *"unknown flag: --admi"* ]]; then
+        echo "  [OK]   предпосылка: gh отвергает --admi как unknown flag"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] предпосылка: gh принял --admi — у gh появились сокращения, страж слеп" >&2
+        fail=$((fail + 1))
+    fi
+else
+    echo "  [SKIP] предпосылка gh не проверена: gh нет в PATH (строка ниже судит только стража)"
+fi
+passes 'gh pr merge 12 --admi --merge' "$L"
+
+echo "── инъекция: порог на знак длиннее обязан замолчать хотя бы на одной строке отказа"
+INJ="$WORK/inj"
+mkdir -p "$INJ/git-guard" "$INJ/heavy-guard"
+cp "$HOOK" "$INJ/git-guard.sh"; cp "$PARSER" "$INJ/heavy-guard/guard.py"
+sed 's/^\( *\)return n  # порог:/\1return n + 1  # порог:/' "$GUARD" > "$INJ/git-guard/guard.py"
+if [ "$(grep -c 'return n + 1  # порог:' "$INJ/git-guard/guard.py")" != 1 ]; then
+    echo "  [FAIL] инъекция не встала: строки «return n  # порог:» в guard.py нет — проба слепа" >&2
+    fail=$((fail + 1))
+else
+    USE_HOOK="$INJ/git-guard.sh"; silent=0
+    for c in "${prefix_deny[@]}"; do
+        rc="$(run "$c" "$L")"
+        if [ "$rc" = 0 ]; then
+            echo "  [MUTE] порог+1 пропускает: $c"; silent=$((silent + 1))
+        fi
+    done
+    USE_HOOK="$HOOK"
+    assert "да" "$([ "$silent" -ge 1 ] && echo да || echo нет)" \
+        "инъекция порог+1: замолчало $silent из ${#prefix_deny[@]} строк отказа (нужно ≥ 1)"
+fi
 
 echo "── граница стража (BOUNDARY в guard.py): известно, не ловится"
 while IFS= read -r -d '' cls && IFS= read -r -d '' example; do

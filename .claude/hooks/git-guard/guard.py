@@ -12,11 +12,11 @@ Bash и Monitor и отказывает (код 2, текст в stderr — ви
 такой команде, называя, ЧТО делать вместо.
 
 Что отказывается:
-  · `--no-verify` у git commit/push/merge/pull/am/rebase/cherry-pick/revert, в
-    том числе сокращением (`--no-veri`) и `-n` в связке коротких флагов commit и am
-    (`-anm msg`, `am -n`: в git 2.53 у обоих `-n` = `--no-verify`); у merge,
-    rebase, pull, push, cherry-pick, revert `-n` — другое (--no-stat, --dry-run,
-    --no-commit), не судится;
+  · `--no-verify` у git commit/push/merge/pull/am/rebase и `-n` в связке коротких
+    флагов commit и am (`-anm msg`, `am -n`: в git 2.53 у обоих `-n` = `--no-verify`);
+    у merge, rebase, pull, push `-n` — другое (--no-stat, --dry-run), не судится.
+    У cherry-pick и revert `--no-verify` нет вовсе (git 2.53, `git <sub> -h`: git
+    отвергает его как unknown option) — формы обхода у них нет, и они не судятся;
   · присваивание `KACHO_SKIP_PREPUSH` не нулём — перед командой и `export`;
   · git push с `--force`, `-f` (и в связке), `--force-with-lease[=…]`, refspec с
     `+`, а также `--mirror`/`--all`/`--branches` (переписывают либо шлют ствол);
@@ -26,13 +26,33 @@ Bash и Monitor и отказывает (код 2, текст в stderr — ви
     каталоге команды: `cd`, `-C`, `--git-dir` и `GIT_DIR` учтены);
   · `gh pr merge … --admin`, в том числе с `-R`/`--repo <репо>` перед `pr`;
   · перенаправление хуков: `git -c core.hooksPath=…`, `--config-env=core.hooksPath=…`,
-    `GIT_CONFIG_KEY_<n>=core.hooksPath`, `GIT_CONFIG_PARAMETERS` с ним и запись
-    `git config [set|--add|--replace-all] core.hooksPath …`.
+    `GIT_CONFIG_KEY_<n>=core.hooksPath`, `GIT_CONFIG_PARAMETERS` с ним, запись
+    `git config [set|--add|--replace-all] core.hooksPath …` и ЗАРАНЕЕ ЗАПИСАННЫЙ
+    файл конфигурации, задающий `core.hooksPath` (сам или через свой include):
+    `GIT_CONFIG_GLOBAL=`/`GIT_CONFIG_SYSTEM=<файл>`, `-c include.path=<файл>`,
+    `-c includeIf.<усл>.path=<файл>`, `GIT_CONFIG_KEY_<n>=include.path` с
+    `GIT_CONFIG_VALUE_<n>=<файл>`, `git config include.path <файл>`. Файл читает
+    сам git (`git config --file <файл> --includes --get-all core.hooksPath`).
+
+СОКРАЩЕНИЕ ОПЦИИ — класс, а не экземпляры. Git (parse-options) принимает любой
+ОДНОЗНАЧНЫЙ префикс длинной опции, и однозначность считается по перечню опций
+ИМЕННО ЭТОЙ подкоманды: `git am --no-v` — это `--no-verify` (у am нет
+`--no-verbose`), а `git commit --no-v` git отвергает как ambiguous. Поэтому порога
+«одна длина на всех» нет: страж берёт перечень у самого git, который будет
+исполнять команду (`git <sub> --git-completion-helper-all` в каталоге команды), и
+выводит для запрещённой опции минимальный однозначный префикс (`min_prefix_len`).
+Неоднозначный префикс — пропуск: git его не исполнит. Полное имя отказывается и без
+перечня. Перечень не получен (каталог не репозиторий, git не ответил) — порог
+опускается до трёх знаков (`--x`): лишний отказ на команде, которую git всё равно
+не исполнил бы, дешевле пропуска. У gh (pflag) сокращений нет: `--admi` — unknown
+flag, отказывается только `--admin`.
 
 Что НЕ отказывается (законные близнецы, prove.sh исполняет каждый): обычный
 `git push -u origin <N>-<суть>`, удаление своей ветки (`push -d`, `:ветка`),
-`--no-force-with-lease`, чтение `git config core.hooksPath` и `--get`, его снятие
-`--unset` (лечение «hooksPath в никуда», которое ловит hooks-wired.sh),
+`--no-force-with-lease`, префикс на знак короче минимального (git называет его
+ambiguous), `--no-verify` у cherry-pick/revert, чтение `git config core.hooksPath` и
+`--get`, его снятие `--unset` (лечение «hooksPath в никуда», которое ловит
+hooks-wired.sh), `GIT_CONFIG_GLOBAL=/dev/null` и конфиг без `core.hooksPath`,
 `gh pr merge` без `--admin` любым способом (способ вливания судит сервер
 настройкой репозитория, а не страж), и запрет, упомянутый ТЕКСТОМ: в echo/grep,
 в сообщении коммита, в комментарии, в теле heredoc, которое пишется в файл.
@@ -68,7 +88,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PARSER = os.path.join(os.path.dirname(HERE), "heavy-guard", "guard.py")
 
 PROTECTED = {"main", "master"}
-NO_VERIFY_SUBS = {"commit", "push", "merge", "pull", "am", "rebase", "cherry-pick", "revert"}
+# у cherry-pick и revert `--no-verify` нет (git 2.53: unknown option) — не судятся
+NO_VERIFY_SUBS = {"commit", "push", "merge", "pull", "am", "rebase"}
+# запрещённые длинные опции push сверх `--no-verify`: вид отказа по полному имени
+PUSH_FORBIDDEN = (("--force", "force"), ("--force-with-lease", "force"),
+                  ("--mirror", "push-all"), ("--all", "push-all"), ("--branches", "push-all"))
+# порог, когда перечень опций подкоманды не получен: любой префикс от `--x`
+MIN_PREFIX_FALLBACK = 3
 GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix",
                     "--config-env", "--attr-source"}
 # опции подкоманды, берущие значение СЛЕДУЮЩИМ словом: оно — не флаг и не refspec
@@ -110,6 +136,9 @@ BOUNDARY = (
     ("файл, записанный и запущенный той же строкой", "printf 'git push -f\\n' > p.sh && bash p.sh"),
     ("запуск из другого языка", "python3 -c \"import os; os.system('git push --force')\""),
     ("настройка remote.*.push, сохранённая заранее", "git push origin"),
+    ("конфиг с core.hooksPath, записанный той же строкой",
+     "printf '[core]\\n\\thooksPath = /dev/null\\n' > g.cfg && GIT_CONFIG_GLOBAL=g.cfg git commit -m x"),
+    ("include.path, взятый из переменной через --config-env", "git --config-env=include.path=INC commit -m x"),
 )
 
 DENY = {
@@ -165,21 +194,102 @@ def is_hookspath(key):
     return key.strip().lower() == "core.hookspath"
 
 
-def env_findings(assignments):
+def is_include(key):
+    """`include.path` и `includeIf.<условие>.path` — подключение файла конфигурации."""
+    key = key.strip().lower()
+    return key == "include.path" or (key.startswith("includeif.") and key.endswith(".path"))
+
+
+def file_sets_hookspath(path, cwd):
+    """Файл конфигурации, уже лежащий на диске, задаёт `core.hooksPath` сам или через
+    свой include. Читает его сам git — разбор формата не заводится второй раз. Файла
+    ещё нет (записывается той же строкой) или путь в подстановке — не судится:
+    граница стража, строка BOUNDARY."""
+    path = path.strip("'\"")
+    if not path or "$" in path or "__SUBST__" in path:
+        return False
+    full = os.path.join(cwd or os.getcwd(), os.path.expanduser(path))
+    if not os.path.isfile(full):
+        return False
+    try:
+        out = subprocess.run(["git", "config", "--file", full, "--includes", "--get-all",
+                              "core.hookspath"], capture_output=True, text=True, timeout=3,
+                             stdin=subprocess.DEVNULL,
+                             env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")})
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return out.returncode == 0 and out.stdout.strip() != ""
+
+
+def env_findings(assignments, cwd=None):
+    values = dict(e.partition("=")[::2] for e in assignments)
     for e in assignments:
         name, _, val = e.partition("=")
-        if name == SKIP_ENV and val.strip("'\"") not in ("", "0"):
+        bare = val.strip("'\"")
+        m = re.match(r"^GIT_CONFIG_KEY_(\d+)$", name)
+        if name == SKIP_ENV and bare not in ("", "0"):
             yield "skip-prepush", e
-        elif re.match(r"^GIT_CONFIG_KEY_\d+$", name) and is_hookspath(val.strip("'\"")):
+        elif m and is_hookspath(bare):
             yield "hookspath", e
+        elif m and is_include(bare) and \
+                file_sets_hookspath(values.get("GIT_CONFIG_VALUE_" + m.group(1), ""), cwd):
+            yield "hookspath", "%s GIT_CONFIG_VALUE_%s=%s" % (e, m.group(1),
+                                                              values["GIT_CONFIG_VALUE_" + m.group(1)])
         elif name == "GIT_CONFIG_PARAMETERS" and "core.hookspath" in val.lower():
             yield "hookspath", e
+        elif name in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM") and file_sets_hookspath(val, cwd):
+            yield "hookspath", e
 
 
-def no_verify_word(a):
-    """`--no-verify` и его однозначные сокращения (git принимает префикс длинной опции)."""
-    head = a.split("=", 1)[0]
-    return len(head) >= len("--no-veri") and "--no-verify".startswith(head)
+def long_options(sub, where, gitdir=None):
+    """Перечень длинных опций подкоманды у того git, который её исполнит; None — не
+    получен. `--git-completion-helper-all` требует репозитория, поэтому зовётся в
+    каталоге команды (`-C`, `--git-dir`), как и `current_branch`."""
+    cmd = ["git", "-C", where]
+    if gitdir:
+        cmd.append("--git-dir=" + os.path.join(where, os.path.expanduser(gitdir)))
+    try:
+        out = subprocess.run(cmd + [sub, "--git-completion-helper-all"], capture_output=True,
+                             text=True, timeout=3, stdin=subprocess.DEVNULL,
+                             env={k: v for k, v in os.environ.items() if k != "GIT_DIR"})
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    opts = {w.rstrip("=") for w in out.stdout.split() if w.startswith("--") and len(w) > 2}
+    return opts or None
+
+
+def min_prefix_len(target, options):
+    """Длина минимального префикса `target`, который git этой подкоманды однозначно
+    разрешает в `target`: полное имя — всегда (точное совпадение бьёт сокращение),
+    короче — когда ни одна другая опция перечня с этого префикса не начинается."""
+    if options is None:
+        return MIN_PREFIX_FALLBACK
+    for n in range(MIN_PREFIX_FALLBACK, len(target) + 1):
+        p = target[:n]
+        if p == target or all(o == target or not o.startswith(p) for o in options):
+            return n  # порог: минимальный однозначный префикс
+    return len(target)
+
+
+class Options:
+    """Перечень опций подкоманды, запрошенный у git не больше одного раза и только
+    когда в команде есть СОКРАЩЕНИЕ запрещённой опции (полное имя судится без него)."""
+
+    def __init__(self, sub, where, gitdir):
+        self.sub, self.where, self.gitdir, self.got, self.opts = sub, where, gitdir, False, None
+
+    def names(self, word, target):
+        """`word` — запрещённая опция `target` полным именем или её сокращением."""
+        head = word.split("=", 1)[0]
+        if head == target:
+            return True
+        if len(head) < MIN_PREFIX_FALLBACK or not target.startswith(head):
+            return False
+        if not self.got:
+            self.opts, self.got = long_options(self.sub, self.where, self.gitdir), True
+        return len(head) >= min_prefix_len(target, self.opts)
 
 
 def split_opts(sub, rest):
@@ -243,17 +353,18 @@ def strip_heads(ref):
     return ref[len("refs/heads/"):] if ref.startswith("refs/heads/") else ref
 
 
-def push_findings(flags, pos, where, gitdir=None):
+def push_findings(flags, pos, where, gitdir=None, opts=None):
     shown = " ".join(["git", "push"] + flags + pos)
+    opts = opts or Options("push", where, gitdir)
     for a in flags:
-        head = a.split("=", 1)[0]
-        if head == "--force" or (len(head) >= len("--force-w") and "--force-with-lease".startswith(head)) \
-                or bundle_has(a, "f", SHORT_VALUE["push"]):
+        if bundle_has(a, "f", SHORT_VALUE["push"]):
             yield "force", shown
             return
-        if head in ("--mirror", "--all", "--branches"):
-            yield "push-all", shown
-            return
+        if a.startswith("--"):
+            for target, kind in PUSH_FORBIDDEN:
+                if opts.names(a, target):
+                    yield kind, shown
+                    return
     refspecs = pos[1:]
     if any(r.startswith("+") for r in refspecs):
         yield "force", shown
@@ -273,7 +384,7 @@ def push_findings(flags, pos, where, gitdir=None):
             yield "trunk", shown
 
 
-def config_findings(rest):
+def config_findings(rest, where=None):
     flags, pos, k = [], [], 0
     while k < len(rest):
         a = rest[k]
@@ -288,7 +399,8 @@ def config_findings(rest):
         k += 1
     shown = " ".join(["git", "config"] + rest)
     if pos[:1] == ["set"]:  # форма подкоманд git ≥ 2.46: `git config set <ключ> <значение>`
-        if len(pos) > 1 and is_hookspath(pos[1]):
+        if len(pos) > 2 and (is_hookspath(pos[1])
+                             or (is_include(pos[1]) and file_sets_hookspath(pos[2], where))):
             yield "hookspath", shown
         return
     if pos[:1] and pos[0] in ("get", "list", "unset", "edit", "rename-section", "remove-section"):
@@ -297,7 +409,8 @@ def config_findings(rest):
         return
     # запись — ключ И значение позиционными (`--add`/`--replace-all` без значения
     # git отвергает сам, поэтому отдельной ветви по этим флагам нет)
-    if len(pos) >= 2 and is_hookspath(pos[0]):
+    if len(pos) >= 2 and (is_hookspath(pos[0])
+                          or (is_include(pos[0]) and file_sets_hookspath(pos[1], where))):
         yield "hookspath", shown
 
 
@@ -319,8 +432,10 @@ def git_findings(args, cwd, gitdir=None):
         head, eq, val = a.partition("=")
         if a == "-C" and k + 1 < len(args):
             where = os.path.join(where or os.getcwd(), os.path.expanduser(args[k + 1]))
-        if a == "-c" and k + 1 < len(args) and is_hookspath(args[k + 1].split("=", 1)[0]):
-            yield "hookspath", "git -c " + args[k + 1]
+        if a == "-c" and k + 1 < len(args):
+            key, _, cval = args[k + 1].partition("=")
+            if is_hookspath(key) or (is_include(key) and file_sets_hookspath(cval, where)):
+                yield "hookspath", "git -c " + args[k + 1]
         if head == "--git-dir":
             gitdir = val if eq else (args[k + 1] if k + 1 < len(args) else gitdir)
         if head == "--config-env":
@@ -333,14 +448,16 @@ def git_findings(args, cwd, gitdir=None):
     sub, rest = args[k], args[k + 1:]
     if sub in NO_VERIFY_SUBS:
         flags, pos = split_opts(sub, rest)
+        opts = Options(sub, where or os.getcwd(), gitdir)
         for a in flags:
-            if no_verify_word(a) or (sub in SHORT_NO_VERIFY and bundle_has(a, "n", SHORT_VALUE[sub])):
+            if (a.startswith("--") and opts.names(a, "--no-verify")) \
+                    or (sub in SHORT_NO_VERIFY and bundle_has(a, "n", SHORT_VALUE[sub])):
                 yield "no-verify", " ".join(["git", sub] + rest)
                 return
         if sub == "push":
-            yield from push_findings(flags, pos, where or os.getcwd(), gitdir)
+            yield from push_findings(flags, pos, where or os.getcwd(), gitdir, opts)
     elif sub == "config":
-        yield from config_findings(rest)
+        yield from config_findings(rest, where or os.getcwd())
 
 
 def gh_findings(args):
@@ -379,7 +496,7 @@ class Judge:
         vis, cur = [], cwd
         for seg in hg.split_commands(stripped):
             env, argv = hg.unwrap(hg.expand_words(hg.words(seg), vis))
-            yield from env_findings(env)
+            yield from env_findings(env, cur)
             if not argv:
                 vis.extend(env)
                 continue
@@ -390,7 +507,7 @@ class Judge:
                 continue
             if base in hg.DECLARE:
                 assigns = [a for a in argv[1:] if hg.ASSIGN.match(a)]
-                yield from env_findings(assigns)
+                yield from env_findings(assigns, cur)
                 vis.extend(assigns)
                 continue
             yield from self.argv(argv, cur, depth, vis + env)
@@ -424,7 +541,7 @@ class Judge:
                             break
                         sub.append(w)
                     sub_env, sub = hg.unwrap(sub)
-                    yield from env_findings(sub_env)
+                    yield from env_findings(sub_env, cur)
                     if sub:
                         yield from self.argv(sub, cur, depth, list(env) + sub_env)
 
