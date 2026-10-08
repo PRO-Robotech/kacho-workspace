@@ -1,0 +1,51 @@
+role: security-auditor
+mode: пост-дифф ревью (поверхность, права, секреты), один круг, весь диапазон запроса
+subject: PRO-Robotech/kacho PR #3072 — волна E1 линии E (#2919): исход SUPPRESSED в ленте corelib.notify и ручки NTF-4 стадии S1
+fingerprint:
+  repo: PRO-Robotech/kacho
+  base: 4d5295f1ae96ddb12fe2e228d4cf81d0101f8ec4   # git merge-base origin/2914-notify head
+  head: 64c2c938e9b281e9d35ae0e356e4e8e9727d45fe   # = headRefOid gh pr view 3072
+  digest: 776afd2407b5399763d2c4e39c3b4659967e7a80fbbc3d6552339b2f21f502ff   # git diff --binary base head | sha256sum
+  diff: 11 коммитов, 23 файла, +2592/-66
+verdict: accept
+inspected:
+  - proto/corelib/notify/feed.proto — вид SUPPRESSED и причины 15..18; аннотации прав Ack не тронуты, служба Internal
+  - services/notify/internal/config/{config.go,ntf4.go,relay.go} — 21 ручка, страж validateNTF4, чтение файла ключа отпечатка
+  - deploy/helm/notify — address-key-secret.yaml, _helpers.tpl, configmap.yaml, deployment.yaml, values.yaml
+  - deploy/helm/umbrella/values.{dev,prod}.yaml, deploy/testdata/notify-standalone/values.yaml, trivy.yaml
+  - deploy/scripts/seed-notify-stand-secrets.sh, stack-secrets.sh, deploy/Makefile
+  - сообщения 11 коммитов — автор pointpu, строк атрибуции нет
+surface: >-
+  Новых RPC, слушателей, записей каталога и отношений модели нет. Новый секретный материал один —
+  ключ отпечатка адреса. Он живёт в отдельном объекте Secret и монтируется томом целиком, только на
+  чтение. В карту конфигурации попадает только путь каталога. Шаблон ключ не порождает; пустое
+  значение, негодная форма и два способа сразу дают отказ рендера, и в тексте отказа нет ни значения,
+  ни длины. Страж старта читает файл и отказывает при длине меньше 32 октетов, текст отказа тоже без
+  материала. Хеш checksum/address-key считается от рендера, где 256 бит случайного материала, прообраз
+  не восстановить. Посев стенда создаёт объект один раз и не перечеканивает. На SUPPRESSED пин corelib
+  e7d6197fc5dc пока отвечает отказом: значения 8 там нет, проверка Ack его не пропускает.
+checks:
+  - "gh pr view 3072 --json headRefOid,baseRefName — 64c2c938, 2914-notify (посылка подтверждена)"
+  - "go test -count=1 ./services/notify/internal/config/... ./services/notify/cmd/notify/... @64c2c938 — ok, ok (rc 0)"
+  - "go test -count=1 -run 'Notify|Secret' ./deploy @64c2c938 — ok (rc 0)"
+  - "trivy 0.70.0 config --config trivy.yaml --severity CRITICAL,HIGH --exit-code 1 deploy/helm/notify @64c2c938 — rc 0, 7 шаблонов, 0 находок (address-key-secret.yaml в осмотре)"
+  - "helm template с заглушками trivy.yaml и addressKey=<64 hex> — открытый hex в рендере 0 раз, base64 один раз, только в data объекта ключа; негодный hex и два способа сразу дают отказ, текст отказа без материала"
+  - "инъекция M1: в ntf4.go `len(key) < AddressKeyMinBytes` → `len(key) < 1` — TestRequiredKnobsS1 FAIL; откат, дерево чистое"
+  - "инъекция M2: содержимое файла ключа добавлено в оба текста отказа validateAddressKeyDir — TestRequiredKnobsS1 FAIL; откат, git status --porcelain = 0"
+findings: {high: 0, medium: 0}
+blocking: []
+non_blocking:
+  - id: SA-N1
+    at: services/notify/internal/config/ntf4.go (validateMailboxAddr)
+    text: >-
+      В отказе формы адреса ящика значение цитируется целиком (%q). Ручка по форме — только
+      «узел:порт». Если оператор по ошибке впишет сюда учётные данные, они попадут в лог отказа старта.
+      Сейчас вреда нет: удостоверения ящика на стадии S1 нет. На стадии, где появится удостоверение
+      POP3, надо проверить, что его ручка отдельная и в этот текст не попадает.
+  - id: SA-N2
+    at: proto/corelib/notify/feed.proto · go.mod (corelib e7d6197fc5dc)
+    text: >-
+      Контракт объявляет SUPPRESSED и причины 15..18, а в сгенерированном коде на пине их ещё нет.
+      Сейчас это безопасно: Ack с таким исходом получает отказ. Код, который будет записывать
+      подавление, должен прийти вместе с поднятием пина. Если пин не поднять, подавленное письмо
+      не получит терминального исхода.
