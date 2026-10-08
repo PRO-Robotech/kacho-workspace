@@ -1,0 +1,145 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256: 71ec59d12d049aad833024716134270036414389d790cd0e21f515e841827714
+  revision: 29
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена. Действующий вердикт задают внешнее событие и эта запись;
+    он привязан к отпечатку, а не к слову в заголовке.
+  content_commit: null
+  content_commit_note: >-
+    Редакция 29 не закоммичена: рабочее дерево issue-880@16caf32b7 с изменённым документом. Отпечаток
+    снят с рабочего файла `sha256sum` и совпал с названным в задании. HEAD-версия — редакция 25
+    (d337b360…). Дельта 28 → 29 сверена по §37 и по местам, которые §37 называет.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2919
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  change_package: docs/changes/issue-2919/
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  fingerprint_reproduced: true
+  lines: 5000
+verdict: APPROVED
+publication_mode: >-
+  Запись создана новым файлом рядом с прежними; прежние записи не правились. Событие полномочия
+  публикует курьер; тело — в поле event.body.
+review_mode: >-
+  Блокирует только то, что ломает однозначность, конструируемость Given, производителя «Тогда»,
+  близнеца у отрицания, свойство безопасности, либо оставляет второй механизм одного события.
+  Круг 2 из 2 по дельте «Р16 — окно отзыва» (общий процесс волн 2026-10-06).
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-08T15:00:00Z'
+round: 27
+round_note: >-
+  Двадцать седьмой круг документа и второй для дельты «Р16 — окно отзыва». Предмет — редакция 29
+  (§37): ответ на B26-1, B26-2 и N26-1…N26-3 круга 26.
+premise_check:
+  premise: >-
+    «Р16: граница KACHO_NOTIFY_AUTHZ_CACHE_TTL — 1 с … потолок политики, значение объявляет
+    установка; новые сценарии NTF4-123/124 и держатели закрывают B26-1, B26-2».
+  result: confirmed
+  command: >-
+    (1) `sha256sum <док>` → 71ec59d1…; (2) `git show ffbe930dbef:internal/repohygiene/revocationwindow_test.go | grep -n 'func TestRevocationWindowIsDeclaredPolicy'` → 65;
+    `git show ffbe930dbef:go.mod | grep -n corelib` → 119 v1.10.0; (3) corelib
+    `git show v1.10.0:authz/revocation_policy.go` строка 151 `var RevocationPolicy`, 153 `Ceiling: 10 * time.Second`;
+    `git show v1.10.0:authz/revocation_policy.go | grep -c notify` → 0; `git show 18d105d:authz/revocation_policy.go`
+    строка 259 `"notify KACHO_NOTIFY_AUTHZ_CACHE_TTL": 5 * time.Second`; `git tag --contains 18d105d` → пусто,
+    `git branch -r --contains 18d105d` → origin/77-notify; (4) kacho tmp/2924-wave-f2@b04fe339a8
+    `services/notify/cmd/notify-api/internal/config/config.go:104` — `AuthzCacheTTL … knob:"notify.authz.cacheTTL"`
+    без `default`; go.mod:143 corelib v1.10.1-0.20261007153021-18d105d0f50a.
+previous_rounds:
+  - {round: 25, sha256: 52dfa29a68795888728ce6c0515ed7235b37d6817f1f981ef1924f27388974a5, verdict: APPROVED}
+  - {round: 26, sha256: b69c2e5b6d5ae0ce1aad698679734bcaa3d7e170326a11932f58be16ab9b5704, verdict: CHANGES_REQUESTED}
+blocking_count: 0
+blocking_kinds_distinct: []
+trend_note: "Круг 26: 2 (PRODUCER). Круг 27: 0."
+closed_from_previous_round:
+  - id: B26-1
+    status: closed
+    evidence: >-
+      Р16 (абзац после таблицы, строки 1560–1592): держатель величины в посадке —
+      `TestRevocationWindowIsDeclaredPolicy` (координата сверена: revocationwindow_test.go:65 @ffbe930dbef);
+      производитель чтения из `values.prod.yaml` по пути тега `knob` — полоса `kacho#2924` (тег в её
+      дереве есть: config.go:104 @b04fe339a8); обход всех `values*.yaml` держит «профили стенда задают 5 с»;
+      нечитаемый `values.prod.yaml` — отказ предпосылки; четыре инъекции с текстами находок и близнец
+      «5 с и 5 с», печать «площадок сопоставлено». Запись переписи — `corelib#77` (18d105d), §1.1 строка 706,
+      пин — до тега с ней. §8 строка 123–124 и DoD S3 п.7 гейт называют; п.7 честно говорит «пока правки гейта
+      или тега corelib нет, пункт не выполнен».
+  - id: B26-2
+    status: closed
+    evidence: >-
+      Р16, «Подмена потолка» (строки 1623–1627): `Ceiling` = 7 с, 8 с — отказ с `7s`, 7 с — загрузка,
+      `t.Cleanup`, проба не параллельна; десятая инъекция — литерал 10 с (при потолке 7 с 8 с загружается).
+      `RevocationPolicy` — переменная пакета (v1.10.0:151, 18d105d:151). «Тогда» NTF4-123 больше не утверждает
+      неразличимого и называет различителя. §8 строки 123–124 и «Р16», DoD S3 п.7 пересчитаны на десять инъекций.
+  - id: N26-1
+    status: closed
+    evidence: строка «круг 25» дописана с пометкой «дописана в редакции 29»; поправка — в строке редакции 29, прежняя не правлена.
+  - id: N26-2
+    status: closed
+    evidence: "`awk 'NR>=1500 && NR<=1550' <док> | grep -c '^  | `KACHO'` → 31; текст «31 (21 + 10)», §8 «Р16» — «21 со стадии S1, 31 со стадии S3»."
+  - id: N26-3
+    status: closed
+    evidence: §8 строки 123–124 и «Р16» называют `services/notify/cmd/notify-api/internal/config/` (Д74).
+blocking_findings: []
+non_blocking_findings:
+  - id: N27-1
+    kind: DoD
+    anchor: "§0а, «DoD части Основы», п.7 (строки 273–275): «Держатель Р16 в Основе судит загрузчик notify-api и шестую–девятую инъекции Р16»"
+    what: >-
+      NTF4-123/124 лежат в Основе целиком (таблица §0а, строка 249), а «Тогда» NTF4-123 называет различителем
+      подмену потолка и десятую инъекцию. Перечень инъекций Основы в §0а п.7 остался «шестая–девятая»;
+      десятая и RED гейта переписи окон в нём не названы. DoD S3 п.7 их требует, поэтому дыра временная,
+      а не постоянная: свойство закрепляется к концу стадии S3.
+    instruction_for_work: >-
+      Полоса, ведущая загрузчик `notify-api` в Основе (kacho#2924), гонит подмену потолка и десятую
+      инъекцию тем же изменением, что вводит ручку, и прикладывает вывод RED. Иначе Основа может сесть с
+      литералом 10 с — ровно класс CX5-40. В следующей редакции документа §0а п.7 привести к «шестая–десятая».
+  - id: N27-2
+    kind: FORMAT
+    anchor: "Р16, конец пункта «Запись переписи — правка вне NTF-4» (строки 1592–1594)"
+    what: >-
+      Фраза «Верхняя граница срока аренды держит смену держателя одиночки внутри срока feedback_stale … (NTF4-97)»
+      в HEAD-редакции стояла после «Строк в таблице …», а теперь приклеена к концу подпункта о записи corelib
+      (отступ 2 пробела внутри подпункта с отступом 4). Смысл не потерян, производитель NTF4-97 не задет, но
+      фраза читается как часть пункта о переписи окон. Вернуть на место в следующей редакции.
+  - id: N27-3
+    kind: TWIN
+    anchor: "Р16, инъекция (3) гейта переписи окон и фраза «Близнец отличается от (2) и (3) ровно одним числом»"
+    what: >-
+      (3) отличается от близнеца значением окна, поставленным одинаково в двух местах (values и запись).
+      Это один факт («окно = 11 с, согласованно»), но запись идёт в двух координатах. Блокировать не за что:
+      равенство двух мест — условие, отделяющее находку «превышает потолок» от находки «разошлось». В отчёте
+      полосы назвать это явно.
+constructibility:
+  seeded: 0
+  named_fixture: 2
+  not_executed: 0
+  note: >-
+    NTF4-123/124 строятся названной фикстурой — Given NTF4-119 (а) в Основе. Потолок 10 с — факт пина
+    corelib (v1.10.0:153; на 18d105d тот же). Подмена потолка конструируема: `RevocationPolicy` — переменная
+    пакета. Гейт переписи окон: путь `notify.authz.cacheTTL` в теге объявления есть @b04fe339a8; ключа в
+    `values.prod.yaml` @ffbe930dbef ещё нет (чарта `notify-api` нет) — это состояние производителя,
+    названного в Р16 (рендер зонтика Основы), а не неконструируемость. Посев не ставился: стенда и
+    разрешения на посев в задании нет.
+measurement:
+  revision: "issue-880@16caf32b7 + рабочее дерево; kacho origin/main@ffbe930dbef, tmp/2924-wave-f2@b04fe339a8; corelib v1.10.0, 18d105d"
+  counts:
+    scenario_id_lines: {value: 108, command: "grep -c '^\\*\\*ID:\\*\\* NTF4-' <док>"}
+    knob_table_rows: {value: 31, command: "awk 'NR>=1500 && NR<=1550' <док> | grep -c '^  | `KACHO'"}
+    corelib_record_in_pinned_tag: {value: 0, command: "git show v1.10.0:authz/revocation_policy.go | grep -c notify"}
+    tags_containing_record: {value: 0, command: "git tag --contains 18d105d"}
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
+event:
+  body: "acceptance-reviewer · APPROVED · 71ec59d12d049aad833024716134270036414389d790cd0e21f515e841827714"
+authority:
+  role: acceptance-reviewer
