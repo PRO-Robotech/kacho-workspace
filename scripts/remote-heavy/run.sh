@@ -475,7 +475,7 @@ apiaddr="$( { kc -n default get endpointslices -l kubernetes.io/service-name=kub
           } | sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"
 [ "$(jq length <<< "$apiaddr")" -gt 0 ] || { say "адреса управления кластера не выведены — сеть ns не построить (не выполнилось)"; exit 69; }
 jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjson svc "$svccidr" --argjson api "$apiaddr" '
-  def cidr: if test("/") then . elif test(":") then . + "/128" else . + "/32" end;
+  def cidr: if test("/") then "\(.)" elif test(":") then "\(.)/128" else "\(.)/32" end;
   ([$addr[], $svc[], $api[]] | map(cidr)) as $own |
   {apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy", metadata: {name: "heavy", namespace: $ns},
    spec: {podSelector: {}, policyTypes: ["Ingress", "Egress"], ingress: [],
@@ -490,10 +490,11 @@ kc create -f "$BOX/netpol.json" >/dev/null || { say "сетевая полити
 # закрыты собственной политикой ns kacho (иначе проба прошла бы и без нашей).
 DENY_PROBE="$(jq -nr --argjson svc "$(kc get svc -n kacho -o json 2>/dev/null || echo '{"items":[]}')" \
                     --argjson np "$(kc get netpol -n kacho -o json 2>/dev/null || echo '{"items":[]}')" '
+  def covers($s): (length == 0) or (to_entries | all(.[]; $s[.key] == .value));
   [$np.items[] | .spec.podSelector.matchLabels // {}] as $sel
   | [$svc.items[] | select((.spec.type // "ClusterIP") == "ClusterIP" and .spec.clusterIP != "None")
      | select((.spec.selector // {}) as $s | ($s | length > 0)
-              and ($sel | all(. as $m | ((($m | length) == 0) or ($m | to_entries | all(. as $e | $s[$e.key] == $e.value))) | not)))
+              and ($sel | any(.[]; covers($s)) | not))
      | {n: .metadata.name, p: ([.spec.ports[]? | select((.protocol // "TCP") == "TCP") | .port] | first)}
      | select(.p != null)] | sort_by(.n) | (first // empty) | "\(.n).kacho.svc:\(.p)"')"
 
