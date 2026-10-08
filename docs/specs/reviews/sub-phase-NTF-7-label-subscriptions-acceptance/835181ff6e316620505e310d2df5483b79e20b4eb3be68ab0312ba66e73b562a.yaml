@@ -1,0 +1,134 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  sha256: 835181ff6e316620505e310d2df5483b79e20b4eb3be68ab0312ba66e73b562a
+  revision: "2 (2026-10-08)"
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит «Статус: DRAFT» и «редакция 2 · вердикта на неё НЕТ». Шапку эта запись намеренно не
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: null
+  content_commit_note: >-
+    Документ лежит в рабочем дереве копии tmp/issue-880 (ветка issue-880, HEAD aed8aae55) новым
+    незакоммиченным файлом (`git status --porcelain` → `??`).
+  branch: issue-880
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  fingerprint_reproduced: true
+  lines: 997
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-08T21:00:00Z'
+round: 2
+round_note: >-
+  Задание назвало круг 1, но на этот документ уже есть запись круга 1 (редакция 1, 91ddd435…, RETURNED,
+  4 блокирующих); эта редакция — ответ на неё, поэтому круг 2. Факты сняты: kacho `515e017c87`, kaname
+  пин `33010d434767` (go.mod:144 @515e017c87), corelib `1705d2b`. Соседи по отпечатку воспроизведены
+  `sha256sum`: NTF-3 1d7d2ad0…, NTF-6 47bd8b70…, NTF-1 c19490f9….
+publication_mode: record-plus-external-event-by-courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+prior_round_closure:
+  - id: B1-1
+    status: closed
+    note: >-
+      Предикат «признак ⇔ (а) ∧ (б)», отображения и производители (§1.5), пять инъекций и пустой обход
+      (NTF7-11). Сверено: у `registry_repository` метод `GetRepository` с `scope_filtered`, без
+      `required_relation = "v_get"` (registry_service.proto:158-163 @515e017c87) — (а) ложно; токены
+      `vpc.addressPool`, `registry.repositories` вне `labelSelectableTypes` (feed_registry.go @пин) — (б)
+      ложно. Зелёный на дереве конструируем.
+  - id: B1-2
+    status: closed
+    note: >-
+      Р6: кандидаты только среди владельцев строк аудитории, вопроса `Resolve{event}` у селектора нет;
+      держатель NTF7-31 с числом (0 при 23 подписчиках вне аудитории; близнец — ровно 1). Следствие для
+      права уровня кластера — §6 и вопрос владельцу.
+  - id: B1-3
+    status: reopened-as-B2-1
+    note: >-
+      NTF7-27 теперь утверждает перечень вызовов, но перечень неполон для честной реализации — B2-1.
+  - id: B1-4
+    status: closed
+    note: >-
+      §4 — строки NTF-3 Р11 «Доставка» и Р25 «Create» с замещением по ветви цели; DoD 10.4 п.3. Строка
+      Р25 в NTF-3 (строка 1815) прочитана: «`Check` / `UNAVAILABLE`, `PEER_UNAVAILABLE`; подписки нет».
+facts_confirmed:
+  - "§1.1: `git -C project/kacho grep -c NotificationSubscription 515e017c87 -- proto services | wc -l` → 0; `ListEventAudience|via_subscription` в proto kaname @пин → 0; `CurrentAuthzRevision` — internal_iam_service.proto:223 @пин."
+  - "§1.5: `fga_model.fga:256` @пин — `define viewer: [user, user:*, service_account] …` на `cluster`; `:425` — `project.v_get … or super_admin`; `permission_catalog_service.proto:50-66` — `iam.permissions.list`, `viewer` на `cluster`; поле `label_selectable = 4` (`:186-194`)."
+  - "§1.5: манифесты @515e017c87 — `module: loadbalancer` у nlb, токены `storage.volumes`, `vpc.network`, `loadbalancer.listeners`, `vpc.addressPool`, `registry.repositories` — дословно как в документе."
+  - "§1.3: `maxMatchLabels = 16` (rule.go:48 @пин); `validateFeedGate` rule.go:333-350."
+  - "§5.1 К7, К8, К10–К13: role.proto:690/698/706; access_binding.proto:262-263; volume_service.proto Create :46 (`editor`), Update :72 (`v_update`), Delete :94 (`v_delete`), labels :219/:274; fga_model.fga:1363-1373 (`storage_volume` v_get без условий) — совпадают @пин/@515e017c87."
+  - "NTF-3 Р9 (строка 1271): строки аудитории пишутся той же транзакцией приёма из `ListEventAudience` — основание Р6 верно."
+  - "NTF3-179 (г): `notify-sender` `CurrentAuthzRevision` не зовёт (отказ сертификату notify) — перечень NTF7-27 его справедливо не содержит."
+blocking:
+  - id: B2-1
+    kind: FORMAT
+    summary: >-
+      Перечень исходящих вызовов NTF7-27 «к службе доступа — только `ListEventAudience`, `Resolve{self}`,
+      `ResolveSend`» неполон для честной реализации: `notify-sender` в `GL` читает и ленту самой службы
+      доступа.
+    evidence:
+      - >-
+        NTF-3 G0 (строка 2630+): «флаг службы доступа `true` (перечень источников `notify` — пять модулей
+        kacho и `kaname`, NTF-1 Р9)»; `GL` NTF-7 = `G0` + `GW`.
+      - >-
+        NTF-1 Р4 (строки 630-640): `Claim` зовётся «при каждом (пере)открытии потока и по таймеру»;
+        `Claim`/`Ack` ленты `notification_feed:kaname` обслуживает служба доступа.
+      - >-
+        СЛ3 записывает «каждый исходящий вызов процесса `notify-sender` за проход приёма и сборки»; окно
+        NTF7-27 — 5 минут управляемых часов. Вызовы ленты `kaname` (`Subscribe`/`Claim`/`Ack`) по таймеру
+        в это окно попадают и в перечне не названы.
+    consequence: >-
+      Проба NTF7-27 красная на любой честной реализации, либо её автор сам выберет, какие вызовы «не
+      считаются», — тот же класс, что B1-3 круга 1 (предикат пробы не задан документом).
+    required: >-
+      Записать предикат так, чтобы он не зависел от посторонних лент: либо (1) перечень разрешённых
+      вызовов к службе доступа дополнить методами её собственной ленты (`Subscribe`/`Claim`/`Ack`
+      ленты `kaname`) и уточнить, что к storage допускаются вызовы ленты по таймеру; либо (2) утверждать
+      запрещённое множество с нулём (`VolumeService.*`, `InternalVolumeService.*`, `Check`,
+      `Resolve` формы `event`, любое чтение зеркала/состояния объекта у службы доступа — назвать методы)
+      и обязательное множество с числом (`ListEventAudience` о `V1`…`V3` с фактами строк, `Resolve{self}`
+      о `usr-A`, `ResolveSend` — по одному на письмо). Тот же предикат — в СЛ3 и в строке §9.
+important:
+  - >-
+    §1.5, правило получения последней строки: команда как записана даёт 13 строк, а не 18 —
+    `grep ' Get('` не ловит `rpc Get (` с пробелом (vpc: network, security_group, route_table, gateway,
+    cidr_group). Измерено @515e017c87; с `grep -E ' Get(\(| )'` — 18. Утверждение по сути верно,
+    предикат — нет; исправить команду (`doc-truthfulness`: число, верное для другого предиката).
+  - >-
+    NTF7-04: модуль, известный каталогу, но без ячейки `(RESOURCE_CHANGE, EMAIL)` (`notify`, `kaname` —
+    NTF-3 Р29), сценарием не закрыт. По Р3 п.3 исход детерминирован (`'<t>' is not a kind of module
+    'notify'`), но букву с близнецом стоит добавить, чтобы условие Р2 имело держателя.
+  - >-
+    NTF7-31: «число `ListEventAudience` равно числу у близнеца без единой подписки по меткам» — этот
+    базовый прогон не описан как Given; назвать его (или утверждать число страниц, производное от
+    строк аудитории).
+  - >-
+    DoD 10.4 п.6 требует вписать номер задачи «строкой истории ревью этого документа» — это правка
+    одобренного содержимого, снимающая вердикт с отпечатка (`change-graph.md` §2). Номер задачи лучше
+    нести в trail/записи ревью, а не в шапке документа.
+defaults_fixed:
+  - >-
+    Право только уровня кластера (`system_admin`) по селектору писем не даёт (Р6, §6); события —
+    по явной подписке на ресурс или проект (NTF-3 Р11, NTF3-176). Дефолт обоснован Д133 (3) и
+    стоимостью события; на вердикт не влияет. Вопрос владельцу передаётся диспетчеру.
+constructibility:
+  method: >-
+    Посев не ставился: стенда и разрешения на посев в задании нет. По каждому Given названа фикстура
+    (§5.1, К1–К23); координаты К3–К13, К17, К20 сверены на пине и на 515e017c87. Посеяно 0 из 31;
+    названной фикстурой 31 из 31; методы `notify` (К18–К20) появляются с посадкой NTF-3 — стадийная
+    зависимость названа DoD 10.4 п.1.
+counts:
+  scenarios: 31
+  stages: 3
+  decisions: 12
+  producer_named: "31 из 31 (§9)"
+  twin_named: "все отрицания §8 имеют близнеца по одному факту"
+event_body: "acceptance-reviewer · RETURNED · 835181ff6e316620505e310d2df5483b79e20b4eb3be68ab0312ba66e73b562a"
