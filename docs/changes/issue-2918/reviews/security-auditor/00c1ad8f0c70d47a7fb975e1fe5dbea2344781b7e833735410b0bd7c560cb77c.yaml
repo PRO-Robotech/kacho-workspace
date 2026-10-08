@@ -1,0 +1,106 @@
+ВЕРДИКТ: ⛔
+sha: bdc36c614e67264f07af2c71bd58ddcc4b1803f4
+base: 484-notify
+merge_base: 33010d434767895963c47f69bfa623a791f320df
+digest: 00c1ad8f0c70d47a7fb975e1fe5dbea2344781b7e833735410b0bd7c560cb77c  # git diff 33010d43..bdc36c61 | sha256sum
+role: security-auditor
+mode: пост-дифф, один круг; блокирующее — только корректность/безопасность с предикатом
+pr: PRO-Robotech/kaname#673 (полоса K2, ограда NTF-3; PRO-Robotech/kacho#2918)
+acceptance: NTF-3, Р30 «Единица поколения — событие», «Публикация для анонимного чтения», «Приём поколения — CAS»; NTF3-174, -182, -184..-189
+premise:
+  status: подтверждена
+  detail: голова PR = bdc36c61, база 484-notify = merge-base 33010d43; 14 коммитов, 129 файлов (+10800/-5036).
+  command: gh pr view 673 -R PRO-Robotech/kaname --json headRefOid,baseRefName; git merge-base origin/484-notify origin/pr673
+scope:
+  read:
+    - proto/kaname/cloud/iam/v1/{internal_iam_service,internal_notification_recipient_service}.proto, proto/declared-breaks.yaml
+    - internal/apps/kaname/api/internal_iam/{handler,register_resource}.go
+    - internal/apps/kaname/api/recipientdirectory/{handler,list_event_audience,audience,input,resolve,ports}.go
+    - internal/domain/event_audience.go
+    - internal/repo/kaname/pg/{public_read/publication.go,relverdict/fenced.go,recipientdirectory_repo.go,fga_outbox/emitter.go}
+    - internal/repo/kaname/pg/relverdict/subjects.go (сверка с ограждённым близнецом)
+    - internal/migrations/{20261007084833,20261007181558,20261008020109}_*.sql (Up целиком по шапкам и телам функций)
+    - internal/authzguard/{address_gate,fgaproxy}.go, cmd/kaname/{serve,wiring,recipient_directory_wiring}.go
+    - internal/apps/kaname/seed/embedded/permission_catalog.json (дельта)
+    - corelib@18d105d0f50a authz/proxytuple/policy.go
+    - сообщения всех 14 коммитов (автор pointpu, строк атрибуции 0)
+  not_read: тестовые файлы целиком (судились прогоном и инъекциями), отчёты scalegrid, сгенерированный pb.go
+surface:
+  new_rpc:
+    - "InternalIAMService/SetPublicReadPublication: внутренний слушатель, без google.api.http; каталог — exempt INTERNAL_LISTENER; таблица адресного стража — GateOutsideCircle с доводом; дверь — та же, что у RegisterResource (сертификат → служебная учётка → fga_writer на cluster_root), плюс владение типом объекта; тип обязан быть в закрытом списке публикуемых (сегодня registry_repository). Отказ по правам — фиксированный текст с ErrorInfo AUTHZ_DENIED."
+    - "InternalNotificationRecipientService/ListEventAudience (замена ListProjectAudience): reader на notification_recipient_directory, acr>=1, в перечне служебной личности; отдаёт идентификаторы субъектов, не адреса."
+  model_and_data:
+    - "Аудитория версии события (fenced.go): только субъекты user:*, кроме подстановочного; условные факты аудитории не дают; кластерный уровень — только по подписке; ограда токена пропускает строку, только если её authz_rev виден в снимке токена, — старый токен может лишь сузить ответ, не расширить; токен из будущего — INVALID_ARGUMENT."
+    - "Публикация: порядок — версия владельца; ложится только на текущее воплощение по голове объекта (FOR SHARE на голове сериализует с регистрацией/снятием); снятие объекта уносит строку; регистрация, начавшая новое воплощение, снимает публикацию прежнего."
+    - "Снятие факта оставляет надгробие (relation_fact_removal); запоздалая запись не новее снятия право не восстанавливает; метка журнала — clock_timestamp() под блокировкой головы."
+    - "Новых SECURITY DEFINER, GRANT, смены search_path в миграциях нет."
+runs:
+  - "go build ./... @bdc36c61 — rc 0"
+  - "go test -count=1 internal_iam, recipientdirectory, authzguard, domain, check, repohygiene, cmd/kaname, seed @bdc36c61 — ok 8, FAIL 0 (интеграционные на контейнере БД исполнены: internal_iam 54 с, cmd/kaname 108 с)"
+  - "go test -v -run 'TestSetPublicReadPublication_|TestRegisterResource_NTF3_185|TestUnregisterResource_NTF3_185d|TestRegisterResource_NTF3_189' — PASS 13 из 13"
+injections:
+  - id: M1
+    правка: "SetPublicReadPublication — проверка владения типом выключена (&& false)"
+    исход: "красный: TestSetPublicReadPublication_NTF3_186d_RequestIsValidatedAndOwned — проба держит"
+  - id: M2
+    правка: "validateObjectWithdrawal → return nil (UnregisterResource без проверки владения типом)"
+    исход: "ЗЕЛЁНЫЙ: internal_iam, cmd/kaname, authzguard, repohygiene, check — ok 5, FAIL 0"
+  - id: M3
+    правка: "RegisterResource — цикл правила проксируемой записи по набору обходит ноль элементов (set[:0])"
+    исход: "ЗЕЛЁНЫЙ: internal_iam, cmd/kaname — ok 2, FAIL 0"
+  - id: M0-base
+    правка: "на базе 33010d43 — оба вызова validateProxyTuple в Register/Unregister выключены"
+    исход: "ЗЕЛЁНЫЙ: internal_iam, cmd/kaname — пробел унаследован, но обе точки вызова переписаны этим PR"
+injections_restore: "git checkout после каждой инъекции; git status --porcelain = 0 строк"
+blocking:
+  - id: SA-673-01
+    класс: страж права записи без регрессионной пробы на наблюдаемом уровне (hard-regression-observable-level; ban12-tdd; gate-authoring «проверка, способная упасть»)
+    тяжесть: средняя
+    признак: >
+      Проверка владения типом объекта на снятии (validateObjectWithdrawal, новая функция
+      этого PR) и правило проксируемой записи на КАЖДЫЙ кортеж набора регистрации (новый
+      цикл этого PR) не закреплены ни одной пробой: выключение любой из них оставляет все
+      пакеты зелёными (инъекции M2, M3). Соседний страж того же PR — владение типом у
+      SetPublicReadPublication — закреплён (M1 красный), то есть асимметрия внутри одного
+      изменения.
+    почему_блокирует: >
+      Снятие в этом PR стало адресоваться объектом и уносит ВСЕ проксируемые кортежи,
+      зеркало, публикацию и ставит надгробие поколения. Регресс, снявший проверку владения,
+      дал бы модулю с fga_writer снять чужие объекты целиком — а надгробие с большим
+      поколением блокирует их повторную регистрацию; ни один прогон этого не заметил бы.
+      Защита в глубину против бокового движения — инвариант (sec-internal-trusted-assumption-banned).
+    сценарий_отказа: >
+      Правка, упрощающая UnregisterResource (validateObjectWithdrawal → nil), проходит CI;
+      служебная личность модуля A снимает объект типа модуля B с поколением выше головы —
+      ответ OK, кортежи владельца объекта B сняты, повторная регистрация B с меньшим
+      поколением отвергается как устаревшая.
+    предикат: >
+      Инъекции M2 и M3 обязаны дать красный хотя бы в одной пробе. Проба — на уровне
+      обработчика (как 186d): регистрация и снятие объектом чужого модуля → PERMISSION_DENIED
+      фиксированным текстом и ничего не записано (голова, зеркало, журнал не изменились);
+      положительный близнец — свой тип принят. Для набора — элемент с запрещённым
+      отношением или чужим типом среди законных → отказ всего набора.
+    адресат: go-implementer (PRO-Robotech/kaname, ветка полосы K2)
+non_blocking:
+  - id: SA-673-N1
+    предмет: >
+      Сообщение коммита ec0a5eb72 и шапка миграции 20261008020109 описывают прежний дефект
+      проекции (запоздалая запись восстанавливала снятое право) вместе с механизмом.
+      Воспользоваться этим извне нельзя: порядок доставки журнала внутренний, прода нет
+      (Д12). Записано как наблюдение по disc-recoverability-predicate, правки не требует.
+  - id: SA-673-N2
+    предмет: >
+      Аудитория события строится по фактам, присланным вызывающим (цепь, метки, у UPDATED —
+      прежние). Это решение приёмки (Р30, Р3): круг вызывающих сужен до service:notify и
+      reader на справочнике, а сами факты — из журнала модуля-владельца. Расширение круга
+      вызывающих этого метода потребует пересмотра.
+  - id: SA-673-N3
+    предмет: >
+      Владение типом в proxytuple при пустом домене вызывающего не проверяется; пустой домен
+      возможен только в dev-режиме двери (prodMode=false). Боевая посадка закрыта отказом
+      двери; унаследовано, этим PR не менялось.
+cross_repo: []
+dry_round: нет — подтверждённых находок 1
+seen_keys:
+  - kaname:internal/apps/kaname/api/internal_iam/handler.go:withdrawal-type-ownership-unpinned
+  - kaname:internal/apps/kaname/api/internal_iam/handler.go:register-set-proxy-rule-unpinned
