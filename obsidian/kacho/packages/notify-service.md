@@ -9,7 +9,7 @@ status: test
 repo: kacho
 layer: service
 path: services/notify
-verified_against: "`project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
+verified_against: "Раздел «Чего на этой ревизии нет» сверен 2026-10-05 с `project/kacho` @`4517cc69c135` (голова `2914-notify` после #3021 и #3027): прочитан `cmd/notify/serve.go`, состав `internal/` снят `git ls-tree`; остальные разделы — `project/kacho` @`2c283f99f4bc` (merge-коммит PR #3019 в ветку эпика `2914-notify` — координата, не живая ссылка; 2026-10-04). Прочитаны README, doc.go, servesurface_ledger.go, cmd/notify/serve.go, cmd/migrator/chains.yaml, proto internal_notify_probe_service.proto; состав каталога (60 путей) и чарта снят `git ls-tree`. На `origin/main` того же дня каталога `services/notify` нет"
 tags:
   - packages
   - kacho
@@ -83,13 +83,20 @@ tags:
 
 ## Чего на этой ревизии нет
 
-Подписчика лент и отправки почты на `2c283f99f4bc` нет: `cmd/notify/serve.go` поднимает
-только пул базы и диагностическую поверхность. Поэтому нет и ребра «шлюз → источник» в
-`edges/`. Записка о ребре заводится той волной, которая посадит подписчика.
+На `4517cc69c135` (после волны 2, #3021) каталог `internal/` несёт пакеты `source`, `grant`,
+`peeranswer`, `smtp`, `limits`, но `cmd/notify/serve.go` поднимает из них только сетку
+лимитов (ограда ключа и уборка окон) — рядом с пулом базы и диагностической поверхностью.
+Подписчика лент и отправки почты в корне процесса нет, ведомость служб `cmd/notify` пуста.
+Поэтому нет и ребра «шлюз → источник» в `edges/`. Записка о ребре заводится той волной,
+которая посадит подписчика в корень процесса.
 
 ## History
 
 - 2026-10-04 — #2915: записка заведена по merge-коммиту `2c283f99f4bc` (PR #3019 в
   `2914-notify`). Волна принесла каркас N1, чарт D1/D1s и пробу D4.
+- 2026-10-05 — #2915: раздел «Чего на этой ревизии нет» сверен с `4517cc69c135` после
+  волны 2 (#3021, `230c0812425`): в корне процесса — сетка лимитов; пакеты источника,
+  ответа права и почты есть, но корнем не подняты. Прежнее утверждение «только пул и
+  диагностика» опровергнуто чтением `serve.go` и исправлено.
 
 #packages #kacho #service #internal #go
