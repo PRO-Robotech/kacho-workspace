@@ -123,7 +123,7 @@ systemd-oomd за сеансом пользователя: память узла
 коммит в ветку задачи, дальше следующая задача пачки: ревью и прогонов не ждёшь, их даёт сборка;
 боевой подъём (`helm-install` + `rollout-ready`) — на голове сведённой сборки, слотом `stand`.
 
-Стенд проб — своё ns на внешнем кластере, снятие — в той же задаче: `Skill rule-testing-verdict` → `external-cluster-first`, `external-cluster-ns-per-run`.
+Стенд проб — своё ns на внешнем кластере, снятие — в той же задаче: `testing-verdict.md#external-cluster-first`, `testing-verdict.md#external-cluster-ns-per-run`.
 
 ## Посев, а не миграция
 

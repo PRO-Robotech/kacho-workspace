@@ -271,3 +271,9 @@ heavy-guard-is-reminder · страж heavy-guard — напоминание, н
 no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай `asm-verdict-runs-on-head` · `gh run list` против процессов PR · red: «проверок 0» как «замечаний нет»
 pipestatus-not-pipe-exit-code · tail · читай ${PIPESTATUS[0]} либо пиши в файл и бери код напрямую · red: TestPipefailVerdictNeverComesFromAPipe | «код 0» после трубы прочитан как успех
 ask-which-step-failed · спроси имя упавшего шага: gh api repos/<o>/<r>/actions/jobs/<id> -q '.steps[] · select(.conclusion=="failure") · red: .name' | эта команда | локально перебраны шесть зелёных шагов
+
+Дополнение 2026-10-08 (#983): в норму внесена цель `make stand-ns-run` (up → проба → down
+всегда; код — команды, 125 — команда не исполнялась); цитата решения перенесена сюда (она выше).
+Редакция до правки:
+
+external-cluster-ns-per-run · стенд проб на поднятом стеке (сквозные, консоль, newman, замеры, нагрузка) — только своё ns там с лимитами: `make stand-ns-up NS=t<задача>-<коротко>`; `stand-ns-down` — шаг той же задачи (trap/finally, и на падении), после — `stand-ns-census` 0, просроченные — `stand-ns-census --expired`; ns kacho — только выкатка deploy-engineer; провенанс и посев — как у стенда; адреса и кубконфиг — не в тексты (владелец 2026-10-08: «Размещай стенды в разных нс для тестов, в рамках задач потом подчищай») · цели `stand-ns-*` в kacho · red: прогон в ns kacho; ns пережил задачу
