@@ -77,7 +77,7 @@ kaname — `go-implementer` по PRO-Robotech/kaname#484.
 
 - [[KAC/issue-2914]] — эпик «Сервис уведомлений».
 - [[KAC/issue-2915]] — NTF-1, ядро шлюза; блокер из тела.
-- https://github.com/PRO-Robotech/kaname/issues/484 — сторона kaname.
+- https://github.com/PRO-Robotech/kaname/issues/484 — сторона kaname. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
 
 ## History
