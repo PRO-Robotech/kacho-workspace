@@ -20,11 +20,14 @@
 #   K4 контейнер OOMKilled                 → код 76; ns снято
 #   K6 подготовка pod не удалась            → 69; ns снято; близнец K6b — код 125 команды
 #   K5 --keep 2                            → код команды; ns НЕ снято; срок ≈ +2 ч
-#   R1 NS=kacho                            → 64; ns не создавалось
-#   R2 --ns kacho                          → 64; ns не создавалось
-#   R3 --ns вне формы t<задача>-heavy-…    → 64
+#   R1 NS=kacho                            → 64; к кластеру ни одного обращения
+#   R2 --ns kacho                          → 64; к кластеру ни одного обращения
+#   R3 --ns вне формы t<задача>-heavy-…    → 64; к кластеру ни одного обращения
 #   R4 ns уже есть (близнец K1)            → 64; чужое ns НЕ снято
-#   A1 Job: podAntiAffinity required к pod ns kacho по узлу (ревью F1)
+#   A1 Job — в своём ns t<N>-heavy-*, условий узла по стенду нет: ни
+#      podAntiAffinity, ни nodeAffinity, ни упоминания ns kacho в affinity
+#      (решение владельца 2026-10-09 «не запускать в NS качо а не на узлах»);
+#      каждый созданный объект — в ns прогона; запросы и пределы — числом
 #   U0 pod в своём пространстве пользователей (hostUsers: false)
 #   U1 профиль с dind: privileged нет нигде, dind на crun без cgroup (F1)
 #   S0 сервер добавил законные умолчания   → 0 (близнец S1–S3)
@@ -49,14 +52,15 @@
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
 #   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
-#   Q1 стенд (pod ns kacho) на всех узлах  → --available 69 и прогон 69 без ns (ws#991);
-#      близнецы Q1b второй узел свободен → 0, Q1c pod стенда завершён → 0
-#   Q3 узел без стенда не готов / закрыт / taint NoSchedule → 69
-#   Q2 узел без стенда без места под go-race → 75 и прогон 75 без ns; близнец Q2b
+#   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
+#      (стенд узел не запирает); Q1d два go-race рядом со стендом замера
+#      2026-10-09 на ОДНОМ узле — второй тоже встаёт → 0
+#   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
+#   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
 #      тот же кластер, профиль lint → 0 и прогон 0; Q2c профиля нет → 64
 #   Q5 перепись pod кластера > 128 КиБ (строка аргумента) → разбирается, 0
-#   Q4 pod ждёт планирования, стенд занял последний узел → 69 сразу, ns снято и
-#      при --keep; близнец Q4b узел без стенда есть → run.sh ждёт дальше
+#   Q4 pod ждёт планирования, чужой pod занял последнее место → 75 сразу, ns снято
+#      и при --keep; близнец Q4b место есть → run.sh ждёт дальше
 #   O1 строки run.sh после выбора ns несут его имя
 #   O2 stderr — файл, в который пишет посторонний живой процесс → предупреждение с
 #      его pid; близнец O2b файл держат только предки прогона → молчание
@@ -285,13 +289,26 @@ fresh
 go_run k1 env FAKE_EXIT=0 "${B[@]}" --short k1 -- true
 expect_rc K1 0
 expect_ns_gone K1 t1-heavy-k1
-# A1 — pod не встаёт на узел с pod ns kacho (ревью F1)
+# A1 — стенд держит пространство, а не узел (решение владельца 2026-10-09): Job в
+# своём ns, без условий узла по стенду, ресурсы run — числом.
 J="$BOX/state/job.json"
-if jq -e '[.spec.template.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[]?
-          | select(.topologyKey == "kubernetes.io/hostname"
-                   and .namespaceSelector.matchLabels["kubernetes.io/metadata.name"] == "kacho"
-                   and .labelSelector == {})] | length == 1' "$J" >/dev/null 2>&1; then ok
-else OUT="$J"; bad A1 "в Job нет podAntiAffinity required к pod ns kacho по kubernetes.io/hostname"; fi
+if [ "$(jq -r '.metadata.namespace' "$J" 2>/dev/null)" = t1-heavy-k1 ]; then ok
+else OUT="$J"; bad A1 "Job не в ns прогона t1-heavy-k1"; fi
+if jq -e '.spec.template.spec | (has("affinity") or has("nodeSelector") or has("nodeName"))' "$J" >/dev/null 2>&1; then
+    OUT="$J"; bad A1 "в Job есть условие узла (affinity/nodeSelector/nodeName) — стенд держит ns, а не узел"
+else ok; fi
+if jq -e '[.. | strings | select(. == "kacho")] | length > 0' "$J" >/dev/null 2>&1; then
+    OUT="$J"; bad A1 "Job называет ns kacho"
+else ok; fi
+if jq -e '.spec.template.spec.containers[0].resources | (.requests.cpu and .requests.memory and .limits.cpu and .limits.memory)' "$J" >/dev/null 2>&1; then ok
+else OUT="$J"; bad A1 "у run нет запросов и пределов cpu и памяти числом"; fi
+# A1 — ни одна изменяющая команда не адресована ns kacho (чтение служб для пробы
+# закрытости — законно); близнец — изменяющие команды прогона в его ns были
+if grep -E '(^| )(create|apply|delete|exec|patch|label|annotate)( |$)' "$BOX/state/calls" | grep -qE '(-n kacho( |$)|ns kacho( |$))'; then
+    bad A1 "изменяющая команда адресована ns kacho"
+else ok; fi
+if grep -E '(^| )(exec|delete)( |$)' "$BOX/state/calls" | grep -qE '(-n t1-heavy-k1 |ns t1-heavy-k1)'; then ok
+else bad A1 "изменяющих команд в ns прогона не видно — проверка выше пуста"; fi
 # N1 — сеть ns: входящих нет, исходящие — DNS и мир без частных, узлов и служб (F2)
 NP="$BOX/state/netpol.json"
 if jq -e --arg n4 "$FAKE_NODE_IP/32" --arg n6 "$FAKE_NODE_IP6/128" --arg a4 "$FAKE_API_IP/32" '
@@ -451,18 +468,26 @@ fi
 if [ -e "$BOX/state/deleted" ]; then bad K5 "delete ns звался при --keep"; else ok; fi
 
 # R1, R2, R3 — отказ до кластера
+# no_cluster_call <случай> — отказ до любого создания: к двойнику ни одного обращения.
+no_cluster_call() {
+    if [ -s "$BOX/state/calls" ]; then bad "$1" "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
+}
 fresh
 go_run r1 env NS=kacho "${B[@]}" -- true
 expect_rc R1 64
 if [ "$(ns_left)" -eq 0 ]; then ok; else bad R1 "ns создано"; fi
-if grep -q 'create' "$BOX/state/calls" 2>/dev/null; then bad R1 "create звался"; else ok; fi
+no_cluster_call R1
 fresh
 go_run r2 "${B[@]}" --ns kacho -- true
 expect_rc R2 64
 if [ "$(ns_left)" -eq 0 ]; then ok; else bad R2 "ns создано"; fi
-fresh
-go_run r3 "${B[@]}" --ns t2-heavy-x -- true
-expect_rc R3 64
+no_cluster_call R2
+for bad_ns in t2-heavy-x t1-stand-x kacho-heavy t1-heavy- default; do
+    fresh
+    go_run "r3-$bad_ns" "${B[@]}" --ns "$bad_ns" -- true
+    expect_rc "R3 $bad_ns" 64
+    no_cluster_call "R3 $bad_ns"
+done
 
 # R4 — ns уже есть: отказ, и чужое не снято (близнец K1 по имени)
 fresh
@@ -527,7 +552,7 @@ fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
 expect_rc M1 64
 
-# ── размещение: узел без стенда и место под профиль (ws#991) ───────────────
+# ── размещение: место под профиль, без условия по стенду (ws#991) ─────────
 # node_j <имя> <готов 1|0> <закрыт 1|0> <taint-эффект|""> — узел 15,5 CPU и 29,5 ГиБ;
 # pod_j <ns> <узел> <фаза> <cpu> <память> — pod с запросами; items — список.
 node_j() {
@@ -542,72 +567,85 @@ pod_j() {
 }
 items() { jq -sc '{items: .}'; }
 created() { grep -qE '(^| )create -f ' "$BOX/state/calls" 2>/dev/null && echo да || echo нет; }
-STAND_N1="$(pod_j kacho n1 Running 100m 256Mi | items)"
-# Q1 — стенд на единственном узле: --available и прогон → 69 сразу, ns не создаётся
+NODES1="$(node_j n1 1 0 "" | items)"
+NODES12="$( { node_j n1 1 0 ""; node_j n2 1 0 ""; } | items)"
+# Стенд замера 2026-10-09 (kubectl describe nodes): запросы 450m CPU и 2 756 МиБ.
+STAND_ALL="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j kacho n2 Running 450m 2756Mi; } | items)"
+# Q1 — стенд на всех узлах, место есть → 0: стенд узел не запирает (опыт 2026-10-09:
+# прежнее условие давало здесь 69, а прогон шёл локально)
 fresh
-go_run q1 env FAKE_NODES="$(node_j n1 1 0 "" | items)" FAKE_CLUSTER_PODS="$STAND_N1" bash "$RUN" --available
-expect_rc Q1 69
-if grep -q 'узла без стенда нет' "$OUT"; then ok; else bad Q1 "причина не названа (узла без стенда нет)"; fi
+go_run q1 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" bash "$RUN" --available --profile go-race
+expect_rc Q1 0
 fresh
-go_run q1r env FAKE_EXIT=0 FAKE_NODES="$(node_j n1 1 0 "" | items)" FAKE_CLUSTER_PODS="$STAND_N1" "${B[@]}" --short q1r -- true
-expect_rc Q1r 69
-if [ "$(created)" = нет ]; then ok; else bad Q1r "ns создавалось при стенде на всех узлах"; fi
-# Q1b — близнец: второй узел без стенда → 0
-fresh
-go_run q1b env FAKE_NODES="$( { node_j n1 1 0 ""; node_j n2 1 0 ""; } | items)" FAKE_CLUSTER_PODS="$STAND_N1" bash "$RUN" --available
-expect_rc Q1b 0
-# Q1c — близнец: pod стенда на узле завершён (Succeeded) — узел свободен → 0
-fresh
-go_run q1c env FAKE_NODES="$(node_j n1 1 0 "" | items)" FAKE_CLUSTER_PODS="$(pod_j kacho n1 Succeeded 100m 256Mi | items)" bash "$RUN" --available
-expect_rc Q1c 0
-# Q3 — узел без стенда есть, но он не готов / закрыт / с taint NoSchedule → 69
+go_run q1r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short q1r -- true
+expect_rc Q1r 0
+if [ "$(created)" = да ]; then ok; else bad Q1r "ns не создавалось при стенде на всех узлах и месте под профиль"; fi
+expect_ns_gone Q1r t1-heavy-q1r
+# Q1d — ПРЕДЕЛ 2: единственный узел со стендом и одним идущим go-race — второй
+# go-race тоже встаёт (запросы профиля подобраны под это) → 0
+IFS='|' read -r _ gcpu _ gmib _ <<< "$(sed -n "s/^PROFILES='\\(go-race|.*\\)/\\1/p" "$RUN")"
+IFS='|' read -r dind_cpu _ dind_gi _ <<< "$(sed -n "s/^DIND_RES='\\(.*\\)'$/\\1/p" "$RUN")"
+dind_gi="${dind_gi%Gi}"
+if [ -n "$gcpu" ] && [ -n "$dind_cpu" ] && [ -n "$dind_gi" ]; then
+    one_run="$(pod_j t9-heavy-a n1 Running "$(( gcpu + dind_cpu ))" "$(( ${gmib%Gi} + dind_gi ))Gi")"
+    fresh
+    go_run q1d env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$( { pod_j kacho n1 Running 450m 2756Mi; echo "$one_run"; } | items)" bash "$RUN" --available --profile go-race
+    expect_rc Q1d 0
+else bad Q1d "запрос go-race и dind не прочитаны из run.sh"; fi
+# Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
 for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
     read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
     fresh
-    go_run "q3-$nm" env FAKE_NODES="$( { node_j n1 1 0 ""; node_j n2 "$rdy" "$cord" "$eff"; } | items)" FAKE_CLUSTER_PODS="$STAND_N1" bash "$RUN" --available
+    go_run "q3-$nm" env FAKE_NODES="$(node_j n1 "$rdy" "$cord" "$eff" | items)" bash "$RUN" --available
     expect_rc "Q3-$nm" 69
+    if grep -q 'открытого для планирования узла нет' "$OUT"; then ok; else bad "Q3-$nm" "причина не названа"; fi
 done
-# Q2 — узел без стенда занят: 20 ГиБ запрошено чужим pod → go-race (14 ГиБ) не встаёт → 75 до ns
-BUSY_N2="$( { pod_j kacho n1 Running 100m 256Mi; pod_j other n2 Running 2 20Gi; } | items)"
-NODES12="$( { node_j n1 1 0 ""; node_j n2 1 0 ""; } | items)"
 fresh
-go_run q2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY_N2" bash "$RUN" --available --profile go-race
+go_run q3r env FAKE_EXIT=0 FAKE_NODES="$(node_j n1 1 1 "" | items)" "${B[@]}" --short q3r -- true
+expect_rc Q3r 69
+if [ "$(created)" = нет ]; then ok; else bad Q3r "ns создавалось без открытого узла"; fi
+# Q2 — оба узла заняты: 20 ГиБ запрошено чужими pod → go-race не встаёт → 75 до ns
+BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 20Gi; pod_j other n2 Running 2 20Gi; } | items)"
+fresh
+go_run q2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile go-race
 expect_rc Q2 75
 if grep -q 'места' "$OUT"; then ok; else bad Q2 "причина не названа (места нет)"; fi
 fresh
-go_run q2r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY_N2" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short q2r -- true
+go_run q2r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short q2r -- true
 expect_rc Q2r 75
 if [ "$(created)" = нет ]; then ok; else bad Q2r "ns создавалось без места под профиль"; fi
 # Q2b — близнец: тот же кластер, профиль lint (6 ГиБ) встаёт → 0 и прогон исполняется
 fresh
-go_run q2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY_N2" bash "$RUN" --available --profile lint
+go_run q2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile lint
 expect_rc Q2b 0
 fresh
-go_run q2br env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY_N2" "${B[@]}" --short q2br -- true
+go_run q2br env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" "${B[@]}" --short q2br -- true
 expect_rc Q2br 0
 # Q2c — профиля нет → 64
 fresh
 go_run q2c bash "$RUN" --available --profile nope
 expect_rc Q2c 64
-# Q5 — перепись pod кластера больше строки аргумента (128 КиБ), стенд на втором узле
-# → разбирается, 0 (опыт 2026-10-09: настоящий кластер, jq не запускался)
+# Q5 — перепись pod кластера больше строки аргумента (128 КиБ) → разбирается, 0
+# (опыт 2026-10-09: настоящий кластер, jq не запускался)
 fresh
 { for i in $(seq 1 700); do pod_j "ns-$i-$(printf '%0120d' 0)" n2 Running 10m 16Mi; done; pod_j kacho n2 Running 100m 256Mi; } | items > "$BOX/bigpods.json"
 go_run q5 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS_FILE="$BOX/bigpods.json" bash "$RUN" --available --profile go-race
 expect_rc Q5 0
 if [ "$(stat -c %s "$BOX/bigpods.json")" -gt 131072 ]; then ok; else bad Q5 "перепись меньше 128 КиБ — случай пуст"; fi
-# Q4 — pod ждёт планирования, а стенд встал на единственный узел → 69 сразу, а не через 900 с; ns снято
+# Q4 — pod ждёт планирования, а чужой pod занял последнее место → 75 сразу, а не
+# через 900 с; ns снято и при --keep
 fresh
 t0=$(date +%s)
-go_run q4 env FAKE_EXIT=0 FAKE_UNSCHED=1 FAKE_PODS_AFTER_JOB="$STAND_N1" "${B[@]}" --short q4 --keep 2 -- true
-expect_rc Q4 69
+go_run q4 env FAKE_EXIT=0 FAKE_UNSCHED=1 FAKE_PODS_AFTER_JOB="$(pod_j other n1 Running 15 28Gi | items)" "${B[@]}" --short q4 --keep 2 -- true
+expect_rc Q4 75
 if [ $(( $(date +%s) - t0 )) -le 30 ]; then ok; else bad Q4 "выход через $(( $(date +%s) - t0 )) с"; fi
 expect_ns_gone Q4 t1-heavy-q4
-if grep -q 'узла без стенда нет' "$OUT"; then ok; else bad Q4 "причина не названа"; fi
-# Q4b — близнец: pod ждёт, узел без стенда есть (место освободится) → run.sh ждёт дальше
+if grep -q 'места под запрос' "$OUT"; then ok; else bad Q4 "причина не названа"; fi
+# Q4b — близнец: pod ждёт, место есть (стенд на узле не мешает) → run.sh ждёт дальше
 fresh
 OUT="$BOX/q4b.out"
 timeout 15 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_HOST" FAKE_IP="$SERVER_IP" FAKE_EXIT=0 FAKE_UNSCHED=1 \
+    FAKE_PODS_AFTER_JOB="$(pod_j kacho n1 Running 450m 2756Mi | items)" \
     KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "${B[@]}" --short q4b -- true > "$OUT" 2>&1
 RC=$?; cat "$OUT" >> "$ALL_OUT"
 expect_rc Q4b 124

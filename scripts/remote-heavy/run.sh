@@ -18,7 +18,7 @@
 #          [--timeout <с>] [--keep <часы ≤ 12>] -- <команда> [аргументы…]
 #   run.sh --available [--profile <профиль>]
 #                           0 — кластер отвечает, ns создавать вправе и pod есть где
-#                           встать; 69 — нет (в том числе узла без стенда нет, см.
+#                           встать; 69 — нет (в том числе открытого узла нет, см.
 #                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
 #                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
 #   run.sh --profiles       профили, их ресурсы и основание
@@ -36,8 +36,17 @@
 # kacho.io/kind=heavy, kacho.io/repo, аннотация kacho.io/expires (RFC 3339, UTC) —
 # те же, что у стендов задачи (цели stand-ns-* в deploy/ продукта), поэтому их
 # перепись видит и тяжёлые ns. ns `kacho` и любое имя вне формы — отказ 64
-# (NS=<имя> окружения — то же, что --ns). Уже существующее ns не берётся и не
-# снимается: run.sh снимает только созданное им самим.
+# (NS=<имя> окружения — то же, что --ns) до любого обращения к кластеру: ни ns, ни
+# Job, ни одного объекта. Уже существующее ns не берётся и не снимается: run.sh
+# снимает только созданное им самим.
+#
+# СТЕНД ДЕРЖИТ ПРОСТРАНСТВО, А НЕ УЗЕЛ. Решение владельца 2026-10-09 дословно: «не
+# запускать в NS качо а не на узлах». Прежняя обязательная podAntiAffinity к pod ns
+# kacho (ws#984) снята целиком — ни required, ни preferred, никаких условий узла по
+# стенду: стенд разошёлся на оба узла кластера, и прогону встать стало некуда
+# (планировщик: «didn't match pod anti-affinity rules», 900 с ожидания и 75).
+# Стенд защищают своё ns прогона, NetworkPolicy, hostUsers: false, отсутствие
+# privileged, ПРЕДЕЛ и явные запросы и пределы ресурсов pod (числом, PROFILES).
 #
 # СНЯТИЕ. trap на EXIT, INT и TERM снимает ns всегда — на успехе, на падении
 # команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас + ч
@@ -59,38 +68,35 @@
 #
 # ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
 # F3): число одновременных тяжёлых прогонов ограничено KACHO_REMOTE_HEAVY_MAX
-# (по умолчанию 2 — на узле без стенда 29,5 ГиБ, профиль go-race запрашивает
-# 14 ГиБ с dind). Идущим считается ns kacho.io/kind=heavy, не снимаемое, со сроком
-# в будущем и без завершённого Job. Перепись — до создания ns (предел достигнут —
-# 75, ns не создаётся) и после него: две гонки, прошедшие первую проверку разом,
-# разрешаются по времени создания — запуск, оказавшийся сверх предела, снимает
-# своё ns и выходит 75.
+# (по умолчанию 2 — запросы профилей подобраны так, что два go-race умещаются на
+# один узел рядом со стендом, см. PROFILES). Идущим считается ns
+# kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без завершённого Job.
+# Перепись — до создания ns (предел достигнут — 75, ns не создаётся) и после него:
+# две гонки, прошедшие первую проверку разом, разрешаются по времени создания —
+# запуск, оказавшийся сверх предела, снимает своё ns и выходит 75.
 #
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
 # SYS_PTRACE dind действуют только внутри него. privileged нет ни у одного
-# контейнера (ревью ws#984, F1). Сверх этого pod не встаёт на узел, где идёт
-# хотя бы один pod ns kacho (podAntiAffinity required, topologyKey
-# kubernetes.io/hostname): исполняемый код ветки и сторонних модулей не делит
-# узел со стендом. NetworkPolicy ns (F2): входящие запрещены; исходящие — к DNS
-# кластера (служба с портом 53/UDP, выводится из кластера) и в мир, кроме частных
-# диапазонов, адресов узлов, диапазонов служб и адресов управления кластера
-# (конечные точки default/kubernetes и адреса имени сервера кубконфига). Предпосылка проверяется в pod до
-# команды: DNS отвечает, мир (proxy.golang.org:443) доступен, а управление кластера
-# (kubernetes.default.svc:443) и служба ns kacho — нет; иначе 69.
+# контейнера (ревью ws#984, F1). NetworkPolicy ns (F2): входящие запрещены;
+# исходящие — к DNS кластера (служба с портом 53/UDP, выводится из кластера) и в
+# мир, кроме частных диапазонов, адресов узлов, диапазонов служб и адресов
+# управления кластера (конечные точки default/kubernetes и адреса имени сервера
+# кубконфига). Предпосылка проверяется в pod до команды: DNS отвечает, мир
+# (proxy.golang.org:443) доступен, а управление кластера (kubernetes.default.svc:443)
+# и служба ns kacho — нет; иначе 69.
 #
-# РАЗМЕЩЕНИЕ (ws#991). Узел без pod ns kacho — условие изоляции, а не пожелание, и
-# планировщик его не ослабит: стенд на всех узлах — pod не встанет никогда (опыт
-# 2026-10-09: стенд разошёлся на оба узла, прогон ждал 900 с и выходил 75, а
-# heavy-slot уже отдал ему управление — локального запуска с причиной не было).
-# Поэтому до создания ns, в --available и при ожидании планирования run.sh сам
-# переписывает узлы: годный — Ready, не закрыт для планирования, без taint
-# NoSchedule/NoExecute (допусков у pod нет), без незавершённого pod ns kacho и с
-# местом: allocatable минус запросы незавершённых pod узла (запрос pod — сумма
-# контейнеров и боковых, но не меньше наибольшего init) не меньше запроса профиля
-# (run и dind). Годного без стенда нет — 69 (heavy-slot идёт локально с причиной);
-# без стенда есть, но места нет — 75; pod ждёт, а годного не осталось — выход сразу
-# тем же кодом. --available без --profile судит лишь узел без стенда.
+# РАЗМЕЩЕНИЕ (ws#991). Защита от «некуда встать по ресурсам», без условия по
+# стенду: pod, которому негде встать, ждал бы 900 с и выходил 75, а heavy-slot уже
+# отдал ему управление — локального запуска с причиной не было. Поэтому до
+# создания ns, в --available и при ожидании планирования run.sh сам переписывает
+# узлы: годный — Ready, не закрыт для планирования, без taint NoSchedule/NoExecute
+# (допусков у pod нет) и с местом: allocatable минус запросы незавершённых pod узла
+# (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) не
+# меньше запроса профиля (run и dind). Открытого узла нет — 69 (heavy-slot идёт
+# локально с причиной); открытые есть, места нет — 75; pod ждёт, а годного не
+# осталось — выход сразу тем же кодом. --available без --profile судит лишь
+# открытый узел.
 #
 # ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
 # потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
@@ -143,7 +149,7 @@
 # нет). Это плата переноса, она видна во времени прогона.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен (кластер, образ, доставка, пин, сеть pod, узла без стенда нет —
+# недоступен (кластер, образ, доставка, пин, сеть pod, открытого узла нет —
 # РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
 # команду в срок либо Job снят по сроку; 76 — команда оборвана
 # пределом памяти. 69, 75, 76 —
@@ -175,14 +181,17 @@ MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
 MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"
 
-# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Узел кластера —
-# 15,5 CPU и 29,5 ГиБ (замер 2026-10-08, kubectl get nodes); стенд kacho держит до
-# 3,9 ГиБ запросов на одном из двух, поэтому запрос профиля ≤ 12 ГиБ встаёт на любой.
-PROFILES='go-race|8|14|12Gi|20Gi|40Gi|1|go test -race по монорепо локально — 13,6 ГиБ (heavy-slot.sh, класс go-race); предел 20 ГиБ — с запасом на -p по числу ядер
-integration|4|8|6Gi|12Gi|40Gi|1|make test-integration SVC=vpc локально — 1,4 ГиБ; контейнеры testcontainers — в dind, у него свой предел
-lint|6|12|6Gi|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш — 4,5 ГиБ (heavy-slot.sh, класс lint)
-ci-local|8|14|12Gi|20Gi|40Gi|1|scripts/ci-local.sh go локально — 5,2 ГиБ; группы вне go требуют инструментов, которых в образе нет'
-DIND_RES='1|2|2Gi|8Gi'
+# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Замер
+# 2026-10-09 (kubectl describe nodes, только чтение): узел — allocatable 15,5 CPU и
+# 30 189 МиБ; стенд занимает запросами 410m/450m CPU и 2 372/2 756 МиБ — свободно
+# не меньше 15 050m и 27 433 МиБ на каждом. Запрос go-race с dind — 7 CPU и 12 ГиБ:
+# два прогона (ПРЕДЕЛ) — 14 CPU и 24 576 МиБ — умещаются даже на одном узле рядом
+# со стендом, и место для обоих есть, где бы стенд ни стоял.
+PROFILES='go-race|6|12|11Gi|16Gi|40Gi|1|go test -race по монорепо локально — 13,6 ГиБ (heavy-slot.sh, класс go-race); предел 16 ГиБ — запрос 11 ГиБ держит место двух прогонов на узле
+integration|3|6|5Gi|10Gi|40Gi|1|make test-integration SVC=vpc локально — 1,4 ГиБ; контейнеры testcontainers — в dind, у него свой предел
+lint|4|8|6Gi|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш — 4,5 ГиБ (heavy-slot.sh, класс lint)
+ci-local|6|12|11Gi|16Gi|40Gi|1|scripts/ci-local.sh go локально — 5,2 ГиБ; группы вне go требуют инструментов, которых в образе нет'
+DIND_RES='1|2|1Gi|6Gi'
 
 profile_row() {
     local line
@@ -275,9 +284,9 @@ busy_heavy() {
       | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name'
 }
 
-# placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла
-# без стенда, открытого для планирования, нет; 75 — такой есть, но места под запрос
-# нет; 1 — перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
+# placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла,
+# открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
+# перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
 placement() {
     local nj pj r
     PLACE_WHY=""; PLACE_CENSUS=""
@@ -301,22 +310,21 @@ placement() {
          | {open: ((any(.status.conditions[]?; .type == "Ready" and .status == "True"))
                    and ((.spec.unschedulable // false) | not)
                    and ((.spec.taints // []) | all(.effect != "NoSchedule" and .effect != "NoExecute"))),
-            stand: ($live | any(.[]; .spec.nodeName == $nm and .metadata.namespace == "kacho")),
             fcpu: ((.status.allocatable.cpu // "0" | mcpu) - ([$live[] | select(.spec.nodeName == $nm) | eff("cpu")] | add // 0)),
             fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
-      | [($ns | length), ($ns | map(select(.stand)) | length), ($ns | map(select(.open | not)) | length),
-         ($ns | map(select(.open and (.stand | not))) | length),
-         ($ns | map(select(.open and (.stand | not) and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+      | [($ns | length), ($ns | map(select(.open | not)) | length),
+         ($ns | map(select(.open)) | length),
+         ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
         || { PLACE_WHY="перепись узлов не разобрана"; return 1; }
-    local all stand closed free fit
-    read -r all stand closed free fit <<< "$r"
-    PLACE_CENSUS="узлов $all: со стендом ns kacho $stand, закрыты для планирования $closed, открыты без стенда $free, из них с местом $fit"
+    local all closed open fit
+    read -r all closed open fit <<< "$r"
+    PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
     [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
     [ "$fit" -gt 0 ] && return 0
-    if [ "$free" -eq 0 ]; then
-        PLACE_WHY="узла без стенда нет ($PLACE_CENSUS) — pod не встанет: исполняемый код ветки не делит узел со стендом"; return 69
+    if [ "$open" -eq 0 ]; then
+        PLACE_WHY="открытого для планирования узла нет ($PLACE_CENSUS) — pod не встанет"; return 69
     fi
-    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) нет ни на одном узле без стенда ($PLACE_CENSUS)"; return 75
+    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
 }
 
 # need_of <профиль> — «mCPU МиБ» запроса pod профиля: run и боковой dind.
@@ -791,9 +799,6 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
    template: {metadata: {labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
     spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: false,
-     affinity: {podAntiAffinity: {requiredDuringSchedulingIgnoredDuringExecution: [
-       {labelSelector: {}, namespaceSelector: {matchLabels: {"kubernetes.io/metadata.name": "kacho"}},
-        topologyKey: "kubernetes.io/hostname"}]}},
      initContainers: ((if $dind == 1 then [
        {name: "tools", image: $cimg, command: ["cp", "/usr/local/bin/docker", "/tools/docker"],
         volumeMounts: [{name: "tools", mountPath: "/tools"}]},
