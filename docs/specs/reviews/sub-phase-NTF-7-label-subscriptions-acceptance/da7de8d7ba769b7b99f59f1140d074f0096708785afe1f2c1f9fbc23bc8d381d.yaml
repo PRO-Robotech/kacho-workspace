@@ -1,0 +1,101 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  sha256: da7de8d7ba769b7b99f59f1140d074f0096708785afe1f2c1f9fbc23bc8d381d
+  revision: "6 (2026-10-09)"
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит «Статус: DRAFT» и «редакция 6 · вердикта на неё НЕТ». Шапку эта запись намеренно не
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: null
+  content_commit_note: >-
+    Документ лежит в рабочем дереве копии tmp/issue-880 (ветка issue-880, HEAD a9f31ca6a) новым
+    незакоммиченным файлом (`git status --short` → `??`); одобрение относится к содержимому с
+    отпечатком выше, а не к будущему коммиту с иным содержимым.
+  branch: issue-880
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1246
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-09T21:40:00Z'
+round: 6
+round_note: >-
+  Круг 6 на редакцию 6 — ответ на запись круга 5 (c4242028…, RETURNED, 1 блокирующий B5-1). Сверх
+  двух кругов (`fa-b8-acceptance-two-rounds`, origin/main воркспейса) круг разрешён диспетчером
+  решением (в) от 2026-10-09 по сути замечания B5-1; предмет круга — только B5-1 и дельта редакции 6.
+  Роль сверена с origin/main воркспейса (`git show origin/main:.claude/agents/acceptance-reviewer.md`).
+publication_mode: record-plus-external-event-by-courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  status: not_performed
+  note: событие публикует курьер и тем же заходом приводит этот блок к факту; до публикации — not_performed.
+prior_round_closure:
+  - id: B5-1
+    status: closed
+    note: >-
+      Новый сценарий NTF7-32 (строки 1041-1071): Revoke(storage, resource-event) в Дано, правка V1,
+      Restore администратором кластера, отсечка C читается пробой (К27), выдержка полосы, правка V2;
+      предусловие enqueued_at(V1) < C + 30s ≤ enqueued_at(V2) сверяется до «Тогда» с исходом «не
+      выполнилось» при невыполнении. Тогда — одно письмо «изменён» только по V2, решающих ResolveSend 2
+      (REVOKED о V1, ALLOW о V2), Resolve{self} 1. Близнецы по одному факту (момент Restore): до V1 —
+      «изменён 2 раза», оба ALLOW; после V2 — писем 0, SMTP-сессий 0, оба REVOKED, Resolve{self} 0.
+      Р5 (О) (строки 365-378): REVOKED — решающий только в NTF7-32, вне его — красный; строка (П)
+      (399-400) согласована. Р9 (494-498): ветвь REVOKED и «ни одной ALLOW — ни письма, ни вопроса
+      адреса» названы с держателем NTF7-32. §4 строка NTF-3 Р13 (555): держатель ветви REVOKED — NTF7-32
+      и два близнеца. §5.1 К25-К27, §8 (1138-1139), §9 (1180), DoD 10.2 пп.1-2 (1213-1218) дописаны.
+      Семантика исходов сверена с NTF-1 Р5 (таблица исходов, строки 671-673 NTF-1 c19490f9…): REVOKED при
+      надгробии шаблона либо enqueued_at < отсечка + полоса — исход V1 не зависит от момента вопроса
+      (до Restore — надгробие, после — отсечка), исход V2 — ALLOW по enqueued_at. Координаты К25-К27
+      сверены на пине kaname 33010d434767: Revoke/Restore с optional template и required_acr_min "2"
+      (internal_notification_grant_service.proto), cutoff_at в kaname.notification_template_grants
+      (20261004113000_notification_grants.sql), ключ notifications.cutoff-guard (config/notifications.go).
+important_prior_closure:
+  - "Р9: ответ ResolveSend между сборками не переиспользуется (строки 492-494), держатель — близнец NTF7-31."
+blocking: []
+important:
+  - >-
+    Изоляция NTF7-32 от прочих сценариев S2 не названа. Revoke(storage, resource-event) меняет общее
+    состояние службы доступа обвязки, а Р5 (строка 377) объявляет REVOKED вне NTF7-32 красным: сценарий
+    S2, исполняемый одновременно с NTF7-32 на той же службе доступа, получит REVOKED о своей строке и
+    покраснеет не по вине продукта. Ошибка видима (ложное красное, а не ложное зелёное), поэтому не
+    блокирует; автору проб — исполнять NTF7-32 и его близнецов последовательно относительно прочих
+    сценариев S2 (либо на своей службе доступа), а при следующей правке документа сказать это строкой §5.1 К25.
+  - >-
+    Близнец «Restore после V2» не повторяет числа ListEventAudience (2) и (З) = 0, как основной сценарий;
+    по смыслу «судит предикат вызовов Р5» они те же — при следующей правке дописать «(О) ListEventAudience
+    2, (П), (З), (Ф) — как выше», как это сделано у близнеца NTF7-27.
+defaults_fixed:
+  - >-
+    Право только уровня кластера (system_admin) по селектору писем не даёт (Р6, §6) — дефолт круга 2
+    сохраняется.
+constructibility:
+  method: >-
+    Посев не ставился: стенда и разрешения на посев в задании нет. Таблица §5.1 К1-К24 по существу не
+    менялась с круга 3, где её координаты пересверены на пинах; новые К25-К27 сверены чтением на пине
+    kaname 33010d434767 (см. prior_round_closure). Путь Revoke/Restore администратором кластера через
+    внутренний край со штатным повышением ступени — решения владельца 2026-10-08 (1) и диспетчера
+    2026-10-09 (б); прецедент — NTF3-125 (NTF-3 1d7d2ad0…).
+    Посеяно 0 из 32; названной фикстурой 32 из 32; «не выполнилось» 32 — посев не разрешён заданием.
+counts:
+  scenarios: 32
+  stages: 3
+  decisions: 12
+  producer_named: "32 из 32 (§9)"
+  twin_named: "все отрицания §8 имеют близнеца по одному факту; NTF7-32 — два близнеца по моменту Restore"
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: true
+  new_domain: false
+  security_surface: true
+event_body: "acceptance-reviewer · APPROVED · da7de8d7ba769b7b99f59f1140d074f0096708785afe1f2c1f9fbc23bc8d381d"
