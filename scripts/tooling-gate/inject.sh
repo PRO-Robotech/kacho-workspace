@@ -1070,6 +1070,37 @@ if mr_patch "$b/$MR_REL" \
         A-BLOCKED A-DIRTY A-BEHIND A-DRAFT A-UNKNOWN
 fi
 
+# ── ПОСЛЕДНИЙ ИСХОД ПРОВЕРКИ, А НЕ «ЕСТЬ SUCCESS» (находка kaname#673) ───────
+# Каждое решение свёртки rollup к последним исходам портится одним фактом и
+# обязано покраснеть держащей его пробой SUP-*.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .*?)<<<"\$rollup_json"/${1}<<<"\$pr_json"/m' \
+    "зелёные взяты из несвёрнутого rollup"; then
+    run_c09_red "$b" "инъекция: зелёный — имя, у которого ЕСТЬ success (прежнее правило) — краснеет" \
+        SUP-LATE-RED SUP-LATE-RUN SUP-WF SUP-NOSTART
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\(map\(\.startedAt\) \| max\)/(map(.startedAt) | min)/' \
+    "последним взят самый ранний исход"; then
+    run_c09_red "$b" "инъекция: последним взят самый ранний исход — краснеет" SUP-GREEN SUP-LATE-RED SUP-LATE-RUN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if length > 1 and all\(\.\[\]; \(\.startedAt \/\/ ""\) != ""\)/if length > 1/' \
+    "запись без startedAt вытесняется"; then
+    run_c09_red "$b" "инъекция: порядок без startedAt считается установленным — краснеет" SUP-NOSTART
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/group_by\(\[\(\.name \/\/ \.context\), \(\.workflowName \/\/ ""\)\]\)/group_by(.name \/\/ .context)/' \
+    "проверка — одно имя, без workflow"; then
+    run_c09_red "$b" "инъекция: одноимённые задания разных workflow вытесняют друг друга — краснеет" SUP-WF
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/then \[\.\[\]\] else map\(select\(\.conclusion != "SUCCESS"\)\) end/then [.[]] else [.[]] end/' \
+    "незелёная проверка прикрыта зелёной одноимённой"; then
+    run_c09_red "$b" "инъекция: красная проверка прикрыта зелёной одноимённой — краснеет" SUP-WF SUP-NOSTART
+fi
+
 # Законный близнец фильтра: тот же «только SUCCESS», записанный иначе.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \

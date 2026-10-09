@@ -317,6 +317,91 @@ expect 1 $'REASON\tCI-EMPTY' "проверок 0 — не зелёное"
 twin; edit check-runs.json '.total_count += 1'; run 0
 expect 2 $'VOID\tcheck-runs: объявлено' "check-runs усечены — вердикта нет"
 
+echo "== (г) судится последний прогон проверки, а не каждый прогон на голове"
+# Вход — третий захват, `landing-precheck-fixtures/kaname-673/` (2026-10-08,
+# kaname#673 @1197a78e): пять прогонов «правила запроса» на одной голове —
+# success 05:27:31, cancelled 05:57:02, failure 05:57:11 (заголовок «#2918» у
+# головы 484-…), success 05:57:41 и 05:58:55 после правки заголовка; у каждого
+# свой check suite (`filter=latest` не сворачивает). Поля захвата — name, status,
+# conclusion, head_sha, started_at, app.id, check_suite.id и прогоны workflow
+# (`…/actions/runs?head_sha=`: check_suite_id, event, head_branch, path). Он
+# прививается к случаю kacho#3036 (addrerun): head_sha и ветка прогонов
+# переписаны на голову случая, больше правок нет. Каждая проба ниже меняет
+# против привитого близнеца ОДИН факт.
+K673="$FIX/kaname-673"
+RERUN='правило запроса (заголовок · голова · тело · коммиты)'
+# shellcheck disable=SC2016  # $h, $b, $k — переменные jq
+addrerun() {
+    local s b
+    s="$(jq -r '.check_runs[0].head_sha' "$W/case/check-runs.json")"
+    b="$(jq -r '.head.ref' "$W/case/pull.json")"
+    jq --slurpfile k "$K673/rerun-check-runs.json" --arg h "$s" \
+        '.check_runs += [$k[0][] | .head_sha = $h] | .total_count += ($k[0] | length)' \
+        "$W/case/check-runs.json" > "$W/case/check-runs.new" && mv "$W/case/check-runs.new" "$W/case/check-runs.json"
+    [ -f "$W/case/runs.json" ] || echo '{"workflow_runs":[]}' > "$W/case/runs.json"
+    jq --slurpfile k "$K673/runs.json" --arg h "$s" --arg b "$b" \
+        '.workflow_runs += [$k[0].workflow_runs[] | .head_sha = $h | .head_branch = $b] | .total_count = (.workflow_runs | length)' \
+        "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"
+}
+# late <jq-выражение над check-run> — правка двух поздних success (05:57:41, 05:58:55).
+# shellcheck disable=SC2016  # $n — переменная jq
+late() { edit check-runs.json --arg n "$RERUN" "(.check_runs[] | select(.name == \$n and .started_at >= \"2026-10-08T05:57:41Z\")) |= ($1)"; }
+# lastone <jq-выражение> — правка только самого позднего (05:58:55).
+# shellcheck disable=SC2016  # $n — переменная jq
+lastone() { edit check-runs.json --arg n "$RERUN" "(.check_runs[] | select(.name == \$n and .started_at == \"2026-10-08T05:58:55Z\")) |= ($1)"; }
+# lateruns <jq-выражение над прогоном workflow> — правка прогонов двух поздних success.
+lateruns() { jq "(.workflow_runs[] | select(.check_suite_id == 102228955164 or .check_suite_id == 102229227503)) |= ($1)" "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; }
+
+twin; addrerun; run 0
+expect 0 - "kaname#673: cancelled и failure вытеснены поздними success той же проверки — проход"
+if grep -q $'^CENSUS\tci: .*вытеснено поздним прогоном той же проверки 4,' "$W/out" \
+    && grep -q $'^CENSUS\tci: вытеснены поздним прогоном: '"$RERUN"' ×4 (2026-10-08T05:27:31Z success, 2026-10-08T05:57:02Z cancelled, 2026-10-08T05:57:11Z failure, 2026-10-08T05:57:41Z success)$' "$W/out"; then
+    echo "  [OK]   вытеснённые названы в переписи поимённо, временем и исходом"; pass=$((pass + 1))
+else echo "  [FAIL] перепись не называет вытеснённые прогоны:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addrerun; lastone '.conclusion = "failure"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — failure' "поздний failure после success — стоп"
+if [ "$(grep -c '^REASON' "$W/out")" = 1 ]; then echo "  [OK]   причина одна — поздний failure; вытеснённые прежние не судятся"; pass=$((pass + 1))
+else echo "  [FAIL] ожидалась одна причина:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; addrerun; lastone '.status = "in_progress" | .conclusion = null'; run 0
+expect 1 $'REASON\tCI-PENDING\t'"$RERUN"' — in_progress' "поздний прогон идёт — не проход, прежний success не спасает"
+twin; addrerun; lastone 'del(.started_at)'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — ' "у прогона нет started_at — порядок не установлен, судятся все"
+twin; addrerun; jq '.workflow_runs |= map(select(.check_suite_id != 102228955164 and .check_suite_id != 102229227503))' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — failure' "прогон workflow поздних success не найден — они не вытесняют"
+twin; addrerun; lateruns '.path = ".github/workflows/other.yml"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — failure' "поздние success — задание другого файла workflow, не та же проверка"
+twin; addrerun; lateruns '.event = "push"'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — failure' "поздние success — прогон push, не pull_request, не та же проверка"
+twin; addrerun; late '.app.id = 1'; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — failure' "поздние success — другое приложение, не та же проверка"
+twin; addrerun; jq '.workflow_runs = "boom"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
+expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$RERUN"' — failure' "прогоны workflow не прочитаны — вытеснения нет, судятся все"
+if grep -q $'^CENSUS\tci: одноимённых проверок 1, прогоны workflow не прочитаны' "$W/out"; then
+    echo "  [OK]   перепись называет, что вытеснение не судилось и почему"; pass=$((pass + 1))
+else echo "  [FAIL] перепись молчит о несуждённом вытеснении:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+# Мутанты самой предпроверки: каждый обязан дать на своей пробе ДРУГОЙ код.
+# rmutant <имя> <perl-выражение> <ждём код мутанта> <настройка случая>
+rmutant() {
+    local out="$W/mut/precheck-$1.sh"
+    mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"
+    perl -0pe "$2" "$TOOL" > "$out"
+    if cmp -s "$TOOL" "$out"; then
+        echo "  [FAIL] мутант «$1»: образец не найден" >&2; fail=$((fail + 1)); return
+    fi
+    twin; addrerun; eval "$4"
+    FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" \
+        bash "$out" PRO-Robotech/kacho 3036 > "$W/out" 2>&1
+    local code=$?
+    if [ "$code" = "$3" ]; then
+        echo "  [OK]   мутант «$1» проваливает свою пробу: код $code"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] мутант «$1» не пойман: код $code, ждали $3" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
+    fi
+}
+rmutant every-run 's/^(pending|bad) = \[r for r in judged /$1 = [r for r in own_runs /mg' 1 ':'
+rmutant latest-completed 's/^(        starts = \[r\.get\("started_at"\) for r in g\]\n)/        g = [r for r in g if r.get("status") == "completed"]\n$1/m' 0 "lastone '.status = \"in_progress\" | .conclusion = null'"
+rmutant name-only 's/^        return \("набор", suite\)\n    return \(run\.get\("path"\), run\.get\("event"\)\)\n/        return ()\n    return ()\n/m' 0 "lateruns '.path = \".github/workflows/other.yml\"'"
+
 echo "== (д) merge-readiness"
 twin; run 1; expect 1 $'REASON\tMERGE-READINESS\tкод 1' "merge-readiness 1"
 twin; run 2; expect 1 $'REASON\tMERGE-READINESS\tкод 2' "merge-readiness 2 — тоже не «можно»"
