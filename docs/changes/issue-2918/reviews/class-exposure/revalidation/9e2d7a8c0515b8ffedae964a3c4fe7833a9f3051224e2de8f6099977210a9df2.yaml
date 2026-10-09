@@ -1,0 +1,293 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-3 редакции 19 и маршрута tasks.md
+# редакции 22 на ветке issue-880 @fbb79b9bc.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли); маршрут — subject.route. Предмет задания:
+# закрыты ли блокирующие прошлого круга (revalidation/bfff8bf1….yaml, CX3S-01…04) и пункты к маршруту
+# (CX3S-05, 06) и к коду (CX3S-07), и нет ли новых. Прежние записи не переписываются.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 9e2d7a8c0515b8ffedae964a3c4fe7833a9f3051224e2de8f6099977210a9df2
+  fingerprint_predicate: git show fbb79b9bc:docs/changes/issue-2918/design.md | sha256sum
+  revision: 19
+  content_commit: fbb79b9bc32ee4eb81e9e9299fb2ddb24d4c832c
+  route:
+    path: docs/changes/issue-2918/tasks.md
+    sha256: e4419f1530e3995654197467ab65e6245f55860b696bc916df3c3b0bb95fc721
+    fingerprint_predicate: git show fbb79b9bc:docs/changes/issue-2918/tasks.md | sha256sum
+    revision: 22
+    content_commit: fbb79b9bc32ee4eb81e9e9299fb2ddb24d4c832c
+  plans: docs/changes/issue-2918/plans/{F-C1,F-C2,F-K1,F-K2,V-1,V-2,V-3,V-4,V-5,V-6}.json   # @fbb79b9bc
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/bfff8bf17f2fa7d6f6d70cc1ad4ff7dd9f49aa840cd4f95e7db81c4757060f41.yaml
+  subject_revision: 18
+  outcome: блокер
+  clean: false
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba   # git show fbb79b9bc:<путь> | sha256sum — не менялась
+  revision: 42
+  effective_verdict: ACCEPTED
+  initial_class_exposure_on_this_sha: absent   # ls reviews/class-exposure/initial/ — 8 файлов, 1d7d2ad0 среди них нет
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: "origin/main:.claude/agents/class-exposure-analyst.md @e5013d28b (сверено: координата записи и запрет коммита совпадают с загруженным)"
+dispatcher_decisions:
+  applied: >-
+    Решения notify Д96–Д134 и Д12; владельца 2026-10-04 (замысел не ворота; пересверка — перед запросом
+    эпика в main), 2026-10-07, 2026-10-08 (1)–(4). (1) держит notify-probe Send рабочим путём newman D5 —
+    проверено в FM0 (CX3S-01). (2) — подписка по меткам в релизе — проверено на Е9 (CX3S-03).
+revisions:
+  workspace: fbb79b9bc32ee4eb81e9e9299fb2ddb24d4c832c   # HEAD issue-880; origin/main воркспейса e5013d28b (скрипты)
+  kacho: 9bc6b9e89ae3   # origin/2914-notify; go.mod/go.sum против 515e017c87 не менялись; Go-дельта 515e→9bc6 — 4 файла вне радиуса
+  corelib: 117749095814 # origin/77-notify
+  kaname: d93b69712f0d  # origin/484-notify (#673 влит); git diff 1197a78ed d93b69712 пуст
+snapshot_at: 2026-10-09T19:30:00Z
+inspected: >-
+  tasks.md редакции 22 целиком (§0–§7); дифф design.md 18→19 и З34 М1 (а)–(г), §11 строки CX3S-01…07,
+  §11а УК3-79, §13 Е5/Е9/Е10 и абзац после таблицы; plans/*.json (10 файлов, V-2 — пути полос);
+  приёмка NTF-3 @fbb79b9bc §6 класс 3; приёмка NTF-1 @fbb79b9bc (Е5); каталог записей ревью NTF-7 и
+  наличие текста NTF-7 во всех ссылках; маршруты соседей issue-2915/2917/2919/2924/2925 — строки об
+  окнах и пинах kaname; kacho @9bc6b9e89a — вызовы journaltx.Begin (разбор Go по пути импорта,
+  объемлющая функция), вызывающие обёрток Writer/inJournalTx/inComponentTx/runConfigTx;
+  go.mod ветки эпика и шести веток соседей в kacho; corelib @1177490 — экспорт journaltx и outbox.
+  Сборка: worktree kacho @9bc6b9e89a + replace kaname → worktree @d93b69712, go vet ./... (под
+  kacho-workspace/tmp/cea-ntf3-r22, снят). plan-precheck.sh (origin/main e5013d28b) на 10 планах.
+  Стенд не поднимался, записки vault не читались.
+
+closure_of_previous:
+  - id: CX3S-01
+    previous_severity: blocking
+    verdict: closed
+    evidence: >-
+      FM0 (tasks.md §4.3 В-2, plans/V-2.json) несёт пути services/notify/cmd/notify-probe/internal/send/
+      и pkg/feedjournal/feedjournaltest/resourceevent.go, выбор отметки (WithoutJournal / токен на каждую
+      Begin) и предикат «Send с флагом true зелёный», «проба feedjournaltest утверждает authz_rev».
+      Замысел М1 (г) — 25/13. Замер на 9bc6b9e89a разбором Go (узел — Begin пакета по пути импорта):
+      точек 25, объемлющих функций 25, ни одна функция не несёт двух точек; файлов 13.
+  - id: CX3S-02
+    previous_severity: blocking
+    verdict: closed_in_route_with_residual
+    evidence: >-
+      §1 «Окна пина»: окно В-2 (C0/33010d434 до FM0; corelib в kaname — до K0) и окно В-5 (P5, K1),
+      предикат командой по go.mod на каждом запросе, держатель до скрипта — git-operator (§6 п.7),
+      скрипт — Е10 (tooling-maintainer). На 2026-10-09 окно kaname открыто, нарушений нет: go.mod
+      2914-notify и шести веток соседей (2915-wave-ntf1-send, 2915-relay-wiring, 2917-wave-edge-2, …)
+      пинят kaname 33010d434767 или старше.
+    residual: CX3T-01
+  - id: CX3S-03
+    previous_severity: blocking
+    verdict: closed_with_route_fix
+    evidence: >-
+      Е9 — зависимость с производителем (под-фаза NTF-7: acceptance-author NTF-7; правка §6 NTF-3 по
+      NTF-7 DoD 10.4 п.3 — acceptance-author NTF-3 до посадки S1 NTF-7); закрытие релиза перенесено на
+      запрос эпика в main «только с NTF-7» (§5 цепочка, §2 Е9). Отображение принято: релиз не
+      закрывается без предмета, а полосы NTF-7 правят файлы S2-B6…S2-B8 после их посадки, не
+      параллельно. Предикат возврата строки класса 3 §6 приёмки NTF-3 («решение владельца о шаге
+      подписки») выполнен решением 2026-10-08 (2); правка строки маршрутизирована с адресатом.
+    residual: CX3T-03
+  - id: CX3S-04
+    previous_severity: blocking
+    verdict: closed
+    evidence: >-
+      Е5 — «не выполнена», производитель acceptance-author NTF-1 → acceptance-reviewer, рёбра «В-3 —
+      после Е5», «Ф-K2 — после Е5» в §5. Повторный замер @fbb79b9bc: приёмка NTF-1 c19490f9…c5db,
+      вхождений notification_recipient_directory|audience_pending — 0 (состояние в маршруте верно).
+  - id: CX3S-05
+    previous_severity: route
+    verdict: closed
+    evidence: >-
+      Пути FM0 и plans/V-2.json перечисляют 14 файлов. Повторный замер (go vet ./..., kacho @9bc6b9e89a,
+      kaname → d93b69712): ровно те же 14 файлов, расхождений 0 в обе стороны. Оговорка маршрута о
+      файле сверх перечня (пакет, не дошедший до проверки типов) — возврат автору маршрута; принята.
+  - id: CX3S-06
+    previous_severity: route
+    verdict: closed
+    evidence: "plans/V-2.json: у каждой FM-* пути notifications/resource-event/, notifications_resource-event.gen.go, journaltx-sites.yaml; предикат FM0 называет notifygen -check ожидаемо красным"
+  - id: CX3S-07
+    previous_severity: to_code
+    verdict: mapped_but_insufficient
+    evidence: "УК3-79 + интеграционная проба на точку фонового пути — держит точки Begin, но не вызывающих обёрток"
+    residual: CX3T-02
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green_with_conditions
+    detail: >-
+      CX3S-01…07 отображены в §11 замысла (строки 133 таблицы) и в карточки маршрута. CX3S-07
+      отображён в УК3-79 на зернистости точки Begin — для пяти обёрток это не выдерживает условие
+      (CX3T-02, к коду, не к одобрению).
+  - condition: "новый внешний вызов / асинхронный путь / sentinel заведены пунктом"
+    result: green
+    detail: "редакция 19 механизма не меняет; новых вызовов, путей и sentinel нет; УК3-79 — гейт, не путь"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: yellow
+    detail: >-
+      §13 строка Е9 — зависимость от NTF-7, но абзац под таблицей §13 («Открытое решение у замысла
+      одно — Е9») и строка §11 CX3R-11 («открытое решение») остались от редакции 18 — CX3T-04. До
+      одобрения замысла исправить; предмет решения не открыт, текст лжёт.
+
+clean: false
+
+mapping_check:
+  scenarios:
+    live: 173
+    mapped: 173
+    note: "приёмка не менялась (1d7d2ad0); множество явных NTF3-номеров §3–§5 маршрута 21 и 22 совпадает (38 и 38, comm пуст); диапазоны — как в записи bfff8bf1"
+  orders_uk3:
+    route_r21: 72
+    route_r22: 73
+    added: [УК3-79]
+  plans:
+    predicate: "for f in plans/*.json; do bash <origin/main e5013d28b>/scripts/plan-precheck.sh $f; done"
+    result: "10 из 10 — exit 0, VERDICT plan-ok, причин 0, не судимо 0 (воспроизведено)"
+
+new_items:
+  - id: CX3T-01
+    severity: route
+    class: "Решение и его следствие разнесены (code-authoring): окно пина объявлено только в маршруте-владельце"
+    decision: "§1 «Окна пина» — запрет поднимать пины мимо нулевого шага волны действует на изменения соседних маршрутов"
+    finding: >-
+      Окно стоит только в tasks.md NTF-3. В маршрутах соседей строк об окнах В-2/В-5 нет:
+      grep 'окн. пина|33010d434|d93b69712|#673' → issue-2917 0, issue-2924 0, issue-2925 0; issue-2915 и
+      2919 — только окно corelib Д41. Маршрут NTF-1 (issue-2915, N11r) предписывает «пин kaname на голове
+      484-notify после K8r» — буквально сейчас это d93b69712 (12 файлов не компилируются); K8r2
+      (57f184178) уже в 33010d434, так что требование N11r выполнимо на текущем пине, но текст этого не
+      говорит. Прецедент: kacho 42610f73cb (#2924, 2026-10-08) — «kaname на голову 484-notify». Для
+      corelib цена тише: подъём до C1 соседом мимо FM0 компилируется и даёт ErrNoAuthzRevision только при
+      флаге true. Е10 «ничего не гейтит», окно corelib открывается вливанием Ф-C1.
+    condition_on_route: >-
+      Вливание Ф-C1 в 77-notify — после одного из двух: (а) Е10 исполнена (plan-precheck/landing-precheck
+      отвергают подъём пина в окне без полосы repin); (б) рёбра окна стоят в маршрутах NTF-1 (N11r — пин
+      kaname 33010d434767 до вливания В-2), NTF-2 (D1), NTF-5 (C3, C4), NTF-7. Строка Е10 в §2 —
+      «гейтит вливание Ф-C1», а не «ничего». Окно kaname открыто уже: до (а)/(б) диспетчер передаёт
+      команду §1 git-operator'у каждой волны kacho любого маршрута эпика.
+    held_by: "нужен гейт, его нет — Е10 (tooling-maintainer); до него — вниманием git-operator"
+  - id: CX3T-02
+    severity: to_code
+    class: "Радиус по точкам применения, а не по имени механизма (measurement-discipline); пропущенный путь токена"
+    decision: "УК3-79: ведомость journaltx-sites.yaml — строка на точку вызова journaltx.Begin (файл, объемлющая функция)"
+    finding: >-
+      Из 25 точек пять — обёртки, через которые открывают журнальную транзакцию многие вызывающие: vpc
+      Repository.Writer (вызовов .Writer(ctx вне тестов — 68 в 51 файле), nlb Repository.Writer (20 в 15),
+      storage inJournalTx (15), storage reconciler inComponentTx (4), registry runConfigTx (4). Отметка
+      «token» у обёртки с одной пробой зелёная, даже если другой вызывающий токена не берёт. Измерено:
+      nlb jobs/target_drain_runner.go:180 — фоновый проход через r.repo.Writer(ctx) пишет журнал
+      (снятие целей → событие), в перечне фоновых точек маршрута (free_ip_runner, reconciler/store.go,
+      journal_tx.go, «compute фоновые проходы») его нет, и УК3-79 его не видит (это не точка Begin).
+      Также через Writer идут nlb quota/guard.go и vpc shared/quota/guard.go.
+    condition_on_code: >-
+      Выбор «токен / WithoutJournal» выражается там, где он принимается: обёртка принимает его
+      параметром (например, Writer(ctx, mark) с mark — *AuthzRevision либо отметка без журнала), так что
+      компилятор не пропустит вызывающего; либо УК3-79 судит строку ведомости на каждого вызывающего
+      обёртки (функция пакета, чьё тело зовёт Begin и которая принимает ctx, — обёртка; её вызовы —
+      точки), с той же печатью объёма. FM-n в перечень фоновых точек добавляет target_drain_runner
+      (интеграционная проба с флагом true).
+    held_by: "нужен гейт — расширение УК3-79 (go-implementer в FM0) либо тип параметра обёртки (FM-v, FM-n, FM-s, FM-r)"
+  - id: CX3T-03
+    severity: route
+    class: "Ссылка в место, которого нет (doc-truthfulness); производитель без носителя"
+    decision: "§2 Е9 и замысел §13 Е9 — производитель NTF-7: docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md, «редакция 4, 393ba457…, круг 4 RETURNED»"
+    finding: >-
+      Текста NTF-7 нет ни в одной ссылке репозитория: git log --all -- <путь> → 0 коммитов (после git
+      fetch origin); git cat-file -e fbb79b9bc:<путь> → нет. Файл лежит неотслеживаемым в рабочей копии
+      tmp/issue-880 (sha256 c4242028…, редакция 5). Записи ревью NTF-7 закоммичены, последняя — на
+      c4242028 (круг 5, RETURNED, коммит 2646ba0b3), а маршрут называет редакцию 4 и круг 4. Задачи
+      под-фазы в трекере нет (сказано в §2). Носитель решения владельца 2026-10-08 (2) — один
+      неотслеживаемый файл в общей рабочей копии.
+    condition_on_route: "Е9 называет запись ревью как доказательство (c4242028…, круг 5), а не путь; заказ — закоммитить текст NTF-7 и завести задачу под-фазы"
+    held_by: "docs-gate check-01 — после коммита текста; сейчас вниманием"
+  - id: CX3T-04
+    severity: to_design
+    class: "Два места об одном предмете, верно одно (doc-truthfulness)"
+    decision: "§13 Е9 — зависимость от NTF-7 (редакция 19)"
+    finding: >-
+      design.md @fbb79b9bc, абзац под таблицей §13: «Открытое решение у замысла одно — Е9 (подписка с
+      отбором по меткам, CX3R-11)»; строка §11 CX3R-11: «открытое решение … после одобренной дельты
+      приёмки». Строки CX3S-03 и Е9 той же редакции говорят обратное. Испытуемый cg.class
+      (CG_DESIGN_DECISION_OPEN) или рецензент прочтёт открытое решение.
+    condition_on_design: "абзац §13 и строку CX3R-11 привести к Е9 редакции 19 (открытых решений нет; CX3R-11 закрывается решениями NTF-7)"
+    held_by: "семейство cg.class при одобрении замысла"
+  - id: CX3T-05
+    severity: route
+    class: "Перечень входных поверхностей полосы"
+    decision: "FM-i — пути"
+    finding: "карточка: *fence*_integration_test.go; plans/V-2.json: два точных имени fence_integration_test.go. §6 п.9 требует совпадения пути карточки и плана."
+    condition_on_route: "одно написание в карточке и плане"
+    held_by: "lane-precheck по путям плана"
+
+measurements:
+  - claim: "радиус М1 (г): 25 вызовов в 13 файлах (маршрут, замысел)"
+    how: "разбор Go (go/parser) файлов из git grep -l 'journaltx\\.Begin(' вне *_test.go на kacho @9bc6b9e89a; узел — вызов Begin у идентификатора импорта github.com/PRO-Robotech/corelib/journaltx"
+    result: "25 точек в 25 объемлющих функциях, 13 файлов — верно"
+  - claim: "пути FM0 — компиляционный радиус #673, 14 файлов"
+    how: "worktree kacho @9bc6b9e89a, go mod edit -replace kaname=worktree @d93b69712, go vet ./... (go.work не действует: go env GOWORK пуст)"
+    result: "14 файлов, совпадают с перечнем FM0 и plans/V-2.json поимённо"
+  - claim: "plan-precheck код 0 у десяти волн"
+    how: "scripts из git archive origin/main (e5013d28b), по каждому plans/*.json"
+    result: "10/10 exit 0, plan-ok, причин 0, не судимо 0"
+  - claim: "Е5 не выполнена"
+    how: "git show fbb79b9bc:<приёмка NTF-1> | grep -cE 'notification_recipient_directory|audience_pending'"
+    result: "0 (отпечаток c19490f9…c5db)"
+  - claim: "NTF-7 — приёмка редакции 4 в круге ревью"
+    how: "git fetch origin; git log --all --oneline -- docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md; ls-tree fbb79b9bc docs/specs/reviews/sub-phase-NTF-7-…"
+    result: "текста нет ни в одном коммите; записей ревью 4 в дереве (последняя c4242028 — редакция 5)"
+  - claim: "окно kaname открыто, нарушений нет"
+    how: "go.mod origin/2914-notify и шести веток соседей kacho (git show <ветка>:go.mod)"
+    result: "kaname 33010d434767 либо cbd729cfa9b1 — подъёмов выше нет"
+  - claim: "перечень фоновых точек FM-* полон"
+    how: "git grep '\\.Writer\\(ctx' и вызовы inJournalTx/inComponentTx/runConfigTx вне тестов, kacho @9bc6b9e89a"
+    result: "неполон: nlb jobs/target_drain_runner.go:180 (CX3T-02)"
+
+not_measurable: >-
+  (1) Поведение FC (C1) — ветки нет, Е8 открыта; выводы о токене — из текста М1, не из кода.
+  (2) Пишет ли журнал каждый из 68 вызывающих vpc Writer — без перепись-шага FM-v не установить;
+  для вывода CX3T-02 достаточно, что Begin при флаге true требует токен либо отметку независимо от
+  того, пишет ли транзакция строку. (3) Когда сосед поднимет пин — вопрос расписания, не дерева.
+
+facts_for_dispatcher:
+  - "первичного разбора классов на приёмку 1d7d2ad0 по-прежнему нет (ls initial/) — change.yaml это говорит честно"
+  - "текст приёмки NTF-7 не закоммичен нигде; единственная копия — неотслеживаемый файл в tmp/issue-880"
+  - "маршрут NTF-1 N11r буквально предписывает пин kaname на голове 484-notify (= d93b69712) — внутри окна В-2"
+
+outcome: к-коду
+return_to_acceptance:
+  - "приёмка NTF-3 §6 класс 3 «Подписка с отбором по меткам»: предикат возврата выполнен решением владельца 2026-10-08 (2); правка маршрутизирована (NTF-7 DoD 10.4 п.3, автор NTF-3, до посадки S1 NTF-7) — новой дельты сверх неё не требуется"
+unmapped_items: []
+open_decisions: []
+orders:
+  - id: ORD-6
+    addressee: tooling-maintainer
+    subject: "Е10 — подъём пина corelib/kaname в kacho (и corelib в kaname) внутри объявленного окна запросом без полосы repin — причина отказа plan-precheck/landing-precheck; инъекция с близнецом"
+    basis: "CX3T-01; tasks.md §1, §2 Е10"
+  - id: ORD-7
+    addressee: авторы маршрутов NTF-1, NTF-2, NTF-5, NTF-7 (через диспетчера)
+    subject: "рёбра окна В-2/В-5 в своих маршрутах; NTF-1 N11r — пин kaname 33010d434767 (K8r2 в нём есть) до вливания В-2"
+    basis: "CX3T-01"
+  - id: ORD-8
+    addressee: design-author / автор маршрута NTF-3
+    subject: "Е10 — «гейтит вливание Ф-C1»; Е9 — доказательство записью c4242028 (редакция 5, круг 5); FM-i — пути как в плане; FM-n — target_drain_runner в перечне фоновых точек; замысел §13 абзац и §11 CX3R-11 — без «открытого решения»; УК3-79 — обёртки (CX3T-02)"
+    basis: "CX3T-01, 02, 03, 04, 05"
+  - id: ORD-9
+    addressee: acceptance-author NTF-7
+    subject: "закоммитить текст приёмки NTF-7 (редакция 5, c4242028…) в issue-880; задача под-фазы (NTF-7 DoD 10.4 п.6)"
+    basis: "CX3T-03"
+candidate_predicates: []
+new_class_proposal: >-
+  Второе наблюдение класса «общая ветка фундамента без окна пина у соседей» (первое — Д37/Д41, второе —
+  CX3S-02/CX3T-01 с прецедентом 42610f73cb): окно, объявленное в маршруте-владельце, не действует на
+  маршруты, которые его не цитируют. Предложение — норма плана (Е10/ORD-6) у tooling-maintainer, а не
+  скилл: противоядие — проверка, а не число.
