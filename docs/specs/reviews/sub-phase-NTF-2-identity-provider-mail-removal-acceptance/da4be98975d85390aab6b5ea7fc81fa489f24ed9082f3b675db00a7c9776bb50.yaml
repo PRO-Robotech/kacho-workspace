@@ -1,0 +1,187 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: da4be98975d85390aab6b5ea7fc81fa489f24ed9082f3b675db00a7c9776bb50
+  revision: "38"
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит «Статус: DRAFT». Шапку эта запись не правит намеренно: вердикт привязан к отпечатку,
+    а не к слову в заголовке. Действующий вердикт выводится из этой записи и внешнего события.
+  content_commit: null
+  content_commit_note: >-
+    Содержимое лежит в рабочем дереве копии tmp/issue-880 (ветка issue-880, HEAD ebdcfa39a)
+    незакоммиченным (`git status --short` → M). Дельта к d06cdcd2… построчно не снималась: копии нет
+    (так же сказано в задании и в §11 «Редакция 37 → редакция 38»); судилось текущее тело по предметам
+    круга 3 и по таблицам, которые редакция 38 добавила.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 5226
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-09T12:00:00Z'
+round: 4
+round_note: >-
+  Круг 4 по правке редакции 35. Судилось закрытие B3-1, B3-2, I3-2, I3-3 круга 3 (запись d06cdcd2….yaml).
+  Факты о kaname сняты в клоне project/kaname на 0dd03218a613 (пин kacho), cbd729cfa и 33010d434
+  (origin/484-notify на 2026-10-09). Род CONSTRUCTIBILITY в NTF2-90 повторяется в этом проходе третий раз
+  (B2-1 → B3-1 → B4-1): по multi-agent-flow-orchestration §14а решение о форме задания автору — за
+  диспетчером. Предлагаемый шаг формы: таблицу построения сверять с условиями отказа каждого глагола в
+  репозитории (оператор записи и его NOT EXISTS / отношение модели прав), а не с комментарием proto.
+publication_mode: record-plus-external-event-by-courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+previous_rounds:
+  - pass: редакция 32, круг 6
+    sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+    verdict: APPROVED
+  - pass: редакция 35, круг 1
+    sha256: 5777b0b50baf7829e7c6d25221a5d23522fe6b924b8494b8c150e8c1132afe7d
+    verdict: RETURNED
+  - pass: редакция 36, круг 2
+    sha256: 99845fe48a19aba70b5e63c5589d7df89c11c37625ba67c0ec946031d3b92166
+    verdict: RETURNED
+  - pass: редакция 37, круг 3
+    sha256: d06cdcd24d2ed7a634ee1cef0ff24fa100645584049d602457a7bc6d478e2481
+    verdict: RETURNED
+previous_items:
+  B3-1: >-
+    ЗАКРЫТО в заявленной части. Порядок исполнения — порядок таблицы; перевыпуск (10) и снятие (14) стоят
+    до сброса (15); вспомогательное повторное заведение перед 15 есть. Сверено на 0dd03218a613 и 33010d434:
+    sf_backup_codes.go:70-78 и sf_remove.go:79-86 отказывают при verdict != verdictMatched;
+    sf_present.go:85-86 «при «нет» и pending сверка холостая»; sf_remove.go:128 EndOtherSessions;
+    user_service.proto:437 (отсечка всех сессий при сбросе), :442-444 (SECOND_FACTOR_NOT_ENROLLED), :463
+    (acr 2). Счёт пола уровня 2 воспроизведён: 30 / 32 / 32 строк на трёх ревизиях. Однако новая таблица
+    построения в том же сценарии содержит неверное построение строки 22 — см. B4-1.
+  B3-2: >-
+    ЗАКРЫТО. Р11 разведена на «годность адресата» и «разрешитель владельца аккаунта» с читателем от
+    вызывающего; NTF2-101 судит места адреса (Г1, Г2), поля записи (Г3), вызывающих ReadAccountOwner и
+    транзакцию (Г4), пять инъекций, пустой обход красный. Предикаты воспроизведены на cbd729cfa и
+    33010d434: ReadAccountOwner — объявление ports.go:38, реализация recipientdirectory_repo.go:64, один
+    вызов resolve.go:88; RecipientRecord — 3 файла; мест Г1 вне feedgen — 0; файлов с owner_user_id — 38;
+    шаблонов feedgen 24, из них 6 полос формы — 18 в карте. Утверждение «владелец с неподтверждённым
+    адресом недостижим» сверено: owner_user_id immutable (account_service.proto:88), единственный
+    `SET email_verified_at` (login_method_repo.go:251 @0dd03218a613, :252 @cbd729cfa/@33010d434),
+    admission EMAIL_NOT_VERIFIED. Положение «владелец заблокирован» в NTF2-100 добавлено — но его
+    построение не показано, см. B4-2.
+  I3-2: ЗАКРЫТО — фактор способа (1) назван состоянием посева без события (П11).
+  I3-3: ЗАКРЫТО — строки кругов и редакций 37/38 в шапке, разделы §11 «36 → 37» и «37 → 38».
+  I3-1: >-
+    Вне документа (автор относит к NTF-3); не блокирующее, остаётся замечанием к NTF-3.
+blocking:
+  - id: B4-1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      NTF2-90, строка 22 (`account.deleted`): удаление `acc` отвергается, потому что в `acc` остаются
+      сервисный аккаунт `sa` и группа `g` из Given; таблица построения называет условием только «аккаунт
+      без проектов» и ни `sa`, ни `g` не снимает.
+    evidence:
+      - >-
+        NTF2-90 Given: «сервисный аккаунт `sa` в `acc`; группа `g` в `acc`». Таблица построения, строка 22:
+        «аккаунт без проектов (`account_service.proto`, комментарий `Delete`) · проект снят строкой 21».
+        Глаголов снятия `sa` и `g` в таблице и в вспомогательных шагах нет.
+      - >-
+        internal/repo/kaname/pg/account_repo.go:336-341 (одинаково на 0dd03218a613, cbd729cfa, 33010d434):
+        `DELETE FROM accounts a WHERE a.id = $1 AND NOT EXISTS (… projects …) AND NOT EXISTS (SELECT 1 FROM
+        service_accounts WHERE account_id = $1) AND NOT EXISTS (SELECT 1 FROM groups WHERE account_id = $1)
+        AND NOT EXISTS (… roles …)`; при has_sas → FailedPrecondition «Account %s contains service accounts
+        and cannot be deleted», при has_groups — «… contains groups …» (account_repo.go:368-373 @33010d434).
+        Комментарий proto говорит только о проектах — построение сверено с комментарием, а не с оператором.
+    consequence: >-
+      Операция `Delete` строки 22 заканчивается ошибкой; события `account.deleted` нет, строк 0 ≠ 1 —
+      проба либо красная, читаемая как дефект продукта, либо («синхронный отказ … — не выполнилось»)
+      никогда не утверждает строку 22, и вид `account.deleted` карты Р3 остаётся без держателя.
+    required: >-
+      Перед строкой 22 снять `sa` и `g` (вспомогательные события, выведенные из счёта, как повторное
+      заведение фактора; снятие группы — после строки 5 и с учётом её привязки) либо построить их вне `acc`
+      так, чтобы строки 5, 8, 9 сохраняли адресата `O`; назвать в таблице построения условие отказа
+      удаления аккаунта по оператору репозитория (проекты, сервисные аккаунты, группы, роли). Попутно —
+      проект, на который выдаётся роль в строке 3 и который снимается строкой 21, в Given не назван
+      («проект `acc`»): назвать его и его построение (`ProjectService.Create` сессией `O`, П11).
+  - id: B4-2
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      NTF2-100, положение «адресата нет» (новое в редакции 38): `C1` блокирует `O` через
+      `UserService.Block`, но право `C1` на это (`identity_suspender` на `iam_user:O`) в построении не
+      выводится — оно идёт только через указатель `iam_user:O#account`, а `O` в Given не член ни одного
+      аккаунта, и `AccountService.Create` такого указателя не пишет.
+    evidence:
+      - >-
+        user_service.proto:384-393 @33010d434: Block — `required_relation = identity_suspender`, объект
+        `iam_user` из `user_id`. fga_model.fga:779: `define identity_suspender: super_admin from account`;
+        :308 (type account): `define super_admin: any_admin from cluster`. Ветви облака напрямую на
+        `iam_user` нет — только через указатель `account`.
+      - >-
+        Указатель `account:<A>#account@iam_user:<U>` пишут только internal_upsert.go:634 (личный аккаунт
+        при первом входе) и invite.go:668-676 (членство); account/create.go пишет указатель лишь на
+        `iam_access_binding` (create.go:93, :122), не на `iam_user` владельца.
+      - >-
+        NTF2-100 Given: `O` и `X` — люди П11 («той же формы, что П10»); П10 личного аккаунта и членства не
+        называет; `acc` создан сессией `O`, членства `O` нет. В NTF2-90 строка 20 исполнима, потому что `U`
+        — член `acc` (членство пишет указатель), — для `O` в NTF2-100 такого построения нет.
+    consequence: >-
+      `Block` получает `PERMISSION_DENIED`; по правилу П11 это «не выполнилось», и положение «владелец
+      заблокирован — строк 0, разрешитель «адресата нет»» — единственный поведенческий держатель ветви
+      «не ACTIVE» разрешителя владельца (Р11, DoD п.11) — на построении не исполняется никогда.
+    required: >-
+      Назвать построение, дающее `C1` право `identity_suspender` на `iam_user:O` (например, у людей П10/П11
+      — личный аккаунт с указателем, либо `O` — член аккаунта, где `C1` — администратор облака по
+      указателю `cluster`), с координатой в дереве kaname; перед `Block` — шаг ожидания
+      `AuthorizeService.Check` (`identity_suspender`, `iam_user:O`) по П11. Проверить тот же вопрос для
+      всех `Block`/`ResetSecondFactor` документа (NTF2-90 строки 15, 20; NTF2-92 (г)) и записать, через
+      какой указатель исполним каждый.
+important:
+  - id: I4-1
+    kind: FORMAT
+    summary: >-
+      NTF2-90, строка 14: снятие фактора перевыпускает носитель сессии (sf_remove.go: `NewSessionBearer` →
+      `PresentInSession(… bearer.Digest() …)`, ответ несёт `Bearer`), а таблица построения говорит
+      «`s3` живёт» и не называет, что следующий шаг (вспомогательное заведение) зовёт новым носителем —
+      как это сделано у строки 13.
+  - id: I4-2
+    kind: CONVENTION
+    summary: перенесено — I3-1 (NTF-3 о годности адресата и разрешителе молчит), правка той приёмки.
+route_signs:
+  proto: yes
+  schema: yes
+  public_rpc: yes
+  ui: yes
+  new_domain: no
+  security_surface: yes
+producers_missing:
+  - id: NTF2-90 (строка 22)
+    note: производитель назван (писатель аудита при Account.Delete), но вход построения не достигает его — B4-1.
+  - id: NTF2-100 (положение «адресата нет»)
+    note: производитель назван (разрешитель владельца аккаунта), построение не исполнимо — B4-2.
+constructibility:
+  seeded: 0
+  named_fixture: >-
+    П11 (пол уровня 2 по каталогу, способы (1)/(2), предъявление резервным кодом) — конструируемо по
+    sf_enroll.go, sf_backup_codes.go, sf_remove.go на трёх ревизиях. NTF2-90 строки 1–21 — конструируемы
+    по таблице построения (строка 3 и 21 — при названном проекте); строка 22 — нет (B4-1). NTF2-100
+    основной вариант и близнец — конструируемы; положение «адресата нет» — нет (B4-2). NTF2-101 —
+    конструируем (предикаты воспроизведены).
+  not_executed: 1
+  note: >-
+    Посев не ставился: стенда и разрешения на посев в задании нет. Выводы — разбор кода kaname на
+    0dd03218a613, cbd729cfa, 33010d434.
+premise: >-
+  Подтверждена: отпечаток da4be989… воспроизведён `sha256sum` (5226 строк); записи на него в каталоге не
+  было (`ls` каталога — 33 записи, da4be989… нет). Утверждения задания проверены: 73 сценария, ID
+  уникальны; координаты отметки подтверждения :248-253/:249-254 — оператор UPDATE на 251/252.
+questions_to_owner:
+  - >-
+    (Перенесено, I2-3.) Письма о ключах сервисного аккаунта адресуются двумя правилами: выпуск — владельцу
+    аккаунта (NTF-2), истечение — назначенному контакту NTF-3 Р20 или, без него, владельцу. Оставляем два
+    правила или правим NTF-3?
+external_event_body: "acceptance-reviewer · RETURNED · sha256:da4be98975d85390aab6b5ea7fc81fa489f24ed9082f3b675db00a7c9776bb50"
