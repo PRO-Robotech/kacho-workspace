@@ -1,0 +1,137 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  sha256: 393ba457dc0a185118fdb105d4972f66ea64a5c18cfaf2337e147116f2faca2a
+  revision: "4 (2026-10-09)"
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит «Статус: DRAFT» и «редакция 4 · вердикта на неё НЕТ». Шапку эта запись намеренно не
+    правит: вердикт привязан к отпечатку, а не к слову в заголовке; действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: null
+  content_commit_note: >-
+    Документ лежит в рабочем дереве копии tmp/issue-880 (ветка issue-880, HEAD ba5a39e2f) новым
+    незакоммиченным файлом (`git status --short` → `??`).
+  branch: issue-880
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  fingerprint_reproduced: true
+  lines: 1118
+verdict: RETURNED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-09T09:00:00Z'
+round: 4
+round_note: >-
+  Круг 4 на редакцию 4 — ответ на запись круга 3 (5bfa3c21…, RETURNED, 1 блокирующий). Роль сверена с
+  origin/main воркспейса: `fa-b8-acceptance-two-rounds` (`flow-acceleration.md`, владелец 2026-10-06)
+  ограничивает ревью приёмки двумя кругами, дальше спор решает диспетчер; круг 4 заказан диспетчером,
+  эта запись — вход его решения, а не самостоятельное продление цикла. Соседи по отпечатку
+  воспроизведены `sha256sum` на ветке issue-880: NTF-3 1d7d2ad0…, NTF-1 c19490f9…, NTF-6 47bd8b70….
+  Род блокирующего (FORMAT — число вызовов в пробе не задано документом) — четвёртый раз подряд
+  (B1-3, B2-1, B3-1, B4-1): по §14а класс уже обязан стоять в форме задания автора.
+publication_mode: record-plus-external-event-by-courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+event:
+  status: not_performed
+  note: событие публикует курьер; до публикации блок честно not_performed.
+prior_round_closure:
+  - id: B3-1
+    status: closed
+    note: >-
+      Р5 (О) судит числом только решающие ответы; новое множество (П) — отложенные ответы закрытого
+      перечня, судятся формой (п1) «раньше решающего того же ключа», (п2) «после решающего — ни одного».
+      Сверено с NTF-3 1d7d2ad0…: `ListEventAudience` и `Resolve{event}` — `UNAVAILABLE`
+      `OBJECT_GENERATION_NOT_APPLIED` → `DEFER(audience_pending)` (строки 1187, 1767); переходные
+      `UNAVAILABLE`/`DEADLINE_EXCEEDED` → `DEFER(platform_unavailable)` (строка 1189; NTF-1 Р11 —
+      строка 464 NTF-3). `NOT_YET_GRANTED` означает только «записи выдачи нет» (NTF-1 c19490f9…,
+      строки 672, 705-706), выдача заведена посевом в `GL` (строки 516-519) — исключение из (П) законно.
+      СЛ3 пишет код и тело ответа (строка 507). Тот же текст — NTF7-27, NTF7-31, §9, DoD 10.2 п.1.
+important_prior_closure:
+  - "Р5: любой вызов метода (О), в том числе повтор, — ровно в (О) или (П); вне обоих — красный (строки 314-318)."
+blocking:
+  - id: B4-1
+    kind: FORMAT
+    summary: >-
+      Ключ (О) у `ResolveSend` — (`namespace`, `template`, `enqueued_at`) при «ровно один на каждое
+      письмо», а письмо NTF7-27 схлопнуто из двух строк (`V1`, `V2`) с разными `enqueued_at`
+      (близнец — из трёх); какой `enqueued_at` несёт вызов и сколько вызовов делает честная
+      реализация, документ не задаёт.
+    evidence:
+      - >-
+        NTF-7 Р5 (О), строки 331-335: «ключ (`namespace`, `template`, `enqueued_at`); решающий — исход
+        `ALLOW`, ровно один на каждое письмо». NTF7-27 (строки 913-916): «решающих `ResolveSend` ... ровно
+        1, исход `ALLOW` (одно письмо)»; письмо — «изменён 2 раза», вошли `V1` и `V2`; близнец — «изменён
+        3 раза».
+      - >-
+        NTF-1 Р5 (c19490f9…, строки 663-673): «на каждое письмо notify зовёт `ResolveSend(namespace,
+        template, enqueued_at)`»; `ALLOW` — «`enqueued_at ≥ отсечка + полоса` для каждой имеющейся
+        отсечки», `REVOKED` — «`enqueued_at < отсечка + полоса`». В NTF-1 письмо = строка.
+      - >-
+        NTF-3 (1d7d2ad0…): NTF3-96 (строка 4304) — `ResolveSend(storage, resource-event, enqueued_at
+        строки)` на письмо из одной строки; сводка — «`ResolveSend` на строку и на сводку» (строки 1503,
+        5868); Р13 (строки 1550-1553) и NTF3-97 (строки 4310-4315) схлопывают N строк в одно письмо и не
+        говорят, какой `enqueued_at` у его `ResolveSend` и сколько их.
+    consequence: >-
+      Отсечка судится по `enqueued_at` строки, поэтому реализация, верная семантике отзыва, спросит
+      `ResolveSend` о каждой строке письма (иначе строка `V1`, поставленная до отсечки, уйдёт в письме
+      под разрешением `V2`): в NTF7-27 решающих вызовов будет 2 с разными ключами, в близнеце 3 — (О)
+      «ровно 1» красный на честной реализации, либо автор пробы сам выберет, какой `enqueued_at` ждать.
+      Тот же класс, что B1-3, B2-1, B3-1: предикат пробы не задан документом.
+    required: >-
+      Решением документа назвать, как мгновенное письмо из N строк спрашивает `ResolveSend`, и записать
+      это тем же текстом в Р5 (О), NTF7-27 (и его близнеце), строке §9 и DoD 10.2 п.1: либо (1) по
+      одному решающему `ALLOW` на каждую строку письма, ключ — `enqueued_at` строки (NTF7-27 — ровно 2:
+      `V1`, `V2`; `V3` — 0; близнец — 3), и что делает письмо, если одна из строк `REVOKED`; либо (2)
+      один вызов на письмо с названным `enqueued_at` (например, самой ранней строки — fail-closed) и
+      довод, почему поздние строки этим покрыты. Поскольку NTF-3 Р13 этого не задаёт, выбранное —
+      строкой замещения §4 для NTF-3 Р13 (правка соседа — DoD 10.4 п.3).
+important:
+  - >-
+    (П) уже, чем клетка NTF-3 строки 1189: там `CANCELLED`, `RESOURCE_EXHAUSTED`, `ABORTED`, `INTERNAL`,
+    `UNKNOWN`, `DATA_LOSS` тоже → `DEFER(platform_unavailable)` без `misconfigured`. По Р5 такой ответ
+    — красный предиката, хотя продукт поступил верно. Сказать, что это сознательная строгость пробы
+    (ответ службы доступа вне `UNAVAILABLE`/`DEADLINE_EXCEEDED` на стенде — исход «не выполнилось», а
+    не красный продукта) либо расширить (П) до строки 1189.
+  - >-
+    Р5 (З) запрещает `Resolve` формы `event` «о любом субъекте», а близнец NTF7-31 (строки 943-948)
+    его требует (решающих ровно 1, ключ (`subject`, `object`, `source_version`), повторы в (П)). По
+    смыслу верно, но предикат Р5 записан один на документ: дописать в Р5, что у подписчика ветви
+    `resource`/`project` `Resolve{event}` переходит из (З) в (О) с этим ключом и с (П)-перечнем
+    `OBJECT_GENERATION_NOT_APPLIED`, `UNAVAILABLE`, `DEADLINE_EXCEEDED`; в близнеце назвать и числа
+    решающих `Resolve{self}` (2) и `ResolveSend` (по решению B4-1) на два письма.
+  - >-
+    §14а: род FORMAT отверг редакцию четвёртый раз. Шаг формы задания автора из записи круга 3
+    («для каждого числа вызовов в Then перечислить законные повторы и сказать, считаются ли они»)
+    дополнить: «и для каждого ключа счёта — откуда берётся его значение, когда письмо собрано из
+    нескольких строк».
+defaults_fixed:
+  - >-
+    Право только уровня кластера (`system_admin`) по селектору писем не даёт (Р6, §6) — дефолт круга 2
+    сохраняется.
+constructibility:
+  method: >-
+    Посев не ставился: стенда и разрешения на посев в задании нет. Таблица §5.1 (К1–К24) не менялась
+    по существу с круга 3, где её координаты пересверены на пине kaname 33010d434767 и kacho
+    515e017c87; в этом круге пересверены по соседним приёмкам только новые опоры (П) и `GL`. Посеяно 0
+    из 31; названной фикстурой 31 из 31; «не выполнилось» 31 — посев не разрешён заданием.
+counts:
+  scenarios: 31
+  stages: 3
+  decisions: 12
+  producer_named: "31 из 31 (§9)"
+  twin_named: "все отрицания §8 имеют близнеца по одному факту"
+route_signs:
+  proto: true
+  schema: true
+  public_rpc: true
+  ui: true
+  new_domain: false
+  security_surface: true
+event_body: "acceptance-reviewer · RETURNED · 393ba457dc0a185118fdb105d4972f66ea64a5c18cfaf2337e147116f2faca2a"
