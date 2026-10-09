@@ -1,0 +1,28 @@
+role: system-design-reviewer
+moment: post-diff (повтор, только дельта; один круг)
+pr: PRO-Robotech/kaname#673 (#484 ограда NTF-3: поколение объекта и адресация событий)
+base: origin/484-notify @33010d434767895963c47f69bfa623a791f320df  # git rev-parse origin/484-notify == git merge-base origin/484-notify origin/484-wave-fence-2
+head: 1197a78edd8ec3c5743c0163a7e6fb16e55ff6c7  # gh pr view 673 --json headRefOid == git rev-parse origin/484-wave-fence-2
+digest: 4828a39837a96df2920c02e4d7891036bbf8d2b82de12e75acecf55a9f343365  # git -C project/kaname diff 33010d434 1197a78ed | sha256sum (перемерено 2026-10-09)
+previous_record: 4828a39837a96df2920c02e4d7891036bbf8d2b82de12e75acecf55a9f343365.yaml (accept @1197a78ed, тот же дайджест)
+delta: пусто — ни голова, ни база с прошлой записи не сдвинулись; дайджест содержимого совпадает побайтово
+premise: подтверждена — git fetch origin 484-notify 484-wave-fence-2; rev-parse обеих веток и sha256 диффа равны значениям прошлой записи
+verdict: accept
+blocking: []
+distributed_surface: да в PR целом (судилась записями 00c1ad8f…, 4828a398…); в дельте — нет (дельта пуста)
+schema_overlap: нет в дельте
+checks:
+  green: 0
+  red: 0
+  not_run: 0
+  note: >
+    Новых прогонов нет: дерево побайтово то же, на котором прошлая запись исполнила 3 зелёные пробы
+    и 3 инъекции (M2, M3, M3b) с красным там, где обязано. Повтор на идентичном содержимом не даёт
+    нового факта.
+ci_on_head: >
+    gh pr view 673 statusCheckRollup @1197a78ed: SUCCESS 21, SKIPPED 4, FAILURE 1, CANCELLED 1.
+    Все 9 обязательных контекстов 484-notify (branches/484-notify/protection) — SUCCESS.
+    FAILURE/CANCELLED — «правило запроса (заголовок · голова · тело · коммиты)» 2026-10-08T05:57Z:
+    форма запроса, не распределённое свойство и не обязательный контекст; передаётся landing-reviewer.
+important: []
+carried_over: SD-673-1 (рост надгробий relation_fact_removal), SD-673-2 (порядок подъёма пина при обязательном generation), SD-673-3 (токен впереди снимка на реплике) — не блокирующие, без изменений, как в 00c1ad8f….yaml
