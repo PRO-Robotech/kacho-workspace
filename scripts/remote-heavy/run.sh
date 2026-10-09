@@ -16,8 +16,11 @@
 #          [--profile go-race|integration|lint|ci-local] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] -- <команда> [аргументы…]
-#   run.sh --available      0 — кластер отвечает и ns создавать вправе; 69 — нет;
-#                           75 — идущих тяжёлых прогонов уже предел (см. ПРЕДЕЛ)
+#   run.sh --available [--profile <профиль>]
+#                           0 — кластер отвечает, ns создавать вправе и pod есть где
+#                           встать; 69 — нет (в том числе узла без стенда нет, см.
+#                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
+#                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
 #   run.sh --profiles       профили, их ресурсы и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
@@ -76,6 +79,26 @@
 # команды: DNS отвечает, мир (proxy.golang.org:443) доступен, а управление кластера
 # (kubernetes.default.svc:443) и служба ns kacho — нет; иначе 69.
 #
+# РАЗМЕЩЕНИЕ (ws#991). Узел без pod ns kacho — условие изоляции, а не пожелание, и
+# планировщик его не ослабит: стенд на всех узлах — pod не встанет никогда (опыт
+# 2026-10-09: стенд разошёлся на оба узла, прогон ждал 900 с и выходил 75, а
+# heavy-slot уже отдал ему управление — локального запуска с причиной не было).
+# Поэтому до создания ns, в --available и при ожидании планирования run.sh сам
+# переписывает узлы: годный — Ready, не закрыт для планирования, без taint
+# NoSchedule/NoExecute (допусков у pod нет), без незавершённого pod ns kacho и с
+# местом: allocatable минус запросы незавершённых pod узла (запрос pod — сумма
+# контейнеров и боковых, но не меньше наибольшего init) не меньше запроса профиля
+# (run и dind). Годного без стенда нет — 69 (heavy-slot идёт локально с причиной);
+# без стенда есть, но места нет — 75; pod ждёт, а годного не осталось — выход сразу
+# тем же кодом. --available без --profile судит лишь узел без стенда.
+#
+# ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
+# потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
+# живой процесс вне цепочки этого запуска (не предок и не потомок), run.sh печатает
+# предупреждение с его pid: опыт 2026-10-09 — две полосы писали stderr в файл одного
+# имени, и строка одного прогона легла поверх строки другого. Это предупреждение,
+# а не отказ: код прогона от него не меняется.
+#
 # Пространство пользователей — главный барьер, и потому оно проверяется ИСПОЛНЕНИЕМ,
 # а не манифестом (ревью ws#984, N1): API-сервер без UserNamespacesSupport молча
 # снимает hostUsers, вебхук — procMount или securityContext. Две проверки:
@@ -120,8 +143,9 @@
 # нет). Это плата переноса, она видна во времени прогона.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен (кластер, образ, доставка, пин, сеть pod); 75 — кластер занят (ПРЕДЕЛ),
-# pod не начал команду в срок либо Job снят по сроку; 76 — команда оборвана
+# недоступен (кластер, образ, доставка, пин, сеть pod, узла без стенда нет —
+# РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
+# команду в срок либо Job снят по сроку; 76 — команда оборвана
 # пределом памяти. 69, 75, 76 —
 # «не выполнилось», а не красное: вердикта по предмету команды нет. Своё слово —
 # строкой «remote-heavy: …» в stderr.
@@ -132,8 +156,10 @@ set -uo pipefail
 export LC_ALL=C
 
 # say — своё слово в stderr, через ту же маску: в строку попадают тексты кластера
-# (сообщения планировщика, событий), а они бывают с адресами.
-say() { printf 'remote-heavy: %s\n' "$*" | mask >&2; }
+# (сообщения планировщика, событий), а они бывают с адресами. После выбора ns
+# строка несёт его имя «[t<N>-heavy-…]» (ВЫВОД в шапке).
+TAG=""
+say() { printf 'remote-heavy: %s%s\n' "$TAG" "$*" | mask >&2; }
 now() { date +%s; }
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -249,14 +275,80 @@ busy_heavy() {
       | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name'
 }
 
+# placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла
+# без стенда, открытого для планирования, нет; 75 — такой есть, но места под запрос
+# нет; 1 — перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
+placement() {
+    local nj pj r
+    PLACE_WHY=""; PLACE_CENSUS=""
+    nj="$(kc get nodes -o json 2>/dev/null)" || { PLACE_WHY="узлы не прочитаны"; return 1; }
+    pj="$(kc get pods -A -o json 2>/dev/null)" || { PLACE_WHY="pod кластера не прочитаны"; return 1; }
+    # Перепись pod кластера — сотни КиБ, а строка аргумента ограничена ядром
+    # (128 КиБ): вход — файлами, а не --argjson (опыт 2026-10-09 на кластере).
+    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" '
+      $N[0] as $n | $P[0] as $p |
+      def mcpu: tostring | if endswith("m") then (.[:-1] | tonumber) else (tonumber * 1000) end;
+      def mib: tostring | capture("^(?<v>[0-9.]+)(?<u>[A-Za-z]*)$") as $c
+        | ($c.v | tonumber) * ({"": 1, "k": 1000, "M": 1e6, "G": 1e9, "T": 1e12,
+                                 "Ki": 1024, "Mi": 1048576, "Gi": 1073741824, "Ti": 1099511627776}[$c.u]
+                                // error("единица \($c.u)")) / 1048576;
+      def rq($r): [.[]? | (.resources.requests // {})[$r] // "0" | if $r == "cpu" then mcpu else mib end] | add // 0;
+      def eff($r): ([(.spec.containers // []), ((.spec.initContainers // []) | map(select(.restartPolicy == "Always")))] | map(rq($r)) | add)
+                   as $main | ([((.spec.initContainers // []) | map(select(.restartPolicy != "Always")))[] | [.] | rq($r)] | max // 0)
+                   as $init | [$main, $init] | max;
+      [$p.items[] | select((.status.phase // "") as $ph | $ph != "Succeeded" and $ph != "Failed") | select(.spec.nodeName)] as $live
+      | [$n.items[] | .metadata.name as $nm
+         | {open: ((any(.status.conditions[]?; .type == "Ready" and .status == "True"))
+                   and ((.spec.unschedulable // false) | not)
+                   and ((.spec.taints // []) | all(.effect != "NoSchedule" and .effect != "NoExecute"))),
+            stand: ($live | any(.[]; .spec.nodeName == $nm and .metadata.namespace == "kacho")),
+            fcpu: ((.status.allocatable.cpu // "0" | mcpu) - ([$live[] | select(.spec.nodeName == $nm) | eff("cpu")] | add // 0)),
+            fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
+      | [($ns | length), ($ns | map(select(.stand)) | length), ($ns | map(select(.open | not)) | length),
+         ($ns | map(select(.open and (.stand | not))) | length),
+         ($ns | map(select(.open and (.stand | not) and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+        || { PLACE_WHY="перепись узлов не разобрана"; return 1; }
+    local all stand closed free fit
+    read -r all stand closed free fit <<< "$r"
+    PLACE_CENSUS="узлов $all: со стендом ns kacho $stand, закрыты для планирования $closed, открыты без стенда $free, из них с местом $fit"
+    [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
+    [ "$fit" -gt 0 ] && return 0
+    if [ "$free" -eq 0 ]; then
+        PLACE_WHY="узла без стенда нет ($PLACE_CENSUS) — pod не встанет: исполняемый код ветки не делит узел со стендом"; return 69
+    fi
+    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) нет ни на одном узле без стенда ($PLACE_CENSUS)"; return 75
+}
+
+# need_of <профиль> — «mCPU МиБ» запроса pod профиля: run и боковой dind.
+need_of() {
+    local row cr mr d dcr dmr
+    row="$(profile_row "$1")" || return 1
+    IFS='|' read -r _ cr _ mr _ _ d _ <<< "$row"
+    IFS='|' read -r dcr _ dmr _ <<< "$DIND_RES"
+    [ "$d" = 1 ] || { dcr=0; dmr=0Gi; }
+    printf '%s %s\n' "$(( (cr + dcr) * 1000 ))" "$(( (${mr%Gi} + ${dmr%Gi}) * 1024 ))"
+}
+
 case "${1:-}" in
     --available)
+        need="0 0"
+        if [ -n "${2:-}" ]; then
+            [ "$2" = --profile ] && [ "$#" -eq 3 ] || { say "--available [--profile <профиль>], получено «${*:2}»"; exit 64; }
+            need="$(need_of "$3")" || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+        fi
         valid_max_par || exit 64
         available || { say "$WHY"; exit 69; }
         busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана"; exit 69; }
         n="$(grep -c . <<< "$busy")"
         if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
-        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR"; exit 0 ;;
+        # shellcheck disable=SC2086  # «mCPU МиБ» — два слова
+        placement $need; prc=$?
+        case "$prc" in
+            0) ;;
+            1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
+            *) say "$PLACE_WHY"; exit "$prc" ;;
+        esac
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n cr cl mr ml eph d basis; do
             printf '%-12s cpu %s/%s  память %s/%s  диск %s  dind %s\n%-12s основание: %s\n' "$n" "$cr" "$cl" "$mr" "$ml" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$basis"
@@ -311,6 +403,7 @@ fi
 if ! [[ "$NSNAME" =~ ^t${TASK}-heavy-[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || [ "${#NSNAME}" -gt 63 ]; then
     say "ns «$NSNAME» вне формы t$TASK-heavy-<слово> (≤ 63 знака) — run.sh создаёт и снимает только свои ns"; exit 64
 fi
+TAG="[$NSNAME] "
 
 # ── ревизия и версии ─────────────────────────────────────────────────────────
 SRC="${SRC:-$WS/project/$REPO}"
@@ -358,6 +451,44 @@ owner_alive() {
     [ "$(proc_start "$pid")" = "${rest%%.*}" ]
 }
 OWNER="$$.$(proc_start $$).$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
+
+# ── общий файл вывода (ВЫВОД в шапке) ─────────────────────────────────────────
+# lineage <pid> — 0, если pid — этот запуск, его предок или потомок.
+ANCESTORS=" "
+_p=$$
+while [[ "$_p" =~ ^[0-9]+$ ]] && [ "$_p" -gt 1 ]; do
+    ANCESTORS+="$_p "
+    _p="$(awk '/^PPid:/ { print $2 }' "/proc/$_p/status" 2>/dev/null)"
+done
+lineage() {
+    local q="$1"
+    [[ "$ANCESTORS" == *" $q "* ]] && return 0
+    while [[ "$q" =~ ^[0-9]+$ ]] && [ "$q" -gt 1 ]; do
+        [ "$q" = $$ ] && return 0
+        q="$(awk '/^PPid:/ { print $2 }' "/proc/$q/status" 2>/dev/null)"
+    done
+    return 1
+}
+# shared_out <fd> <имя потока> — предупреждение, если fd — обычный файл, в который
+# пишет посторонний живой процесс. Путь в строку не идёт — только имя файла.
+shared_out() {
+    local tgt link pid fdn fl seen=""
+    [ -f "/proc/$$/fd/$1" ] || return 0
+    tgt="$(readlink "/proc/$$/fd/$1" 2>/dev/null)" || return 0
+    while IFS=$'\t' read -r link; do
+        pid="${link#/proc/}"; pid="${pid%%/*}"; fdn="${link##*/}"
+        [ "$pid" = $$ ] && continue
+        lineage "$pid" && continue
+        fl="$(awk '/^flags:/ { print $2 }' "/proc/$pid/fdinfo/$fdn" 2>/dev/null)"
+        [[ "$fl" =~ ^[0-7]+$ ]] || continue
+        (( (8#$fl & 3) != 0 )) || continue
+        [[ " $seen " == *" $pid "* ]] && continue
+        seen+=" $pid"
+        say "$2 — файл «$(basename -- "$tgt")», в который пишет и другой процесс (pid $pid: $(cat "/proc/$pid/comm" 2>/dev/null)) — вывод прогонов перемешается; дай прогону свой файл"
+    done < <(find /proc/[0-9]*/fd -maxdepth 1 -type l -printf '%l\t%p\n' 2>/dev/null | awk -F'\t' -v t="$tgt" '$1 == t { print $2 }')
+}
+shared_out 2 stderr
+[ "$(readlink "/proc/$$/fd/1" 2>/dev/null)" = "$(readlink "/proc/$$/fd/2" 2>/dev/null)" ] || shared_out 1 stdout
 
 reap_local() {
     local d e o p tok ns created keep ref tail n_dir=0 n_proc=0 n_ref=0 n_ns=0 stale_min
@@ -407,6 +538,15 @@ n="$(grep -c . <<< "$busy")"
 if [ "$n" -ge "$MAX_PAR" ]; then
     say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — ns не создаётся (не выполнилось)"; exit 75
 fi
+
+# Размещение — до ns (РАЗМЕЩЕНИЕ в шапке): pod, которому негде встать, ns не заводит.
+read -r NEED_CPU NEED_MIB <<< "$(need_of "$PROFILE")"
+placement "$NEED_CPU" "$NEED_MIB"; prc=$?
+case "$prc" in
+    0) ;;
+    1) say "размещение не проверено: $PLACE_WHY (не выполнилось)"; exit 69 ;;
+    *) say "$PLACE_WHY — ns не создаётся (не выполнилось)"; exit "$prc" ;;
+esac
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
 CREATED=0; BG=""; DONE=0; TMPREF=""
@@ -719,7 +859,7 @@ git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссыл�
 git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" ${MAIN_SHA:+refs/remotes/origin/main} >/dev/null 2>&1; brc=$?
 git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
-POD=""
+POD=""; PLACED_AT=0
 while :; do
     IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED USERNS <<< "$(pod_state)"
     [ -z "$USERNS" ] || userns_refused "$USERNS"
@@ -735,6 +875,16 @@ while :; do
     if [ -z "$POD" ] && [ $(( $(now) - T0 )) -ge 20 ]; then
         fc="$(kc -n "$NSNAME" get events --field-selector involvedObject.kind=Job,reason=FailedCreate -o json 2>/dev/null | jq -r '.items[-1].message // ""')"
         [ -z "$fc" ] || { say "Job не создаёт pod: $(mask <<< "$fc") — не выполнилось"; exit 69; }
+    fi
+    # pod ждёт планирования — годный узел ещё есть? Раз в 30 с: без годного узла
+    # ждать срока незачем (РАЗМЕЩЕНИЕ в шапке).
+    if [ -n "$SCHED" ] && [ $(( $(now) - PLACED_AT )) -ge 30 ]; then
+        PLACED_AT="$(now)"
+        placement "$NEED_CPU" "$NEED_MIB"; prc=$?
+        if [ "$prc" -ne 0 ] && [ "$prc" -ne 1 ]; then
+            KEEP_H=""  # прогона не было — оставлять для разбора нечего
+            say "pod ждёт планирования ($SCHED), а $PLACE_WHY — ns снимается (не выполнилось)"; exit "$prc"
+        fi
     fi
     if [ $(( $(now) - T0 )) -ge "$WAIT_START_S" ]; then
         say "pod не готов принять исходники за $WAIT_START_S с${SCHED:+: $SCHED}${WAITR:+ ($WAITR)} — не выполнилось"; exit 75

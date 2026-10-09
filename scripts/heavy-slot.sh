@@ -384,7 +384,8 @@ done
 # судит КОММИТ, поэтому условий пять: команда переносима (go, make, линтеры,
 # ci-local.sh; `git push` — нет), каталог — клон kacho, kaname или corelib,
 # отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
-# имени ветки, кластер отвечает (`run.sh --available`). В режиме проб маршрут
+# имени ветки, кластер отвечает и pod профиля есть где встать (`run.sh --available
+# --profile <класс>`: узел без стенда с местом под запрос, ws#991). В режиме проб маршрут
 # судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над настоящей памятью
 # эта ручка — 64, как прочие.
 REMOTE_RUN="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/remote-heavy/run.sh"
@@ -415,7 +416,7 @@ remote_route() {
     [ -n "$task" ] || { [[ "$branch" =~ ^(issue-)?([0-9]+)([-_/].*)?$ ]] && task="${BASH_REMATCH[2]}"; }
     [[ "$task" =~ ^[1-9][0-9]*$ ]] || { WHY_LOCAL="номер задачи не выводится: ни KACHO_TASK, ни ведущих цифр в имени ветки «$branch»"; return 1; }
     local avail
-    if ! avail="$(bash "$REMOTE_RUN" --available 2>&1)"; then
+    if ! avail="$(bash "$REMOTE_RUN" --available --profile "$CLASS" 2>&1)"; then
         WHY_LOCAL="кластер недоступен: ${avail#remote-heavy: }"; return 1
     fi
     rel="$(realpath --relative-to="$top" "$PWD")"

@@ -257,7 +257,9 @@ echo "── внешний кластер: тяжёлый класс уходи
 cat > "$W/fake-run.sh" <<'FAKE'
 #!/usr/bin/env bash
 if [ "${1:-}" = --available ]; then
+    printf '%s\n' "$@" > "$FAKE_ARGV.avail"
     [ "${FAKE_AVAIL:-0}" = 0 ] && exit 0
+    [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: узла без стенда нет (узлов 2: со стендом ns kacho 2)" >&2; exit 69; }
     echo "remote-heavy: кластер не отвечает" >&2; exit 69
 fi
 printf '%s\n' "$@" > "$FAKE_ARGV"; exit 17
@@ -273,10 +275,13 @@ mkdir -p "$R/sub"; echo b > "$R/sub/g"; git -C "$R" add sub; sandbox_git -C "$R"
 rslot() { (cd "${RDIR:-$R}" && env HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" FAKE_ARGV="$W/argv" "$@" 2> "$W/err" > "$W/out"); echo $?; }
 rm -f "$W/argv"
 assert "17 да" "$(RDIR="$R/sub" rslot bash "$SLOT" lint -- go version) $(has "$W/argv" '--profile')" "lint с go в чистом клоне → run.sh, его код (17)"
+assert "--available --profile lint" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера несёт профиль класса — размещение судится под его запрос (ws#991)"
 assert "984 kaname sub $(git -C "$R" rev-parse HEAD)" "$(sed -n '/^--task$/{n;p}' "$W/argv") $(sed -n '/^--repo$/{n;p}' "$W/argv") $(sed -n '/^--workdir$/{n;p}' "$W/argv") $(sed -n '/^--ref$/{n;p}' "$W/argv")" "задача из ветки, repo из origin, каталог и коммит — в argv"
 assert "go version" "$(sed -n '/^--$/,$p' "$W/argv" | sed 1d | tr '\n' ' ' | sed 's/ $//')" "команда передана после «--» без искажения"
 rm -f "$W/argv"
 assert "0 да нет" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет)" "кластер не отвечает → локально, причина названа"
+rm -f "$W/argv"
+assert "0 да нет" "$(FAKE_AVAIL=2 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'локально — кластер недоступен: узла без стенда нет') $([ -e "$W/argv" ] && echo да || echo нет)" "стенд на всех узлах → локально сразу, причина названа (ws#991)"
 rm -f "$W/argv"
 assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'не переносится') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
 echo c >> "$R/f"
