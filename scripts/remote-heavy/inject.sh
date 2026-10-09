@@ -186,7 +186,7 @@ case "$1 ${2:-}" in
         fi ;;
     "get netpol") echo '{"items":[{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}' ;;
     "get nodes")
-        # FAKE_NODES — список узлов случая размещения; иначе один готовый узел без стенда.
+        # FAKE_NODES — список узлов случая размещения; иначе один готовый узел.
         if [ -n "${FAKE_NODES:-}" ]; then printf '%s\n' "$FAKE_NODES"; exit 0; fi
         jq -n --arg e "$FAKE_NODE_IP" --arg v6 "$FAKE_NODE_IP6" '{items: [{metadata: {name: "n1"},
           status: {addresses: [{type: "ExternalIP", address: $e}, {type: "InternalIP", address: "10.0.0.5"}, {type: "InternalIP", address: $v6}, {type: "Hostname", address: "n1"}],

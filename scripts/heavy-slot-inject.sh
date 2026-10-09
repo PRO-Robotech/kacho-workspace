@@ -259,7 +259,7 @@ cat > "$W/fake-run.sh" <<'FAKE'
 if [ "${1:-}" = --available ]; then
     printf '%s\n' "$@" > "$FAKE_ARGV.avail"
     [ "${FAKE_AVAIL:-0}" = 0 ] && exit 0
-    [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: узла без стенда нет (узлов 2: со стендом ns kacho 2)" >&2; exit 69; }
+    [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: открытого для планирования узла нет (узлов 2: закрыты для планирования 2)" >&2; exit 69; }
     echo "remote-heavy: кластер не отвечает" >&2; exit 69
 fi
 printf '%s\n' "$@" > "$FAKE_ARGV"; exit 17
@@ -281,7 +281,7 @@ assert "go version" "$(sed -n '/^--$/,$p' "$W/argv" | sed 1d | tr '\n' ' ' | sed
 rm -f "$W/argv"
 assert "0 да нет" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет)" "кластер не отвечает → локально, причина названа"
 rm -f "$W/argv"
-assert "0 да нет" "$(FAKE_AVAIL=2 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'локально — кластер недоступен: узла без стенда нет') $([ -e "$W/argv" ] && echo да || echo нет)" "стенд на всех узлах → локально сразу, причина названа (ws#991)"
+assert "0 да нет" "$(FAKE_AVAIL=2 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'локально — кластер недоступен: открытого для планирования узла нет') $([ -e "$W/argv" ] && echo да || echo нет)" "открытого узла нет → локально сразу, причина названа (ws#991)"
 rm -f "$W/argv"
 assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'не переносится') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
 echo c >> "$R/f"
