@@ -6,7 +6,7 @@ aliases:
 ticket_id: 2918
 category: kac
 status: in-progress
-verified_against: "`gh` 2026-10-08 (после вливания kacho #3099): kaname PR #673 OPEN в `484-notify` (голова 1197a78edd8e, `Refs PRO-Robotech/kacho#2918`), в kaname#636 и kaname#667 оставлены `DoD-proof @bdc36c614` и ссылка на #673 (`gh issue view`, `gh pr view`); пины на голове `2914-notify` 515e017c873a — corelib 18d105d0f50a, kaname 33010d434767 (`go.mod`); задача #2918 OPEN. `gh` 2026-10-08: kaname#636 OPEN (заведена 2026-10-06, комментариев и PR нет), kaname#667 OPEN (2026-10-07, `Refs #484`, комментариев и PR нет) — `gh issue view`, `gh pr list --search`. `gh` 2026-10-08: kacho PR #3098 MERGED в `2914-notify` 2026-10-08T01:16Z merge-коммитом 504bc7acdc51 (родители dc95c1d5dc9e и голова полосы 9780bf82912f), ветка `2918-b1-resource-event` снята; пины на 504bc7acdc51 прочитаны в `go.mod`: corelib 67ba3443c149, kaname 56bcb3036d71; `journal.yaml` и `notifications/resource-event/` есть у compute, registry, storage, у vpc нет (`git ls-tree`); задача #2918 и эпик #2914 OPEN. `gh` 2026-10-07: kacho PR #3042 MERGED в `2914-notify` 2026-10-06T01:44Z merge-коммитом 829e1a26cb18 (голова ветки `2918-kinds-flag` a799636c82c); kaname PR #632 MERGED в `484-notify` 2026-10-07T02:15Z (22b70ea5d0a7, голова волны 6e32861e021a), голова `484-notify` = 22b70ea5d0a7; corelib #95 (e7d6197fc5dc) и #96 (bdb379942934) MERGED в `77-notify`, голова = 1e6ade53645a; голова `2914-notify` = 4d5295f1ae96; задача #2918 и эпик #2914 OPEN; путь приёмки снят `git ls-tree origin/issue-880 docs/specs/` воркспейса; состав — со слов описаний PR, прогоны мной не перезапускались. `gh` 2026-10-05: kacho PR #3027 MERGED в `2914-notify` merge-коммитом 4517cc69c135 (голова волны 53c14dec394d), голова `2914-notify` = 4517cc69c135; corelib #89 MERGED в `77-notify` (fd6d603b52ca), запись реестра исключений снята #92, голова `77-notify` = 9e358e61e28d; kaname #605 (745640d6c296), #611 (c1b397b735d5), #616 (db080041cd95) MERGED в `484-notify`, голова = db080041cd95; задача #2918 и эпик #2914 OPEN. Пути журнала и справочника сняты `git ls-tree` на 4517cc69c135 и db080041cd95; прогоны мной не перезапускались"
+verified_against: "`gh` 2026-10-09: kacho PR #3119 MERGED в `2914-notify` 2026-10-09T20:21Z merge-коммитом e6075f09c261 (родители 9bc6b9e89ae3 и голова полосы cc2bef0ef6c4; 4 коммита, 7 файлов, +670/−29 — `git diff --shortstat`), голова `2914-notify` = e6075f09c261, пины на ней — corelib 18d105d0f50a, kaname 33010d434767 (`go.mod`); kaname PR #673 MERGED в `484-notify` 2026-10-09T17:16Z (d93b69712f0d); #2918, kaname#636, kaname#667 OPEN. `gh` 2026-10-08 (после вливания kacho #3099): kaname PR #673 OPEN в `484-notify` (голова 1197a78edd8e, `Refs PRO-Robotech/kacho#2918`), в kaname#636 и kaname#667 оставлены `DoD-proof @bdc36c614` и ссылка на #673 (`gh issue view`, `gh pr view`); пины на голове `2914-notify` 515e017c873a — corelib 18d105d0f50a, kaname 33010d434767 (`go.mod`); задача #2918 OPEN. `gh` 2026-10-08: kaname#636 OPEN (заведена 2026-10-06, комментариев и PR нет), kaname#667 OPEN (2026-10-07, `Refs #484`, комментариев и PR нет) — `gh issue view`, `gh pr list --search`. `gh` 2026-10-08: kacho PR #3098 MERGED в `2914-notify` 2026-10-08T01:16Z merge-коммитом 504bc7acdc51 (родители dc95c1d5dc9e и голова полосы 9780bf82912f), ветка `2918-b1-resource-event` снята; пины на 504bc7acdc51 прочитаны в `go.mod`: corelib 67ba3443c149, kaname 56bcb3036d71; `journal.yaml` и `notifications/resource-event/` есть у compute, registry, storage, у vpc нет (`git ls-tree`); задача #2918 и эпик #2914 OPEN. `gh` 2026-10-07: kacho PR #3042 MERGED в `2914-notify` 2026-10-06T01:44Z merge-коммитом 829e1a26cb18 (голова ветки `2918-kinds-flag` a799636c82c); kaname PR #632 MERGED в `484-notify` 2026-10-07T02:15Z (22b70ea5d0a7, голова волны 6e32861e021a), голова `484-notify` = 22b70ea5d0a7; corelib #95 (e7d6197fc5dc) и #96 (bdb379942934) MERGED в `77-notify`, голова = 1e6ade53645a; голова `2914-notify` = 4d5295f1ae96; задача #2918 и эпик #2914 OPEN; путь приёмки снят `git ls-tree origin/issue-880 docs/specs/` воркспейса; состав — со слов описаний PR, прогоны мной не перезапускались. `gh` 2026-10-05: kacho PR #3027 MERGED в `2914-notify` merge-коммитом 4517cc69c135 (голова волны 53c14dec394d), голова `2914-notify` = 4517cc69c135; corelib #89 MERGED в `77-notify` (fd6d603b52ca), запись реестра исключений снята #92, голова `77-notify` = 9e358e61e28d; kaname #605 (745640d6c296), #611 (c1b397b735d5), #616 (db080041cd95) MERGED в `484-notify`, голова = db080041cd95; задача #2918 и эпик #2914 OPEN. Пути журнала и справочника сняты `git ls-tree` на 4517cc69c135 и db080041cd95; прогоны мной не перезапускались"
 type: feature
 repos:
   - kacho
@@ -18,6 +18,7 @@ areas:
   - services/registry
   - services/storage
   - services/vpc
+  - gateway
   - internal/repohygiene
   - pkg/journalfault
   - deploy/scripts
@@ -25,6 +26,7 @@ prs:
   - https://github.com/PRO-Robotech/kacho/pull/3027
   - https://github.com/PRO-Robotech/kacho/pull/3042
   - https://github.com/PRO-Robotech/kacho/pull/3098
+  - https://github.com/PRO-Robotech/kacho/pull/3119
   - https://github.com/PRO-Robotech/corelib/pull/89
   - https://github.com/PRO-Robotech/corelib/pull/92
   - https://github.com/PRO-Robotech/corelib/pull/95
@@ -33,6 +35,7 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/611
   - https://github.com/PRO-Robotech/kaname/pull/616
   - https://github.com/PRO-Robotech/kaname/pull/632
+  - https://github.com/PRO-Robotech/kaname/pull/673
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2918
 opened: 2026-09-29
 closed:
@@ -44,7 +47,7 @@ tags:
 # kacho#2918: notify NTF-3 — модули kacho, уведомления о событиях ресурсов
 
 **Состояние на момент записи**: `in-progress`. Две волны задачи (модули-1 и модули-2),
-полоса B1 и волна ограды аудитории kaname влиты в ветки эпиков трёх репозиториев; в `main`
+полоса B1, волна B1 модулей-3 (#3119) и обе волны ограды kaname (#632, #673) влиты в ветки эпиков трёх репозиториев; в `main`
 не влито ничего. Задача открыта: влиты фундамент (инициатор в журнале, справочник адресов,
 виды журналов, флаг ленты модуля, ограда аудитории) и функция resource-event трёх модулей
 (compute, registry, storage); vpc и перепись «подключается / не подключается» ещё впереди. Статус `done` записке не положен
@@ -150,6 +153,26 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 Исход проб назван в описании PR по телам коммитов; при открытии PR не перезапускался, мной
 тоже. Вердикт конвейера на голове в описании не заявлен.
 
+## Волна B1 (модули-3) и ограда NTF-3 kaname
+
+| репозиторий | ветка эпика | PR | merge-коммит | состав |
+|---|---|---|---|---|
+| kaname | `484-notify` | [#673](https://github.com/PRO-Robotech/kaname/pull/673) | `d93b69712f0d` | ограда NTF-3: K2, K3, фиксы kaname#636 и kaname#667 — trail [[KAC/issue-484-kaname]] |
+| kacho | `2914-notify` | [#3119](https://github.com/PRO-Robotech/kacho/pull/3119) | `e6075f09c261` | пробы инициатора привязки тома и снятия машины; подъём `golang.org/x/net` и toolchain |
+
+Состав #3119 (ветка полосы `2918-wave-modules-3`, координата; влит 2026-10-09T20:21Z слиянием
+без схлопывания), из описания PR:
+
+- пробы NTF3-160 (г), (з), УК3-32, УК3-39: привязка и отвязка тома storage и снятие машины
+  compute пишут журнал под инициатором начавшего;
+- `golang.org/x/net` v0.60.0 и toolchain go1.26.9 — снятие находок `govulncheck` (перечень —
+  в описании PR); вслед подняты зависимые модули `golang.org/x/*`;
+- снят устаревший вызов настройки HTTP/2 у TLS-слушателя края шлюза: замер в описании PR
+  показал одинаковый исход с вызовом и без; неверный комментарий снят вместе с ним.
+
+Пины #3119 не тронуты: голова `484-notify` `d93b69712f0d` (#673) впереди пина kaname
+`33010d434767`. Исход проб — со слов описания PR, мной не перезапускался.
+
 ## DoD (из тела задачи)
 
 Предикат задачи — сценарии приёмки NTF-3 зелёные; перепись модулей в приёмке сходится с
@@ -173,8 +196,8 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 - https://github.com/PRO-Robotech/corelib/issues/77 — линия corelib эпика: лента, формат шаблона, `notifygen`. Trail — [[KAC/issue-77-corelib]].
 - https://github.com/PRO-Robotech/kaname/issues/484 — линия kaname эпика: нотификации kaname в ленту, снятие SMTP. Trail — [[KAC/issue-484-kaname]].
 - https://github.com/PRO-Robotech/kacho-workspace/issues/880 — блокер из тела.
-- https://github.com/PRO-Robotech/kaname/issues/636 — дефект факта права в kaname (bug, P1), найден красной пробой NTF3-184 этой под-фазы; OPEN. Фикс — в kaname [#673](https://github.com/PRO-Robotech/kaname/pull/673) (OPEN в `484-notify`, `Refs` этой задачи). Разбор — в задаче и диффе PR, здесь не пересказывается. Trail — [[KAC/issue-636-kaname]].
-- https://github.com/PRO-Robotech/kaname/issues/667 — мерцающая проба NTF3-174 в kaname (конкурентное снятие объекта с регистрациями); OPEN, фикс — в том же kaname #673. Trail — [[KAC/issue-667-kaname]].
+- https://github.com/PRO-Robotech/kaname/issues/636 — дефект факта права в kaname (bug, P1), найден красной пробой NTF3-184 этой под-фазы; OPEN. Фикс — в kaname [#673](https://github.com/PRO-Robotech/kaname/pull/673) (влит в `484-notify` 2026-10-09, `Refs` этой задачи). Разбор — в задаче и диффе PR, здесь не пересказывается. Trail — [[KAC/issue-636-kaname]].
+- https://github.com/PRO-Robotech/kaname/issues/667 — мерцающая проба NTF3-174 в kaname (конкурентное снятие объекта с регистрациями); OPEN, фикс — в том же kaname #673 (влит в `484-notify`). Trail — [[KAC/issue-667-kaname]].
 
 ## History
 
@@ -192,6 +215,9 @@ PRO-Robotech/kacho-workspace#880. **Роль исполнителя:** `go-imple
 - 2026-10-08 — kaname #673 (волна ограды NTF-3 в `484-notify`) открыт с фиксами kaname#636
   и kaname#667, не влит; пины kacho подняты #3099 (#2924) до голов фундамента. Утверждение
   «головы впереди пина» отнесено к `504bc7acdc51`. Статус `in-progress`.
+- 2026-10-09 — kaname #673 влит в `484-notify` (`d93b69712f0d`); kacho #3119 (волна B1
+  модулей-3) влит в `2914-notify` (`e6075f09c261`), пины не тронуты — голова kaname впереди
+  пина. Статус `in-progress`.
 
 ## Затронутые сущности vault
 
