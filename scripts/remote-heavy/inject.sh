@@ -325,10 +325,12 @@ if jq -e '.spec.template.spec.containers[0].resources | (.requests.cpu and .requ
 else OUT="$J"; bad A1 "у run нет запросов и пределов cpu и памяти числом"; fi
 # A1 — ни одна изменяющая команда не адресована ns kacho (чтение служб для пробы
 # закрытости — законно); близнец — изменяющие команды прогона в его ns были
-if grep -E '(^| )(create|apply|delete|exec|patch|label|annotate)( |$)' "$BOX/state/calls" | grep -qE '(-n kacho( |$)|ns kacho( |$))'; then
+grep -E '(^| )(create|apply|delete|exec|patch|label|annotate)( |$)' "$BOX/state/calls" > "$BOX/mutating.calls"
+if grep -qE '(-n kacho( |$)|ns kacho( |$))' "$BOX/mutating.calls"; then
     bad A1 "изменяющая команда адресована ns kacho"
 else ok; fi
-if grep -E '(^| )(exec|delete)( |$)' "$BOX/state/calls" | grep -qE '(-n t1-heavy-k1 |ns t1-heavy-k1)'; then ok
+grep -E '(^| )(exec|delete)( |$)' "$BOX/state/calls" > "$BOX/own.calls"
+if grep -qE '(-n t1-heavy-k1 |ns t1-heavy-k1)' "$BOX/own.calls"; then ok
 else bad A1 "изменяющих команд в ns прогона не видно — проверка выше пуста"; fi
 # X1 — current-context файла смотрит на infra (опыт 2026-10-09), прогон K1 всё
 # равно в client: КАЖДЫЙ вызов kubectl, кроме чтения списка контекстов, несёт
@@ -521,6 +523,8 @@ for bad_ns in t2-heavy-x t1-stand-x kacho-heavy t1-heavy- default; do
     no_cluster_call "R3 $bad_ns"
 done
 
+# cluster_calls — вызовов kubectl, кроме чтения списка контекстов (локальная операция)
+cluster_calls() { [ -e "$BOX/state/calls" ] || { echo 0; return; }; grep -vc ' config get-contexts ' "$BOX/state/calls"; }
 # X2 — KACHO_REMOTE_CONTEXT на infra → 64 до любого обращения, и к kubectl тоже
 for ov in "$CTX_INFRA" lab-a1; do
     fresh
@@ -541,7 +545,7 @@ expect_rc X2b 0
 fresh
 go_run x2c env KACHO_REMOTE_CONTEXT=lab-zz-client FAKE_EXIT=0 "${B[@]}" --short x2c -- true
 expect_rc X2c 69
-if grep -v ' config get-contexts ' "$BOX/state/calls" 2>/dev/null | grep -q .; then bad X2c "к кластеру обращались"; else ok; fi
+if [ "$(cluster_calls)" -gt 0 ]; then bad X2c "к кластеру обращались"; else ok; fi
 # X3 — в файле нет контекста -client (только infra) → 69 и с --available; X4 — два -client → 69
 kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" > "$BOX/kc-noclient"
 kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" "$CTX_CLIENT" lab-b2-client > "$BOX/kc-twoclient"
@@ -555,7 +559,7 @@ for cs in "noclient:X3:нет контекста с суффиксом -client" 
             go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" bash "$RUN" --available
         fi
         expect_rc "$nm $mode" 69
-        if grep -v ' config get-contexts ' "$BOX/state/calls" 2>/dev/null | grep -q .; then bad "$nm $mode" "к кластеру обращались"; else ok; fi
+        if [ "$(cluster_calls)" -gt 0 ]; then bad "$nm $mode" "к кластеру обращались"; else ok; fi
         if grep -q "$why" "$OUT" && grep -q 'KACHO_REMOTE_CONTEXT\|добавь контекст' "$OUT"; then ok; else bad "$nm $mode" "причина или шаг не названы"; fi
     done
 done
