@@ -1,0 +1,28 @@
+{
+ "wave": "F-K2",
+ "lanes": [
+  {
+   "key": "K1",
+   "repo": "kaname",
+   "paths": [
+    "go.mod",
+    "go.sum"
+   ],
+   "declared": "R1",
+   "repin": "corelib"
+  },
+  {
+   "key": "X4e",
+   "repo": "kaname",
+   "paths": [
+    "proto/kaname/cloud/iam/v1/internal_notification_recipient_service.proto",
+    "internal/apps/kaname/api/recipientdirectory/",
+    "internal/apps/kaname/cmd/"
+   ],
+   "deps": [
+    "K1"
+   ],
+   "declared": "R2"
+  }
+ ]
+}

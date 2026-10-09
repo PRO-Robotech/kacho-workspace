@@ -1,0 +1,140 @@
+{
+ "wave": "V-2",
+ "lanes": [
+  {
+   "key": "FM0",
+   "repo": "kacho",
+   "paths": [
+    "go.mod",
+    "go.sum",
+    "services/compute/internal/clients/iam_register_applier.go",
+    "services/compute/internal/ports/portmock/portmock.go",
+    "services/compute/internal/repo/outbox.go",
+    "services/compute/internal/repo/fga_register_delivery_test.go",
+    "services/nlb/internal/clients/iam/register_applier.go",
+    "services/nlb/internal/clients/iam/sync_registrar.go",
+    "services/registry/internal/clients/iam/register_applier.go",
+    "services/registry/internal/clients/iam/sync_registrar.go",
+    "services/storage/internal/apps/kacho/api/image/image.go",
+    "services/storage/internal/apps/kacho/api/snapshot/snapshot.go",
+    "services/storage/internal/apps/kacho/api/volume/volume.go",
+    "services/vpc/internal/clients/iam_register_applier.go",
+    "services/vpc/internal/clients/iam_sync_registrar.go",
+    "services/vpc/internal/clients/iam_register_applier_labels_test.go",
+    "services/notify/cmd/notify-probe/internal/send/",
+    "services/notify/journaltx-sites.yaml",
+    "pkg/feedjournal/feedjournaltest/resourceevent.go",
+    "pkg/feedjournal/journaltx-sites.yaml",
+    "pkg/authzrev/",
+    "gateway/internal/middleware/embed/permission_catalog.json",
+    "gateway/internal/middleware/permission_catalog_acr_invariant_test.go",
+    "internal/repohygiene/catalogreachability_test.go",
+    "internal/repohygiene/journaleventmirrorversion.go",
+    "internal/repohygiene/journaleventmirrorversion_test.go",
+    "internal/repohygiene/ownerintentoneevent.go",
+    "internal/repohygiene/ownerintentoneevent_test.go",
+    "internal/repohygiene/publicreadownmethod_test.go",
+    "internal/repohygiene/intentqueuecache_test.go",
+    "internal/repohygiene/journaltxbeginmarker.go",
+    "internal/repohygiene/journaltxbeginmarker_test.go"
+   ],
+   "declared": "R2",
+   "repin": "corelib"
+  },
+  {
+   "key": "FM-c",
+   "repo": "kacho",
+   "paths": [
+    "services/compute/internal/",
+    "services/compute/cmd/",
+    "services/compute/journal.yaml",
+    "services/compute/notifications/resource-event/",
+    "services/compute/notifications_resource-event.gen.go",
+    "services/compute/journaltx-sites.yaml"
+   ],
+   "deps": [
+    "FM0"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "FM-v",
+   "repo": "kacho",
+   "paths": [
+    "services/vpc/internal/",
+    "services/vpc/cmd/",
+    "services/vpc/journal.yaml",
+    "services/vpc/notifications/resource-event/",
+    "services/vpc/notifications_resource-event.gen.go",
+    "services/vpc/journaltx-sites.yaml",
+    "deploy/scripts/vpc-address-pool-baseline.sql",
+    "deploy/scripts/seed-vpc-address-pools.sh"
+   ],
+   "deps": [
+    "FM0"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "FM-n",
+   "repo": "kacho",
+   "paths": [
+    "services/nlb/internal/",
+    "services/nlb/cmd/",
+    "services/nlb/journal.yaml",
+    "services/nlb/notifications/resource-event/",
+    "services/nlb/notifications_resource-event.gen.go",
+    "services/nlb/journaltx-sites.yaml"
+   ],
+   "deps": [
+    "FM0"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "FM-r",
+   "repo": "kacho",
+   "paths": [
+    "services/registry/internal/",
+    "services/registry/cmd/",
+    "services/registry/journal.yaml",
+    "services/registry/notifications/resource-event/",
+    "services/registry/notifications_resource-event.gen.go",
+    "services/registry/journaltx-sites.yaml"
+   ],
+   "deps": [
+    "FM0"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "FM-s",
+   "repo": "kacho",
+   "paths": [
+    "services/storage/internal/",
+    "services/storage/cmd/",
+    "services/storage/journal.yaml",
+    "services/storage/notifications/resource-event/",
+    "services/storage/notifications_resource-event.gen.go",
+    "services/storage/journaltx-sites.yaml"
+   ],
+   "deps": [
+    "FM0"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "FM-i",
+   "repo": "kacho",
+   "paths": [
+    "services/registry/internal/clients/iam/fence_integration_test.go",
+    "services/vpc/internal/apps/kacho/api/network/fence_integration_test.go"
+   ],
+   "deps": [
+    "FM-r",
+    "FM-v"
+   ],
+   "declared": "R0"
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "wave": "F-K1",
+ "lanes": [
+  {
+   "key": "K0",
+   "repo": "kaname",
+   "paths": [
+    "go.mod",
+    "go.sum"
+   ],
+   "declared": "R1",
+   "repin": "corelib"
+  }
+ ]
+}

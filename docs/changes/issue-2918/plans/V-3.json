@@ -1,0 +1,87 @@
+{
+ "wave": "V-3",
+ "lanes": [
+  {
+   "key": "S2-B9",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/internal/directory/",
+    "services/notify/internal/resolvecell/",
+    "services/notify/internal/deliver/"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S2-B4",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/internal/ingest/",
+    "services/notify/internal/inbox/",
+    "services/notify/internal/migrations/",
+    "services/notify/cmd/notify/"
+   ],
+   "deps": [
+    "S2-B9"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S2-B7",
+   "repo": "kacho",
+   "paths": [
+    "proto/kacho/cloud/notify/v1/",
+    "pkg/api/kacho/cloud/notify/v1/",
+    "services/notify/internal/apiserver/",
+    "services/notify/servesurface_ledger.go",
+    "services/notify/cmd/notify-api/"
+   ],
+   "deps": [
+    "S2-B4"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S2-B7k",
+   "repo": "kacho",
+   "paths": [
+    "proto/kacho/cloud/notify/v1/",
+    "pkg/api/kacho/cloud/notify/v1/",
+    "services/notify/internal/apiserver/contacts/",
+    "services/notify/servesurface_ledger.go"
+   ],
+   "deps": [
+    "S2-B7"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S2-B8",
+   "repo": "kacho",
+   "paths": [
+    "gateway/internal/restmux/",
+    "gateway/internal/allowlist/",
+    "gateway/internal/middleware/embed/"
+   ],
+   "deps": [
+    "S2-B7",
+    "S2-B7k"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S2-B10a",
+   "repo": "kacho",
+   "paths": [
+    "deploy/helm/notify/",
+    "deploy/helm/umbrella/",
+    "deploy/tests/helm/"
+   ],
+   "deps": [
+    "S2-B4",
+    "S2-B7k",
+    "S2-B8"
+   ],
+   "declared": "R2"
+  }
+ ]
+}

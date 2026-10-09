@@ -1,0 +1,13 @@
+{
+ "wave": "F-C2",
+ "lanes": [
+  {
+   "key": "X3",
+   "repo": "corelib",
+   "paths": [
+    "operations/"
+   ],
+   "declared": "R1"
+  }
+ ]
+}

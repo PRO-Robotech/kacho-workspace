@@ -1,0 +1,52 @@
+{
+ "wave": "V-4",
+ "lanes": [
+  {
+   "key": "S2-B5",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/internal/digest/",
+    "services/notify/notifications/digest/"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "S2-B6",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/internal/instant/",
+    "services/notify/internal/ingest/"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "S2-B10b",
+   "repo": "kacho",
+   "paths": [
+    "deploy/helm/notify/",
+    "deploy/helm/umbrella/",
+    "deploy/tests/helm/"
+   ],
+   "deps": [
+    "S2-B5",
+    "S2-B6"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S2-B11",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/internal/integration/",
+    "services/storage/internal/ntf3_160_integration_test.go",
+    "services/vpc/internal/ntf3_160_integration_test.go",
+    "services/nlb/internal/ntf3_160_integration_test.go",
+    "services/compute/internal/ntf3_160_integration_test.go"
+   ],
+   "deps": [
+    "S2-B10b"
+   ],
+   "declared": "R1"
+  }
+ ]
+}

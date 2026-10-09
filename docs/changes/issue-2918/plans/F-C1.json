@@ -1,0 +1,17 @@
+{
+ "wave": "F-C1",
+ "lanes": [
+  {
+   "key": "FC",
+   "repo": "corelib",
+   "paths": [
+    "journaltx/",
+    "outbox/",
+    "notify/feed/resourceevent/",
+    "cmd/notifygen/",
+    "subscription/"
+   ],
+   "declared": "R2"
+  }
+ ]
+}

@@ -1,0 +1,80 @@
+{
+ "wave": "V-5",
+ "lanes": [
+  {
+   "key": "P5",
+   "repo": "kacho",
+   "paths": [
+    "go.mod",
+    "go.sum"
+   ],
+   "declared": "R1",
+   "repin": "corelib"
+  },
+  {
+   "key": "S3-C1",
+   "repo": "kacho",
+   "paths": [
+    "services/storage/internal/migrations/",
+    "services/storage/internal/domain/",
+    "services/storage/internal/repo/pg/"
+   ],
+   "deps": [
+    "P5"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S3-C2",
+   "repo": "kacho",
+   "paths": [
+    "services/storage/internal/reconciler/",
+    "services/storage/notifications/volume-error/",
+    "services/storage/notifications/volume-recovered/",
+    "services/storage/notifications/snapshot-error/",
+    "services/storage/notifications/snapshot-recovered/",
+    "services/storage/notifications/image-error/",
+    "services/storage/notifications/image-recovered/",
+    "internal/repohygiene/storageerrorwriters_test.go"
+   ],
+   "deps": [
+    "S3-C1"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "S3-C3",
+   "repo": "kacho",
+   "paths": [
+    "services/compute/cmd/",
+    "services/vpc/cmd/",
+    "services/nlb/cmd/",
+    "services/registry/cmd/",
+    "services/storage/cmd/",
+    "services/compute/notifications/operation-failed/",
+    "services/vpc/notifications/operation-failed/",
+    "services/nlb/notifications/operation-failed/",
+    "services/registry/notifications/operation-failed/",
+    "services/storage/notifications/operation-failed/",
+    "internal/repohygiene/notifyingopsrepo_test.go"
+   ],
+   "deps": [
+    "P5"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "S3-C4",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/internal/reminder/",
+    "services/notify/internal/directory/",
+    "services/notify/notifications/credential-expiring/"
+   ],
+   "deps": [
+    "P5"
+   ],
+   "declared": "R2"
+  }
+ ]
+}

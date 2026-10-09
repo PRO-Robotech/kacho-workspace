@@ -1,0 +1,86 @@
+{
+ "wave": "V-1",
+ "lanes": [
+  {
+   "key": "B1v",
+   "repo": "kacho",
+   "paths": [
+    "services/vpc/journal.yaml",
+    "services/vpc/notifications/",
+    "services/vpc/notifications_resource-event.gen.go",
+    "services/vpc/internal/migrations/",
+    "deploy/scripts/vpc-address-pool-baseline.sql",
+    "deploy/scripts/seed-vpc-address-pools.sh"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "B1n",
+   "repo": "kacho",
+   "paths": [
+    "services/nlb/journal.yaml",
+    "services/nlb/notifications/",
+    "services/nlb/notifications_resource-event.gen.go",
+    "services/nlb/internal/migrations/"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "B3",
+   "repo": "kacho",
+   "paths": [
+    "services/storage/internal/repo/pg/",
+    "services/storage/internal/apps/",
+    "services/compute/internal/apps/kacho/api/instance/"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "B2",
+   "repo": "kacho",
+   "paths": [
+    "services/vpc/internal/apps/kacho/services/nicinternal/",
+    "services/vpc/internal/apps/kacho/services/addressref/",
+    "services/vpc/internal/repo/cqrsadapter/",
+    "services/vpc/internal/repo/kacho/pg/",
+    "services/vpc/internal/apps/kacho/api/address/",
+    "deploy/helm/umbrella/values.prod.yaml"
+   ],
+   "deps": [
+    "B1v"
+   ],
+   "declared": "R2"
+  },
+  {
+   "key": "S1-A5",
+   "repo": "kacho",
+   "paths": [
+    "services/notify/sources.yaml",
+    "services/notify/Makefile",
+    "internal/repohygiene/notifysourcesledger.go",
+    "internal/repohygiene/notifysourcesledger_test.go"
+   ],
+   "deps": [
+    "B1v",
+    "B1n"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "S1-A6",
+   "repo": "kacho",
+   "paths": [
+    "internal/repohygiene/journalparity_test.go",
+    "internal/repohygiene/journalhelper_test.go",
+    "internal/repohygiene/journalwriteforms.go",
+    "internal/repohygiene/journalwriteforms_test.go",
+    "services/nlb/internal/subscriptionjournal/journal.go"
+   ],
+   "deps": [
+    "B1v",
+    "B1n"
+   ],
+   "declared": "R2"
+  }
+ ]
+}

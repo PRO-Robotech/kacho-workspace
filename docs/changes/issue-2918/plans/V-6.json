@@ -1,0 +1,29 @@
+{
+ "wave": "V-6",
+ "lanes": [
+  {
+   "key": "S3-C5",
+   "repo": "kacho",
+   "paths": [
+    "services/compute/docs/",
+    "services/vpc/docs/",
+    "services/nlb/docs/",
+    "services/registry/docs/",
+    "services/storage/docs/",
+    "services/notify/docs/"
+   ],
+   "declared": "R1"
+  },
+  {
+   "key": "S3-C6",
+   "repo": "kacho",
+   "paths": [
+    "tests/newman/"
+   ],
+   "deps": [
+    "S3-C5"
+   ],
+   "declared": "R0"
+  }
+ ]
+}
