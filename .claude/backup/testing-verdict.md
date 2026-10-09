@@ -296,3 +296,17 @@ busy-machine-step-zero · тяжёлое — только `scripts/heavy-slot.sh
 heavy-guard-is-reminder · страж heavy-guard — напоминание, не барьер: предел держит cgroup; граница — `BOUNDARY` в guard.py · heavy-guard/prove.sh · red: обход стража назван «защищено»
 external-cluster-first · есть доступ к внешнему кластеру (профиль a8f60d) — пробы на поднятом стеке и их стенд идут ТАМ; локально — сборка, unit, testcontainers слотом; доступа нет — локальный kind слотом, новых не заводить (владелец 2026-10-07, архив) · вниманием · red: kind create или make dev-up в задании при доступе
 external-cluster-ns-per-run · стенд проб на поднятом стеке (сквозные, консоль, newman, замеры, нагрузка) — только своё ns там с лимитами; прогон — `make stand-ns-run NS=t<задача>-<коротко> CMD='…'`: up → проба → down всегда, код — команды, 125 — не выполнилось; порознь — `stand-ns-up`/`stand-ns-down` той же задачей (trap, и на падении); после — `stand-ns-census` 0, просроченные — `--expired`; ns kacho — только выкатка deploy-engineer; провенанс и посев — как у стенда; адреса и кубконфиг — не в тексты (владелец 2026-10-08, архив) · цели `stand-ns-*` в kacho · red: прогон в ns kacho; ns пережил задачу
+
+Дополнение 2026-10-09, вторая правка (ws#991): решение владельца 2026-10-09 дословно —
+«тебе можно ставить только в client». Признак: run.sh звал kubectl без `--context` и брал
+current-context файла профиля, а владелец вручную переключает его на infra; дневные отказы
+политики допуска пришли из infra. run.sh выбирает ровно один контекст `-client` явно
+(переопределение — KACHO_REMOTE_CONTEXT, только на `-client`), current-context не читает и
+не меняет; пробы X1–X4 в scripts/remote-heavy/inject.sh. Цитата внесена в
+`external-cluster-first`; норма `remote-heavy-ns-not-node` слита в
+`external-cluster-ns-per-run` вместе с цитатой «не запускать в NS качо а не на узлах»
+(ради потолка корпуса). Редакция до правки:
+
+external-cluster-first · есть доступ к внешнему кластеру (профиль a8f60d) — пробы на стеке и их стенд ТАМ; нет — локальный kind слотом, новых не заводить (владелец 2026-10-07, архив) · вниманием · red: kind create при доступе
+external-cluster-ns-per-run · стенд проб — только своё ns там с лимитами: `make stand-ns-run NS=t<N>-<коротко> CMD=…` либо `stand-ns-up`/`-down` с trap; после — `stand-ns-census` 0; ns kacho — только выкатка deploy-engineer; адреса и кубконфиг — не в тексты (владелец 2026-10-08, архив) · цели `stand-ns-*` в kacho · red: прогон в ns kacho; ns пережил задачу
+remote-heavy-ns-not-node · тяжёлое на кластере — Job только в своём ns `t<N>-heavy-*` (ns kacho — 64 до кластера); узел по стенду не выбирается: стенд держат ns, сеть, userns, ресурсы числом, ≤ 2 прогонов; владелец 2026-10-09: «не запускать в NS качо а не на узлах» · scripts/remote-heavy/inject.sh · red: podAntiAffinity к стенду; Job в ns kacho

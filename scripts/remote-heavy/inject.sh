@@ -23,6 +23,13 @@
 #   R1 NS=kacho                            → 64; к кластеру ни одного обращения
 #   R2 --ns kacho                          → 64; к кластеру ни одного обращения
 #   R3 --ns вне формы t<задача>-heavy-…    → 64; к кластеру ни одного обращения
+#   X1 current-context файла = infra       → прогон в client: каждый вызов kubectl
+#      несёт --context client, current-context не изменён (решение владельца
+#      2026-10-09 «тебе можно ставить только в client»)
+#   X2 KACHO_REMOTE_CONTEXT не на -client  → 64; к kubectl ни одного обращения;
+#      близнец X2b — на client → 0; X2c названного нет → 69
+#   X3 в файле нет контекста -client       → 69, run и --available, шаг назван
+#   X4 контекстов -client два              → 69, шаг назван
 #   R4 ns уже есть (близнец K1)            → 64; чужое ns НЕ снято
 #   A1 Job — в своём ns t<N>-heavy-*, условий узла по стенду нет: ни
 #      podAntiAffinity, ни nodeAffinity, ни упоминания ns kacho в affinity
@@ -68,8 +75,8 @@
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
-#   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена
-#      и пути кубконфига (F4: stdout лога тоже)
+#   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
+#      имён контекстов и пути кубконфига (F4: stdout лога тоже)
 #   V1 кластер не отвечает (--available)   → 69, причина без адреса
 #
 # Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись)
@@ -91,14 +98,17 @@ export FAKE_POD_IP="192.0.2.44" FAKE_POD_IP6="2001:db8:0:1::44"
 PASS=0; FAIL=0; ALL_OUT="$BOX/all.out"; : > "$ALL_OUT"
 
 mkdir -p "$BOX/bin" "$BOX/state"
-cat > "$BOX/kubeconfig" <<EOF
-apiVersion: v1
-kind: Config
-clusters: [{name: c, cluster: {server: "https://$SERVER_HOST:6443"}}]
-users: [{name: u, user: {token: "$TOKEN"}}]
-contexts: [{name: x, context: {cluster: c, user: u}}]
-current-context: x
-EOF
+# kubeconfig_with <current> <контекст>… — кубконфиг пробы (JSON — тоже кубконфиг):
+# current-context смотрит на <current>, как файл профиля, который владелец вручную
+# переключил на infra (опыт 2026-10-09).
+kubeconfig_with() {
+    local cur="$1"; shift
+    jq -n --arg s "https://$SERVER_HOST:6443" --arg t "$TOKEN" --arg cur "$cur" '{apiVersion: "v1", kind: "Config",
+      clusters: [{name: "c", cluster: {server: $s}}], users: [{name: "u", user: {token: $t}}],
+      contexts: [$ARGS.positional[] | {name: ., context: {cluster: "c", user: "u"}}], "current-context": $cur}' --args "$@"
+}
+CTX_CLIENT="lab-a1-client"; CTX_INFRA="lab-a1-infra"
+kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" "$CTX_CLIENT" > "$BOX/kubeconfig"
 
 # ── двойник kubectl ──────────────────────────────────────────────────────────
 cat > "$BOX/bin/kubectl" <<'FAKE'
@@ -109,11 +119,12 @@ mkdir -p "$S/ns" "$S/jobs"
 mkdir -p "$S/ns" "$S/jobs"
 echo "$*" >> "$S/calls"
 echo "Warning: cluster https://$FAKE_HOST:6443 ($FAKE_IP) answered slowly" >&2
-ns=""; sel=""; all=0
+ns=""; sel=""; all=0; ctx=""; kcfg=""
 args=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --kubeconfig) shift 2 ;;
+        --kubeconfig) kcfg="$2"; shift 2 ;;
+        --context) ctx="$2"; shift 2 ;;
         --request-timeout=*|--field-selector=*|--wait=*|--timeout=*) shift ;;
         -n) ns="$2"; shift 2 ;;
         -l) sel="$2"; shift 2 ;;
@@ -141,7 +152,17 @@ spec_of() {
 }
 # pods <status> — список из одного pod со spec «сервера».
 pods() { jq -nc --argjson sp "$(spec_of pod)" --argjson st "$1" '{items: [{metadata: {name: "run-x"}, spec: $sp, status: $st}]}'; }
+# Без --context kubectl берёт current-context файла; контекст не -client ведёт себя
+# как infra 2026-10-09: изменяющий запрос отклоняет политика допуска.
+[ -n "$ctx" ] || [ -z "$kcfg" ] || ctx="$(jq -r '."current-context"' "$kcfg")"
+case "$1" in
+    create|apply|delete|exec|patch|label|annotate)
+        case "$ctx" in *-client) ;; *)
+            echo "Error from server (Forbidden): admission webhook denied the request: policy host-access-allowlist (context $ctx)" >&2; exit 1 ;;
+        esac ;;
+esac
 case "$1 ${2:-}" in
+    "config get-contexts") jq -r '.contexts[].name' "$kcfg" ;;
     "config view") printf 'https://%s:6443' "$FAKE_HOST" ;;
     "auth can-i")
         if [ "${FAKE_DOWN:-0}" = 1 ]; then
@@ -309,6 +330,17 @@ if grep -E '(^| )(create|apply|delete|exec|patch|label|annotate)( |$)' "$BOX/sta
 else ok; fi
 if grep -E '(^| )(exec|delete)( |$)' "$BOX/state/calls" | grep -qE '(-n t1-heavy-k1 |ns t1-heavy-k1)'; then ok
 else bad A1 "изменяющих команд в ns прогона не видно — проверка выше пуста"; fi
+# X1 — current-context файла смотрит на infra (опыт 2026-10-09), прогон K1 всё
+# равно в client: КАЖДЫЙ вызов kubectl, кроме чтения списка контекстов, несёт
+# --context <client>; ни одного без него и ни одного в infra. Двойник в контексте
+# не -client отклоняет изменяющие запросы, как политика допуска infra, — K1 с кодом 0
+# уже это подтверждает; здесь — перепись вызовов.
+n_calls="$(grep -vc ' config get-contexts ' "$BOX/state/calls")"
+n_client="$(grep -v ' config get-contexts ' "$BOX/state/calls" | grep -c -- "--context $CTX_CLIENT ")"
+if [ "$n_calls" -gt 0 ] && [ "$n_calls" -eq "$n_client" ]; then ok
+else bad X1 "вызовов kubectl $n_calls, с --context client $n_client"; fi
+if grep -q -- "$CTX_INFRA" "$BOX/state/calls"; then bad X1 "вызов в контексте infra"; else ok; fi
+if [ "$(jq -r '."current-context"' "$BOX/kubeconfig")" = "$CTX_INFRA" ]; then ok; else bad X1 "current-context кубконфига изменён"; fi
 # N1 — сеть ns: входящих нет, исходящие — DNS и мир без частных, узлов и служб (F2)
 NP="$BOX/state/netpol.json"
 if jq -e --arg n4 "$FAKE_NODE_IP/32" --arg n6 "$FAKE_NODE_IP6/128" --arg a4 "$FAKE_API_IP/32" '
@@ -487,6 +519,45 @@ for bad_ns in t2-heavy-x t1-stand-x kacho-heavy t1-heavy- default; do
     go_run "r3-$bad_ns" "${B[@]}" --ns "$bad_ns" -- true
     expect_rc "R3 $bad_ns" 64
     no_cluster_call "R3 $bad_ns"
+done
+
+# X2 — KACHO_REMOTE_CONTEXT на infra → 64 до любого обращения, и к kubectl тоже
+for ov in "$CTX_INFRA" lab-a1; do
+    fresh
+    go_run "x2-$ov" env KACHO_REMOTE_CONTEXT="$ov" FAKE_EXIT=0 "${B[@]}" --short x2 -- true
+    expect_rc "X2 $ov" 64
+    no_cluster_call "X2 $ov"
+    if grep -q 'только в контекст -client' "$OUT"; then ok; else bad "X2 $ov" "шаг «что сделать» не назван"; fi
+done
+fresh
+go_run x2a env KACHO_REMOTE_CONTEXT="$CTX_INFRA" bash "$RUN" --available
+expect_rc X2a 64
+no_cluster_call X2a
+# X2b — близнец: KACHO_REMOTE_CONTEXT на client → 0
+fresh
+go_run x2b env KACHO_REMOTE_CONTEXT="$CTX_CLIENT" FAKE_EXIT=0 "${B[@]}" --short x2b -- true
+expect_rc X2b 0
+# X2c — названного -client в файле нет → 69, к кластеру ни одного обращения
+fresh
+go_run x2c env KACHO_REMOTE_CONTEXT=lab-zz-client FAKE_EXIT=0 "${B[@]}" --short x2c -- true
+expect_rc X2c 69
+if grep -v ' config get-contexts ' "$BOX/state/calls" 2>/dev/null | grep -q .; then bad X2c "к кластеру обращались"; else ok; fi
+# X3 — в файле нет контекста -client (только infra) → 69 и с --available; X4 — два -client → 69
+kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" > "$BOX/kc-noclient"
+kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" "$CTX_CLIENT" lab-b2-client > "$BOX/kc-twoclient"
+for cs in "noclient:X3:нет контекста с суффиксом -client" "twoclient:X4:выбор неоднозначен"; do
+    IFS=: read -r f nm why <<< "$cs"
+    for mode in run avail; do
+        fresh
+        if [ "$mode" = run ]; then
+            go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" FAKE_EXIT=0 "${B[@]}" --short x3 -- true
+        else
+            go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" bash "$RUN" --available
+        fi
+        expect_rc "$nm $mode" 69
+        if grep -v ' config get-contexts ' "$BOX/state/calls" 2>/dev/null | grep -q .; then bad "$nm $mode" "к кластеру обращались"; else ok; fi
+        if grep -q "$why" "$OUT" && grep -q 'KACHO_REMOTE_CONTEXT\|добавь контекст' "$OUT"; then ok; else bad "$nm $mode" "причина или шаг не названы"; fi
+    done
 done
 
 # R4 — ns уже есть: отказ, и чужое не снято (близнец K1 по имени)
@@ -720,7 +791,7 @@ if grep -qF "$FAKE_POD_IP" "$OUT" && grep -qF "$FAKE_POD_IP6" "$OUT"; then ok; e
 
 # L1 — ни адреса, ни IPv4, ни токена, ни пути кубконфига в выводе run.sh
 OUT="$ALL_OUT"
-for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$FAKE_NODE_IP" "$FAKE_NODE_IP6" "$FAKE_API_IP" "$FAKE_POD_IP" "$FAKE_POD_IP6"; do
+for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$CTX_CLIENT" "$CTX_INFRA" "$FAKE_NODE_IP" "$FAKE_NODE_IP6" "$FAKE_API_IP" "$FAKE_POD_IP" "$FAKE_POD_IP6"; do
     if grep -qF -- "$s" "$ALL_OUT"; then bad L1 "в выводе run.sh — «$s»"; else ok; fi
 done
 if [ -s "$ALL_OUT" ]; then ok; else bad L1 "вывод пуст — судить нечего"; fi

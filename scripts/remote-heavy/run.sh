@@ -26,7 +26,19 @@
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
 # личного файла ${XDG_CONFIG_HOME:-~/.config}/kacho/remote-kubeconfig. Окружение
 # KUBECONFIG и текущий контекст НЕ берутся: они могут смотреть на локальный kind или
-# на кластер с выкаткой, и прогон ушёл бы не туда молча. Путь, адрес сервера и имя
+# на кластер с выкаткой, и прогон ушёл бы не туда молча.
+#
+# КОНТЕКСТ. Решение владельца 2026-10-09 дословно: «тебе можно ставить только в
+# client». current-context файла НЕ читается и НЕ меняется: владелец переключает его
+# вручную, и прогон, взявший его, ушёл бы в чужой контекст (опыт 2026-10-09: отказы
+# политики допуска пришли из контекста, на который смотрел current-context). Контекст
+# выбирается ЯВНО — ровно один контекст файла с суффиксом -client; переопределение —
+# KACHO_REMOTE_CONTEXT, и только с тем же суффиксом. Каждый вызов kubectl несёт
+# --context. Отказ — до любого обращения к кластеру: переопределение не на -client —
+# 64; контекстов -client в файле ноль или больше одного, либо названного нет — 69
+# (heavy-slot идёт локально с причиной); текст отказа называет шаг.
+#
+# Путь, адрес сервера и имя
 # контекста в вывод не попадают: репозиторий публичный, вывод уходит в задачи, —
 # ОБА потока kubectl (ошибки и вывод команды из `logs -f`) и свои строки run.sh идут
 # через маску: адрес сервера — «<кластер>», IPv4 и IPv6 — «<адрес>». Вывод команды
@@ -202,6 +214,33 @@ profile_row() {
 }
 
 # ── кластер ──────────────────────────────────────────────────────────────────
+# resolve_context — КОНТЕКСТ в шапке. CTX — выбранный контекст; код 64 —
+# переопределение не на -client, 1 — выбрать нельзя; причина и шаг — в WHY. Имена
+# контекстов в WHY не попадают (вывод публичный).
+resolve_context() {
+    local names n
+    CTX=""
+    if [ -n "${KACHO_REMOTE_CONTEXT:-}" ]; then
+        case "$KACHO_REMOTE_CONTEXT" in
+            *-client) ;;
+            *) WHY="KACHO_REMOTE_CONTEXT не оканчивается на -client — прогон ставится только в контекст -client (решение владельца 2026-10-09); сними переменную либо назови контекст -client"; return 64 ;;
+        esac
+    fi
+    names="$(kubectl --kubeconfig "$KCFG" config get-contexts -o name 2>/dev/null)" \
+        || { WHY="контексты кубконфига не прочитаны — проверь файл: kubectl --kubeconfig <файл> config get-contexts"; return 1; }
+    if [ -n "${KACHO_REMOTE_CONTEXT:-}" ]; then
+        grep -qxF -- "$KACHO_REMOTE_CONTEXT" <<< "$names" \
+            || { WHY="контекста, названного KACHO_REMOTE_CONTEXT, в кубконфиге нет — назови существующий контекст -client (kubectl --kubeconfig <файл> config get-contexts -o name)"; return 1; }
+        CTX="$KACHO_REMOTE_CONTEXT"
+        return 0
+    fi
+    n="$(grep -c -- '-client$' <<< "$names")"
+    case "$n" in
+        1) CTX="$(grep -- '-client$' <<< "$names")"; return 0 ;;
+        0) WHY="в кубконфиге нет контекста с суффиксом -client — прогон ставится только туда (решение владельца 2026-10-09); добавь контекст -client в файл профиля, current-context не трогай"; return 1 ;;
+        *) WHY="в кубконфиге контекстов с суффиксом -client $n — выбор неоднозначен; назови один: KACHO_REMOTE_CONTEXT=<имя>-client (kubectl --kubeconfig <файл> config get-contexts -o name)"; return 1 ;;
+    esac
+}
 resolve_kubeconfig() {
     local f
     if [ -n "${KACHO_REMOTE_KUBECONFIG:-}" ]; then
@@ -215,12 +254,13 @@ resolve_kubeconfig() {
     [ -r "$KCFG" ] || { WHY="кубконфиг, названный настройкой, не читается"; return 1; }
     command -v kubectl >/dev/null || { WHY="kubectl нет в PATH"; return 1; }
     command -v jq >/dev/null || { WHY="jq нет в PATH"; return 1; }
-    SERVER="$(kubectl --kubeconfig "$KCFG" config view --minify -o 'jsonpath={.clusters[0].cluster.server}' 2>/dev/null)"
+    resolve_context || return $?
+    SERVER="$(kubectl --kubeconfig "$KCFG" --context "$CTX" config view --minify -o 'jsonpath={.clusters[0].cluster.server}' 2>/dev/null)"
     SERVER_HOST="${SERVER#*://}"; SERVER_HOST="${SERVER_HOST%%/*}"; SERVER_HOST="${SERVER_HOST%%:*}"
     return 0
 }
 
-# mask — адрес сервера, IPv4 и IPv6 в выводе заменяются: ошибка соединения
+# mask — адрес сервера, имя контекста, IPv4 и IPv6 в выводе заменяются: ошибка соединения
 # печатает их дословно, вывод команды — адреса pod и dind. IPv6 — полная форма
 # (8 групп) и сжатая с группой по обе стороны «::»: время «12:34:56» и «std::» не
 # задеваются, «::1» (петля) адресом узла не является.
@@ -228,7 +268,7 @@ MASK_V4='([0-9]{1,3}\.){3}[0-9]{1,3}'
 MASK_V6='([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,6}(:[0-9A-Fa-f]{1,4}){1,6}'
 mask() {
     if [ -n "${SERVER_HOST:-}" ]; then
-        sed -u -E -e "s#${SERVER_HOST//./\\.}#<кластер>#g" -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
+        sed -u -E -e "s#${SERVER_HOST//./\\.}#<кластер>#g" ${CTX:+-e "s#${CTX//./\\.}#<контекст>#g"} -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
     else
         sed -u -E -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
     fi
@@ -236,23 +276,23 @@ mask() {
 
 # kc <аргументы kubectl…> — только этот кубконфиг; stderr — через mask.
 kc() {
-    kubectl --kubeconfig "$KCFG" --request-timeout=30s "$@" 2> >(mask >&2)
+    kubectl --kubeconfig "$KCFG" --context "$CTX" --request-timeout=30s "$@" 2> >(mask >&2)
 }
 # kc_stream — то же для потока лога: срок запроса оборвал бы поток через 30 с
 # (опыт 2026-10-08: переподключение каждые 30 с), поэтому срока у него нет. Вывод
 # команды — тоже через маску (F4). exec: зовётся фоном, и $! — сам kubectl, его и
 # снимает trap.
 kc_stream() {
-    exec kubectl --kubeconfig "$KCFG" "$@" 2> >(mask >&2) > >(mask)
+    exec kubectl --kubeconfig "$KCFG" --context "$CTX" "$@" 2> >(mask >&2) > >(mask)
 }
 
 available() {
-    local out err
-    resolve_kubeconfig || return 1
+    local out err rc
+    resolve_kubeconfig || { rc=$?; [ "$rc" = 64 ] && return 64; return 1; }
     # stdout — ответ, stderr — предупреждения и ошибки: «Warning: … not namespace
     # scoped» печатается и при «yes».
     err="$(mktemp)" || { WHY="временный файл не создан"; return 1; }
-    out="$(kubectl --kubeconfig "$KCFG" --request-timeout=10s auth can-i create namespaces 2>"$err")"
+    out="$(kubectl --kubeconfig "$KCFG" --context "$CTX" --request-timeout=10s auth can-i create namespaces 2>"$err")"
     if [ "$out" != yes ]; then
         WHY="кластер не отвечает либо создавать ns не вправе: ${out:-нет ответа} $(grep -v '^Warning:' "$err" | head -n 1 | mask)"
         rm -f "$err"
@@ -345,7 +385,8 @@ case "${1:-}" in
             need="$(need_of "$3")" || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
         fi
         valid_max_par || exit 64
-        available || { say "$WHY"; exit 69; }
+        available; arc=$?
+        [ "$arc" = 0 ] || { say "$WHY"; [ "$arc" = 64 ] && exit 64; exit 69; }
         busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана"; exit 69; }
         n="$(grep -c . <<< "$busy")"
         if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
@@ -538,7 +579,8 @@ reap_local() {
 }
 
 # ── кластер и уборка ─────────────────────────────────────────────────────────
-available || { say "$WHY (не выполнилось)"; exit 69; }
+available; arc=$?
+[ "$arc" = 0 ] || { say "$WHY (не выполнилось)"; [ "$arc" = 64 ] && exit 64; exit 69; }
 reap_local
 export REMOTE_HEAVY_OWNER="$OWNER"
 busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
@@ -569,7 +611,7 @@ cleanup() {
     rm -rf -- "$BOX"
     [ "$CREATED" = 1 ] || return 0
     if [ -n "$KEEP_H" ]; then
-        say "ns $NSNAME оставлено для разбора до $EXPIRES (--keep $KEEP_H); снять: kubectl delete ns $NSNAME"
+        say "ns $NSNAME оставлено для разбора до $EXPIRES (--keep $KEEP_H); снять: kubectl --context <контекст -client> delete ns $NSNAME"
         return 0
     fi
     if kc delete ns "$NSNAME" --wait=true --timeout=300s >/dev/null; then
