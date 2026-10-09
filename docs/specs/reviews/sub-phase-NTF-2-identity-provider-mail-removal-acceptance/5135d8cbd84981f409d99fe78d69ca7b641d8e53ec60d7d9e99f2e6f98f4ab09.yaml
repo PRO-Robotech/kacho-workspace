@@ -1,0 +1,158 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  sha256: 5135d8cbd84981f409d99fe78d69ca7b641d8e53ec60d7d9e99f2e6f98f4ab09
+  revision: "39"
+  static_status: DRAFT
+  static_status_note: >-
+    В шапке стоит «Статус: DRAFT», строка редакции 39 — «вердикта нет». Шапку эта запись не правит
+    намеренно: вердикт привязан к отпечатку, а не к слову в заголовке. Действующий вердикт выводится из
+    этой записи и внешнего события.
+  content_commit: null
+  content_commit_note: >-
+    Содержимое лежит в рабочем дереве копии tmp/issue-880 (ветка issue-880, HEAD 4180dcd6c — запись
+    круга 4) незакоммиченным (`git status --short` → M). Копии редакции 38 (da4be989…) в tmp/ нет,
+    построчная дельта не снималась; судилось текущее тело по предметам круга 4 (B4-1, B4-2, I4-1), по
+    таблице §11 «Редакция 38 → редакция 39» и по всем местам, где появился служебный аккаунт `h`.
+  branch: issue-880
+  task: https://github.com/PRO-Robotech/kacho/issues/2917
+  task_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+  docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+  epic: https://github.com/PRO-Robotech/kacho/issues/2914
+  fingerprint_predicate: >-
+    sha256sum docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+  fingerprint_reproduced: true
+  lines: 5278
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-09T18:00:00Z'
+round: 5
+round_note: >-
+  Круг 5 по правке редакции 35. Судилось закрытие B4-1, B4-2, I4-1 круга 4 (запись da4be989….yaml).
+  Род CONSTRUCTIBILITY в NTF2-90 вернулся в круге 4 третий раз; форма правки сменена (условие отказа
+  каждого глагола построения сверено с оператором записи и моделью прав), и сверка этой формы
+  воспроизведена: факты сняты в клоне project/kaname на 0dd03218a613 (пин kacho), cbd729cfa и
+  33010d434. origin/484-notify на момент круга — d93b69712 (сдвинулась после 33010d434); представление
+  цепи областей (0001_initial.sql:2585-2625) на d93b69712 побайтно то же (md5 тела совпадает на
+  четырёх ревизиях).
+publication_mode: record-plus-external-event-by-courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff
+  policy_field: review_authority.acceptance-reviewer
+previous_rounds:
+  - pass: редакция 32, круг 6
+    sha256: 5606cbc042b4e841a9855ad06c980dff86c7608141779456e6e98aec88f387cc
+    verdict: APPROVED
+  - pass: редакция 35, круг 1
+    sha256: 5777b0b50baf7829e7c6d25221a5d23522fe6b924b8494b8c150e8c1132afe7d
+    verdict: RETURNED
+  - pass: редакция 36, круг 2
+    sha256: 99845fe48a19aba70b5e63c5589d7df89c11c37625ba67c0ec946031d3b92166
+    verdict: RETURNED
+  - pass: редакция 37, круг 3
+    sha256: d06cdcd24d2ed7a634ee1cef0ff24fa100645584049d602457a7bc6d478e2481
+    verdict: RETURNED
+  - pass: редакция 38, круг 4
+    sha256: da4be98975d85390aab6b5ea7fc81fa489f24ed9082f3b675db00a7c9776bb50
+    verdict: RETURNED
+previous_items:
+  B4-1: >-
+    ЗАКРЫТО. Условие строки 22 — оператор account_repo.go:336-341 (NOT EXISTS проектов, сервисных
+    аккаунтов, групп, ролей), отказы :370-376 — сверено на трёх ревизиях. Других держателей удаления
+    аккаунта нет: FK на accounts — groups/projects/roles/service_accounts RESTRICT, memberships CASCADE,
+    users.account_id RESTRICT DEFERRABLE (строк users с account_id = acc построение не заводит: члены
+    выкуплены, второй строки человека членство не пишет); delete.go:87-125 других отказов не несёт
+    (отзыв выдач области — без записи аудита). Шаги 21а–21в исполнимы: SAKeyService.Revoke удаляет строку
+    ключа (sa_keys/usecases.go:910-1003, отказов по состоянию нет), снимая RESTRICT
+    service_account_oauth_clients_sva_fk (0001_initial.sql:5626); ServiceAccountService.Create привязок с
+    субъектом sa не пишет, Delete — NOT EXISTS привязок и членств в группах (service_account_repo.go:281-288);
+    привязку g на p строка 21 удаляет (shared/revoke_scope_bindings.go:121 → AccessBindingsW().Delete),
+    поэтому GroupService.Delete (group_repo.go:379, отказ :410) проходит; group_members CASCADE (:5458).
+    Роль r системная — roles_definition_tier_xor (:2504). Видов iam.sa_key.revoked,
+    iam.service_account.deleted, iam.group.deleted в шаблонах feedgen нет (ls feedgen @33010d434). Пол и
+    отношение каждого шага сверены с proto (sa_key_service :85/:90, service_account_service :101/:106,
+    group_service :98/:103, account_service :119, project_service :142).
+  B4-2: >-
+    ЗАКРЫТО. Посылка круга 4 о механизме была неточной (указатель-кортеж), автор её поправил по дереву:
+    звено «личность → аккаунт» цепь областей берёт из kaname.memberships (0001_initial.sql:2610-2618;
+    комментарий internal_upsert.go:583/:593 «кортеж … не читается ни одним»), звено «аккаунт → облако» —
+    CROSS JOIN clusters (:2599-2608). Модель: identity_suspender = super_admin from account (:779),
+    super_admin = any_admin from cluster (:308), any_admin = system_admin (:247) — сверено на 0dd03218a613
+    и 33010d434. Исключение удаляет строку членства (user_repo.go:1078 DELETE FROM memberships).
+    Построение `h`: AccountService.Create — <exempt>/SELF_SERVICE (account_service.proto:83-84);
+    MembershipService.Create — editor на account, пол 2 (membership_service.proto:124, :129); editor ⊇
+    admin ⊇ owner (fga_model account) — C1 как владелец `h` его имеет. Все шесть вызовов Block /
+    ResetSecondFactor проверены: NTF2-90 строки 15, 20; NTF2-92 (г) — W член acc; NTF2-96 и близнец;
+    NTF2-100 — исполнимы. Попутно найденное автором тем же сличением (строка 20 NTF2-90, NTF2-96) —
+    подтверждено: без `h` право шло бы через снятое членство либо не шло вовсе.
+  I4-1: >-
+    ЗАКРЫТО. sf_remove.go:88 NewSessionBearer, :131 PresentInSession(… bearer.Digest() …), :160 Bearer в
+    ответе — на трёх ревизиях; вспомогательное заведение зовёт носителем из ответа строки 14.
+  I4-2: Вне документа (правка NTF-3), остаётся замечанием к NTF-3.
+blocking: []
+blocking_count: 0
+blocking_kinds_distinct: []
+defaults_fixed: []
+non_blocking:
+  - id: I5-1
+    kind: FORMAT
+    summary: >-
+      NTF2-90 Given в редакции 39 получил «группа `g` … членов нет», а NTF2-92 строится «как в NTF2-90» и
+      в (б) требует «`g`, в которой состоит `U`» — глагол заведения членства `U` в `g`
+      (`GroupService` добавление члена сессией `O`, шаг ожидания П11) в Given NTF2-92 не назван. Без него
+      «строк для членов `g`, включая `U`, нет» выполняется пусто. Назвать построение в Given NTF2-92 при
+      следующей правке; проба (б) обязана печатать, что `U` в `g` перед выдачей.
+  - id: I5-2
+    kind: FORMAT
+    summary: >-
+      `h` создаётся сессией `C1`, а заведение аккаунта списывается с окна темпа личности (триггер
+      kacho_admission_rate_count, 0001_initial.sql:565; на стенде admissionsPerWindow = 3 —
+      values.dev.yaml:1226, accountsPerIdentity = 5). Документ говорит «одной строкой на копию стенда», то
+      есть один `h` на копию, — сказать это прямо и печатать обе величины перед заведением `h`, как
+      печатаются потолки приглашений; превышение — «не выполнилось».
+  - id: I5-3
+    kind: FORMAT
+    summary: >-
+      Имя `h` уже занято в NTF2-79 и в §8 (глубина доверенных прыжков края, строка 3064, 3937). Разные
+      предметы под одним именем в одном документе — переименовать служебный аккаунт при следующей правке.
+  - id: I4-2
+    kind: CONVENTION
+    summary: перенесено — I3-1 (NTF-3 о годности адресата и разрешителе молчит), правка той приёмки.
+return_to: none
+route_signs:
+  proto: yes
+  schema: yes
+  public_rpc: yes
+  ui: yes
+  new_domain: no
+  security_surface: yes
+producers_missing: []
+producers_note: >-
+  Раздел §7 «Сценарий → производитель» прочитан в части NTF2-90, 96, 100; у строки 22 NTF2-90 и у
+  положения «адресата нет» NTF2-100 производители теперь достижимы построением.
+constructibility:
+  seeded: 0
+  named_fixture: >-
+    П11 (с правилом «Якорь личности») и таблица построения NTF2-90 (строки 1–22, 21а–21в) — каждый глагол
+    сверен с оператором записи и моделью прав на трёх ревизиях kaname. NTF2-92 (г), NTF2-96 с близнецом,
+    NTF2-100 (основной, близнец, «адресата нет») — исполнимы по названной фикстуре.
+  not_executed: 1
+  note: >-
+    Посев не ставился: стенда и разрешения на посев в задании нет — «не выполнилось», не зачитывается.
+    Конструируемость показана названной фикстурой и разбором оператора/модели, не посевом.
+premise: >-
+  Подтверждена: sha256sum → 5135d8cb… (5278 строк); записи на этот отпечаток в каталоге не было (34
+  записи до этой); сценариев 73, повторов ID 0 (`grep -cE '^\*\*ID:\*\* NTF2-[0-9]+'`, `uniq -d | wc -l`);
+  docs-gate `KACHO_MONOREPO=…/project/kacho ./scripts/docs-gate/run-all.sh` → код 2, пройдено 6,
+  провалено 0, без предмета 1 (check-03-holding-claim-resolves, 32 координаты чужих приёмок).
+  Утверждение «координаты совпадают на трёх ревизиях» воспроизведено выборочно (16 координат).
+questions_to_owner:
+  - >-
+    (Перенесено, I2-3.) Письма о ключах сервисного аккаунта адресуются двумя правилами: выпуск — владельцу
+    аккаунта (NTF-2), истечение — назначенному контакту NTF-3 Р20 или, без него, владельцу. Оставляем два
+    правила или правим NTF-3?
+external_event_body: "acceptance-reviewer · APPROVED · sha256:5135d8cbd84981f409d99fe78d69ca7b641d8e53ec60d7d9e99f2e6f98f4ab09"
