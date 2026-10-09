@@ -1,0 +1,248 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-7 редакции 1 и маршрута tasks.md
+# редакции 1 на ветке issue-880 @9204a2ecd.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли); маршрут — subject.route. Перечень,
+# который судится, — первичный разбор initial/da7de8d7….yaml (CX7-01…13, та же сессия): замысел
+# написан раньше разбора (его §7 «строк отображения нет»), поэтому дельты к прежней пересверке нет —
+# судится редакция целиком (fa-b1 неприменим: прежней разобранной редакции нет).
+# Разрешения писать реализацию эта запись не даёт; одобрения замысла при непустом unmapped — нет.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-3121
+issue: https://github.com/PRO-Robotech/kacho/issues/3121
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-3121/design.md
+  sha256: 451728a1bdbedfd1dad0f9232a4294a7bc7107238a2b6a96a886733e2ab350a3
+  fingerprint_predicate: git show 9204a2ecd:docs/changes/issue-3121/design.md | sha256sum
+  revision: 1
+  content_commit: 9204a2ecdc094479df594927f082ad13d363178e
+  route:
+    path: docs/changes/issue-3121/tasks.md
+    sha256: fbf321a1ba491082f458bf0de00f3d08c862a7eb77bc15743978e75fde20651a
+    fingerprint_predicate: git show 9204a2ecd:docs/changes/issue-3121/tasks.md | sha256sum
+    revision: 1
+    content_commit: 9204a2ecdc094479df594927f082ad13d363178e
+  plans: docs/changes/issue-3121/plans/L-{1,2,3,4}.json
+initial_record:
+  path: docs/changes/issue-3121/reviews/class-exposure/initial/da7de8d7ba769b7b99f59f1140d074f0096708785afe1f2c1f9fbc23bc8d381d.yaml
+  items: 13
+acceptance:
+  path: docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  sha256: da7de8d7ba769b7b99f59f1140d074f0096708785afe1f2c1f9fbc23bc8d381d
+  revision: 6
+  effective_verdict: APPROVED
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: "origin/main:.claude/agents/class-exposure-analyst.md @e5013d28b; применены fa-b2, fa-b3, fa-b4, fa-b5"
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; владельца 2026-10-04 (замысел не ворота — пересверка не гейтит код полос, но
+    одобрение замысла и запрос эпика в main ждут её чистоты), 2026-10-08 (1)–(4); диспетчера
+    2026-10-09 (а)–(в). З10 (Revoke/Restore внутренним краем личностью usr-ca, ступень повышением, без
+    новой учётки) с решениями (1) и (б) согласован.
+revisions:
+  workspace: 9204a2ecdc094479df594927f082ad13d363178e
+  workspace_scripts: e5013d28b
+  kacho: e6075f09c2613184ec0c120fbe5645a2c1e9979c
+  kaname_pin: 33010d434767
+  kaname_epic: d93b69712f0d
+  corelib_pin: 18d105d0f50a
+snapshot_at: 2026-10-10T01:45:00Z
+inspected: >-
+  design.md целиком (406 строк, З1–З12, И1–И12, УК7-01…06, §5, §9), tasks.md целиком (311 строк,
+  N1–N12, W1–W2, Е1–Е8, §5, §6), plans/L-1…L-4.json. Утверждения замысла §0 о дереве перемерены на
+  e6075f09c2 (подписок 0 файлов; services/notify без kinds, ingest, instant, apiserver, integration;
+  корень отправителя — services/notify/cmd/notify). plan-precheck (origin/main e5013d28b) на 4 планах.
+
+mapping_check:
+  design_section_7_rows: 0          # «Разбор классов … не выполнялся. Строк отображения нет»
+  initial_items: 13
+  formally_mapped: 0
+  substantively:
+    held: [CX7-12]
+    partial: [CX7-02, CX7-05, CX7-07, CX7-08, CX7-09]
+    not_held: [CX7-01, CX7-03, CX7-04, CX7-06, CX7-10, CX7-11, CX7-13]
+  plans:
+    predicate: "for f in plans/*.json; do bash <origin/main e5013d28b>/scripts/plan-precheck.sh $f; done"
+    result: "4 из 4 — VERDICT plan-ok, причин 0, не судимо 0; уровни как в tasks.md §5"
+  scenarios:
+    predicate: "развёртка диапазонов карточек tasks.md §6 п.1"
+    result: "N4 01–10, N2 11, N9 12–27 31 32, N11 28–30 → 32 номера, 1…32 без пропуска и повтора"
+
+items:
+  - id: CX7-01
+    design_decision: "З3 п.(6): validate.Labels(\"target.label_selector.match_labels\", …) на всём словаре"
+    verdict: not_held
+    severity: to_design
+    blocking: false
+    why: "вызов на всём словаре наследует случайный порядок обхода map (validate.go:223 @18d105d0f50a)"
+    to_design: "З3 п.(6): пары — по возрастанию ключа, общий валидатор на однопарном словаре; §5 — строка порядка; ответ владельца (вопрос initial)"
+    holder: "проба N4: две негодные пары, поле меньшего ключа, 50 повторов"
+  - id: CX7-02
+    design_decision: "З5 «массив равен своей отсортированной форме без повторов (неизменяемая функция схемы)»; З6"
+    verdict: partial
+    severity: to_code
+    blocking: false
+    why: "механизм назван, правило сравнения — нет; COLLATE в миграциях дерева 0"
+    to_code: "сравнение и сортировка в функции схемы — COLLATE \"C\"; УК7-04 — пара, байтовый и лингвистический порядок которой различны"
+  - id: CX7-03
+    design_decision: "З5 «23514 → INTERNAL фиксированным текстом по дому SQLSTATE»; «23505 … тем же отображением»"
+    verdict: not_held
+    severity: to_design
+    blocking: true
+    why: >-
+      Утверждение замысла о доме SQLSTATE неверно для дерева: pgfault.CheckLaneOf
+      (corelib pgfault.go:277 @18d105d0f50a) отдаёт LaneCallerInput любому 23514, кроме ограничения формы
+      имени, — то есть INVALID_ARGUMENT. Прецедент обхода — journalfault.Initiator, решение по имени
+      ограничения раньше общей полосы.
+    to_design: >-
+      З5: решение по ИМЕНИ ограничения (формы селектора, дочерней таблицы) раньше общей полосы →
+      INTERNAL фиксированным текстом; ALREADY_EXISTS — только по имени UNIQUE (owner, target_key, channel);
+      держатель — УК (строка в обход проверки входа через use-case → INTERNAL, не INVALID_ARGUMENT).
+  - id: CX7-04
+    design_decision: "— (З4 ветвит до порта прав; о личности владельца ни слова; З5 не добавляет CHECK owner)"
+    verdict: not_held
+    severity: to_design
+    blocking: true
+    why: "у ветви селектора нет ни одного вызова, отказавшего бы на отсутствующей личности; subscription.owner в схеме NTF-3 без CHECK непустоты"
+    to_design: "З4: владелец — функцией с признаком присутствия, нет — UNAUTHENTICATED; З5: CHECK (owner <> '') у subscription и дочерней таблицы; И-строка и проба N4"
+  - id: CX7-05
+    design_decision: "З2 (б) — токен из строки манифеста (верно); З3 п.(2), З7 «module = M» — словарь не назван"
+    verdict: partial
+    severity: to_design
+    blocking: true
+    why: "у nlb три словаря расходятся (nlb · loadbalancer); держателя доставки на nlb нет ни в приёмке, ни в заказах замысла"
+    to_design: "З7: label_module сравнивается с модулем записи ленты в словаре ключа источника notify; новый УК7-07 — доставка селектора на nlb_listener и близнец; исполнение — N9"
+  - id: CX7-06
+    design_decision: "З8 «Ответы живут в локальной переменной одной сборки … кэша нет»; «вся сборка откладывается до следующего прохода»"
+    verdict: not_held
+    severity: to_design
+    blocking: true
+    why: >-
+      Противоречит приёмке: Р9 — отложенный ответ откладывает письмо «до решающего ответа о НЕЙ» (о
+      строке), Р5 (п2) — после N(k)-го решающего по ключу вызовов нет. При локальной переменной повтор
+      отложенной сборки спрашивает о строке с уже решающим ALLOW ещё раз — лишний решающий, красное на
+      штатном переходном UNAVAILABLE второй строки. И11 (не переиспользовать между сборками) при этом
+      верен и сохраняется.
+    to_design: >-
+      З8: решающий исход ResolveSend хранится по паре (адресат, строка) вне памяти прохода, повтор
+      спрашивает только нерешённые строки; отложенный Resolve{self} ResolveSend не повторяет; состав
+      сборки фиксирован закрытием окна. Хранению нужна колонка/таблица — миграция (маршрут: CX7R-01).
+      Новый УК7-08 — unit-проба «V1 ALLOW, V2 UNAVAILABLE→ALLOW: решающих о V1 ровно 1».
+  - id: CX7-07
+    design_decision: "З7 «Resolve{event, via_subscription} для ветвей resource/project — путь NTF-3 до транзакции, без изменений»"
+    verdict: partial
+    severity: to_code
+    blocking: false
+    why: "держится, если перечень NTF-3 выбирает подписчиков по ключу цели ресурса/проекта; условие не названо"
+    to_code: "перечень via_subscription — только ветви resource/project, условием по ветви; держатель NTF7-31"
+  - id: CX7-08
+    design_decision: "З7 «owner = ANY(<владельцы строк аудитории этой записи>)»"
+    verdict: partial
+    severity: to_code
+    blocking: false
+    why: "источник списка (строки inbox_audience в транзакции или параметр из Go) и форма owner/subject не названы"
+    to_code: "соединение с inbox_audience вставленной записи в той же транзакции; форма субъекта — функция S2-B6"
+  - id: CX7-09
+    design_decision: "З7 «строка мгновенного письма ключуется (адресат, запись события), ON CONFLICT DO NOTHING»; З8 «отметка … — механизм NTF-3 З22 без изменений»"
+    verdict: partial
+    severity: to_code
+    blocking: false
+    why: "в схеме NTF-3 (замысел issue-2918 §6) таблица с этим ключом одна — inbox_instant_sent, отметка «ушло»; таблицы кандидатов в схеме нет"
+    to_code: "кандидат ≠ отметка «ушло»; отметка — только транзакцией постановки письма по строкам ALLOW; NTF7-32 «после V2» — отметок 0; таблица кандидатов S2-B6 — замером scout после В-4"
+  - id: CX7-10
+    design_decision: "З2 «признак пишется руками в исходнике таблицы (или во входе её генератора, если таблицу собирает шаг bundle)»"
+    verdict: not_held
+    severity: to_design
+    blocking: true
+    why: >-
+      Решение оставлено открытым двумя вариантами; замысел NTF-3 (CX3B-35) говорит, что перечень видов
+      ресурсов генерирует notifygen из Mapping.Kinds модулей и «своей таблицы у notify нет», а путь полосы
+      N2 — services/notify/kinds/. Нулевое значение поля у вида без явного признака не запрещено.
+    to_design: >-
+      З2: дом объявления — там, где перечень видов ресурсов проверки Р11 на базе после В-3 (замер scout);
+      признак обязателен у каждого вида, отсутствие — отказ сборки/загрузчика; путь N2 и plans/L-1.json —
+      по замеру.
+  - id: CX7-11
+    design_decision: "З5 subscription_label_kind: FK только subscription_id → subscription(id); равенство — «тот же оператор» (И4, УК7-03)"
+    verdict: not_held
+    severity: to_code
+    blocking: false
+    why: "копии owner и модуля базой не сверены (ban10)"
+    to_code: "составной FK (subscription_id, owner, label_module) → UNIQUE (id, owner, label_module) родителя; прямая вставка с чужим owner → 23503 в УК7-04"
+  - id: CX7-12
+    design_decision: "З9 «параметр конструктора корня (не переменную окружения и не ручку), продуктовая сборка передаёт пустой набор; второго пути сборки корня не появляется»"
+    verdict: held
+    severity: —
+    blocking: false
+  - id: CX7-13
+    design_decision: "— (tasks.md §1: «журнал без ПД и без меток ресурса» — только самопроверка; И12 и УК7-06 — письмо, ответ, метрики)"
+    verdict: not_held
+    severity: to_code
+    blocking: false
+    why: "третий выход — журнал процесса — не назван ни инвариантом, ни держателем"
+    to_code: "И12 дополнить журналом; проба NotContains значения метки в журнале прогона NTF7-12 и NTF7-06 (г)"
+
+design_items:
+  - id: CX7D-01
+    severity: to_design
+    blocking: true
+    finding: "§7 «Отображение классов риска» пуст, §0 и §9 Е5 говорят «разбор не выполнялся» — после этой записи устарели"
+    to_design: "§7 — таблица «CX7-NN → решение замысла → условие к коду → держатель → полоса» на 13 строк (fa-b3: только отображение, без нового механизма сверх пунктов); §0, Е5 — ссылка на обе записи"
+  - id: CX7D-02
+    severity: to_code
+    blocking: false
+    finding: "УК7-02 ищет литерал 'label_selector/', а замысел приставку ветви ключа цели не выписывает — проба привязана к написанию, которого нет в документе"
+    to_design: "З5/§5: приставка ключа цели селектора названа дословно; УК7-02 — тем же литералом, близнец в миграции"
+
+route_items:
+  - id: CX7R-01
+    severity: route
+    blocking: true
+    finding: >-
+      CX7-06 требует хранения решающего исхода (миграция), CX7-04 и CX7-11 — новых ограничений; в
+      plans/L-2.json путей миграций нет (N7 — ingest/, N8 — instant/), а N3 Л-1 их не называет.
+    to_route: "ограничения CX7-04, CX7-11, CX7-02 — в предмет N3; хранение исхода CX7-06 — либо в N3 (Л-1), либо полоса миграции Л-2 с ребром N8 → она; plan-precheck заново"
+  - id: CX7R-02
+    severity: route
+    blocking: false
+    finding: >-
+      Пути N7, N8 названы до того, как стала известна раскладка приёма и сборки S2-B4/S2-B6 (на
+      e6075f09c2 нет ни ingest, ни instant); замысел NTF-3 §4 перечисляет ещё inbox, directory,
+      resolvecell — SQL оператора кандидатов может лечь вне ingest/.
+    to_route: "карточки N7, N8: пути перемеряются на базе после В-4 той же правкой плана (tasks.md §6 п.4)"
+  - id: CX7R-03
+    severity: route
+    blocking: false
+    finding: "Е4 не проверяет, что пин kaname несёт ListEventAudience (DoD 10.4 п.1): на пине 33010d434767 — 0, на 484-notify d93b69712 — 1"
+    to_route: "Е4: `git -C kaname grep -c 'rpc ListEventAudience' $(go list -m -f '{{.Version}}' github.com/PRO-Robotech/kaname | sed 's/.*-//') -- proto` ≥ 1 на голове 2914-notify"
+  - id: CX7R-04
+    severity: route
+    blocking: false
+    finding: "заказы initial (CX7-05, CX7-09, CX7-13 — integration-tester; CX7-06 — go-implementer) в карточках N4, N8, N9 не стоят"
+    to_route: "дописать в «сценарии и заказы» N4 (CX7-01, CX7-04), N8 (УК7-08), N9 (УК7-07, CX7-09, CX7-13)"
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: "§7 — 0 строк из 13; по существу не держат 7 пунктов, частично — 5"
+  - condition: "новый внешний вызов / асинхронный путь / sentinel заведены пунктом"
+    result: green
+    detail: "новых внешних вызовов замысел не вводит (З4, З7); хранение исхода CX7-06 — новое состояние, уже пункт"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: red
+    detail: "З2 оставляет дом объявления признака двумя вариантами (CX7-10)"
+
+clean: false
+outcome: к-замыслу
+unmapped: [CX7-01, CX7-02, CX7-03, CX7-04, CX7-05, CX7-06, CX7-07, CX7-08, CX7-09, CX7-10, CX7-11, CX7-12, CX7-13]
+blocking_items: [CX7-03, CX7-04, CX7-05, CX7-06, CX7-10, CX7D-01, CX7R-01]
+return_to_acceptance: []
