@@ -1,0 +1,264 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-3 редакции 20 и маршрута tasks.md
+# редакции 23 на ветке issue-880 @a9f31ca6a (содержимое — коммит b3865e2a5).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли); маршрут — subject.route. Предмет задания:
+# закрыты ли пункты прошлого круга (revalidation/9e2d7a8c….yaml, CX3T-01…05) и нет ли новых.
+# Судится только дельта fbb79b9bc → b3865e2a5 (flow-acceleration fa-b1). Прежние записи не переписываются.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: f318e061991712c640f71dafbf045ea080a67455e6272030b397ef047b2050d0
+  fingerprint_predicate: git show a9f31ca6a:docs/changes/issue-2918/design.md | sha256sum
+  revision: 20
+  content_commit: b3865e2a5dac891bea3e859997ba34d6da0b18d0
+  route:
+    path: docs/changes/issue-2918/tasks.md
+    sha256: b233184f5783bbff3a6e5affdf366dfae5cdbf4344823615e0899f25bfc6531e
+    fingerprint_predicate: git show a9f31ca6a:docs/changes/issue-2918/tasks.md | sha256sum
+    revision: 23
+    content_commit: b3865e2a5dac891bea3e859997ba34d6da0b18d0
+  plans: docs/changes/issue-2918/plans/*.json   # git diff fbb79b9bc a9f31ca6a -- plans → пусто
+  delta: "git diff fbb79b9bc b3865e2a5 -- docs/changes/issue-{2915,2917,2918,2924}"
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/9e2d7a8c0515b8ffedae964a3c4fe7833a9f3051224e2de8f6099977210a9df2.yaml
+  subject_revision: 19
+  outcome: к-коду
+  clean: false
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba   # не менялась
+  revision: 42
+  effective_verdict: ACCEPTED
+  initial_class_exposure_on_this_sha: absent
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: >-
+    origin/main:.claude/agents/class-exposure-analyst.md @e5013d28b — расходится с загруженной копией
+    (skills + rule-flow-acceleration; триггер контура — Skill change-graph); действует origin/main:
+    применены fa-b1 (только дельта), fa-b2, fa-b5, fa-b6, fa-b7.
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; владельца 2026-10-04 (замысел не ворота), 2026-10-07, 2026-10-08 (1)–(4);
+    диспетчера 2026-10-09 (а)–(в). Решения владельца (1) и (б) предмета дельты не касаются.
+revisions:
+  workspace: a9f31ca6a26fdb2351aff3276abd82088ec46bb8   # предмет; голова issue-880 за время замера ушла на 705010432 (NTF-7)
+  workspace_scripts: e5013d28b                          # origin/main
+  kacho: e6075f09c2613184ec0c120fbe5645a2c1e9979c       # = origin/2914-notify; против 9bc6b9e89a — тесты, gateway, x/* в go.mod; пины corelib/kaname те же
+snapshot_at: 2026-10-10T00:30:00Z
+inspected: >-
+  Дифф fbb79b9bc→b3865e2a5 по design.md (42 строки), tasks.md NTF-3 (65), tasks.md NTF-1/NTF-2/NTF-5,
+  change.yaml; FM0, FM-n, FM-i карточки и plans/V-2.json; Е9/Е10 в обоих документах. kacho @e6075f09c2
+  (git archive в kacho-workspace/tmp/cea-ntf3-r23, снят): go/packages с типами, 343 пакета, 1420
+  не-тестовых файлов, ошибок загрузки 0 — точки journaltx.Begin по объекту функции, обёртки по
+  определению УК3-79, их вызовы прямые и через методы интерфейсов (types.Implements). Перепись
+  маршрутов эпика #2914 (docs/changes/*/change.yaml). plan-precheck (origin/main e5013d28b) на 10
+  планах. Стенд не поднимался, записки vault не читались.
+
+closure_of_previous:
+  - id: CX3T-01
+    previous_severity: route
+    verdict: closed
+    evidence: >-
+      grep -l 'Окна пина NTF-3' docs/changes/issue-{2915,2917,2924}/tasks.md → 3. NTF-1 N11r — пин kaname
+      33010d434767 (K8r2 в нём), голова 484-notify внутри окна не берётся; NTF-2 D1, NTF-5 C3/C4/N5 — подъём
+      вне окон; Е10 гейтит вливание Ф-C1 (§2, §5 «Ограда», план F-C1 не менялся). Перепись маршрутов
+      эпика: шесть пакетов; не цитируют окно NTF-4 (issue-2919) и NTF-6 (issue-2925). NTF-6 строк go.mod не
+      имеет (0); у NTF-4 подъёмы — только corelib (X4 — corelib в kaname, S3-C2н — corelib в kacho), а окна
+      corelib открываются вливанием Ф-C1, которое теперь ждёт Е10 (скрипт судит запрос, а не маршрут).
+      Окно kaname, открытое сейчас, NTF-4 не трогает. Нарушений нет: go.mod e6075f09c2 против 9bc6b9e89a —
+      0 строк corelib/kaname.
+  - id: CX3T-02
+    previous_severity: to_code
+    verdict: closed_with_residual
+    evidence: >-
+      УК3-79 судит вызовы обёрток, обёртки находятся разбором, а не перечнем имён; target_drain_runner —
+      в FM-n. Но определение обёртки, перечень обёрток и способ сопоставить вызов с обёрткой расходятся с
+      деревом — CX3U-01, CX3U-02, CX3U-03.
+    residual: [CX3U-01, CX3U-02, CX3U-03]
+  - id: CX3T-03
+    previous_severity: route
+    verdict: closed
+    evidence: >-
+      Е9 называет запись c4242028… (git cat-file -e a9f31ca6a:<путь записи> → есть), а не путь текста.
+      После предмета (коммиты c5e050f3a, 705010432) NTF-7 одобрена: редакция 6, da7de8d7…, круг 6
+      APPROVED, текст закоммичен — строка Е9 устарела в сторону «одобрения нет» (CX3U-04).
+  - id: CX3T-04
+    previous_severity: to_design
+    verdict: closed
+    evidence: "sed -n '/^## 13\\./,$p' design.md | grep -c 'Открытое решение' → 0; строка §11 CX3R-11 — «закрыт отображением в под-фазу NTF-7»"
+  - id: CX3T-05
+    previous_severity: route
+    verdict: closed
+    evidence: "карточка FM-i и plans/V-2.json — те же два точных пути fence_integration_test.go"
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      CX3T-01…05 отображены в §11 (строк таблицы 138). Отображение CX3T-02 условие не выдерживает:
+      гейт, построенный по тексту УК3-79, либо краснеет на собственной инъекции FM0 (CX3U-01), либо
+      молча не видит 90 из 117 вызовов обёрток (CX3U-02).
+  - condition: "новый внешний вызов / асинхронный путь / sentinel заведены пунктом"
+    result: green
+    detail: "редакция 20 механизма не меняет"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "§13 — 0 вхождений «Открытое решение»; Е9, Е10 — зависимости с производителем"
+
+clean: false
+
+mapping_check:
+  scenarios: {live: 173, mapped: 173, note: "приёмка не менялась (1d7d2ad0)"}
+  plans:
+    predicate: "for f in plans/*.json; do bash <origin/main e5013d28b>/scripts/plan-precheck.sh $f; done"
+    result: "10 из 10 — exit 0 (планы не менялись с fbb79b9bc)"
+
+new_items:
+  - id: CX3U-01
+    severity: to_design
+    blocking: true
+    class: >-
+      Два места об одном предмете (doc-truthfulness) и перечень по памяти вместо предиката
+      (flow-acceleration fa-b5): определение обёртки УК3-79 и перечень обёрток в той же строке расходятся
+    decision: "УК3-79, М1 (г), FM0: «обёртка — функция пакета вне тестов, принимающая ctx и зовущая Begin в своём теле (vpc и nlb Repository.Writer, storage inJournalTx, inComponentTx, registry runConfigTx)»; печать «25 точек Begin»"
+    finding: >-
+      По этому определению на e6075f09c2 обёртками являются 24 из 25 объемлющих функций Begin, а не 5:
+      compute 11 (InstanceRepo Insert/Update/SetStatusCAS/MarkDeleting/Delete, GuestAccessKey и
+      PlacementGroup Insert/Update/Delete), registry 6 (Insert, Update, MarkDeleting, Delete,
+      emitRepoIntent, runConfigTx), storage 3 (Register, inJournalTx, inComponentTx), nlb 2 (Writer,
+      reconcileOne), vpc 1 (Writer), notify-probe 1 (put); не обёртка — только pkg/feedjournal/feedjournaltest
+      (нет параметра ctx). Следствия. (1) notify-probe: Send зовёт put(ctx, addr) (send.go:90), а Begin
+      стоит в put (send.go:106); WithoutJournal(ctx) — отметка через контекст. Если точка — вызов обёртки,
+      признак without_journal требует вызова WithoutJournal в Send, а инъекция FM0 «снятая отметка у
+      notify-probe → красное, близнец → зелёное» про место отметки не говорит. Если точка Begin внутри
+      обёртки тоже остаётся строкой, у неё нет единственной верной отметки: у обёртки со смешанными
+      вызывающими (токен у одних, без журнала у других) любая отметка ложна для части из них. Текст не
+      говорит, заменяет ли вызов обёртки точку Begin внутри неё или добавляется к ней. (2) Карточки
+      FM-c, FM-r (кроме runConfigTx), FM-s (Register), FM-n (reconcileOne) строк на вызовы этих обёрток
+      не заказывают. (3) Замер «vpc .Writer(ctx — 68 в 51 файле»: из 68 строк git grep 14 — комментарии,
+      объявления методов интерфейсов и само определение; вызовов 54.
+    condition_on_design: >-
+      УК3-79 говорит одно: точка Begin, объемлющая функция которой — обёртка, строкой ведомости НЕ
+      является; точками становятся её вызовы (по каждому уровню, где функция с ctx лишь передаёт
+      контекст дальше). Перечни и числа обёрток в М1 (г), УК3-79 и FM0 заменить предикатом и выводом гейта
+      («обёрток 24, вызовов 117 на e6075f09c2» — пример замера, а не ведомость); отметка notify-probe —
+      в Send; карточкам FM-c, FM-r, FM-s, FM-n — строки на вызовы своих обёрток.
+    held_by: "гейт УК3-79 (FM0) после правки текста; до неё — рецензент замысла"
+  - id: CX3U-02
+    severity: to_design
+    blocking: true
+    class: >-
+      Распознаватель по идентичности молча теряет вызов через порт-интерфейс (gate-authoring
+      «производитель входа»; testing-verdict п.14 «собственный разборщик — тоже распознаватель»)
+    decision: "УК3-79: «обёртку гейт находит разбором; её точка — каждый вызов обёртки вне тестов»"
+    finding: >-
+      Вызов обёртки, сопоставленный по объекту функции (types.Info.Uses → *types.Func), находит на
+      e6075f09c2 27 вызовов: reconcileOne 1, put 1, emitRepoIntent 2, runConfigTx 4, inComponentTx 4,
+      inJournalTx 15. Остальные 90 из 117 идут через методы интерфейсов-портов use-case-слоя и
+      сопоставляются с обёрткой только по реализации интерфейса: vpc Repository.Writer 54, nlb
+      Repository.Writer 20, compute 11, registry 4, storage Register 1. Те две обёртки, ради которых
+      заведён CX3T-02 (vpc и nlb Writer), прямых вызовов не имеют вовсе — гейт по объекту функции
+      напечатает им 0 и будет зелёным. Сопоставление по имени метода даёт обратную ошибку: в дереве
+      есть Writer, Insert и Delete других типов.
+    condition_on_design: >-
+      УК3-79 сопоставляет вызов метода интерфейса с обёрткой по реализации (тип-получатель обёртки или
+      указатель на него реализует интерфейс вызова), а не по имени и не только по объекту функции;
+      печатает число вызовов каждой обёртки; обёртка без найденных вызовов — красное с координатой
+      (проверка предпосылки, иначе 0 у vpc Writer неотличим от зелёного); третья инъекция — вызов
+      Writer у порта use-case-слоя vpc без строки ведомости → красное с координатой вызывающего,
+      близнец — со строкой → зелёное.
+    held_by: "нужен гейт — УК3-79 в этой форме (go-implementer, FM0)"
+  - id: CX3U-03
+    severity: to_code
+    blocking: false
+    class: >-
+      Решение и его следствие разнесены (code-authoring): у отметки token нет признака в объемлющей
+      функции, у without_journal он есть
+    decision: "УК3-79: token — интеграционная проба с флагом true; without_journal — вызов WithoutJournal в объемлющей функции"
+    finding: >-
+      Токен едет в контексте (WithAuthzRevision), поэтому поставить его может любой уровень выше точки.
+      Пример на e6075f09c2: compute Start/Stop/Restart → lifecycle (instance.go:750, 756, 762) →
+      repo.SetStatusCAS (instance.go:772) → Begin. Точка — вызов в lifecycle, одна строка, одна проба
+      (например, Start с флагом true); если токен берут в Start и не берут в Stop, строка зелёная,
+      а Stop при флаге true получит ErrNoAuthzRevision только на проде. Без признака в функции
+      токен-отметка — объявление, проверенное одной пробой из N входов.
+    condition_on_code: >-
+      Признак token — вызов порта токена (authzrev.Source) с journaltx.WithAuthzRevision в объемлющей
+      функции точки, симметрично without_journal; проба с флагом true остаётся вторым признаком.
+      Тогда токен ставится там же, где открывается транзакция или вызывается обёртка, и вход выше
+      пропустить его не может.
+    held_by: "гейт УК3-79 (признак отметки) — go-implementer, FM0"
+  - id: CX3U-04
+    severity: route
+    blocking: false
+    class: "Сосед — одобренная редакция с отпечатком; опора сменилась (fa-b7)"
+    decision: "§2 Е9 и замысел §13 Е9: «последняя запись c4242028 (редакция 5, круг 5, RETURNED); текст не закоммичен»"
+    finding: >-
+      После предмета в issue-880 коммиты c5e050f3a (запись ревью NTF-7 редакции 6 — APPROVED, круг 6)
+      и 705010432 (текст NTF-7 редакции 6, da7de8d7…, закоммичен). Шаги Е9 стали исполнимыми: правка
+      NTF-3 по NTF-7 DoD 10.4 п.3 (автор приёмки NTF-3, до посадки S1 NTF-7) и пакет изменения NTF-7 с
+      рёбрами окна В-5.
+    condition_on_route: "Е9 — NTF-7 da7de8d7… APPROVED (круг 6); производители правки NTF-3 и маршрута NTF-7 запущены"
+    held_by: "docs-gate check-01 на тексте NTF-7; остальное — вниманием"
+
+measurements:
+  - claim: "обёртки Begin — пять (vpc, nlb Writer; inJournalTx; inComponentTx; runConfigTx)"
+    how: "go/packages с типами, kacho @e6075f09c2 (343 пакета, 1420 файлов вне *_test.go, ошибок 0); Begin — по объекту функции пакета corelib/journaltx; обёртка — объемлющая функция с параметром context.Context"
+    result: "точек Begin 25, обёрток 24 (compute 11, registry 6, storage 3, nlb 2, vpc 1, notify-probe 1), не обёртка 1 — feedjournaltest"
+  - claim: "вызовов обёрток: vpc 68 в 51 файле, nlb 20, inJournalTx 15, inComponentTx 4, runConfigTx 4"
+    how: "тот же разбор; вызов — прямой по объекту функции либо метод интерфейса, который реализует получатель обёртки; сверка с git grep '\\.Writer(ctx' по vpc построчно (comm)"
+    result: "vpc 54 (14 строк grep — комментарии, объявления интерфейсов, определение), nlb 20, inJournalTx 15, inComponentTx 4, runConfigTx 4; всего по 24 обёрткам 117, из них через интерфейс 90"
+  - claim: "окно пина названо в маршрутах соседей"
+    how: "grep -l 'Окна пина NTF-3' по tasks.md шести пакетов эпика #2914 (поиск 'kacho/issues/2914' в change.yaml)"
+    result: "3 из 5 соседей (2915, 2917, 2924); 2919 (NTF-4) и 2925 (NTF-6) — нет; цены нет (CX3T-01)"
+  - claim: "окно kaname не нарушено"
+    how: "git -C kacho diff 9bc6b9e89a e6075f09c2 -- go.mod | grep -E '^[-+].*PRO-Robotech/(corelib|kaname) '"
+    result: "0 строк"
+  - claim: "plan-precheck код 0 у десяти волн"
+    how: "scripts из git archive origin/main (e5013d28b)"
+    result: "10/10 exit 0"
+
+not_measurable: >-
+  (1) Где каждый use-case поставит токен — кода FC/FM ещё нет; CX3U-03 выведен из формы признака,
+  а не из кода. (2) Какие вызовы обёрток пишут журнал, а какие — нет: это перепись шага (1) FM-* по
+  ведомости; для CX3U-01 хватает того, что у обёрток есть вызывающие обоих родов, а для CX3U-02 — что
+  вызовы существуют. (3) Окно В-5 и NTF-7 — вопрос расписания, а не дерева.
+
+facts_for_dispatcher:
+  - "голова общей рабочей копии tmp/issue-880 за время пересверки ушла с a9f31ca6a на 705010432 (NTF-7 редакции 6 APPROVED и закоммичена) — Е9 маршрута устарела (CX3U-04)"
+  - "fa-b6: род замечания «радиус УК3-79 недосчитан» встречается третий заход подряд (CX3S-07 → CX3T-02 → CX3U-01/02). Предлагаю поменять задание: в замысле — только свойство и правила сопоставления (замена точки обёртки её вызовами, вызов через интерфейс по реализации, предпосылка «у обёртки ≥ 1 вызова», признак token в функции), а перечни и числа пусть печатает гейт в FM0, не документ"
+  - "первичного разбора классов на приёмку 1d7d2ad0 по-прежнему нет"
+  - "на момент коммита записи голова issue-880 — 9204a2ecd (замысел NTF-7 редакции 1); дельта a9f31ca6a..9204a2ecd пакет issue-2918 не трогает (git log a9f31ca6a..9204a2ecd -- docs/changes/issue-2918 → пусто); kacho origin/2914-notify по-прежнему e6075f09c2 — замер не устарел (повторно: точек Begin 25, git grep '\\.Writer(ctx' по vpc — 68 в 51 файле)"
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: []
+open_decisions: []
+orders:
+  - id: ORD-10
+    addressee: design-author / автор маршрута NTF-3
+    subject: "УК3-79, М1 (г), FM0, FM-c/r/s/n: замена точки обёртки её вызовами, перечни → предикат, отметка notify-probe в Send, строки вызовов обёрток в карточках модулей (CX3U-01); сопоставление через интерфейс, предпосылка и третья инъекция (CX3U-02); признак token в объемлющей функции (CX3U-03); Е9 на da7de8d7 (CX3U-04)"
+    basis: "CX3U-01…04; flow-acceleration fa-b3 — только отображение, механизм ограды не меняется"
+  - id: ORD-11
+    addressee: acceptance-author NTF-3
+    subject: "правка NTF-3 по NTF-7 DoD 10.4 п.3 (пять строк — §6, Р3, Р11 дважды, Р25) до посадки S1 NTF-7"
+    basis: "Е9; NTF-7 APPROVED da7de8d7 (c5e050f3a)"
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат, порог ещё не набран (один независимый экземпляр): «гейт по точкам вызова, где вызов идёт
+  через порт-интерфейс, — распознаватель по объекту функции видит 0 и молчит». Цена здесь измерена
+  (90 из 117 вызовов, обе целевые обёртки — 0), но это одно место. Второе наблюдение — в реестр:
+  противоядие (сопоставление по реализации + предпосылка «≥ 1 вызов») — gate-authoring.
