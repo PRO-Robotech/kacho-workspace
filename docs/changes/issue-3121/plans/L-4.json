@@ -1,0 +1,6 @@
+{
+ "wave": "L-4",
+ "lanes": [
+  {"key": "N12", "repo": "kacho", "paths": ["services/notify/docs/"], "declared": "R1"}
+ ]
+}

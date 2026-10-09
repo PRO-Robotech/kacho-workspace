@@ -1,0 +1,7 @@
+{
+ "wave": "L-3",
+ "lanes": [
+  {"key": "N10", "repo": "kacho", "paths": ["ui-future/notify/src/pages/NotificationSettingsPage/"], "declared": "R1"},
+  {"key": "N11", "repo": "kacho", "paths": ["ui-future/e2e/specs/notifications-label-subscriptions.spec.ts"], "deps": ["N10"], "declared": "R0"}
+ ]
+}
