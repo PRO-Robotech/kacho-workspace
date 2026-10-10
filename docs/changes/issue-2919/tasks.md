@@ -44,6 +44,17 @@ SPDX-License-Identifier: BUSL-1.1
 > для запроса волны, порядок S3-C2н → S3-C7н → S2-B7, шаг на сведённой голове волны в S3-C6н (красный на
 > нуле строк), строка пробы З9 в S3-C7н, условия к коду RV9-04 в S3-C4н.
 >
+> Редакция 12 · 2026-10-10 — приведение к дереву (перепись плана, `scout:replan` п.4; решение диспетчера (г):
+> только блокирующее, без расширения объёма). Носитель `notify-api` заведён NTF-5 (`kacho#3070`, `#3099`): корень,
+> форма Х5, самоотчёт, оси дескриптора, десять ручек стадии S3, соединение края `notify`, чарт `api-*`, строка
+> записи З9 с непустым служимым набором; правки Х1, Х3, Х4, Х5 — в пинах базы. Новый §1а — база маршрута с
+> командами; §2б переписан: у каждой «н»-полосы — только остаток против базы, карточкой. Е10 и Е11 сняты
+> предметом (служимый набор `notify-api` непуст без S2-B7 NTF-3), связка части носителя с S2-B7 и волна
+> Н3-Ф3а сняты, шаг `notify-api-served-set-wave-check.sh` не заводится. Окна пина corelib NTF-4 по тегам
+> (Д41) заменены окнами NTF-3 (CX3T-01, §0): NTF-4 поднимает только пин kaname в S3-C2. Новые зависимости
+> Е12 (линия A NTF-1 влита — общие пути) и Е13 (В-3 NTF-3 влита — Given NTF4-108). Строки X1, X3, X4, X5,
+> S1-A6 §2 сняты: исполнены в дереве (§1а). Прочие строки §2 и §2а не правлены.
+>
 > Редакция 1 была проектом по замыслу редакции 1. Состояние `TASKS_READY`
 > этот файл не объявляет: по §5 SDD-1 оно наступает только после `DESIGN_APPROVED` и проверенного
 > writing-plans handoff. Handoff либо подтверждает этот файл без правки, либо переписывает его. В
@@ -59,11 +70,22 @@ SPDX-License-Identifier: BUSL-1.1
 
   Стадии NTF-4 стартуют после посадки стадий NTF-1, которые им нужны (Д13; Е6 замысла). Полоса
   стартует, когда сняты её зависимости. Полосы одного яруса без общих путей идут параллельно.
-- **Окна пина corelib в kacho** (Д41, уточняет Д37). В kacho одновременно открыто не больше одного окна
-  пина corelib — от выпуска тега до посадки полосы, поднимающей на него пин kacho. Окна NTF-4 — (2) в
-  порядке эпика, после окон NTF-1 и до окна X2-F NTF-3: тег Х1 — после посадки N11 `issue-2915`,
-  Х3 — после посадки S1-A1, Х5 — после посадки S2-B1; последнее окно закрывает посадка S3-C2. Код
-  Х-полос этим не задержан — только выпуск тега.
+- **Окна пина NTF-3** (CX3T-01; `docs/changes/issue-2918/tasks.md` §1 «Окна пина»; заменяют окна пина
+  corelib NTF-4 по тегам Д41 — правки Х1, Х3, Х4, Х5 уже в пинах базы, §1а, и тегов NTF-4 потребитель
+  не ждёт: пины — на головы линий, Д64). Ветки `77-notify` и `484-notify` общие для маршрутов эпика
+  `#2914`. Окно В-2 — от вливания `kaname#673` (**открыто** 2026-10-09T17:16Z) и Ф-C1 NTF-3 до вливания
+  волны В-2 NTF-3 в `2914-notify`; окно В-5 — от вливания Ф-C2 или Ф-K2 NTF-3 до вливания В-5. Внутри
+  окна пины corelib и kaname в kacho (и пин corelib в kaname) этот маршрут не поднимает. Пин поднимает
+  у NTF-4 одна полоса — S3-C2 (пин kaname на голову `484-notify` с Х2), нулевым шагом своей волны
+  (`"repin": "kaname"` в плане), на голове `2914-notify` после вливания В-5 NTF-3; пин corelib в kaname
+  на целевой голове равен пину corelib в kacho (`plan-precheck.sh`, `CORELIB-SKEW`). Прочие полосы и
+  волны NTF-4 пинов не трогают. Предикат на каждом запросе NTF-4 в `2914-notify` и `484-notify`:
+  `git diff <база> <голова> -- go.mod | grep -E '^[-+].*PRO-Robotech/(corelib|kaname) '` → пусто, кроме
+  запроса волны S3-C2 (держит `git-operator`; скрипт — Е10 NTF-3).
+- **Общие пути с соседними волнами** (`issue-2918/tasks.md` §1 «Неделимая цепочка»; перепись плана
+  п.4). Волна NTF-4 и волна соседа, правящие один путь, не открыты одновременно: вторая стартует на
+  голове `2914-notify` после вливания первой. Предикат на старте волны: пересечение
+  `git diff --name-only <база>...<голова>` открытого запроса соседа с путями полос волны → пусто.
 - **Перед стартом каждой стадии** исполнитель стадии делает сверку соседей по §0а замысла и пишет
   исход в `docs/changes/issue-2919/reconciliation/<стадия>-<короткий sha воркспейса>.yaml`. Для S3
   в запись входит и поле `notify_api_root` (З18). Исход (б) останавливает стадию и даёт строку
@@ -103,32 +125,66 @@ SPDX-License-Identifier: BUSL-1.1
 | Е6 | стадии NTF-1 посажены | открыта | `git -C kacho ls-tree origin/main services/notify` — пусто на `1d42a6728bf` |
 | Е7 | путь одобрения сноса ограды в env init-контейнера `migrate` (§13 замысла, CX4V-63 (б)) | **снята решением Д28**: вариант 1 — ключ values `migrator.dropApproved` чарта notify, УК4-36; гейтила полосы S1-A8 и S1-A10 | `grep -c '^. Е7 .*Состояние: снята решением' docs/changes/issue-2919/design.md` → 1 — решение записано; 0 — не записано (на редакции 4 замысла, коммит `dfe2cea05`, → 0) |
 | Е8 | префикс `nop` для S3-C4н (замысел §13, Е8) | **снята Д113, вариант (б)**: производитель — только каталог corelib `ids`; пин S3-C2н — на голову линии corelib, потомка `4dabea4`; литерал держит гейт `opprefixliteral_test.go` в S3-C4н | `git -C corelib merge-base --is-ancestor 4dabea4 <ревизия пина S3-C2н>` → 0; `git -C corelib grep -c '"nop"' v1.10.0 -- ids/ids.go` → 0 (в теге нет, поэтому пин не на `v1.10.0`) |
-| Е9 | рёбра окон пина в части Основы (замысел §13, Е9) | **снята**: маршрут NTF-3 пишет, что теги Основу не гейтят; в Основе пины — на головы линий (Д64), тег Х5 — после Основы по строке X5 §2 | `grep -c 'Основу не гейтят' docs/changes/issue-2918/tasks.md` → 1 на `24f31fd00` |
-| Е10 | служимый набор носителя на посадке (замысел §13, Е10) | **снята Д113, вариант (б)**: S3-C2н, S3-C6н, S3-C7н, S3-C8н и S2-B7 `issue-2918` — один запрос волны; пробы S3-C2н от этого не зависят — служимый домен строит испытательная регистрация | предикат посадки в строке S3-C6н §2б (замысел §2а) |
-| Е11 | маршрут NTF-3 исполняет Д113 (б): S2-B7 и полосы части носителя — в одной волне (замысел §13, Е11) | открыта до коммита правки маршрута NTF-3; гейтит старт S3-C6н и S3-C8н | в `docs/changes/issue-2918/tasks.md` §4 одна строка волны содержит и `S2-B7`, и `S3-C6`, и `grep -c 'до Н3-Ф4' docs/changes/issue-2918/tasks.md` → 0 (рабочее дерево `tmp/issue-880` — да, редакция 19 маршрута NTF-3; на `24f31fd00` — нет) |
+| Е9 | рёбра окон пина в части Основы (замысел §13, Е9) | **снята**: маршрут NTF-3 пишет, что теги Основу не гейтят; в Основе пины — на головы линий (Д64); с редакции 12 тегов NTF-4 нет — Х5 в пине базы (§1а), окна — NTF-3 (§0) | `grep -c 'Основу не гейтят' docs/changes/issue-2918/tasks.md` → 1 на `24f31fd00` |
+| Е10 | служимый набор носителя на посадке (замысел §13, Е10) | **снята предметом** (редакция 12): служимый набор `notify-api` непуст без S2-B7 NTF-3 — строка `cmd/notify-api` записи З9 несёт `InternalNoticeService`, `NoticeService`, `OperationService` (NTF-5, `#3099`); связки части носителя с S2-B7 нет. Прежнее снятие Д113 (б) — история | `git -C kacho show origin/2914-notify:services/notify/servesurface_ledger.go \| grep -c '"kacho.cloud.notify.v1\.\|"corelib.operation'` → 3 на `e6075f09c2` |
+| Е11 | маршрут NTF-3 исполняет Д113 (б) — волна Н3-Ф3а (замысел §13, Е11) | **снята предметом** (редакция 12): связка Е10 снята, волна Н3-Ф3а не нужна; маршрут NTF-3 редакции 21 и позже её не несёт, S2-B7 — в В-3 | `grep -c '^\| Н3-Ф3а' docs/changes/issue-2918/tasks.md` → 0 (строки волны в таблице волн нет; вхождения — только в истории редакций) на `0dba146a6` |
+| Е12 | линия A NTF-1 (`2915-wave-ntf1-send`) влита в `2914-notify`: она правит `gateway/internal/config/config.go`, `gateway/internal/config/notify_test.go`, `deploy/helm/notify/values.yaml`, `deploy/helm/notify/templates/configmap.yaml`, `deploy/scripts/assert-production-posture.sh` — пути S3-C4н, S3-C5, S3-C6н | **открыта** на 2026-10-10: голова линии `38619d412f`, запроса нет | `git -C kacho merge-base --is-ancestor <голова линии A> origin/2914-notify` → 0; пересечение путей — `git -C kacho diff --name-only $(git -C kacho merge-base origin/2915-wave-ntf1-send origin/2914-notify) origin/2915-wave-ntf1-send` (20 файлов, пять из них — пути выше) |
+| Е13 | В-3 NTF-3 влита (S2-B7 — сервисы NTF-3 на `notify-api`): Given NTF4-108 части Основы — «П1 после посадки Основы: носитель и сервисы NTF-3 на нём» (приёмка §0а) | **открыта** | `git -C kacho show origin/2914-notify:services/notify/servesurface_ledger.go \| grep -c 'NotificationInboxService'` ≥ 1 (регистрация S2-B7 в строке `cmd/notify-api` записи З9; имя — замысел NTF-3 §4); → 0 на `e6075f09c2`; гейтит только S3-C8н |
+| Е14 | редакция приёмки NTF-4: NTF4-117 части Основы и замысел З21 требуют окружение `notify-api` «ровно (н1)–(н4) и десять ручек стадии S3», а на базе загрузчик и `api-configmap.yaml` несут и ручки NTF-5 (`KACHO_NOTIFY_NOTICE_REMINDER_LEAD`; Р17 NTF-5 — `KACHO_NOTIFY_LIST_FILTER_CACHE_TTL`). Утверждение «ровно» на дереве красное; нужна формулировка «закрытое объединение частей под-фаз» (как у перечня ручек в З18) | **открыта**; производитель — `acceptance-author` (NTF-4), затем `acceptance-reviewer` | `git -C kacho show origin/2914-notify:deploy/helm/notify/templates/api-configmap.yaml \| grep -c 'KACHO_NOTIFY_NOTICE_REMINDER_LEAD'` → 1 на `e6075f09c2`; снятие — запись ревью ✅ на отпечаток приёмки с новой формулировкой NTF4-117; гейтит только утверждение об окружении в S3-C6н |
+
+## 1а. База маршрута (редакция 12)
+
+Не состояние полос (оно — у трекера), а вход, на котором маршрут стоит: что дерево уже несёт и поэтому
+полосой не раздаётся. Ревизии: kacho `2914-notify` @`e6075f09c2`, пины в `go.mod` — corelib
+`18d105d0f50a` (C0), kaname `33010d434767`; corelib `77-notify` @`1177490`; kaname `484-notify`
+@`d93b69712` (пин corelib — тоже `18d105d0f50a`). Замер 2026-10-10.
+
+| что в дереве | производитель | команда · исход |
+|---|---|---|
+| Х1: `nsp`, `nop` в каталоге `ids` | corelib `4dabea4` (в пине C0) | `git -C corelib grep -n 'PrefixOperationNotify = "nop"\|PrefixSuppressionHyphen = "nsp"' 18d105d0f50a -- ids/ids.go` → 2 строки; `git -C corelib merge-base --is-ancestor 4dabea4 18d105d0f50a` → 0 |
+| Х3: `SUPPRESSED(reason)` ленты | corelib (в пине C0) | `git -C corelib ls-tree 18d105d0f50a notify/feed/suppressed_vocabulary_test.go notify/feed/suppressed_ack_integration_test.go` → 2 файла |
+| Х4: пин corelib в kaname на ревизии с Х3 | kaname | `git -C kaname show origin/484-notify:go.mod \| grep 'PRO-Robotech/corelib '` → `…-18d105d0f50a` |
+| Х5: `HostInternalOnly`, `PostureOf`, `BootPosture.ListenerForm` | corelib (в пине C0) | `git -C corelib grep -c HostInternalOnly 18d105d0f50a -- servicecontract/contract.go` ≥ 1; `git -C kacho grep -n 'servicehost.PostureOf' origin/2914-notify -- services/notify/cmd/notify-api/bootposture.go` → 1 |
+| S1-A6: 21 ручка S1, `required_knobs_test.go` | `kacho#3072` (`cd20a05cfa`) | `git -C kacho ls-tree origin/2914-notify services/notify/internal/config/ntf4.go services/notify/internal/config/required_knobs_test.go` → 2 файла |
+| корень `notify-api` в форме Х5 с причиной, самоотчёт `ListenerForm` из `PostureOf` | NTF-5 `#3070`, `#3099` | `git -C kacho grep -n 'HostForm: *servicecontract.HostInternalOnly' origin/2914-notify -- services/notify/cmd/notify-api/describe.go` → 1 |
+| оси дескриптора `notify-api` по Р20: `DBSSLMode`, `Authz`, `CheckEdge`, `PeerCheck`, изъятия с причиной | NTF-5 | `services/notify/cmd/notify-api/describe.go` @`e6075f09c2`, строки `DBSSLMode`, `Authz`, `CheckEdge`, `PeerCheck`, `Emits`…`Narrowers` |
+| десять ручек стадии S3 в загрузчике `notify-api` (пять звена прав, пять внутреннего слушателя), границы `…_HANDLING_BUDGET > …_AUTHZ_CHECK_TIMEOUT` и `…_INTERNAL_PORT` ≠ порту диагностики | NTF-5 | `services/notify/cmd/notify-api/internal/config/config.go` @`e6075f09c2`: поля `AuthzTrustDomain` … `HandlingBudget`, `Validate` (строки с `InternalPort == diagPort` и `HandlingBudget <= c.AuthzCheckTimeout`) |
+| служимый набор `notify-api` непуст: `InternalNoticeService`, `NoticeService`, `OperationService`; операции — приставка `nop` из `ids` | NTF-5 | строка `cmd/notify-api` в `services/notify/servesurface_ledger.go`; `services/notify/internal/apps/kacho/api/notice/operation.go` (`ids.NewID(ids.PrefixOperationNotify)`) |
+| перепись поверхности по корням и графу вызовов с ведомостью (проба З9 в форме NTF-1) | NTF-1 `ede4db32c2`, NTF-5 `1d29bab5a7` | `services/notify/servesurface_test.go`: `TestNTF1G19_NotifyServesNoInboundVerb`, `TestNTF1G19Injection` |
+| край: соединение `notify` к `notify-api`, адрес без умолчания (пусто — соединения нет) | NTF-5 (`c7240e305` в `#3099`) | `gateway/internal/config/config.go`: поле `NotifyInternalAddr` (`KACHO_API_GATEWAY_NOTIFY_INTERNAL_GRPC`), ключ `InternalBackendKey("notify")` |
+| чарт `notify-api`: `api-deployment.yaml` (реплики из `api.replicaCount` = 2, `/readyz`, `checksum/config`), `api-serviceaccount.yaml`, `api-certificate.yaml`, `api-pdb.yaml`, `api-service.yaml`, `api-configmap.yaml`, `api-networkpolicy.yaml` | NTF-5 | `git -C kacho ls-tree --name-only origin/2914-notify deploy/helm/notify/templates/ \| grep -c '^deploy/helm/notify/templates/api-'` → 7 |
+
+**Чего в базе нет** (остаток части носителя — полосы §2б): замок мигратора и `RequireApplied`; init-контейнер
+`migrate` и стратегия переката у `notify-api`; AST-держатель УК4-26; проба испытательной регистрации
+NTF4-122 и пробы NTF4-92, 119, 124; запись `prefixToBackend` для `nop`; декларация `InternalOnly` и проверка
+происхождения до поиска соединения; гейты `notifysurfaceparity_test.go`, `opprefixliteral_test.go`,
+`notify_key_internal_refusal_test.go`; рендер-гейты `notify-rollout-and-secret-mount-test.sh`,
+`notify-availability-test.sh`, `notify-listeners-test.sh`; инъекция RV8-07 в пробе З9; NTF4-108/109 на
+стенде. Команда переписи — та же, что в строках выше: `git -C kacho cat-file -e origin/2914-notify:<путь>` → 1
+для каждого из названных файлов на `e6075f09c2`; `git -C kacho grep -c 'pg_advisory\|RequireApplied'
+origin/2914-notify -- services/notify/` → пусто; `git -C kacho grep -n 'PrefixOperationNotify'
+origin/2914-notify -- gateway/` → пусто.
 
 ## 2. Полосы
 
 ### Правки вне kacho
 
+Полосы X1, X3, X4, X5 сняты в редакции 12: правки в пинах базы (§1а), теги не выпускаются — пины на
+головы линий (Д64), окна — NTF-3 (§0). Остаётся X2.
+
 | полоса | предмет | исполнитель | репозиторий · пути | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| X1 | префиксы `nsp`, `nop` (Х1) | `go-implementer` | corelib · `ids/ids.go` | проба каталога префиксов зелёная; `grep -rn '"nop"\|"nsp"' --include=*.go ids/` → по одной записи; тег corelib | код — Е5; тег — Е5, N11 `issue-2915` посажена (окно (1) NTF-1 закрыто; первый тег NTF-4; Д41) | S |
-| X3 | `SUPPRESSED(reason)` в ленте (Х3) | `proto-sync` (контракт kacho), `go-implementer` (сервер ленты corelib) | kacho · `proto/corelib/notify/`; corelib · `notify/feed/**` | держатель закрытого словаря знает четыре причины, и это доказано инъекцией; проба повтора `Ack` на `SUPPRESSED`; тег | код — Е5, `corelib#77`; тег — S1-A1 посажена (окно тега X1 закрыто: S1-A1 — единственная полоса, зависящая от X1; Д41) | M |
-| X4 | пин corelib в kaname (Х4) | `go-implementer` | kaname · `go.mod` | `go build ./...` и CI kaname зелёные на теге Х3 | X3 | S |
-| X2 | каталог прав `notify.suppressions.*`, отображение, сверка с аннотациями, проба NTF4-120/121 (Х2, З17) | `go-implementer` | kaname · `internal/apps/kaname/seed/embedded/permission_catalog.json`, `internal/authzmap/permissions_to_relations.go`, `internal/apps/kaname/api/authorize/` (проба) | держатель каталога kaname зелёный; команда сверки З17 → пустой `diff`; NTF4-120/121 зелёные (два SAN, счёт вопросов модели) | Е5, C1 | M |
-| X5 | ось `HostForm` + `HostInternalOnly`, `buildServer`, `PostureOf`, поля `BootPosture` (Х5, З18) | `go-implementer` | corelib · `servicecontract/`, `servicehost/`, `observability/bootposture.go` | integration-проба Х5 зелёная; `TestBothListenersRefuseIdenticallyOnTheWire` с формой и инъекцией «цепочка без звена прав» красная, затем зелёная; тег (DoD S3 п.8б) | код — Е5, Е2 (а), `corelib#77`; тег — S2-B1 посажена (окно тега X3 закрыто; Д41) | L |
+| X2 | каталог прав `notify.suppressions.*`, отображение, сверка с аннотациями, проба NTF4-120/121 (Х2, З17) | `go-implementer` | kaname · `internal/apps/kaname/seed/embedded/permission_catalog.json`, `internal/authzmap/permissions_to_relations.go`, `internal/apps/kaname/api/authorize/` (проба) | держатель каталога kaname зелёный; команда сверки З17 → пустой `diff`; NTF4-120/121 зелёные (два SAN, счёт вопросов модели) | Е5 (задача правки Х2 в kaname); S3-C1 посажена в `2914-notify` (контракт, на который ссылается сверка З17); пинов не поднимает | M |
 
 ### S1 — приём обратной связи
 
 | полоса | предмет | исполнитель | пути (kacho) | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| S1-A1 | миграции §6: `sent_log`, `feedback_message`, `feedback_event`, `suppression`, `feedback_lease`, `canary_issue`, `feedback_state`, `install_flag`, `address_key_check`, затем `DROP TABLE recipient_key_fence` | `migration-writer` | `services/notify/internal/migrations/**` | держатель монотонности миграций зелёный; УК4-12 (23514), УК4-33 (`now()` в SQL — 0) зелёные с инъекциями; DoD S1 п.2; запись `dropguard.json` и её производитель `dropguard_integration_test.go`, `TestEveryDropGuardManifestHasAProducer` зелёный; УК4-35 (§2а, Д26 · 4); индекс `feedback_message (processed_at)` (Д26 · 6) | X1, Е6 | M |
+| S1-A1 | миграции §6: `sent_log`, `feedback_message`, `feedback_event`, `suppression`, `feedback_lease`, `canary_issue`, `feedback_state`, `install_flag`, `address_key_check`, затем `DROP TABLE recipient_key_fence` | `migration-writer` | `services/notify/internal/migrations/**` | держатель монотонности миграций зелёный; УК4-12 (23514), УК4-33 (`now()` в SQL — 0) зелёные с инъекциями; DoD S1 п.2; запись `dropguard.json` и её производитель `dropguard_integration_test.go`, `TestEveryDropGuardManifestHasAProducer` зелёный; УК4-35 (§2а, Д26 · 4); индекс `feedback_message (processed_at)` (Д26 · 6) | X1 (в пине базы, §1а), Е6 | M |
 | S1-A2 | `addresskey`: функция отпечатка, `Establish`, набор, скрытие ключа; снятие ограды и её сторожа в `limits` и `deliver`; объект ключа томом в загрузчике `notify-sender` (З2, З3) | `go-implementer` | `services/notify/internal/{addresskey,limits,deliver,config}/**`, `services/notify/cmd/notify/**` | NTF4-23, 77, 106 зелёные (106 красная на инъекции «код аутентичности над постоянной строкой»); УК4-05, 06, 07, 08; `redaction_test.go`; `Establish` на `ReadCommitted`, NTF4-116 с `repeatable read` у роли (§2а, Д26 · 1, Д26 · 2) | S1-A1, Е2 (б) | M |
 | S1-A3 | клиент `pop3` со сроком каждой сетевой операции, двойник П10, сеанс, независимое продление (З7) | `go-implementer` | `services/notify/internal/{pop3,feedback}/**`, двойник П10 в тестовом дереве | NTF4-10, 104 зелёные (104 красная на инъекции «продление только в начале сеанса»); УК4-02; УК4-37 (а) — молчащий П10: сеанс закрыт в пределах `pop3.opTimeout`, продлений после закрытия 0, такты идут; УК4-37 (в) — остановка процесса при молчащем П10: работа держателя вернулась в пределах срока, горутин сеанса и продления 0, пул закрыт после; прогон под `-race` (§2а, Д26 · 7) | S1-A1, S1-A5 | M |
 | S1-A4 | вид, токен-источник, классификация, ограничения разбора, корпус П3, `suppression.Apply` (З8, З9) | `go-implementer` | `services/notify/internal/{feedback,suppression}/**`, корпус `internal/feedback/testdata/corpus/` | NTF4-01…09, 11…14, 78 (integration) зелёные; корпус сверен с таблицей в обе стороны (DoD S1 п.3); УК4-11 | S1-A2, S1-A3 | L |
 | S1-A5 | аренда с эпохой, такт, подметальщик у держателя, NTF4-15 (З11) | `go-implementer` | `services/notify/internal/{lease,suppression}/**` | NTF4-95…97, 15 зелёные (95 красная на инъекции «продление только фиксацией»); УК4-01, 01а; уборка по сроку — проход подметальщика у держателя, партии под продлением (§2а, Д26 · 6); порядок такта «продление → признаки → выпуск → запуск сеанса», такт не ждёт сеанса; признак «сеанс идёт» снимает сама горутина; транзакции держателя — явный `ReadCommitted`; УК4-37 (г) — умолчание роли `repeatable read`, отказов 40001 — 0 (§2а, Д26 · 7 (4)–(7)) | S1-A1 | M |
-| S1-A6 | 21 ручка S1 (Р16 после Д96), группы, зависимые границы, `required_knobs_test.go` (З22) | `go-implementer` | `services/notify/internal/config/**` | DoD S1 п.5: зелёная и красная на четырёх инъекциях; NTF4-87, 88; зависимая граница окна долей и срока журнала (§2а, Д26 · 6) | Е6 | M |
 | S1-A7 | `reputation.Register`, наборы метрик, метки (З13, часть S1) | `go-implementer` | `services/notify/internal/reputation/**`, корень `cmd/notify` | УК4-21 зелёный; NTF4-33 (журнал и метки S1) зелёная; УК4-34 — семейства `notify_` реестра корня против объединения Р12 и перечня NTF-1 в обе стороны, двух снятых метрик нет (§2а, Д26 · 5) | S1-A4 | S |
 | S1-A8 | чарт: объект ключа томом у `notify-sender`, снятие `secretKeyRef` и `checksum/recipient-key`, правка гейта D1; ключ values `migrator.dropApproved` → env `MIGRATOR_DROP_APPROVED` контейнера `migrate` (З21, Д28); приёмник ящика стенда (З21) | `deploy-engineer` | `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `deploy/notify_secret_layout_test.go`, `deploy/tests/helm/notify-drop-approval-test.sh` | гейт D1 зелёный в форме З21 и красный на инъекции `secretKeyRef`; DoD S1 п.6; УК4-32 — версия образа и её возможности напечатаны в отчёте полосы; УК4-36 зелёная с напечатанным числом судимых развёртываний ≥ 1, близнец «ключ не задан — переменной нет» зелёный, инъекция «переменная с пустым значением при пустом ключе» даёт красный близнеца (§2а, Д26 · 4); входит в один запрос волны с S1-A1 (§0) | S1-A2, Е7 (снята Д28) | M |
 | S1-A9 | сквозные S1 на П1: 01, 02, 11, 13, 15 (две реплики) | `qa-test-engineer` | сквозные пробы kacho | зелёные числом исполненного, признаки установки сверены на обеих репликах | S1-A1…A8 | M |
@@ -138,7 +194,7 @@ SPDX-License-Identifier: BUSL-1.1
 
 | полоса | предмет | исполнитель | пути (kacho) | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| S2-B1 | клетка 6а в `Decide`, исход раз на выдачу, таблица ответа `Ack`, синхронный 5xx на `RCPT` (З10) | `go-implementer` | `services/notify/internal/deliver/**` | NTF4-18…23, 80, 81, 89, 90, 101, 102, 110 (красная на инъекции пересчёта), 111 зелёные; УК4-13, 14, 15; ветка «вне таблицы» `ReadAckAnswer` без своего счётчика — сигнал `misconfigured` NTF-1 (§2а, Д26 · 5) | S1, X3, X4 (пины одним изменением) | L |
+| S2-B1 | клетка 6а в `Decide`, исход раз на выдачу, таблица ответа `Ack`, синхронный 5xx на `RCPT` (З10) | `go-implementer` | `services/notify/internal/deliver/**` | NTF4-18…23, 80, 81, 89, 90, 101, 102, 110 (красная на инъекции пересчёта), 111 зелёные; УК4-13, 14, 15; ветка «вне таблицы» `ReadAckAnswer` без своего счётчика — сигнал `misconfigured` NTF-1 (§2а, Д26 · 5) | S1; X3, X4 — в пинах базы (§1а), подъёма пина нет | L |
 | S2-B2 | `returnaddr`, `sentlog`, `List-Unsubscribe` через `notify/form` (З5, З6) | `go-implementer` | `services/notify/internal/{returnaddr,sentlog,deliver}/**` | NTF4-13, 14 (адрес и заголовок ушедшего письма) зелёные; NTF4-04 зелёная; УК4-03, 09; УК4-01а по пакету `sentlog` (уборка по сроку под продлением, две функции пути письма — по идентичности); неудача отметки `accepted_at` — строка журнала ERROR без адреса, метрики нет (§2а, Д26 · 5, Д26 · 6) | S1-A2, S1-A5 | M |
 | S2-B3 | сквозные 16, 17 на П1 (окно `recovery` NTF-2) | `qa-test-engineer` | сквозные пробы kacho | DoD S2 п.1; ответы глагола kaname сверены побайтово | S2-B1, S2-B2 | M |
 
@@ -147,7 +203,7 @@ SPDX-License-Identifier: BUSL-1.1
 | полоса | предмет | исполнитель | пути (kacho) | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
 | S3-C1 | контракт `InternalSuppressionService` (§5) | `proto-sync` | `proto/kacho/cloud/notify/v1/`, `pkg/api/kacho/cloud/notify/v1/` | `buf lint`, `buf breaking` зелёные; держатель аннотаций зелёный (DoD S3 п.1) | S2 | S |
-| S3-C2 | корень `notify-api` либо дополнение существующего (по `notify_api_root`), носитель Х5, `PostureOf`, оси, (н1)–(н4), 12 ручек, `RequireApplied`, замок мигратора, сверщик операций, изъятия с пробой (З18, З22) | `service-scaffolder` (при `absent`), затем `go-implementer` | `services/notify/cmd/notify-api/**`, `services/notify/cmd/migrator/**`, `services/notify/internal/{apiserver,config,migrations}/**` | NTF4-119, 91, 92 зелёные; DoD S3 п.7; УК4-26, 27, 28 с вариантами Д26 · 3 (`RequireApplied` через `dropguard.GooseApplied` на `*sql.DB` из `stdlib.OpenDBFromPool`, «схема не прочитана» отдельно от «версия не применена», `hashtext` имён замков, разрыв соединения замка) | S3-C1, X5, X2 (пины одним изменением), Е2 (а), Е3 при `present` | L |
+| S3-C2 | корень `notify-api` либо дополнение существующего (по `notify_api_root`), носитель Х5, `PostureOf`, оси, (н1)–(н4), 12 ручек, `RequireApplied`, замок мигратора, сверщик операций, изъятия с пробой (З18, З22) | `service-scaffolder` (при `absent`), затем `go-implementer` | `services/notify/cmd/notify-api/**`, `services/notify/cmd/migrator/**`, `services/notify/internal/{apiserver,config,migrations}/**` | NTF4-119, 91, 92 зелёные; DoD S3 п.7; УК4-26, 27, 28 с вариантами Д26 · 3 (`RequireApplied` через `dropguard.GooseApplied` на `*sql.DB` из `stdlib.OpenDBFromPool`, «схема не прочитана» отдельно от «версия не применена», `hashtext` имён замков, разрыв соединения замка) | S3-C1, X2 влита в `484-notify`; пин kaname на голову с X2 — нулевой шаг волны S3 после вливания В-5 NTF-3 (§0 «Окна пина NTF-3»); X5 — в пине базы; Е2 (а), Е3 (`notify_api_root` = `present`, §1а); остаток «н»-строк §2б посажен | L |
 | S3-C3 | `Get`, `Lookup`, `Delete`: сценарии, аудит, операции (З17) | `rpc-implementer` | `services/notify/internal/apiserver/suppression/**` | NTF4-24…29, 31…33, 82…86 зелёные (86 — 50 повторов под `-race`); УК4-23, 24, 25; УК4-39 — `reconcileOrphanGrace` строго больше верхней границы `…_HANDLING_BUDGET`; `Delete` передаёт в `RunSync` контекст обработчика без отвязки (§2а, Д26 · 8) | S3-C2 | L |
 | S3-C4 | край: соединение `notify`, адрес без умолчания, внутренний mux, таблица прав, `prefixToBackend`, декларация `InternalOnly`, `notifysurfaceparity_test.go` (З19) | `api-gateway-registrar` | `gateway/internal/{restmux,opsproxy,config,middleware/embed}/**`, `internal/repohygiene/notifysurfaceparity_test.go` | DoD S3 п.6, 6а, 6б, 8а; NTF4-93, 94, 112; инъекция CX4V-51 и маршрут на `…/Send` — красные | S3-C1 | M |
 | S3-C5 | гейт посадки: счёт строк на службу, подперечень, форма (З20) | `deploy-engineer` | `deploy/scripts/{assert-production-posture.sh,listener-form-posture-inject.sh,run-injection-proofs.sh}` | NTF4-109: девять красных, (з), (к), (м) зелёные; УК4-30, 31 | S3-C2 | M |
@@ -228,49 +284,157 @@ SPDX-License-Identifier: BUSL-1.1
 | Д26 · 8 | М2 ревью замысла `80dea362` | S3-C3 | `OrphanGrace` явно постоянной `reconcileOrphanGrace` = 5 мин > 60 с; УК4-39; `Delete` передаёт в `RunSync` контекст обработчика без `WithoutCancel` и `Background` |
 | Д26 · 9 | М3 ревью замысла `80dea362` | S5-D1 | каждый вызов резолвера под `dnscheck.queryTimeout` = 5 с; в «ответа нет» — только истечение своего срока при живом родителе; УК4-40 с близнецом «родитель отменён» |
 
-## 2б. Часть Основы (Д100): носитель `notify-api`
+## 2б. Часть Основы (Д100): носитель `notify-api` — остаток против базы (редакция 12)
 
-Решение диспетчера Д100: носитель `notify-api` входит в «Основу». Полосы ниже — это та часть строк X5,
-S3-C2, S3-C4…S3-C7 §2, которая к носителю относится, без `InternalSuppressionService` и его маршрутов.
-Что именно утверждается, сказано в приёмке §0а, механизмы — в замысле §2а. Код X5 садится в линию corelib.
-Полосы kacho S3-C2н, S3-C6н, S3-C7н, S3-C8н входят в один запрос волны с S2-B7 `issue-2918` (Е10, Д113 (б));
-это волна Н3-Ф3а маршрута NTF-3 (`docs/changes/issue-2918/tasks.md` §4), и её состав держит Е11 (§1).
-От S3-C1, X2, X3, X4 и стадий S1, S2 NTF-4 сами полосы не зависят. Запрос волны зависит: S2-B7 ждёт S2-B4,
-а та — S2-B1 NTF-3 (волна Н3-Ф3 с её зависимостями Е1, Е6, X2-F, S1-A1…A4 NTF-3), и Е2 (а) этого замысла.
-Поэтому посадка части носителя не раньше посадки Н3-Ф3 NTF-3 (RV9-01).
+Решение диспетчера Д100: носитель `notify-api` входит в «Основу». Что утверждается — приёмка §0а, механизмы —
+замысел §2а. **Редакция 12 приводит раздел к дереву.** Корень, форму Х5, самоотчёт, оси, десять ручек стадии
+S3, соединение края и чарт `api-*` завела NTF-5 (§1а), и служимый набор `notify-api` непуст без NTF-3. Поэтому:
+полоса X5 снята (правка в пине базы); каждая «н»-полоса ниже несёт только **остаток** против §1а; связки с
+S2-B7 NTF-3 и волны Н3-Ф3а нет (Е10, Е11 сняты предметом); шаг `notify-api-served-set-wave-check.sh` не
+заводится — его предмет (развёртывание с пустым набором) в дереве не выражается: носитель с пустым набором
+отказывает в старте (Х5), и строка `cmd/notify-api` записи З9 непуста. Регистраций NTF-4 в части Основы
+нет — как и было (приёмка §0а).
 
-| полоса | предмет | исполнитель | репозиторий · пути | предикат снятия | зависит от | размер |
-|---|---|---|---|---|---|---|
-| X5 | строка X5 §2 целиком | `go-implementer` | corelib · `servicecontract/`, `servicehost/`, `observability/bootposture.go` | предикат строки X5 §2 без тега: в Основе пин kacho — на голову линии corelib с Х5 (Д64), эта голова — потомок `4dabea4` (Е8) | код — Е5, Е2 (а), `corelib#77`; тег — по строке X5 §2, после Основы (Д41, Е9) | L |
-| S3-C2н | корень `notify-api`; носитель Х5; `PostureOf`; оси по таблице Р20; загрузчик (н1)–(н4) и десяти ручек стадии S3; `checkCrossBounds` в части `…_HANDLING_BUDGET` и `…_INTERNAL_PORT`; `RequireApplied`; замок мигратора; пин corelib на голову линии corelib с Х5, потомка `4dabea4` (Д64, Е8). Без регистраций NTF-4, без сверщика операций, без изъятий осей | `service-scaffolder`, затем `go-implementer` | kacho · `services/notify/cmd/notify-api/**`, `services/notify/cmd/migrator/**`, `services/notify/internal/{apiserver,config}/**`, функция `RequireApplied` в `services/notify/internal/migrations/` без новых миграций | NTF4-92, 119 (часть Основы), 122 зелёные; УК4-26; УК4-28 в вариантах Д26 · 3; DoD S3 п.7 и п.8б в части Основы; испытательная регистрация NTF4-122 (RV8-08): дескриптор регистрируется в `protoregistry.GlobalFiles` один раз на процесс (`sync.Once` или `TestMain`), путь файла не пересекается с `proto/kacho/cloud/notify/v1/`, фикстура только в `_test.go` или `internal/testkit` | X5 (голова линии corelib), Е2 (а); один запрос волны с S2-B7 (Е10) | L |
-| S3-C4н | край: соединение `notify`, адрес и mTLS парой без умолчания, `prefixToBackend` `nop` → `notify`, декларация `InternalOnly` и проверка происхождения, `notifysurfaceparity_test.go`. Без маршрутов трёх методов на внутреннем mux и без их строк в таблице прав | `api-gateway-registrar` | kacho · `gateway/internal/{opsproxy,config}/**`, `gateway/internal/proxy/notify_key_internal_refusal_test.go`, `internal/repohygiene/notifysurfaceparity_test.go` | DoD S3 п.6 в части Основы, п.6а, п.6б, п.8а; NTF4-112; инъекция CX4V-51 (в) и маршрут на `…/Send` — красные; ключ записи — `ids.PrefixOperationNotify`; гейт `internal/repohygiene/opprefixliteral_test.go` (Е8, Д113 (б)) печатает число осмотренных файлов, зелёный на дереве, красный на инъекции литерала `"nop"`, близнец с постоянной `ids` зелёный; значение литерала сравнивается после `strconv.Unquote` (`"nop"` и обратные кавычки — одна находка), `gateway/internal/opsproxy` из обхода не исключён, вторая инъекция — `const prefixOperationNotify = "nop"` в крае, красная (RV9-04); проба п.6а утверждает происхождение и выбор соединения, ответа `OperationService` не утверждает (RV8-06) | S3-C2н (пин; Е8 снята Д113) | M |
-| S3-C5 | строка S3-C5 §2 целиком | `deploy-engineer` | как в §2 | NTF4-109; УК4-30, 31. NTF4-108 на стенде — полоса S3-C8н | S3-C2н | M |
-| S3-C6н | чарт `notify-api`: развёртывание, учётка, сертификаты, PDB, окружение из (н1)–(н4) и десяти ручек стадии S3; рендер-гейт с утверждениями NTF4-117 части Основы и случаями (7)–(9); `notify-availability-test.sh` по двум развёртываниям; перепись портов. Без объекта ключа отпечатка и без ключа `migrator.dropApproved` | `deploy-engineer` | kacho · `deploy/helm/notify/**`, `deploy/helm/umbrella/**`, `deploy/tests/helm/{notify-rollout-and-secret-mount-test.sh,notify-availability-test.sh,notify-listeners-test.sh,notify-api-served-set-wave-check.sh}` | NTF4-117 (часть Основы) и NTF4-118 зелёные с инъекциями; перепись портов — 2 и 1; УК4-29; предикат посадки исхода (б) Е10: `git -C kacho log --first-parent -m --diff-filter=A --format=%H <ветка эпика> -- deploy/helm/notify/templates/deployment-api.yaml \| tail -1` → слияние C запроса волны, и на C проба З9 печатает строк закрытой записи у `notify-api` ≥ 1 (замысел §2а) — ретроспективный контроль; держатель — шаг `deploy/tests/helm/notify-api-served-set-wave-check.sh` на сведённой голове волны до запроса в ветку эпика (замысел §2а, R9-2): дельта к `git merge-base HEAD origin/<ветка эпика>` добавляет `deployment-api.yaml` и проба З9 даёт `notify-api rows=0` → код 1; строки нет или проба красная → код 2; инъекции: голова с `deployment-api.yaml` без S2-B7 → 1, близнец с S2-B7 → 0, голова без добавления файла → 0 | S3-C2н; S3-C7н (шаг читает строку пробы З9); Е11; один запрос волны с S2-B7 (Е10) | M |
-| S3-C7н | проба З9 по корням и графу импортов. У `notify-api` один вызов носителя, строки записи — от NTF-3 | `go-implementer` | kacho · `services/notify/servesurface_test.go`, `services/notify/servesurface_ledger.go` | DoD S3 п.8 в части Основы: проба зелёная, две инъекции красные; гейт паритета монтирования зелёный; знаменатель — корни (2) и вызовы носителя, а не строки записи, число строк у `notify-api` напечатано, инъекция «`Register…Server` вне записи в корне `notify-api`» красная и на дереве без строк (RV8-07); число строк печатается строкой `servesurface: root=notify-api rows=<N>` — её читает шаг волны S3-C6н | S3-C2н; до S2-B7 `issue-2918` — общий файл `servesurface_ledger.go` (RV9-02); тот же запрос волны | M |
-| S3-C8н | сквозная NTF4-108 на П1 | `qa-test-engineer` | сквозные пробы kacho | зелёная с числом исполненного на сведённой голове волны до запроса в ветку эпика | S3-C5, S3-C6н, S2-B7 `issue-2918` — та же волна (Е10); Е11 | S |
+**Волна Н4-О** — kacho, ветка волны `2919-wave-ntf4-carrier`, база — голова `2914-notify`. Полосы: S3-C2н →
+S3-C6н; S3-C4н, S3-C5, S3-C7н параллельно (общих путей нет). Один запрос волны в `2914-notify`. Пинов не
+поднимает (§0 «Окна пина NTF-3»: предикат `go.mod` → пусто), поэтому окна В-2 и В-5 её не держат. Старт —
+после Е12 (общие пути с линией A NTF-1) и не одновременно с волной соседа на общих путях (§0): с В-3 NTF-3
+общие `services/notify/cmd/notify-api/**` (S2-B7), `deploy/helm/notify/**` и `deploy/tests/helm/**`
+(S2-B10a). S3-C8н — шаг на стенде после вливания волны и выкатки, не полоса запроса.
 
-Порядок: Х5 (голова линии corelib) → S3-C2н → S3-C7н → S2-B7 `issue-2918` на голове: S3-C7н и S2-B7 пишут
-`services/notify/servesurface_ledger.go`, запись З9 и её проба заводятся с нулём строк у `notify-api`, S2-B7
-добавляет строки к существующей записи (RV9-02). S3-C4н, S3-C5 параллельно после S3-C2н, S3-C6н — после
-S3-C7н. Общих путей у C4н, C5, C6н, C7н нет: C4н — `gateway` и `internal/repohygiene`, C5 — `deploy/scripts`,
-C6н — `deploy/helm` и `deploy/tests/helm`, C7н — `servesurface*`. S3-C4н ждёт S3-C2н, потому что модуль kacho
-один и пин corelib поднимает только S3-C2н (Е8). S3-C8н — последней, на сведённой голове после S3-C5, S3-C6н
-и S2-B7 (замысел §2а «Место S3-C8н»). S3-C2н, S3-C6н, S3-C7н, S3-C8н и S2-B7 — один запрос волны (Е10);
-S3-C4н и S3-C5 — в нём же: маршрут NTF-3 ставит все полосы части носителя в волну Н3-Ф3а (Е11).
+**Неделимая цепочка.** S3-C2н → S3-C6н садятся одним запросом: init-контейнер `migrate` у `notify-api`
+(S3-C6н) без замка мигратора (S3-C2н) дал бы параллельный накат двух развёртываний без исключения
+(замысел З18 «Миграции»).
 
-**Что меняется в строках §2 после Основы.** Строки S3-C2, S3-C4, S3-C6, S3-C7 после Основы делают
-только то, чего нет в их «н»-строке, и зависят от неё. Строки X5 и S3-C5 исполнены в Основе целиком.
-Ребро тега X5 §2 «S2-B1 посажена» остаётся: в Основе тег Х5 не выпускается, пин — на голову линии (Д64, Е9). Перед стартом S3 после Основы
-`notify_api_root` = `present` (замысел §2а).
+Каждая полоса кода сдаёт сверх предиката: `go build ./...`, `go vet ./...`, `go test -race` своих пакетов и
+`make lint` зелёные числом исполненного; проба с ID сценария — красная на голове волны до кода, исход
+напечатан (§0, ban #12).
+
+**S3-C2н — замок мигратора, `RequireApplied`, пробы носителя (З18, З22; приёмка §0а п.1, п.2).**
+- исполнитель: `go-implementer` (корень есть — `service-scaffolder` не нужен). Где: kacho, ветка волны Н4-О.
+- пути: `services/notify/cmd/migrator/**` (замок); `services/notify/internal/migrations/require.go` и его
+  `_test.go` (функция `RequireApplied`, новых миграций нет); `services/notify/cmd/notify-api/**` (вызов
+  `RequireApplied` до подъёма слушателей, пробы); `internal/repohygiene/bootpostureform_test.go` (УК4-26).
+- after: Е12 не нужна (путей линии A нет); не одновременно с В-3 NTF-3 (`cmd/notify-api/**`); Е2 (а) как в
+  строке S3-C2 §2; пин corelib — C0 базы (`dropguard.GooseApplied`, `migratorrun` в нём; предикат §0 → пусто).
+- предмет: корень мигратора до `migratorrun.Runner.Up` берёт `pg_advisory_lock(hashtext('kacho_notify.migrate'))`
+  на отдельном соединении с `lock_timeout = 5m` и отпускает после `Up`; `migrations.RequireApplied(ctx, pool)` —
+  по каждой версии `migrations.FS` через `dropguard.GooseApplied` на `*sql.DB` из `stdlib.OpenDBFromPool`,
+  «схема не прочитана» — отдельный отказ от «версия не применена», разрыв соединения замка — ненулевой выход
+  (строка Д26 · 3); `notify-api` зовёт её до подъёма слушателей; AST-держатель УК4-26 — полей `ListenerForm` и
+  `NoServedServices` вне `servicehost.PostureOf` в не-тестовом дереве kacho нет; держатель Р16 в части
+  загрузчика `notify-api` — десять ручек стадии S3 и (н1)–(н4), незаданная — отказ с именем, вне границы —
+  отказ с границей, шестая–девятая инъекции Р16 (DoD S3 п.7 в части Основы).
+- сценарии и заказы: NTF4-92, NTF4-119 (а)–(г), NTF4-122, NTF4-123 (в базе — зелёная), NTF4-124; УК4-26;
+  УК4-28 в вариантах Д26 · 3. Испытательная регистрация NTF4-122 (RV8-08): дескриптор регистрируется в
+  `protoregistry.GlobalFiles` один раз на процесс (`sync.Once` или `TestMain`), путь файла не пересекается с
+  `proto/kacho/cloud/notify/v1/`, фикстура только в `_test.go` или `internal/testkit`.
+- готово, когда: перечисленные зелёные числом исполненного, NTF4-122 — с близнецом; УК4-28: старт на схеме
+  без версии, встроенной в бинарь → отказ с именем версии, близнец после наката → готов; УК4-26 печатает
+  число осмотренных файлов и красный на инъекции литерала `ListenerForm:` в корне `notify-api`;
+  `git -C kacho grep -c 'pg_advisory_lock' <голова> -- services/notify/cmd/migrator/` ≥ 1.
+- уровень · размер: R2 (`lane-tier.sh`: путь `internal/migrations/`) · M.
+
+**S3-C4н — край: `nop` → `notify`, только внутренний, гейты поверхности (З19; приёмка §0а п.5).**
+- исполнитель: `api-gateway-registrar`. Где: kacho, ветка волны Н4-О.
+- пути: `gateway/internal/opsproxy/proxy.go`, `gateway/internal/opsproxy/internal_only_backend_test.go`,
+  `gateway/internal/config/**` (только проба загрузчика DoD S3 п.8а, если её нет на базе),
+  `gateway/internal/proxy/notify_key_internal_refusal_test.go`, `internal/repohygiene/notifysurfaceparity_test.go`,
+  `internal/repohygiene/opprefixliteral_test.go`.
+- after: Е12 (линия A правит `gateway/internal/config/config.go` и `notify_test.go`); постоянная
+  `ids.PrefixOperationNotify` — в пине базы (§1а), пин не поднимается.
+- предмет: `prefixToBackend[ids.PrefixOperationNotify] = "notify"` — постоянная только из каталога corelib
+  `ids`, литерала у края нет; бэкенд `notify` объявлен `InternalOnly: true`, проверка
+  `listenerorigin.IsExternal` стоит до поиска соединения; `Internal*` notify на внешнем gRPC-входе отвергает
+  звено отказа маршрута; маршрутов трёх методов подавления и их строк в таблице прав нет (после Основы).
+  Соединение `notify` и адрес без умолчания — в базе (§1а): полоса их не правит, а утверждает пробой п.8а.
+- сценарии и заказы: NTF4-112; DoD S3 п.6 в части Основы, п.6а, п.6б, п.8а; УК4-29; инъекция CX4V-51 (в) и
+  маршрут на `…/Send` — красные.
+- готово, когда: перечисленные зелёные; проба п.6а утверждает происхождение и выбор соединения `notify`
+  (RV8-06); гейт `opprefixliteral_test.go` печатает число осмотренных файлов, зелёный на дереве, красный на
+  инъекции литерала `"nop"` ключом записи в копии `gateway/internal/opsproxy/proxy.go`, близнец с
+  `ids.PrefixOperationNotify` зелёный; значение литерала сравнивается после `strconv.Unquote`, пакет
+  `gateway/internal/opsproxy` из обхода не исключён, вторая инъекция `const prefixOperationNotify = "nop"` в
+  крае — красная (RV9-04); `git -C kacho grep -n 'ids.PrefixOperationNotify' <голова> -- gateway/internal/opsproxy/proxy.go` → 1.
+- уровень · размер: R2 (`gateway/`) · M.
+
+**S3-C5 — гейт посадки: строки по развёртыванию, подперечень, форма (З20; приёмка §0а п.4).**
+- исполнитель: `deploy-engineer`. Где: kacho, ветка волны Н4-О.
+- пути: `deploy/scripts/{assert-production-posture.sh,listener-form-posture-inject.sh,run-injection-proofs.sh}`,
+  `deploy/tests/helm/posture-listener-form-test.sh`.
+- after: Е12 — линия A заводит строку на процесс (`kacho-notify`, `kacho-notify-api`, `kacho-notify-probe`),
+  суд `listener_form` и `deploy/tests/helm/posture-listener-form-test.sh`; полоса стоит на них.
+- предмет: первым шагом — перепись букв NTF4-109 (а)–(м) против гейта и пробы линии A на голове волны:
+  буква → держится (тест и строка) · нет; недостающее — по З20, без второго разбора самоотчёта (программа
+  вердикта вынимается из гейта, как у пробы линии A).
+- сценарии и заказы: NTF4-109 (а)–(м) на строках, захваченных прогоном гейта на стенде, где `notify-api`
+  поднят (либо фикстурой пробы линии A с теми же ключами), — живой прогон в S3-C8н; УК4-30, УК4-31.
+- готово, когда: девять букв красные, (з), (к), (м) зелёные; перепись букв напечатана в отчёте полосы.
+- уровень · размер: R1 · M.
+
+**S3-C6н — чарт `notify-api`: перекат, `migrate`, рендер-гейты (З21; приёмка §0а п.6).**
+- исполнитель: `deploy-engineer`. Где: kacho, ветка волны Н4-О после S3-C2н.
+- пути: `deploy/helm/notify/templates/api-deployment.yaml`, `deploy/helm/notify/values.yaml`,
+  `deploy/helm/umbrella/**` (только если values зонтика задают ключи `notify.api`),
+  `deploy/tests/helm/{notify-rollout-and-secret-mount-test.sh,notify-availability-test.sh,notify-listeners-test.sh}`.
+- after: S3-C2н (замок мигратора — та же волна, неделимо); Е12 (линия A правит `values.yaml` и
+  `configmap.yaml` чарта); не одновременно с В-3 NTF-3 (S2-B10a — `deploy/helm/notify/**`); Е14 — только для
+  утверждения NTF4-117 об окружении.
+- предмет: `strategy: RollingUpdate`, `maxUnavailable: 0`, `maxSurge: 1`; init-контейнер `migrate` — тот же, что
+  у `notify-sender` (`deploy/helm/notify/templates/deployment.yaml`, контейнер `migrate`), без ключа
+  `migrator.dropApproved` (его заводит S1-A8); рендер-гейт `notify-rollout-and-secret-mount-test.sh` —
+  утверждения NTF4-117 части Основы об учётках двух развёртываний и случаи (7)–(9); `notify-availability-test.sh`
+  судит оба развёртывания закрытым перечнем (реплики ≥ 2, PDB с селектором ровно своих подов);
+  `notify-listeners-test.sh` — перепись портов: `notify-api` 2, `notify-sender` 1. Объекта ключа отпечатка,
+  секрета почты и ключа DKIM `notify-api` не монтирует.
+- сценарии и заказы: NTF4-117 (часть Основы), NTF4-118; УК4-29.
+- готово, когда: перечисленные зелёные с инъекциями, число судимых развёртываний напечатано (2);
+  `helm template` зонтика зелёный; утверждение NTF4-117 об окружении — по Е14.
+- уровень · размер: R2 (чарт, посадка) · M.
+
+**S3-C7н — проба З9: инъекция в корне `notify-api` (DoD S3 п.8 в части Основы; RV8-07).**
+- исполнитель: `go-implementer`. Где: kacho, ветка волны Н4-О.
+- пути: `services/notify/servesurface_test.go`.
+- after: — (проба и запись — в базе, §1а; запись `servesurface_ledger.go` полоса не правит).
+- предмет: в `TestNTF1G19Injection` — случай «`Register…Server` вне записи в корне `notify-api`» → находка
+  «сервис вне ведомости»; близнец — регистрация сервиса, названного строкой `cmd/notify-api`; утверждение
+  «у `notify-api` один вызов точки входа носителя, `grpc.NewServer` — 0 у обоих развёртываний».
+- сценарии: DoD S3 п.8 в части Основы — две первые инъекции (вторая — `grpcsrv.NewServer` в `cmd/notify` —
+  в базе).
+- готово, когда: проба зелёная на дереве, новая инъекция красная, близнец зелёный, трижды подряд.
+- уровень · размер: R0 · S.
+
+**S3-C8н — NTF4-108 на П1 (шаг на стенде после волны).**
+- исполнитель: `qa-test-engineer`; выкатку перед ним делает `deploy-engineer` шагом после вливания волны.
+- пути: файлов дерева нет; исход — в отчёте шага и в задаче `#2919`.
+- after: волна Н4-О влита и выкачена на П1; Е13 (Given NTF4-108 части Основы — сервисы NTF-3 на носителе).
+- предмет: `make -C deploy assert-production-posture` на П1; строки самоотчёта `notify-api` и `notify-sender`;
+  перепись портов; захват строк для живого прогона NTF4-109.
+- сценарии: NTF4-108; NTF4-109 на захваченных строках.
+- готово, когда: гейт зелёный с числом осмотренных развёртываний, `notify-sender` и `notify-api` среди них;
+  ключи строк по NTF4-108; перепись портов 2 и 1.
+- уровень · размер: R0 · S.
+
+**Что меняется в строках §2 после Основы.** Строки S3-C2, S3-C4, S3-C6, S3-C7 после Основы делают только то,
+чего нет ни в базе (§1а), ни в их «н»-строке, и зависят от неё. Строка S3-C5 исполнена в Основе целиком.
+Перед стартом S3 после Основы `notify_api_root` = `present` (§1а). Пути `services/notify/internal/apiserver/**`
+в строках S3 после Основы — раскладка З1 замысла; на дереве обработчики `notify-api` живут в
+`services/notify/internal/apps/kacho/api/<ресурс>/`, загрузчик — `services/notify/cmd/notify-api/internal/config/`
+(NTF-5). Это расхождение замысла с деревом, а не выбор исполнителя: решает сверка перед стартом S3 (§0) по
+замыслу З1, З22.
 
 ## 3. Порядок и параллельность
 
-1. Х1 → S1-A1, S1-A6 параллельно → S1-A2, S1-A5, S1-A10 → S1-A3 → S1-A4 → S1-A7, S1-A8 → S1-A9.
+0. Волна Н4-О (§2б): после Е12, не одновременно с В-3 NTF-3; S3-C2н → S3-C6н; S3-C4н, S3-C5, S3-C7н
+   параллельно; затем шаг S3-C8н на стенде (после Е13). Пинов не поднимает. Полосы части носителя от S3-C1, X2
+   и стадий S1, S2 NTF-4 не зависят.
+1. S1-A1 → S1-A2, S1-A5, S1-A10 → S1-A3 → S1-A4 → S1-A7, S1-A8 → S1-A9 (X1 и S1-A6 — в базе, §1а).
    S1-A8 и S1-A10 стартуют также только после снятия Е7 (§1; снята Д28). S1-A1 и S1-A8 садятся в
    ствол одним запросом волны (§0).
-2. Х3 → Х4 → S2-B2 параллельно с S2-B1 → S2-B3.
-3. S3-C1 → Х2; Х5 → S3-C2 → S3-C3, S3-C4, S3-C5, S3-C6, S3-C7 параллельно (общих путей нет: C3 —
-   `apiserver/suppression`, C4 — `gateway`, C5 — `deploy/scripts`, C6 — `deploy/helm`, C7 —
-   `servesurface*`) → S3-C8, S3-C9.
+2. S2-B2 параллельно с S2-B1 → S2-B3 (X3, X4 — в пинах базы, подъёма нет).
+3. S3-C1 → X2 (kaname `484-notify`) → S3-C2 (нулевой шаг — пин kaname на голову с X2, после вливания В-5
+   NTF-3; §0 «Окна пина NTF-3») → S3-C3, S3-C4, S3-C6, S3-C7 параллельно (общих путей нет: C3 —
+   `apiserver/suppression`, C4 — `gateway`, C6 — `deploy/helm`, C7 — `servesurface*`; S3-C5 исполнена
+   в Основе целиком) → S3-C8, S3-C9. Остаток части носителя (п.0) посажен до S3-C2.
 4. S5, S6, S7 после S3. Общие пути у S5-D2 и S2-B1 (`deliver`) не пересекаются по времени. S6-E1 и
    S5-D1 правят корень `cmd/notify` в разных функциях, поэтому сводит их одна волна.
