@@ -31,9 +31,13 @@
 комментарии и пустые — их перечень STRUCTURAL.
 
 ВЕРДИКТ ПОРЧИ. Каждая гонится через `branch-audit-inject.sh` против
-испорченной копии. УБИТА — набор вышел кодом 1 (называются красные метки)
+испорченной копии (до первого красного — BRANCH_AUDIT_INJECT_FAILFAST=1;
+`--full` — весь набор и все красные метки). УБИТА — набор вышел кодом 1
 либо не завершился за предел BRANCH_AUDIT_MUTANTS_LIMIT (умолчание 1200 с;
 исход назван отдельно — «зависание»: порча зациклила обход).
+Убийство подтверждается ПОВТОРОМ набора: зелёный повтор — «НЕУСТОЙЧИВО»
+(красное дала проба, зависящая от часов или нагрузки), и такая порча идёт к
+доказательству эквивалентности как выжившая.
 ВЫЖИЛА — код 0. Выжившая без доказательства эквивалентности — отказ (код 1).
 
 ЭКВИВАЛЕНТНОСТЬ (--clone <путь>, можно несколько). Для клона снимается
@@ -49,6 +53,10 @@ BRANCH_AUDIT_PR_STATE_FILE; окно FRESH_MIN=0, NO_FETCH=1, ALL_FILES=1).
 ИСХОДЫ: 0 — каждая порча убита либо доказанно эквивалентна; 1 — выжившая без
 доказательства, расхождение с эталоном, отказ предпосылки или неполный обход;
 2 — порч ноль.
+
+Повтор с тем же эталоном: `--frozen <снимок>:<файл PR> --work <каталог>` —
+снимок, снятый прежним --clone (каталог snap-<имя> и snap-<имя>.prs.tsv в
+--work), эталон берётся из кэша --work.
 
 Запуск (одной командой, из корня воркспейса):
   python3 scripts/branch-audit-mutants.py -j 4 \\
@@ -495,8 +503,10 @@ def apply(src, lines, reg, m):
 INJECT_LIMIT = int(os.environ.get("BRANCH_AUDIT_MUTANTS_LIMIT", "1200"))
 
 
-def run_inject(path, tmp):
+def run_inject(path, tmp, failfast=False):
     env = dict(os.environ, TMPDIR=tmp)
+    if failfast:
+        env["BRANCH_AUDIT_INJECT_FAILFAST"] = "1"
     p = subprocess.Popen(["bash", INJECT, path], env=env, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, start_new_session=True)
     try:
@@ -559,9 +569,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-j", type=int, default=4, help="наборов инъекции одновременно")
     ap.add_argument("--clone", action="append", default=[], help="клон для доказательства эквивалентности")
+    ap.add_argument("--frozen", action="append", default=[],
+                    help="готовый снимок <каталог>:<файл состояний PR> (как делает --clone) — "
+                         "чтобы повторный прогон сверял с тем же эталоном")
     ap.add_argument("--work", default=None, help="каталог снимков и эталонов (кэш)")
     ap.add_argument("--list", action="store_true", help="перечень порч и покрытие, без прогона")
     ap.add_argument("--no-control", action="store_true", help="не гнать контрольный набор (только для отладки)")
+    ap.add_argument("--full", action="store_true",
+                    help="весь набор на каждую порчу (все красные метки), а не до первого красного")
+    ap.add_argument("--no-confirm", action="store_true",
+                    help="не повторять набор у убитой порчи (только для отладки)")
     ap.add_argument("ids", nargs="*")
     a = ap.parse_args()
 
@@ -630,7 +647,15 @@ def main():
             with open(path, "w", encoding="utf-8") as f:
                 f.write(built[m[0]])
             os.chmod(path, 0o755)
-            rc, reds, tail = run_inject(path, d)
+            rc, reds, tail = run_inject(path, d, failfast=not a.full)
+            if rc in (1, "hang") and not a.no_confirm:
+                # Убийство подтверждается повтором: красное от пробы, зависящей
+                # от часов или нагрузки, порчу не убивает (так AE «убивал» порчи,
+                # его не касавшиеся, пока окно FRESH_MIN не было снято).
+                rc2, reds2, tail2 = run_inject(path, d, failfast=not a.full)
+                if rc2 not in (1, "hang"):
+                    return m, path, "flaky", reds + ["повтор зелёный"], tail2
+                reds = reds + [x for x in reds2 if x not in reds]
             return m, path, rc, reds, tail
 
         res = []
@@ -638,6 +663,7 @@ def main():
             for fut in concurrent.futures.as_completed([ex.submit(one, m) for m in todo]):
                 m, path, rc, reds, tail = fut.result()
                 state = ("убита" if rc == 1 else "убита (зависание)" if rc == "hang"
+                         else "НЕУСТОЙЧИВО" if rc == "flaky"
                          else "ВЫЖИЛА" if rc == 0 else f"набор кодом {rc}")
                 print(f"{m[0]}\t{state}\t{' '.join(reds[:12])}{' …' if len(reds) > 12 else ''}\t{m[2]}", flush=True)
                 res.append((m, path, rc, reds))
@@ -646,12 +672,18 @@ def main():
         print(f"\nmutants: порч {len(res)}, убито {len(res) - len(survivors)}, выжило {len(survivors)}")
         if not survivors:
             return 0
-        if not a.clone:
+        if not a.clone and not a.frozen:
             print("mutants: выжившие без доказательства эквивалентности (нет --clone): "
                   + ", ".join(r[0][0] for r in survivors))
             return 1
 
         snaps = [snapshot(c, work) for c in a.clone]
+        for fz in a.frozen:
+            snap, prs = (os.path.abspath(x) for x in fz.split(":", 1))
+            refs_ = subprocess.run(["git", "-C", snap, "for-each-ref", "--format=%(objectname) %(refname)"],
+                                   stdout=subprocess.PIPE, check=True).stdout
+            snaps.append((os.path.basename(snap), snap, prs,
+                          hashlib.sha256(refs_ + open(prs, "rb").read()).hexdigest()[:16], refs_.count(b"\n")))
         sha = hashlib.sha256(src.encode()).hexdigest()[:16]
         refs = {}
         for name, snap, prs, key, nrefs in snaps:
