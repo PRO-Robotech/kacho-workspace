@@ -10,17 +10,18 @@ backend_port: 9090
 visibility: public
 domain: geo
 related_resource: "[[resources/geo-zone]]"
-methods_count: 6
+methods_count: 9
 async_methods: 0
 status: in-progress
 related_tickets:
   - "[[KAC/GEO-1]]"
+  - "[[KAC/issue-3092]]"
 tags:
   - rpc
   - kacho-geo
   - geo
   - geography
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "kacho 1266@0ca889983ee4 (git fetch 2026-10-10): перечень RPC и путей REST сверен с proto/kacho/cloud/geo/v1/zone_service.proto и internal_catalog_service.proto в обе стороны (git show); регистрация на крае — gateway/internal/restmux/mux.go (git show), allowlist — gateway/internal/allowlist/list.go; в main публичных мутаций нет; поля запросов и семантика построчно не пересматривались"
 ---
 
 # ZoneService + InternalZoneService (geo)
@@ -39,6 +40,13 @@ verified_against: "перечень RPC сверен с proto ствола redes
 |---|---|---|---|---|
 | Get | GetZoneRequest | Zone (lean) | sync | `geo.zones.get` (→ GEO-1: project-scope EXEMPT, follow-on) |
 | List | ListZonesRequest | ListZonesResponse | sync | фильтры `region_id`, `open_for_placement` |
+| Create | CreatePublicZoneRequest | Operation | — | `system_admin` на кластере, порог уверенности как у внутреннего близнеца (ADM-1, [[KAC/issue-3092]]) |
+| Update | UpdatePublicZoneRequest | Operation | — | то же |
+| Delete | DeleteZoneRequest | Operation | — | то же |
+
+> [!note] Публичные мутации — в ветке эпика `1266`, в `main` их нет
+> Внесены [[KAC/issue-3092]] (третья сборка волны-6, kacho#3104). Инфраструктурного блока публичный вход
+> не несёт: полная плоскость с инфраструктурой и `GetInternal` остаются у внутреннего близнеца.
 
 ## Admin methods (InternalZoneService, :9091)
 
@@ -55,18 +63,25 @@ verified_against: "перечень RPC сверен с proto ствола redes
 |---|---|---|
 | `GET /geo/v1/zones/{zone_id}` | Get | public |
 | `GET /geo/v1/zones` | List | public |
+| `POST /geo/v1/zones` | Create | public (ADM-1, #3092) |
+| `PATCH /geo/v1/zones/{zone_id}` | Update | public (ADM-1, #3092) |
+| `DELETE /geo/v1/zones/{zone_id}` | Delete | public (ADM-1, #3092) |
 | `POST /geo/v1/internal/zones` | Create | **internal-only** (:9091, ban #6) |
 | `PATCH /geo/v1/internal/zones/{zone_id}` | Update | **internal-only** |
 | `DELETE /geo/v1/internal/zones/{zone_id}` | Delete | **internal-only** |
 | `GET /geo/v1/internal/zones/{zone_id}` | GetInternal | **internal-only** |
 
-> Gateway internal-mux регистрация `/geo/v1/internal/…` + 4 read-RPC EXEMPT — follow-on
-> (`api-gateway-registrar`).
+> Край регистрирует внутренних близнецов только на внутреннем REST-слушателе (`gateway/internal/restmux/mux.go`,
+> сверено @`0ca889983ee4`); на внешнем эти пути не смонтированы.
 
 ## authz invariant
 
 Per-RPC `InternalIAMService.Check` энфорсится на **обоих** листенерах (internal НЕ освобождён,
 `security.md`). См. [[../edges/geo-to-iam-check]].
+
+## History
+
+- 2026-10-10 — публичные Create/Update/Delete (ZoneService) по ADM-1: [[KAC/issue-3092]], kacho#3104 → `1266` @`ad74c3ea01b5`; снято устаревшее «регистрация внутренних путей на крае — follow-on» (регистрация есть).
 
 ## See also
 

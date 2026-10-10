@@ -8,7 +8,7 @@ tags:
   - kacho-apigw
   - security
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался; 2026-10-10 — строки geo RegionService/ZoneService и iam ClusterService сверены git show kacho 1266@0ca889983ee4:gateway/internal/allowlist/list.go"
 ---
 
 # gateway/internal/allowlist — что вообще выставлено наружу
@@ -44,6 +44,17 @@ storage). Такое соотношение объёмов само по себ�
 > authz-Check: RPC, законно попавший в список, всё равно проходит проверку прав на своём
 > объекте. Точно так же отсутствие метода снаружи не даёт основания снять с него проверку
 > на внутреннем листенере.
+
+## Строки по задачам (ветка эпика `1266`, в `main` не влиты)
+
+- geo `RegionService` и `ZoneService`: к чтению добавлены `Create`/`Update`/`Delete` — публичное
+  администрирование каталога ([[KAC/issue-3092]]); `InternalRegionService`/`InternalZoneService` в перечне нет.
+- iam `ClusterService` — четыре метода публичного близнеца администраторов кластера
+  ([[KAC/issue-3093]], [[rpc/iam-cluster-service]]); `InternalClusterService` в перечне нет.
+
+## History
+
+- 2026-10-10 — строки geo и `ClusterService`: [[KAC/issue-3092]], [[KAC/issue-3093]], kacho#3104 → `1266` @`ad74c3ea01b5`.
 
 ## See also
 

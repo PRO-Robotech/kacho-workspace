@@ -11,13 +11,14 @@ protocol: go-module-pin
 status: stable
 related_tickets:
   - "[[issue-2778]]"
+  - "[[KAC/issue-3093]]"
 tags:
   - edge
   - dependencies
   - polyrepo
   - kacho-iam
   - proto
-verified_against: "`project/kacho` @f445aaaa554 (`main`, 2026-09-22): `go.mod:120` → `github.com/PRO-Robotech/kaname v0.4.1-0.20260917085954-16b5cadead2a`; импорт `github.com/PRO-Robotech/kaname/pkg/api/kaname/cloud/iam/v1` прочитан в `gateway/internal/clients/session_revocations_client.go`. Состав контракта построчно не пересматривался"
+verified_against: "2026-10-10: git show origin/main:go.mod (main @ffbe930dbefb) → v0.4.1-0.20261003010741-0dd03218a613 в строке 120; git show 0ca889983ee4:go.mod (ветка эпика 1266) → v0.4.1-0.20261008024157-8b0379e2a9c5 в строке 121, внесён коммитом fcaae93ecd (#3093). Прежде: `project/kacho` @f445aaaa554 (`main`, 2026-09-22): `go.mod:120` → `github.com/PRO-Robotech/kaname v0.4.1-0.20260917085954-16b5cadead2a`; импорт `github.com/PRO-Robotech/kaname/pkg/api/kaname/cloud/iam/v1` прочитан в `gateway/internal/clients/session_revocations_client.go`. Состав контракта построчно не пересматривался"
 ---
 
 # kacho → kaname: порождённый контракт приезжает пином, а не копией
@@ -26,10 +27,10 @@ verified_against: "`project/kacho` @f445aaaa554 (`main`, 2026-09-22): `go.mod:12
 **Вызываемый**: служба доступа `kaname` — отдельный продукт, не домен платформы.
 **Форма**: ребро **сборки**; на исполнении по нему идут gRPC-вызовы внутреннего слушателя.
 
-| ось | значение на 2026-09-22 |
+| ось | значение на 2026-10-10 |
 |---|---|
-| координата пина | `go.mod:120` платформы |
-| псевдоверсия | `v0.4.1-0.20260917085954-16b5cadead2a` |
+| пин в `main` | `v0.4.1-0.20261003010741-0dd03218a613` (`go.mod:120`) |
+| пин в ветке эпика `1266` | `v0.4.1-0.20261008024157-8b0379e2a9c5` (`go.mod:121`) — сборка 6b службы, [[KAC/issue-3093]] |
 | что импортируется | `pkg/api/kaname/cloud/iam/v1` — порождённый контракт домена доступа |
 
 ## Почему пин, а не сгенерированная копия
@@ -57,5 +58,8 @@ verified_against: "`project/kacho` @f445aaaa554 (`main`, 2026-09-22): `go.mod:12
 
 - 2026-09-22 — записка заведена. Повод: возврат полосы края назвал ребро
   `kaname/pkg/api/...iam/v1` пином затронутым, а дома у ребра в хранилище не было.
+- 2026-10-10 — пин в ветке эпика `1266` поднят до `8b0379e2a9c5` (публичный `ClusterService`,
+  [[rpc/iam-cluster-service]]) — [[KAC/issue-3093]], kacho#3104 @`ad74c3ea01b5`. Строка «значение на
+  2026-09-22» заменена: в `main` пин к этой дате уже `0dd03218a613`, записка этого не знала.
 
 #edge #dependencies #polyrepo #kacho-iam #proto

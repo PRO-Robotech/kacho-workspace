@@ -10,17 +10,18 @@ backend_port: 9090
 visibility: public
 domain: geo
 related_resource: "[[resources/geo-region]]"
-methods_count: 6
+methods_count: 9
 async_methods: 0
 status: in-progress
 related_tickets:
   - "[[KAC/GEO-1]]"
+  - "[[KAC/issue-3092]]"
 tags:
   - rpc
   - kacho-geo
   - geo
   - geography
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "kacho 1266@0ca889983ee4 (git fetch 2026-10-10): перечень RPC и путей REST сверен с proto/kacho/cloud/geo/v1/region_service.proto и internal_catalog_service.proto в обе стороны (git show); регистрация на крае — gateway/internal/restmux/mux.go (git show), allowlist — gateway/internal/allowlist/list.go; в main публичных мутаций нет; поля запросов и семантика построчно не пересматривались"
 ---
 
 # RegionService + InternalRegionService (geo)
@@ -39,6 +40,13 @@ admin-мутации возвращают **синхронно-завершён�
 |---|---|---|---|---|
 | Get | GetRegionRequest | Region (lean) | sync | `geo.regions.get` (→ GEO-1: project-scope EXEMPT, follow-on) |
 | List | ListRegionsRequest | ListRegionsResponse | sync | фильтр `open_for_placement` |
+| Create | CreatePublicRegionRequest | Operation | — | `system_admin` на кластере, порог уверенности как у внутреннего близнеца (ADM-1, [[KAC/issue-3092]]) |
+| Update | UpdatePublicRegionRequest | Operation | — | то же |
+| Delete | DeleteRegionRequest | Operation | — | то же |
+
+> [!note] Публичные мутации — в ветке эпика `1266`, в `main` их нет
+> Внесены [[KAC/issue-3092]] (третья сборка волны-6, kacho#3104). Инфраструктурного блока публичный вход
+> не несёт: полная плоскость с инфраструктурой и `GetInternal` остаются у внутреннего близнеца.
 
 ## Admin methods (InternalRegionService, :9091)
 
@@ -55,17 +63,25 @@ admin-мутации возвращают **синхронно-завершён�
 |---|---|---|
 | `GET /geo/v1/regions/{region_id}` | Get | public |
 | `GET /geo/v1/regions` | List | public |
+| `POST /geo/v1/regions` | Create | public (ADM-1, #3092) |
+| `PATCH /geo/v1/regions/{region_id}` | Update | public (ADM-1, #3092) |
+| `DELETE /geo/v1/regions/{region_id}` | Delete | public (ADM-1, #3092) |
 | `POST /geo/v1/internal/regions` | Create | **internal-only** (:9091, ban #6) |
 | `PATCH /geo/v1/internal/regions/{region_id}` | Update | **internal-only** |
 | `DELETE /geo/v1/internal/regions/{region_id}` | Delete | **internal-only** |
 | `GET /geo/v1/internal/regions/{region_id}` | GetInternal | **internal-only** |
 
-> Gateway internal-mux регистрация + 4 read-RPC project-scope EXEMPT — follow-on (`api-gateway-registrar`).
+> Край регистрирует внутренних близнецов только на внутреннем REST-слушателе (`gateway/internal/restmux/mux.go`,
+> сверено @`0ca889983ee4`); на внешнем эти пути не смонтированы.
 
 ## authz invariant
 
 Per-RPC `InternalIAMService.Check` энфорсится в цепочке интерсепторов **обоих** листенеров
 (internal НЕ освобождён, `security.md`). См. [[../edges/geo-to-iam-check]].
+
+## History
+
+- 2026-10-10 — публичные Create/Update/Delete (RegionService) по ADM-1: [[KAC/issue-3092]], kacho#3104 → `1266` @`ad74c3ea01b5`; снято устаревшее «регистрация внутренних путей на крае — follow-on» (регистрация есть).
 
 ## See also
 

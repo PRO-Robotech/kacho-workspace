@@ -16,6 +16,7 @@ status: test
 related_tickets:
   - "[[KAC/issue-661-kaname]]"
   - "[[KAC/issue-540-kaname]]"
+  - "[[KAC/issue-3093]]"
 tags:
   - rpc
   - kacho-iam
@@ -31,8 +32,9 @@ verified_against: "kaname 296@aa253fa9bcad (git ls-remote 2026-10-08): proto/kan
 воспользоваться ([[KAC/issue-661-kaname]]).
 
 **Состояние — `test`.** В ветке эпика `296`, в `main` службы не влито; задача #661 открыта (S1 в дереве,
-сценарии CAP-20 и CAP-21 приёмки переутверждены после сборки — PR kaname#674). Пин службы на краю и
-регистрация — kacho#3093; экраны консоли — kacho#3094.
+сценарии CAP-20 и CAP-21 приёмки переутверждены после сборки — PR kaname#674). Пин службы на краю (`8b0379e2a9c5`) и
+регистрация на внешнем слушателе края — [[KAC/issue-3093]], влиты в ветку эпика платформы `1266`
+(kacho#3104, `ad74c3ea01b5`); экраны консоли — kacho#3094.
 
 ## Методы
 
@@ -58,6 +60,10 @@ verified_against: "kaname 296@aa253fa9bcad (git ls-remote 2026-10-08): proto/kan
 
 - 2026-10-08 — заведена: служба внесена сборкой 6b волны-6 ([[KAC/issue-540-kaname]], PR kaname#668,
   `8b0379e2a9c5`); приёмка `cluster-admins-on-the-public-surface` — PR kaname#666 и #674.
+
+- 2026-10-10 — край платформы: четыре метода в allowlist и зарегистрированы на внешнем REST-слушателе,
+  пин службы `8b0379e2a9c5` — [[KAC/issue-3093]], kacho#3104 → `1266` @`ad74c3ea01b5` (сверено
+  `git show 0ca889983ee4:gateway/internal/allowlist/list.go` и `…/restmux/mux.go`); DoD-proof задачи нет.
 
 ## See also
 
