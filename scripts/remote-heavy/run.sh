@@ -147,7 +147,8 @@
 #     run.sh читает её у любого контейнера (dind — из lastState перезапуска).
 # Расхождение и отказ — 69, ns снимается и при --keep.
 #
-# ИСХОДНИКИ — git bundle ревизии и ствола, переданный в pod потоком kubectl exec
+# ИСХОДНИКИ — git bundle ревизии, всех веток origin и меток клона (как checkout
+# конвейера с fetch-depth: 0), переданный в pod потоком kubectl exec
 # (тот же канал, что kubectl cp). Токена нет вовсе: ни git, ни реестра — в
 # кластер не уходит ни одного секрета, а неотправленная ревизия доставляется так
 # же, как отправленная. Bundle несёт историю, поэтому проверки, читающие git
@@ -158,6 +159,21 @@
 # Образ golang:<go> берётся через зеркало Docker Hub (mirror.gcr.io) — у прямого
 # docker.io предел анонимных скачиваний на адрес узла, а входа в реестр нет. Пин
 # неоднозначен или не найден — 69, а не «какая-нибудь версия».
+#
+# СРЕДА (ws#996). Пробы, зовущие helm и node подпроцессом, без них в pod краснели
+# или отвечали «не выполнилось» (2026-10-10: 11 случаев gateway/deploy без helm,
+# генератор сюит internal/repohygiene без node), хотя конвейер их несёт. Профили
+# с go test (все, кроме lint) ставят их той версии, что конвейер ревизии: helm —
+# `version` шага azure/setup-helm, node — `node-version` шага actions/setup-node
+# (последний выпуск мажора, как ставит сам шаг); ключ берётся только у своего
+# шага; конвейер разбирается как YAML (python3 с yaml на машине запуска), любой
+# законной формой шага. Архив — с официального адреса выпусков, сумма —
+# опубликованная рядом. Шага нет — не ставится (строка это называет); пин
+# неоднозначен, вне формы, шаг есть без ключа или конвейер не разобран — 69 до
+# кластера. После установки — отдельная СВЕРКА PATH перед командой: helm и
+# node с версией пина обязаны быть на месте, иначе команда не запускается и
+# run.sh выходит 69 строкой «не выполнилось — среда: …». Так прогон без
+# инструмента не выдаётся ни за зелёный, ни за красный.
 #
 # DOCKER. Профили go-race, integration и ci-local несут боковой docker:dind (сокет
 # unix в общем томе pod, без TCP) — testcontainers поднимают контейнеры в нём.
@@ -177,7 +193,7 @@
 # нет). Это плата переноса, она видна во времени прогона.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, сеть
+# недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
 # команду в срок либо Job снят по сроку; 76 — команда оборвана
 # пределом памяти. 69, 75, 76 —
@@ -560,6 +576,57 @@ if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
     say "профиль lint: пина golangci-lint в конвейере $REPO на $SHA нет — версию не выбрать"; exit 69
 fi
 GO_IMAGE="$REGISTRY/golang:$GOVER"
+# step_pin <шаг uses> <ключ> <имя> — единственное значение `with.<ключ>` у шагов
+# `uses: <шаг>@…` конвейера ревизии (СРЕДА в шапке). Конвейер разбирается как YAML
+# (python3 с yaml), а не строками: порядок ключей шага и поточная форма
+# `{uses: …, with: {…}}` законны и при разборе строками терялись молча. Ключ
+# берётся ТОЛЬКО у своего шага: version у setup-kubectl — не пин helm. Код 1 —
+# шага нет; 2 — отказ, причина напечатана: значений больше одного, шаг есть, а
+# ключа (скаляра) у него нет — версию не выбрать, конвейер не разобран.
+# shellcheck disable=SC2016  # текст python, не оболочки
+STEP_PIN_PY='import sys, yaml
+u, k = sys.argv[1] + "@", sys.argv[2]
+try:
+    doc = yaml.safe_load(sys.stdin)
+except yaml.YAMLError as e:
+    print("конвейер не разобран как YAML: " + str(e).splitlines()[0]); sys.exit(3)
+vals, bare = set(), 0
+jobs = doc.get("jobs") if isinstance(doc, dict) else None
+for job in (jobs.values() if isinstance(jobs, dict) else []):
+    steps = job.get("steps") if isinstance(job, dict) else None
+    for st in (steps if isinstance(steps, list) else []):
+        if not isinstance(st, dict) or not str(st.get("uses", "")).startswith(u):
+            continue
+        w = st.get("with")
+        x = w.get(k) if isinstance(w, dict) else None
+        if isinstance(x, (str, int, float)) and not isinstance(x, bool) and str(x) != "":
+            vals.add(str(x))
+        else:
+            bare += 1
+for x in sorted(vals):
+    print(x)
+sys.exit(4 if bare else 0)'
+step_pin() {
+    local v rc
+    v="$(python3 -c "$STEP_PIN_PY" "$1" "$2" <<< "$WF" 2>&1)"; rc=$?
+    case "$rc" in
+        0) ;;
+        3) say "пин $3 на $SHA: $v — версию не выбрать"; return 2 ;;
+        4) say "пин $3 на $SHA: шаг $1 без скалярного with.$2 — версию не выбрать"; return 2 ;;
+        *) say "пин $3 на $SHA: разбор конвейера не исполнился (python3 с yaml, код $rc): $(head -n 1 <<< "$v")"; return 2 ;;
+    esac
+    [ -n "$v" ] || return 1
+    [ "$(wc -l <<< "$v")" -eq 1 ] || { say "пин $3 неоднозначен на $SHA: $(tr '\n' ' ' <<< "$v")— версию не выбрать"; return 2; }
+    printf '%s\n' "$v"
+}
+HELM_PIN=""; NODE_PIN=""
+if [ "$PROFILE" != lint ]; then
+    HELM_PIN="$(step_pin azure/setup-helm version helm)"; [ "$?" -eq 2 ] && exit 69
+    NODE_PIN="$(step_pin actions/setup-node node-version node)"; [ "$?" -eq 2 ] && exit 69
+    [[ -z "$HELM_PIN" || "$HELM_PIN" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин helm на $SHA вне формы vX.Y.Z: «$HELM_PIN»"; exit 69; }
+    [[ -z "$NODE_PIN" || "$NODE_PIN" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || { say "пин node на $SHA вне формы N[.N[.N]]: «$NODE_PIN»"; exit 69; }
+    [ -n "$HELM_PIN$NODE_PIN" ] || say "helm и node: пинов в конвейере ревизии нет — не ставлю и не сверяю (в конвейере их тоже не ставят)"
+fi
 
 # ── владелец и уборка прежних запусков (ЛОКАЛЬНАЯ УБОРКА в шапке) ──────────────
 # proc_start <pid> — время старта процесса (поле 22 /proc/<pid>/stat, в тиках).
@@ -888,14 +955,66 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
 # (опыт 2026-10-08: internal/check kaname — «jq не исполняется», 2 пробы красные
 # только в pod). Перепись `exec.Command("…")` по дереву kacho и kaname: git, go,
 # bash, make, tar — в образе; jq, python3 с yaml, psql/pg_dump — ставятся здесь;
-# helm, gh, buf, trivy, gitleaks — нет, их пробы в pod не равны конвейеру.
+# helm и node — СРЕДА ниже; gh, buf, trivy, gitleaks — нет, их пробы в pod не
+# равны конвейеру.
 [ "$PROFILE" = lint ] || PREP="$PREP; command -v jq >/dev/null || { echo \"remote-heavy: ставлю jq, python3-yaml, postgresql-client\" >&2; apt-get -qq update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y --no-install-recommends jq python3-yaml postgresql-client >/dev/null || pf \"jq, python3-yaml, postgresql-client не поставлены\"; }"
 [ "$PROFILE" = lint ] || [ "$PROFILE" = ci-local ] && [ -n "$LINT_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
+# СРЕДА: helm и node — версий пина конвейера ревизии, в /work/bin, с проверкой
+# контрольной суммы, опубликованной рядом с архивом. Отказ — «remote-heavy-prep:»,
+# то есть 69, а не красное.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+INSTALL_SH='# install-begin
+ha() { case "$(uname -m)" in x86_64) echo "$1";; aarch64|arm64) echo arm64;; *) return 1;; esac; }
+if [ -n "${HEAVY_HELM:-}" ]; then
+  echo "remote-heavy: ставлю helm $HEAVY_HELM" >&2
+  a="$(ha amd64)" || pf "helm: архитектура $(uname -m) не поддержана"
+  f="helm-$HEAVY_HELM-linux-$a.tar.gz"; mkdir -p /work/dl/helm || pf "каталог загрузки не создан"
+  ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://get.helm.sh/helm-$HEAVY_HELM-linux-$a.tar.gz" \
+    && echo "$(curl -fsSL --retry 3 "https://get.helm.sh/$f.sha256sum" | cut -d" " -f1)  $f" | sha256sum -c --quiet - \
+    && tar -xzf "$f" -C helm "linux-$a/helm" && mv "helm/linux-$a/helm" /work/bin/helm ) || pf "helm $HEAVY_HELM не поставлен"
+fi
+if [ -n "${HEAVY_NODE:-}" ]; then
+  a="$(ha x64)" || pf "node: архитектура $(uname -m) не поддержана"
+  v="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0] // empty")"
+  [ -n "$v" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
+  echo "remote-heavy: ставлю node $v (пин $HEAVY_NODE)" >&2
+  f="node-$v-linux-$a.tar.gz"; mkdir -p /work/dl /work/node || pf "каталог загрузки не создан"
+  ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://nodejs.org/dist/$v/$f" \
+    && curl -fsSL --retry 3 "https://nodejs.org/dist/$v/SHASUMS256.txt" | grep "  $f\$" | sha256sum -c --quiet - \
+    && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
+  for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
+fi
+rm -rf /work/dl
+# install-end'
+# Сверка среды — отдельно от установки и последней перед командой: она судит PATH,
+# а не то, что установка будто бы сделала. Маркеры — граница, по которой inject.sh
+# берёт текст из Job и исполняет его над поддельным PATH.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+TOOLS_SH='# tools-check
+tf() { echo "remote-heavy-prep: среда: $1" | tee /dev/termination-log >&2; exit 125; }
+if [ -n "${HEAVY_HELM:-}" ]; then
+  command -v helm >/dev/null 2>&1 || tf "helm $HEAVY_HELM (пин конвейера) нет в PATH — пробы, зовущие helm, не равны конвейеру"
+  hv="$(helm version --short 2>/dev/null)"
+  case "$hv" in "$HEAVY_HELM"|"$HEAVY_HELM+"*) ;; *) tf "helm в PATH — «$hv», пин конвейера $HEAVY_HELM";; esac
+fi
+if [ -n "${HEAVY_NODE:-}" ]; then
+  command -v node >/dev/null 2>&1 || tf "node $HEAVY_NODE (пин конвейера) нет в PATH — пробы, зовущие node, не равны конвейеру"
+  nv="$(node --version 2>/dev/null)"
+  case "$nv" in "v$HEAVY_NODE"|"v$HEAVY_NODE."*) ;; *) tf "node в PATH — «$nv», пин конвейера $HEAVY_NODE";; esac
+fi
+echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}" >&2
+# tools-end'
+[ "$PROFILE" = lint ] || PREP="$PREP
+$INSTALL_SH
+$TOOLS_SH"
+# exec — своей строкой: последняя строка сверки среды — комментарий-маркер, и
+# «; exec» после неё не исполнился бы никогда.
 PREP="$USERNS_SH
-$PREP; exec \"\$@\""
+$PREP
+exec \"\$@\""
 
 # dind без privileged (DOCKER в шапке): crun с выключенным cgroup-менеджером —
 # средой исполнения по умолчанию; отказ установки — код 1 бокового, и pod не
@@ -909,6 +1028,7 @@ exec dockerd --host=unix:///run/dind/docker.sock --registry-mirror=https://mirro
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
 FETCH='set -e; i=0; while [ ! -f /work/in.done ]; do i=$((i+1)); [ "$i" -le 600 ] || { echo "remote-heavy: исходники не доставлены за 600 с" >&2; exit 3; }; sleep 1; done
 git init -q /work/src; cd /work/src; git bundle unbundle /work/in.bundle >/dev/null
+git bundle list-heads /work/in.bundle | while read -r h r; do case "$r" in refs/remotes/*|refs/tags/*) git update-ref "$r" "$h" ;; esac; done
 git update-ref refs/heads/heavy-run "$HEAVY_SHA"
 [ -z "$HEAVY_MAIN" ] || git update-ref refs/remotes/origin/main "$HEAVY_MAIN"
 git -c advice.detachedHead=false checkout -q --detach "$HEAVY_SHA"
@@ -920,7 +1040,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
-    --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" \
+    --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" \
     --argjson cmd "$CMD_JSON" '{
   apiVersion: "batch/v1", kind: "Job",
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
@@ -944,7 +1064,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: [{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
@@ -960,7 +1080,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')"
+say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}, node ${NODE_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
@@ -990,7 +1110,10 @@ wait_bg() { BG="$1"; wait "$1"; local rc=$?; BG=""; return "$rc"; }
 # в своём пространстве имён живёт до конца сборки bundle.
 TMPREF="refs/remote-heavy/$OWNER"
 git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссылка на $SHA не создана"; exit 69; }
-git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" ${MAIN_SHA:+refs/remotes/origin/main} >/dev/null 2>&1; brc=$?
+# История — как у checkout конвейера с fetch-depth: 0: все ветки origin и метки, а
+# не только ствол (ws#996: гейты дерева читают ревизию, достижимую лишь из боковой
+# ветки, — `git show <sha>:<путь>`, — и без неё отвечали «не выполнилось»).
+git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" --remotes=origin --tags >/dev/null 2>&1; brc=$?
 git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
 POD=""; PLACED_AT=0
@@ -1077,6 +1200,9 @@ if [ "$RUN_ST" != terminated ]; then
     say "результат команды не прочитан: pod ${POD:-нет}, фаза ${PHASE:-нет}, Job ${reason:-без условия} — не выполнилось"; exit 69
 fi
 [ -z "$USERNS" ] || userns_refused "$USERNS"
+if [[ "$RUN_MSG" == "remote-heavy-prep: среда: "* ]]; then
+    say "команда не запускалась — не выполнилось — среда: ${RUN_MSG#remote-heavy-prep: среда: }"; exit 69
+fi
 if [[ "$RUN_MSG" == remote-heavy-prep:* ]]; then
     say "подготовка pod не удалась: ${RUN_MSG#remote-heavy-prep: } — команда не запускалась (не выполнилось)"; exit 69
 fi

@@ -73,6 +73,30 @@
 #      его pid; близнец O2b файл держат только предки прогона → молчание
 #   G1 остатки kill -9 (каталог, процесс, ns, ссылка) мёртвого владельца → сняты
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
+#   E1 ревизия с пинами helm и node в ci.yaml, профиль с go test → пины в окружении
+#      run, установка helm пина и node мажора пина с проверкой суммы, сверка среды
+#      перед командой, строка «Job создан» их называет (ws#996)
+#   E2 сверка среды ИСПОЛНЕНИЕМ над поддельным PATH: helm нет / не та версия /
+#      версия-префикс, node нет / не та / префикс → 125 и «среда: …» в
+#      termination-log; близнецы — верные версии и ревизия без пинов → 0
+#   E7 установка ИСПОЛНЕНИЕМ (двойник curl, настоящие архивы): оба пина, только
+#      node, только helm → 0 и инструменты в bin; сумма helm не сошлась, сумма
+#      node не сошлась, чужая архитектура → 125 с названной причиной; мажор →
+#      последний выпуск мажора; пин 26.1 при v26.11.x в индексе → v26.1.x (не
+#      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
+#   E8 пины законными формами YAML: ключи шага до uses, поточный шаг с
+#      ключом в кавычках → те же пины в окружении run (близнец E1)
+#   E9 шаг setup-helm без version, setup-node без node-version → 69 до кластера,
+#      шаг и ключ названы
+#   E10 пин node вне формы (lts/*) → 69, Job нет; E10b пин helm вне формы
+#      (latest) → 69, Job нет
+#   E3 два пина helm                        → 69 до кластера, причина названа
+#   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
+#   E5 ревизия без пинов                    → строка называет, что сверять нечего
+#   E6 run отказал сверкой среды            → 69 «не выполнилось — среда: …»
+#   H1 ревизия только на боковой ветке origin и метка → в bundle и ссылками в
+#      дереве pod (FETCH из Job исполняется), ствол и ревизия на месте, временной
+#      ссылки run.sh там нет — история как у checkout fetch-depth: 0 (ws#996)
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -95,11 +119,14 @@
 #   W10 узлы с -infra- при остатках мёртвого владельца → 69, уборка ns не звалась
 #
 # Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись)
+# Что набор краснеет на порче каждого решения среды и истории — mutants.py рядом
+# (REMOTE_HEAVY_RUN — путь испорченной копии run.sh).
 set -uo pipefail
 export LC_ALL=C
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUN="$SELF_DIR/run.sh"
+# REMOTE_HEAVY_RUN — испорченная копия run.sh от mutants.sh; иначе run.sh рядом.
+RUN="${REMOTE_HEAVY_RUN:-$SELF_DIR/run.sh}"
 BOX="$(mktemp -d)" || { echo "inject: каталог пробы не создан" >&2; exit 2; }
 trap 'rm -rf -- "$BOX"' EXIT
 
@@ -304,6 +331,90 @@ git -C "$SRC" add -A
 . "$SELF_DIR/../lib/sandbox-git-home.sh"
 sandbox_git_home "$BOX/ghome" || { echo "inject: корневой подписи нет — клон пробы не построен (не выполнилось)" >&2; exit 2; }
 sandbox_git -C "$SRC" commit -q -m probe
+# Ревизии с пинами среды конвейера (ws#996): pins — helm и node объявлены так, как
+# в ci.yaml продукта (setup-helm с version, setup-node с node-version; соседний
+# setup-kubectl со своим version — законный близнец, его version не пин helm);
+# pins2 — два разных пина helm; pins3 — пины законными формами YAML, которые
+# разбор строками терял молча; pins4 — шаг без ключа пина.
+pin_rev() {
+    git -C "$SRC" checkout -q -b "$1"
+    printf '%s' "$2" > "$SRC/.github/workflows/ci.yaml"
+    sandbox_git -C "$SRC" commit -q -am "$1"
+    git -C "$SRC" checkout -q -
+}
+pin_rev pins 'jobs:
+  lint:
+    steps:
+      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123  # v5
+        with:
+          version: v4.2.4
+      - uses: azure/setup-kubectl@4567  # v5
+        with:
+          version: v1.33.0
+  ui:
+    steps:
+      - uses: actions/setup-node@89ab  # v7
+        with:
+          node-version: '"'"'26'"'"'
+  charts:
+    steps:
+      - uses: azure/setup-helm@0123  # v5
+        with:
+          version: v4.2.4
+'
+pin_rev pins2 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: v4.2.4
+  charts:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: v3.17.0
+'
+pin_rev pins3 'jobs:
+  unit:
+    steps:
+      - name: helm
+        with:
+          version: v4.2.4
+        uses: azure/setup-helm@0123
+      - uses: azure/setup-kubectl@4567
+        with: {version: v1.33.0}
+  ui:
+    steps:
+      - {uses: actions/setup-node@89ab, with: {"node-version": "26"}}
+'
+pin_rev pins5 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: v4.2.4
+      - uses: actions/setup-node@89ab
+        with:
+          node-version: lts/*
+'
+pin_rev pins6 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: latest
+'
+pin_rev pins4 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+      - uses: actions/setup-node@89ab
+        with:
+          cache: npm
+'
 
 fresh() { rm -rf "$BOX/state"; mkdir -p "$BOX/state/ns"; }
 
@@ -465,6 +576,189 @@ fresh
 go_run u4 env FAKE_EXIT=125 FAKE_MSG="$USERNS_MSG" "${B[@]}" --short u4 -- true
 expect_rc U4 69
 expect_ns_gone U4 t1-heavy-u4
+
+# ── среда конвейера в pod: helm и node (ws#996) ─────────────────────────────
+# E1 ревизия с пинами, профиль с go test → Job несёт пины в окружении run, ставит
+#    helm пина и node мажора пина с проверкой контрольной суммы, сверка среды
+#    стоит перед командой; строка «Job создан» называет их
+fresh
+go_run e1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e1 -- true
+expect_rc E1 0
+EJ="$BOX/state/job.json"; cp "$EJ" "$BOX/e1-job.json" 2>/dev/null
+envv() { jq -r --arg n "$2" '.spec.template.spec.containers[] | select(.name == "run") | .env[] | select(.name == $n) | .value' "$1" 2>/dev/null; }
+if [ "$(envv "$EJ" HEAVY_HELM)" = v4.2.4 ] && [ "$(envv "$EJ" HEAVY_NODE)" = 26 ]; then ok
+else OUT="$EJ"; bad E1 "пины в окружении run: helm «$(envv "$EJ" HEAVY_HELM)», node «$(envv "$EJ" HEAVY_NODE)», ждали v4.2.4 и 26"; fi
+jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$EJ" > "$BOX/e1.cmd" 2>/dev/null
+# shellcheck disable=SC2016  # ищется буквальный текст подготовки
+if grep -q 'get.helm.sh/helm-$HEAVY_HELM-linux-' "$BOX/e1.cmd" && grep -q 'sha256sum -c' "$BOX/e1.cmd" \
+   && grep -q 'nodejs.org/dist/' "$BOX/e1.cmd" && grep -q 'SHASUMS256.txt' "$BOX/e1.cmd"; then ok
+else OUT="$BOX/e1.cmd"; bad E1 "установки helm и node с проверкой суммы в подготовке run нет"; fi
+if awk '/^# tools-check$/ { c = NR } /^exec "\$@"$/ { e = NR } END { exit !(c && e && c < e) }' "$BOX/e1.cmd"; then ok
+else OUT="$BOX/e1.cmd"; bad E1 "сверки среды перед командой нет либо exec команды не своей строкой (за маркером — комментарий)"; fi
+if grep -q 'Job создан: .*helm v4.2.4, node 26' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad E1 "строка «Job создан» не называет helm и node"; fi
+# E2 сверка среды ИСПОЛНЕНИЕМ: текст из Job, PATH поддельный
+sed -n '/^# tools-check$/,/^# tools-end$/p' "$BOX/e1.cmd" | sed "s#/dev/termination-log#$BOX/etl#g" > "$BOX/tools.sh"
+ET="$BOX/etools"; mkdir -p "$ET"
+fake_tool() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$ET/$1"; chmod +x "$ET/$1"; }
+# tools_case <случай> <helm|-> <node|-> <пин helm> <пин node> <код> [слово отказа]
+tools_case() {
+    rm -f "$ET"/* "$BOX/etl"
+    [ "$2" = - ] || fake_tool helm "$2"; [ "$3" = - ] || fake_tool node "$3"
+    OUT="$BOX/$1.out"
+    env -i PATH="$ET:/usr/bin:/bin" HEAVY_HELM="$4" HEAVY_NODE="$5" bash "$BOX/tools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$1" "$6"
+    if [ "$6" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: $7" "$BOX/etl" 2>/dev/null; then ok; else bad "$1" "отказ «среда: $7» не записан в termination-log"; fi
+    fi
+}
+if grep -q '^# tools-end$' "$BOX/tools.sh"; then ok; else OUT="$BOX/e1.cmd"; bad E2 "текста сверки среды в Job нет — исполнять нечего"; fi
+tools_case E2-helm-absent - v26.8.1 v4.2.4 26 125 helm
+tools_case E2-helm-other v3.17.0+gabc v26.8.1 v4.2.4 26 125 helm
+tools_case E2-helm-prefix v4.2.40+gabc v26.8.1 v4.2.4 26 125 helm
+tools_case E2-node-absent v4.2.4+g3900f43 - v4.2.4 26 125 node
+tools_case E2-node-other v4.2.4+g3900f43 v24.1.0 v4.2.4 26 125 node
+tools_case E2-node-prefix v4.2.4+g3900f43 v260.1.0 v4.2.4 26 125 node
+tools_case E2-legit v4.2.4+g3900f43 v26.8.1 v4.2.4 26 0
+tools_case E2-nopins - - "" "" 0
+# E7 установка ИСПОЛНЕНИЕМ: текст из Job, сеть — двойник curl, архивы настоящие.
+#    Оба пина → helm и node в bin; только node (helm без пина) → node ставится
+#    (опыт 2026-10-10: каталог загрузки создавался лишь веткой helm); сумма helm
+#    не сходится → отказ «helm … не поставлен»; архитектура чужая → отказ.
+sed -n '/^# install-begin$/,/^# install-end$/p' "$BOX/e1.cmd" > "$BOX/install.raw"
+if grep -q '^# install-end$' "$BOX/install.raw"; then ok; else OUT="$BOX/e1.cmd"; bad E7 "текста установки в Job нет — исполнять нечего"; fi
+IW="$BOX/iw"; IS="$BOX/istub"; IA="$BOX/iarch"
+# shellcheck disable=SC2016  # раскрывается в исполняемом тексте установки
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed "s#/work#$IW#g" "$BOX/install.raw"; } > "$BOX/install.sh"
+rm -rf "$IA" "$IS"; mkdir -p "$IA/linux-amd64" "$IS"
+printf '#!/bin/sh\necho v4.2.4+gprobe\n' > "$IA/linux-amd64/helm"; chmod +x "$IA/linux-amd64/helm"
+tar -czf "$IA/helm-v4.2.4-linux-amd64.tar.gz" -C "$IA" linux-amd64
+# Архивы node — у каждого выпуска свой node, печатающий свою версию: какой
+# выпуск поставлен, судится по node --version из bin, а не по строке установки.
+for nv in v26.11.1 v26.1.2 v26.1.0; do
+    mkdir -p "$IA/node-$nv-linux-x64/bin"
+    printf '#!/bin/sh\necho %s\n' "$nv" > "$IA/node-$nv-linux-x64/bin/node"; chmod +x "$IA/node-$nv-linux-x64/bin/node"
+    tar -czf "$IA/node-$nv-linux-x64.tar.gz" -C "$IA" "node-$nv-linux-x64"
+done
+cat > "$IS/curl" <<'STUB'
+#!/bin/bash
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+out() { if [ -n "$o" ]; then cat > "$o"; else cat; fi; }
+Z=0000000000000000000000000000000000000000000000000000000000000000
+case "$u" in
+  */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
+  *.sha256sum) a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ) | if [ -n "${STUB_BADSUM:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
+  # Как настоящий SHASUMS256.txt — строки всех архивов; при STUB_BADSUM_NODE сумма
+  # каждой строки не сходится, а имя файла на месте (grep строку находит).
+  */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-*.tar.gz ) | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
+  *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
+  *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
+esac
+STUB
+# shellcheck disable=SC2016  # раскрывается в двойнике uname
+printf '#!/bin/sh\necho "${STUB_ARCH_M:-x86_64}"\n' > "$IS/uname"
+chmod +x "$IS/curl" "$IS/uname"
+# install_case <случай> <пин helm> <пин node> <код> <что обязано быть в bin|слово отказа> [окружение…]
+install_case() {
+    local name="$1" h="$2" n="$3" want="$4" what="$5"; shift 5
+    rm -rf "$IW"; mkdir -p "$IW/bin"
+    OUT="$BOX/$name.out"
+    env PATH="$IS:$PATH" STUB_ARCH="$IA" HEAVY_HELM="$h" HEAVY_NODE="$n" "$@" bash "$BOX/install.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$name" "$want"
+    if [ "$want" -eq 0 ]; then
+        for t in $what; do
+            if [ -x "$IW/bin/$t" ] && "$IW/bin/$t" --version >/dev/null 2>&1; then ok; else bad "$name" "$t не поставлен в bin"; fi
+        done
+    elif ! grep -q "remote-heavy-prep: $what" "$OUT"; then bad "$name" "отказ «$what» не назван"; fi
+}
+install_case E7-both v4.2.4 26 0 "helm node"
+install_case E7-node-only "" 26 0 "node"
+install_case E7-helm-only v4.2.4 "" 0 "helm"
+install_case E7-badsum v4.2.4 26 125 "helm v4.2.4 не поставлен" STUB_BADSUM=1
+install_case E7-arch v4.2.4 26 125 "helm: архитектура" STUB_ARCH_M=s390x
+install_case E7-badsum-node "" 26 125 "node v26.11.1 не поставлен" STUB_BADSUM_NODE=1
+if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="$BOX/E7-badsum-node.out"; bad E7-badsum-node "node с несошедшейся суммой исполним из bin"; else ok; fi
+# node_installed <случай> <пин> <выпуск> — пин разрешён в <выпуск>: node из bin
+# печатает его (архив каждого выпуска несёт свой node).
+node_installed() {
+    install_case "$1" "" "$2" 0 "node"
+    local got; got="$("$IW/bin/node" --version 2>/dev/null)"
+    if [ "$got" = "$3" ]; then ok; else bad "$1" "пин $2 разрешён в «$got», ждали $3"; fi
+}
+node_installed E7-minor 26.1 v26.1.2
+node_installed E7-exact 26.1.0 v26.1.0
+if [ "$(cat "$BOX/E7-both.out" 2>/dev/null | grep -c 'ставлю node v26.11.1')" -eq 1 ]; then ok
+else OUT="$BOX/E7-both.out"; bad E7 "мажор 26 разрешён не в последний выпуск 26 (v26.11.1)"; fi
+# E8 пины законными формами YAML (ключи шага до uses, поточный шаг) → те же пины
+fresh
+go_run e8 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins3 --src "$SRC" --profile integration --short e8 -- true
+expect_rc E8 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_HELM)" = v4.2.4 ] && [ "$(envv "$BOX/state/job.json" HEAVY_NODE)" = 26 ]; then ok
+else OUT="$BOX/state/job.json"; bad E8 "пины формами YAML: helm «$(envv "$BOX/state/job.json" HEAVY_HELM)», node «$(envv "$BOX/state/job.json" HEAVY_NODE)», ждали v4.2.4 и 26"; fi
+# E9 шаг есть, ключа пина нет → 69 до кластера, шаг и ключ названы
+fresh
+go_run e9 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins4 --src "$SRC" --profile integration --short e9 -- true
+expect_rc E9 69
+if [ -e "$BOX/state/job.json" ]; then bad E9 "Job создан при шаге без пина"; else ok; fi
+if grep -q 'шаг azure/setup-helm без скалярного with.version' "$OUT"; then ok; else bad E9 "шаг helm без version не назван"; fi
+# E10 пин вне формы → 69 до кластера, Job нет, причина названа
+for c in "E10 pins5 node" "E10b pins6 helm"; do
+    read -r cn cref ctool <<< "$c"
+    fresh
+    go_run "$cn" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref "$cref" --src "$SRC" --profile integration --short e10 -- true
+    expect_rc "$cn" 69
+    if [ -e "$BOX/state/job.json" ]; then bad "$cn" "Job создан при пине вне формы"; else ok; fi
+    if grep -q "пин $ctool на .* вне формы" "$OUT"; then ok; else bad "$cn" "пин $ctool вне формы не назван"; fi
+done
+# E3 два пина helm в конвейере ревизии → 69 до кластера, причина названа
+fresh
+go_run e3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins2 --src "$SRC" --profile integration --short e3 -- true
+expect_rc E3 69
+if [ -e "$BOX/state/job.json" ]; then bad E3 "Job создан при неоднозначном пине"; else ok; fi
+if grep -q 'пин helm неоднозначен' "$OUT"; then ok; else bad E3 "причина не названа"; fi
+# E4 профиль lint на той же ревизии — go test нет, среду не ставит (близнец E1)
+fresh
+go_run e4 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile lint --short e4 -- true
+expect_rc E4 0
+e4cmd="$(jq -r '.spec.template.spec.containers[0].command[2]' "$BOX/state/job.json" 2>/dev/null)"
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! grep -q 'get.helm.sh' <<< "$e4cmd"; then ok
+else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
+# E5 ревизия без пинов — сверять нечего, строка это называет
+if grep -q 'helm и node: пинов в конвейере ревизии нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
+# E6 run отказал сверкой среды → 69 «не выполнилось — среда», а не код команды
+fresh
+go_run e6 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-prep: среда: helm v4.2.4 (пин конвейера) нет в PATH" bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e6 -- true
+expect_rc E6 69
+if grep -q 'не выполнилось — среда: helm v4.2.4' "$OUT"; then ok; else bad E6 "отказ среды не назван «не выполнилось — среда»"; fi
+
+# ── история как у клона конвейера (ws#996) ─────────────────────────────────
+# H1 конвейер берёт checkout с fetch-depth: 0 — все ветки origin и метки. Ревизия,
+#    достижимая лишь из боковой ветки origin (не предок ни ствола, ни HEAD), и
+#    метка обязаны доехать в bundle и стать ссылками дерева pod: FETCH из Job
+#    исполняется над доставленным bundle. Близнец — ствол и ревизия на месте.
+SIDE="$(git -C "$SRC" rev-parse pins2)"
+git -C "$SRC" update-ref refs/remotes/origin/main HEAD
+git -C "$SRC" update-ref refs/remotes/origin/side "$SIDE"
+git -C "$SRC" tag probe-tag pins
+fresh
+go_run h1 env FAKE_EXIT=0 "${B[@]}" --short h1 -- true
+expect_rc H1 0
+heads="$(git bundle list-heads "$BOX/state/bundle" 2>/dev/null)"
+if grep -q " refs/remotes/origin/side$" <<< "$heads" && grep -q " refs/tags/probe-tag$" <<< "$heads"; then ok
+else bad H1 "в bundle нет боковой ветки origin либо метки: $(tr '\n' ';' <<< "$heads")"; fi
+FW="$BOX/fw"; rm -rf "$FW"; mkdir -p "$FW"; cp "$BOX/state/bundle" "$FW/in.bundle"; touch "$FW/in.done"
+jq -r '.spec.template.spec.initContainers[] | select(.name == "fetch") | .command[2]' "$BOX/state/job.json" | sed "s#/work#$FW#g" > "$BOX/fetch.sh"
+OUT="$BOX/h1-fetch.out"
+( cd "$FW" && env HEAVY_SHA="$(git -C "$SRC" rev-parse HEAD)" HEAVY_MAIN="$(git -C "$SRC" rev-parse HEAD)" \
+    GIT_CONFIG_GLOBAL="$BOX/ghome/.gitconfig" sh "$BOX/fetch.sh" ) > "$OUT" 2>&1; frc=$?
+if [ "$frc" -eq 0 ] && [ "$(git -C "$FW/src" rev-parse -q --verify refs/remotes/origin/side)" = "$SIDE" ] \
+   && git -C "$FW/src" rev-parse -q --verify refs/tags/probe-tag >/dev/null \
+   && [ "$(git -C "$FW/src" rev-parse HEAD)" = "$(git -C "$SRC" rev-parse HEAD)" ] \
+   && [ "$(git -C "$FW/src" rev-parse refs/remotes/origin/main)" = "$(git -C "$SRC" rev-parse HEAD)" ]; then ok
+else bad H1 "дерево pod без боковой ветки, метки, ствола или ревизии (код FETCH $frc)"; fi
+fwrefs="$(git -C "$FW/src" for-each-ref --format='%(refname)')"
+if grep -q '^refs/remote-heavy/' <<< "$fwrefs"; then bad H1 "временная ссылка run.sh доехала в дерево pod"; else ok; fi
+git -C "$SRC" update-ref -d refs/remotes/origin/side; git -C "$SRC" update-ref -d refs/remotes/origin/main; git -C "$SRC" tag -d probe-tag >/dev/null
 
 # K2
 fresh
