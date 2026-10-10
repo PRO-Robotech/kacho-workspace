@@ -12,7 +12,7 @@
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
 # прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
-# EW1–EW16, OR1–OR10, TM1–TM4; что держит каждая —
+# EW1–EW16, OR1–OR10, TM1–TM9; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -45,11 +45,14 @@
 #      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
 #      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
 #      OR4, OR1, OR3, OR2;
-#   TM1–TM4. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
+#   TM1–TM9. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
 #      120 с, и его разделы совпадают с коммитным предикатом (TM1, TM2); ветка,
 #      чьи 3000 файлов несут блобы истории ствола, — за 30 с без поштучных
 #      вопросов к истории пути (TM3), а возврат прежнего узкого места красит её
-#      по времени (TM4);
+#      по времени (TM4); ускорители ws#995 сработали счётом, эталон их не
+#      применяет (TM5); мутанты кэша слияния и нормализации пачкой меняют вердикт
+#      самопробы (TM6, TM7); отказ целиком без поиска переименований — на пробе
+#      с накопительной веткой, равной эталону (TM8), и его мутант (TM9);
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -2212,6 +2215,100 @@ if mutate "$tm_m" '    history_blobs_once "$BA_SHARED/ans/fb" "${IDXTR[@]}" > "$
   fi
 else
   say "❌ TM4" "мутация не легла — строки обхода истории одним проходом в скрипте нет"; fail=1
+fi
+
+# TM5–TM9. Ускорители ws#995 на самопробе (AJ–AP): каждый сработал счётом, а
+# эталон поштучен (TM5); мутация каждого, чья ошибка меняет вердикт, красит
+# сверку режимов и меняет вердикт названной ветки (TM6, TM7, TM9); отказ
+# целиком без поиска переименований — на своей пробе с накопительной веткой,
+# потому что у самопробы ствол один и баз, отличных от базы главного ствола,
+# у неё нет (TM8, TM9).
+if grep -qE 'исход слияния взят из общего кэша [1-9]' <<<"$R_FAST" &&
+   grep -qE 'блобов целей переписи нормализовано пачкой [1-9]' <<<"$R_FAST" &&
+   grep -qE 'история путей одним обходом: ответов [1-9]' <<<"$R_FAST" &&
+   grep -qE 'исход слияния взят из общего кэша 0 раз' <<<"$R_EXACT" &&
+   grep -qE 'блобов целей переписи нормализовано пачкой 0;' <<<"$R_EXACT" &&
+   grep -qE 'история путей одним обходом: ответов 0;' <<<"$R_EXACT"; then
+  say "✅ TM5" "ускорители ws#995 сработали на самопробе (кэш слияния, нормализация пачкой, история путей одним обходом — все > 0), эталон их не применяет"
+else
+  say "❌ TM5" "ускоритель ws#995 не сработал на самопробе либо применён эталоном"
+  grep 'ускорение' <<<"$R_FAST$R_EXACT" | tr ';' '\n' | grep -E 'кэша|пачкой|обходом' || true; fail=1
+fi
+probe_mutant TM6 p-squashed \
+  $'      MERGE_SHARED=$((MERGE_SHARED + 1))\n      [ "$ANSWER" = 1 ] || continue' \
+  $'      MERGE_SHARED=$((MERGE_SHARED + 1))\n      continue' \
+  "исход слияния из общего кэша читается как «не поглощена»"
+probe_mutant TM7 p-dotname \
+  "        chunks[cur].append(line + b'\\n')" "        chunks[cur].append(b'x\\n')" \
+  "строки блоба, нормализованного пачкой, подменены"
+
+# TM8/TM9 — отказ целиком без поиска переименований. Накопительная ветка
+# release/r1 отходит от ствола раньше веток, поэтому её база с веткой — не база
+# главного ствола. p-relwhole — работа с переименованием и правкой, которую
+# принял ТОЛЬКО release/r1, и строку — со сдвигом: поглощение доказывает лишь
+# обратный патч целиком по базе release/r1 (пофайловые признаки — без
+# переименований — его не видят). p-relskip добавляет файл, которого в release/r1
+# нет: отказ целиком по её базе доказан перечнем без поиска переименований.
+RW="$TMP/relwhole"
+git init -q --bare "$TMP/relwhole-origin.git"
+git init -q -b main "$RW"
+cd "$RW"
+git config commit.gpgsign false
+git remote add origin "$TMP/relwhole-origin.git"
+mkdir -p wren; seq -f 'строка %g' 1 13 > wren/a.txt; printf 'w1\nw2\nw3\n' > wm.txt; printf 'снимаемое\n' > wd.txt
+git add . && git commit -qm "база"
+git checkout -qb release/r1
+git checkout -q main
+printf 'общее\n' > common.txt; git add common.txt && git commit -qm "общая правка, которую примет и release/r1"
+git checkout -qb p-relwhole main
+git mv wren/a.txt wren-dst.txt; sed -i '10s/.*/целиком 10 ветки/' wren-dst.txt
+git rm -q wd.txt; printf 'добавлено целиком\n' > wa.txt; sed -i '2s/.*/w2 ветки/' wm.txt
+git add wren-dst.txt wa.txt wm.txt && git commit -qm "работа, которую примет только release/r1"
+git checkout -qb p-relskip main
+printf 'только в ветке\n' > relskip.txt; git add relskip.txt && git commit -qm "файл, которого нет в release/r1"
+git checkout -q release/r1
+printf 'общее\n' > common.txt; git add common.txt && git commit -qm "общая правка"
+git mv wren/a.txt wren-dst.txt
+{ cat wren-dst.txt; echo; sed -n '7,9p' wren-dst.txt; echo 'целиком 10 ветки'; sed -n '11,13p' wren-dst.txt; } > wren.t
+mv wren.t wren-dst.txt
+git rm -q wd.txt; printf 'добавлено целиком\n' > wa.txt; sed -i '2s/.*/w2 ветки/' wm.txt
+git add wren-dst.txt wa.txt wm.txt && git commit -qm "release/r1 принял работу p-relwhole со сдвигом"
+git push -q origin main release/r1
+git fetch -q origin
+git checkout -q main
+git branch -q -D release/r1
+cd "$TMP"
+rw_run() { # $1 = исполняемый, далее — окружение → нормализованный вывод
+  local a=$1; shift
+  env BRANCH_AUDIT_ALL_FILES=1 BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 "$@" "$a" "$RW" 2>&1 |
+    grep -vE '^branch-audit: (замер|параллельных заданий|время прогона|ускорение|дольше всех)'
+}
+set +e
+RW_EXACT=$(rw_run "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+RW_FAST=$(rw_run "$AUDIT")
+RW_RAW=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 "$AUDIT" "$RW" 2>&1)
+set -e
+if [ -n "$RW_FAST" ] && [ "$RW_FAST" = "$RW_EXACT" ] &&
+   f_sec "$RW_FAST" "ВЛИТЫ" | grep -c '^   p-relwhole — ' >/dev/null &&
+   grep -qE 'стволов в сверке 2' <<<"$RW_FAST" &&
+   grep -qE 'отказ целиком доказан без поиска переименований [1-9]' <<<"$RW_RAW"; then
+  say "✅ TM8" "отказ целиком без поиска переименований сработал по базе release/r1, а пакетный вывод дословно равен эталону: p-relwhole поглощена release/r1"
+else
+  say "❌ TM8" "проба накопительной ветки: пакет разошёлся с эталоном, p-relwhole не во «ВЛИТЫ» либо отказ без поиска переименований не сработал"
+  diff <(echo "$RW_EXACT") <(echo "$RW_FAST") | head -8 || true
+  grep 'ускорение' <<<"$RW_RAW" | tr ';' '\n' | grep -E 'переименован' || true; fail=1
+fi
+rw_m="$TMP/rw-mutant.sh"
+if mutate "$rw_m" '        while IFS= read -r line; do refuse["$base|$line"]=1; done < <(whole_refusals "$pf.nr")' \
+                  '        for line in "${!TRUNKS[@]}"; do refuse["$base|$line"]=1; done'; then
+  set +e; rw_mut=$(rw_run "$rw_m"); set -e
+  if [ "$rw_mut" != "$RW_EXACT" ] && ! f_sec "$rw_mut" "ВЛИТЫ" | grep -c '^   p-relwhole — ' >/dev/null; then
+    say "✅ TM9" "мутация «отказ целиком без поиска переименований доказан всегда» красит TM8: p-relwhole выпала из «ВЛИТЫ»"
+  else
+    say "❌ TM9" "мутация «отказ целиком без поиска переименований доказан всегда» не видна — p-relwhole осталась во «ВЛИТЫ»"; fail=1
+  fi
+else
+  say "❌ TM9" "мутация не легла — строки отказа целиком без поиска переименований в скрипте нет"; fail=1
 fi
 
 echo

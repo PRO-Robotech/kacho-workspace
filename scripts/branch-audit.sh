@@ -165,6 +165,24 @@
 # них, сколько файлов пошло пакетом и сколько поштучно, сколько вопросов к
 # истории задано поштучно и какая ветка разбиралась дольше всех.
 #
+# ВРЕМЯ ОГРАНИЧЕНО (ws#995). 2026-10-10 перепись клона продукта трижды не
+# кончилась за 12+ минут. Причина установлена трассой с метками времени по
+# строкам, а не догадкой: признак (6б) звал `git log <стволы> --raw -- <путь>`
+# на каждый путь дельты — «пути × история стволов», 29722 вызова за прогон, у
+# ветки с 3694 файлами дельты 121 с из 149. Он растёт сверхлинейно: и от числа
+# путей, и от длины истории. Теперь ответ считается одним обходом истории на
+# прогон (history_blobs_once), а прочие узкие места той же трассы сняты так,
+# что вердикт не меняется: исход слияния одной головы со стволом не считается
+# дважды (местная ветка и её копия на origin), отказ целиком по базе
+# накопительной ветки доказывается до поиска переименований, блобы целей
+# переписи нормализуются пачкой. Замер 2026-10-10, один и тот же клон подряд, 16
+# заданий, без fetch: продукт (468 местных, 238 на origin, 10 стволов) — 503 с
+# прежней редакцией aed17155 и 242 с этой; служба управления доступом (101 и
+# 78, 4 ствола) — 27 и 22 с; вывод обеих редакций дословно один (кроме строк
+# возраста «N дн.»). Синтетический клон из 1105 ссылок, где одна ветка несёт
+# 3000 файлов с блобами истории ствола, — 16 с против прерванных по пределу
+# 120 с у прежней. Держит `scripts/branch-audit-inject.sh` (TM1–TM9).
+#
 # ЗАКОННЫЕ ФОРМЫ ЗАПИСИ ПРЕДМЕТА (ws#813, круг 4). Каждый разбор здесь читает
 # чужой вывод, и у каждого предмета больше одной законной записи. Форма, которую
 # разбор не знал, давала не красное и не зелёное, а молчание — и самое дорогое
@@ -616,10 +634,11 @@ else
   [ "$JOBS" -le 16 ] || JOBS=16
 fi
 case "$JOBS" in ''|*[!0-9]*|0) JOBS=1 ;; esac
-declare -A TRUNK_NO=() TREE_OF=()
+declare -A TRUNK_NO=() TREE_OF=() TRUNK_COMMIT=()
 for k in "${!TRUNKS[@]}"; do
   TRUNK_NO["${TRUNKS[$k]}"]=$k
   TREE_OF["${TRUNKS[$k]}"]=$(git rev-parse "${TRUNKS[$k]}^{tree}" 2>/dev/null || true)
+  TRUNK_COMMIT["${TRUNKS[$k]}"]=$(git rev-parse --verify --quiet "${TRUNKS[$k]}^{commit}" 2>/dev/null || true)
 done
 # Пакетная проверка патча читает ТЕКСТ отказа, и строка предупреждения о
 # пробелах несёт содержимое файла — её глушат. Исход проверки от этого не
@@ -641,6 +660,165 @@ esac
 #             Пути берутся с -z, то есть САМИ, а не в кавычках: у пути
 #             «qd/файл» каталог — «qd», а из кавычечной формы выходил «"qd», и
 #             файл ветки «qd» терял ответ, который поштучная форма находит.
+#   ans/fb/<ключ>.b — ответ о блобах пути (см. ниже): заранее, одним обходом.
+#
+# ИСТОРИЯ ПУТЕЙ ОДНИМ ОБХОДОМ (ws#995). Признак (6б) спрашивает у каждого пути
+# дельты `git log <стволы> --raw --no-renames -- <путь>` — упрощённый обход
+# истории по этому пути. Это «пути × история»: замер 2026-10-10 на клоне продукта
+# (10 стволов, 4095 коммитов их истории) — 29722 таких вызова за прогон, и у
+# ветки с 3694 файлами дельты 121 с из 149 (профиль трассой по строкам). Ответ от
+# ветки не зависит, поэтому он считается для ВСЕХ путей истории стволов сразу,
+# одним проходом её графа в топологическом порядке, тем же правилом упрощения,
+# что у git log с путём:
+#   * коммит с одним родителем (и корень) показывается, если менял путь, и
+#     передаёт обход родителю;
+#   * слияние, у которого путь тот же, что у первого родителя, идёт только к
+#     нему; иначе — к первому родителю, у которого путь тот же (по объекту и
+#     режиму, `cat-file`), а если такого нет, — ко всем; слияние не показывается
+#     (без -m у него нет диффа, а `--find-object` берёт только дифф);
+#   * путь — и сам файл, и каталог: образец пути берёт всё, что под ним.
+# Множество путей обхода — каждый путь из диффов истории и каждый его каталог;
+# у каждого — свой бит в маске коммита. Ответ пишется в тот же файл общего
+# кэша, что прежде писал поштучный вызов, и в той же форме, поэтому читатель не
+# изменился, а путь без записанного ответа (имя длиннее предела файловой
+# системы, путь не в печатной ASCII-форме) спрашивается поштучно, как раньше.
+# Равенство поштучной форме измерено по ВСЕМ путям истории стволов: 16680 путей
+# клона продукта и 6345 клона службы управления доступом — расхождений 0
+# (2026-10-10). Держит ws#995 в `branch-audit-inject.sh` (TM3, TM4), сверка
+# режимов — AJ.
+history_blobs_once() { # $1 = каталог ответов, далее — стволы → печатает число записанных ответов
+  python3 - "$@" <<'PY'
+import os, subprocess, sys
+
+def run(args):
+    return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True).stdout
+
+def printable(p):
+    return all(0x20 <= c <= 0x7e and c not in (0x22, 0x5c) for c in p)
+
+out_dir, tips = sys.argv[1], sys.argv[2:]
+order, parents = [], {}
+for line in run(['git', 'rev-list', '--topo-order', '--parents'] + tips + ['--']).split(b'\n'):
+    if line:
+        h, *ps = line.decode().split(' ')
+        order.append(h); parents[h] = ps
+tip_sha = run(['git', 'rev-parse'] + [t + '^{commit}' for t in tips]).decode().split()
+# Дифф не-слияния — к родителю, корня — по настройке log.showRoot, как у
+# поштучного вызова; слияния — к первому родителю: только чтобы знать, менялся
+# ли путь относительно него.
+raw = run(['git', 'log', '--no-show-signature'] + tips + ['--raw', '--no-renames', '--no-abbrev',
+           '--diff-merges=first-parent', '-z', '--format=C%H', '--'])
+diffs = {}; cur = None; meta = None
+for tok in raw.split(b'\0'):
+    if tok.startswith(b'\n'):
+        tok = tok[1:]
+    if meta is not None:
+        diffs[cur].append((tok, meta[2], meta[3])); meta = None
+    elif tok.startswith(b':'):
+        meta = tok.decode().split(' ')
+    elif tok.startswith(b'C'):
+        cur = tok[1:].decode(); diffs.setdefault(cur, [])
+    elif tok:
+        sys.exit('нераспознанная запись вывода git log')
+Q = {}
+for h, d in diffs.items():
+    if len(parents.get(h, ())) >= 2:
+        continue
+    for p, _, _ in d:
+        while True:
+            if p not in Q:
+                Q[p] = len(Q)
+            i = p.rfind(b'/')
+            if i <= 0:
+                break
+            p = p[:i]
+names = [None] * len(Q)
+for k, v in Q.items():
+    names[v] = k
+
+def entries(p):
+    r = []
+    while True:
+        if p in Q:
+            r.append(Q[p])
+        i = p.rfind(b'/')
+        if i <= 0:
+            return r
+        p = p[:i]
+
+cf = subprocess.Popen(['git', 'cat-file', '--batch-check=%(objectname) %(objectmode)'],
+                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+def state(c, p):
+    cf.stdin.write(c.encode() + b':' + p + b'\n'); cf.stdin.flush()
+    r = cf.stdout.readline()
+    if not r:
+        sys.exit('cat-file не ответил')
+    # «<коммит>:<путь> missing» несёт имя коммита — у отсутствия одно состояние.
+    return b'-' if r.endswith(b' missing\n') else r
+
+blobs = [set() for _ in range(len(Q))]
+ALL = (1 << len(Q)) - 1
+vis = {t: ALL for t in tip_sha}
+for h in order:
+    m = vis.pop(h, 0)
+    if not m:
+        continue
+    ps = parents[h]
+    if len(ps) < 2:
+        for p, a, b in diffs.get(h, ()):
+            for e in entries(p):
+                if (m >> e) & 1:
+                    blobs[e].add(a); blobs[e].add(b)
+        if ps:
+            vis[ps[0]] = vis.get(ps[0], 0) | m
+        continue
+    rel = set()
+    for p, _, _ in diffs.get(h, ()):
+        rel.update(entries(p))
+    relm = 0
+    for e in rel:
+        relm |= 1 << e
+    vis[ps[0]] = vis.get(ps[0], 0) | (m & ~relm)
+    for e in rel:
+        if not (m >> e) & 1:
+            continue
+        bit = 1 << e
+        own = state(h, names[e])
+        for pj in ps[1:]:
+            if state(pj, names[e]) == own:
+                vis[pj] = vis.get(pj, 0) | bit
+                break
+        else:
+            for pj in ps:
+                vis[pj] = vis.get(pj, 0) | bit
+cf.stdin.close()
+if cf.wait() != 0:
+    sys.exit('cat-file отказал')
+written = 0
+for e, p in enumerate(names):
+    if not printable(p):
+        continue
+    s = p.decode()
+    # Ключ — тот же, что у ba_key_of.
+    key = ('d' + s[:s.rfind('/')].replace('/', '/d') + '/f' + s[s.rfind('/') + 1:]) if '/' in s else 'f' + s
+    fn = os.path.join(out_dir, key + '.b')
+    try:
+        os.makedirs(os.path.dirname(fn), exist_ok=True)
+        with open(fn + '.once', 'w') as w:
+            for b in sorted(blobs[e]):
+                if b.strip('0'):
+                    w.write(':x x %s %s\n' % (b, b))
+        os.replace(fn + '.once', fn)
+        written += 1
+    except OSError:
+        try:
+            os.unlink(fn + '.once')
+        except OSError:
+            pass
+print(written)
+PY
+}
 IDXTR=()
 for tr in "${TRUNKS[@]}"; do [ -z "${TRUNK_IDX[$tr]+x}" ] || IDXTR+=("$tr"); done
 if [ "$EXACT" != 1 ]; then
@@ -668,6 +846,11 @@ if [ "$EXACT" != 1 ]; then
           END { printf "" > (d ".pairs"); printf "" > (d ".oids"); printf "" > (d ".dirs") }' &&
         : > "$BA_SHARED/hist.ok"
     ) &
+  fi
+  if [ "${#IDXTR[@]}" -gt 0 ] && command -v python3 >/dev/null 2>&1; then
+    mkdir -p "$BA_SHARED/ans/fb"
+    history_blobs_once "$BA_SHARED/ans/fb" "${IDXTR[@]}" > "$BA_SHARED/fb.n" 2>/dev/null &&
+      : > "$BA_SHARED/fb.ok" &
   fi
   wait
 fi
@@ -1212,8 +1395,10 @@ GEN_SKIPPED=0; NOT_EXAMINED=0
 UNABS_PROVEN=(); UNABS_UNDET=()
 classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
   local ref=$1 base f p bb tr found info pf k
-  local -A whole=() refuse=()
+  local -A whole=() refuse=() nrw=()
+  local mainbase
   UNABS_PROVEN=(); UNABS_UNDET=()
+  mainbase=$(git merge-base "$TRUNK" "$ref" 2>/dev/null || true)
 
   for k in "${!TRUNKS[@]}"; do
     tr=${TRUNKS[$k]}
@@ -1227,6 +1412,31 @@ classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
     # байт в байт, а до неё — пути в порядке и форме `--name-only`, так что
     # поиск переименований идёт один раз на базу, а не дважды.
     pf="$BA_TMP/whole.$base"
+    # ОТКАЗ ЦЕЛИКОМ — ДО ПОИСКА ПЕРЕИМЕНОВАНИЙ (ws#995). Поиск переименований в
+    # патче целиком — до 0,9 с на базу у ветки, ответвлённой до переезда
+    # дерева, а баз у ветки — по числу стволов с разной точкой ответвления
+    # (профиль клона продукта: 51 такой дифф на 12 веток, первая строка
+    # профиля). Отказ, доказанный перечнем ствола (whole_refusals), от поиска
+    # переименований не зависит: путь, который дифф без переименований
+    # называет добавленным и которого в стволе нет, в диффе с переименованиями
+    # — добавленный либо цель переименования или копии, и обратное «снять» не
+    # находит его в обоих; снятый и присутствующий в стволе — снятый либо
+    # источник переименования, и обратное «создать» упирается в него в обоих;
+    # изменённый и отсутствующий — изменённый либо источник копии, и изменять
+    # нечего в обоих. Поэтому отказ ищется сперва по дешёвому диффу без
+    # переименований, а дорогой патч считается, только если хоть одному стволу
+    # этой базы отказ не доказан. База главного ствола — исключение: её
+    # перечень путей (с переименованиями) нужен пофайловому разбору ниже, и
+    # патч с перечнем дешевле, чем тот же поиск переименований перечнем отдельно.
+    if [ "$EXACT" != 1 ] && [ "$base" != "$mainbase" ] && [ -z "${nrw[$base]+x}" ]; then
+      nrw[$base]=1
+      if git diff --raw --no-renames "$base" "$ref" > "$pf.nr" 2>/dev/null; then
+        while IFS= read -r line; do refuse["$base|$line"]=1; done < <(whole_refusals "$pf.nr")
+      fi
+    fi
+    if [ -z "${whole[$base]+x}" ] && [ -n "${refuse["$base|$k"]+x}" ]; then
+      APPLY_SKIP=$((APPLY_SKIP + 1)); WHOLE_NR=$((WHOLE_NR + 1)); continue
+    fi
     if [ -z "${whole[$base]+x}" ]; then
       whole[$base]=0
       if [ "$EXACT" = 1 ]; then
@@ -1631,6 +1841,7 @@ census_batch() { # $1 = ref; REM → CEN["$f"] = ok, добавлено, отс�
 
   # Строки цели: блоб — из общего кэша, прочее — прежним `git show` по САМОМУ
   # пути (кавычечная строка перечня git show не находит).
+  norm_blobs_batch < <(LC_ALL=C awk -F'\t' '$5 ~ / blob$/ { split($5, e, " "); print e[1] }' "$BA_TMP/cb.t")
   while IFS=$'\t' read -r i k tgt mv ent; do
     case "$ent" in
       *' blob') norm_blob "${ent%% *}"
@@ -1696,7 +1907,7 @@ shared_answer() { # $1 = вопрос → 0 и ANSWER, если ответ уж�
 }
 shared_store() { # $1 = вопрос; ANSWER — ответ
   local p="$BA_SHARED/ans/$1.r"
-  mkdir -p "${p%/*}" 2>/dev/null && printf '%s\n' "$ANSWER" > "$p" || true
+  { [ -d "${p%/*}" ] || mkdir -p "${p%/*}" 2>/dev/null; } && printf '%s\n' "$ANSWER" > "$p" || true
 }
 
 # apply_batch <ствол> — (6а) по всем файлам REM одной проверкой; применимые →
@@ -1774,18 +1985,112 @@ norm_blob() { # $1 = блоб → строки после ba_norm лежат в 
   fi
 }
 
+# norm_blobs_batch — то же для многих блобов сразу (ws#995). Поштучная форма —
+# пять процессов на блоб (cat-file, два звена sed, grep, sort): у ветки клона
+# продукта с 3134 целями переписи 90 с из 179 (профиль трассой по строкам).
+# Здесь блобы читает ОДИН `cat-file --batch`, через те же `sed` и `grep -v '^$'`
+# они идут ОДНИМ потоком, между блобами — строка-разделитель с меткой прогона
+# (звенья построчны и разделитель пропускают как есть), и поток режется обратно
+# по блобам. Строки те же, порядок — нет: сортировка ba_norm служит чтению
+# дампа, а счёт мультимножеств порядка не видит (ba_mset_*, census_batch).
+# Пачка берёт только блоб без NUL и с верной UTF-8: на прочем `grep` судит
+# «двоичность» по содержимому всего потока, и такой блоб остаётся norm_blob —
+# поштучно, как прежде. Локаль — та же, что у поштучной формы; не UTF-8 и не
+# ASCII — пачки нет. Разделителей обязано выйти ровно по числу блобов пачки,
+# иначе не пишется ничего. Нет python3 — пачки нет.
+NB_LOCALE=$(locale charmap 2>/dev/null || true)
+norm_blobs_batch() { # stdin — блобы → $BA_SHARED/norm/<блоб> для тех, что пачке по силам
+  local d="$BA_SHARED/norm" o
+  case "$NB_LOCALE" in UTF-8|ANSI_X3.4-1968) ;; *) cat > /dev/null; return 0 ;; esac
+  command -v python3 >/dev/null 2>&1 || { cat > /dev/null; return 0; }
+  while IFS= read -r o; do [ -e "$d/$o" ] || printf '%s\n' "$o"; done | LC_ALL=C sort -u > "$BA_TMP/nb.in"
+  [ -s "$BA_TMP/nb.in" ] || return 0
+  python3 - "$BA_TMP/nb.in" "$d" "$BASHPID" $'\001'"ba-norm-$$-$RANDOM-$RANDOM"$'\001' <<'NORM' > "$BA_TMP/nb.n" 2>/dev/null || true
+import os, subprocess, sys
+inp, d, pid, sep = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].encode()
+oids = [l.strip() for l in open(inp) if l.strip()]
+cf = subprocess.run(['git', 'cat-file', '--batch'], input=('\n'.join(oids) + '\n').encode(),
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True).stdout
+pos, take, parts = 0, [], []
+for o in oids:
+    nl = cf.index(b'\n', pos)
+    head = cf[pos:nl].split()
+    pos = nl + 1
+    if len(head) != 3 or head[1] != b'blob':
+        continue
+    n = int(head[2]); data = cf[pos:pos + n]; pos += n + 1
+    if b'\0' in data:
+        continue
+    try:
+        data.decode('utf-8')
+    except UnicodeDecodeError:
+        continue
+    take.append(o)
+    parts.append(sep + b' ' + o.encode() + b'\n')
+    parts.append(data if not data or data.endswith(b'\n') else data + b'\n')
+if not take:
+    sys.exit(0)
+out = subprocess.run("sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$'", shell=True,
+                     input=b''.join(parts), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+lines = out.split(b'\n')
+if lines and lines[-1] == b'':
+    lines.pop()
+chunks, cur = {}, None
+for line in lines:
+    if line.startswith(sep + b' '):
+        cur = line[len(sep) + 1:].decode()
+        if cur in chunks:
+            sys.exit(1)
+        chunks[cur] = []
+    elif cur is None:
+        sys.exit(1)
+    else:
+        chunks[cur].append(line + b'\n')
+if sorted(chunks) != sorted(take):
+    sys.exit(1)
+for o in take:
+    t = os.path.join(d, o + '.' + pid)
+    with open(t, 'wb') as w:
+        w.write(b''.join(chunks[o]))
+    os.replace(t, os.path.join(d, o))
+print(len(take))
+NORM
+  local nbn=0
+  read -r nbn < "$BA_TMP/nb.n" 2>/dev/null || nbn=0
+  case "$nbn" in ''|*[!0-9]*) nbn=0 ;; esac
+  NORM_BATCH=$((NORM_BATCH + nbn))
+}
+
 ABS_SRC=""
+# Исход слияния — свойство пары коммитов «ствол, голова», а не имени ветки: у
+# клона продукта 184 местные ветки из 198 с копией на origin несут ту же голову,
+# и их слияние со стволом считалось дважды — местной веткой и копией на origin
+# (ws#995; одно слияние ветки, ответвлённой до переезда дерева, — до 0,7 с поиска
+# переименований). Ответ общий для заданий: «1» — дерево слияния равно дереву
+# ствола, «0» — нет либо конфликт; недописанный ответ читается как неспрошенный.
+# Эталон (BRANCH_AUDIT_EXACT=1) сливает каждый раз.
 absorbed_where() { # $1 = ref [$2 = полная ссылка ствола, с которым не сверять] → ABS_SRC: имя ствола, поглотившего ветку, либо пусто
-  local ref=$1 skip=${2:-} tr out
+  local ref=$1 skip=${2:-} tr out rsha
   ABS_SRC=""
+  rsha=""
+  [ "$EXACT" = 1 ] || rsha=$(git rev-parse --verify --quiet "$ref^{commit}" 2>/dev/null || true)
   for tr in "${TRUNKS[@]}"; do
     [ -z "$skip" ] || [ "${TRUNK_FULL[$tr]:-}" != "$skip" ] || continue
     if delta_surely_nonempty "$tr" "$ref"; then MERGE_SKIP=$((MERGE_SKIP + 1)); continue; fi
-    MERGE_RUN=$((MERGE_RUN + 1))
-    out=$(git merge-tree --write-tree "$tr" "$ref" 2>/dev/null) || continue
-    if [ "$(printf '%s\n' "$out" | head -1)" = "${TREE_OF[$tr]}" ]; then
+    if [ -n "$rsha" ] && [ -n "${TRUNK_COMMIT[$tr]:-}" ] && shared_answer "mt/${TRUNK_COMMIT[$tr]}.$rsha"; then
+      MERGE_SHARED=$((MERGE_SHARED + 1))
+      [ "$ANSWER" = 1 ] || continue
       ABS_SRC=$tr; return 0
     fi
+    MERGE_RUN=$((MERGE_RUN + 1))
+    ANSWER=0
+    if out=$(git merge-tree --write-tree "$tr" "$ref" 2>/dev/null) &&
+       [ "$(printf '%s\n' "$out" | head -1)" = "${TREE_OF[$tr]}" ]; then
+      ANSWER=1
+    fi
+    [ -z "$rsha" ] || [ -z "${TRUNK_COMMIT[$tr]:-}" ] || shared_store "mt/${TRUNK_COMMIT[$tr]}.$rsha"
+    [ "$ANSWER" = 1 ] || continue
+    ABS_SRC=$tr; return 0
   done
   return 0
 }
@@ -1805,8 +2110,9 @@ undet_work=()
 examined_local=0; examined_remote=0; delta_checked=0
 sixth_checked=0; sixth_rescued=0
 census_asked=0; census_found=0; NOT_EXAMINED=0
-MERGE_RUN=0; MERGE_SKIP=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
-FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; FO_MISS=0; SLOWEST=""; SLOWEST_S=-1
+MERGE_RUN=0; MERGE_SKIP=0; MERGE_SHARED=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
+FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; FO_MISS=0; SLOWEST=""; SLOWEST_S=-1; WHOLE_NR=0
+NORM_BATCH=0
 
 # --- РАЗБОР ВЕТКИ — ЗАДАНИЕМ --------------------------------------------------
 # Всё, что стоит git-вызовов, считается в задании: признаки 1, 4, 5, 6, 7 и
@@ -1822,8 +2128,8 @@ audit_branch() { # $1 = номер, $2 = ветка → $BA_SHARED/r.<номер
   BA_TMP="$BA_SHARED/w.$i"; PATCH_TMP="$BA_TMP/p.diff"
   mkdir -p "$BA_TMP"
   census_asked=0; census_found=0; GEN_SKIPPED=0; NOT_EXAMINED=0
-  MERGE_RUN=0; MERGE_SKIP=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
-  FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; FO_MISS=0
+  MERGE_RUN=0; MERGE_SKIP=0; MERGE_SHARED=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
+  FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; FO_MISS=0; WHOLE_NR=0; NORM_BATCH=0
   UNABS_PROVEN=(); UNABS_UNDET=(); ABS_SRC=""
   git merge-base --is-ancestor "$ref" "$TRUNK" 2>/dev/null && ancestor=1
   ahead=$(git rev-list --count "$TRUNK".."$ref" 2>/dev/null || echo 0)
@@ -1834,9 +2140,10 @@ audit_branch() { # $1 = номер, $2 = ветка → $BA_SHARED/r.<номер
   bct=$(git log -1 --format=%ct "$ref" 2>/dev/null || echo 0)
   {
     printf 'A%s\nH%s\nT%s\nS%s\nC%s\n' "$ancestor" "$ahead" "$bct" "$ABS_SRC" "$classified"
-    printf 'N%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$census_asked" "$census_found" "$GEN_SKIPPED" \
+    printf 'N%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$census_asked" "$census_found" "$GEN_SKIPPED" \
       "$MERGE_RUN" "$MERGE_SKIP" "$FILES_FAST" "$FILES_LITERAL" "$APPLY_FALLBACK" \
-      "$FO_CALLS" "$TC_CALLS" "$(( SECONDS - t0 ))" "$CEN_BATCH" "$APPLY_SKIP" "$APPLY_SURE" "$NOT_EXAMINED" "$FO_MISS"
+      "$FO_CALLS" "$TC_CALLS" "$(( SECONDS - t0 ))" "$CEN_BATCH" "$APPLY_SKIP" "$APPLY_SURE" "$NOT_EXAMINED" "$FO_MISS" \
+      "$MERGE_SHARED" "$WHOLE_NR" "$NORM_BATCH"
     for e in ${UNABS_PROVEN[@]+"${UNABS_PROVEN[@]}"}; do printf 'P%s\n' "$e"; done
     for e in ${UNABS_UNDET[@]+"${UNABS_UNDET[@]}"}; do printf 'U%s\n' "$e"; done
     printf 'E\n'
@@ -1867,6 +2174,8 @@ load_result() {
             FO_CALLS=$((FO_CALLS + n[8])); TC_CALLS=$((TC_CALLS + n[9])); CEN_BATCH=$((CEN_BATCH + n[11]))
             APPLY_SKIP=$((APPLY_SKIP + n[12])); APPLY_SURE=$((APPLY_SURE + n[13]))
             NOT_EXAMINED=$((NOT_EXAMINED + n[14])); FO_MISS=$((FO_MISS + n[15]))
+            MERGE_SHARED=$((MERGE_SHARED + n[16])); WHOLE_NR=$((WHOLE_NR + n[17]))
+            NORM_BATCH=$((NORM_BATCH + n[18]))
             if [ "${n[10]}" -gt "$SLOWEST_S" ]; then SLOWEST_S=${n[10]}; SLOWEST=$b; fi ;;
         P*) UNABS_PROVEN+=("${line#P}") ;;
         U*) UNABS_UNDET+=("${line#U}") ;;
@@ -2006,10 +2315,10 @@ origin_hold() {
 remote_delta() { # $1 = номер, $2 = ветка origin → $BA_SHARED/d.<номер>: «пуста источник счёт-слияний счёт-доказанных»
   local i=$1 b=$2 v=0 src=-
   BA_TMP="$BA_SHARED/v.$i"; mkdir -p "$BA_TMP"
-  MERGE_RUN=0; MERGE_SKIP=0
+  MERGE_RUN=0; MERGE_SKIP=0; MERGE_SHARED=0
   absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"
   [ -z "$ABS_SRC" ] || { v=1; src=$ABS_SRC; }
-  printf '%s %s %s %s\n' "$v" "$src" "$MERGE_RUN" "$MERGE_SKIP" > "$BA_SHARED/d.$i.tmp" &&
+  printf '%s %s %s %s %s\n' "$v" "$src" "$MERGE_RUN" "$MERGE_SKIP" "$MERGE_SHARED" > "$BA_SHARED/d.$i.tmp" &&
     mv -f "$BA_SHARED/d.$i.tmp" "$BA_SHARED/d.$i"
   rm -rf "$BA_TMP"
 }
@@ -2027,9 +2336,10 @@ if [ "$remote_ok" = 1 ]; then
     [ -e "$BA_SHARED/d.$ri" ] || {
       echo "branch-audit: ветка origin ${REMOTE_BRANCHES[$ri]} не разобрана — перепись неполна" >&2
       exit 2; }
-    read -r rv rsrc rm_run rm_skip < "$BA_SHARED/d.$ri"
+    read -r rv rsrc rm_run rm_skip rm_shared < "$BA_SHARED/d.$ri"
     RDELTA["${REMOTE_BRANCHES[$ri]}"]=$rv; RSRC["${REMOTE_BRANCHES[$ri]}"]=$rsrc
     MERGE_RUN=$((MERGE_RUN + rm_run)); MERGE_SKIP=$((MERGE_SKIP + rm_skip))
+    MERGE_SHARED=$((MERGE_SHARED + ${rm_shared:-0}))
   done
 
   for b in "${!ON_ORIGIN[@]}"; do
@@ -2130,12 +2440,20 @@ else
   [ "${#cand_missing[@]}" -eq 0 ] || scope="$scope: ${cand_missing[*]}"
 fi
 echo "branch-audit: время прогона $(( $(date +%s) - START )) с; единица осмотра — ветка; $scope"
+# Ответов истории путей, посчитанных одним обходом (ws#995): ноль при EXACT=1,
+# без python3 и при отказе обхода — тогда работает поштучная форма.
+FB_ONCE=0
+if [ -e "$BA_SHARED/fb.ok" ]; then read -r FB_ONCE < "$BA_SHARED/fb.n" || FB_ONCE=0; fi
+case "$FB_ONCE" in ''|*[!0-9]*) FB_ONCE=0 ;; esac
 echo "branch-audit: ускорение — заданий ${JOBS}; слияний во временной копии ${MERGE_RUN}," \
      "непустота дельты доказана деревьями без слияния ${MERGE_SKIP}; файлов дельты пакетом" \
      "${FILES_FAST}, поштучно ${FILES_LITERAL}; пакетная проверка патча отступила к поштучной" \
      "${APPLY_FALLBACK} раз; отказ git apply доказан перечнем ствола: целиком ${APPLY_SKIP} раз," \
      "пофайлово ${APPLY_SURE} раз; перепись строк пачкой по ${CEN_BATCH} файл(ам) из ${census_asked};" \
      "поштучных вопросов к истории: блобы пути ${FO_CALLS}, касание пути ${TC_CALLS};" \
+     "история путей одним обходом: ответов ${FB_ONCE}; исход слияния взят из общего кэша ${MERGE_SHARED} раз;" \
+     "отказ целиком доказан без поиска переименований ${WHOLE_NR} раз;" \
+     "блобов целей переписи нормализовано пачкой ${NORM_BATCH};" \
      "ответов о блобах пути вне общего кэша (спрошены поштучно) ${FO_MISS}" \
      "(нули при BRANCH_AUDIT_EXACT=1 — эталон, а не отказ ускорения)"
 [ -z "$SLOWEST" ] || echo "branch-audit: дольше всех разбиралась ветка ${SLOWEST} — ${SLOWEST_S} с"
