@@ -1,0 +1,182 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-7 редакции 2 и маршрута tasks.md
+# редакции 2 на ветке issue-880 @c9c96e352.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли); маршрут — subject.route. Судится
+# дельта к пересверке редакции 1 (revalidation/451728a1….yaml): закрыты ли её блокирующие
+# (CX7-03, CX7-04, CX7-05, CX7-06, CX7-10, CX7D-01, CX7R-01), и не внесла ли правка новых классов.
+# Новые блокирующие — только с предикатом корректности/безопасности (задание); прочее — не
+# блокирующим. Первичный разбор initial/da7de8d7….yaml не переписывается: он о приёмке, она не менялась.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-3121
+issue: https://github.com/PRO-Robotech/kacho/issues/3121
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-3121/design.md
+  sha256: a4f838be109550c3cea3f108fff52d873e065eaea443b7f0d23bb84a41a9c949
+  fingerprint_predicate: git show c9c96e352:docs/changes/issue-3121/design.md | sha256sum
+  revision: 2
+  content_commit: c9c96e352c0e000917a965fbcc60584418e57a97
+  route:
+    path: docs/changes/issue-3121/tasks.md
+    sha256: 01107ed1cc371049fbb3afaafba9b0d525d63f19a6e89ba1384d6a3f1a401379
+    fingerprint_predicate: git show c9c96e352:docs/changes/issue-3121/tasks.md | sha256sum
+    revision: 2
+    content_commit: c9c96e352c0e000917a965fbcc60584418e57a97
+  plans: docs/changes/issue-3121/plans/L-{1,2,3,4}.json
+previous_revalidation:
+  path: docs/changes/issue-3121/reviews/class-exposure/revalidation/451728a1bdbedfd1dad0f9232a4294a7bc7107238a2b6a96a886733e2ab350a3.yaml
+  blocking_items: [CX7-03, CX7-04, CX7-05, CX7-06, CX7-10, CX7D-01, CX7R-01]
+initial_record:
+  path: docs/changes/issue-3121/reviews/class-exposure/initial/da7de8d7ba769b7b99f59f1140d074f0096708785afe1f2c1f9fbc23bc8d381d.yaml
+  items: 13
+acceptance:
+  path: docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md
+  sha256: da7de8d7ba769b7b99f59f1140d074f0096708785afe1f2c1f9fbc23bc8d381d
+  revision: 6
+  effective_verdict: APPROVED
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: "origin/main:.claude/agents/class-exposure-analyst.md @54854e0f3 (расхождение с локальной копией — только таблица триггеров и предзагрузка rule-flow-acceleration; действует origin/main)"
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; владельца 2026-10-04 (замысел не ворота), 2026-10-07, 2026-10-08 (1)–(4);
+    диспетчера (а)–(г). По (г) правки маршрута судятся только как закрытие блокирующих; карточки,
+    не тронутые редакцией 2, не судятся за неисполненные неблокирующие заказы.
+revisions:
+  workspace: c9c96e352c0e000917a965fbcc60584418e57a97
+  workspace_scripts: 54854e0f3
+  kacho: e6075f09c2613184ec0c120fbe5645a2c1e9979c
+  kaname_pin: 33010d434767
+  corelib_pin: 18d105d0f50a
+snapshot_at: 2026-10-10T06:30:00Z
+inspected: >-
+  design.md целиком (557 строк: З1–З13, И1–И16, §5, УК7-01…10, §7 13 строк, §9 Е1–Е5);
+  tasks.md — шапка, карточки N3, N4, N7, N8m, N8, §5, §6 (334 строки); plans/L-1…L-4.json;
+  дифф e92463e92..c9c96e352 по пакету; схема kacho_notify замысла NTF-3 (issue-2918/design.md §6),
+  его З22; kacho@e6075f09c2: internal/repohygiene/sqlstatehome_test.go (шапка, дом —
+  corelib/db/pgfault), pkg/journalfault/journalfault.go, наличие пяти гейтов, раскладка services/notify.
+
+closure_of_previous_blocking:
+  - id: CX7-03
+    closed: true
+    by: "З5 «Отказы базы по имени ограничения», З13 (те же правила для instant_send_decision), И14, §5 строка INTERNAL, УК7-09"
+    measured: >-
+      прецедент существует и решает по pgfault.Fault (Class + Constraint), без литерала SQLSTATE —
+      pkg/journalfault/journalfault.go @e6075f09c2 (Initiator: Check ⇒ f.Constraint == f.Table+suffix);
+      гейт единого дома TestIntegritySQLStateIsDecidedInOnePlace (internal/repohygiene/sqlstatehome_test.go)
+      и TestErrorMappersTailReturnsAFixedText существуют (по 1 файлу) — устройство З5 под гейт ложится,
+      если функция имени решает по полям Fault, а не по строке кода (условие к коду CX7V-03).
+  - id: CX7-04
+    closed: true
+    by: "З4 «Владелец — с признаком присутствия» (до ветвления и проверки входа), З5 CHECK (owner <> '') у обеих таблиц, И13, §5 строка UNAUTHENTICATED, УК7-10, УК7-04"
+  - id: CX7-05
+    closed: true
+    by: "З7 «Словарь ключа модуля — один»: label_module ⇔ inbox_event.module в словаре ключа каталога notify; иное написание на базе после В-4 — блокер N7, а не отображение; И15; УК7-07 (nlb_listener)"
+    measured: "inbox_event.module text NOT NULL — схема NTF-3 (issue-2918/design.md §6); значение — ключ источника, производитель S2-B4 (на e6075f09c2 ingest нет)"
+  - id: CX7-06
+    closed: true
+    by: "З8 «Решающий исход хранится», З13 instant_send_decision (recipient, position) с FK на inbox_event(position) ON DELETE CASCADE, И11, УК7-08 (в том числе перезапуск)"
+    measured: "inbox_event.position — PRIMARY KEY в схеме NTF-3 §6, ссылка FK законна"
+  - id: CX7-10
+    closed: true
+    by: "З2 «Дом признака — решён»: services/notify/kinds/label_selection.yaml; соединение с перечнем notifygen в обе стороны, отсутствие и null — отказ сборки; И16; УК7-01; предпосылка — первым шагом N2, расхождение — блокер"
+  - id: CX7D-01
+    closed: true
+    by: "§7 — 13 строк CX7-01…13 (по одной на пункт), §0 строка «разбор классов риска», §9 Е5"
+  - id: CX7R-01
+    closed: true
+    by: "N3 несёт ограничения CX7-02, CX7-04, CX7-11 и имена (CX7-03); новая полоса N8m (миграции) с ребром N8m → N8 в plans/L-2.json; N4 расширен до services/notify/internal/apiserver/ (дом SQLSTATE)"
+    measured: >-
+      plan-precheck.sh (origin/main 54854e0f3) на 4 планах — 4 из 4 VERDICT plan-ok, причин 0, не судимо 0;
+      L-2: N8m R2 слой 0, N8 R2 слой 1, N9 R1 слой 2 — как tasks.md §5.
+
+mapping_check:
+  design_section_7_rows: 13
+  initial_items: 13
+  formally_mapped: 13
+  substantively:
+    held: [CX7-02, CX7-03, CX7-04, CX7-05, CX7-06, CX7-07, CX7-08, CX7-09, CX7-10, CX7-11, CX7-12, CX7-13]
+    held_by_assumption: [CX7-01]   # вариант (а) до ответа владельца на вопрос initial; не открытое решение — выбор сделан
+  plans: "4 из 4 plan-ok (см. CX7R-01)"
+
+new_items:
+  - id: CX7V-01
+    blocking: false
+    severity: to_code
+    design_decision: "З8 / И11 «о строке адресата решающий ответ один за все проходы»; механизм — ON CONFLICT DO NOTHING в instant_send_decision"
+    class: "code-authoring §«Решение и его следствие разнесены» (вызов и запись исхода — разные шаги)"
+    finding: >-
+      ON CONFLICT DO NOTHING держит единственность ЗАПИСИ исхода, а не единственность ВЫЗОВА. Если два
+      прохода одной сборки идут одновременно (две реплики notify-sender), оба читают V1 нерешённой и
+      оба зовут ResolveSend — лишний решающий против Р5 (п2). Исключительность прохода сборки пары не
+      названа ни в З8/З13, ни в NTF-3 З22: `grep -c -i 'SKIP LOCKED\|FOR UPDATE\|аренд\|реплик'` по
+      design.md NTF-7 → 0; по З22 NTF-3 → 0. Не блокирующий: возможность параллельных проходов одной
+      пары не установлена (планировщик прохода — производитель NTF-3 S2-B6, в дереве его нет), т.е.
+      дефект не доказан предикатом; И11 при этом утверждает больше, чем держит механизм.
+    to_code: >-
+      проход сборки пары «адресат + ресурс» исключителен между репликами (захват строки окна пары
+      FOR UPDATE SKIP LOCKED либо эквивалент того же оператора), либо N8 печатает, чем это уже держит
+      планировщик S2-B6; формулировка И11 — «в пределах исключительного прохода».
+    holder: "заказ integration-tester: УК7-08 с двумя экземплярами сборщика на одной базе — решающих о V1 ровно 1"
+  - id: CX7V-02
+    blocking: false
+    severity: to_code
+    design_decision: "З5 «ALREADY_EXISTS — только 23505 по имени UNIQUE (owner, target_key, channel) NTF-3»"
+    finding: >-
+      У UNIQUE NTF-3 имени в схеме нет (issue-2918/design.md §6 — безымянное, имя даёт Postgres); инъекция
+      УК7-09 «ограничение переименовано» судит имена миграции З5, а не это неявное имя.
+    to_code: "константа имени UNIQUE NTF-3 сверяется с pg_constraint мигрированной схемы, а не с текстом файла; держит и близнец УК7-09 (дубль → ALREADY_EXISTS)"
+  - id: CX7V-03
+    blocking: false
+    severity: to_code
+    design_decision: "З5 «решение по имени раньше общей полосы — тем же устройством, что journalfault.Initiator»"
+    finding: "гейт единого дома SQLSTATE считает находкой решение по литералу кода вне corelib/db/pgfault"
+    to_code: "функция имени решает по полям pgfault.Fault (Class, Constraint, Table), без строковых литералов 23514/23503/23505; иначе — красный TestIntegritySQLStateIsDecidedInOnePlace"
+
+carried_non_blocking:
+  - id: CX7D-02
+    state: open
+    note: "приставка ключа цели селектора дословно в замысле не названа; УК7-02 по-прежнему ищет 'label_selector/' — литерал, которого нет в документе"
+  - id: CX7R-02
+    state: open
+    note: "пути N7/N8 перемеряются на базе после В-4 (tasks.md §6 п.4)"
+  - id: CX7R-03
+    state: open
+    note: "Е4 не проверяет ListEventAudience на пине kaname"
+  - id: CX7R-04
+    state: open
+    note: "заказы initial (CX7-01, CX7-09, CX7-13) в карточки N4, N8, N9 не внесены — по (г) переданы строкой §7"
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: green
+    detail: "§7 — 13 из 13; CX7-01 — выбор сделан (вариант (а)), ответ владельца может его сменить новой редакцией"
+  - condition: "новый внешний вызов / асинхронный путь / sentinel заведены пунктом"
+    result: green
+    detail: "новых внешних вызовов нет; новое состояние instant_send_decision — пункт CX7-06; одновременность проходов — CX7V-01"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "З2 дом признака решён; предпосылки N2 и N7 — замер с исходом блокер, не развилка"
+
+clean: true
+outcome: к-коду
+unmapped: []
+blocking_items: []
+return_to_acceptance: []
+orders:
+  - to: integration-tester
+    subject: "УК7-08 с двумя экземплярами сборщика на одной базе (CX7V-01)"
+    basis: "code-authoring §«Решение и его следствие разнесены»"
+  - to: go-implementer
+    subject: "N8: исключительность прохода сборки пары либо печать держателя S2-B6 (CX7V-01); N4: константа неявного имени UNIQUE NTF-3 по pg_constraint (CX7V-02); решение по полям Fault (CX7V-03)"
+    basis: "data-integrity db-skip-locked; sqlstate-to-grpc"
+owner_questions:
+  - "CX7-01 (из initial, без ответа): порядок нескольких нарушений формы пар match_labels — замысел принял вариант (а) «по возрастанию ключа»"
