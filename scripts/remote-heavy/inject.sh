@@ -73,6 +73,19 @@
 #      его pid; близнец O2b файл держат только предки прогона → молчание
 #   G1 остатки kill -9 (каталог, процесс, ns, ссылка) мёртвого владельца → сняты
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
+#   E1 ревизия с пинами helm и node в ci.yaml, профиль с go test → пины в окружении
+#      run, установка helm пина и node мажора пина с проверкой суммы, сверка среды
+#      перед командой, строка «Job создан» их называет (ws#996)
+#   E2 сверка среды ИСПОЛНЕНИЕМ над поддельным PATH: helm нет / не та версия /
+#      версия-префикс, node нет / не та / префикс → 125 и «среда: …» в
+#      termination-log; близнецы — верные версии и ревизия без пинов → 0
+#   E3 два пина helm                        → 69 до кластера, причина названа
+#   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
+#   E5 ревизия без пинов                    → строка называет, что сверять нечего
+#   E6 run отказал сверкой среды            → 69 «не выполнилось — среда: …»
+#   H1 ревизия только на боковой ветке origin и метка → в bundle и ссылками в
+#      дереве pod (FETCH из Job исполняется), ствол и ревизия на месте, временной
+#      ссылки run.sh там нет — история как у checkout fetch-depth: 0 (ws#996)
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
 #   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
@@ -304,6 +317,51 @@ git -C "$SRC" add -A
 . "$SELF_DIR/../lib/sandbox-git-home.sh"
 sandbox_git_home "$BOX/ghome" || { echo "inject: корневой подписи нет — клон пробы не построен (не выполнилось)" >&2; exit 2; }
 sandbox_git -C "$SRC" commit -q -m probe
+# Ревизии с пинами среды конвейера (ws#996): pins — helm и node объявлены так, как
+# в ci.yaml продукта (setup-helm с version, setup-node с node-version; соседний
+# setup-kubectl со своим version — законный близнец, его version не пин helm);
+# pins2 — два разных пина helm.
+pin_rev() {
+    git -C "$SRC" checkout -q -b "$1"
+    printf '%s' "$2" > "$SRC/.github/workflows/ci.yaml"
+    sandbox_git -C "$SRC" commit -q -am "$1"
+    git -C "$SRC" checkout -q -
+}
+pin_rev pins 'jobs:
+  lint:
+    steps:
+      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123  # v5
+        with:
+          version: v4.2.4
+      - uses: azure/setup-kubectl@4567  # v5
+        with:
+          version: v1.33.0
+  ui:
+    steps:
+      - uses: actions/setup-node@89ab  # v7
+        with:
+          node-version: '"'"'26'"'"'
+  charts:
+    steps:
+      - uses: azure/setup-helm@0123  # v5
+        with:
+          version: v4.2.4
+'
+pin_rev pins2 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: v4.2.4
+  charts:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: v3.17.0
+'
 
 fresh() { rm -rf "$BOX/state"; mkdir -p "$BOX/state/ns"; }
 
@@ -465,6 +523,97 @@ fresh
 go_run u4 env FAKE_EXIT=125 FAKE_MSG="$USERNS_MSG" "${B[@]}" --short u4 -- true
 expect_rc U4 69
 expect_ns_gone U4 t1-heavy-u4
+
+# ── среда конвейера в pod: helm и node (ws#996) ─────────────────────────────
+# E1 ревизия с пинами, профиль с go test → Job несёт пины в окружении run, ставит
+#    helm пина и node мажора пина с проверкой контрольной суммы, сверка среды
+#    стоит перед командой; строка «Job создан» называет их
+fresh
+go_run e1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e1 -- true
+expect_rc E1 0
+EJ="$BOX/state/job.json"; cp "$EJ" "$BOX/e1-job.json" 2>/dev/null
+envv() { jq -r --arg n "$2" '.spec.template.spec.containers[] | select(.name == "run") | .env[] | select(.name == $n) | .value' "$1" 2>/dev/null; }
+if [ "$(envv "$EJ" HEAVY_HELM)" = v4.2.4 ] && [ "$(envv "$EJ" HEAVY_NODE)" = 26 ]; then ok
+else OUT="$EJ"; bad E1 "пины в окружении run: helm «$(envv "$EJ" HEAVY_HELM)», node «$(envv "$EJ" HEAVY_NODE)», ждали v4.2.4 и 26"; fi
+jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$EJ" > "$BOX/e1.cmd" 2>/dev/null
+# shellcheck disable=SC2016  # ищется буквальный текст подготовки
+if grep -q 'get.helm.sh/helm-$HEAVY_HELM-linux-' "$BOX/e1.cmd" && grep -q 'sha256sum -c' "$BOX/e1.cmd" \
+   && grep -q 'nodejs.org/dist/' "$BOX/e1.cmd" && grep -q 'SHASUMS256.txt' "$BOX/e1.cmd"; then ok
+else OUT="$BOX/e1.cmd"; bad E1 "установки helm и node с проверкой суммы в подготовке run нет"; fi
+if awk '/^# tools-check$/ { c = NR } /^exec "\$@"$/ { e = NR } END { exit !(c && e && c < e) }' "$BOX/e1.cmd"; then ok
+else OUT="$BOX/e1.cmd"; bad E1 "сверки среды перед командой нет либо exec команды не своей строкой (за маркером — комментарий)"; fi
+if grep -q 'Job создан: .*helm v4.2.4, node 26' "$BOX/e1.out"; then ok; else OUT="$BOX/e1.out"; bad E1 "строка «Job создан» не называет helm и node"; fi
+# E2 сверка среды ИСПОЛНЕНИЕМ: текст из Job, PATH поддельный
+sed -n '/^# tools-check$/,/^# tools-end$/p' "$BOX/e1.cmd" | sed "s#/dev/termination-log#$BOX/etl#g" > "$BOX/tools.sh"
+ET="$BOX/etools"; mkdir -p "$ET"
+fake_tool() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$ET/$1"; chmod +x "$ET/$1"; }
+# tools_case <случай> <helm|-> <node|-> <пин helm> <пин node> <код> [слово отказа]
+tools_case() {
+    rm -f "$ET"/* "$BOX/etl"
+    [ "$2" = - ] || fake_tool helm "$2"; [ "$3" = - ] || fake_tool node "$3"
+    OUT="$BOX/$1.out"
+    env -i PATH="$ET:/usr/bin:/bin" HEAVY_HELM="$4" HEAVY_NODE="$5" bash "$BOX/tools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$1" "$6"
+    if [ "$6" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: $7" "$BOX/etl" 2>/dev/null; then ok; else bad "$1" "отказ «среда: $7» не записан в termination-log"; fi
+    fi
+}
+if grep -q '^# tools-end$' "$BOX/tools.sh"; then ok; else OUT="$BOX/e1.cmd"; bad E2 "текста сверки среды в Job нет — исполнять нечего"; fi
+tools_case E2-helm-absent - v26.8.1 v4.2.4 26 125 helm
+tools_case E2-helm-other v3.17.0+gabc v26.8.1 v4.2.4 26 125 helm
+tools_case E2-helm-prefix v4.2.40+gabc v26.8.1 v4.2.4 26 125 helm
+tools_case E2-node-absent v4.2.4+g3900f43 - v4.2.4 26 125 node
+tools_case E2-node-other v4.2.4+g3900f43 v24.1.0 v4.2.4 26 125 node
+tools_case E2-node-prefix v4.2.4+g3900f43 v260.1.0 v4.2.4 26 125 node
+tools_case E2-legit v4.2.4+g3900f43 v26.8.1 v4.2.4 26 0
+tools_case E2-nopins - - "" "" 0
+# E3 два пина helm в конвейере ревизии → 69 до кластера, причина названа
+fresh
+go_run e3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins2 --src "$SRC" --profile integration --short e3 -- true
+expect_rc E3 69
+if [ -e "$BOX/state/job.json" ]; then bad E3 "Job создан при неоднозначном пине"; else ok; fi
+if grep -q 'пин helm неоднозначен' "$OUT"; then ok; else bad E3 "причина не названа"; fi
+# E4 профиль lint на той же ревизии — go test нет, среду не ставит (близнец E1)
+fresh
+go_run e4 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile lint --short e4 -- true
+expect_rc E4 0
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && ! jq -r '.spec.template.spec.containers[0].command[2]' "$BOX/state/job.json" | grep -q 'get.helm.sh'; then ok
+else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
+# E5 ревизия без пинов — сверять нечего, строка это называет
+if grep -q 'helm и node: пинов в конвейере ревизии нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
+# E6 run отказал сверкой среды → 69 «не выполнилось — среда», а не код команды
+fresh
+go_run e6 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-prep: среда: helm v4.2.4 (пин конвейера) нет в PATH" bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e6 -- true
+expect_rc E6 69
+if grep -q 'не выполнилось — среда: helm v4.2.4' "$OUT"; then ok; else bad E6 "отказ среды не назван «не выполнилось — среда»"; fi
+
+# ── история как у клона конвейера (ws#996) ─────────────────────────────────
+# H1 конвейер берёт checkout с fetch-depth: 0 — все ветки origin и метки. Ревизия,
+#    достижимая лишь из боковой ветки origin (не предок ни ствола, ни HEAD), и
+#    метка обязаны доехать в bundle и стать ссылками дерева pod: FETCH из Job
+#    исполняется над доставленным bundle. Близнец — ствол и ревизия на месте.
+SIDE="$(git -C "$SRC" rev-parse pins2)"
+git -C "$SRC" update-ref refs/remotes/origin/main HEAD
+git -C "$SRC" update-ref refs/remotes/origin/side "$SIDE"
+git -C "$SRC" tag probe-tag pins
+fresh
+go_run h1 env FAKE_EXIT=0 "${B[@]}" --short h1 -- true
+expect_rc H1 0
+heads="$(git bundle list-heads "$BOX/state/bundle" 2>/dev/null)"
+if grep -q " refs/remotes/origin/side$" <<< "$heads" && grep -q " refs/tags/probe-tag$" <<< "$heads"; then ok
+else bad H1 "в bundle нет боковой ветки origin либо метки: $(tr '\n' ';' <<< "$heads")"; fi
+FW="$BOX/fw"; rm -rf "$FW"; mkdir -p "$FW"; cp "$BOX/state/bundle" "$FW/in.bundle"; touch "$FW/in.done"
+jq -r '.spec.template.spec.initContainers[] | select(.name == "fetch") | .command[2]' "$BOX/state/job.json" | sed "s#/work#$FW#g" > "$BOX/fetch.sh"
+OUT="$BOX/h1-fetch.out"
+( cd "$FW" && env HEAVY_SHA="$(git -C "$SRC" rev-parse HEAD)" HEAVY_MAIN="$(git -C "$SRC" rev-parse HEAD)" \
+    GIT_CONFIG_GLOBAL="$BOX/ghome/.gitconfig" sh "$BOX/fetch.sh" ) > "$OUT" 2>&1; frc=$?
+if [ "$frc" -eq 0 ] && [ "$(git -C "$FW/src" rev-parse -q --verify refs/remotes/origin/side)" = "$SIDE" ] \
+   && git -C "$FW/src" rev-parse -q --verify refs/tags/probe-tag >/dev/null \
+   && [ "$(git -C "$FW/src" rev-parse HEAD)" = "$(git -C "$SRC" rev-parse HEAD)" ] \
+   && [ "$(git -C "$FW/src" rev-parse refs/remotes/origin/main)" = "$(git -C "$SRC" rev-parse HEAD)" ]; then ok
+else bad H1 "дерево pod без боковой ветки, метки, ствола или ревизии (код FETCH $frc)"; fi
+if git -C "$FW/src" for-each-ref --format='%(refname)' | grep -q '^refs/remote-heavy/'; then bad H1 "временная ссылка run.sh доехала в дерево pod"; else ok; fi
+git -C "$SRC" update-ref -d refs/remotes/origin/side; git -C "$SRC" update-ref -d refs/remotes/origin/main; git -C "$SRC" tag -d probe-tag >/dev/null
 
 # K2
 fresh
