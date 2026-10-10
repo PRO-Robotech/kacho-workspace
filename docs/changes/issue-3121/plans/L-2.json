@@ -2,7 +2,8 @@
  "wave": "L-2",
  "lanes": [
   {"key": "N7", "repo": "kacho", "paths": ["services/notify/internal/ingest/"], "declared": "R2"},
-  {"key": "N8", "repo": "kacho", "paths": ["services/notify/internal/instant/"], "declared": "R2"},
+  {"key": "N8m", "repo": "kacho", "paths": ["services/notify/internal/migrations/"], "declared": "R2"},
+  {"key": "N8", "repo": "kacho", "paths": ["services/notify/internal/instant/"], "deps": ["N8m"], "declared": "R2"},
   {"key": "N9", "repo": "kacho", "paths": ["services/notify/internal/integration/", "services/notify/cmd/notify/"], "deps": ["N7", "N8"], "declared": "R1"}
  ]
 }

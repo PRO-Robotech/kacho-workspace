@@ -4,7 +4,7 @@
   {"key": "N1", "repo": "kacho", "paths": ["proto/kacho/cloud/notify/v1/", "pkg/api/kacho/cloud/notify/v1/"], "declared": "R2"},
   {"key": "N2", "repo": "kacho", "paths": ["services/notify/kinds/", "services/notify/internal/integration/labelselectable_ntf7_11_integration_test.go"], "declared": "R1"},
   {"key": "N3", "repo": "kacho", "paths": ["services/notify/internal/migrations/"], "declared": "R2"},
-  {"key": "N4", "repo": "kacho", "paths": ["services/notify/internal/apiserver/subscriptions/", "services/notify/internal/integration/subscriptions_label_ntf7_integration_test.go"], "deps": ["N1", "N2", "N3"], "declared": "R2"},
+  {"key": "N4", "repo": "kacho", "paths": ["services/notify/internal/apiserver/", "services/notify/internal/integration/subscriptions_label_ntf7_integration_test.go"], "deps": ["N1", "N2", "N3"], "declared": "R2"},
   {"key": "N5", "repo": "kacho", "paths": ["ui-future/shared/src/api/notify.ts", "ui-future/shared/src/api/notify.test.ts"], "deps": ["N1"], "declared": "R1"},
   {"key": "N6", "repo": "kacho", "paths": ["gateway/tests/newman/", "deploy/scripts/newman-parallel.sh", ".github/workflows/e2e-newman.yml"], "deps": ["N4"], "declared": "R1"}
  ]
