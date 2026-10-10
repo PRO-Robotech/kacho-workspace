@@ -44,7 +44,8 @@
 #   сводки, предпроверка судит её как базу; независимая полоса стартует сразу,
 #   не дожидаясь чужого слоя; dep не прошёл — зависимая не начата, соседи идут;
 #   сводка конфликтует либо не содержит головы dep — остановка с причиной,
-#   исполнитель не зван, сборки нет; сводки сняты шагом вливания; близнец —
+#   исполнитель не зван, полоса — остаток, а соседи садятся (ws#999: вердикт
+#   — о своей полосе); сводки сняты шагом вливания; близнец —
 #   полоса без deps сводки не зовёт, база — база волны; флаг crossRepo задания
 #   доходит до плана, без флага его в плане нет;
 #   ответ сводки не годен по одному факту — нет ответа, статус failed, голова не
@@ -162,6 +163,7 @@ async function run(sc) {
     if (label.startsWith('mech:assemble:')) return { status: 'done', head: HW, copy: '/ws/tmp/w', pr: 7, conflicts: [], report: 'r', ...take('asm', () => ({})) }
     if (label.startsWith('mech:ci:')) return { head: HW, total: 3, passed: 3, report: 'r', ...take('ci', () => ({ state: 'green' })) }
     if (label.startsWith('mech:landing:')) return { out: '', head: HW, ...take('land', () => ({ code: 0, reasons: [] })) }
+    if (label.startsWith('mech:delta')) return { out: '', reasons: [], head: '', ...take('delta', () => ({ code: 0 })) }
     if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40) }
     if (label.startsWith('mech:')) return { code: 0, out: '', reasons: [], head: '' }
     return 'отчёт записан'
@@ -178,6 +180,9 @@ const args = { repo: 'PRO-Robotech/kacho-workspace', wave: '9', epic: 'main', ba
 // Задание R1 — то же, из которого построен план r1.json: B зависит от A.
 const argsDep = { ...args, lanes: [lanes2[0], { ...lanes2[1], deps: ['A'] }] }
 const argsDepC = { ...args, lanes: [...argsDep.lanes, { key: 'C', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-c', text: 't' }] }
+// Полоса стоит (ws#999): не в сборке, названа в остатке; соседи — в сборке.
+const asmHas = (calls, br) => calls.filter(c => c.label.startsWith('mech:assemble:')).some(c => c.prompt.includes(br + '@'))
+const inRest = (res, k) => (res.remainder || []).some(x => x.key === k)
 const idx = (calls, label) => calls.findIndex(c => c.label === label)
 const prm = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const by = (calls, f) => calls.filter(f).length
@@ -211,7 +216,7 @@ ok(/--reviews/.test((r.calls.find(c => c.label.startsWith('mech:landing:')) || {
 console.log('== R2: полный набор')
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
 ok(r.res.ok === true, 'волна R2 влита', JSON.stringify(r.res).slice(0, 300))
-for (const t of ['acceptance-author', 'db-architect-reviewer', 'wave-reviewer', 'landing-reviewer']) ok(by(r.calls, c => c.agentType === t) === 1, t + ' — один раз')
+for (const t of ['acceptance-author', 'db-architect-reviewer', 'wave-reviewer']) ok(by(r.calls, c => c.agentType === t) === 1, t + ' — один раз')
 ok(by(r.calls, c => c.label.startsWith('census:')) === 1, 'перепись поверхности до кода')
 ok(r.calls.findIndex(c => c.label.startsWith('census:')) < r.calls.findIndex(c => c.label.startsWith('impl:')), 'перепись — раньше исполнителя')
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')], staleRole: true })
@@ -259,16 +264,16 @@ ok(prm(r.calls, 'mech:stack:B').includes('9-a@') && !prm(r.calls, 'mech:stack:B'
 r = await run({ args: argsDepD, plan: [P('r1d.json')], 'pre:C': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
 ok(r.res.ok === true && prm(r.calls, 'mech:stack:D').includes('9-c@') && !prm(r.calls, 'mech:stack:D').includes('9-a@') && idx(r.calls, 'mech:stack:D') > r.calls.map(c => c.label).lastIndexOf('mech:precheck:A'), 'зеркально: C с доводкой, A прошла раньше сводки D — в сводке D только C', prm(r.calls, 'mech:stack:D').slice(-300))
 r = await run({ args: argsDepC, plan: [P('r1c.json')], 'pre:A': [{ code: 2, reasons: [] }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'impl:B' || c.label === 'mech:stack:B') === 0 && /не начата: deps A/.test(((r.res.lanes || {}).B || {}).stage || '') && by(r.calls, c => c.label === 'mech:precheck:C') === 1 && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'A не прошёл — B не начата (причина названа), C прошла, сборки нет', JSON.stringify(r.res).slice(0, 300))
+ok(r.res.ok === true && by(r.calls, c => c.label === 'impl:B' || c.label === 'mech:stack:B') === 0 && /не начата: deps A/.test(((r.res.remainder || []).find(x => x.key === 'B') || {}).stage || '') && by(r.calls, c => c.label === 'mech:precheck:C') === 1 && asmHas(r.calls, '9-c') && !asmHas(r.calls, '9-a') && !asmHas(r.calls, '9-b'), 'A не прошёл — B не начата (причина названа), A и B — остаток, C сведена и влита', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'conflict', head: '', conflicts: ['go.mod'] }] })
-ok(r.res.ok === false && r.res.stage === 'полосы' && /конфликт в go\.mod/.test(((r.res.lanes || {}).B || {}).stage || '') && by(r.calls, c => c.label === 'impl:B') === 0 && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'сводка конфликтует — остановка с путём, исполнитель B не зван, сборки нет', JSON.stringify(r.res).slice(0, 300))
+ok(inRest(r.res, 'B') && /конфликт в go\.mod/.test(((r.res.remainder || []).find(x => x.key === 'B') || {}).stage || '') && by(r.calls, c => c.label === 'impl:B') === 0 && !asmHas(r.calls, '9-b') && asmHas(r.calls, '9-a'), 'сводка конфликтует — B стоит с путём, исполнитель B не зван, B не в сборке, A сведена', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'done', head: hS, contains: [] }] })
-ok(r.res.ok === false && /нет голов 9-a@/.test(((r.res.lanes || {}).B || {}).stage || '') && by(r.calls, c => c.label === 'impl:B') === 0, 'сводка «готова», но головы A в ней нет — остановка, исполнитель не зван', JSON.stringify(r.res).slice(0, 300))
+ok(inRest(r.res, 'B') && !asmHas(r.calls, '9-b') && /нет голов 9-a@/.test(((r.res.remainder || []).find(x => x.key === 'B') || {}).stage || '') && by(r.calls, c => c.label === 'impl:B') === 0, 'сводка «готова», но головы A в ней нет — остановка, исполнитель не зван', JSON.stringify(r.res).slice(0, 300))
 // Ответ сводки не годен — по одному факту против близнеца «done»: ответа нет,
 // статус вне {done, already-done}, голова не sha40. Исполнитель не зван, шаблон
 // не падает исключением, причина названа своими словами.
-const stB = () => ((r.res.lanes || {}).B || {}).stage || ''
-const stopB = () => !r.res.thrown && r.res.ok === false && r.res.stage === 'полосы' && by(r.calls, c => c.label === 'impl:B') === 0 && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0
+const stB = () => ((r.res.remainder || []).find(x => x.key === 'B') || {}).stage || ''
+const stopB = () => !r.res.thrown && inRest(r.res, 'B') && by(r.calls, c => c.label === 'impl:B') === 0 && !asmHas(r.calls, '9-b')
 r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [null] })
 ok(stopB() && /нет ответа/.test(stB()), 'сводка не ответила — остановка «нет ответа», а не исключение на st.status', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: argsDep, plan: [P('r1.json')], 'stack:B': [{ status: 'failed', head: hS }] })
@@ -353,7 +358,7 @@ ok(r.res.ok === true, '«уже сделано» исполнителя — по
 
 console.log('== повтор — только при новой голове')
 r = await run({ args, plan: [P('r0.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }], 'impl:A': [{ status: 'done', head: H('A', 1) }, { status: 'done', head: H('A', 1) }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:precheck:A') === 1, 'голова не сменилась — предпроверка не повторена')
+ok(inRest(r.res, 'A') && !asmHas(r.calls, '9-a') && by(r.calls, c => c.label === 'mech:precheck:A') === 1, 'голова не сменилась — предпроверка не повторена, A — остаток', JSON.stringify(r.res).slice(0, 200))
 ok(r.calls.some(c => c.label === 'mech:err:A' && /executor-mechanics/.test(c.prompt)), 'возврат не из-за кода — строка счётчика executor-mechanics')
 r = await run({ args, plan: [P('r0.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
 ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:precheck:A') === 2, 'близнец: голова новая — повтор и зелёное')
@@ -394,6 +399,36 @@ r = await run({ args, plan: [P('r1.json')], wave: [{ verdict: undefined, report:
 ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'нет поля verdict, в тексте «✅ принято» — не принят, вливания нет', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r1.json')], wave: [{ verdict: 'void', report: 'прогон недействителен' }] })
 ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:ci:')) === 0, 'verdict void — не принят, CI не зовётся')
+
+console.log('== вердикт — о своей полосе: возврат одной не снимает соседние (ws#999)')
+// R0, A и B независимы; B не прошла предпроверку дважды на разных головах.
+r = await run({ args, plan: [P('r0.json')], 'pre:B': [{ code: 1, reasons: ['UNCOMMITTED'] }, { code: 1, reasons: ['UNCOMMITTED'] }] })
+const asmP = n => prm(r.calls, 'mech:assemble:' + n)
+ok(r.res.ok === true && /9-a@/.test(asmP(1)) && !/9-b@/.test(asmP(1)) && by(r.calls, c => c.label === 'mech:merge') === 1, 'полоса B не прошла — A сведена и влита, B не в сборке', JSON.stringify(r.res).slice(0, 300))
+ok(((r.res.remainder || []).map(x => x.key)).join() === 'B' && /закрой задачи влитых полос A со ссылкой на их DoD-proof; остаток B не закрывать/.test(prm(r.calls, 'mech:merge')), 'B — остаток: назван в итоге и в задании вливания, её задачи не закрываются')
+r = await run({ args, plan: [P('r0.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }, { code: 1, reasons: ['UNCOMMITTED'] }], 'pre:B': [{ code: 1, reasons: ['UNCOMMITTED'] }, { code: 1, reasons: ['UNCOMMITTED'] }] })
+ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'близнец: не прошла ни одна — сборки нет')
+// R1 A,C|B (B зависит от A): рецензент волны вернул ТОЛЬКО C — A и B садятся.
+const argsABC = { ...args, lanes: [argsDep.lanes[0], argsDep.lanes[1], { key: 'C', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-c', text: 't' }] }
+const W3 = (a, b, c) => ({ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: a, blocking: [] }, { key: 'B', verdict: b, blocking: [] }, { key: 'C', verdict: c, blocking: [] }] })
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')] })
+ok(r.res.ok === true && /9-a@/.test(asmP(2)) && /9-b@/.test(asmP(2)) && !/9-c@/.test(asmP(2)) && by(r.calls, c => c.label === 'mech:merge') === 1, 'рецензент волны вернул C — пересведение без C, A и B влиты', JSON.stringify(r.res).slice(0, 300))
+ok(by(r.calls, c => c.agentType === 'wave-reviewer') === 2 && /git diff /.test(prm(r.calls, 'review-wave-2')), 'после снятия полосы — проверка исполнения по дельте сборок, не второй полный круг')
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('return', 'accept', 'accept')] })
+ok(r.res.ok === true && /9-c@/.test(asmP(2)) && !/9-a@/.test(asmP(2)) && !/9-b@/.test(asmP(2)), 'возврат A снимает и зависимую B, C влита', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [{ verdict: 'return', blocking: ['x'] }] })
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'близнец: возврат без разбивки по полосам — факта нет, вливания нет')
+
+console.log('== landing-reviewer — только за недостающим фактом (ws#999)')
+const argsM = { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }
+r = await run({ args: argsM, plan: [P('r2.json')] })
+ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0 && /ПРАВИЛО ВЛИВАНИЯ/.test(prm(r.calls, 'mech:merge')), 'R2, факты полны (CI, ревью на голове, предпроверка 0) — вливает правило, landing-reviewer не зван', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args: { ...argsM, lanes: [{ ...argsM.lanes[0], publicText: true }] }, plan: [P('r2.json')] })
+ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 1, 'публичный текст полосы — факта нет, landing-reviewer зван')
+r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 1 }] })
+ok(by(r.calls, c => c.agentType === 'landing-reviewer') === 1, 'голова сдвинута не только вливанием базы — landing-reviewer зван')
+r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 0 }] })
+ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0, 'близнец: голова сдвинута только вливанием базы — решает правило')
 
 console.log('== «идёт» после ожидания — состояние, а не провал')
 r = await run({ args, plan: [P('r0.json')], ci: Array(12).fill({ state: 'running' }) })
@@ -503,6 +538,15 @@ mutant "ветка полосе → false: kaname берёт имя механи
 mutant "база слияния → только волны" "[l.base || A.base, ...deps.map(d => d.branch)]" "[A.base, ...deps.map(d => d.branch)]"
 mutant "база слияния → только полосы" "[l.base || A.base, ...deps.map(d => d.branch)]" "[l.base, ...deps.map(d => d.branch)]"
 mutant "crossRepo задания не доходит до плана" "crossRepo: A.crossRepo === true || undefined," ""
+# ws#999: вердикт — о своей полосе; решение «вливать» — правило; landing-reviewer — за фактом.
+mutant "непрошедшая полоса снимает соседние" "if (!order.length) return" "if (order.length < Object.keys(done).length) return"
+mutant "возврат полосы рецензентом снимает волну" "covered && back.length && back.length < order.length)" "false)"
+mutant "зависимая от снятой не снимается" "for (let grew = true; grew;)" "for (let grew = false; grew;)"
+mutant "после снятия — второй полный круг без дельты" "'; только дельта \`git diff ' + prevAsm + '..' + asm.head + '\` (принятое не переоткрывается)" "'; полностью"
+mutant "landing-reviewer зовётся всегда" "  if (gap.length) {" "  if (true) {"
+mutant "сдвиг головы не судится" "if (landHead !== asm.head) {" "if (false) {"
+mutant "остаток закрывается каскадом" "закрой задачи влитых полос ' + order.join(', ')" "закрой задачи волны ' + Object.keys(done).join(', ')"
+mutant "правило вливания не в задании git-operator" "'. ' + landRule + '; факт" "'. ; факт"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo

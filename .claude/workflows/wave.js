@@ -15,7 +15,12 @@ export const meta = {
 //  - шаги полосы берутся из вывода plan-precheck.sh (а тот — из lane-tier.sh);
 //    своего соответствия «уровень → шаги» здесь нет;
 //  - R0 — без рецензентов; R1 — один wave-reviewer на СОБРАННУЮ волну; R2 — роли
-//    полосы, рецензент волны и landing-reviewer;
+//    полосы, рецензент волны; landing-reviewer — только за НЕДОСТАЮЩИМ фактом;
+//  - вердикт и решение (база диспетчера §7 «Вердикт и решение», владелец
+//    2026-10-10): роль даёт вердикт о СВОЕЙ полосе, решение «вливать» принимает
+//    код шаблона по ПРАВИЛУ ВЛИВАНИЯ диспетчера (ниже), вливает git-operator.
+//    Непрошедшая полоса и возвращённая рецензентом волны — остаток (с зависимыми
+//    от неё), соседи с полными фактами садятся;
 //  - состояние переходит только по ФАКТУ скрипта (lane-precheck, landing-precheck,
 //    сверка головы на origin), а не по слову агента;
 //  - передача — через файлы: отчёт шага в <WS>/tmp/wave-<N>/<полоса>/<шаг>.md, в
@@ -56,6 +61,8 @@ const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { 
 const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'report'] }
 // Вердикт роли — ТОЛЬКО поле verdict закрытого словаря (accept | return | void —
 // «прогон недействителен»); значок или слово в report не читаются нигде (класс 7).
+// Рецензент волны — вердикт по КАЖДОЙ полосе (lanes), общий verdict — свод.
+const S_WREV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, lanes: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, blocking: { type: 'array', items: { type: 'string' } } }, required: ['key', 'verdict', 'blocking'] } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'lanes', 'report'] }
 const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'report'] }
 const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'integer', minimum: 1 }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
 const S_STACK = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, contains: { type: 'array', items: { type: 'string' } }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'contains', 'conflicts', 'report'] }
@@ -228,12 +235,22 @@ const launch = k => started[k] || (started[k] = (async () => {
   return r
 })())
 await Promise.all(layers.flat().map(launch))
-if (Object.values(done).some(r => !r.ok)) return { ok: false, stage: 'полосы', lanes: done, stacks, errors }
+// Вердикт — о своей полосе: непрошедшая (и не начатая из-за неё зависимая) —
+// остаток, соседи с полными фактами идут в сборку. Не прошла ни одна — стоп.
+const remainder = Object.values(done).filter(r => !r.ok).map(r => ({ key: r.key, stage: r.stage }))
+let order = layers.flat().filter(k => done[k] && done[k].ok)
+if (!order.length) return { ok: false, stage: 'полосы', lanes: done, stacks, errors }
+// Снять полосы и транзитивно зависимых от них (в сборке без предшественника нет кода).
+const dropWithDeps = (keys, why) => {
+  const gone = new Set(keys)
+  for (let grew = true; grew;) { grew = false; for (const k of order) if (!gone.has(k) && ((lanes.find(l => l.key === k) || {}).deps || []).some(d => gone.has(d))) { gone.add(k); grew = true } }
+  for (const k of order) if (gone.has(k)) remainder.push({ key: k, stage: keys.includes(k) ? why : 'зависит от снятой ' + keys.join(', ') })
+  order = order.filter(k => !gone.has(k))
+}
 
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
-const steps = new Set(lanes.flatMap(l => tierOf[l.key].steps))
-const order = layers.flat()
+const steps = new Set(order.flatMap(k => tierOf[k].steps))
 const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
@@ -243,8 +260,21 @@ if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) 
 if (!Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors }
 const waveReviews = []
 if (steps.has('wave-reviewer')) {
-  const wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + D + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_REV })
-  if (!wr || wr.verdict !== 'accept') return { ok: false, stage: 'рецензент волны — возврат; один круг: доводка по ' + D + '/wave-review.md в ветках полос и пересведение решает диспетчер', blocking: wr ? wr.blocking : [], errors }
+  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + D + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
+  const per = wr && Array.isArray(wr.lanes) ? wr.lanes : []
+  const verdictOf = k => (per.find(x => x && x.key === k) || {}).verdict
+  const covered = order.every(k => ['accept', 'return'].includes(verdictOf(k)))
+  const back = order.filter(k => verdictOf(k) === 'return')
+  if (wr && wr.verdict === 'return' && covered && back.length && back.length < order.length) {
+    // Возврат — о своих полосах: снять их (с зависимыми), пересвести без них;
+    // рецензент — лишь проверка исполнения по дельте сборок, не второй круг.
+    dropWithDeps(back, 'возврат рецензента волны — ' + D + '/wave-review.md')
+    const prevAsm = asm.head
+    asm = await assemble(2)
+    if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head) || !Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'пересведение без возвращённых полос', remainder, errors }
+    wr = await agent(C + '\n\nПроверка исполнения сверки волны ' + N + ': сняты полосы ' + remainder.map(x => x.key).join(', ') + '; только дельта `git diff ' + prevAsm + '..' + asm.head + '` (принятое не переоткрывается), полосы ' + order.join(', ') + '. Запись — ' + D + '/wave-review-2.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave-2', phase: 'Сборка', schema: S_WREV })
+  } else if (wr && wr.verdict === 'accept' && back.length) wr = { ...wr, verdict: 'void' } // свод «принято» при возврате полосы — противоречие, факта нет
+  if (!wr || wr.verdict !== 'accept') return { ok: false, stage: 'рецензент волны — ' + (wr && wr.verdict === 'return' && !covered ? 'возврат без вердикта по каждой полосе: факта нет, ' : 'возврат; ') + 'доводка по ' + D + '/wave-review.md в ветках полос и пересведение решает диспетчер', blocking: wr ? wr.blocking : [], remainder, errors }
   waveReviews.push({ role: 'wave-reviewer', sha: wr.sha, verdict: wr.verdict, blocking: wr.blocking })
 }
 // CI: «идёт» — ждать, не провал; вердикт — только на голове сборки
@@ -259,12 +289,10 @@ if (ci && ci.state === 'running' && ci.head === asm.head) return { ok: false, st
 if (!ci || ci.state !== 'green' || ci.head !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + (ci ? ci.state : 'нет ответа'), report: ci ? ci.report : '', errors }
 
 // ── Посадка ─────────────────────────────────────────────────────────────
+// Факты собираются (CI на голове, ревью уровня на головах, коды предпроверки);
+// решение «вливать» — ПРАВИЛО ВЛИВАНИЯ ниже; landing-reviewer — за недостающим
+// фактом: публичный текст полосы либо голова PR сдвинута не только вливанием базы.
 phase('Посадка')
-if (steps.has('landing-reviewer')) {
-  const lr = await agent(C + '\n\nДо посадки: PR #' + asm.pr + ' @' + asm.head + ' → ' + (A.epic || A.base) + '. Запись — ' + D + '/landing-review.md. Верни verdict, sha, blocking, report.', { agentType: 'landing-reviewer', label: 'review-landing', phase: 'Посадка', schema: S_REV })
-  if (!lr || lr.verdict !== 'accept') return { ok: false, stage: 'landing-reviewer — возврат', blocking: lr ? lr.blocking : [], errors }
-  waveReviews.push({ role: 'landing-reviewer', sha: lr.sha, verdict: lr.verdict, blocking: lr.blocking })
-}
 // Вердикты ролей полос судятся на голове ПОЛОСЫ, сведённой в сборку (sha
 // вердикта = голова, отданная сборке); на голове PR — вердикты волны: их и
 // судит landing-precheck (REVIEW-STALE). Подменять sha вердикта нельзя.
@@ -273,6 +301,7 @@ for (const d of Object.values(done)) {
   if (stale.length) return { ok: false, stage: 'вердикт роли не на сведённой голове полосы ' + d.key, stale, errors }
 }
 const reviews = waveReviews
+const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на sha головы из landing-precheck; код 0 — вливать; 1 только с CI-PENDING — ждать; 1 только с причинами тела — правка тела и повтор; иначе и код 2 — не вливать, вернуть код и вывод'
 const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни рецепт «ЗАПУСК» шапки landing-precheck.sh (он вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2) `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : ''), D + '/landing-precheck-' + round + '.md') + '`; code — код этой команды. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
 let lp = await landCheck(1)
 if (lp && lp.code === 1) {
@@ -286,6 +315,18 @@ if (lp && lp.code === 1) {
   }
 }
 if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, errors }
-if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], errors }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + asm.head + '; основание — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи волны со ссылкой на их DoD-proof. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
-return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: asm.head, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
+if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], remainder, errors }
+const landHead = sha40(lp.head) || asm.head
+if (steps.has('landing-reviewer')) {
+  let gap = order.filter(k => (lanes.find(l => l.key === k) || {}).publicText === true).map(k => 'публичный текст полосы ' + k)
+  if (landHead !== asm.head) {
+    const dl = await agent(C + '\n\nРежим дельта головы: PR #' + asm.pr + ' ' + asm.head + '..' + landHead + '. Код 0 — в дельте только коммиты слияния свежей базы ' + (A.epic || A.base) + ' (`git rev-list --no-merges ' + asm.head + '..' + landHead + '` пуст и второй родитель каждого слияния — предок origin/' + (A.epic || A.base) + '); иначе 1. Верни code, out, reasons [], head.', { ...MECH, label: 'mech:delta', phase: 'Посадка', schema: S_MECH })
+    if (!dl || dl.code !== 0) gap.push('голова сдвинута не только вливанием базы: ' + asm.head.slice(0, 12) + '..' + landHead.slice(0, 12))
+  }
+  if (gap.length) {
+    const lr = await agent(C + '\n\nДо посадки, за недостающим фактом (' + gap.join('; ') + '): PR #' + asm.pr + ' @' + landHead + ' → ' + (A.epic || A.base) + '. Вердикт — об этом PR. Запись — ' + D + '/landing-review.md. Верни verdict, sha, blocking, report.', { agentType: 'landing-reviewer', label: 'review-landing', phase: 'Посадка', schema: S_REV })
+    if (!lr || lr.verdict !== 'accept' || lr.sha !== landHead) return { ok: false, stage: 'landing-reviewer — ' + (lr && lr.verdict === 'accept' ? 'вердикт о другой sha' : 'возврат'), blocking: lr ? lr.blocking : [], remainder, errors }
+  }
+}
+const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
