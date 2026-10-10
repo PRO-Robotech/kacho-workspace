@@ -55,7 +55,17 @@
 #   только deps полосы, при любом порядке окончания соседей (A позже C и C позже
 #   A); база сводки — база полосы; имя сводки не по форме либо совпавшее у двух
 #   полос — остановка на плане, близнец — два разных имени (ws#939, опыт
-#   check-verifier: 11 мутантов выжили на aeb93941).
+#   check-verifier: 11 мутантов выжили на aeb93941);
+#   полоса с deps и веткой-номером (kaname: хук принимает лишь `^[0-9]+$`) —
+#   сводка в ветке самой полосы, ни одно задание не заводит и не снимает ветку
+#   не-номер, слияния по форме `#<N> merge #<M>: …`, голова dep сверяется
+#   is-ancestor до исполнителя, имя ветки — из задания, а не из ответа механика,
+#   исполнителю — «продолжай свою ветку от головы сводки» без «влей сводку»;
+#   близнец kacho — прежняя `<N>-stack-<ключ>`, снимаемая вливанием, исполнителю —
+#   «влей сводку» без «уже в твоей ветке» (ws#946).
+#   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
+#   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
+#   не принимает; не-номерные ветки kaname, уже лежащие на origin.
 #
 # ИНЪЕКЦИИ — без довода проба после контроля прогоняет МУТАНТОВ шаблона (по
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
@@ -104,6 +114,11 @@ jq -e '(.lanes[] | select(.key == "M") | (.steps | index("roles")) != null and (
 # Две зависимые полосы: ключи, сводящиеся к одному имени сводки, и близнец.
 planout "$W/r1coll.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"B-1",repo:"kacho-workspace",paths:["services/x/b.go"],deps:["A"]},{key:"B_1",repo:"kacho-workspace",paths:["services/x/e.go"],deps:["A"]}]'
 planout "$W/r1two.json" '[{key:"A",repo:"kacho-workspace",paths:["services/x/a.go"]},{key:"B-1",repo:"kacho-workspace",paths:["services/x/b.go"],deps:["A"]},{key:"B-2",repo:"kacho-workspace",paths:["services/x/e.go"],deps:["A"]}]'
+# Полоса с deps в репозитории, чей хук принимает ветку только номером (kaname),
+# и близнец той же формы в kacho (ws#946).
+planout "$W/kn.json" '[{key:"A",repo:"kaname",paths:["internal/x/a.go"]},{key:"B",repo:"kaname",paths:["internal/x/b.go"],deps:["A"]}]'
+planout "$W/kc.json" '[{key:"A",repo:"kacho",paths:["internal/x/a.go"]},{key:"B",repo:"kacho",paths:["internal/x/b.go"],deps:["A"]}]'
+jq -e '[.layers[] | join(",")] | join("|") == "A|B"' "$W/kn.json" > /dev/null || { echo "wave-template-inject: VOID — план kaname A|B не получен: предпосылка сценария ws#946" >&2; exit 2; }
 
 cat > "$W/probe.mjs" <<'JS'
 import fs from 'node:fs'
@@ -138,7 +153,7 @@ async function run(sc) {
     const lane = label.split(':').pop()
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: JSON.stringify(o), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
-    if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
+    if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: (prompt.match(/заведи ветку (\S+)/) || [])[1] || '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('review-wave')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r', ...take('wave', () => ({})) }
     if (label.startsWith('review-landing')) return { verdict: 'accept', sha: HW, blocking: [], report: 'r' }
@@ -292,6 +307,38 @@ ok(r.res.ok === false && r.res.stage === 'план' && /совпало у дву
 r = await run({ args: { ...args, lanes: [lanes2[0], dl('B-1'), dl('B-2')] }, plan: [P('r1two.json')] })
 ok(r.res.ok === true && prm(r.calls, 'mech:stack:B-1').includes('9-stack-b-1 ') && prm(r.calls, 'mech:stack:B-2').includes('9-stack-b-2 '), 'близнец: ключи B-1 и B-2 — две сводки со своими именами', JSON.stringify(r.res).slice(0, 300))
 
+// Хук kaname принимает ветку только номером (^[0-9]+$): имя <N>-stack-<ключ>
+// он отвергает, и полоса с deps не стартует. Сводка такой полосы — в ветке
+// самой полосы; голова каждой dep — её предок до исполнителя (ws#946).
+console.log('== зависимая полоса kaname — сводка в ветке полосы (ws#946)')
+const branchOf = c => (c.prompt.match(/заведи ветку (\S+)/) || [])[1] || ''
+const knLanes = [{ key: 'A', repo: 'kaname', agent: 'go-implementer', branch: '683', text: 't' }, { key: 'B', repo: 'kaname', agent: 'go-implementer', branch: '684', text: 't', deps: ['A'] }]
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')] })
+const knStack = r.calls.filter(c => c.label.startsWith('mech:stack:'))
+const knNames = [...knStack.map(branchOf), ...(r.res.stacks || [])]
+ok(r.res.ok === true && knStack.length === 1 && branchOf(knStack[0]) === '684', 'kaname: сводка deps B заводится в ветке самой полосы 684', JSON.stringify({ res: r.res.stage, names: knNames }).slice(0, 300))
+ok(knNames.every(b => /^[0-9]+$/.test(b)) && !r.calls.some(c => /\d+-stack-/.test(c.prompt)), 'kaname: ни одно задание не заводит и не снимает ветку, чьё имя не число', JSON.stringify(knNames))
+ok(knStack.length === 1 && /merge-base --is-ancestor/.test(knStack[0].prompt) && knStack[0].prompt.includes('683@' + H('A', 1)), 'kaname: голова A вливается в 684 и сверяется is-ancestor до исполнителя')
+ok(knStack.length === 1 && knStack[0].prompt.includes('#684 merge #683: ') && knStack[0].prompt.includes('#684 merge #296: '), 'kaname: слияния в ветке полосы — по форме хука «#<N> merge #<M>: …»', knStack.length ? knStack[0].prompt.slice(0, 600) : '')
+ok(idx(r.calls, 'impl:B') > idx(r.calls, 'mech:stack:B') && prm(r.calls, 'impl:B').includes('684@' + H('SB', 0)) && prm(r.calls, 'mech:precheck:B').includes(' ' + H('SB', 0) + ' '), 'kaname: исполнитель B продолжает 684 от головы сводки, предпроверка судит её как базу')
+ok(/уже в твоей ветке на origin — продолжай её от этой головы/.test(prm(r.calls, 'impl:B')) && !/влей сводку/.test(prm(r.calls, 'impl:B')), 'kaname: исполнителю B — «продолжай свою ветку», а не «влей сводку»', prm(r.calls, 'impl:B').slice(0, 400))
+ok(!(r.res.stacks || []).length && !/временные сводки/.test(prm(r.calls, 'mech:merge')), 'kaname: ветка полосы не числится временной сводкой и вливанием не снимается', JSON.stringify(r.res.stacks))
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')], 'stack:B': [{ status: 'done', head: H('SB', 0), branch: '9-stack-b' }] })
+ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('684@' + H('SB', 0)) && !r.calls.some(c => c.label !== 'mech:stack:B' && /9-stack-b/.test(c.prompt)), 'kaname: механик вернул чужое имя ветки — исполнитель всё равно в 684, чужое имя дальше не идёт', JSON.stringify(r.calls.filter(c => /9-stack-b/.test(c.prompt)).map(c => c.label)))
+const kcLanes = [{ key: 'A', repo: 'kacho', agent: 'go-implementer', branch: '3101-a', text: 't' }, { key: 'B', repo: 'kacho', agent: 'go-implementer', branch: '3101-b', text: 't', deps: ['A'] }]
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')] })
+ok(r.res.ok === true && branchOf(r.calls.find(c => c.label === 'mech:stack:B') || { prompt: '' }) === '9-stack-b' && (r.res.stacks || []).join() === '9-stack-b' && prm(r.calls, 'mech:merge').includes('9-stack-b'), 'близнец kacho: сводка — прежняя ветка 9-stack-b, снимается вливанием', JSON.stringify(r.res.stacks))
+ok(/ветка уже есть на origin — влей сводку в неё коммитом слияния/.test(prm(r.calls, 'impl:B')) && !/уже в твоей ветке/.test(prm(r.calls, 'impl:B')), 'близнец kacho: исполнителю B — «влей сводку», а не «сводка уже в твоей ветке»', prm(r.calls, 'impl:B').slice(0, 400))
+ok(!/это ветка самой полосы/.test(prm(r.calls, 'mech:stack:B')) && !/#3101-b merge/.test(prm(r.calls, 'mech:stack:B')), 'близнец kacho: механику сводки нет подсказки «ветка самой полосы» и формы «#3101-b merge …»', prm(r.calls, 'mech:stack:B').slice(0, 600))
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')], 'stack:B': [{ status: 'done', head: H('SB', 0), branch: '9-stack-b-m' }] })
+ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('сводки deps 9-stack-b-m@' + H('SB', 0)) && (r.res.stacks || []).join() === '9-stack-b-m', 'близнец kacho: ветка сводки — та, что вернул механик (9-stack-b-m), а не имя из задания', JSON.stringify({ stacks: r.res.stacks, impl: prm(r.calls, 'impl:B').slice(0, 200) }))
+// Ветвь mergeSubj: номер — с решёткой, не-номер (база main) — как есть.
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: 'main', epic: 'main', lanes: knLanes }, plan: [P('kn.json')] })
+ok(prm(r.calls, 'mech:stack:B').includes('#684 merge main: ') && !prm(r.calls, 'mech:stack:B').includes('#main') && prm(r.calls, 'mech:stack:B').includes('#684 merge #683: '), 'kaname: в форме слияния номер с решёткой (#683), не-номер без неё (main)', prm(r.calls, 'mech:stack:B').slice(0, 600))
+// Ветвь базы в форме слияния: база полосы, а не волны, и база волны, когда своей нет.
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: [knLanes[0], { ...knLanes[1], base: '297' }] }, plan: [P('kn.json')] })
+ok(prm(r.calls, 'mech:stack:B').includes('#684 merge #297: ') && !prm(r.calls, 'mech:stack:B').includes('#684 merge #296: '), 'kaname: слияние базы — база полосы (#297), а не волны (#296)', prm(r.calls, 'mech:stack:B').slice(0, 600))
+
 r = await run({ args: { ...args, crossRepo: true }, plan: [P('r0.json')] })
 ok(prm(r.calls, 'mech:plan:1').includes('"crossRepo":true'), 'явный crossRepo задания уходит в план (межрепозиторная сверка — по флагу)')
 r = await run({ args, plan: [P('r0.json')] })
@@ -425,13 +472,36 @@ mutant "доводка предпроверки — от базы" "rep(l.key, '
 mutant "второй precheck — от базы" $'    pc = await precheck(l, impl, stack)\n  }' $'    pc = await precheck(l, impl, null)\n  }'
 mutant "доводка после ролей — от базы" "rep(l.key, 'review-' + x.r)).join('; '), stack)" "rep(l.key, 'review-' + x.r)).join('; '), null)"
 mutant "коллизия имён сводки не судится" "if (Object.values(stackNames).includes(s)) return" "if (false) return"
-mutant "форма имени сводки не судится" "if (!/^[0-9]+-[a-z0-9][a-z0-9-]*\$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return" "if (false) return"
+mutant "форма имени сводки не судится" "if (!inLane(l) && !/^[0-9]+-[a-z0-9][a-z0-9-]*\$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return" "if (false) return"
 mutant "сводка от базы волны, а не l.base" "от свежего origin/' + (l.base || A.base)" "от свежего origin/' + (A.base)"
 mutant "голова сводки не сверяется sha40" "|| !sha40(st.head) || missing.length) {" "|| missing.length) {"
 mutant "отсутствующий ответ сводки — не стоп" "    if (!st || st.status === 'conflict'" "    if (st.status === 'conflict'"
 # Соседние точки того же свойства (повтор зависимой — от сводки).
 mutant "первая предпроверка зависимой — от базы" "let pc = await precheck(l, impl, stack)" "let pc = await precheck(l, impl, null)"
 mutant "предпроверка после ролей — от базы" "      pc = await precheck(l, impl, stack)" "      pc = await precheck(l, impl, null)"
+# ws#946: каждое ветвление, введённое веткой, — два мутанта: условие → true и
+# условие → false. Места: определение inLane (122), имя сводки (123), суд формы
+# имени (128), задание исполнителю (137), форма слияния mergeSubj (141), задание
+# механику сводки (142) и база в его форме слияния (`l.base || A.base`), учёт
+# временных сводок (222), ветка, отдаваемая полосе (225).
+mutant "inLane → false: stack-имя для kaname" "const inLane = l => /^[0-9]+\$/.test(String(l.branch || ''))" "const inLane = l => false"
+mutant "inLane → true: сводка в ветке полосы и у kacho" "const inLane = l => /^[0-9]+\$/.test(String(l.branch || ''))" "const inLane = l => true"
+mutant "имя сводки → true: kacho в ветке полосы" "const stackName = l => inLane(l) ? String(l.branch)" "const stackName = l => true ? String(l.branch)"
+mutant "имя сводки → false: kaname <N>-stack-" "const stackName = l => inLane(l) ? String(l.branch)" "const stackName = l => false ? String(l.branch)"
+mutant "суд формы → true: kacho без суда формы" "if (!inLane(l) && !/^[0-9]+-" "if (!true && !/^[0-9]+-"
+mutant "суд формы → false: kaname-номер не по форме" "if (!inLane(l) && !/^[0-9]+-" "if (!false && !/^[0-9]+-"
+mutant "исполнитель → true: kacho «сводка уже в твоей ветке»" "(inLane(l) ? '; сводка уже в твоей ветке" "(true ? '; сводка уже в твоей ветке"
+mutant "исполнитель → false: kaname «влей сводку»" "(inLane(l) ? '; сводка уже в твоей ветке" "(false ? '; сводка уже в твоей ветке"
+mutant "mergeSubj → true: не-номер с решёткой" "(/^[0-9]+\$/.test(String(b)) ? '#' + b : b)" "(true ? '#' + b : b)"
+mutant "mergeSubj → false: номер без решётки" "(/^[0-9]+\$/.test(String(b)) ? '#' + b : b)" "(false ? '#' + b : b)"
+mutant "механик → true: kacho «ветка самой полосы»" "' коммитами слияния pointpu --no-ff' + (inLane(l) ?" "' коммитами слияния pointpu --no-ff' + (true ?"
+mutant "механик → false: форма слияния kaname не названа" "' коммитами слияния pointpu --no-ff' + (inLane(l) ?" "' коммитами слияния pointpu --no-ff' + (false ?"
+mutant "учёт сводок → true: kacho-сводка не снимается" "if (st && sha40(st.head) && !inLane(l)) stacks.push(" "if (st && sha40(st.head) && !true) stacks.push("
+mutant "учёт сводок → false: ветка kaname числится сводкой" "if (st && sha40(st.head) && !inLane(l)) stacks.push(" "if (st && sha40(st.head) && !false) stacks.push("
+mutant "ветка полосе → true: kacho не берёт имя механика" "branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k]" "branch: true ? stackNames[k] : st.branch || stackNames[k]"
+mutant "ветка полосе → false: kaname берёт имя механика" "branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k]" "branch: false ? stackNames[k] : st.branch || stackNames[k]"
+mutant "база слияния → только волны" "[l.base || A.base, ...deps.map(d => d.branch)]" "[A.base, ...deps.map(d => d.branch)]"
+mutant "база слияния → только полосы" "[l.base || A.base, ...deps.map(d => d.branch)]" "[l.base, ...deps.map(d => d.branch)]"
 mutant "crossRepo задания не доходит до плана" "crossRepo: A.crossRepo === true || undefined," ""
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
