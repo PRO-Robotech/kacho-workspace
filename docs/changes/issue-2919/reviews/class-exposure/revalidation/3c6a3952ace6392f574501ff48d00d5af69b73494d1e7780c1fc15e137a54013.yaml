@@ -1,0 +1,262 @@
+# Экспозиция классов: пересверка замысла NTF-4 редакции 11 и маршрута редакции 12 (приведение к дереву,
+# коммит 2b9e9f865). Механизмов продукта дельта не вводит, это сказано в шапке редакции 11, и по дельте
+# это подтверждается. Судятся: (1) три расхождения замысла с деревом, которые автор назвал и не решил
+# (З1, З22, Е14) — блокирующие ли они; (2) утверждения §1а и §2б маршрута о базе kacho `2914-notify`
+# @`e6075f09c2`, которые проверены командами. Пересверка 7ee3b605… относится к редакции 10 и здесь не
+# переписывается.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2919
+issue: https://github.com/PRO-Robotech/kacho/issues/2919
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2919/design.md
+  sha256: 3c6a3952ace6392f574501ff48d00d5af69b73494d1e7780c1fc15e137a54013
+  fingerprint_predicate: sha256sum docs/changes/issue-2919/design.md
+  revision: 11
+  content_commit: 2b9e9f865beb6af8f35e5aafc46e74eed99ab0a0   # на 6f18fd174 файл тот же (git diff 2b9e9f865 6f18fd174 -- docs/changes/issue-2919 пуст)
+  tasks_sha256: add981ed1673182cbeacb06283f9b77be3834bef3fe33494728016c3d331a69d   # маршрут редакции 12
+previous_revalidation: docs/changes/issue-2919/reviews/class-exposure/revalidation/7ee3b605d2cba6898232a9f02298bfd7481c5b5c21f24ac237079de9f3f03bad.yaml
+acceptance:
+  path: docs/specs/sub-phase-NTF-4-delivery-feedback-reputation-acceptance.md
+  sha256_in_tree: 71ec59d12d049aad833024716134270036414389d790cd0e21f515e841827714
+  revision_in_tree: 29
+  effective_verdict: APPROVED   # docs/specs/reviews/sub-phase-NTF-4-delivery-feedback-reputation-acceptance/71ec59d1….yaml, verdict: APPROVED; событие — 768409e46
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: 42f45880fe70144c1fe9bf132c41be22aa639c1d2906f5ecfa030479a75e1bff   # рабочая копия issue-880; на origin/main 54854e0f поле то же: class-exposure-analyst: [pointpu]
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 6f18fd1747a2cd28eb17d9ae35cb9fc4956255ba   # HEAD issue-880
+  kacho: e6075f09c2613184ec0c120fbe5645a2c1e9979c        # origin/2914-notify, голова не сдвинулась с замера маршрута
+  kacho_line_a: 38619d412f25eb6714b66ef0496d9ed3df81f41e # origin/2915-wave-ntf1-send
+  corelib_pin: 18d105d0f50a
+  kaname_pin: 33010d434767
+snapshot_at: 2026-10-10
+inspected: >-
+  design.md: дельта коммита 2b9e9f865 целиком (шапка ред. 11, §2а «База части Основы», строка Х5 таблицы
+  §2а, §13 Е10, Е11); З1, З21, З22 целиком. tasks.md: весь (440 строк). Приёмка ред. 29: §0а строки
+  NTF4-92, 117, 119, 123/124; Р16 «Держатель»; Р22 (н1)–(н4); §8 строки 119, 122, Р16; сценарий 119.
+  kacho @e6075f09c2 (detached worktree tmp/cx-2919-e6075): `go list -deps` двух корней notify;
+  services/notify/cmd/notify-api/internal/config/config.go; services/notify/internal/config/config.go
+  (Knob, группы); required_knobs_test.go (s3Envs, проверка групп, loaderDirs); servesurface_test.go
+  (шапка и два теста); servesurface_ledger.go; api-configmap.yaml и configmap.yaml чарта notify; 11
+  предикатов §1а/§1 маршрута. corelib @18d105d0f50a: GooseApplied, migratorrun, PrefixOperationNotify.
+  Записки vault не читались.
+
+approval_conditions:
+  - condition: "каждый пункт пересверки 7ee3b605 отображён"
+    result: green
+    detail: >-
+      В 7ee3b605 один пункт, RV10-01: в предикате Е11 должно стоять `S3-C6н`, а не `S3-C6`. Редакция 11
+      снимает Е11 предметом, и новый предикат строки Е11 (tasks.md §1) — `grep -c '^\| Н3-Ф3а'
+      docs/changes/issue-2918/tasks.md` → 0. Подстроку `S3-C6` он не читает, поэтому RV10-01 исчерпан
+      снятием своего предмета. Прогон на 6f18fd174 → 0.
+  - condition: "снятия «предметом» стоят на внешнем факте, который умеет ответить «нет»"
+    result: green
+    detail: >-
+      Е10: строка `cmd/notify-api` записи З9 на e6075f09c2 несёт InternalNoticeService, NoticeService и
+      OperationService. Предикат → 3 и стал бы 0, если бы строку сняли. Е11: таблица волн NTF-3 не
+      содержит Н3-Ф3а (→ 0). Е13: `NotificationInboxService` → 0 на e6075f09c2, имя сверено с замыслом
+      NTF-3 (5 вхождений).
+  - condition: "дельта не вводит внешнего вызова, асинхронного пути, sentinel-значения, ручки"
+    result: green
+    detail: >-
+      В редакции 11 только перепись базы и снятие связки. Полоса S3-C2н больше не заводит десять ручек
+      стадии S3: они уже в загрузчике notify-api (NTF-5), их держит s3Envs в required_knobs_test.go.
+  - condition: "нет маркеров отсрочки (ban #11)"
+    result: green
+    detail: "grep -noE 'TODO|TBD|FIXME|XXX' по design.md и tasks.md → 0"
+  - condition: "расхождения замысла с деревом, оставленные открытыми, не ломают полосы волны Н4-О"
+    result: red
+    detail: "RV12-01 ниже: факт, который Е14 называет для NTF4-117, делает красными утверждения Р16 и NTF4-119 в полосе S3-C2н, а Е14 её не гейтит."
+
+findings:
+  - id: RV12-01
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» (два написания одного значения; закрытый перечень,
+      который не равен дереву) × security.md sec-no-silent-default-for-guarded-knob (держатель стражей ручек)
+    subject: "Е14 гейтит только S3-C6н, а тот же факт дерева касается S3-C2н: Р16 «Держатель» и NTF4-119 в части загрузчика notify-api"
+    blocking: true
+    measured: >-
+      Карточка S3-C2н (tasks.md §2б) требует «держатель Р16 в части загрузчика notify-api — десять ручек
+      стадии S3 и (н1)–(н4) … шестая–девятая инъекции Р16» и сценарий NTF4-119. Одобренная приёмка ред. 29
+      (Р16 «Держатель») утверждает о загрузчике каждого развёртывания три вещи, и на e6075f09c2 все три
+      красные. (1) «Группы не пересекаются, и их объединение — все ручки, которые читает загрузчик»
+      (grep → 1 в приёмке). В загрузчике notify-api есть две ручки NTF-5 вне (н1)–(н4) и вне S3:
+      `git -C kacho grep -c 'envconfig:"KACHO_NOTIFY_NOTICE_REMINDER_LEAD"\|envconfig:"KACHO_NOTIFY_LIST_FILTER_CACHE_TTL"'
+      e6075f09c2 -- services/notify/cmd/notify-api/internal/config/config.go` → 2. Тега группы у загрузчика нет
+      вовсе: `grep -c 'group:"'` → 0. (2) «имена и границы (н1)–(н4) — из того же объявления, что у
+      notify-sender: второго объявления ручки NTF-1 нет» (grep → 1). В дереве объявлений два:
+      `git -C kacho grep -l 'envconfig:"KACHO_NOTIFY_DB_MAX_CONNS"' e6075f09c2 -- services/notify` → 2 файла, у
+      каждого свои постоянные DBMaxConnsMin/Max = 1/100. Оба загрузчика читают один ключ values
+      `.Values.db.maxConns`: api-configmap.yaml, строка 33, и configmap.yaml, строка 25. (3) Инъекция Р16
+      «умолчание у одной ручки — красная» против загрузчика notify-api: в дереве законное умолчание NTF-5
+      Р17, `grep -c 'default:"'` → 1 (ListFilterCacheTTL 5s). Е14 называет тот же факт (ручки NTF-5 в
+      notify-api), но только для NTF4-117 и S3-C6н: «гейтит только утверждение об окружении в S3-C6н».
+    consequence: >-
+      Буквальное исполнение S3-C2н даёт одно из двух. Либо держатель Р16 красный на голове волны, и волна
+      не садится. Либо держатель ослабляют без санкции приёмки: исключают загрузчик notify-api, не берут
+      инъекцию «умолчание» или ручки NTF-5 снимают с загрузчика. Держатель Р16 — единственный, кто судит
+      «незаданная ручка — отказ с именем, умолчаний нет» у notify-api. Его ослабление вне приёмки снимает
+      покрытие стража ручек посадки и звена прав (sec-no-silent-default-for-guarded-knob). Снятие ручек
+      NTF-5 ломает уже посаженный NTF-5: ручка NoticeReminderLead без умолчания, и api-configmap её
+      рендерит.
+    condition_on_code: >-
+      (а) Маршрут: строку Е14 (tasks.md §1) расширить на S3-C2н, указав, что именно она гейтит. Это
+      утверждения Р16 о группах загрузчика notify-api: объединение, единственность объявления (н1)–(н4),
+      инъекция «умолчание». Это и последний And NTF4-119: «группа NTF-1 — ровно (н1)–(н4)» и три инъекции.
+      В карточке S3-C2н в after и «готово, когда» — «Е14 — только для этих утверждений», так же как у
+      S3-C6н. Прочее S3-C2н (замок, RequireApplied, УК4-26, NTF4-92/119 (а)–(г) по старту, NTF4-122/124)
+      от Е14 не зависит. (б) Приёмка (acceptance-author тем же кругом, что NTF4-117): у notify-api
+      перечень ручек загрузчика — закрытое объединение частей под-фаз (н1)–(н4) ∪ S3 ∪ NTF-5 Р17. Это
+      сверка в обе стороны с `Knobs()` загрузчика, а не постоянный список. Отдельно надо решить, что
+      значит «одно объявление (н1)–(н4)» при правиле Д74, на которое приёмка уже ссылается в §8, строка
+      Р16. Вариант 1: загрузчик notify-api берёт имена и границы (н1)–(н4) из пакета
+      services/notify/internal/config, и тогда правка входит в пути S3-C2н (`cmd/notify-api/**`).
+      Вариант 2: проба сверяет имена и границы двух объявлений по каждой ручке. Без решения второе
+      объявление (н3) с общим ключом values разойдётся молча. Расхождение громкое, это отказ старта
+      одного развёртывания, но держателя у него сейчас нет.
+    held_by: "нужен держатель: проба Р16 в новой формулировке (S3-C2н); до правки приёмки — гейт Е14 на эти утверждения"
+    outcome: блокер   # для «готово» S3-C2н; старт волны Н4-О и прочие полосы не держит
+
+  - id: RV12-02
+    class: "code-authoring §«Инвариант и оснастка — это тоже прод-код» (держатель судит идентичность, а не имя каталога)"
+    subject: "З1: регистрации «только в apiserver», а в дереве — services/notify/internal/apps/kacho/api/<ресурс>/"
+    blocking: false
+    measured: >-
+      Граница импорта (CX4V-57) в дереве соблюдена под другим именем пакета. `go list -deps
+      ./services/notify/cmd/notify` @e6075f09c2 → 0 пакетов `internal/apps/kacho/api*` и 0
+      `pkg/api/kacho/cloud/notify/v1`. От `cmd/notify-api` — 17 пакетов apps и стаб notify/v1.
+      Держатель — servesurface_test.go. Он судит вызовы `grpc.NewServer`, точек входа фундамента и
+      `Register…Server` по идентичности go/types против ведомости корней, а имена каталогов не судит
+      (шапка файла). Ни одна полоса Основы в `internal/apiserver/**` не пишет: пути S3-C2н, S3-C4н, S3-C5,
+      S3-C6н, S3-C7н сверены. Затронуты только строки S3-C2 и S3-C3 после Основы.
+    condition_on_code: >-
+      До старта S3 после Основы автор замысла переписывает таблицу пакетов З1. Строка `apiserver`
+      заменяется раскладкой NTF-5 (`internal/apps/kacho/api/suppression/…`), пути S3-C2/S3-C3 правятся
+      тем же заходом. Второй корень регистраций рядом с `apps/kacho/api` не заводится. В tasks.md
+      §2, абзац «Что меняется в строках §2 после Основы», производитель решения по З1 и З22 — автор
+      замысла. Сверка §0 с исходом (б) ведёт к acceptance-author, а не к нему.
+    held_by: "покраснеет servesurface_test.go (TestNTF1G19Injection), если регистрация станет достижима от cmd/notify; раскладку каталогов держит вниманием ревью замысла"
+    outcome: к-замыслу
+
+  - id: RV12-03
+    class: "code-authoring §«Контракт, который нельзя выразить» (два написания одного значения)"
+    subject: "З22, часть замысла: «одно объявление в internal/config/knobs.go, загрузчик notify-api выбирает ручки NTF-4 закрытым перечнем из 12 постоянных пакета»"
+    blocking: false
+    measured: >-
+      В Основе не исполняется: десять ручек S3 уже в загрузчике notify-api, S3-C2н ручек не добавляет.
+      После Основы S3-C2 добавляет `…_SECRET_RELOAD_INTERVAL` и `KACHO_NOTIFY_ADDRESS_KEY_DIR`. Буквальное
+      З22 — тег GroupNTF4 в internal/config — красит существующий держатель: required_knobs_test.go
+      печатает «ручка стадии S3 … в группе NTF-4 загрузчика notify-sender; её читатель — notify-api (Р22)»
+      (строка 673 @e6075f09c2). Отказ громкий, не молчаливый. Часть З22, которая касается Основы,
+      поглощена RV12-01.
+    condition_on_code: >-
+      До старта S3 после Основы З22 приводится к Д74 и к §8 приёмки, строка Р16. Каждый корень объявляет
+      свои ручки под `cmd/<корень>/internal/config`, имена и границы общих ручек (н1)–(н4) берутся по
+      решению RV12-01 (б). Ручки S3 и NTF-5 в объявлении notify-sender не появляются.
+    held_by: "покраснеет TestRequiredKnobsS1 (подпроба групп) при ручке S3 в группе notify-sender"
+    outcome: к-замыслу
+
+  - id: RV12-04
+    class: "code-authoring §«Контракт, который нельзя выразить» (закрытый перечень против дерева)"
+    subject: "Е14: NTF4-117 и З21 — окружение notify-api «ровно (н1)–(н4) и десять ручек S3»"
+    blocking: false
+    measured: >-
+      Подтверждено. В api-configmap.yaml @e6075f09c2 23 переменные, KACHO_NOTIFY_NOTICE_REMINDER_LEAD → 1.
+      В загрузчике 25 ручек. Сверх рендера в нём DB_PASSWORD (из секрета) и LIST_FILTER_CACHE_TTL
+      (умолчание 5s, в рендере нет). В маршруте есть всё нужное: производитель, предикат снятия,
+      единственный гейтируемый предмет (утверждение об окружении в S3-C6н). Механизм NTF-4 от Е14 не зависит.
+    condition_on_code: >-
+      Формулировка NTF4-117 для acceptance-author: имена переменных рендера notify-api равны в обе стороны
+      `Knobs()` загрузчика notify-api. Из `Knobs()` исключаются ручки с источником «секрет» и ручки с
+      умолчанием, которые чарт не рендерит, и каждое исключение названо. Это выводится из дерева, а не
+      ведётся постоянным списком. Ручек стадии S1 и KACHO_NOTIFY_ADDRESS_KEY_DIR в рендере Основы нет.
+    held_by: "нужен гейт: рендер-гейт NTF4-117 (S3-C6н) в новой формулировке; до неё — Е14"
+    outcome: вернуть-в-приёмку
+
+  - id: RV12-05
+    class: "measurement-discipline §«Форма числа» (единица, ревизия)"
+    subject: "Е12: «(20 файлов, пять из них — пути выше)»"
+    blocking: false
+    measured: >-
+      Та же команда @38619d412f, merge-base 9bc6b9e89: 137 файлов, 36 коммитов линии A. Пять названных
+      путей в диффе есть. Есть и шестой путь волны: deploy/tests/helm/posture-listener-form-test.sh,
+      путь S3-C5, на нём after Е12 уже стоит. Вывод «Е12 открыта, S3-C4н/C5/C6н после неё» число не
+      меняет. Путей S3-C2н и S3-C7н в диффе нет, поэтому их «Е12 не нужна» и «after: —» верны.
+    condition_on_code: "Число 20 в Е12 снять либо дать с ревизией merge-base."
+    held_by: "вниманием"
+    outcome: к-замыслу
+
+  - id: RV12-06
+    class: "change-graph §«Вердикт привязан к отпечатку содержимого»"
+    subject: "change.yaml: hashes устарели"
+    blocking: false
+    measured: >-
+      acceptance_sha256 = d337b360 (ред. 25), а в дереве ред. 29, 71ec59d1, APPROVED. design_sha256 =
+      7ee3b605 (ред. 10), а предмет — 3c6a3952 (ред. 11). Шапка манифеста называет tasks ред. 11 (4c3131b5),
+      а в дереве ред. 12 (add981ed). Коммит 2b9e9f865 change.yaml не правил.
+    condition_on_code: "Манифест привести к трём отпечаткам тем же заходом, что правку по RV12-01."
+    held_by: "семейство cg.* испытуемого контура сверяет отпечатки манифеста"
+    outcome: к-замыслу
+
+numbers_before_code:
+  - claim: "база маршрута — kacho 2914-notify @e6075f09c2"
+    how: "git rev-parse origin/2914-notify после fetch 2026-10-10"
+    result: "e6075f09c2 — голова не сдвинулась"
+  - claim: "Х1/Х5 и GooseApplied, migratorrun — в пине C0, пин не поднимается"
+    how: "git -C corelib grep @18d105d0f50a; go.mod kacho @e6075f09c2"
+    result: "PrefixOperationNotify = \"nop\" (ids.go:127), func GooseApplied (dropguard/preflight.go:79), каталог migratorrun есть; пины corelib 18d105d0f50a, kaname 33010d434767"
+  - claim: "Е10 снята предметом: служимый набор notify-api непуст"
+    how: "git show e6075f09c2:services/notify/servesurface_ledger.go | grep -c ..."
+    result: "3"
+  - claim: "Е13 открыта"
+    how: "grep -c NotificationInboxService по записи З9 @e6075f09c2"
+    result: "0"
+  - claim: "Е14: в рендере notify-api есть ручка NTF-5"
+    how: "grep -c KACHO_NOTIFY_NOTICE_REMINDER_LEAD api-configmap.yaml @e6075f09c2; сверка рендера с тегами загрузчика"
+    result: "1; рендер 23 имени против 25 ручек загрузчика (+DB_PASSWORD, +LIST_FILTER_CACHE_TTL)"
+  - claim: "чарт api-* в базе — 7 шаблонов"
+    how: "git ls-tree --name-only e6075f09c2 deploy/helm/notify/templates/ | grep -c '^…/api-'"
+    result: "7"
+  - claim: "«Чего в базе нет»: замок, nop у края, гейты поверхности, рендер-гейты"
+    how: "git grep pg_advisory|RequireApplied services/notify; git grep PrefixOperationNotify gateway; git cat-file -e по 8 путям"
+    result: "0; 0; все 8 путей отсутствуют"
+  - claim: "Е12 открыта, общие пути с волной"
+    how: "git merge-base --is-ancestor origin/2915-wave-ntf1-send origin/2914-notify; diff --name-only от merge-base"
+    result: "1 (не влита); 137 файлов, пять названных путей и posture-listener-form-test.sh в диффе"
+  - claim: "граница импорта З1 соблюдена в раскладке NTF-5"
+    how: "go list -deps ./services/notify/cmd/{notify,notify-api} @e6075f09c2"
+    result: "notify-sender: 0 пакетов apps/kacho/api и 0 стабов notify/v1; notify-api: 17 и 1"
+  - claim: "второе объявление ручек NTF-1 у notify-api (Р16 приёмки: «нет»)"
+    how: "git grep -l 'envconfig:\"KACHO_NOTIFY_DB_MAX_CONNS\"' e6075f09c2 -- services/notify"
+    result: "2 файла"
+
+unmeasurable:
+  - >-
+    Какой из двух вариантов RV12-01 (б) выберет приёмка, по дереву не узнать: это решение. Оба варианта
+    выразимы в путях S3-C2н, и это проверено. Вариант 1 трогает только `cmd/notify-api/**`, вариант 2 —
+    только тестовое дерево internal/config.
+
+unmapped: []
+return_to_acceptance:
+  - "NTF4-117 (§0а, часть Основы; сценарий 117, (9)) — «ровно (н1)–(н4) и десять ручек стадии S3»: в рендере @e6075f09c2 есть KACHO_NOTIFY_NOTICE_REMINDER_LEAD (Е14, RV12-04)"
+  - "Р16 «Держатель» и §8, строка 119 — «объединение групп — все ручки загрузчика», «второго объявления ручки NTF-1 нет», инъекция «умолчание у одной ручки» против загрузчика notify-api: красные @e6075f09c2 (RV12-01)"
+  - "NTF4-119, последний And — «группа NTF-1 загрузчика notify-api — ровно (н1)–(н4)»: у загрузчика нет групп, ручки NTF-5 вне обеих (RV12-01)"
+orders:
+  - to: "автор маршрута/замысла NTF-4"
+    subject: "RV12-01 (а): строку Е14 расширить на S3-C2н (утверждения Р16 о группах notify-api и последний And NTF4-119); в карточке S3-C2н — Е14 в after и в «готово, когда»; заодно RV12-05, RV12-06"
+    basis: ".claude/rules/change-graph.md §4; code-authoring §«Контракт, который нельзя выразить»"
+  - to: "acceptance-author (NTF-4), затем acceptance-reviewer"
+    subject: "один круг на NTF4-117, Р16 и NTF4-119: закрытое объединение частей под-фаз, сверка с Knobs() загрузчика в обе стороны; решение по «одному объявлению (н1)–(н4)» при Д74 (вариант 1 или 2)"
+    basis: "RV12-01, RV12-04; security.md sec-no-silent-default-for-guarded-knob"
+  - to: "автор замысла NTF-4 (до старта S3 после Основы)"
+    subject: "RV12-02, RV12-03: переписать З1 и З22 к раскладке NTF-5 и Д74"
+    basis: "code-authoring §«Контракт, который нельзя выразить»; doc-truthfulness"
+outcome: к-замыслу   # блокер RV12-01 — для «готово» полосы S3-C2н, а не для старта волны Н4-О
