@@ -1,0 +1,33 @@
+# ВЕРДИКТ: принято на sha256 0116b2fba217a1bb50252b42be7a56f2a8502568b5d229790d6efa93692061f5 (подтверждение; дельта пустая; прежние записи не правятся)
+role: system-design-reviewer
+mode: post-diff (подтверждение прежней записи; роль сверена с origin/main воркспейса)
+verdict: accepted
+decision: Д97 (один круг; блокирует только корректность/безопасность с предикатом)
+repo: PRO-Robotech/kaname
+pr: 689
+base: d93b69712f0d826216bf3f8ce4dbe65bc7e195cd   # git merge-base origin/484-notify <head> = вершина origin/484-notify, перемерено 2026-10-10
+head: 2cfa35c29f41a3c039e9362cda8e086673075280   # git fetch origin pull/689/head, перемерено 2026-10-10
+digest: 0116b2fba217a1bb50252b42be7a56f2a8502568b5d229790d6efa93692061f5  # git diff --full-index base...head | sha256sum (формула origin/main роли)
+digest_legacy: 9ce0cc1d55557bf5db7038e1aca8b15d1c743383239fffe2495c945e9bcee304  # git diff base..head | sha256sum
+prior_record: system-design-reviewer/0116b2fba217a1bb50252b42be7a56f2a8502568b5d229790d6efa93692061f5.yaml (принято), подтверждения .confirm-20261010T010723Z.yaml и .confirm-20261010T-repeat2.yaml
+delta: "пустая: голова и база совпадают с прежним принятием этой роли"
+distributed_surface: true    # порядок row-lock прямого факта между писателями журнала; маршруты внутреннего края
+schema_overlap: true         # закрыто db-architect-reviewer на этот же дайджест (по прежним записям)
+blocking: []
+runs:
+  - cmd: "git -C project/kaname fetch origin 484-notify pull/689/head; git merge-base; git diff --full-index base...head | sha256sum; git diff base..head | sha256sum"
+    result: "head 2cfa35c29, base d93b69712 (= вершина 484-notify), дайджесты 0116b2fb…/9ce0cc1d… — совпадают с прежними записями"
+  - cmd: "gh pr view 689 -R PRO-Robotech/kaname --json state,mergeable,statusCheckRollup"
+    result: "OPEN, MERGEABLE; SUCCESS 20, SKIPPED 4, FAILURE 1 — единственный красный это устаревший прогон «правило запроса» 01:48Z (заголовок «#2915»); тот же контекст перепрогнан 02:13Z — SUCCESS после правки заголовка на «#484 …»; к распределённым осям не относится"
+carried_from_prior:
+  - "атомарность: журнал, строки членов/реестра, леджер — одна writer-tx; двойной записи нет"
+  - "журнал одним набором (EmitJournalTx, ORDER BY ord) последним шагом — тупик 40P01 снят; пробы DoNotDeadlock красные на RED 3f9faf826, зелёные на голове"
+  - "ban #6: Revoke/Restore только под /iam/v1/internal/…, только внутренний слушатель; возвращают Operation; новых межсервисных рёбер и внешних вызовов нет"
+important:
+  - id: role-fanout-last-intent-not-refcounted
+    where: internal/apps/kaname/api/access_binding/role_tuple_reconciler.go:77-129
+    note: "перенесено без изменений; не введено диффом, сторона — недодача (fail-closed)"
+  - id: resolvesend-unbound-rest-route-doc
+    where: internal/restfront/registration.go:84-89; proto/kaname/cloud/iam/v1/internal_notification_grant_service.proto:15-16
+    note: "перенесено без изменений; внешний край не задет"
+orders: []
