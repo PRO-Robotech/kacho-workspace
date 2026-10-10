@@ -166,9 +166,11 @@
 # с go test (все, кроме lint) ставят их той версии, что конвейер ревизии: helm —
 # `version` шага azure/setup-helm, node — `node-version` шага actions/setup-node
 # (последний выпуск мажора, как ставит сам шаг); ключ берётся только у своего
-# шага. Архив — с официального адреса выпусков, сумма — опубликованная рядом.
-# Пина нет — не ставится (строка это называет); пин неоднозначен или вне формы —
-# 69 до кластера. После установки — отдельная СВЕРКА PATH перед командой: helm и
+# шага; конвейер разбирается как YAML (python3 с yaml на машине запуска), любой
+# законной формой шага. Архив — с официального адреса выпусков, сумма —
+# опубликованная рядом. Шага нет — не ставится (строка это называет); пин
+# неоднозначен, вне формы, шаг есть без ключа или конвейер не разобран — 69 до
+# кластера. После установки — отдельная СВЕРКА PATH перед командой: helm и
 # node с версией пина обязаны быть на месте, иначе команда не запускается и
 # run.sh выходит 69 строкой «не выполнилось — среда: …». Так прогон без
 # инструмента не выдаётся ни за зелёный, ни за красный.
@@ -574,16 +576,45 @@ if [ "$PROFILE" = lint ] && [ -z "$LINT_PIN" ]; then
     say "профиль lint: пина golangci-lint в конвейере $REPO на $SHA нет — версию не выбрать"; exit 69
 fi
 GO_IMAGE="$REGISTRY/golang:$GOVER"
-# step_pin <шаг uses> <ключ> — единственное значение <ключ>: в блоке with шага
-# `uses: <шаг>@…` конвейера ревизии (СРЕДА в шапке). Ключ берётся ТОЛЬКО у своего
-# шага: version у setup-kubectl — не пин helm. Код 1 — пина нет; 2 — значений
-# больше одного (печатается).
+# step_pin <шаг uses> <ключ> <имя> — единственное значение `with.<ключ>` у шагов
+# `uses: <шаг>@…` конвейера ревизии (СРЕДА в шапке). Конвейер разбирается как YAML
+# (python3 с yaml), а не строками: порядок ключей шага и поточная форма
+# `{uses: …, with: {…}}` законны и при разборе строками терялись молча. Ключ
+# берётся ТОЛЬКО у своего шага: version у setup-kubectl — не пин helm. Код 1 —
+# шага нет; 2 — отказ, причина напечатана: значений больше одного, шаг есть, а
+# ключа (скаляра) у него нет — версию не выбрать, конвейер не разобран.
+# shellcheck disable=SC2016  # текст python, не оболочки
+STEP_PIN_PY='import sys, yaml
+u, k = sys.argv[1] + "@", sys.argv[2]
+try:
+    doc = yaml.safe_load(sys.stdin)
+except yaml.YAMLError as e:
+    print("конвейер не разобран как YAML: " + str(e).splitlines()[0]); sys.exit(3)
+vals, bare = set(), 0
+jobs = doc.get("jobs") if isinstance(doc, dict) else None
+for job in (jobs.values() if isinstance(jobs, dict) else []):
+    steps = job.get("steps") if isinstance(job, dict) else None
+    for st in (steps if isinstance(steps, list) else []):
+        if not isinstance(st, dict) or not str(st.get("uses", "")).startswith(u):
+            continue
+        w = st.get("with")
+        x = w.get(k) if isinstance(w, dict) else None
+        if isinstance(x, (str, int, float)) and not isinstance(x, bool) and str(x) != "":
+            vals.add(str(x))
+        else:
+            bare += 1
+for x in sorted(vals):
+    print(x)
+sys.exit(4 if bare else 0)'
 step_pin() {
-    local v
-    v="$(awk -v u="$1@" -v k="$2" '
-        index($0, "uses:") { on = index($0, u) > 0; next }
-        on && /^[[:space:]]*-[[:space:]]/ { on = 0 }
-        on && $1 == k":" { x = $2; gsub(/["'"'"']/, "", x); print x }' <<< "$WF" | sort -u)"
+    local v rc
+    v="$(python3 -c "$STEP_PIN_PY" "$1" "$2" <<< "$WF" 2>&1)"; rc=$?
+    case "$rc" in
+        0) ;;
+        3) say "пин $3 на $SHA: $v — версию не выбрать"; return 2 ;;
+        4) say "пин $3 на $SHA: шаг $1 без скалярного with.$2 — версию не выбрать"; return 2 ;;
+        *) say "пин $3 на $SHA: разбор конвейера не исполнился (python3 с yaml, код $rc): $(head -n 1 <<< "$v")"; return 2 ;;
+    esac
     [ -n "$v" ] || return 1
     [ "$(wc -l <<< "$v")" -eq 1 ] || { say "пин $3 неоднозначен на $SHA: $(tr '\n' ' ' <<< "$v")— версию не выбрать"; return 2; }
     printf '%s\n' "$v"

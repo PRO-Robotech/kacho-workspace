@@ -80,8 +80,16 @@
 #      версия-префикс, node нет / не та / префикс → 125 и «среда: …» в
 #      termination-log; близнецы — верные версии и ревизия без пинов → 0
 #   E7 установка ИСПОЛНЕНИЕМ (двойник curl, настоящие архивы): оба пина, только
-#      node, только helm → 0 и инструменты в bin; сумма не сошлась, чужая
-#      архитектура → 125 с названной причиной; мажор → последний выпуск мажора
+#      node, только helm → 0 и инструменты в bin; сумма helm не сошлась, сумма
+#      node не сошлась, чужая архитектура → 125 с названной причиной; мажор →
+#      последний выпуск мажора; пин 26.1 при v26.11.x в индексе → v26.1.x (не
+#      v26.11.x); полный пин 26.1.0 → ровно v26.1.0
+#   E8 пины законными формами YAML: ключи шага до uses, поточный шаг с
+#      ключом в кавычках → те же пины в окружении run (близнец E1)
+#   E9 шаг setup-helm без version, setup-node без node-version → 69 до кластера,
+#      шаг и ключ названы
+#   E10 пин node вне формы (lts/*) → 69, Job нет; E10b пин helm вне формы
+#      (latest) → 69, Job нет
 #   E3 два пина helm                        → 69 до кластера, причина названа
 #   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
 #   E5 ревизия без пинов                    → строка называет, что сверять нечего
@@ -111,11 +119,14 @@
 #   W10 узлы с -infra- при остатках мёртвого владельца → 69, уборка ns не звалась
 #
 # Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись)
+# Что набор краснеет на порче каждого решения среды и истории — mutants.py рядом
+# (REMOTE_HEAVY_RUN — путь испорченной копии run.sh).
 set -uo pipefail
 export LC_ALL=C
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUN="$SELF_DIR/run.sh"
+# REMOTE_HEAVY_RUN — испорченная копия run.sh от mutants.sh; иначе run.sh рядом.
+RUN="${REMOTE_HEAVY_RUN:-$SELF_DIR/run.sh}"
 BOX="$(mktemp -d)" || { echo "inject: каталог пробы не создан" >&2; exit 2; }
 trap 'rm -rf -- "$BOX"' EXIT
 
@@ -323,7 +334,8 @@ sandbox_git -C "$SRC" commit -q -m probe
 # Ревизии с пинами среды конвейера (ws#996): pins — helm и node объявлены так, как
 # в ci.yaml продукта (setup-helm с version, setup-node с node-version; соседний
 # setup-kubectl со своим version — законный близнец, его version не пин helm);
-# pins2 — два разных пина helm.
+# pins2 — два разных пина helm; pins3 — пины законными формами YAML, которые
+# разбор строками терял молча; pins4 — шаг без ключа пина.
 pin_rev() {
     git -C "$SRC" checkout -q -b "$1"
     printf '%s' "$2" > "$SRC/.github/workflows/ci.yaml"
@@ -364,6 +376,44 @@ pin_rev pins2 'jobs:
       - uses: azure/setup-helm@0123
         with:
           version: v3.17.0
+'
+pin_rev pins3 'jobs:
+  unit:
+    steps:
+      - name: helm
+        with:
+          version: v4.2.4
+        uses: azure/setup-helm@0123
+      - uses: azure/setup-kubectl@4567
+        with: {version: v1.33.0}
+  ui:
+    steps:
+      - {uses: actions/setup-node@89ab, with: {"node-version": "26"}}
+'
+pin_rev pins5 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: v4.2.4
+      - uses: actions/setup-node@89ab
+        with:
+          node-version: lts/*
+'
+pin_rev pins6 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+        with:
+          version: latest
+'
+pin_rev pins4 'jobs:
+  unit:
+    steps:
+      - uses: azure/setup-helm@0123
+      - uses: actions/setup-node@89ab
+        with:
+          cache: npm
 '
 
 fresh() { rm -rf "$BOX/state"; mkdir -p "$BOX/state/ns"; }
@@ -579,20 +629,28 @@ if grep -q '^# install-end$' "$BOX/install.raw"; then ok; else OUT="$BOX/e1.cmd"
 IW="$BOX/iw"; IS="$BOX/istub"; IA="$BOX/iarch"
 # shellcheck disable=SC2016  # раскрывается в исполняемом тексте установки
 { echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed "s#/work#$IW#g" "$BOX/install.raw"; } > "$BOX/install.sh"
-rm -rf "$IA" "$IS"; mkdir -p "$IA/linux-amd64" "$IA/node-v26.11.1-linux-x64/bin" "$IS"
-printf '#!/bin/sh\necho v4.2.4+gprobe\n' > "$IA/linux-amd64/helm"; printf '#!/bin/sh\necho v26.11.1\n' > "$IA/node-v26.11.1-linux-x64/bin/node"
-chmod +x "$IA/linux-amd64/helm" "$IA/node-v26.11.1-linux-x64/bin/node"
+rm -rf "$IA" "$IS"; mkdir -p "$IA/linux-amd64" "$IS"
+printf '#!/bin/sh\necho v4.2.4+gprobe\n' > "$IA/linux-amd64/helm"; chmod +x "$IA/linux-amd64/helm"
 tar -czf "$IA/helm-v4.2.4-linux-amd64.tar.gz" -C "$IA" linux-amd64
-tar -czf "$IA/node-v26.11.1-linux-x64.tar.gz" -C "$IA" node-v26.11.1-linux-x64
+# Архивы node — у каждого выпуска свой node, печатающий свою версию: какой
+# выпуск поставлен, судится по node --version из bin, а не по строке установки.
+for nv in v26.11.1 v26.1.2 v26.1.0; do
+    mkdir -p "$IA/node-$nv-linux-x64/bin"
+    printf '#!/bin/sh\necho %s\n' "$nv" > "$IA/node-$nv-linux-x64/bin/node"; chmod +x "$IA/node-$nv-linux-x64/bin/node"
+    tar -czf "$IA/node-$nv-linux-x64.tar.gz" -C "$IA" "node-$nv-linux-x64"
+done
 cat > "$IS/curl" <<'STUB'
 #!/bin/bash
 o=""; u=""
 while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
 out() { if [ -n "$o" ]; then cat > "$o"; else cat; fi; }
+Z=0000000000000000000000000000000000000000000000000000000000000000
 case "$u" in
-  */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"}]' | out ;;
-  *.sha256sum) if [ -n "${STUB_BADSUM:-}" ]; then echo "0000  x"; else a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ); fi | out ;;
-  */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-v26.11.1-linux-x64.tar.gz ) | out ;;
+  */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"},{"version":"v26.1.2"},{"version":"v26.1.0"}]' | out ;;
+  *.sha256sum) a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ) | if [ -n "${STUB_BADSUM:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
+  # Как настоящий SHASUMS256.txt — строки всех архивов; при STUB_BADSUM_NODE сумма
+  # каждой строки не сходится, а имя файла на месте (grep строку находит).
+  */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-*.tar.gz ) | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
   *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
 esac
@@ -618,8 +676,40 @@ install_case E7-node-only "" 26 0 "node"
 install_case E7-helm-only v4.2.4 "" 0 "helm"
 install_case E7-badsum v4.2.4 26 125 "helm v4.2.4 не поставлен" STUB_BADSUM=1
 install_case E7-arch v4.2.4 26 125 "helm: архитектура" STUB_ARCH_M=s390x
+install_case E7-badsum-node "" 26 125 "node v26.11.1 не поставлен" STUB_BADSUM_NODE=1
+if [ -e "$IW/bin/node" ] && "$IW/bin/node" --version >/dev/null 2>&1; then OUT="$BOX/E7-badsum-node.out"; bad E7-badsum-node "node с несошедшейся суммой исполним из bin"; else ok; fi
+# node_installed <случай> <пин> <выпуск> — пин разрешён в <выпуск>: node из bin
+# печатает его (архив каждого выпуска несёт свой node).
+node_installed() {
+    install_case "$1" "" "$2" 0 "node"
+    local got; got="$("$IW/bin/node" --version 2>/dev/null)"
+    if [ "$got" = "$3" ]; then ok; else bad "$1" "пин $2 разрешён в «$got», ждали $3"; fi
+}
+node_installed E7-minor 26.1 v26.1.2
+node_installed E7-exact 26.1.0 v26.1.0
 if [ "$(cat "$BOX/E7-both.out" 2>/dev/null | grep -c 'ставлю node v26.11.1')" -eq 1 ]; then ok
 else OUT="$BOX/E7-both.out"; bad E7 "мажор 26 разрешён не в последний выпуск 26 (v26.11.1)"; fi
+# E8 пины законными формами YAML (ключи шага до uses, поточный шаг) → те же пины
+fresh
+go_run e8 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins3 --src "$SRC" --profile integration --short e8 -- true
+expect_rc E8 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_HELM)" = v4.2.4 ] && [ "$(envv "$BOX/state/job.json" HEAVY_NODE)" = 26 ]; then ok
+else OUT="$BOX/state/job.json"; bad E8 "пины формами YAML: helm «$(envv "$BOX/state/job.json" HEAVY_HELM)», node «$(envv "$BOX/state/job.json" HEAVY_NODE)», ждали v4.2.4 и 26"; fi
+# E9 шаг есть, ключа пина нет → 69 до кластера, шаг и ключ названы
+fresh
+go_run e9 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins4 --src "$SRC" --profile integration --short e9 -- true
+expect_rc E9 69
+if [ -e "$BOX/state/job.json" ]; then bad E9 "Job создан при шаге без пина"; else ok; fi
+if grep -q 'шаг azure/setup-helm без скалярного with.version' "$OUT"; then ok; else bad E9 "шаг helm без version не назван"; fi
+# E10 пин вне формы → 69 до кластера, Job нет, причина названа
+for c in "E10 pins5 node" "E10b pins6 helm"; do
+    read -r cn cref ctool <<< "$c"
+    fresh
+    go_run "$cn" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref "$cref" --src "$SRC" --profile integration --short e10 -- true
+    expect_rc "$cn" 69
+    if [ -e "$BOX/state/job.json" ]; then bad "$cn" "Job создан при пине вне формы"; else ok; fi
+    if grep -q "пин $ctool на .* вне формы" "$OUT"; then ok; else bad "$cn" "пин $ctool вне формы не назван"; fi
+done
 # E3 два пина helm в конвейере ревизии → 69 до кластера, причина названа
 fresh
 go_run e3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins2 --src "$SRC" --profile integration --short e3 -- true
