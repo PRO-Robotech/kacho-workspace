@@ -11,6 +11,22 @@ SPDX-License-Identifier: BUSL-1.1
 > поведение здесь не описывается и не переопределяется, его единственный владелец — приёмка.
 > Порядок работ — `tasks.md` рядом.
 >
+> **Редакция 12 · 2026-10-10 — цепочка службы доступа P3→K1→K2 под одобренную приёмку.** Вердикта
+> и пересверки на неё нет. Основание — решение диспетчера (е) 2026-10-10: расхождение замысла или
+> маршрута с одобренной приёмкой решается **в пользу приёмки**; действующая приёмка —
+> `docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md` редакции 20, отпечаток `ccbb0102…`,
+> запись `APPROVED` круга 18 (`docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/ccbb0102….yaml`);
+> редакции 1–11 этого замысла стояли на приёмке редакции 17 (`367b9482…`). Изменено только то, что
+> исполняет цепочка службы доступа: З23 п.2 — ответ `DescribeScope` `{exists, account_id}` без
+> владельца, выборка без `owner_user_id` (приёмка Р10, Д131); З23 п.5 — новая форма
+> `project_reader{project_id}` метода `Resolve` (приёмка §3 З22, DoD 10.2 п.6, NTF5-68 (л)–(п));
+> З23 п.6 — посылка «Дано» NTF5-68 и число `N = 10` (приёмка §30, B17-1); §4, §5, §10 п.5 — к тому же.
+> **Не правились в этой редакции и действуют в пользу приёмки** (держатель — следующая редакция
+> замысла, строка возврата): З3 п.3, п.8, З9 п.2, п.3, §6 (кэш областей с `owner_user_id`, вызов
+> `DescribeScope` из раскрытия), §9 (опора кэша) — приёмка редакций 19–20 кэш областей сняла,
+> раскрытие `DescribeScope` не зовёт, владелец — только `Resolve{account_owner}` (§29 приёмки).
+> Полосы этих мест (N1, N3, N9, W1) до той редакции не стартуют.
+>
 > **Редакция 11 · 2026-09-30.** Вердикта на неё нет. Действующий вердикт выводится из записи ревью
 > на отпечаток этого файла (`reviews/design/<role>/<sha256>.yaml`) и из пересверки разбора классов
 > (`reviews/class-exposure/revalidation/<sha256>.yaml`).
@@ -1292,9 +1308,12 @@ DoD 10.1 п.2а).
    `Resolve`, ни один из 16 вызовов надзора администратора облака на их пути не стоит без сверки
    перечня типов без надзора (CX5-21).
 2. `DescribeScope` — первым оператором: обязательность (ни одного / оба), затем
-   `shared.ValidateResourceID` своего типа, затем чтение (CX5-22). Чтение — одна выборка: для
-   аккаунта `SELECT id, owner_user_id FROM kaname.accounts WHERE id = $1`; для проекта — соединение
-   `projects` и `accounts`. Нет строки — `exists = false` с пустыми полями.
+   `shared.ValidateResourceID` своего типа, затем чтение (CX5-22). Чтение — одна выборка только
+   идентификатора аккаунта: для аккаунта — по `id` строки `kaname.accounts`; для проекта — его
+   `account_id` соединением `projects` и `accounts`. Ответ — `{exists, account_id}` и больше ничего:
+   владельца, имён и меток метод не отдаёт и `owner_user_id` не выбирает (приёмка Р10, Д131 —
+   путь к владельцу один, `Resolve{account_owner}`). Нет строки — `exists = false`, `account_id`
+   пуст. Редакции 1–11 выбирали `owner_user_id` для кэша областей — снято (редакция 12).
 3. `ListAccounts` — прямая keyset-выборка `kaname.accounts` по `(created_at, id)` индекса
    `accounts_cursor_idx`, **без** пообъектного сужения и без публичного `ListAccountsUseCase`
    (CX5-11 (а)). Курсор — существующий кодек `kv1.` (`EncodeVisiblePageToken`/`DecodeVisiblePageToken`),
@@ -1306,6 +1325,29 @@ DoD 10.1 п.2а).
    (`RAISE … USING ERRCODE = 'check_violation'`, текст называет потребителя — кэш областей
    `notify`). Интеграционная проба службы доступа: смена значения — отказ `23514`; правка `name` —
    проходит (близнец).
+5. **Форма `project_reader{project_id}` метода `Resolve`** (приёмка §3 З22, DoD 10.2 п.6) —
+   пятый случай `oneof audience` запроса `ResolveRecipientRequest`, сообщение
+   `RecipientProjectReaderAudience{project_id}` по образцу `RecipientAccountReaderAudience`;
+   номер поля — следующий свободный (на kaname `origin/484-notify@d93b69712` заняты 4–7, номер 3 —
+   `reserved`). Решение — то же, что у `account_reader`, об объекте `project:<id>`: вопрос к модели
+   о `v_get` субъекта; `ADDRESS` — при праве, `AUDIENCE_DENIED` — без него; исходы и отказ вызова —
+   строки таблиц NTF-3 Р7 без новых клеток. Проверка входа целиком до вопроса к модели — шагом
+   «обязательность» метода (комментарий `Resolve` в контракте): `subject: required` (пусто либо
+   `user:` без id) и `audience.project_reader.project_id: required`. Своего каскада «аккаунт → проект» решение не
+   строит: право берётся только из модели (`security-hardening` §«Авторизация живёт в МОДЕЛИ»);
+   `viewer` аккаунта даёт `ADDRESS` лишь материализованным прямым кортежем привязки (приёмка
+   NTF5-68 (н)). Держатель — NTF5-68 (л)–(п) против самой службы доступа.
+6. **Держатель цепочки — одна проба NTF5-68 над «Дано» приёмки редакции 20** (§30, B17-1):
+   иерархия, люди и привязки заводятся только методами создания службы доступа (регистрация с
+   подтверждением кода, `InternalClusterService.GrantAdmin`, `AccountService.Create`,
+   `ProjectService.Create`, `AccessBindingService.Create`), строк обвязка не вставляет, каждая
+   `Operation` опрашивается до `done`, привязки — до непустого `materializedAt`. Перечень `L` —
+   обход `AccountService.List` от `usr-op`, `N = |L| = 10` (1 + 5 + 4) сверяется до первой буквы;
+   иное `N` — «не выполнилось», а не красный. Прежнее «5 посеянных аккаунтов» недостижимо и снято.
+7. **Имена сообщений контракта** — свободные в пакете `kaname.cloud.iam.v1`, по образцу соседей
+   сервиса (`ResolveRecipientRequest`): например `DescribeRecipientScopeRequest/Response`,
+   `ListRecipientAccountsRequest/Response`. Имя `ListAccountsResponse` (редакции 1–11, §5) занято
+   публичным `account_service.proto` того же пакета — дубль символа; снято.
 
 ### З24. Подметальщик — Р14 без условия на исход, id строк ленты до каскада
 
@@ -1714,7 +1756,7 @@ addressee)` в своей транзакции под блокировкой с�
 | наблюдатель извещений `notice/outcome.Observe` с веткой по классу строки и счётчиком аномалии (З21 п.1), корень нити `thread.Root` по `sent_seq` (З12 п.3), расписание мест и `limits.DeferFor` (З11 п.1, п.3), отметка отсрочки (З11 п.4), порт `limits.Clock` и `DBClock` (З11 п.7) | `services/notify/internal/notice/{outcome,thread,limits}` | новые | S2 |
 | контракт извещений | `proto/kacho/cloud/notify/v1/{notice.proto,notice_service.proto,internal_notice_service.proto}` | новые | S1 |
 | контракт контактов, вид `OPERATOR_NOTICE` | `proto/kacho/cloud/notify/v1/` (файлы NTF-3) + `project_notification_contacts_service.proto` | правка + новый | S2 |
-| справочник: два метода | kaname `proto/kaname/cloud/iam/v1/` (сервис NTF-3), use-case справочника, перечень звена, каталог прав | правка | S1 (`DescribeScope`), S2 (`ListAccounts`) |
+| справочник: два метода и форма `project_reader` метода `Resolve` | kaname `proto/kaname/cloud/iam/v1/` (сервис NTF-3), use-case справочника, перечень звена, каталог прав | правка | S1 (`DescribeScope`), S2 (`ListAccounts`) |
 | неизменяемость связей | kaname `internal/migrations/<новая>.sql` | новая | S1 |
 | миграции извещений | `services/notify/internal/migrations/<новые>.sql` | новые | S1 (заявки, извещения, аудитория, ссылки, напоминания, события, кэш, счётчики), S2 (адресаты с `sent_seq` и последовательность `notice_sent_seq`, кандидаты, исходы областей, окно OB с местом, строка расписания, отметки отсрочки, контакты) |
 | use-case `notify-api` | `services/notify/internal/apps/notify/api/{notice,publicnotice,contacts}/`, `…/authzcheck`, `…/authzwiring` | новые / правка `contacts/account` | S1, S2 |
@@ -1739,9 +1781,13 @@ addressee)` в своей транзакции под блокировкой с�
 
 Форма полей — приёмка (Р2, Р4, Р16, Р18, Р21); здесь — только то, что решает замысел.
 
-- `optional bool exists = 1;` в ответе `DescribeScope` — присутствие отделено от значения (З3 п.8).
-- `ListAccountsResponse.account_ids` — `repeated string`, комментарий: «упорядочено `(created_at,
-  id)` по возрастанию»; `page_token` — комментарий о хранении потребителем (З23 п.3).
+- Ответ `DescribeScope` — ровно `optional bool exists = 1;` и `string account_id`; присутствие
+  отделено от значения (З3 п.8); владельца в ответе нет (Д131, З23 п.2).
+- Ответ `ListAccounts` (имя сообщения — свободное, З23 п.7; не `ListAccountsResponse`):
+  `account_ids` — `repeated string`, комментарий: «упорядочено `(created_at, id)` по возрастанию»;
+  `next_page_token`; `page_token` запроса — комментарий о хранении потребителем (З23 п.3).
+- `RecipientProjectReaderAudience{project_id}` — пятый случай `oneof audience` запроса `Resolve`
+  (З23 п.5); комментарий поля — отказ `audience.project_reader.project_id: required`.
 - `Notice.affected_resources` — `repeated ResourceRef`, комментарий: «порядок — заданный оператором;
   повтор хранится как прислан; в `List` не заполняется; в публичном `Get` сужено по `v_get`
   вызывающего; допустимые типы — <18 типов>» (З13 п.4, З22).
@@ -1898,8 +1944,9 @@ services/notify/internal/clients/` → 0 — срок, поставленный 
    записи в ведомости `AuditFeedTableWrites`, `NoActiveLease`, `Supersede` с названным
    оператором и значением `superseded`, `DeleteUnleased` с одним чтением, `thread_key`) — после TW;
    пин kacho на T2 — полосой S2, вместе с гейтом G3 (З28 п.7).
-5. kaname: `DescribeScope` + триггеры — до S1; `ListAccounts` — до S2; пин kaname в kacho поднимается
-   вместе с потребителем.
+5. kaname: `DescribeScope` + триггеры — до S1; `ListAccounts` и форма `project_reader` — той же
+   цепочкой P3→K1→K2 одной ветки kaname сразу за `DescribeScope` (редакция 12), то есть до S2; пин
+   kaname в kacho поднимается вместе с потребителем и вне окон пина NTF-3.
 
 ## 11. Отображение пунктов разбора в решения
 

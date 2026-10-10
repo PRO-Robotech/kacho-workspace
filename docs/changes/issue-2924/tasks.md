@@ -10,6 +10,19 @@ SPDX-License-Identifier: BUSL-1.1
 > состояние полос живёт в задаче `PRO-Robotech/kacho#2924` и её подзадачах
 > (`docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md` §2).
 >
+> **Редакция 15 · 2026-10-10 — цепочка P3→K1→K2 под одобренную приёмку (решение диспетчера (е)).**
+> Расхождение маршрута с одобренной приёмкой NTF-5 (редакция 20, `ccbb0102…`, `APPROVED` круга 18)
+> решается в пользу приёмки; замысел — редакция 12 (З23 п.2, п.5–п.7, §5). Изменены только P3, K1, K2 и
+> §3: (1) форма `project_reader{project_id}` метода `Resolve` (приёмка §3 З22, DoD 10.2 п.6) входит в
+> цепочку — контракт в P3, реализация и буквы NTF5-68 (л)–(п) в K2; (2) предикат K2 — `N = 10`
+> аккаунтов, заведённых только методами создания службы доступа (приёмка §30, B17-1), «5 посеянных»
+> снято; (3) имя ответа `ListAccounts` — свободное в пакете, не `ListAccountsResponse` (занято);
+> (4) контракт kaname правит исполнитель kaname-полосы, а не `proto-sync`: P3, K1, K2 — одна цепочка
+> `rpc-implementer` в одной ветке kaname, проба — `integration-tester` до кода (решение (а));
+> (5) ответ `DescribeScope` — `{exists, account_id}` без владельца (Д131). Места замысла о кэше
+> областей и вызове `DescribeScope` из раскрытия (design.md редакция 12, шапка) этой редакцией не
+> правятся: полосы N1, N3, N9, W1 в части кэша ждут следующей редакции замысла.
+>
 > **Редакция 14 · 2026-10-09 — окна пина NTF-3 (пересверка NTF-3 `9e2d7a8c`, CX3T-01).** §0 — правило «Окна пина
 > NTF-3»; C3, C4 и N5 — подъём пина kacho (и kaname) на T1/TW только вне окон В-2/В-5 NTF-3. Замысел не менялся;
 > прочие строки не меняются.
@@ -132,14 +145,14 @@ SPDX-License-Identifier: BUSL-1.1
 |---|---|---|---|---|---|---|
 | P1 | `notice.proto`, `notice_service.proto`, `internal_notice_service.proto` с аннотациями Р16, Р18; комментарии полей (design.md §5); строки перечня четырёх методов `NoticeService` — **тем же коммитом**, вместе с blank-импортом пакета `notify` в `parity_test.go`, если его нет, и строками всех публичных сервисов `notify`, уже лежащих в дереве (З18 п.5) | `proto-sync` (строки перечня — `api-gateway-registrar` в той же ветке) | kacho · `proto/kacho/cloud/notify/v1/`, `pkg/api/…`, `gateway/internal/allowlist/{list.go,parity_test.go}` | `buf lint`, `buf breaking` зелёные; регенерация закоммичена; `go test ./gateway/internal/allowlist/ -count=1 -v` — четыре пробы зелёные, перепись печатает сервисы и методы `notify`; инъекции DoD 10.1 п.4 — снятая строка `NoticeService/GetByAccount`, строка `InternalNoticeService/Create`, снятый импорт — красные с именем | Е1 | M |
 | P2 | контакты: поля `account_legal`, `operations`, `source = ACCOUNT`, `ProjectNotificationContactsService`; вид `OPERATOR_NOTICE`; строки перечня `Get`/`Update` контактов проекта — тем же коммитом | `proto-sync` (+ `api-gateway-registrar`) | kacho · `proto/kacho/cloud/notify/v1/`, `gateway/internal/allowlist/` | то же; снятая строка `ProjectNotificationContactsService/Update` — красный с именем метода | P1, Е2 | S |
-| P3 | kaname: `DescribeScope` (`optional bool exists`), `ListAccounts` (комментарий о курсоре, З23 п.3) в сервисе справочника | `proto-sync` | kaname · `proto/kaname/cloud/iam/v1/` | `buf lint`, `buf breaking` зелёные | Е2 (сервис справочника NTF-3) | S |
+| P3 | kaname, контракт справочника `InternalNotificationRecipientService` (design.md редакция 12, З23 п.2, п.5, п.7, §5): `rpc DescribeScope` и `rpc ListAccounts` с аннотациями как у соседних методов — `permission iam.notification_recipients.<verb>`, `required_relation reader`, `scope_extractor {object_type: notification_recipient_directory, from_request_field: "*"}`, `required_acr_min "1"`; ответ `DescribeScope` — `optional bool exists = 1` и `account_id`, владельца нет; `ListAccounts` — `page_size`, `page_token` → `repeated string account_ids` (комментарий «упорядочено `(created_at, id)` по возрастанию») и `next_page_token` (комментарий о хранении курсора потребителем, З23 п.3); `RecipientProjectReaderAudience{project_id}` — пятый случай `oneof audience` запроса `Resolve`, номер — следующий свободный (3 — `reserved`); имена сообщений — свободные в пакете, по образцу `ResolveRecipientRequest` (например `DescribeRecipientScopeRequest/Response`, `ListRecipientAccountsRequest/Response`), **не** `ListAccountsResponse`; регенерация `pkg/api` закоммичена | `rpc-implementer` kaname-полосы — первый коммит цепочки P3→K1→K2 одной ветки (решение диспетчера (а) и (е) 2026-10-10: контракт kaname правит исполнитель kaname-полосы, не `proto-sync`) | kaname · `proto/kaname/cloud/iam/v1/internal_notification_recipient_service.proto`, `pkg/api/…` | `buf lint` и `make proto-gen-diff` зелёные; `buf breaking` — по адъюдикации конвейера kaname (код ≠ 0 не читается как «разрывов нет»); `git show HEAD:proto/kaname/cloud/iam/v1/internal_notification_recipient_service.proto \| grep -c '^\s*rpc '` → 4; `git grep -c 'message ListAccountsResponse' HEAD -- proto` → 1 (только `account_service.proto`) | Е2 (сервис справочника NTF-3); не в одной волне с NTF-3 X4e (тот же файл и `recipientdirectory/**`) | S |
 
 ### Ярус 2 — служба доступа (kaname)
 
 | № | полоса | исполнитель | репозиторий · пути | предикат снятия | зависит от | размер |
 |---|---|---|---|---|---|---|
-| K1 | `DescribeScope`: вход и отказы первым оператором, одна выборка; перечень методов звена; каталог прав `reader` | `rpc-implementer` (проба NTF5-68 (а)–(ж) и ветка `user:usr-op` — `integration-tester` до кода) | kaname · use-case справочника, перечень звена, каталог прав | интеграционная проба NTF5-68 (а)–(ж) против самой службы доступа зелёная, три сертификата; PR в `PRO-Robotech/kaname` | P3 | M |
-| K2 | `ListAccounts`: keyset без сужения, кодек `kv1.`, отказы первым оператором | `rpc-implementer` (проба — `integration-tester`) | kaname · тот же use-case | NTF5-68 (з)–(к) зелёная над 5 посеянными аккаунтами, включая посеянный миграцией | K1 | S |
+| K1 | `DescribeScope` (design.md З23 п.1, п.2): дверь `uc.gate.require` как у `Resolve`; первым оператором — обязательность (ни одного поля / оба) с текстами приёмки Р10, затем форма `shared.ValidateResourceID` (`invalid account id '<X>'` / `invalid project id '<X>'`), затем одна выборка `account_id` (проект — соединением `projects`↔`accounts`); нет строки — `OK`, `exists=false`, `account_id` пуст; ответ без владельца (Д131); метод в перечне методов звена рядом с `Resolve` и `ListEventAudience`; запись каталога прав `reader` на `notification_recipient_directory:root`; строка закрытого списка сверки копий каталога | `rpc-implementer` — второй коммит цепочки P3→K1→K2 той же ветки; проба NTF5-68 «Дано» шаги 1–7 и буквы (а)–(ж) с веткой `user:usr-op` (Д14) — `integration-tester` до кода, в той же ветке | kaname · `internal/apps/kaname/api/recipientdirectory/**`, перечень звена в композиционном корне, каталог прав, сверка копий каталога | `go test -tags integration ./... -run NTF5_68` — база, ветки `storage`/`notify-api`/`user:usr-op` и буквы (а)–(ж) зелёные с напечатанным числом исполненного, три сертификата (`notify`, `storage`, `notify-api`); «Дано» — только методами создания (design.md З23 п.6), строк обвязка не вставляет; три прогона — один вердикт; гейты каталога и паритета копий зелёные с объёмом | P3 | M |
+| K2 | `ListAccounts` (design.md З23 п.3): прямая keyset-выборка `kaname.accounts` по `(created_at, id)` индекса `accounts_cursor_idx`, без пообъектного сужения и без публичного `ListAccountsUseCase` (CX5-11 (а)); курсор — существующий кодек `kv1.`, третьей формы нет; `page_size` 0 → 50, наибольшее 1000; вне `[0..1000]` и неразбираемый `page_token` → `INVALID_ARGUMENT` с именем поля первым оператором, без подрезки; последняя страница — пустой `next_page_token`; перечень звена, каталог прав, сверка копий — как K1. **Форма `project_reader` метода `Resolve`** (design.md З23 п.5; приёмка §3 З22, DoD 10.2 п.6): `v_get` субъекта на `project:<id>` по модели → `ADDRESS`, иначе `AUDIENCE_DENIED`; отказы `subject: required` и `audience.project_reader.project_id: required` до вопроса к модели; своего каскада нет | `rpc-implementer` — третий коммит цепочки P3→K1→K2 той же ветки; проба букв (з)–(п) — `integration-tester` до кода | kaname · `internal/apps/kaname/api/recipientdirectory/**`, перечень звена, каталог прав | `go test -tags integration ./... -run NTF5_68` — буквы (з)–(к) над `N = 10` аккаунтами, заведёнными только методами создания (1 + 5 + 4; иное `N` — «не выполнилось» до первой буквы), (з) с `page_size=2` даёт ⌈N/2⌉ страниц с объединением ровно `L`; ветка `user:usr-op` для `ListAccounts`; буквы (л)–(п), где (м) против (л) различаются только привязкой на `prj-1`, (н) — после ожидания `materializedAt`; число исполненного напечатано; три прогона — один вердикт; PR в `PRO-Robotech/kaname` | K1 | M |
 | K3 | триггеры неизменяемости `owner_user_id` и `account_id` проекта (З23 п.4) | `migration-writer` (проба — `integration-tester`) | kaname · `internal/migrations/<новая>.sql` | интеграционная проба: смена значения → `23514`, правка `name` проходит; `db-architect-reviewer` ✅ | — | S |
 
 ### Ярус 3 — служба `notify` (S1)
@@ -193,9 +206,9 @@ SPDX-License-Identifier: BUSL-1.1
 
 ## 3. Порядок по времени
 
-1. Параллельно: C1, C2 (→ C3 после посадки S3-C2 NTF-4, Д41); P3 (после Е2), K3; ожидание Е1, Е3, Е5.
+1. Параллельно: C1, C2 (→ C3 после посадки S3-C2 NTF-4, Д41); цепочка P3 → K1 → K2 одной ветки kaname (после Е2, не в одной волне с NTF-3 X4e), K3; ожидание Е1, Е3, Е5.
 2. После Е1: P1, N0, N1; после K1: N3; параллельно N2, N4.
 3. После Е4 и P1: E1; после E1 и стенда: D1, S1e; G1, G2.
 4. Перед посадкой S1: C4 (тег TW) → N5 одним коммитом с подъёмом пина → посадка S1 волной; подъём пина — вне окон пина NTF-3 (§0, CX3T-01).
-5. После S1, Е2, Е6, Е7 и Е8: C5 → C6 (T2); P2, K2; N6 → N7 → N8, N9 → N10 → G3, N11; E2; D2.
+5. После S1, Е2, Е6, Е7 и Е8: C5 → C6 (T2); P2; N6 → N7 → N8, N9 → N10 → G3, N11; E2; D2.
 6. После S2: S3, W1; затем W2, W3.
