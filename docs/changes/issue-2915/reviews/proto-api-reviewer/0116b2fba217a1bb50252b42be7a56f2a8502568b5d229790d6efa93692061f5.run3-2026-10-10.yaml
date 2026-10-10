@@ -1,0 +1,53 @@
+role: proto-api-reviewer
+phase: post-diff
+change: issue-2915
+repo: PRO-Robotech/kaname
+pr: 689
+base_ref: 484-notify
+merge_base: d93b69712f0d826216bf3f8ce4dbe65bc7e195cd   # = голова origin/484-notify на момент замера
+head: 2cfa35c29f41a3c039e9362cda8e086673075280
+content_digest: 0116b2fba217a1bb50252b42be7a56f2a8502568b5d229790d6efa93692061f5
+digest_command: git diff --full-index d93b6971..2cfa35c2 | sha256sum
+digest_aliases:
+  - "9ce0cc1d55557bf5db7038e1aca8b15d1c743383239fffe2495c945e9bcee304 = git diff d93b6971..2cfa35c2 | sha256sum (тот же отпечаток без --full-index)"
+kind: confirmation
+confirms:
+  - 0116b2fba217a1bb50252b42be7a56f2a8502568b5d229790d6efa93692061f5.yaml
+  - 0116b2fba217a1bb50252b42be7a56f2a8502568b5d229790d6efa93692061f5.run2-2026-10-10.yaml
+  - 9ce0cc1d55557bf5db7038e1aca8b15d1c743383239fffe2495c945e9bcee304.yaml
+note_on_file_name: >-
+  запись на этот дайджест уже есть; по заданию подтверждается новым файлом с суффиксом прогона,
+  прежние не правятся.
+verdict: accept
+blocking: []
+proto_files_touched: 1
+proto_files:
+  - proto/kaname/cloud/iam/v1/internal_notification_grant_service.proto
+checks:
+  - cmd: "git archive 2cfa35c2 proto | tar -x; cd proto && buf lint"
+    rc: 0
+  - cmd: "buf breaking --against <git archive d93b6971 proto>/proto"
+    rc: 0
+outcomes: {green: 2, red: 0, not_run: 0}
+shape:
+  delta: "google.api.http на Revoke/Restore: POST /iam/v1/internal/notificationGrants/{namespace}:revoke|:restore, body '*'; import google/api/annotations.proto; правка шапки"
+  mutations_return_operation: [Revoke, Restore]
+  envelope_fields: none
+  upsert_or_watch: none
+  removed_fields: none
+breaking_changes: []
+internal_surface:
+  rest_paths_under_internal_segment: true
+  rest_registered_only_in: "internal/restfront/registration.go:89 внутри registerInternalRESTServices (48..104); registerPublicRESTServices (105..) службы не содержит"
+  grpc_registered_only_in: "cmd/kaname/grpc_register.go:151 (внутренний слушатель)"
+  owner_basis: "решение владельца 2026-10-08 п.1"
+  infra_fields_on_public_message: []
+findings_nonblocking:
+  - id: RESOLVESEND-UNBOUND-REST-DOOR
+    what: >-
+      шапка контракта говорит «REST-двери у ResolveSend нет», а generate_unbound_methods=true
+      при регистрации службы на внутреннем фронте даёт непривязанный маршрут; доступ не
+      расширяется (только внутренний фронт, право решает обработчик) — расхождение текста,
+      не корректность и не безопасность; задача не заводится.
+return_to: "—"
+next: landing-reviewer — сбор пост-дифф записей PR #689
