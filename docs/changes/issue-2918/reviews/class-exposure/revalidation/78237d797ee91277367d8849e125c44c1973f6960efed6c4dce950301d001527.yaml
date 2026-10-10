@@ -1,0 +1,266 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-3 редакции 21 и маршрута tasks.md
+# редакции 24 на ветке issue-880 @6f18fd174 (содержимое — коммит 4c33a99d9).
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли); маршрут — subject.route. Предмет задания:
+# закрыты ли пункты прошлого круга (revalidation/f318e061….yaml, CX3U-01…04, остаток CX3T-02) и нет ли
+# новых. Судится только дельта b3865e2a5 → 4c33a99d9 (flow-acceleration fa-b1). Новые блокирующие —
+# только с предикатом (корректность или безопасность). Прежние записи не переписываются.
+# Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2918
+issue: https://github.com/PRO-Robotech/kacho/issues/2918
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+co_issues: [https://github.com/PRO-Robotech/corelib/issues/77]
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2918/design.md
+  sha256: 78237d797ee91277367d8849e125c44c1973f6960efed6c4dce950301d001527
+  fingerprint_predicate: git show 6f18fd174:docs/changes/issue-2918/design.md | sha256sum
+  revision: 21
+  content_commit: 4c33a99d95ceaf12f75c5c2679151173f1e9e2cd
+  route:
+    path: docs/changes/issue-2918/tasks.md
+    sha256: 162fc3094f7a7930cf976db7d71dfd13c98af617e3ad4d84798943feb7e1e741
+    fingerprint_predicate: git show 6f18fd174:docs/changes/issue-2918/tasks.md | sha256sum
+    revision: 24
+    content_commit: 4c33a99d95ceaf12f75c5c2679151173f1e9e2cd
+  plans: docs/changes/issue-2918/plans/*.json   # git diff --stat b3865e2a5 6f18fd174 -- plans change.yaml holders.yaml → пусто
+  delta: "git diff b3865e2a5 4c33a99d9 -- docs/changes/issue-2918/{design,tasks}.md"
+  head_note: "git log b3865e2a5..6f18fd174 -- docs/changes/issue-2918 → 1a45d08dc (запись f318e061), 4c33a99d9 (предмет); отпечатки на 4c33a99d9 и 6f18fd174 равны"
+previous_revalidation:
+  path: docs/changes/issue-2918/reviews/class-exposure/revalidation/f318e061991712c640f71dafbf045ea080a67455e6272030b397ef047b2050d0.yaml
+  subject_revision: 20
+  outcome: к-замыслу
+  clean: false
+acceptance:
+  path: docs/specs/sub-phase-NTF-3-kacho-modules-notifications-acceptance.md
+  sha256: 1d7d2ad0a39805c3345efb48aee562d76a812e6a19087be427982f7d0d8373ba   # не менялась (sha256sum на 6f18fd174)
+  revision: 42
+  effective_verdict: ACCEPTED
+  initial_class_exposure_on_this_sha: absent
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: >-
+    origin/main:.claude/agents/class-exposure-analyst.md @54854e0f3 — skills с rule-flow-acceleration,
+    триггер контура — Skill change-graph; действует origin/main: применены fa-b1 (только дельта), fa-b2,
+    fa-b5, fa-b6, fa-b7.
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; владельца 2026-10-04 (замысел не ворота), 2026-10-07, 2026-10-08 (1)–(4); диспетчера
+    (а)–(д), в том числе (г) «правки маршрута только по блокирующим». Решения (1) и (б) предмета дельты не касаются.
+revisions:
+  workspace: 6f18fd1747a2cd28eb17d9ae35cb9fc4956255ba
+  workspace_scripts: 54854e0f320bf67480afefb7f87edd333dc1257d   # origin/main
+  kacho: e6075f09c2613184ec0c120fbe5645a2c1e9979c               # = origin/2914-notify на момент замера (тот же, что у f318e061)
+snapshot_at: 2026-10-10T08:00:00Z
+inspected: >-
+  Дифф b3865e2a5→4c33a99d9: design.md (журнал редакции 21, З34 М1 (г) правила 1–6 и абзац «Вне модулей»,
+  §11 строки CX3S-01, CX3T-02, CX3U-01…04, §11а УК3-79, §13 Е9), tasks.md (журнал редакции 24, §0 строка
+  замысла, §1 окна пина, §2 Е9, FM0, общий блок FM-*, FM-c, FM-v, FM-n, FM-r, FM-s, §5, §6 п.8, §7).
+  Контекст вне дельты — только М1 (в) (расход токена), на который опираются новые правила. kacho
+  @e6075f09c2 (git archive в kacho-workspace/tmp/cea-ntf3-r24): go/packages с типами, файлов вне
+  *_test.go 1419, ошибок загрузки 0, мест вызова 55270; собственный разборщик — подъём от journaltx.Begin
+  по правилам 3–4 (прямой объект функции и метод интерфейса по types.Implements для T и *T, только
+  функции с параметром context.Context), признак «вызов внутри for/range» по стеку узлов. NTF-7: текст
+  на 6f18fd174, запись da7de8d7…, маршруты соседей. plan-precheck (origin/main 54854e0f3) на 10 планах.
+  Стенд не поднимался, записки vault не читались.
+
+closure_of_previous:
+  - id: CX3U-01
+    previous_severity: to_design
+    verdict: closed
+    evidence: >-
+      З34 М1 (г) правила 3 и 5: точка Begin в проходной функции строкой не является, гейт поднимается к её
+      вызовам до отмечающей функции, строка — одна на отмечающую функцию; перечни и числа обёрток сняты,
+      в тексте — пример замера с ревизией (f318e061, e6075f09c2). notify-probe: отметка WithoutJournal в
+      Send, put — проходная (абзац «Вне модулей», FM0, инъекция (1)). Карточки FM-c, FM-v, FM-n, FM-r,
+      FM-s называют свои проходные функции и строки на отмечающие функции. Замер «vpc .Writer(ctx — 68»
+      из текста снят (§7 редакции 24).
+  - id: CX3U-02
+    previous_severity: to_design
+    verdict: closed
+    evidence: >-
+      Правило 4: вызов метода интерфейса — вызов T.m каждой проходной, тип-получатель которой (T или *T)
+      реализует интерфейс; по имени не сопоставляется. Правило 5: проходная без найденных вызовов — красное
+      с цепочкой. Правило 6: печать вызовов каждой проходной, прямых и через интерфейс. Инъекция (3) FM0 —
+      вызов Writer через порт vpc, близнец, печать ненулевая. Разборщик по этим правилам на e6075f09c2
+      поднимает vpc Repository.Writer к use-case (например networkinterface/create.go:320) — вызовы
+      через порт видны.
+  - id: CX3U-03
+    previous_severity: to_code
+    verdict: closed
+    evidence: >-
+      Правило 2: признак token — journaltx.WithAuthzRevision и Current порта pkg/authzrev в теле
+      отмечающей функции (NewAuthzRevision — только в пакете вспомогательных проб); токен уровня выше
+      нижнюю функцию не отмечает; инъекция (4). Остаток формы признака (наличие вызова вместо потока
+      контекста) — неблокирующий CX3V-03.
+  - id: CX3U-04
+    previous_severity: route
+    verdict: closed
+    evidence: >-
+      git show 6f18fd174:docs/specs/sub-phase-NTF-7-label-subscriptions-acceptance.md | sha256sum →
+      da7de8d7…; запись da7de8d7….yaml — verdict: APPROVED; коммит 705010432 есть. Предикат цитирования
+      §1: grep -l 'Окна пина NTF-3' docs/changes/issue-{2915,2917,2924,3121}/tasks.md → 4 файла.
+      Е9 оставляет открытой только правку NTF-3 по NTF-7 DoD 10.4 п.3 (отпечаток NTF-3 по-прежнему
+      1d7d2ad0) — производитель назван (ORD-11).
+  - id: CX3T-02
+    previous_severity: to_code
+    verdict: closed
+    evidence: "остаток CX3U-01…03 закрыт выше; строка §11 CX3T-02 переписана с пометкой «заменено редакцией 21»"
+
+approval_conditions:
+  - condition: "каждый пункт отображён, и отображение выдерживает условие пункта (CG_CLASS_ITEM_UNMAPPED)"
+    result: red
+    detail: >-
+      CX3U-01…04 отображены в §11 (строк таблицы 142) и выдерживают свои условия. Но отображение CX3U-01
+      (правило 5 «одна строка на функцию, сколькими бы путями её ни достигали») вместе с правилом 2
+      (признак — наличие вызова в теле) не держит М1 (в) «новый токен на каждую попытку»: гейт зеленеет на
+      отметке над циклом повтора — CX3V-01.
+  - condition: "новый внешний вызов / асинхронный путь / sentinel заведены пунктом"
+    result: green
+    detail: "редакция 21 механизма ограды не меняет; новых вызовов, путей и sentinel нет"
+  - condition: "нет маркеров отсрочки и открытых решений (CG_DESIGN_DECISION_OPEN)"
+    result: green
+    detail: "sed -n '/^## 13\\./,$p' design.md | grep -c 'Открытое решение' → 0 на 6f18fd174"
+
+clean: false
+
+mapping_check:
+  scenarios: {live: 173, mapped: 173, note: "приёмка не менялась (1d7d2ad0)"}
+  plans:
+    predicate: "for f in plans/*.json; do bash <origin/main 54854e0f3>/scripts/plan-precheck.sh $f; done"
+    result: "10 из 10 — exit 0 (планы не менялись с b3865e2a5)"
+
+new_items:
+  - id: CX3V-01
+    severity: to_design
+    blocking: true
+    basis: корректность
+    class: >-
+      Решение и его следствие разнесены (code-authoring §«Решение и его следствие разнесены»): одноразовый
+      токен (М1 (в): Begin расходует его, вторая Begin тем же значением — ErrAuthzRevisionSpent; повтор
+      транзакции берёт новый токен на каждую попытку) судится гейтом, единица которого — функция, а не Begin
+    decision: >-
+      З34 М1 (г) правило 2 (признак token — наличие WithAuthzRevision и Current в теле) и правило 5
+      (отмечающая функция — одна строка, «сколькими бы путями её ни достигали»; проходные, в том числе
+      методы репозитория, отметок не несут); tasks.md FM0, общий блок FM-*
+    finding: >-
+      Правила 1–6 ничего не говорят о кратности Begin под одной отметкой. Проходная функция с циклом
+      повтора вокруг Begin-достигающего вызова по правилу 3 отметки не несёт, гейт поднимается выше
+      цикла, и отметка token над циклом даёт зелёный гейт. Интеграционная проба с флагом true (правило 5)
+      проходит одну итерацию и тоже зелёная. На проде вторая попытка получает ErrAuthzRevisionSpent:
+      мутация, которую код сегодня повторяет и доводит, падает. Разборщик по правилам 3–4 на e6075f09c2
+      находит 16 функций, у которых Begin-достигающий вызов стоит внутри for/range; из них на пути запроса:
+      vpc networkinterface CreateNetworkInterfaceUseCase.doCreate (create.go:320 — u.repo.Writer в цикле
+      повтора при коллизии MAC), vpc nicinternal Service.Attach (service.go:116 — повтор на занятом слоте
+      при автоиндексе), storage pg VolumeRepo.Attach (volume_repo.go:769 — повтор attachOnce при коллизии
+      имени устройства; метод репозитория — по правилу 3 проходная), nlb CreateLoadBalancerUseCase.doCreate
+      (create.go:509 — persistVIP на каждое семейство, два прохода при dualstack); прочие — фоновые циклы
+      (FinishStuckDeletes, FreeIPRunner, TargetDrainRunner, storage Reconciler, registry
+      SweepOrphanedRepositories). Без цикла: функций, у которых два и больше Begin-достигающих вызовов,
+      165 (включая разные ветви); пример — nlb doCreate (insertHandle, persistVIP, finalizeCreate) —
+      там проба с флагом true краснеет сама, а с циклом повтора и с dualstack — нет.
+    predicate: >-
+      Разборщик go/packages с типами по kacho вне *_test.go: множество функций, достигающих journaltx.Begin
+      подъёмом по правилам 3–4; из них — функции, у которых место вызова, достигающее Begin, лежит внутри
+      *ast.ForStmt или *ast.RangeStmt тела. На e6075f09c2: 16 (вывод: kacho-workspace/tmp/cea-ntf3-r24, режим
+      loop). Контроль в обе стороны — те же места руками: create.go:313–320 (for attempt … Writer),
+      volume_repo.go:761–769 (for attempt … attachOnce).
+    condition_on_design: >-
+      В правила З34 М1 (г) и УК3-79 — кратность: от одной отметки token до Begin на каждом пути ровно одна
+      Begin. Красное: Begin-достигающий вызов внутри цикла (в отмечающей функции или в проходной ниже неё),
+      в теле которого нет своего WithAuthzRevision, и два Begin-достигающих вызова, идущих после одного
+      WithAuthzRevision. Следствие для формы кода: функция с циклом повтора над транзакцией (в том числе
+      метод репозитория vpc, nicinternal, storage) — отмечающая, токен берётся в теле цикла, либо цикл
+      поднимается в use-case. Пятая инъекция FM0 с близнецом: цикл повтора над Writer с токеном вне цикла →
+      красное с координатой цикла; токен в теле цикла → зелёное. Печать — число таких циклов по модулю.
+      Проба: интеграционная проба повтора (vpc NIC с принудительной коллизией MAC либо storage Attach с
+      занятым именем устройства) при флаге true — вторая попытка проходит, ErrAuthzRevisionSpent нет.
+    held_by: "нужен гейт — УК3-79 с правилом кратности (go-implementer, FM0); проба повтора — FM-v/FM-s"
+  - id: CX3V-02
+    severity: to_code
+    blocking: false
+    class: >-
+      Распознаватель с избытком (testing-verdict п.14): сопоставление по реализации ставит в пути Begin
+      реализацию, которой в этом месте нет
+    decision: "З34 М1 (г) правило 4"
+    finding: >-
+      vpc attachNICAddresses и detachNICAddresses зовут AddressRepo.SetReference/ClearReference у писателя
+      уже открытой транзакции (w.Addresses()); правило 4 сопоставляет вызов и с
+      cqrsadapter.AddressAdapter.SetReference (cqrsadapter.go:172), который открывает свою транзакцию. Путь
+      «к Begin» ложный: гейт потребует отметку там, где транзакции нет. Отказа на проде это не даёт —
+      лишняя отметка безвредна или краснота ложная; поэтому неблокирующее.
+    condition_on_code: >-
+      Печать УК3-79 у каждого ребра через интерфейс называет реализацию, давшую сопоставление, чтобы перепись
+      шага (1) FM-* видела ложный путь; подавление ложного ребра — только строкой ведомости с причиной, не
+      отметкой.
+    held_by: "печать гейта УК3-79; иначе вниманием переписи FM-*"
+  - id: CX3V-03
+    severity: to_code
+    blocking: false
+    class: >-
+      Признак в теле функции — наличие вызова, а не поток значения (gate-authoring «исход вместо
+      объявления»)
+    decision: "З34 М1 (г) правило 2"
+    finding: >-
+      Отмечающая функция может вызвать WithAuthzRevision/WithoutJournal и передать вниз исходный ctx.
+      Гейт зелёный; на проде — ErrNoAuthzRevision при флаге true. Отказ громкий и именованный,
+      у строк token его ловит проба правила 5, у without_journal пробы нет — поэтому неблокирующее.
+    condition_on_code: >-
+      Признак засчитывается, когда результат WithAuthzRevision/WithoutJournal (или производный от него
+      контекст) — аргумент ctx Begin-достигающего вызова; инъекция-близнец: вызов есть, вниз уходит
+      исходный ctx → красное.
+    held_by: "гейт УК3-79 (go-implementer, FM0)"
+
+measurements:
+  - claim: "отметка token в теле функции — признак того, что каждая Begin пути получит свой токен (правила 2, 5)"
+    how: "разборщик go/packages с типами, kacho @e6075f09c2 (1419 файлов вне *_test.go, ошибок загрузки 0, мест вызова 55270); подъём от journaltx.Begin по правилам 3–4; признак цикла — ForStmt/RangeStmt в стеке узлов тела"
+    result: "Begin-достигающих функций 585; с Begin-достигающим вызовом в цикле — 16 (4 на пути запроса: vpc NIC doCreate, vpc nicinternal Attach, storage VolumeRepo.Attach, nlb LB doCreate); с двумя и больше Begin-достигающими вызовами — 165"
+  - claim: "сопоставление по реализации не даёт ложных путей"
+    how: "тот же разборщик; git grep 'func (.*) SetReference' в services/vpc вне тестов"
+    result: "4 реализации AddressRepo.SetReference; путь к Begin даёт cqrsadapter.AddressAdapter (свой Writer), а вызывающий attachNICAddresses работает в уже открытой транзакции — путь ложный (CX3V-02)"
+  - claim: "NTF-7 одобрена и закоммичена; маршруты соседей цитируют окна"
+    how: "sha256sum текста на 6f18fd174; grep verdict записи da7de8d7; grep -c 'Окна пина NTF-3' по четырём tasks.md"
+    result: "da7de8d7… = отпечаток записи, APPROVED; 2915→3, 2917→1, 2924→1, 3121→3 строки — 4 файла"
+  - claim: "plan-precheck код 0 у десяти волн"
+    how: "scripts из git archive origin/main (54854e0f3)"
+    result: "10/10 exit 0"
+
+not_measurable: >-
+  (1) Где автор FM-* поставит отметку — кода нет; CX3V-01 выведен из того, что правила допускают отметку
+  над циклом, а дерево такие циклы имеет. (2) Какие из 165 функций с несколькими Begin-достигающими вызовами
+  исполняют их на одном пути, а какие — в разных ветвях: разборщик ветвей не различает; для вывода хватает
+  16 циклов. (3) Сколько путей ложны по CX3V-02 — нужен разбор, какая реализация интерфейса приходит в
+  каждое место; для неблокирующего пункта достаточно одного доказанного примера.
+
+facts_for_dispatcher:
+  - "fa-b6: род CX3V-01 новый (кратность одноразового токена под одной отметкой), он не повторяет род «радиус УК3-79 недосчитан» (CX3S-07 → CX3T-02 → CX3U-01/02) — тот закрыт"
+  - "правка CX3V-01 — одно правило в З34 М1 (г), строка УК3-79 и пятая инъекция FM0; полосы, пути, волны и планы не меняются (fa-b3)"
+  - "первичного разбора классов на приёмку 1d7d2ad0 по-прежнему нет"
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items: []
+open_decisions: []
+orders:
+  - id: ORD-12
+    addressee: design-author / автор маршрута NTF-3
+    subject: "З34 М1 (г) и УК3-79: правило кратности токена (одна Begin на отметку на пути; цикл повтора — токен в теле цикла), пятая инъекция с близнецом, печать циклов по модулю; FM-v, FM-s — проба повтора с флагом true (CX3V-01)"
+    basis: "CX3V-01; М1 (в) замысла; code-authoring §«Решение и его следствие разнесены»"
+  - id: ORD-11
+    addressee: acceptance-author NTF-3
+    subject: "правка NTF-3 по NTF-7 DoD 10.4 п.3 до посадки S1 NTF-7 (заказ прошлого круга остаётся)"
+    basis: "Е9; NTF-7 APPROVED da7de8d7"
+candidate_predicates: []
+new_class_proposal: >-
+  Кандидат, порог не набран (один экземпляр): «одноразовое значение, расходуемое операцией, судится
+  гейтом по функции, где оно появилось, — повтор операции ниже функции расходует его дважды». Цена
+  измерена (16 циклов, 4 на пути запроса), место одно. Второе наблюдение — в реестр; противоядие
+  (кратность «одно значение — одна операция на пути») — gate-authoring.
