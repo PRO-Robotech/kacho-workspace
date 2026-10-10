@@ -12,7 +12,7 @@
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
 # прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
-# EW1–EW16, OR1–OR10, TM1–TM15; что держит каждая —
+# EW1–EW16, OR1–OR10, TM1–TM22; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -45,7 +45,7 @@
 #      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
 #      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
 #      OR4, OR1, OR3, OR2;
-#   TM1–TM15. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
+#   TM1–TM22. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
 #      120 с, и его разделы совпадают с коммитным предикатом (TM1, TM2); ветка,
 #      чьи 3000 файлов несут блобы истории ствола, — за 30 с без поштучных
 #      вопросов к истории пути (TM3), а возврат прежнего узкого места красит её
@@ -56,7 +56,11 @@
 #      история пути — как у эталона --find-object, без упрощения по пути: проба
 #      со слияниями и двумя стволами равна эталону (TM10), мутанты «только первый
 #      родитель», «упрощение по пути» и «ключ ответа слияния без ствола» её
-#      красят (TM11–TM13), законные близнецы молчат (TM14, TM15);
+#      красят (TM11–TM13), законные близнецы молчат (TM14, TM15); обе стороны
+#      диффа и подъём блоба к каталогам пути — проба TM16 и её мутанты TM17,
+#      TM18; поштучное отступление (путь не ASCII при core.quotepath=false) —
+#      проба TM19 и её мутанты TM20–TM22; прогон мутаций по всем строкам обхода и отступления —
+#      scripts/branch-audit-mutants.py;
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -2485,6 +2489,159 @@ if mutate "$sm_m" '            for b in sorted(bs):' '            for b in bs:';
   sm_twin TM15 "$sm_m" "блобы ответа без сортировки"
 else
   say "❌ TM15" "мутация не легла — сортировки блобов ответа в скрипте нет"; fail=1
+fi
+
+# TM16–TM18. ОБЕ СТОРОНЫ ДИФФА И ПОДЪЁМ К КАТАЛОГАМ (ws#995, круг 3). Эталон
+# `--find-object=<блоб> -- <путь>` показывает коммит, чей дифф несёт блоб с
+# ЛЮБОЙ стороны, и путь — образец, берущий всё, что под ним. Две формы, на
+# которых пробы TM10–TM15 молчали (их нашёл check-verifier мутантами):
+#   p-mpre   — h как у результата слияния M; этот блоб в стволе есть лишь
+#              пре-образом НЕ-слияния, правящего h после M (строка 2 — в
+#              контексте ханка, поэтому обратное наложение отказывает и решает
+#              история пути) → ВЛИТЫ; мутант «только пост-образ диффа» её теряет;
+#   p-dirup  — файл d с содержимым d/x той поры, когда d в стволе был каталогом
+#              (а прежде — файлом, поэтому ответ по пути d записан и без
+#              подъёма) → ВЛИТЫ; мутант «блобы не поднимаются к каталогам» её
+#              теряет;
+#   p-dirnone — законный близнец p-dirup: тот же силуэт, но содержимого d ствол
+#              не видел ни файлом, ни под каталогом → ЕДИНСТВЕННЫЙ ЭКЗЕМПЛЯР.
+#   TM16 — пакет дословно равен эталону, вердикты — названные выше;
+#   TM17 — мутант «только пост-образ» меняет вердикт p-mpre;
+#   TM18 — мутант «без подъёма к каталогам» меняет вердикт p-dirup.
+SM="$TMP/sides"
+git init -q --bare "$TMP/sides-origin.git"
+git init -q -b main "$SM"
+cd "$SM"
+git config commit.gpgsign false
+git remote add origin "$TMP/sides-origin.git"
+for n in h k; do seq -f "$n строка %g" 1 12 > "$n.txt"; done
+seq -f "d файл %g" 1 12 > d
+git add . && git commit -qm "база"
+git branch -q sg-s
+git checkout -qb p-mpre main
+sed -i '1s/.*/h строка Y/;10s/.*/h строка S/' h.txt; sed -i '6s/.*/k строка Z/' k.txt
+git commit -qam "h как у результата слияния M; k как у Z1"
+git checkout -qb p-dirup main
+seq -f "d/x строка %g" 1 12 > d; sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "d как у d/x; k как у Z1"
+git checkout -qb p-dirnone main
+seq -f "d чужая строка %g" 1 12 > d; sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "d, которого ствол не видел; k как у Z1"
+git checkout -q sg-s; sed -i '10s/.*/h строка S/' h.txt; git commit -qam "S"
+git checkout -q main
+sed -i '1s/.*/h строка Y/' h.txt; git commit -qam "Y"
+git merge -q --no-ff -m "M: h не равен ни одному родителю" sg-s >/dev/null
+sed -i '2s/.*/h строка после M/' h.txt; git commit -qam "не-слияние стирает h результата M"
+sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "Z1"
+sed -i '6s/.*/k строка ствола/' k.txt; git commit -qam "Z2"
+git rm -q d; mkdir d; seq -f "d/x строка %g" 1 12 > d/x; git add d; git commit -qm "d стал каталогом"
+git rm -qr d; git commit -qm "каталог d снят"
+git push -q origin main
+git fetch -q origin
+git branch -q -D sg-s
+cd "$TMP"
+set +e
+SM_EXACT=$(sm_run "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+SM_FAST=$(sm_run "$AUDIT")
+set -e
+if [ -n "$SM_FAST" ] && [ "$SM_FAST" = "$SM_EXACT" ] &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-mpre — " "$sm_bypath" &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-dirup — " "$sm_bypath" &&
+   f_has "$SM_FAST" "ТОЛЬКО ЛОКАЛЬНО" "p-dirnone " ' d '; then
+  say "✅ TM16" "обе стороны диффа и подъём к каталогам: пакет дословно равен эталону --find-object; p-mpre и p-dirup поглощены по истории пути, p-dirnone — единственный экземпляр"
+else
+  say "❌ TM16" "обе стороны диффа и подъём к каталогам: пакет разошёлся с эталоном --find-object либо вердикт названной ветки не тот"
+  diff <(echo "$SM_EXACT") <(echo "$SM_FAST") | head -10 || true
+  grep '^   p-' <<<"$SM_FAST" || true; fail=1
+fi
+if mutate "$sm_m" 's.add(meta[2]); s.add(meta[3])' 's.add(meta[3])'; then
+  sm_judge TM17 p-mpre "$sm_m" "блоб пути — только пост-образ диффа"
+else
+  say "❌ TM17" "мутация не легла — сбора обеих сторон диффа в обходе истории нет"; fail=1
+fi
+if mutate "$sm_m" $'            i = p.rfind(b\'/\')\n            if i <= 0:\n                break\n            p = p[:i]\n' \
+                  $'            break\n'; then
+  sm_judge TM18 p-dirup "$sm_m" "блобы не поднимаются к каталогам"
+else
+  say "❌ TM18" "мутация не легла — подъёма к каталогам в обходе истории нет"; fail=1
+fi
+
+# TM19–TM22. ОТСТУПЛЕНИЕ ПОШТУЧНО — ТЕМ ЖЕ ПРАВИЛОМ (ws#995, круг 3). Обход одним
+# проходом пишет ответ лишь пути в печатной ASCII-форме; путь иной формы
+# спрашивается поштучно `git log --full-history --raw -- <путь>`, и читатель
+# ответа берёт обе стороны строки. При умолчании core.quotepath=true такой путь
+# git печатает в кавычках, и пакет его не берёт вовсе, — поэтому до этой пробы
+# отступление не исполнялось ни одной пробой, и систематическая мутация
+# (scripts/branch-audit-mutants.py) нашла три выживших: без --full-history,
+# читатель «только пост-образ» и «только пре-образ». Законная форма, которая
+# его исполняет, — core.quotepath=false (настройка пользователя), путь не ASCII:
+#   p-uhidden — ж.txt как у X, первого родителя слияния M, взявшего ж.txt у
+#               второго: блоб X — лишь пост-образ, и обход по пути его прячет;
+#   p-umpre   — е.txt как у результата слияния M2, стёртого не-слиянием: блоб
+#               — лишь пре-образ;
+#   TM19 — пакет дословно равен эталону, обе ветки — ВЛИТЫ, и отступление
+#          действительно спрошено (счёт «блобы пути» не ноль);
+#   TM20 — мутант «отступление без --full-history» меняет вердикт p-uhidden;
+#   TM21 — мутант «читатель: только пост-образ» меняет вердикт p-umpre;
+#   TM22 — мутант «читатель: только пре-образ» меняет вердикт p-uhidden.
+SM="$TMP/fallback"
+git init -q --bare "$TMP/fallback-origin.git"
+git init -q -b main "$SM"
+cd "$SM"
+git config commit.gpgsign false
+git config core.quotepath false
+git remote add origin "$TMP/fallback-origin.git"
+seq -f "ж строка %g" 1 12 > ж.txt; seq -f "е строка %g" 1 12 > е.txt; seq -f "k строка %g" 1 12 > k.txt
+git add . && git commit -qm "база"
+git branch -q fb-s1; git branch -q fb-s2
+git checkout -qb p-uhidden main
+sed -i '1s/.*/ж строка X/' ж.txt; sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "ж как у X; k как у Z1"
+git checkout -qb p-umpre main
+sed -i '1s/.*/е строка Y/;10s/.*/е строка S/' е.txt; sed -i '6s/.*/k строка Z/' k.txt
+git commit -qam "е как у результата слияния M2; k как у Z1"
+git checkout -q fb-s1; sed -i '10s/.*/ж строка S/' ж.txt; git commit -qam "S1"
+git checkout -q fb-s2; sed -i '10s/.*/е строка S/' е.txt; git commit -qam "S2"
+git checkout -q main
+sed -i '1s/.*/ж строка X/' ж.txt; git commit -qam "X"
+git merge -q --no-ff --no-commit fb-s1 >/dev/null 2>&1 || true
+git checkout fb-s1 -- ж.txt; git commit -qm "M: ж.txt со второго родителя"
+sed -i '1s/.*/е строка Y/' е.txt; git commit -qam "Y"
+git merge -q --no-ff -m "M2: е.txt не равен ни одному родителю" fb-s2 >/dev/null
+sed -i '2s/.*/е строка после M2/' е.txt; git commit -qam "не-слияние стирает е.txt результата M2"
+sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "Z1"
+sed -i '6s/.*/k строка ствола/' k.txt; git commit -qam "Z2"
+git push -q origin main
+git fetch -q origin
+git branch -q -D fb-s1 fb-s2
+cd "$TMP"
+set +e
+SM_EXACT=$(sm_run "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+SM_FAST=$(sm_run "$AUDIT")
+SM_RAW=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 "$AUDIT" "$SM" 2>&1)
+set -e
+if [ -n "$SM_FAST" ] && [ "$SM_FAST" = "$SM_EXACT" ] &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-uhidden — " "$sm_bypath" &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-umpre — " "$sm_bypath" &&
+   grep -qE 'поштучных вопросов к истории: блобы пути [1-9]' <<<"$SM_RAW"; then
+  say "✅ TM19" "путь не ASCII при core.quotepath=false: отступление спрошено, пакет дословно равен эталону, p-uhidden и p-umpre поглощены по истории пути"
+else
+  say "❌ TM19" "путь не ASCII при core.quotepath=false: пакет разошёлся с эталоном, вердикт не тот либо отступление не спрошено"
+  diff <(echo "$SM_EXACT") <(echo "$SM_FAST") | head -10 || true
+  grep '^   p-' <<<"$SM_FAST" || true
+  grep 'ускорение' <<<"$SM_RAW" | tr ';' '\n' | grep -E 'истории' || true; fail=1
+fi
+if mutate "$sm_m" 'git log "${idxtr[@]}" --full-history --raw' 'git log "${idxtr[@]}" --raw'; then
+  sm_judge TM20 p-uhidden "$sm_m" "отступление без --full-history"
+else
+  say "❌ TM20" "мутация не легла — поштучного отступления с --full-history в скрипте нет"; fail=1
+fi
+if mutate "$sm_m" 'if (a[3] == bb || a[4] == bb)' 'if (a[4] == bb)'; then
+  sm_judge TM21 p-umpre "$sm_m" "читатель ответа — только пост-образ"
+else
+  say "❌ TM21" "мутация не легла — читателя обеих сторон строки ответа в скрипте нет"; fail=1
+fi
+if mutate "$sm_m" 'if (a[3] == bb || a[4] == bb)' 'if (a[3] == bb)'; then
+  sm_judge TM22 p-uhidden "$sm_m" "читатель ответа — только пре-образ"
+else
+  say "❌ TM22" "мутация не легла — читателя обеих сторон строки ответа в скрипте нет"; fail=1
 fi
 
 echo
