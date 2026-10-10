@@ -12,7 +12,7 @@
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
 # прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
-# EW1–EW16, OR1–OR10; что держит каждая —
+# EW1–EW16, OR1–OR10, TM1–TM4; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -45,6 +45,11 @@
 #      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
 #      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
 #      OR4, OR1, OR3, OR2;
+#   TM1–TM4. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
+#      120 с, и его разделы совпадают с коммитным предикатом (TM1, TM2); ветка,
+#      чьи 3000 файлов несут блобы истории ствола, — за 30 с без поштучных
+#      вопросов к истории пути (TM3), а возврат прежнего узкого места красит её
+#      по времени (TM4);
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -2072,6 +2077,142 @@ or_mutant OR9 OR3 '  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1
   '^   723 — ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/721, содержимое в стволе$'
 or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база открытого PR\'; return 0; fi' ':' \
   "стоп по открытому PR в ветку снят" '^   release/r2 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$'
+
+# --- TM1–TM4. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995) ------------------------------
+# Признак: 2026-10-10 перепись клона продукта (≈790 ссылок) трижды не кончилась
+# за 12+ минут. Причина установлена профилем (трасса с метками времени по
+# строкам, ветка с 3694 файлами дельты, 149 с): 121 с из 149 — признак (6б),
+# поштучный `git log <стволы> --raw -- <путь>` на каждый путь дельты, то есть
+# «пути × история ствола». На полном прогоне клона продукта — 29722 таких
+# вызова. Ответ на этот вопрос теперь считается ОДНИМ обходом истории стволов
+# на прогон (тот же упрощённый обход, что у git log по пути), и поштучный вызов
+# остаётся только отступлением.
+#
+# Синтетический клон: ствол из 2·P+20 коммитов, ветка heavy отходит в начале и
+# несёт P файлов в версиях, которые ствол принял позже и переписал снова, —
+# у каждого её файла пара «путь, блоб» есть в истории ствола, а обратный патч не
+# ложится. Плюс лёгкие ветки: на origin, предки ствола, только локальные — всего
+# ссылок клона не меньше TM_REFS.
+#   TM1 — полная перепись клона из ≥ TM_REFS ссылок укладывается в TM_LIMIT;
+#   TM2 — её разделы совпадают с коммитным предикатом: ветка без коммитов вне
+#         ствола — во «ВЛИТЫ», ветка с коммитами вне ствола и без копии на
+#         origin — в «единственный экземпляр», и других веток там нет;
+#   TM3 — ветка heavy (P файлов) в одно задание укладывается в TM_HEAVY_LIMIT,
+#         поштучных вопросов к истории пути у неё ноль, ответов одним обходом > 0;
+#   TM4 — инъекция: возврат прежнего узкого места (обход истории одним проходом
+#         снят) — та же ветка не укладывается в TM_HEAVY_LIMIT: красное по времени.
+TM_P=${TM_P:-3000}; TM_REFS=${TM_REFS:-1000}
+TM_LIMIT=${TM_LIMIT:-120}; TM_HEAVY_LIMIT=${TM_HEAVY_LIMIT:-30}
+TM="$TMP/time"
+mkdir -p "$TM"
+git init -q --bare "$TM/origin.git"
+git -C "$TM/origin.git" symbolic-ref HEAD refs/heads/main
+tm_stream() { # $1 = P, $2 = веток на origin → поток fast-import ствола, heavy и веток origin
+  LC_ALL=C awk -v P="$1" -v NB="$2" 'BEGIN {
+    H = 2 * P + 20; F = 10; t = 1700000000
+    printf "commit refs/heads/main\nmark :1\ncommitter T <t@e> %d +0000\ndata <<EOM\ninit\nEOM\n", t
+    for (i = 0; i < P; i++) printf "M 100644 inline d%02d/f%d.txt\ndata <<EOT\nfile %d v0\nline a\nline b\nEOT\n", i % 50, i, i
+    for (c = 1; c <= H; c++) {
+      i = (c <= F) ? c % P : (c - F - 1) % P
+      printf "commit refs/heads/main\nmark :%d\ncommitter T <t@e> %d +0000\ndata <<EOM\nc%d\nEOM\nfrom :%d\n", c + 1, t + c, c, c
+      printf "M 100644 inline d%02d/f%d.txt\ndata <<EOT\nfile %d v%d\nline a\nline b\nEOT\n", i % 50, i, i, c
+      if (c == F) {
+        printf "commit refs/heads/heavy\ncommitter T <t@e> %d +0000\ndata <<EOM\nheavy\nEOM\nfrom :%d\n", t + c, c + 1
+        for (j = 0; j < P; j++) printf "M 100644 inline d%02d/f%d.txt\ndata <<EOT\nfile %d v%d\nline a\nline b\nEOT\n", j % 50, j, j, F + 1 + j
+      } }
+    for (b = 0; b < NB; b++) {
+      printf "commit refs/heads/tmo%d\ncommitter T <t@e> %d +0000\ndata <<EOM\no%d\nEOM\nfrom :%d\n", b, t + H + b, b, (b * 7) % H + 2
+      printf "M 100644 inline w/o%d.txt\ndata <<EOT\nwork %d\nEOT\n", b, b } }'
+}
+tm_local_stream() { # $1 = веток только локально, $2 = голова ствола → поток веток без копии на origin
+  LC_ALL=C awk -v N="$1" -v from="$2" 'BEGIN { t = 1800000000
+    for (b = 0; b < N; b++) {
+      printf "commit refs/heads/tml%d\ncommitter T <t@e> %d +0000\ndata <<EOM\nl%d\nEOM\nfrom %s\n", b, t + b, b, from
+      printf "M 100644 inline w/l%d.txt\ndata <<EOT\nlocal %d\nEOT\n", b, b } }'
+}
+TM_NO=$(( TM_REFS * 6 / 10 )); TM_NL=$(( TM_REFS / 5 )); TM_NA=$(( TM_REFS / 5 ))
+tm_stream "$TM_P" "$TM_NO" | git -C "$TM/origin.git" fast-import --quiet
+git clone -q "$TM/origin.git" "$TM/work"
+tm_local_stream "$TM_NL" "$(git -C "$TM/work" rev-parse origin/main)" | git -C "$TM/work" fast-import --quiet
+git -C "$TM/work" branch -q heavy origin/heavy
+# Предки ствола — местные ветки на коммитах первой линии, двигавшиеся давно.
+for ((b = 0; b < TM_NA; b++)); do
+  git -C "$TM/work" update-ref "refs/heads/tma$b" "$(git -C "$TM/work" rev-parse "origin/main~$((b + 1))")"
+done
+# Часть веток origin заведена и локально — живые.
+for ((b = 0; b < TM_NO / 6; b++)); do git -C "$TM/work" branch -q "tmo$b" "origin/tmo$b"; done
+tm_refs=$(git -C "$TM/work" for-each-ref | wc -l)
+
+tm_run() { # $1 = исполняемый, $2 = предел (с), далее — ключи → TM_OUT, TM_RC, TM_SEC
+  local a=$1 lim=$2 t0; shift 2
+  t0=$SECONDS
+  set +e
+  TM_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_NO_ACCUM=1 \
+    timeout "$lim" "$a" "$TM/work" "$@" 2>&1); TM_RC=$?
+  set -e
+  TM_SEC=$((SECONDS - t0))
+}
+tm_run "$AUDIT" "$TM_LIMIT"
+if [ "$tm_refs" -ge "$TM_REFS" ] && [ "$TM_RC" != 124 ] && [ "$TM_RC" != 2 ] && [ "$TM_SEC" -le "$TM_LIMIT" ] &&
+   grep -q "осмотрено локальных" <<<"$TM_OUT"; then
+  say "✅ TM1" "полная перепись клона из $tm_refs ссылок — $TM_SEC с при пределе $TM_LIMIT с (код $TM_RC)"
+else
+  say "❌ TM1" "перепись клона из $tm_refs ссылок не уложилась в $TM_LIMIT с: $TM_SEC с, код $TM_RC"; fail=1
+fi
+
+# TM2 — разделы против коммитного предиката, перечнем в обе стороны. Одно
+# расхождение предикатов законно и названо: heavy несёт коммит вне ствола, но
+# каждый её блоб ствол по тому же пути принимал — признак (6б) доказывает
+# поглощение байтами, и «ВЛИТЫ» с пометкой «ПОГЛОЩЕНА ПОФАЙЛОВО» — её место
+# (`git-issues.md#gi-prune-census-predicate`: снятие судит байты, а не предка).
+tm_names() { f_sec "$TM_OUT" "$1" | sed -n 's/^   \([^ ]*\) .*/\1/p' | LC_ALL=C sort; }
+tm_exp_merged=""; tm_exp_only=""
+while read -r b; do
+  n=$(git -C "$TM/work" rev-list --count "refs/heads/$b" --not refs/remotes/origin/main)
+  if [ "$n" = 0 ]; then
+    tm_exp_merged+="$b"$'\n'
+  elif ! git -C "$TM/work" show-ref --verify --quiet "refs/remotes/origin/$b"; then
+    tm_exp_only+="$b"$'\n'
+  fi
+done < <(git -C "$TM/work" for-each-ref --format='%(refname:lstrip=2)' refs/heads/ | grep -vx main)
+tm_exp_merged+="heavy"$'\n'
+tm_exp_merged=$(printf '%s' "$tm_exp_merged" | LC_ALL=C sort); tm_exp_only=$(printf '%s' "$tm_exp_only" | LC_ALL=C sort)
+tm_got_merged=$(tm_names "ВЛИТЫ"); tm_got_only=$(tm_names "ТОЛЬКО ЛОКАЛЬНО")
+if [ -n "$tm_exp_merged" ] && [ -n "$tm_exp_only" ] &&
+   [ "$tm_got_merged" = "$tm_exp_merged" ] && [ "$tm_got_only" = "$tm_exp_only" ] &&
+   f_sec "$TM_OUT" "ВЛИТЫ" | grep -c '^   heavy — .*ПОГЛОЩЕНА ПОФАЙЛОВО' >/dev/null; then
+  say "✅ TM2" "разделы совпали с коммитным предикатом: влитых $(wc -l <<<"$tm_exp_merged"), единственных экземпляров $(wc -l <<<"$tm_exp_only")"
+else
+  say "❌ TM2" "разделы разошлись с коммитным предикатом (влиты $(wc -l <<<"$tm_got_merged")/$(wc -l <<<"$tm_exp_merged"), единственные $(wc -l <<<"$tm_got_only")/$(wc -l <<<"$tm_exp_only"))"
+  diff <(echo "$tm_exp_merged") <(echo "$tm_got_merged") | head -5 || true
+  diff <(echo "$tm_exp_only") <(echo "$tm_got_only") | head -5 || true; fail=1
+fi
+
+tm_fo() { sed -n 's/.*поштучных вопросов к истории: блобы пути \([0-9]*\),.*/\1/p' <<<"$1"; }
+tm_pre() { sed -n 's/.*история путей одним обходом: ответов \([0-9]*\).*/\1/p' <<<"$1"; }
+tm_run "$AUDIT" "$TM_HEAVY_LIMIT" heavy
+tm_heavy_sec=$TM_SEC
+if [ "$TM_RC" != 124 ] && [ "$TM_RC" != 2 ] && [ "$TM_SEC" -le "$TM_HEAVY_LIMIT" ] &&
+   [ "$(tm_fo "$TM_OUT")" = 0 ] && [ "${TM_OUT}" != "" ] && [ "$(tm_pre "$TM_OUT")" -gt 0 ] 2>/dev/null; then
+  say "✅ TM3" "ветка heavy ($TM_P файлов дельты) — $TM_SEC с при пределе $TM_HEAVY_LIMIT с; поштучных вопросов к истории пути 0, ответов одним обходом $(tm_pre "$TM_OUT")"
+else
+  say "❌ TM3" "ветка heavy: $TM_SEC с при пределе $TM_HEAVY_LIMIT с, код $TM_RC, поштучных вопросов к истории пути «$(tm_fo "$TM_OUT")», ответов одним обходом «$(tm_pre "$TM_OUT")»"; fail=1
+fi
+
+# TM4 — инъекция: снят обход истории одним проходом, ответ о блобах пути снова
+# спрашивается поштучно, как до ws#995. Предел тот же, что у TM3.
+tm_m="$TMP/tm-mutant.sh"
+if mutate "$tm_m" '    history_blobs_once "$BA_SHARED/ans/fb" "${IDXTR[@]}" > "$BA_SHARED/fb.n" 2>/dev/null &&' \
+                  '    false &&'; then
+  tm_run "$tm_m" "$TM_HEAVY_LIMIT" heavy
+  if [ "$TM_RC" = 124 ] || [ "$TM_SEC" -gt "$TM_HEAVY_LIMIT" ]; then
+    say "✅ TM4" "инъекция «история пути — поштучно» красит TM3 по времени: ветка heavy не уложилась в $TM_HEAVY_LIMIT с (код $TM_RC; без инъекции — $tm_heavy_sec с)"
+  else
+    say "❌ TM4" "инъекция «история пути — поштучно» уложилась в $TM_HEAVY_LIMIT с ($TM_SEC с, код $TM_RC) — предел слеп к прежнему узкому месту"; fail=1
+  fi
+else
+  say "❌ TM4" "мутация не легла — строки обхода истории одним проходом в скрипте нет"; fail=1
+fi
 
 echo
 if [ "$fail" -eq 0 ]; then
