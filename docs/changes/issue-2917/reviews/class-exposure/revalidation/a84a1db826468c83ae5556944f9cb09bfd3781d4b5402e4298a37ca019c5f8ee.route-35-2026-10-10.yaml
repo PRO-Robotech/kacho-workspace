@@ -1,0 +1,142 @@
+# Экспозиция классов. Пересверка маршрута tasks.md редакции 35 при замысле NTF-2 редакции 33 на ветке
+# issue-880 @615ffeace.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли). Замысел с прошлой пересверки не менялся
+# (a84a1db8…). Записи revalidation/a84a1db8….yaml и ….route-34-2026-10-10.yaml пополняются только
+# дописыванием, поэтому эта запись лежит рядом с суффиксом маршрута. Предмет — дельта 615ffeace^ →
+# 615ffeace (fa-b1): редакция 35 добавляет держатель блокирующего CX2-110 в S6. Прежние записи не
+# переписываются. Разрешения писать реализацию эта запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee
+  fingerprint_predicate: git show 615ffeace:docs/changes/issue-2917/design.md | sha256sum
+  revision: 33
+  changed_since_previous_record: false
+  route:
+    path: docs/changes/issue-2917/tasks.md
+    sha256: 5679fe608f6f7131869aec675b0ad814b6c5c490476144865180f4c9c7d54948
+    fingerprint_predicate: git show 615ffeace:docs/changes/issue-2917/tasks.md | sha256sum
+    revision: 35
+    content_commit: 615ffeacecbc1cd095a00e54a75294c06dd6925d
+    previous_sha256: 31fe1b18698737a84fbb4496ef5115f7c99773f53fc92a9e918d5635cf9e5c41   # 615ffeace^ (редакция 34)
+  delta: "git diff 615ffeace^ 615ffeace --stat   # только tasks.md, +5 −1: абзац шапки ред. 35 и строка S6"
+previous_revalidation:
+  path: docs/changes/issue-2917/reviews/class-exposure/revalidation/a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee.route-34-2026-10-10.yaml
+  subject_revision: "замысел 33, маршрут 34"
+  outcome: к-замыслу
+  unmapped_items: [CX2-110]
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: >-
+    origin/main:.claude/agents/class-exposure-analyst.md @54854e0f3. Применены правила
+    origin/main:.claude/rules/flow-acceleration.md: fa-b1 (только дельта), fa-b2 (условие к коду — в
+    замысел), fa-b5 (утверждение о дереве — предикатом).
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; решения владельца 2026-10-04 (замысел не ворота), 2026-10-07, 2026-10-08 (1)–(4);
+    решения диспетчера (а)–(д). Новые пункты — только с предикатом.
+revisions:
+  workspace: 615ffeacecbc1cd095a00e54a75294c06dd6925d
+  workspace_rules: 54854e0f3   # origin/main
+  kaname: d93b69712f0d826216bf3f8ce4dbe65bc7e195cd   # = origin/484-notify (git fetch origin 484-notify; git rev-parse)
+snapshot_at: 2026-10-10T07:00:00Z
+inspected: >-
+  Дельта 615ffeace целиком: абзац шапки редакции 35 (tasks.md:13–15) и строка S6 (tasks.md:431).
+  kaname @d93b69712: recipientdirectory/resolve.go (Execute :83–155, readsAccount :163–185),
+  recipientdirectory/usecase_test.go (fakeStore :54–107, world :113–127, base :139–141),
+  domain/notification_recipient.go (RecipientRecord, HasConfirmedAddress). В holders.yaml и design.md
+  CX2-110 не упомянут: `grep -c 'CX2-110'` → 0 и 0.
+
+closure_of_previous:
+  CX2-110:
+    status: закрыто в маршруте; условие к коду в замысел ещё не перенесено (заказ ниже, не блокирует)
+    evidence: >-
+      Строка S6 (tasks.md:431) теперь называет модульную пробу обработчика Resolve до кода:
+      audience=event, субъект ACTIVE с `EmailVerified: false` вне аудитории события → AUDIENCE_DENIED
+      без адреса. Близнец отличается одним фактом: тот же субъект в аудитории → NO_CONFIRMED_ADDRESS.
+      Инъекция «причина „адрес не подтверждён“ до ветки аудитории» → красная. Условие к коду записано
+      там же: обработчик сразу отвечает только на «нет пользователя» и «не ACTIVE», а причину
+      «адрес не подтверждён» применяет после ветки аудитории. Это совпадает с code_condition пункта в
+      записи route-34.
+    verification: >-
+      (1) Проба зелёная на базе. В resolve.go @d93b69712 SUBJECT_NOT_FOUND стоит на :126, SUBJECT_INACTIVE —
+      на :128, AUDIENCE_DENIED для event — на :134–135, и только потом HasConfirmedAddress → NO_CONFIRMED_ADDRESS
+      на :151–152. outcome() (:195) адреса не несёт, значит «без адреса» выполнимо.
+      (2) Пробу можно собрать на существующем подлоге. fakeStore.users задаёт запись с EmailVerified:false,
+      fakeStore.audience задаёт состав аудитории (:58, :92), а base() даёт audience=event (:140). Новой
+      оснастки не нужно.
+      (3) Инъекция исполнима и даёт красный: возврат NO_CONFIRMED_ADDRESS перед switch (:132) меняет
+      исход пробы. Близнец при этом остаётся зелёным.
+      (4) Условие покрывает и остальные аудитории. Для account_reader прежний порядок сохраняется:
+      дверь notAdmitted → NO_CONFIRMED_ADDRESS (:143–144), иначе AUDIENCE_DENIED. У account_owner, self
+      и unset ветки аудитории нет, и там исход от порядка не зависит.
+
+approval_conditions: []   # со стороны маршрута; замысел — заказ N34-2 (до запроса эпика в main)
+
+clean: true
+
+mapping_check:
+  route_vs_previous_items: >-
+    Блокирующий пункт записи route-34 был один — CX2-110. Он отображён в строку S6 с держателем,
+    близнецом и инъекцией. Неблокирующие N34-1 (go.mod / golang.org/x/tools в S6g, S13) и N34-2
+    (замысел и change.yaml отстают от приёмки ред. 39) дельтой не тронуты. Решение (г) этого и не
+    требует: маршрут правится только по блокирующим.
+  design: >-
+    Замысел не менялся (a84a1db8…). Условие к коду CX2-110 по fa-b2 переходит в ближайшую редакцию
+    замысла вместе с N34-2. По решению владельца 2026-10-04 замысел не ворота, поэтому S6 это не задерживает.
+
+new_items:
+  - id: N35-1
+    blocking: false
+    decision: "S6, держатель CX2-110: «проба зелёная на базе `d93b69712`»"
+    finding: >-
+      Названная база не совпадает с базой старта полосы. Колонка зависимостей той же строки S6
+      (tasks.md:431) говорит, что S6 стартует на голове `484-notify` после вливания волны NTF-5 2924-K2,
+      а с NTF-3 2918-X4e — после той из двух, что влита первой. Обе трогают `recipientdirectory/**`.
+      Сейчас голова одна: `git -C project/kaname rev-parse origin/484-notify` → d93b69712. Если K2 или
+      X4e изменят порядок исходов Resolve, проба покраснеет уже на базе полосы, до кода S6. Это
+      правильный сигнал, а не дефект держателя. Исполнителю нужно читать фразу как «зелёная на базе
+      полосы (голове 484-notify при старте)» и печатать эту ревизию. Блокирующим не является, новую
+      правку маршрута ради этого не открывать (г).
+    predicate: >-
+      `git -C project/kaname diff d93b69712 <база полосы> -- internal/apps/kaname/api/recipientdirectory/resolve.go`
+      пуст. Если не пуст — проба CX2-110 прогоняется на базе полосы до кода, и её исход печатается.
+
+measurements:
+  - claim: "дельта ред. 35 — только шапка и S6"
+    how: "git diff 615ffeace^ 615ffeace --stat"
+    result: "1 файл, tasks.md, +5 −1"
+  - claim: "порядок исходов Resolve на базе: аудитория event раньше подтверждения адреса"
+    how: "git -C project/kaname show d93b69712:internal/apps/kaname/api/recipientdirectory/resolve.go | sed -n 117,155p"
+    result: "SUBJECT_NOT_FOUND :126 → SUBJECT_INACTIVE :128 → AUDIENCE_DENIED :135 → NO_CONFIRMED_ADDRESS :152 — подтверждено"
+  - claim: "подлог usecase_test.go позволяет задать неподтверждённого субъекта и состав аудитории"
+    how: "git -C project/kaname show d93b69712:…/usecase_test.go | grep -n 'type fake\\|audience\\|EmailVerified'"
+    result: "fakeStore.users (запись с EmailVerified), fakeStore.audience []string (:58), base() audience=event (:140) — подтверждено"
+  - claim: "база S6 = d93b69712"
+    how: "git -C project/kaname fetch -q origin 484-notify && git -C project/kaname rev-parse origin/484-notify"
+    result: "d93b69712f0d — на момент замера; по колонке зависимостей S6 база сместится после K2 и X4e (N35-1)"
+
+not_measurable: >-
+  Исход пробы после S6: полоса не начата, а пробы в дереве ещё нет.
+
+outcome: к-коду
+return_to_acceptance: []
+unmapped_items: []
+orders:
+  - "автор замысла NTF-2 · в ближайшей редакции замысла: условие к коду CX2-110 (годность адресата ничего не замыкает в Resolve; «адрес не подтверждён» — после ветки аудитории), первичный разбор на 5135d8cb…, перевод change.yaml (N34-2) — до запроса эпика в main · change-graph §4; flow-acceleration fa-b2"
+  - "исполнитель S6 (go-implementer) · проба CX2-110 — первой, на базе полосы, с печатью ревизии (N35-1) · code-authoring §«Порядок операций внутри кода»"
+candidate_predicates: []
+new_class_proposal: —
