@@ -103,8 +103,6 @@
 2	../packages/iam-service-jit
 7	../packages/iam-service-scim
 1	../packages/iam-tests-newman
-1	../packages/kacho-deploy-helm-umbrella
-1	../packages/nlb-apps-kacho-config
 2	../packages/proto-apisurface
 2	../packages/proto-iam
 1	../packages/proto-iam-fga-model
@@ -229,7 +227,6 @@
 1	response-shape-changed-check-did-not
 2	rounds-discover-classes-gates-hold-them
 1	rpc/<service>
-1	sec-hat-provider-admin-hop-terminator
 1	self-expiry-made-vacuous-by-its-own-change
 5	step-up-acr-sensitive-only
 1	sub-phase-T3.3-unify-iam-label-scope-acceptance

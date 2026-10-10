@@ -83,7 +83,7 @@ d2="$(setup_tree deleted)"
 rm -f "$d2/$NOTES"
 out="$(run_on "$d2")"; code=$?
 expect_code "перечень удалён целиком — расхождение, а не «нечего проверять»" 1 "$code" "$out"
-if printf '%s' "$out" | grep -qF "$NOTES"; then
+if grep -qF -- "$NOTES" <<<"$out"; then
     echo "[inject OK]   удаление названо координатой ($NOTES)"; ok=$((ok+1))
 else
     echo "[inject FAIL] в выводе нет координаты $NOTES" >&2; bad=$((bad+1))

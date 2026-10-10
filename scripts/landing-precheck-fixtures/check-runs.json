@@ -1,0 +1,413 @@
+{
+  "total_count": 68,
+  "check_runs": [
+    {
+      "name": "сводный вердикт юнитов (все шарды)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "сводный вердикт (все шарды)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты pkg",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты nlb",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты terraform",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты gateway",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты geo",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты tools",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты deploy",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты ui-future",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты vpc",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты compute",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты storage",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты internal",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "юниты registry",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "gosec",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "e2e nlb (nlb)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "e2e vpc (vpc)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "e2e compute-storage (compute storage)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "e2e edge (geo registry api-gateway)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "Trivy",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "сводный вердикт (все проверки завершились и зелены)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (compute)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "план шардов + гейты покрытия",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build iam",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (iam)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (system)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (registry)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (storage)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build system",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "integration (nlb)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "stack dev-prod boots (kind, production posture)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (nlb)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build nlb",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "integration (geo)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (host)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (vpc)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "unit (dashboard)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "integration (vpc)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build registry",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build storage",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build vpc",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "gosec (Go static analysis)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build compute",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build host",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "перенос ветки не откатил ствол",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "integration (registry)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "матрица покрывает все remotes",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "integration (storage)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "integration (compute)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "федерация исполняется",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "линт (покрытие 11 пакетов + shared + scripts)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "govulncheck",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build dashboard",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "docs-sites",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "stack own boots (kind, production posture)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "trivy (fs + IaC)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "permission-catalog · rest-route-table (staleness + copy-drift)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "build · vet · gofmt",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "план шардов юнитов · перепись полноты",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "helm lint · template (dev + prod)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "buf lint · breaking · generate-diff",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "Postgres-пробы вне отбора интеграционной джобы (пропуск =...",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "golangci-lint",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "typecheck (11 пакетов)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "terraform — формат · модульные пробы · приёмка провайдера",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "заголовок и тело запроса без атрибуции",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    },
+    {
+      "name": "сквозные пробы консоли (свой стенд)",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "8bbdb4e5d0529e56bc14b596348840c3f49272e4"
+    }
+  ]
+}

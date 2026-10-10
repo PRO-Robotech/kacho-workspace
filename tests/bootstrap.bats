@@ -57,8 +57,8 @@ teardown() { teardown_fake_workspace; }
 
   cd kacho-workspace/project/kacho
   echo "local change" > local.txt
-  git -c user.email=t@t -c user.name=t add local.txt
-  git -c user.email=t@t -c user.name=t commit -m "local-only"
+  git add local.txt
+  sandbox_git commit -m "local-only"
   cd "$TMP_WS"
 
   run ./kacho-workspace/bootstrap.sh

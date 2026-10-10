@@ -454,7 +454,7 @@ contains() {
   ASSERTIONS=$((ASSERTIONS + 1))
   local out rc
   out="$("$@" 2>&1)"; rc=$?
-  if printf '%s\n' "$out" | grep -qxF -- "$want"; then
+  if grep -qxF -- "$want" <<<"$out"; then
     PASSED=$((PASSED + 1)); printf '  OK   %s\n' "$name"
   else
     FAILED=$((FAILED + 1))

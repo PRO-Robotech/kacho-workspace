@@ -1,0 +1,170 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 2.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена — её коммитит оператор.
+schema_version: 1
+change_id: corelib-40
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: 89d72b42da11fea368b1dd4dfbd29bf85ceb3d87767bc0063ba60c08af57d357.yaml
+subject: >-
+  oauthceremony: привязка PKCE — поля записи кода, порт ProofKeyVault снят; ветка
+  переведена на волну 32 после сборки-1 (слияние 32@bc580b9: #38 снял Config.Issuer,
+  адреса точек названы в Config) — задача #40, волна #32
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: bc580b9205f98bffee413747ebfd9d5b1f9edd01   # merge-base(32, head) = 32
+  base_tree: 9d2b92feed56728d77840d51029ed82c1457fd25
+  head: 81b0f5e72c54c09da68a8d20b5c9e3520650c183
+  head_tree: 988ded607baa43b06ad9d0c3fd2f26020801bf45
+  head_is: 'ветка 40 в tmp/corelib-40: 1c931b8 (полоса), слияние 81b0f5e (32 @bc580b9); на origin не отправлена'
+  shortstat: '15 файлов, +892 / -377'
+content_digest: sha256:49321145b04ee7ccd0f0acc8acbfdc2d714c156f444009bd9323558a8d7ad852
+digest_definition: |
+  git diff --full-index bc580b9205f98bffee413747ebfd9d5b1f9edd01..81b0f5e72c54c09da68a8d20b5c9e3520650c183 | sha256sum
+  (перемерено своей командой; от 84b9be87 тот же head даёт 192d33da… — это дельта с #38/#31, не дифф полосы)
+
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T17:18:18Z'
+return_to: 'go-implementer (автор полосы #40) — только по I1/I2/S*, не блокирует'
+
+review_scope: >-
+  полный дифф bc580b9..81b0f5e (15 файлов oauthceremony/); сличение с диффом круга 1
+  (84b9be87..1c931b8) построчно без index/@@: собственное содержание полосы не изменилось,
+  отличия — только разрешение слияния с #38; git show --remerge-diff 81b0f5e — три
+  конфликта (ceremony.go, ceremony_test.go, engineconfig_internal_test.go) и одна правка
+  без конфликта (endpoints_internal_test.go).
+
+premise_checks:
+  - claim: 'конфликт New разрешён по существу: Issuer не разбирается, TokenURL = cfg.TokenEndpoint, EnforcePKCE* = true'
+    result: подтверждено
+    how: >-
+      git show --remerge-diff 81b0f5e -- oauthceremony/ceremony.go: снята сторона #40 с
+      url.Parse(cfg.Issuer)/JoinPath, оставлен комментарий #38 об издателе, абзац PKCE
+      дописан ниже; ceremony.go:204-212 — EnforcePKCE/EnforcePKCEForPublicClients true,
+      EnablePKCEPlainChallengeMethod false, TokenURL cfg.TokenEndpoint.
+  - claim: 'endpoints_internal_test.go из #38 слился без конфликта, но не собирался; снято RequireProofKey* и ProofKeys'
+    result: подтверждено
+    how: >-
+      remerge-diff показывает в нём только снятие двух полей Config и ProofKeys в Ports;
+      перехват записывающего поставщика стоит раньше requireProofKey (Authorize отказывает
+      на NewAuthorizeRequest), так что обязательный PKCE пробу адресов не опустошил: перепись
+      4 из 4 запросов в каждом из 4 случаев.
+  - claim: 'остатков снятого нет'
+    result: подтверждено
+    how: >-
+      git grep -E 'ProofKeyVault|Ports\.ProofKeys|ProofKeys:|RequireProofKey|uncalledProofKeys|
+      StoreProofKeyRequest|FetchProofKeyRequest|DropProofKeyRequest|proofBound' 81b0f5e -- . → rc 1;
+      git grep -E 'cfg\.Issuer|Config\.Issuer|Issuer:' 81b0f5e -- oauthceremony/ → rc 1.
+  - claim: 'снятие полей Config и порта не ломает выпущенный API'
+    result: подтверждено
+    how: >-
+      git ls-tree -r v1.9.0|v1.8.0|v1.7.0 -- oauthceremony/ → 0 файлов; git grep -l
+      corelib/oauthceremony в project/kacho@4382f05c0a3 и project/kaname@32637536f → 0.
+
+measurements:
+  - 'go test ./oauthceremony/ -count=1 -json @81b0f5e (go1.26.8, TMPDIR и GOCACHE вне git-деревьев) — rc 0; pass 272 теста (92 верхнего уровня) + пакет, fail 0, skip 0; git status копии пуст'
+  - 'gofmt -l oauthceremony/ — пусто; go vet ./oauthceremony/ — rc 0'
+  - 'инъекция I1 повторена на голове (overlay fakes_test.go: recordingUnitOfWork.Begin возвращает context.WithDeadline(context.Background(), тот же срок)) — TestUnitOfWorkIsEngagedWhenNamed FAIL «Exchange отказал: authorization_code_consumed … has been revoked»; без инъекции — PASS в прогоне выше'
+  - 'маркеры отсрочки: git diff bc580b9..81b0f5e | grep -E "^\+.*\b(TODO|FIXME|XXX|HACK)\b|t\.Skip" → 0'
+  - 'рабочий путь: git diff bc580b9..81b0f5e -- *.go :!*_test.go | grep -E "^\+.*(panic\(|context\.Background|context\.TODO|log\.Printf|fmt\.Print|MustParse|func init\()" → 0'
+not_run: 'golangci-lint и -race не гонял — их исход не мой предмет (landing-reviewer / check-verifier)'
+
+findings:
+  - id: I1
+    severity: important
+    blocks: false
+    carried_from: 'круг 1, I1 — не закрыта, содержание полосы не менялось'
+    class: ctx-value-dependency-not-in-contract
+    file: oauthceremony/bridge.go
+    line: 289
+    summary: >-
+      Успешный обмен кода зависит от того, что ведомость операции доезжает сквозь
+      UnitOfWork.Begin: погашение на выдаче признаёт своё же погашение только по consumedHere
+      из контекста, а контракт порта (ports.go:383) не требует, чтобы возвращённый контекст
+      был потомком переданного. Единица работы с контекстом от Background — законный обмен
+      отвечается повтором и отзывом семейства.
+    requirement: >-
+      либо BeginTX (bridge.go:585) переносит ведомость операции в возвращённый контекст,
+      либо контракт Begin называет требование «возвращённый контекст — потомок переданного»;
+      в обоих случаях проба с такой единицей работы.
+  - id: I2
+    severity: important
+    blocks: false
+    carried_from: 'круг 1, I2 — не закрыта; координата в corelib#55 не дописана (тело #55 называет только revocationReasonFor)'
+    class: misuse-not-in-notes (класс corelib#55)
+    file: oauthceremony/bridge.go
+    line: 550
+    summary: >-
+      GetPKCERequestSession отдаёт движку CodeCeremonyMisuse мимо ведомости; coarsenable
+      его не знает, и вызывающий получает server_error. Сегодня путь недостижим (порядок
+      обработчиков задан в New).
+    requirement: 'дописать bridge.go:550 в предикат снятия corelib#55 либо закрыть здесь тем же механизмом'
+  - id: S1
+    severity: style
+    blocks: false
+    carried_from: 'круг 1, S1 (была ceremony.go:168; после слияния — :193)'
+    file: oauthceremony/ceremony.go
+    line: 193
+    summary: >-
+      «запись кода без привязки невыразима (AuthorizationCodeRecord)» — тип нулевую
+      привязку выражает; свойство держат проверки в рантайме (requireProofKey,
+      codeRecordFromRequester, bindingDefect). Поведение комментарий не искажает — неверно
+      назван механизм.
+    requirement: назвать настоящий механизм вместо типа.
+  - id: S2
+    severity: style
+    blocks: false
+    carried_from: 'круг 1, S2'
+    file: oauthceremony/bridge.go
+    line: 222
+    summary: >-
+      «на погашенном коде привязка не судится» — на коде, погашенном этой же операцией,
+      судится (ветка bridge.go:239 проваливается к bindingDefect). Код строже комментария.
+    requirement: сузить до «на коде, погашенном не этой операцией (повтор)».
+  - id: S3
+    severity: style
+    blocks: false
+    carried_from: 'круг 1, S3'
+    file: oauthceremony/ports.go
+    line: 162
+    summary: >-
+      довод к третьему исходу FetchAuthorizationCode называет только отзыв; на нём стоит и
+      обычный обмен — вторая выборка той же операции видит код погашенным при предъявлении.
+    requirement: добавить второй довод в шапку порта.
+  - id: S4
+    severity: style
+    blocks: false
+    carried_from: 'круг 1, S4'
+    file: oauthceremony/doc.go
+    line: 43
+    summary: строка не переформатирована после правки; рваные переносы также doc.go:58 и ceremony.go:777 (абзац о повторе в Exchange).
+    requirement: переформатировать абзацы.
+  - id: P1
+    severity: process
+    blocks: false
+    new_in_round: true
+    file: '(коммит 1c931b82d0ff)'
+    line: 1
+    summary: >-
+      Сообщение коммита полосы нарушает форму владельца: первая строка 76 знаков (предел
+      72), тело 19 непустых строк (предел 12). Запись круга 1 объявила проверку сообщения
+      чистой, не мерив длину — эта часть её commit_message_check неполна. Слияние 81b0f5e в
+      форме: 68 знаков, 8 строк тела.
+    measured: >-
+      git log -1 --format=%s 1c931b8 | python3 len → 76; git log -1 --format=%b 1c931b8 |
+      sed '/^$/d' | wc -l → 19. Ветка 40 на origin не отправлена (ls-remote пусто).
+    requirement: >-
+      не мой предмет судить посадку: исправление требует переписать историю (rebase/amend
+      запрещены владельцем) — решение за landing-reviewer и диспетчером.
+
+foundation_candidates: []
+fresh_deferral_markers: 0
+probes_in_same_pr: true
+security_comments_contradicting_code: []   # S1, S2 — неточность механизма/охвата, поведение не искажают, код строже текста
+commit_message_check: >-
+  1c931b8: автор/коммиттер pointpu <pointpu@in-cloud.io>, трейлеров 0, первая строка «#40 …»
+  76 знаков (>72), тело 19 строк (>12) — P1. 81b0f5e: 68 знаков, тело 8 строк, трейлеров 0.

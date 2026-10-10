@@ -12,7 +12,7 @@
 # продукта или без приёмок в нём, гейт обязан ответить VOID, а не успехом
 # (`gate-authoring` §Инъекция; `testing.md` §«Гейт на класс», п. 2-3).
 #
-# ПРОГОНОВ ТРИ, А НЕ ДВА (`testing.md` §«Гейт на класс», п. 2в). Инъекция обязана
+# ПРОГОНОВ БОЛЬШЕ ПАРЫ (`testing.md` §«Гейт на класс», п. 2в). Инъекция обязана
 # ронять ТОЛЬКО проверяемое. check-04 заведён рядом с check-01 и делит с ним
 # распознаватель вердикта, поэтому доказывать надо три вещи: на целом дереве
 # молчат ОБА; дефект второго дома роняет ТОЛЬКО check-04; дефект первого дома
@@ -29,6 +29,12 @@ OLD="check-01-acceptance-verdict.py"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+# Подпись синтетического дерева — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "[VOID] inject-04 — корневой подписи нет: синтетическому дереву не с чего взять подпись" >&2; exit 2; }
 
 probes=0
 failed=0
@@ -67,8 +73,7 @@ mkmono() {
         shift 2
     done
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -qm 'синтетическое дерево продукта' >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -qm 'синтетическое дерево продукта' >/dev/null 2>&1
     git -C "$dir" update-ref refs/remotes/origin/main HEAD
     printf '%s' "$dir"
 }

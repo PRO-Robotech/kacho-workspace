@@ -1,0 +1,106 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance.md
+  sha256: 52b153d5c0e6813286084d5b3f3f07692552b0f7330dd299d6adfe7c58869ead
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — то, что вписал
+    автор. Действующий вердикт о редакции 52b153d5 — эта запись. Документ на момент ревью не
+    закоммичен (рабочее дерево воркспейса @31ad6346f).
+  base_commit: 31ad6346f1dfec8cd827517516c6709bdf7f9b1d
+  content_commit: none (uncommitted)
+  product_revision: PRO-Robotech/kacho@ffbe930dbefb845155dfab1eb4e455f9eddbf54e
+  task: https://github.com/PRO-Robotech/kacho/issues/3092
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance.md
+  lines: 612
+verdict: CHANGES_REQUESTED
+round: 1
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07T17:58:41Z'
+blocking:
+  count: 5
+  kinds: [COVERAGE, PRODUCER, FORMAT, FORMAT, CONSTRUCTIBILITY]
+  items:
+    - kind: COVERAGE
+      summary: >-
+        Добавление RegionService/Create и ZoneService/Create делает их гейтируемыми мутациями
+        (servicehost.IsGatedMutation: /Create службы без префикса Internal). Самоистекающая проба
+        TestGeoServesNoGatedMutation (services/geo/cmd/kacho-geo/describe_test.go:133) покраснеет,
+        а причина изъятия BootGate в describe() (services/geo/cmd/kacho-geo/serve.go:333-364,
+        предмет 2 «отвергать нечего») станет ложной. Документ этого не называет ни в §Р7, ни в
+        радиусе П19, а предикат перехода S1 («внутренние пробы geo зелёные без правок, кроме двух
+        кейсов §Р7») при этом невыполним. Нужно решение: принести гейт либо переписать причину на
+        предмет 1 («доставлять нечего») и заменить пробу самоистечения на пробу по нему.
+    - kind: PRODUCER
+      summary: >-
+        Сценарий 01, «Тогда»: `GET /operations/{operationId}` → 200 на внешнем крае для операции geo.
+        В разделе «сценарий → производитель» строки нет. Путь — opsproxy (prefix geo) →
+        OperationService публичного слушателя geo → corelib operationspb.Handler.Get, видимость
+        ограничена владельцем (handler.go:73-80). На внешнем крае это ни разу не утверждалось
+        (services/geo/tests/newman/cases/operation.py:14-21: прежняя проба снята как
+        «неконтрактная поверхность»). Назвать производителя или снять шаг.
+    - kind: FORMAT
+      summary: >-
+        Сценарий 17: «тот же код и та же форма» вместо конкретного кода. Край отвечает на
+        недостаточный уровень подтверждения UNAUTHENTICATED с фиксированным текстом
+        (gateway/internal/middleware/auth_stepup.go:208). Назвать код и текст.
+    - kind: FORMAT
+      summary: >-
+        Перекрёстные ссылки сломаны. Р2: «пробой по паре записей каталога (сценарий 16)», а это
+        сценарий 15. Р7: «(сценарий 13)», а смена представителя — сценарий 12. Строка 188
+        («отказы проверки входа (сценарии 08, 09, 12) — integration-пробой») противоречит DoD п.2
+        (integration: 08–11, 14) и п.4 (newman: 09, 12); 09 — отказ хранилища в Operation.error,
+        12 — изоляция края, а 11 в перечень не попал.
+    - kind: CONSTRUCTIBILITY
+      summary: >-
+        Сценарий 18: у отрицательного близнеца («пользователь без права на POST») не названа
+        фикстура человека-не-администратора консоли. Сценарий 08: близнец «regionId = существующий
+        префикс-регион» требует региона adm1g-cp-{{runId}}, а в Given он не заведён.
+non_blocking:
+  - >-
+    П15: предикат печатает и файлы вне geo (registry-redesign.py, registry-repository.py,
+    storage image.py с коллекциями). Это утверждения ОТСУТСТВИЯ собственных полей, а не читатели
+    инфра-блока geo, так что по существу вывод держится, но фраза «все попадания в services/geo/»
+    расходится с выводом названной команды.
+  - >-
+    Сценарий 11: «message содержит» лучше заменить дословным текстом. Для региона текст уже есть:
+    `numericInfraId is immutable after Region.Create` (region.go:240-242).
+  - >-
+    DoD п.3: «оба экземпляра каталога» — в дереве @ffbe930dbe каталог один
+    (gateway/internal/middleware/embed/permission_catalog.json). Назвать второй или убрать слово.
+  - >-
+    security.md sec-admin-ui-rpc-internal-only всё ещё требует размещать admin-RPC только в
+    Internal*-службах; родительская ADM-1 приняла обратное. Расхождение корпуса с одобренной
+    приёмкой — к владельцу правила, не к этому документу.
+constructibility:
+  seeded: 0
+  by_named_fixture: >-
+    01–16: принципалы jwtBootstrap/jwtPureNoBindings (tests/authz-fixtures/prodseed_matrix.py),
+    объекты каждый кейс заводит и снимает сам, с суффиксом {{runId}}; форма id проверена по
+    domain/geo.go idFormat; инфра-блок необязателен на Create (region.go/zone.go Create), UNIQUE
+    на numeric_infra_id нет (миграция 0004), поэтому второй публичный create с 0 не сталкивается.
+    17: Go-проба края (ранг пустого acr = 0 < "1").
+  not_executed: >-
+    Посев на стенде не выполнялся: задание не называло ни изоляции, ни разрешения на посев.
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: acceptance-reviewer · CHANGES_REQUESTED · 52b153d5c0e6813286084d5b3f3f07692552b0f7330dd299d6adfe7c58869ead
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Событие публикует курьер; отказ полномочия не выдаёт и ничего не открывает.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записей ревью этого документа до этой нет: каталог
+      docs/specs/reviews/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance/ создан этой записью.

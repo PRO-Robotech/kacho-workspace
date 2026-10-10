@@ -1,0 +1,263 @@
+# Приёмка РАБОТЫ-ПРОВЕРКИ опытом — роль check-verifier.
+#
+# Имя файла — content_digest отсуженного содержимого. Прежние записи не
+# правятся: сменился дайджест — новый файл (change-graph §2).
+#
+# МЕСТО ЗАПИСИ. Назначено: kacho-workspace/docs/changes/issue-2825/reviews/
+# post-diff/check-verifier/. Запись туда отвергнута харнессом: «writes to the
+# shared checkout are blocked» (родительская сессия не изолирована). Поэтому
+# запись лежит вне git-деревьев, в ~/.cache/kacho-review-records/issue-2825/…,
+# и переносится в воркспейс без правки содержимого: имя — тот же отпечаток.
+#
+# Вердикт дан перечнем проделанных опытов. Каждое утверждение ниже о том,
+# способна ли проверка покраснеть, получено прогоном, а не чтением диффа.
+schema_version: 1
+change_id: issue-2825
+holder: post-diff/check-verifier
+owner: check-verifier
+mode: приёмка работы-проверки
+subject: >-
+  kacho #2825 — ветвь «отправка одних удалений» хука scripts/hooks/pre-push и
+  её проба: раздел «одни удаления» в scripts/hooks/prepush-range-inject.sh
+  (12 утверждений, два воссоздаваемых дефекта) и запись факта вызова в заглушке
+  прогонщика. Существо продукта запись не судит.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: '2825'
+  worktree_of_lane: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kacho-2825
+  base: 113f3b8b591c4caef55f19c51346a10ff98d8151   # origin/2796 на момент приёмки
+  head: 9b720570e604909f56b6542e0dd822126be39edd
+  content_digest: sha256:0006b7c640a9ee67b8bb203393075b7d010b069c4c833a8cbf9964d759b8b452
+  digest_definition: >-
+    `git diff --full-index origin/2796..9b720570e604909f56b6542e0dd822126be39edd | sha256sum`
+    в копии полосы; предпосылки: `git status --porcelain` пуст (0 строк),
+    `git rev-parse origin/2796` == 113f3b8b591c.
+  diff_size: '2 файла · +237 / -38 · один коммит (#2825 hooks: отправка одних удалений не гонит проверки содержимого)'
+
+verdict: returned              # ⛔ возврат
+blocks_landing: true
+return_to: tooling-maintainer (автор полосы #2825)
+timestamp: '2026-09-23T16:37:22Z'
+verdict_basis: >-
+  Всё, что требовалось заданием, выполнено и показано настоящим `git push` в
+  одноразовый голый удалённый репозиторий: (а) одни удаления проходят без
+  проверок содержимого, (б) удаление вместе с вершиной, несущей дефект,
+  отвергается, (в) обновление с дефектом без удаления отвергается. Числа автора
+  воспроизведены все. Пять из шести моих одно-фактных дефектов проба
+  краснит. Возврат дан по шестому: снятие конъюнкта
+  `[ "$push_refs_total" -gt 0 ]` в push_is_deletion_only проба не видит —
+  rc=0, 48 ok из 48, 0 FAIL. Этот конъюнкт — единственное, что отличает
+  «все строки входа — удаления» от «строк нет» (утверждение «для всех» на
+  пустом множестве истинно). Внесён он той же работой, а держит его только
+  внимание. Хук с этим дефектом на пустом входе отвечает «только удаление
+  ссылок ()», rc=0, прогонщик не зовёт. Пустой вход — не только ручной вызов:
+  git сам подаёт хуку пустой вход, когда отправка ничего не меняет (опыт
+  e-uptodate ниже).
+scope_of_green: >-
+  Коммит 9b720570e604 и база 113f3b8b591; файлы взяты `git archive` из копии
+  полосы в собственный каталог; фильтров не было.
+  Исполнено: prepush-range-inject.sh — 11 прогонов (своя ревизия, скрещённая
+  с базой, пять моих инъекций); prepush-groups-inject.sh и install-inject.sh —
+  по 1 прогону; опыт с `git push` — 3 прогона (новый хук, база, инъекция I1),
+  8 опытов в каждом; `go test -short -count=1 -v ./internal/repohygiene/` —
+  1 прогон в собственном --shared клоне на 9b720570e604; shellcheck — 4 файла.
+  Не исполнялось: go test всего дерева, -race, golangci-lint, govulncheck,
+  newman, scripts/ci-local.sh настоящий, deploy/scripts/run-injection-proofs.sh
+  целиком, конвейер. Исход этих прогонов запись не объявляет.
+
+experiments:
+  harness: >-
+    Своё окружение для опыта, фикстуру автора не брал. Голый remote.git (-b main)
+    и рабочая копия. В неё закоммичены настоящие pre-push, prepush-range.sh,
+    prepush-groups.sh и install.sh выбранной ревизии, а также заглушка
+    scripts/ci-local.sh. Заглушка пишет факт вызова в файл ВНЕ дерева
+    (CV_CALLS) и краснеет (итог «отказов 1», код 1), если в CONTENT её дерева
+    стоит DEFECT. Провязка: настоящий `bash scripts/hooks/install.sh` (rc=0),
+    переходник .git/hooks/pre-push. gh подменён заглушкой exit 1. Ветки
+    done-a, done-b, gone, gone2, gone3 несут по невлитому коммиту и отправлены
+    до провязки. Ветки bad (CONTENT=DEFECT), good-b и good-c — локальные.
+  rows:
+    # ── новый хук @9b720570e604 ──
+    - id: a1
+      command: '(копия на красной bad) git push origin --delete done-a'
+      outcome: 'rc=0 · вызовов прогонщика 0 · done-a на сервере: НЕТ · печать «отправка несёт только удаление ссылок (done-a)… проверки содержимого НЕ выполнялись» и «git ls-remote origin refs/heads/done-a   # ожидается пустой вывод»'
+    - id: a2
+      command: '(копия на bad) git push origin --delete done-b gone3'
+      outcome: 'rc=0 · вызовов 0 · done-b: НЕТ · gone3: НЕТ · постусловие по обеим ссылкам'
+    - id: b
+      command: '(копия на здоровой main) git push origin :refs/heads/gone bad:refs/heads/bad'
+      outcome: 'rc=1 · вызовов 1 (content=DEFECT — судилась отправляемая вершина c666ee2a, не копия) · «pre-push ОТКАЗ: локальные проверки красные» · на сервере gone остался, bad: НЕТ'
+    - id: b-twin
+      command: '(копия на main) git push origin :refs/heads/gone good-b:refs/heads/good-b'
+      outcome: 'rc=0 · вызовов 1 (content=ok-b) · gone: НЕТ · good-b == отправленной sha · постусловие называет обе ссылки'
+    - id: c
+      command: '(копия на main) git push origin bad:refs/heads/bad'
+      outcome: 'rc=1 · вызовов 1 (content=DEFECT) · отказ · bad на сервере: НЕТ'
+    - id: c-twin
+      command: '(копия на main) git push origin good-c:refs/heads/good-c'
+      outcome: 'rc=0 · вызовов 1 (content=ok-c) · good-c == отправленной sha'
+    - id: e-uptodate
+      command: '(копия на bad) git push origin main:refs/heads/main   # main на сервере уже равен локальному'
+      outcome: 'rc=1 · вызовов 1 (content=DEFECT) · «вердикт — о рабочей копии: она и есть отправляемая ревизия». git подал хуку ПУСТОЙ вход, иначе судилась бы вершина main (content=ok)'
+    - id: e-manual
+      command: '(копия на bad) bash scripts/hooks/pre-push origin < /dev/null'
+      outcome: 'rc=1 · вызовов 1 · отказ — судится рабочая копия, как и объявляет шапка subject_tree_for_push'
+    # ── база @113f3b8b591 (честный красный предмета) ──
+    - id: old-a1
+      command: 'тот же a1 на хуке базы'
+      outcome: 'rc=1 · вызовов 1 (content=DEFECT, группы «proto go») · done-a остался на сервере — признак #2825 воспроизведён'
+    - id: old-a2
+      command: 'тот же a2 на хуке базы'
+      outcome: 'rc=1 · вызовов 1 · done-b и gone3 остались на сервере'
+    - id: old-rest
+      command: 'b, b-twin, c, c-twin, e-uptodate, e-manual на хуке базы'
+      outcome: 'исходы совпали с новым хуком (1/0/1/0/1/1 по rc, по 1 вызову): поведение смешанной отправки, обновления и пустого входа работа не меняет'
+    # ── инъекция I1 (см. injections) под настоящим git push ──
+    - id: I1-e-uptodate
+      command: 'e-uptodate на хуке с I1'
+      outcome: 'rc=0 · вызовов 0 · «отправка несёт только удаление ссылок () — ревизии в ней нет»: ложное утверждение'
+    - id: I1-e-manual
+      command: 'e-manual на хуке с I1'
+      outcome: 'rc=0 · вызовов 0 · та же ложная строка; рабочая копия не судится'
+
+injections:
+  runner: 'cd <каталог ревизии> && TMPDIR=<свой> bash scripts/hooks/prepush-range-inject.sh; код — напрямую'
+  rows:
+    - id: own-revision
+      defect: 'нет (хук и проба @9b720570e604)'
+      outcome: 'rc=0 · [настоящий] ok 48 · FAIL 0 · раздел «одни удаления» ok 12'
+    - id: cross-base
+      defect: 'хук базы 113f3b8b591 под пробой @9b720570e604 (единственное отличие — scripts/hooks/pre-push)'
+      outcome: 'rc=1 · раздел «одни удаления»: FAIL 7 · причины названы предметом: «ждали rc=0, получили rc=1», «прогонщик вызван (записей вызова 1)», «постусловия удаления… в выводе нет». Красный честный: фикстура не ломалась'
+    - id: author-runs
+      defect: 'автора: `if push_is_deletion_only` → `if false`'
+      outcome: 'FAIL 6 — число автора воспроизведено'
+    - id: author-wide
+      defect: 'автора: условие «все — удаления» → «хотя бы одно удаление»'
+      outcome: 'FAIL 4 (законный близнец — смешанная отправка) — число автора воспроизведено'
+    - id: I2
+      defect: 'моя: строка постусловия «# ожидается пустой вывод» → `:` (1 строка)'
+      outcome: 'rc=1 · FAIL 2 · «постусловия удаления… в выводе нет», «постусловие смешанной отправки не называет обе ссылки»'
+    - id: I3
+      defect: 'моя: из печати ветви снято «проверки содержимого НЕ выполнялись» (1 строка)'
+      outcome: 'rc=1 · FAIL 1 · «не сказал, что проверок не было»'
+    - id: I4
+      defect: 'моя: `exit 0` ветви одних удалений → `exit 1` (1 строка)'
+      outcome: 'rc=1 · FAIL 2 · «ждали rc=0, получили rc=1»'
+    - id: I5
+      defect: 'моя: `exit 0` сразу после `set -uo pipefail` — хук, который зеленеет всегда'
+      outcome: 'rc=1 · [настоящий] FAIL 31, из них в разделе «одни удаления» 8. Положительный контроль у пробы непустой: заглушка записывает вызов, и смешанная отправка требует ровно 1 вызов'
+    - id: I1
+      defect: 'моя: в push_is_deletion_only снят конъюнкт `[ "$push_refs_total" -gt 0 ] &&` (строка 180, 1 строка)'
+      outcome: 'rc=0 · [настоящий] ok 48 из 48 · FAIL 0 · раздел «одни удаления» ok 12. Инъекция НЕ КРАСНИТ'
+      why_blind: >-
+        Ни один кейс пробы не подаёт хуку пустой вход. subj_run во всех
+        вызовах раздела «черновик по входу» и «одни удаления» получает хотя бы
+        одну строку. Настоящий хук в дереве исполняют только
+        scripts/hooks/prepush-range-inject.sh:166 и :455
+        (`git grep -n 'hooks/pre-push' 9b720570e604`). install-inject.sh:105
+        исполняет переходник со своим хуком-меткой, а не настоящий. Держателя
+        у этого конъюнкта нет нигде.
+
+what_the_injection_drops: >-
+  Каждая инъекция меняет одну строку scripts/hooks/pre-push. Число строк
+  отличия проверено `diff` (по 2 строки `<`/`>` на I1–I4, одна добавленная на
+  I5). Проба в инъекциях не правилась.
+
+what_the_lawful_twin_is_silent_on: >-
+  Близнец автора — «удаление плюс ненулевая вершина». Он отличает ветвь от
+  дефекта «пропуск на любой строке удаления» (FAIL 4). Близнеца с другой
+  стороны нет: «строк входа ноль» отличается от «одна строка удаления» ровно
+  одним фактом (change-graph §6), и хук на нём обязан судить рабочую копию.
+  Так объявляет правленная этой же работой шапка subject_tree_for_push: «Вершины
+  нет: вход пуст (хук позван руками)… — судится рабочая копия». Опыт e-manual
+  показывает, что объявленное сейчас выполняется. Держится оно только тем, что
+  конъюнкт не сняли.
+
+numbers_reproduced:
+  - claim: 'prepush-range-inject.sh код 0, у настоящего хука 48/48'
+    mine: 'rc=0 · строк `^  ok   [настоящий]` 48 · `^  FAIL [настоящий]` 0 (единица — строка утверждения в выводе)'
+  - claim: 'раздел одних удалений: 12 утверждений, до правки 7 провалов, после 0; дефекты дают 6 и 4'
+    mine: '12 · 7 (cross-base) · 0 · 6 · 4'
+  - claim: 'prepush-groups-inject.sh код 0, 6 утверждений, 3 прогона'
+    mine: 'rc=0 · «утверждений на прогон 6, прогонов 3» · провалов у настоящего 0, у дефектов 1 и 1'
+  - claim: 'install-inject.sh код 0, 25/25, 0 провалов'
+    mine: 'rc=0 · «утверждений 25, провалов 0»'
+  - claim: 'go test -short -count=1 -v ./internal/repohygiene/ код 0 — PASS 2504, FAIL 0, SKIP 3'
+    mine: >-
+      rc=0 в собственном --shared клоне @9b720570e604 (origin/main выставлен в
+      1d42a6728bf, origin/2796 — в 113f3b8b591, как в копии полосы). На
+      верхнем уровне `^--- PASS` 2504 · `^--- FAIL` 0 · `^--- SKIP` 3. На всех
+      уровнях с подтестами `^\s*--- PASS` 3999. Число автора — это верхний
+      уровень. Пропуски: TestCensus_EveryTransportListingIsSeenByItsAnalyser
+      («skipped in -short»), TestFoundationNamesNoMovingPackageOutsideAnImport,
+      TestFoundationProdCodeNamesNoForeignTreePath (в обоих «0 предметов оси»).
+      К хукам не относятся. TestOperatorMessagePathsExist,
+      TestPipefailVerdictNeverComesFromAPipe, TestHookAndHelperScrubTheSameVariables,
+      TestNoDeferredWorkInTheTree, TestIdentifiersAreASCII — PASS.
+  - claim: 'shellcheck: 1 находка до и 1 после (та же SC2086 у `$groups`), у пробы 0'
+    mine: 'база pre-push:389:53 SC2086 · новый pre-push:470:53 SC2086 (та же строка `bash "$subject_root/scripts/ci-local.sh" $groups`, сдвиг +81) · проба 0 и 0'
+
+what_the_double_cannot_tell_apart: >-
+  Вердикт даёт заглушка прогонщика, а не scripts/ci-local.sh. Она не различает
+  группы (принимает любые, в опыте всегда «proto go») и не знает третьей
+  категории исхода. Для этого предмета это законно: утверждается ФАКТ вызова и
+  код хука, а не исход проверок. Факт вызова заглушка пишет вне дерева, поэтому
+  «не звали» не держится на печати хука. Удалённый — голый локальный
+  репозиторий: сетевой обрыв и серверная защита ссылок в опыте не представлены.
+
+masks_deductions_weakenings: >-
+  Не найдено. Осмотрено: diff обоих файлов целиком. Ни одно прежнее
+  утверждение пробы не снято и не ослаблено: 36 прежних плюс 12 новых дают 48,
+  а сводка отказов пополнена тремя новыми условиями. Обхода, маски и вычета
+  в хуке нет: KACHO_SKIP_PREPUSH и --no-verify не тронуты. Смешанная отправка
+  судится по вершине (опыты b, b-twin).
+
+guard_single_instance: >-
+  Пункт (г) задания — не заявлен, опыт не ставился. Стража влитости удаляемой
+  головы в хуке нет. `grep -nE 'is-ancestor|merge-tree|merge-base'` по коду
+  scripts/hooks/* находит одно вхождение, prepush-range.sh:79, и это выбор базы
+  диапазона. `_remote_sha` в цикле входа отбрасывается. Решение не стеречь
+  записано в шапке ветви (pre-push:168–175) с доводом. #2825 оставляет его
+  исполнителю: «Вводить ли её, решает исполнитель, но в дереве остаётся один
+  ответ». Опыт a1 удаляет невлитую голову (done-a с собственным коммитом),
+  rc=0 — это следствие решения, наблюдается как объявлено.
+
+premise:
+  statement: 'отправка одних удалений запускала прогонщик над рабочей копией и отвергалась на красной копии'
+  status: подтверждена
+  command: 'old-a1 / old-a2 выше: rc=1, вызовов 1, content=DEFECT, ссылки остались на сервере'
+
+adjacent_observation: >-
+  Не предмет #2825 и не основание возврата. Отправка без изменений (e-uptodate)
+  на базе и на новом хуке судит рабочую копию и отвергается на красной копии.
+  Хук при этом печатает «вердикт — о рабочей копии: она и есть отправляемая
+  ревизия», хотя отправляемой ревизии нет. Класс тот же, что у #2825: отправка
+  без ревизии судится копией.
+
+return_demand: >-
+  Повторить опыт I1 и показать красное. В пробу добавить близнеца «пустой
+  вход» — subj_run из копии на красной ревизии со входом "", ожидается: прогонщик
+  вызван 1 раз, rc=1, строки «только удаление ссылок» нет. Добавить третий
+  воссоздаваемый дефект со снятым конъюнктом `[ "$push_refs_total" -gt 0 ]`,
+  который обязан дать хотя бы один провал, а в сводке ОТКАЗ на «н/д» и на ноль,
+  как у двух дефектов автора. Если автор решит, что пустой вход тоже выходит
+  нулём (так закрылось бы и adjacent_observation), в дереве всё равно остаётся
+  один ответ. Шапка subject_tree_for_push правится тем же изменением, а ответ
+  держится пробой с инъекцией в обе стороны.
+
+isolation:
+  dir: /home/dk/.cache/kacho-verify-2825-cv
+  created_by: 'mkdir -p …/tmp …/new …/old; git -C <копия полосы> archive <sha> scripts/hooks scripts/ci-local.sh | tar -x; git clone -q --shared --no-checkout <копия полосы> …/tree'
+  removed_by: 'rm -rf /home/dk/.cache/kacho-verify-2825-cv; test ! -e … — вывод в возврате'
+  lane_copy_untouched: 'git -C tmp/kacho-2825 status --porcelain → 0 строк; rev-parse HEAD → 9b720570e604; origin/2796 → 113f3b8b591'
+
+out_of_scope: >-
+  Качество диффа (стиль, текст комментариев), вердикт посадки, запись
+  схождения, существо продукта.
+
+next:
+  - 'tooling-maintainer — повторить опыт I1 до красного по return_demand и сдать новый коммит в ветку 2825'
+  - 'check-verifier — принять новый отпечаток: I1 заново плюс перепрогон 48+N'
+  - 'git-operator (или диспетчер) — перенести эту запись в kacho-workspace/docs/changes/issue-2825/reviews/post-diff/check-verifier/ без правки'

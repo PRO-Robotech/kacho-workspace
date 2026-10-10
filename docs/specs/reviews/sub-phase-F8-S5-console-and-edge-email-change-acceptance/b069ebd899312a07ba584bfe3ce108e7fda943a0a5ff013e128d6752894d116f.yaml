@@ -1,0 +1,77 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S5-console-and-edge-email-change-acceptance.md
+  sha256: b069ebd899312a07ba584bfe3ce108e7fda943a0a5ff013e128d6752894d116f
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Слово в шапке — описание, а не вердикт; шапка не правлена намеренно (change-graph.md §2).
+    Задание назвало документ без отпечатка («work»): судится отпечаток, измеренный sha256sum на
+    рабочем дереве ветки 635-email-change-console-acceptance.
+  base_commit: 34e1009c8
+  content_commit: none (файл не закоммичен)
+  measured_against: PRO-Robotech/kacho@0ae22f8f · PRO-Robotech/kaname@d9e233f42
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S5-console-and-edge-email-change-acceptance.md
+  lines: 331
+verdict: CHANGES_REQUESTED
+round: 1
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T22:48:45Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: 'acceptance-reviewer · CHANGES_REQUESTED · b069ebd899312a07ba584bfe3ce108e7fda943a0a5ff013e128d6752894d116f'
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: записей ревью этого документа до этой нет (каталог создан этой записью)
+
+premise_section_1:
+  result: команды §1.1–§1.5 исполнены вербатим на kacho@0ae22f8f — выводы совпали
+  outputs: '0 · Пароль/Второй фактор/Учётная запись · 20 · 9 · subjectChangingFQNs 1 · MaybeFlushOnMutation 2 · LOGIN_LANE 13 · SETS_CARRIER 9 · seedConfirmedHuman/transferSession 2 · stationMailbox/awaitLetter 2; пин kaname 2cf9c8528b1f'
+paired_document_verdict: CHANGES_REQUESTED на cad0d55b… (EC); блокирующие EC B1/B2 задевают Р2 этого документа (соседние реплики сходятся по событию, у которого нет производителя)
+
+blocking:
+  - id: S1
+    genus: PRODUCER
+    where: F8S5-10 вторая строка «And»; §6 строка F8S5-10
+    claim: >-
+      «проба сверки производителей очереди смены субъекта со стороной края» в дереве платформы
+      отсутствует: internal/repohygiene/subjectchangeflushparity*.go сняты, запись в
+      internal/repohygiene/retired_gate_carriers.json — fate unguarded, carried_to kaname;
+      kaname-половина (internal/check/subject_change_flush_parity.go) в шапке говорит, что край
+      сверить отсюда нельзя. §6 называет производителем только «место в ретрансляции» и кеш.
+    predicate: git grep -l -i 'flushparity' -- ':!internal/repohygiene/retired_gate_carriers.json' @0ae22f8f → 0
+    fix: либо завести пробу (координата, «заводится»), либо снять строку из «Тогда».
+  - id: S2
+    genus: CONSTRUCTIBILITY
+    where: F8S5-06
+    claim: >-
+      Р3/Р4: «Отправить снова» идёт с отсчётом по Retry-After первого ответа (Р6 службы: 60 с), а
+      ось времени по §4 не пересиживается. Подставлен только ВТОРОЙ ответ, значит «When … затем
+      «Отправить снова»» недостижимо без ожидания 60 с.
+    fix: подставить и первый ответ (200 с Retry-After: 0) либо задать часы страницы средством F8 Р9.
+  - id: S3
+    genus: TWIN
+    where: F8S5-07
+    claim: отрицательный сценарий без названного положительного близнеца (у прочих отрицаний он назван).
+    fix: близнец — F8S5-01 (тот же шаг со свободным адресом).
+
+important:
+  - Все браузерные сценарии F8S5-01…08 стоят на seedConfirmedHuman, который сам берёт код из приёмника писем — значит до kacho#1773 «условие не создано» отвечают все восемь, а не только «сценарии с письмом» (§4, DoD п.5). Сказать это прямо.
+  - Р2 опирается на событие EC Р8 п.8 — после правки EC (B1) сослаться на названный op.
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 2 из 2 проб края (login_lane_paths_test.go, decisionCache.Invalidate)
+  refuted: 1 (F8S5-06)
+  not_executed: 'F8S5-01…08 — стенда, доставки писем (kacho#1773) и разрешения на посев нет'

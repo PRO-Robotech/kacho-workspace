@@ -60,7 +60,7 @@ def collect(root: str) -> tuple[collections.Counter, dict[str, str], int, int]:
 
 
 def main() -> int:
-    root = os.environ.get("VAULT_GATE_ROOT") or V.workspace_root(__file__)
+    root = V.workspace_root(__file__)
     dangling, where, total, n_notes = collect(root)
 
     if n_notes == 0:

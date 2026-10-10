@@ -170,12 +170,12 @@ fi
 
 printf '%s\n' "$out" | sed -n 's/^ПЕРЕПИСЬ|/перепись: /p'
 
-if printf '%s\n' "$out" | grep -q '^VOID|'; then
+if grep -q '^VOID|' <<<"$out"; then
     skills_gate_void "$NAME" "$(printf '%s\n' "$out" | sed -n 's/^VOID|//p' | head -1)"
     exit 2
 fi
 
-if printf '%s\n' "$out" | grep -q '^НАХОДКА|'; then
+if grep -q '^НАХОДКА|' <<<"$out"; then
     printf '%s\n' "$out" | sed -n 's/^НАХОДКА|/  /p' >&2
     skills_gate_fail "$NAME" "объявленное число разошлось с предикатом"
     exit 1

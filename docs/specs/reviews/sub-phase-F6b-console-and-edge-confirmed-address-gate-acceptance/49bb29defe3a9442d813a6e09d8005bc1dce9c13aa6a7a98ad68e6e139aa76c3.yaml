@@ -1,0 +1,358 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+  sha256: 49bb29defe3a9442d813a6e09d8005bc1dce9c13aa6a7a98ad68e6e139aa76c3
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события и
+    записи ревью (change-graph §2). Шапка этой записью НЕ правится. Машинный читатель docs-gate
+    (`check-01`) по этой редакции ответит «не APPROVED» — он судит объявление; с этой записью он
+    расходится по построению, и это его объявленный предел, а не противоречие.
+  base_commit: 5ba86f7d5f20ba9f956a2a1b8bd863df9443c7b9
+  content_commit: 5ba86f7d5f20ba9f956a2a1b8bd863df9443c7b9
+  branch: lane/2898-address-gate-acceptance
+  task: https://github.com/PRO-Robotech/kacho/issues/2898
+  stage_tasks:
+    - https://github.com/PRO-Robotech/kacho/issues/2900
+    - https://github.com/PRO-Robotech/kacho/issues/2901
+  service_side_task: https://github.com/PRO-Robotech/kaname/issues/456
+  wave: https://github.com/PRO-Robotech/kacho/issues/2797
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: >-
+    sha256sum <путь> в рабочем дереве полосы И git show 5ba86f7d:<путь> | sha256sum — оба дают
+    49bb29defe3a9442…a76c3, совпало с заданием; wc -l → 1485
+  fingerprint_reproduced: true
+  lines: 1485
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-27T17:37:43Z'
+round: 3
+previous_rounds:
+  - round: 1
+    sha256: 0bfa670190d3f52eedf1dcf4dcd821891e6d38a2068882e2551dbc8cb4eb3361
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/0bfa670190d3f52eedf1dcf4dcd821891e6d38a2068882e2551dbc8cb4eb3361.yaml
+    blocking_count: 3
+  - round: 2
+    sha256: 184fa2831ebd238b975787f727702f70631e329962bb838f0ff61016c63fb62f
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/184fa2831ebd238b975787f727702f70631e329962bb838f0ff61016c63fb62f.yaml
+    blocking_count: 3
+blocking_count: 0
+blocking_kinds_distinct: []
+blocking_trend: >-
+  3 → 3 → 0. Все три блокирующих круга 2 закрыты (round_2_closure), каждое — прогоном или
+  предикатом этого круга, а не чтением §8. Новых блокирующих нет; четыре не блокирующих ниже.
+
+owner_decision_verbatim: >-
+  «Делай механику максимально безопасную где вход дальше экрана регистрации или логина доступен
+  только после подтверждения почты» — решение владельца 2026-09-27; документ вносит его дословно
+  (§0), рецензент его не переоткрывает и судит документ по нему.
+
+# ─── ПОЛЕ ВЫДАЧИ ОДОБРЕНИЯ ───────────────────────────────────────────────────
+approval_issuance:
+  issued: false
+  effective_approval: pending_external_event
+  code_transition_open: false
+  agent_verdict: APPROVED
+  reason: >-
+    Вердикт агента — ПРИНЯТО на отпечаток 49bb29de…a76c3. Действующее одобрение выпускает только
+    пара «эта запись» плюс внешнее событие от актора, допущенного `docs/changes/policy.yaml` →
+    `review_authority.acceptance-reviewer` (pointpu). События ещё нет, поэтому запрет #1 до его
+    публикации действует на весь предмет — край, консоль и набор.
+  what_would_issue_it: >-
+    публикация курьером события с телом event.event_body_for_courier на этот отпечаток; запись
+    при этом задним числом не правится, событие фиксируется отдельной записью.
+  beyond_this_record: >-
+    Переход к коду сверх события держит DoD п. 1 самого документа: приёмка службы (kaname#456)
+    одобрена и несёт решения §1.9 в том виде, в каком на них опирается редакция 3. На день этой
+    записи её редакция 2 (5fb3e84e…) возвращена своим кругом 2 (kaname@d39886c09) — см.
+    dependency_note. Одобрение не переносится ни на какую правку этого документа.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 5ba86f7d → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 5ba86f7d5f20ba9f956a2a1b8bd863df9443c7b9
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_sha256_predicate: git show 5ba86f7d:docs/changes/policy.yaml | sha256sum
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  allowlisted_for_role: false
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт агента — ПРИНЯТО; без внешнего события полномочия он не даёт (change-graph §3). Роль
+    в этой записи — координата, а не доказательство личности. Недоступность события — третий
+    исход, «не выполнилось», и в одобрение не зачитывается.
+  event_body_for_courier: >-
+    acceptance-reviewer · APPROVED (круг 3, блокирующих 0) · SHA-256
+    49bb29defe3a9442d813a6e09d8005bc1dce9c13aa6a7a98ad68e6e139aa76c3
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: >-
+    Записи кругов 1 и 2 (0bfa6701….yaml, 184fa283….yaml) не правлены; эта — соседняя, по
+    отпечатку редакции 3.
+
+# ─── ЗАМЕР ───────────────────────────────────────────────────────────────────
+measurement:
+  revisions_used:
+    kacho: 499ad3085fd7ab06cfebbef58c98376eab4adbfb — чтение через git show и git grep <rev>
+    kaname: c083ad5bbfa7887cf4101efbef0046930639f04b
+    corelib: v1.10.0-rc.2 (kaname go.mod:8)
+    service_acceptance: >-
+      kaname ветка 456 @ 26758cccf14f211513ba442e114cb2d0899ccbb6,
+      git show …:docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md |
+      sha256sum → 5fb3e84e0dc90710… (совпал с названным документом), 1477 строк; голова ветки —
+      d39886c09 (запись её круга 2), новее редакции 2 нет
+  tree_claims_reproduced:
+    outcome: confirmed
+    note: >-
+      Все предикаты §1.1–§1.10 перепрогнаны на названных ревизиях, числа совпали: 4 строки в 3
+      файлах; 3 и 1; 267, 13, 0, 4, 343, 23; §1.4 13 · 0 · 2; §1.5 :53, 3, 3, 1 читатель, :87,
+      :113, 2 читателя; 27 · 24 · 3 · 2; 29 в 11 · 6 в 6; 1 · 0 · 35; §1.8 :991 :1001 :1004
+      :1007, :940 :945, :407 :414 :443, гейт перечня 1, 1, :730, :516 :1163, :195, :247, :380
+      :405 :418, 8 адресов сверки, :152, 16 строк издателей (каждое issuers равно platformIssuer,
+      вне профилей зонта — только пустые умолчания чартов края и реестра), :393 :406, :205, :538,
+      0 и контроль 6, :18 :384, :217 и окно 5 с, :72; импортёры правил 6 и 4, :57, 0;
+      §1.9 предикаты по редакции 2 службы 0 · 0 · :486 · 8; §1.10 :57 :157 :181 :209, :74 :176,
+      :82 :153, :176 :181, круг 19 · 0 · 1 · 1.
+  service_revision_diff:
+    method: >-
+      разбиение редакций 1 (2f65942fa) и 2 (26758cccf) приёмки службы на разделы Р<N> и сценарии
+      EV-<N> и сравнение текстом
+    changed: [Р2, Р3, Р4, Р5, Р6, Р10, Р11, Р13, Р14]
+    added: [Р5а]
+    unchanged: [Р1, Р7, Р8, Р9, Р12, Р15, EV-01, EV-02, EV-20, EV-21, EV-23, EV-26, EV-36, EV-37, EV-39, EV-50]
+    matches_document_section_1_9: true
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* F6b-[0-9]+' <док>"
+    total: 45
+    unique: 45
+    duplicates: 0
+    gaps: 0
+    ids: F6b-01…F6b-45
+    delta_vs_revision_2: >-
+      разбиение §4 обеих редакций по ID: добавлены F6b-44, F6b-45; изменены F6b-19, F6b-21,
+      F6b-35, F6b-43; снятых нет — совпало с §8 дословно
+  producer_coverage:
+    method: раскрытие диапазонов таблицы §5 в множество ID и сравнение с множеством §4
+    covered: 45
+    of: 45
+    misnamed: []
+  twin_coverage:
+    scenarios_naming_a_twin: 38
+    of: 45
+    without_twin: >-
+      F6b-19, F6b-22, F6b-23, F6b-27, F6b-40 — положительные; F6b-18 и F6b-32 несут отрицание
+      вместе с положительным контролем в том же сценарии — признано достаточным, как в круге 2
+  dod_coverage: >-
+    каждый из 45 ID назван хотя бы одним пунктом DoD 2–4; F6b-45 — п. 2, F6b-44 — п. 3
+
+premise_check:
+  claim: "редакция по пути имеет отпечаток 49bb29de…a76c3; круг 3; прошлый круг вернул 3 блокирующих"
+  outcome: confirmed
+  commands:
+    - "sha256sum <док> → 49bb29de…; git show 5ba86f7d:<док> | sha256sum → то же; wc -l → 1485"
+    - "ls docs/specs/reviews/sub-phase-F6b-…/ → две записи, 0bfa6701… и 184fa283…, blocking_count 3 и 3"
+    - "git log -- <док> → d3cadd0c, e8be3819, 5ba86f7d"
+
+experiment:
+  worktree: >-
+    отсоединённая рабочая копия kacho@499ad3085fd в kacho-workspace/tmp/f6b-r3-probe; две
+    временные пробы рецензента добавлены, прогнаны и удалены, копия снята (git worktree remove);
+    в дереве продукта их нет
+  runs:
+    - command: >-
+        go test ./gateway/internal/e2e/ -run
+        'TestF1b09_OurTokenRevocationIsAskedOfOurAuthorityAndFailsClosed|TestF1b12_AuthNRefusalsAreIndistinguishableOnTheNativeSurface'
+        -count=1 -v
+      result: "PASS обе; F1b12 печатает: неудач проверки подлинности предъявлено 5, различимых сообщений 1"
+      supports: [B2-1 closure, B2-2 closure]
+    - command: "go test ./gateway/internal/e2e/ -run TestReviewF6bR3_ -count=1 -v (временная проба)"
+      given: "стенд f1bStand, токен записи нашего издателя, дублёр нашего авторитета отвечает «отозван»"
+      result: >-
+        HTTP 401, WWW-Authenticate Bearer error=invalid_token, error_description=token revoked,
+        тело {code 16, message token revoked}; нативная Unauthenticated, authentication failed;
+        авторитет прежней записи спрошен 0 раз, наш — 2. Это ровно «Тогда» F6b-35 для Л3.
+      supports: [B2-1 closure, B2-2 closure, I3-4]
+    - command: "go test ./gateway/internal/middleware/ -run TestReviewF6bR3_ -count=1 -v (временная проба)"
+      given: >-
+        «Дано» F6b-45: дублёр решения отвечает allowed = false, deny_reasons = [email_not_verified];
+        близнец — [no path]; настоящие записи каталога NetworkService/Create и NetworkService/Get
+      result: >-
+        на обе причины сегодня одно и то же: Create — PermissionDenied с ErrorInfo AUTHZ_DENIED,
+        домен kaname.cloud.iam.v1; оба Get — NotFound; обработчик не достигнут. «Дано»
+        конструируемо, красное до кода §5 подтверждено, близнец отличается ровно причиной.
+      supports: [F6b-45 constructibility]
+    - command: "та же временная проба, второй случай"
+      given: "первое обращение разрешено и попало в кэш решений; затем дублёр отвечает [email_not_verified]"
+      result: "first OK, second OK, вопросов к дублёру 1, обработчик достигнут 2 раза"
+      supports: [I3-1]
+
+# ─── ЗАКРЫТИЕ КРУГА 2 ────────────────────────────────────────────────────────
+round_2_closure:
+  B2-1: >-
+    закрыт. §1.8 называет выбор вопроса записью издателя (auth_revocation.go:195,
+    tokenissuers.go:247), обе полосы (main.go:380; :405, :418), восемь адресов сверки, окно кэша
+    5 с с предикатом и контролем; строка Л3 Р16, §1.9, §3.2 и DoD п. 1 держат Р5а службы; «Дано»
+    F6b-35 — токен нашей записи и дублёр нашего авторитета, дублёр полосы записи обязан насчитать
+    ноль. Полоса записи на стендах пуста — предикатом (каждое issuers равно platformIssuer, пустое
+    умолчание — отказ старта), установка со второй записью — строка §3.2 с предикатом возврата.
+    Прогон: наш авторитет спрошен, прежний — 0.
+  B2-2: >-
+    закрыт. Тексты утверждаются по полосе и поверхности; прогон этого круга дал ровно их: Л3 по
+    HTTP 401 token revoked с вызовом, нативная authentication failed; Л2 credential refused на
+    обеих (auth.go:451, :1035, writeHTTPUnauthorized :908).
+  B2-3: >-
+    закрыт. Шапка и §1.9 привязаны к редакции 2 службы (5fb3e84e…), перечень изменённого совпал с
+    разбиением текстом; строка Р9 и F6b-44 на 400/9 INVITE_NOT_VALID с текстом дословно, адрес не
+    меняется, выход — Выйти, близнец F6b-42 по reason; §1.10 сверил новую строку Р2 службы с
+    перечнем Р5 края — круг 19 методов, «кто я» зовёт три вне круга, выход — Revoke о себе.
+  important_I2: >-
+    I2-1 — носитель kacho#2901 (§3.2, DoD п. 0); I2-2 — F6b-19 утверждает исход пробы
+    промежутка, F6b-21 — моменты T0 и T1; I2-3 — F6b-43 (а) без привязки к полю; I2-4 — строка
+    §3.2 о GET /iam/v1/authorize, предикат → 0, контроль → 2 (перепрогнано). Закрыты все.
+
+# ─── НЕ БЛОКИРУЮЩИЕ ──────────────────────────────────────────────────────────
+important_findings:
+  - id: I3-1
+    kind: PRODUCER
+    title: "Р3а и строка §3.2 о смене адреса не называют окно кэша решений края"
+    note: >-
+      Кэш решений края хранит только «разрешено» (authz.go, phaseCheck; окно — умолчание загрузчика
+      5 с, KACHO_API_GATEWAY_AUTHZ_CACHE_TTL_SECONDS, в профилях зонта не задано) и сбрасывается
+      потоком смены субъекта, который питают выдачи и членства. Поэтому утверждение Р3а «о праве
+      служба отвечает по текущей отметке» верно на промахе кэша: решение, закэшированное до снятия
+      отметки, отвечает без вопроса к службе (прогон этого круга). Граница окна на Л2 и Л3 от этого
+      не растёт — её держит окно сверки и окно полосы секрета, 5 с. Сегодня пути снятия отметки
+      нет, поэтому это не расхождение, а неполнота предиката возврата. Назвать это окно в Р3а рядом
+      с окном сверки и добавить в строку §3.2 о смене адреса: глагол смены адреса питает поток
+      смены субъекта. То же попросил у приёмки службы её круг 2 (N1).
+  - id: I3-2
+    kind: SCOPE
+    title: "Реестр — второй потребитель той же сверки; ни эта приёмка, ни приёмка службы его не называют"
+    note: >-
+      Второй блок издателей в каждом профиле — чарт реестра; его проверяющий спрашивает ту же
+      сверку для записи нашего издателя (services/registry/cmd/kacho-registry/tokenverifier.go:48).
+      Правило держится по построению — Р5а службы отвечает по отметке, кто бы ни спросил, а о праве
+      судит Р4а, — но держатель у этой поверхности не назван. Одна строка §3.2 вне объёма: реестр,
+      держатель Р5а и Р4а службы, окно — кэш сверки реестра, его величина.
+  - id: I3-3
+    kind: FORMAT
+    title: "Две формулировки шире своего предмета"
+    note: >-
+      (а) Р16: пути, на которых HTTP не задаёт сверку, — четыре пути плюс ВСЕ глаголы формы
+      (isPublicHTTPPath), а не только перечень Р5; вывод держится следующей же фразой (глаголы
+      формы судит служба по сессии). (б) F6b-35 и строка Л3 Р16: «тот же единый текст, что у
+      всякой неудачи подлинности на этой поверхности» — у полосы базового секрета на нативной свой
+      текст credential refused; точнее — «всякой неудачи подлинности предъявителя».
+  - id: I3-4
+    kind: PRODUCER
+    title: "Опоры F6b-35 держат выбор полосы и единство текста, но не тексты отзыва"
+    note: >-
+      TestF1b09 утверждает для отозванного только коды; пять неудач TestF1b12 отзыва не содержат.
+      Тексты Л3 держит только сам F6b-35 — прогон этого круга их подтвердил. Сказать это в
+      последнем «И» F6b-35. Сквозной пробы обеих половин (служба отвечает active false по отметке,
+      край отказывает) после посадки не построить: неподтверждённый человек нашего токена получить
+      не может; сходимость держит общий ответ сверки, тот же, что для отозванного токена, — это
+      стоит назвать одной фразой.
+
+dependency_note:
+  what: >-
+    Редакция 2 приёмки службы, на которую опирается этот документ, возвращена её кругом 2
+    (kaname@d39886c09, запись 5fb3e84e….yaml): блокирующее B1 COVERAGE — полоса обмена кода и
+    оборота токена обновления собственной церемонии службы уже есть и правила выдачи не спрашивает;
+    не блокирующее N1 — окно кэша решений края (то же, что I3-1).
+  effect_here: >-
+    Край путь выдачи /iam/v1/token не ведёт (git grep по не-тестовому gateway → 0), а предъявление
+    нашего токена краю держит Р5а, поэтому содержание этого документа от B1 службы не зависит.
+    Следующая редакция службы изменит Р5 (и, возможно, Р5а) — по собственному правилу §1.9 эта
+    приёмка сверяется с ней тем же кругом; правка текста этого документа — новый отпечаток и новое
+    ревью, это одобрение на неё не переносится.
+  found_on_the_way: >-
+    В Р4в службы строка «Строк 1 + 1 + 1 + 4 + 5 + 4 + 1 + 1 + 2 = 19» в сумме даёт 20: Revoke
+    стоит двумя строками (о себе и о другом), методов круга 19. Это предмет автора приёмки службы.
+
+verified:
+  r3_domain: "ErrorInfo края по каталогу — AUTHZ_DENIED, kaname.cloud.iam.v1 (прогон); домен Р3 — iam.kaname.cloud, как в круге 2"
+  f6b_45_codes: "NetworkService/Get — v_get на vpc_network, скрытие существования; Create — editor на project; ProjectService/List — scope_filtered (каталог @499ad3085fd)"
+  r5_arithmetic: "13 путей: 4 доступны (csrf, login, logout, register), 9 — password 1, recovery 2, second-factor 5, step-up 1; +2 → 15, доступно 6"
+  r5_ceremony: "GET /iam/v1/authorize краем не ведётся: 0 литералов, контроль 2; маршруты формы — явным перечнем httpMux.Handle, префиксной пересылки нет"
+  open_connection_recheck: "CheckBasicCredentialLive есть у края (session_revocations_client.go:117) и у службы (check_basic_credential_live.go:54); в приёмке службы — 0, заказ §3.2 обоснован"
+  stage_tasks: "kacho#2900, #2901, #2898, #1773, #2797 и kaname#456 открыты, заголовки совпадают с назначением в документе"
+  f8_anchor: "sha256sum F8-док → 42b42300…; записи кругов 1–2 — коммиты a1598318, 04b82520 ветки tooling-docfresh-recognition-boundary, в origin/main нет"
+
+constructibility:
+  seeded_by_experiment: 2
+  of_new_or_changed_nontrivial_givens: 2
+  items_by_experiment:
+    - "F6b-45 — дублёр решения с email_not_verified и близнец no path на настоящих записях каталога: встало"
+    - "F6b-35, полоса Л3 — токен записи нашего издателя и дублёр нашего авторитета: встало"
+  by_named_fixture:
+    - "П-н — seedHuman (ceremony-seed.ts) + transferSession: строится сегодня"
+    - "П-п — не строится до глагола службы, письма и чтения приёмника: §3.4 называет это «не выполнилось»"
+    - "дублёр порта сессии с EmailVerified — поле порта есть, 6 построений в пробах его задают"
+    - "дублёр вопроса об администраторе — порт IsSystemAdmin (session_identity_handler.go:57)"
+    - "F6b-35, полоса Л2 — отказ авторитета секрета классифицируется по коду (basic_credential_lane.go:217)"
+    - "F6b-44 — дублёр транспорта консоли с телом Р6 службы: без предпосылок"
+    - "F6b-41 — отказ правила пароля с полем (register.go:141–144, круг 2)"
+    - "F6b-19, F6b-21 — исход пробы промежутка и моменты T0, T1 утверждаются, иначе «условие не создано»"
+  not_performed: 1
+  not_performed_reason: >-
+    Посев «Дано» уровня стенда: задание не называет ни стенда, ни изоляции. Это «не выполнилось»,
+    а не зелёное и не красное; в вердикт не зачитывается.
+
+not_performed:
+  - subject: "посев «Дано» на поднятом стенде (П-п, письмо, промежуток, F6b-10, F6b-40)"
+    reason: "стенд и изоляция заданием не названы; П-п до глагола службы не строится"
+    counts_as: "не выполнилось"
+  - subject: "красный до кода проб S1, S2 и F6b-15"
+    reason: "проб ещё нет — их пишет автор проб после одобрения; краевую половину F6b-45 красной показал прогон этого круга"
+    counts_as: "не выполнилось"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: true
+  public_rpc_note: "два новых глагола полосы формы края /iam/v1/auth/verify-email и …/confirm"
+  ui: true
+  new_domain: false
+  security_surface: true
+  security_surface_note: >-
+    рубеж полосы сессии, отказ решения с причиной службы значением Р3 раньше скрытия
+    существования, исполнение ответа службы на Л2 и Л3, адрес возврата нового экрана, «кто я» без прав
+  disclosure_safe: true
+  disclosure_note: >-
+    Ни документ, ни эта запись не описывают, чем текущее поведение уязвимо, и не собирают
+    координату, условие и следствие об исполняемом пути: окно кэша решений — объявленное свойство
+    края (его документация называет 5 с), а путь снятия отметки в дереве не существует.
+
+next:
+  needed_agent: none_for_this_document
+  task: >-
+    публикация события курьером на этот отпечаток; I3-1…I3-4 — в следующую правку документа,
+    которую по §1.9 вызовет следующая редакция приёмки службы.
+  dispatcher_note: >-
+    Приёмка службы (ветка 456, на origin её нет) в редакции 2 возвращена; её редакция 3 — условие
+    DoD п. 1 этого документа и повод для его сверки тем же кругом. I3-2 и находку об арифметике
+    Р4в можно отдать автору приёмки службы тем же заходом.
+  owner_questions: []

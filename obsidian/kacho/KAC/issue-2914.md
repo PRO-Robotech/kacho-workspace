@@ -1,11 +1,13 @@
 ---
-title: "#2914: сервис уведомлений — единый почтовый шлюз"
+title: "kacho#2914: эпик «Сервис уведомлений» — единый почтовый шлюз"
 aliases:
   - issue-2914
+  - epic-notify
   - NTF
 ticket_id: 2914
 category: kac
 status: in-progress
+verified_against: "`gh` 2026-10-08 (после вливания #3099): голова `2914-notify` = 515e017c873a (merge-коммит #3099, родители cd20a05cfa72 и fc51651d5c83); пины в `go.mod` на ней — corelib 18d105d0f50a, kaname 33010d434767; `gh api compare` — `18d105d0f50a...117749095814` впереди на 1 коммит при 0 файлов (голова `77-notify` — merge-коммит с деревом пина), `33010d434767...33010d434767` identical (голова `484-notify` = пин); `gh pr list --base 2914-notify` — тринадцать MERGED, открытых нет; ветки `2924-*` сняты (`git ls-remote`); kaname PR #673 OPEN в `484-notify`; эпик и задачи OPEN. `gh` 2026-10-08 (после вливания #3072): голова `2914-notify` = cd20a05cfa72 (merge-коммит #3072, родители 504bc7acdc51 и db85f0174807); пины в `go.mod` на ней не менялись — corelib 67ba3443c149, kaname 56bcb3036d71; `gh pr list --base 2914-notify` — двенадцать MERGED, открытых нет; ветки `2919-*` сняты (`git ls-remote`); эпик и задачи OPEN. `gh` 2026-10-08 (после вливаний #3071 и #3098): голова `2914-notify` = 504bc7acdc51 (merge-коммит #3098), пины на ней прочитаны в `go.mod` — corelib 67ba3443c149, kaname 56bcb3036d71; `gh api compare` — голова `77-notify` 117749095814 впереди пина на 5 коммитов, `484-notify` 33010d434767 — на 13; `gh pr list --base 2914-notify` — одиннадцать MERGED, открыт #3072; ветки `2917-wave-d1` и `2918-b1-resource-event` сняты (`git ls-remote`); эпик и задачи OPEN. `gh` 2026-10-07 (после вливаний corelib #102 и kaname #657): голова `2914-notify` = 4d5295f1ae96 (merge-коммит #3070), пины corelib e7d6197fc5dc и kaname cbd729cfa9b1 прочитаны в `go.mod` на ней и на головах открытых #3071 и #3072; голова `77-notify` corelib = 117749095814 (#102), `484-notify` kaname = 33010d434767 (#657); `gh pr list --base 2914-notify --state merged` — девять PR (#2960, #2977, #3019, #3021, #3027, #3039, #3041, #3042, #3070), открыты #3071 и #3072; эпик #2914, задачи NTF-1…NTF-6, NS, corelib#77, kaname#484 OPEN; в `main` из веток эпиков не влито ничего"
 type: epic
 repos:
   - kacho
@@ -16,72 +18,127 @@ areas:
   - services/notify
   - docs/specs
   - deploy
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/2977
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2914
 opened: 2026-09-29
+closed:
 tags:
   - kac
   - epic
 ---
 
-# #2914: сервис уведомлений — единый почтовый шлюз
+# kacho#2914: эпик «Сервис уведомлений»
 
-**Type**: epic · **Роль исполнителя первой задачи**: acceptance-author / tooling-maintainer
-
-**Состояние на момент записи (2026-09-30)**: in-progress — пакет документов
-(PRO-Robotech/kacho-workspace#880, ветка воркспейса `issue-880` — координата, не ссылка) **не
-влит**: PR нет, голова ветки `ca5f5e78`, вердикт посадки ⛔. Одобренных приёмок 0 из 6 —
-NTF-1..NTF-6 все CHANGES_REQUESTED, DRAFT (таблица и пути — [[KAC/issue-880-ws]]); `design.md` и
-`tasks.md` не записаны. Остальные задачи открыты с меткой `blocked` до APPROVED приёмки своей
-под-фазы.
-
-**Чем сверено**: `gh issue view` по эпику и каждой задаче таблицы ниже (2026-09-30).
+**Состояние на момент записи**: `in-progress`. Работа идёт в трёх ветках эпиков (координаты,
+не живые ссылки): `2914-notify` (kacho), `77-notify` (corelib), `484-notify` (kaname). В
+`main` ни одного репозитория не влито ничего. По каскаду «задача → волна → эпик → main»
+эпик закрывается посадкой в `main`; до неё статус записки — не `done`.
 
 ## Что и зачем
 
-Цель эпика — одна служба платформы (`services/notify` в kacho) держит доступ к почте; прочие
-модули и kaname ставят нотификацию в свою ленту и почтовых кредов не знают. Требования владельца
-(дословно) и одиннадцать решений — в теле эпика; здесь не пересказываются, чтобы два места об
-одном предмете не разошлись.
+Единый почтовый шлюз платформы: служба `services/notify` — единственный держатель кредов
+почты. Остальные модули и kaname ставят нотификацию в свою ленту и не знают ни пароля, ни
+ретранслятора; notify забирает письма сам и спрашивает kaname о праве на каждое. Требования
+владельца и решения — в теле эпика, здесь не пересказываются.
 
 Порядок по графу зависимостей (из эпика): DOCS → (corelib → kaname) ∥ NS ∥ notify → NTF-2,
 NTF-3 → NTF-4. Место NTF-5 и NTF-6 в графе — в их задачах.
 
-## Задачи
+## Линии эпика
 
-| предмет | задача | состояние 2026-09-30 |
+| задача | предмет | trail |
 |---|---|---|
-| DOCS — приёмки NTF-1..6, замысел, маршрут | PRO-Robotech/kacho-workspace#880 → [[KAC/issue-880-ws]] | open, не влито, посадка ⛔ |
-| RULES — рёбра notify, замещение правил о почте | PRO-Robotech/kacho-workspace#881 | open, blocked |
-| NTF-1 — служба notify | PRO-Robotech/kacho#2915 | open, blocked |
-| NTF-1 — corelib: лента, формат шаблона, генератор | PRO-Robotech/corelib#77 | open, blocked |
-| NTF-1 — kaname ставит нотификации в ленту | PRO-Robotech/kaname#484 | open, blocked |
-| NS — политика выпуска сертификатов служб | PRO-Robotech/kacho#2916 | open, blocked |
-| NTF-2 — снятие почты поставщика личности | PRO-Robotech/kacho#2917 | open, blocked |
-| NTF-3 — уведомления модулей kacho | PRO-Robotech/kacho#2918 | open, blocked |
-| NTF-4 — возвраты, жалобы, репутация отправителя | PRO-Robotech/kacho#2919 | open, blocked |
-| NTF-5 — извещения оператора | PRO-Robotech/kacho#2924 | open, blocked |
-| NTF-6 — центр уведомлений и настройки отключения в консоли | PRO-Robotech/kacho#2925 | open, blocked |
-| находка — профиль развёртывания | PRO-Robotech/kacho#2920 | open |
-| находка — приёмка 3.7 | PRO-Robotech/kacho-workspace#882 | open |
+| #2915 | NTF-1, ядро шлюза | [[KAC/issue-2915]] |
+| #2916 | NS, политика выпуска сертификатов служб | — |
+| #2917 | NTF-2, почта личности | [[KAC/issue-2917]] |
+| #2918 | NTF-3, модули kacho | [[KAC/issue-2918]] |
+| #2919 | NTF-4, возвраты и репутация | [[KAC/issue-2919]] |
+| #2924 | NTF-5, извещения оператора | [[KAC/issue-2924]] |
+| #2925 | NTF-6, центр уведомлений консоли | — |
+| corelib#77 | линия corelib: лента, шаблон, `notifygen` | [[KAC/issue-77-corelib]] |
+| kaname#484 | линия kaname: нотификации в ленту, снятие SMTP | [[KAC/issue-484-kaname]] |
+
+Задачи воркспейса и находки эпика (состояние — в трекере и trail задачи, здесь не
+дублируется):
+
+| задача | предмет | trail |
+|---|---|---|
+| PRO-Robotech/kacho-workspace#880 | DOCS — приёмки NTF-1..6, замысел, маршрут (ветка воркспейса `issue-880` — координата, не ссылка) | [[KAC/issue-880-ws]] |
+| PRO-Robotech/kacho-workspace#881 | RULES — рёбра notify, замещение правил о почте | — |
+| PRO-Robotech/kacho#2920 | находка — профиль развёртывания | — |
+| PRO-Robotech/kacho-workspace#882 | находка — приёмка 3.7 | — |
 
 Находки названы ссылкой; их разбор в хранилище не пишется — адресом будет дифф фикса.
 
-## Затронутые сущности vault
+Состав каждой волны — в trail её задачи. Волна, не принадлежащая ни одной линии, —
+#2977 (`9c15ae851c41`, 2026-10-01): починка базы эпика (скан документации, линт shared,
+скан IaC, форма id на крае, гейт публикации).
 
-Пока нет. С посадкой NTF-1 появятся записки о службе notify (`rpc/`, `packages/`) и рёбрах
-notify → источники, notify → kaname (`edges/`).
+## Волны в `2914-notify`
+
+| PR | merge-коммит | влит | задача |
+|---|---|---|---|
+| [#2977](https://github.com/PRO-Robotech/kacho/pull/2977) | `9c15ae851c41` | 2026-10-01 | эпик |
+| [#2960](https://github.com/PRO-Robotech/kacho/pull/2960) | `e415e59a225b` | 2026-10-01 | #2915 |
+| [#3019](https://github.com/PRO-Robotech/kacho/pull/3019) | `2c283f99f4bc` | 2026-10-04 | #2915 |
+| [#3021](https://github.com/PRO-Robotech/kacho/pull/3021) | `230c08124259` | 2026-10-04 | #2915 |
+| [#3027](https://github.com/PRO-Robotech/kacho/pull/3027) | `4517cc69c135` | 2026-10-05 | #2918 |
+| [#3039](https://github.com/PRO-Robotech/kacho/pull/3039) | `58248816f540` | 2026-10-05 | #2915 |
+| [#3041](https://github.com/PRO-Robotech/kacho/pull/3041) | `bc3192f9ca13` | 2026-10-05 | #2915 |
+| [#3042](https://github.com/PRO-Robotech/kacho/pull/3042) | `829e1a26cb18` | 2026-10-06 | #2918 |
+| [#3070](https://github.com/PRO-Robotech/kacho/pull/3070) | `4d5295f1ae96` | 2026-10-07 | #2924 |
+| [#3071](https://github.com/PRO-Robotech/kacho/pull/3071) | `dc95c1d5dc9e` | 2026-10-07 | #2917 |
+| [#3098](https://github.com/PRO-Robotech/kacho/pull/3098) | `504bc7acdc51` | 2026-10-08 | #2918 |
+| [#3072](https://github.com/PRO-Robotech/kacho/pull/3072) | `cd20a05cfa72` | 2026-10-08 | #2919 |
+| [#3099](https://github.com/PRO-Robotech/kacho/pull/3099) | `515e017c873a` | 2026-10-08 | #2924 |
+
+Открытых запросов в `2914-notify` на 2026-10-08 после вливания #3099 нет.
+
+## Ветки эпиков фундамента
+
+| ветка | голова | последний влитый | пин kacho на `515e017c873a` |
+|---|---|---|---|
+| `77-notify` (corelib) | `117749095814` | [#102](https://github.com/PRO-Robotech/corelib/pull/102), 2026-10-07 — окна прав и самогейт notify | `18d105d0f50a` — дерево головы (голова — merge-коммит #102 без отличий по файлам) |
+| `484-notify` (kaname) | `33010d434767` | [#657](https://github.com/PRO-Robotech/kaname/pull/657), 2026-10-07 — пин corelib `18d105d` | `33010d434767` — голова |
+
+Пины подняты #3099 (#2924) до голов обеих веток; kaname на пине сама пинит corelib
+`18d105d0f50a` — пары согласованы. В `484-notify` открыт kaname
+[#673](https://github.com/PRO-Robotech/kaname/pull/673) (волна ограды NTF-3, kaname#636 и
+kaname#667): после его вливания голова снова уйдёт вперёд пина. Составы — в trail линий.
 
 ## DoD
 
-- [ ] все дочерние задачи закрыты по предикатам приёмок своих под-фаз;
+- [ ] все линии закрыты по своим предикатам (trail каждой);
 - [ ] секрет почты существует ровно в одном объекте установки;
-- [ ] запрос эпика влит в `main`.
+- [ ] PR эпика `2914-notify` → `main` влит, вместе с ветками эпиков corelib и kaname;
+- [ ] ветки эпиков сняты при вливании.
 
 ## History
 
 - 2026-09-30 — trail заведён вместе с веткой пакета документов (#880 воркспейса).
-- 2026-09-30 — пакет документов не влит (PR нет, посадка ⛔); приёмок APPROVED 0 из 6;
-  добавлены задачи NTF-5 (#2924) и NTF-6 (#2925).
+- 2026-09-30 — пакет документов не влит (PR нет, голова ветки `ca5f5e78`, посадка ⛔);
+  приёмок APPROVED 0 из 6 (NTF-1..NTF-6 — CHANGES_REQUESTED, DRAFT); добавлены задачи NTF-5
+  (#2924) и NTF-6 (#2925). Сверено `gh issue view` по эпику и задачам (2026-09-30).
+- 2026-10-07 — trail эпика заведён заново на `main` после вливания волны F1 (#3070, `4d5295f1ae96`); записи от 2026-09-30 — из ветки `issue-880`, сведены слиянием.
+  Статус `in-progress`.
+- 2026-10-07 — после вливаний corelib #102 (`117749095814`) в `77-notify` и kaname #657
+  (`33010d434767`) в `484-notify` заведены trail линий фундамента; пины kacho не менялись.
+  Статус `in-progress`.
+- 2026-10-08 — внесены #3071 (`dc95c1d5dc9e`, линия D, #2917) и #3098 (`504bc7acdc51`,
+  B1, #2918); пины kacho подняты до corelib `67ba3443c149` и kaname `56bcb3036d71`.
+  Статус `in-progress`.
+- 2026-10-08 — внесён #3072 (`cd20a05cfa72`, волна E1, #2919): исход `SUPPRESSED` в
+  контракте ленты и ручки NTF-4 стадии S1; пины не менялись. Статус `in-progress`.
+- 2026-10-08 — внесён #3099 (`515e017c873a`, волна S1, #2924): контракт извещений,
+  notify-api, край; пины подняты до голов фундамента — corelib `18d105d0f50a`, kaname
+  `33010d434767`. Статус `in-progress`.
+
+## Затронутые сущности vault
+
+- [[packages/notify-service]] — служба целиком.
+- [[packages/gateway-anonmail]] — ограничитель анонимной почты края (#3071).
+- [[packages/kacho-module-resource-event]] — resource-event модулей (#3098).
+- [[resources/notify-notice]] — ресурс «извещение оператора» (#3099).
 
 #kac #epic

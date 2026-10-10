@@ -1,0 +1,341 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F1-token-signer-acceptance.md
+  sha256: 6a509729bc8e315dd364b2a49c0e637d73d3212dd5c414b390c5a45f560ac2b5
+  revision: 'правка 2026-09-22 после круга 6'
+  static_status: APPROVED
+  static_status_note: >-
+    Слово APPROVED в шапке — вердикт круга 6 (2026-08-21) о редакции SHA-256
+    9a53c6375d20d91283c273c21c6bce7a07dff6adea5e644f5564422cc4b2b6b4 (так и лежит в
+    origin/main @ f4defb0c — сверено `git show origin/main:<путь> | sha256sum`). Шапка
+    намеренно не правлена (change-graph.md §2), и врезка «Редакция 2026-09-22» под ней прямо
+    говорит, что вердикт на эту редакцию не переносится. Машинный читатель docs-gate по этой
+    редакции ответит APPROVED — это его объявленный предел (судит объявление, а не
+    одобрение). Действующий вердикт об этой редакции — эта запись.
+  base_commit: f4defb0c6448f5e71ec267941146524be455cdba
+  content_commit: null
+  content_commit_note: >-
+    Правка автора в копии tmp/acceptance-f1-ory-library-decision (ветка
+    acceptance/f1-ory-library-decision) не закоммичена; отпечаток посчитан по рабочему
+    файлу. Запись также не закоммичена — по заданию.
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/774
+  wave: https://github.com/PRO-Robotech/kacho-workspace/issues/772
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F1-token-signer-acceptance.md
+  declared_fingerprint_matches: true
+  lines: 1881
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T19:33:00Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac f4defb0c
+    в копии вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: f4defb0c6448f5e71ec267941146524be455cdba
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body_for_courier: 'acceptance-reviewer · CHANGES_REQUESTED · 6a509729bc8e315dd364b2a49c0e637d73d3212dd5c414b390c5a45f560ac2b5'
+  rationale: >-
+    Вердикт — ОТКАЗ. Внешнее событие публикует курьер под учётной записью, допущенной
+    политикой, не правя эту запись задним числом. Отказ полномочия не выдаёт и ничего не
+    открывает, поэтому его действительность от события не зависит.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Каталога записей этого документа до этой записи не было ни в копии, ни в origin/main
+      (`ls docs/specs/reviews/` — есть только sub-phase-F1b-…). Вердикт круга 6 существует
+      статической строкой шапки; эта запись его не переписывает и не отзывает — он остаётся
+      вердиктом о прежнем содержимом.
+
+round_numbering:
+  convention: Круг называется редакцией, которую он прочитал.
+  this_round: 'круг 1 правки 2026-09-22 (седьмое рассмотрение документа)'
+  editions_by_fingerprint:
+    - {edition: 'круг 6', commit: 'origin/main f4defb0c', sha256_prefix: 9a53c6375d20d916, verdict: 'APPROVED (статика шапки)'}
+    - {edition: 'черновик правки', commit: 'не закоммичен', sha256_prefix: ef7cb034, verdict: 'нет (не рассматривался)'}
+    - {edition: 'правка 2026-09-22', commit: 'не закоммичен', sha256_prefix: 6a509729bc8e315d, verdict: 'CHANGES_REQUESTED (эта запись)'}
+
+edition_binding:
+  question: объявлена ли правка после вердикта и привязан ли прежний вердикт к прежнему отпечатку
+  answer: ДА
+  evidence:
+    - врезка «Редакция 2026-09-22» называет полный SHA-256 одобренной редакции — сверено с origin/main
+    - '`git diff -U0 HEAD` даёт 4 ханка (307 вставок, 12 удалений) — шапка, §1.4+§1.5, группа G, §13 п. 15; каждый в объявленном месте'
+    - сценарии F1-01…F1-46 не тронуты (ханков между §1.6 и концом группы F нет)
+
+scope:
+  reviewed: >-
+    Только дельта против одобренной редакции (по заданию): врезка шапки, §1.4, §1.5, группа G
+    (F1-47…F1-52) с таблицей «Сценарий → производитель», §13 п. 15. Против остального
+    документа сверены ссылки дельты: §0 п. 1, §1.3, §2.6, §2.8, §6.3, §9.1, §12 строки 2–4, 7, 9,
+    F1-28, F1-39.
+  full_acceptance_document_read: false
+  delta_read_in_full: true
+  trees_measured:
+    - PRO-Robotech/corelib @ 34bc8104a83
+    - PRO-Robotech/kaname @ cbbac984b7b и @ 32637536f4c
+    - PRO-Robotech/kacho @ bec320cf47d и @ b32ca653083
+    - github.com/ory/fosite v0.49.0 (кэш модулей, сумма сверена с sum.golang.org)
+    - 'corelib origin/lane/oauth2-engine-intake @ 5e50b9f и origin/lane/oauth2-intake-gates @ b9b99a8 — ветки названного производителя corelib#20, не влиты'
+  implementation_completion_claimed: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+verification:
+  decision_record:
+    owner_quote_substring_matches_task: true
+    owner_quote_full_text_verified: not_executed
+    owner_quote_note: >-
+      Подстрока «использовать библиотеки ори и функционал по максимуму…дальше вынести в
+      корлиб, использование в канаме и качо» совпадает с заданием и с телом ws#774 (в
+      документе пробел перед запятой после «максимуму»). Полный текст с «…» в дереве не
+      найден (grep по воркспейсу и памяти) — источник со слов диспетчера; не выполнилось,
+      а не опровергнуто.
+    dispatcher_section_12_exists: 'прочитано в .claude/agents/dispatcher.md:365-367 — «По более позднему решению, с источником; … отменённый текст основанием не служит»; пересказ §1.4 верен'
+    dispatcher_decisions_present_in_doc: >-
+      fosite v0.49.0 поддеревом · NOTICE и PROVENANCE · запрет AGPL/BUSL · граф ory/x вне
+      фундамента · govulncheck поддерево не видит · JWT только от tokensigner · go-jose только
+      внутри движка · tokenpolicy/policy.go в силе · вход консоли не снимается · цитата
+      исключена по пути — все десять записаны.
+    dispatcher_numbering_note: >-
+      В задании производители названы для «F1-49 (поставка = апстрим кроме патчей)» и «F1-50
+      (go-jose не вне движка)»; в документе это F1-47 и F1-51. Документ применил решения по
+      СОДЕРЖАНИЮ — верно; посылка задания о номерах опровергнута.
+  numbers_reproduced:
+    - 'corelib 34bc8104a83: internal/oauth2 · oauthceremony · NOTICE · PROVENANCE → 0 — сошлось'
+    - 'corelib tokenpolicy/policy.go:15-17 — цитата дословна, строки верны'
+    - 'corelib .github/workflows → 1 файл; schedule: → 0; govulncheck на ci.yml:301; depguard → 0; "SPDX-License-Identifier в *.go → 0 — всё сошлось'
+    - 'corelib перепись первого SPDX в первом килобайте: Apache-2.0 468, без идентификатора 5 (LICENSE, go.mod, go.sum, два *.pb.gw.go) — сошлось'
+    - 'fosite v0.49.0: Origin.Hash 653c812b…, h1:KNqO7RVt… (совпало с sum.golang.org), .go 237 из 237 Apache-2.0, NOTICE нет, go-jose 23 (12), ory/x 44 (42) errorsx+otelx, cristalhq/jwt 2 файла, golang-jwt 0 — сошлось'
+    - 'go-jose/cristalhq импортёров в трёх деревьях 0·0·0; github.com/ory/ в go.sum 0·0·0; golang-jwt kacho go.mod:122 · kaname go.mod:11 · corelib go.mod:118 — сошлось'
+    - 'перепись подписи: kaname cbbac984b7b 10 попаданий (2 JOSE в tokensigner, 5 вызовов наших подписантов, 3 примитива вне tokensigner), kacho bec320cf47d 2 без подписи, corelib 0 — сошлось по референту'
+    - 'kacho bec320cf47d: tokenpolicy импортируют 3 файла gateway/internal/middleware + 2 файла services/registry/internal/clients/jwks = 5 — сошлось'
+    - 'отслеживаемых .go: 459 · 2944 · 3597; под ограничениями сборки вне контекста по умолчанию 0 · 1 (tools) · 10 — сошлось'
+    - 'OSV по github.com/ory/fosite: 6 записей = 4 уязвимости после слияния синонимов, все закрыты не позднее 0.34.1; v0.49.0 → пусто — сошлось, единица не названа (см. N3)'
+    - 'kacho#897 закрыта 2026-08-21; kacho#2721 LINE-A-1 открыта; kacho#2780 открыта; corelib#20 открыта — сошлось'
+
+constructibility:
+  seeded: 5
+  total: 6
+  not_executed: 1
+  detail:
+    F1-47: >-
+      Посеяно на дереве названного производителя (corelib lane/oauth2-engine-intake @ 5e50b9f,
+      `git archive` ветки в отдельный каталог, её сценарий .github/scripts/oauth2-provenance.sh):
+      законное дерево → rc 0; один байт в internal/oauth2/scope_strategy.go → rc 1 с этим файлом;
+      лишний файл в поддереве → rc 1. Близнец конструируем. Попутно: файл с базовым именем
+      PROVENANCE.md, положенный на любой глубине поддерева, → rc 0 (исключение по базовому
+      имени) — см. B3.
+    F1-48: >-
+      Given собран переписью (источник 237/237 Apache-2.0; фундамент 468/5; шаблон с BUSL-1.1 —
+      положительный контроль). Конструируем для файлов источника; для НАШИХ файлов под корнем
+      поддерева исход не определён — B3.
+    F1-49: 'OSV: версия 0.34.0 → 2 уведомления (красный близнец), 0.49.0 → ноль (зелёный) — конструируем.'
+    F1-50: >-
+      Не выполнилось: связки движка с подписантом нет ни в одном дереве (LINE-A-1 не начата),
+      посеять Given нечем. Подписант есть (kaname internal/tokensigner/signer.go). Производитель
+      названный — да.
+    F1-51: >-
+      Отправная величина 0 вне поддерева в трёх деревьях; красное состояние существует в
+      реальном дереве — ветка производителя: oauthceremony/translate.go импортирует go-jose/v3.
+      Обе стороны конструируемы.
+    F1-52: >-
+      Положительный контроль (5 файлов kacho импортируют tokenpolicy) — конструируем; обход
+      слеп к kaname — B1.
+
+producers_walk:
+  scenarios_with_named_producer: 6
+  scenarios_total: 6
+  note: >-
+    Таблица «Сценарий → производитель (группа G)» называет производителя у всех шести; ни
+    одного нет в дереве сегодня (так и заявлено). Недостаток — не в отсутствии имени, а в
+    области F1-52 (B1) и в охвате F1-50 (B2).
+
+negatives_have_twins: '6 из 6 — у каждого отрицания группы G назван близнец с одним отличием'
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  - id: B1
+    kind: COVERAGE
+    where: 'F1-52 When, And «конфигураций проверяющего остаётся две»; §1.4 утверждение 3'
+    finding: >-
+      Утверждение 3 (решение диспетчера: tokenpolicy «общей делается ПОЛИТИКА, а не функция»
+      в силе; движок проверяющим не становится) держит F1-52, а его обход ограничен пакетами
+      §1.3, то есть только kacho. Движок подключается к службе доступа (LINE-A-1) — в kaname,
+      а там уже живут два проверяющих НАШ токен: internal/presentedcred (читатель
+      удостоверения, предъявленного на публичном слушателе) и
+      internal/handler/tokenintrospecthttp (авторитет отзыва); оба импортируют tokenpolicy,
+      построены в cmd/kaname/serve.go:936 и :1471 (kaname 32637536f4c, то же на cbbac984b7b).
+      Обход F1-52 зелен при любом импорте церемонии этими пакетами, а положительный контроль
+      «5 файлов kacho» делает его похожим на полный. «Конфигураций остаётся две» верно только
+      для kacho.
+    predicate: >-
+      git -C kaname grep -l 'corelib/tokenpolicy' 32637536f4c -- 'internal/presentedcred/*.go'
+      'internal/handler/tokenintrospecthttp/*.go' ':!*_test.go' → 2;
+      git -C kaname grep -nE 'presentedcred\.New\(|tokenintrospecthttp\.NewHandler\(' 32637536f4c → 2
+    required_change: >-
+      Включить в обход F1-52 проверяющие наш токен пакеты kaname (с их положительным
+      контролем — импорт tokenpolicy) и назвать ревизию; строку «конфигураций две» либо
+      сузить до kacho, либо перемерить по трём деревьям. Производитель половины в kaname —
+      в таблице группы G.
+  - id: B2
+    kind: COVERAGE
+    where: '§1.4 утверждение 2 («ключница — единственный держатель подписных ключей: движку не передаётся приватный материал»); F1-50 Given и третье And'
+    finding: >-
+      Утверждение 2 безусловно, а F1-50 его не держит. Сценарий исключает артефакты, не
+      предъявляемые нашим поверхностям (код авторизации; по §12 строке 4 — и обновление), и
+      его гейт ищет только «подписывающий вход с получателем ПРИВАТНОГО КЛЮЧА». Штатная форма
+      движка для кода и токена обновления — симметричная подпись секретом, который держит сам
+      движок; ветка названного производителя corelib#20 так его и строит
+      (oauthceremony/ceremony.go: Config.SigningSecret — «ключ подписи артефактов» —
+      передаётся движку как глобальный секрет, в пакете церемонии, вне поддерева). Такое
+      состояние нарушает утверждение 2, но ни одно «Тогда» группы G его не ловит. Текст о
+      безопасности заявляет больше, чем держит его сценарий, — ban19: вводит в заблуждение.
+    predicate: >-
+      git -C corelib grep -n 'GlobalSecret\|SigningSecret' origin/lane/oauth2-engine-intake --
+      'oauthceremony/*.go' → ceremony.go:141-142 и поле Config
+    required_change: >-
+      Решить одно из двух и записать: (а) сузить утверждение 2 до ключей, которыми подписан
+      НАШ токен (JWS), и назвать отдельно, кто держит, хранит и вращает симметричный секрет
+      движка для кода и токена обновления (фаза §12 строки 2–4, держатель); либо (б) внести
+      этот секрет в охват F1-50 («подписывающий вход» — любой, включая симметричный) с
+      держателем. Сегодняшнее «движку не передаётся приватный материал» ложно для
+      конструкции, которую строит названный производитель.
+  - id: B3
+    kind: CONSTRUCTIBILITY
+    where: 'F1-47 второе/третье And; F1-48 первое и третье And; §1.5 третий пункт (чтение F1-39); §1.4 утверждение 1 «рядом PROVENANCE»'
+    finding: >-
+      У класса «наш файл под корнем поддерева» исход противоречив. F1-47 допускает файл,
+      которого нет у источника, если он в перечне (добавление патчем). F1-48 требует у КАЖДОГО
+      файла поддерева строку копирайта и идентификатор источника без изменений — у
+      добавленного файла их нет. §1.5 читает F1-39 так, что наш файл несёт НАШ заголовок. Три
+      требования к одному файлу несовместимы. Класс не гипотетичен: corelib#20 кладёт
+      internal/oauth2/PROVENANCE.md и internal/oauth2/LICENSE В корень поддерева, ветка
+      производителя добавляет туда PROVENANCE.md с нашим заголовком, PROVENANCE.patch и свой
+      лист storage/tx. §1.4 пересказывает эту раскладку как «рядом PROVENANCE», хотя ссылается
+      на corelib#20. Как следствие, производитель сам завёл исключение, которого сценарий не
+      называет, — по базовому имени, а не по пути (diff -x PROVENANCE.md): файл
+      PROVENANCE.md на любой глубине поддерева проходит сверку зелёным (измерено посевом, rc 0),
+      хотя F1-47 требует красного.
+    predicate: >-
+      .github/scripts/oauth2-provenance.sh на `git archive` ветки lane/oauth2-engine-intake @
+      5e50b9f: законное дерево → 0; internal/oauth2/handler/x/PROVENANCE.md → 0; лишний
+      internal/oauth2/extra_unlisted.txt → 1
+    required_change: >-
+      Назвать место манифеста (PROVENANCE, файл патчей) точным путём и то, что сравнению он не
+      подлежит по ПУТИ, а не по имени; назвать исход для файла, добавленного патчем: какой
+      заголовок он несёт (наш — F1-39) и что гейт узнаёт его по перечню, а не по заголовку;
+      F1-48 «каждый файл поддерева» сузить до файлов, пришедших от источника. Исправить
+      «рядом» на раскладку corelib#20.
+
+non_blocking_findings:
+  - id: N1
+    kind: COVERAGE
+    finding: >-
+      Перепись §1.4 считает у источника только github.com/ory/x. Источник импортирует ещё
+      github.com/ory/go-convenience (3 не-тестовых файла: authorize_request_handler.go,
+      handler/openid/strategy_jwt.go, handler/openid/validator.go) и github.com/ory/go-acc (2
+      файла под //go:build tools). F1-47 («ни одного модуля github.com/ory/») их покрывает;
+      таблица занижает объём вырезов. Добавить строку.
+  - id: N2
+    kind: COVERAGE
+    finding: >-
+      F1-48 судит отслеживаемые файлы, а не модули, которые движок приносит в граф (go-jose,
+      ristretto, govalidator, deepcopy, retryablehttp под MPL-2.0 и др.). Совместимость их
+      лицензий не судит ни один гейт: гейт kacho dependencylicense по собственной шапке судит
+      наличие лицензии, а не совместимость; у фундамента и kaname такого гейта нет. Сегодня
+      принесённые модули пермиссивны или MPL-2.0 (класс уже в графе фундамента), угрозы нет;
+      граница F1-48 должна быть названа так же, как названа граница govulncheck.
+  - id: N3
+    kind: FORMAT
+    finding: >-
+      F1-49 «уведомлений у модуля четыре»: база OSV отдаёт 6 записей, 4 — после слияния
+      синонимов (GO-2021-0109/0110 = GHSA-7mqr/-v3q9). Назвать единицу и то, что ведомость
+      сверяется с учётом синонимов, иначе одно уведомление даст два красных.
+  - id: N4
+    kind: DoD
+    finding: >-
+      Посадка F1-52 названа моментом («с посадки поддерева»), а не изменением; половина в
+      kacho (и в kaname после B1) не может существовать раньше, чем потребитель закрепит
+      фундамент с поддеревом. Выровнять с формулой F1-51 и назвать изменение.
+  - id: N5
+    kind: PRODUCER
+    finding: >-
+      «Путь входа группа G не снимает»: держатель — браузерная проба #2780, а #2780 открыта
+      как раз потому, что пробы нет. Сказать прямо, что сегодня держателя нет.
+  - id: N6
+    kind: COVERAGE
+    finding: >-
+      F1-50 «каждым включённым потоком движка»: перечень включённых потоков обязан браться из
+      того же объявления, из которого собирается движок, пустой перечень ⇒ красный; иначе
+      новый поток выпадет из пробы молча. В исключении назвать токен обновления явно (§12
+      строка 4), а не только код.
+  - id: N7
+    kind: FORMAT
+    finding: >-
+      Положительный контроль F1-48 опирается на quota/refusal.sql.tmpl, а квоты снимаются
+      целиком (решение владельца 2026-09-16) — контроль исчезнет вместе с предметом. Нужна
+      собственная фикстура.
+  - id: N8
+    kind: CONSTRUCTIBILITY
+    finding: >-
+      Подписывающий интерфейс движка имеет и проверяющую половину (разбор и проверка
+      выданного). Вместе F1-50 (связка одна), F1-51 (церемония не импортирует набор) и F1-52 (вне
+      поддерева никто не разбирает наш токен) определяют, где эта половина живёт; документ
+      этого не называет. Назвать (отказ в связке либо под корнем поддерева), чтобы F1-52 не
+      ослабили на первой реализации.
+  - id: N9
+    kind: FORMAT
+    finding: >-
+      F1-47 «материал источника по коммиту … сверяет с контрольной суммой»: h1 — сумма архива
+      модуля, а не дерева git. Назвать материал: архив модуля по версии, сумма h1 и Origin.Hash
+      = коммит (так и делает сценарий производителя).
+
+found_by_the_way:
+  - >-
+    Ветки названного производителя corelib#20 (lane/oauth2-engine-intake @ 5e50b9f,
+    lane/oauth2-intake-gates @ b9b99a8) сегодня расходятся с группой G: go.mod несёт
+    github.com/ory/x v0.0.729, github.com/ory/go-convenience, github.com/ory/pop/v6 (F1-47 будет
+    красным); oauthceremony/translate.go импортирует go-jose/v3 (F1-51); движок собран с
+    симметричной стратегией и для токена доступа (F1-50). Это законный «красный раньше
+    зелёного», но предикат снятия corelib#20 требований F1-47/F1-50/F1-51 не содержит — задача
+    должна быть выровнена с приёмкой.
+  - >-
+    kaname несёт SPDX AGPL-3.0-or-later, kacho — BUSL-1.1, фундамент — Apache-2.0: направление
+    «движок Apache-2.0 в фундаменте → потребители» совместимо; запрет F1-48 верно поставлен
+    на фундамент, а не на потребителей.
+
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
+
+premise_check:
+  declared_fingerprint: 'подтверждена — sha256sum дал 6a509729…c2b5'
+  approved_base_is_origin_main: 'подтверждена — git show origin/main:<путь> | sha256sum = 9a53c637…b6b4'
+  scenarios_F1_01_46_untouched: 'подтверждена — git diff -U0 HEAD: 4 ханка, ни одного в теле A–F'
+  dispatcher_numbering: 'опровергнута — производители названы в задании для F1-49/F1-50, по содержанию это F1-47/F1-51; документ верен'
+
+remainders:
+  - 'полный текст цитаты владельца — не выполнилось (в дереве не найден, источник со слов диспетчера)'
+  - 'F1-50 — посев не выполнился: связки нет ни в одном дереве'
+  - 'остальной документ (вне дельты) не перечитывался по заданию; устаревание §0/§1.3 относительно kaname — вне предмета круга'

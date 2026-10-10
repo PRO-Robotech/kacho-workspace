@@ -1,0 +1,160 @@
+# Сверка волны: роль wave-reviewer, сборка-2 ветки 32 (bc580b92 + #40), и ждущая #35.
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся: сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 2
+previous_record: b6123f418dcc54a78fc385efd401aa626b1cbfbcf64c2af857ada73aff8fee07.yaml
+subject: >-
+  corelib, волна 32, сборка-2: в 32 влита #40 (c2261955). #35 не влита, её слияние
+  отменено. Сверяется пара #40↔#35 и пара ствола (#38)↔#35 пробным слиянием e5abaa5e
+  в c2261955 вне общего дерева.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: bc580b9205f98bffee413747ebfd9d5b1f9edd01   # origin/32 (ls-remote)
+  head: c22619552559cace2a30dc4b413a6df5c9944fc0   # tmp/corelib-32, ветка 32, не отправлена
+  tree: 988ded607baa43b06ad9d0c3fd2f26020801bf45   # совпадает с деревом 81b0f5e7 (голова #40)
+  shortstat: '15 файлов, +892 / -377'
+  lanes:
+    '40': {head: 81b0f5e72c54c09da68a8d20b5c9e3520650c183, base: bc580b9205f9, digest: 49321145b04ee7ccd0f0acc8acbfdc2d714c156f444009bd9323558a8d7ad852, shortstat: '15 файлов, +892 / -377', in_assembly: true}
+    '35': {head: e5abaa5e06b45257b9c84253089a6e432502cc4f, base: 84b9be87f789, digest: c35505471288e854253de490af23d90a4a718b036af86cf89f813e49890e998f, shortstat: '9 файлов, +628 / -1', in_assembly: false}
+content_digest: sha256:49321145b04ee7ccd0f0acc8acbfdc2d714c156f444009bd9323558a8d7ad852
+digest_definition: >-
+  git diff --full-index bc580b92..c2261955 | sha256sum, то есть origin/32..HEAD. Совпадает
+  с дайджестом #40 от merge-base, потому что деревья равны. От 84b9be87 до c2261955:
+  192d33da… (17 файлов, +2339 / -402). Дайджест #35 от 84b9be87 = c3550547…,
+  совпал с записями ревью.
+
+verdict: accepted              # по сборке c2261955; полосе #35 — возврат ниже
+blocks_landing: false          # отправку 32@c2261955 сверка не держит
+timestamp: '2026-09-23T17:52:17Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-32b-rcUrWh (git clone --shared); GOCACHE и TMPDIR
+  там же; GOPROXY=off. Пробное слияние сделано там же, затем reset. Общий клон
+  project/corelib и копии tmp/corelib-{32,35,40} не тронуты: porcelain 0/0/0/0.
+
+lanes:
+  - 'полоса 40 · вердикт принято · координата oauthceremony/endpoints_internal_test.go:201-215@c2261955 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Пятый вид…» (возврат сборки-1 закрыт) · чем доказано: дерево c2261955 = дерево 81b0f5e7 (988ded60); перепись по 779 файлам c2261955 — RequireProofKey, ProofKeyVault, Ports.ProofKeys, uncalledProofKeys, *ProofKeyRequest, proofBound, Config.Issuer, testIssuer, JoinPath: везде 0; go build ./... rc 0; go vet ./... rc 0; gofmt 0; go test -count=1 -json ./oauthceremony/... ./ids/... ./tokenpolicy/... rc 0: oauthceremony 272 PASS (92 верхнего уровня) / 0 FAIL / 0 SKIP, ids 28, tokenpolicy 8; go-style круг 2 и security круг 1 — оба accepted на 49321145 (в ws-825 не закоммичены)'
+  - 'полоса 35 · вердикт возврат · координата oauthceremony/grant_id_test.go:95,166,317,391@e5abaa5e; oauthceremony/ceremony_test.go:648-661@c2261955; oauthceremony/endpoints_internal_test.go:201-215@c2261955 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Пятый вид: ДОБАВЛЕНИЕ В УДАЛЁННОЕ…» и «Классы столкновений…» (ожиданий); .claude/rules/testing.md subject-removal-audit-by-sign · чем доказано: git merge-tree --write-tree c2261955 e5abaa5e → rc 1 (дерево 08a1a738); go build ./... rc 0; go test -run ^$ ./oauthceremony/ → build failed, 2 ошибки в grant_id_test.go; после чисто компиляционной подгонки 57 FAIL / 234 PASS'
+
+collisions:
+  - kind: 'добавление в удалённое — §14 «Пятый вид: ДОБАВЛЕНИЕ В УДАЛЁННОЕ…», на уровне поля'
+    lanes: ['40', '35']
+    subject: >-
+      #40 снимает ProofKeyVault вместе с его подставкой: поле memoryPorts.proof
+      (fakes_test.go:43@bc580b92) и форму fetchCodeOverride → GrantRecord (там же, :57).
+      Теперь это AuthorizationCodeRecord (fakes_test.go:63@c2261955). Новый файл #35
+      grant_id_test.go называет обе снятые формы: :95 (store.proof) и :391 (подмена
+      выборки кода, возвращающая GrantRecord). Git сливает новый файл без конфликта
+      (статус A), и go build ./... тестов не собирает.
+    proof: >-
+      Слияние c2261955 + e5abaa5e. Конфликты только в ceremony_test.go и
+      engineconfig_internal_test.go, в grant_id_test.go конфликта нет. go build ./... rc 0.
+      go vet ./oauthceremony/ rc 1: «grant_id_test.go:95:30: store.proof undefined».
+      go test -run ^$ -gcflags=-e: 2 ошибки, :95 и :391 (cannot use func(string)
+      (GrantRecord, error) as func(signature string) (AuthorizationCodeRecord, error)).
+    fix_in: '#35 — при вливании 32@c2261955'
+  - kind: 'снят предмет, а проба о нём утверждает — §14 «Четвёртый вид…» по смыслу; признак — testing.md subject-removal-audit-by-sign'
+    lanes: ['40', '35']
+    subject: >-
+      После #40 записи вида «PKCE» не существует: CreatePKCERequestSession ничего не
+      пишет, привязка лежит в записи кода. #35 утверждает о ней в трёх местах.
+      :166 — положительная проба с предпосылкой «записей вида не ноль». :317 —
+      отрицательная `len(stored["PKCE"]) != 0`, она после #40 замолкает молча.
+      Шапка :156-157 перечисляет «запрос PKCE» среди записей семейства.
+    proof: >-
+      На слитом дереве я устранил только две ошибки компиляции: снял цикл по store.proof
+      и перевёл подмену на AuthorizationCodeRecord с той же привязкой. После этого
+      go test -count=1 -json ./oauthceremony/ ./ids/: 57 FAIL / 234 PASS. Сверх 56
+      из столкновения ниже краснеет ровно одна проба,
+      TestEveryStoredRecordCarriesTheGrantIDTheHookMinted: «ПРЕДПОСЫЛКА: записей вида
+      "PKCE" в хранилище нет». Отрицательная проба :317 после этого читает всегда пустой
+      вид и красной стать не может.
+    fix_in: >-
+      #35 — снять вид «PKCE» целиком (storedGrantIDs, :166, :317, шапку :156-157), а не
+      подставить пустое. Утверждение «несут все записи семейства» оставить на коде и
+      токенах.
+  - kind: 'столкновение ожиданий — §14 «Классы столкновений…», вторая строка'
+    lanes: ['38', '35']
+    subject: >-
+      #35 делает Config.NewGrantID обязательным, и validateConfig проверяет его
+      (case на слитом ceremony.go:378) раньше адресов точек. Два литерала #38 в стволе
+      этого поля не несут: ceremony_test.go:648-661@c2261955
+      (TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress, коммит 3535e77f) и
+      endpoints_internal_test.go:201-215@c2261955 (endpointProbeConfig). Оба лежат вне
+      кусков #35, поэтому git молчит. Со сборки-1 не изменилось, только координаты
+      сдвинулись после снятия строк RequireProofKey в #40 (было :650-663 и :200-218).
+    proof: >-
+      Слияние c2261955 + e5abaa5e, конфликты разрешены механически (сторона волны плюс
+      NewGrantID). Без grant_id_test.go (из него оставлен только крючок mintTestGrantID)
+      go vet 0, а go test -count=1 -json ./oauthceremony/ ./ids/ дважды дал одно и то же:
+      56 FAIL / 217 PASS. Из них TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress — 51
+      (краснеет: «годный адрес … отвергнут: Config.NewGrantID is not named»),
+      TestEndpointsReachTheEngineAsNamedInConfig — 5 (это «НЕ ВЫПОЛНИЛОСЬ: New не собрал
+      церемонию», то есть не выполнилась, а не покраснела). Контроль — c2261955:
+      272 / 0.
+    fix_in: '#35 — NewGrantID в оба литерала при вливании 32@c2261955'
+  - kind: 'текстовый конфликт (git показывает сам)'
+    lanes: ['40', '35']
+    subject: >-
+      Литерал newTestCeremony (ceremony_test.go:49-79 слитого) и литерал
+      engineConfigOfNewCeremony (engineconfig_internal_test.go:188-218 слитого). #40
+      перевыровнял их и снял RequireProofKey*, #35 добавил строку NewGrantID. Разрешение:
+      сторона волны плюс NewGrantID; mintTestGrantID и uncalledGrantIDHook соответственно.
+      Утверждение сборщика «текстового конфликта не было» верно для bc580b92, а на
+      c2261955 конфликт есть.
+    proof: 'git merge-tree --write-tree --name-only c2261955 e5abaa5e → rc 1, конфликтных файлов 2'
+    fix_in: '#35'
+
+two_solutions_in_config:
+  in_composition: >-
+    Не найдено. Поля Config по полосам: #38 +AuthorizationEndpoint +TokenEndpoint −Issuer;
+    #40 −RequireProofKey −RequireProofKeyForPublicClients и Ports −ProofKeys; #35 +NewGrantID.
+    Ни одно поле не тронуто двумя полосами, одного предмета две полосы не решают.
+  outside_composition: >-
+    Факт с обеими координатами, не вердикт: #34 в переданный состав не входит.
+    Вызов службы, заменяющий то, что иначе сделал бы движок, решён двумя формами.
+    #35 — поле-функция в Config: Config.NewGrantID, ceremony.go:79 в Config@e5abaa5e;
+    проверка в validateConfig; срок PortTimeout; отказ через fromPort, «как порт»;
+    обходу настроек понадобился отдельный uncalledGrantIDHook. #34 — интерфейс в Ports:
+    Ports.AccessTokenIssuer, ports.go:399 и :541@d3c3ea4f; проверка в validatePorts,
+    ceremony.go:365@d3c3ea4f. На c2261955 полей-функций в Config 0, и #35 заводит первое.
+    Выбрать форму нужно до того, как #34 войдёт в сборку. Выбор делает не wave-reviewer.
+
+not_found:
+  - 'снят предмет, а ведомость не знает (четвёртый вид в чистом виде): имена, снятые #38 и #40, по 779 файлам c2261955 — 0; в kacho-workspace HEAD — 0; импортёров corelib/oauthceremony в kaname@cbbac984b и kacho@1d42a6728bf — 0'
+  - 'добавление в снятое #38: добавленных строк #35 с Issuer, testIssuer или JoinPath — 0; Issuer в #35 встречается только контекстом в двух конфликтных кусках'
+  - 'столкновение раскладок: страж #35 в requesterFromGrant на слитом дереве покрывает все 6 мест вызова моста (bridge.go:250, 257, 346, 388, 399, 558), новый requesterFromCode #40 идёт через него (translate.go:320). Порядок в слитом CompleteAuthorization — checkIntent, requireProofKey (#40), Subject, mintGrantID (#35), SetID, NewAuthorizeResponse — совпадает с заявлением #35 «чеканка последним шагом»'
+  - 'столкновение имён: у слитого дерева 2 ошибки компиляции, и ни одна не двойное объявление'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Не выявлено. Отчёты полос в задание не переданы, сверено по журналу и записям в
+  ws-825. Две оговорки, обе не «шире сделанного»:
+  (1) запись security по #35 на c3550547 называет покрытым путь «запись PKCE без ID».
+  После вливания 32 этого пути нет, привязка читается из записи кода. Новый дайджест #35
+  повторяет обе роли, и это место нужно перемерить.
+  (2) «Текстового конфликта не было» у сборщика верно только для bc580b92.
+
+form_not_blocking: >-
+  Заголовки 1c931b82 (76 знаков) и e5abaa5e (81) длиннее 72; тело 1c931b82 — 19 строк,
+  предел 12. Без rebase не исправить, а rebase запрещён. Трейлеров в bc580b92..c2261955
+  нет (0 из 3 коммитов), подпись pointpu <pointpu@in-cloud.io>.
+
+examined:
+  diffs: 3                     # #40 от merge-base (= сборка bc580b92..c2261955: тот же дайджест, счёт один раз); #35 от 84b9be87; контекст #38 по oauthceremony 84b9be87..bc580b92
+  lines: 3249                  # 1842 + 782 + 625 строк вывода git diff
+  read_line_by_line: 'рабочие файлы #40 (bridge, ceremony, ports, proofkey, translate, types, doc, notes); весь #35 кроме ids-пробы; конфликтные куски; grant_id_test.go :1-135, :150-180, :296-461'
+  mechanical_census: 'литералы Config{ слитого дерева (8, без NewGrantID — 2 из 6 литералов oauthceremony.Config); вызовы requesterFromGrant/requesterFromCode; добавленные строки #35 против имён, снятых #38 и #40'
+  runs: 'go build/vet/test на c2261955; merge-tree c2261955+e5abaa5e; go test на слитом дереве в двух вариантах (без grant_id_test.go — дважды; с подгонкой компиляции — один раз)'
+
+next:
+  - 'go-implementer #35 — влить 32@c2261955 в 35 (--no-ff, без rebase). Разрешить 2 конфликта. Добавить NewGrantID в ceremony_test.go:648-661 и endpoints_internal_test.go:201-215. В grant_id_test.go перевести подмену выборки кода на AuthorizationCodeRecord и снять вид «PKCE» целиком (:95-97, :156-157, :166, :317). Приёмка — go vet ./oauthceremony/ = 0 и 0 FAIL'
+  - 'go-style-reviewer и security-auditor по #35 — на новом дайджесте от merge-base с 32@c2261955'
+  - 'wave-reviewer — повторный проход по #35 после её вливания в 32'
+  - 'диспетчер — выбрать одну форму вызова службы (Config-функция или Ports-интерфейс) до сборки с #34'

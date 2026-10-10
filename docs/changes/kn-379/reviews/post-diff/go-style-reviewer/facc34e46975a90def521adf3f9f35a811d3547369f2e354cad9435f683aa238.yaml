@@ -1,0 +1,175 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, повторный круг.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2). Запись не коммитится (задание).
+# Текст — на уровне свойства: репозиторий публичен.
+schema_version: 1
+change_id: kn-379
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: 8b3736280d839266fb063f1f351fdad4df931373d35145b78984ee615f148c3f.yaml
+subject: >-
+  kaname#379 — полосы удостоверений человека (три полосы выдачи токена и полоса
+  базового секрета) судят отсечку отзыва-всех одним правилом (revocationpolicy);
+  чтение отсечки на полосах выдачи токена — под одной обёрткой предела.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '379'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kaname-379
+  base: a889f108f22e1e42782b822677a4225467f3bdfc   # == git ls-remote origin refs/heads/365
+  head: 1bd3b5533c9a4e821a5ab9bb503e8c19dcc75090
+content_digest: sha256:facc34e46975a90def521adf3f9f35a811d3547369f2e354cad9435f683aa238
+digest_definition: >-
+  `git diff a889f108..1bd3b5533c9a4e821a5ab9bb503e8c19dcc75090 -- . ':!docs/changes' | sha256sum`;
+  рабочее дерево копии чистое до записи этого файла.
+
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-23T10:15:00Z'
+review_scope: >-
+  полный закоммиченный дифф без записей ревью: 33 файла, +2758/-206; 12 не-тестовых
+  .go, 18 тестовых. Дельта круга — 1f73660b..1bd3b553 (4 коммита, из них 3 кода).
+  Скил evgeniy и чек-лист роли применены ко всему диффу.
+
+prior_findings:
+  - id: HOOK-LANE-CUTOFF-READ-UNBOUNDED
+    status: closed
+    evidence: >-
+      buildIssuanceHooks (cmd/kaname/hooks_mux.go) оборачивает читатель один раз
+      revocationpolicy.WithDeadline(…, issuancePeerTimeout); clienttokenwire.New —
+      та же обёртка. Мутация в отдельном worktree @1bd3b553: обе обёртки заменены
+      на revocationpolicy.Lookup(…) → TestIssuanceHookLanesReadTheCutoffUnderTheDeclaredLimit
+      FAIL (обе полосы, «под пределом — 0») и TestEveryExternalCallOfTheNewPathCarriesItsOwnDeadline
+      FAIL; мутация снята → обе PASS («под пределом 3s — 2»). Worktree удалён.
+  - id: DEADLINE-PROBE-BYPASSES-COMPOSITION
+    status: closed
+    evidence: проба предела идёт через обработчик, собранный New; та же мутация её краснит.
+  - id: CENSUS-PRINTS-LITERALS
+    status: closed
+    evidence: >-
+      перепись в revocation_lanes_agree_test.go выводит N и M из исполненного;
+      пути записи отсечки — разбором дерева (cutoff_write_paths_census_test.go).
+  - id: PRINCIPAL-KIND-OPEN-ELSE
+    status: open
+    coord: internal/revocationpolicy/revocationpolicy.go:124
+    note: не снято; остаётся важной, не блокирует (см. important).
+  - id: SAME-ADAPTER-WORDING
+    status: closed
+    evidence: комментарии называют «адаптер того же типа, свой экземпляр».
+
+critical:
+  - id: BASIC-LANE-CUTOFF-READ-UNBOUNDED
+    coord: internal/repo/kaname/pg/basic_credential_repo.go:299
+    related:
+      - internal/repo/kaname/pg/basic_credential_repo.go:221
+      - cmd/kaname/wiring.go:757
+      - internal/clienttokenwire/build.go:143
+      - cmd/kaname/client_token.go:47
+      - internal/revocationpolicy/revocationpolicy.go:22
+    property: >-
+      Полоса базового секрета теперь читает отсечку отзыва-всех (присоединённой
+      строкой в том же операторе) с контекстом запроса и без собственного
+      объявленного предела на вызов; полосы выдачи токена читают ту же строку под
+      revocationpolicy.WithDeadline и issuancePeerTimeout. Тот же класс, что закрытая
+      находка прошлого круга, на четвёртой полосе, введённой этим кругом. Комментарии
+      диффа утверждают один предел на любой полосе (build.go:143-145,
+      client_token.go:47-48, revocationpolicy.go:22-23) — для этой полосы это не так
+      (arch-per-call-deadline; arch-lanes-compare-norm).
+    requirement: >-
+      Дать оператору полосы базового секрета (ResolveBasic и CheckBasicLive) свой
+      объявленный предел на вызов, выставленный в одном месте — обёрткой порта в
+      композиционном корне либо пределом, поданным конструктору репозитория, — с
+      величиной, объявленной решением рядом с issuancePeerTimeout. Закрепить пробой
+      через сборку (как TestIssuanceHookLanesReadTheCutoffUnderTheDeclaredLimit):
+      контекст запроса без срока → у вызова базы срок есть и не больше объявленного.
+      Либо сузить три комментария до полос, где предел действительно стоит, — но
+      тогда расхождение полос остаётся решённым только на словах.
+    predicate: >-
+      @1bd3b553: `grep -c 'context.WithTimeout\|context.WithDeadline'` по
+      basic_credential_repo.go, internal_iam/resolve_basic_credential.go,
+      internal_iam/check_basic_credential_live.go, internal_iam/handler.go → 0/0/0/0;
+      wiring.go:757 подаёт NewBasicCredentialRepo(pool) без обёртки; контроль —
+      hooks_mux.go:339 и build.go:146 несут WithDeadline. Собственная проба диффа
+      (basic_credential_revoke_all_integration_test.go:327) вынуждена ставить срок
+      со стороны вызывающего.
+    return_to: автор диффа (полоса #379)
+
+  - id: BASIC-LANE-CUTOFF-REFUSAL-NOT-DISTINGUISHABLE-INSIDE
+    coord: internal/apps/kaname/api/internal_iam/resolve_basic_credential.go:51
+    related:
+      - internal/repo/kaname/pg/basic_credential_repo.go:243
+      - internal/repo/kaname/pg/basic_credential_repo.go:308
+      - internal/apps/kaname/api/internal_iam/resolve_basic_credential.go:71
+      - internal/apps/kaname/api/internal_iam/check_basic_credential_live.go:88
+      - internal/clientassertion/verifier.go:150
+    property: >-
+      Абзац, переписанный диффом, вносит отказ по отсечке в перечень причин и
+      утверждает, что «различимость живёт внутри: в счётчике причин и в журнале».
+      В коде отказ по отсечке — тот же сторожевой domain.ErrBasicCredentialRefused,
+      что у любой иной причины; обработчики обоих глаголов на нём не пишут журнал и
+      не считают причину, счётчика причин у полосы нет. Новый контроль отказывает
+      ненаблюдаемо, тогда как полосы выдачи токена считают тот же отказ отдельным
+      исходом (OutcomeOwnerRevoked). Комментарий о защите противоречит коду
+      (hard-misleading-security-comment; hard-zero-refusals-visible).
+    requirement: >-
+      Сделать отказ по отсечке различимым ВНУТРИ, не меняя внешнего единого отказа:
+      причина несётся от репозитория оборачиванием сторожевого (errors.Is остаётся
+      истинным) и попадает в журнал уровня отказа и/или счётчик причин на обоих
+      глаголах, без персональных данных; проба утверждает внутреннюю различимость и
+      побайтовое равенство внешнего ответа. Либо, если различимость признана не
+      нужной, снять из абзаца утверждение о счётчике и журнале.
+    predicate: >-
+      @1bd3b553: repo возвращает domain.ErrBasicCredentialRefused без обёртки на
+      :243-245 и :308-310; `grep -rn 'ResolveBasicCredential\|CheckBasicCredentialLive'`
+      вне обработчиков и pkg/api — 0 счётчиков; обработчики на ветке отказа только
+      возвращают status. Утверждение о счётчике было и до диффа для прежних причин;
+      дифф распространил его на новый контроль.
+    return_to: автор диффа (полоса #379)
+
+important:
+  - id: PRINCIPAL-KIND-OPEN-ELSE
+    coord: internal/revocationpolicy/revocationpolicy.go:124
+    property: >-
+      Вид принципала классифицируется открытой ветвью (`!= PrincipalUser` →
+      Allowed) при закрытом словаре вердикта; повтор находки прошлого круга.
+    requirement: >-
+      switch по виду: PrincipalServiceAccount и PrincipalUnresolved → Allowed,
+      PrincipalUser → сверка, default → Undecidable; проба на значение вне перечня.
+
+foundation_candidates: []
+
+style:
+  - id: LONG-COMMENT-LINE
+    coord: internal/handler/iamhooks/refresh_hook_handler.go:234
+    note: строка комментария 109 символов после переноса абзаца; переформатировать по ширине соседних.
+  - id: ENDPOINT-REFUSAL-LOG-LEVEL
+    coord: internal/handler/clienttokenhttp/handler.go:314
+    note: вне диффа, перенесено с прошлого круга; кандидат в отдельную задачу.
+
+security_comments_contradicting_code:
+  - coord: internal/apps/kaname/api/internal_iam/resolve_basic_credential.go:51
+    note: «различимость внутри — в счётчике причин и в журнале» — у полосы ни того, ни другого.
+  - coord: internal/clienttokenwire/build.go:143
+    note: «один предел на любой полосе» — у полосы базового секрета предела нет.
+  - coord: cmd/kaname/client_token.go:47
+    note: «чтение отсечки — одно и то же на всех полосах и несёт один предел» — то же.
+  - coord: internal/revocationpolicy/revocationpolicy.go:22
+    note: пакет называет полосу базового секрета полосой правила и предел — частью ответа полосы; у неё предела нет.
+
+out_of_diff:
+  - >-
+    Чтение строки удостоверения на полосе базового секрета шло без своего предела и
+    до диффа; критическая находка выше закрывает его тем же фиксом.
+
+fresh_deferral_markers: 0     # 2557 добавленных строк; TODO/FIXME/XXX/HACK — 0 (контроль по дереву находит 5 файлов)
+tests_in_same_pr: true        # 18 тестовых .go на 12 не-тестовых
+
+approved:
+  - прошлый критический закрыт и закреплён пробой через сборку; мутация краснит обе полосы хука и эндпоинт
+  - обёртка ошибок %w, отказ наружу — фиксированный текст; ctx первым аргументом, не хранится
+  - нет panic/must*/init()/context.TODO в рабочем пути; журнал — log/slog
+  - отсечка на полосе базового секрета читается в том же операторе (LEFT JOIN по первичному ключу user_token_revocations — не больше одной строки), решение — общее Forbids, после сверки хеша
+  - WithDeadline сохраняет неподанный читатель неподанным; отказ построения при nil сохраняется
+  - новых рёбер модулей нет: repo/pg уже импортировал internal/service

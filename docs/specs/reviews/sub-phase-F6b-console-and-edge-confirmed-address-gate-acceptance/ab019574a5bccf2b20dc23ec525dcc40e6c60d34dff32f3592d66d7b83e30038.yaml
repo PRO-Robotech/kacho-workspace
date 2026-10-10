@@ -1,0 +1,369 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+  sha256: ab019574a5bccf2b20dc23ec525dcc40e6c60d34dff32f3592d66d7b83e30038
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события и
+    записи ревью (change-graph §2). Шапка этой записью НЕ правится. Машинный читатель docs-gate
+    (`check-01`) по этой редакции ответит «не APPROVED» — он судит объявление, и с этой записью
+    совпадает случайно, а не по построению.
+  base_commit: 69a3a1babcf21759a1ebcb1759ac298df08e6538
+  content_commit: 69a3a1babcf21759a1ebcb1759ac298df08e6538
+  branch: lane/2898-address-gate-acceptance
+  task: https://github.com/PRO-Robotech/kacho/issues/2898
+  stage_tasks:
+    - https://github.com/PRO-Robotech/kacho/issues/2900
+    - https://github.com/PRO-Robotech/kacho/issues/2901
+  service_side_task: https://github.com/PRO-Robotech/kaname/issues/456
+  wave: https://github.com/PRO-Robotech/kacho/issues/2797
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: >-
+    sha256sum <путь> в рабочей копии полосы И git show 69a3a1ba:<путь> | sha256sum — оба дают
+    ab019574a5bccf2b…30038, совпало с заданием; wc -l → 1917
+  fingerprint_reproduced: true
+  lines: 1917
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-28T15:58:05Z'
+round: 4
+previous_rounds:
+  - round: 1
+    sha256: 0bfa670190d3f52eedf1dcf4dcd821891e6d38a2068882e2551dbc8cb4eb3361
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/0bfa670190d3f52eedf1dcf4dcd821891e6d38a2068882e2551dbc8cb4eb3361.yaml
+    blocking_count: 3
+    blocking_kinds_distinct: [SCOPE, COVERAGE]
+  - round: 2
+    sha256: 184fa2831ebd238b975787f727702f70631e329962bb838f0ff61016c63fb62f
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/184fa2831ebd238b975787f727702f70631e329962bb838f0ff61016c63fb62f.yaml
+    blocking_count: 3
+    blocking_kinds_distinct: [PRODUCER, FORMAT, COVERAGE]
+  - round: 3
+    sha256: 49bb29defe3a9442d813a6e09d8005bc1dce9c13aa6a7a98ad68e6e139aa76c3
+    verdict: APPROVED
+    record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/49bb29defe3a9442d813a6e09d8005bc1dce9c13aa6a7a98ad68e6e139aa76c3.yaml
+    blocking_count: 0
+    authority_event: комментарий pointpu в kacho#2898, 2026-09-27T18:30:57Z, subject_sha256 49bb29de…
+blocking_count: 2
+blocking_kinds_distinct: [PRODUCER, COVERAGE]
+blocking_kinds_by_item:
+  B4-1: PRODUCER
+  B4-2: COVERAGE
+blocking_trend: >-
+  3 → 3 → 0 → 2. Круг 4 судит новую редакцию, а не прежнюю: одобрение 49bb29de на неё не
+  переносится. Оба блокирующих — в новой стадии S4 (F6b-51, F6b-52); части S1–S3, изменённые
+  редакцией 4 (Р5, F6b-04, F6b-11, F6b-35, §1.9), замечаний не получили. Род COVERAGE был у
+  кругов 1 и 2, PRODUCER — у круга 2: предмет у них другой (полоса правила, источник решений,
+  вопрос края о токене), а не повтор того же дефекта.
+
+owner_decision_verbatim: >-
+  «Делай механику максимально безопасную где вход дальше экрана регистрации или логина доступен
+  только после подтверждения почты» — решение владельца 2026-09-27; документ вносит его дословно
+  (§0), рецензент его не переоткрывает.
+
+approval_issuance:
+  issued: false
+  effective_approval: none
+  code_transition_open: false
+  agent_verdict: CHANGES_REQUESTED
+  reason: >-
+    Вердикт агента — ВОЗВРАТ на отпечаток ab019574. Одобрение круга 3 относится к 49bb29de и на эту
+    редакцию не переносится (DoD п. 1 самого документа говорит то же). Запрет #1 действует на
+    предмет, изменённый редакцией 4: стадия S4 целиком и изменённые Р5, F6b-04, F6b-11.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 69a3a1ba → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 69a3a1babcf21759a1ebcb1759ac298df08e6538
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_sha256_predicate: git show 69a3a1ba:docs/changes/policy.yaml | sha256sum
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  allowlisted_for_role: false
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Роль в этой записи — координата, а не доказательство личности (change-graph §3). Событие
+    возврата публикует курьер; недоступность события — «не выполнилось», а не «да».
+  event_body_for_courier: >-
+    acceptance-reviewer · CHANGES_REQUESTED (круг 4, блокирующих 2: PRODUCER, COVERAGE) · SHA-256
+    ab019574a5bccf2b20dc23ec525dcc40e6c60d34dff32f3592d66d7b83e30038
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: >-
+    Записи кругов 1–3 (0bfa6701…, 184fa283…, 49bb29de….yaml) не правлены; эта — соседняя, по
+    отпечатку редакции 4.
+
+premise_check:
+  claim: >-
+    рабочая копия tmp/ws-f6b на ветке lane/2898-address-gate-acceptance; отпечаток ab019574; круг
+    4; прошлые записи и новая — в kacho-workspace/docs/specs/reviews/sub-phase-F6b-…/
+  outcome: partially_refuted
+  refuted: >-
+    каталога tmp/ws-f6b нет; ветка полосы вынута в tmp/ws-2898 (git worktree list). Прошлые
+    записи лежат в дереве полосы, а не в основной рабочей копии воркспейса (там каталога
+    reviews/sub-phase-F6b-… нет, ветка другая — tooling-docfresh-recognition-boundary). Эта запись
+    поэтому положена рядом с прошлыми, в дерево полосы, и закоммичена на ветку полосы.
+  confirmed: >-
+    отпечаток ab019574 — sha256sum в копии и git show 69a3a1ba:<док> | sha256sum; круг 4 —
+    трёх записей в каталоге, последняя APPROVED на 49bb29de; редакция 4 — коммит 69a3a1ba.
+  commands:
+    - "ls tmp/ → ws-f6b нет; git worktree list | grep 2898 → tmp/ws-2898 [lane/2898-address-gate-acceptance]"
+    - "sha256sum <док> → ab019574…; git show 69a3a1ba:<док> | sha256sum → то же; wc -l → 1917"
+    - "ls tmp/ws-2898/docs/specs/reviews/sub-phase-F6b-…/ → 0bfa6701…, 184fa283…, 49bb29de…"
+
+measurement:
+  revisions_used:
+    kacho: >-
+      499ad3085fd7 и b7608fe9750 (голова волны 2797, как в документе) — git show / git grep
+      <rev> в project/kacho
+    kaname: >-
+      c8559057b48e (голова 366; git ls-remote origin refs/heads/366 → c8559057b48e1e8f…),
+      c083ad5bbfa, 26758cccf, fb8189dad в project/kaname
+  service_acceptance:
+    predicate: git show fb8189dad:<док службы> | sha256sum и git show origin/366:<док службы> | sha256sum
+    sha256: f2d1fe852333af5412591a7ef2740d651086c408715e2083f47d3d075a755853
+    lines: 1705
+    diff_vs_revision_2: "git diff --shortstat 26758cccf fb8189dad -- <док> → 268 добавлено, 40 снято"
+    approval_record: >-
+      origin/366:docs/specs/reviews/access-beyond-login-needs-a-verified-address/f2d1fe85….yaml →
+      verdict APPROVED, effective_approval.issued true, ban1_lifted true
+    decisions_checked: >-
+      Р9 (пять ручек, величины профиля продукта 30m · 5 · 60s · 5 · 24h — строки 705–710), Р4б,
+      Р12, Р13, EV-56 (выдача неподтверждённому заводится записью), EV-65 (клиент-ключ человека без
+      отметки существует, обмен 401 invalid_client), EV-67, EV-68, EV-77, EV-78, строка 483
+      (CheckBasicCredentialLive), 628, INVITE_NOT_VALID 8 — совпало с §1.9
+  tree_claims_reproduced:
+    outcome: confirmed
+    note: >-
+      §1.11 на обеих ревизиях: 4 · 3 · 13 · записей 13 → 16 · церемонии 0 → 3 · 343 → 349 · 23 → 25 ·
+      4 · 1 · 16 · 29 → 31; строки 251–253 (authorize, token, discovery с relayWhenUnanswered,
+      token — carriesClientBasic), authz_util.go:272, auth_own_session.go:80, :99; маршрутов
+      церемонии 0 → 2. §1.10 на головах волн — 4, 2, 19. §1.12: 15 путей, verif 3, вызов писателя
+      отметки 1 (verification.go:461), 5 вхождений, миграция только снимает (:105), 0 в посевах и
+      конвейерах, контроль 1; invite_mail.go:93, :622; Retry-After :915, :1010;
+      basic_credential_repo.go:355; verifier.go:173. §1.13: 8 (7 + 1), 1, 0, контроль 1, три
+      комментария; :763, :770, :779, authn_edge.py:716; 0 · 0 · 0 · контроль 1 (fga_outbox) · 2;
+      mailpit — dev и own-stand true, values.yaml false. Р3а: config.go:629, deployment.yaml:357–358,
+      ни один профиль ручку не задаёт. §8: 9 документов, verify-email 0.
+  scenario_census:
+    predicate: "grep -oE '^\\*\\*ID:\\*\\* F6b-[0-9]+' <док>"
+    total: 54
+    unique: 54
+    duplicates: 0
+    gaps: 0
+    delta_vs_revision_3: >-
+      git diff 5ba86f7d 69a3a1ba по строкам ID: добавлены F6b-46 … F6b-54, переписан F6b-04; F6b-11
+      и F6b-35 изменены в теле — совпало с §8
+  producer_coverage:
+    method: раскрытие диапазонов таблицы §5 в множество ID и сравнение с множеством §4
+    covered: 54
+    of: 54
+    misnamed: ["F6b-52 — число находок до кода названо неверно (B4-1)"]
+  twin_coverage:
+    new_scenarios_naming_a_twin: 9
+    of_new: 9
+    note: "F6b-46/47, F6b-48/49 — различие ровно «предъявлен ли код»; F6b-50 (а); F6b-51 — инъекция; F6b-52 — законное место и инъекции из дерева; F6b-53, F6b-54 — свои близнецы"
+  dod_coverage: "каждый из 54 ID назван хотя бы одним пунктом DoD 0, 2–5, 9"
+
+experiment:
+  worktree: >-
+    kacho-workspace/tmp/f6b-r4-probe — git archive kacho@b7608fe9750 (deploy, gateway/deploy,
+    ui-future/deploy, services/*/deploy); зависимости умбреллы собраны офлайн
+    (scripts/helm-umbrella-deps.sh: не на месте 0 из 20); каталог снят после прогона
+  runs:
+    - command: "helm template kacho-umbrella . -n kacho -f values.prod.yaml (стек prod)"
+      result: "rc 0; объектов kacho-umbrella-mailpit 0; ключей verification- 0"
+      supports: [F6b-54 constructibility (а), F6b-54 red before code]
+    - command: "helm template … -f values.dev.yaml -f values.dev-prod.yaml (стек dev-prod)"
+      result: >-
+        rc 0; объектов kacho-umbrella-mailpit 2 — Service и Deployment; ключей verification- 0;
+        ретранслятор почты службы — invite-mail relay kacho-umbrella-mailpit:1025
+      supports: [F6b-54 constructibility (б), F6b-54 red before code, I4-3, I4-2]
+    - command: >-
+        git grep -n -E 'InternalUserService/UpsertFromIdentity|users:upsertFromIdentity'
+        b7608fe9750 -- tests gateway/tests 'services/*/tests' ui-future/e2e e2e deploy .github
+      result: >-
+        6 строк: prodseed_matrix.py:191, prodseed_network.py:77, cluster_admin.py:322,
+        cluster_admin.postman_collection.json:538, :546, :579 — последняя задаёт исполняемый адрес
+        запроса сценарием перед запросом (pm.request.url = …)
+      supports: [B4-1]
+    - command: "git ls-tree -r --name-only <rev> -- e2e | wc -l на 499ad3085fd, b7608fe9750, origin/main"
+      result: "0 на каждой: каталога e2e/ в дереве платформы нет"
+      supports: [B4-1]
+    - command: >-
+        git show b7608fe9750:gateway/tests/newman/cases/cluster_admin.py (шаг
+        CLUSTER-ADMIN-SEED-TARGET-USER); git grep -i 'mailpit\|/api/v1/messages' --
+        deploy/scripts/newman-parallel.sh → 0
+      result: >-
+        человек-цель заводится самим случаем внутри прогона набора, после посева; у окружения
+        newman нет слота адреса чтения приёмника
+      supports: [B4-2]
+
+blocking_findings:
+  - id: B4-1
+    kind: PRODUCER
+    scenario: F6b-52
+    title: "Ожидаемый красный гейта до кода назван неверно: находок не пять, и один каталог обхода не существует"
+    finding: >-
+      «Тогда» F6b-52 утверждает «находок пять» с координатами prodseed_matrix.py:191,
+      prodseed_network.py:77, cluster_admin.py:322 и двумя строками собранной коллекции (:538, :546).
+      Обход того же предмета по дереву @b7608fe9750 даёт шесть строк: пропущена
+      cluster_admin.postman_collection.json:579 — строка сценария перед запросом, которая и задаёт
+      адрес, по которому запрос уходит на самом деле. Числа пять не даёт ни одна единица: по
+      строкам литерала — 6, по обращениям (запросам) — 4. Гейт, построенный по перечню документа,
+      судил бы декоративные строки и молчал на исполняемой. Второе: обход называет каталог
+      `e2e/`, которого в дереве нет ни на одной из ревизий, при правиле «число осмотренных по
+      каждому каталогу, пустой обход — отказ гейта» — гейт либо красен навсегда, либо несёт
+      мёртвую координату.
+    required_change: >-
+      назвать единицу находки (строка с литералом или обращение) и дать число этой единицы со всеми
+      координатами — 6 с :579 или 4 по одному на запрос; убрать `e2e/` из обхода либо сказать, что
+      каталога нет и как гейт судит отсутствующий каталог. DoD п. 9 ссылается на этот вывод — он
+      правится тем же изменением.
+    evidence: experiment.runs[2], experiment.runs[3]
+  - id: B4-2
+    kind: COVERAGE
+    scenario: F6b-51
+    title: "Одно из девяти мест — человек, которого заводит случай cluster_admin, — не держится ничем"
+    finding: >-
+      Р17 распространяет путь человека на «случаи наборов, заводящие человека сами (cluster_admin.py)»,
+      вид по умолчанию — Ф-п, а §5 оставляет заведение в шаге CLUSTER-ADMIN-SEED-TARGET-USER. Но
+      единственная проба вида — перепись F6b-51 — печатается посевом после его завершения, то есть
+      до прогона случаев, и человека случая в ней быть не может: её «место заведения — … или шаг
+      случая набора» не строится. Сам случай на неподтверждённой цели зелен: выдача
+      неподтверждённому заводится записью и видна (EV-56, Р12 службы), и ListAdmins её покажет.
+      Гейт F6b-52 доказывает только отсутствие вызова хука, а не подтверждённость. Чтения приёмника
+      случаем тоже нет: предусловие F6b-53 — о посеве, у окружения newman слота адреса приёмника нет.
+    required_change: >-
+      одно из двух: (а) цель выдачи администратора облака заводит посев видом Ф-п и отдаёт случаю
+      слотом окружения — тогда её держит F6b-51; (б) случай сам заводит Ф-п и утверждает свой исход
+      ответом «кто я» (emailVerified: true) с близнецом, а его чтение приёмника получает
+      производителя — слот окружения и предусловие, как F6b-53. Строка §5 и DoD п. 9 — по выбранному.
+    evidence: experiment.runs[4]
+
+important_findings:
+  - id: I4-1
+    kind: PRODUCER
+    title: "Отрицательные «И» F6b-46 не могут упасть: перепись посева их не видит"
+    note: >-
+      Преамбула определяет перепись посева как журнал обращений к краю и к поверхности чтения
+      приёмника. Вызов хука сегодня идёт grpcurl во внутренний слушатель службы, а чтение хранилища —
+      kubectl exec psql (prodseed_matrix.py:164–223); ни то ни другое в такую перепись не попадает,
+      поэтому «нет ни обращения к хуку поставщика, ни обращения к хранилищу службы» зелено по
+      построению. Суть держит F6b-52. Либо перепись записывает каждый исходящий вызов посева, либо эти
+      «И» заменяются ссылкой на F6b-52 и на равенство кода телу письма.
+  - id: I4-2
+    kind: SCOPE
+    title: "Зависимость от kacho#1773 для стенда стоит перемерить"
+    note: >-
+      Рендер стенда наборов направляет почтовую полосу службы в приёмник стенда (invite-mail relay
+      kacho-umbrella-mailpit:1025), письмо подтверждения идёт той же очередью
+      (invite_mail_outbox/outbox.go:171 @ c8559057b), а стенд самой службы уже берёт код у своего
+      приёмника (§1.12). Если на стенде письмо доходит без #1773, строка доставки §3.2 и DoD п. 0
+      сложнее, чем есть, а волна P1 зря ждёт задачу P3. Перемерить и либо снять зависимость для
+      стенда, либо назвать, что именно #1773 добавляет.
+  - id: I4-3
+    kind: FORMAT
+    title: "F6b-54 (б): «он есть — один» при двух объектах с этим именем"
+    note: "Рендер стенда несёт Service и Deployment kacho-umbrella-mailpit; назвать вид объекта (Deployment) либо «объекты шаблона mail-receiver.yaml»."
+  - id: I4-4
+    kind: PRODUCER
+    title: "Р17 ссылается на §1.13 за измерением, которого там нет"
+    note: >-
+      «вызовов приглашения в посевах и случаях ноль» — в §1.13 такого предиката нет. Замер этого
+      круга: в tests/authz-fixtures (без .md) — только имена служебной учётной записи invitee; в
+      gateway/tests/newman/cases — 0. Дописать предикат с контролем.
+  - id: I4-5
+    kind: CONSTRUCTIBILITY
+    title: "Посев узнаёт аккаунт человека по external_id = адрес — после регистрации так не найдёт"
+    note: >-
+      Регистрация заводит личный аккаунт и проект default тем же построением, что хук
+      (user/mirror_tx.go:413 → BootstrapPersonalResourcesTx @ c8559057b), поэтому «Дано» F6b-48
+      строится. Но её ExternalID — сгенерированный субъект своей полосы (registration/register.go,
+      NewOwnLaneSubject), а db_lookup и ожидание строки ищут по external_id = адрес
+      (prodseed_matrix.py:171–223). Р17 стоит сказать, откуда посев берёт идентификаторы человека и
+      аккаунта — с поверхностей края, как код и положение.
+
+round_3_findings_closure:
+  I3-1: "закрыт — окно кэша решений края названо в Р3а (config.go:629, deployment.yaml:357) и в строке §3.2 о смене адреса"
+  I3-2: "закрыт — строка §3.2 о реестре"
+  I3-3: "закрыт — абзац Р16 о путях без сверки назван полностью; тексты нативной — «неудачи подлинности предъявителя»"
+  I3-4: "закрыт — последнее «И» F6b-35"
+
+verified:
+  ceremony_decision: >-
+    Р5: 18 записей = 15 формы + 3 церемонии, доступных 9 = 6 формы + 3 церемонии; арифметика
+    сверена по объявлению @b7608fe9750. Ответ службы на координатах — протокол (EV-67, EV-77, EV-78),
+    ретрансляция как есть не ослабляет рубеж: кода и пары служба не выдаёт.
+  f6b_48_49: >-
+    клиент-ключ неподтверждённого человека выпускает администратор стенда (действующий принципал —
+    он, Р4б судит его); обмен — 401 invalid_client, клетка owner-unverified (verifier.go:173);
+    выдача роли неподтверждённому заводится записью (EV-56)
+  f6b_54_values: "величины 30m · 5 · 60s · 5 · 24h — решение Р9 службы (строки 705–710 её редакции 3)"
+  stages_state: "kacho#2900, #2898, #2901 — status:in-progress; #1773 — blocked P3; #2878 — P2; kaname#456 открыта"
+
+constructibility:
+  seeded_by_experiment: 2
+  of_new_or_changed_nontrivial_givens: 9
+  items_by_experiment:
+    - "F6b-54 — оба рендера встали (rc 0); (а) приёмника нет, (б) есть; ключей verification- 0 в обоих — красный до кода подтверждён"
+    - "F6b-52 — обход дерева даёт 6 находок, а не 5 (B4-1)"
+  by_named_fixture:
+    - "F6b-04, F6b-11 — дублёры слушателя выдачи и формы: ceremony_relay_test.go, login_lane_relay_composition_test.go @ b7608fe9750"
+    - "F6b-50 — самопроверка посева с дублёрами края и приёмника: без предпосылок"
+    - "F6b-48, F6b-49 — строится по коду и решениям службы (verified.f6b_48_49, I4-5)"
+  not_performed: 5
+  not_performed_reason: >-
+    F6b-46, F6b-47, F6b-51, F6b-53 и стендовая половина F6b-48/49 требуют поднятого стенда боевой
+    посадки; задание не называет ни стенда, ни изоляции. Это «не выполнилось», в вердикт не
+    зачитывается.
+
+not_performed:
+  - subject: "посев S4 на поднятом стенде (F6b-46, F6b-47, F6b-48, F6b-49, F6b-51, F6b-53)"
+    reason: "стенд и изоляция заданием не названы"
+    counts_as: "не выполнилось"
+  - subject: "доставка письма подтверждения до приёмника на стенде платформы (I4-2)"
+    reason: "без стенда проверено только объявление рендера, а не доставка"
+    counts_as: "не выполнилось"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: true
+  public_rpc_note: "два глагола полосы формы края /iam/v1/auth/verify-email и …/confirm (без изменений против круга 3)"
+  ui: true
+  new_domain: false
+  security_surface: true
+  security_surface_note: "рубеж полосы сессии и решение о трёх координатах церемонии (Р5); S4 — посевы и гейт дерева, не поверхность продукта"
+  disclosure_safe: true
+  disclosure_note: >-
+    Ни документ, ни запись не описывают, чем текущее поведение уязвимо: находки круга — о
+    конструкции проверки и о посевах, а не о пути в продукте.
+
+next:
+  needed_agent: acceptance-author
+  task: >-
+    редакция 5: B4-1 (единица и число находок F6b-52, каталог e2e/) и B4-2 (держатель вида для
+    человека случая cluster_admin); I4-1 … I4-5 — тем же заходом.
+  owner_questions: []

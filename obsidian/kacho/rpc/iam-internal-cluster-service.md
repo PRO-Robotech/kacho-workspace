@@ -2,9 +2,9 @@
 title: InternalClusterService
 aliases:
   - InternalClusterService (iam)
-proto_file: kacho/cloud/iam/v1/internal_cluster_service.proto
+proto_file: kaname/cloud/iam/v1/internal_cluster_service.proto
 category: rpc
-backend: kacho-iam
+backend: kaname
 backend_port: 9091
 visibility: internal
 domain: iam
@@ -20,13 +20,14 @@ tags:
   - kacho-iam
   - iam
   - internal
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались; 2026-10-08 — kaname 296@aa253fa9bcad: контракт лежит в proto/kaname/cloud/iam/v1/internal_cluster_service.proto, четыре RPC и их пути REST — git show; публичный близнец — cluster_service.proto (коммит 701512a5d, #661)"
 ---
 
 # InternalClusterService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/internal_cluster_service.proto` (KAC-196).
-**Backend**: `kacho-iam:9091` (**internal-only**; workspace §запрет #6 — НЕ публиковать на external TLS endpoint).
+**Proto**: `proto/kaname/cloud/iam/v1/internal_cluster_service.proto` в PRO-Robotech/kaname (заведён KAC-196 под координатой `proto/kacho/…`; на `296`@`aa253fa9bcad` лежит здесь).
+**Публичный близнец**: [[rpc/iam-cluster-service]] — те же сообщения и те же сценарии на публичном слушателе (kaname#661, ветка эпика `296`).
+**Backend**: `kaname:9091` (**internal-only**; workspace §запрет #6 — НЕ публиковать на external TLS endpoint).
 **Visibility**: **internal** — зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/cluster/...` (KAC-196 PR #44).
 **Status**: **Phase 2 — DONE** (cluster-admin enforcement, [[../KAC/KAC-196]]). Phase 7 (break-glass `RequestBreakGlass` / `Approve/Deny/RevokeBreakGlass`) — planned.
 
@@ -79,6 +80,10 @@ verified_against: "перечень RPC сверен с proto ствола redes
 Аварийный доступ сегодня выражен **каскадом трёх верхних уровней супер-доступа**
 (`security.md` §«Три уровня супер-доступа»), а не отдельным потоком согласования.
 См. [[../resources/iam-cluster-break-glass-grant]].
+
+## History
+
+- 2026-10-08 — координата контракта исправлена: `proto/kacho/…` → `proto/kaname/…` (служба — отдельный продукт); заведён публичный близнец [[rpc/iam-cluster-service]] сборкой 6b волны-6 ([[KAC/issue-540-kaname]], PR kaname#668, `8b0379e2a9c5`); внутренний остаётся на внутреннем слушателе без изменений.
 
 ## See also
 

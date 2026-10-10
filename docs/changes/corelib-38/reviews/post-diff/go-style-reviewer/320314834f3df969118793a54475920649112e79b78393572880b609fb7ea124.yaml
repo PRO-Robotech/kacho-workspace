@@ -1,0 +1,140 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 2.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии ревьюера и НЕ закоммичена — её переносит оператор.
+schema_version: 1
+change_id: corelib-38
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: b2baf0753b285575b08562ad2e8f1b97fd98b68236b06205cf8a39926ea24c57.yaml
+subject: >-
+  oauthceremony: хост адреса и издателя судится по Hostname(); проверка Issuer
+  перенесена в validateConfig; шапка Config.Issuer переписана (задача #38, волна #32)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  head: ead5a64c79556e029d805623ee64e7c99f577363
+  head_tree: 62d72779665f628db13591d4bbd70bd3ebd68361
+  round_delta: '3535e77f55334e11ac8ae373b84f046482a2cc9e..ead5a64c7955 — 2 файла, +95 / -11'
+  head_is: 'ветка 38 в tmp/corelib-38, два коммита поверх 9f0393c; не отправлена'
+  shortstat: '4 файла, +503 / -30 (полный дифф от base)'
+content_digest: sha256:320314834f3df969118793a54475920649112e79b78393572880b609fb7ea124
+digest_definition: |
+  git diff --full-index 9f0393c540d7..ead5a64c79556e029d805623ee64e7c99f577363 | sha256sum
+  (перемерено своей командой — совпадает с заданием)
+
+verdict: returned              # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-23T14:11:15Z'
+return_to: 'автор диффа — go-implementer полосы #38'
+review_scope: >-
+  дельта круга (2 файла) целиком и полный дифф от base для счёта маркеров и проб.
+  Вне диффа прочитаны validateConfig, validateEndpoint, New (сборка настроек движка
+  и стратегии), все читатели GetAccessTokenIssuer / GetIDTokenIssuer в internal/oauth2,
+  doc.go (выдача токена личности), endpoints_internal_test.go (утверждение издателя).
+
+premise_checks:
+  - claim: 'новые отрицательные случаи красные на коде круга 1, 6 из 6, близнецы зелёные'
+    result: подтверждено
+    how: >-
+      go test -overlay (ceremony.go@3535e77f поверх дерева головы, TMPDIR вне git-деревьев,
+      git status копии не изменился) -run 'TestNewRejectsAnIssuerWithoutAHost|TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress':
+      8 FAIL = 6 подслучаев («принят: <nil>» — 4 у адресов, 2 у издателя) + 2 родителя; 34 PASS.
+      На голове: 42 PASS / 0 FAIL / 0 SKIP; перепись 36 и 4 случая.
+  - claim: 'класс `.Host (==|!=) ""` — 2 вхождения в 735 .go, после правки 0'
+    result: подтверждено
+    how: "git grep -n -E '\\.Host (==|!=) \"\"' <rev> -- '*.go' — 3535e77f: 2 (ceremony.go:192, :381), ead5a64: 0; git ls-tree -r ead5a64 | grep -c '\\.go$' → 735"
+  - claim: 'шапка Issuer: в артефакты издатель не попадает; настройки читают только JWT-стратегии'
+    result: подтверждено
+    how: >-
+      git grep 'GetAccessTokenIssuer\|GetIDTokenIssuer' ead5a64 -- '*.go' ':!*_test.go' —
+      вызывающих 2: handler/oauth2/strategy_jwt.go:126, handler/openid/strategy_jwt.go:217;
+      git grep -E 'JWTStrategy|DefaultJWT|handler/openid' ead5a64 -- oauthceremony/ ':!*_test.go' → 0;
+      New строит только NewHMACSHAStrategyUnPrefixed (ceremony.go:257).
+
+round1_findings:
+  C1: 'закрыта — Hostname() у издателя и у обоих адресов; проба красная до правки (см. premise_checks)'
+  I1: >-
+    закрыта в обязательной части — проверка издателя в validateConfig, судит Hostname().
+    Сужение издателя (сведения пользователя, строка запроса) не сделано и задачей не заведено;
+    при снятом читателе издателя предмет сужения поглощается C2.
+  I2: 'ОТКРЫТА — см. important I2 ниже; в дельте не тронута'
+  S1: 'открыта — endpoints_internal_test.go:38, шапка recordedRequest без поля query'
+  S2: 'открыта — ceremony_test.go:669, "" как пометка «как в наборе»'
+
+critical:
+  - id: C2
+    tag: VESTIGIAL-REQUIRED-KNOB
+    at: oauthceremony/ceremony.go:59
+    related: 'ceremony.go:214-215 (AccessTokenIssuer/IDTokenIssuer), :333-334 и :366-369 (проверки), endpoints_internal_test.go:135-137 (утверждение значения)'
+    summary: >-
+      Config.Issuer обязателен и судится fail-closed, но ни на одном пути церемонии
+      его значение ничего не определяет. Единственного читателя, вывод адресов через JoinPath,
+      сняло это же изменение. Движок читает издатель лишь в JWT-стратегиях, а New их не строит.
+      Шапка круга 2 это честно признаёт («в артефакты издатель НЕ попадает»), так что
+      поле описывает контракт, которого нет. Это силуэт arch-lean-no-vestigial
+      (red: unreachable «документирует» контракт) и класс declared-never-read (ban #16).
+      Служба обязана назвать значение, которое ничего не меняет. Утверждение
+      endpoints_internal_test.go:135 закрепляет передачу значения, которое никто не читает.
+      Потребителей пакета oauthceremony пока нет (kaname и kacho его не импортируют),
+      поэтому снять поле сейчас дешевле всего; после kaname#358 это потребует смены пина.
+    requirement: >-
+      снять Config.Issuer тем же изменением, вместе с проверками (:333-334, :366-369),
+      двумя настройками движка (:214-215), случаями Issuer в пробах (ceremony_test.go:594-595,
+      TestNewRejectsAnIssuerWithoutAHost) и утверждением endpoints_internal_test.go:135-137;
+      шапку AuthorizationEndpoint/TokenEndpoint («выводятся из Issuer») переписать о том, что есть.
+      Законная альтернатива — читатель издателя на пути церемонии, но это отдельный предмет
+      со своей приёмкой, а не довод держать поле «на потом» (ban #11, ban #19).
+    predicate: >-
+      git grep -n -E 'cfg\.Issuer|Config\.Issuer' <head> -- oauthceremony/ ':!*_test.go' → 0
+      и go test ./oauthceremony/... -count=1 — код 0, исполненных проб больше нуля;
+      либо, в альтернативе, у GetAccessTokenIssuer/GetIDTokenIssuer есть вызывающий на пути
+      запроса церемонии, и проба краснеет при подмене значения издателя.
+    revision: 'ead5a64c79556e029d805623ee64e7c99f577363 (дерево 62d72779665f)'
+
+important:
+  - id: I2
+    tag: UNTRIMMED-VALUE
+    at: oauthceremony/ceremony.go:380
+    summary: >-
+      пустоту судит TrimSpace, а движку уходит значение без обрезки. На голове New принимает
+      "https://iam.example.net/iam/v1/token " и "https://iam.example.net/iam/v1/authorize ":
+      err=<nil>, проба-оверлей zz_gsr_probe_test.go, дерево копии не тронуто.
+      Получается второе написание адреса, которого служба не публикует.
+    requirement: 'отвергать значение, не равное strings.TrimSpace(value), с называнием поля; отрицательный случай — близнец годного адреса с хвостовым пробелом'
+
+foundation_candidates: []
+foundation_candidates_note: 'дельта — сам фундамент; второго помощника разбора адреса в corelib нет'
+
+style:
+  - id: S1
+    at: oauthceremony/endpoints_internal_test.go:38
+    summary: 'шапка recordedRequest не называет поле query (с круга 1)'
+  - id: S2
+    at: oauthceremony/ceremony_test.go:669
+    summary: 'в lawful "" служит пометкой «как в наборе» вместо самого адреса (с круга 1)'
+
+checklist:
+  error_wrap: 'ок — отказы через misuse, текст называет поле; errors.Is в пробах'
+  context: 'не затронуто'
+  no_panic: ок
+  slog: 'не затронуто'
+  naming: 'ок — латиница в идентификаторах; кириллица только в именах подслучаев и комментариях'
+  init_side_effects: нет
+  clean_arch: 'не затронуто (библиотека фундамента)'
+  doc_truthfulness: 'ок — шапки Issuer и адресов совпадают с кодом на голове'
+
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: "git diff 9f0393c540d7..ead5a64 -U0 | grep '^+' | grep -c -E 'TODO|FIXME|XXX|HACK|t\\.Skip' → 0"
+tests_in_same_pr: true
+security_comments_contradicting_code: []
+trailers_check: 'в сообщениях ead5a64 и 3535e77 Co-Authored-By / Claude-Session / Generated with — 0; первая строка «#38 …»'
+runs:
+  - 'go test -count=1 -run (две пробы) ./oauthceremony/ @ead5a64: 42 PASS / 0 FAIL / 0 SKIP'
+  - 'то же с overlay ceremony.go@3535e77f: 34 PASS / 8 FAIL'
+  - 'overlay-проба I2/формы издателя @ead5a64: 7 случаев исполнено; хвостовой пробел принят у обоих адресов'
+  - 'полный пакет, -race и линт не перегонялись: машина загружена (loadavg 43 на 32 ядра, чужой pre-push kacho-2817); перемер — check-verifier'

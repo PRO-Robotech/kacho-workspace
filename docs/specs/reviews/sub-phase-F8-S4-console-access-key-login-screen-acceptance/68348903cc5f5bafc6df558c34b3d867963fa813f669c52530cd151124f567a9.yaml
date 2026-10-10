@@ -1,0 +1,153 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  sha256: 68348903cc5f5bafc6df558c34b3d867963fa813f669c52530cd151124f567a9
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2). Слово DRAFT — статическая форма.
+    Действующий вердикт о редакции 3 — эта запись и внешнее событие.
+  content_commit: 7e8f6df5fd41d9ffb1a85a69fd8ed99e338ddfe3
+  branch: 897-s4-passkey-acceptance (копия tmp/ws-a3-s4)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/1274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  fingerprint_reproduced: true
+  lines: 689
+  code_base: PRO-Robotech/kacho @ 9b14ae7f01c · PRO-Robotech/kaname @ d2f6f182fab
+verdict: APPROVED
+round: 3
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-04T00:00:00Z'
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+event:
+  type: issue_comment
+  status: published
+  published: true
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-5976065598
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/5976065598
+  issue: PRO-Robotech/kacho-workspace#897
+  database_id: 5976065598
+  node_id: IC_kwDOSVvpIM8AAAABZDOGPg
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-04T03:12:29Z'
+  updated_at: '2026-10-04T03:12:29Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: 299461fc9cfb4a9ce9ab2c568c6b5aac7e93b919509e04e6aa16697035d017f2
+  header:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kacho-workspace:docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+    subject_revision: 7e8f6df5fd41d9ffb1a85a69fd8ed99e338ddfe3
+    subject_sha256: 68348903cc5f5bafc6df558c34b3d867963fa813f669c52530cd151124f567a9
+  subject_revision_on_origin_before_event: true
+  subject_sha256_on_origin_reproduced: true
+  verified_at: '2026-10-04'
+  verified_predicates:
+    body: >-
+      gh api repos/PRO-Robotech/kacho-workspace/issues/comments/5976065598 -q .body | sha256sum
+    subject: >-
+      git show origin/897-s4-passkey-acceptance:docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md | sha256sum
+  note: >-
+    Блок дописан отдельным коммитом после публикации события; вердикт и разбор этой записи не
+    правились. Решение о санкции принимается перемером условий change-graph.md §3 и предиката
+    §4 документа, а не этим блоком.
+sanction:
+  granted: false
+  pending_event: true
+  reason: >-
+    Вердикт — одобрение редакции 3 по отпечатку 68348903…. Санкция на код S4 (полоса KA6) возникает
+    только после публикации внешнего события курьером. Старт кода дополнительно ограничен
+    предикатом §4 документа: П1 и П2 сегодня 0 из 2.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b.yaml
+    - 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c.yaml
+
+premise_check:
+  claim: "редакция 3, sha256 68348903…, 689 строк, сценариев 15, решений 8; прошлые круги — 1 и 2"
+  result: >-
+    Подтверждено. `sha256sum` даёт 68348903…67a9, `wc -l` даёт 689, HEAD — 7e8f6df5fd41. В каталоге
+    две записи: круг 1 (f5d41cfd…) и круг 2 (0aebd7fc…). Значит, это круг 3.
+
+prior_round_closure:
+  B1_CONSTRUCTIBILITY: >-
+    Закрыто. Перемерено на kaname@d2f6f182fab. verify.go:542 — JudgeCounter: 0/0 не судится,
+    reported > stored означает сдвиг, иначе Regressed. finish_assertion.go:146/149 даёт
+    RefusalCounter, :163 вызывает AdvanceSignCount. access_key_repo.go:310–320 хранит присланное
+    значение (`SET sign_count = $3 … AND $3 > sign_count`). finish_registration.go:152 хранит
+    счётчик регистрации. Ф13 строки 559 и 1666 совпадают. protocol.d.ts 1.56.1: :18737 и :18741.
+    Посев К: у регистрации счётчик 0, у копии в контексте k — 100·k. Отсюда 100·k > 100·(k−1)+1
+    при любом k ≥ 1. Значит, F8S4-09 строится при верном экране, и перепись §6.3 (4 выдачи, 0
+    отказов) верна.
+  B2_DoD: >-
+    Закрыто. Предикат §7 п.1 перемерен на kacho@9b14ae7f01c с `F8-` по LoginPage.test.tsx,
+    carrier-order.test.ts и identity-ceremony.spec.ts. Получено 11 · 1 · 28, как и заявлено. С
+    `F8S4-` получено 0. Синтетика ловит `test("F8S4-01`, `` it(`F8S4-11 `` и `it("F8S4-06` и не
+    ловит `test.describe(` и `submit(`. Для F8S4-11 назначена отдельная проба
+    `it("F8S4-11 · …")` вне цикла F8-46.
+
+measurement:
+  seed_claims: >-
+    git grep @9b14ae7f01c: seedConfirmedHuman — ceremony-seed.ts:249, seedSecondFactor — :379,
+    ceremonyCensus — fixtures.ts:822. Счётчик подписи посева К, проверенный кодом службы
+    (B1 выше), строим.
+  twin_claim: >-
+    F8S4-01 и F8S4-02: «Дано» и адрес открытия дословно совпадают (строки 397–399 и 406–408),
+    различаются только нажатием. Модульные близнецы F8S4-06/-07/-13/-14 — это «условия F8S4-08»
+    с одним отличием.
+  arithmetic: >-
+    §6.3: выдач 1+1+1+2+4+1+1+1(П4) = 12, отказов 1+2 = 3, итого 15. Регистраций 8. Сумма
+    11+15 = 26 при пороге 320. Близнецы суммы: 321 даёт находку, 320 — молчание. У каждой доли
+    отдельно (310) находки нет.
+
+blocking: []
+
+important:
+  - id: I1
+    summary: >-
+      §7 п.1 говорит, что предикат ловит «любую кавычку», но шаблон `["`]` одинарную кавычку не
+      ловит: синтетика `it('F8S4-07')` даёт 0. На измеренной ревизии оба модульных файла пишут
+      имена двойной кавычкой или шаблонной строкой, поэтому ошибка возможна только в сторону
+      меньшего числа: предикат покраснеет и ложно не позеленеет. Слова «любой кавычке» в
+      следующей правке стоит сузить либо добавить `'` в класс.
+
+not_performed:
+  - subject: "посев К и К-снят и четыре контекста F8S4-09 на живом стенде"
+    reason: >-
+      Посева в дереве нет (N4 = 0). П1 и П2 — 0 из 2, стенда с П4 нет. Конструируемость показана
+      названной фикстурой (seedConfirmedHuman, CDP WebAuthn 1.56.1) и чтением кода службы, а не
+      посевом.
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  new_edge: false
+  security_surface: true
+  disclosure_safe: true
+
+next:
+  needed_agent: courier
+  task: "опубликовать событие acceptance-reviewer · APPROVED · 68348903…; код S4 — после П1/П2 §4"
+  owner_questions: []

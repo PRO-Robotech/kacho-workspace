@@ -69,7 +69,7 @@ if [ "$INJ05_ALONE" = 1 ]; then
         fi
     }
     assert_says() {   # <подстрока> <утверждение>
-        if printf '%s\n' "$OUT" | grep -qF -- "$1"; then
+        if grep -qF -- "$1" <<<"$OUT"; then
             echo "  [OK]   $2"; pass=$((pass + 1))
         else
             echo "  [FAIL] $2 — в вердикте нет «$1»" >&2

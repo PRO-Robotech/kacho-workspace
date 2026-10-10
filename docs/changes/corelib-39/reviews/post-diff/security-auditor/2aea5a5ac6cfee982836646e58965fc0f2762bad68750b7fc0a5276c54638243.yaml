@@ -1,0 +1,114 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 3.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменится дайджест — новый запуск и новый файл. Запись лежит в копии
+# воркспейса ветки 825 и НЕ закоммичена.
+schema_version: 1
+change_id: corelib-39
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 3
+subject: >-
+  corelib #39: потолки сроков трёх артефактов церемонии в tokenpolicy (код 60 с, семейство
+  токенов обновления 168 ч, токен доступа — MaxTokenTTL), отказ New выше потолка; круг 3 —
+  исправление F3: шапка MaxAuthorizationCodeTTL и контракт FetchAuthorizationCode говорят,
+  что запись погашенного кода хранится, пока может жить семейство, и проба это держит.
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '39 (`git branch -a --contains HEAD` → только локальная 39)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_is: 'merge-base(origin/32, HEAD); origin/32 = f213439a (перемерено после fetch)'
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: d167e009effc6580f311279c1b85aa6e73e1d12d
+  head_tree: 7a6cc77f0d1737a3e91e75a041fc539ac73ca531
+  shortstat: '11 файлов, +462 / -19'
+  commits: ['ea40a52', 'a19954a (merge #32)', '3d05765', 'c1cb73d', 'ef7914b', '8676ffe (merge #32)', 'd167e00']
+content_digest: sha256:2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243
+digest_definition: 'git -C tmp/corelib-39 diff --full-index f213439a..d167e009 | sha256sum (перемерено, совпадает с заданием)'
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T20:42:53Z'
+
+review_scope: >-
+  весь дифф (11 файлов: 3 прод — tokenpolicy/policy.go, oauthceremony/ceremony.go, ports.go;
+  8 проб и подставок). Межкруговая сверка: построчный дифф изменений c2261955..ef7914be против
+  f213439a..d167e009 по каждому файлу — новое содержание круга только d167e00 (шапка
+  MaxAuthorizationCodeTTL, контракт FetchAuthorizationCode, code_record_retention_test.go,
+  fakes_test.go) и перенос отказа по MaxTokenTTL в базу вместе с #32. Вне диффа прочитаны:
+  oauthceremony/bridge.go:216-330 (GetAuthorizeCodeSession, replayedCode, consumeCode);
+  strategy.go:1-140 (непрозрачные артефакты, ValidateAuthorizeCode судит только срок);
+  validateConfig на голове; fakes_test.go:498-525; движок flow_authorize_code_token.go:20-75 и
+  120-135, flow_authorize_code_auth.go:86, strategy_hmacsha_plain.go:40-109. Перепись реализаций
+  порта у потребителя: project/kaname @origin/main cbbac984b и все удалённые ветки —
+  FetchAuthorizationCode не реализован нигде (0 совпадений).
+experiments:
+  tmpdir: '/var/tmp/sa39r3.* (вне git-деревьев; удалён); дерево corelib после прогонов — 0 строк git status'
+  head_run: >-
+    go test -count=1 -run 'TestConsumedCodeRecordOutlivesTheCodeLifespan|TestSequentialCodeReplayRevokesTheFamily|
+    TestNewRefusesAnArtifactLifespanAboveItsCeiling|TestCeremonyLifespanCeilingsStayWithinTheProductDecision|
+    TestRefreshTokenFamilyCeilingStaysWithinTheSecretCredentialCeiling|TestGrantBoundHolds' -v
+    ./oauthceremony ./tokenpolicy → 7 верхнего уровня прошли, 0 упали; оба пакета ok.
+  injection_bridge_judges_consumed_code_expiry: >-
+    -overlay с bridge.go, где погашенный код с истёкшим сроком отдаётся движку как «кода нет»
+    вместо повтора (регрессия, против которой написан новый абзац контракта):
+    TestConsumedCodeRecordOutlivesTheCodeLifespan/запись_цела КРАСНАЯ, 7 утверждений
+    (invalid_grant вместо authorization_code_consumed, семейство не отозвано, порт отзыва не
+    вызван, пара жива); близнец «запись снята» зелёный; TestSequentialCodeReplayRevokesTheFamily
+    (повтор в пределах срока) зелёная — этот класс держит ровно новая проба.
+
+premise: >-
+  подтверждена по коду: на ветке погашенного кода bridge.go:247 зовёт replayedCode, срок кода
+  не сверяется; движок узнаёт повтор на flow_authorize_code_token.go:33-34, раньше
+  ValidateAuthorizeCode (строка 62), который один судит срок. Инъекция выше показывает, что
+  проба различает запись и срок.
+
+closed:
+  - id: F3
+    key: 'corelib:tokenpolicy/policy.go:code-record-retention-claimed-bounded-by-code-ttl'
+    how: >-
+      policy.go:225-236 — раздел «Чего этот срок НЕ ограничивает»: срок кода — окно годности к
+      обмену; запись погашенного кода хранится, пока может жить семейство, порог уборки — от
+      MaxRefreshTokenFamilyTTL; слов «оба окна» нет. ports.go:173-179 — та же обязанность в
+      контракте выборки. Проба TestConsumedCodeRecordOutlivesTheCodeLifespan с близнецом;
+      красная на инъекции (см. experiments). Ни одного места в дереве, утверждающего прежнее
+      (git grep по формулировкам прежней шапки — 0).
+
+findings: []
+
+disclosure: >-
+  признак восстановимости прогнан по новым комментариям и сообщениям семи коммитов полосы:
+  абзац контракта называет запрещаемое свойство прямо (место — контракт порта, выхолащивать
+  нельзя); живого дефекта, к которому текст дал бы координату, нет — реализаций порта у
+  потребителя ноль. Сообщения описывают состояние комментария и константы на неопубликованной
+  локальной ветке. Трейлеров атрибуции 0.
+
+notes:
+  - >-
+    не находка (проба, не безопасность): комментарий codeRetentionWait говорит, что срок кода
+    назначается Round(time.Second); у кода округления нет (flow_authorize_code_auth.go:86 —
+    Round только у токенов). Запас паузы от этого лишь больше. Проба на реальных часах: первый
+    обмен обязан успеть за 1 с от выдачи, под нагрузкой это возможный ложный КРАСНЫЙ (не
+    ложный зелёный). Предмет go-style-reviewer.
+  - >-
+    не находка (форма сообщения, предмет landing-reviewer): у ea40a52 тема 78 знаков и тело
+    16 строк при правиле ≤72 и ≤12; коммит был и на прошлых кругах.
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    subject: >-
+      kaname#318 / замысел L2, L6: загрузчик судит `code-ttl` и `refresh-ttl` константами
+      фундамента после пина; вставка преемника при обороте сжимается к моменту создания
+      семейства + MaxRefreshTokenFamilyTTL (инв. 41). Реализация AuthorizationCodeVault отдаёт
+      третий исход весь срок хранения записи; порог уборки — от якоря семейства плюс
+      MaxRefreshTokenFamilyTTL и допуски §4.4а, а не от срока кода; если якорем взят миг выдачи
+      кода, окно кода входит в допуск. Держать пробой сквозь обе стороны на настоящем
+      хранилище: код обменян → срок кода истёк → повтор → семейство отозвано.
+
+relation_to_other_records:
+  prior_security_round: '2db18f96….yaml — F3 закрыт этим диффом (по коду и инъекцией); 408fb307….yaml — F1, F2 закрыты кругом 2.'
+
+dry_round: true
+seen_keys:
+  - 'corelib:tokenpolicy/policy.go:refresh-ceiling-is-idle-not-family'
+  - 'corelib:tokenpolicy/policy.go:code-ceiling-diverges-from-decision'
+  - 'corelib:tokenpolicy/policy.go:code-record-retention-claimed-bounded-by-code-ttl'

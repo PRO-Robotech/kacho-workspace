@@ -1,0 +1,184 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 1.
+#
+# Имя файла — content_digest отсуженного диффа. Прежних записей этой роли по
+# corelib-63 нет. Запись лежит в рабочей копии воркспейса ветки 825 и НЕ
+# закоммичена — её сводит пакетный коммит записей ревью.
+schema_version: 1
+change_id: corelib-63
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+previous_record: '—'
+subject: >-
+  corelib #63 — сопряжение полос #36, #37, #39 на голове сборки 64019361.
+  Три коммита: dafe2b96 — подставка старит все мгновения записи обходом
+  значения (agedCopy) и судит состаренность исходом (instantsNotShifted), а не
+  выписанным перечнем; 0e2414d6 — второй клиент проб повтора заводится и у
+  порта сверки секрета (registerClientLike), предпосылка «порт признал секрет»
+  держится requireAuthenticatedBy; 55adf317 — в мосту сняты два вызова
+  record(ours) сразу за markReplayedFamily (случай повтора записывает одна
+  пометка). Прод-код: только bridge.go, 10 удалённых строк.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '63'
+  base: 64019361707d8582a47ef747eacb555a170f4efe
+  base_tree: 7496980f1a1e3fc1134d5dc5c8eceb3be1d8aab6
+  base_is: 'локальная голова сборки tmp/corelib-32 (из задания; не отправлена); git merge-base --is-ancestor base HEAD — да'
+  head: 55adf317da2373568aecd6ce76fc0d5800ac2449
+  head_tree: 34a10d47126836f56cf6ad1b92a4ef4d2b710155
+  shortstat: '6 файлов, +477 / -68; прод — oauthceremony/bridge.go -10, остальное *_test.go'
+  commits:
+    - 'dafe2b9 #63 подставка старит все мгновения записи, а не выписанный перечень'
+    - '0e2414d #63 второй клиент пробы повтора заведён и у порта сверки секрета'
+    - '55adf31 #63 мост: случай повтора до сборки записывает одна пометка'
+content_digest: sha256:852b3fe54ae8f47a8e23b32d15faf1bb8745c583b6e97e677e74940c58e75645
+digest_definition: |
+  git -C tmp/corelib-63 diff --full-index 64019361707d8582a47ef747eacb555a170f4efe..HEAD | sha256sum
+  (перемерено своей командой — совпадает с заданием; git status --porcelain — 0 строк)
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-24T02:00:07Z'
+return_to: '—'
+review_scope: >-
+  полный закоммиченный дифф (6 файлов). Вне диффа прочитаны: notes.go:180-260
+  (record, preferRecorded, markReplayedFamily), bridge.go:175-184 (pairEngine),
+  bridge.go:230-330 и 550-565 (прочие вызовы record), bridge.go:403-520 и
+  595-690 (выборки и погашение кода, выборка и оборот токена обновления),
+  translate.go:385-396, types.go:184-280 и 333-339 (SessionRecord, GrantRecord,
+  AuthorizationCodeRecord), ports.go:534-557 (SecretVerdict),
+  fakes_test.go:35-66 (codeRow, memoryPorts), ceremony_test.go:85-103
+  (registerTestClient), ceremony.go:671, logincontext.go:20-48.
+
+premise:
+  status: подтверждена
+  what: 'сопряжение не ослабляет решений полос #36, #37, #39'
+  how: 'чтением (ниже по решениям) и экспериментом — четыре инъекции через go test -overlay, дерево не тронуто'
+
+decisions_of_lanes:
+  lane_36_replay_is_the_operation_answer: >-
+    НЕ ослаблено, усилено. markReplayedFamily (notes.go:237-249) ставит точный
+    случай операции тем же правилом «первый побеждает», что и record; снятые
+    вызовы record(ours) шли сразу за ним с тем же ours. Единственное расхождение
+    — пустой grantID (пометка молчит целиком) — на обоих местах недостижимо:
+    GetAuthorizeCodeSession отвергает погашенный код без гранта раньше
+    (bridge.go:431-433; replayedCode зовётся только с bridge.go:435),
+    GetRefreshTokenSession — обёрнутый токен без гранта (bridge.go:618-621).
+    Отказ справочника при сборке (grantClient, bridge.go:265) записывается
+    ПОСЛЕ пометки и повтора не вытесняет. Комментарии, называющие
+    markReplayedFamily единственным местом (bridge.go:452-457, 600-608;
+    notes.go:227-236; translate.go:389-392), правдивы. Инъекция inj_A
+    доказывает, что до #63 два места прятали друг друга (см. experiments).
+  lane_37_closed_port_refusal_classification: >-
+    НЕ ослаблено. Прод-классификация отказов портов в дельте не тронута
+    (verifyClientSecret, closedPortFailure, fromPort — вне диффа). В подставке
+    VerifyClientSecret вердикт считает secretVerdict под тем же m.mu, ветка
+    verifyOverride сохранена; журнал сверок теперь несёт вердикт. Нулевое
+    значение — SecretVerdictUnspecified (ports.go:547), не SecretMatched,
+    поэтому неназванный вердикт предпосылку requireAuthenticatedBy не
+    выполняет. Второй клиент теперь известен порту сверки, и проба повтора на
+    пути кода доходит до выборки кода, а не судит invalid_client. Радиус: в
+    пробах oauthceremony второго клиента заводят ровно два места, оба через
+    registerClientLike (ceremony_test.go:121); прочие правки store.clients —
+    по testClientID; ceremony_test.go:602 — намеренно незаведённый клиент.
+  lane_39_ceilings_and_record_retention: >-
+    НЕ ослаблено. Код потолков (tokenpolicy, validateConfig) вне дельты.
+    Старение записи кода: прежние формы отказа сохранены — неэкспортированное
+    поле с мгновением и ключ карты с мгновением отказывают и называют место
+    (TestAgedCopyRefusesAFormItCannotShift); сверка сдвига написана отдельным
+    обходом (instantsOf), не судит сдвиг им же самим; значения под `any` теперь
+    стареют по самому значению — шире прежнего обхода типа. Слепые формы
+    новой подставки те же, что у прежней (см. I-1). Инъекция inj_C: пропуск
+    Session.AuthTime краснит предпосылку пробы записи с текстом, называющим поле.
+
+experiments:
+  workdir: 'tmp/corelib-63 @55adf317; копия базы — git archive 64019361 в /var/tmp/gsr63/base; TMPDIR=/var/tmp/gsr63; -count=1; go1.26.8 локально, без -race; шаг 0 — MemAvailable 32 ГБ, чужих golangci-lint/pre-push/go test 0; дерево после — 0 строк git status'
+  tree_targeted: 'go test -v -run <7 проб повтора и старения> ./oauthceremony → ok; 8 тестов верхнего уровня прошли, упало 0'
+  tree_package: 'go test -json ./oauthceremony → package pass; тестов и подтестов прошло 1485, упало 0, пропущено 0'
+  inj_A_marker_stops_setting_the_precise_case: >-
+    -overlay notes.go: из markReplayedFamily снято «if n.precise == nil {
+    n.precise = refusal }». На голове 55adf317 — 4 красных:
+    TestReplayOutlivesADirectoryFailureWhileBuildingTheRequest,
+    TestReplayOfATokenWhoseClientIsGoneStillRevokesTheFamily,
+    TestReplayWithABrokenSessionRecordIsStillAReplay,
+    TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily. На базе 64019361
+    (notes.go побайтово тот же) та же инъекция нового красного не даёт:
+    красных 2 и без неё, и с ней (TestConsumedCodeRecordOutlivesTheCodeLifespan,
+    TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily — красные сборки-6),
+    три прочие пробы повтора зелёные. Утверждение коммита 55adf31 подтверждено.
+  inj_C_aging_skips_AuthTime: >-
+    -overlay fakes_test.go: agedValue пропускает поле AuthTime. Красная 1 —
+    TestConsumedCodeRecordOutlivesTheCodeLifespan: «НЕ ВЫПОЛНИЛОСЬ: мгновения
+    [GrantRecord.Session.AuthTime] записи кода не сдвинуты на -2m0s: состаренная
+    запись не была бы прошедшим временем». Несозданное условие названо
+    «не выполнилось», а не красным утверждения.
+  inj_D_second_client_without_secret: >-
+    -overlay ceremony_test.go: registerClientLike не кладёт секрет. Красные 2 —
+    обе пробы повтора ушедшего клиента: «НЕ ВЫПОЛНИЛОСЬ: порт сверки не признал
+    секрет клиента svc-other за операцию (вызовы [svc-other признан=false])»
+    (refresh_replay_test.go:360, replay_build_test.go:207).
+  exp_B_blind_forms_of_the_aging_walker: >-
+    -overlay с временной пробой вне дерева: значение с полями namedInstant
+    (type namedInstant time.Time), Epoch int64 и map[any]string с ключом
+    time.Time. agedCopy err=nil, instantsNotShifted off=[] err=nil; ни одно из
+    трёх не сдвинуто. Основание находки I-1.
+  identifiers: 'go/scanner по 6 файлам диффа: идентификаторов 7333, не-ASCII 0'
+  gofmt_vet: 'gofmt -l oauthceremony — 0 файлов; go vet ./oauthceremony — ok'
+  commit_form: 'темы 58, 64, 67 знаков; тела 6, 8, 8 непустых строк; трейлеров 0; все три — одиночные потомки (не слияния); автор pointpu'
+  lint_and_suite: 'исход линтера, полного набора и -race не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # TODO|FIXME|XXX|HACK по полному диффу
+  panic_stray_logging_in_added_lines: 0   # panic( | log. | fmt.Print | context.Background( | context.TODO( в добавленных строках
+  cyrillic_identifiers: 0
+  probes_in_same_pr: true                 # 13 новых (3 теста + 10 подтестов record_aging_test.go), 2 пробы повтора перестроены; снятие в bridge.go держат 4 пробы (inj_A)
+  prod_lines_changed: '-10, только oauthceremony/bridge.go (два вызова record и их комментарии)'
+
+findings:
+  critical: []
+  important:
+    - id: I-1
+      class: doc-truthfulness / blind-form-of-the-fixture
+      where: 'oauthceremony/fakes_test.go:455-456 (ageCodeRecord), :490-491 (agedCopy), :673-674 (carriesInstant)'
+      summary: >-
+        комментарии обещают больше, чем делает обход: «поле, которое запись
+        получит завтра, состарится вместе с прочими» и «каждое ненулевое
+        мгновение (time.Time где угодно по составу значения)». Именованный тип
+        над time.Time, ключ time.Time под `any` в ключе карты и число-эпоха не
+        сдвигаются и не отвергаются, а сверка instantsNotShifted отвечает
+        «сдвинуто всё» (exp_B). Решения #39 это не ослабляет: прежний обход типа
+        (carriesInstant) был слеп к тем же формам; сегодня GrantRecord ни одной
+        из них не несёт (IssuedAt, Session.AuthTime, Session.ExpiresAt,
+        Session.NotAfter; Claims map[string]any, ключи контекста входа
+        отвергает loginContextDefect).
+      requirement: >-
+        сузить фразы до «поле типа time.Time (само, под указателем, в составе)»
+        и назвать слепые формы; либо дешевле — agedValue и instantsOf отвергают
+        тип, для которого ConvertibleTo(timeType) и который не timeType (эпоху
+        по типу не распознать — её назвать в комментарии). Не блокирует;
+        следующим касанием подставки.
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-1
+      where: 'oauthceremony/fakes_test.go:509'
+      summary: 'agedValue — единственная новая функция дельты без doc-комментария; agedCopy, instantsOf, instantsNotShifted, secretVerdict, registerClientLike, requireAuthenticatedBy его несут. Не блокирует.'
+  security_comments_contradicting_code: []   # снятые комментарии bridge.go описывали порядок записи; оставшиеся (bridge.go:452-457, 600-608) правдивы
+  disclosure: 'дельта — поведение протокола (повтор, сверка секрета клиента) на уровне стандарта; операционных координат защиты нет.'
+
+approved:
+  - 'одно решение — одно место: случай повтора ставит только markReplayedFamily; снятие дубля превратило маскировку в держателя (0 → 4 красных под inj_A)'
+  - 'снятие поведенчески равносильно: единственное расхождение пометки с record (пустой грант) недостижимо на обоих местах вызова'
+  - 'перечень, выписанный рукой, заменён обходом значения; состаренность судится исходом отдельным кодом; нулевое мгновение остаётся отсутствием'
+  - 'копия, а не правка на месте: карты и срезы записи копируются (TestAgedCopyShiftsEveryInstantOfTheValue проверяет, что образец не тронут и указатель не общий)'
+  - 'самопроверки подставки на синтетике с законным близнецом и инъекцией на каждую форму; «сверять нечего» — отказ, а не «сдвинуто всё»'
+  - 'предпосылка проб повтора отделена от их утверждения: отказ сверки — «НЕ ВЫПОЛНИЛОСЬ», проба не судит чужой предмет'
+  - 'generics agedCopy/instantsNotShifted оправданы: 4 и 2 типа, типизированный результат без приведения у вызывающих'
+  - 'нет паники, init(), сторонних логгеров, context.Background в прод-коде; идентификаторы — латиница; форма коммитов по правилам владельца'
+
+outside_diff: []
+
+next: >-
+  сбор пост-дифф записей — convergence-reviewer либо landing-reviewer; I-1 и
+  S-1 — go-implementer полосы #63 следующим касанием подставки, посадку не
+  блокируют

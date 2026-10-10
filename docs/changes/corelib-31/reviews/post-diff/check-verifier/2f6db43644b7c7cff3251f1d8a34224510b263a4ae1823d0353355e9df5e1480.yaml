@@ -1,0 +1,54 @@
+# Приёмка работы-проверки — роль check-verifier. Имя файла — content_digest.
+schema_version: 1
+change_id: corelib-31
+holder: post-diff/check-verifier
+owner: check-verifier
+round: 2
+previous_record: 75953b8953c1314dde29c1359554549ba4264d808670728d1da65b132927c0e4.yaml   # ⛔ B1, B4
+mode: приёмка работы-проверки (повтор по возврату)
+subject: .github/scripts/pr-target-branches.py (types, закрытый словарь ключей события, условия if вычислением) + комментарий ci.yml
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '31'
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  head: cc3ef3c653f36ab48c6f4fcb1c3cf269138753b0
+  shortstat: '2 files changed, 813 insertions(+), 4 deletions(-)'
+content_digest: sha256:2f6db43644b7c7cff3251f1d8a34224510b263a4ae1823d0353355e9df5e1480
+digest_definition: 'git diff --full-index 9f0393c540d7..HEAD | sha256sum — совпал с заявленным'
+isolation: 'клон копии в kacho-workspace/tmp/cv-corelib-31-r2-*, detached @cc3ef3c, TMPDIR ~/.cache/cv-tmp-c31r2; копия corelib-31 не тронута'
+premises:
+  ci_yml_comment_only: 'yaml.safe_load f6203c0 == cc3ef3c → True'
+  gate_callers: 'git grep pr-target-branches → только ci.yml (локальных хуков нет)'
+experiments:
+  control: 'гейт rc 0 (процессов 1, заданий 9, if 1); --self-test rc 0, проб 69, провалов 0; то же под python:3.13-slim + PyYAML 6.0.3 (самопроба rc 0, 69/0)'
+  three_runs_old_gate_f6203c0: 'B1, B4, event_name, if:false, ключ branch — все rc 0 (дефект подтверждён на прежнем гейте)'
+  injections_new_gate:
+    B1 types:[closed]: 'rc 1, нарушений 3 (opened/synchronize/reopened)'
+    B1b types:[opened,synchronize]: 'rc 1, «reopened»'
+    B4 if github.event[...]['base']['ref']: 'rc 2, ПРЕДПОСЫЛКА НЕ ДЕРЖИТСЯ, задание build'
+    B3 if github.event.pull_request.base.ref: 'rc 2'
+    B5 if github.event_name: 'rc 2'
+    B6 if false: 'rc 1, «не истинно ни на одном пути»'
+    B7 ключ branch: 'rc 2, «ключ branch разбору не известен»'
+    B8 шаг gosec#7 if env.X: 'rc 2'
+    D1..D6: 'rc 1 каждый, координаты как в круге 1'
+  twins_silent: 'types [opened,synchronize,reopened] rc 0; блочный список + labeled rc 0; if always() rc 0; ${{ !cancelled() }} rc 0; if true rc 0; T1 rc 0; T2 rc 0'
+  empty_walk: 'ci.yml снят с индекса: rc 2 «обход пуст»'
+  selftest_mutations: 'M1 снят findings в _types → самопроба rc 1, провалов 4; M2 Unknown условия проглочен → rc 1, провалов 7'
+  false_green:
+    N1: >-
+      задание zz-after (needs: zz-report, без if) после отчётного zz-report (needs: build, if: failure()):
+      гейт rc 0; actionlint 1.7.7 rc 0 (файл законен). На зелёном пути zz-report пропущен, zz-after
+      пропускается следом (хостинг: jobs.<id>.needs — пропуск вышестоящего пропускает нижестоящего без
+      условия), пропуск защита засчитывает успехом. Близнец с if: always() у zz-after — rc 0 верно.
+      Варианты if: success() и needs [build, zz-report] — тоже rc 0. Нарушено свойство 6 шапки гейта.
+not_distinguished:
+  - 'дубли ключей YAML (второй pull_request, второй if у задания): PyYAML берёт последний, гейт rc 0; actionlint отвергает (syntax-check). В CI довод слаб: отвергнутый файл не запускает и сам гейт'
+  - 'continue-on-error у задания проверки — вне заявленного свойства'
+  - 'чтение шаблона и пропусков хостингом живым запуском не измерено'
+masks: 'не найдено; осмотрено: дифф обоих коммитов, самопроба 69 проб, 9 заданий ci.yml'
+verdict: ⛔ возврат
+return_demand: >-
+  B1 и B4 закрыты. Новое: N1 — задание, чьи needs (транзитивно) включают задание, ложное на зелёном
+  пути, без собственного условия, истинного при пропуске вышестоящего, обязано давать 1 или 2, а не 0;
+  инъекцией в --self-test, близнец — то же задание с if: always() → 0.

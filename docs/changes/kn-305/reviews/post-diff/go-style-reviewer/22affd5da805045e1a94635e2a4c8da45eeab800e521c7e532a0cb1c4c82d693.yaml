@@ -1,0 +1,122 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, круг 2.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2). Место назначения —
+# docs/changes/kn-305/reviews/post-diff/go-style-reviewer/ воркспейса (переносит оператор).
+schema_version: 1
+change_id: kn-305
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: 'kaname#305 — завершение восстановления решает счёт по адресу местом решения входа (круг 2 по C1)'
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '305'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kaname-305
+  base: 253cf0446c30745a61c98671a34e207069da00ed
+  head: 51ab4f05ba7b6eec34112b98e451b4420d29cf5d
+  round_delta: 0ff5058fa09ed9bad7bc5920257cf27914eef1d1..51ab4f05ba7b6eec34112b98e451b4420d29cf5d
+content_digest: sha256:22affd5da805045e1a94635e2a4c8da45eeab800e521c7e532a0cb1c4c82d693
+digest_definition: >-
+  git -C <копия полосы> diff --full-index 253cf0446c30745a61c98671a34e207069da00ed..51ab4f05ba7b6eec34112b98e451b4420d29cf5d
+  -- . ':!docs/specs/reviews' | sha256sum — перемерено своей командой; merge-base(base, head) = base.
+supersedes_round: sha256:555e3fe19748036e2a009e92951d4338eb9865d1ca50ade0451622383d7b7e54 (круг 1, возврат)
+
+verdict: accepted            # принято
+blocks_landing: false
+timestamp: '2026-09-23T00:00:00Z'
+review_scope: >-
+  полный закоммиченный дифф base..head (23 файла, из них вне docs — 19); предмет круга —
+  дельта 0ff5058f..51ab4f05 (17 файлов: прод 8, пробы 9)
+
+files_reviewed_round_delta:
+  - cmd/kaname/loginlane.go
+  - internal/apps/kaname/api/humansession/completed_login.go
+  - internal/apps/kaname/api/humansession/iface.go
+  - internal/apps/kaname/api/humansession/recovery_complete.go
+  - internal/apps/kaname/api/humansession/second_factor.go
+  - internal/apps/kaname/api/humansession/sf_enroll.go
+  - internal/repo/kaname/pg/human_session_repo.go
+  - internal/repo/kaname/pg/login_method_repo.go
+  - internal/apps/kaname/api/humansession/completed_login_test.go
+  - internal/apps/kaname/api/humansession/fake_store_test.go
+  - internal/apps/kaname/api/humansession/recording_store_test.go
+  - internal/apps/kaname/api/humansession/recovery_refusal_work_test.go
+  - internal/apps/kaname/api/humansession/recovery_usecase_test.go
+  - internal/apps/kaname/api/humansession/usecase_test.go
+  - internal/check/login_verifier_containment_test.go
+  - internal/handler/loginlanehttp/session_lane_integration_harness_test.go
+  - internal/repo/kaname/pg/human_session_writer_login_method_integration_test.go
+
+round1_findings:
+  - id: C1
+    status: closed
+    how: >-
+      Чтение заведённых способов снято с участка до точки решения; теперь оно в complete(),
+      только у применённого кода и незаблокированной личности, через Writer.LoginMethod
+      (recovery_complete.go:321). Зависимость Methods из CompleteRecoveryDeps убрана
+      (cmd/kaname/loginlane.go:507), значит use-case достаёт хранилище только через Store.
+    evidence: >-
+      Эксперимент на снимке head вне git-деревьев (/home/dk/.cache/review-305/src):
+      TestRecovery_WrongCodeRefusalDoesTheSameStoreWorkForNobodyAndForSomeone PASS, на всех
+      трёх вариантах «адрес есть» по 12 обращений, столько же у «адреса нет». Положительный
+      контроль: у полосы выдачи 17 обращений, и в ряду есть чтение способов. Инъекция: вернул
+      чтение enrolledMethods(ctx, w.LoginMethod, …) до ConsumeRecoveryCode при found. Проба
+      стала красной, 14 обращений против 12. Правку откатил, снимок сверен с head побайтно.
+  - id: I1
+    status: closed
+    how: >-
+      Перечень «Порядок внутри обращения» (recovery_complete.go:24-30) и шапка complete()
+      (:248-251) идут в порядке кода: точка решения → материал → снятие сессий → отсечка →
+      журнал → выдача → чтение заведённого → решение о счёте → событие → фиксация.
+  - id: I2
+    status: closed
+    how: >-
+      completed_login.go:127-131 прямо называет, что завершение восстановления сюда не ходит.
+      Перепись в пробе конструкторов дала 5 полос и CompleteRecoveryUseCase в них нет, что
+      совпадает с кодом.
+
+critical: []
+important: []
+foundation_candidates: []
+
+style:
+  - id: S1
+    class: DOC-TRUTH
+    coordinate: internal/repo/kaname/pg/login_method_repo.go:94-96
+    finding: >-
+      В doc-комментарии loginMethodQuerier сказано только «то, что исполняет вставку». Теперь
+      тот же интерфейс исполняет и getLoginMethod: пулом через Get и транзакцией писателя сессии.
+    requirement: 'назвать обоих операторов (вставку и чтение) либо сформулировать без перечня; не блокирует'
+
+security_comments_contradicting_code: []   # recovery-of-access.md:384-386 теперь верен о коде (C1 закрыт)
+
+fresh_deferral_markers: 0      # полный дифф base..head, кроме docs/specs/reviews
+tests_in_same_pr: true
+
+approved:
+  error_wrapping: >-
+    новая ошибка complete() оборачивается %w; Execute отображает её в ErrStoreUnavailable, так что
+    текст драйвера наружу не уходит; getLoginMethod сохраняет отображение NOT_FOUND через iamerr
+  ctx_propagation: 'ctx прокинут в Writer.LoginMethod → getLoginMethod(q=w.tx); context.Background() только в пробах'
+  no_panic: 'panic/Must*/log.Fatal в прод-части диффа нет'
+  logging: 'slog.ErrorContext со структурными полями user_id и err; личных данных нет'
+  no_nested_pool_acquire: >-
+    Writer.LoginMethod читает на соединении открытой транзакции. Это держит интеграционная проба
+    TestHumanSessionWriter_LoginMethodReadsOnTheTransactionsOwnConnection: пул MaxConns=1,
+    положительный контроль Get пулом упирается в срок; перемерено против Postgres, PASS
+  single_operator: >-
+    у чтения строки способа один оператор getLoginMethod с двумя исполнителями; гейт
+    TestLoginVerifierStaysInside перемерен в индексированном снимке, PASS: 967 файлов, объявление
+    потребителя переведено
+  layering: >-
+    порт Writer объявлен в use-case, реализация делегирует функции адаптера таблицы секрета в
+    том же пакете pg; функциональный тип loginMethodRead вместо generics; pgx и транспорт в
+    use-case не протекли; связывание только в cmd/kaname/loginlane.go
+  gates_rerun: >-
+    internal/check -run 'LoginVerifier|FailureReset|EnrollmentReader|EnrolledAxis' — 12 PASS;
+    humansession -run 'TestRecovery_|TestEveryEnrollmentReader' PASS; go vet по трём пакетам — 0
+
+linter_probes_outcome: not-claimed-by-this-role
+return_to: '—'
+next_requested: 'сбор пост-дифф записей (convergence-reviewer либо landing-reviewer) на дайджесте 22affd5d…'

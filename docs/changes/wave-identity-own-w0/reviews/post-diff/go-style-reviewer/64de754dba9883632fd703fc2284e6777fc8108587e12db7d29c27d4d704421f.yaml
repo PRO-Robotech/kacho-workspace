@@ -1,0 +1,170 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, круг 4 (повторный
+# проход после блокера посадочного B5: тексты о гашении носителя при выходе).
+# Судится ТОЛЬКО дельта прежняя голова → новая и один вопрос: не противоречат ли
+# комментарии о защите коду. Принятое в кругах 1–3 не пересуживается.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 4
+previous_record: docs/changes/wave-identity-own-w0/reviews/post-diff/go-style-reviewer/3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef.yaml
+subject: >-
+  Дельта ab1ad6ee88a..bdac9a1f8d1: коммит ea02df843bc «docs(gateway): тексты о
+  гашении при выходе сужены до сделанного» и слияние bdac9a1f8d1
+  (fix/wave0-b5-logout-texts) в ветку волны. Семь файлов: шесть Go
+  (session_carrier_names.go, auth.go, login_lane_relay.go, logout_handler.go,
+  две пробы края) и страница gateway/docs/content/install/configuration.mdx.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pull_request: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: bdac9a1f8d1e937c2b079810fcf25de34e7907e4
+  previous_head: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+  files: 69
+content_digest: sha256:64de754dba9883632fd703fc2284e6777fc8108587e12db7d29c27d4d704421f
+digest_definition: 'sha256 сырого вывода `git diff bec320cf47d...bdac9a1f8d1` (трёхточечный)'
+
+subject_preflight:
+  digest_matches_declared: >-
+    ДА, дважды: до разбора и перед вердиктом (после `git fetch origin`), оба раза
+    64de754d…421f. Прежний дайджест на ab1ad6ee88a тем же предикатом —
+    3c93ec13…a8ef, равен объявленному.
+  merge_base: '`git merge-base bec320cf47d bdac9a1f8d1` → bec320cf47d… = `git rev-parse origin/main`.'
+  head_on_origin: '`git rev-parse origin/wave/identity-own-w0-kacho` → bdac9a1f8d1…, равна объявленной.'
+  files: '69 — `git diff --name-only bec320cf47d...bdac9a1f8d1 | wc -l` (было 68: дельта ввела в дифф волны configuration.mdx).'
+  delta: '`git diff --shortstat ab1ad6ee88a bdac9a1f8d1` → 7 файлов, +84 −28.'
+  delta_is_comment_only: >-
+    ДА, двумя предикатами. (1) Строки: в `git diff -U0 ab1ad6ee88a bdac9a1f8d1 -- '*.go'`
+    изменённых строк 97, не начинающихся с `//` — 0. (2) Разбор: sha256 печати
+    go/parser без комментариев (mode 0, go/printer RawFormat) равен на обеих
+    головах для всех 6 Go-файлов; контроль — `Domain: "x"` в литерал
+    SessionCarrierEndings даёт другой хэш (e79d85aa… против c88d0339…).
+    Страница .mdx меняет только строки комментария внутри блока кода;
+    экранирование обратных кавычек (\`…\`) — то же, что у соседних строк блока.
+  commit_identity: 'ea02df843bc и bdac9a1f8d1 — автор и коммиттер pointpu <pointpu@prorobotech.ru>; трейлеров атрибуции в телах 0 (`git log --format=%B ab1ad6ee88a..bdac9a1f8d1 | grep -ciE "co-authored-by|claude-session|generated with"`).'
+
+b5_closure:
+  status: закрыт в дельте и в радиусе
+  class: >-
+    Текст утверждает, что выход ЗАКРЫВАЕТ оба печенья во всех состояниях («гасит
+    ОБА имени», «иначе оставлял бы целое чужое печенье»), тогда как край выдаёт
+    гашение без `Domain` (SessionCarrierEndings), и браузер сопоставляет его
+    только с печеньем, выданным тоже без `Domain`. Дельта сузила утверждение до
+    ВЫДАЧИ гашения и назвала предусловие объявления `own,external`.
+  radius_predicate:
+    command: "git grep -nE 'гасит ОБА|гасит оба|ОБА имени|оба имени|целое чужое печенье|целое ЧУЖОЕ печенье|откатить профиль на одно|вход обратно от отката|clears? both|both (carrier )?names|Clear the client session cookie|оставляет человека ВОШЕДШИМ по второму' <rev>"
+    previous_head: 33
+    head: 23
+    head_hits_by_referent: >-
+      О предмете одно: session_carrier_precedence_test.go:731-732 «погашены ли ОБА
+      имени ОТВЕТОМ» — утверждение об ответе, тело endedBothCarriers судит
+      res.Cookies() с MaxAge<0; верно. Остальные 22 — другой референт
+      (слушатели compute/nlb/vpc, имена реестра/гейтов/полей, zot, terraform).
+  window_predicate:
+    command: "git grep -niE '(выход|logout|гас|гаш).*(чуж|provider|поставщик|kratos_session)|(чуж|поставщик|kratos_session).*(выход|logout|гас|гаш)' <head> -- gateway deploy docs services/iam"
+    head_hits_by_referent: >-
+      Новый текст дельты — сверен ниже; «provider-side session» у logout-обработчика
+      (values.dev.yaml:402, revocation_validation.go, config.go:443, values.own.yaml:75)
+      — административное снятие сессии поставщика, не печенье; session_carrier_names.go:90
+      — несовпадение ПУТИ, верно; logout_handler_test.go:85 — текст утверждения о
+      выданном гашении в ответе, верен как о ответе. Вне дельты — A1.
+
+claims_checked_against_code:
+  - claim: 'session_carrier_names.go (шапка, EndSessionCarriers, SessionCarrierEndings) — гашение края идёт без `Domain`; атрибуты Path=/, HttpOnly, Secure, SameSite=Lax'
+    evidence: 'session_carrier_names.go, тело SessionCarrierEndings: литерал http.Cookie без поля Domain, Path "/", MaxAge -1, HttpOnly, Secure, SameSiteLaxMode; EndSessionCarriers — http.SetCookie по SessionCarrierEndings().'
+  - claim: 'шапка — перечень гашения от множества не зависит'
+    evidence: 'SessionCarrierEndings обходит sessionCarrierNames (оба имени, константы), параметра множества нет.'
+  - claim: 'шапка, .mdx — НАШЕ печенье выдаётся без `Domain` при `kaname.config.authn.login.cookieDomain: none`, служба гасит его той же формой'
+    evidence: >-
+      kaname origin/main cbbac984b7b: internal/apps/kaname/config/login_lane.go:142-148
+      (ResolvedCookieDomain: "none" → ""), cmd/kaname/loginlane.go:551
+      (CookieDomain: login.ResolvedCookieDomain()), internal/handler/loginlanehttp/handler.go:796
+      (выдача, Domain: h.cfg.CookieDomain) и :803-804 (гашение тем же Domain, Path, флагами).
+      Чарт умбреллы передаёт ключ как `cookie-domain` (charts/kaname/templates/configmap.yaml:317-318).
+  - claim: 'шапка — «так объявлено на каждой цепочке, где оно выдаётся»'
+    evidence: >-
+      Посадку own объявляет только values.own.yaml:37; цепочка с ним одна —
+      deploy/stacks.txt:48 `own:values.prod.yaml,values.own.yaml,values.own-stand.yaml`;
+      values.prod.yaml:767 `cookieDomain: none` под kaname.config.authn.login
+      (корни :531 kaname, :726 config, :734 authn, :762 login); values.own.yaml и
+      values.own-stand.yaml ключа не переопределяют (git grep cookieDomain по дереву).
+  - claim: 'шапка, .mdx — поставщик ставит `Domain` из `global.kacho.identity.cookieDomain`, по умолчанию — домен личности; без `Domain` — на посадке без доменного имени'
+    evidence: 'charts/kaname/templates/_kratos-identity.tpl:131 (`$id.cookieDomain | default $id.domain`), :504-505 (`domain:` печатается только при `not $domainless`).'
+  - claim: 'шапка, .mdx — «страж старта его не сверяет — домен чужого печенья краю не объявлен»'
+    evidence: 'В gateway/internal/config строк с «domain» 29, с «cookie» среди них 0; SessionCarrierConfig, который судит страж (cmd/api-gateway/main.go:190-196), несёт Posture, Carriers, ProviderURL, WindowOpenedAt, Now — домена нет.'
+  - claim: 'шапка — предусловие снимается с чужим читателем (S3, kacho#1276)'
+    evidence: '`gh issue view 1276` → OPEN, «deploy: снятие компонента — чарты, база, 17 гейтов, 14 спек»; та же ссылка уже стоит у того же предмета в разделе «Два имени» той же шапки.'
+  - claim: 'auth.go (tryKratosSession) — ветка отказа по окну живёт лишь в состоянии «оба»'
+    evidence: 'auth.go:1118-1124 — transitionalWindowAdmits пропускает всё при нулевом моменте; cmd/api-gateway/main.go:217-218 — момент передаётся полосе только при sessionCarriers.IsTransitionalWindow(), иначе остаётся нулевым.'
+  - claim: 'auth.go — «оно на цепочке, где поставщик ставит Domain, не объявляется»'
+    evidence: 'Ни одна цепочка deploy/stacks.txt множества не объявляет: git grep SESSION_CARRIERS|sessionCarriers по deploy/helm находит только комментарий values.own.yaml:54-56 («Эта цепочка множества не объявляет»).'
+  - claim: 'login_lane_relay.go — служба гасит только своё имя, край дополняет ответ выхода формы гашением остальных, пропуская погашенные службой'
+    evidence: 'login_lane_relay.go, endEveryCarrierOnLogout: already[] из resp.Cookies(), затем SessionCarrierEndings() с пропуском already; только на LoginLaneVerbLogout, не на logoutRefused.'
+  - claim: 'logout_handler.go (шаг 5 шапки) — обработчик выдаёт гашение по всему перечню через middleware.EndSessionCarriers, без Domain'
+    evidence: 'logout_handler.go:217 — безусловный middleware.EndSessionCarriers(w).'
+  - claim: 'logout_carrier_states_test.go, logout_exits_census_test.go — пробы судят ОТВЕТ, а не хранилище печений браузера'
+    evidence: 'тела проб дельтой не тронуты (разбор равен); помощник того же пакета судит res.Cookies() — утверждение о границе пробы верно.'
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+
+critical: []
+important:
+  - id: I1
+    where: gateway/internal/middleware/session_carrier_names.go (шапка, «ПРЕДУСЛОВИЕ ОБЪЯВЛЕНИЯ») и её же пункт о НАШЕМ имени
+    finding: >-
+      Оба предусловия, на которых держится утверждение «выход закрывает», держит
+      только текст: (а) `own,external` не объявляется на цепочке с `Domain`
+      поставщика — текст честно говорит, что страж этого не сверяет; (б) наш
+      `cookieDomain: none` на каждой цепочке посадки own — пробы, связывающей его с
+      гашением края без `Domain`, в дереве нет (`git grep` по *_test.go: 0).
+      Сегодня оба выполнены (claims_checked_against_code), текст не ложен и
+      называет предикат снятия. Не блокирует: угрозы корректности или
+      безопасности на голове нет — задача.
+    requirement: >-
+      задача: декларативная проба над цепочками deploy/stacks.txt (разобранные
+      values, не рендер): посадка own ⇒ kaname.config.authn.login.cookieDomain ==
+      none; множество края с обеими сторонами ⇒ global.kacho.identity.domainless
+      == true. Снимается вместе с чужим читателем (kacho#1276).
+style: []
+
+found_along_the_way:
+  - id: A1
+    where: gateway/internal/handler/logout_handler.go:210-211 и :225 (Go, вне дельты; текст базы bec320cf47d, волной не тронут)
+    finding: >-
+      Тело того же обработчика — «6. Clear the browser session carriers … so a
+      user can drop their browser session» и заметка ответа «cookies cleared» —
+      остаются в прежней, широкой форме, которую дельта сузила в шапке этой же
+      функции (шаг 5: «matches only a cookie that was issued without one»). Два
+      места об одном предмете в одной функции; нумерация шагов шапки (5) и тела
+      (6) тоже расходится. На базе гашение шло так же без Domain
+      (session_carrier_names.go@bec320cf47d:60-72), то есть поведение волной не
+      менялось. Не блокирует: шапка функции верна, отказ после выхода держит
+      отсечка по записи отзыва, а не печенье.
+    requirement: 'задача: тело шага и текст заметки ответа назвать ВЫДАЧЕЙ гашения со ссылкой на предусловие в шапке session_carrier_names.go; выровнять нумерацию шагов.'
+
+disclosure_check:
+  result: находки нет
+  basis: >-
+    Новый текст публичного репозитория называет предусловие КОНФИГУРАЦИИ для
+    оператора (какое объявление недопустимо на какой цепочке) и границу
+    механизма, а не обход действующего контроля; ни одна цепочка дерева это
+    состояние не объявляет. Прятать предусловие значило бы оставить прежний
+    вводящий в заблуждение текст (hard-misleading-security-comment).
+
+approved:
+  - 'Дельта — только комментарии: разбор Go без комментариев равен на обеих головах, контроль инъекцией краснеет (subject_preflight).'
+  - 'Каждое утверждение нового текста о защите сверено с кодом головы, чартом и кодом службы по координате (claims_checked_against_code); противоречий 0.'
+  - 'Класс B5 на голове не найден ни в дельте, ни радиусным предикатом по дереву (33 → 23, оставшиеся — другой референт либо об ответе).'
+
+counts:
+  fresh_deferral_markers: '0 в дельте — `git diff ab1ad6ee88a bdac9a1f8d1 | grep "^+" | grep -cE "TODO|FIXME|XXX|HACK|t\.Skip"`'
+  probes_in_same_pr: 'да — исполняемого кода дельта не меняет (разбор без комментариев равен)'
+  security_comments_contradicting_code: '0 в дельте; вне дельты — A1 (широкая формулировка базы, не блокирует)'
+  foundation_candidates: 0
