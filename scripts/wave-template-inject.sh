@@ -329,6 +329,15 @@ const kcLanes = [{ key: 'A', repo: 'kacho', agent: 'go-implementer', branch: '31
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')] })
 ok(r.res.ok === true && branchOf(r.calls.find(c => c.label === 'mech:stack:B') || { prompt: '' }) === '9-stack-b' && (r.res.stacks || []).join() === '9-stack-b' && prm(r.calls, 'mech:merge').includes('9-stack-b'), 'близнец kacho: сводка — прежняя ветка 9-stack-b, снимается вливанием', JSON.stringify(r.res.stacks))
 ok(/ветка уже есть на origin — влей сводку в неё коммитом слияния/.test(prm(r.calls, 'impl:B')) && !/уже в твоей ветке/.test(prm(r.calls, 'impl:B')), 'близнец kacho: исполнителю B — «влей сводку», а не «сводка уже в твоей ветке»', prm(r.calls, 'impl:B').slice(0, 400))
+ok(!/это ветка самой полосы/.test(prm(r.calls, 'mech:stack:B')) && !/#3101-b merge/.test(prm(r.calls, 'mech:stack:B')), 'близнец kacho: механику сводки нет подсказки «ветка самой полосы» и формы «#3101-b merge …»', prm(r.calls, 'mech:stack:B').slice(0, 600))
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')], 'stack:B': [{ status: 'done', head: H('SB', 0), branch: '9-stack-b-m' }] })
+ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('сводки deps 9-stack-b-m@' + H('SB', 0)) && (r.res.stacks || []).join() === '9-stack-b-m', 'близнец kacho: ветка сводки — та, что вернул механик (9-stack-b-m), а не имя из задания', JSON.stringify({ stacks: r.res.stacks, impl: prm(r.calls, 'impl:B').slice(0, 200) }))
+// Ветвь mergeSubj: номер — с решёткой, не-номер (база main) — как есть.
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: 'main', epic: 'main', lanes: knLanes }, plan: [P('kn.json')] })
+ok(prm(r.calls, 'mech:stack:B').includes('#684 merge main: ') && !prm(r.calls, 'mech:stack:B').includes('#main') && prm(r.calls, 'mech:stack:B').includes('#684 merge #683: '), 'kaname: в форме слияния номер с решёткой (#683), не-номер без неё (main)', prm(r.calls, 'mech:stack:B').slice(0, 600))
+// Ветвь базы в форме слияния: база полосы, а не волны, и база волны, когда своей нет.
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: [knLanes[0], { ...knLanes[1], base: '297' }] }, plan: [P('kn.json')] })
+ok(prm(r.calls, 'mech:stack:B').includes('#684 merge #297: ') && !prm(r.calls, 'mech:stack:B').includes('#684 merge #296: '), 'kaname: слияние базы — база полосы (#297), а не волны (#296)', prm(r.calls, 'mech:stack:B').slice(0, 600))
 
 r = await run({ args: { ...args, crossRepo: true }, plan: [P('r0.json')] })
 ok(prm(r.calls, 'mech:plan:1').includes('"crossRepo":true'), 'явный crossRepo задания уходит в план (межрепозиторная сверка — по флагу)')
@@ -470,14 +479,29 @@ mutant "отсутствующий ответ сводки — не стоп" " 
 # Соседние точки того же свойства (повтор зависимой — от сводки).
 mutant "первая предпроверка зависимой — от базы" "let pc = await precheck(l, impl, stack)" "let pc = await precheck(l, impl, null)"
 mutant "предпроверка после ролей — от базы" "      pc = await precheck(l, impl, stack)" "      pc = await precheck(l, impl, null)"
-# ws#946: сводка kaname — ветка не-номер, которую его хук отвергает.
-mutant "stack-имя для kaname" "const inLane = l => /^[0-9]+\$/.test(String(l.branch || ''))" "const inLane = l => false"
-mutant "сводка в ветке полосы и у kacho" "const inLane = l => /^[0-9]+\$/.test(String(l.branch || ''))" "const inLane = l => true"
-mutant "kaname-исполнителю «влей сводку»" "(inLane(l) ? '; сводка уже в твоей ветке" "(false ? '; сводка уже в твоей ветке"
-mutant "kacho-исполнителю «сводка уже в твоей ветке»" "(inLane(l) ? '; сводка уже в твоей ветке" "(true ? '; сводка уже в твоей ветке"
-mutant "ветка полосы числится временной сводкой" "if (st && sha40(st.head) && !inLane(l)) stacks.push(" "if (st && sha40(st.head)) stacks.push("
-mutant "форма слияния хука не названа" "' коммитами слияния pointpu --no-ff' + (inLane(l) ?" "' коммитами слияния pointpu --no-ff' + (false ?"
-mutant "имя ветки полосы — из ответа механика" "branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k]" "branch: st.branch || stackNames[k]"
+# ws#946: каждое ветвление, введённое веткой, — два мутанта: условие → true и
+# условие → false. Места: определение inLane (122), имя сводки (123), суд формы
+# имени (128), задание исполнителю (137), форма слияния mergeSubj (141), задание
+# механику сводки (142) и база в его форме слияния (`l.base || A.base`), учёт
+# временных сводок (222), ветка, отдаваемая полосе (225).
+mutant "inLane → false: stack-имя для kaname" "const inLane = l => /^[0-9]+\$/.test(String(l.branch || ''))" "const inLane = l => false"
+mutant "inLane → true: сводка в ветке полосы и у kacho" "const inLane = l => /^[0-9]+\$/.test(String(l.branch || ''))" "const inLane = l => true"
+mutant "имя сводки → true: kacho в ветке полосы" "const stackName = l => inLane(l) ? String(l.branch)" "const stackName = l => true ? String(l.branch)"
+mutant "имя сводки → false: kaname <N>-stack-" "const stackName = l => inLane(l) ? String(l.branch)" "const stackName = l => false ? String(l.branch)"
+mutant "суд формы → true: kacho без суда формы" "if (!inLane(l) && !/^[0-9]+-" "if (!true && !/^[0-9]+-"
+mutant "суд формы → false: kaname-номер не по форме" "if (!inLane(l) && !/^[0-9]+-" "if (!false && !/^[0-9]+-"
+mutant "исполнитель → true: kacho «сводка уже в твоей ветке»" "(inLane(l) ? '; сводка уже в твоей ветке" "(true ? '; сводка уже в твоей ветке"
+mutant "исполнитель → false: kaname «влей сводку»" "(inLane(l) ? '; сводка уже в твоей ветке" "(false ? '; сводка уже в твоей ветке"
+mutant "mergeSubj → true: не-номер с решёткой" "(/^[0-9]+\$/.test(String(b)) ? '#' + b : b)" "(true ? '#' + b : b)"
+mutant "mergeSubj → false: номер без решётки" "(/^[0-9]+\$/.test(String(b)) ? '#' + b : b)" "(false ? '#' + b : b)"
+mutant "механик → true: kacho «ветка самой полосы»" "' коммитами слияния pointpu --no-ff' + (inLane(l) ?" "' коммитами слияния pointpu --no-ff' + (true ?"
+mutant "механик → false: форма слияния kaname не названа" "' коммитами слияния pointpu --no-ff' + (inLane(l) ?" "' коммитами слияния pointpu --no-ff' + (false ?"
+mutant "учёт сводок → true: kacho-сводка не снимается" "if (st && sha40(st.head) && !inLane(l)) stacks.push(" "if (st && sha40(st.head) && !true) stacks.push("
+mutant "учёт сводок → false: ветка kaname числится сводкой" "if (st && sha40(st.head) && !inLane(l)) stacks.push(" "if (st && sha40(st.head) && !false) stacks.push("
+mutant "ветка полосе → true: kacho не берёт имя механика" "branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k]" "branch: true ? stackNames[k] : st.branch || stackNames[k]"
+mutant "ветка полосе → false: kaname берёт имя механика" "branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k]" "branch: false ? stackNames[k] : st.branch || stackNames[k]"
+mutant "база слияния → только волны" "[l.base || A.base, ...deps.map(d => d.branch)]" "[A.base, ...deps.map(d => d.branch)]"
+mutant "база слияния → только полосы" "[l.base || A.base, ...deps.map(d => d.branch)]" "[l.base, ...deps.map(d => d.branch)]"
 mutant "crossRepo задания не доходит до плана" "crossRepo: A.crossRepo === true || undefined," ""
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
