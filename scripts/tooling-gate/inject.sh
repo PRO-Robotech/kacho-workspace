@@ -2619,6 +2619,38 @@ run 0 "$b" "близнец: безобидная правка носителя �
 b="$(mksandbox "$HK_REL")"
 run 2 "$b" "предпосылка: хука отправки нет — VOID" "$C17"
 
+echo "== check-19: норма «Не жди» у исполнителей, застой провязан диспетчеру (ws#1001) =="
+C19=check-19-no-idle-norm-is-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`CLAUDE.md` «Не жди»', '`CLAUDE.md`'))
+PY
+run 1 "$b" "инъекция: у scout снята ссылка на норму — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`CLAUDE.md` «Не жди»', '`CLAUDE.md`\n«Не жди»'))
+PY
+run 0 "$b" "близнец: перенос строки внутри ссылки на норму — та же норма, молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Ни один вызов не держит ожидание дольше 10\n  минут', 'Вызов держит ожидание сколько нужно'))
+PY
+run 1 "$b" "инъекция: норма в протоколе вывернута — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['Stop']: g['hooks'] = [h for h in g['hooks'] if 'stall-signal' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: хук застоя снят со Stop — краснеет" "$C19"
+b="$(mksandbox "scripts/stall-census.sh")"
+run 1 "$b" "инъекция: прибора застоя нет — краснеет" "$C19"
+b="$(mksandbox)"
+printf '\n# комментарий пробы\n' >> "$b/.claude/hooks/stall-signal.sh"
+run 0 "$b" "близнец: безобидная правка хука — молчит" "$C19"
+
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
 # своей песочницы — та же поломка, что у любой предыдущей пробы.

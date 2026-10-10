@@ -31,6 +31,9 @@
 #   вернувшей (§8а п.8), sha принявшей не переписан, полоса стоит до сборки:
 #   новую голову принявшая не видела (ws#933, опыт check-verifier r3); близнец —
 #   одна роль уровня вернула и приняла дельту — полоса идёт дальше.
+#   агент не ждёт (ws#1001): каждое задание несёт «НЕ ЖДИ» и срок шага, у
+#   исполнителя и ревью — свой; CI — CI_READS коротких чтений шаблона, пауза между
+#   ними — одна команда ≤ 300 с, у первого чтения паузы нет, агент не ждёт сам;
 #   номер PR сборки — целое ≥ 1 и в схеме, и в теле: нет поля, 0, строка, адрес —
 #   остановка на сборке с причиной, «PR #undefined» не уходит ни в одно задание
 #   (ws#935); близнец — pr 7 доходит до CI и посадки;
@@ -454,8 +457,21 @@ r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('accept', 'accep
 ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0 && by(r.calls, c => c.label === 'mech:assemble:2') === 0, 'CV-R2: свод return при accept у каждой полосы — противоречие, пересведения и вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== «идёт» после ожидания — состояние, а не провал')
-r = await run({ args, plan: [P('r0.json')], ci: Array(12).fill({ state: 'running' }) })
-ok(r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все 12 ожиданий — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
+const CIR = +((body.match(/const CI_READS = (\d+)/) || [])[1] || 0)
+const CIP = +((body.match(/const CI_PAUSE_S = (\d+)/) || [])[1] || 0)
+r = await run({ args, plan: [P('r0.json')], ci: Array(CIR).fill({ state: 'running' }) })
+ok(CIR >= 1 && r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:ci:')) === CIR && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все ' + CIR + ' чтений — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
+
+console.log('== агент не ждёт (ws#1001): срок шага и CI — короткими чтениями шаблона')
+r = await run({ args, plan: [P('r0.json')], ci: [{ state: 'running' }, { state: 'running' }, { state: 'green' }] })
+ok(r.calls.length > 0 && r.calls.every(c => /НЕ ЖДИ/.test(c.prompt) && /СРОК ШАГА/.test(c.prompt)), 'каждое задание несёт норму «НЕ ЖДИ» и срок шага', r.calls.filter(c => !/НЕ ЖДИ/.test(c.prompt) || !/СРОК ШАГА/.test(c.prompt)).map(c => c.label).join(','))
+ok(r.calls.filter(c => c.label.startsWith('impl:')).every(c => /СРОК ШАГА: \d+ мин/.test(c.prompt.split('\n\n').slice(1).join(' '))), 'задание исполнителя — со своим сроком шага')
+const cis = r.calls.filter(c => c.label.startsWith('mech:ci:'))
+ok(cis.length === 3 && cis.every(c => !/подожди|until|while/.test(c.prompt.split('\n\n').slice(1).join(' ')) && /ОДИН раз/.test(c.prompt) && /повтор делает шаблон/.test(c.prompt)), 'чтение CI — одно, без ожидания агентом; повтор — шаблоном', cis.map(c => c.prompt.split('\n\n').slice(1).join(' ').slice(0, 160)).join(' | '))
+ok(CIP > 0 && CIP <= 300 && !/sleep/.test(cis[0].prompt.split('\n\n').slice(1).join(' ')) && cis.slice(1).every(c => c.prompt.includes('sleep ' + CIP)), 'пауза между чтениями — одна команда ≤ 300 с, у первого чтения паузы нет', 'CI_PAUSE_S=' + CIP)
+r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'go-implementer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
+const revs = r.calls.filter(c => /^(review-|acceptance-review-)/.test(c.label) && c.label !== 'review-wave' && c.label !== 'review-landing')
+ok(revs.length > 0 && revs.every(c => /СРОК ШАГА: \d+ мин/.test(c.prompt.split('\n\n').slice(1).join(' '))), 'задание ревью — со своим сроком шага', 'ревью ' + revs.length)
 r = await run({ args, plan: [P('r0.json')], ci: [{ state: 'red' }] })
 ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI красный — state failed')
 r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['CI-PENDING'] }, { code: 1, reasons: ['CI-PENDING'] }] })
@@ -599,6 +615,13 @@ mutant "CV-R2 свод return без возвращённой полосы — �
 mutant "landed — все полосы, а не влитые" "landed: order" "landed: Object.keys(done)"
 twin "T2 publicText === true && true" "publicText === true)" "publicText === true && true)"
 twin "T9 … ? back : back" "dropWithDeps(back, " "dropWithDeps(steps.has('landing-reviewer') ? back : back, "
+# ws#1001: агент не ждёт — срок шага и CI шаблоном.
+mutant "срок снят у исполнителя" "'. ' + due('implement') + ' Верни status" "'. Верни status"
+mutant "срок снят у ревью" "'. ' + due('review') + ' Верни verdict" "'. Верни verdict"
+mutant "норма «не жди» снята из общего задания" "  'НЕ ЖДИ (CLAUDE.md" "  '(CLAUDE.md"
+mutant "агент ждёт CI сам" "идёт — сразу верни running: повтор делает шаблон." "идёт — подожди до 10 минут и верни running."
+mutant "пауза CI дольше 5 мин" "const CI_PAUSE_S = 240" "const CI_PAUSE_S = 600"
+mutant "повтор CI без паузы" "(i ? 'Сначала ОДНА" "(false ? 'Сначала ОДНА"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo

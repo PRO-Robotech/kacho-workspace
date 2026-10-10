@@ -13,10 +13,10 @@ at-unit-is-tracked-git-element · брать `git ls-files`, объявлять 
 at-two-numbers-one-predicate · величину, взятую двумя объявлениями, сверять одним предикатом · check-07 · red: два объявления одной величины разошлись
 at-numbers-held-by-gate · числа правил/агентов/скилов держит гейт, не внимание · check-07, check-03 · red: число просрочено и не замечено
 at-claim-about-own-check-runs-or-lies · утверждение об оснастке, проверяемое только ИСПОЛНЕНИЕМ, пиши с координатой, которую резолвит обход, и со знаменателем; числа печатает прибор · tooling-gate measure-claims-about-checks.py · red: держатель назван, артефакта нет; «не найдено» без числа осмотренного
-at-settings-without-permissions · не коммитить блок `permissions`/`defaultMode: bypassPermissions` — выбор за каждого, кто сделает клон · scripts/rules-gate/check-09-settings-no-bypass.sh · red: `grep -c permissions .claude/settings.json` не ноль
-at-bypass-not-from-repo-layer · режим обхода из проектного и локального слоёв харнесс игнорирует; даёт его лишь личный `~/.claude/settings.json`, policy или флаг · `claude --debug-file` без `mode=bypassPermissions` (CC 2.1.278) · red: режим объявлен в дереве, подтверждения приходят
+at-settings-without-permissions · не коммитить блок `permissions`/`defaultMode: bypassPermissions` · scripts/rules-gate/check-09-settings-no-bypass.sh · red: `grep -c permissions .claude/settings.json` не ноль
+at-bypass-not-from-repo-layer · режим обхода проектного и локального слоёв харнесс игнорирует; даёт его личный `~/.claude/settings.json`, policy, флаг · `claude --debug-file` без `mode=bypassPermissions` (CC 2.1.278) · red: режим объявлен в дереве, подтверждения приходят
 at-no-autoload-corpus · автозагрузки корпуса нет: `claudeMdExcludes`, в `CLAUDE.md` ни строки `@` · grep claudeMdExcludes .claude/settings.json · red: правило подгружено автозагрузкой
-at-main-thread-is-agent · агент `dispatcher`, его тело — единственная база маршрутизации и обязано быть самодостаточным (`@import` в теле агента не раскрывается) · grep '"agent"' .claude/settings.json · red: @import в базе диспетчера
+at-main-thread-is-agent · агент `dispatcher`; его тело — единственная самодостаточная база маршрутизации (`@import` в нём не раскрывается) · grep '"agent"' .claude/settings.json · red: @import в базе диспетчера
 at-rule-preloaded-by-symlink · правило закреплено предзагрузкой: `SKILL.md` — символьная ссылка, агент несёт её в `skills:` · readlink, check-04 · red: правило не в окне агента
 at-symlink-not-copy · символьная ссылка на файл правила, не копия · readlink .claude/skills/rule-<имя>/SKILL.md` = `../../rules/<имя>.md · red: копия правила в скиле
 at-rule-star-is-binding · `rule-*` — привязка к правилу, не экспертиза; в перечень канонических скилов не входит · check-03 (исключение в гейте) · red: rule-* учтён как канонический скил
@@ -24,7 +24,7 @@ at-skills-roster · перечень канонических скилов (14, 
 at-godzila-thirteenth · `godzila` — в перечне; приоритет ниже правил, выше локального `CLAUDE.md` · check-03 · red: отслеживаемый скил вне перечня
 at-ci-clone-carries-no-tooling · клон продукта не несёт оснастку; CI-проверки — в его дереве, не в `.claude/` · ЗАВЕСТИ · red: клон без своей CI-проверки продукта
 at-dead-asset-does-not-travel · ассет без предмета не заводить «про запас»; исключение обязано самоистекать · --check → STALE-EXCLUSION · red: мёртвый ассет на вид работающий
-at-two-grep-engines · `grep` в Bash-инструменте агента и в скрипте — РАЗНЫЕ движки: обёртка харнесса (ugrep, `-G`) не экспортируется, дочерний bash берёт GNU grep · проба предпосылки в tooling-gate inject.sh · red: вердикт ручной команды перенесён на скрипт без перемера
+at-two-grep-engines · `grep` агента (ugrep харнесса, `-G`) и скрипта (GNU) — РАЗНЫЕ движки · проба предпосылки в tooling-gate inject.sh · red: вердикт ручной команды перенесён на скрипт без перемера
 at-handrun-predicate-engine-agnostic · предикат для ручного прогона не ставит якорь ветвью альтернативы (`(^|X)` в обёртке молча не совпадает); границу слова пиши `-P` просмотром назад либо `\b` · tooling-gate check-12 · red: перепись на образце, в обёртке всегда пустом
 at-rule-address-as-written · ссылка на правило и скил-привязку резолвится ТЕМ адресом, которым написана; архив — не цель, он не грузится · rules-gate check-10 · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
 at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и только сокращается; запись, которой нечего исключать, — находка · rules-gate check-10 с `rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
@@ -38,6 +38,7 @@ at-agents-roster-review · specialist-review: 10 ролей; `wave-reviewer` —
 at-agents-roster-boundary · границы задачи: 5 read-only ролей (scout…ci-watcher), кода не пишут · check-03 · red: роль-разведка правит код
 at-agents-count-32 · число агентов — одно, у предиката ниже · check-07 · red: перечень и число расходятся
 at-executors-dont-launch-executors · у каждого агента, кроме `dispatcher`, `disallowedTools` содержит `Agent` · grep -rL disallowedTools .claude/agents/ · red: исполнитель запускает исполнителя
+at-agent-does-not-wait · вызов не ждёт > 10 мин (`CLAUDE.md` «Не жди») · stall-census.sh, wave-template-inject · red: STALL-POLL; без вызова > 15 мин
 at-no-nested-launches · агент не зовёт другого напрямую — возвращает диспетчеру «нужен следующий» · check-05 · red: вложенный вызов агента из тела другого
 
 > Счёт: **32** агентов — предикат `git ls-files .claude/agents/ | wc -l`.
@@ -112,4 +113,4 @@ lc6-role-reviews · ревью — по уровню, `git-issues.md#gi-asm-one-
 lc7-final-verification · `testing.md#final-verification-before-merge` и make audit-list-filter — зелёные на PR сборки · ci.yaml — зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 lc8-trail-and-close · обновить vault (resources/rpc/edges + записка) и закрыть issue с артефактами · vault-gate, docs-gate check-02 · red: issue закрыт без trail
 
-## Сторонние агенты/скилы (использовать, не пересоздавать)
+## Сторонние агенты/скилы
