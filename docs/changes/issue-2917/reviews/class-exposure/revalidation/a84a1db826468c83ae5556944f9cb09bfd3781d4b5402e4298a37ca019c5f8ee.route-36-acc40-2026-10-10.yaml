@@ -1,0 +1,202 @@
+# Экспозиция классов: пересверка маршрута NTF-2 после правки приёмки до редакции 40,
+# ветка issue-880 @ddf1b0ffe.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли). Замысел (a84a1db8…) и маршрут
+# (624d3da8…, редакция 36) с прошлой пересверки не менялись; сменилась приёмка: 5135d8cb… (ред. 39,
+# APPROVED) → b8eb5282… (ред. 40, коммит ddf1b0ffe, записи ревью нет). Прежние записи
+# revalidation/a84a1db8…(.route-34|.route-35|.route-36).yaml только дописываются, поэтому эта лежит
+# рядом. Предмет — закрыты ли блокирующие записи .route-36 (B36-1) и что новое вносит дельта
+# 53f32ca8d → ddf1b0ffe для маршрута. Права писать реализацию запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee
+  fingerprint_predicate: git show ddf1b0ffe:docs/changes/issue-2917/design.md | sha256sum
+  revision: 33
+  changed_since_previous_record: false
+  route:
+    path: docs/changes/issue-2917/tasks.md
+    sha256: 624d3da8702af25bb837c4077155fec64a3dce74284865d4116876552d4c8bc3
+    revision: 36
+    changed_since_previous_record: false
+  acceptance:
+    path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+    sha256: b8eb5282cb75e1618d6b2289ff1adc3357219580ad3fa324ca494eb419c8590d   # ред. 40, @ddf1b0ffe
+    approval_record: "нет — ls docs/specs/reviews/sub-phase-NTF-2-…-acceptance/ | grep -c b8eb → 0"
+    previous_sha256: 5135d8cbd84981f409d99fe78d69ca7b641d8e53ec60d7d9e99f2e6f98f4ab09   # ред. 39, APPROVED
+  delta: "git diff --stat 53f32ca8d ddf1b0ffe -- docs/changes/issue-2917 docs/specs/sub-phase-NTF-2-… → только приёмка, +257 −4"
+previous_revalidation:
+  path: docs/changes/issue-2917/reviews/class-exposure/revalidation/a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee.route-36-2026-10-10.yaml
+  subject_revision: "замысел 33, маршрут 36, приёмка 39"
+  outcome: к-замыслу
+  unmapped_items: [B36-1]
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: "origin/main:.claude/agents/class-exposure-analyst.md (git fetch origin main 2026-10-10)"
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; решения диспетчера 2026-10-10 (е), (ж); владелец 2026-10-08 (пробы Send/Revoke/Restore —
+    внутренним краем личностью администратора кластера; ступень acr каталога не понижается). Новые
+    блокирующие — только с предикатом и с перечнем волн, чей старт держат.
+revisions:
+  workspace: ddf1b0ffe9e64dd1d7009f50b5465577c4668599
+  kacho: e6075f09c2613184ec0c120fbe5645a2c1e9979c   # origin/2914-notify после git fetch
+  kaname: 4b9a0a691a65d83a3a6afe9632c2344ace56664d   # origin/484-notify после git fetch
+snapshot_at: 2026-10-10T09:00:00Z
+inspected: >-
+  Дельта 53f32ca8d..ddf1b0ffe по пакету и приёмке (одна правка приёмки, ddf1b0ffe); шапка ред. 40
+  (приёмка :271), Р9 «Консоль» (:1129), абзац «Читатели Р9 в одобренных приёмках консоли» (:1675–1698),
+  посевы П13, П14 (:1925–1926), сценарии NTF2-102…NTF2-108 (:3294–3416). tasks.md ред. 36 целиком по
+  строкам Е22 (:401), S5 (:446), E4 (:468), E4b (:469). kacho @e6075f09c: ui-future/e2e, tests,
+  gateway/tests, deploy, .github — перепись предикатом приёмки; ui-future/shared/src/pages/auth/VerificationPage.tsx.
+
+closure_of_previous:
+  B36-1:
+    status: НЕ закрыто
+    parts:
+      a_acceptance:
+        status: сделано в тексте, не одобрено
+        evidence: >-
+          Ред. 40 несёт строки замещения F6b-12, F6b-40, F6b-41, F8-13…F8-17, F8-21 с наследниками
+          NTF2-102…NTF2-105 (по ID: `grep -c -- '<ID>\b' <приёмка>` → F6b-12 4, F6b-40 4, F6b-41 4,
+          F8-13 5, F8-14 4, F8-15 4, F8-16 4, F8-17 4, F8-21 4 — условие (г) «по каждому ID» выполнено
+          на тексте), посевы П13/П14 вместо П-н/П-п, перепись читателей по референту (11 файлов,
+          перемерено: `git grep -lE '…' origin/2914-notify -- ui-future/e2e tests gateway/tests deploy .github | wc -l`
+          → 11 @e6075f09c — совпадает). Предикат снятия B36-1 требует отпечаток с записью APPROVED;
+          записи на b8eb5282… нет. Пока её нет, опора маршрута и замысла — ред. 39, которая строк F8 не несёт.
+      b_route_paths:
+        status: не сделано
+        evidence: >-
+          tasks.md не менялся (sha 624d3da8 = записи .route-36). Пути E4b — по-прежнему три файла;
+          `grep -c 'ceremony-seed\|identity-ceremony\|account-settings' tasks.md` → 0. Предикат
+          `git -C project/kacho grep -cE 'LANE\.register\b|\bseed(Confirmed)?Human\(|\bseeded\(' origin/2914-notify
+          -- ui-future/e2e ':!…{fixtures.ts,address-confirmation.spec.ts,registration-refusal-named.spec.ts}'`
+          → ceremony-seed.ts 5, identity-ceremony.spec.ts 31, account-settings.spec.ts 1 @e6075f09c (≥ 1).
+      c_census_pattern:
+        status: не сделано
+        evidence: "образец переписи E4b — прежний `registerThroughScreen|tenantWithProject|\\bregister\\(` (строка :469)"
+      d_per_id_predicate_E22:
+        status: не сделано в маршруте
+        evidence: "строка Е22 (:401) — прежний `grep -cE 'F6b-(12|40|41)'` и перечень только F6b; F8 в tasks.md — 0 вхождений"
+  N36-1:
+    status: открыт
+    evidence: "колонка «зависит от» E4b — «E4 (одно сведение), D1, Е22», слова «посадка» нет"
+  N36-2:
+    status: снят — замер записи .route-36 был ошибочен
+    evidence: >-
+      S5 на том же 624d3da8 несёт «CX2-102 (в) (перенесено из S9a редакцией 36) — NTF2-69 (а) на П6-k:
+      момент запроса не кратен секунде относительно старейшего акта, метаданные `retry-after` = вверх
+      округлённый остаток» — `grep -n '^| S5 ' tasks.md | grep -c 'не кратен секунде'` → 1. Запись .route-36
+      утверждала 0; маршрут не менялся, значит неверен был замер, а не маршрут. Исправление записывается
+      здесь, прежняя запись не правится.
+  carried_open:
+    - "N34-2 (change.yaml hashes.acceptance_sha256 отстаёт) — открыт; теперь отстают ДВЕ редакции (5606cbc0… против b8eb5282…)"
+    - "N35-1 (база пробы CX2-110 в S6) — открыт, неблокирующий"
+
+approval_conditions:
+  - B36-1
+  - B37-1
+
+clean: false
+
+new_items:
+  - id: B37-1
+    blocking: true
+    holds:
+      start: [E4, E4b]
+      landing: ["сведение E4 + E4b", "Е22"]
+      waves: ["KC-0 (гейт ТЗ)"]
+      not_held: "S1…S13, G1…G3, F3, E5, X2-старт, волна KN-1 — их пути и предикаты дельта не трогает"
+    decision: >-
+      Ред. 40 приёмки вводит наблюдаемое поведение и производителей Given, которых в маршруте нет:
+      сценарии NTF2-102…NTF2-108 (уровень E и U), посевы П13/П14, тексты экрана подтверждения
+      (наследник F6b-18…F6b-20) и фикстуру автор-тестов `tests/authz-fixtures/verified_human.py`.
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» (перечень входных поверхностей: читатели снимаемого
+      поведения названы приёмкой, но не отображены в полосы) и §«Решение и его следствие разнесены»
+      (поведение экрана — E4, его пробы — E4b, а текст экрана подтверждения — ни в одной полосе).
+    finding: >-
+      Приёмка ред. 40 сама меряет 8 файлов-читателей (:1690–1697) и производителя текстов
+      `ui-future/shared/src/pages/auth/VerificationPage.tsx` (:1697). Маршрут называет из них три
+      (E4b) и `RegistrationPage.tsx` (E4). Не названы ни одной строкой маршрута:
+      `ceremony-seed.ts`, `identity-ceremony.spec.ts`, `account-settings.spec.ts`,
+      `tests/authz-fixtures/{verified_human.py,README.md}`, `VerificationPage.tsx` (+ `VerificationPage.test.tsx`,
+      который его тексты утверждает), сценарии NTF2-102…108 как держатели, посевы П13/П14 как производители.
+      Без строки исполнитель E4b либо выходит за объявленные пути, либо сведение E4 + E4b получает
+      красный/«не выполнилось» в console-e2e (предикат строки — 0 failed и 0 did not run), а
+      NTF2-107 (г) уровня U без полосы не имеет держателя вовсе.
+    predicate: >-
+      `grep -cE 'NTF2-10[2-8]' docs/changes/issue-2917/tasks.md` → 0 @ddf1b0ffe (снимается: каждый из семи ID
+      назван держателем в строке полосы — по ≥ 1 на ID); `grep -cE 'П1[34]' tasks.md` → 0 (снимается: ≥ 1,
+      производитель П13/П14 назван — посев стенда консоли либо фикстура E4b);
+      `grep -cE 'VerificationPage|verified_human|ceremony-seed|identity-ceremony|account-settings' tasks.md` → 0
+      (снимается: каждый из файлов, отнесённых приёмкой к читателям, назван в путях полосы или в строке
+      «читает путь регистрации без чтения ответа — правки нет» с разбором по референту).
+    code_condition: >-
+      (а) Пути E4b (или отдельной полосы того же сведения) — все 8 файлов-читателей из переписи
+      приёмки :1690–1693, включая `tests/authz-fixtures/verified_human.py` и README; три
+      «без чтения ответа» (`ntf2-start-conditions.sh`, `ceremony-budget-selftest.ts`,
+      `stand-secure-origin-selftest.ts`) — строкой «правки нет» с причиной. (б) `VerificationPage.tsx` и
+      `VerificationPage.test.tsx` — в путях E4 (поведение экрана, `ui-implementer`), держатель — NTF2-107 (г)
+      уровня U; пробы E — в E4b. (в) Колонка «держатели» E4b — NTF2-102…NTF2-108 (уровень E) поимённо,
+      с близнецами из приёмки; NTF2-108 (в)–(д) — самопроверка посева без стенда, предикат «до кода, красная на базе».
+      (г) Производитель П13/П14 — строка с путём (посев консоли `ceremony-seed.ts`): П13 строится П3 +
+      `login` + `verify-email`, а не регистрацией; шаг утверждает `emailVerified:false` и письмо в приёмнике,
+      иначе «условие не создано». (д) Е22 — опора на отпечаток ред. 40 с записью APPROVED, предикат по
+      каждому ID отдельно (B36-1 (г)).
+    held_by: >-
+      Полнота отображения — предикаты выше (вниманием автора маршрута, гейта нет: `cg.class` держит
+      отображение пунктов разбора в решения замысла, а не строк приёмки в полосы маршрута); исход —
+      console-e2e на голове сведения E4 + E4b: 0 failed и 0 did not run; NTF2-107 (г) — модульная проба
+      `VerificationPage.test.tsx`.
+
+measurements:
+  - claim: "после .route-36 менялась только приёмка"
+    how: "git diff --stat 53f32ca8d ddf1b0ffe -- docs/changes/issue-2917 docs/specs/sub-phase-NTF-2-…; sha256sum design.md tasks.md"
+    result: "1 файл (приёмка) +257 −4; design a84a1db8…, tasks 624d3da8… — без изменений"
+  - claim: "ред. 40 одобрена"
+    how: "ls docs/specs/reviews/sub-phase-NTF-2-identity-provider-mail-removal-acceptance/ | grep -c b8eb5282"
+    result: "0 — записи нет; шапка ред. 40 — «вердикта нет» (:271)"
+  - claim: "11 файлов дерева kacho читают или называют путь регистрации (приёмка :1686)"
+    how: "git -C project/kacho grep -lE 'LANE\\.register\\b|\\bseed(Confirmed)?Human\\(|\\bseeded\\(|/iam/v1/auth/register\\b' origin/2914-notify -- ui-future/e2e tests gateway/tests deploy .github | wc -l"
+    result: "11 @e6075f09c — подтверждено"
+  - claim: "производитель текстов экрана подтверждения — VerificationPage.tsx (приёмка :1697)"
+    how: "git -C project/kacho grep -n 'Прежний код больше не действует\\|приходит после регистрации' origin/2914-notify -- ui-future/shared/src ':!*.test.*'"
+    result: "2 строки, обе VerificationPage.tsx (:56, :189) — подтверждено"
+  - claim: "маршрут называет новые сценарии, посевы и файлы"
+    how: "grep -cE 'NTF2-10[2-8]' tasks.md; grep -cE 'П1[34]' tasks.md; grep -c '<файл>' tasks.md по пяти файлам"
+    result: "0; 0; 0 по каждому из VerificationPage, verified_human, ceremony-seed, identity-ceremony, account-settings"
+  - claim: "kaname несёт глаголы, на которых строится П13/П14"
+    how: "git -C project/kaname grep -lF '<путь>' origin/484-notify -- ':!*_test.go' | wc -l"
+    result: "verify-email/confirm 16, form=verify-email 5 @4b9a0a69 — производитель в дереве есть"
+  - claim: "(исправление .route-36) S5 не несёт формулировку CX2-102 (в)"
+    how: "grep -n '^| S5 ' tasks.md | grep -c 'не кратен секунде'"
+    result: "1 на 624d3da8 — N36-2 снят"
+
+not_measurable: >-
+  Исход console-e2e после Р9 — `register/confirm` в пине kaname ветки эпика ещё нет (замер .route-36,
+  дельта его не трогала), прогона быть не может. Соответствие NTF2-102…108 тексту экрана — предмет
+  acceptance-reviewer на b8eb5282…, не этой записи.
+
+outcome: к-замыслу
+return_to_acceptance: []
+unmapped_items:
+  - B36-1
+  - B37-1
+orders:
+  - "acceptance-reviewer · круг на b8eb5282… (ред. 40), закрывает B36-1 (а) · change-graph §2; fa-b8 (≤ 2 кругов)"
+  - "автор маршрута NTF-2 · одной редакцией маршрута: B36-1 (б)–(г), B37-1 (а)–(д), N36-1, N34-2 (hashes.acceptance_sha256 → отпечаток, который одобрит круг) — до старта E4 и E4b · measurement-discipline §«Радиус: по имени механизма и по точкам применения»"
+candidate_predicates: []
+new_class_proposal: —
