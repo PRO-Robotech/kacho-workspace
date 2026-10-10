@@ -34,6 +34,11 @@ export const meta = {
 //    lane-precheck судит, что код предшественников в ветке есть). Сводка
 //    конфликтует или не содержит головы dep — остановка с причиной, исполнитель
 //    не зовётся (ws#938). Независимые полосы идут сразу, не ожидая чужого слоя.
+//  - ветка полосы — голый номер (`^[0-9]+$`, форма kaname: его хук другого имени
+//    не принимает) — сводка заводится в ВЕТКЕ САМОЙ ПОЛОСЫ, слияния по форме
+//    хука `#<ветка> merge #<M>: …`; временной ветки нет, вливание её не снимает.
+//    Имени, проходящего хуки всех репозиториев, не существует: kaname требует
+//    голый номер, воркспейс и corelib — `<N>-<суть>` (ws#946).
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
@@ -112,12 +117,15 @@ for (const l of lanes) {
 
 // Имя временной сводки — по правилу репозитория `<N>-<суффикс>` (git-issues.md
 // §«Имя ветки»): N — задача волны, суффикс — `stack-<ключ>` kebab-case ≤ 40.
-const stackName = l => N + '-stack-' + (String(l.key).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 34).replace(/-+$/, '') || 'lane')
+// Полоса с веткой-номером — сводка в её же ветке (ws#946): имя уже то, что
+// принимает хук её репозитория, и другого шаблон не выдумывает.
+const inLane = l => /^[0-9]+$/.test(String(l.branch || ''))
+const stackName = l => inLane(l) ? String(l.branch) : N + '-stack-' + (String(l.key).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 34).replace(/-+$/, '') || 'lane')
 const stackNames = {}
 for (const l of lanes) {
   if (!(l.deps || []).length) continue
   const s = stackName(l)
-  if (!/^[0-9]+-[a-z0-9][a-z0-9-]*$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» полосы ' + l.key + ' не по форме <N>-<суффикс> — номер волны не число' }
+  if (!inLane(l) && !/^[0-9]+-[a-z0-9][a-z0-9-]*$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» полосы ' + l.key + ' не по форме <N>-<суффикс> — номер волны не число' }
   if (Object.values(stackNames).includes(s)) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» совпало у двух полос — ключи различаются только знаками' }
   stackNames[l.key] = s
 }
@@ -126,11 +134,12 @@ for (const l of lanes) {
 phase('Полосы')
 const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
 const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck: `bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
-const implement = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)' : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. Верни status, branch, head, copy, hookLog, issues (владелец/репо#N), report.', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+const implement = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. Верни status, branch, head, copy, hookLog, issues (владелец/репо#N), report.', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
-const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
+const mergeSubj = (l, b) => '«#' + l.branch + ' merge ' + (/^[0-9]+$/.test(String(b)) ? '#' + b : b) + ': …»'
+const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
 
 const runLane = async (l, stack) => {
   const t = tierOf[l.key]
@@ -210,10 +219,10 @@ const launch = k => started[k] || (started[k] = (async () => {
     const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))
     const st = await stackOf(l, ds)
     const missing = st ? ds.filter(d => !(st.contains || []).includes(d.head)) : ds
-    if (st && sha40(st.head)) stacks.push(st.branch || stackNames[k])
+    if (st && sha40(st.head) && !inLane(l)) stacks.push(st.branch || stackNames[k])
     if (!st || st.status === 'conflict' || !['done', 'already-done'].includes(st.status) || !sha40(st.head) || missing.length) {
       r = { key: k, ok: false, stage: 'сводка deps ' + stackNames[k] + ': ' + (st && st.status === 'conflict' ? 'конфликт в ' + ((st.conflicts || []).join(', ') || 'путях без имени') : !st ? 'нет ответа' : !['done', 'already-done'].includes(st.status) ? 'статус ' + st.status : !sha40(st.head) ? 'голова сводки не sha40 (' + JSON.stringify(st.head === undefined ? null : st.head).slice(0, 60) + ')' : missing.length ? 'нет голов ' + missing.map(d => d.branch + '@' + String(d.head).slice(0, 12)).join(', ') : 'причина не названа') + ' — исполнитель не зван, решает диспетчер', conflicts: st ? st.conflicts || [] : [], report: rep(k, 'stack') }
-    } else r = await runLane(l, { branch: st.branch || stackNames[k], head: st.head })
+    } else r = await runLane(l, { branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k], head: st.head })
   }
   done[k] = r
   return r
