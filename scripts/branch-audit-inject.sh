@@ -12,7 +12,7 @@
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
 # прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
-# EW1–EW16, OR1–OR10, TM1–TM9; что держит каждая —
+# EW1–EW16, OR1–OR10, TM1–TM15; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -45,7 +45,7 @@
 #      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
 #      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
 #      OR4, OR1, OR3, OR2;
-#   TM1–TM9. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
+#   TM1–TM15. ВРЕМЯ ПЕРЕПИСИ ОГРАНИЧЕНО (ws#995): клон из ≥ 1000 ссылок — за
 #      120 с, и его разделы совпадают с коммитным предикатом (TM1, TM2); ветка,
 #      чьи 3000 файлов несут блобы истории ствола, — за 30 с без поштучных
 #      вопросов к истории пути (TM3), а возврат прежнего узкого места красит её
@@ -53,6 +53,10 @@
 #      применяет (TM5); мутанты кэша слияния и нормализации пачкой меняют вердикт
 #      самопробы (TM6, TM7); отказ целиком без поиска переименований — на пробе
 #      с накопительной веткой, равной эталону (TM8), и его мутант (TM9);
+#      история пути — как у эталона --find-object, без упрощения по пути: проба
+#      со слияниями и двумя стволами равна эталону (TM10), мутанты «только первый
+#      родитель», «упрощение по пути» и «ключ ответа слияния без ствола» её
+#      красят (TM11–TM13), законные близнецы молчат (TM14, TM15);
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -2088,8 +2092,8 @@ or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база 
 # поштучный `git log <стволы> --raw -- <путь>` на каждый путь дельты, то есть
 # «пути × история ствола». На полном прогоне клона продукта — 29722 таких
 # вызова. Ответ на этот вопрос теперь считается ОДНИМ обходом истории стволов
-# на прогон (тот же упрощённый обход, что у git log по пути), и поштучный вызов
-# остаётся только отступлением.
+# на прогон (без упрощения по пути — как у эталона --find-object, см. TM10–TM15),
+# и поштучный вызов остаётся только отступлением.
 #
 # Синтетический клон: ствол из 2·P+20 коммитов, ветка heavy отходит в начале и
 # несёт P файлов в версиях, которые ствол принял позже и переписал снова, —
@@ -2309,6 +2313,178 @@ if mutate "$rw_m" '        while IFS= read -r line; do refuse["$base|$line"]=1; 
   fi
 else
   say "❌ TM9" "мутация не легла — строки отказа целиком без поиска переименований в скрипте нет"; fail=1
+fi
+
+# TM10–TM14. ИСТОРИЯ ПУТИ — КАК У ЭТАЛОНА, А НЕ КАК У `git log` С ПУТЁМ (ws#995,
+# круг 2). Эталон признака (6б) — `git log <ствол> --find-object=<блоб> --
+# <путь>`, а `--find-object` снимает упрощение истории: блоб коммита, который
+# обход по пути прячет за слиянием, эталон находит. Прежняя редакция ускорителя
+# (и поштучное отступление до ws#995) упрощала историю по пути, и её равенство
+# мерилось с `git log --raw -- <путь>`, а не с эталоном, — самопроба AJ этого не
+# видела: у её ствола нет слияний. Здесь ствол со слияниями и две линии:
+#   p-hidden    — f как у X, первого родителя слияния M, взявшего f у второго
+#                 родителя: обход по пути X прячет, эталон находит → ВЛИТЫ;
+#   p-side      — f как у S, коммита второго родителя M (затем переписан
+#                 слиянием M3): только через второго родителя → ВЛИТЫ;
+#   p-evil      — h как у Y, первого родителя M2, не равного ни одному → ВЛИТЫ;
+#   p-mergeonly — h как у результата M2: его несёт лишь дифф слияния, которого
+#                 эталон без -m не видит → ЕДИНСТВЕННЫЙ ЭКЗЕМПЛЯР;
+#   p-r1only    — правка, которую принял ТОЛЬКО release/r1, второй ствол; первый
+#                 ствол слияние с ней проверяет и получает «не поглощена».
+# Пятый признак у первых четырёх — конфликт (k как у Z1, переписанного стволом),
+# поэтому решает шестой, и решает по истории пути.
+#   TM10 — пакет дословно равен эталону, вердикты — названные выше;
+#   TM11 — мутант «обход только по первому родителю»: p-side выпадает из ВЛИТЫ;
+#   TM12 — мутант «упрощение истории по пути» (обход одним проходом снят,
+#          отступление без --full-history — правило, по которому мерилась
+#          прежняя редакция): p-hidden выпадает из ВЛИТЫ;
+#   TM13 — мутант «ключ общего ответа слияния без ствола» (mt/<голова> вместо
+#          mt/<ствол>.<голова>): ответ первого ствола читается за второй, и
+#          вердикт p-r1only меняется;
+#   TM14, TM15 — законные близнецы молчат: `--diff-merges=off` снят (это и так
+#          умолчание `git log`, TM14) и блобы ответа пишутся без сортировки
+#          (читатель ищет совпадение, порядок ему безразличен, TM15).
+SM="$TMP/simplify"
+git init -q --bare "$TMP/simplify-origin.git"
+git init -q -b main "$SM"
+cd "$SM"
+git config commit.gpgsign false
+git remote add origin "$TMP/simplify-origin.git"
+for n in f g h k; do seq -f "$n строка %g" 1 12 > "$n.txt"; done
+git add . && git commit -qm "база"
+git branch -q sm-s; git branch -q sm-s2; git branch -q sm-s3; git branch -q release/r1
+git checkout -qb p-hidden main
+sed -i '1s/.*/f строка X/' f.txt; git commit -qam "f как у X — первого родителя слияния, взявшего f у второго"
+git checkout -qb p-side main
+sed -i '10s/.*/f строка S/' f.txt; sed -i '6s/.*/k строка Z/' k.txt
+git commit -qam "f как у S — второго родителя; k как у Z1"
+git checkout -qb p-evil main
+sed -i '1s/.*/h строка Y/' h.txt; sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "h как у Y, k как у Z1"
+git checkout -qb p-mergeonly main
+sed -i '1s/.*/h строка Y/;10s/.*/h строка S2/' h.txt; sed -i '6s/.*/k строка Z/' k.txt
+git commit -qam "h как у слияния M2 — блоб, который несёт только дифф слияния; k как у Z1"
+git checkout -qb p-r1only main
+sed -i '2s/.*/g строка ветки/' g.txt; git commit -qam "g ветки"
+git checkout -q sm-s; sed -i '10s/.*/f строка S/' f.txt; git commit -qam "S"
+git checkout -q sm-s2; sed -i '10s/.*/h строка S2/' h.txt; git commit -qam "S2"
+git checkout -q sm-s3; sed -i '12s/.*/h строка S3/' h.txt; sed -i '12s/.*/f строка S3/' f.txt; git commit -qam "S3"
+git checkout -q main
+sed -i '1s/.*/f строка X/' f.txt; git commit -qam "X"
+git merge -q --no-ff --no-commit sm-s >/dev/null 2>&1 || true
+git checkout sm-s -- f.txt; git commit -qm "M: f со второго родителя"
+sed -i '6s/.*/k строка Z/' k.txt; git commit -qam "Z1"
+sed -i '6s/.*/k строка ствола/' k.txt; git commit -qam "Z2"
+sed -i '11s/.*/g строка ствола/' g.txt; git commit -qam "ствол правит g"
+sed -i '1s/.*/h строка Y/' h.txt; git commit -qam "Y"
+git merge -q --no-ff -m "M2: h не равен ни одному родителю" sm-s2 >/dev/null
+git merge -q --no-ff -m "M3: f и h снова слиянием — блоб M2 и блоб S не попадают в дифф первой линии" sm-s3 >/dev/null
+git checkout -q release/r1
+sed -i '2s/.*/g строка ветки/' g.txt; git commit -qam "release/r1 принял g ветки"
+git push -q origin main release/r1
+git fetch -q origin
+git checkout -q main
+git branch -q -D release/r1 sm-s sm-s2 sm-s3
+cd "$TMP"
+sm_run() { # $1 = исполняемый, далее — окружение → нормализованный вывод
+  local a=$1; shift
+  env BRANCH_AUDIT_ALL_FILES=1 BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 "$@" "$a" "$SM" 2>&1 |
+    grep -vE '^branch-audit: (замер|параллельных заданий|время прогона|ускорение|дольше всех)'
+}
+set +e
+SM_EXACT=$(sm_run "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+SM_FAST=$(sm_run "$AUDIT")
+SM_RAW=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 "$AUDIT" "$SM" 2>&1)
+set -e
+sm_bypath='ПОГЛОЩЕНА ПОФАЙЛОВО'
+if [ -n "$SM_FAST" ] && [ "$SM_FAST" = "$SM_EXACT" ] &&
+   grep -qE 'стволов в сверке 2' <<<"$SM_FAST" &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-hidden — " "$sm_bypath" &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-side — " "$sm_bypath" &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-evil — " "$sm_bypath" &&
+   f_has "$SM_FAST" "ВЛИТЫ" "p-r1only — " 'ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/release/r1' &&
+   f_has "$SM_FAST" "ТОЛЬКО ЛОКАЛЬНО" "p-mergeonly " 'h\.txt' &&
+   grep -qE 'история путей одним обходом: ответов [1-9]' <<<"$SM_RAW"; then
+  say "✅ TM10" "ствол со слияниями: пакет дословно равен эталону --find-object; p-hidden, p-side, p-evil поглощены по истории пути, p-mergeonly — единственный экземпляр, p-r1only поглощена release/r1"
+else
+  say "❌ TM10" "ствол со слияниями: пакет разошёлся с эталоном --find-object либо вердикт названной ветки не тот"
+  diff <(echo "$SM_EXACT") <(echo "$SM_FAST") | head -10 || true
+  grep '^   p-' <<<"$SM_FAST" || true; fail=1
+fi
+sm_judge() { # $1 = метка, $2 = ветка, чей вердикт обязан смениться, $3 = мутант, $4 = что сломано
+  local out d
+  set +e; out=$(sm_run "$3"); set -e
+  d=$(diff <(echo "$SM_EXACT") <(echo "$out") || true)
+  if [ "$out" != "$SM_EXACT" ] && grep -qE -- "^[<>]    $2[ —]" <<<"$d"; then
+    say "✅ $1" "мутация «$4» делает пробу со слияниями красной и меняет вердикт $2"
+    grep -E -- "^[<>]    $2[ —]" <<<"$d"
+  else
+    say "❌ $1" "мутация «$4» не замечена пробой со слияниями"; fail=1
+    head -8 <<<"$d"
+  fi
+}
+sm_twin() { # $1 = метка, $2 = мутант, $3 = что изменено
+  local out
+  set +e; out=$(sm_run "$2"); set -e
+  if [ -n "$out" ] && [ "$out" = "$SM_EXACT" ]; then
+    say "✅ $1" "законный близнец «$3» молчит: вывод дословно равен эталону"
+  else
+    say "❌ $1" "законный близнец «$3» сменил вывод — проба судит не правило, а форму записи"; fail=1
+    diff <(echo "$SM_EXACT") <(echo "$out") | head -6 || true
+  fi
+}
+sm_m="$TMP/sm-mutant.sh"
+if mutate "$sm_m" "raw = run(['git', 'log', '--no-show-signature'] + tips + ['--raw'," \
+                  "raw = run(['git', 'log', '--no-show-signature', '--first-parent'] + tips + ['--raw',"; then
+  sm_judge TM11 p-side "$sm_m" "обход истории только по первому родителю"
+else
+  say "❌ TM11" "мутация не легла — строки обхода истории одним проходом в скрипте нет"; fail=1
+fi
+# TM12 — две замены разом: обход одним проходом снят, и отступление спрашивает
+# историю пути без --full-history. Незалёгшая любая из двух — отказ (как AX).
+rm -f "$sm_m"
+if python3 - "$AUDIT" "$sm_m" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+for old, new in (
+        ('    history_blobs_once "$BA_SHARED/ans/fb" "${IDXTR[@]}" > "$BA_SHARED/fb.n" 2>/dev/null &&',
+         '    false &&'),
+        ('git log "${idxtr[@]}" --full-history --raw', 'git log "${idxtr[@]}" --raw')):
+    if s.count(old) != 1:
+        sys.exit(1)
+    s = s.replace(old, new)
+open(sys.argv[2], "w", encoding="utf-8").write(s)
+PY
+then
+  chmod +x "$sm_m"
+  sm_judge TM12 p-hidden "$sm_m" "упрощение истории по пути, как у git log с путём"
+else
+  say "❌ TM12" "мутация не легла — обхода одним проходом либо отступления с --full-history в скрипте нет"; fail=1
+fi
+rm -f "$sm_m"
+if python3 - "$AUDIT" "$sm_m" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = '"mt/${TRUNK_COMMIT[$tr]}.$rsha"'
+# Ключ читается и пишется в двух местах: мутант меняет оба, иначе он холост.
+if s.count(old) != 2:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, '"mt/$rsha"'))
+PY
+then
+  chmod +x "$sm_m"
+  sm_judge TM13 p-r1only "$sm_m" "ключ общего ответа слияния без ствола"
+else
+  say "❌ TM13" "мутация не легла — ключа общего ответа слияния mt/<ствол>.<голова> в скрипте нет (ожидалось 2 вхождения)"; fail=1
+fi
+if mutate "$sm_m" "'--diff-merges=off', '-z'" "'-z'"; then
+  sm_twin TM14 "$sm_m" "--diff-merges=off снят — умолчание git log"
+else
+  say "❌ TM14" "мутация не легла — --diff-merges=off в обходе истории нет"; fail=1
+fi
+if mutate "$sm_m" '            for b in sorted(bs):' '            for b in bs:'; then
+  sm_twin TM15 "$sm_m" "блобы ответа без сортировки"
+else
+  say "❌ TM15" "мутация не легла — сортировки блобов ответа в скрипте нет"; fail=1
 fi
 
 echo

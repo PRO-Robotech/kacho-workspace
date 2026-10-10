@@ -663,29 +663,35 @@ esac
 #   ans/fb/<ключ>.b — ответ о блобах пути (см. ниже): заранее, одним обходом.
 #
 # ИСТОРИЯ ПУТЕЙ ОДНИМ ОБХОДОМ (ws#995). Признак (6б) спрашивает у каждого пути
-# дельты `git log <стволы> --raw --no-renames -- <путь>` — упрощённый обход
-# истории по этому пути. Это «пути × история»: замер 2026-10-10 на клоне продукта
-# (10 стволов, 4095 коммитов их истории) — 29722 таких вызова за прогон, и у
-# ветки с 3694 файлами дельты 121 с из 149 (профиль трассой по строкам). Ответ от
-# ветки не зависит, поэтому он считается для ВСЕХ путей истории стволов сразу,
-# одним проходом её графа в топологическом порядке, тем же правилом упрощения,
-# что у git log с путём:
-#   * коммит с одним родителем (и корень) показывается, если менял путь, и
-#     передаёт обход родителю;
-#   * слияние, у которого путь тот же, что у первого родителя, идёт только к
-#     нему; иначе — к первому родителю, у которого путь тот же (по объекту и
-#     режиму, `cat-file`), а если такого нет, — ко всем; слияние не показывается
-#     (без -m у него нет диффа, а `--find-object` берёт только дифф);
-#   * путь — и сам файл, и каталог: образец пути берёт всё, что под ним.
-# Множество путей обхода — каждый путь из диффов истории и каждый его каталог;
-# у каждого — свой бит в маске коммита. Ответ пишется в тот же файл общего
-# кэша, что прежде писал поштучный вызов, и в той же форме, поэтому читатель не
-# изменился, а путь без записанного ответа (имя длиннее предела файловой
-# системы, путь не в печатной ASCII-форме) спрашивается поштучно, как раньше.
-# Равенство поштучной форме измерено по ВСЕМ путям истории стволов: 16680 путей
-# клона продукта и 6345 клона службы управления доступом — расхождений 0
-# (2026-10-10). Держит ws#995 в `branch-audit-inject.sh` (TM3, TM4), сверка
-# режимов — AJ.
+# дельты, встречался ли блоб ветки в истории ствола по этому пути. Поштучно это
+# «пути × история»: замер 2026-10-10 на клоне продукта (10 стволов, 4095
+# коммитов их истории) — 29722 вызова `git log` с путём за прогон, и у ветки с
+# 3694 файлами дельты 121 с из 149 (профиль трассой по строкам). Ответ от ветки
+# не зависит, поэтому он считается для ВСЕХ путей истории стволов сразу, одним
+# `git log` без пути.
+#
+# Эталон — `git log <ствол> --find-object=<блоб> -- <путь>`, и `--find-object`
+# снимает упрощение истории (в git оно включает полную историю): показан каждый
+# коммит-не-слияние, достижимый из ствола, чей дифф к родителю (корня — по
+# log.showRoot) несёт блоб по пути или под ним; слияние без -m диффа не несёт
+# и не показывается. Поэтому множество блобов пути — объединение сторон диффов
+# всех не-слияний истории стволов по этому пути и по всему, что под ним (путь —
+# и файл, и каталог: образец пути берёт всё, что под ним), без какого-либо
+# правила обхода родителей слияния. Прежняя редакция (до ws#995 — поштучным
+# `git log --raw -- <путь>`, в ws#995 — обходом графа с тем же правилом)
+# упрощала историю по пути и теряла блоб, который ствол нёс на стороне
+# слияния, взявшего путь у другого родителя: пакет называл работой в
+# единственном экземпляре ветку, которую эталон признаёт поглощённой. Равенство
+# измерялось с поштучным `git log --raw -- <путь>`, а не с эталоном, — и потому
+# совпадало.
+#
+# Ответ пишется в тот же файл общего кэша и в той же форме, что у поштучного
+# отступления, поэтому читатель один; путь без записанного ответа (имя длиннее
+# предела файловой системы, путь не в печатной ASCII-форме) спрашивается
+# поштучно — с `--full-history`, тем же правилом. Держит `branch-audit-inject.sh`:
+# сверка режимов с эталоном на пробе со слияниями (TM10) и мутанты обхода
+# «только первый родитель» и «упрощение по пути» (TM11, TM12) — равенство
+# эталону, а не поштучному `git log` с путём; время — TM3, TM4.
 history_blobs_once() { # $1 = каталог ответов, далее — стволы → печатает число записанных ответов
   python3 - "$@" <<'PY'
 import os, subprocess, sys
@@ -697,106 +703,32 @@ def printable(p):
     return all(0x20 <= c <= 0x7e and c not in (0x22, 0x5c) for c in p)
 
 out_dir, tips = sys.argv[1], sys.argv[2:]
-order, parents = [], {}
-for line in run(['git', 'rev-list', '--topo-order', '--parents'] + tips + ['--']).split(b'\n'):
-    if line:
-        h, *ps = line.decode().split(' ')
-        order.append(h); parents[h] = ps
-tip_sha = run(['git', 'rev-parse'] + [t + '^{commit}' for t in tips]).decode().split()
-# Дифф не-слияния — к родителю, корня — по настройке log.showRoot, как у
-# поштучного вызова; слияния — к первому родителю: только чтобы знать, менялся
-# ли путь относительно него.
+# Слияния диффа не несут (--diff-merges=off — как у эталона без -m); корень —
+# по настройке log.showRoot, как у эталона.
 raw = run(['git', 'log', '--no-show-signature'] + tips + ['--raw', '--no-renames', '--no-abbrev',
-           '--diff-merges=first-parent', '-z', '--format=C%H', '--'])
-diffs = {}; cur = None; meta = None
+           '--diff-merges=off', '-z', '--format=C%H', '--'])
+blobs = {}; meta = None
 for tok in raw.split(b'\0'):
     if tok.startswith(b'\n'):
         tok = tok[1:]
     if meta is not None:
-        diffs[cur].append((tok, meta[2], meta[3])); meta = None
-    elif tok.startswith(b':'):
-        meta = tok.decode().split(' ')
-    elif tok.startswith(b'C'):
-        cur = tok[1:].decode(); diffs.setdefault(cur, [])
-    elif tok:
-        sys.exit('нераспознанная запись вывода git log')
-Q = {}
-for h, d in diffs.items():
-    if len(parents.get(h, ())) >= 2:
-        continue
-    for p, _, _ in d:
+        p = tok
         while True:
-            if p not in Q:
-                Q[p] = len(Q)
+            s = blobs.setdefault(p, set())
+            s.add(meta[2]); s.add(meta[3])
             i = p.rfind(b'/')
             if i <= 0:
                 break
             p = p[:i]
-names = [None] * len(Q)
-for k, v in Q.items():
-    names[v] = k
-
-def entries(p):
-    r = []
-    while True:
-        if p in Q:
-            r.append(Q[p])
-        i = p.rfind(b'/')
-        if i <= 0:
-            return r
-        p = p[:i]
-
-cf = subprocess.Popen(['git', 'cat-file', '--batch-check=%(objectname) %(objectmode)'],
-                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-
-def state(c, p):
-    cf.stdin.write(c.encode() + b':' + p + b'\n'); cf.stdin.flush()
-    r = cf.stdout.readline()
-    if not r:
-        sys.exit('cat-file не ответил')
-    # «<коммит>:<путь> missing» несёт имя коммита — у отсутствия одно состояние.
-    return b'-' if r.endswith(b' missing\n') else r
-
-blobs = [set() for _ in range(len(Q))]
-ALL = (1 << len(Q)) - 1
-vis = {t: ALL for t in tip_sha}
-for h in order:
-    m = vis.pop(h, 0)
-    if not m:
+        meta = None
+    elif tok.startswith(b':'):
+        meta = tok.decode().split(' ')
+    elif tok.startswith(b'C') or not tok:
         continue
-    ps = parents[h]
-    if len(ps) < 2:
-        for p, a, b in diffs.get(h, ()):
-            for e in entries(p):
-                if (m >> e) & 1:
-                    blobs[e].add(a); blobs[e].add(b)
-        if ps:
-            vis[ps[0]] = vis.get(ps[0], 0) | m
-        continue
-    rel = set()
-    for p, _, _ in diffs.get(h, ()):
-        rel.update(entries(p))
-    relm = 0
-    for e in rel:
-        relm |= 1 << e
-    vis[ps[0]] = vis.get(ps[0], 0) | (m & ~relm)
-    for e in rel:
-        if not (m >> e) & 1:
-            continue
-        bit = 1 << e
-        own = state(h, names[e])
-        for pj in ps[1:]:
-            if state(pj, names[e]) == own:
-                vis[pj] = vis.get(pj, 0) | bit
-                break
-        else:
-            for pj in ps:
-                vis[pj] = vis.get(pj, 0) | bit
-cf.stdin.close()
-if cf.wait() != 0:
-    sys.exit('cat-file отказал')
+    else:
+        sys.exit('нераспознанная запись вывода git log')
 written = 0
-for e, p in enumerate(names):
+for p, bs in blobs.items():
     if not printable(p):
         continue
     s = p.decode()
@@ -806,7 +738,7 @@ for e, p in enumerate(names):
     try:
         os.makedirs(os.path.dirname(fn), exist_ok=True)
         with open(fn + '.once', 'w') as w:
-            for b in sorted(blobs[e]):
+            for b in sorted(bs):
                 if b.strip('0'):
                     w.write(':x x %s %s\n' % (b, b))
         os.replace(fn + '.once', fn)
@@ -1645,11 +1577,12 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
       cp "$BA_TMP/fo.cand" "$BA_TMP/fo.hit"
     fi
     # Поштучная форма спрашивает `git log <ствол> --find-object=<блоб> -- <путь>`
-    # ствол за стволом и берёт ИЛИ. Упрощение истории по пути — свойство
-    # каждого коммита и его родителей, а не вершины обхода, поэтому обход
-    # `git log <все стволы> -- <путь>` показывает ровно объединение поштучных
-    # обходов, а его `--raw` несёт ровно те блобы, по которым отбирает
-    # `--find-object`. Множество блобов пути не зависит от ветки: оно считается
+    # ствол за стволом и берёт ИЛИ. `--find-object` снимает упрощение истории,
+    # поэтому её ответ — блобы диффов ВСЕХ не-слияний истории ствола по пути, и
+    # объединение по стволам несёт `git log <все стволы> --full-history --raw --
+    # <путь>`; без `--full-history` обход по пути упрощён и теряет блоб стороны
+    # слияния, взявшего путь у другого родителя (TM10–TM13 в
+    # branch-audit-inject.sh). Множество блобов пути не зависит от ветки: оно считается
     # один раз на прогон (ans/fb/<путь>.b) и делится между заданиями, а решение по
     # всем файлам ветки выносит один awk. Ключ файла ответа — ba_key_of; ответ,
     # который не записался (имя длиннее предела файловой системы), awk называет
@@ -1671,7 +1604,7 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
           # Имя — заранее: слово перенаправления раскрывается в порождённом
           # процессе, и $BASHPID там был бы его собственным.
           t="$BA_SHARED/ans/fb/$key.b.$BASHPID"
-          if { git log "${idxtr[@]}" --raw --no-abbrev --no-renames --format= -- "$f" > "$t"; } 2>/dev/null; then
+          if { git log "${idxtr[@]}" --full-history --raw --no-abbrev --no-renames --format= -- "$f" > "$t"; } 2>/dev/null; then
             mv -f -T "$t" "$BA_SHARED/ans/fb/$key.b" 2>/dev/null || rm -f "$t"
           else
             rm -f "$t" 2>/dev/null || true
@@ -2068,7 +2001,10 @@ ABS_SRC=""
 # (ws#995; одно слияние ветки, ответвлённой до переезда дерева, — до 0,7 с поиска
 # переименований). Ответ общий для заданий: «1» — дерево слияния равно дереву
 # ствола, «0» — нет либо конфликт; недописанный ответ читается как неспрошенный.
-# Эталон (BRANCH_AUDIT_EXACT=1) сливает каждый раз.
+# Ключ несёт и ствол, и голову: ответ одного ствола, прочитанный за другой,
+# назвал бы непоглощённой ветку, которую поглотил не первый ствол сверки
+# (держит TM13 в branch-audit-inject.sh). Эталон (BRANCH_AUDIT_EXACT=1) сливает
+# каждый раз.
 absorbed_where() { # $1 = ref [$2 = полная ссылка ствола, с которым не сверять] → ABS_SRC: имя ствола, поглотившего ветку, либо пусто
   local ref=$1 skip=${2:-} tr out rsha
   ABS_SRC=""
