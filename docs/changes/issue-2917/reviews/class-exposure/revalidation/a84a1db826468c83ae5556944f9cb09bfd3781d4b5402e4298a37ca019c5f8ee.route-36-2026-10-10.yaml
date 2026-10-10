@@ -1,0 +1,238 @@
+# Экспозиция классов: пересверка маршрута tasks.md редакции 36 при замысле NTF-2 редакции 33,
+# ветка issue-880 @64d993665.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА (координата §4 роли). Замысел с прошлой пересверки не менялся
+# (a84a1db8…). Прежние записи revalidation/a84a1db8…(.route-34|.route-35).yaml только дописываются,
+# поэтому эта лежит рядом с суффиксом маршрута. Предмет — дельта 64d993665^ → 64d993665 (fa-b1):
+# решение диспетчера (ж) и гейт ТЗ волн KN-1 и KC-0. Права писать реализацию запись не даёт.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2917
+issue: https://github.com/PRO-Robotech/kacho/issues/2917
+issue_kaname: https://github.com/PRO-Robotech/kaname/issues/484
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2917/design.md
+  sha256: a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee
+  fingerprint_predicate: git show 64d993665:docs/changes/issue-2917/design.md | sha256sum
+  revision: 33
+  changed_since_previous_record: false
+  route:
+    path: docs/changes/issue-2917/tasks.md
+    sha256: 624d3da8702af25bb837c4077155fec64a3dce74284865d4116876552d4c8bc3
+    fingerprint_predicate: git show 64d993665:docs/changes/issue-2917/tasks.md | sha256sum
+    revision: 36
+    content_commit: 64d99366509b4a3c551fadb38b9b280a8e13cb9c
+    previous_sha256: 5679fe608f6f7131869aec675b0ad814b6c5c490476144865180f4c9c7d54948   # редакция 35
+  delta: "git diff 64d993665^ 64d993665 --stat   # только tasks.md, +25 −8: шапка ред. 36, строки Е22, F3, S1, S5(без изм.), S9, S9a, E4, E4b, E5-волна, п.4 и п.6 порядка"
+  acceptance:
+    path: docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md
+    sha256: 5135d8cbd84981f409d99fe78d69ca7b641d8e53ec60d7d9e99f2e6f98f4ab09   # sha256sum @64d993665; запись APPROVED рядом — 5135d8cb….yaml
+previous_revalidation:
+  path: docs/changes/issue-2917/reviews/class-exposure/revalidation/a84a1db826468c83ae5556944f9cb09bfd3781d4b5402e4298a37ca019c5f8ee.route-35-2026-10-10.yaml
+  subject_revision: "замысел 33, маршрут 35"
+  outcome: к-коду
+  unmapped_items: []
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+  epoch: post-cutover
+  role_source: >-
+    origin/main:.claude/agents/class-exposure-analyst.md @54854e0f3 (отличие от локальной копии — skills
+    rule-flow-acceleration и триггер `Skill change-graph`; сверено diff). Применены
+    origin/main:.claude/rules/flow-acceleration.md: fa-b1 (только дельта), fa-b2 (условие к коду — в
+    замысел), fa-b4 (вопрос, а не молчаливый выбор), fa-b5 (утверждение о дереве — предикатом),
+    fa-b7 (сосед — одобренная редакция).
+dispatcher_decisions:
+  applied: >-
+    Д96–Д134, Д12; решения диспетчера 2026-10-10 (е) — расхождение с одобренной приёмкой в пользу
+    приёмки, (ж) — предмет этой дельты. Новые блокирующие — только с предикатом и с названными
+    полосами/волнами, чей старт они держат.
+revisions:
+  workspace: 64d99366509b4a3c551fadb38b9b280a8e13cb9c
+  workspace_rules: 54854e0f3   # origin/main
+  kaname: d93b69712f0d826216bf3f8ce4dbe65bc7e195cd   # origin/484-notify после git fetch
+  kacho: origin/2914-notify    # ветка эпика; пин kaname в go.mod — v0.4.1-0.20261007174715-33010d434767
+  kaname_pr_689: 2cfa35c29f41a3c039e9362cda8e086673075280   # OPEN, base 484-notify (gh pr view 689)
+snapshot_at: 2026-10-10T08:00:00Z
+inspected: >-
+  Дельта 64d993665 целиком: шапка ред. 36 (tasks.md:13–27), строки Е22 (:401), F3 (:418), G1 (:433),
+  S1 (:442), S5 (:446), S9 (:452), S9a (:453), E4 (:468), E4b (:469), X2 (:487), D1 (:479), порядок
+  п.4 и п.6 (:522, :524). Приёмка NTF-2 @5135d8cb: NTF2-46 (:2212–2220). Приёмка F8 на origin/main
+  воркспейса: F8-13 (:2000), F8-14 (:2044–2058), F8-17. kacho @origin/2914-notify: ui-future/e2e/specs
+  — address-confirmation.spec.ts, identity-ceremony.spec.ts (:564–790), ceremony-seed.ts (:200–260),
+  account-settings.spec.ts (:132); перепись читателей — 17 файлов. kaname: PR #689 — 41 файл.
+
+closure_of_previous:
+  decision_zh_1_S9_CX2_96:
+    status: закрыто
+    evidence: >-
+      S9 (tasks.md:452) несёт ручку `notifications.feed-keyring-file` строкой `mail_bounds.go` со стражами
+      старта (флаг true без ключа → отказ с именем ручки; близнец с ключом → старт; ключ не по форме →
+      отказ без материала; флаг false → старт), самоотчётом ключа, пробой привязки переменной окружения,
+      пробой «до кода, красная на базе». F3 (:418) передаёт долю явно. Посылка «F3 исполнена без неё»
+      подтверждена: `git -C project/kaname grep -n -i feed-keyring origin/484-notify | wc -l` → 0 @d93b69712.
+      Пересечения путей S9 по `config/{mail_bounds,notifications}.go` с открытыми полосами нет: из
+      строк маршрута этот путь называют только F3 (исполнена, предок S9 через G1) и S9.
+  decision_zh_2_S9_order:
+    status: закрыто
+    evidence: >-
+      Колонка «зависит от» S9: G1, Е5, NTF1-K3, `kaname#689` со стартовой печатью
+      `merge-base --is-ancestor <голова #689> <база>` → 0. Порядок п.4 (:522) повторяет. Посылка «общий путь
+      grpc_register.go» подтверждена: `gh pr view 689 --repo PRO-Robotech/kaname --json files` — путь
+      `cmd/kaname/grpc_register.go` в составе, PR OPEN, base `484-notify`, head 2cfa35c2. Squash запрещён
+      процессом, значит голова #689 после вливания достижима — предикат старта исполним.
+  decision_zh_3_S9a_positive_control_to_S1:
+    status: закрыто
+    evidence: >-
+      Положительный контроль П6-k (строка `recovery`, близнец П6-k-off, печать версии corelib, ревизии,
+      SAN, оси ключа ленты, трижды подряд) — в предикате S1 (:442); S9a (:453) называет перенос. S1 зависит
+      от S9a (стенд), S9a — от S9 (ключ ленты), значит производитель стоит раньше держателя.
+  decision_zh_4_NTF2_69a_to_S5:
+    status: закрыто
+    evidence: >-
+      S9a называет перенос NTF2-69 (а) по CX2-102 (в) в предикат S5. S5 (:446) несёт NTF2-69 (а)–(д) на П6-k
+      и `retry-after` из того же счёта актов (`grpc.SetHeader` до статуса) с близнецом; зависимость S5 → S9a
+      есть. Формулировка «момент запроса не кратен секунде… вверх округлённый остаток» в строке S5 дословно
+      не повторена — она стоит в design.md З24, на который S5 ссылается; неблокирующее N36-2.
+  decision_zh_5_NTF2_46_producer:
+    status: закрыто
+    evidence: >-
+      Given NTF2-46 «в ленте kaname одна строка в сроке» (приёмка :2214) — производитель назван: постановщик
+      G1 (`mail.Enqueuer` + конструктор `Letter` одного шаблона на адрес П10) в процессе пробы, не глагол;
+      число строк ленты перед `Claim` печатается, ≠ 1 → «не выполнилось». G1 в зависимостях S9a. Условие
+      создаётся продуктовым кодом, а не вставкой фикстуры — фикстура не снисходительнее продукта.
+  decision_KC0_E4_start:
+    status: закрыто
+    evidence: >-
+      E4 (:468) — после S2 и D1, стартовая печать `register/confirm` в пине kaname ≥ 1. Посылка «0 на
+      33010d434767 и на d93b69712» подтверждена: `git -C project/kaname grep -lE 'register/confirm' <rev> --
+      internal ':!*_test.go' | wc -l` → 0 и 0; пин ветки эпика kacho — 33010d434767
+      (`git show origin/2914-notify:go.mod`).
+  decision_KC0_E4b_E22:
+    status: НЕ закрыто — B36-1 ниже
+  carried_open:
+    - "N34-2 (замысел и change.yaml отстают от приёмки 5135d8cb: hashes.acceptance_sha256 = 5606cbc0…) — открыт, неблокирующий; дельта не трогала"
+    - "N35-1 (база пробы CX2-110 в S6) — открыт, неблокирующий"
+
+approval_conditions:
+  - B36-1
+
+clean: false
+
+new_items:
+  - id: B36-1
+    blocking: true
+    holds:
+      start: [E4b, Е22]
+      landing: ["сведение E4 + E4b"]
+      waves: ["KC-0 (гейт ТЗ)"]
+      also: "X2 — зависит от E4, то есть от посадки сведения; старт E4 и волна KN-1 не держатся"
+    decision: "E4b и Е22: миграция проб консоли под Р9 «сначала письмо, потом сессия»"
+    class: >-
+      code-authoring §«Контракт, который нельзя выразить» (перечень входных поверхностей: читатели снимаемого
+      поведения названы не все) и measurement-discipline §«Радиус: по имени механизма и по точкам применения»
+      (радиус взят по трём файлам, а не по имени механизма — ответу `register` с сессией).
+    finding: >-
+      Маршрут ограничивает E4b тремя путями (fixtures.ts, address-confirmation.spec.ts,
+      registration-refusal-named.spec.ts), а Е22 — строками замещения F6b-12, F6b-40, F6b-41. На ветке
+      эпика ответ `register` с сессией читают ещё: (1) `ceremony-seed.ts` `seedHuman` (:218–229) требует
+      `200`, `session` в теле и носитель сессии; на нём стоит `seedConfirmedHuman` — «Дано» по умолчанию
+      для человека в пробах F8, F6b-26 и account-settings.spec.ts:132. (2) `identity-ceremony.spec.ts`:
+      F8-13 (:577, уход регистрации на `/verification`), F8-14 (:685, «регистрация заводит человека и
+      сразу даёт сессию»), F8-17 (:753, `session.emailVerified=false` в ответе регистрации и `/verification`).
+      Это сценарии ОДОБРЕННОЙ приёмки F8 (origin/main воркспейса, F8-14 :2044 — «сразу даёт сессию»).
+      В приёмке NTF-2, замысле и маршруте строк о F8 нет. При Р9 (`register` → `200 {}` без печений)
+      эти пробы краснеют либо дают «условие не создано», и тогда предикат сведения
+      «console-e2e — 0 failed и 0 did not run» в объявленных путях E4b невыполним. Исполнителю пришлось бы
+      выйти за пути без строк замещения в приёмке. Перепись читателей, предписанная E4b, ceremony-seed.ts
+      не находит: образец `\bregister\(` не совпадает с `seed.submit(LANE.register, …)`.
+    predicate: >-
+      `git -C project/kacho grep -nE 'LANE\.register\b|\bseed(Confirmed)?Human\(' origin/2914-notify --
+      ui-future/e2e ':!ui-future/e2e/specs/{fixtures.ts,address-confirmation.spec.ts,registration-refusal-named.spec.ts}'`
+      → сейчас ≥ 1 (ceremony-seed.ts:220–221, identity-ceremony.spec.ts:645, :696, :702, :725, :742, :750,
+      :768, :1115, :1381; account-settings.spec.ts:132). Снимается, когда каждый файл с попаданием назван
+      в путях E4b (либо отдельной полосы того же сведения) и разобран по референту. Второе условие:
+      `grep -cE 'F8-(13|14|17)' <приёмка NTF-2>` → по ≥ 1 на КАЖДЫЙ ID (как и F6b-12, F6b-40, F6b-41) на
+      отпечатке с записью APPROVED.
+    code_condition: >-
+      (а) Е22: строки замещения приёмки NTF-2 — F6b-12, F6b-40, F6b-41 и F8-13 (ветка «после регистрации»),
+      F8-14, F8-17, а также определение посева П-н/П-п приёмки F8 (человек заводится ответом `register` с
+      сессией) — каждая с наследником NTF2-ID. Регистрационные отказы F8-15, F8-16, F8-21 — разобрать
+      переписью и решить строкой: остаются (отказ синхронный при Р9) или замещаются. (б) E4b: пути
+      дополнены `ui-future/e2e/specs/{ceremony-seed.ts,identity-ceremony.spec.ts}` и прочими файлами из
+      предиката выше; `seedHuman` заводит человека по Р9 (код из письма → `register/confirm` → носитель),
+      `seedConfirmedHuman` по-прежнему отдаёт подтверждённую сессию. Читатели, которые судят посев, а не
+      регистрацию (account-settings, F6b-26), утверждений не меняют. (в) Образец переписи E4b дополнен
+      `LANE\.register\b|\bseed(Confirmed)?Human\(|\bseeded\(`; печатается число до и после и разбор
+      каждого вхождения по референту. (г) Предикат Е22 считается по каждому ID отдельно: нынешний
+      `grep -cE 'F6b-(12|40|41)' → ≥ 1` выполняется одной строкой из трёх.
+    held_by: >-
+      Полнота путей — не гейтом, а предикатом переписи (б, в); исход — console-e2e на голове сведения
+      E4 + E4b: 0 failed и 0 did not run, это уже в строке. Е22 — запись acceptance-reviewer APPROVED.
+  - id: N36-1
+    blocking: false
+    decision: "E4b, колонка «зависит от»"
+    finding: >-
+      E4b перечисляет Е22 среди зависимостей без оговорки. Строка Е22 и п.6 порядка говорят: Е22 гейтит
+      ПОСАДКУ E4b, не старт. Колонка таблицы — «зависит от» (заголовок :461), и её читают как условие старта.
+    predicate: "awk -F' \\| ' '$1==\"| E4b\"{print $6}' tasks.md | grep -c 'Е22'  → 1 без слова «посадка»"
+    resolution: "в колонке E4b — «Е22 (посадка)»; правится тем же заходом, что B36-1"
+  - id: N36-2
+    blocking: false
+    decision: "S5, перенос NTF2-69 (а) по CX2-102 (в)"
+    finding: >-
+      Формулировка держателя CX2-102 (в) — момент запроса не кратен секунде относительно старейшего акта,
+      `retry-after` равен остатку, округлённому вверх, печать остатка и значения — снята из S9a. В строку S5
+      дословно она не перенесена: S5 несёт «целое > 0 секунд из того же счёта актов» и ссылку на З24.
+      Держатель цел через design.md З24, но предикат снятия S5 сам по себе слабее прежнего.
+    predicate: "awk -F' \\| ' '$1==\"| S5\"{print $5}' tasks.md | grep -c 'не кратен секунде'  → 0"
+    resolution: "дописать фразу в предикат S5; старт S5 не держит (S5 после S9a)"
+
+measurements:
+  - claim: "дельта ред. 36 — только tasks.md"
+    how: "git show --stat 64d993665"
+    result: "1 файл, +25 −8"
+  - claim: "feed-keyring в kaname отсутствует"
+    how: "git -C project/kaname grep -n -i feed-keyring origin/484-notify | wc -l"
+    result: "0 @d93b69712 — подтверждено"
+  - claim: "register/confirm нет в пине и на голове линии"
+    how: "git -C project/kaname grep -lE 'register/confirm' <rev> -- internal ':!*_test.go' | wc -l"
+    result: "33010d434767 → 0; origin/484-notify → 0; пин ветки эпика kacho = 33010d434767 (git show origin/2914-notify:go.mod) — подтверждено"
+  - claim: "kaname#689 трогает cmd/kaname/grpc_register.go"
+    how: "gh pr view 689 --repo PRO-Robotech/kaname --json state,baseRefName,files"
+    result: "OPEN, base 484-notify, 41 файл, grpc_register.go в составе — подтверждено"
+  - claim: "в приёмке NTF-2 строк замещения F6b-12/40/41 нет"
+    how: "grep -cE 'F6b-(12|40|41)' docs/specs/sub-phase-NTF-2-identity-provider-mail-removal-acceptance.md (sha256 5135d8cb…)"
+    result: "0 — подтверждено"
+  - claim: "(новое) читатели ответа register с сессией вне путей E4b"
+    how: "git -C project/kacho grep -cE 'LANE\\.register\\b' origin/2914-notify -- ui-future/e2e; … -cE '\\bseed(Confirmed)?Human\\('"
+    result: "LANE.register: address-confirmation 6, ceremony-seed 2, identity-ceremony 9; seed*Human: account-settings 1, address-confirmation 5, ceremony-seed 3, identity-ceremony 2"
+  - claim: "(новое) приёмки NTF-2, маршрут и замысел о F8 молчат"
+    how: "grep -c 'F8' <приёмка NTF-2>; grep -n 'F8\\|ceremony-seed\\|identity-ceremony' tasks.md design.md"
+    result: "0; 0 попаданий"
+  - claim: "(новое) образец переписи E4b находит ceremony-seed.ts"
+    how: "git -C project/kacho grep -nE 'registerThroughScreen|tenantWithProject|\\bregister\\(' origin/2914-notify -- ui-future/e2e/specs/ceremony-seed.ts"
+    result: "0 — не находит; во всём e2e 109 строк, по identity-ceremony.spec.ts — 5 (импорт и вызовы tenantWithProject/register из fixtures)"
+
+not_measurable: >-
+  Исход console-e2e после Р9: kaname с `register/confirm` ещё не существует (0 на всех ревизиях), поэтому
+  прогона быть не может. Синхронность отказов регистрации (F8-15, F8-16, F8-21) при Р9 — вопрос
+  приёмки NTF-2 (S2); по дереву её не установить.
+
+outcome: к-замыслу
+return_to_acceptance:
+  - "Е22: строки замещения F8-13 (ветка после регистрации), F8-14, F8-17 и посева П-н/П-п приёмки F8 — помимо F6b-12, F6b-40, F6b-41 (B36-1 (а)); это недостающее наблюдаемое поведение по fa-b2, а не условие к коду"
+unmapped_items:
+  - B36-1
+orders:
+  - "автор маршрута NTF-2 · B36-1 (б)–(г), N36-1, N36-2 — одной редакцией маршрута до старта E4b · measurement-discipline §«Радиус: по имени механизма и по точкам применения»; flow-acceleration fa-b5"
+  - "acceptance-author → acceptance-reviewer · Е22 в составе B36-1 (а) (≤ 2 кругов, fa-b8) · change-graph §2; решение (е)"
+  - "автор замысла NTF-2 · переносы П6-k → S1 и NTF2-69 (а) → S5 в З8 и З24, N34-2, условие CX2-110 — отдельной редакцией замысла до запроса эпика в main · flow-acceleration fa-b2"
+candidate_predicates: []
+new_class_proposal: —
