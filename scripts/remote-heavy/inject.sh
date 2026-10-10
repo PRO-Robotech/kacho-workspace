@@ -630,7 +630,8 @@ if grep -q 'пин helm неоднозначен' "$OUT"; then ok; else bad E3 "
 fresh
 go_run e4 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile lint --short e4 -- true
 expect_rc E4 0
-if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && ! jq -r '.spec.template.spec.containers[0].command[2]' "$BOX/state/job.json" | grep -q 'get.helm.sh'; then ok
+e4cmd="$(jq -r '.spec.template.spec.containers[0].command[2]' "$BOX/state/job.json" 2>/dev/null)"
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! grep -q 'get.helm.sh' <<< "$e4cmd"; then ok
 else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
 # E5 ревизия без пинов — сверять нечего, строка это называет
 if grep -q 'helm и node: пинов в конвейере ревизии нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
@@ -665,7 +666,8 @@ if [ "$frc" -eq 0 ] && [ "$(git -C "$FW/src" rev-parse -q --verify refs/remotes/
    && [ "$(git -C "$FW/src" rev-parse HEAD)" = "$(git -C "$SRC" rev-parse HEAD)" ] \
    && [ "$(git -C "$FW/src" rev-parse refs/remotes/origin/main)" = "$(git -C "$SRC" rev-parse HEAD)" ]; then ok
 else bad H1 "дерево pod без боковой ветки, метки, ствола или ревизии (код FETCH $frc)"; fi
-if git -C "$FW/src" for-each-ref --format='%(refname)' | grep -q '^refs/remote-heavy/'; then bad H1 "временная ссылка run.sh доехала в дерево pod"; else ok; fi
+fwrefs="$(git -C "$FW/src" for-each-ref --format='%(refname)')"
+if grep -q '^refs/remote-heavy/' <<< "$fwrefs"; then bad H1 "временная ссылка run.sh доехала в дерево pod"; else ok; fi
 git -C "$SRC" update-ref -d refs/remotes/origin/side; git -C "$SRC" update-ref -d refs/remotes/origin/main; git -C "$SRC" tag -d probe-tag >/dev/null
 
 # K2
