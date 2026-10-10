@@ -935,11 +935,12 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
 # контрольной суммы, опубликованной рядом с архивом. Отказ — «remote-heavy-prep:»,
 # то есть 69, а не красное.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
-INSTALL_SH='ha() { case "$(uname -m)" in x86_64) echo "$1";; aarch64|arm64) echo arm64;; *) return 1;; esac; }
+INSTALL_SH='# install-begin
+ha() { case "$(uname -m)" in x86_64) echo "$1";; aarch64|arm64) echo arm64;; *) return 1;; esac; }
 if [ -n "${HEAVY_HELM:-}" ]; then
   echo "remote-heavy: ставлю helm $HEAVY_HELM" >&2
   a="$(ha amd64)" || pf "helm: архитектура $(uname -m) не поддержана"
-  f="helm-$HEAVY_HELM-linux-$a.tar.gz"; mkdir -p /work/dl/helm
+  f="helm-$HEAVY_HELM-linux-$a.tar.gz"; mkdir -p /work/dl/helm || pf "каталог загрузки не создан"
   ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://get.helm.sh/helm-$HEAVY_HELM-linux-$a.tar.gz" \
     && echo "$(curl -fsSL --retry 3 "https://get.helm.sh/$f.sha256sum" | cut -d" " -f1)  $f" | sha256sum -c --quiet - \
     && tar -xzf "$f" -C helm "linux-$a/helm" && mv "helm/linux-$a/helm" /work/bin/helm ) || pf "helm $HEAVY_HELM не поставлен"
@@ -949,13 +950,14 @@ if [ -n "${HEAVY_NODE:-}" ]; then
   v="$(curl -fsSL --retry 3 https://nodejs.org/dist/index.json | jq -r --arg m "v$HEAVY_NODE." "[.[] | .version | select(startswith(\$m) or . == (\$m | rtrimstr(\".\")))][0] // empty")"
   [ -n "$v" ] || pf "node: версии под пин $HEAVY_NODE в индексе нет"
   echo "remote-heavy: ставлю node $v (пин $HEAVY_NODE)" >&2
-  f="node-$v-linux-$a.tar.gz"; mkdir -p /work/node
+  f="node-$v-linux-$a.tar.gz"; mkdir -p /work/dl /work/node || pf "каталог загрузки не создан"
   ( cd /work/dl && curl -fsSL --retry 3 -o "$f" "https://nodejs.org/dist/$v/$f" \
     && curl -fsSL --retry 3 "https://nodejs.org/dist/$v/SHASUMS256.txt" | grep "  $f\$" | sha256sum -c --quiet - \
     && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
   for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
 fi
-rm -rf /work/dl'
+rm -rf /work/dl
+# install-end'
 # Сверка среды — отдельно от установки и последней перед командой: она судит PATH,
 # а не то, что установка будто бы сделала. Маркеры — граница, по которой inject.sh
 # берёт текст из Job и исполняет его над поддельным PATH.

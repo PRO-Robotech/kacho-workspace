@@ -79,6 +79,9 @@
 #   E2 сверка среды ИСПОЛНЕНИЕМ над поддельным PATH: helm нет / не та версия /
 #      версия-префикс, node нет / не та / префикс → 125 и «среда: …» в
 #      termination-log; близнецы — верные версии и ревизия без пинов → 0
+#   E7 установка ИСПОЛНЕНИЕМ (двойник curl, настоящие архивы): оба пина, только
+#      node, только helm → 0 и инструменты в bin; сумма не сошлась, чужая
+#      архитектура → 125 с названной причиной; мажор → последний выпуск мажора
 #   E3 два пина helm                        → 69 до кластера, причина названа
 #   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
 #   E5 ревизия без пинов                    → строка называет, что сверять нечего
@@ -567,6 +570,56 @@ tools_case E2-node-other v4.2.4+g3900f43 v24.1.0 v4.2.4 26 125 node
 tools_case E2-node-prefix v4.2.4+g3900f43 v260.1.0 v4.2.4 26 125 node
 tools_case E2-legit v4.2.4+g3900f43 v26.8.1 v4.2.4 26 0
 tools_case E2-nopins - - "" "" 0
+# E7 установка ИСПОЛНЕНИЕМ: текст из Job, сеть — двойник curl, архивы настоящие.
+#    Оба пина → helm и node в bin; только node (helm без пина) → node ставится
+#    (опыт 2026-10-10: каталог загрузки создавался лишь веткой helm); сумма helm
+#    не сходится → отказ «helm … не поставлен»; архитектура чужая → отказ.
+sed -n '/^# install-begin$/,/^# install-end$/p' "$BOX/e1.cmd" > "$BOX/install.raw"
+if grep -q '^# install-end$' "$BOX/install.raw"; then ok; else OUT="$BOX/e1.cmd"; bad E7 "текста установки в Job нет — исполнять нечего"; fi
+IW="$BOX/iw"; IS="$BOX/istub"; IA="$BOX/iarch"
+# shellcheck disable=SC2016  # раскрывается в исполняемом тексте установки
+{ echo 'pf() { echo "remote-heavy-prep: $1" >&2; exit 125; }'; sed "s#/work#$IW#g" "$BOX/install.raw"; } > "$BOX/install.sh"
+rm -rf "$IA" "$IS"; mkdir -p "$IA/linux-amd64" "$IA/node-v26.11.1-linux-x64/bin" "$IS"
+printf '#!/bin/sh\necho v4.2.4+gprobe\n' > "$IA/linux-amd64/helm"; printf '#!/bin/sh\necho v26.11.1\n' > "$IA/node-v26.11.1-linux-x64/bin/node"
+chmod +x "$IA/linux-amd64/helm" "$IA/node-v26.11.1-linux-x64/bin/node"
+tar -czf "$IA/helm-v4.2.4-linux-amd64.tar.gz" -C "$IA" linux-amd64
+tar -czf "$IA/node-v26.11.1-linux-x64.tar.gz" -C "$IA" node-v26.11.1-linux-x64
+cat > "$IS/curl" <<'STUB'
+#!/bin/bash
+o=""; u=""
+while [ "$#" -gt 0 ]; do case "$1" in -o) o="$2"; shift 2 ;; --retry) shift 2 ;; -*) shift ;; *) u="$1"; shift ;; esac; done
+out() { if [ -n "$o" ]; then cat > "$o"; else cat; fi; }
+case "$u" in
+  */index.json) echo '[{"version":"v27.0.0"},{"version":"v26.11.1"},{"version":"v26.10.0"}]' | out ;;
+  *.sha256sum) if [ -n "${STUB_BADSUM:-}" ]; then echo "0000  x"; else a="${u##*/}"; ( cd "$STUB_ARCH" && sha256sum "${a%.sha256sum}" ); fi | out ;;
+  */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-v26.11.1-linux-x64.tar.gz ) | out ;;
+  *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
+  *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
+esac
+STUB
+# shellcheck disable=SC2016  # раскрывается в двойнике uname
+printf '#!/bin/sh\necho "${STUB_ARCH_M:-x86_64}"\n' > "$IS/uname"
+chmod +x "$IS/curl" "$IS/uname"
+# install_case <случай> <пин helm> <пин node> <код> <что обязано быть в bin|слово отказа> [окружение…]
+install_case() {
+    local name="$1" h="$2" n="$3" want="$4" what="$5"; shift 5
+    rm -rf "$IW"; mkdir -p "$IW/bin"
+    OUT="$BOX/$name.out"
+    env PATH="$IS:$PATH" STUB_ARCH="$IA" HEAVY_HELM="$h" HEAVY_NODE="$n" "$@" bash "$BOX/install.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$name" "$want"
+    if [ "$want" -eq 0 ]; then
+        for t in $what; do
+            if [ -x "$IW/bin/$t" ] && "$IW/bin/$t" --version >/dev/null 2>&1; then ok; else bad "$name" "$t не поставлен в bin"; fi
+        done
+    elif ! grep -q "remote-heavy-prep: $what" "$OUT"; then bad "$name" "отказ «$what» не назван"; fi
+}
+install_case E7-both v4.2.4 26 0 "helm node"
+install_case E7-node-only "" 26 0 "node"
+install_case E7-helm-only v4.2.4 "" 0 "helm"
+install_case E7-badsum v4.2.4 26 125 "helm v4.2.4 не поставлен" STUB_BADSUM=1
+install_case E7-arch v4.2.4 26 125 "helm: архитектура" STUB_ARCH_M=s390x
+if [ "$(cat "$BOX/E7-both.out" 2>/dev/null | grep -c 'ставлю node v26.11.1')" -eq 1 ]; then ok
+else OUT="$BOX/E7-both.out"; bad E7 "мажор 26 разрешён не в последний выпуск 26 (v26.11.1)"; fi
 # E3 два пина helm в конвейере ревизии → 69 до кластера, причина названа
 fresh
 go_run e3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins2 --src "$SRC" --profile integration --short e3 -- true
