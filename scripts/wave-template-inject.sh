@@ -445,10 +445,13 @@ ok(r.res.ok === false && merges() === 0 && by(r.calls, c => c.label === 'mech:as
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'C', verdict: 'return', blocking: ['x'] }] }] })
 ok(r.res.ok === false && merges() === 0, 'CV-M6: разбивка неполная (только C) — факта по A,B нет, вливания нет', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args: argsDepM, plan: [P('r2dep.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: 'accept', blocking: [] }, { key: 'M', verdict: 'return', blocking: ['x'] }] }] })
-ok(r.res.ok === true && /9-a@/.test(asmQ(2)) && !/9-m@|M@/.test(asmQ(2)) && merges() === 1, 'CV-M9: R2, рецензент волны вернул M — A сведена и влита', JSON.stringify(r.res).slice(0, 200) + ' ASM2=' + asmQ(2).slice(0, 300))
+ok(r.res.ok === true && /9-a@/.test(asmQ(2)) && !/9-m@|M@/.test(asmQ(2)) && merges() === 1 && (r.res.landed || []).join() === 'A', 'CV-M9: R2, рецензент волны вернул M — A сведена и влита', JSON.stringify(r.res).slice(0, 200) + ' ASM2=' + asmQ(2).slice(0, 300))
 }
 r = await run({ args: argsDep, plan: [P('r1.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: 'return', blocking: ['x'] }, { key: 'B', verdict: 'accept', blocking: [] }] }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'CV-EMPTY: возврат A при B←A снимает обе — сборка пуста, вливания нет', JSON.stringify(r.res).slice(0, 260) + ' ASM2=' + prm(r.calls, 'mech:assemble:2').slice(0, 260))
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0 && !(r.res.landed || []).length, 'CV-EMPTY: возврат A при B←A снимает обе — сборка пуста, вливания нет', JSON.stringify(r.res).slice(0, 260) + ' ASM2=' + prm(r.calls, 'mech:assemble:2').slice(0, 260))
+
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'accept')] })
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0 && by(r.calls, c => c.label === 'mech:assemble:2') === 0, 'CV-R2: свод return при accept у каждой полосы — противоречие, пересведения и вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== «идёт» после ожидания — состояние, а не провал')
 r = await run({ args, plan: [P('r0.json')], ci: Array(12).fill({ state: 'running' }) })
@@ -592,6 +595,8 @@ mutant "CV-M4 свод accept при возврате полосы — прин�
 mutant "CV-M6 неполная разбивка — как полная" "covered && back.length) {" "back.length) {"
 mutant "CV-M9 на R2 возврат снимает всех соседей" "dropWithDeps(back, " "dropWithDeps(steps.has('landing-reviewer') ? order : back, "
 mutant "CV-EMPTY пустая сборка после снятия зависимых вливается" "    if (!order.length) return { ok: false, state: 'failed', stage: 'рецензент волны вернул" "    if (false) return { ok: false, state: 'failed', stage: 'рецензент волны вернул"
+mutant "CV-R2 свод return без возвращённой полосы — пересведение" "covered && back.length) {" "covered) {"
+mutant "landed — все полосы, а не влитые" "landed: order" "landed: Object.keys(done)"
 twin "T2 publicText === true && true" "publicText === true)" "publicText === true && true)"
 twin "T9 … ? back : back" "dropWithDeps(back, " "dropWithDeps(steps.has('landing-reviewer') ? back : back, "
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
