@@ -20,11 +20,21 @@
 #   K4 контейнер OOMKilled                 → код 76; ns снято
 #   K6 подготовка pod не удалась            → 69; ns снято; близнец K6b — код 125 команды
 #   K5 --keep 2                            → код команды; ns НЕ снято; срок ≈ +2 ч
-#   R1 NS=kacho                            → 64; ns не создавалось
-#   R2 --ns kacho                          → 64; ns не создавалось
-#   R3 --ns вне формы t<задача>-heavy-…    → 64
+#   R1 NS=kacho                            → 64; к кластеру ни одного обращения
+#   R2 --ns kacho                          → 64; к кластеру ни одного обращения
+#   R3 --ns вне формы t<задача>-heavy-…    → 64; к кластеру ни одного обращения
+#   X1 current-context файла = infra       → прогон в client: каждый вызов kubectl
+#      несёт --context client, current-context не изменён (решение владельца
+#      2026-10-09 «тебе можно ставить только в client»)
+#   X2 KACHO_REMOTE_CONTEXT не на -client  → 64; к kubectl ни одного обращения;
+#      близнец X2b — на client → 0; X2c названного нет → 69
+#   X3 в файле нет контекста -client       → 69, run и --available, шаг назван
+#   X4 контекстов -client два              → 69, шаг назван
 #   R4 ns уже есть (близнец K1)            → 64; чужое ns НЕ снято
-#   A1 Job: podAntiAffinity required к pod ns kacho по узлу (ревью F1)
+#   A1 Job — в своём ns t<N>-heavy-*, условий узла по стенду нет: ни
+#      podAntiAffinity, ни nodeAffinity, ни упоминания ns kacho в affinity
+#      (решение владельца 2026-10-09 «не запускать в NS качо а не на узлах»);
+#      каждый созданный объект — в ns прогона; запросы и пределы — числом
 #   U0 pod в своём пространстве пользователей (hostUsers: false)
 #   U1 профиль с dind: privileged нет нигде, dind на crun без cgroup (F1)
 #   S0 сервер добавил законные умолчания   → 0 (близнец S1–S3)
@@ -49,13 +59,40 @@
 #   C5 гонка при --keep                    → 75, ns всё равно снято
 #   V2 --available при занятом кластере    → 75; близнец V2b → 0
 #   M1 KACHO_REMOTE_HEAVY_MAX=0            → 64
+#   Q1 стенд (pod ns kacho) на всех узлах, место есть → --available 0 и прогон 0
+#      (стенд узел не запирает); Q1d два go-race рядом со стендом замера
+#      2026-10-09 на ОДНОМ узле — второй тоже встаёт → 0
+#   Q3 единственный узел не готов / закрыт / taint NoSchedule → 69; прогон 69 без ns
+#   Q2 места под go-race нет ни на одном узле → 75 и прогон 75 без ns; близнец Q2b
+#      тот же кластер, профиль lint → 0 и прогон 0; Q2c профиля нет → 64
+#   Q5 перепись pod кластера > 128 КиБ (строка аргумента) → разбирается, 0
+#   Q4 pod ждёт планирования, чужой pod занял последнее место → 75 сразу, ns снято
+#      и при --keep; близнец Q4b место есть → run.sh ждёт дальше
+#   O1 строки run.sh после выбора ns несут его имя
+#   O2 stderr — файл, в который пишет посторонний живой процесс → предупреждение с
+#      его pid; близнец O2b файл держат только предки прогона → молчание
 #   G1 остатки kill -9 (каталог, процесс, ns, ссылка) мёртвого владельца → сняты
 #   G2 близнецы: живой владелец и ns с чужой меткой — не тронуты
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
 #   L0b двойник печатает адреса pod в stdout лога → да (контроль F4)
-#   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена
-#      и пути кубконфига (F4: stdout лога тоже)
+#   L1 вывод всех случаев без адреса сервера, IPv4/IPv6 узлов и pod, токена,
+#      имён контекстов и пути кубконфига (F4: stdout лога тоже)
 #   V1 кластер не отвечает (--available)   → 69, причина без адреса
+#   W1 узлы с -infra-                       → 69, run и --available, записей ноль, шаг
+#      назван (решение владельца 2026-10-10 «По префиксу нод можешь понять тот
+#      кластер или нет, куб конфет мог меняться»)
+#   W2 узлы смешанные (client и infra)      → 69, записей ноль
+#   W3 узлов ноль                           → 69, run и --available, записей ноль
+#   W4 узлы чужого профиля (-client-)       → 69, записей ноль
+#   W5 узлы профиля → 0, и перепись узлов — раньше первой записи
+#   W6 профиль из имени файла <учётка>--<профиль>.yaml без переменной → 0;
+#      близнец W6b тот же файл, узлы чужого профиля → 69
+#   W7 профиль не выводится (ни имени, ни переменной) → 69 до кластера
+#   W8 переменная и имя файла расходятся     → 69 до кластера
+#   W9 файл подменён после создания ns, узлы стали infra → 69 до сети ns; ns НЕ
+#      снято (оно в прежнем кластере), шаг назван; близнец W9b — файл сменился,
+#      узлы те же → 0, узлы переписаны заново
+#   W10 узлы с -infra- при остатках мёртвого владельца → 69, уборка ns не звалась
 #
 # Запуск: bash scripts/remote-heavy/inject.sh   (код 0 — все случаи сошлись)
 set -uo pipefail
@@ -76,14 +113,22 @@ export FAKE_POD_IP="192.0.2.44" FAKE_POD_IP6="2001:db8:0:1::44"
 PASS=0; FAIL=0; ALL_OUT="$BOX/all.out"; : > "$ALL_OUT"
 
 mkdir -p "$BOX/bin" "$BOX/state"
-cat > "$BOX/kubeconfig" <<EOF
-apiVersion: v1
-kind: Config
-clusters: [{name: c, cluster: {server: "https://$SERVER_HOST:6443"}}]
-users: [{name: u, user: {token: "$TOKEN"}}]
-contexts: [{name: x, context: {cluster: c, user: u}}]
-current-context: x
-EOF
+# kubeconfig_with <current> <контекст>… — кубконфиг пробы (JSON — тоже кубконфиг):
+# current-context смотрит на <current>, как файл профиля, который владелец вручную
+# переключил на infra (опыт 2026-10-09).
+kubeconfig_with() {
+    local cur="$1"; shift
+    jq -n --arg s "https://$SERVER_HOST:6443" --arg t "$TOKEN" --arg cur "$cur" '{apiVersion: "v1", kind: "Config",
+      clusters: [{name: "c", cluster: {server: $s}}], users: [{name: "u", user: {token: $t}}],
+      contexts: [$ARGS.positional[] | {name: ., context: {cluster: "c", user: "u"}}], "current-context": $cur}' --args "$@"
+}
+CTX_CLIENT="lab-a1-client"; CTX_INFRA="lab-a1-infra"
+# Профиль кластера пробы (СТРАЖ run.sh): узлы двойника — «lab1-client-<пул>-…».
+# Случаи W снимают переменную и выводят профиль из имени файла.
+export KACHO_REMOTE_PROFILE=lab1
+NODE_PFX="lab1-client-p00l-"
+export FAKE_NODE_PFX="$NODE_PFX"
+kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" "$CTX_CLIENT" > "$BOX/kubeconfig"
 
 # ── двойник kubectl ──────────────────────────────────────────────────────────
 cat > "$BOX/bin/kubectl" <<'FAKE'
@@ -94,11 +139,12 @@ mkdir -p "$S/ns" "$S/jobs"
 mkdir -p "$S/ns" "$S/jobs"
 echo "$*" >> "$S/calls"
 echo "Warning: cluster https://$FAKE_HOST:6443 ($FAKE_IP) answered slowly" >&2
-ns=""; sel=""; all=0
+ns=""; sel=""; all=0; ctx=""; kcfg=""
 args=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --kubeconfig) shift 2 ;;
+        --kubeconfig) kcfg="$2"; shift 2 ;;
+        --context) ctx="$2"; shift 2 ;;
         --request-timeout=*|--field-selector=*|--wait=*|--timeout=*) shift ;;
         -n) ns="$2"; shift 2 ;;
         -l) sel="$2"; shift 2 ;;
@@ -126,7 +172,17 @@ spec_of() {
 }
 # pods <status> — список из одного pod со spec «сервера».
 pods() { jq -nc --argjson sp "$(spec_of pod)" --argjson st "$1" '{items: [{metadata: {name: "run-x"}, spec: $sp, status: $st}]}'; }
+# Без --context kubectl берёт current-context файла; контекст не -client ведёт себя
+# как infra 2026-10-09: изменяющий запрос отклоняет политика допуска.
+[ -n "$ctx" ] || [ -z "$kcfg" ] || ctx="$(jq -r '."current-context"' "$kcfg")"
+case "$1" in
+    create|apply|delete|exec|patch|label|annotate)
+        case "$ctx" in *-client) ;; *)
+            echo "Error from server (Forbidden): admission webhook denied the request: policy host-access-allowlist (context $ctx)" >&2; exit 1 ;;
+        esac ;;
+esac
 case "$1 ${2:-}" in
+    "config get-contexts") jq -r '.contexts[].name' "$kcfg" ;;
     "config view") printf 'https://%s:6443' "$FAKE_HOST" ;;
     "auth can-i")
         if [ "${FAKE_DOWN:-0}" = 1 ]; then
@@ -141,6 +197,9 @@ case "$1 ${2:-}" in
                 echo "Error from server (AlreadyExists): namespaces \"$name\" already exists" >&2; exit 1
             fi
             mkdir -p "$S/ns"
+            # FAKE_SWAP_FILE — файл кубконфига подменён сразу после создания ns (опыт
+            # 2026-10-10); FAKE_NODES_AFTER_NS — узлы, которые с этого мига видны.
+            if [ -n "${FAKE_SWAP_FILE:-}" ]; then echo ' ' >> "$FAKE_SWAP_FILE"; touch "$S/swapped"; fi
             jq --arg t "$(now)" '.metadata.creationTimestamp = $t | .status.phase = "Active"' "$3" > "$S/ns/$name"
             # гонка: другой запуск создал своё ns мгновением раньше
             if [ -n "${FAKE_RACE:-}" ]; then
@@ -171,11 +230,30 @@ case "$1 ${2:-}" in
         fi ;;
     "get netpol") echo '{"items":[{"spec":{"podSelector":{"matchLabels":{"app":"edge"}}}}]}' ;;
     "get nodes")
-        jq -n --arg e "$FAKE_NODE_IP" --arg v6 "$FAKE_NODE_IP6" '{items: [{status: {addresses: [{type: "ExternalIP", address: $e}, {type: "InternalIP", address: "10.0.0.5"}, {type: "InternalIP", address: $v6}, {type: "Hostname", address: "n1"}]}}]}' ;;
+        # FAKE_NODES — список узлов случая размещения; иначе один готовый узел.
+        if [ -e "$S/swapped" ] && [ -n "${FAKE_NODES_AFTER_NS:-}" ]; then printf '%s\n' "$FAKE_NODES_AFTER_NS"; exit 0; fi
+        if [ -n "${FAKE_NODES:-}" ]; then printf '%s\n' "$FAKE_NODES"; exit 0; fi
+        jq -n --arg e "$FAKE_NODE_IP" --arg v6 "$FAKE_NODE_IP6" --arg n "${FAKE_NODE_PFX}n1" '{items: [{metadata: {name: $n},
+          status: {addresses: [{type: "ExternalIP", address: $e}, {type: "InternalIP", address: "10.0.0.5"}, {type: "InternalIP", address: $v6}, {type: "Hostname", address: $n}],
+                   conditions: [{type: "Ready", status: "True"}], allocatable: {cpu: "15500m", memory: "30913596Ki"}}}]}' ;;
     "get endpointslices") jq -n --arg a "$FAKE_API_IP" '{items: [{endpoints: [{addresses: [$a]}]}]}' ;;
     "get servicecidrs") echo '{"items":[{"spec":{"cidrs":["10.96.0.0/12"]}}]}' ;;
     "get pods")
+        # -A — перепись pod кластера для размещения: FAKE_CLUSTER_PODS, а после
+        # создания Job — FAKE_PODS_AFTER_JOB (стенд встал на узел, пока pod ждал).
+        if [ "$all" = 1 ]; then
+            none='{"items":[]}'
+            if [ -e "$S/job.json" ] && [ -n "${FAKE_PODS_AFTER_JOB:-}" ]; then printf '%s\n' "$FAKE_PODS_AFTER_JOB"
+            elif [ -n "${FAKE_CLUSTER_PODS_FILE:-}" ]; then cat "$FAKE_CLUSTER_PODS_FILE"
+            else printf '%s\n' "${FAKE_CLUSTER_PODS:-$none}"; fi
+            exit 0
+        fi
         if [ ! -e "$S/job.json" ]; then echo '{"items":[]}'; exit 0; fi
+        # FAKE_UNSCHED — планировщик не находит узла: pod ждёт, условие PodScheduled False.
+        if [ "${FAKE_UNSCHED:-0}" = 1 ]; then
+            pods '{"phase":"Pending","conditions":[{"type":"PodScheduled","status":"False","message":"0/1 nodes are available: 1 node(s) didn'"'"'t match pod anti-affinity rules."}]}'
+            exit 0
+        fi
         # FAKE_USERNS_DIND — dind отказал проверкой userns и перезапускается: fetch не
         # начинается никогда, отказ — в lastState бокового.
         if [ -n "${FAKE_USERNS_DIND:-}" ]; then
@@ -256,13 +334,39 @@ fresh
 go_run k1 env FAKE_EXIT=0 "${B[@]}" --short k1 -- true
 expect_rc K1 0
 expect_ns_gone K1 t1-heavy-k1
-# A1 — pod не встаёт на узел с pod ns kacho (ревью F1)
+# A1 — стенд держит пространство, а не узел (решение владельца 2026-10-09): Job в
+# своём ns, без условий узла по стенду, ресурсы run — числом.
 J="$BOX/state/job.json"
-if jq -e '[.spec.template.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[]?
-          | select(.topologyKey == "kubernetes.io/hostname"
-                   and .namespaceSelector.matchLabels["kubernetes.io/metadata.name"] == "kacho"
-                   and .labelSelector == {})] | length == 1' "$J" >/dev/null 2>&1; then ok
-else OUT="$J"; bad A1 "в Job нет podAntiAffinity required к pod ns kacho по kubernetes.io/hostname"; fi
+if [ "$(jq -r '.metadata.namespace' "$J" 2>/dev/null)" = t1-heavy-k1 ]; then ok
+else OUT="$J"; bad A1 "Job не в ns прогона t1-heavy-k1"; fi
+if jq -e '.spec.template.spec | (has("affinity") or has("nodeSelector") or has("nodeName"))' "$J" >/dev/null 2>&1; then
+    OUT="$J"; bad A1 "в Job есть условие узла (affinity/nodeSelector/nodeName) — стенд держит ns, а не узел"
+else ok; fi
+if jq -e '[.. | strings | select(. == "kacho")] | length > 0' "$J" >/dev/null 2>&1; then
+    OUT="$J"; bad A1 "Job называет ns kacho"
+else ok; fi
+if jq -e '.spec.template.spec.containers[0].resources | (.requests.cpu and .requests.memory and .limits.cpu and .limits.memory)' "$J" >/dev/null 2>&1; then ok
+else OUT="$J"; bad A1 "у run нет запросов и пределов cpu и памяти числом"; fi
+# A1 — ни одна изменяющая команда не адресована ns kacho (чтение служб для пробы
+# закрытости — законно); близнец — изменяющие команды прогона в его ns были
+grep -E '(^| )(create|apply|delete|exec|patch|label|annotate)( |$)' "$BOX/state/calls" > "$BOX/mutating.calls"
+if grep -qE '(-n kacho( |$)|ns kacho( |$))' "$BOX/mutating.calls"; then
+    bad A1 "изменяющая команда адресована ns kacho"
+else ok; fi
+grep -E '(^| )(exec|delete)( |$)' "$BOX/state/calls" > "$BOX/own.calls"
+if grep -qE '(-n t1-heavy-k1 |ns t1-heavy-k1)' "$BOX/own.calls"; then ok
+else bad A1 "изменяющих команд в ns прогона не видно — проверка выше пуста"; fi
+# X1 — current-context файла смотрит на infra (опыт 2026-10-09), прогон K1 всё
+# равно в client: КАЖДЫЙ вызов kubectl, кроме чтения списка контекстов, несёт
+# --context <client>; ни одного без него и ни одного в infra. Двойник в контексте
+# не -client отклоняет изменяющие запросы, как политика допуска infra, — K1 с кодом 0
+# уже это подтверждает; здесь — перепись вызовов.
+n_calls="$(grep -vc ' config get-contexts ' "$BOX/state/calls")"
+n_client="$(grep -v ' config get-contexts ' "$BOX/state/calls" | grep -c -- "--context $CTX_CLIENT ")"
+if [ "$n_calls" -gt 0 ] && [ "$n_calls" -eq "$n_client" ]; then ok
+else bad X1 "вызовов kubectl $n_calls, с --context client $n_client"; fi
+if grep -q -- "$CTX_INFRA" "$BOX/state/calls"; then bad X1 "вызов в контексте infra"; else ok; fi
+if [ "$(jq -r '."current-context"' "$BOX/kubeconfig")" = "$CTX_INFRA" ]; then ok; else bad X1 "current-context кубконфига изменён"; fi
 # N1 — сеть ns: входящих нет, исходящие — DNS и мир без частных, узлов и служб (F2)
 NP="$BOX/state/netpol.json"
 if jq -e --arg n4 "$FAKE_NODE_IP/32" --arg n6 "$FAKE_NODE_IP6/128" --arg a4 "$FAKE_API_IP/32" '
@@ -422,18 +526,67 @@ fi
 if [ -e "$BOX/state/deleted" ]; then bad K5 "delete ns звался при --keep"; else ok; fi
 
 # R1, R2, R3 — отказ до кластера
+# no_cluster_call <случай> — отказ до любого создания: к двойнику ни одного обращения.
+no_cluster_call() {
+    if [ -s "$BOX/state/calls" ]; then bad "$1" "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
+}
 fresh
 go_run r1 env NS=kacho "${B[@]}" -- true
 expect_rc R1 64
 if [ "$(ns_left)" -eq 0 ]; then ok; else bad R1 "ns создано"; fi
-if grep -q 'create' "$BOX/state/calls" 2>/dev/null; then bad R1 "create звался"; else ok; fi
+no_cluster_call R1
 fresh
 go_run r2 "${B[@]}" --ns kacho -- true
 expect_rc R2 64
 if [ "$(ns_left)" -eq 0 ]; then ok; else bad R2 "ns создано"; fi
+no_cluster_call R2
+for bad_ns in t2-heavy-x t1-stand-x kacho-heavy t1-heavy- default; do
+    fresh
+    go_run "r3-$bad_ns" "${B[@]}" --ns "$bad_ns" -- true
+    expect_rc "R3 $bad_ns" 64
+    no_cluster_call "R3 $bad_ns"
+done
+
+# cluster_calls — вызовов kubectl, кроме чтения списка контекстов (локальная операция)
+cluster_calls() { [ -e "$BOX/state/calls" ] || { echo 0; return; }; grep -vc ' config get-contexts ' "$BOX/state/calls"; }
+# X2 — KACHO_REMOTE_CONTEXT на infra → 64 до любого обращения, и к kubectl тоже
+for ov in "$CTX_INFRA" lab-a1; do
+    fresh
+    go_run "x2-$ov" env KACHO_REMOTE_CONTEXT="$ov" FAKE_EXIT=0 "${B[@]}" --short x2 -- true
+    expect_rc "X2 $ov" 64
+    no_cluster_call "X2 $ov"
+    if grep -q 'только в контекст -client' "$OUT"; then ok; else bad "X2 $ov" "шаг «что сделать» не назван"; fi
+done
 fresh
-go_run r3 "${B[@]}" --ns t2-heavy-x -- true
-expect_rc R3 64
+go_run x2a env KACHO_REMOTE_CONTEXT="$CTX_INFRA" bash "$RUN" --available
+expect_rc X2a 64
+no_cluster_call X2a
+# X2b — близнец: KACHO_REMOTE_CONTEXT на client → 0
+fresh
+go_run x2b env KACHO_REMOTE_CONTEXT="$CTX_CLIENT" FAKE_EXIT=0 "${B[@]}" --short x2b -- true
+expect_rc X2b 0
+# X2c — названного -client в файле нет → 69, к кластеру ни одного обращения
+fresh
+go_run x2c env KACHO_REMOTE_CONTEXT=lab-zz-client FAKE_EXIT=0 "${B[@]}" --short x2c -- true
+expect_rc X2c 69
+if [ "$(cluster_calls)" -gt 0 ]; then bad X2c "к кластеру обращались"; else ok; fi
+# X3 — в файле нет контекста -client (только infra) → 69 и с --available; X4 — два -client → 69
+kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" > "$BOX/kc-noclient"
+kubeconfig_with "$CTX_INFRA" "$CTX_INFRA" "$CTX_CLIENT" lab-b2-client > "$BOX/kc-twoclient"
+for cs in "noclient:X3:нет контекста с суффиксом -client" "twoclient:X4:выбор неоднозначен"; do
+    IFS=: read -r f nm why <<< "$cs"
+    for mode in run avail; do
+        fresh
+        if [ "$mode" = run ]; then
+            go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" FAKE_EXIT=0 "${B[@]}" --short x3 -- true
+        else
+            go_run "$nm-$mode" env KACHO_REMOTE_KUBECONFIG="$BOX/kc-$f" bash "$RUN" --available
+        fi
+        expect_rc "$nm $mode" 69
+        if [ "$(cluster_calls)" -gt 0 ]; then bad "$nm $mode" "к кластеру обращались"; else ok; fi
+        if grep -q "$why" "$OUT" && grep -q 'KACHO_REMOTE_CONTEXT\|добавь контекст' "$OUT"; then ok; else bad "$nm $mode" "причина или шаг не названы"; fi
+    done
+done
 
 # R4 — ns уже есть: отказ, и чужое не снято (близнец K1 по имени)
 fresh
@@ -462,7 +615,7 @@ no_job() { if [ -e "$BOX/state/job.json" ]; then bad "$1" "Job создан"; el
 fresh; seed_ns t7-heavy-a '+1 hour'; seed_ns t8-heavy-b '+1 hour'
 go_run c1 env FAKE_EXIT=0 "${B[@]}" --short c1 -- true
 expect_rc C1 75
-if grep -q '^create' "$BOX/state/calls"; then bad C1 "create звался при занятом кластере"; else ok; fi
+if grep -qE '(^| )create -f ' "$BOX/state/calls"; then bad C1 "create звался при занятом кластере"; else ok; fi
 # C2 — близнец C1: те же ns, их Job завершены → не идущие → 0
 fresh; seed_ns t7-heavy-a '+1 hour'; seed_ns t8-heavy-b '+1 hour'; seed_done_job t7-heavy-a; seed_done_job t8-heavy-b
 go_run c2 env FAKE_EXIT=0 "${B[@]}" --short c2 -- true
@@ -498,6 +651,123 @@ fresh
 go_run m1 env KACHO_REMOTE_HEAVY_MAX=0 "${B[@]}" -- true
 expect_rc M1 64
 
+# ── размещение: место под профиль, без условия по стенду (ws#991) ─────────
+# node_j <имя> <готов 1|0> <закрыт 1|0> <taint-эффект|""> — узел 15,5 CPU и 29,5 ГиБ;
+# pod_j <ns> <узел> <фаза> <cpu> <память> — pod с запросами; items — список.
+node_j() {
+    jq -nc --arg n "$NODE_PFX$1" --arg r "$2" --arg c "$3" --arg t "$4" --arg e "$FAKE_NODE_IP" '{metadata: {name: $n},
+      spec: ((if $c == "1" then {unschedulable: true} else {} end) + (if $t != "" then {taints: [{key: "k", effect: $t}]} else {} end)),
+      status: {addresses: [{type: "InternalIP", address: $e}], conditions: [{type: "Ready", status: (if $r == "1" then "True" else "False" end)}],
+               allocatable: {cpu: "15500m", memory: "30913596Ki"}}}'
+}
+pod_j() {
+    jq -nc --arg ns "$1" --arg n "$NODE_PFX$2" --arg ph "$3" --arg c "$4" --arg m "$5" '{metadata: {namespace: $ns, name: "p"},
+      spec: {nodeName: $n, containers: [{name: "c", resources: {requests: {cpu: $c, memory: $m}}}]}, status: {phase: $ph}}'
+}
+items() { jq -sc '{items: .}'; }
+created() { grep -qE '(^| )create -f ' "$BOX/state/calls" 2>/dev/null && echo да || echo нет; }
+NODES1="$(node_j n1 1 0 "" | items)"
+NODES12="$( { node_j n1 1 0 ""; node_j n2 1 0 ""; } | items)"
+# Стенд замера 2026-10-09 (kubectl describe nodes): запросы 450m CPU и 2 756 МиБ.
+STAND_ALL="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j kacho n2 Running 450m 2756Mi; } | items)"
+# Q1 — стенд на всех узлах, место есть → 0: стенд узел не запирает (опыт 2026-10-09:
+# прежнее условие давало здесь 69, а прогон шёл локально)
+fresh
+go_run q1 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" bash "$RUN" --available --profile go-race
+expect_rc Q1 0
+fresh
+go_run q1r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$STAND_ALL" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short q1r -- true
+expect_rc Q1r 0
+if [ "$(created)" = да ]; then ok; else bad Q1r "ns не создавалось при стенде на всех узлах и месте под профиль"; fi
+expect_ns_gone Q1r t1-heavy-q1r
+# Q1d — ПРЕДЕЛ 2: единственный узел со стендом и одним идущим go-race — второй
+# go-race тоже встаёт (запросы профиля подобраны под это) → 0
+IFS='|' read -r _ gcpu _ gmib _ <<< "$(sed -n "s/^PROFILES='\\(go-race|.*\\)/\\1/p" "$RUN")"
+IFS='|' read -r dind_cpu _ dind_gi _ <<< "$(sed -n "s/^DIND_RES='\\(.*\\)'$/\\1/p" "$RUN")"
+dind_gi="${dind_gi%Gi}"
+if [ -n "$gcpu" ] && [ -n "$dind_cpu" ] && [ -n "$dind_gi" ]; then
+    one_run="$(pod_j t9-heavy-a n1 Running "$(( gcpu + dind_cpu ))" "$(( ${gmib%Gi} + dind_gi ))Gi")"
+    fresh
+    go_run q1d env FAKE_NODES="$NODES1" FAKE_CLUSTER_PODS="$( { pod_j kacho n1 Running 450m 2756Mi; echo "$one_run"; } | items)" bash "$RUN" --available --profile go-race
+    expect_rc Q1d 0
+else bad Q1d "запрос go-race и dind не прочитаны из run.sh"; fi
+# Q3 — единственный узел не готов / закрыт / с taint NoSchedule → 69; прогон 69 без ns
+for q in "0 0 :не-готов" "1 1 :закрыт" "1 0 NoSchedule:taint"; do
+    read -r rdy cord rest <<< "$q"; eff="${rest%%:*}"; nm="${rest#*:}"
+    fresh
+    go_run "q3-$nm" env FAKE_NODES="$(node_j n1 "$rdy" "$cord" "$eff" | items)" bash "$RUN" --available
+    expect_rc "Q3-$nm" 69
+    if grep -q 'открытого для планирования узла нет' "$OUT"; then ok; else bad "Q3-$nm" "причина не названа"; fi
+done
+fresh
+go_run q3r env FAKE_EXIT=0 FAKE_NODES="$(node_j n1 1 1 "" | items)" "${B[@]}" --short q3r -- true
+expect_rc Q3r 69
+if [ "$(created)" = нет ]; then ok; else bad Q3r "ns создавалось без открытого узла"; fi
+# Q2 — оба узла заняты: 20 ГиБ запрошено чужими pod → go-race не встаёт → 75 до ns
+BUSY="$( { pod_j kacho n1 Running 450m 2756Mi; pod_j other n1 Running 2 20Gi; pod_j other n2 Running 2 20Gi; } | items)"
+fresh
+go_run q2 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile go-race
+expect_rc Q2 75
+if grep -q 'места' "$OUT"; then ok; else bad Q2 "причина не названа (места нет)"; fi
+fresh
+go_run q2r env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile go-race --short q2r -- true
+expect_rc Q2r 75
+if [ "$(created)" = нет ]; then ok; else bad Q2r "ns создавалось без места под профиль"; fi
+# Q2b — близнец: тот же кластер, профиль lint (6 ГиБ) встаёт → 0 и прогон исполняется
+fresh
+go_run q2b env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" bash "$RUN" --available --profile lint
+expect_rc Q2b 0
+fresh
+go_run q2br env FAKE_EXIT=0 FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS="$BUSY" "${B[@]}" --short q2br -- true
+expect_rc Q2br 0
+# Q2c — профиля нет → 64
+fresh
+go_run q2c bash "$RUN" --available --profile nope
+expect_rc Q2c 64
+# Q5 — перепись pod кластера больше строки аргумента (128 КиБ) → разбирается, 0
+# (опыт 2026-10-09: настоящий кластер, jq не запускался)
+fresh
+{ for i in $(seq 1 700); do pod_j "ns-$i-$(printf '%0120d' 0)" n2 Running 10m 16Mi; done; pod_j kacho n2 Running 100m 256Mi; } | items > "$BOX/bigpods.json"
+go_run q5 env FAKE_NODES="$NODES12" FAKE_CLUSTER_PODS_FILE="$BOX/bigpods.json" bash "$RUN" --available --profile go-race
+expect_rc Q5 0
+if [ "$(stat -c %s "$BOX/bigpods.json")" -gt 131072 ]; then ok; else bad Q5 "перепись меньше 128 КиБ — случай пуст"; fi
+# Q4 — pod ждёт планирования, а чужой pod занял последнее место → 75 сразу, а не
+# через 900 с; ns снято и при --keep
+fresh
+t0=$(date +%s)
+go_run q4 env FAKE_EXIT=0 FAKE_UNSCHED=1 FAKE_PODS_AFTER_JOB="$(pod_j other n1 Running 15 28Gi | items)" "${B[@]}" --short q4 --keep 2 -- true
+expect_rc Q4 75
+if [ $(( $(date +%s) - t0 )) -le 30 ]; then ok; else bad Q4 "выход через $(( $(date +%s) - t0 )) с"; fi
+expect_ns_gone Q4 t1-heavy-q4
+if grep -q 'места под запрос' "$OUT"; then ok; else bad Q4 "причина не названа"; fi
+# Q4b — близнец: pod ждёт, место есть (стенд на узле не мешает) → run.sh ждёт дальше
+fresh
+OUT="$BOX/q4b.out"
+timeout 15 env PATH="$BOX/bin:$PATH" FAKE_STATE="$BOX/state" FAKE_HOST="$SERVER_HOST" FAKE_IP="$SERVER_IP" FAKE_EXIT=0 FAKE_UNSCHED=1 \
+    FAKE_PODS_AFTER_JOB="$(pod_j kacho n1 Running 450m 2756Mi | items)" \
+    KACHO_REMOTE_KUBECONFIG="$BOX/kubeconfig" TMPDIR="$BOX" "${B[@]}" --short q4b -- true > "$OUT" 2>&1
+RC=$?; cat "$OUT" >> "$ALL_OUT"
+expect_rc Q4b 124
+
+# ── вывод прогона (ws#991) ──────────────────────────────────────────────────
+# O1 — каждая строка run.sh после выбора ns несёт его имя (K1 — тот же прогон)
+fresh
+go_run o1 env FAKE_EXIT=0 "${B[@]}" --short o1 -- true
+expect_rc O1 0
+n_all="$(grep -c '^remote-heavy: ' "$OUT")"; n_tag="$(grep -c '^remote-heavy: \[t1-heavy-o1\] ' "$OUT")"
+if [ "$n_all" -gt 0 ] && [ "$n_all" -eq "$n_tag" ]; then ok; else bad O1 "строк run.sh $n_all, с именем ns $n_tag"; fi
+# O2 — stderr прогона — файл, в который пишет посторонний живой процесс → строка-предупреждение
+fresh
+: > "$BOX/o2.out"
+( exec 3>> "$BOX/o2.out"; exec sleep 60 ) & holder=$!
+for _ in $(seq 1 50); do [ -e "/proc/$holder/fd/3" ] && break; sleep 0.1; done
+go_run o2 env FAKE_EXIT=0 "${B[@]}" --short o2 -- true
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+expect_rc O2 0
+if grep -q 'пишет и другой процесс' "$OUT" && grep -q "pid $holder" "$OUT"; then ok; else bad O2 "общий файл вывода не назван"; fi
+# O2b — близнец: файл держат только предки прогона (timeout, env) → молчание
+if grep -q 'пишет и другой процесс' "$BOX/o1.out"; then OUT="$BOX/o1.out"; bad O2b "предупреждение без постороннего писателя"; else ok; fi
+
 # ── локальная уборка после kill -9 ──────────────────────────────────────────
 # shellcheck disable=SC2086  # поля stat — слова
 pstart() { local st; st="$(cat "/proc/$1/stat")"; st="${st##*) }"; set -- $st; echo "${20}"; }
@@ -532,6 +802,85 @@ if grep -qx t1-heavy-other "$BOX/state/deleted" 2>/dev/null; then bad G2 "сня
 kill "$liveproc" 2>/dev/null; wait "$liveproc" "$orphan" 2>/dev/null
 rm -rf "$BOX/remote-heavy.live1"; git -C "$SRC" update-ref -d "refs/remote-heavy/$LIVE"
 
+# ── страж кластера по узлам (решение владельца 2026-10-10) ──────────────────
+# writes — изменяющие вызовы двойника (can-i — чтение).
+writes() { [ -e "$BOX/state/calls" ] || { echo 0; return; }; grep -v 'auth can-i' "$BOX/state/calls" | grep -cE '(^| )(create|apply|delete|exec|patch|label|annotate) '; }
+# wnode <имя> — узел, годный для размещения, с полным именем
+wnode() { jq -nc --arg n "$1" --arg e "$FAKE_NODE_IP" '{metadata: {name: $n}, spec: {},
+    status: {addresses: [{type: "InternalIP", address: $e}], conditions: [{type: "Ready", status: "True"}], allocatable: {cpu: "15500m", memory: "30913596Ki"}}}'; }
+N_INFRA="$( { wnode lab1-infra-q11-a; wnode lab1-infra-q11-b; } | items)"
+N_MIXED="$( { wnode lab1-client-p00l-a; wnode lab1-infra-q11-b; } | items)"
+N_ZERO='{"items":[]}'
+N_FOREIGN="$( { wnode lab2-client-p00l-a; wnode lab2-client-p00l-b; } | items)"
+N_CLIENT="$( { wnode lab1-client-p00l-a; wnode lab1-client-zz9-b; } | items)"
+for cs in "w1:$N_INFRA:с -infra- 2" "w2:$N_MIXED:с -infra- 1" "w3:$N_ZERO:узлов в контексте ноль" "w4:$N_FOREIGN:с префиксом <профиль>-client- 0"; do
+    nm="${cs%%:*}"; rest="${cs#*:}"; nodes="${rest%:*}"; why="${rest##*:}"; NM="${nm^^}"
+    for mode in run avail; do
+        fresh
+        if [ "$mode" = run ]; then
+            go_run "$nm-$mode" env FAKE_EXIT=0 FAKE_NODES="$nodes" "${B[@]}" --short "$nm" -- true
+        else
+            go_run "$nm-$mode" env FAKE_NODES="$nodes" bash "$RUN" --available
+        fi
+        expect_rc "$NM $mode" 69
+        if [ "$(writes)" -eq 0 ]; then ok; else bad "$NM $mode" "изменяющих вызовов $(writes) при узлах не того кластера"; fi
+        if grep -qF -- "$why" "$OUT" && grep -q 'что сделать:' "$OUT"; then ok; else bad "$NM $mode" "причина «$why» или шаг не названы"; fi
+    done
+done
+# W5 — узлы профиля (хвосты пула разные: хэш не зашит) → 0; get nodes раньше первой записи
+fresh
+go_run w5 env FAKE_EXIT=0 FAKE_NODES="$N_CLIENT" "${B[@]}" --short w5 -- true
+expect_rc W5 0
+first_nodes="$(grep -nE '(^| )get nodes' "$BOX/state/calls" | head -n 1 | cut -d: -f1)"
+first_write="$(grep -nE '(^| )(create|apply|delete|exec) ' "$BOX/state/calls" | grep -v 'auth can-i' | head -n 1 | cut -d: -f1)"
+if [ -n "$first_nodes" ] && [ -n "$first_write" ] && [ "$first_nodes" -lt "$first_write" ]; then ok; else bad W5 "перепись узлов (строка ${first_nodes:-нет}) не раньше первой записи (строка ${first_write:-нет})"; fi
+# W6 — профиль из имени файла, переменной нет → 0; W6b — тот же файл, узлы чужого профиля → 69
+cp "$BOX/kubeconfig" "$BOX/probe--lab1.yaml"
+fresh
+go_run w6 env -u KACHO_REMOTE_PROFILE KACHO_REMOTE_KUBECONFIG="$BOX/probe--lab1.yaml" FAKE_EXIT=0 FAKE_NODES="$N_CLIENT" "${B[@]}" --short w6 -- true
+expect_rc W6 0
+fresh
+go_run w6b env -u KACHO_REMOTE_PROFILE KACHO_REMOTE_KUBECONFIG="$BOX/probe--lab1.yaml" FAKE_EXIT=0 FAKE_NODES="$N_FOREIGN" "${B[@]}" --short w6 -- true
+expect_rc W6b 69
+if [ "$(writes)" -eq 0 ]; then ok; else bad W6b "изменяющие вызовы при чужом профиле"; fi
+# W7 — профиль не выводится → 69 до кластера; W8 — переменная и имя файла расходятся → 69
+fresh
+go_run w7 env -u KACHO_REMOTE_PROFILE FAKE_EXIT=0 "${B[@]}" --short w7 -- true
+expect_rc W7 69
+if [ "$(cluster_calls)" -eq 0 ] && grep -q 'KACHO_REMOTE_PROFILE=<профиль>' "$OUT"; then ok; else bad W7 "к кластеру обращались либо шаг не назван"; fi
+fresh
+go_run w8 env KACHO_REMOTE_PROFILE=lab2 KACHO_REMOTE_KUBECONFIG="$BOX/probe--lab1.yaml" FAKE_EXIT=0 FAKE_NODES="$N_FOREIGN" "${B[@]}" --short w8 -- true
+expect_rc W8 69
+if [ "$(cluster_calls)" -eq 0 ] && grep -q 'расходятся' "$OUT"; then ok; else bad W8 "к кластеру обращались либо причина не названа"; fi
+# W9 — файл подменён после создания ns, узлы стали infra → 69 до сети ns; ns не снято
+cp "$BOX/kubeconfig" "$BOX/kc-swap"
+fresh
+go_run w9 env KACHO_REMOTE_KUBECONFIG="$BOX/kc-swap" FAKE_SWAP_FILE="$BOX/kc-swap" FAKE_NODES_AFTER_NS="$N_INFRA" FAKE_EXIT=0 "${B[@]}" --short w9 -- true
+expect_rc W9 69
+if [ -e "$BOX/state/swapped" ]; then ok; else bad W9 "подмена файла не случилась — случай пуст"; fi
+if [ ! -e "$BOX/state/netpol.json" ] && [ ! -e "$BOX/state/job.json" ]; then ok; else bad W9 "запись после подмены кластера"; fi
+if [ -e "$BOX/state/deleted" ]; then bad W9 "delete ns звался в чужом кластере"; else ok; fi
+if grep -q 'фаза «сетевая политика ns» не начата' "$OUT" && grep -q 'НЕ снято' "$OUT" && grep -q 'delete ns t1-heavy-w9' "$OUT"; then ok; else bad W9 "фаза, неснятое ns или шаг не названы"; fi
+# W9b — близнец: файл сменился, узлы те же → 0, узлы переписаны заново
+cp "$BOX/kubeconfig" "$BOX/kc-swap"
+fresh
+go_run w9b env KACHO_REMOTE_KUBECONFIG="$BOX/kc-swap" FAKE_SWAP_FILE="$BOX/kc-swap" FAKE_EXIT=0 "${B[@]}" --short w9b -- true
+expect_rc W9b 0
+expect_ns_gone W9b t1-heavy-w9b
+nb="$(grep -nE ' create -f ' "$BOX/state/calls" | head -n 1 | cut -d: -f1)"
+na="$(tail -n +"$(( ${nb:-1} + 1 ))" "$BOX/state/calls" | grep -cE '(^| )get nodes')"
+if [ "${na:-0}" -ge 1 ]; then ok; else bad W9b "после смены файла узлы не переписаны"; fi
+# W10 — узлы с -infra- при остатках мёртвого владельца → 69, его ns не снимается
+fresh
+mkdir -p "$BOX/remote-heavy.deadw"
+printf '%s\nt1-heavy-oldw\n1\n\n' "$DEAD" > "$BOX/remote-heavy.deadw/owner"
+seed_ns t1-heavy-oldw '+1 hour'
+jq --arg o "$DEAD" '.metadata.annotations["kacho.io/owner"] = $o' "$BOX/state/ns/t1-heavy-oldw" > "$BOX/x.json" && mv "$BOX/x.json" "$BOX/state/ns/t1-heavy-oldw"
+go_run w10 env FAKE_EXIT=0 FAKE_NODES="$N_INFRA" "${B[@]}" --short w10 -- true
+expect_rc W10 69
+if [ -e "$BOX/state/deleted" ] || [ "$(writes)" -ne 0 ]; then bad W10 "уборка писала в кластер с узлами infra"; else ok; fi
+rm -rf "$BOX/remote-heavy.deadw"
+
 # V1 — кластер не отвечает
 fresh
 go_run v1 env FAKE_DOWN=1 bash "$RUN" --available
@@ -549,7 +898,7 @@ if grep -qF "$FAKE_POD_IP" "$OUT" && grep -qF "$FAKE_POD_IP6" "$OUT"; then ok; e
 
 # L1 — ни адреса, ни IPv4, ни токена, ни пути кубконфига в выводе run.sh
 OUT="$ALL_OUT"
-for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$FAKE_NODE_IP" "$FAKE_NODE_IP6" "$FAKE_API_IP" "$FAKE_POD_IP" "$FAKE_POD_IP6"; do
+for s in "$SERVER_HOST" "$SERVER_IP" "$TOKEN" "$BOX/kubeconfig" "$BOX/probe--lab1.yaml" "$BOX/kc-swap" lab1-client- lab1-infra- lab2-client- "$CTX_CLIENT" "$CTX_INFRA" "$FAKE_NODE_IP" "$FAKE_NODE_IP6" "$FAKE_API_IP" "$FAKE_POD_IP" "$FAKE_POD_IP6"; do
     if grep -qF -- "$s" "$ALL_OUT"; then bad L1 "в выводе run.sh — «$s»"; else ok; fi
 done
 if [ -s "$ALL_OUT" ]; then ok; else bad L1 "вывод пуст — судить нечего"; fi

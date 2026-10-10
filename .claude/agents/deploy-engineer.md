@@ -124,6 +124,7 @@ systemd-oomd за сеансом пользователя: память узла
 боевой подъём (`helm-install` + `rollout-ready`) — на голове сведённой сборки, слотом `stand`.
 
 Стенд проб — своё ns на внешнем кластере, снятие — в той же задаче: `testing-verdict.md#external-cluster-first`, `testing-verdict.md#external-cluster-ns-per-run`.
+Внешний кластер — только контекст `-client` явным `--context`; infra запрещён; current-context не использовать (владелец 2026-10-09: «тебе можно ставить только в client»).
 
 ## Посев, а не миграция
 

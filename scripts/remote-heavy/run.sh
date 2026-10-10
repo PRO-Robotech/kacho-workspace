@@ -16,14 +16,45 @@
 #          [--profile go-race|integration|lint|ci-local] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
 #          [--timeout <с>] [--keep <часы ≤ 12>] -- <команда> [аргументы…]
-#   run.sh --available      0 — кластер отвечает и ns создавать вправе; 69 — нет;
-#                           75 — идущих тяжёлых прогонов уже предел (см. ПРЕДЕЛ)
+#   run.sh --available [--profile <профиль>]
+#                           0 — кластер отвечает, ns создавать вправе и pod есть где
+#                           встать; 69 — нет (в том числе открытого узла нет, см.
+#                           РАЗМЕЩЕНИЕ); 75 — идущих тяжёлых прогонов уже предел (см.
+#                           ПРЕДЕЛ) либо места под запрос профиля нет ни на одном узле
 #   run.sh --profiles       профили, их ресурсы и основание
 #
 # КЛАСТЕР. Кубконфиг берётся из KACHO_REMOTE_KUBECONFIG, иначе из первой строки
 # личного файла ${XDG_CONFIG_HOME:-~/.config}/kacho/remote-kubeconfig. Окружение
 # KUBECONFIG и текущий контекст НЕ берутся: они могут смотреть на локальный kind или
-# на кластер с выкаткой, и прогон ушёл бы не туда молча. Путь, адрес сервера и имя
+# на кластер с выкаткой, и прогон ушёл бы не туда молча.
+#
+# КОНТЕКСТ. Решение владельца 2026-10-09 дословно: «тебе можно ставить только в
+# client». current-context файла НЕ читается и НЕ меняется: владелец переключает его
+# вручную, и прогон, взявший его, ушёл бы в чужой контекст (опыт 2026-10-09: отказы
+# политики допуска пришли из контекста, на который смотрел current-context). Контекст
+# выбирается ЯВНО — ровно один контекст файла с суффиксом -client; переопределение —
+# KACHO_REMOTE_CONTEXT, и только с тем же суффиксом. Каждый вызов kubectl несёт
+# --context. Отказ — до любого обращения к кластеру: переопределение не на -client —
+# 64; контекстов -client в файле ноль или больше одного, либо названного нет — 69
+# (heavy-slot идёт локально с причиной); текст отказа называет шаг.
+#
+# СТРАЖ КЛАСТЕРА ПО УЗЛАМ. Решение владельца 2026-10-10 дословно: «По префиксу нод
+# можешь понять тот кластер или нет, куб конфет мог меняться». Кубконфиг — имя
+# файла, имена контекстов, сам файл — не доказательство кластера: файл заменяют
+# (так и было 2026-10-10). Доказательство — узлы: `get nodes` в выбранном контексте,
+# и прогон принимается, только если узлов ≥ 1 и ВСЕ имена начинаются с
+# «<профиль>-client-» и ни одно не несёт «-infra-»; хвост после «-client-» (хэш
+# пула) не зашит. Профиль — KACHO_REMOTE_PROFILE, иначе из имени файла
+# «<учётка>--<профиль>.yaml»; оба есть и расходятся — отказ (файл подменён). Узлы
+# с «-infra-», чужой профиль, ноль узлов, узлы не прочитаны — 69 до ПЕРВОЙ записи
+# (в том числе до уборки прежних запусков и в --available), текст называет шаг.
+# Проверка повторяется перед каждой фазой записи (ns, сеть, квота, Job, доставка,
+# снятие ns), если с прошлой прошло GUARD_TTL_S или отпечаток файла сменился. Не
+# доказан кластер при снятии — ns НЕ снимается (оно в прежнем кластере, а kubectl
+# смотрит уже не туда): строка называет шаг, срок ns ловит перепись. Имена узлов
+# в вывод не попадают — только числа.
+#
+# Путь, адрес сервера и имя
 # контекста в вывод не попадают: репозиторий публичный, вывод уходит в задачи, —
 # ОБА потока kubectl (ошибки и вывод команды из `logs -f`) и свои строки run.sh идут
 # через маску: адрес сервера — «<кластер>», IPv4 и IPv6 — «<адрес>». Вывод команды
@@ -33,8 +64,17 @@
 # kacho.io/kind=heavy, kacho.io/repo, аннотация kacho.io/expires (RFC 3339, UTC) —
 # те же, что у стендов задачи (цели stand-ns-* в deploy/ продукта), поэтому их
 # перепись видит и тяжёлые ns. ns `kacho` и любое имя вне формы — отказ 64
-# (NS=<имя> окружения — то же, что --ns). Уже существующее ns не берётся и не
-# снимается: run.sh снимает только созданное им самим.
+# (NS=<имя> окружения — то же, что --ns) до любого обращения к кластеру: ни ns, ни
+# Job, ни одного объекта. Уже существующее ns не берётся и не снимается: run.sh
+# снимает только созданное им самим.
+#
+# СТЕНД ДЕРЖИТ ПРОСТРАНСТВО, А НЕ УЗЕЛ. Решение владельца 2026-10-09 дословно: «не
+# запускать в NS качо а не на узлах». Прежняя обязательная podAntiAffinity к pod ns
+# kacho (ws#984) снята целиком — ни required, ни preferred, никаких условий узла по
+# стенду: стенд разошёлся на оба узла кластера, и прогону встать стало некуда
+# (планировщик: «didn't match pod anti-affinity rules», 900 с ожидания и 75).
+# Стенд защищают своё ns прогона, NetworkPolicy, hostUsers: false, отсутствие
+# privileged, ПРЕДЕЛ и явные запросы и пределы ресурсов pod (числом, PROFILES).
 #
 # СНЯТИЕ. trap на EXIT, INT и TERM снимает ns всегда — на успехе, на падении
 # команды, на обрыве. --keep <ч> оставляет его для разбора с expires = сейчас + ч
@@ -56,25 +96,42 @@
 #
 # ПРЕДЕЛ. Квота стоит на одно ns, а общего предела в кластере нет (ревью ws#984,
 # F3): число одновременных тяжёлых прогонов ограничено KACHO_REMOTE_HEAVY_MAX
-# (по умолчанию 2 — на узле без стенда 29,5 ГиБ, профиль go-race запрашивает
-# 14 ГиБ с dind). Идущим считается ns kacho.io/kind=heavy, не снимаемое, со сроком
-# в будущем и без завершённого Job. Перепись — до создания ns (предел достигнут —
-# 75, ns не создаётся) и после него: две гонки, прошедшие первую проверку разом,
-# разрешаются по времени создания — запуск, оказавшийся сверх предела, снимает
-# своё ns и выходит 75.
+# (по умолчанию 2 — запросы профилей подобраны так, что два go-race умещаются на
+# один узел рядом со стендом, см. PROFILES). Идущим считается ns
+# kacho.io/kind=heavy, не снимаемое, со сроком в будущем и без завершённого Job.
+# Перепись — до создания ns (предел достигнут — 75, ns не создаётся) и после него:
+# две гонки, прошедшие первую проверку разом, разрешаются по времени создания —
+# запуск, оказавшийся сверх предела, снимает своё ns и выходит 75.
 #
 # ИЗОЛЯЦИЯ. pod — в своём пространстве пользователей (hostUsers: false): root
 # контейнера — непривилегированный uid узла, возможности SYS_ADMIN, NET_ADMIN и
 # SYS_PTRACE dind действуют только внутри него. privileged нет ни у одного
-# контейнера (ревью ws#984, F1). Сверх этого pod не встаёт на узел, где идёт
-# хотя бы один pod ns kacho (podAntiAffinity required, topologyKey
-# kubernetes.io/hostname): исполняемый код ветки и сторонних модулей не делит
-# узел со стендом. NetworkPolicy ns (F2): входящие запрещены; исходящие — к DNS
-# кластера (служба с портом 53/UDP, выводится из кластера) и в мир, кроме частных
-# диапазонов, адресов узлов, диапазонов служб и адресов управления кластера
-# (конечные точки default/kubernetes и адреса имени сервера кубконфига). Предпосылка проверяется в pod до
-# команды: DNS отвечает, мир (proxy.golang.org:443) доступен, а управление кластера
-# (kubernetes.default.svc:443) и служба ns kacho — нет; иначе 69.
+# контейнера (ревью ws#984, F1). NetworkPolicy ns (F2): входящие запрещены;
+# исходящие — к DNS кластера (служба с портом 53/UDP, выводится из кластера) и в
+# мир, кроме частных диапазонов, адресов узлов, диапазонов служб и адресов
+# управления кластера (конечные точки default/kubernetes и адреса имени сервера
+# кубконфига). Предпосылка проверяется в pod до команды: DNS отвечает, мир
+# (proxy.golang.org:443) доступен, а управление кластера (kubernetes.default.svc:443)
+# и служба ns kacho — нет; иначе 69.
+#
+# РАЗМЕЩЕНИЕ (ws#991). Защита от «некуда встать по ресурсам», без условия по
+# стенду: pod, которому негде встать, ждал бы 900 с и выходил 75, а heavy-slot уже
+# отдал ему управление — локального запуска с причиной не было. Поэтому до
+# создания ns, в --available и при ожидании планирования run.sh сам переписывает
+# узлы: годный — Ready, не закрыт для планирования, без taint NoSchedule/NoExecute
+# (допусков у pod нет) и с местом: allocatable минус запросы незавершённых pod узла
+# (запрос pod — сумма контейнеров и боковых, но не меньше наибольшего init) не
+# меньше запроса профиля (run и dind). Открытого узла нет — 69 (heavy-slot идёт
+# локально с причиной); открытые есть, места нет — 75; pod ждёт, а годного не
+# осталось — выход сразу тем же кодом. --available без --profile судит лишь
+# открытый узел.
+#
+# ВЫВОД (ws#991). Строки run.sh после выбора ns несут его имя: два прогона в одном
+# потоке различимы. Если stderr или stdout прогона — обычный файл, в который пишет
+# живой процесс вне цепочки этого запуска (не предок и не потомок), run.sh печатает
+# предупреждение с его pid: опыт 2026-10-09 — две полосы писали stderr в файл одного
+# имени, и строка одного прогона легла поверх строки другого. Это предупреждение,
+# а не отказ: код прогона от него не меняется.
 #
 # Пространство пользователей — главный барьер, и потому оно проверяется ИСПОЛНЕНИЕМ,
 # а не манифестом (ревью ws#984, N1): API-сервер без UserNamespacesSupport молча
@@ -120,8 +177,9 @@
 # нет). Это плата переноса, она видна во времени прогона.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен (кластер, образ, доставка, пин, сеть pod); 75 — кластер занят (ПРЕДЕЛ),
-# pod не начал команду в срок либо Job снят по сроку; 76 — команда оборвана
+# недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, сеть
+# pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
+# команду в срок либо Job снят по сроку; 76 — команда оборвана
 # пределом памяти. 69, 75, 76 —
 # «не выполнилось», а не красное: вердикта по предмету команды нет. Своё слово —
 # строкой «remote-heavy: …» в stderr.
@@ -132,8 +190,10 @@ set -uo pipefail
 export LC_ALL=C
 
 # say — своё слово в stderr, через ту же маску: в строку попадают тексты кластера
-# (сообщения планировщика, событий), а они бывают с адресами.
-say() { printf 'remote-heavy: %s\n' "$*" | mask >&2; }
+# (сообщения планировщика, событий), а они бывают с адресами. После выбора ns
+# строка несёт его имя «[t<N>-heavy-…]» (ВЫВОД в шапке).
+TAG=""
+say() { printf 'remote-heavy: %s%s\n' "$TAG" "$*" | mask >&2; }
 now() { date +%s; }
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -148,15 +208,19 @@ DEFAULT_TIMEOUT_S=5400
 MAX_TIMEOUT_S=14400
 MAX_KEEP_H=12
 MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"
+GUARD_TTL_S=30       # СТРАЖ: через сколько секунд узлы переписываются заново
 
-# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Узел кластера —
-# 15,5 CPU и 29,5 ГиБ (замер 2026-10-08, kubectl get nodes); стенд kacho держит до
-# 3,9 ГиБ запросов на одном из двух, поэтому запрос профиля ≤ 12 ГиБ встаёт на любой.
-PROFILES='go-race|8|14|12Gi|20Gi|40Gi|1|go test -race по монорепо локально — 13,6 ГиБ (heavy-slot.sh, класс go-race); предел 20 ГиБ — с запасом на -p по числу ядер
-integration|4|8|6Gi|12Gi|40Gi|1|make test-integration SVC=vpc локально — 1,4 ГиБ; контейнеры testcontainers — в dind, у него свой предел
-lint|6|12|6Gi|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш — 4,5 ГиБ (heavy-slot.sh, класс lint)
-ci-local|8|14|12Gi|20Gi|40Gi|1|scripts/ci-local.sh go локально — 5,2 ГиБ; группы вне go требуют инструментов, которых в образе нет'
-DIND_RES='1|2|2Gi|8Gi'
+# профиль|cpu req|cpu lim|mem req|mem lim|ephemeral|dind|основание. Замер
+# 2026-10-09 (kubectl describe nodes, только чтение): узел — allocatable 15,5 CPU и
+# 30 189 МиБ; стенд занимает запросами 410m/450m CPU и 2 372/2 756 МиБ — свободно
+# не меньше 15 050m и 27 433 МиБ на каждом. Запрос go-race с dind — 7 CPU и 12 ГиБ:
+# два прогона (ПРЕДЕЛ) — 14 CPU и 24 576 МиБ — умещаются даже на одном узле рядом
+# со стендом, и место для обоих есть, где бы стенд ни стоял.
+PROFILES='go-race|6|12|11Gi|16Gi|40Gi|1|go test -race по монорепо локально — 13,6 ГиБ (heavy-slot.sh, класс go-race); предел 16 ГиБ — запрос 11 ГиБ держит место двух прогонов на узле
+integration|3|6|5Gi|10Gi|40Gi|1|make test-integration SVC=vpc локально — 1,4 ГиБ; контейнеры testcontainers — в dind, у него свой предел
+lint|4|8|6Gi|12Gi|20Gi|0|golangci-lint run ./... по монорепо, холодный кэш — 4,5 ГиБ (heavy-slot.sh, класс lint)
+ci-local|6|12|11Gi|16Gi|40Gi|1|scripts/ci-local.sh go локально — 5,2 ГиБ; группы вне go требуют инструментов, которых в образе нет'
+DIND_RES='1|2|1Gi|6Gi'
 
 profile_row() {
     local line
@@ -167,6 +231,53 @@ profile_row() {
 }
 
 # ── кластер ──────────────────────────────────────────────────────────────────
+# resolve_context — КОНТЕКСТ в шапке. CTX — выбранный контекст; код 64 —
+# переопределение не на -client, 1 — выбрать нельзя; причина и шаг — в WHY. Имена
+# контекстов в WHY не попадают (вывод публичный).
+resolve_context() {
+    local names n
+    CTX=""
+    if [ -n "${KACHO_REMOTE_CONTEXT:-}" ]; then
+        case "$KACHO_REMOTE_CONTEXT" in
+            *-client) ;;
+            *) WHY="KACHO_REMOTE_CONTEXT не оканчивается на -client — прогон ставится только в контекст -client (решение владельца 2026-10-09); сними переменную либо назови контекст -client"; return 64 ;;
+        esac
+    fi
+    names="$(kubectl --kubeconfig "$KCFG" config get-contexts -o name 2>/dev/null)" \
+        || { WHY="контексты кубконфига не прочитаны — проверь файл: kubectl --kubeconfig <файл> config get-contexts"; return 1; }
+    if [ -n "${KACHO_REMOTE_CONTEXT:-}" ]; then
+        grep -qxF -- "$KACHO_REMOTE_CONTEXT" <<< "$names" \
+            || { WHY="контекста, названного KACHO_REMOTE_CONTEXT, в кубконфиге нет — назови существующий контекст -client (kubectl --kubeconfig <файл> config get-contexts -o name)"; return 1; }
+        CTX="$KACHO_REMOTE_CONTEXT"
+        return 0
+    fi
+    n="$(grep -c -- '-client$' <<< "$names")"
+    case "$n" in
+        1) CTX="$(grep -- '-client$' <<< "$names")"; return 0 ;;
+        0) WHY="в кубконфиге нет контекста с суффиксом -client — прогон ставится только туда (решение владельца 2026-10-09); добавь контекст -client в файл профиля, current-context не трогай"; return 1 ;;
+        *) WHY="в кубконфиге контекстов с суффиксом -client $n — выбор неоднозначен; назови один: KACHO_REMOTE_CONTEXT=<имя>-client (kubectl --kubeconfig <файл> config get-contexts -o name)"; return 1 ;;
+    esac
+}
+# resolve_profile — профиль кластера (СТРАЖ в шапке): PROF; 64 — переменная вне
+# формы, 1 — профиль не выводится либо переменная и имя файла расходятся.
+resolve_profile() {
+    local base fp=""
+    base="${KCFG##*/}"
+    [[ "$base" =~ ^.+--([a-z0-9][a-z0-9-]*)\.ya?ml$ ]] && fp="${BASH_REMATCH[1]}"
+    if [ -n "${KACHO_REMOTE_PROFILE:-}" ]; then
+        [[ "$KACHO_REMOTE_PROFILE" =~ ^[a-z0-9][a-z0-9-]*$ ]] \
+            || { WHY="KACHO_REMOTE_PROFILE вне формы (строчные латиница, цифры, дефис) — назови профиль кластера, как он стоит в начале имён узлов"; return 64; }
+        if [ -n "$fp" ] && [ "$fp" != "$KACHO_REMOTE_PROFILE" ]; then
+            WHY="профиль из имени файла кубконфига и KACHO_REMOTE_PROFILE расходятся — файл мог быть заменён; верни файл профиля либо сними переменную (решение владельца 2026-10-10)"; return 1
+        fi
+        PROF="$KACHO_REMOTE_PROFILE"
+    elif [ -n "$fp" ]; then
+        PROF="$fp"
+    else
+        WHY="профиль кластера не выводится: имя файла кубконфига не вида <учётка>--<профиль>.yaml и KACHO_REMOTE_PROFILE не задана — назови профиль: KACHO_REMOTE_PROFILE=<профиль>"; return 1
+    fi
+    return 0
+}
 resolve_kubeconfig() {
     local f
     if [ -n "${KACHO_REMOTE_KUBECONFIG:-}" ]; then
@@ -180,12 +291,14 @@ resolve_kubeconfig() {
     [ -r "$KCFG" ] || { WHY="кубконфиг, названный настройкой, не читается"; return 1; }
     command -v kubectl >/dev/null || { WHY="kubectl нет в PATH"; return 1; }
     command -v jq >/dev/null || { WHY="jq нет в PATH"; return 1; }
-    SERVER="$(kubectl --kubeconfig "$KCFG" config view --minify -o 'jsonpath={.clusters[0].cluster.server}' 2>/dev/null)"
+    resolve_context || return $?
+    resolve_profile || return $?
+    SERVER="$(kubectl --kubeconfig "$KCFG" --context "$CTX" config view --minify -o 'jsonpath={.clusters[0].cluster.server}' 2>/dev/null)"
     SERVER_HOST="${SERVER#*://}"; SERVER_HOST="${SERVER_HOST%%/*}"; SERVER_HOST="${SERVER_HOST%%:*}"
     return 0
 }
 
-# mask — адрес сервера, IPv4 и IPv6 в выводе заменяются: ошибка соединения
+# mask — адрес сервера, имя контекста, IPv4 и IPv6 в выводе заменяются: ошибка соединения
 # печатает их дословно, вывод команды — адреса pod и dind. IPv6 — полная форма
 # (8 групп) и сжатая с группой по обе стороны «::»: время «12:34:56» и «std::» не
 # задеваются, «::1» (петля) адресом узла не является.
@@ -193,7 +306,7 @@ MASK_V4='([0-9]{1,3}\.){3}[0-9]{1,3}'
 MASK_V6='([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,6}(:[0-9A-Fa-f]{1,4}){1,6}'
 mask() {
     if [ -n "${SERVER_HOST:-}" ]; then
-        sed -u -E -e "s#${SERVER_HOST//./\\.}#<кластер>#g" -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
+        sed -u -E -e "s#${SERVER_HOST//./\\.}#<кластер>#g" ${CTX:+-e "s#${CTX//./\\.}#<контекст>#g"} -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
     else
         sed -u -E -e "s#$MASK_V6#<адрес>#g" -e "s#$MASK_V4#<адрес>#g"
     fi
@@ -201,29 +314,69 @@ mask() {
 
 # kc <аргументы kubectl…> — только этот кубконфиг; stderr — через mask.
 kc() {
-    kubectl --kubeconfig "$KCFG" --request-timeout=30s "$@" 2> >(mask >&2)
+    kubectl --kubeconfig "$KCFG" --context "$CTX" --request-timeout=30s "$@" 2> >(mask >&2)
 }
 # kc_stream — то же для потока лога: срок запроса оборвал бы поток через 30 с
 # (опыт 2026-10-08: переподключение каждые 30 с), поэтому срока у него нет. Вывод
 # команды — тоже через маску (F4). exec: зовётся фоном, и $! — сам kubectl, его и
 # снимает trap.
 kc_stream() {
-    exec kubectl --kubeconfig "$KCFG" "$@" 2> >(mask >&2) > >(mask)
+    exec kubectl --kubeconfig "$KCFG" --context "$CTX" "$@" 2> >(mask >&2) > >(mask)
+}
+
+# kcfg_fp — отпечаток файла кубконфига: сменился — узлы переписываются заново.
+kcfg_fp() { sha256sum < "$KCFG" 2>/dev/null | cut -d' ' -f1; }
+
+# node_guard — СТРАЖ в шапке: узлы выбранного контекста доказывают кластер профиля.
+# Код 0 — доказан (GUARD_AT и GUARD_FP обновлены); 1 — нет, причина и шаг в WHY.
+# Имена узлов в WHY не попадают — только числа.
+GUARD_AT=0; GUARD_FP=""
+node_guard() {
+    local fp0 fp1 nj r all good infra step
+    step="что сделать: kubectl --kubeconfig <файл профиля> --context <контекст -client> get nodes — имена обязаны начинаться с <профиль>-client-; файл мог быть заменён — верни файл профиля (решение владельца 2026-10-10: кластер доказывают узлы, а не кубконфиг)"
+    fp0="$(kcfg_fp)"
+    nj="$(kc get nodes -o json 2>/dev/null)" || { WHY="узлы кластера не прочитаны — кластер не доказан; $step"; return 1; }
+    r="$(jq -r --arg p "$PROF-client-" '[.items[]? | (.metadata.name // "")]
+          | [length, (map(select(startswith($p) and (test("-infra-") | not))) | length), (map(select(test("-infra-"))) | length)]
+          | map(tostring) | join(" ")' <<< "$nj" 2>/dev/null)" \
+        || { WHY="перепись узлов не разобрана — кластер не доказан; $step"; return 1; }
+    read -r all good infra <<< "$r"
+    if [ "${all:-0}" -eq 0 ]; then
+        WHY="узлов в контексте ноль — кластер не доказан; $step"; return 1
+    fi
+    if [ "$infra" -gt 0 ] || [ "$good" -ne "$all" ]; then
+        WHY="узлы не кластера профиля: всего $all, с префиксом <профиль>-client- $good, с -infra- $infra, прочих $(( all - good - infra )) — ни одной записи; $step"; return 1
+    fi
+    fp1="$(kcfg_fp)"
+    [ -n "$fp0" ] && [ "$fp0" = "$fp1" ] || { WHY="файл кубконфига сменился во время переписи узлов — кластер не доказан; $step"; return 1; }
+    GUARD_AT="$(now)"; GUARD_FP="$fp1"
+    return 0
+}
+# guard_write <фаза> — перед фазой записи: узлы переписываются заново, если файл
+# сменился или с прошлой переписи прошло GUARD_TTL_S. Код 1 — фазу не начинать.
+guard_write() {
+    if [ -n "$GUARD_FP" ] && [ "$(kcfg_fp)" = "$GUARD_FP" ] && [ $(( $(now) - GUARD_AT )) -lt "$GUARD_TTL_S" ]; then
+        return 0
+    fi
+    node_guard && return 0
+    say "$WHY — фаза «$1» не начата (не выполнилось)"
+    return 1
 }
 
 available() {
-    local out err
-    resolve_kubeconfig || return 1
+    local out err rc
+    resolve_kubeconfig || { rc=$?; [ "$rc" = 64 ] && return 64; return 1; }
     # stdout — ответ, stderr — предупреждения и ошибки: «Warning: … not namespace
     # scoped» печатается и при «yes».
     err="$(mktemp)" || { WHY="временный файл не создан"; return 1; }
-    out="$(kubectl --kubeconfig "$KCFG" --request-timeout=10s auth can-i create namespaces 2>"$err")"
+    out="$(kubectl --kubeconfig "$KCFG" --context "$CTX" --request-timeout=10s auth can-i create namespaces 2>"$err")"
     if [ "$out" != yes ]; then
         WHY="кластер не отвечает либо создавать ns не вправе: ${out:-нет ответа} $(grep -v '^Warning:' "$err" | head -n 1 | mask)"
         rm -f "$err"
         return 1
     fi
     rm -f "$err"
+    node_guard || return 1
     return 0
 }
 
@@ -249,14 +402,80 @@ busy_heavy() {
       | sort_by(.metadata.creationTimestamp // "", .metadata.name) | .[].metadata.name'
 }
 
+# placement <mCPU> <МиБ> — РАЗМЕЩЕНИЕ в шапке. Код 0 — годный узел есть; 69 — узла,
+# открытого для планирования, нет; 75 — такой есть, но места под запрос нет; 1 —
+# перепись не прочитана. Причина — в PLACE_WHY, перепись — в PLACE_CENSUS.
+placement() {
+    local nj pj r
+    PLACE_WHY=""; PLACE_CENSUS=""
+    nj="$(kc get nodes -o json 2>/dev/null)" || { PLACE_WHY="узлы не прочитаны"; return 1; }
+    pj="$(kc get pods -A -o json 2>/dev/null)" || { PLACE_WHY="pod кластера не прочитаны"; return 1; }
+    # Перепись pod кластера — сотни КиБ, а строка аргумента ограничена ядром
+    # (128 КиБ): вход — файлами, а не --argjson (опыт 2026-10-09 на кластере).
+    r="$(jq -nr --slurpfile N <(printf '%s' "$nj") --slurpfile P <(printf '%s' "$pj") --argjson cpu "$1" --argjson mem "$2" '
+      $N[0] as $n | $P[0] as $p |
+      def mcpu: tostring | if endswith("m") then (.[:-1] | tonumber) else (tonumber * 1000) end;
+      def mib: tostring | capture("^(?<v>[0-9.]+)(?<u>[A-Za-z]*)$") as $c
+        | ($c.v | tonumber) * ({"": 1, "k": 1000, "M": 1e6, "G": 1e9, "T": 1e12,
+                                 "Ki": 1024, "Mi": 1048576, "Gi": 1073741824, "Ti": 1099511627776}[$c.u]
+                                // error("единица \($c.u)")) / 1048576;
+      def rq($r): [.[]? | (.resources.requests // {})[$r] // "0" | if $r == "cpu" then mcpu else mib end] | add // 0;
+      def eff($r): ([(.spec.containers // []), ((.spec.initContainers // []) | map(select(.restartPolicy == "Always")))] | map(rq($r)) | add)
+                   as $main | ([((.spec.initContainers // []) | map(select(.restartPolicy != "Always")))[] | [.] | rq($r)] | max // 0)
+                   as $init | [$main, $init] | max;
+      [$p.items[] | select((.status.phase // "") as $ph | $ph != "Succeeded" and $ph != "Failed") | select(.spec.nodeName)] as $live
+      | [$n.items[] | .metadata.name as $nm
+         | {open: ((any(.status.conditions[]?; .type == "Ready" and .status == "True"))
+                   and ((.spec.unschedulable // false) | not)
+                   and ((.spec.taints // []) | all(.effect != "NoSchedule" and .effect != "NoExecute"))),
+            fcpu: ((.status.allocatable.cpu // "0" | mcpu) - ([$live[] | select(.spec.nodeName == $nm) | eff("cpu")] | add // 0)),
+            fmem: ((.status.allocatable.memory // "0" | mib) - ([$live[] | select(.spec.nodeName == $nm) | eff("memory")] | add // 0))}] as $ns
+      | [($ns | length), ($ns | map(select(.open | not)) | length),
+         ($ns | map(select(.open)) | length),
+         ($ns | map(select(.open and .fcpu >= $cpu and .fmem >= $mem)) | length)] | map(tostring) | join(" ")' 2>/dev/null)" \
+        || { PLACE_WHY="перепись узлов не разобрана"; return 1; }
+    local all closed open fit
+    read -r all closed open fit <<< "$r"
+    PLACE_CENSUS="узлов $all: закрыты для планирования $closed, открыты $open, из них с местом $fit"
+    [ "${all:-0}" -gt 0 ] || { PLACE_WHY="узлов в кластере ноль — переписывать нечего"; return 1; }
+    [ "$fit" -gt 0 ] && return 0
+    if [ "$open" -eq 0 ]; then
+        PLACE_WHY="открытого для планирования узла нет ($PLACE_CENSUS) — pod не встанет"; return 69
+    fi
+    PLACE_WHY="места под запрос (cpu $(( $1 / 1000 )), память $(( $2 / 1024 )) ГиБ) нет ни на одном открытом узле ($PLACE_CENSUS)"; return 75
+}
+
+# need_of <профиль> — «mCPU МиБ» запроса pod профиля: run и боковой dind.
+need_of() {
+    local row cr mr d dcr dmr
+    row="$(profile_row "$1")" || return 1
+    IFS='|' read -r _ cr _ mr _ _ d _ <<< "$row"
+    IFS='|' read -r dcr _ dmr _ <<< "$DIND_RES"
+    [ "$d" = 1 ] || { dcr=0; dmr=0Gi; }
+    printf '%s %s\n' "$(( (cr + dcr) * 1000 ))" "$(( (${mr%Gi} + ${dmr%Gi}) * 1024 ))"
+}
+
 case "${1:-}" in
     --available)
+        need="0 0"
+        if [ -n "${2:-}" ]; then
+            [ "$2" = --profile ] && [ "$#" -eq 3 ] || { say "--available [--profile <профиль>], получено «${*:2}»"; exit 64; }
+            need="$(need_of "$3")" || { say "профиля «$3» нет: $(cut -d'|' -f1 <<< "$PROFILES" | tr '\n' ' ')"; exit 64; }
+        fi
         valid_max_par || exit 64
-        available || { say "$WHY"; exit 69; }
+        available; arc=$?
+        [ "$arc" = 0 ] || { say "$WHY"; [ "$arc" = 64 ] && exit 64; exit 69; }
         busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана"; exit 69; }
         n="$(grep -c . <<< "$busy")"
         if [ "$n" -ge "$MAX_PAR" ]; then say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX)"; exit 75; fi
-        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR"; exit 0 ;;
+        # shellcheck disable=SC2086  # «mCPU МиБ» — два слова
+        placement $need; prc=$?
+        case "$prc" in
+            0) ;;
+            1) say "размещение не проверено: $PLACE_WHY"; exit 69 ;;
+            *) say "$PLACE_WHY"; exit "$prc" ;;
+        esac
+        echo "remote-heavy: кластер отвечает, создавать ns вправе; идущих тяжёлых прогонов $n из $MAX_PAR; $PLACE_CENSUS"; exit 0 ;;
     --profiles)
         while IFS='|' read -r n cr cl mr ml eph d basis; do
             printf '%-12s cpu %s/%s  память %s/%s  диск %s  dind %s\n%-12s основание: %s\n' "$n" "$cr" "$cl" "$mr" "$ml" "$eph" "$([ "$d" = 1 ] && echo да || echo нет)" "" "$basis"
@@ -311,6 +530,7 @@ fi
 if ! [[ "$NSNAME" =~ ^t${TASK}-heavy-[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || [ "${#NSNAME}" -gt 63 ]; then
     say "ns «$NSNAME» вне формы t$TASK-heavy-<слово> (≤ 63 знака) — run.sh создаёт и снимает только свои ns"; exit 64
 fi
+TAG="[$NSNAME] "
 
 # ── ревизия и версии ─────────────────────────────────────────────────────────
 SRC="${SRC:-$WS/project/$REPO}"
@@ -359,6 +579,44 @@ owner_alive() {
 }
 OWNER="$$.$(proc_start $$).$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
 
+# ── общий файл вывода (ВЫВОД в шапке) ─────────────────────────────────────────
+# lineage <pid> — 0, если pid — этот запуск, его предок или потомок.
+ANCESTORS=" "
+_p=$$
+while [[ "$_p" =~ ^[0-9]+$ ]] && [ "$_p" -gt 1 ]; do
+    ANCESTORS+="$_p "
+    _p="$(awk '/^PPid:/ { print $2 }' "/proc/$_p/status" 2>/dev/null)"
+done
+lineage() {
+    local q="$1"
+    [[ "$ANCESTORS" == *" $q "* ]] && return 0
+    while [[ "$q" =~ ^[0-9]+$ ]] && [ "$q" -gt 1 ]; do
+        [ "$q" = $$ ] && return 0
+        q="$(awk '/^PPid:/ { print $2 }' "/proc/$q/status" 2>/dev/null)"
+    done
+    return 1
+}
+# shared_out <fd> <имя потока> — предупреждение, если fd — обычный файл, в который
+# пишет посторонний живой процесс. Путь в строку не идёт — только имя файла.
+shared_out() {
+    local tgt link pid fdn fl seen=""
+    [ -f "/proc/$$/fd/$1" ] || return 0
+    tgt="$(readlink "/proc/$$/fd/$1" 2>/dev/null)" || return 0
+    while IFS=$'\t' read -r link; do
+        pid="${link#/proc/}"; pid="${pid%%/*}"; fdn="${link##*/}"
+        [ "$pid" = $$ ] && continue
+        lineage "$pid" && continue
+        fl="$(awk '/^flags:/ { print $2 }' "/proc/$pid/fdinfo/$fdn" 2>/dev/null)"
+        [[ "$fl" =~ ^[0-7]+$ ]] || continue
+        (( (8#$fl & 3) != 0 )) || continue
+        [[ " $seen " == *" $pid "* ]] && continue
+        seen+=" $pid"
+        say "$2 — файл «$(basename -- "$tgt")», в который пишет и другой процесс (pid $pid: $(cat "/proc/$pid/comm" 2>/dev/null)) — вывод прогонов перемешается; дай прогону свой файл"
+    done < <(find /proc/[0-9]*/fd -maxdepth 1 -type l -printf '%l\t%p\n' 2>/dev/null | awk -F'\t' -v t="$tgt" '$1 == t { print $2 }')
+}
+shared_out 2 stderr
+[ "$(readlink "/proc/$$/fd/1" 2>/dev/null)" = "$(readlink "/proc/$$/fd/2" 2>/dev/null)" ] || shared_out 1 stdout
+
 reap_local() {
     local d e o p tok ns created keep ref tail n_dir=0 n_proc=0 n_ref=0 n_ns=0 stale_min
     # процессы с меткой мёртвого владельца — kubectl logs -f и прочие потомки
@@ -379,6 +637,7 @@ reap_local() {
             owner_alive "$tok" && continue
             if [ "$created" = 1 ] && [ -z "$keep" ] && [ "$ns" != kacho ] && [[ "$ns" =~ ^t[1-9][0-9]*-heavy-[a-z0-9-]+$ ]] \
                && [ "$(kc get ns "$ns" -o json 2>/dev/null | jq -r '.metadata.annotations["kacho.io/owner"] // ""')" = "$tok" ]; then
+                guard_write "уборка ns прежнего запуска" || exit 69
                 kc delete ns "$ns" --wait=false >/dev/null 2>&1 && n_ns=$((n_ns + 1))
             fi
         else
@@ -399,7 +658,8 @@ reap_local() {
 }
 
 # ── кластер и уборка ─────────────────────────────────────────────────────────
-available || { say "$WHY (не выполнилось)"; exit 69; }
+available; arc=$?
+[ "$arc" = 0 ] || { say "$WHY (не выполнилось)"; [ "$arc" = 64 ] && exit 64; exit 69; }
 reap_local
 export REMOTE_HEAVY_OWNER="$OWNER"
 busy="$(busy_heavy)" || { say "перепись идущих тяжёлых ns не прочитана (не выполнилось)"; exit 69; }
@@ -407,6 +667,15 @@ n="$(grep -c . <<< "$busy")"
 if [ "$n" -ge "$MAX_PAR" ]; then
     say "кластер занят: идущих тяжёлых прогонов $n при пределе $MAX_PAR (KACHO_REMOTE_HEAVY_MAX) — ns не создаётся (не выполнилось)"; exit 75
 fi
+
+# Размещение — до ns (РАЗМЕЩЕНИЕ в шапке): pod, которому негде встать, ns не заводит.
+read -r NEED_CPU NEED_MIB <<< "$(need_of "$PROFILE")"
+placement "$NEED_CPU" "$NEED_MIB"; prc=$?
+case "$prc" in
+    0) ;;
+    1) say "размещение не проверено: $PLACE_WHY (не выполнилось)"; exit 69 ;;
+    *) say "$PLACE_WHY — ns не создаётся (не выполнилось)"; exit "$prc" ;;
+esac
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
 CREATED=0; BG=""; DONE=0; TMPREF=""
@@ -421,7 +690,11 @@ cleanup() {
     rm -rf -- "$BOX"
     [ "$CREATED" = 1 ] || return 0
     if [ -n "$KEEP_H" ]; then
-        say "ns $NSNAME оставлено для разбора до $EXPIRES (--keep $KEEP_H); снять: kubectl delete ns $NSNAME"
+        say "ns $NSNAME оставлено для разбора до $EXPIRES (--keep $KEEP_H); снять: kubectl --context <контекст -client> delete ns $NSNAME"
+        return 0
+    fi
+    if ! guard_write "снятие ns $NSNAME"; then
+        say "ns $NSNAME НЕ снято: kubectl смотрит не в кластер профиля, а ns — в прежнем; верни файл профиля и сними: kubectl --kubeconfig <файл профиля> --context <контекст -client> delete ns $NSNAME — иначе его поймает перепись по kacho.io/expires ($EXPIRES)"
         return 0
     fi
     if kc delete ns "$NSNAME" --wait=true --timeout=300s >/dev/null; then
@@ -449,6 +722,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg repo "$REPO" --arg exp "$EXPIR
     annotations: {"kacho.io/expires": $exp, "kacho.io/owner": $owner}}}' > "$BOX/ns.json"
 # create, а не apply: существующее ns create не трогает, а apply переписал бы его
 # метки, и trap снял бы чужое.
+guard_write "создание ns" || exit 69
 if ! out="$(kc create -f "$BOX/ns.json" 2>&1 >/dev/null)"; then
     case "$out" in
         *AlreadyExists*|*"already exists"*) say "ns $NSNAME уже есть — run.sh не берёт чужое и не продолжает чужой прогон"; exit 64 ;;
@@ -499,6 +773,7 @@ jq -n --arg ns "$NSNAME" --argjson dns "$dns" --argjson addr "$nodeaddr" --argjs
      {to: [{ipBlock: {cidr: "0.0.0.0/0", except: (["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16"]
                                                    + ($own | map(select(test(":") | not))) | unique)}},
            {ipBlock: {cidr: "::/0", except: (["fc00::/7", "fe80::/10"] + ($own | map(select(test(":")))) | unique)}}]}]}}' > "$BOX/netpol.json"
+guard_write "сетевая политика ns" || exit 69
 kc create -f "$BOX/netpol.json" >/dev/null || { say "сетевая политика ns не поставлена (не выполнилось)"; exit 69; }
 # Служба ns kacho для пробы закрытости в pod: ClusterIP с TCP-портом, чьи pod не
 # закрыты собственной политикой ns kacho (иначе проба прошла бы и без нашей).
@@ -529,6 +804,7 @@ jq -n --arg ns "$NSNAME" \
    spec: {limits: [{type: "Container",
      defaultRequest: {cpu: "100m", memory: "128Mi", "ephemeral-storage": "64Mi"},
      default: {cpu: "1", memory: "1Gi", "ephemeral-storage": "1Gi"}}]}}]}' > "$BOX/limits.json"
+guard_write "квота ns" || exit 69
 kc apply -f "$BOX/limits.json" >/dev/null || { say "квота ns не поставлена (не выполнилось)"; exit 69; }
 
 # ── Job ──────────────────────────────────────────────────────────────────────
@@ -651,9 +927,6 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
    template: {metadata: {labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
     spec: ({restartPolicy: "Never", enableServiceLinks: false, automountServiceAccountToken: false, hostUsers: false,
-     affinity: {podAntiAffinity: {requiredDuringSchedulingIgnoredDuringExecution: [
-       {labelSelector: {}, namespaceSelector: {matchLabels: {"kubernetes.io/metadata.name": "kacho"}},
-        topologyKey: "kubernetes.io/hostname"}]}},
      initContainers: ((if $dind == 1 then [
        {name: "tools", image: $cimg, command: ["cp", "/usr/local/bin/docker", "/tools/docker"],
         volumeMounts: [{name: "tools", mountPath: "/tools"}]},
@@ -682,6 +955,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
      volumes: ([{name: "work", emptyDir: {}}, {name: "cache", emptyDir: {}}]
                + (if $dind == 1 then [{name: "dind-lib", emptyDir: {}}, {name: "dind-sock", emptyDir: {}}, {name: "tools", emptyDir: {}}] else [] end))})}}}' \
     > "$BOX/job.json"
+guard_write "Job" || exit 69
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
@@ -719,7 +993,7 @@ git -C "$SRC" update-ref "$TMPREF" "$SHA" || { say "временная ссыл�
 git -C "$SRC" bundle create "$BOX/src.bundle" "$TMPREF" ${MAIN_SHA:+refs/remotes/origin/main} >/dev/null 2>&1; brc=$?
 git -C "$SRC" update-ref -d "$TMPREF"; TMPREF=""
 [ "$brc" -eq 0 ] || { say "bundle ревизии $SHA не собран"; exit 69; }
-POD=""
+POD=""; PLACED_AT=0
 while :; do
     IFS='|' read -r POD PHASE FETCH_ST RUN_ST _ _ _ WAITR SCHED USERNS <<< "$(pod_state)"
     [ -z "$USERNS" ] || userns_refused "$USERNS"
@@ -736,6 +1010,16 @@ while :; do
         fc="$(kc -n "$NSNAME" get events --field-selector involvedObject.kind=Job,reason=FailedCreate -o json 2>/dev/null | jq -r '.items[-1].message // ""')"
         [ -z "$fc" ] || { say "Job не создаёт pod: $(mask <<< "$fc") — не выполнилось"; exit 69; }
     fi
+    # pod ждёт планирования — годный узел ещё есть? Раз в 30 с: без годного узла
+    # ждать срока незачем (РАЗМЕЩЕНИЕ в шапке).
+    if [ -n "$SCHED" ] && [ $(( $(now) - PLACED_AT )) -ge 30 ]; then
+        PLACED_AT="$(now)"
+        placement "$NEED_CPU" "$NEED_MIB"; prc=$?
+        if [ "$prc" -ne 0 ] && [ "$prc" -ne 1 ]; then
+            KEEP_H=""  # прогона не было — оставлять для разбора нечего
+            say "pod ждёт планирования ($SCHED), а $PLACE_WHY — ns снимается (не выполнилось)"; exit "$prc"
+        fi
+    fi
     if [ $(( $(now) - T0 )) -ge "$WAIT_START_S" ]; then
         say "pod не готов принять исходники за $WAIT_START_S с${SCHED:+: $SCHED}${WAITR:+ ($WAITR)} — не выполнилось"; exit 75
     fi
@@ -744,6 +1028,7 @@ done
 # Сверка pod — до доставки: без исходников в pod нет ни строки кода ветки.
 verify_spec "pod $POD" "$(kc -n "$NSNAME" get pods -l job-name=run -o json 2>/dev/null \
                           | jq -c --arg p "$POD" '.items[] | select(.metadata.name == $p) | .spec' 2>/dev/null)"
+guard_write "доставка исходников" || exit 69
 kc -n "$NSNAME" exec -i "$POD" -c fetch -- sh -c 'cat > /work/in.bundle && touch /work/in.done' < "$BOX/src.bundle" & wait_bg $! \
     || { say "исходники не доставлены в pod (не выполнилось)"; exit 69; }
 say "исходники доставлены: $(( $(stat -c %s "$BOX/src.bundle") / 1048576 )) МиБ bundle за $(( $(now) - T0 )) с от создания Job"
