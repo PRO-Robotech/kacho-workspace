@@ -1,0 +1,52 @@
+# Пост-дифф ревью схемы, роль db-architect-reviewer: PRO-Robotech/kaname PR #690 (NTF-2 G1: письмо, очередь отправки, журнал ленты).
+# Запись привязана к ОТПЕЧАТКУ диффа. Её не правят: сменился дайджест — новый файл.
+schema_version: 1
+kind: post_diff_review
+change_id: issue-2917
+role: db-architect-reviewer
+mode: review
+subject:
+  repository: PRO-Robotech/kaname
+  pr: 690
+  branch: 484-ntf2-g1-mail-letter
+  base: d93b69712f0d826216bf3f8ce4dbe65bc7e195cd   # merge-base(origin/484-notify, head)
+  base_branch_tip: 4b9a0a691a65d83a3a6afe9632c2344ace56664d   # ушла вперёд; новых миграций на ней нет (старшая та же — 20261008020109)
+  head: 52ba60b56a025f2b582bebb5b41019e195b646f3
+  content_digest: c821cf5688bcf8991fa27762e94b844c9db02ea3ef43c4483edd452a4d3c83b8
+  digest_predicate: git diff d93b69712f..52ba60b56a | sha256sum   # перемерено дважды, совпало
+  premise_remeasured: >-
+    gh pr view 690: headRefOid = 52ba60b5, base 484-notify. Дифф 5 коммитов, 26 путей.
+    Путей миграций 1 (A): internal/migrations/20261010031946_resource_journal_admits_the_feed_signal.sql;
+    версия старше старшей на базе и на голове ветки базы (20261008020109). Изменённых (M) миграций 0.
+    Repo-SQL (internal/repo/**) в диффе 0. Писатель строки — corelib subscription.Journal.Emit
+    (пин 18d105d0f50a, emit.go:58), служба своего INSERT не заводит.
+snapshot_at: 2026-10-10
+
+migrations_touched: 1
+verdict: ACCEPTED   # принято
+blocks: false
+return_to: —
+
+runs:
+  - cmd: go test -count=1 -json ./internal/migrations/ -run 'TestResourceJournal_'   # @52ba60b5, testcontainers
+    outcome: "rc=0; pass 11, fail 0, skip 0 — в т.ч. FeedSignalFromTheWriterIsAdmitted (настоящий писатель), OfAnotherFeedIsRefused (23514 + имя ограничения), FormIsHeldByTheBase (по одному факту), LiveKindDictionary…, MigrationRollsBack (Down при строке сигнала отказывает)"
+  - cmd: go test -count=1 -json ./internal/migrations/   # @52ba60b5
+    outcome: "rc=0; pass 350, fail 0, skip 0"
+  - cmd: go test -count=1 -tags integration -json ./internal/apps/kaname/mail/ ./internal/subscriptionjournal/   # @52ba60b5
+    outcome: "rc=0; pass 157, fail 0, skip 0 (флаг решает ленту и сигнал; откат tx уносит сигнал и окно вместе)"
+
+checked:
+  - "запрет #5: 20260914090000 не тронут; словарь расширен новым файлом DROP+ADD одним ALTER в транзакции goose — окна без ограничения нет, имя ограничения сохранено"
+  - "запрет #10: форма строки сигнала (resource_id='kaname', project_id='', scope='[]', event_type='UPDATED') держится CHECK resource_journal_feed_signal_form_check, а не писателем; прочие семь видов ограничение не задевает (resource_kind <> 'notification' OR …)"
+  - "значения сверены с писателем: feed.JournalKey = \"notification\" (corelib put_source.go:42), manifest.AccessServiceFeed = \"kaname\" (notifications.go:52), changeUpdated = \"UPDATED\" (journal.go:135)"
+  - "инициатор строки сигнала: NOT NULL из GUC journaltx; Emit отказывает без транзакции помощника (ErrNotHelperTx); проба mail читает initiator записанной строки"
+  - "индекса не заводится — обосновано: поток читает по sequence_no, вопрос по виду/id обслуживает resource_journal_kind_id_idx"
+  - "уборка: corelib JournalSweeper режет по позиции/возрасту без фильтра по виду (retention.go:170), подключён в cmd/kaname/serve.go:515 — строки сигнала не копятся вечно"
+  - "внешних ключей через границу сервиса нет; ORM нет; goose Up/Down присутствуют; тел функций нет (StatementBegin не нужен)"
+
+non_blocking:
+  - "ADD CONSTRAINT валидирует таблицу под ACCESS EXCLUSIVE; объём журнала ограничен уборкой, на текущих размерах окно короткое. NOT VALID+VALIDATE не дал бы выигрыша без потери атомарности словаря."
+  - "«нагрузка — пустой объект» держит писатель (корелиб), база держит лишь jsonb object (resource_journal_payload_object_ck). Не дефект корректности: потребитель строку сигнала по payload не читает (state → StateNotProduced)."
+
+cas_or_concurrency_probes_required: []   # дифф вводит только CHECK; CAS / partial UNIQUE / EXCLUDE / SKIP LOCKED нет
+crosses_distributed_properties: false
