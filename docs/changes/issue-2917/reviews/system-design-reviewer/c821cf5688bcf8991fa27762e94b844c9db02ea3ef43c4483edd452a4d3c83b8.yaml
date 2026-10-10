@@ -1,0 +1,80 @@
+role: system-design-reviewer
+moment: post-diff
+round: 1
+date: 2026-10-10
+subject:
+  repo: PRO-Robotech/kaname
+  pr: 690
+  title: "#484 NTF-2 G1: письмо, очередь отправки и журнал ленты"
+  branch: 484-ntf2-g1-mail-letter
+  base_ref: 484-notify            # origin/484-notify = 4b9a0a691a65d83a3a6afe9632c2344ace56664d на момент ревью
+  base: d93b69712f0d826216bf3f8ce4dbe65bc7e195cd   # git merge-base origin/484-notify 52ba60b56
+  head: 52ba60b56a025f2b582bebb5b41019e195b646f3   # = headRefOid PR #690 (gh pr view)
+  content_digest: c821cf5688bcf8991fa27762e94b844c9db02ea3ef43c4483edd452a4d3c83b8
+  digest_predicate: git -C project/kaname diff d93b69712f0d826216bf3f8ce4dbe65bc7e195cd 52ba60b56a025f2b582bebb5b41019e195b646f3 | sha256sum
+  size: "26 файлов, +3859 −2 (git diff --stat)"
+  corelib_pin: v1.10.1-0.20261007153021-18d105d0f50a   # прочитаны notify/feed/put.go, put_source.go, subscription/emit.go, journaltx/journaltx.go
+previous_record: —   # записей этой роли на PR #690 не было (ls каталога: 10 записей, все о kacho#3071/#3103 и kaname#628)
+verdict: ACCEPTED        # принято
+blocking: []
+distributed_surface: yes   # транзакционная постановка строки ленты + строки журнала подписки (сигнал notification_feed:kaname)
+schema_intersection: no    # CAS/xmin/advisory-lock в диффе нет; миграция CHECK — предмет db-architect-reviewer сам по себе
+
+axes:
+  atomicity:
+    verdict: closed
+    evidence:
+      - "internal/apps/kaname/mail/enqueue.go:68 — постановка в tx вызывающего; строка ленты, окно, вклад и сигнал журнала пишутся под точкой сохранения sp той же tx (corelib feed/put.go write: INSERT outbox/contrib через sp, SignalFeed через tx на том же соединении внутри открытой точки сохранения)"
+      - "subscription.Journal.Emit требует *journaltx.Tx с инициатором (emit.go:62) — вне транзакции помощника сигнал не пишется вовсе (ErrNotHelperTx → ошибка Enqueue → откат события), двойной записи нет by construction"
+      - "проба enqueue_feed_integration_test.go: откат уносит ленту+сигнал+окно+вклад (rows{}), близнец-фиксация оставляет по одной; journalwrite.Begin — тот же открывающий, что у глаголов"
+      - "уведомление: NOTIFY отдельным вызовом в диффе не заводится; пробуждение подписчика — сервер потока фундамента по sequence_no после коммита"
+  idempotency:
+    verdict: n/a-in-diff
+    note: "Operation/воркера в диффе нет; повтор постановки — окно/лимит фундамента (ResentSame/Cooldown — исходы будущих полос окна адресата)"
+  concurrency:
+    verdict: closed
+    note: "окна лимитов берёт фундамент под строковыми замками в точке сохранения (takeWindows); своего check-then-act в диффе нет. Registry.mailMu — единственный приёмник серий, мьютекс в процессе, не межрепличное состояние"
+  delivery_model:
+    verdict: closed
+    note: "Watch/стрим как публичный контракт не вводится; сигнал — строка ресурсного журнала подписки (внутренняя доставка), state=StateNotProduced, строки забирает notify через Claim"
+  workers:
+    verdict: n/a-in-diff
+  external_calls_deadline:
+    verdict: n/a-in-diff
+    note: "межсервисных вызовов в диффе нет; откат точки сохранения в фундаменте — под своим WithTimeout(WithoutCancel)"
+  cross_service_edges:
+    verdict: closed
+    note: "новых runtime-рёбер нет; поток kaname→notify открывает потребитель (notify подписывается на журнал kaname), владелец не зовёт потребителя"
+  replica_isolation:
+    verdict: closed
+  edge_public_internal:
+    verdict: n/a-in-diff
+    note: "новых RPC и монтирования нет"
+  visibility_of_signal:
+    verdict: closed
+    note: "FeedJournal: ObjectType notification_feed, Action platform.subscription.subscribe, ScopeCluster, NameFormNone; база держит resource_id='kaname', project_id='', scope='[]', event_type='UPDATED' (resource_journal_feed_signal_form_check) — непустого набора областей, открывающего сигнал без reader, у строки нет"
+
+findings:
+  critical: []
+  important:
+    - id: I1
+      coord: internal/apps/kaname/mail/enqueue.go:70
+      summary: "классификация ErrLimitExhausted через errors.Is на errors.Join: фундамент при неудачном ROLLBACK TO SAVEPOINT (put.go: errors.Join(err, rbErr)) либо при отказе регистрации хука подавления (errors.Join(err, hookErr)) отдаёт ошибку, которая всё равно матчится ErrLimitExhausted, и Enqueue возвращает OutcomeCapped, nil — отказ хранилища попадает в разрешающую сторону (code-authoring §«Чужой ответ: классификация и бюджет»)"
+      why_not_blocking: "атомарность не нарушается: сломанная точка сохранения оставляет tx непригодной, и COMMIT вызывающего отказывает (ErrTxCommitRollback / закрытое соединение) — событие не фиксируется частично; теряется лишь точность причины и метрика подавления"
+      requirement: "до первого места вызова (полоса подключения глаголов): Capped — только когда цепочка ошибки НЕ несёт иного отказа (сравнить с exhaustedError без примеси rbErr/hookErr), иначе ошибка с именем шаблона; проба-инъекция: подменённый put, отдающий errors.Join(feed.ErrLimitExhausted, errX) → ошибка, близнец feed.ErrLimitExhausted → Capped"
+      return_to: "автор полосы G1 (pointpu)"
+    - id: I2
+      coord: internal/apps/kaname/mail/mail.go:38
+      summary: "два независимо разобранных флага одного ключа notifications.enabled: mail.EnabledFrom(*bool) и feed.ParseEnabled; расхождение ловится только в момент постановки (ErrFlagMismatch / ErrDeliveryNotConfigured → откат глагола), а не при старте"
+      why_not_blocking: "в диффе корня нет (NewEnqueuer/FeedSignal без прод-импортёров); отказ громкий, в разрешающую сторону не уходит"
+      requirement: "в полосе подключения корня — один разбор ключа и производный второй флаг (либо проба отказа старта на расхождении), чтобы мутации не откатывались из-за сборки"
+      return_to: "автор полосы подключения корня"
+  notes:
+    - "Enqueuer, FeedSignal, FeedJournal пока без прод-вызывателей (git grep @52ba60b56: только пробы) — поверхность подготовлена под следующие полосы NTF-2; распределённые свойства мест вызова (глагол открывает tx через journalwrite.Begin) судятся на их диффе"
+
+orders: []
+checks_run:
+  - "git merge-base / git diff | sha256sum @52ba60b56 — дайджест выше"
+  - "чтение диффа (enqueue.go, mail.go, outcome.go, letter.go, feed.go, journal.go, миграция 20261010031946, enqueue_feed_integration_test.go) и фундамента по пину"
+  - "прогонов тестов не делал: CI PR — 19 обязательных контекстов зелёные со слов задания"
+next: "landing-reviewer (пакета схождения на PR полосы нет) — либо convergence-reviewer, если диспетчер собирает пакет волны"
