@@ -265,10 +265,12 @@ if (steps.has('wave-reviewer')) {
   const verdictOf = k => (per.find(x => x && x.key === k) || {}).verdict
   const covered = order.every(k => ['accept', 'return'].includes(verdictOf(k)))
   const back = order.filter(k => verdictOf(k) === 'return')
-  if (wr && wr.verdict === 'return' && covered && back.length && back.length < order.length) {
+  if (wr && wr.verdict === 'return' && covered && back.length) { // все вернули — пусто после снятия, стоп ниже
     // Возврат — о своих полосах: снять их (с зависимыми), пересвести без них;
     // рецензент — лишь проверка исполнения по дельте сборок, не второй круг.
     dropWithDeps(back, 'возврат рецензента волны — ' + D + '/wave-review.md')
+    // Зависимые снялись вслед за возвращёнными — сводить может быть нечего.
+    if (!order.length) return { ok: false, state: 'failed', stage: 'рецензент волны вернул ' + back.join(', ') + ', зависимые сняты вслед — сводить нечего, вливания нет', remainder, errors }
     const prevAsm = asm.head
     asm = await assemble(2)
     if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head) || !Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'пересведение без возвращённых полос', remainder, errors }

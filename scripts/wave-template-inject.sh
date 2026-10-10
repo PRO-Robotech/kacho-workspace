@@ -430,6 +430,26 @@ ok(by(r.calls, c => c.agentType === 'landing-reviewer') === 1, 'голова с�
 r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 0 }] })
 ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0, 'близнец: голова сдвинута только вливанием базы — решает правило')
 
+console.log('== приёмка check-verifier ws#1000 r1: CV-M2…CV-M9, CV-EMPTY')
+{
+const asmQ = n => prm(r.calls, 'mech:assemble:' + n)
+const merges = () => by(r.calls, c => c.label === 'mech:merge')
+r = await run({ args: { ...argsM, lanes: [{ ...argsM.lanes[0], publicText: false }] }, plan: [P('r2.json')] })
+ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0, 'CV-M2: publicText=false, факты полны — landing-reviewer не зван')
+r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 1 }] })
+ok(r.res.ok === false && merges() === 0 && /другой sha/.test(r.res.stage || ''), 'CV-M3: landing-reviewer принял другую sha — вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [{ verdict: 'accept', blocking: [], lanes: [{ key: 'A', verdict: 'accept', blocking: [] }, { key: 'B', verdict: 'accept', blocking: [] }, { key: 'C', verdict: 'return', blocking: ['x'] }] }] })
+ok(r.res.ok === false && merges() === 0, 'CV-M4: свод accept при возврате C — противоречие, вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('return', 'return', 'return')] })
+ok(r.res.ok === false && merges() === 0 && by(r.calls, c => c.label === 'mech:assemble:2') === 0, 'CV-M5: возвращены все полосы — пересведения и вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'C', verdict: 'return', blocking: ['x'] }] }] })
+ok(r.res.ok === false && merges() === 0, 'CV-M6: разбивка неполная (только C) — факта по A,B нет, вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args: argsDepM, plan: [P('r2dep.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: 'accept', blocking: [] }, { key: 'M', verdict: 'return', blocking: ['x'] }] }] })
+ok(r.res.ok === true && /9-a@/.test(asmQ(2)) && !/9-m@|M@/.test(asmQ(2)) && merges() === 1, 'CV-M9: R2, рецензент волны вернул M — A сведена и влита', JSON.stringify(r.res).slice(0, 200) + ' ASM2=' + asmQ(2).slice(0, 300))
+}
+r = await run({ args: argsDep, plan: [P('r1.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: 'return', blocking: ['x'] }, { key: 'B', verdict: 'accept', blocking: [] }] }] })
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'CV-EMPTY: возврат A при B←A снимает обе — сборка пуста, вливания нет', JSON.stringify(r.res).slice(0, 260) + ' ASM2=' + prm(r.calls, 'mech:assemble:2').slice(0, 260))
+
 console.log('== «идёт» после ожидания — состояние, а не провал')
 r = await run({ args, plan: [P('r0.json')], ci: Array(12).fill({ state: 'running' }) })
 ok(r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все 12 ожиданий — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
@@ -470,6 +490,22 @@ PY
         echo "  [OK]   мутант «$1» красный: $(grep -m1 '^  \[FAIL\]' "$W/mut.out" | sed 's/^  \[FAIL\] //' | cut -c1-90)"; pass=$((pass + 1))
     else
         echo "  [FAIL] мутант «$1» упал не утверждением: $(head -c 200 "$W/mut.out")" >&2; fail=$((fail + 1))
+    fi
+}
+twin() { # twin <имя> <было> <стало> — законный близнец той же формы: обязан молчать
+    local f="$W/twin.js"
+    python3 - "$TPL" "$f" "$2" "$3" <<'PY' || { echo "  [FAIL] близнец «$1»: образец не найден в шаблоне" >&2; fail=$((fail + 1)); return; }
+import sys
+src, dst, a, b = sys.argv[1:5]
+s = open(src, encoding='utf-8').read()
+if s.count(a) != 1:
+    sys.exit(1)
+open(dst, 'w', encoding='utf-8').write(s.replace(a, b, 1))
+PY
+    if node "$W/probe.mjs" "$f" "$W" > "$W/twin.out" 2>&1; then
+        echo "  [OK]   близнец «$1» молчит: $(grep -m1 '^RESULT' "$W/twin.out")"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] близнец «$1» красный: $(grep -m1 '^  \[FAIL\]' "$W/twin.out" | cut -c1-90)" >&2; fail=$((fail + 1))
     fi
 }
 echo "== инъекции: мутанты шаблона"
@@ -539,16 +575,27 @@ mutant "база слияния → только волны" "[l.base || A.base,
 mutant "база слияния → только полосы" "[l.base || A.base, ...deps.map(d => d.branch)]" "[l.base, ...deps.map(d => d.branch)]"
 mutant "crossRepo задания не доходит до плана" "crossRepo: A.crossRepo === true || undefined," ""
 # ws#999: вердикт — о своей полосе; решение «вливать» — правило; landing-reviewer — за фактом.
-mutant "непрошедшая полоса снимает соседние" "if (!order.length) return" "if (order.length < Object.keys(done).length) return"
-mutant "возврат полосы рецензентом снимает волну" "covered && back.length && back.length < order.length)" "false)"
+mutant "непрошедшая полоса снимает соседние" "if (!order.length) return { ok: false, stage: 'полосы'" "if (order.length < Object.keys(done).length) return { ok: false, stage: 'полосы'"
+mutant "возврат полосы рецензентом снимает волну" "covered && back.length) {" "false) {"
 mutant "зависимая от снятой не снимается" "for (let grew = true; grew;)" "for (let grew = false; grew;)"
 mutant "после снятия — второй полный круг без дельты" "'; только дельта \`git diff ' + prevAsm + '..' + asm.head + '\` (принятое не переоткрывается)" "'; полностью"
 mutant "landing-reviewer зовётся всегда" "  if (gap.length) {" "  if (true) {"
 mutant "сдвиг головы не судится" "if (landHead !== asm.head) {" "if (false) {"
 mutant "остаток закрывается каскадом" "закрой задачи влитых полос ' + order.join(', ')" "закрой задачи волны ' + Object.keys(done).join(', ')"
 mutant "правило вливания не в задании git-operator" "'. ' + landRule + '; факт" "'. ; факт"
+# Приёмка check-verifier ws#1000 r1: дефекты, выжившие на 31616601, и законные близнецы.
+mutant "CV-M2 publicText — любое заданное значение" "publicText === true)" "publicText !== undefined)"
+mutant "CV-M3 sha посадочного не судится" "lr.verdict !== 'accept' || lr.sha !== landHead)" "lr.verdict !== 'accept')"
+mutant "CV-M4 свод accept при возврате полосы — принят" "  } else if (wr && wr.verdict === 'accept' && back.length) wr = { ...wr, verdict: 'void' }" "  } else if (false) wr = { ...wr, verdict: 'void' }"
+# CV-M5 («возврат всех полос — пересведение») держит защита пустой сборки: условие
+# back.length < order.length снято как избыточное, сценарий CV-M5 краснеет на мутанте CV-EMPTY.
+mutant "CV-M6 неполная разбивка — как полная" "covered && back.length) {" "back.length) {"
+mutant "CV-M9 на R2 возврат снимает всех соседей" "dropWithDeps(back, " "dropWithDeps(steps.has('landing-reviewer') ? order : back, "
+mutant "CV-EMPTY пустая сборка после снятия зависимых вливается" "    if (!order.length) return { ok: false, state: 'failed', stage: 'рецензент волны вернул" "    if (false) return { ok: false, state: 'failed', stage: 'рецензент волны вернул"
+twin "T2 publicText === true && true" "publicText === true)" "publicText === true && true)"
+twin "T9 … ? back : back" "dropWithDeps(back, " "dropWithDeps(steps.has('landing-reviewer') ? back : back, "
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo
-echo "wave-template-inject: контроль код $rc; мутантов $((pass + fail)), красных $pass, выживших $fail"
+echo "wave-template-inject: контроль код $rc; мутантов и близнецов $((pass + fail)), сошлось $pass (мутант красный, близнец молчит), разошлось $fail"
 [ "$rc" -eq 0 ] && [ "$fail" -eq 0 ]
