@@ -134,6 +134,12 @@ sandbox() {
     # потому что норма там лежит. Копия без архива сделала бы 182 законных адреса
     # висячими и красила бы нетронутое дерево.
     cp -a "$WS/.claude/backup" "$dir/.claude/" 2>/dev/null || true
+    # ХУКИ И ШАБЛОН ВОЛНЫ — ЧАСТЬ ОБЛАСТИ check-11 и check-12 (`corpus_scope.py`):
+    # форма задания полосе живёт в `.claude/workflows/`, и проверка, которой в
+    # копии не дали этот каталог, судила бы корпус без него — ось «шаблон волны
+    # предписывает squash» была бы недоказуема (ws#994).
+    cp -a "$WS/.claude/hooks" "$dir/.claude/" 2>/dev/null || true
+    cp -a "$WS/.claude/workflows" "$dir/.claude/" 2>/dev/null || true
     cp "$WS/.gitignore" "$dir/" 2>/dev/null || true
     git -C "$dir" init -q >/dev/null 2>&1
     git -C "$dir" add -A >/dev/null 2>&1
