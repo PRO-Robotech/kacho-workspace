@@ -1,0 +1,170 @@
+# Экспозиция классов — пересверка (revalidation) замысла NTF-5 (извещения оператора), редакция 12,
+# и маршрута редакции 15.
+#
+# Запись привязана к отпечатку ЗАМЫСЛА. Прежние первичные разборы и пересверки относятся к своим
+# редакциям и здесь не переписываются.
+# Судится только дельта (flow-acceleration fa-b1): `git diff 6b08023d3^ 6b08023d3 --
+# docs/changes/issue-2924/`, 2 файла, 74 вставки и 14 удалений: шапка замысла, З23 п.2, п.5–п.7,
+# §4 (строка справочника), §5, §10 п.5; шапка маршрута, P3, K1, K2, §3 пп. 1, 5.
+# Задание — решение диспетчера (е) 2026-10-10: расхождение замысла и маршрута с одобренной
+# приёмкой (редакция 20, ccbb0102, APPROVED круга 18) решается в пользу приёмки.
+schema_version: 1
+kind: class_exposure_revalidation
+change_id: issue-2924
+issue: https://github.com/PRO-Robotech/kacho/issues/2924
+epic: https://github.com/PRO-Robotech/kacho/issues/2914
+docs_task: https://github.com/PRO-Robotech/kacho-workspace/issues/880
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/changes/issue-2924/design.md
+  sha256: 68d96d67b1e030ea659d66d43621591f56807fde7c1807a16af74c13953ac3b0
+  fingerprint_predicate: sha256sum docs/changes/issue-2924/design.md
+  revision: 12
+  content_commit: 6b08023d3
+  route:
+    path: docs/changes/issue-2924/tasks.md
+    sha256: 5811fad1a50c60979ea38031a5a0c5d750d415ebce4f75ca503c0a87c740b6af
+    revision: 15
+  pass_kind: "заход по решению диспетчера (е): цепочка P3→K1→K2 под приёмку ccbb0102"
+previous_revalidation:
+  path: docs/changes/issue-2924/reviews/class-exposure/revalidation/c33e4a829cfcd10b58d51d48eaeffc4659ddf296b6003bbb3d6b64a18c515305.yaml
+  design_sha256: c33e4a829cfcd10b58d51d48eaeffc4659ddf296b6003bbb3d6b64a18c515305
+acceptance:
+  path: docs/specs/sub-phase-NTF-5-operator-notices-acceptance.md
+  sha256: ccbb0102ab7059b75a2289ff245e21277293d5432d1a6cc57c76814e224770e7
+  effective_verdict: APPROVED   # docs/specs/reviews/sub-phase-NTF-5-operator-notices-acceptance/ccbb0102….yaml, строка 27
+role: class-exposure-analyst
+mode: revalidation
+authority:
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst
+  actor: pointpu
+revisions:
+  workspace: 6b08023d3          # копия tmp/issue-880, ветка issue-880
+  workspace_rules: 54854e0f3    # origin/main воркспейса: роль и flow-acceleration сверены
+  kaname: "origin/484-notify @d93b69712 (база цепочки по заданию (и)); origin/main и origin/357 — файла контракта справочника нет"
+  kacho: "origin/main @ffbe930db — services/notify нет (Е1 не выполнена)"
+snapshot_at: 2026-10-10T06:00:00Z
+inspected: >-
+  Дельта ред. 11 → 12 замысла и 14 → 15 маршрута целиком. Приёмка ccbb0102: NTF5-68 «Дано» шаги
+  1–7 и буквы (а)–(п) (строки 2951–3060), §3 З22 (1622), §1.3 (180–196), §8 строка NTF5-68 (3429),
+  §29/§30 через шапку. kaname @d93b69712: контракт справочника (rpc, номера oneof audience),
+  recipientdirectory/{handler,input,resolve}.go, модель project v_get/super_admin
+  (fga_model.fga), .github/golangci.yml, предпосылки «Дано» (манифест recipientDirectory,
+  materialized_at=23, GrantAdmin, аккаунт регистрации, аккаунт миграции). NTF-3 tasks.md — X4e.
+
+assignment_check:
+  - item: "(е)1 форма project_reader входит в P3→K1→K2"
+    result: closed
+    where: "design З23 п.5, §4, §5; tasks P3 (контракт), K2 (реализация, буквы (л)–(п))"
+  - item: "(е)2 предикат K2 — N = 10, «Дано» только методами создания"
+    result: closed
+    where: "design З23 п.6; tasks K2 «N = 10 … иное N — не выполнилось до первой буквы»; «5 посеянных» снято"
+  - item: "(е)3 буквы (л)–(п) в K2"
+    result: closed
+    where: "tasks K2: (з)–(к), (л)–(п), (м)/(л) один факт, (н) после materializedAt"
+  - item: "(е)4 имя ответа свободное, не ListAccountsResponse, если занято"
+    result: closed
+    measured: "git grep -n 'message ListAccountsResponse' origin/484-notify -- proto → 1 (account_service.proto:174) — занято"
+  - item: "DescribeScope {exists, account_id} без владельца (Д131)"
+    result: closed
+    where: "design З23 п.2, §5; tasks P3, K1"
+
+approval_conditions:
+  - condition: "нет маркеров отсрочки"
+    result: green
+    detail: "grep -cE 'TODO|TBD|FIXME|XXX' design.md tasks.md → 0 и 0 @6b08023d3"
+  - condition: "замысел не противоречит действующей приёмке"
+    result: red
+    detail: >-
+      Шапка редакции 12 называет не правленными З3 п.3, п.8, З9 п.2, п.3, §6, §9. Перепись
+      `awk '/scopecache|кэш[а-я]* област|owner_user_id|ownerUserId/' design.md` → 18 строк; вне
+      перечня шапки остались З1 (строка 304, пакет scopecache), З23 п.4 (1325, «текст называет
+      потребителя — кэш областей»), §3 И14 (1720), §4 (1763, scopecache в строке notify-sender —
+      хотя §4 шапкой объявлен приведённым). По решению владельца 2026-10-04 замысел — не ворота
+      кода; одобрение замысла этим запрещено, старт цепочки — нет.
+  - condition: "первичный разбор на отпечаток действующей приёмки существует"
+    result: red
+    detail: >-
+      reviews/class-exposure/initial/ — последний на 367b9482 (редакция 17); на ccbb0102 записи нет.
+      Пересверка выше судит дельту приёмки 17 → 20 лишь в части цепочки (project_reader, ответ
+      DescribeScope, N = 10). Заказ — ниже.
+
+new_items:
+  - id: CX5-68
+    decision: "З23 п.5 — пятая форма аудитории Resolve: project_reader{project_id}"
+    classes:
+      - "code-authoring §«Умолчание, которое становится утверждением»: ветвление по форме аудитории без исчерпывающей проверки (exhaustive в .github/golangci.yml kaname не включён — измерено), новая форма может пройти мимо вопроса к модели"
+      - "architecture §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»: account_reader и project_reader — один вопрос v_get к одной двери"
+      - "code-authoring §«Контракт, который нельзя выразить»: одно поле входа на два смысла (AccountID для id проекта)"
+    radius: >-
+      `git grep -nE 'AudienceAccountReader|ResolveRecipientRequest_AccountReader' origin/484-notify
+      -- '*.go' ':!pkg/api' ':!*_test.go'` → 6 строк в 3 файлах (handler.go отображение, input.go
+      перечисление и два switch обязательности, resolve.go switch решения) — каждое место
+      получает ветку project_reader.
+    code_conditions:
+      - "(1) В каждом из трёх ветвлений по форме аудитории (отображение транспорта, обязательность, решение) project_reader — явная ветка; в ветвлении решения нет группы «без вопроса», в которую попадает форма, требующая права."
+      - "(2) Вопрос v_get — одна функция над объектом `<тип>:<id>`, общая для account_reader и project_reader (отказ двери → UNAVAILABLE, причина email_not_verified → NO_CONFIRMED_ADDRESS); копии readsAccount под проект нет."
+      - "(3) Вход несёт отдельное поле ProjectID; AccountID для project_reader не заполняется."
+      - "(4) Счёт отказов в шапке input.go («десять») перемерен под две новые строки (subject при project_reader, audience.project_reader.project_id)."
+    held_by:
+      - "(1) — буква (м) краснеет, если ветка решения пропущена (usr-x получил бы адрес); (л) — если пропущено отображение; (о), (п) — если пропущена обязательность"
+      - "(2) — держится вниманием: буквы на отказ двери для project_reader в NTF5-68 нет; общая функция переносит на неё держатель account_reader"
+      - "(3), (4) — вниманием; видно в диффе"
+    mapped_to: "tasks K2 (условия (1)–(4) — к коду K2)"
+  - id: CX5-69
+    decision: "tasks P3/K1/K2 — предикаты цепочки"
+    classes:
+      - "measurement-discipline §«Форма числа»: число без ревизии базы"
+    findings:
+      - "P3 `grep -c '^\\s*rpc '` → 4 верно лишь на базе без X4e NTF-3 (X4e добавляет ListExpiringCredentials в тот же файл): на d93b69712 rpc = 2 (Resolve, ListEventAudience) → 2 + 2 = 4; после X4e — 5. Предикат — «число на базе + 2» с @ревизией базы."
+      - "K1 предикат требует «база … зелёные», но база NTF5-68 утверждает и ListAccounts (отказ storage/notify-api, одна страница N) — метод реализуется в K2; на коммите K1 база красна построением. Половины базы по ListAccounts — в предикат K2 (там названа лишь ветка user:usr-op)."
+      - "База ветки цепочки не названа: P3 «зависит от Е2 (посажены)», а файла контракта справочника на kaname origin/main нет (измерено); по заданию (и) PR — «#484 …», то есть ветка от головы origin/484-notify (fa-a5). Назвать базу и что значит Е2 для цепочки."
+    mapped_to: "tasks P3, K1, K2 (правка маршрута; не механизм)"
+  - id: CX5-70
+    decision: "З23 п.4 (не в дельте, но связан с ней): текст отказа триггеров неизменяемости"
+    classes:
+      - "doc-truthfulness: утверждение, пережившее предмет — потребитель «кэш областей» снят приёмкой (Р10, Д131)"
+    code_conditions:
+      - "Текст RAISE триггеров K3 называет действующего потребителя (фиксация accountId проекта аудитории, Р10; владельца notify не хранит), а не кэш областей."
+    held_by: "вниманием, видно в диффе миграции; правится новой миграцией, если ушло"
+    mapped_to: "tasks K3"
+
+measurements:
+  - claim: "номер поля project_reader — следующий свободный; 4–7 заняты, 3 reserved"
+    how: "git show origin/484-notify:proto/kaname/cloud/iam/v1/internal_notification_recipient_service.proto | grep -nE 'reserved|= [0-9]+;' (oneof audience)"
+    result: "подтверждено @d93b69712: 1, 2 поля; 3 reserved; event=6, self=4, account_reader=7, account_owner=5 → следующий 8"
+  - claim: "ListAccountsResponse занято в пакете"
+    how: "git grep -n 'message ListAccountsResponse' origin/484-notify -- proto"
+    result: "1 вхождение, account_service.proto:174 — подтверждено"
+  - claim: "контракт справочника есть на базе цепочки"
+    how: "git show <ref>:proto/kaname/cloud/iam/v1/internal_notification_recipient_service.proto | grep -cE '^\\s*rpc '"
+    result: "origin/484-notify → 2; origin/main → файла нет; origin/357 → файла нет"
+  - claim: "предпосылки «Дано» NTF5-68 на базе цепочки"
+    how: "git grep на origin/484-notify: recipientDirectory (moduleseed, manifest), materialized_at = 23, rpc GrantAdmin, register.go mirror.User.AccountID, аккаунт acc1a18042d81fb438d6 в 0001_initial.sql"
+    result: "все пять есть @d93b69712"
+  - claim: "v_get на project при привязке на аккаунт — только материализацией (буква (н))"
+    how: "git show origin/484-notify:internal/authzmodel/fga_model.fga — define project"
+    result: "v_get: [user, service_account, group#member] or super_admin; super_admin: admin from account or any_admin from cluster — viewer аккаунта не каскадирует; подтверждено"
+  - claim: "Е1 (notify в kacho) не выполнена"
+    how: "git -C project/kacho ls-tree origin/main services/ | grep -c notify"
+    result: "0 @ffbe930db"
+
+not_measurable:
+  - "Видимость кортежа v_get после materializedAt на прогоне — только исполнением NTF5-68 (н); замером дерева не устанавливается."
+
+outcome: "к-коду (CX5-68 (1)–(4), CX5-69, CX5-70); заданное (е) закрыто; блокирующих нет"
+unmapped: []
+return_to_acceptance: []
+return_to_acceptance_note: "Пусто: условия к коду и предикаты маршрута — предметы замысла и маршрута (fa-b2)."
+
+orders:
+  - to: class-exposure-analyst
+    what: "первичный разбор на отпечаток приёмки ccbb0102 — дельтой к 367b9482 (fa-b1), до схождения замысла перед PR эпика в main"
+    basis: "change-graph §4 (две записи); initial/ на ccbb0102 отсутствует"
+  - to: design-author
+    what: "редакция 13 замысла: все места о кэше областей — по переписи выше, включая З1, З23 п.4, И14, §4, вне перечня шапки ред. 12; манифест change.yaml — hashes на ccbb0102 и текущий отпечаток замысла"
+    basis: "doc-truthfulness; change.yaml hashes.acceptance_sha256 = 367b9482, design_sha256 = c33e4a82 при фактических ccbb0102 и 68d96d67"
+  - to: design-author
+    what: "маршрут: удержание N1, N3, N9, W1 до редакции 13 — ребром в «зависит от» (сейчас только прозой шапки; N1 зависит лишь от Е1), чтобы расчёт расписания его видел"
+    basis: "flow-acceleration fa-a4"
