@@ -22,12 +22,26 @@
 #                           репозиторий/база); пары нет — VOID, не зелёное;
 #       CI-PENDING        — последний прогон проверки (по имени, наибольший
 #                           started_at) не завершён либо commit status pending;
-#       RUNS-PENDING      — workflow run на этой sha не completed;
+#       RUNS-PENDING      — ПОСЛЕДНИЙ workflow run своего workflow на этой sha
+#                           не completed;
 #       CI-FAILED         — последний прогон проверки завершён failure, cancelled,
 #                           timed_out, action_required, startup_failure, stale;
 #                           commit status failure/error. skipped и neutral не
 #                           красные, но и не success — печатаются в CENSUS и не
 #                           засчитываются обязательному контексту;
+#       ВЫТЕСНЕНИЕ (ws#1019; урок kaname#709) — в счёт идёт только ПОСЛЕДНИЙ
+#                           workflow run каждого workflow и события на голове
+#                           (по created_at, затем run_attempt, затем id); check-run
+#                           вытесненного прогона (его check_suite_id) не судится
+#                           вовсе. Без этого сводная проверка прежнего целевого
+#                           прогона черновика, завершённая failure, оставалась
+#                           «последней по имени», пока одноимённая проверка
+#                           полного прогона после перевода в ready не стартовала, —
+#                           и голова читалась красной (1) вместо «идёт» (3).
+#                           Событие входит в ключ: прогон push и прогон
+#                           pull_request одного workflow отвечают на разные
+#                           вопросы и друг друга не вытесняют. check-run вне
+#                           workflow run (сторонние приложения) судится по имени;
 #   (б) защита ветки базы:
 #       REQUIRED-NOT-SUCCESS — обязательный контекст (branch protection и
 #                           rulesets) завершён не success;
@@ -130,9 +144,14 @@ EXPECT="$(awk -F'\t' -v r="$REPO" -v b="$BASE" '!/^#/ && $1==r && $2==b {print $
     && jq -e 'type=="array" and all(.[]; .workflow_runs|type=="array")' "$W/runs.json" >/dev/null 2>&1; } \
     || void "workflow runs на $HEAD_SHA не прочитаны: $(apierr)"
 
-# последний прогон каждого имени; commit status — уже последний по контексту
-jq '[.[].check_runs[]] | group_by(.name) | map(sort_by(.started_at // "") | last)
-    | map({name, id, done: (.status=="completed"), c: (.conclusion // "")})' "$W/cr.json" > "$W/latest.json"
+# последний workflow run каждого workflow и события; прочие — вытеснены (ws#1019)
+jq '[.[].workflow_runs[]] | group_by([(.workflow_id // .path // .name), .event])
+    | map(sort_by([(.created_at // ""), (.run_attempt // 1), .id])) | {latest: map(last), superseded: (map(.[0:-1]) | add // [])}' "$W/runs.json" > "$W/runsel.json"
+SUPERSEDED="$(jq -c '[.superseded[].check_suite_id]' "$W/runsel.json")"
+jq --argjson s "$SUPERSEDED" '[.[].check_runs[] | select((.check_suite.id // null) as $i | $s | index($i) | not)]' "$W/cr.json" > "$W/crl.json"
+# последний прогон каждого имени среди невытесненных; commit status — уже последний по контексту
+jq 'group_by(.name) | map(sort_by(.started_at // "") | last)
+    | map({name, id, done: (.status=="completed"), c: (.conclusion // "")})' "$W/crl.json" > "$W/latest.json"
 # Черновик: страж — проверка, завершённая failure с аннотацией «черновик не вливается».
 # Судится аннотацией, а не именем: имя стража у репозиториев разное, и вторая копия
 # имени здесь разошлась бы с конвейером молча.
@@ -152,10 +171,11 @@ fi
 jq '[.statuses[] | {name: .context, done: (.state!="pending"),
      c: (if .state=="success" then "success" elif .state=="pending" then "" else "failure" end)}]' "$W/st.json" > "$W/stl.json"
 jq -s '(.[0] | map(.name)) as $c | .[0] + (.[1] | map(select(.name as $n | $c | index($n) | not)))' "$W/latest.json" "$W/stl.json" > "$W/all.json"
-RAW="$(jq '[.[].check_runs[]]|length' "$W/cr.json")"
+RAW="$(jq 'length' "$W/crl.json")"
+DROPPED=$(( $(jq '[.[].check_runs[]]|length' "$W/cr.json") - RAW ))
 NAMES="$(jq 'length' "$W/all.json")"
-printf 'CENSUS\tпроверок на голове: различных %s (check-run прогонов %s, commit status %s), ожидается не меньше %s\n' \
-    "$NAMES" "$RAW" "$(jq length "$W/stl.json")" "$EXPECT"
+printf 'CENSUS\tпроверок на голове: различных %s (check-run прогонов %s, commit status %s; check-run вытесненных прогонов не судится %s), ожидается не меньше %s\n' \
+    "$NAMES" "$RAW" "$(jq length "$W/stl.json")" "$DROPPED" "$EXPECT"
 
 R="$W/reasons"; : > "$R"
 reason() { printf 'REASON\t%s\t%s\n' "$1" "$2" >> "$R"; }
@@ -166,8 +186,11 @@ while IFS=$'\t' read -r n c; do reason CI-FAILED "$c: $n"; done < <(jq -r --argj
 OTHER="$(jq -r --argjson f "$FAILSET" '[.[]|select(.done and .c!="success" and .c!="draft-guard" and (.c as $c | $f | index($c) | not))|"\(.name) (\(.c))"]|join("; ")' "$W/all.json")"
 [ -z "$OTHER" ] || printf 'CENSUS\tзавершены не success и не красные: %s\n' "$OTHER"
 RUNS="$(jq '[.[].workflow_runs[]]|length' "$W/runs.json")"
-while IFS= read -r n; do reason RUNS-PENDING "workflow run не завершён: $n"; done < <(jq -r '.[].workflow_runs[]|select(.status!="completed")|"\(.name) (\(.status), run \(.id))"' "$W/runs.json")
-printf 'CENSUS\tworkflow runs на голове: %s, не завершено %s\n' "$RUNS" "$(jq '[.[].workflow_runs[]|select(.status!="completed")]|length' "$W/runs.json")"
+while IFS= read -r n; do reason RUNS-PENDING "workflow run не завершён: $n"; done < <(jq -r '.latest[]|select(.status!="completed")|"\(.name) (\(.status), run \(.id))"' "$W/runsel.json")
+SUPN="$(jq '.superseded|length' "$W/runsel.json")"
+printf 'CENSUS\tworkflow runs на голове: %s; последних по workflow и событию %s, вытеснено %s; из последних не завершено %s\n' \
+    "$RUNS" "$(jq '.latest|length' "$W/runsel.json")" "$SUPN" "$(jq '[.latest[]|select(.status!="completed")]|length' "$W/runsel.json")"
+[ "$SUPN" -eq 0 ] || printf 'CENSUS\tвытесненные прогоны (не судятся): %s\n' "$(jq -r '[.superseded[]|"\(.name) run \(.id) (\(.status)/\(.conclusion // "-"))"]|join("; ")' "$W/runsel.json")"
 if [ "$DRAFT" = true ]; then
     EXEC="$(jq '[.[]|select(.done and .c!="skipped" and .c!="draft-guard")]|length' "$W/all.json")"
     SKIP="$(jq '[.[]|select(.done and .c=="skipped")]|length' "$W/all.json")"

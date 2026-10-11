@@ -27,6 +27,14 @@
 #   обязательный контекст исчез при завершённом остальном          → 1 REQUIRED-MISSING
 #   обязательный контекст skipped                                  → 1 REQUIRED-NOT-SUCCESS
 #   последний по started_at прогон имени failure, прежний success  → 1 CI-FAILED
+#   вытеснение (ws#1019; урок kaname#709) — workflow «сводный вердикт»
+#             получает второй, более поздний прогон того же события:
+#             прежний failure, новый идёт, его проверки ещё нет      → 3 running
+#             прежний success, новый завершён failure (близнец)      → 1 CI-FAILED
+#             прежний failure, новый завершён success (близнец)      → 0 green
+#             то же, проверка прежнего с БОЛЕЕ ПОЗДНИМ started_at    → 0 green
+#             прежний ещё идёт, новый завершён success               → 0 green
+#             прежний — событие push и идёт: не вытеснен             → 3 RUNS-PENDING
 #   черновик (ws#1013): исполненное зелёное, прочее skipped, страж
 #             с аннотацией «черновик не вливается»                 → 5 targeted-green
 #   черновик: failure БЕЗ аннотации стража — настоящий отказ       → 1 CI-FAILED
@@ -48,7 +56,11 @@
 #   status-failure-ok   — commit status failure/error отображён в success;
 #   failset-<значение>  — значение убрано из FAILSET, по одному на каждое из шести;
 #   draft-ignored       — черновик читается как готовый запрос;
-#   guard-any-failure   — стражем считается любой failure черновика, без аннотации.
+#   guard-any-failure   — стражем считается любой failure черновика, без аннотации;
+#   supersede-dropped   — check-run вытесненного прогона судится наравне (ws#1019);
+#   supersede-earliest  — последним считается САМЫЙ РАННИЙ прогон workflow;
+#   supersede-event-dropped — событие выпало из ключа: push вытесняется pull_request;
+#   runs-pending-all    — RUNS-PENDING судит и вытесненные прогоны.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -154,6 +166,41 @@ run "обязательный контекст skipped" 1 '^REASON\tREQUIRED-NOT
 mk; edit check-runs.json '.check_runs = .check_runs + [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2099-01-01T00:00:00Z"]'
 run "повтор имени позже прежнего success — failure" 1 '^REASON\tCI-FAILED\tfailure: '
 
+say "== вытесненный прогон того же workflow (ws#1019; урок kaname#709)"
+# Workflow «сводный вердикт» фикстуры (run 38086061943, suite 103192606632) делается
+# ПРЕЖНИМ прогоном (created_at раньше), рядом — новый прогон того же workflow и того
+# же события, suite 999. Урок kaname#709: черновик перевели в ready, сводный вердикт
+# целевого прогона черновика failure, полный прогон ещё идёт — его сводная проверка
+# стартует последней и на голове её ещё нет.
+OLDRUN=38086061943; OLDSUITE=103192606632
+# shellcheck disable=SC2016
+supersede() {  # supersede <заключение прежнего> <статус нового> <заключение нового|null> [событие прежнего]
+    mk
+    edit runs.json "(.workflow_runs |= map(if .id == $OLDRUN then .workflow_id = 5 | .event = \"${4:-pull_request}\" | .created_at = \"2026-10-10T21:00:00Z\" | .run_attempt = 1 | .status = \"completed\" | .conclusion = \"$1\" else . end))
+        | .workflow_runs += [{id: 38199999999, name: \"сводный вердикт\", workflow_id: 5, event: \"pull_request\", status: \"$2\", conclusion: $3, created_at: \"2026-10-10T22:00:00Z\", run_attempt: 1, head_sha: .workflow_runs[0].head_sha, check_suite_id: 999}]"
+    edit check-runs.json "(.check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"$1\" else . end))"
+}
+new_agg() {  # проверка сводного вердикта в новом прогоне: <статус> <заключение|null> <started_at>
+    edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .check_suite.id = 999 | .status = \"$1\" | .conclusion = $2 | .started_at = \"$3\"]"
+}
+supersede failure in_progress null
+run "прежний красный сводный черновика, полный того же workflow идёт" 3 '^VERDICT\trunning\t'
+supersede failure in_progress null
+run "вытеснение напечатано переписью" 3 '^CENSUS\tworkflow runs на голове: 11; последних по workflow и событию 8, вытеснено 3'
+supersede success completed '"failure"'; new_agg completed '"failure"' 2026-10-10T22:30:00Z
+run "близнец: последний полный красный" 1 '^REASON\tCI-FAILED\tfailure: сводный вердикт'
+supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
+run "близнец: последний полный зелёный, прежний черновой красный" 0 '^VERDICT\tgreen\t'
+supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .started_at = \"2099-01-01T00:00:00Z\" else . end)"
+run "вытесненный прогон судится по прогону, а не по started_at проверки" 0 '^VERDICT\tgreen\t'
+supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null else . end)"
+run "вытесненный прогон ещё идёт, последний завершён зелёным" 0 '^VERDICT\tgreen\t'
+supersede failure completed '"success"' push; new_agg completed '"success"' 2026-10-10T22:30:00Z
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null else . end)"
+run "прогон push того же workflow pull_request-прогоном не вытесняется" 3 '^REASON\tRUNS-PENDING\t.*run 38086061943'
+
 say "== черновик — целевой прогон (ws#1013)"
 AGG="сводный вердикт (все проверки завершились и зелены)"
 # черновик: 20 проверок skipped (не выбраны), страж — failure с аннотацией
@@ -228,6 +275,10 @@ failset-startup_failure	/^FAILSET=/s/,"startup_failure"//
 failset-stale	/^FAILSET=/s/,"stale"//
 draft-ignored	/DRAFT="$(jq -r/s/.draft == true/.draft == "never"/
 guard-any-failure	/any(.\[\]; .title==$t)/s/any(.\[\]; .title==$t)/true/
+supersede-dropped	/select((.check_suite.id \/\/ null) as $i/s/$s | index($i) | not/true/
+supersede-earliest	/superseded: (map(/s/latest: map(last), superseded: (map(.\[0:-1\])/latest: map(first), superseded: (map(.[1:])/
+supersede-event-dropped	/group_by(\[(.workflow_id/s/, .event\])/])/
+runs-pending-all	/reason RUNS-PENDING/s/'\.latest\[\]|select/'.superseded[], .latest[]|select/
 MUT
 echo
 echo "ci-read-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
