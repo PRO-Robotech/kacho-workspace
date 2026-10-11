@@ -38,7 +38,7 @@ at-agents-roster-review · specialist-review: 10 ролей; `wave-reviewer` —
 at-agents-roster-boundary · границы задачи: 5 read-only ролей (scout…ci-watcher), кода не пишут · check-03 · red: роль-разведка правит код
 at-agents-count-32 · число агентов — одно, у предиката ниже · check-07 · red: перечень и число расходятся
 at-executors-dont-launch-executors · у каждого агента, кроме `dispatcher`, `disallowedTools` содержит `Agent` · grep -rL disallowedTools .claude/agents/ · red: исполнитель запускает исполнителя
-at-agent-does-not-wait · вызов не ждёт > 10 мин (`CLAUDE.md` «Не жди») · stall-census.sh, wave-template-inject · red: STALL-POLL; без вызова > 15 мин
+at-agent-does-not-wait · вызов не ждёт > 10 мин (`CLAUDE.md` «Не жди») · stall-census.sh, wave-template-inject, no-wait-guard · red: STALL-POLL; без вызова > 15 мин
 at-no-nested-launches · агент не зовёт другого напрямую — возвращает диспетчеру «нужен следующий» · check-05 · red: вложенный вызов агента из тела другого
 
 > Счёт: **32** агентов — предикат `git ls-files .claude/agents/ | wc -l`.

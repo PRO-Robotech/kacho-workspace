@@ -13,7 +13,11 @@
 #      ожидание дольше 10» и цитата владельца «ничего не делают а мы ждем»);
 #   C. база диспетчера несёт строку сигнала «⏱ ЗАСТОЙ» в §10 и `stall-census.sh`;
 #   D. `.claude/settings.json` провязывает `stall-signal.sh` в `Stop` и
-#      `UserPromptSubmit`, и сам хук и прибор `scripts/stall-census.sh` есть в дереве.
+#      `UserPromptSubmit`, и сам хук и прибор `scripts/stall-census.sh` есть в дереве;
+#   E. (ws#1004) `.claude/settings.json` провязывает `no-wait-guard.sh` в `PreToolUse`
+#      с матчером, под который попадает Bash, хук и его разбор есть в дереве; база
+#      диспетчера несёт правило полосы о чужих файлах («`blocked` — лишь за файлом
+#      соседа»). Отказы стража доказывает `.claude/hooks/no-wait-guard/prove.sh`.
 # Свойства самого прибора и хука доказывает `scripts/stall-census-inject.sh`, срок
 # шага и чтение CI шаблоном — `scripts/wave-template-inject.sh`; здесь — провязка.
 #
@@ -71,13 +75,16 @@ try:
     dp = flat('.claude/agents/dispatcher.md')
 except OSError:
     dp = ''
-for frag in ('| «⏱ ЗАСТОЙ»', 'stall-census.sh'):
+for frag in ('| «⏱ ЗАСТОЙ»', 'stall-census.sh', '`blocked` — лишь за файлом соседа'):
     if frag not in dp:
         finds.append('.claude/agents/dispatcher.md: нет «%s»' % frag)
 for ev in ('Stop', 'UserPromptSubmit'):
     if not any('stall-signal.sh' in h.get('command', '') for g in hooks.get(ev, []) for h in g.get('hooks', [])):
         finds.append('.claude/settings.json: stall-signal.sh не провязан в %s' % ev)
-for p in ('.claude/hooks/stall-signal.sh', 'scripts/stall-census.sh'):
+if not any(re.fullmatch(g.get('matcher') or '.*', 'Bash') and any('no-wait-guard.sh' in h.get('command', '') for h in g.get('hooks', []))
+           for g in hooks.get('PreToolUse', [])):
+    finds.append('.claude/settings.json: no-wait-guard.sh не провязан в PreToolUse под Bash')
+for p in ('.claude/hooks/stall-signal.sh', 'scripts/stall-census.sh', '.claude/hooks/no-wait-guard.sh', '.claude/hooks/no-wait-guard/guard.py'):
     if not os.path.isfile(os.path.join(root, p)):
         finds.append('%s: файла нет' % p)
 print('[CENSUS] %s: агентов-исполнителей осмотрено %d, протокол, база, настройки, хук и прибор — по одному; находок %d' % (name, seen, len(finds)))
@@ -87,5 +94,5 @@ for f in finds:
     print('[FAIL] %s — %s' % (name, f), file=sys.stderr)
 if finds:
     sys.exit(1)
-print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit' % (name, seen))
+print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash' % (name, seen))
 PY

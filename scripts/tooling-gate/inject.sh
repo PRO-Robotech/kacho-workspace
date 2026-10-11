@@ -2650,6 +2650,37 @@ run 1 "$b" "инъекция: прибора застоя нет — красн�
 b="$(mksandbox)"
 printf '\n# комментарий пробы\n' >> "$b/.claude/hooks/stall-signal.sh"
 run 0 "$b" "близнец: безобидная правка хука — молчит" "$C19"
+# ws#1004: отказ ожиданию провязан в PreToolUse Bash, правило о чужих файлах — в базе.
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']: g['hooks'] = [h for h in g['hooks'] if 'no-wait-guard' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: no-wait-guard снят с PreToolUse — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    if any('no-wait-guard' in h.get('command', '') for h in g['hooks']): g['matcher'] = 'Monitor'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: no-wait-guard под матчером Monitor (Bash мимо) — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    if any('no-wait-guard' in h.get('command', '') for h in g['hooks']): g['matcher'] = 'Bash|Monitor'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C19"
+b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
+run 1 "$b" "инъекция: разбора no-wait-guard нет — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`blocked` — лишь за файлом соседа', '`blocked` — по усмотрению'))
+PY
+run 1 "$b" "инъекция: правило о чужих файлах снято из базы — краснеет" "$C19"
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
