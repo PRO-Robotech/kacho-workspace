@@ -11,6 +11,11 @@
 
 ОТКАЗ (класс — пример):
   loop-sleep    — `until …; do sleep …; done`, `while …; do …; sleep N; done` — любой N;
+  for-sleep     — `for …; do …; sleep N; done`, если итераций × sleep ≥ 300 с либо число
+                  итераций не вычислимо по тексту (`$(seq N)`, `{1..N}`, `$x`, `*`, `for i;`,
+                  `for ((…))`) или sleep не вычислим; `for i in 1 2 3; do …; sleep 5; done` — законно;
+  bg-wait       — `wait` / `wait <pid>` в переднем плане той же оболочки, где был фоновый
+                  запуск `… &`: это ожидание фона, а не отсоединение;
   tail-pid      — `tail --pid …`, `tail -f/-F` без timeout < 600;
   ci-watch      — `gh run watch`, `gh pr checks --watch`;
   watch         — `watch …` (бесконечный повтор);
@@ -18,7 +23,7 @@
   long-timeout  — `timeout N …`, N ≥ 600 с;
   flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела).
 Всё перечисленное — в ПЕРЕДНЕМ плане. Отсоединённое (`… &` без `wait` в той же
-строке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
+оболочке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
 шаг. `nohup` сам не отсоединяет: без `&` он ждёт в переднем плане. Флаг
 run_in_background отсоединением не считается: живой фон держит агента workflow
 так же, как передний план (корень класса 1, ws#1001).
@@ -41,10 +46,11 @@ agent_type входа хука, когда оно есть) меткой не п
 «СЛОМАН» — страж не смог судить (громко, но не запирая: страж, отказывающий всему,
 остановил бы каждую полосу).
 
-ГРАНИЦА (не ловится, известно): цикл `for` со sleep (ограничен перечнем — не
-опрос без конца); ожидание внутри скрипта или рецепта make (страж судит строку, а
-не текст файла); `wait <pid>` над чужим процессом; инструмент Monitor (его предмет —
-ожидание по замыслу харнесса; матчер этого стража — Bash).
+ГРАНИЦА (не ловится, известно): ожидание внутри вызываемого скрипта или рецепта
+make (страж судит строку, а не текст файла); `wait <pid>` без фонового запуска в той
+же строке (чужой процесс не потомок этой оболочки — `wait` возвращается сразу);
+инструмент Monitor (его предмет — ожидание по замыслу харнесса; матчер этого
+стража — Bash).
 """
 
 import json
@@ -60,6 +66,7 @@ import guard as hg  # noqa: E402 — общий лексер слов с heavy-g
 SLEEP_MAX = 300      # с: sleep от этого — ожидание
 TIMEOUT_MAX = 600    # с: timeout от этого — ожидание
 FLOCK_MAX = 300      # с: flock -w от этого — ожидание
+FOR_MAX = 300        # с: итераций × sleep в цикле for от этого — ожидание
 EXEMPT_MAX_MIN = 9   # мин: потолок метки ci-watcher
 EXEMPT = re.compile(r"#\s*no-wait-exempt\s+([A-Za-z0-9_-]+)\s+(\d+)m\b")
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
@@ -69,6 +76,8 @@ TRANSPARENT = {"do", "then", "else", "elif", "!", "in"}
 
 CLASS_TEXT = {
     "loop-sleep": "цикл until/while со sleep — опрос в переднем плане",
+    "for-sleep": "цикл for со sleep: итераций × sleep ≥ %d с или не вычислимо по тексту" % FOR_MAX,
+    "bg-wait": "wait после фонового запуска — ожидание фона в переднем плане",
     "tail-pid": "tail --pid / tail -f — ожидание чужого процесса или лога",
     "ci-watch": "ожидание CI (gh run watch / gh pr checks --watch)",
     "watch": "watch — бесконечный повтор в переднем плане",
@@ -369,33 +378,87 @@ class Judge:
 
     def text(self, text, ctx):
         """ctx: dict(bg, loop, tmo) — унаследованное от охватывающего узла."""
+        # тело `bash -c` приходит из hg.words с размеченным `$` (SQ/DQ): для дочерней
+        # оболочки это снова `$` — иначе `$(…)` в теле не узнаётся подстановкой
+        text = text.replace(hg.SQ, "$").replace(hg.DQ, "$")
         body, bodies = hg.strip_heredocs(text)
         toks = tokens(body)
         nodes = Parser(toks).parse_list(set())
-        # `wait` в той же оболочке снимает отсоединение `&`: шаг ждёт фона сам
-        waits = any(self.has_wait(n) for n in nodes)
+        # фоновый запуск в этой оболочке — `wait` в ней же ждёт его (класс bg-wait):
+        # отсоединение `&` при `wait` в той же оболочке снято, отказ называет `wait`
+        c = dict(ctx, launched=any(self.has_bg(n) for n in nodes))
         for n in nodes:
-            self.node(n, ctx, waits)
+            self.node(n, c)
         for line, hbody in bodies:  # heredoc, поданный оболочке, — команды
             ws = hg.words(line)
             argv, _, _ = head(ws)
             if argv and os.path.basename(argv[0]) in SHELLS:
                 self.text(hbody, ctx)
 
-    def has_wait(self, n):
-        if n.kind == "simple":
-            ws = hg.words(n.text)
-            return bool(ws) and ws[0] == "wait"
-        return any(self.has_wait(k) for k in n.kids)
+    def has_bg(self, n):
+        return n.bg or any(self.has_bg(k) for k in n.kids)
 
-    def node(self, n, ctx, waits):
-        bg = ctx["bg"] or (n.bg and not waits)
+    # ── цикл for: итераций × sleep за итерацию ──
+    def for_count(self, n):
+        """Число итераций по тексту заголовка `for v in w…` либо None (не вычислимо)."""
+        if n.substs or not n.kids or n.kids[0].kind != "simple" or n.kids[0].substs:
+            return None
+        hdr = n.kids[0].text
+        if re.search(r"[$`{}*?\[]|__SUBST__", hdr):
+            return None
+        ws = hdr.split()
+        if len(ws) < 2 or ws[1] != "in" or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", ws[0]):
+            return None  # `for v;` — по "$@"; `for ((…))` — арифметика: не по тексту
+        return len(ws) - 2
+
+    def sleep_sum(self, nodes):
+        """Секунды sleep переднего плана за один проход узлов либо None (не вычислимо)."""
+        total = 0.0
+        for k in nodes:
+            if k.bg:
+                continue
+            if k.kind == "group":
+                if k.loop == "for":
+                    d = self.for_total(k)
+                elif k.loop:
+                    d = 0.0  # while/until — свой класс loop-sleep
+                else:
+                    d = self.sleep_sum(k.kids)
+            else:
+                argv, _, det = head(hg.words(k.text))
+                if det or not argv or os.path.basename(argv[0]) != "sleep":
+                    continue
+                ds = [duration(a) for a in argv[1:]]
+                d = None if not ds or None in ds else sum(ds)
+            if d is None:
+                return None
+            total += d
+        return total
+
+    def for_total(self, n):
+        """Секунды sleep цикла for целиком; 0 — sleep нет; None — не вычислимо."""
+        per = self.sleep_sum(n.kids[1:])
+        if per == 0:
+            return 0.0
+        cnt = self.for_count(n)
+        return None if per is None or cnt is None else cnt * per
+
+    def node(self, n, ctx):
+        bg = ctx["bg"] or n.bg
         for s in n.substs:  # подстановку оболочка ждёт до команды
             self.text(s, dict(ctx, bg=ctx["bg"]))
         if n.kind == "group":
+            # timeout < FOR_MAX над циклом ограничивает его сам — не ожидание
+            bounded = ctx["tmo"] is not None and ctx["tmo"] < FOR_MAX
+            if n.loop in ("for", "select") and not bg and not ctx["loop"] and not bounded:
+                total = self.for_total(n) if n.loop == "for" else None
+                if total is None and n.loop == "select":
+                    total = None if self.sleep_sum(n.kids[1:]) != 0 else 0.0
+                if total is None or total >= FOR_MAX:
+                    self.add("for-sleep", " ".join(k.text or "…" for k in n.kids[:3]), ctx["tmo"])
             c = dict(ctx, bg=bg, loop=ctx["loop"] or (n.loop in ("while", "until")))
             for k in n.kids:
-                self.node(k, c, waits)
+                self.node(k, c)
             return
         self.simple(n.text, dict(ctx, bg=bg))
 
@@ -408,6 +471,9 @@ class Judge:
         base = os.path.basename(argv[0])
         args = argv[1:]
         shown = seg.strip()
+        if base == "wait" and not bg and ctx.get("launched"):
+            self.add("bg-wait", shown, None)
+            return
         if base == "timeout" and len(argv) >= 2:  # head вернул timeout ≥ 600
             if not bg:
                 self.add("long-timeout", shown, None)
@@ -518,7 +584,8 @@ def deny(found, err, ws):
         "  · CI — одно чтение (`gh pr checks` без --watch); повтор делает шаблон волны или диспетчер;",
         "  · слот тяжёлого — %s/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу," % ws,
         "    ожидание только явным --wait N ≤ 300;",
-        "  · разрешено: sleep < %d вне цикла, timeout < %d, flock -n / -w < %d." % (SLEEP_MAX, TIMEOUT_MAX, FLOCK_MAX),
+        "  · разрешено: sleep < %d вне цикла, timeout < %d, flock -n / -w < %d," % (SLEEP_MAX, TIMEOUT_MAX, FLOCK_MAX),
+        "    цикл for с перечнем в тексте и итераций × sleep < %d; `&` без wait." % FOR_MAX,
         "Исключение — только ci-watcher: метка `# no-wait-exempt ci-watcher <N>m`, N ≤ %d, форма" % EXEMPT_MAX_MIN,
         "под timeout ≤ N·60 с. Флаг run_in_background отсоединением не считается.",
     ]

@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: BUSL-1.1
 #
 # PreToolUse(Bash) hook — no-wait-guard (ws#1004). Команда ожидания в переднем
-# плане (цикл until/while со sleep, tail --pid, gh run watch, sleep ≥ 300,
-# timeout ≥ 600, flock -w ≥ 300) получает отказ с правилом «Не жди» (CLAUDE.md) и
+# плане (цикл until/while со sleep, цикл for со sleep от 300 с в сумме или без
+# перечня в тексте, wait после фонового запуска, tail --pid, gh run watch,
+# sleep ≥ 300, timeout ≥ 600, flock -w ≥ 300) получает отказ с правилом «Не жди» (CLAUDE.md) и
 # правильной формой: отсоединённо с журналом и pid-файлом, исход — коротким шагом.
 # Разбор — no-wait-guard/guard.py; доказательство — no-wait-guard/prove.sh (его
 # зовёт scripts/hook-proofs.sh).
