@@ -1,0 +1,12 @@
+{
+  "number": 3140,
+  "state": "closed",
+  "head": {
+    "sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+    "ref": "cond-w6"
+  },
+  "base": {
+    "sha": "00e6d93923486b85db4a9adc4d0087d8fb5c1ac2",
+    "ref": "1266"
+  }
+}

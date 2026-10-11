@@ -1,0 +1,95 @@
+{
+  "total_count": 10,
+  "workflow_runs": [
+    {
+      "id": 38089522369,
+      "name": "текст запроса",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103201609645
+    },
+    {
+      "id": 38086098641,
+      "name": "текст запроса",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192701391
+    },
+    {
+      "id": 38086062113,
+      "name": "console-e2e",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192607067
+    },
+    {
+      "id": 38086061943,
+      "name": "сводный вердикт",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606632
+    },
+    {
+      "id": 38086061987,
+      "name": "security-scan",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606751
+    },
+    {
+      "id": 38086061971,
+      "name": "ci",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606701
+    },
+    {
+      "id": 38086062000,
+      "name": "production-posture",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606789
+    },
+    {
+      "id": 38086061862,
+      "name": "ui",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606435
+    },
+    {
+      "id": 38086061900,
+      "name": "текст запроса",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606539
+    },
+    {
+      "id": 38086061918,
+      "name": "e2e-newman",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head_sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
+      "check_suite_id": 103192606583
+    }
+  ]
+}
