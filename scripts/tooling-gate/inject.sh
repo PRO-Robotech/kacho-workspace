@@ -2705,6 +2705,69 @@ import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`
 PY
 run 1 "$b" "инъекция: правило о чужих файлах снято из базы — краснеет" "$C19"
 
+echo "== check-20: «gh api — только GET» у читающих агентов, отказ провязан в PreToolUse Bash (ws#1008) =="
+C20=check-20-gh-api-read-only-is-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/ci-watcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Норма «`gh api` — только GET»', 'Норма'))
+PY
+run 1 "$b" "инъекция: у ci-watcher снята норма «gh api — только GET» — краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('--jq .merge_base_commit.sha`', '`'))
+PY
+run 1 "$b" "инъекция: у scout норма без готовой команды merge-base — краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/wave-reviewer.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Норма «`gh api` — только GET»', 'Норма «`gh api` —\nтолько GET»'))
+PY
+run 0 "$b" "близнец: перенос строки внутри нормы — та же норма, молчит" "$C20"
+b="$(mksandbox ".claude/agents/landing-reviewer.md")"
+run 1 "$b" "инъекция: файла читающего агента нет — перечень разошёлся с деревом, краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']: g['hooks'] = [h for h in g['hooks'] if 'gh-api-guard' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: gh-api-guard снят с PreToolUse — краснеет" "$C20"
+gag_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" "$3" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    for h in g['hooks']:
+        if 'gh-api-guard' in h.get('command', ''):
+            h['command'] = sys.argv[2] or h['command']
+    if sys.argv[3] and any('gh-api-guard' in h.get('command', '') for h in g['hooks']):
+        g['matcher'] = sys.argv[3]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+gag_cmd "$b" '' 'Monitor'
+run 1 "$b" "инъекция: gh-api-guard под матчером Monitor (Bash мимо) — краснеет" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" '' 'Bash|Monitor'
+run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/gh-api-guard.sh.off"' ''
+run 1 "$b" "инъекция: PreToolUse зовёт выключенную копию «.off» — краснеет" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/gh-api-guard.sh"' ''
+run 0 "$b" "близнец: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C20"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/gh-api-guard.sh"
+run 1 "$b" "инъекция: канонический хук не исполним — краснеет" "$C20"
+b="$(mksandbox ".claude/hooks/gh-api-guard/guard.py")"
+run 1 "$b" "инъекция: разбора gh-api-guard нет — краснеет" "$C20"
+b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
+run 1 "$b" "инъекция: лексера (no-wait-guard/guard.py) нет — краснеет" "$C20"
+b="$(mksandbox)"
+printf '{ не json\n' > "$b/.claude/settings.json"
+run 2 "$b" "предпосылка: settings.json не разобран — VOID" "$C20"
+
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
 # своей песочницы — та же поломка, что у любой предыдущей пробы.
