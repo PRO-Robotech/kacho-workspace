@@ -23,11 +23,19 @@ export const meta = {
 //    от неё), соседи с полными фактами садятся;
 //  - состояние переходит только по ФАКТУ скрипта (lane-precheck, landing-precheck,
 //    сверка головы на origin), а не по слову агента;
-//  - передача — через файлы: отчёт шага в <WS>/tmp/wave-<N>/<полоса>/<шаг>.md, в
+//  - передача — через файлы: отчёт шага в <WS>/tmp/wave-<N>/reports/<полоса>/<шаг>.md, в
 //    задание следующего идёт путь, а не пересказ;
 //  - «идёт», «уже сделано», «нечего отправлять» — не провал; повтор шага — только
 //    при НОВОЙ голове;
-//  - механика (скрипты, git, трекер, чтение CI) — дешёвой моделью;
+//  - механика (скрипты, git, трекер, чтение CI) — модель НЕ задаётся, наследуется
+//    (ws#1016, решение диспетчера): лёгкой модели нет ни на одном шаге, чей вывод
+//    читает решение. Волна 7: код ci-read пересказан неверно, пауза пропущена, в
+//    поле головы — фраза, невозможные числа;
+//  - отчёты и журналы полос — под <D>/reports/<полоса>/, ВНЕ дерева копии (ws#1016,
+//    волна 7: отчёт в копии — UNCOMMITTED у lane-precheck); lane-precheck зовётся
+//    с LANE_PRECHECK_WS=<корень воркспейса> (иначе корень выводится из места
+//    скрипта и выходит WS-UNKNOWN либо MAIN-COPY); сборка kacho ставит зависимости
+//    консоли как ui.yml (`npm ci` в ui-future и в пакетах STANDALONE) до проверок;
 //  - возврат не из-за кода — строкой wave-errors.sh (часы), доля в итоге.
 //  - номер PR сборки — целое ≥ 1 (схема и проверка), иначе остановка с причиной;
 //    вердикт роли — только поле verdict (accept | return | void);
@@ -82,8 +90,13 @@ const N = String(A.wave || '')
 const rootOf = w => { const i = w.lastIndexOf('/tmp/'); return i > 0 ? w.slice(0, i) : w }
 const ROOT = A.root || rootOf(WS)
 const D = ROOT + '/tmp/wave-' + N
+// Отчёты и журналы полос — ВНЕ дерева копии (ws#1016): копия — D/<полоса>/copy.
+const R = D + '/reports'
 const HOMES = 'KACHO_HOME_KACHO=' + ROOT + '/project/kacho KACHO_HOME_KANAME=' + ROOT + '/project/kaname KACHO_HOME_CORELIB=' + ROOT + '/project/corelib'
-const MECH = { model: 'haiku', effort: 'low', agentType: 'git-operator' }
+const MECH = { effort: 'low', agentType: 'git-operator' }
+// Сборка kacho: зависимости консоли — как ui.yml, ДО проверок (ws#1016, волна 7:
+// без них пакеты консоли падают MODULE_NOT_FOUND — «не выполнилось», не вердикт).
+const UI_DEPS = /(^|\/)kacho$/.test(A.repo || '') ? ' Репозиторий kacho: ДО проверок консоли (affected.py, хук отправки) поставь её зависимости как ui.yml — в копии `(cd ui-future && npm ci && for p in $(sed -n \'s/^  STANDALONE: //p\' ../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)`; код не 0 — не отправлять, вернуть failed.' : ''
 // Срок шага — минуты работы агента; по истечении — возврат с остатком, а не ожидание.
 const STEP_MIN = { implement: 90, review: 30, mech: 10, ci: 2 }
 const CI_READS = 30
@@ -110,7 +123,7 @@ const C = [
   'Волна ' + N + ' (' + (A.repo || '?') + ', база ' + (A.base || '?') + ', эпик ' + (A.epic || '?') + '). Шаблон .claude/workflows/wave.js.',
   'ПРАВИЛА: хук отправки не обходить; гейты не ослаблять; подпись pointpu; трейлеры и строки атрибуции НЕ СТАВИТЬ НИКОГДА; нельзя --no-verify, --force, --admin, reset, rebase, squash.',
   'Тяжёлое — через ' + WS + '/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу, это «не выполнилось», повтор — коротким шагом (ожидание только --wait N ≤ 300). Копии — только под ' + D + '/ (каталог волны под корнем воркспейса, не под tmp/ другой копии; основную не трогать, ws#923, ws#1010). Отправка воркспейса — с ' + HOMES + '.',
-  'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы.',
+  'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы. Отчёты и журналы полос — только под ' + R + '/, ВНЕ дерева копии: файл в копии — UNCOMMITTED у lane-precheck (ws#1016, урок волны 7).',
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
   FILES_RULE,
   'ВЛИВАНИЕ (ws#1008): только шагом merge (git-operator) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так).',
@@ -140,7 +153,7 @@ const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 // проходит наружу как есть. Проба — landing-precheck-inject.sh, раздел «запуск»:
 // исполняет ЭТУ команду, отрисованную шаблоном, на случаях с кодом 0, 1 и 2.
 const recipeRun = (s, argv, out) => '( set -o pipefail; WS=' + WS + '; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n \'/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}\') && [ -n "$R" ] || { echo "ЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «$WS»" >&2; exit 2; }; WS="$WS" S=' + s + ' TMPDIR=' + D + ' bash -c "$R" _ ' + argv + ' ) > ' + out + ' 2>&1'
-const rep = (lane, step) => D + '/' + lane + '/' + step + '.md'
+const rep = (lane, step) => R + '/' + lane + '/' + step + '.md'
 const errors = []
 // Счётчик ошибок оркестровки: класс из закрытого словаря wave-errors.sh, часы —
 // от step-start файла отчёта упавшего шага до момента записи.
@@ -205,21 +218,21 @@ for (const l of lanes) {
 // ── Полосы ──────────────────────────────────────────────────────────────
 phase('Полосы')
 const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
-const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck: `bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
+const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck (LANE_PRECHECK_WS — корень воркспейса ' + ROOT + ', дом копий полос; KACHO_WS скрипт не читает; без неё корень выводится из места скрипта — WS-UNKNOWN или MAIN-COPY, ws#1016): `LANE_PRECHECK_WS=' + ROOT + ' bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
 const neighbours = l => lanes.filter(x => x.key !== l.key).map(x => x.key + ': ' + ((x.paths || []).join(', ') || 'перечень не задан')).join('; ')
 // Исполнитель с hookLog не путём — одна доводка тем же заданием; снова не путь —
 // полоса стоит (runLane), предпроверка вслепую не зовётся.
 const implement = async (l, tdd, extra, stack) => {
   const r = await implementOnce(l, tdd, extra, stack)
   if (!r || !sha40(r.head) || ['blocked', 'failed'].includes(r.status) || isPath(r.hookLog)) return r
-  return implementOnce(l, tdd, (extra ? extra + '\n' : '') + 'hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + D + '/' + l.key + '/push.log', stack)
+  return implementOnce(l, tdd, (extra ? extra + '\n' : '') + 'hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + R + '/' + l.key + '/push.log', stack)
 }
-const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + D + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
 const mergeSubj = (l, b) => '«#' + l.branch + ' merge ' + (/^[0-9]+$/.test(String(b)) ? '#' + b : b) + ': …»'
-const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии ' + D + '/' + l.key + '/stack от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
+const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии ' + D + '/' + l.key + '/stack от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + R + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
 
 const runLane = async (l, stack) => {
   const t = tierOf[l.key]
@@ -325,7 +338,7 @@ const dropWithDeps = (keys, why) => {
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
 const steps = new Set(order.flatMap(k => tierOf[k].steps))
-const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, и до КАЖДОЙ отправки в копии — `python3 .github/scripts/affected.py --base origin/' + (A.epic || A.base) + ' --run` (код 0; 1 — красное, не отправлять; 2 — не выполнилось, не отправлять) (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
+const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts.' + UI_DEPS + ' Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, и до КАЖДОЙ отправки в копии — `python3 .github/scripts/affected.py --base origin/' + (A.epic || A.base) + ' --run` (код 0; 1 — красное, не отправлять; 2 — не выполнилось, не отправлять) (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
 // Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
