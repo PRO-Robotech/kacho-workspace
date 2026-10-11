@@ -511,7 +511,7 @@ const CIS = +((body.match(/const STEP_MIN = \{[^}]*\bci: (\d+)/) || [])[1] || 0)
 // судит сценарий «CI — только кодом ci-read.sh»); указание вокруг неё — закрытый мир.
 const ciWant = i => 'Режим CI, чтение ' + (i + 1) + ' из ' + CIR + ': ' + args.repo + ' PR #7, голова ' + HW + '. ' + (i ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: `s0=$(date +%s); sleep ' + CIP + '; echo "SLEPT $(( $(date +%s) - s0 ))"; ' : 'Прочти вердикт ОДИН раз командой: `')
 // Срок чтения с паузой — срок CI-шага плюс длина паузы в минутах (ws#1010).
-const ciWant2 = i => '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. СРОК ШАГА: ' + (CIS + (i ? Math.ceil(CIP / 60) : 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди. Отчёт — '
+const ciWant2 = i => '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: повтор делает шаблон. СРОК ШАГА: ' + (CIS + (i ? Math.ceil(CIP / 60) : 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди. Отчёт — '
 const ciGot = c => c.prompt.split('\n\n').slice(1).join(' ')
 const ciCut = (g, i) => { if (!g.startsWith(ciWant(i))) return null; const k = g.indexOf(' 2>&1` (', ciWant(i).length); return k < 0 ? null : g.slice(k + ' 2>&1'.length) }
 const ciBad = cis.map((c, i) => { const t = ciCut(ciGot(c), i); return t !== null && t.startsWith(ciWant2(i)) ? '' : 'чтение ' + (i + 1) + ': ' + ciGot(c).slice(0, 220) }).filter(Boolean)
@@ -792,6 +792,7 @@ mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'st
 # ws#1013: целевой зелёный черновика — не вливание; перевод в ready ровно один раз;
 # сборка открывает PR черновиком и гоняет выбор затронутого до отправки.
 mutant "код 5 (целевой) толкуется как зелёный" "5: 'targeted-green' }" "5: 'green' }"
+mutant "легенда CI без кода 5" " · 4 база устарела · 5 целевой зелёный черновика (не основание вливать);" " · 4 база устарела;"
 mutant "перевод в ready не однократный" "=== 'targeted-green' && !readied && " "=== 'targeted-green' && "
 mutant "PR волны не черновиком" "открой ЧЕРНОВИКОМ (\`gh pr create --draft\`)" "открой"
 mutant "доводки без выбора затронутого" "\`python3 .github/scripts/affected.py --base origin/" "\`true --base origin/"
