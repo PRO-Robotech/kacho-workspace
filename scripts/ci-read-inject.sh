@@ -159,18 +159,19 @@ AGG="сводный вердикт (все проверки завершилис
 # черновик: 20 проверок skipped (не выбраны), страж — failure с аннотацией
 draft() {
     mk; edit pull.json '.draft = true'
-    jq --arg a "$AGG" '.check_runs |= (sort_by(.name) | to_entries | map(.value
-        | if .name == $a then .conclusion = "failure" | .id = 777
-          elif (.name | test("^(юниты|integration|e2e|unit|build) ")) then .conclusion = "skipped"
-          else . end))' "$T/c/check-runs.json" > "$T/c/cr.n" && mv "$T/c/cr.n" "$T/c/check-runs.json"
+    jq --arg a "$AGG" '.check_runs |= (sort_by(.name) | map(
+          .id = (if .name == $a then 777 else .id end)
+        | .conclusion = (if .name == $a then "failure"
+            elif (.name | test("^(юниты|integration|e2e|unit|build) ")) then "skipped"
+            else .conclusion end)))' "$T/c/check-runs.json" > "$T/c/cr.n" && mv "$T/c/cr.n" "$T/c/check-runs.json"
     echo '[{"title":"черновик не вливается","message":"целевой прогон: 9 заданий из 27"}]' > "$T/c/annotations.json"
 }
 draft; run "черновик: исполненное зелёное, страж вынес вердикт" 5 '^VERDICT\ttargeted-green\t.*ЦЕЛЕВОЙ, не полный'
 draft; echo '[]' > "$T/c/annotations.json"
 run "черновик: failure без аннотации стража — настоящий отказ" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG\E"
-draft; edit check-runs.json '.check_runs |= (map(if .name == "build · vet · gofmt" then .conclusion = "failure" else . end))'
+draft; edit check-runs.json '.check_runs |= map(.conclusion = (if .name == "build · vet · gofmt" then "failure" else .conclusion end))'
 run "черновик: страж есть, выбранное задание failure" 1 '^REASON\tCI-FAILED\tfailure: build · vet · gofmt'
-draft; jq --arg a "$AGG" '.check_runs |= map(if .name == $a then .status = "in_progress" | .conclusion = null else . end)' "$T/c/check-runs.json" > "$T/c/cr.n" && mv "$T/c/cr.n" "$T/c/check-runs.json"
+draft; jq --arg a "$AGG" '.check_runs |= map(.status = (if .name == $a then "in_progress" else .status end) | .conclusion = (if .name == $a then null else .conclusion end))' "$T/c/check-runs.json" > "$T/c/cr.n" && mv "$T/c/cr.n" "$T/c/check-runs.json"
 edit runs.json '.'
 run "черновик: страж ещё идёт" 3 '^REASON\tDRAFT-GUARD-PENDING\t'
 draft; edit pull.json '.draft = false'

@@ -144,7 +144,7 @@ if [ "$DRAFT" = true ]; then
         api "repos/$REPO/check-runs/$gid/annotations" > "$W/ann.json" || void "аннотации проверки $gname не прочитаны: $(apierr)"
         if jq -e --arg t "$GUARD_TITLE" 'type=="array" and any(.[]; .title==$t)' "$W/ann.json" >/dev/null 2>&1; then
             GUARDS=$((GUARDS + 1))
-            jq --arg n "$gname" 'map(if .name==$n then .c="draft-guard" else . end)' "$W/latest.json" > "$W/latest.n" && mv "$W/latest.n" "$W/latest.json"
+            jq --arg n "$gname" 'map(.c = (if .name==$n then "draft-guard" else .c end))' "$W/latest.json" > "$W/latest.n" && mv "$W/latest.n" "$W/latest.json"
             printf 'CENSUS\tстраж черновика: %s\n' "$gname"
         fi
     done < <(jq -r '.[]|select(.done and .c=="failure")|"\(.id)\t\(.name)"' "$W/latest.json")
