@@ -94,7 +94,7 @@ run "одна проверка failure" 1 '^REASON\tCI-FAILED\tfailure: '
 mk; edit check-runs.json '.check_runs |= map(select(.name != "сводный вердикт (все проверки завершились и зелены)"))'
 edit check-runs.json '.check_runs += [.check_runs[0] | .name="замена" ]'
 run "обязательный контекст исчез, остальное завершено" 1 '^REASON\tREQUIRED-MISSING\t.*сводный вердикт'
-mk; edit check-runs.json '.check_runs |= map(if .name == "сводный вердикт (все проверки завершились и зелены)" then .conclusion="skipped" else . end)'
+mk; edit check-runs.json '.check_runs |= map(.conclusion = (if .name == "сводный вердикт (все проверки завершились и зелены)" then "skipped" else .conclusion end))'
 run "обязательный контекст skipped" 1 '^REASON\tREQUIRED-NOT-SUCCESS\tобязательный контекст skipped'
 
 mk; edit check-runs.json '.check_runs = .check_runs + [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2099-01-01T00:00:00Z"]'
