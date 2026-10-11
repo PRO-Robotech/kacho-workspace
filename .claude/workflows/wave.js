@@ -27,7 +27,8 @@ export const meta = {
 //    задание следующего идёт путь, а не пересказ;
 //  - «идёт», «уже сделано», «нечего отправлять» — не провал; повтор шага — только
 //    при НОВОЙ голове;
-//  - механика (скрипты, git, трекер, чтение CI) — модель НЕ задаётся, наследуется
+//  - механика (скрипты, git, трекер, чтение CI) — модель НЕ задаётся, наследуется;
+//    у шага, чей ответ читает решение, не задаётся и усилие
 //    (ws#1016, решение диспетчера): лёгкой модели нет ни на одном шаге, чей вывод
 //    читает решение. Волна 7: код ci-read пересказан неверно, пауза пропущена, в
 //    поле головы — фраза, невозможные числа;
@@ -93,7 +94,11 @@ const D = ROOT + '/tmp/wave-' + N
 // Отчёты и журналы полос — ВНЕ дерева копии (ws#1016): копия — D/<полоса>/copy.
 const R = D + '/reports'
 const HOMES = 'KACHO_HOME_KACHO=' + ROOT + '/project/kacho KACHO_HOME_KANAME=' + ROOT + '/project/kaname KACHO_HOME_CORELIB=' + ROOT + '/project/corelib'
-const MECH = { effort: 'low', agentType: 'git-operator' }
+// Шаг, по выводу которого шаблон ветвится (код, статус, голова, PR), — без модели и
+// без усилия: оба наследуются (ws#1016, решение диспетчера 2026-10-11, вариант «б»).
+// Усилие low — только шагам, чей ответ шаблон не читает (счётчик ошибок, правка тела PR).
+const MECH = { agentType: 'git-operator' }
+const MECH_LOW = { ...MECH, effort: 'low' }
 // Сборка kacho: зависимости консоли — как ui.yml, ДО проверок (ws#1016, волна 7:
 // без них пакеты консоли падают MODULE_NOT_FOUND — «не выполнилось», не вердикт).
 const UI_DEPS = /(^|\/)kacho$/.test(A.repo || '') ? ' Репозиторий kacho: ДО проверок консоли (affected.py, хук отправки) поставь её зависимости как ui.yml — в копии `(cd ui-future && npm ci && for p in $(sed -n \'s/^  STANDALONE: //p\' ../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)`; код не 0 — не отправлять, вернуть failed.' : ''
@@ -159,7 +164,7 @@ const errors = []
 // от step-start файла отчёта упавшего шага до момента записи.
 const err = async (cls, lane, step, note) => {
   errors.push({ cls, lane, step })
-  await agent(C + '\n\nРежим счётчик: часы = (сейчас − step-start в ' + rep(lane, step) + ') / 3600, округли до 0.01 (нет файла — 0.1). Выполни `bash ' + WS + '/scripts/wave-errors.sh add ' + N + ' ' + cls + ' <часы> ' + lane + ' ' + step + ' ' + JSON.stringify(note).slice(0, 300) + '`. Верни code, out (вывод), reasons [], head "".', { ...MECH, label: 'mech:err:' + lane, phase: 'Посадка', schema: S_MECH })
+  await agent(C + '\n\nРежим счётчик: часы = (сейчас − step-start в ' + rep(lane, step) + ') / 3600, округли до 0.01 (нет файла — 0.1). Выполни `bash ' + WS + '/scripts/wave-errors.sh add ' + N + ' ' + cls + ' <часы> ' + lane + ' ' + step + ' ' + JSON.stringify(note).slice(0, 300) + '`. Верни code, out (вывод), reasons [], head "".', { ...MECH_LOW, label: 'mech:err:' + lane, phase: 'Посадка', schema: S_MECH })
 }
 const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY', 'GOMOD-ABOVE'])
 const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-COMMIT', 'BODY-FOREIGN-TASK', 'ATTRIBUTION', 'CLOSES-WITHOUT-PROOF'])
@@ -421,7 +426,7 @@ if (lp && lp.code === 1) {
   const rs = lp.reasons || []
   if (rs.every(x => bodyReasons.has(x))) {
     await err('executor-mechanics', 'wave', 'assemble-1', rs.join(','))
-    await agent(C + '\n\nРежим pr-edit: PR #' + asm.pr + ' — причины landing-precheck ' + rs.join(', ') + ' (' + D + '/landing-precheck-1.md). Исправь заголовок и тело по составу git log база..голова; Closes без DoD-proof → Refs; строк атрибуции 0. Верни code 0, out, reasons [], head.', { ...MECH, label: 'mech:pr-edit', phase: 'Посадка', schema: S_MECH })
+    await agent(C + '\n\nРежим pr-edit: PR #' + asm.pr + ' — причины landing-precheck ' + rs.join(', ') + ' (' + D + '/landing-precheck-1.md). Исправь заголовок и тело по составу git log база..голова; Closes без DoD-proof → Refs; строк атрибуции 0. Верни code 0, out, reasons [], head.', { ...MECH_LOW, label: 'mech:pr-edit', phase: 'Посадка', schema: S_MECH })
     lp = await landCheck(2)
   } else if (rs.every(x => x === 'CI-PENDING')) {
     lp = await landCheck(2)

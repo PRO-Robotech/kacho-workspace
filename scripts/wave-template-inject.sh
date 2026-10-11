@@ -15,7 +15,8 @@
 #
 # СВОЙСТВА (сценарий на каждое; близнец — соседний сценарий той же формы):
 #   meta — чистый литерал; в теле нет Date.now/Math.random/new Date();
-#   R0 — ни одного рецензента; механика — усилие low, модель НЕ задана;
+#   R0 — ни одного рецензента; механика — модель НЕ задана, усилие — лишь у
+#   шагов, чей ответ шаблон не читает (счётчик ошибок, правка тела PR);
 #   модель не задана ни у одного шага (наследуется) — haiku нет нигде; отчёты
 #   и журналы полос — под <D>/reports/, вне дерева копии; lane-precheck — с
 #   LANE_PRECHECK_WS=<корень>; сборка kacho — npm ci консоли как ui.yml (ws#1016);
@@ -214,7 +215,10 @@ const inRest = (res, k) => (res.remainder || []).some(x => x.key === k)
 const idx = (calls, label) => calls.findIndex(c => c.label === label)
 const prm = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const by = (calls, f) => calls.filter(f).length
-const mechOk = calls => calls.filter(c => c.label.startsWith('mech:')).every(c => c.model === undefined && c.effort === 'low')
+// Ответ не читается шаблоном только у счётчика ошибок и правки тела PR — им усилие low;
+// прочей механике (решение ветвится по её ответу) ни модели, ни усилия (ws#1016).
+const LOW_OK = l => l.startsWith('mech:err:') || l === 'mech:pr-edit'
+const mechOk = calls => calls.filter(c => c.label.startsWith('mech:')).every(c => c.model === undefined && (LOW_OK(c.label) ? c.effort === 'low' : c.effort === undefined))
 
 if (landWs) {
   // Режим --landing-command: команда посадки, отрисованная шаблоном, как есть.
@@ -229,7 +233,7 @@ let r = await run({ args, plan: [P('r0.json')] })
 ok(r.res.ok === true, 'волна R0 влита', JSON.stringify(r.res).slice(0, 300))
 ok(by(r.calls, c => REVIEWERS.includes(c.agentType)) === 0, 'ни одного рецензента и приёмщика')
 ok(by(r.calls, c => c.label.startsWith('mech:precheck:')) === 2, 'lane-precheck — по полосе')
-ok(mechOk(r.calls) && by(r.calls, c => c.label.startsWith('mech:')) > 0, 'механика — модель не задана (наследуется), усилие low')
+ok(mechOk(r.calls) && by(r.calls, c => c.label.startsWith('mech:')) > 0, 'механика — модель не задана; усилие не задано у шагов, чей ответ читает решение')
 ok(!/--reviews/.test((r.calls.find(c => c.label.startsWith('mech:landing:')) || {}).prompt || 'x'), 'без рецензентов landing-precheck зовётся без --reviews')
 
 console.log('== R1: один рецензент на собранную волну')
@@ -678,11 +682,15 @@ PY
     fi
 }
 echo "== инъекции: мутанты шаблона"
-mutant "механика на haiku" "const MECH = { effort: 'low'," "const MECH = { model: 'haiku', effort: 'low',"
-mutant "механика с явной моделью" "const MECH = { effort: 'low'," "const MECH = { model: 'sonnet', effort: 'low',"
+mutant "механика на haiku" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'haiku', agentType: 'git-operator' }"
+mutant "механика с явной моделью" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'sonnet', agentType: 'git-operator' }"
+mutant "effort low на всей механике" "const MECH = { agentType: 'git-operator' }" "const MECH = { effort: 'low', agentType: 'git-operator' }"
+mutant "effort low на ciRead" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH_LOW, agentType: 'ci-watcher', label,"
+mutant "effort low на landing-precheck" "{ ...MECH, label: 'mech:landing:' + round," "{ ...MECH_LOW, label: 'mech:landing:' + round,"
+mutant "effort low на merge" "{ ...MECH, label: 'mech:merge'," "{ ...MECH_LOW, label: 'mech:merge',"
 mutant "чтение CI на haiku" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH, model: 'haiku', agentType: 'ci-watcher', label,"
 mutant "исполнитель на haiku" "{ agentType: l.agent, label: 'impl:' + l.key" "{ model: 'haiku', agentType: l.agent, label: 'impl:' + l.key"
-twin "MECH переставлен — модели нет" "const MECH = { effort: 'low', agentType: 'git-operator' }" "const MECH = { agentType: 'git-operator', effort: 'low' }"
+twin "MECH_LOW переставлен — модели нет" "const MECH_LOW = { ...MECH, effort: 'low' }" "const MECH_LOW = { effort: 'low', ...MECH }"
 mutant "отчёты в каталоге полосы" "const rep = (lane, step) => R + '/'" "const rep = (lane, step) => D + '/'"
 mutant "журнал отправки в каталоге полосы" "} > ' + R + '/' + l.key + '/push.log\`" "} > ' + D + '/' + l.key + '/push.log\`"
 mutant "преамбула без правила об отчётах" "Отчёты и журналы полос — только под ' + R + '/, ВНЕ дерева копии" "Отчёты — под ' + R + '/"
