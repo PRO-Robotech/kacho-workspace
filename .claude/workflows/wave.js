@@ -1,7 +1,7 @@
 export const meta = {
   name: 'wave',
   description: 'Волна по уровням риска: план скриптом, полосы по шагам своего уровня, сборка, один рецензент на волну, CI, предпроверка посадки скриптом, вливание и каскад',
-  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
+  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
   phases: [
     { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения' },
     { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью' },
@@ -63,16 +63,33 @@ export const meta = {
 //    запрещает `repos/*/merges`, `pulls/*/merge` и `--auto` и даёт чтение merge-base
 //    GET-запросом. Агенты ci-watcher звали `gh api repos/<r>/merges -X POST`, думая,
 //    что читают merge-base, и влили три PR мимо посадки; отказ держит хук gh-api-guard.
+//  - пауза между чтениями CI (ws#1010): её делает ТОТ ЖЕ агент, что читает CI, одной
+//    командой — `sleep N`, строка `SLEPT <секунды>` по часам машины, затем ci-read.sh;
+//    ответ несёт slept (реально прошедшие секунды), и чтение с паузой при slept
+//    < N−10 шаблон ОТВЕРГАЕТ: его код не судится, чтение повторяется. Урок: агенты-
+//    паузы на лёгкой модели sleep не исполняли — 12 чтений прошли за 7 мин вместо
+//    40, цикл кончился раньше CI. Первое чтение — без паузы.
+//  - копии полос и каталог волны — под КОРНЕМ воркспейса (ws#1010): ROOT/tmp/wave-<N>/;
+//    ROOT — args.root, иначе выводится из ws (ws — копия под <корень>/tmp/… → корень).
+//    Не <ws>/tmp, когда ws — отдельная копия: копия шаблона tmp/wave7/ws-main была
+//    переключена на дерево kacho, копии полос в её tmp/ взяли ws-main/go.mod за корень
+//    модуля. Чужой go.mod над копией отказывает lane-precheck (GOMOD-ABOVE).
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
-const D = WS + '/tmp/wave-' + N
-const HOMES = 'KACHO_HOME_KACHO=' + WS + '/project/kacho KACHO_HOME_KANAME=' + WS + '/project/kaname KACHO_HOME_CORELIB=' + WS + '/project/corelib'
+// Корень воркспейса: явный args.root; иначе ws, а если ws — копия под
+// <корень>/tmp/…, то <корень> (последний «/tmp/» с непустым префиксом).
+const rootOf = w => { const i = w.lastIndexOf('/tmp/'); return i > 0 ? w.slice(0, i) : w }
+const ROOT = A.root || rootOf(WS)
+const D = ROOT + '/tmp/wave-' + N
+const HOMES = 'KACHO_HOME_KACHO=' + ROOT + '/project/kacho KACHO_HOME_KANAME=' + ROOT + '/project/kaname KACHO_HOME_CORELIB=' + ROOT + '/project/corelib'
 const MECH = { model: 'haiku', effort: 'low', agentType: 'git-operator' }
 // Срок шага — минуты работы агента; по истечении — возврат с остатком, а не ожидание.
 const STEP_MIN = { implement: 90, review: 30, mech: 10, ci: 2 }
 const CI_READS = 30
 const CI_PAUSE_S = 240
+// Чтение с паузой засчитывается при slept ≥ CI_PAUSE_S − CI_SLEPT_SLACK (ws#1010).
+const CI_SLEPT_SLACK = 10
 // Правило полосы о файлах (ws#1004): blocked на ничейном файле — пустой ход волны.
 const FILES_RULE = 'ФАЙЛЫ ПОЛОСЫ: файл вне твоего перечня, которого нет в перечне соседних полос, — бери сам и назови в отчёте; blocked — только если нужен файл соседа (назови его и полосу).'
 // Объект плана — из ПОСЛЕДНЕЙ непустой строки вывода (механик кладёт в out и строки
@@ -88,11 +105,11 @@ const parseJsonTail = out => {
 // hookLog — путь к журналу отправки: абсолютный, без пробелов. Слово «зелёный» вместо
 // пути lane-precheck прочесть не может — доводка, а не предпроверка вслепую.
 const isPath = s => typeof s === 'string' && /^\/[^\s]+$/.test(s)
-const due = cls => 'СРОК ШАГА: ' + STEP_MIN[cls] + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди.'
+const due = (cls, plus) => 'СРОК ШАГА: ' + (STEP_MIN[cls] + (plus || 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди.'
 const C = [
   'Волна ' + N + ' (' + (A.repo || '?') + ', база ' + (A.base || '?') + ', эпик ' + (A.epic || '?') + '). Шаблон .claude/workflows/wave.js.',
   'ПРАВИЛА: хук отправки не обходить; гейты не ослаблять; подпись pointpu; трейлеры и строки атрибуции НЕ СТАВИТЬ НИКОГДА; нельзя --no-verify, --force, --admin, reset, rebase, squash.',
-  'Тяжёлое — через ' + WS + '/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу, это «не выполнилось», повтор — коротким шагом (ожидание только --wait N ≤ 300). Копии — только под ' + WS + '/tmp/ (основную не трогать, ws#923). Отправка воркспейса — с ' + HOMES + '.',
+  'Тяжёлое — через ' + WS + '/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу, это «не выполнилось», повтор — коротким шагом (ожидание только --wait N ≤ 300). Копии — только под ' + D + '/ (каталог волны под корнем воркспейса, не под tmp/ другой копии; основную не трогать, ws#923, ws#1010). Отправка воркспейса — с ' + HOMES + '.',
   'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы.',
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
   FILES_RULE,
@@ -100,6 +117,8 @@ const C = [
   'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо (setsid nohup, журнал, pid-файл), верни «идёт: pid, журнал, ожидаемое окончание». Слот тяжёлого — внутри того же отсоединённого прогона. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
+// Чтение CI — схема механики и slept: реально прошедшие секунды паузы (строка SLEPT).
+const S_CI = { type: 'object', properties: { ...S_MECH.properties, slept: { type: 'number' } }, required: [...S_MECH.required, 'slept'] }
 const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'report'] }
 // Вердикт роли — ТОЛЬКО поле verdict закрытого словаря (accept | return | void —
 // «прогон недействителен»); значок или слово в report не читаются нигде (класс 7).
@@ -127,7 +146,7 @@ const err = async (cls, lane, step, note) => {
   errors.push({ cls, lane, step })
   await agent(C + '\n\nРежим счётчик: часы = (сейчас − step-start в ' + rep(lane, step) + ') / 3600, округли до 0.01 (нет файла — 0.1). Выполни `bash ' + WS + '/scripts/wave-errors.sh add ' + N + ' ' + cls + ' <часы> ' + lane + ' ' + step + ' ' + JSON.stringify(note).slice(0, 300) + '`. Верни code, out (вывод), reasons [], head "".', { ...MECH, label: 'mech:err:' + lane, phase: 'Посадка', schema: S_MECH })
 }
-const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY'])
+const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY', 'GOMOD-ABOVE'])
 const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-COMMIT', 'BODY-FOREIGN-TASK', 'ATTRIBUTION', 'CLOSES-WITHOUT-PROOF'])
 
 // ── План ────────────────────────────────────────────────────────────────
@@ -193,12 +212,12 @@ const implement = async (l, tdd, extra, stack) => {
   if (!r || !sha40(r.head) || ['blocked', 'failed'].includes(r.status) || isPath(r.hookLog)) return r
   return implementOnce(l, tdd, (extra ? extra + '\n' : '') + 'hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + D + '/' + l.key + '/push.log', stack)
 }
-const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + D + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + D + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
 const mergeSubj = (l, b) => '«#' + l.branch + ' merge ' + (/^[0-9]+$/.test(String(b)) ? '#' + b : b) + ': …»'
-const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
+const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии ' + D + '/' + l.key + '/stack от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
 
 const runLane = async (l, stack) => {
   const t = tierOf[l.key]
@@ -304,7 +323,7 @@ const dropWithDeps = (keys, why) => {
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
 const steps = new Set(order.flatMap(k => tierOf[k].steps))
-const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
+const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
 // Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
@@ -335,16 +354,24 @@ if (steps.has('wave-reviewer')) {
 // CI: «идёт» — ждать, не провал; вердикт — только на голове сборки и только
 // кодом scripts/ci-read.sh (ws#1006): полный набор, завершённые прогоны,
 // обязательные контексты базы, свежая база.
-const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Сначала ОДНА команда паузы `sleep ' + CI_PAUSE_S + '`, затем ' : '') + 'прочти вердикт ОДИН раз командой `' + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci') + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT).', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_MECH })
+// Пауза — в ТОЙ ЖЕ команде, что чтение: часы машины до и после sleep, строка SLEPT.
+const pauseCmd = 's0=$(date +%s); sleep ' + CI_PAUSE_S + '; echo "SLEPT $(( $(date +%s) - s0 ))"; '
+const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: ' : 'Прочти вердикт ОДИН раз командой: ') + '`' + (pause ? pauseCmd : '') + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci', pause ? Math.ceil(CI_PAUSE_S / 60) : 0) + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT), slept (' + (pause ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_CI })
 let ci = null
+let skipped = 0
 for (let i = 0; i < CI_READS; i++) {
-  ci = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
+  const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
+  // Чтение с паузой при slept < N−10 (нет поля, не число, мало) — отвергнуто: его код
+  // не судится, состояние — «идёт», цикл продолжается (ws#1010).
+  if (i > 0 && !(got && typeof got.slept === 'number' && got.slept >= CI_PAUSE_S - CI_SLEPT_SLACK)) { skipped++; ci = { code: 3, reasons: ['PAUSE-SKIPPED'], head: asm.head, slept: got ? got.slept : null }; log('CI чтение ' + (i + 1) + ': пауза не исполнена (slept ' + JSON.stringify(got ? got.slept : null) + ' < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ') — чтение отвергнуто'); continue }
+  ci = got
   if (ciState(ci) !== 'running') break
 }
+if (skipped) await err('executor-mechanics', 'wave', 'ci', 'пауза CI не исполнена в ' + skipped + ' чтениях из ' + CI_READS + ' (slept < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ')')
 // «Идёт» и после ожидания — СОСТОЯНИЕ, а не провал: волна не влита и не сломана,
 // повтор шаблона продолжит с той же головы (state running отличим от failed).
 const ciHead = sha40(ci && ci.head)
-if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
+if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет' + (skipped ? '; чтений с неисполненной паузой ' + skipped + ' — отвергнуты' : ''), pauseSkipped: skipped, pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
 if (ciState(ci) === 'stale') return { ok: false, state: 'failed', stage: 'CI: база устарела (ci-read код 4) — влить свежую ' + (A.epic || A.base) + ' в ветку волны и читать заново', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
 if (ciState(ci) !== 'green' || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], errors }
 

@@ -38,6 +38,17 @@
 #   --session <каталог>   каталог сессии `<projects>/<id>/`; рядом — `<id>.jsonl`
 #                         главного потока. Без довода — из `transcript_path` JSON
 #                         на stdin (хук), иначе — самая свежая сессия проекта.
+#   --session-dir <кат.>  каталог журналов ПРОЕКТА `~/.claude/projects/<код>/`:
+#                         берётся самая свежая сессия в нём (ws#1010).
+#
+# Проект без `--session`/`--session-dir` ищется по кандидатам ПО ПОРЯДКУ, первый с
+# журналом `*.jsonl` выигрывает: `CLAUDE_PROJECT_DIR`; основная копия воркспейса,
+# выведенная `scripts/lib/ws-home.sh` из `CLAUDE_PROJECT_DIR`, из места самого
+# скрипта и из `$PWD`; сам `$PWD`. Код каталога — путь, где каждый знак кроме
+# латиницы и цифр заменён `-`, под `$HOME/.claude/projects/`. VOID «журнала сессии
+# нет» — только когда ни у одного кандидата журнала НЕТ; перечень опрошенных
+# печатается (ws#1010: запуск из архива origin/main во временном каталоге искал
+# журнал по `$PWD` и давал VOID при живой сессии).
 #   --ps <файл>           вывод `ps -eo pid=,ppid=,etimes=,comm=,args=`; без
 #                         довода — снимок машины.
 #   --now <epoch>         «сейчас» (для подложенных журналов).
@@ -60,10 +71,11 @@
 # (664 каталога workflow, главный журнал 152 МБ) — в шапке inject-скрипта.
 set -uo pipefail
 
-session="" psfile="" now=""
+session="" sessdir="" psfile="" now=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --session) session="${2:-}"; shift 2 ;;
+        --session-dir) sessdir="${2:-}"; [ -n "$sessdir" ] || { echo "stall-census: VOID — --session-dir без каталога" >&2; exit 2; }; shift 2 ;;
         --ps) psfile="${2:-}"; shift 2 ;;
         --now) now="${2:-}"; shift 2 ;;
         *) echo "stall-census: VOID — неизвестный довод «$1»" >&2; exit 2 ;;
@@ -80,7 +92,22 @@ if [ -z "$psfile" ]; then
         || { echo "stall-census: VOID — ps отказал: процессы не осмотрены" >&2; exit 2; }
 fi
 
-python3 - "$session" "$psfile" "$now" "$stdin_json" "${CLAUDE_PROJECT_DIR:-$PWD}" <<'PY'
+# Кандидаты проекта — по порядку (шапка «Проект … ищется по кандидатам»).
+HERE_SC="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2> /dev/null && pwd -P)" || HERE_SC=""
+cands=()
+[ -n "${CLAUDE_PROJECT_DIR:-}" ] && cands+=("$CLAUDE_PROJECT_DIR")
+if [ -n "$HERE_SC" ] && [ -r "$HERE_SC/lib/ws-home.sh" ]; then
+    # shellcheck source=lib/ws-home.sh
+    . "$HERE_SC/lib/ws-home.sh"
+    for from in "${CLAUDE_PROJECT_DIR:-}" "$HERE_SC" "$PWD"; do
+        [ -n "$from" ] || continue
+        h="$(ws_home "$from" 2> /dev/null)" && [ -n "$h" ] && cands+=("$h")
+    done
+fi
+cands+=("$PWD")
+projdirs="$(printf '%s\n' "${cands[@]}")"
+
+python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" <<'PY'
 import calendar, glob, json, os, re, sys, time
 
 
@@ -93,7 +120,7 @@ def _crash(kind, val, tb):
 
 sys.excepthook = _crash
 
-session, psfile, now_s, stdin_json, projdir = sys.argv[1:6]
+session, psfile, now_s, stdin_json, projdirs, sessdir = sys.argv[1:7]
 AGENT_MIN = int(os.environ.get('STALL_AGENT_MIN', '15'))
 PROC_MIN = int(os.environ.get('STALL_PROC_MIN', '60'))
 REACT_MIN = int(os.environ.get('STALL_REACT_MIN', '10'))
@@ -149,10 +176,25 @@ if not session and stdin_json:
     if tp.endswith('.jsonl'):
         session = tp[:-len('.jsonl')]
 if not session:
-    slug = projdir.replace('/', '-').replace('.', '-')
-    cands = glob.glob(os.path.expanduser('~/.claude/projects/' + slug + '/*.jsonl'))
+    # --session-dir — единственный кандидат; иначе — кандидаты по порядку.
+    if sessdir:
+        tried = [sessdir]
+    else:
+        tried, seen = [], set()
+        for p in projdirs.split('\n'):
+            if not p:
+                continue
+            d = os.path.join(os.path.expanduser('~'), '.claude', 'projects', re.sub(r'[^A-Za-z0-9]', '-', p.rstrip('/')))
+            if d not in seen:
+                seen.add(d)
+                tried.append(d)
+    cands = []
+    for d in tried:
+        cands = [c for c in glob.glob(os.path.join(d, '*.jsonl')) if os.path.isfile(c)]
+        if cands:
+            break
     if not cands:
-        void('журнала сессии проекта нет (' + slug + ')')
+        void('журнала сессии проекта нет; опрошено каталогов %d: %s' % (len(tried), ', '.join(tried)))
     session = max(cands, key=os.path.getmtime)[:-len('.jsonl')]
 main = session + '.jsonl'
 if not os.path.isfile(main):
