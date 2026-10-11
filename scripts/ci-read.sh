@@ -37,15 +37,26 @@
 #   (в) свежесть базы:
 #       BASE-STALE        — merge-base головы и базы ≠ голова базы: зелёное
 #                           получено на прежней базе и о слиянии не говорит.
+#   (г) черновик — ЦЕЛЕВОЙ прогон (ws#1013; kacho#3148, kaname#707):
+#       на черновике запроса в ветку эпика конвейер исполняет только задания,
+#       выбранные картой путей репозитория, прочие — skipped, а сводный вердикт
+#       черновика красный по построению и несёт аннотацию «черновик не вливается».
+#       Такой сводный вердикт — СТРАЖ, а не отказ: он не судится как CI-FAILED, а
+#       обязательные контексты и полнота набора на черновике не судятся (пропуск
+#       матрицы даёт одну проверку вместо ног). Стража нет либо он не вынесен —
+#       DRAFT-GUARD-PENDING (ждать).
 #
 # ИСХОДЫ — код возврата и строка VERDICT; при нескольких причинах побеждает
-# старшая в порядке 2 > 1 > 4 > 3 > 0, остальные напечатаны всё равно:
+# старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно:
 #   0 green    — полный набор, всё завершено, обязательные success, база свежая;
 #   1 red      — CI-FAILED, REQUIRED-NOT-SUCCESS, REQUIRED-MISSING (перепись имён);
 #   2 unread   — VOID: площадка не ответила, ответ не разбирается, пары нет в
 #                ведомости. Это НЕ «зелёное» и НЕ «красное»;
 #   3 running  — CI-PENDING, RUNS-PENDING, CHECKS-INCOMPLETE: ждать, не провал;
-#   4 stale    — BASE-STALE: влить свежую базу и читать заново.
+#   4 stale    — BASE-STALE: влить свежую базу и читать заново;
+#   5 targeted-green — черновик: исполненное зелёное, страж вынес «целевой
+#              зелёный». Это НЕ «полный зелёный»: вливать по нему нельзя — перевод
+#              запроса в ready заводит полный прогон того же состава, читать заново.
 # Перепись печатается всегда строками CENSUS — «причин 0» отличимо от «не прочитано».
 #
 # ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/ci-read-inject.sh):
@@ -90,9 +101,11 @@ if [[ "$REF" =~ ^[0-9]+$ ]]; then
     PR_BASE="$(jq -r .base.ref "$W/pull.json")"
     [ -z "$BASE" ] || [ "$BASE" = "$PR_BASE" ] || void "--base $BASE ≠ базе запроса $PR_BASE"
     BASE="$PR_BASE"
-    printf 'CENSUS\tзапрос %s#%s: состояние %s, голова %s, база %s\n' "$REPO" "$REF" "$(jq -r '.state // "?"' "$W/pull.json")" "$HEAD_SHA" "$BASE"
+    DRAFT="$(jq -r 'if .draft == true then "true" else "false" end' "$W/pull.json")"
+    printf 'CENSUS\tзапрос %s#%s: состояние %s, голова %s, база %s, черновик %s\n' "$REPO" "$REF" "$(jq -r '.state // "?"' "$W/pull.json")" "$HEAD_SHA" "$BASE" "$DRAFT"
 else
     HEAD_SHA="$REF"
+    DRAFT=false
     if [ -z "$BASE" ]; then
         api "repos/$REPO" > "$W/repo.json" || void "площадка не отдала репозиторий $REPO: $(apierr)"
         BASE="$(jq -r '.default_branch // empty' "$W/repo.json")"
@@ -119,7 +132,23 @@ EXPECT="$(awk -F'\t' -v r="$REPO" -v b="$BASE" '!/^#/ && $1==r && $2==b {print $
 
 # последний прогон каждого имени; commit status — уже последний по контексту
 jq '[.[].check_runs[]] | group_by(.name) | map(sort_by(.started_at // "") | last)
-    | map({name, done: (.status=="completed"), c: (.conclusion // "")})' "$W/cr.json" > "$W/latest.json"
+    | map({name, id, done: (.status=="completed"), c: (.conclusion // "")})' "$W/cr.json" > "$W/latest.json"
+# Черновик: страж — проверка, завершённая failure с аннотацией «черновик не вливается».
+# Судится аннотацией, а не именем: имя стража у репозиториев разное, и вторая копия
+# имени здесь разошлась бы с конвейером молча.
+GUARD_TITLE="черновик не вливается"
+GUARDS=0
+if [ "$DRAFT" = true ]; then
+    while IFS=$'\t' read -r gid gname; do
+        [ -n "$gid" ] && [ "$gid" != null ] || continue
+        api "repos/$REPO/check-runs/$gid/annotations" > "$W/ann.json" || void "аннотации проверки $gname не прочитаны: $(apierr)"
+        if jq -e --arg t "$GUARD_TITLE" 'type=="array" and any(.[]; .title==$t)' "$W/ann.json" >/dev/null 2>&1; then
+            GUARDS=$((GUARDS + 1))
+            jq --arg n "$gname" 'map(if .name==$n then .c="draft-guard" else . end)' "$W/latest.json" > "$W/latest.n" && mv "$W/latest.n" "$W/latest.json"
+            printf 'CENSUS\tстраж черновика: %s\n' "$gname"
+        fi
+    done < <(jq -r '.[]|select(.done and .c=="failure")|"\(.id)\t\(.name)"' "$W/latest.json")
+fi
 jq '[.statuses[] | {name: .context, done: (.state!="pending"),
      c: (if .state=="success" then "success" elif .state=="pending" then "" else "failure" end)}]' "$W/st.json" > "$W/stl.json"
 jq -s '(.[0] | map(.name)) as $c | .[0] + (.[1] | map(select(.name as $n | $c | index($n) | not)))' "$W/latest.json" "$W/stl.json" > "$W/all.json"
@@ -134,12 +163,17 @@ FAILSET='["failure","cancelled","timed_out","action_required","startup_failure",
 
 while IFS= read -r n; do reason CI-PENDING "не завершена: $n"; done < <(jq -r '.[]|select(.done|not)|.name' "$W/all.json")
 while IFS=$'\t' read -r n c; do reason CI-FAILED "$c: $n"; done < <(jq -r --argjson f "$FAILSET" '.[]|select(.done and (.c as $c | $f | index($c)))|"\(.name)\t\(.c)"' "$W/all.json")
-OTHER="$(jq -r --argjson f "$FAILSET" '[.[]|select(.done and .c!="success" and (.c as $c | $f | index($c) | not))|"\(.name) (\(.c))"]|join("; ")' "$W/all.json")"
+OTHER="$(jq -r --argjson f "$FAILSET" '[.[]|select(.done and .c!="success" and .c!="draft-guard" and (.c as $c | $f | index($c) | not))|"\(.name) (\(.c))"]|join("; ")' "$W/all.json")"
 [ -z "$OTHER" ] || printf 'CENSUS\tзавершены не success и не красные: %s\n' "$OTHER"
 RUNS="$(jq '[.[].workflow_runs[]]|length' "$W/runs.json")"
 while IFS= read -r n; do reason RUNS-PENDING "workflow run не завершён: $n"; done < <(jq -r '.[].workflow_runs[]|select(.status!="completed")|"\(.name) (\(.status), run \(.id))"' "$W/runs.json")
 printf 'CENSUS\tworkflow runs на голове: %s, не завершено %s\n' "$RUNS" "$(jq '[.[].workflow_runs[]|select(.status!="completed")]|length' "$W/runs.json")"
-[ "$NAMES" -ge "$EXPECT" ] || reason CHECKS-INCOMPLETE "проверок $NAMES из $EXPECT ожидаемых: набор на голове неполон (не все workflow стартовали)"
+if [ "$DRAFT" = true ]; then
+    EXEC="$(jq '[.[]|select(.done and .c!="skipped" and .c!="draft-guard")]|length' "$W/all.json")"
+    SKIP="$(jq '[.[]|select(.done and .c=="skipped")]|length' "$W/all.json")"
+    printf 'CENSUS\tчерновик — целевой прогон: исполнено проверок %s, пропущено %s, стражей %s; полнота и обязательные контексты на черновике не судятся\n' "$EXEC" "$SKIP" "$GUARDS"
+    [ "$GUARDS" -gt 0 ] || reason DRAFT-GUARD-PENDING "сводный вердикт черновика ещё не вынесен (нет проверки с аннотацией «$GUARD_TITLE»)"
+elif [ "$NAMES" -lt "$EXPECT" ]; then reason CHECKS-INCOMPLETE "проверок $NAMES из $EXPECT ожидаемых: набор на голове неполон (не все workflow стартовали)"; fi
 
 # --- обязательные контексты защиты ветки базы
 : > "$W/req.txt"
@@ -161,6 +195,7 @@ sort -u -o "$W/req.txt" "$W/req.txt"
 REQN="$(grep -c . "$W/req.txt")"
 # неполный набор — тоже «ещё идёт»: недостающий обязательный контекст мог не стартовать
 PENDING_ANY="$(grep -cP '^REASON\t(CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE)\t' "$R")"
+[ "$DRAFT" != true ] || : > "$W/req.txt"   # черновик: обязательные не судятся (см. (г))
 while IFS= read -r ctx; do
     [ -n "$ctx" ] || continue
     st="$(jq -r --arg n "$ctx" 'map(select(.name==$n))|if length==0 then "absent" elif (.[0].done|not) then "pending" else .[0].c end' "$W/all.json")"
@@ -189,7 +224,9 @@ cat "$R"
 has() { grep -qP "^REASON\t($1)\t" "$R"; }
 if has 'CI-FAILED|REQUIRED-NOT-SUCCESS|REQUIRED-MISSING'; then code=1; v=red
 elif has 'BASE-STALE'; then code=4; v=stale
-elif has 'CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE'; then code=3; v=running
+elif has 'CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE|DRAFT-GUARD-PENDING'; then code=3; v=running
+elif [ "$DRAFT" = true ]; then code=5; v=targeted-green
 else code=0; v=green; fi
-printf 'VERDICT\t%s\tкод %s; причин %s; проверок %s из %s; голова %s\n' "$v" "$code" "$(grep -c . "$R")" "$NAMES" "$EXPECT" "$HEAD_SHA"
+HINT=""; [ "$code" != 5 ] || HINT="; ЦЕЛЕВОЙ, не полный: вливать нельзя — перевод в ready заводит полный прогон"
+printf 'VERDICT\t%s\tкод %s; причин %s; проверок %s из %s; голова %s%s\n' "$v" "$code" "$(grep -c . "$R")" "$NAMES" "$EXPECT" "$HEAD_SHA" "$HINT"
 exit "$code"

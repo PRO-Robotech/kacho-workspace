@@ -128,7 +128,9 @@ const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: [
 const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'integer', minimum: 1 }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
 const S_STACK = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, contains: { type: 'array', items: { type: 'string' } }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'contains', 'conflicts', 'report'] }
 // Код scripts/ci-read.sh → состояние CI; иного кода нет — unread (не «зелёное»).
-const CI_STATE = { 0: 'green', 1: 'red', 2: 'unread', 3: 'running', 4: 'stale' }
+// 5 — целевой зелёный черновика (ws#1013): исполненное зелёное, но прогон не полный —
+// вливанию не основание; шаблон переводит PR в ready и ждёт полного прогона.
+const CI_STATE = { 0: 'green', 1: 'red', 2: 'unread', 3: 'running', 4: 'stale', 5: 'targeted-green' }
 const ciState = r => (r && Number.isInteger(r.code) && CI_STATE[r.code]) || 'unread'
 const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 // Рецепт «ЗАПУСК» — ОДИН источник: шапка scripts/landing-precheck.sh на origin/main
@@ -323,7 +325,7 @@ const dropWithDeps = (keys, why) => {
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
 const steps = new Set(order.flatMap(k => tierOf[k].steps))
-const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
+const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, и до КАЖДОЙ отправки в копии — `python3 .github/scripts/affected.py --base origin/' + (A.epic || A.base) + ' --run` (код 0; 1 — красное, не отправлять; 2 — не выполнилось, не отправлять) (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
 // Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
@@ -356,15 +358,26 @@ if (steps.has('wave-reviewer')) {
 // обязательные контексты базы, свежая база.
 // Пауза — в ТОЙ ЖЕ команде, что чтение: часы машины до и после sleep, строка SLEPT.
 const pauseCmd = 's0=$(date +%s); sleep ' + CI_PAUSE_S + '; echo "SLEPT $(( $(date +%s) - s0 ))"; '
-const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: ' : 'Прочти вердикт ОДИН раз командой: ') + '`' + (pause ? pauseCmd : '') + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci', pause ? Math.ceil(CI_PAUSE_S / 60) : 0) + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT), slept (' + (pause ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_CI })
+const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: ' : 'Прочти вердикт ОДИН раз командой: ') + '`' + (pause ? pauseCmd : '') + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci', pause ? Math.ceil(CI_PAUSE_S / 60) : 0) + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT), slept (' + (pause ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_CI })
 let ci = null
 let skipped = 0
+// Черновик (ws#1013): ci-read код 5 — целевой зелёный. Это не основание вливать:
+// PR переводится в ready ОДИН раз (событие ready_for_review заводит полный прогон
+// того же состава), и чтение продолжается до полного вердикта. Код 5 после перевода —
+// перевод не лёг: провал, а не ожидание.
+let readied = false
 for (let i = 0; i < CI_READS; i++) {
   const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
   // Чтение с паузой при slept < N−10 (нет поля, не число, мало) — отвергнуто: его код
   // не судится, состояние — «идёт», цикл продолжается (ws#1010).
   if (i > 0 && !(got && typeof got.slept === 'number' && got.slept >= CI_PAUSE_S - CI_SLEPT_SLACK)) { skipped++; ci = { code: 3, reasons: ['PAUSE-SKIPPED'], head: asm.head, slept: got ? got.slept : null }; log('CI чтение ' + (i + 1) + ': пауза не исполнена (slept ' + JSON.stringify(got ? got.slept : null) + ' < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ') — чтение отвергнуто'); continue }
   ci = got
+  if (ciState(ci) === 'targeted-green' && !readied && sha40(ci.head) === asm.head) {
+    readied = true
+    const rd = await agent(C + '\n\nРежим ready: PR #' + asm.pr + ' (' + (A.repo || '?') + ') — черновик, целевой прогон зелёный (ci-read код 5, ' + D + '/ci-' + i + '.md). Переведи запрос в готовый ОДНОЙ командой `gh pr ready ' + asm.pr + ' -R ' + (A.repo || '?') + '` — событие ready_for_review заводит полный прогон. ФАКТ: `gh pr view ' + asm.pr + ' -R ' + (A.repo || '?') + ' --json isDraft` — false. Верни code (0 — isDraft false), out, reasons [], head "".', { ...MECH, label: 'mech:ready', phase: 'Сборка', schema: S_MECH })
+    if (!rd || rd.code !== 0) return { ok: false, state: 'failed', stage: 'перевод PR #' + asm.pr + ' в ready не исполнен — полного прогона нет', pr: asm.pr, head: asm.head, errors }
+    continue
+  }
   if (ciState(ci) !== 'running') break
 }
 if (skipped) await err('executor-mechanics', 'wave', 'ci', 'пауза CI не исполнена в ' + skipped + ' чтениях из ' + CI_READS + ' (slept < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ')')
