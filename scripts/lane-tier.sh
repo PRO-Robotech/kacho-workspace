@@ -220,7 +220,9 @@ case "$tier" in
     R2) steps="surface-census,implementer-tdd,lane-precheck,roles,wave-reviewer,ci,landing-reviewer"; review="roles+wave" ;;
 esac
 [ "$acceptance" = yes ] && steps="acceptance(<=2),$steps"
-mechanical_model="haiku"
+# Модель механики не задаётся — наследуется (ws#1016, решение диспетчера: лёгкой
+# модели нет ни на одном шаге, чей вывод читает решение; шаблон волны её не ставит).
+mechanical_model="inherit"
 
 echo "lane-tier: осмотрено путей $n_paths (R0 $r0 · R1 $r1 · R2 $r2_paths); добавленных строк $n_added; признаков секрета $secret_hits; репозиторий ${repo:--}"
 if [ "$json" = 1 ]; then

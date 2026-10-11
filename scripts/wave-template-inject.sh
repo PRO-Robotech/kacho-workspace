@@ -15,7 +15,15 @@
 #
 # СВОЙСТВА (сценарий на каждое; близнец — соседний сценарий той же формы):
 #   meta — чистый литерал; в теле нет Date.now/Math.random/new Date();
-#   R0 — ни одного рецензента; механика — модель haiku, усилие low;
+#   R0 — ни одного рецензента; механика — модель НЕ задана, усилие — лишь у
+#   шагов, чей ответ шаблон не читает (счётчик ошибок, правка тела PR);
+#   ОБЛАСТЬ (ws#1016): модель, усилие и место отчётов судятся на ОБЪЕДИНЕНИИ
+#   вызовов всех сценариев пробы, а покрытие — по классам шагов, выведенным из
+#   тела шаблона (`label: '…'`, литералы 'mech:…'): класс, не достигнутый ни
+#   одним сценарием, — находка. Модель не задана ни у одного вызова — haiku нет
+#   нигде; отчёты и журналы полос — под <D>/reports/, в каталоге полосы лишь
+#   копии copy и stack; lane-precheck — с LANE_PRECHECK_WS=<корень>; сборка
+#   kacho — npm ci консоли как ui.yml;
 #   R1 — ровно один wave-reviewer на сборку, ролей полосы нет;
 #   R2 — приёмка, перепись поверхности, роль уровня, рецензент волны,
 #        landing-reviewer — по разу;
@@ -166,6 +174,9 @@ ok(!/Date\.now\(|Math\.random\(|new Date\(\s*\)/.test(body), 'в теле нет
 
 const H = (k, n) => (k + n).padEnd(40, 'a').replace(/[^0-9a-f]/g, 'b').slice(0, 40)
 const HW = 'f'.repeat(40)
+// Объединение вызовов ВСЕХ сценариев пробы: утверждения о модели, усилии и месте
+// отчётов судят его, а не один сценарий по умолчанию (ws#1016, check-verifier ⛔).
+const ALL = []
 async function run(sc) {
   const calls = []
   const heads = {}, cnt = {}
@@ -173,6 +184,7 @@ async function run(sc) {
   const agent = async (prompt, opts = {}) => {
     const label = opts.label || ''
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
+    ALL.push({ label, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
     const lane = label.split(':').pop()
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
@@ -211,7 +223,10 @@ const inRest = (res, k) => (res.remainder || []).some(x => x.key === k)
 const idx = (calls, label) => calls.findIndex(c => c.label === label)
 const prm = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const by = (calls, f) => calls.filter(f).length
-const mechOk = calls => calls.filter(c => c.label.startsWith('mech:')).every(c => c.model === 'haiku' && c.effort === 'low')
+// Ответ не читается шаблоном только у счётчика ошибок и правки тела PR — им усилие low;
+// прочей механике (решение ветвится по её ответу) ни модели, ни усилия (ws#1016).
+const LOW_OK = l => l.startsWith('mech:err:') || l === 'mech:pr-edit'
+const mechOk = calls => calls.filter(c => c.label.startsWith('mech:')).every(c => c.model === undefined && (LOW_OK(c.label) ? c.effort === 'low' : c.effort === undefined))
 
 if (landWs) {
   // Режим --landing-command: команда посадки, отрисованная шаблоном, как есть.
@@ -221,12 +236,12 @@ if (landWs) {
   fs.writeFileSync(landOut, lm[1] + '\n')
   process.exit(0)
 }
-console.log('== R0: без рецензентов, механика дешёвой моделью')
+console.log('== R0: без рецензентов, механика без заданной модели')
 let r = await run({ args, plan: [P('r0.json')] })
 ok(r.res.ok === true, 'волна R0 влита', JSON.stringify(r.res).slice(0, 300))
 ok(by(r.calls, c => REVIEWERS.includes(c.agentType)) === 0, 'ни одного рецензента и приёмщика')
 ok(by(r.calls, c => c.label.startsWith('mech:precheck:')) === 2, 'lane-precheck — по полосе')
-ok(mechOk(r.calls) && by(r.calls, c => c.label.startsWith('mech:')) > 0, 'механика — haiku, усилие low')
+ok(mechOk(r.calls) && by(r.calls, c => c.label.startsWith('mech:')) > 0, 'механика — модель не задана; усилие не задано у шагов, чей ответ читает решение')
 ok(!/--reviews/.test((r.calls.find(c => c.label.startsWith('mech:landing:')) || {}).prompt || 'x'), 'без рецензентов landing-precheck зовётся без --reviews')
 
 console.log('== R1: один рецензент на собранную волну')
@@ -605,6 +620,46 @@ ok(inRest(r.res, 'A') && /hookLog не путь/.test(((r.res.remainder || []).f
 r = await run({ args, plan: [P('r0.json')] })
 ok(r.res.ok === true && by(r.calls, c => c.label === 'impl:A') === 1, 'близнец: hookLog — путь, доводки нет')
 
+console.log('== модель не задаётся; уроки волны 7 (ws#1016)')
+{
+  const all = []
+  for (const x of [{ args, plan: [P('r0.json')] }, { args: argsDep, plan: [P('r1.json')] }, { args: argsM, plan: [P('r2.json')] }]) all.push(...(await run(x)).calls)
+  const withModel = all.filter(c => c.model !== undefined)
+  ok(all.length > 0 && all.some(c => REVIEWERS.includes(c.agentType)) && all.some(c => c.label.startsWith('impl:')) && withModel.length === 0, 'модель не задана ни у одного шага R0/R1/R2 (наследуется) — haiku нет нигде; шагов ' + all.length, withModel.map(c => c.label + ':' + c.model).join(',').slice(0, 200))
+}
+r = await run({ args, plan: [P('r0.json')] })
+const lane7 = r.calls.filter(c => /\/ws\/tmp\/wave-9\/[A-Z]+\/[A-Za-z0-9-]+\.(md|log)\b/.test(c.prompt)).map(c => c.label)
+ok(r.res.ok === true && prm(r.calls, 'impl:A').includes('Отчёт — /ws/tmp/wave-9/reports/A/implement.md') && prm(r.calls, 'impl:A').includes('} > /ws/tmp/wave-9/reports/A/push.log`') && prm(r.calls, 'mech:precheck:A').includes('> /ws/tmp/wave-9/reports/A/lane-precheck.md 2>&1') && lane7.length === 0, 'отчёты и журнал отправки полосы — под /ws/tmp/wave-9/reports/A/, ни одного файла в каталоге полосы рядом с копией', lane7.join(','))
+ok(r.calls.every(c => c.prompt.split('\n\n')[0].includes('Отчёты и журналы полос — только под /ws/tmp/wave-9/reports/, ВНЕ дерева копии')), 'преамбула каждого задания: отчёты и журналы — вне дерева копии')
+ok(prm(r.calls, 'mech:precheck:A').includes('`LANE_PRECHECK_WS=/ws bash /ws/scripts/lane-precheck.sh /ws/tmp/c-A '), 'lane-precheck — с LANE_PRECHECK_WS=<корень>', prm(r.calls, 'mech:precheck:A').slice(-400))
+ok(!/npm ci/.test(prm(r.calls, 'mech:assemble:1')), 'близнец: сборка воркспейса — без npm ci консоли')
+r = await run({ args: { ...args, ws: '/ws/tmp/wave7/ws-main' }, plan: [P('r0.json')] })
+ok(prm(r.calls, 'mech:precheck:A').includes('`LANE_PRECHECK_WS=/ws bash /ws/tmp/wave7/ws-main/scripts/lane-precheck.sh '), 'ws — копия: LANE_PRECHECK_WS — корень воркспейса, а не копия шаблона', prm(r.calls, 'mech:precheck:A').slice(-400))
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')] })
+const asmK = prm(r.calls, 'mech:assemble:1')
+ok(r.res.ok === true && asmK.includes('(cd ui-future && npm ci && for p in $(sed -n') && asmK.includes('../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)') && asmK.indexOf('npm ci') < asmK.indexOf('Отправь ветку волны'), 'сборка kacho: npm ci в ui-future и в пакетах STANDALONE из ui.yml — до отправки и проверок', asmK.slice(0, 600))
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')] })
+ok(!/npm ci/.test(prm(r.calls, 'mech:assemble:1')), 'близнец: сборка kaname — без npm ci консоли')
+
+console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
+{
+  // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
+  // (метки чтения CI передаются аргументом). Ноль классов — отказ, а не зелёное.
+  const kinds = [...new Set([...body.matchAll(/label: '([^']+)'/g), ...body.matchAll(/'(mech:[a-z-]+:?)'/g)].map(x => x[1]))]
+  const unseen = kinds.filter(k => !ALL.some(c => c.label.startsWith(k)))
+  ok(kinds.length > 0 && unseen.length === 0, 'каждый класс шага шаблона достигнут хотя бы одним сценарием: классов ' + kinds.length + ', вызовов ' + ALL.length, 'не достигнуты: ' + unseen.join(','))
+  const badModel = ALL.filter(c => c.has.model || c.model !== undefined)
+  ok(ALL.length > 0 && badModel.length === 0, 'модель не задана ни у одного вызова всех сценариев (' + ALL.length + ')', [...new Set(badModel.map(c => c.label + ':' + c.model))].join(',').slice(0, 300))
+  const badEffort = ALL.filter(c => LOW_OK(c.label) ? c.effort !== 'low' : (c.has.effort || c.effort !== undefined))
+  ok(badEffort.length === 0 && ALL.some(c => LOW_OK(c.label)), 'усилие low — только у шагов, чей ответ шаблон не читает (счётчик, правка тела PR); у прочих не задано', [...new Set(badEffort.map(c => c.label + ':' + c.effort))].join(',').slice(0, 300))
+  // Путь под каталогом волны: глубже одного сегмента допустимы лишь reports/… и
+  // ровно <полоса>/copy, <полоса>/stack (каталоги копий). Файл в каталоге полосы или
+  // внутри копии — находка: отчёт или журнал там — UNCOMMITTED у lane-precheck.
+  const paths = ALL.flatMap(c => [...c.prompt.matchAll(/\/tmp\/wave-9\/([^\s'"`),;«»]+)/g)].map(x => ({ label: c.label, p: x[1].replace(/[.:]+$/, '') })))
+  const badPath = paths.filter(({ p }) => { const g = p.split('/').filter(Boolean); return g.length >= 2 && g[0] !== 'reports' && !(g.length === 2 && (g[1] === 'copy' || g[1] === 'stack')) })
+  ok(paths.length > 0 && badPath.length === 0, 'отчёты и журналы всех сценариев — под reports/, в каталоге полосы только копии copy и stack: путей осмотрено ' + paths.length, [...new Set(badPath.map(x => x.label + ' → ' + x.p))].join('; ').slice(0, 300))
+}
+
 console.log(`RESULT ${pass} ${fail}`)
 process.exit(fail ? 1 : 0)
 JS
@@ -654,7 +709,30 @@ PY
     fi
 }
 echo "== инъекции: мутанты шаблона"
-mutant "механика на полной модели" "model: 'haiku', effort: 'low', " ""
+mutant "механика на haiku" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'haiku', agentType: 'git-operator' }"
+mutant "механика с явной моделью" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'sonnet', agentType: 'git-operator' }"
+mutant "effort low на всей механике" "const MECH = { agentType: 'git-operator' }" "const MECH = { effort: 'low', agentType: 'git-operator' }"
+mutant "effort low на ciRead" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH_LOW, agentType: 'ci-watcher', label,"
+mutant "effort low на landing-precheck" "{ ...MECH, label: 'mech:landing:' + round," "{ ...MECH_LOW, label: 'mech:landing:' + round,"
+mutant "effort low на merge" "{ ...MECH, label: 'mech:merge'," "{ ...MECH_LOW, label: 'mech:merge',"
+mutant "чтение CI на haiku" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH, model: 'haiku', agentType: 'ci-watcher', label,"
+mutant "исполнитель на haiku" "{ agentType: l.agent, label: 'impl:' + l.key" "{ model: 'haiku', agentType: l.agent, label: 'impl:' + l.key"
+mutant "М1 haiku на mech:delta" "{ ...MECH, label: 'mech:delta'" "{ ...MECH, model: 'haiku', label: 'mech:delta'"
+mutant "М2 effort low на mech:ready" "{ ...MECH, label: 'mech:ready'" "{ ...MECH_LOW, label: 'mech:ready'"
+mutant "М3 журнал сводки внутри копии" "' + R + '/' + l.key + '/stack.push.log" "' + D + '/' + l.key + '/copy/stack.push.log"
+mutant "М4 отчёт сводки в каталоге полосы" "rep(l.key, 'stack')" "D + '/' + l.key + '/stack.md'"
+mutant "отчёты полос рецензенту волны — из каталога полосы" "', отчёты — ' + R + '/<полоса>/implement.md." "', отчёты — ' + D + '/<полоса>/implement.md."
+mutant "М8 haiku на review-landing" "{ agentType: 'landing-reviewer', label: 'review-landing'" "{ model: 'haiku', agentType: 'landing-reviewer', label: 'review-landing'"
+twin "MECH_LOW переставлен — модели нет" "const MECH_LOW = { ...MECH, effort: 'low' }" "const MECH_LOW = { effort: 'low', ...MECH }"
+mutant "отчёты в каталоге полосы" "const rep = (lane, step) => R + '/'" "const rep = (lane, step) => D + '/'"
+mutant "журнал отправки в каталоге полосы" "} > ' + R + '/' + l.key + '/push.log\`" "} > ' + D + '/' + l.key + '/push.log\`"
+mutant "преамбула без правила об отчётах" "Отчёты и журналы полос — только под ' + R + '/, ВНЕ дерева копии" "Отчёты — под ' + R + '/"
+mutant "предпроверка без LANE_PRECHECK_WS" "\`LANE_PRECHECK_WS=' + ROOT + ' bash ' + WS" "\`bash ' + WS"
+mutant "LANE_PRECHECK_WS — копия, а не корень" "\`LANE_PRECHECK_WS=' + ROOT + ' bash" "\`LANE_PRECHECK_WS=' + WS + ' bash"
+mutant "сборка kacho без npm ci" "const UI_DEPS = /(^|\\/)kacho\$/.test(A.repo || '') ?" "const UI_DEPS = false ?"
+mutant "npm ci сборки — во всех репозиториях" "const UI_DEPS = /(^|\\/)kacho\$/.test(A.repo || '') ?" "const UI_DEPS = true ?"
+mutant "npm ci без пакетов STANDALONE" "do npm ci --prefix" "do true --prefix"
+mutant "npm ci после отправки" "conflicts.' + UI_DEPS + ' Отправь ветку волны" "conflicts. Отправь ветку волны' + UI_DEPS + '"
 mutant "повтор на той же голове" "if (impl.head === prev && impl.status !== 'already-done')" "if (false)"
 mutant "«идёт» — провал" "if (ciState(ci) !== 'running') break" "break"
 mutant "шаги не из плана" "const has = s => t.steps.includes(s)" "const has = s => true"
