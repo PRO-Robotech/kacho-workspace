@@ -1,0 +1,134 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  sha256: 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 5 — эта запись и внешнее событие.
+  supersedes_subject_sha256: 7522293afeae75853e075c543763847b0438b325dcdd8b9e166d5c820a4d2898
+  base_commit: 5c3ca858f
+  content_commit: 0a2e55346108ae5c760f774dadfdb124c5306f95
+  branch: 3062-f8-s6-email-change-acceptance (копия tmp/3062-f8-s6-email-change-acceptance)
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/3062
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  fingerprint_reproduced: true
+  lines: 480
+  code_base: PRO-Robotech/kaname @ ae1d4e35b1d0 (пин; handler.go:1440-1449 перечитан этим кругом)
+verdict: APPROVED
+round: 4
+round_note: >-
+  Круг 4 документа, первый на редакции 5. По решению диспетчера (два круга исчерпаны) — ревью
+  ПО ДЕЛЬТЕ: судится только снятие B4 круга 3 и узость диффа; принятое в кругах 2–3 не
+  переоткрывается.
+previous_round:
+  subject_sha256: 7522293afeae75853e075c543763847b0438b325dcdd8b9e166d5c820a4d2898
+  verdict: CHANGES_REQUESTED
+  blocking: 1
+  record_commit: 4c396b82e
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-11T00:00:00Z'
+publication_mode: courier
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_pending: true
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · APPROVED · sha256 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f"
+effective_approval:
+  issued: false
+  reason: >-
+    Рецензент события не публикует (change-graph.md §3). Одобрение становится действующим, когда
+    курьер опубликует событие с телом выше и оно свяжет роль, вердикт и ЭТОТ отпечаток; до того
+    issued остаётся false. Факт публикации дописывается отдельным коммитом поверх этой записи.
+sanction:
+  granted_on_publication: true
+  scope: код S6 (#3062) по редакции 5 и только по ней; правка документа вердикт не переносит
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/4f1cd528e27cf55c6b52a5f4f5dd6d9aafc8fddd9eb5e1c0e60c94f0c619d4a2.yaml
+    - docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/7522293afeae75853e075c543763847b0438b325dcdd8b9e166d5c820a4d2898.yaml
+
+premise_check:
+  claim: "редакция 5 закоммичена и отправлена; изменены только F8S6-14, его строка §6 и история шапки (+11/−4)"
+  result: >-
+    Подтверждено: git ls-remote origin refs/heads/3062-f8-s6-email-change-acceptance →
+    0a2e55346 = HEAD; git show HEAD~1:<doc> | sha256sum → 7522293a…2898 (предмет круга 3);
+    sha256sum <doc> → 0504b7cd…959f; git diff HEAD~1 --stat → один файл, 11+/4−. Три хунка:
+    шапка (+4 строки истории: круг 3 и редакция 5), F8S6-14 Given/When/первое «Тогда»,
+    строка §6 F8S6-14. Прочие сценарии, DoD, §0–§5 не тронуты. Хук отправки пропустил наборы,
+    требующие клона продукта, — к предмету приёмки не относится, на вердикт не влияет.
+
+prior_round_resolution:
+  B4_CONSTRUCTIBILITY: >-
+    снято. Given подставляет «200, {}, Retry-After: 1» — в области значений производителя:
+    retryAfterSeconds округляет вверх и даёт не меньше 1 (перечитано: git -C project/kaname show
+    ae1d4e35b1d0:internal/handler/loginlanehttp/handler.go | sed -n 1440,1449p → `if s < 1 { s = 1 }`).
+    When — проба ждёт УСЛОВИЯ «Отправить снова включена», а не времени (F8 Р9, образец F6b-19 —
+    сценарий есть в sub-phase-F6b-…-acceptance.md ветки). Первое «Тогда» — состояние «код»,
+    кнопка выключена с отсчётом 1 с, по концу отсчёта включается: утверждение Р3 «включается
+    ПО КОНЦУ отсчёта» теперь исполняется, и экран, не включающий кнопку после настоящего
+    отсчёта, проба уронит (ожидание условия истечёт). Строка §6 исправлена тем же. Все четыре
+    пункта fix круга 3 выполнены дословно.
+
+blocking: []
+
+non_blocking:
+  - id: N1
+    where: F8S6-14, строка близнеца
+    observed: >-
+      Близнец (F8S6-01, настоящий первый ответ) теперь отличается от F8S6-14 ровно одним фактом —
+      величиной Retry-After (60 с профиля против 1 с подставленной), и наблюдаемое расходится:
+      там кнопка в окне пробы не включается, здесь включается. Это и есть форма близнеца
+      «ровно один факт» (change-graph.md §6), не дефект. Можно одной фразой назвать различающий
+      факт в строке близнеца, чтобы читатель не искал его.
+  - id: N2
+    observed: >-
+      Неблокирующие замечания кругов 2–3 (F8S6-02 цена эвристики порядка доставки; порядок ID
+      в §5; F8S6-08 текст дословно; F8S6-07 (а); F8S6-01 порядок входов; ссылка на 04-roadmap §3)
+      этой редакцией не трогались и остаются в силе как неблокирующие.
+
+coverage:
+  scenarios_total: 14 (не изменилось с круга 3)
+  producer_named: 14 из 14 (§6)
+  twin_named_for_negatives: без изменений с круга 3; F8S6-14 — близнец F8S6-01, один факт
+
+constructibility:
+  seeded: 0
+  by_named_fixture: >-
+    F8S6-14 — подстановка ответа записью в producer-answers.ts по коду производителя, значение
+    в области retryAfterSeconds (≥ 1); прочие — как в круге 3
+  not_executed: >-
+    браузерные F8S6-01…09, 12…14 — доставки писем на стенде нет (kacho#1773 OPEN), стенда и
+    разрешения на посев задание не дало; это «не выполнилось», не зачитано ни в зелёное, ни в
+    красное
+
+out_of_scope_of_this_round:
+  - "содержание сценариев вне дельты — принято в кругах 2–3 и не переоткрывалось"
+  - "головы kacho/kaname не перемерялись, кроме пина handler.go:1440-1449"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true
