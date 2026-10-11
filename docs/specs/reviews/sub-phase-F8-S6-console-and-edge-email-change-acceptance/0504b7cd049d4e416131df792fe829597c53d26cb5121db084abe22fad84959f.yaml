@@ -40,13 +40,41 @@ authority:
   policy_field: review_authority.acceptance-reviewer
   policy_allowlist_at_base: [pointpu]
 event:
-  type: none
-  status: not_performed
-  published: false
-  publication_pending: true
+  type: issue_comment
+  status: published
+  published: true
   publication_mode: courier
   publication_expected_from_orchestrator: true
-  body: "acceptance-reviewer · APPROVED · sha256 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f"
+  url: https://github.com/PRO-Robotech/kacho/issues/3062#issuecomment-6110443007
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6110443007
+  issue: PRO-Robotech/kacho#3062
+  database_id: 6110443007
+  node_id: IC_kwDOTZqgWM8AAAABbDX1_w
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-11T15:11:38Z'
+  updated_at: '2026-10-11T15:11:38Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: 3aefddf09247611d593e65f51c89f93c5123e43458ac871a0fbb330ac0ebf952
+  body_first_line: "acceptance-reviewer · APPROVED · sha256 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f"
+  header:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kacho-workspace:docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+    subject_revision: 0a2e55346108ae5c760f774dadfdb124c5306f95
+    subject_sha256: 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f
+  subject_revision_on_origin_before_event: true
+  subject_sha256_on_origin_reproduced: true
+  verified_at: '2026-10-11'
+  verified_predicates:
+    body: >-
+      gh api repos/PRO-Robotech/kacho/issues/comments/6110443007 -q .body | sha256sum
+    subject: >-
+      git show origin/3062-f8-s6-email-change-acceptance:docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md | sha256sum
+  note: >-
+    Блок дописан отдельным коммитом после публикации события; вердикт, разбор и блок
+    effective_approval этой записи не правились. Решение о санкции принимается перемером
+    четырёх условий change-graph.md §3, а не этим блоком.
 effective_approval:
   issued: false
   reason: >-
