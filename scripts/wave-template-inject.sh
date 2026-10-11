@@ -17,9 +17,13 @@
 #   meta — чистый литерал; в теле нет Date.now/Math.random/new Date();
 #   R0 — ни одного рецензента; механика — модель НЕ задана, усилие — лишь у
 #   шагов, чей ответ шаблон не читает (счётчик ошибок, правка тела PR);
-#   модель не задана ни у одного шага (наследуется) — haiku нет нигде; отчёты
-#   и журналы полос — под <D>/reports/, вне дерева копии; lane-precheck — с
-#   LANE_PRECHECK_WS=<корень>; сборка kacho — npm ci консоли как ui.yml (ws#1016);
+#   ОБЛАСТЬ (ws#1016): модель, усилие и место отчётов судятся на ОБЪЕДИНЕНИИ
+#   вызовов всех сценариев пробы, а покрытие — по классам шагов, выведенным из
+#   тела шаблона (`label: '…'`, литералы 'mech:…'): класс, не достигнутый ни
+#   одним сценарием, — находка. Модель не задана ни у одного вызова — haiku нет
+#   нигде; отчёты и журналы полос — под <D>/reports/, в каталоге полосы лишь
+#   копии copy и stack; lane-precheck — с LANE_PRECHECK_WS=<корень>; сборка
+#   kacho — npm ci консоли как ui.yml;
 #   R1 — ровно один wave-reviewer на сборку, ролей полосы нет;
 #   R2 — приёмка, перепись поверхности, роль уровня, рецензент волны,
 #        landing-reviewer — по разу;
@@ -170,6 +174,9 @@ ok(!/Date\.now\(|Math\.random\(|new Date\(\s*\)/.test(body), 'в теле нет
 
 const H = (k, n) => (k + n).padEnd(40, 'a').replace(/[^0-9a-f]/g, 'b').slice(0, 40)
 const HW = 'f'.repeat(40)
+// Объединение вызовов ВСЕХ сценариев пробы: утверждения о модели, усилии и месте
+// отчётов судят его, а не один сценарий по умолчанию (ws#1016, check-verifier ⛔).
+const ALL = []
 async function run(sc) {
   const calls = []
   const heads = {}, cnt = {}
@@ -177,6 +184,7 @@ async function run(sc) {
   const agent = async (prompt, opts = {}) => {
     const label = opts.label || ''
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
+    ALL.push({ label, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
     const lane = label.split(':').pop()
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
@@ -633,6 +641,25 @@ ok(r.res.ok === true && asmK.includes('(cd ui-future && npm ci && for p in $(sed
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')] })
 ok(!/npm ci/.test(prm(r.calls, 'mech:assemble:1')), 'близнец: сборка kaname — без npm ci консоли')
 
+console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
+{
+  // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
+  // (метки чтения CI передаются аргументом). Ноль классов — отказ, а не зелёное.
+  const kinds = [...new Set([...body.matchAll(/label: '([^']+)'/g), ...body.matchAll(/'(mech:[a-z-]+:?)'/g)].map(x => x[1]))]
+  const unseen = kinds.filter(k => !ALL.some(c => c.label.startsWith(k)))
+  ok(kinds.length > 0 && unseen.length === 0, 'каждый класс шага шаблона достигнут хотя бы одним сценарием: классов ' + kinds.length + ', вызовов ' + ALL.length, 'не достигнуты: ' + unseen.join(','))
+  const badModel = ALL.filter(c => c.has.model || c.model !== undefined)
+  ok(ALL.length > 0 && badModel.length === 0, 'модель не задана ни у одного вызова всех сценариев (' + ALL.length + ')', [...new Set(badModel.map(c => c.label + ':' + c.model))].join(',').slice(0, 300))
+  const badEffort = ALL.filter(c => LOW_OK(c.label) ? c.effort !== 'low' : (c.has.effort || c.effort !== undefined))
+  ok(badEffort.length === 0 && ALL.some(c => LOW_OK(c.label)), 'усилие low — только у шагов, чей ответ шаблон не читает (счётчик, правка тела PR); у прочих не задано', [...new Set(badEffort.map(c => c.label + ':' + c.effort))].join(',').slice(0, 300))
+  // Путь под каталогом волны: глубже одного сегмента допустимы лишь reports/… и
+  // ровно <полоса>/copy, <полоса>/stack (каталоги копий). Файл в каталоге полосы или
+  // внутри копии — находка: отчёт или журнал там — UNCOMMITTED у lane-precheck.
+  const paths = ALL.flatMap(c => [...c.prompt.matchAll(/\/tmp\/wave-9\/([^\s'"`),;«»]+)/g)].map(x => ({ label: c.label, p: x[1].replace(/[.:]+$/, '') })))
+  const badPath = paths.filter(({ p }) => { const g = p.split('/').filter(Boolean); return g.length >= 2 && g[0] !== 'reports' && !(g.length === 2 && (g[1] === 'copy' || g[1] === 'stack')) })
+  ok(paths.length > 0 && badPath.length === 0, 'отчёты и журналы всех сценариев — под reports/, в каталоге полосы только копии copy и stack: путей осмотрено ' + paths.length, [...new Set(badPath.map(x => x.label + ' → ' + x.p))].join('; ').slice(0, 300))
+}
+
 console.log(`RESULT ${pass} ${fail}`)
 process.exit(fail ? 1 : 0)
 JS
@@ -690,6 +717,12 @@ mutant "effort low на landing-precheck" "{ ...MECH, label: 'mech:landing:' + r
 mutant "effort low на merge" "{ ...MECH, label: 'mech:merge'," "{ ...MECH_LOW, label: 'mech:merge',"
 mutant "чтение CI на haiku" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH, model: 'haiku', agentType: 'ci-watcher', label,"
 mutant "исполнитель на haiku" "{ agentType: l.agent, label: 'impl:' + l.key" "{ model: 'haiku', agentType: l.agent, label: 'impl:' + l.key"
+mutant "М1 haiku на mech:delta" "{ ...MECH, label: 'mech:delta'" "{ ...MECH, model: 'haiku', label: 'mech:delta'"
+mutant "М2 effort low на mech:ready" "{ ...MECH, label: 'mech:ready'" "{ ...MECH_LOW, label: 'mech:ready'"
+mutant "М3 журнал сводки внутри копии" "' + R + '/' + l.key + '/stack.push.log" "' + D + '/' + l.key + '/copy/stack.push.log"
+mutant "М4 отчёт сводки в каталоге полосы" "rep(l.key, 'stack')" "D + '/' + l.key + '/stack.md'"
+mutant "отчёты полос рецензенту волны — из каталога полосы" "', отчёты — ' + R + '/<полоса>/implement.md." "', отчёты — ' + D + '/<полоса>/implement.md."
+mutant "М8 haiku на review-landing" "{ agentType: 'landing-reviewer', label: 'review-landing'" "{ model: 'haiku', agentType: 'landing-reviewer', label: 'review-landing'"
 twin "MECH_LOW переставлен — модели нет" "const MECH_LOW = { ...MECH, effort: 'low' }" "const MECH_LOW = { effort: 'low', ...MECH }"
 mutant "отчёты в каталоге полосы" "const rep = (lane, step) => R + '/'" "const rep = (lane, step) => D + '/'"
 mutant "журнал отправки в каталоге полосы" "} > ' + R + '/' + l.key + '/push.log\`" "} > ' + D + '/' + l.key + '/push.log\`"
