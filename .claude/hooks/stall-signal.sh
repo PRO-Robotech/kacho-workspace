@@ -10,7 +10,8 @@
 #
 # События главного потока (адресат — диспетчер, у которого нет Bash):
 #   UserPromptSubmit — находки `scripts/stall-census.sh` строкой «⏱ ЗАСТОЙ» в
-#                      контекст (код 1), либо «детектор не прочитал» (код 2);
+#                      контекст (код 1), либо «детектор не прочитал» (код 2,
+#                      иной код, либо код 1 без единой строки STALL-/UNREACTED-);
 #   Stop             — при коде 1 ход НЕ заканчивается: выход 2, перечень в stderr,
 #                      диспетчер получает его и действует (база §10). Повторно в
 #                      том же ходе (`stop_hook_active`) не держит — петли нет.
@@ -37,10 +38,14 @@ fi
 # shellcheck disable=SC2086
 out="$(printf '%s' "$input" | timeout 8 bash "$census" ${STALL_CENSUS_EXTRA:-} 2>&1)"; rc=$?
 head_line="⏱ ЗАСТОЙ (scripts/stall-census.sh): маршрут — база диспетчера §10: TaskStop застрявшего, остаток — новым коротким шагом с исходом «идёт» и сроком."
+body="$(printf '%s\n' "$out" | grep -E '^(STALL-|UNREACTED-)' | head -12)"
+# Код 1 без единой названной строки застоя — не застой, а сбой прибора (опыт
+# check-verifier по #1002): ход им не держится, диспетчер видит «не проверен».
+[ "$rc" = 1 ] && [ -z "$body" ] && rc=3
 case "$rc" in
     0) exit 0 ;;
     1)
-        body="$(printf '%s\n' "$out" | grep -E '^(STALL-|UNREACTED-)' | head -12)"
+        body="$(printf '%s\n' "$out" | grep -E '^(STALL-|UNREACTED-|UNREAD )' | head -16)"
         if [ "$event" = Stop ]; then
             [ "$active" = active ] && exit 0
             { echo "$head_line"; printf '%s\n' "$body"; } >&2
@@ -50,7 +55,9 @@ case "$rc" in
         ;;
     *)
         [ "$event" = Stop ] && exit 0
-        echo "⏱ ЗАСТОЙ НЕ ПРОВЕРЕН (код $rc): $(printf '%s' "$out" | tail -1 | cut -c1-200) → tooling-maintainer; это не «чисто»."
+        why="$(printf '%s\n' "$out" | grep -E 'VOID|Error|Traceback' | tail -1)"
+        [ -n "$why" ] || why="$(printf '%s' "$out" | tail -1)"
+        echo "⏱ ЗАСТОЙ НЕ ПРОВЕРЕН (код $rc): $(printf '%s' "$why" | cut -c1-200) → tooling-maintainer; это не «чисто»."
         ;;
 esac
 exit 0

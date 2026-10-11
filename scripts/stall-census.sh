@@ -44,10 +44,16 @@
 #
 # # Коды
 #
-#   0 — застоя нет (строка CENSUS: сколько осмотрено);
-#   1 — застой есть: перечень строками STALL-*/UNREACTED-WF;
+#   0 — застоя нет, и каждый осмотренный журнал агента дал хотя бы одну
+#       разобранную запись (строка CENSUS: сколько осмотрено и прочитано);
+#   1 — застой есть: перечень строками STALL-*/UNREACTED-WF (строки UNREAD —
+#       рядом, если часть журналов не прочитана);
 #   2 — не смог прочитать (каталога сессии нет, журнал главного потока не
-#       читается, `ps` отказал, разбор упал) — это НЕ «чисто».
+#       читается, `ps` отказал, разбор упал, журнал агента старше порога агента
+#       без единой разобранной записи) — это НЕ «чисто». Любой иной код
+#       интерпретатора сводится к 2: падение прибора не выдаётся за застой.
+# Запись журнала — JSON-ОБЪЕКТ; строка, разобранная в иное (`[1,2]`, `42`),
+# считается неразобранной, как битая (опыт check-verifier по #1002).
 #
 # Быстрый: агентский журнал читается хвостом (64 КиБ), главный — хвостом 4 МиБ,
 # состояния workflow — только изменённые в окне. Замер на сессии 3f44acf5
@@ -77,6 +83,16 @@ fi
 python3 - "$session" "$psfile" "$now" "$stdin_json" "${CLAUDE_PROJECT_DIR:-$PWD}" <<'PY'
 import calendar, glob, json, os, re, sys, time
 
+
+def _crash(kind, val, tb):
+    # Падение разбора — «не проверено» (код 2), а не «застой» (код 1, которым
+    # интерпретатор завершает необработанное исключение).
+    print('stall-census: VOID — разбор упал: %s: %s' % (kind.__name__, val), file=sys.stderr)
+    os._exit(2)
+
+
+sys.excepthook = _crash
+
 session, psfile, now_s, stdin_json, projdir = sys.argv[1:6]
 AGENT_MIN = int(os.environ.get('STALL_AGENT_MIN', '15'))
 PROC_MIN = int(os.environ.get('STALL_PROC_MIN', '60'))
@@ -97,6 +113,19 @@ def ts(s):
         return calendar.timegm(time.strptime(s[:19], '%Y-%m-%dT%H:%M:%S'))
     except Exception:
         return None
+
+
+def records(lines):
+    """Разобранные записи-объекты; не-JSON и JSON не-объект — пропуск."""
+    out = []
+    for raw in lines:
+        try:
+            r = json.loads(raw)
+        except Exception:
+            continue
+        if isinstance(r, dict):
+            out.append(r)
+    return out
 
 
 def tail_lines(path, size):
@@ -138,11 +167,7 @@ WAIT = re.compile(r'\b(until|while)\b.*\bsleep\b|\bsleep\s+[0-9]{3,}|\btail\b.*-
 def poll_run(path, size=262144):
     """Хвост вызовов агента, каждый из которых — ожидание: (число, минут с первого, последний)."""
     calls = []
-    for raw in tail_lines(path, size):
-        try:
-            r = json.loads(raw)
-        except Exception:
-            continue
+    for r in records(tail_lines(path, size)):
         if r.get('type') != 'assistant' or not isinstance(r.get('message'), dict):
             continue
         for c in r['message'].get('content') or []:
@@ -160,18 +185,25 @@ def poll_run(path, size=262144):
     return n, (now - first) / 60, ' '.join(calls[-1][2].split())[:160]
 
 
-def last_message(path, size=65536):
-    """(время, вид, вызов): вид — 'tool' | 'result' | 'done' | None."""
-    recs = []
-    for raw in tail_lines(path, size):
-        try:
-            r = json.loads(raw)
-        except Exception:
-            continue
-        if r.get('type') in ('user', 'assistant') and isinstance(r.get('message'), dict):
-            recs.append(r)
-    if not recs:
+def last_message(path):
+    """(время, вид, вызов): вид — 'tool' | 'result' | 'done' | 'progress' | None.
+
+    None — в журнале нет ни одной разобранной записи-объекта: журнал НЕ прочитан.
+    Хвост растёт (64 КиБ → 1 МиБ → 16 МиБ → весь файл), пока не найдётся запись:
+    одна строка результата инструмента бывает длиннее 64 КиБ, и короткий хвост
+    иначе выдал бы её за нечитаемый журнал.
+    """
+    size, n = 65536, os.path.getsize(path)
+    while True:
+        objs = records(tail_lines(path, size))
+        if objs or size >= n:
+            break
+        size = min(size * 16, n)
+    if not objs:
         return None, None, ''
+    recs = [r for r in objs if r.get('type') in ('user', 'assistant') and isinstance(r.get('message'), dict)]
+    if not recs:
+        return None, 'progress', ''
     r = recs[-1]
     t = ts(r.get('timestamp', ''))
     content = r['message'].get('content')
@@ -193,6 +225,7 @@ def last_message(path, size=65536):
 
 # ── Агенты: workflow живые и агенты верхнего уровня ─────────────────────
 agents_seen = 0
+unread = []  # журналы агентов старше порога без единой разобранной записи
 wf_live = 0
 state_dir = os.path.join(session, 'workflows')
 wf_root = os.path.join(session, 'subagents', 'workflows')
@@ -208,11 +241,7 @@ try:
         finished = set()
         jpath = os.path.join(wdir, 'journal.jsonl')
         if os.path.exists(jpath):
-            for raw in tail_lines(jpath, 1 << 20):
-                try:
-                    j = json.loads(raw)
-                except Exception:
-                    continue
+            for j in records(tail_lines(jpath, 1 << 20)):
                 if j.get('type') == 'result' and j.get('agentId'):
                     finished.add(j['agentId'])
         for apath in glob.glob(os.path.join(wdir, 'agent-*.jsonl')):
@@ -230,7 +259,10 @@ try:
             if age_file < AGENT_MIN * 60:
                 continue
             t, kind, what = last_message(apath)
-            if kind in (None, 'done') or t is None:
+            if kind is None:
+                unread.append('%s/%s' % (wid, aid))
+                continue
+            if kind == 'done' or t is None:
                 continue
             idle = (now - t) / 60
             if idle >= AGENT_MIN:
@@ -238,6 +270,7 @@ try:
                 meta = apath[:-len('.jsonl')] + '.meta.json'
                 try:
                     m = json.load(open(meta))
+                    m = m if isinstance(m, dict) else {}
                     label = (m.get('agentType') or '') + ' «' + (m.get('description') or '') + '»'
                 except Exception:
                     pass
@@ -254,7 +287,10 @@ try:
         if age_file < AGENT_MIN * 60:
             continue
         t, kind, what = last_message(apath)
-        if kind in (None, 'done') or t is None:
+        if kind is None:
+            unread.append(os.path.basename(apath)[:-6])
+            continue
+        if kind == 'done' or t is None:
             continue
         idle = (now - t) / 60
         if idle >= AGENT_MIN:
@@ -266,11 +302,7 @@ except OSError as e:
 wf_done = 0
 try:
     last_asst = None
-    for raw in reversed(tail_lines(main, 4 << 20)):
-        try:
-            r = json.loads(raw)
-        except Exception:
-            continue
+    for r in reversed(records(tail_lines(main, 4 << 20))):
         if r.get('type') == 'assistant':
             last_asst = ts(r.get('timestamp', ''))
             break
@@ -281,6 +313,8 @@ try:
             s = json.load(open(sp))
         except Exception:
             continue  # пишется прямо сейчас
+        if not isinstance(s, dict):
+            continue
         end = ts(s.get('timestamp', '') or '')
         if end is None:
             continue
@@ -313,9 +347,23 @@ for pid, (ppid, et, comm, args) in procs.items():
         cmd = args.split("eval '", 1)[-1] if "eval '" in args else args
         findings.append('STALL-PROC pid %s (claude %s) — живёт %d мин: %s' % (pid, ppid, et / 60, ' '.join(cmd.split())[:160]))
 
-print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d; фоновых оболочек агентов %d из процессов %d; пороги агент %d мин, опрос %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), wf_live, wf_done, agents_seen, shells, len(procs), AGENT_MIN, POLL_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; фоновых оболочек агентов %d из процессов %d; пороги агент %d мин, опрос %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), shells, len(procs), AGENT_MIN, POLL_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
-sys.exit(1 if findings else 0)
+for u in unread:
+    print('UNREAD %s — журнал агента без единой разобранной записи: застой по нему не судим' % u)
+if findings:
+    sys.exit(1)
+if unread:
+    # Ноль прочитанного — не «застоя нет».
+    print('stall-census: VOID — журналов агентов не прочитано %d из %d: %s' % (len(unread), agents_seen, ', '.join(unread[:5])), file=sys.stderr)
+    sys.exit(2)
+sys.exit(0)
 PY
+rc=$?
+# Код интерпретатора вне {0,1,2} (сигнал, отказ запуска) — тоже «не проверено».
+case "$rc" in
+    0 | 1 | 2) exit "$rc" ;;
+    *) echo "stall-census: VOID — разбор завершился кодом $rc: не проверено" >&2; exit 2 ;;
+esac
