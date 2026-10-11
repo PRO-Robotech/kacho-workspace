@@ -1,0 +1,705 @@
+{
+  "total_count": 70,
+  "check_runs": [
+    {
+      "name": "заголовок и тело запроса без атрибуции",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:56:23Z",
+      "completed_at": "2026-10-10T21:56:28Z",
+      "check_suite": {
+        "id": 103201609645
+      }
+    },
+    {
+      "name": "сводный вердикт юнитов (все шарды)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:29:42Z",
+      "completed_at": "2026-10-10T21:30:05Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "сводный вердикт (все шарды)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:18:32Z",
+      "completed_at": "2026-10-10T21:19:03Z",
+      "check_suite": {
+        "id": 103192606583
+      }
+    },
+    {
+      "name": "gosec",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:06:29Z",
+      "completed_at": "2026-10-10T21:06:33Z",
+      "check_suite": {
+        "id": 103192881827
+      }
+    },
+    {
+      "name": "юниты nlb",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:11:46Z",
+      "completed_at": "2026-10-10T21:12:52Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты compute",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:11:11Z",
+      "completed_at": "2026-10-10T21:12:21Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты storage",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:11:09Z",
+      "completed_at": "2026-10-10T21:13:29Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты terraform",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:10:53Z",
+      "completed_at": "2026-10-10T21:12:14Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты tools",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:10:28Z",
+      "completed_at": "2026-10-10T21:12:49Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты gateway",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:10:49Z",
+      "completed_at": "2026-10-10T21:12:48Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты internal",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:10:39Z",
+      "completed_at": "2026-10-10T21:29:40Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты deploy",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:08:49Z",
+      "completed_at": "2026-10-10T21:13:28Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты vpc",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:09:20Z",
+      "completed_at": "2026-10-10T21:10:37Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты ui-future",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:08:31Z",
+      "completed_at": "2026-10-10T21:09:20Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты registry",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:09:22Z",
+      "completed_at": "2026-10-10T21:10:26Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты pkg",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:08:27Z",
+      "completed_at": "2026-10-10T21:09:20Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "юниты geo",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:09:22Z",
+      "completed_at": "2026-10-10T21:10:15Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "e2e edge (geo registry api-gateway)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:55Z",
+      "completed_at": "2026-10-10T21:11:44Z",
+      "check_suite": {
+        "id": 103192606583
+      }
+    },
+    {
+      "name": "e2e vpc (vpc)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:35Z",
+      "completed_at": "2026-10-10T21:15:38Z",
+      "check_suite": {
+        "id": 103192606583
+      }
+    },
+    {
+      "name": "e2e nlb (nlb)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:33Z",
+      "completed_at": "2026-10-10T21:18:30Z",
+      "check_suite": {
+        "id": 103192606583
+      }
+    },
+    {
+      "name": "e2e compute-storage (compute storage)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:14Z",
+      "completed_at": "2026-10-10T21:13:09Z",
+      "check_suite": {
+        "id": 103192606583
+      }
+    },
+    {
+      "name": "Trivy",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:39Z",
+      "completed_at": "2026-10-10T21:03:42Z",
+      "check_suite": {
+        "id": 103192881827
+      }
+    },
+    {
+      "name": "заголовок и тело запроса без атрибуции",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:20Z",
+      "completed_at": "2026-10-10T21:03:27Z",
+      "check_suite": {
+        "id": 103192701391
+      }
+    },
+    {
+      "name": "сквозные пробы консоли (свой стенд)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:14Z",
+      "completed_at": "2026-10-10T21:48:31Z",
+      "check_suite": {
+        "id": 103192607067
+      }
+    },
+    {
+      "name": "buf lint · breaking · generate-diff",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:07:24Z",
+      "completed_at": "2026-10-10T21:09:19Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "integration (geo)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:47Z",
+      "completed_at": "2026-10-10T21:06:33Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "integration (nlb)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:06:10Z",
+      "completed_at": "2026-10-10T21:10:09Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "integration (compute)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:14Z",
+      "completed_at": "2026-10-10T21:06:23Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "golangci-lint",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:06:35Z",
+      "completed_at": "2026-10-10T21:09:56Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "integration (registry)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:40Z",
+      "completed_at": "2026-10-10T21:06:44Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "helm lint · template (dev + prod)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:06:13Z",
+      "completed_at": "2026-10-10T21:29:13Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "build · vet · gofmt",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:06:46Z",
+      "completed_at": "2026-10-10T21:08:29Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "stack dev-prod boots (kind, production posture)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:10Z",
+      "completed_at": "2026-10-10T21:17:02Z",
+      "check_suite": {
+        "id": 103192606789
+      }
+    },
+    {
+      "name": "terraform — формат · модульные пробы · приёмка провайдера",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:38Z",
+      "completed_at": "2026-10-10T21:06:14Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "integration (vpc)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:16Z",
+      "completed_at": "2026-10-10T21:10:05Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "integration (storage)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:10Z",
+      "completed_at": "2026-10-10T21:07:22Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "docs-sites",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:59Z",
+      "completed_at": "2026-10-10T21:08:25Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "permission-catalog · rest-route-table (staleness + copy-drift)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:07:10Z",
+      "completed_at": "2026-10-10T21:11:09Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "план шардов юнитов · перепись полноты",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:35Z",
+      "completed_at": "2026-10-10T21:06:11Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "перенос ветки не откатил ствол",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:35Z",
+      "completed_at": "2026-10-10T21:04:00Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "govulncheck",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:28Z",
+      "completed_at": "2026-10-10T21:03:57Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "stack own boots (kind, production posture)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:18Z",
+      "completed_at": "2026-10-10T21:14:52Z",
+      "check_suite": {
+        "id": 103192606789
+      }
+    },
+    {
+      "name": "Postgres-пробы вне отбора интеграционной джобы (пропуск =...",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:46Z",
+      "completed_at": "2026-10-10T21:06:09Z",
+      "check_suite": {
+        "id": 103192606701
+      }
+    },
+    {
+      "name": "trivy (fs + IaC)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:06Z",
+      "completed_at": "2026-10-10T21:10:47Z",
+      "check_suite": {
+        "id": 103192606751
+      }
+    },
+    {
+      "name": "gosec (Go static analysis)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:01Z",
+      "completed_at": "2026-10-10T21:10:07Z",
+      "check_suite": {
+        "id": 103192606751
+      }
+    },
+    {
+      "name": "сводный вердикт (все проверки завершились и зелены)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:12Z",
+      "completed_at": "2026-10-10T21:48:47Z",
+      "check_suite": {
+        "id": 103192606632
+      }
+    },
+    {
+      "name": "build vpc",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:04:03Z",
+      "completed_at": "2026-10-10T21:04:46Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build registry",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:20Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build iam",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:18Z",
+      "completed_at": "2026-10-10T21:04:02Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build dashboard",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:10Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build nlb",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:18Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build system",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:12Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build compute",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:11Z",
+      "completed_at": "2026-10-10T21:03:38Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build storage",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:03:21Z",
+      "completed_at": "2026-10-10T21:04:36Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (registry)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:04:32Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "build host",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:09Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (system)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:04:14Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (storage)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:14Z",
+      "completed_at": "2026-10-10T21:04:54Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "заголовок и тело запроса без атрибуции",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:02:12Z",
+      "check_suite": {
+        "id": 103192606539
+      }
+    },
+    {
+      "name": "план шардов + гейты покрытия",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:04:09Z",
+      "check_suite": {
+        "id": 103192606583
+      }
+    },
+    {
+      "name": "unit (host)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:16Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (vpc)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:04:13Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (dashboard)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:03:05Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (compute)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:05Z",
+      "completed_at": "2026-10-10T21:04:33Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (nlb)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:04:34Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "федерация исполняется",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:02:45Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "typecheck (11 пакетов)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:04:12Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "unit (iam)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:05Z",
+      "completed_at": "2026-10-10T21:03:33Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "матрица покрывает все remotes",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:06Z",
+      "completed_at": "2026-10-10T21:02:17Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    },
+    {
+      "name": "линт (покрытие 11 пакетов + shared + scripts)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-10T21:02:05Z",
+      "completed_at": "2026-10-10T21:07:28Z",
+      "check_suite": {
+        "id": 103192606435
+      }
+    }
+  ]
+}

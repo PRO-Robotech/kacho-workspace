@@ -48,6 +48,11 @@ export const meta = {
 //    (STEP_MIN), долгий прогон — отсоединённо с исходом «идёт»; CI читается
 //    КОРОТКИМ шагом без ожидания, повтор и паузу делает шаблон (CI_READS чтений,
 //    между ними одна команда паузы CI_PAUSE_S ≤ 300 с), а не агент циклом.
+//  - CI читается ТОЛЬКО scripts/ci-read.sh (ws#1006; урок kacho#3142 — влит при
+//    «зелёно 30 из 30», когда проверок было 68 и 3 шли, база устарела): рецептом
+//    «ЗАПУСК» из origin/main; состояние — из КОДА (CI_STATE: 0 green · 1 red ·
+//    2 unread · 3 running · 4 stale), ответ агента не толкуется. Перед вливанием —
+//    ещё одно чтение на голове посадки: вливание только при коде 0 на ней.
 //  - пустые ходы (ws#1004): вывод plan-precheck разбирается parseJsonTail — объект
 //    из ПОСЛЕДНЕЙ строки, строки CENSUS перед ним не мешают; файл вне перечня полосы,
 //    которого нет и в перечнях соседей, исполнитель берёт сам и называет в отчёте —
@@ -97,7 +102,9 @@ const S_WREV = { type: 'object', properties: { verdict: { type: 'string', enum: 
 const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'report'] }
 const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'integer', minimum: 1 }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
 const S_STACK = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, contains: { type: 'array', items: { type: 'string' } }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'contains', 'conflicts', 'report'] }
-const S_CI = { type: 'object', properties: { state: { type: 'string', enum: ['green', 'red', 'running', 'not_run', 'unread'] }, head: { type: 'string' }, total: { type: 'number' }, passed: { type: 'number' }, report: { type: 'string' } }, required: ['state', 'head', 'total', 'passed', 'report'] }
+// Код scripts/ci-read.sh → состояние CI; иного кода нет — unread (не «зелёное»).
+const CI_STATE = { 0: 'green', 1: 'red', 2: 'unread', 3: 'running', 4: 'stale' }
+const ciState = r => (r && Number.isInteger(r.code) && CI_STATE[r.code]) || 'unread'
 const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 // Рецепт «ЗАПУСК» — ОДИН источник: шапка scripts/landing-precheck.sh на origin/main
 // между метками «рецепт ЗАПУСК». Текста рецепта шаблон не несёт: команда вырезает
@@ -319,16 +326,21 @@ if (steps.has('wave-reviewer')) {
   if (!wr || wr.verdict !== 'accept') return { ok: false, stage: 'рецензент волны — ' + (wr && wr.verdict === 'return' && !covered ? 'возврат без вердикта по каждой полосе: факта нет, ' : 'возврат; ') + 'доводка по ' + D + '/wave-review.md в ветках полос и пересведение решает диспетчер', blocking: wr ? wr.blocking : [], remainder, errors }
   waveReviews.push({ role: 'wave-reviewer', sha: wr.sha, verdict: wr.verdict, blocking: wr.blocking })
 }
-// CI: «идёт» — ждать, не провал; вердикт — только на голове сборки
+// CI: «идёт» — ждать, не провал; вердикт — только на голове сборки и только
+// кодом scripts/ci-read.sh (ws#1006): полный набор, завершённые прогоны,
+// обязательные контексты базы, свежая база.
+const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Сначала ОДНА команда паузы `sleep ' + CI_PAUSE_S + '`, затем ' : '') + 'прочти вердикт ОДИН раз командой `' + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci') + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT).', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_MECH })
 let ci = null
 for (let i = 0; i < CI_READS; i++) {
-  ci = await agent(C + '\n\nРежим CI, чтение ' + (i + 1) + ' из ' + CI_READS + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + asm.head + '. ' + (i ? 'Сначала ОДНА команда паузы `sleep ' + CI_PAUSE_S + '`, затем ' : '') + 'прочти check-runs НА ЭТОЙ голове ОДИН раз (`gh pr checks` без --watch, без цикла); идёт — сразу верни running: повтор делает шаблон. ' + due('ci') + ' Отчёт — ' + D + '/ci-' + i + '.md. Верни state, head, total, passed, report.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci:' + i, phase: 'Сборка', schema: S_CI })
-  if (!ci || ci.state !== 'running') break
+  ci = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
+  if (ciState(ci) !== 'running') break
 }
 // «Идёт» и после ожидания — СОСТОЯНИЕ, а не провал: волна не влита и не сломана,
 // повтор шаблона продолжит с той же головы (state running отличим от failed).
-if (ci && ci.state === 'running' && ci.head === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' — ожидание исчерпано, провала нет', pr: asm.pr, head: asm.head, report: ci.report, errors }
-if (!ci || ci.state !== 'green' || ci.head !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + (ci ? ci.state : 'нет ответа'), report: ci ? ci.report : '', errors }
+const ciHead = sha40(ci && ci.head)
+if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
+if (ciState(ci) === 'stale') return { ok: false, state: 'failed', stage: 'CI: база устарела (ci-read код 4) — влить свежую ' + (A.epic || A.base) + ' в ветку волны и читать заново', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
+if (ciState(ci) !== 'green' || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], errors }
 
 // ── Посадка ─────────────────────────────────────────────────────────────
 // Факты собираются (CI на голове, ревью уровня на головах, коды предпроверки);
@@ -343,7 +355,7 @@ for (const d of Object.values(done)) {
   if (stale.length) return { ok: false, stage: 'вердикт роли не на сведённой голове полосы ' + d.key, stale, errors }
 }
 const reviews = waveReviews
-const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на sha головы из landing-precheck; код 0 — вливать; 1 только с CI-PENDING — ждать; 1 только с причинами тела — правка тела и повтор; иначе и код 2 — не вливать, вернуть код и вывод'
+const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на sha головы из landing-precheck; CI — только scripts/ci-read.sh код 0 на этой голове; код 0 обоих — вливать; 1 только с CI-PENDING — ждать; 1 только с причинами тела — правка тела и повтор; иначе и код 2 — не вливать, вернуть код и вывод'
 const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни рецепт «ЗАПУСК» шапки landing-precheck.sh (он вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2) `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : ''), D + '/landing-precheck-' + round + '.md') + '`; code — код этой команды. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
 let lp = await landCheck(1)
 if (lp && lp.code === 1) {
@@ -370,5 +382,10 @@ if (steps.has('landing-reviewer')) {
     if (!lr || lr.verdict !== 'accept' || lr.sha !== landHead) return { ok: false, stage: 'landing-reviewer — ' + (lr && lr.verdict === 'accept' ? 'вердикт о другой sha' : 'возврат'), blocking: lr ? lr.blocking : [], remainder, errors }
   }
 }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+// Последнее чтение CI — на голове посадки, тем же скриптом: между сборкой и
+// вливанием база могла уйти вперёд, а голова — получить слияние базы.
+const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
+if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors }
+if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], errors }
+const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
 return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
