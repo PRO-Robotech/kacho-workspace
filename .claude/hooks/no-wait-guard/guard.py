@@ -38,7 +38,8 @@ agent_type входа хука, когда оно есть) меткой не п
 
 Судит РАЗОБРАННУЮ строку: она режется на простые команды по операторам вне
 кавычек, собирается в списки, конвейеры, группы и циклы (while/until/for/if/{ }/( )),
-тела `bash -c`, `$(…)` и heredoc, поданного оболочке, разбираются тем же разбором.
+тела `bash -c`, `$(…)` и heredoc, поданного оболочке (`bash <<EOF`, `cat <<EOF | bash`),
+разбираются тем же разбором.
 Слова, присваивания и обёртки снимаются функциями heavy-guard (`words`, `unwrap`
 логикой ниже) — второго лексера кавычек здесь нет.
 
@@ -390,10 +391,13 @@ class Judge:
         for n in nodes:
             self.node(n, c)
         for line, hbody in bodies:  # heredoc, поданный оболочке, — команды
-            ws = hg.words(line)
-            argv, _, _ = head(ws)
-            if argv and os.path.basename(argv[0]) in SHELLS:
-                self.text(hbody, ctx)
+            # оболочка — сама команда строки (`bash <<EOF`) либо звено конвейера после
+            # неё (`cat <<EOF | bash`): тело исполняется так же
+            for seg in line.split("|"):
+                argv, _, _ = head(hg.words(seg))
+                if argv and os.path.basename(argv[0]) in SHELLS:
+                    self.text(hbody, ctx)
+                    break
 
     def has_bg(self, n):
         return n.bg or any(self.has_bg(k) for k in n.kids)
