@@ -67,6 +67,13 @@
 #   исполнителю — «продолжай свою ветку от головы сводки» без «влей сводку»;
 #   близнец kacho — прежняя `<N>-stack-<ключ>`, снимаемая вливанием, исполнителю —
 #   «влей сводку» без «уже в твоей ветке» (ws#946).
+#   пустые ходы (ws#1004): вывод плана со строками CENSUS перед JSON разбирается
+#   (объект — из последней строки), задание плана просит только её; JSON не в
+#   последней строке и мусор — остановка «не разобран»; правило о чужих файлах — в
+#   преамбуле каждого задания и в задании исполнителя вместе с перечнями путей
+#   соседей (своего среди них нет; полоса одна — «соседей нет»); hookLog не путь —
+#   одна доводка, снова не путь — полоса стоит без предпроверки вслепую, соседи
+#   садятся; report — содержательный итог.
 #   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
 #   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
 #   не принимает; не-номерные ветки kaname, уже лежащие на origin.
@@ -155,7 +162,7 @@ async function run(sc) {
     const label = opts.label || ''
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
     const lane = label.split(':').pop()
-    if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: JSON.stringify(o), reasons: (o.reasons || []).map(r => r.code), head: '' } }
+    if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
     if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: (prompt.match(/заведи ветку (\S+)/) || [])[1] || '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
     if (label.startsWith('mech:precheck:')) return { out: '', head: heads[lane], reasons: [], ...take('pre:' + lane, () => ({ code: 0 })) }
@@ -488,6 +495,35 @@ ok(r.res.ok === false && r.res.state === 'running' && by(r.calls, c => c.label.s
 r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['CI-PENDING'] }, { code: 1, reasons: ['CI-PENDING', 'MERGE-READINESS'] }] })
 ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI-PENDING и MERGE-READINESS — state failed')
 
+console.log('== пустые ходы (ws#1004): разбор плана, чужие файлы, hookLog — путь')
+const CENSUS = 'CENSUS\tплан /ws/tmp/wave-9/plan-1.json: полос 2, слоёв 1\nCENSUS\tcorelib: полос kacho и kaname нет — не судился\nVERDICT\tplan-ok\tпричин 0\n'
+r = await run({ args, plan: [P('r0.json')], planPrefix: CENSUS })
+ok(r.res.ok === true, 'вывод плана со строками CENSUS перед JSON — разобран (parseJsonTail), волна влита', JSON.stringify(r.res).slice(0, 200))
+ok(/ТОЛЬКО последняя строка \.out\.json/.test(prm(r.calls, 'mech:plan:1')), 'задание плана просит только последнюю строку вывода', prm(r.calls, 'mech:plan:1').slice(-300))
+r = await run({ args, plan: [P('r0.json')], planOut: JSON.stringify(P('r0.json'), null, 2) })
+ok(r.res.ok === true, 'близнец: многострочный JSON целиком — разобран', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], planOut: CENSUS + 'готово' })
+ok(r.res.ok === false && r.res.stage === 'план' && /не разобран/.test(r.res.why || '') && by(r.calls, c => c.label.startsWith('impl:')) === 0, 'последняя строка не JSON — остановка «не разобран», исполнители не званы', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], planOut: JSON.stringify(P('r0.json')) + '\nCENSUS\tхвост' })
+ok(r.res.ok === false && r.res.stage === 'план', 'близнец: JSON не в последней строке — не разобран (берётся хвост, а не первый попавшийся объект)', JSON.stringify(r.res).slice(0, 200))
+const argsP = { ...args, lanes: [{ ...lanes2[0], paths: ['docs/a.md', 'docs/a2.md'] }, { ...lanes2[1], paths: ['docs/b.md'] }] }
+r = await run({ args: argsP, plan: [P('r0.json')] })
+ok(r.calls.length > 0 && r.calls.every(c => /ФАЙЛЫ ПОЛОСЫ: файл вне твоего перечня, которого нет в перечне соседних полос, — бери сам и назови в отчёте; blocked — только если нужен файл соседа/.test(c.prompt.split('\n\n')[0])), 'правило о чужих файлах — в общей преамбуле каждого задания')
+const iPA = prm(r.calls, 'impl:A'), iPB = prm(r.calls, 'impl:B')
+const own = x => x.split('\n\n').slice(1).join(' ')
+ok(/ФАЙЛЫ ПОЛОСЫ/.test(own(iPA)) && own(iPA).includes('Перечни соседей: B: docs/b.md') && own(iPA).includes('Твой перечень: docs/a.md, docs/a2.md') && !own(iPA).includes('A: docs/a.md'), 'исполнителю A — правило и перечень соседа B, своего перечня среди соседей нет', own(iPA).slice(0, 500))
+ok(own(iPB).includes('Перечни соседей: A: docs/a.md, docs/a2.md') && !own(iPB).includes('B: docs/b.md'), 'исполнителю B — перечень соседа A', own(iPB).slice(0, 500))
+r = await run({ args: { ...args, lanes: [{ ...lanes2[0], paths: ['docs/a.md'] }] }, plan: [P('r0.json')] })
+ok(own(prm(r.calls, 'impl:A')).includes('Перечни соседей: соседей нет'), 'близнец: полоса одна — «соседей нет», а не пустая строка')
+r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), hookLog: 'зелёный, отказов 0' }] })
+const iAs = r.calls.filter(c => c.label === 'impl:A')
+ok(r.res.ok === true && iAs.length === 2 && /hookLog «зелёный, отказов 0» — не путь/.test(iAs[1].prompt) && !/зелёный, отказов 0/.test(prm(r.calls, 'mech:precheck:A')) && prm(r.calls, 'mech:precheck:A').includes('--hook-log /ws/tmp/push.log'), 'hookLog не путь — доводка исполнителя, предпроверка получает путь', JSON.stringify(iAs.map(c => c.prompt.slice(-200))))
+ok(/hookLog \(ПУТЬ к журналу отправки/.test(iAs[0].prompt) && /report \(содержательный итог/.test(iAs[0].prompt), 'задание исполнителя: hookLog — путь, report — содержательный итог')
+r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), hookLog: 'ok' }, { status: 'done', head: H('A', 2), hookLog: '' }] })
+ok(inRest(r.res, 'A') && /hookLog не путь/.test(((r.res.remainder || []).find(x => x.key === 'A') || {}).stage || '') && by(r.calls, c => c.label === 'mech:precheck:A') === 0 && asmHas(r.calls, '9-b'), 'hookLog не путь и после доводки — A стоит с причиной, предпроверки вслепую нет, B садится', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args, plan: [P('r0.json')] })
+ok(r.res.ok === true && by(r.calls, c => c.label === 'impl:A') === 1, 'близнец: hookLog — путь, доводки нет')
+
 console.log(`RESULT ${pass} ${fail}`)
 process.exit(fail ? 1 : 0)
 JS
@@ -638,6 +674,17 @@ mutant "повтор CI без паузы" "(i ? 'Сначала ОДНА" "(fal
 mutant "D3 CI ждут --watch" "(\`gh pr checks\` без --watch, без цикла)" "(\`gh pr checks --watch\` до окончания)"
 mutant "D4 CI опрашивают словами" "идёт — сразу верни running: повтор делает шаблон." "идёт — повторяй чтение каждые 60 с до окончания, затем верни итог; повтор делает шаблон."
 mutant "срок CI-чтения больше 10 мин" "implement: 90, review: 30, mech: 10, ci: 2 }" "implement: 90, review: 30, mech: 10, ci: 60 }"
+# ws#1004: пустые ходы.
+mutant "план — JSON.parse всего вывода" "  plan = r ? parseJsonTail(r.out) : null" "  try { plan = r ? JSON.parse(r.out) : null } catch (e) { plan = null }"
+mutant "план — первый объект, а не хвост" "  try { return obj(JSON.parse(lines[lines.length - 1])) } catch (e) { return null }" "  for (const x of lines) { try { const o = obj(JSON.parse(x)); if (o) return o } catch (e) { /* дальше */ } } return null"
+mutant "задание плана без «только последняя строка»" "out (ТОЛЬКО последняя строка .out.json — JSON-объект плана, дословно, без строк CENSUS и пояснений)" "out (содержимое .out.json дословно)"
+mutant "правило о файлах снято из преамбулы" $'  FILES_RULE,\n' ""
+mutant "правило о файлах снято у исполнителя" "'\\n' + FILES_RULE + ' Твой перечень: '" "'\\n' + ' Твой перечень: '"
+mutant "перечни соседей не передаются" "'. Перечни соседей: ' + (neighbours(l) || 'соседей нет')" "'. Перечни соседей: ' + ('соседей нет')"
+mutant "соседи — все полосы, включая свою" "lanes.filter(x => x.key !== l.key).map(" "lanes.map("
+mutant "hookLog не судится" "const isPath = s => typeof s === 'string' && /^\\/[^\\s]+\$/.test(s)" "const isPath = s => true"
+mutant "hookLog не путь после доводки — дальше" "  if (!isPath(impl.hookLog)) return" "  if (false) return"
+mutant "report без содержания" "report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня)" "report"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo

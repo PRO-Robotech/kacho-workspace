@@ -48,6 +48,11 @@ export const meta = {
 //    (STEP_MIN), долгий прогон — отсоединённо с исходом «идёт»; CI читается
 //    КОРОТКИМ шагом без ожидания, повтор и паузу делает шаблон (CI_READS чтений,
 //    между ними одна команда паузы CI_PAUSE_S ≤ 300 с), а не агент циклом.
+//  - пустые ходы (ws#1004): вывод plan-precheck разбирается parseJsonTail — объект
+//    из ПОСЛЕДНЕЙ строки, строки CENSUS перед ним не мешают; файл вне перечня полосы,
+//    которого нет и в перечнях соседей, исполнитель берёт сам и называет в отчёте —
+//    blocked только за файлом соседа (перечни соседей — в его задании из args.lanes);
+//    hookLog — путь к журналу отправки (не путь — доводка), report — содержательный итог.
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
@@ -58,13 +63,29 @@ const MECH = { model: 'haiku', effort: 'low', agentType: 'git-operator' }
 const STEP_MIN = { implement: 90, review: 30, mech: 10, ci: 2 }
 const CI_READS = 30
 const CI_PAUSE_S = 240
+// Правило полосы о файлах (ws#1004): blocked на ничейном файле — пустой ход волны.
+const FILES_RULE = 'ФАЙЛЫ ПОЛОСЫ: файл вне твоего перечня, которого нет в перечне соседних полос, — бери сам и назови в отчёте; blocked — только если нужен файл соседа (назови его и полосу).'
+// Объект плана — из ПОСЛЕДНЕЙ непустой строки вывода (механик кладёт в out и строки
+// CENSUS/VERDICT stderr); весь текст — JSON целиком (многострочный) тоже годен.
+const parseJsonTail = out => {
+  if (typeof out !== 'string') return null
+  const obj = x => (x && typeof x === 'object' && !Array.isArray(x)) ? x : null
+  try { const o = obj(JSON.parse(out.trim())); if (o) return o } catch (e) { /* не целиком — хвост */ }
+  const lines = out.split('\n').map(x => x.trim()).filter(Boolean)
+  if (!lines.length) return null
+  try { return obj(JSON.parse(lines[lines.length - 1])) } catch (e) { return null }
+}
+// hookLog — путь к журналу отправки: абсолютный, без пробелов. Слово «зелёный» вместо
+// пути lane-precheck прочесть не может — доводка, а не предпроверка вслепую.
+const isPath = s => typeof s === 'string' && /^\/[^\s]+$/.test(s)
 const due = cls => 'СРОК ШАГА: ' + STEP_MIN[cls] + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди.'
 const C = [
   'Волна ' + N + ' (' + (A.repo || '?') + ', база ' + (A.base || '?') + ', эпик ' + (A.epic || '?') + '). Шаблон .claude/workflows/wave.js.',
   'ПРАВИЛА: хук отправки не обходить; гейты не ослаблять; подпись pointpu; трейлеры и строки атрибуции НЕ СТАВИТЬ НИКОГДА; нельзя --no-verify, --force, --admin, reset, rebase, squash.',
-  'Тяжёлое — через слот ~/.cache/heavy-slots/slot{1..3}.lock (flock). Копии — только под ' + WS + '/tmp/ (основную не трогать, ws#923). Отправка воркспейса — с ' + HOMES + '.',
+  'Тяжёлое — через ' + WS + '/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу, это «не выполнилось», повтор — коротким шагом (ожидание только --wait N ≤ 300). Копии — только под ' + WS + '/tmp/ (основную не трогать, ws#923). Отправка воркспейса — с ' + HOMES + '.',
   'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы.',
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
+  FILES_RULE,
   'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо (setsid nohup, журнал, pid-файл), верни «идёт: pid, журнал, ожидаемое окончание». Слот тяжёлого — внутри того же отсоединённого прогона. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
@@ -100,13 +121,13 @@ const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-CO
 phase('План')
 const runPlan = async (lanes, round) => {
   const plan = { wave: N, targets: A.targets || {}, crossRepo: A.crossRepo === true || undefined, lanes: lanes.map(l => ({ key: l.key, repo: l.repo, dir: l.dir || '', base: l.base || A.base, head: l.head || undefined, paths: l.paths || undefined, deps: l.deps || [], declared: l.tier || undefined, repin: l.repin || undefined })) }
-  return agent(C + '\n\nРежим план: запиши ровно этот JSON в ' + D + '/plan-' + round + '.json: ' + JSON.stringify(plan) + '\nВыполни `bash ' + WS + '/scripts/wave-errors.sh open ' + N + '` и `bash ' + WS + '/scripts/plan-precheck.sh ' + D + '/plan-' + round + '.json --json > ' + D + '/plan-' + round + '.out.json`. Верни code (код plan-precheck), out (содержимое .out.json дословно), reasons (коды причин из него), head "".', { ...MECH, label: 'mech:plan:' + round, phase: 'План', schema: S_MECH })
+  return agent(C + '\n\nРежим план: запиши ровно этот JSON в ' + D + '/plan-' + round + '.json: ' + JSON.stringify(plan) + '\nВыполни `bash ' + WS + '/scripts/wave-errors.sh open ' + N + '` и `bash ' + WS + '/scripts/plan-precheck.sh ' + D + '/plan-' + round + '.json --json > ' + D + '/plan-' + round + '.out.json 2> ' + D + '/plan-' + round + '.census.txt`. Верни code (код plan-precheck), out (ТОЛЬКО последняя строка .out.json — JSON-объект плана, дословно, без строк CENSUS и пояснений), reasons (коды причин из него), head "".', { ...MECH, label: 'mech:plan:' + round, phase: 'План', schema: S_MECH })
 }
 let lanes = (A.lanes || []).map(l => ({ ...l }))
 let plan = null
 for (let round = 1; round <= 2; round++) {
   const r = await runPlan(lanes, round)
-  try { plan = r ? JSON.parse(r.out) : null } catch (e) { plan = null }
+  plan = r ? parseJsonTail(r.out) : null
   if (!plan) return { ok: false, stage: 'план', why: 'вывод plan-precheck не разобран — вердикта нет (код 2, не «годен»)' }
   const auto = plan.autoRepin || []
   const onlySkew = (plan.reasons || []).every(x => x.code === 'CORELIB-SKEW')
@@ -151,7 +172,15 @@ for (const l of lanes) {
 phase('Полосы')
 const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
 const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck: `bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
-const implement = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog, issues (владелец/репо#N), report.', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+const neighbours = l => lanes.filter(x => x.key !== l.key).map(x => x.key + ': ' + ((x.paths || []).join(', ') || 'перечень не задан')).join('; ')
+// Исполнитель с hookLog не путём — одна доводка тем же заданием; снова не путь —
+// полоса стоит (runLane), предпроверка вслепую не зовётся.
+const implement = async (l, tdd, extra, stack) => {
+  const r = await implementOnce(l, tdd, extra, stack)
+  if (!r || !sha40(r.head) || ['blocked', 'failed'].includes(r.status) || isPath(r.hookLog)) return r
+  return implementOnce(l, tdd, (extra ? extra + '\n' : '') + 'hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + D + '/' + l.key + '/push.log', stack)
+}
+const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + D + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
@@ -177,6 +206,7 @@ const runLane = async (l, stack) => {
   const tdd = has('implementer-tdd')
   let impl = await implement(l, tdd, has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', stack)
   if (!impl || ['blocked', 'failed'].includes(impl.status) || !sha40(impl.head)) return { ...out, stage: 'исполнитель', report: rep(l.key, 'implement') }
+  if (!isPath(impl.hookLog)) return { ...out, stage: 'исполнитель: hookLog не путь и после доводки (' + JSON.stringify(impl.hookLog === undefined ? null : impl.hookLog).slice(0, 60) + ')', report: rep(l.key, 'implement') }
   // предпроверка; повтор — только при новой голове
   let pc = await precheck(l, impl, stack)
   if (pc && pc.code === 1) {

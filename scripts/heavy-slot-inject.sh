@@ -73,7 +73,7 @@ assert "64 да" "$(slot bash "$SLOT" docker -- sudo --scope true) $(has "$W/err
 # shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
 assert "0 да" "$(slot bash "$SLOT" docker -- sh -c 'touch "$0"' "$W/e3" systemd-runner --scoped) $([ -e "$W/e3" ] && echo да || echo нет)" "близнец: systemd-runner и --scoped — не те слова, команда исполнилась"
 
-echo "── над настоящей памятью ручек нет: потолок 45 ГиБ, ожидание 1800 с, класс как есть"
+echo "── над настоящей памятью ручек нет: потолок 45 ГиБ, ожидание только --wait ≤ 300 с, класс как есть"
 # Без синтетического meminfo слот судит настоящую память машины — и тогда любая
 # ручка получает 64 ДО первой записи (опыт ws#832, круги 2–3).
 REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_POLL_S -u HEAVY_SLOT_WAIT_S)
@@ -89,9 +89,9 @@ assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=9
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=45 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 45 ГиБ ручкой — 64: величина не переопределяется"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
 assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
-# Близнец идёт в общую очередь с ожиданием 1800 с; занятая машина — «не выполнилось».
+# Близнец идёт в общую очередь без ожидания (ws#1004); занятая машина — 74, «не выполнилось».
 rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" newman -- touch "$W/k5")"
-if [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
+if [ "$rc" = 74 ] || [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
     skip "машина занята — близнец общего каталога не построен ($rc)"
 else
     assert "0 да" "$rc $([ -e "$W/k5" ] && echo да || echo нет)" "близнец: общий каталог без ручек — слот выдан, команда исполнилась"
@@ -153,6 +153,30 @@ assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" newman -- true)" "newman 
 wait "$B"; rc_b=$?; wait "$A"
 assert "75 да" "$rc_b $(has "$W/errB" 'golangci-lint по одному на машину')" "ci-local при идущем lint ждёт, причина названа"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true)" "близнец: линтер вышел — ci-local входит"
+
+echo "── слот занят — код 74 СРАЗУ, ожидание только явным --wait ≤ 300 с (ws#1004)"
+# Решение владельца 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание
+# слота в переднем плане — 116,4 агент-ч замера ws#1001. Без --wait занятый слот
+# отвечает кодом 74 за доли секунды; ручка ожидания проб снята (-u HEAVY_SLOT_WAIT_S) —
+# вызов тот же, что у агента.
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 5 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+t0="$(date +%s%N)"
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- touch "$W/b1")"
+ms=$(( ($(date +%s%N) - t0) / 1000000 ))
+assert "74 да да нет" "$rc $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 0') $([ "$ms" -lt 2000 ] && echo да || echo "нет(${ms}мс)") $([ -e "$W/b1" ] && echo да || echo нет)" "все слоты заняты — код 74 за < 2 с, «слот занят, очередь K» названо, команда не запускалась"
+assert "busy" "$(grep -o ' busy ' "$HEAVY_SLOT_DIR/journal.log" | tr -d ' ' | head -n 1)" "занятость записана в журнал"
+assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- touch "$W/b2") $([ -e "$W/b2" ] && echo да || echo нет)" "близнец: малый слот влезает рядом — выдан сразу, без ожидания"
+# Счёт ожидания — в целых секундах: «~1 с» бывает и долей секунды на границе.
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 1 docker -- touch "$W/b3")"
+assert "75 да нет" "$rc $(has "$W/err" 'не выдан за') $([ -e "$W/b3" ] && echo да || echo нет)" "--wait 1 при занятом — ожидание истекло: 75 (не 74), команда не запускалась"
+wait "$A"
+assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 2 docker -- touch "$W/b4") $([ -e "$W/b4" ] && echo да || echo нет)" "близнец: --wait 2 при свободном — выдан сразу"
+assert "64 да" "$(slot bash "$SLOT" --wait 301 docker -- true) $(has "$W/err" 'целое от 0 до 300')" "--wait 301 — 64: дольше 300 с вызов не ждёт"
+assert "64 да" "$(slot bash "$SLOT" --wait 2400 docker -- true) $(has "$W/err" 'целое от 0 до 300')" "--wait 2400 (прежние 1800+) — 64"
+assert 64 "$(slot bash "$SLOT" --wait x docker -- true)" "--wait без числа — 64"
+assert "0 да" "$(slot bash "$SLOT" --wait 300 docker -- touch "$W/b5") $([ -e "$W/b5" ] && echo да || echo нет)" "близнец: --wait 300 — законная граница"
+assert "64 да" "$(slot HEAVY_SLOT_WAIT_S=301 bash "$SLOT" docker -- true) $(has "$W/err" 'больше 300 с')" "ручка проб HEAVY_SLOT_WAIT_S=301 — 64: и проба дольше не ждёт"
 
 echo "── запись слота, чей держатель умер, снимается при следующем входе"
 printf 'class=go-race\nbudget=999\npid=999999\npid_start=1\nunit=\nstart=1\nseq=0\n' > "$HEAVY_SLOT_DIR/active/1-999999.slot"
