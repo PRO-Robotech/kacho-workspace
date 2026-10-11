@@ -2676,6 +2676,29 @@ PY
 run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C19"
 b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
 run 1 "$b" "инъекция: разбора no-wait-guard нет — краснеет" "$C19"
+# Провязка судится по ФАЙЛУ, который исполнит команда, а не по подстроке имени:
+# неверный путь и выключенная копия дают хуку код 127 — страж выключен молча.
+nwg_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    for h in g['hooks']:
+        if 'no-wait-guard' in h.get('command', ''): h['command'] = sys.argv[2]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/no-wait-guard/no-wait-guard.sh"'
+run 1 "$b" "инъекция: PreToolUse зовёт несуществующий путь (имя хука в подкаталоге) — краснеет" "$C19"
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/no-wait-guard.sh.off"'
+run 1 "$b" "инъекция: PreToolUse зовёт выключенную копию «.off» — краснеет" "$C19"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/no-wait-guard.sh"
+run 1 "$b" "инъекция: канонический хук не исполним — краснеет" "$C19"
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/no-wait-guard.sh"'
+run 0 "$b" "близнец: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C19"
 b="$(mksandbox)"
 python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
 import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`blocked` — лишь за файлом соседа', '`blocked` — по усмотрению'))

@@ -102,6 +102,9 @@ denies "$TMO"   'timeout 600 go test ./...'
 denies "$TMO"   'timeout 1h make ci'
 denies "$TMO"   'nohup timeout 3600 go test ./... > l 2>&1'
 denies "$TMO"   'setsid timeout 900 go test ./...'
+denies "$SLEEP" 'sudo sleep 900'
+denies "$SLEEP" 'sudo -u root -- sleep 900'
+denies "$TMO"   'sudo -E timeout 3600 make ci'
 denies "$FLOCK" 'flock -w 300 ~/.cache/heavy-slots/slot1.lock go test ./...'
 denies "$FLOCK" 'flock -w 2400 /tmp/l true'
 denies "$FLOCK" 'flock ~/.cache/heavy-slots/slot1.lock go test ./...'
@@ -127,6 +130,8 @@ passes 'tail -n 50 /tmp/run.log; kill -0 4242 && echo идёт'
 passes 'gh pr checks 7'
 passes 'gh run view 123456 --json status,conclusion'
 passes 'flock -n /tmp/l true'
+passes 'sudo true'
+passes 'sudo -u root sleep 5'
 passes 'flock -w 60 /tmp/l true'
 passes 'setsid nohup timeout 3600 go test ./... > /tmp/run.log 2>&1 & echo $! > /tmp/run.pid'
 passes 'nohup bash -c "until test -f d; do sleep 5; done" > l 2>&1 &'
@@ -171,6 +176,9 @@ denied=$((denied + 5))
 echo "== граница (BOUNDARY шапки guard.py) — известно, не ловится"
 boundary "ожидание внутри скрипта"     'bash ./wait-for-ci.sh'
 boundary "wait без фонового запуска"   'wait 4242'
+boundary "eval: строка не разбирается" 'eval "sleep 900"'
+boundary "xargs: argv из входа"       'echo 900 | xargs sleep'
+boundary "иной интерпретатор"         'python3 -c "import time; time.sleep(900)"'
 
 echo "== поломка стража — пропуск со словом «СЛОМАН», а не отказ"
 mkdir -p "$WORK/broken/no-wait-guard"
@@ -234,6 +242,8 @@ mutant "подстановка не судится"     '            self.text(s
 mutant "метка без timeout"          'left = [f for f in j.found if f.bound is None or f.bound > limit]' 'left = []' 'gh run watch 1 # no-wait-exempt ci-watcher 9m'
 mutant "метка любого агента"        '    if agent_type and agent_type != "ci-watcher":' '    if False:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 9m' go-implementer
 mutant "метка сверх 9 мин"          'if mins > EXEMPT_MAX_MIN or mins < 1:' 'if mins < 1:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 10m'
+mutant "sudo не снимается"          '        if base == "sudo":' '        if False:' 'sudo sleep 900'
+mutant "флаг sudo без значения"    'i += 2 if argv[i] in SUDO_ARG else 1' 'i += 1' 'sudo -u root sleep 900'
 mutant "nohup отсоединяет"          '        if base in ("nohup", "nice",' '        if base == "nohup":
             detached = True
         if base in ("nohup", "nice",' 'nohup timeout 3600 go test ./... > l 2>&1'

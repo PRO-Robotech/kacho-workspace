@@ -40,8 +40,8 @@ agent_type входа хука, когда оно есть) меткой не п
 кавычек, собирается в списки, конвейеры, группы и циклы (while/until/for/if/{ }/( )),
 тела `bash -c`, `$(…)` и heredoc, поданного оболочке (`bash <<EOF`, `cat <<EOF | bash`),
 разбираются тем же разбором.
-Слова, присваивания и обёртки снимаются функциями heavy-guard (`words`, `unwrap`
-логикой ниже) — второго лексера кавычек здесь нет.
+Слова, присваивания и обёртки (nohup, nice, env, setsid, timeout, sudo и др.) снимаются
+функциями heavy-guard (`words`, `unwrap` логикой ниже) — второго лексера кавычек здесь нет.
 
 Исходы: 0 без вывода — пропуск; 2 и текст в stderr — отказ; 0 и additionalContext
 «СЛОМАН» — страж не смог судить (громко, но не запирая: страж, отказывающий всему,
@@ -51,7 +51,10 @@ agent_type входа хука, когда оно есть) меткой не п
 make (страж судит строку, а не текст файла); `wait <pid>` без фонового запуска в той
 же строке (чужой процесс не потомок этой оболочки — `wait` возвращается сразу);
 инструмент Monitor (его предмет — ожидание по замыслу харнесса; матчер этого
-стража — Bash).
+стража — Bash); команда, собранная во время исполнения, — `eval "sleep 900"`
+(строка eval не разбирается), `echo 900 | xargs sleep` (argv собирает xargs из
+входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
+страж судит команды оболочки, а не текст программы на другом языке).
 """
 
 import json
@@ -74,6 +77,7 @@ SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 OPENERS = {"while", "until", "for", "if", "{", "case", "select"}
 CLOSERS = {"done": ("while", "until", "for", "select"), "fi": ("if",), "}": ("{",), "esac": ("case",)}
 TRANSPARENT = {"do", "then", "else", "elif", "!", "in"}
+SUDO_ARG = {"-u", "-g", "-p", "-C", "-D", "-r", "-t", "-T", "-U", "-R", "-h"}  # флаги sudo со значением
 
 CLASS_TEXT = {
     "loop-sleep": "цикл until/while со sleep — опрос в переднем плане",
@@ -349,6 +353,15 @@ def head(argv):
                 if argv[i] in ("-f", "--fork"):
                     detached = True
                 i += 1
+            continue
+        if base == "sudo":
+            # повышение прав не меняет ожидания: `sudo sleep 900` ждёт так же
+            i += 1
+            while i < len(argv) and argv[i].startswith("-"):
+                if argv[i] == "--":
+                    i += 1
+                    break
+                i += 2 if argv[i] in SUDO_ARG else 1
             continue
         if base == "env":
             i += 1
