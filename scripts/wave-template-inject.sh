@@ -377,6 +377,13 @@ ok(!prm(r.calls, 'mech:plan:1').includes('crossRepo'), 'близнец: без �
 console.log('== «идёт» и «уже сделано» — не провал')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 3 }, { code: 0 }] })
 ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 3, 'CI идёт дважды — ждать, затем зелёное')
+// ws#1013: черновик — целевой зелёный (код 5) переводит PR в ready ОДИН раз и ждёт полного
+r = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }, { code: 3 }, { code: 0 }] })
+ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && /gh pr ready 7/.test(prm(r.calls, 'mech:ready')), 'черновик: целевой зелёный — перевод в ready один раз, затем полный зелёный', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }, { code: 5 }] })
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:ready') === 1 && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'целевой зелёный и после перевода в ready — не вливание и не второй перевод', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')] })
+ok(/gh pr create --draft/.test(prm(r.calls, 'mech:assemble:1')) && /affected\.py --base origin\/\S+ --run/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, выбор затронутого до каждой отправки')
 ok(by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'ожидание CI ошибкой не записано')
 r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'already-done', head: H('A', 9) }] })
 ok(r.res.ok === true, '«уже сделано» исполнителя — полоса идёт дальше')
@@ -504,7 +511,7 @@ const CIS = +((body.match(/const STEP_MIN = \{[^}]*\bci: (\d+)/) || [])[1] || 0)
 // судит сценарий «CI — только кодом ci-read.sh»); указание вокруг неё — закрытый мир.
 const ciWant = i => 'Режим CI, чтение ' + (i + 1) + ' из ' + CIR + ': ' + args.repo + ' PR #7, голова ' + HW + '. ' + (i ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: `s0=$(date +%s); sleep ' + CIP + '; echo "SLEPT $(( $(date +%s) - s0 ))"; ' : 'Прочти вердикт ОДИН раз командой: `')
 // Срок чтения с паузой — срок CI-шага плюс длина паузы в минутах (ws#1010).
-const ciWant2 = i => '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. СРОК ШАГА: ' + (CIS + (i ? Math.ceil(CIP / 60) : 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди. Отчёт — '
+const ciWant2 = i => '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: повтор делает шаблон. СРОК ШАГА: ' + (CIS + (i ? Math.ceil(CIP / 60) : 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди. Отчёт — '
 const ciGot = c => c.prompt.split('\n\n').slice(1).join(' ')
 const ciCut = (g, i) => { if (!g.startsWith(ciWant(i))) return null; const k = g.indexOf(' 2>&1` (', ciWant(i).length); return k < 0 ? null : g.slice(k + ' 2>&1'.length) }
 const ciBad = cis.map((c, i) => { const t = ciCut(ciGot(c), i); return t !== null && t.startsWith(ciWant2(i)) ? '' : 'чтение ' + (i + 1) + ': ' + ciGot(c).slice(0, 220) }).filter(Boolean)
@@ -780,8 +787,15 @@ mutant "рабочие копии продукта — из ws-копии" "'KAC
 mutant "GOMOD-ABOVE — не механика" "'MAIN-COPY', 'GOMOD-ABOVE'])" "'MAIN-COPY'])"
 # ws#1006: CI — только кодом ci-read.sh, и перед вливанием — на голове посадки.
 mutant "CI читается не ci-read.sh" "recipeRun('ci-read.sh', " "recipeRun('landing-precheck.sh', "
-mutant "код 3 толкуется как зелёный" "3: 'running', 4: 'stale' }" "3: 'green', 4: 'stale' }"
-mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'stale' }" "3: 'running', 4: 'green' }"
+mutant "код 3 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'green', 4: 'stale', 5:"
+mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'running', 4: 'green', 5:"
+# ws#1013: целевой зелёный черновика — не вливание; перевод в ready ровно один раз;
+# сборка открывает PR черновиком и гоняет выбор затронутого до отправки.
+mutant "код 5 (целевой) толкуется как зелёный" "5: 'targeted-green' }" "5: 'green' }"
+mutant "легенда CI без кода 5" " · 4 база устарела · 5 целевой зелёный черновика (не основание вливать);" " · 4 база устарела;"
+mutant "перевод в ready не однократный" "=== 'targeted-green' && !readied && " "=== 'targeted-green' && "
+mutant "PR волны не черновиком" "открой ЧЕРНОВИКОМ (\`gh pr create --draft\`)" "открой"
+mutant "доводки без выбора затронутого" "\`python3 .github/scripts/affected.py --base origin/" "\`true --base origin/"
 mutant "неизвестный код — зелёный" "CI_STATE[r.code]) || 'unread'" "CI_STATE[r.code]) || 'green'"
 mutant "голова CI не судится" "if (ciState(ci) !== 'green' || ciHead !== asm.head)" "if (ciState(ci) !== 'green')"
 mutant "вливание без чтения на голове посадки" "if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead)" "if (false)"

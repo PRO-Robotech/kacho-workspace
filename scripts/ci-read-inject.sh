@@ -27,6 +27,12 @@
 #   обязательный контекст исчез при завершённом остальном          → 1 REQUIRED-MISSING
 #   обязательный контекст skipped                                  → 1 REQUIRED-NOT-SUCCESS
 #   последний по started_at прогон имени failure, прежний success  → 1 CI-FAILED
+#   черновик (ws#1013): исполненное зелёное, прочее skipped, страж
+#             с аннотацией «черновик не вливается»                 → 5 targeted-green
+#   черновик: failure БЕЗ аннотации стража — настоящий отказ       → 1 CI-FAILED
+#   черновик: страж есть, выбранное задание failure                → 1 CI-FAILED
+#   черновик: страж ещё идёт                                       → 3 DRAFT-GUARD-PENDING
+#   не черновик: та же аннотация стражем не делает                 → 1 CI-FAILED
 #   площадка не отдала check-runs                                  → 2 VOID
 #   пары репозиторий/база нет в ведомости                          → 2 VOID
 # Близнецы (обязаны молчать — код 0): прежний прогон имени failure стоит в ответе
@@ -40,7 +46,9 @@
 # не легла в текст (образец не нашёлся), — VOID, а не «убит». Перечень:
 #   paginate-dropped    — apip() без --paginate: читается первая страница;
 #   status-failure-ok   — commit status failure/error отображён в success;
-#   failset-<значение>  — значение убрано из FAILSET, по одному на каждое из шести.
+#   failset-<значение>  — значение убрано из FAILSET, по одному на каждое из шести;
+#   draft-ignored       — черновик читается как готовый запрос;
+#   guard-any-failure   — стражем считается любой failure черновика, без аннотации.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -68,6 +76,7 @@ case "$p" in
   repos/*/rules/branches/*) f=rules.json ;;
   repos/*/branches/*) f=branch.json ;;
   repos/*/compare/*) f=compare.json ;;
+  repos/*/check-runs/*/annotations) f=annotations.json ;;
   *) f=none ;;
 esac
 if [ -f "$CI_READ_FX/$f.err" ]; then cat "$CI_READ_FX/$f.err" >&2; exit 1; fi
@@ -145,6 +154,29 @@ run "обязательный контекст skipped" 1 '^REASON\tREQUIRED-NOT
 mk; edit check-runs.json '.check_runs = .check_runs + [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2099-01-01T00:00:00Z"]'
 run "повтор имени позже прежнего success — failure" 1 '^REASON\tCI-FAILED\tfailure: '
 
+say "== черновик — целевой прогон (ws#1013)"
+AGG="сводный вердикт (все проверки завершились и зелены)"
+# черновик: 20 проверок skipped (не выбраны), страж — failure с аннотацией
+draft() {
+    mk; edit pull.json '.draft = true'
+    jq --arg a "$AGG" '.check_runs |= (sort_by(.name) | map(
+          .id = (if .name == $a then 777 else .id end)
+        | .conclusion = (if .name == $a then "failure"
+            elif (.name | test("^(юниты|integration|e2e|unit|build) ")) then "skipped"
+            else .conclusion end)))' "$T/c/check-runs.json" > "$T/c/cr.n" && mv "$T/c/cr.n" "$T/c/check-runs.json"
+    echo '[{"title":"черновик не вливается","message":"целевой прогон: 9 заданий из 27"}]' > "$T/c/annotations.json"
+}
+draft; run "черновик: исполненное зелёное, страж вынес вердикт" 5 '^VERDICT\ttargeted-green\t.*ЦЕЛЕВОЙ, не полный'
+draft; echo '[]' > "$T/c/annotations.json"
+run "черновик: failure без аннотации стража — настоящий отказ" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG\E"
+draft; edit check-runs.json '.check_runs |= map(.conclusion = (if .name == "build · vet · gofmt" then "failure" else .conclusion end))'
+run "черновик: страж есть, выбранное задание failure" 1 '^REASON\tCI-FAILED\tfailure: build · vet · gofmt'
+draft; jq --arg a "$AGG" '.check_runs |= map(.status = (if .name == $a then "in_progress" else .status end) | .conclusion = (if .name == $a then null else .conclusion end))' "$T/c/check-runs.json" > "$T/c/cr.n" && mv "$T/c/cr.n" "$T/c/check-runs.json"
+edit runs.json '.'
+run "черновик: страж ещё идёт" 3 '^REASON\tDRAFT-GUARD-PENDING\t'
+draft; edit pull.json '.draft = false'
+run "не черновик: аннотация стражем не делает" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG\E"
+
 say "== не прочитано — 2"
 mk; echo 'gh: HTTP 502 Bad Gateway' > "$T/c/check-runs.json.err"
 run "площадка не отдала check-runs" 2 '^VOID\tcheck-runs на '
@@ -194,6 +226,8 @@ failset-timed_out	/^FAILSET=/s/,"timed_out"//
 failset-action_required	/^FAILSET=/s/,"action_required"//
 failset-startup_failure	/^FAILSET=/s/,"startup_failure"//
 failset-stale	/^FAILSET=/s/,"stale"//
+draft-ignored	/DRAFT="$(jq -r/s/.draft == true/.draft == "never"/
+guard-any-failure	/any(.\[\]; .title==$t)/s/any(.\[\]; .title==$t)/true/
 MUT
 echo
 echo "ci-read-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
