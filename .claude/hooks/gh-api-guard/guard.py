@@ -11,7 +11,9 @@ kacho#3144, kaname#703), а агенты этого не увидели — их
 
 ОТКАЗ (класс — пример):
   api-write       — `gh api` с изменяющим методом: `-X/--method POST|PUT|PATCH|DELETE`
-                    (любая запись: `-XPOST`, `--method=post`), либо с телом
+                    (любая запись: `-XPOST`, `--method=post`; группа коротких
+                    флагов распаковывается как в pflag — `-iXPOST`, `-iX POST`,
+                    `-if base=a` судятся по каждой букве), либо с телом
                     `-f/-F/--field/--raw-field/--input` без явного `--method GET`
                     (gh тогда сам шлёт POST); метод, не вычислимый по тексту
                     (`-X "$M"`), — тоже отказ: страж судит текст, а не исход.
@@ -87,6 +89,30 @@ class Finding:
         self.cls, self.text, self.why = cls, text, why
 
 
+def short_group(a):
+    """Группа коротких флагов так, как её читает pflag (gh): КАЖДАЯ буква — флаг.
+
+    Буква, требующая значения (VALUED_SHORT), берёт остаток группы (`-iXPOST` → -i, -X POST)
+    либо, если остатка нет, следующий аргумент (`-iX POST`, `-if base=a`); `=` сразу за
+    буквой отделяет значение (`-X=POST`, `-i=true`). Возвращает ([(флаг, значение|None)],
+    нужен_ли_следующий_аргумент). Судить группу по первой букве нельзя: `-iXPOST` — это
+    POST, хотя начинается с безобидного `-i` (возврат check-verifier, ws#1008).
+    """
+    out = []
+    j = 1
+    while j < len(a):
+        name, rest = "-" + a[j], a[j + 1:]
+        if rest.startswith("="):
+            out.append((name, rest[1:]))
+            return out, False
+        if name in VALUED_SHORT:
+            out.append((name, rest or None))
+            return out, not rest
+        out.append((name, None))
+        j += 1
+    return out, False
+
+
 def api_call(args):
     """Разбор `gh api …` (args — после `api`): (путь, метод|None, поля, --input)."""
     endpoint, method, fields, inp = None, None, [], False
@@ -97,28 +123,30 @@ def api_call(args):
             if endpoint is None and i + 1 < len(args):
                 endpoint = args[i + 1]
             break
-        name, val = a, None
+        pairs = []
         if a.startswith("--"):
+            name, val = a, None
             if "=" in a:
                 name, val = a.split("=", 1)
             if name in VALUED_LONG and val is None:
                 val = args[i + 1] if i + 1 < len(args) else ""
                 i += 1
+            pairs.append((name, val))
         elif a.startswith("-") and len(a) > 1:
-            name = a[:2]
-            if name in VALUED_SHORT:
-                val = a[2:] if len(a) > 2 else (args[i + 1] if i + 1 < len(args) else "")
-                if len(a) == 2:
-                    i += 1
+            pairs, need = short_group(a)
+            if need:
+                pairs[-1] = (pairs[-1][0], args[i + 1] if i + 1 < len(args) else "")
+                i += 1
         elif endpoint is None:
             endpoint = a
         i += 1
-        if name in ("-X", "--method"):
-            method = (val or "").strip().upper()
-        elif name in FIELD:
-            fields.append(val or "")
-        elif name == "--input":
-            inp = True
+        for name, val in pairs:
+            if name in ("-X", "--method"):
+                method = (val or "").strip().upper()
+            elif name in FIELD:
+                fields.append(val or "")
+            elif name == "--input":
+                inp = True
     return endpoint or "", method, fields, inp
 
 

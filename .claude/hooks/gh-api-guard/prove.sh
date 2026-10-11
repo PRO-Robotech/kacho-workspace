@@ -129,6 +129,14 @@ denies "$W" 'gh api repos/x/y/issues -F title=t --raw-field body=b'
 denies "$W" 'gh api repos/x/y/issues/1/labels --input f.json'
 denies "$W" 'gh api repos/x/y/issues --field=title=t'
 denies "$W" 'gh api -X "$M" repos/x/y/issues'
+# группа коротких флагов — как pflag: каждая буква флаг (возврат check-verifier; gh 2.100.0
+# под GH_DEBUG=api шлёт на этих формах POST)
+denies "$M" 'gh api -iXPOST repos/x/y/merges'
+denies "$M" 'gh api -iX POST repos/x/y/merges'
+denies "$M" 'gh api repos/x/y/merges -if base=a -if head=b'
+denies "$M" 'gh api repos/x/y/merges -F base=a -F head=b'
+denies "$W" 'gh api -iXPOST repos/x/y/issues/1/comments -f body=hi'
+denies "$W" 'gh api -X=POST repos/x/y/issues'
 denies "$G" 'gh api graphql -f query="mutation { addLabelsToLabelable(input:{}) { clientMutationId } }"'
 denies "$G" 'gh api graphql -F query=@q.graphql'
 denies "$M" 'gh api repos/x/y/pulls/3/merge -X PUT -f merge_method=merge'
@@ -159,6 +167,10 @@ passes 'gh api --method GET search/issues -f q=repo:x/y'
 passes 'gh api -X GET search/issues -f q=x --paginate'
 passes 'gh api -XGET search/issues -f q=x'
 passes 'gh api --method=get repos/x/y/issues -f state=open'
+passes 'gh api -iX GET repos/x/y/merges'
+passes 'gh api -iX GET search/issues -if q=x'
+passes 'gh api -X=GET search/issues -f q=x'
+passes 'gh api -i repos/x/y/pulls/1'
 passes 'gh api repos/x/y/pulls/3/merge'
 passes 'gh api repos/x/y/commits/abc/check-runs --jq ".check_runs[].conclusion"'
 passes "gh api graphql -f query='query(\$o:String!){ repository(owner:\$o,name:\"y\"){ id } }' -F o=x"
@@ -225,7 +237,10 @@ PY
 mutant "тело без метода — чтение"        'or (method is None and (fields or inp))' 'or False' 'gh api repos/x/y/issues -f title=t' ci-watcher
 mutant "явный GET не разрешает поля"     '    if writes and not explicit_read and agent != OPERATOR:' '    if (writes or fields) and agent != OPERATOR:' 'gh api --method GET search/issues -f q=x' ci-watcher
 mutant "метод вне чтения — не запись"     '        method is not None and method not in READ)' '        False)' 'gh api -X "$M" repos/x/y/issues' ci-watcher
-mutant "слитный -XPOST не разобран"      "val = a[2:] if len(a) > 2 else" "val = '' if len(a) > 2 else" 'gh api -XGET search/issues -f q=x' ci-watcher
+mutant "слитный -XPOST не разобран"      '            out.append((name, rest or None))' '            out.append((name, None))' 'gh api -XGET search/issues -f q=x' ci-watcher
+mutant "распаковки группы нет"           '        j += 1' '        break' 'gh api -iXPOST repos/x/y/merges' ci-watcher
+mutant "распаковки группы нет (-if)"     '        j += 1' '        break' 'gh api repos/x/y/merges -if base=a -if head=b' ci-watcher
+mutant "-X=… не отделяет значение"       '        if rest.startswith("="):' '        if False:' 'gh api -X=GET search/issues -f q=x' ci-watcher
 mutant "--method=… не разобран"          '            if "=" in a:' '            if False:' 'gh api --method=post repos/x/y/issues' ci-watcher
 mutant "регистр метода"                  '            method = (val or "").strip().upper()' '            method = (val or "").strip()' 'gh api --method get search/issues -f q=x' ci-watcher
 mutant "--input не тело"                 '        elif name == "--input":' '        elif False:' 'gh api repos/x/y/issues --input f.json' ci-watcher
