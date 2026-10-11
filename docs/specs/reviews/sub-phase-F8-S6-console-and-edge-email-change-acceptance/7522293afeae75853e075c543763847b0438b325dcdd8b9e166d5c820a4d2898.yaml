@@ -1,0 +1,147 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  sha256: 7522293afeae75853e075c543763847b0438b325dcdd8b9e166d5c820a4d2898
+  revision: 4
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 4 — эта запись и внешнее событие.
+  base_commit: 5c3ca858f
+  content_commit: 8e2bf0e502cde5b5f33f15b1bbbd41fd95858f3c
+  branch: 3062-f8-s6-email-change-acceptance (копия tmp/3062-f8-s6-email-change-acceptance)
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/3062
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  fingerprint_reproduced: true
+  lines: 473
+  code_base: PRO-Robotech/kacho @ 4e96de2c2 · PRO-Robotech/kaname @ d33a3b866 (пин ae1d4e35b1d0)
+verdict: CHANGES_REQUESTED
+round: 3
+round_note: >-
+  Задание назвало круг 2; круг 2 уже записан на редакции 3 (4f1cd528….yaml). Эта запись — круг 3
+  документа, первый на редакции 4.
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-11T00:00:00Z'
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_pending: true
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 7522293afeae75853e075c543763847b0438b325dcdd8b9e166d5c820a4d2898"
+sanction:
+  granted: false
+  reason: >-
+    Вердикт — возврат. Санкции на код S6 эта запись не даёт; следующая редакция получает соседнюю
+    запись.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - docs/specs/reviews/sub-phase-F8-S5-console-and-edge-email-change-acceptance/b069ebd899312a07ba584bfe3ce108e7fda943a0a5ff013e128d6752894d116f.yaml
+    - docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/4f1cd528e27cf55c6b52a5f4f5dd6d9aafc8fddd9eb5e1c0e60c94f0c619d4a2.yaml
+
+premise_check:
+  claim: "редакция 4 закоммичена и отправлена; исправлены ровно B1–B3"
+  result: >-
+    Подтверждено: HEAD = origin/3062-f8-s6-email-change-acceptance = 8e2bf0e50, sha256sum →
+    7522293a…2898. git diff a14cdfb87 8e2bf0e50 по документу: удалённые строки — только F8S6-02,
+    F8S6-05, строка Р4 «400, поле code», пункт «Отмена» Р3, «девять» в §4/DoD и строки §6 о
+    F8S6-02/04/05; прочие разделы не тронуты. Головы kacho 1266 и kaname 296 те же, что в круге 2
+    (4e96de2c2, d33a3b866) — перемер §1 круга 2 действует.
+
+prior_round_resolution:
+  B1_CONSTRUCTIBILITY: >-
+    снято — F8S6-02 снимает before по N и N₂ после обоих посевов, судит только письма смены вне
+    before (codeLine вида email-change), срок отсутствия — письмо по N₂, запрошенное позже. На
+    исправном продукте письма смены по N нет (EC Р4: на занятый адрес письмо не ставится),
+    письмо регистрации второго человека лежит в before.
+  B2_CONSTRUCTIBILITY: >-
+    снято — код C берётся до seedConfirmedHuman на N; before посева (ceremony-seed.ts:seedConfirmedHuman,
+    снимок до seedHuman) уже содержит письмо смены, новое письмо ровно одно — регистрации
+    (awaitLetter: expect(fresh.length).toBe(1)). Регистрация на N при отложенной смене допустима:
+    уникальность держит users_identity_email_uniq только в исходе (EC Р4).
+  B3_COVERAGE: >-
+    снято по (1) и (2): F8S6-12 — пустой code → 400, code 3, «Illegal argument code: required»
+    производится службой (email_change.go:445 FieldRequired("code") @ae1d4e35b1d0; EC Р5);
+    F8S6-13 — «Отмена» из формы и из кода. По (3) сценарий заведён (F8S6-14), но его Given
+    неконструируем — см. B4.
+
+blocking:
+  - id: B4
+    kind: CONSTRUCTIBILITY
+    where: F8S6-14, Given и первое «Тогда»; §6 строка F8S6-14
+    claim: >-
+      Подставленный первый ответ «200, {}, Retry-After: 0» служба произвести не может: заголовок
+      ставит retryAfterSeconds(out.NextAllowedIn), а он округляет вверх и не отдаёт меньше 1
+      (handler.go:1440–1449 @kaname ae1d4e35b1d0: `if s < 1 { s = 1 }`); на успехе запроса
+      NextAllowedIn = Pace.Interval (email_change.go:382), то есть профиль 60 с. Подстановка
+      обязана быть в форме, которую отдаёт производитель (шапка producer-answers.ts; там же
+      laneTooManyAttempts — «не меньше одной»). Следствие для предмета: с Retry-After 0 отсчёт
+      не запускается вовсе, и утверждение Р3 «Отправить снова включается ПО КОНЦУ отсчёта» не
+      исполняется — экран, который после настоящего отсчёта кнопку не включает, F8S6-14 пройдёт.
+      Проба не способна упасть на том, что Р3 ей поручает.
+    predicate: >-
+      git -C project/kaname show ae1d4e35b1d0:internal/handler/loginlanehttp/handler.go | sed -n 1440,1449p
+      → s < 1 → s = 1; там же :1121 Retry-After из retryAfterSeconds(out.NextAllowedIn)
+    fix: >-
+      Подставлять Retry-After: 1 (наименьшее, что производит служба); «Тогда» после первого
+      обращения — состояние «код», «Отправить снова» выключена с отсчётом 1 с; проба ждёт
+      УСЛОВИЯ «кнопка включена», а не времени (F8 Р9, редакция 9, образец F6b-19 / §11.4);
+      затем «Отправить снова» и прежние утверждения о втором обращении. Строку §6 — тем же.
+
+important:
+  - >-
+    F8S6-02: «срок отсутствия задаёт письмо по N₂» — граница эвристическая: порядок доставки
+    писем на разные адреса дренажем не обещан, при параллельном дренаже ложное письмо по N могло
+    бы прийти позже письма по N₂ (ложно-зелёный исход, не красный на исправном). Терпимо: у
+    службы свой держатель (EC-09, EC-26). Можно назвать цену одной строкой.
+  - >-
+    §5: сценарии F8S6-12…14 стоят перед F8S6-10/11 — порядок ID в разделе нарушен; не блокирует.
+  - >-
+    Неблокирующие замечания круга 2 (F8S6-08 текст экрана дословно; F8S6-07 (а) отсутствие
+    браузерной проверки формы адреса; F8S6-01 порядок входов) не учтены — остаются в силе.
+  - >-
+    Ссылки на 04-roadmap §3 нет — так устроена вся серия F8; не блокирует.
+
+coverage:
+  scenarios_total: 14
+  browser: 12 (F8S6-01…09, 12…14)
+  edge_probes: 2 (F8S6-10, F8S6-11)
+  producer_named: 14 из 14 (§6)
+  twin_named_for_negatives: >-
+    все отрицания с близнецом: 02 (N₂ внутри), 03/06/07/13/14 → 01, 05/08/09/12 → 04 (б),
+    10 (сессия после отметки), 11 (б) против (а)
+
+constructibility:
+  seeded: 0
+  by_named_fixture: >-
+    F8S6-02, F8S6-05 — по коду seedConfirmedHuman/awaitLetter @kacho 4e96de2c2 (before, ровно
+    одно новое письмо, codeLine-параметр есть); F8S6-12 — по коду службы (FieldRequired("code"));
+    пробы края — login_lane_paths_test.go, Invalidate (круг 2)
+  refuted: 1 (F8S6-14 — подстановка вне области значений производителя)
+  not_executed: >-
+    браузерные F8S6-01…09, 12…14 — доставки писем на стенде нет (kacho#1773 OPEN), стенда и
+    разрешения на посев задание не дало
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true
