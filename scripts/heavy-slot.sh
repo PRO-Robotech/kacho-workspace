@@ -11,7 +11,7 @@
 # шага, между ними проходили соседи, а вошедший секунду назад памяти ещё не набрал.
 #
 # ФОРМА
-#   heavy-slot.sh <класс> -- <команда> [аргументы…]
+#   heavy-slot.sh [--wait N] <класс> -- <команда> [аргументы…]   (занято — 74 сразу)
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
@@ -20,7 +20,11 @@
 #   (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ потолок.
 # Недобранное = Σ max(0, бюджет − текущая память) по занятым слотам (memory.current
 # их cgroup и их контейнеров). Без этого слагаемого вход повторял бы исходный отказ.
-# Места нет — опрос раз в 30 с до 1800 с, затем код 75. Голову очереди держит лишь
+# Места нет — СРАЗУ код 74 «слот занят, очередь K» (ws#1004, решение владельца
+# 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание слота в переднем
+# плане — 116,4 агент-ч замера ws#1001). Билет при этом снимается: очередь держит лишь
+# тот, кто ждёт явно — `--wait N`, N ≤ 300 с, опрос раз в 30 с, по истечении код 75.
+# Ждать дольше — повтором короткого шага, а не одним вызовом. Голову очереди держит лишь
 # билет, который влез бы под СВОЙ потолок, будь занятые слоты пусты: (MemTotal −
 # MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
 # от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
@@ -60,7 +64,7 @@
 #     после выхода команды — его память входит в «занято» при каждом следующем входе.
 #
 # РУЧКИ HEAVY_SLOT_*. Над настоящей памятью (/proc/meminfo) ручек нет: потолок 45 ГиБ,
-# ожидание 1800 с, общий каталог, бюджет, ограничитель и сторож — как в классе; любая
+# ожидание — только явным --wait ≤ 300 с, общий каталог, бюджет, ограничитель и сторож — как в классе; любая
 # ручка — 64 до первой записи (опыт ws#832, круги 2–3: переменная снимала потолок или
 # очередь). Ручки — только режиму проб, синтетическому HEAVY_SLOT_MEMINFO в своём
 # каталоге, и тяжёлым прогоном он быть не способен: бюджет ≤ 512 МиБ, сторож раз в 1–2 с. Страж видит
@@ -69,9 +73,15 @@
 # путь, API) под ним без предела.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен; 75 — слот не выдан за время ожидания; 76 — команда оборвана
-# пределом памяти. 69, 75 и 76 — «не выполнилось», а не красное: вердикта по
-# предмету команды нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
+# недоступен; 74 — слот занят, ожидания не было (очередь K названа); 75 — слот не
+# выдан за --wait N; 76 — команда оборвана пределом памяти. 69, 74, 75 и 76 — «не
+# выполнилось», а не красное: вердикта по предмету команды нет. Своё слово слот печатает строкой «heavy-slot: …» в stderr.
+#
+# ВНЕШНИЙ КЛАСТЕР (ws#984): классы go-race, integration, lint и ci-local при
+# отвечающем кластере уходят Job-ом в scripts/remote-heavy/run.sh и слота машины не
+# занимают; код — код команды там (69/75/76 — «не выполнилось», как здесь).
+# Локально — только со строкой «heavy-slot: локально — <причина>»; условия — у
+# блока «внешний кластер» ниже.
 #
 # ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание, выход с пиком памяти,
 # обрыв. Пик — основание для пересмотра бюджетов: `grep ' leave ' journal.log`.
@@ -89,7 +99,7 @@ DIR="${HEAVY_SLOT_DIR:-$SHARED}"
 CAP_MIB=46080  # 45 ГиБ — решение владельца 2026-09-24
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
-LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=1800; GUARD_S=2; GRACE_S=10; LIMITER=auto
+LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
 
@@ -307,6 +317,17 @@ print_status() {
 }
 
 # ── разбор вызова ────────────────────────────────────────────────────────────
+# --wait N — единственное ожидание слота, явное и ≤ 300 с (ws#1004); без него занятый
+# слот — код 74 сразу. Значение судится до класса: «--wait 2400» — 64, а не полчаса.
+WAIT_ARG=""
+if [ "${1:-}" = --wait ]; then
+    WAIT_ARG="${2:-}"
+    if ! [[ "$WAIT_ARG" =~ ^[0-9]+$ ]] || [ "$WAIT_ARG" -gt "$WAIT_MAX_S" ]; then
+        say "--wait «$WAIT_ARG» — целое от 0 до $WAIT_MAX_S с: дольше вызов не ждёт (CLAUDE.md «Не жди», ws#1004); долгое — отсоединённо, повтор — коротким шагом"
+        exit 64
+    fi
+    shift 2
+fi
 case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
@@ -328,12 +349,12 @@ fi
 shift
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S"
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
     for v in $KNOBS; do
-        [ -n "${!v+x}" ] && knob="$v=${!v} — потолок 45 ГиБ, ожидание 1800 с, бюджет и сторож класса не переопределяются"
+        [ -n "${!v+x}" ] && knob="$v=${!v} — потолок 45 ГиБ, ожидание (только --wait ≤ $WAIT_MAX_S с), бюджет и сторож класса не переопределяются"
     done
     if [ -n "$knob" ]; then
         say "над настоящей памятью машины ручка не принимается: $knob. Решение владельца 2026-09-24 — ≤ 45 ГиБ на машину; ручки — только пробам над синтетическим HEAVY_SLOT_MEMINFO"
@@ -345,10 +366,11 @@ else
         exit 64
     fi
     for v in $KNOBS; do
-        [ "$v" = HEAVY_SLOT_LIMITER ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-45} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"
+    [ "$WAIT_S" -le "$WAIT_MAX_S" ] || { say "HEAVY_SLOT_WAIT_S=$WAIT_S — больше $WAIT_MAX_S с не ждёт и проба"; exit 64; }
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
@@ -356,6 +378,8 @@ else
         exit 64
     fi
 fi
+# Явное --wait берёт верх над ручкой проб: оно часть формы вызова, а не ручка.
+[ -n "$WAIT_ARG" ] && WAIT_S="$WAIT_ARG"
 if [ "$BUDGET" -gt "$LIMIT_MIB" ]; then
     say "бюджет $(mib "$BUDGET") больше потолка машины $(mib "$LIMIT_MIB") — такой слот не выдаётся никогда"
     exit 64
@@ -370,6 +394,61 @@ for a in "$@"; do
         exit 64
     fi
 done
+
+# ── внешний кластер (решения владельца 2026-10-07, 2026-10-08, ws#984) ─────────
+# Тяжёлые классы go-race, integration, lint и ci-local при отвечающем кластере
+# уходят Job-ом туда (scripts/remote-heavy/run.sh) и слота машины не занимают;
+# локально — только с причиной строкой «heavy-slot: локально — …». Удалённый прогон
+# судит КОММИТ, поэтому условий пять: команда переносима (go, make, линтеры,
+# ci-local.sh; `git push` — нет), каталог — клон kacho, kaname или corelib,
+# отслеживаемые файлы без правок, номер задачи — из KACHO_TASK либо ведущих цифр
+# имени ветки, кластер отвечает и pod профиля есть где встать (`run.sh --available
+# --profile <класс>`: открытый узел с местом под запрос, ws#991). В режиме проб маршрут
+# судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над настоящей памятью
+# эта ручка — 64, как прочие.
+REMOTE_RUN="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/remote-heavy/run.sh"
+REMOTE_ON=1
+if [ "$MEMINFO" != /proc/meminfo ]; then
+    if [ -n "${HEAVY_SLOT_REMOTE_RUN:-}" ]; then REMOTE_RUN="$HEAVY_SLOT_REMOTE_RUN"; else REMOTE_ON=0; fi
+fi
+remote_route() {
+    local first="$1" i=0 top url repo branch task rel
+    case "$CLASS" in go-race|integration|lint|ci-local) ;; *) return 1 ;; esac
+    [ "$first" = timeout ] && { i=1; [[ "${CMD_R[1]:-}" =~ ^[0-9.]+[smhd]?$ ]] && i=2; first="${CMD_R[$i]:-}"; }
+    case "$(basename -- "$first")" in
+        go|make|golangci-lint|gosec|govulncheck|ci-local.sh) ;;
+        *) WHY_LOCAL="команда «$first» не переносится (go, make, golangci-lint, gosec, govulncheck, ci-local.sh)"; return 1 ;;
+    esac
+    top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git"; return 1; }
+    url="$(git -C "$top" remote get-url origin 2>/dev/null)"
+    repo="${url%.git}"; repo="${repo##*/}"
+    case "$url" in
+        *PRO-Robotech/kacho|*PRO-Robotech/kacho.git|*PRO-Robotech/kaname|*PRO-Robotech/kaname.git|*PRO-Robotech/corelib|*PRO-Robotech/corelib.git) ;;
+        *) WHY_LOCAL="клон не kacho, kaname или corelib"; return 1 ;;
+    esac
+    if [ -n "$(git -C "$top" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        WHY_LOCAL="в отслеживаемых файлах незакоммиченные правки — кластер судит коммит; закоммить и повтори"; return 1
+    fi
+    branch="$(git -C "$top" branch --show-current 2>/dev/null)"
+    task="${KACHO_TASK:-}"
+    [ -n "$task" ] || { [[ "$branch" =~ ^(issue-)?([0-9]+)([-_/].*)?$ ]] && task="${BASH_REMATCH[2]}"; }
+    [[ "$task" =~ ^[1-9][0-9]*$ ]] || { WHY_LOCAL="номер задачи не выводится: ни KACHO_TASK, ни ведущих цифр в имени ветки «$branch»"; return 1; }
+    local avail
+    if ! avail="$(bash "$REMOTE_RUN" --available --profile "$CLASS" 2>&1)"; then
+        WHY_LOCAL="кластер недоступен: ${avail#remote-heavy: }"; return 1
+    fi
+    rel="$(realpath --relative-to="$top" "$PWD")"
+    ROUTE=(bash "$REMOTE_RUN" --task "$task" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
+    return 0
+}
+if [ "$REMOTE_ON" = 1 ]; then
+    CMD_R=("$@"); WHY_LOCAL=""; ROUTE=()
+    if remote_route "$1"; then
+        say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
+        exec "${ROUTE[@]}" "$@"
+    fi
+    [ -n "$WHY_LOCAL" ] && say "локально — $WHY_LOCAL"
+fi
 
 ID="$(now)-$$"
 P="$DIR/active/$ID"
@@ -457,6 +536,12 @@ while :; do
     [ "$aside" -gt 0 ] && why="$why; впереди $aside не влезут под свой потолок и при пустых слотах — голову не держат"
     [ -n "$blocked" ] && why="golangci-lint по одному на машину, занят: $blocked; $why"
     waited=$(( $(now) - t0 ))
+    if [ "$WAIT_S" -eq 0 ]; then
+        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB ahead=$ahead who=$WHO cmd=$CMDLINE"
+        say "СЛОТ ЗАНЯТ, очередь $ahead — «$CLASS» не выдан сразу: $why."
+        say "команда НЕ запускалась (не выполнилось, не красное). Повтори коротким шагом позже либо --wait N (N ≤ $WAIT_MAX_S); долгий прогон — отсоединённо, слот внутри него; кто занял — heavy-slot.sh --status"
+        exit 74
+    fi
     if [ "$waited" -ge "$WAIT_S" ]; then
         journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB ahead=$ahead waited=${waited}s who=$WHO cmd=$CMDLINE"
         say "НЕ ВЫПОЛНИЛОСЬ — слот «$CLASS» не выдан за ${waited} с: $why."

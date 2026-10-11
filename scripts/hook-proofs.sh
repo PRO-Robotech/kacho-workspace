@@ -52,7 +52,9 @@ DECLARED="
 .claude/hooks/change-graph/prove.sh
 .claude/hooks/class-guard/prove.sh
 .claude/hooks/docfresh/prove.sh
+.claude/hooks/gh-api-guard/prove.sh
 .claude/hooks/heavy-guard/prove.sh
+.claude/hooks/no-wait-guard/prove.sh
 "
 
 FOUND="$(git ls-files --cached --others --exclude-standard '.claude/hooks/*/prove.sh' | sort -u)"

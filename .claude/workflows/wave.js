@@ -1,7 +1,7 @@
 export const meta = {
   name: 'wave',
   description: 'Волна по уровням риска: план скриптом, полосы по шагам своего уровня, сборка, один рецензент на волну, CI, предпроверка посадки скриптом, вливание и каскад',
-  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
+  whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
   phases: [
     { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения' },
     { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью' },
@@ -15,7 +15,12 @@ export const meta = {
 //  - шаги полосы берутся из вывода plan-precheck.sh (а тот — из lane-tier.sh);
 //    своего соответствия «уровень → шаги» здесь нет;
 //  - R0 — без рецензентов; R1 — один wave-reviewer на СОБРАННУЮ волну; R2 — роли
-//    полосы, рецензент волны и landing-reviewer;
+//    полосы, рецензент волны; landing-reviewer — только за НЕДОСТАЮЩИМ фактом;
+//  - вердикт и решение (база диспетчера §7 «Вердикт и решение», владелец
+//    2026-10-10): роль даёт вердикт о СВОЕЙ полосе, решение «вливать» принимает
+//    код шаблона по ПРАВИЛУ ВЛИВАНИЯ диспетчера (ниже), вливает git-operator.
+//    Непрошедшая полоса и возвращённая рецензентом волны — остаток (с зависимыми
+//    от неё), соседи с полными фактами садятся;
 //  - состояние переходит только по ФАКТУ скрипта (lane-precheck, landing-precheck,
 //    сверка головы на origin), а не по слову агента;
 //  - передача — через файлы: отчёт шага в <WS>/tmp/wave-<N>/<полоса>/<шаг>.md, в
@@ -34,28 +39,105 @@ export const meta = {
 //    lane-precheck судит, что код предшественников в ветке есть). Сводка
 //    конфликтует или не содержит головы dep — остановка с причиной, исполнитель
 //    не зовётся (ws#938). Независимые полосы идут сразу, не ожидая чужого слоя.
+//  - ветка полосы — голый номер (`^[0-9]+$`, форма kaname: его хук другого имени
+//    не принимает) — сводка заводится в ВЕТКЕ САМОЙ ПОЛОСЫ, слияния по форме
+//    хука `#<ветка> merge #<M>: …`; временной ветки нет, вливание её не снимает.
+//    Имени, проходящего хуки всех репозиториев, не существует: kaname требует
+//    голый номер, воркспейс и corelib — `<N>-<суть>` (ws#946).
+//  - агент не ждёт (ws#1001, CLAUDE.md «Не жди»): у каждого шага — срок по классу
+//    (STEP_MIN), долгий прогон — отсоединённо с исходом «идёт»; CI читается
+//    КОРОТКИМ шагом без ожидания, повтор и паузу делает шаблон (CI_READS чтений,
+//    между ними одна команда паузы CI_PAUSE_S ≤ 300 с), а не агент циклом.
+//  - CI читается ТОЛЬКО scripts/ci-read.sh (ws#1006; урок kacho#3142 — влит при
+//    «зелёно 30 из 30», когда проверок было 68 и 3 шли, база устарела): рецептом
+//    «ЗАПУСК» из origin/main; состояние — из КОДА (CI_STATE: 0 green · 1 red ·
+//    2 unread · 3 running · 4 stale), ответ агента не толкуется. Перед вливанием —
+//    ещё одно чтение на голове посадки: вливание только при коде 0 на ней.
+//  - пустые ходы (ws#1004): вывод plan-precheck разбирается parseJsonTail — объект
+//    из ПОСЛЕДНЕЙ строки, строки CENSUS перед ним не мешают; файл вне перечня полосы,
+//    которого нет и в перечнях соседей, исполнитель берёт сам и называет в отчёте —
+//    blocked только за файлом соседа (перечни соседей — в его задании из args.lanes);
+//    hookLog — путь к журналу отправки (не путь — доводка), report — содержательный итог.
+//  - вливание (ws#1008): только шагом merge — `gh pr merge <PR> --merge
+//    --match-head-commit <голова из landing-precheck>`; общее задание каждого шага
+//    запрещает `repos/*/merges`, `pulls/*/merge` и `--auto` и даёт чтение merge-base
+//    GET-запросом. Агенты ci-watcher звали `gh api repos/<r>/merges -X POST`, думая,
+//    что читают merge-base, и влили три PR мимо посадки; отказ держит хук gh-api-guard.
+//  - пауза между чтениями CI (ws#1010): её делает ТОТ ЖЕ агент, что читает CI, одной
+//    командой — `sleep N`, строка `SLEPT <секунды>` по часам машины, затем ci-read.sh;
+//    ответ несёт slept (реально прошедшие секунды), и чтение с паузой при slept
+//    < N−10 шаблон ОТВЕРГАЕТ: его код не судится, чтение повторяется. Урок: агенты-
+//    паузы на лёгкой модели sleep не исполняли — 12 чтений прошли за 7 мин вместо
+//    40, цикл кончился раньше CI. Первое чтение — без паузы.
+//  - копии полос и каталог волны — под КОРНЕМ воркспейса (ws#1010): ROOT/tmp/wave-<N>/;
+//    ROOT — args.root, иначе выводится из ws (ws — копия под <корень>/tmp/… → корень).
+//    Не <ws>/tmp, когда ws — отдельная копия: копия шаблона tmp/wave7/ws-main была
+//    переключена на дерево kacho, копии полос в её tmp/ взяли ws-main/go.mod за корень
+//    модуля. Чужой go.mod над копией отказывает lane-precheck (GOMOD-ABOVE).
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
-const D = WS + '/tmp/wave-' + N
-const HOMES = 'KACHO_HOME_KACHO=' + WS + '/project/kacho KACHO_HOME_KANAME=' + WS + '/project/kaname KACHO_HOME_CORELIB=' + WS + '/project/corelib'
+// Корень воркспейса: явный args.root; иначе ws, а если ws — копия под
+// <корень>/tmp/…, то <корень> (последний «/tmp/» с непустым префиксом).
+const rootOf = w => { const i = w.lastIndexOf('/tmp/'); return i > 0 ? w.slice(0, i) : w }
+const ROOT = A.root || rootOf(WS)
+const D = ROOT + '/tmp/wave-' + N
+const HOMES = 'KACHO_HOME_KACHO=' + ROOT + '/project/kacho KACHO_HOME_KANAME=' + ROOT + '/project/kaname KACHO_HOME_CORELIB=' + ROOT + '/project/corelib'
 const MECH = { model: 'haiku', effort: 'low', agentType: 'git-operator' }
+// Срок шага — минуты работы агента; по истечении — возврат с остатком, а не ожидание.
+const STEP_MIN = { implement: 90, review: 30, mech: 10, ci: 2 }
+const CI_READS = 30
+const CI_PAUSE_S = 240
+// Чтение с паузой засчитывается при slept ≥ CI_PAUSE_S − CI_SLEPT_SLACK (ws#1010).
+const CI_SLEPT_SLACK = 10
+// Правило полосы о файлах (ws#1004): blocked на ничейном файле — пустой ход волны.
+const FILES_RULE = 'ФАЙЛЫ ПОЛОСЫ: файл вне твоего перечня, которого нет в перечне соседних полос, — бери сам и назови в отчёте; blocked — только если нужен файл соседа (назови его и полосу).'
+// Объект плана — из ПОСЛЕДНЕЙ непустой строки вывода (механик кладёт в out и строки
+// CENSUS/VERDICT stderr); весь текст — JSON целиком (многострочный) тоже годен.
+const parseJsonTail = out => {
+  if (typeof out !== 'string') return null
+  const obj = x => (x && typeof x === 'object' && !Array.isArray(x)) ? x : null
+  try { const o = obj(JSON.parse(out.trim())); if (o) return o } catch (e) { /* не целиком — хвост */ }
+  const lines = out.split('\n').map(x => x.trim()).filter(Boolean)
+  if (!lines.length) return null
+  try { return obj(JSON.parse(lines[lines.length - 1])) } catch (e) { return null }
+}
+// hookLog — путь к журналу отправки: абсолютный, без пробелов. Слово «зелёный» вместо
+// пути lane-precheck прочесть не может — доводка, а не предпроверка вслепую.
+const isPath = s => typeof s === 'string' && /^\/[^\s]+$/.test(s)
+const due = (cls, plus) => 'СРОК ШАГА: ' + (STEP_MIN[cls] + (plus || 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди.'
 const C = [
   'Волна ' + N + ' (' + (A.repo || '?') + ', база ' + (A.base || '?') + ', эпик ' + (A.epic || '?') + '). Шаблон .claude/workflows/wave.js.',
   'ПРАВИЛА: хук отправки не обходить; гейты не ослаблять; подпись pointpu; трейлеры и строки атрибуции НЕ СТАВИТЬ НИКОГДА; нельзя --no-verify, --force, --admin, reset, rebase, squash.',
-  'Тяжёлое — через слот ~/.cache/heavy-slots/slot{1..3}.lock (flock). Копии — только под ' + WS + '/tmp/ (основную не трогать, ws#923). Отправка воркспейса — с ' + HOMES + '.',
+  'Тяжёлое — через ' + WS + '/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу, это «не выполнилось», повтор — коротким шагом (ожидание только --wait N ≤ 300). Копии — только под ' + D + '/ (каталог волны под корнем воркспейса, не под tmp/ другой копии; основную не трогать, ws#923, ws#1010). Отправка воркспейса — с ' + HOMES + '.',
   'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы.',
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
+  FILES_RULE,
+  'ВЛИВАНИЕ (ws#1008): только шагом merge (git-operator) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так).',
+  'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо (setsid nohup, журнал, pid-файл), верни «идёт: pid, журнал, ожидаемое окончание». Слот тяжёлого — внутри того же отсоединённого прогона. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
+// Чтение CI — схема механики и slept: реально прошедшие секунды паузы (строка SLEPT).
+const S_CI = { type: 'object', properties: { ...S_MECH.properties, slept: { type: 'number' } }, required: [...S_MECH.required, 'slept'] }
 const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'report'] }
 // Вердикт роли — ТОЛЬКО поле verdict закрытого словаря (accept | return | void —
 // «прогон недействителен»); значок или слово в report не читаются нигде (класс 7).
+// Рецензент волны — вердикт по КАЖДОЙ полосе (lanes), общий verdict — свод.
+const S_WREV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, lanes: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, blocking: { type: 'array', items: { type: 'string' } } }, required: ['key', 'verdict', 'blocking'] } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'lanes', 'report'] }
 const S_REV = { type: 'object', properties: { verdict: { type: 'string', enum: ['accept', 'return', 'void'] }, sha: { type: 'string' }, blocking: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['verdict', 'sha', 'blocking', 'report'] }
 const S_ASM = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, head: { type: 'string' }, copy: { type: 'string' }, pr: { type: 'integer', minimum: 1 }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'head', 'copy', 'pr', 'conflicts', 'report'] }
 const S_STACK = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'conflict', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, contains: { type: 'array', items: { type: 'string' } }, conflicts: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['status', 'branch', 'head', 'contains', 'conflicts', 'report'] }
-const S_CI = { type: 'object', properties: { state: { type: 'string', enum: ['green', 'red', 'running', 'not_run', 'unread'] }, head: { type: 'string' }, total: { type: 'number' }, passed: { type: 'number' }, report: { type: 'string' } }, required: ['state', 'head', 'total', 'passed', 'report'] }
+// Код scripts/ci-read.sh → состояние CI; иного кода нет — unread (не «зелёное»).
+const CI_STATE = { 0: 'green', 1: 'red', 2: 'unread', 3: 'running', 4: 'stale' }
+const ciState = r => (r && Number.isInteger(r.code) && CI_STATE[r.code]) || 'unread'
 const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
+// Рецепт «ЗАПУСК» — ОДИН источник: шапка scripts/landing-precheck.sh на origin/main
+// между метками «рецепт ЗАПУСК». Текста рецепта шаблон не несёт: команда вырезает
+// его по меткам из origin/main и исполняет с WS, S и аргументами. Не вырезан —
+// код 2: пустой текст под `bash -c` дал бы код 0, то есть «можно». Код скрипта
+// проходит наружу как есть. Проба — landing-precheck-inject.sh, раздел «запуск»:
+// исполняет ЭТУ команду, отрисованную шаблоном, на случаях с кодом 0, 1 и 2.
+const recipeRun = (s, argv, out) => '( set -o pipefail; WS=' + WS + '; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n \'/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}\') && [ -n "$R" ] || { echo "ЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «$WS»" >&2; exit 2; }; WS="$WS" S=' + s + ' TMPDIR=' + D + ' bash -c "$R" _ ' + argv + ' ) > ' + out + ' 2>&1'
 const rep = (lane, step) => D + '/' + lane + '/' + step + '.md'
 const errors = []
 // Счётчик ошибок оркестровки: класс из закрытого словаря wave-errors.sh, часы —
@@ -64,20 +146,20 @@ const err = async (cls, lane, step, note) => {
   errors.push({ cls, lane, step })
   await agent(C + '\n\nРежим счётчик: часы = (сейчас − step-start в ' + rep(lane, step) + ') / 3600, округли до 0.01 (нет файла — 0.1). Выполни `bash ' + WS + '/scripts/wave-errors.sh add ' + N + ' ' + cls + ' <часы> ' + lane + ' ' + step + ' ' + JSON.stringify(note).slice(0, 300) + '`. Верни code, out (вывод), reasons [], head "".', { ...MECH, label: 'mech:err:' + lane, phase: 'Посадка', schema: S_MECH })
 }
-const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY'])
+const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY', 'GOMOD-ABOVE'])
 const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-COMMIT', 'BODY-FOREIGN-TASK', 'ATTRIBUTION', 'CLOSES-WITHOUT-PROOF'])
 
 // ── План ────────────────────────────────────────────────────────────────
 phase('План')
 const runPlan = async (lanes, round) => {
   const plan = { wave: N, targets: A.targets || {}, crossRepo: A.crossRepo === true || undefined, lanes: lanes.map(l => ({ key: l.key, repo: l.repo, dir: l.dir || '', base: l.base || A.base, head: l.head || undefined, paths: l.paths || undefined, deps: l.deps || [], declared: l.tier || undefined, repin: l.repin || undefined })) }
-  return agent(C + '\n\nРежим план: запиши ровно этот JSON в ' + D + '/plan-' + round + '.json: ' + JSON.stringify(plan) + '\nВыполни `bash ' + WS + '/scripts/wave-errors.sh open ' + N + '` и `bash ' + WS + '/scripts/plan-precheck.sh ' + D + '/plan-' + round + '.json --json > ' + D + '/plan-' + round + '.out.json`. Верни code (код plan-precheck), out (содержимое .out.json дословно), reasons (коды причин из него), head "".', { ...MECH, label: 'mech:plan:' + round, phase: 'План', schema: S_MECH })
+  return agent(C + '\n\nРежим план: запиши ровно этот JSON в ' + D + '/plan-' + round + '.json: ' + JSON.stringify(plan) + '\nВыполни `bash ' + WS + '/scripts/wave-errors.sh open ' + N + '` и `bash ' + WS + '/scripts/plan-precheck.sh ' + D + '/plan-' + round + '.json --json > ' + D + '/plan-' + round + '.out.json 2> ' + D + '/plan-' + round + '.census.txt`. Верни code (код plan-precheck), out (ТОЛЬКО последняя строка .out.json — JSON-объект плана, дословно, без строк CENSUS и пояснений), reasons (коды причин из него), head "".', { ...MECH, label: 'mech:plan:' + round, phase: 'План', schema: S_MECH })
 }
 let lanes = (A.lanes || []).map(l => ({ ...l }))
 let plan = null
 for (let round = 1; round <= 2; round++) {
   const r = await runPlan(lanes, round)
-  try { plan = r ? JSON.parse(r.out) : null } catch (e) { plan = null }
+  plan = r ? parseJsonTail(r.out) : null
   if (!plan) return { ok: false, stage: 'план', why: 'вывод plan-precheck не разобран — вердикта нет (код 2, не «годен»)' }
   const auto = plan.autoRepin || []
   const onlySkew = (plan.reasons || []).every(x => x.code === 'CORELIB-SKEW')
@@ -105,25 +187,37 @@ for (const l of lanes) {
 
 // Имя временной сводки — по правилу репозитория `<N>-<суффикс>` (git-issues.md
 // §«Имя ветки»): N — задача волны, суффикс — `stack-<ключ>` kebab-case ≤ 40.
-const stackName = l => N + '-stack-' + (String(l.key).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 34).replace(/-+$/, '') || 'lane')
+// Полоса с веткой-номером — сводка в её же ветке (ws#946): имя уже то, что
+// принимает хук её репозитория, и другого шаблон не выдумывает.
+const inLane = l => /^[0-9]+$/.test(String(l.branch || ''))
+const stackName = l => inLane(l) ? String(l.branch) : N + '-stack-' + (String(l.key).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 34).replace(/-+$/, '') || 'lane')
 const stackNames = {}
 for (const l of lanes) {
   if (!(l.deps || []).length) continue
   const s = stackName(l)
-  if (!/^[0-9]+-[a-z0-9][a-z0-9-]*$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» полосы ' + l.key + ' не по форме <N>-<суффикс> — номер волны не число' }
+  if (!inLane(l) && !/^[0-9]+-[a-z0-9][a-z0-9-]*$/.test(s) || s.length - s.indexOf('-') - 1 > 40) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» полосы ' + l.key + ' не по форме <N>-<суффикс> — номер волны не число' }
   if (Object.values(stackNames).includes(s)) return { ok: false, stage: 'план', why: 'имя сводки deps «' + s + '» совпало у двух полос — ключи различаются только знаками' }
   stackNames[l.key] = s
 }
 
 // ── Полосы ──────────────────────────────────────────────────────────────
 phase('Полосы')
-const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
+const review = async (role, l, head, prevHead, label, stack) => agent(C + '\n\nРевью ' + role + ': полоса ' + l.key + ' ветка ' + l.branch + ' @' + head + (prevHead ? ' — только дельта `git diff ' + prevHead + '..' + head + '` (принятое не переоткрывается)' : (stack ? ' — своя дельта `git diff ' + stack.head + '..' + head + '` (сводка deps ' + stack.branch + ' — код принятых полос, не предмет ревью)' : '')) + '. Отчёт задания и исполнителя — ' + rep(l.key, 'implement') + '. Запись — ' + rep(l.key, label) + '. ' + due('review') + ' Верни verdict, sha (голова, которую смотрел), blocking (пусто при accept), report.', { agentType: role, label: label + ':' + l.key, phase: 'Полосы', schema: S_REV })
 const precheck = async (l, impl, stack) => agent(C + '\n\nРежим lane-precheck: `bash ' + WS + '/scripts/lane-precheck.sh ' + impl.copy + ' ' + impl.branch + ' ' + (stack ? stack.head : (l.base || A.base)) + ' ' + (impl.issues || []).map(i => '--issue ' + i).join(' ') + ' --hook-log ' + impl.hookLog + ' > ' + rep(l.key, 'lane-precheck') + ' 2>&1`. Верни code, out (последние строки), reasons (коды из строк REASON), head (голова ветки в копии).', { ...MECH, label: 'mech:precheck:' + l.key, phase: 'Полосы', schema: S_MECH })
-const implement = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)' : (l.base || A.base)) + ', копия под ' + WS + '/tmp/. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. Верни status, branch, head, copy, hookLog, issues (владелец/репо#N), report.', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+const neighbours = l => lanes.filter(x => x.key !== l.key).map(x => x.key + ': ' + ((x.paths || []).join(', ') || 'перечень не задан')).join('; ')
+// Исполнитель с hookLog не путём — одна доводка тем же заданием; снова не путь —
+// полоса стоит (runLane), предпроверка вслепую не зовётся.
+const implement = async (l, tdd, extra, stack) => {
+  const r = await implementOnce(l, tdd, extra, stack)
+  if (!r || !sha40(r.head) || ['blocked', 'failed'].includes(r.status) || isPath(r.hookLog)) return r
+  return implementOnce(l, tdd, (extra ? extra + '\n' : '') + 'hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + D + '/' + l.key + '/push.log', stack)
+}
+const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + D + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + D + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
-const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
+const mergeSubj = (l, b) => '«#' + l.branch + ' merge ' + (/^[0-9]+$/.test(String(b)) ? '#' + b : b) + ': …»'
+const stackOf = async (l, deps) => agent(C + '\n\nРежим сводка deps полосы ' + l.key + ': в копии ' + D + '/' + l.key + '/stack от свежего origin/' + (l.base || A.base) + ' заведи ветку ' + stackNames[l.key] + ' и влей в неё по порядку ' + deps.map(d => d.branch + '@' + d.head).join(', ') + ' коммитами слияния pointpu --no-ff' + (inLane(l) ? ' (это ветка самой полосы — хук репозитория принимает лишь номер; первая строка слияния — ' + [l.base || A.base, ...deps.map(d => d.branch)].map(b => mergeSubj(l, b)).join(', ') + ')' : '') + '. Ветка уже есть на origin — не перезаписывай: влей в неё свежую базу и недостающие головы. Конфликт по существу не решай: `git merge --abort`, верни status conflict и пути в conflicts. Отправь ветку через слот (журнал ' + D + '/' + l.key + '/stack.push.log). ФАКТ: для каждой головы `git merge-base --is-ancestor <голова> HEAD` — код 0; в contains — головы, прошедшие эту проверку. Отчёт — ' + rep(l.key, 'stack') + '. Верни status, branch, head, contains, conflicts, report.', { ...MECH, label: 'mech:stack:' + l.key, phase: 'Полосы', schema: S_STACK })
 
 const runLane = async (l, stack) => {
   const t = tierOf[l.key]
@@ -144,6 +238,7 @@ const runLane = async (l, stack) => {
   const tdd = has('implementer-tdd')
   let impl = await implement(l, tdd, has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', stack)
   if (!impl || ['blocked', 'failed'].includes(impl.status) || !sha40(impl.head)) return { ...out, stage: 'исполнитель', report: rep(l.key, 'implement') }
+  if (!isPath(impl.hookLog)) return { ...out, stage: 'исполнитель: hookLog не путь и после доводки (' + JSON.stringify(impl.hookLog === undefined ? null : impl.hookLog).slice(0, 60) + ')', report: rep(l.key, 'implement') }
   // предпроверка; повтор — только при новой голове
   let pc = await precheck(l, impl, stack)
   if (pc && pc.code === 1) {
@@ -203,22 +298,32 @@ const launch = k => started[k] || (started[k] = (async () => {
     const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))
     const st = await stackOf(l, ds)
     const missing = st ? ds.filter(d => !(st.contains || []).includes(d.head)) : ds
-    if (st && sha40(st.head)) stacks.push(st.branch || stackNames[k])
+    if (st && sha40(st.head) && !inLane(l)) stacks.push(st.branch || stackNames[k])
     if (!st || st.status === 'conflict' || !['done', 'already-done'].includes(st.status) || !sha40(st.head) || missing.length) {
       r = { key: k, ok: false, stage: 'сводка deps ' + stackNames[k] + ': ' + (st && st.status === 'conflict' ? 'конфликт в ' + ((st.conflicts || []).join(', ') || 'путях без имени') : !st ? 'нет ответа' : !['done', 'already-done'].includes(st.status) ? 'статус ' + st.status : !sha40(st.head) ? 'голова сводки не sha40 (' + JSON.stringify(st.head === undefined ? null : st.head).slice(0, 60) + ')' : missing.length ? 'нет голов ' + missing.map(d => d.branch + '@' + String(d.head).slice(0, 12)).join(', ') : 'причина не названа') + ' — исполнитель не зван, решает диспетчер', conflicts: st ? st.conflicts || [] : [], report: rep(k, 'stack') }
-    } else r = await runLane(l, { branch: st.branch || stackNames[k], head: st.head })
+    } else r = await runLane(l, { branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k], head: st.head })
   }
   done[k] = r
   return r
 })())
 await Promise.all(layers.flat().map(launch))
-if (Object.values(done).some(r => !r.ok)) return { ok: false, stage: 'полосы', lanes: done, stacks, errors }
+// Вердикт — о своей полосе: непрошедшая (и не начатая из-за неё зависимая) —
+// остаток, соседи с полными фактами идут в сборку. Не прошла ни одна — стоп.
+const remainder = Object.values(done).filter(r => !r.ok).map(r => ({ key: r.key, stage: r.stage }))
+let order = layers.flat().filter(k => done[k] && done[k].ok)
+if (!order.length) return { ok: false, stage: 'полосы', lanes: done, stacks, errors }
+// Снять полосы и транзитивно зависимых от них (в сборке без предшественника нет кода).
+const dropWithDeps = (keys, why) => {
+  const gone = new Set(keys)
+  for (let grew = true; grew;) { grew = false; for (const k of order) if (!gone.has(k) && ((lanes.find(l => l.key === k) || {}).deps || []).some(d => gone.has(d))) { gone.add(k); grew = true } }
+  for (const k of order) if (gone.has(k)) remainder.push({ key: k, stage: keys.includes(k) ? why : 'зависит от снятой ' + keys.join(', ') })
+  order = order.filter(k => !gone.has(k))
+}
 
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
-const steps = new Set(lanes.flatMap(l => tierOf[l.key].steps))
-const order = layers.flat()
-const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии под ' + WS + '/tmp/ от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
+const steps = new Set(order.flatMap(k => tierOf[k].steps))
+const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts. Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой, если его нет (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors }
 // Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
@@ -227,28 +332,54 @@ if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) 
 if (!Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors }
 const waveReviews = []
 if (steps.has('wave-reviewer')) {
-  const wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + D + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_REV })
-  if (!wr || wr.verdict !== 'accept') return { ok: false, stage: 'рецензент волны — возврат; один круг: доводка по ' + D + '/wave-review.md в ветках полос и пересведение решает диспетчер', blocking: wr ? wr.blocking : [], errors }
+  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + D + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
+  const per = wr && Array.isArray(wr.lanes) ? wr.lanes : []
+  const verdictOf = k => (per.find(x => x && x.key === k) || {}).verdict
+  const covered = order.every(k => ['accept', 'return'].includes(verdictOf(k)))
+  const back = order.filter(k => verdictOf(k) === 'return')
+  if (wr && wr.verdict === 'return' && covered && back.length) { // все вернули — пусто после снятия, стоп ниже
+    // Возврат — о своих полосах: снять их (с зависимыми), пересвести без них;
+    // рецензент — лишь проверка исполнения по дельте сборок, не второй круг.
+    dropWithDeps(back, 'возврат рецензента волны — ' + D + '/wave-review.md')
+    // Зависимые снялись вслед за возвращёнными — сводить может быть нечего.
+    if (!order.length) return { ok: false, state: 'failed', stage: 'рецензент волны вернул ' + back.join(', ') + ', зависимые сняты вслед — сводить нечего, вливания нет', remainder, errors }
+    const prevAsm = asm.head
+    asm = await assemble(2)
+    if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head) || !Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'пересведение без возвращённых полос', remainder, errors }
+    wr = await agent(C + '\n\nПроверка исполнения сверки волны ' + N + ': сняты полосы ' + remainder.map(x => x.key).join(', ') + '; только дельта `git diff ' + prevAsm + '..' + asm.head + '` (принятое не переоткрывается), полосы ' + order.join(', ') + '. Запись — ' + D + '/wave-review-2.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave-2', phase: 'Сборка', schema: S_WREV })
+  } else if (wr && wr.verdict === 'accept' && back.length) wr = { ...wr, verdict: 'void' } // свод «принято» при возврате полосы — противоречие, факта нет
+  if (!wr || wr.verdict !== 'accept') return { ok: false, stage: 'рецензент волны — ' + (wr && wr.verdict === 'return' && !covered ? 'возврат без вердикта по каждой полосе: факта нет, ' : 'возврат; ') + 'доводка по ' + D + '/wave-review.md в ветках полос и пересведение решает диспетчер', blocking: wr ? wr.blocking : [], remainder, errors }
   waveReviews.push({ role: 'wave-reviewer', sha: wr.sha, verdict: wr.verdict, blocking: wr.blocking })
 }
-// CI: «идёт» — ждать, не провал; вердикт — только на голове сборки
+// CI: «идёт» — ждать, не провал; вердикт — только на голове сборки и только
+// кодом scripts/ci-read.sh (ws#1006): полный набор, завершённые прогоны,
+// обязательные контексты базы, свежая база.
+// Пауза — в ТОЙ ЖЕ команде, что чтение: часы машины до и после sleep, строка SLEPT.
+const pauseCmd = 's0=$(date +%s); sleep ' + CI_PAUSE_S + '; echo "SLEPT $(( $(date +%s) - s0 ))"; '
+const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: ' : 'Прочти вердикт ОДИН раз командой: ') + '`' + (pause ? pauseCmd : '') + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела; код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci', pause ? Math.ceil(CI_PAUSE_S / 60) : 0) + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT), slept (' + (pause ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_CI })
 let ci = null
-for (let i = 0; i < 12; i++) {
-  ci = await agent(C + '\n\nРежим CI: ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + asm.head + '. Прочти check-runs НА ЭТОЙ голове; идёт — подожди до 10 минут и верни running. Отчёт — ' + D + '/ci-' + i + '.md. Верни state, head, total, passed, report.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci:' + i, phase: 'Сборка', schema: S_CI })
-  if (!ci || ci.state !== 'running') break
+let skipped = 0
+for (let i = 0; i < CI_READS; i++) {
+  const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
+  // Чтение с паузой при slept < N−10 (нет поля, не число, мало) — отвергнуто: его код
+  // не судится, состояние — «идёт», цикл продолжается (ws#1010).
+  if (i > 0 && !(got && typeof got.slept === 'number' && got.slept >= CI_PAUSE_S - CI_SLEPT_SLACK)) { skipped++; ci = { code: 3, reasons: ['PAUSE-SKIPPED'], head: asm.head, slept: got ? got.slept : null }; log('CI чтение ' + (i + 1) + ': пауза не исполнена (slept ' + JSON.stringify(got ? got.slept : null) + ' < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ') — чтение отвергнуто'); continue }
+  ci = got
+  if (ciState(ci) !== 'running') break
 }
+if (skipped) await err('executor-mechanics', 'wave', 'ci', 'пауза CI не исполнена в ' + skipped + ' чтениях из ' + CI_READS + ' (slept < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ')')
 // «Идёт» и после ожидания — СОСТОЯНИЕ, а не провал: волна не влита и не сломана,
 // повтор шаблона продолжит с той же головы (state running отличим от failed).
-if (ci && ci.state === 'running' && ci.head === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' — ожидание исчерпано, провала нет', pr: asm.pr, head: asm.head, report: ci.report, errors }
-if (!ci || ci.state !== 'green' || ci.head !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + (ci ? ci.state : 'нет ответа'), report: ci ? ci.report : '', errors }
+const ciHead = sha40(ci && ci.head)
+if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет' + (skipped ? '; чтений с неисполненной паузой ' + skipped + ' — отвергнуты' : ''), pauseSkipped: skipped, pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
+if (ciState(ci) === 'stale') return { ok: false, state: 'failed', stage: 'CI: база устарела (ci-read код 4) — влить свежую ' + (A.epic || A.base) + ' в ветку волны и читать заново', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors }
+if (ciState(ci) !== 'green' || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], errors }
 
 // ── Посадка ─────────────────────────────────────────────────────────────
+// Факты собираются (CI на голове, ревью уровня на головах, коды предпроверки);
+// решение «вливать» — ПРАВИЛО ВЛИВАНИЯ ниже; landing-reviewer — за недостающим
+// фактом: публичный текст полосы либо голова PR сдвинута не только вливанием базы.
 phase('Посадка')
-if (steps.has('landing-reviewer')) {
-  const lr = await agent(C + '\n\nДо посадки: PR #' + asm.pr + ' @' + asm.head + ' → ' + (A.epic || A.base) + '. Запись — ' + D + '/landing-review.md. Верни verdict, sha, blocking, report.', { agentType: 'landing-reviewer', label: 'review-landing', phase: 'Посадка', schema: S_REV })
-  if (!lr || lr.verdict !== 'accept') return { ok: false, stage: 'landing-reviewer — возврат', blocking: lr ? lr.blocking : [], errors }
-  waveReviews.push({ role: 'landing-reviewer', sha: lr.sha, verdict: lr.verdict, blocking: lr.blocking })
-}
 // Вердикты ролей полос судятся на голове ПОЛОСЫ, сведённой в сборку (sha
 // вердикта = голова, отданная сборке); на голове PR — вердикты волны: их и
 // судит landing-precheck (REVIEW-STALE). Подменять sha вердикта нельзя.
@@ -257,7 +388,8 @@ for (const d of Object.values(done)) {
   if (stale.length) return { ok: false, stage: 'вердикт роли не на сведённой голове полосы ' + d.key, stale, errors }
 }
 const reviews = waveReviews
-const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни `bash ' + WS + '/scripts/landing-precheck.sh ' + (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' > ' + D + '/landing-precheck-' + round + '.md 2>&1`. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
+const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на sha головы из landing-precheck; CI — только scripts/ci-read.sh код 0 на этой голове; код 0 обоих — вливать; 1 только с CI-PENDING — ждать; 1 только с причинами тела — правка тела и повтор; иначе и код 2 — не вливать, вернуть код и вывод'
+const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни рецепт «ЗАПУСК» шапки landing-precheck.sh (он вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2) `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : ''), D + '/landing-precheck-' + round + '.md') + '`; code — код этой команды. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
 let lp = await landCheck(1)
 if (lp && lp.code === 1) {
   const rs = lp.reasons || []
@@ -270,6 +402,23 @@ if (lp && lp.code === 1) {
   }
 }
 if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, errors }
-if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], errors }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + asm.head + '; основание — landing-precheck код 0 (' + D + '/landing-precheck-*.md). Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи волны со ссылкой на их DoD-proof. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
-return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: asm.head, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }
+if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], remainder, errors }
+const landHead = sha40(lp.head) || asm.head
+if (steps.has('landing-reviewer')) {
+  let gap = order.filter(k => (lanes.find(l => l.key === k) || {}).publicText === true).map(k => 'публичный текст полосы ' + k)
+  if (landHead !== asm.head) {
+    const dl = await agent(C + '\n\nРежим дельта головы: PR #' + asm.pr + ' ' + asm.head + '..' + landHead + '. Код 0 — в дельте только коммиты слияния свежей базы ' + (A.epic || A.base) + ' (`git rev-list --no-merges ' + asm.head + '..' + landHead + '` пуст и второй родитель каждого слияния — предок origin/' + (A.epic || A.base) + '); иначе 1. Верни code, out, reasons [], head.', { ...MECH, label: 'mech:delta', phase: 'Посадка', schema: S_MECH })
+    if (!dl || dl.code !== 0) gap.push('голова сдвинута не только вливанием базы: ' + asm.head.slice(0, 12) + '..' + landHead.slice(0, 12))
+  }
+  if (gap.length) {
+    const lr = await agent(C + '\n\nДо посадки, за недостающим фактом (' + gap.join('; ') + '): PR #' + asm.pr + ' @' + landHead + ' → ' + (A.epic || A.base) + '. Вердикт — об этом PR. Запись — ' + D + '/landing-review.md. Верни verdict, sha, blocking, report.', { agentType: 'landing-reviewer', label: 'review-landing', phase: 'Посадка', schema: S_REV })
+    if (!lr || lr.verdict !== 'accept' || lr.sha !== landHead) return { ok: false, stage: 'landing-reviewer — ' + (lr && lr.verdict === 'accept' ? 'вердикт о другой sha' : 'возврат'), blocking: lr ? lr.blocking : [], remainder, errors }
+  }
+}
+// Последнее чтение CI — на голове посадки, тем же скриптом: между сборкой и
+// вливанием база могла уйти вперёд, а голова — получить слияние базы.
+const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
+if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors }
+if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], errors }
+const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + '` (коммит слияния на сервере, `--subject` — по норме git-operator; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }

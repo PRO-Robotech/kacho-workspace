@@ -1,0 +1,140 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  sha256: f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 1 — эта запись и внешнее событие.
+  base_commit: fabf7d1b1
+  content_commit: 676e892fc84c434797dfb3076a462cff326580e8
+  branch: 897-s4-passkey-acceptance (копия tmp/ws-a3-s4, отправлена)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/1274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  fingerprint_reproduced: true
+  lines: 481
+  code_base: PRO-Robotech/kacho @ 9b14ae7f01c · PRO-Robotech/kaname @ d2f6f182fab
+verdict: CHANGES_REQUESTED
+round: 1
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-04T00:00:00Z'
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b"
+sanction:
+  granted: false
+  reason: >-
+    Вердикт — возврат. Санкции на код S4 эта запись не даёт. Следующая редакция получает соседнюю
+    запись.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: []
+
+premise_check:
+  claim: "редакция f5d41cfd… на 897-s4-passkey-acceptance @676e892fc84c; прошлых кругов нет"
+  result: >-
+    Подтверждено: `git log -1` → 676e892fc; `sha256sum` → f5d41cfd…207b; каталога записей этого
+    документа до круга не было. Посылка §0.3 документа (F8 c9159554 APPROVED, S4 вынесена в §12)
+    тоже подтверждена: F8 §5:1435 и §12:2301 в копии.
+
+measurement:
+  tree_claims_reproduced: >-
+    §1.2 перемерено целиком на kaname@d2f6f182fab и kacho@9b14ae7f01c, совпало всё: N1a 15,
+    N1b 0 (контроль 6), N2a 15, N2b 0 (контроль 10), N4 0 (контроль 4), N6 8·9·3·7,
+    N7 rest_route_table_gen.go:165,166,167,202, N8 values.dev.yaml:1281 `origins: []`,
+    N9 console-e2e.yml:100–101, N5 @playwright/test 1.56.1, N10 deps.go:30,32,35,38,43,
+    Ф13 322251f6… с записью round 7 APPROVED.
+  service_texts_reproduced: >-
+    refusals.go:20 «too many attempts; try again later», :24 «request not performed; try again
+    later»; Ф13 Р1 (поля формы входа, csrf?form=access-key-*), Р4 (уровень «3» — UV и
+    BE=0), Р5 (второй фактор не требуется), Р9 (begin — попытка источника), Р15 (снятый ключ —
+    единый отказ) сходятся с «Тогда» F8S4-02…05, -10, -13, -14.
+  seed_claims: >-
+    seedConfirmedHuman — ceremony-seed.ts:249, seedSecondFactor — :379, ceremonyCensus —
+    fixtures.ts:822, postData() — identity-ceremony.spec.ts:1219: все есть. Свежесть Ф7 у
+    регистрации — requireFresh в begin_registration.go:83; посев К сразу после П-п её удовлетворяет.
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    summary: >-
+      Бюджет оси источника не объявлен, а F8 Р7 ч. 2 действует здесь целиком (§6.0). Ф13 Р9:
+      каждая выдача испытания — попытка источника, пара «begin + единый отказ» — две. Сценарии
+      S4 тратят за прогон 12–14 попыток: 02·1, 03·1, 04·2, 05·2–4, 09·4, 10·1, 12·1. F8 Р7 даёт
+      11 за прогон, потолок источника — 50 за 15 мин, и снимается он только временем. Три прогона
+      подряд (DoD п. 3) дают 69–75. Сторож F8-41 считает только «401 на путях семи глаголов» и
+      выдачу испытания не видит. Верная реализация может получить 429 по источнику.
+    fix: >-
+      Добавить в документ перепись S4 по группам F8 Р7 (begin и access-key/login) с числом за
+      прогон и за три. Расширить F8-41 новым глаголом или показать числом, что сумма не выходит за
+      потолок. Это оформить сценарием-сторожем с производителем и DoD-пунктом.
+    evidence: >-
+      grep -c 'бюджет\|F8-41' документа → 0; F8 Р7 — sub-phase-F8-…:1050–1172; Ф13 Р9 —
+      passwordless-login-with-access-key.md@d2f6f182fab.
+  - id: B2
+    kind: TWIN
+    summary: >-
+      §6.2 называет у пары F8S4-01 / F8S4-02 одно различие — «нажата ли кнопка». По тексту их
+      три: у F8S4-02 есть посев П-п+К, у F8S4-01 нет; адрес `/login` против
+      `/login?returnTo=/dashboard`; нажатие. Утверждение §6.2 опровергнуто текстом документа.
+    fix: >-
+      Дать F8S4-01 «Дано» F8S4-02 и When «открывает /login?returnTo=/dashboard, кнопку не
+      нажимает».
+    evidence: "awk-выборка Given/When обоих сценариев (строки 299–309 документа)"
+
+important:
+  - id: I1
+    summary: >-
+      Посев К собирает authData регистрации кодом, но значение флагов BE/BS в ней не названо.
+      Флаг резервного копирования проверяется на согласованность с предъявлением, а аутентификатор
+      предъявляет BE=0 (N5). Следует прямо написать: BE=0, BS=0.
+  - id: I2
+    summary: >-
+      F8S4-06 не называет ни наличие `window.PublicKeyCredential`, ни ответ транспорта на вход,
+      а у близнеца F8S4-08 названо и то и другое. Нужно выровнять «Дано».
+  - id: I3
+    summary: >-
+      §3 «перечень ключей»: у отложенного предмета нет номера задачи. Нужно завести задачу и
+      вписать её номер в следующую редакцию (ban11-three-outcomes).
+
+not_performed:
+  - subject: "посев К и К-снят на живом стенде"
+    reason: >-
+      Посева в дереве нет (N4 = 0). Стенд отвергнет регистрацию по происхождению (N8, N9). П1 и
+      П2 — 0 из 2.
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  new_edge: false
+  security_surface: true
+  disclosure_safe: true
+
+next:
+  needed_agent: acceptance-author
+  task: "редакция 2: закрыть B1 (бюджет источника + сторож) и B2 (Дано F8S4-01), учесть I1–I3"
+  owner_questions: []

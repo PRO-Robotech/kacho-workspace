@@ -1070,6 +1070,37 @@ if mr_patch "$b/$MR_REL" \
         A-BLOCKED A-DIRTY A-BEHIND A-DRAFT A-UNKNOWN
 fi
 
+# ── ПОСЛЕДНИЙ ИСХОД ПРОВЕРКИ, А НЕ «ЕСТЬ SUCCESS» (находка kaname#673) ───────
+# Каждое решение свёртки rollup к последним исходам портится одним фактом и
+# обязано покраснеть держащей его пробой SUP-*.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .*?)<<<"\$rollup_json"/${1}<<<"\$pr_json"/m' \
+    "зелёные взяты из несвёрнутого rollup"; then
+    run_c09_red "$b" "инъекция: зелёный — имя, у которого ЕСТЬ success (прежнее правило) — краснеет" \
+        SUP-LATE-RED SUP-LATE-RUN SUP-WF SUP-NOSTART
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\(map\(\.startedAt\) \| max\)/(map(.startedAt) | min)/' \
+    "последним взят самый ранний исход"; then
+    run_c09_red "$b" "инъекция: последним взят самый ранний исход — краснеет" SUP-GREEN SUP-LATE-RED SUP-LATE-RUN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if length > 1 and all\(\.\[\]; \(\.startedAt \/\/ ""\) != ""\)/if length > 1/' \
+    "запись без startedAt вытесняется"; then
+    run_c09_red "$b" "инъекция: порядок без startedAt считается установленным — краснеет" SUP-NOSTART
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/group_by\(\[\(\.name \/\/ \.context\), \(\.workflowName \/\/ ""\)\]\)/group_by(.name \/\/ .context)/' \
+    "проверка — одно имя, без workflow"; then
+    run_c09_red "$b" "инъекция: одноимённые задания разных workflow вытесняют друг друга — краснеет" SUP-WF
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/then \[\.\[\]\] else map\(select\(\.conclusion != "SUCCESS"\)\) end/then [.[]] else [.[]] end/' \
+    "незелёная проверка прикрыта зелёной одноимённой"; then
+    run_c09_red "$b" "инъекция: красная проверка прикрыта зелёной одноимённой — краснеет" SUP-WF SUP-NOSTART
+fi
+
 # Законный близнец фильтра: тот же «только SUCCESS», записанный иначе.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
@@ -2587,6 +2618,155 @@ printf '\n# комментарий пробы: вызов гейта не мен
 run 0 "$b" "близнец: безобидная правка носителя — молчит" "$C17"
 b="$(mksandbox "$HK_REL")"
 run 2 "$b" "предпосылка: хука отправки нет — VOID" "$C17"
+
+echo "== check-19: норма «Не жди» у исполнителей, застой провязан диспетчеру (ws#1001) =="
+C19=check-19-no-idle-norm-is-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`CLAUDE.md` «Не жди»', '`CLAUDE.md`'))
+PY
+run 1 "$b" "инъекция: у scout снята ссылка на норму — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`CLAUDE.md` «Не жди»', '`CLAUDE.md`\n«Не жди»'))
+PY
+run 0 "$b" "близнец: перенос строки внутри ссылки на норму — та же норма, молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Ни один вызов не держит ожидание дольше 10\n  минут', 'Вызов держит ожидание сколько нужно'))
+PY
+run 1 "$b" "инъекция: норма в протоколе вывернута — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['Stop']: g['hooks'] = [h for h in g['hooks'] if 'stall-signal' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: хук застоя снят со Stop — краснеет" "$C19"
+b="$(mksandbox "scripts/stall-census.sh")"
+run 1 "$b" "инъекция: прибора застоя нет — краснеет" "$C19"
+b="$(mksandbox)"
+printf '\n# комментарий пробы\n' >> "$b/.claude/hooks/stall-signal.sh"
+run 0 "$b" "близнец: безобидная правка хука — молчит" "$C19"
+# ws#1004: отказ ожиданию провязан в PreToolUse Bash, правило о чужих файлах — в базе.
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']: g['hooks'] = [h for h in g['hooks'] if 'no-wait-guard' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: no-wait-guard снят с PreToolUse — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    if any('no-wait-guard' in h.get('command', '') for h in g['hooks']): g['matcher'] = 'Monitor'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: no-wait-guard под матчером Monitor (Bash мимо) — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    if any('no-wait-guard' in h.get('command', '') for h in g['hooks']): g['matcher'] = 'Bash|Monitor'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C19"
+b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
+run 1 "$b" "инъекция: разбора no-wait-guard нет — краснеет" "$C19"
+# Провязка судится по ФАЙЛУ, который исполнит команда, а не по подстроке имени:
+# неверный путь и выключенная копия дают хуку код 127 — страж выключен молча.
+nwg_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    for h in g['hooks']:
+        if 'no-wait-guard' in h.get('command', ''): h['command'] = sys.argv[2]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/no-wait-guard/no-wait-guard.sh"'
+run 1 "$b" "инъекция: PreToolUse зовёт несуществующий путь (имя хука в подкаталоге) — краснеет" "$C19"
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/no-wait-guard.sh.off"'
+run 1 "$b" "инъекция: PreToolUse зовёт выключенную копию «.off» — краснеет" "$C19"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/no-wait-guard.sh"
+run 1 "$b" "инъекция: канонический хук не исполним — краснеет" "$C19"
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/no-wait-guard.sh"'
+run 0 "$b" "близнец: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`blocked` — лишь за файлом соседа', '`blocked` — по усмотрению'))
+PY
+run 1 "$b" "инъекция: правило о чужих файлах снято из базы — краснеет" "$C19"
+
+echo "== check-20: «gh api — только GET» у читающих агентов, отказ провязан в PreToolUse Bash (ws#1008) =="
+C20=check-20-gh-api-read-only-is-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/ci-watcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Норма «`gh api` — только GET»', 'Норма'))
+PY
+run 1 "$b" "инъекция: у ci-watcher снята норма «gh api — только GET» — краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('--jq .merge_base_commit.sha`', '`'))
+PY
+run 1 "$b" "инъекция: у scout норма без готовой команды merge-base — краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/wave-reviewer.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Норма «`gh api` — только GET»', 'Норма «`gh api` —\nтолько GET»'))
+PY
+run 0 "$b" "близнец: перенос строки внутри нормы — та же норма, молчит" "$C20"
+b="$(mksandbox ".claude/agents/landing-reviewer.md")"
+run 1 "$b" "инъекция: файла читающего агента нет — перечень разошёлся с деревом, краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']: g['hooks'] = [h for h in g['hooks'] if 'gh-api-guard' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: gh-api-guard снят с PreToolUse — краснеет" "$C20"
+gag_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" "$3" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    for h in g['hooks']:
+        if 'gh-api-guard' in h.get('command', ''):
+            h['command'] = sys.argv[2] or h['command']
+    if sys.argv[3] and any('gh-api-guard' in h.get('command', '') for h in g['hooks']):
+        g['matcher'] = sys.argv[3]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+gag_cmd "$b" '' 'Monitor'
+run 1 "$b" "инъекция: gh-api-guard под матчером Monitor (Bash мимо) — краснеет" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" '' 'Bash|Monitor'
+run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/gh-api-guard.sh.off"' ''
+run 1 "$b" "инъекция: PreToolUse зовёт выключенную копию «.off» — краснеет" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/gh-api-guard.sh"' ''
+run 0 "$b" "близнец: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C20"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/gh-api-guard.sh"
+run 1 "$b" "инъекция: канонический хук не исполним — краснеет" "$C20"
+b="$(mksandbox ".claude/hooks/gh-api-guard/guard.py")"
+run 1 "$b" "инъекция: разбора gh-api-guard нет — краснеет" "$C20"
+b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
+run 1 "$b" "инъекция: лексера (no-wait-guard/guard.py) нет — краснеет" "$C20"
+b="$(mksandbox)"
+printf '{ не json\n' > "$b/.claude/settings.json"
+run 2 "$b" "предпосылка: settings.json не разобран — VOID" "$C20"
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне

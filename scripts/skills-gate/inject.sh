@@ -15,7 +15,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# Корень синтетических деревьев продукта — ОТДЕЛЬНЫЙ: `$TMP` ниже становится
+# рабочей копией песочницы, и фикстура внутри неё была бы неотслеживаемым
+# каталогом чужого дерева — тем самым классом, который страж
+# `product_fixture_init` отвергает (ws#924).
+PROD_ROOT="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$PROD_ROOT"' EXIT
 
 mkdir -p "$TMP/.claude"
 cp -r "$WS/.claude/skills" "$TMP/.claude/skills"
@@ -587,8 +592,9 @@ echo "== гейт 06 — полоса чтения: СТВОЛ продукта,
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/product-fixture.sh
 source "$WS/scripts/lib/product-fixture.sh"
-
-PROD_SEQ=0
+# Место синтетических деревьев — в выводе, и вне рабочей копии git: иначе они
+# встают неотслеживаемыми каталогами в чужое дерево (ws#924).
+product_fixture_root_census "$PROD_ROOT" || exit 2
 
 # mkprod06 — дерево продукта под предикаты гейта 06. Печатает путь.
 #
@@ -596,9 +602,13 @@ PROD_SEQ=0
 # ровно то, чем отличается настоящая припаркованная копия от ствола. Рядом заводятся
 # каталоги, которые требует ВТОРОЙ предикат гейта (рабочий каталог процитированной
 # сборки), иначе пробы краснели бы по причине, к полосе чтения не относящейся.
+#
+# Каталог даёт `mktemp`, а НЕ счётчик: функция зовётся подстановкой команды, то
+# есть в подоболочке, и приращение счётчика не переживало возврата — каждый вызов
+# отдавал один и тот же каталог (класс назван в `scripts/docs-gate/inject.sh`).
 mkprod06() {
-    PROD_SEQ=$((PROD_SEQ + 1))
-    local dir="$TMP/prod06-$PROD_SEQ" site
+    local dir site
+    dir="$(mktemp -d -p "$PROD_ROOT" prod06.XXXXXX)"
     product_fixture_init "$dir"
     for site in gateway/docs services/vpc/docs services/iam/docs; do
         mkdir -p "$dir/$site/engineering" "$dir/$site/content"

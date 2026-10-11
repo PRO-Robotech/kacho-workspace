@@ -5,26 +5,29 @@ aliases:
   - kaname#589
 ticket_id: 589
 category: kac
-status: to-do
+status: test
 type: fix
 repos:
   - kaname
 areas:
   - internal/revocationpolicy
   - internal/apps/kaname/api/user_tokens
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kaname/pull/640
 issue_url: https://github.com/PRO-Robotech/kaname/issues/589
 opened: 2026-10-04
+closed: 2026-10-07
 tags:
   - kac
   - kacho-iam
   - iam
-verified_against: "kaname 296@77dae639 (коммит слияния PR #599, родители d2f6f182 + 594af5af; голова origin/296 = этот коммит, 2026-10-04): состав — git log d2f6f182..77dae639 --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям задачи и телу PR #599; пробы и конвейер этой записью не перезапускались; 2026-10-06 — перенос в волну-5: gh issue view (OPEN), комментарий переноса задачи, sub-issue kaname#539"
+verified_against: "kaname 296@77dae639 (коммит слияния PR #599, родители d2f6f182 + 594af5af; голова origin/296 = этот коммит, 2026-10-04): состав — git log d2f6f182..77dae639 --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям задачи и телу PR #599; пробы и конвейер этой записью не перезапускались; 2026-10-06 — перенос в волну-5: gh issue view (OPEN), комментарий переноса задачи, sub-issue kaname#539; 2026-10-08 — gh issue view (CLOSED 2026-10-07T12:36Z, completed), DoD-proof @30659965ba88 (gh api …/comments), коммит слияния PR kaname#640 = 76ca2c8aa6e0 (gh pr view)"
 ---
 
 # kaname#589: моменты отсечки отзыва-всех — один источник времени на все реплики
 
-> [!note] Состояние — `to-do`: заведена как остаток [[KAC/issue-388-kaname]]
+> [!note] Состояние — `test`: закрыта 2026-10-07, работа в ветке эпика `296`, в `main` не влита
+> Заведена как остаток [[KAC/issue-388-kaname]].
 > Остаток объявлен в шапке `internal/revocationpolicy/revocationpolicy.go` (раздел «Оба сравниваемых
 > момента — от одних часов») на `296`@`77dae639`.
 
@@ -44,7 +47,10 @@ verified_against: "kaname 296@77dae639 (коммит слияния PR #599, р�
 
 Отметка `[x]` — предъявлено артефактом, названным в строке, либо измерено этой записью на ревизии из `verified_against`; `[ ]` — не выполнено либо не доказано, причина в строке.
 
-- [ ] предикат снятия из шапки пакета — не начато.
+- [x] один источник времени на все реплики для моментов отсечки отзыва и `iat` — коммит `30659965b` (полоса N-CLOCK),
+  влит первой сборкой волны-6 ([kaname#640](https://github.com/PRO-Robotech/kaname/pull/640), `76ca2c8aa6e0`);
+- [x] DoD-proof @`30659965ba88` — [комментарий задачи](https://github.com/PRO-Robotech/kaname/issues/589#issuecomment-6029172806): исполнено 4218, отказов 0, пропущено 37 (пропуски заданы окружением — со слов комментария);
+- [ ] влито в `main` службы — нет.
 
 ## Волна-4 — не закрыта, перенесена в волну-5 (2026-10-06)
 
@@ -55,6 +61,10 @@ verified_against: "kaname 296@77dae639 (коммит слияния PR #599, р�
 
 Волна [[KAC/issue-539-kaname]] влита в ветку эпика коммитом слияния `d9e233f42051` ([kaname#629](https://github.com/PRO-Robotech/kaname/pull/629)); задача
 осталась открытой и стоит в волне-6 kaname#540. Причина: снята с волны-5 до старта (комментарий 2026-10-06 15:00Z): писатели моментов пересекаются с путями полос N608 и N-ADDR, полоса стартует после их вливания.
+
+## Волна-6 — закрыта (2026-10-07)
+
+Волна [[KAC/issue-540-kaname]], полоса N-CLOCK: закрыта работой `30659965b` после вливания первой сборки.
 
 ## Затронутые сущности vault
 

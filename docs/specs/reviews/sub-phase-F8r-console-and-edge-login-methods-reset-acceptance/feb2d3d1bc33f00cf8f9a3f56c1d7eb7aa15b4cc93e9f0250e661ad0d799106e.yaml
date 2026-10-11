@@ -1,0 +1,71 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance.md
+  sha256: feb2d3d1bc33f00cf8f9a3f56c1d7eb7aa15b4cc93e9f0250e661ad0d799106e
+  revision: 2
+  previous_sha256: 07a18c8e7e07f21ea33bc780c45714c3bca1387413b16bcb663df7431edced10
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — то, что туда
+    вписал автор; действующий вердикт о редакции 2 — эта запись и внешнее событие.
+  base_commit: 34e1009c8
+  content_commit: none (файл не закоммичен на ветке 3063-f8r-login-methods-reset-acceptance)
+  tasks:
+    - https://github.com/PRO-Robotech/kacho/issues/3063
+    - https://github.com/PRO-Robotech/kacho/issues/2702
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance.md
+  lines: 604
+  measured_against:
+    kacho: 0ae22f8f8c6
+    kaname: d9e233f4205
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+round: 2
+reviewed_at: '2026-10-07'
+blocking: []
+resolved_from_round_1:
+  - kind: CONSTRUCTIBILITY
+    scenario: F8r-04
+    resolution: >-
+      «Дано» строится на отдельном W — регистрация Б-в (fixtures.ts registerAndSignIn @0ae22f8f8c6)
+      без шага Б-г; фактор не заводится, сессия «1». Близнец F8r-01, различие одно — шаг Б-г.
+      Добавлено «у W ничего не изменено»; строка производителя «Дано» в §5.
+  - kind: PRODUCER
+    scenario: F8r-02 (Р3)
+    resolution: >-
+      Подсказка снята из Р3, F8r-02, §5, §8 Д3; довод Р3 (в) сверен с RowVerbState
+      (resource-spec.ts @0ae22f8f8c6: подсказку несёт только disabledReason). F8r-21 утверждает
+      отсутствие полей сверх RowVerbState.
+non_blocking:
+  - Обозначение W не говорит «в отдельном контексте браузера», а F8r-04 утверждает «сессия W жива» — проба должна держать W в своём контексте, как U и V.
+  - F8r-21 «полей сверх RowVerbState нет» — проба сверяет ключи объекта с перечнем полей типа (тип TS в рантайме не виден).
+round_1_non_blocking_status:
+  - F8r-02/F8r-12 — пункт назван подписью, окно — заголовком: исправлено.
+  - F8r-13/F8r-14 — порядок F8r-11 → F8r-14 → F8r-13 над одним V назван; F8r-14 — отказ: исправлено.
+  - F8r-21 PENDING — довод переформулирован (служба отвечает С-б, вердикт Р6), близнец «Запретить участие» c disabledReason для PENDING подтверждён resource-registry.tsx @0ae22f8f8c6: исправлено.
+  - freshAdminSession — экспорт заказан (S1 §7 п.2): исправлено.
+checked:
+  premise: >-
+    Подтверждена: отпечаток редакции 2 = feb2d3d1… (sha256sum); прежняя запись 07a18c8e… не
+    тронута; строка истории дописана. Отказ «фактора нет» синхронен до Operation —
+    kaname reset_second_factor.go:26-34, :215 @d9e233f4205.
+  fixtures_named_exist: Б-а…Б-ж и Б-а₁ (не экспортирована, экспорт заказан) @0ae22f8f8c6
+  constructibility_seeded: 0 из 13 — посев не ставился, стенд не поднимался; конструируемость показана названными фикстурами
+scenarios: 13
+producer_named: 13 из 13
+twin_named: 6 из 6 отрицательных
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · APPROVED · feb2d3d1bc33f00cf8f9a3f56c1d7eb7aa15b4cc93e9f0250e661ad0d799106e"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true

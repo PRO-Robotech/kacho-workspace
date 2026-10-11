@@ -1,0 +1,63 @@
+# Пост-дифф ревью Go-кода, роль go-style-reviewer: ПРОВЕРКА ИСПОЛНЕНИЯ на новом дайджесте.
+# Имя файла совпадает с content_digest. Запись не правится (change-graph §2).
+schema_version: 1
+change_id: kn-456
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+mode: execution-check
+subject: >-
+  kaname#456, два коммита поверх fac1cbad8 по возврату db-architect-reviewer:
+  пробы окна источника под конкуренцией, уборки кодов и вида окна писем;
+  снятие умолчания вида в миграции, ещё не лежащей в main.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '456'
+  remote_head_ls_remote: 442c297530721b795dcd9b85f94b15c105e5aea4
+  base: cbbac984b7b17f22bcc4a83f7533fff3494c809a   # merge-base origin/main
+  head: 442c297530721b795dcd9b85f94b15c105e5aea4
+  commits_under_check: [57289797b, 442c29753]
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kaname-456
+
+content_digest: sha256:a2f4bd8e06f40e9e137597a2af1efe97d3704e438b751f0d113d6845b20000df
+digest_command: >-
+  git diff --full-index cbbac984b7b1..442c29753072 -- . ':!docs/specs/reviews' | sha256sum
+
+verdict: accepted
+blocks_landing: false
+
+prior_return_status:
+  critical_neutral_deny_port: исполнено на fac1cbad8, на HEAD не тронуто (запись 11f8c80f)
+  medium_error_wrap: >-
+    НЕ исполнено: verification.go:269, 273, 278 возвращают ошибку хранилища
+    без обёртки с именем операции.
+  medium_per_call_deadline: >-
+    НЕ исполнено: personmarks.go:78 и address_gate.go:207 без своего
+    context.WithTimeout, в дереве этих файлов WithTimeout = 0.
+  low_round1: не перемерялись поимённо, не блокируют
+
+findings_new:
+  - severity: low
+    at: internal/repo/kaname/pg/address_verification_windows_integration_test.go:197
+    text: >-
+      rows.Close без defer сразу после Query; при падении require внутри цикла
+      отложенный pool.Close ждёт возврата связи и проба висит до таймаута
+      вместо отказа. defer rows.Close сразу после проверки err.
+
+evidence:
+  - claim: origin/456 = локальный HEAD = 442c29753
+    source: git ls-remote origin refs/heads/456; git rev-parse HEAD
+  - claim: миграция 20260927190000 в origin/main отсутствует, правка допустима
+    source: git cat-file -e origin/main:internal/migrations/20260927190000_... — path not in origin/main
+  - claim: единственный писатель окна писем называет вид
+    source: internal/repo/kaname/pg/tx.go:233 INSERT ... (kind, recipient, ...); прочих писателей вне проб 0
+  - claim: пакет с новой пробой собирается, vet чист
+    source: go vet ./internal/repo/kaname/pg/ @442c29753 — exit 0
+  - claim: маркеров отсрочки, panic, context.TODO, Must в добавленных строках 0
+    source: git diff fac1cbad8..HEAD | grep по добавленным строкам
+
+deferral_markers_new: 0
+probes_same_pr: true
+attribution_trailers: 0
+security_comments_contradicting_code: []
+foundation_candidates: []

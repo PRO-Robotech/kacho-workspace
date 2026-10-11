@@ -293,3 +293,7 @@ stand-provenance-before · ПЕРЕД прогоном, с печатью в о�
 fixture-factory-reads-error · фабрика обязана читать `error`, не только id: id чеканится до асинхронного отказа · ЗАВЕСТИ · red: фабрика возвращает id и не проверяет `error` — асинхронный отказ уходит непрочитанным
 n-of-m-first · сперва «исполнено N из M», потом перечень упавших · exec-coverage.py · red: 5 из 66: о шестидесяти одной пробе не известно ничего
 early-stop-not-mask · маской не является, не трогай · ЗАВЕСТИ · red: шестьдесят одно падение по чужой причине
+
+2026-10-08 (подзадача #896): `stand-external-first` переведён на `testing-verdict.md#external-cluster-ns-per-run`. До правки:
+
+stand-external-first · стенд проб — внешний кластер при доступе (testing-verdict.md#external-cluster-first) · вниманием · red: локальный kind при рабочем доступе

@@ -80,6 +80,14 @@
 #                   защищённой базы, не ветки линии, ноль, разбор не
 #                   состоялся) либо проверка не выполнилась (ручного прогона на
 #                   голове нет). Это НЕ «сливать нельзя».
+#
+# ЗАПУСК — КАТАЛОГ scripts/ ЦЕЛИКОМ ИЗ origin/main ВОРКСПЕЙСА, НЕ ОДИН ФАЙЛ.
+# Распознаватель DoD берётся соседом `lib/dod_proof.jq` по пути от скрипта:
+# скопированный одним файлом, скрипт выходит кодом 2 «распознавателя нет», а
+# запущенный из рабочей копии — судит невыписанной в ствол редакцией. Рецепт
+# один на оба скрипта и живёт в шапке `landing-precheck.sh` между метками
+# «рецепт ЗАПУСК»; здесь — с S=merge-readiness.sh. Сбой его подготовки — код 2,
+# как и у этого скрипта: вердикта нет.
 
 # ПОЧЕМУ СВЕРКА МНОЖЕСТВ ИДЁТ ПОД LC_ALL=C — И НА sort, И НА comm (ws#530).
 #
@@ -126,7 +134,7 @@ trap 'rm -rf "$workdir"' EXIT
 # Распознаватель доказательства DoD — общий для всего дерева (`lib/dod_proof.jq`),
 # своей копии выражения здесь нет. Нет файла — судить нечем, код 2.
 dod_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
-[ -r "$dod_lib/dod_proof.jq" ] || { echo "merge-readiness: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq)" >&2; exit 2; }
+[ -r "$dod_lib/dod_proof.jq" ] || { echo "merge-readiness: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq) — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)" >&2; exit 2; }
 
 # ОТКАЗ РАЗБОРА — ЭТО КОД 2, А НЕ 1. Единственная точка, где скрипт объявляет,
 # что вердикта у него нет. Всё, что не сошлось при чтении ответа соседа или при
@@ -572,8 +580,34 @@ if [ -n "${MERGE_READINESS_REQUIRED_OUT:-}" ]; then
     echo "merge-readiness: набор обязательных не записан в $MERGE_READINESS_REQUIRED_OUT" >&2; exit 2; }
 fi
 
-# Исходы на ревизии PR. Один контекст может встретиться дважды (перезапуск),
-# поэтому зелёным считается имя, у которого ЕСТЬ успешный исход.
+# Исходы на ревизии PR — ПОСЛЕДНИЕ исходы каждой проверки. Одно имя встречается
+# в `statusCheckRollup` несколько раз: перезапуск по событию правки запроса
+# поднимает новый прогон со своим check suite, и прежний исход остаётся рядом
+# (kaname#673 @1197a78e: «правило запроса» success 05:27, cancelled 05:57:02,
+# failure 05:57:11, success 05:57:41 и 05:58:55 — пять записей одного имени).
+# Прежнее правило «зелёным считается имя, у которого ЕСТЬ успешный исход»
+# засчитывало обязательный контекст зелёным и тогда, когда ПОЗДНИЙ его прогон
+# красный или ещё идёт — ранний success его прикрывал. Теперь:
+#   1) проверка — имя и workflowName; у каждой судится запись с наибольшим
+#      startedAt (ничьи — все поздние; startedAt нет хоть у одной — все записи);
+#   2) имя зелёное, только если ВСЕ его оставшиеся записи — SUCCESS: одноимённые
+#      задания разных workflow — разные проверки, и красная не прикрывается
+#      зелёной соседкой; у такого имени успешные записи из вердикта выводятся,
+#      и оно судится своим незелёным исходом.
+# Вытеснённые записи считаются и печатаются строкой «вытеснено».
+latest_json=$(jq -c '{statusCheckRollup: ([.statusCheckRollup[]?]
+    | group_by([(.name // .context), (.workflowName // "")])
+    | map(if length > 1 and all(.[]; (.startedAt // "") != "")
+          then (map(.startedAt) | max) as $m | map(select(.startedAt == $m))
+          else [.[]] end)
+    | add // [])}' <<<"$pr_json") \
+  || parse_broken "statusCheckRollup PR не сворачивается к последним исходам проверок" \
+                  "сосед вернул не то, что обещает контракт gh."
+rollup_json=$(jq -c '{statusCheckRollup: (.statusCheckRollup
+    | group_by(.name // .context)
+    | map(if all(.[]; .conclusion == "SUCCESS") then [.[]] else map(select(.conclusion != "SUCCESS")) end)
+    | add // [])}' <<<"$latest_json")
+superseded_count=$(( $(jq '[.statusCheckRollup[]?] | length' <<<"$pr_json") - $(jq '.statusCheckRollup | length' <<<"$latest_json") ))
 #
 # ЗЕЛЁНЫЙ — ТОЛЬКО SUCCESS, и это определение, а не дополнение к перечню
 # красных. Исходов у проверки девять (SUCCESS, FAILURE, CANCELLED, TIMED_OUT,
@@ -582,12 +616,12 @@ fi
 # перечне красных (возврат check-verifier @5f3080335: STARTUP_FAILURE и STALE).
 # Прочие неуспешные исходы — `other`: не красные, но и не зелёные, и вывод
 # называет их своим исходом, а не «не появлялся».
-green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
-red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED" or .conclusion=="STARTUP_FAILURE") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
-running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
+green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$rollup_json" | LC_ALL=C sort -u)
+red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED" or .conclusion=="STARTUP_FAILURE") | (.name // .context) + " [" + .conclusion + "]"' <<<"$rollup_json" | LC_ALL=C sort -u)
+running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$rollup_json" | LC_ALL=C sort -u)
 other=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "") as $c
                  | $c != "" and (["SUCCESS","FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","STARTUP_FAILURE"] | index($c) | not))
-               | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
+               | (.name // .context) + " [" + .conclusion + "]"' <<<"$rollup_json" | LC_ALL=C sort -u)
 
 printf '%s\n' "$required" > "$workdir/required"
 printf '%s\n' "$green"    > "$workdir/green"
@@ -622,6 +656,7 @@ echo "merge-readiness: $REPO#$PR → $base"
 echo "  набор обязательных: $set_from"
 echo "  обязательных контекстов: $req_count · с зелёным исходом: $green_req · без него: $missing_count"
 echo "  красных на ревизии: $red_count · ещё идут: $running_count · с иным незелёным исходом: $other_count · состояние слияния: $merge_state"
+echo "  записей rollup: $(jq '[.statusCheckRollup[]?] | length' <<<"$pr_json") · вытеснено поздним прогоном той же проверки: $superseded_count"
 
 if [ "$red_count" -gt 0 ]; then
   echo "  КРАСНЫЕ:"

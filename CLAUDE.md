@@ -81,6 +81,12 @@
   не закрывает (`cascade-census.sh --proof`). Владелец
   2026-10-04 дословно: «давай ускорим по твоим рекомендациям» и «добавь в рулы так что бы
   компакция не убила эту директиву» — потому норма здесь, в файле, который сжатие не снимает.
+- **Не жди.** Владелец 2026-10-11 дословно: «И реши проблему раз и навсегда что таски уходят в
+  часовые таймауты и ничего не делают а мы ждем». Ни один вызов не держит ожидание дольше 10
+  минут: долгое — отсоединённо (`setsid nohup … > журнал &`, pid-файл), шаг возвращает «идёт: pid,
+  журнал, срок», исход дочитывает короткий шаг; слот тяжёлого — внутри него (занят — код 74 сразу).
+  Циклы со `sleep`, `wait` после `&`, `tail --pid`, опрос CI отказывает хук `no-wait-guard`; срок
+  истёк — возврат с остатком. Застой меряет `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
 - Отправка СВОЕЙ ветки полосы — твоя, в переднем плане; PR, сборка, вливание и снятие ветки —
   `git-operator`.
 
@@ -112,8 +118,8 @@ AI-оснастка живёт **в единственном экземпляр�
 ## Permissions и хуки
 
 `.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
-(`UserPromptSubmit` / `Stop`), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `session-memcap` (`SessionStart`),
+(`UserPromptSubmit` / `Stop`), `stall-signal` (там же), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
+сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` и `gh-api-guard` (`PreToolUse` Bash), `session-memcap` (`SessionStart`),
 `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует в одном
 экземпляре; в репозитории продукта его нет и не должно быть.
 

@@ -1,0 +1,72 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  sha256: 020d60b20b63b6376b8b26473233f0b66332091f4168670c6848955d7a60fbc1
+  revision: 10
+  static_status: DRAFT
+  static_status_note: >-
+    Слово статуса в шапке — статическая форма объявления, а не вердикт (change-graph.md §2).
+    Шапка намеренно не правлена; эта запись её не трогает.
+  base_commit: af85dbe45
+  content_commit: 6616ae1fd65d02641eb297f3b72cffe61f063f06
+  branch: 897-f8-source-budget
+  worktree: tmp/a-f4-27-ws
+  measured_at: PRO-Robotech/kacho@8cf8e615667d (ветка 1269) и @e3476f0bc280 (голова волны 2967)
+  task: https://github.com/PRO-Robotech/kacho/issues/1274
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  fingerprint_reproduced: true
+  round: 10
+  round_note: первый круг на редакции 10; прежний — круг 9, c9159554… (APPROVED)
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-05'
+publication_mode: courier_of_agent_verdict
+blocking_count: 0
+
+premise_check:
+  premise: ось источника одна на весь прогон набора; бюджет 11 занижен, нужно 15
+  verdict: ПОДТВЕРЖДЕНА
+  detail: >-
+    gh run view 37287419898 --log (headSha 8cf8e615667d, success): «проб в отчёте 190, записей
+    отказов 17», «по прогонам 15 · бюджет 15»; разбивка F8-05 1, F8-09 5, F8-23 1, F8-24 1, F8-28 1,
+    F8-34 1, F8-40 1, Ф12-45 1, Ф3-19 1, Ф3-24 2 — побайтово как §16.9.
+    KACHO_CEREMONY_FAILURE_BUDGET: "15" на 8cf8e615667d (console-e2e.yml:992), "11" на e3476f0bc280
+    (:935). sourceAttempts: 400 — values.dev.yaml:1188, 50 — values.prod.yaml:725 на e3476f0bc280.
+    deploy/console_suite_budgets_fit_the_stand_test.go (TestConsoleSuiteBudgetsFitTheStandWindow,
+    TestConsoleSuiteBudgetGateIsAbleToFail; percent 80) — есть на e3476f0bc280.
+
+delta_judged: git diff af85dbe45..6616ae1fd -- <путь> (шапка, Р7 ч. 2, F8-41, §11 держатели, DoD 10а, §16.9)
+
+constructibility:
+  seeded: 0
+  named_fixtures: 1
+  not_performed: 0
+  detail: «Дано» F8-41 — прогон набора; его исполнение — CI run 37287419898.
+
+non_blocking:
+  - id: N10-1
+    kind: DoD
+    text: >-
+      Измерено 15 при бюджете 15 — запаса у сторожа прогона ноль: любой новый потребитель оси
+      краснит набор до правки таблицы «Сверх §11». Документ это правило называет; диспетчеру —
+      учитывать при сведении волны 2967, где бюджет станет 15 только слиянием ветки 1269.
+
+effective_approval:
+  issued: pending_external_event
+  publication_pending:
+    required_for_sanction: true
+    expected_actor: pointpu
+    expected_mode: courier_of_agent_verdict
+
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#1274
+  status: not_performed
+  published: false
+  body: >-
+    acceptance-reviewer · APPROVED · sha256
+    020d60b20b63b6376b8b26473233f0b66332091f4168670c6848955d7a60fbc1

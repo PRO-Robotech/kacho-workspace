@@ -119,7 +119,7 @@ verified_against: "kaname 296@d9e233f42051 (коммит слияния PR #629,
 
 - [[KAC/issue-296-kaname]] — эпик
 - [[KAC/issue-538-kaname]] — волна-4
-- kaname#540 — волна-6 (trail не заведён)
+- [[KAC/issue-540-kaname]] — волна-6
 - [[KAC/issue-2968]] — волна-5 платформы
 
 #kac #epic #kacho-iam
