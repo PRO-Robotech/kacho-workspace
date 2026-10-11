@@ -43,6 +43,8 @@
 #   не черновик: та же аннотация стражем не делает                 → 1 CI-FAILED
 #   площадка не отдала check-runs                                  → 2 VOID
 #   пары репозиторий/база нет в ведомости                          → 2 VOID
+#   живая ведомость: запрос в main каждого ствола (kacho, kaname,
+#             corelib, kacho-workspace) — строка есть             → 0 green
 # Близнецы (обязаны молчать — код 0): прежний прогон имени failure стоит в ответе
 # ПЕРВЫМ либо ПОСЛЕДНИМ, последний по started_at — success (вытеснен; порядок
 # ответа не судит); защиты ветки нет вовсе; commit status success вне check-runs.
@@ -60,11 +62,14 @@
 #   supersede-dropped   — check-run вытесненного прогона судится наравне (ws#1019);
 #   supersede-earliest  — последним считается САМЫЙ РАННИЙ прогон workflow;
 #   supersede-event-dropped — событие выпало из ключа: push вытесняется pull_request;
-#   runs-pending-all    — RUNS-PENDING судит и вытесненные прогоны.
+#   runs-pending-all    — RUNS-PENDING судит и вытесненные прогоны;
+#   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
+#                         (по одному на каждый из четырёх; урок corelib#111).
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S="$HERE/ci-read.sh"
+LIVE="$HERE/ci-read-expected.tsv"   # живая ведомость; мутанты строк подменяют её копией
 FX="$HERE/ci-read-fixtures/kacho-3140"
 command -v jq >/dev/null 2>&1 || { echo "VOID: нет jq" >&2; exit 2; }
 [ -r "$S" ] && [ -d "$FX" ] || { echo "VOID: нет $S или $FX" >&2; exit 2; }
@@ -102,9 +107,9 @@ chmod +x "$T/gh"
 pass=0; fail=0; quiet=0; failed=""
 mk() { rm -rf "$T/c"; mkdir -p "$T/c"; cp "$FX"/*.json "$T/c/"; }
 edit() { jq "$2" "$T/c/$1" > "$T/c/$1.n" && mv "$T/c/$1.n" "$T/c/$1"; }
-run() {  # run <имя> <ожидаемый код> <образец строки REASON|VOID либо пусто> [ведомость]
+run() {  # run <имя> <ожидаемый код> <образец строки REASON|VOID либо пусто> [ведомость] [репозиторий]
     local out code
-    out="$(CI_READ_GH="$T/gh" CI_READ_FX="$T/c" CI_READ_EXPECTED="${4:-$HERE/ci-read-expected.tsv}" bash "$S" PRO-Robotech/kacho 3140 2>&1)"; code=$?
+    out="$(CI_READ_GH="$T/gh" CI_READ_FX="$T/c" CI_READ_EXPECTED="${4:-$LIVE}" bash "$S" "${5:-PRO-Robotech/kacho}" 3140 2>&1)"; code=$?
     if [ "$code" -eq "$2" ] && { [ -z "$3" ] || grep -qP "$3" <<<"$out"; } && grep -qP "^VERDICT\t" <<<"$out"; then
         pass=$((pass + 1)); [ "$quiet" = 1 ] || echo "  [OK]   $1 — код $code"
     else
@@ -176,9 +181,9 @@ OLDRUN=38086061943; OLDSUITE=103192606632
 # shellcheck disable=SC2016
 supersede() {  # supersede <заключение прежнего> <статус нового> <заключение нового|null> [событие прежнего]
     mk
-    edit runs.json "(.workflow_runs |= map(if .id == $OLDRUN then .workflow_id = 5 | .event = \"${4:-pull_request}\" | .created_at = \"2026-10-10T21:00:00Z\" | .run_attempt = 1 | .status = \"completed\" | .conclusion = \"$1\" else . end))
+    edit runs.json "(.workflow_runs |= map(if .id == $OLDRUN then .workflow_id = 5 | .event = \"${4:-pull_request}\" | .created_at = \"2026-10-10T21:00:00Z\" | .run_attempt = 1 | .status = \"completed\" | .conclusion = \"$1\" end))
         | .workflow_runs += [{id: 38199999999, name: \"сводный вердикт\", workflow_id: 5, event: \"pull_request\", status: \"$2\", conclusion: $3, created_at: \"2026-10-10T22:00:00Z\", run_attempt: 1, head_sha: .workflow_runs[0].head_sha, check_suite_id: 999}]"
-    edit check-runs.json "(.check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"$1\" else . end))"
+    edit check-runs.json "(.check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"$1\" end))"
 }
 new_agg() {  # проверка сводного вердикта в новом прогоне: <статус> <заключение|null> <started_at>
     edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .check_suite.id = 999 | .status = \"$1\" | .conclusion = $2 | .started_at = \"$3\"]"
@@ -192,13 +197,13 @@ run "близнец: последний полный красный" 1 '^REASON\
 supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
 run "близнец: последний полный зелёный, прежний черновой красный" 0 '^VERDICT\tgreen\t'
 supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
-edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .started_at = \"2099-01-01T00:00:00Z\" else . end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .started_at = \"2099-01-01T00:00:00Z\" end)"
 run "вытесненный прогон судится по прогону, а не по started_at проверки" 0 '^VERDICT\tgreen\t'
 supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
-edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null else . end)"
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
 run "вытесненный прогон ещё идёт, последний завершён зелёным" 0 '^VERDICT\tgreen\t'
 supersede failure completed '"success"' push; new_agg completed '"success"' 2026-10-10T22:30:00Z
-edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null else . end)"
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
 run "прогон push того же workflow pull_request-прогоном не вытесняется" 3 '^REASON\tRUNS-PENDING\t.*run 38086061943'
 
 say "== черновик — целевой прогон (ws#1013)"
@@ -227,8 +232,18 @@ run "не черновик: аннотация стражем не делает"
 say "== не прочитано — 2"
 mk; echo 'gh: HTTP 502 Bad Gateway' > "$T/c/check-runs.json.err"
 run "площадка не отдала check-runs" 2 '^VOID\tcheck-runs на '
-mk; grep -v '^PRO-Robotech/kacho	1266	' "$HERE/ci-read-expected.tsv" > "$T/ledger.tsv"
+mk; grep -v '^PRO-Robotech/kacho	1266	' "$LIVE" > "$T/ledger.tsv"
 run "пары kacho/1266 нет в ведомости" 2 '^VOID\tпары PRO-Robotech/kacho / 1266 нет' "$T/ledger.tsv"
+
+say "== живая ведомость: у ствола каждого нашего репозитория строка есть"
+# Стволы — kacho · kaname · corelib (00-kacho-core ban20-scope-is-our-trunks) и сам
+# воркспейс. Фикстура та же (68 различных проверок), меняются репозиторий и база
+# запроса — main; ожидаемое берётся из ЖИВОЙ ведомости. Строки нет — ci-read.sh
+# отвечает 2, и случай краснеет (урок corelib#111: код 2 «пары нет в ведомости»).
+for tr in kacho kaname corelib kacho-workspace; do
+    mk; edit pull.json '.base.ref = "main"'
+    run "строка PRO-Robotech/$tr / main в ведомости" 0 '^VERDICT\tgreen\t.*проверок 68 из [1-9][0-9]*' "" "PRO-Robotech/$tr"
+done
 
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
@@ -280,6 +295,24 @@ supersede-earliest	/superseded: (map(/s/latest: map(last), superseded: (map(.\[0
 supersede-event-dropped	/group_by(\[(.workflow_id/s/, .event\])/])/
 runs-pending-all	/reason RUNS-PENDING/s/'\.latest\[\]|select/'.superseded[], .latest[]|select/
 MUT
+# --- мутанты ведомости: строка ствола снята; живой ci-read.sh, копия ведомости
+S="$HERE/ci-read.sh"
+for tr in kacho kaname corelib kacho-workspace; do
+    name="trunk-row-dropped-$tr"
+    grep -v "^PRO-Robotech/$tr	main	" "$HERE/ci-read-expected.tsv" > "$T/ledger.$name.tsv"
+    if cmp -s "$T/ledger.$name.tsv" "$HERE/ci-read-expected.tsv"; then
+        void=$((void + 1)); echo "  MUTANT $name → RESULT VOID (правка не легла: строки нет)"; continue
+    fi
+    LIVE="$T/ledger.$name.tsv"; pass=0; fail=0; quiet=1; failed=""
+    cases
+    if [ "$fail" -gt 0 ]; then
+        killed=$((killed + 1)); echo "  MUTANT $name → RESULT KILLED (разошлось $fail из $((pass + fail)): ${failed#; })"
+    else
+        survived=$((survived + 1)); echo "  MUTANT $name → RESULT SURVIVED (все $pass случаев сошлись)"
+    fi
+done
+LIVE="$HERE/ci-read-expected.tsv"
+
 echo
 echo "ci-read-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
 [ "$cases_ok" = 1 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
