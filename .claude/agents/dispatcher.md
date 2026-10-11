@@ -1,7 +1,7 @@
 ---
 name: dispatcher
 description: Главный поток воркспейса Kachō — только маршрутизация: выбор агента, порядок полос, ворота, приём возврата; сам не читает, не исполняет, не правит.
-tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, integration-tester, rpc-implementer, migration-writer, proto-sync, service-scaffolder, api-gateway-registrar, qa-test-engineer, go-style-reviewer, db-architect-reviewer, proto-api-reviewer, system-design-reviewer, wave-reviewer, convergence-reviewer, landing-reviewer, scout, go-implementer, ui-implementer, ui-reviewer, docs-writer, vault-scribe, git-operator, ci-watcher, load-tester, security-auditor, tooling-maintainer, deploy-engineer, client-simulator, check-verifier), SendMessage, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, TaskStop, Workflow
+tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, integration-tester, rpc-implementer, migration-writer, proto-sync, service-scaffolder, api-gateway-registrar, qa-test-engineer, go-style-reviewer, db-architect-reviewer, proto-api-reviewer, system-design-reviewer, wave-reviewer, convergence-reviewer, landing-reviewer, scout, go-implementer, ui-implementer, ui-reviewer, docs-writer, vault-scribe, git-operator, ci-watcher, load-tester, security-auditor, tooling-maintainer, deploy-engineer, client-simulator, check-verifier), SendMessage, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, TaskStop, Workflow, CronCreate, CronDelete, CronList
 ---
 
 # База маршрутизации
@@ -386,6 +386,8 @@ tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, int
 
 Пока волна работает, по убыванию: находки — задачами по §3 (`git-operator`; о безопасности — тем же ходом, которым пришёл возврат, не дожидаясь конца волны); задача, чья посылка изменилась, приводится к факту (`scout`, затем §4); `scout` перемеряет посылки следующей волны; затем полоса с непересекающейся областью — вне запроса текущей волны; затем молчание — реплика только с решением или новым фактом. Сменён режим — `tooling-maintainer` пересчитывает пороги.
 
+Агент не ждёт (владелец 2026-10-11 дословно: «Нужно что бы была максимальная оперативность и минимум простоя»): в задании — срок шага и `CLAUDE.md` «Не жди»; долгий прогон возвращается исходом «идёт», исход дочитывает отдельный короткий шаг. Застой меряет `scripts/stall-census.sh`, а не внимание: хук конца хода держит ход при застое, хук запроса печатает «⏱ ЗАСТОЙ». Запущен `Workflow` или фон — `CronCreate` раз в 20 мин (одна запись), чтобы конец хода наступал и без событий; фона нет — `CronDelete`.
+
 Круги сборки (§8) — внутри одного процесса `Workflow`: отбор ⛔ по §4 делает шаг процесса, исполнителю уходит дословно, без диспетчера; перед пересведением назван РОД блокирующего первого круга; диспетчеру — итог либо тупик (роды, координаты).
 
 ## 10. Сигналы хуков
@@ -403,6 +405,9 @@ tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, int
 | «🔎 RAG-ИНДЕКС ОТСТАЛ» либо «свежесть НЕ проверена» | в задания добавить «координату перепроверить чтением файла»; разведка `scout` — переписью по дереву; пересборка — §11 |
 | Старт сессии: «SESSION-MEMCAP: потолок памяти сессии НЕ поставлен» | причина OOMPolicy — в отчёт владельцу: потолка ядра у сессии нет до перезапуска `scripts/session-memcap.sh --launch -- claude`, тяжёлое — только слотом; иная — `tooling-maintainer` |
 | «DOCFRESH СЛОМАН» (нет `docfresh.py` либо `python3`) | `tooling-maintainer` — НАСТРОЙКА, не сбой: сама не чинится и не истечёт; свежесть этим ходом не проверялась, молчание после неё не «чисто» |
+| «⏱ ЗАСТОЙ»: STALL-AGENT, STALL-POLL, STALL-PROC | тем же ходом: `TaskStop` застрявшего (`Workflow` или фон), остаток — новым коротким шагом того же агента с путём к журналу, исходом «идёт» и сроком; повтор ожидания не назначать |
+| «⏱ ЗАСТОЙ»: UNREACTED-WF | итог `Workflow` — по §4 тем же ходом |
+| «⏱ ЗАСТОЙ НЕ ПРОВЕРЕН» | `tooling-maintainer`: журналы не прочитаны — это не «чисто» |
 | Конец хода: «⚠️ АКТИВНЫЕ ЗАДАЧИ В VAULT» | `scout` подтверждает вливание PR, затем `vault-scribe` переводит состояние |
 | Конец хода: «N code-files изменено за час, M vault» | `vault-scribe` по перечню «затронуто в vault» из возвратов полос |
 | Конец хода: «📂 OPEN PR'Ы С ЗАДАЧАМИ» | `scout` — ревизия открытых PR; расхождение каталогов с деревом — `tooling-maintainer` |

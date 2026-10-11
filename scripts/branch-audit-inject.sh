@@ -2073,6 +2073,33 @@ or_mutant OR9 OR3 '  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1
 or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база открытого PR\'; return 0; fi' ':' \
   "стоп по открытому PR в ветку снят" '^   release/r2 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$'
 
+# ── ПРЕДЕЛ ВРЕМЕНИ (ws#1001): исчерпан — «НЕ ДОСЧИТАНО» и код 2, а не зависание ──
+set +e
+DL_DIR="$(mktemp -d)"; mkdir -p "$DL_DIR/bin" "$DL_DIR/r"
+REAL_GIT="$(type -P git)"
+printf '#!/usr/bin/env bash\nsleep 5\nexec %q "$@"\n' "$REAL_GIT" > "$DL_DIR/bin/git"; chmod +x "$DL_DIR/bin/git"
+"$REAL_GIT" -C "$DL_DIR/r" init -q
+DL_OUT="$(PATH="$DL_DIR/bin:$PATH" BRANCH_AUDIT_DEADLINE_S=1 bash "$AUDIT" "$DL_DIR/r" 2>&1)"; DL_RC=$?
+if [ "$DL_RC" -eq 2 ] && grep -qF 'НЕ ДОСЧИТАНО — предел 1 с' <<<"$DL_OUT"; then
+  say "✅ DL1" "медленный git, предел 1 с — код 2 и «НЕ ДОСЧИТАНО»"
+else
+  say "❌ DL1" "предел 1 с — код $DL_RC: $(head -c 200 <<<"$DL_OUT")"; fail=1
+fi
+DL_OUT="$(BRANCH_AUDIT_DEADLINE_S=60 bash "$AUDIT" "$DL_DIR/r" 2>&1)"; DL_RC=$?
+if [ "$DL_RC" -eq 2 ] && ! grep -qF 'НЕ ДОСЧИТАНО' <<<"$DL_OUT"; then
+  say "✅ DL2" "близнец: тот же репозиторий в пределе — свой исход, «НЕ ДОСЧИТАНО» нет"
+else
+  say "❌ DL2" "близнец в пределе — код $DL_RC: $(head -c 200 <<<"$DL_OUT")"; fail=1
+fi
+DL_OUT="$(BRANCH_AUDIT_DEADLINE_S=0 bash "$AUDIT" "$DL_DIR/r" 2>&1)"; DL_RC=$?
+if [ "$DL_RC" -eq 2 ] && grep -qF 'не число секунд' <<<"$DL_OUT"; then
+  say "✅ DL3" "предел 0 (у timeout — без предела) — отказ кодом 2"
+else
+  say "❌ DL3" "предел 0 — код $DL_RC"; fail=1
+fi
+rm -rf "$DL_DIR"
+set -e
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "branch-audit-inject: утверждений ${N_SAID}, все выполнены — перепись способна упасть И смолчать"

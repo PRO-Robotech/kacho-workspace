@@ -35,5 +35,5 @@ mf-archive-anchor · строка `**Архив:**` шапки правила в
 | `ui.md` | правка `ui-future/**` | `npm test` модуля; гейт единого источника; `console-list-filter-declared` | `ui-implementer`; `ui-reviewer` |
 | `e2e-flow.md` | правка `tests/newman/**`, `ui-future/e2e/**`; заведение набора | `assert-suites-green.sh`; `exec-coverage.py` | `integration-tester`; `landing-reviewer`; `qa-test-engineer`; `ui-implementer` |
 | `subscription.md` | правка `corelib/subscription`, `corelib/outbox`, `services/*/internal/subscriptionjournal`, `gateway/internal/subscriptionstream` | девять гейтов `internal/repohygiene` | `go-implementer` |
-| `ai-tooling.md` | правка `.claude/**` | `skills-gate`; `tooling-gate`; `rules-gate` | `tooling-maintainer` |
+| `ai-tooling.md` | правка `.claude/**` | `skills-gate`; `tooling-gate`; `rules-gate`; `stall-census.sh` | `tooling-maintainer` |
 | `flow-acceleration.md` | раздача полос и срок; сборка волны; схождение документов | `scripts/lane-schedule/` (`inject.sh`, `mutants.py`; инструмент — ориентир, не гейт); поле «вопросы владельцу» ВОЗВРАТа | `acceptance-author`; `acceptance-reviewer`; `class-exposure-analyst`; `git-operator`; `scout`; `tooling-maintainer` |
