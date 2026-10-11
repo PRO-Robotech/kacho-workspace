@@ -126,10 +126,20 @@ HM="$T/home" FWS="$T/fws"
 git init -q "$FWS" 2> /dev/null && mkdir -p "$FWS/tmp"
 PJ="$HM/.claude/projects/$(printf '%s' "$FWS" | sed 's/[^A-Za-z0-9]/-/g')"
 mkdir -p "$PJ/sid/subagents/workflows/wf_live-1" "$PJ/sid/workflows" "$T/empty-proj"
-rec "$PJ/sid.jsonl" 1 done
+rec "$PJ/sid.jsonl" 1 "done"
 rec "$PJ/sid/subagents/workflows/wf_live-1/agent-a1.jsonl" 2 tool
 ARC="$T/arc"; mkdir -p "$ARC/scripts/lib"; cp "$C" "$ARC/scripts/"; cp "$HERE/lib/ws-home.sh" "$ARC/scripts/lib/"
 CP="$FWS/tmp/copy"; git init -q "$CP" 2> /dev/null; mkdir -p "$CP/scripts/lib"; cp "$C" "$CP/scripts/"; cp "$HERE/lib/ws-home.sh" "$CP/scripts/lib/"
+# S2: копия со СВОИМ журналом, а журнал основной копии новее — побеждает копия
+# (CLAUDE_PROJECT_DIR — первый кандидат). S4: каталог проекта копии есть, а
+# журнала *.jsonl в нём нет — берётся основная копия, а не VOID (побеждает первый
+# кандидат С ЖУРНАЛОМ, а не первый существующий каталог). check-verifier ws#1010.
+pcode() { printf '%s' "$1" | sed 's/[^A-Za-z0-9]/-/g'; }
+CP2="$FWS/tmp/copy2"; git init -q "$CP2" 2> /dev/null
+PJ2="$HM/.claude/projects/$(pcode "$CP2")"; mkdir -p "$PJ2/sidcopy/subagents/workflows/wf_live-1" "$PJ2/sidcopy/workflows"
+rec "$PJ2/sidcopy.jsonl" 5 "done"
+CP4="$FWS/tmp/copy4"; git init -q "$CP4" 2> /dev/null
+PJ4="$HM/.claude/projects/$(pcode "$CP4")"; mkdir -p "$PJ4/memory"
 # probe_in <код> <имя> <строка|-> <каталог запуска> <env NAME=VAL… | -> <скрипт> <довод…>
 probe_in() {
     local want="$1" name="$2" needle="$3" dir="$4" ev="$5" sc="$6" got out
@@ -137,19 +147,55 @@ probe_in() {
     local envs=(); [ "$ev" = - ] || read -r -a envs <<< "$ev"
     out="$(cd "$dir" && env -u CLAUDE_PROJECT_DIR HOME="$HM" "${envs[@]}" bash "$sc" "$@" < /dev/null 2>&1)"; got=$?
     if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; }; then
-        echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
+        [ -n "${quiet:-}" ] || echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
     else
-        echo "  [FAIL] $name — ждали код $want${needle:+ и «$needle»}, получили $got: $(head -c 400 <<< "$out")" >&2; fail=$((fail + 1))
+        failed="${failed:-}; $name"
+        [ -n "${quiet:-}" ] || echo "  [FAIL] $name — ждали код $want${needle:+ и «$needle»}, получили $got: $(head -c 400 <<< "$out")" >&2; fail=$((fail + 1))
     fi
 }
-probe_in 0 "инъекция: архив во временном каталоге, ключ --session-dir — сессия найдена" "сессия sid" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir "$PJ" --ps "$T/ps"
-probe_in 0 "  …перепись названа" "агентов осмотрено 1" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir "$PJ" --ps "$T/ps"
-probe_in 0 "архив во временном каталоге, CLAUDE_PROJECT_DIR — основная копия: найдена" "сессия sid" "$ARC" "CLAUDE_PROJECT_DIR=$FWS" "$ARC/scripts/stall-census.sh" --ps "$T/ps"
-probe_in 0 "CLAUDE_PROJECT_DIR — копия под <ws>/tmp/ без своего журнала: основная копия выведена ws-home" "сессия sid" "$ARC" "CLAUDE_PROJECT_DIR=$CP" "$ARC/scripts/stall-census.sh" --ps "$T/ps"
-probe_in 0 "скрипт в копии под <ws>/tmp/, запуск из временного каталога без ключа: найдена" "сессия sid" "$ARC" - "$CP/scripts/stall-census.sh" --ps "$T/ps"
-probe_in 2 "близнец: архив без ключа и без CLAUDE_PROJECT_DIR — журнала действительно нет, VOID с перечнем опрошенных" "опрошено каталогов" "$ARC" - "$ARC/scripts/stall-census.sh" --ps "$T/ps"
-probe_in 2 "близнец: --session-dir на каталог без журнала — VOID" "журнала сессии проекта нет" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir "$T/empty-proj" --ps "$T/ps"
-probe_in 2 "--session-dir без каталога — VOID" "VOID" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir
+# locate_cases <скрипт в архиве> — пробы поиска сессии; их же гонят мутанты ниже.
+locate_cases() {
+    local A="$1"
+    probe_in 0 "инъекция: архив во временном каталоге, ключ --session-dir — сессия найдена" "сессия sid;" "$ARC" - "$A" --session-dir "$PJ" --ps "$T/ps"
+    probe_in 0 "  …перепись названа" "агентов осмотрено 1" "$ARC" - "$A" --session-dir "$PJ" --ps "$T/ps"
+    probe_in 0 "архив во временном каталоге, CLAUDE_PROJECT_DIR — основная копия: найдена" "сессия sid;" "$ARC" "CLAUDE_PROJECT_DIR=$FWS" "$A" --ps "$T/ps"
+    probe_in 0 "CLAUDE_PROJECT_DIR — копия под <ws>/tmp/ без своего журнала: основная копия выведена ws-home" "сессия sid;" "$ARC" "CLAUDE_PROJECT_DIR=$CP" "$A" --ps "$T/ps"
+    probe_in 0 "S2: CLAUDE_PROJECT_DIR — копия со своим журналом, журнал основной копии новее: сессия копии" "сессия sidcopy;" "$ARC" "CLAUDE_PROJECT_DIR=$CP2" "$A" --ps "$T/ps"
+    probe_in 0 "S4: каталог проекта копии есть, журнала в нём нет: сессия основной копии, не VOID" "сессия sid;" "$ARC" "CLAUDE_PROJECT_DIR=$CP4" "$A" --ps "$T/ps"
+    probe_in 2 "близнец: архив без ключа и без CLAUDE_PROJECT_DIR — журнала действительно нет, VOID с перечнем опрошенных" "опрошено каталогов" "$ARC" - "$A" --ps "$T/ps"
+    probe_in 2 "близнец: --session-dir на каталог без журнала — VOID" "журнала сессии проекта нет" "$ARC" - "$A" --session-dir "$T/empty-proj" --ps "$T/ps"
+    probe_in 2 "--session-dir без каталога — VOID" "VOID" "$ARC" - "$A" --session-dir
+}
+locate_cases "$ARC/scripts/stall-census.sh"
+probe_in 0 "скрипт в копии под <ws>/tmp/, запуск из временного каталога без ключа: найдена" "сессия sid;" "$ARC" - "$CP/scripts/stall-census.sh" --ps "$T/ps"
+
+echo "== мутанты поиска сессии — каждый обязан покраснеть на пробах выше"
+# mutant <имя> <было> <стало>: правка ровно одного вхождения в копии прибора;
+# образец не найден — расхождение (мутант не лёг), а не «выжил молча».
+mutant() {
+    local MA="$T/mut/scripts" p0="$pass" f0="$fail" mp mf
+    rm -rf "$T/mut"; mkdir -p "$MA/lib"; cp "$HERE/lib/ws-home.sh" "$MA/lib/"
+    if ! python3 - "$C" "$MA/stall-census.sh" "$2" "$3" <<'MUTPY'
+import sys
+src, dst, was, now = sys.argv[1:5]
+s = open(src).read()
+if s.count(was) != 1:
+    sys.exit(1)
+open(dst, 'w').write(s.replace(was, now))
+MUTPY
+    then echo "  [FAIL] мутант «$1»: образец не найден в приборе — не лёг" >&2; fail=$((fail + 1)); return; fi
+    failed=""; quiet=1
+    locate_cases "$MA/stall-census.sh"
+    quiet=""; mp=$((pass - p0)); mf=$((fail - f0)); pass="$p0"; fail="$f0"
+    if [ "$mf" -gt 0 ]; then
+        echo "  [OK]   мутант «$1» красный: разошлось $mf из $((mp + mf)): ${failed#; }"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] мутант «$1» выжил: все $mp проб сошлись" >&2; fail=$((fail + 1))
+    fi
+}
+# shellcheck disable=SC2016  # образец — текст прибора, не раскрывается
+mutant "CLAUDE_PROJECT_DIR убран из кандидатов" '[ -n "${CLAUDE_PROJECT_DIR:-}" ] && cands+=("$CLAUDE_PROJECT_DIR")' ':'
+mutant "побеждает первый существующий каталог" $'        if cands:\n            break' $'        if os.path.isdir(d):\n            break'
 
 echo "== разбор: не-объект, нечитаемый журнал, падение (опыт check-verifier по #1002)"
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
