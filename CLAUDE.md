@@ -119,7 +119,7 @@ AI-оснастка живёт **в единственном экземпляр�
 
 `.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
 (`UserPromptSubmit` / `Stop`), `stall-signal` (там же), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` (`PreToolUse` Bash), `session-memcap` (`SessionStart`),
+сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` и `gh-api-guard` (`PreToolUse` Bash), `session-memcap` (`SessionStart`),
 `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует в одном
 экземпляре; в репозитории продукта его нет и не должно быть.
 
