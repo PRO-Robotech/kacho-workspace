@@ -138,7 +138,7 @@ denies "$M" 'cd /x && timeout 60 gh api repos/x/y/merges -f base=a -f head=b | j
 denies "$M" 'for b in 1 2; do gh api repos/x/y/merges -f base=$b -f head=h; done'
 denies "$M" $'bash '"$LT"$'EOF\ngh api repos/x/y/merges -f base=a -f head=b\nEOF'
 denies "$P" 'gh pr merge 7 --merge --match-head-commit abc'
-denies "$P" 'gh pr merge 7 --squash'
+denies "$P" 'gh pr merge 7 --merge'
 
 echo "== git-operator: пути вливания и gh pr merge вне правила — отказ"
 AGENT=git-operator
