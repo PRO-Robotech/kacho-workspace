@@ -45,6 +45,12 @@
 #   пары репозиторий/база нет в ведомости                          → 2 VOID
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
+# ВЕДОМОСТЬ СЛУЧАЕВ — синтетическая ($FXL, одна строка kacho/1266 = 68 — число
+# фикстуры), а не живая: живая строка kacho/1266 меряет ТЕКУЩИЙ набор workflow
+# (74 на 2026-10-12) и обязана меняться вместе с ним, а фикстура снята при 68.
+# Случаи, читавшие живую строку, краснели от честного перемера (ws#1019). Раздел
+# «живая ведомость» судит ПРИСУТСТВИЕ строки ствола в живой ведомости; её число
+# заменяется числом фикстуры в копии — иначе он судил бы набор workflow ствола.
 # Близнецы (обязаны молчать — код 0): прежний прогон имени failure стоит в ответе
 # ПЕРВЫМ либо ПОСЛЕДНИМ, последний по started_at — success (вытеснен; порядок
 # ответа не судит); защиты ветки нет вовсе; commit status success вне check-runs.
@@ -70,6 +76,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S="$HERE/ci-read.sh"
 LIVE="$HERE/ci-read-expected.tsv"   # живая ведомость; мутанты строк подменяют её копией
+FX_N=68                             # различных проверок в фикстуре kacho-3140
 FX="$HERE/ci-read-fixtures/kacho-3140"
 command -v jq >/dev/null 2>&1 || { echo "VOID: нет jq" >&2; exit 2; }
 [ -r "$S" ] && [ -d "$FX" ] || { echo "VOID: нет $S или $FX" >&2; exit 2; }
@@ -104,12 +111,15 @@ if [ "$pg" = 1 ] && [ -f "$CI_READ_FX/$f.p2" ]; then cat "$CI_READ_FX/$f.p2"; fi
 GH
 chmod +x "$T/gh"
 
+FXL="$T/ledger.fixture.tsv"           # ведомость случаев: строка — число фикстуры
+printf 'PRO-Robotech/kacho\t1266\t%s\tфикстура kacho-3140\n' "$FX_N" > "$FXL"
+
 pass=0; fail=0; quiet=0; failed=""
 mk() { rm -rf "$T/c"; mkdir -p "$T/c"; cp "$FX"/*.json "$T/c/"; }
 edit() { jq "$2" "$T/c/$1" > "$T/c/$1.n" && mv "$T/c/$1.n" "$T/c/$1"; }
 run() {  # run <имя> <ожидаемый код> <образец строки REASON|VOID либо пусто> [ведомость] [репозиторий]
     local out code
-    out="$(CI_READ_GH="$T/gh" CI_READ_FX="$T/c" CI_READ_EXPECTED="${4:-$LIVE}" bash "$S" "${5:-PRO-Robotech/kacho}" 3140 2>&1)"; code=$?
+    out="$(CI_READ_GH="$T/gh" CI_READ_FX="$T/c" CI_READ_EXPECTED="${4:-$FXL}" bash "$S" "${5:-PRO-Robotech/kacho}" 3140 2>&1)"; code=$?
     if [ "$code" -eq "$2" ] && { [ -z "$3" ] || grep -qP "$3" <<<"$out"; } && grep -qP "^VERDICT\t" <<<"$out"; then
         pass=$((pass + 1)); [ "$quiet" = 1 ] || echo "  [OK]   $1 — код $code"
     else
@@ -232,17 +242,21 @@ run "не черновик: аннотация стражем не делает"
 say "== не прочитано — 2"
 mk; echo 'gh: HTTP 502 Bad Gateway' > "$T/c/check-runs.json.err"
 run "площадка не отдала check-runs" 2 '^VOID\tcheck-runs на '
-mk; grep -v '^PRO-Robotech/kacho	1266	' "$LIVE" > "$T/ledger.tsv"
+mk; grep -v '^PRO-Robotech/kacho	1266	' "$FXL" > "$T/ledger.tsv"
 run "пары kacho/1266 нет в ведомости" 2 '^VOID\tпары PRO-Robotech/kacho / 1266 нет' "$T/ledger.tsv"
 
 say "== живая ведомость: у ствола каждого нашего репозитория строка есть"
 # Стволы — kacho · kaname · corelib (00-kacho-core ban20-scope-is-our-trunks) и сам
 # воркспейс. Фикстура та же (68 различных проверок), меняются репозиторий и база
-# запроса — main; ожидаемое берётся из ЖИВОЙ ведомости. Строки нет — ci-read.sh
-# отвечает 2, и случай краснеет (урок corelib#111: код 2 «пары нет в ведомости»).
+# запроса — main; строки берутся из ЖИВОЙ ведомости, число строки ствола в копии
+# заменяется числом фикстуры (судится присутствие, а не набор workflow ствола).
+# Строки нет — замене нечего менять, ci-read.sh отвечает 2, и случай краснеет
+# (урок corelib#111: код 2 «пары нет в ведомости»).
 for tr in kacho kaname corelib kacho-workspace; do
     mk; edit pull.json '.base.ref = "main"'
-    run "строка PRO-Robotech/$tr / main в ведомости" 0 '^VERDICT\tgreen\t.*проверок 68 из [1-9][0-9]*' "" "PRO-Robotech/$tr"
+    awk -F'\t' -v OFS='\t' -v r="PRO-Robotech/$tr" -v n="$FX_N" \
+        '!/^#/ && $1==r && $2=="main" {$3=n} {print}' "$LIVE" > "$T/ledger.trunk.tsv"
+    run "строка PRO-Robotech/$tr / main в ведомости" 0 "^VERDICT\tgreen\t.*проверок $FX_N из $FX_N" "$T/ledger.trunk.tsv" "PRO-Robotech/$tr"
 done
 
 say "== близнецы — молчат"
