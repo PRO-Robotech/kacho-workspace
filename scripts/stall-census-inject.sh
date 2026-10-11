@@ -117,6 +117,40 @@ s="$(session emptyps)"; : > "$T/ps-empty"
 probe 2 "снимок процессов пуст — код 2" "VOID" --session "$s" --ps "$T/ps-empty"
 probe 2 "неизвестный довод — код 2" "VOID" --bogus
 
+echo "== сессия находится из любой копии (ws#1010)"
+# Урок: прибор, запущенный из архива origin/main во временном каталоге, искал
+# журнал по $PWD и давал VOID при живой сессии. Здесь: HOME песочницы, «основная
+# копия» FWS — рабочая копия git, её журналы — под $HOME/.claude/projects/<код>;
+# архив скрипта — каталог БЕЗ git.
+HM="$T/home" FWS="$T/fws"
+git init -q "$FWS" 2> /dev/null && mkdir -p "$FWS/tmp"
+PJ="$HM/.claude/projects/$(printf '%s' "$FWS" | sed 's/[^A-Za-z0-9]/-/g')"
+mkdir -p "$PJ/sid/subagents/workflows/wf_live-1" "$PJ/sid/workflows" "$T/empty-proj"
+rec "$PJ/sid.jsonl" 1 done
+rec "$PJ/sid/subagents/workflows/wf_live-1/agent-a1.jsonl" 2 tool
+ARC="$T/arc"; mkdir -p "$ARC/scripts/lib"; cp "$C" "$ARC/scripts/"; cp "$HERE/lib/ws-home.sh" "$ARC/scripts/lib/"
+CP="$FWS/tmp/copy"; git init -q "$CP" 2> /dev/null; mkdir -p "$CP/scripts/lib"; cp "$C" "$CP/scripts/"; cp "$HERE/lib/ws-home.sh" "$CP/scripts/lib/"
+# probe_in <код> <имя> <строка|-> <каталог запуска> <env NAME=VAL… | -> <скрипт> <довод…>
+probe_in() {
+    local want="$1" name="$2" needle="$3" dir="$4" ev="$5" sc="$6" got out
+    shift 6
+    local envs=(); [ "$ev" = - ] || read -r -a envs <<< "$ev"
+    out="$(cd "$dir" && env -u CLAUDE_PROJECT_DIR HOME="$HM" "${envs[@]}" bash "$sc" "$@" < /dev/null 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; }; then
+        echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] $name — ждали код $want${needle:+ и «$needle»}, получили $got: $(head -c 400 <<< "$out")" >&2; fail=$((fail + 1))
+    fi
+}
+probe_in 0 "инъекция: архив во временном каталоге, ключ --session-dir — сессия найдена" "сессия sid" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir "$PJ" --ps "$T/ps"
+probe_in 0 "  …перепись названа" "агентов осмотрено 1" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir "$PJ" --ps "$T/ps"
+probe_in 0 "архив во временном каталоге, CLAUDE_PROJECT_DIR — основная копия: найдена" "сессия sid" "$ARC" "CLAUDE_PROJECT_DIR=$FWS" "$ARC/scripts/stall-census.sh" --ps "$T/ps"
+probe_in 0 "CLAUDE_PROJECT_DIR — копия под <ws>/tmp/ без своего журнала: основная копия выведена ws-home" "сессия sid" "$ARC" "CLAUDE_PROJECT_DIR=$CP" "$ARC/scripts/stall-census.sh" --ps "$T/ps"
+probe_in 0 "скрипт в копии под <ws>/tmp/, запуск из временного каталога без ключа: найдена" "сессия sid" "$ARC" - "$CP/scripts/stall-census.sh" --ps "$T/ps"
+probe_in 2 "близнец: архив без ключа и без CLAUDE_PROJECT_DIR — журнала действительно нет, VOID с перечнем опрошенных" "опрошено каталогов" "$ARC" - "$ARC/scripts/stall-census.sh" --ps "$T/ps"
+probe_in 2 "близнец: --session-dir на каталог без журнала — VOID" "журнала сессии проекта нет" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir "$T/empty-proj" --ps "$T/ps"
+probe_in 2 "--session-dir без каталога — VOID" "VOID" "$ARC" - "$ARC/scripts/stall-census.sh" --session-dir
+
 echo "== разбор: не-объект, нечитаемый журнал, падение (опыт check-verifier по #1002)"
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
 rec "$a" 20 tool "make e2e"; echo '[1,2]' >> "$a"; touch -d "@$((NOW - 20 * 60))" "$a"

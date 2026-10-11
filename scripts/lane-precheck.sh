@@ -24,6 +24,12 @@
 #                       (`git status --porcelain`, неотслеживаемые — тоже);
 #   MAIN-COPY           копия вне `<WS>/tmp/` (ws#923: отправка из основной копии
 #                       исполняет устаревший хук);
+#   GOMOD-ABOVE         над корнем копии (в любом каталоге-предке) лежит чужой
+#                       `go.mod`: копия положена внутрь вложенного дерева, и
+#                       тесты, ищущие корень модуля подъёмом, берут его (ws#1010:
+#                       копии полос kaname под `tmp/wave7/ws-main/tmp/` приняли
+#                       `ws-main/go.mod` за корень — хук отправки упал на 12 пробах
+#                       по вине среды). Свой `go.mod` копии — не предмет;
 #   ISSUES-NONE         задач полосы ноль: доказательство судить не о чем;
 #   DOD-PROOF-MISSING   у задачи нет комментария `DoD-proof @<sha>` (форма —
 #                       `CLAUDE.md`, та же, что судит `cascade-census.sh --proof`),
@@ -120,6 +126,21 @@ else
         "$WS/tmp/"?*) ;;
         *) reason MAIN-COPY "копия $top вне $WS/tmp/ (ws#923)" ;;
     esac
+fi
+
+# ── чужой go.mod над копией ────────────────────────────────────────────
+# Подъём от родителя корня копии до `/`: каждый найденный `go.mod` — находка.
+# Свой `go.mod` копии (в её корне) не судится — это её модуль.
+n_up=0 above=()
+a="$(dirname "$top")"
+while :; do
+    n_up=$((n_up + 1))
+    [ -f "$a/go.mod" ] && above+=("$a/go.mod")
+    [ "$a" = / ] && break
+    a="$(dirname "$a")"
+done
+if [ "${#above[@]}" -gt 0 ]; then
+    reason GOMOD-ABOVE "над копией $top чужой go.mod: ${above[*]} — копия внутри вложенного дерева; место копий полос — <корень воркспейса>/tmp/wave-<N>/ (ws#1010)"
 fi
 
 # ── голова на origin и база ─────────────────────────────────────────────
@@ -220,7 +241,7 @@ else
     fi
 fi
 
-echo "lane-precheck: копия $top; ветка $branch @${head:0:12}; origin @${remote_head:0:12}; база ${base_sha:0:12}; задач $n_issues, с доказательством $n_proven; хук $hook; причин ${#reasons[@]}, не судимо ${#voids[@]}"
+echo "lane-precheck: копия $top; предков осмотрено на go.mod $n_up; ветка $branch @${head:0:12}; origin @${remote_head:0:12}; база ${base_sha:0:12}; задач $n_issues, с доказательством $n_proven; хук $hook; причин ${#reasons[@]}, не судимо ${#voids[@]}"
 for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
 for x in "${voids[@]+"${voids[@]}"}"; do echo "VOID $x"; done
 [ "${#reasons[@]}" -eq 0 ] || exit 1

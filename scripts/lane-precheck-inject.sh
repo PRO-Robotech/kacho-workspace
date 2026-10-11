@@ -100,6 +100,21 @@ L2="$W/ws/tmp/lane2"
 git clone -q "$W/srv/kacho-workspace.git" "$L2" 2> /dev/null && git -C "$L2" checkout -q 1-lane 2> /dev/null
 assert "0" "$(run "$L2" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log")" "близнец: та же ветка из копии под tmp/ → 0"
 
+echo "== чужой go.mod над копией (ws#1010)"
+# Копия шаблона волны под <ws>/tmp/ переключена на дерево с go.mod; копия полосы
+# легла в ЕЁ tmp/ — тесты полосы берут чужой go.mod за корень модуля.
+NEST="$W/ws/tmp/wave7/ws-main"
+mkdir -p "$NEST/tmp" && echo 'module example.com/foreign' > "$NEST/go.mod"
+L3="$NEST/tmp/lane"
+git clone -q "$W/srv/kacho-workspace.git" "$L3" 2> /dev/null && git -C "$L3" checkout -q 1-lane 2> /dev/null
+assert "1 да" "$(run "$L3" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log") $(has "REASON GOMOD-ABOVE над копией $L3 чужой go.mod: $NEST/go.mod")" "копия полосы под каталогом с чужим go.mod → GOMOD-ABOVE с путём"
+mv "$NEST/go.mod" "$NEST/go.mod.off"
+assert "0" "$(run "$L3" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log")" "близнец: тот же путь без чужого go.mod → 0"
+mv "$NEST/go.mod.off" "$NEST/go.mod"
+echo 'module example.com/own' > "$L2/go.mod" && echo go.mod >> "$L2/.git/info/exclude"
+assert "0 да" "$(run "$L2" 1-lane origin/main --issue o/r#7 --hook-log "$W/push.log") $(has 'предков осмотрено на go.mod')" "близнец: свой go.mod в корне копии — не предмет → 0, подъём в переписи"
+rm -f "$L2/go.mod"
+
 echo "== незакоммиченное в копии"
 echo e >> "$L/b.md"
 assert "1 да" "$(run "${ok_args[@]}") $(has 'REASON UNCOMMITTED')" "правленный отслеживаемый файл → UNCOMMITTED"
