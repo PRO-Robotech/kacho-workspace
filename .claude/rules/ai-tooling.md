@@ -30,7 +30,7 @@ at-rule-address-as-written · ссылка на правило и скил-пр�
 at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и только сокращается; запись, которой нечего исключать, — находка · rules-gate check-10 с `rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
 at-markup-is-not-a-script · исключение по роли не выдаётся разметке и файлу без строки запуска: судится ФОРМАТ файла, а не `#!` и не перечень каталогов · rules-gate check-10, пары 2 и 4 его инъекции · red: корпус, агент, навык или протокол изъял себя из переписи одной строкой
 
-## Канонические агенты (единственный экземпляр — `.claude/agents/` воркспейса; копий нет)
+## Канонические агенты
 
 at-agents-roster-dispatcher · главный поток — `dispatcher`: без Read/Bash/Edit, решает по возврату и своей самодостаточной базе · check-03 · red: диспетчер сам читает или правит файлы
 at-agents-roster-execution · task-execution: 16 агентов, каждый — единственный держатель своей зоны правки · check-03 · red: зона правки без держателя либо с двумя
@@ -39,12 +39,11 @@ at-agents-roster-boundary · границы задачи: 5 read-only ролей
 at-agents-count-32 · число агентов — одно, у предиката ниже · check-07 · red: перечень и число расходятся
 at-executors-dont-launch-executors · у каждого агента, кроме `dispatcher`, `disallowedTools` содержит `Agent` · grep -rL disallowedTools .claude/agents/ · red: исполнитель запускает исполнителя
 at-agent-does-not-wait · вызов не ждёт > 10 мин (`CLAUDE.md` «Не жди») · stall-census.sh, wave-template-inject, no-wait-guard · red: STALL-POLL; без вызова > 15 мин
+at-parallel-while-ci · пока идёт CI, независимые предметы (пути не пересекаются, от ждущего вердикта не зависят) идут в лимитах; ci-local очередит лишь отправки (владелец 2026-10-12, дословно — архив) · tooling-gate check-19 · red: в ходе лишь ожидания CI при свободных предметах
 at-no-nested-launches · агент не зовёт другого напрямую — возвращает диспетчеру «нужен следующий» · check-05 · red: вложенный вызов агента из тела другого
 
 > Счёт: **32** агентов — предикат `git ls-files .claude/agents/ | wc -l`.
-> Перечень — адреса запуска, он сверяется с деревом в обе стороны (`check-03`):
-> строка без файла и файл без строки — обе находки.
-> Что делает агент — поле `description` его файла; здесь оно не повторяется.
+> Перечень — адреса запуска, сверка с деревом в обе стороны (`check-03`); назначение — `description` агента.
 
 - `dispatcher`
 - `acceptance-author`
@@ -79,12 +78,11 @@ at-no-nested-launches · агент не зовёт другого напрям�
 - `check-verifier`
 - `ci-watcher`
 
-## Канонические скилы (`.claude/skills/<name>/SKILL.md`)
+## Канонические скилы
 
 Единица перечня — отслеживаемый git-каталог скила, кроме привязочных `rule-*`:
 `git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | grep -v '^rule-' | wc -l` (**14**).
-Перечень обязан совпадать с выводом в обе стороны (`check-03`); `<svc>-load-testing`
-живёт в репо сервиса и в счёт не входит. Что делает скил — `description` его `SKILL.md`.
+Сверка с выводом в обе стороны — `check-03`; `<svc>-load-testing` — в репо сервиса, вне счёта.
 
 - `evgeniy`
 - `code-authoring`
@@ -108,7 +106,7 @@ at-lifecycle-preamble · порядок lifecycle выставляет дисп�
 lc1-acceptance-first · приёмка — `00-kacho-core.md#ban01-acceptance` · docs-gate check-01 · red: смена контракта без APPROVED
 lc2-issue-branch-trail · фича — issue + ветка `<N>-<суффикс>` (`git-issues.md` §«Имя ветки») + trail в vault · docs-gate check-02 · red: код без issue, ветки или trail
 lc4-crossrepo-order · порядок proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по модулям, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
-lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
+lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh), scripts/docs-gate/ · red: проба, не падавшая ни разу
 lc6-role-reviews · ревью — по уровню, `git-issues.md#gi-asm-one-round` · ЗАВЕСТИ · red: R2 без роли области; четвёртая роль
 lc7-final-verification · `testing.md#final-verification-before-merge` и make audit-list-filter — зелёные на PR сборки · ci.yaml — зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 lc8-trail-and-close · обновить vault (resources/rpc/edges + записка) и закрыть issue с артефактами · vault-gate, docs-gate check-02 · red: issue закрыт без trail

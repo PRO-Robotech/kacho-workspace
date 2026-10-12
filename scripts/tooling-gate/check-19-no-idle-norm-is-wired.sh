@@ -12,6 +12,12 @@
 #   B. `CLAUDE.md` несёт норму (якорь — фрагмент императива «Ни один вызов не держит
 #      ожидание дольше 10» и цитата владельца «ничего не делают а мы ждем»);
 #   C. база диспетчера несёт строку сигнала «⏱ ЗАСТОЙ» в §10 и `stall-census.sh`;
+#   C'. (ws#1022) норма «пока идёт CI — максимум параллели» (владелец 2026-10-12): база
+#      несёт цитату владельца и САМО требование §9 (независимые полосы стартуют тем же
+#      ходом; ci-local очередит лишь отправки; нарушение названо), правило — требование
+#      `at-parallel-while-ci` («идут в лимитах…»), а не его ключ; текст читается без
+#      переносов строк (`flat`). У `git-operator` этой нормы нет НАМЕРЕННО: запуском
+#      полос управляет диспетчер (решение диспетчера, ws#1022);
 #   D. `.claude/settings.json` провязывает `stall-signal.sh` в `Stop` и
 #      `UserPromptSubmit`, и сам хук и прибор `scripts/stall-census.sh` есть в дереве;
 #   E. (ws#1004) `.claude/settings.json` провязывает `no-wait-guard.sh` в `PreToolUse`
@@ -80,9 +86,25 @@ try:
     dp = flat('.claude/agents/dispatcher.md')
 except OSError:
     dp = ''
-for frag in ('| «⏱ ЗАСТОЙ»', 'stall-census.sh', '`blocked` — лишь за файлом соседа'):
+# C': якоря — само ТРЕБОВАНИЕ §9 (кто стартует, что идёт, что нарушение), а не
+# его ключевая фраза: тело, вывернутое при сохранённом начале, ключ переживает.
+for frag in ('| «⏱ ЗАСТОЙ»', 'stall-census.sh', '`blocked` — лишь за файлом соседа',
+             'Ожидание CI разработку не останавливает',
+             'тем же ходом стартуют все независимые полосы',
+             'слот ci-local очередит отправки, а код, пробы, ревью и разведка идут',
+             'Нарушение: в ходе лишь посадки и ожидания CI при свободных предметах',
+             'пока ci идет мы максимально параллелим задачи что бы не простаивала разработка'):
     if frag not in dp:
         finds.append('.claude/agents/dispatcher.md: нет «%s»' % frag)
+try:
+    at = flat('.claude/rules/ai-tooling.md')
+except OSError:
+    at = ''
+for frag in ('at-parallel-while-ci · ',
+             'независимые предметы (пути не пересекаются, от ждущего вердикта не зависят) идут в лимитах; ci-local очередит лишь отправки',
+             'red: в ходе лишь ожидания CI при свободных предметах'):
+    if frag not in at:
+        finds.append('.claude/rules/ai-tooling.md: нет нормы at-parallel-while-ci — не найдено «%s»' % frag)
 for ev in ('Stop', 'UserPromptSubmit'):
     if not any('stall-signal.sh' in h.get('command', '') for g in hooks.get(ev, []) for h in g.get('hooks', [])):
         finds.append('.claude/settings.json: stall-signal.sh не провязан в %s' % ev)
@@ -134,5 +156,5 @@ for f in finds:
     print('[FAIL] %s — %s' % (name, f), file=sys.stderr)
 if finds:
     sys.exit(1)
-print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash' % (name, seen))
+print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash; параллель во время CI — в базе и правиле' % (name, seen))
 PY
