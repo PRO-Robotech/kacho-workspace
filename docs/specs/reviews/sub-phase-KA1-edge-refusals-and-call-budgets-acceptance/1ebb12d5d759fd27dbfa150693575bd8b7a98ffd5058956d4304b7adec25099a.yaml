@@ -1,0 +1,134 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: 1ebb12d5d759fd27dbfa150693575bd8b7a98ffd5058956d4304b7adec25099a
+  revision: 8
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 8 — эта запись и внешнее событие.
+  base_commit: 8800423f303e42ed635428af9728b325de4a82e3
+  content_commit: ee22cee7381ef5157d9e36b0f13ed270ce632aef
+  branch: 897-ka1-exit-outcome (ветвится от origin/897-identity-own-wave1)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 1051
+  code_base: >-
+    PRO-Robotech/kacho: голова ствола волны e3476f0bc28 (ветка 2967), голова полосы kacho#2996,
+    названная документом, d7710e33530; фактическая голова origin/2996 — 03b3dec9fe6
+verdict: CHANGES_REQUESTED
+round: 7
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-05T00:00:00Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 1ebb12d5d759fd27dbfa150693575bd8b7a98ffd5058956d4304b7adec25099a"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315.yaml (круг 1, редакция 2)
+    - d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a.yaml (круг 2, редакция 3)
+    - f1dda7d293a3e9cbfc6d788501e4b32e554359d9a21e8dc38918ceb3f7080f05.yaml (круг 3, редакция 4)
+    - a472352819656522d77dec6c4b43c6a0f1c5b17806dd27fc8d6b51a3c8564463.yaml (круг 4, редакция 5)
+    - 6fe252979623475e1349ea5458236615f908017dde2560e4bcef795e021bf628.yaml (круг 5, редакция 6)
+    - e88968ad6d11ad1793fe9881841809e711cd084f6dbbf90846de023cbd723cd8.yaml (круг 6, редакция 7, APPROVED)
+
+task_premise: >-
+  Задание назвало «прошлые круги: —». Опровергнуто частично: у документа шесть записей ревью
+  (круги 1–6), круг 6 одобрил редакцию 7. На редакцию 8 записи нет — это подтверждено. Круг этой
+  записи — 7. Предикат: ls docs/specs/reviews/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance/.
+
+delta_reviewed: >-
+  git diff 8800423f3 ee22cee73 -- <документ>: шапка (журнал редакции 8), Р4 (исход превышения
+  при выходе), новое Р7, пункт «Что НЕ входит» о /oauth/logout, «Тогда» KA1-14 (строка выхода)
+  и KA1-26, строки таблиц производителей, строимости и уровня, «Открытые вопросы», DoD «Р7».
+  Прочие сценарии не тронуты; одобрение круга 6 о них — о редакции 7 и сюда не переносится,
+  но дельта их не меняет.
+
+blocking:
+  - id: B1
+    kind: COVERAGE
+    where: >-
+      Р7 (перечень условий «выход не выполнен»; фраза «Отказы пути (401 по Р2 — KA1-13 (а)) этим
+      решением не меняются»); Р4 (таблица ручек: IDENTITY_CALL_BUDGET ограничивает вызовы к
+      внутреннему слушателю службы доступа); «Что НЕ входит», последний пункт («чтение наборов
+      ключей — у них свои объявленные бюджеты»); шапка и таблица производителей («производители —
+      голова полосы kacho#2996 d7710e33530»).
+    claim: >-
+      Полоса, которую документ называет производителем Р7, уже меняет наблюдаемое на этом пути
+      сверх Р7: на голове origin/2996 (03b3dec9fe6) выход при источнике проверочных ключей, не
+      ответившем проверяющему, отвечает 503 «выход не выполнен», а не 401; и проверку предъявителя
+      на выходе ограничивает ручка KACHO_API_GATEWAY_IDENTITY_CALL_BUDGET вместо константы 5s.
+      Документ называет только «отзыв не ответил либо ответил ошибкой» и прямо утверждает, что
+      401 пути не меняется, а чтение наборов ключей оставляет своим объявленным бюджетам
+      (KACHO_JWKS_FETCH_TIMEOUT_SECONDS, умолчание 5). Итог: исход «источник ключей молчит» на
+      выходе пути токенов не назван ни одним сценарием, а реализация его уже производит —
+      изменение наблюдаемого без одобренной приёмки (ban #1). Это тот же класс, ради которого
+      Р7 заведено: ответ, после которого клиент не знает, что живое удостоверение надо гасить
+      повторно; документ обязан решить его явно, а не оставить полосе.
+    evidence:
+      seed: >-
+        git diff d7710e33530 03b3dec9fe6 -- gateway/internal/handler/logout_handler.go: ветка
+        middleware.KeySourceUnanswerable(verr) → writeBody(503, logoutNotPerformedBody);
+        context.WithTimeout(r.Context(), h.callBudget) вокруг Verify вместо 5*time.Second; новый
+        файл gateway/internal/handler/logout_key_source_test.go (126 строк). На d7710e33530 —
+        `ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)` (logout_handler.go:186)
+        и 401 на любой ошибке Verify. Объявленный бюджет чтения набора — gateway/internal/config/config.go:534
+        (KACHO_JWKS_FETCH_TIMEOUT_SECONDS default 5), jwt_verifier.go:274–282.
+    fix: >-
+      Решить в Р7 (и Р4) явно, одним из двух: (а) источник проверочных ключей не ответил
+      проверяющему → выход «не выполнен», 503 тело Р7, Set-Cookie нет; положительный близнец —
+      проверяющий решил «негоден» → 401 по Р2 (отличие — один факт: решил ли проверяющий);
+      сценарий с ID, производитель (logout_key_source_test.go на названной ревизии полосы) и
+      исход на базе e3476f0bc28; в Р4 — назвать, какой бюджет ограничивает проверку предъявителя
+      на выходе, и как он соотносится с KACHO_JWKS_FETCH_TIMEOUT_SECONDS (внешний срок 1s
+      при объявленных 5s делает эту ручку на пути выхода недостижимой выше 1s — сказать, что это
+      решение, либо выбрать иное); поправить пункт «Что НЕ входит» о наборах ключей; (б) либо
+      оставить 401 и бюджет 5s, назвав это решением, — тогда полоса kacho#2996 обязана снять
+      ветку 503 и смену бюджета. Ревизию полосы в шапке и таблицах перепинить на ту, о которой
+      документ судит.
+
+non_blocking:
+  - >-
+    Держатель «без Set-Cookie» строки выхода KA1-14 — logout_outcome_test.go полосы kacho#2996, а не
+    проба KA1 (ka1_logout_refusal_test.go утверждает статус и тело); таблица производителей это
+    называет — достаточно, но DoD «Р7» стоит сослаться на оба держателя одной строкой.
+  - >-
+    Код полосы kacho#2996 (d7710e33530 и далее) написан до одобрения редакции 8 — факт для
+    диспетчера по ban #1, не дефект документа.
+
+checks:
+  scope: >-
+    да в части дельты: Р7 выводит исход из одобренного Ф3 Р4 kaname (сверено: origin/538
+    login-lane-…server-side.md, Р4, строки 865–895; auth-lane.mdx «Выход», строки 205–215;
+    TextLogoutNotPerformed = "logout not performed; try again later" — refusals.go:23 на origin/538
+    и origin/main); пробел — B1.
+  producer_per_then: >-
+    строки KA1-14 (выход) и KA1-26 имеют производителя; все предикаты таблицы перемерены @ d7710e33530:
+    'logout not performed; try again later' → 2; 'CallBudget time.Duration' → 1;
+    'SetCookie|EndSessionCarriers' → 0; три функции проб — по 1; @ e3476f0bc28 EndSessionCarriers(w) → 1;
+    читателей /oauth/logout в ui-future → 0. Исход «источник ключей молчит» производителя в документе не имеет (B1).
+  twin_per_negative: KA1-26 (1)/(2) — один факт (уложился ли отзыв в бюджет); для исхода B1 близнеца нет.
+  constructibility: >-
+    посеяно 2 из 2 проб дельты, git archive обеих ревизий в tmp/ka1-r7-seed, go test в слоте:
+    @ d7710e33530 — TestKA1_13a_LogoutRefusalIsTheOneRefusal, TestLogout_2996_…EveryAcceptedPresentation
+    (3 подтеста), TestLogout_2996_HeaderNamesTheBodiesTheHandlerWrites, TestKA1_26_… — зелёных 4, красных 0;
+    @ e3476f0bc28 с файлами проб с d7710e33530 — сборка прошла, красных 2 исходом, как заявляет DoD «Р7»:
+    KA1-14 строка выхода — 200 {"ok":true}; KA1-26 (2) — 200 с warnings и Set-Cookie за 300ms; KA1-26 (1) — {"ok":true} с Set-Cookie.
+    Не выполнилось 0.
+  open_questions: 0 объявлено; по существу B1 — решение, которое документ обязан принять.
+repeat_class_note: >-
+  Блокирующих 4 → 3 → 1 → 1 → 1 → 0 → 1. Род COVERAGE в этом документе прежде не возвращал;
+  повтора рода нет.
+route_flags: {proto: no, schema: no, public_rpc: no, ui: no, new_domain: no, security_surface: yes}
