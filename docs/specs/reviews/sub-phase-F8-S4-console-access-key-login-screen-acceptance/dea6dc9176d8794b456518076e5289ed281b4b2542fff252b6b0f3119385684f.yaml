@@ -1,0 +1,191 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  sha256: dea6dc9176d8794b456518076e5289ed281b4b2542fff252b6b0f3119385684f
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): строка «редакция 5 · вердикта на
+    неё НЕТ» — статическая форма. Действующий вердикт о редакции 5 — эта запись и внешнее событие.
+  base_commit: 704ad53cf1f06cfb9b6d1d674d950b195f6ed59b
+  content_commit: 58bfe71cbc7f99c3847aca9c326ae31ca0724ac7
+  content_commit_note: >-
+    Редакция 5 закоммичена в воркспейсе на локальном main (58bfe71cb) и на origin НЕ отправлена.
+    Событие публикуется только после отправки коммита редакции: subject_revision события — тот
+    коммит, как он будет на origin, subject_sha256 — дословно этот отпечаток.
+  task: https://github.com/PRO-Robotech/kacho/issues/1282
+  wave_task: PRO-Robotech/kacho#2969
+  trigger_run: console-e2e 38198101708 @ PRO-Robotech/kacho@f15f23700f48a1f8b37a9ddfb2ddd5be13560100 (ветка 1282-f8s4-budget, success)
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+  fingerprint_reproduced: true
+  code_base: PRO-Robotech/kacho @ f15f23700f4
+
+verdict: APPROVED
+round: 5
+round_note: >-
+  Круг по дельте правки одобренной редакции 4 (624996ea…), а не продолжение спора автора и
+  рецензента: fa-b8 (≤ 2 кругов) судит спор по ⛔, а здесь ⛔ нет ни на одном круге после
+  одобрения.
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-12T00:00:00Z'
+previous_rounds:
+  - f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b.yaml
+  - 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c.yaml
+  - 68348903cc5f5bafc6df558c34b3d867963fa813f669c52530cd151124f567a9.yaml  # редакция 3, APPROVED
+  - 624996ea100adbb98f229d1ecda7e8b1fd47c70e6231a777bbac87073bab3adf.yaml  # редакция 4, APPROVED, событие опубликовано
+blocking_count: 0
+blocking_kinds_distinct: []
+
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+  publication_pending:
+    required_for_sanction: true
+    expected_from: курьер (git-operator) по заданию диспетчера
+    expected_actor: pointpu
+    expected_mode: scripts/rituals/approval-event.sh — как у записи 624996ea…
+    expected_form: >-
+      issue_comment в PRO-Robotech/kacho#2969 (как у редакции 4) с полями role, verdict, subject,
+      subject_revision (коммит редакции 5, опубликованный на origin раньше события),
+      subject_sha256 дословно. Блок `event` приводится к факту тем же заходом; вердикт и разбор
+      задним числом не правятся.
+  sanction:
+    outcome: НЕ ВЫДАНА
+    why: >-
+      Роль без события полномочия не даёт (change-graph.md §3). Вердикт о редакции 4 на редакцию 5
+      не переносится; прежний остаётся вердиктом о 624996ea….
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - f5d41cfda8c955f7d4cb92b075b45ac242ea1f64a9750bc73c3c136a8ec0207b.yaml
+    - 0aebd7fc5f8a9fb780bffdc32563a6cc865c7adab06145bbd521384dd9d12f0c.yaml
+    - 68348903cc5f5bafc6df558c34b3d867963fa813f669c52530cd151124f567a9.yaml
+    - 624996ea100adbb98f229d1ecda7e8b1fd47c70e6231a777bbac87073bab3adf.yaml
+
+premise_check:
+  claim: >-
+    редакция 5 sha256 dea6dc91…; дельта — только доля S4 15 → 20 по замеру прогона 38198101708,
+    состав сценариев не тронут; ручки в ветке kacho уже 18 / 20; проба развёртывания выводит
+    близнецы из живой величины F8-41
+  result: >-
+    Подтверждено. `sha256sum` → dea6dc91…684f. `git show 58bfe71cb` — 1 файл, 7 ханков: шапка
+    (журнал редакции 5), Р8 пп. 1–3, F8S4-15 (Given/Then/And), §6.3 (правило счёта, 3 новые строки,
+    П4 1 → 0, итоги), DoD п. 10, п. 11, новый §13. «Дано»/«Когда» сценариев F8S4-01…14 не тронуты.
+    `gh run view 38198101708 --json …` → success · workflow_dispatch · 1282-f8s4-budget ·
+    f15f23700f48a1f8b37a9ddfb2ddd5be13560100. `git grep` @f15f23700f4 console-e2e.yml:1091 "18",
+    :1092 "20". console_suite_budgets_fit_the_stand_test.go:229 TestF8S4_15_…, :258
+    `over := ceiling - f841 + 1` — близнецы выводятся из работы: 320 − 18 + 1 = 303, 302.
+
+measurement:
+  s4_share_by_probe: >-
+    Журнал прогона (`gh run view 38198101708 --log`), шаг source-axis-budget: «[F8S4-15] … по
+    прогонам 20 · всего 20 · бюджет 20»; разбивка F7-07-console 2 · F8S4-02 1 · F8S4-02 (путь
+    ключа) 3 · F8S4-03 1 · F8S4-03 (путь ключа) 1 · F8S4-04 2 · F8S4-05 4 · F8S4-09 4 · F8S4-10 1 ·
+    F8S4-12 1 = 20. Совпадает с таблицей §13 построчно и с §6.3 (15 выдач + 5 отказов).
+  f841_share: >-
+    «[F8-41] … 17 · бюджет 18»; ни одного ID F8S4- в списке F8-41. Ведомость шага работы — 18 =
+    11 + 4 + 2 + 1; в замере нет строки F8S6-01 (комментарий работы, строки ~1055–1058, называет
+    это и для прогона 38170813139). Предмет — доля F8-41, не S4; документ число 17 называет верно.
+  selftest: >-
+    Самопроверка того же прогона: «ok F8S4-15 · доля S4 20 при бюджете 20 — в бюджете», «ok …
+    выдача испытания сверх бюджета — красное», «ok … названо число — 21», «ok … та же запись на
+    пути признака формы — не красное», «ok … три прогона — 60», «ok … 61 — красное». Близнецы
+    F8S4-15 (21-я выдача / путь признака формы) исполнены.
+  registrations: >-
+    Вложения kacho-2909-source-registrations отчёта прогона (артефакт console-e2e-results):
+    F8S4-01, -02, -03, -04, -05, -09, -10, -12 — по 1, итого 8 = §6.3 и DoD п. 10. Сверх того по 1
+    у F8S4-02 и F8S4-03 пути ключа и у F7-07-console (в §6.3 «—»). Сторож регистраций зелёный:
+    258 · бюджет 320.
+  arithmetic: >-
+    18 + 20 = 38; 38/320 = 11,875 % → 11,9; 3 × 38 = 114, 114/320 = 35,6 %; 38/50 = 76 %;
+    320 − 38 = 282; 18 + 303 = 321, 18 + 302 = 320. Сходится.
+
+blocking: []
+
+important:
+  - id: I1
+    kind: FORMAT
+    summary: >-
+      §6.3 ставит «—» в столбец регистраций трёх новых строк (F8S4-02 и F8S4-03 пути ключа,
+      F7-07-console), хотя отчёт того же прогона даёт по 1 у каждой. Итог 8 верен для строк
+      сценариев access-key-login, и документ честно говорит, что столбец не перемерялся. На вердикт
+      не влияет: сторож регистраций судит общую сумму (258/320) и зелёный. В следующей правке
+      заменить «—» числом 1 и назвать, что 8 — это доля строк сценариев.
+  - id: I2
+    kind: CONVENTION
+    summary: >-
+      F8S4-15 «Дано» и DoD п. 10 закрепляют чужую величину `KACHO_CEREMONY_FAILURE_BUDGET` = 18
+      (F8-41 и другие полосы). Когда новая полоса допишет строку ведомости, этот документ устареет,
+      хотя предмет S4 не изменится. Текст уже смягчён: «величина ведомости набора (на замере §13 —
+      18)». Сторож и проба развёртывания берут число из работы, так что лжи о поведении здесь нет.
+  - id: I3
+    summary: >-
+      Вне предмета S4. F8S6-01 стоит в ведомости F8-41 с одним отказом, но ни в замере
+      38170813139, ни в 38198101708 этот отказ не появился, хотя второй прогон зелёный. Поэтому
+      F8-41 и даёт 17 из 18. Это предмет полосы F8-S6 (kacho#3062), к этому документу не относится.
+
+not_performed:
+  - subject: "три прогона подряд на стенде с П1…П4 (DoD п. 10, ≤ 20 / ≤ 60)"
+    reason: "рецензент прогонов не запускал; замер один — 38198101708"
+    counts_as: "не выполнилось — ни в зелёное, ни в красное"
+  - subject: "go test пробы развёртывания TestF8S4_15 на f15f23700f4"
+    reason: "не прогонялась рецензентом; формула близнецов прочитана в коде (:258)"
+    counts_as: "не выполнилось"
+
+constructibility:
+  seeded: 0
+  total_nontrivial_given_changed: 0
+  note: >-
+    Дельта не меняет ни одного «Дано» сценариев с посевом. Единственное затронутое «Дано» —
+    F8S4-15 (величины ручек). Его конструируемость показана живым прогоном 38198101708:
+    ручки 18/20, сторож зелёный, близнецы самопроверки исполнены.
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  new_edge: false
+  security_surface: false
+  disclosure_safe: true
+
+event_body: "acceptance-reviewer · APPROVED · dea6dc9176d8794b456518076e5289ed281b4b2542fff252b6b0f3119385684f"
+
+next:
+  needed_agent: git-operator
+  task: >-
+    отправить коммит редакции 5 (58bfe71cb) и эту запись в воркспейс по решению диспетчера о
+    ветке, затем опубликовать событие acceptance-reviewer · APPROVED · dea6dc91… и привести блок
+    event к факту тем же заходом
+  owner_questions: []
+
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho#2969
+  status: performed
+  published: true
+  database_id: 6118393065
+  node_id: "IC_kwDOTZqgWM8AAAABbK9E6Q"
+  url: "https://github.com/PRO-Robotech/kacho/issues/2969#issuecomment-6118393065"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6118393065"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-12T05:34:37Z"
+  body_sha256: "40e39bd83a3cb4fdb28fef7d72df2c3104977d6baf96b4502634cf9312c0b745"
+  subject_sha256: "dea6dc9176d8794b456518076e5289ed281b4b2542fff252b6b0f3119385684f"
+  subject_revision_commit: "500c611019e206021470a61c778cd684e6984dc5"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh

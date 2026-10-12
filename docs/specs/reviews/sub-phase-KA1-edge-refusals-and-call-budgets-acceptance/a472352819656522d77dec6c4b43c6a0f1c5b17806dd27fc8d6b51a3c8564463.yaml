@@ -1,0 +1,106 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: a472352819656522d77dec6c4b43c6a0f1c5b17806dd27fc8d6b51a3c8564463
+  revision: 5
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 5 — эта запись и внешнее событие.
+  base_commit: 9fb4acd99f9da30bc629d61c2a9e26106cdc0436
+  content_commit: 8f13dcb31b357588227c0cbd060f65fa21ecc308
+  branch: 897-ka1-acceptance (локальная, не отправлена)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 948
+  code_base: PRO-Robotech/kacho @ e801c0f7844c06727947fca7f32ffac9b006ea1b
+verdict: CHANGES_REQUESTED
+round: 4
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-03T00:00:00Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 a472352819656522d77dec6c4b43c6a0f1c5b17806dd27fc8d6b51a3c8564463"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315.yaml (круг 1, редакция 2)
+    - d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a.yaml (круг 2, редакция 3)
+    - f1dda7d293a3e9cbfc6d788501e4b32e554359d9a21e8dc38918ceb3f7080f05.yaml (круг 3, редакция 4)
+
+prior_round_blockers:
+  B1_DoD_green_before_without_build: >-
+    снят — раздел «Собираемость» выводит исход из параметров сборки; KA1-22/23/24/26 на голове S1
+    «не собирается», охраной не считаются; DoD S2 делит красное исходом и красное отсутствием
+    испытуемого. Перемерено @ e801c0f7844: LogoutHandlerConfig — 3 поля; restmux.NewMux — 4
+    аргумента (main.go:1057); session_revocations_client.go — 0 строк budget/timeout.
+  non_blocking_round3: >-
+    учтены все три — адресат П11 (KACHO_API_GATEWAY_TOKEN_AUDIENCE есть, config.go:406), вынос
+    перевода записей первым шагом S3, срок пробы 3s.
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    where: KA1-25 «Дано» (предикат отбора профилей), унаследовано KA1-34; DoD S2 (KA1-25), S3 (KA1-34)
+    claim: >-
+      Предикат «профиль поднимает край, если отрисовка чарта с базовым values.yaml и ЭТИМ профилем
+      содержит Deployment края» не строит множество профилей: шесть из девяти профилей — слои
+      поверх другого профиля и в одиночку не отрисовываются вовсе (ошибка отрисовки, Deployment
+      нет). По предикату они молча выпадают как «не поднимающие край», и среди них dev-prod —
+      эталон боевой посадки стенда, который документ сам называет в таблице KA1-34. Проба
+      печатает «поднимающих край — 3» и зелена, не прочитав профиль, ради которого написана;
+      заявленный исход KA1-34 на базе («dev-prod, dev, fe3455-prod, prod — согласие») по
+      этому предикату для dev-prod недостижим.
+    evidence:
+      seed: >-
+        helm template r . -f values.yaml -f values.<p>.yaml в отдельной копии kacho @ e801c0f7844
+        (снята после прогона), по 9 профилям: rc=0 — dev, fe3455-prod, prod (край есть, издатель
+        https://kaname.kacho.local); rc=1 — a8f60d (networkpolicy-vpc-internal.yaml:39), dev-prod,
+        own (registry statefulset-zot.yaml:57 «zot layer store must authenticate»), fe3455,
+        own-stand, prorobotech. Цепочка values.yaml + dev + dev-prod — отрисовывается, KACHO_API_GATEWAY_TOKEN_ISSUERS есть.
+      code: deploy/Makefile:734 («values.dev-prod.yaml поверх dev»); .github/workflows/production-posture.yml:83
+    fix: >-
+      Единица отбора — цепочка слоёв, которой профиль поднимается (рецепт подъёма: Makefile,
+      production-posture.yml), а не одиночный файл; перечень цепочек назвать предикатом из
+      рецептов. Ошибка отрисовки цепочки — красный пробы с именем цепочки, а не «край не
+      поднят». Печатать три числа: цепочек, отрисованных, поднимающих край. Исход KA1-34 на
+      базе перемерить на цепочках.
+
+non_blocking:
+  - >-
+    DoD S2 п.2 (не собравшиеся пробы не роняют сборку соседних): в Go не собирающийся _test.go
+    роняет весь пакет; назвать механизм разделения (тег сборки либо отдельный пакет), иначе
+    требование выполнимо только случайно.
+  - >-
+    KA1-13 (а) на уровне обработчика выхода с проверяющим-дублёром: «изменённый байт подписи»
+    решает дублёр, а не проверка подписи; назвать как «проверяющий отвергает предъявителя».
+
+checks:
+  scope: да (Что НЕ входит есть; roadmap §3 предмета не держит — scope по задачам, как у F1b)
+  producer_per_then: 28 из 28
+  twin_per_negative: 0 разрывов
+  constructibility: >-
+    посеяно 1 (KA1-25/34 — отрисовка 9 профилей: 3 отрисовались, 6 нет → B1); прочитано кодом 6
+    (KA1-01 — читатель отзыва в харнессе F1b с Timeout 500ms, 503 до правки строится;
+    KA1-03 (а)/04 (а) — у полосы сессии предела нет, у базового и отзыва — константы 1s;
+    KA1-32/33/35 — TokenAcceptance точным равенством, отказ старта и отказ построения строятся;
+    KA1-35 — адресат объявляется; KA1-24 — 5s/2s в харнессе; KA1-10 (к) — каталог Issue);
+    не выполнилось — посев харнессов П1–П13 (заводятся) не ставился: копия kacho под код пробы
+    заданием не названа
+  open_questions: 0
+repeat_class_note: >-
+  Блокирующих 4 → 3 → 1 → 1, убывает к плато. Род CONSTRUCTIBILITY — третий раз (круги 1, 2, 4),
+  но предмет новый: не значение кода края, а множество профилей поставки. В форму задания
+  автора: каждое «Дано» над деревом профилей — отрисовать предикатом, а не grep по файлам.
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}

@@ -1,0 +1,100 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 2 — эта запись и внешнее событие.
+  base_commit: 9fb4acd99f9da30bc629d61c2a9e26106cdc0436
+  content_commit: 5f0503228f701eb535eb04b6ffad0a70dde71ede
+  branch: 897-ka1-acceptance (локальная, не отправлена)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 693
+  code_base: PRO-Robotech/kacho @ e801c0f7844
+verdict: CHANGES_REQUESTED
+round: 1
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-03T00:00:00Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: Записей ревью этого документа до этой нет (каталог создан этой записью).
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    where: KA1-24 «Дано»
+    claim: >-
+      Срок потока 3s при объявленных умолчаниях не строится: конструктор ручки потока отвергает
+      срок, не превосходящий служебный кадр (умолчание KACHO_API_GATEWAY_SUBSCRIPTION_HEARTBEAT=20s).
+      На уровне процесса тот же срок отвергают и стражи сборки перепроса (KACHO_INTROSPECTION_CACHE_TTL_SECONDS=5
+      по умолчанию, окно не меньше срока потока).
+    evidence:
+      seed: >-
+        проба subscriptionstream.NewHandler в отдельной копии kacho @ e801c0f7844 (снята после прогона):
+        heartbeat=20s, budget=3s → "StreamBudget 3s не превосходит Heartbeat 20s"; heartbeat=2s, budget=3s → nil
+      code: gateway/internal/subscriptionstream/handler.go:153; gateway/cmd/api-gateway/subscription_stream.go (buildStreamRevocationSweeper)
+    fix: >-
+      Назвать в «Дано» служебный кадр (<3s) и уровень пробы (харнесс ручки потока, harness_test.go
+      newHandler — там уже 5s/2s), либо взять величины харнесса; если проба процессная — назвать и
+      срок кэша интроспекции.
+  - id: B2
+    kind: CONSTRUCTIBILITY
+    where: посев П3 → близнецы KA1-06 (строки 03, 04), KA1-14 («сессия есть»), KA1-22 (а, б)
+    claim: >-
+      Посев сессии не называет подтверждённость адреса. Полоса нашей сессии на непубличном пути
+      (/iam/v1/accounts) отвечает отказом адреса при EmailVerified=false — нулевом значении поля
+      дублёра; положительный близнец получит 403 вместо 200.
+    evidence:
+      code: gateway/internal/middleware/auth_own_session.go:146 (рубеж адреса после отсечки), address_refusal.go openBeforeAddressConfirmation
+    fix: в строку П3 — «адрес подтверждён (EmailVerified=true)».
+  - id: B3
+    kind: TWIN
+    where: KA1-11 (н) → KA1-14
+    claim: >-
+      Близнец (н) по перечню KA1-14 — «доказательство DPoP есть», но на нативной поверхности
+      DPoP-привязанный токен отвергается по построению: положительного исхода с доказательством
+      там нет, близнец не строится.
+    evidence:
+      code: "gateway/internal/middleware/cnf_grpc_interceptor.go (шапка: DPoP-bound on gRPC is REJECTED fail-closed)"
+    fix: близнец (н) — тот же токен без cnf.jkt на нативной поверхности → OK.
+  - id: B4
+    kind: DoD
+    where: DoD S1 п.1, S2 п.1
+    claim: >-
+      «Пробы KA1-01…KA1-15 красны на e801c0f7844» и «KA1-20…KA1-24 красны до правки» включают
+      положительные и неизменяемые сценарии, зелёные уже сегодня: KA1-06, KA1-14, KA1-15
+      (указание повышения — сегодняшнее поведение, Р3 «не меняется»), KA1-24 (поток живёт по
+      своему сроку), строки «Близнец» KA1-20/21. Пункт невыполним честно.
+    fix: разделить, как в S3 (KA1-30 (е)) — красны отрицательные, близнецы зелены до и после и доказательством не считаются.
+
+non_blocking:
+  - Ссылки на 04-roadmap §3 нет; в roadmap предмета нет, scope держат задачи — как у одобренного F1b.
+  - Общее «Дано» называет маршрут /iam/v1/accounts и каталог, а харнесс newF1bStandWith монтирует только слой authN на /iam/v1/whoami; назвать, на каком уровне идёт каждое утверждение о каталоге.
+  - KA1-25 — предикат отбора «профилей, поднимающих край» не назван (10 файлов values.*.yaml, среди них digests.example).
+  - KA1-03 на /iam/v1/auth/me утверждаем только через цепочку: ручка сама отвечает {"user":null}.
+
+checks:
+  scope: да (Что НЕ входит есть; over/under-scope не найден)
+  producer_per_then: 25 из 25 строк таблицы
+  twin_per_negative: 1 разрыв (B3)
+  constructibility: посеяно 1 (KA1-24) — красное; прочитано кодом 1 (П3, B2); не выполнилось — посев харнессов края (П1–П9 заводятся) не ставился
+  open_questions: 0
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}
