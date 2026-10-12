@@ -8,8 +8,15 @@
 # прогонов check-run — повтор «текст запроса» трижды, 10 workflow runs,
 # обязательный контекст «сводный вердикт» защиты ветки 1266), снятые 2026-10-11 и
 # урезанные до читаемых полей — scripts/ci-read-fixtures/kacho-3140/. branch.json
-# и compare.json — синтетика той же формы (база = base.sha запроса). Каждый случай
-# меняет РОВНО один факт контроля:
+# и compare.json — синтетика той же формы (база = base.sha запроса). Поля, которые
+# ci-read.sh читает и которые живой ответ несёт всегда, в фикстуре ЕСТЬ: id у
+# check-run, workflow_id · path · created_at · run_attempt · run_number у workflow
+# run, draft у запроса — доставлены 2026-10-12 из живого ответа о той же голове
+# (сопоставление по имени, started_at и check_suite: 70 из 70, прочие поля совпали).
+# Без id ci-read.sh пропускал бы каждую проверку в поиске стража, и случаи судили бы
+# не живую форму (ws#1019, мутант D2 выжил). Предпосылка проверяется до случаев.
+# Аннотации стража лежат у ОДНОЙ проверки (annotations.<id>.json), как на площадке.
+# Каждый случай меняет РОВНО один факт контроля:
 #
 #   контроль: полный зелёный, база свежая                         → 0 green
 #   урок #3142: на голове 30 различных проверок из 68, остальные
@@ -46,6 +53,9 @@
 #             близнец — тот же набор на черновике: судится целевой  → 5 targeted-green
 #   черновик (ws#1013): исполненное зелёное, прочее skipped, страж
 #             с аннотацией «черновик не вливается»                 → 5 targeted-green
+#   не черновик: полный прогон того же workflow после зелёного
+#             прежнего, проверка failure С id и БЕЗ аннотации стража
+#             (целевым не считается, вытесняет прежний)             → 1 CI-FAILED
 #   черновик: failure БЕЗ аннотации стража — настоящий отказ       → 1 CI-FAILED
 #   черновик: страж есть, выбранное задание failure                → 1 CI-FAILED
 #   черновик: страж ещё идёт                                       → 3 DRAFT-GUARD-PENDING
@@ -92,6 +102,8 @@
 #   runs-pending-in-progress-only — RUNS-PENDING только при in_progress (V5);
 #   narrow-latest-kept  — на не-черновике целевой прогон остаётся последним (д);
 #   narrow-on-draft     — исключение целевого прогона применено и к черновику;
+#   narrow-guard-dropped — на не-черновике целевым считается check_suite ЛЮБОЙ
+#                         проверки failure, без аннотации стража (D2 check-verifier);
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
 #                         (по одному на каждый из четырёх; урок corelib#111).
 set -uo pipefail
@@ -104,6 +116,13 @@ JOBS="${CI_READ_INJECT_JOBS:-$(nproc 2>/dev/null || echo 4)}"
 command -v jq >/dev/null 2>&1 || { echo "VOID: нет jq" >&2; exit 2; }
 [ -r "$HERE/ci-read.sh" ] && [ -d "$FX" ] || { echo "VOID: нет $HERE/ci-read.sh или $FX" >&2; exit 2; }
 [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "VOID: CI_READ_INJECT_JOBS «$JOBS» не число" >&2; exit 2; }
+# Предпосылка: фикстура несёт поля живой формы, которые читает ci-read.sh. Проверка без
+# id выпадает из поиска стража молча — случаи на такой фикстуре судят не площадку.
+jq -e '(.check_runs | length > 0) and all(.check_runs[]; (.id | type) == "number")' "$FX/check-runs.json" >/dev/null \
+    || { echo "VOID: в $FX/check-runs.json есть проверка без id — фикстура не живой формы" >&2; exit 2; }
+jq -e '(.workflow_runs | length > 0) and all(.workflow_runs[]; (.workflow_id | type) == "number" and (.created_at | type) == "string")' "$FX/runs.json" >/dev/null \
+    || { echo "VOID: в $FX/runs.json есть прогон без workflow_id или created_at — фикстура не живой формы" >&2; exit 2; }
+jq -e '.draft == false' "$FX/pull.json" >/dev/null || { echo "VOID: в $FX/pull.json нет draft: false" >&2; exit 2; }
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/ci-read-inject.XXXXXX")" || exit 2
 trap 'rm -rf "$T"' EXIT
@@ -111,8 +130,9 @@ trap 'rm -rf "$T"' EXIT
 # Двойник gh: путь (последний довод) → файл в каталоге $CI_READ_FX; файла нет — 404.
 # Страницы — как у площадки: <файл>.p2 рядом — вторая страница; без --paginate
 # отдаётся только первая, с ним — обе подряд (поток JSON, как печатает gh).
-# Аннотации: annotations.<id>.json — для проверки <id>, иначе annotations.json,
-# иначе пустой список (у проверки аннотаций нет).
+# Аннотации: annotations.<id>.json — для проверки <id>, иначе пустой список (у
+# проверки аннотаций нет). Общего файла «на все проверки» нет: на площадке аннотация
+# стража лежит у одной проверки, а общий файл сделал бы стражем каждую.
 cat > "$T/gh" <<'GH'
 #!/usr/bin/env bash
 p="${!#}"
@@ -129,7 +149,6 @@ case "$p" in
   repos/*/check-runs/*/annotations)
     id="${p#repos/*/check-runs/}"; id="${id%/annotations}"
     if [ -f "$CI_READ_FX/annotations.$id.json" ]; then f="annotations.$id.json"
-    elif [ -f "$CI_READ_FX/annotations.json" ]; then f=annotations.json
     else echo '[]'; exit 0; fi ;;
   *) f=none ;;
 esac
@@ -251,7 +270,8 @@ supersede() {  # supersede <заключение прежнего> <статус
     edit check-runs.json "(.check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"$1\" end))"
 }
 new_agg() {  # проверка сводного вердикта в новом прогоне: <статус> <заключение|null> <started_at>
-    edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .check_suite.id = 999 | .status = \"$1\" | .conclusion = $2 | .started_at = \"$3\"]"
+    # id новый, как у площадки: новый прогон — новая проверка (id + 1 000 000)
+    edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .id += 1000000 | .check_suite.id = 999 | .status = \"$1\" | .conclusion = $2 | .started_at = \"$3\"]"
 }
 supersede failure in_progress null
 run "прежний красный сводный черновика, полный того же workflow идёт" 3 '^VERDICT\trunning\t'
@@ -259,6 +279,15 @@ supersede failure in_progress null
 run "вытеснение напечатано переписью" 3 '^CENSUS\tworkflow runs на голове: 11; последних по workflow и событию 8, вытеснено 3'
 supersede success completed '"failure"'; new_agg completed '"failure"' 2026-10-10T22:30:00Z
 run "близнец: последний полный красный" 1 '^REASON\tCI-FAILED\tfailure: сводный вердикт'
+# Остаток ws#1019 (D2): на не-черновике полный красный прогон без аннотации стража
+# — НЕ целевой. Проверка failure несёт id (как на площадке), аннотаций у неё нет;
+# прежний прогон того же workflow зелёный. Сочти ci-read.sh целевым любой check_suite
+# с failure — последним стал бы прежний зелёный, и голова читалась бы green.
+supersede success completed '"failure"'; new_agg completed '"failure"' 2026-10-10T22:30:00Z
+jq -e '[.check_runs[] | select(.check_suite.id == 999 and .conclusion == "failure") | .id | type] == ["number"]' "$C/check-runs.json" >/dev/null \
+    || { echo "VOID: у проверки failure нового прогона нет id — случай D2 не судит живую форму" >&2; exit 2; }
+ls "$C"/annotations*.json >/dev/null 2>&1 && { echo "VOID: в случае D2 лежат аннотации" >&2; exit 2; }
+run "не черновик: полный красный прогон, у проверки есть id, аннотации стража нет" 1 '^REASON\tCI-FAILED\tfailure: сводный вердикт'
 supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
 run "близнец: последний полный зелёный, прежний черновой красный" 0 '^VERDICT\tgreen\t'
 supersede failure completed '"success"'; new_agg completed '"success"' 2026-10-10T22:30:00Z
@@ -292,7 +321,7 @@ narrow() {
     edit runs.json "(.workflow_runs |= map(if .id == $CIRUN then .workflow_id = 7 | .created_at = \"2026-10-10T21:00:00Z\" | .conclusion = \"failure\" end))
         | .workflow_runs += [{id: 38199999998, name: \"ci\", workflow_id: 7, event: \"pull_request\", status: \"completed\", conclusion: \"failure\", created_at: \"2026-10-10T23:00:00Z\", run_attempt: 1, head_sha: .workflow_runs[0].head_sha, check_suite_id: 998}]"
     jq --arg b "$BUILD" ".check_runs |= map(if .check_suite.id == $CISUITE and .name == \$b then .conclusion = \"failure\" end)
-        | .check_runs += [(.check_runs[] | select(.check_suite.id == $CISUITE)) | .check_suite.id = 998 | .conclusion = \"skipped\" | .started_at = \"2026-10-10T23:01:00Z\"]
+        | .check_runs += [(.check_runs[] | select(.check_suite.id == $CISUITE)) | .id += 2000000 | .check_suite.id = 998 | .conclusion = \"skipped\" | .started_at = \"2026-10-10T23:01:00Z\"]
         | .check_runs += [{id: 778, name: \"сводный вердикт ci\", status: \"completed\", conclusion: \"failure\", started_at: \"2026-10-10T23:02:00Z\", completed_at: \"2026-10-10T23:03:00Z\", check_suite: {id: 998}}]" \
         "$C/check-runs.json" > "$C/cr.n" && mv "$C/cr.n" "$C/check-runs.json"
     echo '[{"title":"черновик не вливается","message":"целевой прогон"}]' > "$C/annotations.778.json"
@@ -313,10 +342,10 @@ draft() {
         | .conclusion = (if .name == $a then "failure"
             elif (.name | test("^(юниты|integration|e2e|unit|build) ")) then "skipped"
             else .conclusion end)))' "$C/check-runs.json" > "$C/cr.n" && mv "$C/cr.n" "$C/check-runs.json"
-    echo '[{"title":"черновик не вливается","message":"целевой прогон: 9 заданий из 27"}]' > "$C/annotations.json"
+    echo '[{"title":"черновик не вливается","message":"целевой прогон: 9 заданий из 27"}]' > "$C/annotations.777.json"
 }
 draft; run "черновик: исполненное зелёное, страж вынес вердикт" 5 '^VERDICT\ttargeted-green\t.*ЦЕЛЕВОЙ, не полный'
-draft; echo '[]' > "$C/annotations.json"
+draft; echo '[]' > "$C/annotations.777.json"
 run "черновик: failure без аннотации стража — настоящий отказ" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG\E"
 draft; edit check-runs.json '.check_runs |= map(.conclusion = (if .name == "build · vet · gofmt" then "failure" else .conclusion end))'
 run "черновик: страж есть, выбранное задание failure" 1 '^REASON\tCI-FAILED\tfailure: build · vet · gofmt'
@@ -386,6 +415,7 @@ supersede-id-only	/map(sort_by(\[(.created_at/s/sort_by(\[(.created_at \/\/ ""),
 runs-pending-in-progress-only	/reason RUNS-PENDING/s/select(.status!="completed")/select(.status=="in_progress")/
 narrow-latest-kept	/$nar | index($c) | not/s/$nar | index($c) | not/true/
 narrow-on-draft	/^if \[ "$DRAFT" != true \]; then$/s/"$DRAFT" != true/true/
+narrow-guard-dropped	/"$gsuite" != null ] || continue/,/if guarded/s/if guarded "$gid" "$gname"/if true/
 MUT
 for tr in kacho kaname corelib kacho-workspace; do
     name="trunk-row-dropped-$tr"
