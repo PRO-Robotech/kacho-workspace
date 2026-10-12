@@ -2905,6 +2905,84 @@ b="$(mksandbox)"
 printf '{ не json\n' > "$b/.claude/settings.json"
 run 2 "$b" "предпосылка: settings.json не разобран — VOID" "$C20"
 
+echo "== check-21: работа над ошибками по каждой полосе провязана (ws#1036) =="
+C21=check-21-lane-retro-norm-is-wired.sh
+# c21_sub <файл песочницы> <было> <стало> — правка ровно одного вхождения; иначе проба
+# не про свой предмет (`testing.md#injection-drops-only-its-subject`).
+c21_sub() {
+    python3 - "$1" "$2" "$3" <<'PY'
+import sys; p, a, b = sys.argv[1:4]; s = open(p, encoding='utf-8').read()
+assert s.count(a) == 1, 'образец пробы не найден ровно один раз: ' + a[:60]
+open(p, 'w', encoding='utf-8').write(s.replace(a, b, 1))
+PY
+}
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C21"
+b="$(mksandbox)"
+python3 - "$b/.claude/rules/ai-tooling.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+t = '\n'.join(l for l in s.split('\n') if not l.startswith('at-lane-retro · ')); assert t != s
+open(p, 'w', encoding='utf-8').write(t)
+PY
+run_says 1 "$b" "инъекция: норма at-lane-retro снята — краснеет" "$C21" "нормы at-lane-retro нет"
+# Вывернутое тело при сохранённом ключе (`testing.md#injection-inverts-body-not-renames-key`).
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "2+ случая — механизм, не фраза" "2+ случая — ещё одна фраза в правиле"
+run_says 1 "$b" "инъекция: «2+ случая — механизм» вывернуто при ключе — краснеет" "$C21" "at-lane-retro без требования"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "(проверки не сняты и не ослаблены — опытом)" "(проверки можно ослабить ради скорости)"
+run_says 1 "$b" "инъекция: критерий качества ослаблен — краснеет" "$C21" "проверки не сняты и не ослаблены"
+b="$(mksandbox)"
+python3 - "$b/.claude/rules/ai-tooling.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+a, c = '«потребление токенов было минимально»', '«скорость разработки максимальна»'
+t = s.replace(a, '\0').replace(c, a).replace('\0', c); assert t != s
+open(p, 'w', encoding='utf-8').write(t)
+PY
+run_says 1 "$b" "инъекция: критерии владельца переставлены — краснеет" "$C21" "не в его порядке"
+b="$(mksandbox)"
+c21_sub "$b/.claude/backup/ai-tooling.md" "2) скорость разработки максимальна" "2) скорость разработки"
+run_says 1 "$b" "инъекция: цитата владельца в архиве усечена — краснеет" "$C21" "нет цитаты владельца"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+f = '- урок: <класс> · <где предотвратить> | —\n'; assert s.count(f) == 1
+s = s.replace(f, '', 1).replace('## Если ты исполнитель', f + '\n## Если ты исполнитель', 1)
+open(p, 'w', encoding='utf-8').write(s)
+PY
+run_says 1 "$b" "инъекция: поле «урок» вынесено из блока контракта — краснеет" "$C21" "поля «урок» нет в блоке контракта"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "— \`tooling-maintainer\` одной полосой за волну." "— \`tooling-maintainer\` отдельной полосой на каждый возврат."
+run_says 1 "$b" "инъекция: в базе пачка уроков вывернута в «полоса на каждый возврат» — краснеет" "$C21" "норма §4"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/tooling-maintainer.md" "механизм: хук,
+скрипт, шаблон, страж, а не фраза" "ещё одна
+фраза в правиле"
+run_says 1 "$b" "инъекция: у tooling-maintainer механизм вывернут во фразу — краснеет" "$C21" "режим «пачка уроков»"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" ", 'report', 'lesson'] }" ", 'report'] }"
+run_says 1 "$b" "инъекция: lesson не обязателен в схеме исполнителя — краснеет" "$C21" "сбор уроков"
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "(\`setsid env --default-signal=PIPE …\`, код — в \`.rc\`)" "(\`setsid nohup … > журнал &\`, pid-файл)"
+run_says 1 "$b" "инъекция: протокол снова предписывает setsid nohup — краснеет" "$C21" "снова предписан «setsid nohup»"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/git-operator.md" '--subject "#<N> merge #<PR>: <суть>"' '--subject "#<N> <суть>"'
+run_says 1 "$b" "инъекция: тема вливания без merge #<M> (ws#1029) — краснеет" "$C21" "прежняя тема вливания"
+# Близнецы: перенос строки внутри требования — та же норма.
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "урок без места — не урок; 2+ случая" "урок без места — не урок;
+2+ случая"
+run 0 "$b" "близнец: перенос строки внутри at-lane-retro — молчит" "$C21"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "Правка — где урок дешевле предотвратить: меньше токенов," "Правка — где урок дешевле предотвратить:
+меньше токенов,"
+run 0 "$b" "близнец: перенос строки внутри нормы §4 базы — молчит" "$C21"
+b="$(mksandbox)"
+printf '\nat-probe-twin-21 · посторонняя норма пробы · вниманием · red: —\n' >> "$b/.claude/rules/ai-tooling.md"
+run 0 "$b" "близнец: правка ai-tooling мимо предмета — молчит" "$C21"
+b="$(mksandbox ".claude/workflows/wave.js")"
+run 2 "$b" "предпосылка: шаблона волны нет — VOID" "$C21"
+
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
 # своей песочницы — та же поломка, что у любой предыдущей пробы.

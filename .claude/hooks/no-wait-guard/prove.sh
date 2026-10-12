@@ -10,7 +10,7 @@
 # сверяет код и текст.
 #
 #   · каждая запрещённая форма — отказ кодом 2, класс формы назван, текст несёт
-#     правило «Не жди» и правильную форму (setsid nohup … > журнал, pid-файл);
+#     правило «Не жди» и правильную форму (setsid env --default-signal=PIPE … > журнал, .rc, pid-файл);
 #   · законный близнец той же формы — пропуск: код 0 и ни слова (короткий sleep,
 #     timeout < 600, отсоединённый запуск, одно чтение CI, слова в данных);
 #   · метка исключения — только ci-watcher, ≤ 9 мин и под timeout ≤ N·60;
@@ -49,7 +49,7 @@ denies() {
     rc="$(run "$2")"
     named="нет"; grep -qF -- "$1" "$WORK/out" && named="да"
     rule="нет"; grep -qF 'Правило «Не жди»' "$WORK/out" && rule="да"
-    fix="нет"; grep -qF 'setsid nohup <команда> > <журнал> 2>&1 & echo $! > <pid-файл>' "$WORK/out" && fix="да"
+    fix="нет"; grep -qF "setsid env --default-signal=PIPE sh -c '<команда>; echo \$? > <журнал>.rc' > <журнал> 2>&1 & echo \$! > <pid-файл>" "$WORK/out" && ! grep -qF 'setsid nohup <команда>' "$WORK/out" && fix="да"
     assert "2 да да да" "$rc $named $rule $fix" "отказ ($1): $(printf '%s' "$2" | tr '\n' ' ')"
     denied=$((denied + 1))
 }
@@ -146,6 +146,7 @@ passes 'for i in $(seq 60); do sleep 10; done > l 2>&1 &'
 passes 'for i in 1 2 3; do sleep 200 & done'
 passes 'timeout 60 bash -c "for i in \$(seq 9); do sleep 5; done"'
 passes 'setsid nohup make test > l 2>&1 & echo $! > p'
+passes "setsid env --default-signal=PIPE sh -c 'go test ./...; echo \$? > l.rc' > l 2>&1 & echo \$! > p"
 passes 'bash -c "make a & make b & wait" > l 2>&1 &'
 passes 'git commit -m "until x; do sleep 900; done; gh run watch"'
 passes 'echo "sleep 600"; grep -n "tail --pid" f'
