@@ -67,6 +67,8 @@ export const meta = {
 //    которого нет и в перечнях соседей, исполнитель берёт сам и называет в отчёте —
 //    blocked только за файлом соседа (перечни соседей — в его задании из args.lanes);
 //    hookLog — путь к журналу отправки (не путь — доводка), report — содержательный итог.
+//  - тема вливания (ws#1029): `--subject "#<номер приёмника> merge #<PR>: волна N"` —
+//    форма правила ветки; приёмник без номера — остановка до плана.
 //  - вливание (ws#1008): только шагом merge — `gh pr merge <PR> --merge
 //    --match-head-commit <голова из landing-precheck>`; общее задание каждого шага
 //    запрещает `repos/*/merges`, `pulls/*/merge` и `--auto` и даёт чтение merge-base
@@ -131,7 +133,7 @@ const C = [
   'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы. Отчёты и журналы полос — только под ' + R + '/, ВНЕ дерева копии: файл в копии — UNCOMMITTED у lane-precheck (ws#1016, урок волны 7).',
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
   FILES_RULE,
-  'ВЛИВАНИЕ (ws#1008): только шагом merge (git-operator) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так).',
+  'ВЛИВАНИЕ (ws#1008): только шагом merge (git-operator) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так). Тема вливания (ws#1029) — всегда `--subject "#<номер базы> merge #<PR>: …"`, без неё хостинг берёт заголовок PR.',
   'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо (setsid nohup, журнал, pid-файл), верни «идёт: pid, журнал, ожидаемое окончание». Слот тяжёлого — внутри того же отсоединённого прогона. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
@@ -169,6 +171,15 @@ const err = async (cls, lane, step, note) => {
 const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY', 'GOMOD-ABOVE'])
 const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-COMMIT', 'BODY-FOREIGN-TASK', 'ATTRIBUTION', 'CLOSES-WITHOUT-PROOF'])
 
+// Тема коммита слияния (ws#1029): без `--subject` хостинг берёт заголовок PR, и
+// коммит слияния в ветке эпика не проходит правило ветки (kaname branch-rule.sh:
+// `^#[0-9]+ merge (#[0-9]+|main)`; kacho 1266 — 0 из 11 по форме). Номер — числовое
+// начало имени ветки-приёмника запроса волны; у приёмника без номера (main) темы
+// формы нет — остановка до плана, а не вливание с темой из заголовка.
+const MERGE_TO = String(A.epic || A.base || '')
+const MERGE_NO = (MERGE_TO.match(/^([0-9]+)(?:-|$)/) || [])[1] || ''
+const mergeSubject = pr => '#' + MERGE_NO + ' merge #' + pr + ': волна ' + N
+if (!MERGE_NO) return { ok: false, stage: 'план', why: 'приёмник запроса волны «' + MERGE_TO + '» без номера — тема вливания «#<номер базы> merge #<PR>: …» невыразима (ws#1029); база волны — ветка эпика' }
 // ── План ────────────────────────────────────────────────────────────────
 phase('План')
 const runPlan = async (lanes, round) => {
@@ -451,5 +462,5 @@ if (steps.has('landing-reviewer')) {
 const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
 if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors }
 if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], errors }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + '` (коммит слияния на сервере, `--subject` — по норме git-operator; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --delete-branch --subject "' + mergeSubject(asm.pr) + '" --body ""` (коммит слияния на сервере; тема — ровно эта, форма правила ветки, ws#1029: без --subject хостинг возьмёт заголовок PR; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ФАКТ темы: первая строка `git log -1 --format=%s <mergeCommit>` равна теме; ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
 return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors }

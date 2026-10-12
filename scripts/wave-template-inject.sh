@@ -94,6 +94,14 @@
 #   соседей (своего среди них нет; полоса одна — «соседей нет»); hookLog не путь —
 #   одна доводка, снова не путь — полоса стоит без предпроверки вслепую, соседи
 #   садятся; report — содержательный итог.
+#   тема вливания (ws#1029): шаг merge отдаёт `gh pr merge <PR> --merge
+#   --match-head-commit <sha> --delete-branch --subject "#<номер приёмника> merge
+#   #<PR>: волна N"` — форма kaname branch-rule.sh; номер — числовое начало имени
+#   приёмника (1266, 1022-…, база 296 без epic); приёмник без номера (main, 12x,
+#   release-1266) — остановка до плана, вызовов 0; норма темы — в каждом задании.
+#   Вливание без --subject и тема без `merge #<PR>` — мутанты, красные. Чего НЕ
+#   держит: что агент исполнил именно эту команду — это судит факт темы шага
+#   merge (`git log -1 --format=%s`) и хук правила ветки в репозитории.
 #   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
 #   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
 #   не принимает; не-номерные ветки kaname, уже лежащие на origin.
@@ -213,7 +221,9 @@ async function run(sc) {
 }
 const REVIEWERS = ['wave-reviewer', 'landing-reviewer', 'go-style-reviewer', 'system-design-reviewer', 'db-architect-reviewer', 'proto-api-reviewer', 'security-auditor', 'acceptance-reviewer', 'acceptance-author']
 const lanes2 = [{ key: 'A', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-a', text: 't' }, { key: 'B', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-b', text: 't' }]
-const args = { repo: 'PRO-Robotech/kacho-workspace', wave: '9', epic: 'main', base: 'main', ws: '/ws', lanes: lanes2 }
+// Приёмник запроса волны — ветка эпика с номером (ws#1029): без номера тема вливания
+// «#<N> merge #<PR>: …» невыразима, и шаблон останавливается до плана.
+const args = { repo: 'PRO-Robotech/kacho-workspace', wave: '9', epic: '1266', base: 'main', ws: '/ws', lanes: lanes2 }
 // Задание R1 — то же, из которого построен план r1.json: B зависит от A.
 const argsDep = { ...args, lanes: [lanes2[0], { ...lanes2[1], deps: ['A'] }] }
 const argsDepC = { ...args, lanes: [...argsDep.lanes, { key: 'C', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-c', text: 't' }] }
@@ -378,7 +388,7 @@ ok(!/это ветка самой полосы/.test(prm(r.calls, 'mech:stack:B'
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')], 'stack:B': [{ status: 'done', head: H('SB', 0), branch: '9-stack-b-m' }] })
 ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('сводки deps 9-stack-b-m@' + H('SB', 0)) && (r.res.stacks || []).join() === '9-stack-b-m', 'близнец kacho: ветка сводки — та, что вернул механик (9-stack-b-m), а не имя из задания', JSON.stringify({ stacks: r.res.stacks, impl: prm(r.calls, 'impl:B').slice(0, 200) }))
 // Ветвь mergeSubj: номер — с решёткой, не-номер (база main) — как есть.
-r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: 'main', epic: 'main', lanes: knLanes }, plan: [P('kn.json')] })
+r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: 'main', epic: '296', lanes: knLanes }, plan: [P('kn.json')] })
 ok(prm(r.calls, 'mech:stack:B').includes('#684 merge main: ') && !prm(r.calls, 'mech:stack:B').includes('#main') && prm(r.calls, 'mech:stack:B').includes('#684 merge #683: '), 'kaname: в форме слияния номер с решёткой (#683), не-номер без неё (main)', prm(r.calls, 'mech:stack:B').slice(0, 600))
 // Ветвь базы в форме слияния: база полосы, а не волны, и база волны, когда своей нет.
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: [knLanes[0], { ...knLanes[1], base: '297' }] }, plan: [P('kn.json')] })
@@ -513,7 +523,7 @@ ok(r.calls.length > 0 && r.calls.every(c => /НЕ ЖДИ/.test(c.prompt) && /С�
 const MERGE_NORM = /ВЛИВАНИЕ \(ws#1008\): только шагом merge \(git-operator\) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos\/\*\/merges`, `gh api …\/pulls\/\*\/merge` и `gh pr merge --auto` запрещены\. `gh api` — только GET: merge-base — `gh api repos\/<o>\/<r>\/compare\/<base>\.\.\.<head> --jq \.merge_base_commit\.sha`/
 ok(r.calls.length > 0 && r.calls.every(c => MERGE_NORM.test(c.prompt)), 'каждое задание несёт правило вливания и «gh api — только GET» с чтением merge-base', r.calls.filter(c => !MERGE_NORM.test(c.prompt)).map(c => c.label).join(','))
 const mp = prm(r.calls, 'mech:merge')
-ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40}`/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
+ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40} --delete-branch --subject "#1266 merge #\d+: [^"]+" --body ""`/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
 ok(r.calls.filter(c => c.label.startsWith('impl:')).every(c => /СРОК ШАГА: \d+ мин/.test(c.prompt.split('\n\n').slice(1).join(' '))), 'задание исполнителя — со своим сроком шага')
 const cis = r.calls.filter(c => c.label.startsWith('mech:ci:'))
 // Закрытый мир, а не словарь запретных слов (опыт check-verifier по #1002: «--watch
@@ -640,6 +650,29 @@ const asmK = prm(r.calls, 'mech:assemble:1')
 ok(r.res.ok === true && asmK.includes('(cd ui-future && npm ci && for p in $(sed -n') && asmK.includes('../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)') && asmK.indexOf('npm ci') < asmK.indexOf('Отправь ветку волны'), 'сборка kacho: npm ci в ui-future и в пакетах STANDALONE из ui.yml — до отправки и проверок', asmK.slice(0, 600))
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')] })
 ok(!/npm ci/.test(prm(r.calls, 'mech:assemble:1')), 'близнец: сборка kaname — без npm ci консоли')
+
+console.log('== тема вливания — форма правила ветки (ws#1029)')
+// Форма — та же, что у kaname scripts/hooks/branch-rule.sh (branch_rule_merge_form).
+const MERGE_FORM = /^#[0-9]+ merge (#[0-9]+|main)([^0-9A-Za-z_]|$)/
+const subjOf = p => ((p.match(/`gh pr merge \d+ [^`]*--subject "([^"]*)"[^`]*`/) || [])[1])
+r = await run({ args, plan: [P('r0.json')] })
+let sj = subjOf(prm(r.calls, 'mech:merge'))
+ok(r.res.ok === true && sj === '#1266 merge #7: волна 9' && MERGE_FORM.test(sj), 'вливание в эпик 1266: тема «#1266 merge #7: волна 9» — номер приёмника и номер PR', String(sj))
+ok(/ФАКТ темы: первая строка `git log -1 --format=%s <mergeCommit>` равна теме/.test(prm(r.calls, 'mech:merge')), 'факт вливания сверяет тему коммита слияния')
+ok(r.calls.every(c => /Тема вливания \(ws#1029\) — всегда `--subject "#<номер базы> merge #<PR>: …"`/.test(c.prompt)), 'каждое задание несёт норму темы вливания')
+// Близнец: приёмник `<N>-<суть>` (форма ветки воркспейса и corelib) — номер из начала имени.
+r = await run({ args: { ...args, epic: '1022-epic-draft-mr' }, plan: [P('r0.json')] })
+sj = subjOf(prm(r.calls, 'mech:merge'))
+ok(r.res.ok === true && sj === '#1022 merge #7: волна 9', 'приёмник 1022-epic-draft-mr — тема «#1022 merge #7: …»', String(sj))
+// Без epic приёмник — база волны: номер берётся из неё.
+r = await run({ args: { ...args, epic: undefined, base: '296' }, plan: [P('r0.json')] })
+sj = subjOf(prm(r.calls, 'mech:merge'))
+ok(r.res.ok === true && sj === '#296 merge #7: волна 9', 'без epic приёмник — база 296, тема «#296 merge #7: …»', String(sj))
+// Приёмник без номера: темы формы нет — остановка до плана, ни одного вызова.
+for (const bad of ['main', '12x', 'release-1266']) {
+  r = await run({ args: { ...args, epic: bad }, plan: [P('r0.json')] })
+  ok(r.res.ok === false && r.res.stage === 'план' && /без номера/.test(r.res.why || '') && r.calls.length === 0, 'приёмник «' + bad + '» без номера — остановка до плана, вызовов 0', JSON.stringify(r.res).slice(0, 200) + ' вызовов ' + r.calls.length)
+}
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
@@ -827,8 +860,8 @@ mutant "срок снят у исполнителя" "'. ' + due('implement') + 
 mutant "срок снят у ревью" "'. ' + due('review') + ' Верни verdict" "'. Верни verdict"
 # ws#1008: вливание — только gh pr merge со сверкой головы.
 mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008)" "  '(ws#1008)"
-mutant "merge без сверки головы" "' --merge --match-head-commit ' + landHead + '\`" "' --merge\`"
-mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + '\` (коммит слияния на сервере, \`--subject\` — по норме git-operator; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
+mutant "merge без сверки головы" "' --merge --match-head-commit ' + landHead + ' --delete-branch" "' --merge --delete-branch"
+mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --delete-branch --subject \"' + mergeSubject(asm.pr) + '\" --body \"\"\` (коммит слияния на сервере; тема — ровно эта, форма правила ветки, ws#1029: без --subject хостинг возьмёт заголовок PR; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
 mutant "merge с --auto" "без --auto и --admin" "с --auto"
 mutant "норма «не жди» снята из общего задания" "  'НЕ ЖДИ (CLAUDE.md" "  '(CLAUDE.md"
 mutant "агент ждёт CI сам" "идёт — сразу верни: повтор делает шаблон." "идёт — подожди до 10 минут и верни."
@@ -855,6 +888,13 @@ mutant "slept не в схеме" "required: [...S_MECH.required, 'slept'] }" "r
 mutant "пауза и чтение — две команды" "'\`' + (pause ? pauseCmd : '') + recipeRun(" "(pause ? '\`' + pauseCmd + '\`, затем \`' : '\`') + recipeRun("
 mutant "отвергнутое чтение не в счётчике" "if (skipped) await err(" "if (false) await err("
 mutant "запас slept уже N−10 (порог задан задачей)" "const CI_SLEPT_SLACK = 10" "const CI_SLEPT_SLACK = 5"
+# ws#1029: тема вливания — форма правила ветки, всегда явно.
+mutant "вливание без --subject" " --delete-branch --subject \"' + mergeSubject(asm.pr) + '\" --body \"\"\`" " --delete-branch --body \"\"\`"
+mutant "тема из заголовка (без merge #PR)" "const mergeSubject = pr => '#' + MERGE_NO + ' merge #' + pr + ': волна ' + N" "const mergeSubject = pr => '#' + MERGE_NO + ' волна ' + N"
+mutant "номер приёмника не судится" "if (!MERGE_NO) return { ok: false, stage: 'план'," "if (false) return { ok: false, stage: 'план',"
+mutant "номер — из любого места имени" "MERGE_TO.match(/^([0-9]+)(?:-|\$)/)" "MERGE_TO.match(/([0-9]+)/)"
+mutant "норма темы снята из преамбулы" " Тема вливания (ws#1029) — всегда" " Тема вливания — всегда"
+twin "номер приёмника — \\d вместо [0-9]" "MERGE_TO.match(/^([0-9]+)(?:-|\$)/)" "MERGE_TO.match(/^(\\d+)(?:-|\$)/)"
 # ws#1010: каталог волны и копии полос — под корнем воркспейса, не под tmp/ копии.
 mutant "каталог волны под ws-копией" "const D = ROOT + '/tmp/wave-' + N" "const D = WS + '/tmp/wave-' + N"
 mutant "args.root не читается" "const ROOT = A.root || rootOf(WS)" "const ROOT = rootOf(WS)"
