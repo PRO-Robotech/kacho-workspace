@@ -31,7 +31,14 @@
 #                           засчитываются обязательному контексту;
 #       ВЫТЕСНЕНИЕ (ws#1019; урок kaname#709) — в счёт идёт только ПОСЛЕДНИЙ
 #                           workflow run каждого workflow и события на голове
-#                           (по created_at, затем run_attempt, затем id); check-run
+#                           (по created_at, при равенстве — по id). run_attempt
+#                           прогоны не упорядочивает: перезапуск — тот же прогон
+#                           (тот же id, created_at и check_suite), список отдаёт
+#                           его один раз с последней попыткой, а проверки прежних
+#                           попыток лежат в том же check_suite и судятся по имени —
+#                           последняя по started_at. Ключ workflow — workflow_id
+#                           (при его отсутствии path, затем name): одноимённые
+#                           workflow разных файлов друг друга не вытесняют; check-run
 #                           вытесненного прогона (его check_suite_id) не судится
 #                           вовсе. Без этого сводная проверка прежнего целевого
 #                           прогона черновика, завершённая failure, оставалась
@@ -59,6 +66,15 @@
 #       обязательные контексты и полнота набора на черновике не судятся (пропуск
 #       матрицы даёт одну проверку вместо ног). Стража нет либо он не вынесен —
 #       DRAFT-GUARD-PENDING (ждать).
+#   (д) целевой прогон на НЕ-черновике (ws#1019, остаток приёмки): запрос, переведённый
+#       в черновик и обратно, несёт поздний целевой прогон того же workflow; по (а) он
+#       вытеснил бы красное прежнего ПОЛНОГО. Поэтому на не-черновике последним
+#       считается последний ПОЛНЫЙ прогон workflow: прогон, в check_suite которого
+#       есть проверка failure с аннотацией стража, — целевой и в последние не идёт,
+#       пока у workflow есть полный. Полного нет — последним остаётся целевой, и его
+#       страж судится как CI-FAILED (не черновик). СЛЕПАЯ ЗОНА, оставшаяся открытой:
+#       целевой прогон, ещё не вынесший стража (идёт), целевым не распознаётся —
+#       он последний, и голова читается RUNS-PENDING (3): ожидание, а не зелёное.
 #
 # ИСХОДЫ — код возврата и строка VERDICT; при нескольких причинах побеждает
 # старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно:
@@ -144,24 +160,44 @@ EXPECT="$(awk -F'\t' -v r="$REPO" -v b="$BASE" '!/^#/ && $1==r && $2==b {print $
     && jq -e 'type=="array" and all(.[]; .workflow_runs|type=="array")' "$W/runs.json" >/dev/null 2>&1; } \
     || void "workflow runs на $HEAD_SHA не прочитаны: $(apierr)"
 
-# последний workflow run каждого workflow и события; прочие — вытеснены (ws#1019)
-jq '[.[].workflow_runs[]] | group_by([(.workflow_id // .path // .name), .event])
-    | map(sort_by([(.created_at // ""), (.run_attempt // 1), .id])) | {latest: map(last), superseded: (map(.[0:-1]) | add // [])}' "$W/runs.json" > "$W/runsel.json"
+# Аннотация стража — признак целевого прогона (см. (г) и (д)). Судится аннотацией, а
+# не именем: имя стража у репозиториев разное, и вторая копия имени здесь разошлась
+# бы с конвейером молча.
+GUARD_TITLE="черновик не вливается"
+guarded() {  # guarded <id проверки> <имя> — 0 страж, 1 нет; ответ не прочитан — VOID
+    api "repos/$REPO/check-runs/$1/annotations" > "$W/ann.json" || void "аннотации проверки $2 не прочитаны: $(apierr)"
+    jq -e --arg t "$GUARD_TITLE" 'type=="array" and any(.[]; .title==$t)' "$W/ann.json" >/dev/null 2>&1
+}
+# (д) не-черновик: check_suite с проверкой-стражем — целевой прогон
+NARROW='[]'
+if [ "$DRAFT" != true ]; then
+    while IFS=$'\t' read -r gid gsuite gname; do
+        [ -n "$gid" ] && [ "$gid" != null ] && [ "$gsuite" != null ] || continue
+        if guarded "$gid" "$gname"; then
+            NARROW="$(jq -c --argjson s "$gsuite" '. + [$s] | unique' <<<"$NARROW")"
+            printf 'CENSUS\tцелевой прогон на не-черновике (страж %s, check_suite %s): последним не считается, пока у workflow есть полный\n' "$gname" "$gsuite"
+        fi
+    done < <(jq -r '[.[].check_runs[]] | .[] | select(.status=="completed" and .conclusion=="failure") | "\(.id)\t\(.check_suite.id // null)\t\(.name)"' "$W/cr.json")
+fi
+# последний workflow run каждого workflow и события — последний ПОЛНЫЙ, если он есть;
+# прочие — вытеснены (ws#1019)
+jq --argjson nar "$NARROW" '[.[].workflow_runs[]] | group_by([(.workflow_id // .path // .name), .event])
+    | map(sort_by([(.created_at // ""), .id])
+        | (map(select(.check_suite_id as $c | $nar | index($c) | not))) as $full
+        | (if ($full | length) > 0 then ($full | last) else last end) as $l
+        | {l: $l, s: map(select(.id != $l.id))})
+    | {latest: map(.l), superseded: (map(.s) | add // [])}' "$W/runs.json" > "$W/runsel.json"
 SUPERSEDED="$(jq -c '[.superseded[].check_suite_id]' "$W/runsel.json")"
 jq --argjson s "$SUPERSEDED" '[.[].check_runs[] | select((.check_suite.id // null) as $i | $s | index($i) | not)]' "$W/cr.json" > "$W/crl.json"
 # последний прогон каждого имени среди невытесненных; commit status — уже последний по контексту
 jq 'group_by(.name) | map(sort_by(.started_at // "") | last)
     | map({name, id, done: (.status=="completed"), c: (.conclusion // "")})' "$W/crl.json" > "$W/latest.json"
 # Черновик: страж — проверка, завершённая failure с аннотацией «черновик не вливается».
-# Судится аннотацией, а не именем: имя стража у репозиториев разное, и вторая копия
-# имени здесь разошлась бы с конвейером молча.
-GUARD_TITLE="черновик не вливается"
 GUARDS=0
 if [ "$DRAFT" = true ]; then
     while IFS=$'\t' read -r gid gname; do
         [ -n "$gid" ] && [ "$gid" != null ] || continue
-        api "repos/$REPO/check-runs/$gid/annotations" > "$W/ann.json" || void "аннотации проверки $gname не прочитаны: $(apierr)"
-        if jq -e --arg t "$GUARD_TITLE" 'type=="array" and any(.[]; .title==$t)' "$W/ann.json" >/dev/null 2>&1; then
+        if guarded "$gid" "$gname"; then
             GUARDS=$((GUARDS + 1))
             jq --arg n "$gname" 'map(.c = (if .name==$n then "draft-guard" else .c end))' "$W/latest.json" > "$W/latest.n" && mv "$W/latest.n" "$W/latest.json"
             printf 'CENSUS\tстраж черновика: %s\n' "$gname"
