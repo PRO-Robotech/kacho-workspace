@@ -184,10 +184,13 @@ flat_file() {   # <файл> — текст, любая серия пробел�
     tr -s ' \t\r\n' '    ' < "$WS/$1"
 }
 anchor_flat() {   # <файл> <дословный якорь> <что он держит>
-    local want
+    local want text
     anchors_want=$((anchors_want + 1))
     want="$(printf '%s' "$2" | tr -s ' \t\r\n' '    ')"
-    if flat_file "$1" | grep -qF -- "$want"; then
+    # Чтение и поиск разведены: `grep -q` в конце трубы выходит на первом
+    # совпадении, и под pipefail SIGPIPE читателя объявил бы найденное ненайденным.
+    text="$(flat_file "$1")"
+    if grep -qF -- "$want" <<<"$text"; then
         anchors_have=$((anchors_have + 1))
     else
         tooling_gate_fail "$NAME" "$1 — нормы нет: не найдено «$2» ($3). Решение владельца 2026-10-12 записано в корпусе только этим местом; выпав отсюда, оно перестаёт доезжать до кого бы то ни было"
