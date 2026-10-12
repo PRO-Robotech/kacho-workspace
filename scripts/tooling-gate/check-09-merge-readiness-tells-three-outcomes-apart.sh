@@ -800,6 +800,24 @@ declare -A by_code=() by_repo=()
 PRODUCT_REPO="PRO-Robotech/kacho"
 WS_REPO="PRO-Robotech/kacho-workspace"
 
+# ПРОБЫ ИДУТ ПАРАЛЛЕЛЬНО, СУД — ПОСЛЕДОВАТЕЛЬНО (ws#1021). Проба — один запуск
+# инструмента над своей фикстурой, и ни одна не пишет туда, откуда читает другая:
+# фикстуры собраны выше до первой пробы, инструмент пишет только в свой `mktemp -d`,
+# подставной gh не пишет ничего. Поэтому `probe` лишь ставит запуск в фон (не больше
+# `nproc` разом) и записывает вывод и код в `$RES/<номер>`, а суд над ними —
+# `judge_probes` после последней пробы, В ПОРЯДКЕ ОБЪЯВЛЕНИЯ: строки PASS/FAIL, метки
+# случаев и перепись те же, что при последовательном прогоне. Цена прежнего порядка
+# измерена: 88 запусков друг за другом — 11,9–12,2 с на машине разработки, а
+# inject.sh зовёт проверку на каждую порчу инструмента — шаг наборов задания
+# `tooling-gate` доходил до 1707 с при пределе 30 мин (ws#1021).
+#
+# Запуск, не оставивший кода, — не «прошла» и не «код 0»: его суд — находка
+# «код не записан», а не тишина.
+RES="$TMP/res"; mkdir -p "$RES"
+PAR="$(nproc 2>/dev/null || echo 1)"
+case "$PAR" in ''|*[!0-9]*|0) PAR=1 ;; esac
+running=0
+
 # probe <репозиторий> <каталог> <ожидаемый-код> <имя-пробы> <обязательная-подстрока>...
 #
 # Имя пробы начинается МЕТКОЙ случая — `[<буква>]` из имени каталога фикстуры.
@@ -807,26 +825,56 @@ WS_REPO="PRO-Robotech/kacho-workspace"
 # пробу, а не соседнюю: код 1 набора сам по себе этого не говорит.
 probe() {
     local repo="$1" dir="$2" want="$3" title="$4"; shift 4
-    local out rc needle
-    title="[${dir##*/case-}] $title"
-    probes=$((probes + 1))
+    local n
+    probes=$((probes + 1)); n="$probes"
     by_code[$want]=$(( ${by_code[$want]:-0} + 1 ))
     by_repo[$repo]=$(( ${by_repo[$repo]:-0} + 1 ))
-    out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" LC_ALL="${PROBE_LOCALE:-${LC_ALL:-}}" \
-        bash "$WS/$TOOL_REL" "$repo" 1 2>&1)" && rc=0 || rc=$?
+    printf '%s\n' "$want" > "$RES/$n.want"
+    printf '%s\n' "[${dir##*/case-}] $title" > "$RES/$n.title"
+    if [ "$#" -gt 0 ]; then printf '%s\0' "$@"; fi > "$RES/$n.needles"
+    if [ "$running" -ge "$PAR" ]; then
+        wait -n || true
+        running=$((running - 1))
+    fi
+    (
+        out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" LC_ALL="${PROBE_LOCALE:-${LC_ALL:-}}" \
+            bash "$WS/$TOOL_REL" "$repo" 1 2>&1)" && rc=0 || rc=$?
+        printf '%s' "$out" > "$RES/$n.out"
+        printf '%s\n' "$rc" > "$RES/$n.rc"
+    ) &
+    running=$((running + 1))
+}
+
+# judge_probe <номер> — суд над записанным исходом пробы.
+judge_probe() {
+    local n="$1" want title out rc needle
+    local -a needles=()
+    # Чтение — встроенными `read` и `mapfile`, без порождения процессов: суд идёт
+    # по каждой пробе, и форк на файл стоил бы сопоставимо с самой пробой.
+    IFS= read -r want < "$RES/$n.want"
+    IFS= read -r title < "$RES/$n.title"
+    mapfile -d '' -t needles < "$RES/$n.needles"
+    if [ ! -s "$RES/$n.rc" ]; then
+        tooling_gate_fail "$NAME" "$title — запуск инструмента не записал код: исхода нет"
+        findings=$((findings + 1))
+        return
+    fi
+    IFS= read -r rc < "$RES/$n.rc"
+    out=""
+    [ -e "$RES/$n.out" ] && { IFS= read -r -d '' out < "$RES/$n.out" || true; }
     if [ "$rc" -ne "$want" ]; then
         tooling_gate_fail "$NAME" "$title — ждали код $want, получили $rc"
         printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
         findings=$((findings + 1))
         return
     fi
-    # Вывод подаётся строкой, а не трубой. `printf` пишет в трубу построчно, `grep -q`
-    # выходит на первом совпадении, следующая запись получает SIGPIPE, и под
-    # `pipefail` труба возвращает 141 — «подстроки нет» при подстроке в выводе.
-    # Наблюдалось 2026-09-27 под нагрузкой (load 29): проба S покраснела на
-    # «прогон: 508», стоявшем в её же напечатанном выводе; повтор — зелёный.
-    for needle in "$@"; do
-        if ! grep -qF -- "$needle" <<<"$out"; then
+    # Подстрока — сравнением по образцу оболочки, а не `grep`: искомое не несёт
+    # перевода строки, поэтому вхождение в строку вывода и в весь вывод — одно и то
+    # же, а процесса на каждое искомое нет. Трубы нет тоже: `printf | grep -q` под
+    # `pipefail` возвращал 141 на SIGPIPE — «подстроки нет» при подстроке в выводе
+    # (2026-09-27, load 29: проба S покраснела на «прогон: 508» в своём же выводе).
+    for needle in "${needles[@]}"; do
+        if [[ "$out" != *"$needle"* ]]; then
             tooling_gate_fail "$NAME" "$title — код $rc верен, но в выводе нет «$needle»"
             printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
             findings=$((findings + 1))
@@ -834,6 +882,12 @@ probe() {
         fi
     done
     tooling_gate_pass "$NAME" "$title (код $rc)"
+}
+
+judge_probes() {
+    local n
+    wait || true
+    for ((n = 1; n <= probes; n++)); do judge_probe "$n"; done
 }
 
 probe "$PRODUCT_REPO" "$A" 0 "все обязательные зелены — «сливать можно»" \
@@ -1032,6 +1086,8 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTPROOF" 0 "задача и в теле, �
     "можно сливать" "задач, закрываемых PR (хостинг и тело): 1 · с доказательством DoD: 1 · без: 0"
 probe "$PRODUCT_REPO" "$TMP/case-PF-HOSTBROKEN" 2 "поле хостинга не массив — разбор сломан, а не «закрывать нечего»" \
     "РАЗБОР СЛОМАН — поле closingIssuesReferences"
+
+judge_probes
 
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты (продукт, проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон либо контексты воркспейса по защите базы (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 tooling_gate_census "$NAME: $locale_note"
