@@ -810,6 +810,9 @@ run 2 "$b" "предпосылка: вызывающего нет — VOID, а �
 
 echo "== check-09: merge-readiness перестал различать три исхода =="
 MR_REL="scripts/merge-readiness.sh"
+# Распознаватель доказательства DoD — общий файл, который подключают и
+# merge-readiness, и cascade-census (ws#930): порча маркера вносится в него.
+DOD_REL="scripts/lib/dod_proof.jq"
 
 # ЗАМЕР СРЕДЫ ПЕЧАТАЕТСЯ ВСЕГДА — и это не оформление.
 #
@@ -1065,6 +1068,37 @@ if mr_patch "$b/$MR_REL" \
     "путь контекстов минует состояние слияния"; then
     run_c09_red "$b" "инъекция: путь контекстов минует состояние слияния — краснеет" \
         A-BLOCKED A-DIRTY A-BEHIND A-DRAFT A-UNKNOWN
+fi
+
+# ── ПОСЛЕДНИЙ ИСХОД ПРОВЕРКИ, А НЕ «ЕСТЬ SUCCESS» (находка kaname#673) ───────
+# Каждое решение свёртки rollup к последним исходам портится одним фактом и
+# обязано покраснеть держащей его пробой SUP-*.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(green=\$\(jq -r .*?)<<<"\$rollup_json"/${1}<<<"\$pr_json"/m' \
+    "зелёные взяты из несвёрнутого rollup"; then
+    run_c09_red "$b" "инъекция: зелёный — имя, у которого ЕСТЬ success (прежнее правило) — краснеет" \
+        SUP-LATE-RED SUP-LATE-RUN SUP-WF SUP-NOSTART
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/\(map\(\.startedAt\) \| max\)/(map(.startedAt) | min)/' \
+    "последним взят самый ранний исход"; then
+    run_c09_red "$b" "инъекция: последним взят самый ранний исход — краснеет" SUP-GREEN SUP-LATE-RED SUP-LATE-RUN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/if length > 1 and all\(\.\[\]; \(\.startedAt \/\/ ""\) != ""\)/if length > 1/' \
+    "запись без startedAt вытесняется"; then
+    run_c09_red "$b" "инъекция: порядок без startedAt считается установленным — краснеет" SUP-NOSTART
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/group_by\(\[\(\.name \/\/ \.context\), \(\.workflowName \/\/ ""\)\]\)/group_by(.name \/\/ .context)/' \
+    "проверка — одно имя, без workflow"; then
+    run_c09_red "$b" "инъекция: одноимённые задания разных workflow вытесняют друг друга — краснеет" SUP-WF
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/then \[\.\[\]\] else map\(select\(\.conclusion != "SUCCESS"\)\) end/then [.[]] else [.[]] end/' \
+    "незелёная проверка прикрыта зелёной одноимённой"; then
+    run_c09_red "$b" "инъекция: красная проверка прикрыта зелёной одноимённой — краснеет" SUP-WF SUP-NOSTART
 fi
 
 # Законный близнец фильтра: тот же «только SUCCESS», записанный иначе.
@@ -1368,6 +1402,162 @@ if mr_patch "$b/$MR_REL" 's/^LINE_BRANCH_RE=\x27.*\x27$/LINE_BRANCH_RE=\x27^[[:d
     run 0 "$b" "близнец: форма ветки линии другой записью — молчит" "$C09"
 fi
 
+# ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА (ws#909) ───────────────────────────────────────
+# Предмет — PR синхронизации вниз, чья голова — ветка эпика или волны: вливание её
+# снимает (kaname#576). Каждая порча роняет одно решение и обязана покраснить
+# держащую его пробу CL-*; близнец пишет то же решение другой формой и молчит.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(        echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — голова PR будет снята вливанием"\n)        exit 1\n/$1/m' \
+    "вниз пропускается к проверкам"; then
+    run_c09_red "$b" "инъекция: голова-уровень вниз пропущена к проверкам — краснеет" \
+        CL-DOWN CL-WAVE-DOWN CL-EPIC-LABEL CL-CROSS-PARENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  head_epic=\$\(jq -r ).*$/$1\x27 0\x27 <"\$issue_file")/m' \
+    "метка epic не судится"; then
+    run_c09_red "$b" "инъекция: метка epic не делает уровнем — краснеет" CL-EPIC-LABEL
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$\{parent_url,,\}" = "https:\/\/github\.com\/\$\{REPO,,\}\/issues\/\$\{base%%-\*\}" \]; then/if [ "\${parent_url##*\/}" = "\${base%%-*}" ]; then/' \
+    "родитель сверяется только номером"; then
+    run_c09_red "$b" "инъекция: родитель из чужого репозитория с номером базы — вверх — краснеет" CL-CROSS-PARENT
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(  \[ "\$rc" -eq 0 \] \|\| )cascade_unknown "задача .*$/$1printf \x27{}\x27 >"\$issue_file"/m' \
+    "непрочитанная задача — не уровень"; then
+    run_c09_red "$b" "инъекция: непрочитанная задача головы засчитана «не уровнем» — краснеет" CL-ISSUE-403
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/elif ! jq -e \x27\.message == "No parent issue found"\x27 >\/dev\/null 2>&1 <"\$parent_file"; then/elif false; then/' \
+    "непрочитанный родитель — «родителя нет»"; then
+    run_c09_red "$b" "инъекция: отказ чтения родителя засчитан «родителя нет» — краснеет" CL-PARENT-403
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$head_subs" -eq 0 \] && \[ "\$head_epic" -eq 0 \]; then/if [ \$(( head_subs + head_epic )) -eq 0 ]; then/' \
+    "признак уровня другой записью"; then
+    run 0 "$b" "близнец: признак уровня каскада другой записью — молчит" "$C09"
+fi
+# Подсказка исполнима в репозитории PR (ws#910): kaname отвергает голову `tmp/*` и
+# `<N>-<суть>` — ветка там голый номер задачи. Порча снимает kaname-форму, подсказка
+# kaname уходит в общую — краснеет CL-DOWN-KANAME; порча общей формы в `tmp/sync-…`
+# — CL-DOWN. Близнец пишет выбор репозитория другим образцом и молчит.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^    pro-robotech\/kaname\) printf .*\n//m' \
+    "kaname-форма ветки синхронизации снята"; then
+    run_c09_red "$b" "инъекция: kaname получает форму <N>-sync-…, которую отвергает его правило ветки — краснеет" CL-DOWN-KANAME
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(    \*\) printf \x27)<N>-sync-%s-into-%s(\x27)/$1tmp\/sync-%s-into-%s$2/m' \
+    "общая форма — tmp/sync-…"; then
+    run_c09_red "$b" "инъекция: общая форма ветки синхронизации — tmp/sync-…, черновик без проверок — краснеет" CL-DOWN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^    pro-robotech\/kaname\) printf/    *\/kaname) printf/m' \
+    "выбор репозитория другим образцом"; then
+    run 0 "$b" "близнец: kaname узнаётся образцом */kaname — молчит" "$C09"
+fi
+
+# ── CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ (ws#918) ─────────────────────────────────
+# Каждая порча роняет одно решение и обязана покраснить держащую его пробу PF-*;
+# близнецы пишут то же решение другой формой и молчат.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(    echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD"\n)    exit 1\n/$1/m' \
+    "Closes без доказательства пропущен к проверкам"; then
+    run_c09_red "$b" "инъекция: Closes без доказательства пропущен к проверкам — краснеет" \
+        PF-MISSING PF-MIDLINE PF-FORMS PF-MULTI
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(close\[sd\]\?\|fix\(e\[sd\]\)\?\|resolve\[sd\]\?\)/(closes)/' \
+    "строка закрытия — только Closes"; then
+    run_c09_red "$b" "инъекция: Fixes и Resolves не считаются строкой закрытия — краснеет" PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" \
+    's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
+    "маркер в любом месте строки"; then
+    run_c09_red "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" PF-MIDLINE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/proof_unread\+=\("\$ref_repo#\$ref_num"\)/proof_ok=\$((proof_ok + 1))/' \
+    "непрочитанные комментарии — доказательство"; then
+    run_c09_red "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" PF-UNREAD
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/^(      proof_ok=\$\(\(proof_ok \+ 1\)\)\n)/$1      break\n/m' \
+    "судится только первая строка закрытия"; then
+    run_c09_red "$b" "инъекция: после первой доказанной строки закрытия прочие не судятся — краснеет" PF-MULTI
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/s\|\^#\|\$REPO#\|/s|^.*#|\$REPO#|/' \
+    "чужой репозиторий строки закрытия подменён репозиторием PR"; then
+    run_c09_red "$b" "инъекция: задача чужого репозитория ищется в репозитории PR — краснеет" PF-FORMS
+fi
+# Опыт check-verifier (ws#920): комментарии читаются из репозитория PR, а номер
+# печатается прежний. Фикстура по одному номеру это пропускала; держит PF-XREPO.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/gh api "repos\/\$ref_repo\/issues\/\$ref_num\/comments/gh api "repos\/\$REPO\/issues\/\$ref_num\/comments/' \
+    "комментарии читаются из репозитория PR"; then
+    run_c09_red "$b" "инъекция: комментарии задачи читаются из репозитория PR, номер напечатан прежний — краснеет" \
+        PF-XREPO PF-FORMS
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\.closingIssuesReferences\[\] \|/.closingIssuesReferences[0:0][] |/' \
+    "ответ хостинга о закрываемых задачах не читается"; then
+    run_c09_red "$b" "инъекция: закрытие, объявленное хостингом, не судится — краснеет" PF-HOST
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(https\?:\/\/github\\\.com\/\[\[:alnum:\]_\.-\]\+\/\[\[:alnum:\]_\.-\]\+\/issues\/\[0-9\]\+\|/(/' \
+    "форма-адрес в теле не разбирается"; then
+    run_c09_red "$b" "инъекция: Closes формой-адресом не видна разбору тела — краснеет" PF-URL
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\.closingIssuesReferences \| type == "array"\x27/true/' \
+    "поле хостинга не массивом принято за пустое"; then
+    run_c09_red "$b" "инъекция: поле хостинга не массивом прочитано как «закрывать нечего» — краснеет" PF-HOSTBROKEN
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/LC_ALL=C sort -u \|\| true\)\nif \[ -z "\$closes_refs" \]/LC_ALL=C sort \|\| true)\nif [ -z "\$closes_refs" ]/' \
+    "задача хостинга и тела судится дважды"; then
+    run_c09_red "$b" "инъекция: задача из обоих источников посчитана дважды — краснеет" PF-HOSTPROOF
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\.closingIssuesReferences\[\] \| "\\\(\.repository\.owner\.login\)\/\\\(\.repository\.name\)#\\\(\.number\)"/.closingIssuesReferences | map(.repository.owner.login + "\/" + .repository.name + "#" + (.number | tostring)) | .[]/' \
+    "ссылки хостинга собраны иной записью"; then
+    run 0 "$b" "близнец: ссылки хостинга собраны map и сложением строк — молчит" "$C09"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" \
+    's/capture\("\(\^\|\\n\)DoD-proof @\(\?<rev>\[0-9a-f\]\{7,40\}\)"; "g"\)/split("\\n")[] | capture("^DoD-proof @(?<rev>[0-9a-f]{7,40})")/' \
+    "маркер построчным разбором"; then
+    run 0 "$b" "близнец: маркер ищется построчным разбором — молчит" "$C09"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\(close\[sd\]\?\|fix\(e\[sd\]\)\?\|resolve\[sd\]\?\)/(resolve[sd]?|fix(e[sd])?|close[sd]?)/' \
+    "ключевые слова закрытия в ином порядке"; then
+    run 0 "$b" "близнец: ключевые слова закрытия в ином порядке — молчит" "$C09"
+fi
+
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C09"
 
@@ -1649,6 +1839,94 @@ if mr_patch "$b/$GIR_REL" 's/gi-security-finding-issue-now/gi-security-finding-l
     "id нормы о немедленной задаче переименован"; then
     run 1 "$b" "инъекция: нормы «задача о безопасности немедленно» в правиле нет — краснеет" "$C13"
 fi
+
+# ось A'' (ws#1022): норма 2026-10-12 «эпик стрима и его черновой MR в `main`».
+# Каждая проба выворачивает ТЕЛО одного места при сохранённом ключе и окружении и
+# требует, чтобы красное назвало ИМЕННО снятый якорь (`run_says`): код 1 сам по
+# себе говорит лишь «что-то покраснело», а красное от соседа оставило бы предмет
+# без держателя (`testing.md#injection-drops-only-its-subject`).
+GOP_REL=".claude/agents/git-operator.md"
+# run_says <код> <песочница> <имя> <скрипт> <фрагмент вывода> — код И причина.
+run_says() {
+    local want="$1" box="$2" name="$3" script="$4" frag="$5" got out
+    premise_or_void
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$script" 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && grep -qF -- "$frag" <<<"$out"; then
+        echo "  ok   $name (код $got, названо «$frag»)"
+    else
+        echo "  ПРОВАЛ $name — ждали код $want и «$frag» в выводе, получили код $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+}
+b="$(mksandbox)"
+if mr_patch "$b/$BASE_REL" 's/\Qна весь стрим создается задача эпик и для нее делаем драфт мр\E/на стрим заводится эпик/g' \
+    "цитата 2026-10-12 снята из базы"; then
+    run_says 1 "$b" "инъекция: цитата «эпик и драфт мр» выпала из базы — краснеет" "$C13" \
+        "база: цитата владельца 2026-10-12"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$BASE_REL" 's/\QЧЕРНОВОЙ MR ветки эпика в `main`, открытый до посадки\E/MR ветки эпика в `main` при посадке/g' \
+    "ворота §7: черновой MR при старте заменён MR при посадке"; then
+    run_says 1 "$b" "инъекция: ворота «черновой MR со старта стрима» вывернуты в базе — краснеет" "$C13" \
+        "база, ворота §7: старт стрима заводит"
+fi
+# E4 (check-13): требование «вливание гонит CI» вывернуто в базе при сохранённых воротах.
+b="$(mksandbox)"
+if mr_patch "$b/$BASE_REL" 's/\Qкаждое вливание в ветку эпика гонит CI этого MR\E/CI этого MR гонится лишь при посадке/g' \
+    "база: вливание в ветку эпика CI не гонит"; then
+    run_says 1 "$b" "инъекция: «каждое вливание гонит CI» вывернуто в базе — краснеет" "$C13" \
+        "база, ворота §7: вливание в ветку эпика гонит CI"
+fi
+# E1: цитата убрана из git-operator, требование оставлено — основание снято молча.
+b="$(mksandbox)"
+if mr_patch "$b/$GOP_REL" 's/ \(режим epic; владелец 2026-10-12 дословно: «на весь стрим.*?»\):\*\*/ (режим epic):**/s' \
+    "git-operator: цитата 2026-10-12 убрана, требование оставлено"; then
+    run_says 1 "$b" "инъекция E1: цитата владельца убрана из git-operator при оставленном требовании — краснеет" "$C13" \
+        "git-operator, режим epic: цитата владельца 2026-10-12"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$GOP_REL" 's/\Qи ЧЕРНОВОЙ MR ветки эпика в `main` (`gh pr create --draft --base main`)\E/; MR в `main` — при посадке/g' \
+    "режим epic git-operator без чернового MR"; then
+    run_says 1 "$b" "инъекция: режим epic у git-operator без чернового MR — краснеет" "$C13" \
+        "git-operator, режим epic: черновой MR эпика"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$GOP_REL" 's/каждое\n  вливание гонит CI этого MR/CI этого MR\n  гонится лишь при посадке/' \
+    "git-operator: вливание в ветку эпика CI не гонит"; then
+    run_says 1 "$b" "инъекция: «каждое вливание гонит CI» вывернуто у git-operator — краснеет" "$C13" \
+        "git-operator, режим epic: вливание в ветку эпика гонит CI"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$GIR_REL" 's/\Qтем же заходом ЧЕРНОВОЙ MR ветки эпика в `main` до посадки\E/MR ветки эпика в `main` при посадке/g' \
+    "тело gi-epic-draft-mr вывернуто при сохранённом ключе"; then
+    run_says 1 "$b" "инъекция: норма gi-epic-draft-mr вывернута при сохранённом ключе — краснеет" "$C13" \
+        "норма gi-epic-draft-mr: черновой MR"
+fi
+# E5: требование «вливание гонит CI» вывернуто в правиле при сохранённом ключе.
+b="$(mksandbox)"
+if mr_patch "$b/$GIR_REL" 's/\Qкаждое вливание в ветку эпика гонит его CI\E/CI MR эпика гонится лишь при посадке/g' \
+    "gi-epic-draft-mr: вливание в ветку эпика CI не гонит"; then
+    run_says 1 "$b" "инъекция E5: «каждое вливание гонит его CI» вывернуто в gi-epic-draft-mr — краснеет" "$C13" \
+        "норма gi-epic-draft-mr: вливание в ветку эпика гонит CI"
+fi
+# Близнецы: переформулировка без потери смысла (мягкий перенос строки) — молчит.
+# E2: перенос внутри «и ЧЕРНОВОЙ MR ветки эпика в `main`…» у git-operator.
+b="$(mksandbox)"
+if mr_patch "$b/$GOP_REL" 's/\Qи ЧЕРНОВОЙ MR ветки эпика\E/и ЧЕРНОВОЙ MR ветки\n  эпика/' \
+    "git-operator: перенос строки внутри режима epic"; then
+    run 0 "$b" "близнец E2: перенос строки внутри режима epic у git-operator — молчит" "$C13"
+fi
+# E6: перенос внутри цитаты владельца в базе.
+b="$(mksandbox)"
+if mr_patch "$b/$BASE_REL" 's/\Qделаем драфт мр, все сливают\E/делаем драфт мр,\nвсе сливают/' \
+    "база: перенос строки внутри цитаты 2026-10-12"; then
+    run 0 "$b" "близнец E6: перенос строки внутри цитаты владельца в базе — молчит" "$C13"
+fi
+b="$(mksandbox)"
+printf '%s\n' '- Посторонняя строка git-operator, предмета проверки не касающаяся.' >> "$b/$GOP_REL"
+run 0 "$b" "близнец: правка git-operator мимо предмета — молчит" "$C13"
 
 # ось B: отменённый маршрут внесён как действующее основание
 b="$(mksandbox)"
@@ -2176,6 +2454,39 @@ if mr_patch "$b/$CC_REL" 's/elif \[ "\$WANT_CLOSED" = 1 \] && \[ "\$open_n" -gt 
     run 1 "$b" "инъекция: --children-closed принят и не судит открытых — краснеет" "$C14"
 fi
 
+# Ключ закрытия задач влитой волны: доказательство DoD (возврат check-verifier,
+# ws#920). Каждая порча роняет одно решение режима --proof.
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/if \[ -n "\$proof_missing" \]; then/if false; then/' \
+    "--proof не исполняется"; then
+    run 1 "$b" "инъекция: --proof принят, задача без доказательства не находка — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/"repos\/\$r\/issues\/\$n\/comments"/"repos\/\$REPO\/issues\/\$n\/comments"/' \
+    "комментарии читаются из репозитория волны"; then
+    run 1 "$b" "инъекция: комментарии задачи читаются из репозитория волны — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\/\$r\/issues/' \
+    "комментарии одной страницей"; then
+    run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
+    "маркер в любом месте строки"; then
+    run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/proof_unread="\$proof_unread \$ref"/proof_ok=\$((proof_ok + 1))/' \
+    "непрочитанные комментарии — доказательство"; then
+    run 1 "$b" "инъекция: непрочитанные комментарии засчитаны доказательством — краснеет" "$C14"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$CC_REL" 's/\[\.\[\] \| \(\.body \/\/ ""\) \| dod_proof\] \| any/any(.[]; (.body \/\/ "") | dod_proof)/' \
+    "маркер ищется any с генератором"; then
+    run 0 "$b" "близнец: доказательство ищется any(генератор; условие) — молчит" "$C14"
+fi
+
 # Близнец: тот же набор маркеров списка, записанный иначе. Проверка судит
 # исход над фикстурой, а не написание выражения.
 b="$(mksandbox)"
@@ -2395,6 +2706,204 @@ printf '\n# комментарий пробы: вызов гейта не мен
 run 0 "$b" "близнец: безобидная правка носителя — молчит" "$C17"
 b="$(mksandbox "$HK_REL")"
 run 2 "$b" "предпосылка: хука отправки нет — VOID" "$C17"
+
+echo "== check-19: норма «Не жди» у исполнителей, застой провязан диспетчеру (ws#1001) =="
+C19=check-19-no-idle-norm-is-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`CLAUDE.md` «Не жди»', '`CLAUDE.md`'))
+PY
+run 1 "$b" "инъекция: у scout снята ссылка на норму — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`CLAUDE.md` «Не жди»', '`CLAUDE.md`\n«Не жди»'))
+PY
+run 0 "$b" "близнец: перенос строки внутри ссылки на норму — та же норма, молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Ни один вызов не держит ожидание дольше 10\n  минут', 'Вызов держит ожидание сколько нужно'))
+PY
+run 1 "$b" "инъекция: норма в протоколе вывернута — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['Stop']: g['hooks'] = [h for h in g['hooks'] if 'stall-signal' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: хук застоя снят со Stop — краснеет" "$C19"
+b="$(mksandbox "scripts/stall-census.sh")"
+run 1 "$b" "инъекция: прибора застоя нет — краснеет" "$C19"
+b="$(mksandbox)"
+printf '\n# комментарий пробы\n' >> "$b/.claude/hooks/stall-signal.sh"
+run 0 "$b" "близнец: безобидная правка хука — молчит" "$C19"
+# ws#1022: норма «пока идёт CI — максимум параллели» в базе и правиле. Пробы
+# выворачивают САМО требование при сохранённом ключе (ключ — тавтология,
+# `testing.md#injection-inverts-body-not-renames-key`) и требуют, чтобы красное
+# назвало снятое место (`run_says` — у оси A'' check-13).
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); t = s.replace('Ожидание CI разработку не останавливает', 'Ожидание CI останавливает разработку')
+assert t != s; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция: императив «ожидание CI разработку не останавливает» вывернут в базе — краснеет" "$C19" \
+    "dispatcher.md: нет «Ожидание CI разработку не останавливает»"
+# E4: тело §9 вывернуто при сохранённой ключевой фразе.
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('тем же ходом стартуют все независимые полосы', 'тем же ходом новые полосы не стартуют, лишь')
+t = t.replace('слот ci-local очередит отправки, а код, пробы, ревью и разведка идут', 'код, пробы, ревью и разведка ждут вердикта')
+assert t != s and 'Ожидание CI разработку не останавливает' in t; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция E4: тело §9 вывернуто при сохранённом ключе — краснеет" "$C19" \
+    "dispatcher.md: нет «тем же ходом стартуют все независимые полосы»"
+# E3 (бывшая A6): требование at-parallel-while-ci вывернуто при сохранённом ключе.
+# Прежняя проба «строка снята» роняла и ключ — тавтология; заменена переворотом смысла.
+b="$(mksandbox)"
+python3 - "$b/.claude/rules/ai-tooling.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('от ждущего вердикта не зависят) идут в лимитах; ci-local очередит лишь отправки', 'от ждущего вердикта не зависят) ждут вердикта CI; новых полос до вердикта не стартуют')
+assert t != s and 'at-parallel-while-ci · ' in t; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция E3: at-parallel-while-ci вывернута в «ждут вердикта CI» при сохранённом ключе — краснеет" "$C19" \
+    "нет нормы at-parallel-while-ci — не найдено «независимые предметы"
+# Близнецы: переформулировка без потери смысла — перенос строки внутри требования.
+b="$(mksandbox)"
+python3 - "$b/.claude/rules/ai-tooling.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('идут в лимитах; ci-local очередит', 'идут\nв лимитах; ci-local очередит')
+assert t != s; open(p, 'w').write(t)
+PY
+run 0 "$b" "близнец: перенос строки внутри at-parallel-while-ci — молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('а код, пробы, ревью и разведка идут', 'а код, пробы,\nревью и разведка идут')
+assert t != s; open(p, 'w').write(t)
+PY
+run 0 "$b" "близнец: перенос строки внутри §9 базы — молчит" "$C19"
+b="$(mksandbox)"
+printf '\nat-probe-twin · посторонняя норма пробы · вниманием · red: —\n' >> "$b/.claude/rules/ai-tooling.md"
+run 0 "$b" "близнец: правка ai-tooling мимо предмета — молчит" "$C19"
+# ws#1004: отказ ожиданию провязан в PreToolUse Bash, правило о чужих файлах — в базе.
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']: g['hooks'] = [h for h in g['hooks'] if 'no-wait-guard' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: no-wait-guard снят с PreToolUse — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    if any('no-wait-guard' in h.get('command', '') for h in g['hooks']): g['matcher'] = 'Monitor'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: no-wait-guard под матчером Monitor (Bash мимо) — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    if any('no-wait-guard' in h.get('command', '') for h in g['hooks']): g['matcher'] = 'Bash|Monitor'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C19"
+b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
+run 1 "$b" "инъекция: разбора no-wait-guard нет — краснеет" "$C19"
+# Провязка судится по ФАЙЛУ, который исполнит команда, а не по подстроке имени:
+# неверный путь и выключенная копия дают хуку код 127 — страж выключен молча.
+nwg_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    for h in g['hooks']:
+        if 'no-wait-guard' in h.get('command', ''): h['command'] = sys.argv[2]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/no-wait-guard/no-wait-guard.sh"'
+run 1 "$b" "инъекция: PreToolUse зовёт несуществующий путь (имя хука в подкаталоге) — краснеет" "$C19"
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/no-wait-guard.sh.off"'
+run 1 "$b" "инъекция: PreToolUse зовёт выключенную копию «.off» — краснеет" "$C19"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/no-wait-guard.sh"
+run 1 "$b" "инъекция: канонический хук не исполним — краснеет" "$C19"
+b="$(mksandbox)"
+nwg_cmd "$b" 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/no-wait-guard.sh"'
+run 0 "$b" "близнец: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`blocked` — лишь за файлом соседа', '`blocked` — по усмотрению'))
+PY
+run 1 "$b" "инъекция: правило о чужих файлах снято из базы — краснеет" "$C19"
+
+echo "== check-20: «gh api — только GET» у читающих агентов, отказ провязан в PreToolUse Bash (ws#1008) =="
+C20=check-20-gh-api-read-only-is-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/ci-watcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Норма «`gh api` — только GET»', 'Норма'))
+PY
+run 1 "$b" "инъекция: у ci-watcher снята норма «gh api — только GET» — краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/scout.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('--jq .merge_base_commit.sha`', '`'))
+PY
+run 1 "$b" "инъекция: у scout норма без готовой команды merge-base — краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/wave-reviewer.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('Норма «`gh api` — только GET»', 'Норма «`gh api` —\nтолько GET»'))
+PY
+run 0 "$b" "близнец: перенос строки внутри нормы — та же норма, молчит" "$C20"
+b="$(mksandbox ".claude/agents/landing-reviewer.md")"
+run 1 "$b" "инъекция: файла читающего агента нет — перечень разошёлся с деревом, краснеет" "$C20"
+b="$(mksandbox)"
+python3 - "$b/.claude/settings.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']: g['hooks'] = [h for h in g['hooks'] if 'gh-api-guard' not in h.get('command', '')]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+run 1 "$b" "инъекция: gh-api-guard снят с PreToolUse — краснеет" "$C20"
+gag_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" "$3" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for g in d['hooks']['PreToolUse']:
+    for h in g['hooks']:
+        if 'gh-api-guard' in h.get('command', ''):
+            h['command'] = sys.argv[2] or h['command']
+    if sys.argv[3] and any('gh-api-guard' in h.get('command', '') for h in g['hooks']):
+        g['matcher'] = sys.argv[3]
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+gag_cmd "$b" '' 'Monitor'
+run 1 "$b" "инъекция: gh-api-guard под матчером Monitor (Bash мимо) — краснеет" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" '' 'Bash|Monitor'
+run 0 "$b" "близнец: матчер Bash|Monitor — Bash под ним, молчит" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/gh-api-guard.sh.off"' ''
+run 1 "$b" "инъекция: PreToolUse зовёт выключенную копию «.off» — краснеет" "$C20"
+b="$(mksandbox)"
+gag_cmd "$b" 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/gh-api-guard.sh"' ''
+run 0 "$b" "близнец: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C20"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/gh-api-guard.sh"
+run 1 "$b" "инъекция: канонический хук не исполним — краснеет" "$C20"
+b="$(mksandbox ".claude/hooks/gh-api-guard/guard.py")"
+run 1 "$b" "инъекция: разбора gh-api-guard нет — краснеет" "$C20"
+b="$(mksandbox ".claude/hooks/no-wait-guard/guard.py")"
+run 1 "$b" "инъекция: лексера (no-wait-guard/guard.py) нет — краснеет" "$C20"
+b="$(mksandbox)"
+printf '{ не json\n' > "$b/.claude/settings.json"
+run 2 "$b" "предпосылка: settings.json не разобран — VOID" "$C20"
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне

@@ -4,7 +4,7 @@ aliases:
   - issue-24-corelib
 ticket_id: 24
 category: kac
-status: to-do
+status: done
 type: fix
 repos:
   - corelib
@@ -13,6 +13,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/corelib/issues/24
 opened: 2026-09-22
+closed: 2026-09-26
 tags:
   - kac
   - kacho-corelib
@@ -28,6 +29,8 @@ tags:
 > [!note] Осей меток в этом трекере нет
 > Приоритет, размер, домен и релизная линия у задач фундамента проставить нечем — метки там
 > только стандартные. Названо, чтобы отсутствие разметки не читалось как небрежность.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-26 (`completed`); эпик corelib#26 влит в `main` запросом corelib#28 2026-10-02 коммитом слияния `2a8f797aa8c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

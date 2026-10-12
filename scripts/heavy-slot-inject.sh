@@ -73,7 +73,7 @@ assert "64 да" "$(slot bash "$SLOT" docker -- sudo --scope true) $(has "$W/err
 # shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
 assert "0 да" "$(slot bash "$SLOT" docker -- sh -c 'touch "$0"' "$W/e3" systemd-runner --scoped) $([ -e "$W/e3" ] && echo да || echo нет)" "близнец: systemd-runner и --scoped — не те слова, команда исполнилась"
 
-echo "── над настоящей памятью ручек нет: потолок 45 ГиБ, ожидание 1800 с, класс как есть"
+echo "── над настоящей памятью ручек нет: потолок 45 ГиБ, ожидание только --wait ≤ 300 с, класс как есть"
 # Без синтетического meminfo слот судит настоящую память машины — и тогда любая
 # ручка получает 64 ДО первой записи (опыт ws#832, круги 2–3).
 REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_POLL_S -u HEAVY_SLOT_WAIT_S)
@@ -89,9 +89,9 @@ assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=9
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=45 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 45 ГиБ ручкой — 64: величина не переопределяется"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
 assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
-# Близнец идёт в общую очередь с ожиданием 1800 с; занятая машина — «не выполнилось».
+# Близнец идёт в общую очередь без ожидания (ws#1004); занятая машина — 74, «не выполнилось».
 rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" newman -- touch "$W/k5")"
-if [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
+if [ "$rc" = 74 ] || [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
     skip "машина занята — близнец общего каталога не построен ($rc)"
 else
     assert "0 да" "$rc $([ -e "$W/k5" ] && echo да || echo нет)" "близнец: общий каталог без ручек — слот выдан, команда исполнилась"
@@ -153,6 +153,30 @@ assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" newman -- true)" "newman 
 wait "$B"; rc_b=$?; wait "$A"
 assert "75 да" "$rc_b $(has "$W/errB" 'golangci-lint по одному на машину')" "ci-local при идущем lint ждёт, причина названа"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true)" "близнец: линтер вышел — ci-local входит"
+
+echo "── слот занят — код 74 СРАЗУ, ожидание только явным --wait ≤ 300 с (ws#1004)"
+# Решение владельца 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание
+# слота в переднем плане — 116,4 агент-ч замера ws#1001. Без --wait занятый слот
+# отвечает кодом 74 за доли секунды; ручка ожидания проб снята (-u HEAVY_SLOT_WAIT_S) —
+# вызов тот же, что у агента.
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 5 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+t0="$(date +%s%N)"
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- touch "$W/b1")"
+ms=$(( ($(date +%s%N) - t0) / 1000000 ))
+assert "74 да да нет" "$rc $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 0') $([ "$ms" -lt 2000 ] && echo да || echo "нет(${ms}мс)") $([ -e "$W/b1" ] && echo да || echo нет)" "все слоты заняты — код 74 за < 2 с, «слот занят, очередь K» названо, команда не запускалась"
+assert "busy" "$(grep -o ' busy ' "$HEAVY_SLOT_DIR/journal.log" | tr -d ' ' | head -n 1)" "занятость записана в журнал"
+assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- touch "$W/b2") $([ -e "$W/b2" ] && echo да || echo нет)" "близнец: малый слот влезает рядом — выдан сразу, без ожидания"
+# Счёт ожидания — в целых секундах: «~1 с» бывает и долей секунды на границе.
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 1 docker -- touch "$W/b3")"
+assert "75 да нет" "$rc $(has "$W/err" 'не выдан за') $([ -e "$W/b3" ] && echo да || echo нет)" "--wait 1 при занятом — ожидание истекло: 75 (не 74), команда не запускалась"
+wait "$A"
+assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 2 docker -- touch "$W/b4") $([ -e "$W/b4" ] && echo да || echo нет)" "близнец: --wait 2 при свободном — выдан сразу"
+assert "64 да" "$(slot bash "$SLOT" --wait 301 docker -- true) $(has "$W/err" 'целое от 0 до 300')" "--wait 301 — 64: дольше 300 с вызов не ждёт"
+assert "64 да" "$(slot bash "$SLOT" --wait 2400 docker -- true) $(has "$W/err" 'целое от 0 до 300')" "--wait 2400 (прежние 1800+) — 64"
+assert 64 "$(slot bash "$SLOT" --wait x docker -- true)" "--wait без числа — 64"
+assert "0 да" "$(slot bash "$SLOT" --wait 300 docker -- touch "$W/b5") $([ -e "$W/b5" ] && echo да || echo нет)" "близнец: --wait 300 — законная граница"
+assert "64 да" "$(slot HEAVY_SLOT_WAIT_S=301 bash "$SLOT" docker -- true) $(has "$W/err" 'больше 300 с')" "ручка проб HEAVY_SLOT_WAIT_S=301 — 64: и проба дольше не ждёт"
 
 echo "── запись слота, чей держатель умер, снимается при следующем входе"
 printf 'class=go-race\nbudget=999\npid=999999\npid_start=1\nunit=\nstart=1\nseq=0\n' > "$HEAVY_SLOT_DIR/active/1-999999.slot"
@@ -250,6 +274,47 @@ for _ in $(seq 1 25); do [ -s "$W/cmdpid" ] && break; sleep 0.2; done
 t0="$(date +%s)"; kill -TERM "$S"; wait "$S"; rc=$?; t1="$(date +%s)"
 alive="нет"; kill -0 "$(cat "$W/cmdpid" 2>/dev/null || echo 999999)" 2>/dev/null && alive="да"
 assert "143 0 нет да" "$rc $(entries) $alive $([ $(( t1 - t0 )) -lt 10 ] && echo да || echo нет)" "TERM слоту → 143 сразу, записи нет, команда снята"
+
+echo "── внешний кластер: тяжёлый класс уходит в run.sh, локально — только с причиной (ws#984)"
+# Двойник run.sh пишет свой argv и отвечает на --available кодом FAKE_AVAIL; клон —
+# настоящий git с origin вида PRO-Robotech/kaname и веткой 984-x.
+cat > "$W/fake-run.sh" <<'FAKE'
+#!/usr/bin/env bash
+if [ "${1:-}" = --available ]; then
+    printf '%s\n' "$@" > "$FAKE_ARGV.avail"
+    [ "${FAKE_AVAIL:-0}" = 0 ] && exit 0
+    [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: открытого для планирования узла нет (узлов 2: закрыты для планирования 2)" >&2; exit 69; }
+    echo "remote-heavy: кластер не отвечает" >&2; exit 69
+fi
+printf '%s\n' "$@" > "$FAKE_ARGV"; exit 17
+FAKE
+R="$W/rclone"
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/ghome" || { echo "  [VOID] корневой подписи нет — клон маршрута не построен" >&2; exit 2; }
+git init -q -b 984-x "$R"
+git -C "$R" remote add origin https://github.com/PRO-Robotech/kaname.git
+echo a > "$R/f"; git -C "$R" add f; sandbox_git -C "$R" commit -q -m p
+mkdir -p "$R/sub"; echo b > "$R/sub/g"; git -C "$R" add sub; sandbox_git -C "$R" commit -q -m p2
+rslot() { (cd "${RDIR:-$R}" && env HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" FAKE_ARGV="$W/argv" "$@" 2> "$W/err" > "$W/out"); echo $?; }
+rm -f "$W/argv"
+assert "17 да" "$(RDIR="$R/sub" rslot bash "$SLOT" lint -- go version) $(has "$W/argv" '--profile')" "lint с go в чистом клоне → run.sh, его код (17)"
+assert "--available --profile lint" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "проверка кластера несёт профиль класса — размещение судится под его запрос (ws#991)"
+assert "984 kaname sub $(git -C "$R" rev-parse HEAD)" "$(sed -n '/^--task$/{n;p}' "$W/argv") $(sed -n '/^--repo$/{n;p}' "$W/argv") $(sed -n '/^--workdir$/{n;p}' "$W/argv") $(sed -n '/^--ref$/{n;p}' "$W/argv")" "задача из ветки, repo из origin, каталог и коммит — в argv"
+assert "go version" "$(sed -n '/^--$/,$p' "$W/argv" | sed 1d | tr '\n' ' ' | sed 's/ $//')" "команда передана после «--» без искажения"
+rm -f "$W/argv"
+assert "0 да нет" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер недоступен') $([ -e "$W/argv" ] && echo да || echo нет)" "кластер не отвечает → локально, причина названа"
+rm -f "$W/argv"
+assert "0 да нет" "$(FAKE_AVAIL=2 rslot bash "$SLOT" go-race -- go version) $(has "$W/err" 'локально — кластер недоступен: открытого для планирования узла нет') $([ -e "$W/argv" ] && echo да || echo нет)" "открытого узла нет → локально сразу, причина названа (ws#991)"
+rm -f "$W/argv"
+assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'не переносится') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
+echo c >> "$R/f"
+assert "0 да нет" "$(rslot bash "$SLOT" go-race -- make -v) $(has "$W/err" 'незакоммиченные правки') $([ -e "$W/argv" ] && echo да || echo нет)" "правка в отслеживаемом файле → локально, причина названа"
+git -C "$R" checkout -q -- f
+assert "17 да" "$(rslot bash "$SLOT" go-race -- timeout 60 make -v) $(has "$W/argv" 'go-race')" "близнец: тот же клон без правки, timeout перед make → run.sh"
+rm -f "$W/argv"
+assert "0 нет нет" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" 'локально') $([ -e "$W/argv" ] && echo да || echo нет)" "класс docker маршрут не судит: ни run.sh, ни строки"
+assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_REMOTE_RUN')" "над настоящей памятью двойник run.sh — ручка, 64"
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1

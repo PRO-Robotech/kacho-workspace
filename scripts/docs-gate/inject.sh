@@ -562,6 +562,9 @@ run 2 "$b" "предпосылка: состав объявлен не стро�
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/product-fixture.sh
 source "$WS/scripts/lib/product-fixture.sh"
+# Место синтетических деревьев — в выводе, и вне рабочей копии git: иначе они
+# встают неотслеживаемыми каталогами в чужое дерево (ws#924).
+product_fixture_root_census "$TMP" || exit 2
 
 # Однофактные входы. `TRUNK_ONLY` есть на стволе и нет в припаркованной вершине;
 # `PARKED_ONLY` — наоборот. Это ровно то различие, которое прежняя полоса читала

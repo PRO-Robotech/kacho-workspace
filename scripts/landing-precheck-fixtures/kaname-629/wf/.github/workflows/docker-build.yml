@@ -1,0 +1,6 @@
+jobs:
+  image:
+    name: образ службы (сборка · публикация по пину)
+  trunkverdict:
+    name: вердикт ствола — красное не остаётся без читателя
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}

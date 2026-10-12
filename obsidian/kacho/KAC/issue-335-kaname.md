@@ -5,11 +5,12 @@ aliases:
   - kaname#335
 ticket_id: 335
 category: kac
-status: to-do
+status: in-progress
 type: fix
 repos:
   - kaname
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kaname/pull/599
 issue_url: https://github.com/PRO-Robotech/kaname/issues/335
 opened: 2026-09-21
 tags:
@@ -18,10 +19,16 @@ tags:
   - iam
   - migrations
   - repo
-verified_against: "тела функций `kaname.minted_cutoff_on_client_removal` и `kaname.minted_cutoff_on_owner_deactivation` прочитаны в `internal/migrations/0001_initial.sql` на origin/main продукта PRO-Robotech/kaname (2026-09-21); Go-писатель — `internal/repo/kaname/pg/minted_token_revocation_repo.go` на 229a0693"
+verified_against: "kaname 296@77dae639 (коммит слияния PR #599, родители d2f6f182 + 594af5af; голова origin/296 = этот коммит, 2026-10-04): состав — git log d2f6f182..77dae639 --no-merges; состояние задачи и sub-issue — gh issue view / gh api …/sub_issues 2026-10-04; DoD — по комментариям задачи и телу PR #599; пробы и конвейер этой записью не перезапускались"
 ---
 
 # kaname#335: схемные писатели отсечки переписывают причину и актора безусловно
+
+> [!warning] Состояние — `in-progress`: работа в ветке эпика есть, предикат не предъявлен
+> Замок схемных писателей по моменту (`8d22afa31`, полоса NA2) влит в `296` запросом [kaname#599](https://github.com/PRO-Robotech/kaname/pull/599)
+> (`77dae639`); задача стоит в запросе строкой `Refs` и перенесена в волну-3 [[KAC/issue-537-kaname]]
+> (комментарий задачи 2026-10-04). В sub-issue она по-прежнему числится за закрытой #536.
+> Текст ниже — постановка на 2026-09-21: на `296` писатели уже под замком, на `origin/main` — нет.
 
 > [!note] Предмет есть на стволе — задача не ждёт слияния
 > Обе функции лежат в `internal/migrations/0001_initial.sql` на `origin/main`, и все четыре

@@ -26,11 +26,14 @@
 # необязательный контекст закрыл бы недостающий обязательный. Поэтому берётся
 # РАЗНОСТЬ МНОЖЕСТВ: какие из обязательных имён не имеют зелёного исхода.
 #
-# ГРАНИЦА. Скрипт отвечает на вопрос «готов ли PR к слиянию по проверкам» и
-# только на него. Он НЕ судит о содержании изменения, НЕ заменяет обзор и НЕ
-# знает про требования, живущие вне своего источника вердикта (правила
-# наборов — rulesets — не читаются: у `2914-notify` их ноль, замер 2026-10-01
-# `gh api repos/PRO-Robotech/kacho/rules/branches/2914-notify` → `[]`).
+# ГРАНИЦА. Скрипт отвечает на вопрос «готов ли PR к слиянию по проверкам» и на
+# два вопроса до них: не снимет ли вливание ветку уровня каскада, стоящую головой
+# PR (ws#909, раздел «ГОЛОВА PR — УРОВЕНЬ КАСКАДА?» ниже), и есть ли у каждой
+# задачи строки закрытия в теле PR комментарий-доказательство DoD (ws#918, раздел
+# «CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ» ниже). Он НЕ судит о
+# содержании изменения, НЕ заменяет обзор и НЕ знает про требования, живущие
+# вне своего источника вердикта (правила наборов — rulesets — не читаются:
+# у `2914-notify` их ноль, замер 2026-10-01 `gh api repos/PRO-Robotech/kacho/rules/branches/2914-notify` → `[]`).
 #
 # ИСТОЧНИКОВ ВЕРДИКТА ДВА, и выбирает их ЗАЩИТА БАЗЫ, а не вкус.
 #
@@ -77,6 +80,14 @@
 #                   защищённой базы, не ветки линии, ноль, разбор не
 #                   состоялся) либо проверка не выполнилась (ручного прогона на
 #                   голове нет). Это НЕ «сливать нельзя».
+#
+# ЗАПУСК — КАТАЛОГ scripts/ ЦЕЛИКОМ ИЗ origin/main ВОРКСПЕЙСА, НЕ ОДИН ФАЙЛ.
+# Распознаватель DoD берётся соседом `lib/dod_proof.jq` по пути от скрипта:
+# скопированный одним файлом, скрипт выходит кодом 2 «распознавателя нет», а
+# запущенный из рабочей копии — судит невыписанной в ствол редакцией. Рецепт
+# один на оба скрипта и живёт в шапке `landing-precheck.sh` между метками
+# «рецепт ЗАПУСК»; здесь — с S=merge-readiness.sh. Сбой его подготовки — код 2,
+# как и у этого скрипта: вердикта нет.
 
 # ПОЧЕМУ СВЕРКА МНОЖЕСТВ ИДЁТ ПОД LC_ALL=C — И НА sort, И НА comm (ws#530).
 #
@@ -119,6 +130,11 @@ command -v jq >/dev/null 2>&1 || { echo "merge-readiness: jq не найден" 
 
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
+
+# Распознаватель доказательства DoD — общий для всего дерева (`lib/dod_proof.jq`),
+# своей копии выражения здесь нет. Нет файла — судить нечем, код 2.
+dod_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
+[ -r "$dod_lib/dod_proof.jq" ] || { echo "merge-readiness: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq) — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)" >&2; exit 2; }
 
 # ОТКАЗ РАЗБОРА — ЭТО КОД 2, А НЕ 1. Единственная точка, где скрипт объявляет,
 # что вердикта у него нет. Всё, что не сошлось при чтении ответа соседа или при
@@ -167,7 +183,7 @@ merge_state_verdict() {
   esac
 }
 
-pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup 2>/dev/null) || {
+pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup,body,closingIssuesReferences 2>/dev/null) || {
   echo "merge-readiness: PR $REPO#$PR недоступен" >&2; exit 2; }
 
 # Ответ соседа проверяется на разбираемость ДО первого чтения поля. Без этого
@@ -209,6 +225,163 @@ TRUNK="main"
 # Ветка линии — эпик или волна. Обе формы фильтра Д59; `*` провайдера не
 # берёт `/`, поэтому и здесь хвост без косой черты.
 LINE_BRANCH_RE='^[0-9]+(-[^/]*)?$'
+
+# ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА? (ws#909) ───────────────────────────────────────
+# Вливание снимает голову PR: `delete_branch_on_merge=true` во всех репозиториях.
+# Для ветки эпика или волны это законно ровно при вливании ВВЕРХ — в ствол либо в
+# ветку задачи-родителя (`git-issues.md#gi-close-cascade`). Синхронизация ВНИЗ своей
+# головой снимает верхний уровень: так ушла ветка эпика kaname `296` (PR #576
+# `296` → `535`, 2026-10-03T09:47:03Z, восстановлена на той же голове). Законная
+# голова синхронизации — ветка задачи синхронизации по правилу ветки репозитория
+# (`git-issues.md#gi-sync-down-via-sync-branch`, `sync_head_form` ниже).
+#
+# УРОВЕНЬ — ПРИЗНАК ТРЕКЕРА, А НЕ ИМЕНИ. Имя ветки задачи и ветки волны одной формы
+# (`<N>-<суффикс>`), поэтому спрашивается задача N в репозитории PR: уровень — у неё
+# есть дочерние (`sub_issues_summary.total`) либо метка `epic`. Связь «база PR есть
+# ветка задачи-родителя» — ответ `issues/N/parent`, сверка по адресу родителя целиком:
+# номер базы из другого репозитория родителем не считается.
+#
+# Исходы: не уровень либо вверх — путь идёт дальше, к проверкам; вниз — код 1;
+# задача или родитель не прочитаны, номер ветки — запрос — код 2, уровень НЕ УСТАНОВЛЕН:
+# непрочитанный трекер не выдаётся ни за «не уровень», ни за «вниз».
+head_ref=$(jq -r '.headRefName // ""' <<<"$pr_json")
+# sync_head_form <номер источника> <база> — имя ветки синхронизации, которое пропустит
+# правило имени ветки РЕПОЗИТОРИЯ PR (ws#910): `tmp/*` kaname отвергает.
+#   kaname — `scripts/hooks/branch-rule.sh`: ветка — номер задачи, `^[0-9]+$`;
+#   прочие — `<N>-<суть>` (corelib `scripts/hooks/git-rule.sh`, kacho и воркспейс —
+#   `git-issues.md#gi-branch-name-form`; `tmp/*` там черновик, проверки отправки пропущены).
+sync_head_form() {
+  case "${REPO,,}" in
+    pro-robotech/kaname) printf '<N> (ветка — номер задачи, ^[0-9]+$)' ;;
+    *) printf '<N>-sync-%s-into-%s' "$1" "${2%%-*}" ;;
+  esac
+}
+cascade_unknown() {  # <что не установлено> <файл отказа>
+  echo "merge-readiness: уровень каскада головы '$head_ref' НЕ УСТАНОВЛЕН — $1"
+  [ -s "$2" ] && head -c 300 "$2" | sed 's/^/                 /'
+  echo "                 вердикта нет; это НЕ «сливать нельзя»."
+  exit 2
+}
+if [[ ! "$head_ref" =~ $LINE_BRANCH_RE ]]; then
+  echo "голова PR: '$head_ref' — не формы ветки задачи, уровнем каскада не бывает"
+else
+  head_num="${head_ref%%-*}"
+  issue_file="$workdir/head-issue.json"
+  gh api "repos/$REPO/issues/$head_num" >"$issue_file" 2>"$workdir/api.err" && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] || cascade_unknown "задача $REPO#$head_num не прочитана (код gh $rc)" "$issue_file"
+  jq -e 'type == "object"' >/dev/null 2>&1 <"$issue_file" \
+    || parse_broken "ответ о задаче $REPO#$head_num не разбирается как объект JSON"
+  if jq -e '.pull_request != null' >/dev/null <"$issue_file"; then
+    cascade_unknown "номер ветки — запрос, а не задача: $REPO#$head_num" /dev/null
+  fi
+  head_subs=$(jq -r '.sub_issues_summary.total // 0' <"$issue_file")
+  head_epic=$(jq -r 'if any(.labels[]?; .name == "epic") then 1 else 0 end' <"$issue_file")
+  if [ "$head_subs" -eq 0 ] && [ "$head_epic" -eq 0 ]; then
+    echo "голова PR: '$head_ref' — задача $REPO#$head_num без дочерних и без метки epic, не уровень каскада"
+  else
+    why="дочерних $head_subs"; [ "$head_epic" -eq 1 ] && why="$why, метка epic"
+    if [ "$base" = "$TRUNK" ]; then
+      echo "голова PR: '$head_ref' — уровень каскада ($why), вверх — в ствол '$TRUNK': снятие головы законно"
+    else
+      parent_url="родителя нет"
+      if [[ "$base" =~ $LINE_BRANCH_RE ]]; then
+        parent_file="$workdir/head-parent.json"
+        gh api "repos/$REPO/issues/$head_num/parent" >"$parent_file" 2>"$workdir/api.err" && rc=0 || rc=$?
+        if [ "$rc" -eq 0 ]; then
+          parent_url=$(jq -r '.html_url // empty' <"$parent_file" 2>/dev/null) \
+            || parse_broken "ответ о родителе задачи $REPO#$head_num не разбирается как объект JSON"
+          [ -n "$parent_url" ] \
+            || parse_broken "в ответе о родителе задачи $REPO#$head_num нет адреса"
+        elif ! jq -e '.message == "No parent issue found"' >/dev/null 2>&1 <"$parent_file"; then
+          cascade_unknown "родитель задачи $REPO#$head_num НЕ ПРОЧИТАН (код gh $rc)" "$parent_file"
+        fi
+      fi
+      if [ "${parent_url,,}" = "https://github.com/${REPO,,}/issues/${base%%-*}" ]; then
+        echo "голова PR: '$head_ref' — уровень каскада ($why), вверх — в родителя $parent_url: снятие головы законно"
+      else
+        echo "голова PR: '$head_ref' — уровень каскада ($why); база '$base' — не ствол и не ветка родителя ($parent_url)"
+        echo
+        echo "  голова PR '$head_ref' — уровень каскада: вливание снимет её (delete_branch_on_merge)"
+        echo "  синхронизация вниз — ветка задачи синхронизации N в $REPO от '$base' со слиянием"
+        echo "  '$head_ref' (--no-ff, «#<N> merge #$head_num: …»), имя — по правилу ветки репозитория:"
+        echo "    git push origin <ветка>:refs/heads/$(sync_head_form "$head_num" "$base")"
+        echo "  и PR из неё в '$base' (git-issues.md#gi-sync-down-via-sync-branch)"
+        echo
+        echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — голова PR будет снята вливанием"
+        exit 1
+      fi
+    fi
+  fi
+fi
+
+# ── CLOSES — ТОЛЬКО ПО ДОКАЗАТЕЛЬСТВУ (решение владельца 2026-10-04, ws#918) ──
+# Строка закрытия (`Closes`/`Fixes`/`Resolves` в любой форме и регистре — все они
+# закрывают на хостинге) законна лишь у задачи, где исполнитель опубликовал
+# комментарий-доказательство DoD: строка `DoD-proof @<ревизия>` в начале строки
+# комментария, дальше команда, сырой итог, код возврата
+# (`git-issues.md#gi-closes-last-line`). Прочим задачам — `Refs`.
+# Замер релиза kacho#1266, волны 1–3: Closes без доказательства — возврат
+# посадочного и новый круг (kacho#2741, #2878, #2885, #2879, #2886, #2909).
+#
+# ЧТО СУДИТСЯ — НАЛИЧИЕ комментария с маркером, а не его содержание: правдивость
+# команды и итога сверяет посадочный. Исходы: у всех строк закрытия доказательство
+# есть либо строк нет — путь идёт дальше; хоть у одной нет — код 1 с номерами;
+# комментарии хоть одной задачи не прочитаны — код 2 (находка рядом с ним — 1).
+#
+# МНОЖЕСТВО ЗАДАЧ — ОБЪЕДИНЕНИЕ ДВУХ ИСТОЧНИКОВ. Первый — ответ хостинга
+# `closingIssuesReferences`: ровно то, что он закроет вливанием, в любой форме
+# записи, включая ручную привязку без строки в теле. Второй — разбор тела, в том
+# числе формы-адреса `Closes https://github.com/<o>/<r>/issues/<N>`: хостинг ведёт
+# поле только для PR в ветку по умолчанию, а запрос волны идёт в ветку эпика, и
+# строка его тела переезжает в запрос эпика. Разбор одного тела форму-адрес не
+# видел (возврат check-verifier, ws#920: код 0 и «строк 0»). Поле не массив —
+# разбор сломан (код 2), а не «закрывать нечего».
+pr_body=$(jq -r '.body // ""' <<<"$pr_json")
+jq -e '.closingIssuesReferences | type == "array"' >/dev/null 2>&1 <<<"$pr_json" \
+  || parse_broken "поле closingIssuesReferences ответа о PR $REPO#$PR не массив" \
+                  "без него множество закрываемых задач неизвестно — «закрывать нечего» было бы подменой."
+host_refs=$(jq -r '.closingIssuesReferences[] | "\(.repository.owner.login)/\(.repository.name)#\(.number)"' <<<"$pr_json")
+text_refs=$(grep -oiE '(^|[^[:alnum:]_])(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]*:?[[:space:]]+(https?://github\.com/[[:alnum:]_.-]+/[[:alnum:]_.-]+/issues/[0-9]+|([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+)' <<<"$pr_body" \
+  | grep -oE '([[:alnum:]_.-]+/[[:alnum:]_.-]+(/issues/|#)|#)[0-9]+$' \
+  | sed -E "s|/issues/|#|; s|^#|$REPO#|" || true)
+closes_refs=$(printf '%s\n%s\n' "$host_refs" "$text_refs" | grep -v '^$' | LC_ALL=C sort -u || true)
+if [ -z "$closes_refs" ]; then
+  echo "задач, закрываемых PR (хостинг и тело): 0 — доказательства DoD сверять не с чем"
+else
+  proof_missing=()
+  proof_unread=()
+  proof_ok=0
+  while IFS= read -r ref; do
+    ref_repo="${ref%%#*}"; ref_num="${ref##*#}"
+    cfile="$workdir/comments-${ref_repo//\//_}-$ref_num.json"
+    if ! gh api "repos/$ref_repo/issues/$ref_num/comments?per_page=100" --paginate >"$cfile" 2>"$workdir/api.err"; then
+      proof_unread+=("$ref_repo#$ref_num")
+      continue
+    fi
+    jq -e -s 'all(.[]; type == "array")' >/dev/null 2>&1 <"$cfile" \
+      || parse_broken "ответ о комментариях задачи $ref_repo#$ref_num не разбирается как список"
+    if jq -L "$dod_lib" -e -s 'include "dod_proof"; add // [] | any(.[]; (.body // "") | dod_proof)' >/dev/null <"$cfile"; then
+      proof_ok=$((proof_ok + 1))
+    else
+      proof_missing+=("$ref_repo#$ref_num")
+    fi
+  done <<<"$closes_refs"
+  echo "задач, закрываемых PR (хостинг и тело): $(grep -c . <<<"$closes_refs") · с доказательством DoD: $proof_ok · без: ${#proof_missing[@]} · не прочитано: ${#proof_unread[@]}"
+  if [ "${#proof_missing[@]}" -gt 0 ]; then
+    echo
+    echo "  Closes без комментария-доказательства DoD (строка «DoD-proof @<ревизия>»):"
+    printf '    %s\n' "${proof_missing[@]}"
+    echo "  исполнитель публикует доказательство в задаче, либо строка закрытия заменяется на Refs"
+    echo
+    echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD"
+    exit 1
+  fi
+  if [ "${#proof_unread[@]}" -gt 0 ]; then
+    echo "merge-readiness: комментарии задач НЕ ПРОЧИТАНЫ — $(printf '%s ' "${proof_unread[@]}")"
+    echo "                 доказательство DoD не сверено; вердикта нет, это НЕ «сливать нельзя»."
+    exit 2
+  fi
+fi
 
 prot_state=""   # protected | unprotected — выставляет read_protection
 read_protection() {  # <ветка> <файл ответа>
@@ -395,8 +568,46 @@ if [ "${req_count:-0}" -eq 0 ]; then
   exit 2
 fi
 
-# Исходы на ревизии PR. Один контекст может встретиться дважды (перезапуск),
-# поэтому зелёным считается имя, у которого ЕСТЬ успешный исход.
+# НАБОР — ВЫЗЫВАЮЩЕМУ СТРУКТУРНО (landing-precheck.sh, пункт (г)). Предпроверка
+# снимает `skipped` только у необязательного задания (и только при невыполнимом
+# на событии прогона условии `if` — ws#947), skipped обязательного — незелёный; чей набор
+# обязателен для ЭТОГО PR (база или ствол для ветки линии), решает только этот
+# скрипт — второй копии выбора нет. Имя за строкой; файла нет — набор не выведен
+# (ранний выход, путь ручного прогона воркспейса), и вызывающий обязан считать
+# `skipped` незелёным.
+if [ -n "${MERGE_READINESS_REQUIRED_OUT:-}" ]; then
+  printf '%s\n' "$required" > "$MERGE_READINESS_REQUIRED_OUT" || {
+    echo "merge-readiness: набор обязательных не записан в $MERGE_READINESS_REQUIRED_OUT" >&2; exit 2; }
+fi
+
+# Исходы на ревизии PR — ПОСЛЕДНИЕ исходы каждой проверки. Одно имя встречается
+# в `statusCheckRollup` несколько раз: перезапуск по событию правки запроса
+# поднимает новый прогон со своим check suite, и прежний исход остаётся рядом
+# (kaname#673 @1197a78e: «правило запроса» success 05:27, cancelled 05:57:02,
+# failure 05:57:11, success 05:57:41 и 05:58:55 — пять записей одного имени).
+# Прежнее правило «зелёным считается имя, у которого ЕСТЬ успешный исход»
+# засчитывало обязательный контекст зелёным и тогда, когда ПОЗДНИЙ его прогон
+# красный или ещё идёт — ранний success его прикрывал. Теперь:
+#   1) проверка — имя и workflowName; у каждой судится запись с наибольшим
+#      startedAt (ничьи — все поздние; startedAt нет хоть у одной — все записи);
+#   2) имя зелёное, только если ВСЕ его оставшиеся записи — SUCCESS: одноимённые
+#      задания разных workflow — разные проверки, и красная не прикрывается
+#      зелёной соседкой; у такого имени успешные записи из вердикта выводятся,
+#      и оно судится своим незелёным исходом.
+# Вытеснённые записи считаются и печатаются строкой «вытеснено».
+latest_json=$(jq -c '{statusCheckRollup: ([.statusCheckRollup[]?]
+    | group_by([(.name // .context), (.workflowName // "")])
+    | map(if length > 1 and all(.[]; (.startedAt // "") != "")
+          then (map(.startedAt) | max) as $m | map(select(.startedAt == $m))
+          else [.[]] end)
+    | add // [])}' <<<"$pr_json") \
+  || parse_broken "statusCheckRollup PR не сворачивается к последним исходам проверок" \
+                  "сосед вернул не то, что обещает контракт gh."
+rollup_json=$(jq -c '{statusCheckRollup: (.statusCheckRollup
+    | group_by(.name // .context)
+    | map(if all(.[]; .conclusion == "SUCCESS") then [.[]] else map(select(.conclusion != "SUCCESS")) end)
+    | add // [])}' <<<"$latest_json")
+superseded_count=$(( $(jq '[.statusCheckRollup[]?] | length' <<<"$pr_json") - $(jq '.statusCheckRollup | length' <<<"$latest_json") ))
 #
 # ЗЕЛЁНЫЙ — ТОЛЬКО SUCCESS, и это определение, а не дополнение к перечню
 # красных. Исходов у проверки девять (SUCCESS, FAILURE, CANCELLED, TIMED_OUT,
@@ -405,12 +616,12 @@ fi
 # перечне красных (возврат check-verifier @5f3080335: STARTUP_FAILURE и STALE).
 # Прочие неуспешные исходы — `other`: не красные, но и не зелёные, и вывод
 # называет их своим исходом, а не «не появлялся».
-green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
-red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED" or .conclusion=="STARTUP_FAILURE") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
-running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
+green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$rollup_json" | LC_ALL=C sort -u)
+red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED" or .conclusion=="STARTUP_FAILURE") | (.name // .context) + " [" + .conclusion + "]"' <<<"$rollup_json" | LC_ALL=C sort -u)
+running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$rollup_json" | LC_ALL=C sort -u)
 other=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "") as $c
                  | $c != "" and (["SUCCESS","FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","STARTUP_FAILURE"] | index($c) | not))
-               | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
+               | (.name // .context) + " [" + .conclusion + "]"' <<<"$rollup_json" | LC_ALL=C sort -u)
 
 printf '%s\n' "$required" > "$workdir/required"
 printf '%s\n' "$green"    > "$workdir/green"
@@ -445,6 +656,7 @@ echo "merge-readiness: $REPO#$PR → $base"
 echo "  набор обязательных: $set_from"
 echo "  обязательных контекстов: $req_count · с зелёным исходом: $green_req · без него: $missing_count"
 echo "  красных на ревизии: $red_count · ещё идут: $running_count · с иным незелёным исходом: $other_count · состояние слияния: $merge_state"
+echo "  записей rollup: $(jq '[.statusCheckRollup[]?] | length' <<<"$pr_json") · вытеснено поздним прогоном той же проверки: $superseded_count"
 
 if [ "$red_count" -gt 0 ]; then
   echo "  КРАСНЫЕ:"

@@ -4,7 +4,7 @@ aliases:
   - issue-429-kaname
 ticket_id: 429
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kaname
@@ -13,6 +13,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kaname/issues/429
 opened: 2026-09-26
+closed: 2026-10-01
 tags:
   - kac
   - fix
@@ -28,6 +29,8 @@ verified_against: "PRO-Robotech/kaname: трекер — задача откры
 нет.
 
 **Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родителя нет. Метки приоритета на трекере две — `P1` и `P2`. Работа влита в ветку `366` (координата, не живая ссылка) сборкой 3 kaname#455 — PR #457, коммит слияния `90a25be643b`, влит 2026-09-27T17:46:42Z (`gh pr view 457`).
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-10-01 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

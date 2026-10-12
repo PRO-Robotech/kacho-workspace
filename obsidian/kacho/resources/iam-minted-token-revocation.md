@@ -73,9 +73,19 @@ verified_against: "DDL, обе функции `kaname.minted_cutoff_on_*` и ч�
 снятия больше момента бессмысленности на слагаемое запаса, потому что читатель отсечки
 судит в Go, а уборка — часами базы.
 
+## Что меняет ветка эпика `296` (`77dae639`, 2026-10-04; в `main` службы не влито)
+
+- схемные писатели переписывают причину и решившего только вместе с принятым моментом — тот же замок,
+  что у двери ([[KAC/issue-335-kaname]], работа влита, задача открыта);
+- вторую запись той же транзакцией пишет триггер на первой — [[KAC/issue-336-kaname]].
+
 ## See also
 
 [[resources/iam-user-token-revocation]] · [[edges/kaname-cutoff-door-vs-schema-writers]] ·
 [[resources/iam-service-account-oauth-client]] · [[lessons/revocation-that-binds-at-issue-not-at-presentation]]
+
+## History
+
+- 2026-10-04 — раздел о ветке эпика `296` (#335, #336). Повод: волна [[KAC/issue-536-kaname]] влита в ветку эпика.
 
 #resource #kacho-iam #iam #internal #migrations

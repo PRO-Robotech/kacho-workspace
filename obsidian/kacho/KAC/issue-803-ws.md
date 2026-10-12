@@ -31,6 +31,8 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммит c2d0a4
 > [!note] Одноимённая записка — о другом трекере
 > [[KAC/issue-803]] — задача продукта PRO-Robotech/kacho#803, с этой не связана.
 
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-26 (`completed`); эпик ws#771 влит в `main` запросом ws#777 2026-10-01 коммитом слияния `9fb4acd99f9` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
+
 ## Что и зачем
 
 Номер `check-16` в `scripts/tooling-gate` взяли три ветки вне волны 0 разом: `git merge-tree`

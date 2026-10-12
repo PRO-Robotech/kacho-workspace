@@ -4,7 +4,7 @@ aliases:
   - issue-381-kaname
 ticket_id: 381
 category: kac
-status: test
+status: done
 type: epic
 repos:
   - kaname
@@ -35,6 +35,8 @@ verified_against: "PRO-Robotech/kaname, 2026-10-01: коммиты слияни�
 > Задачи волны пришли в ветку эпика `357` сборками волны-2 [[KAC/issue-358-kaname|#358]] и её
 > запросом PR #422 (коммит слияния `fc9f5aff1`). Трекер волны закрыт 2026-09-26 этой доставкой.
 > В `main` службы она не влита — `test` до посадки эпика, см. [[KAC/issue-357-kaname]].
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-26 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

@@ -13,6 +13,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kaname/issues/349
 opened: 2026-09-22
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
@@ -53,6 +54,8 @@ tags:
 > `status:test` законен, пока артефакт ждёт этого вливания
 > (`git-issues.md#gi-open-label-needs-artifact`). Утверждение о классе от этого не меняется:
 > закрыт один дом из четырёх (kacho-workspace#751), и в `main` службы хука нет.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-26 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

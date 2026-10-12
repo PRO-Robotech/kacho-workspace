@@ -1,0 +1,113 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  sha256: c843aaef5a52b1ab7aecd6003fe076b85db0bab4861f5594837d3053e7a84869
+  revision: 11
+  static_status: DRAFT
+  static_status_note: >-
+    Слово статуса в шапке — статическая форма объявления, а не вердикт (change-graph.md §2).
+    Шапка намеренно не правлена; эта запись её не трогает.
+  base_commit: 9dc404c72
+  content_commit: none
+  content_commit_note: >-
+    Редакция 11 не закоммичена (`git status` — ` M <путь>`); привязка — только отпечаток.
+  branch: 897-f8-s2-s4
+  worktree: tmp/897-f8-s2-s4
+  measured_at: PRO-Robotech/kaname@d9e233f42 (origin/296), PRO-Robotech/kacho@0ae22f8f8c6 (origin/1266)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  fingerprint_reproduced: true
+  round: 11
+  round_note: первый круг на редакции 11 (круг 1 из 2 по заданию); прежний — круг 10, 020d60b2… (APPROVED)
+
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07'
+publication_mode: courier_of_agent_verdict
+blocking_count: 2
+blocking_kinds: [PRODUCER, COVERAGE]
+
+premise_check:
+  - claim: на origin/main — ред. 9, ред. 10 на 897-f8-source-budget
+    outcome: подтверждено
+    command: git show origin/main:<путь> | sha256sum → c9159554…; git show origin/897-f8-source-budget:<путь> | sha256sum → 020d60b2…
+  - claim: вход ключом решён F8-S4 (68348903…, круг 3 APPROVED), её §3 отдаёт сюда перечень/заведение/снятие
+    outcome: подтверждено
+    command: git show origin/897-identity-own-wave1:docs/specs/sub-phase-F8-S4-…md | sha256sum; запись 68348903….yaml verdict APPROVED round 3; её строка 284
+  - claim: N28 — отказ «последний способ входа» приходит ВНУТРИ операции
+    outcome: опровергнуто
+    command: git -C project/kaname show d9e233f42:internal/apps/kaname/api/access_keys/revoke.go | sed -n '106,118p'
+  - claim: N25 (6 маршрутов Ф7 у края), N27, N31, N35, П4 origins []
+    outcome: подтверждено
+    command: git grep у края rest_route_table_gen.go:89-90,164-167; login_lane_paths; LaneRefusalAlert.tsx:27; values.dev.yaml:1299
+
+blocking:
+  - id: B11-1
+    kind: PRODUCER
+    where: §1.13 N28; Р11 первый пункт; F8-58; §11.2 строка F8-58
+    finding: >-
+      Отказ «последний способ входа» производитель выпускает СИНХРОННО, до создания операции:
+      revoke.go @d9e233f42 — `lastMethodRefusal(ctx, in.UserID, 0)` перед `uc.ops.Create`
+      (комментарий там же: «судится синхронно, чтобы отказ назвал следующий шаг клиенту, и
+      ещё раз под замком внутри транзакции — второе чтение держит инвариант»). На краю это
+      `DELETE …/accessKeys/{id}` → 400, code 9, reason LAST_SIGN_IN_METHOD. В `error` операции
+      он попадает только при гонке двух снятий. Документ утверждает обратное (N28: «внутри
+      операции»; Р11: «Отказ приходит в error операции»), и единственный держатель F8-58
+      подставляет только гоночный путь. Раздел, показывающий синхронный отказ снятия
+      безымянно или убирающий ключ из перечня, проходит все 67 сценариев.
+    required: >-
+      Перемерить N28 (оба места выпуска). F8-58 — синхронный путь (подставленный ответ
+      `DELETE` 400/code 9/LAST_SIGN_IN_METHOD → текст дословно, ключ в перечне, «Удалить» есть);
+      путь `error` операции — отдельным сценарием либо вторым «И» с названным различием.
+      Поправить Р11 и строку §11.2.
+  - id: B11-2
+    kind: COVERAGE
+    where: Р11 («имя и описание … отказ раздел показывает дословно у поля»; N28 «читать отказ в двух местах»); группа L
+    finding: >-
+      Синхронные отказы мутаций Ф7, кроме свежести, держателя не имеют. FinishRegistration
+      @d9e233f42 отказывает синхронно формой поля (`Illegal argument <field>: <rule>`, Ф7-46),
+      состоянием испытания (CHALLENGE_EXPIRED / _ALREADY_PRESENTED / _NOT_ISSUED), происхождением
+      (ORIGIN_NOT_ALLOWED), обнаружимостью (CREDENTIAL_NOT_DISCOVERABLE) — finish_registration.go
+      :93-157, до `operations.NewFromContext` :159. Группа L утверждает только отказ свежести
+      (F8-51, F8-57, с окном повышения) и отказ в `error` операции (F8-54). Обещание Р11 «отказ
+      имени у поля дословно» не держит ни один сценарий; раздел, показывающий синхронный 400
+      общим текстом или молча, зелен.
+    required: >-
+      Модульный сценарий (близнец F8-55, различие — ответ приёма результата): синхронный 400
+      `Illegal argument name: <правило>` → поле «Имя» отмечено текстом службы, введённое цело,
+      операции не ждали; и одно «И» о синхронном 400 состояния испытания (текст дословно,
+      «Добавить» снова доступна, повтор — с новым испытанием).
+
+non_blocking:
+  - F8-63 — служба судит правило пароля ДО «пароль уже есть» (password_enroll.go:120 против :140);
+    `<пароль F8-63>` обязан отвечать правилу, иначе ответ 400/3 вместо 409/6 — назвать это в «Дано».
+  - F8-55/F8-50 «без изменения» — поля `bytes` идут base64 protojson, браузер даёт ArrayBuffer;
+    уточнить «значение без изменения после снятия/наложения сериализации» (как F8-S4).
+  - F8-67 — SETS_CARRIER несёт `/iam/v1/auth/password`, путь заведения — его подпуть; сценарий верно
+    требует точного сравнения, стоит сказать это прямо (сопоставление по префиксу краснит F8-67).
+  - F8-51 держит свежесть только на beginRegistration; FinishRegistration тоже зовёт requireFresh
+    (finish_registration.go:102) — дефолтабельно, не блокирует.
+
+coverage_counts:
+  scenarios: 67
+  producer_named: 67 of 67 (§11.1), но у F8-58 производитель назван неверно (B11-1)
+  twins: 35 negatives, twin named for each (§11.2)
+  budget_partition: 7 + 14 + 23 + 23 = 67 — сверено
+
+constructibility:
+  seeded: 0
+  not_executed: 7
+  not_executed_reason: >-
+    Браузерные F8-48…F8-51, F8-56, F8-57, F8-63 — стенда и разрешения на посев в задании нет;
+    условия П4 (origins [] @0ae22f8f8c6) и П5 (край не несёт password/enroll) сегодня не созданы.
+    Фикстура названа: посев К′ (`seedAccessKeyRest`, шаг 2 посева К F8-S4 §6.0) — в дереве её
+    ещё нет (0 совпадений accessKey в ui-future/e2e/specs @0ae22f8f8c6), это заказ.
+    Модульные «Дано» (подставной транспорт) конструируемы по построению. Человек без пароля
+    честно вынесен как неконструируемый (N32) — согласен.
+
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}
+
+event: acceptance-reviewer · CHANGES_REQUESTED · c843aaef5a52b1ab7aecd6003fe076b85db0bab4861f5594837d3053e7a84869

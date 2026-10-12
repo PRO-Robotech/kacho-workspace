@@ -1,0 +1,97 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  sha256: b3be8032320e5880b9914ca8bd4017870750d509a12905541eb8f7faa9963f6a
+  revision: 12
+  static_status: DRAFT
+  static_status_note: >-
+    Слово статуса в шапке — статическая форма объявления, а не вердикт (change-graph.md §2).
+    Шапка намеренно не правлена; эта запись её не трогает.
+  base_commit: 5dc005364
+  content_commit: none
+  content_commit_note: >-
+    Редакция 12 не закоммичена (`git status` — ` M <путь>`); привязка — только отпечаток.
+  branch: 897-f8-s2-s4
+  worktree: tmp/897-f8-s2-s4
+  measured_at: PRO-Robotech/kaname@d9e233f42 (origin/296), PRO-Robotech/kacho@0ae22f8f8c6 (origin/1266), corelib@v1.11.0 (пин службы, go.mod)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+  fingerprint_reproduced: true
+  round: 12
+  round_note: круг 2 из 2 по заданию на дополнении S4 + S2; прежний — круг 11, c843aaef… (CHANGES_REQUESTED)
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-07'
+publication_mode: courier_of_agent_verdict
+blocking_count: 0
+blocking_kinds: []
+
+premise_check:
+  - claim: B11-1 — отказ LAST_SIGN_IN_METHOD синхронный (revoke.go :112 до :115), внутри операции — повтор под замком (:173)
+    outcome: подтверждено
+    command: git -C project/kaname show d9e233f42:internal/apps/kaname/api/access_keys/revoke.go | grep -n 'uc.lastMethodRefusal(ctx\|uc.ops.Create(ctx\|operations.Run' → :112 :115 :119 :173
+  - claim: N36 — все отказы FinishRegistration до :165 синхронные
+    outcome: подтверждено
+    command: git -C project/kaname show d9e233f42:internal/apps/kaname/api/access_keys/finish_registration.go | grep -n 'NameOnCreate\|ReasonChallenge\|ceremonyRefusal(err)\|ReasonNotDiscoverable, Text\|uc.ops.Create' → :84 :123 :128 :131 :137 :146 :165
+  - claim: отказ формы имени — не `Illegal argument name:`, а `invalid argument` + BadRequest.fieldViolations{field=name}
+    outcome: подтверждено (частность записи круга 11 опровергнута автором верно)
+    command: >-
+      corelib@v1.11.0 validate/validate.go:75-88 (Name → coreerrors.InvalidArgument().AddFieldViolation), errors/errors.go:80 ("invalid argument"); `Illegal argument %s: %s` — только fieldRequired/fieldRule в refusals.go:92-98
+  - claim: error операции сохраняет код и текст отказа (F8-69)
+    outcome: подтверждено
+    command: corelib@v1.11.0 operations/worker.go:669-679 — status.FromError → op.Error = st.Proto()
+  - claim: край отдаёт BadRequest-детали клиенту (F8-70 конструируем на проводе, а не только в подставе)
+    outcome: подтверждено
+    command: git -C project/kacho grep 0ae22f8f8c6 -- gateway/tests/newman — кейсы читают details[].fieldViolations (iam-interactive-client.py:482)
+
+blocking: []
+
+non_blocking:
+  - F8-70 — Ф7-46 говорит, что отказ формы испытания не гасит; сценарий не утверждает, повторяет ли раздел
+    приём результата без новой церемонии или начинает её заново. Оба поведения законны; стоит назвать выбор
+    в Р11 при реализации, чтобы проба не утверждала случайное.
+  - F8-70 — сказано, что общий `invalid argument` у поля не стоит; не сказано, стоит ли он у раздела.
+    Дефолт ревью — у раздела не показывается, когда есть нарушение поля (иначе один отказ назван дважды).
+  - F8-51 держит свежесть только на beginRegistration (неблокирующее круга 11, п. 4) — без изменений,
+    дефолтабельно.
+
+coverage_counts:
+  scenarios: 70 (grep -oE '^\*\*ID:\*\* F8-[0-9]+' | sort -u | wc -l → 70, дублей 0)
+  producer_named: 70 of 70 (§11.1; F8-58 — ответ глагола, F8-69 — error опроса, F8-70/71 — ответ глагола; N28, N36)
+  twins: 38 negatives, строк таблицы близнецов 38 (grep '^| F8-[0-9]* | F8-' → 38)
+  budget_partition: 7 + 14 + 23 + 26 = 70 — сверено; новые три — группа Г, бюджет 15 / 45 не меняется
+  dod_predicate: F8-(4[89]|5[0-9]|6[0-9]|7[01]) → 24 ID, совпадает с DoD п. 21
+
+constructibility:
+  seeded: 0
+  not_executed: 7
+  not_executed_reason: >-
+    Браузерные F8-48…F8-51, F8-56, F8-57, F8-63 — стенда и разрешения на посев в задании нет; условия
+    П4 и П5 сегодня не созданы (§4). Фикстура названа: посев К′ (заказ, DoD п. 24). Новые F8-69…F8-71 —
+    модульные, «Дано» — подставной транспорт, конструируемы по построению; форма подставленных тел
+    сверена с производителем (N28, N36). Человек без пароля честно вынесен как неконструируемый (N32).
+
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}
+
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho-workspace#897
+  status: performed
+  published: true
+  database_id: 6027041668
+  node_id: "IC_kwDOSVvpIM8AAAABZz1bhA"
+  url: "https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-6027041668"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/6027041668"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-06T23:03:36Z"
+  body_sha256: "4879a07294857ac75567592409fd875a632d43a61a7b3a30992ae2b58f4dda3d"
+  subject_sha256: "b3be8032320e5880b9914ca8bd4017870750d509a12905541eb8f7faa9963f6a"
+  subject_revision_commit: "f8dd2bf012b4ed503cb8530aef62e96671688584"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh

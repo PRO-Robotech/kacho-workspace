@@ -4,7 +4,7 @@ aliases:
   - issue-775-ws
 ticket_id: 775
 category: kac
-status: in-progress
+status: done
 type: docs
 repos:
   - kacho-workspace
@@ -14,6 +14,7 @@ prs:
   - https://github.com/PRO-Robotech/kacho-workspace/pull/812
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/775
 opened: 2026-09-22
+closed: 2026-09-29
 tags:
   - kac
   - docs
@@ -29,6 +30,8 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — з
 ссылка) @ `b99a2ca9`, — но задачу никто не ведёт: она ждёт механизма посадки записей.
 
 **Состояние на 2026-09-28**: `in-progress`. Задача открыта, метка `status:in-progress`, метка `blocked` снята 2026-09-28T13:07Z: оба блокера (#822, #824) сданы в ветку волны `786` — их головы `4b9eac04` и `06b18c29` предки `origin/786` @ `99fbac9f` (комментарий задачи). Взята 2026-09-28T13:20Z веткой `775` (координата, не живая ссылка) от `786` @ `99fbac9`. PR #812 по-прежнему открыт, база `main` (`gh pr view 812`).
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-29 (`completed`); эпик ws#771 влит в `main` запросом ws#777 2026-10-01 коммитом слияния `9fb4acd99f9` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

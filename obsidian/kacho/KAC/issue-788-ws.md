@@ -4,7 +4,7 @@ aliases:
   - issue-788-ws
 ticket_id: 788
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace
@@ -17,6 +17,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/788
 opened: 2026-09-22
+closed: 2026-09-29
 tags:
   - kac
   - fix
@@ -36,6 +37,8 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — з
 `origin/786` @ `d5cf0d9a`, в той же полосе ws#837 (комментарий задачи).
 
 **Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родитель — волна-3 ws#786. Ветка `788` @ `e0d786ef` влита в сборку 2 волны ws#863 коммитом слияния `00bd6b39`; запрос сборки PR #864 влит в `786` коммитом слияния `99fbac9f` 2026-09-27T14:36:52Z (`gh pr view 864`); `e0d786ef` — предок `origin/786` (`git merge-base --is-ancestor`). Волна в ветку эпика не влита.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-29 (`completed`); эпик ws#771 влит в `main` запросом ws#777 2026-10-01 коммитом слияния `9fb4acd99f9` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

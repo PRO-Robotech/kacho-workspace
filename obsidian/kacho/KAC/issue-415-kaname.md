@@ -4,7 +4,7 @@ aliases:
   - issue-415-kaname
 ticket_id: 415
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kaname
@@ -14,6 +14,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kaname/issues/415
 opened: 2026-09-24
+closed: 2026-10-01
 tags:
   - kac
   - kacho-iam
@@ -26,6 +27,8 @@ verified_against: "PRO-Robotech/kaname: трекер — задача откры
 **Состояние на момент записи**: `to-do` — 2026-09-26. Задача **открыта**, метки: `bug`, `P2`, `size:L`, `area:ci`, `release:identity-own`; родитель — волна-3 kaname#366. Работы по ней в ветке эпика нет. С 2026-09-25 несёт остаток п.3 закрытой задачи [[KAC/issue-393-kaname|#393]].
 
 **Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родитель — волна-3 kaname#366. Ветка `415` (координата, не живая ссылка) @ `9ce853577` влита в ветку волны `366` сборкой 2 kaname#435 — запрос #437, коммит слияния `c083ad5bbfa`, влит 2026-09-27T10:57:27Z (`gh pr view 437`). По комментарию задачи на ветке `415` остались остатки, возврат круга 3 — kaname#444.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-10-01 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

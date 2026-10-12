@@ -5,7 +5,7 @@ aliases:
   - эпик identity-own kaname
 ticket_id: 357
 category: kac
-status: in-progress
+status: done
 type: epic
 repos:
   - kaname
@@ -28,6 +28,7 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/498
 issue_url: https://github.com/PRO-Robotech/kaname/issues/357
 opened: 2026-09-22
+closed: 2026-10-02
 tags:
   - kac
   - kacho-iam
@@ -45,6 +46,8 @@ verified_against: "PRO-Robotech/kaname, 2026-10-01T07:56Z: origin/357 = 7c5409f5
 > [[KAC/README]] `test` значит «сделано, ждёт проверки», а предикат эпика требует закрытых волн
 > и влитого запроса в `main` — работа идёт. Когда закроется волна-6, состояние станет `test` и
 > продержится до посадки `357` в `main`.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-10-02 (`completed`); эпик kaname#357 влит в `main` запросом kaname#359 2026-10-02 коммитом слияния `8cbc0fdc82c` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 

@@ -1,0 +1,113 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+  sha256: 904a3233e0bad4ec76e39036adc1b961bb5b3cfebd21ed3ea7dda6a5b27fe35a
+  revision: 9
+  static_status: DRAFT
+  static_status_note: >-
+    Слово в шапке — статическая форма объявления (change-graph §2); шапка этой записью НЕ правится.
+    Одобрение этой записи вступает в силу только внешним событием полномочия.
+  base_commit: 7f634fac
+  content_commit: 3fbabdea
+  branch: 896-f6b-r8-526
+  branch_base: main
+  task: https://github.com/PRO-Robotech/kaname/issues/526
+  epic: https://github.com/PRO-Robotech/kacho/issues/1266
+  service_pair: >-
+    PRO-Robotech/kaname docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md,
+    названа документом и каталогом записей ревью; действующая одобренная редакция на origin/526
+    @037d6a3f — редакция 8, 2abf9de5cb3d904e84a4237f3c1b28556c2314db77c44c82a1b5fc60713d3ae9
+    (запись APPROVED и событие в kaname#526).
+  fingerprint_predicate: >-
+    sha256sum <путь> в копии tmp/ws-f6b-r8 на 3fbabdea → 904a3233…5a, совпало с заданием; wc -l → 2309.
+    Служба: git show origin/526:<док службы> | sha256sum → 2abf9de5…d3ae9 на 037d6a3f.
+  fingerprint_reproduced: true
+  lines: 2309
+  task_premise_remeasured: >-
+    ПОДТВЕРДИЛАСЬ: отпечаток F6b совпал; отпечаток службы на origin/526 = 2abf9de5…; git grep -l
+    '^verdict: APPROVED' origin/526 -- <каталог ревью службы> → f2d1fe85, 60278225, 2abf9de5; в
+    kaname#526 есть комментарий события на 2abf9de5. Сценариев 56, повторов ID 0.
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-06T13:42:45Z'
+round: 9
+round_in_this_cycle: "2 из 2"
+predecessor_record: docs/specs/reviews/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance/78501adb81409eb9a7e364e279a7df7c191a8432ced76aad1e9d58ff0f75d866.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+important_count: 0
+
+delta_against_previous:
+  previous_sha256: 78501adb81409eb9a7e364e279a7df7c191a8432ced76aad1e9d58ff0f75d866
+  diff_command: git diff d0de30a1 3fbabdea -- <док> → один файл; шапка (строки круга 8 и редакции 9), §6 п. 1, §8
+  changes: >-
+    §6 п. 1 называет пару службы документом и каталогом её записей ревью, отпечаток — только у
+    одобренной редакции 6; перенос одобрения 7 → 8 и 9 не переносится; §8 «Редакция 9». Решения,
+    ID, «Дано», «Тогда», значение Р3 не тронуты — проверено диффом (единственная строка с этими
+    словами — перечень «Не тронуты»).
+  b1_round8: >-
+    СНЯТО: правка ровно та, что назвал fix круга 8; следующая правка службы этот документ не трогает.
+
+checks:
+  refusal_text_parity: >-
+    Текст отказа Р3 F6b (стр. 416, 833) побайтово равен тексту Р3 службы редакции 8 (стр. 652–654,
+    1276 файла службы на 037d6a3f): grep -c литерала в файле службы → 5; code 7, PERMISSION_DENIED,
+    reason EMAIL_NOT_VERIFIED совпадают.
+  producers: "Дельта сценариев не трогает; производители прежние (запись круга 7)."
+  twins: "Дельта сценариев не трогает; пары прежние (запись круга 7)."
+  docs_gate: "check-01-acceptance-verdict (ws-main-fresh) → PASS, 190 приёмок осмотрено."
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 0
+  not_executed: 0
+  detail: "Дельта не меняет ни одного «Дано»; посев не требуется."
+
+non_blocking:
+  - id: N1
+    kind: FORMAT
+    where: "§8 «Редакция 9», вывод предиката"
+    finding: >-
+      Вывод под командой назван «f2d1fe85….yaml и 60278225….yaml на 2026-10-06»; с одобрением
+      редакции 8 службы в тот же день та же команда даёт три файла (плюс 2abf9de5). Утверждение
+      датировано и предмета не ломает — пара названа документом; при следующей правке дописать
+      2abf9de5… как действующую одобренную редакцию.
+
+disclosure: "Дельта — ссылки на приёмку и отпечатки; механики, адресов, секретов нет."
+
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: true
+  ui: true
+  new_domain: false
+  security_surface: false
+
+event_body_for_publication: "acceptance-reviewer · APPROVED · 904a3233e0bad4ec76e39036adc1b961bb5b3cfebd21ed3ea7dda6a5b27fe35a"
+event:
+  type: issue_comment
+  target: PRO-Robotech/kaname#526
+  status: performed
+  published: true
+  database_id: 6017881005
+  node_id: "IC_kwDOUO26pM8AAAABZrGTrQ"
+  url: "https://github.com/PRO-Robotech/kaname/issues/526#issuecomment-6017881005"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kaname/issues/comments/6017881005"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-06T13:58:50Z"
+  body_sha256: "93691b03a6c78fedaaf8e819eba790b18f5c07ded1873156894c7a1e7c0f7a89"
+  subject_sha256: "904a3233e0bad4ec76e39036adc1b961bb5b3cfebd21ed3ea7dda6a5b27fe35a"
+  subject_revision_commit: "6b6349b4dfffd2c440f99819ff7f31826fdc61f5"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publication_mode: courier_of_agent_verdict
+  history_is_appended_not_rewritten: true
+  prior_records_untouched: true

@@ -1,0 +1,157 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  sha256: 4f1cd528e27cf55c6b52a5f4f5dd6d9aafc8fddd9eb5e1c0e60c94f0c619d4a2
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 3 — эта запись и внешнее событие.
+  base_commit: 5c3ca858f
+  content_commit: a14cdfb87ee3ee88284b7a12966d4a11c11df522
+  branch: 3062-f8-s6-email-change-acceptance (копия tmp/3062-f8-s6-email-change-acceptance)
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/3062
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  fingerprint_reproduced: true
+  lines: 404
+  code_base: PRO-Robotech/kacho @ 4e96de2c2 · PRO-Robotech/kaname @ d33a3b866
+verdict: CHANGES_REQUESTED
+round: 2
+round_note: >-
+  Задание назвало круг 1; у документа круг 1 уже был под прежним именем F8-S5 (редакция 1,
+  запись docs/specs/reviews/sub-phase-F8-S5-console-and-edge-email-change-acceptance/b069ebd8….yaml,
+  CHANGES_REQUESTED). Эта запись — круг 2 документа, первый на редакции 3.
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-11T00:00:00Z'
+authority:
+  mode: versioned_policy_authority
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+  policy_allowlist_at_base: [pointpu]
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_pending: true
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 4f1cd528e27cf55c6b52a5f4f5dd6d9aafc8fddd9eb5e1c0e60c94f0c619d4a2"
+sanction:
+  granted: false
+  reason: >-
+    Вердикт — возврат. Санкции на код S6 эта запись не даёт; следующая редакция получает соседнюю
+    запись.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - docs/specs/reviews/sub-phase-F8-S5-console-and-edge-email-change-acceptance/b069ebd899312a07ba584bfe3ce108e7fda943a0a5ff013e128d6752894d116f.yaml
+
+premise_check:
+  claim: "редакция 3 закоммичена на 3062-f8-s6-email-change-acceptance; круг 1 по заданию"
+  result: >-
+    Подтверждено частично: голова ветки a14cdfb87, sha256sum → 4f1cd528…d4a2. Посылка «круг 1»
+    опровергнута — у документа уже есть запись круга 1 (b069ebd8…, под именем F8-S5); это круг 2.
+
+measurement:
+  tree_claims_reproduced: >-
+    §1.1–§1.5 исполнены дословно на kacho@4e96de2c2 (отдельная копия): 0 · Пароль/Второй
+    фактор/Учётная запись · 21 · 9 · subjectChangingFQNs authz.go:282 · 2 · LOGIN_LANE 18 ·
+    SETS_CARRIER 10 · FormKind 13 · flushparity 0 · retired carriers 3 · «кто я» 1 ·
+    seedConfirmedHuman:272/transferSession:312 · stationMailbox:218/awaitLetter:236 ·
+    producer-answers.ts есть. §1.6: пин ae1d4e35b1d0 в go.mod; в kaname handler.go с
+    email-change 6 строк; ae1d4e35b1d0 ⊂ origin/296 → 1. Всё совпало.
+  paired_document: >-
+    EC на d33a3b866 и на ae1d4e35b1d0 — отпечаток 92d7c35d…8613; запись APPROVED на этот отпечаток
+    в kaname docs/specs/reviews/email-change-is-confirmed-from-the-new-address/. Ссылки S6 на EC
+    Р1–Р9, EC-02/03/07/08/09/10/15/17/18/24 и тексты отказов сходятся. Производитель user_email_change
+    в пине есть (email_change.go, миграция 20261007150000).
+  edge_silence_answer: >-
+    «ответ Р1 (KA1)» — 503 с телом UnavailableBody, носитель цел (auth_own_session.go:25,
+    ka1stand/stand.go:746); с 401 предъявления не смешивается — Р4 непротиворечив.
+
+prior_round_resolution:
+  S1_PRODUCER: снято — строка сверки производителей выведена из «Тогда», предмет назван в §0.2 без держателя
+  S2_CONSTRUCTIBILITY: снято — F8S6-06 подставляет ПЕРВЫЙ ответ (429, Retry-After 42), «Отправить снова» не нажимается
+  S3_TWIN: снято — у F8S6-07 близнец F8S6-01
+  important_1: учтено (§4, DoD п.5 — все девять)
+  important_2: учтено (Р2 ссылается на op user_email_change)
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    where: F8S6-02, вторая строка «Тогда»
+    claim: >-
+      «в приёмнике по N письма с кодом нет» ложно на исправном продукте. Посев Занято заводит
+      второго человека на N через seedConfirmedHuman, а он ждёт письмо регистрации на N
+      (awaitLetter, ceremony-seed.ts:272–285) — письмо с кодом подтверждения по N в приёмнике
+      уже лежит. Отсутствие к тому же не ограничено сроком.
+    predicate: >-
+      ui-future/e2e/specs/ceremony-seed.ts:seedConfirmedHuman → awaitLetter(mailbox, email, before)
+      @kacho 4e96de2c2: письмо регистрации на адрес посева обязательно, иначе conditionNotCreated
+    fix: >-
+      Судить письма по N, принятые ПОСЛЕ запроса смены (перечень до запроса — как before у
+      awaitLetter), и вида email-change; срок отсутствия задаёт близнец — сперва дождаться письма
+      по N₂, затем прочесть N.
+  - id: B2
+    kind: CONSTRUCTIBILITY
+    where: F8S6-05, Given/When
+    claim: >-
+      Порядок не назван: код берётся «из письма» в When — после посева занятости. seedConfirmedHuman
+      снимает перечень писем по N до регистрации и требует ровно одно новое письмо
+      (expect(fresh.length).toBe(1), mail-receiver.ts:awaitLetter). Если письмо смены человека
+      U по N ещё не принято приёмником к этому снимку, новых писем два — посев красный на
+      исправном продукте (поломка фикстуры, а не отказ продукта), либо код читается не из того
+      письма.
+    fix: >-
+      В Given: письмо смены по N дождано (код C взят) ДО посева занятости; When предъявляет C.
+  - id: B3
+    kind: COVERAGE
+    where: §2 Р3, Р4 против §5
+    claim: >-
+      Утверждения решений без сценария: (1) Р4 строка «400, поле code» — текст у поля кода,
+      состояние «код» (служба: пустой code → 400 Illegal argument code: required, EC Р5);
+      (2) Р3 «Отмена» — возврат в покой без обращения к глаголам, из «формы» и из «кода»;
+      (3) Р3 «Отправить снова» — нажатие после конца отсчёта зовёт email-change ещё раз и
+      оставляет состояние «код». Ни один из F8S6-01…11 их не утверждает.
+    fix: >-
+      Сценарий на каждое (ось времени для (3) — подстановкой первого ответа с Retry-After: 0 по
+      F8 Р9, ось 3а), либо для (1) записать, что «Подтвердить» на пустом поле выключена, и
+      утверждать это вместо ответа 400.
+
+important:
+  - >-
+    F8S6-08: «экран называет ответ края» — назвать текст экрана дословно, как F8-25 называет
+    свой отказ; подставляемое тело — 503 UnavailableBody KA1 Р1.
+  - >-
+    F8S6-07 (а): сказать, что поле не несёт браузерной проверки формы адреса (иначе
+    not-an-address до службы не дойдёт), и утверждать в переписи email-change → 400.
+  - >-
+    F8S6-01: порядок двух входов во втором контексте (сначала N и P, затем прежний адрес — после
+    выхода) назвать явно.
+  - >-
+    Ссылки на 04-roadmap §3 нет — так устроена вся серия F8 (0 упоминаний в F8, S3, S4); не
+    блокирует.
+
+constructibility:
+  seeded: 0
+  by_named_fixture: 2 из 2 проб края (login_lane_paths_test.go; decisionCache.Invalidate) и посевы
+    Ч/Ч2/Ч′/Занято по существующим seedConfirmedHuman/transferSession
+  refuted: 2 (F8S6-02, F8S6-05 — по коду фикстуры)
+  not_executed: 'F8S6-01…09 — доставки писем на стенде нет (kacho#1773 OPEN), стенда и разрешения на посев задание не дало'
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: true

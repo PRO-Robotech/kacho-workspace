@@ -4,7 +4,7 @@ aliases:
   - issue-846-ws
 ticket_id: 846
 category: kac
-status: in-progress
+status: done
 type: docs
 repos:
   - kacho-workspace
@@ -14,6 +14,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/846
 opened: 2026-09-26
+closed: 2026-09-29
 tags:
   - kac
   - docs
@@ -36,6 +37,8 @@ verified_against: "PRO-Robotech/kacho-workspace: трекер — задача �
 записки держат `test` и открытый PR, а на трекере kacho#754 и kacho#755 закрыты и PR #794 влит;
 она правит указатель прежнего вида и несёт разбор находки сверх высокоуровневой части. Trail
 этих задач пишется заново, адрес разбора — дифф PR #794.
+
+**Состояние на 2026-10-03**: `done`, работа в `main`. Задача закрыта на трекере 2026-09-29 (`completed`); эпик ws#771 влит в `main` запросом ws#777 2026-10-01 коммитом слияния `9fb4acd99f9` — предок `origin/main` (`git merge-base --is-ancestor`, 2026-10-03); зонтичный эпик kacho#2564 закрыт 2026-10-03 — [[KAC/issue-2564|#2564]].
 
 ## Что и зачем
 
