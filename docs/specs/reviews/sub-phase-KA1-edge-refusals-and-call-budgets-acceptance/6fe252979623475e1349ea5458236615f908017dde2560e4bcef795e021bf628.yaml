@@ -1,0 +1,108 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: 6fe252979623475e1349ea5458236615f908017dde2560e4bcef795e021bf628
+  revision: 6
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 6 — эта запись и внешнее событие.
+  base_commit: 9fb4acd99f9da30bc629d61c2a9e26106cdc0436
+  content_commit: e65d1a54c7ce1d79feb9db6896f5b8e3cca80dca
+  branch: 897-ka1-acceptance (локальная, не отправлена)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 960
+  code_base: PRO-Robotech/kacho @ e801c0f7844c06727947fca7f32ffac9b006ea1b
+verdict: CHANGES_REQUESTED
+round: 5
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-03T00:00:00Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · CHANGES_REQUESTED · sha256 6fe252979623475e1349ea5458236615f908017dde2560e4bcef795e021bf628"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315.yaml (круг 1, редакция 2)
+    - d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a.yaml (круг 2, редакция 3)
+    - f1dda7d293a3e9cbfc6d788501e4b32e554359d9a21e8dc38918ceb3f7080f05.yaml (круг 3, редакция 4)
+    - a472352819656522d77dec6c4b43c6a0f1c5b17806dd27fc8d6b51a3c8564463.yaml (круг 4, редакция 5)
+
+prior_round_blockers:
+  B1_profile_selection_unit: >-
+    снят — единица отбора KA1-25/34 теперь стенд deploy/stacks.txt, цепочка — stacks.sh --args;
+    отказ отрисовки — красный с именем стенда. Перемерено посевом @ e801c0f7844 (git archive
+    deploy + 7 подчартов file://, helm package в charts/): stacks.sh --names → 7; helm template
+    цепочкой каждого → rc=0 у 7 из 7; Deployment api-gateway — 7 из 7; Deployment kaname — 7 из 7;
+    KACHO_API_GATEWAY_TOKEN_ISSUERS и PLATFORM_TOKEN_ISSUER = https://kaname.kacho.local в 7 из 7;
+    ручек Р4 и KACHO_INTROSPECTION_TIMEOUT_MS в отрисовке нет ни в одном (умолчание загрузчика
+    1000 — config.go:574). Близнец (б): values.dev-prod.yaml в одиночку → rc=1
+    (statefulset-zot.yaml:57) — строится. Гейт полноты TestStackTableNamesEveryTrackedProfile есть
+    (deploy/stack_table_test.go:333).
+  non_blocking_round4: >-
+    учтены оба — DoD S2 называет отдельный тестовый пакет для KA1-22/23/24/26; KA1-13 (а) —
+    «проверяющий отвергает предъявителя».
+
+blocking:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    where: KA1-34 «Когда» (издатель службы — «её отрисованная конфигурация, ключ `issuer`»); строка KA1-34 таблицы производителей («`issuer` службы — дословно в 7 из 7»); исход на базе KA1-34 «зелены до и после»
+    claim: >-
+      Ключ `issuer` в отрисованной конфигурации службы доступа не единственен: в стенде fe3455
+      ConfigMap kaname-config (config.yaml) несёт ДВА ключа `issuer` — registry-token.issuer =
+      https://registry.in-cloud.io/iam/token и token-signing.issuer = https://kaname.kacho.local.
+      Утверждение «issuer службы дословно в 7 из 7» верно только для token-signing.issuer.
+      Проба, написанная по тексту «ключ issuer», на базе либо красна на fe3455 (взят первый
+      ключ — издатель токенов реестра), либо проходит выбором «любой совпавший» — то есть
+      заявленный исход «охрана, зелена до и после» зависит от выбора реализатора, а не от
+      документа.
+    evidence:
+      seed: >-
+        helm template цепочкой fe3455 @ e801c0f7844: yq kaname-config → config.yaml, строки 44
+        (registry-token.issuer) и 111 (token-signing.issuer); шаблон
+        deploy/helm/umbrella/charts/kaname/templates/configmap.yaml:105 (registry-token, условный)
+        и :198 (token-signing).
+    fix: >-
+      Назвать координату однозначно: ConfigMap kaname-config → data.config.yaml →
+      token-signing.issuer (тот, которым служба штампует iss токенов нашей чеканки); отсутствие
+      этого пути в отрисовке стенда с Deployment kaname — красный пробы с именем стенда, а не
+      «не сравнён». Строку таблицы производителей KA1-34 перемерить этим путём.
+
+non_blocking:
+  - >-
+    KA1-25 близнец (б) «копия таблицы»: читатель stacks.sh ищет таблицу относительно своего файла
+    (_stacks_table_file), Go-читатель deployStacks — по своему пути; назвать, каким читателем проба
+    читает копию таблицы, иначе копия таблицы прочитана не будет и близнец проверит оригинал.
+  - >-
+    Рецепты подъёма кладут поверх STACK_ARGS ещё слои образов (IMAGE_IDS_VALUES,
+    MODULE_MANIFESTS_VALUES — Makefile:727–739); ручек Р4 они не несут, но фраза «ровно та
+    цепочка, которую берут рецепты» шире истины — уточнить «цепочка профилей стенда».
+
+checks:
+  scope: да (Что НЕ входит есть; scope по задачам kacho#2728/2958/2713/2738/2758)
+  producer_per_then: 28 из 28
+  twin_per_negative: 0 разрывов
+  constructibility: >-
+    посеяно 1 проба-группа (KA1-25/34 — отрисовка 7 цепочек стендов + близнец (б)): 7 из 7
+    отрисовались, край и служба есть в 7; найден B1 (неоднозначный ключ issuer в fe3455).
+    Прочитано кодом: KACHO_INTROSPECTION_TIMEOUT_MS default 1000 (config.go:574). Не выполнилось —
+    посев харнессов П1–П13 (заводятся): копия kacho под код пробы заданием не названа.
+  open_questions: 0
+repeat_class_note: >-
+  Блокирующих 4 → 3 → 1 → 1 → 1, плато. Род CONSTRUCTIBILITY — четвёртый раз (круги 1, 2, 4, 5);
+  предмет снова дерево профилей: координата значения в отрисовке названа именем ключа, а не
+  путём. В форму задания автора (§14а): каждое значение, читаемое из отрисовки, — полным путём
+  объекта и ключа, единственность пути проверена отрисовкой каждого стенда.
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}

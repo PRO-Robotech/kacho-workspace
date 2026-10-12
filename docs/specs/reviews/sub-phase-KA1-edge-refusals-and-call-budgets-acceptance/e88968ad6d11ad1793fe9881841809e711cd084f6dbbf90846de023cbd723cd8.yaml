@@ -1,0 +1,85 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  sha256: e88968ad6d11ad1793fe9881841809e711cd084f6dbbf90846de023cbd723cd8
+  revision: 7
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 7 — эта запись и внешнее событие.
+  base_commit: e65d1a54c7ce1d79feb9db6896f5b8e3cca80dca
+  content_commit: 8800423f303e42ed635428af9728b325de4a82e3
+  branch: 897-ka1-acceptance (локальная, не отправлена)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/897
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+  lines: 969
+  code_base: PRO-Robotech/kacho @ e801c0f7844c06727947fca7f32ffac9b006ea1b
+verdict: APPROVED
+round: 6
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-03T00:00:00Z'
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · APPROVED · sha256 e88968ad6d11ad1793fe9881841809e711cd084f6dbbf90846de023cbd723cd8"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - 406f992355406b5ab0ae44263be6108dc42af7eb1a45190e68b83f52ed081315.yaml (круг 1, редакция 2)
+    - d9a98f99f542067fda0f63080f7235524fd7eadde8dc2b5e652c04a78c1b4a8a.yaml (круг 2, редакция 3)
+    - f1dda7d293a3e9cbfc6d788501e4b32e554359d9a21e8dc38918ceb3f7080f05.yaml (круг 3, редакция 4)
+    - a472352819656522d77dec6c4b43c6a0f1c5b17806dd27fc8d6b51a3c8564463.yaml (круг 4, редакция 5)
+    - 6fe252979623475e1349ea5458236615f908017dde2560e4bcef795e021bf628.yaml (круг 5, редакция 6)
+
+prior_round_blockers:
+  B1_issuer_key_ambiguity: >-
+    снят. KA1-34 выбирает значение службы полным путём kaname-config → config.yaml →
+    authn.token-signing.issuer, с переопределением KANAME_AUTHN__TOKEN_SIGNING__ISSUER; нет ни пути,
+    ни переменной — красный со стендом. Перемерено посевом @ e801c0f7844 (git archive deploy +
+    7 подчартов file://, helm package; цепочка stacks.sh --args, отрисовка из каталога umbrella):
+    rc=0 у 7 из 7; Deployment api-gateway и kaname — 7 из 7; путей с ключом issuer в config.yaml —
+    1 в 6 стендах, 2 в fe3455 (api-server.registry-token.issuer = https://registry.in-cloud.io/iam/token);
+    authn.token-signing.issuer = https://kaname.kacho.local — 7 из 7; переменных kaname с
+    ISSUER/TOKEN_SIGNING — 0 в 7, envFrom нет; обе переменные края = https://kaname.kacho.local — 7 из 7.
+    Правило окружения сверено с кодом kaname @ origin/main 0dd03218a: load.go:41–43 (префикс KANAME,
+    replacer "." → "__", "-" → "_", AutomaticEnv); ключ известен viper через умолчание
+    defaults.go:213, поэтому переменная без пути в файле доезжает до поля — ветка «переменная»
+    в предикате исполнима.
+  non_blocking_round5: >-
+    учтены оба: близнецы KA1-25/34 подаются суждению разобранной отрисовкой (renderStack
+    edge_retired_knobs_render_test.go:193 принимает цепочку — одноэлементная цепочка dev-prod
+    строится; отрисовка values.dev-prod.yaml в одиночку → rc=1, statefulset-zot.yaml:57); слои
+    рецептов поверх цепочки (IMAGE_IDS_VALUES, MODULE_MANIFESTS_VALUES, UMBRELLA_OPTS,
+    DEV_UP_VALUES) названы и выведены из предмета пробы.
+
+blocking: []
+
+non_blocking:
+  - >-
+    KA1-34 ссылается на PRO-Robotech/kaname:internal/apps/kaname/config/{config,load}.go без ревизии;
+    назвать ревизию (пин kaname, против которого собран чарт), иначе правило окружения стареет молча.
+
+checks:
+  scope: да (Что НЕ входит есть; scope прежних кругов не менялся — дифф редакции 6→7 трогает только KA1-25/34 и журнал)
+  producer_per_then: 27 из 27 (ID сценариев — 27, строк таблицы производителей — 27)
+  twin_per_negative: 0 разрывов; KA1-34 (а) и (б) отличаются одним фактом
+  constructibility: >-
+    посеяна 1 проба-группа (KA1-25/34): 7 из 7 стендов отрисовано, все утверждения строки KA1-34
+    таблицы производителей подтверждены; близнец (б) KA1-25 построен (rc=1 на одиночном слое).
+    Не выполнилось — посев харнессов П1–П13 (заводятся реализацией; копия kacho под код пробы
+    заданием не названа), как и в круге 5.
+  open_questions: 0
+repeat_class_note: >-
+  Блокирующих 4 → 3 → 1 → 1 → 1 → 0. Род CONSTRUCTIBILITY закрыт переходом на полный путь объекта
+  и ключа, единственность пути проверена отрисовкой каждого стенда.
+route_flags: {proto: no, schema: no, public_rpc: no, ui: yes, new_domain: no, security_surface: yes}
