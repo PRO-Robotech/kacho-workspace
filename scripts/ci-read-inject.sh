@@ -57,9 +57,12 @@
 #             агрегат pull_request success, тот же из ручного skipped
 #             позже                                                  → 0 green
 #             то же, отброшенное напечатано CENSUS                   → 0 green
-#             близнец: ручной failure позже success из pull_request  → 1 CI-FAILED
+#             ручной failure позже success из pull_request не вытесняет → 0 green
+#             pr-fail-disp-success-later: failure из pull_request, ручной
+#             success позже — красное не закрыто                   → 1 CI-FAILED
 #             ручной skipped, агрегат pull_request ещё идёт          → 3 CI-PENDING
 #             близнец: skipped ручного без прогона pull_request      → 1 REQUIRED-NOT-SUCCESS
+#             близнец: failure ручного без прогона pull_request      → 1 CI-FAILED
 #   целевой прогон на НЕ-черновике (ws#1019, (д) ci-read.sh): прежний
 #             ПОЛНЫЙ — build failure, поздний ЦЕЛЕВОЙ того же workflow
 #             (проверки skipped, страж с аннотацией) не вытесняет его → 1 CI-FAILED build
@@ -121,11 +124,11 @@
 #   narrow-on-draft     — исключение целевого прогона применено и к черновику;
 #   narrow-guard-dropped — на не-черновике целевым считается check_suite ЛЮБОЙ
 #                         проверки failure, без аннотации стража (D2 check-verifier);
-#   manual-skip-kept    — skipped ручного прогона судится наравне (снята правка ws#1049);
-#   manual-skip-no-pr   — skipped не-pull_request отброшен и без проверки того же имени
+#   manual-skip-kept    — проверка ручного прогона судится наравне (снята правка ws#1049);
+#   manual-skip-no-pr   — проверка не-pull_request отброшена и без проверки того же имени
 #                         из pull_request;
-#   manual-skip-any-conclusion — отброшено ЛЮБОЕ заключение ручного прогона, не только
-#                         skipped (failure ручного прогона замолчал бы);
+#   manual-drop-skipped-only — при проверке из pull_request отброшен только skipped
+#                         ручного прогона (поздний success закрыл бы failure запроса);
 #   manual-skip-pr-event-too — отброшен и skipped самого прогона pull_request;
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
 #                         (по одному на каждый из четырёх; урок corelib#111).
@@ -381,9 +384,12 @@ manual() {  # manual <заключение проверок ручного пр�
 manual skipped
 run "ручной прогон: skipped агрегата при success того же из pull_request" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
 manual skipped
-run "ручной прогон: отброшенный skipped напечатан переписью" 0 '^CENSUS\tskipped прогона не-pull_request при проверке того же имени из pull_request не судится: сводный вердикт \(все проверки завершились и зелены\) \(workflow_dispatch'
+run "ручной прогон: отброшенный skipped напечатан переписью" 0 '^CENSUS\tпроверка прогона не-pull_request при проверке того же имени из pull_request не судится: сводный вердикт \(все проверки завершились и зелены\) \(workflow_dispatch'
 manual failure
-run "близнец: ручной прогон failure при success из pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+run "ручной прогон failure при success из pull_request не вытесняет его" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+manual success
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"failure\" end)"
+run "pr-fail-disp-success-later: поздний success ручного не закрывает failure из pull_request" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
 manual skipped
 edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
 edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .status = \"in_progress\" | .conclusion = null end)"
@@ -392,6 +398,10 @@ mk
 edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .event = \"workflow_dispatch\" end)"
 edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"skipped\" end)"
 run "близнец: skipped ручного прогона без прогона pull_request — красное" 1 "^REASON\tREQUIRED-NOT-SUCCESS\tобязательный контекст skipped: \Q$AGG_REQ\E"
+mk
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .event = \"workflow_dispatch\" end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"failure\" end)"
+run "близнец: failure ручного прогона без прогона pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
 
 # Аннотации проверки в живой форме (снимок kaname check-run 114579859902, 2026-10-12):
 # у стража три — failure «Process completed with exit code 1.» с ПУСТЫМ title, сам
@@ -522,8 +532,8 @@ narrow-on-draft	/^if \[ "$DRAFT" != true \]; then$/s/"$DRAFT" != true/true/
 narrow-guard-dropped	/"$gsuite" != null ] || continue/,/if guarded/s/if guarded "$gid" "$gname"/if true/
 manual-skip-kept	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/
 manual-skip-no-pr	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (true and/
-manual-skip-any-conclusion	/\.drop = (\$pr and/s/ and \.conclusion == "skipped"//
-manual-skip-pr-event-too	/\.drop = (\$pr and/s/ and \.ev != "pull_request"//
+manual-drop-skipped-only	/\.drop = (\$pr and/s/ and \.ev != "pull_request")/ and .ev != "pull_request" and .conclusion == "skipped")/
+manual-skip-pr-event-too	/\.drop = (\$pr and/s/ and \.ev != "pull_request"/ and true/
 MUT
 for tr in kacho kaname corelib kacho-workspace; do
     name="trunk-row-dropped-$tr"

@@ -78,12 +78,14 @@
 #   (е) ручной прогон на голове запроса (ws#1049; урок kaname#765): прогон
 #       workflow_dispatch того же workflow — другое событие, (а) его не вытесняет, а
 #       сводный вердикт запроса в нём skipped по условию на событие и стартует позже
-#       — «последний по имени» читал бы голову красной. Проверка skipped из прогона
-#       события не pull_request НЕ судится, если у того же имени есть проверка из
-#       прогона pull_request на этой голове: судится она (success, failure, идёт).
-#       Не ослабление: failure и прочие заключения ручного прогона судятся наравне;
-#       skipped без проверки того же имени из pull_request — по-прежнему не success
-#       (обязательный контекст — REQUIRED-NOT-SUCCESS). Отброшенное печатается CENSUS.
+#       — «последний по имени» читал бы голову красной. Если у имени есть проверка из
+#       прогона pull_request на этой голове, судится она (последняя среди pull_request:
+#       success, failure, идёт); проверки того же имени из других событий её НЕ
+#       вытесняют ни в зелёное (поздний success ручного прогона не закрывает failure
+#       запроса), ни в красное. Без проверки того же имени из pull_request любое
+#       заключение ручного прогона судится: skipped — не success (обязательный
+#       контекст — REQUIRED-NOT-SUCCESS), failure — CI-FAILED. Отброшенное печатается
+#       CENSUS.
 #
 # ИСХОДЫ — код возврата и строка VERDICT; при нескольких причинах побеждает
 # старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно:
@@ -201,16 +203,17 @@ jq --argjson nar "$NARROW" '[.[].workflow_runs[]] | group_by([(.workflow_id // .
     | {latest: map(.l), superseded: (map(.s) | add // [])}' "$W/runs.json" > "$W/runsel.json"
 SUPERSEDED="$(jq -c '[.superseded[].check_suite_id]' "$W/runsel.json")"
 jq --argjson s "$SUPERSEDED" '[.[].check_runs[] | select((.check_suite.id // null) as $i | $s | index($i) | not)]' "$W/cr.json" > "$W/crl.json"
-# (е) ручной прогон (ws#1049): событие проверки — событие прогона её check_suite. skipped
-# из прогона не-pull_request не судится, если у имени есть проверка из прогона pull_request
-# на этой голове; прочие заключения ручного прогона судятся наравне.
+# (е) ручной прогон (ws#1049): событие проверки — событие прогона её check_suite. Если у
+# имени есть проверка из прогона pull_request на этой голове, судится она (последняя среди
+# pull_request); проверки того же имени из других событий её не вытесняют ни в зелёное, ни
+# в красное. Без проверки из pull_request любое заключение ручного прогона судится.
 SUITE_EV="$(jq -c '[.[].workflow_runs[] | select(.check_suite_id != null) | {key: (.check_suite_id | tostring), value: .event}] | from_entries' "$W/runs.json")"
 jq --argjson ev "$SUITE_EV" 'map(.ev = $ev[(.check_suite.id // null) | tostring]) | group_by(.name)
     | map(any(.[]; .ev == "pull_request") as $pr
-        | map(.drop = ($pr and .ev != null and .ev != "pull_request" and .status == "completed" and .conclusion == "skipped")))
+        | map(.drop = ($pr and .ev != "pull_request")))
     | add // []' "$W/crl.json" > "$W/crm.json"
-MANUAL_SKIP="$(jq -r '[.[] | select(.drop) | "\(.name) (\(.ev), check-run \(.id))"] | join("; ")' "$W/crm.json")"
-[ -z "$MANUAL_SKIP" ] || printf 'CENSUS\tskipped прогона не-pull_request при проверке того же имени из pull_request не судится: %s\n' "$MANUAL_SKIP"
+MANUAL_DROP="$(jq -r '[.[] | select(.drop) | "\(.name) (\(.ev), \(.conclusion // .status), check-run \(.id))"] | join("; ")' "$W/crm.json")"
+[ -z "$MANUAL_DROP" ] || printf 'CENSUS\tпроверка прогона не-pull_request при проверке того же имени из pull_request не судится: %s\n' "$MANUAL_DROP"
 # последний прогон каждого имени среди невытесненных и не отброшенных по (е); commit status — уже последний по контексту
 jq '[.[] | select(.drop | not)] | group_by(.name) | map(sort_by(.started_at // "") | last)
     | map({name, id, done: (.status=="completed"), c: (.conclusion // "")})' "$W/crm.json" > "$W/latest.json"
