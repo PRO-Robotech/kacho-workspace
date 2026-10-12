@@ -12,6 +12,8 @@
 #   B. `CLAUDE.md` несёт норму (якорь — фрагмент императива «Ни один вызов не держит
 #      ожидание дольше 10» и цитата владельца «ничего не делают а мы ждем»);
 #   C. база диспетчера несёт строку сигнала «⏱ ЗАСТОЙ» в §10 и `stall-census.sh`;
+#   C'. (ws#1022) норма «пока идёт CI — максимум параллели» (владелец 2026-10-12): база
+#      несёт её императив §9 и цитату владельца, правило — `at-parallel-while-ci`;
 #   D. `.claude/settings.json` провязывает `stall-signal.sh` в `Stop` и
 #      `UserPromptSubmit`, и сам хук и прибор `scripts/stall-census.sh` есть в дереве;
 #   E. (ws#1004) `.claude/settings.json` провязывает `no-wait-guard.sh` в `PreToolUse`
@@ -80,9 +82,16 @@ try:
     dp = flat('.claude/agents/dispatcher.md')
 except OSError:
     dp = ''
-for frag in ('| «⏱ ЗАСТОЙ»', 'stall-census.sh', '`blocked` — лишь за файлом соседа'):
+for frag in ('| «⏱ ЗАСТОЙ»', 'stall-census.sh', '`blocked` — лишь за файлом соседа',
+             'Ожидание CI разработку не останавливает', 'пока ci идет мы максимально параллелим задачи'):
     if frag not in dp:
         finds.append('.claude/agents/dispatcher.md: нет «%s»' % frag)
+try:
+    at = flat('.claude/rules/ai-tooling.md')
+except OSError:
+    at = ''
+if 'at-parallel-while-ci · пока идёт CI, независимые предметы' not in at:
+    finds.append('.claude/rules/ai-tooling.md: нет нормы «at-parallel-while-ci · пока идёт CI, независимые предметы»')
 for ev in ('Stop', 'UserPromptSubmit'):
     if not any('stall-signal.sh' in h.get('command', '') for g in hooks.get(ev, []) for h in g.get('hooks', [])):
         finds.append('.claude/settings.json: stall-signal.sh не провязан в %s' % ev)
@@ -134,5 +143,5 @@ for f in finds:
     print('[FAIL] %s — %s' % (name, f), file=sys.stderr)
 if finds:
     sys.exit(1)
-print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash' % (name, seen))
+print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash; параллель во время CI — в базе и правиле' % (name, seen))
 PY

@@ -1840,6 +1840,34 @@ if mr_patch "$b/$GIR_REL" 's/gi-security-finding-issue-now/gi-security-finding-l
     run 1 "$b" "инъекция: нормы «задача о безопасности немедленно» в правиле нет — краснеет" "$C13"
 fi
 
+# ось A'' (ws#1022): норма 2026-10-12 «эпик стрима и его черновой MR в `main`».
+# Каждая проба выворачивает ТЕЛО одного места при сохранённом ключе и окружении:
+# красное приходит ровно от снятого предмета, соседние якоря целы.
+GOP_REL=".claude/agents/git-operator.md"
+b="$(mksandbox)"
+if mr_patch "$b/$BASE_REL" 's/\Qна весь стрим создается задача эпик и для нее делаем драфт мр\E/на стрим заводится эпик/g' \
+    "цитата 2026-10-12 снята из базы"; then
+    run 1 "$b" "инъекция: цитата «эпик и драфт мр» выпала из базы — краснеет" "$C13"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$BASE_REL" 's/\QЧЕРНОВОЙ MR ветки эпика в `main`, открытый до посадки\E/MR ветки эпика в `main` при посадке/g' \
+    "ворота §7: черновой MR при старте заменён MR при посадке"; then
+    run 1 "$b" "инъекция: ворота «черновой MR со старта стрима» вывернуты в базе — краснеет" "$C13"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$GOP_REL" 's/\Qи ЧЕРНОВОЙ MR ветки эпика в `main` (`gh pr create --draft --base main`)\E/; MR в `main` — при посадке/g' \
+    "режим epic git-operator без чернового MR"; then
+    run 1 "$b" "инъекция: режим epic у git-operator без чернового MR — краснеет" "$C13"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$GIR_REL" 's/\Qтем же заходом ЧЕРНОВОЙ MR ветки эпика в `main` до посадки\E/MR ветки эпика в `main` при посадке/g' \
+    "тело gi-epic-draft-mr вывернуто при сохранённом ключе"; then
+    run 1 "$b" "инъекция: норма gi-epic-draft-mr вывернута при сохранённом ключе — краснеет" "$C13"
+fi
+b="$(mksandbox)"
+printf '%s\n' '- Посторонняя строка git-operator, предмета проверки не касающаяся.' >> "$b/$GOP_REL"
+run 0 "$b" "близнец: правка git-operator мимо предмета — молчит" "$C13"
+
 # ось B: отменённый маршрут внесён как действующее основание
 b="$(mksandbox)"
 printf '%s\n' '- Посадка: PR прямо в `main` без накопительной ветки, слияние сразу по зелёному CI.' >> "$b/$BASE_REL"
@@ -2650,6 +2678,22 @@ run 1 "$b" "инъекция: прибора застоя нет — красн�
 b="$(mksandbox)"
 printf '\n# комментарий пробы\n' >> "$b/.claude/hooks/stall-signal.sh"
 run 0 "$b" "близнец: безобидная правка хука — молчит" "$C19"
+# ws#1022: норма «пока идёт CI — максимум параллели» в базе и правиле.
+b="$(mksandbox)"
+python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); t = s.replace('Ожидание CI разработку не останавливает', 'Ожидание CI останавливает разработку')
+assert t != s; open(p, 'w').write(t)
+PY
+run 1 "$b" "инъекция: императив «ожидание CI разработку не останавливает» вывернут в базе — краснеет" "$C19"
+b="$(mksandbox)"
+python3 - "$b/.claude/rules/ai-tooling.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read(); t = ''.join(l for l in s.splitlines(True) if not l.startswith('at-parallel-while-ci · '))
+assert t != s; open(p, 'w').write(t)
+PY
+run 1 "$b" "инъекция: строка at-parallel-while-ci снята из правила — краснеет" "$C19"
+b="$(mksandbox)"
+printf '\nat-probe-twin · посторонняя норма пробы · вниманием · red: —\n' >> "$b/.claude/rules/ai-tooling.md"
+run 0 "$b" "близнец: правка ai-tooling мимо предмета — молчит" "$C19"
 # ws#1004: отказ ожиданию провязан в PreToolUse Bash, правило о чужих файлах — в базе.
 b="$(mksandbox)"
 python3 - "$b/.claude/settings.json" <<'PY'
