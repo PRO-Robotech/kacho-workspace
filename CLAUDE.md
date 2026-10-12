@@ -41,7 +41,7 @@
 
 ```
 ### ВОЗВРАТ
-- статус: готово | блокер | вопрос-владельцу | не-выполнилось
+- статус: готово | идёт | блокер | вопрос-владельцу | не-выполнилось
 - вердикт: — | ✅ принято | ⛔ возврат → <агент> | ⟳ прогон недействителен
 - исход проверок: зелёных N · красных N · не выполнилось N | проверок не было
 - посылка: подтверждена | опровергнута — <команда, которой проверил>
@@ -86,7 +86,9 @@
   минут: долгое — отсоединённо (`setsid nohup … > журнал &`, pid-файл), шаг возвращает «идёт: pid,
   журнал, срок», исход дочитывает короткий шаг; слот тяжёлого — внутри него (занят — код 74 сразу).
   Циклы со `sleep`, `wait` после `&`, `tail --pid`, опрос CI отказывает хук `no-wait-guard`; срок
-  истёк — возврат с остатком. Застой меряет `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
+  истёк — возврат с остатком. Ход не завершается ожиданием события (`Monitor`, уведомление о
+  фоновой задаче): ход кончается ВОЗВРАТОМ со статусом «идёт»; итог без блока «### ВОЗВРАТ»
+  недействителен (хук `return-guard`). Застой меряет `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
 - Отправка СВОЕЙ ветки полосы — твоя, в переднем плане; PR, сборка, вливание и снятие ветки —
   `git-operator`.
 
@@ -119,7 +121,7 @@ AI-оснастка живёт **в единственном экземпляр�
 
 `.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
 (`UserPromptSubmit` / `Stop`), `stall-signal` (там же), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` и `gh-api-guard` (`PreToolUse` Bash), `session-memcap` (`SessionStart`),
+сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` и `gh-api-guard` (`PreToolUse` Bash), `return-guard` (`SubagentStop`), `session-memcap` (`SessionStart`),
 `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует в одном
 экземпляре; в репозитории продукта его нет и не должно быть.
 

@@ -29,6 +29,12 @@
 #      `…/no-wait-guard.sh.off`: хук выходит 127, страж выключен); разбор хука есть; база
 #      диспетчера несёт правило полосы о чужих файлах («`blocked` — лишь за файлом
 #      соседа»). Отказы стража доказывает `.claude/hooks/no-wait-guard/prove.sh`.
+#   F. (ws#1030) ход исполнителя не завершается ожиданием события (Monitor,
+#      уведомление): `CLAUDE.md` несёт норму (якоря — сам императив и недействительность
+#      итога без блока) и статус «идёт» в словаре контракта; `.claude/settings.json`
+#      провязывает `return-guard.sh` в `SubagentStop` КАНОНИЧЕСКИМ путём (тот же разбор
+#      команды, что у оси E) без матчера, сужающего типы агентов; разбор хука есть.
+#      Отказы стража доказывает `.claude/hooks/return-guard/prove.sh`.
 # Свойства самого прибора и хука доказывает `scripts/stall-census-inject.sh`, срок
 # шага и чтение CI шаблоном — `scripts/wave-template-inject.sh`; здесь — провязка.
 #
@@ -146,7 +152,35 @@ for m, cmd in nwg:
         wired = True
 if not wired:
     finds.append('.claude/settings.json: no-wait-guard.sh не провязан в PreToolUse под Bash каноническим путём')
-for p in ('.claude/hooks/stall-signal.sh', 'scripts/stall-census.sh', '.claude/hooks/no-wait-guard.sh', '.claude/hooks/no-wait-guard/guard.py'):
+# F (ws#1030): норма о ходе, кончающемся ожиданием события, и её держатель.
+for frag in ('Ход не завершается ожиданием события (`Monitor`, уведомление о фоновой задаче)',
+             'ход кончается ВОЗВРАТОМ со статусом «идёт»',
+             'итог без блока «### ВОЗВРАТ» недействителен',
+             '- статус: готово | идёт | блокер | вопрос-владельцу | не-выполнилось'):
+    if frag not in cl:
+        finds.append('CLAUDE.md: нет нормы ws#1030 — не найдено «%s»' % frag)
+RG = os.path.realpath(os.path.join(root, '.claude/hooks/return-guard.sh'))
+rgw = False
+for g in hooks.get('SubagentStop', []):
+    for h in g.get('hooks', []):
+        if 'return-guard' not in h.get('command', ''):
+            continue
+        m = g.get('matcher')
+        if m not in (None, '', '*', '.*'):
+            finds.append('.claude/settings.json: SubagentStop зовёт return-guard под матчером «%s» — часть исполнителей мимо стража' % m)
+            continue
+        sp = script_of(h.get('command', ''))
+        if sp != RG:
+            finds.append('.claude/settings.json: SubagentStop зовёт не канонический хук: «%s» → %s (ожидался .claude/hooks/return-guard.sh)'
+                         % (h.get('command', ''), sp or 'путь не разобран'))
+        elif not os.path.isfile(sp) or not os.access(sp, os.X_OK):
+            finds.append('.claude/settings.json: SubagentStop зовёт %s — файла нет или он не исполним' % sp)
+        else:
+            rgw = True
+if not rgw:
+    finds.append('.claude/settings.json: return-guard.sh не провязан в SubagentStop каноническим путём')
+for p in ('.claude/hooks/stall-signal.sh', 'scripts/stall-census.sh', '.claude/hooks/no-wait-guard.sh', '.claude/hooks/no-wait-guard/guard.py',
+          '.claude/hooks/return-guard/guard.py'):
     if not os.path.isfile(os.path.join(root, p)):
         finds.append('%s: файла нет' % p)
 print('[CENSUS] %s: агентов-исполнителей осмотрено %d, протокол, база, настройки, хук и прибор — по одному; находок %d' % (name, seen, len(finds)))
@@ -156,5 +190,5 @@ for f in finds:
     print('[FAIL] %s — %s' % (name, f), file=sys.stderr)
 if finds:
     sys.exit(1)
-print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash; параллель во время CI — в базе и правиле' % (name, seen))
+print('[PASS] %s — норма «Не жди» у %d исполнителей, в протоколе и базе; застой провязан в Stop и UserPromptSubmit, отказ ожиданию — в PreToolUse Bash, ход без ВОЗВРАТА — в SubagentStop; параллель во время CI — в базе и правиле' % (name, seen))
 PY

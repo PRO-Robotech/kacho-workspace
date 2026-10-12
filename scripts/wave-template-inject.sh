@@ -509,6 +509,9 @@ ok(CIR >= 1 && r.res.ok === false && r.res.state === 'running' && r.res.pr === 7
 console.log('== агент не ждёт (ws#1001): срок шага и CI — короткими чтениями шаблона')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 3 }, { code: 0 }] })
 ok(r.calls.length > 0 && r.calls.every(c => /НЕ ЖДИ/.test(c.prompt) && /СРОК ШАГА/.test(c.prompt)), 'каждое задание несёт норму «НЕ ЖДИ» и срок шага', r.calls.filter(c => !/НЕ ЖДИ/.test(c.prompt) || !/СРОК ШАГА/.test(c.prompt)).map(c => c.label).join(','))
+// ws#1030: ход не завершается ожиданием события (Monitor, уведомление) — в каждом задании.
+const EVENT_NORM = /ХОД НЕ ЗАВЕРШАЕТСЯ ОЖИДАНИЕМ СОБЫТИЯ \(ws#1030\): Monitor и уведомление о фоновой задаче не ждут — ход кончается ответом по схеме сейчас/
+ok(r.calls.length > 0 && r.calls.every(c => EVENT_NORM.test(c.prompt)), 'каждое задание запрещает кончать ход ожиданием события (Monitor, уведомление)', r.calls.filter(c => !EVENT_NORM.test(c.prompt)).map(c => c.label).join(','))
 // ws#1008: вливание — только gh pr merge --match-head-commit; изменяющий gh api запрещён в общем задании.
 const MERGE_NORM = /ВЛИВАНИЕ \(ws#1008\): только шагом merge \(git-operator\) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos\/\*\/merges`, `gh api …\/pulls\/\*\/merge` и `gh pr merge --auto` запрещены\. `gh api` — только GET: merge-base — `gh api repos\/<o>\/<r>\/compare\/<base>\.\.\.<head> --jq \.merge_base_commit\.sha`/
 ok(r.calls.length > 0 && r.calls.every(c => MERGE_NORM.test(c.prompt)), 'каждое задание несёт правило вливания и «gh api — только GET» с чтением merge-base', r.calls.filter(c => !MERGE_NORM.test(c.prompt)).map(c => c.label).join(','))
@@ -831,6 +834,7 @@ mutant "merge без сверки головы" "' --merge --match-head-commit '
 mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + '\` (коммит слияния на сервере, \`--subject\` — по норме git-operator; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
 mutant "merge с --auto" "без --auto и --admin" "с --auto"
 mutant "норма «не жди» снята из общего задания" "  'НЕ ЖДИ (CLAUDE.md" "  '(CLAUDE.md"
+mutant "запрет ждать событие снят из общего задания (ws#1030)" "  'ХОД НЕ ЗАВЕРШАЕТСЯ ОЖИДАНИЕМ СОБЫТИЯ (ws#1030): Monitor и уведомление о фоновой задаче не ждут" "  '(ws#1030): Monitor и уведомление о фоновой задаче можно ждать"
 mutant "агент ждёт CI сам" "идёт — сразу верни: повтор делает шаблон." "идёт — подожди до 10 минут и верни."
 mutant "пауза CI дольше 5 мин" "const CI_PAUSE_S = 240" "const CI_PAUSE_S = 600"
 mutant "повтор CI без паузы" "'\`' + (pause ? pauseCmd : '')" "'\`' + (false ? pauseCmd : '')"

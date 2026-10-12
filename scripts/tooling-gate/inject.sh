@@ -2841,6 +2841,62 @@ python3 - "$b/.claude/agents/dispatcher.md" <<'PY'
 import sys; p = sys.argv[1]; s = open(p).read(); open(p, 'w').write(s.replace('`blocked` — лишь за файлом соседа', '`blocked` — по усмотрению'))
 PY
 run 1 "$b" "инъекция: правило о чужих файлах снято из базы — краснеет" "$C19"
+# ws#1030 ось F: ход исполнителя не кончается ожиданием события; return-guard в SubagentStop.
+rg_set() {
+    python3 - "$1/.claude/settings.json" "$2" "$3" <<'PY'
+import json, sys; p, mode, val = sys.argv[1:4]; d = json.load(open(p))
+for g in d['hooks'].get('SubagentStop', []):
+    if mode == 'drop':
+        g['hooks'] = [h for h in g['hooks'] if 'return-guard' not in h.get('command', '')]
+    elif mode == 'matcher':
+        g['matcher'] = val
+    elif mode == 'cmd':
+        for h in g['hooks']:
+            if 'return-guard' in h.get('command', ''): h['command'] = val
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+}
+b="$(mksandbox)"
+rg_set "$b" drop -
+run_says 1 "$b" "инъекция F: return-guard снят с SubagentStop — краснеет" "$C19" "return-guard.sh не провязан в SubagentStop"
+b="$(mksandbox)"
+rg_set "$b" matcher qa-test-engineer
+run_says 1 "$b" "инъекция F: return-guard под матчером одного агента — краснеет" "$C19" "под матчером «qa-test-engineer»"
+b="$(mksandbox)"
+rg_set "$b" matcher '*'
+run 0 "$b" "близнец F: матчер «*» — все исполнители под стражем, молчит" "$C19"
+b="$(mksandbox)"
+rg_set "$b" cmd 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/return-guard.sh.off"'
+run_says 1 "$b" "инъекция F: SubagentStop зовёт выключенную копию «.off» — краснеет" "$C19" "SubagentStop зовёт не канонический хук"
+b="$(mksandbox)"
+rg_set "$b" cmd 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/return-guard.sh"'
+run 0 "$b" "близнец F: канонический путь в форме \${CLAUDE_PROJECT_DIR} — молчит" "$C19"
+b="$(mksandbox)"
+chmod -x "$b/.claude/hooks/return-guard.sh"
+run_says 1 "$b" "инъекция F: return-guard не исполним — краснеет" "$C19" "файла нет или он не исполним"
+b="$(mksandbox ".claude/hooks/return-guard/guard.py")"
+run_says 1 "$b" "инъекция F: разбора return-guard нет — краснеет" "$C19" "return-guard/guard.py: файла нет"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('Ход не завершается ожиданием события', 'Ход может завершаться ожиданием события')
+assert t != s; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция F: норма вывернута в «ход может завершаться ожиданием события» — краснеет" "$C19" "нет нормы ws#1030"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('итог без блока «### ВОЗВРАТ» недействителен', 'итог без блока «### ВОЗВРАТ» принимается')
+assert t != s; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция F: итог без ВОЗВРАТА объявлен годным — краснеет" "$C19" "итог без блока «### ВОЗВРАТ» недействителен"
+b="$(mksandbox)"
+python3 - "$b/CLAUDE.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+t = s.replace('- статус: готово | идёт | блокер', '- статус: готово | блокер')
+assert t != s; open(p, 'w').write(t)
+PY
+run_says 1 "$b" "инъекция F: статус «идёт» снят из словаря контракта — краснеет" "$C19" "- статус: готово | идёт"
 
 echo "== check-20: «gh api — только GET» у читающих агентов, отказ провязан в PreToolUse Bash (ws#1008) =="
 C20=check-20-gh-api-read-only-is-wired.sh
