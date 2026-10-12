@@ -15,7 +15,13 @@
 # (сопоставление по имени, started_at и check_suite: 70 из 70, прочие поля совпали).
 # Без id ci-read.sh пропускал бы каждую проверку в поиске стража, и случаи судили бы
 # не живую форму (ws#1019, мутант D2 выжил). Предпосылка проверяется до случаев.
-# Аннотации стража лежат у ОДНОЙ проверки (annotations.<id>.json), как на площадке.
+# Аннотации стража лежат у ОДНОЙ проверки (annotations.<id>.json), в живой форме —
+# тройкой с аннотацией выхода и notice; прочим проверкам двойник отдаёт живую форму
+# по заключению (см. двойник ниже). Сверка ключей с живым ответом (kaname,
+# f11cbe7, 2026-10-12): из полей, которые читает ci-read.sh, в фикстуре недостаёт 0;
+# недостающие (у check-run — app, output, html_url и др.; у run — actor, html_url,
+# head_commit и др.; у status — sha, total_count и др.) ci-read.sh не читает.
+# Существенное расхождение было одно — аннотации упавшей проверки — и закрыто двойником.
 # Каждый случай меняет РОВНО один факт контроля:
 #
 #   контроль: полный зелёный, база свежая                         → 0 green
@@ -57,6 +63,8 @@
 #             прежнего, проверка failure С id и БЕЗ аннотации стража
 #             (целевым не считается, вытесняет прежний)             → 1 CI-FAILED
 #   черновик: failure БЕЗ аннотации стража — настоящий отказ       → 1 CI-FAILED
+#   черновик: failure, аннотация failure «Process completed with
+#             exit code 1.» с пустым title, стража нет (N1)         → 1 CI-FAILED
 #   черновик: страж есть, выбранное задание failure                → 1 CI-FAILED
 #   черновик: страж ещё идёт                                       → 3 DRAFT-GUARD-PENDING
 #   не черновик: та же аннотация стражем не делает                 → 1 CI-FAILED
@@ -92,6 +100,8 @@
 #   failset-<значение>  — значение убрано из FAILSET, по одному на каждое из шести;
 #   draft-ignored       — черновик читается как готовый запрос;
 #   guard-any-failure   — стражем считается любой failure черновика, без аннотации;
+#   guard-title-any     — стражем считается ЛЮБАЯ аннотация (`.title != null`; N1
+#                         check-verifier): на живой форме у упавшей проверки она есть;
 #   supersede-dropped   — check-run вытесненного прогона судится наравне (ws#1019);
 #   supersede-earliest  — последним считается САМЫЙ РАННИЙ прогон workflow;
 #   supersede-event-dropped — событие выпало из ключа: push вытесняется pull_request;
@@ -130,9 +140,15 @@ trap 'rm -rf "$T"' EXIT
 # Двойник gh: путь (последний довод) → файл в каталоге $CI_READ_FX; файла нет — 404.
 # Страницы — как у площадки: <файл>.p2 рядом — вторая страница; без --paginate
 # отдаётся только первая, с ним — обе подряд (поток JSON, как печатает gh).
-# Аннотации: annotations.<id>.json — для проверки <id>, иначе пустой список (у
-# проверки аннотаций нет). Общего файла «на все проверки» нет: на площадке аннотация
-# стража лежит у одной проверки, а общий файл сделал бы стражем каждую.
+# Аннотации: annotations.<id>.json — для проверки <id>; файла нет — ЖИВАЯ форма по
+# заключению проверки <id> из check-runs.json (+ .p2), как отдаёт площадка (снимок
+# kaname, голова f11cbe7, 2026-10-12; ws#1019, N1 check-verifier): у failure —
+# аннотация failure с ПУСТЫМ title и message «Process completed with exit code 1.»,
+# у cancelled — «The operation was canceled.», у завершённой не skipped — notice
+# раннера; у skipped — []. Проверки с таким id нет — 404, как у площадки. Пустой
+# список у упавшей проверки — форма, которой площадка не отдаёт: случаи на ней не
+# различали «аннотация есть» и «аннотация стража есть» (мутант N1 выжил 45/45).
+# Общего файла «на все проверки» нет: аннотация стража лежит у одной проверки.
 cat > "$T/gh" <<'GH'
 #!/usr/bin/env bash
 p="${!#}"
@@ -149,7 +165,21 @@ case "$p" in
   repos/*/check-runs/*/annotations)
     id="${p#repos/*/check-runs/}"; id="${id%/annotations}"
     if [ -f "$CI_READ_FX/annotations.$id.json" ]; then f="annotations.$id.json"
-    else echo '[]'; exit 0; fi ;;
+    else
+      c="$(cat "$CI_READ_FX/check-runs.json" "$CI_READ_FX/check-runs.json.p2" 2>/dev/null \
+          | jq -rs --argjson i "$id" '[.[].check_runs[] | select(.id == $i)] | if length == 0 then "absent" else (last | "\(.status)/\(.conclusion)") end')"
+      ann() { jq -cn --arg l "$1" --arg m "$2" '{path: ".github", blob_href: "", start_line: 1, start_column: null, end_line: 1, end_column: null, annotation_level: $l, title: "", message: $m, raw_details: ""}'; }
+      note="$(ann notice 'runner image notice')"
+      case "$c" in
+        absent) echo "gh: Not Found (HTTP 404) $p" >&2; exit 1 ;;
+        completed/failure) printf '[%s,%s]\n' "$(ann failure 'Process completed with exit code 1.')" "$note" ;;
+        completed/cancelled) printf '[%s,%s]\n' "$(ann failure 'The operation was canceled.')" "$note" ;;
+        completed/skipped) echo '[]' ;;
+        completed/*) printf '[%s]\n' "$note" ;;
+        *) echo '[]' ;;
+      esac
+      exit 0
+    fi ;;
   *) f=none ;;
 esac
 if [ -f "$CI_READ_FX/$f.err" ]; then cat "$CI_READ_FX/$f.err" >&2; exit 1; fi
@@ -159,6 +189,18 @@ cat "$CI_READ_FX/$f"
 if [ "$pg" = 1 ] && [ -f "$CI_READ_FX/$f.p2" ]; then cat "$CI_READ_FX/$f.p2"; fi
 GH
 chmod +x "$T/gh"
+# Предпосылка двойника: без файла случая он отдаёт ЖИВУЮ форму — упавшей проверке
+# аннотацию failure с пустым title и message выхода, отменённой — «canceled»,
+# пропущенной — [], неизвестной — 404. Иначе случаи снова судят форму, которой у
+# площадки нет.
+mkdir -p "$T/pre"
+echo '{"check_runs":[{"id":1,"status":"completed","conclusion":"failure"},{"id":2,"status":"completed","conclusion":"cancelled"},{"id":3,"status":"completed","conclusion":"skipped"}]}' > "$T/pre/check-runs.json"
+pre() { CI_READ_FX="$T/pre" "$T/gh" api "repos/o/r/check-runs/$1/annotations" 2>/dev/null | jq -e "$2" >/dev/null 2>&1; }
+{ pre 1 'any(.[]; .annotation_level == "failure" and .title == "" and .message == "Process completed with exit code 1.")' \
+    && pre 2 'any(.[]; .annotation_level == "failure" and .title == "" and .message == "The operation was canceled.")' \
+    && pre 3 '. == []' \
+    && ! CI_READ_FX="$T/pre" "$T/gh" api repos/o/r/check-runs/9/annotations >/dev/null 2>&1; } \
+    || { echo "VOID: двойник gh не отдаёт живую форму аннотаций" >&2; exit 2; }
 
 # Исполнитель одной клетки матрицы: <сценарий ci-read> <живая ведомость> <каталог
 # случая> <файл исхода>. Исход — строка «OK|FAIL TAB код»; при FAIL следом хвост вывода.
@@ -310,6 +352,19 @@ run "последний — по created_at, а не по run_number" 0 '^VERDIC
 supersede failure completed '"success"' pull_request 38000000000; new_agg completed '"success"' 2026-10-10T22:30:00Z
 run "последний — по created_at, а не по id" 0 '^VERDICT\tgreen\t'
 
+# Аннотации проверки в живой форме (снимок kaname check-run 114579859902, 2026-10-12):
+# у стража три — failure «Process completed with exit code 1.» с ПУСТЫМ title, сам
+# страж и notice раннера; страж — не первый в списке. <аргументы> — тройки level title message.
+ann_live() {
+    jq -cn --args '[$ARGS.positional as $a | range(0; $a | length; 3) as $i
+        | {path: ".github", blob_href: "", start_line: (72 + $i), start_column: null, end_line: (72 + $i), end_column: null,
+           annotation_level: $a[$i], title: $a[$i + 1], message: $a[$i + 2], raw_details: ""}]' "$@"
+}
+EXIT1="Process completed with exit code 1."
+guard_ann() {  # guard_ann <message стража> — живая тройка аннотаций стража
+    ann_live failure "" "$EXIT1" failure "черновик не вливается" "$1" notice "" "runner image notice"
+}
+
 say "== целевой прогон на не-черновике (ws#1019, (д) ci-read.sh)"
 # Workflow «ci» фикстуры (run 38086061971, suite 103192606701) — прежний ПОЛНЫЙ
 # прогон с build failure; поздний ЦЕЛЕВОЙ прогон того же workflow (suite 998): его
@@ -324,7 +379,7 @@ narrow() {
         | .check_runs += [(.check_runs[] | select(.check_suite.id == $CISUITE)) | .id += 2000000 | .check_suite.id = 998 | .conclusion = \"skipped\" | .started_at = \"2026-10-10T23:01:00Z\"]
         | .check_runs += [{id: 778, name: \"сводный вердикт ci\", status: \"completed\", conclusion: \"failure\", started_at: \"2026-10-10T23:02:00Z\", completed_at: \"2026-10-10T23:03:00Z\", check_suite: {id: 998}}]" \
         "$C/check-runs.json" > "$C/cr.n" && mv "$C/cr.n" "$C/check-runs.json"
-    echo '[{"title":"черновик не вливается","message":"целевой прогон"}]' > "$C/annotations.778.json"
+    guard_ann "целевой прогон" > "$C/annotations.778.json"
 }
 narrow; jq --arg b "$BUILD" -e '[.check_runs[] | select(.name == $b)] | length == 2' "$C/check-runs.json" >/dev/null \
     || { echo "VOID: в фикстуре нет проверки «$BUILD» в workflow ci" >&2; exit 2; }
@@ -342,11 +397,18 @@ draft() {
         | .conclusion = (if .name == $a then "failure"
             elif (.name | test("^(юниты|integration|e2e|unit|build) ")) then "skipped"
             else .conclusion end)))' "$C/check-runs.json" > "$C/cr.n" && mv "$C/cr.n" "$C/check-runs.json"
-    echo '[{"title":"черновик не вливается","message":"целевой прогон: 9 заданий из 27"}]' > "$C/annotations.777.json"
+    guard_ann "целевой прогон: 9 заданий из 27" > "$C/annotations.777.json"
 }
 draft; run "черновик: исполненное зелёное, страж вынес вердикт" 5 '^VERDICT\ttargeted-green\t.*ЦЕЛЕВОЙ, не полный'
-draft; echo '[]' > "$C/annotations.777.json"
+draft; rm "$C/annotations.777.json"   # аннотации — живая форма двойника по заключению
 run "черновик: failure без аннотации стража — настоящий отказ" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG\E"
+# N1 (check-verifier): у КАЖДОЙ упавшей проверки площадка отдаёт аннотацию failure с
+# пустым title — стражем она не делает. Сочти ci-read.sh стражем любую аннотацию,
+# этот случай стал бы 5 targeted-green, а на не-черновике красное полного — green.
+draft; ann_live failure "" "$EXIT1" notice "" "runner image notice" > "$C/annotations.777.json"
+jq -e 'length > 0 and any(.[]; .annotation_level == "failure" and .title == "") and all(.[]; .title != "черновик не вливается")' "$C/annotations.777.json" >/dev/null \
+    || { echo "VOID: случай N1 не несёт аннотации failure с пустым title" >&2; exit 2; }
+run "черновик: failure, аннотация «$EXIT1» с пустым title, стража нет (N1)" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG\E"
 draft; edit check-runs.json '.check_runs |= map(.conclusion = (if .name == "build · vet · gofmt" then "failure" else .conclusion end))'
 run "черновик: страж есть, выбранное задание failure" 1 '^REASON\tCI-FAILED\tfailure: build · vet · gofmt'
 draft; jq --arg a "$AGG" '.check_runs |= map(.status = (if .name == $a then "in_progress" else .status end) | .conclusion = (if .name == $a then null else .conclusion end))' "$C/check-runs.json" > "$C/cr.n" && mv "$C/cr.n" "$C/check-runs.json"
@@ -405,6 +467,7 @@ failset-startup_failure	/^FAILSET=/s/,"startup_failure"//
 failset-stale	/^FAILSET=/s/,"stale"//
 draft-ignored	/DRAFT="$(jq -r/s/.draft == true/.draft == "never"/
 guard-any-failure	/any(.\[\]; .title==$t)/s/any(.\[\]; .title==$t)/true/
+guard-title-any	/any(.\[\]; .title==$t)/s/.title==$t/.title != null/
 supersede-dropped	/select((.check_suite.id \/\/ null) as $i/s/$s | index($i) | not/true/
 supersede-earliest	/if ($full | length) > 0 then ($full | last) else last end/s/($full | last) else last end/($full | first) else first end/
 supersede-event-dropped	/group_by(\[(.workflow_id/s/, .event\])/])/
