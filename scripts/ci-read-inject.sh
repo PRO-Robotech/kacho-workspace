@@ -47,12 +47,29 @@
 #             прежний failure, новый завершён success (близнец)      → 0 green
 #             то же, проверка прежнего с БОЛЕЕ ПОЗДНИМ started_at    → 0 green
 #             прежний ещё идёт, новый завершён success               → 0 green
-#             прежний — событие push и идёт: не вытеснен             → 3 RUNS-PENDING
+#             прежний — событие push и идёт: не вытеснен; его
+#             failure красный по (е2)                               → 1 RUNS-PENDING
 #             одноимённый workflow ДРУГОГО файла (workflow_id) позже:
 #             не вытесняет, красное прежнего судится                → 1 CI-FAILED
 #             новый позже по created_at, но с меньшим run_number      → 0 green
 #             новый позже по created_at, но с меньшим id              → 0 green
 #             последний прогон queued (не in_progress)               → 3 RUNS-PENDING
+#   ручной прогон workflow_dispatch (ws#1049; урок kaname#765, (е) ci-read.sh) —
+#             агрегат pull_request success, тот же из ручного skipped
+#             позже                                                  → 0 green
+#             то же, отброшенное напечатано CENSUS                   → 0 green
+#             ручной neutral / success позже success из pull_request → 0 green
+#             ручной failure позже success из pull_request           → 1 CI-FAILED
+#             push failure РАНЬШЕ success из pull_request            → 1 CI-FAILED
+#             pull_request_target failure позже success из PR        → 1 CI-FAILED
+#             (3) pr-fail-disp-success-later: failure из pull_request,
+#             ручной success позже — красное не закрыто           → 1 CI-FAILED
+#             сторонний check-run failure того же имени (suite без
+#             workflow run; check_suite null)                        → 1 CI-FAILED
+#             сторонний skipped позже success из PR — не отброшен    → 1 REQUIRED-NOT-SUCCESS
+#             ручной skipped, агрегат pull_request ещё идёт          → 3 CI-PENDING
+#             близнец: skipped ручного без прогона pull_request      → 1 REQUIRED-NOT-SUCCESS
+#             близнец: failure ручного без прогона pull_request      → 1 CI-FAILED
 #   целевой прогон на НЕ-черновике (ws#1019, (д) ci-read.sh): прежний
 #             ПОЛНЫЙ — build failure, поздний ЦЕЛЕВОЙ того же workflow
 #             (проверки skipped, страж с аннотацией) не вытесняет его → 1 CI-FAILED build
@@ -114,6 +131,19 @@
 #   narrow-on-draft     — исключение целевого прогона применено и к черновику;
 #   narrow-guard-dropped — на не-черновике целевым считается check_suite ЛЮБОЙ
 #                         проверки failure, без аннотации стража (D2 check-verifier);
+#   manual-skip-kept    — (е1) снято: skipped ручного прогона судится наравне;
+#   manual-skip-no-pr   — проверка не-pull_request отброшена и без проверки того же имени
+#                         из pull_request;
+#   manual-drop-skipped-only — по (е1) отброшен только skipped, neutral — нет;
+#   manual-skip-pr-event-too — отброшен и skipped самого прогона pull_request;
+#   third-party-dropped — из (е1) выпало .ev != null: сторонний skipped отброшен;
+#   drop-any-conclusion — форма круга 2 (⛔ check-verifier): отброшено ВСЁ не-pull_request,
+#                         включая failure стороннего check-run без прогона;
+#   drop-failure-too    — failure прогона не-pull_request отброшен при проверке из PR;
+#   red-not-first       — (е2) снято: судится последняя по started_at, ранний красный
+#                         другого check_suite закрыт поздним success;
+#   null-suite-ignored  — check-run с check_suite null выпал из суда;
+#   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
 #                         (по одному на каждый из четырёх; урок corelib#111).
 set -uo pipefail
@@ -304,6 +334,7 @@ say "== вытесненный прогон того же workflow (ws#1019; у�
 # целевого прогона черновика failure, полный прогон ещё идёт — его сводная проверка
 # стартует последней и на голове её ещё нет.
 OLDRUN=38086061943; OLDSUITE=103192606632
+AGG_REQ="сводный вердикт (все проверки завершились и зелены)"   # обязательный контекст базы 1266
 # shellcheck disable=SC2016
 supersede() {  # supersede <заключение прежнего> <статус нового> <заключение нового|null> [событие прежнего] [id нового] [workflow_id нового]
     mk
@@ -340,7 +371,7 @@ edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_prog
 run "вытесненный прогон ещё идёт, последний завершён зелёным" 0 '^VERDICT\tgreen\t'
 supersede failure completed '"success"' push; new_agg completed '"success"' 2026-10-10T22:30:00Z
 edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
-run "прогон push того же workflow pull_request-прогоном не вытесняется" 3 '^REASON\tRUNS-PENDING\t.*run 38086061943'
+run "прогон push того же workflow pull_request-прогоном не вытесняется (его failure красный по (е2))" 1 '^REASON\tRUNS-PENDING\t.*run 38086061943'
 # V1: одноимённый workflow другого файла (workflow_id 6) позже — не вытесняет
 supersede failure completed '"success"' pull_request 38199999999 6
 run "одноимённый workflow другого файла не вытесняет: красное прежнего судится" 1 '^REASON\tCI-FAILED\tfailure: сводный вердикт'
@@ -351,6 +382,59 @@ run "последний — по created_at, а не по run_number" 0 '^VERDIC
 # V5: новый позже по created_at, но с меньшим id
 supersede failure completed '"success"' pull_request 38000000000; new_agg completed '"success"' 2026-10-10T22:30:00Z
 run "последний — по created_at, а не по id" 0 '^VERDICT\tgreen\t'
+
+say "== ручной прогон workflow_dispatch на голове запроса (ws#1049; урок kaname#765)"
+# Живая форма (kaname#765, голова d4cb8ca, 2026-10-12): прогон workflow_dispatch того
+# же workflow (тот же workflow_id, своё событие и check_suite) рядом с прогоном
+# pull_request; сводный вердикт запроса в нём skipped по условию на событие и стартует
+# позже — «последний по имени». Здесь: workflow «сводный вердикт» фикстуры получает
+# ручной прогон (suite 997), его проверки — копии прогона pull_request.
+# shellcheck disable=SC2016
+manual() {  # manual <заключение проверок ручного прогона> [started_at] [событие] — прогон pull_request не трогается
+    mk
+    edit runs.json ".workflow_runs += [{id: 38199999997, name: \"сводный вердикт\", workflow_id: 336467769, event: \"${3:-workflow_dispatch}\", status: \"completed\", conclusion: \"success\", created_at: \"2026-10-10T22:00:00Z\", run_attempt: 1, run_number: 22, head_sha: .workflow_runs[0].head_sha, check_suite_id: 997}]"
+    edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .id += 3000000 | .check_suite.id = 997 | .status = \"completed\" | .conclusion = \"$1\" | .started_at = \"${2:-2026-10-10T22:01:00Z}\"]"
+}
+# сторонний check-run сводного вердикта: тот же name, workflow run у его check_suite нет
+foreign() {  # foreign <заключение> <started_at> <check_suite: число | null>
+    mk
+    edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .id += 4000000 | .check_suite = ($3 | if . == null then null else {id: .} end) | .app = {slug: \"external-ci\"} | .status = \"completed\" | .conclusion = \"$1\" | .started_at = \"$2\"]"
+}
+manual skipped
+run "ручной прогон: skipped агрегата при success того же из pull_request" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+manual skipped
+run "ручной прогон: отброшенный skipped напечатан переписью" 0 '^CENSUS\tskipped/neutral/success прогона не-pull_request при проверке того же имени из pull_request не судится: сводный вердикт \(все проверки завершились и зелены\) \(workflow_dispatch, skipped'
+manual neutral
+run "ручной прогон: neutral позже success из pull_request отброшен" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+manual success
+run "ручной прогон: success позже success из pull_request" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+manual failure
+run "ручной failure позже success из pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+manual failure 2000-01-01T00:00:00Z push
+run "push failure раньше success из pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+manual failure 2026-10-10T22:01:00Z pull_request_target
+run "pull_request_target failure позже success из pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+manual success
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"failure\" end)"
+run "pr-fail-disp-success-later (3): поздний success ручного не закрывает failure из pull_request" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+foreign failure 2000-01-01T00:00:00Z 996
+run "сторонний check-run failure того же имени (suite без workflow run) — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+foreign failure 2000-01-01T00:00:00Z null
+run "сторонний check-run failure того же имени, check_suite null — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+foreign skipped 2026-10-10T22:01:00Z 996
+run "сторонний check-run skipped позже success из pull_request не отбрасывается" 1 "^REASON\tREQUIRED-NOT-SUCCESS\tобязательный контекст skipped: \Q$AGG_REQ\E"
+manual skipped
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .status = \"in_progress\" | .conclusion = null end)"
+run "ручной skipped при идущем агрегате pull_request — ждать" 3 "^REASON\tCI-PENDING\tне завершена: \Q$AGG_REQ\E"
+mk
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .event = \"workflow_dispatch\" end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"skipped\" end)"
+run "близнец: skipped ручного прогона без прогона pull_request — красное" 1 "^REASON\tREQUIRED-NOT-SUCCESS\tобязательный контекст skipped: \Q$AGG_REQ\E"
+mk
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .event = \"workflow_dispatch\" end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"failure\" end)"
+run "близнец: failure ручного прогона без прогона pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
 
 # Аннотации проверки в живой форме (снимок kaname check-run 114579859902, 2026-10-12):
 # у стража три — failure «Process completed with exit code 1.» с ПУСТЫМ title, сам
@@ -479,6 +563,16 @@ runs-pending-in-progress-only	/reason RUNS-PENDING/s/select(.status!="completed"
 narrow-latest-kept	/$nar | index($c) | not/s/$nar | index($c) | not/true/
 narrow-on-draft	/^if \[ "$DRAFT" != true \]; then$/s/"$DRAFT" != true/true/
 narrow-guard-dropped	/"$gsuite" != null ] || continue/,/if guarded/s/if guarded "$gid" "$gname"/if true/
+manual-skip-kept	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/
+manual-skip-no-pr	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (true and/
+manual-drop-skipped-only	/\.drop = (\$pr and/s/IN("skipped", "neutral", "success")/IN("skipped")/
+manual-skip-pr-event-too	/\.drop = (\$pr and/s/ and \.ev != "pull_request"/ and true/
+third-party-dropped	/\.drop = (\$pr and/s/ and \.ev != null//
+drop-any-conclusion	/\.drop = (\$pr and/s/ and \.ev != null and \.ev != "pull_request" and .*$/ and .ev != "pull_request")))/
+drop-failure-too	/\.drop = (\$pr and/s/IN("skipped", "neutral", "success")/IN("skipped", "neutral", "success", "failure")/
+red-not-first	/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
+null-suite-ignored	/map(\.ev = \$ev\[/s/map(\.ev = /map(select(.check_suite != null) | .ev = /
+no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in kacho kaname corelib kacho-workspace; do
     name="trunk-row-dropped-$tr"

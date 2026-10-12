@@ -14,7 +14,7 @@ gi-conventional-commits · Conventional Commits: `feat:` `fix:` `chore:` `docs:`
 gi-identity-owner-only · author И committer — ТОЛЬКО корневой gitconfig владельца, в песочнице — её HOME; `--author=`, `GIT_*_NAME/EMAIL`, `-c user.*`, `config --local/--worktree` запрещены · `git log --format='%an %ae'` — одна подпись; tooling-gate check-16 · red: бот-подпись; переопределение в пробе
 gi-no-attribution-trailers · `Co-Authored-By` и attribution-трейлеры НЕ добавлять · хуки commit-msg, pre-push; tooling-gate check-15 · red: трейлер атрибуции в теле коммита
 gi-no-direct-push-main · в `main` напрямую не пушить без ДОСЛОВНОГО разрешения диспетчера (`00-kacho-core.md#ban18-decides-dispatcher`), работа — через PR; `--force` по опубликованному — решением владельца · `enforce_admins` и обязательные контексты `ci.yaml` (ws#886) · red: коммит в `main` без PR; `--force` агентом
-gi-merge-method · вливание — коммитом слияния, сквоша и rebase опубликованного нет (владелец 2026-09-22); способ сверяй с настройками (`[false,true,false]`, Д56); сообщения всех коммитов ветки входят в ствол — признак восстановимости по каждому · сервер; признак — ЗАВЕСТИ · red: способ из памяти; `--squash`
+gi-merge-method · вливание — коммитом слияния, сквоша и rebase опубликованного нет (владелец 2026-09-22); способ сверяй с настройками (`[false,true,false]`, Д56); сообщения коммитов ветки входят в ствол — признак восстановимости по каждому · сервер; признак — ЗАВЕСТИ · red: способ из памяти; `--squash`
 gi-no-verify-by-request · `--no-verify` — только по ДОСЛОВНОМУ разрешению диспетчера во входе (`00-kacho-core.md#ban18-decides-dispatcher`) · ЗАВЕСТИ · red: хук обойдён, чтобы «пройти»; разрешение пересказано, а не процитировано
 
 ## Волна — единица запроса на слияние
@@ -54,7 +54,7 @@ gi-commit-form-by-hook · форму сообщения судит хук `commi
 
 gi-wave-assemble-only · в ветку волны задачи приходят только сборкой k — ветка от волны, задачи `git merge --no-ff`, состав доказан до прогона, PR сборки — коммитом слияния; PR задачи в волну и догон волны отменены · `gh pr list --base <волна> --state merged` · red: PR задачи в волну
 gi-asm-one-round · на сборку один раз: прогон на голове её PR (`testing-verdict.md#asm-verdict-runs-on-head`), роли — по уровню (`flow-acceleration.md#fa-t1-tier-by-signs`); возвраты — в ветки задач, одно пересведение и один повторный прогон, новое ⛔ — лишь критическое; ⛔ или красное после — PR закрыт, задачи без ⛔ — в k+1 · `gh run list --branch` · red: ревью на задаче; четвёртая роль; третий прогон
-gi-pr-manual-dispatch · у PR в базу без триггера (ветка эпика, волны) — тем же заходом `gh workflow run <файл> --ref <ветка>` КАЖДОГО процесса с `pull_request` и `workflow_dispatch` · `gh run list --commit <headSha>` · red: PR ждёт несуществующего триггера; запущен не каждый процесс
+gi-pr-manual-dispatch · у PR в базу без триггера (ветка эпика, волны) — тем же заходом `gh workflow run <файл> --ref <ветка>` КАЖДОГО процесса с `pull_request` и `workflow_dispatch`; на голове с прогоном `pull_request` — нет (ws#1049) · `gh run list --commit <headSha>` · red: PR ждёт несуществующего триггера; запущен не каждый процесс
 
 ## Трекер — GitHub Issues: когда заводится задача
 
@@ -78,8 +78,8 @@ gi-role-line · исполнитель — строкой `**Роль:** <agent>
 
 gi-state-by-labels · состояние — метками (`status:in-progress`, `status:test`) плюс сам факт open/closed; своего поля состояния не изобретать · ЗАВЕСТИ · red: состояние прозой в теле вместо метки
 gi-label-same-action · метка — ТЕКУЩЕЕ состояние: закрыл — снял тем же заходом; сдал на проверку — ЗАМЕНИЛ, а не добавил · `gh issue list -R <репо> --state closed --label status:test --json number` и то же для `status:in-progress` — пусто · red: закрытая задача с `status:test`
-gi-open-label-needs-artifact · `status:test` на открытой законен, пока её артефакт ждёт вливания волны в ветку эпика (`gi-close-cascade`) · ЗАВЕСТИ · red: метка без артефакта — «кто-то что-то делал», то есть ничего
-gi-stale-label-blocks-capture · перепись выше — при закрытии волны и завершении линии: пережившая метка невидимо ЗАПРЕЩАЕТ брать задачу, которую никто не ведёт · ЗАВЕСТИ · red: свободная задача выглядит чужой работой
+gi-open-label-needs-artifact · `status:test` на открытой законен, пока её артефакт ждёт вливания волны в ветку эпика (`gi-close-cascade`) · ЗАВЕСТИ · red: метка без артефакта
+gi-stale-label-blocks-capture · перепись выше — при закрытии волны и завершении линии: пережившая метка ЗАПРЕЩАЕТ брать задачу, которую никто не ведёт · ЗАВЕСТИ · red: свободная задача выглядит чужой работой
 
 ## Каскад закрытия: задача, волна, эпик, `main` (решение владельца 2026-09-26)
 
