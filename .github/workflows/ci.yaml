@@ -245,7 +245,8 @@ jobs:
   skills-gate:
     name: оснастка не утверждает о дереве того, чего в нём нет
     runs-on: ubuntu-latest
-    # замер на машине разработки: 40 с
+    # замер на машине разработки: 188 с — с набором rules-gate, перенесённым сюда из
+    # `tooling-gate` (ws#1021); в конвейере rules-gate шёл 124 с (прогон 38173621245)
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
