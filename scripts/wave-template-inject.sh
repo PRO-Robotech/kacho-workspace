@@ -513,7 +513,28 @@ ok(r.calls.length > 0 && r.calls.every(c => /НЕ ЖДИ/.test(c.prompt) && /С�
 const MERGE_NORM = /ВЛИВАНИЕ \(ws#1008\): только шагом merge \(git-operator\) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos\/\*\/merges`, `gh api …\/pulls\/\*\/merge` и `gh pr merge --auto` запрещены\. `gh api` — только GET: merge-base — `gh api repos\/<o>\/<r>\/compare\/<base>\.\.\.<head> --jq \.merge_base_commit\.sha`/
 ok(r.calls.length > 0 && r.calls.every(c => MERGE_NORM.test(c.prompt)), 'каждое задание несёт правило вливания и «gh api — только GET» с чтением merge-base', r.calls.filter(c => !MERGE_NORM.test(c.prompt)).map(c => c.label).join(','))
 const mp = prm(r.calls, 'mech:merge')
-ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40}`/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
+ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40} --subject "[^"`]+"`/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
+// ws#1029: тема вливания — по форме правила ветки `#<N> merge #<M>: …`; база main — номер волны.
+ok(/--subject "#9 merge #7: волна 9"/.test(mp), 'тема вливания при базе main — «#<волна> merge #<PR>: …»', mp.slice(0, 400))
+{
+  const rn = await run({ args: { ...args, epic: '296', base: '296' }, plan: [P('r0.json')] })
+  const mpn = prm(rn.calls, 'mech:merge')
+  ok(/--subject "#296 merge #7: волна 9"/.test(mpn), 'тема вливания в эпик-номер — «#<эпик> merge #<PR>: …»', mpn.slice(0, 400))
+}
+// ws#1036: отсоединённый прогон — без nohup (глушит SIGHUP детям), код — в .rc.
+ok(r.calls.length > 0 && r.calls.every(c => /setsid env --default-signal=PIPE sh -c '<команда>; echo \$\? > <журнал>\.rc'/.test(c.prompt) && !/setsid nohup/.test(c.prompt)), 'каждое задание даёт форму setsid env --default-signal=PIPE с кодом в .rc и не предписывает nohup', r.calls.filter(c => !/default-signal=PIPE/.test(c.prompt) || /setsid nohup/.test(c.prompt)).map(c => c.label).join(','))
+// ws#1036 (ai-tooling.md#at-lane-retro): урок полосы — полем схемы, в один файл волны, в итоге волны.
+{
+  const rl = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'done', head: H('A', 1), lesson: 'nohup в отправке · CLAUDE.md «Не жди»' }], 'impl:B': [{ status: 'done', head: H('B', 1), lesson: '—' }] })
+  const ia = rl.calls.find(c => c.label === 'impl:A')
+  const sch = ia && ia.schema
+  ok(!!sch && sch.properties && sch.properties.lesson && (sch.required || []).includes('lesson'), 'схема исполнителя требует поле lesson', JSON.stringify(sch && sch.required))
+  ok(!!ia && ia.prompt.includes('>> /ws/tmp/wave-9/reports/lessons.md') && /урока нет — «—», в файл не пиши/.test(ia.prompt), 'задание исполнителя: урок — строкой в reports/lessons.md, «—» — без записи', ia ? ia.prompt.slice(-700) : '')
+  const L = rl.res.lessons || {}
+  ok(L.file === '/ws/tmp/wave-9/reports/lessons.md' && (L.items || []).length === 1 && L.items[0].key === 'A' && /nohup в отправке/.test(L.items[0].lesson), 'итог волны несёт файл уроков и уроки полос; «—» уроком не считается', JSON.stringify(rl.res.lessons))
+  const rf = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'failed', head: H('A', 1), lesson: 'ложный отказ гейта · lane-precheck' }], 'impl:B': [{ status: 'failed', head: H('B', 1), lesson: '—' }] })
+  ok(rf.res.ok === false && ((rf.res.lessons || {}).items || []).length === 1, 'урок не теряется, когда волна стала на полосах', JSON.stringify(rf.res).slice(0, 300))
+}
 ok(r.calls.filter(c => c.label.startsWith('impl:')).every(c => /СРОК ШАГА: \d+ мин/.test(c.prompt.split('\n\n').slice(1).join(' '))), 'задание исполнителя — со своим сроком шага')
 const cis = r.calls.filter(c => c.label.startsWith('mech:ci:'))
 // Закрытый мир, а не словарь запретных слов (опыт check-verifier по #1002: «--watch
@@ -827,9 +848,20 @@ mutant "срок снят у исполнителя" "'. ' + due('implement') + 
 mutant "срок снят у ревью" "'. ' + due('review') + ' Верни verdict" "'. Верни verdict"
 # ws#1008: вливание — только gh pr merge со сверкой головы.
 mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008)" "  '(ws#1008)"
-mutant "merge без сверки головы" "' --merge --match-head-commit ' + landHead + '\`" "' --merge\`"
-mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + '\` (коммит слияния на сервере, \`--subject\` — по норме git-operator; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
+mutant "merge без сверки головы" "' --merge --match-head-commit ' + landHead + ' --subject" "' --merge --subject"
+mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject \"' + mergeTitle + '\"\` (коммит слияния на сервере, тема — по форме правила ветки \`#<N> merge #<M>: …\`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
 mutant "merge с --auto" "без --auto и --admin" "с --auto"
+# ws#1029: тема вливания по форме правила ветки.
+mutant "merge без --subject" " --subject \"' + mergeTitle + '\"\`" "\`"
+mutant "тема вливания — заголовок без merge #<M>" "' merge #' + asm.pr + ': волна ' + N" "' волна ' + N"
+mutant "тема вливания — всегда номер волны" "(/^[0-9]+\$/.test(String(A.epic || A.base || '')) ? String(A.epic || A.base) : N)" "(N)"
+# ws#1036: форма отсоединённого прогона и сбор уроков.
+mutant "отсоединённо — снова setsid nohup" "отсоединённо \`setsid env --default-signal=PIPE sh -c" "отсоединённо \`setsid nohup sh -c"
+mutant "lesson снят со схемы исполнителя" ", 'report', 'lesson'] }" ", 'report'] }"
+mutant "урок не собирается" "  if (r && typeof r.lesson === 'string' && r.lesson.trim() && r.lesson.trim() !== '—') lessons.push(" "  if (false) lessons.push("
+mutant "«—» засчитан уроком" "r.lesson.trim() && r.lesson.trim() !== '—') lessons.push(" "r.lesson.trim()) lessons.push("
+mutant "уроки не в один файл волны" "const LESSONS = R + '/lessons.md'" "const LESSONS = R + '/' + N + '-lessons.md'"
+mutant "итог без уроков" "const lessonsOf = () => ({ file: LESSONS, items: lessons })" "const lessonsOf = () => undefined"
 mutant "норма «не жди» снята из общего задания" "  'НЕ ЖДИ (CLAUDE.md" "  '(CLAUDE.md"
 mutant "агент ждёт CI сам" "идёт — сразу верни: повтор делает шаблон." "идёт — подожди до 10 минут и верни."
 mutant "пауза CI дольше 5 мин" "const CI_PAUSE_S = 240" "const CI_PAUSE_S = 600"

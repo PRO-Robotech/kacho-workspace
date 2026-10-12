@@ -261,3 +261,23 @@ lc6-role-reviews · ревью — по `git-issues.md#gi-asm-one-round` · ЗА
     ## Канонические агенты (единственный экземпляр — `.claude/agents/` воркспейса; копий нет)
     ## Канонические скилы (`.claude/skills/<name>/SKILL.md`)
     lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
+
+## 2026-10-12 (ws#1036): работа над ошибками по каждой полосе, `at-lane-retro`
+
+Решение владельца 2026-10-12 дословно: «Запиши рул для мастер процесса что по результату каждой полосы нужно сделать работу над ошибками и обогатить рулы и скилы так что бы 1) потребление токенов было минимально 2) скорость разработки максимальна 3) качество кода и тестов аналогичное или выше»
+
+Норма `at-lane-retro` внесена рядом с `at-parallel-while-ci`; механизм — поле «урок» ВОЗВРАТа (`CLAUDE.md`), сбор уроков волны шаблоном `wave.js` в `tmp/wave-<N>/reports/lessons.md`, пачка уроков — одна полоса `tooling-maintainer` за волну (база диспетчера §4), страж — tooling-gate check-21. Засев первой пачкой (замер разведки 2026-10-12 по 1862 итогам агентов): форма отсоединённого запуска без `nohup` с кодом в `.rc` (11 + 19 итогов) и тема вливания `#<N> merge #<PR>: …` (ws#1029). Место под потолком check-06 освобождено сжатием без потери нормы: `at-symlink-not-copy` и `at-rule-star-is-binding` сведены в `at-rule-preloaded-by-symlink`, `at-numbers-held-by-gate` — в `at-two-numbers-one-predicate`, `at-agents-count-32` снята (число держит строка «Счёт» и check-07). Прежние редакции строк — дословно:
+
+    at-rule-preloaded-by-symlink · правило закреплено предзагрузкой: `SKILL.md` — символьная ссылка, агент несёт её в `skills:` · readlink, check-04 · red: правило не в окне агента
+    at-symlink-not-copy · символьная ссылка на файл правила, не копия · readlink .claude/skills/rule-<имя>/SKILL.md` = `../../rules/<имя>.md · red: копия правила в скиле
+    at-rule-star-is-binding · `rule-*` — привязка к правилу, не экспертиза; в перечень канонических скилов не входит · check-03 (исключение в гейте) · red: rule-* учтён как канонический скил
+    at-two-numbers-one-predicate · величину, взятую двумя объявлениями, сверять одним предикатом · check-07 · red: два объявления одной величины разошлись
+    at-numbers-held-by-gate · числа правил/агентов/скилов держит гейт, не внимание · check-07, check-03 · red: число просрочено и не замечено
+    at-claim-about-own-check-runs-or-lies · утверждение об оснастке, проверяемое только ИСПОЛНЕНИЕМ, пиши с координатой, которую резолвит обход, и со знаменателем; числа печатает прибор · tooling-gate measure-claims-about-checks.py · red: держатель назван, артефакта нет; «не найдено» без числа осмотренного
+    at-markup-is-not-a-script · исключение по роли не выдаётся разметке и файлу без строки запуска: судится ФОРМАТ файла, а не `#!` и не перечень каталогов · rules-gate check-10, пары 2 и 4 его инъекции · red: корпус, агент, навык или протокол изъял себя из переписи одной строкой
+    lc4-crossrepo-order · порядок proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по модулям, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
+    lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh), scripts/docs-gate/ · red: проба, не падавшая ни разу
+    (flow-acceleration.md) fa-tool-is-guide · `scripts/lane-schedule/lane-schedule.py` — ориентир планирования, не гейт (Д43): срок и порядок говорит прогон волны; ребро не теряется МОЛЧА — нераспознанная ячейка «зависит от» даёт отказ с координатой; расчёт гонит `scout` и возвращает дословно, правит `tooling-maintainer`, принимает `check-verifier` · `lane-schedule/inject.sh`; `mutants.py` (задание `lane-schedule-mutants`) · red: срок инструмента прочитан как вердикт; расчёт без ребра
+    at-agents-count-32 · число агентов — одно, у предиката ниже · check-07 · red: перечень и число расходятся
+    at-handrun-predicate-engine-agnostic · предикат для ручного прогона не ставит якорь ветвью альтернативы (`(^|X)` в обёртке молча не совпадает); границу слова пиши `-P` просмотром назад либо `\b` · tooling-gate check-12 · red: перепись на образце, в обёртке всегда пустом
+    at-single-copy-no-rollout · единственный экземпляр — `.claude/` воркспейса, копий в рабочих копиях продукта нет · git ls-files продукта без файлов оснастки · red: копия оснастки в дереве продукта

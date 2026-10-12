@@ -223,25 +223,37 @@ d="$(sandbox h_hop)"
 mkdir -p "$d/docs"
 printf '@.claude/rules/%s\n' "$corpus_rule" > "$d/docs/extra.md"
 printf '@docs/extra.md\n' >> "$d/CLAUDE.md"
-capture "$d" "$C2N"
+# Предмет обеих проб-дефектов оси H — замыкание, а не бюджет базы: строка,
+# дописанная в `CLAUDE.md`, тратит живой остаток до потолка, и простой `capture`
+# отдавал код 1 соседней осью «БАЗА БОЛЬШЕ ПОТОЛКА» (ws#1047: перебор 7 Б на
+# остатке 8 Б) — утверждение о коде тогда не доказывало ничего. Потолок берётся у
+# песочницы (`capture_twin`), а `assert_lacks` держит, что диагноз ОДИН: код 1
+# обязан прийти от своей оси.
+capture_twin "$d" "$C2N"
 assert_code 1 "ДЕФЕКТ: правило импортировано через промежуточный файл"
 assert_says "ПРАВИЛО В АВТОЗАГРУЗКЕ: docs/extra.md" "  ...и координата — ФАЙЛ, где импорт живёт"
+assert_lacks "БАЗА БОЛЬШЕ ПОТОЛКА" "  ...и диагноз ОДИН: код 1 не от бюджета базы"
 assert_number "рёбер замыкания за пределы CLAUDE.md" 1 "  ...и перепись назвала ребро наружу"
 
 d="$(sandbox h_home)"
 mkdir -p "$d/docs"
 printf '@.claude/rulebook/%s\n' "$ghost_rule" > "$d/docs/extra.md"
 printf '@docs/extra.md\n' >> "$d/CLAUDE.md"
-capture "$d" "$C2N"
+capture_twin "$d" "$C2N"
 assert_code 1 "ДЕФЕКТ: снятый дом импортирован через промежуточный файл"
 assert_says "ИМПОРТ ИЗ СНЯТОГО ДОМА: docs/extra.md" "  ...и названа ТА ось, а не «правило в автозагрузке»"
+assert_lacks "БАЗА БОЛЬШЕ ПОТОЛКА" "  ...и диагноз ОДИН: код 1 не от бюджета базы"
 
 d="$(sandbox h_twin)"; b="$(sandbox_digest "$d")"
 mkdir -p "$d/docs"
 printf '# заметка без импортов\n' > "$d/docs/extra.md"
 printf '@docs/extra.md\n' >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: тот же лишний хоп без импорта внутри"
-capture "$d" "$C2N"
+# Близнец дописывает в `CLAUDE.md` строку, и его предмет — замыкание, а не бюджет
+# базы: потолок берётся у песочницы (`capture_twin`), как у близнецов оси G и
+# песочницы h_mail. Простой `capture` судил его живым потолком, и ws#1047 при остатке 8 Б
+# покраснел по соседней оси «БАЗА БОЛЬШЕ ПОТОЛКА» (перебор 7 Б) при целом замыкании.
+capture_twin "$d" "$C2N"
 assert_code 0 "БЛИЗНЕЦ: посторонний файл в замыкании сам по себе законен — молчит"
 
 d="$(sandbox h_mail)"; b="$(sandbox_digest "$d")"
