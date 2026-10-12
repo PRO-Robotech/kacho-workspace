@@ -53,6 +53,13 @@
 #             новый позже по created_at, но с меньшим run_number      → 0 green
 #             новый позже по created_at, но с меньшим id              → 0 green
 #             последний прогон queued (не in_progress)               → 3 RUNS-PENDING
+#   ручной прогон workflow_dispatch (ws#1049; урок kaname#765, (е) ci-read.sh) —
+#             агрегат pull_request success, тот же из ручного skipped
+#             позже                                                  → 0 green
+#             то же, отброшенное напечатано CENSUS                   → 0 green
+#             близнец: ручной failure позже success из pull_request  → 1 CI-FAILED
+#             ручной skipped, агрегат pull_request ещё идёт          → 3 CI-PENDING
+#             близнец: skipped ручного без прогона pull_request      → 1 REQUIRED-NOT-SUCCESS
 #   целевой прогон на НЕ-черновике (ws#1019, (д) ci-read.sh): прежний
 #             ПОЛНЫЙ — build failure, поздний ЦЕЛЕВОЙ того же workflow
 #             (проверки skipped, страж с аннотацией) не вытесняет его → 1 CI-FAILED build
@@ -114,6 +121,12 @@
 #   narrow-on-draft     — исключение целевого прогона применено и к черновику;
 #   narrow-guard-dropped — на не-черновике целевым считается check_suite ЛЮБОЙ
 #                         проверки failure, без аннотации стража (D2 check-verifier);
+#   manual-skip-kept    — skipped ручного прогона судится наравне (снята правка ws#1049);
+#   manual-skip-no-pr   — skipped не-pull_request отброшен и без проверки того же имени
+#                         из pull_request;
+#   manual-skip-any-conclusion — отброшено ЛЮБОЕ заключение ручного прогона, не только
+#                         skipped (failure ручного прогона замолчал бы);
+#   manual-skip-pr-event-too — отброшен и skipped самого прогона pull_request;
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
 #                         (по одному на каждый из четырёх; урок corelib#111).
 set -uo pipefail
@@ -304,6 +317,7 @@ say "== вытесненный прогон того же workflow (ws#1019; у�
 # целевого прогона черновика failure, полный прогон ещё идёт — его сводная проверка
 # стартует последней и на голове её ещё нет.
 OLDRUN=38086061943; OLDSUITE=103192606632
+AGG_REQ="сводный вердикт (все проверки завершились и зелены)"   # обязательный контекст базы 1266
 # shellcheck disable=SC2016
 supersede() {  # supersede <заключение прежнего> <статус нового> <заключение нового|null> [событие прежнего] [id нового] [workflow_id нового]
     mk
@@ -351,6 +365,33 @@ run "последний — по created_at, а не по run_number" 0 '^VERDIC
 # V5: новый позже по created_at, но с меньшим id
 supersede failure completed '"success"' pull_request 38000000000; new_agg completed '"success"' 2026-10-10T22:30:00Z
 run "последний — по created_at, а не по id" 0 '^VERDICT\tgreen\t'
+
+say "== ручной прогон workflow_dispatch на голове запроса (ws#1049; урок kaname#765)"
+# Живая форма (kaname#765, голова d4cb8ca, 2026-10-12): прогон workflow_dispatch того
+# же workflow (тот же workflow_id, своё событие и check_suite) рядом с прогоном
+# pull_request; сводный вердикт запроса в нём skipped по условию на событие и стартует
+# позже — «последний по имени». Здесь: workflow «сводный вердикт» фикстуры получает
+# ручной прогон (suite 997), его проверки — копии прогона pull_request.
+# shellcheck disable=SC2016
+manual() {  # manual <заключение проверок ручного прогона> [started_at] — прогон pull_request не трогается
+    mk
+    edit runs.json ".workflow_runs += [{id: 38199999997, name: \"сводный вердикт\", workflow_id: 336467769, event: \"workflow_dispatch\", status: \"completed\", conclusion: \"success\", created_at: \"2026-10-10T22:00:00Z\", run_attempt: 1, run_number: 22, head_sha: .workflow_runs[0].head_sha, check_suite_id: 997}]"
+    edit check-runs.json ".check_runs += [(.check_runs[] | select(.check_suite.id == $OLDSUITE)) | .id += 3000000 | .check_suite.id = 997 | .status = \"completed\" | .conclusion = \"$1\" | .started_at = \"${2:-2026-10-10T22:01:00Z}\"]"
+}
+manual skipped
+run "ручной прогон: skipped агрегата при success того же из pull_request" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+manual skipped
+run "ручной прогон: отброшенный skipped напечатан переписью" 0 '^CENSUS\tskipped прогона не-pull_request при проверке того же имени из pull_request не судится: сводный вердикт \(все проверки завершились и зелены\) \(workflow_dispatch'
+manual failure
+run "близнец: ручной прогон failure при success из pull_request — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+manual skipped
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .status = \"in_progress\" | .conclusion = null end)"
+run "ручной skipped при идущем агрегате pull_request — ждать" 3 "^REASON\tCI-PENDING\tне завершена: \Q$AGG_REQ\E"
+mk
+edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .event = \"workflow_dispatch\" end)"
+edit check-runs.json ".check_runs |= map(if .check_suite.id == $OLDSUITE then .conclusion = \"skipped\" end)"
+run "близнец: skipped ручного прогона без прогона pull_request — красное" 1 "^REASON\tREQUIRED-NOT-SUCCESS\tобязательный контекст skipped: \Q$AGG_REQ\E"
 
 # Аннотации проверки в живой форме (снимок kaname check-run 114579859902, 2026-10-12):
 # у стража три — failure «Process completed with exit code 1.» с ПУСТЫМ title, сам
@@ -479,6 +520,10 @@ runs-pending-in-progress-only	/reason RUNS-PENDING/s/select(.status!="completed"
 narrow-latest-kept	/$nar | index($c) | not/s/$nar | index($c) | not/true/
 narrow-on-draft	/^if \[ "$DRAFT" != true \]; then$/s/"$DRAFT" != true/true/
 narrow-guard-dropped	/"$gsuite" != null ] || continue/,/if guarded/s/if guarded "$gid" "$gname"/if true/
+manual-skip-kept	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/
+manual-skip-no-pr	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (true and/
+manual-skip-any-conclusion	/\.drop = (\$pr and/s/ and \.conclusion == "skipped"//
+manual-skip-pr-event-too	/\.drop = (\$pr and/s/ and \.ev != "pull_request"//
 MUT
 for tr in kacho kaname corelib kacho-workspace; do
     name="trunk-row-dropped-$tr"
