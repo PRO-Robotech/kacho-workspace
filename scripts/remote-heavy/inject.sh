@@ -90,6 +90,12 @@
 #      шаг и ключ названы
 #   E10 пин node вне формы (lts/*) → 69, Job нет; E10b пин helm вне формы
 #      (latest) → 69, Job нет
+#   D1 модули, которые пробы читают ИСХОДНИКАМИ (ws#1018): Job каждого профиля
+#      несёт шаг `go mod download` модуля дерева перед командой; текст шага из Job
+#      исполняется настоящим go над файловым прокси: контроль — `go build` модуль,
+#      ни одним пакетом не импортированный, в кэш не кладёт; после шага исходник
+#      модуля в кэше есть; близнец D1b — модуль не достать → 125 «модули» в
+#      termination-log; D1c — каталог без go.mod → 0, строка «качать нечего»
 #   E3 два пина helm                        → 69 до кластера, причина названа
 #   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
 #   E5 ревизия без пинов                    → строка называет, что сверять нечего
@@ -620,6 +626,52 @@ tools_case E2-node-other v4.2.4+g3900f43 v24.1.0 v4.2.4 26 125 node
 tools_case E2-node-prefix v4.2.4+g3900f43 v260.1.0 v4.2.4 26 125 node
 tools_case E2-legit v4.2.4+g3900f43 v26.8.1 v4.2.4 26 0
 tools_case E2-nopins - - "" "" 0
+# D1 модули исходниками (ws#1018). Пакет deploy kacho читает исходник пиненного
+#    kaname из GOMODCACHE, а сборка этот модуль не тянет: без шага загрузки кэш
+#    Job его не содержит (32 отказа «stat /cache/mod/…: no such file»). Конвейер
+#    делает `go mod download` до тестов; Job обязан тоже — каждого профиля.
+modstep_in() { awk '/^# moddl-begin$/ { b = NR } /^# moddl-end$/ { m = NR } /^exec "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+if modstep_in "$BOX/e1.cmd"; then ok; else OUT="$BOX/e1.cmd"; bad D1 "шага загрузки модулей перед командой в Job профиля integration нет"; fi
+for prof in go-race ci-local lint; do
+    fresh
+    go_run "d1-$prof" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile "$prof" --short "d1$prof" -- true
+    expect_rc "D1-$prof" 0
+    jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/d1-$prof.cmd" 2>/dev/null
+    if modstep_in "$BOX/d1-$prof.cmd"; then ok; else OUT="$BOX/d1-$prof.cmd"; bad "D1-$prof" "шага загрузки модулей перед командой в Job профиля $prof нет"; fi
+done
+# Исполнение: настоящий go, сеть — файловый прокси с модулем, который модуль
+# дерева требует, но ни один его пакет не импортирует (форма пина kaname в kacho).
+DM="$BOX/dm"; rm -rf "$DM"; mkdir -p "$DM/px/example.invalid/dep/@v" "$DM/z/example.invalid/dep@v0.1.0" "$DM/m/sub" "$DM/nomod"
+printf 'module example.invalid/dep\n\ngo 1.22\n' > "$DM/z/example.invalid/dep@v0.1.0/go.mod"
+printf 'package dep\n' > "$DM/z/example.invalid/dep@v0.1.0/dep.go"
+( cd "$DM/z" && python3 -c 'import zipfile; z = zipfile.ZipFile("../px/example.invalid/dep/@v/v0.1.0.zip", "w"); [z.write("example.invalid/dep@v0.1.0/" + f) for f in ("go.mod", "dep.go")]' )
+cp "$DM/z/example.invalid/dep@v0.1.0/go.mod" "$DM/px/example.invalid/dep/@v/v0.1.0.mod"
+echo '{"Version":"v0.1.0"}' > "$DM/px/example.invalid/dep/@v/v0.1.0.info"; echo v0.1.0 > "$DM/px/example.invalid/dep/@v/list"
+printf 'module example.invalid/m\n\ngo 1.22\n\nrequire example.invalid/dep v0.1.0\n' > "$DM/m/go.mod"
+printf 'package m\n' > "$DM/m/m.go"; printf 'package sub\n' > "$DM/m/sub/sub.go"
+# shellcheck disable=SC2016  # раскрывается в исполняемом тексте шага
+{ echo 'pf() { echo "remote-heavy-prep: $1" | tee "$DM_TL" >&2; exit 125; }'; sed -n '/^# moddl-begin$/,/^# moddl-end$/p' "$BOX/e1.cmd"; } > "$BOX/moddl.sh"
+DEP_SRC="$DM/cache/example.invalid/dep@v0.1.0/dep.go"
+# moddl_case <случай> <каталог> <прокси> <код> <слово вывода либо отказа>
+moddl_case() {
+    rm -rf "$DM/cache" "$DM/tl"; OUT="$BOX/$1.out"
+    ( cd "$2" && env GOMODCACHE="$DM/cache" GOPROXY="$3" GOSUMDB=off GOFLAGS=-modcacherw GOTOOLCHAIN=local \
+        GOWORK=off DM_TL="$DM/tl" bash "$BOX/moddl.sh" ) > "$OUT" 2>&1; RC=$?
+    expect_rc "$1" "$4"
+    if [ "$4" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: $5" "$DM/tl" 2>/dev/null; then ok; else bad "$1" "отказ «$5» не записан в termination-log"; fi
+    elif ! grep -q "$5" "$OUT"; then bad "$1" "строка «$5» не напечатана"; else ok; fi
+}
+# Контроль предпосылки: сборка модуля дерева исходник dep в кэш НЕ кладёт — иначе
+# проба шага пуста (тот же класс, что 32 отказа в pod).
+rm -rf "$DM/cache"
+( cd "$DM/m" && env GOMODCACHE="$DM/cache" GOPROXY="file://$DM/px" GOSUMDB=off GOFLAGS=-modcacherw GOTOOLCHAIN=local GOWORK=off go build ./... ) > "$BOX/d1-control.out" 2>&1
+if [ ! -e "$DEP_SRC" ]; then ok; else OUT="$BOX/d1-control.out"; bad D1-control "сборка сама положила исходник dep в кэш — проба шага пуста"; fi
+if grep -q '^# moddl-end$' "$BOX/moddl.sh"; then ok; else OUT="$BOX/e1.cmd"; bad D1 "текста шага загрузки в Job нет — исполнять нечего"; fi
+moddl_case D1-exec "$DM/m/sub" "file://$DM/px" 0 'модули загружены'
+if [ -f "$DEP_SRC" ]; then ok; else bad D1-exec "после шага исходника модуля, не импортированного сборкой, в кэше нет"; fi
+moddl_case D1b "$DM/m" off 125 'модули'
+moddl_case D1c "$DM/nomod" "file://$DM/px" 0 'качать нечего'
 # E7 установка ИСПОЛНЕНИЕМ: текст из Job, сеть — двойник curl, архивы настоящие.
 #    Оба пина → helm и node в bin; только node (helm без пина) → node ставится
 #    (опыт 2026-10-10: каталог загрузки создавался лишь веткой helm); сумма helm
