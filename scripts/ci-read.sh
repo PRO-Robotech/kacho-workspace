@@ -20,11 +20,12 @@
 #       CHECKS-INCOMPLETE — различных проверок на голове меньше ожидаемого по
 #                           ведомости scripts/ci-read-expected.tsv (пара
 #                           репозиторий/база); пары нет — VOID, не зелёное;
-#       CI-PENDING        — последний прогон проверки (по имени, наибольший
-#                           started_at) не завершён либо commit status pending;
+#       CI-PENDING        — судимая проверка имени (выбор — (е2): последняя по
+#                           started_at, красная побеждает) не завершена либо
+#                           commit status pending;
 #       RUNS-PENDING      — ПОСЛЕДНИЙ workflow run своего workflow на этой sha
 #                           не completed;
-#       CI-FAILED         — последний прогон проверки завершён failure, cancelled,
+#       CI-FAILED         — судимая проверка имени завершена failure, cancelled,
 #                           timed_out, action_required, startup_failure, stale;
 #                           commit status failure/error. skipped и neutral не
 #                           красные, но и не success — печатаются в CENSUS и не
@@ -78,14 +79,22 @@
 #   (е) ручной прогон на голове запроса (ws#1049; урок kaname#765): прогон
 #       workflow_dispatch того же workflow — другое событие, (а) его не вытесняет, а
 #       сводный вердикт запроса в нём skipped по условию на событие и стартует позже
-#       — «последний по имени» читал бы голову красной. Если у имени есть проверка из
-#       прогона pull_request на этой голове, судится она (последняя среди pull_request:
-#       success, failure, идёт); проверки того же имени из других событий её НЕ
-#       вытесняют ни в зелёное (поздний success ручного прогона не закрывает failure
-#       запроса), ни в красное. Без проверки того же имени из pull_request любое
-#       заключение ручного прогона судится: skipped — не success (обязательный
-#       контекст — REQUIRED-NOT-SUCCESS), failure — CI-FAILED. Отброшенное печатается
-#       CENSUS.
+#       — «последний по имени» читал бы голову красной. Правило, fail-closed:
+#       (е1) отбрасывается ТОЛЬКО check-run, у которого есть workflow run, событие
+#            этого прогона не pull_request, а исход skipped, neutral или success, — и
+#            только если у того же имени есть check-run из прогона pull_request на этой
+#            голове. Check-run без workflow run (стороннее приложение, check_suite
+#            null) не отбрасывается никогда. Отброшенное печатается CENSUS;
+#       (е2) failure, cancelled, timed_out, action_required (весь FAILSET) любого
+#            события и любого источника того же имени не отбрасываются и краснят
+#            голову, даже при success из pull_request и в каком бы порядке ни стояли:
+#            из оставшихся у имени судится последняя проверка каждого check_suite, а
+#            среди них — красная, если она есть; иначе незавершённая; иначе последняя.
+#            Поздний красный ручного, push или pull_request_target прогона — красный;
+#       (е3) success другого события не перекрывает failure из pull_request (он
+#            отброшен по (е1), а failure судится по (е2)). Без проверки того же имени
+#            из pull_request ничто не отбрасывается: skipped ручного — не success
+#            (обязательный контекст — REQUIRED-NOT-SUCCESS), failure — CI-FAILED.
 #
 # ИСХОДЫ — код возврата и строка VERDICT; при нескольких причинах побеждает
 # старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно:
@@ -108,6 +117,8 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GH="${CI_READ_GH:-gh}"
 LEDGER="${CI_READ_EXPECTED:-$HERE/ci-read-expected.tsv}"
+# красные заключения проверки: судятся CI-FAILED и побеждают при выборе судимой по (е2)
+FAILSET='["failure","cancelled","timed_out","action_required","startup_failure","stale"]'
 
 void() { printf 'VOID\t%s\n' "$1"; printf 'VERDICT\tunread\tкод 2\n'; exit 2; }
 
@@ -203,19 +214,31 @@ jq --argjson nar "$NARROW" '[.[].workflow_runs[]] | group_by([(.workflow_id // .
     | {latest: map(.l), superseded: (map(.s) | add // [])}' "$W/runs.json" > "$W/runsel.json"
 SUPERSEDED="$(jq -c '[.superseded[].check_suite_id]' "$W/runsel.json")"
 jq --argjson s "$SUPERSEDED" '[.[].check_runs[] | select((.check_suite.id // null) as $i | $s | index($i) | not)]' "$W/cr.json" > "$W/crl.json"
-# (е) ручной прогон (ws#1049): событие проверки — событие прогона её check_suite. Если у
-# имени есть проверка из прогона pull_request на этой голове, судится она (последняя среди
-# pull_request); проверки того же имени из других событий её не вытесняют ни в зелёное, ни
-# в красное. Без проверки из pull_request любое заключение ручного прогона судится.
+# (е) ручной прогон (ws#1049): событие проверки — событие прогона её check_suite; у
+# проверки без workflow run (стороннее приложение, check_suite null) события нет. Правило:
+# (е1) отбрасывается ТОЛЬКО проверка с прогоном (ev != null) события не pull_request,
+#      завершённая skipped, neutral или success, — и лишь когда у того же имени есть
+#      проверка из прогона pull_request на этой голове; проверка без прогона не
+#      отбрасывается никогда;
+# (е2) из оставшихся у имени берётся последняя по started_at в каждом check_suite; если
+#      среди них есть красная (FAILSET) — судится она, в каком бы событии и порядке ни
+#      стояла; иначе — незавершённая; иначе — последняя по started_at.
 SUITE_EV="$(jq -c '[.[].workflow_runs[] | select(.check_suite_id != null) | {key: (.check_suite_id | tostring), value: .event}] | from_entries' "$W/runs.json")"
 jq --argjson ev "$SUITE_EV" 'map(.ev = $ev[(.check_suite.id // null) | tostring]) | group_by(.name)
     | map(any(.[]; .ev == "pull_request") as $pr
-        | map(.drop = ($pr and .ev != "pull_request")))
+        | map(.drop = ($pr and .ev != null and .ev != "pull_request" and .status == "completed" and ((.conclusion // "") | IN("skipped", "neutral", "success")))))
     | add // []' "$W/crl.json" > "$W/crm.json"
-MANUAL_DROP="$(jq -r '[.[] | select(.drop) | "\(.name) (\(.ev), \(.conclusion // .status), check-run \(.id))"] | join("; ")' "$W/crm.json")"
-[ -z "$MANUAL_DROP" ] || printf 'CENSUS\tпроверка прогона не-pull_request при проверке того же имени из pull_request не судится: %s\n' "$MANUAL_DROP"
-# последний прогон каждого имени среди невытесненных и не отброшенных по (е); commit status — уже последний по контексту
-jq '[.[] | select(.drop | not)] | group_by(.name) | map(sort_by(.started_at // "") | last)
+MANUAL_DROP="$(jq -r '[.[] | select(.drop) | "\(.name) (\(.ev), \(.conclusion), check-run \(.id))"] | join("; ")' "$W/crm.json")"
+[ -z "$MANUAL_DROP" ] || printf 'CENSUS\tskipped/neutral/success прогона не-pull_request при проверке того же имени из pull_request не судится: %s\n' "$MANUAL_DROP"
+# судимая проверка каждого имени среди невытесненных и не отброшенных по (е1) — по (е2);
+# commit status — уже последний по контексту
+jq --argjson f "$FAILSET" '[.[] | select(.drop | not)] | group_by(.name)
+    | map(group_by(.check_suite.id // null) | map(sort_by(.started_at // "") | last) as $src
+        | ($src | map(select(.status == "completed" and ((.conclusion // "") as $c | $f | index($c))))) as $red
+        | ($src | map(select(.status != "completed"))) as $run
+        | if ($red | length) > 0 then ($red | sort_by(.started_at // "") | last)
+          elif ($run | length) > 0 then ($run | sort_by(.started_at // "") | last)
+          else ($src | sort_by(.started_at // "") | last) end)
     | map({name, id, done: (.status=="completed"), c: (.conclusion // "")})' "$W/crm.json" > "$W/latest.json"
 # Черновик: страж — проверка, завершённая failure с аннотацией «черновик не вливается».
 GUARDS=0
@@ -240,7 +263,6 @@ printf 'CENSUS\tпроверок на голове: различных %s (check
 
 R="$W/reasons"; : > "$R"
 reason() { printf 'REASON\t%s\t%s\n' "$1" "$2" >> "$R"; }
-FAILSET='["failure","cancelled","timed_out","action_required","startup_failure","stale"]'
 
 while IFS= read -r n; do reason CI-PENDING "не завершена: $n"; done < <(jq -r '.[]|select(.done|not)|.name' "$W/all.json")
 while IFS=$'\t' read -r n c; do reason CI-FAILED "$c: $n"; done < <(jq -r --argjson f "$FAILSET" '.[]|select(.done and (.c as $c | $f | index($c)))|"\(.name)\t\(.c)"' "$W/all.json")
