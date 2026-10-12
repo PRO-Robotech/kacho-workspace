@@ -1,6 +1,7 @@
 {
   "number": 3140,
   "state": "closed",
+  "draft": false,
   "head": {
     "sha": "29487cc55ea8aa0d1c6959250b31bdce980606c7",
     "ref": "cond-w6"
