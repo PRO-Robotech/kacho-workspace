@@ -1,0 +1,95 @@
+# Манифест изменения issue-1266 — посадка эпика kacho#1266 («своя личность —
+# вход, сессия и удостоверения наши») из ветки `1266` в `main` продукта.
+#
+# Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
+# ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-2713/`.
+#
+# ЛИНИЯ ДВИЖЕТСЯ. Голова и база сняты 2026-10-13 с origin; после волн эпика (в
+# kacho — поднятие пина службы доступа и каталога) голова сдвинется, и ВСЕ
+# отпечатки ниже станут отпечатками прежней линии. Пересчёт — командами поля
+# `remeasure`; запись ревью на прежнем отпечатке новую линию не судит.
+schema_version: 1
+change_id: issue-1266
+lifecycle_state: IMPLEMENTING
+
+# ПОЧЕМУ IMPLEMENTING. Волны эпика не все влиты в ветку эпика; приёмки названы
+# (hashes ниже), но записей держателей по текущему отпечатку нет ни одной:
+# пред-посадочные записи `reviews/pre-landing/` — записи агентов, не внешние
+# события актора из policy.yaml §2, и полномочия не дают.
+
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/1266
+  issue_kind: epic            # метки kacho#1266: epic · P1 · size:XL · area:iam · area:deploy · release:identity-own
+  epic_pr: https://github.com/PRO-Robotech/kacho/pull/3158   # черновой запрос эпика 1266 → main
+  sibling_package: docs/changes/kn-296   # эпик службы доступа kaname#296 — дочерний этого
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 6f10d7e2 → 0
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      branch: '1266'
+      base_sha: bac26316c468f76ba6193e4e61ac0dabbce64670   # origin/main @2026-10-13
+      head_sha: fd9f1793e70da4b9e1886be24a3104e0608410a0   # origin/1266 @2026-10-13
+      merge_base_equals_base: true         # git merge-base bac26316 fd9f1793 → bac26316
+      commits_in_line: 389                 # git rev-list --count bac26316..fd9f1793
+      merges_in_line: 134                  # git rev-list --merges --count bac26316..fd9f1793
+      paths_in_diff: 700                   # git diff --name-only bac26316...fd9f1793 | wc -l
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… bac26316 → 0
+
+hashes:
+  # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818): без него
+  # строки index несут сокращённые хеши, и дайджест зависит от клона.
+  content_digest_sha256: 4f23a06973cad6859d285528ad7cd5db0ea2f4fbffe7a1fd97e4358a8eafe92e
+  content_digest_predicate: >-
+    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...fd9f1793e70da4b9e1886be24a3104e0608410a0 | sha256sum
+
+  canonical_diff_set_sha256: c637f7b5c7a0c1ab3978f6ab29ace6779ccd46fcd2c8bf94bfc70636fd4c6af4
+  canonical_diff_set_predicate: >-
+    git diff --raw --no-abbrev <base>...<head>
+    | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
+    | LC_ALL=C sort | sha256sum
+
+  holders_sha256: 84623b6e7d9ec21b3fcee7b4fd7d0379e8300c17d45b6613ca10c7ed6dbdf1ad
+
+  # Приёмки эпика живут в воркспейсе, а не в дереве продукта, и не в корне пакета.
+  # Отпечаток — НАБОРА документов (путь · blob на ревизии дома), набор выведен
+  # предикатом ниже. Граница предиката: документ эпика, не называющий ни
+  # kacho#1266, ни линии identity-own, в набор не попадёт.
+  acceptance_sha256: 13e7f9b675a58ffce2738476b0d106c2d700ccdea4258e9bbc4682ef2f4cfe7b
+  acceptance_set_predicate: >-
+    git ls-tree <ws-rev> -- $(git grep -l -E 'kacho#1266|kacho/issues/1266([^0-9]|$)|identity-own' <ws-rev> -- 'docs/specs/*.md' | sed 's/^[^:]*://')
+    | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  acceptance_set_rev: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
+  acceptance_set:
+    - docs/specs/sub-phase-F1-token-signer-acceptance.md
+    - docs/specs/sub-phase-F8-S3-console-access-recovery-screen-acceptance.md
+    - docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+    - docs/specs/sub-phase-F8-S5-console-and-edge-own-sessions-acceptance.md
+    - docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+    - docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+    - docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+
+  # Документа замысла тот же предикат по `docs/specs/*-design.md` не находит (0):
+  # отсутствие заявлено предикатом реестра, а не пустым полем.
+  design_sha256: null
+  design_absence_predicate: no-design-document-in-change
+
+# Пересчёт после сдвига линии. Шаги 1–4 меняют поля coordinates и hashes этого
+# файла; шаг 5 — числа освобождений в holders.yaml; после правки holders.yaml —
+# шаг 6 в hashes.holders_sha256. Запись ревью переносится на новый отпечаток
+# только новым событием роли, не переименованием файла.
+remeasure:
+  - git -C "$KACHO_HOME_KACHO" fetch origin
+  - B=$(git -C "$KACHO_HOME_KACHO" rev-parse origin/main); H=$(git -C "$KACHO_HOME_KACHO" rev-parse origin/1266); git -C "$KACHO_HOME_KACHO" merge-base "$B" "$H"
+  - git -C "$KACHO_HOME_KACHO" diff --full-index "$B"..."$H" | sha256sum
+  - git -C "$KACHO_HOME_KACHO" diff --raw --no-abbrev "$B"..."$H" | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}' | LC_ALL=C sort | sha256sum
+  - for f in migrations_touched design_documents_referenced; do python3 scripts/change-graph-gate/applicability.py field $f --package docs/changes/issue-1266 --rev HEAD; done
+  - sha256sum docs/changes/issue-1266/holders.yaml
+
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  holders: docs/changes/issue-1266/holders.yaml
+  reviews_root: docs/changes/issue-1266/reviews/
