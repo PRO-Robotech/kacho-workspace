@@ -28,41 +28,41 @@ coordinates:
   repositories:
     - repo: PRO-Robotech/kacho-workspace
       role: package-home
-      base_sha: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
-      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 6f10d7e2 → 0
+      base_sha: 1e11702600a5d2168c20cff48261f704f8063241
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 1e117026 → 0
     - repo: PRO-Robotech/kaname
       role: subject-tree
       branch: '296'
       base_sha: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6   # origin/main @2026-10-13
-      head_sha: 9a78fc2183c8669dde415cb3c12e637e593d52b9   # origin/296 @2026-10-13
-      merge_base_equals_base: true         # git merge-base 8a84dcff 9a78fc21 → 8a84dcff
-      commits_in_line: 614                 # git rev-list --count 8a84dcff..9a78fc21
-      merges_in_line: 193                  # git rev-list --merges --count 8a84dcff..9a78fc21
-      paths_in_diff: 2013                  # git diff --name-only 8a84dcff...9a78fc21 | wc -l
+      head_sha: 3066c7b6a266f640b367a82df21996f022a9a039   # origin/296 @2026-10-13, финальная голова
+      merge_base_equals_base: true         # git merge-base 8a84dcff 3066c7b6 → 8a84dcff
+      commits_in_line: 665                 # git rev-list --count 8a84dcff..3066c7b6
+      merges_in_line: 208                  # git rev-list --merges --count 8a84dcff..3066c7b6
+      paths_in_diff: 2047                  # git diff --name-only 8a84dcff...3066c7b6 | wc -l
       cutover_in_policy: false             # policy.yaml §1 не называет PRO-Robotech/kaname
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818).
-  content_digest_sha256: c83869dca75a7a8cf53e9109be1c01c225823123d2242163e8e3380cd4802599
+  content_digest_sha256: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
   content_digest_predicate: >-
-    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...9a78fc2183c8669dde415cb3c12e637e593d52b9 | sha256sum
+    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3066c7b6a266f640b367a82df21996f022a9a039 | sha256sum
 
-  canonical_diff_set_sha256: 6ff7b520247c5650c03208c8a9a17c98ab68845d284464062e79321701464d80
+  canonical_diff_set_sha256: 2df02efc736bee2660721a6c9bbb04ac2dfe78e8f9eae4999eb4288d62f909ce
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 6bf541bd18356021130d8fcb0b536948b8df99f42767926bbac2bd17a76a6de6
+  holders_sha256: e3155088cc917db841cc18dcb473046711de208a75a4c2c622fe27ca3b5be75f
 
   # Приёмки и замысел эпика лежат в ДЕРЕВЕ ПРОДУКТА (`docs/engineering/acceptance/`)
   # и входят в его дифф. Отпечаток — НАБОРА документов (путь · blob на голове):
   # добавленные и изменённые линией; замысел — по суффиксу `-design.md`.
-  acceptance_sha256: 6aff69a5be35d7cb0a5ac6340859d49b281f14c2bc686d82d28a57eda222475a
+  acceptance_sha256: 9d08fc4c93cdbec52f67da6dbfce98695a26821387dee24ed95a1ac415fe288c
   acceptance_set_predicate: >-
     git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*' | grep -v -- '-design\.md$')
     | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
-  acceptance_set_count: 26
+  acceptance_set_count: 27
   design_sha256: efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2
   design_set_predicate: >-
     git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*-design.md')

@@ -25,43 +25,43 @@ coordinates:
   repositories:
     - repo: PRO-Robotech/kacho-workspace
       role: package-home
-      base_sha: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
-      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 6f10d7e2 → 0
+      base_sha: 1e11702600a5d2168c20cff48261f704f8063241
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 1e117026 → 0
     - repo: PRO-Robotech/kacho
       role: subject-tree
       branch: '1266'
       base_sha: bac26316c468f76ba6193e4e61ac0dabbce64670   # origin/main @2026-10-13
-      head_sha: fd9f1793e70da4b9e1886be24a3104e0608410a0   # origin/1266 @2026-10-13
-      merge_base_equals_base: true         # git merge-base bac26316 fd9f1793 → bac26316
-      commits_in_line: 389                 # git rev-list --count bac26316..fd9f1793
-      merges_in_line: 134                  # git rev-list --merges --count bac26316..fd9f1793
-      paths_in_diff: 700                   # git diff --name-only bac26316...fd9f1793 | wc -l
+      head_sha: 2306d95de6837ec745852c305869efc8551546bf   # origin/1266 @2026-10-13, финальная голова
+      merge_base_equals_base: true         # git merge-base bac26316 2306d95d → bac26316
+      commits_in_line: 404                 # git rev-list --count bac26316..2306d95d
+      merges_in_line: 141                  # git rev-list --merges --count bac26316..2306d95d
+      paths_in_diff: 703                   # git diff --name-only bac26316...2306d95d | wc -l
       cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… bac26316 → 0
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818): без него
   # строки index несут сокращённые хеши, и дайджест зависит от клона.
-  content_digest_sha256: 4f23a06973cad6859d285528ad7cd5db0ea2f4fbffe7a1fd97e4358a8eafe92e
+  content_digest_sha256: 2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
   content_digest_predicate: >-
-    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...fd9f1793e70da4b9e1886be24a3104e0608410a0 | sha256sum
+    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...2306d95de6837ec745852c305869efc8551546bf | sha256sum
 
-  canonical_diff_set_sha256: c637f7b5c7a0c1ab3978f6ab29ace6779ccd46fcd2c8bf94bfc70636fd4c6af4
+  canonical_diff_set_sha256: e6d170d3dd412cb954ee3377326926890f5e066ed81278e9d5f130b5896bff45
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 84623b6e7d9ec21b3fcee7b4fd7d0379e8300c17d45b6613ca10c7ed6dbdf1ad
+  holders_sha256: 6379f5e14a47211a47e4739a00c91bed69bb9459ccf97050cb23240ec8aac095
 
   # Приёмки эпика живут в воркспейсе, а не в дереве продукта, и не в корне пакета.
   # Отпечаток — НАБОРА документов (путь · blob на ревизии дома), набор выведен
   # предикатом ниже. Граница предиката: документ эпика, не называющий ни
   # kacho#1266, ни линии identity-own, в набор не попадёт.
-  acceptance_sha256: 13e7f9b675a58ffce2738476b0d106c2d700ccdea4258e9bbc4682ef2f4cfe7b
+  acceptance_sha256: d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb
   acceptance_set_predicate: >-
     git ls-tree <ws-rev> -- $(git grep -l -E 'kacho#1266|kacho/issues/1266([^0-9]|$)|identity-own' <ws-rev> -- 'docs/specs/*.md' | sed 's/^[^:]*://')
     | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
-  acceptance_set_rev: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
+  acceptance_set_rev: 1e11702600a5d2168c20cff48261f704f8063241
   acceptance_set:
     - docs/specs/sub-phase-F1-token-signer-acceptance.md
     - docs/specs/sub-phase-F8-S3-console-access-recovery-screen-acceptance.md

@@ -33,7 +33,7 @@ role_applicability:
       Документа замысла изменение не называет: `design.md` в корне пакета нет,
       `hashes.design_sha256` null, а предикат набора документов эпика
       (`change.yaml`, acceptance_set_predicate) по `docs/specs/*-design.md`
-      находит 0 из 7 отслеживаемых на 6f10d7e2. Граница этого числа — та же,
+      находит 0 из 7 отслеживаемых на 1e117026. Граница этого числа — та же,
       что у набора приёмок: замысел, не называющий kacho#1266 и линии
       identity-own, предикату не виден. Появится замысел — поле станет 1, роль
       применима, и её вердикт даёт только событие pointpu на его отпечаток.
@@ -47,7 +47,7 @@ role_applicability:
       python3 scripts/change-graph-gate/applicability.py field
       migrations_touched --package docs/changes/issue-1266 --rev HEAD
     why: >-
-      В диффе kacho 0 путей `*/migrations/*` и `*.sql` из 700. Совместная
+      В диффе kacho 0 путей `*/migrations/*` и `*.sql` из 703. Совместная
       пред-посадочная запись роли по двум эпикам лежит в пакете `kn-296`, где
       предмет роли есть (миграции службы доступа), и о kacho говорит то же:
       предмета нет.
@@ -90,7 +90,7 @@ role_applicability:
     holder: human-wave
     reason: >-
       линия собрана слияниями волн: `git rev-list --merges --count
-      bac26316..fd9f1793` = 134; предикат `no-lane-merges-in-change` ложен.
+      bac26316..2306d95d` = 141; предикат `no-lane-merges-in-change` ложен.
 
   integration-tester:
     status: applicable
@@ -142,7 +142,7 @@ required_holders:
 
   # ── человеческие ──────────────────────────────────────────────────────────
   # Вердикт выпускает внешнее событие актора из policy.yaml §2, подтверждённое
-  # через API. Исхода нет ни у одного: событий на отпечаток 4f23a069… не было.
+  # через API. Исхода нет ни у одного: событий на отпечаток 2aa30583… не было.
 
   human-acceptance:
     kind: human-external

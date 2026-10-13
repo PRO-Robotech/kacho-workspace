@@ -21,7 +21,7 @@ role_applicability:
     status: applicable
     holder: human-acceptance
     reason: >-
-      линия добавляет и меняет 26 приёмок в `docs/engineering/acceptance/`
+      линия добавляет и меняет 27 приёмок в `docs/engineering/acceptance/`
       (`change.yaml`, acceptance_set_predicate).
 
   class-exposure-analyst:
@@ -43,7 +43,7 @@ role_applicability:
     status: applicable
     holder: human-post-diff-db
     reason: >-
-      `git diff --name-only 8a84dcff...9a78fc21 -- '*/migrations/*' '*.sql'` = 66
+      `git diff --name-only 8a84dcff...3066c7b6 -- '*/migrations/*' '*.sql'` = 66
       путей, из них 13 новых миграций `.sql`; предикат `no-migrations-in-change` ложен.
 
   go-style-reviewer:
@@ -68,7 +68,7 @@ role_applicability:
     holder: human-wave
     reason: >-
       линия собрана слияниями волн: `git rev-list --merges --count
-      8a84dcff..9a78fc21` = 193; предикат `no-lane-merges-in-change` ложен.
+      8a84dcff..3066c7b6` = 208; предикат `no-lane-merges-in-change` ложен.
 
   integration-tester:
     status: applicable
@@ -115,7 +115,7 @@ required_holders:
       `.github/workflows/e2e-newman.yml` отслеживается на origin/main kaname 8a84dcff.
 
   # ── человеческие ──────────────────────────────────────────────────────────
-  # Исхода нет ни у одного: событий актора на отпечаток c83869dc… не было.
+  # Исхода нет ни у одного: событий актора на отпечаток 746c6166… не было.
 
   human-acceptance:
     kind: human-external
