@@ -94,6 +94,13 @@
 #   соседей (своего среди них нет; полоса одна — «соседей нет»); hookLog не путь —
 #   одна доводка, снова не путь — полоса стоит без предпроверки вслепую, соседи
 #   садятся; report — содержательный итог.
+#   волна одним проходом (ws#1053): предполёт — один scout до первого исполнителя,
+#   задание называет все классы зависимых и критерии по policy.yaml; полоса несёт
+#   СВОЮ карту; незакрытый пункт — одна доводка, затем полоса стоит, сосед садится
+#   (близнец — доводка закрыла); предполёт без ответа или без карты полосы — раздачи
+#   нет; пробная сборка — сразу после предпроверки полосы, красная — полоса в
+#   остаток (близнец — код 2 не красное); смена контракта — имитация клиента ДО
+#   кода; метрики — последним шагом на любом исходе; каскад щадит держателя ведомости.
 #   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
 #   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
 #   не принимает; не-номерные ветки kaname, уже лежащие на origin.
@@ -186,6 +193,8 @@ async function run(sc) {
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
     ALL.push({ label, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
     const lane = label.split(':').pop()
+    // Предполёт (ws#1053): карта по каждому ключу из задания; сценарий перекрывает (null — нет ответа).
+    if (label === 'preflight') { const keys = ((prompt.match(/КЛЮЧИ ПОЛОС: ([^.\n]*)/) || [])[1] || '').split(',').filter(Boolean); const r = take('pre', () => ({ lanes: keys.map(k => ({ key: k, impact: (sc.map || {})[k] || [], criteria: ['критерий ' + k] })), estimate: '6 ч, красных 0', report: 'r' })); return r }
     if (label.startsWith('mech:plan:')) { const o = take('plan', () => P('r0.json')); return { code: o.code, out: (sc.planOut !== undefined ? sc.planOut : (sc.planPrefix || '') + JSON.stringify(o)), reasons: (o.reasons || []).map(r => r.code), head: '' } }
     if (label.startsWith('impl:')) { const r = take('impl:' + lane, () => ({ status: 'done', head: H(lane, cnt['impl:' + lane]) })); heads[lane] = r.head; return { branch: 'b-' + lane, copy: '/ws/tmp/c-' + lane, hookLog: '/ws/tmp/push.log', issues: ['o/r#1'], report: 'r', ...r } }
     if (label.startsWith('mech:stack:')) { const r = take('stack:' + lane, () => ({ status: 'done', head: H('S' + lane, 0) })); if (r === null) return null; heads['stack:' + lane] = r.head; return { branch: (prompt.match(/заведи ветку (\S+)/) || [])[1] || '9-stack-' + lane.toLowerCase(), contains: Object.keys(heads).filter(k => !k.startsWith('stack:')).map(k => heads[k]), conflicts: [], report: 'r', ...r } }
@@ -201,6 +210,7 @@ async function run(sc) {
     if (label.startsWith('mech:ci-land')) return { out: '', reasons: [], head: (prompt.match(/голова ([0-9a-f]{40})/) || [])[1] || HW, ...take('ciland', () => ({ code: 0 })) }
     if (label.startsWith('mech:landing:')) return { out: '', head: HW, ...take('land', () => ({ code: 0, reasons: [] })) }
     if (label.startsWith('mech:delta')) return { out: '', reasons: [], head: '', ...take('delta', () => ({ code: 0 })) }
+    if (label.startsWith('mech:trial:')) return { out: '', head: '', reasons: [], ...take('trial:' + lane, () => ({ code: 0 })) }
     if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40) }
     if (label.startsWith('mech:')) return { code: 0, out: '', reasons: [], head: '' }
     return 'отчёт записан'
@@ -296,7 +306,8 @@ ok(r.res.ok === true && idx(r.calls, 'impl:C') >= 0 && idx(r.calls, 'impl:C') < 
 // слой плана порядок deps называет, но чужую полосу ждать не велит.
 const argsDepD = { ...args, lanes: [...argsDepC.lanes, { key: 'D', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-d', text: 't', deps: ['C'] }] }
 r = await run({ args: argsDepD, plan: [P('r1d.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }] })
-ok(r.res.ok === true && idx(r.calls, 'mech:stack:D') >= 0 && idx(r.calls, 'mech:stack:D') < r.calls.map(c => c.label).lastIndexOf('mech:precheck:A'), 'D (от C) стартует, когда прошла C, не дожидаясь A чужого слоя', JSON.stringify(r.calls.map(c => c.label)).slice(0, 400))
+// Полоса прошла — после своей пробной сборки (ws#1053): D ждёт пробу C, но не A.
+ok(r.res.ok === true && idx(r.calls, 'mech:stack:D') >= 0 && idx(r.calls, 'mech:trial:C') < r.calls.map(c => c.label).lastIndexOf('mech:precheck:A') && idx(r.calls, 'mech:stack:D') < idx(r.calls, 'mech:trial:A'), 'D (от C) стартует, когда прошла C, не дожидаясь A чужого слоя', JSON.stringify(r.calls.map(c => c.label)).slice(0, 400))
 ok(prm(r.calls, 'mech:stack:D').includes('9-c@') && !prm(r.calls, 'mech:stack:D').includes('9-a@'), 'в сводку D — только её deps (C), чужая A не вливается')
 // Тот же предмет без опоры на тайминг: A с доводкой заканчивает ПОСЛЕ C, и в
 // момент сводки B полоса C уже прошла — в сводку B она попасть не должна.
@@ -552,7 +563,7 @@ const ciGot = c => c.prompt.split('\n\n').slice(1).join(' ')
 const ciCut = (g, i) => { if (!g.startsWith(ciWant(i))) return null; const k = g.indexOf(' 2>&1` (', ciWant(i).length); return k < 0 ? null : g.slice(k + ' 2>&1'.length) }
 const ciBad = cis.map((c, i) => { const t = ciCut(ciGot(c), i); return t !== null && t.startsWith(ciWant2(i)) ? '' : 'чтение ' + (i + 1) + ': ' + ciGot(c).slice(0, 220) }).filter(Boolean)
 ok(cis.length === 3 && CIS >= 1 && CIS <= 10 && ciBad.length === 0, 'чтение CI — одно, без ожидания агентом; повтор — шаблоном (указание сверено целиком)', 'срок ci ' + CIS + '; ' + ciBad.join(' | '))
-ok(CIP > 0 && CIP <= 300 && !/sleep/.test(cis[0].prompt.split('\n\n').slice(1).join(' ')) && cis.slice(1).every(c => c.prompt.includes('sleep ' + CIP)), 'пауза между чтениями — одна команда ≤ 300 с, у первого чтения паузы нет', 'CI_PAUSE_S=' + CIP)
+ok(CIP > 0 && CIP <= 300 && cis.length > 0 && !/sleep/.test(cis[0].prompt.split('\n\n').slice(1).join(' ')) && cis.slice(1).every(c => c.prompt.includes('sleep ' + CIP)), 'пауза между чтениями — одна команда ≤ 300 с, у первого чтения паузы нет', 'CI_PAUSE_S=' + CIP)
 console.log('== пауза CI — тем же агентом и с фактом slept (ws#1010)')
 const ownP = c => c.prompt.split('\n\n').slice(1).join(' ')
 ok(r.calls.filter(c => !c.label.startsWith('mech:ci:') && /`[^`]*\bsleep \d/.test(ownP(c))).length === 0, 'паузу не делает отдельный агент: sleep — только в команде чтения CI', r.calls.filter(c => !c.label.startsWith('mech:ci:') && /`[^`]*\bsleep \d/.test(ownP(c))).map(c => c.label).join(','))
@@ -661,6 +672,48 @@ const asmK = prm(r.calls, 'mech:assemble:1')
 ok(r.res.ok === true && asmK.includes('(cd ui-future && npm ci && for p in $(sed -n') && asmK.includes('../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)') && asmK.indexOf('npm ci') < asmK.indexOf('Отправь ветку волны'), 'сборка kacho: npm ci в ui-future и в пакетах STANDALONE из ui.yml — до отправки и проверок', asmK.slice(0, 600))
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')] })
 ok(!/npm ci/.test(prm(r.calls, 'mech:assemble:1')), 'близнец: сборка kaname — без npm ci консоли')
+
+console.log('== волна одним проходом (ws#1053): предполёт, карта влияния, пробная сборка, метрики')
+{
+  const MAP = { A: ['tests/newman/x.json — утверждает поле → поправить кейс', 'deploy/seed.sh — посев стенда → поправить посев'] }
+  let q = await run({ args, plan: [P('r0.json')], map: MAP, 'impl:A': [{ status: 'done', head: H('A', 1), impact: ['1 → правка tests/newman/x.json', '2 → не затронуто — потому что посев поле не пишет'] }] })
+  const iPre = idx(q.calls, 'preflight'), iImpl = q.calls.findIndex(c => c.label.startsWith('impl:'))
+  const pp = prm(q.calls, 'preflight')
+  ok(q.res.ok === true && by(q.calls, c => c.label === 'preflight') === 1 && iPre >= 0 && iPre < iImpl && (q.calls[iPre] || {}).agentType === 'scout', 'предполёт — один scout на волну, до первого исполнителя', JSON.stringify(q.res).slice(0, 200))
+  ok(['посевы стенда', 'кейсы newman', 'живы ли держатели', 'копии каталога прав в другом репозитории', 'сквозные пробы консоли', 'документация и приёмки', 'записи ревью и их гейты', 'профили и чарты', 'docs/changes/policy.yaml', 'пин — на голову сборки производителя', 'КЛЮЧИ ПОЛОС: A,B', '/ws/tmp/wave-9/reports/preflight.md'].every(f => pp.includes(f)), 'задание предполёта: все классы зависимых, критерии по policy.yaml, зависимый другого репозитория — в эту волну', pp.slice(0, 300))
+  const ia = prm(q.calls, 'impl:A'), ib = prm(q.calls, 'impl:B')
+  ok(ia.includes('1) tests/newman/x.json — утверждает поле → поправить кейс; 2) deploy/seed.sh') && ia.includes('полоса с незакрытым пунктом не сдаётся') && ia.includes('Критерии рецензентов: критерий A') && !ib.includes('tests/newman/x.json') && ib.includes('пунктов нет'), 'задание полосы несёт СВОЮ карту и критерии, чужих пунктов нет', ia.slice(0, 200))
+  ok(by(q.calls, c => c.label === 'impl:A') === 1, 'пункты карты закрыты — доводки нет')
+  ok(((q.calls.find(c => c.label === 'impl:A') || {}).schema?.required || []).includes('impact'), 'impact обязателен в схеме исполнителя')
+  const iT = idx(q.calls, 'mech:trial:A'), iP = idx(q.calls, 'mech:precheck:A'), iAsm = idx(q.calls, 'mech:assemble:1')
+  ok(iT > iP && iT < iAsm && idx(q.calls, 'mech:trial:B') >= 0 && /git push --dry-run origin HEAD:refs\/heads\/9`/.test(prm(q.calls, 'mech:trial:A')), 'пробная сборка — сразу после предпроверки полосы, до сборки; хук отправки судит сведённое (--dry-run)', prm(q.calls, 'mech:trial:A').slice(-300))
+  const mt = prm(q.calls, 'mech:metrics')
+  ok(by(q.calls, c => c.label === 'mech:metrics') === 1 && q.calls[q.calls.length - 1].label === 'mech:metrics' && mt.includes('/ws/tmp/wave-9/reports/metrics.json') && q.res.metrics?.preflightItems === 2 && q.res.metrics?.implCalls === 2 && q.res.metrics?.rework === 0, 'метрики — последним шагом в reports/metrics.json; пунктов карты 2, вызовов исполнителя 2, переделок 0', JSON.stringify(q.res.metrics))
+  ok(prm(q.calls, 'mech:merge').includes('КРОМЕ держателей записей ведомостей'), 'каскад не закрывает держателя записи ведомости')
+  // незакрытый пункт: одна доводка, снова незакрыт — полоса стоит, сосед садится
+  q = await run({ args, plan: [P('r0.json')], map: MAP, 'impl:A': [{ status: 'done', head: H('A', 1), impact: ['1 → правка tests/newman/x.json'] }, { status: 'done', head: H('A', 2), impact: ['1 → правка tests/newman/x.json', '2 → посмотрю потом'] }] })
+  ok(q.res.ok === true && by(q.calls, c => c.label === 'impl:A') === 2 && prm(q.calls, 'impl:A').length > 0 && q.calls.filter(c => c.label === 'impl:A')[1].prompt.includes('КАРТА ВЛИЯНИЯ: пункты 2 не закрыты') && inRest(q.res, 'A') && /карта влияния: пункты 2 не закрыты и после доводки/.test(((q.res.remainder || []).find(x => x.key === 'A') || {}).stage || '') && by(q.calls, c => c.label === 'mech:precheck:A') === 0 && !asmHas(q.calls, '9-a') && asmHas(q.calls, '9-b') && q.res.metrics?.rework === 1, 'пункт карты не закрыт и после доводки — полоса стоит до предпроверки, сосед садится', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], map: MAP, 'impl:A': [{ status: 'done', head: H('A', 1), impact: [] }, { status: 'done', head: H('A', 2), impact: ['1 -> правка tests/newman/x.json', '2 → не затронуто — потому что посев поле не пишет'] }] })
+  ok(q.res.ok === true && by(q.calls, c => c.label === 'impl:A') === 2 && !inRest(q.res, 'A'), 'близнец: доводка закрыла пункты (и форма «->») — полоса идёт', JSON.stringify(q.res).slice(0, 200))
+  // предполёт без ответа либо без карты полосы — раздачи нет
+  q = await run({ args, plan: [P('r0.json')], pre: ['отчёт записан'] })
+  ok(q.res.ok === false && /предполёт/.test(q.res.stage || '') && by(q.calls, c => c.label.startsWith('impl:')) === 0 && by(q.calls, c => c.label === 'mech:metrics') === 1, 'предполёт без ответа — раздачи нет, метрики всё равно записаны', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args, plan: [P('r0.json')], pre: [{ lanes: [{ key: 'A', impact: [], criteria: [] }], estimate: 'e', report: 'r' }] })
+  ok(q.res.ok === false && /по полосам B/.test(q.res.stage || '') && by(q.calls, c => c.label.startsWith('impl:')) === 0, 'карты нет по одной полосе — раздачи нет, полоса названа', JSON.stringify(q.res).slice(0, 200))
+  // пробная сборка красная — полоса в остаток, сосед садится, счёт красных на сведённом
+  q = await run({ args, plan: [P('r0.json')], 'trial:A': [{ code: 1, reasons: ['newman: ф13-25'] }] })
+  ok(q.res.ok === true && inRest(q.res, 'A') && /пробная сборка: красное на сведённом — newman: ф13-25/.test(((q.res.remainder || []).find(x => x.key === 'A') || {}).stage || '') && !asmHas(q.calls, '9-a') && asmHas(q.calls, '9-b') && q.res.metrics?.trialRed === 1, 'пробная сборка красная — полоса в остаток, сосед садится, trialRed 1', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], 'trial:A': [{ code: 2, reasons: [] }] })
+  ok(q.res.ok === true && !inRest(q.res, 'A') && q.res.metrics?.trialRed === 0, 'близнец: проба не выполнилась (код 2) — не красное, суд за CI', JSON.stringify(q.res).slice(0, 200))
+  // CI красный на сведённом — счёт ciRed и метрики на провале
+  q = await run({ args, plan: [P('r0.json')], ci: [{ code: 1, reasons: ['x'] }] })
+  ok(q.res.ok === false && q.res.metrics?.ciRed === 1 && by(q.calls, c => c.label === 'mech:metrics') === 1, 'красный CI на сведённом — ciRed 1, метрики записаны и на провале', JSON.stringify(q.res.metrics))
+  // смена контракта: имитация клиента по замыслу ДО кода
+  q = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
+  const iSim = idx(q.calls, 'sim:M')
+  ok(q.res.ok === true && iSim > idx(q.calls, 'acceptance-review-1:M') && iSim < idx(q.calls, 'impl:M') && (q.calls[iSim] || {}).agentType === 'client-simulator' && prm(q.calls, 'impl:M').includes('имитация клиента до кода — /ws/tmp/wave-9/reports/M/client-sim.md'), 'смена контракта — имитация клиента после приёмки и ДО кода, путь — исполнителю', JSON.stringify(q.res).slice(0, 200))
+  ok(by(q.calls, c => c.agentType === 'client-simulator') === 1, 'имитация клиента — один раз на полосу')
+}
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
@@ -922,6 +975,29 @@ mutant "соседи — все полосы, включая свою" "lanes.fi
 mutant "hookLog не судится" "const isPath = s => typeof s === 'string' && /^\\/[^\\s]+\$/.test(s)" "const isPath = s => true"
 mutant "hookLog не путь после доводки — дальше" "  if (!isPath(impl.hookLog)) return" "  if (false) return"
 mutant "report без содержания" "report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня)" "report"
+# ws#1053: волна одним проходом.
+# Предполёт выпал, карта пустая — полосы идут без неё (форма настоящей регрессии).
+mutant "предполёт не зовётся" "const pre = await agent(C + " "const pre = { lanes: lanes.map(l => ({ key: l.key, impact: [], criteria: [] })) } || await agent(C + "
+mutant "карта без полосы — раздача идёт" "if (noMap.length) return { ok: false, stage: 'предполёт" "if (false) return { ok: false, stage: 'предполёт"
+mutant "предполёт без держателей ведомостей" "ведомости производителя и долгов (живы ли держатели — задача открыта)" "ведомости производителя и долгов"
+mutant "предполёт без каталога прав соседа" "копии каталога прав в другом репозитории, " ""
+mutant "зависимый другого репозитория — не в эту волну" "его полоса идёт в ЭТУ волну, пин — на голову сборки производителя" "его полоса — в следующую волну"
+mutant "карта не в задании полосы" "+ mapText(l) + '\\n' + FILES_RULE" "+ '\\n' + FILES_RULE"
+mutant "карта всех полос в задании" "const m = preMap[l.key]; return" "const m = { impact: Object.values(preMap).flatMap(x => x.impact), criteria: Object.values(preMap).flatMap(x => x.criteria) }; return"
+mutant "незакрытый пункт не судится" "return preMap[l.key].impact.map((_, i) => i + 1).filter(" "return [].filter("
+mutant "«посмотрю потом» — закрытие" "(?:правка\\\\s+\\\\S|не затронуто — потому что\\\\s+\\\\S)" "(?:правка|не затронуто|посмотрю)"
+mutant "доводки по карте нет" "  if (gap.length) fix.push(" "  if (false) fix.push("
+mutant "незакрытый после доводки — полоса идёт" "  if (gap.length) return { ...out, stage: 'карта влияния: пункты" "  if (false) return { ...out, stage: 'карта влияния: пункты"
+mutant "пробной сборки нет" "  if (r.ok) r = await trialIn(l, r)" ""
+mutant "красная пробная — полоса идёт" "  if (t && t.code === 1) {" "  if (false) {"
+mutant "пробная сборка — отправкой ветки" "\`git push --dry-run origin HEAD:refs/heads/' + N + '\`" "\`git push origin HEAD:refs/heads/' + N + '-trial\`"
+mutant "имитация клиента не зовётся" "    await agent(C + '\\n\\nИмитация клиента ДО кода" "    false && await agent(C + '\\n\\nИмитация клиента ДО кода"
+mutant "метрики не пишутся" "await agent(C + '\\n\\nРежим метрики:" "false && await agent(C + '\\n\\nРежим метрики:"
+mutant "метрики без итога" "return { ...res, metrics: metricsOf() }" "return res"
+mutant "переделка не считается" "impl1st[l.key] ? M.rework++ :" "impl1st[l.key] ? 0 :"
+mutant "красный CI не считается" "if (ciState(ci) === 'red') M.ciRed++" ""
+mutant "каскад закрывает держателя ведомости" "; КРОМЕ держателей записей ведомостей" ""
+mutant "impact снят со схемы исполнителя" "'issues', 'impact', 'report', 'lesson'] }" "'issues', 'report', 'lesson'] }"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo
