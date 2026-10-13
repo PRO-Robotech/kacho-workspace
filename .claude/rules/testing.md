@@ -114,7 +114,7 @@ double-must-honor-real-contract · выполняй контракт насто�
 fake-structurally-unable-to-be-green · сделай структурно неспособной дать зелёное; провязку доказывай тем, что её позвали · TestInjectedBothFormsBlindRecogniserIsNotGreen · red: заглушка сочиняет отчёт
 injection-not-reading-proves-holder · проверяй инъекцией, не прочтением; опровергнутую записывай рядом с тестом · ЗАВЕСТИ · red: вывод сделан чтением кода
 
-### Распознаватель обязан знать ВСЕ законные формы записи предмета (выведено 2026-08-24)
+### Распознаватель обязан знать ВСЕ законные формы записи предмета
 
 recognizer-knows-all-lawful-forms · назови КАЖДУЮ законную форму записи и докажи инъекцией по каждой · TestConsoleProbeTypeCoverageKnowsEveryLegalPatternForm · red: форма вне наблюдения — молчание
 blind-zone-measured-by-census · сравни осмотренное и найденное: перепись выросла при прежней полосе = была слепая зона · internal/repohygiene/removedpathcensus_injection_test.go · red: расширение холостое
@@ -133,7 +133,7 @@ prop-has-subject-issue · заводи предмет: issue с причиной
 prop-removed-with-cause · снимай вместе с причиной · TestPostureRelaxationExpiresWhenItsSubjectIsGone · red: задача закрыта, послабление осталось
 prop-against-growth-needs-subject · от роста — отсрочка с известной датой отказа, предмет обязателен · TestCiRelaxationSaysWhyItIsThere · red: поднят предел там, где растёт потребление
 
-## Четыре класса проверок, найденные за эпик identity (2026-08-23)
+## Четыре класса проверок, найденные за эпик identity
 
 positive-control-needs-nonempty · требуй НЕПУСТОГО предмета; счёт строк разметки не годится · TestEdgeCatalogBlockStorageGate_FindsAnEmptyPositiveControl · red: «флажков нет» зеленеет там, где нет ничего
 selfcheck-on-synthetic-not-live-entry · строй на синтетике в t.TempDir(), не на живой записи его ведомости · TestBakedLedgerInjection_EntryWithoutSubjectIsFound · red: ведомость опустела — самопроверка покраснела
@@ -148,7 +148,7 @@ console-packages-need-npm-ci · ставь зависимости консоли
 env-value-asked-not-written · спрашивай у самой полосы, не выписывай литералом · TestQuotaShowPosture_HardcodedDeclaredIsAFinding · red: литерал с комментарием «объявлено посадкой»
 ledger-exact-not-ceiling · записывай точным числом по факту, не потолком · TestBaselineHoldsAnExactCountNotACeiling; TestBeyondGoInjection_LedgerCeilingIsAFinding · red: ведомость прощает 42 при 36 находках
 
-## Предикат по ДВУЯЗЫЧНОМУ корпусу, ищущий на одном языке, недобирает МОЛЧА (выведено 2026-08-23)
+## Предикат по ДВУЯЗЫЧНОМУ корпусу, ищущий на одном языке, недобирает МОЛЧА
 
 bilingual-predicate · ищи на обоих языках либо по координате, от языка не зависящей · ЗАВЕСТИ · red: числа разошлись — предикат меряет язык
 bilingual-second-run-before-naming-number · прогони предикат со вторым языком; разошлось — смени единицу счёта · ЗАВЕСТИ · red: число названо по одному языку
