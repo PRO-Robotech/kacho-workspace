@@ -357,12 +357,13 @@ const runLane = async (l, stack) => {
 // независимая — сразу. Зависимая — от сводки голов deps (ws#938): без неё в
 // ветке полосы нет кода предшественника, а сводит полосы только сборка.
 // Пробная сборка НЕПРЕРЫВНАЯ (ws#1053): прошедшая полоса сразу сводится с уже
-// вошедшими; хук отправки судит СВЕДЁННОЕ (`git push --dry-run` на ветку волны —
-// имя, принимаемое хуком любого репозитория). Пробы идут по одной (одна копия —
+// вошедшими; хук отправки судит СВЕДЁННОЕ: `git push --dry-run` на ветку САМОЙ
+// полосы — её имя хук репозитория уже принял, и кандидат — её потомок (перемотка
+// вперёд; на занятое имя волны git отверг бы его до хука, и хук не судил бы ничего). Пробы идут по одной (одна копия —
 // один писатель); красное — полоса в остаток, на origin ничего не меняется.
 let trialChain = Promise.resolve()
 const trialIn = (l, r) => (trialChain = trialChain.then(async () => {
-  const t = await agent(C + '\n\nРежим пробная сборка полосы ' + l.key + ': в копии ' + D + '/trial (нет — клон от свежего origin/' + (A.base || '?') + ', ветка trial) заведи `git switch -C cand-' + l.key + ' trial` и влей ' + l.branch + '@' + r.head + ' коммитом слияния pointpu --no-ff; конфликт — `git merge --abort`, code 1, пути в reasons.' + UI_DEPS + ' Суд СВЕДЁННОГО — хук отправки через слот: `git push --dry-run origin HEAD:refs/heads/' + N + '` (' + HOMES + '), журнал ' + R + '/' + l.key + '/trial.push.log. code: 0 — хук зелёный, затем `git switch trial && git merge --ff-only cand-' + l.key + '`; 1 — красное на сведённом (зависимый не поправлен), trial не двигать, в reasons — упавшие проверки; 2 — не выполнилось (слот 74/75/76). Верни code, out, reasons, head (голова cand).', { ...MECH, label: 'mech:trial:' + l.key, phase: 'Полосы', schema: S_MECH })
+  const t = await agent(C + '\n\nРежим пробная сборка полосы ' + l.key + ': в копии ' + D + '/trial (нет — клон от свежего origin/' + (A.base || '?') + ', ветка trial) заведи `git switch -C cand-' + l.key + ' trial` и влей ' + l.branch + '@' + r.head + ' коммитом слияния pointpu --no-ff; конфликт — `git merge --abort`, code 1, пути в reasons.' + UI_DEPS + ' Суд СВЕДЁННОГО — хук отправки через слот: `git push --dry-run origin HEAD:refs/heads/' + l.branch + '` (кандидат — потомок головы полосы; ' + HOMES + '), журнал ' + R + '/' + l.key + '/trial.push.log. code: 0 — хук зелёный, затем `git switch trial && git merge --ff-only cand-' + l.key + '`; 1 — красное на сведённом (зависимый не поправлен), trial не двигать, в reasons — упавшие проверки; 2 — не выполнилось (слот 74/75/76). Верни code, out, reasons, head (голова cand).', { ...MECH, label: 'mech:trial:' + l.key, phase: 'Полосы', schema: S_MECH })
   if (t && t.code === 1) { M.trialRed++; return { ...r, ok: false, stage: 'пробная сборка: красное на сведённом — ' + ((t.reasons || []).join(', ') || 'причина не названа') + ' (' + R + '/' + l.key + '/trial.push.log)' } }
   if (!t || t.code !== 0) log('пробная сборка ' + l.key + ': не выполнилась (код ' + (t ? t.code : 'нет ответа') + ') — суд сведённого за CI сборки')
   return r

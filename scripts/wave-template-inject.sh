@@ -686,7 +686,7 @@ console.log('== волна одним проходом (ws#1053): предпол
   ok(by(q.calls, c => c.label === 'impl:A') === 1, 'пункты карты закрыты — доводки нет')
   ok(((q.calls.find(c => c.label === 'impl:A') || {}).schema?.required || []).includes('impact'), 'impact обязателен в схеме исполнителя')
   const iT = idx(q.calls, 'mech:trial:A'), iP = idx(q.calls, 'mech:precheck:A'), iAsm = idx(q.calls, 'mech:assemble:1')
-  ok(iT > iP && iT < iAsm && idx(q.calls, 'mech:trial:B') >= 0 && /git push --dry-run origin HEAD:refs\/heads\/9`/.test(prm(q.calls, 'mech:trial:A')), 'пробная сборка — сразу после предпроверки полосы, до сборки; хук отправки судит сведённое (--dry-run)', prm(q.calls, 'mech:trial:A').slice(-300))
+  ok(iT > iP && iT < iAsm && idx(q.calls, 'mech:trial:B') >= 0 && /git push --dry-run origin HEAD:refs\/heads\/9-a`/.test(prm(q.calls, 'mech:trial:A')), 'пробная сборка — сразу после предпроверки полосы, до сборки; хук отправки судит сведённое (--dry-run на ветку полосы)', prm(q.calls, 'mech:trial:A').slice(-300))
   const mt = prm(q.calls, 'mech:metrics')
   ok(by(q.calls, c => c.label === 'mech:metrics') === 1 && q.calls[q.calls.length - 1].label === 'mech:metrics' && mt.includes('/ws/tmp/wave-9/reports/metrics.json') && q.res.metrics?.preflightItems === 2 && q.res.metrics?.implCalls === 2 && q.res.metrics?.rework === 0, 'метрики — последним шагом в reports/metrics.json; пунктов карты 2, вызовов исполнителя 2, переделок 0', JSON.stringify(q.res.metrics))
   ok(prm(q.calls, 'mech:merge').includes('КРОМЕ держателей записей ведомостей'), 'каскад не закрывает держателя записи ведомости')
@@ -990,7 +990,8 @@ mutant "доводки по карте нет" "  if (gap.length) fix.push(" "  
 mutant "незакрытый после доводки — полоса идёт" "  if (gap.length) return { ...out, stage: 'карта влияния: пункты" "  if (false) return { ...out, stage: 'карта влияния: пункты"
 mutant "пробной сборки нет" "  if (r.ok) r = await trialIn(l, r)" ""
 mutant "красная пробная — полоса идёт" "  if (t && t.code === 1) {" "  if (false) {"
-mutant "пробная сборка — отправкой ветки" "\`git push --dry-run origin HEAD:refs/heads/' + N + '\`" "\`git push origin HEAD:refs/heads/' + N + '-trial\`"
+mutant "пробная сборка — отправкой ветки" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`" "\`git push origin HEAD:refs/heads/' + N + '-trial\`"
+mutant "пробная сборка — на имя волны (git отвергнет до хука)" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`" "\`git push --dry-run origin HEAD:refs/heads/' + N + '\`"
 mutant "имитация клиента не зовётся" "    await agent(C + '\\n\\nИмитация клиента ДО кода" "    false && await agent(C + '\\n\\nИмитация клиента ДО кода"
 mutant "метрики не пишутся" "await agent(C + '\\n\\nРежим метрики:" "false && await agent(C + '\\n\\nРежим метрики:"
 mutant "метрики без итога" "return { ...res, metrics: metricsOf() }" "return res"
