@@ -1,0 +1,151 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  sha256: 0c1de11ef9f2ccdd283289d6ae89fa78871cee4649e93137003ced36a0fa4a58
+  revision: 6
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2): слово DRAFT — статическая форма,
+    действующий вердикт о редакции 6 — эта запись и внешнее событие.
+  supersedes_subject_sha256: 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f
+  base_commit: 68244232c
+  content_commit: null   # редакция 6 на момент ревью не закоммичена (worktree tmp/f8s6-stepup-acc, ветка acc/f8-s6-stepup-refusal)
+  branch: acc/f8-s6-stepup-refusal (копия tmp/f8s6-stepup-acc)
+  doc_task: https://github.com/PRO-Robotech/kacho/issues/3062
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+  fingerprint_reproduced: true
+  lines: 587
+  code_base:
+    - PRO-Robotech/kacho @ fd9f1793e (голова origin/1266)
+    - PRO-Robotech/kaname @ 73b94cd6d (origin/770; в origin/296 не влит — merge-base --is-ancestor код 1)
+verdict: APPROVED
+round: 5
+round_note: >-
+  Круг 5 документа, первый на редакции 6. Предыдущий вердикт (APPROVED, круг 4) — о редакции 5
+  и на редакцию 6 не переносится. Судится дельта к редакции 5 (git diff HEAD, +119/−12):
+  шапка, опора на EC ред. 4, §0.1, §1.4в, Р4, §4 (шаг 2Ф, условие уровня), F8S6-15, F8S6-16,
+  §6, §7 пп. 2 и 5. Принятое в кругах 2–4 не переоткрывалось.
+previous_round:
+  subject_sha256: 0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f
+  verdict: APPROVED
+  blocking: 0
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+reviewed_at: '2026-10-13T00:00:00Z'
+publication_mode: courier
+event:
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body: "acceptance-reviewer · APPROVED · sha256 0c1de11ef9f2ccdd283289d6ae89fa78871cee4649e93137003ced36a0fa4a58"
+  note: >-
+    Блок приводится к факту курьером тем же заходом, что публикация (решение владельца
+    2026-10-04). До публикации одобрение не действует. Предмет события должен лежать на origin
+    до публикации: редакция 6 сейчас не закоммичена.
+effective_approval:
+  issued: false
+  reason: >-
+    Рецензент события не публикует (change-graph.md §3); до публикации курьером issued = false.
+sanction:
+  granted_on_publication: true
+  scope: код S6 (#3062) по редакции 6 и только по ней; правка документа вердикт не переносит
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/4f1cd528e27cf55c6b52a5f4f5dd6d9aafc8fddd9eb5e1c0e60c94f0c619d4a2.yaml
+    - docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/7522293afeae75853e075c543763847b0438b325dcdd8b9e166d5c820a4d2898.yaml
+    - docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/0504b7cd049d4e416131df792fe829597c53d26cb5121db084abe22fad84959f.yaml
+
+premise_check:
+  claim: "экран смены адреса на любой 401 предъявления спрашивает «кто я» и пишет «Код не подошёл»; служба отвергает оба пути по уровню"
+  result: >-
+    Подтверждено перемером на названных ревизиях: git show fd9f1793e:…/EmailChangeSection.tsx |
+    grep -n 'refusal.status === 401' → 157; grep -c 'insufficient_user_authentication|step-up-floor|challenge'
+    → 0; git -C kaname grep -c 'requireEmailChangeLevel(ctx, uc.d, resolved)' 73b94cd6d -- …/email_change.go
+    → 2; 'WWW-Authenticate", sur.Challenge()' в handler.go → 1; refusal-action.ts 'return "step-up-floor"' → 1;
+    login-lane.ts floor-ветка → 1 (строки 526–528: повтор один, иначе throw e — исходный отказ).
+    docs-gate: check-01 код 0 (197 приёмок), check-07 код 0 при KACHO_MONOREPO=project/kacho
+    (16 закреплений сошлись; без переменной — VOID, код 2), check-08 код 0.
+
+delta_findings:
+  opora_EC: >-
+    EC ред. 4 на 73b94cd6d: sha256 → f14ea4f8…f24f; запись ревью f14ea4f8….yaml — verdict APPROVED
+    (round 2). EC Р2 (строки 256–297): уровень на обоих путях по заведённому, отказ 401/code 16/
+    WWW-Authenticate insufficient_user_authentication, acr_values="2"; отказ ничего не пишет, попытку
+    не засчитывает; повышение — step-up кодом по времени либо запасным кодом. Документ цитирует
+    это без пересказа сверх нужного.
+  P4_row: >-
+    Новая строка 401-с-вызовом отделена от 401-без-вызова машинным признаком, а не вопросом «кто я»;
+    довод (оба отказа при живой сессии дают /me → 200) верен. Текст экрана одинаков в Р4, F8S6-15,
+    F8S6-16 (сверено построчно).
+
+blocking: []
+
+non_blocking:
+  - id: N1
+    where: F8S6-15 (б), F8S6-16 (б); порядок переписи
+    observed: >-
+      После успешного повышения StepUpModal зовёт auth.refresh() до pending.resolve()
+      (StepUpModal.tsx:148–156 @fd9f1793e; AuthContext.refresh → sessionIdentity, затем whoami при
+      подтверждённом адресе). Поэтому между step-up → 200 и повтором глагола в переписи стоят
+      чтения личности. Перечень (б) читается как упорядоченная подпоследовательность обращений
+      (так же уже стоит F8S6-03, одобренный), и в форме F8 Р6 п. 1 порядок законен: каждое
+      следующее обращение выпущено после ответа на предыдущее. Проба не должна утверждать
+      «ничего между» — иначе она красна на верной реализации. Утверждение (а) «после него нет ни
+      step-up, ни GET /me» верно: «Отменить» refresh не зовёт (StepUpModal.tsx cancel → close).
+      Можно одной фразой назвать это в (б).
+  - id: N2
+    where: шапка, строка редакции 6
+    observed: "«посев Ч2Ф (§4)», а в §4 он назван «Шаг 2Ф» — одно имя на предмет."
+  - id: N3
+    where: F8S6-16, второй близнец
+    observed: >-
+      F8S6-01 строится посевом Ч2, а F8S6-16 — Ч + 2Ф: отличие больше одного факта (второй
+      контекст). Основной близнец (б) отличается ровно одним фактом, так что требование §3.2
+      выполнено; ближе как второй близнец — F8S6-13 (б) или F8S6-14 без подстановки (посев Ч).
+  - id: N4
+    where: F8S6-16 (а)
+    observed: "можно добавить «адрес в разделе прежний» симметрично F8S6-15 (а)."
+  - id: N5
+    observed: "Неблокирующие кругов 2–4 (N1, N2 круга 4) не трогались и остаются в силе."
+
+coverage:
+  scenarios_total: 16 (grep -cE '^### Сценарий F8S6-[0-9]+' → 16; браузерных 14, проб края 2)
+  producer_named: 16 из 16 (§6; строка F8S6-15/16 называет существующих и заводимых)
+  twin_named_for_negatives: >-
+    новые отрицания F8S6-15 (а), F8S6-16 (а) — близнец (б) одним фактом (повышение отменено/прошло);
+    вторые близнецы F8S6-04 (б), F8S6-01 — отсутствие шага 2Ф
+
+constructibility:
+  seeded: 0
+  by_named_fixture: >-
+    Шаг 2Ф: newSeed (ceremony-seed.ts:179), seedSecondFactor (ceremony-seed.ts:428, возвращает
+    backupCodes), вход глаголом полосы — @fd9f1793e. Повышение запасным кодом до «2»: step_up.go
+    принимает lookup_secret (kaname@73b94cd6d:step_up.go:11,46), assurance.MethodLookupSecret,
+    уже исполняется браузерной пробой cloud-admin-lane.spec.ts:247 (submit(LANE.stepUp, …,
+    {method: "lookup_secret", code: backupCodes[0]})); окно StepUpModal поле «Запасной код»
+    (SecondFactorCodeField.tsx:37), заголовок «Подтверждение действия», кнопка «Отменить»
+    (StepUpModal.tsx:170–175). Заведение фактора в другой сессии носитель браузера не трогает
+    (sf_enroll.go: отзыва сессий нет — git grep -i revok → 0; F8 N19 опытом: «заведение фактора
+    его не трогает»), отложенную смену не касается (упоминаний email-change в sf_enroll.go нет).
+    Порядок F8S6-15 (запрос до заведения, предъявление после) покрыт формулой EC Р2 «условие
+    судится на каждом пути по заведённому»; EC-29 судит смежную форму.
+  not_executed: >-
+    браузерные F8S6-01…09, 12…16 — доставки писем на стенде нет (kacho#1773), стенда и разрешения
+    на посев задание не дало; F8S6-15/16 дополнительно требуют пина службы с влитой 770 (§7 п. 2).
+    «Не выполнилось» — не зачитано ни в зелёное, ни в красное.
+
+route_signals:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: true
+  new_domain: false
+  security_surface: false   # отказ уровня производит служба; консоль его называет и повторяет через имеющееся повышение
