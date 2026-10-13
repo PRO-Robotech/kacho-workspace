@@ -4,7 +4,8 @@ export const meta = {
   whenToUse: 'Любая волна полос kacho, kaname, corelib или воркспейса. args: {repo, wave, epic, base, ws?, root?, targets?, crossRepo?, lanes:[{key, repo, agent, tier?, roles?, branch, deps?, text, ctx?, issues?, paths?, dir?}]}',
   phases: [
     { title: 'План', detail: 'plan-precheck.sh: уровни, слои, corelib, пересечения' },
-    { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью' },
+    { title: 'Предполёт', detail: 'до кода: карта влияния полос, критерии рецензентов (ws#1053)' },
+    { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью; пункты карты закрыты; пробная сборка сразу' },
     { title: 'Сборка', detail: 'сведение, рецензент волны, CI' },
     { title: 'Посадка', detail: 'landing-precheck.sh, вливание, каскад, счётчик ошибок' },
   ],
@@ -83,6 +84,14 @@ export const meta = {
 //    Не <ws>/tmp, когда ws — отдельная копия: копия шаблона tmp/wave7/ws-main была
 //    переключена на дерево kacho, копии полос в её tmp/ взяли ws-main/go.mod за корень
 //    модуля. Чужой go.mod над копией отказывает lane-precheck (GOMOD-ABOVE).
+//  - волна одним проходом (ws#1053, ai-tooling.md#at-one-pass-wave): ПРЕДПОЛЁТ до
+//    кода — scout строит карту влияния каждой полосы и критерии рецензентов в
+//    reports/preflight.md; полоса закрывает КАЖДЫЙ пункт своей карты правкой либо
+//    «не затронуто — потому что …» (поле impact), незакрытый — одна доводка, затем
+//    полоса стоит; смена контракта — имитация клиента по замыслу ДО кода; прошедшая
+//    полоса СРАЗУ идёт в пробную сборку (хук отправки судит сведённое, --dry-run),
+//    красное там — полоса в остаток; метрики волны — reports/metrics.json на любом
+//    исходе; каскад не закрывает держателя записи ведомости.
 const A = args || {}
 const WS = A.ws || '/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace'
 const N = String(A.wave || '')
@@ -103,7 +112,7 @@ const MECH_LOW = { ...MECH, effort: 'low' }
 // без них пакеты консоли падают MODULE_NOT_FOUND — «не выполнилось», не вердикт).
 const UI_DEPS = /(^|\/)kacho$/.test(A.repo || '') ? ' Репозиторий kacho: ДО проверок консоли (affected.py, хук отправки) поставь её зависимости как ui.yml — в копии `(cd ui-future && npm ci && for p in $(sed -n \'s/^  STANDALONE: //p\' ../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)`; код не 0 — не отправлять, вернуть failed.' : ''
 // Срок шага — минуты работы агента; по истечении — возврат с остатком, а не ожидание.
-const STEP_MIN = { implement: 90, review: 30, mech: 10, ci: 2 }
+const STEP_MIN = { preflight: 45, implement: 90, review: 30, mech: 10, ci: 2 }
 const CI_READS = 30
 const CI_PAUSE_S = 240
 // Чтение с паузой засчитывается при slept ≥ CI_PAUSE_S − CI_SLEPT_SLACK (ws#1010).
@@ -137,7 +146,9 @@ const C = [
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
 // Чтение CI — схема механики и slept: реально прошедшие секунды паузы (строка SLEPT).
 const S_CI = { type: 'object', properties: { ...S_MECH.properties, slept: { type: 'number' } }, required: [...S_MECH.required, 'slept'] }
-const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, report: { type: 'string' }, lesson: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'report', 'lesson'] }
+const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, impact: { type: 'array', items: { type: 'string' } }, report: { type: 'string' }, lesson: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'impact', 'report', 'lesson'] }
+// Предполёт: карта влияния и критерии рецензентов — по КАЖДОЙ полосе (ws#1053).
+const S_PRE = { type: 'object', properties: { lanes: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, impact: { type: 'array', items: { type: 'string' } }, criteria: { type: 'array', items: { type: 'string' } } }, required: ['key', 'impact', 'criteria'] } }, estimate: { type: 'string' }, report: { type: 'string' } }, required: ['lanes', 'estimate', 'report'] }
 // Вердикт роли — ТОЛЬКО поле verdict закрытого словаря (accept | return | void —
 // «прогон недействителен»); значок или слово в report не читаются нигде (класс 7).
 // Рецензент волны — вердикт по КАЖДОЙ полосе (lanes), общий verdict — свод.
@@ -174,6 +185,13 @@ const err = async (cls, lane, step, note) => {
 const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY', 'GOMOD-ABOVE'])
 const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-COMMIT', 'BODY-FOREIGN-TASK', 'ATTRIBUTION', 'CLOSES-WITHOUT-PROOF'])
 
+// Метрики волны (ws#1053): сверка с оценкой предполёта; цель — 0 красных на сведённом.
+const PRE = R + '/preflight.md'
+const METRICS = R + '/metrics.json'
+const M = { implCalls: 0, rework: 0, trialRed: 0, ciRed: 0, roleReturns: 0, preflightItems: 0 }
+const metricsOf = () => ({ file: METRICS, ...M })
+// Тело волны — внутри: итог любого исхода проходит через запись метрик (ниже).
+const res = await (async () => {
 // ── План ────────────────────────────────────────────────────────────────
 phase('План')
 const runPlan = async (lanes, round) => {
@@ -210,6 +228,22 @@ for (const l of lanes) {
   if (unknown.length) return { ok: false, stage: 'план', why: 'шаги ' + unknown.join(',') + ' шаблону неизвестны — правка шаблона, а не пропуск шага' }
 }
 
+// ── Предполёт ───────────────────────────────────────────────────────────
+// ДО кода, одним заходом на волну (ws#1053): карта влияния — все, кто утверждает
+// или использует меняемое свойство; критерии применимых рецензентов — в задание
+// полосе заранее. Нет карты по какой-либо полосе — раздачи нет (fail-closed).
+phase('Предполёт')
+const pre = await agent(C + '\n\nПредполёт волны ' + N + ' ДО кода (ai-tooling.md#at-one-pass-wave). КЛЮЧИ ПОЛОС: ' + lanes.map(l => l.key).join(',') + '. Полосы: ' + lanes.map(l => l.key + ' [' + tierOf[l.key].tier + ', роли ' + ((tierOf[l.key].roles || []).join('+') || 'нет') + '; пути ' + ((l.paths || []).join(', ') || 'не заданы') + ']: ' + l.text).join(' | ') + '\nКАРТА ВЛИЯНИЯ каждой полосы — все, кто утверждает или использует меняемое свойство: посевы стенда, кейсы newman, ведомости производителя и долгов (живы ли держатели — задача открыта), копии каталога прав в другом репозитории, сквозные пробы консоли, документация и приёмки, записи ревью и их гейты, профили и чарты. Пункт — «<координата> — <что утверждает> → <что поправить>», координата найдена командой (её — в отчёт). Зависимый в другом репозитории — пункт с репозиторием: его полоса идёт в ЭТУ волну, пин — на голову сборки производителя. КРИТЕРИИ рецензентов — по предикатам docs/changes/policy.yaml для ролей полосы, дословно. Оценка — часы волны и ожидаемые красные на сведённом (цель 0). Запись — ' + PRE + '. ' + due('preflight') + ' Верни lanes [{key, impact, criteria}] по КАЖДОМУ ключу, estimate, report.', { agentType: 'scout', label: 'preflight', phase: 'Предполёт', schema: S_PRE })
+const preMap = {}
+for (const x of (pre && Array.isArray(pre.lanes) ? pre.lanes : [])) if (x && typeof x.key === 'string' && Array.isArray(x.impact) && Array.isArray(x.criteria)) preMap[x.key] = x
+const noMap = lanes.filter(l => !preMap[l.key]).map(l => l.key)
+if (noMap.length) return { ok: false, stage: 'предполёт: нет карты влияния по полосам ' + noMap.join(', ') + ' — раздачи нет, решает диспетчер', report: PRE, errors, lessons: lessonsOf() }
+for (const l of lanes) M.preflightItems += preMap[l.key].impact.length
+// Пункт карты закрыт строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>».
+const CLOSED = n => new RegExp('^' + n + '\\s*(?:→|->)\\s*(?:правка\\s+\\S|не затронуто — потому что\\s+\\S)')
+const unclosed = (l, r) => { const got = r && Array.isArray(r.impact) ? r.impact.filter(x => typeof x === 'string').map(x => x.trim()) : []; return preMap[l.key].impact.map((_, i) => i + 1).filter(n => !got.some(x => CLOSED(n).test(x))) }
+const mapText = l => { const m = preMap[l.key]; return '\nКАРТА ВЛИЯНИЯ (предполёт, ' + PRE + '): ' + (m.impact.length ? m.impact.map((x, i) => (i + 1) + ') ' + x).join('; ') : 'пунктов нет') + '. Каждый пункт закрой В ЭТОЙ полосе правкой либо «не затронуто — потому что …»; полоса с незакрытым пунктом не сдаётся. Критерии рецензентов: ' + (m.criteria.join('; ') || 'нет') + '.' }
+
 // Имя временной сводки — по правилу репозитория `<N>-<суффикс>` (git-issues.md
 // §«Имя ветки»): N — задача волны, суффикс — `stack-<ключ>` kebab-case ≤ 40.
 // Полоса с веткой-номером — сводка в её же ветке (ws#946): имя уже то, что
@@ -235,10 +269,17 @@ const neighbours = l => lanes.filter(x => x.key !== l.key).map(x => x.key + ': '
 const implement = async (l, tdd, extra, stack) => {
   const r = await implementOnce(l, tdd, extra, stack)
   if (r && typeof r.lesson === 'string' && r.lesson.trim() && r.lesson.trim() !== '—') lessons.push({ key: l.key, lesson: r.lesson.trim() })
-  if (!r || !sha40(r.head) || ['blocked', 'failed'].includes(r.status) || isPath(r.hookLog)) return r
-  return implementOnce(l, tdd, (extra ? extra + '\n' : '') + 'hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + R + '/' + l.key + '/push.log', stack)
+  if (!r || !sha40(r.head) || ['blocked', 'failed'].includes(r.status)) return r
+  const fix = []
+  if (!isPath(r.hookLog)) fix.push('hookLog «' + String(r.hookLog).slice(0, 80) + '» — не путь: верни путь журнала отправки ' + R + '/' + l.key + '/push.log')
+  const gap = unclosed(l, r)
+  if (gap.length) fix.push('КАРТА ВЛИЯНИЯ: пункты ' + gap.join(', ') + ' не закрыты — закрой их в этой полосе и верни в impact')
+  if (!fix.length) return r
+  return implementOnce(l, tdd, (extra ? extra + '\n' : '') + fix.join('\n'), stack)
 }
-const implementOnce = async (l, tdd, extra, stack) => agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня), lesson (урок полосы — ошибка, переделка, лишний агент или круг, ложный отказ гейта, застой, обход — строкой «<класс> · <где предотвратить>», её же допиши `>> ' + LESSONS + '` с префиксом «' + l.key + ' · »; урока нет — «—», в файл не пиши).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL })
+// Круг переделки — каждый вызов исполнителя полосы после первого (метрика волны).
+const impl1st = {}
+const implementOnce = async (l, tdd, extra, stack) => (M.implCalls++, impl1st[l.key] ? M.rework++ : (impl1st[l.key] = true), agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + mapText(l) + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), impact (по пункту карты строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>»), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня), lesson (урок полосы — ошибка, переделка, лишний агент или круг, ложный отказ гейта, застой, обход — строкой «<класс> · <где предотвратить>», её же допиши `>> ' + LESSONS + '` с префиксом «' + l.key + ' · »; урока нет — «—», в файл не пиши).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL }))
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
@@ -257,14 +298,18 @@ const runLane = async (l, stack) => {
       if (acc && acc.verdict === 'accept') break
     }
     if (!acc || acc.verdict !== 'accept') return { ...out, stage: 'приёмка: 2 круга исчерпаны — спор решает диспетчер', report: rep(l.key, 'acceptance-review-2') }
+    // Имитация клиента — по замыслу ДО кода, а не только перед MR эпика (ws#1053).
+    await agent(C + '\n\nИмитация клиента ДО кода, полоса ' + l.key + ': по одобренной приёмке (' + R + '/' + l.key + '/acceptance-*.md) пройди сценарии клиента меняемого контракта; блокеры — пунктами условий к коду. Контракт не меняется — так и запиши. Запись — ' + rep(l.key, 'client-sim') + ' (её путь получит исполнитель). ' + due('review'), { agentType: 'client-simulator', label: 'sim:' + l.key, phase: 'Полосы' })
   }
   if (has('surface-census')) {
     await agent(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + l.text + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
   }
   const tdd = has('implementer-tdd')
-  let impl = await implement(l, tdd, has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', stack)
+  let impl = await implement(l, tdd, [has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', has('acceptance(<=2)') ? 'имитация клиента до кода — ' + rep(l.key, 'client-sim') : ''].filter(Boolean).join('; '), stack)
   if (!impl || ['blocked', 'failed'].includes(impl.status) || !sha40(impl.head)) return { ...out, stage: 'исполнитель', report: rep(l.key, 'implement') }
   if (!isPath(impl.hookLog)) return { ...out, stage: 'исполнитель: hookLog не путь и после доводки (' + JSON.stringify(impl.hookLog === undefined ? null : impl.hookLog).slice(0, 60) + ')', report: rep(l.key, 'implement') }
+  const gap = unclosed(l, impl)
+  if (gap.length) return { ...out, stage: 'карта влияния: пункты ' + gap.join(', ') + ' не закрыты и после доводки — полоса не сдаётся', report: rep(l.key, 'implement') }
   // предпроверка; повтор — только при новой голове
   let pc = await precheck(l, impl, stack)
   if (pc && pc.code === 1) {
@@ -285,6 +330,7 @@ const runLane = async (l, stack) => {
     let vs = await Promise.all(roles.map(r => review(r, l, impl.head, '', 'review-' + r, stack)))
     const back = vs.map((v, i) => ({ v, r: roles[i] })).filter(x => !x.v || x.v.verdict !== 'accept')
     if (back.length) {
+      M.roleReturns += back.length
       const prev = impl.head
       impl = await implement(l, tdd, 'возврат ролей: ' + back.map(x => x.r + ' — ' + rep(l.key, 'review-' + x.r)).join('; '), stack)
       if (!impl || !sha40(impl.head) || impl.head === prev) return { ...out, stage: 'ревью ролей: голова не сменилась — повтора нет' }
@@ -303,11 +349,25 @@ const runLane = async (l, stack) => {
     }
     out.reviews = vs.map((v, i) => ({ role: roles[i], sha: v.sha, verdict: v.verdict, blocking: v.blocking }))
   }
+  const gapEnd = unclosed(l, impl)
+  if (gapEnd.length) return { ...out, stage: 'карта влияния: на сданной голове пункты ' + gapEnd.join(', ') + ' не закрыты', report: rep(l.key, 'implement') }
   return { ...out, ok: true }
 }
 // Порядок — по deps (слои плана): полоса стартует, когда ВСЕ её deps прошли;
 // независимая — сразу. Зависимая — от сводки голов deps (ws#938): без неё в
 // ветке полосы нет кода предшественника, а сводит полосы только сборка.
+// Пробная сборка НЕПРЕРЫВНАЯ (ws#1053): прошедшая полоса сразу сводится с уже
+// вошедшими; хук отправки судит СВЕДЁННОЕ: `git push --dry-run` на ветку САМОЙ
+// полосы — её имя хук репозитория уже принял, и кандидат — её потомок (перемотка
+// вперёд; на занятое имя волны git отверг бы его до хука, и хук не судил бы ничего). Пробы идут по одной (одна копия —
+// один писатель); красное — полоса в остаток, на origin ничего не меняется.
+let trialChain = Promise.resolve()
+const trialIn = (l, r) => (trialChain = trialChain.then(async () => {
+  const t = await agent(C + '\n\nРежим пробная сборка полосы ' + l.key + ': в копии ' + D + '/trial (нет — клон от свежего origin/' + (A.base || '?') + ', ветка trial) заведи `git switch -C cand-' + l.key + ' trial` и влей ' + l.branch + '@' + r.head + ' коммитом слияния pointpu --no-ff; конфликт — `git merge --abort`, code 1, пути в reasons.' + UI_DEPS + ' Суд СВЕДЁННОГО — хук отправки через слот: `git push --dry-run origin HEAD:refs/heads/' + l.branch + '` (кандидат — потомок головы полосы; ' + HOMES + '), журнал ' + R + '/' + l.key + '/trial.push.log. code: 0 — хук зелёный, затем `git switch trial && git merge --ff-only cand-' + l.key + '`; 1 — красное на сведённом (зависимый не поправлен), trial не двигать, в reasons — упавшие проверки; 2 — не выполнилось (слот 74/75/76). Верни code, out, reasons, head (голова cand).', { ...MECH, label: 'mech:trial:' + l.key, phase: 'Полосы', schema: S_MECH })
+  if (t && t.code === 1) { M.trialRed++; return { ...r, ok: false, stage: 'пробная сборка: красное на сведённом — ' + ((t.reasons || []).join(', ') || 'причина не названа') + ' (' + R + '/' + l.key + '/trial.push.log)' } }
+  if (!t || t.code !== 0) log('пробная сборка ' + l.key + ': не выполнилась (код ' + (t ? t.code : 'нет ответа') + ') — суд сведённого за CI сборки')
+  return r
+}))
 const layers = plan.layers && plan.layers.length ? plan.layers : [lanes.map(l => l.key)]
 const done = {}
 const stacks = []
@@ -329,6 +389,7 @@ const launch = k => started[k] || (started[k] = (async () => {
       r = { key: k, ok: false, stage: 'сводка deps ' + stackNames[k] + ': ' + (st && st.status === 'conflict' ? 'конфликт в ' + ((st.conflicts || []).join(', ') || 'путях без имени') : !st ? 'нет ответа' : !['done', 'already-done'].includes(st.status) ? 'статус ' + st.status : !sha40(st.head) ? 'голова сводки не sha40 (' + JSON.stringify(st.head === undefined ? null : st.head).slice(0, 60) + ')' : missing.length ? 'нет голов ' + missing.map(d => d.branch + '@' + String(d.head).slice(0, 12)).join(', ') : 'причина не названа') + ' — исполнитель не зван, решает диспетчер', conflicts: st ? st.conflicts || [] : [], report: rep(k, 'stack') }
     } else r = await runLane(l, { branch: inLane(l) ? stackNames[k] : st.branch || stackNames[k], head: st.head })
   }
+  if (r.ok) r = await trialIn(l, r)
   done[k] = r
   return r
 })())
@@ -410,6 +471,7 @@ if (skipped) await err('executor-mechanics', 'wave', 'ci', 'пауза CI не �
 const ciHead = sha40(ci && ci.head)
 if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет' + (skipped ? '; чтений с неисполненной паузой ' + skipped + ' — отвергнуты' : ''), pauseSkipped: skipped, pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ci) === 'stale') return { ok: false, state: 'failed', stage: 'CI: база устарела (ci-read код 4) — влить свежую ' + (A.epic || A.base) + ' в ветку волны и читать заново', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
+if (ciState(ci) === 'red') M.ciRed++
 if (ciState(ci) !== 'green' || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], errors, lessons: lessonsOf() }
 
 // ── Посадка ─────────────────────────────────────────────────────────────
@@ -459,6 +521,12 @@ if (steps.has('landing-reviewer')) {
 // вливанием база могла уйти вперёд, а голова — получить слияние базы.
 const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
 if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors, lessons: lessonsOf() }
+if (ciState(ciL) === 'red') M.ciRed++
 if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], errors, lessons: lessonsOf() }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject "' + mergeTitle + '"` (коммит слияния на сервере, тема — по форме правила ветки `#<N> merge #<M>: …`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '. Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject "' + mergeTitle + '"` (коммит слияния на сервере, тема — по форме правила ветки `#<N> merge #<M>: …`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '; КРОМЕ держателей записей ведомостей (`git grep -n \'#<N>\'` задачи по ведомостям производителя и долгов: на задаче держится запись — не закрывать, назвать в out; ws#1053). Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
 return { ok: !!(merged && merged.code === 0 && sha40(merged.head)), stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, errors, lessons: lessonsOf() }
+})()
+// Метрики — в reports волны на ЛЮБОМ исходе (ws#1053): время, круги переделки,
+// красные на сведённом (проба и CI), сверка с оценкой предполёта; токены — из итога Workflow.
+await agent(C + '\n\nРежим метрики: запиши ' + METRICS + ' = ' + JSON.stringify({ wave: N, ok: !!res.ok, stage: res.stage || '', ...M }) + ' и допиши поля hours = (сейчас − mtime ' + D + '/plan-1.json)/3600 (старт→вливание, если ok), estimate — оценка из ' + PRE + ', tokens — из журнала Workflow, иначе null с причиной. Верни code, out, reasons [], head "".', { ...MECH, label: 'mech:metrics', phase: 'Посадка', schema: S_MECH })
+return { ...res, metrics: metricsOf() }

@@ -320,6 +320,11 @@ skills:
   остаток — задачей следующей волны, непоставленная переводится
   (`git-issues.md#gi-cascade-wave-closes-tasks`, `git-issues.md#gi-cascade-no-auto-close`,
   `git-issues.md#gi-cascade-remainder`);
+- держатель ведомости каскадом не закрывается (ws#1053, `ai-tooling.md#at-one-pass-wave`;
+  урок kaname#468): до закрытия каждой задачи — `git grep -nE '#<N>\b'` по ведомостям
+  производителя и долгов её репозитория; на задаче держится запись — задачу не закрываю и
+  называю в возврате «держатель: #<N> — <файл:строка>». Сверка вручную — до посадки стража
+  ws#1052 в `scripts/cascade-census.sh`;
 - в `main` — только запрос эпика, тем же способом, и только после
   `scripts/cascade-census.sh --children-closed <репо> <эпик>` с кодом 0: без ключа открытый
   эпик с открытыми волнами тоже даёт 0 (`git-issues.md#gi-cascade-epic-main`); схлопнутого коммита на сервере нет, форма
