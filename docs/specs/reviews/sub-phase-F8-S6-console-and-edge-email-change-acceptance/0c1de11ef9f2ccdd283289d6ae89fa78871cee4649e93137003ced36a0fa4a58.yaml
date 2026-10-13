@@ -36,17 +36,37 @@ expected_actor: pointpu
 reviewed_at: '2026-10-13T00:00:00Z'
 publication_mode: courier
 event:
-  status: not_performed
-  published: false
+  type: issue_comment
+  status: performed
+  published: true
   publication_mode: courier
   publication_expected_from_orchestrator: true
-  body: "acceptance-reviewer · APPROVED · sha256 0c1de11ef9f2ccdd283289d6ae89fa78871cee4649e93137003ced36a0fa4a58"
+  url: https://github.com/PRO-Robotech/kacho/issues/3062#issuecomment-6136854844
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6136854844
+  issue: PRO-Robotech/kacho#3062
+  database_id: 6136854844
+  node_id: IC_kwDOTZqgWM8AAAABbcj5PA
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-13T02:26:21Z'
+  updated_at: '2026-10-13T02:26:21Z'
+  never_edited: true # created_at == updated_at
+  body_sha256: 50f1d856fc395ceba3948624762e839a8699eaafb373f357b3a5171e1a08674a
+  body_first_line: "acceptance-reviewer · APPROVED · sha256 0c1de11ef9f2ccdd283289d6ae89fa78871cee4649e93137003ced36a0fa4a58"
+  subject_revision_in_body: 3d488feed641c09e44ad73b02e622a0646d02057
+  subject_revision_on_origin_before_event: true
+  subject_sha256_on_origin_reproduced: true
+  verified_at: '2026-10-13'
+  verified_predicates:
+    body: >-
+      gh api repos/PRO-Robotech/kacho/issues/comments/6136854844 -q .body | sha256sum
+    subject: >-
+      git show origin/1054-f8s6-stepup-refusal:docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md | sha256sum
   note: >-
-    Блок приводится к факту курьером тем же заходом, что публикация (решение владельца
-    2026-10-04). До публикации одобрение не действует. Предмет события должен лежать на origin
-    до публикации: редакция 6 сейчас не закоммичена.
+    Блок приведён к факту публикации отдельным коммитом; вердикт, разбор и прочие поля записи не правились.
 effective_approval:
-  issued: false
+  issued: true
+  issued_at: "2026-10-13T02:26:21Z"
   reason: >-
     Рецензент события не публикует (change-graph.md §3); до публикации курьером issued = false.
 sanction:
