@@ -37,7 +37,7 @@ api-id-addressing-dup · адресация — только по `id` (`00-kach
 api-hyphen-prefix · форма `<prefix>-<crockford>`; каталог префиксов один — `ids.KnownHyphenPrefixes()` + KACHO_EXTRA_RESOURCE_ID_HYPHEN_PREFIXES; legacy-форма — аддитивно · TestCt2IdCanonHyphenMinting · red: свой список префиксов в сервисе
 api-gotcha-truncate · то же, что `api-timestamp-truncate` · ЗАВЕСТИ · red: микросекунды из БД доехали до клиента
 
-## Имя ресурса: одна форма, пустого не бывает (решение владельца 2026-08-18)
+## Имя ресурса: одна форма, пустого не бывает
 
 api-name-one-form · одна форма на всё дерево — DNS label RFC 1123 `^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`, валидатор один · TestResourceNameFormIsDeclaredOnce, TestDeclaredNameFormMatchesTheEnforcedOne · red: второй валидатор «как общий, но ещё…»
 api-name-never-empty · не существует: сервер проставляет производное от `id`; правка на пустое → INVALID_ARGUMENT · TestNameFormInjection_EmptyWalkIsNotSilentSuccess · red: строка с name = ''
@@ -128,7 +128,7 @@ api-field-one-owner · проверка входа принимает её не�
 api-unimplementable-predicate · пересечение git grep 'must not be supplied\ · is assigned on' -- */repo/*` и `git grep 'is required\ · red: must be positive' -- */domain/* по одному полю; один пример → перебрать весь вход глагола | ГЕЙТА НЕТ | проверка одного поля
 api-unimplementable-holder · несёт сценарий, ВЫЗЫВАЮЩИЙ его минимально-законным входом · ЗАВЕСТИ · red: сценарий «создан ли ресурс» зелен при неработающем глаголе
 
-## Поле контракта не выходит наружу, пока КРАЙ не пересобран (выведено 2026-08-13)
+## Поле контракта не выходит наружу, пока КРАЙ не пересобран
 
 api-edge-rebuild · край перекатывается вместе с сервисом · .github/workflows (единое дерево сборки) · red: поле есть у сервиса и нет в теле ответа клиенту
 api-written-not-read · вся цепочка: контракт → домен → запись → чтение → транспорт · TestEveryDescriptorFieldHasAReader · red: столбец пишут, а проекция чтения не выбирает

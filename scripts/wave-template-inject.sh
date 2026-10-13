@@ -28,6 +28,10 @@
 #   R2 — приёмка, перепись поверхности, роль уровня, рецензент волны,
 #        landing-reviewer — по разу;
 #   CI «идёт» дважды — ждать, ошибкой не считать;
+#   красный CI (ws#1063) — итог несёт порядок круга одним заходом (цитата до класса,
+#   среда — перезапуск, точечная проверка, одна сборка починок, один повтор MR эпика);
+#   влитая волна в ветку эпика — пробное схождение и одно чтение CI MR эпика без
+#   ожидания; близнецы — волна прямо в main и невлитая волна — без них;
 #   предпроверка полосы красная, голова та же — повтора нет, строка счётчика
 #   ошибок (executor-mechanics); голова новая — повтор и зелёное;
 #   «уже сделано» исполнителя — не провал;
@@ -211,7 +215,8 @@ async function run(sc) {
     if (label.startsWith('mech:landing:')) return { out: '', head: HW, ...take('land', () => ({ code: 0, reasons: [] })) }
     if (label.startsWith('mech:delta')) return { out: '', reasons: [], head: '', ...take('delta', () => ({ code: 0 })) }
     if (label.startsWith('mech:trial:')) return { out: '', head: '', reasons: [], ...take('trial:' + lane, () => ({ code: 0 })) }
-    if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40) }
+    if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40), ...take('merge', () => ({})) }
+    if (label === 'mech:ci-epic') return { out: '', reasons: [], head: '', ...take('ciepic', () => ({ code: 3 })) }
     if (label.startsWith('mech:')) return { code: 0, out: '', reasons: [], head: '' }
     return 'отчёт записан'
   }
@@ -715,6 +720,29 @@ console.log('== волна одним проходом (ws#1053): предпол
   ok(by(q.calls, c => c.agentType === 'client-simulator') === 1, 'имитация клиента — один раз на полосу')
 }
 
+console.log('== красный CI — одним кругом; после волны — пробное схождение и CI MR эпика (ws#1063)')
+{
+  const argsE = { ...args, epic: '296', base: '296' }
+  let q = await run({ args: argsE, plan: [P('r0.json')] })
+  const iM = idx(q.calls, 'mech:merge'), iTc = idx(q.calls, 'trial-convergence'), iEc = idx(q.calls, 'mech:ci-epic')
+  const tc = prm(q.calls, 'trial-convergence'), ec = prm(q.calls, 'mech:ci-epic')
+  ok(q.res.ok === true && by(q.calls, c => c.label === 'trial-convergence') === 1 && iTc > iM && (q.calls[iTc] || {}).agentType === 'convergence-reviewer' && tc.includes('пересчитай отпечатки пакета') && tc.includes('недостающих записей ролей и событий') && tc.includes('без блока event записи') && tc.includes('/ws/tmp/wave-9/reports/trial-convergence.md') && !!q.res.trialConvergence, 'влитая волна — пробное схождение convergence-reviewer после вливания: отпечатки пакета, недостающие записи ролей и событий', JSON.stringify(q.res).slice(0, 200))
+  ok(by(q.calls, c => c.label === 'mech:ci-epic') === 1 && iEc > iM && (q.calls[iEc] || {}).agentType === 'ci-watcher' && ec.includes('--head 296 --base main') && ec.includes('S=ci-read.sh') && ec.includes('без ожидания: код 3 (идёт) — законный исход') && q.res.epicCi && q.res.epicCi.code === 3 && !q.res.epicCi.redRound, 'влитая волна — одно чтение полного CI MR эпика ci-read.sh без ожидания; «идёт» — не красное', ec.slice(-300))
+  q = await run({ args: argsE, plan: [P('r0.json')], ciepic: [{ code: 1, reasons: ['newman'] }] })
+  ok(q.res.ok === true && q.res.epicCi && /ОДНОЙ сборкой и ОДНИМ PR в ветку эпика/.test(q.res.epicCi.redRound || ''), 'красный CI MR эпика после волны — итог несёт порядок круга', JSON.stringify(q.res.epicCi))
+  q = await run({ args: argsE, plan: [P('r0.json')], merge: [{ code: 1, head: '' }] })
+  ok(q.res.ok === false && by(q.calls, c => c.label === 'mech:merge') === 1 && by(q.calls, c => c.label === 'trial-convergence' || c.label === 'mech:ci-epic') === 0, 'вливание не состоялось — схождения и чтения MR эпика нет', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args, plan: [P('r0.json')] })
+  ok(q.res.ok === true && by(q.calls, c => c.label === 'trial-convergence' || c.label === 'mech:ci-epic') === 0, 'близнец: волна прямо в main (MR эпика нет) — схождения и чтения MR эпика нет', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: argsE, plan: [P('r0.json')], ci: [{ code: 1, reasons: ['x'] }] })
+  const rr = q.res.redRound || ''
+  ok(q.res.ok === false && ['перепись ВСЕЙ красноты по корням', 'класс корня — лишь после дословной цитаты отказа', 'среда с двумя признаками — один перезапуск без полосы', 'исполнителю его класса', 'проверка точечно без CI (тот же шаг локально: красный до, зелёный после) и полный хук', 'check-verifier — до CI', 'все починки круга — ОДНОЙ сборкой и ОДНИМ PR в ветку эпика', 'полный CI MR эпика — один повтор, после её вливания'].every(f => rr.includes(f)) && by(q.calls, c => c.label === 'trial-convergence') === 0, 'красный CI сборки — итог несёт порядок круга одним заходом (цитата до класса, точечно, одна сборка, один повтор)', rr.slice(0, 300))
+  q = await run({ args: argsE, plan: [P('r0.json')], ciland: [{ code: 1, reasons: ['x'] }] })
+  ok(q.res.ok === false && /один повтор, после её вливания/.test(q.res.redRound || ''), 'красный CI на голове посадки — порядок круга в итоге', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: argsE, plan: [P('r0.json')], ci: [{ code: 4, reasons: ['BASE-STALE'] }] })
+  ok(q.res.ok === false && q.res.redRound === undefined, 'близнец: база устарела (код 4) — не красное, круга починки нет', JSON.stringify(q.res).slice(0, 200))
+}
+
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
   // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
@@ -949,7 +977,7 @@ mutant "копия исполнителя — под ws/tmp" "', копия — 
 mutant "рабочие копии продукта — из ws-копии" "'KACHO_HOME_KACHO=' + ROOT + '/project/kacho" "'KACHO_HOME_KACHO=' + WS + '/project/kacho"
 mutant "GOMOD-ABOVE — не механика" "'MAIN-COPY', 'GOMOD-ABOVE'])" "'MAIN-COPY'])"
 # ws#1006: CI — только кодом ci-read.sh, и перед вливанием — на голове посадки.
-mutant "CI читается не ci-read.sh" "recipeRun('ci-read.sh', " "recipeRun('landing-precheck.sh', "
+mutant "CI читается не ci-read.sh" "recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr" "recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr"
 mutant "код 3 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'green', 4: 'stale', 5:"
 mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'running', 4: 'green', 5:"
 # ws#1013: целевой зелёный черновика — не вливание; перевод в ready ровно один раз;
@@ -1002,6 +1030,18 @@ mutant "переделка не считается" "impl1st[l.key] ? M.rework++
 mutant "красный CI не считается" "if (ciState(ci) === 'red') M.ciRed++" ""
 mutant "каскад закрывает держателя ведомости" "; КРОМЕ держателей записей ведомостей" ""
 mutant "impact снят со схемы исполнителя" "'issues', 'impact', 'report', 'lesson'] }" "'issues', 'report', 'lesson'] }"
+mutant "пробного схождения после волны нет (ws#1063)" "const trialConv = epicMr ? await agent(" "const trialConv = false ? await agent("
+mutant "CI MR эпика после волны не читается (ws#1063)" "const epicCi = epicMr ? await agent(" "const epicCi = false ? await agent("
+mutant "CI MR эпика читается не ci-read.sh (ws#1063)" "recipeRun('ci-read.sh', (A.repo || '?') + ' НОМЕР'" "recipeRun('landing-precheck.sh', (A.repo || '?') + ' НОМЕР'"
+mutant "CI MR эпика — с ожиданием (ws#1063)" "без ожидания: код 3 (идёт) — законный исход" "жди окончания прогона"
+mutant "схождение до вливания (ws#1063)" "const epicMr = landedOk && " "const epicMr = true && "
+mutant "порядок круга не в итоге (ws#1063)" "const redOf = r => ciState(r) === 'red' ? { redRound: RED_ROUND } : {}" "const redOf = r => ({})"
+mutant "починки поштучными PR (ws#1063)" "все починки круга — ОДНОЙ сборкой и ОДНИМ PR в ветку эпика" "каждая починка — своим PR в ветку эпика"
+mutant "повтор MR эпика после каждого фикса (ws#1063)" "полный CI MR эпика — один повтор, после её вливания" "полный CI MR эпика — после каждой починки"
+mutant "класс до цитаты (ws#1063)" "класс корня — лишь после дословной цитаты отказа" "класс корня — сразу, цитата потом"
+mutant "среда — полосой починки (ws#1063)" "среда с двумя признаками — один перезапуск без полосы" "среда — полоса починки"
+mutant "проверка починки — через CI (ws#1063)" "проверка точечно без CI (тот же шаг локально: красный до, зелёный после) и полный хук" "проверка — прогоном CI своего PR"
+twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"
 echo

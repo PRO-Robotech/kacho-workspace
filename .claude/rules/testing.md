@@ -62,7 +62,7 @@ run-idempotency-runid-suffix · {{runId}} в имени, и в max-len BVA · Te
 final-verification-before-merge · go test -race, golangci-lint, govulncheck, newman гонит конвейер PR сборки; локально — быстрое своих пакетов, тяжёлое — слотом · `.github/workflows/ci.yaml` · red: вливание без одного из четырёх
 code-first-no-wait · исполнитель пишет TDD, локально — быстрое своих пакетов (unit без `-race`, vet, gofmt), сдаёт коммитом и берёт следующую, не ждёт ревью и прогонов (владелец 2026-09-24) · вниманием · red: ждёт вердикта; `-race` или стенд в цикле TDD
 
-## Прогон не оставляет следов (владелец 2026-10-07: «все тесты должны быть так, что бы не оставляли мусор»)
+## Прогон не оставляет следов
 
 no-residue · снимай ВСЁ созданное и на падении, уборку заводи ДО создания (t.Cleanup/defer, trap EXIT): копии, TMPDIR, контейнеры/тома/сети testcontainers (ryuk off — лишь на эфемерном исполнителе), kind · scripts/residue-census/census.sh · red: уборка в конце тела; след после обрыва
 no-residue-cluster · внешний кластер — своё пространство имён прогона, снимается trap'ом и на падении, PVC и LB с ним · census.sh, RESIDUE_KUBE=1 · red: ns, PV или LB после прогона
@@ -70,7 +70,7 @@ fixture-cleanup-mandatory · стенд: учётки и посев снимае
 no-residue-census · приёмка — `census.sh snapshot` до и после, `compare` → 0; исключение — отчёт красного под `--keep`, ≤ 7 суток · residue-census/inject.sh · red: «убрал» без переписи; VOID-ось названа чистой; отчёт без срока
 no-residue-found-is-task · набор без уборки — задача P2 владельцу набора; копии снимает git-operator через `worktree remove` · ЗАВЕСТИ · red: чужая уборка мимоходом; rm -rf копии
 
-## План опыта задачи-проверки (решение владельца 2026-09-24)
+## План опыта задачи-проверки
 
 exp-plan-parallel · задаче-проверке (проба, гейт, страж, инвариант безопасности) `check-verifier` пишет план опыта ПАРАЛЛЕЛЬНО коду: инъекции, близнецы, слепые зоны · ЗАВЕСТИ · red: план задаче не-проверке; код ждёт плана
 exp-plan-self-run · план, пришедший до сдачи, прогони сам — исход по каждому пункту с командой; пришедший после гонит `check-verifier` на сборке · ЗАВЕСТИ · red: пункт плана без исхода; «прогнан» без команд
@@ -126,7 +126,7 @@ subject-removal-audit-by-sign · разбери проверки по ЗНАКУ
 subject-removal-two-outcomes · исходов два: снять вместе с предметом ОДНИМ изменением либо перевести на производимый деревом признак + инъекция · TestGateCarrierRemoval_ControlIntactCorpusIsSilent · red: «оставить как есть»
 header-fixed-in-same-change · правь ТЕМ ЖЕ изменением, что снятую ветвь · TestGeneratorHeaderDocstringReaderTakesTheWholeLiteral · red: заголовок перечисляет снятое свойство
 
-## Подпорка ЗЕЛЕНИТ вердикт — и потому её реже заводят предметом (решение владельца 2026-08-22)
+## Подпорка ЗЕЛЕНИТ вердикт — и потому её реже заводят предметом
 
 prop-value-named-by-measurement · называй замером, а не наугад · TestCiRelaxationSaysWhyItIsThere · red: число без предиката, «поставил побольше»
 prop-has-subject-issue · заводи предмет: issue с причиной и предикатом снятия · TestCiRelaxationSaysWhyItIsThere · red: послабление без номера рядом
