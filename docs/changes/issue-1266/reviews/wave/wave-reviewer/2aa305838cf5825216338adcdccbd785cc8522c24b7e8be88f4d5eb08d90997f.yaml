@@ -1,0 +1,128 @@
+# Сверка волны: роль wave-reviewer, задним числом. Две последние сборки линии
+# эпика kacho#1266: PR kacho#3195 (сборка #3194 — полосы #3193 и #3192) и PR
+# kacho#3198 (полоса #3197 — пины профиля a8f60d). Обе влиты в `1266`.
+#
+# Имя файла — content_digest пакета (`change.yaml`, hashes.content_digest_sha256,
+# коммит пакета 1727f910). Прежние записи не правятся. Запись лежит в копии
+# tmp/pkg-1266-final и НЕ закоммичена: её коммитит ведение пакетов.
+#
+# ЭТО ЗАПИСЬ АГЕНТА, А НЕ СОБЫТИЕ РОЛИ. Держатель `human-wave` закрывает только
+# внешнее review event актора из policy.yaml §2 на отпечаток ниже.
+schema_version: 1
+change_id: issue-1266
+holder: post-diff/wave-reviewer
+owner: wave-reviewer
+round: 1                       # проход роли по этим двум сборкам первый, задним числом
+previous_record: —
+
+authority:
+  policy: docs/changes/policy.yaml §2 review_authority.wave-reviewer
+  expected_actor: pointpu        # единственный разрешённый актор роли
+  event: none                    # внешнего события на этот отпечаток нет; запись полномочий не даёт
+  holder_closed: false           # human-wave (holders.yaml) остаётся без исхода до события pointpu
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  line: {branch: '1266', base: bac26316c468f76ba6193e4e61ac0dabbce64670, head: 2306d95de6837ec745852c305869efc8551546bf}
+  content_digest: sha256:2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
+  canonical_diff_set: sha256:e6d170d3dd412cb954ee3377326926890f5e066ed81278e9d5f130b5896bff45
+  digest_definition: >-
+    git -C project/kacho diff --full-index bac26316…...2306d95d… | sha256sum —
+    пересчитан этим проходом, совпадает с change.yaml; канонический набор той же
+    командой поля canonical_diff_set_predicate — совпадает.
+  judged_subject:
+    - pr: PRO-Robotech/kacho#3195
+      branch: 3194-wave-pin-edge-console
+      base: fd9f1793e70da4b9e1886be24a3104e0608410a0     # первый родитель слияния 0f1b467d
+      head: 76718c6db0a68c4fecf50e6a3533de4487e228b5     # headRefOid
+      merge: 0f1b467da88a7b82db2ac8d60a0e94f324daca25
+      digest: sha256:e9ffd24bde56e2f7a3684f5ec6ca07e0739e2c8a2c5e8c06614927f036ae609b   # diff --full-index fd9f1793..0f1b467d
+      lanes:
+        - {lane: '3193', agent: go-implementer, head: 9275418d7b829454974b8ca68019841cb3f62ff2, files: 12, shortstat: '+146 −27', area: 'go.mod, deploy/helm/umbrella/values*.yaml, gateway/internal/middleware/** (каталог и пробы), документ полов'}
+        - {lane: '3192', agent: ui-implementer, head: d22030941b, files: 12, shortstat: '+598 −21', area: 'ui-future/shared/src/pages/auth/**, ui-future/e2e/**, .github/workflows/console-e2e.yml'}
+    - pr: PRO-Robotech/kacho#3198
+      branch: 3197-a8f60d-pins
+      base: 0f1b467da88a7b82db2ac8d60a0e94f324daca25     # merge-base d4c0ff14 0f1b467d
+      head: d4c0ff14fa02453243c01eee5e2314f52191db61
+      merge: 2306d95de6837ec745852c305869efc8551546bf
+      digest: sha256:b4d5429c1b3fad940983dc7a7a8fedeec8089aa73cf76a661fddae2cededbd5d
+      lanes:
+        - {lane: '3197', agent: deploy-engineer, head: d4c0ff14fa, files: 1, shortstat: '+17 −17', area: deploy/helm/umbrella/values.a8f60d.yaml}
+
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-10-13T14:06:14Z'
+
+lanes_verdict:
+  - 'полоса 3193 · принято · координата gateway/internal/middleware/embed/permission_catalog.json:2576,2596,2616,3412,3492 · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R3, R4, R5'
+  - 'полоса 3192 · принято · координата ui-future/shared/src/pages/auth/email-change/EmailChangeSection.tsx:139-143 · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R1, R2 (268 из 268 на голове сборки, новые пробы исполнены)'
+  - 'полоса 3197 · принято · координата deploy/helm/umbrella/values.a8f60d.yaml:71,628 · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R6, R7'
+
+runs:
+  - 'R1 gh run view 38372792426 (console-e2e, pull_request, headSha 76718c6db0): задание «сквозные пробы консоли (свой стенд)» success; в журнале «Running 268 tests using 1 worker» и «268 passed (33.8m)», строк failed/flaky/did not run 0. Новые пробы исполнены и зелены: F8S6-15, F8S6-16 (email-change.spec.ts:777, :849), KN747-02-console (account-access-keys.spec.ts:462), F6b-30 (address-confirmation.spec.ts:1264)'
+  - 'R2 gh pr checks 3195 и 3198: по 74 из 74 pass; три сводных вердикта (все проверки · все шарды · юниты) SUCCESS; прогоны e2e-newman, console-e2e и «сводный вердикт» сняты на headSha 76718c6db0 — голове PR, а не устаревшей'
+  - 'R3 go test -count=1 -v -run TestPermissionCatalog_ ./gateway/internal/middleware/ на дереве 2306d95d (git archive во временный каталог, GOPROXY=off): rc 0, PASS 36, FAIL 0'
+  - 'R4 инъекция: в embed/permission_catalog.json пол AccessKeyService/BeginRegistration возвращён на «1», тот же прогон: rc 1, FAIL 3 — TestPermissionCatalog_AccessKeyFloorNotBelowUserTokenIssue (текст называет оба FQN и оба пола), TestPermissionCatalog_ACR_SetInvariant (называет FQN), TestPermissionCatalog_ACR_Counts. Каталог временный и снят'
+  - 'R5 сверка пина: go.mod kaname v0.4.1-0.20261013073037-3066c7b6a266 и тег образа 296-3066c7b6 одинаковы во всех пяти файлах значений (values.yaml, a8f60d, fe3455, fe3455-prod, prorobotech) — git diff fd9f1793..0f1b467d -- go.mod deploy/helm/umbrella/'
+  - 'R6 git diff 0f1b467d..2306d95d: только values.a8f60d.yaml; «порождено-от» и все 16 пинов продукта = 1266-0f1b467d; тег kaname 296-3066c7b6 не тронут (тот же, что поставила полоса 3193)'
+  - 'R7 git show --remerge-diff по всем семи слияниям (7c7aa986 a66612c5 4a11334f c5345a81 76718c6d 0f1b467d 2306d95d): строк 0 у каждого — вручную при сведении ничего не правилось'
+
+collisions:
+  - id: W1
+    kind: 'ожиданий (база диспетчера §8, «Пять классов столкновений»)'
+    lanes: ['3193', '3192']
+    subject: >-
+      3193 подняла пин службы доступа (сначала @68541f0d, потом @3066c7b6). В нём пол «2»
+      на регистрации и снятии ключа доступа. Посев ключа и «Дано» проб консоли 3192 заводили
+      ключ сессией «1». Каждая полоса была зелёной на своей базе fd9f1793.
+    proof: >-
+      Первая сборка a66612c5, console-e2e 38347633820: 5 failed, 17 did not run, 245 passed.
+      Красные — F7-07-edge, F7-10-edge, F7-44-edge (access-key-binding.spec.ts:143/165/180)
+      и F8S6-15/16. F8S6-15/16 требуют отказа по уровню, а его приносит только пин 3066c7b6
+      (DoD-proof 3192 @09a9ff0b: requireEmailChangeLevel на прежнем пине 2952ea7f → 0).
+    resolved: >-
+      До вливания, в полосе 3192: 8d4ab8ea («Дано» сессией «2», посев raiseSeedToLevelTwo).
+      Пин 3193 поднят до 3066c7b6: 9275418d. На голове 76718c6d все 268 из 268 зелёные (R1).
+      Исход — правка по существу, а не откат.
+    trial_merge: >-
+      Пробной сборки с соседней полосой не было ни у 3193, ни у 3192. Ни один DoD-proof
+      (6138239749, 6140799976, 6137542864) не называет слияния с головой волны или с
+      соседом. Столкновение поймал конвейер первой сборки. Локальная пробная сборка этого
+      и не поймала бы: проявляется оно только на стенде с образом службы.
+
+not_found:
+  - 'имён: общих путей у 3193 и 3192 0 (наборы по 12 файлов не пересекаются, сумма 24 = 24 в диффе слияния 0f1b467d); новых одноимённых сущностей в общей области нет'
+  - 'раскладок: 3192 разбирает отказ по признаку вызова refusal.challenge — тем же разобранным полем, что общий классификатор (shared/src/api/refusal-action.ts:77, step-up.ts challengeError). Второй раскладки рядом не заведено'
+  - 'с ведомостью и добавление в удалённое: git diff --name-status fd9f1793 2306d95d → A 1, M 23, D 0; снятых предметов и каталогов нет'
+  - '3193 × 3197: общий путь values.a8f60d.yaml. Работа последовательная — 3197 стоит на 0f1b467d, где 3193 уже влита, и тег kaname не меняет (R6)'
+  - 'полы удаления субъекта (UserService/Delete, ServiceAccountService/Delete → «2») против потребителей в дереве: в tests/newman DELETE по /iam/v1/users и /iam/v1/serviceAccounts 0 (git grep). Консоль повышает уровень по вызову в общем клиенте (shared/src/api/client.ts:148, host и dashboard api-client.ts:62), а не в каждой странице'
+
+lanes_without_verdict: —
+
+reports_wider_than_done:
+  - lane: '3192'
+    blocking: false
+    what: >-
+      Задача закрыта по DoD-proof @09a9ff0b. После него в полосе ещё два коммита
+      (8d4ab8ea, d2203094), своего DoD-proof у них нет. Сам DoD-proof называет браузерные
+      F8S6-15/16 «не выполнились», и для его sha это верно. Исход на голове есть: R1, его же
+      называет комментарий закрытия 6143005064. Неверного утверждения о корректности нет,
+      поэтому не блокирует.
+  - lane: '3193 · 3192 (тело PR #3195)'
+    blocking: false
+    what: >-
+      В теле PR головы полос — b7e335c699 и 09a9ff0b5b. Влиты 9275418d и d2203094: тело не
+      обновили после досведения. Комментарии закрытия обеих задач называют верные коммиты.
+
+form_not_blocking: >-
+  15 коммитов. 13 подписаны pointpu <pointpu@in-cloud.io>, 2 — слияния GitHub от Point Pu.
+  Трейлеров атрибуции в телах 0 (grep co-authored|claude|generated).
+
+examined:
+  diffs: 11        # полосы 3193, 3192, 3197; дифф слияния 0f1b467d; remerge-diff семи слияний
+  lines: 2763      # git diff | wc -l: 382 + 946 + 107 + 1328; remerge-diff 0
+  ci_logs: 3       # console-e2e 38372792426 (5571 строк), 38347633820 и 38365111739 (--log-failed)
+
+next:
+  - 'git-operator — привести тело PR #3195 к влитым головам полос (9275418d, d2203094); не блокирует'
+  - 'держатель human-wave — внешнее review event актора pointpu на отпечаток 2aa30583…; без него запись держателя не закрывает'

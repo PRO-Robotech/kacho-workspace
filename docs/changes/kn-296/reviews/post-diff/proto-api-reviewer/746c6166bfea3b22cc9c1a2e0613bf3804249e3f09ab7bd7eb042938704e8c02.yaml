@@ -1,0 +1,105 @@
+# Пост-дифф ревью формы контрактов, роль proto-api-reviewer. Пакет kn-296.
+#
+# Имя файла — content_digest финальной линии kaname 296 → main. Запись новая.
+# Прежней записи этой роли в пакете нет. Судится ДЕЛЬТА 9a78fc21..3066c7b6:
+# пол уровня у глаголов ключа доступа и новые исходы в тексте контракта.
+# Подъём пола UserService/Delete лежит в линии раньше дельты (7661045a4, #720).
+# Он сверен отдельно, потому что задание его называет. Проверки buf прогнаны
+# на всей линии против origin/main.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+round: 1
+subject: >-
+  Финальная дельта эпика kaname#296. Пол required_acr_min поднят 1 → 2 у
+  AccessKeyService/BeginRegistration, FinishRegistration и Revoke (kaname#747,
+  приёмка level-two-is-enrolled-at-level-two.md, Р1/Р3/Р5). В шапке и у глаголов
+  записан новый исход: пол уровня судится раньше окна свежести, и сессия ниже «2»
+  получает указание повысить уровень. Для потерявшего способ назван путь
+  восстановления UserService.ResetAccessKeys.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6     # origin/main = merge-base
+  head: 3066c7b6a266f640b367a82df21996f022a9a039     # origin/296
+  delta_from: 9a78fc2183c8669dde415cb3c12e637e593d52b9
+  pr: https://github.com/PRO-Robotech/kaname/pull/714
+content_digest: sha256:746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+digest_definition: 'git -C project/kaname diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3066c7b6a266f640b367a82df21996f022a9a039 | sha256sum'
+subject_preflight:
+  digest: 'Перемерено на detached worktree tmp/pr-kn296-3066 @3066c7b6: 746c6166…8c02. Совпадает с change.yaml.'
+  head_on_origin: 'git rev-parse origin/main origin/296 после fetch → 8a84dcff, 3066c7b6.'
+  ancestry: 'git merge-base --is-ancestor 9a78fc21 3066c7b6 → 0.'
+  committed: 'Да. Судилось дерево коммита. После прогона git status --porcelain → 0.'
+  delta_digest: 'git diff --full-index 9a78fc21...3066c7b6 | sha256sum → cab9709d…eef3 (справочно)'
+
+proto_files_touched: 25          # git diff --name-only 8a84dcff...3066c7b6 -- 'proto/**' | grep -c '\.proto$'; всего под proto/** 26 (+ declared-breaks.yaml)
+proto_files_touched_in_delta: 1  # proto/kaname/cloud/iam/v1/access_key_service.proto
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+return_to: null
+
+checks:
+  - command: 'buf lint   (cwd proto/ @3066c7b6)'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kaname/.git#ref=origin/main,subdir=proto"   (набор FILE)'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kaname/.git#ref=9a78fc2183c8669dde415cb3c12e637e593d52b9,subdir=proto"'
+    exit_code: 0
+    outcome: green
+  - command: 'buf generate -o <scratch> --path kaname/cloud/iam/v1/access_key_service.proto; diff -q с pkg/api/... (pb.go, _grpc.pb.go, pb.gw.go)'
+    exit_code: 0
+    outcome: green           # три файла побайтово совпали; в дерево ничего не писалось
+checks_summary: 'зелёных 4 · красных 0 · не выполнилось 0'
+
+findings:
+  critical: []
+  important: []
+
+approved:
+  - 'Форма: новых сообщений, полей и RPC в дельте нет. Глаголы прежние: FinishRegistration и Revoke отвечают Operation, Begin* синхронны. Внешние аннотации не менялись.'
+  - 'Совместимость: изменились только значения опции required_acr_min и комментарии. На проводе разрыва нет. declared-breaks.yaml → breaks: [], это верно.'
+  - 'Ужесточение поведения объявлено. Приёмка level-two-is-enrolled-at-level-two.md одобрена: круг 2 и круг 3 — APPROVED (запрет #1). CHANGELOG дельты несёт раздел «Ключ доступа заводится и снимается сессией уровня 2».'
+  - 'Контракт и каталог службы совпадают. В встроенном permission_catalog.json @3066c7b6 у AccessKeyService стоит BeginRegistration=2, FinishRegistration=2, Revoke=2, List=1. Begin/FinishAssertion пола не несут, они освобождены.'
+  - 'Расхождение с копией края объявлено записями catalogRevisedEntries (internal/check/catalog_copy_parity.go, Refs kaname#747). У записей есть предикат снятия. Служба держит пол сама, вторым замком (46ca2a670).'
+  - 'UserService/Delete: required_acr_min = "2" (user_service.proto:242 @3066c7b6). В каталоге тоже 2, запись сверки есть (catalog_copy_parity.go:430, kaname#720). В дельте не менялся.'
+  - 'Ссылки комментариев целы. UserService.ResetAccessKeys и ResetSecondFactor есть в user_service.proto:543 и :494.'
+  - 'Внутренняя поверхность в дельте не тронута. Новых Internal*-методов нет, инфраполей на публичных сообщениях нет.'
+
+notes:
+  - >-
+    Проза комментариев user_service.proto английская. Это вне дельты и вне предмета
+    ban #22 (там только Go). Не находка.
+  - >-
+    Записи catalogRevisedEntries для трёх глаголов ключа станут устаревшими, когда
+    край kacho поднимет пин до 3066c7b6 (issue-1266 несёт каталог края с полом «2»).
+    Тогда сверка сама объявит их находкой, как сказано в поле Removal. Это не круг ревью.
+
+next_requested: >-
+  convergence-reviewer — сбор пост-дифф записей пакета kn-296 на дайджест 746c6166…8c02.
+
+# ── полномочие ─────────────────────────────────────────────────────────────
+# Роль в policy.yaml — это координата, а не доказательство личности. Запись даёт
+# полномочие только после внешнего события публикации вердикта
+# (docs/changes/policy.yaml §2). Блок event дописывается к факту тем же заходом,
+# что и событие.
+authority:
+  status: pending-event
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.proto-api-reviewer
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: ACCEPTED
+    subject_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+  event: null

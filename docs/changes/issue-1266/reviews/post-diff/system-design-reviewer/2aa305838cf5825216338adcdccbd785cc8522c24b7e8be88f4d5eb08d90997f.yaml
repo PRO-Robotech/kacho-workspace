@@ -1,0 +1,128 @@
+# Пост-дифф ревью РАСПРЕДЕЛЁННЫХ СВОЙСТВ — роль system-design-reviewer.
+#
+# Имя файла — content_digest финальной линии kacho 1266 → main. Прежние записи не
+# правятся: сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Судится ДЕЛЬТА от прежнего захода роли (pre-landing/system-design-reviewer,
+# голова fd9f1793, дайджест 4f23a069…, вердикт ✅): прежняя линия той записью
+# уже отсужена, здесь — только 15 коммитов fd9f1793..2306d95d.
+schema_version: 1
+change_id: issue-1266
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  Финальная дельта эпика kacho#1266: пин модуля и образа службы доступа kaname
+  2952ea7f → 3066c7b6 (вливание волны kaname#773), встроенный каталог прав края
+  (пол «2» у пяти глаголов), консоль смены адреса (отказ по уровню отличён от
+  неподошедшего кода, повтор тем же глаголом), посевы проб ключа сессией «2»,
+  пины образов профиля a8f60d.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: '1266'
+  base: bac26316c468f76ba6193e4e61ac0dabbce64670     # origin/main = merge-base
+  head: 2306d95de6837ec745852c305869efc8551546bf     # origin/1266
+  delta_from: fd9f1793e70da4b9e1886be24a3104e0608410a0   # голова прежнего захода роли
+  delta_commits: 15                                 # git log --oneline fd9f1793..2306d95d | wc -l
+  delta_files: 24
+  delta_insertions: 761
+  delta_deletions: 65
+  pr: https://github.com/PRO-Robotech/kacho/pull/3158
+  prior_record: docs/changes/issue-1266/reviews/pre-landing/system-design-reviewer/4f23a06973cad6859d285528ad7cd5db0ea2f4fbffe7a1fd97e4358a8eafe92e+c83869dca75a7a8cf53e9109be1c01c225823123d2242163e8e3380cd4802599.md
+
+content_digest: sha256:2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
+digest_command: >-
+  git -C project/kacho diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...2306d95de6837ec745852c305869efc8551546bf | sha256sum
+digest_matches_manifest: true    # hashes.content_digest_sha256 в change.yaml — то же значение, перемерено
+delta_digest: sha256:2f9a157792d60584227a6a32e2dbff67b4376502d65b2d6f22a88e0ba87ca28a
+delta_digest_command: >-
+  git -C project/kacho diff --full-index fd9f1793e70da4b9e1886be24a3104e0608410a0..2306d95de6837ec745852c305869efc8551546bf | sha256sum
+base_established_by_traversal: >-
+  git merge-base --is-ancestor fd9f1793 2306d95d → 0; origin/1266 = 2306d95d после
+  fetch; дайджест линии совпал с манифестом пакета.
+
+verdict: ✅ принято
+blocks_landing: false
+timestamp: '2026-10-13T00:00:00Z'
+return_to: '—'
+distributed_surface: да
+distributed_surface_predicate: >-
+  Дельта меняет ребро край → kaname: пин модуля (стабы, по которым край
+  маршрутизирует и строит каталог) и образ службы, а также каталог прав края.
+  Новой мутации, outbox, воркера, CAS или межсервисного вызова в дельте нет:
+  git diff --name-only fd9f1793..2306d95d -- '*.go' даёт 3 файла, все _test.go.
+schema_intersection: нет   # миграций в дельте 0; CAS, xmin, advisory-lock в дельте не встречаются
+
+examined:
+  kacho_files: 24 из 24 по --stat; построчно — каталог, go.mod/go.sum, все values, console-e2e.yml, EmailChangeSection.tsx, access-key-seed.ts, новая проба пола ключа
+  kaname_pin_delta: >-
+    git -C project/kaname diff 2952ea7f3874..3066c7b6a266 -- pkg/ proto/ — 9 файлов.
+    Из пакетов, которые kacho линкует (pkg/api/kaname/cloud/iam/v1, pkg/ownerregister,
+    pkg/subjectchange), в коде стабов изменений нет (строк кода вне комментариев в
+    *_grpc.pb.go — 0). В proto изменилась только опция required_acr_min 1→2 у пяти
+    методов. Новых rpc и служб нет. 3066c7b6 содержится в origin/296.
+
+axes:
+  no_dual_write: н/п — записей в дельте нет
+  idempotency: >-
+    Повтор в консоли после отказа по уровню не исполняет глагол дважды: отказ 401
+    insufficient_user_authentication ставит край ДО службы, поэтому первая попытка
+    до записи не дошла. Повтор запускает человек, и пока идёт действие, кнопка
+    заблокирована (busy). Повтор запроса письма ограничивает темп службы
+    (too_many_attempts), и в консоли он обработан.
+  atomic_concurrency: н/п
+  delivery_model: н/п — Watch и поток не вводятся
+  workers: н/п
+  per_call_deadline: н/п — новых внешних вызовов в прод-коде нет
+  cross_service_graph: >-
+    Новых рёбер нет. Ребро край → kaname уже есть в перечне polyrepo.md, сменилась
+    только ревизия. Пин модуля и тег образа подняты вместе (3066c7b6). Их согласие
+    держит deploy/outsourced_image_pin_agrees_with_module_pin_test.go. Профиль
+    a8f60d несёт тот же тег службы.
+  edge_and_owner_agree: >-
+    Каталог края и аннотации владельца сдвинуты одинаково. Пять записей 1→2 в
+    permission_catalog.json: AccessKeyService/{BeginRegistration, FinishRegistration,
+    Revoke}, ServiceAccountService/Delete, UserService/Delete. В proto kaname те же
+    пять опций 1→2. Устаревание каталога относительно proto ловит
+    gateway/Makefile:118. Окно раскатки только сужает доступ: в любом порядке
+    перезапуска края и службы одна из сторон требует «2», а ослабления нет ни в
+    одном промежуточном состоянии.
+  edge_public_internal: н/п — монтирование и маршрутизация не тронуты
+  replica_isolation: н/п
+  clean_architecture: н/п — прод-Go в дельте не меняется
+
+rollout_note: >-
+  Образы kacho в профиле a8f60d имеют тег 1266-0f1b467d, а не головы 2306d95d.
+  Это законно: diff 0f1b467d..2306d95d трогает только values.a8f60d.yaml, так что
+  код образов совпадает с кодом головы.
+
+critical_findings: []
+important_findings: []
+notes:
+  - >-
+    Замечания прежнего захода (повтор выдачи испытания в kaname, срок Verify в
+    logout_handler.go, ленивые клиенты таблицы маршрутов) дельта не трогает. Они
+    остаются в прежней записи, новым не становятся.
+
+orders: []   # проба с конкурирующими горутинами не нужна: спорного пути в дельте нет; нового ребра нет
+next_requested: >-
+  convergence-reviewer — сбор пост-дифф записей пакета issue-1266 на дайджест 2aa30583…
+
+# ── полномочие ─────────────────────────────────────────────────────────────
+# Роль в policy.yaml — КООРДИНАТА, а не доказательство личности. Эта запись —
+# запись агента-роли, и полномочия она не даёт, пока нет внешнего события
+# публикации вердикта (docs/changes/policy.yaml §2). Блок event дописывается
+# к факту тем же заходом, что событие; прежние строки при этом не правятся.
+authority:
+  status: pending-event
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.system-design-reviewer
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    declared_verdict: ACCEPTED
+    subject_digest: 2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
+  event: null

@@ -1,0 +1,240 @@
+# Сверка волн: роль wave-reviewer, задним числом, по составу ВЛИТЫХ сборок.
+#
+# Имя файла — content_digest пары base...head пакета (change.yaml
+# hashes.content_digest_sha256). Прежние записи не правятся. Сменился дайджест —
+# нужен новый запуск и новый файл (change-graph §2).
+#
+# Режим «агрегат». Судятся две волны дельты 9a78fc21..3066c7b6: kaname#768
+# (сборка 766) и kaname#773 (сборка 772). Предмет роли — то, что видно, только
+# когда полосы лежат рядом. Отпечаток при этом берётся по полной паре пакета.
+# Запись лежит в копии пакетов и НЕ закоммичена: коммитит ведение пакетов.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/wave-reviewer
+owner: wave-reviewer
+reviewer_role: wave-reviewer
+subject: >-
+  Две влитые сборки волн в ветку эпика 296.
+  #768 (ветка 766, голова 9f40d88f5) состоит из полос #747 и #759+#762 (одна ветка 759).
+  #773 (ветка 772, голова 4a7ff7e9a) состоит из полос #769 и #770; приёмка #747 ред. 3
+  приезжает в составе 770. Ищутся четыре вида: два решения одной задачи, два имени
+  одного предмета, добавление в удалённое, снятие предмета без ведомости.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: 3066c7b6a266f640b367a82df21996f022a9a039     # git rev-parse origin/296 после fetch
+  merge_base_equals_base: true                         # git merge-base 8a84dcff 3066c7b6 → 8a84dcff
+  waves:
+    - pr: https://github.com/PRO-Robotech/kaname/pull/768
+      assembly_branch: '766'
+      assembly_head: 9f40d88f5d595240981d719de43c6532a9d9f286   # headRefOid
+      merged_as: 68541f0de3969ef1209e08c3db7fda80d37996b3       # ^1 = 9a78fc218
+      lane_merges:
+        - {merge: 76a5f12da, lane: '747', tip: 99fd45cde}
+        - {merge: efb4c8513, lane: '759 (+762)', tip: e47b30f37}
+        - {merge: 9f40d88f5, lane: '747', tip: 90ad03ad8}
+    - pr: https://github.com/PRO-Robotech/kaname/pull/773
+      assembly_branch: '772'
+      assembly_head: 4a7ff7e9a994e66b0abeb9d4d06627f83049f77a
+      merged_as: 3066c7b6a266f640b367a82df21996f022a9a039       # ^1 = 68541f0de
+      lane_merges:
+        - {merge: 13446e342, lane: '769', tip: 9410e3fb6}
+        - {merge: 4710b4680, lane: '770', tip: 2e55ee4a6}
+        - {merge: 4a7ff7e9a, lane: '770', tip: 4e26772a7}
+
+content_digest: sha256:746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3066c7b6a266f640b367a82df21996f022a9a039 | sha256sum
+digest_remeasured: true    # совпал с change.yaml hashes.content_digest_sha256
+
+verdict: accepted          # ✅ принято по каждой полосе (ниже)
+blocks_landing: false
+timestamp: '2026-10-13T16:20:00Z'
+expected_actor: pointpu
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    В копии пакетов PRO-Robotech/kacho-workspace (HEAD 1727f9109) команда
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    вернула 0. Полномочие роли: docs/changes/policy.yaml:60 `wave-reviewer: [pointpu]`.
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.wave-reviewer
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname. Это известная
+    находка из шапки change.yaml. Полномочие роли читается из дома пакета,
+    kacho-workspace: его cutover — предок головы копии.
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: ACCEPTED
+    subject_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+event:
+  type: none
+  status: not_performed
+  note: >-
+    Запись не публиковалась и не закоммичена. Внешнее событие актора pointpu на этот
+    дайджест не создано; держатель пакета эта запись не закрывает.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: wave-reviewer
+  personal_review_by_publishing_actor_claimed: false
+
+lanes:
+  - lane: '747'
+    wave: '#768 (и приёмка ред. 3 в #773 через 770)'
+    verdict: accepted
+    evidence: >-
+      Сводные вердикты (ci) и (e2e-newman) на голове сборки 9f40d88f5: success, 25 success
+      и 4 skipped. Пропущены только 4 задания «вердикт ствола», они идут лишь по стволу.
+      Приёмка на 3066c7b6 (sha256 41723d6b…) совпадает с записью APPROVED и событием
+      issuecomment-6137782559 (event.status performed). DoD-proof в задаче — 7 комментариев.
+  - lane: '759 (+762, одна ветка)'
+    wave: '#768'
+    verdict: accepted
+    evidence: >-
+      Та же сборка 9f40d88f5 зелёная. DoD-proof: #759 — 2, #762 — 2. Мой прогон пакета
+      internal/apps/kaname/config на 3066c7b6 — pass (вывод ниже, runs).
+  - lane: '769'
+    wave: '#773'
+    verdict: accepted
+    evidence: >-
+      Сводные (ci) и (e2e-newman) на 4a7ff7e9a: success, 25 success и 4 skipped
+      (те же задания ствола). Интеграция с Postgres в контейнерах — success. DoD-proof — 2.
+  - lane: '770'
+    wave: '#773'
+    verdict: accepted
+    evidence: >-
+      Та же сборка 4a7ff7e9a зелёная. Приёмка смены адреса на 3066c7b6 (sha256 9dc900c9…)
+      совпадает с записью APPROVED и событием issuecomment-6136400417 (performed).
+      DoD-proof — 7.
+
+collisions_searched:
+  two_solutions_of_one_task:
+    found: 0 blocking
+    detail: >-
+      Условие уровня «2» решают #747 (sf_enroll_level.go: requireEnrollmentLevel) и #770
+      (email_change_level.go: requireEmailChangeLevel). Это одно решение, а не два:
+      #770 переиспользует тип StepUpRequiredError и текст iamerr.TextStepUpRequired из
+      #747, а схему «два суждения, решает чтение транзакции записи под замком
+      EnrollmentWriter» вносит в обе функции сам (4710b4680 правит sf_enroll_level.go).
+      Различие порогов — от приёмок, а не от расхождения полос. У заведения порог —
+      наличие ключа (level-two Р4), у смены адреса — всё заведённое (email-change ред. 4,
+      Р2). Доки auth-lane.mdx/authz.mdx на 3066c7b6 описывают обе ветви одной формой указания.
+  two_names_of_one_subject:
+    found: 1 non-blocking
+    detail: >-
+      Ступень, которую гарантирует набор способов, считается тремя копиями одного цикла
+      над assurance.GuaranteedLevels + acrlevel.Rank в пакете humansession:
+      completed_login.go:173 (было до волн), sf_enroll_level.go:112 keyLevelRank (#747,
+      a5d3eed21) и email_change_level.go:106 guaranteedRank (#770, 73b94cd6d).
+      keyLevelRank() ≡ guaranteedRank([]assurance.Method{assurance.MethodWebAuthn}).
+      Сейчас тела совпадают, поэтому результат не расходится. Не блокирует (ban19-block-criterion).
+      Задачей не заводится (gi-find-own-issue): на корректность и безопасность сейчас не влияет.
+      Улучшение, остаётся в этой записи: один guaranteedRank на три места.
+  addition_into_removed:
+    found: 0
+    detail: >-
+      git diff --name-status -M <merge>^1 <merge> по шести слияниям полос дал
+      удалений и переименований файлов 0. git diff --diff-filter=D 9a78fc218 3066c7b6a — 0.
+      Из 26 добавленных файлов в каталоге, которого нет в ^1, лежат 2. Оба — новый каталог
+      записей ревью новой приёмки level-two-is-enrolled-at-level-two (#747), а не каталог,
+      снятый соседом.
+  removed_subject_ledger_unaware:
+    found: 0
+    detail: >-
+      Перепись кейсов newman по всем коллекциям на ^1 и на слиянии. Ушёл один кейс:
+      IAM-AKLOGIN-OK-RECOVERY-OF-PASSWORDLESS-PERSON (#747, 9f40d88f5), пришёл
+      IAM-AKLOGIN-SEC-RECOVERY-OF-PASSWORDLESS-PERSON-LEVEL-ONE. Ведомость знает о смене:
+      git grep старого имени на 3066c7b6 даёт одно место, RESULTS.md:73, и это пометка
+      «(был …)»; новое имя есть в CASES-INDEX.md и RESULTS.md. Пол каталога прав у трёх
+      глаголов AccessKeyService поднят 1→2 (#747). Расхождение с копией края записано
+      в internal/check/catalog_copy_parity.go (catalogRevisedEntries, Refs kaname#747)
+      с условием снятия. Проверка CI «каталог прав — копия сходится с копией края» — success.
+      Строки PRODUCER_LEDGER в newman-suite-debt.py обновили обе полосы, каждая свою
+      (kaname-access-keys — #747, kaname-email-change — #770).
+  shared_paths:
+    - 'волна 766: docs/content/advanced/observability.mdx — #747 (строка 215) и #759 (536–690), ханки не пересекаются'
+    - 'волна 772: internal/apps/kaname/api/humansession/iface.go — #769 (строка 418, комментарий IssueChallenge) и #770 (156–195, EnrollmentWriter), ханки не пересекаются'
+    - 'между волнами: #747 ↔ #770 — sf_enroll.go, sf_enroll_level.go, level_two_enrollment_usecase_test.go, fake_store_test.go, приёмка level-two, CHANGELOG, auth-lane.mdx, authz.mdx. #770 вливала ветку 747 (786f79d0f, 4f1840d09) и правила поверх, а не параллельно'
+  expectation_check:
+    detail: >-
+      #759/#762 отказывают домену в зоне .invalid. Я искал входы других полос и ствола
+      с таким доменом под Validate. cmd/kaname/sa_key_issuance_warning_reach_test.go:81
+      ставит access.example.invalid в режиме разработчика, а validateDeclaredDomain
+      вызывается только при c.AuthN.Mode.IsProduction() (validate.go:212–239), так что
+      ожидание не сломано. Прогон пакета cmd/kaname — см. runs. Набора, кроме своего,
+      который зовёт /iam/v1/auth/email-change, в tests/ нет (git grep), поэтому новое
+      условие уровня #770 чужих кейсов не задевает.
+
+merge_integrity:
+  remerge_diff_lines: 0      # git show --remerge-diff по 6 слияниям полос и 2 слияниям PR — по 0 строк
+  assembly_edits: none
+
+runs:
+  - >-
+    R1. Где: внешний кластер, ns t296-heavy-go-race-b7a4 (heavy-slot go-race → remote-heavy,
+    golang:1.26.9), дерево — git worktree --detach на 3066c7b6a. Команда:
+    go test -count=1 -json по ./internal/apps/kaname/config/... ./cmd/kaname/...
+    ./internal/apps/kaname/api/humansession/... ./internal/authzguard/... ./internal/check/...
+    ./internal/apps/kaname/api/access_keys/... ./deploy/... ./internal/repo/kaname/pg/...
+    На момент записи пакеты общих путей полос — config (#759/#762), cmd/kaname (#747),
+    humansession (#747/#769/#770), authzguard (#747), access_keys (#747) — pass.
+    Подпроб: pass 3615 · skip 182 · fail 1. Единственный fail — deploy
+    TestInjection_LimitEqualToTheBudgetIsLegal: «helm не в PATH — вердикта НЕТ». Образ
+    исполнителя helm не ставит, значит пакет deploy здесь «не выполнился» (182 skip из-за
+    того же), и это не красное. Пакет deploy с helm судил CI сборок: «набор — оснастка,
+    пробы…» и «автономный стенд…» — success на 9f40d88f5 и на 4a7ff7e9a. Пакеты
+    internal/check, repo/kaname/pg и pg/relverdict к моменту записи не завершились
+    (не выполнилось): им на голове сборок дают вердикт «пробы -race -short» и «интеграция»
+    CI — success.
+  - >-
+    R0, недействительный, назван, чтобы не потерять. Тот же набор на дереве git archive
+    (без .git) дал 13 FAIL в internal/check и cmd/kaname с текстом «под … нет ни одного
+    отслеживаемого файла» (treecorpus). Это гейты, которые отказывают на «ноль
+    прочитанного». Прогон снят и повторён в git worktree (R1).
+  - 'CI сборок по check-runs: 9f40d88f5 и 4a7ff7e9a — по 25 success, 4 skipped («вердикт ствола», только для ствола), сводные (ci) и (e2e-newman) success'
+  - 'git show --remerge-diff: 8 слияний, 0 строк — сборки правок своих не несут'
+  - 'digest: git diff --full-index 8a84dcff…3066c7b6 | sha256sum → 746c6166…8c02'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Не блокирует. Тела PR называют голову полосы, которая не совпадает с составом сборки.
+  #768: «#747 … голова 99fd45cde», а сборка влила 747 второй раз, на 90ad03ad8
+  (9f40d88f5: посев личности с ключом, Ф13-25). #773: «#770 … голова 2e55ee4a6», а сборка
+  влила 770 второй раз, на 4e26772a7 (4a7ff7e9a: запрос кода восстановления берёт строку
+  личности раньше кодов, EC-35). Тело описывает состав уже, чем было влито. На
+  корректность ПО это не влияет: полосы те же, задачи те же, CI судил голову сборки.
+  Задачей не становится.
+
+form_not_blocking:
+  - '#762 ведётся в ветке 759 общими коммитами «#759 #762» — в теле #768 это названо, Closes обеих задач подкреплены DoD-proof'
+  - 'kaname#747 закрыта 2026-10-13T11:32Z вручную (pointpu), хотя оба PR несут Refs #747. Перед закрытием опубликован итог DoD пп. 1–7, п. 8 вынесен в #777. Это предмет каскада, не мой'
+
+examined:
+  diffs: 14              # 6 слияний полос (^1..merge) + 8 remerge-diff (пусты)
+  lines: 104239          # wc -l шести диффов --full-index
+  lines_without_generated_collections: 10273   # те же диффы без tests/newman/collections/*
+  read_line_by_line: >-
+    sf_enroll_level.go, email_change_level.go целиком; дифф iface.go обеих полос;
+    access_key_login_repo.go (#769); observability.mdx, newman-suite-debt.py, authz.mdx,
+    auth-lane.mdx (правки обеих полос); _helpers.tpl, values*.yaml, validate.go (#759/#762);
+    permission_catalog.json и catalog_copy_parity.go (#747); RESULTS.md:55–80;
+    записи приёмок 41723d6b… и 9dc900c9…
+  mechanical_census: >-
+    кейсы newman по коллекциям: 828→844→844 (766), 844→845→845 (772); запросы
+    4248→4468→4458 (766), 4458→4477→4477 (772); удалённых файлов 0; копии цикла
+    ступени — 3; DoD-proof по задачам 747/759/762/766/769/770/772 — 7/2/2/1/2/7/2
+
+next:
+  - '—  (возвратов нет)'
