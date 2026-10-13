@@ -6,9 +6,9 @@
 # Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
 # ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-2713/`.
 #
-# ЛИНИЯ ДВИЖЕТСЯ. Голова и база сняты 2026-10-13 с origin; после волны
-# #747/#759/#762 голова сдвинется, и ВСЕ отпечатки ниже станут отпечатками
-# прежней линии. Пересчёт — командами поля `remeasure`.
+# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin (после волн
+# #779 и #781; #783 на момент замера не влита). Сдвинется голова — ВСЕ
+# отпечатки ниже станут отпечатками прежней линии. Пересчёт — командами поля `remeasure`.
 #
 # РЕПОЗИТОРИЯ PRO-Robotech/kaname НЕТ в `docs/changes/policy.yaml` §1 (cutover
 # назван только у kacho-workspace и kacho): освобождение по полю о дереве
@@ -34,26 +34,26 @@ coordinates:
       role: subject-tree
       branch: '296'
       base_sha: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6   # origin/main @2026-10-13
-      head_sha: 3066c7b6a266f640b367a82df21996f022a9a039   # origin/296 @2026-10-13, финальная голова
-      merge_base_equals_base: true         # git merge-base 8a84dcff 3066c7b6 → 8a84dcff
-      commits_in_line: 665                 # git rev-list --count 8a84dcff..3066c7b6
-      merges_in_line: 208                  # git rev-list --merges --count 8a84dcff..3066c7b6
-      paths_in_diff: 2047                  # git diff --name-only 8a84dcff...3066c7b6 | wc -l
+      head_sha: 3d5b02ede3aabecec317b1eefd52179cce3e91e8   # origin/296 @2026-10-14 (merge #781); #783 открыт
+      merge_base_equals_base: true         # git merge-base 8a84dcff 3d5b02ed → 8a84dcff
+      commits_in_line: 672                 # git rev-list --count 8a84dcff..3d5b02ed
+      merges_in_line: 211                  # git rev-list --merges --count 8a84dcff..3d5b02ed
+      paths_in_diff: 2048                  # git diff --name-only 8a84dcff...3d5b02ed | wc -l
       cutover_in_policy: false             # policy.yaml §1 не называет PRO-Robotech/kaname
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818).
-  content_digest_sha256: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+  content_digest_sha256: 7a48f2516422fe298de2731e2f3541c5b2d852967e45189f9425eab24f66a465
   content_digest_predicate: >-
-    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3066c7b6a266f640b367a82df21996f022a9a039 | sha256sum
+    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3d5b02ede3aabecec317b1eefd52179cce3e91e8 | sha256sum
 
-  canonical_diff_set_sha256: 2df02efc736bee2660721a6c9bbb04ac2dfe78e8f9eae4999eb4288d62f909ce
+  canonical_diff_set_sha256: 88dfe09fc404113eff3eabf0802684d1748b18c066d550ba831ab0f9c8525ec5
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: e3155088cc917db841cc18dcb473046711de208a75a4c2c622fe27ca3b5be75f
+  holders_sha256: 522e73f879cfb36072a1f5b2ec14b27a78a7d2948a1fb35ba97f35f991df400b
 
   # Приёмки и замысел эпика лежат в ДЕРЕВЕ ПРОДУКТА (`docs/engineering/acceptance/`)
   # и входят в его дифф. Отпечаток — НАБОРА документов (путь · blob на голове):

@@ -89,7 +89,7 @@ next_requested: >-
 # (docs/changes/policy.yaml §2). Блок event дописывается к факту тем же заходом,
 # что и событие.
 authority:
-  status: pending-event
+  status: published
   policy:
     path: docs/changes/policy.yaml
     field: review_authority.proto-api-reviewer
@@ -102,4 +102,39 @@ authority:
     declared_verdict: ACCEPTED
     subject_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
     declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
-  event: null
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kaname
+    issue: 296
+    database_id: 6156553492
+    node_id: IC_kwDOUO26pM8AAAABbvWNFA
+    url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6156553492'
+    actor: pointpu
+    author_association: MEMBER
+    role: proto-api-reviewer
+    created_at: '2026-10-13T22:27:15Z'
+    body_sha256: ca3fc501c02bde83918c4255d13c9420d4ec9685cf786a476268d5cc0d825f09
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: false
+  note: >-
+    дельта 3066c7b6..3d5b02ed (kaname#779, #781): 6 путей — две записи ревью приёмок в
+    docs/specs/reviews/, internal/apps/kaname/api/humansession/email_change.go,
+    internal/repo/kaname/pg/email_change_repo.go и две пробы к ним (+268 −19). Предмет роли НЕ
+    затронут: git diff --name-only 3066c7b6 3d5b02ed -- '*.proto' 'proto/**' 'pkg/api/**'
+    '*permission_catalog*' — 0 путей; контракт края и каталог прав дельта не трогает. Отпечаток
+    записи прежний (746c6166…); на дайджест 7a48f251… он не переносится, держатель по нему не
+    закрыт — нужен повтор роли «только по дельте» либо решение диспетчера по норме «повтор ревью
+    только ролями с ⛔ по дельте».

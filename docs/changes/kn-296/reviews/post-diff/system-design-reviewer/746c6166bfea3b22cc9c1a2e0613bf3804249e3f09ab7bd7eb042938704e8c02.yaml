@@ -74,11 +74,27 @@ authority:
     находка из шапки change.yaml). Полномочие роли читается из дома пакета —
     kacho-workspace, чей cutover — предок головы копии.
 event:
-  type: none
-  status: not_performed
-  note: >-
-    Запись не публиковалась и не закоммичена: коммитит ведение пакетов. Событие
-    полномочия — шаг ведения пакетов либо диспетчера.
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: 6156553967
+  node_id: IC_kwDOUO26pM8AAAABbvWO7w
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6156553967'
+  actor: pointpu
+  author_association: MEMBER
+  role: system-design-reviewer
+  created_at: '2026-10-13T22:27:17Z'
+  body_sha256: 9db1eb3772de97c2086c29a049e126e7c8baca73a0404125829ba053497ca392
+  body_reverified_by_second_get: true
+  body_is_single_machine_line: true
+  declared_verdict: ACCEPTED
+  declared_content_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+  declared_record_path: docs/changes/kn-296/reviews/post-diff/system-design-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
 
 axes:
   atomicity_no_dual_write:
@@ -189,3 +205,15 @@ overlaps:
     да — второй замок пола и условие уровня. Здесь судилась только их
     атомарность относительно заведения способа; модель прав остаётся
     предметом security-auditor.
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: true
+  note: >-
+    дельта 3066c7b6..3d5b02ed (kaname#779, #781): 6 путей — две записи ревью приёмок в
+    docs/specs/reviews/, internal/apps/kaname/api/humansession/email_change.go,
+    internal/repo/kaname/pg/email_change_repo.go и две пробы к ним (+268 −19). Предмет роли
+    ЗАТРОНУТ: инвариант адреса в операторе записи смены адреса (конкурентность). Повтор роли по
+    #780 — ✅ со слов диспетчера (задание ведения пакетов ws#1061); файла записи повтора в дереве
+    и в копии нет.

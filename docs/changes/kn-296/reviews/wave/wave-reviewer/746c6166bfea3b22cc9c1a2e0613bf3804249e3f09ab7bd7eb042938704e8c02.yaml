@@ -80,11 +80,27 @@ authority:
     declared_verdict: ACCEPTED
     subject_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
 event:
-  type: none
-  status: not_performed
-  note: >-
-    Запись не публиковалась и не закоммичена. Внешнее событие актора pointpu на этот
-    дайджест не создано; держатель пакета эта запись не закрывает.
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: 6156554447
+  node_id: IC_kwDOUO26pM8AAAABbvWQzw
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6156554447'
+  actor: pointpu
+  author_association: MEMBER
+  role: wave-reviewer
+  created_at: '2026-10-13T22:27:19Z'
+  body_sha256: df4bce0245d1106c9897374cdf9c35ec59ac22cfb87558ea90549c8009a4d66e
+  body_reverified_by_second_get: true
+  body_is_single_machine_line: true
+  declared_verdict: ACCEPTED
+  declared_content_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+  declared_record_path: docs/changes/kn-296/reviews/wave/wave-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: wave-reviewer
@@ -238,3 +254,13 @@ examined:
 
 next:
   - '—  (возвратов нет)'
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: true
+  note: >-
+    дельта 3066c7b6..3d5b02ed (kaname#779, #781): 6 путей — две записи ревью приёмок в
+    docs/specs/reviews/, internal/apps/kaname/api/humansession/email_change.go,
+    internal/repo/kaname/pg/email_change_repo.go и две пробы к ним (+268 −19). Предмет роли
+    ЗАТРОНУТ: дельта — две новые влитые сборки (#779, #781), эта запись их не судила.

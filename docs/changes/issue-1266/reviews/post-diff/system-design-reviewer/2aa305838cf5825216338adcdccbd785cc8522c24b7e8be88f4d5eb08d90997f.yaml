@@ -113,7 +113,7 @@ next_requested: >-
 # публикации вердикта (docs/changes/policy.yaml §2). Блок event дописывается
 # к факту тем же заходом, что событие; прежние строки при этом не правятся.
 authority:
-  status: pending-event
+  status: published
   policy:
     path: docs/changes/policy.yaml
     field: review_authority.system-design-reviewer
@@ -125,4 +125,38 @@ authority:
     issue: 1266
     declared_verdict: ACCEPTED
     subject_digest: 2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
-  event: null
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    database_id: 6156554982
+    node_id: IC_kwDOTZqgWM8AAAABbvWS5g
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6156554982'
+    actor: pointpu
+    author_association: MEMBER
+    role: system-design-reviewer
+    created_at: '2026-10-13T22:27:21Z'
+    body_sha256: 2ca93b321431dd6bd8c18c9367de2aa99e4c3d486b93a11fc128e0952cc2de0c
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/system-design-reviewer/2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: true
+  note: >-
+    дельта 2306d95d..bd9cc68c (kacho#3203, #3201): 19 путей — пин kaname на 3d5b02ed (go.mod,
+    go.sum, deploy/helm/umbrella/values*.yaml), готовность края с соединением решения о праве
+    (gateway/cmd/api-gateway/readiness.go, main.go,
+    gateway/internal/clients/iam_authorize_client.go, проба), доки края, сквозные пробы консоли
+    ui-future/e2e/** и .github/workflows/console-e2e.yml (+477 −17). Предмет роли ЗАТРОНУТ:
+    готовность края (/readyz) получила новую цель и условие критичности по исходу проверки прав.
+    Повтора роли на дельте нет.

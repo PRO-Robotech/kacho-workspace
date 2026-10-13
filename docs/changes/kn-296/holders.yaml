@@ -6,7 +6,7 @@
 # названный в `change.yaml`. Пред-посадочные записи `reviews/pre-landing/` —
 # записи агентов: событием роли не являются и держателя не закрывают.
 #
-# ЛИНИЯ ДВИЖЕТСЯ: отпечаток `change.yaml` снят 2026-10-13; после сдвига головы
+# ЛИНИЯ ДВИЖЕТСЯ: отпечаток `change.yaml` снят 2026-10-14 (origin/296 3d5b02ed); после сдвига головы
 # каждая запись на прежнем отпечатке новую линию не судит.
 schema_version: 1
 change_id: kn-296
@@ -43,13 +43,13 @@ role_applicability:
     status: applicable
     holder: human-post-diff-db
     reason: >-
-      `git diff --name-only 8a84dcff...3066c7b6 -- '*/migrations/*' '*.sql'` = 66
+      `git diff --name-only 8a84dcff...3d5b02ed -- '*/migrations/*' '*.sql'` = 66
       путей, из них 13 новых миграций `.sql`; предикат `no-migrations-in-change` ложен.
 
   go-style-reviewer:
     status: applicable
     holder: human-post-diff-go
-    reason: дифф несёт 1638 путей `*.go`.
+    reason: дифф несёт 1664 пути `*.go` (8a84dcff...3d5b02ed).
 
   proto-api-reviewer:
     status: applicable
@@ -68,7 +68,7 @@ role_applicability:
     holder: human-wave
     reason: >-
       линия собрана слияниями волн: `git rev-list --merges --count
-      8a84dcff..3066c7b6` = 208; предикат `no-lane-merges-in-change` ложен.
+      8a84dcff..3d5b02ed` = 211; предикат `no-lane-merges-in-change` ложен.
 
   integration-tester:
     status: applicable
@@ -115,7 +115,7 @@ required_holders:
       `.github/workflows/e2e-newman.yml` отслеживается на origin/main kaname 8a84dcff.
 
   # ── человеческие ──────────────────────────────────────────────────────────
-  # Исхода нет ни у одного: событий актора на отпечаток 746c6166… не было.
+  # Исхода нет ни у одного: событий актора на отпечаток 7a48f251… не было; события на прежний 746c6166… — в записях ролей, линию 3d5b02ed они не судят.
 
   human-acceptance:
     kind: human-external

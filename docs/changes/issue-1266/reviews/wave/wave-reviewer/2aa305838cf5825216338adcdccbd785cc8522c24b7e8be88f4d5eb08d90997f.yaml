@@ -18,7 +18,28 @@ previous_record: —
 authority:
   policy: docs/changes/policy.yaml §2 review_authority.wave-reviewer
   expected_actor: pointpu        # единственный разрешённый актор роли
-  event: none                    # внешнего события на этот отпечаток нет; запись полномочий не даёт
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    database_id: 6156555672
+    node_id: IC_kwDOTZqgWM8AAAABbvWVmA
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6156555672'
+    actor: pointpu
+    author_association: MEMBER
+    role: wave-reviewer
+    created_at: '2026-10-13T22:27:24Z'
+    body_sha256: 3bb7f7549a75156cc8c02016e570d0b5c7db2dd5a65f2decf9a054dac62c49b3
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f
+    declared_record_path: docs/changes/issue-1266/reviews/wave/wave-reviewer/2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
   holder_closed: false           # human-wave (holders.yaml) остаётся без исхода до события pointpu
 
 fingerprint:
@@ -126,3 +147,15 @@ examined:
 next:
   - 'git-operator — привести тело PR #3195 к влитым головам полос (9275418d, d2203094); не блокирует'
   - 'держатель human-wave — внешнее review event актора pointpu на отпечаток 2aa30583…; без него запись держателя не закрывает'
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: true
+  note: >-
+    дельта 2306d95d..bd9cc68c (kacho#3203, #3201): 19 путей — пин kaname на 3d5b02ed (go.mod,
+    go.sum, deploy/helm/umbrella/values*.yaml), готовность края с соединением решения о праве
+    (gateway/cmd/api-gateway/readiness.go, main.go,
+    gateway/internal/clients/iam_authorize_client.go, проба), доки края, сквозные пробы консоли
+    ui-future/e2e/** и .github/workflows/console-e2e.yml (+477 −17). Предмет роли ЗАТРОНУТ: две
+    новые влитые сборки (#3203, #3201), эта запись их не судила.
