@@ -1,0 +1,45 @@
+# Свидетельство держателя prod-newman-e2e — изменение kn-296.
+#
+# Снято с УЖЕ исполненного прогона конвейера запроса эпика на голове линии из
+# `change.yaml`; новый прогон не запускался. Отпечатки ниже пересчитываются
+# командами поля `remeasure` (журнал задания скачивается заново тем же `gh`).
+schema_version: 1
+change_id: kn-296
+holder: prod-newman-e2e
+kind: machine
+owner: integration-tester
+evidence_coordinate: evidence/prod-newman-e2e/
+executable: '.github/workflows/e2e-newman.yml на запросе эпика kaname#714'
+predicate: 'второй эшелон — сквозные пробы по развёрнутому, отдельно от unit/integration (`00-kacho-core.md#ban12-second-echelon`)'
+
+subject: 'PRO-Robotech/kaname@8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...278ac4c0835e54daa8826b7559071bbb6e5e0380 (content_digest)'
+subject_sha256: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b   # git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...278ac4c0835e54daa8826b7559071bbb6e5e0380 | sha256sum
+subject_revision: 278ac4c0835e54daa8826b7559071bbb6e5e0380
+pull_request: PRO-Robotech/kaname#714   # open, ready, headRefOid = subject_revision, mergeStateStatus CLEAN (gh pr view, 2026-10-14)
+checked_out_revision: be6655655c6f046af9fff77e5a6794fed089a146   # слияние запроса: родители 8a84dcff 278ac4c0 (gh api commits/<sha>)
+
+run:
+  workflow: 'e2e-newman'
+  database_id: 38521496967
+  event: pull_request
+  head_sha: 278ac4c0835e54daa8826b7559071bbb6e5e0380
+  status: completed
+  conclusion: success
+
+# ── снятое ─────────────────────────────────────────────────────────────────
+captured_category: GREEN
+result: 'полный прогон: 5 заданий из 5 — все зелёные; набор: файлов 45, проб исполнено 246, провалено 0, НЕ ВЫПОЛНИЛОСЬ 0; newman-прогонов 44: запросов 5773 (упало 0), утверждений 13769 (упало 0), test-scripts 11540 (упало 0)'
+input_sha256: a91ddd736f47ea4ecf4a2f7a723d7ff3906cfa77a13a30c9f6e5daed261fa753   # printf '%s' 'PRO-Robotech/kaname@278ac4c0835e54daa8826b7559071bbb6e5e0380 run 38521496967' | sha256sum
+output_sha256: ed61fbda687590aa4b36fc267a2d1c2d526564841b3ff04a390e2249c4361d38   # gh run view 38521496967 -R PRO-Robotech/kaname --json jobs -q '[.jobs[] | {name, conclusion}] | sort_by(.name)' | sha256sum
+stdout_digest: b825174d07aac8b3723dc6ae8d9990a7aab0a7f9a1053808bf7528914cd5af19   # gh run view 38521496967 -R PRO-Robotech/kaname --log | sha256sum
+stderr_digest: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855   # stderr той же команды — пуст
+verdict_excerpt_sha256: 2836b0695da41a16ec3ded2197819fce93d213cdd1a7aa30fbb090b4da4877cc
+verdict_excerpt: |
+  ===== ИТОГ: файлов 45 (набор 22, гейт 23); проб исполнено 246; провалено 0; НЕ ВЫПОЛНИЛОСЬ 0 =====
+  полный прогон: 5 заданий из 5 — все зелёные
+provenance: >-
+  стенды — kind (служба без платформы; волна церемонии; посадка own) в production-posture; провенанс контейнера стенда = be665565 (слияние 278ac4c0 в 8a84dcff), ожидаемое совпало. Сумма newman — по строкам таблиц `requests`/`assertions`/`test-scripts` журнала, колонки по имени строки.
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отпечаток журнала — от
+# скачивания 2026-10-14; журнал задания на стороне конвейера неизменен, его
+# снятие хранилищем дало бы NOT_EXECUTED, а не GREEN.

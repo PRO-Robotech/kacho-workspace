@@ -6,8 +6,9 @@
 # Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
 # ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-2713/`.
 #
-# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin на финальной
-# голове 68d24ae6 (после #779, #781 и #783 — приёмка ID-PW-1 ред. 8). Сдвинется
+# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin на голове
+# 278ac4c0 (merge #790: замысел kn-296 под ред. 9 приёмки Ф13; дерево головы
+# равно дереву e6126d19 — git rev-parse <rev>^{tree} → 8ad8d38e у обоих). Сдвинется
 # голова — ВСЕ отпечатки ниже станут отпечатками прежней линии. Пересчёт — командами поля `remeasure`.
 #
 # РЕПОЗИТОРИЯ PRO-Robotech/kaname НЕТ в `docs/changes/policy.yaml` §1 (cutover
@@ -34,20 +35,20 @@ coordinates:
       role: subject-tree
       branch: '296'
       base_sha: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6   # origin/main @2026-10-13
-      head_sha: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # origin/296 @2026-10-14 (merge #783), финальная голова
-      merge_base_equals_base: true         # git merge-base 8a84dcff 68d24ae6 → 8a84dcff
-      commits_in_line: 681                 # git rev-list --count 8a84dcff..68d24ae6
-      merges_in_line: 214                  # git rev-list --merges --count 8a84dcff..68d24ae6
-      paths_in_diff: 2050                  # git diff --name-only 8a84dcff...68d24ae6 | wc -l
+      head_sha: 278ac4c0835e54daa8826b7559071bbb6e5e0380   # origin/296 @2026-10-14 (merge #790)
+      merge_base_equals_base: true         # git merge-base 8a84dcff 278ac4c0 → 8a84dcff
+      commits_in_line: 684                 # git rev-list --count 8a84dcff..278ac4c0
+      merges_in_line: 215                  # git rev-list --merges --count 8a84dcff..278ac4c0
+      paths_in_diff: 2051                  # git diff --name-only 8a84dcff...278ac4c0 | wc -l
       cutover_in_policy: false             # policy.yaml §1 не называет PRO-Robotech/kaname
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818).
-  content_digest_sha256: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+  content_digest_sha256: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
   content_digest_predicate: >-
-    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...278ac4c0835e54daa8826b7559071bbb6e5e0380 | sha256sum
 
-  canonical_diff_set_sha256: 44a84df296623d2585b9a511dcff0abca3d5dc7c78266e6261c17dd4a4c96c2e
+  canonical_diff_set_sha256: a8821f101b9076ce07e4cfe56f3119b259f9803170c9640929808956d97e1231
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}'
@@ -63,11 +64,12 @@ hashes:
     git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*' | grep -v -- '-design\.md$')
     | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
   acceptance_set_count: 27
-  design_sha256: efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2
+  design_sha256: 3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b
   design_set_predicate: >-
     git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*-design.md')
     | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
   design_set:
+    - docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md
     - docs/engineering/acceptance/passwordless-login-with-access-key-design.md
 
 # Пересчёт после сдвига линии. Шаги 1–4 меняют coordinates и hashes этого файла
