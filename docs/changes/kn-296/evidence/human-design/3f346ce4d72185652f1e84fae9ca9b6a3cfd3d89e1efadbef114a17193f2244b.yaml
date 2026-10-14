@@ -20,9 +20,11 @@
 #      origin/296 оба предиката дают: `git merge-base --is-ancestor e6126d19
 #      origin/296` → 0, design_set_predicate на 8a84dcff...origin/296 →
 #      3f346ce4…; манифест `change.yaml` пересчитан на эту голову
-#      (`hashes.design_sha256`, `design_set`). 2026-10-14: `git ls-remote
-#      --heads origin 296 785` → 68d24ae6, e6126d19 — вливания нет, манифест
-#      несёт efa1b3d0 и один путь;
+#      (`hashes.design_sha256`, `design_set`). Выполнено 2026-10-14: kaname#790
+#      влит, origin/296 → 278ac4c0, `git merge-base --is-ancestor e6126d19
+#      278ac4c0` → 0, дерево 278ac4c0 равно дереву e6126d19 (8ad8d38e),
+#      design_set_predicate на 8a84dcff...278ac4c0 → 3f346ce4…, манифест
+#      пересчитан (digest 7729990b);
 #   2. пересверка классов на этот набор — APPROVED: выполнено, запись
 #      reviews/class-exposure/revalidation/3f346ce4….yaml (verdict APPROVED);
 #      она же действительна лишь при условии 1.
@@ -33,7 +35,7 @@ kind: human-external
 owner: design-reviewer
 subject: 'PRO-Robotech/kaname:docs/engineering/acceptance/ (набор из 2 замыслов линии 8a84dcff...e6126d19, change.yaml design_set_predicate пакета kn-296)'
 subject_base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6       # origin/main kaname = merge-base
-subject_revision: e6126d19fe353c3a20dc1dd801c3d4d79512a754   # origin/785; в origin/296 ещё НЕТ (условие 1)
+subject_revision: e6126d19fe353c3a20dc1dd801c3d4d79512a754   # предок origin/296 278ac4c0 (условие 1 выполнено)
 subject_sha256: 3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b   # design_set_predicate на 8a84dcff...e6126d19
 design_set_sha256: 3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b
 set:
@@ -50,6 +52,15 @@ set:
     sha256: 8c471dc1c948b220e3398668f2e076ea3a711d1868f850568df7e4686b2ce7cc
     last_changed_by: e6126d19f
 class_exposure_revalidation: PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/class-exposure/revalidation/3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b.yaml   # verdict APPROVED (условие 2)
+basis: >-
+  Решение владельца 2026-10-14 дословно: «5-й принимаешь решение сам с учетом
+  перспективности и безопасности решения. Прода нет пока можно пересобрать
+  установку». Решение диспетчера: замысел ОДОБРЕН; суд безопасности
+  (security-auditor): «✅ принято — замысел набора kn-296 (3f346ce4…) не
+  создаёт и не узаконивает уязвимость высокой или средней тяжести, в защитных
+  механизмах с кодом e6126d19 не расходится, необратимого небезопасного
+  состояния не закрепляет; одобрять при открытых kaname#786–#789 в следующей
+  волне допустимо»; суд перспективности (system-design-reviewer): «✅ принято».
 executable: 'внешнее review event pointpu на отпечаток набора замыслов (issue_comment в PRO-Robotech/kaname#296)'
 predicate: 'решения и инварианты замысла полны; открытых решений, маркеров отсрочки и неотображённых классов нет'
 
@@ -78,10 +89,24 @@ expected_event:
     ---
 
     Событие полномочия к держателю human-design пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/evidence/human-design/3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b.yaml`). Одобрен набор замыслов с отпечатком выше, и только он; состав набора и отпечаток каждого замысла — в записи.
+    Основание: решение владельца 2026-10-14 о делегировании этого события диспетчеру.
 
-# ── снятое: заполняет сверка события, не перо ───────────────────────────────
-captured_category: null
-event: null            # {database_id, url, actor, created_at, body_sha256} — после публикации
+# ── снятое: заполнено сверкой события 6163256563 через API, не пером ─────────
+captured_category: GREEN   # событие опубликовано, verdict APPROVED на subject_sha256 этого файла
+event:
+  # сверка: gh api repos/PRO-Robotech/kaname/issues/comments/6163256563 (два GET, тело одно);
+  # body_sha256 — gh api … --jq .body | head -c -1 | sha256sum (--jq добавляет перевод строки);
+  # тело дословно равно expected_event.body (cmp); других событий design-reviewer в kaname#296 нет
+  status: performed
+  database_id: 6163256563
+  node_id: IC_kwDOUO26pM8AAAABb1vU8w
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6163256563'
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-10-14T07:30:46Z'
+  body_sha256: 92cb7547c587b54d2f89600034f1ef1fece6f2af54f9f5f518cff19310881ce5
+  body_reverified_by_second_get: true
+  body_equals_expected_event_body: true
 input_sha256: null
 output_sha256: null
 stdout_digest: null
