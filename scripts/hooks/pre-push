@@ -338,7 +338,7 @@ carry_outside() {
 #     (`scripts/lib/product_clone.py`), и его отсутствие — несозданное условие,
 #     которое конвейер всё равно уронит.
 # Клон находит тот же модуль, что и наборы: второго правила поиска здесь нет.
-# Держит это `scripts/tooling-gate/check-08-caller-reads-the-three-outcomes.sh`.
+# Держит это `scripts/tooling-gate/check-10-push-hook-judges-what-is-pushed.sh`.
 TRUNK_JOB="product-trunk-gates"
 TRUNK_REPOS=(kacho kaname corelib)
 trunk_state=""   # пусто — fetch не делался; ok; fail
@@ -362,7 +362,8 @@ fetch_trunks() {  # fetch_trunks <копия> — один раз за прог�
             pids+=("")
             continue
         fi
-        GIT_TERMINAL_PROMPT=0 timeout 60 git -C "$path" fetch -q origin main             > "$wt.fetch-$r" 2>&1 &
+        GIT_TERMINAL_PROMPT=0 timeout 60 git -C "$path" fetch -q origin main \
+            > "$wt.fetch-$r" 2>&1 &
         pids+=("$!")
     done
     for r in "${TRUNK_REPOS[@]}"; do
@@ -467,11 +468,13 @@ for t in "${targets[@]}"; do
         printf '── %s @ %s: %s\n' "$rref" "${c:0:12}" "$g" >&2
         ran=$((ran + 1))
         (cd "$wt" && bash "$g" </dev/null) >&2
-        case $? in
+        rc=$?
+        case $rc in
             0) ;;
-            2) void+=("$rref: $g"); [ "$trunk" = 0 ] || void_trunk+=("$rref: $g") ;;
+            2) void+=("$rref: $g") ;;
             *) failed+=("$rref: $g") ;;
         esac
+        [ "$rc" != 2 ] || [ "$trunk" = 0 ] || void_trunk+=("$rref: $g")
     done
 done
 
