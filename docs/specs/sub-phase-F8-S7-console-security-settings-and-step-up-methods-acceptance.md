@@ -10,6 +10,8 @@ SPDX-License-Identifier: BUSL-1.1
 > (`.claude/skills/change-graph` §3 «Вердикт относится к ОТПЕЧАТКУ, а не к документу»)
 > **История review:** только дописывается; прежние строки не редактируются
 > - 2026-10-14 · круг 1 · ⛔ CHANGES_REQUESTED · редакция 1 `968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8` · запись `docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8.yaml` (блокирующих 3: F8-S7-31, DoD F8-S7-80, близнец F8-S7-43)
+> - 2026-10-14 · круг 2 · ⛔ CHANGES_REQUESTED · редакция 2 `f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e` · запись `docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e.yaml` (блокирующих 1: «Дано» F8-S7-80 в newman)
+> - 2026-10-14 · правка после вердикта круга 2 · редакция 3: §8 п.3 — вариант (а) записи круга 2 (Ф-п / Ф-н фикстурой `verified_human.py`), решение диспетчера (fa-b8, круг 2 последний); прочее без изменения
 > **Дата:** 2026-10-14
 > **Эпик/issue:** задача воркспейса `PRO-Robotech/kacho-workspace#1095`; реализация —
 > `PRO-Robotech/kacho#3230` (эпик `PRO-Robotech/kacho#3172`); контракт службы —
@@ -496,9 +498,12 @@ git show 8514270c4:gateway/internal/middleware/login_lane_paths.go | grep -c 'st
    общих компонентов (`shared-organisms-single-source.test.ts`) зелёный с переездом перечней.
 3. Край: запись ретрансляции, проба паритета записей и проба Go края; гейт достижимости уровня —
    с `webauthn`. Сквозная проба края **newman** на F8-S7-80 (второй эшелон, `00-kacho-core`
-   `ban12-second-echelon`): кейсы в `gateway/tests/newman/cases/` — положительный (`200`, в
-   `publicKey.allowCredentials` удостоверение ключа посева) и закрытый до подтверждения адреса
-   (`403` + `code` 7 + `EMAIL_NOT_VERIFIED`), пара «HTTP-статус + `code`» в каждом утверждении;
+   `ban12-second-echelon`): кейсы в `gateway/tests/newman/cases/` — положительный: Ф-п без ключа
+   (`tests/authz-fixtures/verified_human.py`), ответ службы ретранслирован — `400` + `code` 9 +
+   `ACCESS_KEY_NOT_REGISTERED` + «no access key is registered: register an access key first»
+   (производитель — SUA-21); близнец — Ф-н тем же запросом: `403` + `code` 7 + `EMAIL_NOT_VERIFIED`;
+   отличающий факт один — подтверждён ли адрес; `200` с `allowCredentials` — за браузерной F8-S7-21
+   на стенде (п.4); пара «HTTP-статус + `code`» в каждом утверждении;
    имя кейса начинается с `F8-S7-80`; новая коллекция — со строкой ведомости шардов
    `deploy/E2E-SHARDS.md`. Сегодня таких кейсов 0
    (`git grep -l '/iam/v1/auth/step-up' 8514270c4 -- '*newman*'` → 0): заказ `kacho#3230`.
