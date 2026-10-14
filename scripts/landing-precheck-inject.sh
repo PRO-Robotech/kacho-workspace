@@ -672,11 +672,12 @@ echo "== (в) диапазон длиннее 250 (ws#1070)"
 # big — близнец, удлинённый слияниями до 302 коммитов: площадка списком запроса
 # отдаёт 250, сравнение base...head — все. Слияния выведены из требования тела
 # (пункт (в)), номеров и атрибуции не несут — дописанное не меняет ни одного
-# другого пункта; base.sha — опора сравнения.
+# другого пункта; base.sha — опора сравнения. Слияния стоят В НАЧАЛЕ диапазона:
+# последним остаётся голова, как у настоящего сравнения.
 big() {
     twin
     edit pull.json '.base.sha = "0123456789abcdef0123456789abcdef01234567"'
-    jq -c --arg h "$HEAD_SHA" '. + [range(280) as $i | {sha: ("feed" + ("\($i)" | ("0" * (36 - length)) + .)), parents: [{sha: $h}, {sha: $h}], commit: {message: "Merge branch \u0027lane\u0027 into wave"}}]' \
+    jq -c '.[0].parents[0].sha as $p | [range(280) as $i | {sha: ("feed" + ("\($i)" | ("0" * (36 - length)) + .)), parents: [{sha: $p}, {sha: $p}], commit: {message: "Merge branch \u0027lane\u0027 into wave"}}] + .' \
         "$W/case/commits.json" > "$W/case/commits.new" && mv "$W/case/commits.new" "$W/case/commits.json"
     edit pull.json --arg n "$(jq length "$W/case/commits.json")" '.commits = ($n | tonumber)'
 }
@@ -692,10 +693,12 @@ big; echo 301 > "$W/case/compare-total"; run 0
 expect 2 "${FULL}сравнение объявило коммитов 301" "сравнение объявило меньше объявленного запросом — VOID"
 big; jq '.[:-1]' "$W/case/commits.json" > "$W/case/compare.json"; echo 302 > "$W/case/compare-total"; run 0
 expect 2 "${FULL}сравнение отдало коммитов 301, различных sha 301" "сравнение отдало страницами меньше своего total_commits — VOID"
-big; jq '.[:-1] + [.[-2]]' "$W/case/commits.json" > "$W/case/compare.json"; run 0
+big; jq '.[:-2] + [.[-3], .[-1]]' "$W/case/commits.json" > "$W/case/compare.json"; run 0
 expect 2 "${FULL}сравнение отдало коммитов 302, различных sha 301" "в сравнении повтор sha вместо коммита — VOID"
 big; jq '.[0].sha = "beef" + .[0].sha[4:]' "$W/case/commits.json" > "$W/case/compare.json"; run 0
 expect 2 "${FULL}коммиты запроса вне сравнения: $(jq -r '.[0].sha' "$W/case/commits.json")" "коммит списка запроса вне сравнения — VOID"
+big; jq '.[:-2] + [.[-1], .[-2]]' "$W/case/commits.json" > "$W/case/compare.json"; run 0
+expect 2 "${FULL}сравнение кончается $(jq -r '.[-2].sha[:12]' "$W/case/commits.json"), а не головой ${HEAD_SHA:0:12}" "сравнение кончается не головой — VOID"
 big; touch "$W/case/compare-fail"; run 0
 expect 2 "${FULL}сравнение base...head не прочитано (страница 1)" "сравнение недоступно — VOID, а не судит 250"
 big; edit pull.json 'del(.base.sha)'; run 0
@@ -713,11 +716,14 @@ bmutant() {  # bmutant <имя> <литерал сверки, заменяемы
     else echo "  [FAIL] мутант «$1» не пойман: код 2" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
 }
 bmutant no-subset '[ -z "$miss" ]' 'jq ".[0].sha = \"beef\" + .[0].sha[4:]" "$W/case/commits.json" > "$W/case/compare.json"'
-bmutant no-distinct '[ "$cgot" = "$DECLARED" ]' 'jq ".[:-1] + [.[-2]]" "$W/case/commits.json" > "$W/case/compare.json"'
+bmutant no-head '[ "$clast" = "$HEAD_SHA" ]' 'jq ".[:-2] + [.[-1], .[-2]]" "$W/case/commits.json" > "$W/case/compare.json"'
+bmutant no-distinct '[ "$cgot" = "$DECLARED" ]' 'jq ".[:-2] + [.[-3], .[-1]]" "$W/case/commits.json" > "$W/case/compare.json"'
 
 echo "== предпосылка"
 twin; echo '<html>' > "$W/case/pull.json"; run 0
 expect 2 $'VOID\tответ о PR' "ответ площадки не разбирается — код 2"
+twin; edit pull.json 'del(.commits)'; run 0
+expect 0 - "площадка не объявила числа коммитов — сравнения нет, судит список запроса"
 twin; edit pull.json '.commits += 1'; run 0
 expect 2 $'VOID\tплощадка объявила коммитов' "коммитов объявлено больше прочитанного — код 2"
 

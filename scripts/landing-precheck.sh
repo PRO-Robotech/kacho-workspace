@@ -219,11 +219,12 @@ done
 # отдаёт не больше 250 — замер 2026-10-14, kaname#714 объявил 681, kacho#3158 —
 # 414, оба отдали 250. Тогда состав берётся сравнением `compare/<base.sha>...<head.sha>`
 # постранично (тот же `gh api`, подменяемый пробой; клона не нужно). Полнота
-# доказывается тремя сверками, любая не сошлась — VOID, как и прежде:
+# доказывается четырьмя сверками, любая не сошлась — VOID, как и прежде:
 # total_commits сравнения = объявленному; прочитано страницами = объявленному,
-# sha без повторов; каждый коммит, отданный `pulls/<N>/commits`, есть в сравнении.
+# sha без повторов; каждый коммит, отданный `pulls/<N>/commits`, есть в сравнении;
+# последний коммит сравнения — голова запроса (адрес `...<head.sha>` этого не доказывает).
 COMMITS_SRC="pulls/$PR/commits"
-DECLARED="$(jq '.commits | if type == "number" then . else "" end' "$W/pull.json")"
+DECLARED="$(jq -r '.commits | if type == "number" then . else "" end' "$W/pull.json")"
 GOT="$(grep -c . "$W/commits.ndjson")"
 if [ -n "$DECLARED" ] && [ "$DECLARED" != "$GOT" ]; then
     short="площадка объявила коммитов $DECLARED, отдала $GOT — диапазон неполон"
@@ -250,6 +251,8 @@ if [ -n "$DECLARED" ] && [ "$DECLARED" != "$GOT" ]; then
         || void "$short; сравнение отдало коммитов $(grep -c . "$W/compare.ndjson"), различных sha $cgot"
     miss="$(LC_ALL=C comm -23 <(jq -r '.sha' "$W/commits.ndjson" | LC_ALL=C sort -u) <(jq -r '.sha' "$W/compare.ndjson" | LC_ALL=C sort -u) | head -3)"
     [ -z "$miss" ] || void "$short; коммиты запроса вне сравнения: $(tr '\n' ' ' <<< "$miss")"
+    clast="$(tail -n 1 "$W/compare.ndjson" | jq -r '.sha')"
+    [ "$clast" = "$HEAD_SHA" ] || void "$short; сравнение кончается ${clast:0:12}, а не головой ${HEAD_SHA:0:12}"
     mv "$W/compare.ndjson" "$W/commits.ndjson"
     COMMITS_SRC="compare/${BASE_SHA:0:12}...${HEAD_SHA:0:12} (pulls/$PR/commits отдал $GOT из $DECLARED)"
 fi
