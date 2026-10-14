@@ -7,7 +7,7 @@ description: "Сквозные пробы newman: край чёрным ящик
 
 ## Край проверяет newman, автор — тестировщик чёрного ящика
 
-Решение владельца 2026-09-23 (край — newman чёрным ящиком, двойная проверка, цепочки, классы), дословно — архив.
+Основание — архив (2026-09-23).
 
 edge-is-newman · поведение края утверждай newman-кейсом; край — то, с чем работает потребитель: gateway kacho, публичные пути kaname (`/iam/v1/authorize`, `/iam/v1/token`), поток `gateway/internal/subscriptionstream` (тело — до закрытия по `streamBudget`); HTTP-путь без proto — новый RPC (testing.md#new-rpc-newman-case); консоль — playwright · ЗАВЕСТИ new-rpc-newman-case · red: путь края покрыт только Go-пробой
 edge-internal-consequence · внутренний слушатель — не край; его следствие, видимое через край, утверждай newman, создав условие средствами потребителя или админ-проекции (`{{internalBaseUrl}}`), иначе — Go integration с причиной в шапке · ЗАВЕСТИ · red: следствие видно через край, проба только Go
