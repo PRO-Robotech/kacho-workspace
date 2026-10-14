@@ -36,14 +36,26 @@ authority:
   authorized_actors: [pointpu]
   allowlisted_for_role: false
 effective_approval:
-  issued: false
+  issued: true
+  issued_at: "2026-10-14T19:49:50Z"
 event:
   type: issue_comment
   target: PRO-Robotech/kacho-workspace#1095
-  status: not_performed
-  published: false
-  publication_mode: courier_of_agent_verdict
-  body: acceptance-reviewer · APPROVED · kacho-workspace:docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md · sha256 559ae688374eb8090f8238dd3eb4f12e173363aac5142789b1dcbaa2cca7b08c
+  status: performed
+  published: true
+  database_id: 6176972601
+  node_id: "IC_kwDOSVvpIM8AAAABcC0fOQ"
+  url: "https://github.com/PRO-Robotech/kacho-workspace/issues/1095#issuecomment-6176972601"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/6176972601"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-14T19:49:50Z"
+  body_sha256: "7c78e633ed6db50ba64ce0c28e400b13b0c9e52f0adc0e8f083a0596ddece19f"
+  subject_sha256: "559ae688374eb8090f8238dd3eb4f12e173363aac5142789b1dcbaa2cca7b08c"
+  subject_revision_commit: "7bfecf85bf9e99cfb5d752f116e13ac2e5e02df8"
+  verdict: "APPROVED"
+  publication_mode: "manual (approval-event.sh: issued: false before event breaks edited_record)"
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
