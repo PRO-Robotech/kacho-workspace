@@ -393,6 +393,28 @@ assert_code 1 "«Monitor» пропал из disallowedTools — ход ждёт
 assert_says "AGENT-CAN-WAIT" "  ...находка названа осью"
 assert_says "$INJ05_AGENT" "  ...и назван ИМЕННО этот исполнитель"
 
+echo "== ось C2′: БЛИЗНЕЦ — ci-watcher с разрешённым Monitor (режим wait, решение 2026-10-14) =="
+# Обе стороны одним предметом: у ci-watcher в дереве Monitor не запрещён — гейт молчит;
+# снят из WAIT_LAWFUL — краснеет ИМЕННО на ci-watcher; лишнее имя в WAIT_LAWFUL — находка.
+d5="$(inj05_sandbox c_wait_lawful)"
+grep -q '^disallowedTools:.*Monitor' "$d5/.claude/agents/ci-watcher.md"; RC=$?
+assert_code 1 "  ...предпосылка: у ci-watcher в дереве Monitor не запрещён"
+capture "$d5" "$CH05"
+assert_code 0 "ci-watcher без запрета Monitor — законный близнец, гейт молчит"
+mkdir -p "$TMP/g05"
+wait_mut() {   # <замена WAIT_LAWFUL> — копия проверки с другим исключением
+    sed "s/^WAIT_LAWFUL = (\"ci-watcher\",)\$/WAIT_LAWFUL = $1/" "$GATE/$CH05" > "$TMP/g05/$CH05"
+    if cmp -s "$GATE/$CH05" "$TMP/g05/$CH05"; then RC=0; else RC=1; fi
+    assert_code 1 "  ...образец WAIT_LAWFUL найден в проверке ($1)"
+    local keep="$GATE"; GATE="$TMP/g05"; capture "$d5" "$CH05"; GATE="$keep"
+}
+wait_mut '()'
+assert_code 1 "мутант: ci-watcher снят из WAIT_LAWFUL — краснеет"
+assert_says "AGENT-CAN-WAIT: .claude/agents/ci-watcher.md" "  ...и назван ИМЕННО ci-watcher"
+wait_mut '("ci-watcher", "no-such-watcher")'
+assert_code 1 "исключение называет исполнителя, которого нет, — находка"
+assert_says "исключение «no-such-watcher»" "  ...названо ИМЕННО это исключение"
+
 echo "== ось C′: БЛИЗНЕЦ — тот же набор запретов, обратный порядок =="
 d5="$(inj05_sandbox c_dis_reorder)"; b5="$(sandbox_digest "$d5")"
 inj05_edit "$d5" dis_reorder "$INJ05_AGENT"

@@ -16,7 +16,14 @@
 #   T3  код команды проходит как есть (команда с кодом 1 — код 1);
 #   T4  без пар, с чужим именем продукта, с ревизией, которой в клоне нет, —
 #       код 2, а не 0;
-#   T5  неназванный продукт судится своим клоном (KACHO_HOME не переставлен).
+#   T5  неназванный продукт судится своим клоном (KACHO_HOME не переставлен);
+#   T6  вызов БЕЗ «--» (так зовут wave.js и git-operator) исполняет именно
+#       `scripts/lib/run-suites.sh --void-is-failure --job product-trunk-gates`
+#       (дублёр под WS пишет argv и судит ствол): красный набор на будущем
+#       стволе — код 1, близнец на нынешнем — 0; мутанты «команда true» и
+#       «другое задание» краснеют;
+#   T7  чужое имя продукта при живом клоне (KACHO_HOME_OTHER) — код 2: перечень
+#       kacho, kaname, corelib держит сам скрипт, а не отсутствие клона.
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="$here/trunk-future.sh"
@@ -75,6 +82,41 @@ expect 0 "  ...и в тексте отказа — команда fetch" grep -q
 
 echo "== T5: неназванный продукт — своим клоном"
 expect 0 "KACHO_HOME_KANAME не переставлен" bash "$SUT" "kacho=$B" -- bash -c "[ \"\$KACHO_HOME_KANAME\" = '$tmp/kaname' ]"
+
+echo "== T6: вызов без «--» — задание конвейера product-trunk-gates"
+mkdir -p "$tmp/scripts/lib"
+# Дублёр набора: argv — в файл; на стволе с FUTURE набор красный (код 1), без него — 0.
+cat > "$tmp/scripts/lib/run-suites.sh" <<'STUB'
+printf '%s\n' "$*" > "$WS/argv"
+git -C "$KACHO_HOME_KACHO" cat-file -e origin/main:FUTURE 2>/dev/null && exit 1
+exit 0
+STUB
+expect 1 "красный набор на будущем стволе — код 1" bash "$SUT" "kacho=$B"
+expect 0 "  ...исполнено именно задание конвейера" grep -qx -- '--void-is-failure --job product-trunk-gates' "$tmp/argv"
+rm -f "$tmp/argv"
+expect 0 "близнец: нынешний ствол (A) — набор зелёный, код 0" bash "$SUT" "kacho=$A"
+expect 0 "  ...и задание то же" grep -qx -- '--void-is-failure --job product-trunk-gates' "$tmp/argv"
+# mutate <что> <образец sed> — мутант умолчания обязан покраснеть.
+mutate() {
+    rm -f "$tmp/argv"; sed "$2" "$SUT" > "$tmp/mut6.sh"
+    expect '!0' "образец мутанта «$1» найден в скрипте" cmp -s "$SUT" "$tmp/mut6.sh"
+    bash "$tmp/mut6.sh" "kacho=$B" > "$tmp/o" 2>&1
+    local rc=$?
+    [ "$rc" -eq 1 ] && grep -qx -- '--void-is-failure --job product-trunk-gates' "$tmp/argv" 2>/dev/null
+    ok "$(( $? == 0 ))" "мутант «$1» — проба краснеет (код $rc)"
+}
+# shellcheck disable=SC2016  # образец sed: $WS — литерал скрипта, а не раскрытие здесь
+mutate "команда по умолчанию true" 's/|| cmd=(bash "$WS\/scripts\/lib\/run-suites.sh".*/|| cmd=(true)/'
+mutate "другое задание" 's/--job product-trunk-gates)$/--job tooling-gate)/'
+
+echo "== T7: чужое имя продукта при живом клоне — код 2"
+mk "$tmp/other"
+KACHO_HOME_OTHER="$tmp/other" expect 2 "other= при живом клоне — отказ" bash "$SUT" "other=$(git -C "$tmp/other" rev-parse pr)" -- true
+cp "$tmp/o" "$tmp/o.t7"
+expect 0 "  ...причина — перечень продуктов" grep -q 'не из kacho, kaname, corelib' "$tmp/o.t7"
+sed '/kacho|kaname|corelib) ;;/d' "$SUT" > "$tmp/mut7.sh"
+expect '!0' "образец мутанта перечня найден в скрипте" cmp -s "$SUT" "$tmp/mut7.sh"
+KACHO_HOME_OTHER="$tmp/other" expect 0 "мутант без перечня принимает other — проба его видит" bash "$tmp/mut7.sh" "other=$(git -C "$tmp/other" rev-parse pr)" -- true
 
 echo "[CENSUS] trunk-future-inject: утверждений $((pass + fail)) — сошлось $pass, разошлось $fail"
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ]

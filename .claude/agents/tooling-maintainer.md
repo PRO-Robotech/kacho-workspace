@@ -121,7 +121,7 @@ at-rule-preloaded-by-symlink, at-main-thread-is-agent). Решение 2026-09-1
 ## Чек-лист нового агента
 
 - файл `.claude/agents/<имя>.md` с `name`, `description`, `disallowedTools` (обязательно
-  `Agent` и `Monitor`), `skills:` и телом;
+  `Agent`; `Monitor` — кроме `ci-watcher`), `skills:` и телом;
 - строка в `.claude/rules/ai-tooling.md` §«Канонические агенты» и пересчёт чисел при
   предикатах, которые их называют;
 - строка привязки в 4-й колонке `.claude/rules/MANIFEST.md`;

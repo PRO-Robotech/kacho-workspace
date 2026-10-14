@@ -108,6 +108,9 @@
 #   перепись гейтов (ws#1071): один шаг до первого landing-precheck, все шесть гейтов,
 #   ничего не чинит, итог несёт таблицу; текстовый шаг без «### ВОЗВРАТ» — один повтор
 #   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит.
+#   уроки ws#1078: диапазон коммитов рецензента волны исполняется на настоящем репозитории
+#   (с коммитом — 0, пустой — 2); стволы — по каждому из kacho, kaname, corelib; задание
+#   файлом — во всех шагах с заданием; итог режется и внутри массивов.
 #   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
 #   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
 #   не принимает; не-номерные ветки kaname, уже лежащие на origin.
@@ -137,6 +140,14 @@ command -v jq > /dev/null 2>&1 || { echo "wave-template-inject: VOID — нет 
 [ -r "$TPL" ] || { echo "wave-template-inject: VOID — шаблона нет: $TPL" >&2; exit 2; }
 W="$(mktemp -d)"
 trap 'rm -rf "$W"' EXIT
+# Репозиторий диапазона L11 (ws#1078): main = «L11-A», ветка w = «L11-B»; подпись — песочницы.
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$W/home" || { echo "wave-template-inject: VOID — корневой подписи нет" >&2; exit 2; }
+if ! { sandbox_git init -q -b main "$W/l11" && sandbox_git -C "$W/l11" commit -q --allow-empty -m L11-A \
+    && sandbox_git -C "$W/l11" switch -qc w && sandbox_git -C "$W/l11" commit -q --allow-empty -m L11-B; }; then
+    echo "wave-template-inject: VOID — репозиторий диапазона L11 не заведён" >&2; exit 2
+fi
 
 # Вывод плана — настоящим plan-precheck.sh.
 planout() { # planout <файл> <jq-массив полос>
@@ -168,6 +179,7 @@ jq -e '[.layers[] | join(",")] | join("|") == "A|B"' "$W/kn.json" > /dev/null ||
 cat > "$W/probe.mjs" <<'JS'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { spawnSync } from 'node:child_process'
 const [tplPath, dir, landWs, landOut] = process.argv.slice(2)
 const src = fs.readFileSync(tplPath, 'utf8')
 const P = n => JSON.parse(fs.readFileSync(dir + '/' + n, 'utf8'))
@@ -791,11 +803,34 @@ console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочи�
   ok(!prm(q.calls, 'impl:A').includes('ЗАДАНИЕ — в файле'), 'близнец L6: задание текстом — пути файла нет', '')
   q = await run({ args, plan: [P('r1.json')] })
   const wp = prm(q.calls, 'review-wave')
-  ok(wp.includes('git log --format=%B main..') && wp.includes('disc-recoverability-predicate'), 'L11: рецензент волны судит сообщения коммитов диапазона признаком восстановимости', wp.slice(0, 120))
-  q = await run({ args: { ...args, repo: 'PRO-Robotech/kaname' }, plan: [P('r0.json')] })
-  ok(prm(q.calls, 'mech:gates').includes('scripts/trunk-future.sh kaname=<голова PR>'), 'L2: посадка PR продукта — наборы по стволам продуктов на будущем состоянии в переписи гейтов', '')
+  ok(wp.includes('disc-recoverability-predicate') && wp.includes('код 2 (диапазон пуст либо не разрешился) — return'), 'L11: рецензент волны судит сообщения коммитов диапазона признаком восстановимости', wp.slice(0, 120))
+  // L11 исполнением (CV10): команда диапазона из задания — на настоящем репозитории, где
+  // main = A, голова сборки = B (коммит «L11-B»); голова-заглушка HW подменяется на B либо main.
+  const cmd = (wp.match(/`(R=\$\(git log [^`]*)`/) || [])[1] || ''
+  const repo = dir + '/l11'
+  const sh = c => spawnSync('bash', ['-c', c], { cwd: repo, encoding: 'utf8' })
+  const shaB = (sh('git rev-parse w').stdout || '').trim()
+  const r1 = cmd && /^[0-9a-f]{40}$/.test(shaB) ? sh(cmd.split(HW).join(shaB)) : { status: -1, stdout: '' }
+  ok(cmd.includes('main..' + HW) && r1.status === 0 && r1.stdout.includes('L11-B'), 'L11: диапазон база..голова сборки с коммитом — код 0, сообщение коммита прочитано', 'код ' + r1.status + ' ' + cmd.slice(0, 80))
+  const r2 = cmd ? sh(cmd.split(HW).join('main')) : { status: -1, stderr: '' }
+  ok(r2.status === 2 && /ПУСТ — отказ/.test(r2.stderr || ''), 'L11: пустой диапазон (голова = база) — код 2, отказ, а не зелёное', 'код ' + r2.status)
+  for (const p of ['kacho', 'kaname', 'corelib']) {
+    q = await run({ args: { ...args, repo: 'PRO-Robotech/' + p }, plan: [P('r0.json')] })
+    ok(prm(q.calls, 'mech:gates').includes('scripts/trunk-future.sh ' + p + '=<голова PR>'), 'L2: посадка PR ' + p + ' — наборы по стволам продуктов на будущем состоянии в переписи гейтов', '')
+  }
   q = await run({ args, plan: [P('r0.json')] })
   ok(!prm(q.calls, 'mech:gates').includes('trunk-future.sh'), 'близнец L2: PR воркспейса — будущего ствола продукта нет', '')
+  // L6 по всем шагам, где идёт задание полосы (CV2–CV4): предполёт, приёмка, перепись поверхности.
+  const laneMF = [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', textFile: '/ws/tmp/1078/M.md' }]
+  q = await run({ args: { ...args, lanes: laneMF }, plan: [P('r2.json')] })
+  for (const [lb, nm] of [['preflight', 'предполёт'], ['acc:M:1', 'приёмка'], ['census:M', 'перепись поверхности'], ['impl:M', 'исполнитель']]) {
+    const pp = prm(q.calls, lb)
+    ok(pp.includes('ЗАДАНИЕ — в файле /ws/tmp/1078/M.md') && !pp.includes('undefined'), 'L6: задание файлом — ' + nm + ' получает путь, а не «undefined»', pp.slice(0, 120))
+  }
+  // L5 внутри массивов (CV9): длинная причина посадки в reasons — тоже срезана.
+  q = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: [LONG] }, { code: 1, reasons: [LONG] }] })
+  const jr = JSON.stringify(q.res.reasons || [])
+  ok(q.res.stage === 'landing-precheck' && !jr.includes(LONG.slice(0, 1000)) && jr.includes('[полностью — в'), 'L5: строка внутри массива итога — срезана с путём отчётов', jr.slice(0, 120))
 }
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
@@ -1083,8 +1118,16 @@ mutant "метрики не пишутся" "await agent(C + '\\n\\nРежим �
 mutant "L4: дочитывание без rerun — кэш вечен (ws#1078)" "журнал своего прогона и верни блок ВОЗВРАТ с фактом. Попытка ' + (A.rerun || 0) + '.'" "журнал своего прогона и верни блок ВОЗВРАТ с фактом. Попытка 0.'"
 mutant "L5: итог — простынёй (ws#1078)" "const slim = x => typeof x === 'string' ? (x.length > SLIM_MAX" "const slim = x => typeof x === 'string' ? (false"
 mutant "L6: textFile не читается (ws#1078)" "const taskOf = l => l.textFile ?" "const taskOf = l => false ?"
-mutant "L11: коммиты рецензенту волны не даны (ws#1078)" "Сообщения коммитов \`git log --format=%B" "Сообщения \`git show --stat"
+mutant "L11: коммиты рецензенту волны не даны (ws#1078)" "Сообщения коммитов \`' + logRange(" "Сообщения \`git show --stat ' + String("
+mutant "L11: диапазон base..base (CV10)" "logRange(A.base || '?', asm.head)" "logRange(A.base || '?', A.base || '?')"
+mutant "L11: пустой диапазон — зелёное (CV10)" "') && [ -n \"\$R\" ] && printf" "') && printf"
 mutant "L2: стволы продуктов — не в переписи гейтов (ws#1078)" "if (['kacho', 'kaname', 'corelib'].includes(PROD)) GATES.push(" "if (false) GATES.push("
+mutant "L2: kacho выпал из перечня стволов (CV5)" "if (['kacho', 'kaname', 'corelib'].includes(PROD))" "if (['kaname', 'corelib'].includes(PROD))"
+mutant "L2: corelib выпал из перечня стволов (CV6)" "if (['kacho', 'kaname', 'corelib'].includes(PROD))" "if (['kacho', 'kaname'].includes(PROD))"
+mutant "L6: предполёт без taskOf (CV2)" "']: ' + taskOf(l)).join(' | ')" "']: ' + l.text).join(' | ')"
+mutant "L6: приёмка без taskOf (CV3)" "(смена публичного контракта либо миграция): ' + taskOf(l)" "(смена публичного контракта либо миграция): ' + l.text"
+mutant "L6: перепись поверхности без taskOf (CV4)" "Перепись поверхности ДО кода, полоса ' + l.key + ': ' + taskOf(l)" "Перепись поверхности ДО кода, полоса ' + l.key + ': ' + l.text"
+mutant "L5: slim не заходит в массивы (CV9)" " : Array.isArray(x) ? x.map(slim) :" " : Array.isArray(x) ? x :"
 mutant "метрики без итога" "return slim({ ...res, metrics: metricsOf() })" "return slim(res)"
 mutant "переделка не считается" "impl1st[l.key] ? M.rework++ :" "impl1st[l.key] ? 0 :"
 mutant "красный CI не считается" "if (ciState(ci) === 'red') M.ciRed++" ""

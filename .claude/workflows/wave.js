@@ -170,6 +170,8 @@ const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 // исполняет ЭТУ команду, отрисованную шаблоном, на случаях с кодом 0, 1 и 2.
 const recipeRun = (s, argv, out) => '( set -o pipefail; WS=' + WS + '; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n \'/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}\') && [ -n "$R" ] || { echo "ЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «$WS»" >&2; exit 2; }; WS="$WS" S=' + s + ' TMPDIR=' + D + ' bash -c "$R" _ ' + argv + ' ) > ' + out + ' 2>&1'
 const rep = (lane, step) => R + '/' + lane + '/' + step + '.md'
+// Сообщения коммитов диапазона сборки (ws#1078, L11): пустой либо неразрешимый диапазон — код 2.
+const logRange = (b, h) => 'R=$(git log --format=%B ' + b + '..' + h + ') && [ -n "$R" ] && printf \'%s\\n\' "$R" || { echo "ДИАПАЗОН ' + b + '..' + h + ' ПУСТ — отказ, не зелёное" >&2; exit 2; }'
 // Задание полосы — файлом (ws#1078, L6: вставка обрезалась между шагами): textFile — путь под
 // tmp/<задача>/, в задание идёт путь, а не пересказ; text — лишь для короткого.
 const taskOf = l => l.textFile ? 'ЗАДАНИЕ — в файле ' + l.textFile + ' (прочти целиком; пересказа здесь нет)' : l.text
@@ -449,7 +451,7 @@ if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) 
 if (!Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors, lessons: lessonsOf() }
 const waveReviews = []
 if (steps.has('wave-reviewer')) {
-  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + R + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Сообщения коммитов `git log --format=%B ' + (A.base || '?') + '..' + asm.head + '` судятся признаком восстановимости (security-disclosure.md#disc-recoverability-predicate): до-фиксное состояние уязвимости в тексте — return полосы (ws#1078, L11). Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
+  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + R + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Сообщения коммитов `' + logRange(A.base || '?', asm.head) + '` судятся признаком восстановимости (security-disclosure.md#disc-recoverability-predicate): до-фиксное состояние уязвимости в тексте — return полосы; код 2 (диапазон пуст либо не разрешился) — return, а не accept (ws#1078, L11). Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
   const per = wr && Array.isArray(wr.lanes) ? wr.lanes : []
   const verdictOf = k => (per.find(x => x && x.key === k) || {}).verdict
   const covered = order.every(k => ['accept', 'return'].includes(verdictOf(k)))
