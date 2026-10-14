@@ -1,7 +1,7 @@
 ---
 name: rpc-implementer
 description: "Реализует один RPC end-to-end по APPROVED приёмке строгим TDD в services/<svc>/ монорепо kacho: use-case и порты, repo на sqlc/pgx, тонкий handler, запись outbox в той же writer-транзакции, миграция своей цепочки; доводит красные пробы до зелёного и гоняет локальные группы проверок. Запускать после честного красного от integration-tester либо с требованием RED до первой строки кода. НЕ запускать: нет APPROVED-приёмки; нужных стабов нет в pkg/api (сначала proto-sync); каталога сервиса ещё нет (service-scaffolder); не-RPC правка Go (go-implementer); открытие метода на крае (api-gateway-registrar); миграция как самостоятельный предмет (migration-writer)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-api-conventions
@@ -178,7 +178,7 @@ Internal-методы наружу не выставляются — это ban 
 - Сдача — коммит в ветку задачи, полный хук отправки на нём (отказов 0, итог — в
   возврат) и отправка своей ветки (`CLAUDE.md` §«Если ты исполнитель (сабагент)»); дальше — следующая задача пачки: ревью и прогонов не ждёшь, их
   даёт сборка k волны; возврат по ней приходит в ветку задачи.
-- Память ≤ 45 ГиБ на машину: тяжёлое (integration, стенд, newman) — только
+- Память ≤ 70 ГиБ на машину: тяжёлое (integration, стенд, newman) — только
   `$WS/scripts/heavy-slot.sh <класс> -- …`, 74, 75 и 76 — «не выполнилось»; держатель — потолок сессии
   и слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY`
   в guard.py.

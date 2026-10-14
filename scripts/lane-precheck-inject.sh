@@ -188,6 +188,37 @@ assert "0" "$(run "${ok_args[@]}")" "kacho: строка зелёного ито
 git -C "$L" remote set-url origin "$W/srv/other.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
 assert "2 да" "$(run "${ok_args[@]}") $(has 'VOID HOOK-KIND-UNKNOWN')" "репозиторий вне словаря → код 2"
 
+echo "== предусловия задания до раздачи (ws#1071)"
+# Трекер — та же обёртка; каждая порча меняет ОДИН факт против контроля.
+printf '%s' '{"state":"closed","merged":true}' > "$W/c/repos_o_r_pulls_5.json"
+printf '%s' '{"state":"open","merged":false}' > "$W/c/repos_o_r_pulls_6.json"
+printf '%s' '{"name":"1-lane"}' > "$W/c/repos_o_r_branches_1-lane.json"
+printf 'verdict:\n  value: %s\n  blocking: НЕТ\n' "'✅ принято'" > "$W/rev-ok.yaml"
+printf 'verdict:\n  value: %s\n  blocking: ДА\n' "'⛔ возврат → x'" > "$W/rev-ret.yaml"
+prem() { printf '%s\n' "$@" > "$W/premise.txt"; }
+runp() { bash "$P" --premise "$W/premise.txt" > "$W/out" 2>&1; echo $?; }
+prem '# предусловия' 'pr o/r#5 MERGED' 'pr o/r#6 OPEN' 'branch o/r 1-lane' 'proof o/r#7' "verdict $W/rev-ok.yaml accept"
+assert "0 да" "$(runp) $(has 'предусловий 5; ложных 0, не судимо 0')" "контроль: пять верных предусловий → 0, перепись"
+prem 'pr o/r#6 MERGED'
+assert "1 да" "$(runp) $(has 'REASON PREMISE-FALSE pr o/r#6 MERGED: состояние OPEN')" "PR открыт, задание считает влитым → PREMISE-FALSE"
+prem 'pr o/r#9 OPEN'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE pr o/r#9 OPEN: PR нет')" "PR нет (404) → PREMISE-FALSE"
+prem 'branch o/r 2-gone'
+assert "1 да" "$(runp) $(has 'ветки на origin нет')" "ветки на origin нет → PREMISE-FALSE"
+prem 'proof o/r#8'
+comments 8 "без доказательства"
+assert "1 да" "$(runp) $(has 'комментария «DoD-proof @<sha>» нет')" "DoD-proof нет → PREMISE-FALSE"
+prem "verdict $W/rev-ret.yaml accept"
+assert "1 да" "$(runp) $(has 'вердикт return')" "роль вернула, задание считает принятым → PREMISE-FALSE"
+prem "verdict $W/rev-ret.yaml return"
+assert "0" "$(runp)" "близнец: тот же возврат, задание о возврате → 0"
+prem 'proof o/r#3'
+assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE')" "комментарии задачи не прочитаны → код 2, не «ложно»"
+prem 'pr o/r#5 merged'
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM')" "строка вне словаря → код 2"
+prem '# только комментарий'
+assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
+
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"

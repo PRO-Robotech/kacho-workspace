@@ -1,7 +1,7 @@
 ---
 name: go-implementer
 description: "Не-RPC правка Go продукта строгим TDD, красный до первой строки: багфикс, рефакторинг, pkg/ и клиенты, конфиг и boot-guard, инфраструктура подписки и outbox, интерсепторы и модель прав, гейты продукта internal/repohygiene и tools/, Go-код Terraform-провайдера, роль чинящего в раунде массированного аудита. Запускать по заданию с признаком, предметом и предикатом снятия. НЕ запускать: новый RPC или ресурс по приёмке (rpc-implementer); .proto (proto-sync); миграция как предмет (migration-writer); открытие метода на крае (api-gateway-registrar); чарты и стенд (deploy-engineer); ui-future (ui-implementer); оснастка .claude и scripts/*-gate (tooling-maintainer)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-architecture
@@ -179,7 +179,7 @@ PR сборки.
 - Сдача — коммит в ветку задачи, полный хук отправки на нём (отказов 0, итог — в
   возврат) и отправка своей ветки (`CLAUDE.md` §«Если ты исполнитель (сабагент)»); дальше — следующая задача пачки: ревью и прогонов не ждёшь, их
   даёт сборка k волны; возврат по ней приходит в ветку задачи.
-- Память ≤ 45 ГиБ на машину: тяжёлое (integration, стенд, newman) — только
+- Память ≤ 70 ГиБ на машину: тяжёлое (integration, стенд, newman) — только
   `$WS/scripts/heavy-slot.sh <класс> -- …`, 74, 75 и 76 — «не выполнилось»; держатель — потолок сессии
   и слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY`
   в guard.py.
