@@ -1,0 +1,38 @@
+# Потолок СТАРТОВОГО ОКНА агента, символов NFC (rules-gate check-13, ws#1084).
+# Старт = CLAUDE.md (кроме omitClaudeMd) + файл агента + скиллы из skills: целиком;
+# подгрузка по триггеру сюда не входит. Строка: агент<TAB>потолок<TAB>основание.
+# ХРАПОВИК: рост числа — только правкой с основанием (задача, старт до/после);
+# начальное значение — старт @5192aeb0f плюс 10 % (владелец 2026-10-14).
+# Пересчитать старт: python3 scripts/rules-gate/agent_window.py
+acceptance-author	104050	ws#1084: старт 94591 @5192aeb0f + 10 %
+acceptance-reviewer	99998	ws#1084: старт 90908 @5192aeb0f + 10 %
+api-gateway-registrar	82599	ws#1084: старт 75090 @5192aeb0f + 10 %
+check-verifier	78390	ws#1084: старт 71264 @5192aeb0f + 10 %
+ci-watcher	60344	ws#1084: старт 54859 @5192aeb0f + 10 %
+class-exposure-analyst	110591	ws#1084: старт 100538 @5192aeb0f + 10 %
+client-simulator	8732	ws#1084: старт 7939 @5192aeb0f + 10 %
+convergence-reviewer	47086	ws#1084: старт 42806 @5192aeb0f + 10 %
+db-architect-reviewer	60974	ws#1084: старт 55431 @5192aeb0f + 10 %
+deploy-engineer	62117	ws#1084: старт 56470 @5192aeb0f + 10 %
+dispatcher	92084	ws#1084: старт 83713 @5192aeb0f + 10 %
+docs-writer	43188	ws#1084: старт 39262 @5192aeb0f + 10 %
+git-operator	92235	ws#1084: старт 83850 @5192aeb0f + 10 %
+go-implementer	100510	ws#1084: старт 91373 @5192aeb0f + 10 %
+go-style-reviewer	68183	ws#1084: старт 61985 @5192aeb0f + 10 %
+integration-tester	110388	ws#1084: старт 100353 @5192aeb0f + 10 %
+landing-reviewer	96248	ws#1084: старт 87499 @5192aeb0f + 10 %
+load-tester	57626	ws#1084: старт 52388 @5192aeb0f + 10 %
+migration-writer	63604	ws#1084: старт 57822 @5192aeb0f + 10 %
+proto-api-reviewer	78929	ws#1084: старт 71754 @5192aeb0f + 10 %
+proto-sync	80135	ws#1084: старт 72850 @5192aeb0f + 10 %
+qa-test-engineer	115698	ws#1084: старт 105180 @5192aeb0f + 10 %
+rpc-implementer	114669	ws#1084: старт 104245 @5192aeb0f + 10 %
+scout	60403	ws#1084: старт 54912 @5192aeb0f + 10 %
+security-auditor	65478	ws#1084: старт 59526 @5192aeb0f + 10 %
+service-scaffolder	92919	ws#1084: старт 84472 @5192aeb0f + 10 %
+system-design-reviewer	90283	ws#1084: старт 82076 @5192aeb0f + 10 %
+tooling-maintainer	88188	ws#1084: старт 80171 @5192aeb0f + 10 %
+ui-implementer	67219	ws#1084: старт 61109 @5192aeb0f + 10 %
+ui-reviewer	50683	ws#1084: старт 46076 @5192aeb0f + 10 %
+vault-scribe	40494	ws#1084: старт 36813 @5192aeb0f + 10 %
+wave-reviewer	82263	ws#1084: старт 74785 @5192aeb0f + 10 %
