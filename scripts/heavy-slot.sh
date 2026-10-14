@@ -5,7 +5,8 @@
 # heavy-slot.sh — тяжёлый прогон входит в машину только через слот памяти.
 #
 # ПРЕДМЕТ. Решение владельца 2026-09-24: «контроль за оперативной памятью не
-# должна переваливать за 45гб». Повод: машина упала по памяти — полосы разом
+# должна переваливать за 45гб»; 2026-10-02 — «я расширил память еще на 32»: всего
+# ≤ 70 ГБ, тяжёлое — 3 слота по 10 ГБ, старт при свободных ≥ 15 ГБ (ws#1087). Повод: машина упала по памяти — полосы разом
 # подняли -race в docker, testcontainers и стенд kind, и каждая по отдельности
 # видела «памяти хватает». Отказ был в МОМЕНТЕ: «хватает ли» и «занял» — два
 # шага, между ними проходили соседи, а вошедший секунду назад памяти ещё не набрал.
@@ -15,11 +16,22 @@
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
+#   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
 #
-# ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину:
-#   (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ потолок.
+# ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину;
+# условий четыре, все разом:
+#   (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ потолок 70 ГиБ;
+#   MemAvailable − недобранное ≥ 15 ГиБ (свободные до старта);
+#   занятых слотов < 3; Σ бюджетов занятых + бюджет ≤ 3 × 10 ГиБ.
 # Недобранное = Σ max(0, бюджет − текущая память) по занятым слотам (memory.current
-# их cgroup и их контейнеров). Без этого слагаемого вход повторял бы исходный отказ.
+# их cgroup, их контейнеров и cgroup, куда их команда ушла сама — ниже). Без этого
+# слагаемого вход повторял бы исходный отказ.
+# Ушедшая сама cgroup: команда слота переносит себя `systemd-run --scope` изнутри
+# скрипта (хук kaname, scripts/hooks/pre-push:194, MemoryMax=10G). Её pid остаётся
+# потомком корня слота, а память — в чужой scope: cgroup слота показывала ≈ 1 МиБ при
+# пике scope 3 ГиБ, и бюджет резервировался дважды. Своей считается cgroup, где есть
+# потомок корня слота и нет ни одного чужого процесса; её память — память слота, сторож
+# машины снимает её вместе со слотом. Предела слота у неё нет: держит её свой предел.
 # Места нет — СРАЗУ код 74 «слот занят, очередь K» (ws#1004, решение владельца
 # 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание слота в переднем
 # плане — 116,4 агент-ч замера ws#1001). Билет при этом снимается: очередь держит лишь
@@ -29,7 +41,7 @@
 # MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
 # от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
 # круг 3: потолок 1 ГиБ на 99999 с стоял головой строгой очереди).
-# Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 60,7).
+# Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 92,2).
 #
 # ГРАНИЦА: предел держит cgroup слота, а из неё уводит перенос процесса в другой
 # unit. Команда, в чьих словах argv стоит `systemd-run` или `--scope`, — отказ 64
@@ -63,7 +75,7 @@
 #     testcontainers и узлы kind живут в cgroup dockerd, а стенд остаётся в памяти
 #     после выхода команды — его память входит в «занято» при каждом следующем входе.
 #
-# РУЧКИ HEAVY_SLOT_*. Над настоящей памятью (/proc/meminfo) ручек нет: потолок 45 ГиБ,
+# РУЧКИ HEAVY_SLOT_*. Над настоящей памятью (/proc/meminfo) ручек нет: потолок 70 ГиБ,
 # ожидание — только явным --wait ≤ 300 с, общий каталог, бюджет, ограничитель и сторож — как в классе; любая
 # ручка — 64 до первой записи (опыт ws#832, круги 2–3: переменная снимала потолок или
 # очередь). Ручки — только режиму проб, синтетическому HEAVY_SLOT_MEMINFO в своём
@@ -96,7 +108,10 @@ set -uo pipefail
 # ещё одной ручкой, уводящей вызов из общей очереди.
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
 DIR="${HEAVY_SLOT_DIR:-$SHARED}"
-CAP_MIB=46080  # 45 ГиБ — решение владельца 2026-09-24
+CAP_MIB=71680       # 70 ГиБ — решение владельца 2026-10-02 (было 45 — 2026-09-24)
+SLOTS_MAX=3         # тяжёлое — 3 слота по 10 ГБ (2026-10-02)
+SLOTS_SUM_MIB=30720 # Σ бюджетов занятых ≤ 3 × 10 ГиБ: go-race (16 ГиБ) берёт место полутора
+FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-02)
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
 LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; GUARD_S=2; GRACE_S=10; LIMITER=auto
@@ -188,7 +203,8 @@ class_budget() {
 
 print_classes() {
     local line name rest budget covers basis
-    printf 'потолок машины: %s — (MemTotal − MemAvailable) + недобранное + бюджет\n' "$(mib "$LIMIT_MIB")"
+    printf 'потолок машины: %s — (MemTotal − MemAvailable) + недобранное + бюджет; свободных до старта ≥ %s; слотов ≤ %s, Σ бюджетов ≤ %s\n' \
+        "$(mib "$LIMIT_MIB")" "$(mib "$FREE_MIN_MIB")" "$SLOTS_MAX" "$(mib "$SLOTS_SUM_MIB")"
     while IFS= read -r line; do
         name="${line%%|*}"; rest="${line#*|}"
         budget="${rest%%|*}"; rest="${rest#*|}"
@@ -203,6 +219,11 @@ used_mib() {
          END { if (t > 0 && h) printf "%d\n", (t - a) / 1024 }' "${1:-$MEMINFO}" 2>/dev/null
 }
 
+# avail_mib [meminfo] — MemAvailable в MiB; пусто, если не прочитать.
+avail_mib() {
+    awk '/^MemAvailable:/ { printf "%d\n", $2 / 1024 }' "${1:-$MEMINFO}" 2>/dev/null
+}
+
 cg_bytes() { local v; v="$(cat "$1" 2>/dev/null)" && [ -n "$v" ] && printf '%s\n' "$v" || echo 0; }
 
 # field <файл> <ключ> — значение key=value из записи слота.
@@ -214,12 +235,36 @@ slot_cids() {
     for f in "$1".cid.d/*; do [ -s "$f" ] && printf '%s\n' "$(cat "$f")"; done
 }
 
-# slot_current_mib <префикс записи> — текущая память слота: его cgroup, его
-# контейнеры, либо RSS дерева по отчёту сторожа запасного пути.
+# slot_escaped <префикс записи> — cgroup, куда команда слота ушла сама: в ней есть
+# потомок корня слота ($p.root) и нет чужих процессов. Пути — по строке. У запасного
+# пути (cgroup слота нет) пусто: RSS дерева уже считает этих потомков.
+slot_escaped() {
+    local p="$1" root cg d c pid own
+    root="$(cat "$p.root" 2>/dev/null)"; cg="$(cat "$p.cg" 2>/dev/null)"
+    [ -n "$root" ] && [ -n "$cg" ] || return 0
+    d=" $(ps -e -o pid=,ppid= 2>/dev/null | awk -v root="$root" '{ par[$1] = $2 }
+        END { for (p in par) { q = p; while (q != "" && q != 0 && q != 1) { if (q == root) { printf "%s ", p; break } q = par[q] } } }')"
+    for c in $(for pid in $d; do sed -n 's/^0:://p' "/proc/$pid/cgroup" 2>/dev/null; done | sort -u); do
+        { [ "$c" = "$cg" ] || [[ "$c" == "$cg"/* ]]; } && continue
+        own=1
+        while read -r pid; do [[ "$d" == *" $pid "* ]] || { own=0; break; }; done < "$CGROOT$c/cgroup.procs"
+        [ "$own" = 1 ] && printf '%s\n' "$c"
+    done
+}
+
+# kill_escaped <префикс записи> — снять ушедшие сами cgroup слота (cgroup.kill).
+kill_escaped() {
+    local c
+    for c in $(slot_escaped "$1"); do echo 1 > "$CGROOT$c/cgroup.kill" 2>/dev/null; done
+}
+
+# slot_current_mib <префикс записи> — текущая память слота: его cgroup, ушедшие сами
+# cgroup, его контейнеры, либо RSS дерева по отчёту сторожа запасного пути.
 slot_current_mib() {
-    local p="$1" b=0 cg cid rss
+    local p="$1" b=0 cg cid rss x
     cg="$(cat "$p.cg" 2>/dev/null)"
     [ -n "$cg" ] && b=$(( b + $(cg_bytes "$CGROOT$cg/memory.current") ))
+    for x in $(slot_escaped "$p"); do b=$(( b + $(cg_bytes "$CGROOT$x/memory.current") )); done
     for cid in $(slot_cids "$p"); do
         b=$(( b + $(cg_bytes "$CGROOT/system.slice/docker-$cid.scope/memory.current") ))
     done
@@ -273,9 +318,11 @@ reserved_mib() {
     echo "$sum"
 }
 
-# Классы, гоняющие golangci-lint: по одному на машину — общий кэш и замок линтера
-# (второй ждёт или падает «parallel golangci-lint is running»).
-EXCLUSIVE=" lint ci-local "
+# Класс lint — по одному на машину: общий кэш и замок линтера (второй ждёт или падает
+# «parallel golangci-lint is running», код 3). Замок лежит в TMPDIR, кэш ci-local
+# ставит на копию (kacho scripts/ci-local.sh, kaname pre-push), поэтому ci-local
+# исключителен лишь по TMPDIR — и слот даёт ему свой, постоянный на копию (ws#1087).
+EXCLUSIVE=" lint "
 is_exclusive() { [[ "$EXCLUSIVE" == *" $1 "* ]]; }
 exclusive_holder() {
     local f c
@@ -284,6 +331,16 @@ exclusive_holder() {
         c="$(field "$f" class)"
         is_exclusive "$c" && { printf '%s pid %s\n' "$c" "$(field "$f" pid)"; return; }
     done
+}
+
+# occupied — «<число занятых> <Σ их бюджетов MiB>».
+occupied() {
+    local f n=0 sum=0
+    for f in "$DIR"/active/*.slot; do
+        [ -e "$f" ] || continue
+        n=$(( n + 1 )); sum=$(( sum + $(field "$f" budget) ))
+    done
+    echo "$n $sum"
 }
 
 youngest_id() {
@@ -299,8 +356,9 @@ youngest_id() {
 print_status() {
     local used f p
     used="$(used_mib)"
-    printf 'потолок %s · занято машиной %s · недобрано слотами %s\n' \
-        "$(mib "$LIMIT_MIB")" "$(mib "${used:-0}")" "$(mib "$(reserved_mib)")"
+    printf 'потолок %s · занято машиной %s · недобрано слотами %s · свободно %s (вход от %s) · слотов, Σ бюджетов: %s из %s, %s\n' \
+        "$(mib "$LIMIT_MIB")" "$(mib "${used:-0}")" "$(mib "$(reserved_mib)")" "$(mib "$(avail_mib)")" "$(mib "$FREE_MIN_MIB")" \
+        "$(occupied | cut -d' ' -f1)" "$SLOTS_MAX" "$(mib "$SLOTS_SUM_MIB")"
     for f in "$DIR"/active/*.slot; do
         [ -e "$f" ] || continue
         p="${f%.slot}"
@@ -314,6 +372,33 @@ print_status() {
         printf '  ждёт: %-11s бюджет %-9s pid %-8s %s\n' "$(field "$f" class)" "$(mib "$(field "$f" budget)")" "$(field "$f" pid)" "$(field "$f" who)"
     done
     [ -f "$DIR/journal.log" ] && { echo "журнал ($DIR/journal.log), последние 10:"; tail -n 10 "$DIR/journal.log" | cut -c1-220; }
+}
+
+# TMPDIR класса ci-local — постоянный, свой на копию (ws#1087). Ключ — путь корня
+# копии git (вне копии — рабочий каталог); метка времени каталога — последний вход
+# слота. Снимает его prune_tmp: не занят ни одним слотом и не тронут дольше
+# TMP_KEEP_D суток. Каталог — вне всякого репозитория: pre-push kaname отказывает
+# кодом 2, когда TMPDIR лежит внутри дерева (scripts/hooks/pre-push:434).
+TMPROOT="$DIR/tmp"; TMP_KEEP_D=7
+copy_key() {
+    local top
+    top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || top="$PWD"
+    printf '%s' "$top" | sha256sum | cut -c1-16
+}
+# prune_tmp — снять TMPDIR копий старше срока; занятые слотами не трогает.
+prune_tmp() {
+    local d f busy
+    for d in "$TMPROOT"/*; do
+        [ -d "$d" ] || continue
+        busy=""
+        for f in "$DIR"/active/*.slot; do
+            [ -e "$f" ] && [ "$(field "$f" tmp)" = "$d" ] && busy=1 && break
+        done
+        [ -n "$busy" ] && continue
+        [ -n "$(find "$d" -maxdepth 0 -mmin +$(( TMP_KEEP_D * 1440 )) 2>/dev/null)" ] || continue
+        rm -rf -- "$d" "$d.copy"
+        journal "prune-tmp dir=$d keep=${TMP_KEEP_D}d"
+    done
 }
 
 # ── разбор вызова ────────────────────────────────────────────────────────────
@@ -332,8 +417,12 @@ case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
+    --prune-tmp)
+        { mkdir -p "$DIR/active" && touch "$DIR/lock"; } 2>/dev/null || { say "каталог слотов $DIR недоступен на запись"; exit 69; }
+        exec {LK}>>"$DIR/lock"; flock -w 120 "$LK" || { say "замок $DIR/lock не взят за 120 с"; exit 69; }
+        prune_tmp; exit 0 ;;
     ''|-h|--help)
-        sed -n '13,17p' "$0" >&2; exit 64 ;;
+        sed -n '14,19p' "$0" >&2; exit 64 ;;
 esac
 
 CLASS="$1"; shift
@@ -349,15 +438,15 @@ fi
 shift
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN"
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
     for v in $KNOBS; do
-        [ -n "${!v+x}" ] && knob="$v=${!v} — потолок 45 ГиБ, ожидание (только --wait ≤ $WAIT_MAX_S с), бюджет и сторож класса не переопределяются"
+        [ -n "${!v+x}" ] && knob="$v=${!v} — потолок 70 ГиБ, ожидание (только --wait ≤ $WAIT_MAX_S с), бюджет и сторож класса не переопределяются"
     done
     if [ -n "$knob" ]; then
-        say "над настоящей памятью машины ручка не принимается: $knob. Решение владельца 2026-09-24 — ≤ 45 ГиБ на машину; ручки — только пробам над синтетическим HEAVY_SLOT_MEMINFO"
+        say "над настоящей памятью машины ручка не принимается: $knob. Решения владельца 2026-09-24 и 2026-10-02 — ≤ 70 ГиБ на машину; ручки — только пробам над синтетическим HEAVY_SLOT_MEMINFO"
         exit 64
     fi
 else
@@ -368,11 +457,12 @@ else
     for v in $KNOBS; do
         [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
-    LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-45} * 1024 ))}"
+    LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-$(( CAP_MIB / 1024 ))} * 1024 ))}"
     POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"
     [ "$WAIT_S" -le "$WAIT_MAX_S" ] || { say "HEAVY_SLOT_WAIT_S=$WAIT_S — больше $WAIT_MAX_S с не ждёт и проба"; exit 64; }
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
+    SLOTS_SUM_MIB="${HEAVY_SLOT_SLOTS_SUM_MIB:-$SLOTS_SUM_MIB}"
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
         say "синтетический HEAVY_SLOT_MEMINFO — режим проб: бюджет ≤ $(mib "$PROBE_MIB") (здесь $(mib "$BUDGET")), сторож раз в 1–2 с (здесь «$GUARD_S»). Настоящий прогон — без HEAVY_SLOT_MEMINFO и ручек"
         exit 64
@@ -473,6 +563,15 @@ command -v flock >/dev/null || { say "нет flock — вход без замк�
 
 WHO="$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD"
 CMDLINE="$(printf '%q ' "$@")"
+SLOT_TMP=""
+if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ]; then
+    SLOT_TMP="$TMPROOT/$(copy_key)"
+    if mkdir -p "$SLOT_TMP" 2>/dev/null && touch "$SLOT_TMP"; then
+        git -C "$PWD" rev-parse --show-toplevel > "$SLOT_TMP.copy" 2>/dev/null || printf '%s\n' "$PWD" > "$SLOT_TMP.copy"
+    else
+        say "TMPDIR копии $SLOT_TMP не создан — ci-local идёт с TMPDIR по умолчанию"; SLOT_TMP=""
+    fi
+fi
 
 # ── вход ─────────────────────────────────────────────────────────────────────
 # Очередь строгая, по билету: малый слот не обгоняет ждущий большой. С обгоном
@@ -513,10 +612,15 @@ while :; do
         fi
         ahead=$(( ahead + 1 ))
     done
-    used="$(used_mib)"; resv="$(reserved_mib)"
-    blocked=""
+    used="$(used_mib)"; resv="$(reserved_mib)"; free=$(( $(avail_mib) - resv ))
+    read -r nocc socc <<< "$(occupied)"
+    blocked=""; full=""
     is_exclusive "$CLASS" && [ -n "$held" ] && blocked="$held"
-    if [ "$ahead" -eq 0 ] && [ -z "$blocked" ] && [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ]; then
+    [ "$nocc" -ge "$SLOTS_MAX" ] && full="занято слотов $nocc из $SLOTS_MAX"
+    [ -z "$full" ] && [ $(( socc + BUDGET )) -gt "$SLOTS_SUM_MIB" ] &&
+        full="бюджеты занятых $(mib "$socc") + $(mib "$BUDGET") > $(mib "$SLOTS_SUM_MIB")"
+    [ "$free" -lt "$FREE_MIN_MIB" ] && full="${full:+$full; }свободно $(mib "$free") < $(mib "$FREE_MIN_MIB") до старта"
+    if [ "$ahead" -eq 0 ] && [ -z "$blocked" ] && [ -z "$full" ] && [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ]; then
         rm -f "$TICKET"
         seq=$(( $(cat "$DIR/seq" 2>/dev/null || echo 0) + 1 )); echo "$seq" > "$DIR/seq"
         if [ "$(stat -c %s "$DIR/journal.log" 2>/dev/null || echo 0)" -gt 4194304 ]; then
@@ -525,8 +629,12 @@ while :; do
         {
             echo "class=$CLASS"; echo "budget=$BUDGET"; echo "pid=$$"; echo "pid_start=$(pid_start $$)"
             echo "unit=$UNIT"; echo "start=$(now)"; echo "seq=$seq"; echo "who=$WHO"; echo "cmd=$CMDLINE"
+            [ -n "$SLOT_TMP" ] && echo "tmp=$SLOT_TMP"
         } > "$P.slot"
-        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB waited=${waited}s who=$WHO cmd=$CMDLINE"
+        # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
+        # каталог переживает прогон, снимается лишь неиспользуемый дольше срока.
+        prune_tmp
+        journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s who=$WHO cmd=$CMDLINE"
         unlock
         break
     fi
@@ -534,16 +642,17 @@ while :; do
     why="занято $(mib "$used") + недобрано $(mib "$resv") + бюджет $(mib "$BUDGET") $( [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ] && echo '≤' || echo '>') потолка $(mib "$LIMIT_MIB")"
     [ "$ahead" -gt 0 ] && why="в очереди впереди $ahead; $why"
     [ "$aside" -gt 0 ] && why="$why; впереди $aside не влезут под свой потолок и при пустых слотах — голову не держат"
+    [ -n "$full" ] && why="$full; $why"
     [ -n "$blocked" ] && why="golangci-lint по одному на машину, занят: $blocked; $why"
     waited=$(( $(now) - t0 ))
     if [ "$WAIT_S" -eq 0 ]; then
-        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB ahead=$ahead who=$WHO cmd=$CMDLINE"
+        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead who=$WHO cmd=$CMDLINE"
         say "СЛОТ ЗАНЯТ, очередь $ahead — «$CLASS» не выдан сразу: $why."
         say "команда НЕ запускалась (не выполнилось, не красное). Повтори коротким шагом позже либо --wait N (N ≤ $WAIT_MAX_S); долгий прогон — отсоединённо, слот внутри него; кто занял — heavy-slot.sh --status"
         exit 74
     fi
     if [ "$waited" -ge "$WAIT_S" ]; then
-        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB ahead=$ahead waited=${waited}s who=$WHO cmd=$CMDLINE"
+        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead waited=${waited}s who=$WHO cmd=$CMDLINE"
         say "НЕ ВЫПОЛНИЛОСЬ — слот «$CLASS» не выдан за ${waited} с: $why."
         say "команда НЕ запускалась; кто занял — heavy-slot.sh --status"
         exit 75
@@ -567,6 +676,7 @@ cleanup() {
 }
 # shellcheck disable=SC2329  # зовётся ловушкой
 on_signal() {
+    kill_escaped "$P"   # до unit: со смертью корня потомки уходят к другому родителю
     if [ -n "$UNIT" ] && systemctl --user kill --signal=SIGTERM "$UNIT" 2>/dev/null; then
         for _ in 1 2 3 4 5 6; do systemctl --user is-active --quiet "$UNIT" 2>/dev/null || break; sleep 0.5; done
         systemctl --user kill --signal=SIGKILL "$UNIT" 2>/dev/null
@@ -598,8 +708,11 @@ tree_kill() {
 # watcher <root pid, если предел мягкий> — сторож машины, пик контейнеров,
 # мягкий предел запасного пути. Пишет только в свои файлы записи слота.
 watcher() {
-    local root="${1:-}" used cid cpeak=0 v rss
+    local root="${1:-}" used cid cpeak=0 v rss x xpeak=0
     while [ -e "$P.slot" ]; do
+        v=0
+        for x in $(slot_escaped "$P"); do v=$(( v + $(cg_bytes "$CGROOT$x/memory.peak") )); done
+        [ "$v" -gt "$xpeak" ] && xpeak="$v" && echo "$xpeak" > "$P.xpeak"
         v=0
         for cid in $(slot_cids "$P"); do
             v=$(( v + $(cg_bytes "$CGROOT/system.slice/docker-$cid.scope/memory.peak") ))
@@ -616,6 +729,7 @@ watcher() {
         if [ -n "$used" ] && [ "$used" -gt "$LIMIT_MIB" ] && [ "$(youngest_id)" = "$ID" ] &&
            [ $(( $(now) - $(cat "$DIR/guard-at" 2>/dev/null || echo 0) )) -ge "$GRACE_S" ]; then
             now > "$DIR/guard-at"; echo "used=${used}MiB" > "$P.guard"
+            kill_escaped "$P"
             systemctl --user kill --signal=SIGKILL "$UNIT" 2>/dev/null
             kill_containers
             [ -n "$root" ] && tree_kill "$root"
@@ -629,7 +743,7 @@ watcher() {
 # пишет код, пик памяти cgroup и счёт OOM. Второй аргумент ждётся в байтах.
 # shellcheck disable=SC2016
 INNER='p="$1"; want="$2"; shift 2
-cg="$(sed -n "s/^0:://p" /proc/self/cgroup)"; printf "%s\n" "$cg" > "$p.cg"
+cg="$(sed -n "s/^0:://p" /proc/self/cgroup)"; printf "%s\n" "$cg" > "$p.cg"; printf "%s\n" "$$" > "$p.root"
 have="$(cat "/sys/fs/cgroup$cg/memory.max" 2>/dev/null)"
 if [ "$have" != "$want" ]; then printf "nolimit %s\n" "${have:-нет}" > "$p.res"; exit 70; fi
 "$@"; rc=$?
@@ -642,6 +756,15 @@ exit "$rc"'
 CENV=()
 if [ -n "$REAL_DOCKER" ] && mkdir -p "$P.bin" && ln -sf "$SELF" "$P.bin/docker"; then
     CENV=(HEAVY_SLOT_P="$P" HEAVY_SLOT_B="$BUDGET" HEAVY_SLOT_REAL_DOCKER="$REAL_DOCKER" PATH="$P.bin:$PATH")
+fi
+# ci-local — свой TMPDIR, если вызывающий его не задал: замок golangci-lint лежит в
+# TMPDIR, и две копии под общим получали код 3 «parallel golangci-lint is running»
+# (ws#1087). Каталог ПОСТОЯННЫЙ и свой на копию ($TMPROOT/<ключ копии>): из TMPDIR
+# потребители выводят пути, которые обязаны пережить прогон, — kacho ci-local.sh
+# кладёт туда логи и кэш (scripts/ci-local.sh:214, 221). Выход слота его не снимает,
+# снимает prune_tmp по возрасту. Две ci-local одной копии разом делят его — граница.
+if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ] && [ -n "$SLOT_TMP" ]; then
+    CENV+=(TMPDIR="$SLOT_TMP")
 fi
 
 t_run="$(now)"; rc=0
@@ -702,9 +825,9 @@ if [ -n "$cut_by" ]; then
         [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = true ] && alive="$alive ${c:0:12}"
     done
 fi
-peak_mib=$(( peak / 1024 / 1024 )); cpeak_mib=$(( cpeak / 1024 / 1024 ))
+peak_mib=$(( peak / 1024 / 1024 )); cpeak_mib=$(( cpeak / 1024 / 1024 )); xpeak_mib=$(( $(cat "$P.xpeak" 2>/dev/null || echo 0) / 1024 / 1024 ))
 [ "$LIMITER" = watch ] && peak_mib="$(cat "$P.rsspeak" 2>/dev/null || echo 0)"
-journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
+journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB escaped_peak=${xpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
 if [ -n "$alive" ]; then
     say "НЕ ВЫПОЛНИЛОСЬ — $cut_by: клиент снят, но контейнер(ы)$alive РАБОТАЮТ, docker kill их не остановил; память не освобождена — docker kill$alive"
     exit 76

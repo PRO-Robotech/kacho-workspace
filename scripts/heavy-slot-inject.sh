@@ -47,8 +47,8 @@ has() { grep -qF -- "$2" "$1" && echo да || echo нет; }
 # entries — сколько файлов записей слотов осталось (состояние слота, не дерево).
 entries() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
 
-# mem <занято МиБ> — синтетическая память машины (MemTotal 60 ГиБ).
-mem() { printf 'MemTotal: %d kB\nMemAvailable: %d kB\n' $((61440 * 1024)) $(( (61440 - $1) * 1024 )) > "$W/meminfo"; }
+# mem <занято МиБ> — синтетическая память машины (MemTotal 96 ГиБ).
+mem() { printf 'MemTotal: %d kB\nMemAvailable: %d kB\n' $((98304 * 1024)) $(( (98304 - $1) * 1024 )) > "$W/meminfo"; }
 
 export HEAVY_SLOT_DIR="$W/slots" HEAVY_SLOT_MEMINFO="$W/meminfo" HEAVY_SLOT_LIMIT_MIB=100000 \
        HEAVY_SLOT_POLL_S=1 HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_GUARD_S=1 HEAVY_SLOT_GUARD_GRACE_S=10 \
@@ -73,7 +73,7 @@ assert "64 да" "$(slot bash "$SLOT" docker -- sudo --scope true) $(has "$W/err
 # shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
 assert "0 да" "$(slot bash "$SLOT" docker -- sh -c 'touch "$0"' "$W/e3" systemd-runner --scoped) $([ -e "$W/e3" ] && echo да || echo нет)" "близнец: systemd-runner и --scoped — не те слова, команда исполнилась"
 
-echo "── над настоящей памятью ручек нет: потолок 45 ГиБ, ожидание только --wait ≤ 300 с, класс как есть"
+echo "── над настоящей памятью ручек нет: потолок 70 ГиБ, ожидание только --wait ≤ 300 с, класс как есть"
 # Без синтетического meminfo слот судит настоящую память машины — и тогда любая
 # ручка получает 64 ДО первой записи (опыт ws#832, круги 2–3).
 REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_POLL_S -u HEAVY_SLOT_WAIT_S)
@@ -86,7 +86,11 @@ assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" dock
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMITER=watch bash "$SLOT" docker -- touch "$W/k4") $(has "$W/err" 'HEAVY_SLOT_LIMITER')" "мягкий предел вместо ядра — 64"
 # B3 круга 3: потолок 1 ГиБ и ожидание 99999 с стояли головой строгой очереди.
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 bash "$SLOT" docker -- touch "$W/k6") $(has "$W/err" 'HEAVY_SLOT_')" "потолок 1 ГиБ и ожидание 99999 с — 64"
-assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=45 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 45 ГиБ ручкой — 64: величина не переопределяется"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=70 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 70 ГиБ ручкой — 64: величина не переопределяется"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_SLOTS_SUM_MIB=99999 bash "$SLOT" docker -- touch "$W/k9") $(has "$W/err" 'HEAVY_SLOT_SLOTS_SUM_MIB')" "Σ бюджетов слотов ручкой — 64"
+# Чтение и поиск разведены: `grep -q` в конце трубы под pipefail рвёт писателя (ws#395).
+cl="$(env "${REAL[@]}" bash "$SLOT" --classes 2>/dev/null)"; cl="${cl%%$'\n'*}"
+assert "да да" "$(grep -qE 'потолок машины: 70[.,]0 ГиБ' <<<"$cl" && echo да || echo нет) $(grep -qE 'свободных до старта ≥ 15[.,]0 ГиБ; слотов ≤ 3, Σ бюджетов ≤ 30[.,]0 ГиБ' <<<"$cl" && echo да || echo нет)" "--classes над настоящей памятью: потолок 70 ГиБ, свободных ≥ 15, слотов ≤ 3, Σ ≤ 30 (решение 2026-10-02)"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
 assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
 # Близнец идёт в общую очередь без ожидания (ws#1004); занятая машина — 74, «не выполнилось».
@@ -144,15 +148,70 @@ assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- touch "$
 wait "$A"; wait "$B"; rc_b=$?
 assert "75 нет" "$rc_b $([ -e "$W/q1" ] && echo да || echo нет)" "сам билет с низким потолком — 75 по своему ожиданию, команда не запускалась"
 
-echo "── golangci-lint по одному на машину; ждущий линтер очередь не держит"
+echo "── lint по одному на машину, ci-local рядом с ним входит; ждущий линтер очередь не держит"
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
-HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true 2>"$W/errB" & B=$!
+HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- true 2>"$W/errB" & B=$!
 sleep 0.5
-assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" newman -- true)" "newman за ждущим ci-local входит сразу"
+assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" newman -- true)" "newman за ждущим lint входит сразу"
+assert 0 "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true)" "ci-local при идущем lint входит сразу: замок линтера у него в своём TMPDIR (ws#1087)"
 wait "$B"; rc_b=$?; wait "$A"
-assert "75 да" "$rc_b $(has "$W/errB" 'golangci-lint по одному на машину')" "ci-local при идущем lint ждёт, причина названа"
-assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true)" "близнец: линтер вышел — ci-local входит"
+assert "75 да" "$rc_b $(has "$W/errB" 'golangci-lint по одному на машину')" "lint при идущем lint ждёт, причина названа"
+assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- true)" "близнец: линтер вышел — lint входит"
+
+echo "── ci-local: у каждой копии свой постоянный TMPDIR — замок golangci-lint не общий, логи переживают слот (ws#1087)"
+# E4. Замок golangci-lint — $TMPDIR/golangci-lint.lock: держит его первая копия (flock,
+# как сам линтер) до отметки второй, вторая гонит настоящий golangci-lint по модулю из
+# одного файла. Копии — два разных рабочих каталога: ключ TMPDIR — корень копии.
+if command -v golangci-lint >/dev/null && command -v go >/dev/null && command -v flock >/dev/null; then
+    mkdir -p "$W/ga" "$W/gm" "$W/shtmp"; printf 'module x\n\ngo 1.26\n' > "$W/gm/go.mod"; printf 'package x\n\nfunc F() int { return 1 }\n' > "$W/gm/x.go"
+    # shellcheck disable=SC2016  # строки дочерней оболочки
+    HOLD='printf "%s\n" "$TMPDIR" > "$0"; exec flock "$TMPDIR/golangci-lint.lock" timeout 60 bash -c "until [ -e \"\$0\" ]; do sleep 0.2; done" "$1"'
+    # shellcheck disable=SC2016
+    LINT='printf "%s\n" "$TMPDIR" > "$0"; golangci-lint run ./...; rc=$?; : > "$1"; exit "$rc"'
+    held() { for _ in $(seq 1 50); do [ -s "$1" ] && break; sleep 0.2; done; }
+    export HEAVY_SLOT_LIMIT_MIB=100000  # линтер берёт 512 МиБ: потолок раздела выше (1300) его не вместил бы
+    rm -f "$W/tA" "$W/tB" "$W/doneB"
+    (cd "$W/ga" && env -u TMPDIR HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" ci-local -- bash -c "$HOLD" "$W/tA" "$W/doneB" 2>/dev/null) & A=$!; held "$W/tA"
+    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=512 GOLANGCI_LINT_CACHE="$W/glc" bash "$SLOT" ci-local -- bash -c "$LINT" "$W/tB" "$W/doneB")"
+    wait "$A"; rc_a=$?
+    tA="$(cat "$W/tA" 2>/dev/null)"; tB="$(cat "$W/tB" 2>/dev/null)"
+    assert "0/0 да да" "$rc_a/$rc $([[ "$tA" == "$HEAVY_SLOT_DIR"/tmp/* ]] && [[ "$tB" == "$HEAVY_SLOT_DIR"/tmp/* ]] && echo да || echo нет) $([ -n "$tA" ] && [ "$tA" != "$tB" ] && echo да || echo нет)" "E4: две ci-local разных копий без TMPDIR вызывающего — TMPDIR у каждой свой, линтер второй при занятом замке первой — 0/0"
+    assert "да да" "$([ -d "$tA" ] && echo да || echo нет) $([ -d "$tB" ] && echo да || echo нет)" "TMPDIR копии постоянный: выход слота его не снимает"
+    rm -f "$W/tA" "$W/tB" "$W/doneB"
+    (cd "$W/ga" && TMPDIR="$W/shtmp" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" ci-local -- bash -c "$HOLD" "$W/tA" "$W/doneB" 2>/dev/null) & A=$!; held "$W/tA"
+    rc="$(cd "$W/gm" && slot -u HEAVY_SLOT_WAIT_S TMPDIR="$W/shtmp" HEAVY_SLOT_BUDGET_MIB=512 GOLANGCI_LINT_CACHE="$W/glc" bash "$SLOT" ci-local -- bash -c "$LINT" "$W/tB" "$W/doneB")"
+    wait "$A"
+    assert "3 да $W/shtmp" "$rc $(has "$W/err" 'parallel golangci-lint is running') $(cat "$W/tB" 2>/dev/null)" "E4 близнец: TMPDIR задан вызывающим и общий — слот его не трогает, второй линтер — код 3 «parallel golangci-lint is running»"
+    export HEAVY_SLOT_LIMIT_MIB=1300
+else
+    skip "нет golangci-lint, go либо flock — замок линтера под своим TMPDIR не доказан в этой среде"
+fi
+
+# E7. Настоящий потребитель: kacho scripts/ci-local.sh выводит из TMPDIR каталог кэша и
+# логов (ci-local.sh:214, 221) и печатает его строкой «ci-local: логи …». Неизвестная
+# группа — код 2 сразу после того, как каталог прогона заведён: прогон дешёвый, путь — его.
+CILOCAL="${HEAVY_SLOT_PROBE_CI_LOCAL:-$HERE/../project/kacho/scripts/ci-local.sh}"
+if [ -f "$CILOCAL" ]; then
+    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=256 bash "$SLOT" ci-local -- bash "$CILOCAL" нет-такой-группы)"
+    logs="$(sed -n 's/^ci-local: логи *//p' "$W/out" | head -n 1)"
+    assert "2 да да" "$rc $([[ "$logs" == "$HEAVY_SLOT_DIR"/tmp/* ]] && echo да || echo нет) $([ -n "$logs" ] && [ -d "$logs" ] && echo да || echo нет)" "E7: логи kacho ci-local.sh под TMPDIR слота ($logs) переживают выход слота"
+    key="$(dirname "$(dirname "$logs")")"
+    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=256 bash "$SLOT" ci-local -- bash "$CILOCAL" нет-такой-группы)"
+    logs2="$(sed -n 's/^ci-local: логи *//p' "$W/out" | head -n 1)"
+    assert "да да" "$([ "$(dirname "$(dirname "$logs2")")" = "$key" ] && echo да || echo нет) $([ -d "$logs" ] && echo да || echo нет)" "E7: второй прогон той же копии — тот же TMPDIR, логи первого на месте"
+else
+    skip "нет kacho scripts/ci-local.sh ($CILOCAL) — E7 настоящим потребителем не построен"
+fi
+
+# Уборка — отдельным шагом по возрасту, а не выходом слота: не тронутый > 7 суток
+# снимается, моложе — остаётся, занятый слотом — остаётся при любом возрасте.
+mkdir -p "$HEAVY_SLOT_DIR/tmp/old" "$HEAVY_SLOT_DIR/tmp/young" "$HEAVY_SLOT_DIR/tmp/busy" "$HEAVY_SLOT_DIR/active"
+touch -d '8 days ago' "$HEAVY_SLOT_DIR/tmp/old" "$HEAVY_SLOT_DIR/tmp/busy"; touch -d '6 days ago' "$HEAVY_SLOT_DIR/tmp/young"
+printf 'class=ci-local\nbudget=1\npid=%s\npid_start=%s\ntmp=%s\n' "$$" "$(awk '{ print $22 }' /proc/$$/stat)" "$HEAVY_SLOT_DIR/tmp/busy" > "$HEAVY_SLOT_DIR/active/probe-busy.slot"
+rc="$(slot bash "$SLOT" --prune-tmp)"
+assert "0 нет да да" "$rc $([ -d "$HEAVY_SLOT_DIR/tmp/old" ] && echo да || echo нет) $([ -d "$HEAVY_SLOT_DIR/tmp/young" ] && echo да || echo нет) $([ -d "$HEAVY_SLOT_DIR/tmp/busy" ] && echo да || echo нет)" "--prune-tmp: 8 суток — снят, 6 — оставлен, занятый слотом — оставлен"
+rm -rf "$HEAVY_SLOT_DIR/active/probe-busy.slot" "$HEAVY_SLOT_DIR/tmp/young" "$HEAVY_SLOT_DIR/tmp/busy"
 
 echo "── слот занят — код 74 СРАЗУ, ожидание только явным --wait ≤ 300 с (ws#1004)"
 # Решение владельца 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание
@@ -184,6 +243,38 @@ assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true)" "мёр
 assert "0 да" "$(entries) $(has "$HEAVY_SLOT_DIR/journal.log" ' reap id=1-999999')" "запись снята и снятие записано"
 export HEAVY_SLOT_LIMIT_MIB=100000
 
+# nslots — сколько слотов занято (записей *.slot).
+nslots() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*.slot; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
+
+echo "── тяжёлых не больше трёх: третий входит, четвёртый — 74 (решение владельца 2026-10-02)"
+for i in 1 2 3; do HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- sleep 4 2>/dev/null & eval "N$i=\$!"; done
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 3 ] && break; sleep 0.2; done
+assert 3 "$(nslots)" "три слота по 20 МиБ заняты разом — третий вошёл"
+assert "74 да нет" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- touch "$W/n4") $(has "$W/err" 'занято слотов 3 из 3') $([ -e "$W/n4" ] && echo да || echo нет)" "четвёртый — 74, причина названа, команда не запускалась (память при этом свободна)"
+wait "$N1" "$N2" "$N3"
+assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- touch "$W/n4") $([ -e "$W/n4" ] && echo да || echo нет)" "близнец: слоты вышли — тот же четвёртый входит"
+
+echo "── Σ бюджетов занятых + бюджет ≤ 3 × 10 ГиБ (здесь ручкой проб — 100 МиБ)"
+HEAVY_SLOT_BUDGET_MIB=60 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
+assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_SLOTS_SUM_MIB=100 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true) $(has "$W/err" 'бюджеты занятых')" "60 + 50 > 100 — 74, причина названа"
+assert 0 "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_SLOTS_SUM_MIB=100 HEAVY_SLOT_BUDGET_MIB=40 bash "$SLOT" docker -- true)" "близнец: 60 + 40 ≤ 100 — входит"
+wait "$A"
+
+echo "── вход только при свободных ≥ 15 ГиБ (решение владельца 2026-10-02)"
+mem $(( 98304 - 15359 ))
+assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S bash "$SLOT" docker -- true) $(has "$W/err" 'до старта')" "свободно 15359 МиБ < 15 ГиБ — 74 при потолке с запасом, причина названа"
+mem $(( 98304 - 15360 ))
+assert 0 "$(slot -u HEAVY_SLOT_WAIT_S bash "$SLOT" docker -- true)" "близнец: свободно ровно 15 ГиБ — входит"
+mem 1000
+
+echo "── потолок без ручки — 70 ГиБ: (MemTotal − MemAvailable) + бюджет ≤ 71680 МиБ"
+mem $(( 71680 - 300 ))
+assert 0 "$(slot -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true)" "71380 + 300 = 71680 — входит"
+mem $(( 71680 - 299 ))
+assert "74 да" "$(slot -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true) $(grep -qE 'потолка 70[.,]0 ГиБ' "$W/err" && echo да || echo нет)" "71381 + 300 > 71680 — 74, потолок 70 ГиБ назван"
+mem 1000
+
 echo "── предел ядра: systemd-run --user --scope, MemoryMax"
 if systemd-run --user --scope --quiet --collect -p MemoryMax=32M -- true 2>/dev/null &&
    grep -qw memory "/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers" 2>/dev/null; then
@@ -205,6 +296,32 @@ if systemd-run --user --scope --quiet --collect -p MemoryMax=32M -- true 2>/dev/
     printf 'systemd-run --user --scope --quiet --collect cat /proc/self/cgroup\n' > "$W/escape.sh"
     rc="$(slot HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- bash "$W/escape.sh")"
     boundary "0 нет" "$rc $(grep -q 'heavy-slot-' "$W/out" && echo да || echo нет)" "скрипт с systemd-run внутри — команда в чужом scope ($(sed 's#.*/##' "$W/out"))"
+
+    echo "── scope, куда команда ушла сама, — память слота, без двойного резерва (хук kaname, pre-push:194)"
+    # Команда слота уводит себя `systemd-run --scope` изнутри скрипта, как хук kaname.
+    # Слот A (бюджет 300) держит в ушедшей scope 200 МиБ; второй (300) при потолке 1500
+    # входит лишь тогда, когда эти 200 засчитаны слоту A: 1000 + ~90 + 300 ≤ 1500, а без
+    # счёта 1000 + 300 + 300 > 1500.
+    ESC='import os, sys, time; a = bytearray(int(sys.argv[1]) << 20); a[::4096] = b"x" * len(a[::4096]); open(sys.argv[3], "w").write(str(os.getpid())); time.sleep(float(sys.argv[2]))'
+    # shellcheck disable=SC2016  # текст скрипта: $1…$3 раскрывает он
+    printf 'exec systemd-run --user --scope --quiet --collect -- python3 -c %q "$1" "$2" "$3"\n' "$ESC" > "$W/esc.sh"
+    esc() {  # esc <МиБ> <с> <метка> — слот A фоном, ждёт метку ушедшей scope
+        rm -f "$3"; HEAVY_SLOT_LIMIT_MIB="${ESC_LIMIT:-1500}" HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- bash "$W/esc.sh" "$1" "$2" "$3" 2>"$W/errE" & E=$!
+        for _ in $(seq 1 50); do [ -s "$3" ] && break; sleep 0.2; done
+    }
+    esc 200 3 "$W/m1"
+    assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_LIMIT_MIB=1500 HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true) $([ "$(sed -n 's/^0:://p' "/proc/$(cat "$W/m1")/cgroup" 2>/dev/null | grep -c 'heavy-slot-')" = 0 ] && echo да || echo нет)" "200 МиБ в ушедшей scope засчитаны слоту — второй входит; scope и вправду не cgroup слота"
+    wait "$E"
+    lv="$(grep ' leave ' "$HEAVY_SLOT_DIR/journal.log" | tail -n 2)"
+    assert "да" "$(grep -qE 'escaped_peak=(19[0-9]|2[0-9][0-9])MiB' <<<"$lv" && echo да || echo нет)" "пик ушедшей scope — в журнале выхода слота (escaped_peak)"
+    esc 0 3 "$W/m2"
+    assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_LIMIT_MIB=1500 HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true) $(has "$W/err" 'СЛОТ ЗАНЯТ')" "близнец: ушедшая scope пуста — недобранное слота A полное, второй — 74"
+    wait "$E"
+    # Сторож машины снимает и ушедшую scope: её процессы не в unit слота.
+    rm -f "$HEAVY_SLOT_DIR/guard-at"; ESC_LIMIT=1300 esc 0 30 "$W/m3"; mem 1400
+    wait "$E"; rc=$?; mem 1000
+    sleep 0.5
+    assert "76 нет" "$rc $(kill -0 "$(cat "$W/m3" 2>/dev/null || echo 999999)" 2>/dev/null && echo да || echo нет)" "сторож машины: слот 76, процесс ушедшей scope снят"
 else
     skip "systemd --user с контроллером memory недоступен — предел ядра не доказан в этой среде"
 fi
