@@ -74,7 +74,7 @@ next_requested: >-
 # Событие на этот отпечаток ещё не опубликовано. После публикации блок event
 # дописывается к факту, прежние строки не переписываются.
 authority:
-  status: pending_publication
+  status: published
   policy:
     path: docs/changes/policy.yaml
     field: review_authority.proto-api-reviewer
@@ -90,7 +90,31 @@ authority:
     expected_body: 'proto-api-reviewer · ACCEPTED · docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml · digest 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b'
     expected_body_sha256: c52daca2afd7b50fd3b231d42b6dfc0df653350a99a2a4b9842d14efd2bf03e7
     body_is_single_machine_line: true
-  event: null
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kaname
+    issue: 296
+    database_id: 6160882385
+    node_id: IC_kwDOUO26pM8AAAABbzea0Q
+    url: https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6160882385
+    actor: pointpu
+    author_association: MEMBER
+    role: proto-api-reviewer
+    created_at: "2026-10-14T04:26:58Z"
+    body_sha256: c52daca2afd7b50fd3b231d42b6dfc0df653350a99a2a4b9842d14efd2bf03e7
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+    published_by_role: git-operator
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+    published_before_line_merge: true
+    line_merge_state_at_publication: origin/296 = 68d24ae6, ветка 785 (e6126d19) не влита — опубликовано по решению диспетчера до вливания
+    content_equality_basis: git merge-base --is-ancestor origin/296 origin/785 → 0; git merge-base origin/main origin/785 = 8a84dcff → вливание 785 в неподвижную 296 даёт тот же content_digest 7729990b; перемер на влитой origin/296 — шаг после вливания
   attribution:
     reviewer_kind: claude_agent
     assigned_agent: proto-api-reviewer
