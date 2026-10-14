@@ -38,10 +38,21 @@ effective_approval:
 event:
   type: issue_comment
   target: PRO-Robotech/kacho-workspace#1095
-  status: not_performed
-  published: false
-  publication_mode: courier_of_agent_verdict
-  body: acceptance-reviewer · CHANGES_REQUESTED · kacho-workspace:docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md · sha256 f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e
+  status: performed
+  published: true
+  database_id: 6176605330
+  node_id: "IC_kwDOSVvpIM8AAAABcCeEkg"
+  url: "https://github.com/PRO-Robotech/kacho-workspace/issues/1095#issuecomment-6176605330"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/6176605330"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-14T19:30:20Z"
+  body_sha256: "263f05c0dff51d314115582febdd3643f9ca904df9809b8952ab5e6789fc5de9"
+  subject_sha256: "f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e"
+  subject_revision_commit: "86527cd8656af31e46e85931f371b4787842c911"
+  verdict: "CHANGES_REQUESTED"
+  publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
