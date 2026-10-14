@@ -40,6 +40,9 @@ trap 'rm -rf "$TMP"' EXIT
 # shellcheck source=../lib/proofs.sh
 . "$SELF/../lib/proofs.sh"
 proof_own_environment
+# `KACHO_MONOREPO` прибор тоже читает (`scripts/lib/product_clone.py`, ws#1083), а
+# конвейер его выставляет: унаследованный, он подменил бы синтетический kacho.
+unset KACHO_MONOREPO
 
 pass=0; fail=0
 
@@ -112,7 +115,7 @@ ledger() {
 # Подстрока — ПРИЧИНА, а не симптом: код 1 от соседнего факта засчитан не будет.
 axis() {
     local name="$1" want="$2" why="$3" says="${4:-}"
-    DOCS_GATE_ROOT="$(root)" python3 "$CHECK" > "$TMP/out" 2>&1
+    DOCS_GATE_ROOT="${AXIS_ROOT:-$(root)}" python3 "$CHECK" > "$TMP/out" 2>&1
     local got=$?
     if [ "$got" = "$want" ] && { [ -z "$says" ] || grep -qF -- "$says" "$TMP/out"; }; then
         pass=$((pass + 1))
@@ -506,6 +509,20 @@ axis "P близнец: воркспейс объявлен точно" 0 "то�
 
 echo
 echo "── ПРЕДПОСЫЛКА ПРИБОРА ─────────────────────────────────────────────────"
+# ── M · ГДЕ ИЩЕТСЯ КЛОН: копия полосы (ws#1083) ──────────────────────────────
+# Судимый корень — связанная копия под `tmp/` синтетического воркспейса, своего
+# `project/` у неё нет (так у полос). Один факт: есть ли `project/` у
+# КАНОНИЧЕСКОЙ копии. Прежний поиск (`KACHO_HOME_*`, `project/` корня) давал VOID.
+reset_tree
+git -C "$(root)" worktree add -q --detach "$(root)/tmp/lane" 2>/dev/null
+mkdir -p "$(root)/tmp/lane/docs" && cp "$(root)/docs/comment-language.yaml" "$(root)/tmp/lane/docs/"
+AXIS_ROOT="$(root)/tmp/lane" axis "M1 копия полосы: клоны канонической" 0 \
+    "клоны найдены у канонической копии — замер состоялся"
+mv "$(root)/project" "$TMP/project-away"
+AXIS_ROOT="$(root)/tmp/lane" axis "M1' у канонической клонов нет" 2 \
+    "близнец: искать негде — без предмета" "храповик считать не по чему"
+rm -rf "$TMP/project-away"
+
 reset_tree
 DOCS_GATE_ROOT="$(root)" python3 "$PREMISE" > "$TMP/out" 2>&1
 if [ $? = 0 ]; then

@@ -22,7 +22,15 @@
 #   какой-то набор 2    → хук выходит 0 — отправку НЕ останавливает,
 #                         И его завершающая строка ОТЛИЧАЕТСЯ от строки чистого
 #                         прогона: «не выполнилось» в успех не засчитано;
-#   наборы 1 и 2 вместе → хук выходит 1 (АНТИМАСКА).
+#   наборы 1 и 2 вместе → хук выходит 1 (АНТИМАСКА);
+#
+# и про НАБОРЫ СТВОЛОВ (`ci-job` = `product-trunk-gates`, ws#1083) — три пары:
+#
+#   T1 набор стволов 2   → хук выходит 1 (ОТКАЗ); близнец — прочий набор 2 → 0;
+#   T2 набор стволов 0   → хук выходит 0 и печатает ревизию ствола, которой в
+#                          клоне до прогона НЕ БЫЛО (fetch состоялся); близнец
+#                          дефекта — origin клона недоступен: код 2, набор стволов
+#                          не исполнен (не выполнилось, а не зелёное).
 #
 # ПОЧЕМУ «ОТЛИЧАЕТСЯ ОТ СТРОКИ ЧИСТОГО ПРОГОНА», А НЕ ПОИСК СЛОВА. Искать в
 # выводе фразу значит закреплять формулировку: её перепишут, и проверка покраснеет
@@ -76,12 +84,33 @@ fi
 #
 # Хук судит дерево ревизии (ws#811), поэтому коммит обязан состояться: подпись
 # песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
+#
+# Код с приставкой `t` (`t0`, `t2`) — набор СТВОЛОВ: рядом с прогонщиком его
+# `ci-job`. `PROBE_CLONES=fresh` кладёт в `project/` три клона, чей origin ушёл
+# вперёд (ревизия нового ствола — в `$TMP/fresh-<имя>`); `PROBE_CLONES=dead` — те
+# же клоны с недоступным origin. Полный вывод последней пробы — `$TMP/last.out`.
 probe() {
     local caller="$1"; shift
-    local dir i=90 rc out code
+    local dir i=90 rc out code r
     dir="$(mktemp -d "$TMP/p.XXXXXX")"
-    mkdir -p "$dir/scripts/hooks"
+    mkdir -p "$dir/scripts/hooks" "$dir/scripts/lib"
     cp "$WS/$caller" "$dir/scripts/hooks/pre-push"
+    cp "$WS/scripts/lib/suites.py" "$WS/scripts/lib/product_clone.py" "$dir/scripts/lib/" 2>/dev/null
+    printf 'project/\ntmp/\n' > "$dir/.gitignore"
+    if [ -n "${PROBE_CLONES:-}" ]; then
+        for r in kacho kaname corelib; do
+            git init -q --bare -b main "$dir.$r.git"
+            sandbox_git -c init.defaultBranch=main clone -q "$dir.$r.git" "$TMP/seed-$r-$$" 2>/dev/null
+            sandbox_git -C "$TMP/seed-$r-$$" commit -q --allow-empty -m "$r one"
+            sandbox_git -C "$TMP/seed-$r-$$" push -q origin HEAD:main
+            sandbox_git -c init.defaultBranch=main clone -q "$dir.$r.git" "$dir/project/$r" 2>/dev/null
+            sandbox_git -C "$TMP/seed-$r-$$" commit -q --allow-empty -m "$r two"
+            sandbox_git -C "$TMP/seed-$r-$$" push -q origin HEAD:main
+            git -C "$TMP/seed-$r-$$" rev-parse --short=12 HEAD > "$TMP/fresh-$r"
+            rm -rf "$TMP/seed-$r-$$"
+            [ "$PROBE_CLONES" = dead ] && git -C "$dir/project/$r" remote set-url origin "$TMP/net-$r.git"
+        done
+    fi
     chmod +x "$dir/scripts/hooks/pre-push"
     # Страж атрибуции едет рядом с хуком (ws#861): без него хук отказывает
     # всякой отправке, и проба судила бы отказ стража, а не свой предмет.
@@ -89,13 +118,14 @@ probe() {
         "$dir/scripts/hooks/" 2>/dev/null
     for rc in "$@"; do
         mkdir -p "$dir/scripts/stub-$i"
+        case "$rc" in t*) rc="${rc#t}"; echo product-trunk-gates > "$dir/scripts/stub-$i/ci-job" ;; esac
         printf '#!/usr/bin/env bash\necho "stub-%s: исход %s"\nexit %s\n' "$i" "$rc" "$rc" \
             > "$dir/scripts/stub-$i/run-all.sh"
         chmod +x "$dir/scripts/stub-$i/run-all.sh"
         i=$((i + 1))
     done
     git -C "$dir" init -q
-    git -C "$dir" add -A -f >/dev/null 2>&1
+    git -C "$dir" add -A >/dev/null 2>&1
     sandbox_git -C "$dir" commit -q --allow-empty -m fixture >/dev/null 2>&1
 
     out="$(
@@ -107,6 +137,7 @@ probe() {
         # поток держал бы пробу до его закрытия. Пустой вход судит HEAD.
         bash ./scripts/hooks/pre-push </dev/null 2>&1
     )"; code=$?
+    printf '%s\n' "$out" > "$TMP/last.out"
     printf '%s|%s\n' "$code" "$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
 }
 
@@ -147,13 +178,37 @@ for caller in "${CALLERS[@]}"; do
             "$caller — находка РЯДОМ с беспредметным набором дала ${mixed_rc%%|*} вместо 1: «без предмета» стало маской для нарушения"
         findings=$((findings + 1))
     fi
+
+    # ── Наборы стволов (ws#1083) ──
+    trunk_void="$(PROBE_CLONES=fresh probe "$caller" 0 t2)"
+    if [ "${trunk_void%%|*}" -ne 1 ]; then
+        tooling_gate_fail "$NAME" \
+            "$caller — набор СТВОЛОВ без предмета (2) дал ${trunk_void%%|*} вместо 1: конвейер его уронит, а отправка прошла"
+        findings=$((findings + 1))
+    fi
+    trunk_green="$(PROBE_CLONES=fresh probe "$caller" 0 t0)"
+    missing=""
+    for r in kacho kaname corelib; do
+        grep -qF -- "$r@$(cat "$TMP/fresh-$r")" "$TMP/last.out" || missing="$missing $r"
+    done
+    if [ "${trunk_green%%|*}" -ne 0 ] || [ -n "$missing" ]; then
+        tooling_gate_fail "$NAME" \
+            "$caller — набор стволов зелёный: код ${trunk_green%%|*}, ревизия свежего ствола не напечатана у:${missing:- —} — fetch перед наборами стволов не сделан"
+        findings=$((findings + 1))
+    fi
+    trunk_dead="$(PROBE_CLONES=dead probe "$caller" 0 t0)"
+    if [ "${trunk_dead%%|*}" -ne 2 ] || grep -q 'stub-91: исход' "$TMP/last.out"; then
+        tooling_gate_fail "$NAME" \
+            "$caller — origin клонов недоступен: код ${trunk_dead%%|*} вместо 2 либо набор стволов исполнен на устаревшем стволе"
+        findings=$((findings + 1))
+    fi
 done
 
-tooling_gate_census "$NAME: вызывающих осмотрено $examined (по четыре пробы на каждого — всё зелено, находка, без предмета, находка+без предмета)"
+tooling_gate_census "$NAME: вызывающих осмотрено $examined (по семь проб на каждого — всё зелено, находка, без предмета, находка+без предмета, ствол без предмета, ствол после fetch, ствол без сети)"
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings"
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "у всех $examined вызывающих находка останавливает отправку, отсутствие предмета — нет, и беспредметный прогон не выдаётся за чистый"
+tooling_gate_pass "$NAME" "у всех $examined вызывающих находка останавливает отправку, отсутствие предмета — нет (кроме наборов стволов — отказ), беспредметный прогон не выдаётся за чистый, ствол свежий, без сети — не выполнилось"
