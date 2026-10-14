@@ -1,0 +1,171 @@
+# Пересверка классов на замысел — роль class-exposure-analyst — изменение kn-296.
+#
+# Имя файла — отпечаток НАБОРА замыслов линии (change.yaml hashes.design_sha256,
+# design_set_predicate). Набор — один документ, его собственный отпечаток —
+# subject_sha256 (934b8752…). Так же ключуется план свидетельства human-design
+# (evidence/human-design/efa1b3d0….yaml).
+#
+# Отображаются пункты первичного разбора
+# reviews/class-exposure/initial/e47cb0e4….yaml (98 пунктов, 27 приёмок).
+# Прежняя пересверка того же документа лежит в дереве продукта
+# (docs/specs/reviews/passwordless-login-with-access-key-class-exposure/revalidation/934b8752….md,
+# 2026-09-19). Она отображала пункты разбора приёмки ред. 4 (3f4ee3b1…) и
+# новых пунктов ред. 5…9 не видела; эта запись её не правит.
+schema_version: 1
+change_id: kn-296
+holder: human-class-exposure-revalidation
+owner: class-exposure-analyst
+mode: revalidation
+
+subject:
+  repo: PRO-Robotech/kaname
+  path: docs/engineering/acceptance/passwordless-login-with-access-key-design.md
+  revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  subject_sha256: 934b8752ae96900a53f742c3f8d87a8fdff659a3acc78dcda02dba2dad2046a9   # git show 68d24ae6:<path> | sha256sum
+  design_set_sha256: efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2 # change.yaml design_set_predicate на 8a84dcff...68d24ae6
+  last_changed_by: 152dbd05e                     # git log -1 68d24ae6 -- <path>
+  remeasured: true                               # оба отпечатка совпали 2026-10-14
+initial_record: docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml
+initial_items_count: 98
+
+# Опора замысла сдвинулась. Замысел называет предметом приёмку Ф13 с
+# отпечатком 3f4ee3b1… (ред. 4) и первичный разбор на тот же отпечаток. На
+# голове лежит ред. 9 (5fe6cca1…), и запись её одобрения есть. Между ними
+# переписаны Р1 и Р3, исход тумбы Р11 и инв. 1, 12, а инв. 17 и 18 добавлены.
+# Замысел после 152dbd05e не правился.
+anchor:
+  design_names_acceptance_sha256: 3f4ee3b1bc845e0ae6af3e6e8fc35b90fc93c544b40d65530f08865f2964599d
+  acceptance_on_head_sha256: 5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4
+  acceptance_on_head_redaction: 9
+  stale: true
+  measured_by: >-
+    git log --format=%h 68d24ae6 -- docs/engineering/acceptance/passwordless-login-with-access-key.md;
+    sha256 каждой редакции; git diff 152dbd05e 9ef120738 -- <приёмка> → +752 −148
+
+mapping:
+  # ── пункты приёмки Ф13: отображены ─────────────────────────────────────────
+  - {item: F13-D1,     to: 'D1 (общая часть: два глагола формы, не RPC)', state: mapped}
+  - {item: F13-D2,     to: 'D2, §2.2', state: mapped}
+  - {item: F13-D3,     to: 'D3, §2.1 (обязательность, безусловная сверка, пустая сохранённая)', state: mapped}
+  - {item: F13-D4-D10, to: 'D4, D10, §2.4, §7.2', state: mapped}
+  - {item: F13-D5-D6,  to: 'D5, D6', state: mapped}
+  - {item: F13-D7,     to: 'D7, §2.3 (приманка у вызывающего)', state: mapped}
+  - {item: F13-D8,     to: 'D8, §7.3', state: mapped}
+  - {item: F13-D9,     to: D9, state: mapped}
+  - {item: F13-D11,    to: D11, state: mapped}
+  - {item: F13-D12,    to: 'D12, §2.3, L6', state: mapped}
+  - {item: F13-D13,    to: D13, state: mapped}
+  - {item: F13-D14,    to: D14, state: mapped}
+  # ── пункты приёмки Ф13: НЕ отображены ──────────────────────────────────────
+  - item: F13-N1
+    state: unmapped
+    contradicted_by: 'D1 — «новый вид формы access-key-login в закрытом перечне (8→9)»; §5 L1 — «новый вид»'
+    required: >-
+      решение замысла о ДВУХ видах признака (access-key-begin и access-key-login),
+      по одному на глагол, при одном контексте формы; инв. 12 и 18 приёмки ред. 9.
+  - item: F13-N2
+    state: unmapped
+    contradicted_by: >-
+      D3 — «Значение — неизменяемый платформенный id человека»; §2.1 —
+      колонка «уже посажена Ф7, писатель — церемония», другого хранилища нет;
+      §6 — новых хранилищ не названо.
+    required: >-
+      решение замысла о значении рукоятки: 64 случайных байта, своя таблица,
+      одна строка на человека, уходит с личностью; держатель Ф13-33 в источнике
+      и в значении (Р3 и инв. 17 ред. 9).
+  - item: F13-N3
+    state: unmapped
+    contradicted_by: —
+    required: >-
+      решение замысла о ключе в состоянии обнаружимости «не сообщено»: полоса
+      входа его не фильтрует и не заводит второй формы входа; годность держит
+      страж Ф7 Р12 (Ф7-56). Источник — тумба Р11 ред. 8.
+  # ── пункты 26 приёмок, у которых в наборе нет замысла ──────────────────────
+  - item: >-
+      AK-1…AK-6, ABV-1…ABV-6, AID-1…AID-3, AWI-1, AWI-2, A197-1, A197-2,
+      AL-1…AL-4, PACE-1…PACE-4, LMR-1…LMR-4, CA-1…CA-3, CRV-1, EC-ALL,
+      A198-1, A198-2, FP-1, FP-2, L2-ALL, F3-1…F3-7, F1-1…F1-4, MGM-1, MGM-2,
+      OAR-1…OAR-4, OS-1…OS-3, PWV-ALL, F5-1…F5-5, F4-1…F4-4, F12-1…F12-4,
+      MRW-1…MRW-3, SCL-1, SCL-2, A458-1…A458-3
+    count: 83
+    state: unmapped
+    reason: >-
+      в наборе замыслов линии (design_set) один документ — замысел Ф13; решения
+      этих приёмок он не отображает и не обязан, а другого замысла у них в
+      наборе нет. Отображать не во что.
+
+counts:
+  mapped: 12
+  unmapped_f13: 3
+  unmapped_without_design: 83
+  total: 98
+
+delta_checks:
+  - claim: 'замысел §6 — «нового внешнего вызова, асинхронного пути, ребра нет»'
+    measured: >-
+      чтение access_key_login.go и issue.go @68d24ae6; git grep 'github.com/ory'
+      в *.go, go.mod, go.sum прежней пересверкой (не перемерялось)
+    result: на голове внешнего вызова у полосы входа ключом нет; асинхронного пути нет — событие идёт тем же путём выдачи
+  - claim: 'D12 — вход второй вызывающий проверяющего'
+    measured: git grep объявления и нетестовых вызовов VerifyAssertion @68d24ae6
+    result: 1 объявление, 2 нетестовых вызывающих — совпало
+  - claim: 'D4 — IssueSession: вход ключом — 4-й вызывающий'
+    measured: git grep нетестовых вызовов IssueSession @68d24ae6
+    result: 4 вызывающих — совпало
+  - claim: '§2.4 — AccessKeyID в IssueInput, в нагрузку только непустой'
+    measured: чтение internal/apps/kaname/api/humansession/issue.go @68d24ae6
+    result: совпало
+  - claim: 'новое хранилище, которого замысел не называет'
+    measured: git diff --name-only --diff-filter=A 8a84dcff...68d24ae6 -- 'internal/migrations/*.sql'
+    result: >-
+      user_ceremony_handles (миграция 20261003212856) — хранилище значения
+      рукоятки; в замысле его нет (F13-N2).
+
+prohibitions:   # change-graph.md §4 — запреты одобрения замысла
+  deferral_marker: not_found        # TestNoDeferredWorkInTheTree ловит маркер, полноту отображения — нет
+  open_question: not_found          # §7 «Разрешено пересверкой» держит три разрешения
+  unmapped_item: found              # 86 пунктов (3 по Ф13 и 83 без замысла)
+  stale_revalidation: found         # прежняя пересверка 934b8752…md отображала разбор ред. 4
+  stale_anchor: found               # опора 3f4ee3b1… против 5fe6cca1… на голове
+
+outcome: блокер
+outcome_reason: >-
+  Одобрение замысла запрещено: три пункта по приёмке Ф13 не отображены, и два из
+  них замысел прямо опровергает (D1 и D3 против Р1 и Р3 ред. 9); у 83 пунктов
+  26 приёмок замысла в наборе нет. Код линии на голове исполняет приёмку ред. 9
+  (два вида признака, своя таблица рукоятки), а не замысел: замысел расходится
+  с тем, что одобрено и посажено.
+return_to_acceptance: []   # приёмка ред. 9 одобрена и внутренне согласна; править нечего
+orders:
+  - 'design-author (kaname) · переписать D1, D3, §2.1, §5 L1, §6 под Р1 и Р3 ред. 9; добавить решение для F13-N3; опору перевести на 5fe6cca1…; в шапке строку истории дописать, а не переписать · change-graph.md §4; fa-b3-last-design-pass-maps-only; fa-b7-pin-approved-neighbour'
+  - 'диспетчер · не публиковать ожидаемое событие human-design APPROVED на 934b8752… (evidence/human-design/efa1b3d0….yaml): оно одобрило бы замысел, опровергнутый приёмкой и кодом · change-graph.md §3, §4'
+  - 'class-exposure-analyst · новая пересверка на новый отпечаток замысла после правки · change-graph.md §4'
+
+authority:
+  status: pending_publication
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.class-exposure-analyst
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname — известная
+    находка шапки change.yaml; полномочие роли читается из дома пакета.
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: BLOCKER
+    subject_digest: efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2
+    subject_sha256: 934b8752ae96900a53f742c3f8d87a8fdff659a3acc78dcda02dba2dad2046a9
+    declared_record_path: docs/changes/kn-296/reviews/class-exposure/revalidation/efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2.yaml
+    body: 'class-exposure-analyst · BLOCKER · docs/changes/kn-296/reviews/class-exposure/revalidation/efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2.yaml · digest efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2 · subject 934b8752ae96900a53f742c3f8d87a8fdff659a3acc78dcda02dba2dad2046a9'
+  event: null    # {database_id, node_id, url, actor, created_at, body_sha256} — после публикации
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: class-exposure-analyst
+  personal_review_by_publishing_actor_claimed: false

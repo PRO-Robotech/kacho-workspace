@@ -1,0 +1,245 @@
+# Пересверка классов на замысел — роль class-exposure-analyst — изменение kn-296.
+#
+# Имя файла — отпечаток НАБОРА замыслов линии (change.yaml design_set_predicate)
+# на паре база 8a84dcff · голова edf8c641 (ветка автора 785-kn296-design: голова
+# эпика 68d24ae6 и один коммит замыслов поверх неё). Набор — два документа.
+#
+# Отображаются пункты первичного разбора
+# reviews/class-exposure/initial/e47cb0e4….yaml (98 пунктов, 27 приёмок).
+# Прежняя пересверка revalidation/efa1b3d0….yaml (набор из одного замысла,
+# итог «блокер», событие не публиковалось) не правится: она о своём отпечатке.
+#
+# Запись в публичном дереве: предмет, решение и следствие для контракта — да,
+# сборки «координата + условие + следствие» — нет (security-disclosure.md).
+schema_version: 1
+change_id: kn-296
+holder: human-class-exposure-revalidation
+owner: class-exposure-analyst
+reviewer_role: class-exposure-analyst
+mode: revalidation
+# Словарь вердикта — закрытый словарь гейта контура: APPROVED | CHANGES_REQUESTED
+# (scripts/change-graph-gate/cglib/families/life.py). Итог роли — поле outcome.
+verdict: CHANGES_REQUESTED
+
+subject:
+  repo: PRO-Robotech/kaname
+  kind: design_set
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  revision: edf8c641356c1b5b4bc82f5d9add4e3b22d4dad1   # локальная голова ветки 785-kn296-design; на origin её нет (git ls-remote 2026-10-14 — пусто)
+  sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+  predicate: >-
+    git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head>
+    -- 'docs/engineering/acceptance/*-design.md')
+    | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  documents:
+    - path: docs/engineering/acceptance/passwordless-login-with-access-key-design.md
+      sha256: 727acd680eb0115dc0e35203b2d3bcd6093b08fd32b4f32e25df17fc66de4117   # редакция 2
+      maps: 15 пунктов F13-*
+    - path: docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md
+      sha256: 79553d4df39a9a5593e55352d819bacccda074290df395f69ae0ffc4dd59ce43   # редакция 1
+      maps: 83 пункта 26 приёмок
+  delta_from_last_revalidated: >-
+    git diff --stat 68d24ae6 edf8c641 → ровно эти 2 файла, +525 −255; код не
+    менялся, все координаты замыслов — на 68d24ae6.
+  manifest_note: >-
+    change.yaml несёт design_sha256 efa1b3d0… и design_set из одного пути на
+    голове 68d24ae6. Когда 785 вольётся в 296 без иной правки замыслов, предикат на
+    новой голове даст тот же 00278b29…; манифест перемеряется по полю remeasure.
+initial_record: docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml
+initial_items_count: 98
+
+revisions:
+  kaname_design: edf8c641356c1b5b4bc82f5d9add4e3b22d4dad1
+  kaname_code: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  workspace: 74e5896dc94e56be8fc72f3cee4667c224b60ea2
+
+anchor:
+  f13_design_names_acceptance_sha256: 5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4
+  f13_acceptance_on_head_sha256: 5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4   # git show edf8c641:<приёмка Ф13> | sha256sum
+  map_design_anchors: '26 из 26 — префикс отпечатка в заголовке раздела равен sha256 blob приёмки на 68d24ae6'
+  acceptance_set_on_design_head: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175   # acceptance_set_predicate на 8a84dcff...edf8c641 — набор не сдвинулся, первичный разбор действителен
+  stale: false
+
+mapping:
+  measured_by: >-
+    идентификаторы строк таблиц §1…§26 замысла линии и §1а замысла Ф13 против
+    98 id первичного разбора; LC_ALL=C sort; diff → пусто; дубликатов 0.
+    Отрицательный контроль: несуществующий id и несуществующая проба
+    предикатом находятся.
+  mapped: 98
+  unmapped: 0
+  without_mechanism_on_head: 2      # AK-5 и F13-N3 — одно решение (Ф7 Р12), расхождение Р-1
+  rows:
+    F13: {count: 15, to: 'замысел Ф13 §1а → D1…D14, §2.1…§2.5', state: mapped}
+    AK: {count: 6, to: 'замысел линии §1', state: mapped, note: 'AK-5 — решение Ф7 Р12 названо, механизма на голове нет (Р-1)'}
+    ABV: {count: 6, to: '§2', state: mapped}
+    AID: {count: 3, to: '§3', state: mapped}
+    AWI: {count: 2, to: '§4', state: mapped}
+    A197: {count: 2, to: '§5', state: mapped}
+    AL: {count: 4, to: '§6', state: mapped}
+    PACE: {count: 4, to: '§7', state: mapped}
+    LMR: {count: 4, to: '§8', state: mapped}
+    CA: {count: 3, to: '§9', state: mapped}
+    CRV: {count: 1, to: '§10', state: mapped}
+    EC: {count: 1, to: '§11', state: mapped, note: 'пробелы держателей П-2, П-3'}
+    A198: {count: 2, to: '§12', state: mapped}
+    FP: {count: 2, to: '§13', state: mapped}
+    L2: {count: 1, to: '§14', state: mapped, note: 'пробел держателя П-1'}
+    F3: {count: 7, to: '§15', state: mapped}
+    F1: {count: 4, to: '§16', state: mapped}
+    MGM: {count: 2, to: '§17', state: mapped}
+    OAR: {count: 4, to: '§18', state: mapped}
+    OS: {count: 3, to: '§19', state: mapped}
+    PWV: {count: 1, to: '§20', state: mapped}
+    F5: {count: 5, to: '§21', state: mapped}
+    F4: {count: 4, to: '§22', state: mapped}
+    F12: {count: 4, to: '§23', state: mapped}
+    MRW: {count: 3, to: '§24', state: mapped}
+    SCL: {count: 2, to: '§25', state: mapped}
+    A458: {count: 3, to: '§26', state: mapped}
+  previously_unmapped_now_mapped:
+    - {item: F13-N1, to: 'D1 (два вида признака, один контекст), §5 L1', check: 'human_session.go — FormAccessKeyBegin/FormAccessKeyLogin; formKinds 16 на 68d24ae6, 10 на 8a84dcff'}
+    - {item: F13-N2, to: 'D3 (3), §2.1 п. 4, §5 L3а', check: 'ceremony_handle.go — NewCeremonyHandle/RestoreCeremonyHandle; access_key_repo.go — EnsureCeremonyHandle; таблица user_ceremony_handles'}
+    - {item: F13-N3, to: '§2.5', check: 'решение названо (второй формы нет; годность — страж Ф7 Р12); исполнения стража на голове нет — Р-1'}
+    - {item: '83 пункта 26 приёмок', to: own-identity-line-maps-its-decisions-to-code-design.md, check: 'см. numbers'}
+
+numbers:
+  - claim: набор замыслов — 2 документа, отпечаток 00278b29…
+    measured: design_set_predicate @8a84dcff...edf8c641, единица — путь
+    result: 2 пути, 00278b29…; на 68d24ae6 тот же предикат даёт efa1b3d0… (1 путь)
+  - claim: отображено 98 из 98, каждый ровно одной строкой
+    measured: два предиката — по написанию (id строк таблиц) и по предмету (строка несёт непустые столбцы решения и механизма)
+    result: 98 из 98, дубликатов 0
+  - claim: каждая названная проба есть в дереве
+    measured: >-
+      имена Test* из обоих замыслов против `git grep -hoE '^func (Test…)\('`
+      в *_test.go @68d24ae6 и @edf8c641; единица — имя функции
+    result: 219 имён, отсутствующих 0 на обеих ревизиях; отрицательный контроль находится
+  - claim: координаты путь:строка указывают на существующее место
+    measured: каждый путь — git cat-file -e @68d24ae6, номер строки — не больше длины файла; содержимое прочитано у 52 мест (все места строк Ф13 §1а и D1…D14, выборка 18 прочих)
+    result: 109 координат, нарушений 0; прочитанные строки — названный символ
+  - claim: 'D12 — одно объявление проверяющего, два вызывающих'
+    measured: git grep -n 'VerifyAssertion(' @68d24ae6 -- internal cmd, без *_test.go
+    result: объявлений 1 (verify.go:409), вызывающих 2 — совпало
+  - claim: '§3 — чужого кода портом нет'
+    measured: git grep -l 'github.com/ory' @68d24ae6 -- '*.go' go.mod go.sum
+    result: 0 файлов — совпало
+  - claim: 'Р-1 — признак обнаружимости не хранится; проб Ф7-56/57 нет'
+    measured: >-
+      git grep -niE 'discoverab' @68d24ae6 -- internal/migrations internal/repo → 0;
+      второй предикат по предмету — то же слово во всём нетестовом internal → 4 файла,
+      все — отказ «не обнаружим» на приёме церемонии, не хранение; страж revoke.go
+      judgeLastMethod — условие hasPassword || keys > 1 (строки, не годные);
+      git grep -nE 'F7_5[67]|Ф7-5[67]' -- '*_test.go' → 0 (контроль F7_47 → 4)
+    result: подтверждено
+  - claim: >-
+      'Р-2 (§6а замысла Ф13, F13-D9) — у человека с заведённым вторым фактором вход
+      ключом без проверки пользователя счёт по адресу не обнуляет'
+    measured: >-
+      чтение @68d24ae6: internal/assurance/level.go — строка правила «утверждение
+      ключа доступа (любое)» даёт «2» при любых флагах; GuaranteedLevels берёт ключ
+      в худшем исходе флагов (KeyAssertion(false, true)) и потому не даёт «3» ни
+      на одном сочетании; humansession/completed_login.go —
+      loginCompletedToEnrolledLevel: требуемый уровень — максимум GuaranteedLevels
+      заведённого (пароль, второй фактор, ключ) ≤ «2»; достигнутый уровнем входа
+      ключом ≥ «2». Комментарий у GuaranteedLevels говорит то же прямо.
+    result: >-
+      ОПРОВЕРГНУТО. Вход ключом обнуляет счёт по адресу при любом заведённом
+      наборе, как требует Ф13 Р9; не обнуляет лишь при нечитаемом заведённом
+      (enrolledKnown = false) — исход, который Ф3 Р10 разрешает как «счёт остаётся».
+      Расхождения кода с Р9 нет.
+  - claim: 'Р-3 (§6а замысла Ф13, F13-D5-D6) — вход ключом читает строку пароля'
+    measured: >-
+      access_key_login.go:463 → completed_login.go enrollmentBeforeWrite →
+      enrolledForCompletion → second_factor.go enrolledMethods (чтение строки вида
+      password) @68d24ae6
+    result: >-
+      подтверждено. Добавлено измерением: на исход обнуления у полосы ключа строка
+      пароля не влияет — при заведённом ключе требуемый уровень «2» даёт сам ключ,
+      и пароль его не повышает. Чтение можно снять кодом, не трогая ни Ф13 Р6, ни
+      Ф3 Р10.
+
+exposure_delta:   # новые решения замыслов по триггерам change-graph.md §4
+  new_external_call: нет
+  new_async_path: нет
+  new_sentinel: >-
+    нет нового против первичного разбора: AccessKeyID (покрыт F13-D4-D10) и нулевое
+    значение CeremonyHandle (покрыт F13-N2: Validate отвергает длину и все нули)
+  new_mechanism: нет — обе редакции отображают уже посаженное (fa-b3-last-design-pass-maps-only)
+
+held_by_attention:   # условия, которые держатся вниманием (§3.5, третья строка)
+  - {item: AK-5 / F13-N3, why: 'механизма и держателя нет — Р-1; к коду'}
+  - {item: L2-ALL (П-1), why: 'перечень охраняемых глаголов закрыт рукой, не выводится из дерева'}
+  - {item: EC-ALL (П-2), why: 'клетки «код ожидает» проба не различает'}
+  - {item: EC-ALL (П-3), why: 'пробы NotContains(журнал, адрес) нет'}
+
+not_measurable:
+  - >-
+    Исход проб не прогонялся: проверено существование 219 названных функций, а не
+    их зелёность и не то, что каждая краснеет на снятом условии. Исход на коде —
+    у пост-дифф ролей и конвейера.
+  - >-
+    Неразличимость по времени (F13-D7, F3-4, F4-3, F5-4) — свойство прогона.
+
+prohibitions:   # change-graph.md §4 — запреты одобрения замысла
+  unmapped_item: not_found          # 0 из 98
+  deferral_marker: not_found        # TODO|TBD|FIXME|«потом» в обоих замыслах — 0
+  open_question: not_found          # §7 замысла Ф13: открытых вопросов нет
+  stale_anchor: not_found           # опора Ф13 — 5fe6cca1… = голова; 26 опор замысла линии совпали
+  refuted_tree_claim: found         # §6а Р-2 — опровергнуто деревом (numbers)
+
+outcome: к-замыслу
+outcome_reason: >-
+  Отображение полно: 98 из 98, опоры свежие, запретов §4 нет. Возврат — одно
+  утверждение замысла Ф13 о дереве, опровергнутое измерением: §6а Р-2 называет
+  расхождением с Ф13 Р9 то, чего код не делает. Текст вводит в заблуждение о
+  поведении счёта попыток — защитном механизме (ban19-block-criterion), и по нему
+  исполнитель стал бы «чинить» исправный код. Правка — только текст замысла
+  Ф13 (§6а строка Р-2; отсылки к ней в §1 D9 и §1а F13-D9); она сменит отпечаток
+  набора, и пересверка пойдёт по дельте (fa-b1-reanalysis-delta-only).
+return_to_acceptance: []   # Ф13 Р9 и Ф3 Р10 не противоречат на коде; Given, которых схема не допускает, не найдено
+orders:
+  - 'design-author (kaname) · замысел Ф13: снять §6а Р-2 как опровергнутое (или заменить строкой «совпадает: ключ даёт «2» в худшем исходе флагов, требуемый ≤ «2»» с командой); убрать отсылку к Р-2 из §1 D9 и строки F13-D9 §1а; в Р-3 дописать, что чтение строки пароля на исход не влияет и снимается кодом; строку истории дописать · fa-b5-tree-claim-is-predicate; ban19-block-criterion'
+  - 'go-implementer (kaname) · Р-1: хранить признак обнаружимости тремя состояниями и считать в страже последнего способа годные к предъявлению; держатели Ф7-56, Ф7-57 с инъекцией · access-keys-are-ours Р12; rule-testing «Гейт на класс…» п. 1'
+  - 'go-implementer (kaname) · Р-3: полоса ключа не читает строку пароля при решении об обнулении (на исход не влияет) · Ф13 Р6, инв. 8'
+  - 'go-implementer (kaname) · П-1…П-3: гейт вывода охраняемых глаголов из писателей; клетка «код ожидает»; проба NotContains(журнал, адрес) · записи разбора пары 41723d6b…+9dc900c9…'
+  - 'class-exposure-analyst · пересверка по дельте на новый отпечаток набора после правки Р-2 · change-graph.md §4; fa-b1'
+  - 'диспетчер · событие этой записи публиковать только после того, как edf8c641 окажется на origin; событие human-design на 00278b29… не публиковать — отпечаток сменит правка Р-2 · change-graph.md §3'
+
+authority:
+  status: pending_publication
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.class-exposure-analyst
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname — известная
+    находка шапки change.yaml; полномочие роли читается из дома пакета.
+  publication_precondition: subject.revision edf8c641 опубликована в удалённой ветке PRO-Robotech/kaname
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: CHANGES_REQUESTED
+    subject_digest: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+    declared_record_path: docs/changes/kn-296/reviews/class-exposure/revalidation/00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48.yaml
+    expected_body: |-
+      role: class-exposure-analyst
+      verdict: CHANGES_REQUESTED
+      subject: PRO-Robotech/kaname:docs/engineering/acceptance/*-design.md (набор из 2 замыслов линии 8a84dcff...edf8c641, change.yaml design_set_predicate пакета kn-296)
+      subject_revision: edf8c641356c1b5b4bc82f5d9add4e3b22d4dad1
+      subject_sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+
+      ---
+
+      Событие полномочия к держателю human-class-exposure-revalidation пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/class-exposure/revalidation/00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48.yaml`). Отображено 98 из 98 пунктов первичного разбора; возврат — одно утверждение замысла о дереве, опровергнутое измерением, перечень — в записи. Вердикт относится к набору с отпечатком выше, и только к нему.
+  event: null    # {database_id, node_id, url, actor, created_at, body_sha256} — после публикации
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: class-exposure-analyst
+  personal_review_by_publishing_actor_claimed: false

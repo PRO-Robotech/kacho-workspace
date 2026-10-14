@@ -1,0 +1,43 @@
+# Свидетельство держателя prod-ci — изменение kn-296.
+#
+# Снято с УЖЕ исполненного прогона конвейера запроса эпика на голове линии из
+# `change.yaml`; новый прогон не запускался. Отпечатки ниже пересчитываются
+# командами поля `remeasure` (журнал задания скачивается заново тем же `gh`).
+schema_version: 1
+change_id: kn-296
+holder: prod-ci
+kind: machine
+owner: integration-tester
+evidence_coordinate: evidence/prod-ci/
+executable: '.github/workflows/ci.yml на запросе эпика kaname#714'
+predicate: 'все задания конвейера службы доступа зелены на голове из `change.yaml`'
+
+subject: 'PRO-Robotech/kaname@8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae (content_digest)'
+subject_sha256: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06   # git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+pull_request: PRO-Robotech/kaname#714   # open, ready, headRefOid = subject_revision (gh pr view, 2026-10-14)
+checked_out_revision: 500b6dcac736a8a0a001566eabe66efddfdbe39d   # слияние запроса: родители 8a84dcff 68d24ae6 (gh api commits/<sha>)
+
+run:
+  workflow: 'ci'
+  database_id: 38487158845
+  event: pull_request
+  head_sha: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  status: completed
+  conclusion: success
+
+# ── снятое ─────────────────────────────────────────────────────────────────
+captured_category: GREEN
+result: 'режим ПОЛНЫЙ (запрос ready); полный прогон: 11 заданий из 11 — все зелёные; сводный вердикт запроса (ci) — success; «вердикт ствола» пропущен законно (if: push в main)'
+input_sha256: 74ca21d7a81747cfa313271b2f41fd4ae6ccb9ca35f981ea40a59298ecc34204   # printf '%s' 'PRO-Robotech/kaname@68d24ae66fe4530dcccebf36f82ad70f1c976eae run 38487158845' | sha256sum
+output_sha256: 2965bdafa08fe70c03fdf98ef9174dd15c79c701e7c3a48418da22f2ae5bde0e   # gh run view 38487158845 -R PRO-Robotech/kaname --json jobs -q '[.jobs[] | {name, conclusion}] | sort_by(.name)' | sha256sum
+stdout_digest: bc380585a6c63cf52cbcb2608864fb376da93bf5679be19617b50da803f47304   # gh run view 38487158845 -R PRO-Robotech/kaname --log | sha256sum
+stderr_digest: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855   # stderr той же команды — пуст
+verdict_excerpt_sha256: 0f67bb3dd07676e69bae707072fcaf9f2eb9ccd32ddf64e3ee29e4b86dfbbbcf
+verdict_excerpt: |
+  режим: ПОЛНЫЙ — запрос не черновик (ready): полный прогон
+  полный прогон: 11 заданий из 11 — все зелёные
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отпечаток журнала — от
+# скачивания 2026-10-14; журнал задания на стороне конвейера неизменен, его
+# снятие хранилищем дало бы NOT_EXECUTED, а не GREEN.

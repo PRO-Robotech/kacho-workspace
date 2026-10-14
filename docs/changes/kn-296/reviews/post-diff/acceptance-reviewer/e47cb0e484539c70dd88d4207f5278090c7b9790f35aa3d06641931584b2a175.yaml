@@ -1,0 +1,367 @@
+# Свидетельство приёмок пакета kn-296 — роль acceptance-reviewer, держатель human-acceptance.
+#
+# Имя файла — hashes.acceptance_sha256 манифеста (change.yaml): отпечаток НАБОРА
+# приёмок линии (путь · blob на голове), посчитанный acceptance_set_predicate.
+# Прежние записи не правятся; сменится набор — новый файл и новое событие
+# (change-graph §2). Форма — docs/changes/issue-1266/reviews/post-diff/acceptance-reviewer/.
+#
+# Эта запись НЕ пересматривает содержимое приёмок: каждую судила своя запись ревью
+# на её отпечаток (дерево службы доступа, docs/specs/reviews/<документ>/<sha256>.yaml),
+# и каждую одобрило внешнее событие pointpu. Здесь сверено: набор пакета — ровно
+# эти 27 редакций; у каждой есть запись на её отпечаток и опубликованное событие на
+# тот же отпечаток. ОДНО исключение — own-sessions: её запись и событие несут слово
+# ACCEPT вне словаря; для неё — соседняя запись APPROVED в этом пакете и ожидаемое
+# событие в kaname#634.
+schema_version: 1
+change_id: kn-296
+holder: human-acceptance
+owner: acceptance-reviewer
+reviewer_role: acceptance-reviewer
+subject:
+  repository: PRO-Robotech/kaname
+  kind: acceptance_set
+  description: >-
+    Набор из 27 приёмок линии kaname 296 → main (добавленные и изменённые в
+    docs/engineering/acceptance/, без *-design.md).
+  sha256: "e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175"
+
+fingerprint:
+  set_predicate: change.yaml hashes.acceptance_set_predicate, дословно
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6   # origin/main kaname после fetch 2026-10-14
+  head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # origin/296 после fetch 2026-10-14 — совпал с change.yaml
+  set_count: 27                                     # git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*' | grep -v -- '-design\.md$' | wc -l
+  added_in_line: 13                                 # status A
+  modified_in_line: 14                              # status M
+  digest_remeasured: true                           # e47cb0e4… совпал с change.yaml hashes.acceptance_sha256
+  remeasured_at_package_rev: 664c857c5327fb04ba77714c243378ff352ec464   # HEAD копии tmp/ws-1065
+
+content_digest: sha256:e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175
+
+verdict: APPROVED
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+expected_actor: pointpu
+return_to: '—'
+static_status_note: >-
+  Слова в шапках приёмок — то, что туда вписали. Вердикт по каждой выводится из её записи
+  ревью и внешнего события; вердикт набора — из этой записи и её события.
+sanction_condition: >-
+  Вердикт набора действует только вместе с событием APPROVED на 63333cc2 в kaname#634
+  (запись own-sessions этого пакета). Порядок публикации: сперва kaname#634, затем kaname#296.
+  Пока события на 63333cc2 нет, исход держателя human-acceptance — NOT_EXECUTED, а не GREEN.
+  Условие выполнено: kaname#634 issuecomment-6159260352 (2026-10-14T02:04:55Z) раньше
+  kaname#296 issuecomment-6159261785 (2026-10-14T02:05:02Z).
+
+set:
+  # sha256 — `git show 68d24ae6:<путь> | sha256sum`; запись — на этот отпечаток, в дереве
+  # службы доступа на 68d24ae6; событие — `gh api repos/<repo>/issues/comments/<id>`
+  # 2026-10-14: автор pointpu, author_association MEMBER, created_at == updated_at
+  # (event_edited: false), тело несёт строку verdict и отпечаток документа дословно.
+  - path: docs/engineering/acceptance/access-beyond-login-needs-a-verified-address.md
+    status_in_line: M
+    sha256: 2abf9de5cb3d904e84a4237f3c1b28556c2314db77c44c82a1b5fc60713d3ae9
+    record: docs/specs/reviews/access-beyond-login-needs-a-verified-address/2abf9de5cb3d904e84a4237f3c1b28556c2314db77c44c82a1b5fc60713d3ae9.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/526#issuecomment-6017411789
+    event_verdict: APPROVED
+    event_created_at: '2026-10-06T13:33:34Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/access-keys-are-ours.md
+    status_in_line: M
+    sha256: 5ea26ad012add99800a8c185e98b9e2f38910c1c54daec5bdd8a5c4f3ea3efbe
+    record: docs/specs/reviews/access-keys-are-ours/5ea26ad012add99800a8c185e98b9e2f38910c1c54daec5bdd8a5c4f3ea3efbe.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/269#issuecomment-5972714344
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T19:28:33Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/account-id-may-be-supplied-at-create.md
+    status_in_line: M
+    sha256: 8c45cb50a0b3a3febb05215f23b8f115728ea12bf1bcae6200c50ada346ba63f
+    record: docs/specs/reviews/account-id-may-be-supplied-at-create/8c45cb50a0b3a3febb05215f23b8f115728ea12bf1bcae6200c50ada346ba63f.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/664#issuecomment-6108359086
+    event_verdict: APPROVED
+    event_created_at: '2026-10-11T11:05:18Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/active-identity-has-a-way-in.md
+    status_in_line: A
+    sha256: 6763b9713a16db3205fed2f383936b2b8110f9f4be502559fb13781f47c1bb4e
+    record: docs/specs/reviews/active-identity-has-a-way-in/6763b9713a16db3205fed2f383936b2b8110f9f4be502559fb13781f47c1bb4e.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/608#issuecomment-5986607810
+    event_verdict: APPROVED
+    event_created_at: '2026-10-05T01:33:52Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/admission-rate-carrier-is-fixed-at-registration.md
+    status_in_line: A
+    sha256: f85ce7312024e68d63939fbad2bd42e286846aaf03f1b6c47bd8513694ecd394
+    record: docs/specs/reviews/admission-rate-carrier-is-fixed-at-registration/f85ce7312024e68d63939fbad2bd42e286846aaf03f1b6c47bd8513694ecd394.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/197#issuecomment-5993396322
+    event_verdict: APPROVED
+    event_created_at: '2026-10-05T11:20:09Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/assurance-level-is-declared-by-our-session.md
+    status_in_line: M
+    sha256: b39219bcd07e241fe2a1c52a4081ea1def2fe538812bbd611bfa8092712e73c8
+    record: docs/specs/reviews/assurance-level-is-declared-by-our-session/b39219bcd07e241fe2a1c52a4081ea1def2fe538812bbd611bfa8092712e73c8.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/511#issuecomment-6051864461
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T03:56:39Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/ceremony-pace-is-named-by-number.md
+    status_in_line: M
+    sha256: 5053bb0389804937ba213972b227e2495bed8dc6ebf5429792d3a119cbd84dae
+    record: docs/specs/reviews/ceremony-pace-is-named-by-number/5053bb0389804937ba213972b227e2495bed8dc6ebf5429792d3a119cbd84dae.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/524#issuecomment-6051905472
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T04:00:11Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/cloud-administrator-resets-login-methods.md
+    status_in_line: A
+    sha256: 120ae199f04ae745f3c63f9db1f9cfd27cf9c64aa986289e69c62baedf509691
+    record: docs/specs/reviews/cloud-administrator-resets-login-methods/120ae199f04ae745f3c63f9db1f9cfd27cf9c64aa986289e69c62baedf509691.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho/issues/2702#issuecomment-6051494360
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T03:21:22Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/cluster-admins-on-the-public-surface.md
+    status_in_line: A
+    sha256: 37e25926b890f82abff9f567cfd7a9a5a87950bcad7ad8262d5c623088d0549b
+    record: docs/specs/reviews/cluster-admins-on-the-public-surface/37e25926b890f82abff9f567cfd7a9a5a87950bcad7ad8262d5c623088d0549b.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/661#issuecomment-6051607213
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T03:32:24Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/credential-verbs-refusal-outcomes.md
+    status_in_line: A
+    sha256: 98f727e2071343ff2566abd815edb5b9bcbd5790ab58e8fb96f23655a619c62a
+    record: docs/specs/reviews/credential-verbs-refusal-outcomes/98f727e2071343ff2566abd815edb5b9bcbd5790ab58e8fb96f23655a619c62a.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/522#issuecomment-5969148055
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T12:26:34Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/email-change-is-confirmed-from-the-new-address.md
+    status_in_line: A
+    sha256: 9dc900c9afa74f352b606e665344e8c57500438540b87f31c1a6790880cca1fa
+    record: docs/specs/reviews/email-change-is-confirmed-from-the-new-address/9dc900c9afa74f352b606e665344e8c57500438540b87f31c1a6790880cca1fa.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/770#issuecomment-6136400417
+    event_verdict: APPROVED
+    event_created_at: '2026-10-13T01:57:20Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/expired-invitation-keeps-the-address-until-the-inviter-acts.md
+    status_in_line: A
+    sha256: 34f7a09e77cc763fcae803950e690c6f5e46588bcfa49e8cc7560e2fffd4a284
+    record: docs/specs/reviews/expired-invitation-keeps-the-address-until-the-inviter-acts/34f7a09e77cc763fcae803950e690c6f5e46588bcfa49e8cc7560e2fffd4a284.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/198#issuecomment-6051703817
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T03:41:46Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/first-password-from-a-live-session.md
+    status_in_line: A
+    sha256: 72825c63669122f239b7b6ffbd580724dd080cee1263bd9f90a98a397df58a37
+    record: docs/specs/reviews/first-password-from-a-live-session/72825c63669122f239b7b6ffbd580724dd080cee1263bd9f90a98a397df58a37.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/213#issuecomment-5976620247
+    event_verdict: APPROVED
+    event_created_at: '2026-10-04T04:36:32Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/level-two-is-enrolled-at-level-two.md
+    status_in_line: A
+    sha256: 41723d6b6369c8987a12477db36b24012a85c5f680d4ae7d40333625072dee65
+    record: docs/specs/reviews/level-two-is-enrolled-at-level-two/41723d6b6369c8987a12477db36b24012a85c5f680d4ae7d40333625072dee65.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/747#issuecomment-6137782559
+    event_verdict: APPROVED
+    event_created_at: '2026-10-13T03:47:43Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/login-lane-issues-our-session-and-logout-ends-it-server-side.md
+    status_in_line: M
+    sha256: 20ccad56e52ff778ed598c997834b5369e47508694178f2f363f2dd89795dfa5
+    record: docs/specs/reviews/login-lane-issues-our-session-and-logout-ends-it-server-side/20ccad56e52ff778ed598c997834b5369e47508694178f2f363f2dd89795dfa5.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/269#issuecomment-5972531697
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T19:05:24Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/login-session-and-credentials-are-our-contract.md
+    status_in_line: M
+    sha256: 0f758d3297d2085e51528663293eb50d39b0fe49a1940e86f34cd22a66ca5da0
+    record: docs/specs/reviews/login-session-and-credentials-are-our-contract/0f758d3297d2085e51528663293eb50d39b0fe49a1940e86f34cd22a66ca5da0.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/269#issuecomment-5972714488
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T19:28:34Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/model-generated-from-manifest.md
+    status_in_line: M
+    sha256: 3e7daf127fd8ad4e939008c3e66408c5c5e4752aeadbe9a36106ba30983ac94f
+    record: docs/specs/reviews/model-generated-from-manifest/3e7daf127fd8ad4e939008c3e66408c5c5e4752aeadbe9a36106ba30983ac94f.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/172#issuecomment-5969539404
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T13:17:45Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/own-account-and-identity-are-removed-in-order.md
+    status_in_line: A
+    sha256: f10f3e8693f26763b1658b351c1fa3891922ae9b987e1a62f6c125bde05a31b4
+    record: docs/specs/reviews/own-account-and-identity-are-removed-in-order/f10f3e8693f26763b1658b351c1fa3891922ae9b987e1a62f6c125bde05a31b4.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/720#issuecomment-6147586442
+    event_verdict: APPROVED
+    event_created_at: '2026-10-13T14:15:32Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/own-sessions-are-listed-and-ended-by-their-owner.md
+    status_in_line: A
+    sha256: 63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878
+    record: docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml
+    record_verdict: ACCEPT          # вне словаря APPROVED|CHANGES_REQUESTED
+    event: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6035940401
+    event_verdict: ACCEPT           # вне словаря — санкцией не читается
+    superseding_record: docs/changes/kn-296/reviews/post-diff/acceptance-reviewer/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml   # PRO-Robotech/kacho-workspace, verdict APPROVED
+    superseding_event: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6159260352   # APPROVED на 63333cc2, pointpu, 2026-10-14T02:04:55Z — блок event той записи
+    superseding_event_verdict: APPROVED
+    entry_outcome: GREEN            # событие APPROVED на 63333cc2 опубликовано раньше события набора (02:04:55 < 02:05:02)
+    event_created_at: '2026-10-07T10:23:07Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/password-verifier-follows-the-stored-value.md
+    status_in_line: M
+    sha256: 64726612ab3b364f7ff75ede22018dc315c4d458b49e4227a251629c1422fa42
+    record: docs/specs/reviews/password-verifier-follows-the-stored-value/64726612ab3b364f7ff75ede22018dc315c4d458b49e4227a251629c1422fa42.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/782#issuecomment-6150629182
+    event_verdict: APPROVED
+    event_created_at: '2026-10-13T16:50:25Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/passwordless-login-with-access-key.md
+    status_in_line: M
+    sha256: 5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4
+    record: docs/specs/reviews/passwordless-login-with-access-key/5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/351#issuecomment-5969017642
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T12:09:41Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/recovery-of-access.md
+    status_in_line: M
+    sha256: fa1f12bdce426b33a5a336e1cba3053a12da1b1510148760ffb726a430c7b113
+    record: docs/specs/reviews/recovery-of-access/fa1f12bdce426b33a5a336e1cba3053a12da1b1510148760ffb726a430c7b113.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/211#issuecomment-6051945549
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T04:03:41Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/registration-and-its-three-consequences.md
+    status_in_line: M
+    sha256: 295e0c739dd0c76e5102a1a7ff371d55b2e631e2be6e7510fff3b8de04b6a24f
+    record: docs/specs/reviews/registration-and-its-three-consequences/295e0c739dd0c76e5102a1a7ff371d55b2e631e2be6e7510fff3b8de04b6a24f.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/211#issuecomment-6051984920
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T04:07:07Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/second-factor-totp-and-recovery-codes.md
+    status_in_line: M
+    sha256: c6ea48973b048e0430bf3712e317aca39ac7df2e77dcb5e8d71e65c59aa33e2f
+    record: docs/specs/reviews/second-factor-totp-and-recovery-codes/c6ea48973b048e0430bf3712e317aca39ac7df2e77dcb5e8d71e65c59aa33e2f.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/520#issuecomment-6052024719
+    event_verdict: APPROVED
+    event_created_at: '2026-10-08T04:10:35Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/service-manifest-seeds-its-own-groups.md
+    status_in_line: M
+    sha256: c72db75ef756c3e3a85f7cccfe497ffb61f05bf72306eaa9e9161cdf23bf69a0
+    record: docs/specs/reviews/service-manifest-seeds-its-own-groups/c72db75ef756c3e3a85f7cccfe497ffb61f05bf72306eaa9e9161cdf23bf69a0.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/172#issuecomment-5969539936
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T13:17:49Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/subject-cutoff-writes-both-records-under-one-lock.md
+    status_in_line: A
+    sha256: b72c19f1385d9824733363d10f0032f7fa0f17b012d3acf75bf633ae991f7a5e
+    record: docs/specs/reviews/subject-cutoff-writes-both-records-under-one-lock/b72c19f1385d9824733363d10f0032f7fa0f17b012d3acf75bf633ae991f7a5e.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/336#issuecomment-5969140689
+    event_verdict: APPROVED
+    event_created_at: '2026-10-03T12:25:45Z'
+    event_edited: false
+  - path: docs/engineering/acceptance/unverified-address-passes-to-the-mailbox-owner.md
+    status_in_line: A
+    sha256: 79e0f15ac71d91257e4238a793011b7bc29fe318b806743ef3cef046ff436604
+    record: docs/specs/reviews/unverified-address-passes-to-the-mailbox-owner/79e0f15ac71d91257e4238a793011b7bc29fe318b806743ef3cef046ff436604.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/458#issuecomment-6147705066
+    event_verdict: APPROVED
+    event_created_at: '2026-10-13T14:20:53Z'
+    event_edited: false
+
+tally:
+  documents: 27
+  record_on_current_fingerprint: 27
+  record_verdict_approved: 26
+  record_verdict_outside_vocabulary: 1          # own-sessions, ACCEPT
+  event_published_approved_on_same_fingerprint: 26
+  event_published_outside_vocabulary: 1         # kaname#634#issuecomment-6035940401, ACCEPT
+  superseding_record_in_package: 1              # own-sessions → APPROVED, событие 6159260352 (kaname#634)
+  superseding_event_published_approved: 1       # 6159260352, тело сверено вторым GET (body_sha256 0894583f…)
+  not_executed: 0                               # было 1 до события APPROVED на 63333cc2
+  event_targets_outside_kaname: 1               # cloud-administrator-resets-login-methods → PRO-Robotech/kacho#2702
+
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer   # policy.yaml:41 `acceptance-reviewer: [pointpu]`
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: 6159261785
+  node_id: IC_kwDOUO26pM8AAAABbx7gWQ
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6159261785'
+  actor: pointpu
+  author_association: MEMBER
+  role: acceptance-reviewer
+  created_at: '2026-10-14T02:05:02Z'
+  body_sha256: 5a704813b5aba3eb461cb74e600d541e3f6e20c57bfddbc9b2e167d213db0cc5
+  body_reverified_by_second_get: true
+  published_by_role: git-operator
+  declared_verdict: APPROVED
+  declared_content_digest: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175
+  declared_record_path: docs/changes/kn-296/reviews/post-diff/acceptance-reviewer/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  expected_body: |-
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kaname:docs/engineering/acceptance/ (набор из 27 приёмок линии 8a84dcff...68d24ae6, change.yaml acceptance_set_predicate пакета kn-296)
+    subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+    subject_sha256: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175
+
+    ---
+
+    Событие полномочия к держателю human-acceptance пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/post-diff/acceptance-reviewer/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml`). Одобрен набор с отпечатком выше, и только он; каждая приёмка набора одобрена своим событием на свой отпечаток, перечень — в записи.
+
+important_findings:
+  - coordinate: PRO-Robotech/kaname:docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml
+    note: >-
+      verdict и event.verdict — ACCEPT, вне словаря APPROVED|CHANGES_REQUESTED. Запись не
+      правится; соседняя запись APPROVED — в этом пакете, событие — kaname#634
+      (issuecomment-6159260352).

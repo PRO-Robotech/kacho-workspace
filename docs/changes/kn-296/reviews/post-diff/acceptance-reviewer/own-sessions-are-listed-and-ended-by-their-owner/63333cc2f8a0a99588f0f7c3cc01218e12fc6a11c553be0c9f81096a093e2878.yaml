@@ -1,0 +1,119 @@
+# Запись ревью приёмки own-sessions — роль acceptance-reviewer, пакет kn-296.
+#
+# Имя файла — отпечаток редакции документа на финальной голове линии (subject.sha256).
+# Зачем запись: прежняя запись на этот же отпечаток (дерево службы доступа,
+# docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/63333cc2….yaml,
+# круг 4) и её событие kaname#634#issuecomment-6035940401 несут слово ACCEPT — вне
+# закрытого словаря вердикта APPROVED|CHANGES_REQUESTED. Такое событие санкцией не
+# читается. Прежняя запись и прежнее событие НЕ правятся и не снимаются
+# (change-graph §2): эта запись — соседняя, на тот же отпечаток, со словом словаря.
+#
+# Эта запись НЕ пересматривает содержимое: тело редакции судили круги 2–4
+# (ACCEPT по существу — одобрение, блокирующих 0), предел двух кругов (fa-b8)
+# исчерпан. Сверено, что содержимое на голове линии — ровно та редакция.
+schema_version: 1
+kind: acceptance_review
+change_id: kn-296
+holder: human-acceptance
+subject:
+  repository: PRO-Robotech/kaname
+  path: docs/engineering/acceptance/own-sessions-are-listed-and-ended-by-their-owner.md
+  sha256: "63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878"
+  static_status: DRAFT
+  static_status_note: >-
+    Слово в шапке документа — то, что туда вписали («DRAFT — редакция 4»); вердикт выводится
+    из этой записи и внешнего события (change-graph.md §2). Шапка намеренно не правлена.
+  subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # origin/296, финальная голова (change.yaml)
+  last_changed_by: cd90c67982f6adb5aee584a8fab81e1da7f63d49    # git log -1 68d24ae6 -- <док>
+  fingerprint_predicate: >-
+    git -C project/kaname show 68d24ae6:<док> | sha256sum → 63333cc2…2e878;
+    git show 5947c44cd:<док> | sha256sum → 63333cc2…2e878 (ревизия прежнего события, та же редакция);
+    git branch -r --contains 5947c44cd → origin/198, origin/211, origin/296
+  task: PRO-Robotech/kaname#634
+  round: 5
+  round_kind: verdict_word_restatement
+  round_note: >-
+    не круг ревью содержимого: переложение вердикта круга 4 в слово закрытого словаря.
+    Новых родов, сценариев и дельты нет (решение диспетчера 2026-10-14, задача ws#1065).
+  previous_records:
+    - path: docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/b304ad58c8dc331d14bd86b1c5baa6830efff1a2fc754d490b48238d278d1a98.yaml
+      round: 1
+      verdict: RETURN
+    - path: docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/ee608e2e445edef3ff7dd29d0b1bacd29aee5f627bb66a63d136822718ba4439.yaml
+      round: 2
+      verdict: ACCEPT
+    - path: docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/3c1eea51c437351a8f3dab6df86cbc7d62c0f3b238cd220e59d5ba7304ce959a.yaml
+      round: 3
+      verdict: ACCEPT
+    - path: docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml
+      round: 4
+      verdict: ACCEPT
+      blocking: []
+      scenarios_touched: 0
+  previous_records_repository: PRO-Robotech/kaname @68d24ae6
+publication_mode: courier_of_agent_verdict
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-14'
+blocking: []
+
+checked_on_this_revision: >-
+  §4 — 16 сценариев OS-01…OS-16 (15 integration/unit, 1 сквозной); §5 «Сценарий →
+  производитель» есть; §7 DoD — 9 измеримых пунктов; §8 «Открытые вопросы» — «Нет».
+  Предикат: git show 68d24ae6:<док> | grep -cE '^### OS-' → 16.
+constructibility: >-
+  Посева не было: стенда в задании нет, предмет — переложение слова вердикта. Конструируемость
+  судили круги 2–4 (замечание круга 2 о User-Agent у http.Client харнесса — important, не
+  блокирующее, остаётся в силе). Здесь — не выполнилось, в зелёное не зачитывается.
+
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer   # policy.yaml:41 `acceptance-reviewer: [pointpu]`
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+
+event_body: "acceptance-reviewer · APPROVED · sha256 63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878"
+
+effective_approval:
+  issued: true
+  issued_by_event: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6159260352   # блок event ниже
+  issued_at: '2026-10-14T02:04:55Z'
+  order_held: >-
+    опубликовано ДО события набора в kaname#296 (6159261785, 2026-10-14T02:05:02Z): запись
+    набора (../e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml) держит
+    эту приёмку исходом GREEN.
+
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 634
+  database_id: 6159260352
+  node_id: IC_kwDOUO26pM8AAAABbx7awA
+  url: 'https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6159260352'
+  actor: pointpu
+  author_association: MEMBER
+  role: acceptance-reviewer
+  created_at: '2026-10-14T02:04:55Z'
+  body_sha256: 0894583f1211d47ef50f40d80bf8a0b0ba76abb29354987595bb3265d7aa8b28
+  body_reverified_by_second_get: true
+  published_by_role: git-operator
+  declared_verdict: APPROVED
+  subject_sha256: "63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878"
+  subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  supersedes_word_of: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6035940401
+  expected_body: |-
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kaname:docs/engineering/acceptance/own-sessions-are-listed-and-ended-by-their-owner.md
+    subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+    subject_sha256: 63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878
+
+    ---
+
+    Событие полномочия к вердикту записи `PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/post-diff/acceptance-reviewer/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml`. Одобрена редакция с отпечатком выше, и только она. Слово вердикта события 6035940401 (ACCEPT) вне словаря APPROVED|CHANGES_REQUESTED; это событие называет вердикт словом словаря, содержимое не пересматривалось.

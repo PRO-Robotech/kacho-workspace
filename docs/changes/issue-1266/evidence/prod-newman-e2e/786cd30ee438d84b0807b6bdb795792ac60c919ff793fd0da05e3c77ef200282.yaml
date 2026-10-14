@@ -1,0 +1,57 @@
+# Свидетельство держателя prod-newman-e2e — изменение issue-1266.
+#
+# Снято с УЖЕ исполненного прогона конвейера запроса эпика на голове линии из
+# `change.yaml`; новый прогон не запускался. Отпечатки ниже пересчитываются
+# командами поля `remeasure` (журнал задания скачивается заново тем же `gh`).
+schema_version: 1
+change_id: issue-1266
+holder: prod-newman-e2e
+kind: machine
+owner: integration-tester
+evidence_coordinate: evidence/prod-newman-e2e/
+executable: '.github/workflows/e2e-newman.yml на запросе эпика kacho#3158'
+predicate: 'второй эшелон — сквозные пробы края по развёрнутому, отдельно от unit/integration (`00-kacho-core.md#ban12-second-echelon`)'
+
+subject: 'PRO-Robotech/kacho@bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 (content_digest)'
+subject_sha256: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282   # git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
+subject_revision: 4c7ab49db8abca54493836cff4da44774e0f6b90
+pull_request: PRO-Robotech/kacho#3158   # open, ready, headRefOid = subject_revision (gh pr view, 2026-10-14)
+checked_out_revision: 49d9edb1a660de4fa63baf1b40f1fc0696d83b20   # слияние запроса: родители bac26316 4c7ab49d (gh api commits/<sha>)
+
+run:
+  workflow: 'e2e-newman'
+  database_id: 38489556208
+  event: pull_request
+  head_sha: 4c7ab49db8abca54493836cff4da44774e0f6b90
+  status: completed
+  conclusion: success
+
+# ── снятое ─────────────────────────────────────────────────────────────────
+captured_category: GREEN
+result: 'шардов 4 из 4; коллекций 68 из 68 в дереве; запросов 8222, утверждений 15487, упавших 0, без ответа 0, упавших скриптов 0, пустых отчётов 0'
+input_sha256: 146fe0e7ed02f859ab9b49c597cde6bc6fd824d748b67a7ebe8873e4c74bf0d7   # printf '%s' 'PRO-Robotech/kacho@4c7ab49db8abca54493836cff4da44774e0f6b90 run 38489556208' | sha256sum
+output_sha256: 319970d4ba12383962173986ac15adc5d8802730d0a78c4580fd40f9a5f408a8   # gh run view 38489556208 -R PRO-Robotech/kacho --json jobs -q '[.jobs[] | {name, conclusion}] | sort_by(.name)' | sha256sum
+stdout_digest: 3c728c14314073981cef45a7a49ad69d3f2daf6a4d88d45ee9bab0ae8c4efc08   # gh run view 38489556208 -R PRO-Robotech/kacho --log | sha256sum
+stderr_digest: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855   # stderr той же команды — пуст
+verdict_excerpt_sha256: 8c72dc335ae3cff6e384b342d2771cdb784d400712e5ebc6508a243a38784300
+verdict_excerpt: |
+  **ИСХОД: ЗЕЛЁНЫЙ** — всё дерево судилось, падений нет
+
+  шардов отчиталось **4 из 4**; коллекций **68 из 68** в дереве
+
+  | шард | суиты | коллекций | запросов | утверждений | УПАЛО | без ответа | скрипт упал |
+  |---|---|---:|---:|---:|---:|---:|---:|
+  | `vpc` | vpc | 21/21 | 4205 | 7819 | **0** | 0 | 0 |
+  | `nlb` | nlb | 10/10 | 1923 | 3217 | **0** | 0 | 0 |
+  | `compute-storage` | compute storage | 17/17 | 1483 | 2798 | **0** | 0 | 0 |
+  | `edge` | geo registry api-gateway | 20/20 | 611 | 1653 | **0** | 0 | 0 |
+
+  **ИТОГО**: запросов 8222, утверждений 15487, упавших 0, без ответа 0, упавших скриптов 0, пустых отчётов 0.
+
+  OK: исход «ЗЕЛЁНЫЙ» — все 4 шардов отчитались, 68 коллекций из 68, упавших 0.
+provenance: >-
+  стенд каждого шарда — kind в посадке production-strict (auth_mode=production-strict, public_mtls=true, sslmode=require, ES256); образы платформы собраны из 49d9edb1 (слияние 4c7ab49d в bac26316), служба доступа — пин kaname:296-3d5b02ed; 3d5b02ed предок 68d24ae6, разница — 4 файла (2 документа приёмки, 2 записи, 1 тестовый файл internal/check/*_test.go), прод-кода службы в ней нет. Перепись коллекций вторым предикатом — `git ls-tree -r --name-only 4c7ab49d | grep -E 'tests/newman/.*collections/.*\.json$' | grep -vc environment` = 68.
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отпечаток журнала — от
+# скачивания 2026-10-14; журнал задания на стороне конвейера неизменен, его
+# снятие хранилищем дало бы NOT_EXECUTED, а не GREEN.
