@@ -1,0 +1,199 @@
+# Пересверка классов на замысел — роль class-exposure-analyst — изменение kn-296.
+#
+# Имя файла — отпечаток НАБОРА замыслов линии (change.yaml design_set_predicate)
+# на паре база 8a84dcff · голова e6126d19 (ветка 785 на origin: голова эпика
+# 68d24ae6 и два коммита замыслов поверх неё). Набор — два документа.
+#
+# Режим — по ДЕЛЬТЕ (fa-b1-reanalysis-delta-only) к последней разобранной
+# редакции: revalidation/00278b29….yaml (CHANGES_REQUESTED, возврат — §6а Р-2
+# замысла Ф13). Судится только дельта edf8c641..e6126d19; прежняя запись не
+# правится — она о своём отпечатке.
+#
+# Запись в публичном дереве: предмет, решение и следствие для контракта — да,
+# сборки «координата + условие + следствие» — нет (security-disclosure.md).
+schema_version: 1
+change_id: kn-296
+holder: human-class-exposure-revalidation
+owner: class-exposure-analyst
+reviewer_role: class-exposure-analyst
+mode: revalidation
+# Словарь вердикта — закрытый словарь гейта контура: APPROVED | CHANGES_REQUESTED.
+verdict: APPROVED
+
+subject:
+  repo: PRO-Robotech/kaname
+  kind: design_set
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  revision: e6126d19fe353c3a20dc1dd801c3d4d79512a754   # origin/785 (git ls-remote 2026-10-14); origin/296 = 68d24ae6, вливания ещё нет
+  sha256: 3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b
+  predicate: >-
+    git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head>
+    -- 'docs/engineering/acceptance/*-design.md')
+    | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  documents:
+    - path: docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md
+      blob: 32c7682765fcaadcc8c0bdfec53a21a9da918674   # тот же blob, что на edf8c641 — документ дельтой не тронут
+      maps: 83 пункта 26 приёмок
+    - path: docs/engineering/acceptance/passwordless-login-with-access-key-design.md
+      blob: bfdc5ec9471ad9709364f0b02e203d8975548c0c   # редакция 3; на edf8c641 — 09283d2f…
+      maps: 15 пунктов F13-*
+  previous_revalidated:
+    record: docs/changes/kn-296/reviews/class-exposure/revalidation/00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48.yaml
+    revision: edf8c641356c1b5b4bc82f5d9add4e3b22d4dad1
+    sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+    verdict: CHANGES_REQUESTED
+  delta: >-
+    git diff --stat edf8c641 e6126d19 → 1 файл (замысел Ф13), +8 −3: строка
+    истории «редакция 3», ячейка механизма §1 D9, строки §6а Р-2 и Р-3.
+    git diff --name-only 68d24ae6 e6126d19 -- '*.go' '*.sql' '*.proto' deploy → 0:
+    кода дельта не несёт.
+  manifest_note: >-
+    change.yaml несёт design_sha256 efa1b3d0… и design_set из одного пути на
+    68d24ae6. Дифф с тремя точками зависит только от дерева головы и merge-base;
+    после вливания 785→296 без иной правки замыслов предикат на origin/296 даст
+    3f346ce4…; иначе запись недействительна и нужен новый запуск.
+initial_record: docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml
+initial_items_count: 98
+
+revisions:
+  kaname_design: e6126d19fe353c3a20dc1dd801c3d4d79512a754
+  kaname_code: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  workspace: f61daab77b6cccd682978ec8bf9e5c9502f4dbf2
+
+anchor:
+  f13_design_names_acceptance_sha256: 5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4
+  f13_acceptance_on_head_sha256: 5fe6cca1aea606f96b2f24174a8f45411291f69250e6fb268b3274fd17a58af4   # git show e6126d19:<приёмка Ф13> | sha256sum
+  map_design_anchors: '26 из 26 — документ замысла линии тот же blob, набор приёмок не сдвинулся'
+  acceptance_set_on_design_head: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175   # acceptance_set_predicate на 8a84dcff...e6126d19
+  stale: false
+
+return_resolution:
+  item: '§6а Р-2 замысла Ф13 (F13-D9) — утверждение о дереве, опровергнутое пересверкой 00278b29…'
+  order_parts:
+    - part: 'снять Р-2 как опровергнутое либо заменить строкой «совпадает» с командой'
+      state: done
+      check: >-
+        строка §6а помечена «~~Р-2~~ снято», ячейка «что на голове» — «совпадает» с
+        обоснованием; команды строки перемерены @68d24ae6 — `func GuaranteedLevels`
+        → level.go:279, `KeyAssertion(false, true)` → :329, `GuaranteedLevels(enrolled)`
+        → completed_login.go:175; названное :173 — объявление loginCompletedToEnrolledLevel,
+        вызывающего правило; чтение таблицы rows (level.go:221…234): «3» — только
+        ключ с проверкой пользователя без резервного копирования, худшее
+        предъявление его не даёт ни в одном сочетании — утверждение строки верно
+    - part: 'убрать отсылку к Р-2 из §1 D9'
+      state: done
+      check: 'ячейка механизма D9 — «с Р9 совпадает … §6а, строка «снято»»; слова «расхождение с текстом Р9» в документе 0'
+    - part: 'убрать отсылку к Р-2 из строки F13-D9 §1а'
+      state: vacuous
+      check: 'строка F13-D9 §1а на edf8c641 и на e6126d19 одинакова и Р-2 не называла — правки не требовалось'
+    - part: 'в Р-3 дописать, что чтение строки пароля на исход не влияет и снимается кодом'
+      state: done
+      check: 'ячейка Р-3 дописана; задача — к исполнителю кода, не к Ф13 Р6 и не к Ф3 Р10'
+    - part: 'строку истории дописать'
+      state: done
+      check: 'строка «редакция 3» в шапке называет правку после объявления состояния и основание'
+  residual_r2_mentions: 'git show e6126d19:<замысел Ф13> | grep -c "Р-2" → 2 строки: история и снятая строка §6а; живых отсылок 0'
+  resolved: true
+
+mapping:
+  measured_by: >-
+    по дельте: id строк §1а замысла Ф13 (`^| F13-…|`) на edf8c641 и e6126d19 —
+    15 и 15, diff пусто; имена Test* замысла Ф13 на обеих ревизиях — diff пусто;
+    документ замысла линии — тот же blob 32c76827 (diff edf8c641 e6126d19 по
+    нему — 0 строк). Полное отображение 98 из 98 измерено прежней пересверкой
+    на edf8c641 и дельтой не затронуто.
+  mapped: 98
+  unmapped: 0
+  moved_outside_return: 0
+  without_mechanism_on_head: 2      # AK-5 и F13-N3 — одно решение (Ф7 Р12), Р-1, без изменений
+
+numbers:
+  - claim: набор замыслов — 2 документа, отпечаток 3f346ce4…
+    measured: design_set_predicate @8a84dcff...e6126d19 (merge-base = 8a84dcff), единица — путь
+    result: 2 пути, 3f346ce4…; тот же предикат на edf8c641 — 00278b29… (контроль, совпало с прежней записью)
+  - claim: дельта к прежней редакции — только замысел Ф13
+    measured: git diff --stat edf8c641 e6126d19
+    result: 1 файл, +8 −3
+  - claim: набор приёмок не сдвинулся
+    measured: acceptance_set_predicate @8a84dcff...e6126d19
+    result: e47cb0e4… — равен первичному разбору
+  - claim: content_digest пары с новой головой — 7729990b… (соседние записи r3)
+    measured: git diff --full-index 8a84dcff...e6126d19 | sha256sum
+    result: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+
+exposure_delta:   # change-graph.md §4 — новые решения дельты
+  new_external_call: нет
+  new_async_path: нет
+  new_sentinel: нет
+  new_mechanism: нет — дельта снимает утверждение и уточняет текст (fa-b3-last-design-pass-maps-only)
+
+held_by_attention:   # без изменений против 00278b29…
+  - {item: AK-5 / F13-N3, why: 'механизма и держателя нет — Р-1; к коду'}
+  - {item: F13-D5-D6 (Р-3), why: 'чтение строки пароля полосой ключа — к коду; проба запрета чтения не названа'}
+  - {item: L2-ALL (П-1), why: 'перечень охраняемых глаголов закрыт рукой'}
+  - {item: EC-ALL (П-2), why: 'клетки «код ожидает» проба не различает'}
+  - {item: EC-ALL (П-3), why: 'пробы NotContains(журнал, адрес) нет'}
+
+not_measurable:
+  - 'Исход названных проб не прогонялся: проверено их существование, а не зелёность — у пост-дифф ролей и конвейера.'
+  - 'Неразличимость по времени (F13-D7, F3-4, F4-3, F5-4) — свойство прогона.'
+
+prohibitions:
+  unmapped_item: not_found          # 0 из 98
+  deferral_marker: not_found        # TODO|TBD|FIXME|«потом» в замысле Ф13 @e6126d19 — 0
+  open_question: not_found
+  stale_anchor: not_found           # 5fe6cca1… = голова; набор приёмок e47cb0e4…
+  refuted_tree_claim: not_found     # Р-2 снято; новые утверждения дельты перемерены — совпали
+
+outcome: к-коду
+outcome_reason: >-
+  Возврат снят: опровергнутое утверждение §6а Р-2 заменено верным с командой,
+  отсылка из D9 приведена, Р-3 уточнено. Дельта затрагивает один документ и
+  только тексты строк D9, Р-2, Р-3 и истории; 98 пунктов отображены, неотображённых
+  0, запретов §4 нет — одобрение замысла не запрещено. Остаются задачи к коду,
+  названные прежней записью (Р-1, Р-3, П-1…П-3); они не возвращают замысел.
+return_to_acceptance: []
+orders:
+  - 'go-implementer (kaname) · Р-1: признак обнаружимости тремя состояниями и страж последнего способа по годным; держатели Ф7-56, Ф7-57 · access-keys-are-ours Р12; rule-testing «Гейт на класс…» п. 1'
+  - 'go-implementer (kaname) · Р-3: полоса ключа не читает строку пароля при решении об обнулении · Ф13 Р6, инв. 8'
+  - 'go-implementer (kaname) · П-1…П-3 · записи разбора пары 41723d6b…+9dc900c9…'
+  - 'git-operator · влить 785→296; затем перемерить design_set_predicate на origin/296 — ожидается 3f346ce4… · change-graph.md §3'
+  - 'ведение пакета · change.yaml: head_sha, hashes, design_sha256 3f346ce4…, design_set из 2 путей · поле remeasure'
+
+authority:
+  status: pending_publication
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.class-exposure-analyst
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname — известная
+    находка шапки change.yaml; полномочие роли читается из дома пакета.
+  publication_precondition: 'subject.revision e6126d19 опубликована на origin (ветка 785 — да, 2026-10-14)'
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: APPROVED
+    subject_digest: 3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b
+    declared_record_path: docs/changes/kn-296/reviews/class-exposure/revalidation/3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b.yaml
+    expected_body: |-
+      role: class-exposure-analyst
+      verdict: APPROVED
+      subject: PRO-Robotech/kaname:docs/engineering/acceptance/*-design.md (набор из 2 замыслов линии 8a84dcff...e6126d19, change.yaml design_set_predicate пакета kn-296)
+      subject_revision: e6126d19fe353c3a20dc1dd801c3d4d79512a754
+      subject_sha256: 3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b
+
+      ---
+
+      Событие полномочия к держателю human-class-exposure-revalidation пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/class-exposure/revalidation/3f346ce4d72185652f1e84fae9ca9b6a3cfd3d89e1efadbef114a17193f2244b.yaml`). Пересверка по дельте к набору 00278b29…: возврат снят, отображено 98 из 98 пунктов первичного разбора, неотображённых 0. Вердикт относится к набору с отпечатком выше, и только к нему.
+  event: null    # {database_id, node_id, url, actor, created_at, body_sha256} — после публикации
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: class-exposure-analyst
+  personal_review_by_publishing_actor_claimed: false

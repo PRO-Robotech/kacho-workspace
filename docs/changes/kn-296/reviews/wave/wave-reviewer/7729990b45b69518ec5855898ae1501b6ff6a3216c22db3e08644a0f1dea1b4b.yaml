@@ -1,0 +1,174 @@
+# Сверка волн: роль wave-reviewer, перенос вердикта на новый отпечаток пары пакета.
+#
+# Имя файла — content_digest пары 8a84dcff...e6126d19f (голова ветки 785 до вливания в 296).
+# Прежняя запись 5c7b9183… не правится, она судит свою пару. Эта запись судит дельту
+# 68d24ae6..e6126d19f: одна полоса (kaname#785, ветка 785), два коммита, два пути —
+# только замыслы `*-design.md`, кода нет.
+#
+# ПРОЕКЦИЯ ПАРЫ. На 2026-10-14T04:15Z origin/296 = 68d24ae6 (785 НЕ влита, PR из 785 нет).
+# 68d24ae6 — предок e6126d19f, поэтому вливание 785 → 296 (перемотка либо слияние без
+# других изменений) даёт голову с деревом e6126d19f и тем же отпечатком, пока origin/main =
+# 8a84dcff. Запись действует, только если перемер на новой голове origin/296 даёт
+# 7729990b…; иначе это отпечаток другой пары, и запись не переносится.
+# Запись лежит в копии пакетов и НЕ закоммичена: коммитит ведение пакетов.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/wave-reviewer
+owner: wave-reviewer
+reviewer_role: wave-reviewer
+round: 1
+previous_record: docs/changes/kn-296/reviews/wave/wave-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+subject: >-
+  Полоса 785 (kaname#785), голова e6126d19f, поверх 68d24ae6.
+  edf8c6413 — замыслы линии kn-296: замысел Ф13 под редакцию 9 приёмки и новый замысел
+  отображения 26 приёмок набора в механизм и держатель.
+  e6126d19f — замысел Ф13 ред. 3: снята опровергнутая строка Р-2, уточнена Р-3.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: e6126d19fe353c3a20dc1dd801c3d4d79512a754     # git rev-parse origin/785 после fetch, 2026-10-14; origin/296 = 68d24ae6
+  head_is_projected: true                              # git merge-base --is-ancestor e6126d19f origin/296 → 1 (не влита)
+  previous_head_is_ancestor: true                      # git merge-base --is-ancestor 68d24ae66 e6126d19f → 0
+  merge_base_equals_base: true                         # origin/main = 8a84dcff
+  judged_delta: {from: 68d24ae66fe4530dcccebf36f82ad70f1c976eae, to: e6126d19fe353c3a20dc1dd801c3d4d79512a754}
+  waves:
+    - pr: —                                            # gh pr list --head 785 --state all → []
+      lane: '785'
+      lane_head: e6126d19fe353c3a20dc1dd801c3d4d79512a754
+      merged_as: —
+      files: 2
+      area: >-
+        docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md (A),
+        docs/engineering/acceptance/passwordless-login-with-access-key-design.md (M)
+
+content_digest: sha256:7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...e6126d19fe353c3a20dc1dd801c3d4d79512a754 | sha256sum
+digest_remeasured: true    # совпал с замером scout @2026-10-14T04:14Z; контроль на 68d24ae6 → 5c7b9183…, равен прежней записи
+
+verdict: accepted          # ✅ принято по полосе 785; прежние полосы 778, 780, 782 — перенос (ниже)
+blocks_landing: false
+timestamp: '2026-10-14T04:15:59Z'
+expected_actor: pointpu
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.wave-reviewer
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname — известная находка
+    шапки change.yaml; полномочие роли читается из дома пакета, как в прежней записи.
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: ACCEPTED
+    subject_digest: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+    declared_record_path: docs/changes/kn-296/reviews/wave/wave-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+event:
+  type: issue_comment
+  status: expected          # не опубликовано; публикация — после перемера отпечатка на влитой голове origin/296
+  published: false
+  repo: PRO-Robotech/kaname
+  issue: 296
+  expected_body: >-
+    wave-reviewer · ACCEPTED · docs/changes/kn-296/reviews/wave/wave-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml · digest 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+  expected_body_is_single_machine_line: true
+  expected_body_form_from: issuecomment-6158840939   # тело прежнего события роли, прочитано GET
+  declared_verdict: ACCEPTED
+  declared_content_digest: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+  declared_record_path: docs/changes/kn-296/reviews/wave/wave-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  precondition: >-
+    git -C project/kaname diff --full-index "$(git rev-parse origin/main)"...origin/296 | sha256sum
+    → 7729990b…; иначе событие не публикуется
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: wave-reviewer
+  personal_review_by_publishing_actor_claimed: false
+
+lanes:
+  - 'полоса 785 · принято · координата docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md:279 (Р-1), docs/engineering/acceptance/passwordless-login-with-access-key-design.md:284 (Р-1) · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R2, R3, R4, R5'
+  - 'полосы 778, 780, 782 · перенос вердикта «принято» записи 5c7b9183… · дельта не трогает ни одного их пути · чем доказано: R2'
+
+collisions_searched:
+  two_solutions_of_one_task:
+    found: 0
+    detail: >-
+      Два замысла делят набор без пересечения: отображение линии называет 26 приёмок,
+      исключая Ф13 (own-identity…-design.md:13), пункты F13-* (15 различных) отображает
+      только замысел Ф13; в отображении линии F13-* встречается дважды — шапка (:13) и
+      ссылка на F13-N3 в Р-1 (:279). 83 + 15 = 98 = пунктов первичного разбора.
+  two_names_of_one_subject:
+    found: 0
+    detail: >-
+      Расхождение «признак обнаружимости не хранится» оба замысла называют ОДНИМ именем Р-1
+      с одним решением (Ф7 Р12), одними координатами кода (миграция :74, access_key_repo.go:50,
+      finish_registration.go:144, revoke.go:227) и одним предикатом (discoverab → 0, перемерено
+      на e6126d19f → 0). Р-3 есть только у замысла Ф13; ссылок на снятую Р-2 в отображении
+      линии ноль (grep 'Р-[2-9]' → 0).
+  expectations:
+    found: 0
+    detail: >-
+      Опора замысла Ф13 — приёмка ред. 9, отпечаток 5fe6cca1… (перемерено на 68d24ae6 →
+      5fe6cca1…); приёмка дельтой не тронута. Опора отображения — набор e47cb0e4… (27);
+      acceptance-набор на новой паре тот же e47cb0e4… (замер scout), то есть дельта не
+      сдвинула ни одной опоры.
+  layouts:
+    found: 0
+    detail: 'кода в дельте нет: git diff --stat 68d24ae6 e6126d19f -- ":!docs/engineering/acceptance/*-design.md" → пусто'
+  addition_into_removed:
+    found: 0
+    detail: 'git diff --name-status 68d24ae6 e6126d19f → A 1, M 1, D 0'
+  removed_subject_ledger_unaware:
+    found: 0
+    detail: >-
+      Предметы не сняты. design_set пакета вырастает с 1 до 2 путей — это поле change.yaml,
+      не ведомость в дереве продукта; обновление — ведение пакета.
+  shared_paths: 'полоса одна; с полосами прежних волн общих путей 0'
+  cross_repo:
+    detail: >-
+      Пин kacho на kaname 3d5b02ed несёт весь код линии и на новой голове: дельта
+      68d24ae6..e6126d19f — только документы, прод-кода и образа не меняет.
+
+merge_integrity:
+  remerge_diff_lines: —      # слияний в дельте нет (git log 68d24ae6..e6126d19f — 2 коммита без слияний)
+  assembly_edits: none
+
+runs:
+  - 'R1 git diff --full-index 8a84dcff…e6126d19f | sha256sum → 7729990b…1b4b; контроль 8a84dcff…68d24ae6 → 5c7b9183…0e06, равен прежней записи и change.yaml'
+  - 'R2 git diff --name-status 68d24ae66 e6126d19f → 2 пути, оба *-design.md; +530/−255; путей прежних полос (email_change.go, email_change_repo.go, password-verifier-follows-the-stored-value.md, history_question_vertex_test.go) в дельте 0'
+  - 'R3 координаты кода отображения линии: 74 различных путь[:строка] под internal|cmd|pkg; на 68d24ae6 файл есть и строка в пределах длины у 74 из 74'
+  - 'R4 ссылки на документы: 26 приёмок набора, названных отображением, на 68d24ae6 есть; не найдено в дереве продукта 4 имени — change-graph.md, flow-acceleration.md, security-disclosure.md (правила воркспейса, внешняя ссылка) и сам документ (добавлен дельтой)'
+  - 'R5 git show 68d24ae66:docs/engineering/acceptance/passwordless-login-with-access-key.md | sha256sum → 5fe6cca1…, равен шапке замысла Ф13'
+  - 'CI на e6126d19f не прогонялся (PR нет); дельта — документы, вердикт роли от прогона не зависит'
+
+lanes_without_verdict: —
+reports_wider_than_done: —
+
+form_not_blocking:
+  - 'замысел Ф13 ред. 3 правлен после объявления состояния без смены строки «Статус» — так и записано в его истории редакций (:31-35); вердикта у замысла нет, ложного утверждения нет'
+  - 'Р-1 (оба замысла): код не держит Ф7 Р12 — расхождение ДО дельты, дельта его называет, а не вносит; блок по нему — у class-exposure-analyst и полосы реализации, не у сверки волн'
+
+examined:
+  diffs: 2               # 2 коммита полосы 785 (edf8c6413, e6126d19f)
+  lines: 873             # git diff 68d24ae66 e6126d19f | wc -l
+  lines_outside_docs: 0
+  read_line_by_line: >-
+    шапки обоих замыслов, история редакций замысла Ф13, строки Р-* §6а обоих,
+    строки с F13-* отображения линии
+
+next:
+  - 'git-operator — влить 785 → 296; затем перемер отпечатка на новой голове origin/296 (ожидается 7729990b…)'
+  - 'держатель human-wave — событие роли актора pointpu с телом expected_body после совпадения перемера; поле event этой записи заполняется тем же заходом'

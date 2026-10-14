@@ -1,0 +1,98 @@
+# Пост-дифф ревью формы контрактов, роль proto-api-reviewer. Пакет kn-296.
+#
+# Имя файла в пакете — content_digest пары линии kaname 8a84dcff...e6126d19
+# (голова 785, она станет головой 296 после вливания 785→296). Запись новая.
+# Прежняя запись роли (5c7b9183…, голова 68d24ae6) не правится. Режим «агрегат»:
+# судится только ДЕЛЬТА 68d24ae6..e6126d19, остальную линию покрывает прежний ✅.
+# Место в пакете: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+schema_version: 1
+change_id: kn-296
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+round: 1
+subject: >-
+  kaname#296, голова e6126d19 (ветка 785, потомок 68d24ae6). Дельта от прежнего
+  вердикта роли — 2 пути, только замыслы: A own-identity-line-maps-its-decisions-to-code-design.md,
+  M passwordless-login-with-access-key-design.md. Контракт, стабы и каталог прав
+  дельта не трогает.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '785'                                      # вливается в 296; origin/296 пока 68d24ae6
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6     # origin/main = merge-base, перемерено после fetch
+  head: e6126d19fe353c3a20dc1dd801c3d4d79512a754     # origin/785 @2026-10-14T04:15Z
+  previous_verdict_head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  previous_verdict_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+  pr: https://github.com/PRO-Robotech/kaname/pull/714
+content_digest: sha256:7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+digest_definition: 'git -C project/kaname diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...e6126d19fe353c3a20dc1dd801c3d4d79512a754 | sha256sum'
+subject_preflight:
+  digest: 'Перемерено после fetch: 7729990b…1b4b, совпадает с замером scout. Контроль: на 68d24ae6 та же команда даёт 5c7b9183…0e06, это прежняя запись.'
+  head_on_origin: 'git ls-remote --heads origin 296 785 main → 68d24ae6, e6126d19, 8a84dcff.'
+  ancestry: 'git merge-base --is-ancestor 68d24ae6 e6126d19 → 0.'
+  committed: 'Да. Судилось дерево коммита (detached worktree @e6126d19, снят после прогона). После прогонов git status --porcelain → 0.'
+  merge_pending: 'Голова 296 ещё не сдвинута. Вливание 785→296 по быстрой перемотке даёт тот же дайджест. Сливающий коммит даст другой, тогда нужны перемер и новая запись.'
+
+proto_files_touched: 25          # git diff --name-only 8a84dcff...e6126d19 | grep -c '\.proto$'
+proto_files_touched_in_delta: 0  # git diff --name-only 68d24ae6 e6126d19 -- '*.proto' 'proto/**' 'pkg/api/**' '*permission_catalog*' '*declared-breaks*' → 0 путей
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+return_to: null
+timestamp: '2026-10-14T04:15:26Z'
+
+checks:
+  - command: 'git diff --name-only 68d24ae6 e6126d19 -- "*.proto" "proto/**" "pkg/api/**" "*permission_catalog*" "*declared-breaks*"'
+    exit_code: 0
+    outcome: green           # 0 путей: предмет роли дельтой не затронут
+  - command: 'buf lint   (cwd proto/ @e6126d19)'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kaname/.git#ref=68d24ae66fe4530dcccebf36f82ad70f1c976eae,subdir=proto"'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kaname/.git#ref=8a84dcff6eb1ccde68113353ba28d1e1e399f0e6,subdir=proto"'
+    exit_code: 0
+    outcome: green
+checks_summary: 'зелёных 4 · красных 0 · не выполнилось 0'
+
+findings:
+  critical: []
+  important: []
+
+approved:
+  - 'Дельта 68d24ae6..e6126d19 — два документа замысла. proto/, pkg/api/, каталог прав и declared-breaks она не трогает. Вердикт прежней записи (5c7b9183…) по форме контракта переносится на эту пару без изменений.'
+  - 'Контракт на голове e6126d19 совместим и с прежней головой вердикта, и с main: buf breaking против обоих — код 0.'
+
+next_requested: >-
+  сбор пост-дифф записей: convergence-reviewer (пакет kn-296) на дайджест 7729990b…1b4b.
+  Если 785 вольётся в 296 сливающим коммитом, нужен перемер дайджеста на новой голове 296
+  и новая запись этой роли.
+
+# Полномочие. Запись агента-роли сама полномочия не даёт: его даёт внешнее
+# событие актора из docs/changes/policy.yaml (review_authority.proto-api-reviewer).
+# Событие на этот отпечаток ещё не опубликовано. После публикации блок event
+# дописывается к факту, прежние строки не переписываются.
+authority:
+  status: pending_publication
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.proto-api-reviewer
+    authorized_actors: [pointpu]
+    allowlisted_for_role: true
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    target: PRO-Robotech/kaname#296
+    declared_verdict: ACCEPTED
+    declared_content_digest: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+    expected_body: 'proto-api-reviewer · ACCEPTED · docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml · digest 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b'
+    expected_body_sha256: c52daca2afd7b50fd3b231d42b6dfc0df653350a99a2a4b9842d14efd2bf03e7
+    body_is_single_machine_line: true
+  event: null
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: proto-api-reviewer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

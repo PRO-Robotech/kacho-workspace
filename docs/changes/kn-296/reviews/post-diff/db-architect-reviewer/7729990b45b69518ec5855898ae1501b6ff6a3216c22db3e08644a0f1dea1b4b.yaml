@@ -1,0 +1,153 @@
+# Пост-дифф ревью СХЕМЫ И МИГРАЦИЙ — роль db-architect-reviewer.
+#
+# Имя файла — content_digest пары base...head пакета. Прежние записи не
+# правятся; дайджест сменился — новый запуск и новый файл (change-graph §2).
+#
+# Режим «агрегат», проверка дельты: прежний вердикт роли — ✅ на 5c7b9183
+# (reviews/post-diff/db-architect-reviewer/5c7b9183….yaml, голова 68d24ae6).
+# Судится дельта 68d24ae6..e6126d19 в предмете роли. Дельта — два документа
+# замысла (`*-design.md`), кода, SQL и миграций нет; вердикт переносится.
+#
+# ГОЛОВА ЕЩЁ НЕ В ЛИНИИ. На 2026-10-14T04:15Z origin/296 = 68d24ae6 (не
+# сдвинулась); голова e6126d19 — ветка 785, потомок 68d24ae6
+# (merge-base --is-ancestor → 0). Вливание потомка в предка даёт то же дерево,
+# поэтому дайджест сливающего коммита обязан совпасть с 7729990b; запись
+# действительна для головы origin/296 только после перемера её дайджеста —
+# расхождение означает другое содержимое и новый запуск роли.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+subject: >-
+  Дельта 68d24ae6..e6126d19 линии эпика kaname#296: A
+  docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md,
+  M docs/engineering/acceptance/passwordless-login-with-access-key-design.md
+  (+530 −255). Предмета роли (схема, миграции, repo-SQL, отображение кодов
+  базы) дельта не меняет; судится только правдивость утверждений замыслов о
+  механизмах базы.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: e6126d19fe353c3a20dc1dd801c3d4d79512a754   # origin/785; кандидат головы 296
+  head_source_branch: '785'
+  head_equals_origin_296: false      # git ls-remote --heads origin 296 → 68d24ae6 @2026-10-14T04:15Z
+  merge_base_equals_base: true       # git merge-base 8a84dcff e6126d19 → 8a84dcff
+  previous_head_is_ancestor: true    # git merge-base --is-ancestor 68d24ae6 e6126d19 → 0
+  paths_in_diff: 2051                # git diff --name-only 8a84dcff...e6126d19 | wc -l
+  reviewed_delta:
+    from: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # голова прежнего вердикта роли (✅)
+    to: e6126d19fe353c3a20dc1dd801c3d4d79512a754
+    commits: 2                       # git rev-list --count 68d24ae6..e6126d19
+    paths: 2                         # git diff --name-status 68d24ae6 e6126d19 → A 1, M 1
+    sql_go_proto_paths_changed: 0    # git diff --name-only 68d24ae6 e6126d19 -- '*.sql' internal/migrations internal/repo '*.go' '*.proto' | wc -l
+    migrations_changed: 0
+
+content_digest: sha256:7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...e6126d19fe353c3a20dc1dd801c3d4d79512a754 | sha256sum
+digest_remeasured: true   # совпал с перемером scout 2026-10-14T04:14Z (7729990b…)
+previous_digest_remeasured: true   # 8a84dcff...68d24ae6 → 5c7b9183… (совпал с прошлой записью)
+
+migrations_touched: 13    # git diff --name-status 8a84dcff...e6126d19 -- 'internal/migrations/*.sql' → 13 × A, M/D/R = 0
+migrations_touched_in_reviewed_delta: 0
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+verdict_carried_from: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+timestamp: '2026-10-14T04:15:36Z'
+reviewer_role: db-architect-reviewer
+expected_actor: pointpu
+distributed_surface: false   # дельта распределённых свойств не касается
+return_to: '—  (находок нет)'
+
+axes:
+  carried_verdict:
+    status: closed
+    note: >-
+      Все оси прежней записи (инвариант на уровне базы, замок и изоляция,
+      классификация отказа, откат на отказе, проба с конкурирующими
+      транзакциями, гигиена миграций, межсервисные ключи) судили код и SQL,
+      которых дельта не касается: 0 путей кода, SQL и миграций. Вердикт ✅
+      переносится без перепроверки осей.
+  design_claims_truthfulness:
+    status: closed
+    note: >-
+      Выборочно сверены координаты замыслов, называющие механизм базы, против
+      дерева e6126d19 (16 координат, все совпали): access_key_login_challenges
+      20261005032942:52, частичный уникальный индекс живого испытания :74
+      (замысел D2 «повторный begin замещает строку арбитром частичного ключа
+      уникальности» — то же, что исполненный возврат DB-296-T1);
+      user_ceremony_handles 20261003212856:51, FK каскадом :57, UNIQUE :58,
+      CHECK octet_length=64 :62; IssueChallenge access_key_login_repo.go:60,
+      ConsumeChallenge :84; users_active_has_a_way_in_fk 20261005030000:108;
+      issued_account_ids 20261002120000:111, PRIMARY KEY :113;
+      users_account_fk ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
+      20261011061435:90-91, issued_user_ids :123; CHECK формы ak- и триггер
+      счёта 20260917221000:87, :118; операторы email_change_repo.go:98, :128,
+      :212 и verification_code_repo.go:143. Утверждение «применённые миграции
+      не правились» верно: 13 × A, M = 0 по всей линии.
+  migrations_hygiene:
+    status: closed
+    note: В дельте миграций нет; по линии 13 новых файлов, правок применённых нет.
+  cross_service_fk:
+    status: closed
+    note: Дельта ключей не вводит.
+
+critical_findings: []
+important_findings: []
+orders: []
+
+carried_from_previous_round:
+  - item: ЗАКАЗ — проба гонки монотонности уровня PresentInSession
+    status: open_record_only
+    note: не задача (не угрожает корректности головы); остаётся в записи ревью.
+  - item: ЗАКАЗ — проба гонки отложенного ключа users_active_has_a_way_in_fk
+    status: open_record_only
+    note: не задача; остаётся в записи ревью.
+
+overlaps:
+  system_design_review: нет
+  security_review: нет
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.db-architect-reviewer
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+
+# Событие роли НЕ опубликовано: запись агента полномочия не даёт. Ниже —
+# ОЖИДАЕМОЕ тело в форме прошлого события (kaname#296, comment 6158839763,
+# тело одной машинной строкой, sha256 без перевода строки). Блок дополняется
+# к факту (database_id, node_id, url, created_at) тем же заходом, что
+# публикация; публиковать — только после того, как origin/296 указывает на
+# голову с дайджестом 7729990b.
+event:
+  type: issue_comment
+  status: expected
+  published: false
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: null
+  node_id: null
+  url: null
+  actor: pointpu
+  role: db-architect-reviewer
+  created_at: null
+  body: 'db-architect-reviewer · ACCEPTED · docs/changes/kn-296/reviews/post-diff/db-architect-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml · digest 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b'
+  body_sha256: 01c342d60416cc9d90eb8b8c19996614cc20aeaed6d485df6becc272e1e34e73
+  body_is_single_machine_line: true
+  declared_verdict: ACCEPTED
+  declared_content_digest: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+  declared_record_path: docs/changes/kn-296/reviews/post-diff/db-architect-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false

@@ -1,0 +1,171 @@
+# Пост-дифф ревью РАСПРЕДЕЛЁННЫХ СВОЙСТВ — роль system-design-reviewer.
+#
+# Имя файла — content_digest пары 8a84dcff...e6126d19 (голова ветки полосы 785,
+# потомок 68d24ae6). Прежние записи не правятся; дайджест сменился — новый
+# запуск и новый файл (change-graph §2).
+#
+# Режим «агрегат»: судится ДЕЛЬТА 68d24ae6..e6126d19 от головы прежней записи
+# этой роли (5c7b9183…, ✅), а не вся линия эпика; отпечаток — полной пары.
+#
+# ДЕЙСТВИТЕЛЬНОСТЬ. На 2026-10-14T04:2xZ origin/296 = 68d24ae6: вливание 785→296
+# ещё не произошло. Дифф с тремя точками зависит только от дерева головы и
+# merge-base с main, поэтому запись переносится на голову origin/296 после
+# вливания, если её content_digest по той же команде равен 7729990b…. Иначе —
+# прогон недействителен и нужен новый запуск.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  Дельта к линии эпика kaname#296 — замыслы под приёмку ID-PW-1 ред. 9 (kaname#785):
+  новый замысел отображения решений линии в код
+  (own-identity-line-maps-its-decisions-to-code-design.md) и редакция 2 замысла
+  passwordless-login-with-access-key-design.md. Только документы, кода нет.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '785'               # до вливания в 296; после — перемерить на origin/296
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: e6126d19fe353c3a20dc1dd801c3d4d79512a754
+  reviewed_delta:
+    from: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # голова прежней записи роли
+    to: e6126d19fe353c3a20dc1dd801c3d4d79512a754
+    commits: 2             # git log --oneline 68d24ae6..e6126d19 | wc -l
+    files_changed: 2       # git diff --stat 68d24ae6 e6126d19
+    insertions: 530
+    deletions: 255
+    code_files: 0          # git diff --name-only 68d24ae6 e6126d19 -- '*.go' '*.sql' '*.proto' deploy charts | wc -l
+    probes_added: 0
+  head_descends_from_prior_head: true   # git merge-base --is-ancestor 68d24ae6 e6126d19 → 0
+  merge_base_equals_base: true          # git merge-base 8a84dcff e6126d19 → 8a84dcff
+  head_equals_origin_296: false         # git ls-remote --heads origin 296 → 68d24ae6 @2026-10-14
+
+content_digest: sha256:7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...e6126d19fe353c3a20dc1dd801c3d4d79512a754 | sha256sum
+digest_remeasured: true   # совпал с числом задания (scout 2026-10-14T04:14Z)
+prior_digest_remeasured: >-
+  8a84dcff...68d24ae6 → 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06,
+  равен имени прежней записи
+delta_digest: sha256:61697b5f069d7888403a35b6bfc02d981ee84f01f6a667ddf26039ce4550d4ca
+delta_digest_command: >-
+  git -C project/kaname diff --full-index 68d24ae66fe4530dcccebf36f82ad70f1c976eae..e6126d19fe353c3a20dc1dd801c3d4d79512a754 | sha256sum
+
+verdict: accepted            # ✅ принято — вердикт 5c7b9183 переносится
+blocks_landing: false
+timestamp: '2026-10-14T04:30:00Z'
+reviewer_role: system-design-reviewer
+expected_actor: pointpu
+distributed_surface: false
+distributed_surface_predicate: >-
+  Дельта состоит из двух файлов docs/engineering/acceptance/*-design.md, исполняемого
+  кода, миграций, контракта и чартов в ней нет. Распределённая поверхность
+  линии (5c7b9183) не изменилась.
+return_to: '—  (критических находок нет)'
+schema_intersection: нет — миграций и SQL в дельте нет.
+
+carried_verdict:
+  from_record: docs/changes/kn-296/reviews/post-diff/system-design-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+  carries: true
+  reason: >-
+    Код дерева e6126d19 совпадает с кодом 68d24ae6: дельта не трогает ни одного
+    исполняемого файла. Значит, оси, которые закрыла прежняя запись, судят тот же
+    код.
+
+axes:
+  atomicity_no_dual_write:
+    status: closed
+    note: >-
+      Кода нет. Замысел описывает одну транзакцию на выдачу сессии при входе
+      ключом и на снятие ключа с гашением прочих сессий. Сверено с деревом:
+      access_key_login.go:489 вызывает IssueSession на писателе транзакции,
+      access_keys/revoke.go:294 вызывает EndOtherSessions на том же писателе.
+  idempotency:
+    status: not_applicable
+    note: Новых мутаций нет.
+  atomic_and_optimistic_concurrency:
+    status: closed
+    note: >-
+      Кода нет. Ссылки замысла на условные операторы указывают на существующие
+      строки (verification_code_repo.go:143 presentVerificationCodeSQL). Требования
+      ослабить CAS или замок в замысле нет.
+  change_delivery_polling:
+    status: not_applicable
+    note: >-
+      Замысел прямо говорит: «нового асинхронного пути нет», событие идёт
+      существующей очередью аудита. Watch и стрима нет.
+  worker_coordination:
+    status: not_applicable
+    note: >-
+      Воркеров нет. Строку прежней редакции об однократности испытания между
+      репликами заменил указатель на таблицу в БД (20261005032942_*.sql). Свойство
+      в БД сохранено.
+  cross_service:
+    status: closed
+    note: >-
+      Оба замысла заявляют: «нового межсервисного ребра нет». Ребро kacho→kaname
+      (ретрансляция формы) существовало раньше, и направление его не меняется.
+      Это сходится с polyrepo.md §«Runtime cross-domain edges».
+  replica_state_isolation:
+    status: closed
+    note: Хранилище испытаний — в БД, не в памяти процесса (замысел, п. 2 §хранения).
+  edge:
+    status: not_applicable
+    note: >-
+      Две записи края (L7) — задача платформы kacho. В этом дереве их нет.
+  clean_architecture:
+    status: not_applicable
+    note: Кода нет.
+
+doc_truthfulness_spot_check:
+  inspected: 5        # access_key_login.go:489, :503; revoke.go:294; verification_code_repo.go:143; humansession/issue.go:77
+  matched: 5
+  migration_named_exists: true   # 20261008120000_access_key_revoke_ends_the_sessions_of_the_person.sql в ls-tree e6126d19
+
+critical_findings: []
+
+important_findings: []
+
+orders: []   # нет спорного пути и нет нового ребра
+
+next_requested: >-
+  git-operator — влить 785→296; затем перемерить content_digest на origin/296 той же
+  командой. При равенстве 7729990b… — convergence-reviewer собирает пост-дифф записи
+  пакета kn-296 на этом дайджесте.
+
+# ── полномочие ─────────────────────────────────────────────────────────────
+# Это запись агента-роли. Полномочия она не даёт, пока нет внешнего события
+# публикации вердикта (docs/changes/policy.yaml §2). Блок event дописывается к
+# факту тем же заходом, что событие; прежние строки при этом не правятся.
+authority:
+  status: pending_event
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.system-design-reviewer
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname. Это известная
+    находка из шапки change.yaml. Полномочие роли читается из дома пакета.
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: ACCEPTED
+    subject_digest: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/system-design-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml
+    # Тело — одна машинная строка без завершающего перевода строки, в форме
+    # события 6158840603 (его body_sha256 0ce53877… повторён этим способом счёта).
+    expected_body: >-
+      system-design-reviewer · ACCEPTED · docs/changes/kn-296/reviews/post-diff/system-design-reviewer/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml · digest 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b
+    expected_body_sha256: decbf1f95314389e1d70523090b1907b44fa6263063fb014263a334b50e8afb4
+    expected_body_sha256_command: printf %s "<expected_body>" | sha256sum
+  event:
+    type: issue_comment
+    status: not_performed
+    published: false
