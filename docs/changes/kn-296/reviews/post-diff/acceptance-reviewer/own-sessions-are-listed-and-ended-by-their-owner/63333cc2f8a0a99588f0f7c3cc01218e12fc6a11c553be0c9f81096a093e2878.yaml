@@ -96,16 +96,20 @@ effective_approval:
 
 event:
   type: issue_comment
-  status: not_performed
-  published: false
+  status: performed
+  published: true
   repo: PRO-Robotech/kaname
   issue: 634
-  database_id: null
-  url: null
-  actor: null
+  database_id: 6159260352
+  node_id: IC_kwDOUO26pM8AAAABbx7awA
+  url: 'https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6159260352'
+  actor: pointpu
+  author_association: MEMBER
   role: acceptance-reviewer
-  created_at: null
-  body_sha256: null
+  created_at: '2026-10-14T02:04:55Z'
+  body_sha256: 0894583f1211d47ef50f40d80bf8a0b0ba76abb29354987595bb3265d7aa8b28
+  body_reverified_by_second_get: true
+  published_by_role: git-operator
   declared_verdict: APPROVED
   subject_sha256: "63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878"
   subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
