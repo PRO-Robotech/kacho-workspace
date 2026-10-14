@@ -1,0 +1,193 @@
+# Сверка волн: роль wave-reviewer, задним числом, по составу ВЛИТЫХ сборок.
+#
+# Имя файла — content_digest пары base...head пакета (change.yaml
+# hashes.content_digest_sha256 @ws 003e10b50). Прежняя запись 746c6166… не правится,
+# она судит свою пару. Эта запись судит дельту 3066c7b6..68d24ae6: три запроса
+# kaname#779, #781, #783, каждый — волна из одной полосы. Предмет роли — то, что видно
+# только рядом: полосы дельты между собой, с полосами прежних волн (#747, #770) и с
+# пином линии kacho (kacho#3203 → 3d5b02ed). Отпечаток — по полной паре пакета.
+# Запись лежит в копии пакетов и НЕ закоммичена: коммитит ведение пакетов.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/wave-reviewer
+owner: wave-reviewer
+reviewer_role: wave-reviewer
+round: 1
+previous_record: docs/changes/kn-296/reviews/wave/wave-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+subject: >-
+  Три влитых запроса в ветку эпика 296 после 3066c7b6.
+  #779 (ветка 778, голова 3907788f2) — блоки event двух записей ревью приёмок.
+  #781 (ветка 780, голова 22e83a4f7) — «отличен от текущего» в операторе записи смены адреса.
+  #783 (ветка 782, голова 59eefd3b7) — приёмка ID-PW-1 ред. 8, записи ревью кругов 7 и 8,
+  ведомость vertexLedger гейта вершин.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae     # git rev-parse origin/296 после fetch, 2026-10-14
+  merge_base_equals_base: true                         # origin/main = 8a84dcff
+  judged_delta: {from: 3066c7b6a266f640b367a82df21996f022a9a039, to: 68d24ae66fe4530dcccebf36f82ad70f1c976eae}
+  waves:
+    - pr: https://github.com/PRO-Robotech/kaname/pull/779
+      lane: '778'
+      lane_head: 3907788f23956954fcf55ca684f3fac7f4be4444   # headRefOid
+      merged_as: 8ea2943c5a366b9f36996081a67c807fc3a2fd35   # ^1 = 3066c7b6a
+      files: 2
+      area: docs/specs/reviews/{own-account-and-identity-are-removed-in-order,unverified-address-passes-to-the-mailbox-owner}/
+    - pr: https://github.com/PRO-Robotech/kaname/pull/781
+      lane: '780'
+      lane_head: 22e83a4f7b0526346feb622f37408a663c65d16c
+      merged_as: 3d5b02ede3aabecec317b1eefd52179cce3e91e8   # ^1 = 8ea2943c5
+      files: 4
+      area: humansession/email_change.go, pg/email_change_repo.go, проба use-case, интеграционная проба
+    - pr: https://github.com/PRO-Robotech/kaname/pull/783
+      lane: '782'
+      lane_head: 59eefd3b70c402acace9d985285e3473d54b3f73
+      merged_as: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # ^1 = 3d5b02ede
+      files: 4
+      area: приёмка password-verifier-follows-the-stored-value.md, две записи ревью, internal/check/history_question_vertex_test.go
+
+content_digest: sha256:5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+digest_remeasured: true    # совпал с change.yaml hashes.content_digest_sha256
+
+verdict: accepted          # ✅ принято по каждой полосе (ниже)
+blocks_landing: false
+timestamp: '2026-10-14T01:25:41Z'
+expected_actor: pointpu
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.wave-reviewer
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname — известная находка
+    шапки change.yaml; полномочие роли читается из дома пакета, как в прежней записи.
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: ACCEPTED
+    subject_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/wave/wave-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: 6158840939
+  node_id: IC_kwDOUO26pM8AAAABbxh0aw
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6158840939'
+  actor: pointpu
+  author_association: MEMBER
+  role: wave-reviewer
+  created_at: '2026-10-14T01:29:11Z'
+  body_sha256: a184644ae805b07a0f47a69f7b64a30fc9f2237e09c0abea17f868c9d05aad2b
+  body_reverified_by_second_get: true
+  body_is_single_machine_line: true
+  declared_verdict: ACCEPTED
+  declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+  declared_record_path: docs/changes/kn-296/reviews/wave/wave-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: wave-reviewer
+  personal_review_by_publishing_actor_claimed: false
+
+lanes:
+  - 'полоса 778 · принято · координата docs/specs/reviews/unverified-address-passes-to-the-mailbox-owner/79e0f15a….yaml (блок event) · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R2, R5 (отпечаток приёмки на 68d24ae6 = 79e0f15ac71d9125…, тот же, на который ссылается ред. 8 ID-PW-1)'
+  - 'полоса 780 · принято · координата internal/repo/kaname/pg/email_change_repo.go:100-108, internal/apps/kaname/api/humansession/email_change.go:388 · требование 00-kacho-core.md#ban10-db-level-invariants · чем доказано: R2, R3, R4'
+  - 'полоса 782 · принято · координата docs/engineering/acceptance/password-verifier-follows-the-stored-value.md:1787 (PWV-23) · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R2, R5, R6'
+
+collisions_searched:
+  two_solutions_of_one_task:
+    found: 0
+    detail: >-
+      Условие «новый адрес отличен от текущего» в смене адреса теперь судят два места:
+      раннее суждение глагола до транзакции (RuleMustDiffer, полоса #770 прежней волны) и
+      условие оператора записи под замком строки человека (#780). Это не два решения, а
+      одно: #780 называет раннее суждение отказом без права разрешать
+      (email_change.go:25-28), отказ наружу один — тот же FieldError{newEmail, RuleMustDiffer}
+      (email_change.go:388-392). Сравнение в SQL — lower(email) тем же выражением, что ключ
+      users_identity_email_uniq; дублёр use-case сравнивает AddressKey. Порог уровня #770
+      (requireEmailChangeLevel) #780 не трогает.
+  two_names_of_one_subject:
+    found: 0
+    detail: >-
+      Новое имя ErrNewEmailIsCurrent заведено одно (email_change.go:103); в дереве на 68d24ae6
+      реализаций InsertEmailChangeCodePaced две — адаптер pg и дублёр пробы, обе несут
+      новый исход (git grep 'func (.*) InsertEmailChangeCodePaced' → 2). Замечание прежней
+      записи о трёх копиях цикла ступени не изменилось и сюда не повторяется.
+  expectations:
+    found: 0
+    detail: >-
+      #782 сменила мир PWV-23 (ACTIVE → BLOCKED с паролем и неподтверждённым адресом) из-за
+      кода #458, уже лежащего в линии. Живой пробы, ждущей прежнего мира, нет: строка PWV-23
+      §6 — «не начат» (git grep PWV-23 @68d24ae6 вне docs/specs/reviews — только сама приёмка
+      и датированная перепись recovery-of-access.md:1031,1034). Опорная приёмка 79e0f15a…
+      одобрена событием, блок которого внесла #778 тем же стволом.
+  layouts:
+    found: 0
+    detail: >-
+      #780 вводит условие в существующий оператор темпа (один INSERT … SELECT … WHERE), а не
+      заводит вторую раскладку записи запроса.
+  addition_into_removed:
+    found: 0
+    detail: 'git diff --name-status 3066c7b6 68d24ae6 → A 3, M 7, D 0; удалений и переименований нет'
+  removed_subject_ledger_unaware:
+    found: 0
+    detail: >-
+      Предметы не сняты. #782 добавила строку в ведомость vertexLedger
+      (internal/check/history_question_vertex_test.go, +10) под свою запись круга 7.
+  shared_paths: 'путей, общих для двух полос дельты, 0 (2 + 4 + 4 = 10 = путей дельты)'
+  cross_repo:
+    detail: >-
+      kacho на 4c7ab49d держит kaname на 3d5b02ede3aa (go.mod и тег образа 296-3d5b02ed в пяти
+      файлах значений, kacho#3203). Дельта 3d5b02ed..68d24ae6 — 4 пути: приёмка, две записи
+      ревью, проба internal/check; прод-кода и образа она не меняет, так что пин несёт весь
+      код этой линии. Образ на 3d5b02ed опубликован: «образ службы» push 38443854080 success.
+
+merge_integrity:
+  remerge_diff_lines: 0      # 3 слияния PR (8ea2943c5 3d5b02ede 68d24ae66) и 3 слияния базы в полосы (22e83a4f7 ddedf4a11 95da32fd3)
+  assembly_edits: none
+
+runs:
+  - 'R1 git diff --full-index 8a84dcff…68d24ae6 | sha256sum → 5c7b9183…0e06, совпал с change.yaml'
+  - 'R2 gh pr checks 779, 781, 783: по 25 pass и 4 skipping (все 4 — «вердикт ствола», идут только по стволу); сводные (ci) и (e2e-newman), «интеграция (Postgres в контейнерах)», «пробы -race -short» — pass; check-runs 781 на headSha 22e83a4f7 (29 из 29)'
+  - 'R3 go test -count=1 ./internal/apps/kaname/api/humansession/ -run TestEmailChange на дереве 68d24ae6 (git worktree --detach, снят): rc 0, ok. Число исполненных подпроб не снималось'
+  - 'R4 инъекция: в email_change.go:388 ветка ErrNewEmailIsCurrent отключена (case false && …), тот же прогон: rc 1, FAIL TestEmailChangeRequest_AddressThatBecameCurrentIsAFieldRefusal (email_change_usecase_test.go:313); правка снята вместе с worktree. Интеграционную пробу гонки адреса (testcontainers) не гонял — её вердикт: «интеграция (Postgres в контейнерах)» pass на 22e83a4f7 и на 68d24ae6'
+  - 'R5 sha256 документов на 68d24ae6: unverified-address-passes-to-the-mailbox-owner.md → 79e0f15ac71d9125…, password-verifier-follows-the-stored-value.md → 64726612ab3b364f…; запись ревью 64726612….yaml — verdict APPROVED, event performed (issuecomment-6150629182)'
+  - 'R6 CI на финальной голове (запрос эпика 296→main): ci 38487158845, e2e-newman 38487158819, образ службы, правило запроса — success'
+  - 'R0, недействительный, назван, чтобы не потерять: ci 38443864472 на 3d5b02ed — failure задания golangci-lint от «stream error … INTERNAL_ERROR; received from peer» proxy.golang.org при скачивании модулей; это «не выполнилось», не красное; тот же код судит зелёный ci 38487158845 на 68d24ae6'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Не блокирует. Тело #781 называет голову полосы 54eb876bc, влита 22e83a4f7 — слияние свежей
+  базы (remerge-diff 0 строк); DoD-proof есть и на 22e83a4f7 (issuecomment-6150704116).
+  Тело описывает состав уже влитого, неверного утверждения о корректности нет.
+
+form_not_blocking:
+  - 'тело #783 честно ставит Refs #296 (DoD-proof эпика нет) и Closes #782 с DoD-proof @59eefd3b7'
+
+examined:
+  diffs: 9               # 3 слияния PR (^1..merge) + 6 remerge-diff (пусты)
+  lines: 992             # git diff 3066c7b6a 68d24ae66 | wc -l
+  lines_outside_docs: 365
+  read_line_by_line: >-
+    дифф #780 целиком (email_change.go, email_change_repo.go, email_change_usecase_test.go);
+    приёмка ID-PW-1 — пункт ред. 8, PWV-23, строки §6; recovery-of-access.md:1029-1036
+
+next:
+  - 'держатель human-wave — событие роли актора pointpu на 5c7b9183…; поле event этой записи заполняется тем же заходом'

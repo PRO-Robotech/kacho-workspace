@@ -1,0 +1,186 @@
+# Пост-дифф ревью РАСПРЕДЕЛЁННЫХ СВОЙСТВ — роль system-design-reviewer.
+#
+# Имя файла — content_digest финальной пары пакета (change.yaml
+# hashes.content_digest_sha256). Прежние записи не правятся; дайджест сменился —
+# новый запуск и новый файл (change-graph §2).
+#
+# Режим «агрегат»: судится ДЕЛЬТА 3066c7b6..68d24ae6 от головы прежней записи
+# этой роли (746c6166…, ✅), а не вся линия эпика; отпечаток — полной пары.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  Дельта до финальной головы эпика kaname#296: правило «новый адрес отличен
+  от текущего» на запросе смены адреса решает оператор записи принятого запроса
+  под замком строки личности (kaname#780, через #781); приёмка ID-PW-1 ред. 8 и
+  записи ревью приёмок (kaname#782, через #783) — документы, без кода.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  reviewed_delta:
+    from: 3066c7b6a266f640b367a82df21996f022a9a039   # голова прежней записи роли
+    to: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+    commits: 16            # git log --oneline 3066c7b6..68d24ae6 | wc -l
+    files_changed: 10      # git diff --stat 3066c7b6 68d24ae6
+    insertions: 737
+    deletions: 43
+    code_files: 3          # email_change.go, email_change_repo.go, history_question_vertex_test.go (ведомость вопросов истории)
+    probes_added: 1        # email_change_address_under_person_lock_integration_test.go
+  merge_base_equals_base: true       # git merge-base 8a84dcff 68d24ae6 → 8a84dcff
+  head_equals_origin_296: true       # git rev-parse origin/296 после fetch 2026-10-14
+
+content_digest: sha256:5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+digest_remeasured: true   # совпал с change.yaml hashes.content_digest_sha256
+delta_digest: sha256:3c1a5bc5307947444420e04267e83e9de4e3f56bd8fe972261d57803c3b01d27
+delta_digest_command: >-
+  git -C project/kaname diff --full-index 3066c7b6a266f640b367a82df21996f022a9a039..68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+reviewer_role: system-design-reviewer
+expected_actor: pointpu
+distributed_surface: true
+distributed_surface_predicate: >-
+  Дельта меняет условие оператора записи под построчным замком личности
+  (internal/repo/kaname/pg/email_change_repo.go, insertEmailChangeCodePacedSQL)
+  и вводит пробу конкурирующих транзакций на этот путь.
+return_to: '—  (критических находок нет)'
+schema_intersection: >-
+  да — условие на строку users внутри INSERT … SELECT … WHERE и сила замка
+  FOR UPDATE, под которой оно верно. Миграций в дельте нет.
+
+axes:
+  atomicity_no_dual_write:
+    status: closed
+    note: >-
+      Новых пар «коммит ресурса, затем событие» нет. Вытеснение прежней смены,
+      строка принятого запроса, списание окна адресата и намерение письма
+      остаются одной транзакцией. Отказ ErrNewEmailIsCurrent возвращается до
+      Commit, и отложенный Rollback (email_change.go, defer после
+      EmailChangeWriter) снимает уже выполненное SupersedeEmailChangeCodes.
+  idempotency:
+    status: closed
+    note: >-
+      Запрос на адрес, ставший текущим, даёт тот же отказ поля
+      (RuleMustDiffer), что раннее суждение до транзакции, — наружу это один
+      отказ, и повтор его не меняет.
+  atomic_and_optimistic_concurrency:
+    status: closed
+    note: >-
+      Check-then-act (адрес прочитан с сессией ДО транзакции, затем запись)
+      закрыт ban #10-способом: условие `EXISTS (SELECT 1 FROM users WHERE id=$2
+      AND lower(email) <> lower($3))` стоит в ТОМ ЖЕ операторе вставки, что
+      темп; решение — число вставленных строк. Под READ COMMITTED снимок
+      оператора берётся после того, как транзакция получила FOR UPDATE на
+      строке личности (первый оператор EmailChangeWriter), поэтому чужой исход
+      смены, зафиксированный за время ожидания замка, оператор видит.
+      Объясняющее чтение после отказа (emailChangeAddressIsCurrentSQL) идёт под
+      тем же замком и выбирает только имя отказа, а не исход. Сравнение —
+      `lower(email)`, тем же выражением, что ключ users_identity_email_uniq.
+    concurrent_probe: >-
+      internal/apps/kaname/api/internal_iam/email_change_address_under_person_lock_integration_test.go
+      (TestIntegration_EmailChangeRequestJudgesTheAddressCommittedDuringIt): исход смены держит
+      незафиксированную транзакцию, запрос ждёт её замка (pg_blocking_pids), после фиксации —
+      отказ поля и ноль живых строк; близнец отличается одним фактом (другой адрес) и принят.
+    lock_order: >-
+      Порядок замков kaname#770 не изменён. Новое условие читает users обычным
+      SELECT внутри оператора, строку уже держит FOR UPDATE этой транзакции,
+      нового захвата нет. Цикла ожидания с писателями двери дельта не вводит.
+  change_delivery_polling:
+    status: not_applicable
+    note: Watch и серверного стрима нет; outbox и подписку дельта не трогает.
+  worker_coordination:
+    status: not_applicable
+    note: Новых воркеров, реконсайлеров и внешних вызовов нет.
+  cross_service:
+    status: closed
+    note: >-
+      Новых рёбер нет. Контракт для kacho не тронут:
+      `git diff --stat 3066c7b6 3d5b02ed -- pkg proto` пуст, а
+      `git diff --stat 3d5b02ed 68d24ae6` — 4 файла, документы и ведомость
+      проверки истории. Пин kacho на 3d5b02ed по исполняемому коду совпадает
+      с 68d24ae6.
+  replica_state_isolation:
+    status: closed
+    note: Состояние только в БД, кэшей в памяти нет.
+  edge:
+    status: not_applicable
+    note: Монтирование и маршрутизация не тронуты.
+  clean_architecture:
+    status: closed
+    note: >-
+      Сигнальная ошибка ErrNewEmailIsCurrent объявлена в use-case
+      (humansession), repo/pg её возвращает. Use-case pgx не импортирует,
+      отображение в FieldError живёт в use-case.
+
+critical_findings: []
+
+important_findings:
+  - coordinate: internal/repo/kaname/pg/email_change_repo.go (шапка, «снимать его нельзя»)
+    note: >-
+      Правильность условия адреса и счёта темпа держится замком строки
+      личности, который берёт другой файл (holdPersonAgainstEnrollment). Сейчас
+      его держит проба с pg_blocking_pids. Это повтор замечания прежней записи
+      об описи писателей, нового класса здесь нет. Корректности головы не
+      угрожает, поэтому это не задача, а запись ревью.
+
+orders: []   # проба с конкурирующими транзакциями на спорный путь есть; новых рёбер нет
+
+next_requested: >-
+  convergence-reviewer — сбор пост-дифф записей пакета kn-296 на дайджест 5c7b9183…
+
+# ── полномочие ─────────────────────────────────────────────────────────────
+# Это запись агента-роли. Полномочия она не даёт, пока нет внешнего события
+# публикации вердикта (docs/changes/policy.yaml §2). Блок event дописывается к
+# факту тем же заходом, что событие; прежние строки при этом не правятся.
+authority:
+  status: published
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.system-design-reviewer
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname. Это известная
+    находка из шапки change.yaml. Полномочие роли читается из дома пакета.
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kaname
+    issue: 296
+    declared_verdict: ACCEPTED
+    subject_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/system-design-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kaname
+    issue: 296
+    database_id: 6158840603
+    node_id: IC_kwDOUO26pM8AAAABbxhzGw
+    url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6158840603'
+    actor: pointpu
+    author_association: MEMBER
+    role: system-design-reviewer
+    created_at: '2026-10-14T01:29:10Z'
+    body_sha256: 0ce538771bfa132cb1c9f5f8203c28bcf29d1ae816faeba9b2a3e0027e27a35f
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/system-design-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

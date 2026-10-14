@@ -1,0 +1,139 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, пакет kn-296.
+#
+# Имя файла — content_digest финальной пары линии kaname 296 → main
+# (8a84dcff...68d24ae6). Прежняя запись роли (746c6166…, голова 3066c7b6) не
+# правится. Эта запись судит ДЕЛЬТУ 3066c7b6..68d24ae6 (#779, #781, #783), а
+# остальная линия покрыта прежним ✅ этой роли (режим «агрегат»).
+schema_version: 1
+change_id: kn-296
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  kaname#296 финальная голова 68d24ae6: дельта от прежнего вердикта роли —
+  «отличен от текущего» решает оператор записи принятого запроса смены адреса
+  под замком строки человека (#781, kaname#780); приёмка ID-PW-1 ред. 8 и
+  записи ревью (#779, #783) Go-прода не трогают.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6     # origin/main = merge-base, перемерено
+  head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae     # origin/296 @2026-10-14, после fetch
+  previous_verdict_head: 3066c7b6a266f640b367a82df21996f022a9a039
+  previous_verdict_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+content_digest: sha256:5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+digest_definition: >-
+  git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+  в project/kaname после fetch → 5c7b9183…0e06. Совпал с hashes.content_digest_sha256
+  манифеста kn-296.
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+review_scope: >-
+  дельта 3066c7b6..68d24ae6: 10 файлов (+737 −43, `git diff --stat`). Go — 5 файлов:
+  прод 2 (humansession/email_change.go +23 −4; repo/kaname/pg/email_change_repo.go
+  +38 −6, `git diff --numstat`), прочитаны построчно целиком вместе с окрестностью (judgeNewEmail,
+  Execute запроса смены, holdPersonAgainstEnrollment, mapErr). Пробы — 3 _test.go.
+  Дельта 3d5b02ed..68d24ae6 (сверх пина kacho) — 4 файла: документ приёмки, две
+  записи ревью, internal/check/history_question_vertex_test.go; Go-прода нет.
+
+files_reviewed_prod:
+  - internal/apps/kaname/api/humansession/email_change.go
+  - internal/repo/kaname/pg/email_change_repo.go
+
+critical: []
+important: []
+foundation_candidates: []
+
+style:
+  - id: LOWER-VS-ADDRESSKEY
+    coord: internal/repo/kaname/pg/email_change_repo.go:103
+    note: >-
+      Раннее суждение сравнивает AddressKey (Go), оператор записи — lower() Postgres.
+      Для адресов, проходящих users_email_check, исход один и тот же: отказ
+      RuleMustDiffer. Выражение оператора совпадает с ключом users_identity_email_uniq,
+      поэтому решает тот же признак, что и уникальность. Не блокирует.
+
+security_comments_contradicting_code: []
+
+approved:
+  error_wrap_and_mapping: >-
+    Новый sentinel ErrNewEmailIsCurrent распознаётся через errors.Is (email_change.go:388)
+    и отображается в тот же FieldError{RuleMustDiffer}, что и ранний отказ: наружу
+    один отказ, текст sentinel'а не уходит. Ошибка чтения после отказа оператора
+    идёт через mapErr, отсутствие строки — iamerr.Wrapf(ErrNotFound, литерал с id).
+    Сравнений err.Error() со строкой нет.
+  db_invariant: >-
+    Условие «адрес отличен от текущего» перенесено в тот же условный INSERT … WHERE
+    EXISTS, что и темп: решение и запись — один оператор под замком строки человека,
+    без check-then-act. Уточняющее чтение после отказа выбирает только имя отказа,
+    а не исход. email NOT NULL (0001_initial.sql:3101), поэтому Scan в bool NULL не
+    получит.
+  context: 'в прод-дельте нет context.Background/TODO; ctx идёт в оба оператора транзакции'
+  no_panic: 'panic, Must*, log.Fatal в прод-дельте нет (совпадения Must[A-Z] — только RuleMustDiffer)'
+  logging: 'новых вызовов журнала нет; сбой хранилища — через прежний storeFailed по user_id'
+  layering: >-
+    SQL в repo/kaname/pg, решение об отображении — в use-case, порт EmailChangeWriter
+    расширен только контрактом метода. pgx в humansession не импортируется.
+  naming_ascii: 'новые идентификаторы латиницей: ErrNewEmailIsCurrent, emailChangeAddressIsCurrentSQL'
+  go_mod: 'go.mod в дельте не тронут'
+
+fresh_deferral_markers: 0    # TODO|FIXME|XXX|HACK в добавленных строках .go — 0
+tests_in_same_pr: true       # email_change_usecase_test.go (дублёр, отказ RuleMustDiffer от
+                             # оператора) и интеграционная проба
+                             # internal_iam/email_change_address_under_person_lock_integration_test.go
+                             # (TestIntegration_EmailChangeRequestJudgesTheAddressCommittedDuringIt)
+linter_probes_outcome: not-claimed-by-this-role
+return_to: null
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
+
+# Полномочие. Запись агента-роли сама полномочия не даёт: его даёт внешнее
+# событие актора из docs/changes/policy.yaml (review_authority.go-style-reviewer).
+# Событие на этот отпечаток ещё не опубликовано. После публикации блок event
+# дописывается к факту, прежние строки не переписываются.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.go-style-reviewer
+    authorized_actors: [pointpu]
+    allowlisted_for_role: true
+    cutover_note: >-
+      policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname (находка из
+      шапки манифеста kn-296). Пакет живёт в kacho-workspace, а его cutover
+      1202e3cf… является предком базы пакета.
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    target: PRO-Robotech/kaname#296
+    declared_verdict: ACCEPTED
+    declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/go-style-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kaname
+    issue: 296
+    database_id: 6158839996
+    node_id: IC_kwDOUO26pM8AAAABbxhwvA
+    url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6158839996'
+    actor: pointpu
+    author_association: MEMBER
+    role: go-style-reviewer
+    created_at: '2026-10-14T01:29:07Z'
+    body_sha256: f5b4b26452a970bc88b928217613e3bbef5a2d111cd88ab5d94aa8f4df9d2b5e
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/go-style-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: go-style-reviewer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

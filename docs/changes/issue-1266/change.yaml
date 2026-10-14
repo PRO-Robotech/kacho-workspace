@@ -52,7 +52,7 @@ hashes:
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 274a2263d28f939cbeb185a03ddb5c1d111330151750a564239b3f91f6d31956
+  holders_sha256: ad6c3f7f00ee78534b2fbd00ea9b17897dbc7d62dac36b71fa31f0711ffeb0eb
 
   # Приёмки эпика живут в воркспейсе, а не в дереве продукта, и не в корне пакета.
   # Отпечаток — НАБОРА документов (путь · blob на ревизии дома), набор выведен

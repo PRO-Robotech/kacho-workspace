@@ -1,0 +1,135 @@
+# Сверка волн: роль wave-reviewer, задним числом. Дельта линии эпика kacho#1266
+# 2306d95d..4c7ab49d: PR kacho#3203 (полоса #3202 — пин kaname @3d5b02ed), kacho#3201
+# (полоса #3200 — готовность края и пробы консоли), kacho#3205 (полоса #3204 — helm-пробы
+# без обрыва трубы). kacho#3198 судила прежняя запись 2aa30583… (её голова — база этой
+# дельты) и здесь не пересуживается. Каждая сборка — волна из одной полосы; предмет роли —
+# полосы дельты между собой и с линией kaname (kn-296 @68d24ae6).
+#
+# Имя файла — content_digest пакета (change.yaml hashes.content_digest_sha256 @ws
+# 003e10b50). Прежние записи не правятся. Запись лежит в копии tmp/pkg-1266-final и НЕ
+# закоммичена: её коммитит ведение пакетов.
+#
+# ЭТО ЗАПИСЬ АГЕНТА, А НЕ СОБЫТИЕ РОЛИ. Держатель `human-wave` закрывает только
+# внешнее review event актора из policy.yaml §2 на отпечаток ниже.
+schema_version: 1
+change_id: issue-1266
+holder: post-diff/wave-reviewer
+owner: wave-reviewer
+round: 1
+previous_record: docs/changes/issue-1266/reviews/wave/wave-reviewer/2aa305838cf5825216338adcdccbd785cc8522c24b7e8be88f4d5eb08d90997f.yaml
+
+authority:
+  policy: docs/changes/policy.yaml §2 review_authority.wave-reviewer
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    declared_verdict: ACCEPTED
+    subject_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/wave/wave-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    database_id: 6158839499
+    node_id: IC_kwDOTZqgWM8AAAABbxhuyw
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6158839499'
+    actor: pointpu
+    author_association: MEMBER
+    role: wave-reviewer
+    created_at: '2026-10-14T01:29:04Z'
+    body_sha256: 0d91c1bcee85c288f039aba24b3651d17d772a891a3a7bc400eab73b3d1a631d
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/wave/wave-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+  holder_closed: false           # human-wave без исхода до события pointpu
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  line: {branch: '1266', base: bac26316c468f76ba6193e4e61ac0dabbce64670, head: 4c7ab49db8abca54493836cff4da44774e0f6b90}
+  content_digest: sha256:786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+  digest_definition: >-
+    git -C project/kacho diff --full-index bac26316…...4c7ab49d… | sha256sum —
+    пересчитан этим проходом, совпадает с change.yaml.
+  judged_subject:
+    - pr: PRO-Robotech/kacho#3203
+      branch: 3202-kaname-pin-3d5b02ed
+      head: d5ac985160e22b733524c3ca9c14b6d0bfd1bc9d     # headRefOid
+      merge: bb743b41b2462bcf11c6a6a330d9fcfcd1fd75fd    # ^1 = 2306d95de
+      lanes:
+        - {lane: '3202', agent: deploy-engineer, files: 7, shortstat: '+9 −9', area: 'go.mod, go.sum, deploy/helm/umbrella/values{,.a8f60d,.fe3455,.fe3455-prod,.prorobotech}.yaml'}
+    - pr: PRO-Robotech/kacho#3201
+      branch: 3200-f12-20-authz-undecided
+      head: 0fd236d4ca9fec32bf31d738d634b297181d66c0
+      merge: bd9cc68ca8e367c0595d7794f4f56973c7b7afac    # ^1 = bb743b41b2
+      lanes:
+        - {lane: '3200', files: 12, shortstat: '+468 −8', area: 'gateway/cmd/api-gateway/{main,readiness}.go и проба, gateway/internal/clients/iam_authorize_client.go, доки края, ui-future/e2e/**, .github/workflows/console-e2e.yml'}
+    - pr: PRO-Robotech/kacho#3205
+      branch: 3204-helm-forwarder-broken-pipe
+      head: 24c5e9b0eee418f6d3e370dab3a4071afa044f4f
+      merge: 4c7ab49db8abca54493836cff4da44774e0f6b90    # ^1 = bd9cc68ca8
+      lanes:
+        - {lane: '3204', files: 13, shortstat: '+34 −20', area: 'deploy/tests/helm/**'}
+
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-10-14T01:25:41Z'
+
+lanes_verdict:
+  - 'полоса 3202 · принято · координата go.mod (kaname v0.4.1-0.20261013180450-3d5b02ede3aa), deploy/helm/umbrella/values*.yaml (tag 296-3d5b02ed) · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R2, R5'
+  - 'полоса 3200 · принято · координата gateway/cmd/api-gateway/readiness.go:33-43 · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R2, R3, R4, R6'
+  - 'полоса 3204 · принято · координата deploy/tests/helm/iam-trusted-forwarder-test.sh (here-string вместо трубы от printf) · требование 00-kacho-core.md#ban19-block-criterion · чем доказано: R2, R6'
+
+runs:
+  - 'R1 git diff --full-index bac26316…4c7ab49d | sha256sum → 786cd30e…0282, совпал с change.yaml'
+  - 'R2 gh pr checks 3201, 3203, 3205: по 74 из 74 pass'
+  - 'R3 go test -count=1 -run ^TestReadyz -v ./gateway/cmd/api-gateway/ на дереве 4c7ab49d (git worktree --detach, снят): rc 0, PASS 4 — IsFalseWhileTheAuthorizeClientIsNotServing, IsTrueWhenTheAuthorizeClientServes, UnderFailOpenShowsTheAuthorizeClientWithoutFailing, WithoutAuthorizeClientHasNoAuthorizeTarget'
+  - 'R4 инъекция: в readiness.go условие раннего выхода заменено на «if true || …» (цель iamAuthorize не добавляется), тот же прогон: rc 1, FAIL 3 — первая называет «код 200, ожидался 503» с телом ответа; близнец «клиента нет» остался зелёным, как и должен. Правка снята'
+  - 'R5 сверка пина с линией kaname: тег 296-3d5b02ed одинаков в пяти файлах значений; дельта kaname 3d5b02ed..68d24ae6 — 4 пути (приёмка ID-PW-1 ред. 8, две записи ревью, проба internal/check), прод-кода и образа не меняет; образ kaname на 3d5b02ed опубликован («образ службы» push 38443854080 success)'
+  - 'R6 CI на финальной голове 4c7ab49d (запрос эпика): ci, e2e-newman, console-e2e, ui, security-scan, production-posture, текст запроса, сводный вердикт — 8 из 8 success'
+  - 'R7 git show --remerge-diff по слияниям bb743b41b2, bd9cc68ca8, 4c7ab49db8 и слиянию базы в полосу 0fd236d4ca: строк 0 у каждого'
+
+collisions:
+  - id: —
+    note: 'столкновений не найдено; ниже — что искалось'
+
+not_found:
+  - 'имён: общих путей у 3202, 3200, 3204 0 (7 + 12 + 13 = 32 = путей дельты; git diff --name-status 2306d95d 4c7ab49d → A 3, M 29, D 0)'
+  - 'ожиданий: 3200 зовёт Health/Check по соединению решения о праве. Адрес соединения — ResolvedIAMAuthorizeURL() → IAMAddr, если iamAuthorizeUrl не задан (gateway/internal/config/config.go:1248); в чартах iamAuthorizeUrl не задан ни в одном профиле (git grep -i authorizeUrl deploy/helm — только комментарий values.dev.yaml:410). Значит, цель готовности — тот же слушатель службы доступа, что «iam», здоровье он уже отдаёт; console-e2e на голове с пином 3d5b02ed зелёная (R6)'
+  - 'ожиданий: смена адреса в kaname#781 (оператор записи судит «отличен от текущего») против проб консоли смены адреса предыдущей волны (F8S6-15/16): console-e2e на 4c7ab49d с пином 3d5b02ed — success (R6)'
+  - 'раскладок: 3200 не трогает карту бэкендов (readiness.go копирует её в новую карту целей), её читатели — маршрутизатор и прочие — прежние'
+  - 'с ведомостью и добавление в удалённое: удалений 0'
+  - '3202 × 3200: 3200 вливала свежую базу с пином 3202 (0fd236d4ca, remerge 0); проба консоли Ф12-35 судит фикс края уже на новом пине'
+
+lanes_without_verdict: —
+
+reports_wider_than_done:
+  - lane: '3200 (тело PR #3201)'
+    blocking: false
+    what: >-
+      Заголовок и тело PR — «сквозные пробы консоли», голова в теле cf8f7e16f4. Влиты ещё
+      884df1f637 (прод-правка края: /readyz учитывает соединение решения о праве, +228 −4)
+      и 5911f64164. Тело УЖЕ сделанного: прод-правка в нём не названа, её называет только
+      заголовок слияния bd9cc68ca8. DoD-proof @5911f64164 (issuecomment-6153605402) покрывает
+      голову полосы. Неверного утверждения о корректности нет — не блокирует.
+
+form_not_blocking: —
+
+examined:
+  diffs: 7         # 3 слияния PR (^1..merge) + 4 remerge-diff (пусты)
+  lines: 964       # git diff 2306d95de 4c7ab49db8 | wc -l
+  read_line_by_line: >-
+    readiness.go, main.go (хунк), iam_authorize_client.go (хунк), коммиты 884df1f637 и
+    5911f64164; все изменённые строки deploy/tests/helm; дифф пина целиком
+
+next:
+  - 'держатель human-wave — событие роли актора pointpu на 786cd30e…; поле event этой записи заполняется тем же заходом'
+  - 'git-operator — привести тело PR #3201 к влитому составу (голова 0fd236d4ca, прод-правка 884df1f637); не блокирует'

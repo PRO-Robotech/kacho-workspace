@@ -1,0 +1,148 @@
+# Пост-дифф ревью РАСПРЕДЕЛЁННЫХ СВОЙСТВ — роль system-design-reviewer.
+#
+# Имя файла — content_digest финальной линии kacho 1266 → main. Прежние записи не
+# правятся: сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Судится ДЕЛЬТА от прежнего захода роли (post-diff, голова 2306d95d, дайджест
+# 2aa30583…, ✅): здесь — только 10 коммитов 2306d95d..4c7ab49d.
+schema_version: 1
+change_id: issue-1266
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  Финальная дельта эпика kacho#1266: готовность края (/readyz) опрашивает
+  соединение решения о праве и считает его критичным на закрытом исходе
+  (kacho#3200 через #3201); пин модуля и образа kaname 3066c7b6 → 3d5b02ed
+  (#3203); helm-пробы без обрыва трубы (#3205); сквозные пробы консоли.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: '1266'
+  base: bac26316c468f76ba6193e4e61ac0dabbce64670     # origin/main = merge-base
+  head: 4c7ab49db8abca54493836cff4da44774e0f6b90     # origin/1266 после fetch 2026-10-14
+  delta_from: 2306d95de6837ec745852c305869efc8551546bf   # голова прежней записи роли
+  delta_commits: 10                                 # git log --oneline 2306d95d..4c7ab49d | wc -l
+  delta_files: 32
+  delta_insertions: 511
+  delta_deletions: 37
+  pr: https://github.com/PRO-Robotech/kacho/pull/3158
+
+content_digest: sha256:786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+digest_command: >-
+  git -C project/kacho diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
+digest_matches_manifest: true
+delta_digest: sha256:4286f75195d525edefaefda29eb18219cedebc7a338ee3f39239f209e5bb1920
+delta_digest_command: >-
+  git -C project/kacho diff --full-index 2306d95de6837ec745852c305869efc8551546bf..4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
+
+verdict: ✅ принято
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+return_to: '—'
+distributed_surface: да
+distributed_surface_predicate: >-
+  Дельта меняет готовность края, то есть условие, при котором реплика края
+  выводится из ротации, по состоянию соединения к службе доступа
+  (gateway/cmd/api-gateway/readiness.go, main.go). Кроме того, сдвинут пин
+  ребра край → kaname.
+schema_intersection: нет   # миграций, CAS, xmin и advisory-lock в дельте нет
+
+examined:
+  prod_go: >-
+    gateway/cmd/api-gateway/readiness.go (новый), main.go (связывание /readyz),
+    gateway/internal/clients/iam_authorize_client.go (Conn), проба
+    readiness_authorize_test.go — 4 сценария (не обслуживает → 503; обслуживает → 200;
+    failOpen → видно, не критично; клиента нет → цели нет).
+  pin: >-
+    go.mod/go.sum и values*.yaml 3066c7b6 → 3d5b02ed. Исполняемый контракт kaname
+    между ними не менялся: `git -C project/kaname diff --stat 3066c7b6 3d5b02ed -- pkg proto`
+    пуст. Пин 3d5b02ed против финальной головы kaname 68d24ae6 отличается 4 файлами
+    (документы и ведомость проверки истории), так что образ и модуль по коду совпадают
+    с финальной головой службы.
+  helm_tests_and_e2e: >-
+    deploy/tests/helm/*.sh (чтение трубы), ui-future/e2e/**, console-e2e.yml. На
+    прод-путь они не влияют. Распределённых свойств в них нет.
+
+axes:
+  no_dual_write: н/п — записей в дельте нет
+  idempotency: н/п — /readyz только читает
+  atomic_concurrency: >-
+    н/п. readinessTargets копирует карту бэкендов (maps.Copy), а не дописывает
+    в общую: её читают маршрутизатор и другие звенья, гонки записи нет.
+  delivery_model: н/п — Watch и поток не вводятся
+  workers: н/п
+  per_call_deadline: >-
+    закрыто. Новый Health/Check идёт под общим context.WithTimeout(5s) обработчика
+    /readyz (gateway/internal/health/health.go:77). Вне дедлайна вызова нет.
+  cross_service_graph: >-
+    Новых рёбер нет. Соединение решения о праве по умолчанию указывает на тот же
+    адрес, что iam (Config.ResolvedIAMAuthorizeURL → IAMAddr), и у этого
+    сервера уже есть grpc health, который /readyz опрашивал. Направление
+    край → kaname прежнее, обратного вызова нет.
+  readiness_semantics: >-
+    Критичность цели равна !failOpen, то есть повторяет исход отказа на пути
+    запроса. Готовность снимается ровно тогда, когда без этого соединения край
+    отказал бы. Новой зоны поражения, которой не было у критичных iam и
+    iamInternal, это не даёт. Без клиента (проверка прав выключена) цели нет.
+  edge_public_internal: >-
+    н/п. /readyz живёт на диагностическом HTTP mux. В теле ответа только имя
+    цели и её состояние, адреса нет.
+  replica_isolation: закрыто — состояния в памяти между репликами нет
+  clean_architecture: закрыто — связывание только в cmd/api-gateway
+
+critical_findings: []
+important_findings:
+  - coordinate: gateway/internal/health/health.go:77-87
+    note: >-
+      Цели /readyz опрашиваются последовательно в одном 5-секундном бюджете.
+      Третья критичная цель удлиняет цепочку: зависший Check одной цели съест
+      бюджет, и следующие получат DeadlineExceeded, то есть ложное «не готов»
+      по критичной цели. Форма досталась от прежнего кода. Корректности
+      решения о праве это не угрожает, поэтому это не задача
+      (git-issues.md#gi-find-own-issue), а запись ревью: цена — опрос с
+      пределом на каждую цель либо параллельный опрос.
+
+orders: []   # спорного пути записи нет; нового ребра нет
+
+next_requested: >-
+  convergence-reviewer — сбор пост-дифф записей пакета issue-1266 на дайджест 786cd30e…
+
+# ── полномочие ─────────────────────────────────────────────────────────────
+# Это запись агента-роли. Полномочия она не даёт, пока нет внешнего события
+# публикации вердикта (docs/changes/policy.yaml §2). Блок event дописывается к
+# факту тем же заходом, что событие; прежние строки при этом не правятся.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.system-design-reviewer
+    allowlisted_actors: [pointpu]
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    declared_verdict: ACCEPTED
+    subject_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/system-design-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    database_id: 6158839235
+    node_id: IC_kwDOTZqgWM8AAAABbxhtww
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6158839235'
+    actor: pointpu
+    author_association: MEMBER
+    role: system-design-reviewer
+    created_at: '2026-10-14T01:29:03Z'
+    body_sha256: 2340632b0dc966dd6db4ab6a41912cb61565c94eef0c713b5f021ae964fe0891
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/system-design-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

@@ -53,7 +53,7 @@ hashes:
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 5c2cc723c1c8b34f822e19b349c44c3debea1692f5d88f7886bd6a19f0060937
+  holders_sha256: bd3f722fa0b1c6aef31656085f84d6470c4cb209bf7ead20c76c682d97561949
 
   # Приёмки и замысел эпика лежат в ДЕРЕВЕ ПРОДУКТА (`docs/engineering/acceptance/`)
   # и входят в его дифф. Отпечаток — НАБОРА документов (путь · blob на голове):
