@@ -325,6 +325,15 @@ for a in execs:
              "диспетчер, а задачи идут мимо учёта"
              % (AGENTS_REL, a, ("«%s»" % raw) if raw else "ключа нет вовсе"))
         findings += 1
+    # Ось AGENT-CAN-WAIT (ws#1078, урок L4 посадки 2026-10-14: больше 10 ходов
+    # «жду монитора» без ВОЗВРАТ): Monitor держит ход в ожидании своего же
+    # фонового процесса, а no-wait-guard судит только Bash. Исход долгого — «идёт:
+    # pid, .rc, срок», дочитывает следующий короткий шаг (CLAUDE.md «Не жди»).
+    if "Monitor" not in items:
+        fail("AGENT-CAN-WAIT: %s/%s.md — `disallowedTools` не содержит `Monitor` (там %s); "
+             "исполнитель ждёт свой фоновый процесс в ходе и кончает его без ВОЗВРАТ"
+             % (AGENTS_REL, a, ("«%s»" % raw) if raw else "ключа нет вовсе"))
+        findings += 1
 
 # ── ОСЬ DISPATCHER-HAS-TOOLS: база перестала быть базой ─────────────────────
 got_forbidden = [t for t in rest_tools if t in FORBIDDEN]

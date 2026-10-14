@@ -1,7 +1,7 @@
 ---
 name: service-scaffolder
 description: "Заводит каталог нового сервиса services/<svc>/ монорепо kacho как производственно-полную под-фазу без ресурсов: композиционный корень, конфиг с fail-closed boot-guard, оба слушателя с проверкой прав, отдельный бинарь миграций, Dockerfile, Makefile, включение в общий модуль и в матрицу проверок, гейты дня первого по условиям class-exposure-analyst. Заглушек RPC, пустых doc.go и отложенного «допилим» не кладёт (ban #11, #14). Запускать по APPROVED приёмке нового сервиса. НЕ запускать: каталог сервиса уже есть; нужен RPC (rpc-implementer); чарт, профили и стенд (deploy-engineer); .proto (proto-sync); Terraform-провайдер."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-architecture

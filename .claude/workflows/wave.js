@@ -170,6 +170,14 @@ const sha40 = s => (typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)) ? s : ''
 // исполняет ЭТУ команду, отрисованную шаблоном, на случаях с кодом 0, 1 и 2.
 const recipeRun = (s, argv, out) => '( set -o pipefail; WS=' + WS + '; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n \'/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}\') && [ -n "$R" ] || { echo "ЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «$WS»" >&2; exit 2; }; WS="$WS" S=' + s + ' TMPDIR=' + D + ' bash -c "$R" _ ' + argv + ' ) > ' + out + ' 2>&1'
 const rep = (lane, step) => R + '/' + lane + '/' + step + '.md'
+// Задание полосы — файлом (ws#1078, L6: вставка обрезалась между шагами): textFile — путь под
+// tmp/<задача>/, в задание идёт путь, а не пересказ; text — лишь для короткого.
+const taskOf = l => l.textFile ? 'ЗАДАНИЕ — в файле ' + l.textFile + ' (прочти целиком; пересказа здесь нет)' : l.text
+// Итог диспетчеру — без простыней (ws#1078, L5: обрезанный итог дочитывал разведчик, ~100 тыс.
+// токенов на раз): строка длиннее SLIM_MAX — начало и путь отчётов; полный текст — в файлах R;
+// redRound — порядок круга диспетчеру дословно, не режется.
+const SLIM_MAX = 400
+const slim = x => typeof x === 'string' ? (x.length > SLIM_MAX ? x.slice(0, SLIM_MAX) + ' … [полностью — в ' + R + ']' : x) : Array.isArray(x) ? x.map(slim) : (x && typeof x === 'object') ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, k === 'redRound' ? v : slim(v)])) : x
 const errors = []
 // Уроки полос (ai-tooling.md#at-lane-retro, владелец 2026-10-12): исполнитель дописывает
 // урок строкой в ОДИН файл волны; итог несёт файл и перечень — пачку для tooling-maintainer.
@@ -199,7 +207,9 @@ const redOf = r => ciState(r) === 'red' ? { redRound: RED_ROUND } : {}
 // повторяется ОДИН раз заданием дочитать .rc и журнал, снова без блока — null, полоса стоит.
 const RET_MARK = '### ВОЗВРАТ'
 const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)
-const REREAD = 'Прошлый ответ без блока «### ВОЗВРАТ» — это «не-выполнилось». Не жди: дочитай .rc и журнал своего прогона и верни блок ВОЗВРАТ с фактом.'
+// Кэш возобновления (ws#1078, L4): шаг без ВОЗВРАТ, взятый из кэша, — снова null; args.rerun
+// входит в текст дочитывания, и возобновление с новым rerun исполняет его вживую, а не из кэша.
+const REREAD = 'Прошлый ответ без блока «### ВОЗВРАТ» — это «не-выполнилось». Не жди: дочитай .rc и журнал своего прогона и верни блок ВОЗВРАТ с фактом. Попытка ' + (A.rerun || 0) + '.'
 const textStep = async (prompt, opts) => {
   const a = await agent(prompt, opts)
   if (hasRet(a)) return a
@@ -250,7 +260,7 @@ for (const l of lanes) {
 // или использует меняемое свойство; критерии применимых рецензентов — в задание
 // полосе заранее. Нет карты по какой-либо полосе — раздачи нет (fail-closed).
 phase('Предполёт')
-const pre = await agent(C + '\n\nПредполёт волны ' + N + ' ДО кода (ai-tooling.md#at-one-pass-wave). КЛЮЧИ ПОЛОС: ' + lanes.map(l => l.key).join(',') + '. Полосы: ' + lanes.map(l => l.key + ' [' + tierOf[l.key].tier + ', роли ' + ((tierOf[l.key].roles || []).join('+') || 'нет') + '; пути ' + ((l.paths || []).join(', ') || 'не заданы') + ']: ' + l.text).join(' | ') + '\nКАРТА ВЛИЯНИЯ каждой полосы — все, кто утверждает или использует меняемое свойство: посевы стенда, кейсы newman, ведомости производителя и долгов (живы ли держатели — задача открыта), копии каталога прав в другом репозитории, сквозные пробы консоли, документация и приёмки, записи ревью и их гейты, профили и чарты. Пункт — «<координата> — <что утверждает> → <что поправить>», координата найдена командой (её — в отчёт). Зависимый в другом репозитории — пункт с репозиторием: его полоса идёт в ЭТУ волну, пин — на ревизию производителя с опубликованным образом (ветки волны образов не публикуют): до вливания — последний опубликованный, перенос пина строкой после публикации. Пункт чужого класса (консоль — ui-implementer) назови классом: его закрывает отдельная полоса этого исполнителя в ЭТОЙ волне. КРИТЕРИИ рецензентов — по предикатам docs/changes/policy.yaml для ролей полосы, дословно. Оценка — часы волны и ожидаемые красные на сведённом (цель 0). Запись — ' + PRE + '. ' + due('preflight') + ' Верни lanes [{key, impact, criteria}] по КАЖДОМУ ключу, estimate, report.', { agentType: 'scout', label: 'preflight', phase: 'Предполёт', schema: S_PRE })
+const pre = await agent(C + '\n\nПредполёт волны ' + N + ' ДО кода (ai-tooling.md#at-one-pass-wave). КЛЮЧИ ПОЛОС: ' + lanes.map(l => l.key).join(',') + '. Полосы: ' + lanes.map(l => l.key + ' [' + tierOf[l.key].tier + ', роли ' + ((tierOf[l.key].roles || []).join('+') || 'нет') + '; пути ' + ((l.paths || []).join(', ') || 'не заданы') + ']: ' + taskOf(l)).join(' | ') + '\nКАРТА ВЛИЯНИЯ каждой полосы — все, кто утверждает или использует меняемое свойство: посевы стенда, кейсы newman, ведомости производителя и долгов (живы ли держатели — задача открыта), копии каталога прав в другом репозитории, сквозные пробы консоли, документация и приёмки, записи ревью и их гейты, профили и чарты. Пункт — «<координата> — <что утверждает> → <что поправить>», координата найдена командой (её — в отчёт). Зависимый в другом репозитории — пункт с репозиторием: его полоса идёт в ЭТУ волну, пин — на ревизию производителя с опубликованным образом (ветки волны образов не публикуют): до вливания — последний опубликованный, перенос пина строкой после публикации. Пункт чужого класса (консоль — ui-implementer) назови классом: его закрывает отдельная полоса этого исполнителя в ЭТОЙ волне. КРИТЕРИИ рецензентов — по предикатам docs/changes/policy.yaml для ролей полосы, дословно. Оценка — часы волны и ожидаемые красные на сведённом (цель 0). Запись — ' + PRE + '. ' + due('preflight') + ' Верни lanes [{key, impact, criteria}] по КАЖДОМУ ключу, estimate, report.', { agentType: 'scout', label: 'preflight', phase: 'Предполёт', schema: S_PRE })
 const preMap = {}
 for (const x of (pre && Array.isArray(pre.lanes) ? pre.lanes : [])) if (x && typeof x.key === 'string' && Array.isArray(x.impact) && Array.isArray(x.criteria)) preMap[x.key] = x
 const noMap = lanes.filter(l => !preMap[l.key]).map(l => l.key)
@@ -296,7 +306,7 @@ const implement = async (l, tdd, extra, stack) => {
 }
 // Круг переделки — каждый вызов исполнителя полосы после первого (метрика волны).
 const impl1st = {}
-const implementOnce = async (l, tdd, extra, stack) => (M.implCalls++, impl1st[l.key] ? M.rework++ : (impl1st[l.key] = true), agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + l.text + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + mapText(l) + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), impact (по пункту карты строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>»), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня), lesson (урок полосы — ошибка, переделка, лишний агент или круг, ложный отказ гейта, застой, обход — строкой «<класс> · <где предотвратить>», её же допиши `>> ' + LESSONS + '` с префиксом «' + l.key + ' · »; урока нет — «—», в файл не пиши).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL }))
+const implementOnce = async (l, tdd, extra, stack) => (M.implCalls++, impl1st[l.key] ? M.rework++ : (impl1st[l.key] = true), agent(C + '\n\nПолоса ' + l.key + ' (' + tierOf[l.key].tier + '), ветка ' + l.branch + ' от ' + (stack ? 'сводки deps ' + stack.branch + '@' + stack.head + ' (в ней код полос ' + (l.deps || []).join(', ') + (inLane(l) ? '; сводка уже в твоей ветке на origin — продолжай её от этой головы, не переписывая)' : '; ветка уже есть на origin — влей сводку в неё коммитом слияния, не переписывая)') : (l.base || A.base)) + ', копия — ' + D + '/' + l.key + '/copy. ' + (tdd ? 'Строгий TDD: красная проба до кода. ' : '') + 'Задание: ' + taskOf(l) + (l.ctx ? '\nКонтекст: ' + l.ctx : '') + mapText(l) + '\n' + FILES_RULE + ' Твой перечень: ' + ((l.paths || []).join(', ') || 'не задан') + '. Перечни соседей: ' + (neighbours(l) || 'соседей нет') + '.' + (extra ? '\nДоводка: ' + extra : '') + '\nСдача: коммит, DoD-proof в каждой задаче, отправка своей ветки через слот с журналом `{ echo "lane-push head=$(git rev-parse HEAD)"; git push origin HEAD:refs/heads/' + l.branch + ' 2>&1; echo "lane-push rc=$?"; } > ' + R + '/' + l.key + '/push.log`. Отчёт — ' + rep(l.key, 'implement') + '. ' + due('implement') + ' Верни status, branch, head, copy, hookLog (ПУТЬ к журналу отправки ' + R + '/' + l.key + '/push.log, а не слово об исходе), issues (владелец/репо#N), impact (по пункту карты строкой «<n> → правка <путь>» либо «<n> → не затронуто — потому что <довод>»), report (содержательный итог: что сделано, какие файлы, исход проверок числами, взятые файлы вне перечня), lesson (урок полосы — ошибка, переделка, лишний агент или круг, ложный отказ гейта, застой, обход — строкой «<класс> · <где предотвратить>», её же допиши `>> ' + LESSONS + '` с префиксом «' + l.key + ' · »; урока нет — «—», в файл не пиши).', { agentType: l.agent, label: 'impl:' + l.key, phase: 'Полосы', schema: S_IMPL }))
 // Сводка голов deps: временная ветка от свежей базы, головы — коммитами слияния
 // (--no-ff, без rebase/reset/force); уже есть на origin — дописывается. Факт
 // содержания — `git merge-base --is-ancestor` по каждой голове, а не слово.
@@ -310,7 +320,7 @@ const runLane = async (l, stack) => {
   if (has('acceptance(<=2)')) {
     let acc = null
     for (let r = 1; r <= 2; r++) {
-      const a1 = await textStep(C + '\n\nПриёмка полосы ' + l.key + ' (смена публичного контракта либо миграция): ' + l.text + (acc ? '\nВозврат круга ' + (r - 1) + ': ' + rep(l.key, 'acceptance-review-' + (r - 1)) : '') + '. Отчёт — ' + rep(l.key, 'acceptance-' + r) + '.', { agentType: 'acceptance-author', label: 'acc:' + l.key + ':' + r, phase: 'Полосы' })
+      const a1 = await textStep(C + '\n\nПриёмка полосы ' + l.key + ' (смена публичного контракта либо миграция): ' + taskOf(l) + (acc ? '\nВозврат круга ' + (r - 1) + ': ' + rep(l.key, 'acceptance-review-' + (r - 1)) : '') + '. Отчёт — ' + rep(l.key, 'acceptance-' + r) + '.', { agentType: 'acceptance-author', label: 'acc:' + l.key + ':' + r, phase: 'Полосы' })
       if (!a1) return noRet(out, l, 'acceptance-' + r)
       acc = await review('acceptance-reviewer', l, '', '', 'acceptance-review-' + r)
       if (acc && acc.verdict === 'accept') break
@@ -321,7 +331,7 @@ const runLane = async (l, stack) => {
     if (!s1) return noRet(out, l, 'client-sim')
   }
   if (has('surface-census')) {
-    const c1 = await textStep(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + l.text + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
+    const c1 = await textStep(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + taskOf(l) + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
     if (!c1) return noRet(out, l, 'surface-census')
   }
   const tdd = has('implementer-tdd')
@@ -439,7 +449,7 @@ if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) 
 if (!Number.isInteger(asm.pr) || asm.pr < 1) return { ok: false, state: 'failed', stage: 'сборка: номер PR не целое ≥ 1 (' + JSON.stringify(asm.pr === undefined ? null : asm.pr) + ') — рецензент, CI и посадка без номера не зовутся', head: asm.head, errors, lessons: lessonsOf() }
 const waveReviews = []
 if (steps.has('wave-reviewer')) {
-  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + R + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
+  let wr = await agent(C + '\n\nСверка волны ' + N + ' на сборке @' + asm.head + ' (PR #' + asm.pr + '): полосы ' + order.join(', ') + ', отчёты — ' + R + '/<полоса>/implement.md. Пять классов столкновений; один раз на волну. Сообщения коммитов `git log --format=%B ' + (A.base || '?') + '..' + asm.head + '` судятся признаком восстановимости (security-disclosure.md#disc-recoverability-predicate): до-фиксное состояние уязвимости в тексте — return полосы (ws#1078, L11). Вердикт — по КАЖДОЙ полосе в lanes (key, verdict, blocking): возврат одной полосы соседние не снимает. Запись — ' + D + '/wave-review.md. Верни verdict, sha (голова сборки), blocking, lanes, report.', { agentType: 'wave-reviewer', label: 'review-wave', phase: 'Сборка', schema: S_WREV })
   const per = wr && Array.isArray(wr.lanes) ? wr.lanes : []
   const verdictOf = k => (per.find(x => x && x.key === k) || {}).verdict
   const covered = order.every(k => ['accept', 'return'].includes(verdictOf(k)))
@@ -516,6 +526,10 @@ const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + 
 // и первого круга схождения все гейты — одним шагом, одной таблицей; находка по одной за круг —
 // нарушение. Шаг ничего не чинит; итог несёт таблицу на любом исходе посадки.
 const GATES = ['landing-precheck.sh (рецепт «ЗАПУСК»)', 'merge-readiness.sh', 'ci-read.sh (рецепт «ЗАПУСК», без ожидания)', 'пробное схождение и applicability.py обоих пакетов', 'cascade-census.sh --proof по каждой задаче', 'branch-audit.sh']
+// Наборы воркспейса по стволам продуктов — на БУДУЩЕМ состоянии (ws#1078, L2: foundation-candidates
+// покраснел после вливания kaname#714): ствол продукта PR = голова посадки.
+const PROD = (A.repo || '').split('/').pop()
+if (['kacho', 'kaname', 'corelib'].includes(PROD)) GATES.push('`bash ' + WS + '/scripts/trunk-future.sh ' + PROD + '=<голова PR>` (наборы по стволам продуктов на будущем состоянии)')
 const GATES_FILE = R + '/gates-census.md'
 const gates = await agent(C + '\n\nРежим «Перепись гейтов» посадки PR #' + asm.pr + ' (ai-tooling.md#at-red-ci-one-round): ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини: ' + GATES.join('; ') + '. Таблица — ' + GATES_FILE + ', строка на гейт «гейт · код · причина · число · корень · кто снимает». Верни code (0 — все гейты 0; 1 — есть красный; 2 — гейт не исполнился), out (таблица), reasons (коды причин ВСЕХ гейтов разом), head.', { ...MECH, label: 'mech:gates', phase: 'Посадка', schema: S_MECH })
 const gatesOf = () => ({ gates: { file: GATES_FILE, code: gates ? gates.code : null, reasons: gates ? gates.reasons || [] : [] } })
@@ -563,4 +577,4 @@ return { ok: landedOk, stacks, pr: asm.pr, head: landHead, landed: order, remain
 // Метрики — в reports волны на ЛЮБОМ исходе (ws#1053): время, круги переделки,
 // красные на сведённом (проба и CI), сверка с оценкой предполёта; токены — из итога Workflow.
 await agent(C + '\n\nРежим метрики: запиши ' + METRICS + ' = ' + JSON.stringify({ wave: N, ok: !!res.ok, stage: res.stage || '', ...M }) + ' и допиши поля hours = (сейчас − mtime ' + D + '/plan-1.json)/3600 (старт→вливание, если ok), estimate — оценка из ' + PRE + ', tokens — из журнала Workflow, иначе null с причиной. Верни code, out, reasons [], head "".', { ...MECH, label: 'mech:metrics', phase: 'Посадка', schema: S_MECH })
-return { ...res, metrics: metricsOf() }
+return slim({ ...res, metrics: metricsOf() })

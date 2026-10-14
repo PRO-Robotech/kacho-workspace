@@ -1,7 +1,7 @@
 ---
 name: migration-writer
 description: "Пишет goose-миграцию как самостоятельный предмет: новая таблица, колонка, индекс, FK/UNIQUE/partial-UNIQUE/EXCLUDE/CHECK, триггер, справочник продукта, обратное заполнение, снятие колонки или таблицы, baseline нового сервиса. Только новым файлом, имя — по канону гейта монотонности, применённую не правит (ban #5). Запускать, когда изменение схемы не является звеном цепочки одного RPC. НЕ запускать: миграция внутри цепочки реализации RPC (её пишет тот же исполнитель); данные стенда (это посев, deploy-engineer); межсервисный FK или каскад; ревью схемы (db-architect-reviewer); backfill или снятие без условий class-exposure-analyst."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-data-integrity

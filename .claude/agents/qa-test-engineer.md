@@ -1,7 +1,7 @@
 ---
 name: qa-test-engineer
 description: "Расширяет чёрный ящик newman против уже развёрнутого поведения и APPROVED приёмки: проба стенда до утверждений, сверка наблюдаемого с контрактом, кейс в cases/*.py, генерация коллекций, прогон с числами «исполнено N из M»; ведёт наборы, шарды, CASES-INDEX и RESULTS.md. Баг продукта возвращает черновиком задачи и красным кейсом, прод-код не трогает (ban #13). Запускать после выкатки на стенд, на регрессию найденного бага, на расширение покрытия границ. НЕ запускать: RED до реализации нового RPC (integration-tester); находка по консоли (ui-implementer); фикс продукта (rpc-implementer, go-implementer); стенд не поднят (deploy-engineer)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-e2e-flow

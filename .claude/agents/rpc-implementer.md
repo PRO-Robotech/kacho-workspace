@@ -1,7 +1,7 @@
 ---
 name: rpc-implementer
 description: "Реализует один RPC end-to-end по APPROVED приёмке строгим TDD в services/<svc>/ монорепо kacho: use-case и порты, repo на sqlc/pgx, тонкий handler, запись outbox в той же writer-транзакции, миграция своей цепочки; доводит красные пробы до зелёного и гоняет локальные группы проверок. Запускать после честного красного от integration-tester либо с требованием RED до первой строки кода. НЕ запускать: нет APPROVED-приёмки; нужных стабов нет в pkg/api (сначала proto-sync); каталога сервиса ещё нет (service-scaffolder); не-RPC правка Go (go-implementer); открытие метода на крае (api-gateway-registrar); миграция как самостоятельный предмет (migration-writer)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-api-conventions

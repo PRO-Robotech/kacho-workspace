@@ -1,7 +1,7 @@
 ---
 name: tooling-maintainer
 description: "Правит оснастку одним изменением с зелёными гейтами: .claude/** (правила и MANIFEST, агенты включая dispatcher, скилы, хуки, settings.json), CLAUDE.md, scripts/*-gate с inject, branch-audit и merge-readiness, конвейер и хуки отправки обоих репозиториев. Запускать: правка правила, агента, скила или хука; новый агент; предложенная запись класса в скил; красный rules/skills/tooling/docs/vault-gate по оснастке; устаревшее утверждение корпуса. НЕ запускать: гейты продукта на Go (go-implementer), docs/** (docs-writer), vault (vault-scribe), приёмка его гейта (check-verifier)."
-disallowedTools: Agent, NotebookEdit
+disallowedTools: Agent, Monitor, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-MANIFEST
@@ -121,7 +121,7 @@ at-rule-preloaded-by-symlink, at-main-thread-is-agent). Решение 2026-09-1
 ## Чек-лист нового агента
 
 - файл `.claude/agents/<имя>.md` с `name`, `description`, `disallowedTools` (обязательно
-  `Agent`), `skills:` и телом;
+  `Agent` и `Monitor`), `skills:` и телом;
 - строка в `.claude/rules/ai-tooling.md` §«Канонические агенты» и пересчёт чисел при
   предикатах, которые их называют;
 - строка привязки в 4-й колонке `.claude/rules/MANIFEST.md`;
