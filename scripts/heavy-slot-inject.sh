@@ -159,33 +159,59 @@ wait "$B"; rc_b=$?; wait "$A"
 assert "75 да" "$rc_b $(has "$W/errB" 'golangci-lint по одному на машину')" "lint при идущем lint ждёт, причина названа"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- true)" "близнец: линтер вышел — lint входит"
 
-echo "── ci-local: у каждой копии свой TMPDIR — замок golangci-lint не общий (ws#1087)"
-# Замок golangci-lint — $TMPDIR/golangci-lint.lock: держит его первая копия (flock, как
-# сам линтер), вторая гонит настоящий golangci-lint по модулю из одного файла.
+echo "── ci-local: у каждой копии свой постоянный TMPDIR — замок golangci-lint не общий, логи переживают слот (ws#1087)"
+# E4. Замок golangci-lint — $TMPDIR/golangci-lint.lock: держит его первая копия (flock,
+# как сам линтер) до отметки второй, вторая гонит настоящий golangci-lint по модулю из
+# одного файла. Копии — два разных рабочих каталога: ключ TMPDIR — корень копии.
 if command -v golangci-lint >/dev/null && command -v go >/dev/null && command -v flock >/dev/null; then
-    mkdir -p "$W/gm" "$W/shtmp"; printf 'module x\n\ngo 1.26\n' > "$W/gm/go.mod"; printf 'package x\n\nfunc F() int { return 1 }\n' > "$W/gm/x.go"
+    mkdir -p "$W/ga" "$W/gm" "$W/shtmp"; printf 'module x\n\ngo 1.26\n' > "$W/gm/go.mod"; printf 'package x\n\nfunc F() int { return 1 }\n' > "$W/gm/x.go"
     # shellcheck disable=SC2016  # строки дочерней оболочки
-    HOLD='printf "%s\n" "$TMPDIR" > "$0"; exec flock "$TMPDIR/golangci-lint.lock" sleep 20'
+    HOLD='printf "%s\n" "$TMPDIR" > "$0"; exec flock "$TMPDIR/golangci-lint.lock" timeout 60 bash -c "until [ -e \"\$0\" ]; do sleep 0.2; done" "$1"'
     # shellcheck disable=SC2016
-    LINT='printf "%s\n" "$TMPDIR" > "$0"; exec golangci-lint run ./...'
+    LINT='printf "%s\n" "$TMPDIR" > "$0"; golangci-lint run ./...; rc=$?; : > "$1"; exit "$rc"'
     held() { for _ in $(seq 1 50); do [ -s "$1" ] && break; sleep 0.2; done; }
     export HEAVY_SLOT_LIMIT_MIB=100000  # линтер берёт 512 МиБ: потолок раздела выше (1300) его не вместил бы
-    rm -f "$W/tA" "$W/tB"
-    env -u TMPDIR HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" ci-local -- bash -c "$HOLD" "$W/tA" 2>/dev/null & A=$!; held "$W/tA"
-    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=512 GOLANGCI_LINT_CACHE="$W/glc" bash "$SLOT" ci-local -- bash -c "$LINT" "$W/tB")"
+    rm -f "$W/tA" "$W/tB" "$W/doneB"
+    (cd "$W/ga" && env -u TMPDIR HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" ci-local -- bash -c "$HOLD" "$W/tA" "$W/doneB" 2>/dev/null) & A=$!; held "$W/tA"
+    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=512 GOLANGCI_LINT_CACHE="$W/glc" bash "$SLOT" ci-local -- bash -c "$LINT" "$W/tB" "$W/doneB")"
+    wait "$A"; rc_a=$?
     tA="$(cat "$W/tA" 2>/dev/null)"; tB="$(cat "$W/tB" 2>/dev/null)"
-    assert "0 да да" "$rc $([[ "$tA" == "$HEAVY_SLOT_DIR"/active/*.tmp ]] && [[ "$tB" == "$HEAVY_SLOT_DIR"/active/*.tmp ]] && echo да || echo нет) $([ -n "$tA" ] && [ "$tA" != "$tB" ] && echo да || echo нет)" "две ci-local без TMPDIR вызывающего — обе в слоте, TMPDIR у каждой свой, линтер второй при занятом замке первой — 0"
-    kill -TERM "$A"; wait "$A"
-    assert "нет нет" "$([ -e "$tA" ] && echo да || echo нет) $([ -e "$tB" ] && echo да || echo нет)" "свой TMPDIR снят вместе с записью слота — и на выходе, и на сигнале"
-    rm -f "$W/tA" "$W/tB"
-    TMPDIR="$W/shtmp" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" ci-local -- bash -c "$HOLD" "$W/tA" 2>/dev/null & A=$!; held "$W/tA"
-    rc="$(cd "$W/gm" && slot -u HEAVY_SLOT_WAIT_S TMPDIR="$W/shtmp" HEAVY_SLOT_BUDGET_MIB=512 GOLANGCI_LINT_CACHE="$W/glc" bash "$SLOT" ci-local -- bash -c "$LINT" "$W/tB")"
-    assert "3 да $W/shtmp" "$rc $(has "$W/err" 'parallel golangci-lint is running') $(cat "$W/tB" 2>/dev/null)" "близнец: TMPDIR задан вызывающим и общий — слот его не трогает, второй линтер — код 3 «parallel golangci-lint is running»"
-    kill -TERM "$A"; wait "$A"
+    assert "0/0 да да" "$rc_a/$rc $([[ "$tA" == "$HEAVY_SLOT_DIR"/tmp/* ]] && [[ "$tB" == "$HEAVY_SLOT_DIR"/tmp/* ]] && echo да || echo нет) $([ -n "$tA" ] && [ "$tA" != "$tB" ] && echo да || echo нет)" "E4: две ci-local разных копий без TMPDIR вызывающего — TMPDIR у каждой свой, линтер второй при занятом замке первой — 0/0"
+    assert "да да" "$([ -d "$tA" ] && echo да || echo нет) $([ -d "$tB" ] && echo да || echo нет)" "TMPDIR копии постоянный: выход слота его не снимает"
+    rm -f "$W/tA" "$W/tB" "$W/doneB"
+    (cd "$W/ga" && TMPDIR="$W/shtmp" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" ci-local -- bash -c "$HOLD" "$W/tA" "$W/doneB" 2>/dev/null) & A=$!; held "$W/tA"
+    rc="$(cd "$W/gm" && slot -u HEAVY_SLOT_WAIT_S TMPDIR="$W/shtmp" HEAVY_SLOT_BUDGET_MIB=512 GOLANGCI_LINT_CACHE="$W/glc" bash "$SLOT" ci-local -- bash -c "$LINT" "$W/tB" "$W/doneB")"
+    wait "$A"
+    assert "3 да $W/shtmp" "$rc $(has "$W/err" 'parallel golangci-lint is running') $(cat "$W/tB" 2>/dev/null)" "E4 близнец: TMPDIR задан вызывающим и общий — слот его не трогает, второй линтер — код 3 «parallel golangci-lint is running»"
     export HEAVY_SLOT_LIMIT_MIB=1300
 else
     skip "нет golangci-lint, go либо flock — замок линтера под своим TMPDIR не доказан в этой среде"
 fi
+
+# E7. Настоящий потребитель: kacho scripts/ci-local.sh выводит из TMPDIR каталог кэша и
+# логов (ci-local.sh:214, 221) и печатает его строкой «ci-local: логи …». Неизвестная
+# группа — код 2 сразу после того, как каталог прогона заведён: прогон дешёвый, путь — его.
+CILOCAL="${HEAVY_SLOT_PROBE_CI_LOCAL:-$HERE/../project/kacho/scripts/ci-local.sh}"
+if [ -f "$CILOCAL" ]; then
+    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=256 bash "$SLOT" ci-local -- bash "$CILOCAL" нет-такой-группы)"
+    logs="$(sed -n 's/^ci-local: логи *//p' "$W/out" | head -n 1)"
+    assert "2 да да" "$rc $([[ "$logs" == "$HEAVY_SLOT_DIR"/tmp/* ]] && echo да || echo нет) $([ -n "$logs" ] && [ -d "$logs" ] && echo да || echo нет)" "E7: логи kacho ci-local.sh под TMPDIR слота ($logs) переживают выход слота"
+    key="$(dirname "$(dirname "$logs")")"
+    rc="$(cd "$W/gm" && slot -u TMPDIR -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=256 bash "$SLOT" ci-local -- bash "$CILOCAL" нет-такой-группы)"
+    logs2="$(sed -n 's/^ci-local: логи *//p' "$W/out" | head -n 1)"
+    assert "да да" "$([ "$(dirname "$(dirname "$logs2")")" = "$key" ] && echo да || echo нет) $([ -d "$logs" ] && echo да || echo нет)" "E7: второй прогон той же копии — тот же TMPDIR, логи первого на месте"
+else
+    skip "нет kacho scripts/ci-local.sh ($CILOCAL) — E7 настоящим потребителем не построен"
+fi
+
+# Уборка — отдельным шагом по возрасту, а не выходом слота: не тронутый > 7 суток
+# снимается, моложе — остаётся, занятый слотом — остаётся при любом возрасте.
+mkdir -p "$HEAVY_SLOT_DIR/tmp/old" "$HEAVY_SLOT_DIR/tmp/young" "$HEAVY_SLOT_DIR/tmp/busy" "$HEAVY_SLOT_DIR/active"
+touch -d '8 days ago' "$HEAVY_SLOT_DIR/tmp/old" "$HEAVY_SLOT_DIR/tmp/busy"; touch -d '6 days ago' "$HEAVY_SLOT_DIR/tmp/young"
+printf 'class=ci-local\nbudget=1\npid=%s\npid_start=%s\ntmp=%s\n' "$$" "$(awk '{ print $22 }' /proc/$$/stat)" "$HEAVY_SLOT_DIR/tmp/busy" > "$HEAVY_SLOT_DIR/active/probe-busy.slot"
+rc="$(slot bash "$SLOT" --prune-tmp)"
+assert "0 нет да да" "$rc $([ -d "$HEAVY_SLOT_DIR/tmp/old" ] && echo да || echo нет) $([ -d "$HEAVY_SLOT_DIR/tmp/young" ] && echo да || echo нет) $([ -d "$HEAVY_SLOT_DIR/tmp/busy" ] && echo да || echo нет)" "--prune-tmp: 8 суток — снят, 6 — оставлен, занятый слотом — оставлен"
+rm -rf "$HEAVY_SLOT_DIR/active/probe-busy.slot" "$HEAVY_SLOT_DIR/tmp/young" "$HEAVY_SLOT_DIR/tmp/busy"
 
 echo "── слот занят — код 74 СРАЗУ, ожидание только явным --wait ≤ 300 с (ws#1004)"
 # Решение владельца 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание

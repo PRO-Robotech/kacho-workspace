@@ -16,6 +16,7 @@
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
+#   heavy-slot.sh --prune-tmp   снять TMPDIR копий класса ci-local, не тронутые > 7 суток
 #
 # ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину;
 # условий четыре, все разом:
@@ -320,7 +321,7 @@ reserved_mib() {
 # Класс lint — по одному на машину: общий кэш и замок линтера (второй ждёт или падает
 # «parallel golangci-lint is running», код 3). Замок лежит в TMPDIR, кэш ci-local
 # ставит на копию (kacho scripts/ci-local.sh, kaname pre-push), поэтому ci-local
-# исключителен лишь по TMPDIR — и слот даёт ему свой (ниже, ws#1087).
+# исключителен лишь по TMPDIR — и слот даёт ему свой, постоянный на копию (ws#1087).
 EXCLUSIVE=" lint "
 is_exclusive() { [[ "$EXCLUSIVE" == *" $1 "* ]]; }
 exclusive_holder() {
@@ -373,6 +374,33 @@ print_status() {
     [ -f "$DIR/journal.log" ] && { echo "журнал ($DIR/journal.log), последние 10:"; tail -n 10 "$DIR/journal.log" | cut -c1-220; }
 }
 
+# TMPDIR класса ci-local — постоянный, свой на копию (ws#1087). Ключ — путь корня
+# копии git (вне копии — рабочий каталог); метка времени каталога — последний вход
+# слота. Снимает его prune_tmp: не занят ни одним слотом и не тронут дольше
+# TMP_KEEP_D суток. Каталог — вне всякого репозитория: pre-push kaname отказывает
+# кодом 2, когда TMPDIR лежит внутри дерева (scripts/hooks/pre-push:434).
+TMPROOT="$DIR/tmp"; TMP_KEEP_D=7
+copy_key() {
+    local top
+    top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || top="$PWD"
+    printf '%s' "$top" | sha256sum | cut -c1-16
+}
+# prune_tmp — снять TMPDIR копий старше срока; занятые слотами не трогает.
+prune_tmp() {
+    local d f busy
+    for d in "$TMPROOT"/*; do
+        [ -d "$d" ] || continue
+        busy=""
+        for f in "$DIR"/active/*.slot; do
+            [ -e "$f" ] && [ "$(field "$f" tmp)" = "$d" ] && busy=1 && break
+        done
+        [ -n "$busy" ] && continue
+        [ -n "$(find "$d" -maxdepth 0 -mmin +$(( TMP_KEEP_D * 1440 )) 2>/dev/null)" ] || continue
+        rm -rf -- "$d" "$d.copy"
+        journal "prune-tmp dir=$d keep=${TMP_KEEP_D}d"
+    done
+}
+
 # ── разбор вызова ────────────────────────────────────────────────────────────
 # --wait N — единственное ожидание слота, явное и ≤ 300 с (ws#1004); без него занятый
 # слот — код 74 сразу. Значение судится до класса: «--wait 2400» — 64, а не полчаса.
@@ -389,8 +417,12 @@ case "${1:-}" in
     --classes) print_classes; exit 0 ;;
     --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
+    --prune-tmp)
+        { mkdir -p "$DIR/active" && touch "$DIR/lock"; } 2>/dev/null || { say "каталог слотов $DIR недоступен на запись"; exit 69; }
+        exec {LK}>>"$DIR/lock"; flock -w 120 "$LK" || { say "замок $DIR/lock не взят за 120 с"; exit 69; }
+        prune_tmp; exit 0 ;;
     ''|-h|--help)
-        sed -n '13,17p' "$0" >&2; exit 64 ;;
+        sed -n '14,19p' "$0" >&2; exit 64 ;;
 esac
 
 CLASS="$1"; shift
@@ -531,6 +563,15 @@ command -v flock >/dev/null || { say "нет flock — вход без замк�
 
 WHO="$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD"
 CMDLINE="$(printf '%q ' "$@")"
+SLOT_TMP=""
+if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ]; then
+    SLOT_TMP="$TMPROOT/$(copy_key)"
+    if mkdir -p "$SLOT_TMP" 2>/dev/null && touch "$SLOT_TMP"; then
+        git -C "$PWD" rev-parse --show-toplevel > "$SLOT_TMP.copy" 2>/dev/null || printf '%s\n' "$PWD" > "$SLOT_TMP.copy"
+    else
+        say "TMPDIR копии $SLOT_TMP не создан — ci-local идёт с TMPDIR по умолчанию"; SLOT_TMP=""
+    fi
+fi
 
 # ── вход ─────────────────────────────────────────────────────────────────────
 # Очередь строгая, по билету: малый слот не обгоняет ждущий большой. С обгоном
@@ -588,7 +629,11 @@ while :; do
         {
             echo "class=$CLASS"; echo "budget=$BUDGET"; echo "pid=$$"; echo "pid_start=$(pid_start $$)"
             echo "unit=$UNIT"; echo "start=$(now)"; echo "seq=$seq"; echo "who=$WHO"; echo "cmd=$CMDLINE"
+            [ -n "$SLOT_TMP" ] && echo "tmp=$SLOT_TMP"
         } > "$P.slot"
+        # Уборка старых TMPDIR копий — шагом входа под замком, а не выходом слота:
+        # каталог переживает прогон, снимается лишь неиспользуемый дольше срока.
+        prune_tmp
         journal "enter id=$ID class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc waited=${waited}s who=$WHO cmd=$CMDLINE"
         unlock
         break
@@ -714,9 +759,12 @@ if [ -n "$REAL_DOCKER" ] && mkdir -p "$P.bin" && ln -sf "$SELF" "$P.bin/docker";
 fi
 # ci-local — свой TMPDIR, если вызывающий его не задал: замок golangci-lint лежит в
 # TMPDIR, и две копии под общим получали код 3 «parallel golangci-lint is running»
-# (ws#1087). Каталог — запись слота: его снимает та же уборка, что и запись.
-if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ] && mkdir -p "$P.tmp"; then
-    CENV+=(TMPDIR="$P.tmp")
+# (ws#1087). Каталог ПОСТОЯННЫЙ и свой на копию ($TMPROOT/<ключ копии>): из TMPDIR
+# потребители выводят пути, которые обязаны пережить прогон, — kacho ci-local.sh
+# кладёт туда логи и кэш (scripts/ci-local.sh:214, 221). Выход слота его не снимает,
+# снимает prune_tmp по возрасту. Две ci-local одной копии разом делят его — граница.
+if [ "$CLASS" = ci-local ] && [ -z "${TMPDIR:-}" ] && [ -n "$SLOT_TMP" ]; then
+    CENV+=(TMPDIR="$SLOT_TMP")
 fi
 
 t_run="$(now)"; rc=0
