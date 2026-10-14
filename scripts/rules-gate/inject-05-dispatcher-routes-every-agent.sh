@@ -284,6 +284,14 @@ elif op == 'dis_drop_agent':         # исполнителю больше не 
         items = [x.strip() for x in m.group(1).split(',') if x.strip() and x.strip() != 'Agent']
         return t[:m.start(1)] + (', '.join(items) if items else 'NotebookEdit') + t[m.end(1):]
     edit(os.path.join(agents, args[0] + '.md'), drop)
+elif op == 'dis_drop_monitor':       # исполнителю больше не запрещён Monitor (ws#1078)
+    def dropm(t):
+        m = re.search(r'^disallowedTools:[ \t]*(.*)$', t, re.M)
+        if not m or 'Monitor' not in m.group(1):
+            raise SystemExit('ФИКСТУРА ВАКУУМНА: у исполнителя нет Monitor в disallowedTools')
+        items = [x.strip() for x in m.group(1).split(',') if x.strip() and x.strip() != 'Monitor']
+        return t[:m.start(1)] + ', '.join(items) + t[m.end(1):]
+    edit(os.path.join(agents, args[0] + '.md'), dropm)
 elif op == 'dis_reorder':            # тот же набор запретов, обратный порядок
     def rev(t):
         m = re.search(r'^disallowedTools:[ \t]*(.*)$', t, re.M)
@@ -303,7 +311,7 @@ elif op == 'ref_quote':              # та же ссылка, другая ци
 elif op == 'new_agent':              # законно заведённый исполнитель
     name = args[0]
     io.open(os.path.join(agents, name + '.md'), 'w', encoding='utf-8').write(
-        '---\nname: %s\ndescription: "Проба инъекции."\ndisallowedTools: Agent\n'
+        '---\nname: %s\ndescription: "Проба инъекции."\ndisallowedTools: Agent, Monitor\n'
         'skills:\n  - rule-00-kacho-core\n---\n\n# Проба\n' % name)
     edit(disp, lambda t: allowlist(t, lambda ns: ns + [name]))
     edit(disp, lambda t: t.rstrip('\n') + '\n\n### %s\nКогда: никогда, это проба.\n' % name)
@@ -376,6 +384,36 @@ inj05_edit "$d5" dis_drop_agent "$INJ05_AGENT"
 capture "$d5" "$CH05"
 assert_code 1 "«Agent» пропал из disallowedTools — вложенные запуски мимо диспетчера"
 assert_says "AGENT-CAN-SPAWN" "  ...находка названа осью"
+
+echo "== ось C2: исполнитель, ждущий в ходе (AGENT-CAN-WAIT, ws#1078) =="
+d5="$(inj05_sandbox c_can_wait)"
+inj05_edit "$d5" dis_drop_monitor "$INJ05_AGENT"
+capture "$d5" "$CH05"
+assert_code 1 "«Monitor» пропал из disallowedTools — ход ждёт фоновый процесс без ВОЗВРАТ"
+assert_says "AGENT-CAN-WAIT" "  ...находка названа осью"
+assert_says "$INJ05_AGENT" "  ...и назван ИМЕННО этот исполнитель"
+
+echo "== ось C2′: БЛИЗНЕЦ — ci-watcher с разрешённым Monitor (режим wait, решение 2026-10-14) =="
+# Обе стороны одним предметом: у ci-watcher в дереве Monitor не запрещён — гейт молчит;
+# снят из WAIT_LAWFUL — краснеет ИМЕННО на ci-watcher; лишнее имя в WAIT_LAWFUL — находка.
+d5="$(inj05_sandbox c_wait_lawful)"
+grep -q '^disallowedTools:.*Monitor' "$d5/.claude/agents/ci-watcher.md"; RC=$?
+assert_code 1 "  ...предпосылка: у ci-watcher в дереве Monitor не запрещён"
+capture "$d5" "$CH05"
+assert_code 0 "ci-watcher без запрета Monitor — законный близнец, гейт молчит"
+mkdir -p "$TMP/g05"
+wait_mut() {   # <замена WAIT_LAWFUL> — копия проверки с другим исключением
+    sed "s/^WAIT_LAWFUL = (\"ci-watcher\",)\$/WAIT_LAWFUL = $1/" "$GATE/$CH05" > "$TMP/g05/$CH05"
+    if cmp -s "$GATE/$CH05" "$TMP/g05/$CH05"; then RC=0; else RC=1; fi
+    assert_code 1 "  ...образец WAIT_LAWFUL найден в проверке ($1)"
+    local keep="$GATE"; GATE="$TMP/g05"; capture "$d5" "$CH05"; GATE="$keep"
+}
+wait_mut '()'
+assert_code 1 "мутант: ci-watcher снят из WAIT_LAWFUL — краснеет"
+assert_says "AGENT-CAN-WAIT: .claude/agents/ci-watcher.md" "  ...и назван ИМЕННО ci-watcher"
+wait_mut '("ci-watcher", "no-such-watcher")'
+assert_code 1 "исключение называет исполнителя, которого нет, — находка"
+assert_says "исключение «no-such-watcher»" "  ...названо ИМЕННО это исключение"
 
 echo "== ось C′: БЛИЗНЕЦ — тот же набор запретов, обратный порядок =="
 d5="$(inj05_sandbox c_dis_reorder)"; b5="$(sandbox_digest "$d5")"

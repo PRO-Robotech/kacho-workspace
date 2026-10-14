@@ -1,7 +1,7 @@
 ---
 name: load-tester
 description: "Замер под нагрузкой на стенде в production-посадке: сценарии k6 и ghz в deploy/load-tests, лестница подачи, soak, spike, поиск потолка, сравнение конфигураций — все строки таблицы с ОДНОЙ посадки и на прогретом состоянии, каждое число с провенансом стенда, недостигнутый по отказам потолок называется неустановленным. Запускать на замер нового RPC или сервиса, на capacity, на проверку гипотезы о пуле или числе реплик, на перформанс-регрессию. НЕ запускать: функциональные пробы (integration-tester, qa-test-engineer); фикс найденного (go-implementer, rpc-implementer); подъём и профиль стенда (deploy-engineer); чтение вердикта конвейера (ci-watcher)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-testing-load

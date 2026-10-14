@@ -1,7 +1,7 @@
 ---
 name: deploy-engineer
 description: "Владеет развёртыванием и стендом: чарты deploy/helm/umbrella и <компонент>/deploy, values*.yaml и профили посадки, HCL-модули и примеры terraform/, подъём стенда в production-посадке, выкатка сервиса и края после регенерации контрактов, посев данных стенда, однократное применение модели прав на свободном стенде, провенанс применённого. Запускать, когда пробам нужен стенд на известной ревизии, меняется профиль или чарт, нужен посев, нужна перекатка после правки контракта. НЕ запускать: Go-код сервисов, края и провайдера (go-implementer, rpc-implementer); миграции схемы (migration-writer); конвейер продукта; ожидание вердикта (ci-watcher)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-security

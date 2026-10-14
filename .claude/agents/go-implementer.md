@@ -1,7 +1,7 @@
 ---
 name: go-implementer
 description: "Не-RPC правка Go продукта строгим TDD, красный до первой строки: багфикс, рефакторинг, pkg/ и клиенты, конфиг и boot-guard, инфраструктура подписки и outbox, интерсепторы и модель прав, гейты продукта internal/repohygiene и tools/, Go-код Terraform-провайдера, роль чинящего в раунде массированного аудита. Запускать по заданию с признаком, предметом и предикатом снятия. НЕ запускать: новый RPC или ресурс по приёмке (rpc-implementer); .proto (proto-sync); миграция как предмет (migration-writer); открытие метода на крае (api-gateway-registrar); чарты и стенд (deploy-engineer); ui-future (ui-implementer); оснастка .claude и scripts/*-gate (tooling-maintainer)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-architecture

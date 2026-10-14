@@ -1,7 +1,7 @@
 ---
 name: proto-sync
 description: "Владелец любой правки .proto в proto/ монорепо kacho: новый ресурс, RPC, поле, oneof-case, Internal-сервис, аннотации прав, адаптация чужого или старого контракта, снятие поля через reserved. Приводит к плоской форме с Operation, регенерирует стабы pkg/api и каталог прав края, гоняет buf lint и buf breaking и гейты контракта. Запускать первым шагом для любой работы, которой нужны стабы. НЕ запускать: правка только Go без изменения .proto; контракт службы доступа (его дом — репозиторий kaname); ревью формы контракта (proto-api-reviewer); разрыв совместимости без решения диспетчера и записи в перечень объявленных разрывов."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-api-conventions
