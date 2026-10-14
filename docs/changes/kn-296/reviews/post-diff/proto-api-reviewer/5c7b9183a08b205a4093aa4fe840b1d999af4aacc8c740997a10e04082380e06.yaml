@@ -1,0 +1,123 @@
+# Пост-дифф ревью формы контрактов, роль proto-api-reviewer. Пакет kn-296.
+#
+# Имя файла — content_digest финальной пары линии kaname 296 → main
+# (8a84dcff...68d24ae6). Запись новая. Прежняя запись роли (746c6166…, голова
+# 3066c7b6) не правится. Режим «агрегат»: судится только ДЕЛЬТА 3066c7b6..68d24ae6
+# (#779, #781, #783). Остальную линию покрывает прежний ✅ этой роли.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+round: 1
+subject: >-
+  kaname#296, финальная голова 68d24ae6. Дельта от прежнего вердикта роли — 10 путей:
+  приёмка ID-PW-1 ред. 8, четыре записи ревью приёмок, оператор смены адреса
+  (humansession/email_change.go, pg/email_change_repo.go) и три пробы. Контракт и
+  каталог прав дельта не трогает.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6     # origin/main = merge-base, перемерено после fetch
+  head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae     # origin/296 @2026-10-14
+  previous_verdict_head: 3066c7b6a266f640b367a82df21996f022a9a039
+  previous_verdict_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+  pr: https://github.com/PRO-Robotech/kaname/pull/714
+content_digest: sha256:5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+digest_definition: 'git -C project/kaname diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum'
+subject_preflight:
+  digest: 'Перемерено после fetch: 5c7b9183…0e06. Совпадает с hashes.content_digest_sha256 манифеста kn-296.'
+  head_on_origin: 'git rev-parse origin/main origin/296 → 8a84dcff, 68d24ae6.'
+  ancestry: 'git merge-base --is-ancestor 3066c7b6 68d24ae6 → 0.'
+  committed: 'Да. Судилось дерево коммита (detached worktree @68d24ae6). После прогонов git status --porcelain → 0.'
+  delta_digest: 'git diff --full-index 3066c7b6 68d24ae6 | sha256sum → 3c1a5bc5…1d27 (справочно)'
+
+proto_files_touched: 25          # git diff --name-only 8a84dcff...68d24ae6 -- 'proto/**' | grep -c '\.proto$'
+proto_files_touched_in_delta: 0  # git diff --name-only 3066c7b6 68d24ae6 -- '*.proto' 'proto/**' 'pkg/api/**' '*permission_catalog*' '*declared-breaks*' → 0 путей
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+return_to: null
+timestamp: '2026-10-14T01:23:36Z'
+
+checks:
+  - command: 'git diff --name-only 3066c7b6 68d24ae6 -- "*.proto" "proto/**" "pkg/api/**" "*permission_catalog*" "*declared-breaks*"'
+    exit_code: 0
+    outcome: green           # 0 путей: предмет роли дельтой не затронут
+  - command: 'buf lint   (cwd proto/ @68d24ae6)'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kaname/.git#ref=3066c7b6a266f640b367a82df21996f022a9a039,subdir=proto"'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kaname/.git#ref=8a84dcff6eb1ccde68113353ba28d1e1e399f0e6,subdir=proto"'
+    exit_code: 0
+    outcome: green
+checks_summary: 'зелёных 4 · красных 0 · не выполнилось 0'
+
+findings:
+  critical: []
+  important: []
+
+approved:
+  - 'Дельта 3066c7b6..68d24ae6 не трогает proto/, pkg/api/, каталог прав и declared-breaks. Вердикт прежней записи (746c6166…) по форме контракта переносится на эту пару без изменений.'
+  - 'Контракт на голове 68d24ae6 совместим и с прежней головой вердикта, и с main: buf breaking против обоих — код 0.'
+
+notes:
+  - >-
+    Край kacho закрепляет kaname на 3d5b02ede3aa. Дельта 3d5b02ed..68d24ae6 — 4 файла
+    (приёмка, запись ревью, проба). Контракта среди них нет, поэтому пин края
+    контрактно равен голове эпика.
+
+next_requested: >-
+  сбор пост-дифф записей: convergence-reviewer (пакет kn-296) на дайджест 5c7b9183…0e06.
+
+# Полномочие. Запись агента-роли сама полномочия не даёт: его даёт внешнее
+# событие актора из docs/changes/policy.yaml (review_authority.proto-api-reviewer).
+# Событие на этот отпечаток ещё не опубликовано. После публикации блок event
+# дописывается к факту, прежние строки не переписываются.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.proto-api-reviewer
+    authorized_actors: [pointpu]
+    allowlisted_for_role: true
+    cutover_note: >-
+      policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname (находка из
+      шапки манифеста kn-296). Пакет живёт в kacho-workspace, его cutover
+      1202e3cf… — предок базы пакета.
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    target: PRO-Robotech/kaname#296
+    declared_verdict: ACCEPTED
+    declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kaname
+    issue: 296
+    database_id: 6158840297
+    node_id: IC_kwDOUO26pM8AAAABbxhx6Q
+    url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6158840297'
+    actor: pointpu
+    author_association: MEMBER
+    role: proto-api-reviewer
+    created_at: '2026-10-14T01:29:08Z'
+    body_sha256: 52f20435c1e225b324a0f8bae1196cbab1bd6df9badb58156687c51badce6bb4
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/proto-api-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: proto-api-reviewer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

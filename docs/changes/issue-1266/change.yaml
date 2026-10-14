@@ -4,9 +4,10 @@
 # Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
 # ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-2713/`.
 #
-# ЛИНИЯ ДВИЖЕТСЯ. Голова и база сняты 2026-10-13 с origin; после волн эпика (в
-# kacho — поднятие пина службы доступа и каталога) голова сдвинется, и ВСЕ
-# отпечатки ниже станут отпечатками прежней линии. Пересчёт — командами поля
+# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin на финальной
+# голове 4c7ab49d (после #3203 — пин службы доступа на 3d5b02ed, — #3201 и
+# #3205). Сдвинется голова — ВСЕ отпечатки
+# ниже станут отпечатками прежней линии. Пересчёт — командами поля
 # `remeasure`; запись ревью на прежнем отпечатке новую линию не судит.
 schema_version: 1
 change_id: issue-1266
@@ -25,43 +26,43 @@ coordinates:
   repositories:
     - repo: PRO-Robotech/kacho-workspace
       role: package-home
-      base_sha: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
-      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 6f10d7e2 → 0
+      base_sha: 1e11702600a5d2168c20cff48261f704f8063241
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 1e117026 → 0
     - repo: PRO-Robotech/kacho
       role: subject-tree
       branch: '1266'
       base_sha: bac26316c468f76ba6193e4e61ac0dabbce64670   # origin/main @2026-10-13
-      head_sha: fd9f1793e70da4b9e1886be24a3104e0608410a0   # origin/1266 @2026-10-13
-      merge_base_equals_base: true         # git merge-base bac26316 fd9f1793 → bac26316
-      commits_in_line: 389                 # git rev-list --count bac26316..fd9f1793
-      merges_in_line: 134                  # git rev-list --merges --count bac26316..fd9f1793
-      paths_in_diff: 700                   # git diff --name-only bac26316...fd9f1793 | wc -l
+      head_sha: 4c7ab49db8abca54493836cff4da44774e0f6b90   # origin/1266 @2026-10-14 (merge #3205), финальная голова
+      merge_base_equals_base: true         # git merge-base bac26316 4c7ab49d → bac26316
+      commits_in_line: 414                 # git rev-list --count bac26316..4c7ab49d
+      merges_in_line: 145                  # git rev-list --merges --count bac26316..4c7ab49d
+      paths_in_diff: 715                   # git diff --name-only bac26316...4c7ab49d | wc -l
       cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… bac26316 → 0
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818): без него
   # строки index несут сокращённые хеши, и дайджест зависит от клона.
-  content_digest_sha256: 4f23a06973cad6859d285528ad7cd5db0ea2f4fbffe7a1fd97e4358a8eafe92e
+  content_digest_sha256: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
   content_digest_predicate: >-
-    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...fd9f1793e70da4b9e1886be24a3104e0608410a0 | sha256sum
+    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
 
-  canonical_diff_set_sha256: c637f7b5c7a0c1ab3978f6ab29ace6779ccd46fcd2c8bf94bfc70636fd4c6af4
+  canonical_diff_set_sha256: 991a872dc4c9b12293f80e30cfef5880fa78037f291696d8e5680fc09668fec1
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 84623b6e7d9ec21b3fcee7b4fd7d0379e8300c17d45b6613ca10c7ed6dbdf1ad
+  holders_sha256: ad6c3f7f00ee78534b2fbd00ea9b17897dbc7d62dac36b71fa31f0711ffeb0eb
 
   # Приёмки эпика живут в воркспейсе, а не в дереве продукта, и не в корне пакета.
   # Отпечаток — НАБОРА документов (путь · blob на ревизии дома), набор выведен
   # предикатом ниже. Граница предиката: документ эпика, не называющий ни
   # kacho#1266, ни линии identity-own, в набор не попадёт.
-  acceptance_sha256: 13e7f9b675a58ffce2738476b0d106c2d700ccdea4258e9bbc4682ef2f4cfe7b
+  acceptance_sha256: d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb
   acceptance_set_predicate: >-
     git ls-tree <ws-rev> -- $(git grep -l -E 'kacho#1266|kacho/issues/1266([^0-9]|$)|identity-own' <ws-rev> -- 'docs/specs/*.md' | sed 's/^[^:]*://')
     | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
-  acceptance_set_rev: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
+  acceptance_set_rev: 1e11702600a5d2168c20cff48261f704f8063241
   acceptance_set:
     - docs/specs/sub-phase-F1-token-signer-acceptance.md
     - docs/specs/sub-phase-F8-S3-console-access-recovery-screen-acceptance.md

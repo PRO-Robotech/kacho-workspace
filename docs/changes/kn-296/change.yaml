@@ -6,9 +6,9 @@
 # Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
 # ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-2713/`.
 #
-# ЛИНИЯ ДВИЖЕТСЯ. Голова и база сняты 2026-10-13 с origin; после волны
-# #747/#759/#762 голова сдвинется, и ВСЕ отпечатки ниже станут отпечатками
-# прежней линии. Пересчёт — командами поля `remeasure`.
+# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin на финальной
+# голове 68d24ae6 (после #779, #781 и #783 — приёмка ID-PW-1 ред. 8). Сдвинется
+# голова — ВСЕ отпечатки ниже станут отпечатками прежней линии. Пересчёт — командами поля `remeasure`.
 #
 # РЕПОЗИТОРИЯ PRO-Robotech/kaname НЕТ в `docs/changes/policy.yaml` §1 (cutover
 # назван только у kacho-workspace и kacho): освобождение по полю о дереве
@@ -28,41 +28,41 @@ coordinates:
   repositories:
     - repo: PRO-Robotech/kacho-workspace
       role: package-home
-      base_sha: 6f10d7e212b43ddf7cf43ff07a00675df75cdec9
-      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 6f10d7e2 → 0
+      base_sha: 1e11702600a5d2168c20cff48261f704f8063241
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 1e117026 → 0
     - repo: PRO-Robotech/kaname
       role: subject-tree
       branch: '296'
       base_sha: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6   # origin/main @2026-10-13
-      head_sha: 9a78fc2183c8669dde415cb3c12e637e593d52b9   # origin/296 @2026-10-13
-      merge_base_equals_base: true         # git merge-base 8a84dcff 9a78fc21 → 8a84dcff
-      commits_in_line: 614                 # git rev-list --count 8a84dcff..9a78fc21
-      merges_in_line: 193                  # git rev-list --merges --count 8a84dcff..9a78fc21
-      paths_in_diff: 2013                  # git diff --name-only 8a84dcff...9a78fc21 | wc -l
+      head_sha: 68d24ae66fe4530dcccebf36f82ad70f1c976eae   # origin/296 @2026-10-14 (merge #783), финальная голова
+      merge_base_equals_base: true         # git merge-base 8a84dcff 68d24ae6 → 8a84dcff
+      commits_in_line: 681                 # git rev-list --count 8a84dcff..68d24ae6
+      merges_in_line: 214                  # git rev-list --merges --count 8a84dcff..68d24ae6
+      paths_in_diff: 2050                  # git diff --name-only 8a84dcff...68d24ae6 | wc -l
       cutover_in_policy: false             # policy.yaml §1 не называет PRO-Robotech/kaname
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818).
-  content_digest_sha256: c83869dca75a7a8cf53e9109be1c01c225823123d2242163e8e3380cd4802599
+  content_digest_sha256: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
   content_digest_predicate: >-
-    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...9a78fc2183c8669dde415cb3c12e637e593d52b9 | sha256sum
+    git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
 
-  canonical_diff_set_sha256: 6ff7b520247c5650c03208c8a9a17c98ab68845d284464062e79321701464d80
+  canonical_diff_set_sha256: 44a84df296623d2585b9a511dcff0abca3d5dc7c78266e6261c17dd4a4c96c2e
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 6bf541bd18356021130d8fcb0b536948b8df99f42767926bbac2bd17a76a6de6
+  holders_sha256: bd3f722fa0b1c6aef31656085f84d6470c4cb209bf7ead20c76c682d97561949
 
   # Приёмки и замысел эпика лежат в ДЕРЕВЕ ПРОДУКТА (`docs/engineering/acceptance/`)
   # и входят в его дифф. Отпечаток — НАБОРА документов (путь · blob на голове):
   # добавленные и изменённые линией; замысел — по суффиксу `-design.md`.
-  acceptance_sha256: 6aff69a5be35d7cb0a5ac6340859d49b281f14c2bc686d82d28a57eda222475a
+  acceptance_sha256: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175
   acceptance_set_predicate: >-
     git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*' | grep -v -- '-design\.md$')
     | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
-  acceptance_set_count: 26
+  acceptance_set_count: 27
   design_sha256: efa1b3d0d436cba6fff4993e242c338333fe0237ebd3ef25e42a12e851bd00c2
   design_set_predicate: >-
     git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*-design.md')

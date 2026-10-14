@@ -1,0 +1,190 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, пакет kn-296.
+#
+# Имя файла — content_digest финальной пары линии kaname 296 → main. Прежняя
+# запись роли (ранний пред-посадочный заход на голове 9a78fc21, дайджест
+# c83869dc…, лежит в пакете issue-1266) не правится; эта судит ДЕЛЬТУ
+# 9a78fc21..3066c7b6 (волны #768 и #773: #747, #759, #762, #769, #770), а
+# остальная линия покрыта прежним ✅ этой роли (режим «агрегат»).
+schema_version: 1
+change_id: kn-296
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  kaname#296 финальная голова: дельта от прежнего вердикта роли — пол уровня «2»
+  у глаголов ключа доступа и второй замок на публичном слушателе (#747),
+  условие уровня у глаголов смены адреса (#770), транзакция заведения способа
+  под замком строки личности (#770), выдача испытания входа ключом одним
+  оператором (#769), отказ заглушки домена на старте (#762), наблюдаемость (#759).
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6     # origin/main = merge-base, перемерено
+  head: 3066c7b6a266f640b367a82df21996f022a9a039     # origin/296 @2026-10-13
+  previous_verdict_head: 9a78fc2183c8669dde415cb3c12e637e593d52b9
+content_digest: sha256:746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+digest_definition: >-
+  git diff --full-index 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3066c7b6a266f640b367a82df21996f022a9a039 | sha256sum
+  в project/kaname после fetch → 746c6166…8c02; совпал с hashes.content_digest_sha256
+  манифеста kn-296.
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-13T00:00:00Z'
+review_scope: >-
+  дельта 9a78fc21..3066c7b6: 91 файл; Go — 56 файлов (+4383 −207), из них прод
+  без порождённого — 16 файлов (+832 −184, большей частью комментарии), пробы —
+  38 добавленных и изменённых _test.go. Прод прочитан построчно целиком:
+  cmd/kaname/loginlane.go; humansession/{email_change.go, email_change_level.go,
+  iface.go, recovery_request.go, second_factor.go, sf_enroll.go, sf_enroll_level.go};
+  config/{required_settings.go, validate.go}; authzguard/public_caller_policy.go
+  (код и прилегающая ветвь Authorize); check/catalog_copy_parity.go;
+  handler/loginlanehttp/handler.go; repo/kaname/pg/{access_key_login_repo.go,
+  human_session_repo.go, registration_store.go}. Пробы — механическим проходом
+  по классам, построчно не читались.
+
+files_reviewed_prod:
+  - cmd/kaname/loginlane.go
+  - internal/apps/kaname/api/humansession/email_change.go
+  - internal/apps/kaname/api/humansession/email_change_level.go
+  - internal/apps/kaname/api/humansession/iface.go
+  - internal/apps/kaname/api/humansession/recovery_request.go
+  - internal/apps/kaname/api/humansession/second_factor.go
+  - internal/apps/kaname/api/humansession/sf_enroll.go
+  - internal/apps/kaname/api/humansession/sf_enroll_level.go
+  - internal/apps/kaname/config/required_settings.go
+  - internal/apps/kaname/config/validate.go
+  - internal/authzguard/public_caller_policy.go
+  - internal/check/catalog_copy_parity.go
+  - internal/handler/loginlanehttp/handler.go
+  - internal/repo/kaname/pg/access_key_login_repo.go
+  - internal/repo/kaname/pg/human_session_repo.go
+  - internal/repo/kaname/pg/registration_store.go
+
+critical: []
+important: []
+foundation_candidates: []
+
+style:
+  - id: RANK-HELPER-TWICE
+    coord: internal/apps/kaname/api/humansession/sf_enroll_level.go:112
+    note: >-
+      keyLevelRank() повторяет тело guaranteedRank (email_change_level.go:106) над
+      одноэлементным набором. Выразимо как guaranteedRank([]assurance.Method{assurance.MethodWebAuthn}).
+      Пакет один, на корректность не влияет.
+  - id: REGISTRATION-WRITER-LITERAL-TWICE
+    coord: internal/repo/kaname/pg/registration_store.go:87
+    note: >-
+      EmailChangeWriter собирает тот же литерал RegistrationWriter, что
+      holdPersonOf (:106), отличаясь только функцией замка. Можно передать
+      функцию замка в holdPersonOf. Не блокирует.
+  - id: ZERO-RANK-HANDLING-DIFFERS
+    coord: internal/authzguard/public_caller_policy.go:455
+    note: >-
+      Нулевой ранг порога разбирается по-разному: в gatewayFloor это проход, как
+      и в соседней ветви той же политики, а в humansession (email_change_level.go,
+      sf_enroll_level.go) — отказ хранилища. Ветвь политики закреплена пробой
+      TestKN747_FloorOfKeyVerbsIsNotBelowLevelTwo (у трёх глаголов в контракте
+      значение «2»), поэтому это замечание о единообразии, а не находка.
+
+security_comments_contradicting_code: []
+
+approved:
+  error_wrap_and_mapping: >-
+    Новые отказы — sentinel'ы и типизированные ошибки (ErrStoreUnavailable,
+    *StepUpRequiredError, iamerr.Wrapf(ErrInternal, литерал)). Причина уходит в
+    журнал, наружу идёт фиксированный текст iamerr.TextStepUpRequired. На краю
+    HTTP отображение идёт через errors.As (handler.go:1373), на gRPC — через
+    GRPCStatus с литералом. Сравнений err.Error() со строкой и эха текста
+    драйвера наружу в дельте нет. Ошибки репозитория идут через mapErr.
+  context: >-
+    В прод-дельте нет context.Background/TODO. ctx передаётся в каждое чтение
+    заведённого и в каждую транзакцию. Все 16 совпадений context.Background в
+    дельте находятся в _test.go.
+  no_panic: 'panic, Must*, log.Fatal в прод-дельте нет'
+  logging: >-
+    Четыре новых вызова — d.Logger.ErrorContext со структурными полями user_id и
+    err. Персональных данных (адреса) в ключах нет: коррелируют по user_id.
+    fmt.Print, log.Print, Sprintf в журнале в прод-дельте нет.
+  thin_handler: >-
+    handler.go добавляет только ветку отображения *StepUpRequiredError
+    (заголовок и фиксированный текст). Условие уровня живёт в use-case
+    (email_change_level.go, sf_enroll_level.go), SQL — в repo/kaname/pg.
+  layering: >-
+    use-case зовёт хранилище через порты: EnrolledMethodsReader,
+    Store.EnrollmentWriter и методы Writer. pgx в humansession не импортируется.
+    Связывание — в cmd/kaname/loginlane.go. Конструктор отказывает при
+    Methods == nil (email_change.go, complete()).
+  naming_ascii: >-
+    Новые идентификаторы латиницей (EnrolledMethodsReader, requireEmailChangeLevel,
+    guaranteedRank, StepUpRequiredError, holdPersonAgainstEnrollment,
+    PublicGatewayFlooredRPCs, isReservedInvalidName). Механический проход по
+    объявлениям func/type/var/const добавленных строк дал 0 не-ASCII.
+  constants: >-
+    Порог уровня не выписан литералом, а выводится правилом (assurance.GuaranteedLevels,
+    acrlevel.Rank). Имена методов вынесены в именованные const.
+  go_mod: 'go.mod в дельте не тронут; новых рёбер модулей нет (corelib/acrlevel уже был импортирован)'
+
+fresh_deferral_markers: 0    # TODO|FIXME|XXX|HACK в добавленных строках .go — 0
+tests_in_same_pr: true       # 38 _test.go в той же дельте: use-case пробы на
+                             # дублёрах, интеграционные под testcontainers, пробы
+                             # authzguard и config — у каждого изменённого прод-пакета
+linter_probes_outcome: not-claimed-by-this-role
+return_to: null
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
+
+# Полномочие. Запись агента-роли сама полномочия не даёт: его даёт внешнее
+# событие актора из docs/changes/policy.yaml (review_authority.go-style-reviewer).
+# Событие ещё не опубликовано. После публикации блок event дописывается к
+# факту, прежние строки не переписываются.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.go-style-reviewer
+    authorized_actors: [pointpu]
+    allowlisted_for_role: true
+    cutover_note: >-
+      policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname (находка из
+      шапки манифеста kn-296). Пакет живёт в kacho-workspace, а его cutover
+      1202e3cf… является предком базы пакета.
+  expected_actor: pointpu
+  event:
+    type: issue_comment
+    target: PRO-Robotech/kaname#296
+    status: performed
+    published: true
+    repo: PRO-Robotech/kaname
+    issue: 296
+    database_id: 6156552993
+    node_id: IC_kwDOUO26pM8AAAABbvWLIQ
+    url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6156552993'
+    actor: pointpu
+    author_association: MEMBER
+    role: go-style-reviewer
+    created_at: '2026-10-13T22:27:13Z'
+    body_sha256: 0e8bb095f13fc8b86b4609da9dae7a497a0d3aee0d3090f3c7d8ef1f2f447615
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+    declared_verdict: ACCEPTED
+    declared_content_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+    declared_record_path: docs/changes/kn-296/reviews/post-diff/go-style-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: go-style-reviewer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: true
+  note: >-
+    дельта 3066c7b6..3d5b02ed (kaname#779, #781): 6 путей — две записи ревью приёмок в
+    docs/specs/reviews/, internal/apps/kaname/api/humansession/email_change.go,
+    internal/repo/kaname/pg/email_change_repo.go и две пробы к ним (+268 −19). Предмет роли
+    ЗАТРОНУТ: прод-Go email_change.go и email_change_repo.go. Повтора роли на дельте нет —
+    запись линию 3d5b02ed не судит.

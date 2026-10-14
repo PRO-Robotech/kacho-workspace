@@ -1,0 +1,144 @@
+# Свидетельство приёмок пакета — роль acceptance-reviewer, держатель human-acceptance.
+#
+# Имя файла — hashes.acceptance_sha256 манифеста (change.yaml): отпечаток НАБОРА
+# приёмок эпика (путь · blob на ревизии дома). Прежние записи не правятся;
+# сменится набор — новый файл и новое событие (change-graph §2).
+#
+# Эта запись НЕ пересматривает содержимое приёмок: каждую судила своя запись
+# ревью на её отпечаток, и каждую одобрило внешнее событие pointpu. Здесь
+# сверено, что набор пакета — ровно эти семь редакций, что у каждой есть запись
+# APPROVED на её отпечаток и опубликованное событие APPROVED на тот же отпечаток.
+schema_version: 1
+change_id: issue-1266
+holder: human-acceptance
+owner: acceptance-reviewer
+subject: >-
+  Набор из 7 приёмок эпика kacho#1266 (change.yaml acceptance_set), дом —
+  PRO-Robotech/kacho-workspace docs/specs/.
+
+fingerprint:
+  repo: PRO-Robotech/kacho-workspace
+  acceptance_set_rev: 1e11702600a5d2168c20cff48261f704f8063241
+  remeasured_at_revs:
+    - 1e11702600a5d2168c20cff48261f704f8063241   # change.yaml acceptance_set_rev
+    - 003e10b504587bf0c19109484214a69dd0d61df5   # HEAD копии tmp/pkg-1266-final
+  set_count: 7
+  set_predicate: change.yaml hashes.acceptance_set_predicate, дословно
+  subject_line:
+    repo: PRO-Robotech/kacho
+    base: bac26316c468f76ba6193e4e61ac0dabbce64670
+    head: 4c7ab49db8abca54493836cff4da44774e0f6b90   # origin/1266 после fetch 2026-10-14
+  acceptance_docs_outside_set: >-
+    git -C project/kacho diff --name-only --diff-filter=AM bac26316...4c7ab49d | grep -i acceptance
+    → 1 путь, gateway/internal/middleware/token_acceptance.go — код, не приёмка. Документов
+    приёмки в дереве продукта линия не несёт.
+
+content_digest: sha256:d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb
+digest_remeasured: true    # совпал с change.yaml hashes.acceptance_sha256 на обеих ревизиях
+
+verdict: APPROVED
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+reviewer_role: acceptance-reviewer
+expected_actor: pointpu
+return_to: '—'
+static_status_note: >-
+  Слова в шапках приёмок — то, что туда вписали. Вердикт по каждой выводится из её записи
+  ревью и внешнего события; вердикт набора — из этой записи и её события.
+
+set:
+  # sha256 — `git show HEAD:<путь> | sha256sum`; событие — `gh api repos/<repo>/issues/comments/<id>`:
+  # автор pointpu, author_association MEMBER, created_at == updated_at, тело несёт роль,
+  # APPROVED и отпечаток документа дословно.
+  - path: docs/specs/sub-phase-F1-token-signer-acceptance.md
+    sha256: ca78d72f651a16f06fe3f3b0391906f9737e582c64200370a45c2b36b6f46f52
+    record: docs/specs/reviews/sub-phase-F1-token-signer-acceptance/ca78d72f651a16f06fe3f3b0391906f9737e582c64200370a45c2b36b6f46f52.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho-workspace/issues/774#issuecomment-5793873761
+    event_created_at: '2026-09-23T11:18:30Z'
+    note: >-
+      Блок event записи остался `not_performed` (type none), хотя событие опубликовано —
+      запись не приведена к факту. Санкцию даёт событие, и оно есть; запись этим ревью
+      не правится.
+  - path: docs/specs/sub-phase-F8-S3-console-access-recovery-screen-acceptance.md
+    sha256: 2ad1b0530db79aaa4cd037bad84619f2986d69ec1280d1de30c877a0e4ed3286
+    record: docs/specs/reviews/sub-phase-F8-S3-console-access-recovery-screen-acceptance/2ad1b0530db79aaa4cd037bad84619f2986d69ec1280d1de30c877a0e4ed3286.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho/issues/1274#issuecomment-5975763816
+    event_created_at: '2026-10-04T02:25:23Z'
+  - path: docs/specs/sub-phase-F8-S4-console-access-key-login-screen-acceptance.md
+    sha256: dea6dc9176d8794b456518076e5289ed281b4b2542fff252b6b0f3119385684f
+    record: docs/specs/reviews/sub-phase-F8-S4-console-access-key-login-screen-acceptance/dea6dc9176d8794b456518076e5289ed281b4b2542fff252b6b0f3119385684f.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho/issues/2969#issuecomment-6118393065
+    event_created_at: '2026-10-12T05:34:37Z'
+  - path: docs/specs/sub-phase-F8-S5-console-and-edge-own-sessions-acceptance.md
+    sha256: b1d096cf49c2389b891ac2d576e717101a279d525774502ff7e2fa07fe992994
+    record: docs/specs/reviews/sub-phase-F8-S5-console-and-edge-own-sessions-acceptance/b1d096cf49c2389b891ac2d576e717101a279d525774502ff7e2fa07fe992994.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho/issues/3061#issuecomment-6027092905
+    event_created_at: '2026-10-06T23:07:55Z'
+  - path: docs/specs/sub-phase-F8-S6-console-and-edge-email-change-acceptance.md
+    sha256: 0c1de11ef9f2ccdd283289d6ae89fa78871cee4649e93137003ced36a0fa4a58
+    record: docs/specs/reviews/sub-phase-F8-S6-console-and-edge-email-change-acceptance/0c1de11ef9f2ccdd283289d6ae89fa78871cee4649e93137003ced36a0fa4a58.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho/issues/3062#issuecomment-6136854844
+    event_created_at: '2026-10-13T02:26:21Z'
+  - path: docs/specs/sub-phase-F8-console-identity-ceremony-screens-acceptance.md
+    sha256: b3be8032320e5880b9914ca8bd4017870750d509a12905541eb8f7faa9963f6a
+    record: docs/specs/reviews/sub-phase-F8-console-identity-ceremony-screens-acceptance/b3be8032320e5880b9914ca8bd4017870750d509a12905541eb8f7faa9963f6a.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-6027041668
+    event_created_at: '2026-10-06T23:03:36Z'
+  - path: docs/specs/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance.md
+    sha256: bd38663f1fb8e20db3ef5c15b124ec89cba65611798acce8a13efbaab7fc852b
+    record: docs/specs/reviews/sub-phase-KA1-edge-refusals-and-call-budgets-acceptance/bd38663f1fb8e20db3ef5c15b124ec89cba65611798acce8a13efbaab7fc852b.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kacho-workspace/issues/897#issuecomment-5993599751
+    event_created_at: '2026-10-05T11:33:37Z'
+
+tally:
+  documents: 7
+  record_on_current_fingerprint: 7
+  record_verdict_approved: 7
+  event_published_approved_on_same_fingerprint: 7
+  not_executed: 0
+
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer   # policy.yaml:41 `acceptance-reviewer: [pointpu]`
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kacho
+  issue: 1266
+  database_id: 6158838418
+  node_id: IC_kwDOTZqgWM8AAAABbxhqkg
+  url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6158838418'
+  actor: pointpu
+  author_association: MEMBER
+  role: acceptance-reviewer
+  created_at: '2026-10-14T01:28:59Z'
+  body_sha256: 12cc3a19f652f8e5fd2d034b7f2e776ef7472232fe3bc75087fea03fc063ce03
+  body_reverified_by_second_get: true
+  body_is_single_machine_line: true
+  declared_verdict: APPROVED
+  declared_content_digest: d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb
+  declared_record_path: docs/changes/issue-1266/reviews/post-diff/acceptance-reviewer/d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+
+important_findings:
+  - coordinate: docs/specs/reviews/sub-phase-F1-token-signer-acceptance/ca78d72f651a16f06fe3f3b0391906f9737e582c64200370a45c2b36b6f46f52.yaml (блок event)
+    note: >-
+      Запись не приведена к факту события ws#774#issuecomment-5793873761. На санкцию не
+      влияет, но машинное чтение блока event увидит «не опубликовано».

@@ -1,0 +1,133 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, пакет issue-1266.
+#
+# Имя файла — content_digest финальной пары линии kacho 1266 → main
+# (bac26316...4c7ab49d). Прежний вердикт роли — ранний пред-посадочный заход
+# на голове fd9f1793 (reviews/pre-landing/go-style-reviewer/4f23a069…+c83869dc….md);
+# он не правится. Эта запись судит ДЕЛЬТУ fd9f1793..4c7ab49d (#3195, #3198,
+# #3203, #3201, #3205), а остальная линия покрыта прежним ✅ этой роли
+# (режим «агрегат»).
+schema_version: 1
+change_id: issue-1266
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  kacho#1266 финальная голова 4c7ab49d: дельта от прежнего вердикта роли —
+  готовность края учитывает соединение решения о праве (#3201, kacho#3200),
+  пин kaname на 3d5b02ed (#3195, #3203), пробы каталога края; проба helm без
+  обрыва трубы (#3205) — shell, Go не трогает.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: '1266'
+  base: bac26316c468f76ba6193e4e61ac0dabbce64670     # origin/main = merge-base, перемерено
+  head: 4c7ab49db8abca54493836cff4da44774e0f6b90     # origin/1266 @2026-10-14, после fetch
+  previous_verdict_head: fd9f1793e70da4b9e1886be24a3104e0608410a0
+  previous_verdict_digest: 4f23a06973cad6859d285528ad7cd5db0ea2f4fbffe7a1fd97e4358a8eafe92e
+content_digest: sha256:786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+digest_definition: >-
+  git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
+  в project/kacho после fetch → 786cd30e…0282. Совпал с hashes.content_digest_sha256
+  манифеста issue-1266.
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+review_scope: >-
+  дельта fd9f1793..4c7ab49d: 48 файлов (+1263 −93, `git diff --stat`). Go — 7 файлов
+  (`git diff --numstat -- '*.go'`): прод 3 — gateway/cmd/api-gateway/main.go (+4 −3),
+  gateway/cmd/api-gateway/readiness.go (+43, новый), gateway/internal/clients/iam_authorize_client.go
+  (+6); все три прочитаны построчно, вместе с health.HTTPReadyz (health.go:62-92) и полем
+  authz.calls (main.go:1506). Пробы — 4 _test.go. go.mod/go.sum — подъём пина kaname.
+  Чарты, workflow, shell-пробы helm и консоль — вне предмета роли.
+
+files_reviewed_prod:
+  - gateway/cmd/api-gateway/main.go
+  - gateway/cmd/api-gateway/readiness.go
+  - gateway/internal/clients/iam_authorize_client.go
+  - go.mod
+
+critical: []
+important: []
+foundation_candidates: []
+
+style: []
+
+security_comments_contradicting_code: []
+
+approved:
+  wiring: >-
+    readinessTargets — функция композиционного корня (package main), карту бэкендов
+    не мутирует (копия через maps.Copy), возвращает новую карту целей и признаки
+    критичности. Критичность соединения прав = !failOpen, без клиента цели нет —
+    поведение совпадает с комментарием (readiness.go:16-30), что закреплено четырьмя
+    пробами readiness_authorize_test.go (не готов / готов / fail-open / без клиента).
+  context_and_deadline: >-
+    Новый опрос идёт тем же HTTPReadyz, у которого свой context.WithTimeout 5 с на
+    проход (health.go:77). Новых внешних вызовов без дедлайна нет.
+  no_address_leak: 'в теле /readyz — только имя iamAuthorize и состояние, адреса нет'
+  accessor: >-
+    IAMAuthorizeClient.Conn() — геттер без логики; nil-клиент и nil-соединение
+    разобраны в readinessTargets до обращения.
+  no_panic: 'panic, Must*, log.Fatal, context.Background/TODO в добавленных строках прод-Go нет'
+  naming_ascii: 'новые идентификаторы латиницей: readinessTargets, readinessAuthorizeKey, Conn'
+  go_mod: >-
+    единственная правка — пин github.com/PRO-Robotech/kaname
+    v0.4.1-0.20261012015804-2952ea7f3874 → v0.4.1-0.20261013180450-3d5b02ede3aa; replace в
+    go.mod — 0. Пин 3d5b02ed отстаёт от финальной головы kaname 68d24ae6 на 4 файла
+    (приёмка, две записи ревью, _test.go) — Go-прода в разнице нет, поведение модуля
+    одинаково.
+
+fresh_deferral_markers: 0    # TODO|FIXME|XXX|HACK в добавленных строках .go — 0
+tests_in_same_pr: true       # readiness_authorize_test.go (4 пробы), пробы каталога края:
+                             # permission_catalog_access_key_floor_test.go,
+                             # permission_catalog_acr_invariant_test.go,
+                             # permission_catalog_invite_stepup_test.go
+linter_probes_outcome: not-claimed-by-this-role
+return_to: null
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
+
+# Полномочие. Запись агента-роли сама полномочия не даёт: его даёт внешнее
+# событие актора из docs/changes/policy.yaml (review_authority.go-style-reviewer).
+# Событие на этот отпечаток ещё не опубликовано. После публикации блок event
+# дописывается к факту, прежние строки не переписываются.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.go-style-reviewer
+    authorized_actors: [pointpu]
+    allowlisted_for_role: true
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    target: PRO-Robotech/kacho#1266
+    declared_verdict: ACCEPTED
+    declared_content_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/go-style-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    database_id: 6158838687
+    node_id: IC_kwDOTZqgWM8AAAABbxhrnw
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6158838687'
+    actor: pointpu
+    author_association: MEMBER
+    role: go-style-reviewer
+    created_at: '2026-10-14T01:29:00Z'
+    body_sha256: cd5c6bd54af7086b8d98164673d11bc7e3f44c57101a835a4392b787980f11b1
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/go-style-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: go-style-reviewer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

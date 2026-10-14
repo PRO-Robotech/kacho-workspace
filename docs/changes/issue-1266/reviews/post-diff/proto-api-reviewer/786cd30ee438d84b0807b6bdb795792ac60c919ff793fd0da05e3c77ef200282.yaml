@@ -1,0 +1,141 @@
+# Пост-дифф ревью формы контрактов, роль proto-api-reviewer. Пакет issue-1266.
+#
+# Имя файла — content_digest финальной пары линии kacho 1266 → main
+# (bac26316...4c7ab49d). Это первая запись роли в публичном дереве пакета:
+# записи прежнего захода сюда не перенесены (holders.yaml, примечание 2).
+# Прежнего ✅ этой роли нет, поэтому «только дельта» опереть не на что. Судится вся
+# контрактная часть линии — 3 файла proto/kacho/cloud/geo/v1/. Дополнительно
+# подтверждено, что дельта 2306d95d..4c7ab49d (голова прежней записи соседней
+# роли → финальная) контракт не трогает.
+schema_version: 1
+change_id: issue-1266
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+round: 1
+subject: >-
+  kacho#1266, финальная голова 4c7ab49d. Контрактная часть линии —
+  административные глаголы каталога размещения на публичном крае (sub-phase ADM-1,
+  kacho#3092, коммит faaba23a7a). RegionService/ZoneService получили
+  Create/Update/Delete с публичными входами CreatePublic*/UpdatePublic* без блока
+  infra°. Метаданные операций общие с Internal*-близнецами. Комментарии в
+  internal_catalog_service.proto обновлены.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: '1266'
+  base: bac26316c468f76ba6193e4e61ac0dabbce64670     # origin/main = merge-base, перемерено после fetch
+  head: 4c7ab49db8abca54493836cff4da44774e0f6b90     # origin/1266 @2026-10-14
+  delta_checked_from: 2306d95de6837ec745852c305869efc8551546bf   # голова записи system-design-reviewer 2aa30583…
+  pr: https://github.com/PRO-Robotech/kacho/pull/3158
+content_digest: sha256:786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+digest_definition: 'git -C project/kacho diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum'
+subject_preflight:
+  digest: 'Перемерено после fetch: 786cd30e…0282. Совпадает с hashes.content_digest_sha256 манифеста issue-1266.'
+  head_on_origin: 'git rev-parse origin/main origin/1266 → bac26316, 4c7ab49d.'
+  ancestry: 'git merge-base --is-ancestor 2306d95d 4c7ab49d → 0.'
+  committed: 'Да. Судилось дерево коммита (detached worktree @4c7ab49d). После прогонов git status --porcelain → 0.'
+  delta_digest: 'git diff --full-index 2306d95d 4c7ab49d | sha256sum → 4286f751…1920 (справочно); 10 коммитов, 32 файла'
+
+proto_files_touched: 3           # git diff --name-only bac26316...4c7ab49d -- 'proto/**' → internal_catalog_service, region_service, zone_service
+proto_files_touched_in_delta: 0  # git diff --name-only 2306d95d 4c7ab49d -- 'proto/**' 'pkg/api/**' '*permission_catalog*' → 0 путей
+kaname_pin_delta: >-
+  go.mod: kaname 3066c7b6a266 → 3d5b02ede3aa. Контракт kaname на этом отрезке не
+  менялся: git -C project/kaname diff --name-only 3066c7b6 68d24ae6 -- proto/ pkg/api/ → 0.
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+return_to: null
+timestamp: '2026-10-14T01:23:36Z'
+
+checks:
+  - command: 'git diff --name-only 2306d95d 4c7ab49d -- "proto/**" "pkg/api/**" "*permission_catalog*"'
+    exit_code: 0
+    outcome: green           # 0 путей
+  - command: 'buf lint   (cwd proto/ @4c7ab49d)'
+    exit_code: 0
+    outcome: green
+  - command: 'buf breaking --against "project/kacho/.git#ref=bac26316c468f76ba6193e4e61ac0dabbce64670,subdir=proto"'
+    exit_code: 0
+    outcome: green
+  - command: 'buf generate -o <scratchpad> --path kacho/cloud/geo/v1; cmp каждого из 13 файлов с pkg/api/kacho/cloud/geo/v1/'
+    exit_code: 0
+    outcome: green           # 13 из 13 побайтово совпали; в дерево ничего не писалось
+checks_summary: 'зелёных 4 · красных 0 · не выполнилось 0'
+
+findings:
+  critical: []
+  important: []
+
+approved:
+  - 'Форма: ресурсы Region/Zone плоские и в линии не менялись. Новые RPC Create/Update/Delete возвращают corelib.operation.Operation (запрет #9 соблюдён), у Update есть FieldMask update_mask. Пути — /geo/v1/regions и /geo/v1/zones, {id} для Update/Delete. Upsert и Watch нет.'
+  - 'Две проекции (security.md §«Инфра-чувствительные данные — ТОЛЬКО в Internal*-API»): CreatePublic*/UpdatePublic* — отдельные сообщения без infra°. GetInternal и запись infra° остаются только в Internal*-службах. На публичных сообщениях нет инфра-полей.'
+  - 'Публичные мутации Region/Zone выведены по одобренной приёмке docs/specs/sub-phase-ADM-1-geo-placement-catalog-admin-acceptance.md. Её текущий отпечаток 75335edd… получил APPROVED (запись ревью приёмки 75335edd….yaml). Родительская приёмка ADM-1 admin-surface одобрена в круге 4. Расширение поверхности названо в приёмке (ban #18, вопрос безопасности).'
+  - 'Права: у публичных глаголов те же permission (geo.{regions,zones}.{create,update,delete}), relation system_admin @ cluster и required_acr_min "1", что у Internal*-близнецов. Пол не дешевле. Отношение system_admin определено как [user, service_account] (kaname@3d5b02ed fga_model.fga:203), подстановочным знаком не выполняется. Записи каталога прав для обоих путей есть (gateway/internal/middleware/embed/permission_catalog.json:405–575).'
+  - 'Internal*-службы остались на /geo/v1/internal/… и наружу не выведены. Новых Internal-методов линия не заводит.'
+  - 'Совместимость: изменения только добавляющие (новые RPC и сообщения), снятых и перенумерованных полей нет. buf breaking против main — код 0.'
+  - 'Метаданные операций (Create/Update/DeleteRegionMetadata и …Zone…) общие для обоих путей, форма одна (api-operation-shape).'
+
+notes:
+  - >-
+    Пункт чек-листа роли «Admin-only ресурсы (AddressPool, мутации Region/Zone) — только в
+    Internal*» и строка sec-admin-ui-rpc-internal-only в security.md устарели относительно
+    одобренной приёмки ADM-1: мутации каталога теперь законно стоят на публичной поверхности
+    под system_admin. Это вопрос правдивости текста оснастки и корректности ПО не
+    касается, поэтому задачей не становится, а остаётся здесь (gi-find-own-issue).
+    Привести формулировку к виду: «admin-глаголы на публичной поверхности — только по
+    одобренной приёмке ADM-*, с тем же permission и полом, что у Internal-близнеца, без
+    infra°-полей».
+  - >-
+    Проза комментариев в .proto английская. Предмет ban #22 — только Go. Не находка.
+  - >-
+    Регистрацию публичных глаголов на крае судит api-gateway-registrar и роль волны,
+    а не эта запись.
+
+next_requested: >-
+  сбор пост-дифф записей: convergence-reviewer (пакет issue-1266) на дайджест 786cd30e…0282.
+
+# Полномочие. Запись агента-роли сама полномочия не даёт: его даёт внешнее
+# событие актора из docs/changes/policy.yaml (review_authority.proto-api-reviewer).
+# Событие на этот отпечаток ещё не опубликовано. После публикации блок event
+# дописывается к факту, прежние строки не переписываются.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.proto-api-reviewer
+    authorized_actors: [pointpu]
+    allowlisted_for_role: true
+  expected_actor: pointpu
+  expected_event:
+    type: issue_comment
+    target: PRO-Robotech/kacho#1266
+    declared_verdict: ACCEPTED
+    declared_content_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/proto-api-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+  event:
+    type: issue_comment
+    status: performed
+    published: true
+    repo: PRO-Robotech/kacho
+    issue: 1266
+    database_id: 6158838954
+    node_id: IC_kwDOTZqgWM8AAAABbxhsqg
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6158838954'
+    actor: pointpu
+    author_association: MEMBER
+    role: proto-api-reviewer
+    created_at: '2026-10-14T01:29:01Z'
+    body_sha256: 82054c4f5b50ca5ecd7d3d1afe8133e4c4b5045b07ed5cc548b98b40722f978d
+    body_reverified_by_second_get: true
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
+    declared_record_path: docs/changes/issue-1266/reviews/post-diff/proto-api-reviewer/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml
+    published_by_role: tooling-maintainer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: proto-api-reviewer
+    publication_mode: courier_of_agent_verdict
+    personal_review_by_publishing_actor_claimed: false

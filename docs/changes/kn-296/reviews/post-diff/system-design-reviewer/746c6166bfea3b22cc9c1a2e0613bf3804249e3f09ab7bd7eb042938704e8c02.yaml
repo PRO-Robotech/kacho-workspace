@@ -1,0 +1,219 @@
+# Пост-дифф ревью РАСПРЕДЕЛЁННЫХ СВОЙСТВ — роль system-design-reviewer.
+#
+# Имя файла — content_digest пары base...head пакета (change.yaml
+# hashes.content_digest_sha256). Прежние записи не правятся; дайджест сменился —
+# новый запуск и новый файл (change-graph §2).
+#
+# Режим «агрегат»: судится ДЕЛЬТА 9a78fc21..3066c7b6 (волны #765 #768 #773),
+# а не вся линия эпика; отпечаток при этом — полной пары пакета.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  Дельта финальной головы эпика kaname#296: выдача испытания входа ключом
+  одним оператором вставки с частичным ключом уникальности арбитром (Ф13-03,
+  kaname#769); замок строки личности FOR UPDATE для глаголов, решающих по
+  заведённому (EnrollmentWriter, EmailChangeWriter), и перевод запроса кода
+  восстановления на PersonWriter (kaname#770); второй замок пола уровня «2» в
+  службе на глаголах ключа доступа (kaname#747); условие уровня, решаемое
+  чтением заведённого внутри транзакции записи под замком.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: 3066c7b6a266f640b367a82df21996f022a9a039
+  reviewed_delta:
+    from: 9a78fc2183c8669dde415cb3c12e637e593d52b9
+    to: 3066c7b6a266f640b367a82df21996f022a9a039
+    commits: 51            # git rev-list --count 9a78fc21..3066c7b6
+    files_changed: 91      # git diff --shortstat 9a78fc21 3066c7b6
+    insertions: 52818
+    deletions: 20702
+    from_is_ancestor_of_head: true   # git merge-base --is-ancestor 9a78fc21 3066c7b6 → 0
+  merge_base_equals_base: true       # git merge-base 8a84dcff 3066c7b6 → 8a84dcff
+  head_equals_origin_296: true       # git rev-parse origin/296 после fetch
+
+content_digest: sha256:746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...3066c7b6a266f640b367a82df21996f022a9a039 | sha256sum
+digest_remeasured: true   # совпал с change.yaml hashes.content_digest_sha256
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-13T14:03:00Z'
+reviewer_role: system-design-reviewer
+expected_actor: pointpu
+distributed_surface: true
+distributed_surface_predicate: >-
+  Дифф трогает параллельный путь записи (выдача испытания под конкурирующими
+  транзакциями) и порядок построчных замков между писателями одной личности —
+  internal/repo/kaname/pg/access_key_login_repo.go,
+  internal/repo/kaname/pg/human_session_repo.go,
+  internal/repo/kaname/pg/registration_store.go.
+return_to: '—  (критических находок нет)'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    в копии пакетов PRO-Robotech/kacho-workspace (HEAD 1727f9109) вернул 0;
+    docs/changes/policy.yaml:53 `system-design-reviewer: [pointpu]`.
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.system-design-reviewer
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname (известная
+    находка из шапки change.yaml). Полномочие роли читается из дома пакета —
+    kacho-workspace, чей cutover — предок головы копии.
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: 6156553967
+  node_id: IC_kwDOUO26pM8AAAABbvWO7w
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6156553967'
+  actor: pointpu
+  author_association: MEMBER
+  role: system-design-reviewer
+  created_at: '2026-10-13T22:27:17Z'
+  body_sha256: 9db1eb3772de97c2086c29a049e126e7c8baca73a0404125829ba053497ca392
+  body_reverified_by_second_get: true
+  body_is_single_machine_line: true
+  declared_verdict: ACCEPTED
+  declared_content_digest: 746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02
+  declared_record_path: docs/changes/kn-296/reviews/post-diff/system-design-reviewer/746c6166bfea3b22cc9c1a2e0613bf3804249e3f09ab7bd7eb042938704e8c02.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+
+axes:
+  atomicity_no_dual_write:
+    status: closed
+    note: >-
+      Новых пар «коммит ресурса, затем событие» нет. Исход смены адреса остаётся
+      одной транзакцией (адрес, снятие сессий и кодов, аудит, строка очереди
+      смены субъекта); дельта меняет только силу первого замка и добавляет
+      чтение уровня до первой записи.
+  idempotency:
+    status: closed
+    note: >-
+      IssueChallenge одним оператором INSERT … ON CONFLICT (form_context) WHERE
+      consumed_at IS NULL DO UPDATE. Цель конфликта совпадает с частичным
+      уникальным индексом access_key_login_challenges_live_context_idx
+      (internal/migrations/20261005032942_login_challenge_is_bound_to_the_form_context.sql:74).
+      Повторная или одновременная выдача на том же контексте отказа не даёт,
+      живым остаётся одно испытание.
+  atomic_and_optimistic_concurrency:
+    status: closed
+    note: >-
+      Пара «DELETE живого, затем INSERT» в одной транзакции (под READ COMMITTED
+      вторая выдача упиралась в ключ) заменена одним оператором с арбитром.
+      Переписанная строка, которую соперник потребил за время ожидания, выходит
+      из-под предиката индекса, и оператор вставляет новую. Испытание,
+      предъявленное после замещения, уже не находится по прежнему значению
+      challenge (PK), то есть однократность сохраняется. Условие уровня у смены
+      адреса и у заведения/подтверждения второго фактора решает чтение
+      заведённого ВНУТРИ транзакции записи после FOR UPDATE на строке личности.
+      Это единственная сила, конфликтующая с FOR KEY SHARE проверки внешнего
+      ключа при вставке user_access_keys, поэтому окна check-then-act между
+      чтением заведённого и фиксацией глагола нет. Первое чтение вне транзакции
+      остаётся ранним отказом и ничего не разрешает: решает второе.
+    concurrent_probes:
+      - internal/repo/kaname/pg/access_key_login_issue_race_integration_test.go
+        (TestF13_03_IssueReplacesALiveChallengeCommittedByAConcurrentTransaction,
+        TestF13_03_IssueInsertsAfterAConcurrentTransactionConsumedTheLiveChallenge,
+        TestF13_03_ConcurrentIssuesOnOneContextAllSucceedAndLeaveOneLive — 16 выдающих)
+      - internal/apps/kaname/api/internal_iam/enrolled_read_under_person_lock_integration_test.go
+      - internal/apps/kaname/api/internal_iam/recovery_request_lock_order_integration_test.go
+    lock_order: >-
+      FOR UPDATE берётся первым оператором (holdPersonAgainstEnrollment
+      отказывает, если транзакция уже держит личность, так что подъёма силы
+      посреди транзакции нет). Встречный порядок, который даёт FOR UPDATE против
+      писателя «ребёнок раньше личности», закрыт переводом запроса кода
+      восстановления на PersonWriter (личность раньше recovery_codes). Опись
+      писателей строк, которые пишут глаголы двери, лежит в шапке
+      lockPersonAgainstEnrollmentSQL. Самостоятельно сверена транзакция
+      завершения регистрации ключа: она берёт строку access_key_challenges
+      (глаголы двери её не пишут), затем личность проверкой внешнего ключа
+      вставки user_access_keys. Цикла ожидания с дверью нет.
+  change_delivery_polling:
+    status: not_applicable
+    note: Watch и серверного стрима дельта не вводит; outbox и подписку не трогает.
+  worker_coordination:
+    status: not_applicable
+    note: Новых воркеров и реконсайлеров нет; новых внешних вызовов нет.
+  cross_service:
+    status: closed
+    note: Новых межсервисных рёбер нет; правка polyrepo.md не требуется.
+  replica_state_isolation:
+    status: closed
+    note: >-
+      Моменты выдачи и предела испытания — now() базы, а не часы реплики; кэшей
+      в памяти дельта не вводит.
+  edge:
+    status: closed
+    note: >-
+      Второй замок пола (PublicCallerPolicy.gatewayFloor) стоит на трёх
+      публичных глаголах AccessKeyService (BeginRegistration, FinishRegistration,
+      Revoke). Internal*-методов на внешнем крае дельта не добавляет. Пол берётся
+      из встроенного каталога (required_acr_min "1" → "2"). Проба
+      TestKN747_ServiceHoldsLevelTwoOnKeyVerbsWithoutTheEdge судит НАСТОЯЩИЙ
+      каталог (loadRealACRCatalog), так что пол, снятый из каталога, она увидит.
+  clean_architecture:
+    status: closed
+    note: >-
+      Порт EnrollmentWriter объявлен в use-case (iface.go), реализация лежит в
+      repo/pg. Use-case pgx не импортирует; связывание EnrolledMethodsReader
+      проверяет email_change_level_wiring_test.go.
+
+critical_findings: []
+
+important_findings:
+  - coordinate: internal/repo/kaname/pg/human_session_repo.go (lockPersonAgainstEnrollmentSQL, шапка)
+    note: >-
+      Отсутствие взаимной блокировки держится ОПИСЬЮ писателей, которая лежит
+      прозой с двумя git grep, а машинного держателя «каждый писатель строк
+      двери берёт личность первым» нет. Новый писатель recovery_codes /
+      human_sessions / email_change_codes / строк второго фактора, взявший
+      ребёнка раньше личности, вернёт взаимную блокировку молча. Корректности
+      текущей головы не угрожает, поэтому это не задача
+      (git-issues.md#gi-find-own-issue), а запись ревью.
+  - coordinate: internal/repo/kaname/pg/human_session_repo.go (holdPersonAgainstEnrollment)
+    note: >-
+      Цена FOR UPDATE названа в шапке: вставки строк-детей личности (вход, выдача
+      кода) ждут фиксации глагола. Числом с единицей и замером она не
+      подтверждена (ban18-q-perf). Глаголы редкие и личные, поэтому не блокирует.
+
+orders: []
+
+overlaps:
+  schema_review: >-
+    да — частичный уникальный индекс как арбитр ON CONFLICT и сила построчного
+    замка. Миграций в дельте нет; на этот дайджест запись db-architect-reviewer
+    в pre-landing отсутствует (там лежит запись на другой паре отпечатков).
+  security_review: >-
+    да — второй замок пола и условие уровня. Здесь судилась только их
+    атомарность относительно заведения способа; модель прав остаётся
+    предметом security-auditor.
+
+# Сдвиг линии после этой записи (ведение пакетов ws#1061, 2026-10-14). Отпечаток
+# записи не меняется: запись судит свою пару, не новую.
+delta_to_current_head:
+  subject_touched: true
+  note: >-
+    дельта 3066c7b6..3d5b02ed (kaname#779, #781): 6 путей — две записи ревью приёмок в
+    docs/specs/reviews/, internal/apps/kaname/api/humansession/email_change.go,
+    internal/repo/kaname/pg/email_change_repo.go и две пробы к ним (+268 −19). Предмет роли
+    ЗАТРОНУТ: инвариант адреса в операторе записи смены адреса (конкурентность). Повтор роли по
+    #780 — ✅ со слов диспетчера (задание ведения пакетов ws#1061); файла записи повтора в дереве
+    и в копии нет.

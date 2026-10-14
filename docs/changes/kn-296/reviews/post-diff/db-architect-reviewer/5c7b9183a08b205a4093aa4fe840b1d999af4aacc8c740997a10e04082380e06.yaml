@@ -1,0 +1,209 @@
+# Пост-дифф ревью СХЕМЫ И МИГРАЦИЙ — роль db-architect-reviewer.
+#
+# Имя файла — content_digest пары base...head пакета (change.yaml
+# hashes.content_digest_sha256). Прежние записи не правятся; дайджест сменился —
+# новый запуск и новый файл (change-graph §2).
+#
+# Режим «агрегат», повторный круг: прежний вердикт роли — ⛔ на 9a78fc21
+# (reviews/pre-landing/db-architect-reviewer/c83869dc…+4f23a069….md), поэтому
+# судится исполнение СВОЕГО возврата и дельта 9a78fc21..68d24ae6 в предмете роли
+# (#769/#770 — выдача испытания и замок личности, #780 — оператор записи смены
+# адреса, #783 — только документы). Отпечаток — полной пары пакета.
+schema_version: 1
+change_id: kn-296
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+subject: >-
+  Финальная голова эпика kaname#296. (1) Исполнение возврата DB-296-T1 прежнего
+  круга: выдача испытания входа ключом одним оператором INSERT … ON CONFLICT
+  (form_context) WHERE consumed_at IS NULL DO UPDATE с частичным ключом
+  уникальности арбитром. (2) kaname#780: правило «новый адрес отличен от
+  текущего» на запросе смены адреса решает условие оператора записи принятого
+  запроса, читающего строку человека под замком FOR UPDATE транзакции, а не
+  чтение адреса до транзакции. (3) kaname#783: только документы (приёмка ID-PW-1
+  ред. 8 и записи её ревью), предмета роли нет.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '296'
+  base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+  reviewed_delta:
+    from: 9a78fc2183c8669dde415cb3c12e637e593d52b9   # голова прежнего вердикта роли (⛔)
+    to: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+    commits: 67                     # git rev-list --count 9a78fc21..68d24ae6
+    repo_sql_files_changed: 6       # git diff --stat 9a78fc21 68d24ae6 -- internal/repo (+407 −34)
+    migrations_changed: 0           # git diff --name-status 9a78fc21 68d24ae6 -- '*.sql' internal/migrations → пусто
+    docs_only_tail:
+      from: 3d5b02ede3aa             # merge #781
+      to: 68d24ae66fe4               # merge #783
+      note: дельта — приёмка ID-PW-1 ред. 8, записи её ревью, проба ведомости; SQL и миграций нет
+  merge_base_equals_base: true       # git merge-base origin/main origin/296 → 8a84dcff
+  head_equals_origin_296: true       # git rev-parse origin/296 после fetch 2026-10-14
+
+content_digest: sha256:5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+digest_command: >-
+  git -C project/kaname diff --full-index
+  8a84dcff6eb1ccde68113353ba28d1e1e399f0e6...68d24ae66fe4530dcccebf36f82ad70f1c976eae | sha256sum
+digest_remeasured: true   # совпал с change.yaml hashes.content_digest_sha256
+
+migrations_touched: 13    # git diff --name-status 8a84dcff...68d24ae6 -- 'internal/migrations/*.sql' → 13 × A, M/D/R = 0
+migrations_touched_in_reviewed_delta: 0
+
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-10-14T01:23:49Z'
+reviewer_role: db-architect-reviewer
+expected_actor: pointpu
+distributed_surface: true
+distributed_surface_predicate: >-
+  Условие оператора записи судит строку, которую параллельно переписывает
+  транзакция исхода смены; корректность держится порядком «замок личности
+  первым оператором» (предмет system-design-reviewer, принят им на 746c6166).
+return_to: '—  (критических находок нет)'
+
+own_return_executed:
+  finding: DB-296-T1 — PARTIAL-UNIQUE без исхода под конкуренцией (IssueChallenge, 503 у проигравшего)
+  status: executed
+  where: internal/repo/kaname/pg/access_key_login_repo.go:67-76 @68d24ae6
+  mechanism: >-
+    INSERT … ON CONFLICT (form_context) WHERE consumed_at IS NULL DO UPDATE SET
+    challenge, issued_at, expires_at — цель конфликта совпадает с предикатом
+    access_key_login_challenges_live_context_idx
+    (internal/migrations/20261005032942_login_challenge_is_bound_to_the_form_context.sql:74).
+    Пары DELETE→INSERT нет; проигравший больше не получает 23505.
+  concurrent_probe: >-
+    internal/repo/kaname/pg/access_key_login_issue_race_integration_test.go
+    (TestF13_03_* — замещение зафиксированного соперником живого, вставка после
+    потребления соперником, 16 одновременных выдач на одном контексте: все
+    успешны, живое одно).
+
+axes:
+  db_level_invariant:
+    status: closed
+    note: >-
+      «Отличен от текущего» перенесён из чтения до транзакции в условие
+      INSERT … SELECT … WHERE EXISTS (SELECT 1 FROM users WHERE id=$2 AND
+      lower(email) <> lower($3)) AND <темп> (email_change_repo.go,
+      insertEmailChangeCodePacedSQL @68d24ae6). Выражение то же, что у ключа
+      users_identity_email_uniq (lower(email), 0001_initial.sql:5080). Решение —
+      число вставленных строк, check-then-act нет (ban #10). Раннее суждение до
+      транзакции осталось только ранним отказом и ничего не разрешает.
+  lock_and_isolation:
+    status: closed
+    note: >-
+      Транзакция READ COMMITTED (ceremonyWriterTx, oauth_ceremony_repo.go:524)
+      открыта EmailChangeWriter → holdPersonAgainstEnrollment (SELECT … FOR
+      UPDATE первым оператором, registration_store.go:87-95,
+      human_session_repo.go:644). Исход смены переписывает users.email UPDATE-ом
+      строки, конфликтующим с FOR UPDATE: он либо зафиксирован до замка, и снимок
+      оператора записи его видит, либо ждёт фиксации запроса. Окна между
+      условием и записью нет.
+  refusal_classification:
+    status: closed
+    note: >-
+      После отказа оператора причина читается под тем же замком
+      (emailChangeAddressIsCurrentSQL): совпавший адрес → ErrNewEmailIsCurrent →
+      FieldError{newEmail, RuleMustDiffer} — тот же отказ поля, что ранний;
+      иначе — прежняя ветка темпа. users.email NOT NULL (0001_initial.sql:3101,
+      последующих ALTER COLUMN email нет), поэтому сравнение не даёт NULL и
+      сканирование в bool не падает. ErrNoRows под замком строки недостижимо и
+      отображается в NotFound; прочее — mapErr (pgmaperr), текст драйвера наружу
+      не выходит.
+  rollback_on_refusal:
+    status: closed
+    note: >-
+      Отказ возвращается до записи письма; транзакция снимается defer Rollback
+      (email_change.go:353), снятие прежних кодов (Supersede) откатывается вместе
+      с ней. Проба утверждает: живых строк смены после отказа ноль.
+  concurrent_probe:
+    status: closed
+    note: >-
+      internal/apps/kaname/api/internal_iam/email_change_address_under_person_lock_integration_test.go
+      (TestIntegration_EmailChangeRequestJudgesTheAddressCommittedDuringIt):
+      незафиксированный исход смены дверью продукта держит строку, запрос ждёт
+      замка (pg_blocking_pids), исход фиксируется — запрос на ставший текущим
+      адрес получает отказ поля и ничего не пишет; законный близнец отличается
+      одним фактом (другой адрес) и принят.
+  migrations_hygiene:
+    status: closed
+    note: >-
+      В дельте миграций нет. По всей линии — 13 новых файлов, правок применённых
+      нет (судилось прежним кругом, изменений с тех пор нет).
+  cross_service_fk:
+    status: closed
+    note: Межсервисных ключей дельта не вводит; kaname — одна база.
+  pagination:
+    status: not_applicable
+    note: Новых списочных запросов в дельте нет.
+
+critical_findings: []
+
+important_findings: []
+
+carried_from_previous_round:
+  - item: темп смены адреса держится замком строки человека
+    status: executed
+    note: >-
+      Связь названа в шапке email_change_repo.go («счёт строк оператора темпа
+      верен только под этим замком — снимать его нельзя»).
+  - item: ЗАКАЗ — проба гонки монотонности уровня PresentInSession
+    status: open_record_only
+    note: не задача (не угрожает корректности головы); остаётся в записи ревью.
+  - item: ЗАКАЗ — проба гонки отложенного ключа users_active_has_a_way_in_fk
+    status: open_record_only
+    note: не задача; остаётся в записи ревью.
+
+orders: []
+
+overlaps:
+  system_design_review: >-
+    да — порядок замка личности и READ COMMITTED-видимость фиксации соперника;
+    дельта #780 на 746c6166 system-design-reviewer не судилась (его запись
+    называет её в delta_to_current_head).
+  security_review: нет
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    в копии пакетов PRO-Robotech/kacho-workspace (HEAD 003e10b50) вернул 0;
+    docs/changes/policy.yaml:47 `db-architect-reviewer: [pointpu]`.
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.db-architect-reviewer
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+  allowlisted_for_role: false
+  subject_repo_cutover_note: >-
+    policy.yaml §1 не называет cutover-коммит PRO-Robotech/kaname (известная
+    находка из шапки change.yaml). Полномочие роли читается из дома пакета —
+    kacho-workspace, чей cutover — предок головы копии.
+
+# Событие роли НЕ опубликовано: запись агента полномочия не даёт и держателя
+# human-post-diff-db не закрывает. Блок заполняется к факту тем же заходом,
+# что публикация (по форме записи system-design-reviewer 746c6166…).
+event:
+  type: issue_comment
+  status: performed
+  published: true
+  repo: PRO-Robotech/kaname
+  issue: 296
+  database_id: 6158839763
+  node_id: IC_kwDOUO26pM8AAAABbxhv0w
+  url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6158839763'
+  actor: pointpu
+  author_association: MEMBER
+  role: db-architect-reviewer
+  created_at: '2026-10-14T01:29:06Z'
+  body_sha256: b9be797bf838c761464346fa0c2c23a89b90605b61a7664712d707edf49448b0
+  body_reverified_by_second_get: true
+  body_is_single_machine_line: true
+  declared_verdict: ACCEPTED
+  declared_content_digest: 5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06
+  declared_record_path: docs/changes/kn-296/reviews/post-diff/db-architect-reviewer/5c7b9183a08b205a4093aa4fe840b1d999af4aacc8c740997a10e04082380e06.yaml
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
