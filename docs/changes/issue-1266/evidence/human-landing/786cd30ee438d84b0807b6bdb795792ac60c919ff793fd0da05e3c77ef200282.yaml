@@ -1,0 +1,58 @@
+# Запись посаженного изменения issue-1266: эпик kacho#1266 влит в `main`
+# продукта коммитом слияния запроса kacho#3158. Писал landing-reviewer в режиме
+# «после посадки». Это запись агента, а не внешнее событие: держателя
+# human-landing закрывает событие pointpu на посаженное содержимое
+# (holders.yaml, human-landing). Все величины ниже перемерены на клоне
+# PRO-Robotech/kacho после `git fetch origin main` 2026-10-14.
+schema_version: 1
+change_id: issue-1266
+holder: human-landing
+kind: human-external
+owner: landing-reviewer
+mode: after-landing
+
+landed:
+  repo: PRO-Robotech/kacho
+  branch: main
+  pr: https://github.com/PRO-Robotech/kacho/pull/3158 # state MERGED, mergedAt 2026-10-14T10:22:08Z
+  landed_sha: dd9739fe6dfed5195186cbb5ee71557aa63b49fe # = origin/main на момент сверки
+  landed_tree: 19062f1f022fe75d02b8d17d429983014ebbdef9 # git rev-parse dd9739fe^{tree}
+  parents:
+    - bac26316c468f76ba6193e4e61ac0dabbce64670 # прежний origin/main = base из записи схождения
+    - 4c7ab49db8abca54493836cff4da44774e0f6b90 # голова origin/1266 = headRefOid kacho#3158
+  method: merge-commit
+
+approved:
+  base_sha: bac26316c468f76ba6193e4e61ac0dabbce64670
+  head_sha: 4c7ab49db8abca54493836cff4da44774e0f6b90
+  head_tree: 19062f1f022fe75d02b8d17d429983014ebbdef9
+  convergence_record: docs/changes/issue-1266/reviews/convergence/786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282.yaml # origin/main воркспейса 5192aeb0
+
+comparison:
+  # Ниже два предиката: по написанию (дайджест диффа, набор диффа) и по
+  # предмету (дерево). Совпали оба.
+  content_digest_approved: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282 # git diff --full-index bac26316...4c7ab49d | sha256sum
+  content_digest_applied: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282 # git diff --full-index bac26316 dd9739fe | sha256sum
+  canonical_diff_set_approved: 991a872dc4c9b12293f80e30cfef5880fa78037f291696d8e5680fc09668fec1 # запись схождения, canonical_diff_set_sha256
+  canonical_diff_set_applied: 991a872dc4c9b12293f80e30cfef5880fa78037f291696d8e5680fc09668fec1 # тот же предикат на bac26316 → dd9739fe
+  paths_in_diff_applied: 715 # git diff --name-only bac26316 dd9739fe | wc -l (= 715 в записи схождения)
+  tree_equal_to_approved_head: true # dd9739fe^{tree} = 4c7ab49d^{tree} = 19062f1f
+  matched: true
+
+dependencies:
+  # Версия службы доступа, закреплённая в go.mod посаженного main kacho:
+  # github.com/PRO-Robotech/kaname v0.4.1-0.20261013180450-3d5b02ede3aa.
+  pinned_commit: 3d5b02ede3aabecec317b1eefd52179cce3e91e8
+  reachable_from_kaname_main: true # git merge-base --is-ancestor 3d5b02ede3aa origin/main (kaname 9ccdc8d8) → rc 0
+
+post_landing_runs:
+  # push-прогоны на коммите слияния. На момент снятия пятеро идут либо в
+  # очереди, исхода у них ещё нет; эта запись их вердиктом не является.
+  - {workflow: docker-build, run: 38549101675, status: completed, conclusion: success}
+  - {workflow: ci, run: 38549101578, status: queued}
+  - {workflow: e2e-newman, run: 38549101622, status: queued}
+  - {workflow: ui, run: 38549101727, status: queued}
+  - {workflow: console-e2e, run: 38549101760, status: in_progress}
+  - {workflow: security-scan, run: 38549101891, status: in_progress}
+
+verdict_of_record: "применённое совпало с одобренным; push-прогоны на коммите слияния к моменту снятия не завершены (1 из 6)"
