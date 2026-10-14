@@ -86,6 +86,9 @@ pairs:
   - path: .github/workflows/e2e-newman.yml
     decision: own
     note: свой набор сквозных проб и свой стенд
+  - path: .github/ci-paths.json
+    decision: own
+    note: карта путей к заданиям СВОИХ процессов запроса; множества заданий не пересекаются (kacho ci.yaml/ui.yml/…, kaname ci.yml/docker-build.yml/…; замер 2026-10-14 kacho@dd9739fe, kaname@9ccdc8d8, kacho-workspace#1080)
   - path: proto/buf.yaml
     decision: own
     note: модуль контрактов свой
@@ -128,6 +131,14 @@ pairs:
   - path: .github/scripts/run-integration.sh
     decision: debt
     issue: PRO-Robotech/kacho#2661
+  - path: .github/scripts/affected.py
+    decision: debt
+    issue: PRO-Robotech/kacho#3224
+    note: один механизм выбора затронутых заданий двумя копиями (kacho#3148, kaname#707 — шапка kaname так его и называет); поведение разошлось — `check_wiring` только у kaname, diff 186 строк на 2026-10-14 (kacho-workspace#1080)
+  - path: .github/scripts/affected_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho#3224
+    note: проба того же механизма; снимается вместе с `affected.py`
   - path: tools/declaredbreak/declaredbreak.go
     decision: debt
     issue: PRO-Robotech/kacho#2661
