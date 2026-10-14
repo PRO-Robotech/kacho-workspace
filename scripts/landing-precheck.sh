@@ -224,7 +224,7 @@ done
 # sha без повторов; каждый коммит, отданный `pulls/<N>/commits`, есть в сравнении;
 # последний коммит сравнения — голова запроса (адрес `...<head.sha>` этого не доказывает).
 COMMITS_SRC="pulls/$PR/commits"
-DECLARED="$(jq -r '.commits | if type == "number" then . else "" end' "$W/pull.json")"
+DECLARED="$(jq -r '.commits | select(type == "number")' "$W/pull.json")"
 GOT="$(grep -c . "$W/commits.ndjson")"
 if [ -n "$DECLARED" ] && [ "$DECLARED" != "$GOT" ]; then
     short="площадка объявила коммитов $DECLARED, отдала $GOT — диапазон неполон"
