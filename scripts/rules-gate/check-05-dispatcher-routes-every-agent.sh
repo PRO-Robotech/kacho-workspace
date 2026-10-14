@@ -26,6 +26,8 @@
 #     запуски. Тогда решение о полосе принимает не диспетчер, учёт задач мимо
 #     `TaskCreate`, а окно родителя растёт непредсказуемо
 #     (`multi-agent-flow-orchestration.md` §«14а»).
+#   · AGENT-CAN-WAIT: исполнитель с `Monitor` ждёт свой фоновый процесс в ходе; законный
+#     близнец — WAIT_LAWFUL (`ci-watcher`), имя без исполнителя — находка (ws#1078).
 #   · DISPATCHER-HAS-TOOLS: диспетчер с `Read`/`Bash` перестаёт быть диспетчером в
 #     тот же час — разведать самому дешевле, чем раздать, и база съедает контекст,
 #     ради экономии которого заведена. Перечень запрещённых инструментов объявлен
@@ -116,6 +118,8 @@ disp_abs = os.path.join(root, DISPATCHER_REL)
 # возможность сделать работу самому, а роль его — раздавать.
 FORBIDDEN = ("Read", "Write", "Edit", "Bash", "Grep", "Glob",
              "NotebookEdit", "Skill", "WebFetch", "WebSearch")
+# Исполнители, которым Monitor РАЗРЕШЁН (ось AGENT-CAN-WAIT) — объявлено один раз.
+WAIT_LAWFUL = ("ci-watcher",)
 
 
 def census(msg):
@@ -325,6 +329,24 @@ for a in execs:
              "диспетчер, а задачи идут мимо учёта"
              % (AGENTS_REL, a, ("«%s»" % raw) if raw else "ключа нет вовсе"))
         findings += 1
+    # Ось AGENT-CAN-WAIT (ws#1078, урок L4 посадки 2026-10-14: больше 10 ходов
+    # «жду монитора» без ВОЗВРАТ): Monitor держит ход в ожидании своего же
+    # фонового процесса, а no-wait-guard судит только Bash. Исход долгого — «идёт:
+    # pid, .rc, срок», дочитывает следующий короткий шаг (CLAUDE.md «Не жди»).
+    # Законный близнец — WAIT_LAWFUL: режим wait ci-watcher ждёт ОДИН предмет ≤ 10
+    # минут, и повторный запуск агента дороже по токенам, чем ожидание внутри
+    # одного (решение диспетчера 2026-10-14).
+    if "Monitor" not in items and a not in WAIT_LAWFUL:
+        fail("AGENT-CAN-WAIT: %s/%s.md — `disallowedTools` не содержит `Monitor` (там %s); "
+             "исполнитель ждёт свой фоновый процесс в ходе и кончает его без ВОЗВРАТ"
+             % (AGENTS_REL, a, ("«%s»" % raw) if raw else "ключа нет вовсе"))
+        findings += 1
+
+# Исключение истекает с предметом: имени WAIT_LAWFUL нет среди исполнителей — находка.
+for a in sorted(set(WAIT_LAWFUL) - set(execs)):
+    fail("AGENT-CAN-WAIT: исключение «%s» (Monitor разрешён) называет исполнителя, "
+         "которого в %s нет — исключению нечего исключать" % (a, AGENTS_REL))
+    findings += 1
 
 # ── ОСЬ DISPATCHER-HAS-TOOLS: база перестала быть базой ─────────────────────
 got_forbidden = [t for t in rest_tools if t in FORBIDDEN]

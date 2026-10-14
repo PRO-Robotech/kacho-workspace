@@ -13,7 +13,7 @@ description: "Тестирование (строгий TDD)"
 | `.claude/rules/testing-newman.md` | newman: край, свод классов, флоу кейса, EC, поллер, параллельный прогон |
 | `.claude/rules/testing-load.md` | замер под нагрузкой: что делает числа недействительными |
 
-## E2E НИКОГДА не пропускаются — только честные тесты (директива владельца 2026-07-29)
+## E2E НИКОГДА не пропускаются — только честные тесты
 
 e2e-no-skip-ever · НИКОГДА не пропускай, не маскируй, не ослабляй; зелёное — фиксом продукта или фикстуры · assert-suites-green.sh; TestSkippedVerdictDoesNotPassAsGreen · red: кейс исключён, assert ослаблен, вопрос сужен
 e2e-ban-mask-whitelist · запрещены в прогонщике и в гейте · TestEveryGateSkipIsDeclaredInTheLedger; TestRunnerStemSetInjectionWrittenListIsFound · red: выписанный список исключаемых кейсов

@@ -70,7 +70,8 @@
 #       TITLE-HEAD-NUMBER   — голова `<N>` или `<N>-<суть>`, а заголовок несёт
 #                             другой номер (оба ствола: «заголовок — акт ветки»);
 #   (в) BODY-MISSING-COMMIT — не-слияние из base..head (список площадки
-#                             `pulls/<N>/commits`) не названо в теле. ПРИЗНАК:
+#                             `pulls/<N>/commits`, длиннее 250 — `compare`
+#                             постранично со сверкой полноты) не названо в теле. ПРИЗНАК:
 #                             тело содержит короткий sha коммита (≥7 знаков) ЛИБО
 #                             номер задачи `#<M>` из его первой строки. Слияния
 #                             (родителей ≥2) из требования выведены: их первая
@@ -150,7 +151,8 @@
 #       строкой CENSUS «не судился» — посадка шаблоном волны --reviews передаёт);
 #   1 — причины есть, перечислены строками REASON;
 #   2 — судить не смог: строка VOID<TAB><почему> (нет gh/jq/python3/python3-yaml, ответ
-#       площадки не разбирается, коммитов в запросе больше, чем отдаёт площадка,
+#       площадки не разбирается, объявленный диапазон не набран ни списком запроса,
+#       ни сравнением base...head (ws#1070),
 #       merge-readiness из origin/main не извлечь, предиката атрибуции нет,
 #       комментарии закрываемой задачи не прочитаны). Это НЕ «сажать можно».
 #
@@ -199,7 +201,7 @@ jq -e 'type == "object" and (.head.sha | type == "string") and (.title | type ==
 HEAD_SHA="$(jq -r '.head.sha' "$W/pull.json")"
 [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || void "head.sha «$HEAD_SHA» не 40 hex"
 
-# Коммиты запроса: площадка отдаёт не больше 250 (контракт pulls/<N>/commits).
+# Коммиты запроса: площадка отдаёт по этому адресу не больше 250; длиннее — ниже, сравнением.
 : > "$W/commits.ndjson"
 page=1
 while :; do
@@ -212,6 +214,48 @@ while :; do
     page=$((page + 1))
     [ "$page" -le 3 ] || break
 done
+
+# Полный диапазон при объявленном больше отданного (ws#1070): `pulls/<N>/commits`
+# отдаёт не больше 250 — замер 2026-10-14, kaname#714 объявил 681, kacho#3158 —
+# 414, оба отдали 250. Тогда состав берётся сравнением `compare/<base.sha>...<head.sha>`
+# постранично (тот же `gh api`, подменяемый пробой; клона не нужно). Полнота
+# доказывается четырьмя сверками, любая не сошлась — VOID, как и прежде:
+# total_commits сравнения = объявленному; прочитано страницами = объявленному,
+# sha без повторов; каждый коммит, отданный `pulls/<N>/commits`, есть в сравнении;
+# последний коммит сравнения — голова запроса (адрес `...<head.sha>` этого не доказывает).
+COMMITS_SRC="pulls/$PR/commits"
+DECLARED="$(jq -r '.commits | select(type == "number")' "$W/pull.json")"
+GOT="$(grep -c . "$W/commits.ndjson")"
+if [ -n "$DECLARED" ] && [ "$DECLARED" != "$GOT" ]; then
+    short="площадка объявила коммитов $DECLARED, отдала $GOT — диапазон неполон"
+    BASE_SHA="$(jq -r '.base.sha // ""' "$W/pull.json")"
+    [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || void "$short; base.sha «$BASE_SHA» не 40 hex — сравнить не с чем"
+    : > "$W/compare.ndjson"
+    page=1; ctotal=""
+    while :; do
+        api "repos/$REPO/compare/$BASE_SHA...$HEAD_SHA?per_page=100&page=$page" > "$W/page.json" \
+            || void "$short; сравнение base...head не прочитано (страница $page): $(head -c 300 "$W/api.err")"
+        jq -e 'type == "object" and (.commits | type == "array") and (.total_commits | type == "number")' "$W/page.json" >/dev/null 2>&1 \
+            || void "$short; сравнение (страница $page) не объект с commits и total_commits"
+        [ -n "$ctotal" ] || ctotal="$(jq '.total_commits' "$W/page.json")"
+        [ "$(jq '.total_commits' "$W/page.json")" = "$ctotal" ] || void "$short; total_commits сравнения сменился между страницами"
+        n="$(jq '.commits | length' "$W/page.json")"
+        jq -c '.commits[]' "$W/page.json" >> "$W/compare.ndjson"
+        [ "$n" -eq 100 ] || break
+        page=$((page + 1))
+        [ "$page" -le 200 ] || void "$short; сравнение длиннее 200 страниц — предел обхода"
+    done
+    [ "$ctotal" = "$DECLARED" ] || void "$short; сравнение объявило коммитов $ctotal"
+    cgot="$(jq -r '.sha' "$W/compare.ndjson" | LC_ALL=C sort -u | grep -c .)"
+    [ "$(grep -c . "$W/compare.ndjson")" = "$DECLARED" ] && [ "$cgot" = "$DECLARED" ] \
+        || void "$short; сравнение отдало коммитов $(grep -c . "$W/compare.ndjson"), различных sha $cgot"
+    miss="$(LC_ALL=C comm -23 <(jq -r '.sha' "$W/commits.ndjson" | LC_ALL=C sort -u) <(jq -r '.sha' "$W/compare.ndjson" | LC_ALL=C sort -u) | head -3)"
+    [ -z "$miss" ] || void "$short; коммиты запроса вне сравнения: $(tr '\n' ' ' <<< "$miss")"
+    clast="$(tail -n 1 "$W/compare.ndjson" | jq -r '.sha')"
+    [ "$clast" = "$HEAD_SHA" ] || void "$short; сравнение кончается ${clast:0:12}, а не головой ${HEAD_SHA:0:12}"
+    mv "$W/compare.ndjson" "$W/commits.ndjson"
+    COMMITS_SRC="compare/${BASE_SHA:0:12}...${HEAD_SHA:0:12} (pulls/$PR/commits отдал $GOT из $DECLARED)"
+fi
 
 # Check-runs головы, все страницы; total_count сверяется с прочитанным.
 : > "$W/runs.ndjson"
@@ -271,7 +315,7 @@ rm -f "$W/required"
 MERGE_READINESS_REQUIRED_OUT="$W/required" bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
 MR_CODE=$?
 
-export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen"
+export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen" COMMITS_SRC
 python3 - <<'PY'
 import json, os, re, sys
 
@@ -359,7 +403,7 @@ for ref in (head_ref, base_ref):
         own.add(mm.group(1))
 for n in sorted(set(NUM.findall(body)) - own, key=int):
     reason("BODY-FOREIGN-TASK", f"тело называет #{n}, а коммита с этим номером в диапазоне нет (и это не номер головы или базы)")
-census.append(f"состав: коммитов {len(commits)}, из них не-слияний {nonmerge}, номеров в первых строках {len(range_numbers)}, тело {len(body)} знаков")
+census.append(f"состав: коммитов {len(commits)} (источник {os.environ['COMMITS_SRC']}), из них не-слияний {nonmerge}, номеров в первых строках {len(range_numbers)}, тело {len(body)} знаков")
 
 # (г) CI на голове
 total = int(os.environ.get("TOTAL_RUNS") or -1)

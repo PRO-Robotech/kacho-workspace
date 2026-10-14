@@ -1,7 +1,7 @@
 ---
 name: integration-tester
 description: "RED-фаза по APPROVED приёмке: на каждый сценарий — падающая проба (Go integration на testcontainers, newman через край, playwright-спека, если сценарий про наблюдаемое в консоли) и доказанный ЧЕСТНЫЙ красный: проба исполнилась и не сошлась, потому что предмета нет. Также исполняет заказы class-exposure-analyst на пробы. Запускать ДО полосы реализации, не параллельно с ней. НЕ запускать: приёмка не APPROVED или сценарий неоднозначен; нужна реализация или правка прод-кода; расширение регрессии против уже развёрнутого поведения (qa-test-engineer); находка по консоли без приёмки (ui-implementer); замер под нагрузкой (load-tester)."
-disallowedTools: Agent
+disallowedTools: Agent, Monitor
 skills:
   - rule-00-kacho-core
   - rule-testing

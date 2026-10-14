@@ -3170,6 +3170,92 @@ run 0 "$b" "близнец: правка ai-tooling мимо предмета �
 b="$(mksandbox ".claude/agents/ci-watcher.md")"
 run 2 "$b" "предпосылка: ci-watcher нет — VOID" "$C23"
 
+echo "== check-24: критерий нормы и перепись гейтов посадки разом — К и М1–М5 (ws#1071) =="
+C24=check-24-norm-criterion-and-landing-census-are-wired.sh
+b="$(mksandbox)"
+run 0 "$b" "чистое дерево — молчит" "$C24"
+b="$(mksandbox)"
+python3 - "$b/.claude/rules/ai-tooling.md" <<'PY2'
+import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+t = '\n'.join(l for l in s.split('\n') if not l.startswith('at-norm-criterion · ')); assert t != s
+open(p, 'w', encoding='utf-8').write(t)
+PY2
+run_says 1 "$b" "инъекция К: норма at-norm-criterion снята — краснеет" "$C24" "нормы at-norm-criterion нет"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "качество ниже — отказ, ось хуже — лишь при выигрыше другой, названном числом" "качество ниже — допустимо при выигрыше скорости"
+run_says 1 "$b" "инъекция К: тело выворачивает качество при сохранённом ключе — краснеет" "$C24" "at-norm-criterion без требования"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "корпус на потолке — только со сжатием" "корпус на потолке — поднять потолок"
+run_says 1 "$b" "инъекция К: на потолке — без сжатия — краснеет" "$C24" "at-norm-criterion без требования"
+b="$(mksandbox)"
+c21_sub "$b/.claude/backup/ai-tooling.md" "и максимальное качество кода или не хуже чем есть сейчас" "и качество по возможности"
+run_says 1 "$b" "инъекция К: цитата владельца искажена в архиве — краснеет" "$C24" "архив: цитата владельца 2026-10-14"
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "Норма и урок — при скорости не ниже, токенах не выше," "Норма и урок — по усмотрению,"
+run_says 1 "$b" "инъекция К: строка критерия снята из протокола — краснеет" "$C24" "строка критерия в протоколе обоих концов"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/tooling-maintainer.md" "**Входной фильтр правки правил**" "**Пожелание к правке правил**"
+run_says 1 "$b" "инъекция К: фильтр исполнителя снят — краснеет" "$C24" "входной фильтр в шапке исполнителя"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "по одной за круг — нарушение" "по одной за круг — допустимо"
+run_says 1 "$b" "инъекция М1: находка по одной за круг разрешена — краснеет" "$C24" "at-red-ci-one-round без переписи гейтов"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "правки ветки эпика — одной сборкой на круг" "правки ветки эпика — каждая своим PR"
+run_says 1 "$b" "инъекция М4: правки ветки эпика поштучно — краснеет" "$C24" "одной сборки правок (М4)"
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "ответ без «### ВОЗВРАТ» — «не-выполнилось»: \`wave.js\` не подставляет его" "ответ без «### ВОЗВРАТ» — принимается: \`wave.js\` подставляет его"
+run_says 1 "$b" "инъекция М3: ответ без ВОЗВРАТ принят в правиле — краснеет" "$C24" "at-agent-does-not-wait без нормы"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "\`lane-precheck.sh --premise\` до раздачи, код не 0 — не раздаётся" "\`lane-precheck.sh --premise\` по желанию"
+run_says 1 "$b" "инъекция М2: в базе предусловия не судят раздачу — краснеет" "$C24" "§3: предусловия скриптом до раздачи"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "\`wave.js\` «Перепись гейтов»: все разом до первой починки и схождения" "\`wave.js\` «Перепись гейтов»: по одному гейту за круг"
+run_says 1 "$b" "инъекция М1: в базе гейты по одному — краснеет" "$C24" "§6 «Посадка изменения»"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "; без переписи — «нижняя граница»" "; без переписи — срок окончательный"
+run_says 1 "$b" "инъекция М5: оценка без переписи названа сроком — краснеет" "$C24" "§8: оценка срока"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)" "const hasRet = t => typeof t === 'string'"
+run_says 1 "$b" "инъекция М3: шаблон принимает ответ без ВОЗВРАТ — краснеет" "$C24" "провязка переписи гейтов и ответа без ВОЗВРАТ"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "    const s1 = await textStep(C + '\\n\\nИмитация клиента ДО кода" "    const s1 = await agent(C + '\\n\\nИмитация клиента ДО кода"
+run_says 1 "$b" "инъекция М3: текстовый шаг зовётся agent напрямую — краснеет" "$C24" "зовётся agent напрямую"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" ", 'branch-audit.sh']" "]"
+run_says 1 "$b" "инъекция М1: перепись без branch-audit — краснеет" "$C24" "провязка переписи гейтов"
+b="$(mksandbox)"
+python3 - "$b/.claude/workflows/wave.js" <<'PY2'
+import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+# Перепись уехала ПОСЛЕ первого landing-precheck: дословность та же, позиция — нет.
+i = s.index('const gates = await agent('); j = s.index('\n', i) + 1
+line = s[i:j]; s = s[:i] + s[j:]
+k = s.index('let lp = await landCheck(1)\n') + len('let lp = await landCheck(1)\n'); s = s[:k] + line + s[k:]
+open(p, 'w', encoding='utf-8').write(s)
+PY2
+run_says 1 "$b" "инъекция М1: перепись после первого landing-precheck (позиция) — краснеет" "$C24" "не стоит в теле ДО первого landing-precheck"
+b="$(mksandbox)"
+c21_sub "$b/scripts/wave-template-inject.sh" 'mutant "ответ без ВОЗВРАТ принят (ws#1071)"' 'twin "ответ без ВОЗВРАТ принят (ws#1071)"'
+run_says 1 "$b" "инъекция: мутант снят из пробы шаблона — краснеет" "$C24" "поведение доказывается исполнением шаблона"
+b="$(mksandbox)"
+c21_sub "$b/scripts/lane-precheck.sh" 'reasons+=("PREMISE-FALSE $line: состояние $got")' ':'
+run_says 1 "$b" "инъекция М2: состояние PR не судится — краснеет" "$C24" "режим предусловий"
+b="$(mksandbox)"
+c21_sub "$b/scripts/lane-precheck.sh" '[ "${#voids[@]}" -eq 0 ] && [ "$n" -gt 0 ] || exit 2' '[ "${#voids[@]}" -eq 0 ] || exit 2'
+run_says 1 "$b" "инъекция М2: ноль предусловий — «все верны» — краснеет" "$C24" "режим предусловий"
+b="$(mksandbox)"
+c21_sub "$b/scripts/lane-precheck-inject.sh" '"роль вернула, задание считает принятым → PREMISE-FALSE"' '"роль вернула"'
+run_says 1 "$b" "инъекция М2: проба вердикта снята — краснеет" "$C24" "режим предусловий доказан инъекцией"
+# Близнецы: перенос строки внутри нормы и правка мимо предмета — молчат.
+b="$(mksandbox)"
+c21_sub "$b/.claude/rules/ai-tooling.md" "токены не выше, качество кода" "токены не выше,
+качество кода"
+run 0 "$b" "близнец: перенос строки внутри at-norm-criterion — молчит" "$C24"
+b="$(mksandbox)"
+printf '\nat-probe-twin-24 · посторонняя норма пробы · вниманием · red: —\n' >> "$b/.claude/rules/ai-tooling.md"
+run 0 "$b" "близнец: правка ai-tooling мимо предмета — молчит" "$C24"
+b="$(mksandbox "scripts/lane-precheck-inject.sh")"
+run 2 "$b" "предпосылка: инъекции предпроверки нет — VOID" "$C24"
+
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
 # своей песочницы — та же поломка, что у любой предыдущей пробы.

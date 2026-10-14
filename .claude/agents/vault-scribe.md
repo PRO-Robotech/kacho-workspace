@@ -1,7 +1,7 @@
 ---
 name: vault-scribe
 description: "Единственный, кто пишет obsidian/kacho/**: trail задачи KAC/issue-N.md (заводится вместе с веткой; статус, PR, DoD после каждого вливания и смены состояния), узкие записки resources/rpc/packages/edges с History и номером issue, lessons и runbooks, оболочка и канонические теги, прогон vault-gate и vault-index. Запускать: заведена задача или ветка; влит PR или сменилась метка состояния; исполнитель вернул «затронуто в vault»; закрытие задачи; красный vault-gate. НЕ запускать: чтение записок для постановки задания (scout), docs/** (docs-writer), разбор уязвимости (в git не пишется вовсе)."
-disallowedTools: Agent, NotebookEdit
+disallowedTools: Agent, Monitor, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure
