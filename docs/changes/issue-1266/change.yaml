@@ -4,8 +4,9 @@
 # Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
 # ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-2713/`.
 #
-# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin (после #3203 —
-# пин службы доступа на 3d5b02ed — и #3201). Сдвинется голова — ВСЕ отпечатки
+# ЛИНИЯ ДВИЖЕТСЯ. Голова и база перемерены 2026-10-14 с origin на финальной
+# голове 4c7ab49d (после #3203 — пин службы доступа на 3d5b02ed, — #3201 и
+# #3205). Сдвинется голова — ВСЕ отпечатки
 # ниже станут отпечатками прежней линии. Пересчёт — командами поля
 # `remeasure`; запись ревью на прежнем отпечатке новую линию не судит.
 schema_version: 1
@@ -31,27 +32,27 @@ coordinates:
       role: subject-tree
       branch: '1266'
       base_sha: bac26316c468f76ba6193e4e61ac0dabbce64670   # origin/main @2026-10-13
-      head_sha: bd9cc68ca8e367c0595d7794f4f56973c7b7afac   # origin/1266 @2026-10-14 (merge #3201)
-      merge_base_equals_base: true         # git merge-base bac26316 bd9cc68c → bac26316
-      commits_in_line: 412                 # git rev-list --count bac26316..bd9cc68c
-      merges_in_line: 144                  # git rev-list --merges --count bac26316..bd9cc68c
-      paths_in_diff: 707                   # git diff --name-only bac26316...bd9cc68c | wc -l
+      head_sha: 4c7ab49db8abca54493836cff4da44774e0f6b90   # origin/1266 @2026-10-14 (merge #3205), финальная голова
+      merge_base_equals_base: true         # git merge-base bac26316 4c7ab49d → bac26316
+      commits_in_line: 414                 # git rev-list --count bac26316..4c7ab49d
+      merges_in_line: 145                  # git rev-list --merges --count bac26316..4c7ab49d
+      paths_in_diff: 715                   # git diff --name-only bac26316...4c7ab49d | wc -l
       cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… bac26316 → 0
 
 hashes:
   # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818): без него
   # строки index несут сокращённые хеши, и дайджест зависит от клона.
-  content_digest_sha256: 0832b79f7e0491cba8d2b33a59c84068da32ee2e8eeb6128969ee4cced36f36b
+  content_digest_sha256: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282
   content_digest_predicate: >-
-    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...bd9cc68ca8e367c0595d7794f4f56973c7b7afac | sha256sum
+    git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
 
-  canonical_diff_set_sha256: 0ecb493584bc81ddeca70d774050b6f1be3d900a431b357342397db6d3a0306c
+  canonical_diff_set_sha256: 991a872dc4c9b12293f80e30cfef5880fa78037f291696d8e5680fc09668fec1
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
     | LC_ALL=C sort | sha256sum
 
-  holders_sha256: 68a098151a7c5ea23932fcc92f05a3b20ca5acbda9d1a892de5309060ddac970
+  holders_sha256: 274a2263d28f939cbeb185a03ddb5c1d111330151750a564239b3f91f6d31956
 
   # Приёмки эпика живут в воркспейсе, а не в дереве продукта, и не в корне пакета.
   # Отпечаток — НАБОРА документов (путь · blob на ревизии дома), набор выведен
