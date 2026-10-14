@@ -14,6 +14,18 @@
 #
 # usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]…
 #                          [--hook-log <файл>]
+#        lane-precheck.sh --premise <файл предусловий>
+#
+# РЕЖИМ ПРЕДУСЛОВИЙ (ws#1071, база диспетчера §3) — ДО раздачи задания: задание с
+# ложным предусловием не уходит. Строка файла — одно предусловие закрытого словаря
+# (`#` и пустые строки — не предусловия):
+#   pr <владелец/репо>#<N> <MERGED|OPEN|CLOSED>   состояние PR (GET pulls/<N>);
+#   branch <владелец/репо> <ветка>                ветка на origin (GET branches/<ветка>);
+#   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
+#   verdict <файл записи роли> <accept|return>    `verdict.value` записи: ✅ / ⛔.
+# Ложное — `REASON PREMISE-FALSE …`, код 1. Не судимо (трекер не ответил, строка вне
+# словаря, файла нет) — VOID, код 2; ноль предусловий — тоже код 2: пустой файл не
+# «все верны».
 #
 # ЧТО СУДИТ (каждый пункт — своя причина, строкой `REASON <КОД> <текст>`):
 #   HEAD-NOT-ON-ORIGIN  ветки нет на origin (`git ls-remote`, а не память);
@@ -66,22 +78,77 @@
 set -uo pipefail
 
 usage() {
-    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>]" >&2
+    echo "usage: lane-precheck.sh <каталог копии> <ветка> <база> [--issue <владелец/репо>#<N>]… [--hook-log <файл>] | --premise <файл>" >&2
     exit 2
 }
 
-issues=() hook_log="" pos=()
+issues=() hook_log="" premise="" pos=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --issue) [ $# -ge 2 ] || usage; issues+=("$2"); shift 2 ;;
         --hook-log) [ $# -ge 2 ] || usage; hook_log="$2"; shift 2 ;;
+        --premise) [ $# -ge 2 ] || usage; premise="$2"; shift 2 ;;
         -h | --help) usage ;;
         *) pos+=("$1"); shift ;;
     esac
 done
+GH="${LANE_PRECHECK_GH:-gh}"
+
+# ── режим предусловий ───────────────────────────────────────────────────
+# ghget <путь> <jq> — GET трекера; код 0 — ответ в stdout, 3 — 404 (предмета нет), 1 — не ответил.
+ghget() {
+    local out err
+    err="$(mktemp)"
+    if out="$($GH api "$1" --jq "$2" 2> "$err")"; then rm -f "$err"; printf '%s' "$out"; return 0; fi
+    if grep -q 'HTTP 404' "$err"; then rm -f "$err"; return 3; fi
+    rm -f "$err"; return 1
+}
+if [ -n "$premise" ]; then
+    [ "${#pos[@]}" -eq 0 ] || usage
+    [ -r "$premise" ] || { echo "lane-precheck: файла предусловий $premise нет; вердикта нет" >&2; exit 2; }
+    reasons=() voids=() n=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in '' | '#'*) continue ;; esac
+        n=$((n + 1))
+        read -r kind a b _ <<< "$line"
+        case "$kind" in
+            pr)
+                r="${a%%#*}" num="${a##*#}"
+                if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ] || ! [[ "$b" =~ ^(MERGED|OPEN|CLOSED)$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                got="$(ghget "repos/$r/pulls/$num" 'if .merged then "MERGED" elif .state == "open" then "OPEN" else "CLOSED" end')"; rc=$?
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: PR нет")
+                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
+                elif [ "$got" != "$b" ]; then reasons+=("PREMISE-FALSE $line: состояние $got"); fi ;;
+            branch)
+                if [ -z "$a" ] || [ -z "$b" ]; then voids+=("PREMISE-FORM $line"); continue; fi
+                ghget "repos/$a/branches/$b" .name > /dev/null; rc=$?
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: ветки на origin нет")
+                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); fi ;;
+            proof)
+                r="${a%%#*}" num="${a##*#}"
+                if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ]; then voids+=("PREMISE-FORM $line"); continue; fi
+                got="$(ghget "repos/$r/issues/$num/comments" '.[] | (.body // "") | capture("(^|\n)DoD-proof @(?<s>[0-9a-f]{7,40})"; "g") | .s')"; rc=$?
+                if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
+                elif [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+            verdict)
+                if ! [ -r "$a" ] || ! [[ "$b" =~ ^(accept|return)$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                v="$(sed -n '/^verdict:/,/^[^ ]/{s/^  value: *//p}' "$a" | head -1)"
+                case "$v" in *✅*) got="accept" ;; *⛔*) got="return" ;; *) got="" ;; esac
+                if [ -z "$got" ]; then voids+=("VERDICT-UNREADABLE $line")
+                elif [ "$got" != "$b" ]; then reasons+=("PREMISE-FALSE $line: вердикт $got"); fi ;;
+            *) voids+=("PREMISE-FORM $line") ;;
+        esac
+    done < "$premise"
+    echo "lane-precheck --premise: файл $premise; предусловий $n; ложных ${#reasons[@]}, не судимо ${#voids[@]}"
+    for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
+    for x in "${voids[@]+"${voids[@]}"}"; do echo "VOID $x"; done
+    [ "${#reasons[@]}" -eq 0 ] || exit 1
+    [ "${#voids[@]}" -eq 0 ] && [ "$n" -gt 0 ] || exit 2
+    exit 0
+fi
+
 [ "${#pos[@]}" -eq 3 ] || usage
 dir="${pos[0]}" branch="${pos[1]}" base="${pos[2]}"
-GH="${LANE_PRECHECK_GH:-gh}"
 
 reasons=() voids=()
 reason() { reasons+=("$1 $2"); }

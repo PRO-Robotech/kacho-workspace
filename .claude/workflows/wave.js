@@ -7,7 +7,7 @@ export const meta = {
     { title: 'Предполёт', detail: 'до кода: карта влияния полос, критерии рецензентов (ws#1053)' },
     { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью; пункты карты закрыты; пробная сборка сразу' },
     { title: 'Сборка', detail: 'сведение, рецензент волны, CI' },
-    { title: 'Посадка', detail: 'landing-precheck.sh, вливание, каскад, счётчик ошибок' },
+    { title: 'Посадка', detail: 'перепись гейтов разом, landing-precheck.sh, вливание, каскад, счётчик ошибок' },
   ],
 }
 // ЕДИНСТВЕННЫЙ шаблон волны (решение владельца 2026-10-06, «Да, по уровням»;
@@ -194,6 +194,19 @@ const metricsOf = () => ({ file: METRICS, ...M })
 // шаблон чинить не берётся — итог несёт порядок круга диспетчеру дословно.
 const RED_ROUND = 'красный круг одним заходом (ai-tooling.md#at-red-ci-one-round): ci-watcher triage — перепись ВСЕЙ красноты по корням, класс корня — лишь после дословной цитаты отказа, среда с двумя признаками — один перезапуск без полосы; корень — исполнителю его класса, проверка точечно без CI (тот же шаг локально: красный до, зелёный после) и полный хук, check-verifier — до CI; все починки круга — ОДНОЙ сборкой и ОДНИМ PR в ветку эпика; полный CI MR эпика — один повтор, после её вливания'
 const redOf = r => ciState(r) === 'red' ? { redRound: RED_ROUND } : {}
+// Ответ без блока «### ВОЗВРАТ» (фраза ожидания, «жду монитора») — «не-выполнилось» (ws#1071,
+// ai-tooling.md#at-agent-does-not-wait): в задания следующих он не подставляется; шаг
+// повторяется ОДИН раз заданием дочитать .rc и журнал, снова без блока — null, полоса стоит.
+const RET_MARK = '### ВОЗВРАТ'
+const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)
+const REREAD = 'Прошлый ответ без блока «### ВОЗВРАТ» — это «не-выполнилось». Не жди: дочитай .rc и журнал своего прогона и верни блок ВОЗВРАТ с фактом.'
+const textStep = async (prompt, opts) => {
+  const a = await agent(prompt, opts)
+  if (hasRet(a)) return a
+  const b = await agent(prompt + '\n\n' + REREAD, { ...opts, label: opts.label + ':reread' })
+  return hasRet(b) ? b : null
+}
+const noRet = (out, l, step) => ({ ...out, stage: step + ': ответ без «### ВОЗВРАТ» и после дочитывания — не-выполнилось', report: rep(l.key, step) })
 // Тело волны — внутри: итог любого исхода проходит через запись метрик (ниже).
 const res = await (async () => {
 // ── План ────────────────────────────────────────────────────────────────
@@ -297,16 +310,19 @@ const runLane = async (l, stack) => {
   if (has('acceptance(<=2)')) {
     let acc = null
     for (let r = 1; r <= 2; r++) {
-      await agent(C + '\n\nПриёмка полосы ' + l.key + ' (смена публичного контракта либо миграция): ' + l.text + (acc ? '\nВозврат круга ' + (r - 1) + ': ' + rep(l.key, 'acceptance-review-' + (r - 1)) : '') + '. Отчёт — ' + rep(l.key, 'acceptance-' + r) + '.', { agentType: 'acceptance-author', label: 'acc:' + l.key + ':' + r, phase: 'Полосы' })
+      const a1 = await textStep(C + '\n\nПриёмка полосы ' + l.key + ' (смена публичного контракта либо миграция): ' + l.text + (acc ? '\nВозврат круга ' + (r - 1) + ': ' + rep(l.key, 'acceptance-review-' + (r - 1)) : '') + '. Отчёт — ' + rep(l.key, 'acceptance-' + r) + '.', { agentType: 'acceptance-author', label: 'acc:' + l.key + ':' + r, phase: 'Полосы' })
+      if (!a1) return noRet(out, l, 'acceptance-' + r)
       acc = await review('acceptance-reviewer', l, '', '', 'acceptance-review-' + r)
       if (acc && acc.verdict === 'accept') break
     }
     if (!acc || acc.verdict !== 'accept') return { ...out, stage: 'приёмка: 2 круга исчерпаны — спор решает диспетчер', report: rep(l.key, 'acceptance-review-2') }
     // Имитация клиента — по замыслу ДО кода, а не только перед MR эпика (ws#1053).
-    await agent(C + '\n\nИмитация клиента ДО кода, полоса ' + l.key + ': по одобренной приёмке (' + R + '/' + l.key + '/acceptance-*.md) пройди сценарии клиента меняемого контракта; блокеры — пунктами условий к коду. Контракт не меняется — так и запиши. Запись — ' + rep(l.key, 'client-sim') + ' (её путь получит исполнитель). ' + due('review'), { agentType: 'client-simulator', label: 'sim:' + l.key, phase: 'Полосы' })
+    const s1 = await textStep(C + '\n\nИмитация клиента ДО кода, полоса ' + l.key + ': по одобренной приёмке (' + R + '/' + l.key + '/acceptance-*.md) пройди сценарии клиента меняемого контракта; блокеры — пунктами условий к коду. Контракт не меняется — так и запиши. Запись — ' + rep(l.key, 'client-sim') + ' (её путь получит исполнитель). ' + due('review'), { agentType: 'client-simulator', label: 'sim:' + l.key, phase: 'Полосы' })
+    if (!s1) return noRet(out, l, 'client-sim')
   }
   if (has('surface-census')) {
-    await agent(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + l.text + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
+    const c1 = await textStep(C + '\n\nПерепись поверхности ДО кода, полоса ' + l.key + ': ' + l.text + '. Слушатели, RPC, каталог прав, секреты, профили. Запись — ' + rep(l.key, 'surface-census') + ' (её путь получит исполнитель).', { agentType: 'security-auditor', label: 'census:' + l.key, phase: 'Полосы' })
+    if (!c1) return noRet(out, l, 'surface-census')
   }
   const tdd = has('implementer-tdd')
   let impl = await implement(l, tdd, [has('surface-census') ? 'перепись поверхности — ' + rep(l.key, 'surface-census') : '', has('acceptance(<=2)') ? 'имитация клиента до кода — ' + rep(l.key, 'client-sim') : ''].filter(Boolean).join('; '), stack)
@@ -496,6 +512,13 @@ const reviews = waveReviews
 const mergeTitle = '#' + (/^[0-9]+$/.test(String(A.epic || A.base || '')) ? String(A.epic || A.base) : N) + ' merge #' + asm.pr + ': волна ' + N
 const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на sha головы из landing-precheck; CI — только scripts/ci-read.sh код 0 на этой голове; код 0 обоих — вливать; 1 только с CI-PENDING — ждать; 1 только с причинами тела — правка тела и повтор; иначе и код 2 — не вливать, вернуть код и вывод'
 const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни рецепт «ЗАПУСК» шапки landing-precheck.sh (он вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2) `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : ''), D + '/landing-precheck-' + round + '.md') + '`; code — код этой команды. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
+// Перепись гейтов посадки разом (ws#1071, ai-tooling.md#at-red-ci-one-round): ДО первой починки
+// и первого круга схождения все гейты — одним шагом, одной таблицей; находка по одной за круг —
+// нарушение. Шаг ничего не чинит; итог несёт таблицу на любом исходе посадки.
+const GATES = ['landing-precheck.sh (рецепт «ЗАПУСК»)', 'merge-readiness.sh', 'ci-read.sh (рецепт «ЗАПУСК», без ожидания)', 'пробное схождение и applicability.py обоих пакетов', 'cascade-census.sh --proof по каждой задаче', 'branch-audit.sh']
+const GATES_FILE = R + '/gates-census.md'
+const gates = await agent(C + '\n\nРежим «Перепись гейтов» посадки PR #' + asm.pr + ' (ai-tooling.md#at-red-ci-one-round): ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини: ' + GATES.join('; ') + '. Таблица — ' + GATES_FILE + ', строка на гейт «гейт · код · причина · число · корень · кто снимает». Верни code (0 — все гейты 0; 1 — есть красный; 2 — гейт не исполнился), out (таблица), reasons (коды причин ВСЕХ гейтов разом), head.', { ...MECH, label: 'mech:gates', phase: 'Посадка', schema: S_MECH })
+const gatesOf = () => ({ gates: { file: GATES_FILE, code: gates ? gates.code : null, reasons: gates ? gates.reasons || [] : [] } })
 let lp = await landCheck(1)
 if (lp && lp.code === 1) {
   const rs = lp.reasons || []
@@ -507,8 +530,8 @@ if (lp && lp.code === 1) {
     lp = await landCheck(2)
   }
 }
-if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, errors, lessons: lessonsOf() }
-if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], remainder, errors, lessons: lessonsOf() }
+if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, ...gatesOf(), errors, lessons: lessonsOf() }
+if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], ...gatesOf(), remainder, errors, lessons: lessonsOf() }
 const landHead = sha40(lp.head) || asm.head
 if (steps.has('landing-reviewer')) {
   let gap = order.filter(k => (lanes.find(l => l.key === k) || {}).publicText === true).map(k => 'публичный текст полосы ' + k)
@@ -526,7 +549,7 @@ if (steps.has('landing-reviewer')) {
 const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
 if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ciL) === 'red') M.ciRed++
-if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], ...redOf(ciL), errors, lessons: lessonsOf() }
+if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], ...redOf(ciL), ...gatesOf(), errors, lessons: lessonsOf() }
 const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject "' + mergeTitle + '"` (коммит слияния на сервере, тема — по форме правила ветки `#<N> merge #<M>: …`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '; КРОМЕ держателей записей ведомостей (`git grep -n \'#<N>\'` задачи по ведомостям производителя и долгов: на задаче держится запись — не закрывать, назвать в out; ws#1053). Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
 // Профилактика (ws#1063): после КАЖДОЙ влитой волны в ветку эпика — пробное схождение на
 // сведённом состоянии и одно чтение полного CI MR эпика в main (без ожидания: «идёт» —
@@ -535,7 +558,7 @@ const landedOk = !!(merged && merged.code === 0 && sha40(merged.head))
 const epicMr = landedOk && !!A.epic && A.epic !== 'main'
 const trialConv = epicMr ? await agent(C + '\n\nРежим пробное схождение после вливания волны ' + N + ' в ' + A.epic + ' @' + merged.head + ' (ai-tooling.md#at-red-ci-one-round): на сведённом состоянии ветки эпика пересчитай отпечатки пакета изменения и дай перечень недостающих записей ролей и событий (опубликованное событие без блока event записи — пункт; записи ролей снимаются по ходу, на сведённом). Ничего не правь. Запись — ' + R + '/trial-convergence.md. ' + due('review') + ' Верни verdict, sha, blocking (недостающее строками), report.', { agentType: 'convergence-reviewer', label: 'trial-convergence', phase: 'Посадка', schema: S_REV }) : null
 const epicCi = epicMr ? await agent(C + '\n\nРежим CI MR эпика после волны ' + N + ': номер — `gh pr list -R ' + (A.repo || '?') + ' --head ' + A.epic + ' --base main --json number -q \'.[0].number\'`; прочти полный прогон MR эпика ОДИН раз командой (НОМЕР — этот номер) `' + recipeRun('ci-read.sh', (A.repo || '?') + ' НОМЕР', R + '/epic-ci.md') + '` — без ожидания: код 3 (идёт) — законный исход, верни его. Красное (код 1) — перепись корней с цитатами в тот же отчёт; порядок круга: ' + RED_ROUND + '. Верни code, out, reasons, head.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci-epic', phase: 'Посадка', schema: S_MECH }) : null
-return { ok: landedOk, stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, trialConvergence: trialConv, epicCi: epicCi ? { ...epicCi, ...redOf(epicCi) } : null, errors, lessons: lessonsOf() }
+return { ok: landedOk, stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, trialConvergence: trialConv, epicCi: epicCi ? { ...epicCi, ...redOf(epicCi) } : null, ...gatesOf(), errors, lessons: lessonsOf() }
 })()
 // Метрики — в reports волны на ЛЮБОМ исходе (ws#1053): время, круги переделки,
 // красные на сведённом (проба и CI), сверка с оценкой предполёта; токены — из итога Workflow.

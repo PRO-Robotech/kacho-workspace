@@ -105,6 +105,9 @@
 #   нет; пробная сборка — сразу после предпроверки полосы, красная — полоса в
 #   остаток (близнец — код 2 не красное); смена контракта — имитация клиента ДО
 #   кода; метрики — последним шагом на любом исходе; каскад щадит держателя ведомости.
+#   перепись гейтов (ws#1071): один шаг до первого landing-precheck, все шесть гейтов,
+#   ничего не чинит, итог несёт таблицу; текстовый шаг без «### ВОЗВРАТ» — один повтор
+#   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит.
 #   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
 #   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
 #   не принимает; не-номерные ветки kaname, уже лежащие на origin.
@@ -218,7 +221,8 @@ async function run(sc) {
     if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40), ...take('merge', () => ({})) }
     if (label === 'mech:ci-epic') return { out: '', reasons: [], head: '', ...take('ciepic', () => ({ code: 3 })) }
     if (label.startsWith('mech:')) return { code: 0, out: '', reasons: [], head: '' }
-    return 'отчёт записан'
+    // Текстовый шаг (без схемы): ответ несёт блок ВОЗВРАТ; сценарий перекрывает ответы по префиксу метки (ws#1071).
+    return take('text:' + label.split(':')[0], () => 'отчёт записан\n### ВОЗВРАТ\n- статус: готово')
   }
   const AF = Object.getPrototypeOf(async function () {}).constructor
   const fn = new AF('args', 'agent', 'phase', 'log', 'parallel', 'pipeline', body)
@@ -743,6 +747,27 @@ console.log('== красный CI — одним кругом; после вол
   ok(q.res.ok === false && q.res.redRound === undefined, 'близнец: база устарела (код 4) — не красное, круга починки нет', JSON.stringify(q.res).slice(0, 200))
 }
 
+console.log('== перепись гейтов посадки разом; ответ без ВОЗВРАТ — не-выполнилось (ws#1071)')
+{
+  let q = await run({ args, plan: [P('r0.json')] })
+  const iG = idx(q.calls, 'mech:gates'), gp = prm(q.calls, 'mech:gates')
+  ok(by(q.calls, c => c.label === 'mech:gates') === 1 && iG > idx(q.calls, 'review-wave') && iG < idx(q.calls, 'mech:landing:1') && ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'applicability.py обоих пакетов', 'cascade-census.sh --proof', 'branch-audit.sh'].every(f => gp.includes(f)) && gp.includes('ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини') && gp.includes('/ws/tmp/wave-9/reports/gates-census.md') && q.res.gates && q.res.gates.file === '/ws/tmp/wave-9/reports/gates-census.md', 'перепись гейтов — один шаг до первого landing-precheck: шесть гейтов, ничего не чинит, таблица в reports, итог несёт её', gp.slice(-400))
+  q = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['REVIEW-STALE'] }] })
+  ok(q.res.ok === false && q.res.stage === 'landing-precheck' && q.res.gates && Array.isArray(q.res.gates.reasons) && by(q.calls, c => c.label === 'mech:gates') === 1, 'красная посадка — итог несёт таблицу гейтов, перепись не повторяется по одному', JSON.stringify(q.res).slice(0, 300))
+  const laneM = [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }]
+  const WAIT = 'жду монитора, вернусь по .rc'
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:acc': [WAIT] })
+  const rr = q.calls.find(c => c.label === 'acc:M:1:reread')
+  ok(q.res.ok === true && !!rr && rr.prompt.includes('дочитай .rc и журнал') && !q.calls.some(c => c.prompt.includes(WAIT)), 'приёмка без ВОЗВРАТ — один повтор дочитыванием, фраза ожидания ни в одно задание не ушла', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:sim': [WAIT, WAIT] })
+  const stM = ((q.res.lanes || {}).M || (q.res.remainder || []).find(x => x.key === 'M') || {}).stage || q.res.stage || ''
+  ok(q.res.ok === false && /не-выполнилось/.test(JSON.stringify(q.res)) && by(q.calls, c => c.label.startsWith('impl:')) === 0 && by(q.calls, c => c.label.startsWith('sim:')) === 2, 'имитация клиента без ВОЗВРАТ и после дочитывания — не-выполнилось: исполнитель не зван, отчёт не подставлен', stM + ' ' + JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:census': [WAIT, 'перепись записана\n### ВОЗВРАТ\n- статус: готово'] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('census:')) === 2 && idx(q.calls, 'census:M:reread') < idx(q.calls, 'impl:M'), 'перепись поверхности — ВОЗВРАТ после дочитывания: полоса идёт, исполнитель после него', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')] })
+  ok(q.res.ok === true && !q.calls.some(c => c.label.endsWith(':reread')), 'близнец: ответы с ВОЗВРАТ — повторов дочитывания нет', JSON.stringify(q.calls.map(c => c.label)).slice(0, 200))
+}
+
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
 {
   // Классы шагов — из тела шаблона: литералы `label: '<класс>'` и литералы 'mech:…'
@@ -1023,7 +1048,7 @@ mutant "пробной сборки нет" "  if (r.ok) r = await trialIn(l, r)
 mutant "красная пробная — полоса идёт" "  if (t && t.code === 1) {" "  if (false) {"
 mutant "пробная сборка — отправкой ветки" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`" "\`git push origin HEAD:refs/heads/' + N + '-trial\`"
 mutant "пробная сборка — на имя волны (git отвергнет до хука)" "\`git push --dry-run origin HEAD:refs/heads/' + l.branch + '\`" "\`git push --dry-run origin HEAD:refs/heads/' + N + '\`"
-mutant "имитация клиента не зовётся" "    await agent(C + '\\n\\nИмитация клиента ДО кода" "    false && await agent(C + '\\n\\nИмитация клиента ДО кода"
+mutant "имитация клиента не зовётся" "    const s1 = await textStep(C + '\\n\\nИмитация клиента ДО кода" "    const s1 = '### ВОЗВРАТ' || await textStep(C + '\\n\\nИмитация клиента ДО кода"
 mutant "метрики не пишутся" "await agent(C + '\\n\\nРежим метрики:" "false && await agent(C + '\\n\\nРежим метрики:"
 mutant "метрики без итога" "return { ...res, metrics: metricsOf() }" "return res"
 mutant "переделка не считается" "impl1st[l.key] ? M.rework++ :" "impl1st[l.key] ? 0 :"
@@ -1041,6 +1066,14 @@ mutant "повтор MR эпика после каждого фикса (ws#1063
 mutant "класс до цитаты (ws#1063)" "класс корня — лишь после дословной цитаты отказа" "класс корня — сразу, цитата потом"
 mutant "среда — полосой починки (ws#1063)" "среда с двумя признаками — один перезапуск без полосы" "среда — полоса починки"
 mutant "проверка починки — через CI (ws#1063)" "проверка точечно без CI (тот же шаг локально: красный до, зелёный после) и полный хук" "проверка — прогоном CI своего PR"
+mutant "перепись гейтов не зовётся (ws#1071)" "const gates = await agent(C + " "const gates = null && await agent(C + "
+mutant "перепись гейтов без branch-audit (ws#1071)" ", 'branch-audit.sh']" "]"
+mutant "перепись гейтов чинит по одному (ws#1071)" "прогони КАЖДЫЙ гейт по разу, ничего не чини" "прогони первый красный гейт и почини его"
+mutant "таблица гейтов не в итоге посадки (ws#1071)" "const gatesOf = () => ({ gates:" "const gatesOf = () => ({ gatesX:"
+mutant "ответ без ВОЗВРАТ принят (ws#1071)" "const hasRet = t => typeof t === 'string' && t.includes(RET_MARK)" "const hasRet = t => typeof t === 'string'"
+mutant "без ВОЗВРАТ — повтора дочитыванием нет (ws#1071)" "  return hasRet(b) ? b : null" "  return a"
+mutant "не-выполнилось подставлено дальше (ws#1071)" "    if (!s1) return noRet(out, l, 'client-sim')" "    if (false) return noRet(out, l, 'client-sim')"
+twin "дочитывание: формулировка (ws#1071)" "дочитай .rc и журнал своего прогона и верни" "дочитай .rc и журнал своего прогона, затем верни"
 twin "схождение: формулировка запрета правки (ws#1063)" "Ничего не правь. Запись — ' + R + '/trial-convergence.md" "Ничего не правь в дереве. Запись — ' + R + '/trial-convergence.md"
 mutant "meta не литерал: вызов" "name: 'wave'," "name: ['wa', 've'].join(''),"
 mutant "meta не литерал: шаблонная строка" "name: 'wave'," "name: \`wave\`,"

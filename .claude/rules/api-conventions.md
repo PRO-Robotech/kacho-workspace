@@ -73,7 +73,7 @@ api-resourceid-empty · свой required-check → INVALID_ARGUMENT `"<field>: 
 api-reason-token · различается машинно по `reason` в rpc.Status.details: INVALID_RESOURCE_ID · RESOURCE_NOT_FOUND · PEER_RESOURCE_MISSING · PEER_RESOURCE_STATE · PEER_UNAVAILABLE; domain=`<service>.kacho.cloud`, metadata={resource_type,resource_id} · TestInjection_EmptyReasonIsAFinding · red: клиент парсит прозу message
 api-reason-both-sides · утверждает И reason-token, И code, на обеих сторонах: владелец direct, потребитель peer · TestListReadRelationParity · red: assert только кода
 
-## Принято-и-проигнорировано — ЗАПРЕЩЕНО (решение владельца 2026-07-28)
+## Принято-и-проигнорировано — ЗАПРЕЩЕНО
 
 api-accepted-ignored · обязано иметь читателя в прод-коде своего сервиса · TestEveryDescriptorFieldHasAReader · red: геттера поля нет в не-тестовом дереве
 api-outcome-implement · поле читается и меняет поведение · internal/repohygiene (descriptor field reader) · red: поле принято и не меняет ничего
