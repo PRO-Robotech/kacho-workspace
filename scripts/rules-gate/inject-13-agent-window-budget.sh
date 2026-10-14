@@ -4,7 +4,11 @@
 # потолке молчит; T — правило по триггеру в старт не входит (то же правило в
 # `skills:` краснеет); K — скилл из `skills:`, которого нет в дереве; L — ведомость:
 # агент без строки, строка без агента, строка без основания краснеют, нет ведомости
-# или она пуста — отказ; Z — нетронутая копия молчит.
+# или она пуста — отказ; Z — нетронутая копия молчит; F — форма `skills:`: список
+# в колонке 0 и поточный `[a, b]` дают тот же старт, ключ непуст при нуле имён —
+# находка; B — основание потолка сходится с замером старта на своей ревизии;
+# C — раздутый `CLAUDE.md` и тело `dispatcher.md` краснеют здесь (их потолки сняты
+# с check-02, ws#1084); H — истории git для сверки оснований нет — отказ.
 #
 # ЕДИНИЦА СЧЁТА ОСЕЙ — буква в разметке `# ── ось X`; предикат —
 # `grep -cE '^# ── ось ' scripts/rules-gate/inject-13-agent-window-budget.sh`.
@@ -66,6 +70,7 @@ fi
 d="$(sandbox i13_clean)"
 capture "$d" "$C13"
 assert_code 0 "БЛИЗНЕЦ: нетронутая копия — молчит"
+OUT_Z13="$OUT"
 read -r S13 CAP13 < <(start13 "$OUT" "$V13")
 if ! grep -qE '^[0-9]+ [0-9]+$' <<<"${S13:-} ${CAP13:-}"; then
     echo "  [FAIL] inject-13: старт и потолок $V13 из переписи не прочитаны" >&2
@@ -155,6 +160,146 @@ assert_code 2 "ПРЕДПОСЫЛКА: ведомости нет — ОТКАЗ"
 grep '^#' "$LEDGER13" > "$TMP/l13_empty.tsv"
 capture "$d" "$C13" RULES_GATE_WINDOW_BUDGET="$TMP/l13_empty.tsv"
 assert_code 2 "ПРЕДПОСЫЛКА: в ведомости ни одной строки — ОТКАЗ"
+# ── ось F: форма skills: — колонка 0 и поточный список читаются как блочный ─
+# Возврат check-verifier: разбор образцом `^\s+-` давал «skills: 0» при списке в
+# колонке 0. Законные формы YAML дают ОДИН старт; ключ, под которым имён не
+# разобрано, — находка (старт без скиллов неверен).
+skills13() {   # <вывод> <агент> → число skills: из строки переписи
+    sed -nE "s/^  $2 +старт.*· skills: ([0-9]+) ·.*/\1/p" <<<"$1" | head -1
+}
+N13="$(skills13 "$OUT_Z13" "$V13")"
+reform13() {   # <файл> <col0|inline|comment>
+    python3 - "$1" "$2" <<'PY2'
+import re, sys
+p, how = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf-8').read()
+m = re.search(r'^skills:[ \t]*\n((?:[ \t]+-[^\n]*\n)+)', s, re.M)
+if not m:
+    raise SystemExit('ФИКСТУРА БЕСПРЕДМЕТНА: блочного skills: с отступом нет')
+items = re.findall(r'-\s*(\S+)', m.group(1))
+if how == 'col0':
+    new = 'skills:\n' + ''.join('- %s\n' % i for i in items)
+elif how == 'inline':
+    new = 'skills: [%s]\n' % ', '.join(items)
+else:
+    new = 'skills:\n' + ''.join('  # - %s\n' % i for i in items)
+open(p, 'w', encoding='utf-8').write(s[:m.start()] + new + s[m.end():])
+PY2
+}
+for form13 in col0 inline; do
+    d="$(sandbox "i13_$form13")"; b="$(sandbox_digest "$d")"
+    reform13 "$d/.claude/agents/$V13.md" "$form13"
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: skills: $V13 записан формой $form13"
+    capture "$d" "$C13"
+    assert_code 0 "БЛИЗНЕЦ: форма $form13 — законный YAML, молчит"
+    read -r S13f _ < <(start13 "$OUT" "$V13")
+    if [ "$(skills13 "$OUT" "$V13")" = "$N13" ] && [ -n "$N13" ] && [ "$N13" -gt 0 ] \
+       && [ "${S13f:-0}" -gt $(( S13 - 200 )) ] && [ "${S13f:-0}" -le "$S13" ]; then
+        echo "  [OK]   БЛИЗНЕЦ: форма $form13 — skills: $N13, старт $S13f при контроле $S13"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] ось F ($form13): skills: $(skills13 "$OUT" "$V13") при контроле $N13, старт ${S13f:-?} при $S13" >&2
+        fail=$((fail + 1))
+    fi
+done
+d="$(sandbox i13_comment)"
+reform13 "$d/.claude/agents/$V13.md" comment
+capture "$d" "$C13"
+assert_code 1 "ДЕФЕКТ: ключ skills: непуст, имён разобрано 0 — краснеет"
+assert_says "КРАСНОЕ разбор — $V13: ключ skills: непуст" "ДИАГНОЗ оси F: назван агент и ключ"
+d="$(sandbox i13_badyaml)"
+sed -i '0,/^skills:/s//skills: {a: [}/' "$d/.claude/agents/$V13.md"
+capture "$d" "$C13"
+assert_code 1 "ДЕФЕКТ: frontmatter не YAML и после закавычивания — краснеет"
+assert_says "КРАСНОЕ разбор — $V13: frontmatter не YAML" "ДИАГНОЗ оси F: разбор, а не окно"
+
+# ── ось B: основание потолка сходится с замером старта на своей ревизии ────
+# Возврат check-verifier: потолок 109739 при основании «старт 71264 + 10 %»
+# проходил. Контроль — живая ведомость (потолок = замер × 1,10 вниз) молчит.
+B13="$(grep "^$V13	" "$LEDGER13" | cut -f3)"
+BN13="$(sed -nE 's/.*старт ([0-9]+) @.*/\1/p' <<<"$B13")"
+BR13="$(sed -nE 's/.*старт [0-9]+ @([0-9a-f]+).*/\1/p' <<<"$B13")"
+d="$(sandbox i13_basis)"
+bled13() {   # <файл> <потолок> <основание> — строка жертвы заменена
+    awk -F'\t' -v OFS='\t' -v v="$V13" -v c="$2" -v w="$3" '$1==v{$2=c;$3=w}1' "$LEDGER13" > "$1"
+}
+bled13 "$TMP/l13_b_ok.tsv" "$(( BN13 * 11 / 10 ))" "$B13"
+capture "$d" "$C13" RULES_GATE_WINDOW_BUDGET="$TMP/l13_b_ok.tsv"
+assert_code 0 "БЛИЗНЕЦ: потолок РОВНО замер $BN13 @$BR13 × 1,10 — молчит"
+bled13 "$TMP/l13_b_up.tsv" "$(( BN13 * 11 / 10 + 1 ))" "$B13"
+capture "$d" "$C13" RULES_GATE_WINDOW_BUDGET="$TMP/l13_b_up.tsv"
+assert_code 1 "ДЕФЕКТ: потолок на символ выше замер × 1,10 при прежнем основании — краснеет"
+assert_says "КРАСНОЕ основание устарело — $V13" "ДИАГНОЗ оси B: основание устарело"
+bled13 "$TMP/l13_b_lie.tsv" "$(( (BN13 + 1000) * 11 / 10 ))" "ws#1084: старт $(( BN13 + 1000 )) @$BR13 + 10 %"
+capture "$d" "$C13" RULES_GATE_WINDOW_BUDGET="$TMP/l13_b_lie.tsv"
+assert_code 1 "ДЕФЕКТ: основание называет старт, которого на ревизии не было — краснеет"
+assert_says "КРАСНОЕ основание ложно — $V13" "ДИАГНОЗ оси B: замер на ревизии разошёлся с основанием"
+bled13 "$TMP/l13_b_rev.tsv" "$CAP13" "ws#1084: старт $BN13 @0000000deadbeef + 10 %"
+capture "$d" "$C13" RULES_GATE_WINDOW_BUDGET="$TMP/l13_b_rev.tsv"
+assert_code 1 "ДЕФЕКТ: ревизии основания нет в истории — краснеет"
+assert_says "КРАСНОЕ основание — $V13: ревизии 0000000deadbeef нет" "ДИАГНОЗ оси B: названа ревизия"
+bled13 "$TMP/l13_b_none.tsv" "$CAP13" "ws#1084: на глаз"
+capture "$d" "$C13" RULES_GATE_WINDOW_BUDGET="$TMP/l13_b_none.tsv"
+assert_code 1 "ДЕФЕКТ: основание без замера — краснеет"
+assert_says "КРАСНОЕ основание — $V13: в основании нет замера" "ДИАГНОЗ оси B: нет замера"
+
+# ── ось C: CLAUDE.md и тело диспетчера — в окне, их рост краснеет здесь ────
+# Порог C — наименьший запас среди агентов, получающих CLAUDE.md, из переписи
+# контроля; omitClaudeMd выводится из дерева.
+printf '%s\n' "$OUT_Z13" > "$TMP/i13_z.out"
+ROOMC13="$(python3 - "$WS" "$TMP/i13_z.out" <<'PY2'
+import glob, os, re, sys
+omit = set()
+for p in glob.glob(os.path.join(sys.argv[1], '.claude/agents/*.md')):
+    fm = open(p, encoding='utf-8').read().split('\n---', 1)[0]
+    if re.search(r'^omitClaudeMd\s*:\s*true\s*$', fm, re.M):
+        omit.add(os.path.splitext(os.path.basename(p))[0])
+rooms = [int(m.group(3)) - int(m.group(2)) for m in
+         (re.match(r'^  (\S+)\s+старт\s+(\d+) / потолок\s+(\d+)', l)
+          for l in open(sys.argv[2], encoding='utf-8'))
+         if m and m.group(1) not in omit]
+print(min(rooms) if rooms else '')
+PY2
+)"
+growc13() {   # <файл> <символов>
+    python3 - "$1" "$2" <<'PY2'
+import sys
+p, n = sys.argv[1], int(sys.argv[2])
+open(p, 'a', encoding='utf-8').write('\n' + 'д' * (n - 1) if n > 0 else '')
+PY2
+}
+if [ -n "$ROOMC13" ]; then
+    d="$(sandbox i13_claude_at)"
+    growc13 "$d/CLAUDE.md" "$ROOMC13"
+    capture "$d" "$C13"
+    assert_code 0 "БЛИЗНЕЦ: CLAUDE.md вырос на наименьший запас $ROOMC13 — молчит"
+    d="$(sandbox i13_claude_over)"
+    growc13 "$d/CLAUDE.md" "$(( ROOMC13 + 1 ))"
+    capture "$d" "$C13"
+    assert_code 1 "ДЕФЕКТ: раздутый CLAUDE.md (+$(( ROOMC13 + 1 ))) — краснеет в check-13"
+    assert_says "КРАСНОЕ окно — " "ДИАГНОЗ оси C: краснеет окно агента"
+    d="$(sandbox i13_claude_big)"
+    growc13 "$d/CLAUDE.md" 20000
+    capture "$d" "$C13"
+    assert_code 1 "ДЕФЕКТ: CLAUDE.md +20000 — краснеет и у диспетчера"
+    assert_says "КРАСНОЕ окно — dispatcher" "ДИАГНОЗ оси C: CLAUDE.md в окне диспетчера"
+else
+    echo "  [FAIL] inject-13 ось C НЕИСПОЛНИМА: запас агентов из переписи не прочитан" >&2
+    fail=$((fail + 1))
+fi
+read -r SD13 CD13 < <(start13 "$OUT_Z13" dispatcher)
+d="$(sandbox i13_disp)"
+growc13 "$d/.claude/agents/dispatcher.md" "$(( ${CD13:-0} - ${SD13:-0} + 1 ))"
+capture "$d" "$C13"
+assert_code 1 "ДЕФЕКТ: тело dispatcher.md на символ выше потолка окна — краснеет"
+assert_number "перевес" 1 "ДИАГНОЗ оси C: перевес диспетчера назван числом"
+assert_says "КРАСНОЕ окно — dispatcher" "ДИАГНОЗ оси C: назван диспетчер"
+
+# ── ось H: истории для сверки оснований нет — отказ, а не молчание ──────────
+mkdir -p "$TMP/i13_nogit"
+d="$(sandbox i13_nohist)"
+capture "$d" "$C13" RULES_GATE_WINDOW_HISTORY="$TMP/i13_nogit" GIT_CEILING_DIRECTORIES="$TMP"
+assert_code 2 "ПРЕДПОСЫЛКА: истории git для сверки оснований нет — ОТКАЗ"
+
 echo "  [CENSUS] inject-13: жертва $V13 (старт $S13, потолок $CAP13, запас $ROOM13)," \
      "правило по триггеру $R13; агентов в ведомости $(grep -vc '^#' "$LEDGER13")"
-unset -v V13 R13 S13 CAP13 ROOM13 S13t
+unset -v V13 R13 S13 CAP13 ROOM13 S13t S13f N13 B13 BN13 BR13 ROOMC13 SD13 CD13 OUT_Z13 form13
