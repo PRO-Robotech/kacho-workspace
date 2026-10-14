@@ -808,7 +808,7 @@ orders:
 # публикации (docs/changes/policy.yaml §2). Блок event дописывается к факту тем
 # же заходом, что событие; прежние строки при этом не правятся.
 authority:
-  status: pending_publication
+  status: published
   mode: versioned_policy_authority
   epoch: post-cutover
   repository: PRO-Robotech/kacho-workspace
@@ -838,7 +838,16 @@ authority:
       ---
 
       Событие полномочия к держателю human-class-exposure-initial пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml`). Перечень классов набора с отпечатком выше — 98 пунктов по 27 приёмкам — назван и сохранён; запись судит этот набор, и только его.
-  event: null    # {database_id, node_id, url, actor, created_at, body_sha256} — после публикации
+  event:
+    database_id: 6160232882
+    node_id: IC_kwDOUO26pM8AAAABby2xsg
+    url: 'https://github.com/PRO-Robotech/kaname/issues/296#issuecomment-6160232882'
+    actor: pointpu
+    author_association: MEMBER
+    created_at: '2026-10-14T03:29:34Z'
+    body_sha256: ec001dcc790ff15b69a26a4a0e4dd6055973d0710df38a5ac0d9656ad1055dbd
+    body_reverified_by_second_get: true
+    published_by_role: git-operator
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: class-exposure-analyst
