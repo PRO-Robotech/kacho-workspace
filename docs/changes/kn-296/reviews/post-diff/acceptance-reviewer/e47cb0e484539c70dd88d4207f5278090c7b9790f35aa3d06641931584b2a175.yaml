@@ -49,6 +49,8 @@ sanction_condition: >-
   Вердикт набора действует только вместе с событием APPROVED на 63333cc2 в kaname#634
   (запись own-sessions этого пакета). Порядок публикации: сперва kaname#634, затем kaname#296.
   Пока события на 63333cc2 нет, исход держателя human-acceptance — NOT_EXECUTED, а не GREEN.
+  Условие выполнено: kaname#634 issuecomment-6159260352 (2026-10-14T02:04:55Z) раньше
+  kaname#296 issuecomment-6159261785 (2026-10-14T02:05:02Z).
 
 set:
   # sha256 — `git show 68d24ae6:<путь> | sha256sum`; запись — на этот отпечаток, в дереве
@@ -225,8 +227,9 @@ set:
     event: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6035940401
     event_verdict: ACCEPT           # вне словаря — санкцией не читается
     superseding_record: docs/changes/kn-296/reviews/post-diff/acceptance-reviewer/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml   # PRO-Robotech/kacho-workspace, verdict APPROVED
-    superseding_event: null         # ожидается APPROVED в PRO-Robotech/kaname#634 — тело в блоке event той записи
-    entry_outcome: NOT_EXECUTED     # до публикации события APPROVED на 63333cc2
+    superseding_event: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6159260352   # APPROVED на 63333cc2, pointpu, 2026-10-14T02:04:55Z — блок event той записи
+    superseding_event_verdict: APPROVED
+    entry_outcome: GREEN            # событие APPROVED на 63333cc2 опубликовано раньше события набора (02:04:55 < 02:05:02)
     event_created_at: '2026-10-07T10:23:07Z'
     event_edited: false
   - path: docs/engineering/acceptance/password-verifier-follows-the-stored-value.md
@@ -309,8 +312,9 @@ tally:
   record_verdict_outside_vocabulary: 1          # own-sessions, ACCEPT
   event_published_approved_on_same_fingerprint: 26
   event_published_outside_vocabulary: 1         # kaname#634#issuecomment-6035940401, ACCEPT
-  superseding_record_in_package: 1              # own-sessions → APPROVED, событие не опубликовано
-  not_executed: 1                               # до события APPROVED на 63333cc2
+  superseding_record_in_package: 1              # own-sessions → APPROVED, событие 6159260352 (kaname#634)
+  superseding_event_published_approved: 1       # 6159260352, тело сверено вторым GET (body_sha256 0894583f…)
+  not_executed: 0                               # было 1 до события APPROVED на 63333cc2
   event_targets_outside_kaname: 1               # cloud-administrator-resets-login-methods → PRO-Robotech/kacho#2702
 
 authority:
@@ -359,4 +363,5 @@ important_findings:
   - coordinate: PRO-Robotech/kaname:docs/specs/reviews/own-sessions-are-listed-and-ended-by-their-owner/63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878.yaml
     note: >-
       verdict и event.verdict — ACCEPT, вне словаря APPROVED|CHANGES_REQUESTED. Запись не
-      правится; соседняя запись APPROVED — в этом пакете, событие — kaname#634.
+      правится; соседняя запись APPROVED — в этом пакете, событие — kaname#634
+      (issuecomment-6159260352).

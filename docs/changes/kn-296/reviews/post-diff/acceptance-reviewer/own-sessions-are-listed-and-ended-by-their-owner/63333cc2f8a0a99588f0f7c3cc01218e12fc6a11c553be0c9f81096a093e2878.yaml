@@ -79,20 +79,13 @@ authority:
 event_body: "acceptance-reviewer · APPROVED · sha256 63333cc2f8a0a99588f0f7c3cc01218e12fc6a11c553be0c9f81096a093e2878"
 
 effective_approval:
-  issued: false
-  publication_pending:
-    required_for_sanction: true
-    expected_actor: pointpu
-    expected_mode: courier_of_agent_verdict
-    target: PRO-Robotech/kaname#634
-    order: >-
-      публикуется ДО события набора в kaname#296: запись набора
-      (../e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml) держит эту
-      приёмку исходом NOT_EXECUTED, пока этого события нет.
-    note: >-
-      Ритуал scripts/rituals/approval-event.sh здесь неприменим как есть: он требует документ
-      и запись в одном дереве, а документ — в службе доступа, запись — в воркспейсе. Курьер
-      публикует тело ниже дословно и тем же заходом приводит блок event к факту.
+  issued: true
+  issued_by_event: https://github.com/PRO-Robotech/kaname/issues/634#issuecomment-6159260352   # блок event ниже
+  issued_at: '2026-10-14T02:04:55Z'
+  order_held: >-
+    опубликовано ДО события набора в kaname#296 (6159261785, 2026-10-14T02:05:02Z): запись
+    набора (../e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml) держит
+    эту приёмку исходом GREEN.
 
 event:
   type: issue_comment

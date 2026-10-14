@@ -1,0 +1,93 @@
+# План свидетельства держателя human-design — изменение kn-296.
+#
+# Написан ДО события. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет сверка
+# события через API, не перо.
+#
+# Имя файла — отпечаток НАБОРА документов замысла линии (`change.yaml`
+# design_set_predicate: путь · blob на голове) на ревизии замыслов edf8c641.
+# Набор — два документа, у каждого свой отпечаток (`set`). Сменится голова и
+# вместе с ней blob любого замысла — нужен новый файл и новое событие; этот
+# файл другую редакцию не судит.
+#
+# История файла: до 2026-10-14 — план на efa1b3d0… (один замысел, голова
+# 68d24ae6); событие на него не публиковалось, план переведён на набор
+# edf8c641 и прежнего вердикта не несёт.
+#
+# УСЛОВИЯ ПУБЛИКАЦИИ (обе — до события, иначе событие судит не то):
+#   1. edf8c641 на origin PRO-Robotech/kaname (2026-10-14: `git branch -r
+#      --contains edf8c641` пусто — ревизия есть лишь в локальной ветке
+#      785-kn296-design), и манифест `change.yaml` пересчитан на неё
+#      (`hashes.design_sha256`, `design_set`) — сейчас там efa1b3d0 и один путь;
+#   2. пересверка классов на этот набор — APPROVED. Запись
+#      reviews/class-exposure/revalidation/00278b29….yaml несёт
+#      CHANGES_REQUESTED (итог «к-замыслу», §6а Р-2 замысла Ф13 ложно о дереве);
+#      правка замысла сменит отпечаток набора — тогда этот план переводится
+#      снова, а событие на 00278b29 не публикуется вовсе.
+schema_version: 1
+change_id: kn-296
+holder: human-design
+kind: human-external
+owner: design-reviewer
+subject: 'PRO-Robotech/kaname:docs/engineering/acceptance/ (набор из 2 замыслов линии 8a84dcff...edf8c641, change.yaml design_set_predicate пакета kn-296)'
+subject_base: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6       # origin/main kaname = merge-base
+subject_revision: edf8c641356c1b5b4bc82f5d9add4e3b22d4dad1   # 785-kn296-design, на origin НЕТ (условие 1)
+subject_sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48   # design_set_predicate на 8a84dcff...edf8c641
+design_set_sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+set:
+  # blob — git rev-parse edf8c641:<путь>; sha256 — git show edf8c641:<путь> | sha256sum;
+  # последний коммит — git log -1 edf8c641 -- <путь>
+  - path: docs/engineering/acceptance/own-identity-line-maps-its-decisions-to-code-design.md
+    status_in_line: A
+    blob: 32c7682765fcaadcc8c0bdfec53a21a9da918674
+    sha256: 79553d4df39a9a5593e55352d819bacccda074290df395f69ae0ffc4dd59ce43
+    last_changed_by: edf8c6413
+  - path: docs/engineering/acceptance/passwordless-login-with-access-key-design.md
+    status_in_line: M
+    blob: 09283d2f04fc4f6843f3a36a266b672a50d6a97d
+    sha256: 727acd680eb0115dc0e35203b2d3bcd6093b08fd32b4f32e25df17fc66de4117
+    last_changed_by: edf8c6413
+class_exposure_revalidation: PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/class-exposure/revalidation/00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48.yaml   # verdict CHANGES_REQUESTED (условие 2)
+executable: 'внешнее review event pointpu на отпечаток набора замыслов (issue_comment в PRO-Robotech/kaname#296)'
+predicate: 'решения и инварианты замысла полны; открытых решений, маркеров отсрочки и неотображённых классов нет'
+
+# Словарь вердикта роли. `policy.yaml` §2 даёт роли только полномочие
+# (`review_authority.design-reviewer: [pointpu]`) и слов вердикта не задаёт.
+# Слово задаёт стадия: DESIGN_APPROVED связывает вердикт `design` = APPROVED
+# (scripts/change-graph-gate/cglib/families/life.py, STAGE_REQUIRED_VERDICTS и
+# APPROVED_VERDICT); отказ — CHANGES_REQUESTED (приёмка контура SDD-1, DESIGN-кейсы).
+# ACCEPTED — слово записей сверки волн и post-diff, стадию замысла оно не открывает.
+expected_actor: pointpu
+expected_event:
+  type: issue_comment
+  repo: PRO-Robotech/kaname
+  issue: 296
+  declared_verdict: APPROVED
+  subject_sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+  publish_only_when: 'условия 1 и 2 шапки выполнены'
+  body: |-
+    role: design-reviewer
+    verdict: APPROVED
+    subject: PRO-Robotech/kaname:docs/engineering/acceptance/ (набор из 2 замыслов линии 8a84dcff...edf8c641, change.yaml design_set_predicate пакета kn-296)
+    subject_revision: edf8c641356c1b5b4bc82f5d9add4e3b22d4dad1
+    subject_sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+    design_set_sha256: 00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48
+
+    ---
+
+    Событие полномочия к держателю human-design пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/evidence/human-design/00278b29823b449a3eed836fab2d58591e6b9b01aba2e6f6390d7d7b296dac48.yaml`). Одобрен набор замыслов с отпечатком выше, и только он; состав набора и отпечаток каждого замысла — в записи.
+
+# ── снятое: заполняет сверка события, не перо ───────────────────────────────
+captured_category: null
+event: null            # {database_id, url, actor, created_at, body_sha256} — после публикации
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие события — это
+# NOT_EXECUTED, а не «наверное одобрено».
+note: >-
+  вердикт выпускает внешнее событие актора, а не строка в документе; шапки
+  замыслов на голове несут статическую форму — это не вердикт и не отказ.
+  Событие не произошло — держатель не выполнен.

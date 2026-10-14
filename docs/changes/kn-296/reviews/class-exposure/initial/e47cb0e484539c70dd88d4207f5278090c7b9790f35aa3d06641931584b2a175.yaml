@@ -20,6 +20,14 @@ change_id: kn-296
 holder: human-class-exposure-initial
 owner: class-exposure-analyst
 mode: initial
+reviewer_role: class-exposure-analyst
+# Словарь вердикта — закрытый словарь гейта контура: APPROVED | CHANGES_REQUESTED
+# (scripts/change-graph-gate/cglib/families/life.py, «Присутствие и одобрение
+# объявляются РОВНО ОДНИМ значением»). Итог роли (к-замыслу) — поле outcome, а не
+# вердикт: прежнее declared_verdict TO-DESIGN вне словаря и до публикации заменено
+# (событие не публиковалось — kaname#296 перепроверен 2026-10-14, комментария на
+# e47cb0e4… от роли нет).
+verdict: APPROVED
 
 subject:
   repo: PRO-Robotech/kaname
@@ -817,10 +825,19 @@ authority:
     type: issue_comment
     repo: PRO-Robotech/kaname
     issue: 296
-    declared_verdict: TO-DESIGN
+    declared_verdict: APPROVED
     subject_digest: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175
     declared_record_path: docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml
-    body: 'class-exposure-analyst · TO-DESIGN · docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml · digest e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175'
+    expected_body: |-
+      role: class-exposure-analyst
+      verdict: APPROVED
+      subject: PRO-Robotech/kaname:docs/engineering/acceptance/ (набор из 27 приёмок линии 8a84dcff...68d24ae6, change.yaml acceptance_set_predicate пакета kn-296)
+      subject_revision: 68d24ae66fe4530dcccebf36f82ad70f1c976eae
+      subject_sha256: e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175
+
+      ---
+
+      Событие полномочия к держателю human-class-exposure-initial пакета kn-296 (`PRO-Robotech/kacho-workspace:docs/changes/kn-296/reviews/class-exposure/initial/e47cb0e484539c70dd88d4207f5278090c7b9790f35aa3d06641931584b2a175.yaml`). Перечень классов набора с отпечатком выше — 98 пунктов по 27 приёмкам — назван и сохранён; запись судит этот набор, и только его.
   event: null    # {database_id, node_id, url, actor, created_at, body_sha256} — после публикации
 attribution:
   reviewer_kind: claude_agent

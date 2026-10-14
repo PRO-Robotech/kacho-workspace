@@ -1,0 +1,44 @@
+# Свидетельство держателя prod-required-verdict — изменение issue-1266.
+#
+# Снято с УЖЕ исполненного прогона конвейера запроса эпика на голове линии из
+# `change.yaml`; новый прогон не запускался. Отпечатки ниже пересчитываются
+# командами поля `remeasure` (журнал задания скачивается заново тем же `gh`).
+schema_version: 1
+change_id: issue-1266
+holder: prod-required-verdict
+kind: machine
+owner: integration-tester
+evidence_coordinate: evidence/prod-required-verdict/
+executable: 'CI-контекст «сводный вердикт (все проверки завершились и зелены)» (.github/workflows/required-verdict.yml) на запросе эпика kacho#3158'
+predicate: 'сводный вердикт читает завершение ВСЕХ проверок запроса эпика на голове из `change.yaml`, а не подмножество'
+
+subject: 'PRO-Robotech/kacho@bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 (content_digest)'
+subject_sha256: 786cd30ee438d84b0807b6bdb795792ac60c919ff793fd0da05e3c77ef200282   # git diff --full-index bac26316c468f76ba6193e4e61ac0dabbce64670...4c7ab49db8abca54493836cff4da44774e0f6b90 | sha256sum
+subject_revision: 4c7ab49db8abca54493836cff4da44774e0f6b90
+pull_request: PRO-Robotech/kacho#3158   # open, ready, headRefOid = subject_revision (gh pr view, 2026-10-14)
+checked_out_revision: 49d9edb1a660de4fa63baf1b40f1fc0696d83b20   # слияние запроса: родители bac26316 4c7ab49d (gh api commits/<sha>)
+
+run:
+  workflow: 'сводный вердикт'
+  database_id: 38489556117
+  event: pull_request
+  head_sha: 4c7ab49db8abca54493836cff4da44774e0f6b90
+  status: completed
+  conclusion: success
+
+# ── снятое ─────────────────────────────────────────────────────────────────
+captured_category: GREEN
+result: 'объявлено проверок 56, появилось 56, не появилось 0; осмотрено 73, отставлено 0; зелёных 73, не-зелёных 0, нейтральных или пропущенных 0, идущих 0'
+input_sha256: e2608affedabb23b0eaf2c1d09f1adff27e0370a4bbedfce9df9206ace3b1cbf   # printf '%s' 'PRO-Robotech/kacho@4c7ab49db8abca54493836cff4da44774e0f6b90 run 38489556117' | sha256sum
+output_sha256: 86c59284b77e51be2b7df38f3e0ea50a632fe657c2efb2a04da91cf14fce55ed   # gh run view 38489556117 -R PRO-Robotech/kacho --json jobs -q '[.jobs[] | {name, conclusion}] | sort_by(.name)' | sha256sum
+stdout_digest: 1e6334ca8414c43bf54daec58fa9516d49323e7f85306e70913c467a4e752d63   # gh run view 38489556117 -R PRO-Robotech/kacho --log | sha256sum
+stderr_digest: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855   # stderr той же команды — пуст
+verdict_excerpt_sha256: f4dd6278c03ccd182ba7ca9d591214fef76dcb83e23675c1b0e8d251e22f6aa1
+verdict_excerpt: |
+  вердикт: зелено — каждая объявленная проверка появилась, все завершились успехом
+  объявлено проверок 56 (джобы процессов, которые запрос запускает на этой голове; матрица из выражения — одна проверка), появилось 56, не появилось 0
+  осмотрено проверок 73, отставлено 0 (у той же проверки судится последний по набору и id прогон, несущий исход); из судимых зелёных 73, не-зелёных 0, нейтральных или пропущенных 0, идущих 0
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отпечаток журнала — от
+# скачивания 2026-10-14; журнал задания на стороне конвейера неизменен, его
+# снятие хранилищем дало бы NOT_EXECUTED, а не GREEN.

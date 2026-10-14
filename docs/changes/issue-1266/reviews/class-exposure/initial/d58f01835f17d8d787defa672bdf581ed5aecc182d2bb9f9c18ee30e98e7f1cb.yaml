@@ -1,0 +1,293 @@
+# Первичный разбор классов дефектов — роль class-exposure-analyst, держатель
+# human-class-exposure-initial (holders.yaml), координата контура
+# reviews/class-exposure/initial/<acceptance_sha256> (change-graph §4).
+#
+# Имя файла — hashes.acceptance_sha256 манифеста: отпечаток НАБОРА из 7 приёмок.
+# Запись не пересматривает приёмки: каждую судила своя запись ревью на её отпечаток.
+# Прежняя запись агента — reviews/pre-landing/class-exposure-analyst/<тот же отпечаток>.md —
+# не правится (append-only); эта запись переносит её содержание в координату контура,
+# перепроверяет «чем держится» на финальной голове и приводит вердикт к словарю гейтов.
+#
+# СЛОВАРЬ ВЕРДИКТА. Событие 6156556726 несёт слово TO-CODE. Его нет ни в одном словаре:
+#   - scripts/change-graph-gate/cglib/families/life.py — закрытая метка одобрения
+#     APPROVED_VERDICT = "APPROVED"; «незнакомое слово одинаково не даёт опоры» (шапка модуля);
+#   - cglib/families/auth.py — правило auth.verdict-mirrors-event сверяет verdict записи
+#     и события ДОСЛОВНО (CG_REVIEW_VERDICT_MISMATCH);
+#   - kaname .github/scripts/review-event-silence.py — санкцию несёт verdict == "APPROVED",
+#     CHANGES_REQUESTED санкции не выдаёт; прочее — вне словаря.
+# Поэтому verdict здесь — APPROVED, а итог роли (к-коду) — отдельное поле outcome.
+schema_version: 1
+change_id: issue-1266
+holder: human-class-exposure-initial
+owner: class-exposure-analyst
+mode: initial
+subject: >-
+  Набор из 7 приёмок эпика kacho#1266 (change.yaml hashes.acceptance_set), дом —
+  PRO-Robotech/kacho-workspace docs/specs/.
+
+fingerprint:
+  repo: PRO-Robotech/kacho-workspace
+  acceptance_set_rev: 1e11702600a5d2168c20cff48261f704f8063241
+  remeasured_at_revs:
+    - 1e11702600a5d2168c20cff48261f704f8063241   # change.yaml acceptance_set_rev
+    - f61daab77b6cccd682978ec8bf9e5c9502f4dbf2   # HEAD = origin/main воркспейса 2026-10-14
+  set_count: 7
+  set_predicate: change.yaml hashes.acceptance_set_predicate, дословно
+  subject_line:
+    repo: PRO-Robotech/kacho
+    base: bac26316c468f76ba6193e4e61ac0dabbce64670
+    head: 4c7ab49db8abca54493836cff4da44774e0f6b90   # origin/1266 после fetch 2026-10-14
+    merge_base_equals_base: true
+    code_checked_at: 4c7ab49db8abca54493836cff4da44774e0f6b90
+    previous_code_check: 2306d95de6837ec745852c305869efc8551546bf   # запись pre-landing
+
+content_digest: sha256:d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb
+digest_remeasured: true    # совпал с change.yaml на обеих ревизиях
+
+verdict: APPROVED
+outcome: к-коду
+blocks_landing: false
+timestamp: '2026-10-14T00:00:00Z'
+reviewer_role: class-exposure-analyst
+expected_actor: pointpu
+return_to_acceptance: '—'
+unmapped_items: '—'          # режим первичный; замысла нет (design_sha256: null)
+supersedes_record: docs/changes/issue-1266/reviews/pre-landing/class-exposure-analyst/d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb.md
+
+precondition:
+  # sha256 — `git show <rev>:<путь> | sha256sum`; запись — docs/specs/reviews/<док>/<sha>.yaml
+  acceptance_records_approved_on_current_fingerprint: 7   # из 7
+
+inspected:
+  acceptances: >-
+    Разделы решений: F1 §4, §6.6–6.9; KA1 §0.4 Р1–Р7 и «Что НЕ входит»; F8 §15 и §12;
+    S3 Р1–Р8; S4 Р3–Р8; S5 Р1–Р8; S6 §1, Р1–Р5. Сценарии — по таблицам «Сценарий → производитель».
+  code: >-
+    kacho base..head: 715 путей. Производители решений прочитаны на 2306d95d (запись pre-landing);
+    дельта 2306d95d..4c7ab49d — 32 пути, ни один не трогает файлов-производителей решений набора
+    (команда в measurements). Держатели перепроверены на 4c7ab49d.
+
+items:
+  - id: exposure-1
+    decision: KA1 Р1 — третий исход «состояние удостоверения не установлено» (503, носитель цел)
+    class: 'code-authoring §«Чужой ответ: классификация и бюджет»'
+    condition: >-
+      «Не ответил» сводится к одному состоянию; один писатель ответа на поверхность;
+      UNIMPLEMENTED только об отсечке — громкий проход со счётчиком.
+    held_by: [TestCookieLane_UnansweredAuthorityRefusesButKeepsCarrier, KA1-01…07]
+    state: done
+  - id: exposure-1a
+    decision: KA1 Р1 — ретрансляция при молчании
+    class: code-authoring §«Умолчание, которое становится утверждением»
+    condition: нулевое значение флага записи пути означает отказ, а не ретрансляцию
+    held_by: [TestLoginLanePaths_F6b_11_*, TestLoginLanePaths_F8_S5_09_*, '*F8S6_10_*']
+    state: done
+  - id: exposure-2
+    decision: KA1 Р2 — один 401, побайтово одинаковый
+    class: code-authoring §«Инвариант и оснастка — это тоже прод-код»
+    condition: тело, текст и вызов 401 — только в одном пакете; второй писатель краснит гейт
+    held_by: [TestEdgeUnauthenticatedHasOneProducer, TestKA1_10_*, TestKA1_12_*]
+    state: done
+  - id: exposure-3
+    decision: KA1 Р3 — указание повысить уровень
+    class: code-authoring §«Порядок операций внутри кода»
+    condition: указание — только удостоверению, уже признанному годным; без церемонии — по Р2
+    held_by: [TestKA1_15_StepUpChallengeStaysDistinguishable]
+    state: done
+  - id: exposure-4
+    decision: KA1 Р4 — две ручки бюджета вызовов без умолчания
+    class: code-authoring §«Умолчание, которое становится утверждением»; security.md sec-no-silent-default-for-guarded-knob
+    condition: >-
+      объявленность — через LookupEnv; «не объявлено» и «не годится» — разные тексты;
+      ноль и отрицательное — отказ; отказ называет обе ручки.
+    held_by: [TestKA1_20_*, TestKA1_21_*, TestStackTableNamesEveryTrackedProfile]
+    state: done
+  - id: exposure-4a
+    decision: KA1 Р4 ред. 9 — срок только вокруг Revoke на выходе
+    class: code-authoring §«Решение и его следствие разнесены»
+    condition: вокруг Verify на выходе своего срока нет
+    held_by: [TestKA1_37_*, TestKA1_26_*]
+    state: done
+  - id: exposure-5
+    decision: KA1 Р5 — канон издателя в одном месте
+    class: code-authoring §«Контракт, который нельзя выразить»
+    condition: канон ко всем четырём входам; дубликат канонической формы — отказ старта
+    held_by: [TestKA1_30_*, TestKA1_31_*, TestKA1_35_*]
+    state: done
+    residual: гейта «сравнение издателя мимо канона» нет — держится вниманием
+  - id: exposure-6
+    decision: KA1 Р7 — два исхода выхода по пути токенов
+    class: 'code-authoring §«Чужой ответ: классификация и бюджет»'
+    condition: «не решил» и «решил» различаются тем же предикатом, что на пути запроса (KeySourceUnanswerable)
+    held_by: [TestLogout_KeySourceUnanswered_IsNotPerformedOnEveryPresentation]
+    state: done
+  - id: exposure-7
+    decision: F1 сторона потребителя — срок, адресат, издатель, алгоритм из ключа, kid, перезапрос
+    class: code-authoring §«Умолчание, которое становится утверждением»
+    condition: >-
+      срок обязателен; пустой адресат — отказ построения; алгоритм из ключа; форма kid
+      ограничена до использования; вынужденный перезапрос ограничен по частоте.
+    held_by: [TestF1b08_ExpiryIsRequired, TestF1b08_KeyIDFormIsBoundedBeforeUse, TestUndeclaredAudienceNeverAcceptsAForeignInstallationsToken, TestF1b01_*, TestJWKSCache_UnknownKidFloodIsRateLimited, TestRevocationWindowIsDeclaredPolicy]
+    state: done
+  - id: exposure-8
+    decision: F8 Р3 / S3 Р1 — снятие вида not-served вместе со страницей
+    class: code-authoring §«Умолчание, которое становится утверждением»
+    condition: вид снят; замыкающее правило вне шести адресов — вне объёма (F8 §12)
+    held_by: [перепись not-served в нетестовом ui-future → 0]
+    state: done
+  - id: exposure-9
+    decision: F8 Р6 — экран наблюдается переписью обращений
+    class: code-authoring §«Инвариант и оснастка — это тоже прод-код»
+    condition: обращение к сети — только через упорядочивающий транспорт; выпуск мимо роняет пробу
+    held_by: [issuance-guard (unit и e2e), console-issuance-ordered.injection.test.ts]
+    state: done
+  - id: exposure-10
+    decision: F8 Р10, S3 Р7, S4 Р6, S6 Р5 — перевыпуск носителя упорядочивает консоль
+    class: code-authoring §«Решение и его следствие разнесены»; architecture.md §«Параллельные полосы одного механизма»
+    condition: новый глагол, ставящий носитель, попадает в SETS_CARRIER и CARRIER_VERBS тем же изменением
+    held_by: [carrier-order.test.ts, login-lane.test.ts, F8-46, F8-47]
+    state: done
+    residual: со списком службы консольный перечень не сверяется — держится вниманием
+  - id: exposure-11
+    decision: F8 Р7, S3 Р8, S4 Р8, S5 Р8 — ось источника, общий ресурс прогона
+    class: code-authoring §«Решение и его следствие разнесены» (общий счётчик)
+    condition: доля каждой под-фазы — своя ручка; сумма долей судится против 80 % окна стенда
+    held_by: [TestF8S4_15_SourceRefusalSharesAreJudgedBySum, TestConsoleSuiteBudgetGateIsAbleToFail]
+    state: done
+  - id: exposure-12
+    decision: S4 Р4, Р5 — закрытая проекция тела, два вида отказа
+    class: 'code-authoring §«Контракт, который нельзя выразить»; §«Чужой ответ: классификация и бюджет»'
+    condition: >-
+      тело — закрытой проекцией полей контракта; отказ браузера — один вид без подробностей;
+      прочий отказ — фиксированный текст без эха; после отказа браузера глагол входа не зовётся.
+    held_by: [F8S4-02, F8S4-03, F8S4-06, F8S4-08]
+    state: done
+  - id: exposure-13
+    decision: S5 Р1, S6 Р1 — новые записи перечня полосы края, закрыты по умолчанию
+    class: code-authoring §«Умолчание, которое становится утверждением»; polyrepo.md §«Runtime cross-domain edges»
+    condition: записи закрыты по умолчанию; перечень края совпадает с перечнем путей службы
+    held_by: [TestLoginLanePaths_F8_S5_09_*, '*F8S6_10_*', TestLoginLaneRelay_F8_S5_09_*]
+    state: done
+    residual: совпадение со службой судится по тексту приёмки, не по модулю службы — держится вниманием
+  - id: exposure-14
+    decision: S6 Р2 — самосброс кеша решений на 2xx предъявления смены адреса
+    class: code-authoring §«Решение и его следствие разнесены»
+    condition: самосброс объявлен флагом записи пути, а не вторым перечнем
+    held_by: [TestEmailChangeLane_F8S6_11_ConfirmSuccessFlushesTheDecisionCache]
+    state: done
+    residual: >-
+      сверки с производителями очереди смены субъекта нет; 3 носителя subjectchangeflushparity
+      с fate unguarded; kacho#2634 OPEN — держится вниманием
+  - id: exposure-15
+    decision: F8 Р2, S3 Р3, S5 Р3 — консоль не судит содержимое поля
+    class: code-authoring §«Порядок операций внутри кода»
+    condition: своей проверки содержимого у консоли нет; пустое предъявление доходит до службы
+    held_by: [F8S6-12]
+    state: done
+
+measurements:
+  - claim: отпечаток набора d58f0183…
+    command: change.yaml acceptance_set_predicate @1e117026 и @f61daab7
+    result: совпал на обеих, 7 документов
+  - claim: линия не сдвинулась с манифеста
+    command: git -C project/kacho fetch origin; rev-parse origin/main origin/1266; merge-base
+    result: base bac26316, head 4c7ab49d, merge-base = base
+  - claim: держатели существуют на финальной голове
+    command: git -C project/kacho grep -l -E 'func <имя>[A-Za-z0-9_]*\(' 4c7ab49d, 28 имён записи pre-landing
+    result: 27 из 27 действующих (TestF1b01_ — 3 файла, прочие по 1); TestLogout_VerificationIsBoundedByTheCallBudget — 0, снят по KA1-37 намеренно
+  - claim: срок ручки на выходе только вокруг Revoke
+    command: git -C project/kacho show 4c7ab49d:gateway/internal/handler/logout_handler.go | grep -c 'WithTimeout(r.Context(), h.callBudget)'
+    result: '1'
+  - claim: not-served снят из нетестового дерева консоли
+    command: git -C project/kacho grep -n -F 'not-served' 4c7ab49d -- ui-future/host/src ui-future/shared/src ':!*.test.*' ':!**/test/**' | wc -l
+    result: '0'
+  - claim: вызывающих канона издателя
+    command: git -C project/kacho grep -l 'issuercanon\.' 4c7ab49d -- 'gateway/**/*.go' ':!*_test.go' | wc -l
+    result: '3'
+  - claim: дельта 2306d95d..4c7ab49d не трогает производителей решений
+    command: >-
+      git -C project/kacho diff --name-only 2306d95d 4c7ab49d | grep -E
+      'callbudget|tokenissuers|issuercanon|authnrefusal|credential_state_unknown|auth_own_session|jwt_verifier|logout_handler|login_lane_paths|carrier-order|access-key|App.tsx|issuance-guard'
+    result: 0 строк из 32 путей дельты
+  - claim: сверка самосброса с производителями очереди
+    command: grep -c subjectchangeflushparity internal/repohygiene/retired_gate_carriers.json @4c7ab49d; gh issue view 2634 -R PRO-Robotech/kacho
+    result: 3, все unguarded; #2634 OPEN
+
+not_measurable:
+  - >-
+    Совпадение перечня записей края и SETS_CARRIER консоли с перечнями службы — сверка двух
+    репозиториев; пакет службы internal/ из kacho не импортируется, однодеревного предиката нет.
+  - Когерентность самосброса края с производителями очереди службы — по той же причине (kacho#2634).
+
+set_boundary_finding:
+  # Не меняет разбор d58f0183…, но делает НАБОР неполным: отпечаток пакета устареет.
+  predicate_by_spelling: change.yaml acceptance_set_predicate @f61daab7 → 7 документов
+  predicate_by_subject: git grep -l -E 'identity-own|1266' f61daab7 -- 'docs/specs/*.md' → 11 документов
+  referents:
+    - path: docs/specs/sub-phase-F6b-console-and-edge-confirmed-address-gate-acceptance.md
+      why_epic: шапка «Эпик/issue … эпик `#1266`» — без префикса kacho, регэксп набора не ловит
+      approved: 'запись 904a3233….yaml, verdict APPROVED, event performed'
+      in_line: 'добавленных строк с F6b в base...head — 33 в 18 файлах; коммиты #3192, #3094, #2996'
+    - path: docs/specs/sub-phase-F8r-console-and-edge-login-methods-reset-acceptance.md
+      why_epic: «входит в релиз `#1266`»
+      approved: 'запись ee49b89a….yaml, verdict APPROVED, event performed'
+      in_line: 'сценарии F8r-01…05, F8r-21…23 в добавленных строках; коммиты #3063'
+    - path: docs/specs/sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md
+      why_epic: спорно — 1266 упомянут как ревизия и как соседний эпик; в линии пробы IAM-INT-1-21/22
+      approved: 'запись 0c22212d….yaml, verdict APPROVED, event not_performed'
+      in_line: 11 добавленных строк (e2e interactive-login-s3)
+    - path: docs/specs/sub-phase-ID-PW-1-password-hash-verifier-acceptance.md
+      why_epic: SUPERSEDED, переехал в дом службы — из набора исключается законно
+  candidate_set_sha256_with_F6b_F8r: 241d9764e4973ca642ca86a56b39592a857f7f071da6ae497df73a05d3675a51   # 9 путей, тот же awk|sort|sha256sum @f61daab7
+
+out_of_subject:
+  - >-
+    ui-future/host/src/App.tsx:201 @4c7ab49d — замыкающее правило каркаса уводит на /dashboard;
+    F8 §12 выносит его отдельным предметом «находкой, если наблюдается». Корректность, не
+    безопасность; решение о задаче — у диспетчера.
+  - >-
+    Дельта 2306d95d..4c7ab49d вводит готовность края с критичным соединением решения о праве
+    (readiness.go). Решения набора d58f0183… этого не касаются; предмет — пост-дифф роли.
+
+authority:
+  mode: versioned_policy_authority
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.class-exposure-analyst   # policy.yaml:43 `class-exposure-analyst: [pointpu]`
+  authorized_actors: [pointpu]
+  expected_actor: pointpu
+
+event:
+  type: issue_comment
+  status: not_performed     # приводится к факту тем же заходом, что публикация (git-operator, yq -i)
+  published: false
+  repo: PRO-Robotech/kacho
+  issue: 1266
+  role: class-exposure-analyst
+  declared_verdict: APPROVED
+  declared_content_digest: d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb
+  declared_record_path: docs/changes/issue-1266/reviews/class-exposure/initial/d58f01835f17d8d787defa672bdf581ed5aecc182d2bb9f9c18ee30e98e7f1cb.yaml
+  body_sha256: c0a50e0f72637e9e61329216796222f35f4684373982e531c942c143ad84f15f   # тело без перевода строки, 237 байт
+  body_is_single_machine_line: true
+  supersedes_event:
+    database_id: 6156556726
+    url: 'https://github.com/PRO-Robotech/kacho/issues/1266#issuecomment-6156556726'
+    reason: declared_verdict TO-CODE вне словаря гейтов (life.py APPROVED_VERDICT; review-event-silence APPROVED|CHANGES_REQUESTED)
+  published_by_role: tooling-maintainer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+
+orders:
+  - to: tooling-maintainer
+    what: >-
+      acceptance_set_predicate манифеста не ловит «эпик `#1266`» без префикса kacho; дополнить
+      набор F6b и F8r (решить IAM-INT-1), пересчитать acceptance_sha256; затем acceptance-reviewer
+      и class-exposure-analyst — новые записи на новый отпечаток, разбор только дельты (F6b, F8r).
+    basis: measurement-discipline §«Предикат — только с контролем»; flow-acceleration fa-b1, fa-b5
+  - to: tooling-maintainer или go-implementer по kacho#2634
+    what: проба над пином службы — перечень записей края и самосброс сверяются с исходником службы закреплённой версии
+    basis: architecture.md §«Параллельные полосы одного механизма обязаны сверяться МЕЖДУ СОБОЙ»
+  - to: диспетчер
+    what: решить, заводить ли задачу о замыкающем правиле каркаса (F8 §12)
+    basis: code-authoring §«Умолчание, которое становится утверждением»
