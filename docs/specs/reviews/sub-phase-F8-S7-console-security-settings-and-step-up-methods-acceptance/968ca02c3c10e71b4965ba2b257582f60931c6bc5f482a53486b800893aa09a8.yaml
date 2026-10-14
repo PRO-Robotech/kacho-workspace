@@ -1,0 +1,101 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md
+  sha256: 968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8
+  static_status: DRAFT
+  static_status_note: >-
+    Слово DRAFT в шапке документа — статическая форма объявления; шапка не правлена намеренно
+    (change-graph.md §2). Действующий вердикт о редакции 968ca02c… — эта запись.
+  base_commit: 87e217cf74ff33dcef2c35f24f35dcfd09f304d7
+  content_commit: 87e217cf74ff33dcef2c35f24f35dcfd09f304d7
+  branch: 1095-f8-s7-security-settings
+  task: PRO-Robotech/kacho-workspace#1095
+  implementation_task: PRO-Robotech/kacho#3230
+  lines: 487
+  round: 1
+  predecessor_record: null
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md
+  neighbour_pin_note: >-
+    Опора — SUA 3c6fdec0… (kaname#827), которая этим же кругом возвращена (CHANGES_REQUESTED). Новая редакция
+    SUA сменит отпечаток, и эта приёмка обязана перезакрепить опору (fa-b7).
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-14T19:06:30Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  allowlisted_for_role: false
+effective_approval:
+  issued: false
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho-workspace#1095
+  status: not_performed
+  published: false
+  publication_mode: courier_of_agent_verdict
+  body: acceptance-reviewer · CHANGES_REQUESTED · kacho-workspace:docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md · sha256 968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: Записей ревью этого документа до этой нет — документ новый.
+blocking:
+  - kind: CONSTRUCTIBILITY
+    where: "F8-S7-31 «Дано»"
+    finding: >-
+      «Аутентификатор страницы подписывает с происхождением вне перечня» не строится: виртуальный
+      аутентификатор CDP (pageAuthenticator, authenticatorWithKey) берёт origin из страницы; отклонение
+      origin у посева есть только у прямого HTTP-предъявления presentAccessKey (deviation.origin), не у страницы.
+      Фикстуры, которая даёт это «Дано» браузером, нет.
+    predicate: >-
+      git -C project/kacho show 8514270c4:ui-future/e2e/specs/access-key-seed.ts | grep -nE 'deviation.origin|addVirtualAuthenticator'
+      → :448 (presentAccessKey, HTTP), :499 (страница, без origin)
+    required: >-
+      «Дано» — подстановкой ответа производителя (F8 Р9: 401 authentication failed, настоящий производитель SUA-13)
+      либо названным перехватом запроса step-up; «Тогда» — без изменения.
+  - kind: DoD
+    where: "F8-S7-80; §8 п.3"
+    finding: >-
+      Новый путь края /iam/v1/auth/step-up/access-key/begin и его закрытость до подтверждения адреса держатся
+      только Go-пробой края и пробой паритета записей; newman-кейса нет. testing-newman.md#edge-is-newman
+      (red: «путь края покрыт только Go-пробой»), 00-kacho-core ban12-second-echelon.
+    predicate: >-
+      git -C project/kacho grep -l '/iam/v1/auth/step-up' 8514270c4 -- '*newman*' → 0; §8 п.3 newman не называет
+    required: >-
+      §8: newman-кейс края kacho на F8-S7-80 (положительный 200 + закрытый до подтверждения, пара статус+code),
+      трассировка F8-S7-80 → кейс.
+  - kind: TWIN
+    where: "F8-S7-43"
+    finding: >-
+      Отрицательный сценарий «последний способ входа — текст службы, ключ в таблице» не называет положительного
+      близнеца; без него «отказ» неотличим от неработающего удаления.
+    predicate: "sed -n 393,396p docs/specs/sub-phase-F8-S7-…-acceptance.md — близнец не назван"
+    required: "Назвать близнеца одним фактом (тот же ключ у человека с паролем — удаление выполнено, F8-S7-21)."
+non_blocking:
+  - >-
+    F8-S7-50 / Р7: у С-кл при выключенных ключах «Удалить» ведёт к окну со stepUpMethods=[] и ссылкой «Настроить
+    второй фактор», а заведение кода у личности с ключом требует «2» (level-two Р4) — тупик. Закрыть вместе с правкой
+    SUA Р7 (путь — администратор): экран называет его, а не круг.
+  - F8-S7-01 «навигация несёт пять ссылок» при шести разделах Р1 — Р1 не говорит, что сводка в навигацию не входит; дописать.
+  - F8-S7-10 «повышения в посеве» — назвать функцию посева, которая их делает.
+checks:
+  tree_claims: >-
+    §1 перемерен @kacho 8514270c4: <Section 3; qr 0; lastUsedAt 0; <ul по 1; OWN_STEP_UP_METHODS ["totp","lookup_secret"];
+    {Verb: 26; step-up/access-key 0 — все совпали.
+  neighbours: "F8-S4 отпечаток dea6dc91… пересчитан git show origin/main | sha256sum — совпал."
+  producer: "§6 покрывает 27 ID; заказы — kacho#3230 и kaname#827."
+  constructibility: >-
+    Фикстуры существуют @8514270c4: seedConfirmedHuman (ceremony-seed.ts:301), seedSecondFactor (:431), totpCode/windowCodes,
+    laneTooManyAttempts (producer-answers.ts:93), SESSION_NOT_FRESH (:130), raiseSeedToLevelTwo/seedAccessKey/dropSeedSecondFactor
+    (access-key-seed.ts). Посев не выполнялся — стенд заданием не назван: посеяно 0, не выполнилось 8 посевов.
