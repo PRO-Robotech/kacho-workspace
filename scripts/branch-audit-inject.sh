@@ -2073,6 +2073,104 @@ or_mutant OR9 OR3 '  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1
 or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база открытого PR\'; return 0; fi' ':' \
   "стоп по открытому PR в ветку снят" '^   release/r2 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$'
 
+# --- PG1–PG6. КОММИТЫ ВНЕ ORIGIN НЕ СНИМАЮТСЯ (ws#1107) -------------------------
+# Наблюдение 2026-10-16: `--prune-merged` снял локальную ветку, чьё СОДЕРЖИМОЕ
+# совпадало со стволом (раздел «ВЛИТЫ»), а три её КОММИТА были только локально —
+# их восстановили из недостижимых через fsck. Совпадение содержимого не говорит,
+# что коммиты где-то сохранены, поэтому снятие судит коммиты отдельно, по
+# ответу origin. Близнецы: влитая и отправленная — снята (PG3); коммиты на origin
+# под другим именем — снята (PG4: судятся коммиты, а не имя ветки); origin не
+# ответил — не снято ничего (PG5); мутант без стража — красит PG1 (PG6).
+pg_build() { # $1 = каталог
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb offorigin-squashed main
+    for i in 1 2 3; do echo "шаг $i" >> s.txt && git add s.txt && git commit -qm "шаг $i"; done
+    git checkout -q main && git merge -q --squash offorigin-squashed && git commit -qm "схлопнуто"
+    git checkout -qb merged-pushed main && echo влито > m.txt && git add m.txt && git commit -qm "влито"
+    git checkout -q main && git merge -q --no-ff -m "влить merged-pushed" merged-pushed
+    git checkout -qb pushed-elsewhere main && echo копия > e.txt && git add e.txt && git commit -qm "копия"
+    git push -q origin pushed-elsewhere:refs/heads/keep/pushed-elsewhere
+    git checkout -q main && git merge -q --squash pushed-elsewhere && git commit -qm "схлопнуто 2"
+    git push -q origin main
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+  : > "$d.pr"
+  git -C "$d" rev-list --count refs/heads/offorigin-squashed --not --remotes=origin > "$d.off" 2>/dev/null || echo нет > "$d.off"
+}
+pg_run() { # $1 = исполняемый, далее — окружение → PG_OUT; каталог — $PG
+  local a=$1; shift
+  pg_build "$PG"
+  set +e
+  PG_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$PG.pr" \
+    "$@" "$a" --prune-merged "$PG" 2>&1)
+  set -e
+}
+pg_ref() { git -C "$PG" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+PG="$TMP/prune-offorigin"
+pg_run "$AUDIT"; PG_BASE=$PG_OUT
+
+PG_OFF=$(cat "$PG.off")  # предпосылка: посчитана ДО прогона, по коммитам, как в наблюдении
+if [ "$PG_OFF" = 3 ] && f_has "$PG_BASE" "ВЛИТЫ" "offorigin-squashed —" 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' &&
+   pg_ref offorigin-squashed && ! grep -qF 'СНЯТА offorigin-squashed' <<<"$PG_BASE" &&
+   grep -qF 'оставлена offorigin-squashed — 3 коммит(ов) вне origin' <<<"$PG_BASE"; then
+  say "✅ PG1" "ветка из «ВЛИТЫ» с тремя коммитами вне origin не снята и названа с числом"
+else
+  say "❌ PG1" "ветка из «ВЛИТЫ» с коммитами вне origin (${PG_OFF}) снята либо не названа"; fail=1
+  grep -F 'offorigin-squashed' <<<"$PG_BASE" | head -4 || true
+fi
+if grep -qxF 'branch-audit: коммиты вне origin: 1 — offorigin-squashed (+3)' <<<"$PG_BASE"; then
+  say "✅ PG2" "итог снятия несёт графу «коммиты вне origin» с числом и именем"
+else
+  say "❌ PG2" "в итоге снятия нет графы «коммиты вне origin: 1 — offorigin-squashed (+3)"; fail=1
+  grep -F 'вне origin' <<<"$PG_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА merged-pushed' <<<"$PG_BASE" && ! pg_ref merged-pushed; then
+  say "✅ PG3" "влитая ветка без коммитов вне origin снята — законный близнец"
+else
+  say "❌ PG3" "влитая и отправленная ветка не снята — страж накрыл законное снятие"; fail=1
+  grep -F 'merged-pushed' <<<"$PG_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА pushed-elsewhere' <<<"$PG_BASE" && ! pg_ref pushed-elsewhere; then
+  say "✅ PG4" "ветка, чьи коммиты на origin под другим именем, снята — судятся коммиты, не имя"
+else
+  say "❌ PG4" "коммиты на origin под другим именем не признаны сохранёнными"; fail=1
+  grep -F 'pushed-elsewhere' <<<"$PG_BASE" | head -3 || true
+fi
+pg_build "$PG"
+git -C "$PG" remote set-url origin "$TMP/нет-такого-origin.git"
+set +e
+PG_DOWN=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$PG.pr" \
+  "$AUDIT" --prune-merged "$PG" 2>&1)
+set -e
+if pg_ref merged-pushed && pg_ref offorigin-squashed && ! grep -qF 'СНЯТА ' <<<"$PG_DOWN" &&
+   grep -qF 'оставлена merged-pushed — origin не ответил' <<<"$PG_DOWN"; then
+  say "✅ PG5" "origin не ответил — коммиты вне origin не сочтены, не снято ничего"
+else
+  say "❌ PG5" "origin не ответил, а снятие шло"; fail=1
+  grep -F -e 'СНЯТА' -e 'оставлена' <<<"$PG_DOWN" | head -4 || true
+fi
+pg_m="$TMP/pg-mutant.sh"
+if mutate "$pg_m" '    off=$(offorigin_count "$b")' '    off=0'; then
+  pg_run "$pg_m"
+  if grep -qF 'СНЯТА offorigin-squashed' <<<"$PG_OUT"; then
+    say "✅ PG6" "мутация «страж коммитов вне origin снят» красит PG1: СНЯТА offorigin-squashed"
+  else
+    say "❌ PG6" "мутация «страж снят» не красит PG1 — утверждение слепо к стражу"; fail=1
+  fi
+else
+  say "❌ PG6" "мутация не легла — строки стража в скрипте нет"; fail=1
+fi
+
 # ── ПРЕДЕЛ ВРЕМЕНИ (ws#1001): исчерпан — «НЕ ДОСЧИТАНО» и код 2, а не зависание ──
 set +e
 DL_DIR="$(mktemp -d)"; mkdir -p "$DL_DIR/bin" "$DL_DIR/r"
