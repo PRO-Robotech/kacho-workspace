@@ -214,7 +214,11 @@
 # занятые рабочей копией · двигавшиеся в окне FRESH_MIN · ветка ствола · текущая
 # ветка HEAD · цель каскада (ветка по умолчанию origin и BRANCH_AUDIT_KEEP) ·
 # ветка без своего коммита, пока она есть на origin либо её ссылка двигалась в
-# окне FRESH_MIN · всё, что не попало в раздел «ВЛИТЫ». Причина ограничений — не
+# окне FRESH_MIN · ветка хоть с одним коммитом вне origin — судятся КОММИТЫ
+# (`rev-list --not` головы `ls-remote`), а не содержимое, и при любом разделе;
+# такие ветки итог снятия называет графой «коммиты вне origin: N — <ветка>
+# (+K), …», а origin не ответил — не снимается ничего (ws#1107) · всё, что не
+# попало в раздел «ВЛИТЫ». Причина ограничений — не
 # осторожность, а замеренный класс: вердикт устаревает за минуты, а
 # `git branch -D` необратим.
 #
@@ -842,6 +846,29 @@ if remote_out=$(git ls-remote --heads origin 2>/dev/null); then
     [ -n "${ref:-}" ] && ON_ORIGIN["${ref#refs/heads/}"]=1
   done <<<"$remote_out"
 fi
+
+# --- КОММИТЫ ВНЕ ORIGIN: страж снятия (ws#1107) --------------------------------
+# Раздел «ВЛИТЫ» судит СОДЕРЖИМОЕ, а снятие уничтожает КОММИТЫ — это разные
+# вопросы. Наблюдение 2026-10-16: снята ветка, чьё содержимое совпало со стволом,
+# а три коммита были только локально (`git rev-list --count <голова> --not
+# --remotes=origin` = 3); вернули их из недостижимых через fsck. Поэтому коммит,
+# недостижимый ни из одной головы origin, держит ветку при любом разделе.
+# Головы берутся из ответа `ls-remote` (признак 3), а не из `refs/remotes/*`:
+# устаревшая копия ссылки на снятую с origin ветку объявила бы её коммиты
+# сохранёнными. Голова origin, которой нет в локальных объектах, в «не» не
+# идёт — это сужает лишь в сторону «не снимать».
+ORIGIN_TIPS=()
+if [ "$remote_ok" = 1 ]; then
+  while read -r sha _ref; do
+    [ -n "${sha:-}" ] && git cat-file -e "${sha}^{commit}" 2>/dev/null && ORIGIN_TIPS+=("$sha")
+  done <<<"$remote_out"
+fi
+# offorigin_count $1 = ветка → число её коммитов вне origin; «?» — origin не
+# ответил, «!» — git rev-list отказал. Не число — не снимать.
+offorigin_count() {
+  [ "$remote_ok" = 1 ] || { echo '?'; return 0; }
+  git rev-list --count "refs/heads/$1" --not ${ORIGIN_TIPS[@]+"${ORIGIN_TIPS[@]}"} -- 2>/dev/null || echo '!'
+}
 
 # --- ПЯТЫЙ ПРИЗНАК: дельта слияния во временной копии -------------------------
 # Сливает ветку в ствол БЕЗ рабочей копии и БЕЗ индекса (`merge-tree --write-tree`
@@ -2206,8 +2233,21 @@ if [ "$PRUNE" = 1 ]; then
   echo
   echo "── СНЯТИЕ влитых локальных ссылок (--prune-merged)"
   head_branch=$(git symbolic-ref --quiet HEAD 2>/dev/null || true); head_branch=${head_branch#refs/heads/}
-  pruned=0; kept=0; abandoned=0
+  pruned=0; kept=0; abandoned=0; offo=(); offo_unknown=0
   for b in ${prunable[@]+"${prunable[@]}"}; do
+    # Первым и при любом разделе: коммиты, которых нет на origin, снятие не трогает.
+    off=$(offorigin_count "$b")
+    case "$off" in
+      '?') echo "   оставлена $b — origin не ответил: коммиты вне origin не сочтены, снимать вслепую нельзя"
+           offo_unknown=$((offo_unknown+1)); kept=$((kept+1)); continue ;;
+      '!') echo "   оставлена $b — коммиты вне origin не сочтены: git rev-list отказал"
+           offo_unknown=$((offo_unknown+1)); kept=$((kept+1)); continue ;;
+    esac
+    if [ "$off" -gt 0 ]; then
+      echo "   оставлена $b — $off коммит(ов) вне origin: содержимое в стволе, а коммиты только здесь;"
+      echo "      отправить либо снять своим заходом, сверив: git log $b --not --remotes=origin"
+      offo+=("$b (+$off)"); kept=$((kept+1)); continue
+    fi
     if [ -n "${OCCUPIED[$b]+x}" ]; then
       if worktree_abandoned "${OCCUPIED[$b]}"; then
         echo "   оставлена $b — держится БРОШЕННОЙ копией ${OCCUPIED[$b]}"
@@ -2243,6 +2283,14 @@ if [ "$PRUNE" = 1 ]; then
   done
   echo "branch-audit: из оставленных держатся БРОШЕННЫМИ копиями ${abandoned}" \
        "(порог тишины ${STALE_H}ч; ноль здесь значит «все занятые копии живы», а не «не смотрели»)"
+  if [ "${#offo[@]}" -eq 0 ]; then
+    echo "branch-audit: коммиты вне origin: 0 (ноль — у каждой сочтённой влитой ветки коммиты на origin)"
+  else
+    offo_list=$(printf '%s, ' "${offo[@]}"); offo_list=${offo_list%, }
+    echo "branch-audit: коммиты вне origin: ${#offo[@]} — ${offo_list}"
+  fi
+  [ "$offo_unknown" -eq 0 ] ||
+    echo "branch-audit: коммиты вне origin не сочтены у ${offo_unknown} ветки(ок) — оставлены все"
   echo "branch-audit: снято ${pruned}, оставлено ${kept} из ${#prunable[@]} влитых;" \
        "разделы «единственный экземпляр» и «живые» не трогались by construction"
 fi
