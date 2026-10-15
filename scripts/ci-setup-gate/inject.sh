@@ -28,6 +28,28 @@
 #   L' тот же мир, у канонической копии клонов нет          → VOID
 #   J  указатели вызывающего (`KACHO_HOME_*`, `KACHO_MONOREPO`) на приманку
 #      не подменяют стволы мира                               → исход оси A
+#   X  `exclude` снял значение матрицы, чья цель с Go         → находка
+#   X' `exclude` снял другое значение                         → молчание
+#   Y  `include` добавил значение с Go                        → молчание
+#   Y' `include` лишь без Go; Y'' у сочетания ключа нет       → находка (перечень непуст)
+#   M  `cd deploy` отдельной строкой run, там цель без Go     → находка
+#   M' та же форма, цель с Go                                 → молчание
+#   M2 `cd` склеенной строки рецепта (через комментарий)      → находка
+#   M2' `cd` прежней строки рецепта не действует              → молчание
+#   N  `go` лишь в теле here-document для `cat`               → находка
+#   N' here-document, поданный `bash`                         → молчание
+#   O  `; go` внутри кавычек                                  → находка
+#   O' `bash -c` с тем же текстом; O'' `"$(go env …)"`        → молчание
+#   P  `["go", …]` лишь в комментарии python                  → находка
+#   P' тот же список в коде                                   → молчание
+#   R  `Actions/Setup-Go` без Go                              → находка
+#   R' `Actions/Setup-Go` и `go version`                      → молчание
+#   S  Go лишь в шаге `if: false`                             → находка
+#   S' условие-выражение; S'' задание `if: false` вне предмета → молчание
+#   T  `node *.mjs` — находка, скрипт в перечне неразрешённого; T' прочитанный
+#      скрипт без Go — находка без перечня
+#   U  текст находки: число шагов run; «в Makefile не найдена» при Makefile,
+#      «Makefile нет» без него
 # shellcheck disable=SC2016,SC1003,SC2001  # одинарные кавычки — литералы мира (make, python), а не оболочка
 set -uo pipefail
 
@@ -128,7 +150,7 @@ Y
   if [ "$variant" = go ]; then body='	go build -o "$$work/p" ../tools/p; \'; else body='	kubectl apply -f x.yaml; \'; fi
   {
     printf 'dev-up: preflight\n'
-    printf '\t@set -e; \\\n\tcd kind && echo ok; \\\n\t# строка-комментарий с #-знаком; \\\n'
+    printf '\t@set -e; \\\n\t(cd kind && echo ok); \\\n\t# строка-комментарий с #-знаком; \\\n'
     printf '\t$(MAKE) --no-print-directory manifests STACK=dev \\\n\t  X=1\n'
     printf 'preflight:\n\t@true\n'
     printf 'manifests:\n\t@work=$$(mktemp -d); \\\n%s\n\techo готово\n' "$body"
@@ -274,6 +296,216 @@ assert "L  копия полосы — клоны канонической пр�
 mv "$box/ws/project" "$box/project-away"
 out="$(lane)"; rc=$?
 assert "L' у канонической клонов нет — VOID" 2 "[VOID]" "$out" "$rc"
+
+# ── формы ложного молчания (возврат check-verifier по ws#1099) ──────────────
+# Каждая форма — пара: дефект краснит, законный близнец той же формы молчит.
+
+# refute <ось> <подстрока> <вывод> — подстроки в выводе быть НЕ должно.
+refute() {
+  local axis=$1 needle=$2 out=$3
+  if grep -qF -- "$needle" <<<"$out"; then
+    echo "  FAIL $axis: в выводе есть «$needle»"; sed 's/^/       | /' <<<"$out"; fail=$((fail+1))
+  else
+    echo "  ok   $axis"; pass=$((pass+1))
+  fi
+}
+
+# matrix <тело strategy.matrix> <run> — задание helm со своей матрицей.
+matrix() {
+  {
+    printf 'jobs:\n  helm:\n    strategy:\n      matrix:\n%s\n' "$1"
+    printf '    steps:\n      - uses: actions/setup-go@0000000000000000000000000000000000000000\n'
+    printf '      - run: %s\n' "$2"
+  } | put kacho .github/workflows/ci.yaml
+  printf 'dev-up:\n\tkubectl get ns\nprod-up:\n\t$(GO) run ./tools/seed\n' | put kacho deploy/Makefile
+}
+
+# ── X / X' : matrix.exclude снимает значение с Go ───────────────────────────
+world; matrix '        stack: [dev, prod]
+        exclude:
+          - stack: prod' 'make -C deploy ${{ matrix.stack }}-up'
+seal kacho; out="$(run)"; rc=$?
+assert "X  exclude снял prod (цель с Go) — находка" 1 "$FINDING" "$out" "$rc"
+world; matrix '        stack: [dev, prod]
+        exclude:
+          - stack: dev' 'make -C deploy ${{ matrix.stack }}-up'
+seal kacho; out="$(run)"; rc=$?
+assert "X' exclude снял dev, prod с Go остался — молчание" 0 "достигают Go 2" "$out" "$rc"
+
+# ── Y / Y' / Y'' : matrix.include ───────────────────────────────────────────
+world; matrix '        include:
+          - stack: prod' 'make -C deploy ${{ matrix.stack }}-up'
+seal kacho; out="$(run)"; rc=$?
+assert "Y  include добавил prod (цель с Go) — молчание" 0 "достигают Go 2" "$out" "$rc"
+world; matrix '        include:
+          - stack: dev' 'make -C deploy ${{ matrix.stack }}-up'
+seal kacho; out="$(run)"; rc=$?
+assert "Y' include только dev — находка" 1 "$FINDING" "$out" "$rc"
+world; matrix '        include:
+          - other: x' 'make -C deploy ${{ matrix.stack }}-up'
+seal kacho; out="$(run)"; rc=$?
+assert "Y'' у сочетания include ключа нет — находка с непустым перечнем" 1 "у сочетания {'other': 'x'} ключа нет" "$out" "$rc"
+
+# ── M / M' : cd отдельной строкой шага run ──────────────────────────────────
+for variant in nogo go; do
+  world; job <<'Y'
+      - run: |
+          cd deploy
+          make build
+Y
+  printf 'build:\n\tgo build ./...\n' | put kacho Makefile
+  if [ "$variant" = go ]; then r='	go vet ./...'; else r='	helm lint .'; fi
+  printf 'build:\n%s\n' "$r" | put kacho deploy/Makefile
+  seal kacho; out="$(run)"; rc=$?
+  if [ "$variant" = go ]; then
+    assert "M' cd отдельной строкой, у deploy/Makefile Go — молчание" 0 "достигают Go 2" "$out" "$rc"
+  else
+    assert "M  cd отдельной строкой ведёт в deploy/Makefile без Go — находка" 1 "$FINDING" "$out" "$rc"
+  fi
+done
+
+# ── M2 / M2' : cd в рецепте — склеенная строка против отдельной ─────────────
+for variant in joined split; do
+  world; job <<'Y'
+      - run: make -C deploy dev-up
+Y
+  if [ "$variant" = joined ]; then
+    printf 'dev-up:\n\tcd kind && true; \\\n\t# комментарий; \\\n\t$(MAKE) manifests\nmanifests:\n\tgo build ./...\n' | put kacho deploy/Makefile
+  else
+    printf 'dev-up:\n\tcd kind && true\n\t$(MAKE) manifests\nmanifests:\n\tgo build ./...\n' | put kacho deploy/Makefile
+  fi
+  printf 'manifests:\n\thelm template .\n' | put kacho deploy/kind/Makefile
+  seal kacho; out="$(run)"; rc=$?
+  if [ "$variant" = joined ]; then
+    assert "M2 cd той же строки рецепта (через комментарий) — kind/Makefile без Go, находка" 1 "$FINDING" "$out" "$rc"
+  else
+    assert "M2' cd прежней строки рецепта не действует — молчание" 0 "достигают Go 2" "$out" "$rc"
+  fi
+done
+
+# ── N / N' : here-document ──────────────────────────────────────────────────
+world; job <<'Y'
+      - run: |
+          cat > plan.txt <<'E'
+          go test ./...
+          E
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "N  go лишь в теле here-document для cat — находка" 1 "$FINDING" "$out" "$rc"
+world; job <<'Y'
+      - run: |
+          bash <<'E'
+          go test ./...
+          E
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "N' here-document, поданный bash, — молчание" 0 "достигают Go 2" "$out" "$rc"
+
+# ── O / O' / O'' : `; go` в кавычках ────────────────────────────────────────
+world; job <<'Y'
+      - run: helm lint "deploy; go test ./..."
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "O  ; go внутри кавычек — находка" 1 "$FINDING" "$out" "$rc"
+world; job <<'Y'
+      - run: bash -c "helm lint deploy; go test ./..."
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "O' bash -c с тем же текстом — молчание" 0 "достигают Go 2" "$out" "$rc"
+world; job <<'Y'
+      - run: echo "bin=$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "O'' подстановка \$(go …) в двойных кавычках — молчание" 0 "достигают Go 2" "$out" "$rc"
+
+# ── P / P' : ["go", …] в комментарии python ─────────────────────────────────
+for variant in comment code; do
+  world; job <<'Y'
+      - run: python3 .github/scripts/a.py
+Y
+  if [ "$variant" = comment ]; then
+    printf 'import subprocess\n# subprocess.run(["go", "list"])\nprint(1)\n' | put kacho .github/scripts/a.py
+  else
+    printf 'import subprocess\nsubprocess.run(["go", "list"])\nprint(1)\n' | put kacho .github/scripts/a.py
+  fi
+  seal kacho; out="$(run)"; rc=$?
+  if [ "$variant" = code ]; then
+    assert "P' тот же список в коде — молчание" 0 "достигают Go 2" "$out" "$rc"
+  else
+    assert "P  [\"go\", …] лишь в комментарии python — находка" 1 "$FINDING" "$out" "$rc"
+  fi
+done
+
+# ── R / R' : регистр в uses ─────────────────────────────────────────────────
+for variant in nogo go; do
+  world
+  {
+    printf 'jobs:\n  helm:\n    steps:\n      - uses: Actions/Setup-Go@0000000000000000000000000000000000000000\n'
+    printf '      - run: helm lint deploy\n'
+    if [ "$variant" = go ]; then printf '      - run: go version\n'; fi
+  } | put kacho .github/workflows/ci.yaml
+  seal kacho; out="$(run)"; rc=$?
+  if [ "$variant" = go ]; then
+    assert "R' Actions/Setup-Go и go version — молчание, задание в счёте" 0 "достигают Go 2" "$out" "$rc"
+  else
+    assert "R  Actions/Setup-Go без Go — находка" 1 "$FINDING" "$out" "$rc"
+  fi
+done
+
+# ── S / S' / S'' : if: false ────────────────────────────────────────────────
+world; job <<'Y'
+      - run: helm lint deploy
+      - if: false
+        run: go test ./...
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "S  go лишь в шаге с if: false — находка" 1 "под if: false 1" "$out" "$rc"
+world; job <<'Y'
+      - run: helm lint deploy
+      - if: github.event_name == 'push'
+        run: go test ./...
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "S' условие-выражение исполнимо — молчание" 0 "достигают Go 2" "$out" "$rc"
+world
+printf 'jobs:\n  helm:\n    if: ${{ false }}\n    steps:\n      - uses: actions/setup-go@0000000000000000000000000000000000000000\n      - run: helm lint deploy\n' \
+  | put kacho .github/workflows/ci.yaml
+seal kacho; out="$(run)"; rc=$?
+assert "S'' задание с if: false не предмет — молчание, счёт отдельно" 0 "заданий 2 (под if: false 1)" "$out" "$rc"
+
+# ── T / T' : скрипт другого языка — в перечне неразрешённого ────────────────
+world; job <<'Y'
+      - run: node scripts/check.mjs
+Y
+printf 'import { execSync } from "node:child_process";\nexecSync("go vet ./...");\n' | put kacho scripts/check.mjs
+seal kacho; out="$(run)"; rc=$?
+assert "T  node .mjs — находка, скрипт назван в неразрешённом" 1 "скрипт scripts/check.mjs (язык не читается" "$out" "$rc"
+world; job <<'Y'
+      - run: bash scripts/check.sh
+Y
+printf 'helm lint .\n' | put kacho scripts/check.sh
+seal kacho; out="$(run)"; rc=$?
+assert "T' прочитанный скрипт без Go — находка" 1 "скриптов 1)" "$out" "$rc"
+refute "T' прочитанный скрипт в неразрешённое не попадает" "неразрешено" "$out"
+
+# ── U / U' / U'' : текст находки ────────────────────────────────────────────
+world; job <<'Y'
+      - run: helm lint deploy/helm/umbrella
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "U  находка называет число шагов run" 1 "шагов run осмотрено 1," "$out" "$rc"
+world; job <<'Y'
+      - run: make foo
+Y
+printf 'include rules.mk\n' | put kacho Makefile
+seal kacho; out="$(run)"; rc=$?
+assert "U' Makefile есть, цели нет — «в Makefile не найдена»" 1 "цель Makefile::foo (в Makefile не найдена)" "$out" "$rc"
+refute "U' при существующем Makefile нет «Makefile нет»" "Makefile нет" "$out"
+world; job <<'Y'
+      - run: make foo
+Y
+seal kacho; out="$(run)"; rc=$?
+assert "U'' Makefile нет — так и сказано" 1 "цель Makefile::foo (Makefile нет)" "$out" "$rc"
 
 echo
 total=$((pass + fail))
