@@ -303,10 +303,12 @@ else
     # Извлекается не один файл, а всё, что инструмент подключает рядом с собой:
     # `scripts/lib/` (распознаватель DoD `lib/dod_proof.jq`). Без него
     # merge-readiness выходил кодом 2 «распознавателя нет» на КАЖДОЙ посадке
-    # (ws#935, найдено на kacho#3043) — пункт (д) не судился ни разу.
+    # (ws#935, найдено на kacho#3043) — пункт (д) не судился ни разу. И `ci-read.sh`
+    # с его ведомостью: ими merge-readiness судит базу без контекстов со строкой
+    # ведомости (kacho#3233).
     mkdir -p "$W/mr"
-    git -C "$WS" archive --format=tar -o "$W/mr.tar" origin/main scripts/merge-readiness.sh scripts/lib 2>"$W/api.err" \
-        || void "merge-readiness.sh и scripts/lib из origin/main воркспейса «$WS» не извлекаются (запуск из архива — с LANDING_PRECHECK_WS, шапка «ЗАПУСК»): $(head -c 300 "$W/api.err")"
+    git -C "$WS" archive --format=tar -o "$W/mr.tar" origin/main scripts/merge-readiness.sh scripts/lib scripts/ci-read.sh scripts/ci-read-expected.tsv 2>"$W/api.err" \
+        || void "merge-readiness.sh и scripts/lib из origin/main воркспейса «$WS» (с ci-read.sh и ведомостью) не извлекаются (запуск из архива — с LANDING_PRECHECK_WS, шапка «ЗАПУСК»): $(head -c 300 "$W/api.err")"
     tar -xf "$W/mr.tar" -C "$W/mr" || void "архив merge-readiness из origin/main не распаковался"
     MR="$W/mr/scripts/merge-readiness.sh"
     MR_SRC="origin/main@$(git -C "$WS" rev-parse --short=12 origin/main)"
