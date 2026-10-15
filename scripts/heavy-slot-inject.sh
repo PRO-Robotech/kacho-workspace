@@ -401,6 +401,8 @@ if [ "${1:-}" = --available ]; then
     printf '%s\n' "$@" > "$FAKE_ARGV.avail"
     [ "${FAKE_AVAIL:-0}" = 0 ] && exit 0
     [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: открытого для планирования узла нет (узлов 2: закрыты для планирования 2)" >&2; exit 69; }
+    [ "${FAKE_AVAIL:-0}" = 3 ] && { echo "remote-heavy: идущих тяжёлых прогонов 2 из 2" >&2; exit 75; }
+    [ "${FAKE_AVAIL:-0}" = 4 ] && { sleep 30; exit 0; }
     echo "remote-heavy: кластер не отвечает" >&2; exit 69
 fi
 printf '%s\n' "$@" > "$FAKE_ARGV"; exit 17
@@ -426,12 +428,60 @@ assert "0 да нет" "$(FAKE_AVAIL=2 rslot bash "$SLOT" go-race -- go version)
 rm -f "$W/argv"
 assert "0 да нет" "$(rslot bash "$SLOT" ci-local -- git status) $(has "$W/err" 'не переносится') $([ -e "$W/argv" ] && echo да || echo нет)" "git первым словом (pre-push) → локально, причина названа"
 echo c >> "$R/f"
-assert "0 да нет" "$(rslot bash "$SLOT" go-race -- make -v) $(has "$W/err" 'незакоммиченные правки') $([ -e "$W/argv" ] && echo да || echo нет)" "правка в отслеживаемом файле → локально, причина названа"
+printf 'all:\n\t@touch "%s"\n' "$W/dirty-ran" > "$W/dirty.mk"
+assert "77 да нет нет" "$(rslot bash "$SLOT" go-race -- make -s -f "$W/dirty.mk") $(has "$W/err" 'во внешний кластер: закоммить правки') $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/dirty-ran" ] && echo да || echo нет)" "правка в отслеживаемом файле при доступном кластере → 77 «во внешний кластер: …», команда не запускалась (ws#1105)"
+rm -f "$W/argv"
+assert "0 да" "$(FAKE_AVAIL=1 rslot bash "$SLOT" go-race -- make -v) $(has "$W/err" 'локально — кластер недоступен')" "близнец: та же правка при недоступном кластере → локально, причина названа"
 git -C "$R" checkout -q -- f
 assert "17 да" "$(rslot bash "$SLOT" go-race -- timeout 60 make -v) $(has "$W/argv" 'go-race')" "близнец: тот же клон без правки, timeout перед make → run.sh"
 rm -f "$W/argv"
 assert "0 нет нет" "$(rslot bash "$SLOT" docker -- true) $(has "$W/err" 'локально') $([ -e "$W/argv" ] && echo да || echo нет)" "класс docker маршрут не судит: ни run.sh, ни строки"
 assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_REMOTE_RUN="$W/fake-run.sh" bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_REMOTE_RUN')" "над настоящей памятью двойник run.sh — ручка, 64"
+
+echo "── тяжёлое только во внешнем кластере, локально — по доказательству недоступности (ws#1105)"
+# Решение владельца 2026-10-16: «тяжелые тесты только на внешнем кластере, если он
+# недоступен тогда локально». Доказательство — вывод проверки кластера в журнале слота.
+JL="$HEAVY_SLOT_DIR/journal.log"
+# shellcheck disable=SC2016  # тело `bash -c` раскрывает дочерняя оболочка
+jn() { grep -cF -- "$1" "$JL" 2>/dev/null || true; }
+b="$(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')"
+assert "0 $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" lint -- go version) $(jn ' local class=lint proof=rc=69 remote-heavy: кластер не отвечает')" "недоступен → локально, вывод проверки (код и причина) записан в журнал строкой local … proof="
+b="$(jn ' local class=lint proof=rc=75')"
+assert "0 да $((b + 1))" "$(FAKE_AVAIL=3 rslot bash "$SLOT" lint -- go version) $(has "$W/err" 'локально — кластер занят') $(jn ' local class=lint proof=rc=75')" "занят (75: предел прогонов) → локально, «занят» отличён от «недоступен», вывод в журнале"
+t0="$(date +%s)"
+r="$(FAKE_AVAIL=4 rslot bash "$SLOT" lint -- go version)"
+assert "0 да да" "$r $(has "$W/err" 'не ответила за 10 с') $([ $(( $(date +%s) - t0 )) -lt 20 ] && echo да || echo нет)" "проверка кластера висит → прервана за 10 с, локально, причина названа"
+b="$(jn ' local class=')"
+assert "0 $b" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=')" "близнец: хук отправки (git push) внешнего пути не имеет — локально без опроса кластера и без строки proof"
+rm -f "$W/argv" "$W/argv.avail"
+assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
+assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"
+# Двойник kind: настоящий kind проба не зовёт и при регрессии маршрута — узел не поднимется.
+mkdir -p "$W/bin"; printf '#!/usr/bin/env bash\ntouch "%s"\n' "$W/kind-ran" > "$W/bin/kind"; chmod +x "$W/bin/kind"
+assert "77 да нет" "$(rslot bash "$SLOT" stand -- "$W/bin/kind" -q create cluster) $(has "$W/err" 'во внешний кластер') $([ -e "$W/kind-ran" ] && echo да || echo нет)" "стенд: kind -q create при доступном кластере → 77 (флаг между kind и create не уводит), kind не запускался"
+b="$(jn ' local class=stand proof=rc=69')"
+assert "0 да $((b + 1))" "$(FAKE_AVAIL=1 rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st2" own-up) $([ -e "$W/st2" ] && echo да || echo нет) $(jn ' local class=stand proof=rc=69')" "стенд: own-up при недоступном кластере → локально, вывод проверки в журнале"
+rm -f "$W/argv.avail"
+assert "0 да нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st3" stand-ns-up) $([ -e "$W/st3" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет)" "близнец: stand-ns-up (внешний путь) маршрут не судит — идёт, кластер не спрашивается"
+git init -q -b nodigits "$W/rclone2"; git -C "$W/rclone2" remote add origin https://github.com/PRO-Robotech/kacho.git
+echo a > "$W/rclone2/f"; git -C "$W/rclone2" add f; sandbox_git -C "$W/rclone2" commit -q -m p
+assert "77 да" "$(RDIR="$W/rclone2" rslot bash "$SLOT" integration -- go version) $(has "$W/err" 'KACHO_TASK=<N>')" "номер задачи не выводится при доступном кластере → 77 с формой KACHO_TASK"
+assert "17" "$(RDIR="$W/rclone2" rslot env KACHO_TASK=1105 bash "$SLOT" integration -- go version)" "близнец: тот же клон с KACHO_TASK → run.sh"
+echo c >> "$R/f"
+assert 64 "$(rslot bash "$SLOT" --local коротко go-race -- true)" "--local без причины (< 12 символов) — 64"
+b="$(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем')"
+rm -f "$W/argv" "$W/argv.avail"
+assert "0 нет нет $((b + 1))" "$(rslot bash "$SLOT" --local 'проба обхода: стенд снят владельцем' go-race -- true) $([ -e "$W/argv" ] && echo да || echo нет) $([ -e "$W/argv.avail" ] && echo да || echo нет) $(jn ' bypass-local class=go-race why=проба обхода: стенд снят владельцем')" "--local с причиной при доступном кластере и правке → локально, кластер не спрашивается, причина в журнале"
+# Чтение и поиск разведены: `grep -q` в конце трубы под pipefail рвёт писателя (ws#395).
+(cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
+assert "да" "$(has "$W/status" 'локально по флагу --local')" "обход флагом виден в --status"
+rslot bash "$SLOT" --local 'проба обхода: запись слота' --wait 0 newman -- bash -c 'sleep 3' >/dev/null &
+LP=$!
+for _ in $(seq 1 25); do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+(cd "$R" && bash "$SLOT" --status > "$W/status" 2>/dev/null)
+assert "да" "$(has "$W/status" 'локально по флагу: проба обхода: запись слота')" "занятый слот с --local показывает причину в --status"
+wait "$LP"
+git -C "$R" checkout -q -- f
 
 echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
