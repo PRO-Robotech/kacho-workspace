@@ -102,7 +102,9 @@
 # ведомость-фикстуру (`CI_READ_EXPECTED`); прочие случаи — ведомость без строк, иначе
 # живые строки (`2914-notify`) увели бы EP-* с пути набора ствола. LG-GREEN — законный
 # близнец (5 из 5 success — 0); LG-RED — одна failure — 1; LG-SHORT — недостаёт одной —
-# 1; LG-OWN — собственные контексты базы судят и при строке; LG-VOID и LG-NOLEDGER — 2.
+# 1; LG-STALE — база ушла вперёд (ci-read 4) — 1; LG-DRAFT — черновик с целевым зелёным
+# (ci-read 5) — 1; LG-OWN — собственные контексты базы судят и при строке; LG-VOID и
+# LG-NOLEDGER — 2.
 #
 # Предпосылка проверки (исход VOID): в дереве есть сам инструмент, есть `jq`, и
 # подставной `gh` доказал обе свои стороны. Отсутствие любого из трёх — «не
@@ -546,6 +548,14 @@ lg_case LG-RED 5 "${LG5[@]:0:4}" "проба-5=failure" >/dev/null
 lg_case LG-SHORT 5 "${LG5[@]:0:4}" >/dev/null
 d="$(lg_case LG-VOID 5 "${LG5[@]}")"; rm "$d/compare.json"
 d="$(lg_case LG-NOLEDGER 5 "${LG5[@]}")"; rm "$d/ledger.tsv"; : > "$d/ledger.missing"
+# LG-STALE — база ушла вперёд: merge-base головы ≠ голове базы; ci-read код 4.
+d="$(lg_case LG-STALE 5 "${LG5[@]}")"
+jq -n --arg s "$BASE_SHA" '{merge_base_commit:{sha:"4444444444444444444444444444444444444444"}, behind_by:3}' > "$d/compare.json"
+# LG-DRAFT — черновик: исполненное зелёное и страж с аннотацией «черновик не
+# вливается» (failure); ci-read код 5 — целевой, не полный.
+d="$(lg_case LG-DRAFT 5 "${LG5[@]}" "страж-черновика=failure")"
+jq '.draft = true' "$d/pull.json" > "$d/pull.n" && mv "$d/pull.n" "$d/pull.json"
+printf '[{"title":"черновик не вливается"}]\n' > "$d/annotations.json"
 # LG-OWN — у базы СВОИ контексты: судят они, и строка ведомости путь не меняет.
 d="$(lg_case LG-OWN 5 "${LG5[@]}")"
 rm "$d/protection@$LG_BASE.rc"; mk_protection "$d/protection@$LG_BASE.json" "$CTX_LAT"
@@ -1023,6 +1033,10 @@ probe "$PRODUCT_REPO" "$TMP/case-LG-SHORT" 1 "строка ведомости, �
     "CHECKS-INCOMPLETE" "проверок 4 из 5"
 probe "$PRODUCT_REPO" "$TMP/case-LG-VOID" 2 "строка ведомости, ci-read не прочёл сравнение с базой — вердикта нет" \
     "ci-read вердикта не вынес (код 2)"
+probe "$PRODUCT_REPO" "$TMP/case-LG-STALE" 1 "строка ведомости, база ушла вперёд — устарела, «нельзя», а не «можно»" \
+    "BASE-STALE" "база устарела" "(ci-read код 4)"
+probe "$PRODUCT_REPO" "$TMP/case-LG-DRAFT" 1 "строка ведомости, черновик с зелёным целевым прогоном — «нельзя», а не «можно»" \
+    "targeted-green" "черновик, прогон целевой" "(ci-read код 5)"
 probe "$PRODUCT_REPO" "$TMP/case-LG-NOLEDGER" 2 "ведомость не читается — путь не выбрать, вердикта нет" \
     "ведомость ожидаемого"
 probe "$PRODUCT_REPO" "$TMP/case-LG-OWN" 0 "у базы свои контексты — судят они и при строке ведомости" \

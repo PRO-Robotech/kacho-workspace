@@ -1422,6 +1422,16 @@ if mr_patch "$b/$MR_REL" 's/^      3\) echo; echo "merge-readiness: СЛИВАТ
     run_c09_red "$b" "инъекция: недостаёт проверки до числа ведомости — «можно» — краснеет" LG-SHORT
 fi
 b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^(      4\) echo; echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — база устарела.*; )exit 1 ;;$/${1}exit 0 ;;/m' \
+    "устаревшая база ci-read отвечает «можно»"; then
+    run_c09_red "$b" "инъекция: база ушла вперёд — «можно» — краснеет" LG-STALE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" 's/^(      5\) echo; echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — черновик.*; )exit 1 ;;$/${1}exit 0 ;;/m' \
+    "черновик ci-read отвечает «можно»"; then
+    run_c09_red "$b" "инъекция: черновик с целевым зелёным — «можно» — краснеет" LG-DRAFT
+fi
+b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" 's/^if \[ "\$\{own_count:-0\}" -eq 0 \]; then\n  ledger=/if true; then\n  ledger=/m' \
     "строка ведомости перекрывает собственные контексты базы"; then
     run_c09_red "$b" "инъекция: строка ведомости перекрыла свои контексты базы — краснеет" LG-OWN
