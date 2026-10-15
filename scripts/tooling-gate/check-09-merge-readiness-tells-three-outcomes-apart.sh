@@ -95,6 +95,15 @@
 # CL-DOWN и CL-DOWN-KANAME сверяют форму по репозиторию, CL-SYNC-TASK и CL-SYNC-KANAME —
 # что голова этой формы проходит инструмент.
 #
+# БАЗА БЕЗ КОНТЕКСТОВ СО СТРОКОЙ ВЕДОМОСТИ (kacho#3233, 2026-10-15). Её PR судит
+# `ci-read.sh` — числом ведомости и исходами всех проверок на голове, а не набором
+# ствола: проверки от `workflow_dispatch` в `statusCheckRollup` запроса не попадают.
+# Случаи LG-* гонят НАСТОЯЩИЙ ci-read через тот же подставной gh (его пути — ниже) и
+# ведомость-фикстуру (`CI_READ_EXPECTED`); прочие случаи — ведомость без строк, иначе
+# живые строки (`2914-notify`) увели бы EP-* с пути набора ствола. LG-GREEN — законный
+# близнец (5 из 5 success — 0); LG-RED — одна failure — 1; LG-SHORT — недостаёт одной —
+# 1; LG-OWN — собственные контексты базы судят и при строке; LG-VOID и LG-NOLEDGER — 2.
+#
 # Предпосылка проверки (исход VOID): в дереве есть сам инструмент, есть `jq`, и
 # подставной `gh` доказал обе свои стороны. Отсутствие любого из трёх — «не
 # выполнилось», а не «находок нет».
@@ -132,10 +141,16 @@ set -u
 # Фикстура защиты — СВОЯ НА КАЖДУЮ ВЕТКУ (`protection@<ветка>`): чтение защиты
 # ветки, у которой фикстуры нет (например, ствола там, где набор ствола брать
 # не положено), — отказ 98, а не ответ.
+# `api --paginate <путь>` (так зовёт ci-read.sh) — тот же путь: страница одна.
+[ "${1:-}" = api ] && [ "${2:-}" = --paginate ] && set -- api "${@:3}"
 case "${1:-}" in
     pr)  target="${MR_FIXTURE:?}/pr" ;;
     api)
         case "${2:-}" in
+            # Пути ci-read.sh (база без контекстов со строкой ведомости).
+            repos/*/branches/*/protection/required_status_checks)
+                br="${2#*/branches/}"; br="${br%/protection/required_status_checks}"
+                target="${MR_FIXTURE:?}/rsc@$br" ;;
             repos/*/branches/*/protection)
                 br="${2#*/branches/}"; br="${br%/protection}"
                 target="${MR_FIXTURE:?}/protection@$br" ;;
@@ -154,6 +169,13 @@ case "${1:-}" in
                 target="${MR_FIXTURE:?}/parent@$n" ;;
             repos/*/issues/*)
                 target="${MR_FIXTURE:?}/issue@${2##*/}" ;;
+            repos/*/rules/branches/*)              target="${MR_FIXTURE:?}/rules" ;;
+            repos/*/branches/*)                    target="${MR_FIXTURE:?}/branch@${2#*/branches/}" ;;
+            repos/*/compare/*)                     target="${MR_FIXTURE:?}/compare" ;;
+            repos/*/pulls/*)                       target="${MR_FIXTURE:?}/pull" ;;
+            repos/*/commits/*/status)              target="${MR_FIXTURE:?}/status" ;;
+            repos/*/actions/runs\?*)               target="${MR_FIXTURE:?}/wfruns" ;;
+            repos/*/check-runs/*/annotations)      target="${MR_FIXTURE:?}/annotations" ;;
             *) echo "gh-stub: незнакомый путь api: $*" >&2; exit 99 ;;
         esac ;;
     *)   echo "gh-stub: незнакомый вызов: $*" >&2; exit 99 ;;
@@ -162,6 +184,8 @@ if [ -e "$target.unavailable" ]; then exit 1; fi
 # Вопрос, на который фикстура не заготовлена, — отказ 98, а не пустой ответ.
 [ -e "$target.json" ] || { echo "gh-stub: нет фикстуры $target.json на: $*" >&2; exit 98; }
 cat "$target.json"
+# `<цель>.stderr` — строка отказа настоящего gh в stderr (её читает ci-read.sh).
+if [ -e "$target.stderr" ]; then cat "$target.stderr" >&2; fi
 # `<цель>.rc` — код выхода настоящего gh при ответе-отказе: тело отказа он
 # пишет в STDOUT и выходит ненулевым (замер gh 2.100.0, 2026-10-01, ws#844).
 if [ -e "$target.rc" ]; then exit "$(cat "$target.rc")"; fi
@@ -485,6 +509,48 @@ for nb in $NE_BASES; do
     d="$(ep_case "NE-$nb" "$nb")"
     MR_BASE="$nb" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT" "$CTX_DASH" "$CTX_CYR"
 done
+
+# ── БАЗА БЕЗ КОНТЕКСТОВ СО СТРОКОЙ ВЕДОМОСТИ: СУДИТ ci-read ─────────────────────
+# Каждый случай меняет против LG-GREEN ровно один факт. Ствола в фикстурах нет
+# нарочно: инструмент, ушедший на набор ствола, получил бы отказ заглушки (98).
+LG_BASE="3172-identity-own-2"
+BASE_SHA="3333333333333333333333333333333333333333"
+printf '# ведомость пробы: строк нет\n' > "$TMP/ledger-none.tsv"
+# lg_case <имя> <ожидается> <имя=исход>... — база без защиты, строка ведомости,
+# check-runs ручного прогона на голове (в rollup запроса их нет, как на площадке).
+lg_case() {
+    local d n="$2"; d="$(mkcase "$1")"; shift 2
+    mk_refusal "$d" "$LG_BASE" 1 "$BODY_UNPROTECTED"
+    printf '%s\n' "$BODY_UNPROTECTED" > "$d/rsc@$LG_BASE.json"
+    printf '1\n' > "$d/rsc@$LG_BASE.rc"
+    printf 'gh: Branch not protected (HTTP 404)\n' > "$d/rsc@$LG_BASE.stderr"
+    printf '# ведомость пробы\nPRO-Robotech/kacho\t%s\t%s\tпроба\n' "$LG_BASE" "$n" > "$d/ledger.tsv"
+    MR_BASE="$LG_BASE" mk_pr "$d/pr.json" OPEN CLEAN
+    jq -n --arg h "$HEAD_SHA" --arg b "$LG_BASE" \
+        '{state:"open", draft:false, head:{sha:$h, ref:"788"}, base:{ref:$b}}' > "$d/pull.json"
+    printf '%s\n' "$@" | jq -R 'capture("^(?<name>.*)=(?<c>[a-z_]*)$")
+        | {name, status:"completed", conclusion:.c, started_at:"2026-10-15T10:00:00Z", check_suite:{id:900}}' \
+        | jq -s 'to_entries | map(.value + {id: (.key + 1)}) | {total_count: length, check_runs: .}' > "$d/checkruns.json"
+    jq -n '{workflow_runs:[{id:9, workflow_id:1, name:"ci", event:"workflow_dispatch", status:"completed",
+        conclusion:"success", check_suite_id:900, created_at:"2026-10-15T10:00:00Z"}]}' > "$d/wfruns.json"
+    printf '{"statuses":[]}\n' > "$d/status.json"
+    printf '[]\n' > "$d/rules.json"
+    printf '[]\n' > "$d/annotations.json"
+    jq -n --arg s "$BASE_SHA" '{commit:{sha:$s}}' > "$d/branch@$LG_BASE.json"
+    jq -n --arg s "$BASE_SHA" '{merge_base_commit:{sha:$s}, behind_by:0}' > "$d/compare.json"
+    printf '%s' "$d"
+}
+LG5=("$CTX_LAT=success" "$CTX_DASH=success" "$CTX_CYR=success" "проба-4=success" "проба-5=success")
+lg_case LG-GREEN 5 "${LG5[@]}" >/dev/null
+lg_case LG-RED 5 "${LG5[@]:0:4}" "проба-5=failure" >/dev/null
+lg_case LG-SHORT 5 "${LG5[@]:0:4}" >/dev/null
+d="$(lg_case LG-VOID 5 "${LG5[@]}")"; rm "$d/compare.json"
+d="$(lg_case LG-NOLEDGER 5 "${LG5[@]}")"; rm "$d/ledger.tsv"; : > "$d/ledger.missing"
+# LG-OWN — у базы СВОИ контексты: судят они, и строка ведомости путь не меняет.
+d="$(lg_case LG-OWN 5 "${LG5[@]}")"
+rm "$d/protection@$LG_BASE.rc"; mk_protection "$d/protection@$LG_BASE.json" "$CTX_LAT"
+rm "$d/pull.json"   # ушёл бы в ci-read — отказ заглушки, а не «можно»
+MR_BASE="$LG_BASE" mk_pr "$d/pr.json" OPEN CLEAN "$CTX_LAT"
 
 # ── ГОЛОВА PR — УРОВЕНЬ КАСКАДА (ws#909) ─────────────────────────────────────────
 # Каждый случай — ep_case: база-линия без защиты, набор ствола зелен целиком, то есть
@@ -837,8 +903,12 @@ probe() {
         running=$((running - 1))
     fi
     (
-        out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" LC_ALL="${PROBE_LOCALE:-${LC_ALL:-}}" \
-            bash "$WS/$TOOL_REL" "$repo" 1 2>&1)" && rc=0 || rc=$?
+        # Ведомость — своя у случая LG-*, у прочих — без строк (шапка, «БАЗА БЕЗ КОНТЕКСТОВ»).
+        led="$TMP/ledger-none.tsv"
+        [ -e "$dir/ledger.tsv" ] && led="$dir/ledger.tsv"
+        [ -e "$dir/ledger.missing" ] && led="$dir/ledger-absent.tsv"
+        out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" CI_READ_GH="" CI_READ_EXPECTED="$led" \
+            LC_ALL="${PROBE_LOCALE:-${LC_ALL:-}}" bash "$WS/$TOOL_REL" "$repo" 1 2>&1)" && rc=0 || rc=$?
         printf '%s' "$out" > "$RES/$n.out"
         printf '%s\n' "$rc" > "$RES/$n.rc"
     ) &
@@ -945,6 +1015,18 @@ for nb in $NE_BASES; do
         "ветка '$nb' НЕ ЗАЩИЩЕНА"
 done
 
+probe "$PRODUCT_REPO" "$TMP/case-LG-GREEN" 0 "база без контекстов со строкой ведомости, 5 из 5 success — судит ci-read, «можно»" \
+    "источник вердикта: ci-read.sh — строка ведомости PRO-Robotech/kacho / $LG_BASE (5)" "проверок 5 из 5" "можно сливать"
+probe "$PRODUCT_REPO" "$TMP/case-LG-RED" 1 "строка ведомости, одна проверка failure — «нельзя», имя названо" \
+    "CI-FAILED" "failure: проба-5" "на голове красное"
+probe "$PRODUCT_REPO" "$TMP/case-LG-SHORT" 1 "строка ведомости, проверок 4 из 5 — неполный набор, «нельзя», а не «можно»" \
+    "CHECKS-INCOMPLETE" "проверок 4 из 5"
+probe "$PRODUCT_REPO" "$TMP/case-LG-VOID" 2 "строка ведомости, ci-read не прочёл сравнение с базой — вердикта нет" \
+    "ci-read вердикта не вынес (код 2)"
+probe "$PRODUCT_REPO" "$TMP/case-LG-NOLEDGER" 2 "ведомость не читается — путь не выбрать, вердикта нет" \
+    "ведомость ожидаемого"
+probe "$PRODUCT_REPO" "$TMP/case-LG-OWN" 0 "у базы свои контексты — судят они и при строке ведомости" \
+    "набор обязательных: собственный ветки '$LG_BASE'" "можно сливать"
 probe "$PRODUCT_REPO" "$TMP/case-CL-DOWN" 1 "голова — эпик (дочерние и метка), база — его волна — «нельзя»: вливание снимет эпик" \
     "СЛИВАТЬ НЕЛЬЗЯ" "голова PR '296' — уровень каскада" "ветка задачи синхронизации N" \
     "refs/heads/<N>-sync-296-into-535" "#<N> merge #296: "
@@ -1103,4 +1185,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, зелёный — только SUCCESS, код gh api судится — не защищена и не прочитана различены, ветка линии продукта судится набором ствола, база без контекстов со строкой ведомости — ci-read числом и исходами, источник выбирает защита базы тем же чтением, ручной прогон судится на голове, голова-уровень каскада сливается только вверх, задача закрытия — из ответа хостинга и тела PR, включая форму-адрес, и только с доказательством DoD"
