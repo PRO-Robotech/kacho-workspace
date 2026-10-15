@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # check-10 — хук отправки судит ТО, ЧТО ОТПРАВЛЯЕТСЯ, а не рабочую копию.
 #
+# И СТВОЛЫ ПРОДУКТОВ — СВЕЖИЕ (ws#1083). Набор, объявивший задание
+# `product-trunk-gates`, конвейер гонит на свежем стволе с `--void-is-failure`.
+# Пробы — песочница с клонами kacho, kaname, corelib в `project/`, чей origin
+# ушёл вперёд: набор стволов без предмета → отказ (1); набор стволов зелёный →
+# 0 и напечатана ревизия ствола, которой в клоне до прогона не было (fetch
+# состоялся); origin недоступен → 2, набор стволов не исполнен. Законный
+# близнец первой — прочий набор без предмета → 0 (check-08).
+#
 # git подаёт хуку на stdin по строке на ссылку: `<local ref> <local sha>
 # <remote ref> <remote sha>`. До ws#810 хук вход не читал, и исход решала копия:
 # `git push origin --delete <ветка>` исполнял все наборы над ней и отказывал на
@@ -300,6 +308,67 @@ for caller in "${CALLERS[@]}"; do
     fi
 done
 
+# trunk_probe <вызывающий> <fresh|dead> <код набора стволов> — печатает код
+# выхода хука; полный вывод — `$TMP/trunk.out`, ревизия нового ствола — в
+# `$TMP/fresh-<имя>`. Рядом с набором стволов — зелёная заглушка без `ci-job`.
+trunk_probe() {
+    local dir r seed
+    dir="$(mktemp -d "$TMP/t.XXXXXX")"
+    mkdir -p "$dir/scripts/hooks" "$dir/scripts/lib" "$dir/scripts/plain" "$dir/scripts/trunk"
+    cp "$WS/$1" "$dir/scripts/hooks/pre-push"
+    cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
+        "$dir/scripts/hooks/" 2>/dev/null
+    cp "$WS/scripts/lib/suites.py" "$WS/scripts/lib/product_clone.py" "$dir/scripts/lib/" 2>/dev/null
+    printf 'project/\ntmp/\n' > "$dir/.gitignore"
+    printf '#!/usr/bin/env bash\necho "plain: исход 0"\n' > "$dir/scripts/plain/run-all.sh"
+    printf '#!/usr/bin/env bash\necho "trunk: исход %s"\nexit %s\n' "$3" "$3" > "$dir/scripts/trunk/run-all.sh"
+    echo product-trunk-gates > "$dir/scripts/trunk/ci-job"
+    for r in kacho kaname corelib; do
+        seed="$TMP/seed-$r"
+        rm -rf "$seed"
+        git init -q --bare -b main "$dir.$r.git"
+        pgit -c init.defaultBranch=main clone -q "$dir.$r.git" "$seed" 2>/dev/null
+        pgit -C "$seed" commit -q --allow-empty -m "$r one"
+        pgit -C "$seed" push -q origin HEAD:main
+        pgit -c init.defaultBranch=main clone -q "$dir.$r.git" "$dir/project/$r" 2>/dev/null
+        pgit -C "$seed" commit -q --allow-empty -m "$r two"
+        pgit -C "$seed" push -q origin HEAD:main
+        git -C "$seed" rev-parse --short=12 HEAD > "$TMP/fresh-$r"
+        rm -rf "$seed"
+        [ "$2" = dead ] && git -C "$dir/project/$r" remote set-url origin "$TMP/net-$r.git"
+    done
+    git -C "$dir" init -q
+    git -C "$dir" add -A >/dev/null 2>&1
+    pgit -C "$dir" commit -q -m fixture >/dev/null 2>&1
+    (
+        cd "$dir" || exit 111
+        unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+              GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
+              KACHO_MONOREPO KACHO_SKIP_PREPUSH KACHO_HOME_KACHO KACHO_HOME_KANAME KACHO_HOME_CORELIB
+        bash ./scripts/hooks/pre-push </dev/null > "$TMP/trunk.out" 2>&1
+    )
+    echo $?
+}
+
+for caller in "${CALLERS[@]}"; do
+    r="$(trunk_probe "$caller" fresh 2)"; probes=$((probes + 1))
+    if [ "$r" != 1 ]; then
+        bad "$caller — набор СТВОЛОВ без предмета (2): хук вышел $r вместо 1 — конвейер его уронит, а отправка прошла"
+    fi
+    r="$(trunk_probe "$caller" fresh 0)"; probes=$((probes + 1))
+    missing=""
+    for n in kacho kaname corelib; do
+        grep -qF -- "$n@$(cat "$TMP/fresh-$n")" "$TMP/trunk.out" || missing="$missing $n"
+    done
+    if [ "$r" != 0 ] || [ -n "$missing" ]; then
+        bad "$caller — набор стволов зелёный: код $r, ревизия свежего ствола не напечатана у:${missing:- —} — fetch перед наборами стволов не сделан"
+    fi
+    r="$(trunk_probe "$caller" dead 0)"; probes=$((probes + 1))
+    if [ "$r" != 2 ] || grep -qF 'trunk: исход' "$TMP/trunk.out"; then
+        bad "$caller — origin клонов недоступен: код $r вместо 2 либо набор стволов исполнен на устаревшем стволе"
+    fi
+done
+
 tooling_gate_census "$NAME: вызывающих осмотрено $examined, проб $probes"
 
 if [ "$findings" -gt 0 ]; then
@@ -307,4 +376,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "у всех $examined вызывающих исход решает вход отправки: удаление не судит копию, судится дерево вершины с её перечнем наборов и условиями копии вне дерева — и из канонического, и из связанной копии под tmp/, черновик — по отправляемой ссылке"
+tooling_gate_pass "$NAME" "у всех $examined вызывающих исход решает вход отправки: удаление не судит копию, судится дерево вершины с её перечнем наборов и условиями копии вне дерева — и из канонического, и из связанной копии под tmp/, черновик — по отправляемой ссылке; стволы продуктов — после fetch, без сети — не выполнилось, набор стволов без предмета — отказ"

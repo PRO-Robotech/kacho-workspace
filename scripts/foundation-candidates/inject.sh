@@ -31,6 +31,9 @@
 #   K  форма ведомости — находка с ИМЕНЕМ поля, а не «клона нет» (#856)
 #   L  обёртка TestMain — не предмет, но ТОЛЬКО обёртка: тело сверяется с
 #      закрытым перечнем форм целиком (четыре близнеца, семь дефектов, ws#903)
+#   M  где ищется клон (`scripts/lib/product_clone.py`, ws#1083): копия полосы
+#      без `project/` видит клоны канонической копии; `KACHO_MONOREPO` и
+#      опознанные соседи рядом с ним — клоны (две пары)
 #
 # I и J заведены возвратом check-verifier (#724): ветку убыли можно было снять,
 # и инъекция оставалась зелёной 26 из 26; клон kacho, отставший от ствола, давал
@@ -147,7 +150,7 @@ run() {  # run <корень> <проверка> → печатает код
     # Клоны берутся ТОЛЬКО из синтетического корня: живые переменные окружения
     # снимаются, иначе инъекция мерила бы настоящие стволы и молчала бы о своём
     # дефекте.
-    env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB \
+    env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB -u KACHO_MONOREPO \
         DOCS_GATE_ROOT="$1" RELICENSE_BUSL_DECIDED=1 RELICENSE_AGPL_DECIDED=1 \
         python3 "$HERE/$2" > "$1.out" 2>&1
     echo $?
@@ -517,7 +520,7 @@ echo "   построению, — клоном. Прежняя редакция
 echo "   печатал «нет клона» при клонах на месте и выходил нулём."
 # set_rc <корень> — код НАБОРА, а не проверки: ровно его читает хук отправки.
 set_rc() {
-    env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB \
+    env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB -u KACHO_MONOREPO \
         DOCS_GATE_ROOT="$1" RELICENSE_BUSL_DECIDED=1 RELICENSE_AGPL_DECIDED=1 \
         bash "$HERE/run-all.sh" > "$1.out" 2>&1
     echo $?
@@ -640,6 +643,41 @@ for side in P1 PM PN T L1 L2 L3 L4 L5 L6 L7; do
             expect "$side" "дефект: та же пара — предмет, ведомость занижена" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
             expect "$side" "дефект: обёрток не снято" да "$(says "$r" 'обёрток TestMain снято 0')" ;;
     esac
+done
+
+echo "── ОСЬ M · ГДЕ ИЩЕТСЯ КЛОН: копия полосы и KACHO_MONOREPO (ws#1083)"
+echo "   M1 · один факт: есть ли project/ у КАНОНИЧЕСКОЙ копии; судимый корень —"
+echo "   связанная копия под её tmp/, своего project/ у неё нет (так у полос)."
+for side in defect twin; do
+    c="$WORK/M1-$side"; build "$c"; lane_pair "$c"; ledger "$c" 1 2 1 "$KEEP"
+    printf 'project/\ntmp/\n' > "$c/.gitignore"
+    git -C "$c" init -q; git -C "$c" add -A
+    sandbox_git -C "$c" commit -qm canon
+    git -C "$c" worktree add -q --detach "$c/tmp/lane" 2>/dev/null
+    if [ "$side" = defect ]; then
+        expect M1 "клоны у канонической копии — найдены, 0" 0 "$(run "$c/tmp/lane" check-02-second-home-count-does-not-grow.py)"
+    else
+        rm -rf "$c/project"
+        expect M1 "близнец: у канонической клонов нет — 2" 2 "$(run "$c/tmp/lane" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+echo "   M2 · project/ нет нигде, KACHO_MONOREPO называет kacho; один факт —"
+echo "   опознан ли origin соседей PRO-Robotech/<имя>."
+for side in defect twin; do
+    c="$WORK/M2-$side"; build "$c"; lane_pair "$c"; ledger "$c" 1 2 1 "$KEEP"
+    mkdir -p "$c/ws/docs"; cp "$c/docs/"*.yaml "$c/ws/docs/"
+    for p in kacho kaname corelib; do
+        git -C "$c/project/$p" remote add origin "https://github.com/PRO-Robotech/$p.git"
+    done
+    [ "$side" = twin ] && git -C "$c/project/kaname" remote set-url origin "https://example.invalid/kaname.git"
+    got="$(env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB \
+        KACHO_MONOREPO="$c/project/kacho" DOCS_GATE_ROOT="$c/ws" RELICENSE_BUSL_DECIDED=1 \
+        RELICENSE_AGPL_DECIDED=1 python3 "$HERE/check-02-second-home-count-does-not-grow.py" > "$c.out" 2>&1; echo $?)"
+    if [ "$side" = defect ]; then
+        expect M2 "соседи KACHO_MONOREPO опознаны — 0" 0 "$got"
+    else
+        expect M2 "близнец: kaname не опознан — 2" 2 "$got"
+    fi
 done
 
 echo

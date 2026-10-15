@@ -64,6 +64,10 @@ import json
 import os
 import re
 import subprocess
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+import product_clone  # noqa: E402
 
 # Четыре дерева, а не три. Оснастка воркспейса (`.claude/hooks/**/*.go`) — наш
 # код, и первая редакция критерия молча включила её в итог, не назвав в обходе:
@@ -116,16 +120,10 @@ _GENERATED = re.compile(r"^// Code generated .* DO NOT EDIT\.$", re.M)
 
 
 def clone(root, name):
-    """Путь клона продукта либо None. Тот же порядок, что у foundation-candidates."""
+    """Путь клона продукта либо None — общий порядок `scripts/lib/product_clone.py`."""
     if name == WORKSPACE:
         return root
-    env = os.environ.get("KACHO_HOME_" + name.upper().replace("-", "_"))
-    if env and os.path.exists(os.path.join(env, ".git")):
-        return env
-    guess = os.path.join(root, "project", name)
-    if os.path.exists(os.path.join(guess, ".git")):
-        return guess
-    return None
+    return product_clone.clone(root, name)
 
 
 # ── ИСТОЧНИК ДЕРЕВА: РЕВИЗИЯ ПРОДУКТА, РАБОЧАЯ КОПИЯ ВОРКСПЕЙСА ─────────────

@@ -110,6 +110,10 @@ subjects+1 files+2» — не выросло ничего, клон был ст�
 import os
 import re
 import subprocess
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+import product_clone  # noqa: E402
 
 PRODUCTS = ("kacho", "kaname", "corelib")
 
@@ -354,14 +358,8 @@ def testmain_shim(rel, text):
 
 
 def clone(root, name):
-    """Путь клона продукта либо None. Тот же порядок, что у crossrepo-gate."""
-    env = os.environ.get("KACHO_HOME_" + name.upper().replace("-", "_"))
-    if env and os.path.exists(os.path.join(env, ".git")):
-        return env
-    guess = os.path.join(root, "project", name)
-    if os.path.exists(os.path.join(guess, ".git")):
-        return guess
-    return None
+    """Путь клона продукта либо None — общий порядок `scripts/lib/product_clone.py`."""
+    return product_clone.clone(root, name)
 
 
 def trunk_ref(repo):
@@ -505,7 +503,8 @@ def pin_state(root, revs):
         repo = clone(root, name)
         if repo is None:
             res["voids"].append("%s: клона нет — условие создаётся клоном в "
-                                "project/%s либо переменной KACHO_HOME_%s"
+                                "project/%s копии либо канонической копии, переменной "
+                                "KACHO_HOME_%s либо KACHO_MONOREPO"
                                 % (name, name, name.upper()))
             continue
         ref = trunk_ref(repo)

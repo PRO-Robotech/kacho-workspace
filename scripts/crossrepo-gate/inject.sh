@@ -19,6 +19,9 @@
 #   H  `project/` нет, стволы названы KACHO_MONOREPO и лежат рядом с ним
 #      (соседи опознаны по origin)                 → находка оси A, не VOID
 #   H' тот же мир, у соседа `origin` чужой         → VOID, называет соседа
+#   I  корень — копия полосы под `tmp/` без `project/`, клоны у канонической
+#      копии (`scripts/lib/product_clone.py`, ws#1083) → находка оси A, не VOID
+#   I' тот же мир, у канонической копии клонов нет  → VOID
 #
 # Мир — только синтетические стволы (ws#815): `KACHO_HOME_<РЕПО>` и
 # `KACHO_MONOREPO` у check-01 сильнее `<корень>/project/<имя>`, `GIT_*` сильнее
@@ -214,6 +217,20 @@ mono_world "https://example.invalid/someone/kaname.git"
 out="$(run_mono "$ws" "$far/kacho")"; rc=$?
 assert "H' сосед без опознанного origin — VOID, назван" 2 "[VOID]" "$out" "$rc"
 assert "H' VOID называет неопознанного соседа" 2 "kaname" "$out" "$rc"
+
+# ── I / I' : копия полосы видит клоны канонической копии (ws#1083) ──────────
+ws="$(world 'pairs: []')"
+repo kacho  'tools/shared.py=одно' 'own-a.txt=своё'
+repo kaname 'tools/shared.py=другое' 'own-b.txt=своё'
+repo corelib 'own-c.txt=своё'
+printf 'project/\ntmp/\n' > "$ws/.gitignore"
+git -C "$ws" add -A && sandbox_git -C "$ws" commit -q -m canon
+git -C "$ws" worktree add -q --detach "$ws/tmp/lane" 2>/dev/null
+out="$(run "$ws/tmp/lane")"; rc=$?
+assert "I  копия полосы — клоны канонической прочитаны, находка" 1 "kacho+kaname" "$out" "$rc"
+mv "$ws/project" "$box/project-away"
+out="$(run "$ws/tmp/lane")"; rc=$?
+assert "I' у канонической клонов нет — VOID" 2 "[VOID]" "$out" "$rc"
 
 echo "инъекция crossrepo-gate: утверждений $((pass+fail)), пройдено $pass, провалено $fail"
 [[ $((pass+fail)) -gt 0 && "$fail" == 0 ]]

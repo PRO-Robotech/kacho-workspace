@@ -324,6 +324,74 @@ carry_outside() {
     done
 }
 
+# ── НАБОРЫ СТВОЛОВ: СТВОЛ СВЕЖИЙ, VOID — ОТКАЗ (ws#1083) ────────────────────
+#
+# Набор, объявивший задание `product-trunk-gates` (`scripts/<набор>/ci-job`,
+# чтение — `scripts/lib/suites.py job`), сверяет СТВОЛЫ продуктов. Конвейер гонит
+# его с `--void-is-failure` на свежем стволе, поэтому здесь два отличия от прочих:
+#   · перед первым таким набором — `git fetch origin main` в клонах kacho,
+#     kaname, corelib (параллельно, `timeout 60` на всё), ревизия и время — в
+#     вывод вердикта. Клон стоял неделю на старом стволе, и зелёное здесь
+#     краснело в конвейере. Fetch не прошёл — наборы стволов НЕ исполняются,
+#     вердикт «не выполнилось» (код 2), не зелёный;
+#   · VOID такого набора — ОТКАЗ: клон ищется общим порядком
+#     (`scripts/lib/product_clone.py`), и его отсутствие — несозданное условие,
+#     которое конвейер всё равно уронит.
+# Клон находит тот же модуль, что и наборы: второго правила поиска здесь нет.
+# Держит это `scripts/tooling-gate/check-10-push-hook-judges-what-is-pushed.sh`.
+TRUNK_JOB="product-trunk-gates"
+TRUNK_REPOS=(kacho kaname corelib)
+trunk_state=""   # пусто — fetch не делался; ok; fail
+trunks=()
+fetch_fail=()
+is_trunk_suite() {  # is_trunk_suite <копия> <scripts/<набор>/run-all.sh>
+    local name="${2#scripts/}" key
+    name="${name%/run-all.sh}"
+    key="$(python3 "$1/scripts/lib/suites.py" job "$1" "$name" 2>/dev/null)" || return 1
+    [ "$key" = "$TRUNK_JOB" ]
+}
+fetch_trunks() {  # fetch_trunks <копия> — один раз за прогон хука
+    [ -z "$trunk_state" ] || return 0
+    local wt="$1" r path t0 t1 rc i=0
+    local -a paths=() pids=()
+    t0="$(date +%s)"
+    for r in "${TRUNK_REPOS[@]}"; do
+        path="$(python3 "$wt/scripts/lib/product_clone.py" "$wt" "$r" 2>/dev/null)" || path=""
+        paths+=("$path")
+        if [ -z "$path" ]; then
+            pids+=("")
+            continue
+        fi
+        GIT_TERMINAL_PROMPT=0 timeout 60 git -C "$path" fetch -q origin main \
+            > "$wt.fetch-$r" 2>&1 &
+        pids+=("$!")
+    done
+    for r in "${TRUNK_REPOS[@]}"; do
+        path="${paths[$i]}"
+        if [ -z "$path" ]; then
+            echo "pre-push: ствол $r — клона нет (набор стволов скажет VOID)" >&2
+        else
+            wait "${pids[$i]}"; rc=$?
+            if [ "$rc" -eq 0 ]; then
+                trunks+=("$r@$(git -C "$path" rev-parse --short=12 refs/remotes/origin/main 2>/dev/null)")
+            else
+                fetch_fail+=("$r (код $rc$( [ "$rc" -eq 124 ] && echo ', таймаут 60 с'): $(head -n 2 "$wt.fetch-$r" | tr '\n' ' '))")
+            fi
+        fi
+        i=$((i + 1))
+    done
+    rm -f "$wt".fetch-*
+    t1="$(date +%s)"
+    fetched_at="$(date -Iseconds) за $((t1 - t0)) с"
+    if [ "${#fetch_fail[@]}" -gt 0 ]; then
+        trunk_state=fail
+        printf 'pre-push: fetch стволов НЕ ПРОШЁЛ (%s): %s\n' "$fetched_at" "${fetch_fail[*]}" >&2
+    else
+        trunk_state=ok
+        printf 'pre-push: стволы — %s; fetch %s\n' "${trunks[*]:-клонов нет}" "$fetched_at" >&2
+    fi
+}
+
 # ── ТРИ ИСХОДА НАБОРА, А НЕ ДВА ──────────────────────────────────────────────
 #
 # Прогонщик отвечает: 0 — чисто; 1 — НАХОДКА; 2 — БЕЗ ПРЕДМЕТА (часть проверок
@@ -333,7 +401,9 @@ carry_outside() {
 # нельзя: в свежем клоне воркспейса `project/kacho` нет вовсе, и до 2026-08-30
 # КАЖДАЯ отправка оттуда получала единицу — красное, приходящее всегда и по
 # причине, к дереву не относящейся. Такое красное перестают читать, а вместе с
-# ним перестают читать настоящие находки (ws#458).
+# ним перестают читать настоящие находки (ws#458). Исключение — наборы стволов
+# продуктов (блок выше, ws#1083): их клон ищется в канонической копии, и VOID у
+# них — отказ.
 #
 # Засчитывать её за успех тоже нельзя, поэтому она называется отдельной строкой
 # и поимённо, а завершающая строка хука на ней ДРУГАЯ: «зелёные» говорится
@@ -351,6 +421,8 @@ carry_outside() {
 # файле не говорят ничего.
 failed=()
 void=()
+void_trunk=()
+notrun=()
 ran=0
 judged=()
 for t in "${targets[@]}"; do
@@ -384,18 +456,29 @@ for t in "${targets[@]}"; do
         exit 1
     fi
     for g in "${gates[@]}"; do
+        trunk=0
+        if is_trunk_suite "$wt" "$g"; then
+            trunk=1
+            fetch_trunks "$wt"
+            if [ "$trunk_state" = fail ]; then
+                notrun+=("$rref: $g")
+                continue
+            fi
+        fi
         printf '── %s @ %s: %s\n' "$rref" "${c:0:12}" "$g" >&2
         ran=$((ran + 1))
         (cd "$wt" && bash "$g" </dev/null) >&2
-        case $? in
+        rc=$?
+        case $rc in
             0) ;;
             2) void+=("$rref: $g") ;;
             *) failed+=("$rref: $g") ;;
         esac
+        [ "$rc" != 2 ] || [ "$trunk" = 0 ] || void_trunk+=("$rref: $g")
     done
 done
 
-echo "pre-push: судились вершины ${judged[*]}; исполнено наборов $ran, провалено ${#failed[@]}, без предмета ${#void[@]}" >&2
+echo "pre-push: судились вершины ${judged[*]}; исполнено наборов $ran, провалено ${#failed[@]}, без предмета ${#void[@]} (стволов ${#void_trunk[@]}, прочих $((${#void[@]} - ${#void_trunk[@]}))), не исполнено ${#notrun[@]}${trunk_state:+; стволы ${trunks[*]:-—}, fetch $fetched_at}" >&2
 
 if [ "${#failed[@]}" -gt 0 ]; then
     echo "" >&2
@@ -407,20 +490,33 @@ if [ "${#failed[@]}" -gt 0 ]; then
     exit 1
 fi
 
+if [ "${#void_trunk[@]}" -gt 0 ]; then
+    echo "" >&2
+    echo "ОТКАЗ: наборы, сверяющие стволы продуктов, остались БЕЗ ПРЕДМЕТА:" >&2
+    printf '  %s\n' "${void_trunk[@]}" >&2
+    echo "Конвейер гонит их с --void-is-failure, и там это красное. Как исправить:" >&2
+    echo "  клон продукта — в project/<kacho|kaname|corelib> копии либо канонической" >&2
+    echo "  копии воркспейса, KACHO_MONOREPO=<клон kacho> (kaname и corelib — рядом" >&2
+    echo "  с ним) или KACHO_HOME_<ИМЯ>; ствол клона — не позади ревизии ведомости." >&2
+    echo "Причину называет сам набор строкой [VOID] выше." >&2
+    exit 1
+fi
+
+if [ "${#notrun[@]}" -gt 0 ]; then
+    echo "" >&2
+    echo "НЕ ВЫПОЛНИЛОСЬ: fetch стволов не прошёл, наборы стволов не исполнены:" >&2
+    printf '  %s\n' "${notrun[@]}" >&2
+    echo "Без свежего ствола вердикт выносился бы по устаревшему — зелёным это не считается." >&2
+    echo "Проверьте сеть и доступ к origin клонов (${fetch_fail[*]}) и повторите отправку." >&2
+    exit 2
+fi
+
 if [ "${#void[@]}" -gt 0 ]; then
     echo "" >&2
     echo "БЕЗ ПРЕДМЕТА (не выполнилось, в успех НЕ засчитано) — наборы:" >&2
     printf '  %s\n' "${void[@]}" >&2
-    # ЗДЕСЬ СТОЯЛО «в конвейере клон выкладывается шагом, и там тот же код 2
-    # роняет job» — ложь дважды (возврат check-verifier, #724): конвейер воркспейса
-    # сам не запускается ни на одной ветке (решение владельца 2026-09-20), а три
-    # набора, беспредметные без клонов, — foundation-candidates,
-    # comment-language-gate, crossrepo-gate — до задания `product-trunk-gates`
-    # не звало ни одно его задание. Печатается то, что верно для ЭТОЙ отправки:
-    # вершина уезжает непроверенной этими наборами, и где набор ищет предмет.
-    echo "Причину называет сам набор строкой [VOID]. Чаще всего это нет клона продукта:" >&2
-    echo "набор ищет его в project/<kacho|kaname|corelib> копии либо по переменной" >&2
-    echo "KACHO_HOME_<ИМЯ>, дерево монорепо — ещё и по KACHO_MONOREPO." >&2
+    # Наборы стволов сюда не доходят — их VOID отказан выше (ws#1083).
+    echo "Причину называет сам набор строкой [VOID]." >&2
     echo "Отправка НЕ остановлена: условие не создано — это не находка о дереве." >&2
     echo "Вершина уезжает НЕПРОВЕРЕННОЙ этими наборами: заведите клон и повторите отправку." >&2
     exit 0
