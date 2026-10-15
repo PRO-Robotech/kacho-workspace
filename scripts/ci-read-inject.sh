@@ -89,6 +89,10 @@
 #   пары репозиторий/база нет в ведомости                          → 2 VOID
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
+#   живая ведомость: запрос в базу КАЖДОЙ строки (стволы и эпики,
+#             перечень — обходом ведомости, ws#1097): строка есть,
+#             число = числу фикстуры                              → 0 green
+#             число на 1 больше числа фикстуры (сверка числа)     → 3 CHECKS-INCOMPLETE
 # ВЕДОМОСТЬ СЛУЧАЕВ — синтетическая ($FXL, одна строка kacho/1266 = 68 — число
 # фикстуры), а не живая: живая строка kacho/1266 меряет ТЕКУЩИЙ набор workflow
 # (74 на 2026-10-12) и обязана меняться вместе с ним, а фикстура снята при 68.
@@ -144,8 +148,11 @@
 #                         другого check_suite закрыт поздним success;
 #   null-suite-ignored  — check-run с check_suite null выпал из суда;
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
+#   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
-#                         (по одному на каждый из четырёх; урок corelib#111).
+#                         (по одному на каждый из четырёх; урок corelib#111);
+#   row-dropped-<репозиторий>-<база> — из ЖИВОЙ ведомости снята строка не-ствола
+#                         (по одному на каждую; ws#1097: пары нет — код 2).
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -234,16 +241,17 @@ pre() { CI_READ_FX="$T/pre" "$T/gh" api "repos/o/r/check-runs/$1/annotations" 2>
 
 # Исполнитель одной клетки матрицы: <сценарий ci-read> <живая ведомость> <каталог
 # случая> <файл исхода>. Исход — строка «OK|FAIL TAB код»; при FAIL следом хвост вывода.
-# Ведомость случая: файл ledger.tsv в каталоге случая, либо trunk=<ствол> — копия
-# ЖИВОЙ ведомости сценария с числом строки ствола, заменённым числом фикстуры.
+# Ведомость случая: файл ledger.tsv в каталоге случая, либо row (репозиторий TAB
+# база) — копия ЖИВОЙ ведомости сценария с числом этой строки, заменённым на fxn.
 cat > "$T/cell.sh" <<'CELL'
 #!/usr/bin/env bash
 S="$1"; LV="$2"; C="$3"; O="$4"
 L="$C/ledger.tsv"
-if [ -f "$C/trunk" ]; then
+if [ -f "$C/row" ]; then
     L="$O.ledger"
-    awk -F'\t' -v OFS='\t' -v r="PRO-Robotech/$(cat "$C/trunk")" -v n="$(cat "$C/fxn")" \
-        '!/^#/ && $1==r && $2=="main" {$3=n} {print}' "$LV" > "$L"
+    IFS=$'\t' read -r rr rb < "$C/row"
+    awk -F'\t' -v OFS='\t' -v r="$rr" -v b="$rb" -v n="$(cat "$C/fxn")" \
+        '!/^#/ && $1==r && $2==b {$3=n} {print}' "$LV" > "$L"
 fi
 out="$(CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 2>&1)"; code=$?
 pat="$(cat "$C/pat")"
@@ -264,11 +272,12 @@ printf 'PRO-Robotech/kacho\t1266\t%s\tфикстура kacho-3140\n' "$FX_N" > "
 CASES="$T/cases"; mkdir -p "$CASES"; NC=0; SECTION=""; C=""
 mk() { NC=$((NC + 1)); C="$CASES/$(printf '%03d' "$NC")"; mkdir -p "$C"; cp "$FX"/*.json "$C/"; }
 edit() { jq "$2" "$C/$1" > "$C/$1.n" && mv "$C/$1.n" "$C/$1"; }
-run() {  # run <имя> <ожидаемый код> <образец строки REASON|VOID либо пусто> [ведомость|trunk:<ствол>] [репозиторий]
+run() {  # run <имя> <ожидаемый код> <образец строки REASON|VOID либо пусто> [ведомость|row:<база>[:<число>]] [репозиторий]
     printf '%s' "$1" > "$C/name"; printf '%s' "$2" > "$C/code"; printf '%s' "$3" > "$C/pat"
     printf '%s' "${5:-PRO-Robotech/kacho}" > "$C/repo"; printf '%s' "$SECTION" > "$C/section"
     case "${4:-}" in
-        trunk:*) printf '%s' "${4#trunk:}" > "$C/trunk"; printf '%s' "$FX_N" > "$C/fxn" ;;
+        row:*) r="${4#row:}"; printf '%s\t%s\n' "${5:-PRO-Robotech/kacho}" "${r%%:*}" > "$C/row"
+               [ "${r#*:}" != "$r" ] && printf '%s' "${r#*:}" > "$C/fxn" || printf '%s' "$FX_N" > "$C/fxn" ;;
         "") cp "$FXL" "$C/ledger.tsv" ;;
         *) cp "$4" "$C/ledger.tsv" ;;
     esac
@@ -513,10 +522,29 @@ say "== живая ведомость: у ствола каждого нашег
 # копии заменяется числом фикстуры (судится присутствие, а не набор workflow ствола).
 # Строки нет — замене нечего менять, ci-read.sh отвечает 2, и случай краснеет
 # (урок corelib#111: код 2 «пары нет в ведомости»).
-for tr in kacho kaname corelib kacho-workspace; do
+TRUNKS="kacho kaname corelib kacho-workspace"
+for tr in $TRUNKS; do
     mk; edit pull.json '.base.ref = "main"'
-    run "строка PRO-Robotech/$tr / main в ведомости" 0 "^VERDICT\tgreen\t.*проверок $FX_N из $FX_N" "trunk:$tr" "PRO-Robotech/$tr"
+    run "строка PRO-Robotech/$tr / main в ведомости" 0 "^VERDICT\tgreen\t.*проверок $FX_N из $FX_N" "row:main" "PRO-Robotech/$tr"
 done
+
+say "== живая ведомость: каждая строка — пара есть и число сверяется (ws#1097)"
+# Перечень строк — обходом живой ведомости, а не выпиской: строка эпика заводится и
+# снимается вместе с эпиком, и случаи с мутантами идут за ней сами. Ноль строк —
+# отказ, а не зелёное. На каждую строку два случая: число строки = числу фикстуры —
+# зелёное (пара найдена ровно по репозиторию И базе); на 1 больше — CHECKS-INCOMPLETE
+# «проверок 68 из 69» (сверка числа, а не одно присутствие). Мутант строки — та же
+# строка снята из копии ведомости: случай «пара есть» обязан дать код 2 и покраснеть.
+ROWS="$T/rows.tsv"
+awk -F'\t' '!/^#/ && NF >= 3 && $3 ~ /^[1-9][0-9]*$/ {print $1 "\t" $2}' "$LIVE" | sort -u > "$ROWS"
+[ -s "$ROWS" ] || { echo "VOID: в живой ведомости $LIVE строк ноль — судить нечего" >&2; exit 2; }
+echo "  строк живой ведомости: $(wc -l < "$ROWS") ($(grep -vc $'\tmain$' "$ROWS") не-ствол)"
+while IFS=$'\t' read -r rr rb; do
+    mk; edit pull.json ".base.ref = \"$rb\""
+    run "строка $rr / $rb: пара есть" 0 "^VERDICT\tgreen\t.*проверок $FX_N из $FX_N" "row:$rb" "$rr"
+    mk; edit pull.json ".base.ref = \"$rb\""
+    run "строка $rr / $rb: число сверяется" 3 "^REASON\tCHECKS-INCOMPLETE\tпроверок $FX_N из $((FX_N + 1))" "row:$rb:$((FX_N + 1))" "$rr"
+done < "$ROWS"
 
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
@@ -572,9 +600,10 @@ drop-any-conclusion	/\.drop = (\$pr and/s/ and \.ev != null and \.ev != "pull_re
 drop-failure-too	/\.drop = (\$pr and/s/IN("skipped", "neutral", "success")/IN("skipped", "neutral", "success", "failure")/
 red-not-first	/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 null-suite-ignored	/map(\.ev = \$ev\[/s/map(\.ev = /map(select(.check_suite != null) | .ev = /
+expect-compare-dropped	/then reason CHECKS-INCOMPLETE/s/\[ "$NAMES" -lt "$EXPECT" \]/false/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
-for tr in kacho kaname corelib kacho-workspace; do
+for tr in $TRUNKS; do
     name="trunk-row-dropped-$tr"
     grep -v "^PRO-Robotech/$tr	main	" "$LIVE" > "$SC/ledger.$name.tsv"
     if cmp -s "$SC/ledger.$name.tsv" "$LIVE"; then
@@ -582,6 +611,15 @@ for tr in kacho kaname corelib kacho-workspace; do
     fi
     printf '%s\t%s\t%s\n' "$name" "$HERE/ci-read.sh" "$SC/ledger.$name.tsv" >> "$SC/list"
 done
+while IFS=$'\t' read -r rr rb; do
+    [ "$rb" != main ] || continue
+    name="row-dropped-${rr#*/}-$rb"
+    awk -F'\t' -v r="$rr" -v b="$rb" '/^#/ || !($1==r && $2==b)' "$LIVE" > "$SC/ledger.$name.tsv"
+    if cmp -s "$SC/ledger.$name.tsv" "$LIVE"; then
+        void=$((void + 1)); echo "  MUTANT $name → RESULT VOID (правка не легла: строки нет)"; continue
+    fi
+    printf '%s\t%s\t%s\n' "$name" "$HERE/ci-read.sh" "$SC/ledger.$name.tsv" >> "$SC/list"
+done < "$ROWS"
 
 # --- матрица: каждая клетка — отдельный процесс, JOBS одновременно
 R="$T/res"
