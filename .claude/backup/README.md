@@ -47,3 +47,8 @@
 
 - `rag-freshness.sh` — снят 2026-09-20: в `.claude/settings.json` не провязан ни в одном из 10 вызовов.
   Возврат: `git mv .claude/backup/hooks/rag-freshness.sh .claude/hooks/`.
+- `vault-reminder.sh`, `vault-stop-check.sh`, `rag-session-start.sh`, `rag-after-git.sh` — сняты
+  2026-10-16 удалением: первый печатал один текст на каждом ходе и ничего не
+  проверял, второй звал полосы на ведение замороженного архива хранилища, два последних звали
+  снятый `rag-freshness.sh` и гасили ошибку. Класс «хук зовёт снятый скрипт» держит
+  `scripts/rules-gate/check-14-hook-scripts-exist.sh`. Возврат — из истории git.

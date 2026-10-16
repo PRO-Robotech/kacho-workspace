@@ -162,7 +162,7 @@ def monorepo(root):
 
     `.git` РАБОЧЕЙ КОПИИ — файл, а не каталог, поэтому проверяется существование,
     а не тип: требовать каталог значит не признавать рабочую копию монорепо
-    вовсе. Резолюция та же, что у `scripts/vault-gate/_lib.sh`.
+    вовсе.
     """
     env = os.environ.get("KACHO_MONOREPO")
     if env and os.path.exists(os.path.join(env, ".git")):

@@ -102,7 +102,7 @@ at-landing-by-mr-ci · посадка эпика — механикой, без 
 
 at-lifecycle-preamble · порядок lifecycle выставляет диспетчер по возвратам; шаг не запускает следующий сам · check-05 · red: шаг цепляет следующий без диспетчера
 lc1-acceptance-first · приёмка — `00-kacho-core.md#ban01-acceptance` · docs-gate check-01 · red: смена контракта без APPROVED
-lc2-issue-branch-trail · фича — issue + ветка `<N>-<суффикс>` (`git-issues.md` §«Имя ветки») + trail в vault; закрытие — с vault (resources/rpc/edges, записка) и артефактами · docs-gate check-02, vault-gate · red: код без issue, ветки или trail; закрыт без trail
+lc2-issue-branch-trail · фича — issue + ветка `<N>-<суффикс>` (`git-issues.md` §«Имя ветки»); журнал — трекер и git, trail в хранилище не ведётся (архив с 2026-10-16); закрытие — с артефактами · tooling-gate check-18 · red: код без issue или ветки
 lc4-crossrepo-order · порядок proto → corelib → сервис → api-gateway → deploy → docs; без `replace` на свои модули · go list -deps ./...; grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
 lc5-tdd-red-before-code · проба — `testing.md#test-first-red-before-code` · assert-suites-green.sh, scripts/docs-gate/ · red: проба, не падавшая ни разу
 lc6-role-reviews · ревью — по уровню, `git-issues.md#gi-asm-one-round` · ЗАВЕСТИ · red: R2 без роли области; четвёртая роль

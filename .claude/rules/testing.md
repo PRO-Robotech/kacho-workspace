@@ -41,7 +41,7 @@ tests-followup-issue-form · форма `Tests-followup: #<N>` на открыт
 
 no-todo-skip-in-tests · запрещены так же строго, как в проде · TestDeferralGateCatchesAMarkerInProductionCode · red: маркер отсрочки в tests/
 tdd-red-case-links-issue-no-skip · пометь `# verifies <issue-url>` и НЕ ставь skip · tools/knownfailingsubject · red: кейс отключён вместо пометки
-known-failing-declared · объяви в RESULTS.md «Known failing — product bugs» + trail в vault · tools/knownfailingsubject · red: красный кейс не объявлен
+known-failing-declared · объяви в RESULTS.md «Known failing — product bugs» и issue · tools/knownfailingsubject · red: красный кейс не объявлен
 test-only-pr-no-prod-code · трогай только tests/ и docs/; любой internal/cmd/migrations-фикс — отдельный PR со своим issue · ЗАВЕСТИ · red: в test-only PR правлен internal/
 
 ## Пирамида и инфраструктура

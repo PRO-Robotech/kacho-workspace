@@ -122,6 +122,7 @@ PROOF_ON=0
 # `../../rules/`, и ими правило закрепляется за агентом. Копирование, которое их
 # разыменует, отдаёт в песочницу обычные файлы — и проверка привязки судила бы
 # дерево, которого нет ни на одной машине.
+HOOK_DEPS="$(RULES_GATE_ROOT="$WS" bash "$GATE/check-14-hook-scripts-exist.sh" --deps 2>/dev/null)"
 sandbox() {
     local dir="$TMP/s.$1"
     rm -rf "$dir"; mkdir -p "$dir/.claude"
@@ -140,6 +141,14 @@ sandbox() {
     # предписывает squash» была бы недоказуема (ws#994).
     cp -a "$WS/.claude/hooks" "$dir/.claude/" 2>/dev/null || true
     cp -a "$WS/.claude/workflows" "$dir/.claude/" 2>/dev/null || true
+    # СКРИПТЫ ВНЕ `.claude/`, КОТОРЫЕ ЗОВУТ ХУКИ, — предмет check-14: перечень
+    # выводит её же обход (`--deps`), а не выписка; без них копия краснела бы на
+    # нетронутом дереве.
+    local f
+    while IFS= read -r f; do
+        case "$f" in ''|.claude/*) continue ;; esac
+        mkdir -p "$dir/$(dirname "$f")" && cp -a "$WS/$f" "$dir/$f" 2>/dev/null || true
+    done <<<"$HOOK_DEPS"
     cp "$WS/.gitignore" "$dir/" 2>/dev/null || true
     git -C "$dir" init -q >/dev/null 2>&1
     git -C "$dir" add -A >/dev/null 2>&1
