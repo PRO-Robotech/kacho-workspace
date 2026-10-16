@@ -24,6 +24,9 @@ command -v python3 > /dev/null 2>&1 || { echo "stall-census-inject: VOID — н�
 [ -r "$C" ] || { echo "stall-census-inject: VOID — прибора нет: $C" >&2; exit 2; }
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
+# Своя сессия прибора берётся из окружения (ws#1131): окружение запустившего
+# claude в пробы не протекает, каждая проба процессов задаёт его сама.
+unset CLAUDE_PID CLAUDE_CODE_SESSION_ID STALL_PROC_ROOT
 NOW="$(date +%s)"
 iso() { date -u -d "@$((NOW - $1 * 60))" +%Y-%m-%dT%H:%M:%S.000Z; }
 pass=0 fail=0
@@ -178,11 +181,44 @@ probe 0 "близнец: диспетчер ответил после завер
 echo "== процессы"
 s="$(session procs)"
 { ps_ok; echo "201 100 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'until ! pgrep make; do sleep 30; done'"; } > "$T/ps-old"
-probe 1 "инъекция: оболочка агента живёт 120 мин — STALL-PROC с командой" "STALL-PROC pid 201" --session "$s" --ps "$T/ps-old"
+CLAUDE_PID=100 probe 1 "инъекция: оболочка агента живёт 120 мин — STALL-PROC с командой" "STALL-PROC pid 201" --session "$s" --ps "$T/ps-old"
 { ps_ok; echo "201 100 1800 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'make e2e'"; } > "$T/ps-young"
 probe 0 "близнец: та же оболочка 30 мин — молчит" - --session "$s" --ps "$T/ps-young"
 { ps_ok; echo "202 1 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'x'"; } > "$T/ps-orphan"
 probe 0 "близнец: оболочка 120 мин, но родитель не claude — не судится" - --session "$s" --ps "$T/ps-orphan"
+
+echo "== процессы: судится только своя сессия (ws#1131)"
+# Живая форма 2026-10-17: claude 61051 «--resume 3f44acf5-…» из другого окна с
+# сериями newman держал ход диспетчера сессии 9131a334 строкой STALL-PROC.
+OWN=9131a334-32c0-465b-acab-ee88633ea4e4 FOR=3f44acf5-eb2b-55dd-ba20-9ef6786c26b4
+SNAP="/bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval"
+{ echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude --dangerously-skip-permissions --resume $FOR"
+  echo "211 110 7200 bash $SNAP 'newman run x'"; echo "300 1 99999 sshd sshd"; } > "$T/ps-foreign"
+{ echo "100 1 90000 claude claude --resume $OWN"; echo "110 1 90000 claude claude --resume $FOR"
+  echo "201 100 7200 bash $SNAP 'make e2e'"; echo "211 110 7200 bash $SNAP 'newman run x'"
+  echo "500 100 5 bash bash hook"; } > "$T/ps-both"
+{ echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude --resume $OWN --fork-session"
+  echo "211 110 7200 bash $SNAP 'newman run x'"; } > "$T/ps-fork"
+{ echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude --y"
+  echo "211 110 7200 bash $SNAP 'newman run x'"; } > "$T/ps-env"
+mkdir -p "$T/proc-for/211" "$T/proc-own/211"
+printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0' "$FOR" > "$T/proc-for/211/environ"
+printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0' "$OWN" > "$T/proc-own/211/environ"
+# proc_cases <прибор> — пробы отбора своей сессии; их же гонит мутант отбора.
+proc_cases() {
+    local C="$1"
+    CLAUDE_PID=100 CLAUDE_CODE_SESSION_ID=$OWN probe 0 "П1 инъекция: чужая сессия (--resume в родителе), оболочка 120 мин — молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
+    CLAUDE_PID=100 probe 0 "П2 чужой claude при своём CLAUDE_PID — молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
+    CLAUDE_CODE_SESSION_ID=$OWN probe 1 "П3 своя по --resume родителя: своя 120 мин — STALL-PROC" "STALL-PROC pid 201 (claude 100)" --session "$s" --ps "$T/ps-both"
+    CLAUDE_CODE_SESSION_ID=$OWN probe 1 "  …а чужая рядом не названа" "своих 1, чужих 1" --session "$s" --ps "$T/ps-both"
+    probe 1 "П4 своя по предку-claude процесса (--self): STALL-PROC" "STALL-PROC pid 201 (claude 100)" --session "$s" --ps "$T/ps-both" --self 500
+    probe 2 "П5 сессия не определена — отдельная строка и код 2, а не «чисто» и не суд всех" "STALL-PROC: сессия не определена" --session "$s" --ps "$T/ps-foreign"
+    CLAUDE_CODE_SESSION_ID=$OWN probe 2 "П6 --fork-session: id в строке запуска — не сессия, оболочка не судима" "не судимо 1" --session "$s" --ps "$T/ps-fork"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-for" probe 0 "П7 чужая по окружению оболочки — молчит" "чужих 1" --session "$s" --ps "$T/ps-env"
+    CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-own" probe 1 "П8 своя по окружению оболочки — STALL-PROC" "STALL-PROC pid 211" --session "$s" --ps "$T/ps-env"
+    CLAUDE_PID=999 CLAUDE_CODE_SESSION_ID=$OWN probe 0 "П9 CLAUDE_PID не claude в снимке — не берётся, чужая молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
+}
+proc_cases "$C"
 
 echo "== нечитаемое — не «чисто»"
 probe 2 "каталога сессии нет — код 2" "VOID" --session "$T/nope" --ps "$T/ps"
@@ -243,7 +279,8 @@ locate_cases "$ARC/scripts/stall-census.sh"
 probe_in 0 "скрипт в копии под <ws>/tmp/, запуск из временного каталога без ключа: найдена" "сессия sid;" "$ARC" - "$CP/scripts/stall-census.sh" --ps "$T/ps"
 
 echo "== мутанты поиска сессии — каждый обязан покраснеть на пробах выше"
-# mutant <имя> <было> <стало>: правка ровно одного вхождения в копии прибора;
+# mutant <имя> <было> <стало> [пробы]: правка ровно одного вхождения в копии прибора;
+# пробы — функция, получающая путь копии (по умолчанию locate_cases);
 # образец не найден — расхождение (мутант не лёг), а не «выжил молча».
 mutant() {
     local MA="$T/mut/scripts" p0="$pass" f0="$fail" mp mf
@@ -258,7 +295,7 @@ open(dst, 'w').write(s.replace(was, now))
 MUTPY
     then echo "  [FAIL] мутант «$1»: образец не найден в приборе — не лёг" >&2; fail=$((fail + 1)); return; fi
     failed=""; quiet=1
-    locate_cases "$MA/stall-census.sh"
+    "${4:-locate_cases}" "$MA/stall-census.sh"
     quiet=""; mp=$((pass - p0)); mf=$((fail - f0)); pass="$p0"; fail="$f0"
     if [ "$mf" -gt 0 ]; then
         echo "  [OK]   мутант «$1» красный: разошлось $mf из $((mp + mf)): ${failed#; }"; pass=$((pass + 1))
@@ -269,6 +306,8 @@ MUTPY
 # shellcheck disable=SC2016  # образец — текст прибора, не раскрывается
 mutant "CLAUDE_PROJECT_DIR убран из кандидатов" '[ -n "${CLAUDE_PROJECT_DIR:-}" ] && cands+=("$CLAUDE_PROJECT_DIR")' ':'
 mutant "побеждает первый существующий каталог" $'        if cands:\n            break' $'        if os.path.isdir(d):\n            break'
+echo "== мутант отбора своей сессии (ws#1131) — обязан покраснеть на пробах П1–П9"
+mutant "старый отбор: любая оболочка под claude — своя" '    who = whose(pid, ppid)' "    who = 'own'" proc_cases
 
 echo "== разбор: не-объект, нечитаемый журнал, падение (опыт check-verifier по #1002)"
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
@@ -347,6 +386,23 @@ fhook() {
 }
 fhook 0 "инъекция: прибор упал кодом 1 без строк застоя — Stop НЕ держит ход" - out Stop
 fhook 0 "инъекция: прибор упал кодом 1 без строк застоя — UserPromptSubmit «не проверен», не «ЗАСТОЙ … TaskStop»" "ЗАСТОЙ НЕ ПРОВЕРЕН (код 3)" out UserPromptSubmit
+# Своя сессия — из session_id JSON хука (ws#1131); окружение пробы его не даёт.
+hookp() {
+    local want="$1" name="$2" needle="$3" ps="$4" got o e
+    o="$(printf '{"hook_event_name":"Stop","stop_hook_active":false,"session_id":"%s","transcript_path":"%s.jsonl"}' "$OWN" "$s" \
+        | CLAUDE_PROJECT_DIR="$HERE/.." STALL_CENSUS_EXTRA="--ps $ps" bash "$HOOK" 2> "$T/hook.err")"; got=$?
+    e="$(cat "$T/hook.err")"
+    if [ "$got" -eq "$want" ] && { { [ "$needle" = - ] && [ -z "$o$e" ]; } || { [ "$needle" != - ] && grep -qF -- "$needle" <<< "$e"; }; }; then
+        echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] $name — ждали код $want и «$needle», получили $got: out=$(head -c 300 <<< "$o") err=$(head -c 300 <<< "$e")" >&2; fail=$((fail + 1))
+    fi
+}
+s="$(session hproc)"
+{ echo "100 1 90000 claude claude --resume $OWN"; echo "110 1 90000 claude claude --resume $FOR"
+  echo "211 110 7200 bash $SNAP 'newman run x'"; } > "$T/ps-hfor"
+hookp 0 "Х1 Stop: чужая сессия с оболочкой 120 мин — ход не держит" - "$T/ps-hfor"
+hookp 2 "Х2 Stop: своя (session_id хука) оболочка 120 мин — держит и называет" "STALL-PROC pid 201" "$T/ps-both"
 w="$HERE/../.claude/settings.json"
 if python3 - "$w" <<'PY'
 import json, sys

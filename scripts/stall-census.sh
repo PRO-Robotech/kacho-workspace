@@ -34,7 +34,20 @@
 #                Завершённый, чей журнал не менялся STALL_DONE_MIN (5) мин, в счёт
 #                «агентов осмотрено» не входит — он в счёте «завершённых».
 #   STALL-PROC   фоновый процесс-оболочка агента (прямой потомок `claude`,
-#                запущенный из shell-snapshot) живёт дольше STALL_PROC_MIN (60) мин.
+#                запущенный из shell-snapshot) СВОЕЙ сессии живёт дольше
+#                STALL_PROC_MIN (60) мин. Чужой claude (другое окно) не судится
+#                (ws#1131: claude «--resume 3f44acf5-…» с сериями newman держал
+#                Stop сессии 9131a334). Своя сессия — `session_id` JSON хука на
+#                stdin, иначе CLAUDE_CODE_SESSION_ID; свой claude — CLAUDE_PID
+#                (только если в снимке он `claude`), иначе предок-claude прибора.
+#                Сессия оболочки — CLAUDE_CODE_SESSION_ID её окружения
+#                (`/proc/<pid>/environ`, живой снимок), иначе `--resume|-r|
+#                --session-id <id>` строки запуска родителя (не при
+#                `--fork-session`). Своя: родитель — свой claude, либо сессия
+#                оболочки равна своей; при известном своём claude прочий — чужой.
+#                Ни своей сессии, ни своего claude — строка «STALL-PROC: сессия
+#                не определена»; оболочка старше порога, чью принадлежность не
+#                решить, не судится и даёт код 2 (не «чисто»), если застоя нет.
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
 #
@@ -60,6 +73,11 @@
 #   --ps <файл>           вывод `ps -eo pid=,ppid=,etimes=,comm=,args=`; без
 #                         довода — снимок машины.
 #   --now <epoch>         «сейчас» (для подложенных журналов).
+#   --self <pid>          процесс, от которого ищется предок-claude в снимке;
+#                         без довода — родитель разбора (сам прибор), и только
+#                         на живом снимке: в подложенном `--ps` его pid чужой.
+#   STALL_PROC_ROOT       каталог вида /proc для окружения оболочек (инъекция);
+#                         без него — /proc лишь на живом снимке.
 #
 # # Коды
 #
@@ -79,13 +97,14 @@
 # (664 каталога workflow, главный журнал 152 МБ) — в шапке inject-скрипта.
 set -uo pipefail
 
-session="" sessdir="" psfile="" now=""
+session="" sessdir="" psfile="" now="" self="" live=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --session) session="${2:-}"; shift 2 ;;
         --session-dir) sessdir="${2:-}"; [ -n "$sessdir" ] || { echo "stall-census: VOID — --session-dir без каталога" >&2; exit 2; }; shift 2 ;;
         --ps) psfile="${2:-}"; shift 2 ;;
         --now) now="${2:-}"; shift 2 ;;
+        --self) self="${2:-}"; [[ "$self" =~ ^[0-9]+$ ]] || { echo "stall-census: VOID — --self без pid" >&2; exit 2; }; shift 2 ;;
         *) echo "stall-census: VOID — неизвестный довод «$1»" >&2; exit 2 ;;
     esac
 done
@@ -94,6 +113,7 @@ command -v python3 > /dev/null 2>&1 || { echo "stall-census: VOID — нет pyt
 stdin_json=""
 if [ -z "$session" ] && [ ! -t 0 ]; then stdin_json="$(timeout 2 cat 2> /dev/null || true)"; fi
 if [ -z "$psfile" ]; then
+    live=1 self="${self:-$$}"
     psfile="$(mktemp)" || { echo "stall-census: VOID — не завёлся файл снимка" >&2; exit 2; }
     trap 'rm -f "$psfile"' EXIT
     ps -eo pid=,ppid=,etimes=,comm=,args= > "$psfile" 2> /dev/null \
@@ -115,7 +135,7 @@ fi
 cands+=("$PWD")
 projdirs="$(printf '%s\n' "${cands[@]}")"
 
-python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" <<'PY'
+python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" "$self" "$live" <<'PY'
 import calendar, glob, json, os, re, sys, time
 
 
@@ -128,7 +148,7 @@ def _crash(kind, val, tb):
 
 sys.excepthook = _crash
 
-session, psfile, now_s, stdin_json, projdirs, sessdir = sys.argv[1:7]
+session, psfile, now_s, stdin_json, projdirs, sessdir, self_pid, live = sys.argv[1:9]
 AGENT_MIN = int(os.environ.get('STALL_AGENT_MIN', '15'))
 PROC_MIN = int(os.environ.get('STALL_PROC_MIN', '60'))
 REACT_MIN = int(os.environ.get('STALL_REACT_MIN', '10'))
@@ -405,27 +425,93 @@ except OSError as e:
     void('снимок процессов не читается: %s' % e)
 if not procs:
     void('снимок процессов пуст: процессы не осмотрены')
-shells = 0
+# Своя сессия и свой claude (шапка, STALL-PROC).
+own_sid = ''
+try:
+    own_sid = str((json.loads(stdin_json) if stdin_json else {}).get('session_id') or '')
+except Exception:
+    own_sid = ''
+own_sid = own_sid or os.environ.get('CLAUDE_CODE_SESSION_ID', '')
+own_pid = os.environ.get('CLAUDE_PID', '')
+if own_pid not in procs or procs[own_pid][2] != 'claude':
+    own_pid = ''
+if not own_pid and self_pid:
+    cur, hops = self_pid, 0
+    while cur in procs and hops < 64:
+        if procs[cur][2] == 'claude':
+            own_pid = cur
+            break
+        cur, hops = procs[cur][0], hops + 1
+proc_root = os.environ.get('STALL_PROC_ROOT') or ('/proc' if live else '')
+SID_ARG = re.compile(r'(?:^|\s)(?:--resume|-r|--session-id)(?:=|\s+)([0-9a-fA-F-]{8,})(?=\s|$)')
+
+
+def shell_sid(pid, parent_args):
+    """Сессия оболочки: окружение её процесса, иначе строка запуска родителя."""
+    if proc_root:
+        try:
+            for kv in open(os.path.join(proc_root, pid, 'environ'), 'rb').read().split(b'\0'):
+                if kv.startswith(b'CLAUDE_CODE_SESSION_ID='):
+                    return kv.split(b'=', 1)[1].decode('utf-8', 'replace')
+        except OSError:
+            pass
+    if '--fork-session' in parent_args.split():
+        return ''
+    m = SID_ARG.search(parent_args)
+    return m.group(1) if m else ''
+
+
+def whose(pid, ppid):
+    """'own' | 'foreign' | '' (не решить)."""
+    if own_pid and ppid == own_pid:
+        return 'own'
+    sid = shell_sid(pid, procs[ppid][3])
+    if own_sid and sid:
+        return 'own' if sid == own_sid else 'foreign'
+    return 'foreign' if own_pid else ''
+
+
+shells = mine = foreign = 0
+unjudged = []
 for pid, (ppid, et, comm, args) in procs.items():
     parent = procs.get(ppid)
     if not parent or parent[2] != 'claude' or 'shell-snapshots/' not in args:
         continue
     shells += 1
+    who = whose(pid, ppid)
+    if who == 'foreign':
+        foreign += 1
+        continue
+    if who != 'own':
+        if et >= PROC_MIN * 60:
+            unjudged.append('pid %s (claude %s)' % (pid, ppid))
+        continue
+    mine += 1
     if et >= PROC_MIN * 60:
         cmd = args.split("eval '", 1)[-1] if "eval '" in args else args
         findings.append('STALL-PROC pid %s (claude %s) — живёт %d мин: %s' % (pid, ppid, et / 60, ' '.join(cmd.split())[:160]))
+proc_notes = []  # принадлежность не решена: не застой (код 1), а «не судимо»
+if not own_sid and not own_pid:
+    proc_notes.append('STALL-PROC: сессия не определена — нет session_id хука, CLAUDE_CODE_SESSION_ID, CLAUDE_PID и предка-claude; оболочек старше порога не судимо %d' % len(unjudged))
+elif unjudged:
+    proc_notes.append('STALL-PROC: сессия оболочки не определена — не судится: %s' % ', '.join(unjudged[:5]))
 
-print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; фоновых оболочек агентов %d из процессов %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), done_seen, shells, len(procs), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
+for n in proc_notes:
+    print(n)
 for u in unread:
     print('UNREAD %s — журнал агента без единой разобранной записи: застой по нему не судим' % u)
 if findings:
     sys.exit(1)
-if unread:
+if unread or unjudged:
     # Ноль прочитанного — не «застоя нет».
-    print('stall-census: VOID — журналов агентов не прочитано %d из %d: %s' % (len(unread), agents_seen, ', '.join(unread[:5])), file=sys.stderr)
+    if unread:
+        print('stall-census: VOID — журналов агентов не прочитано %d из %d: %s' % (len(unread), agents_seen, ', '.join(unread[:5])), file=sys.stderr)
+    if unjudged:
+        print('stall-census: VOID — STALL-PROC: сессия не определена, оболочек старше порога не судимо %d: %s' % (len(unjudged), ', '.join(unjudged[:5])), file=sys.stderr)
     sys.exit(2)
 sys.exit(0)
 PY
