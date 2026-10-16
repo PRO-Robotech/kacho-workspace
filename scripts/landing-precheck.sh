@@ -205,6 +205,17 @@ for t in jq python3 git; do command -v "$t" >/dev/null 2>&1 || void "нет $t �
 python3 -c 'import yaml' 2>/dev/null || void "нет python3-yaml — условие if задания не разобрать"
 [ -n "${LANDING_PRECHECK_GH:-}" ] || command -v gh >/dev/null 2>&1 || void "нет gh в PATH"
 
+# Лимит площадки — до чтения гейтов (урок 2026-10-16, ws#1110): исчерпан — код 2 со временем
+# сброса. Без scripts/lib рядом (скопирован одним файлом) — VOID ниже, у предиката атрибуции.
+if [ -r "$HERE/lib/gh-rate.sh" ]; then
+    # shellcheck source=lib/gh-rate.sh
+    . "$HERE/lib/gh-rate.sh"
+    if ! RL="$(gh_rate_short "$GH" 300)"; then
+        printf 'REASON\tRATE-LIMIT\t%s\n' "$RL"
+        void "$RL — не выполнилось, не красное: посадку судить после сброса"
+    fi
+fi
+
 W="$(mktemp -d)"
 trap 'rm -rf "$W"' EXIT
 

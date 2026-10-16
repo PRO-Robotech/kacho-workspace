@@ -107,6 +107,9 @@ case "$2" in
         printf '{"encoding":"base64","content":"%s"}\n' "$(base64 -w0 < "$FAKE/wf/$p")" ;;
     */issues/[0-9]*)
         n="${2##*/}"; printf '{"number":%s,"labels":[],"sub_issues_summary":{"total":0,"completed":0}}\n' "$n" ;;
+    rate_limit)
+        [ -f "$FAKE/rate_limit.json" ] || { echo "fake gh: лимита в случае нет" >&2; exit 64; }
+        cat "$FAKE/rate_limit.json" ;;
     *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
 esac
 GH
@@ -480,6 +483,16 @@ twin; run 0
 if grep -q 'пункт (з) НЕ СУДИЛСЯ' "$W/out"; then echo "  [OK]   без --stand-report пункт (з) назван несуждённым"; pass=$((pass + 1))
 else echo "  [FAIL] без --stand-report нет строки «пункт (з) НЕ СУДИЛСЯ»" >&2; fail=$((fail + 1)); fi
 
+echo "== лимит площадки — до чтения гейтов (урок 2026-10-16, ws#1110)"
+# Исчерпанный лимит — «не выполнилось» со временем сброса (код 2), а не красное и не
+# тайм-аут; близнец — остаток ровно на пороге 300: посадка судится как обычно.
+rate() { jq -n --argjson r "$1" '{resources: {core: {limit: 5000, remaining: $r, reset: 1760620800}, graphql: {limit: 5000, remaining: 4000, reset: 1760620800}}}' > "$W/case/rate_limit.json"; }
+twin; rate 12; run 0
+expect 2 $'REASON\tRATE-LIMIT\tлимит REST: остаток 12 из 5000 < порога 300, сброс в ' "лимит REST ниже 300 — код 2 со временем сброса, а не красное"
+if grep -q 'не выполнилось, не красное' "$W/out" && ! grep -q '^CENSUS' "$W/out"; then echo "  [OK]   при исчерпанном лимите гейты не читались (переписи нет), отказ назван «не выполнилось»"; pass=$((pass + 1))
+else echo "  [FAIL] исчерпанный лимит: гейты читались либо отказ не назван" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1)); fi
+twin; rate 300; run 0; expect 0 - "близнец: остаток ровно на пороге — посадка судится, код 0"
+
 echo "== (д) настоящий merge-readiness из origin/main — вместе с тем, что он подключает"
 # Подмены merge-readiness здесь НЕТ: предпроверка извлекает его из origin/main
 # песочницы-воркспейса (LANDING_PRECHECK_WS) так же, как из настоящего, и он судит
@@ -520,6 +533,10 @@ if grep -q $'^CENSUS\tmerge-readiness: код 0, источник origin/main@' 
 else
     echo "  [FAIL] перепись не называет «merge-readiness: код 0, источник origin/main@»:" >&2; sed 's/^/           /' "$W/out" >&2; fail=$((fail + 1))
 fi
+# Лимит — и у самого merge-readiness (урок 2026-10-16): код 2 «не выполнилось», а не 1.
+rate 12; FAKE="$W/case" PATH="$W:$PATH" bash "$W/ws/scripts/merge-readiness.sh" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
+expect 2 $'REASON\tRATE-LIMIT\tлимит REST: остаток 12 из 5000 < порога 300, сброс в ' "merge-readiness при исчерпанном лимите — код 2 со временем сброса"
+rm -f "$W/case/rate_limit.json"
 # Набор обязательных — от НАСТОЯЩЕГО merge-readiness (MERGE_READINESS_REQUIRED_OUT):
 # skipped задания вне защиты снимается, а тот же merge-readiness без записи набора
 # (инъекция в него) оставляет skipped причиной — снятие держится его набором, а не

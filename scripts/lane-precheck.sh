@@ -19,6 +19,9 @@
 # РЕЖИМ ПРЕДУСЛОВИЙ (ws#1071, база диспетчера §3) — ДО раздачи задания: задание с
 # ложным предусловием не уходит. Строка файла — одно предусловие закрытого словаря
 # (`#` и пустые строки — не предусловия):
+#   task <владелец/репо>#<N>                      номер задачи полосы: N — ^[0-9]+$ (иначе ложно:
+#                                                 урок 2026-10-16 — в шаблон подставился текст
+#                                                 отказа, полоса ушла без N), задача есть и не PR;
 #   pr <владелец/репо>#<N> <MERGED|OPEN|CLOSED>   состояние PR (GET pulls/<N>);
 #   branch <владелец/репо> <ветка>                ветка на origin (GET branches/<ветка>);
 #   proof <владелец/репо>#<N>                     у задачи есть `DoD-proof @<sha>`;
@@ -126,6 +129,14 @@ if [ -n "$premise" ]; then
         n=$((n + 1))
         read -r kind a b _ <<< "$line"
         case "$kind" in
+            task)
+                r="${line#task }"; r="${r%%#*}" num="${line#*#}"
+                if [ "$r" = "$line" ] || [ "$num" = "$line" ] || ! [[ "$r" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
+                if ! [[ "$num" =~ ^[0-9]+$ ]]; then reasons+=("PREMISE-FALSE $line: номер задачи «$num» не ^[0-9]+$ — полоса не раздаётся"); continue; fi
+                got="$(ghget "repos/$r/issues/$num" 'if .pull_request then "PR" else "ISSUE" end')"; rc=$?
+                if [ "$rc" = 3 ]; then reasons+=("PREMISE-FALSE $line: задачи нет")
+                elif [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
+                elif [ "$got" != ISSUE ]; then reasons+=("PREMISE-FALSE $line: это PR, а не задача"); fi ;;
             pr)
                 r="${a%%#*}" num="${a##*#}"
                 if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ] || ! [[ "$b" =~ ^(MERGED|OPEN|CLOSED)$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
