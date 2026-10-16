@@ -49,6 +49,9 @@ run_in_background отсоединением не считается: живой
   · запуск в ЦИКЛЕ while/until/for/select — при любом сроке, под timeout и меткой: повтор
     ожидания делает шаблон волны, а не агент (код ≠ 3 ci-wait.sh возвращает сразу — цикл
     без паузы опрашивает GitHub подряд).
+Подстановка `$(…)`/`…` судится как простая команда там, где стоит: в теле и УСЛОВИИ цикла
+— в цикле; в ветках if — в сумме за вызов (ветки складываются: верхняя граница); заголовок
+`for v in $(…)` и хвост `done < <(…)` исполняются раз — вне цикла; у `… &` — в фоне.
 Судится УЗЕЛ запуска, а не слово: путь командой, оболочка со скриптом (кроме `-n`),
 `.`/source, рецепт «ЗАПУСК» (`S=…/ci-wait.sh … bash -c "$R" _ <доводы>`), переменная,
 которой путь присвоен в той же строке (`CW=…/ci-wait.sh; bash "$CW" …`). Путь в данных —
@@ -242,6 +245,19 @@ def tokens(text):
     ('kw', ключевое слово в позиции команды), ('subst', текст $(…)/`…`)."""
     out, cur, i, n, quote = [], [], 0, len(text), None
 
+    def lead():
+        """Ключевые слова в начале команды — лексемами ДО её подстановки: `do x=$(…)`,
+        `then …`, `while [ "$(…)" ]` — подстановка принадлежит команде после слова, а не
+        узлу перед ним (иначе она судится вне тела цикла и ветки if; ws#1114)."""
+        seg = "".join(cur)
+        while True:
+            m = re.match(r"^\s*(\S+)\s+", seg)
+            if not m or m.group(1) not in OPENERS | set(CLOSERS) | TRANSPARENT:
+                break
+            out.append(("kw", m.group(1)))
+            seg = seg[m.end():]
+        cur[:] = [seg] if seg else []
+
     def flush():
         seg = "".join(cur).strip()
         cur.clear()
@@ -274,6 +290,7 @@ def tokens(text):
             while j < n and depth:
                 depth += {"(": 1, ")": -1}.get(text[j], 0)
                 j += 1
+            lead()
             out.append(("subst", text[i + 2:j - 1]))
             cur.append("__SUBST__")
             i = j
@@ -281,6 +298,7 @@ def tokens(text):
         if c == "`":
             j = text.find("`", i + 1)
             j = n if j < 0 else j
+            lead()
             out.append(("subst", text[i + 1:j]))
             cur.append("__SUBST__")
             i = j + 1
@@ -308,6 +326,7 @@ def tokens(text):
             while j < n and depth:
                 depth += {"(": 1, ")": -1}.get(text[j], 0)
                 j += 1
+            lead()
             out.append(("subst", text[i + 2:j - 1]))
             cur.append("__SUBST__")
             i = j
@@ -350,10 +369,15 @@ class Parser:
     def peek(self):
         return self.t[self.i] if self.i < len(self.t) else (None, None)
 
-    def skip_redirs(self):
-        """`done > журнал`, `) 2>&1` — хвост перенаправлений группы, не команда."""
+    def skip_redirs(self, node):
+        """`done > журнал`, `) 2>&1`, `done < <(…)` — хвост перенаправлений группы, не
+        команда; его подстановки — группе (исполняются раз, до неё, а не в теле)."""
+        at = self.i
+        while self.peek()[0] == "subst":
+            self.i += 1
         k, v = self.peek()
         if k != "cmd":
+            self.i = at
             return None
         ws, j = v.split(), 0
         while j < len(ws):
@@ -362,7 +386,9 @@ class Parser:
             elif hg.REDIR_WORD.match(ws[j]):
                 j += 1
             else:
+                self.i = at
                 return None
+        node.substs += [t[1] for t in self.t[at:self.i]]
         self.i += 1
         return v
 
@@ -424,13 +450,11 @@ class Parser:
         if k == "op" and v == "(":
             self.i += 1
             kids = self.parse_list({")"})
-            redir = None
-            if self.peek() == ("op", ")"):
-                self.i += 1
-                redir = self.skip_redirs()
             node = Node("group", kids=kids)
             node.substs = substs
-            node.redir = redir
+            if self.peek() == ("op", ")"):
+                self.i += 1
+                node.redir = self.skip_redirs(node)
             return node
         if k == "kw" and v in OPENERS:
             self.i += 1
@@ -449,13 +473,11 @@ class Parser:
                     self.i += 1
             else:
                 kids = self.parse_list({closer})
-            redir = None
-            if self.peek() == ("kw", closer):
-                self.i += 1
-                redir = self.skip_redirs()
             node = Node("group", kids=kids, loop=v if v in ("while", "until", "for", "select") else None)
             node.substs = substs
-            node.redir = redir
+            if self.peek() == ("kw", closer):
+                self.i += 1
+                node.redir = self.skip_redirs(node)
             return node
         if k == "kw" and v in TRANSPARENT:
             self.i += 1
@@ -622,8 +644,8 @@ class Judge:
             ctx = dict(ctx, busy=True)
         elif n.feed is not None:
             ctx = dict(ctx, busy=False)
-        for s in n.substs:  # подстановку оболочка ждёт до команды
-            self.text(s, dict(ctx, bg=ctx["bg"]))
+        for s in n.substs:  # подстановку оболочка ждёт до команды; у `… &` — в фоне с ней
+            self.text(s, dict(ctx, bg=bg))
         if n.kind == "group":
             # timeout < FOR_MAX над циклом ограничивает его сам — не ожидание
             bounded = ctx["tmo"] is not None and ctx["tmo"] < FOR_MAX
@@ -634,8 +656,12 @@ class Judge:
                 if total is None or total >= FOR_MAX:
                     self.add("for-sleep", " ".join(k.text or "…" for k in n.kids[:3]), ctx["tmo"])
             c = dict(ctx, bg=bg, loop=ctx["loop"] or (n.loop in ("while", "until")))
-            mark = len(self.ciw)  # запуски ci-wait.sh в теле группы (ws#1114)
-            for k in n.kids:
+            kids = n.kids
+            if n.loop in ("for", "select") and kids:  # заголовок `for v in $(…)` — раз, до цикла
+                self.node(kids[0], c)
+                kids = kids[1:]
+            mark = len(self.ciw)  # запуски ci-wait.sh в теле и условии цикла (ws#1114)
+            for k in kids:
                 self.node(k, c)
             if n.loop and len(self.ciw) > mark:
                 self.add("ci-wait", "%s — в цикле %s: повтор ожидания CI делает шаблон волны, а не агент"

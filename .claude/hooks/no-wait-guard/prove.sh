@@ -223,6 +223,29 @@ denies "$CIW" "$CWS --max 300; $CWS --max 241"
 denies "$CIW" "v=\$($CWS --max 540); w=\$($CWS --max 540)"
 denies "$LOOP" "while bash /ws/scripts/ci-read.sh PRO-Robotech/kacho 7; [ \$? = 3 ]; do sleep 60; done"
 denies "$LOOP" "while :; do $CWS --max 540; sleep 1; done"
+echo "   подстановка в теле и условии цикла — запуск в цикле (возврат check-verifier @99637b3c7)"
+denies "$CIW" "while :; do out=\$($CWS --max 540); done"
+reason 'в цикле while'
+denies "$CIW" "while :; do out=\`$CWS --max 540\`; done"
+denies "$CIW" "until false; do echo \"\$($CWS --max 540)\"; done"
+reason 'в цикле until'
+denies "$CIW" "for i in 1 2; do x=\$($CWS --max 60); done"
+reason 'в цикле for'
+denies "$CIW" "for i in 1 2; do x=\`$CWS --max 60\`; done"
+denies "$CIW" "while [ \"\$($CWS --max 540)\" != ok ]; do :; done"
+denies "$CIW" "until [ \"\$($CWS --max 540)\" = ok ]; do :; done"
+denies "$CIW" "while out=\$($CWS --max 540); [ \"\$out\" != ok ]; do :; done"
+denies "$CIW" "until [ \"\`$CWS --max 540\`\" = ok ]; do :; done"
+denies "$CIW" "select o in a b; do x=\$($CWS --max 60); done"
+reason 'в цикле select'
+echo "   срок в ветках if и в хвосте перенаправлений — в сумме за вызов"
+denies "$CIW" "if true; then x=\$($CWS --max 900); fi"
+reason 'за вызов 900 с'
+denies "$CIW" "if false; then :; else x=\$($CWS --max 900); fi"
+denies "$CIW" "if false; then :; elif x=\$($CWS --max 900); then :; fi"
+denies "$CIW" "if true; then x=\$($CWS --max 300); fi; y=\$($CWS --max 300)"
+reason 'за вызов 600 с, запусков 2'
+denies "$CIW" "while read -r l; do :; done < <($CWS --max 900)"
 echo "   законные близнецы той же формы: один запуск, сумма ≤ 540, путь в данных, фон"
 passes "$CWS --max 540 || echo \"код \$?\""
 passes "$CWS --max 270 && $CWS --max 270"
@@ -236,6 +259,15 @@ passes "bash -n /ws/scripts/ci-state/ci-wait.sh && $CWS --max 540"
 passes "shellcheck /ws/scripts/ci-state/ci-wait.sh && $CWS --max 540"
 passes "while :; do $CWS --max 540; done > l 2>&1 &"
 passes "$CWS --max 540 > l 2>&1 & $CWS --max 540"
+echo "   законные близнецы подстановки: раз до цикла, сумма ≤ 540, путь в данных, фон"
+passes "for x in \`$CWS --max 540\`; do echo \"\$x\"; done"
+passes "if x=\$($CWS --max 540); then echo \"\$x\"; fi"
+passes "if true; then x=\$($CWS --max 270); fi; y=\$($CWS --max 270)"
+passes "while read -r l; do echo \"\$l\"; done < <($CWS --max 540)"
+passes "while :; do n=\$(grep -c -- --max /ws/scripts/ci-state/ci-wait.sh); break; done"
+passes "until x=\$(bash -n /ws/scripts/ci-state/ci-wait.sh); do :; done"
+passes "echo \"\$($CWS --max 540)\" > l 2>&1 & $CWS --max 540"
+passes "while :; do x=\$($CWS --max 540); done > l 2>&1 &"
 
 echo "== метка исключения — только ci-watcher, ≤ 9 мин, под timeout ≤ N·60"
 passes 'timeout 540 gh run watch 1 # no-wait-exempt ci-watcher 9m'
@@ -324,6 +356,11 @@ mutant "ci-wait: source не узнан"     'if base in (".", "source"):' 'if F
 mutant "ci-wait: первый --max"        'v = vals[-1]' 'v = vals[0]' "$CWS --max 100 --max 900"
 mutant "ci-wait: цикл под меткой снят"  '% (self.ciw[mark], n.loop), None)' '% (self.ciw[mark], n.loop), ctx["tmo"])' "timeout 500 bash -c 'while :; do $CWS --max 100; done' # no-wait-exempt ci-watcher 9m"
 mutant "ci-wait: не вычислимое — ноль" 'else float("inf")' 'else 0.0' "$CWS --max \"\$M\""
+mutant "ci-wait: условие цикла — вне цикла" 'm = re.match(r"^\s*(\S+)\s+", seg)' 'm = None' "while [ \"\$($CWS --max 540)\" != ok ]; do :; done"
+mutant "ci-wait: ветка then теряет подстановку" 'm = re.match(r"^\s*(\S+)\s+", seg)' 'm = None' "if true; then x=\$($CWS --max 900); fi"
+mutant "ci-wait: заголовок for — в цикле" 'if n.loop in ("for", "select") and kids:' 'if False and kids:' "for x in \$($CWS --max 540); do echo \"\$x\"; done"
+mutant "ci-wait: хвост < <(…) теряется" 'node.substs += [t[1] for t in self.t[at:self.i]]' 'pass' "while read -r l; do :; done < <($CWS --max 900)"
+mutant "ci-wait: подстановка фона судится" 'self.text(s, dict(ctx, bg=bg))' 'self.text(s, dict(ctx, bg=ctx["bg"]))' "echo \"\$($CWS --max 540)\" > l 2>&1 & $CWS --max 540"
 mutant "цикл не судится"            'loop=ctx["loop"] or (n.loop in ("while", "until"))' 'loop=ctx["loop"]' 'until test -f x; do sleep 5; done'
 mutant "& не отсоединяет"           'bg = ctx["bg"] or n.bg' 'bg = ctx["bg"]' 'setsid nohup timeout 3600 go test ./... > l 2>&1 &'
 mutant "for не судится"             'if n.loop in ("for", "select") and not bg' 'if False and not bg' 'for i in $(seq 60); do sleep 10; done'
@@ -344,7 +381,7 @@ mutant "tail --pid не судится"      'pid = any(a == "--pid" or a.starts
 mutant "gh run watch пропущен"      'if sub[:2] == ["run", "watch"] or' 'if False or' 'gh run watch 1'
 mutant "bash -c не разбирается"     '                self.text(cmd, dict(ctx, bg=bg, tmo=bound))' '                pass' 'bash -c "until x; do sleep 1; done"'
 mutant "heredoc в конвейер не судится" 'for seg in line.split("|"):' 'for seg in line.split("|")[:1]:' $'cat <<EOF | bash\nwhile :; do sleep 1; done\nEOF'
-mutant "подстановка не судится"     '            self.text(s, dict(ctx, bg=ctx["bg"]))' '            pass' 'x=$(sleep 900)'
+mutant "подстановка не судится"     '            self.text(s, dict(ctx, bg=bg))' '            pass' 'x=$(sleep 900)'
 mutant "метка без timeout"          'left = [f for f in j.found if f.bound is None or f.bound > limit]' 'left = []' 'gh run watch 1 # no-wait-exempt ci-watcher 9m'
 mutant "метка любого агента"        '    if agent_type and agent_type != "ci-watcher":' '    if False:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 9m' go-implementer
 mutant "метка сверх 9 мин"          'if mins > EXEMPT_MAX_MIN or mins < 1:' 'if mins < 1:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 10m'
