@@ -27,7 +27,8 @@
 #                вызов ≤ 10 мин, поэтому «нет нового вызова» его не видит.
 #   Завершённый агент — последняя запись user/assistant журнала есть ответ модели
 #                без вызова инструмента с stop_reason end_turn | stop_sequence |
-#                refusal — не судится ни STALL-AGENT, ни STALL-POLL: хвост его
+#                refusal либо без stop_reason при журнале, молчащем STALL_AGENT_MIN
+#                (ws#1130) — не судится ни STALL-AGENT, ни STALL-POLL: хвост его
 #                опросов — история, а не ожидание (ws#1110: agent-ad76971c71962c092
 #                вернул итог, а перепись звала его STALL-POLL по вызовам до итога).
 #                Возобновлённый (SendMessage) снова судим: после итога — запись user.
@@ -242,7 +243,8 @@ def poll_run(path, size=262144):
 def last_message(path):
     """(время, вид, вызов): вид — 'tool' | 'result' | 'final' | 'done' | 'progress' | None.
 
-    'final' — ответ модели без вызова с stop_reason из FINAL_STOP: агент завершён;
+    'final' — ответ модели без вызова с stop_reason из FINAL_STOP либо без
+    stop_reason при журнале, молчащем порог агента: агент завершён;
     'done' — ответ без вызова, но ход не объявлен оконченным.
 
     None — в журнале нет ни одной разобранной записи-объекта: журнал НЕ прочитан.
@@ -268,7 +270,18 @@ def last_message(path):
     if r['type'] == 'assistant':
         uses = [c for c in content if isinstance(c, dict) and c.get('type') == 'tool_use']
         if not uses:
-            return t, ('final' if r['message'].get('stop_reason') in FINAL_STOP else 'done'), ''
+            # Итог пишется и без stop_reason (65 журналов агентов проекта, ws#1130:
+            # agent-a36ae50961e5c41b1); журнал, молчащий порог агента, несёт итог.
+            # Замер 2026-10-17, предикат: запись assistant без tool_use со stop_reason
+            # null, следующая запись user/assistant журнала — assistant с tool_use;
+            # разрыв их меток времени. Выборка — все *.jsonl под ~/.claude/projects:
+            # 364 702 продолжения, наибольший разрыв 740 с (kacho-workspace: 334 886,
+            # 582 с). Запас до порога 900 с — 160 с. ПОРОГ НИЖЕ 13 МИН ЛОМАЕТ ГРАНИЦУ:
+            # живой агент, дописывающий вызов, будет принят за завершённый.
+            # stop_reason tool_use — вызов впереди, итогом не бывает.
+            sr = r['message'].get('stop_reason')
+            fin = sr in FINAL_STOP or (sr is None and now - os.path.getmtime(path) >= AGENT_MIN * 60)
+            return t, ('final' if fin else 'done'), ''
         u = uses[-1]
         if u.get('name') == 'StructuredOutput':
             return t, 'done', ''

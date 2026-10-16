@@ -33,7 +33,8 @@ pass=0 fail=0
 # midthink, midtext — промежуточная запись хода: thinking или text со
 # stop_reason tool_use без вызова, вызов ещё впереди (живая форма: 1902 записи
 # на 4000 журналов агентов проекта, приёмка ws#1110);
-# done — ответ без вызова, ход не объявлен оконченным; ask — новое сообщение
+# done — ответ без вызова и без stop_reason: итог, если журнал молчит порог
+# агента, иначе ход может продолжиться вызовом (ws#1130); ask — новое сообщение
 # агенту (возобновление SendMessage).
 rec() {
     local f="$1" m="$2" kind="$3" cmd="${4:-go test ./...}" t
@@ -122,9 +123,23 @@ finish_cases() {
     s="$(session fin-resumed)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     rec "$a" 50 final; rec "$a" 40 ask; rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 3 tool "timeout 30 gh pr checks 1119"
     probe 1 "инъекция: итог, затем возобновление и два опроса — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
-    s="$(session fin-open)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    # ws#1130: agent-a36ae50961e5c41b1 вернул итог записью без stop_reason, журнал
+    # молчал 150 мин, а перепись звала его STALL-POLL со счётом минут от первого опроса.
+    s="$(session fin-quiet)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 "done"
-    probe 1 "инъекция: текст без stop_reason после опросов — ход не окончен, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    probe 0 "близнец: опросы, затем текст без stop_reason и журнал молчит 24 мин (порог агента 15) — итог, молчит" "завершённых (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session fin-quiet-wf)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 "done"
+    probe 0 "близнец: то же в workflow — итог, молчит" "завершённых (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session fin-edge-14)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 14 "done"
+    probe 1 "граница: текст без stop_reason, журнал молчит 14 мин (порог 15) — ход может продолжиться, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session fin-edge-16)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 16 "done"
+    probe 0 "граница: тот же журнал молчит 16 мин — итог, молчит" "завершённых (не судятся) 1" --session "$s" --ps "$T/ps"
+    s="$(session fin-open)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 3 "done"
+    probe 1 "инъекция: текст без stop_reason 3 мин назад после опросов — вызов может следовать, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
     s="$(session fin-midthink)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 midthink
     probe 1 "инъекция: thinking со stop_reason tool_use без вызова после опросов — ход не окончен, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
@@ -160,9 +175,11 @@ MUTPY
     fi
 }
 fmutant "не проверять завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ()"
-fmutant "завершение — любой ответ без вызова" "('final' if r['message'].get('stop_reason') in FINAL_STOP else 'done')" "'final'"
+fmutant "завершение — любой ответ без вызова" "('final' if fin else 'done')" "'final'"
+fmutant "итог без stop_reason не узнаётся (до ws#1130)" " or (sr is None and now - os.path.getmtime(path) >= AGENT_MIN * 60)" ""
+fmutant "тишина журнала не различается" "sr is None and now - os.path.getmtime(path) >= AGENT_MIN * 60" "sr is None"
 fmutant "tool_use — завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal', 'tool_use')"
-fmutant "завершение — любой непустой stop_reason" "r['message'].get('stop_reason') in FINAL_STOP" "r['message'].get('stop_reason')"
+fmutant "завершение — любой непустой stop_reason" "sr in FINAL_STOP or" "sr or"
 fmutant "завершённый в workflow не пропускается" $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1\n                continue' $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1'
 fmutant "давность не различается" $'\n            if age_file < DONE_MIN * 60:\n                agents_seen += 1\n            continue' $'\n            agents_seen += 1\n            continue'
 
