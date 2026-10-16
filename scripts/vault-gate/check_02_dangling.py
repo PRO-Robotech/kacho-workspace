@@ -33,14 +33,14 @@ def read_baseline(path: str) -> dict[str, int] | None:
                 continue
             count, _, target = line.partition("\t")
             out[target.strip()] = int(count.strip())
-        return out or None
+        return out   # пустое основание — цель, а не отказ (`testing.md#empty-ledger-must-pass`)
     except (OSError, ValueError):
         return None
 
 
 def collect(root: str) -> tuple[collections.Counter, dict[str, str], int, int]:
     files = V.vault_files(root)
-    notes = V.notes(files)
+    notes = V.active(V.notes(files))   # источник — ведомые каталоги; цель — всё хранилище
     resolver = V.Resolver(files)
     dangling: collections.Counter[str] = collections.Counter()
     where: dict[str, str] = {}
@@ -64,7 +64,7 @@ def main() -> int:
     dangling, where, total, n_notes = collect(root)
 
     if n_notes == 0:
-        print(f"[VOID] {CHECK} — в индексе git нет ни одной записки хранилища", file=sys.stderr)
+        print(f"[VOID] {CHECK} — в индексе git нет ни одной записки ведомых каталогов {V.ACTIVE}", file=sys.stderr)
         return 2
     if total == 0:
         print(f"[VOID] {CHECK} — прочитано записок {n_notes}, ссылок в них ноль: читать нечего", file=sys.stderr)
@@ -90,7 +90,7 @@ def main() -> int:
     for t, c in dangling.items():
         by_kind[V.link_kind(t)] += c
     scope = (
-        f"осмотрено записок {n_notes}, ссылок {total}; висячих {sum(dangling.values())} "
+        f"осмотрено записок {n_notes} (каталоги {', '.join(V.ACTIVE)}; архив заморожен), ссылок {total}; висячих {sum(dangling.values())} "
         f"на {len(dangling)} целей (категорийных {by_kind['cat']}, коротких {by_kind['bare']}, KAC {by_kind['KAC']})"
     )
 
