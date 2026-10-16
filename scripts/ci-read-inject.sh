@@ -91,6 +91,14 @@
 #   лимит REST ниже порога 100 (урок 2026-10-16)                  → 2 RATE-LIMIT
 #             близнец: остаток ровно на пороге                     → 0 green
 #   пары репозиторий/база нет в ведомости                          → 2 VOID
+#   сводный вердикт commit status вместо check-run (ws#1113), форма выводится из
+#             фикстуры: success → 0; pending → 3; failure → 1 REQUIRED-NOT-SUCCESS;
+#             error → 1 CI-FAILED; статуса ещё нет → 3 (не REQUIRED-MISSING)
+#   обе формы одного имени: красное из двух побеждает, затем незавершённое → 1 | 3;
+#             обе success — имя одно                                → 0 green
+#   условное чтение: повтор тем же кэшем без смены — 304 у 6 из 6  → 0 green;
+#             между чтениями сменились ветка базы | commit status |
+#             черновик — кэш смену не прячет                       → 4 | 1 | 3
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
 #   живая ведомость: запрос в базу КАЖДОЙ строки (стволы и эпики,
@@ -154,6 +162,10 @@
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
 #   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
 #   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
+#   both-forms-checkrun-wins — у имени с обеими формами судится первая запись, красное
+#                         и незавершённое не побеждают (прежняя форма слияния, ws#1113);
+#   etag-hit-blind      — любой ответ при условном чтении принят за 304: тело из кэша;
+#   etag-hit-blind-any  — кэш отдаётся без запроса, едва ETag есть (ws#1113);
 #   red-wins-while-running — красное при идущих снова 1: ожидание прервано на первом
 #                         красном (ws#1110);
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
@@ -181,59 +193,9 @@ jq -e '.draft == false' "$FX/pull.json" >/dev/null || { echo "VOID: в $FX/pull.
 T="$(mktemp -d "${TMPDIR:-/tmp}/ci-read-inject.XXXXXX")" || exit 2
 trap 'rm -rf "$T"' EXIT
 
-# Двойник gh: путь (последний довод) → файл в каталоге $CI_READ_FX; файла нет — 404.
-# Страницы — как у площадки: <файл>.p2 рядом — вторая страница; без --paginate
-# отдаётся только первая, с ним — обе подряд (поток JSON, как печатает gh).
-# Аннотации: annotations.<id>.json — для проверки <id>; файла нет — ЖИВАЯ форма по
-# заключению проверки <id> из check-runs.json (+ .p2), как отдаёт площадка (снимок
-# kaname, голова f11cbe7, 2026-10-12; ws#1019, N1 check-verifier): у failure —
-# аннотация failure с ПУСТЫМ title и message «Process completed with exit code 1.»,
-# у cancelled — «The operation was canceled.», у завершённой не skipped — notice
-# раннера; у skipped — []. Проверки с таким id нет — 404, как у площадки. Пустой
-# список у упавшей проверки — форма, которой площадка не отдаёт: случаи на ней не
-# различали «аннотация есть» и «аннотация стража есть» (мутант N1 выжил 45/45).
-# Общего файла «на все проверки» нет: аннотация стража лежит у одной проверки.
-cat > "$T/gh" <<'GH'
-#!/usr/bin/env bash
-p="${!#}"
-pg=0; for a in "$@"; do [ "$a" != --paginate ] || pg=1; done
-case "$p" in
-  repos/*/pulls/*) f=pull.json ;;
-  repos/*/commits/*/check-runs*) f=check-runs.json ;;
-  repos/*/commits/*/status) f=status.json ;;
-  repos/*/actions/runs*) f=runs.json ;;
-  repos/*/branches/*/protection/required_status_checks) f=protection.json ;;
-  repos/*/rules/branches/*) f=rules.json ;;
-  repos/*/branches/*) f=branch.json ;;
-  repos/*/compare/*) f=compare.json ;;
-  rate_limit) f=rate_limit.json ;;
-  repos/*/check-runs/*/annotations)
-    id="${p#repos/*/check-runs/}"; id="${id%/annotations}"
-    if [ -f "$CI_READ_FX/annotations.$id.json" ]; then f="annotations.$id.json"
-    else
-      c="$(cat "$CI_READ_FX/check-runs.json" "$CI_READ_FX/check-runs.json.p2" 2>/dev/null \
-          | jq -rs --argjson i "$id" '[.[].check_runs[] | select(.id == $i)] | if length == 0 then "absent" else (last | "\(.status)/\(.conclusion)") end')"
-      ann() { jq -cn --arg l "$1" --arg m "$2" '{path: ".github", blob_href: "", start_line: 1, start_column: null, end_line: 1, end_column: null, annotation_level: $l, title: "", message: $m, raw_details: ""}'; }
-      note="$(ann notice 'runner image notice')"
-      case "$c" in
-        absent) echo "gh: Not Found (HTTP 404) $p" >&2; exit 1 ;;
-        completed/failure) printf '[%s,%s]\n' "$(ann failure 'Process completed with exit code 1.')" "$note" ;;
-        completed/cancelled) printf '[%s,%s]\n' "$(ann failure 'The operation was canceled.')" "$note" ;;
-        completed/skipped) echo '[]' ;;
-        completed/*) printf '[%s]\n' "$note" ;;
-        *) echo '[]' ;;
-      esac
-      exit 0
-    fi ;;
-  *) f=none ;;
-esac
-if [ -f "$CI_READ_FX/$f.err" ]; then cat "$CI_READ_FX/$f.err" >&2; exit 1; fi
-if [ "$f" = rules.json ] && [ ! -f "$CI_READ_FX/$f" ]; then echo '[]'; exit 0; fi
-[ -f "$CI_READ_FX/$f" ] || { echo "gh: Not Found (HTTP 404) $p" >&2; exit 1; }
-cat "$CI_READ_FX/$f"
-if [ "$pg" = 1 ] && [ -f "$CI_READ_FX/$f.p2" ]; then cat "$CI_READ_FX/$f.p2"; fi
-GH
-chmod +x "$T/gh"
+# Двойник gh — общий с пробой демона состояния: scripts/ci-read-fixtures/gh-twin.sh
+# (там же форма ответа, страницы, живая форма аннотаций и условное чтение -i/If-None-Match).
+if ! cp "$HERE/ci-read-fixtures/gh-twin.sh" "$T/gh" || ! chmod +x "$T/gh"; then echo "VOID: нет двойника gh-twin.sh" >&2; exit 2; fi
 # Предпосылка двойника: без файла случая он отдаёт ЖИВУЮ форму — упавшей проверке
 # аннотацию failure с пустым title и message выхода, отменённой — «canceled»,
 # пропущенной — [], неизвестной — 404. Иначе случаи снова судят форму, которой у
@@ -246,6 +208,17 @@ pre() { CI_READ_FX="$T/pre" "$T/gh" api "repos/o/r/check-runs/$1/annotations" 2>
     && pre 3 '. == []' \
     && ! CI_READ_FX="$T/pre" "$T/gh" api repos/o/r/check-runs/9/annotations >/dev/null 2>&1; } \
     || { echo "VOID: двойник gh не отдаёт живую форму аннотаций" >&2; exit 2; }
+# Предпосылка условного чтения (ws#1113): форма живого gh 2.100 — `-i` даёт строку
+# статуса, заголовок Etag и пустую строку перед телом; совпавший If-None-Match — 304,
+# код 1 и «gh: HTTP 304». Иначе случаи условного чтения судят форму, которой нет.
+echo '{"x":1}' > "$T/pre/pull.json"
+# ответ — в файл, затем разбор: grep -q в трубе под pipefail дал бы 141 писателю
+CI_READ_FX="$T/pre" "$T/gh" api -i repos/o/r/pulls/1 > "$T/pre/200" 2>/dev/null
+pre_e="$(tr -d '\r' < "$T/pre/200" | sed -n 's/^Etag: //p')"
+{ [ "$(head -n 1 "$T/pre/200" | tr -d '\r')" = 'HTTP/2.0 200 OK' ] && [ -n "$pre_e" ] \
+    && ! CI_READ_FX="$T/pre" "$T/gh" api -i -H "If-None-Match: $pre_e" repos/o/r/pulls/1 > "$T/pre/304" 2> "$T/pre/304.err" \
+    && [ "$(head -n 1 "$T/pre/304" | tr -d '\r')" = 'HTTP/2.0 304 Not Modified' ] && [ "$(cat "$T/pre/304.err")" = 'gh: HTTP 304' ]; } \
+    || { echo "VOID: двойник gh не отдаёт форму условного чтения (-i, If-None-Match → 304)" >&2; exit 2; }
 
 # Исполнитель одной клетки матрицы: <сценарий ci-read> <живая ведомость> <каталог
 # случая> <файл исхода>. Исход — строка «OK|FAIL TAB код»; при FAIL следом хвост вывода.
@@ -261,7 +234,12 @@ if [ -f "$C/row" ]; then
     awk -F'\t' -v OFS='\t' -v r="$rr" -v b="$rb" -v n="$(cat "$C/fxn")" \
         '!/^#/ && $1==r && $2==b {$3=n} {print}' "$LV" > "$L"
 fi
-out="$(CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 2>&1)"; code=$?
+# кэш условного чтения — свой у клетки: клетки идут параллельно и судят разные ответы
+out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 $(cat "$C/args" 2>/dev/null) 2>&1)"; code=$?
+if [ -d "$C/2" ]; then  # второе чтение тем же кэшем условного чтения по ответам $C/2: судится оно
+    out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C/2" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 2>&1)"; code=$?
+fi
+rm -rf "$O.state"
 pat="$(cat "$C/pat")"
 if [ "$code" -eq "$(cat "$C/code")" ] && { [ -z "$pat" ] || grep -qP "$pat" <<<"$out"; } && grep -qP "^VERDICT\t" <<<"$out"; then
     printf 'OK\t%s\n' "$code" > "$O"
@@ -564,6 +542,56 @@ while IFS=$'\t' read -r rr rb; do
     run "строка $rr / $rb: число сверяется" 3 "^REASON\tCHECKS-INCOMPLETE\tпроверок $FX_N из $((FX_N + 1))" "row:$rb:$((FX_N + 1))" "$rr"
 done < "$ROWS"
 
+say "== сводный вердикт commit status вместо check-run (ws#1113): обе формы"
+# Форма status выводится из той же фикстуры, а не копией: проверка «$AGG_REQ» и прогон
+# её workflow «сводный вердикт» сняты, тот же контекст — commit status (как его пишет
+# площадка: context, state, created_at, updated_at). Различных имён по-прежнему 68.
+# Имя в образце — \Q…\E: скобки в нём — не группа регулярного выражения.
+status_form() {  # status_form <state commit status> — в каталоге случая $C
+    edit check-runs.json ".check_runs |= map(select(.name != \"$AGG_REQ\"))"
+    edit runs.json '.workflow_runs |= map(select(.name != "сводный вердикт"))'
+    edit status.json ".state = \"$1\" | .statuses = [{context: \"$AGG_REQ\", state: \"$1\", created_at: \"2026-10-10T21:48:47Z\", updated_at: \"2026-10-10T21:48:47Z\"}]"
+}
+mk; status_form success
+jq -e --arg n "$AGG_REQ" '[.check_runs[] | select(.name == $n)] | length == 0' "$C/check-runs.json" >/dev/null \
+    || { echo "VOID: форма status — проверка «$AGG_REQ» осталась check-run" >&2; exit 2; }
+run "форма status: сводный вердикт success" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+mk; status_form pending
+run "форма status: сводный вердикт pending — идёт" 3 "^REASON\tCI-PENDING\tне завершена: \Q$AGG_REQ\E"
+mk; status_form failure
+run "форма status: сводный вердикт failure" 1 "^REASON\tREQUIRED-NOT-SUCCESS\tобязательный контекст failure: \Q$AGG_REQ\E"
+mk; status_form error
+run "форма status: сводный вердикт error — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+mk; status_form success; edit status.json '.state = "pending" | .statuses = []'
+run "форма status: статус ещё не выставлен — идёт, не REQUIRED-MISSING" 3 "^REASON\tCI-PENDING\tобязательный контекст ещё не появился: \Q$AGG_REQ\E"
+# обе формы разом (переход): check-run прежней формы и commit status новой — одно имя
+both() {  # both <заключение check-run> <state commit status>
+    mk; edit check-runs.json ".check_runs |= map(if .name == \"$AGG_REQ\" then .conclusion = \"$1\" end)"
+    edit status.json ".statuses = [{context: \"$AGG_REQ\", state: \"$2\", created_at: \"2026-10-10T21:50:00Z\", updated_at: \"2026-10-10T21:50:00Z\"}]"
+}
+both success failure
+run "обе формы: check-run success, status failure — красное не закрыто" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+both success pending
+run "обе формы: check-run success, status pending — идёт" 3 "^REASON\tCI-PENDING\tне завершена: \Q$AGG_REQ\E"
+both failure success
+run "обе формы: check-run failure, status success — красное" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+both success success
+run "обе формы: обе success — имя одно, 68 из 68" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
+
+say "== условное чтение If-None-Match (ws#1113): 304 не расходует лимит и не прячет смену"
+# Второе чтение тем же кэшем — по ответам $C/2: неизменное приходит 304 и берётся из
+# кэша; изменившееся — 200 с новым телом. Кэш, отдающий прежнее тело при сменившемся
+# ответе, прочёл бы голову по устаревшему.
+again() { mkdir -p "$C/2"; cp "$C"/*.json "$C/2/"; }
+mk; again
+run "повтор без смены: тот же зелёный, условных 6, из кэша 6" 0 '^ci-read: условных чтений 6, не изменилось 6$'
+mk; again; jq '.commit.sha="1111111111111111111111111111111111111111"' "$C/branch.json" > "$C/2/branch.json"
+run "между чтениями база ушла вперёд — 4, кэш не прячет" 4 '^REASON\tBASE-STALE\tmerge-base '
+mk; again; jq --arg n "$AGG_REQ" '.statuses = [{context: $n, state: "failure"}]' "$C/status.json" > "$C/2/status.json"
+run "между чтениями commit status стал failure — 1" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
+mk; again; jq '.draft = true' "$C/pull.json" > "$C/2/pull.json"
+run "между чтениями запрос стал черновиком — читается черновиком" 3 '^REASON\tDRAFT-GUARD-PENDING\t'
+
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
 run "прежний failure первым в ответе, последний success" 0 '^VERDICT\tgreen\t'
@@ -622,6 +650,9 @@ null-suite-ignored	/map(\.ev = \$ev\[/s/map(\.ev = /map(select(.check_suite != n
 expect-compare-dropped	/then reason CHECKS-INCOMPLETE/s/\[ "$NAMES" -lt "$EXPECT" \]/false/
 red-wins-while-running	/^if \[ "$REDN" -gt 0 \] \&\& ! has/s/ \&\& ! has "$PEND"//
 rate-limit-dropped	/^if ! RL="$(gh_rate_short/s/if ! RL=/if false \&\& ! RL=/
+both-forms-checkrun-wins	/| if (\$bad | length) > 0 then \$bad\[0\] elif/s/if (\$bad | length) > 0 then \$bad\[0\] elif (\$open | length) > 0/if false then $bad[0] elif false/
+etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
+etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& \[ "\$(stat/,/^    fi$/s/hdr=(-H "If-None-Match: \$(head -n 1 "\$f")")/hdr=(-H "If-None-Match: $(head -n 1 "$f")"); CONDHIT=$((CONDHIT + 1)); tail -n +2 "$f"; return 0/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in $TRUNKS; do
