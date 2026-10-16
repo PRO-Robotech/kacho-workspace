@@ -9,6 +9,7 @@ SPDX-License-Identifier: BUSL-1.1
 > **Статическая форма:** DRAFT; действующий вердикт выводится из внешнего события и записи ревью
 > (`Skill change-graph` §3 «Вердикт относится к ОТПЕЧАТКУ, а не к документу»)
 > **История review:** только дописывается; прежние строки не редактируются
+> - 2026-10-15 · круг 1 · CHANGES_REQUESTED · `d3b4836f588068a469c154f5e384bc068aa7200549843ab17d57cbf5d9ec2a43` · `docs/specs/reviews/sub-phase-ADM-1-geo-mutation-acr-floor-acceptance/d3b4836f588068a469c154f5e384bc068aa7200549843ab17d57cbf5d9ec2a43.yaml`
 > **Дата:** 2026-10-15
 > **Эпик/issue:** PRO-Robotech/kacho#3190 (волна 9 identity-own-2, #3258); приёмка geo в
 > воркспейсе — PRO-Robotech/kacho-workspace#968
@@ -56,16 +57,18 @@ SPDX-License-Identifier: BUSL-1.1
 | Е3 | вшитый каталог края несёт те же значения: двенадцать записей geo — `"1"`; `kaname.cloud.iam.v1.{,Internal}ClusterService/{GrantAdmin,RevokeAdmin}` — `"2"` | `gateway/internal/middleware/embed/permission_catalog.json` | разбор JSON по `fqn` и `required_acr_min` (скрипт в записи возврата) |
 | Е4 | ни одна запись продукта `kacho.*` в каталоге не несёт `"2"`: 236 из 236 — `"1"`; `"2"` несут 38 записей, все `kaname.*` | тот же файл | по предмету: счёт записей каталога по `(префикс fqn, required_acr_min)` → `kacho/1: 236`, `kaname/2: 38`; по написанию: `git grep -E 'required_acr_min\) *= *"2"' -- 'proto/*.proto'` → 1 попадание, и оно — пример в комментарии `proto/corelib/authz/v1/authz_options.proto:75`, не объявление |
 | Е5 | набор `"2"` закреплён перечнем ПОИМЁННО и в обе стороны: запись с `"2"` вне перечня — находка с её FQN (сверхвключение) | `gateway/internal/middleware/permission_catalog_acr_invariant_test.go:69` (`sensitiveACR2FQNs`, категория G — `:189-195`), `:276` `TestPermissionCatalog_ACR_SetInvariant` (счёт 38 — `:330`) | чтение |
-| Е6 | рутинная полоса утверждается выборкой: из мутаций geo в ней поимённо названа ровно одна — `InternalRegionService/Create` (строка «B5 non-iam Internal*-admin (sample)») | тот же файл, `:335` `TestPermissionCatalog_ACR_ComplementNotTwo`, выборка B5 — `:351-354` | чтение |
+| Е6 | рутинная полоса утверждается выборкой: из мутаций geo в ней поимённо названа ровно одна — `InternalRegionService/Create` (строка «B5 non-iam Internal*-admin (sample)»); цикл утверждает `NotEqual "2"` и `Equal "1"` по `required_acr_min`, `required_relation` не утверждает | тот же файл, `:335` `TestPermissionCatalog_ACR_ComplementNotTwo`, выборка B5 — `:351-354`, утверждения — `:380-381` | чтение |
 | Е7 | правило класса: `"2"` — тогда и только тогда, когда действие чеканит или уничтожает учётные данные, создаёт/меняет/снимает выдачу права либо живой артефакт политики, или необратимо уничтожает корень арендатора; мутации каталога кластера (B5, в перечне — `geo.InternalRegionService/*`, `geo.InternalZoneService/*`) — рутина `"1"`; `GrantAdmin`/`RevokeAdmin` — эскалация высшей привилегии, `"2"` (B4) | `docs/specs/sub-phase-SEC-acr-stepup-refinement-acceptance.md:69-95,264-280` | чтение |
 | Е8 | geo не эмитит намерений регистрации владельцу прав: ось эмиссии дескриптора — `NotApplicable`, самоистечение держит проба | `services/geo/cmd/kacho-geo/serve.go:328-364`; `services/geo/cmd/kacho-geo/describe_test.go:182` `TestGeoBootGateExemptionRestsOnNoEmission` | чтение |
 | Е9 | удаление региона с зонами отвергается хранилищем (`ON DELETE RESTRICT`, текст `region <id> is not empty`); `id` региона и зоны задаёт вызывающий при создании | `services/geo/internal/migrations/0001_initial.sql:25-31`; `services/geo/internal/apps/kacho/api/region/region.go:322-345`; родитель Р3 (поле `id` во входе создания) | чтение |
 | Е10 | край маршрутизирует `POST /iam/v1/cluster/admins` в `ClusterService/GrantAdmin` и `DELETE /iam/v1/cluster/admins/{subject_id}` в `RevokeAdmin`; внутренние близнецы — `/iam/v1/internal/cluster/admins…` | `gateway/internal/middleware/rest_route_table_gen.go:112-114,125-127` | чтение |
 | Е11 | проба края с токеном человека заданного уровня: фикстура подписи, всегда-смонтированный слой аутентификации, REST с признаком «дошёл до бэкенда», нативный унарный вызов | `gateway/internal/middleware/stepup_alwayson_test.go:55,73,81,98`; образец использования — `gateway/internal/middleware/geo_public_admin_stepup_test.go:33` | чтение |
 | Е12 | указание повысить уровень: REST `401`, тело `google.rpc.Status` с `code = 16` и `message` — одна константа края `stepUpDenyMessage`; заголовок `WWW-Authenticate` — вызов RFC 9470 `Bearer error="insufficient_user_authentication", acr_values="<пол записи>"`; нативный gRPC — `UNAUTHENTICATED` с той же константой | `gateway/internal/middleware/auth_stepup.go:155-160` (REST), `:224` (gRPC), `:252` (константа); вызов — `gateway/internal/middleware/stepup_gate.go:186` `BuildStepUpChallenge`; утверждения того же вида — `geo_public_admin_stepup_test.go:66-92` | чтение |
+| Е13 | пустое значение и `"0"` в `required_acr_min` означают «пола нет»: слой подтверждения такую запись пропускает при любом уровне токена — сдвиг пола geo вниз есть снятие подтверждения, а не смена его цены | `gateway/internal/middleware/stepup_gate.go:25,51,60` | чтение |
 
-Производителя **нет** у двух фактов, оба заказаны в DoD: (1) поимённое утверждение «все
-двенадцать мутаций geo — рутинная полоса» (Е6 называет одну из двенадцати); (2) проба края,
+Производителя **нет** у двух фактов, оба заказаны в DoD: (1) поимённое утверждение РАВЕНСТВА
+`"1"` и `system_admin` у всех двенадцати мутаций geo (Е6 называет одну из двенадцати и
+отношения не утверждает); (2) проба края,
 сравнивающая оба пола на одном токене (Е11 даёт фикстуру, сравнения нет нигде).
 
 ## 2. Решения
@@ -110,8 +113,11 @@ SPDX-License-Identifier: BUSL-1.1
 ### Р3. Оба значения закрепляются поимённо, а не выборкой
 
 Рутинная полоса утверждает все двенадцать FQN geo поимённо (сегодня — один, Е6), а полоса
-`"2"` уже держит четыре FQN службы доступа (Е5). Тогда сдвиг любого из шестнадцати значений —
-находка с его FQN, а не тихое изменение.
+`"2"` уже держит четыре FQN службы доступа (Е5). Закрепление — **равенство** значению, а не
+неравенство соседнему: проба, утверждающая лишь «не `"2"`», держит одно направление, а сдвиг
+пола geo вниз (`"0"` или пустое) снимает подтверждение с мутации `system_admin` (Е13). Тогда
+сдвиг любого из шестнадцати значений в любую сторону — находка с его FQN, а не тихое
+изменение.
 
 ## 3. Сценарии
 
@@ -130,8 +136,10 @@ SPDX-License-Identifier: BUSL-1.1
 **And** каждая из четырёх записей службы доступа несёт `required_acr_min = "2"` и
 `required_relation = "system_admin"`
 
-**And** (инъекция, ветвь geo) временная правка `required_acr_min` одной записи geo на `"2"`
-роняет пробу рутинной полосы **с FQN этой записи**; законный каталог проходит молча
+**And** (инъекция вверх, ветвь geo) временная правка `required_acr_min` одной записи geo на
+`"2"` роняет пробу рутинной полосы **с FQN этой записи**; законный каталог проходит молча
+**And** (инъекция вниз, ветвь geo) временная правка `required_acr_min` той же записи на `"0"`
+роняет ту же пробу **с FQN этой записи**; законный каталог проходит молча
 **And** (инъекция, ветвь службы доступа) временная правка `required_acr_min` записи
 `ClusterService/GrantAdmin` на `"1"` роняет пробу полосы `"2"` **с её FQN**; законный каталог
 проходит молча
@@ -150,7 +158,7 @@ SPDX-License-Identifier: BUSL-1.1
 
 **When** нативным gRPC вызывается каждый из двенадцати методов
 `/kacho.cloud.geo.v1.{RegionService,ZoneService,InternalRegionService,InternalZoneService}/{Create,Update,Delete}`
-**Then** ни один не отвергнут с `UNAUTHENTICATED` и текстом `stepUpDenyMessage`
+**Then** каждый вызов завершается без ошибки (проба-заглушка следующего звена отвечает успехом)
 
 **And** (близнец — отличается только вызванным методом) тот же токен на
 `POST /iam/v1/cluster/admins` отвергается — сценарий 03
@@ -190,7 +198,7 @@ SPDX-License-Identifier: BUSL-1.1
 
 | ID сценария | что производит «Тогда» | координата в дереве | чем измерено |
 |---|---|---|---|
-| ADM-1-GEO-ACR-01, ветвь geo | значения `"1"` у двенадцати записей; поимённое утверждение рутинной полосы | Е1, Е3; проба — **заказана** (DoD п.1): расширение `TestPermissionCatalog_ACR_ComplementNotTwo` до двенадцати FQN geo | разбор каталога (Е3); проба — после DoD п.1 |
+| ADM-1-GEO-ACR-01, ветвь geo | значения `"1"` и `system_admin` у двенадцати записей; поимённое утверждение равенства обоих | Е1, Е3; проба — **заказана** (DoD п.1): каталожная проба равенства `required_acr_min = "1"` и `required_relation = "system_admin"` по каждому из двенадцати FQN geo, FQN — в сообщении отказа; инъекции `"2"` и `"0"` | разбор каталога (Е3); проба и обе инъекции — после DoD п.1 |
 | ADM-1-GEO-ACR-01, ветвь службы доступа | значения `"2"` у четырёх записей; поимённый перечень полосы `"2"` в обе стороны | Е2, Е3; `permission_catalog_acr_invariant_test.go:189-195` и `:276` (Е5) | чтение; инъекция — DoD п.3 |
 | ADM-1-GEO-ACR-02 | слой подтверждения пропускает `acr = "1"` на мутациях geo | `gateway/internal/middleware/auth_stepup.go` (исполнение), каталог (Е3); проба — **заказана** (DoD п.2), фикстура — Е11 | после DoD п.2 |
 | ADM-1-GEO-ACR-03 | указание `401`/`UNAUTHENTICATED` с `stepUpDenyMessage` и вызовом `acr_values="2"`; проход на `acr = "2"` | `auth_stepup.go:155-160,224,252`, `stepup_gate.go:186` (Е12); маршрут — Е10; проба — **заказана** (DoD п.2) | после DoD п.2 |
@@ -202,9 +210,14 @@ SPDX-License-Identifier: BUSL-1.1
 
 ## 6. DoD
 
-1. Рутинная полоса каталожной пробы (`TestPermissionCatalog_ACR_ComplementNotTwo`) поимённо
-   перечисляет все двенадцать FQN мутаций geo; проба зелёная; инъекция `"2"` в одну запись geo
-   роняет её с FQN этой записи — сценарий ADM-1-GEO-ACR-01, ветвь geo.
+1. Каталожная проба края (отдельная функция либо цикл в
+   `permission_catalog_acr_invariant_test.go`, ID ADM-1-GEO-ACR-01 в теле) поимённо
+   перечисляет все двенадцать FQN мутаций geo и для каждого утверждает **равенство**
+   `required_acr_min = "1"` и `required_relation = "system_admin"`, FQN — в сообщении отказа;
+   неравенство `"2"` вместо равенства пункт не закрывает. Проба зелёная на законном каталоге;
+   инъекция `"2"` (вверх) и, отдельным прогоном, инъекция `"0"` (вниз) в одну запись geo роняют
+   её с FQN этой записи — оба исхода показаны выводом прогона. Сценарий ADM-1-GEO-ACR-01, ветвь
+   geo.
 2. Новая проба края в `gateway/internal/middleware/` на фикстурах Е11 утверждает сценарии
    ADM-1-GEO-ACR-02 и ADM-1-GEO-ACR-03 полностью (оба пути REST и нативный gRPC, оба близнеца);
    падает, если запись `ClusterService/GrantAdmin` опустить до `"1"` или запись
@@ -216,7 +229,8 @@ SPDX-License-Identifier: BUSL-1.1
    `InternalZoneService` называют значение пола `"1"` и его класс (мутация каталога кластера, не
    выдача права) со ссылкой на эту приёмку, чтобы значение не подняли «до уровня кластерного
    администратора» по аналогии; значения аннотаций не меняются; `buf lint`, `buf breaking` и
-   перегенерация зелёные, обе вшитые копии каталога побайтово равны.
+   перегенерация зелёные, `make -C gateway permission-catalog-check` зелёная (вшитый каталог
+   равен перегенерированному из `.proto`).
 5. Числа ведомости каталога (`TestPermissionCatalog_ACR_Counts`) не меняются: `"2"` — 38,
    записей `kacho.*` с `"2"` — ноль (Е4); проверено прогоном после последней правки.
 6. Полный хук отправки на закоммиченной голове ветки — отказов 0.
