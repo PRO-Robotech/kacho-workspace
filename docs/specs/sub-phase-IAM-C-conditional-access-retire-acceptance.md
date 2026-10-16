@@ -6,6 +6,10 @@
 > закрыты (сводка — §10); круг 2 — `CHANGES_REQUESTED`, 4 блокирующих + 2 фактических
 > закрыты (сводка — §11); круг 4 — 3 ложных механизма и 6 несуществующих артефактов
 > исправлены по коду, каждый открытый пункт получил исход (§12)
+> Правка 2026-10-16 (kacho#3249): исход промаха каталога разрешений — `403`, не `404`
+> (решение диспетчера волны identity-own-2). IAM-C-10/11 и §5.4 утверждают пару «HTTP-статус +
+> `code`», текст и причину `AUTHZ_DENIED`; утверждение о теле переписано под производимое; разбор
+> и перепись производителей — §13. Остальные сценарии не тронуты
 > Эпик/тикет: задача #74 («ретайрить условный доступ целиком или доводить») — решение принято,
 > этот документ её закрывает. Кросс-слойно внутри монорепо `project/kacho`
 > База проверки фактов: `project/kacho` @ `b892cd8` (ветка `base/redesign` = `redesign/integration`);
@@ -708,8 +712,8 @@ retirement-записок vault:
 
 | Клиент | Было | Стало |
 |---|---|---|
-| REST `/iam/v1/conditions*`, **аутентифицированный** клиент | 200 / Operation | **403** (промах каталога, fail-closed; шлюз не раскрывает существование пути) |
-| REST `/iam/v1/conditions*`, **анонимный** клиент | 200 / Operation | **401** в посадке `production-strict` (запрос не доходит до authz), **403** в посадке `production`. Никогда 200, никогда 404 — см. разбор у IAM-C-11 |
+| REST `/iam/v1/conditions*`, **аутентифицированный** клиент | 200 / Operation | **403**, `{code: 7, message: "permission denied"}`, причина `AUTHZ_DENIED` (промах каталога, fail-closed; ответ тот же, что на путь, которого не было никогда). Не `404` — §13 |
+| REST `/iam/v1/conditions*`, **анонимный** клиент | 200 / Operation | **401** в посадке `production-strict` (запрос не доходит до authz), **403** с тем же `code`, текстом и причиной в посадке `production`. Никогда 200, никогда 404 — см. разбор у IAM-C-11 |
 | gRPC `ConditionsService/*` на внешнем листенере | проксировался | `NOT_FOUND "unknown method: …"` |
 | gRPC `ConditionsService/*` на листенере iam | обслуживался | `UNIMPLEMENTED` |
 | REST `POST /iam/v1/accessBindings` с ключом `conditionId` | ключ читался ноль раз | ключ отбрасывается мостом (unknown JSON key), привязка создаётся, в ответе ключа нет |
@@ -797,7 +801,7 @@ retirement-записок vault:
 | IAM-C-01 | `TestRetireInventory_NoResidualIdentifiers` + сам исполняемый гейт | `deploy/tests/helm/` **[есть, каталог]** — файл гейта **[новый]**; вызывается из CI (job `helm lint · template (dev + prod)`, новым шагом — см. §12 O-1) |
 | IAM-C-02 | **стендовая процедура** (три счётчика §5.3) | приложение к тикету |
 | IAM-C-03 | **стендовая процедура** (постраничный обход `InternalAuthorizeService.ReadTuples`) | приложение к тикету; механика **[есть]** — `proto/kacho/cloud/iam/v1/internal_authorize_service.proto:55`, `services/iam/internal/apps/kacho/api/internal_authorize/handler.go:98` |
-| IAM-C-10 | `IAM-CRET-GT-RETIRED-DENY`, `IAM-CRET-LS-RETIRED-DENY`, `IAM-CRET-CR-RETIRED-DENY`, `IAM-CRET-UP-RETIRED-DENY`, `IAM-CRET-DL-RETIRED-DENY`, `IAM-CRET-EV-RETIRED-DENY` | `services/iam/tests/newman/cases/iam-conditional-retired.py` **[новый]** |
+| IAM-C-10 | `IAM-CRET-GT-RETIRED-DENY`, `IAM-CRET-LS-RETIRED-DENY`, `IAM-CRET-CR-RETIRED-DENY`, `IAM-CRET-UP-RETIRED-DENY`, `IAM-CRET-DL-RETIRED-DENY`, `IAM-CRET-EV-RETIRED-DENY`; близнецы (правка 2026-10-16, §13) — `IAM-CRET-GT-NEVER-EXISTED-DENY`, `IAM-CRET-LS-CATALOGUED-OK` | `services/iam/tests/newman/cases/iam-conditional-retired.py` **[новый]** |
 | IAM-C-11 | `IAM-CRET-LS-RETIRED-ANON-DENY` | там же **[новый]** |
 | IAM-C-12 | `TestShimProxy_ConditionsService_UnknownMethod` | `gateway/internal/proxy/shimproxy_bufconn_test.go` **[есть]** — дополняется кейсом. Механизм отказа **[есть]**: `gateway/internal/proxy/shimproxy.go:53` возвращает `status.Errorf(codes.NotFound, "unknown method: %s", method)` для всего, чего нет в allowlist |
 | IAM-C-13 | `TestIAMGRPC_ConditionsService_Unimplemented` (**регресс-контроль**, см. пометку у сценария) | `services/iam/cmd/kacho-iam/grpc_register_test.go` **[новый]** |
@@ -913,10 +917,24 @@ retirement-записок vault:
 **And** `DELETE /iam/v1/conditions/cnd00000000000000abc`
 **And** `POST /iam/v1/conditions/cnd00000000000000abc:evaluate` с телом `{context:{}}`
 
-**Then** каждый вызов отвечает `403` (промах каталога разрешений, fail-closed)
-**And** ни один не отвечает `200` ни при каких значениях полей
-**And** тело ответа не содержит ни `cnd`, ни имени сервиса, ни слова `condition`
-(отказ не раскрывает, что именно было снято)
+**Then** каждый вызов отвечает HTTP `403` (промах каталога разрешений, fail-closed), тело —
+`google.rpc.Status` с `code` = `7` и `message` = `"permission denied"`: без суффикса права
+**And** среди `details` есть `google.rpc.ErrorInfo` с `reason` = `AUTHZ_DENIED`
+**And** ни один вызов не отвечает `404` и ни один не отвечает `200`, какие бы значения полей ни пришли
+**And** тело ответа совпадает с ответом на путь, которого в контракте не было никогда
+(`GET /iam/v1/neverExisted/abc` тем же субъектом): совпадают статус, `code`, `message`, `reason`
+и описание нарушения, а различается только эхо присланного клиентом пути в
+`ErrorInfo.metadata.fqn`. Отказ не называет ничего сверх присланного самим клиентом и не отличает
+«снят» от «не было»
+
+**Положительный близнец** (меняет ровно один факт — у метода есть запись каталога): тот же
+владелец аккаунта `A` вызывает `GET /iam/v1/accounts/<A>/accessBindings`
+(`AccessBindingService/ListByAccount`, запись каталога есть) → `200`, тело — страница привязок.
+Без близнеца «`403` на ретайренный путь» неотличим от «край отвергает всё».
+
+Различимость промаха и нехватки права (kacho#3177): если у метода запись каталога ЕСТЬ, а права
+у субъекта нет, `message` равен `"permission denied: <право>"`. Клиент отличает промах от
+нехватки права по `message`, код у обоих `7`. Производитель и держатель — §13.
 
 ---
 
@@ -940,6 +958,12 @@ retirement-записок vault:
 запросом, но с валидным токеном субъекта без грантов
 
 **Then** ответ — **`403`** (промах каталога, fail-closed), не `401` и не `404`
+**And** тело — `code` = `7`, `message` = `"permission denied"`, `ErrorInfo.reason` = `AUTHZ_DENIED`,
+как в IAM-C-10. Промах не повышается до `UNAUTHENTICATED` ни при каком состоянии аутентификации
+**And** анонимному вызову описание нарушения в `PreconditionFailure` —
+`"unauthenticated: authentication required"`: оно называет состояние аутентификации самого
+вызывающего, а не ресурс. Субъекту с токеном без грантов —
+`"no authorization path to the resource"`, как в IAM-C-10
 
 > **Сценарий переписан в круге 4 — прежняя редакция была ЛОЖНОЙ на том самом стенде,
 > который документ предписывает.** Требовалось «`403`, не `401` и не `404`» и объяснялось
@@ -2299,3 +2323,65 @@ storage: регион образа, классификация отказа в �
 **#80** (`Snapshot.Create` не валидирует описание и метки синхронно) относятся к домену
 **storage** и поверхности условного доступа iam не касаются. Ни одна правка этого
 документа их не затрагивает и не заменяет.
+
+## 13. Исход промаха каталога — `403`, а не `404` (правка 2026-10-16, kacho#3249)
+
+### 13.1 Решение
+
+Промах каталога разрешений края отвечает **`403`**: `code` = `7`, `message` = `"permission
+denied"`, `ErrorInfo.reason` = `AUTHZ_DENIED`, при любом состоянии аутентификации. Если в посадке
+`production-strict` нет токена, раньше отвечает входной рубеж, и ответ — `401` (IAM-C-11). Решение
+принял диспетчер волны identity-own-2 по kacho#3249: полоса рекомендовала этот исход, и он
+дешевле, потому что меняется только текст приёмки. Код края уже производит этот ответ (§13.2).
+
+Отвергнутый исход — **`404`**, «неизвестный метод», в паритет с отказом маршрутизатора на
+`Internal*`-пути (его предлагал kacho#3177). Причины отказа:
+
+- ни нормы, ни одобренной приёмки под `404` нет; норма `hard-catalog-complete`
+  (`.claude/rules/security-hardening.md`) требует `AUTHZ_DENIED`;
+- `404` сделал бы «у этой версии края нет записи о методе» неотличимым от `404` владельца
+  ресурса и от `404` скрытия существования на чтениях, а это три разные линии со своими
+  производителями (`api-conventions.md` §«gRPC-код → HTTP-статус», `api-no-oneof-mixing`);
+- `403` уже различим с нехваткой права: у промаха текст без суффикса права, у нехватки —
+  `"permission denied: <право>"` (kacho#3177).
+
+Норма `hard-catalog-complete` с этим исходом **не расходится**: она требует
+«отсутствие ⇒ AUTHZ_DENIED», а это и есть причина ответа `403` (предикат —
+`grep -n 'hard-catalog-complete' .claude/rules/security-hardening.md`, одна строка: `:15`).
+Правка нормы не требуется.
+
+### 13.2 Сценарий → производитель
+
+Ревизия замера — ветка эпика `3172-identity-own-2` @ `e9ce4ffbdc` дерева продукта. Предикат
+каждой строки — `git grep -n '<образец>' e9ce4ffbdc -- gateway/internal/middleware/`.
+
+| ID сценария | что производит «Тогда» | координата в дереве | чем измерено |
+|---|---|---|---|
+| IAM-C-10 | `403`, `code` `7`, `message` `"permission denied"` на промахе | ветка `!found` фазы каталога `phaseCatalog` (`authz.go:870`, `:905`); тело REST — `writeHTTPDeny` (`permission_denied_response.go:269`), `code: 7`; текст без права — `buildGRPCDenyStatus` (`:70`: суффикс только при непустом праве, а у промаха права нет) | `git grep -n 'if !found {'`; `git grep -n 'msg = "permission denied: "'` |
+| IAM-C-10 | `ErrorInfo.reason` = `AUTHZ_DENIED` | `permission_denied_response.go:99` (gRPC), `:302` (REST) | `git grep -n 'AUTHZ_DENIED' -- '*permission_denied_response.go'` |
+| IAM-C-10 | путь вне каталога доходит до промаха, а не до чужой записи | `resolveRestFQN` (`authz_util.go`): если у маршрутизатора нет записи о пути, FQN строится как `"/" + путь` (`grpcMethodForPath`, `dpop_http_middleware.go:395`). У такого FQN записи каталога нет, поэтому ретайренный путь и путь, которого не было никогда, дают одну ветку | `git grep -n 'func grpcMethodForPath'` |
+| IAM-C-10 | тело ретайренного пути равно телу пути, которого не было никогда, кроме `metadata.fqn` | одна ветка и одна причина (`"catalog: no entry for method"`) → одно описание нарушения (`safeDenyDescription` → `"no authorization path to the resource"`); `metadata.fqn` — эхо FQN | чтением `permission_denied_response.go:42-52`, `:96-105` |
+| IAM-C-10, близнец | `200` на методе с записью каталога | запись `AccessBindingService/ListByAccount` в `embed/permission_catalog.json` (`v_list` на `account`, без `hide_existence`); маршрут `GET /iam/v1/accounts/{account_id}/accessBindings` — `rest_route_table_gen.go:102` | `git grep -n 'ListByAccount' -- '*rest_route_table_gen.go'` |
+| IAM-C-10, различимость | `"permission denied: <право>"` при записи каталога и нехватке права | `buildGRPCDenyStatus` (`:70`) | держатель — `TestAuthz_EmptyScopeFieldIsDistinguishableFromDenial` (`authz_refusal_distinct_test.go:46`) |
+| IAM-C-11, `production-strict` | `401` раньше authz | `RequireForAllRequests` при посадке `production-strict` — `gateway/cmd/api-gateway/main.go:628` | `git grep -n 'RequireForAllRequests' e9ce4ffbdc -- gateway/cmd` |
+| IAM-C-11, `production` | `403`, тот же `code`, текст и причина; описание `"unauthenticated: authentication required"` | фаза каталога (шаг 3) идёт раньше фазы субъекта (шаг 4, `authz.go:748-756`), поэтому промах не повышается до `16`; причина `"…; unauthenticated"` даёт описание `safeDenyDescription` (`permission_denied_response.go:45-46`) | чтением `authz.go:748-756`, `:905-925` |
+
+Держатели уровня единицы, уже в дереве @ `e9ce4ffbdc`: `TestAuthz_HTTP_CatalogMissIsDenied`
+(`authz_refusal_distinct_test.go:74`: `403`, `code` `7`, текст, `AUTHZ_DENIED`, проверка прав не
+зовётся), `TestAuthz_GRPC_CatalogMiss_Denies` (`authz_test.go:150`),
+`TestAuthz_GRPC_CatalogMiss_AuthenticatedReason` (`:662`),
+`TestAuthz_GRPC_CatalogMiss_UnauthenticatedReason` (`:683`). Держатели края — кейсы
+`IAM-CRET-*` по §6.0. Их пока нет, это планируемые артефакты, а не утверждение о дереве.
+
+Утверждение прежней редакции IAM-C-10 «тело не содержит ни `cnd`, ни слова `condition`»
+**производителя не имело**: `ErrorInfo.metadata.fqn` возвращает присланный клиентом путь, и в
+нём оба слова есть. Утверждение переписано под производимое. Инвариант, который оно стерегло
+(отказ не говорит, что ресурс был снят), выражен сравнением с путём, которого не было никогда.
+Эхо собственного запроса клиента не раскрывает ничего, чего клиент не знал.
+
+### 13.3 Что этой правкой не тронуто
+
+Сценарии, кроме IAM-C-10/11, объём стадий, DoD (`S1` — по-прежнему 7 пар RED→GREEN: близнецы
+идут кейсами того же сценария, а не новыми ID) и координаты по датированной врезке в начале
+документа. Дом набора `iam-conditional-retired` в §6.0 назван на дату круга 4. Перенос набора
+вслед за выделением службы доступа — не предмет этой правки.
