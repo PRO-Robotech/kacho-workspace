@@ -481,6 +481,15 @@ if [ "${1:-}" != "--" ] || [ "$#" -lt 2 ]; then
 fi
 shift
 
+# Отправка слотом ci-local (урок 2026-10-16, ws#1110): git push открывает ssh ДО хука
+# отправки, хук идёт минутами, и простаивающее соединение площадка снимает — push
+# умирал PIPE кодом 141 уже после зелёного хука (журнал слотов: 26 из 26 таких выходов
+# — после ≥ 368 с). Слот держит соединение живым, не трогая заданного вызывающим:
+# GIT_SSH_COMMAND и core.sshCommand, если есть, сильнее.
+if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
+    export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=40"
+fi
+
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
 KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB"
 if [ "$MEMINFO" = /proc/meminfo ]; then

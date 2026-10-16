@@ -24,7 +24,7 @@
 #      `#<N> merge #<PR>: …` у `git-operator` (ws#1029) — прежней формы нет;
 #   G. пачка 2026-10-16 (ws#1110) держится словами нормы там, где её читают: протокол —
 #      уникальные .rc, пауза лишь у `ci-watcher`, долгое ожидание ОДИН раз `--enqueue`,
-#      отправка в файл под `env --default-signal=PIPE`; `ci-watcher` — `--enqueue`; база —
+#      отправка в файл, 141 после хука — снятый простоем ssh (keepalive ставит слот); `ci-watcher` — `--enqueue`; база —
 #      номер задачи числом в предусловиях, форма вливания `--merge --subject … --body ""
 #      --match-head-commit`, пауза лишь у `ci-watcher`; шаблон — `--body ""`, `--enqueue`,
 #      суд RATE-LIMIT (поведение — heavy-slot-inject, ci-read-inject, landing-precheck-inject,
@@ -167,7 +167,7 @@ if '--subject "#<N> <суть>"' in texts[GO]:
 need(PROTO, ['имя журнала и `.rc` уникально', '`.rc` снят до старта',
              'ждёт и читает с паузой лишь `ci-watcher`',
              'дольше 300 с — ОДИН раз `heavy-slot.sh --enqueue <каталог>`: перезапуск на 74/75 теряет очередь',
-             '`env --default-signal=PIPE git push origin HEAD:refs/heads/<ветка> > <журнал> 2>&1` (не `| tail`'],
+             '`git push origin HEAD:refs/heads/<ветка> > <журнал> 2>&1` (141 после хука — снятый простоем ssh, слот ставит ему keepalive)'],
      'пачка 2026-10-16')
 need(CIW, ['долгое ставится в очередь ОДИН раз (`heavy-slot.sh --enqueue <каталог>`',
            'перезапуск на 74/75 теряет очередь'], 'пачка 2026-10-16')

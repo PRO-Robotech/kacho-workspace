@@ -65,6 +65,16 @@ assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
 
+echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
+# git push открывает ssh до хука отправки; минуты хука простаивающее соединение
+# площадка снимает, и push умирал PIPE (141) после зелёного хука.
+# shellcheck disable=SC2016  # строка дочерней оболочки, переменную раскрывает она
+assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh1") $(grep -q 'ServerAliveInterval=30' "$W/ssh1" && echo да || echo нет)" "ci-local без заданного ssh — GIT_SSH_COMMAND с ServerAliveInterval"
+# shellcheck disable=SC2016
+assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1' ] && echo да || echo нет)" "близнец: заданный вызывающим GIT_SSH_COMMAND не переписан"
+# shellcheck disable=SC2016
+assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" docker -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$W/ssh3") $([ -s "$W/ssh3" ] && echo нет || echo да)" "близнец: класс не ci-local — GIT_SSH_COMMAND не ставится"
+
 echo "── перенос в другой unit уводит из cgroup слота: systemd-run и --scope в argv — 64"
 # B2 круга 3: `heavy-slot.sh docker -- systemd-run --user --scope …` уходил из слота.
 assert "64 да нет" "$(slot bash "$SLOT" docker -- systemd-run --user --scope touch "$W/e1") $(has "$W/err" '«systemd-run»') $([ -e "$W/e1" ] && echo да || echo нет)" "systemd-run первым словом — 64, причина названа, команда не запускалась"
