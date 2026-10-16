@@ -17,16 +17,16 @@
 
 | что | как это сделано | чем держится |
 |---|---|---|
-| корпус правил не грузится ни диспетчеру, ни исполнителю автоматически | `.claude/settings.json` → `claudeMdExcludes: ["**/.claude/rules/**"]`; в этом файле нет ни одного `@import` правила | `scripts/rules-gate/` |
-| главный поток — агент `dispatcher`, у него нет ни `Read`, ни `Bash`, ни `Edit` | `.claude/settings.json` → `agent: "dispatcher"`; тело `.claude/agents/dispatcher.md` заменяет системный промпт и является **единственной** базой маршрутизации | `scripts/rules-gate/` |
-| правило попадает к агенту, который обязан его применять | у правила есть скилл-ссылка `.claude/skills/rule-<имя>/SKILL.md → ../../rules/<имя>.md`, агент перечисляет свои правила во `skills:` — харнесс грузит их при старте целиком | `scripts/rules-gate/` |
+| корпус правил не грузится автоматически никому | `.claude/settings.json` → `claudeMdExcludes: ["**/.claude/rules/**"]`; в этом файле нет ни одного `@import` правила | `scripts/rules-gate/` |
+| главный поток — агент `dispatcher` без `Read`, `Bash`, `Edit` | `.claude/settings.json` → `agent: "dispatcher"`; тело `.claude/agents/dispatcher.md` заменяет системный промпт и является **единственной** базой маршрутизации | `scripts/rules-gate/` |
+| правило попадает к агенту, который обязан его применять | скилл-ссылка `.claude/skills/rule-<имя>/SKILL.md → ../../rules/<имя>.md` в `skills:` агента — харнесс грузит её при старте целиком | `scripts/rules-gate/` |
 | правило по условию — по условию | «Правила по триггеру» тела агента: триггер → `Skill rule-<имя>` | вниманием агента |
 | последовательность агентов выставляет только диспетчер | у исполнителя `disallowedTools: Agent` — вложенных запусков нет | `scripts/rules-gate/` |
 
-Исключение, а не перенос каталога: **все** `.md` внутри `.claude/rules/` Claude Code грузит
-сам, рекурсивно (измерено); не трогая адресов, это снимает лишь `claudeMdExcludes`.
+Исключение, а не перенос: **все** `.md` в `.claude/rules/` Claude Code грузит сам, рекурсивно
+(измерено); без смены адресов это снимает лишь `claudeMdExcludes`.
 
-Без диспетчера: `claude --agent <исполнитель>` (флаг перекрывает настройку).
+Без диспетчера: `claude --agent <исполнитель>` (флаг сильнее настройки).
 
 ## Контракт возврата: как исполнитель отвечает диспетчеру
 
@@ -84,17 +84,19 @@
   — `#<N> …`, N — задача ТВОЕГО репозитория о твоём предмете: `gh issue view N -R <репо>` до коммита.
 - **«Готово» — после полного хука отправки на закоммиченной голове, отказов 0**, итог — в «исход
   проверок»: из чистой копии слотом (`heavy-slot.sh ci-local`) `git push origin
-  HEAD:refs/heads/<ветка>`, при запрете отправки — с `--dry-run`. Консоль kacho — сперва `npm ci`
-  как `ui.yml` (`ui-future` и `--prefix` каждого `STANDALONE`).
+  HEAD:refs/heads/<ветка> > <журнал> 2>&1` (141 после хука — снятый простоем ssh, слот ставит ему
+  keepalive), при запрете — `--dry-run`. Консоль kacho — сперва `npm ci` как `ui.yml` (`ui-future`, `--prefix` `STANDALONE`).
 - До «готово» — в КАЖДОЙ задаче полосы комментарий `DoD-proof @<sha>`: команда, сырой итог, код
   возврата, без адресов и секретов; без него задача в PR — `Refs`, не `Closes`, и каскад волны её
   не закрывает (`cascade-census.sh --proof`; владелец 2026-10-04, архив `routing-base`).
 - **Не жди.** Владелец 2026-10-11 дословно: «И реши проблему раз и навсегда что таски уходят в
   часовые таймауты и ничего не делают а мы ждем». Ни один вызов не держит ожидание дольше 10
-  минут: долгое — отсоединённо (`setsid env --default-signal=PIPE …`, код — в `.rc`), шаг возвращает «идёт: pid,
-  журнал, срок», исход дочитывает короткий шаг; слот тяжёлого — внутри него (занят — код 74 сразу).
-  Циклы со `sleep`, `wait` после `&`, `tail --pid`, опрос CI отказывает хук `no-wait-guard`; срок
-  истёк — возврат с остатком. Застой меряет `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
+  минут: долгое — отсоединённо (`setsid env --default-signal=PIPE …`, код — в `.rc`), имя журнала
+  и `.rc` уникально ($$, sha), `.rc` снят до старта; шаг возвращает «идёт: pid, журнал, срок»,
+  исход дочитывает короткий шаг; ждёт и читает с паузой лишь `ci-watcher`. Слот занят — 74;
+  дольше 300 с — ОДИН раз `heavy-slot.sh --enqueue <каталог>`: перезапуск на 74/75 теряет очередь.
+  Циклы со `sleep`, `wait` после `&`, `tail --pid`, опрос CI отказывает `no-wait-guard`; срок
+  истёк — возврат с остатком; застой — `scripts/stall-census.sh` (`ai-tooling.md#at-agent-does-not-wait`).
 - Свою ветку отправляешь сам, в переднем плане; PR, сборка, вливание, снятие ветки — `git-operator`.
 
 ## Топология
@@ -104,7 +106,7 @@
 Спека — `docs/specs/0{0..4}-*.md`, раскладка монорепо — `.claude/rules/polyrepo.md`.
 
 AI-оснастка — **одна**, в `.claude/` воркспейса: ни копий в продукте, ни раскатки, ни проекций
-(владелец 2026-09-18); второго её представления в дереве не заводится. Канон — `.claude/rules/ai-tooling.md`.
+(владелец 2026-09-18). Канон — `.claude/rules/ai-tooling.md`.
 
 ## Локальная разработка
 
@@ -122,13 +124,12 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 ## Permissions и хуки
 
 `.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
-(`UserPromptSubmit` / `Stop`), `stall-signal` (там же), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` и `gh-api-guard` (`PreToolUse` Bash), `session-memcap` (`SessionStart`),
-`change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`; в продукте файла нет.
+(`UserPromptSubmit` / `Stop`), `stall-signal` (там же), `class-guard` и `docfresh` (`PostToolUse`, и в
+сабагентах), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash), `session-memcap` (`SessionStart`),
+`change-graph-reminder`, rag-хуки. Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет.
 
 Режима без подтверждений из дерева **нет** (`ai-tooling.md#at-bypass-not-from-repo-layer`):
 его дают лишь личный `~/.claude/settings.json`, policy или флаг.
 
-Хуки запроса и хода печатают **диспетчеру**, сам он ничего не делает: что каким агентом
-закрывается — таблица сигналов в `.claude/agents/dispatcher.md`. Хуки записи и команд говорят
-исполнителю, который их вызвал.
+Хуки запроса и хода печатают **диспетчеру** (что каким агентом закрывается — таблица сигналов
+`.claude/agents/dispatcher.md`), хуки записи и команд — вызвавшему исполнителю.

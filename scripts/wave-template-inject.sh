@@ -215,7 +215,7 @@ async function run(sc) {
   const agent = async (prompt, opts = {}) => {
     const label = opts.label || ''
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
-    ALL.push({ label, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
+    ALL.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
     const lane = label.split(':').pop()
     // Предполёт (ws#1053): карта по каждому ключу из задания; сценарий перекрывает (null — нет ответа).
     if (label === 'preflight') { const keys = ((prompt.match(/КЛЮЧИ ПОЛОС: ([^.\n]*)/) || [])[1] || '').split(',').filter(Boolean); const r = take('pre', () => ({ lanes: keys.map(k => ({ key: k, impact: (sc.map || {})[k] || [], criteria: ['критерий ' + k] })), estimate: '6 ч, красных 0', report: 'r' })); return r }
@@ -552,7 +552,7 @@ ok(r.calls.length > 0 && r.calls.every(c => /НЕ ЖДИ/.test(c.prompt) && /С�
 const MERGE_NORM = /ВЛИВАНИЕ \(ws#1008\): только шагом merge \(git-operator\) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos\/\*\/merges`, `gh api …\/pulls\/\*\/merge` и `gh pr merge --auto` запрещены\. `gh api` — только GET: merge-base — `gh api repos\/<o>\/<r>\/compare\/<base>\.\.\.<head> --jq \.merge_base_commit\.sha`/
 ok(r.calls.length > 0 && r.calls.every(c => MERGE_NORM.test(c.prompt)), 'каждое задание несёт правило вливания и «gh api — только GET» с чтением merge-base', r.calls.filter(c => !MERGE_NORM.test(c.prompt)).map(c => c.label).join(','))
 const mp = prm(r.calls, 'mech:merge')
-ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40} --subject "[^"`]+"`/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
+ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40} --subject "[^"`]+" --body ""`/.test(mp) && !/--squash|--rebase/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
 // ws#1029: тема вливания — по форме правила ветки `#<N> merge #<M>: …`; база main — номер волны.
 ok(/--subject "#9 merge #7: волна 9"/.test(mp), 'тема вливания при базе main — «#<волна> merge #<PR>: …»', mp.slice(0, 400))
 {
@@ -785,6 +785,26 @@ console.log('== внешний стенд до CI: перепись прогон
   ok(q.res.ok === false && q.res.state === 'running' && by(q.calls, c => c.label.startsWith('mech:ci:')) === 0, 'стенд идёт и после ожидания — state running, CI не читается', JSON.stringify(q.res).slice(0, 200))
 }
 
+console.log('== лимит GitHub — не выполнилось со временем сброса, не красное (урок 2026-10-16, ws#1110)')
+{
+  const RL = { code: 2, reasons: ['RATE-LIMIT'], out: 'REASON\tRATE-LIMIT\tлимит REST: остаток 5 из 5000 < порога 100, сброс в 14:05\nVOID\t…' }
+  let q = await run({ args, plan: [P('r0.json')], ci: [RL] })
+  ok(q.res.ok === false && q.res.state === 'not-run' && /лимит GitHub исчерпан — не выполнилось, не красное; сброс в 14:05/.test(q.res.stage || '') && by(q.calls, c => /^mech:(merge|landing)/.test(c.label)) === 0, 'CI: RATE-LIMIT — state not-run со временем сброса, ни посадки, ни вливания', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], land: [{ ...RL, code: 2 }] })
+  ok(q.res.state === 'not-run' && /^landing-precheck: лимит GitHub/.test(q.res.stage || '') && by(q.calls, c => c.label === 'mech:merge') === 0, 'landing-precheck: RATE-LIMIT — not-run, не вливать', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], ciland: [RL] })
+  ok(q.res.state === 'not-run' && /^CI на голове посадки: лимит GitHub/.test(q.res.stage || '') && by(q.calls, c => c.label === 'mech:merge') === 0, 'CI на голове посадки: RATE-LIMIT — not-run, не вливать', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], ci: [{ code: 2, reasons: [] }] })
+  ok(q.res.state === 'failed', 'близнец: код 2 без RATE-LIMIT — прежний failed (unread), не not-run')
+  q = await run({ args, plan: [P('r0.json')] })
+  ok(/сперва ОДНО чтение `gh api rate_limit` — остаток core либо graphql < 300 — code 2, reasons \['RATE-LIMIT'\]/.test(prm(q.calls, 'mech:gates')), 'перепись гейтов начинается с чтения лимита: ниже 300 — code 2 RATE-LIMIT, гейты не гнать', prm(q.calls, 'mech:gates').slice(0, 200))
+}
+{
+  const q = await run({ args, plan: [P('r1.json')] })
+  ok(/heavy-slot\.sh --enqueue \/ws\/tmp\/wave-9 <класс> -- …` \(билет держится/.test(prm(q.calls, 'mech:stand:0')), 'стенд ставится в очередь ОДИН раз: heavy-slot.sh --enqueue, 74/75 повтором не лечится', prm(q.calls, 'mech:stand:0').slice(0, 200))
+  ok(q.calls.every(c => /ОДИН раз `heavy-slot\.sh --enqueue <каталог> <класс> -- …`/.test(c.prompt) && /имя журнала и \.rc — уникальное/.test(c.prompt)), 'каждое задание: долгое ожидание — --enqueue один раз, перезапуск запрещён; имя .rc уникальное')
+}
+
 console.log('== перепись гейтов посадки разом; ответ без ВОЗВРАТ — не-выполнилось (ws#1071)')
 {
   let q = await run({ args, plan: [P('r0.json')] })
@@ -875,6 +895,11 @@ console.log('== объединение вызовов всех сценарие�
   // внутри копии — находка: отчёт или журнал там — UNCOMMITTED у lane-precheck.
   const paths = ALL.flatMap(c => [...c.prompt.matchAll(/\/tmp\/wave-9\/([^\s'"`),;«»]+)/g)].map(x => ({ label: c.label, p: x[1].replace(/[.:]+$/, '') })))
   const badPath = paths.filter(({ p }) => { const g = p.split('/').filter(Boolean); return g.length >= 2 && g[0] !== 'reports' && !(g.length === 2 && (g[1] === 'copy' || g[1] === 'stack')) })
+  // Урок 2026-10-16 (ws#1110): пауза отдана роли, которой no-wait-guard ожидания не даёт, —
+  // десять чтений прошли за 5 минут. Задание с паузой (строка SLEPT) — только ci-watcher.
+  const paused = ALL.filter(c => c.prompt.includes('echo "SLEPT'))
+  const badPause = paused.filter(c => c.agentType !== 'ci-watcher')
+  ok(paused.length > 0 && badPause.length === 0, 'ожидание и дочитывание с паузой — только ci-watcher: заданий с паузой ' + paused.length, [...new Set(badPause.map(c => c.label + ':' + c.agentType))].join(',').slice(0, 300))
   ok(paths.length > 0 && badPath.length === 0, 'отчёты и журналы всех сценариев — под reports/, в каталоге полосы только копии copy и stack: путей осмотрено ' + paths.length, [...new Set(badPath.map(x => x.label + ' → ' + x.p))].join('; ').slice(0, 300))
 }
 
@@ -1046,10 +1071,19 @@ mutant "срок снят у ревью" "'. ' + due('review') + ' Верни ve
 # ws#1008: вливание — только gh pr merge со сверкой головы.
 mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008)" "  '(ws#1008)"
 mutant "merge без сверки головы" "' --merge --match-head-commit ' + landHead + ' --subject" "' --merge --subject"
-mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject \"' + mergeTitle + '\"\` (коммит слияния на сервере, тема — по форме правила ветки \`#<N> merge #<M>: …\`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
+mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject \"' + mergeTitle + '\" --body \"\"\` (способ — с сервера: сквош и rebase там выключены, решение владельца 2026-09-22; коммит слияния на сервере, тема — по форме правила ветки \`#<N> merge #<M>: …\`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
 mutant "merge с --auto" "без --auto и --admin" "с --auto"
+mutant "merge без --body (урок 2026-10-16)" "' + mergeTitle + '\" --body \"\"\`" "' + mergeTitle + '\"\`"
+mutant "merge сквошем (урок 2026-10-16)" "' --merge --match-head-commit ' + landHead + ' --subject" "' --squash --match-head-commit ' + landHead + ' --subject"
+mutant "лимит CI не судится (урок 2026-10-16)" "  if (rateOf(ci)) return rateStop('CI', ci, asm.head)" ""
+mutant "лимит посадки не судится (урок 2026-10-16)" "if (rateOf(lp)) return {" "if (false) return {"
+mutant "лимит CI посадки не судится (урок 2026-10-16)" "if (rateOf(ciL)) return {" "if (false) return {"
+mutant "лимит — красным (урок 2026-10-16)" "state: 'not-run', stage: what" "state: 'failed', stage: what"
+mutant "перепись гейтов без чтения лимита (урок 2026-10-16)" "сперва ОДНО чтение \`gh api rate_limit\`" "сперва"
+mutant "стенд — перезапуском, не --enqueue (урок 2026-10-16)" "heavy-slot.sh --enqueue ' + D + ' <класс> -- …\`" "heavy-slot.sh <класс> -- …\`"
+mutant "пауза стенда — роли без ожидания (урок 2026-10-16)" "{ ...MECH, agentType: 'ci-watcher', label: 'mech:stand:' + i," "{ ...MECH, label: 'mech:stand:' + i,"
 # ws#1029: тема вливания по форме правила ветки.
-mutant "merge без --subject" " --subject \"' + mergeTitle + '\"\`" "\`"
+mutant "merge без --subject" " --subject \"' + mergeTitle + '\" --body \"\"\`" " --body \"\"\`"
 mutant "тема вливания — заголовок без merge #<M>" "' merge #' + asm.pr + ': волна ' + N" "' волна ' + N"
 mutant "тема вливания — всегда номер волны" "(/^[0-9]+\$/.test(String(A.epic || A.base || '')) ? String(A.epic || A.base) : N)" "(N)"
 # ws#1036: форма отсоединённого прогона и сбор уроков.
