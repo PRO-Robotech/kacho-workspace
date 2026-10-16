@@ -1,0 +1,41 @@
+# Copyright (c) PRO-Robotech
+# SPDX-License-Identifier: BUSL-1.1
+#
+# ci-stated.service — пользовательская служба демона состояния PR (ws#1113).
+#
+# УСТАНОВКА (один раз на машину, от своего пользователя):
+#   mkdir -p ~/.config/kacho && printf 'KACHO_WS=%s\n' "$WS" > ~/.config/kacho/ci-stated.env
+#   systemctl --user link "$WS/scripts/ci-state/ci-stated.service"
+#   systemctl --user enable --now ci-stated.service
+# Проверка: `systemctl --user status ci-stated` и `ls -l ~/.cache/kacho-ci-state/snap`;
+# чтение — `scripts/ci-read.sh <репозиторий> <PR> --from-state`.
+#
+# Токен — только из keyring (gh auth status → tokenSource keyring), иначе служба не
+# стартует (код 4) и перезапуском этого не обойти: RestartPreventExitStatus.
+# Демон пишет лишь в ~/.cache/kacho-ci-state; остальной дом — только чтение.
+[Unit]
+Description=kacho ci-state: снимок состояния открытых PR kacho и kaname (ws#1113)
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kacho/ci-stated.env
+Environment=GH_NO_UPDATE_NOTIFIER=1
+Environment=GH_PROMPT_DISABLED=1
+UnsetEnvironment=GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN
+ExecStartPre=/usr/bin/mkdir -p %h/.cache/kacho-ci-state
+ExecStart=/usr/bin/python3 ${KACHO_WS}/scripts/ci-state/ci-stated.py --interval 60
+Restart=on-failure
+RestartSec=30
+RestartPreventExitStatus=2 4
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.cache/kacho-ci-state
+MemoryMax=256M
+CPUQuota=20%
+TasksMax=64
+
+[Install]
+WantedBy=default.target

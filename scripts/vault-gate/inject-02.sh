@@ -11,6 +11,8 @@
 #   3. основание отстало ВНИЗ (висячих стало меньше) → тоже код 1: послабление,
 #      которому больше нечего прощать, обязано истечь, а не тихо переживать свой
 #      предмет;
+#   3а. законный близнец сужения: та же висячая ссылка в замороженном архиве →
+#      молчание (судятся только `lessons/`, `runbooks/`);
 #   4. предпосылка исчезла (хранилище пусто) → код 2 (VOID), не 0. Гейт, который
 #      тем зеленее, чем меньше видит, — худший из возможных.
 
@@ -71,10 +73,10 @@ expect_silent_about() {
 
 # --- (1) Внесённый дефект: ссылка на записку, которой нет.
 d="$(setup_tree defect)"
-cat > "$d/obsidian/kacho/edges/zz-inject-dangling.md" <<'EOF'
+cat > "$d/obsidian/kacho/lessons/zz-inject-dangling.md" <<'EOF'
 ---
 title: "инъекция: ссылка в никуда"
-category: edge
+category: lesson
 status: active
 ---
 # инъекция
@@ -87,10 +89,10 @@ expect_names "гейт назвал цель" "zz-nonexistent-resource" "$out"
 
 # --- (2) Законный близнец: три живые формы ссылки. Гейт обязан смолчать про них.
 d="$(setup_tree twin)"
-cat > "$d/obsidian/kacho/edges/zz-inject-live-links.md" <<'EOF'
+cat > "$d/obsidian/kacho/lessons/zz-inject-live-links.md" <<'EOF'
 ---
 title: "инъекция: живые ссылки трёх форм"
-category: edge
+category: lesson
 status: active
 ---
 # инъекция
@@ -110,6 +112,24 @@ printf '1\tzz-target-that-no-longer-dangles\n' >> "$TMP/stale-baseline.txt"
 out="$(VAULT_GATE_ROOT="$d" VAULT_GATE_BASELINE="$TMP/stale-baseline.txt" bash "$CHECK" 2>&1)"; code=$?
 expect_code "устаревшее основание (цель больше не висит) — тоже находка" 1 "$code" "$out"
 expect_names "гейт объяснил, что основание переписать" "УСТАРЕЛО" "$out"
+
+# --- (3а) Законный близнец СУЖЕНИЯ: та же ссылка в никуда, но в замороженном
+# архиве (`edges/`) — архив не правится и не судится. Молчание здесь
+# доказывает, что граница проходит по каталогу, а (1) — что ведомое судится.
+d="$(setup_tree frozen_twin)"
+cat > "$d/obsidian/kacho/edges/zz-inject-frozen-dangling.md" <<'EOF'
+---
+title: "инъекция: ссылка в никуда в архиве"
+category: edge
+status: active
+---
+# инъекция
+Ссылка на [[resources/zz-nonexistent-resource]] — такой записки в дереве нет.
+EOF
+git -C "$d" add -A >/dev/null 2>&1
+out="$(run_on "$d")"; code=$?
+expect_code "законный близнец: висячая ссылка в замороженном архиве не судится" 0 "$code" "$out"
+expect_silent_about "законный близнец: гейт не называет цель из архива" "zz-nonexistent-resource" "$out"
 
 # --- (4) Предпосылки нет: хранилище пусто → VOID, не PASS.
 d="$TMP/void"

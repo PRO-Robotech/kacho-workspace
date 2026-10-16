@@ -44,7 +44,6 @@
 - факты: <утверждение> — <измерено <командой> @<ревизия> | прочитано в <файл:строка> | со слов <кого>>
 - нужен следующий: <агент> — <задание одной фразой>
 - вопросы владельцу: <вопрос>
-- затронуто в vault: ресурсы · rpc · пакеты · рёбра
 - урок: <класс> · <где предотвратить> | —
 ```
 
@@ -123,10 +122,10 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 
 ## Permissions и хуки
 
-`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
-(`UserPromptSubmit` / `Stop`), `stall-signal` (там же), `class-guard` и `docfresh` (`PostToolUse`, и в
-сабагентах), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash), `session-memcap` (`SessionStart`),
-`change-graph-reminder`, rag-хуки. Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет.
+`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: `stall-signal` (`UserPromptSubmit`, `Stop`),
+`class-guard`, `docfresh`, `change-graph-reminder` (`PostToolUse`, и в сабагентах), `heavy-guard`
+(`PreToolUse` Bash, Monitor), `no-wait-guard`, `gh-api-guard` (Bash), `session-memcap` (`SessionStart`).
+Пути — `$CLAUDE_PROJECT_DIR`; в продукте файла нет. Хранилище ведётся лишь в `lessons/`, `runbooks/`.
 
 Режима без подтверждений из дерева **нет** (`ai-tooling.md#at-bypass-not-from-repo-layer`):
 его дают лишь личный `~/.claude/settings.json`, policy или флаг.

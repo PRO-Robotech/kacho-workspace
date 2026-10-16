@@ -143,7 +143,8 @@ def body(pr):
     pr.refused("генератор указателя отказал", rc, err, "генератор указателя хранилища вышел кодом 3: проба: генератор отказал")
 
     # хранилище красное — ритуал обязан сказать это кодом, а не «записано»
-    broken = os.path.join(root, "obsidian", "kacho", "KAC", "zz-ritual-probe-broken.md")
+    # Поломка — в ВЕДОМОМ каталоге: архив (`KAC/` и прочие) vault-gate с 2026-10-16 не судит.
+    broken = os.path.join(root, "obsidian", "kacho", "lessons", "zz-ritual-probe-broken.md")
     open(broken, "w", encoding="utf-8").write("---\ntitle: проба\ncategory: resource\n---\n\nтекст\n")
     rc, out, err, _ = pr.run("vault-trails", [R, str(N1)], pr.state(world()), extra=extra)
     pr.ok("хранилище красное: исход ритуала 1, находка напечатана", rc == 1 and "zz-ritual-probe-broken" in err, err[-600:])

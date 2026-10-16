@@ -702,7 +702,7 @@ Use a parallel-execution helper (e.g. `corlib/parallel.ExecAbstract`) to run pub
 
 - [ ] Spec / acceptance approved.
 - [ ] Ticket created; branch matches the ticket id.
-- [ ] Local trail (vault / ADR / RFC, whatever the project uses) is set up.
+- [ ] Local trail (tracker / ADR / RFC, whatever the project uses) is set up.
 - [ ] Cross-repo dependency graph understood (merge order, build edges).
 - [ ] Owner of every cross-domain reference is known.
 
@@ -719,7 +719,7 @@ Use a parallel-execution helper (e.g. `corlib/parallel.ExecAbstract`) to run pub
 - [ ] **Peer-clients:** built via the single builder; positive+negative TTL cache where applicable.
 - [ ] **Listeners:** admin RPC only on internal listener; rejection interceptor in place.
 - [ ] **Tests in the same PR:** integration (testcontainers) + e2e + a concurrent-race test for every CAS / partial-UNIQUE / EXCLUDE invariant (e2e edge case is written by the tester, `testing-newman.md#edge-author-black-box`: order it).
-- [ ] **Trail updated:** docs / ADR / vault entries reflect the change.
+- [ ] **Trail updated:** docs / ADR / tracker reflect the change.
 
 ---
 
@@ -756,27 +756,12 @@ In *this* repository `godzila` is meant to be loaded **in a pair** with the mate
 
   **Usage:** invoke `evgeniy` first on any refactor / new service / new resource / new domain type to confirm the design respects the rules; invoke `godzila` second for the concrete templates. On conflict, `evgeniy` wins.
 
-### 20.2 Companion vault — narrow notes per package, resource, RPC and edge
+### 20.2 Companion vault — frozen archive
 
-> **The per-repo pattern catalogue this section used to name no longer exists.** It was a
-> directory of eight pattern files plus a synthesis, keyed to the pre-monorepo `kacho-vpc`
-> repository; it was retired on 2026-08-05 when the vault was brought in line with the
-> monorepo, and its addresses are deliberately not reproduced here — a dead coordinate in
-> backticks reads as a live claim about the tree and is treated as one by the freshness hook.
-
-- **`obsidian/kacho/`** — the vault is the bridge between this skill's placeholders and the
-  actual project names. Entry point is `obsidian/kacho/INDEX.md`; the categories are
-  `packages/` (exported API, imports, imported-by, per Go package), `resources/` (FK contract,
-  lifecycle, id prefix), `rpc/` (methods, REST mapping, sync vs async), `edges/` (cross-service
-  protocol, error contract, history), plus `KAC/`, `lessons/`, `runbooks/`, `docs/`, `legacy/`.
-
-  **Usage:** when `godzila` says "register the converter in `init()`" and you need to see how it
-  is done in this codebase, open the note for the package or resource you are touching — a note
-  states which revision it was verified against, so you can tell a fresh fact from a stale one.
-  Read one or two narrow notes, not the whole category — needing more than three vault
-  files is a signal that the scope is wrong, not a reason to read more. The note shell and
-  the canonical tags are defined in `obsidian/kacho/CLAUDE.md`; the notes themselves are
-  written only by `vault-scribe`.
+The vault `obsidian/kacho/` was narrowed on 2026-10-16: only `lessons/` (defect
+classes) and `runbooks/` are maintained; `packages/`, `resources/`, `rpc/`, `edges/`, `KAC/`
+are a frozen archive and are **not** a source of facts. To see how a pattern is done in this
+codebase, read the code and the proto at the revision you work on.
 
 ### 20.3 Companion sub-agents — name the one you need, do not start it
 
@@ -804,7 +789,7 @@ out here, because the roster grows and a hand-written number does not):
 - **Proto:** `proto-sync`, `proto-api-reviewer`.
 - **Review:** `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`, `security-auditor`.
 - **Tests and verdicts:** `integration-tester`, `qa-test-engineer`, `check-verifier`, `ci-watcher`.
-- **Around the code:** `scout` (a coordinate or a fact you would otherwise go hunting for), `vault-scribe` (the note and the task trail), `docs-writer` (the page), `git-operator` (push, PR, merge, branch removal — never your own step: you commit your work yourself, the rest is his).
+- **Around the code:** `scout` (a coordinate or a fact you would otherwise go hunting for), `vault-scribe` (a lesson, on the dispatcher's order), `docs-writer` (the page), `git-operator` (push, PR, merge, branch removal — never your own step: you commit your work yourself, the rest is his).
 
 Domain-specific agents are named after the domain (`vpc-*`, `compute-*`, `<svc>-load-testing`)
 and are meant to sit next to the generic ones. **None of them exists in the tree today** — the
@@ -855,9 +840,8 @@ carry was retired for a different reason: it compared us to another cloud, which
    `godzila` (this file) for the templates, and any rule your body lists under «Правила по
    триггеру» whose trigger fired. On conflict `evgeniy` wins over `godzila`, and a rule wins over
    both.
-3. **Read by you:** the one or two vault notes (see `obsidian/kacho/INDEX.md`) that match the
-   resource you are touching. There is no size ceiling on a note any more — the "1–3 KB" one was
-   lifted by the owner on 2026-08-05; what is still normative is one subject per note.
+3. **Read by you:** the code and proto of the resource you are touching (the vault is a frozen
+   archive, §20.2).
 4. **Ordered from the dispatcher, never started by you:** the narrow steps that belong to another
    agent — one line per step in your return block (§20.3).
 

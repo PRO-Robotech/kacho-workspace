@@ -1,0 +1,135 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md
+  sha256: f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e
+  static_status: DRAFT
+  static_status_note: >-
+    Слово DRAFT в шапке документа — статическая форма объявления; шапка не правлена намеренно
+    (change-graph.md §2). Действующий вердикт о редакции f8020c3f… — эта запись.
+  base_commit: ed6b129a0e39213d1e0df7d34729b42ef23ac0f0
+  content_commit: ed6b129a0e39213d1e0df7d34729b42ef23ac0f0
+  branch: 1095-f8-s7-security-settings
+  task: PRO-Robotech/kacho-workspace#1095
+  implementation_task: PRO-Robotech/kacho#3230
+  lines: 507
+  round: 2
+  predecessor_record: docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8.yaml
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md
+  neighbour_pin_note: >-
+    Опора — SUA редакция 2 c9224c8b… (git show d81466bfb:<путь> | sha256sum — совпал); коммит d81466bfb есть
+    только в локальной ветке 827 kaname, origin/827 несёт редакцию 1 3c6fdec0. Вердикта у SUA нет — реализация
+    экрана ждёт её одобрения (fa-b7), как документ и говорит.
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-14T19:17:09Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  allowlisted_for_role: false
+effective_approval:
+  issued: false
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho-workspace#1095
+  status: performed
+  published: true
+  database_id: 6176605330
+  node_id: "IC_kwDOSVvpIM8AAAABcCeEkg"
+  url: "https://github.com/PRO-Robotech/kacho-workspace/issues/1095#issuecomment-6176605330"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/6176605330"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-14T19:30:20Z"
+  body_sha256: "263f05c0dff51d314115582febdd3643f9ca904df9809b8952ab5e6789fc5de9"
+  subject_sha256: "f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e"
+  subject_revision_commit: "86527cd8656af31e46e85931f371b4787842c911"
+  verdict: "CHANGES_REQUESTED"
+  publication_mode: scripts/rituals/approval-event.sh
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8.yaml
+round_1_closure:
+  - kind: CONSTRUCTIBILITY
+    where: F8-S7-31
+    status: closed
+    evidence: >-
+      «Дано» — подстановкой ответа на step-up через fulfillWith; git -C project/kacho show
+      8514270c4:ui-future/e2e/specs/producer-answers.ts | grep -n 'export function fulfillWith' → :222.
+  - kind: DoD
+    where: F8-S7-80; §8 п.3
+    status: closed_with_new_finding
+    evidence: >-
+      §8 п.3 называет newman-кейсы, пару статус+code и строку E2E-SHARDS.md; производитель отказа —
+      address_refusal.go:67 writeHTTPAddressRefusal (403, codes.PermissionDenied :78, EMAIL_NOT_VERIFIED :50).
+      Положительный кейс получил «Дано», которое newman не строит — см. blocking.
+  - kind: TWIN
+    where: F8-S7-43
+    status: closed
+    evidence: "Близнец назван: С-ккл, удаление выполнено, F8-S7-71."
+  - non_blocking_round_1: >-
+      Все три закрыты: тупик Р7 (role=status, Revoke 0, путь — администратор, согласно SUA Р7 ред. 2);
+      навигация — пять ссылок, сводка вне навигации (Р1); посев «использований» — двумя step-up глаголом продукта.
+blocking:
+  - kind: CONSTRUCTIBILITY
+    where: "F8-S7-80 «Дано» в newman (§8 п.3, положительный кейс)"
+    finding: >-
+      Положительный newman-кейс требует С-кл — человека с подтверждённым адресом, паролем и
+      зарегистрированным ключом. Посев С-кл существует только в playwright (access-key-seed.ts:
+      raiseSeedToLevelTwo → seedAccessKey, CBOR-аттестация «none» на TS). У newman и у python-фикстур
+      нет ни заведения кода, ни регистрации ключа: фикстура края для людей одна —
+      tests/authz-fixtures/verified_human.py (Ф-п / Ф-н: register, verify-email/confirm, me). Кейс, «Дано»
+      которого не строится, на сборке выпадет либо подменится, и паритет «200 / 403» останется
+      односторонним. Попутно близнец не однофактен: С-кл против человека с неподтверждённым адресом
+      отличаются и адресом, и наличием ключа.
+    predicate: >-
+      git -C project/kacho grep -lE 'attestation|access-key/begin|second-factor/enroll' 8514270c4 -- '*.py' | wc -l → 0;
+      git -C project/kacho grep -cE 'second-factor|access-key|webauthn|totp' 8514270c4 -- tests/authz-fixtures/ gateway/tests/newman/ → пусто;
+      git -C project/kacho show 8514270c4:tests/authz-fixtures/verified_human.py | grep -n '^def ' → register, confirm, who_am_i, enroll (Ф-п/Ф-н)
+    required: >-
+      Один из двух (выбор автора):
+      (а) положительный кейс — ретрансляция ответа службы человеку Ф-п без ключа: 400, code 9,
+      ACCESS_KEY_NOT_REGISTERED, «no access key is registered: register an access key first» (производитель —
+      SUA-21); близнец — Ф-н тем же запросом: 403, code 7, EMAIL_NOT_VERIFIED; отличающий факт один —
+      подтверждён ли адрес; оба «Дано» строит verified_human.py; 200 c allowCredentials остаётся за
+      браузерной F8-S7-21 на стенде (DoD п.4);
+      (б) оставить 200 и назвать фикстуру python, которая заводит код и регистрирует ключ через край
+      (перенос submitRegistration «none» из access-key-seed.ts), заказом kacho#3230; близнец — тот же
+      человек до подтверждения адреса — не строится (ключ требует «2»), поэтому пара всё равно вида (а).
+non_blocking:
+  - >-
+    F8-S7-43: близнец С-ккл отличается от С-л двумя фактами (пароль и код); однофактный — С-кл
+    (пароль + ключ, без кода), ему «2» даёт повышение ключом. Для стража последнего способа входа значим
+    только пароль, поэтому не блокирует.
+  - F8-S7-10: шаги «двумя вызовами step-up запросом посева» — назвать функцию посева при реализации.
+checks:
+  tree_claims: >-
+    §1 перемерен @kacho 8514270c4: login_lane_paths.go step-up — :343 без openBeforeAddressConfirmation
+    (закрыт до подтверждения, как сказано в Р10); 'step-up/access-key' — 0; address_refusal.go — 403/PermissionDenied/EMAIL_NOT_VERIFIED.
+  neighbours: >-
+    SUA ред. 2: git -C project/kaname show d81466bfb:docs/engineering/acceptance/step-up-with-any-enrolled-method.md | sha256sum
+    → c9224c8b… — совпал; Р7 ред. 2 (Revoke на полу «2», путь без кода — ResetAccessKeys) согласован с Р7 здесь.
+  scope: >-
+    Решение владельца «OTP/коды/passwordLess» покрыто: код по времени (Р2, F8-S7-22), запасные коды (Р4,
+    F8-S7-23/40/41), ключ доступа (Р5, F8-S7-21/25/26); UX личного кабинета — сводка, навигация, таблицы с
+    датами, диалоги последствий, показ кодов один раз, пустые состояния, доступность.
+  producer: "§6 покрывает все ID; заказы — kacho#3230 и kaname#827."
+  constructibility: >-
+    Фикстуры playwright @8514270c4 существуют: seedConfirmedHuman (ceremony-seed.ts:301), seedSecondFactor (:431),
+    totpCode/windowCodes (:370/:382), laneTooManyAttempts (producer-answers.ts:93), SESSION_NOT_FRESH (:130),
+    fulfillWith (:222), access-key-seed.ts (seedAccessKey :241, raiseSeedToLevelTwo :281, dropSeedSecondFactor :296,
+    authenticatorWithKey :519). Newman: Ф-н строится verified_human.py; С-кл — не строится (blocking).
+    Посев не выполнялся — стенд заданием не назван: посеяно 0 из 9, не выполнилось 9.

@@ -19,6 +19,11 @@ import subprocess
 
 VAULT = "obsidian/kacho"
 
+# Ведётся только это: уроки и процедуры (решение диспетчера 2026-10-16).
+# Прочие каталоги хранилища — архив, заморожены: источник правды о задаче, коде и
+# рёбрах — трекер, git и код. Ссылки ИЗ ведомого В архив резолвятся как прежде.
+ACTIVE = ("lessons", "runbooks")
+
 LINK_RE = re.compile(r"(?<!!)\[\[([^\]|#^]+)(?:[#^][^\]|]*)?(?:\\?\|[^\]]*)?\]\]")
 
 
@@ -46,6 +51,11 @@ def vault_files(root: str) -> list[str]:
 
 def notes(files: list[str]) -> list[str]:
     return [f for f in files if f.endswith(".md")]
+
+
+def active(paths: list[str]) -> list[str]:
+    """Записки ведомых каталогов: судятся только они, архив заморожен."""
+    return [f for f in paths if f.split("/", 1)[0] in ACTIVE]
 
 
 def frontmatter(path: str) -> dict[str, str]:

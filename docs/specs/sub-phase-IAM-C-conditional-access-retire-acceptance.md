@@ -6,6 +6,19 @@
 > закрыты (сводка — §10); круг 2 — `CHANGES_REQUESTED`, 4 блокирующих + 2 фактических
 > закрыты (сводка — §11); круг 4 — 3 ложных механизма и 6 несуществующих артефактов
 > исправлены по коду, каждый открытый пункт получил исход (§12)
+> Правка 2026-10-16 (kacho#3249): исход промаха каталога разрешений — `403`, не `404`
+> (решение диспетчера волны identity-own-2). IAM-C-10/11 и §5.4 утверждают пару «HTTP-статус +
+> `code`», текст и причину `AUTHZ_DENIED`; утверждение о теле переписано под производимое; разбор
+> и перепись производителей — §13. Остальные сценарии не тронуты
+> Правка 2026-10-16, второй заход (kacho#3249, по записи ревью ниже, B1 и B2 рода PRODUCER;
+> решение диспетчера — вариант 1): ретайренный путь на ВНЕШНЕМ слушателе — промах маршрутизации
+> `404` сторожа kacho#3053, он отвечает раньше аутентификации и проверки прав; утверждения
+> предыдущей строки о `403`/`401` на этот путь производителя не имели и заменены. IAM-C-10/11,
+> §5.4 и §13 переписаны по захваченному ответу края. `403` остаётся исходом промаха каталога у
+> смонтированного метода (§13.1), норма `hard-catalog-complete` не правится
+> История review (только дописывается): 2026-10-16 · круг 1 правки kacho#3249 ·
+> `CHANGES_REQUESTED` · `6fc278ec1a74417c41496a2a8aa93beae048f42ef44beec3f3e47321a02e59a9` ·
+> `docs/specs/reviews/sub-phase-IAM-C-conditional-access-retire-acceptance/6fc278ec1a74417c41496a2a8aa93beae048f42ef44beec3f3e47321a02e59a9.yaml`
 > Эпик/тикет: задача #74 («ретайрить условный доступ целиком или доводить») — решение принято,
 > этот документ её закрывает. Кросс-слойно внутри монорепо `project/kacho`
 > База проверки фактов: `project/kacho` @ `b892cd8` (ветка `base/redesign` = `redesign/integration`);
@@ -708,8 +721,8 @@ retirement-записок vault:
 
 | Клиент | Было | Стало |
 |---|---|---|
-| REST `/iam/v1/conditions*`, **аутентифицированный** клиент | 200 / Operation | **403** (промах каталога, fail-closed; шлюз не раскрывает существование пути) |
-| REST `/iam/v1/conditions*`, **анонимный** клиент | 200 / Operation | **401** в посадке `production-strict` (запрос не доходит до authz), **403** в посадке `production`. Никогда 200, никогда 404 — см. разбор у IAM-C-11 |
+| REST `/iam/v1/conditions*` на внешнем слушателе, **аутентифицированный** клиент | 200 / Operation | **404**, тело `{"code":5,"message":"Not Found","details":[]}` — промах маршрутизации внешнего слушателя (сторож маршрута kacho#3053), до аутентификации и проверки прав; побайтово тот же ответ, что на путь, которого не было никогда. Не `403`: промах каталога (`403`) бывает только у смонтированного метода — §13 |
+| REST `/iam/v1/conditions*` на внешнем слушателе, **анонимный** клиент | 200 / Operation | тот же **404** побайтово, в посадках `production` и `production-strict` одинаково: сторож стоит снаружи аутентификации. Не `401` и не `403`, никогда `200` — см. IAM-C-11 |
 | gRPC `ConditionsService/*` на внешнем листенере | проксировался | `NOT_FOUND "unknown method: …"` |
 | gRPC `ConditionsService/*` на листенере iam | обслуживался | `UNIMPLEMENTED` |
 | REST `POST /iam/v1/accessBindings` с ключом `conditionId` | ключ читался ноль раз | ключ отбрасывается мостом (unknown JSON key), привязка создаётся, в ответе ключа нет |
@@ -797,8 +810,8 @@ retirement-записок vault:
 | IAM-C-01 | `TestRetireInventory_NoResidualIdentifiers` + сам исполняемый гейт | `deploy/tests/helm/` **[есть, каталог]** — файл гейта **[новый]**; вызывается из CI (job `helm lint · template (dev + prod)`, новым шагом — см. §12 O-1) |
 | IAM-C-02 | **стендовая процедура** (три счётчика §5.3) | приложение к тикету |
 | IAM-C-03 | **стендовая процедура** (постраничный обход `InternalAuthorizeService.ReadTuples`) | приложение к тикету; механика **[есть]** — `proto/kacho/cloud/iam/v1/internal_authorize_service.proto:55`, `services/iam/internal/apps/kacho/api/internal_authorize/handler.go:98` |
-| IAM-C-10 | `IAM-CRET-GT-RETIRED-DENY`, `IAM-CRET-LS-RETIRED-DENY`, `IAM-CRET-CR-RETIRED-DENY`, `IAM-CRET-UP-RETIRED-DENY`, `IAM-CRET-DL-RETIRED-DENY`, `IAM-CRET-EV-RETIRED-DENY` | `services/iam/tests/newman/cases/iam-conditional-retired.py` **[новый]** |
-| IAM-C-11 | `IAM-CRET-LS-RETIRED-ANON-DENY` | там же **[новый]** |
+| IAM-C-10 | `IAM-CRET-GT-RETIRED-DENY`, `IAM-CRET-LS-RETIRED-DENY`, `IAM-CRET-CR-RETIRED-DENY`, `IAM-CRET-UP-RETIRED-DENY`, `IAM-CRET-DL-RETIRED-DENY`, `IAM-CRET-EV-RETIRED-DENY`; близнецы (правка 2026-10-16, второй заход, §13) — `IAM-CRET-GT-NEVER-EXISTED-DENY` (побайтовое сравнение), `IAM-CRET-LS-ROUTED-OK` (положительный) | `services/iam/tests/newman/cases/iam-conditional-retired.py` **[новый]**; кейсы идут через внешний слушатель края |
+| IAM-C-11 | `IAM-CRET-LS-RETIRED-ANON-DENY`; близнецы — `IAM-CRET-GT-NEVER-EXISTED-ANON-DENY` (побайтовое сравнение), `IAM-CRET-LS-ROUTED-ANON-UNAUTH` (положительный) | там же **[новый]** |
 | IAM-C-12 | `TestShimProxy_ConditionsService_UnknownMethod` | `gateway/internal/proxy/shimproxy_bufconn_test.go` **[есть]** — дополняется кейсом. Механизм отказа **[есть]**: `gateway/internal/proxy/shimproxy.go:53` возвращает `status.Errorf(codes.NotFound, "unknown method: %s", method)` для всего, чего нет в allowlist |
 | IAM-C-13 | `TestIAMGRPC_ConditionsService_Unimplemented` (**регресс-контроль**, см. пометку у сценария) | `services/iam/cmd/kacho-iam/grpc_register_test.go` **[новый]** |
 | IAM-C-14 | `TestPermissionCatalog_NoConditionsNamespace` (обе копии) + `cd gateway && make permission-catalog-check` | `gateway/internal/middleware/permission_catalog_test.go` **[есть]** |
@@ -899,63 +912,87 @@ retirement-записок vault:
 
 ---
 
-**Сценарий 10: ретайренный REST-путь отвечает отказом, а не данными**
+**Сценарий 10: ретайренный REST-путь на внешнем слушателе отвечает «маршрута нет», а не данными**
 
 **ID:** IAM-C-10
 
-**Given** шлюз собран после S1
-**And** клиент аутентифицирован валидным токеном и является владельцем аккаунта
+**Given** шлюз собран после S1, запросы приходят на **внешний** слушатель края
+**And** клиент аутентифицирован валидным токеном и является владельцем аккаунта `A`
+(`accountId` = `<A>`, его проект — `<P>`)
 
 **When** клиент вызывает `GET /iam/v1/conditions/cnd00000000000000abc`
-**And** `GET /iam/v1/conditions?projectId=<свой проект>`
-**And** `POST /iam/v1/conditions` с телом `{projectId, name, expression}`
+**And** `GET /iam/v1/conditions?projectId=<P>`
+**And** `POST /iam/v1/conditions` с телом `{projectId: <P>, name, expression}`
 **And** `PATCH /iam/v1/conditions/cnd00000000000000abc`
 **And** `DELETE /iam/v1/conditions/cnd00000000000000abc`
 **And** `POST /iam/v1/conditions/cnd00000000000000abc:evaluate` с телом `{context:{}}`
 
-**Then** каждый вызов отвечает `403` (промах каталога разрешений, fail-closed)
-**And** ни один не отвечает `200` ни при каких значениях полей
-**And** тело ответа не содержит ни `cnd`, ни имени сервиса, ни слова `condition`
-(отказ не раскрывает, что именно было снято)
+**Then** каждый вызов отвечает HTTP `404`, `Content-Type: application/json`, тело дословно
+`{"code":5,"message":"Not Found","details":[]}`: промах маршрутизации внешнего слушателя, который
+производит grpc-gateway из сторожа маршрута kacho#3053
+**And** запрос не доходит ни до аутентификации, ни до проверки прав, поэтому ответ не зависит от
+токена: без токена он тот же (IAM-C-11)
+**And** ни один вызов не отвечает `200` и ни один не отвечает `403`, какие бы значения полей ни пришли
+**And** ответ побайтово совпадает (статус, `Content-Type`, тело) с ответом тем же субъектом на
+`GET /iam/v1/neverExisted/abc`, то есть на путь, которого в контракте не было никогда. Отказ не
+называет ни `cnd`, ни `condition`, ни имени службы и не отличает «снят» от «не было»
+
+**Положительный близнец** (меняет ровно один факт: маршрут на внешнем слушателе есть): тот же
+владелец аккаунта `A` тем же токеном вызывает `GET /iam/v1/accounts/<A>/accessBindings`
+(`AccessBindingService/ListByAccount`) → `200`, тело — страница привязок. Без близнеца
+«`404` на ретайренный путь» неотличим от «внешний слушатель не отвечает ничем».
+
+Различимость отказов края одного HTTP-кода (по `message`; производители и держатели — §13.2):
+
+- три `404`. Промах маршрутизации — `"Not Found"` с `"details":[]`. `404` владельца —
+  `"<Resource> <id> not found"`. `404` скрытия существования (строка каталога с
+  `hide_existence`, у субъекта нет права на чтение) повторяет текст владельца там, где у типа есть
+  формат владельца, иначе — `"not found"`, без ключа `details`;
+- три `403`, у всех `code` = `7`. Промах каталога у смонтированного метода (§13.1) —
+  `"permission denied"`. Запись каталога есть, а права у субъекта нет — `"permission denied: <право>"`
+  (kacho#3177). Отказ по уровню подтверждения — текст `stepUpDenyMessage`
+  (`"authentication level is insufficient: step up with a second factor, or present a credential of another kind"`).
 
 ---
 
-**Сценарий 11: анонимный вызов ретайренного пути тоже отвергается**
+**Сценарий 11: анонимный вызов ретайренного пути получает тот же «маршрута нет»**
 
 **ID:** IAM-C-11
 
-**Given** тот же шлюз, поднятый в посадке `production-strict` (та, что даёт `make -C deploy dev-prod-up`:
-`values.dev-prod.yaml:73` — `authn.mode: production-strict`)
-**And** запрос без заголовка `Authorization`
+**Given** тот же шлюз, запрос на **внешний** слушатель, посадка `production-strict` (её даёт
+`make -C deploy dev-prod-up`: `values.dev-prod.yaml:73` — `authn.mode: production-strict`) либо
+`production`: обе ветви утверждают одно и то же
+**And** запрос без заголовка `Authorization` и без носителя сессии
 
 **When** клиент вызывает `GET /iam/v1/conditions?projectId=prj000000000000000a`
 
-**Then** ответ — **`401`** (`WWW-Authenticate: Bearer error="invalid_token", …missing access token"`)
-**And** он **не отличим** от ответа на любой другой путь без токена: отказ наступает на
-входном рубеже, до того как шлюз вообще узнаёт, известен ли ему метод
-**And** ответ **не** `200` и **не** `404` — ретайренный путь не отвечает данными и не
-раскрывает, что путь когда-то существовал
+**Then** ответ — HTTP `404`, `Content-Type: application/json`, тело дословно
+`{"code":5,"message":"Not Found","details":[]}`, как в IAM-C-10, в обеих посадках
+**And** ответ побайтово совпадает с ответом анониму на `GET /iam/v1/neverExisted/abc`
+**And** ответ не `401`: сторож маршрута стоит снаружи аутентификации, и до входного рубежа запрос не
+доходит. Не `403` и не `200`
 
-**When** тот же вызов выполняется в посадке `production` (без `-strict`) — либо тем же
-запросом, но с валидным токеном субъекта без грантов
+**Положительный близнец** (меняет ровно один факт: маршрут есть): тот же анонимный запрос, без
+токена и в той же посадке, на существующий публичный маршрут `GET /iam/v1/accounts/<A>/accessBindings`
+(`A` — аккаунт из IAM-C-10) → HTTP `401` единым отказом `authnrefusal`: заголовок
+`WWW-Authenticate: Bearer realm="kacho", error="invalid_token"`, `Content-Type: application/json`, тело
+дословно
+`{"code":16,"message":"authentication failed","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"AUTHN_REQUIRED","domain":"kaname.cloud.iam.v1"}]}`.
+Без близнеца «`404` анониму» неотличим от «аутентификация не в цепочке».
 
-**Then** ответ — **`403`** (промах каталога, fail-closed), не `401` и не `404`
+Цену этого ответа объявил kacho#3053: аноним отличает публичный маршрут (`401`) от отсутствующего
+(`404`). Таблица публичных маршрутов и так опубликована, а ретайренный путь от пути, которого не
+было никогда, не отличим ни анониму, ни субъекту с токеном.
 
-> **Сценарий переписан в круге 4 — прежняя редакция была ЛОЖНОЙ на том самом стенде,
-> который документ предписывает.** Требовалось «`403`, не `401` и не `404`» и объяснялось
-> это тем, что «промах каталога не повышается до `UNAUTHENTICATED`». Вторая половина верна
-> (`gateway/internal/middleware/authz.go:746-777`: при `!found` возвращается
-> `PermissionDenied` **обоим** — и аутентифицированному, и нет, с разными `missReason`), а
-> первая — нет: **до authz-фазы анонимный запрос не доходит**. Цепочка HTTP-обработчиков
-> (`gateway/cmd/api-gateway/main.go:513-522`) — `authInterceptor` → **DPoP** → authz → …,
-> и DPoP в production-strict несёт `RequireForAllRequests` (`main.go:242`:
-> `cfg.AuthNMode == AuthModeProductionStrict`), который на пустом `Authorization`
-> отвечает `401` немедленно (`dpop_http_middleware.go:189-196`). `/iam/v1/conditions` не
-> входит в `isPublicHTTPPath` (`authz_util.go:184-191`), поэтому исключения нет.
-> Наблюдаемый инвариант, который **не зависит** от посадки и потому вынесен в оба Then:
-> **никогда `200`, никогда `404`, тело не называет снятый ресурс**. Код различается по
-> посадке — и это записано, а не замаскировано «толерантным oneOf», который скрыл бы
-> реальную разницу между «нет токена» и «нет прав».
+> **Сценарий переписан трижды.** В круге 4 он утверждал `401` в `production-strict` от слоя DPoP и
+> `403` в `production`. Правка 0ea189113 утверждала `403` промаха каталога с описанием
+> `"unauthenticated: authentication required"` и заголовок `…missing access token"`. Ни у одного из этих
+> ответов на внешнем слушателе производителя нет: сторож маршрута kacho#3053 отвечает раньше
+> аутентификации (§13.2), а запрос без удостоверения на маршрут, который сторож пропускает,
+> получает единый отказ `401` слоя аутентификации во всякой посадке, кроме `dev`. Описание
+> `"unauthenticated…"` видят только пробы посредника прав в одиночку. Инвариант, который сценарий
+> стерёг с круга 4, сохранён и усилен: никогда `200`, тело не называет снятый ресурс, а теперь ещё
+> и побайтово равно ответу на путь, которого не было никогда.
 
 ---
 
@@ -2299,3 +2336,117 @@ storage: регион образа, классификация отказа в �
 **#80** (`Snapshot.Create` не валидирует описание и метки синхронно) относятся к домену
 **storage** и поверхности условного доступа iam не касаются. Ни одна правка этого
 документа их не затрагивает и не заменяет.
+
+## 13. Промах каталога (`403`) и промах маршрутизации (`404`) — правка 2026-10-16, kacho#3249
+
+### 13.1 Решение
+
+**Промах каталога (403) — у смонтированного метода; промах маршрутизации внешнего слушателя
+(404) — предмет kacho#3053; это два разных отказа.** Решение диспетчера по записи ревью
+`6fc278ec…` — вариант 1: оба исхода остаются, ни один не откатывается.
+
+- **Промах каталога** — маршрут есть, а записи каталога разрешений у метода нет. Так бывает у
+  метода на внутреннем слушателе (там сторож маршрута не судит) или у публичного маршрута без
+  строки каталога, то есть ровно при нарушении нормы `hard-catalog-complete`. Ответ — HTTP `403`,
+  `code` = `7`, `message` = `"permission denied"`, `ErrorInfo.reason` = `AUTHZ_DENIED`, fail-closed.
+  Норма требует «отсутствие ⇒ AUTHZ_DENIED», с этим исходом она согласна и не правится (предикат —
+  `grep -n 'hard-catalog-complete' .claude/rules/security-hardening.md`, одна строка: `:15`).
+- **Промах маршрутизации внешнего слушателя** — координата, которую внешний слушатель не
+  обслуживает: внутренняя, несуществующая или снятая. Ответ — HTTP `404` grpc-gateway
+  `{"code":5,"message":"Not Found","details":[]}` от сторожа маршрута kacho#3053, раньше
+  аутентификации, подтверждения уровня и проверки прав. Сторож — поверхность безопасности (ban06):
+  он не даёт перечислить внутреннее пространство путей, поэтому не откатывается.
+
+Ретайренный путь `/iam/v1/conditions*` на внешнем слушателе — второй случай: маршрута нет
+(`git show e9ce4ffbdc:gateway/internal/middleware/rest_route_table_gen.go | grep -c conditions` → `0`;
+`grep -c 'Template: "/iam/v1/{'` → `0` из `107` шаблонов `/iam/v1/`). Поэтому IAM-C-10 и IAM-C-11
+утверждают `404`, а не `403`.
+
+Отвергнутый вариант — отвечать на ретайренный путь снаружи `403`. Для этого сторожу пришлось бы
+пропускать непубличные координаты к цепочке. Тогда либо внутреннее пространство стало бы отличимо
+от несуществующего, либо `403` снова называл бы внутренний метод и его право. Это откат kacho#3053
+и расширение поверхности.
+
+Почему промах каталога остаётся `403`, а не тоже `404`:
+
+- `404` для него не предписывает ни норма, ни одобренная приёмка, а норма
+  `hard-catalog-complete` требует `AUTHZ_DENIED`;
+- довод «`404` неотличим от `404` владельца и от `404` скрытия существования» слабее, чем
+  записывала правка 0ea189113: `404` различимы по `message` (IAM-C-10, «Различимость»), что и
+  показывает промах маршрутизации. Довод в смягчённой форме такой: с `404` дефект каталога края
+  (смонтированный метод без строки) выдавал бы себя за отсутствие маршрута, а у них разные
+  производители и разные исправления (дописать строку каталога и маршрута нет);
+- `403` промаха каталога различим с нехваткой права: у промаха текст без суффикса права, у
+  нехватки — `"permission denied: <право>"` (kacho#3177).
+
+### 13.2 Сценарий → производитель
+
+Ревизия замера — ветка эпика `3172-identity-own-2` @ `e9ce4ffbdc` дерева продукта. Производитель
+каждого «Тогда» назван по **самому внешнему отвечающему слою** цепочки обработчиков края, а не
+по одному звену. Цепочка REST — `gateway/cmd/api-gateway/main.go:1196-1224`, снаружи внутрь:
+идентификатор запроса и восстановление после паники (`:1222-1224`) и потолок тела (`:1221`) сами не
+отвечают; первый отвечающий слой — сторож маршрута (`:1214`), за ним слой аутентификации
+`authInterceptor` (`:1205`), DPoP (`:1203`), проверка прав (`:1200`). Порядок держит
+`TestExternalRouteGateIsMountedOutsideAuthentication`
+(`gateway/cmd/api-gateway/external_route_gate_wiring_test.go:120`).
+
+| ID сценария | что производит «Тогда» | самый внешний отвечающий слой и координата | чем измерено |
+|---|---|---|---|
+| IAM-C-10 | `404`, `application/json`, `{"code":5,"message":"Not Found","details":[]}` на всех шести вызовах | сторож маршрута `ExternalRouteGate` (`gateway/internal/restmux/external_route_gate.go:85-105`, смонтирован `main.go:1214`): маршрута нет ни у собственных путей края, ни в публичной таблице, и промах пишет grpc-gateway таблицы маршрутов | захват ответа (ниже); `grep -c conditions` по таблице маршрутов → `0` |
+| IAM-C-10 | запрос не доходит ни до аутентификации, ни до прав | сторож отвечает сам и цепочку не вызывает (`external_route_gate.go:61-84`, комментарий решения; ветки `:87-103`) | держатель `TestExternalListener_InternalSpacesAnswerNoRouteBeforeTheChain` (`external_route_gate_test.go:279`: `reached` ложно, `:215`) |
+| IAM-C-10 | побайтовое равенство с ответом на путь, которого не было никогда | одна ветка сторожа для всех необслуживаемых координат, «внутренних и несуществующих разом» (`external_route_gate.go:71-74`) | захват; держатели сравнивают с путём-близнецом `absentTwinPath` (`external_route_gate_test.go:191`, `:213`, `:221`) и на настоящих слоях аутентификации и прав — `TestRealEdge_InternalSpacesAnswerNoRouteWithALiveSession` (`external_route_gate_chain_test.go:102`, сессия и аноним) |
+| IAM-C-10, близнец | `200` на `ListByAccount` у владельца `A` | сторож пропускает (маршрут `rest_route_table_gen.go:102`); дальше отвечает бэкенд: запись каталога `permission_catalog.json:2475` (`v_list` на `account`, `required_acr_min` `"1"`, без `hide_existence`), отношение `v_list` выполняется у `owner` | каталог и таблица маршрутов — чтением @ `e9ce4ffbdc`; модель прав — со слов записи ревью `6fc278ec…` (`producers_walk`); посевом не показано (стенда в задании нет) |
+| IAM-C-10, различимость `404` | `"Not Found"` маршрутизации против текста владельца и скрытия существования | скрытие существования — `writeHTTPNotFound` (`gateway/internal/middleware/permission_denied_response.go:252`), текст — `notFoundMessage` (`:240`) | чтением |
+| IAM-C-10, различимость `403` | `"permission denied"` / `"permission denied: <право>"` / `stepUpDenyMessage` | `buildGRPCDenyStatus` (`permission_denied_response.go:67-78`); текст уровня — `gateway/internal/middleware/auth_stepup.go:252` | держатель `TestAuthz_EmptyScopeFieldIsDistinguishableFromDenial` (`authz_refusal_distinct_test.go:46`); нехватка права показана захватом (ниже) |
+| IAM-C-11 | тот же `404` без токена в посадках `production` и `production-strict` | тот же сторож (`main.go:1214`): он стоит снаружи `authInterceptor` (`:1205`) и ветвится только по слушателю и маршруту, посадку не читает (`external_route_gate.go:87-103`) | захват (аноним); держатель на слоях — `external_route_gate_chain_test.go:145-152` (аноним) |
+| IAM-C-11, близнец | `401`, `WWW-Authenticate: Bearer realm="kacho", error="invalid_token"`, тело `authnrefusal` | сторож пропускает (маршрут есть); отвечает `authInterceptor` (`main.go:1205`): `refuseUncredentialed` (`gateway/internal/middleware/auth.go:1093-1106`, во всякой посадке, кроме `dev`) → `authnrefusal.WriteHTTP` (`gateway/internal/authnrefusal/authnrefusal.go:68-73`; текст, причина и заголовок — `:45-57`, тело — `:64`) | захват; держатель тела — `TestRESTBodyIsTheNativeStatus` (`authnrefusal_test.go:21`); на слоях — положительный контроль `external_route_gate_chain_test.go:132` |
+
+**Захват ответа края.** Временная проба (в дерево не вносилась) собирала край тем же
+построителем, что держатель на настоящих слоях, — `realEdge` (`external_route_gate_chain_test.go:43-73`:
+сторож → аутентификация боевой посадки → проверка прав с вшитым каталогом и отказывающей проверкой
+→ диспетчер), и печатала ответ на внешнем слушателе. Команда:
+`go test ./internal/restmux/ -run TestZZCapture3249 -count=1 -v` в рабочей копии `e9ce4ffbdc`,
+`ok … 0.113s`. Вывод (по строке на запрос, сессия и аноним):
+
+```
+сессия GET    /iam/v1/conditions/cnd00000000000000abc          -> 404 | CT="application/json" | body={"code":5,"message":"Not Found","details":[]}
+сессия GET    /iam/v1/conditions?projectId=prj000000000000000a -> 404 | (то же тело)
+сессия POST   /iam/v1/conditions                               -> 404 | (то же тело)
+сессия PATCH  /iam/v1/conditions/cnd00000000000000abc          -> 404 | (то же тело)
+сессия DELETE /iam/v1/conditions/cnd00000000000000abc          -> 404 | (то же тело)
+сессия POST   /iam/v1/conditions/cnd00000000000000abc:evaluate -> 404 | (то же тело)
+сессия GET    /iam/v1/neverExisted/abc                         -> 404 | (то же тело)
+сессия GET    /iam/v1/accounts/acc000000000000000a/accessBindings -> 403 | message "permission denied: iam.access_bindings_by_account.list", reason AUTHZ_DENIED
+аноним — те же семь запросов                                   -> 404 | (то же тело), WWW-Authenticate пуст
+аноним GET    /iam/v1/accounts/acc000000000000000a/accessBindings -> 401 | WWW-Authenticate="Bearer realm=\"kacho\", error=\"invalid_token\"" | body={"code":16,"message":"authentication failed","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"AUTHN_REQUIRED","domain":"kaname.cloud.iam.v1"}]}
+```
+
+`403` в строке сессии на `ListByAccount` — ответ отказывающей проверки прав сборки пробы, он
+показывает текст нехватки права. Близнец IAM-C-10 (`200`) требует настоящего владельца аккаунта и
+держится кейсом края.
+
+Держатели исхода промаха каталога у смонтированного метода (`403`, §13.1) — уровня единицы, уже в
+дереве @ `e9ce4ffbdc`: `TestAuthz_HTTP_CatalogMissIsDenied` (`authz_refusal_distinct_test.go:74`),
+`TestAuthz_GRPC_CatalogMiss_Denies` (`authz_test.go:150`),
+`TestAuthz_GRPC_CatalogMiss_AuthenticatedReason` (`:662`),
+`TestAuthz_GRPC_CatalogMiss_UnauthenticatedReason` (`:683`). Сценарием этого документа этот исход
+не утверждается: ретайренный путь до проверки прав на внешнем слушателе не доходит. Держатели края
+для IAM-C-10/11 — кейсы `IAM-CRET-*` по §6.0 через внешний слушатель. Их пока нет, это
+планируемые артефакты, а не утверждение о дереве.
+
+Утверждение круга 4 «тело не содержит ни `cnd`, ни слова `condition`» правка 0ea189113 сняла: у
+`403` было эхо пути в `ErrorInfo.metadata.fqn`. У `404` промаха маршрутизации эха нет, тело
+неизменно для любого пути, и утверждение снова производится. В сценарии оно выражено сильнее —
+побайтовым равенством с ответом на путь, которого не было никогда.
+
+### 13.3 Что этой правкой не тронуто
+
+Сценарии, кроме IAM-C-10/11, объём стадий, DoD (`S1` — по-прежнему 7 пар RED→GREEN: близнецы
+идут кейсами того же сценария, а не новыми ID) и координаты по датированной врезке в начале
+документа. Дом набора `iam-conditional-retired` в §6.0 назван на дату круга 4. Перенос набора
+вслед за выделением службы доступа — не предмет этой правки.
+
+На ревизии замера `e9ce4ffbdc` службы `ConditionsService` в контрактах уже нет
+(`git grep -l ConditionsService e9ce4ffbdc -- proto` → пусто), поэтому ответ IAM-C-10/11
+производится уже сейчас. Как это сочетается с парами RED→GREEN стадии `S1` в DoD, эта правка не
+разбирает: её предмет — исход отказа.

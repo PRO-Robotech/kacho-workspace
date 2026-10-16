@@ -45,6 +45,20 @@ kaname (`if: always()`) читал yaml, а шаг, ставящий pyyaml, б�
 (`--env` — поверх задания). До ws#1115 env workflow терялся: шаг пина shellcheck
 воркспейса тянул релиз `v${SHELLCHECK_VERSION}` с пустой версией — curl 404.
 
+ПРЕДЕЛ ШАГА. `timeout-minutes` шага умножается на GHJOB_TIMEOUT_SCALE (число > 0);
+без переменной — ×3 вне ранера и ×1 на ранере (GITHUB_ACTIONS=true в окружении
+вызова): предел в CI — предел workflow, файл workflow не правится. Причина — ws#1110:
+вне CI стенд идёт подом во внешнем кластере; замер kaname#854 @7e30cbeb2, задание
+stand-ceremony, CI против ghjob: подъём 48 → 159 с (×3,3), машинный посев 62 → 104 с,
+посев людей 90 → ≥ 305 с — оборван пределом 5 мин, прибор, а не дерево. Доля предела
+у шагов стенда в CI — до 0,35 (коллекции 315 с из 15 мин; посев людей 90 из 300 с):
+×3 держит замедление до ×8,6. Умножаются все шаги задания, а не «шаги стенда»:
+признака стенда, выводимого из дерева, нет (имя задания «стенда не нужно» у
+edgeselftests — контрпример поиску по слову), перечень шагов — выписанный; цена
+шагу без стенда — зависание замечается втрое позже. Предел задания (уровня job)
+ghjob не исполняет вовсе. Множитель и его источник печатаются строкой «ghjob: предел
+шагов ×N (…)»; оборванный шаг называет предел workflow и действующий.
+
 Доказательство — scripts/ghjob/inject.sh.
 """
 import json
@@ -131,6 +145,21 @@ def env_of(node):
     return {k: str(v) for k, v in (e if isinstance(e, dict) else {}).items()}
 
 
+SCALE_OFF_CI = 3.0  # множитель предела шага вне ранера по умолчанию (замер — в шапке)
+
+
+def timeout_scale(environ):
+    """(множитель предела шага, источник); значение не число > 0 — отказ 64."""
+    raw = environ.get('GHJOB_TIMEOUT_SCALE')
+    if raw is not None:
+        if not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?', raw) or float(raw) <= 0:
+            die(64, f'GHJOB_TIMEOUT_SCALE «{raw}» — не число больше нуля')
+        return float(raw), 'GHJOB_TIMEOUT_SCALE'
+    if environ.get('GITHUB_ACTIONS') == 'true':
+        return 1.0, 'ранер CI — предел workflow'
+    return SCALE_OFF_CI, 'вне CI, по умолчанию'
+
+
 # Пакеты системного python видны venv — как образу ранера его apt-пакеты.
 SYS_SITE = '--system-site-packages'
 
@@ -198,6 +227,9 @@ def main(argv):
     wt = os.path.abspath(wt)
     out = os.path.abspath(out)
     WF, J = load_wf(wf, jobname)
+    # Ранер ли это — по окружению ВЫЗОВА: ниже ghjob сам ставит GITHUB_ACTIONS шагам.
+    scale, scale_src = timeout_scale(os.environ)
+    print(f'ghjob: предел шагов ×{scale:g} ({scale_src})', file=sys.stderr, flush=True)
     os.makedirs(out, exist_ok=True)
     run_tmp = os.path.join(out, 'runner-temp')
     bindir = os.path.join(out, 'bin')
@@ -347,21 +379,26 @@ def main(argv):
                 senv.update({'GITHUB_OUTPUT': gho, 'GITHUB_ENV': ghe, 'GITHUB_PATH': ghp, 'GITHUB_TOKEN': gh_token,
                              'GITHUB_STEP_SUMMARY': os.path.join(out, 'summary.md'), 'PATH': path_of()})
                 tmo = s.get('timeout-minutes')
+                limit = tmo * 60 * scale if tmo else None
                 p = subprocess.Popen(['bash', '--noprofile', '--norc', '-eo', 'pipefail', sf],
                                      cwd=os.path.join(wt, s.get('working-directory', '.')),
                                      stdout=lf, stderr=subprocess.STDOUT, env=senv, start_new_session=True)
                 try:
-                    rc = p.wait(timeout=tmo * 60 if tmo else None)
+                    rc = p.wait(timeout=limit)
                 except subprocess.TimeoutExpired:
                     os.killpg(p.pid, signal.SIGTERM)
-                    time.sleep(5)
+                    # До 5 с на выход по TERM, затем KILL группе — и отставшим потомкам.
+                    try:
+                        p.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        pass
                     try:
                         os.killpg(p.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
                     p.wait()
                     rc = 124
-                    lf.write(f'\nghjob: шаг оборван по timeout-minutes={tmo}\n')
+                    lf.write(f'\nghjob: шаг оборван по timeout-minutes={tmo} ×{scale:g} = {round(limit)} с\n')
                 outputs[sid] = kv(gho)
                 env.update(kv(ghe))
                 for line in open(ghp):

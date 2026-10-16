@@ -23,8 +23,6 @@
 
 set -uo pipefail
 
-# shellcheck source=scripts/vault-gate/_lib.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "$SCRIPT_DIR/check_02_dangling.py" "$@"
