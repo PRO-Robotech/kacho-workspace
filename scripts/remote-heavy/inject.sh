@@ -100,6 +100,21 @@
 #      → helm образа ранера и пин buf в окружении run (ws#1110); E11b self-hosted —
 #      helm не ставится; E11c таблица образов не получена → 69; E11d пин buf вне
 #      формы → 69; E2-buf-* сверка buf, E7-buf* установка buf с суммой выпуска
+#   NC1 Job ci-local kacho с --push-input → вход в окружении run, шаг зависимостей
+#      консоли — после сверки среды и до exec (ws#1115); близнецы kaname ci-local
+#      и kacho go-race — шага нет; вход вне формы → 64 до кластера
+#   NC2 шаг консоли ИСПОЛНЕНИЕМ над деревом пробы (двойники npm и node): правка
+#      консоли → npm ci в рабочем каталоге ui.yml и --prefix каждого STANDALONE по
+#      порядку, готовы все пакеты; правка без консоли, не отправка, диапазон не
+#      выбран → npm не зван, 0; npm ci отказал (корень, standalone), пакет не готов,
+#      ui.yml без STANDALONE, npm нет → 125 «консоль: …» в termination-log
+#   NC3 инъекция «npm ci снят» → свойство NC2-console не держится (проба не слепа)
+#   GI1 ci-local отправкой при корневой учётке копии → имя и адрес в окружении run,
+#      шаг записи до exec, адрес не напечатан (ws#1115, отправка 853)
+#   GI2 отправка без корневой учётки → 69 до кластера, причина названа; GI2b не
+#      отправка → 0, Job без учётки, строка об этом
+#   GI3 шаг учётки ИСПОЛНЕНИЕМ: корневая pod = подпись коммита (предикат стража);
+#      GI3b инъекция «учётка не передана» → предикат не держится
 #   E3 два пина helm                        → 69 до кластера, причина названа
 #   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
 #   E5 ревизия без пинов                    → строка называет, что сверять нечего
@@ -737,6 +752,185 @@ moddl_case D1-exec "$DM/m/sub" "file://$DM/px" 0 'модули загружен�
 if [ -f "$DEP_SRC" ]; then ok; else bad D1-exec "после шага исходника модуля, не импортированного сборкой, в кэше нет"; fi
 moddl_case D1b "$DM/m" off 125 'модули'
 moddl_case D1c "$DM/nomod" "file://$DM/px" 0 'качать нечего'
+# NC зависимости консоли в Job хука отправки kacho (ws#1115). Отправка 3258
+#    2026-10-16: хук отказал через 1328 с — ui-types «зависимости не установлены»
+#    по 11 пакетам, pod — чистое дерево. Job профиля ci-local клона kacho ставит
+#    их как ui.yml до хука, лишь когда правка трогает консоль (признак хука).
+# NC1 форма Job: вход pre-push — в окружении run, шаг — после сверки среды и до
+#     exec; близнецы — kaname ci-local и kacho go-race шага не несут; вход вне
+#     формы — 64 до кластера
+ZS=0000000000000000000000000000000000000000
+PUSH_LINE="refs/heads/x $(git -C "$SRC" rev-parse HEAD) refs/heads/x $ZS"
+npm_in() { awk '/^# tools-end$/ { t = NR } /^# npmci-begin$/ { b = NR } /^# npmci-end$/ { m = NR } /^exec "\$@"$/ { e = NR } END { exit !(t && b && m && e && t < b && b < m && m < e) }' "$1"; }
+fresh
+go_run nc1 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho --ref HEAD --src "$SRC" --profile ci-local --short nc1 --push-input "$PUSH_LINE" -- true
+expect_rc NC1 0
+jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/nc1.cmd" 2>/dev/null
+if npm_in "$BOX/nc1.cmd"; then ok; else OUT="$BOX/nc1.cmd"; bad NC1 "шага зависимостей консоли между сверкой среды и exec в Job ci-local kacho нет"; fi
+if [ "$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)" = "$PUSH_LINE" ]; then ok
+else OUT="$BOX/state/job.json"; bad NC1 "вход pre-push не дошёл до окружения run: «$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)»"; fi
+for tw in kaname:ci-local kacho:go-race; do
+    tr_="${tw%%:*}"; tp="${tw#*:}"; fresh
+    go_run "nc1-$tr_-$tp" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$tr_" --ref HEAD --src "$SRC" --profile "$tp" --short "nc1$tp" --push-input "$PUSH_LINE" -- true
+    expect_rc "NC1-$tr_-$tp" 0
+    if jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" 2>/dev/null | grep -q '^# npmci-begin$'; then
+        bad "NC1-$tr_-$tp" "шаг консоли в Job $tr_ $tp — он лишь у ci-local kacho"; else ok; fi
+done
+fresh
+go_run nc1-badin env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kacho --ref HEAD --src "$SRC" --profile ci-local --short nc1b --push-input "x y z" -- true
+expect_rc NC1-badin 64
+if [ -s "$BOX/state/calls" ]; then bad NC1-badin "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
+# NC2 шаг ИСПОЛНЕНИЕМ: текст из Job над деревом пробы — ui.yml ревизии (рабочий
+#     каталог и STANDALONE), консоль с членом workspace и двумя standalone,
+#     производитель диапазона хука; npm и node — двойники: npm пишет, где и с чем
+#     зван, и наполняет node_modules цели; node отвечает предикатом готовности
+#     (член — корень, standalone — свой каталог), как deps-ready.mjs.
+NT="$BOX/nct"; NB="$BOX/ncbin"; rm -rf "$NT" "$NB"; mkdir -p "$NB" "$NT/.github/workflows" "$NT/scripts/hooks" "$NT/ui-future/scripts"
+git init -q "$NT"
+printf 'defaults:\n  run:\n    working-directory: ui-future\nenv:\n  STANDALONE: host e2e\njobs: {}\n' > "$NT/.github/workflows/ui.yml"
+printf '{"workspaces": ["shared"]}\n' > "$NT/ui-future/package.json"
+for p in shared host e2e; do mkdir -p "$NT/ui-future/$p"; printf '{"name": "%s"}\n' "$p" > "$NT/ui-future/$p/package.json"; done
+printf '// двойник: готовность судит node пробы\n' > "$NT/ui-future/scripts/deps-ready.mjs"
+printf 'node_modules\n' > "$NT/.gitignore"
+# Производитель диапазона — той же формы входа, что у хука; FAKE_RANGE_RC — отказ.
+cat > "$NT/scripts/hooks/prepush-range.sh" <<'RANGE'
+#!/usr/bin/env bash
+[ -z "${FAKE_RANGE_RC:-}" ] || exit "$FAKE_RANGE_RC"
+r=""
+while read -r _ l _ rm; do
+  [ -n "${l:-}" ] || continue
+  case "$rm" in 0000000000000000000000000000000000000000) r="$r origin/main...$l" ;; *) r="$r $rm..$l" ;; esac
+done
+printf '%s\n' "${r# }"
+RANGE
+echo 'package x' > "$NT/x.go"
+git -C "$NT" add -A; sandbox_git -C "$NT" commit -q -m base
+git -C "$NT" update-ref refs/remotes/origin/main HEAD
+NBASE="$(git -C "$NT" rev-parse HEAD)"
+# nc_rev <ветка> <правка> — ревизия от базы с правкой (функция ниже); печатает sha
+nc_rev() { git -C "$NT" checkout -q -b "$1" "$NBASE"; "$2"; git -C "$NT" add -A; sandbox_git -C "$NT" commit -q -m "$1"; git -C "$NT" rev-parse HEAD; }
+edit_ui() { echo "export const a = 1" > "$NT/ui-future/host/a.ts"; }
+edit_go() { echo "package x // y" > "$NT/x.go"; }
+edit_nostd() { echo "export const b = 1" > "$NT/ui-future/host/b.ts"; printf 'defaults:\n  run:\n    working-directory: ui-future\njobs: {}\n' > "$NT/.github/workflows/ui.yml"; }
+NC_UI="$(nc_rev ui edit_ui)"
+NC_GO="$(nc_rev go edit_go)"
+NC_NOSTD="$(nc_rev nostd edit_nostd)"
+git -C "$NT" checkout -q --detach "$NBASE"
+cat > "$NB/npm" <<'NPM'
+#!/usr/bin/env bash
+pre=""; [ "${1:-}" = ci ] && [ "${2:-}" = --prefix ] && pre="$3"
+echo "$(basename "$PWD")|$*" >> "$NC_NPM_LOG"
+case " ${FAKE_NPM_FAIL:-} " in *" ${pre:-root} "*) echo "npm ERR! двойник: отказ ${pre:-root}" >&2; exit 1 ;; esac
+case " ${FAKE_NPM_EMPTY:-} " in *" ${pre:-root} "*) exit 0 ;; esac
+mkdir -p "$PWD/${pre:+$pre/}node_modules/dep"
+NPM
+cat > "$NB/node" <<'NODE'
+#!/usr/bin/env bash
+d="$2"; n="$(basename "$d")"; t="$d"
+[ "$n" = shared ] && t="$(dirname "$d")"
+[ -n "$(ls -A "$t/node_modules" 2>/dev/null)" ]
+NODE
+chmod +x "$NB/npm" "$NB/node"
+# shellcheck disable=SC2016  # раскрывается в исполняемом тексте шага
+nc_block() { { echo 'pf() { echo "remote-heavy-prep: $1" | tee "$NC_TL" >&2; exit 125; }'; sed -n '/^# npmci-begin$/,/^# npmci-end$/p' "$1"; } > "$2"; }
+nc_block "$BOX/nc1.cmd" "$BOX/npmci.sh"
+if grep -q '^# npmci-end$' "$BOX/npmci.sh"; then ok; else OUT="$BOX/nc1.cmd"; bad NC2 "текста шага консоли в Job нет — исполнять нечего"; fi
+# nc_exec <шаг> <ревизия|-> [окружение…] — исполнить шаг в дереве на ревизии; код — NRC
+nc_exec() {
+    local sh="$1" rev="$2"; shift 2
+    git -C "$NT" checkout -q --detach "$NBASE"; git -C "$NT" clean -qfdx
+    rm -f "$BOX/nc.npm" "$BOX/nc.tl"
+    local inp=""; [ "$rev" = - ] || inp="refs/heads/x $rev refs/heads/x $ZS"
+    [ "$rev" = - ] || git -C "$NT" checkout -q --detach "$rev"
+    ( cd "$NT" && env -i HOME="$BOX" PATH="${NC_PATH:-$NB}:/usr/bin:/bin" NC_NPM_LOG="$BOX/nc.npm" NC_TL="$BOX/nc.tl" \
+        HEAVY_PUSH_INPUT="$inp" "$@" bash "$sh" ) > "$NC_OUT" 2>&1
+    NRC=$?
+}
+npm_calls() { [ -s "$BOX/nc.npm" ] && tr '\n' ';' < "$BOX/nc.npm" || echo нет; }
+NC_WANT="ui-future|ci;ui-future|ci --prefix host;ui-future|ci --prefix e2e;"
+# nc_console_holds <шаг> — правка консоли: код 0, npm ci как ui.yml по порядку, все
+# пакеты готовы предикатом проверок. Код 0 — свойство держится.
+nc_console_holds() {
+    NC_OUT="$BOX/nc-ui.out"; nc_exec "$1" "$NC_UI"
+    [ "$NRC" -eq 0 ] && [ "$(npm_calls)" = "$NC_WANT" ] && grep -q 'готовы пакетов 3 из 3' "$NC_OUT"
+}
+OUT="$BOX/nc-ui.out"
+if nc_console_holds "$BOX/npmci.sh"; then ok
+else bad NC2-console "правка консоли: код $NRC, npm «$(npm_calls)», ждали код 0, «$NC_WANT» и «готовы пакетов 3 из 3»"; fi
+# nc_case <случай> <ревизия|-> <код> <npm: звался|нет> <слово вывода либо отказа> [окружение…]
+nc_case() {
+    local name="$1" rev="$2" want="$3" calls="$4" word="$5"; shift 5
+    NC_OUT="$BOX/$name.out"; OUT="$NC_OUT"; nc_exec "$BOX/npmci.sh" "$rev" "$@"; RC="$NRC"
+    expect_rc "$name" "$want"
+    if [ "$calls" = нет ] && [ -s "$BOX/nc.npm" ]; then bad "$name" "npm звался: $(npm_calls)"; else ok; fi
+    if [ "$want" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: консоль: $word" "$BOX/nc.tl" 2>/dev/null; then ok; else bad "$name" "отказ «консоль: $word» не записан в termination-log"; fi
+    elif grep -q "$word" "$NC_OUT"; then ok; else bad "$name" "строка «$word» не напечатана"; fi
+}
+nc_case NC2-noconsole "$NC_GO" 0 нет 'правка её не трогает'
+nc_case NC2-nopush - 0 нет 'команда не отправка'
+nc_case NC2-norange "$NC_UI" 0 нет 'диапазон отправки не выбран' FAKE_RANGE_RC=2
+nc_case NC2-fail-root "$NC_UI" 125 звался 'npm ci в ui-future не исполнился' FAKE_NPM_FAIL=root
+nc_case NC2-fail-e2e "$NC_UI" 125 звался 'npm ci --prefix e2e не исполнился' FAKE_NPM_FAIL=e2e
+nc_case NC2-notready "$NC_UI" 125 звался 'после npm ci пакет host не готов' FAKE_NPM_EMPTY=host
+nc_case NC2-nostd "$NC_NOSTD" 125 нет 'ui.yml ревизии не разобран'
+NC_PATH="$BOX/ncnonpm"; mkdir -p "$NC_PATH"; cp "$NB/node" "$NC_PATH/"
+nc_case NC2-nonpm "$NC_UI" 125 нет 'правка её трогает, а npm нет в PATH'
+unset NC_PATH
+# NC3 инъекция «npm ci снят»: тот же случай над шагом без вызова npm ci —
+#     свойство NC2-console обязано НЕ держаться (иначе проба мимо предмета).
+sed 's/&& npm ci/\&\& true/g' "$BOX/npmci.sh" > "$BOX/npmci-gone.sh"
+if cmp -s "$BOX/npmci.sh" "$BOX/npmci-gone.sh"; then bad NC3 "порча не легла: «&& npm ci» в шаге не найден"
+elif nc_console_holds "$BOX/npmci-gone.sh"; then OUT="$BOX/nc-ui.out"; bad NC3 "шаг без npm ci прошёл как поставивший зависимости — проба NC2-console слепа"
+else ok; fi
+# GI корневая учётка git в Job ci-local (ws#1115). Отправка 853 2026-10-16: страж
+#    подписи хука kaname — «подпись НЕ сверена… корневая учётная запись не задана»:
+#    в pod корневого gitconfig нет. Учётка вызывающей копии (--global) уходит в Job.
+# GI1 учётка у копии есть, отправка → в окружении run имя и адрес, шаг записи —
+#     до команды; адрес в вывод run.sh не попал
+GI_NAME="Probe Signer"; GI_EMAIL="probe-signer@example.invalid"
+printf '[user]\n\tname = %s\n\temail = %s\n' "$GI_NAME" "$GI_EMAIL" > "$BOX/gi.cfg"; : > "$BOX/gi-empty.cfg"
+gi_in() { awk '/^# gitid-begin$/ { b = NR } /^# gitid-end$/ { m = NR } /^exec "\$@"$/ { e = NR } END { exit !(b && m && e && b < m && m < e) }' "$1"; }
+fresh
+go_run gi1 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi1 --push-input "$PUSH_LINE" -- true
+expect_rc GI1 0
+jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" > "$BOX/gi1.cmd" 2>/dev/null
+if [ "$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)" = "$GI_NAME" ] && [ "$(envv "$BOX/state/job.json" HEAVY_GIT_EMAIL)" = "$GI_EMAIL" ]; then ok
+else OUT="$BOX/state/job.json"; bad GI1 "учётка не дошла до окружения run: «$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)» «$(envv "$BOX/state/job.json" HEAVY_GIT_EMAIL)»"; fi
+if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага записи учётки перед командой в Job ci-local нет"; fi
+if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
+# GI2 отправка, а корневой учётки у копии нет → 69 до кластера, причина названа;
+#     близнец GI2b — не отправка → 0, Job без учётки, строка это называет
+fresh
+go_run gi2 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi-empty.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi2 --push-input "$PUSH_LINE" -- true
+expect_rc GI2 69
+if [ -s "$BOX/state/calls" ]; then bad GI2 "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
+if grep -q 'нет корневой учётной записи' "$OUT"; then ok; else bad GI2 "причина «нет корневой учётной записи» не названа"; fi
+fresh
+go_run gi2b env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi-empty.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi2b -- true
+expect_rc GI2b 0
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)" ] && grep -q 'Job идёт без неё' "$OUT"; then ok; else bad GI2b "без учётки и не отправка: ждали Job без учётки и строку об этом"; fi
+# GI3 шаг ИСПОЛНЕНИЕМ над HOME пробы: после него предикат стража подписи (корневая
+#     «имя <адрес>» из --global равна подписи коммита, branch_rule_root_ident
+#     kaname) держится; GI3b инъекция «учётка не передана» — тот же шаг без
+#     окружения учётки: предикат не держится (прежний отказ «корневая не задана»)
+# shellcheck disable=SC2016  # раскрывается в исполняемом тексте шага
+{ echo 'pf() { echo "remote-heavy-prep: $1" | tee "$GI_TL" >&2; exit 125; }'; sed -n '/^# gitid-begin$/,/^# gitid-end$/p' "$BOX/gi1.cmd"; } > "$BOX/gitid.sh"
+if grep -q '^# gitid-end$' "$BOX/gitid.sh"; then ok; else OUT="$BOX/gi1.cmd"; bad GI3 "текста шага учётки в Job нет — исполнять нечего"; fi
+GR="$BOX/girepo"; rm -rf "$GR"; git init -q "$GR"; echo x > "$GR/f"; git -C "$GR" add f
+env -u GIT_CONFIG_GLOBAL HOME="$BOX/gi-nohome" git -C "$GR" -c user.name="$GI_NAME" -c user.email="$GI_EMAIL" commit -q -m p
+# gi_sign_holds <окружение…> — исполнить шаг в чистом HOME pod и судить предикат стража
+gi_sign_holds() {
+    local ph="$BOX/gi-podhome"; rm -rf "$ph" "$BOX/gi.tl"; mkdir -p "$ph"
+    OUT="$BOX/gi3.out"
+    env -i HOME="$ph" PATH=/usr/bin:/bin GI_TL="$BOX/gi.tl" "$@" bash "$BOX/gitid.sh" > "$OUT" 2>&1 || return 1
+    local n e
+    n="$(env -i HOME="$ph" PATH=/usr/bin:/bin git config --global --get user.name)" || return 1
+    e="$(env -i HOME="$ph" PATH=/usr/bin:/bin git config --global --get user.email)" || return 1
+    [ "$n <$e>" = "$(git -C "$GR" log -1 --format='%an <%ae>')" ]
+}
+if gi_sign_holds HEAVY_GIT_NAME="$GI_NAME" HEAVY_GIT_EMAIL="$GI_EMAIL"; then ok; else bad GI3 "после шага корневая учётка pod не равна подписи коммита — страж подписи сверять не с чем"; fi
+if gi_sign_holds; then bad GI3b "без переданной учётки предикат подписи держится — проба мимо предмета"; else ok; fi
 # E7 установка ИСПОЛНЕНИЕМ: текст из Job, сеть — двойник curl, архивы настоящие.
 #    Оба пина → helm и node в bin; только node (helm без пина) → node ставится
 #    (опыт 2026-10-10: каталог загрузки создавался лишь веткой helm); сумма helm

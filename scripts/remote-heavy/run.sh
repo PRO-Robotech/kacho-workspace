@@ -15,7 +15,8 @@
 #   run.sh --task <N> --repo <kacho|kaname|corelib> --ref <ревизия>
 #          [--profile go-race|integration|lint|ci-local] [--src <клон>]
 #          [--workdir <путь в дереве>] [--short <слово>] [--ns <имя>]
-#          [--timeout <с>] [--keep <часы ≤ 12>] -- <команда> [аргументы…]
+#          [--timeout <с>] [--keep <часы ≤ 12>] [--push-input <вход pre-push>]
+#          -- <команда> [аргументы…]
 #   run.sh --available [--profile <профиль>]
 #                           0 — кластер отвечает, ns создавать вправе и pod есть где
 #                           встать; 69 — нет (в том числе открытого узла нет, см.
@@ -199,8 +200,39 @@
 # КЭШ — emptyDir pod: модули и сборка холодные на каждом прогоне (PVC в кластере
 # нет). Это плата переноса, она видна во времени прогона.
 #
+# ЗАВИСИМОСТИ КОНСОЛИ (ws#1115). Хук отправки kacho судит ПРАВКУ консоли её
+# проверками типов (ui-types), а они без node_modules отвечают «зависимости не
+# установлены»: pod — чистое дерево, и хук отказывал через 1328 с, после всех
+# Go-ступеней (2026-10-16, отправка 3258). Поэтому профиль ci-local клона kacho
+# ставит их так же, как ui.yml ревизии: `npm ci` в его defaults.run.working-
+# directory и `npm ci --prefix` каждого пакета его env.STANDALONE — перечень
+# берётся из ui.yml дерева, а не выписывается здесь. Ставит ТОЛЬКО когда
+# изменение трогает консоль, и признак — тот же, что у хука: диапазон
+# производителя scripts/hooks/prepush-range.sh ревизии по входу git
+# (--push-input; его отдаёт переходник heavy-slot), путь `ui-future/` среди
+# `git diff --name-only` диапазона. Входа нет (команда — не отправка) — не
+# ставит, строка это называет. Готовность после установки судит предикат самих
+# проверок (ui-future/scripts/deps-ready.mjs) по каждому пакету. Отказ — npm нет,
+# ui.yml не называет перечня, npm ci не исполнился, пакет не готов — строкой
+# «remote-heavy-prep: консоль: …», то есть 69 до команды, а не отказ хука через
+# двадцать минут. Кэш npm — /cache/npm, общий восьми установкам одного Job;
+# между Job его нет по той же причине, что у кэша модулей.
+#
+# УЧЁТКА GIT (ws#1115). Стражи правила ветки и коммита хуков отправки (kaname
+# branch-rule.sh, corelib git-rule.sh) сверяют подпись коммитов с КОРНЕВОЙ
+# учётной записью — `git config --global user.name / user.email`; в pod её нет,
+# и хук kaname отвечал «НЕ ВЫПОЛНИЛОСЬ — подпись НЕ сверена… корневая учётная
+# запись не задана» (2026-10-16, отправка 853). Поэтому профиль ci-local несёт
+# в Job корневую учётку вызывающей копии (`git -C <--src> config --global
+# --includes`) — только имя и адрес, ни токена, ни ключа, — и pod пишет её своим
+# корневым gitconfig (не GIT_CONFIG_GLOBAL и не GIT_AUTHOR_*: стражи их
+# переопределением и считают) со сверкой чтением. Отправке (--push-input) без
+# корневой учётки — отказ 69 до первого обращения к кластеру: хук судить не с
+# чем, и Job ответил бы тем же «не выполнилось» через минуты. Не отправке —
+# Job без учётки, строка это называет. В вывод учётка не печатается.
+#
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
-# недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, сеть
+# недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
 # команду в срок либо Job снят по сроку; 76 — команда оборвана
 # пределом памяти. 69, 75, 76 —
@@ -508,7 +540,7 @@ case "${1:-}" in
 esac
 
 # ── разбор вызова ────────────────────────────────────────────────────────────
-TASK=""; REPO=""; REF=""; PROFILE="go-race"; SRC=""; WORKDIR="."; SHORT=""
+TASK=""; REPO=""; REF=""; PROFILE="go-race"; SRC=""; WORKDIR="."; SHORT=""; PUSH_INPUT=""
 NSARG="${NS:-}"; TIMEOUT_S="$DEFAULT_TIMEOUT_S"; KEEP_H=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -522,6 +554,7 @@ while [ "$#" -gt 0 ]; do
         --ns) NSARG="${2:-}"; shift 2 ;;
         --timeout) TIMEOUT_S="${2:-}"; shift 2 ;;
         --keep) KEEP_H="${2:-}"; shift 2 ;;
+        --push-input) PUSH_INPUT="${2:-}"; shift 2 ;;
         --) shift; break ;;
         *) say "неизвестный аргумент «$1»"; exit 64 ;;
     esac
@@ -541,6 +574,11 @@ if [ -n "$KEEP_H" ]; then
         || { say "--keep — от 1 до $MAX_KEEP_H часов, получено «$KEEP_H»"; exit 64; }
 fi
 case "$WORKDIR" in /*|..|../*|*/../*|*/..) say "--workdir — путь внутри дерева, получено «$WORKDIR»"; exit 64 ;; esac
+# Вход pre-push — строки «<локальная ссылка> <sha> <удалённая ссылка> <sha>»; иное
+# в окружение Job не идёт (ЗАВИСИМОСТИ КОНСОЛИ в шапке).
+if [ -n "$PUSH_INPUT" ] && grep -qvE '^[^ ]+ [0-9a-f]{40} [^ ]+ [0-9a-f]{40}$' <<< "$PUSH_INPUT"; then
+    say "--push-input — строки входа pre-push «<ссылка> <sha> <ссылка> <sha>», получено иное"; exit 64
+fi
 if [ -n "$SHORT" ]; then
     [[ "$SHORT" =~ ^[a-z0-9]([a-z0-9-]{0,18}[a-z0-9])?$ ]] || { say "--short — [a-z0-9-], до 20 знаков, получено «$SHORT»"; exit 64; }
 else
@@ -560,6 +598,19 @@ SRC="${SRC:-$WS/project/$REPO}"
 git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1 || { say "клон $REPO не найден: $SRC (--src)"; exit 69; }
 SHA="$(git -C "$SRC" rev-parse --verify --quiet "$REF^{commit}")" || { say "ревизии «$REF» в клоне $REPO нет"; exit 69; }
 MAIN_SHA="$(git -C "$SRC" rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}')" || MAIN_SHA=""
+# Корневая учётка вызывающей копии (УЧЁТКА GIT в шапке) — до первого обращения к кластеру.
+GIT_NAME=""; GIT_EMAIL=""
+if [ "$PROFILE" = ci-local ]; then
+    GIT_NAME="$(git -C "$SRC" config --global --includes --get user.name 2>/dev/null)" || GIT_NAME=""
+    GIT_EMAIL="$(git -C "$SRC" config --global --includes --get user.email 2>/dev/null)" || GIT_EMAIL=""
+    if [ -z "$GIT_NAME" ] || [ -z "$GIT_EMAIL" ] || [[ "$GIT_NAME$GIT_EMAIL" == *$'\n'* ]]; then
+        GIT_NAME=""; GIT_EMAIL=""
+        if [ -n "$PUSH_INPUT" ]; then
+            say "учётка git: у вызывающей копии нет корневой учётной записи (git config --global user.name / user.email) — стражу подписи в хуке отправки сверять не с чем; задай её и повтори (не выполнилось, Job не создавался)"; exit 69
+        fi
+        say "учётка git: корневой у вызывающей копии нет — Job идёт без неё (не отправка)"
+    fi
+fi
 GOMOD="$(git -C "$SRC" show "$SHA:go.mod" 2>/dev/null)" || { say "go.mod на $SHA не прочитан"; exit 69; }
 GOVER="$(sed -n 's/^toolchain go\([0-9][0-9.]*\)$/\1/p' <<< "$GOMOD" | head -n 1)"
 [ -n "$GOVER" ] || GOVER="$(sed -n 's/^go \([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' <<< "$GOMOD" | head -n 1)"
@@ -1060,7 +1111,8 @@ if [ -n "${HEAVY_BUF:-}" ]; then
 fi
 rm -rf /work/dl
 # install-end'
-# Сверка среды — отдельно от установки и последней перед командой: она судит PATH,
+# Сверка среды — отдельно от установки и последней из инструментов перед командой
+# (после неё — лишь зависимости консоли, им нужен сверенный node): она судит PATH,
 # а не то, что установка будто бы сделала. Маркеры — граница, по которой inject.sh
 # берёт текст из Job и исполняет его над поддельным PATH.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
@@ -1100,11 +1152,91 @@ else
   echo "remote-heavy: модули загружены" >&2
 fi
 # moddl-end'
+# ЗАВИСИМОСТИ КОНСОЛИ (шапка; ws#1115) — после сверки среды: npm — сверенного node.
+# Маркеры — граница, по которой inject.sh исполняет шаг над деревом пробы.
+NPMCI_SH="$(cat <<'NPMCI'
+# npmci-begin
+nr="$(git rev-parse --show-toplevel 2>/dev/null)" || pf "консоль: корень дерева не найден"
+if [ -z "${HEAVY_PUSH_INPUT:-}" ]; then
+  echo "remote-heavy: консоль — команда не отправка (входа pre-push нет), признака правки консоли нет: npm ci не зову" >&2
+else
+  nrg="$(cd "$nr" && printf '%s\n' "$HEAVY_PUSH_INPUT" | bash scripts/hooks/prepush-range.sh 2>/dev/null)"; nrc=$?
+  nch=""
+  if [ "$nrc" -ne 0 ]; then
+    echo "remote-heavy: консоль — диапазон отправки не выбран (prepush-range.sh, код $nrc): хук откажет тем же производителем до проверок; npm ci не зову" >&2
+  elif [ -n "$nrg" ]; then
+    for x in $nrg; do nch="$nch
+$(git -C "$nr" diff --name-only "$x" 2>/dev/null)"; done
+  else
+    nch="$(git -C "$nr" diff --name-only "${KACHO_TRUNK_REF:-origin/main}"...HEAD 2>/dev/null)"
+  fi
+  case "$nch" in
+    *ui-future/*)
+      command -v npm >/dev/null 2>&1 || pf "консоль: правка её трогает, а npm нет в PATH (пина node в конвейере ревизии нет) — зависимости как в ui.yml не поставить"
+      nui="$(python3 -c '
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+d = d if isinstance(d, dict) else {}
+w = ((d.get("defaults") or {}).get("run") or {}).get("working-directory")
+s = (d.get("env") or {}).get("STANDALONE")
+if not isinstance(w, str) or not w or not isinstance(s, str) or not s.split():
+    sys.exit("нет defaults.run.working-directory либо env.STANDALONE")
+print(w + "|" + " ".join(s.split()))' "$nr/.github/workflows/ui.yml" 2>&1)" || pf "консоль: ui.yml ревизии не разобран — ${nui##*$'\n'}"
+      nwd="${nui%%|*}"; nst="${nui#*|}"
+      case "$nwd" in /*|..|../*|*/..|*/../*) pf "консоль: working-directory ui.yml «$nwd» вне дерева";; esac
+      export npm_config_cache=/cache/npm
+      echo "remote-heavy: консоль — правка её трогает: ставлю зависимости как ui.yml — npm ci в $nwd и --prefix $nst" >&2
+      nt0="$(date +%s)"
+      ( cd "$nr/$nwd" && npm ci ) >&2 || pf "консоль: npm ci в $nwd не исполнился — зависимости не поставлены, проверки консоли не исполнить"
+      for p in $nst; do
+        case "$p" in *[!a-z0-9._-]*) pf "консоль: пакет STANDALONE «$p» вне формы";; esac
+        ( cd "$nr/$nwd" && npm ci --prefix "$p" ) >&2 || pf "консоль: npm ci --prefix $p не исполнился — зависимости не поставлены, проверки консоли не исполнить"
+      done
+      # Готовность — предикатом самих проверок консоли, по каждому пакету.
+      ndr="$nr/$nwd/scripts/deps-ready.mjs"; nn=0
+      if [ -f "$ndr" ]; then
+        for m in "$nr/$nwd"/*/package.json; do
+          [ -f "$m" ] || continue
+          node "$ndr" "${m%/package.json}" >/dev/null 2>&1 || pf "консоль: после npm ci пакет $(basename "${m%/package.json}") не готов (deps-ready.mjs) — проверки консоли не исполнить"
+          nn=$((nn + 1))
+        done
+        [ "$nn" -gt 0 ] || pf "консоль: пакетов $nwd/*/package.json ноль — готовность судить не по чему"
+        echo "remote-heavy: консоль — зависимости поставлены за $(( $(date +%s) - nt0 )) с; готовы пакетов $nn из $nn (deps-ready.mjs)" >&2
+      else
+        echo "remote-heavy: консоль — зависимости поставлены за $(( $(date +%s) - nt0 )) с; предиката готовности $nwd/scripts/deps-ready.mjs в дереве нет — готовность не сверена" >&2
+      fi
+      ;;
+    *) [ "$nrc" -ne 0 ] || echo "remote-heavy: консоль — правка её не трогает: npm ci не зову" >&2 ;;
+  esac
+fi
+# npmci-end
+NPMCI
+)"
+# УЧЁТКА GIT (шапка) — корневым gitconfig pod, со сверкой чтением. Маркеры —
+# граница, по которой inject.sh исполняет шаг над HOME пробы.
+GITID_SH="$(cat <<'GITID'
+# gitid-begin
+if [ -n "${HEAVY_GIT_NAME:-}" ] && [ -n "${HEAVY_GIT_EMAIL:-}" ]; then
+  git config --global user.name "$HEAVY_GIT_NAME" && git config --global user.email "$HEAVY_GIT_EMAIL" \
+    || pf "учётка git: корневой gitconfig pod не записан"
+  [ "$(git config --global --get user.name)" = "$HEAVY_GIT_NAME" ] && [ "$(git config --global --get user.email)" = "$HEAVY_GIT_EMAIL" ] \
+    || pf "учётка git: корневой gitconfig pod не сверился после записи"
+  echo "remote-heavy: учётка git — корневая вызывающей копии записана в pod" >&2
+else
+  echo "remote-heavy: учётка git — не передана, корневой в pod нет" >&2
+fi
+# gitid-end
+GITID
+)"
 PREP="$PREP
 $MODDL_SH"
+[ "$PROFILE" = ci-local ] && PREP="$PREP
+$GITID_SH"
 [ "$PROFILE" = lint ] || PREP="$PREP
 $INSTALL_SH
 $TOOLS_SH"
+[ "$PROFILE" = ci-local ] && [ "$REPO" = kacho ] && PREP="$PREP
+$NPMCI_SH"
 # exec — своей строкой: последняя строка сверки среды — комментарий-маркер, и
 # «; exec» после неё не исполнился бы никогда.
 PREP="$USERNS_SH
@@ -1136,7 +1268,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
-    --argjson cmd "$CMD_JSON" '{
+    --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --argjson cmd "$CMD_JSON" '{
   apiVersion: "batch/v1", kind: "Job",
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
@@ -1159,7 +1291,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: [{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "HEAVY_PUSH_INPUT", value: $pushin}, {name: "HEAVY_GIT_NAME", value: $gname}, {name: "HEAVY_GIT_EMAIL", value: $gemail}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
