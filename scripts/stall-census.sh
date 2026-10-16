@@ -271,9 +271,14 @@ def last_message(path):
         uses = [c for c in content if isinstance(c, dict) and c.get('type') == 'tool_use']
         if not uses:
             # Итог пишется и без stop_reason (65 журналов агентов проекта, ws#1130:
-            # agent-a36ae50961e5c41b1). Живой агент продолжает такую запись вызовом того
-            # же сообщения не позже 409 с (14742 продолжения, замер 2026-10-17); журнал,
-            # молчащий порог агента, несёт итог. stop_reason tool_use — вызов впереди.
+            # agent-a36ae50961e5c41b1); журнал, молчащий порог агента, несёт итог.
+            # Замер 2026-10-17, предикат: запись assistant без tool_use со stop_reason
+            # null, следующая запись user/assistant журнала — assistant с tool_use;
+            # разрыв их меток времени. Выборка — все *.jsonl под ~/.claude/projects:
+            # 364 702 продолжения, наибольший разрыв 740 с (kacho-workspace: 334 886,
+            # 582 с). Запас до порога 900 с — 160 с. ПОРОГ НИЖЕ 13 МИН ЛОМАЕТ ГРАНИЦУ:
+            # живой агент, дописывающий вызов, будет принят за завершённый.
+            # stop_reason tool_use — вызов впереди, итогом не бывает.
             sr = r['message'].get('stop_reason')
             fin = sr in FINAL_STOP or (sr is None and now - os.path.getmtime(path) >= AGENT_MIN * 60)
             return t, ('final' if fin else 'done'), ''
