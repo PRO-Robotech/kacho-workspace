@@ -124,9 +124,10 @@ scenes() {  # scenes <ci-read> <демон> <каталог> → печать; $
     chk "ключ назван вызывающим и совпал — вызовов gh 0" '[ "$code" -eq 0 ] && [ "$calls" -eq 0 ]'
 
     echo "== (1) снимок старше 180 с — живое чтение"
+    # 181 с при записи — к чтению под нагрузкой бывает 182: образец — любое число > 180
     fresh "$cr" "$d" "$w"; running_fx "$w"; age "$w" 181
     rd "$cr" "$w" --from-state
-    chk "STATE-STALE и код 3 из фикстуры" '[ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-STALE\t.*181" <<<"$out" && [ "$calls" -gt 0 ]'
+    chk "STATE-STALE и код 3 из фикстуры" '[ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-STALE\t.*подтверждён (18[1-9]|19[0-9]|[2-9][0-9]{2}) с назад, годен не старше 180 с" <<<"$out" && [ "$calls" -gt 0 ]'
     fresh "$cr" "$d" "$w"; running_fx "$w"; age "$w" 170
     rd "$cr" "$w" --from-state
     chk "близнец: 170 с — из снимка, код 0, вызовов 0" '[ "$code" -eq 0 ] && [ "$calls" -eq 0 ]'
