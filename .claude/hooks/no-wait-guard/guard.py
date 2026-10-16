@@ -22,8 +22,8 @@
   long-sleep    — `sleep N`, N ≥ 300 с;
   long-timeout  — `timeout N …`, N ≥ 600 с;
   flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела);
-  ci-wait       — `ci-wait.sh … --max N` с N > 540 либо N не вычислим по тексту (`$M`) —
-                  прямой вызов и рецепт «ЗАПУСК» (`S=ci-state/ci-wait.sh … bash -c "$R" _ …`).
+  ci-wait       — `ci-wait.sh`: срок ожидания CI за вызов > 540 с либо запуск в цикле
+                  (ниже «ОЖИДАНИЕ CI»).
 Всё перечисленное — в ПЕРЕДНЕМ плане. Отсоединённое (`… &` без `wait` в той же
 оболочке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
 шаг. `nohup` сам не отсоединяет: без `&` он ждёт в переднем плане. Флаг
@@ -35,9 +35,19 @@ run_in_background отсоединением не считается: живой
 `--wait` он не ждёт; `--wait` ≤ 300 судит сам слот).
 
 ОЖИДАНИЕ CI — отдельный разрешённый случай, а не ослабление (ws#1114): одна команда
-`scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N`, N ≤ 540 (без --max — 540):
-блокирующее чтение FIFO демона состояния без цикла sleep, срок держит сам скрипт (выше
-540 — его отказ кодом 2) и этот страж. Цикл вокруг него — loop-sleep/for-sleep, как любой.
+`scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N` — блокирующее чтение FIFO
+демона состояния без цикла sleep; срок держат сам скрипт (выше 540 — его отказ кодом 2)
+и этот страж. Отказ (класс ci-wait):
+  · срок ожидания CI за вызов > 540 с — сумма --max запусков переднего плана (последний
+    --max запуска, без --max — 540; не вычислим по тексту — без предела): цепочка `&&`/`;`,
+    подстановка; timeout над командой ограничивает срок всего, что она запускает;
+  · запуск в ЦИКЛЕ while/until/for/select — при любом сроке и под timeout: повтор
+    ожидания делает шаблон волны, а не агент (код ≠ 3 ci-wait.sh возвращает сразу — цикл
+    без паузы опрашивает GitHub подряд).
+Судится УЗЕЛ запуска, а не слово: путь командой, оболочка со скриптом (кроме `-n`),
+`.`/source, рецепт «ЗАПУСК» (`S=…/ci-wait.sh … bash -c "$R" _ <доводы>`), переменная,
+которой путь присвоен в той же строке (`CW=…/ci-wait.sh; bash "$CW" …`). Путь в данных —
+довод grep/shellcheck, заголовок for, `bash -n` — не запуск.
 
 ИСКЛЮЧЕНИЕ — одно: метка `# no-wait-exempt ci-watcher <N>m` в команде, N ≤ 9, и
 каждая форма ожидания стоит под `timeout` ≤ N·60 с. Агент другого типа (поле
@@ -62,6 +72,10 @@ make (страж судит строку, а не текст файла); `wait 
 (строка eval не разбирается), `echo 900 | xargs sleep` (argv собирает xargs из
 входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
 страж судит команды оболочки, а не текст программы на другом языке).
+Путь ci-wait.sh из переменной цикла for (`for f in …/ci-wait.sh; do bash "$f" …; done`) —
+раскрытие при исполнении. Цикл БЕЗ sleep вокруг иного блокирующего чтения или чтения CI
+(`while :; do timeout 500 head -n1 fifo; done`, `while :; do gh pr checks 7; done`) —
+дыра старше ws#1114 (у циклов судится лишь sleep и ci-wait.sh), своя задача ws#1124.
 """
 
 import json
@@ -97,8 +111,9 @@ CLASS_TEXT = {
     "long-sleep": "sleep ≥ %d с" % SLEEP_MAX,
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
     "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
-    "ci-wait": "ci-wait.sh: срок --max больше %d с или не вычислим по тексту (ws#1114)" % CI_WAIT_MAX,
+    "ci-wait": "ci-wait.sh: срок ожидания CI за вызов больше %d с либо запуск в цикле (ws#1114)" % CI_WAIT_MAX,
 }
+VAR_REF = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")  # слово — одна переменная
 
 
 def duration(s):
@@ -111,22 +126,75 @@ def duration(s):
     return float(m.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
 
 
-def ci_wait_max(words):
-    """Срок вызова ci-wait.sh, с: --max N; без --max — CI_WAIT_MAX (умолчание скрипта);
-    inf — не вычислим по тексту; None — не вызов ci-wait.sh. Узнаются прямой вызов
-    (`… ci-wait.sh`, `bash … ci-wait.sh`) и рецепт «ЗАПУСК» (`S=ci-state/ci-wait.sh … bash -c "$R" _ …`)."""
-    # basename присваивания `S=ci-state/ci-wait.sh` — тоже ci-wait.sh: рецепт узнаётся им
-    if not any(os.path.basename(w) == "ci-wait.sh" for w in words):
-        return None
-    for k, w in enumerate(words):
+def plain(w):
+    """Слово без разметки `$` лексера heavy-guard (SQ/DQ) — как его увидит оболочка."""
+    return w.replace(hg.SQ, "$").replace(hg.DQ, "$")
+
+
+def names_ci_wait(w, civars):
+    """Слово — путь к ci-wait.sh (`…/ci-wait.sh`, `"$WS"/…/ci-wait.sh`) либо ссылка на
+    переменную, которой он присвоен в той же строке (`"$CW"`, `${CW}`)."""
+    w = plain(w)
+    if os.path.basename(w) == "ci-wait.sh":
+        return True
+    m = VAR_REF.match(w)
+    return bool(m and m.group(1) in civars)
+
+
+def max_of(args):
+    """Срок по доводам ci-wait.sh, с: без --max — CI_WAIT_MAX (умолчание скрипта);
+    inf — значение не вычислимо по тексту (`--max "$M"`)."""
+    vals = []
+    for k, w in enumerate(args):
+        w = plain(w)
         if w == "--max":
-            v = words[k + 1] if k + 1 < len(words) else ""
+            vals.append(plain(args[k + 1]) if k + 1 < len(args) else "")
         elif w.startswith("--max="):
-            v = w.split("=", 1)[1]
-        else:
+            vals.append(w.split("=", 1)[1])
+    if not vals:
+        return float(CI_WAIT_MAX)
+    v = vals[-1]  # последний --max — так доводы разбирает ci-wait.sh
+    return float(v) if re.match(r"^\d+$", v) else float("inf")
+
+
+def noexec(args):
+    """Оболочка с `-n` (в связке `-xn`) либо `-o noexec` скрипт только разбирает — не запуск."""
+    k = 0
+    while k < len(args) and args[k] != "--" and len(args[k]) > 1 and args[k][0] in "-+":
+        a = args[k]
+        if a in ("--rcfile", "--init-file"):
+            k += 2
             continue
-        return float(v) if re.match(r"^\d+$", v) else float("inf")
-    return float(CI_WAIT_MAX)
+        vals = [] if a.startswith("--") else args[k + 1:k + 1 + a[1:].count("o") + a[1:].count("O")]
+        if a[0] == "-" and not a.startswith("--") and ("n" in a[1:] or "noexec" in vals):
+            return True
+        k += 1 + len(vals)
+    return False
+
+
+def ci_wait_call(argv, env, civars):
+    """Срок запуска ci-wait.sh простой командой, с (max_of), либо None — она его не
+    запускает. argv — команда после присваиваний и обёрток (head), env — её присваивания.
+    Судится УЗЕЛ, а не слово: путь командой (`…/ci-wait.sh …`, `"$CW" …`); оболочка со
+    скриптом (`bash [опции] …/ci-wait.sh …`, кроме `-n`); `. …/ci-wait.sh`, source; рецепт
+    «ЗАПУСК» — `S=…/ci-wait.sh … bash -c "$R" _ <доводы>`: строка -c — одна переменная,
+    скрипт назван присваиванием этой же команды."""
+    if not argv:
+        return None
+    if names_ci_wait(argv[0], civars):
+        return max_of(argv[1:])
+    base = os.path.basename(plain(argv[0]))
+    if base in (".", "source"):
+        return max_of(argv[2:]) if len(argv) > 1 and names_ci_wait(argv[1], civars) else None
+    if base not in SHELLS or noexec(argv[1:]):
+        return None
+    cmd, script, sargs, _ = hg.shell_args(argv[1:])
+    if script is not None:
+        return max_of(sargs) if names_ci_wait(script, civars) else None
+    if cmd is not None and VAR_REF.match(plain(cmd)) and any(
+            names_ci_wait(a.split("=", 1)[1], civars) for a in env):
+        return max_of(sargs[1:])  # sargs[0] — $0 строки -c
+    return None
 
 
 # ── лексер: простые команды и операторы ─────────────────────────────────────
@@ -358,13 +426,16 @@ class Finding:
         self.bound = bound    # timeout над формой, с; None — без предела
 
 
-def head(argv):
-    """Снимает присваивания и обёртки: (argv команды, timeout над ней, отсоединена)."""
+def head(argv, env=None):
+    """Снимает присваивания и обёртки: (argv команды, timeout над ней, отсоединена);
+    присваивания команды (свои и `env X=…`) — в список env, когда он дан."""
+    env = [] if env is None else env
     tmo, detached, i = None, False, 0
     while i < len(argv):
         w = argv[i]
         base = os.path.basename(w)
         if hg.ASSIGN.match(w):
+            env.append(w)
             i += 1
             continue
         if base in ("nohup", "nice", "ionice", "stdbuf", "time", "command", "exec", "builtin", "chrt", "taskset"):
@@ -393,6 +464,8 @@ def head(argv):
         if base == "env":
             i += 1
             while i < len(argv) and (argv[i].startswith("-") or hg.ASSIGN.match(argv[i])):
+                if hg.ASSIGN.match(argv[i]):
+                    env.append(argv[i])
                 i += 2 if argv[i] in ("-u", "--unset", "-C", "--chdir") else 1
             continue
         if base == "timeout":
@@ -413,6 +486,9 @@ def head(argv):
 class Judge:
     def __init__(self):
         self.found = []
+        self.frames = [0.0]   # срок ci-wait.sh, с: вызов и команды под своим timeout
+        self.ciw = []         # запуски ci-wait.sh переднего плана, по порядку
+        self.civars = set()   # переменные, которым присвоен путь ci-wait.sh
 
     def add(self, cls, text, bound):
         self.found.append(Finding(cls, text, bound))
@@ -501,12 +577,43 @@ class Judge:
                 if total is None or total >= FOR_MAX:
                     self.add("for-sleep", " ".join(k.text or "…" for k in n.kids[:3]), ctx["tmo"])
             c = dict(ctx, bg=bg, loop=ctx["loop"] or (n.loop in ("while", "until")))
+            mark = len(self.ciw)  # запуски ci-wait.sh в теле группы (ws#1114)
             for k in n.kids:
                 self.node(k, c)
+            if n.loop and len(self.ciw) > mark:
+                self.add("ci-wait", "%s — в цикле %s: повтор ожидания CI делает шаблон волны, а не агент"
+                         % (self.ciw[mark], n.loop), None)
             return
         self.simple(n.text, dict(ctx, bg=bg))
 
     def simple(self, seg, ctx):
+        """Суждение простой команды (_simple) и её срок ожидания CI (ws#1114): запуск
+        ci-wait.sh ею самой и вложенными телами (`bash -c`, flock, timeout), не дольше её timeout."""
+        env = []
+        argv, tmo, det = head(hg.words(seg), env)
+        decl = argv[1:] if argv and os.path.basename(argv[0]) in hg.DECLARE else []
+        for a in env + decl:  # `CW=…/ci-wait.sh`, `export CW=…` — `bash "$CW"` тот же запуск
+            if hg.ASSIGN.match(a) and names_ci_wait(a.split("=", 1)[1], ()):
+                self.civars.add(a.split("=", 1)[0])
+        self.frames.append(0.0)
+        self._simple(seg, ctx)
+        got = self.frames.pop()
+        own = None if ctx["bg"] or det else ci_wait_call(argv, env, self.civars)
+        if own is not None:
+            self.ciw.append(seg.strip())
+            got += own
+        if tmo is not None:
+            got = min(got, tmo)
+        self.frames[-1] += got
+
+    def budget(self):
+        """Срок ожидания CI за вызов — сумма запусков ci-wait.sh — выше CI_WAIT_MAX: отказ."""
+        total = self.frames[0]
+        if total > CI_WAIT_MAX:
+            why = "не вычислим по тексту (--max)" if total == float("inf") else "%d с" % total
+            self.add("ci-wait", "%s — за вызов %s, запусков %d" % (self.ciw[0], why, len(self.ciw)), None)
+
+    def _simple(self, seg, ctx):
         argv, tmo, det = head(hg.words(seg))
         if not argv:
             return
@@ -515,10 +622,6 @@ class Judge:
         base = os.path.basename(argv[0])
         args = argv[1:]
         shown = seg.strip()
-        ciw = ci_wait_max(hg.words(seg))
-        if ciw is not None and not bg:
-            if ciw > CI_WAIT_MAX and (bound is None or bound >= TIMEOUT_MAX):
-                self.add("ci-wait", shown, bound)
         if base == "wait" and not bg and ctx.get("launched"):
             self.add("bg-wait", shown, None)
             return
@@ -602,6 +705,7 @@ def judge(cmd, agent_type=None):
     """(находки, ошибка метки). Пустые находки — пропуск."""
     j = Judge()
     j.text(cmd, {"bg": False, "loop": False, "tmo": None})
+    j.budget()
     if not j.found:
         return [], None
     mins, err = exemption(cmd, agent_type)
@@ -632,7 +736,7 @@ def deny(found, err, ws):
         "  верни «идёт: pid, журнал, ожидаемое окончание»; исход дочитает отдельный короткий",
         "  шаг (`kill -0 $(cat <pid-файл>)`, `tail -n 50 <журнал>`) — без цикла и без sleep.",
         "  · CI — одно чтение (`gh pr checks` без --watch); повтор делает шаблон волны или диспетчер;",
-        "    ожидание CI — одна команда `scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N`, N ≤ %d;" % CI_WAIT_MAX,
+        "    ожидание CI — одна команда `scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N`, N ≤ %d, без цикла;" % CI_WAIT_MAX,
         "  · слот тяжёлого — %s/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу," % ws,
         "    ожидание только явным --wait N ≤ 300; дольше — ОДИН раз --enqueue <каталог> (билет",
         "    держится до 2 ч; перезапуск на 74/75 ставит в конец очереди — запрещён);",

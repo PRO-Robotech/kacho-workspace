@@ -155,22 +155,64 @@ passes $'cat <<EOF | grep sleep\nwhile :; do sleep 1; done\nEOF'
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes '/ws/scripts/heavy-slot.sh --wait 300 go-race -- go test -race ./...'
 
-echo "== ожидание CI — ci-wait.sh (ws#1114): отдельный разрешённый случай, срок ≤ 540 с"
-# Блокирующее чтение FIFO демона состояния с --max ≤ 540: одна команда, без цикла sleep.
-# --max от 600, невычислимый или выше предела скрипта — отказ: правило не ослаблено.
-CIW='ci-wait.sh: срок --max'
+echo "== ожидание CI — ci-wait.sh (ws#1114): одна команда, срок за вызов ≤ 540 с"
+# Блокирующее чтение FIFO демона состояния — ОДНА команда. Отказ: срок ожидания CI за
+# вызов > 540 (--max выше или не вычислим; сумма запусков — цепочка, подстановка) и запуск
+# в цикле при любом сроке. Возврат check-verifier @bcc01837a: while, for и `&&` с ci-wait.sh
+# без sleep пропускались кодом 0. Запуск судится по узлу: путь в данных — не запуск.
+CIW='ci-wait.sh: срок ожидания CI за вызов'
 H40=ffffffffffffffffffffffffffffffffffffffff
+CWS="bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40"
 RCP='( set -o pipefail; WS=/ws; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n p) && [ -n "$R" ] || exit 2; WS="$WS" S=ci-state/ci-wait.sh TMPDIR=/ws/tmp/wave-9 bash -c "$R" _ PRO-Robotech/kacho 7 '"$H40"
-passes "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 540"
-passes "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40"
+# reason <подстрока> — причину, а не симптом, называет вывод последнего отказа.
+reason() {
+    local got=нет
+    grep -qF -- "$1" "$WORK/out" && got=да
+    assert да "$got" "  причина названа: «$1»"
+}
+passes "$CWS --max 540"
+passes "$CWS"
 passes "/ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max=300"
 passes "$RCP --max 540 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
-denies "$CIW" "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 700"
-denies "$CIW" "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max=900"
-denies "$CIW" "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max \"\$M\""
+denies "$CIW" "$CWS --max 541"
+reason 'за вызов 541 с, запусков 1'
+denies "$CIW" "$CWS --max 700"
+denies "$CIW" "$CWS --max=900"
+denies "$CIW" "$CWS --max \"\$M\""
+reason 'не вычислим по тексту'
+denies "$CIW" "$CWS --max 100 --max 900"
 denies "$CIW" "$RCP --max 700 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
+denies "$CIW" "sh /ws/scripts/ci-state/./ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 900"
+echo "   композиция без sleep: цикл и цепочка"
+denies "$CIW" "while true; do $CWS --max 540; done"
+reason 'в цикле while'
+denies "$CIW" "until $CWS --max 540; do :; done"
+reason 'в цикле until'
+denies "$CIW" "for i in 1 2 3; do $CWS --max 540; done"
+reason 'в цикле for'
+denies "$CIW" "timeout 300 bash -c 'while :; do $CWS --max 100; done'"
+denies "$CIW" "while :; do $RCP --max 540 ) > /ws/tmp/wave-9/ci-0.md 2>&1; done"
+denies "$CIW" "CW=/ws/scripts/ci-state/ci-wait.sh; while :; do bash \"\$CW\" PRO-Robotech/kacho 7 $H40 --max 540; done"
+denies "$CIW" "for i in 1 2; do . /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 60; done"
+denies "$CIW" "$CWS --max 540 && $CWS --max 540"
+reason 'за вызов 1080 с, запусков 2'
+denies "$CIW" "$CWS --max 300; $CWS --max 241"
+denies "$CIW" "v=\$($CWS --max 540); w=\$($CWS --max 540)"
 denies "$LOOP" "while bash /ws/scripts/ci-read.sh PRO-Robotech/kacho 7; [ \$? = 3 ]; do sleep 60; done"
-denies "$LOOP" "while :; do bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 540; sleep 1; done"
+denies "$LOOP" "while :; do $CWS --max 540; sleep 1; done"
+echo "   законные близнецы той же формы: один запуск, сумма ≤ 540, путь в данных, фон"
+passes "$CWS --max 540 || echo \"код \$?\""
+passes "$CWS --max 270 && $CWS --max 270"
+passes "$CWS --max 900 --max 100"
+passes "timeout 300 bash -c '$CWS --max 540; $CWS --max 540'"
+passes "for x in \$($CWS --max 540); do echo \"\$x\"; done"
+passes "for f in /ws/scripts/ci-state/ci-wait.sh /ws/scripts/ci-read.sh; do shellcheck \"\$f\"; done"
+passes "for i in 1 2; do grep -c -- --max /ws/scripts/ci-state/ci-wait.sh; done"
+passes "grep -n -- --max /ws/scripts/ci-state/ci-wait.sh"
+passes "bash -n /ws/scripts/ci-state/ci-wait.sh && $CWS --max 540"
+passes "shellcheck /ws/scripts/ci-state/ci-wait.sh && $CWS --max 540"
+passes "while :; do $CWS --max 540; done > l 2>&1 &"
+passes "$CWS --max 540 > l 2>&1 & $CWS --max 540"
 
 echo "== метка исключения — только ci-watcher, ≤ 9 мин, под timeout ≤ N·60"
 passes 'timeout 540 gh run watch 1 # no-wait-exempt ci-watcher 9m'
@@ -192,6 +234,9 @@ assert "2 да" "$rc $(grep -qF 'только у ci-watcher' "$WORK/out" && echo
 denied=$((denied + 5))
 
 echo "== граница (BOUNDARY шапки guard.py) — известно, не ловится"
+boundary "путь ci-wait.sh — переменная цикла for" "for f in /ws/scripts/ci-state/ci-wait.sh; do bash \"\$f\" PRO-Robotech/kacho 7 $H40 --max 540; done"
+boundary "цикл без sleep вокруг иного блокирующего чтения" 'while :; do timeout 500 head -n1 /tmp/fifo; done'
+boundary "цикл без sleep вокруг чтения CI" 'while :; do gh pr checks 7; done'
 boundary "ожидание внутри скрипта"     'bash ./wait-for-ci.sh'
 boundary "wait без фонового запуска"   'wait 4242'
 boundary "eval: строка не разбирается" 'eval "sleep 900"'
@@ -236,9 +281,19 @@ PY
     fi
     muts=$((muts + 1))
 }
-mutant "ci-wait не судится"         'if ciw is not None and not bg:' 'if False:' "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 700"
-mutant "ci-wait: порог 900"          'CI_WAIT_MAX = 540 ' 'CI_WAIT_MAX = 900 ' "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 700"
-mutant "ci-wait: рецепт не узнан"     'os.path.basename(w) == "ci-wait.sh" for w in words)' 'os.path.basename(w) == "ci-wait.sh" for w in words if "=" not in w)' "$RCP --max 700 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
+mutant "ci-wait: срок за вызов не судится" 'if total > CI_WAIT_MAX:' 'if False:' "$CWS --max 700"
+mutant "ci-wait: порог 900"          'CI_WAIT_MAX = 540 ' 'CI_WAIT_MAX = 900 ' "$CWS --max 700"
+mutant "ci-wait: цикл не судится"    'if n.loop and len(self.ciw) > mark:' 'if False:' "while true; do $CWS --max 540; done"
+mutant "ci-wait: цепочка не суммируется" 'self.frames[-1] += got' 'self.frames[-1] = max(self.frames[-1], got)' "$CWS --max 540 && $CWS --max 540"
+mutant "ci-wait: timeout не ограничивает" 'got = min(got, tmo)' 'got = got' "timeout 300 bash -c '$CWS --max 540; $CWS --max 540'"
+mutant "ci-wait: фон судится"        'own = None if ctx["bg"] or det else ci_wait_call(' 'own = ci_wait_call(' "$CWS --max 540 > l 2>&1 & $CWS --max 540"
+mutant "ci-wait: путь в данных — запуск" 'if names_ci_wait(argv[0], civars):' 'if any(names_ci_wait(w, civars) for w in argv):' "for i in 1 2; do grep -c -- --max /ws/scripts/ci-state/ci-wait.sh; done"
+mutant "ci-wait: bash -n — запуск"   'if base not in SHELLS or noexec(argv[1:]):' 'if base not in SHELLS:' "bash -n /ws/scripts/ci-state/ci-wait.sh && $CWS --max 540"
+mutant "ci-wait: рецепт не узнан"     'if cmd is not None and VAR_REF.match(plain(cmd)) and any(' 'if False and any(' "$RCP --max 700 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
+mutant "ci-wait: переменная не узнана" 'return bool(m and m.group(1) in civars)' 'return False' "CW=/ws/scripts/ci-state/ci-wait.sh; while :; do bash \"\$CW\" PRO-Robotech/kacho 7 $H40 --max 540; done"
+mutant "ci-wait: source не узнан"     'if base in (".", "source"):' 'if False:' "for i in 1 2; do . /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 60; done"
+mutant "ci-wait: первый --max"        'v = vals[-1]' 'v = vals[0]' "$CWS --max 100 --max 900"
+mutant "ci-wait: не вычислимое — ноль" 'else float("inf")' 'else 0.0' "$CWS --max \"\$M\""
 mutant "цикл не судится"            'loop=ctx["loop"] or (n.loop in ("while", "until"))' 'loop=ctx["loop"]' 'until test -f x; do sleep 5; done'
 mutant "& не отсоединяет"           'bg = ctx["bg"] or n.bg' 'bg = ctx["bg"]' 'setsid nohup timeout 3600 go test ./... > l 2>&1 &'
 mutant "for не судится"             'if n.loop in ("for", "select") and not bg' 'if False and not bg' 'for i in $(seq 60); do sleep 10; done'
