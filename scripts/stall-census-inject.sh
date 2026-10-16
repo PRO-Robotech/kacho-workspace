@@ -27,6 +27,8 @@ trap 'rm -rf "$T"' EXIT
 NOW="$(date +%s)"
 iso() { date -u -d "@$((NOW - $1 * 60))" +%Y-%m-%dT%H:%M:%S.000Z; }
 pass=0 fail=0
+# Сессия вызывающего не просачивается в пробы: признаки сессии ставит проба сама.
+unset CLAUDE_PID CLAUDE_CODE_SESSION_ID
 
 # rec <файл> <минут назад> <вид: tool|done|final|midthink|midtext|result|ask> [команда]
 # final — итог агента (stop_reason end_turn, форма журналов Claude Code);
@@ -58,13 +60,14 @@ session() {
     rec "$s.jsonl" 1 "done"
     printf '%s' "$s"
 }
-ps_ok() { printf '%s\n' "100 1 90000 claude claude --x" "200 100 600 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'go test ./...'" "300 1 99999 sshd sshd"; }
-# probe <код> <имя> <строка|-> <довод…>
+# Сам прибор — pid 150 (`--self 150`): цепочка хука sh → bash → claude 100 (замер ws#1134).
+ps_ok() { printf '%s\n' "100 1 90000 claude claude --x" "120 100 5 sh /bin/sh -c bash hook" "150 120 5 bash bash stall-census.sh" "200 100 600 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'go test ./...'" "300 1 99999 sshd sshd"; }
+# probe <код> <имя> <строка|-> <довод…>; absent=<строка> — её в выводе быть не должно.
 probe() {
     local want="$1" name="$2" needle="$3" got out
     shift 3
-    out="$(bash "$C" "$@" < /dev/null 2>&1)"; got=$?
-    if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; }; then
+    out="$(bash "$C" --self "${self:-150}" "$@" < /dev/null 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; } && { [ -z "${absent:-}" ] || ! grep -qF -- "$absent" <<< "$out"; }; then
         [ -n "${quiet:-}" ] || echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
     else
         failed="${failed:-}; $name"
@@ -152,7 +155,7 @@ finish_cases() {
 }
 finish_cases
 # fmutant <имя> <было> <стало>: копия прибора с одной правкой; пробы
-# finish_cases обязаны разойтись хоть в одной.
+# finish_cases (либо набора из cases=) обязаны разойтись хоть в одной.
 fmutant() {
     local MD="$T/fmut/scripts" p0="$pass" f0="$fail" mp mf C0="$C"
     rm -rf "$T/fmut"; mkdir -p "$MD/lib"; cp "$HERE/lib/ws-home.sh" "$MD/lib/"
@@ -166,7 +169,7 @@ open(dst, 'w').write(s.replace(was, now))
 MUTPY
     then echo "  [FAIL] мутант «$1»: образец не найден в приборе — не лёг" >&2; fail=$((fail + 1)); return; fi
     failed=""; quiet=1; C="$MD/stall-census.sh"
-    finish_cases
+    "${cases:-finish_cases}"
     C="$C0"; quiet=""; mp=$((pass - p0)); mf=$((fail - f0)); pass="$p0"; fail="$f0"
     if [ "$mf" -gt 0 ]; then
         echo "  [OK]   мутант «$1» красный: разошлось $mf из $((mp + mf)): ${failed#; }"; pass=$((pass + 1))
@@ -200,6 +203,38 @@ probe 1 "инъекция: оболочка агента живёт 120 мин �
 probe 0 "близнец: та же оболочка 30 мин — молчит" - --session "$s" --ps "$T/ps-young"
 { ps_ok; echo "202 1 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'x'"; } > "$T/ps-orphan"
 probe 0 "близнец: оболочка 120 мин, но родитель не claude — не судится" - --session "$s" --ps "$T/ps-orphan"
+
+echo "== только своя сессия: соседнее окно не судится (ws#1134)"
+# Одна машина, один проект, два окна: S — claude 100 (прибор 150), N — claude 500
+# (прибор 550 по той же цепочке хука). Оболочки обоих старше порога процесса;
+# журналы — в одном каталоге проекта, у каждого свой застрявший агент, N свежее.
+{ ps_ok; echo "500 1 90000 claude claude --y"; echo "520 500 5 sh /bin/sh -c bash hook"; echo "550 520 5 bash bash stall-census.sh"
+  echo "600 500 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/n.sh && eval 'make neighbor-e2e'"; } > "$T/ps-nb"
+{ cat "$T/ps-nb"; echo "201 100 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'make own-e2e'"; } > "$T/ps-both"
+SD="$T/proj2"; mkdir -p "$SD/ses-s/subagents" "$SD/ses-n/subagents"
+rec "$SD/ses-s/subagents/agent-own.jsonl" 30 tool "make own-e2e"; rec "$SD/ses-n/subagents/agent-nb.jsonl" 30 tool "make neighbor-e2e"
+rec "$SD/ses-s.jsonl" 2 "done"; rec "$SD/ses-n.jsonl" 1 "done"
+sc="$(session sess-clean)"
+session_cases() {
+    absent="pid 600" probe 0 "контроль: своя оболочка молода, соседняя 120 мин — молчит, соседняя в счёте чужих" "оболочек чужих claude не судится 1" --session "$sc" --ps "$T/ps-nb"
+    absent="pid 600" probe 1 "инъекция: своя оболочка 120 мин — STALL-PROC своего claude, соседней нет" "STALL-PROC pid 201 (claude 100)" --session "$sc" --ps "$T/ps-both"
+    self=550 absent="pid 201" probe 1 "та же машина из окна N — его оболочка названа, оболочки S нет" "STALL-PROC pid 600 (claude 500)" --session "$sc" --ps "$T/ps-both"
+    CLAUDE_PID=100 self=999 absent="pid 600" probe 1 "цепочки нет (отсоединённый запуск) — claude сессии из CLAUDE_PID" "claude сессии 100 (CLAUDE_PID)" --session "$sc" --ps "$T/ps-both"
+    CLAUDE_PID=200 self=999 probe 2 "близнец: CLAUDE_PID не claude — не признак, процессы не осмотрены" "процесс claude этой сессии не найден" --session "$sc" --ps "$T/ps-nb"
+    self=999 probe 2 "ни цепочки, ни CLAUDE_PID — код 2, а не «чисто»" "процесс claude этой сессии не найден" --session "$sc" --ps "$T/ps-nb"
+    absent="agent-nb" probe 1 "журналы S: свой застой назван, агента окна N нет" "STALL-AGENT agent-own" --session "$SD/ses-s" --ps "$T/ps-nb"
+    absent="agent-own" probe 1 "журналы N: его застой назван, агента S нет" "STALL-AGENT agent-nb" --session "$SD/ses-n" --ps "$T/ps-nb"
+    CLAUDE_CODE_SESSION_ID=ses-s absent="agent-nb" probe 1 "без transcript_path: CLAUDE_CODE_SESSION_ID выбирает S, хотя N свежее" "сессия ses-s;" --session-dir "$SD" --ps "$T/ps-nb"
+    probe 1 "близнец: без CLAUDE_CODE_SESSION_ID — самая свежая сессия (N)" "сессия ses-n;" --session-dir "$SD" --ps "$T/ps-nb"
+    CLAUDE_CODE_SESSION_ID=gone probe 1 "близнец: журнала CLAUDE_CODE_SESSION_ID нет — самая свежая, не VOID" "сессия ses-n;" --session-dir "$SD" --ps "$T/ps-nb"
+}
+session_cases
+cases=session_cases fmutant "фильтр по сессии снят" $'    if ppid != own:\n        foreign += 1\n        continue\n' ''
+cases=session_cases fmutant "фильтр по сессии перевёрнут" 'if ppid != own:' 'if ppid == own:'
+cases=session_cases fmutant "цепочка ppid — один шаг" 'for _ in range(64):' 'for _ in range(2):'
+cases=session_cases fmutant "CLAUDE_PID не читается" "if own is None and procs.get(" "if False and procs.get("
+cases=session_cases fmutant "claude не найден — «чисто»" $'if own is None:\n    void(' $'if False:\n    void('
+cases=session_cases fmutant "сессия окна не выбирается" 'own_j if own_j in cands else ' ''
 
 echo "== нечитаемое — не «чисто»"
 probe 2 "каталога сессии нет — код 2" "VOID" --session "$T/nope" --ps "$T/ps"
@@ -235,7 +270,7 @@ probe_in() {
     local want="$1" name="$2" needle="$3" dir="$4" ev="$5" sc="$6" got out
     shift 6
     local envs=(); [ "$ev" = - ] || read -r -a envs <<< "$ev"
-    out="$(cd "$dir" && env -u CLAUDE_PROJECT_DIR HOME="$HM" "${envs[@]}" bash "$sc" "$@" < /dev/null 2>&1)"; got=$?
+    out="$(cd "$dir" && env -u CLAUDE_PROJECT_DIR HOME="$HM" "${envs[@]}" bash "$sc" --self 150 "$@" < /dev/null 2>&1)"; got=$?
     if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; }; then
         [ -n "${quiet:-}" ] || echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
     else
@@ -291,7 +326,7 @@ echo "== разбор: не-объект, нечитаемый журнал, п�
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
 rec "$a" 20 tool "make e2e"; echo '[1,2]' >> "$a"; touch -d "@$((NOW - 20 * 60))" "$a"
 probe 1 "инъекция: последняя строка агента — JSON не-объект; застой назван, а не traceback" "STALL-AGENT wf_live-1/a1" --session "$s" --ps "$T/ps"
-out="$(bash "$C" --session "$s" --ps "$T/ps" 2>&1)"
+out="$(bash "$C" --session "$s" --ps "$T/ps" --self 150 2>&1)"
 if ! grep -q Traceback <<< "$out"; then echo "  [OK]   …и без Python traceback"; pass=$((pass + 1)); else echo "  [FAIL] не-объект в журнале агента роняет разбор: $(tail -1 <<< "$out")" >&2; fail=$((fail + 1)); fi
 s="$(session nonobj-wf)"; rec "$s/subagents/workflows/wf_live-1/agent-a1.jsonl" 20 tool "make e2e"
 echo '42' > "$s/subagents/workflows/wf_live-1/journal.jsonl"
@@ -310,11 +345,11 @@ python3 -c 'import json,sys; print(json.dumps({"type":"user","timestamp":sys.arg
 touch -d "@$((NOW - 30 * 60))" "$a"
 probe 1 "близнец: последняя запись длиннее хвоста 64 КиБ — прочитана, STALL-AGENT, а не UNREAD" "STALL-AGENT wf_live-1/a1" --session "$s" --ps "$T/ps"
 s="$(session crash)"; rec "$s/subagents/workflows/wf_live-1/agent-a1.jsonl" 30 tool
-out="$(STALL_AGENT_MIN=x bash "$C" --session "$s" --ps "$T/ps" 2>&1)"; got=$?
+out="$(STALL_AGENT_MIN=x bash "$C" --session "$s" --ps "$T/ps" --self 150 2>&1)"; got=$?
 if [ "$got" -eq 2 ] && grep -qF "разбор упал" <<< "$out" && ! grep -q Traceback <<< "$out"; then echo "  [OK]   инъекция: падение разбора — код 2 «разбор упал», а не код 1 застоя"; pass=$((pass + 1)); else echo "  [FAIL] падение разбора — код $got: $(tail -2 <<< "$out")" >&2; fail=$((fail + 1)); fi
 
 s="$(session hook)"; rec "$s/subagents/workflows/wf_live-1/agent-a1.jsonl" 30 tool
-out="$(printf '{"transcript_path":"%s.jsonl"}' "$s" | bash "$C" --ps "$T/ps" 2>&1)"; got=$?
+out="$(printf '{"transcript_path":"%s.jsonl"}' "$s" | bash "$C" --ps "$T/ps" --self 150 2>&1)"; got=$?
 if [ "$got" -eq 1 ] && grep -qF "сессия hook" <<< "$out"; then echo "  [OK]   сессия из transcript_path хука (код 1)"; pass=$((pass + 1)); else echo "  [FAIL] сессия из transcript_path хука — код $got: $out" >&2; fail=$((fail + 1)); fi
 
 echo "== хук stall-signal.sh (Stop / UserPromptSubmit главного потока)"
@@ -323,7 +358,7 @@ HOOK="$HERE/../.claude/hooks/stall-signal.sh"
 hook() {
     local want="$1" name="$2" needle="$3" stream="$4" sess="$5" ev="$6" act="${7:-false}" got o e
     o="$(printf '{"hook_event_name":"%s","stop_hook_active":%s,"transcript_path":"%s.jsonl"}' "$ev" "$act" "$sess" \
-        | CLAUDE_PROJECT_DIR="$HERE/.." STALL_CENSUS_EXTRA="--ps $T/ps" bash "$HOOK" 2> "$T/hook.err")"; got=$?
+        | CLAUDE_PROJECT_DIR="$HERE/.." STALL_CENSUS_EXTRA="--ps $T/ps --self 150" bash "$HOOK" 2> "$T/hook.err")"; got=$?
     e="$(cat "$T/hook.err")"
     local hay="$o"; [ "$stream" = err ] && hay="$e"
     if [ "$got" -eq "$want" ] && { { [ "$needle" = - ] && [ -z "$o$e" ]; } || { [ "$needle" != - ] && grep -qF -- "$needle" <<< "$hay"; }; }; then

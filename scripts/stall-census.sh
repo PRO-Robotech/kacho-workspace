@@ -14,7 +14,7 @@
 # Реакция на ЗАВЕРШЕНИЕ workflow причиной не была (1 опоздание из 653) — простой
 # возникает, пока процесс жив, но стоит. Этот прибор меряет именно это.
 #
-# # Что печатает (по журналам ТЕКУЩЕЙ сессии и процессам машины, без сети)
+# # Что печатает (по журналам и процессам ТЕКУЩЕЙ сессии, без сети)
 #
 #   STALL-AGENT  агент без новой записи user/assistant дольше STALL_AGENT_MIN
 #                (15) мин и при этом НЕ завершён: последняя запись — вызов
@@ -34,8 +34,14 @@
 #                Возобновлённый (SendMessage) снова судим: после итога — запись user.
 #                Завершённый, чей журнал не менялся STALL_DONE_MIN (5) мин, в счёт
 #                «агентов осмотрено» не входит — он в счёте «завершённых».
-#   STALL-PROC   фоновый процесс-оболочка агента (прямой потомок `claude`,
-#                запущенный из shell-snapshot) живёт дольше STALL_PROC_MIN (60) мин.
+#   STALL-PROC   фоновый процесс-оболочка агента (прямой потомок `claude` ЭТОЙ
+#                сессии, запущенный из shell-snapshot) живёт дольше STALL_PROC_MIN
+#                (60) мин. `claude` сессии — первый процесс `comm == claude` на
+#                цепочке ppid от самого прибора (хук — потомок `claude`, который его
+#                запустил), иначе — `CLAUDE_PID`, если это `claude` в снимке; не
+#                найден — процессы не осмотрены (код 2 без иных находок).
+#                Оболочки чужих `claude` (соседние окна) не судятся, их число —
+#                в строке CENSUS (ws#1134: окно S звало работу соседнего окна).
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
 #
@@ -48,7 +54,8 @@
 #                         главного потока. Без довода — из `transcript_path` JSON
 #                         на stdin (хук), иначе — самая свежая сессия проекта.
 #   --session-dir <кат.>  каталог журналов ПРОЕКТА `~/.claude/projects/<код>/`:
-#                         берётся самая свежая сессия в нём (ws#1010).
+#                         берётся сессия `CLAUDE_CODE_SESSION_ID`, если её
+#                         журнал в нём есть, иначе самая свежая (ws#1010, ws#1134).
 #
 # Проект без `--session`/`--session-dir` ищется по кандидатам ПО ПОРЯДКУ, первый с
 # журналом `*.jsonl` выигрывает: `CLAUDE_PROJECT_DIR`; основная копия воркспейса,
@@ -60,6 +67,8 @@
 # журнал по `$PWD` и давал VOID при живой сессии).
 #   --ps <файл>           вывод `ps -eo pid=,ppid=,etimes=,comm=,args=`; без
 #                         довода — снимок машины.
+#   --self <pid>          pid, от которого цепочка ppid ищет `claude` сессии; без
+#                         довода — pid самого прибора. Вне Claude — pid `claude`.
 #   --now <epoch>         «сейчас» (для подложенных журналов).
 #
 # # Коды
@@ -80,13 +89,14 @@
 # (664 каталога workflow, главный журнал 152 МБ) — в шапке inject-скрипта.
 set -uo pipefail
 
-session="" sessdir="" psfile="" now=""
+session="" sessdir="" psfile="" now="" self="$$"
 while [ $# -gt 0 ]; do
     case "$1" in
         --session) session="${2:-}"; shift 2 ;;
         --session-dir) sessdir="${2:-}"; [ -n "$sessdir" ] || { echo "stall-census: VOID — --session-dir без каталога" >&2; exit 2; }; shift 2 ;;
         --ps) psfile="${2:-}"; shift 2 ;;
         --now) now="${2:-}"; shift 2 ;;
+        --self) self="${2:-}"; shift 2 ;;
         *) echo "stall-census: VOID — неизвестный довод «$1»" >&2; exit 2 ;;
     esac
 done
@@ -116,7 +126,7 @@ fi
 cands+=("$PWD")
 projdirs="$(printf '%s\n' "${cands[@]}")"
 
-python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" <<'PY'
+python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" "$self" <<'PY'
 import calendar, glob, json, os, re, sys, time
 
 
@@ -129,7 +139,7 @@ def _crash(kind, val, tb):
 
 sys.excepthook = _crash
 
-session, psfile, now_s, stdin_json, projdirs, sessdir = sys.argv[1:7]
+session, psfile, now_s, stdin_json, projdirs, sessdir, selfpid = sys.argv[1:8]
 AGENT_MIN = int(os.environ.get('STALL_AGENT_MIN', '15'))
 PROC_MIN = int(os.environ.get('STALL_PROC_MIN', '60'))
 REACT_MIN = int(os.environ.get('STALL_REACT_MIN', '10'))
@@ -208,7 +218,10 @@ if not session:
             break
     if not cands:
         void('журнала сессии проекта нет; опрошено каталогов %d: %s' % (len(tried), ', '.join(tried)))
-    session = max(cands, key=os.path.getmtime)[:-len('.jsonl')]
+    # Своя сессия — по CLAUDE_CODE_SESSION_ID, когда её журнал среди найденных:
+    # самая свежая в каталоге проекта бывает сессией соседнего окна (ws#1134).
+    own_j = os.path.join(d, os.environ.get('CLAUDE_CODE_SESSION_ID', '') + '.jsonl')
+    session = (own_j if own_j in cands else max(cands, key=os.path.getmtime))[:-len('.jsonl')]
 main = session + '.jsonl'
 if not os.path.isfile(main):
     void('журнал главного потока не читается: ' + main)
@@ -418,24 +431,41 @@ except OSError as e:
     void('снимок процессов не читается: %s' % e)
 if not procs:
     void('снимок процессов пуст: процессы не осмотрены')
-shells = 0
+# `claude` этой сессии (шапка, STALL-PROC). Замер ws#1134: 43 запуска хуков —
+# `sh -c` прямым потомком `claude` сессии, у всех CLAUDE_PID равен ему.
+own, own_how, q = None, '', selfpid
+for _ in range(64):
+    if q not in procs:
+        break
+    if procs[q][2] == 'claude':
+        own, own_how = q, 'предок pid %s' % selfpid
+        break
+    q = procs[q][0]
+if own is None and procs.get(os.environ.get('CLAUDE_PID', ''), ('', 0, ''))[2] == 'claude':
+    own, own_how = os.environ['CLAUDE_PID'], 'CLAUDE_PID'
+shells = foreign = 0
 for pid, (ppid, et, comm, args) in procs.items():
     parent = procs.get(ppid)
     if not parent or parent[2] != 'claude' or 'shell-snapshots/' not in args:
+        continue
+    if ppid != own:
+        foreign += 1
         continue
     shells += 1
     if et >= PROC_MIN * 60:
         cmd = args.split("eval '", 1)[-1] if "eval '" in args else args
         findings.append('STALL-PROC pid %s (claude %s) — живёт %d мин: %s' % (pid, ppid, et / 60, ' '.join(cmd.split())[:160]))
 
-print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; фоновых оболочек агентов %d из процессов %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), done_seen, shells, len(procs), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; claude сессии %s; фоновых оболочек агентов %d из процессов %d, оболочек чужих claude не судится %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), done_seen, '%s (%s)' % (own, own_how) if own else 'не найден — процессы не осмотрены', shells, len(procs), foreign, AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for u in unread:
     print('UNREAD %s — журнал агента без единой разобранной записи: застой по нему не судим' % u)
 if findings:
     sys.exit(1)
+if own is None:
+    void('процесс claude этой сессии не найден ни среди предков pid %s, ни в CLAUDE_PID: процессы не осмотрены (вне Claude — --self <pid claude>)' % selfpid)
 if unread:
     # Ноль прочитанного — не «застоя нет».
     print('stall-census: VOID — журналов агентов не прочитано %d из %d: %s' % (len(unread), agents_seen, ', '.join(unread[:5])), file=sys.stderr)
