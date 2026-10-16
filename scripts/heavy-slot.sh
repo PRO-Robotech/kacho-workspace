@@ -12,7 +12,7 @@
 # шага, между ними проходили соседи, а вошедший секунду назад памяти ещё не набрал.
 #
 # ФОРМА
-#   heavy-slot.sh [--wait N] [--local "<причина>"] <класс> -- <команда> [аргументы…]   (занято — 74 сразу)
+#   heavy-slot.sh [--wait N] [--resume <билет>] [--local "<причина>"] <класс> -- <команда> …   (занято — 74 сразу)
 #   heavy-slot.sh --enqueue <каталог> [--local "<причина>"] <класс> -- <команда> …   (поставить ОДИН раз, ниже)
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
@@ -40,9 +40,12 @@
 # Ждать дольше 300 с — `--enqueue <каталог>`: слот сам уходит в отсоединённый прогон
 # (setsid, env --default-signal=PIPE) и ждёт ОДНИМ билетом до 2 ч, вызов сразу печатает
 # строку ENQUEUED с pid, журналом и .rc — имена уникальны (класс, время, pid), .rc
-# снимается до запуска; исход дочитывает короткий шаг. Перезапуск ожидания на 74/75
-# ставит в КОНЕЦ очереди: 2026-10-16 так пять попыток newman за час слота не получили
-# (урок ws#1110) — перезапускатель запрещён (CLAUDE.md «Не жди»). Голову очереди держит лишь
+# снимается до запуска; исход дочитывает короткий шаг. Повтор без билета ставит в КОНЕЦ
+# очереди: 2026-10-16 так пять попыток newman за час слота не получили (урок ws#1110).
+# Поэтому 74 и 75 ОТКЛАДЫВАЮТ билет на 120 с и называют его: повтор `--resume <билет>`
+# того же класса встаёт на прежнее место — впереди вставших позже (ws#1115). Отложенный
+# билет без владельца голову не держит (свободный слот не простаивает) и снимается по
+# сроку; просроченный, чужого класса или неизвестный — в конец, это сказано. Голову очереди держит лишь
 # билет, который влез бы под СВОЙ потолок, будь занятые слоты пусты: (MemTotal −
 # MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
 # от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
@@ -106,8 +109,18 @@
 # с причиной (bypass-local, «локально по флагу» в --status); условия — у блока
 # «внешний кластер» ниже.
 #
-# ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание, выход с пиком памяти,
-# обрыв. Пик — основание для пересмотра бюджетов: `grep ' leave ' journal.log`.
+# ХУК ОТПРАВКИ (ws#1106, ws#1115): `git push` классом ci-local в клоне продукта при
+# принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
+# чей pre-push отдаёт вход git (строки отправки) настоящему хуку клона
+# (scripts/hooks/pre-push отправляемой головы) Job-ом run.sh профиля ci-local; локально —
+# лишь сама отправка, итог хука — тот же контракт, код хука там — код отправки. Прочие
+# хуки клона переходник берёт ссылками. Отправка не головы копии (иная вершина, их
+# несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
+# причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
+#
+# ЖУРНАЛ: $HEAVY_SLOT_DIR/journal.log — вход, ожидание (занято слотов, свободно), уход
+# во внешний кластер (remote … до запуска Job), выход с пиком памяти, обрыв. Пик —
+# основание для пересмотра бюджетов: `grep ' leave ' journal.log`.
 #
 # Тело — одной группой { … }: bash разбирает её целиком до исполнения, и правка
 # файла на месте не ломает идущие слоты. Без группы часовой прогон дочитывал бы
@@ -125,6 +138,7 @@ SLOTS_SUM_MIB=30720 # Σ бюджетов занятых ≤ 3 × 10 ГиБ: go-
 FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-02)
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
+RESUME_TTL_S=120  # срок отложенного билета 74/75 (ws#1115)
 LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; ENQ_MAX_S=7200; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
@@ -427,6 +441,10 @@ print_status() {
     done
     for f in "$DIR"/queue/*; do
         [ -e "$f" ] || continue
+        if [ -n "$(field "$f" resume_until)" ]; then
+            printf '  отложен: %-8s билет %s до %s (--resume)  %s\n' "$(field "$f" class)" "$((10#${f##*/}))" "$(date -d "@$(field "$f" resume_until)" +%H:%M:%S)" "$(field "$f" who)"
+            continue
+        fi
         printf '  ждёт: %-11s бюджет %-9s pid %-8s %s\n' "$(field "$f" class)" "$(mib "$(field "$f" budget)")" "$(field "$f" pid)" "$(field "$f" who)"
     done
     if [ -f "$DIR/journal.log" ]; then
@@ -475,9 +493,14 @@ prune_tmp() {
 # --enqueue <каталог> — поставить в очередь ОДИН раз отсоединённо (шапка); --queued <база> —
 # его внутренняя форма: принимается лишь у ребёнка --enqueue (stdout — <база>.log, родитель —
 # лидер своего сеанса), иначе 64.
-WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""
+# --resume <билет> — повтор после 74/75 на месте отложенного билета (шапка, ws#1115).
+WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""; RESUME=""
 while :; do
     case "${1:-}" in
+        --resume)
+            RESUME="${2:-}"
+            [[ "$RESUME" =~ ^[0-9]{1,12}$ ]] || { say "--resume «$RESUME» — номер билета из отказа 74/75 (целое)"; exit 64; }
+            RESUME=$((10#$RESUME)); shift 2 ;;
         --enqueue)
             ENQ_DIR="${2:-}"
             if [ -z "$ENQ_DIR" ] || ! [ -d "$ENQ_DIR" ] || ! [ -w "$ENQ_DIR" ]; then
@@ -602,6 +625,7 @@ if [ -n "$ENQ_DIR" ]; then
     EB="$(cd "$ENQ_DIR" && pwd -P)/hs-$CLASS-$(date +%Y%m%dT%H%M%S)-$$"
     rm -f -- "$EB.rc" "$EB.rc.tmp" "$EB.pid"
     fwd=(); [ -n "$LOCAL_SET" ] && fwd=(--local "$LOCAL_WHY")
+    [ -n "$RESUME" ] && fwd+=(--resume "$RESUME")
     # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
     setsid -f env --default-signal=PIPE bash -c 'echo $$ > "$2.pid"; bash "$1" --queued "$2" "${@:3}"; rc=$?; printf "%s
 " "$rc" > "$2.rc.tmp" && mv -f "$2.rc.tmp" "$2.rc"' \
@@ -685,7 +709,7 @@ busy_exit() {
 }
 task_of() {
     local branch
-    branch="$(git -C "$PWD" branch --show-current 2>/dev/null)"
+    branch="$(git -C "${GDIR:-$PWD}" branch --show-current 2>/dev/null)"
     TASK="${KACHO_TASK:-}"
     [ -n "$TASK" ] || { [[ "$branch" =~ ^(issue-)?([0-9]+)([-_/].*)?$ ]] && TASK="${BASH_REMATCH[2]}"; }
     BRANCH="$branch"
@@ -781,9 +805,13 @@ remote_route() {
     payload
     case "$PAY" in
         go|make|golangci-lint|gosec|govulncheck|ci-local.sh) known=1 ;;
-        git) WHY_LOCAL="команда «git» (хук отправки) внешнего пути не имеет (ws#1106)"; return 1 ;;
+        git)
+            if [ "$CLASS" != ci-local ] || ! git_push_form; then
+                WHY_LOCAL="команда «git» без push (не хук отправки) внешнего пути не имеет"; return 1
+            fi
+            known=1 ;;
     esac
-    top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
+    top="$(git -C "$GDIR" rev-parse --show-toplevel 2>/dev/null)" || { WHY_LOCAL="рабочий каталог — не клон git: внешнего пути нет"; return 1; }
     url="$(git -C "$top" remote get-url origin 2>/dev/null)"
     repo="${url%.git}"; repo="${repo##*/}"
     case "$url" in
@@ -798,17 +826,88 @@ remote_route() {
     cluster_check "$CLASS" || return 1
     [ -n "$known" ] || refuse_external "нагрузка «${PAY_SH:-$PAY}» за обёрткой не опознана как переносимая (go, make, golangci-lint, gosec, govulncheck, ci-local.sh) — дай её словами argv: heavy-slot.sh $CLASS -- go …; слот уведёт её Job-ом"
     [ -n "$fix" ] && refuse_external "$fix"
+    if [ -n "$GIT_IDX" ]; then
+        HOOKS_ORIG="$(cd "$GDIR" && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P)"
+        if [ ! -x "$HOOKS_ORIG/pre-push" ] || ! git -C "$top" cat-file -e HEAD:scripts/hooks/pre-push 2>/dev/null; then
+            WHY_LOCAL="у клона нет хука отправки scripts/hooks/pre-push за .git/hooks/pre-push — Job-у нечего исполнять"; return 1
+        fi
+        PUSH_TOP="$top"; PUSH_REPO="$repo"; PUSH_HEAD="$(git -C "$top" rev-parse HEAD)"
+        return 0
+    fi
     rel="$(realpath --relative-to="$top" "$PWD")"
     ROUTE=(bash "$REMOTE_RUN" --task "$TASK" --repo "$repo" --ref "$(git -C "$top" rev-parse HEAD)" --src "$top" --workdir "$rel" --profile "$CLASS" --)
     return 0
 }
-CMD_R=("$@"); WHY_LOCAL=""; ROUTE=()
+# git_push_form — команда — `git … push` с хуком (без --no-verify); GIT_IDX — индекс
+# слова git, GDIR — каталог клона с учётом -C. --git-dir и --work-tree не разбираются:
+# такая отправка идёт локально.
+git_push_form() {
+    local i=0 n=${#CMD_R[@]} w sub=""
+    GDIR="$PWD"; GIT_IDX=""
+    while [ "$i" -lt "$n" ] && [ "$(basename -- "${CMD_R[$i]}")" != git ]; do i=$(( i + 1 )); done
+    [ "$i" -lt "$n" ] || return 1
+    local gi="$i"; i=$(( i + 1 ))
+    while [ "$i" -lt "$n" ]; do
+        w="${CMD_R[$i]}"
+        case "$w" in
+            -C) GDIR="$(cd "$GDIR" 2>/dev/null && cd "${CMD_R[$(( i + 1 ))]:-}" 2>/dev/null && pwd)" || return 1; i=$(( i + 2 )) ;;
+            -c) i=$(( i + 2 )) ;;
+            --git-dir|--git-dir=*|--work-tree|--work-tree=*) return 1 ;;
+            -*) i=$(( i + 1 )) ;;
+            *) sub="$w"; break ;;
+        esac
+    done
+    [ "$sub" = push ] || return 1
+    for w in "${CMD_R[@]:$(( i + 1 ))}"; do [ "$w" = --no-verify ] && return 1; done
+    GIT_IDX="$gi"
+}
+# push_remote — отправка с хуком Job-ом (шапка, «ХУК ОТПРАВКИ»). Возвращает 0, если
+# переходник отклонил отправку кодом 78 (не голова копии) — тогда слот идёт локально;
+# иначе выходит кодом отправки либо Job-а, который не состоялся.
+push_remote() {
+    local sh rcf h rc hrc t0
+    sh="$DIR/push/$(now)-$$"; rcf="$sh/rc"
+    mkdir -p "$sh/hooks" || { WHY_LOCAL="каталог переходника $sh не создан"; return 0; }
+    for h in "$HOOKS_ORIG"/*; do
+        case "${h##*/}" in pre-push|*.sample) continue ;; esac
+        [ -f "$h" ] && [ -x "$h" ] && ln -s "$h" "$sh/hooks/${h##*/}"
+    done
+    # shellcheck disable=SC2016  # текст переходника раскрывает он сам
+    printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail' 'lines="$(cat)"' \
+        'tips="$(printf "%s\n" "$lines" | awk '"'"'NF >= 4 && $2 !~ /^0+$/ { print $2 }'"'"' | sort -u)"' \
+        'if [ -z "$tips" ]; then printf "%s\n" "$lines" | exec "$HS_ORIG" "$@"; fi' \
+        'if [ "$tips" != "$HS_HEAD" ]; then echo 78 > "$HS_RC"; echo "heavy-slot: отправка несёт не голову копии ($(printf "%s" "$tips" | cut -c1-8 | tr "\n" " ")) — Job судит голову; слот повторит отправку локально" >&2; exit 1; fi' \
+        'bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile ci-local -- bash -c '"'"'printf "%s\n" "$0" | bash scripts/hooks/pre-push "$1" "$2"'"'"' "$lines" "$@"' \
+        'rc=$?; echo "$rc" > "$HS_RC"; exit "$rc"' > "$sh/hooks/pre-push"
+    chmod +x "$sh/hooks/pre-push"
+    local cmd=("${CMD_R[@]:0:$(( GIT_IDX + 1 ))}" -c "core.hooksPath=$sh/hooks" "${CMD_R[@]:$(( GIT_IDX + 1 ))}")
+    journal_early "remote class=$CLASS route=push task=$TASK repo=$PUSH_REPO ref=$PUSH_HEAD who=$(git -C "$PUSH_TOP" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+    say "хук отправки уходит во внешний кластер Job-ом (задача $TASK, $PUSH_REPO @${PUSH_HEAD:0:8}); локально — лишь отправка, слот машины не занимается"
+    t0="$(now)"
+    env HS_ORIG="$HOOKS_ORIG/pre-push" HS_HEAD="$PUSH_HEAD" HS_RC="$rcf" HS_RUN="$REMOTE_RUN" HS_TASK="$TASK" \
+        HS_REPO="$PUSH_REPO" HS_TOP="$PUSH_TOP" "${cmd[@]}"
+    rc=$?; hrc="$(cat "$rcf" 2>/dev/null)"; rm -rf -- "$sh"
+    journal_early "remote-done class=$CLASS route=push rc=$rc hook_rc=${hrc:-—} dur=$(( $(now) - t0 ))s"
+    case "$hrc" in
+        78) WHY_LOCAL="отправка несёт не голову копии — Job судит голову"; return 0 ;;
+        69|74|75|124|125)
+            say "Job хука отправки не состоялся (код $hrc) — отправка остановлена; не выполнилось, не красное: вердикта по хуку нет"
+            exit "$( [ "$hrc" = 69 ] && echo 69 || echo 75 )" ;;
+    esac
+    exit "$rc"
+}
+CMD_R=("$@"); WHY_LOCAL=""; ROUTE=(); GIT_IDX=""; GDIR="$PWD"
 if [ -n "$LOCAL_SET" ]; then
     say "локально по флагу --local: $LOCAL_WHY — маршрут во внешний кластер не судился"
 elif [ "$REMOTE_ON" = 1 ]; then
     if remote_route; then
-        say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
-        exec "${ROUTE[@]}" "$@"
+        if [ -n "$GIT_IDX" ]; then
+            push_remote
+        else
+            journal_early "remote class=$CLASS route=job task=$TASK repo=$(printf '%s' "${ROUTE[@]:5:1}") ref=$(printf '%s' "${ROUTE[@]:7:1}") who=$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD cmd=$(printf '%q ' "${CMD_R[@]}")"
+            say "класс «$CLASS» уходит во внешний кластер: $(printf '%q ' "${ROUTE[@]:3:6}")— слот машины не занимается"
+            exec "${ROUTE[@]}" "$@"
+        fi
     fi
     case "$CLASS" in go-race|integration|lint|ci-local|stand) say "локально — $WHY_LOCAL" ;; esac
 else
@@ -871,11 +970,33 @@ lock() {
 unlock() { flock -u "$LK"; exec {LK}>&-; }
 mkdir -p "$DIR/queue"
 lock
-tk=$(( $(cat "$DIR/ticket" 2>/dev/null || echo 0) + 1 )); echo "$tk" > "$DIR/ticket"
+tk=""
+if [ -n "$RESUME" ]; then
+    rf="$DIR/queue/$(printf '%012d' "$RESUME")"; ru="$(field "$rf" resume_until)"
+    if [ -n "$ru" ] && [ "$ru" -ge "$(now)" ] && [ "$(field "$rf" class)" = "$CLASS" ]; then
+        tk="$RESUME"; journal "resume ticket=$tk class=$CLASS who=$WHO"
+    else
+        miss="просрочен либо не выдавался: в очереди его нет (просроченный снимает первый же осмотр очереди)"
+        [ -n "$ru" ] && miss="просрочен (срок $RESUME_TTL_S с)"
+        [ -n "$ru" ] && [ "$ru" -ge "$(now)" ] && miss="другого класса ($(field "$rf" class))"
+        say "билет $RESUME $miss — место не сохранено, билет в конец очереди"
+        journal "resume-miss ticket=$RESUME class=$CLASS why=$miss who=$WHO"
+    fi
+fi
+[ -n "$tk" ] || { tk=$(( $(cat "$DIR/ticket" 2>/dev/null || echo 0) + 1 )); echo "$tk" > "$DIR/ticket"; }
 TICKET="$DIR/queue/$(printf '%012d' "$tk")"
 printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" > "$TICKET"
 unlock
-trap 'rm -f "$TICKET"' EXIT
+KEEP_TICKET=""
+trap '[ -n "$KEEP_TICKET" ] || rm -f "$TICKET"' EXIT
+# defer_ticket — отказ 74/75: билет откладывается на RESUME_TTL_S, владелец снят (шапка).
+defer_ticket() {
+    lock
+    printf 'class=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\nresume_until=%s\n' "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" "$(( $(now) + RESUME_TTL_S ))" > "$TICKET.tmp" &&
+        mv -f "$TICKET.tmp" "$TICKET" && KEEP_TICKET=1
+    unlock
+}
+RETRY_HINT="повтор — ОДИН коротким шагом: heavy-slot.sh --resume $tk [--wait N] $CLASS -- … в течение $RESUME_TTL_S с держит место (билет $tk); без билета — в конец очереди"
 t0="$(now)"; waited=0
 while :; do
     lock
@@ -884,6 +1005,12 @@ while :; do
     ahead=0; aside=0; smib="$(slots_mib)"
     for f in "$DIR"/queue/*; do
         [ -e "$f" ] || continue
+        # Отложенный билет (74/75, ждёт --resume) голову не держит; просроченный снимается.
+        ru="$(field "$f" resume_until)"
+        if [ -n "$ru" ]; then
+            [ "$ru" -lt "$(now)" ] && { journal "reap ticket=$(basename "$f") class=$(field "$f" class) expired=resume"; rm -f "$f"; }
+            continue
+        fi
         if [ "$(pid_start "$(field "$f" pid)")" != "$(field "$f" pid_start)" ]; then
             journal "reap ticket=$(basename "$f") class=$(field "$f" class) pid=$(field "$f" pid)"; rm -f "$f"; continue
         fi
@@ -934,18 +1061,20 @@ while :; do
     [ -n "$blocked" ] && why="golangci-lint по одному на машину, занят: $blocked; $why"
     waited=$(( $(now) - t0 ))
     if [ "$WAIT_S" -eq 0 ]; then
-        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead who=$WHO cmd=$CMDLINE"
+        defer_ticket
+        journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead ticket=$tk who=$WHO cmd=$CMDLINE"
         say "СЛОТ ЗАНЯТ, очередь $ahead — «$CLASS» не выдан сразу: $why."
-        say "команда НЕ запускалась (не выполнилось, не красное). Повтори коротким шагом позже либо --wait N (N ≤ $WAIT_MAX_S); дольше — ОДИН раз --enqueue <каталог> (перезапуск на 74/75 ставит в конец очереди); кто занял — heavy-slot.sh --status"
+        say "команда НЕ запускалась (не выполнилось, не красное). $RETRY_HINT; ожидание — --wait N (N ≤ $WAIT_MAX_S), дольше — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 74
     fi
     if [ "$waited" -ge "$WAIT_S" ]; then
-        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead waited=${waited}s who=$WHO cmd=$CMDLINE"
+        defer_ticket
+        journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead waited=${waited}s ticket=$tk who=$WHO cmd=$CMDLINE"
         say "НЕ ВЫПОЛНИЛОСЬ — слот «$CLASS» не выдан за ${waited} с: $why."
-        say "команда НЕ запускалась; кто занял — heavy-slot.sh --status; дольше $WAIT_MAX_S с — ОДИН раз --enqueue <каталог>, не перезапуском"
+        say "команда НЕ запускалась; $RETRY_HINT; дольше $WAIT_MAX_S с — ОДИН раз --enqueue <каталог>; кто занял — heavy-slot.sh --status"
         exit 75
     fi
-    [ "$waited" -eq 0 ] && journal "wait class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB ahead=$ahead who=$WHO"
+    [ "$waited" -eq 0 ] && journal "wait class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead ticket=$tk who=$WHO"
     say "ждёт слота «$CLASS»: $why; ждёт ${waited} с из ${WAIT_S}"
     sleep "$(( POLL_S < WAIT_S - waited ? POLL_S : WAIT_S - waited ))"
 done
