@@ -294,6 +294,23 @@ prem 'proof o/r#3'
 assert "2 да" "$(runp) $(has 'VOID GH-UNREADABLE')" "комментарии задачи не прочитаны → код 2, не «ложно»"
 prem 'pr o/r#5 merged'
 assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM')" "строка вне словаря → код 2"
+# Номер задачи (урок 2026-10-16): в шаблон подставился текст отказа — полоса не раздаётся.
+printf '%s' '{"number":7,"state":"open"}' > "$W/c/repos_o_r_issues_7.json"
+printf '%s' '{"number":5,"state":"closed","pull_request":{"url":"x"}}' > "$W/c/repos_o_r_issues_5.json"
+prem 'task o/r#7'
+assert "0 да" "$(runp) $(has 'предусловий 1; ложных 0, не судимо 0')" "близнец: task o/r#7 — номер числом, задача есть → 0"
+prem 'task o/r#ОТКАЗ: gh issue view не ответил'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE task o/r#ОТКАЗ: gh issue view не ответил: номер задачи «ОТКАЗ: gh issue view не ответил» не ')" "в номер подставлен текст отказа → PREMISE-FALSE, полоса не раздаётся"
+prem 'task o/r#'
+assert "1 да" "$(runp) $(has 'номер задачи «» не')" "пустой номер → PREMISE-FALSE"
+prem 'task o/r#7 '
+assert "1 да" "$(runp) $(has 'номер задачи «7 » не')" "номер с хвостом → PREMISE-FALSE"
+prem 'task o/r#9'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE task o/r#9: задачи нет')" "задачи нет (404) → PREMISE-FALSE"
+prem 'task o/r#5'
+assert "1 да" "$(runp) $(has 'это PR, а не задача')" "номер PR вместо задачи → PREMISE-FALSE"
+prem 'task o/r'
+assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM task o/r')" "без #<N> — строка вне формы → код 2"
 prem '# только комментарий'
 assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
 

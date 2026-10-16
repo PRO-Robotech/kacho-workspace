@@ -3013,6 +3013,32 @@ run_says 1 "$b" "инъекция: протокол снова предписы�
 b="$(mksandbox)"
 c21_sub "$b/.claude/agents/git-operator.md" '--subject "#<N> merge #<PR>: <суть>"' '--subject "#<N> <суть>"'
 run_says 1 "$b" "инъекция: тема вливания без merge #<M> (ws#1029) — краснеет" "$C21" "прежняя тема вливания"
+# G. пачка 2026-10-16 (ws#1110): тело нормы выворачивается при сохранённом окружении.
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "ОДИН раз \`heavy-slot.sh --enqueue <каталог>\`: перезапуск на 74/75 теряет очередь" "повтором короткого шага, сколько потребуется"
+run_says 1 "$b" "инъекция: протокол снова предписывает перезапуск ожидания вместо --enqueue — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "> <журнал> 2>&1\` (не \`| tail\`" "2>&1 | tail -5\` (кратко"
+run_says 1 "$b" "инъекция: отправка снова через | tail — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/CLAUDE.md" "ждёт и читает с паузой лишь \`ci-watcher\`" "ждёт и читает с паузой любая роль"
+run_says 1 "$b" "инъекция: пауза отдана любой роли — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "--body \"\" --match-head-commit <sha>\`" "--squash --delete-branch\`"
+run_says 1 "$b" "инъекция: база предписывает --squash вместо формы вливания — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/dispatcher.md" "задача — \`task <репо>#<N>\`, N \`^[0-9]+$\`." "задача — \`task <репо>#<N>\`."
+run_says 1 "$b" "инъекция: номер задачи в предусловиях без формы числа — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/ci-watcher.md" "долгое ставится в очередь ОДИН раз (\`heavy-slot.sh --enqueue" "долгое повторяется коротким шагом (\`heavy-slot.sh --wait"
+run_says 1 "$b" "инъекция: ci-watcher снова повторяет ожидание вместо --enqueue — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" "  if (rateOf(ci)) return rateStop('CI', ci, asm.head)" ""
+run_says 1 "$b" "инъекция: шаблон не судит RATE-LIMIT — краснеет" "$C21" "пачка 2026-10-16"
+b="$(mksandbox)"
+c21_sub "$b/.claude/agents/ci-watcher.md" "долгое ставится в очередь ОДИН раз (\`heavy-slot.sh --enqueue
+  <каталог>\`" "долгое ставится в очередь ОДИН раз (\`heavy-slot.sh --enqueue <каталог>\`"
+run 0 "$b" "близнец: перенос строки внутри нормы ci-watcher — молчит" "$C21"
 # Близнецы: перенос строки внутри требования — та же норма.
 b="$(mksandbox)"
 c21_sub "$b/.claude/rules/ai-tooling.md" "урок без места — не урок; 2+ случая" "урок без места — не урок;

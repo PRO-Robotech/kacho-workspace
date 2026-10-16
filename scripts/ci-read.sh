@@ -103,7 +103,8 @@
 #   0 green    — полный набор, всё завершено, обязательные success, база свежая;
 #   1 red      — CI-FAILED, REQUIRED-NOT-SUCCESS, REQUIRED-MISSING (перепись имён), всё завершено;
 #   2 unread   — VOID: площадка не ответила, ответ не разбирается, пары нет в
-#                ведомости. Это НЕ «зелёное» и НЕ «красное»;
+#                ведомости, лимит площадки ниже 100 (REASON RATE-LIMIT со временем
+#                сброса, lib/gh-rate.sh). Это НЕ «зелёное» и НЕ «красное»;
 #   3 running  — CI-PENDING, RUNS-PENDING, CHECKS-INCOMPLETE: ждать, не провал;
 #   4 stale    — BASE-STALE: влить свежую базу и читать заново;
 #   5 targeted-green — черновик: исполненное зелёное, страж вынес «целевой
@@ -138,6 +139,14 @@ done
 command -v jq >/dev/null 2>&1 || void "нет jq в PATH"
 [ -n "${CI_READ_GH:-}" ] || command -v gh >/dev/null 2>&1 || void "нет gh в PATH"
 [ -r "$LEDGER" ] || void "ведомость ожидаемого «$LEDGER» не читается"
+# Лимит площадки — ДО первого чтения (урок 2026-10-16, ws#1110): исчерпан — 2 со временем
+# сброса и REASON RATE-LIMIT, а не красное и не тайм-аут.
+# shellcheck source=lib/gh-rate.sh
+. "$HERE/lib/gh-rate.sh" || void "нет $HERE/lib/gh-rate.sh — лимит не проверить"
+if ! RL="$(gh_rate_short "$GH" 100)"; then
+    printf 'REASON\tRATE-LIMIT\t%s\n' "$RL"
+    void "$RL — не выполнилось, не красное: читать после сброса"
+fi
 
 W="$(mktemp -d "${TMPDIR:-/tmp}/ci-read.XXXXXX")" || void "временный каталог не создан"
 trap 'rm -rf "$W"' EXIT

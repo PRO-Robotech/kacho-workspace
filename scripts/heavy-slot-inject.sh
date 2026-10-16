@@ -88,11 +88,12 @@ assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMITER=watch bash "$SLOT" dock
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 bash "$SLOT" docker -- touch "$W/k6") $(has "$W/err" 'HEAVY_SLOT_')" "потолок 1 ГиБ и ожидание 99999 с — 64"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=70 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 70 ГиБ ручкой — 64: величина не переопределяется"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_SLOTS_SUM_MIB=99999 bash "$SLOT" docker -- touch "$W/k9") $(has "$W/err" 'HEAVY_SLOT_SLOTS_SUM_MIB')" "Σ бюджетов слотов ручкой — 64"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_ENQ_S=99999 bash "$SLOT" --enqueue "$W" docker -- touch "$W/k10") $(has "$W/err" 'HEAVY_SLOT_ENQ_S')" "срок --enqueue ручкой — 64"
 # Чтение и поиск разведены: `grep -q` в конце трубы под pipefail рвёт писателя (ws#395).
 cl="$(env "${REAL[@]}" bash "$SLOT" --classes 2>/dev/null)"; cl="${cl%%$'\n'*}"
 assert "да да" "$(grep -qE 'потолок машины: 70[.,]0 ГиБ' <<<"$cl" && echo да || echo нет) $(grep -qE 'свободных до старта ≥ 15[.,]0 ГиБ; слотов ≤ 3, Σ бюджетов ≤ 30[.,]0 ГиБ' <<<"$cl" && echo да || echo нет)" "--classes над настоящей памятью: потолок 70 ГиБ, свободных ≥ 15, слотов ≤ 3, Σ ≤ 30 (решение 2026-10-02)"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
-assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
+assert "нет $before" "$(ls "$W"/k* >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
 # Близнец идёт в общую очередь без ожидания (ws#1004); занятая машина — 74, «не выполнилось».
 rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" newman -- touch "$W/k5")"
 if [ "$rc" = 74 ] || [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
@@ -236,6 +237,30 @@ assert "64 да" "$(slot bash "$SLOT" --wait 2400 docker -- true) $(has "$W/err"
 assert 64 "$(slot bash "$SLOT" --wait x docker -- true)" "--wait без числа — 64"
 assert "0 да" "$(slot bash "$SLOT" --wait 300 docker -- touch "$W/b5") $([ -e "$W/b5" ] && echo да || echo нет)" "близнец: --wait 300 — законная граница"
 assert "64 да" "$(slot HEAVY_SLOT_WAIT_S=301 bash "$SLOT" docker -- true) $(has "$W/err" 'больше 300 с')" "ручка проб HEAVY_SLOT_WAIT_S=301 — 64: и проба дольше не ждёт"
+
+echo "── --enqueue: долгое ожидание — ОДНИМ билетом отсоединённо, а не перезапуском (урок 2026-10-16, ws#1110)"
+# Пять попыток newman за час слота не получили: перезапуск на 74/75 ставил билет в
+# конец очереди. Поставленное задание держит место всё ожидание: вошедший позже
+# видит его впереди; код команды — в .rc под уникальным именем.
+rcof() { sed -n 's/^ENQUEUED\tlog=[^\t]*\trc=\([^\t]*\)\t.*/\1/p' "$W/out"; }
+await_rc() { local _; for _ in $(seq 1 80); do [ -s "$1" ] && break; sleep 0.25; done; cat "$1" 2>/dev/null || echo нет; }
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+mkdir -p "$W/enq"
+t0="$(date +%s%N)"
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/q1")"
+ms=$(( ($(date +%s%N) - t0) / 1000000 )); RC1="$(rcof)"
+assert "0 да да нет" "$rc $([ "$ms" -lt 3000 ] && echo да || echo "нет(${ms}мс)") $(case "$RC1" in "$W/enq/hs-docker-"*.rc) echo да ;; *) echo "нет($RC1)" ;; esac) $([ -e "$RC1" ] && echo да || echo нет)" "занятый слот: --enqueue возвращает 0 «поставлено» за < 3 с, .rc под уникальным именем ещё не записан"
+for _ in $(seq 1 20); do ls "$HEAVY_SLOT_DIR"/queue/* >/dev/null 2>&1 && break; sleep 0.2; done
+assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true) $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 1')" "вошедший позже видит поставленное задание ВПЕРЕДИ (очередь 1): билет держится всё ожидание"
+assert "да" "$(has "$W/err" 'ОДИН раз --enqueue')" "отказ 74 называет --enqueue и запрет перезапуска"
+wait "$A"
+assert "0 да" "$(await_rc "$RC1") $([ -e "$W/q1" ] && echo да || echo нет)" "слот освободился — поставленное задание исполнилось тем же билетом, код 0 в .rc"
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- bash -c 'exit 7')"; RC2="$(rcof)"
+assert "0 7 да" "$rc $(await_rc "$RC2") $([ "$RC2" != "$RC1" ] && echo да || echo нет)" "близнец: код команды доходит до .rc (7), имя второго задания другое"
+assert "64 да" "$(slot bash "$SLOT" --queued "$W/enq/x" docker -- true) $(has "$W/err" 'внутренняя форма')" "--queued в переднем плане — 64: долгое ожидание только у отсоединённого ребёнка"
+assert "64 да" "$(slot bash "$SLOT" --enqueue "$W/нет-такого" docker -- true) $(has "$W/err" 'каталог журналов')" "--enqueue в несуществующий каталог — 64"
+assert "64 да" "$(slot bash "$SLOT" --enqueue "$W/enq" --wait 5 docker -- true) $(has "$W/err" 'не ставятся')" "--enqueue вместе с --wait — 64"
 
 echo "── запись слота, чей держатель умер, снимается при следующем входе"
 printf 'class=go-race\nbudget=999\npid=999999\npid_start=1\nunit=\nstart=1\nseq=0\n' > "$HEAVY_SLOT_DIR/active/1-999999.slot"
