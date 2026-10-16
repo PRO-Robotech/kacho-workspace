@@ -64,8 +64,12 @@ printf '#!/bin/sh\n[ "$1 $2" = "auth token" ] && echo SENTINEL-gh-token && exit 
 chmod +x "$W/bin/gh"
 export PATH="$W/bin:$PATH"
 
+# Подпись песочницы — из корневого gitconfig (scripts/lib/sandbox-git-home.sh).
+# shellcheck source=scripts/lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$W/ghome" || { echo "inject: корневой подписи нет — копия пробы не построена (не выполнилось)" >&2; exit 2; }
 CO="$W/co"; git init -q "$CO"; git -C "$CO" remote add origin https://github.com/PRO-Robotech/probe.git
-git -C "$CO" -c user.name=p -c user.email=p@invalid -c commit.gpgsign=false commit -q --allow-empty -m probe \
+sandbox_git -C "$CO" commit -q --allow-empty -m probe \
     || { echo "inject: копия пробы не построена — не выполнилось" >&2; exit 2; }
 cat > "$W/wf.yml" <<'YML'
 jobs:
