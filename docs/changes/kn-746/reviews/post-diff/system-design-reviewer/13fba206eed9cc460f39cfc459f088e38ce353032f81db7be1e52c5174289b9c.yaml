@@ -1,0 +1,141 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, эпик
+# kaname#746 → main (PR #820). Вердикт на дайджест эпика целиком: стыки полос
+# #827 (повышение любым способом, ветвь ключа), #829 (классы субъектов), #834
+# (L1 #776 — один живой код восстановления; L2 #752), места слияний.
+# Запись новая, добавлением (change-graph §2): вердикт привязан к отпечатку.
+schema_version: 1
+change_id: kn-746
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+mode: review
+round: 1
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "746"
+  base: bbbe33524c4ae501d4ea14d2d9747f300d057a99   # = origin/main на момент ревью (git fetch; merge-base совпадает)
+  head: 81fa3e1234d04beff1b546aec8056b0c9ec37efc   # = headRefOid PR #820
+  files_touched: 279
+content_digest: sha256:13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c
+digest_command: git -C project/kaname diff --full-index bbbe33524c4ae501d4ea14d2d9747f300d057a99...81fa3e1234d04beff1b546aec8056b0c9ec37efc | sha256sum
+digest_match: true   # перемерено первым шагом этой роли; число путей 279 сошлось
+committed: да (оба конца — коммиты; ветка 746 заморожена решением диспетчера)
+
+verdict: accepted
+blocks_landing: false
+return_to: —
+distributed_surface: true
+schema_overlap: true   # CAS счётчика подписи, ON CONFLICT живого испытания, SKIP LOCKED уборки, свёртка журнала
+
+inputs_used:
+  - "kn-829 system-design c72887b4 (⛔ SD-829-1) и 0a25dd1c (✅, исполнение SD-829-1 @ea31742e8); ea31742e8 — предок головы"
+  - "kn-776 system-design 31ad4c0f (запись воркспейса)"
+  - "kn-827 db-architect 930e24a5 (@a467531b8, предок головы); system-design записи у #827 нет — ветвь ключа повышения судится здесь впервые"
+  - "kn-746 proto-api-reviewer 13fba206 (⛔ PAR-746-01 — текст контракта, не распределённое свойство)"
+
+delta_beyond_lane_reviews:
+  - "#829 после ea31742e8: 233ccbd8e (миграция 20261015140000 relation_fact_subject_class_reads_only, corelib v1.14.2), fda31d7a2 (сборщик модели: user:* манифеста → system_class), прочее — пробы, замеры, ci, документы"
+  - "#827 целиком (step_up.go ветвь webauthn, step_up_access_key_begin.go, access_key_step_up_repo.go, миграции 20261015100000/100100, путь /iam/v1/auth/step-up/access-key/begin)"
+
+merges:
+  count: 27
+  code_conflict_resolutions: 0
+  evidence: >-
+    git show --remerge-diff по каждому слиянию base..head: правку при разрешении
+    несёт только dd45e2a18, и только .github/scripts/newman-suite-debt.py и
+    tests/newman/docs/CASES-INDEX.md; ни одного .go/.sql/.proto/.fga
+  migration_order: >-
+    пять новых файлов 20261015100000 < 100100 < 110000 < 120000 < 140000, все
+    старше последней применённой в main (20261012120000); main после base не
+    сдвигался — порядок посадки однозначен; применённых правок нет
+
+checked_ok:
+  atomicity: >-
+    Ветвь ключа повышения: сдвиг счётчика (advanceSignCountTx), предъявление в
+    сессии (UPDATE human_sessions … WHERE id AND ended_at IS NULL), сброс счёта
+    и журнал повышения — одна транзакция PersonWriter; откат снимает сдвиг вместе
+    с предъявлением. Отказ — след попытки и журнал refused одной транзакцией,
+    отвязанной от отмены запроса (WithoutCancel + свой WithTimeout 5 с на каждую
+    из двух записей). Журнал публикации #829 — тем же tx, что надгробие. Двойной записи нет.
+  cas_and_once: >-
+    Испытание: одно живое на сессию — частичный UNIQUE + INSERT … ON CONFLICT с
+    тем же предикатом; сгорание — один условный UPDATE, кардинальность 1.
+    Счётчик: CAS sign_count=$exp AND $new>sign_count; проигрыш → откат без
+    сигнала клонирования. Снятие ключа между чтением и сдвигом → 0 строк → отказ.
+    Отзыв сессии между resolve и фиксацией → ended_at IS NULL не совпадает →
+    отказ. Проверки «прочитал → записал» без механизма базы не найдено.
+  lock_order: >-
+    Ветвь ключа повышения: личность (FOR KEY SHARE) → строка ключа (NO KEY
+    UPDATE сдвига) → запись сессии; снятие ключа: личность → ключи FOR UPDATE —
+    тот же порядок, встречного нет. Запрос кода восстановления (#776) поднят до
+    FOR NO KEY UPDATE на личности — с ключевым замком повышения совместим.
+    Сгорание испытания вне транзакции предъявления (пул) — by design, fail-closed:
+    сбой после сгорания требует новой выдачи, лишнего права не даёт.
+  concurrent_probes: >-
+    наличие прочитано @81fa3e12: TestAccessKeyStepUpRepo_ConcurrentIssuesLeaveOneLive,
+    TestAccessKeyStepUpRepo_ConsumeRaceHasOneWinner (горутины, testcontainers),
+    TestSUA80_LostCounterRaceIsRefused, TestSUA80_LostAdvanceIsRefusedWithoutTheCloneSignal,
+    TestSystemClass_SD8291_OldWriterUnpublishAfterMove. Зелёный — со слов
+    задания (ci 12/12, e2e-newman 5/5 на черновике); мной не перепрогнан.
+  rollout_old_pods: >-
+    20261015140000 добавляет CHECK класса только на чтении; прежний под (до #829)
+    класс не пишет вовсе, его user:* на записи отвергает 23514 прежнего
+    ограничения — транзакция откатывается целиком (закрыто). Ветвь снятия с
+    user:* сворачивается в хранимый класс (SD-829-1 исполнен). Прежний под до
+    #827 нового пути не обслуживает: 404 слушателя на этот путь, закрыто.
+  cross_product_contract: >-
+    Край платформы, спрашивающий Check говорящим user:*, после посадки не
+    получает отказа: domain.SpeakerClasses отображает user:* в
+    system_class:anonymous (приём закреплён internal/domain/system_class_test.go:51;
+    вывод PAR-746-01). Значит, порядок посадки kaname → пин в kacho анонимное
+    чтение не роняет. Расхождение текста контракта с этим — находка proto-api-reviewer, не здесь.
+  edges: >-
+    новых межсервисных рёбер нет: internal/clients меняет только метку исхода
+    очереди писем (MailEventTypes); новых RPC и служб нет (git diff base...head
+    -- proto | grep '^+\s*(rpc|service)' → 0). Новый HTTP-путь — на слушателе
+    формы полосы входа (досягаем только краю), Internal*-поверхность не тронута.
+  deadlines: 'новых внешних вызовов (gRPC/HTTP к соседу) дифф не добавляет.'
+  replicas: >-
+    состояния в памяти между репликами не появилось: испытания повышения и
+    приманка — в базе либо неизменяемы с построения; уборка новой таблицы
+    проведена реестром retention (один исполнитель реестра — прежний механизм).
+
+important:
+  - id: SD-746-1
+    blocks: false
+    class: параллельные полосы одного механизма разошлись (arch-lanes-compare-norm)
+    where:
+      - internal/repo/kaname/pg/access_key_step_up_repo.go (SweepUnservableStepUpChallenges, DELETE … ctid IN (SELECT … LIMIT) без SKIP LOCKED)
+      - internal/repo/kaname/pg/recovery_code_repo.go (#776/#774 перевёл ту же форму уборки на FOR UPDATE SKIP LOCKED)
+      - internal/repo/kaname/pg/human_session_repo.go:sweepUnservableSessionsSQL (шапка: «ожиданий на дочерних строках каскада это не снимает»)
+    finding: >-
+      Испытание повышения — ребёнок записи сессии (FK ON DELETE CASCADE).
+      Уборщик сессий снимает истёкшие сессии партией, каскад снимает их
+      испытания в порядке сессий; уборщик испытаний берёт те же строки (порог —
+      срок испытания) в порядке плана по ctid и занятые ЖДЁТ. Две многострочные
+      DELETE одной таблицы в разных порядках дают взаимное ожидание; база снимает
+      одну из них 40P01, следующий проход дочищает. Порчи и лишнего права нет —
+      поэтому не блокирует; но соседняя полоса той же волны (#774) этот класс у
+      кодов восстановления уже закрыла, а #827 завела новую уборку в прежней форме.
+    requirement: >-
+      Та же форма, что у recovery_code_repo.go: WITH doomed AS (SELECT id … ORDER
+      BY id LIMIT $2 FOR UPDATE SKIP LOCKED) DELETE … USING doomed. Предикат:
+      проба по образцу human_session_sweep_teardown_integration_test.go —
+      держатель строки испытания в открытой транзакции + уборка испытаний
+      завершается без ожидания (pg_stat_activity wait_event_type <> 'Lock').
+    note: 'в задачу не выносится (gi-find-own-issue): корректность ПО и безопасность не задеты'
+
+carried_from_lanes:
+  - id: SD-829-2
+    status: открыто, не блокирует   # прочитано @81fa3e12: шапка 20261015120000 окна чтения прежних подов не описывает
+  - id: SD-829-3
+    status: открыто, не блокирует   # LOCK TABLE перед переписью не добавлен; гонка громкая, сходится повтором init-контейнера
+
+critical: []
+
+orders:
+  - 'db-architect-reviewer: тот же дайджест 13fba206 — пересечение со схемой (CAS счётчика, частичный UNIQUE испытания, форма уборки SD-746-1, CHECK 20261015140000); записи схемы на дайджест эпика в пакете нет'
+
+facts_outside_role:
+  - "PR #820 на 2026-10-16 уже не черновик (isDraft=false, head 81fa3e12); checks: pass 12, fail 2, pending 14, skipping 4; красные — «сводный вердикт запроса (ci)» и «(e2e-newman)» при идущих заданиях — предмет landing-reviewer"
+  - "путь /iam/v1/auth/step-up/access-key/begin край платформы переносит своим объявлением (шапка loginlanehttp.Paths) — до правки края kacho ветвь ключа повышения через край недостижима; это закрыто (404), а не открыто"
