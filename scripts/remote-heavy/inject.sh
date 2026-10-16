@@ -111,6 +111,12 @@
 #   NC3 инъекция «npm ci снят» → свойство NC2-console не держится (проба не слепа)
 #   GI1 ci-local отправкой при корневой учётке копии → имя и адрес в окружении run,
 #      шаг записи до exec, адрес не напечатан (ws#1115, отправка 853)
+#      GI1-env — имена окружения всех контейнеров Job из разрешённого списка;
+#      GI1-decoy — signingkey, credential.helper, http.extraHeader, insteadOf,
+#      include.path корневого gitconfig до Job и вывода не доходят
+#   NC2-update обновление опубликованной ветки: удалённый sha ненулевой, ветка влила
+#      ствол с правкой консоли — диапазон хука её трогает, запасной — нет → npm ci
+#   GI2-name-only, GI2-email-only — половина учётки → 69 до кластера
 #   GI2 отправка без корневой учётки → 69 до кластера, причина названа; GI2b не
 #      отправка → 0, Job без учётки, строка об этом
 #   GI3 шаг учётки ИСПОЛНЕНИЕМ: корневая pod = подпись коммита (предикат стража);
@@ -816,6 +822,14 @@ edit_nostd() { echo "export const b = 1" > "$NT/ui-future/host/b.ts"; printf 'de
 NC_UI="$(nc_rev ui edit_ui)"
 NC_GO="$(nc_rev go edit_go)"
 NC_NOSTD="$(nc_rev nostd edit_nostd)"
+# Обновление опубликованной ветки (ревью ws#1115, V4): ствол ушёл вперёд правкой
+# консоли, ветка (опубликована на NC_GO) влила его. Диапазон хука — NC_GO..слияние —
+# консоль трогает; запасной origin/main...HEAD при стволе на NC_TRUNK — нет.
+edit_trunk() { echo "export const t = 1" > "$NT/ui-future/shared/t.ts"; }
+NC_TRUNK="$(nc_rev trunk edit_trunk)"
+git -C "$NT" checkout -q -b merged "$NC_GO"
+sandbox_git -C "$NT" merge -q --no-edit "$NC_TRUNK" > /dev/null 2>&1
+NC_MERGED="$(git -C "$NT" rev-parse HEAD)"
 git -C "$NT" checkout -q --detach "$NBASE"
 cat > "$NB/npm" <<'NPM'
 #!/usr/bin/env bash
@@ -841,7 +855,7 @@ nc_exec() {
     local sh="$1" rev="$2"; shift 2
     git -C "$NT" checkout -q --detach "$NBASE"; git -C "$NT" clean -qfdx
     rm -f "$BOX/nc.npm" "$BOX/nc.tl"
-    local inp=""; [ "$rev" = - ] || inp="refs/heads/x $rev refs/heads/x $ZS"
+    local inp=""; [ "$rev" = - ] || inp="refs/heads/x $rev refs/heads/x ${NC_REMOTE:-$ZS}"
     [ "$rev" = - ] || git -C "$NT" checkout -q --detach "$rev"
     ( cd "$NT" && env -i HOME="$BOX" PATH="${NC_PATH:-$NB}:/usr/bin:/bin" NC_NPM_LOG="$BOX/nc.npm" NC_TL="$BOX/nc.tl" \
         HEAVY_PUSH_INPUT="$inp" "$@" bash "$sh" ) > "$NC_OUT" 2>&1
@@ -875,6 +889,16 @@ nc_case NC2-fail-root "$NC_UI" 125 звался 'npm ci в ui-future не исп
 nc_case NC2-fail-e2e "$NC_UI" 125 звался 'npm ci --prefix e2e не исполнился' FAKE_NPM_FAIL=e2e
 nc_case NC2-notready "$NC_UI" 125 звался 'после npm ci пакет host не готов' FAKE_NPM_EMPTY=host
 nc_case NC2-nostd "$NC_NOSTD" 125 нет 'ui.yml ревизии не разобран'
+# NC2-update: удалённый sha ненулевой — признак берётся из диапазона хука, а не из
+# запасного origin/main...HEAD. Предпосылка случая проверяется: иначе он не различает.
+git -C "$NT" update-ref refs/remotes/origin/main "$NC_TRUNK"
+nc_upd_range="$(git -C "$NT" diff --name-only "$NC_GO..$NC_MERGED")"
+nc_upd_fallback="$(git -C "$NT" diff --name-only "$NC_TRUNK...$NC_MERGED")"
+if [[ "$nc_upd_range" == *ui-future/* ]] && [[ "$nc_upd_fallback" != *ui-future/* ]] && [ -n "$nc_upd_fallback" ]; then ok
+else bad NC2-update "предпосылка: диапазон «$nc_upd_range» обязан трогать консоль, запасной «$nc_upd_fallback» — нет"; fi
+NC_REMOTE="$NC_GO" nc_case NC2-update "$NC_MERGED" 0 звался 'готовы пакетов 3 из 3'
+if [ "$(npm_calls)" = "$NC_WANT" ]; then ok; else bad NC2-update "npm «$(npm_calls)», ждали «$NC_WANT»"; fi
+git -C "$NT" update-ref refs/remotes/origin/main "$NBASE"
 NC_PATH="$BOX/ncnonpm"; mkdir -p "$NC_PATH"; cp "$NB/node" "$NC_PATH/"
 nc_case NC2-nonpm "$NC_UI" 125 нет 'правка её трогает, а npm нет в PATH'
 unset NC_PATH
@@ -900,6 +924,25 @@ if [ "$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)" = "$GI_NAME" ] && [ "$(envv 
 else OUT="$BOX/state/job.json"; bad GI1 "учётка не дошла до окружения run: «$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)» «$(envv "$BOX/state/job.json" HEAVY_GIT_EMAIL)»"; fi
 if gi_in "$BOX/gi1.cmd"; then ok; else OUT="$BOX/gi1.cmd"; bad GI1 "шага записи учётки перед командой в Job ci-local нет"; fi
 if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки напечатан в выводе run.sh"; else ok; fi
+# GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
+#     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
+GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR TESTCONTAINERS_RYUK_DISABLED"
+gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(. as $n | $al | index($n) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
+if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
+# GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
+#     учётных данных, заголовок http, подмену адреса, включение; ни одна не доходит
+#     до Job и до вывода
+GI_DECOYS="DECOY-signingkey-7f3a DECOY-credhelper-7f3a DECOY-extraheader-7f3a DECOY-insteadof-7f3a DECOY-include-7f3a"
+{ printf '[user]\n\tname = %s\n\temail = %s\n\tsigningkey = DECOY-signingkey-7f3a\n' "$GI_NAME" "$GI_EMAIL"
+  printf '[credential]\n\thelper = DECOY-credhelper-7f3a\n[http]\n\textraHeader = Authorization: DECOY-extraheader-7f3a\n'
+  printf '[url "https://DECOY-insteadof-7f3a.invalid/"]\n\tinsteadOf = https://github.com/\n[include]\n\tpath = %s/DECOY-include-7f3a.cfg\n' "$BOX"; } > "$BOX/gi-decoy.cfg"
+fresh
+go_run gi1-decoy env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi-decoy.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi1d --push-input "$PUSH_LINE" -- true
+expect_rc GI1-decoy 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)" = "$GI_NAME" ]; then ok; else bad GI1-decoy "учётка с приманками рядом не дошла до Job — проба пуста"; fi
+for d in $GI_DECOYS; do
+    if grep -qF "$d" "$BOX/state/job.json" "$BOX/gi1-decoy.out" 2>/dev/null; then bad GI1-decoy "приманка «$d» из корневого gitconfig дошла до Job или вывода"; else ok; fi
+done
 # GI2 отправка, а корневой учётки у копии нет → 69 до кластера, причина названа;
 #     близнец GI2b — не отправка → 0, Job без учётки, строка это называет
 fresh
@@ -907,6 +950,14 @@ go_run gi2 env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi-empty.cfg" bash "$RUN" --t
 expect_rc GI2 69
 if [ -s "$BOX/state/calls" ]; then bad GI2 "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
 if grep -q 'нет корневой учётной записи' "$OUT"; then ok; else bad GI2 "причина «нет корневой учётной записи» не названа"; fi
+# GI2-name-only, GI2-email-only — половина учётки — та же учётки нет: 69 до кластера
+printf '[user]\n\tname = %s\n' "$GI_NAME" > "$BOX/gi-name.cfg"; printf '[user]\n\temail = %s\n' "$GI_EMAIL" > "$BOX/gi-email.cfg"
+for half in name email; do
+    fresh
+    go_run "gi2-$half" env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi-$half.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short "gi2$half" --push-input "$PUSH_LINE" -- true
+    expect_rc "GI2-$half-only" 69
+    if [ -s "$BOX/state/calls" ]; then bad "GI2-$half-only" "к кластеру обращались: $(head -n 1 "$BOX/state/calls")"; else ok; fi
+done
 fresh
 go_run gi2b env FAKE_EXIT=0 GIT_CONFIG_GLOBAL="$BOX/gi-empty.cfg" bash "$RUN" --task 1 --repo kaname --ref HEAD --src "$SRC" --profile ci-local --short gi2b -- true
 expect_rc GI2b 0
