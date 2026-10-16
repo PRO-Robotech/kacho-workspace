@@ -3253,8 +3253,8 @@ c21_sub "$b/.claude/rules/ai-tooling.md" "все корни — исполнит
 одной сборкой"
 run 0 "$b" "близнец: перенос строки внутри at-red-ci-one-round — молчит" "$C23"
 b="$(mksandbox)"
-c21_sub "$b/.claude/agents/ci-watcher.md" "все починки — ОДНОЙ сборкой; затем" "все починки — ОДНОЙ
-  сборкой; затем"
+c21_sub "$b/.claude/agents/ci-watcher.md" "затем только бывшее красным на внешнем кластере" "затем только бывшее красным
+  на внешнем кластере"
 run 0 "$b" "близнец: перенос строки внутри заказа ci-watcher — молчит" "$C23"
 b="$(mksandbox)"
 printf '\nat-probe-twin-23 · посторонняя норма пробы · вниманием · red: —\n' >> "$b/.claude/rules/ai-tooling.md"
