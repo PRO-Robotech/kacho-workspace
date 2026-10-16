@@ -49,7 +49,8 @@ def main():
     m = _core.measure(root, threshold, busl, agpl)
     if "void" in m:
         _lib.void(NAME, "%s — второй прописки считать не по чему. Условие создаётся "
-                        "клоном в project/<продукт> либо переменной KACHO_HOME_<ПРОДУКТ>"
+                        "клоном в project/<продукт> копии либо канонической копии, "
+                        "переменной KACHO_HOME_<ПРОДУКТ> либо KACHO_MONOREPO"
                   % m["void"])
         return 2
     if m["walked"] == 0:

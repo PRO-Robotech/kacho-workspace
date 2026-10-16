@@ -107,12 +107,13 @@ AI-оснастка живёт **в единственном экземпляр�
 ## Локальная разработка
 
 - Тяжёлое (go test -race, integration, ci-local, линтеры, docker run, стенд, newman) — только
-  `$WS/scripts/heavy-slot.sh <класс> -- <команда>` (`$WS` — корень воркспейса). Владелец 2026-09-24:
-  «контроль за оперативной памятью не должна переваливать за 45гб»; 2026-10-02: «я расширил память
-  еще на 32» — ≤ 70 ГБ, 3 слота по 10, старт при свободных ≥ 15; без слота — отказ `heavy-guard`.
+  `$WS/scripts/heavy-slot.sh <класс> -- <команда>` (`$WS` — корень воркспейса). Владелец 2026-10-02:
+  «я расширил память еще на 32» — ≤ 70 ГБ, 3 слота по 10, старт при свободных ≥ 15; без слота —
+  отказ `heavy-guard`. Тяжёлое и стенд — ТОЛЬКО во внешнем кластере, локально — лишь при
+  недоступном, доказательство пишет слот (77 — «во внешний кластер»): `testing-verdict.md#external-cluster-first`.
 - Потолок сессии ставит хук SessionStart (`scripts/session-memcap.sh`); сессию с ним запускают
   `$WS/scripts/session-memcap.sh --launch -- claude`: scope терминала (OOMPolicy=stop) его снял бы.
-- Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make dev-up` / `make dev-down`
+- Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make stand-ns-up NS=t<N>-<коротко>` / `stand-ns-down`; `make dev-up` — лишь при недоступном
 - Перезапуск сервиса: `… stand -- make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
 - Обновить рабочие копии: `./sync-all.sh`
 

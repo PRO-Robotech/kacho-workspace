@@ -33,19 +33,9 @@ construction: каждое по отдельности исправно. Вор�
   3. решение вне закрытого словаря либо `debt` без задачи — долг без ответственного;
   4. `own` на побайтово совпадающей паре — утверждения, из которых верно лишь одно.
 
-ГДЕ ИЩЕТСЯ КЛОН — порядок, сильнейшее первым
-
-  1. `KACHO_HOME_<РЕПО>` — дом, названный явно;
-  2. `KACHO_MONOREPO` — объявленный вход наборов: дерево монорепо (`kacho`) он
-     называет сам, а соседние стволы ищутся РЯДОМ с ним (`<его родитель>/<имя>`)
-     и принимаются, только если их `origin` опознан как `PRO-Robotech/<имя>`:
-     соседний каталог без опознания — не клон, а совпадение имени;
-  3. `<корень>/project/<репо>`.
-
-Зачем второй пункт: хук отправки судит вершину во ВРЕМЕННОЙ копии, где
-`project/` нет, и выводит из канонического клона ровно одну переменную —
-`KACHO_MONOREPO`. Без её чтения набор получал «без предмета» на каждой отправке,
-и запрет #20 не держал никто, хотя клоны лежали рядом.
+ГДЕ ИЩЕТСЯ КЛОН — общий порядок наборов, сверяющих стволы:
+`scripts/lib/product_clone.py` (`KACHO_HOME_<РЕПО>`, `KACHO_MONOREPO` и соседние
+стволы рядом с ним, `project/<репо>` корня, `project/<репо>` канонической копии).
 
 ТРЕТЬЯ КАТЕГОРИЯ
 
@@ -60,6 +50,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs-gate"))
 import _lib  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+import product_clone  # noqa: E402
 
 NAME = "check-01-paired-files-are-declared"
 
@@ -74,42 +66,9 @@ LEDGER = "docs/crossrepo-pairs.yaml"
 DECISIONS = ("vendored", "own", "debt")
 
 
-# MONOREPO — имя репозитория, который `KACHO_MONOREPO` называет сам.
-MONOREPO = "kacho"
-
-
-def is_clone(path):
-    return bool(path) and os.path.exists(os.path.join(path, ".git"))
-
-
-def origin_is(path, name):
-    """`origin` клона опознан как `PRO-Robotech/<name>` — https и ssh одинаково."""
-    out = subprocess.run(["git", "-C", path, "remote", "get-url", "origin"],
-                         capture_output=True, text=True)
-    if out.returncode != 0:
-        return False
-    url = out.stdout.strip()
-    if url.endswith(".git"):
-        url = url[:-4]
-    return url.rstrip("/").endswith("PRO-Robotech/" + name)
-
-
 def clone(root, name):
-    """Путь клона репозитория либо None. Порядок — шапка, «ГДЕ ИЩЕТСЯ КЛОН»."""
-    env = os.environ.get("KACHO_HOME_" + name.upper().replace("-", "_"))
-    if is_clone(env):
-        return env
-    mono = os.environ.get("KACHO_MONOREPO")
-    if is_clone(mono):
-        if name == MONOREPO:
-            return mono
-        sibling = os.path.join(os.path.dirname(os.path.abspath(mono)), name)
-        if is_clone(sibling) and origin_is(sibling, name):
-            return sibling
-    guess = os.path.join(root, "project", name)
-    if is_clone(guess):
-        return guess
-    return None
+    """Путь клона репозитория либо None — `scripts/lib/product_clone.py`."""
+    return product_clone.clone(root, name)
 
 
 def trunk_paths(repo, ref):
@@ -166,9 +125,9 @@ def main():
 
     if missing:
         _lib.void(NAME, "клонов нет либо ствол не резолвится: %s — пары считать не по чему. "
-                        "Условие создаётся клоном в project/<репо>, переменной "
-                        "KACHO_HOME_<РЕПО> либо KACHO_MONOREPO (соседние стволы — рядом "
-                        "с ним, с origin PRO-Robotech/<репо>)" % ", ".join(missing))
+                        "Условие создаётся клоном в project/<репо> копии либо канонической "
+                        "копии воркспейса, переменной KACHO_HOME_<РЕПО> либо KACHO_MONOREPO "
+                        "(соседние стволы — рядом с ним, с origin PRO-Robotech/<репо>)" % ", ".join(missing))
         return 2
 
     every = set()

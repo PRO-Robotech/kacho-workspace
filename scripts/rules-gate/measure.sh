@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Прибор объёма и формы корпуса. НЕ гейт: код выхода всегда 0, вердикт — у check-06.
+# Прибор объёма и формы корпуса. НЕ гейт: код выхода всегда 0; форму судит check-06,
+# окно агента — check-13 (`--window`). Совокупного потолка корпуса нет (ws#1084).
 # Символы, не байты: кириллица в UTF-8 вдвое тяжелее, и `wc -c` дал бы вдвое больше.
 set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,21 +57,21 @@ print('ЗАВЕСТИ, различных: %d' % len(todo))
 print('слово «держится»: %d (обязан быть 0)' % held)
 PY
     ;;
+  --window)
+    # Старт и подгрузка по триггеру на агента — печать check-13, код отброшен.
+    python3 "$SELF_DIR/agent_window.py" "$root" || true
+    ;;
   '')
-    # Потолок берётся У ПРОВЕРКИ, а не выписывается здесь: выписанный был бы
-    # вторым домом одной величины и разошёлся бы с ней молча — измеритель
-    # продолжал бы печатать «запас», меряя чужой потолок.
-    python3 - "$(dirname "${BASH_SOURCE[0]}")/corpus_ceiling.py" <<'PY'
-import glob, importlib.util, os, sys
-spec = importlib.util.spec_from_file_location('c6src', sys.argv[1])
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
+    # Объём по файлам — справка: потолка корпуса нет (ws#1084, владелец 2026-10-14),
+    # бюджет держит окно агента (`--window`).
+    python3 - <<'PY'
+import glob, os
 rows = [(len(open(f, encoding='utf-8').read()), os.path.basename(f))
         for f in sorted(glob.glob('.claude/rules/*.md'))]
 for n, b in sorted(rows, reverse=True):
     print('%8d  %s' % (n, b))
-t = sum(n for n, _ in rows)
-print('%8d  ИТОГО, потолок %d, запас %d' % (t, mod.CEILING, mod.CEILING - t))
+print('%8d  ИТОГО (потолка корпуса нет; окно агента — measure.sh --window)'
+      % sum(n for n, _ in rows))
 PY
     ;;
   *)

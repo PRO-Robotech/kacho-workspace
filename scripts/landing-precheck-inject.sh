@@ -460,7 +460,7 @@ mrcase() {
           statusCheckRollup: [$c[0].check_runs[] | {name, conclusion: (.conclusion | ascii_upcase)}]}' > "$W/case/prview.json"
     jq '{required_status_checks: {contexts: [.check_runs[].name] | unique}}' "$W/case/check-runs.json" > "$W/case/protection.json"
     rm -rf "$W/ws"; mkdir -p "$W/ws/scripts"
-    cp "$HERE/merge-readiness.sh" "$W/ws/scripts/"
+    cp "$HERE/merge-readiness.sh" "$HERE/ci-read.sh" "$HERE/ci-read-expected.tsv" "$W/ws/scripts/"
     [ "$1" = 0 ] || cp -r "$HERE/lib" "$W/ws/scripts/lib"
     # Подпись песочницы — её корневой gitconfig (scripts/lib/sandbox-git-home.sh).
     sandbox_git -C "$W/ws" init -q

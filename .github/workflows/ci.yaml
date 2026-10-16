@@ -301,8 +301,9 @@ jobs:
 
   # ── НАБОРЫ, СВЕРЯЮЩИЕ СТВОЛЫ ТРЁХ ПРОДУКТОВ (ws#724, возврат check-verifier) ─
   #
-  # `foundation-candidates`, `comment-language-gate` и `crossrepo-gate` судят не
-  # это дерево, а стволы `kacho`, `kaname` и `corelib` рядом с ним. Задание
+  # `foundation-candidates`, `comment-language-gate`, `crossrepo-gate` и
+  # `ci-setup-gate` (конвейеры `kacho` и `kaname`, ws#1099) судят не это
+  # дерево, а стволы `kacho`, `kaname` и `corelib` рядом с ним. Задание
   # исполняет их выводом перечня по заданию (каждый объявил его в своём `ci-job`),
   # а три клона с полной историей создаёт `.github/actions/suite-prerequisites`:
   # ведомости обоих храповиков закрепляют РЕВИЗИЮ ствола и спрашивают, предок ли

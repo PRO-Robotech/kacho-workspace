@@ -1,0 +1,56 @@
+# Запись посаженного изменения kn-296: эпик kaname#296 влит в `main` службы
+# доступа коммитом слияния запроса kaname#714. Писал landing-reviewer в режиме
+# «после посадки». Это запись агента, а не внешнее событие: держателя
+# human-landing закрывает событие pointpu на посаженное содержимое
+# (holders.yaml, human-landing). Все величины ниже перемерены на клоне
+# PRO-Robotech/kaname после `git fetch origin main` 2026-10-14T09:05Z.
+schema_version: 1
+change_id: kn-296
+holder: human-landing
+kind: human-external
+owner: landing-reviewer
+mode: after-landing
+
+landed:
+  repo: PRO-Robotech/kaname
+  branch: main
+  pr: https://github.com/PRO-Robotech/kaname/pull/714 # state MERGED, mergedAt 2026-10-14T09:00:05Z
+  landed_sha: 9ccdc8d86275200c477a32b89986d3508182202d # = origin/main на момент сверки
+  landed_tree: 8ad8d38e957021a87be9b2c38c59b2cea5423b08 # git rev-parse 9ccdc8d8^{tree}
+  parents:
+    - 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6 # прежний origin/main = base из change.yaml
+    - 278ac4c0835e54daa8826b7559071bbb6e5e0380 # голова origin/296 = headRefOid kaname#714
+  method: merge-commit
+
+approved:
+  base_sha: 8a84dcff6eb1ccde68113353ba28d1e1e399f0e6
+  head_sha: 278ac4c0835e54daa8826b7559071bbb6e5e0380
+  head_tree: 8ad8d38e957021a87be9b2c38c59b2cea5423b08
+  convergence_record: docs/changes/kn-296/reviews/convergence/7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b.yaml # origin/main воркспейса
+
+comparison:
+  # Ниже два предиката: по написанию (дайджест диффа, набор диффа) и по
+  # предмету (дерево). Совпали оба.
+  content_digest_approved: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b # git diff --full-index 8a84dcff...278ac4c0 | sha256sum
+  content_digest_applied: 7729990b45b69518ec5855898ae1501b6ff6a3216c22db3e08644a0f1dea1b4b # git diff --full-index 8a84dcff 9ccdc8d8 | sha256sum
+  canonical_diff_set_approved: a8821f101b9076ce07e4cfe56f3119b259f9803170c9640929808956d97e1231 # change.yaml
+  canonical_diff_set_applied: a8821f101b9076ce07e4cfe56f3119b259f9803170c9640929808956d97e1231 # предикат change.yaml на 8a84dcff → 9ccdc8d8
+  paths_in_diff_applied: 2051 # git diff --name-only 8a84dcff 9ccdc8d8 | wc -l (= 2051 в change.yaml)
+  tree_equal_to_approved_head: true # 9ccdc8d8^{tree} = 278ac4c0^{tree} = 8ad8d38e
+  diff_landed_vs_approved_head: empty # git diff --stat 278ac4c0 9ccdc8d8
+  matched: true
+
+consumers:
+  # Версия службы доступа, закреплённая в kacho origin/1266 (4c7ab49d), go.mod:
+  # github.com/PRO-Robotech/kaname v0.4.1-0.20261013180450-3d5b02ede3aa.
+  pinned_commit: 3d5b02ede3aabecec317b1eefd52179cce3e91e8
+  reachable_from_landed_main: true # git merge-base --is-ancestor 3d5b02ede3aa origin/main → rc 0
+
+post_landing_runs:
+  # push-прогоны на коммите слияния. Снято 2026-10-14T09:05Z: двое идут,
+  # исхода у них ещё нет; эта запись их вердиктом не является.
+  - {workflow: 'образ службы', run: 38539187920, status: completed, conclusion: success}
+  - {workflow: ci, run: 38539187851, status: in_progress, jobs: 'success 9 · in_progress 3'}
+  - {workflow: e2e-newman, run: 38539188088, status: in_progress, jobs: 'success 3 · in_progress 3'}
+
+verdict_of_record: "применённое совпало с одобренным; push-прогоны на коммите слияния к моменту снятия не завершены"

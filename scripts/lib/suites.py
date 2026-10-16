@@ -45,6 +45,7 @@
 
 Вызов из bash: `python3 suites.py suites <корень>` — имена наборов построчно;
 `python3 suites.py checks <корень> <набор>` — пути проверок набора.
+`python3 suites.py job <корень> <набор>` — объявленный ключ задания (пусто — нет).
 """
 import fnmatch
 import os
@@ -155,10 +156,17 @@ def main(argv):
         if len(argv) == 4 and argv[1] == "checks":
             print("\n".join(checks(argv[2], argv[3])))
             return 0
+        if len(argv) == 4 and argv[1] == "job":
+            key, why = declared_job(argv[2], argv[3])
+            if why:
+                print("[VOID] suites — %s" % why, file=sys.stderr)
+                return 2
+            print(key or "")
+            return 0
     except CensusUnreadable as exc:
         print("[VOID] suites — %s" % exc, file=sys.stderr)
         return 2
-    print("использование: suites.py suites <корень> | checks <корень> <набор>",
+    print("использование: suites.py suites <корень> | checks|job <корень> <набор>",
           file=sys.stderr)
     return 2
 
