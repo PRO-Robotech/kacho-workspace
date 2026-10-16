@@ -77,6 +77,7 @@ TMO='timeout ≥ 600 с без отсоединения'
 FLOCK='flock ждёт замка'
 FOR='цикл for со sleep'
 BGW='wait после фонового запуска'
+BUSY='read из /dev/zero, /dev/urandom или после yes |'
 
 echo "== запрещённые формы — отказ с правилом и правильной формой"
 denies "$LOOP"  'until test -f /tmp/x.done; do sleep 30; done'
@@ -120,6 +121,21 @@ denies "$BGW"   'make test > l 2>&1 & wait'
 denies "$BGW"   'go test ./... > l 2>&1 & pid=$!; wait $pid'
 denies "$BGW"   'a & b & wait $!'
 denies "$BGW"   '{ make a & make b; }; wait'
+denies "$BUSY"  'read -t 290 < /dev/zero'
+denies "$BUSY"  'read -t5 </dev/urandom'
+denies "$BUSY"  'read -t 9 0</dev/random x'
+denies "$BUSY"  'read -r x <> /dev/zero'
+denies "$BUSY"  'yes | read -t 5 x'
+denies "$BUSY"  'cat /dev/zero | read -t 3'
+denies "$BUSY"  'yes | while read -t 1 l; do :; done'
+denies "$BUSY"  'while read -t 1 l; do :; done < /dev/zero'
+denies "$BUSY"  'timeout 5 bash -c "read -t 4 < /dev/zero"'
+denies "$BUSY"  'read -t 60 < /dev/zero > /dev/null 2>&1 &'
+rc="$(run 'read -t 290 < /dev/zero')"
+assert "2 да" "$rc $(grep -qF 'подсказка: жди через heavy-slot --enqueue или короткий шаг' "$WORK/out" && echo да || echo нет)" "busy-read — подсказка «жди через heavy-slot --enqueue или короткий шаг»"
+rc="$(run 'timeout 500 read -t 5 < /dev/zero # no-wait-exempt ci-watcher 9m')"
+assert 2 "$rc" "busy-read — метка ci-watcher его не снимает"
+denied=$((denied + 2))
 
 echo "== законные близнецы той же формы — пропуск без слова"
 passes 'sleep 299'
@@ -138,6 +154,13 @@ passes 'nohup bash -c "until test -f d; do sleep 5; done" > l 2>&1 &'
 passes '( while true; do sleep 5; done ) > l 2>&1 &'
 passes 'setsid -f sleep 900'
 passes 'while read -r l; do echo "$l"; done < f'
+passes 'read -t 5 -r l < /tmp/run.log'
+passes 'read -r l <<< "$x"'
+passes 'while read -r x < f; do :; done < /dev/zero'
+passes 'head -c 32 /dev/urandom > key'
+passes 'yes | head -n 3'
+passes 'yes | apt-get install x'
+passes 'grep -c /dev/zero f; echo "read -t 5 < /dev/zero"'
 passes 'for i in 1 2 3; do gh pr checks 7; done'
 passes 'for i in 1 2 3; do gh pr checks 7; sleep 5; done'
 passes 'for i in 1 2 3 4 5 6 7 8 9; do sleep 33; done'
@@ -245,6 +268,9 @@ boundary "wait без фонового запуска"   'wait 4242'
 boundary "eval: строка не разбирается" 'eval "sleep 900"'
 boundary "xargs: argv из входа"       'echo 900 | xargs sleep'
 boundary "иной интерпретатор"         'python3 -c "import time; time.sleep(900)"'
+boundary "источник — дескриптор"      'exec 3< /dev/zero; read -t 9 -u 3'
+boundary "свой редирект на дескриптор"  'read -t 9 -u 3 3< /dev/zero'
+boundary "поток через фильтр"         'yes | grep y | read x'
 
 echo "== поломка стража — пропуск со словом «СЛОМАН», а не отказ"
 mkdir -p "$WORK/broken/no-wait-guard"
@@ -324,6 +350,11 @@ mutant "метка любого агента"        '    if agent_type and agen
 mutant "метка сверх 9 мин"          'if mins > EXEMPT_MAX_MIN or mins < 1:' 'if mins < 1:' 'timeout 500 gh run watch 1 # no-wait-exempt ci-watcher 10m'
 mutant "sudo не снимается"          '        if base == "sudo":' '        if False:' 'sudo sleep 900'
 mutant "флаг sudo без значения"    'i += 2 if argv[i] in SUDO_ARG else 1' 'i += 1' 'sudo -u root sleep 900'
+mutant "чтение /dev/zero не судится" '            if (own in BUSY_DEV) if own is not None else ctx.get("busy"):' '            if False:' 'read -t 5 < /dev/zero'
+mutant "yes | не судится"           '    return base == "yes" or' '    return False and' 'yes | read -t 5 x'
+mutant "редирект цикла не виден"    '        src = stdin_source(n.redir) if n.redir else None' '        src = None' 'while read -t 1 l; do :; done < /dev/zero'
+mutant "свой < не перекрывает"      '            if (own in BUSY_DEV) if own is not None else ctx.get("busy"):' '            if own in BUSY_DEV or ctx.get("busy"):' 'while read -r x < f; do :; done < /dev/zero'
+mutant "busy-read под timeout снят" '                self.add("busy-read", shown, None)' '                self.add("busy-read", shown, bound)' 'timeout 500 read -t 5 < /dev/zero # no-wait-exempt ci-watcher 9m'
 mutant "nohup отсоединяет"          '        if base in ("nohup", "nice",' '        if base == "nohup":
             detached = True
         if base in ("nohup", "nice",' 'nohup timeout 3600 go test ./... > l 2>&1'
