@@ -21,14 +21,19 @@
   watch         — `watch …` (бесконечный повтор);
   long-sleep    — `sleep N`, N ≥ 300 с;
   long-timeout  — `timeout N …`, N ≥ 600 с;
-  flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела).
+  flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела);
+  busy-read     — `read` из бесконечного источника: `read -t N < /dev/zero` (/dev/urandom,
+                  /dev/random; свой `<`, `<>` либо `done < …` охватывающего цикла) и `read`
+                  после `yes |` / `cat /dev/zero |`: ожидание, держащее 100 % ядра; отказ — при
+                  любом N, в фоне и под timeout тоже (предел не снимает горящее ядро).
 Всё перечисленное — в ПЕРЕДНЕМ плане. Отсоединённое (`… &` без `wait` в той же
 оболочке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
 шаг. `nohup` сам не отсоединяет: без `&` он ждёт в переднем плане. Флаг
 run_in_background отсоединением не считается: живой фон держит агента workflow
 так же, как передний план (корень класса 1, ws#1001).
 
-РАЗРЕШЕНО: `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
+РАЗРЕШЕНО: `read` из файла (`read -r l < f`, `while read …; done < f`), `head -c N
+/dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
 одно чтение CI (`gh pr checks` без --watch, `gh run view`), `heavy-slot.sh` (без
 `--wait` он не ждёт; `--wait` ≤ 300 судит сам слот).
 
@@ -52,7 +57,10 @@ make (страж судит строку, а не текст файла); `wait 
 же строке (чужой процесс не потомок этой оболочки — `wait` возвращается сразу);
 инструмент Monitor (его предмет — ожидание по замыслу харнесса; матчер этого
 стража — Bash); команда, собранная во время исполнения, — `eval "sleep 900"`
-(строка eval не разбирается), `echo 900 | xargs sleep` (argv собирает xargs из
+(строка eval не разбирается), `exec 3< /dev/zero; read -t 9 -u 3` (источник — дескриптор,
+открытый другой командой), `read -t 9 -u 3 3< /dev/zero` (свой редирект на дескриптор
+не 0: источником судится лишь `<`, `0<`, `<>`), `yes | grep y | read x` (бесконечный поток через фильтр:
+судится лишь звено прямо перед `read`), `echo 900 | xargs sleep` (argv собирает xargs из
 входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
 страж судит команды оболочки, а не текст программы на другом языке).
 """
@@ -76,6 +84,7 @@ EXEMPT = re.compile(r"#\s*no-wait-exempt\s+([A-Za-z0-9_-]+)\s+(\d+)m\b")
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 OPENERS = {"while", "until", "for", "if", "{", "case", "select"}
 CLOSERS = {"done": ("while", "until", "for", "select"), "fi": ("if",), "}": ("{",), "esac": ("case",)}
+BUSY_DEV = {"/dev/zero", "/dev/urandom", "/dev/random"}  # чтение из них не кончается
 TRANSPARENT = {"do", "then", "else", "elif", "!", "in"}
 SUDO_ARG = {"-u", "-g", "-p", "-C", "-D", "-r", "-t", "-T", "-U", "-R", "-h"}  # флаги sudo со значением
 
@@ -89,7 +98,37 @@ CLASS_TEXT = {
     "long-sleep": "sleep ≥ %d с" % SLEEP_MAX,
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
     "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
+    "busy-read": "read из /dev/zero, /dev/urandom или после yes | — ожидание на 100 % ядра",
 }
+CLASS_HINT = {
+    "busy-read": "жди через heavy-slot --enqueue или короткий шаг: чтение бесконечного источника "
+                 "не ждёт, а жжёт ядро",
+}
+
+
+def stdin_source(text):
+    """Цель входного перенаправления (`< f`, `<f`, `0< f`, `<> f`) простой команды
+    либо хвоста группы; None — его нет. `<<`/`<<<` — данные строки, не источник."""
+    try:
+        ws = shlex.split(text or "", posix=True)
+    except ValueError:
+        ws = (text or "").split()
+    src = None
+    for k, w in enumerate(ws):
+        m = re.match(r"^0?(<>|<)(?!<)(.*)$", w)
+        if not m:
+            continue
+        src = m.group(2) or (ws[k + 1] if k + 1 < len(ws) else None)
+    return src
+
+
+def busy_feed(n):
+    """Звено конвейера, бесконечно пишущее в трубу: `yes`, `cat /dev/zero`."""
+    if n is None or n.kind != "simple":
+        return False
+    argv, _, _ = head(hg.words(n.text))
+    base = os.path.basename(argv[0]) if argv else ""
+    return base == "yes" or (base == "cat" and any(a in BUSY_DEV for a in argv[1:]))
 
 
 def duration(s):
@@ -204,6 +243,8 @@ class Node:
         self.loop = loop          # while/until/for — для группы-цикла
         self.bg = False
         self.substs = []
+        self.redir = None         # хвост перенаправлений группы (`done < f`)
+        self.feed = None          # предыдущее звено конвейера `a | b`
 
 
 class Parser:
@@ -218,7 +259,7 @@ class Parser:
         """`done > журнал`, `) 2>&1` — хвост перенаправлений группы, не команда."""
         k, v = self.peek()
         if k != "cmd":
-            return
+            return None
         ws, j = v.split(), 0
         while j < len(ws):
             if hg.REDIR_OP.match(ws[j]):
@@ -226,8 +267,9 @@ class Parser:
             elif hg.REDIR_WORD.match(ws[j]):
                 j += 1
             else:
-                return
+                return None
         self.i += 1
+        return v
 
     def parse_list(self, stop):
         items = []
@@ -250,13 +292,16 @@ class Parser:
         return items
 
     def parse_andor(self, stop):
-        kids = []
+        kids, piped = [], False
         while True:
             node = self.parse_command(stop)
             if node is None:
                 break
+            if piped:
+                node.feed = kids[-1]
             kids.append(node)
             k, v = self.peek()
+            piped = k == "op" and v == "|"
             if k == "op" and v in ("&&", "||", "|"):
                 self.i += 1
                 continue
@@ -284,11 +329,13 @@ class Parser:
         if k == "op" and v == "(":
             self.i += 1
             kids = self.parse_list({")"})
+            redir = None
             if self.peek() == ("op", ")"):
                 self.i += 1
-                self.skip_redirs()
+                redir = self.skip_redirs()
             node = Node("group", kids=kids)
             node.substs = substs
+            node.redir = redir
             return node
         if k == "kw" and v in OPENERS:
             self.i += 1
@@ -307,11 +354,13 @@ class Parser:
                     self.i += 1
             else:
                 kids = self.parse_list({closer})
+            redir = None
             if self.peek() == ("kw", closer):
                 self.i += 1
-                self.skip_redirs()
+                redir = self.skip_redirs()
             node = Node("group", kids=kids, loop=v if v in ("while", "until", "for", "select") else None)
             node.substs = substs
+            node.redir = redir
             return node
         if k == "kw" and v in TRANSPARENT:
             self.i += 1
@@ -462,6 +511,14 @@ class Judge:
 
     def node(self, n, ctx):
         bg = ctx["bg"] or n.bg
+        # вход узла: своё `< f` группы, иначе труба от `yes |`, иначе унаследованный
+        src = stdin_source(n.redir) if n.redir else None
+        if src is not None:
+            ctx = dict(ctx, busy=src in BUSY_DEV)
+        elif busy_feed(n.feed):
+            ctx = dict(ctx, busy=True)
+        elif n.feed is not None:
+            ctx = dict(ctx, busy=False)
         for s in n.substs:  # подстановку оболочка ждёт до команды
             self.text(s, dict(ctx, bg=ctx["bg"]))
         if n.kind == "group":
@@ -488,6 +545,11 @@ class Judge:
         base = os.path.basename(argv[0])
         args = argv[1:]
         shown = seg.strip()
+        if base == "read":
+            own = stdin_source(seg)
+            if (own in BUSY_DEV) if own is not None else ctx.get("busy"):
+                self.add("busy-read", shown, None)  # предел не снимает горящее ядро
+            return
         if base == "wait" and not bg and ctx.get("launched"):
             self.add("bg-wait", shown, None)
             return
@@ -589,6 +651,8 @@ def deny(found, err, ws):
     lines = ["NO-WAIT-GUARD: отказ — команда ожидания в переднем плане."]
     if f:
         lines.append("  форма: %s — %s" % (CLASS_TEXT[f.cls], hg.clip(f.text, 200)))
+        if f.cls in CLASS_HINT:
+            lines.append("  подсказка: %s" % CLASS_HINT[f.cls])
     if err:
         lines.append("  метка: %s" % err)
     lines += [
