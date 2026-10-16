@@ -927,7 +927,7 @@ if grep -qF "$GI_EMAIL" "$BOX/gi1.out"; then bad GI1 "адрес учётки н
 # GI1-env: состав окружения КАЖДОГО контейнера Job — только разрешённые имена (до
 #     правки учётки и вход pre-push плюс HEAVY_GIT_NAME/EMAIL); envFrom нет
 GI_ALLOW="CI DOCKER_HOST GOCACHE GOLANGCI_LINT_CACHE GOMODCACHE GOTOOLCHAIN HEAVY_BUF HEAVY_DENY_PROBE HEAVY_GIT_EMAIL HEAVY_GIT_NAME HEAVY_HELM HEAVY_MAIN HEAVY_NODE HEAVY_PUSH_INPUT HEAVY_SHA HEAVY_WORKDIR TESTCONTAINERS_RYUK_DISABLED"
-gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(. as $n | $al | index($n) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
+gi_extra="$(jq -r --arg a "$GI_ALLOW" '($a | split(" ")) as $al | [.spec.template.spec | (.containers[]?, .initContainers[]?) | (.env[]?.name), (if .envFrom then "envFrom" else empty end)] | unique | map(select(IN($al[]) | not)) | join(" ")' "$BOX/state/job.json" 2>/dev/null)" || gi_extra="(spec не разобран)"
 if [ -z "$gi_extra" ]; then ok; else bad GI1-env "в окружении Job имена вне разрешённого списка: $gi_extra"; fi
 # GI1-decoy: корневой gitconfig копии несёт приманки — ключ подписи, помощник
 #     учётных данных, заголовок http, подмену адреса, включение; ни одна не доходит
