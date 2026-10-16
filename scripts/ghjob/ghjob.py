@@ -41,6 +41,10 @@ kaname (`if: always()`) читал yaml, а шаг, ставящий pyyaml, б�
 площадки (`gh auth token`) в текст шагов НЕ подставляется: `${{ github.token }}`
 становится `${GITHUB_TOKEN}`, значение — в окружении шага.
 
+ОКРУЖЕНИЕ — уровнями ранера: env workflow, поверх него env задания, поверх — шага
+(`--env` — поверх задания). До ws#1115 env workflow терялся: шаг пина shellcheck
+воркспейса тянул релиз `v${SHELLCHECK_VERSION}` с пустой версией — curl 404.
+
 Доказательство — scripts/ghjob/inject.sh.
 """
 import json
@@ -105,7 +109,8 @@ def die(code, msg):
     sys.exit(code)
 
 
-def load_job(wf, job):
+def load_wf(wf, job):
+    """Документ workflow и его задание <job>; отказ — 64."""
     try:
         d = yaml.safe_load(open(wf))
     except (OSError, yaml.YAMLError) as e:
@@ -113,7 +118,17 @@ def load_job(wf, job):
     jobs = d.get('jobs') if isinstance(d, dict) else None
     if not isinstance(jobs, dict) or not isinstance(jobs.get(job), dict):
         die(64, f'задания «{job}» в {wf} нет')
-    return jobs[job]
+    return d, jobs[job]
+
+
+def load_job(wf, job):
+    return load_wf(wf, job)[1]
+
+
+def env_of(node):
+    """env узла (документ workflow, задание) — строками, как их видит шаг."""
+    e = node.get('env')
+    return {k: str(v) for k, v in (e if isinstance(e, dict) else {}).items()}
 
 
 # Пакеты системного python видны venv — как образу ранера его apt-пакеты.
@@ -182,7 +197,7 @@ def main(argv):
     wf, jobname, wt, out = pos
     wt = os.path.abspath(wt)
     out = os.path.abspath(out)
-    J = load_job(wf, jobname)
+    WF, J = load_wf(wf, jobname)
     os.makedirs(out, exist_ok=True)
     run_tmp = os.path.join(out, 'runner-temp')
     bindir = os.path.join(out, 'bin')
@@ -208,7 +223,9 @@ def main(argv):
         'GITHUB_EVENT_NAME': 'push', 'GITHUB_REPOSITORY': repo, 'GITHUB_JOB': jobname,
         'GOBIN': bindir, 'NPM_CONFIG_PREFIX': npm_prefix,
     })
-    env.update({k: str(v) for k, v in (J.get('env') or {}).items()})
+    # Уровни ранера: env workflow, поверх — задания (шага — у шага ниже).
+    env.update(env_of(WF))
+    env.update(env_of(J))
     env.update(extra)
     try:
         gh_token = subprocess.check_output(['gh', 'auth', 'token'], text=True, stderr=subprocess.DEVNULL).strip()

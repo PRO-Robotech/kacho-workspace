@@ -22,6 +22,10 @@
 #   P7  пакет системного python (yaml), который ни один шаг не ставит, — виден шагу,
 #       как apt-пакет образа ранера (посев kaname — cryptography); порча P7m — venv
 #       без пакетов системы → failure
+#   P8  env уровня workflow доходит до шага (ws#1115: пин shellcheck воркспейса брал
+#       версию оттуда и без неё тянул релиз «v» — 404); близнец — env задания сильнее
+#       env workflow; порча P8m — env workflow снят → failure; P8m2 — уровни
+#       переставлены → близнец failure
 # Коды: 0 — все сошлись; 1 — хотя бы одно нет; 2 — предпосылки нет (python3 с
 # yaml, venv либо pip) — не выполнилось.
 set -uo pipefail
@@ -73,6 +77,8 @@ CO="$W/co"; git init -q "$CO"; git -C "$CO" remote add origin https://github.com
 sandbox_git -C "$CO" commit -q --allow-empty -m probe \
     || { echo "inject: копия пробы не построена — не выполнилось" >&2; exit 2; }
 cat > "$W/wf.yml" <<'YML'
+env:
+  GHJOB_WF: from-workflow
 jobs:
   stand:
     steps:
@@ -112,11 +118,20 @@ jobs:
     steps:
       - if: false
         run: "true"
+  wfenv:
+    steps:
+      - run: test "$GHJOB_WF" = from-workflow
+  wfenv-job:
+    env:
+      GHJOB_WF: from-job
+    steps:
+      - run: test "$GHJOB_WF" = from-job
 YML
 step_outcome() { python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(" ".join(s["outcome"] for s in r["steps"]))' "$1" 2>/dev/null || echo нет; }
 
 # run_ghjob <имя> <ghjob> <задание> — код в RC, вывод в $W/<имя>.out, каталог $W/<имя>
-run_ghjob() { python3 "$2" "$W/wf.yml" "$3" "$CO" "$W/$1" > "$W/$1.out" 2>&1; RC=$?; }
+# GHJOB_WF вызывающего снят: P8 судит env из workflow пробы, а не унаследованное.
+run_ghjob() { env -u GHJOB_WF python3 "$2" "$W/wf.yml" "$3" "$CO" "$W/$1" > "$W/$1.out" 2>&1; RC=$?; }
 
 echo "── среда python задания: пакеты пропущенного шага — в venv сразу (ws#1110)"
 run_ghjob p1 "$GHJOB" stand
@@ -161,6 +176,24 @@ if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
     check "1 failure" "$RC $(step_outcome "$W/p7m/result.json")" "P7m порча: venv без пакетов системы — шаг падает, P7 способен упасть" "$W/p7m.out"
 else
     bad "P7m: фрагмент порчи встречается не ровно один раз — порча устарела"
+fi
+
+echo "── env уровнями ранера: workflow, поверх — задания (ws#1115)"
+run_ghjob p8 "$GHJOB" wfenv
+check "0 success" "$RC $(step_outcome "$W/p8/result.json")" "P8: env workflow виден шагу" "$W/p8.out"
+run_ghjob p8j "$GHJOB" wfenv-job
+check "0 success" "$RC $(step_outcome "$W/p8j/result.json")" "P8 близнец: env задания сильнее env workflow" "$W/p8j.out"
+frag='    env.update(env_of(WF))'
+if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ] && [ "$(grep -cxF -- '    env.update(env_of(J))' "$GHJOB")" = 1 ]; then
+    grep -vxF -- "$frag" "$GHJOB" > "$W/ghjob-mut8.py"
+    run_ghjob p8m "$W/ghjob-mut8.py" wfenv
+    check "1 failure" "$RC $(step_outcome "$W/p8m/result.json")" "P8m порча: env workflow снят — шаг падает, P8 способен упасть" "$W/p8m.out"
+    # Уровни переставлены: workflow поверх задания.
+    awk -v f="$frag" '$0 == f { next } { print } $0 == "    env.update(env_of(J))" { print f }' "$GHJOB" > "$W/ghjob-mut8b.py"
+    run_ghjob p8m2 "$W/ghjob-mut8b.py" wfenv-job
+    check "1 failure" "$RC $(step_outcome "$W/p8m2/result.json")" "P8m2 порча: workflow поверх задания — близнец падает, порядок уровней держится" "$W/p8m2.out"
+else
+    bad "P8m: фрагменты порчи встречаются не ровно один раз — порча устарела"
 fi
 
 echo "[CENSUS] ghjob: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
