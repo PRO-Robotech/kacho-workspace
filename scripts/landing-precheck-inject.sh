@@ -643,6 +643,9 @@ else
     # wavecmd <файл команды> — исполнить как есть, при снятом TMPDIR; вывод — её файл.
     wavecmd() {
         rm -rf "$WAVE_DIR"; mkdir -p "$WAVE_DIR"
+        # Шаблон судит посадку и отчётом стенда (ws#1110): зелёный полный отчёт головы случая —
+        # его предмет здесь не судится, он судится разделом (з) выше.
+        jq -n --arg h "$(jq -r .head.sha "$W/case/pull.json")" '{head: $h, mode: "full", context: "probe-client", ns: "t7-w1", residue: 0, planned: 1, suites: [{name: "go-race", outcome: "green", executed: 1, total: 1}]}' > "$WAVE_DIR/stand.json"
         env -u TMPDIR FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
             bash -c "$(cat "$1")" > "$W/wave.stdout" 2>&1
         echo $? > "$W/code"
