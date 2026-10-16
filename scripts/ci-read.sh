@@ -12,8 +12,30 @@
 #
 # ИСПОЛЬЗОВАНИЕ
 #   ci-read.sh <владелец/репозиторий> <номер PR | sha40> [--base <ветка>]
+#              [--head <sha40>] [--draft true|false] [--from-state]
 # Для PR база и голова берутся из запроса; для sha база — --base, без него —
-# ветка по умолчанию репозитория.
+# ветка по умолчанию репозитория. --base, --head, --draft — ожидание вызывающего:
+# запрос не таков — VOID (код 2), а не вердикт о другой голове.
+#
+# --from-state (ws#1113) — ответ из снимка демона scripts/ci-state/ci-stated.py без
+# единого вызова gh. Снимок — вывод ЭТОГО ЖЕ сценария, исполненного демоном живьём
+# (решатель один), и печатается побайтно с его кодом. Годен, только когда:
+#   · каталог состояния и снимок — мои, 0700 и 0600 (чужой или открытый не доверяется);
+#   · демон подтвердил снимок не раньше 180 с назад (checked_at — последний опрос, на
+#     котором ключ и отпечаток свода совпали с теми, на которых вердикт вынесен);
+#   · ключ совпал ЦЕЛИКОМ — repo, pr, head, base, draft: и с тем, что демон видел на
+#     последнем опросе, и с --head/--base/--draft вызывающего, если названы.
+# Иначе — живое чтение, а первой строкой REASON STATE-STALE (снимка нет, старше 180 с,
+# права, не разбирается) либо STATE-KEY-MISMATCH (поле и оба значения). Эти строки о
+# снимке, а не о голове: в вердикт и «причин N» не входят. Посадка (landing-precheck.sh,
+# merge-readiness.sh) снимок не читает — только живьём.
+#
+# УСЛОВНОЕ ЧТЕНИЕ (ws#1113): запрос, статус, защита, наборы правил, ветка базы,
+# сравнение и аннотации читаются с If-None-Match по ETag прошлого ответа; ответ 304
+# лимит площадки не расходует, тело берётся из кэша $CI_STATE_DIR/etag (каталог 0700,
+# файл 0600: первая строка — ETag, дальше тело; заголовков ответа не хранится). Кэш
+# недоступен или чужой — чтение без условия. Счёт — строкой stderr «условных чтений N,
+# не изменилось M»: в stdout её нет, иначе вывод снимка и живой разошлись бы на ней.
 #
 # ЧТО СУДИТСЯ — строка REASON<TAB><код><TAB><пояснение> на причину:
 #   (а) полнота:
@@ -113,8 +135,13 @@
 # Перепись печатается всегда строками CENSUS — «причин 0» отличимо от «не прочитано».
 #
 # ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/ci-read-inject.sh):
-#   CI_READ_GH       — вместо `gh` (зовётся только `gh api [--paginate] <путь>`);
-#   CI_READ_EXPECTED — путь ведомости вместо scripts/ci-read-expected.tsv.
+#   CI_READ_GH       — вместо `gh` (зовётся только `gh api [--paginate | -i [-H
+#                      If-None-Match:…]] <путь>`);
+#   CI_READ_EXPECTED — путь ведомости вместо scripts/ci-read-expected.tsv;
+#   CI_STATE_DIR     — каталог состояния вместо ~/.cache/kacho-ci-state (снимки и кэш
+#                      условного чтения; пробы дают свой);
+#   CI_READ_GH_CONDITIONAL=1 — подставной gh знает `-i` и If-None-Match (двойник
+#                      scripts/ci-read-fixtures/gh-twin.sh); без него — чтение без условия.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -127,10 +154,13 @@ void() { printf 'VOID\t%s\n' "$1"; printf 'VERDICT\tunread\tкод 2\n'; exit 2;
 
 REPO="${1:-}"; REF="${2:-}"
 shift 2 2>/dev/null || true
-BASE=""
+BASE=""; WANT_HEAD=""; WANT_DRAFT=""; FROM_STATE=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --base) BASE="${2:-}"; [ -n "$BASE" ] || void "--base без ветки"; shift 2 ;;
+        --head) WANT_HEAD="${2:-}"; [[ "$WANT_HEAD" =~ ^[0-9a-f]{40}$ ]] || void "--head «$WANT_HEAD» не sha40"; shift 2 ;;
+        --draft) WANT_DRAFT="${2:-}"; [[ "$WANT_DRAFT" =~ ^(true|false)$ ]] || void "--draft «$WANT_DRAFT» не true|false"; shift 2 ;;
+        --from-state) FROM_STATE=1; shift ;;
         *) void "неизвестный довод «$1»" ;;
     esac
 done
@@ -139,6 +169,48 @@ done
 command -v jq >/dev/null 2>&1 || void "нет jq в PATH"
 [ -n "${CI_READ_GH:-}" ] || command -v gh >/dev/null 2>&1 || void "нет gh в PATH"
 [ -r "$LEDGER" ] || void "ведомость ожидаемого «$LEDGER» не читается"
+STATE_DIR="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"
+STATE_MAX_AGE=180
+
+# --- ответ из снимка демона (ws#1113): ни одного вызова gh, см. шапку
+state_key_check() {  # <поле> <чьё ожидание> <ожидание> <снимок> — 0 совпало; иначе REASON, 1
+    local field="$1" who="$2" want="$3" have="$4"
+    [ "$want" = "$have" ] && return 0
+    printf 'REASON\tSTATE-KEY-MISMATCH\t%s: вердикт снимка вынесен при «%s», %s «%s» — живое чтение\n' "$field" "$have" "$who" "$want"
+    return 1
+}
+state_read() {  # 0 — ответ снимка напечатан, код в SCODE; 1 — причина напечатана, читать живьём
+    local f="$STATE_DIR/snap/${REPO%%/*}__${REPO#*/}__$REF.json" sage smode swant k last
+    stale() { printf 'REASON\tSTATE-STALE\t%s — живое чтение\n' "$1"; }
+    [[ "$REF" =~ ^[0-9]+$ ]] || { state_key_check pr "вызывающий назвал" "sha $REF" "номер запроса"; return 1; }
+    [ -f "$f" ] || { stale "снимка $f нет (демон ci-stated не запущен либо запрос не открыт)"; return 1; }
+    smode="$(stat -c '%u %a' "$STATE_DIR" "$STATE_DIR/snap" "$f" 2>/dev/null | tr '\n' ' ')"
+    swant="$(id -u) 700 $(id -u) 700 $(id -u) 600 "
+    [ "$smode" = "$swant" ] || { stale "права снимка «$smode» ≠ «$swant»: чужой или открытый снимок не доверяется"; return 1; }
+    jq -e '(.key|type)=="object" and (.seen|type)=="object" and (.checked_at|type)=="number"
+        and (.code|type)=="number" and (.out|type)=="string"' "$f" >/dev/null 2>&1 \
+        || { stale "снимок $f не разбирается"; return 1; }
+    sage=$(( $(date +%s) - $(jq -r '.checked_at | floor' "$f") ))
+    [ "$sage" -ge 0 ] || { stale "снимок подтверждён в будущем ($sage с)"; return 1; }
+    if [ "$sage" -gt "$STATE_MAX_AGE" ]; then stale "снимок подтверждён $sage с назад, годен не старше $STATE_MAX_AGE с"; return 1; fi
+    for k in repo pr head base draft; do   # демон видел ровно то, на чём вердикт вынесен
+        state_key_check "$k" "демон на последнем опросе видел" "$(jq -r ".seen.$k | tostring" "$f")" "$(jq -r ".key.$k | tostring" "$f")" || return 1
+    done
+    state_key_check repo "вызывающий назвал" "$REPO" "$(jq -r '.key.repo | tostring' "$f")" || return 1
+    state_key_check pr "вызывающий назвал" "$REF" "$(jq -r '.key.pr | tostring' "$f")" || return 1
+    [ -z "$WANT_HEAD" ] || state_key_check head "вызывающий назвал" "$WANT_HEAD" "$(jq -r '.key.head | tostring' "$f")" || return 1
+    [ -z "$BASE" ] || state_key_check base "вызывающий назвал" "$BASE" "$(jq -r '.key.base | tostring' "$f")" || return 1
+    [ -z "$WANT_DRAFT" ] || state_key_check draft "вызывающий назвал" "$WANT_DRAFT" "$(jq -r '.key.draft | tostring' "$f")" || return 1
+    SCODE="$(jq -r '.code' "$f")"
+    last="$(jq -j '.out' "$f" | tail -n 1)"   # в переменную: grep -q в трубе под pipefail — 141
+    [[ "$last" =~ ^VERDICT$'\t'[^[:space:]]+$'\t'"код $SCODE"(\;|$) ]] \
+        || { stale "последняя строка снимка — не VERDICT с кодом $SCODE"; return 1; }
+    jq -j '.out' "$f"
+    printf 'ci-read: ответ из снимка демона, подтверждён %s с назад, вызовов gh 0\n' "$sage" >&2
+    return 0
+}
+[ "$FROM_STATE" = 1 ] && state_read && exit "$SCODE"
+
 # Лимит площадки — ДО первого чтения (урок 2026-10-16, ws#1110): исчерпан — 2 со временем
 # сброса и REASON RATE-LIMIT, а не красное и не тайм-аут.
 # shellcheck source=lib/gh-rate.sh
@@ -154,10 +226,51 @@ trap 'rm -rf "$W"' EXIT
 api() { "$GH" api "$1" 2>"$W/api.err"; }
 apip() { "$GH" api --paginate "$1" 2>"$W/api.err" | jq -s '.' 2>/dev/null; }
 apierr() { head -c 300 "$W/api.err" | tr '\n' ' '; }
+# Условное чтение (ws#1113, см. шапку). Кэш — только свой каталог 0700 и файл 0600.
+# Подставной gh (CI_READ_GH) получает условное чтение, только заявив его
+# CI_READ_GH_CONDITIONAL=1: заглушки чужих проб (landing-precheck-inject) форм
+# `-i`/`-H` не знают, а свой кэш в доме пользователя им не положен. Заглушка в PATH
+# (check-09) не видна по CI_READ_GH: её отказ на `-i` переводит чтение в безусловное.
+# Кэш — каталог 0700 и мой: в него не пишет никто другой, поэтому файл судится лишь
+# каталогом (одна проверка на чтение, а не на каждый ответ). Файлы — umask 077.
+EC=""; CONDN=0; CONDHIT=0
+umask 077
+if { [ -z "${CI_READ_GH:-}" ] || [ "${CI_READ_GH_CONDITIONAL:-0}" = 1 ]; } \
+    && mkdir -p "$STATE_DIR/etag" 2>/dev/null \
+    && [ "$(stat -c '%u %a' "$STATE_DIR" "$STATE_DIR/etag" 2>/dev/null)" = "$EUID 700"$'\n'"$EUID 700" ]; then
+    EC="$STATE_DIR/etag"
+fi
+apic() {  # apic <путь> — тело в stdout; 304 — тело из кэша; без кэша — api
+    local p="$1" f e st rc hdr=()
+    [ -n "$EC" ] || { api "$p"; return; }
+    CONDN=$((CONDN + 1))
+    f="${GH_HOST:-github.com}/$p"; f="${f//_/__}"; f="$EC/${f//[^A-Za-z0-9._=-]/_}"   # совпадение имён безопасно: 304 — лишь при том же ETag
+    if [ -f "$f" ] && IFS= read -r e < "$f"; then hdr=(-H "If-None-Match: $e"); fi
+    "$GH" api -i "${hdr[@]}" "$p" > "$W/c.raw" 2>"$W/api.err"; rc=$?
+    IFS= read -r st < "$W/c.raw"; st="${st%$'\r'}"
+    case "$st" in
+        HTTP/*' 304'*)
+            [ "${#hdr[@]}" -gt 0 ] || return 1
+            CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0 ;;
+        HTTP/*)
+            # одним проходом: тело — в c.body, ETag заголовка — в stdout
+            e="$(awk -v out="$W/c.body" 'b {print > out; next} /^\r?$/ {b = 1; printf "" > out; next}
+                !b && tolower($0) ~ /^etag:/ {sub(/^[^:]*:[ \t]*/, ""); sub(/\r$/, ""); print}' "$W/c.raw")"
+            [ -f "$W/c.body" ] || : > "$W/c.body"
+            if [ "$rc" -eq 0 ] && [ -n "$e" ]; then
+                { printf '%s\n' "$e"; cat "$W/c.body"; } > "$f.$$" && mv -f "$f.$$" "$f"
+            fi
+            cat "$W/c.body"; rm -f "$W/c.body"; return "$rc" ;;
+        *)  # gh без `-i` (заглушка иной пробы, check-09 — в PATH): отказал — чтение без
+            # условия до конца прогона; ответил телом — тело
+            if [ "$rc" -ne 0 ]; then EC=""; api "$p"; return; fi
+            cat "$W/c.raw"; return "$rc" ;;
+    esac
+}
 
 # --- голова и база
 if [[ "$REF" =~ ^[0-9]+$ ]]; then
-    api "repos/$REPO/pulls/$REF" > "$W/pull.json" || void "площадка не отдала PR $REPO#$REF: $(apierr)"
+    apic "repos/$REPO/pulls/$REF" > "$W/pull.json" || void "площадка не отдала PR $REPO#$REF: $(apierr)"
     jq -e '(.head.sha|type=="string") and (.base.ref|type=="string")' "$W/pull.json" >/dev/null 2>&1 \
         || void "ответ о PR $REPO#$REF не разбирается (нет head.sha или base.ref)"
     HEAD_SHA="$(jq -r .head.sha "$W/pull.json")"
@@ -165,10 +278,14 @@ if [[ "$REF" =~ ^[0-9]+$ ]]; then
     [ -z "$BASE" ] || [ "$BASE" = "$PR_BASE" ] || void "--base $BASE ≠ базе запроса $PR_BASE"
     BASE="$PR_BASE"
     DRAFT="$(jq -r 'if .draft == true then "true" else "false" end' "$W/pull.json")"
+    [ -z "$WANT_HEAD" ] || [ "$WANT_HEAD" = "$HEAD_SHA" ] || void "--head $WANT_HEAD ≠ голове запроса $HEAD_SHA"
+    [ -z "$WANT_DRAFT" ] || [ "$WANT_DRAFT" = "$DRAFT" ] || void "--draft $WANT_DRAFT ≠ черновику запроса $DRAFT"
     printf 'CENSUS\tзапрос %s#%s: состояние %s, голова %s, база %s, черновик %s\n' "$REPO" "$REF" "$(jq -r '.state // "?"' "$W/pull.json")" "$HEAD_SHA" "$BASE" "$DRAFT"
 else
     HEAD_SHA="$REF"
     DRAFT=false
+    [ -z "$WANT_HEAD" ] || [ "$WANT_HEAD" = "$HEAD_SHA" ] || void "--head $WANT_HEAD ≠ sha $HEAD_SHA"
+    [ -z "$WANT_DRAFT" ] || [ "$WANT_DRAFT" = false ] || void "--draft true при чтении по sha"
     if [ -z "$BASE" ]; then
         api "repos/$REPO" > "$W/repo.json" || void "площадка не отдала репозиторий $REPO: $(apierr)"
         BASE="$(jq -r '.default_branch // empty' "$W/repo.json")"
@@ -186,7 +303,7 @@ EXPECT="$(awk -F'\t' -v r="$REPO" -v b="$BASE" '!/^#/ && $1==r && $2==b {print $
 { apip "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" > "$W/cr.json" \
     && jq -e 'type=="array" and length>0 and all(.[]; .check_runs|type=="array")' "$W/cr.json" >/dev/null 2>&1; } \
     || void "check-runs на $HEAD_SHA не прочитаны: $(apierr)"
-{ api "repos/$REPO/commits/$HEAD_SHA/status" > "$W/st.json" \
+{ apic "repos/$REPO/commits/$HEAD_SHA/status" > "$W/st.json" \
     && jq -e '.statuses|type=="array"' "$W/st.json" >/dev/null 2>&1; } \
     || void "commit status на $HEAD_SHA не прочитан: $(apierr)"
 { apip "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&per_page=100" > "$W/runs.json" \
@@ -201,7 +318,7 @@ EXPECT="$(awk -F'\t' -v r="$REPO" -v b="$BASE" '!/^#/ && $1==r && $2==b {print $
 # title стража, а не наличие аннотации (ws#1019, N1 check-verifier).
 GUARD_TITLE="черновик не вливается"
 guarded() {  # guarded <id проверки> <имя> — 0 страж, 1 нет; ответ не прочитан — VOID
-    api "repos/$REPO/check-runs/$1/annotations" > "$W/ann.json" || void "аннотации проверки $2 не прочитаны: $(apierr)"
+    apic "repos/$REPO/check-runs/$1/annotations" > "$W/ann.json" || void "аннотации проверки $2 не прочитаны: $(apierr)"
     jq -e --arg t "$GUARD_TITLE" 'type=="array" and any(.[]; .title==$t)' "$W/ann.json" >/dev/null 2>&1
 }
 # (д) не-черновик: check_suite с проверкой-стражем — целевой прогон
@@ -265,7 +382,14 @@ if [ "$DRAFT" = true ]; then
 fi
 jq '[.statuses[] | {name: .context, done: (.state!="pending"),
      c: (if .state=="success" then "success" elif .state=="pending" then "" else "failure" end)}]' "$W/st.json" > "$W/stl.json"
-jq -s '(.[0] | map(.name)) as $c | .[0] + (.[1] | map(select(.name as $n | $c | index($n) | not)))' "$W/latest.json" "$W/stl.json" > "$W/all.json"
+# Обе формы (ws#1113): у имени может быть и check-run, и commit status (сводный вердикт
+# переводится с задания-опроса на commit status). Запись на имя одна: красное из двух
+# побеждает, затем незавершённое, затем check-run — одна форма не закрывает другую.
+jq -s --argjson f "$FAILSET" '(.[0] + .[1]) | group_by(.name) | map(
+        (map(select(.done and (.c as $c | $f | index($c))))) as $bad
+        | (map(select(.done | not))) as $open
+        | if ($bad | length) > 0 then $bad[0] elif ($open | length) > 0 then $open[0] else .[0] end)' \
+    "$W/latest.json" "$W/stl.json" > "$W/all.json"
 RAW="$(jq 'length' "$W/crl.json")"
 DROPPED=$(( $(jq '[.[].check_runs[]]|length' "$W/cr.json") - RAW ))
 NAMES="$(jq 'length' "$W/all.json")"
@@ -294,7 +418,7 @@ elif [ "$NAMES" -lt "$EXPECT" ]; then reason CHECKS-INCOMPLETE "проверок
 
 # --- обязательные контексты защиты ветки базы
 : > "$W/req.txt"
-if api "repos/$REPO/branches/$BASE/protection/required_status_checks" > "$W/prot.json"; then
+if apic "repos/$REPO/branches/$BASE/protection/required_status_checks" > "$W/prot.json"; then
     jq -e 'type=="object"' "$W/prot.json" >/dev/null 2>&1 || void "ответ о защите $BASE не разбирается"
     jq -r '[(.contexts // [])[], ((.checks // [])[] | .context)] | unique[]' "$W/prot.json" >> "$W/req.txt"
 elif grep -qE 'not protected|Required status checks not enabled' "$W/api.err"; then
@@ -302,7 +426,7 @@ elif grep -qE 'not protected|Required status checks not enabled' "$W/api.err"; t
 else
     void "защита ветки $BASE не прочитана: $(apierr)"
 fi
-if api "repos/$REPO/rules/branches/$BASE" > "$W/rules.json"; then
+if apic "repos/$REPO/rules/branches/$BASE" > "$W/rules.json"; then
     jq -r '.[]? | select(.type=="required_status_checks") | .parameters.required_status_checks[]?.context' "$W/rules.json" >> "$W/req.txt" 2>/dev/null \
         || void "ответ о наборах правил $BASE не разбирается"
 else
@@ -327,10 +451,10 @@ done < "$W/req.txt"
 printf 'CENSUS\tобязательных контекстов базы %s: %s\n' "$BASE" "$REQN"
 
 # --- свежесть базы
-api "repos/$REPO/branches/$BASE" > "$W/branch.json" || void "ветка базы $BASE не прочитана: $(apierr)"
+apic "repos/$REPO/branches/$BASE" > "$W/branch.json" || void "ветка базы $BASE не прочитана: $(apierr)"
 BASE_SHA="$(jq -r '.commit.sha // empty' "$W/branch.json")"
 [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || void "голова базы $BASE не прочитана"
-api "repos/$REPO/compare/$BASE_SHA...$HEAD_SHA" > "$W/cmp.json" || void "сравнение $BASE...голова не прочитано: $(apierr)"
+apic "repos/$REPO/compare/$BASE_SHA...$HEAD_SHA" > "$W/cmp.json" || void "сравнение $BASE...голова не прочитано: $(apierr)"
 MB="$(jq -r '.merge_base_commit.sha // empty' "$W/cmp.json")"
 [[ "$MB" =~ ^[0-9a-f]{40}$ ]] || void "merge-base головы и $BASE не прочитан"
 printf 'CENSUS\tбаза %s @%s, merge-base %s, отставание %s\n' "$BASE" "$BASE_SHA" "$MB" "$(jq -r '.behind_by // "?"' "$W/cmp.json")"
@@ -352,5 +476,6 @@ elif [ "$DRAFT" = true ]; then code=5; v=targeted-green
 else code=0; v=green; fi
 HINT=""; [ "$code" != 5 ] || HINT="; ЦЕЛЕВОЙ, не полный: вливать нельзя — перевод в ready заводит полный прогон"
 [ "$code" != 3 ] || [ "$REDN" -eq 0 ] || HINT="; красных уже $REDN, задания идут — итог и перепись корней по завершении ВСЕХ"
+[ -z "$EC" ] || printf 'ci-read: условных чтений %s, не изменилось %s\n' "$CONDN" "$CONDHIT" >&2
 printf 'VERDICT\t%s\tкод %s; причин %s; проверок %s из %s; голова %s%s\n' "$v" "$code" "$(grep -c . "$R")" "$NAMES" "$EXPECT" "$HEAD_SHA" "$HINT"
 exit "$code"
