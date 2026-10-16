@@ -773,7 +773,8 @@ for tw in kaname:ci-local kacho:go-race; do
     tr_="${tw%%:*}"; tp="${tw#*:}"; fresh
     go_run "nc1-$tr_-$tp" env FAKE_EXIT=0 bash "$RUN" --task 1 --repo "$tr_" --ref HEAD --src "$SRC" --profile "$tp" --short "nc1$tp" --push-input "$PUSH_LINE" -- true
     expect_rc "NC1-$tr_-$tp" 0
-    if jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" 2>/dev/null | grep -q '^# npmci-begin$'; then
+    tw_cmd="$(jq -r '.spec.template.spec.containers[] | select(.name == "run") | .command[2]' "$BOX/state/job.json" 2>/dev/null)"
+    if [[ $'\n'"$tw_cmd"$'\n' == *$'\n# npmci-begin\n'* ]]; then
         bad "NC1-$tr_-$tp" "шаг консоли в Job $tr_ $tp — он лишь у ci-local kacho"; else ok; fi
 done
 fresh
@@ -918,7 +919,11 @@ if [ -z "$(envv "$BOX/state/job.json" HEAVY_GIT_NAME)" ] && grep -q 'Job идё�
 { echo 'pf() { echo "remote-heavy-prep: $1" | tee "$GI_TL" >&2; exit 125; }'; sed -n '/^# gitid-begin$/,/^# gitid-end$/p' "$BOX/gi1.cmd"; } > "$BOX/gitid.sh"
 if grep -q '^# gitid-end$' "$BOX/gitid.sh"; then ok; else OUT="$BOX/gi1.cmd"; bad GI3 "текста шага учётки в Job нет — исполнять нечего"; fi
 GR="$BOX/girepo"; rm -rf "$GR"; git init -q "$GR"; echo x > "$GR/f"; git -C "$GR" add f
-env -u GIT_CONFIG_GLOBAL HOME="$BOX/gi-nohome" git -C "$GR" -c user.name="$GI_NAME" -c user.email="$GI_EMAIL" commit -q -m p
+# Подпись коммита пробы — из HOME песочницы со своим корневым gitconfig (check-16).
+mkdir -p "$BOX/gi-author"
+env -u GIT_CONFIG_GLOBAL HOME="$BOX/gi-author" git config --global user.name "$GI_NAME"
+env -u GIT_CONFIG_GLOBAL HOME="$BOX/gi-author" git config --global user.email "$GI_EMAIL"
+env -u GIT_CONFIG_GLOBAL HOME="$BOX/gi-author" git -C "$GR" commit -q -m p
 # gi_sign_holds <окружение…> — исполнить шаг в чистом HOME pod и судить предикат стража
 gi_sign_holds() {
     local ph="$BOX/gi-podhome"; rm -rf "$ph" "$BOX/gi.tl"; mkdir -p "$ph"
