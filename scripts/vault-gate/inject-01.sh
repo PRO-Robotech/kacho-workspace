@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Доказательство того, что check-06 (учётные данные в хранилище) СПОСОБЕН упасть и
+# Доказательство того, что check-01 (учётные данные в хранилище) СПОСОБЕН упасть и
 # СПОСОБЕН смолчать — на копии настоящего хранилища.
 #
 # Контроли:
@@ -18,7 +18,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS_REAL="$(cd "$SCRIPT_DIR/../.." && pwd)"
-CHECK="$SCRIPT_DIR/check-06-no-secret-in-vault.sh"
+CHECK="$SCRIPT_DIR/check-01-no-secret-in-vault.sh"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -104,5 +104,5 @@ out="$(run_on "$d")"; code=$?
 expect_code "пустое хранилище даёт VOID, а не PASS" 2 "$code" "$out"
 
 echo
-echo "inject-06: контролей пройдено $ok, провалено $bad"
+echo "inject-01: контролей пройдено $ok, провалено $bad"
 [ "$bad" -eq 0 ]
