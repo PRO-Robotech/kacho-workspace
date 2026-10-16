@@ -97,9 +97,11 @@
 #            (обязательный контекст — REQUIRED-NOT-SUCCESS), failure — CI-FAILED.
 #
 # ИСХОДЫ — код возврата и строка VERDICT; при нескольких причинах побеждает
-# старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно:
+# старшая в порядке 2 > 1 > 4 > 3 > 5 > 0, остальные напечатаны всё равно; ИСКЛЮЧЕНИЕ
+# (ws#1110, владелец 2026-10-16): красное при идущих заданиях — 3, а не 1: ожидание не
+# прерывается на первом красном, VERDICT называет число уже красных:
 #   0 green    — полный набор, всё завершено, обязательные success, база свежая;
-#   1 red      — CI-FAILED, REQUIRED-NOT-SUCCESS, REQUIRED-MISSING (перепись имён);
+#   1 red      — CI-FAILED, REQUIRED-NOT-SUCCESS, REQUIRED-MISSING (перепись имён), всё завершено;
 #   2 unread   — VOID: площадка не ответила, ответ не разбирается, пары нет в
 #                ведомости. Это НЕ «зелёное» и НЕ «красное»;
 #   3 running  — CI-PENDING, RUNS-PENDING, CHECKS-INCOMPLETE: ждать, не провал;
@@ -328,11 +330,18 @@ printf 'CENSUS\tбаза %s @%s, merge-base %s, отставание %s\n' "$BAS
 # --- вердикт
 cat "$R"
 has() { grep -qP "^REASON\t($1)\t" "$R"; }
-if has 'CI-FAILED|REQUIRED-NOT-SUCCESS|REQUIRED-MISSING'; then code=1; v=red
+PEND='CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE'
+# красное при идущих — «идёт» (3), а не «красное» (1): чтение не прерывается на первом
+# красном, пока идут задания (владелец 2026-10-16, ai-tooling.md#at-red-ci-one-round) —
+# перепись корней снимается с ЗАВЕРШЁННОГО набора, иначе круг чинит часть красноты;
+# DRAFT-GUARD-PENDING красного не держит: страж не вынесен при завершённых заданиях
+REDN="$(grep -cP '^REASON\t(CI-FAILED|REQUIRED-NOT-SUCCESS|REQUIRED-MISSING)\t' "$R")"
+if [ "$REDN" -gt 0 ] && ! has "$PEND"; then code=1; v=red
 elif has 'BASE-STALE'; then code=4; v=stale
-elif has 'CI-PENDING|RUNS-PENDING|CHECKS-INCOMPLETE|DRAFT-GUARD-PENDING'; then code=3; v=running
+elif has "$PEND|DRAFT-GUARD-PENDING"; then code=3; v=running
 elif [ "$DRAFT" = true ]; then code=5; v=targeted-green
 else code=0; v=green; fi
 HINT=""; [ "$code" != 5 ] || HINT="; ЦЕЛЕВОЙ, не полный: вливать нельзя — перевод в ready заводит полный прогон"
+[ "$code" != 3 ] || [ "$REDN" -eq 0 ] || HINT="; красных уже $REDN, задания идут — итог и перепись корней по завершении ВСЕХ"
 printf 'VERDICT\t%s\tкод %s; причин %s; проверок %s из %s; голова %s%s\n' "$v" "$code" "$(grep -c . "$R")" "$NAMES" "$EXPECT" "$HEAD_SHA" "$HINT"
 exit "$code"

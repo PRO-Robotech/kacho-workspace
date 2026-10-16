@@ -441,6 +441,45 @@ printf '#!/usr/bin/env bash\ncase "$2" in */issues/*) echo boom >&2; exit 1 ;; e
 FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh-broken" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
 expect 2 $'VOID\tкомментарии PRO-Robotech/kacho#' "комментарии задачи не прочитаны — вердикта нет, а не «доказано»"
 
+echo "== (з) отчёт прогона на внешнем кластере (ws#1110)"
+# Отчёт той формы, что пишет шаг mech:stand шаблона; суд — настоящий stand-report.sh.
+# Ожидаемое — форма вывода `stand-report.sh expect` при ready: полный выбор, все задания
+# ведомости STAND kacho (полнота судится против неё же).
+SLEDGER='["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
+sexpect() {  # sexpect <голова> — ожидаемое ready kacho
+    jq -n --arg h "$1" --argjson l "$SLEDGER" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266", draft: "false", full: true, reason: "ready", ledger: $l, jobs: $l}'
+}
+ssuites() {  # ssuites <голова> — полный зелёный отчёт, набор на каждое задание ведомости
+    jq -n --arg h "$1" --argjson l "$SLEDGER" '{head: $h, mode: "full", context: "probe-client", ns: "t3036-w1", residue: 0, planned: ($l | length),
+      suites: [$l[] | {name: ., job: ., outcome: "green", executed: 9, total: 9}]}'
+}
+sreport() {  # sreport <голова> <jq-правка> — отчёт случая в $W/case/stand.json и ожидаемое в stand-expect.json
+    ssuites "$1" | jq "$2" > "$W/case/stand.json"
+    sexpect "$HEAD_SHA" | jq "${3:-.}" > "$W/case/stand-expect.json"
+}
+SE=(--stand-expect "$W/case/stand-expect.json")
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"; expect 0 - "близнец: полный зелёный отчёт той же головы — код 0"
+twin; sreport "$HEAD_SHA" '.suites[1] |= (.outcome = "red" | .quote = "expected 404, got 403")'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-RED' "красный набор на стенде — посадки нет"
+twin; sreport "${HEAD_SHA%?}0" .; [ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || sreport "${HEAD_SHA%?}1" .; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-STALE' "отчёт о другой голове — посадки нет"
+twin; sreport "$HEAD_SHA" 'del(.suites[1]) | .planned = 4'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-UNCOVERED' "ожидаемое задание без набора — посадки нет"
+twin; sreport "$HEAD_SHA" . '.draft = "true"'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-DRAFT' "ожидаемое выбора черновика при ready — посадки нет (паритет с --github-output)"
+twin; sreport "$HEAD_SHA" . '.base = "origin/main"'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-BASE' "ожидаемое от другой базы, чем у запроса (1266) — посадки нет"
+twin; sreport "$HEAD_SHA" . '.repo = "PRO-Robotech/kaname" | .source = "full" | .ledger = ["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"] | .jobs = .ledger'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-REPO' "ожидаемое выведено для другого репозитория, чем у запроса — посадки нет"
+twin; sreport "$HEAD_SHA" . '.jobs = []'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-EXPECT-LEDGER' "ожидаемое ready «full: true, jobs: []» — посадки нет"
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/нет.json" "${SE[@]}"; expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-MISSING' "отчёта нет — посадки нет"
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json"
+expect 2 $'VOID\tотчёт стенда' "без ожидаемого stand-report.sh код 2 — посадка VOID, а не «причин нет»"
+twin; run 0
+if grep -q 'пункт (з) НЕ СУДИЛСЯ' "$W/out"; then echo "  [OK]   без --stand-report пункт (з) назван несуждённым"; pass=$((pass + 1))
+else echo "  [FAIL] без --stand-report нет строки «пункт (з) НЕ СУДИЛСЯ»" >&2; fail=$((fail + 1)); fi
+
 echo "== (д) настоящий merge-readiness из origin/main — вместе с тем, что он подключает"
 # Подмены merge-readiness здесь НЕТ: предпроверка извлекает его из origin/main
 # песочницы-воркспейса (LANDING_PRECHECK_WS) так же, как из настоящего, и он судит
@@ -626,6 +665,11 @@ else
     # wavecmd <файл команды> — исполнить как есть, при снятом TMPDIR; вывод — её файл.
     wavecmd() {
         rm -rf "$WAVE_DIR"; mkdir -p "$WAVE_DIR"
+        # Шаблон судит посадку и отчётом стенда (ws#1110): зелёный полный отчёт головы случая —
+        # его предмет здесь не судится, он судится разделом (з) выше.
+        ssuites "$(jq -r .head.sha "$W/case/pull.json")" > "$WAVE_DIR/stand.json"
+        # Шаблон судит запрос воркспейса: ожидаемое — его строка ведомости STAND (выведенный ноль).
+        jq -n --arg h "$(jq -r .head.sha "$W/case/pull.json")" '{head: $h, repo: "PRO-Robotech/kacho-workspace", source: "none", base: "origin/main", draft: null, full: true, reason: "выбора у CI нет", ledger: [], jobs: []}' > "$WAVE_DIR/stand-expect.json"
         env -u TMPDIR FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
             bash -c "$(cat "$1")" > "$W/wave.stdout" 2>&1
         echo $? > "$W/code"

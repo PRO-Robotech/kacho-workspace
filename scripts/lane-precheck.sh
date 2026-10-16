@@ -52,7 +52,21 @@
 #   HOOK-RC             отправка вышла не нулём;
 #   HOOK-BYPASSED       хук пропущен обходом (`*_SKIP_PREPUSH=1`) либо черновиком;
 #   HOOK-NOT-GREEN      в журнале нет строки ЗЕЛЁНОГО итога хука этого
-#                       репозитория (строка «без предмета» воркспейса — не зелёная).
+#                       репозитория (строка «без предмета» воркспейса — не зелёная);
+#   STATIC-RED          отправка отказана: ПО СТРОКЕ на каждую красную единицу итога
+#                       хука (ws#1110 — весь список разом, а не первый): воркспейс —
+#                       блок «Красные наборы:», kacho — «   красное: …», kaname —
+#                       «красные : …», corelib — «КРАСНОЕ: <имя> (код N)». kacho и
+#                       kaname склеивают имена ПРОБЕЛОМ (`${fails[*]}`), а имя шага
+#                       пробелы содержит: строка режется не по пробелу, а на столько
+#                       имён словаря, сколько отказов в итоге хука (`отказов K` ·
+#                       `красных K`), и разрез обязан быть ЕДИНСТВЕННЫМ. Словарь —
+#                       заголовки шагов журнала (`== <имя>` · `── <имя>: `) и, у kacho,
+#                       литералы `fails+=("…")` и `local name="…"` файла
+#                       `scripts/ci-local.sh` ГОЛОВЫ (`git show <голова>:…`);
+#   STATIC-REFUSAL      единиц нет — каждая строка «pre-push ОТКАЗ…» хука;
+#   STATIC-UNPARSED     нет ни того, ни другого, либо строка «красное» не режется на
+#                       K имён словаря однозначно: список не извлечён — не «отказов 0».
 #
 # ЖУРНАЛ ОТПРАВКИ — форма, которую пишет исполнитель (передача через файлы,
 # `<WS>/tmp/wave-<N>/reports/<полоса>/push.log`, вне дерева копии):
@@ -305,6 +319,91 @@ else
         reason HOOK-NOT-GREEN "нет строки зелёного итога хука $repo"
     else
         hook="зелёный"
+    fi
+    # Статика — ВЕСЬ список отказов хука разом (ws#1110, владелец 2026-10-16: перепись,
+    # потом массово): по строке STATIC-RED на красную единицу из формы итога хука
+    # репозитория; единиц нет — строки отказа самого хука (STATIC-REFUSAL); нет и их —
+    # STATIC-UNPARSED: список не извлечён, это не «отказов 0».
+    if [ "$logged_rc" != 0 ] && [ "$hook" != "зелёный" ]; then
+        mapfile -t units < <(awk -v r="$repo" '
+            r == "kacho-workspace" && /^ОТКАЗ: отправка остановлена\. Красные наборы:$/ { inl = 1; next }
+            inl && /^  [^ ]/ { sub(/^  /, ""); print; next }
+            { inl = 0 }
+            r == "corelib" && /^КРАСНОЕ: .* \(код [0-9]+\)$/ { sub(/^КРАСНОЕ: /, ""); sub(/ \(код [0-9]+\)$/, ""); print }
+        ' "$hook_log" | awk '!seen[$0]++')
+        n_static=0
+        for u in "${units[@]+"${units[@]}"}"; do reason STATIC-RED "$repo: $u"; n_static=$((n_static + 1)); done
+        # kacho и kaname: строка имён, склеенных пробелом, — разрезом по словарю (шапка).
+        if { [ "$repo" = kacho ] || [ "$repo" = kaname ]; } && command -v python3 > /dev/null 2>&1; then
+            vocab_src="$(mktemp)" || vocab_src=/dev/null
+            [ "$repo" != kacho ] || [ -z "$head" ] || git -C "$top" show "$head:scripts/ci-local.sh" > "$vocab_src" 2> /dev/null || : > "$vocab_src"
+            while IFS=$'\t' read -r kind u; do
+                case "$kind" in
+                    RED) reason STATIC-RED "$repo: $u" ;;
+                    UNPARSED) reason STATIC-UNPARSED "$repo: $u" ;;
+                    *) continue ;;
+                esac
+                n_static=$((n_static + 1))
+            done < <(python3 - "$repo" "$hook_log" "$vocab_src" <<'PY'
+import re, sys
+repo, log, src = sys.argv[1:4]
+lines = open(log, encoding='utf-8', errors='replace').read().splitlines()
+if repo == 'kacho':
+    hdr, red = re.compile(r'^== (.+?)\s*$'), re.compile(r'^   красное: (.*)$')
+    tot = re.compile(r'^== итог: проверок исполнено \d+, отказов (\d+), ')
+    s = open(src, encoding='utf-8', errors='replace').read()
+    vocab = set(re.findall(r'fails\+=\("([^"$`\\]+)"\)', s)) | set(re.findall(r'local name="([^"$`\\]+)"', s))
+else:
+    hdr, red = re.compile(r'^── (.+?): '), re.compile(r'^красные +: (.*)$')
+    tot = re.compile(r'^групп ИСПОЛНЕНО +: \d+ +\(зелёных \d+ · красных (\d+)\)')
+    vocab = set()
+for l in lines:
+    m = hdr.match(l)
+    if m and not re.match(r'(итог:|pre-push)', m.group(1)):
+        vocab.add(m.group(1))
+k, seen = None, set()
+for l in lines:
+    m = tot.match(l)
+    if m:
+        k = int(m.group(1))
+        continue
+    m = red.match(l)
+    if not m:
+        continue
+    toks = m.group(1).strip().split(' ')
+    n = len(toks)
+    # ways[i][c] — число разрезов toks[i:] ровно на c имён словаря (до 2: важна лишь единственность)
+    ways = [[0] * (n + 2) for _ in range(n + 1)]
+    ways[n][0] = 1
+    for i in range(n - 1, -1, -1):
+        for j in range(i + 1, n + 1):
+            if ' '.join(toks[i:j]) in vocab:
+                for c in range(1, n + 1):
+                    ways[i][c] = min(2, ways[i][c] + ways[j][c - 1])
+    if k is None or k > n or ways[0][k] != 1:
+        print('UNPARSED\tстрока «%s» не режется однозначно на %s имён словаря хука (разрезов %s; имён в словаре %d)'
+              % (l.strip(), 'K=?' if k is None else k, '?' if k is None or k > n else ways[0][k], len(vocab)))
+        continue
+    i, c = 0, k
+    while c:
+        for j in range(i + 1, n + 1):
+            u = ' '.join(toks[i:j])
+            if u in vocab and ways[j][c - 1]:
+                break
+        if u not in seen:
+            seen.add(u)
+            print('RED\t' + u)
+        i, c = j, c - 1
+PY
+)
+            [ "$vocab_src" = /dev/null ] || rm -f "$vocab_src"
+        fi
+        if [ "$n_static" -eq 0 ]; then
+            while IFS= read -r l; do reason STATIC-REFUSAL "$l"; n_static=$((n_static + 1)); done \
+                < <(grep -E '^pre-push:? ОТКАЗ' "$hook_log" | awk '!seen[$0]++')
+        fi
+        [ "$n_static" -gt 0 ] || reason STATIC-UNPARSED "хук вышел кодом ${logged_rc:-?}, а список отказов из журнала не извлечён — читать журнал целиком, не «отказов 0»"
+        hook="красный, статических отказов $n_static"
     fi
 fi
 
