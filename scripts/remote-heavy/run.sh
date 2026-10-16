@@ -170,8 +170,15 @@
 # законной формой шага. Архив — с официального адреса выпусков, сумма —
 # опубликованная рядом. Шага нет — не ставится (строка это называет); пин
 # неоднозначен, вне формы, шаг есть без ключа или конвейер не разобран — 69 до
-# кластера. После установки — отдельная СВЕРКА PATH перед командой: helm и
-# node с версией пина обязаны быть на месте, иначе команда не запускается и
+# кластера. buf — `version` шага bufbuild/buf-setup-action, бинарь выпуска с
+# суммой из sha256.txt выпуска (ws#1110: цели proto-* standalone kaname без buf
+# давали «условие не создано»). Шага setup-helm нет, а задания идут на хостовом
+# образе ubuntu-* — helm ОБРАЗА: ранер конвейера несёт его в PATH (ws#1110:
+# render-guard kaname «helm не в PATH» только в pod); образ метки — по таблице
+# README actions/runner-images, версия — строка «- Helm X.Y.Z» Readme образа;
+# таблица или Readme не получены, метка не найдена, версий больше одной — 69.
+# После установки — отдельная СВЕРКА PATH перед командой: helm, node и buf
+# с версией пина обязаны быть на месте, иначе команда не запускается и
 # run.sh выходит 69 строкой «не выполнилось — среда: …». Так прогон без
 # инструмента не выдаётся ни за зелёный, ни за красный.
 #
@@ -619,13 +626,68 @@ step_pin() {
     [ "$(wc -l <<< "$v")" -eq 1 ] || { say "пин $3 неоднозначен на $SHA: $(tr '\n' ' ' <<< "$v")— версию не выбрать"; return 2; }
     printf '%s\n' "$v"
 }
-HELM_PIN=""; NODE_PIN=""
+# image_helm — helm, который несёт ОБРАЗ ранера конвейера, когда шага setup-helm нет
+# (ws#1110: standalone kaname зовёт helm из PATH ранера, в pod его не было). Метки
+# runs-on заданий конвейера ревизии сводятся к образу по таблице README
+# actions/runner-images, версия — строка «- Helm X.Y.Z» Readme образа. Код 1 —
+# хостовых образов ubuntu нет либо они helm не несут; 2 — отказ, причина напечатана.
+# shellcheck disable=SC2016  # текст python, не оболочки
+RUNS_ON_PY='import sys, yaml
+try:
+    doc = yaml.safe_load(sys.stdin)
+except yaml.YAMLError as e:
+    print("конвейер не разобран как YAML: " + str(e).splitlines()[0]); sys.exit(3)
+jobs = doc.get("jobs") if isinstance(doc, dict) else None
+for job in (jobs.values() if isinstance(jobs, dict) else []):
+    r = job.get("runs-on") if isinstance(job, dict) else None
+    if isinstance(r, str) and r.startswith("ubuntu-"):
+        print(r)'
+# shellcheck disable=SC2016  # текст python, не оболочки
+IMAGE_README_PY='import re, sys
+label, table = sys.argv[1], sys.stdin.read()
+refs = {m.group(1) for line in table.splitlines() if "`" + label + "`" in line and "| x64 |" in line
+        for m in [re.search(r"\[([\w.-]+)\] \|\s*$", line)] if m}
+urls = {m.group(2) for line in table.splitlines()
+        for m in [re.match(r"^\[([\w.-]+)\]: https://github\.com/actions/runner-images/blob/main/(images/\S+\.md)$", line)]
+        if m and m.group(1) in refs}
+if len(urls) == 1:
+    print("https://raw.githubusercontent.com/actions/runner-images/main/" + urls.pop())'
+RUNNER_IMAGES_README="https://raw.githubusercontent.com/actions/runner-images/main/README.md"
+image_helm() {
+    local labels l idx url rd v vals="" rc
+    labels="$(python3 -c "$RUNS_ON_PY" <<< "$WF" 2>&1)"; rc=$?
+    [ "$rc" -eq 0 ] || { say "helm образа ранера на $SHA: $(head -n 1 <<< "$labels") — версию не выбрать"; return 2; }
+    labels="$(sort -u <<< "$labels" | sed '/^$/d')"
+    [ -n "$labels" ] || return 1
+    idx="$(curl -fsSL --max-time 30 --retry 2 "$RUNNER_IMAGES_README" 2>/dev/null)" \
+        || { say "helm образа ранера: таблица образов actions/runner-images не получена — версию не выбрать"; return 2; }
+    for l in $labels; do
+        url="$(python3 -c "$IMAGE_README_PY" "$l" <<< "$idx")"
+        [ -n "$url" ] || { say "helm образа ранера: метка $l в таблице образов не найдена — образ не установить"; return 2; }
+        rd="$(curl -fsSL --max-time 30 --retry 2 "$url" 2>/dev/null)" \
+            || { say "helm образа ранера: Readme образа метки $l не получен — версию не выбрать"; return 2; }
+        v="$(sed -n 's/^- Helm \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/v\1/p' <<< "$rd" | sort -u)"
+        [ -z "$v" ] || vals="$vals$v"$'\n'
+    done
+    vals="$(sort -u <<< "$vals" | sed '/^$/d')"
+    [ -n "$vals" ] || return 1
+    [ "$(wc -l <<< "$vals")" -eq 1 ] || { say "helm образа ранера неоднозначен на $SHA: $(tr '\n' ' ' <<< "$vals")— версию не выбрать"; return 2; }
+    printf '%s\n' "$vals"
+}
+HELM_PIN=""; NODE_PIN=""; BUF_PIN=""; HELM_SRC=""
 if [ "$PROFILE" != lint ]; then
     HELM_PIN="$(step_pin azure/setup-helm version helm)"; [ "$?" -eq 2 ] && exit 69
     NODE_PIN="$(step_pin actions/setup-node node-version node)"; [ "$?" -eq 2 ] && exit 69
+    BUF_PIN="$(step_pin bufbuild/buf-setup-action version buf)"; [ "$?" -eq 2 ] && exit 69
     [[ -z "$HELM_PIN" || "$HELM_PIN" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин helm на $SHA вне формы vX.Y.Z: «$HELM_PIN»"; exit 69; }
     [[ -z "$NODE_PIN" || "$NODE_PIN" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || { say "пин node на $SHA вне формы N[.N[.N]]: «$NODE_PIN»"; exit 69; }
-    [ -n "$HELM_PIN$NODE_PIN" ] || say "helm и node: пинов в конвейере ревизии нет — не ставлю и не сверяю (в конвейере их тоже не ставят)"
+    [[ -z "$BUF_PIN" || "$BUF_PIN" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] || { say "пин buf на $SHA вне формы [v]X.Y.Z: «$BUF_PIN»"; exit 69; }
+    BUF_PIN="${BUF_PIN#v}"
+    if [ -z "$HELM_PIN" ]; then
+        HELM_PIN="$(image_helm)"; [ "$?" -eq 2 ] && exit 69
+        HELM_SRC="образ ранера"
+    fi
+    [ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] || say "helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет — не ставлю и не сверяю (в конвейере их тоже нет)"
 fi
 
 # ── владелец и уборка прежних запусков (ЛОКАЛЬНАЯ УБОРКА в шапке) ──────────────
@@ -955,14 +1017,14 @@ echo "remote-heavy: сеть pod — DNS и мир есть, управлени�
 # (опыт 2026-10-08: internal/check kaname — «jq не исполняется», 2 пробы красные
 # только в pod). Перепись `exec.Command("…")` по дереву kacho и kaname: git, go,
 # bash, make, tar — в образе; jq, python3 с yaml, psql/pg_dump — ставятся здесь;
-# helm и node — СРЕДА ниже; gh, buf, trivy, gitleaks — нет, их пробы в pod не
+# helm, node и buf — СРЕДА ниже; gh, trivy, gitleaks — нет, их пробы в pod не
 # равны конвейеру.
 [ "$PROFILE" = lint ] || PREP="$PREP; command -v jq >/dev/null || { echo \"remote-heavy: ставлю jq, python3-yaml, postgresql-client\" >&2; apt-get -qq update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y --no-install-recommends jq python3-yaml postgresql-client >/dev/null || pf \"jq, python3-yaml, postgresql-client не поставлены\"; }"
 [ "$PROFILE" = lint ] || [ "$PROFILE" = ci-local ] && [ -n "$LINT_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю golangci-lint $LINT_PIN\" >&2; GOBIN=/work/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$LINT_PIN || pf \"golangci-lint $LINT_PIN не поставлен\""
 [ "$PROFILE" = ci-local ] && [ -n "$GOSEC_PIN" ] && \
     PREP="$PREP; echo \"remote-heavy: ставлю gosec $GOSEC_PIN\" >&2; GOBIN=/work/bin go install github.com/securego/gosec/v2/cmd/gosec@$GOSEC_PIN || pf \"gosec $GOSEC_PIN не поставлен\""
-# СРЕДА: helm и node — версий пина конвейера ревизии, в /work/bin, с проверкой
+# СРЕДА: helm, node и buf — версий пина конвейера ревизии, в /work/bin, с проверкой
 # контрольной суммы, опубликованной рядом с архивом. Отказ — «remote-heavy-prep:»,
 # то есть 69, а не красное.
 # shellcheck disable=SC2016  # раскрывается в pod, не здесь
@@ -987,6 +1049,15 @@ if [ -n "${HEAVY_NODE:-}" ]; then
     && tar -xzf "$f" -C /work/node --strip-components=1 ) || pf "node $v не поставлен"
   for b in node npm npx; do ln -sf "/work/node/bin/$b" "/work/bin/$b"; done
 fi
+if [ -n "${HEAVY_BUF:-}" ]; then
+  echo "remote-heavy: ставлю buf $HEAVY_BUF" >&2
+  case "$(uname -m)" in x86_64) ba=x86_64;; aarch64|arm64) ba=aarch64;; *) pf "buf: архитектура $(uname -m) не поддержана";; esac
+  f="buf-Linux-$ba"; mkdir -p /work/dl/buf || pf "каталог загрузки не создан"
+  ( cd /work/dl/buf && curl -fsSL --retry 3 -o "$f" "https://github.com/bufbuild/buf/releases/download/v$HEAVY_BUF/$f" \
+    && curl -fsSL --retry 3 -o sums "https://github.com/bufbuild/buf/releases/download/v$HEAVY_BUF/sha256.txt" \
+    && grep -E "^[0-9a-f]{64}  $f\$" sums | sha256sum -c --quiet --strict - \
+    && install -m 0755 "$f" /work/bin/buf ) || pf "buf $HEAVY_BUF не поставлен"
+fi
 rm -rf /work/dl
 # install-end'
 # Сверка среды — отдельно от установки и последней перед командой: она судит PATH,
@@ -1005,7 +1076,12 @@ if [ -n "${HEAVY_NODE:-}" ]; then
   nv="$(node --version 2>/dev/null)"
   case "$nv" in "v$HEAVY_NODE"|"v$HEAVY_NODE."*) ;; *) tf "node в PATH — «$nv», пин конвейера $HEAVY_NODE";; esac
 fi
-echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}" >&2
+if [ -n "${HEAVY_BUF:-}" ]; then
+  command -v buf >/dev/null 2>&1 || tf "buf $HEAVY_BUF (пин конвейера) нет в PATH — пробы, зовущие buf, не равны конвейеру"
+  bv="$(buf --version 2>/dev/null)"
+  [ "$bv" = "$HEAVY_BUF" ] || tf "buf в PATH — «$bv», пин конвейера $HEAVY_BUF"
+fi
+echo "remote-heavy: среда — helm ${hv:-не требуется}, node ${nv:-не требуется}, buf ${bv:-не требуется}" >&2
 # tools-end'
 # МОДУЛИ: `go mod download` модуля дерева — до команды, каждым профилем, как шаг
 # конвейера перед тестами (ws#1018). Сборка тянет лишь импортированное, а пробы
@@ -1059,7 +1135,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --argjson deadline "$(( TIMEOUT_S + WAIT_START_S ))" --argjson dind "$DIND" \
     --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
-    --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" \
+    --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
     --argjson cmd "$CMD_JSON" '{
   apiVersion: "batch/v1", kind: "Job",
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
@@ -1083,7 +1159,7 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
         resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "2", memory: "2Gi"}},
         volumeMounts: [{name: "work", mountPath: "/work"}]}]),
      containers: [{name: "run", image: $goimg, command: (["bash", "-c", $prep, "run"] + $cmd),
-       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "GOTOOLCHAIN", value: "local"},
+       env: ([{name: "HEAVY_WORKDIR", value: $wd}, {name: "HEAVY_DENY_PROBE", value: $deny}, {name: "HEAVY_HELM", value: $helm}, {name: "HEAVY_NODE", value: $node}, {name: "HEAVY_BUF", value: $buf}, {name: "GOTOOLCHAIN", value: "local"},
               {name: "GOMODCACHE", value: "/cache/mod"}, {name: "GOCACHE", value: "/cache/build"},
               {name: "GOLANGCI_LINT_CACHE", value: "/cache/lint"}, {name: "CI", value: "true"}]
              + (if $dind == 1 then [{name: "DOCKER_HOST", value: "unix:///run/dind/docker.sock"},
@@ -1099,7 +1175,7 @@ kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не в
 T0="$(now)"
 REQ_SPEC="$(jq -c '.spec.template.spec' "$BOX/job.json")"
 verify_spec Job "$(kc -n "$NSNAME" get job run -o json 2>/dev/null | jq -c '.spec.template.spec // empty' 2>/dev/null)"
-say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}, node ${NODE_PIN:-нет пина}")"
+say "Job создан: образ golang:$GOVER$([ -n "$LINT_PIN" ] && [ "$PROFILE" != go-race ] && [ "$PROFILE" != integration ] && echo ", golangci-lint $LINT_PIN"), cpu $CPU_REQ/$CPU_LIM, память $MEM_REQ/$MEM_LIM$([ "$DIND" = 1 ] && echo ', dind')$([ -n "$HELM_PIN$NODE_PIN$BUF_PIN" ] && echo ", helm ${HELM_PIN:-нет пина}${HELM_SRC:+ ($HELM_SRC)}, node ${NODE_PIN:-нет пина}, buf ${BUF_PIN:-нет пина}")"
 
 # pod_state — «имя|фаза|fetch|run|код run|причина run|сообщение run|ожидание|
 # планирование|отказ userns». Отказ userns — строка «remote-heavy-userns: …» в
