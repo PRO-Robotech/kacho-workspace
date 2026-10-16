@@ -771,8 +771,8 @@ console.log('== внешний стенд до CI: перепись прогон
 {
   let q = await run({ args, plan: [P('r1.json')] })
   const iS = idx(q.calls, 'mech:stand:0'), sp = prm(q.calls, 'mech:stand:0')
-  ok(q.res.ok === true && iS > idx(q.calls, 'review-wave') && iS < idx(q.calls, 'mech:ci:0') && (q.calls[iS] || {}).agentType === 'ci-watcher' && ['ВНЕШНЕМ кластере', 'теми же целями, что CI', 'без остановки на первом красном', 'stand-report.sh check /ws/tmp/wave-9/stand.json --head ' + HW, 'NO-PR-IMAGES', 'make stand-ns-run NS=t9-w<k>', 'дословной цитатой у красного'].every(f => sp.includes(f)), 'стенд — шаг ci-watcher после рецензента волны и ДО первого чтения CI: весь набор на внешнем кластере, суд stand-report.sh этой головы', sp.slice(-400))
-  ok(prm(q.calls, 'mech:landing:1').includes('--stand-report /ws/tmp/wave-9/stand.json'), 'посадка судит отчёт стенда снова: landing-precheck --stand-report')
+  ok(q.res.ok === true && iS > idx(q.calls, 'review-wave') && iS < idx(q.calls, 'mech:ci:0') && (q.calls[iS] || {}).agentType === 'ci-watcher' && ['ВНЕШНЕМ кластере', 'теми же целями, что CI', 'без остановки на первом красном', 'stand-report.sh check /ws/tmp/wave-9/stand.json --head ' + HW + ' --expect /ws/tmp/wave-9/stand-expect.json', 'stand-report.sh expect --checkout /ws/tmp/wave-9/assemble --head ' + HW, 'NO-PR-IMAGES', 'make stand-ns-run NS=t9-w<k>', 'job задания и дословной цитатой у красного'].every(f => sp.includes(f)), 'стенд — шаг ci-watcher после рецензента волны и ДО первого чтения CI: весь набор на внешнем кластере, суд stand-report.sh этой головы', sp.slice(-400))
+  ok(prm(q.calls, 'mech:landing:1').includes('--stand-report /ws/tmp/wave-9/stand.json --stand-expect /ws/tmp/wave-9/stand-expect.json'), 'посадка судит отчёт стенда снова: landing-precheck --stand-report')
   q = await run({ args, plan: [P('r0.json')], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
   ok(q.res.ok === false && q.res.state === 'failed' && /внешний стенд до CI: красное/.test(q.res.stage || '') && by(q.calls, c => /^mech:(ci:|ready|merge|landing)/.test(c.label)) === 0 && RR_FRAGS.every(f => (q.res.redRound || '').includes(f)), 'красный стенд — ни CI, ни ready, ни вливания; итог несёт порядок «перепись — потом массово»', JSON.stringify(q.res).slice(0, 300))
   q = await run({ args, plan: [P('r0.json')], stand: [{ code: 2, reasons: [] }] })
@@ -1176,7 +1176,9 @@ mutant "два красных CI — без стопа (ws#1110)" "два кра
 mutant "стенд не судится (ws#1110)" "if (!stand || stand.code !== 0) return {" "if (false) return {"
 mutant "CI при идущем стенде (ws#1110)" "  if (!stand || stand.code !== 3) break" "  break"
 mutant "пауза стенда не проверяется (ws#1110)" "if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + CI_SLEPT_SLACK >= CI_PAUSE_S)) { stand = " "if (false) { stand = "
-mutant "отчёт стенда не в посадке (ws#1110)" "' --stand-report ' + STAND," "'',"
+mutant "отчёт стенда не в посадке (ws#1110)" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP," "'',"
+mutant "ожидаемое стенда из отчёта (ws#1110)" " + ' --expect ' + STAND_EXP" ""
+mutant "ожидаемое не в посадке (ws#1110)" " + ' --stand-expect ' + STAND_EXP," ","
 mutant "стенд — до первого красного (ws#1110)" "без остановки на первом красном; набор" "до первого красного; набор"
 mutant "красный стенд без порядка круга (ws#1110)" "...(stand && stand.code === 1 ? { redRound: RED_ROUND } : {})" "...({})"
 mutant "перепись гейтов не зовётся (ws#1071)" "const gates = await agent(C + " "const gates = null && await agent(C + "

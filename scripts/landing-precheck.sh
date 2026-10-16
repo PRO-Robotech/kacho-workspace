@@ -14,7 +14,7 @@
 #
 # ИСПОЛЬЗОВАНИЕ
 #   landing-precheck.sh <владелец/репозиторий> <номер PR> [--reviews <файл JSON>]
-#                       [--stand-report <отчёт JSON>]
+#                       [--stand-report <отчёт JSON> --stand-expect <ожидаемое JSON>]
 #
 # --reviews — массив структурных вердиктов ревью: [{"role": "...", "sha": "<40 hex>",
 # "verdict": "accept"|"return"|"void", "blocking": [...] (необязательно)}].
@@ -144,7 +144,9 @@
 #                             исход один — `Refs` вместо `Closes`.
 #   (з) STAND-REPORT        — отчёт прогона на внешнем кластере (`--stand-report`)
 #                             судит `scripts/stand-report.sh check <отчёт> --head
-#                             <headSha>` — та же голова, полный прогон, ни одного
+#                             <headSha> --expect <--stand-expect>` (ожидаемое — вывод
+#                             `stand-report.sh expect`, не отчёта) — та же голова,
+#                             полный прогон, каждое ожидаемое задание покрыто, ни одного
 #                             красного (ws#1110, `ai-tooling.md#at-red-ci-one-round`):
 #                             его причины переносятся строкой на причину; его код 2 —
 #                             VOID. Без довода — строка CENSUS «пункт (з) НЕ СУДИЛСЯ»
@@ -185,11 +187,12 @@ void() { printf 'VOID\t%s\n' "$1"; exit 2; }
 
 REPO="${1:-}"; PR="${2:-}"
 shift 2 2>/dev/null || true
-REVIEWS=""; STAND_REPORT=""
+REVIEWS=""; STAND_REPORT=""; STAND_EXPECT=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --reviews) REVIEWS="${2:-}"; [ -n "$REVIEWS" ] || void "--reviews без файла"; shift 2 ;;
         --stand-report) STAND_REPORT="${2:-}"; [ -n "$STAND_REPORT" ] || void "--stand-report без файла"; shift 2 ;;
+        --stand-expect) STAND_EXPECT="${2:-}"; [ -n "$STAND_EXPECT" ] || void "--stand-expect без файла"; shift 2 ;;
         *) void "неизвестный довод «$1»" ;;
     esac
 done
@@ -327,7 +330,7 @@ rm -f "$W/required"
 MERGE_READINESS_REQUIRED_OUT="$W/required" bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
 MR_CODE=$?
 
-export STAND_REPORT STAND_TOOL="$HERE/stand-report.sh"
+export STAND_REPORT STAND_EXPECT STAND_TOOL="$HERE/stand-report.sh"
 export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen" COMMITS_SRC
 python3 - <<'PY'
 import json, os, re, sys
@@ -817,7 +820,8 @@ census.append(f"закрытие: Closes {len(closes)}, с доказатель�
 sr = os.environ.get("STAND_REPORT", "")
 if sr:
     import subprocess
-    p = subprocess.run(["bash", os.environ["STAND_TOOL"], "check", sr, "--head", head],
+    se = os.environ.get("STAND_EXPECT", "")
+    p = subprocess.run(["bash", os.environ["STAND_TOOL"], "check", sr, "--head", head] + (["--expect", se] if se else []),
                        capture_output=True, text=True, env={**os.environ, "STAND_REPORT_GH": os.environ.get("GH") or "gh"})
     if p.returncode not in (0, 1):
         void(f"отчёт стенда {sr} не осуждён (stand-report.sh код {p.returncode}): {(p.stdout + p.stderr).strip()[-200:]}")

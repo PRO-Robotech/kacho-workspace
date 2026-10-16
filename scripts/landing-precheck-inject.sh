@@ -443,17 +443,24 @@ expect 2 $'VOID\tкомментарии PRO-Robotech/kacho#' "комментар
 
 echo "== (з) отчёт прогона на внешнем кластере (ws#1110)"
 # Отчёт той формы, что пишет шаг mech:stand шаблона; суд — настоящий stand-report.sh.
-sreport() {  # sreport <голова> <jq-правка> — отчёт случая в $W/case/stand.json
+sreport() {  # sreport <голова> <jq-правка> — отчёт случая в $W/case/stand.json и ожидаемое в stand-expect.json
     jq -n --arg h "$1" '{head: $h, mode: "full", context: "probe-client", ns: "t3036-w1", residue: 0, planned: 2,
-      suites: [{name: "go-race", outcome: "green", executed: 9, total: 9}, {name: "newman shard-1", outcome: "green", executed: 40, total: 40}]}' \
+      suites: [{name: "go-race", job: "ci.yaml:unit-shard", outcome: "green", executed: 9, total: 9},
+               {name: "newman shard-1", job: "e2e-newman.yml:shard", outcome: "green", executed: 40, total: 40}]}' \
         | jq "$2" > "$W/case/stand.json"
+    jq -n --arg h "$HEAD_SHA" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", jobs: ["ci.yaml:unit-shard", "e2e-newman.yml:shard"]}' > "$W/case/stand-expect.json"
 }
-twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json"; expect 0 - "близнец: полный зелёный отчёт той же головы — код 0"
-twin; sreport "$HEAD_SHA" '.suites[1] |= (.outcome = "red" | .quote = "expected 404, got 403")'; run 0 --stand-report "$W/case/stand.json"
+SE=(--stand-expect "$W/case/stand-expect.json")
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"; expect 0 - "близнец: полный зелёный отчёт той же головы — код 0"
+twin; sreport "$HEAD_SHA" '.suites[1] |= (.outcome = "red" | .quote = "expected 404, got 403")'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-RED' "красный набор на стенде — посадки нет"
-twin; sreport "${HEAD_SHA%?}0" .; [ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || sreport "${HEAD_SHA%?}1" .; run 0 --stand-report "$W/case/stand.json"
+twin; sreport "${HEAD_SHA%?}0" .; [ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || sreport "${HEAD_SHA%?}1" .; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
 expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-STALE' "отчёт о другой голове — посадки нет"
-twin; run 0 --stand-report "$W/case/нет.json"; expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-MISSING' "отчёта нет — посадки нет"
+twin; sreport "$HEAD_SHA" 'del(.suites[1]) | .planned = 1'; run 0 --stand-report "$W/case/stand.json" "${SE[@]}"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-UNCOVERED' "ожидаемое задание без набора — посадки нет"
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/нет.json" "${SE[@]}"; expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-MISSING' "отчёта нет — посадки нет"
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json"
+expect 2 $'VOID\tотчёт стенда' "без ожидаемого stand-report.sh код 2 — посадка VOID, а не «причин нет»"
 twin; run 0
 if grep -q 'пункт (з) НЕ СУДИЛСЯ' "$W/out"; then echo "  [OK]   без --stand-report пункт (з) назван несуждённым"; pass=$((pass + 1))
 else echo "  [FAIL] без --stand-report нет строки «пункт (з) НЕ СУДИЛСЯ»" >&2; fail=$((fail + 1)); fi
@@ -645,7 +652,8 @@ else
         rm -rf "$WAVE_DIR"; mkdir -p "$WAVE_DIR"
         # Шаблон судит посадку и отчётом стенда (ws#1110): зелёный полный отчёт головы случая —
         # его предмет здесь не судится, он судится разделом (з) выше.
-        jq -n --arg h "$(jq -r .head.sha "$W/case/pull.json")" '{head: $h, mode: "full", context: "probe-client", ns: "t7-w1", residue: 0, planned: 1, suites: [{name: "go-race", outcome: "green", executed: 1, total: 1}]}' > "$WAVE_DIR/stand.json"
+        jq -n --arg h "$(jq -r .head.sha "$W/case/pull.json")" '{head: $h, mode: "full", context: "probe-client", ns: "t7-w1", residue: 0, planned: 1, suites: [{name: "go-race", job: "ci.yaml:unit-shard", outcome: "green", executed: 1, total: 1}]}' > "$WAVE_DIR/stand.json"
+        jq -n --arg h "$(jq -r .head.sha "$W/case/pull.json")" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", jobs: ["ci.yaml:unit-shard"]}' > "$WAVE_DIR/stand-expect.json"
         env -u TMPDIR FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh" PATH="$W:$PATH" \
             bash -c "$(cat "$1")" > "$W/wave.stdout" 2>&1
         echo $? > "$W/code"

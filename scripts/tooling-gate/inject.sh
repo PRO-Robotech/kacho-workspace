@@ -3197,8 +3197,11 @@ b="$(mksandbox)"
 c21_sub "$b/.claude/workflows/wave.js" "if (!stand || stand.code !== 0) return {" "if (false) return {"
 run_says 1 "$b" "инъекция: отчёт стенда не останавливает CI и ready — краснеет" "$C23" "провязка переписи и стенда"
 b="$(mksandbox)"
-c21_sub "$b/.claude/workflows/wave.js" "' --stand-report ' + STAND," "'',"
+c21_sub "$b/.claude/workflows/wave.js" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP," "'',"
 run_says 1 "$b" "инъекция: посадка без --stand-report — краснеет" "$C23" "провязка переписи и стенда"
+b="$(mksandbox)"
+c21_sub "$b/.claude/workflows/wave.js" " + ' --expect ' + STAND_EXP" ""
+run_says 1 "$b" "инъекция: стенд судится без выведенного ожидаемого (полноту объявляет отчёт) — краснеет" "$C23" "провязка переписи и стенда"
 b="$(mksandbox)"
 python3 - "$b/.claude/workflows/wave.js" <<'PY2'
 import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
