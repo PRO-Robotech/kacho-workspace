@@ -201,6 +201,12 @@ SNAP="/bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval"
   echo "211 110 7200 bash $SNAP 'newman run x'"; } > "$T/ps-fork"
 { echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude --y"
   echo "211 110 7200 bash $SNAP 'newman run x'"; } > "$T/ps-env"
+# Приёмка ws#1131 (⛔): другой pid claude — не довод «чужая»: `claude -c` той же
+# сессии; CLAUDE_PID, унаследованный от чужого окна.
+{ echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude -c"
+  echo "211 110 7200 bash $SNAP 'make e2e'"; } > "$T/ps-cont"
+{ echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude --resume $FOR"
+  echo "211 100 7200 bash $SNAP 'make e2e'"; } > "$T/ps-pidfor"
 mkdir -p "$T/proc-for/211" "$T/proc-own/211"
 printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0' "$FOR" > "$T/proc-for/211/environ"
 printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0' "$OWN" > "$T/proc-own/211/environ"
@@ -208,7 +214,7 @@ printf 'PATH=/x\0CLAUDE_CODE_SESSION_ID=%s\0' "$OWN" > "$T/proc-own/211/environ"
 proc_cases() {
     local C="$1"
     CLAUDE_PID=100 CLAUDE_CODE_SESSION_ID=$OWN probe 0 "П1 инъекция: чужая сессия (--resume в родителе), оболочка 120 мин — молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
-    CLAUDE_PID=100 probe 0 "П2 чужой claude при своём CLAUDE_PID — молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
+    CLAUDE_PID=100 probe 2 "П2 другой claude при одном CLAUDE_PID, своей сессии нет — не судимо, а не «чужая»" "не судимо 1" --session "$s" --ps "$T/ps-foreign"
     CLAUDE_CODE_SESSION_ID=$OWN probe 1 "П3 своя по --resume родителя: своя 120 мин — STALL-PROC" "STALL-PROC pid 201 (claude 100)" --session "$s" --ps "$T/ps-both"
     CLAUDE_CODE_SESSION_ID=$OWN probe 1 "  …а чужая рядом не названа" "своих 1, чужих 1" --session "$s" --ps "$T/ps-both"
     probe 1 "П4 своя по предку-claude процесса (--self): STALL-PROC" "STALL-PROC pid 201 (claude 100)" --session "$s" --ps "$T/ps-both" --self 500
@@ -216,6 +222,8 @@ proc_cases() {
     CLAUDE_CODE_SESSION_ID=$OWN probe 2 "П6 --fork-session: id в строке запуска — не сессия, оболочка не судима" "не судимо 1" --session "$s" --ps "$T/ps-fork"
     CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-for" probe 0 "П7 чужая по окружению оболочки — молчит" "чужих 1" --session "$s" --ps "$T/ps-env"
     CLAUDE_CODE_SESSION_ID=$OWN STALL_PROC_ROOT="$T/proc-own" probe 1 "П8 своя по окружению оболочки — STALL-PROC" "STALL-PROC pid 211" --session "$s" --ps "$T/ps-env"
+    CLAUDE_PID=100 CLAUDE_CODE_SESSION_ID=$OWN probe 2 "M3c второй claude -c той же сессии, окружение не прочитано — не судимо, а не «чужая»" "не судимо 1" --session "$s" --ps "$T/ps-cont"
+    CLAUDE_PID=110 CLAUDE_CODE_SESSION_ID=$OWN probe 2 "M6b CLAUDE_PID на чужом claude, окружение не прочитано, свой без --resume — не судимо" "не судимо 1" --session "$s" --ps "$T/ps-pidfor"
     CLAUDE_PID=999 CLAUDE_CODE_SESSION_ID=$OWN probe 0 "П9 CLAUDE_PID не claude в снимке — не берётся, чужая молчит" "чужих 1" --session "$s" --ps "$T/ps-foreign"
 }
 proc_cases "$C"
@@ -308,6 +316,7 @@ mutant "CLAUDE_PROJECT_DIR убран из кандидатов" '[ -n "${CLAUDE
 mutant "побеждает первый существующий каталог" $'        if cands:\n            break' $'        if os.path.isdir(d):\n            break'
 echo "== мутант отбора своей сессии (ws#1131) — обязан покраснеть на пробах П1–П9"
 mutant "старый отбор: любая оболочка под claude — своя" '    who = whose(pid, ppid)' "    who = 'own'" proc_cases
+mutant "неустановленная сессия при своём claude — чужая" $'    return \'\'\n\n\nshells' $'    return \'foreign\' if own_pid else \'\'\n\n\nshells' proc_cases
 
 echo "== разбор: не-объект, нечитаемый журнал, падение (опыт check-verifier по #1002)"
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
