@@ -25,6 +25,14 @@
 #                sleep, sleep ≥ 100 с, tail --pid, gh run watch|view, gh pr checks,
 #                flock -w ≥ 100. Класс 1–3 замера (429 агент-ч из 605): каждый
 #                вызов ≤ 10 мин, поэтому «нет нового вызова» его не видит.
+#   Завершённый агент — последняя запись user/assistant журнала есть ответ модели
+#                без вызова инструмента с stop_reason end_turn | stop_sequence |
+#                refusal — не судится ни STALL-AGENT, ни STALL-POLL: хвост его
+#                опросов — история, а не ожидание (ws#1110: agent-ad76971c71962c092
+#                вернул итог, а перепись звала его STALL-POLL по вызовам до итога).
+#                Возобновлённый (SendMessage) снова судим: после итога — запись user.
+#                Завершённый, чей журнал не менялся STALL_DONE_MIN (5) мин, в счёт
+#                «агентов осмотрено» не входит — он в счёте «завершённых».
 #   STALL-PROC   фоновый процесс-оболочка агента (прямой потомок `claude`,
 #                запущенный из shell-snapshot) живёт дольше STALL_PROC_MIN (60) мин.
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
@@ -126,6 +134,10 @@ PROC_MIN = int(os.environ.get('STALL_PROC_MIN', '60'))
 REACT_MIN = int(os.environ.get('STALL_REACT_MIN', '10'))
 HORIZON_MIN = int(os.environ.get('STALL_HORIZON_MIN', '360'))
 POLL_MIN = int(os.environ.get('STALL_POLL_MIN', '20'))
+DONE_MIN = int(os.environ.get('STALL_DONE_MIN', '5'))
+# Ход модели окончен, вызова нет: агент вернул итог (замер сессии 3f44acf5,
+# 2026-10-16: так кончаются 609 из 640 журналов агентов верхнего уровня).
+FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')
 now = float(now_s) if now_s else time.time()
 
 
@@ -228,7 +240,10 @@ def poll_run(path, size=262144):
 
 
 def last_message(path):
-    """(время, вид, вызов): вид — 'tool' | 'result' | 'done' | 'progress' | None.
+    """(время, вид, вызов): вид — 'tool' | 'result' | 'final' | 'done' | 'progress' | None.
+
+    'final' — ответ модели без вызова с stop_reason из FINAL_STOP: агент завершён;
+    'done' — ответ без вызова, но ход не объявлен оконченным.
 
     None — в журнале нет ни одной разобранной записи-объекта: журнал НЕ прочитан.
     Хвост растёт (64 КиБ → 1 МиБ → 16 МиБ → весь файл), пока не найдётся запись:
@@ -253,7 +268,7 @@ def last_message(path):
     if r['type'] == 'assistant':
         uses = [c for c in content if isinstance(c, dict) and c.get('type') == 'tool_use']
         if not uses:
-            return t, 'done', ''
+            return t, ('final' if r['message'].get('stop_reason') in FINAL_STOP else 'done'), ''
         u = uses[-1]
         if u.get('name') == 'StructuredOutput':
             return t, 'done', ''
@@ -267,6 +282,7 @@ def last_message(path):
 
 # ── Агенты: workflow живые и агенты верхнего уровня ─────────────────────
 agents_seen = 0
+done_seen = 0  # завершённые (вид 'final'): не судятся
 unread = []  # журналы агентов старше порога без единой разобранной записи
 wf_live = 0
 state_dir = os.path.join(session, 'workflows')
@@ -293,6 +309,12 @@ try:
             age_file = now - os.path.getmtime(apath)
             if age_file > HORIZON_MIN * 60:
                 continue
+            t, kind, what = last_message(apath)
+            if kind == 'final':
+                done_seen += 1
+                if age_file < DONE_MIN * 60:
+                    agents_seen += 1
+                continue
             agents_seen += 1
             n, span, last = poll_run(apath)
             if n >= 2 and span >= POLL_MIN:
@@ -300,7 +322,6 @@ try:
                 continue
             if age_file < AGENT_MIN * 60:
                 continue
-            t, kind, what = last_message(apath)
             if kind is None:
                 unread.append('%s/%s' % (wid, aid))
                 continue
@@ -321,6 +342,12 @@ try:
         age_file = now - os.path.getmtime(apath)
         if age_file > HORIZON_MIN * 60:
             continue
+        t, kind, what = last_message(apath)
+        if kind == 'final':
+            done_seen += 1
+            if age_file < DONE_MIN * 60:
+                agents_seen += 1
+            continue
         agents_seen += 1
         n, span, last = poll_run(apath)
         if n >= 2 and span >= POLL_MIN:
@@ -328,7 +355,6 @@ try:
             continue
         if age_file < AGENT_MIN * 60:
             continue
-        t, kind, what = last_message(apath)
         if kind is None:
             unread.append(os.path.basename(apath)[:-6])
             continue
@@ -389,8 +415,8 @@ for pid, (ppid, et, comm, args) in procs.items():
         cmd = args.split("eval '", 1)[-1] if "eval '" in args else args
         findings.append('STALL-PROC pid %s (claude %s) — живёт %d мин: %s' % (pid, ppid, et / 60, ' '.join(cmd.split())[:160]))
 
-print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; фоновых оболочек агентов %d из процессов %d; пороги агент %d мин, опрос %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), shells, len(procs), AGENT_MIN, POLL_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; фоновых оболочек агентов %d из процессов %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), done_seen, shells, len(procs), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for u in unread:

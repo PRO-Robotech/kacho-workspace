@@ -28,13 +28,18 @@ NOW="$(date +%s)"
 iso() { date -u -d "@$((NOW - $1 * 60))" +%Y-%m-%dT%H:%M:%S.000Z; }
 pass=0 fail=0
 
-# rec <файл> <минут назад> <вид: tool|done|result> [команда]
+# rec <файл> <минут назад> <вид: tool|done|final|result|ask> [команда]
+# final — итог агента (stop_reason end_turn, форма журналов Claude Code);
+# done — ответ без вызова, ход не объявлен оконченным; ask — новое сообщение
+# агенту (возобновление SendMessage).
 rec() {
     local f="$1" m="$2" kind="$3" cmd="${4:-go test ./...}" t
     t="$(iso "$m")"
     case "$kind" in
         tool) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"%s"}}]}}\n' "$t" "$cmd" >> "$f" ;;
         done) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"text","text":"готово"}]}}\n' "$t" >> "$f" ;;
+        final) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"### ВОЗВРАТ"}]}}\n' "$t" >> "$f" ;;
+        ask) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"продолжи"}}\n' "$t" >> "$f" ;;
         result) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}\n' "$t" >> "$f" ;;
     esac
     printf '{"type":"attachment","timestamp":"%s"}\n' "$t" >> "$f"
@@ -54,9 +59,10 @@ probe() {
     shift 3
     out="$(bash "$C" "$@" < /dev/null 2>&1)"; got=$?
     if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; }; then
-        echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
+        [ -n "${quiet:-}" ] || echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
     else
-        echo "  [FAIL] $name — ждали код $want${needle:+ и «$needle»}, получили $got: $(head -c 400 <<< "$out")" >&2; fail=$((fail + 1))
+        failed="${failed:-}; $name"
+        [ -n "${quiet:-}" ] || echo "  [FAIL] $name — ждали код $want${needle:+ и «$needle»}, получили $got: $(head -c 400 <<< "$out")" >&2; fail=$((fail + 1))
     fi
 }
 ps_ok > "$T/ps"
@@ -92,6 +98,60 @@ probe 0 "близнец: те же ожидания, но последний в�
 s="$(session poll-young)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
 rec "$a" 8 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 2 tool "gh pr checks 7"
 probe 0 "близнец: два ожидания, первое 8 мин назад (порог 20) — молчит" - --session "$s" --ps "$T/ps"
+
+echo "== завершённый агент не судится (ws#1110: agent-ad76971c71962c092 вернул итог, перепись звала его STALL-POLL)"
+# finish_cases — пробы завершения; их же гонят мутанты ниже.
+finish_cases() {
+    local s a
+    s="$(session fin-poll)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 final
+    probe 0 "близнец: два опроса за 30 мин, затем итог агента — молчит" "завершённых (не судятся) 1" --session "$s" --ps "$T/ps"
+    probe 0 "  …завершённый 24 мин — вне счёта осмотренных" "агентов осмотрено 0" --session "$s" --ps "$T/ps"
+    s="$(session fin-top)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 final
+    probe 0 "близнец: агент верхнего уровня — те же опросы и итог — молчит" "завершённых (не судятся) 1" --session "$s" --ps "$T/ps"
+    probe 0 "  …и вне счёта осмотренных" "агентов осмотрено 0" --session "$s" --ps "$T/ps"
+    s="$(session fin-fresh)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 2 final
+    probe 0 "близнец: итог 2 мин назад (порог завершённого 5) — молчит, в счёте осмотренных" "агентов осмотрено 1" --session "$s" --ps "$T/ps"
+    s="$(session fin-resumed)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 50 final; rec "$a" 40 ask; rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 3 tool "timeout 30 gh pr checks 1119"
+    probe 1 "инъекция: итог, затем возобновление и два опроса — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session fin-open)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 "done"
+    probe 1 "инъекция: текст без stop_reason после опросов — ход не окончен, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session fin-stuck)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"
+    probe 1 "инъекция: два опроса без итога, вызов не закрыт — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+}
+finish_cases
+# fmutant <имя> <было> <стало>: копия прибора с одной правкой; пробы
+# finish_cases обязаны разойтись хоть в одной.
+fmutant() {
+    local MD="$T/fmut/scripts" p0="$pass" f0="$fail" mp mf C0="$C"
+    rm -rf "$T/fmut"; mkdir -p "$MD/lib"; cp "$HERE/lib/ws-home.sh" "$MD/lib/"
+    if ! python3 - "$C" "$MD/stall-census.sh" "$2" "$3" <<'MUTPY'
+import sys
+src, dst, was, now = sys.argv[1:5]
+s = open(src).read()
+if s.count(was) != 1:
+    sys.exit(1)
+open(dst, 'w').write(s.replace(was, now))
+MUTPY
+    then echo "  [FAIL] мутант «$1»: образец не найден в приборе — не лёг" >&2; fail=$((fail + 1)); return; fi
+    failed=""; quiet=1; C="$MD/stall-census.sh"
+    finish_cases
+    C="$C0"; quiet=""; mp=$((pass - p0)); mf=$((fail - f0)); pass="$p0"; fail="$f0"
+    if [ "$mf" -gt 0 ]; then
+        echo "  [OK]   мутант «$1» красный: разошлось $mf из $((mp + mf)): ${failed#; }"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] мутант «$1» выжил: все $mp проб сошлись" >&2; fail=$((fail + 1))
+    fi
+}
+fmutant "не проверять завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ()"
+fmutant "завершение — любой ответ без вызова" "('final' if r['message'].get('stop_reason') in FINAL_STOP else 'done')" "'final'"
+fmutant "завершённый в workflow не пропускается" $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1\n                continue' $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1'
+fmutant "давность не различается" $'\n            if age_file < DONE_MIN * 60:\n                agents_seen += 1\n            continue' $'\n            agents_seen += 1\n            continue'
 
 echo "== workflow без реакции"
 s="$(session unreacted)"
