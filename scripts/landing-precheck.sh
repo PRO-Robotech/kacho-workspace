@@ -146,7 +146,8 @@
 #                             судит `scripts/stand-report.sh check <отчёт> --head
 #                             <headSha> --expect <--stand-expect>` (ожидаемое — вывод
 #                             `stand-report.sh expect --draft false`, не отчёта, от
-#                             базы запроса: `--pr-base`) — та же голова,
+#                             базы запроса: `--pr-base`, репозитория запроса:
+#                             `--pr-repo`) — та же голова,
 #                             полный прогон, каждое ожидаемое задание покрыто, ни одного
 #                             красного (ws#1110, `ai-tooling.md#at-red-ci-one-round`):
 #                             его причины переносятся строкой на причину; его код 2 —
@@ -823,7 +824,7 @@ if sr:
     import subprocess
     se = os.environ.get("STAND_EXPECT", "")
     p = subprocess.run(["bash", os.environ["STAND_TOOL"], "check", sr, "--head", head] + (["--expect", se] if se else [])
-                       + (["--pr-base", base_ref] if base_ref else []),
+                       + (["--pr-base", base_ref] if base_ref else []) + ["--pr-repo", os.environ["REPO"]],
                        capture_output=True, text=True, env={**os.environ, "STAND_REPORT_GH": os.environ.get("GH") or "gh"})
     if p.returncode not in (0, 1):
         void(f"отчёт стенда {sr} не осуждён (stand-report.sh код {p.returncode}): {(p.stdout + p.stderr).strip()[-200:]}")

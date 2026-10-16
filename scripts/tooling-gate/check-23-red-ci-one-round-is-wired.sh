@@ -24,7 +24,8 @@
 #   E. протокол `CLAUDE.md` (переживает сжатие) — раздел с цитатой и пятью пунктами;
 #      `testing-verdict.md#external-cluster-first` — полный прогон до CI;
 #   F. механизмы: `ci-read.sh` — красное при идущих код 3; ci.yaml гонит
-#      `stand-report-inject.sh`; `landing-precheck.sh` судит `--stand-report`.
+#      `stand-report-inject.sh` — разбором YAML: строкой `run` включённого шага, не
+#      комментарием и не `|| true`; `landing-precheck.sh` судит `--stand-report`.
 #
 # ПРЕДПОСЫЛКА (VOID, код 2): все носители есть в дереве.
 # Коды: 0 — находок нет; 1 — находка с координатой; 2 — предмета нет.
@@ -219,7 +220,32 @@ need(TV, unit(texts[TV], '\nexternal-cluster-first · ', r'\n'),
 
 # F. механизмы.
 need(CIR, texts[CIR], ['if [ "$REDN" -gt 0 ] && ! has "$PEND"; then code=1; v=red'], 'красное при идущих — код 3')
-need(CIY, texts[CIY], ['bash scripts/stand-report-inject.sh'], 'конвейер гонит доказательство отчёта стенда')
+# ci.yaml — разбором YAML, не текстом: команда в `run` шага задания, строкой кода (не
+# комментарием, не `|| true`), шаг и задание не выключены литералом, отказ не проглочен.
+try:
+    import yaml
+    ci = yaml.safe_load(texts[CIY])
+except ImportError:
+    void('нет python3-yaml — шаги %s не разобрать' % CIY)
+except yaml.YAMLError as e:
+    ci = None
+    finds.append('%s: не разбирается как YAML (%s)' % (CIY, str(e)[:120]))
+OFF = {'false', '${{ false }}', '${{false}}'}
+SRI = re.compile(r'^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*bash scripts/stand-report-inject\.sh$')
+runs = 0
+if isinstance(ci, dict) and isinstance(ci.get('jobs'), dict):
+    for jk, job in ci['jobs'].items():
+        if not isinstance(job, dict) or str(job.get('if', '')).strip() in OFF or job.get('continue-on-error') is True:
+            continue
+        for st in job.get('steps') or []:
+            if (not isinstance(st, dict) or not isinstance(st.get('run'), str)
+                    or str(st.get('if', '')).strip() in OFF or st.get('continue-on-error') is True):
+                continue
+            if any(SRI.match(l.strip()) for l in st['run'].splitlines()):
+                runs += 1
+if ci is not None and runs == 0:
+    finds.append('%s: конвейер гонит доказательство отчёта стенда — ни один включённый шаг задания не исполняет '
+                 '`bash scripts/stand-report-inject.sh` строкой своего `run`' % CIY)
 need(LP, texts[LP], ['--stand-report) STAND_REPORT=', '"check", sr, "--head", head'], 'посадка судит отчёт стенда')
 
 print('[CENSUS] %s: носителей осмотрено %d (правило, архив, база, ci-watcher, шаблон, проба шаблона, протокол, '

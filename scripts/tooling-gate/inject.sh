@@ -3247,6 +3247,23 @@ run_says 1 "$b" "инъекция: ci-read снова красный при ид
 b="$(mksandbox)"
 c21_sub "$b/.github/workflows/ci.yaml" "bash scripts/stand-report-inject.sh" "true"
 run_says 1 "$b" "инъекция: конвейер не гонит доказательство отчёта стенда — краснеет" "$C23" "конвейер гонит доказательство"
+CISR='        run: STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" bash scripts/stand-report-inject.sh'
+b="$(mksandbox)"
+c21_sub "$b/.github/workflows/ci.yaml" "$CISR" '        # bash scripts/stand-report-inject.sh
+        run: "true"'
+run_says 1 "$b" "инъекция: команда доказательства отчёта стенда — лишь в комментарии — краснеет" "$C23" "конвейер гонит доказательство"
+b="$(mksandbox)"
+c21_sub "$b/.github/workflows/ci.yaml" "$CISR" "$CISR || true"
+run_says 1 "$b" "инъекция: отказ доказательства проглочен «|| true» — краснеет" "$C23" "конвейер гонит доказательство"
+b="$(mksandbox)"
+c21_sub "$b/.github/workflows/ci.yaml" "$CISR" "        if: false
+$CISR"
+run_says 1 "$b" "инъекция: шаг доказательства выключен «if: false» — краснеет" "$C23" "конвейер гонит доказательство"
+b="$(mksandbox)"
+c21_sub "$b/.github/workflows/ci.yaml" "$CISR" '        run: |
+          set -e
+          STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" bash scripts/stand-report-inject.sh'
+run 0 "$b" "близнец: та же команда строкой многострочного run — молчит" "$C23"
 b="$(mksandbox)"
 c21_sub "$b/scripts/landing-precheck.sh" '"check", sr, "--head", head' '"check", sr, "--head", "0" * 40'
 run_says 1 "$b" "инъекция: посадка судит отчёт не той головы — краснеет" "$C23" "посадка судит отчёт стенда"

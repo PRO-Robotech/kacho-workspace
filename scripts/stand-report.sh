@@ -15,7 +15,7 @@
 #
 # ИСПОЛЬЗОВАНИЕ
 #   stand-report.sh expect --checkout <копия> --head <sha40> [--base <ref> --draft true|false] > <ожидаемое.json>
-#   stand-report.sh check <отчёт.json> --head <sha40> --expect <ожидаемое.json> [--pr-base <ветка>]
+#   stand-report.sh check <отчёт.json> --head <sha40> --expect <ожидаемое.json> [--pr-base <ветка>] [--pr-repo <владелец/имя>]
 #   stand-report.sh check <отчёт.json> --head <sha40> --of <прежний отчёт.json>
 # ОЖИДАЕМОЕ выводится НЕ из отчёта (судимый не объявляет свою полноту): `expect` берёт
 # задания CI, которые голова обязана пройти на кластере, из закрытой ведомости STAND
@@ -52,6 +52,11 @@
 #   STAND-EXPECT-STALE     — ожидаемое выведено для другой головы;
 #   STAND-EXPECT-DRAFT     — без --of ожидаемое выбора kacho выведено не для ready;
 #   STAND-EXPECT-BASE      — база ожидаемого ≠ --pr-base;
+#   STAND-EXPECT-REPO      — репозиторий ожидаемого ≠ --pr-repo: выбор о чужом репозитории;
+#   STAND-EXPECT-LEDGER    — ожидаемое расходится с ведомостью STAND (общей у expect и
+#                            check): репозиторий вне её, источник или ledger не её, задание
+#                            вне ledger, а полный выбор (source full; affected при
+#                            --draft false; full: true) — не все задания ledger;
 #   STAND-REPORT-UNCOVERED — ожидаемое задание CI не покрыто ни одним набором отчёта;
 #   STAND-REPORT-NOT-FULL  — без --of отчёт не mode full (only-red основанием CI не служит);
 #   STAND-REPORT-TRUNCATED — наборов ≠ planned; у зелёного executed < total, executed >
@@ -78,6 +83,16 @@ set -uo pipefail
 
 void() { printf 'VOID\t%s\n' "$1"; printf 'VERDICT\tunread\tкод 2\n'; exit 2; }
 command -v python3 > /dev/null 2>&1 || void "нет python3"
+# Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию — ОДНА
+# для expect и check: source affected — выбор затронутого репозитория ∩ jobs; full — CI
+# без выбора, все jobs; none — у CI заданий на кластере нет (выведенный ноль). Задание —
+# «<workflow>:<ключ>».
+export STAND_JSON='{
+  "PRO-Robotech/kacho": ["affected", ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard",
+                                       "console-e2e.yml:probes", "production-posture.yml:stand"]],
+  "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand"]],
+  "PRO-Robotech/kacho-workspace": ["none", []]
+}'
 if [ "${1:-}" = expect ]; then
     shift; CO=""; HEAD=""; BASE=""; DRAFT=""
     while [ $# -gt 0 ]; do
@@ -98,15 +113,7 @@ if [ "${1:-}" = expect ]; then
     url="$(git -C "$CO" remote get-url origin 2>/dev/null)" || void "у копии «$CO» нет origin — репозиторий не установить"
     CO="$CO" HEAD="$HEAD" BASE="$BASE" DRAFT="$DRAFT" URL="$url" exec python3 - <<'PY'
 import importlib.util, json, os, re, subprocess, sys
-# Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию:
-# source affected — выбор затронутого репозитория ∩ jobs; full — CI без выбора, все jobs;
-# none — у CI заданий на кластере нет (выведенный ноль). Задание — «<workflow>:<ключ>».
-STAND = {
-    'PRO-Robotech/kacho': ('affected', ['ci.yaml:unit-shard', 'ci.yaml:integration', 'e2e-newman.yml:shard',
-                                         'console-e2e.yml:probes', 'production-posture.yml:stand']),
-    'PRO-Robotech/kaname': ('full', ['ci.yml:unit', 'ci.yml:integration', 'e2e-newman.yml:stand']),
-    'PRO-Robotech/kacho-workspace': ('none', []),
-}
+STAND = json.loads(os.environ['STAND_JSON'])  # ведомость — в шапке скрипта, общая с check
 co, head, base, url, draft = os.environ['CO'], os.environ['HEAD'], os.environ['BASE'], os.environ['URL'], os.environ['DRAFT']
 
 
@@ -168,11 +175,12 @@ fi
 [ "${1:-}" = check ] || void "первым доводом — check либо expect"
 REP="${2:-}"; [ -n "$REP" ] || void "нет пути отчёта"
 shift 2
-HEAD=""; OF=""; EXP=""; PRBASE=""
+HEAD=""; OF=""; EXP=""; PRBASE=""; PRREPO=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --head) HEAD="${2:-}"; shift 2 ;;
         --pr-base) PRBASE="${2:-}"; [ -n "$PRBASE" ] || void "--pr-base без ветки"; shift 2 ;;
+        --pr-repo) PRREPO="${2:-}"; [[ "$PRREPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || void "--pr-repo «$PRREPO» не формы владелец/имя"; shift 2 ;;
         --of) OF="${2:-}"; [ -r "$OF" ] || void "прежний отчёт «$OF» не читается"; shift 2 ;;
         --expect) EXP="${2:-}"; [ -r "$EXP" ] || void "ожидаемое «$EXP» не читается — полноту не судить"; shift 2 ;;
         *) void "неизвестный довод «$1»" ;;
@@ -181,7 +189,7 @@ done
 [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]] || void "--head «$HEAD» не sha40"
 [ -n "$OF" ] || [ -n "$EXP" ] || void "полный прогон судится лишь против --expect (stand-report.sh expect): отчёт свою полноту не объявляет"
 
-REP="$REP" HEAD="$HEAD" OF="$OF" EXP="$EXP" PRBASE="$PRBASE" GH="${STAND_REPORT_GH:-gh}" python3 - <<'PY'
+REP="$REP" HEAD="$HEAD" OF="$OF" EXP="$EXP" PRBASE="$PRBASE" PRREPO="$PRREPO" GH="${STAND_REPORT_GH:-gh}" python3 - <<'PY'
 import json, os, re, subprocess, sys
 
 # Ведомость послаблений: причина not-run → задача, которая её снимает. Закрыта — истекло.
@@ -233,6 +241,24 @@ if exp:
         reason('STAND-EXPECT-STALE', 'ожидаемое выведено для %s, судится %s — выбор о другой голове' % (e['head'][:12], head[:12]))
     if not of and e.get('source') == 'affected' and e.get('draft') != 'false':
         reason('STAND-EXPECT-DRAFT', 'ожидаемое выведено при --draft %s — основание ready и вливания судится выбором ready (--draft false)' % e.get('draft'))
+    STAND, erepo = json.loads(os.environ['STAND_JSON']), e.get('repo')
+    if erepo not in STAND:
+        reason('STAND-EXPECT-LEDGER', 'репозиторий ожидаемого «%s» вне ведомости STAND' % erepo)
+    else:
+        src, ledger = STAND[erepo]
+        if e.get('source') != src or e.get('ledger') != ledger:
+            reason('STAND-EXPECT-LEDGER', 'источник %s и ledger ожидаемого — не ведомости STAND для %s (%s, %d заданий)'
+                   % (e.get('source'), erepo, src, len(ledger)))
+        out = sorted(set(expected) - set(ledger))
+        if out:
+            reason('STAND-EXPECT-LEDGER', 'задания ожидаемого вне ведомости STAND: %s' % ', '.join(out))
+        if ((src == 'full' or (src == 'affected' and e.get('draft') == 'false') or e.get('full') is True)
+                and sorted(set(expected)) != sorted(ledger)):
+            reason('STAND-EXPECT-LEDGER', 'выбор полный (source %s, draft %s, full %s), а заданий %d из ведомости %d — полный обязан нести все'
+                   % (src, e.get('draft'), e.get('full'), len(set(expected) & set(ledger)), len(ledger)))
+    prr = os.environ['PRREPO']
+    if prr and erepo != prr:
+        reason('STAND-EXPECT-REPO', 'ожидаемое выведено для %s, запрос — %s' % (erepo, prr))
     prb = os.environ['PRBASE']
     if prb and e.get('source') == 'affected' and re.sub(r'^(?:refs/remotes/)?origin/', '', str(e.get('base') or '')) != prb:
         reason('STAND-EXPECT-BASE', 'ожидаемое выведено от базы %s, база запроса %s' % (e.get('base'), prb))

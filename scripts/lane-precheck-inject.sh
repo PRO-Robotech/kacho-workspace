@@ -10,7 +10,9 @@
 # даёт словарь строки зелёного итога хука), дом копий `<ws>/tmp/`, копия полосы
 # под ним и копия вне его. Трекер — обёртка `LANE_PRECHECK_GH` над файлами
 # комментариев: без сети, тем же выражением jq, что зовёт предпроверка. Журнал
-# отправки — форма из шапки предпроверки, итог хука — дословные строки хуков.
+# отправки — форма из шапки предпроверки, итог хука — дословные строки хуков:
+# формат печати КОПИРУЕТСЯ из исходника хука (ревизия названа у случая), а не пишется
+# руками — придуманная форма дважды разошлась с настоящей (ws#1110).
 # Каждая порча меняет ОДИН факт против контроля. Вывод дома копий без
 # переопределения — предпроверкой, скопированной в клон под `tmp/` песочницы.
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — jq нет, часть
@@ -203,13 +205,63 @@ log "$HEAD_SHA" "pre-push: зелёное — исполнено 6 из 6 гру
 assert "0" "$(run "${ok_args[@]}")" "kaname: строка зелёного итога → 0"
 log "$HEAD_SHA" "pre-push: НЕ ВЫПОЛНИЛОСЬ — групп без условия 1 из 6: x." 0
 assert "1" "$(run "${ok_args[@]}")" "kaname: недобор групп — не зелёный"
-log "$HEAD_SHA" $'   → КРАСНОЕ (код 1)\nкрасные             : lint unit' 1
-assert "1 2 да" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kaname: unit')" "kaname: строка «красные : lint unit» → два STATIC-RED"
+# Строки kaname — дословные формы печати scripts/hooks/pre-push kaname (@bbbe33524):
+# `echo "── $gname: $gdesc"`, `echo "   → КРАСНОЕ (код $rc)"`, перепись `групп ИСПОЛНЕНО`.
+KNRED=$'── сборка: go build ./...\n   → КРАСНОЕ (код 1)\n── vet: make vet\n   → КРАСНОЕ (код 2)\n── gofmt: gofmt по индексу git\n\n=== pre-push: перепись прогона ===\nгрупп ИСПОЛНЕНО     : 6  (зелёных 4 · красных 2)\nкрасные             : сборка vet\npre-push: ОТКАЗ — красных групп 2. Отправка остановлена.'
+log "$HEAD_SHA" "$KNRED" 1
+assert "1 2 да 0" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kaname: vet') $(nstatic REFUSAL)" "kaname: «красные : сборка vet» при красных 2 → два STATIC-RED, ОТКАЗ не дублирует"
+log "$HEAD_SHA" "${KNRED/красных 2)/красных 3)}" 1
+assert "1 0 1" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic UNPARSED)" "kaname: итог говорит красных 3, имён в строке 2 → STATIC-UNPARSED, не два и не три"
 git -C "$L" remote set-url origin "$W/srv/kacho.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
 log "$HEAD_SHA" "== pre-push: локальные проверки зелёные (не выполненных нет) — отправляю" 0
 assert "0" "$(run "${ok_args[@]}")" "kacho: строка зелёного итога → 0"
-log "$HEAD_SHA" $'   красное: lint unit-gateway newman-validate\n\npre-push ОТКАЗ: локальные проверки красные — отправка остановлена.' 1
-assert "1 3 0" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic REFUSAL)" "kacho: «   красное: a b c» → три STATIC-RED, строка ОТКАЗ при единицах не дублирует"
+# Строка «   красное: ${fails[*]}» kacho склеивает имена ПРОБЕЛОМ, а имя шага пробелы
+# содержит. Словарь — заголовки журнала и литералы scripts/ci-local.sh ГОЛОВЫ: полоса
+# несёт его коммитом. Настоящий производитель (KACHO_CILOCAL либо project/kacho
+# воркспейса, origin/main) — целиком; нет его — строки, скопированные из него
+# дословно (@a95248464), и их дословность сверяется, когда он есть.
+KFIX=$'    local name="go.mod: объявление сходится с графом импортов"\n                    fails+=("gosec (level=error)")\n        fails+=("generate-diff")'
+KREAL="${KACHO_CILOCAL:-}"
+kc="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2> /dev/null)/../project/kacho"
+if [ -z "$KREAL" ] && git -C "$kc" show origin/main:scripts/ci-local.sh > "$W/ci-local.real" 2> /dev/null; then KREAL="$W/ci-local.real"; fi
+mkdir -p "$L/scripts"
+if [ -n "$KREAL" ] && [ -s "$KREAL" ]; then
+    cp "$KREAL" "$L/scripts/ci-local.sh"
+    nfix=0; while IFS= read -r fl; do grep -Fxq -- "$fl" "$KREAL" && nfix=$((nfix + 1)); done <<< "$KFIX"
+    assert "3" "$nfix" "строки фикстуры kacho дословны в настоящем ci-local.sh"
+else
+    printf '%s\n' "$KFIX" > "$L/scripts/ci-local.sh"
+    echo "  [NOTE] настоящий ci-local.sh kacho не найден — случаи ниже на дословной фикстуре, её дословность НЕ сверена"
+fi
+git -C "$L" add scripts/ci-local.sh && git -C "$L" commit -qm ci-local && git -C "$L" push -q origin 1-lane 2> /dev/null
+HEAD_SHA="$(git -C "$L" rev-parse HEAD)"
+KHOOK=$'\npre-push ОТКАЗ: локальные проверки красные — отправка остановлена.'
+klog() { log "$HEAD_SHA" "$1"$'\n\n== итог: проверок исполнено 31, отказов '"$2"$', НЕ выполнено 0\n   красное: '"$3$KHOOK" 1; }
+klog $'\n== go.mod: объявление сходится с графом импортов\n   ОТКАЗ (код 1)\n   | целиком: /tmp/x/log-07-go-mod-tidy.txt' 1 "go.mod: объявление сходится с графом импортов"
+assert "1 1 да 0" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kacho: go.mod: объявление сходится с графом импортов$') $(nstatic REFUSAL)" "kacho: одно имя шага с пробелами → ровно один STATIC-RED, имя целиком"
+klog $'\n== gosec (v2.22.4, как в конвейере)\n   осмотрено результатов 3; из них level=error: 1\n\n== generate-diff (стабы в синхроне с .proto)' 2 "gosec (level=error) generate-diff"
+assert "1 2 да да" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kacho: gosec (level=error)$') $(has 'REASON STATIC-RED kacho: generate-diff$')" "kacho: «gosec (level=error) generate-diff» → два STATIC-RED по литералам ci-local.sh головы"
+klog $'\n== go build\n   ОТКАЗ (код 1)\n\n== go vet\n   ОТКАЗ (код 1)' 2 "go build go vet"
+assert "1 2 да" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kacho: go vet$')" "kacho: шаги run из заголовков журнала «== go build», «== go vet» → два STATIC-RED"
+klog $'\n== go build\n   ОТКАЗ (код 1)' 3 "go build go vet"
+assert "1 0 1" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic UNPARSED)" "kacho: отказов в итоге 3, имён 2 → STATIC-UNPARSED, а не четыре слова"
+klog $'\n== go build\n   ОТКАЗ (код 1)' 1 "go build lint"
+assert "1 0 1" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic UNPARSED)" "kacho: имени «lint» нет ни в журнале, ни в ci-local.sh → STATIC-UNPARSED"
+klog $'\n== x y\n   ОТКАЗ (код 1)\n\n== z\n\n== x\n\n== y z\n   ОТКАЗ (код 1)' 2 "x y z"
+assert "1 0 1" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic UNPARSED)" "kacho: разрезов два («x y|z» и «x|y z») → STATIC-UNPARSED, не выбор наугад"
+# Мутант: неоднозначный разрез принят — случай двух разрезов обязан его отличить.
+sed 's/ways\[0\]\[k\] != 1:/ways[0][k] < 1:/' "$P" > "$W/mut-amb.sh"
+if cmp -s "$W/mut-amb.sh" "$P"; then echo "  [FAIL] мутант «неоднозначный разрез принят» не лёг в текст" >&2; fail=$((fail + 1))
+else bash "$W/mut-amb.sh" "${ok_args[@]}" > "$W/out" 2>&1
+    if [ "$(nstatic UNPARSED)" = 0 ]; then echo "  [OK]   мутант «неоднозначный разрез принят» убит: STATIC-UNPARSED пропал"; pass=$((pass + 1))
+    else echo "  [FAIL] мутант «неоднозначный разрез принят» выжил" >&2; fail=$((fail + 1)); fi; fi
+if [ -n "$KREAL" ] && [ -s "$KREAL" ]; then
+    # Весь словарь литералов настоящего производителя разом: каждое имя — одной единицей.
+    # shellcheck disable=SC2016 # образец grep — литерал, не подстановка
+    mapfile -t kall < <(grep -oE 'fails\+=\("[^"$`\\]+"\)|local name="[^"$`\\]+"' "$KREAL" | sed -E 's/^fails\+=\("//; s/"\)$//; s/^local name="//; s/"$//' | awk '!seen[$0]++')
+    klog "" "${#kall[@]}" "${kall[*]}"
+    assert "1 ${#kall[@]} 0" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic UNPARSED)" "kacho: все ${#kall[@]} литералов отказа настоящего ci-local.sh одной строкой → столько же STATIC-RED"
+fi
 log "$HEAD_SHA" "== pre-push: локальные проверки зелёные (не выполненных нет) — отправляю" 0
 git -C "$L" remote set-url origin "$W/srv/other.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
 assert "2 да" "$(run "${ok_args[@]}") $(has 'VOID HOOK-KIND-UNKNOWN')" "репозиторий вне словаря → код 2"

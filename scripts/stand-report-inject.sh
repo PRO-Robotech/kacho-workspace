@@ -83,17 +83,19 @@ GH
 chmod +x "$W/gh"
 
 control() {
-    jq -n --arg h "$H" '{head: $h, mode: "full", context: "probe-client", ns: "t3259-w1", residue: 0, planned: 5,
+    jq -n --arg h "$H" '{head: $h, mode: "full", context: "probe-client", ns: "t3259-w1", residue: 0, planned: 6,
       suites: [
         {name: "go-race", job: "ci.yaml:unit-shard", outcome: "green", executed: 41, total: 41},
         {name: "integration", job: "ci.yaml:integration", outcome: "green", executed: 12, total: 12},
         {name: "newman shard-1", job: "e2e-newman.yml:shard", outcome: "green", executed: 230, total: 230},
         {name: "newman shard-2", job: "e2e-newman.yml:shard", outcome: "green", executed: 198, total: 198},
-        {name: "console-e2e", job: "console-e2e.yml:probes", outcome: "green", executed: 64, total: 64}]}'
+        {name: "console-e2e", job: "console-e2e.yml:probes", outcome: "green", executed: 64, total: 64},
+        {name: "posture", job: "production-posture.yml:stand", outcome: "green", executed: 7, total: 7}]}'
 }
-expected() {  # expected [jq-правка] — ожидаемое контроля формы `stand-report.sh expect`
-    jq -n --arg h "$H" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266",
-      draft: "false", jobs: ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard", "console-e2e.yml:probes"]}' | jq "${1:-.}"
+LEDGER='["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
+expected() {  # expected [jq-правка] — ожидаемое контроля: дословная форма вывода `stand-report.sh expect` при ready
+    jq -n --arg h "$H" --argjson l "$LEDGER" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266",
+      draft: "false", full: true, reason: "ready", ledger: $l, jobs: $l}' | jq "${1:-.}"
 }
 NC=0; pass=0; fail=0
 # kase <имя> <jq-правка контроля | -> [довод --of: jq-правка прежнего] — отчёт случая
@@ -151,7 +153,7 @@ judge() {  # judge <скрипт> <каталог случая> → 0 сошло
 kase "контроль: полный, внешний, всё зелёное" -; want 0 -
 kase "голова другая" -; echo "$H2" > "$C/head"; want 1 STAND-REPORT-STALE
 kase "only-red без --of" '.mode = "only-red"'; want 1 STAND-REPORT-NOT-FULL
-kase "набор выпал: 4 из planned 5" 'del(.suites[4])'; want 1 STAND-REPORT-TRUNCATED
+kase "набор выпал: 5 из planned 6" 'del(.suites[4]) | .suites += [.suites[0]] | .planned = 7'; want 1 STAND-REPORT-TRUNCATED
 kase "зелёный набор исполнен 200 из 230" '.suites[2].executed = 200'; want 1 STAND-REPORT-TRUNCATED
 kase "зелёный набор total 0" '.suites[0].executed = 0 | .suites[0].total = 0'; want 1 STAND-REPORT-TRUNCATED
 kase "красный набор с цитатой" '.suites[2] |= (.outcome = "red" | .quote = "expected 404, got 403" | .root = "проба")'; want 1 STAND-REPORT-RED
@@ -170,13 +172,23 @@ kase "отчёт не объект" -; echo '[]' > "$C/r.json"; want 1 STAND-REP
 kase "файла отчёта нет" -; rm "$C/r.json"; want 1 STAND-REPORT-MISSING
 kase "only-red: красный прежде набор пропал" '.mode = "only-red" | .planned = 1 | .suites = [.suites[0]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-REPORT-RED-DROPPED
 kase "близнец only-red: прежний красный перепрогнан зелёным" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 0 -
-kase "only-red под --of — не mode only-red" '.planned = 5' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-REPORT-TRUNCATED
+kase "only-red под --of — не mode only-red" '.planned = 6' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 1 STAND-REPORT-TRUNCATED
 
-kase "ожидаемое newman, набора с этим job нет (D1)" 'del(.suites[2,3]) | .planned = 3'; want 1 STAND-REPORT-UNCOVERED
+kase "ожидаемое newman, набора с этим job нет (D1)" 'del(.suites[2,3]) | .planned = 4'; want 1 STAND-REPORT-UNCOVERED
 kase "planned 0 и наборов 0 при непустом ожидаемом" '.planned = 0 | .suites = []'; want 1 STAND-REPORT-UNCOVERED
 kase "ожидаемое о другой голове" -; expected ".head = \"$H2\"" > "$C/exp.json"; want 1 STAND-EXPECT-STALE
-kase "близнец: выведенный ноль — пустой отчёт при пустом ожидаемом (D2)" '.planned = 0 | .suites = []'; expected '.jobs = [] | .source = "none"' > "$C/exp.json"; want 0 -
-kase "близнец: выведенный ноль, наборы сверх ожидаемого зелёные" -; expected '.jobs = []' > "$C/exp.json"; want 0 -
+WSZERO='.repo = "PRO-Robotech/kacho-workspace" | .source = "none" | .ledger = [] | .jobs = [] | .draft = null'
+kase "близнец: выведенный ноль — пустой отчёт при пустом ожидаемом (D2)" '.planned = 0 | .suites = []'; expected "$WSZERO" > "$C/exp.json"; want 0 -
+kase "близнец: выведенный ноль, наборы сверх ожидаемого зелёные" -; expected "$WSZERO" > "$C/exp.json"; want 0 -
+kase "ожидаемое ready kacho «full: true, jobs: []» — полный обязан нести все задания" -; expected '.jobs = []' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "ожидаемое ready kacho: заданий 4 из ведомости 5" -; expected '.jobs |= .[:4]' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "ожидаемое: ledger подменён двумя заданиями" -; expected '.ledger |= .[:2] | .jobs = .ledger' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "ожидаемое: задание вне ведомости" -; expected '.jobs += ["ci.yaml:lint"]' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "ожидаемое: репозиторий вне ведомости" -; expected '.repo = "PRO-Robotech/elsewhere"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "ожидаемое: источник не ведомости (none у kacho)" -; expected '.source = "none"' > "$C/exp.json"; want 1 STAND-EXPECT-LEDGER
+kase "близнец only-red: целевой черновик, часть заданий — полнотой не судится" '.mode = "only-red" | .planned = 2 | .suites = [.suites[0], .suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; expected '.draft = "true" | .full = false | .jobs = ["ci.yaml:unit-shard","e2e-newman.yml:shard"]' > "$C/exp.json"; printf -- '--of\n%s\n--expect\n%s\n' "$C/prev.json" "$C/exp.json" > "$C/args"; want 0 -
+kase "ожидаемое о другом репозитории, чем запрос" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kaname\n' "$C/exp.json" > "$C/args"; want 1 STAND-EXPECT-REPO
+kase "близнец: репозиторий ожидаемого — репозиторий запроса" -; printf -- '--expect\n%s\n--pr-repo\nPRO-Robotech/kacho\n' "$C/exp.json" > "$C/args"; want 0 -
 kase "ожидаемое выбора черновика — основанием ready не служит" -; expected '.draft = "true"' > "$C/exp.json"; want 1 STAND-EXPECT-DRAFT
 kase "ожидаемое без поля draft — не выбор ready" -; expected 'del(.draft)' > "$C/exp.json"; want 1 STAND-EXPECT-DRAFT
 kase "близнец only-red: ожидаемое черновика не судится" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 0 -
@@ -186,7 +198,6 @@ kase "полный прогон без --expect — VOID" -; : > "$C/args"; want
 kase "ожидаемое не формы expect — VOID" -; echo '{"jobs": "все"}' > "$C/exp.json"; want 2 -
 kase "зелёный исполнено больше, чем всего (D5)" '.suites[2].executed = 231'; want 1 STAND-REPORT-TRUNCATED
 kase "proof не формы журнала слота (D4)" '.context = "kind-kacho" | .proof = "rc=77"'; want 1 STAND-REPORT-LOCAL
-LEDGER='["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
 kecase "expect kacho: ready в ветку эпика — полный прогон, все задания стенда" false 1266 tests/newman/x.json "$LEDGER"
 kecase "expect kacho: черновик в main — полный прогон" true main tests/newman/x.json "$LEDGER"
 kecase "expect kacho: черновик в эпик — целевой выбор ∩ задания стенда" true 1266 tests/newman/x.json '["ci.yaml:unit-shard","e2e-newman.yml:shard"]'
@@ -253,6 +264,11 @@ relax-never-expires	s/alive\[why\] = json.loads(p.stdout).get('state') == 'open'
 nothing-run-ok	s/if (suites or expected) and green == 0:/if False:/
 red-dropped-ok	s/if s.get('outcome') == 'red' and str(s.get('name')) not in mine:/if False:/
 exit-zero	s/sys.exit(1 if reasons else 0)/sys.exit(0)/
+ledger-full-ignored	s/                and sorted(set(expected)) != sorted(ledger)):/                and False):/
+ledger-out-ignored	s/        if out:/        if False:/
+ledger-source-ignored	s/        if e.get('source') != src or e.get('ledger') != ledger:/        if False:/
+ledger-repo-ignored	s/    if erepo not in STAND:/    if erepo not in STAND and False:/
+expect-repo-ignored	s/    if prr and erepo != prr:/    if False:/
 MUT
 echo "stand-report-inject: мутантов $((killed + survived + void)), убито $killed, выжило $survived, не легло $void"
 [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$survived" -eq 0 ] && [ "$void" -eq 0 ] && [ "$killed" -gt 0 ]
