@@ -28,8 +28,11 @@ NOW="$(date +%s)"
 iso() { date -u -d "@$((NOW - $1 * 60))" +%Y-%m-%dT%H:%M:%S.000Z; }
 pass=0 fail=0
 
-# rec <файл> <минут назад> <вид: tool|done|final|result|ask> [команда]
+# rec <файл> <минут назад> <вид: tool|done|final|midthink|midtext|result|ask> [команда]
 # final — итог агента (stop_reason end_turn, форма журналов Claude Code);
+# midthink, midtext — промежуточная запись хода: thinking или text со
+# stop_reason tool_use без вызова, вызов ещё впереди (живая форма: 1902 записи
+# на 4000 журналов агентов проекта, приёмка ws#1110);
 # done — ответ без вызова, ход не объявлен оконченным; ask — новое сообщение
 # агенту (возобновление SendMessage).
 rec() {
@@ -39,6 +42,8 @@ rec() {
         tool) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"%s"}}]}}\n' "$t" "$cmd" >> "$f" ;;
         done) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"text","text":"готово"}]}}\n' "$t" >> "$f" ;;
         final) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"### ВОЗВРАТ"}]}}\n' "$t" >> "$f" ;;
+        midthink) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"thinking","thinking":"дальше вызов"}]}}\n' "$t" >> "$f" ;;
+        midtext) printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"text","text":"проверю"}]}}\n' "$t" >> "$f" ;;
         ask) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"продолжи"}}\n' "$t" >> "$f" ;;
         result) printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}\n' "$t" >> "$f" ;;
     esac
@@ -120,6 +125,12 @@ finish_cases() {
     s="$(session fin-open)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 "done"
     probe 1 "инъекция: текст без stop_reason после опросов — ход не окончен, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session fin-midthink)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 midthink
+    probe 1 "инъекция: thinking со stop_reason tool_use без вызова после опросов — ход не окончен, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
+    s="$(session fin-midtext)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
+    rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"; rec "$a" 24 midtext
+    probe 1 "инъекция: text со stop_reason tool_use без вызова после опросов — ход не окончен, STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
     s="$(session fin-stuck)"; mkdir -p "$s/subagents"; a="$s/subagents/agent-t1.jsonl"
     rec "$a" 30 tool "until grep -q rc= run.log; do sleep 60; done"; rec "$a" 25 tool "timeout 30 gh pr checks 1119"
     probe 1 "инъекция: два опроса без итога, вызов не закрыт — STALL-POLL" "STALL-POLL agent-t1" --session "$s" --ps "$T/ps"
@@ -150,6 +161,8 @@ MUTPY
 }
 fmutant "не проверять завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ()"
 fmutant "завершение — любой ответ без вызова" "('final' if r['message'].get('stop_reason') in FINAL_STOP else 'done')" "'final'"
+fmutant "tool_use — завершение" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal')" "FINAL_STOP = ('end_turn', 'stop_sequence', 'refusal', 'tool_use')"
+fmutant "завершение — любой непустой stop_reason" "r['message'].get('stop_reason') in FINAL_STOP" "r['message'].get('stop_reason')"
 fmutant "завершённый в workflow не пропускается" $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1\n                continue' $'                if age_file < DONE_MIN * 60:\n                    agents_seen += 1'
 fmutant "давность не различается" $'\n            if age_file < DONE_MIN * 60:\n                agents_seen += 1\n            continue' $'\n            agents_seen += 1\n            continue'
 
