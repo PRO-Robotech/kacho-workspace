@@ -46,6 +46,12 @@ skip() { echo "  [VOID] $1" >&2; void=$((void + 1)); }
 has() { grep -qF -- "$2" "$1" && echo да || echo нет; }
 # entries — сколько файлов записей слотов осталось (состояние слота, не дерево).
 entries() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
+# qlen — сколько ЖИВЫХ билетов в очереди: отложенные 74/75 (resume_until=) тоже лежат в
+# queue/, но не ждут. Пробы ждут постановки билета этим счётом, а не сном: сон под
+# нагрузкой машины не успевал (урок 2026-10-16).
+qlen() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/queue/*; do [ -e "$f" ] && ! grep -q '^resume_until=' "$f" && n=$((n + 1)); done; echo "$n"; }
+# nslots — сколько слотов занято (записей *.slot).
+nslots() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*.slot; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
 
 # mem <занято МиБ> — синтетическая память машины (MemTotal 96 ГиБ).
 mem() { printf 'MemTotal: %d kB\nMemAvailable: %d kB\n' $((98304 * 1024)) $(( (98304 - $1) * 1024 )) > "$W/meminfo"; }
@@ -155,7 +161,7 @@ echo "── очередь строгая: малый не обгоняет ж�
 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- true 2>/dev/null & B=$!
-sleep 0.5
+for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
 assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true) $(has "$W/err" 'в очереди впереди 1')" "малый (50) влез бы по памяти, но большой (250) впереди — ждёт, и причина названа"
 wait "$B"; rc_b=$?; wait "$A"
 assert 0 "$rc_b" "большой дождался выхода первого и вошёл"
@@ -167,7 +173,7 @@ echo "── голову очереди держит лишь билет, вл�
 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 HEAVY_SLOT_LIMIT_MIB=1100 HEAVY_SLOT_WAIT_S=6 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- touch "$W/q1" 2>"$W/errQ" & B=$!
-sleep 0.5
+for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
 assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- touch "$W/q2") $([ -e "$W/q2" ] && echo да || echo нет)" "впереди билет с потолком 1100 < 1000 + 250: голову не держит — малый (1000 + ~200 + 50 ≤ 1300) входит сразу (близнец — строгая очередь выше: потолок 1300, малый ждёт)"
 wait "$A"; wait "$B"; rc_b=$?
 assert "75 нет" "$rc_b $([ -e "$W/q1" ] && echo да || echo нет)" "сам билет с низким потолком — 75 по своему ожиданию, команда не запускалась"
@@ -176,7 +182,7 @@ echo "── lint по одному на машину, ci-local рядом с н
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- true 2>"$W/errB" & B=$!
-sleep 0.5
+for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" newman -- true)" "newman за ждущим lint входит сразу"
 assert 0 "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true)" "ci-local при идущем lint входит сразу: замок линтера у него в своём TMPDIR (ws#1087)"
 wait "$B"; rc_b=$?; wait "$A"
@@ -287,8 +293,6 @@ assert "0 7 да" "$rc $(await_rc "$RC2") $([ "$RC2" != "$RC1" ] && echo да ||
 # 74/75). Два поставленных и ждущий в переднем плане (--wait, билет он не перевзимает)
 # опрашивают несколько раз, пока держатель занят: ждущий на каждом опросе видит обоих
 # впереди, а входят все по билету — E1, E2, затем он.
-# Счёт — ЖИВЫХ билетов: отложенные (resume_until=) тоже лежат в очереди — тот же признак, что у ожидания выше.
-qlen() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/queue/*; do [ -e "$f" ] && ! grep -q '^resume_until=' "$f" && n=$((n + 1)); done; echo "$n"; }
 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 10 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 # shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
@@ -358,9 +362,6 @@ printf 'class=go-race\nbudget=999\npid=999999\npid_start=1\nunit=\nstart=1\nseq=
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true)" "мёртвая запись не держит 999 МиБ: вход выдан"
 assert "0 да" "$(entries) $(has "$HEAVY_SLOT_DIR/journal.log" ' reap id=1-999999')" "запись снята и снятие записано"
 export HEAVY_SLOT_LIMIT_MIB=100000
-
-# nslots — сколько слотов занято (записей *.slot).
-nslots() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*.slot; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
 
 echo "── тяжёлых не больше трёх: третий входит, четвёртый — 74 (решение владельца 2026-10-02)"
 # Трое стартуют разом и попадают друг другу в очередь: вход — по опросу (POLL_S=1), и под
@@ -522,9 +523,9 @@ rc="$(shim 8192 run --rm --memory 8192m img true)"; assert 0 "$rc" "границ
 echo "── сторож машины: перебор потолка обрывает МЛАДШИЙ слот, старший живёт"
 export HEAVY_SLOT_LIMIT_MIB=1300
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- sleep 6 2>"$W/errA" & A=$!
-sleep 1.2
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- sleep 6 2>"$W/errC" & C=$!
-sleep 1.2
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 2 ] && break; sleep 0.2; done
 mem 1400
 wait "$C"; rc_c=$?
 mem 1000
