@@ -1,0 +1,113 @@
+# Манифест изменения issue-3172 — посадка эпика kacho#3172 («identity-own ·
+# продолжение — находки имитации клиента и остаток долга») из ветки
+# `3172-identity-own-2` в `main` продукта, запрос эпика kacho#3227. Эпик —
+# продолжение kacho#1266 (пакет `docs/changes/issue-1266`); парный эпик службы
+# доступа — kaname#746 (пакет `docs/changes/kn-746`). Имя — по соглашению
+# `issue-<N>` пакетов эпиков продукта (`issue-1266`, `issue-2713`); форма пути
+# — `PACKAGE_PATH` в `scripts/change-graph-gate/applicability.py`.
+#
+# Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
+# ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/issue-1266/`
+# и `docs/changes/kn-746/` (ветка ws `1110-kn-746-package`).
+#
+# ПАКЕТ ЗАВЕДЁН ЗАРАНЕЕ — ГОЛОВА БУДЕТ ОБНОВЛЕНА ПРИ ПОСАДКЕ. Линия движется:
+# сборка волны 9 (kacho#3258, ветка 3258-w9-assembly) ещё не влита в ветку
+# эпика. Голова и база перемерены 2026-10-16 с origin на голове 71cef905
+# (merge #3254: второй фактор в консоли). Сдвинется голова — ВСЕ отпечатки ниже
+# станут отпечатками прежней линии; пересчёт — командами поля `remeasure`,
+# запись ревью на прежнем отпечатке новую линию не судит.
+#
+# ПИН СЛУЖБЫ ДОСТУПА. go.mod линии требует kaname cd796be94c69 — ревизию ветки
+# kaname `746` (`git merge-base --is-ancestor cd796be9 origin/746` → 0), не
+# `main` службы (→ 1). Посадка этой линии идёт после посадки kaname#820 и с
+# пином на ревизию его `main`; перенос пина сдвигает голову — см. выше.
+schema_version: 1
+change_id: issue-3172
+lifecycle_state: IMPLEMENTING
+
+# ПОЧЕМУ IMPLEMENTING. Волна 9 не влита в ветку эпика; записей держателей по
+# текущему отпечатку нет ни одной. Приёмка F8-S7 одобрена событием pointpu,
+# но в `main` воркспейса не влита (запрос ws#1111, ветка
+# `1095-f8-s7-security-settings`): набор приёмок назван на ревизии этой ветки.
+
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/3172
+  issue_kind: epic            # метки kacho#3172: epic · P1 · area:iam · release:identity-own-2
+  epic_pr: https://github.com/PRO-Robotech/kacho/pull/3227   # черновой запрос эпика 3172-identity-own-2 → main
+  previous_package: docs/changes/issue-1266   # эпик-предшественник kacho#1266 (посажен)
+  sibling_package: docs/changes/kn-746        # парный эпик службы доступа kaname#746
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: fffe597b2b01ddb3119bd312ec92f9a13cd3333d
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… fffe597b → 0
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      branch: '3172-identity-own-2'
+      base_sha: a95248464901b794c4c3309948676cc29150d0de   # origin/main @2026-10-16
+      head_sha: 71cef9055a584f03c67f74c1ff54faeca4bd02b3   # origin/3172-identity-own-2 @2026-10-16 (merge #3254), голова kacho#3227; БУДЕТ ОБНОВЛЕНА при посадке
+      head_is_final: false
+      merge_base_equals_base: true         # git merge-base a9524846 71cef905 → a9524846
+      commits_in_line: 105                 # git rev-list --count a9524846..71cef905
+      merges_in_line: 25                   # git rev-list --merges --count a9524846..71cef905
+      paths_in_diff: 176                   # git diff --name-only a9524846...71cef905 | wc -l
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… a9524846 → 0
+
+hashes:
+  # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818).
+  content_digest_sha256: a0af03f467d6601123827eca159d82c0ff8321a2d3947bfd40ecee937795a231
+  content_digest_predicate: >-
+    git diff --full-index a95248464901b794c4c3309948676cc29150d0de...71cef9055a584f03c67f74c1ff54faeca4bd02b3 | sha256sum
+
+  canonical_diff_set_sha256: a0ae36043d7aa9745981c9c70746e1af3ec62f785dda05ba780c9aa8c6fc34dc
+  canonical_diff_set_predicate: >-
+    git diff --raw --no-abbrev <base>...<head>
+    | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
+    | LC_ALL=C sort | sha256sum
+
+  holders_sha256: 9620e69933e4006ad362ec497a3d0b0a4484ab336f6324398459f482206c04aa
+
+  # Приёмки эпика живут в воркспейсе (`docs/specs/`), не в дереве продукта:
+  # дифф линии `docs/engineering/acceptance/` не трогает (0 путей). Отпечаток —
+  # НАБОРА документов (путь · blob на ревизии дома). Граница предиката: документ,
+  # не называющий ни kacho#3172, ни линии identity-own-2, в набор не попадёт —
+  # так, приёмки F8-S4, F8-S5, KA1, которые линия продолжает, принадлежат набору
+  # `issue-1266` и одобрены там. Записи ревью (`docs/specs/reviews/`) и замысел
+  # (`*-design.md`) в набор не входят.
+  acceptance_sha256: 5779c006683ba5e4c261ae4ba19b1ac6e8890f465f6ad6a11ed577c78c1cf178
+  acceptance_set_predicate: >-
+    git ls-tree <ws-rev> -- $(git grep -l -E 'kacho#3172|kacho/issues/3172([^0-9]|$)|identity-own-2' <ws-rev> -- 'docs/specs/*.md' ':!docs/specs/reviews/*' ':!docs/specs/*-design.md' | sed 's/^[^:]*://')
+    | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  # Ревизия — голова ветки ws `1095-f8-s7-security-settings` (запрос ws#1111),
+  # НЕ `main` воркспейса: на fffe597b тот же предикат даёт 0 документов. После
+  # вливания ws#1111 — перемерить на ревизии `main` (шаг 5 `remeasure`).
+  acceptance_set_rev: d7c42384db1936b8be26d8c7efd4145a2615d3e7
+  acceptance_set_count: 1
+  acceptance_set:
+    - docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md   # sha256 559ae688…, APPROVED (pointpu)
+
+  # Документа замысла предикат по `docs/specs/*-design.md` той же ревизии не
+  # находит (0), в диффе линии `*-design.md` нет (0): отсутствие заявлено
+  # предикатом реестра, а не пустым полем.
+  design_sha256: null
+  design_absence_predicate: no-design-document-in-change
+
+# Пересчёт после сдвига линии. Шаги 1–4 меняют coordinates и hashes этого
+# файла; шаг 5 — набор приёмок на ревизии дома; шаг 6 — числа освобождений в
+# holders.yaml; после правки holders.yaml — шаг 7 в hashes.holders_sha256.
+# Запись ревью переносится на новый отпечаток только новым событием роли, не
+# переименованием файла.
+remeasure:
+  - git -C "$KACHO_HOME_KACHO" fetch origin
+  - B=$(git -C "$KACHO_HOME_KACHO" rev-parse origin/main); H=$(git -C "$KACHO_HOME_KACHO" rev-parse origin/3172-identity-own-2); git -C "$KACHO_HOME_KACHO" merge-base "$B" "$H"
+  - git -C "$KACHO_HOME_KACHO" diff --full-index "$B"..."$H" | sha256sum
+  - git -C "$KACHO_HOME_KACHO" diff --raw --no-abbrev "$B"..."$H" | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}' | LC_ALL=C sort | sha256sum
+  - W=$(git rev-parse origin/main); git ls-tree "$W" -- $(git grep -l -E 'kacho#3172|kacho/issues/3172([^0-9]|$)|identity-own-2' "$W" -- 'docs/specs/*.md' ':!docs/specs/reviews/*' ':!docs/specs/*-design.md' | sed 's/^[^:]*://') | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  - for f in migrations_touched proto_files_touched design_documents_referenced lane_merges_in_change; do python3 scripts/change-graph-gate/applicability.py field $f --package docs/changes/issue-3172 --rev HEAD; done
+  - sha256sum docs/changes/issue-3172/holders.yaml
+
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  holders: docs/changes/issue-3172/holders.yaml
+  reviews_root: docs/changes/issue-3172/reviews/
