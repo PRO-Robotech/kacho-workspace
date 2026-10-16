@@ -1,0 +1,89 @@
+# Манифест изменения kn-746 — посадка эпика kaname#746 («identity-own —
+# продолжение: находки имитации клиента и остаток долга») из ветки `746` в
+# `main` службы доступа, запрос эпика kaname#820. Внутри линии — анонимный и
+# аутентифицированный субъект как системные классы (kaname#829) и второй фактор,
+# в том числе подтверждение ключом доступа без пароля (kaname#827). Имя — по
+# соглашению `kn-<N>` соседних пакетов службы доступа (`docs/changes/kn-*`).
+#
+# Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
+# ролей и держатели — в `holders.yaml`. Образец формы — `docs/changes/kn-296/`.
+#
+# ЛИНИЯ ЗАМОРОЖЕНА решением диспетчера до посадки kaname#820 (сборка волны 9
+# в ветку 746 не вливается). Голова и база перемерены 2026-10-16 с origin.
+# Сдвинется голова — ВСЕ отпечатки ниже станут отпечатками прежней линии.
+# Пересчёт — командами поля `remeasure`.
+#
+# РЕПОЗИТОРИЯ PRO-Robotech/kaname НЕТ в `docs/changes/policy.yaml` §1 (cutover
+# назван только у kacho-workspace и kacho): освобождение по полю о дереве
+# продукта производитель `applicability.py` для этого пакета не пересчитает.
+# Здесь ни одно такое освобождение не нужно: все три поля
+# (`migrations_touched`, `proto_files_touched`, `lane_merges_in_change`) больше нуля.
+schema_version: 1
+change_id: kn-746
+lifecycle_state: IMPLEMENTING
+
+coordinates:
+  issue: https://github.com/PRO-Robotech/kaname/issues/746
+  issue_kind: epic            # метки kaname#746: P1 · area:iam · epic · release:identity-own-2
+  epic_pr: https://github.com/PRO-Robotech/kaname/pull/820   # черновой запрос эпика 746 → main
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: 635cf54c0cbf9c2f61678b191ffe40ce9e30f9b0
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 635cf54c → 0
+    - repo: PRO-Robotech/kaname
+      role: subject-tree
+      branch: '746'
+      base_sha: bbbe33524c4ae501d4ea14d2d9747f300d057a99   # origin/main @2026-10-16
+      head_sha: 81fa3e1234d04beff1b546aec8056b0c9ec37efc   # origin/746 @2026-10-16, голова kaname#820
+      merge_base_equals_base: true         # git merge-base bbbe3352 81fa3e12 → bbbe3352
+      commits_in_line: 156                 # git rev-list --count bbbe3352..81fa3e12
+      merges_in_line: 27                   # git rev-list --merges --count bbbe3352..81fa3e12
+      paths_in_diff: 279                   # git diff --name-only bbbe3352...81fa3e12 | wc -l
+      cutover_in_policy: false             # policy.yaml §1 не называет PRO-Robotech/kaname
+
+hashes:
+  # Форма — `--full-index` (scripts/change-graph-gate/check-05, ws#818).
+  content_digest_sha256: 13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c
+  content_digest_predicate: >-
+    git diff --full-index bbbe33524c4ae501d4ea14d2d9747f300d057a99...81fa3e1234d04beff1b546aec8056b0c9ec37efc | sha256sum
+
+  canonical_diff_set_sha256: c17e79f09c6b83d01835a609dd94d38c640d1f8d5f80688e1ed953fa9ca86410
+  canonical_diff_set_predicate: >-
+    git diff --raw --no-abbrev <base>...<head>
+    | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}'
+    | LC_ALL=C sort | sha256sum
+
+  holders_sha256: 213c7026944bf9f38e499e91c0c8da0dc0f0c9bba5d0689ba69e93814d5ac994
+
+  # Приёмки и замысел эпика лежат в ДЕРЕВЕ ПРОДУКТА (`docs/engineering/acceptance/`)
+  # и входят в его дифф. Отпечаток — НАБОРА документов (путь · blob на голове):
+  # добавленные и изменённые линией; замысел — по суффиксу `-design.md`.
+  acceptance_sha256: 467c55b47ccce65ae977711c4d5644a6fd0981dec8a62fe4f893fd878a471f90
+  acceptance_set_predicate: >-
+    git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*' | grep -v -- '-design\.md$')
+    | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  acceptance_set_count: 6
+  design_sha256: 08488f09b19b15876cb5dcd25e2f85bdf998d2d50d9ba4d2c51ae02f05b01a4b
+  design_set_predicate: >-
+    git ls-tree <head> -- $(git diff --name-only --diff-filter=AM <base>...<head> -- 'docs/engineering/acceptance/*-design.md')
+    | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | LC_ALL=C sort | sha256sum
+  design_set:
+    - docs/engineering/acceptance/step-up-with-any-enrolled-method-design.md
+
+# Пересчёт после сдвига линии. Шаги 1–4 меняют coordinates и hashes этого файла
+# (наборы документов — их предикатами выше на новой паре); после правки
+# holders.yaml — шаг 5 в hashes.holders_sha256. Запись ревью переносится на новый
+# отпечаток только новым событием роли, не переименованием файла.
+remeasure:
+  - git -C "$KACHO_HOME_KANAME" fetch origin
+  - B=$(git -C "$KACHO_HOME_KANAME" rev-parse origin/main); H=$(git -C "$KACHO_HOME_KANAME" rev-parse origin/746); git -C "$KACHO_HOME_KANAME" merge-base "$B" "$H"
+  - git -C "$KACHO_HOME_KANAME" diff --full-index "$B"..."$H" | sha256sum
+  - git -C "$KACHO_HOME_KANAME" diff --raw --no-abbrev "$B"..."$H" | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kaname\t" $2 "\t" a[2] "\t" a[4]}' | LC_ALL=C sort | sha256sum
+  - sha256sum docs/changes/kn-746/holders.yaml
+
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  holders: docs/changes/kn-746/holders.yaml
+  reviews_root: docs/changes/kn-746/reviews/
