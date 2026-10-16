@@ -1,0 +1,78 @@
+# Пост-дифф ревью контрактов — роль proto-api-reviewer, эпик kaname#746 → main
+# (PR #820, черновик). Вердикт на дайджест эпика целиком, включая стыки полос
+# kaname#829 (системный класс), #752/#823/#806 (шапка и поля SAKeyService).
+# Запись не правится: вердикт привязан к отпечатку.
+schema_version: 1
+change_id: kn-746
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+mode: review
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "746"
+  base: bbbe33524c4ae501d4ea14d2d9747f300d057a99
+  head: 81fa3e1234d04beff1b546aec8056b0c9ec37efc
+  files_touched: 279
+content_digest: sha256:13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c
+digest_command: git diff --full-index bbbe33524c4ae501d4ea14d2d9747f300d057a99...81fa3e1234d04beff1b546aec8056b0c9ec37efc | sha256sum
+digest_match: true
+verdict: returned
+proto_files_touched: 7
+proto_files:
+  - proto/kaname/cloud/iam/v1/access_binding.proto
+  - proto/kaname/cloud/iam/v1/access_binding_service.proto
+  - proto/kaname/cloud/iam/v1/authorize_service.proto
+  - proto/kaname/cloud/iam/v1/credential_kind.proto
+  - proto/kaname/cloud/iam/v1/internal_iam_service.proto
+  - proto/kaname/cloud/iam/v1/internal_module_service.proto
+  - proto/kaname/cloud/iam/v1/sa_key_service.proto
+checks:
+  - command: buf lint   # дерево головы извлечено git archive в каталог сессии, рабочая копия не тронута
+    rc: 0
+    outcome: green
+  - command: buf breaking --against <дерево базы bbbe3352, git archive>   # набор FILE из proto/buf.yaml
+    rc: 0
+    outcome: green
+  - command: git diff-tree --cc -p <каждое из 27 слияний base..head> -- proto
+    rc: 0
+    outcome: green   # 0 строк: ни одно слияние не вносит своих правок в proto
+breaking_changes: []   # единственное изменение формы — новое значение SUBJECT_TYPE_SYSTEM_CLASS = 4 (аддитивно)
+internal_surface:
+  internal_methods_without_external_http: true   # в диффе новых RPC и аннотаций нет
+  infra_fields_on_public_messages: []
+evidence:
+  - "форма: новых RPC, полей, сообщений нет; Get/List/мутации не тронуты; envelope, Upsert, Watch не появились"
+  - "SUBJECT_TYPE_SYSTEM_CLASS имеет читателей: api/access_binding/subject_proto.go:30, dto/toproto/access_binding.go:119, domain/types.go:281"
+  - "закрытый словарь anonymous|authenticated: domain/system_class.go validateSystemClassName"
+  - "классу только чтение: access_binding/system_class_gates.go:116, role/update.go:217, reconcile_adapter.go:357, БД kaname.role_grants_reads_only (миграция 20261015120000)"
+  - "system_class:authenticated говорящим отвергается: domain.SpeakerRefusal зовут authorize_service.go:496 (Check/BatchCheck) и :755 (CheckRelation, путь InternalIAMService.Check)"
+  - "subject_pattern как литерал: проверка уже на базе (domain/service_account_oauth_client.go:121), дифф подгоняет комментарий под код; стабы pkg/api перегенерированы (sa_key_service.pb.go:229)"
+findings:
+  - id: PAR-746-01
+    severity: critical
+    class: contract-text-contradicts-behavior   # ban19-block-criterion: текст, вводящий в заблуждение о корректности
+    where:
+      - proto/kaname/cloud/iam/v1/authorize_service.proto:27-29
+      - proto/kaname/cloud/iam/v1/authorize_service.proto:217-219
+      - proto/kaname/cloud/iam/v1/internal_iam_service.proto:311-312
+    summary: >-
+      Контракт обещает INVALID_ARGUMENT говорящему `user:*`. На голове `user:*` принимается
+      и получает ответ как `system_class:anonymous`: domain.SpeakerRefusal пропускает его,
+      domain.SpeakerClasses отображает его в анонима, и проба internal/domain/system_class_test.go:51
+      закрепляет приём. Приёмка anonymous-and-authenticated-are-subject-classes.md:473-487
+      относит отказ (SC-15) к полосе L6 (kaname#832), а в этом изменении предписывает переход.
+      В main уезжает контракт, описывающий конечное состояние L6 как действующее.
+    predicate: >-
+      git -C project/kaname show 81fa3e12:internal/domain/system_class_test.go | grep -n '"user:\*", ""'
+      → 1 строка (отказа нет), против
+      git -C project/kaname grep -n 'wildcard .user:\*. is a speaker\|"user:\*" are not speakers\|"user:\*" говорящими не бывают' 81fa3e12 -- proto
+      → 3 строки (отказ обещан)
+    fix: >-
+      Переписать три комментария: `system_class:authenticated` → INVALID_ARGUMENT; `user:*`
+      ПЕРЕХОДНО отвечается как `system_class:anonymous` до посадки отказа SC-15 (kaname#832),
+      затем INVALID_ARGUMENT. Перегенерировать pkg/api. Код и пробы не менять.
+    return_to: proto-sync
+notes_non_blocking:
+  - "authorize_service.proto:250 и :417 ещё называют каскад `cluster.viewer (user:*)`; после миграции факт записан на system_class:authenticated. Смысл («любой вошедший») верен, написание устарело; править тем же заходом, что PAR-746-01"
+  - "proto/corelib/authz/v1/authz_options.proto:168 — то же написание `user:*`; файл вне диффа и принадлежит corelib, правка — там"
+  - "имя поля subject_pattern теперь хранит литерал; переименование посаженного поля запрещено — комментарий это объясняет, исход верный"
