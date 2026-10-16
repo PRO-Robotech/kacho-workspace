@@ -230,33 +230,36 @@ apierr() { head -c 300 "$W/api.err" | tr '\n' ' '; }
 # Подставной gh (CI_READ_GH) получает условное чтение, только заявив его
 # CI_READ_GH_CONDITIONAL=1: заглушки чужих проб (check-09, landing-precheck-inject)
 # форм `-i`/`-H` не знают, а свой кэш в доме пользователя им не положен.
+# Кэш — каталог 0700 и мой: в него не пишет никто другой, поэтому файл судится лишь
+# каталогом (одна проверка на чтение, а не на каждый ответ). Файлы — umask 077.
 EC=""; CONDN=0; CONDHIT=0
+umask 077
 if { [ -z "${CI_READ_GH:-}" ] || [ "${CI_READ_GH_CONDITIONAL:-0}" = 1 ]; } \
-    && (umask 077; mkdir -p "$STATE_DIR/etag") 2>/dev/null \
-    && [ "$(stat -c '%u %a' "$STATE_DIR" "$STATE_DIR/etag" 2>/dev/null | tr '\n' ' ')" = "$(id -u) 700 $(id -u) 700 " ]; then
+    && mkdir -p "$STATE_DIR/etag" 2>/dev/null \
+    && [ "$(stat -c '%u %a' "$STATE_DIR" "$STATE_DIR/etag" 2>/dev/null)" = "$EUID 700"$'\n'"$EUID 700" ]; then
     EC="$STATE_DIR/etag"
 fi
 apic() {  # apic <путь> — тело в stdout; 304 — тело из кэша; без кэша — api
     local p="$1" f e st rc hdr=()
     [ -n "$EC" ] || { api "$p"; return; }
     CONDN=$((CONDN + 1))
-    f="$EC/$(printf '%s\n%s' "${GH_HOST:-github.com}" "$p" | sha256sum | cut -c1-40)"
-    if [ -f "$f" ] && [ "$(stat -c '%u %a' "$f" 2>/dev/null)" = "$(id -u) 600" ]; then
-        hdr=(-H "If-None-Match: $(head -n 1 "$f")")
-    fi
+    f="${GH_HOST:-github.com}/$p"; f="${f//_/__}"; f="$EC/${f//[^A-Za-z0-9._=-]/_}"   # совпадение имён безопасно: 304 — лишь при том же ETag
+    if [ -f "$f" ] && IFS= read -r e < "$f"; then hdr=(-H "If-None-Match: $e"); fi
     "$GH" api -i "${hdr[@]}" "$p" > "$W/c.raw" 2>"$W/api.err"; rc=$?
-    st="$(head -n 1 "$W/c.raw" | tr -d '\r')"
+    IFS= read -r st < "$W/c.raw"; st="${st%$'\r'}"
     case "$st" in
         HTTP/*' 304'*)
             [ "${#hdr[@]}" -gt 0 ] || return 1
-            CONDHIT=$((CONDHIT + 1)); tail -n +2 "$f"; return 0 ;;
+            CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0 ;;
         HTTP/*)
-            awk 'b {print; next} /^\r?$/ {b = 1}' "$W/c.raw" > "$W/c.body"
-            if [ "$rc" -eq 0 ]; then
-                e="$(awk '/^\r?$/ {exit} tolower($0) ~ /^etag:/ {sub(/^[^:]*:[ \t]*/, ""); sub(/\r$/, ""); print; exit}' "$W/c.raw")"
-                [ -z "$e" ] || (umask 077; { printf '%s\n' "$e"; cat "$W/c.body"; } > "$f.$$" && mv -f "$f.$$" "$f")
+            # одним проходом: тело — в c.body, ETag заголовка — в stdout
+            e="$(awk -v out="$W/c.body" 'b {print > out; next} /^\r?$/ {b = 1; printf "" > out; next}
+                !b && tolower($0) ~ /^etag:/ {sub(/^[^:]*:[ \t]*/, ""); sub(/\r$/, ""); print}' "$W/c.raw")"
+            [ -f "$W/c.body" ] || : > "$W/c.body"
+            if [ "$rc" -eq 0 ] && [ -n "$e" ]; then
+                { printf '%s\n' "$e"; cat "$W/c.body"; } > "$f.$$" && mv -f "$f.$$" "$f"
             fi
-            cat "$W/c.body"; return "$rc" ;;
+            cat "$W/c.body"; rm -f "$W/c.body"; return "$rc" ;;
         *) cat "$W/c.raw"; return "$rc" ;;   # gh без -i (двойник иной пробы): весь вывод — тело
     esac
 }

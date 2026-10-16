@@ -652,7 +652,7 @@ red-wins-while-running	/^if \[ "$REDN" -gt 0 \] \&\& ! has/s/ \&\& ! has "$PEND"
 rate-limit-dropped	/^if ! RL="$(gh_rate_short/s/if ! RL=/if false \&\& ! RL=/
 both-forms-checkrun-wins	/| if (\$bad | length) > 0 then \$bad\[0\] elif/s/if (\$bad | length) > 0 then \$bad\[0\] elif (\$open | length) > 0/if false then $bad[0] elif false/
 etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
-etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& \[ "\$(stat/,/^    fi$/s/hdr=(-H "If-None-Match: \$(head -n 1 "\$f")")/hdr=(-H "If-None-Match: $(head -n 1 "$f")"); CONDHIT=$((CONDHIT + 1)); tail -n +2 "$f"; return 0/
+etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& IFS= read -r e/s/then hdr=(-H "If-None-Match: \$e"); fi/then CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0; fi/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in $TRUNKS; do
