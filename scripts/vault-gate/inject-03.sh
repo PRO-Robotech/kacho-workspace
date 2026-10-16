@@ -3,8 +3,8 @@
 # СПОСОБЕН смолчать.
 #
 # Контроли, и почему именно они:
-#   1. записка без состояния в категории, где оно обязательно → код 1 и названа
-#      координата;
+#   1. урок под чужой категорией → код 1 и названа координата; 1а — то же в
+#      замороженном архиве → молчание (судятся только `lessons/`, `runbooks/`);
 #   2. состояние вне словаря (`status: живо` вместо канонического значения) →
 #      код 1: неизвестное значение проходит фильтры срезов молча, и это опаснее
 #      отсутствующего;
@@ -56,26 +56,42 @@ expect_silent_about() {
         *) echo "[inject OK]   $name (про $needle гейт молчит)"; ok=$((ok + 1)) ;; esac
 }
 
-# --- (1) Записка ресурса без состояния.
-d="$(setup_tree no_status)"
-cat > "$d/obsidian/kacho/resources/zz-inject-no-status.md" <<'EOF'
+# --- (1) Урок с чужой категорией.
+d="$(setup_tree bad_category)"
+cat > "$d/obsidian/kacho/lessons/zz-inject-bad-category.md" <<'EOF'
 ---
-title: "инъекция: ресурс без состояния"
+title: "инъекция: урок под чужой категорией"
 category: resource
 ---
 # инъекция
 EOF
 git -C "$d" add -A >/dev/null 2>&1
 out="$(run_on "$d")"; code=$?
-expect_code "записка без состояния поймана" 1 "$code" "$out"
-expect_names "гейт назвал координату" "zz-inject-no-status.md" "$out"
+expect_code "урок с чужой категорией пойман" 1 "$code" "$out"
+expect_names "гейт назвал координату" "zz-inject-bad-category.md" "$out"
+
+# --- (1а) Законный близнец СУЖЕНИЯ: та же чужая категория в замороженном архиве
+# — архив не правится и не судится.
+d="$(setup_tree frozen_twin)"
+cat > "$d/obsidian/kacho/resources/zz-inject-frozen.md" <<'EOF'
+---
+title: "инъекция: ресурс под чужой категорией в архиве"
+category: lesson
+status: живо
+---
+# инъекция
+EOF
+git -C "$d" add -A >/dev/null 2>&1
+out="$(run_on "$d")"; code=$?
+expect_code "законный близнец: архив не судится" 0 "$code" "$out"
+expect_silent_about "законный близнец: гейт про архив молчит" "zz-inject-frozen.md" "$out"
 
 # --- (2) Состояние вне словаря.
 d="$(setup_tree bad_status)"
-cat > "$d/obsidian/kacho/resources/zz-inject-bad-status.md" <<'EOF'
+cat > "$d/obsidian/kacho/lessons/zz-inject-bad-status.md" <<'EOF'
 ---
 title: "инъекция: состояние вне словаря"
-category: resource
+category: lesson
 status: живо
 ---
 # инъекция
@@ -87,10 +103,10 @@ expect_names "гейт назвал координату" "zz-inject-bad-status.
 
 # --- (3) Законный близнец A: полная оболочка.
 d="$(setup_tree twin_full)"
-cat > "$d/obsidian/kacho/resources/zz-inject-twin-full.md" <<'EOF'
+cat > "$d/obsidian/kacho/lessons/zz-inject-twin-full.md" <<'EOF'
 ---
 title: "инъекция: полная оболочка"
-category: resource
+category: lesson
 status: stable
 verified_against: "инъекция"
 ---
@@ -104,7 +120,7 @@ expect_silent_about "законный близнец: гейт про него �
 # --- (4) Законный близнец B: витрина категории без состояния.
 d="$(setup_tree twin_showcase)"
 mkdir -p "$d/obsidian/kacho/zzcat"
-cat > "$d/obsidian/kacho/resources/all-zz-inject.md" <<'EOF'
+cat > "$d/obsidian/kacho/lessons/all-zz-inject.md" <<'EOF'
 ---
 title: "инъекция: витрина без состояния"
 category: hub

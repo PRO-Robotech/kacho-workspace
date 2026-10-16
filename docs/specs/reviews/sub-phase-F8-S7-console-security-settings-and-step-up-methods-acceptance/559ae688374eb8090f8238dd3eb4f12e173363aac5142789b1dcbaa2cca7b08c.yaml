@@ -1,0 +1,96 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md
+  sha256: 559ae688374eb8090f8238dd3eb4f12e173363aac5142789b1dcbaa2cca7b08c
+  static_status: DRAFT
+  static_status_note: >-
+    Слово DRAFT в шапке документа — статическая форма объявления; шапка не правлена намеренно
+    (change-graph.md §2). Действующий вердикт о редакции 559ae688… — эта запись.
+  base_commit: 86527cd8656af31e46e85931f371b4787842c911
+  content_commit: 7bfecf85bf9e99cfb5d752f116e13ac2e5e02df8
+  branch: 1095-f8-s7-security-settings
+  task: PRO-Robotech/kacho-workspace#1095
+  implementation_task: PRO-Robotech/kacho#3230
+  lines: 512
+  round: 2
+  round_note: >-
+    Не новый круг: проверка исполнения решения диспетчера (flow-acceleration.md fa-b8, круг 2 последний) —
+    вариант (а) блокирующего записи круга 2. Судится только дельта к f8020c3f….
+  predecessor_record: docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e.yaml
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance.md
+  neighbour_pin_note: >-
+    Опора — SUA редакция 2 c9224c8b… (git -C project/kaname show 827:docs/engineering/acceptance/step-up-with-any-enrolled-method.md
+    | sha256sum → c9224c8b… — совпал, 827 = d81466bfb). Вердикт SUA на c9224c8b… — отдельная запись в kaname@827.
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-14T19:27:38Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  allowlisted_for_role: false
+effective_approval:
+  issued: true
+  issued_at: "2026-10-14T19:49:50Z"
+event:
+  type: issue_comment
+  target: PRO-Robotech/kacho-workspace#1095
+  status: performed
+  published: true
+  database_id: 6176972601
+  node_id: "IC_kwDOSVvpIM8AAAABcC0fOQ"
+  url: "https://github.com/PRO-Robotech/kacho-workspace/issues/1095#issuecomment-6176972601"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/6176972601"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-14T19:49:50Z"
+  body_sha256: "7c78e633ed6db50ba64ce0c28e400b13b0c9e52f0adc0e8f083a0596ddece19f"
+  subject_sha256: "559ae688374eb8090f8238dd3eb4f12e173363aac5142789b1dcbaa2cca7b08c"
+  subject_revision_commit: "7bfecf85bf9e99cfb5d752f116e13ac2e5e02df8"
+  verdict: "APPROVED"
+  publication_mode: "manual (approval-event.sh: issued: false before event breaks edited_record)"
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/968ca02c3c10e71b4965ba2b257582f60931c6bc5f482a53486b800893aa09a8.yaml
+    - docs/specs/reviews/sub-phase-F8-S7-console-security-settings-and-step-up-methods-acceptance/f8020c3ffd92ca6e8e8fab933b7da33be8042012ce56d99bb238f6668e50397e.yaml
+delta:
+  predicate: >-
+    git diff 86527cd86 7bfecf85b --stat → 1 файл, +8 −3; git show 86527cd86:<путь> | sha256sum → f8020c3f… (база дельты совпала).
+  hunks:
+    - "История review: +2 строки (круг 2 и пометка правки редакции 3) — допустимо, история дописывается."
+    - "§8 п.3: положительный newman-кейс F8-S7-80 заменён на вариант (а) записи круга 2 — других правок нет."
+  extra_changes: none
+round_2_closure:
+  - kind: CONSTRUCTIBILITY
+    where: "F8-S7-80 «Дано» в newman (§8 п.3)"
+    status: closed
+    evidence: >-
+      Текст совпадает с вариантом (а): Ф-п без ключа → 400, code 9, ACCESS_KEY_NOT_REGISTERED,
+      «no access key is registered: register an access key first» (производитель — SUA-21; Р5 SUA ред. 2 условие —
+      «годных ключей ноль», от наличия кода не зависит: d81466bfb:…step-up-with-any-enrolled-method.md:193);
+      близнец — Ф-н тем же запросом → 403, code 7, EMAIL_NOT_VERIFIED; отличающий факт один — подтверждён ли адрес;
+      200 с allowCredentials — за браузерной F8-S7-21 (п.4).
+    fixture: >-
+      tests/authz-fixtures/verified_human.py @kacho 8514270c4 — KIND_VERIFIED = "Ф-п" (:73), KIND_UNVERIFIED = "Ф-н" (:74),
+      register (:300), подтверждение verify-email/confirm (шаг 3, только Ф-п). Оба «Дано» строит она.
+non_blocking:
+  - >-
+    Ретрансляция 400 ACCESS_KEY_NOT_REGISTERED предполагает непустой перечень происхождений на стенде прогона;
+    при «выкл» служба ответит ACCESS_KEYS_DISABLED (SUA Р7) — профиль стенда newman назвать при реализации кейса.
+checks:
+  constructibility: >-
+    Фикстура названа и существует @8514270c4 (см. fixture). Посев не выполнялся — стенд заданием не назван:
+    посеяно 0 из 2, не выполнилось 2.

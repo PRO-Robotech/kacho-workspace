@@ -545,8 +545,8 @@ expect_fires_dead "она же вверх — на цель, которой в �
   'Соседняя глава — `../ARCHITECTURE.md`.' 'services/vpc/docs/ARCHITECTURE.md' \
   services/vpc/docs/ARCHITECTURE.md
 expect_silent_live "относительный путь под подразумеваемым корнем" b4.md \
-  'Хук напоминания — `hooks/vault-reminder.sh`.' 'hooks/vault-reminder.sh' \
-  '.claude/hooks/vault-reminder.sh'
+  'Хук застоя — `hooks/stall-signal.sh`.' 'hooks/stall-signal.sh' \
+  '.claude/hooks/stall-signal.sh'
 expect_fires_dead "тот же хвост под НЕВЕРНЫМ корнем всё равно краснеет" b5.md \
   'Скрипт `bin/sync-tooling.sh` синхронизирует копии.' 'sync-tooling.sh' \
   'sync-tooling.sh'

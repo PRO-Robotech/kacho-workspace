@@ -12,24 +12,12 @@ import vaultlib as V  # noqa: E402
 
 CHECK = "у записки есть оболочка: назначение, категория, состояние"
 
-# Каталог → категория, которую записка обязана объявить. Выведено из раскладки
-# хранилища: категория — это и есть каталог верхнего уровня.
-DIR_CATEGORY = {
-    "resources": "resource",
-    "rpc": "rpc",
-    "packages": "packages",
-    "edges": "edge",
-    "KAC": "kac",
-    "lessons": "lesson",
-    "runbooks": "runbook",
-    "docs": "docs",
-    "legacy": "legacy",
-}
-
-# Категории, где записка описывает СУЩНОСТЬ ПРОДУКТА и потому обязана объявить
-# состояние. Журнал, уроки и процедуры от этого требования свободны: их предмет
-# не «живёт» и не «снимается» вместе с деревом.
-STATUS_REQUIRED = {"resources", "rpc", "packages", "edges"}
+# Каталог → категория, которую записка обязана объявить: категория — это каталог
+# верхнего уровня. Судятся только ведомые каталоги (`vaultlib.ACTIVE`); архив
+# заморожен 2026-10-16 и не правится, значит и не судится. Состояние у
+# уроков и процедур не обязательно — их предмет не «живёт» вместе с деревом, — но
+# объявленное обязано быть из словаря.
+DIR_CATEGORY = {"lessons": "lesson", "runbooks": "runbook"}
 
 
 def vocabulary(root: str) -> set[str]:
@@ -53,9 +41,9 @@ def is_showcase(rel: str) -> bool:
 def main() -> int:
     root = V.workspace_root(__file__)
     files = V.vault_files(root)
-    notes = V.notes(files)
+    notes = V.active(V.notes(files))
     if not notes:
-        print(f"[VOID] {CHECK} — в индексе git нет ни одной записки хранилища", file=sys.stderr)
+        print(f"[VOID] {CHECK} — в индексе git нет ни одной записки ведомых каталогов {V.ACTIVE}", file=sys.stderr)
         return 2
 
     vocab = vocabulary(root)
@@ -89,10 +77,8 @@ def main() -> int:
         status = fm.get("status", "")
         if status and status not in vocab:
             findings.append(f"{rel}: `status: {status}` вне словаря {sorted(vocab)}")
-        elif not status and top in STATUS_REQUIRED and not is_showcase(rel):
-            findings.append(f"{rel}: нет `status` — записка не попадёт ни в один срез по состоянию")
 
-    scope = f"осмотрено записок {examined} из {len(notes)}; словарь состояний из CLAUDE.md — {len(vocab)} значений"
+    scope = f"осмотрено записок {examined} из {len(notes)} ведомых ({', '.join(V.ACTIVE)}; архив заморожен); словарь состояний из CLAUDE.md — {len(vocab)} значений"
     if findings:
         print(f"[FAIL] {CHECK} — {scope}; находок {len(findings)}", file=sys.stderr)
         for f in findings[:40]:
