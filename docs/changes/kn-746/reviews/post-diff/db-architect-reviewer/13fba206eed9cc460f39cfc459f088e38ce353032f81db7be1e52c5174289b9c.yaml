@@ -1,0 +1,62 @@
+# Пост-дифф ревью схемы — роль db-architect-reviewer, эпик kaname#746 → main
+# (PR #820). Вердикт на дайджест эпика целиком; записи полос (kn-827, kn-829,
+# kn-776) — вход, стыки полос и места слияний судятся здесь.
+# Запись не правится: вердикт привязан к отпечатку.
+schema_version: 1
+change_id: kn-746
+holder: post-diff/db-architect-reviewer
+owner: db-architect-reviewer
+mode: review
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: "746"
+  base: bbbe33524c4ae501d4ea14d2d9747f300d057a99
+  head: 81fa3e1234d04beff1b546aec8056b0c9ec37efc
+  files_touched: 279
+content_digest: sha256:13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c
+digest_command: git diff --full-index bbbe33524c4ae501d4ea14d2d9747f300d057a99...81fa3e1234d04beff1b546aec8056b0c9ec37efc | sha256sum
+digest_match: true
+verdict: accepted
+migrations_touched: 5
+migrations:
+  - internal/migrations/20261015100000_step_up_challenge_is_bound_to_the_session.sql      # #827
+  - internal/migrations/20261015100100_second_factor_method_carries_its_last_use.sql      # #827
+  - internal/migrations/20261015110000_access_key_discoverability_is_stored.sql           # #776/#786 через сборку #834
+  - internal/migrations/20261015120000_anonymous_and_authenticated_are_subject_classes.sql # #829
+  - internal/migrations/20261015140000_subject_class_fact_is_a_read.sql                   # #829/#838
+sql_paths_note: >-
+  .sql в диффе ровно 5 (git diff --name-only … | grep -c '\.sql$' → 5); число
+  «миграции и .sql 12» задания считает и 7 *_integration_test.go каталога
+  internal/migrations — это пробы, не DDL.
+repo_sql_touched: 40   # internal/repo/** в диффе, включая пробы
+stitch_check:
+  method: >-
+    каждый DDL/repo-SQL файл головы эпика сравнён git diff --quiet с головой
+    полосы, на которую стоит запись роли
+  results:
+    - "827 @a467531b8 (запись 930e24a5…, accepted): обе миграции 827, access_key_step_up_repo.go, login_method_repo.go — побайтно те же; human_session_repo.go — дельта только комментарий (027598e26, #776)"
+    - "829 @80bf20700 (запись 36ad945e…, accepted, сменила returned b61b5c56…): 120000, 140000, system_class_repo.go, reconcile_adapter.go, pgmaperr.go — те же; DB-829-T1 исполнен — CHECK relation_fact_subject_not_wildcard и access_binding_emitted_tuples_user_not_wildcard в 120000"
+    - "776 @21417fc6e (запись 31ad4c0f…, accepted): recovery_code_repo.go тот же; миграция признака обнаружимости переименована сборкой 834 130000 → 110000 (afff871ab, 0 строк содержимого), ни в одном стволе не применялась (в main её нет)"
+evidence:
+  - "порядок: пять новых файлов, все старше последней миграции base (20261012120000_address_claimed_…); 110000 не трогает relation_fact/access_binding*, 120000/140000 не трогают user_access_keys — перестановка имён стыка безопасна; применённых правок нет (все пять — A)"
+  - "goose: Up/Down во всех пяти; многоинструкционные блоки 110000/120000/140000 обёрнуты StatementBegin/End"
+  - "стык 0001→120000: тело relation_fact_fold_row в Down 120000 побайтно равно последнему определению base (20261011120000, без строк-комментариев); Up отличается ровно веткой v_stored снятия подстановки — построено на свежей базе, а не на 0001"
+  - "within-service: одно живое испытание на сессию — частичный UNIQUE (session_id) WHERE consumed_at IS NULL; FK session_id → human_sessions ON DELETE CASCADE в той же базе; CHECK inline с CREATE TABLE; last_used_at — CHECK по kind; discoverability — CHECK трёх значений"
+  - "Р4 «классу только чтение» держится с двух сторон замком строки роли: выдача — триггер access_binding_subjects_class_reads_only_trg (roles FOR SHARE), правка — GuardSystemClassReads (roles FOR NO KEY UPDATE, затем EXISTS под замком) — единственный путь смены правил, update.go:280; поле permissions на вход неизменяемо (update.go:61-62), обойти стража маской нельзя; задним рубежом — CHECK relation_fact_subject_class_reads_only"
+  - "переезд user:* → классы: выдачи и записанные кортежи выдач — authenticated (единственный прежний писатель — viewer на cluster, 0001_initial.sql:3161), факты v_get — anonymous (публикация); DO-блок после переписи отказывает с числами"
+  - "отображение кодов: 23000 с CONSTRAINT access_binding_subjects_system_class_reads_only → фиксированный текст службы по DETAIL=role id (pgmaperr.go), текст драйвера наружу не выходит"
+  - "через границу: новых FK в чужую базу нет; human_sessions, roles, access_bindings — своя схема kaname"
+concurrent_probe:
+  - "одно живое испытание и однократное погашение: TestAccessKeyStepUpRepo_ConcurrentIssuesLeaveOneLive, …_ConsumeRaceHasOneWinner"
+  - "выдача классу против правки роли, оба порядка с построенным чередованием и близнецом: system_class_role_edit_race_integration_test.go"
+  - "уборка кодов восстановления SKIP LOCKED: recovery_code_sweep_lock_order_integration_test.go"
+  - "наличие прочитано в дереве @81fa3e12; зелёный на голове эпика мной не перемерен: gh pr checks 820 на момент записи — интеграция 3 шарда pending, сводные вердикты fail как следствие незавершённых"
+findings: []
+notes_non_blocking:
+  - "DB-776-I1 (из полосы, не исполнен): 110000 снимает DEFAULT тем же накатом — окно выкатки даёт прежнему поду 23502 на регистрации ключа; отказ, не порча"
+  - "DB-776-I2 (из полосы, не исполнен): «один живой код восстановления» держит порядок под замком строки личности; частичный UNIQUE recovery_codes (user_id) WHERE consumed_at IS NULL выразил бы его схемой"
+  - "DB-829-I1 (из полосы, не исполнен): access_bindings_wildcard_subject_is_system_ck (0001_initial.sql:1634) мертв после 120000 — subject_ref_exists отвергает '*' у всех"
+  - "ADD CONSTRAINT CHECK на relation_fact в 120000/140000 — полный скан под ACCESS EXCLUSIVE; NOT VALID + VALIDATE сократили бы окно"
+  - "страж правки роли — замок плюс проверка в Go, а не триггер на roles; поставка роли модулем стража не проходит, сужение держит reconcile_adapter.go classReadSelectors и CHECK 140000"
+distributed_overlap: true   # движок прав после переезда держит user:* до переписи журнала; окно катящейся выкатки — предмет system-design-reviewer
+return_to: —
