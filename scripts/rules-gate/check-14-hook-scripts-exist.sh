@@ -14,8 +14,13 @@
 # ссылающегося скрипта либо от корня воркспейса — какую базу несёт переменная,
 # скрипт объявляет сам, и обе формы в дереве есть (`$HOOK_DIR/…`, `$ws/scripts/…`).
 #
+# ОДИН РАСПОЗНАВАТЕЛЬ на команду и тело: переменная в любой законной записи —
+# `$X/…`, `${X}/…`, `"$X"/…`, `"$(dirname …)"/…`; хвост комментария строки кода
+# (` # …` вне кавычек) — не вызов. Команда хука, в которой путь не распознан, —
+# находка: иначе пустой обход давал бы зелёное.
+#
 # ГРАНИЦА ОБХОДА НАЗВАНА В ВЫВОДЕ: тела `.py` не читаются; путь без переменной в
-# начале (`bash scripts/x.sh`) не распознаётся. Вердикт — в коде выхода: 0 молчит,
+# начале (`bash scripts/x.sh`) не распознаётся — в команде хука это находка. Вердикт — в коде выхода: 0 молчит,
 # 1 находка, 2 предмета нет (настроек нет либо в них ни одной команды хука).
 #
 # `--deps` печатает найденные файлы цепочки (по одному на строку) и выходит 0: по
@@ -55,11 +60,35 @@ if not commands:
     print(f"[VOID] {NAME} — в {S} ни одной команды хука: обходить нечего")
     sys.exit(2)
 
+VAR = r"\$\{?\(?[A-Za-z_][^\s;|&\"'/]*[\"')}\]]*"
+CMD_REF = re.compile(VAR + r"((?:/[A-Za-z0-9_.-]+)+)")
+REF = re.compile(VAR + r"((?:/[A-Za-z0-9_.-]+)+\.(?:sh|py))\b")
+
+
+def code_part(line):
+    """Строка без хвостового комментария: `#` после пробела и вне кавычек."""
+    q = None
+    for i, ch in enumerate(line):
+        if q:
+            if ch == q:
+                q = None
+        elif ch in "\"'":
+            q = ch
+        elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
+            return line[:i]
+    return line
+
+
 findings = []
 queue = []
 found = set()
 for event, cmd in commands:
-    for rel in re.findall(r"\$\{?CLAUDE_PROJECT_DIR\}?/([A-Za-z0-9_./-]+)", cmd):
+    rels = [t.lstrip("/") for t in CMD_REF.findall(code_part(cmd))]
+    if not rels:
+        findings.append(f"КОМАНДА ХУКА БЕЗ РАСПОЗНАННОГО ПУТИ: {S} событие {event} — «{cmd[:120]}»; "
+                        "обходить нечего, зелёным это не считается")
+    for rel in rels:
+        rel = os.path.normpath(rel)
         if os.path.isfile(os.path.join(root, rel)):
             found.add(rel)
             if rel.endswith(".sh"):
@@ -67,7 +96,6 @@ for event, cmd in commands:
         else:
             findings.append(f"СКРИПТА ХУКА НЕТ: {S} событие {event} зовёт «{rel}» — файла в дереве нет")
 
-REF = re.compile(r"\$\{?\(?[A-Za-z_][^\s;|&\"'/]*[\"')}\]]*((?:/[A-Za-z0-9_.-]+)+\.(?:sh|py))\b")
 seen = set()
 refs = 0
 while queue:
@@ -83,7 +111,7 @@ while queue:
     for ln, line in enumerate(lines, 1):
         if line.lstrip().startswith("#"):
             continue
-        for tail in REF.findall(line):
+        for tail in REF.findall(code_part(line)):
             tail = tail.lstrip("/")
             refs += 1
             hit = next((c for c in (os.path.normpath(os.path.join(here, tail)), os.path.normpath(tail))
@@ -100,7 +128,7 @@ if mode == "--deps":
     print("\n".join(sorted(found)))
     sys.exit(0)
 census = (f"корень {root}; команд хуков {len(commands)}; скриптов прочитано {len(seen)}; "
-          f"ссылок на скрипты {refs}; тела .py не читаются, путь без переменной не распознаётся")
+          f"ссылок на скрипты {refs}; тела .py не читаются, путь без переменной не распознаётся (в команде хука — находка)")
 for f in findings:
     print(f"КРАСНОЕ {f}")
 print(f"{'[FAIL]' if findings else '[PASS]'} {NAME} — {census}; находок {len(findings)}")

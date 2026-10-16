@@ -10,6 +10,7 @@
 #      значение в выводе НЕ напечатано (вывод гейта сам публичен в журнале CI);
 #   4. законные близнецы той же формы: имя ресурса без цифр, заглушки `<…>`,
 #      `{{…}}`, `${…}` → молчание;
+#   4а. PEM в файле с байтом не из UTF-8 → код 1; тот же байт без литерала → молчание;
 #   5. хранилище пусто → код 2 (VOID), не 0.
 # Образцы собираются конкатенацией: в тексте этого файла литерала нет, и сканер
 # отправки на нём не срабатывает.
@@ -97,6 +98,24 @@ git -C "$d" add -A >/dev/null 2>&1
 out="$(run_on "$d")"; code=$?
 expect_code "законные близнецы: имя без цифр и заглушки молчат" 0 "$code" "$out"
 expect_silent_about "гейт про близнецов молчит" "zz-inject-twins.md" "$out"
+
+# --- (4а) Файл не в UTF-8 (байт cp1251) с PEM → код 1 (опыт A5): непрочитанный
+# файл не повод молчать. Близнец — тот же байт без учётного литерала → молчание.
+d="$(setup_tree cp1251)"
+{ printf -- '---\ntitle: "инъекция"\ncategory: lesson\n---\n# \xcf\xf0\xee\xe1\xe0\n'; printf '%s\nMIIB\n' "$pem"; } \
+    > "$d/obsidian/kacho/lessons/zz-inject-cp1251.md"
+git -C "$d" add -A >/dev/null 2>&1
+out="$(run_on "$d")"; code=$?
+expect_code "PEM в файле с байтом cp1251 пойман" 1 "$code" "$out"
+expect_names "гейт назвал координату не-UTF-8 файла" "zz-inject-cp1251.md" "$out"
+
+d="$(setup_tree cp1251_twin)"
+printf -- '---\ntitle: "инъекция"\ncategory: lesson\n---\n# \xcf\xf0\xee\xe1\xe0\nтекст без литерала\n' \
+    > "$d/obsidian/kacho/lessons/zz-inject-cp1251-twin.md"
+git -C "$d" add -A >/dev/null 2>&1
+out="$(run_on "$d")"; code=$?
+expect_code "законный близнец: байт cp1251 без литерала молчит" 0 "$code" "$out"
+expect_names "перепись назвала файл, прочитанный с заменой" "прочитано с заменой, 1)" "$out"
 
 # --- (5) Хранилище пусто → VOID.
 d="$TMP/void"; rm -rf "$d"; mkdir -p "$d"; git -C "$d" init -q

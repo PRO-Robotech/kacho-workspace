@@ -4,7 +4,10 @@
 # R — провязанный хук зовёт снятый скрипт (класс rag-freshness): жертва
 # выводится из дерева; T — то же через промежуточный скрипт (транзитивно);
 # близнецы — снятый скрипт назван лишь в комментарии, промежуточный зовёт живой;
-# V — настроек нет либо команд хуков ноль — отказ.
+# V — настроек нет либо команд хуков ноль — отказ; E — команда хука без
+# распознанного пути краснеет (пустой обход не зелёный); Q — кавычка до слэша
+# (`"$CLAUDE_PROJECT_DIR"/…`) распознаётся так же, как в теле; C — хвостовой
+# комментарий строки кода не вызов, код перед ним судится.
 #
 # Файл ПОДКЛЮЧАЕТСЯ (`.`) из `inject.sh` и пользуется его оснасткой.
 
@@ -12,7 +15,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — ЧАСТЬ инъекции; запускать: bash scripts/rules-gate/inject.sh" >&2
     exit 2
 fi
-for _i14_fn in sandbox capture assert_code assert_says assert_fixture_changed sandbox_digest; do
+for _i14_fn in sandbox capture assert_code assert_says assert_lacks assert_fixture_changed sandbox_digest; do
     command -v "$_i14_fn" >/dev/null 2>&1 && continue
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — оснастки inject.sh нет: «$_i14_fn» не определена" >&2
     exit 2
@@ -31,6 +34,17 @@ d.setdefault("hooks", {}).setdefault(ev, []).append(
     {"hooks": [{"type": "command", "command": 'bash "$CLAUDE_PROJECT_DIR/%s"' % rel}]})
 open(p, "w", encoding="utf-8").write(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
 PY
+}
+
+# i14_cmd <каталог> <событие> <команда> — провязать хук ДОСЛОВНОЙ командой.
+i14_cmd() {
+    python3 - "$1/.claude/settings.json" "$2" "$3" <<'PY2'
+import collections, json, sys
+p, ev, cmd = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(p), object_pairs_hook=collections.OrderedDict)
+d.setdefault("hooks", {}).setdefault(ev, []).append({"hooks": [{"type": "command", "command": cmd}]})
+open(p, "w", encoding="utf-8").write(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+PY2
 }
 
 # Жертва оси R — провязанный хук, зовущий соседний файл через `$HOOK_DIR/…`: из дерева.
@@ -122,3 +136,55 @@ open(p, "w").write(json.dumps(d))
 PY
 capture "$d" "$C14"
 assert_code 2 "ОТКАЗ: команд хуков ноль — не «находок 0»"
+
+echo
+echo "== check-14 ось E: команда хука без распознанного пути — не зелёное (опыт E4) =="
+d="$(sandbox i14_e)"
+i14_cmd "$d" Stop "bash -c 'exit 0'"
+capture "$d" "$C14"
+assert_code 1 "ДЕФЕКТ: команда хука, в которой путь не распознан"
+assert_says "КОМАНДА ХУКА БЕЗ РАСПОЗНАННОГО ПУТИ" "  ...и вердикт назван своим именем"
+
+d="$(sandbox i14_e_twin)"; b="$(sandbox_digest "$d")"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$d/.claude/hooks/inj14-live.sh"
+# shellcheck disable=SC2016  # `$CLAUDE_PROJECT_DIR` — текст команды хука, не подстановка.
+i14_cmd "$d" Stop 'bash -c "bash $CLAUDE_PROJECT_DIR/.claude/hooks/inj14-live.sh"'
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же форма «bash -c», путь распознан"
+capture "$d" "$C14"
+assert_code 0 "БЛИЗНЕЦ: команда с распознанным живым путём — молчит"
+
+echo
+echo "== check-14 ось Q: кавычка до слэша в команде хука (опыт E3) =="
+d="$(sandbox i14_q)"
+# shellcheck disable=SC2016
+i14_cmd "$d" Stop 'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/inj14-retired.sh'
+capture "$d" "$C14"
+assert_code 1 "ДЕФЕКТ: \"\$CLAUDE_PROJECT_DIR\"/… ведёт в снятый файл"
+assert_says ".claude/hooks/inj14-retired.sh" "  ...и координата названа"
+assert_lacks "БЕЗ РАСПОЗНАННОГО ПУТИ" "  ...и диагноз один: путь распознан"
+
+d="$(sandbox i14_q_twin)"; b="$(sandbox_digest "$d")"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$d/.claude/hooks/inj14-live.sh"
+# shellcheck disable=SC2016
+i14_cmd "$d" Stop 'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/inj14-live.sh'
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же запись, файл есть"
+capture "$d" "$C14"
+assert_code 0 "БЛИЗНЕЦ: кавычка до слэша, живой файл — молчит"
+
+echo
+echo "== check-14 ось C: хвостовой комментарий строки кода =="
+if [ -n "$victim_hook" ]; then
+    d="$(sandbox i14_c)"
+    # shellcheck disable=SC2016  # вносится текст строки хука, не подстановка.
+    printf '\nbash "$HOOK_DIR/inj14-retired.sh"  # вызов, а за ним пояснение\n' >> "$d/.claude/hooks/$victim_hook"
+    capture "$d" "$C14"
+    assert_code 1 "ДЕФЕКТ: снятый скрипт зовётся кодом ДО хвостового комментария"
+    assert_says "inj14-retired.sh" "  ...и координата названа"
+
+    d="$(sandbox i14_c_twin)"; b="$(sandbox_digest "$d")"
+    # shellcheck disable=SC2016
+    printf '\ntrue  # прежде звал "$HOOK_DIR/inj14-retired.sh"\n' >> "$d/.claude/hooks/$victim_hook"
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: снятый скрипт назван в хвостовом комментарии"
+    capture "$d" "$C14"
+    assert_code 0 "БЛИЗНЕЦ: хвостовой комментарий — не вызов, молчит"
+fi

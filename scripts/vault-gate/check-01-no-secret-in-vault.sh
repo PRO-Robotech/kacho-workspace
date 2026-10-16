@@ -38,12 +38,16 @@ if not files:
     print(f"[VOID] {CHECK} — в индексе git нет ни одного файла {V.VAULT}/", file=sys.stderr)
     sys.exit(2)
 
-findings, read, lines_n = [], 0, 0
+findings, read, lines_n, replaced = [], 0, 0, 0
 for rel in files:
+    # Байт не из UTF-8 — НЕ повод не читать: PEM в файле с байтом cp1251 иначе
+    # проходил бы зелёным. Читается с заменой, и число таких файлов печатается.
     try:
-        text = open(os.path.join(root, V.VAULT, rel), encoding="utf-8").read()
-    except (OSError, UnicodeDecodeError):
+        raw = open(os.path.join(root, V.VAULT, rel), "rb").read()
+    except OSError:
         continue
+    text = raw.decode("utf-8", errors="replace")
+    replaced += "\ufffd" in text and b"\xef\xbf\xbd" not in raw
     read += 1
     for ln, line in enumerate(text.splitlines(), 1):
         lines_n += 1
@@ -52,7 +56,8 @@ for rel in files:
                 findings.append(f"{V.VAULT}/{rel}:{ln}: {name}")
                 break
 
-scope = f"осмотрено файлов {read} из {len(files)} (всё хранилище, архив тоже), строк {lines_n}; форм {len(FORMS)}"
+scope = (f"осмотрено файлов {read} из {len(files)} (всё хранилище, архив тоже; не UTF-8, прочитано с заменой, {replaced}), "
+         f"строк {lines_n}; форм {len(FORMS)}")
 if read == 0:
     print(f"[VOID] {CHECK} — {scope}: прочитать не удалось ни одного", file=sys.stderr)
     sys.exit(2)
