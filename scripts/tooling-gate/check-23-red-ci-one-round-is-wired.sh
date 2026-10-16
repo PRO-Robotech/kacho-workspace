@@ -230,16 +230,22 @@ except ImportError:
 except yaml.YAMLError as e:
     ci = None
     finds.append('%s: не разбирается как YAML (%s)' % (CIY, str(e)[:120]))
-OFF = {'false', '${{ false }}', '${{false}}'}
+OFF = {'false', '${{ false }}', '${{false}}'}  # `if: false` YAML разбирает в bool: сравнение — по str().lower()
+
+
+def off(x):
+    return str(x).strip().lower() in OFF
+
+
 SRI = re.compile(r'^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*bash scripts/stand-report-inject\.sh$')
 runs = 0
 if isinstance(ci, dict) and isinstance(ci.get('jobs'), dict):
     for jk, job in ci['jobs'].items():
-        if not isinstance(job, dict) or str(job.get('if', '')).strip() in OFF or job.get('continue-on-error') is True:
+        if not isinstance(job, dict) or off(job.get('if', '')) or job.get('continue-on-error') is True:
             continue
         for st in job.get('steps') or []:
             if (not isinstance(st, dict) or not isinstance(st.get('run'), str)
-                    or str(st.get('if', '')).strip() in OFF or st.get('continue-on-error') is True):
+                    or off(st.get('if', '')) or st.get('continue-on-error') is True):
                 continue
             if any(SRI.match(l.strip()) for l in st['run'].splitlines()):
                 runs += 1

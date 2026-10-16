@@ -3260,6 +3260,10 @@ c21_sub "$b/.github/workflows/ci.yaml" "$CISR" "        if: false
 $CISR"
 run_says 1 "$b" "инъекция: шаг доказательства выключен «if: false» — краснеет" "$C23" "конвейер гонит доказательство"
 b="$(mksandbox)"
+c21_sub "$b/.github/workflows/ci.yaml" "$CISR" "        continue-on-error: true
+$CISR"
+run_says 1 "$b" "инъекция: отказ шага доказательства прощён «continue-on-error: true» — краснеет" "$C23" "конвейер гонит доказательство"
+b="$(mksandbox)"
 c21_sub "$b/.github/workflows/ci.yaml" "$CISR" '        run: |
           set -e
           STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" bash scripts/stand-report-inject.sh'
