@@ -11,13 +11,16 @@ GITHUB_OUTPUT, GITHUB_ENV, GITHUB_PATH; на первом красном шаг�
 `if: always()` идут. До ws#1110 исполнитель жил копиями в tmp/ трёх полос
 (537, w9, 820) и правился каждой заново: три случая — механизм, а не копия.
 
-СРЕДА PYTHON. Ранер конвейера несёт python3 с пакетами образа, шаги ставят свои
-`pip install`. Предпрогон идёт в своём venv (системный python машины не
-трогается), поэтому venv СРАЗУ получает пакеты, которые ставят `pip install`
-шагов ЭТОГО задания, — выведенные из текста шагов, а не выписанные. Причина —
-ws#1110: шаг 17 задания `stand` kaname (`if: always()`) читал yaml, а шаг,
-ставящий pyyaml, был пропущен после красного подъёма; на ранере yaml есть в
-образе, в venv — «No module named 'yaml'», и предпрогон судил среду, а не дерево.
+СРЕДА PYTHON. Ранер конвейера исполняет шаги системным python3 образа с его
+apt-пакетами (yaml, cryptography), шаги ставят свои `pip install`. Предпрогон
+идёт в своём venv (системный python машины не трогается) над системным python:
+venv видит его пакеты (`--system-site-packages`, как образ — свои) и СРАЗУ
+получает пакеты, которые ставят `pip install` шагов ЭТОГО задания, — выведенные
+из текста шагов, а не выписанные. Причина — ws#1110: шаг 17 задания `stand`
+kaname (`if: always()`) читал yaml, а шаг, ставящий pyyaml, был пропущен после
+красного подъёма; посев того же задания звал cryptography, которую ни один шаг
+не ставит (её несёт образ). В голом venv — «No module named …», и предпрогон
+судил среду, а не дерево.
 Пакет с подстановкой оболочки (`$X`) не выводится — строка «ghjob: pip …» это
 называет. Отказ установки — код 4, «не выполнилось».
 
@@ -113,11 +116,28 @@ def load_job(wf, job):
     return jobs[job]
 
 
+# Пакеты системного python видны venv — как образу ранера его apt-пакеты.
+SYS_SITE = '--system-site-packages'
+
+
 def prepare_venv(venv, job, wt):
-    """venv предпрогона с пакетами задания; отказ — код 4."""
-    if not os.path.exists(os.path.join(venv, 'bin', 'python')):
+    """venv предпрогона с пакетами системы и задания; отказ — код 4."""
+    cfg = os.path.join(venv, 'pyvenv.cfg')
+    want = SYS_SITE == '--system-site-packages'
+    try:
+        fresh = (f'include-system-site-packages = {"true" if want else "false"}' in open(cfg).read()
+                 and os.path.exists(os.path.join(venv, 'bin', 'python')))
+    except OSError:
+        fresh = False
+    if not fresh:
+        shutil.rmtree(venv, ignore_errors=True)
+        # Основа venv — ТОТ ЖЕ системный python, что исполняет ghjob: его пакеты и
+        # видны. uv — первым (ensurepip у системного python бывает снят пакетом
+        # дистрибутива), иначе модуль venv.
         uv = shutil.which('uv')
-        cmd = [uv, 'venv', '--seed', '-q', venv] if uv else [sys.executable, '-m', 'venv', venv]
+        site = [SYS_SITE] if want else []
+        cmd = ([uv, 'venv', '--seed', '-q', '--python', sys.executable, *site, venv] if uv
+               else [sys.executable, '-m', 'venv', *site, venv])
         if subprocess.run(cmd).returncode != 0:
             die(4, f'venv {venv} не создан ({" ".join(cmd[:2])}) — не выполнилось')
     pkgs, reqs, unknown = pip_packages(job)

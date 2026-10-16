@@ -19,6 +19,9 @@
 #   P4  пакета нет нигде → код 4 «не выполнилось», шагов не исполнено
 #   P5  токен площадки в текст шага не подставлен, а в окружении шага есть
 #   P6  `if: false` — шагов не исполнено → код 3
+#   P7  пакет системного python (yaml), который ни один шаг не ставит, — виден шагу,
+#       как apt-пакет образа ранера (посев kaname — cryptography); порча P7m — venv
+#       без пакетов системы → failure
 # Коды: 0 — все сошлись; 1 — хотя бы одно нет; 2 — предпосылки нет (python3 с
 # yaml, venv либо pip) — не выполнилось.
 set -uo pipefail
@@ -97,6 +100,9 @@ jobs:
       - run: |
           echo "${{ github.token }}" > /dev/null
           test "${#GITHUB_TOKEN}" = 17 && test "${GITHUB_TOKEN%-token}" = SENTINEL-gh
+  sysyaml:
+    steps:
+      - run: python3 -c 'import yaml'
   never:
     steps:
       - if: false
@@ -139,6 +145,18 @@ check "0 success" "$RC $(step_outcome "$W/p5/result.json")" "P5: токен в �
 check "нет да" "$(grep -qF SENTINEL-gh-token "$W/p5/step-00.sh" && echo да || echo нет) $(grep -qF '${GITHUB_TOKEN}' "$W/p5/step-00.sh" && echo да || echo нет)" "P5: токен в текст шага на диске не подставлен"
 run_ghjob p6 "$GHJOB" never
 check 3 "$RC" "P6: if: false — шагов не исполнено, код 3" "$W/p6.out"
+
+echo "── пакеты системного python видны шагу, как пакеты образа ранера"
+run_ghjob p7 "$GHJOB" sysyaml
+check "0 success" "$RC $(step_outcome "$W/p7/result.json")" "P7: yaml системы виден шагу без pip" "$W/p7.out"
+frag="SYS_SITE = '--system-site-packages'"
+if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
+    sed "s/^SYS_SITE = '--system-site-packages'\$/SYS_SITE = ''/" "$GHJOB" > "$W/ghjob-mut7.py"
+    run_ghjob p7m "$W/ghjob-mut7.py" sysyaml
+    check "1 failure" "$RC $(step_outcome "$W/p7m/result.json")" "P7m порча: venv без пакетов системы — шаг падает, P7 способен упасть" "$W/p7m.out"
+else
+    bad "P7m: фрагмент порчи встречается не ровно один раз — порча устарела"
+fi
 
 echo "[CENSUS] ghjob: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
 [ "$fail" -eq 0 ]
