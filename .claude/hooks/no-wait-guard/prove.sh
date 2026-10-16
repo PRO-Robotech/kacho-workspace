@@ -232,6 +232,9 @@ assert 2 "$rc" "метка 9 мин, timeout 541 с — отказ"
 rc="$(run 'timeout 500 gh run watch 1 # no-wait-exempt go-implementer 9m')"
 assert "2 да" "$rc $(grep -qF 'только у ci-watcher' "$WORK/out" && echo да || echo нет)" "метка другого агента — отказ"
 denied=$((denied + 5))
+rc="$(run "timeout 500 bash -c 'while :; do $CWS --max 100; done' # no-wait-exempt ci-watcher 9m")"
+assert 2 "$rc" "ci-wait.sh в цикле — метка ci-watcher его не снимает и под timeout"
+denied=$((denied + 1))
 
 echo "== граница (BOUNDARY шапки guard.py) — известно, не ловится"
 boundary "путь ci-wait.sh — переменная цикла for" "for f in /ws/scripts/ci-state/ci-wait.sh; do bash \"\$f\" PRO-Robotech/kacho 7 $H40 --max 540; done"
@@ -293,6 +296,7 @@ mutant "ci-wait: рецепт не узнан"     'if cmd is not None and VAR_R
 mutant "ci-wait: переменная не узнана" 'return bool(m and m.group(1) in civars)' 'return False' "CW=/ws/scripts/ci-state/ci-wait.sh; while :; do bash \"\$CW\" PRO-Robotech/kacho 7 $H40 --max 540; done"
 mutant "ci-wait: source не узнан"     'if base in (".", "source"):' 'if False:' "for i in 1 2; do . /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 60; done"
 mutant "ci-wait: первый --max"        'v = vals[-1]' 'v = vals[0]' "$CWS --max 100 --max 900"
+mutant "ci-wait: цикл под меткой снят"  '% (self.ciw[mark], n.loop), None)' '% (self.ciw[mark], n.loop), ctx["tmo"])' "timeout 500 bash -c 'while :; do $CWS --max 100; done' # no-wait-exempt ci-watcher 9m"
 mutant "ci-wait: не вычислимое — ноль" 'else float("inf")' 'else 0.0' "$CWS --max \"\$M\""
 mutant "цикл не судится"            'loop=ctx["loop"] or (n.loop in ("while", "until"))' 'loop=ctx["loop"]' 'until test -f x; do sleep 5; done'
 mutant "& не отсоединяет"           'bg = ctx["bg"] or n.bg' 'bg = ctx["bg"]' 'setsid nohup timeout 3600 go test ./... > l 2>&1 &'
