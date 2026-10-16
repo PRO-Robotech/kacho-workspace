@@ -363,8 +363,11 @@ export HEAVY_SLOT_LIMIT_MIB=100000
 nslots() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*.slot; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
 
 echo "── тяжёлых не больше трёх: третий входит, четвёртый — 74 (решение владельца 2026-10-02)"
-for i in 1 2 3; do HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- sleep 4 2>/dev/null & eval "N$i=\$!"; done
-for _ in $(seq 1 25); do [ "$(nslots)" -ge 3 ] && break; sleep 0.2; done
+# Трое стартуют разом и попадают друг другу в очередь: вход — по опросу (POLL_S=1), и под
+# нагрузкой машины WAIT_S=2 не хватало третьему (74, «получено 1»). Держателям — ожидание 10 с
+# и сон 6 с: утверждение то же — три слота заняты РАЗОМ, четвёртый при них — 74.
+for i in 1 2 3; do HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- sleep 6 2>/dev/null & eval "N$i=\$!"; done
+for _ in $(seq 1 40); do [ "$(nslots)" -ge 3 ] && break; sleep 0.2; done
 assert 3 "$(nslots)" "три слота по 20 МиБ заняты разом — третий вошёл"
 assert "74 да нет" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- touch "$W/n4") $(has "$W/err" 'занято слотов 3 из 3') $([ -e "$W/n4" ] && echo да || echo нет)" "четвёртый — 74, причина названа, команда не запускалась (память при этом свободна)"
 wait "$N1" "$N2" "$N3"
