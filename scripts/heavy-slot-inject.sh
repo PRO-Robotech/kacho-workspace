@@ -404,12 +404,13 @@ echo "── запасной путь: мягкий предел по RSS де�
 assert 0 "$(slot HEAVY_SLOT_LIMITER=watch HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 16 2)" "16 МиБ под бюджетом 64 — код 0"
 assert "76 да" "$(slot HEAVY_SLOT_LIMITER=watch HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 256 4) $(has "$W/err" 'мягкий предел')" "256 МиБ под бюджетом 64 — 76, причина названа"
 
-echo "── docker run: предел — контейнеру, флаги памяти вызова — отказ"
+echo "── docker run: предел — контейнеру, флаги памяти вызова сверх бюджета — отказ"
 if docker image inspect "$IMAGE" >/dev/null 2>&1; then
     assert "0 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "контейнер получил memory.max = бюджет"
     assert "76 да" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm "$IMAGE" python3 -c "$ALLOC" 300 0) $(has "$W/err" 'OOM контейнера')" "300 МиБ в контейнере под бюджетом 96 — 76, причина названа"
     assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -m 1g "$IMAGE" true)" "свой -m у вызова — 64"
     assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -e X=1 "$IMAGE" sh -c 'exit 0' -m)" "близнец: -m после образа — аргумент контейнера, не флаг docker"
+    assert "0 67108864" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -m 64m "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "близнец: свой -m 64m в бюджете 96 — контейнер получил предел вызова (ws#1110)"
 
     # docker не первым словом: подставляет `docker` из PATH команды (опыт ws#832).
     assert "0 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- timeout 60 docker run --rm "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "docker за timeout — тот же предел"
@@ -445,6 +446,34 @@ if docker image inspect "$IMAGE" >/dev/null 2>&1; then
 else
     skip "нет docker либо образа $IMAGE — предел контейнера не доказан в этой среде"
 fi
+
+echo "── подмена docker: свой предел вызова — законен в бюджете, не дублируется (ws#1110)"
+# Настоящий вход — форма стенда kaname (`.github/scripts/stand-own.sh`: службе
+# `--memory 1280m --memory-swap 1280m`, законная в конвейере); docker — двойник,
+# печатающий argv: судится то, что подмена ОТДАЁТ настоящему docker.
+DS="$W/dshim"; mkdir -p "$DS"; ln -sf "$SLOT" "$DS/docker"
+printf '#!/bin/sh\nprintf "%%s\\n" "$@"\n' > "$DS/real"; chmod +x "$DS/real"
+# shim <бюджет MiB> <аргументы docker…> — код подмены; argv настоящего — в $W/out.
+shim() { local b="$1"; shift; HEAVY_SLOT_P="$DS/p" HEAVY_SLOT_B="$b" HEAVY_SLOT_REAL_DOCKER="$DS/real" "$DS/docker" "$@" > "$W/out" 2> "$W/err"; echo $?; }
+cnt() { grep -cE -- "$1" "$W/out"; }
+rc="$(shim 8192 run --rm --name svc --network host --memory 1280m --memory-swap 1280m --user 1:1 img /bin/kaname)"
+assert "0 1 1 0 1" "$rc $(cnt '^--memory$') $(cnt '^--memory-swap$') $(cnt '^--memory(-swap)?=') $(cnt '^--cidfile=')" "форма стенда kaname под бюджетом 8 ГиБ: исполнено, предел вызова один, своего слот не дописал, --cidfile есть"
+rc="$(shim 8192 run --rm --memory 1280m img true)"
+assert "0 1 1" "$rc $(cnt '^--memory-swap=1280m$') $(cnt '^--memory(=|$)')" "только --memory вызова: swap дописан равным памяти (сверх неё swap нет), память не продублирована"
+rc="$(shim 8192 run --rm -dm512m img true)"
+assert "0 1 0" "$rc $(cnt '^--memory-swap=512m$') $(cnt '^--memory=')" "склейка коротких -dm512m — та же форма: swap дописан, память не продублирована"
+rc="$(shim 8192 run --rm img sh -c true -m 99g)"
+assert "0 1 1" "$rc $(cnt '^--memory=8192m$') $(cnt '^--memory-swap=8192m$')" "близнец: без предела вызова (-m после образа — аргумент контейнера) — слот ставит бюджет"
+for c in "--memory 9g" "-m 9g" "--memory=9g" "--memory-swap 9g" "--memory 0" "--memory-swap -1" "--memory 9999999999999999999" "--memory 99999999999999999999g" "--memory 12x"; do
+    # shellcheck disable=SC2086  # флаг и значение — два слова
+    rc="$(shim 8192 run --rm $c img true)"
+    assert "64 0" "$rc $(wc -l < "$W/out" | tr -d ' ')" "«$c» под бюджетом 8 ГиБ — 64, настоящий docker не звался"
+done
+assert "да" "$(has "$W/err" 'не разбирается как величина памяти')" "неразобранная величина названа причиной"
+rc="$(shim 8192 run --rm --memory 9g img true)"; assert "да" "$(has "$W/err" 'больше бюджета класса 8,0 ГиБ')" "сверх бюджета — причина и бюджет названы"
+rc="$(shim 8192 run --rm --memory 9999999999999999999 img true)"; assert "64 да нет" "$rc $(has "$W/err" 'больше бюджета класса 8,0 ГиБ') $(has "$W/err" 'integer expected')" "байты сверх int64 — 64 с причиной «больше бюджета», сравнение не сломалось"
+rc="$(shim 8192 run --rm --cidfile x img true)"; assert "64 да" "$rc $(has "$W/err" 'слот ставит --cidfile сам')" "свой --cidfile — 64: по нему слот снимает контейнер"
+rc="$(shim 8192 run --rm --memory 8192m img true)"; assert 0 "$rc" "граница: предел ровно в бюджет — законен"
 
 echo "── сторож машины: перебор потолка обрывает МЛАДШИЙ слот, старший живёт"
 export HEAVY_SLOT_LIMIT_MIB=1300
