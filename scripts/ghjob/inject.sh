@@ -26,6 +26,18 @@
 #       версию оттуда и без неё тянул релиз «v» — 404); близнец — env задания сильнее
 #       env workflow; порча P8m — env workflow снят → failure; P8m2 — уровни
 #       переставлены → близнец failure
+#   P9  предел шага вне CI — ×GHJOB_TIMEOUT_SCALE, по умолчанию ×3 (ws#1110). Настоящий
+#       вход — шаг 11 задания stand-ceremony kaname («условие создано — люди и их
+#       предъявители своей церемонией службы», timeout-minutes 5): в CI 90 с, вне CI
+#       подом во внешнем кластере ≥ 305 с — оборван. Минуты сжаты в 100 раз при той же
+#       форме: предел 0,03 мин (1,8 с), шаг 3 с — длиннее предела ×1, короче ×3.
+#       P9   вне CI без переменной → success, строка «предел шагов ×3 (вне CI…)»;
+#       P9s  GHJOB_TIMEOUT_SCALE=1 — без множителя шаг обрывается: failure, rc 124;
+#       P9c  законный близнец: ранер CI (GITHUB_ACTIONS=true) — предел workflow не
+#            тронут, шаг обрывается на 1,8 с: failure, «×1 = 2 с»;
+#       P9v  GHJOB_TIMEOUT_SCALE не число либо 0 → код 64, шагов не исполнено;
+#       P9m  порча: множитель не доходит до предела → P9 failure (P9 способен упасть);
+#       P9m2 порча: ранер не опознан → близнец P9c success (P9c способен упасть).
 # Коды: 0 — все сошлись; 1 — хотя бы одно нет; 2 — предпосылки нет (python3 с
 # yaml, venv либо pip) — не выполнилось.
 set -uo pipefail
@@ -126,12 +138,22 @@ jobs:
       GHJOB_WF: from-job
     steps:
       - run: test "$GHJOB_WF" = from-job
+  stand-ceremony:
+    steps:
+      - name: условие создано — люди и их предъявители своей церемонией службы
+        timeout-minutes: 0.03
+        run: sleep 3
 YML
 step_outcome() { python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(" ".join(s["outcome"] for s in r["steps"]))' "$1" 2>/dev/null || echo нет; }
 
-# run_ghjob <имя> <ghjob> <задание> — код в RC, вывод в $W/<имя>.out, каталог $W/<имя>
+# run_ghjob <имя> <ghjob> <задание> [K=V…] — код в RC, вывод в $W/<имя>.out, каталог $W/<имя>
 # GHJOB_WF вызывающего снят: P8 судит env из workflow пробы, а не унаследованное.
-run_ghjob() { env -u GHJOB_WF python3 "$2" "$W/wf.yml" "$3" "$CO" "$W/$1" > "$W/$1.out" 2>&1; RC=$?; }
+# GHJOB_TIMEOUT_SCALE и GITHUB_ACTIONS сняты: случай — «вне CI», и на ранере тоже;
+# ранер и множитель случай задаёт сам хвостом K=V (P9).
+run_ghjob() {
+    local n="$1" g="$2" j="$3"; shift 3
+    env -u GHJOB_WF -u GHJOB_TIMEOUT_SCALE -u GITHUB_ACTIONS "$@" python3 "$g" "$W/wf.yml" "$j" "$CO" "$W/$n" > "$W/$n.out" 2>&1; RC=$?
+}
 
 echo "── среда python задания: пакеты пропущенного шага — в venv сразу (ws#1110)"
 run_ghjob p1 "$GHJOB" stand
@@ -194,6 +216,38 @@ if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ] && [ "$(grep -cxF -- '    env.upda
     check "1 failure" "$RC $(step_outcome "$W/p8m2/result.json")" "P8m2 порча: workflow поверх задания — близнец падает, порядок уровней держится" "$W/p8m2.out"
 else
     bad "P8m: фрагменты порчи встречаются не ровно один раз — порча устарела"
+fi
+
+echo "── предел шага вне CI — ×3 по умолчанию, в CI — предел workflow (ws#1110)"
+yes_if() { grep -qF -- "$1" "$2" && echo да || echo нет; }
+run_ghjob p9 "$GHJOB" stand-ceremony
+check "0 success" "$RC $(step_outcome "$W/p9/result.json")" "P9: вне CI шаг длиннее предела ×1 проходит под ×3" "$W/p9.out"
+check да "$(yes_if 'предел шагов ×3 (вне CI, по умолчанию)' "$W/p9.out")" "P9: множитель и источник напечатаны" "$W/p9.out"
+run_ghjob p9s "$GHJOB" stand-ceremony GHJOB_TIMEOUT_SCALE=1
+check "1 failure" "$RC $(step_outcome "$W/p9s/result.json")" "P9s: без множителя (×1) шаг обрывается" "$W/p9s.out"
+check да "$(yes_if 'rc=124' "$W/p9s.out")" "P9s: обрыв — код 124 шага" "$W/p9s.out"
+run_ghjob p9c "$GHJOB" stand-ceremony GITHUB_ACTIONS=true
+check "1 failure" "$RC $(step_outcome "$W/p9c/result.json")" "P9c близнец: на ранере CI предел workflow не тронут — шаг обрывается" "$W/p9c.out"
+check "да да" "$(yes_if 'предел шагов ×1 (ранер CI' "$W/p9c.out") $(yes_if 'timeout-minutes=0.03 ×1 = 2 с' "$W/p9c/step-00.log")" "P9c: ×1 и предел workflow названы" "$W/p9c.out"
+run_ghjob p9v "$GHJOB" stand-ceremony GHJOB_TIMEOUT_SCALE=abc
+check "64 нет" "$RC $([ -e "$W/p9v/result.json" ] && echo да || echo нет)" "P9v: множитель не число — 64, шагов не исполнено" "$W/p9v.out"
+run_ghjob p9z "$GHJOB" stand-ceremony GHJOB_TIMEOUT_SCALE=0
+check "64 нет" "$RC $([ -e "$W/p9z/result.json" ] && echo да || echo нет)" "P9v: множитель 0 — 64, шагов не исполнено" "$W/p9z.out"
+frag='                limit = tmo * 60 * scale if tmo else None'
+if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
+    sed 's/^                limit = tmo \* 60 \* scale if tmo else None$/                limit = tmo * 60 if tmo else None/' "$GHJOB" > "$W/ghjob-mut9.py"
+    run_ghjob p9m "$W/ghjob-mut9.py" stand-ceremony
+    check "1 failure" "$RC $(step_outcome "$W/p9m/result.json")" "P9m порча: множитель не доходит до предела — P9 способен упасть" "$W/p9m.out"
+else
+    bad "P9m: фрагмент порчи встречается не ровно один раз — порча устарела"
+fi
+frag="    if environ.get('GITHUB_ACTIONS') == 'true':"
+if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
+    sed "s/^    if environ.get('GITHUB_ACTIONS') == 'true':\$/    if False:/" "$GHJOB" > "$W/ghjob-mut9b.py"
+    run_ghjob p9m2 "$W/ghjob-mut9b.py" stand-ceremony GITHUB_ACTIONS=true
+    check "0 success" "$RC $(step_outcome "$W/p9m2/result.json")" "P9m2 порча: ранер не опознан — близнец проходит, P9c способен упасть" "$W/p9m2.out"
+else
+    bad "P9m2: фрагмент порчи встречается не ровно один раз — порча устарела"
 fi
 
 echo "[CENSUS] ghjob: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
