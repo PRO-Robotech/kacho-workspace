@@ -261,7 +261,8 @@ t0="$(date +%s%N)"
 rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/q1")"
 ms=$(( ($(date +%s%N) - t0) / 1000000 )); RC1="$(rcof)"
 assert "0 да да нет" "$rc $([ "$ms" -lt 3000 ] && echo да || echo "нет(${ms}мс)") $(case "$RC1" in "$W/enq/hs-docker-"*.rc) echo да ;; *) echo "нет($RC1)" ;; esac) $([ -e "$RC1" ] && echo да || echo нет)" "занятый слот: --enqueue возвращает 0 «поставлено» за < 3 с, .rc под уникальным именем ещё не записан"
-for _ in $(seq 1 20); do ls "$HEAVY_SLOT_DIR"/queue/* >/dev/null 2>&1 && break; sleep 0.2; done
+# Ждать ЖИВОГО билета: отложенные 74/75 выше (resume_until) в очереди тоже лежат.
+for _ in $(seq 1 20); do [ -n "$(grep -L '^resume_until=' "$HEAVY_SLOT_DIR"/queue/* 2>/dev/null)" ] && break; sleep 0.2; done
 assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true) $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 1')" "вошедший позже видит поставленное задание ВПЕРЕДИ (очередь 1): билет держится всё ожидание"
 assert "да" "$(has "$W/err" 'ОДИН раз --enqueue')" "отказ 74 называет --enqueue и запрет перезапуска"
 wait "$A"
@@ -601,6 +602,8 @@ assert "1 1 нет" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" HOOK_RC=1 bash "$SLO
 assert "69 нет да" "$(rslot env FAKE_EXEC=1 FAKE_EXEC_RC=69 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-z) $(has_ref 1115-z) $(has "$W/err" 'не выполнилось')" "Job не состоялся (69) → 69 «не выполнилось», не красное, ссылки нет"
 be="$(jn ' enter id=')"; rm -f "$HL"
 assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
+be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
+assert "0 0 1 да $((be + 1)) $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
 rm -f "$W/argv" "$W/argv.avail"
 assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
 assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"
