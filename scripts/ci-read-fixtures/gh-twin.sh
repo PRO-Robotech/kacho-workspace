@@ -36,6 +36,8 @@ for a in "$@"; do
     prev="$a"
 done
 
+# GH_TWIN_NO_INCLUDE=1 — форма заглушки, не знающей `-i` (check-09): отказ, код 99
+if [ "$inc" = 1 ] && [ "${GH_TWIN_NO_INCLUDE:-0}" = 1 ]; then echo "gh-stub: незнакомый путь api: $*" >&2; exit 99; fi
 body="$(mktemp)"; err="$(mktemp)"
 trap 'rm -f "$body" "$err"' EXIT
 core() {

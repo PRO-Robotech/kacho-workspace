@@ -98,7 +98,8 @@
 #             обе success — имя одно                                → 0 green
 #   условное чтение: повтор тем же кэшем без смены — 304 у 6 из 6  → 0 green;
 #             между чтениями сменились ветка базы | commit status |
-#             черновик — кэш смену не прячет                       → 4 | 1 | 3
+#             черновик — кэш смену не прячет                       → 4 | 1 | 3;
+#             заглушка без `-i` (check-09) — чтение без условия     → 0 green
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
 #   живая ведомость: запрос в базу КАЖДОЙ строки (стволы и эпики,
@@ -164,6 +165,7 @@
 #   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
 #   both-forms-checkrun-wins — у имени с обеими формами судится первая запись, красное
 #                         и незавершённое не побеждают (прежняя форма слияния, ws#1113);
+#   etag-fallback-dropped — отказ заглушки без `-i` не переводит чтение в безусловное;
 #   etag-hit-blind      — любой ответ при условном чтении принят за 304: тело из кэша;
 #   etag-hit-blind-any  — кэш отдаётся без запроса, едва ETag есть (ws#1113);
 #   red-wins-while-running — красное при идущих снова 1: ожидание прервано на первом
@@ -234,7 +236,9 @@ if [ -f "$C/row" ]; then
     awk -F'\t' -v OFS='\t' -v r="$rr" -v b="$rb" -v n="$(cat "$C/fxn")" \
         '!/^#/ && $1==r && $2==b {$3=n} {print}' "$LV" > "$L"
 fi
-# кэш условного чтения — свой у клетки: клетки идут параллельно и судят разные ответы
+# кэш условного чтения — свой у клетки: клетки идут параллельно и судят разные ответы;
+# noinc — двойник в форме заглушки без `-i`
+if [ -f "$C/noinc" ]; then export GH_TWIN_NO_INCLUDE=1; fi
 out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 $(cat "$C/args" 2>/dev/null) 2>&1)"; code=$?
 if [ -d "$C/2" ]; then  # второе чтение тем же кэшем условного чтения по ответам $C/2: судится оно
     out="$(CI_STATE_DIR="$O.state" CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$GHX" CI_READ_FX="$C/2" CI_READ_EXPECTED="$L" bash "$S" "$(cat "$C/repo")" 3140 2>&1)"; code=$?
@@ -591,6 +595,8 @@ mk; again; jq --arg n "$AGG_REQ" '.statuses = [{context: $n, state: "failure"}]'
 run "между чтениями commit status стал failure — 1" 1 "^REASON\tCI-FAILED\tfailure: \Q$AGG_REQ\E"
 mk; again; jq '.draft = true' "$C/pull.json" > "$C/2/pull.json"
 run "между чтениями запрос стал черновиком — читается черновиком" 3 '^REASON\tDRAFT-GUARD-PENDING\t'
+mk; : > "$C/noinc"
+run "заглушка без -i (форма check-09): отказ на -i — чтение без условия, зелёное" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
 
 say "== близнецы — молчат"
 mk; edit check-runs.json '.check_runs = [(.check_runs | sort_by(.name) | .[0]) | .conclusion="failure" | .started_at="2000-01-01T00:00:00Z"] + .check_runs'
@@ -651,6 +657,7 @@ expect-compare-dropped	/then reason CHECKS-INCOMPLETE/s/\[ "$NAMES" -lt "$EXPECT
 red-wins-while-running	/^if \[ "$REDN" -gt 0 \] \&\& ! has/s/ \&\& ! has "$PEND"//
 rate-limit-dropped	/^if ! RL="$(gh_rate_short/s/if ! RL=/if false \&\& ! RL=/
 both-forms-checkrun-wins	/| if (\$bad | length) > 0 then \$bad\[0\] elif/s/if (\$bad | length) > 0 then \$bad\[0\] elif (\$open | length) > 0/if false then $bad[0] elif false/
+etag-fallback-dropped	/if \[ "\$rc" -ne 0 \]; then EC=""; api "\$p"; return; fi/s/then EC=""; api "\$p"; return; fi/then return "$rc"; fi/
 etag-hit-blind	/HTTP\/\*\x27 304\x27\*)/s/HTTP\/\*\x27 304\x27\*)/HTTP\/*)/
 etag-hit-blind-any	/^    if \[ -f "\$f" \] \&\& IFS= read -r e/s/then hdr=(-H "If-None-Match: \$e"); fi/then CONDHIT=$((CONDHIT + 1)); sed 1d "$f"; return 0; fi/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
