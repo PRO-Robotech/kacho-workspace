@@ -1,0 +1,50 @@
+# Пост-дифф ревью формы контрактов, роль proto-api-reviewer. Пакет kn-746 (запрос эпика 746 → main, PR #820).
+# Проверка исполнения прежнего возврата PAR-746-01 по дельте 81fa3e12..81fa3e12. Запись новая.
+schema_version: 1
+change_id: kn-746
+holder: post-diff/proto-api-reviewer
+owner: proto-api-reviewer
+round: re-check
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '746'
+  base: bbbe33524c4ae501d4ea14d2d9747f300d057a99   # = origin/main после fetch
+  head: 81fa3e1234d04beff1b546aec8056b0c9ec37efc   # = origin/746 после fetch
+content_digest: sha256:13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c
+digest_definition: 'git -C project/kaname diff --full-index bbbe33524...81fa3e12 | sha256sum'
+committed: true
+proto_files_touched: 7   # git diff --name-only base...head -- '*.proto' | wc -l; плюс fga_model.fga под proto/ (8 путей)
+delta_since_prior_review: empty   # 81fa3e12..81fa3e12
+
+verdict: returned
+blocks_landing: true
+return_to: proto-sync
+
+blocking:
+  - id: PAR-746-01
+    status: not-executed
+    where:
+      - proto/kaname/cloud/iam/v1/authorize_service.proto:28
+      - proto/kaname/cloud/iam/v1/authorize_service.proto:218
+      - proto/kaname/cloud/iam/v1/internal_iam_service.proto:311
+      - proto/kaname/cloud/iam/v1/authorize_service.proto:250,417   # «cluster.viewer (user:*)»
+    what: >-
+      Контракт обещает INVALID_ARGUMENT для говорящего `user:*`, а код на голове принимает его и
+      отвечает как `system_class:anonymous` (переходное отображение до kaname#832 по приёмке
+      SC-15). Голова не изменилась — расхождение на месте.
+    predicate:
+      - command: "git -C project/kaname show 81fa3e12:internal/domain/system_class_test.go | grep -n '\"user:\\*\", \"\"' | wc -l"
+        result: 1   # отказа нет
+      - command: "git -C project/kaname grep -n 'wildcard .user:\\*. is a speaker\\|\"user:\\*\" are not speakers\\|\"user:\\*\" говорящими не бывают' 81fa3e12 -- proto | wc -l"
+        result: 3   # отказ обещан
+    note: >-
+      Починка c9f3f57c6 (#829) есть только в локальной ветке 746-fix (tmp/kn-746-fix, трогает
+      authorize_service.proto и internal_iam_service.proto); в 746 не влита, на этом отпечатке
+      не судится — проверка исполнения на новом дайджесте после вливания.
+
+checks:
+  - command: 'git diff --full-index base...head | sha256sum'
+    exit_code: 0
+    outcome: green   # совпал с заданием
+  - command: 'buf lint / buf breaking'
+    outcome: not-run   # дельта пуста; прежний прогон этой головы не перемерялся
