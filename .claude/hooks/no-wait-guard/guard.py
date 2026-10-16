@@ -21,7 +21,9 @@
   watch         — `watch …` (бесконечный повтор);
   long-sleep    — `sleep N`, N ≥ 300 с;
   long-timeout  — `timeout N …`, N ≥ 600 с;
-  flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела).
+  flock-wait    — `flock -w N` с N ≥ 300 и `flock` без -n/-w (ждёт без предела);
+  ci-wait       — `ci-wait.sh … --max N` с N > 540 либо N не вычислим по тексту (`$M`) —
+                  прямой вызов и рецепт «ЗАПУСК» (`S=ci-state/ci-wait.sh … bash -c "$R" _ …`).
 Всё перечисленное — в ПЕРЕДНЕМ плане. Отсоединённое (`… &` без `wait` в той же
 оболочке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
 шаг. `nohup` сам не отсоединяет: без `&` он ждёт в переднем плане. Флаг
@@ -31,6 +33,11 @@ run_in_background отсоединением не считается: живой
 РАЗРЕШЕНО: `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
 одно чтение CI (`gh pr checks` без --watch, `gh run view`), `heavy-slot.sh` (без
 `--wait` он не ждёт; `--wait` ≤ 300 судит сам слот).
+
+ОЖИДАНИЕ CI — отдельный разрешённый случай, а не ослабление (ws#1114): одна команда
+`scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N`, N ≤ 540 (без --max — 540):
+блокирующее чтение FIFO демона состояния без цикла sleep, срок держит сам скрипт (выше
+540 — его отказ кодом 2) и этот страж. Цикл вокруг него — loop-sleep/for-sleep, как любой.
 
 ИСКЛЮЧЕНИЕ — одно: метка `# no-wait-exempt ci-watcher <N>m` в команде, N ≤ 9, и
 каждая форма ожидания стоит под `timeout` ≤ N·60 с. Агент другого типа (поле
@@ -71,6 +78,7 @@ SLEEP_MAX = 300      # с: sleep от этого — ожидание
 TIMEOUT_MAX = 600    # с: timeout от этого — ожидание
 FLOCK_MAX = 300      # с: flock -w от этого — ожидание
 FOR_MAX = 300        # с: итераций × sleep в цикле for от этого — ожидание
+CI_WAIT_MAX = 540    # с: предел --max ci-wait.sh (ws#1114); больше — ожидание сверх «Не жди»
 EXEMPT_MAX_MIN = 9   # мин: потолок метки ci-watcher
 EXEMPT = re.compile(r"#\s*no-wait-exempt\s+([A-Za-z0-9_-]+)\s+(\d+)m\b")
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
@@ -89,6 +97,7 @@ CLASS_TEXT = {
     "long-sleep": "sleep ≥ %d с" % SLEEP_MAX,
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
     "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
+    "ci-wait": "ci-wait.sh: срок --max больше %d с или не вычислим по тексту (ws#1114)" % CI_WAIT_MAX,
 }
 
 
@@ -100,6 +109,24 @@ def duration(s):
     if not m:
         return None
     return float(m.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
+
+
+def ci_wait_max(words):
+    """Срок вызова ci-wait.sh, с: --max N; без --max — CI_WAIT_MAX (умолчание скрипта);
+    inf — не вычислим по тексту; None — не вызов ci-wait.sh. Узнаются прямой вызов
+    (`… ci-wait.sh`, `bash … ci-wait.sh`) и рецепт «ЗАПУСК» (`S=ci-state/ci-wait.sh … bash -c "$R" _ …`)."""
+    # basename присваивания `S=ci-state/ci-wait.sh` — тоже ci-wait.sh: рецепт узнаётся им
+    if not any(os.path.basename(w) == "ci-wait.sh" for w in words):
+        return None
+    for k, w in enumerate(words):
+        if w == "--max":
+            v = words[k + 1] if k + 1 < len(words) else ""
+        elif w.startswith("--max="):
+            v = w.split("=", 1)[1]
+        else:
+            continue
+        return float(v) if re.match(r"^\d+$", v) else float("inf")
+    return float(CI_WAIT_MAX)
 
 
 # ── лексер: простые команды и операторы ─────────────────────────────────────
@@ -488,6 +515,10 @@ class Judge:
         base = os.path.basename(argv[0])
         args = argv[1:]
         shown = seg.strip()
+        ciw = ci_wait_max(hg.words(seg))
+        if ciw is not None and not bg:
+            if ciw > CI_WAIT_MAX and (bound is None or bound >= TIMEOUT_MAX):
+                self.add("ci-wait", shown, bound)
         if base == "wait" and not bg and ctx.get("launched"):
             self.add("bg-wait", shown, None)
             return
@@ -601,6 +632,7 @@ def deny(found, err, ws):
         "  верни «идёт: pid, журнал, ожидаемое окончание»; исход дочитает отдельный короткий",
         "  шаг (`kill -0 $(cat <pid-файл>)`, `tail -n 50 <журнал>`) — без цикла и без sleep.",
         "  · CI — одно чтение (`gh pr checks` без --watch); повтор делает шаблон волны или диспетчер;",
+        "    ожидание CI — одна команда `scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N`, N ≤ %d;" % CI_WAIT_MAX,
         "  · слот тяжёлого — %s/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу," % ws,
         "    ожидание только явным --wait N ≤ 300; дольше — ОДИН раз --enqueue <каталог> (билет",
         "    держится до 2 ч; перезапуск на 74/75 ставит в конец очереди — запрещён);",

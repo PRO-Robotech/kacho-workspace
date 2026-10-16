@@ -155,6 +155,23 @@ passes $'cat <<EOF | grep sleep\nwhile :; do sleep 1; done\nEOF'
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes '/ws/scripts/heavy-slot.sh --wait 300 go-race -- go test -race ./...'
 
+echo "== ожидание CI — ci-wait.sh (ws#1114): отдельный разрешённый случай, срок ≤ 540 с"
+# Блокирующее чтение FIFO демона состояния с --max ≤ 540: одна команда, без цикла sleep.
+# --max от 600, невычислимый или выше предела скрипта — отказ: правило не ослаблено.
+CIW='ci-wait.sh: срок --max'
+H40=ffffffffffffffffffffffffffffffffffffffff
+RCP='( set -o pipefail; WS=/ws; git -C "$WS" fetch -q origin main && R=$(git -C "$WS" show origin/main:scripts/landing-precheck.sh | sed -n p) && [ -n "$R" ] || exit 2; WS="$WS" S=ci-state/ci-wait.sh TMPDIR=/ws/tmp/wave-9 bash -c "$R" _ PRO-Robotech/kacho 7 '"$H40"
+passes "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 540"
+passes "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40"
+passes "/ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max=300"
+passes "$RCP --max 540 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
+denies "$CIW" "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 700"
+denies "$CIW" "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max=900"
+denies "$CIW" "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max \"\$M\""
+denies "$CIW" "$RCP --max 700 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
+denies "$LOOP" "while bash /ws/scripts/ci-read.sh PRO-Robotech/kacho 7; [ \$? = 3 ]; do sleep 60; done"
+denies "$LOOP" "while :; do bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 540; sleep 1; done"
+
 echo "== метка исключения — только ci-watcher, ≤ 9 мин, под timeout ≤ N·60"
 passes 'timeout 540 gh run watch 1 # no-wait-exempt ci-watcher 9m'
 passes 'timeout 120 gh pr checks 7 --watch # no-wait-exempt ci-watcher 2m'
@@ -219,6 +236,9 @@ PY
     fi
     muts=$((muts + 1))
 }
+mutant "ci-wait не судится"         'if ciw is not None and not bg:' 'if False:' "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 700"
+mutant "ci-wait: порог 900"          'CI_WAIT_MAX = 540 ' 'CI_WAIT_MAX = 900 ' "bash /ws/scripts/ci-state/ci-wait.sh PRO-Robotech/kacho 7 $H40 --max 700"
+mutant "ci-wait: рецепт не узнан"     'os.path.basename(w) == "ci-wait.sh" for w in words)' 'os.path.basename(w) == "ci-wait.sh" for w in words if "=" not in w)' "$RCP --max 700 ) > /ws/tmp/wave-9/ci-0.md 2>&1"
 mutant "цикл не судится"            'loop=ctx["loop"] or (n.loop in ("while", "until"))' 'loop=ctx["loop"]' 'until test -f x; do sleep 5; done'
 mutant "& не отсоединяет"           'bg = ctx["bg"] or n.bg' 'bg = ctx["bg"]' 'setsid nohup timeout 3600 go test ./... > l 2>&1 &'
 mutant "for не судится"             'if n.loop in ("for", "select") and not bg' 'if False and not bg' 'for i in $(seq 60); do sleep 10; done'

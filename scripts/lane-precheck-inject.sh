@@ -314,6 +314,33 @@ assert "2 да" "$(runp) $(has 'VOID PREMISE-FORM task o/r')" "без #<N> — �
 prem '# только комментарий'
 assert "2" "$(runp)" "ноль предусловий — не «все верны» → код 2"
 
+echo "== PR полосы — только черновиком (ws#1114)"
+# Полный прогон заводит ready_for_review; PR полосы не черновиком гонит полный прогон
+# на каждой заменённой голове. Копия с адресом GitHub (insteadOf ведёт в песочницу):
+# адрес даёт <владелец>/<репо> запроса открытых PR ветки полосы.
+L4="$W/ws/tmp/lane4"
+git clone -q "$W/srv/kacho-workspace.git" "$L4" 2> /dev/null && git -C "$L4" checkout -q 1-lane 2> /dev/null
+git -C "$L4" config "url.$W/srv/kacho-workspace.git.insteadOf" https://github.com/o/kacho-workspace.git
+git -C "$L4" remote set-url origin https://github.com/o/kacho-workspace.git
+H4="$(git -C "$L4" rev-parse HEAD)"
+comments 21 "DoD-proof @${H4:0:12}"
+log "$H4" "$GREEN" 0
+PRS="$W/c/repos_o_kacho-workspace_pulls?state=open&head=o:1-lane.json"
+l4_args=("$L4" 1-lane origin/main --issue o/r#21 --hook-log "$W/push.log")
+printf '%s' '[{"number":12,"draft":true}]' > "$PRS"
+assert "0 да" "$(run "${l4_args[@]}") $(has 'PR полосы: открытых 1, не черновиком 0')" "PR полосы черновиком → 0, перепись PR напечатана"
+printf '%s' '[{"number":12,"draft":false}]' > "$PRS"
+assert "1 да" "$(run "${l4_args[@]}") $(has 'REASON PR-NOT-DRAFT o/kacho-workspace#12')" "PR полосы не черновиком → PR-NOT-DRAFT с номером"
+printf '%s' '[{"number":12,"draft":true},{"number":13,"draft":false}]' > "$PRS"
+assert "1 да" "$(run "${l4_args[@]}") $(has 'REASON PR-NOT-DRAFT o/kacho-workspace#13')" "один из двух PR ветки не черновиком → PR-NOT-DRAFT по нему"
+printf '%s' '[]' > "$PRS"
+assert "0 да" "$(run "${l4_args[@]}") $(has 'PR полосы: открытых 0')" "близнец: PR полосы нет — не предмет → 0"
+rm -f "$PRS"
+assert "2 да" "$(run "${l4_args[@]}") $(has 'VOID GH-UNREADABLE PR ветки 1-lane')" "PR ветки не прочитаны → код 2, не «черновик»"
+L5="$W/ws/tmp/lane5"
+git clone -q "$W/srv/kacho-workspace.git" "$L5" 2> /dev/null && git -C "$L5" checkout -q 1-lane 2> /dev/null
+assert "0 да" "$(run "$L5" 1-lane origin/main --issue o/r#21 --hook-log "$W/push.log") $(has 'PR полосы: не судился — origin не GitHub')" "близнец: origin не GitHub (песочница) — не судился, сказано в переписи"
+
 echo "== вход"
 assert "2" "$(run "$W/srv" 1-lane main --issue o/r#7)" "не рабочая копия → код 2"
 assert "2" "$(run "$L" 1-lane)" "неполный вызов → код 2"
