@@ -37,7 +37,13 @@
 #            тронут, шаг обрывается на 1,8 с: failure, «×1 = 2 с»;
 #       P9v  GHJOB_TIMEOUT_SCALE не число либо 0 → код 64, шагов не исполнено;
 #       P9m  порча: множитель не доходит до предела → P9 failure (P9 способен упасть);
-#       P9m2 порча: ранер не опознан → близнец P9c success (P9c способен упасть).
+#       P9m2 порча: ранер не опознан → близнец P9c success (P9c способен упасть);
+#       P9u  верхняя граница: вне CI без переменной шаг 7 с длиннее ×3 → failure,
+#            rc 124, «×3 = 5 с» (множитель — предел, а не его снятие);
+#       P9e  GHJOB_TIMEOUT_SCALE=3 на ранере → success: явная переменная сильнее
+#            опознания ранера;
+#       P9m3 порча check-verifier m7: вне CI предела нет вовсе → P9u success;
+#       P9m4 порча m8: на ранере переменная игнорируется → P9e failure.
 # Коды: 0 — все сошлись; 1 — хотя бы одно нет; 2 — предпосылки нет (python3 с
 # yaml, venv либо pip) — не выполнилось.
 set -uo pipefail
@@ -143,6 +149,11 @@ jobs:
       - name: условие создано — люди и их предъявители своей церемонией службы
         timeout-minutes: 0.03
         run: sleep 3
+  stand-ceremony-long:
+    steps:
+      - name: условие создано — люди и их предъявители своей церемонией службы
+        timeout-minutes: 0.03
+        run: sleep 7
 YML
 step_outcome() { python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(" ".join(s["outcome"] for s in r["steps"]))' "$1" 2>/dev/null || echo нет; }
 
@@ -248,6 +259,29 @@ if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
     check "0 success" "$RC $(step_outcome "$W/p9m2/result.json")" "P9m2 порча: ранер не опознан — близнец проходит, P9c способен упасть" "$W/p9m2.out"
 else
     bad "P9m2: фрагмент порчи встречается не ровно один раз — порча устарела"
+fi
+run_ghjob p9u "$GHJOB" stand-ceremony-long
+check "1 failure" "$RC $(step_outcome "$W/p9u/result.json")" "P9u: вне CI шаг длиннее ×3 обрывается — предел есть" "$W/p9u.out"
+check "да да" "$(yes_if 'rc=124' "$W/p9u.out") $(yes_if 'timeout-minutes=0.03 ×3 = 5 с' "$W/p9u/step-00.log")" "P9u: код 124 и «×3 = 5 с» названы" "$W/p9u.out"
+run_ghjob p9e "$GHJOB" stand-ceremony GITHUB_ACTIONS=true GHJOB_TIMEOUT_SCALE=3
+check "0 success" "$RC $(step_outcome "$W/p9e/result.json")" "P9e: на ранере явный ×3 действует" "$W/p9e.out"
+check да "$(yes_if 'предел шагов ×3 (GHJOB_TIMEOUT_SCALE)' "$W/p9e.out")" "P9e: источник — переменная" "$W/p9e.out"
+frag='                limit = tmo * 60 * scale if tmo else None'
+if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
+    awk -v f="$frag" '{ print } $0 == f { print "                limit = None if limit and limit > tmo * 60 else limit" }' "$GHJOB" > "$W/ghjob-mut9c.py"
+    run_ghjob p9m3 "$W/ghjob-mut9c.py" stand-ceremony-long
+    check "0 success" "$RC $(step_outcome "$W/p9m3/result.json")" "P9m3 порча m7: вне CI предела нет — шаг проходит, P9u способен упасть" "$W/p9m3.out"
+else
+    bad "P9m3: фрагмент порчи встречается не ровно один раз — порча устарела"
+fi
+frag="    raw = environ.get('GHJOB_TIMEOUT_SCALE')"
+if [ "$(grep -cxF -- "$frag" "$GHJOB")" = 1 ]; then
+    m8="    raw = None if environ.get('GITHUB_ACTIONS') == 'true' else environ.get('GHJOB_TIMEOUT_SCALE')"
+    awk -v f="$frag" -v m="$m8" '$0 == f { print m; next } { print }' "$GHJOB" > "$W/ghjob-mut9d.py"
+    run_ghjob p9m4 "$W/ghjob-mut9d.py" stand-ceremony GITHUB_ACTIONS=true GHJOB_TIMEOUT_SCALE=3
+    check "1 failure" "$RC $(step_outcome "$W/p9m4/result.json")" "P9m4 порча m8: на ранере переменная игнорируется — P9e способен упасть" "$W/p9m4.out"
+else
+    bad "P9m4: фрагмент порчи встречается не ровно один раз — порча устарела"
 fi
 
 echo "[CENSUS] ghjob: утверждений $((pass + fail)), сошлось $pass, разошлось $fail"
