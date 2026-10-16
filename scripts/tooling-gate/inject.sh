@@ -3245,7 +3245,7 @@ b="$(mksandbox)"
 c21_sub "$b/scripts/ci-read.sh" 'if [ "$REDN" -gt 0 ] && ! has "$PEND"; then code=1; v=red' 'if [ "$REDN" -gt 0 ]; then code=1; v=red'
 run_says 1 "$b" "инъекция: ci-read снова красный при идущих — краснеет" "$C23" "красное при идущих"
 b="$(mksandbox)"
-c21_sub "$b/.github/workflows/ci.yaml" "run: bash scripts/stand-report-inject.sh" "run: true"
+c21_sub "$b/.github/workflows/ci.yaml" "bash scripts/stand-report-inject.sh" "true"
 run_says 1 "$b" "инъекция: конвейер не гонит доказательство отчёта стенда — краснеет" "$C23" "конвейер гонит доказательство"
 b="$(mksandbox)"
 c21_sub "$b/scripts/landing-precheck.sh" '"check", sr, "--head", head' '"check", sr, "--head", "0" * 40'

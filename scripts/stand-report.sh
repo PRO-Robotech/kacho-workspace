@@ -14,16 +14,24 @@
 # Канон — `ai-tooling.md#at-red-ci-one-round`.
 #
 # ИСПОЛЬЗОВАНИЕ
-#   stand-report.sh expect --checkout <копия> --head <sha40> [--base <ref>] > <ожидаемое.json>
-#   stand-report.sh check <отчёт.json> --head <sha40> --expect <ожидаемое.json>
+#   stand-report.sh expect --checkout <копия> --head <sha40> [--base <ref> --draft true|false] > <ожидаемое.json>
+#   stand-report.sh check <отчёт.json> --head <sha40> --expect <ожидаемое.json> [--pr-base <ветка>]
 #   stand-report.sh check <отчёт.json> --head <sha40> --of <прежний отчёт.json>
 # ОЖИДАЕМОЕ выводится НЕ из отчёта (судимый не объявляет свою полноту): `expect` берёт
 # задания CI, которые голова обязана пройти на кластере, из закрытой ведомости STAND
-# ниже и источника репозитория — kacho: выбор затронутого `.github/scripts/affected.py
-# --base <ref> --json` в копии головы ∩ задания стенда; kaname: CI без выбора — все
-# задания стенда; kacho-workspace: заданий на кластере у CI нет — ВЫВЕДЕННЫЙ ноль.
-# Копия не на голове, репозиторий вне ведомости, задание ведомости не найдено в файле
-# workflow головы (ведомость отстала от CI), выбор не выполнился — VOID, не ноль.
+# ниже и источника репозитория — kacho: выбор детекторов CI (`affected.py
+# --github-output`) ∩ задания стенда, теми же функциями `event_mode` и `select` модуля
+# `.github/scripts/affected.py` КОПИИ ГОЛОВЫ (второй реализации выбора нет): запрос
+# не черновик (`--draft false`) либо база из `full_bases` — полный прогон, все задания;
+# черновик в ветку эпика — целевой по путям `<base>...HEAD` (условие задания CI —
+# `full == 'true' || contains(jobs, <ключ>)`). kaname: CI без выбора — все задания стенда; kacho-workspace:
+# заданий на кластере у CI нет — ВЫВЕДЕННЫЙ ноль. Копия не на голове, репозиторий вне
+# ведомости, задание ведомости не найдено в файле workflow головы (ведомость отстала
+# от CI), выбор не выполнился, нет --base либо --draft — VOID, не ноль. Полный прогон
+# судится лишь против ожидаемого `--draft false` (основание ready и вливания — выбор
+# ready, а не черновика: STAND-EXPECT-DRAFT); `--pr-base` — база запроса, с которой
+# ожидаемое обязано совпасть (STAND-EXPECT-BASE). Паритет с `--github-output` держит
+# `scripts/stand-report-inject.sh` настоящим affected.py ствола kacho.
 # Без --of судится ПОЛНЫЙ прогон (mode full) — единственное основание для ready и
 # вливания: каждое ожидаемое задание покрыто набором с этим `job`. С --of — прогон
 # «только красное» (mode only-red): в нём обязан быть КАЖДЫЙ набор, красный в прежнем
@@ -42,6 +50,8 @@
 #   STAND-REPORT-MISSING   — файла нет, он не JSON-объект или без полей формы;
 #   STAND-REPORT-STALE     — head отчёта ≠ --head: прогон о другой голове;
 #   STAND-EXPECT-STALE     — ожидаемое выведено для другой головы;
+#   STAND-EXPECT-DRAFT     — без --of ожидаемое выбора kacho выведено не для ready;
+#   STAND-EXPECT-BASE      — база ожидаемого ≠ --pr-base;
 #   STAND-REPORT-UNCOVERED — ожидаемое задание CI не покрыто ни одним набором отчёта;
 #   STAND-REPORT-NOT-FULL  — без --of отчёт не mode full (only-red основанием CI не служит);
 #   STAND-REPORT-TRUNCATED — наборов ≠ planned; у зелёного executed < total, executed >
@@ -69,12 +79,13 @@ set -uo pipefail
 void() { printf 'VOID\t%s\n' "$1"; printf 'VERDICT\tunread\tкод 2\n'; exit 2; }
 command -v python3 > /dev/null 2>&1 || void "нет python3"
 if [ "${1:-}" = expect ]; then
-    shift; CO=""; HEAD=""; BASE=""
+    shift; CO=""; HEAD=""; BASE=""; DRAFT=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --checkout) CO="${2:-}"; shift 2 ;;
             --head) HEAD="${2:-}"; shift 2 ;;
             --base) BASE="${2:-}"; shift 2 ;;
+            --draft) DRAFT="${2:-}"; [[ "$DRAFT" =~ ^(true|false)$ ]] || void "--draft «$DRAFT» не true|false"; shift 2 ;;
             *) void "неизвестный довод «$1»" ;;
         esac
     done
@@ -82,9 +93,11 @@ if [ "${1:-}" = expect ]; then
     [ -d "$CO" ] || void "копии «$CO» нет"
     got="$(git -C "$CO" rev-parse HEAD 2>/dev/null)" || void "«$CO» не git-копия"
     [ "$got" = "$HEAD" ] || void "копия «$CO» на ${got:0:12}, а не на голове ${HEAD:0:12} — выбор был бы о другой ревизии"
+    dirty="$(git -C "$CO" status --porcelain --untracked-files=all 2>/dev/null)" || void "состояние копии «$CO» не читается"
+    [ -z "$dirty" ] || void "в копии «$CO» правки вне коммита ($(printf '%s\n' "$dirty" | grep -c .) путей) — выбор был бы не о голове"
     url="$(git -C "$CO" remote get-url origin 2>/dev/null)" || void "у копии «$CO» нет origin — репозиторий не установить"
-    CO="$CO" HEAD="$HEAD" BASE="$BASE" URL="$url" exec python3 - <<'PY'
-import json, os, re, subprocess, sys
+    CO="$CO" HEAD="$HEAD" BASE="$BASE" DRAFT="$DRAFT" URL="$url" exec python3 - <<'PY'
+import importlib.util, json, os, re, subprocess, sys
 # Ведомость заданий CI, которые прогон на кластере воспроизводит, по репозиторию:
 # source affected — выбор затронутого репозитория ∩ jobs; full — CI без выбора, все jobs;
 # none — у CI заданий на кластере нет (выведенный ноль). Задание — «<workflow>:<ключ>».
@@ -94,7 +107,7 @@ STAND = {
     'PRO-Robotech/kaname': ('full', ['ci.yml:unit', 'ci.yml:integration', 'e2e-newman.yml:stand']),
     'PRO-Robotech/kacho-workspace': ('none', []),
 }
-co, head, base, url = os.environ['CO'], os.environ['HEAD'], os.environ['BASE'], os.environ['URL']
+co, head, base, url, draft = os.environ['CO'], os.environ['HEAD'], os.environ['BASE'], os.environ['URL'], os.environ['DRAFT']
 
 
 def void(msg):
@@ -120,32 +133,46 @@ for j in jobs:
         void('workflow %s головы не читается (%s) — ведомость STAND не сверить' % (wf, e))
     if not (isinstance(doc, dict) and isinstance(doc.get('jobs'), dict) and key in doc['jobs']):
         void('задания %s ведомости STAND нет в .github/workflows/%s головы — ведомость отстала от CI' % (j, wf))
-want = list(jobs)
+want, full, why = list(jobs), True, 'выбора у CI нет'
 if source == 'affected':
-    if not base:
-        void('%s выбирает затронутое — нужен --base' % repo)
-    p = subprocess.run(['python3', '.github/scripts/affected.py', '--base', base, '--json'],
-                       cwd=co, capture_output=True, text=True)
-    if p.returncode != 0:
-        void('выбор затронутого %s (--base %s) код %d: %s' % (repo, base, p.returncode, (p.stdout + p.stderr).strip()[-200:]))
+    if not base or not draft:
+        void('%s выбирает затронутое по событию запроса — нужны --base и --draft' % repo)
+    # Выбор — функциями детектора CI из копии головы: event_mode решает полный ли прогон
+    # (ready, база full_bases), select — задания по путям; копии этой логики здесь нет.
     try:
-        sel = json.loads(p.stdout.splitlines()[0])
-        picked = set(sel['jobs'])
-    except (ValueError, IndexError, KeyError, TypeError):
-        void('выбор затронутого %s не разбирается' % repo)
+        spec = importlib.util.spec_from_file_location('stand_affected', os.path.join(co, '.github', 'scripts', 'affected.py'))
+        af = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = af  # dataclass модуля ищет его в sys.modules
+        sys.dont_write_bytecode = True  # __pycache__ в копии — неотслеживаемый путь, git_changed выбрал бы по нему
+        spec.loader.exec_module(af)
+        m = af.load_map()
+        full, why = af.event_mode(m, 'pull_request', draft, re.sub(r'^(?:refs/remotes/)?origin/', '', base))
+        if not full:
+            sel = af.select(m, af.git_changed(base))
+            if not sel.files:
+                void('выбор затронутого %s: дифф %s...HEAD пуст — выбирать не из чего' % (repo, base))
+            full, why = sel.full, sel.reason
+        picked = set(jobs) if full else set(sel.jobs)
+    except SystemExit:
+        raise
+    except Exception as e:  # noqa: BLE001 — любой отказ модуля выбора — «не выполнилось», не ноль
+        void('выбор затронутого %s (--base %s, --draft %s) не выполнился: %s: %s' % (repo, base, draft, type(e).__name__, str(e)[-200:]))
+    # Задание CI исполняется при `if: full == 'true' || contains(jobs, <ключ>)` — ровно это.
     want = [j for j in jobs if j in picked]
-print(json.dumps({'head': head, 'repo': repo, 'source': source, 'base': base, 'jobs': want}, ensure_ascii=False))
-print('CENSUS\tожидаемое %s @%s: источник %s, заданий стенда %d из ведомости %d%s'
-      % (repo, head[:12], source, len(want), len(jobs), '' if want else ' — выведенный ноль'), file=sys.stderr)
+print(json.dumps({'head': head, 'repo': repo, 'source': source, 'base': base, 'draft': draft or None,
+                  'full': full, 'reason': why, 'ledger': jobs, 'jobs': want}, ensure_ascii=False))
+print('CENSUS\tожидаемое %s @%s: источник %s, %s (%s), заданий стенда %d из ведомости %d%s'
+      % (repo, head[:12], source, 'полный' if full else 'целевой', why, len(want), len(jobs), '' if want else ' — выведенный ноль'), file=sys.stderr)
 PY
 fi
 [ "${1:-}" = check ] || void "первым доводом — check либо expect"
 REP="${2:-}"; [ -n "$REP" ] || void "нет пути отчёта"
 shift 2
-HEAD=""; OF=""; EXP=""
+HEAD=""; OF=""; EXP=""; PRBASE=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --head) HEAD="${2:-}"; shift 2 ;;
+        --pr-base) PRBASE="${2:-}"; [ -n "$PRBASE" ] || void "--pr-base без ветки"; shift 2 ;;
         --of) OF="${2:-}"; [ -r "$OF" ] || void "прежний отчёт «$OF» не читается"; shift 2 ;;
         --expect) EXP="${2:-}"; [ -r "$EXP" ] || void "ожидаемое «$EXP» не читается — полноту не судить"; shift 2 ;;
         *) void "неизвестный довод «$1»" ;;
@@ -154,7 +181,7 @@ done
 [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]] || void "--head «$HEAD» не sha40"
 [ -n "$OF" ] || [ -n "$EXP" ] || void "полный прогон судится лишь против --expect (stand-report.sh expect): отчёт свою полноту не объявляет"
 
-REP="$REP" HEAD="$HEAD" OF="$OF" EXP="$EXP" GH="${STAND_REPORT_GH:-gh}" python3 - <<'PY'
+REP="$REP" HEAD="$HEAD" OF="$OF" EXP="$EXP" PRBASE="$PRBASE" GH="${STAND_REPORT_GH:-gh}" python3 - <<'PY'
 import json, os, re, subprocess, sys
 
 # Ведомость послаблений: причина not-run → задача, которая её снимает. Закрыта — истекло.
@@ -204,6 +231,11 @@ if exp:
                   len(expected), '' if expected else ' — выведенный ноль'))
     if e['head'] != head:
         reason('STAND-EXPECT-STALE', 'ожидаемое выведено для %s, судится %s — выбор о другой голове' % (e['head'][:12], head[:12]))
+    if not of and e.get('source') == 'affected' and e.get('draft') != 'false':
+        reason('STAND-EXPECT-DRAFT', 'ожидаемое выведено при --draft %s — основание ready и вливания судится выбором ready (--draft false)' % e.get('draft'))
+    prb = os.environ['PRBASE']
+    if prb and e.get('source') == 'affected' and re.sub(r'^(?:refs/remotes/)?origin/', '', str(e.get('base') or '')) != prb:
+        reason('STAND-EXPECT-BASE', 'ожидаемое выведено от базы %s, база запроса %s' % (e.get('base'), prb))
 
 d = load(rep)
 if d is None:

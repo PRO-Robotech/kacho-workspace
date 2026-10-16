@@ -14,7 +14,14 @@
 # Площадка подменена: STAND_REPORT_GH отдаёт state задачи послабления из файла случая.
 # ОЖИДАЕМОЕ — файл формы `stand-report.sh expect`, задания контроля; подкоманду `expect`
 # судят случаи на песочных git-копиях (origin — url репозитория ведомости, workflow с
-# ключами заданий, подменный `.github/scripts/affected.py` печатает свой выбор).
+# ключами заданий). Для kacho выбор в копии — НАСТОЯЩИЙ `.github/scripts/affected.py` и
+# `.github/ci-paths.json` ствола kacho (`STAND_REPORT_KACHO`, иначе `project/kacho`
+# воркспейса; конвейер кладёт их туда шагом checkout), и каждое ожидаемое сверяется с
+# ДЕТЕКТОРОМ CI того же файла: `affected.py --github-output <workflow>` при EVENT,
+# DRAFT, BASE события запроса (пути запроса — подменный `gh` из `git diff` копии),
+# задание = `full == 'true' || contains(jobs, <ключ>)` — условие `if:` заданий kacho.
+# Паритет — для ready в ветку эпика, черновика в `main` и целевого черновика в эпик
+# (ws#1110, возврат check-verifier: «DRAFT=false — полный набор 3 из 3, expect — 1 из 5»).
 #
 # МУТАНТЫ — по правке stand-report.sh на свойство; каждый обязан покраснеть хотя бы
 # одним случаем, правка, не легшая в текст, — VOID, а не «убит».
@@ -30,6 +37,39 @@ trap 'rm -rf "$W"' EXIT
 . "$HERE/lib/sandbox-git-home.sh"
 sandbox_git_home "$W/home" || { echo "stand-report-inject: VOID — подписи песочницы нет" >&2; exit 2; }
 H="$(printf 'a%.0s' $(seq 40))"; H2="$(printf 'b%.0s' $(seq 40))"
+K="${STAND_REPORT_KACHO:-$HERE/../project/kacho}"
+for f in .github/scripts/affected.py .github/ci-paths.json; do
+    [ -r "$K/$f" ] || { echo "stand-report-inject: VOID — нет $K/$f: выбор kacho судить не с чем (STAND_REPORT_KACHO либо project/kacho)" >&2; exit 2; }
+done
+echo "== выбор kacho — настоящий: $K @$(git -C "$K" rev-parse --short=12 HEAD 2>/dev/null || echo 'не git')"
+# Пути запроса для детектора CI: `gh api … pulls/<N>/files … --jq` → дифф копии случая.
+mkdir -p "$W/ghpr"
+cat > "$W/ghpr/gh" <<'GH'
+#!/usr/bin/env bash
+case "$*" in *"/pulls/"*"/files"*) git -C "$CO" diff --name-only --no-renames "$BASEREF...HEAD" ;; *) echo "fake gh: $*" >&2; exit 64 ;; esac
+GH
+chmod +x "$W/ghpr/gh"
+# detected <копия> <draft> <база-ветка> <ledger JSON> — задания ведомости, которые
+# исполнит CI по детекторам `--github-output` (условие `if:` заданий kacho).
+detected() {
+    local co="$1" d="$2" b="$3" wf out
+    for wf in $(jq -r '.[] | split(":")[0]' <<< "$4" | sort -u); do
+        out="$co.go.$wf"; : > "$out"
+        (cd "$co" && CO="$co" BASEREF="origin/$b" PATH="$W/ghpr:$PATH" EVENT=pull_request DRAFT="$d" BASE="$b" REPO=PRO-Robotech/kacho PR=1 \
+            GITHUB_OUTPUT="$out" python3 .github/scripts/affected.py --github-output "$wf" > /dev/null 2>&1) || { echo "DETECTOR-VOID $wf"; return; }
+    done
+    python3 - "$co" "$4" <<'PY'
+import json, sys
+co, ledger = sys.argv[1], json.loads(sys.argv[2])
+out = []
+for j in ledger:
+    wf, key = j.split(':', 1)
+    kv = dict(l.split('=', 1) for l in open('%s.go.%s' % (co, wf), encoding='utf-8').read().splitlines() if '=' in l)
+    if kv.get('full') == 'true' or key in json.loads(kv.get('jobs', '[]')):
+        out.append(j)
+print(json.dumps(out, separators=(',', ':')))
+PY
+}
 
 cat > "$W/gh" <<'GH'
 #!/usr/bin/env bash
@@ -53,7 +93,7 @@ control() {
 }
 expected() {  # expected [jq-правка] — ожидаемое контроля формы `stand-report.sh expect`
     jq -n --arg h "$H" '{head: $h, repo: "PRO-Robotech/kacho", source: "affected", base: "origin/1266",
-      jobs: ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard", "console-e2e.yml:probes"]}' | jq "${1:-.}"
+      draft: "false", jobs: ["ci.yaml:unit-shard", "ci.yaml:integration", "e2e-newman.yml:shard", "console-e2e.yml:probes"]}' | jq "${1:-.}"
 }
 NC=0; pass=0; fail=0
 # kase <имя> <jq-правка контроля | -> [довод --of: jq-правка прежнего] — отчёт случая
@@ -71,9 +111,20 @@ ecase() {
     printf 'jobs:\n  probes: {}\n' > "$C/co/.github/workflows/console-e2e.yml"
     printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/production-posture.yml"
     printf 'jobs:\n  unit: {}\n  integration: {}\n' > "$C/co/.github/workflows/ci.yml"
-    printf 'import sys\nsel = open(".github/scripts/sel").read()\nprint(sel)\nsys.exit(int(open(".github/scripts/rc").read()))\n' > "$C/co/.github/scripts/affected.py"
-    printf '%s' "${3:--}" > "$C/co/.github/scripts/sel"; echo 0 > "$C/co/.github/scripts/rc"
+    [ "$2" != PRO-Robotech/kacho ] || cp "$K/.github/scripts/affected.py" "$C/co/.github/scripts/" && { [ "$2" != PRO-Robotech/kacho ] || cp "$K/.github/ci-paths.json" "$C/co/.github/"; }
     sandbox_run git -C "$C/co" init -q && git -C "$C/co" remote add origin "git@github.com:$2.git"
+}
+# kecase <имя> <draft> <база-ветка> <путь правки> <ожидаемое JSON> — копия kacho: база —
+# origin/main и origin/1266, голова правит путь; ожидаемое сверено с детектором CI.
+kecase() {
+    ecase "$1" PRO-Robotech/kacho; sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" commit -qm base
+    git -C "$C/co" update-ref refs/remotes/origin/main HEAD; git -C "$C/co" update-ref refs/remotes/origin/1266 HEAD
+    mkdir -p "$C/co/$(dirname "$4")"; echo x > "$C/co/$4"; ecommit
+    printf -- '--base\norigin/%s\n--draft\n%s\n' "$3" "$2" > "$C/args"
+    local det; det="$(detected "$C/co" "$2" "$3" "$(jq -c '[.[]]' <<< "$LEDGER")")"
+    if [ "$det" = "$5" ]; then pass=$((pass + 1)); echo "  [OK]   паритет с --github-output: $1 — CI исполнит $det"
+    else fail=$((fail + 1)); echo "  [FAIL] паритет с --github-output: $1 — детектор CI даёт «$det», а случай ждёт «$5»" >&2; fi
+    want 0 "$det"
 }
 ecommit() { sandbox_run git -C "$C/co" add -A && sandbox_run git -C "$C/co" commit -qm c && git -C "$C/co" rev-parse HEAD > "$C/head"; }
 # want <код> <код причины | -> — ожидание случая; «-» — ни одной строки REASON
@@ -126,18 +177,28 @@ kase "planned 0 и наборов 0 при непустом ожидаемом" 
 kase "ожидаемое о другой голове" -; expected ".head = \"$H2\"" > "$C/exp.json"; want 1 STAND-EXPECT-STALE
 kase "близнец: выведенный ноль — пустой отчёт при пустом ожидаемом (D2)" '.planned = 0 | .suites = []'; expected '.jobs = [] | .source = "none"' > "$C/exp.json"; want 0 -
 kase "близнец: выведенный ноль, наборы сверх ожидаемого зелёные" -; expected '.jobs = []' > "$C/exp.json"; want 0 -
+kase "ожидаемое выбора черновика — основанием ready не служит" -; expected '.draft = "true"' > "$C/exp.json"; want 1 STAND-EXPECT-DRAFT
+kase "ожидаемое без поля draft — не выбор ready" -; expected 'del(.draft)' > "$C/exp.json"; want 1 STAND-EXPECT-DRAFT
+kase "близнец only-red: ожидаемое черновика не судится" '.mode = "only-red" | .planned = 1 | .suites = [.suites[2]]' '.suites[2] |= (.outcome = "red" | .quote = "q")'; want 0 -
+kase "ожидаемое от другой базы, чем у запроса" -; printf -- '--expect\n%s\n--pr-base\nmain\n' "$C/exp.json" > "$C/args"; want 1 STAND-EXPECT-BASE
+kase "близнец: база ожидаемого — база запроса" -; printf -- '--expect\n%s\n--pr-base\n1266\n' "$C/exp.json" > "$C/args"; want 0 -
 kase "полный прогон без --expect — VOID" -; : > "$C/args"; want 2 -
 kase "ожидаемое не формы expect — VOID" -; echo '{"jobs": "все"}' > "$C/exp.json"; want 2 -
 kase "зелёный исполнено больше, чем всего (D5)" '.suites[2].executed = 231'; want 1 STAND-REPORT-TRUNCATED
 kase "proof не формы журнала слота (D4)" '.context = "kind-kacho" | .proof = "rc=77"'; want 1 STAND-REPORT-LOCAL
-ecase "expect kacho: выбор ∩ задания стенда" PRO-Robotech/kacho '{"jobs": ["ci.yaml:lint", "e2e-newman.yml:shard", "console-e2e.yml:probes"]}'; ecommit
-printf -- '--base\norigin/main\n' > "$C/args"; want 0 '["e2e-newman.yml:shard","console-e2e.yml:probes"]'
-ecase "expect kacho: выбор без заданий стенда — выведенный ноль" PRO-Robotech/kacho '{"jobs": ["ci.yaml:lint"]}'; ecommit
-printf -- '--base\norigin/main\n' > "$C/args"; want 0 '[]'
-ecase "expect kacho: выбор не выполнился — VOID" PRO-Robotech/kacho '{"jobs": ["e2e-newman.yml:shard"]}'; echo 2 > "$C/co/.github/scripts/rc"; ecommit; printf -- '--base\norigin/main\n' > "$C/args"; want 2 -
-ecase "expect kacho без --base — VOID" PRO-Robotech/kacho '{"jobs": []}'; ecommit; want 2 -
-ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho '{"jobs": []}'
-printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n' > "$C/args"; want 2 -
+LEDGER='["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
+kecase "expect kacho: ready в ветку эпика — полный прогон, все задания стенда" false 1266 tests/newman/x.json "$LEDGER"
+kecase "expect kacho: черновик в main — полный прогон" true main tests/newman/x.json "$LEDGER"
+kecase "expect kacho: черновик в эпик — целевой выбор ∩ задания стенда" true 1266 tests/newman/x.json '["ci.yaml:unit-shard","e2e-newman.yml:shard"]'
+kecase "expect kacho: черновик в эпик, правка Go — интеграция и стенд" true 1266 services/x/a.go '["ci.yaml:unit-shard","ci.yaml:integration","e2e-newman.yml:shard","console-e2e.yml:probes","production-posture.yml:stand"]'
+ecase "expect kacho: карта путей не разбирается — VOID" PRO-Robotech/kacho; echo '{' > "$C/co/.github/ci-paths.json"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
+ecase "expect kacho без --base — VOID" PRO-Robotech/kacho; ecommit; printf -- '--draft\nfalse\n' > "$C/args"; want 2 -
+ecase "expect kacho без --draft — VOID" PRO-Robotech/kacho; ecommit; printf -- '--base\norigin/main\n' > "$C/args"; want 2 -
+kecase "expect kacho: черновик в эпик, дифф пуст — VOID" true 1266 tests/newman/x.json '["ci.yaml:unit-shard","e2e-newman.yml:shard"]'
+git -C "$C/co" update-ref refs/remotes/origin/1266 HEAD; want 2 -
+kecase "expect kacho: правка вне коммита в копии — VOID" false 1266 tests/newman/x.json "$LEDGER"; echo y > "$C/co/untracked.txt"; want 2 -
+ecase "expect kacho: задания ведомости нет в workflow головы — VOID" PRO-Robotech/kacho
+printf 'jobs:\n  shard-renamed: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit; printf -- '--base\norigin/main\n--draft\nfalse\n' > "$C/args"; want 2 -
 ecase "expect kaname: CI без выбора — все задания стенда" PRO-Robotech/kaname; printf 'jobs:\n  stand: {}\n' > "$C/co/.github/workflows/e2e-newman.yml"; ecommit
 want 0 '["ci.yml:unit","ci.yml:integration","e2e-newman.yml:stand"]'
 ecase "expect kacho-workspace: заданий на кластере нет — выведенный ноль" PRO-Robotech/kacho-workspace; ecommit; want 0 '[]'
@@ -172,7 +233,15 @@ expect-optional	s/\[ -n "\$OF" \] || \[ -n "\$EXP" \] || void/true || void/
 proof-any-form	s/not re.match(r'local\\b.*\\bproof=\\S', proof)/not proof/
 ledger-drift-ignored	s/    if not (isinstance(doc, dict) and isinstance(doc.get('jobs'), dict) and key in doc\['jobs'\]):/    if False:/
 affected-not-intersected	s/    want = \[j for j in jobs if j in picked\]/    want = list(jobs)/
-affected-rc-ignored	s/    if p.returncode != 0:/    if False:/
+draft-ignored	s/        full, why = af.event_mode(m, 'pull_request', draft,/        full, why = False, ''; af.event_mode(m, 'pull_request', draft,/
+draft-always-full	s/        if not full:/        if False:/
+own-selection	s/            sel = af.select(m, af.git_changed(base))/            sel = af.select(m, ['tests\/x.json'])/
+empty-diff-ok	s/            if not sel.files:/            if False:/
+draft-optional	s/    if not base or not draft:/    if not base:/
+expect-draft-ignored	s/    if not of and e.get('source') == 'affected' and e.get('draft') != 'false':/    if False:/
+expect-base-ignored	s/    if prb and e.get('source') == 'affected'/    if False and prb/
+dirty-copy-ok	s/    \[ -z "\$dirty" \] || void/    true || void/
+pycache-written	s/        sys.dont_write_bytecode = True/        pass/
 checkout-head-ignored	s/\[ "\$got" = "\$HEAD" \] || void/true || void/
 unknown-repo-zero	s/^if repo not in STAND:/if False:/
 red-ignored	s/elif out == 'red':/elif out == 'never':/

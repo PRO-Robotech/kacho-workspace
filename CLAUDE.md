@@ -60,11 +60,12 @@
 потом прогоняется тесты на внешнем кластере, потом в master ci. Если найдены ошибки так же сначала
 перепись ошибок, массовое решение, дальше проверка только того что было красное, если все зеленое на
 внешнем кластере гонится весь прогон и в CI». Любая проблема — полоса, сборка, хук, стенд, CI:
+0. статика — локально хуком, весь список отказов разом (`lane-precheck.sh` STATIC-*);
 1. перепись — весь затронутый набор целями CI на внешнем кластере, без остановки на первом
    красном, цитата до класса корня; CI — по завершении ВСЕХ заданий (`ci-read.sh` код 3);
 2. все корни — одной сборкой, по одному — нарушение;
 3. только бывшее красным — на кластере (`stand-report.sh --of`); красное — снова п.1;
-4. всё зелёное — полный там же: `stand-report.sh` код 0 той же головы;
+4. всё зелёное — полный там же: `stand-report.sh` код 0 той же головы, ожидаемое — ready CI;
 5. затем ОДИН CI; ready и вливание без п.4 — отказ (`wave.js` mech:stand, `landing-precheck.sh
    --stand-report`); два красных CI подряд — стоп. Канон — `ai-tooling.md#at-red-ci-one-round`.
 
@@ -115,8 +116,8 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 - Потолок сессии ставит хук SessionStart (`scripts/session-memcap.sh`); сессию с ним запускают
   `$WS/scripts/session-memcap.sh --launch -- claude`: scope терминала (OOMPolicy=stop) его снял бы.
 - Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make stand-ns-up NS=t<N>-<коротко>` / `stand-ns-down`; `make dev-up` — лишь при недоступном
-- Перезапуск сервиса: `… stand -- make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
-- Обновить рабочие копии: `./sync-all.sh`
+- Перезапуск: `… stand -- make reload-svc SVC=<vpc|compute|iam>` · `make logs-svc SVC=…` · `make psql SVC=…`
+- Рабочие копии: `./sync-all.sh`
 
 ## Permissions и хуки
 
@@ -125,9 +126,8 @@ AI-оснастка — **одна**, в `.claude/` воркспейса: ни �
 сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `no-wait-guard` и `gh-api-guard` (`PreToolUse` Bash), `session-memcap` (`SessionStart`),
 `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`; в продукте файла нет.
 
-Режима без подтверждений из дерева **нет**: `permissions.defaultMode` проектного и локального
-слоёв харнесс игнорирует; режим даёт только личный `~/.claude/settings.json`,
-policy или флаг (`ai-tooling.md`, at-bypass-not-from-repo-layer).
+Режима без подтверждений из дерева **нет** (`ai-tooling.md#at-bypass-not-from-repo-layer`):
+его дают лишь личный `~/.claude/settings.json`, policy или флаг.
 
 Хуки запроса и хода печатают **диспетчеру**, сам он ничего не делает: что каким агентом
 закрывается — таблица сигналов в `.claude/agents/dispatcher.md`. Хуки записи и команд говорят

@@ -219,7 +219,7 @@ need(TV, unit(texts[TV], '\nexternal-cluster-first · ', r'\n'),
 
 # F. механизмы.
 need(CIR, texts[CIR], ['if [ "$REDN" -gt 0 ] && ! has "$PEND"; then code=1; v=red'], 'красное при идущих — код 3')
-need(CIY, texts[CIY], ['run: bash scripts/stand-report-inject.sh'], 'конвейер гонит доказательство отчёта стенда')
+need(CIY, texts[CIY], ['bash scripts/stand-report-inject.sh'], 'конвейер гонит доказательство отчёта стенда')
 need(LP, texts[LP], ['--stand-report) STAND_REPORT=', '"check", sr, "--head", head'], 'посадка судит отчёт стенда')
 
 print('[CENSUS] %s: носителей осмотрено %d (правило, архив, база, ci-watcher, шаблон, проба шаблона, протокол, '

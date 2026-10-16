@@ -170,6 +170,25 @@ assert "1 да" "$(run "${ok_args[@]}") $(has 'REASON HOOK-NOT-GREEN')" "хук 
 log "$HEAD_SHA" "$GREEN" 0
 assert "0" "$(run "${ok_args[@]}")" "близнец: тот же журнал с зелёным итогом → 0"
 
+echo "== статика: весь список отказов хука разом (ws#1110)"
+nstatic() { grep -c "^REASON STATIC-$1 " "$W/out"; }
+WSRED=$'pre-push: судились вершины x; исполнено наборов 9, провалено 3\n\nОТКАЗ: отправка остановлена. Красные наборы:\n  rules-gate\n  tooling-gate\n  docs-gate\n\nОбойти можно, но осознанно'
+log "$HEAD_SHA" "$WSRED" 1
+assert "1 3 да" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kacho-workspace: docs-gate')" "три красных набора → три STATIC-RED, последний назван"
+log "$HEAD_SHA" $'pre-push: ОТКАЗ — имя ветки не по форме «<N>-<суффикс>»\npre-push: ОТКАЗ — правило атрибуции нарушено' 1
+assert "1 2 0" "$(run "${ok_args[@]}") $(nstatic REFUSAL) $(nstatic RED)" "красных единиц нет — каждая строка ОТКАЗ хука → STATIC-REFUSAL"
+log "$HEAD_SHA" "error: failed to push some refs" 1
+assert "1 1" "$(run "${ok_args[@]}") $(nstatic UNPARSED)" "отказ без формы итога → STATIC-UNPARSED, не «отказов 0»"
+log "$HEAD_SHA" "$GREEN" 0
+assert "0 0" "$(run "${ok_args[@]}") $(grep -c '^REASON STATIC-' "$W/out")" "близнец: зелёный хук — статических строк 0"
+# Мутант: берётся лишь первая единица — случай трёх наборов обязан покраснеть.
+# shellcheck disable=SC2016 # образец sed — литерал, не подстановка
+sed 's/ | awk .!seen\[\$0\]++.)$/ | head -1)/' "$P" > "$W/mut-first.sh"
+if cmp -s "$W/mut-first.sh" "$P"; then echo "  [FAIL] мутант «лишь первый отказ» не лёг в текст" >&2; fail=$((fail + 1))
+else log "$HEAD_SHA" "$WSRED" 1; bash "$W/mut-first.sh" "${ok_args[@]}" > "$W/out" 2>&1
+    assert "1" "$(nstatic RED)" "мутант «лишь первый отказ»: STATIC-RED один — случай трёх наборов его отличает"; [ "$(nstatic RED)" != 3 ] || fail=$((fail + 1)); fi
+log "$HEAD_SHA" "$GREEN" 0
+
 echo "== словарь итогов хука по репозиторию"
 for kind in corelib kaname kacho other; do git init -q --bare -b main "$W/srv/$kind.git"; done
 git -C "$L" remote set-url origin "$W/srv/corelib.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
@@ -177,14 +196,21 @@ log "$HEAD_SHA" "pre-push (corelib): исполнено 4 из 5, красных
 assert "1 да" "$(run "${ok_args[@]}") $(has 'REASON HOOK-NOT-GREEN')" "corelib: исполнено 4 из 5 — не зелёный"
 log "$HEAD_SHA" "pre-push (corelib): исполнено 5 из 5, красных 0 — отправляю" 0
 assert "0" "$(run "${ok_args[@]}")" "близнец corelib: 5 из 5 → 0"
+log "$HEAD_SHA" $'-- gofmt --\nКРАСНОЕ: gofmt (код 1)\n-- vet --\nКРАСНОЕ: vet (код 2)\npre-push (corelib): исполнено 5 из 5, красных 2' 1
+assert "1 2" "$(run "${ok_args[@]}") $(nstatic RED)" "corelib: две строки КРАСНОЕ → два STATIC-RED"
 git -C "$L" remote set-url origin "$W/srv/kaname.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
 log "$HEAD_SHA" "pre-push: зелёное — исполнено 6 из 6 групп, отказов 0." 0
 assert "0" "$(run "${ok_args[@]}")" "kaname: строка зелёного итога → 0"
 log "$HEAD_SHA" "pre-push: НЕ ВЫПОЛНИЛОСЬ — групп без условия 1 из 6: x." 0
 assert "1" "$(run "${ok_args[@]}")" "kaname: недобор групп — не зелёный"
+log "$HEAD_SHA" $'   → КРАСНОЕ (код 1)\nкрасные             : lint unit' 1
+assert "1 2 да" "$(run "${ok_args[@]}") $(nstatic RED) $(has 'REASON STATIC-RED kaname: unit')" "kaname: строка «красные : lint unit» → два STATIC-RED"
 git -C "$L" remote set-url origin "$W/srv/kacho.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
 log "$HEAD_SHA" "== pre-push: локальные проверки зелёные (не выполненных нет) — отправляю" 0
 assert "0" "$(run "${ok_args[@]}")" "kacho: строка зелёного итога → 0"
+log "$HEAD_SHA" $'   красное: lint unit-gateway newman-validate\n\npre-push ОТКАЗ: локальные проверки красные — отправка остановлена.' 1
+assert "1 3 0" "$(run "${ok_args[@]}") $(nstatic RED) $(nstatic REFUSAL)" "kacho: «   красное: a b c» → три STATIC-RED, строка ОТКАЗ при единицах не дублирует"
+log "$HEAD_SHA" "== pre-push: локальные проверки зелёные (не выполненных нет) — отправляю" 0
 git -C "$L" remote set-url origin "$W/srv/other.git"; git -C "$L" push -q origin main 1-lane 2> /dev/null
 assert "2 да" "$(run "${ok_args[@]}") $(has 'VOID HOOK-KIND-UNKNOWN')" "репозиторий вне словаря → код 2"
 

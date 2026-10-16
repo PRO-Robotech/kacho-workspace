@@ -184,8 +184,19 @@ jobs:
       # полного, обрезанная перепись, красный, красный без цитаты, локальный контекст без
       # доказательства, остаток, not-run вне ведомости и истёкшее послабление — 1,
       # близнецы — 0; затем мутанты stand-report.sh — каждый обязан покраснеть.
+      # Ожидаемое kacho сверяется с детектором его CI (`affected.py --github-output`):
+      # предпосылка — настоящие affected.py и ci-paths.json ствола kacho, не копия; путь
+      # вне project/, чтобы соседние шаги не приняли частичный клон за клон продукта.
+      - name: checkout выбора затронутого kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: .ci-kacho-affected
+          # каталог процессов kacho (в нём affected.py и ci-paths.json) — не весь ствол
+          sparse-checkout: .github
       - name: отчёт внешнего стенда не называет зелёным обрезанный, чужой и красный прогон
-        run: bash scripts/stand-report-inject.sh
+        run: STAND_REPORT_KACHO="$PWD/.ci-kacho-affected" bash scripts/stand-report-inject.sh
       # Тяжёлый прогон во внешнем кластере (ws#984) — инструмент, не набор: предмет
       # его — кластер, которого у ранера нет. Доказательство гонит run.sh против
       # двойника kubectl: ns снимается на успехе, падении команды, TERM и OOM, код
