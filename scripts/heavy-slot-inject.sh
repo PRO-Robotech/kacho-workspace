@@ -24,6 +24,21 @@
 # [FAIL]: шапка называет границей то, чего уже нет.
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — сошлось всё
 # исполненное, но часть не построена.
+#
+# КОНВЕЙЕР ЭТУ ПРОБУ НЕ ЗОВЁТ — граница (ws#1115): три её части судят машину, а не
+# дерево. Близнец общего каталога входит над НАСТОЯЩЕЙ памятью (свободных ≥ 15 ГиБ —
+# FREE_MIN_MIB heavy-slot.sh — и свободный слот), предел ядра — systemd --user с
+# контроллером memory, docker — образ HEAVY_SLOT_PROBE_IMAGE. Ранер ubuntu-latest
+# публичного репозитория — 16 ГБ памяти всего (документация площадки): близнец там 74,
+# часть «не построена», код 2, и шаг задания краснел бы на каждом прогоне. Время не
+# мешало бы: 189 с здесь (2026-10-16, копия полосы, load average 12–26; код 2 —
+# близнец 74 при трёх занятых слотах соседей, E7 без project/kacho рядом с копией;
+# утверждений 190 из 190); без systemd --user и образа — 171 с, код 2, не построено 3,
+# утверждений 173 из 173 (`env -u XDG_RUNTIME_DIR -u DBUS_SESSION_BUS_ADDRESS
+# HEAVY_SLOT_PROBE_IMAGE=<нет такого> bash scripts/heavy-slot-inject.sh`).
+# Держится ВНИМАНИЕМ автора правки heavy-slot* и приёмки check-verifier. Предикат
+# снятия — ранер со свободными ≥ 15 ГиБ при старте задания: тогда — шаг задания
+# `bats-and-shellcheck`, создающий образ и сеанс systemd --user, без послабления кода 2.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,6 +61,12 @@ skip() { echo "  [VOID] $1" >&2; void=$((void + 1)); }
 has() { grep -qF -- "$2" "$1" && echo да || echo нет; }
 # entries — сколько файлов записей слотов осталось (состояние слота, не дерево).
 entries() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
+# qlen — сколько ЖИВЫХ билетов в очереди: отложенные 74/75 (resume_until=) тоже лежат в
+# queue/, но не ждут. Пробы ждут постановки билета этим счётом, а не сном: сон под
+# нагрузкой машины не успевал (урок 2026-10-16).
+qlen() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/queue/*; do [ -e "$f" ] && ! grep -q '^resume_until=' "$f" && n=$((n + 1)); done; echo "$n"; }
+# nslots — сколько слотов занято (записей *.slot).
+nslots() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*.slot; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
 
 # mem <занято МиБ> — синтетическая память машины (MemTotal 96 ГиБ).
 mem() { printf 'MemTotal: %d kB\nMemAvailable: %d kB\n' $((98304 * 1024)) $(( (98304 - $1) * 1024 )) > "$W/meminfo"; }
@@ -64,6 +85,29 @@ assert 64 "$(slot bash "$SLOT" no-such -- true)" "неизвестный кла�
 assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
+
+echo "── ci-local держит ssh отправки живым: GIT_SSH_COMMAND с keepalive, заданное — сильнее (урок 2026-10-16)"
+# git push открывает ssh до хука отправки; минуты хука простаивающее соединение
+# площадка снимает, и push умирал PIPE (141) после зелёного хука.
+# shellcheck disable=SC2016  # строка дочерней оболочки, переменную раскрывает она
+assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh1") $(grep -q 'ServerAliveInterval=30' "$W/ssh1" && echo да || echo нет)" "ci-local без заданного ssh — GIT_SSH_COMMAND с ServerAliveInterval"
+# shellcheck disable=SC2016
+assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1' ] && echo да || echo нет)" "близнец: заданный вызывающим GIT_SSH_COMMAND не переписан"
+# shellcheck disable=SC2016
+assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" docker -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$W/ssh3") $([ -s "$W/ssh3" ] && echo нет || echo да)" "близнец: класс не ci-local — GIT_SSH_COMMAND не ставится"
+# Заданное вызывающим иначе, чем GIT_SSH_COMMAND, тоже сильнее: core.sshCommand копии
+# (и из её подкаталога), глобального слоя, обёртка GIT_SSH — git предпочёл бы им
+# поставленный слотом GIT_SSH_COMMAND. Вывод ребёнка пуст — слот не перекрыл.
+git init -q "$W/gitc" && git -C "$W/gitc" config core.sshCommand 'ssh -o Своё=2' && mkdir -p "$W/gitc/sub" "$W/nogit"
+printf '[core]\n\tsshCommand = ssh -o Своё=3\n' > "$W/gitglobal"
+# kssh <файл> <каталог> [ENV=…] — ci-local из каталога, ребёнок пишет свой GIT_SSH_COMMAND.
+# shellcheck disable=SC2016
+kssh() { local f="$1" d="$2"; shift 2; (cd "$d" && slot -u GIT_SSH_COMMAND -u GIT_SSH "$@" bash "$SLOT" ci-local -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$f"); }
+assert "0 да" "$(kssh "$W/ssh4" "$W/gitc") $([ -s "$W/ssh4" ] && echo нет || echo да)" "близнец: core.sshCommand копии — GIT_SSH_COMMAND не ставится"
+assert "0 да" "$(kssh "$W/ssh5" "$W/gitc/sub") $([ -s "$W/ssh5" ] && echo нет || echo да)" "близнец: core.sshCommand копии из подкаталога — не ставится"
+assert "0 да" "$(kssh "$W/ssh6" "$W/nogit" GIT_CONFIG_GLOBAL="$W/gitglobal") $([ -s "$W/ssh6" ] && echo нет || echo да)" "близнец: глобальный core.sshCommand — не ставится"
+assert "0 да" "$(kssh "$W/ssh7" "$W/nogit" GIT_SSH=/bin/true) $([ -s "$W/ssh7" ] && echo нет || echo да)" "близнец: обёртка GIT_SSH вызывающего — GIT_SSH_COMMAND не ставится"
+assert "0 да" "$(kssh "$W/ssh8" "$W/nogit" GIT_CONFIG_GLOBAL=/dev/null) $(grep -q 'ServerAliveInterval=30' "$W/ssh8" && echo да || echo нет)" "контроль тех же вызовов: вне копии, без своих настроек — keepalive ставится"
 
 echo "── перенос в другой unit уводит из cgroup слота: systemd-run и --scope в argv — 64"
 # B2 круга 3: `heavy-slot.sh docker -- systemd-run --user --scope …` уходил из слота.
@@ -88,11 +132,12 @@ assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMITER=watch bash "$SLOT" dock
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 bash "$SLOT" docker -- touch "$W/k6") $(has "$W/err" 'HEAVY_SLOT_')" "потолок 1 ГиБ и ожидание 99999 с — 64"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=70 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 70 ГиБ ручкой — 64: величина не переопределяется"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_SLOTS_SUM_MIB=99999 bash "$SLOT" docker -- touch "$W/k9") $(has "$W/err" 'HEAVY_SLOT_SLOTS_SUM_MIB')" "Σ бюджетов слотов ручкой — 64"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_ENQ_S=99999 bash "$SLOT" --enqueue "$W" docker -- touch "$W/k10") $(has "$W/err" 'HEAVY_SLOT_ENQ_S')" "срок --enqueue ручкой — 64"
 # Чтение и поиск разведены: `grep -q` в конце трубы под pipefail рвёт писателя (ws#395).
 cl="$(env "${REAL[@]}" bash "$SLOT" --classes 2>/dev/null)"; cl="${cl%%$'\n'*}"
 assert "да да" "$(grep -qE 'потолок машины: 70[.,]0 ГиБ' <<<"$cl" && echo да || echo нет) $(grep -qE 'свободных до старта ≥ 15[.,]0 ГиБ; слотов ≤ 3, Σ бюджетов ≤ 30[.,]0 ГиБ' <<<"$cl" && echo да || echo нет)" "--classes над настоящей памятью: потолок 70 ГиБ, свободных ≥ 15, слотов ≤ 3, Σ ≤ 30 (решение 2026-10-02)"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
-assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
+assert "нет $before" "$(ls "$W"/k* >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
 # Близнец идёт в общую очередь без ожидания (ws#1004); занятая машина — 74, «не выполнилось».
 rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" newman -- touch "$W/k5")"
 if [ "$rc" = 74 ] || [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
@@ -131,7 +176,7 @@ echo "── очередь строгая: малый не обгоняет ж�
 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- true 2>/dev/null & B=$!
-sleep 0.5
+for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
 assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true) $(has "$W/err" 'в очереди впереди 1')" "малый (50) влез бы по памяти, но большой (250) впереди — ждёт, и причина названа"
 wait "$B"; rc_b=$?; wait "$A"
 assert 0 "$rc_b" "большой дождался выхода первого и вошёл"
@@ -143,7 +188,7 @@ echo "── голову очереди держит лишь билет, вл�
 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 HEAVY_SLOT_LIMIT_MIB=1100 HEAVY_SLOT_WAIT_S=6 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- touch "$W/q1" 2>"$W/errQ" & B=$!
-sleep 0.5
+for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
 assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- touch "$W/q2") $([ -e "$W/q2" ] && echo да || echo нет)" "впереди билет с потолком 1100 < 1000 + 250: голову не держит — малый (1000 + ~200 + 50 ≤ 1300) входит сразу (близнец — строгая очередь выше: потолок 1300, малый ждёт)"
 wait "$A"; wait "$B"; rc_b=$?
 assert "75 нет" "$rc_b $([ -e "$W/q1" ] && echo да || echo нет)" "сам билет с низким потолком — 75 по своему ожиданию, команда не запускалась"
@@ -152,7 +197,7 @@ echo "── lint по одному на машину, ci-local рядом с н
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- sleep 4 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- true 2>"$W/errB" & B=$!
-sleep 0.5
+for _ in $(seq 1 25); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" newman -- true)" "newman за ждущим lint входит сразу"
 assert 0 "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" ci-local -- true)" "ci-local при идущем lint входит сразу: замок линтера у него в своём TMPDIR (ws#1087)"
 wait "$B"; rc_b=$?; wait "$A"
@@ -237,18 +282,108 @@ assert 64 "$(slot bash "$SLOT" --wait x docker -- true)" "--wait без числ
 assert "0 да" "$(slot bash "$SLOT" --wait 300 docker -- touch "$W/b5") $([ -e "$W/b5" ] && echo да || echo нет)" "близнец: --wait 300 — законная граница"
 assert "64 да" "$(slot HEAVY_SLOT_WAIT_S=301 bash "$SLOT" docker -- true) $(has "$W/err" 'больше 300 с')" "ручка проб HEAVY_SLOT_WAIT_S=301 — 64: и проба дольше не ждёт"
 
+echo "── --enqueue: долгое ожидание — ОДНИМ билетом отсоединённо, а не перезапуском (урок 2026-10-16, ws#1110)"
+# Пять попыток newman за час слота не получили: перезапуск на 74/75 ставил билет в
+# конец очереди. Поставленное задание держит место всё ожидание: вошедший позже
+# видит его впереди; код команды — в .rc под уникальным именем.
+rcof() { sed -n 's/^ENQUEUED\tlog=[^\t]*\trc=\([^\t]*\)\t.*/\1/p' "$W/out"; }
+await_rc() { local _; for _ in $(seq 1 80); do [ -s "$1" ] && break; sleep 0.25; done; cat "$1" 2>/dev/null || echo нет; }
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+mkdir -p "$W/enq"
+t0="$(date +%s%N)"
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- touch "$W/q1")"
+ms=$(( ($(date +%s%N) - t0) / 1000000 )); RC1="$(rcof)"
+assert "0 да да нет" "$rc $([ "$ms" -lt 3000 ] && echo да || echo "нет(${ms}мс)") $(case "$RC1" in "$W/enq/hs-docker-"*.rc) echo да ;; *) echo "нет($RC1)" ;; esac) $([ -e "$RC1" ] && echo да || echo нет)" "занятый слот: --enqueue возвращает 0 «поставлено» за < 3 с, .rc под уникальным именем ещё не записан"
+# Ждать ЖИВОГО билета: отложенные 74/75 выше (resume_until) в очереди тоже лежат.
+for _ in $(seq 1 20); do [ -n "$(grep -L '^resume_until=' "$HEAVY_SLOT_DIR"/queue/* 2>/dev/null)" ] && break; sleep 0.2; done
+assert "74 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true) $(has "$W/err" 'СЛОТ ЗАНЯТ, очередь 1')" "вошедший позже видит поставленное задание ВПЕРЕДИ (очередь 1): билет держится всё ожидание"
+assert "да" "$(has "$W/err" 'ОДИН раз --enqueue')" "отказ 74 называет --enqueue и запрет перезапуска"
+wait "$A"
+assert "0 да" "$(await_rc "$RC1") $([ -e "$W/q1" ] && echo да || echo нет)" "слот освободился — поставленное задание исполнилось тем же билетом, код 0 в .rc"
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- bash -c 'exit 7')"; RC2="$(rcof)"
+assert "0 7 да" "$rc $(await_rc "$RC2") $([ "$RC2" != "$RC1" ] && echo да || echo нет)" "близнец: код команды доходит до .rc (7), имя второго задания другое"
+# Место держится ВСЁ ожидание, а не в миг постановки: снимок сразу после постановки
+# слеп к ребёнку, который на каждом опросе перевзял бы билет и ушёл в конец (ровно урок
+# 74/75). Два поставленных и ждущий в переднем плане (--wait, билет он не перевзимает)
+# опрашивают несколько раз, пока держатель занят: ждущий на каждом опросе видит обоих
+# впереди, а входят все по билету — E1, E2, затем он.
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 10 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+# shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
+rc1="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- sh -c 'date +%s%N > "$0"; sleep 1' "$W/o1")"; RO1="$(rcof)"
+for _ in $(seq 1 20); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
+# shellcheck disable=SC2016
+rc2="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- sh -c 'date +%s%N > "$0"; sleep 1' "$W/o2")"; RO2="$(rcof)"
+for _ in $(seq 1 20); do [ "$(qlen)" -ge 2 ] && break; sleep 0.2; done
+# shellcheck disable=SC2016
+env -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 30 docker -- sh -c 'date +%s%N > "$0"' "$W/o3" 2> "$W/lerr" > /dev/null & L=$!
+wait "$A"
+wait "$L"; rcl=$?
+ro1="$(await_rc "$RO1")"; ro2="$(await_rc "$RO2")"
+# Опросы ждущего, пока держатель занят: строки до первого входа поставленного.
+polls="$(grep -c 'ждёт слота' "$W/lerr")"
+early="$(grep 'ждёт слота' "$W/lerr" | head -n 3)"
+order() { [ -s "$W/o1" ] && [ -s "$W/o2" ] && [ -s "$W/o3" ] && [ "$(cat "$W/o1")" -lt "$(cat "$W/o2")" ] && [ "$(cat "$W/o2")" -lt "$(cat "$W/o3")" ] && echo да || echo "нет($(cat "$W/o1" "$W/o2" "$W/o3" 2>/dev/null | tr '\n' ' '))"; }
+assert "0 0 0 0 0" "$rc1 $rc2 $ro1 $ro2 $rcl" "два поставленных и ждущий --wait: все трое исполнились, коды 0"
+assert "да да" "$([ "$polls" -ge 3 ] && echo да || echo "нет($polls)") $([ "$(grep -c 'в очереди впереди 2' <<<"$early")" -eq 3 ] && echo да || echo "нет($(tr '\n' '|' <<<"$early"))")" "ждущий опрашивал ≥ 3 раз, и на каждом из первых трёх — «впереди 2»: поставленные билета не перевзяли"
+assert "да" "$(order)" "вход по билету: E1, затем E2, затем ждущий, поставленный последним"
+assert "64 да" "$(slot bash "$SLOT" --queued "$W/enq/x" docker -- true) $(has "$W/err" 'внутренняя форма')" "--queued в переднем плане — 64: долгое ожидание только у отсоединённого ребёнка"
+assert "64 да" "$(slot bash "$SLOT" --enqueue "$W/нет-такого" docker -- true) $(has "$W/err" 'каталог журналов')" "--enqueue в несуществующий каталог — 64"
+assert "64 да" "$(slot bash "$SLOT" --enqueue "$W/enq" --wait 5 docker -- true) $(has "$W/err" 'не ставятся')" "--enqueue вместе с --wait — 64"
+
+echo "── повтор с --resume <билет> держит место в очереди до 120 с; без билета и просроченный — в конец (ws#1115)"
+# order <файл> <метка> — команда слота: дописать метку (порядок входа).
+tkof() { sed -n 's/.*--resume \([0-9][0-9]*\).*/\1/p' "$W/err" | head -n 1; }
+# race <режим> — A держит слот; X получает 74 с билетом; N ждёт; X повторяет по режиму.
+# shellcheck disable=SC2016  # строки `sh -c` раскрывает дочерняя оболочка
+race() {
+    rm -f "$W/order"
+    # A держит 6 с: повтор X обязан встать в очередь, пока слот занят, — иначе
+    # отложенный билет голову не держит и сосед входит в освободившийся слот.
+    HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 6 2>/dev/null & local a=$!
+    for _ in $(seq 1 25); do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+    local rx tk; rx="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sh -c 'echo X >> "$0"' "$W/order")"; tk="$(tkof)"
+    echo "$rx ${tk:-нет}" > "$W/rx"; TK="$tk"
+    TF="$HEAVY_SLOT_DIR/queue/$(printf '%012d' "${TK:-0}")"
+    [ "$1" = expired ] && [ -e "$TF" ] && sed -i "s/^resume_until=.*/resume_until=$(( $(date +%s) - 1 ))/" "$TF"
+    HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 15 docker -- sh -c 'echo N >> "$0"' "$W/order" 2>/dev/null & local n=$!
+    sleep 0.6
+    local rarg=(); [ "$1" != none ] && rarg=(--resume "${TK:-0}")
+    HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" "${rarg[@]}" --wait 15 docker -- sh -c 'echo X >> "$0"' "$W/order" 2>"$W/errR" & local x=$!
+    wait "$a" "$n" "$x"
+    tr '\n' ' ' < "$W/order" | sed 's/ $//'
+}
+o="$(race resume)"
+read -r RX TK < "$W/rx"
+assert "74 да X N" "$RX $([ "$TK" != нет ] && echo да || echo нет) $o" "74 называет билет; повтор --resume <билет> входит РАНЬШЕ соседа, вставшего после отказа"
+o="$(race none)"
+assert "N X" "$o" "близнец: повтор без билета — в конец очереди, сосед входит первым"
+o="$(race expired)"
+assert "N X да" "$o $(has "$W/errR" 'просрочен')" "просроченный билет (> 120 с) → в конец очереди, и это сказано"
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 3 2>/dev/null & A=$!
+for _ in $(seq 1 25); do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- true)"; TK="$(tkof)"; TF="$HEAVY_SLOT_DIR/queue/$(printf '%012d' "${TK:-0}")"
+ru="$(sed -n 's/^resume_until=//p' "$TF" 2>/dev/null)"; d=$(( ${ru:-0} - $(date +%s) ))
+assert "74 да" "$rc $([ "$d" -ge 115 ] && [ "$d" -le 120 ] && echo да || echo "нет(${d}с)")" "билет 74 отложен на 120 с (resume_until в записи очереди)"
+wait "$A"
+assert "0 да" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- touch "$W/rs1") $([ -e "$W/rs1" ] && echo да || echo нет)" "отложенный билет без владельца голову не держит: слот свободен — новый входит сразу"
+assert "64 да" "$(slot bash "$SLOT" --resume x docker -- true) $(has "$W/err" '--resume')" "--resume не числом — 64"
+nw="$(grep -c ' wait ' "$HEAVY_SLOT_DIR/journal.log")"
+assert "да 0" "$([ "$nw" -gt 0 ] && echo да || echo нет) $(grep ' wait ' "$HEAVY_SLOT_DIR/journal.log" | grep -vc ' slots=.* free=\| free=.* slots=' || true)" "событие wait несёт slots и free (событий wait $nw, без полей — 0)"
+
 echo "── запись слота, чей держатель умер, снимается при следующем входе"
 printf 'class=go-race\nbudget=999\npid=999999\npid_start=1\nunit=\nstart=1\nseq=0\n' > "$HEAVY_SLOT_DIR/active/1-999999.slot"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=300 bash "$SLOT" docker -- true)" "мёртвая запись не держит 999 МиБ: вход выдан"
 assert "0 да" "$(entries) $(has "$HEAVY_SLOT_DIR/journal.log" ' reap id=1-999999')" "запись снята и снятие записано"
 export HEAVY_SLOT_LIMIT_MIB=100000
 
-# nslots — сколько слотов занято (записей *.slot).
-nslots() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*.slot; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
-
 echo "── тяжёлых не больше трёх: третий входит, четвёртый — 74 (решение владельца 2026-10-02)"
-for i in 1 2 3; do HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- sleep 4 2>/dev/null & eval "N$i=\$!"; done
-for _ in $(seq 1 25); do [ "$(nslots)" -ge 3 ] && break; sleep 0.2; done
+# Трое стартуют разом и попадают друг другу в очередь: вход — по опросу (POLL_S=1), и под
+# нагрузкой машины WAIT_S=2 не хватало третьему (74, «получено 1»). Держателям — ожидание 10 с
+# и сон 6 с: утверждение то же — три слота заняты РАЗОМ, четвёртый при них — 74.
+for i in 1 2 3; do HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- sleep 6 2>/dev/null & eval "N$i=\$!"; done
+for _ in $(seq 1 40); do [ "$(nslots)" -ge 3 ] && break; sleep 0.2; done
 assert 3 "$(nslots)" "три слота по 20 МиБ заняты разом — третий вошёл"
 assert "74 да нет" "$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- touch "$W/n4") $(has "$W/err" 'занято слотов 3 из 3') $([ -e "$W/n4" ] && echo да || echo нет)" "четвёртый — 74, причина названа, команда не запускалась (память при этом свободна)"
 wait "$N1" "$N2" "$N3"
@@ -330,12 +465,13 @@ echo "── запасной путь: мягкий предел по RSS де�
 assert 0 "$(slot HEAVY_SLOT_LIMITER=watch HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 16 2)" "16 МиБ под бюджетом 64 — код 0"
 assert "76 да" "$(slot HEAVY_SLOT_LIMITER=watch HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 256 4) $(has "$W/err" 'мягкий предел')" "256 МиБ под бюджетом 64 — 76, причина названа"
 
-echo "── docker run: предел — контейнеру, флаги памяти вызова — отказ"
+echo "── docker run: предел — контейнеру, флаги памяти вызова сверх бюджета — отказ"
 if docker image inspect "$IMAGE" >/dev/null 2>&1; then
     assert "0 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "контейнер получил memory.max = бюджет"
     assert "76 да" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm "$IMAGE" python3 -c "$ALLOC" 300 0) $(has "$W/err" 'OOM контейнера')" "300 МиБ в контейнере под бюджетом 96 — 76, причина названа"
     assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -m 1g "$IMAGE" true)" "свой -m у вызова — 64"
     assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -e X=1 "$IMAGE" sh -c 'exit 0' -m)" "близнец: -m после образа — аргумент контейнера, не флаг docker"
+    assert "0 67108864" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -m 64m "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "близнец: свой -m 64m в бюджете 96 — контейнер получил предел вызова (ws#1110)"
 
     # docker не первым словом: подставляет `docker` из PATH команды (опыт ws#832).
     assert "0 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- timeout 60 docker run --rm "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "docker за timeout — тот же предел"
@@ -372,12 +508,39 @@ else
     skip "нет docker либо образа $IMAGE — предел контейнера не доказан в этой среде"
 fi
 
+echo "── подмена docker: свой предел вызова — законен в бюджете, не дублируется (ws#1110)"
+# Настоящий вход — форма стенда kaname (`.github/scripts/stand-own.sh`: службе
+# `--memory 1280m --memory-swap 1280m`, законная в конвейере); docker — двойник,
+# печатающий argv: судится то, что подмена ОТДАЁТ настоящему docker.
+DS="$W/dshim"; mkdir -p "$DS"; ln -sf "$SLOT" "$DS/docker"
+printf '#!/bin/sh\nprintf "%%s\\n" "$@"\n' > "$DS/real"; chmod +x "$DS/real"
+# shim <бюджет MiB> <аргументы docker…> — код подмены; argv настоящего — в $W/out.
+shim() { local b="$1"; shift; HEAVY_SLOT_P="$DS/p" HEAVY_SLOT_B="$b" HEAVY_SLOT_REAL_DOCKER="$DS/real" "$DS/docker" "$@" > "$W/out" 2> "$W/err"; echo $?; }
+cnt() { grep -cE -- "$1" "$W/out"; }
+rc="$(shim 8192 run --rm --name svc --network host --memory 1280m --memory-swap 1280m --user 1:1 img /bin/kaname)"
+assert "0 1 1 0 1" "$rc $(cnt '^--memory$') $(cnt '^--memory-swap$') $(cnt '^--memory(-swap)?=') $(cnt '^--cidfile=')" "форма стенда kaname под бюджетом 8 ГиБ: исполнено, предел вызова один, своего слот не дописал, --cidfile есть"
+rc="$(shim 8192 run --rm --memory 1280m img true)"
+assert "0 1 1" "$rc $(cnt '^--memory-swap=1280m$') $(cnt '^--memory(=|$)')" "только --memory вызова: swap дописан равным памяти (сверх неё swap нет), память не продублирована"
+rc="$(shim 8192 run --rm -dm512m img true)"
+assert "0 1 0" "$rc $(cnt '^--memory-swap=512m$') $(cnt '^--memory=')" "склейка коротких -dm512m — та же форма: swap дописан, память не продублирована"
+rc="$(shim 8192 run --rm img sh -c true -m 99g)"
+assert "0 1 1" "$rc $(cnt '^--memory=8192m$') $(cnt '^--memory-swap=8192m$')" "близнец: без предела вызова (-m после образа — аргумент контейнера) — слот ставит бюджет"
+for c in "--memory 9g" "-m 9g" "--memory=9g" "--memory-swap 9g" "--memory 0" "--memory-swap -1" "--memory 12x"; do
+    # shellcheck disable=SC2086  # флаг и значение — два слова
+    rc="$(shim 8192 run --rm $c img true)"
+    assert "64 0" "$rc $(wc -l < "$W/out" | tr -d ' ')" "«$c» под бюджетом 8 ГиБ — 64, настоящий docker не звался"
+done
+assert "да" "$(has "$W/err" 'не разбирается как величина памяти')" "неразобранная величина названа причиной"
+rc="$(shim 8192 run --rm --memory 9g img true)"; assert "да" "$(has "$W/err" 'больше бюджета класса 8,0 ГиБ')" "сверх бюджета — причина и бюджет названы"
+rc="$(shim 8192 run --rm --cidfile x img true)"; assert "64 да" "$rc $(has "$W/err" 'слот ставит --cidfile сам')" "свой --cidfile — 64: по нему слот снимает контейнер"
+rc="$(shim 8192 run --rm --memory 8192m img true)"; assert 0 "$rc" "граница: предел ровно в бюджет — законен"
+
 echo "── сторож машины: перебор потолка обрывает МЛАДШИЙ слот, старший живёт"
 export HEAVY_SLOT_LIMIT_MIB=1300
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- sleep 6 2>"$W/errA" & A=$!
-sleep 1.2
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 1 ] && break; sleep 0.2; done
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- sleep 6 2>"$W/errC" & C=$!
-sleep 1.2
+for _ in $(seq 1 25); do [ "$(nslots)" -ge 2 ] && break; sleep 0.2; done
 mem 1400
 wait "$C"; rc_c=$?
 mem 1000
@@ -409,7 +572,16 @@ if [ "${1:-}" = --available ]; then
     fi
     echo "remote-heavy: кластер не отвечает" >&2; exit 69
 fi
-printf '%s\n' "$@" > "$FAKE_ARGV"; exit 17
+printf '%s\n' "$@" > "$FAKE_ARGV"
+# FAKE_EXEC=1 — исполнить команду в --src/--workdir, как Job (FAKE_IN_JOB=1 видит она).
+if [ "${FAKE_EXEC:-0}" = 1 ]; then
+    src=""; wd=.
+    while [ "$#" -gt 0 ] && [ "$1" != -- ]; do case "$1" in --src) src="$2"; shift 2 ;; --workdir) wd="$2"; shift 2 ;; *) shift ;; esac; done
+    shift
+    [ -n "${FAKE_EXEC_RC:-}" ] && exit "$FAKE_EXEC_RC"
+    (cd "$src/$wd" && FAKE_IN_JOB=1 "$@" < /dev/null); exit $?
+fi
+exit 17
 FAKE
 R="$W/rclone"
 # shellcheck source=lib/sandbox-git-home.sh
@@ -462,8 +634,35 @@ assert "17 да" "$(FAKE_AVAIL=5 rslot bash "$SLOT" lint -- go version) $(has "$
 t0="$(date +%s)"
 r="$(FAKE_AVAIL=4 rslot bash "$SLOT" lint -- go version)"
 assert "0 да да" "$r $(has "$W/err" 'не ответила за 10 с') $([ $(( $(date +%s) - t0 )) -lt 20 ] && echo да || echo нет)" "проверка кластера висит → прервана за 10 с, локально, причина названа"
-b="$(jn ' local class=ci-local proof=')"; bw="$(jn ' local class=ci-local why=команда «git»')"
-assert "0 $b $((bw + 1))" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=ci-local proof=') $(jn ' local class=ci-local why=команда «git»')" "близнец: хук отправки (git push) внешнего пути не имеет — локально без опроса кластера, без proof, причина в журнале"
+b="$(jn ' local class=ci-local proof=')"; bw="$(jn ' local class=ci-local why=команда «git» без push')"
+assert "0 $b $((bw + 1))" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=ci-local proof=') $(jn ' local class=ci-local why=команда «git» без push')" "близнец: git без push (не хук отправки) внешнего пути не имеет — локально без опроса кластера, без proof, причина в журнале"
+
+echo "── хук отправки при доступном кластере → run.sh: хук — Job-ом на той же голове, локально лишь отправка, замок слотов не берётся (ws#1106, ws#1115)"
+# Настоящий git push в голый репозиторий; хук продукта — отслеживаемый
+# scripts/hooks/pre-push клона за переходником .git/hooks/pre-push (форма install-hooks).
+mkdir -p "$R/scripts/hooks"
+# shellcheck disable=SC2016  # текст хука раскрывает он сам
+printf '#!/usr/bin/env bash\n{ printf "job=%%s args=%%s\\n" "${FAKE_IN_JOB:-нет}" "$*"; cat; } >> "$HOOK_LOG"\nexit "${HOOK_RC:-0}"\n' > "$R/scripts/hooks/pre-push"
+chmod +x "$R/scripts/hooks/pre-push"; git -C "$R" add scripts; sandbox_git -C "$R" commit -q -m hook
+# shellcheck disable=SC2016
+printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/hooks/pre-push" "$@"\n' > "$R/.git/hooks/pre-push"; chmod +x "$R/.git/hooks/pre-push"
+git init -q --bare "$W/bare.git"
+HL="$W/hook.log"; touch "$HEAVY_SLOT_DIR/lock"
+has_ref() { git -C "$W/bare.git" rev-parse --verify --quiet "refs/heads/$1" >/dev/null && echo да || echo нет; }
+be="$(jn ' enter ')"; br="$(jn ' remote class=ci-local route=push ')"; rm -f "$HL" "$W/argv"
+flock "$HEAVY_SLOT_DIR/lock" sleep 20 & LKH=$!; sleep 0.3
+t0="$(date +%s)"
+rc="$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-x)"
+dt=$(( $(date +%s) - t0 )); kill "$LKH" 2>/dev/null; wait "$LKH" 2>/dev/null
+assert "0 1 1 да $be $((br + 1)) да" "$rc $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=' "$HL" 2>/dev/null) $(has_ref 1115-x) $(jn ' enter ') $(jn ' remote class=ci-local route=push ') $([ "$dt" -lt 10 ] && echo да || echo "нет(${dt}с)")" "git push при доступном кластере: хук исполнен Job-ом и только там, отправка дошла, слот не занят, строка remote в журнале, замок слотов (занят соседом) не брался"
+assert "да $(git -C "$R" rev-parse HEAD) ci-local" "$(grep -q 'refs/heads/1115-x' "$HL" && echo да || echo нет) $(sed -n '/^--ref$/{n;p}' "$W/argv") $(sed -n '/^--profile$/{n;p}' "$W/argv")" "Job получил вход git (строки отправки) и судит отправляемую голову профилем ci-local"
+rm -f "$HL"
+assert "1 1 нет" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" HOOK_RC=1 bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-y) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(has_ref 1115-y)" "близнец: хук в Job красный → отправка остановлена, ссылки нет"
+assert "69 нет да" "$(rslot env FAKE_EXEC=1 FAKE_EXEC_RC=69 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-z) $(has_ref 1115-z) $(has "$W/err" 'не выполнилось')" "Job не состоялся (69) → 69 «не выполнилось», не красное, ссылки нет"
+be="$(jn ' enter id=')"; rm -f "$HL"
+assert "0 1 да $((be + 1))" "$(rslot env FAKE_AVAIL=1 FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD:refs/heads/1115-w) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-w) $(jn ' enter id=')" "близнец: кластер недоступен → хук локально слотом (enter в журнале)"
+be="$(jn ' enter id=')"; b78="$(jn 'route=push rc=1 hook_rc=78 ')"; rm -f "$HL"
+assert "0 0 1 да $((be + 1)) $((b78 + 1))" "$(rslot env FAKE_EXEC=1 HOOK_LOG="$HL" bash "$SLOT" ci-local -- git push -q "$W/bare.git" HEAD~1:refs/heads/1115-v) $(grep -c '^job=1 ' "$HL" 2>/dev/null) $(grep -c '^job=нет ' "$HL" 2>/dev/null) $(has_ref 1115-v) $(jn ' enter id=') $(jn 'route=push rc=1 hook_rc=78 ')" "отправка не головы копии: переходник — 78, Job не звался, та же отправка локально слотом с хуком"
 rm -f "$W/argv" "$W/argv.avail"
 assert "77 да нет нет" "$(rslot bash "$SLOT" stand -- bash -c 'touch "$1"' x "$W/st1" dev-up) $(has "$W/err" 'во внешний кластер: в deploy/ продукта make stand-ns-up NS=t984-') $([ -e "$W/st1" ] && echo да || echo нет) $([ -e "$W/argv" ] && echo да || echo нет)" "стенд: dev-up при доступном кластере → 77 с формой своего ns, команда не запускалась"
 assert "--available" "$(tr '\n' ' ' < "$W/argv.avail" | sed 's/ $//')" "стенд судит кластер без профиля: стенд ставит stand-ns.sh, не Job профиля"

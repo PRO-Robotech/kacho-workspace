@@ -35,6 +35,8 @@
 #             startup_failure | stale — каждое значение FAILSET
 #             отдельным случаем                                    → 1 CI-FAILED
 #   commit status failure вне check-runs                           → 1 CI-FAILED
+#   одна проверка failure, другая (или workflow run) ещё идёт     → 3 running,
+#             VERDICT «красных уже N» (ws#1110: ожидание не прерывается)
 #   check-runs двумя страницами (100+9), поздний failure имени —
 #             на второй: читается только с --paginate              → 1 CI-FAILED
 #   обязательный контекст исчез при завершённом остальном          → 1 REQUIRED-MISSING
@@ -86,6 +88,8 @@
 #   черновик: страж ещё идёт                                       → 3 DRAFT-GUARD-PENDING
 #   не черновик: та же аннотация стражем не делает                 → 1 CI-FAILED
 #   площадка не отдала check-runs                                  → 2 VOID
+#   лимит REST ниже порога 100 (урок 2026-10-16)                  → 2 RATE-LIMIT
+#             близнец: остаток ровно на пороге                     → 0 green
 #   пары репозиторий/база нет в ведомости                          → 2 VOID
 #   живая ведомость: запрос в main каждого ствола (kacho, kaname,
 #             corelib, kacho-workspace) — строка есть             → 0 green
@@ -149,6 +153,9 @@
 #   null-suite-ignored  — check-run с check_suite null выпал из суда;
 #   no-rule-e           — (е) снято целиком (прежняя форма «последний по имени»);
 #   expect-compare-dropped — сверка числа снята: CHECKS-INCOMPLETE не выносится (ws#1097);
+#   rate-limit-dropped  — проверка лимита до чтения снята (урок 2026-10-16, ws#1110);
+#   red-wins-while-running — красное при идущих снова 1: ожидание прервано на первом
+#                         красном (ws#1110);
 #   trunk-row-dropped-<ствол> — из ЖИВОЙ ведомости снята строка <ствол>/main
 #                         (по одному на каждый из четырёх; урок corelib#111);
 #   row-dropped-<репозиторий>-<база> — из ЖИВОЙ ведомости снята строка не-ствола
@@ -199,6 +206,7 @@ case "$p" in
   repos/*/rules/branches/*) f=rules.json ;;
   repos/*/branches/*) f=branch.json ;;
   repos/*/compare/*) f=compare.json ;;
+  rate_limit) f=rate_limit.json ;;
   repos/*/check-runs/*/annotations)
     id="${p#repos/*/check-runs/}"; id="${id%/annotations}"
     if [ -f "$CI_READ_FX/annotations.$id.json" ]; then f="annotations.$id.json"
@@ -311,6 +319,12 @@ run "одна проверка failure" 1 '^REASON\tCI-FAILED\tfailure: '
 for c in cancelled timed_out action_required startup_failure stale; do
     one_concl "$c"; run "одна проверка $c" 1 "^REASON\\tCI-FAILED\\t$c: "
 done
+say "== красное при идущих — 3, ожидание не прерывается (ws#1110, владелец 2026-10-16)"
+mk; edit check-runs.json '.check_runs |= (sort_by(.name) | (.[0:1] | map(.conclusion="failure")) + (.[1:2] | map(.status="in_progress" | .conclusion=null | .started_at="2099-01-01T00:00:00Z")) + .[2:])'
+run "одна failure, другая ещё идёт — идёт, число красных названо" 3 '^VERDICT\trunning\t.*красных уже 1, задания идут'
+mk; edit check-runs.json '.check_runs |= (sort_by(.name) | (.[0:1] | map(.conclusion="failure")) + .[1:])'
+edit runs.json '.workflow_runs[0] |= (.status="in_progress" | .conclusion=null)'
+run "одна failure, workflow run ещё идёт — идёт" 3 '^VERDICT\trunning\t.*красных уже 1'
 mk; edit status.json '.statuses=[{context:"внешний контекст",state:"failure"}]'
 run "commit status failure вне check-runs" 1 '^REASON\tCI-FAILED\tfailure: внешний контекст'
 # 109 прогонов: исходные 70, 38 ранних повторов имён (success) и поздний failure
@@ -380,7 +394,7 @@ edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_prog
 run "вытесненный прогон ещё идёт, последний завершён зелёным" 0 '^VERDICT\tgreen\t'
 supersede failure completed '"success"' push; new_agg completed '"success"' 2026-10-10T22:30:00Z
 edit runs.json ".workflow_runs |= map(if .id == $OLDRUN then .status = \"in_progress\" | .conclusion = null end)"
-run "прогон push того же workflow pull_request-прогоном не вытесняется (его failure красный по (е2))" 1 '^REASON\tRUNS-PENDING\t.*run 38086061943'
+run "прогон push того же workflow pull_request-прогоном не вытесняется (его failure красный по (е2), но прогон идёт — 3)" 3 '^REASON\tRUNS-PENDING\t.*run 38086061943'
 # V1: одноимённый workflow другого файла (workflow_id 6) позже — не вытесняет
 supersede failure completed '"success"' pull_request 38199999999 6
 run "одноимённый workflow другого файла не вытесняет: красное прежнего судится" 1 '^REASON\tCI-FAILED\tfailure: сводный вердикт'
@@ -512,6 +526,10 @@ run "не черновик: аннотация стражем не делает"
 say "== не прочитано — 2"
 mk; echo 'gh: HTTP 502 Bad Gateway' > "$C/check-runs.json.err"
 run "площадка не отдала check-runs" 2 '^VOID\tcheck-runs на '
+mk; jq -n '{resources: {core: {limit: 5000, remaining: 5, reset: 1760620800}, graphql: {limit: 5000, remaining: 4000, reset: 1760620800}}}' > "$C/rate_limit.json"
+run "лимит REST исчерпан (урок 2026-10-16) — не выполнилось со временем сброса" 2 '^REASON\tRATE-LIMIT\tлимит REST: остаток 5 из 5000 < порога 100, сброс в [0-9]{2}:[0-9]{2}'
+mk; jq -n '{resources: {core: {limit: 5000, remaining: 100, reset: 1760620800}, graphql: {limit: 5000, remaining: 4000, reset: 1760620800}}}' > "$C/rate_limit.json"
+run "близнец: остаток ровно на пороге — чтение идёт, полный зелёный" 0 '^VERDICT\tgreen\t.*проверок 68 из 68'
 mk; grep -v '^PRO-Robotech/kacho	1266	' "$FXL" > "$T/ledger.nopair.tsv"
 run "пары kacho/1266 нет в ведомости" 2 '^VOID\tпары PRO-Robotech/kacho / 1266 нет' "$T/ledger.nopair.tsv"
 
@@ -560,6 +578,7 @@ run "commit status success вне check-runs" 0 '^VERDICT\tgreen\t.*провер
 # мутант ведомости: строка ствола снята из копии живой ведомости. Правка, не
 # легшая в текст, — VOID, а не «убит».
 SC="$T/scen"; mkdir -p "$SC"; void=0
+ln -s "$HERE/lib" "$SC/lib"   # мутант лежит в $SC и берёт lib/gh-rate.sh рядом с собой
 printf 'control\t%s\t%s\n' "$HERE/ci-read.sh" "$LIVE" > "$SC/list"
 while IFS=$'\t' read -r name expr; do
     M="$SC/ci-read.$name.sh"
@@ -601,6 +620,8 @@ drop-failure-too	/\.drop = (\$pr and/s/IN("skipped", "neutral", "success")/IN("s
 red-not-first	/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 null-suite-ignored	/map(\.ev = \$ev\[/s/map(\.ev = /map(select(.check_suite != null) | .ev = /
 expect-compare-dropped	/then reason CHECKS-INCOMPLETE/s/\[ "$NAMES" -lt "$EXPECT" \]/false/
+red-wins-while-running	/^if \[ "$REDN" -gt 0 \] \&\& ! has/s/ \&\& ! has "$PEND"//
+rate-limit-dropped	/^if ! RL="$(gh_rate_short/s/if ! RL=/if false \&\& ! RL=/
 no-rule-e	/\.drop = (\$pr and/s/\.drop = (\$pr and/.drop = (false and/;/if (\$red | length) > 0/s/if (\$red | length) > 0/if false/
 MUT
 for tr in $TRUNKS; do

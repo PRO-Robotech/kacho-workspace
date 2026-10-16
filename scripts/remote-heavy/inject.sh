@@ -96,6 +96,10 @@
 #      ни одним пакетом не импортированный, в кэш не кладёт; после шага исходник
 #      модуля в кэше есть; близнец D1b — модуль не достать → 125 «модули» в
 #      termination-log; D1c — каталог без go.mod → 0, строка «качать нечего»
+#   E11 задание на ubuntu-latest без setup-helm, buf шагом (форма ci.yml kaname)
+#      → helm образа ранера и пин buf в окружении run (ws#1110); E11b self-hosted —
+#      helm не ставится; E11c таблица образов не получена → 69; E11d пин buf вне
+#      формы → 69; E2-buf-* сверка buf, E7-buf* установка buf с суммой выпуска
 #   E3 два пина helm                        → 69 до кластера, причина названа
 #   E4 профиль lint на ревизии с пинами     → среду не ставит (близнец E1)
 #   E5 ревизия без пинов                    → строка называет, что сверять нечего
@@ -422,6 +426,53 @@ pin_rev pins4 'jobs:
           cache: npm
 '
 
+# Ревизии среды ОБРАЗА ранера и buf (ws#1110), формы ci.yml kaname 746: задание на
+# ubuntu-latest без setup-helm (helm несёт образ ранера), buf — шаг
+# bufbuild/buf-setup-action с version; imgs2 — только self-hosted (образа нет —
+# законный близнец: helm не ставится); imgs3 — пин buf вне формы.
+pin_rev imgs 'jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bufbuild/buf-setup-action@3e33  # v1.9.0
+        with:
+          version: 1.72.0
+          github_token: x
+      - run: go test ./tools/standalonetargets/
+'
+pin_rev imgs2 'jobs:
+  unit:
+    runs-on: self-hosted
+    steps:
+      - run: go test ./...
+'
+pin_rev imgs3 'jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bufbuild/buf-setup-action@3e33
+        with:
+          version: latest
+'
+# Двойник curl машины запуска: таблица образов и Readme образа — формы
+# actions/runner-images (строки из настоящих файлов 2026-10-16); FAKE_CURL_DOWN=1 —
+# сеть не отвечает.
+cat > "$BOX/bin/curl" <<'FAKE'
+#!/usr/bin/env bash
+u=""; for a in "$@"; do case "$a" in http*) u="$a" ;; esac; done
+[ "${FAKE_CURL_DOWN:-0}" = 1 ] && { echo "curl: (6) Could not resolve host" >&2; exit 6; }
+case "$u" in
+  */actions/runner-images/main/README.md)
+    printf '%s\n' '| Ubuntu 24.04<br>![Endpoint Badge](https://img.shields.io/x) | x64 | `ubuntu-latest` or `ubuntu-24.04` | [ubuntu-24.04] |' \
+      '| Ubuntu 24.04 Arm64<br>![Endpoint Badge](https://img.shields.io/x) | arm64 | `ubuntu-24.04-arm` | [ubuntu-24.04-arm64] |' \
+      '[ubuntu-24.04]: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md' \
+      '[ubuntu-24.04-arm64]: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Arm64-Readme.md' ;;
+  */images/ubuntu/Ubuntu2404-Readme.md) printf '%s\n' '# Ubuntu 24.04' '- Image Version: 20261012.334.1' '- Helm 3.22.0' '- Kind 0.33.0' ;;
+  *) echo "двойник curl: адрес не знаком: $u" >&2; exit 22 ;;
+esac
+FAKE
+chmod +x "$BOX/bin/curl"
+
 fresh() { rm -rf "$BOX/state"; mkdir -p "$BOX/state/ns"; }
 
 # go <имя> — запуск run.sh в окружении двойника; код — в RC, вывод — в OUT.
@@ -626,6 +677,20 @@ tools_case E2-node-other v4.2.4+g3900f43 v24.1.0 v4.2.4 26 125 node
 tools_case E2-node-prefix v4.2.4+g3900f43 v260.1.0 v4.2.4 26 125 node
 tools_case E2-legit v4.2.4+g3900f43 v26.8.1 v4.2.4 26 0
 tools_case E2-nopins - - "" "" 0
+# buf (ws#1110): сверка той же формы — нет, не та, версия-префикс → 125; верная → 0
+buf_tools_case() {
+    rm -f "$ET"/* "$BOX/etl"; [ "$2" = - ] || fake_tool buf "$2"
+    OUT="$BOX/$1.out"
+    env -i PATH="$ET:/usr/bin:/bin" HEAVY_BUF=1.72.0 bash "$BOX/tools.sh" > "$OUT" 2>&1; RC=$?
+    expect_rc "$1" "$3"
+    if [ "$3" -ne 0 ]; then
+        if grep -q "^remote-heavy-prep: среда: buf" "$BOX/etl" 2>/dev/null; then ok; else bad "$1" "отказ «среда: buf» не записан в termination-log"; fi
+    elif ! grep -q 'buf 1.72.0' "$OUT"; then bad "$1" "строка среды не называет buf 1.72.0"; else ok; fi
+}
+buf_tools_case E2-buf-absent - 125
+buf_tools_case E2-buf-other 1.71.0 125
+buf_tools_case E2-buf-prefix 1.72.01 125
+buf_tools_case E2-buf-legit 1.72.0 0
 # D1 модули исходниками (ws#1018). Пакет deploy kacho читает исходник пиненного
 #    kaname из GOMODCACHE, а сборка этот модуль не тянет: без шага загрузки кэш
 #    Job его не содержит (32 отказа «stat /cache/mod/…: no such file»). Конвейер
@@ -704,6 +769,9 @@ case "$u" in
   # каждой строки не сходится, а имя файла на месте (grep строку находит).
   */SHASUMS256.txt) ( cd "$STUB_ARCH" && sha256sum node-*.tar.gz ) | if [ -n "${STUB_BADSUM_NODE:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
   *.tar.gz) cat "$STUB_ARCH/${u##*/}" | out ;;
+  # Выпуск buf (ws#1110): sha256.txt — строки всех бинарей и архивов, как настоящий.
+  */bufbuild/buf/releases/download/*/sha256.txt) ( cd "$STUB_ARCH/buf" && sha256sum buf-Linux-* ) | if [ -n "${STUB_BADSUM_BUF:-}" ]; then sed 's/^[0-9a-f]*/'"$Z"'/'; else cat; fi | out ;;
+  */bufbuild/buf/releases/download/*/buf-Linux-*) cat "$STUB_ARCH/buf/${u##*/}" | out ;;
   *) echo "двойник curl: адрес не знаком" >&2; exit 22 ;;
 esac
 STUB
@@ -725,6 +793,12 @@ install_case() {
 }
 install_case E7-both v4.2.4 26 0 "helm node"
 install_case E7-node-only "" 26 0 "node"
+mkdir -p "$IA/buf"; printf '#!/bin/sh\necho 1.72.0\n' > "$IA/buf/buf-Linux-x86_64"; chmod +x "$IA/buf/buf-Linux-x86_64"
+printf 'tar' > "$IA/buf/buf-Linux-x86_64.tar.gz"
+install_case E7-buf "" "" 0 "buf" HEAVY_BUF=1.72.0
+install_case E7-buf-badsum "" "" 125 "buf 1.72.0 не поставлен" HEAVY_BUF=1.72.0 STUB_BADSUM_BUF=1
+if [ -e "$IW/bin/buf" ]; then OUT="$BOX/E7-buf-badsum.out"; bad E7-buf-badsum "buf с несошедшейся суммой лежит в bin"; else ok; fi
+install_case E7-buf-arch "" "" 125 "buf: архитектура" HEAVY_BUF=1.72.0 STUB_ARCH_M=s390x
 install_case E7-helm-only v4.2.4 "" 0 "helm"
 install_case E7-badsum v4.2.4 26 125 "helm v4.2.4 не поставлен" STUB_BADSUM=1
 install_case E7-arch v4.2.4 26 125 "helm: архитектура" STUB_ARCH_M=s390x
@@ -762,6 +836,31 @@ for c in "E10 pins5 node" "E10b pins6 helm"; do
     if [ -e "$BOX/state/job.json" ]; then bad "$cn" "Job создан при пине вне формы"; else ok; fi
     if grep -q "пин $ctool на .* вне формы" "$OUT"; then ok; else bad "$cn" "пин $ctool вне формы не назван"; fi
 done
+# E11 (ws#1110) задание на ubuntu-latest без setup-helm, buf шагом → helm ОБРАЗА
+#     ранера (Readme образа) и пин buf в окружении run, строка «Job создан» их
+#     называет; близнец E11b — только self-hosted: helm не ставится, код 0; E11c —
+#     таблица образов не получена → 69, Job нет; E11d — пин buf вне формы → 69.
+fresh
+go_run e11 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref imgs --src "$SRC" --profile ci-local --short e11 -- true
+expect_rc E11 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_HELM)" = v3.22.0 ] && [ "$(envv "$BOX/state/job.json" HEAVY_BUF)" = 1.72.0 ]; then ok
+else OUT="$BOX/state/job.json"; bad E11 "helm образа «$(envv "$BOX/state/job.json" HEAVY_HELM)», buf «$(envv "$BOX/state/job.json" HEAVY_BUF)», ждали v3.22.0 и 1.72.0"; fi
+if grep -q 'Job создан: .*helm v3.22.0 (образ ранера), node нет пина, buf 1.72.0' "$OUT"; then ok; else bad E11 "строка «Job создан» не называет helm образа и buf"; fi
+fresh
+go_run e11b env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref imgs2 --src "$SRC" --profile ci-local --short e11b -- true
+expect_rc E11b 0
+if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -z "$(envv "$BOX/state/job.json" HEAVY_BUF)" ]; then ok
+else OUT="$BOX/state/job.json"; bad E11b "self-hosted без шагов: helm «$(envv "$BOX/state/job.json" HEAVY_HELM)», buf «$(envv "$BOX/state/job.json" HEAVY_BUF)», ждали пусто"; fi
+fresh
+go_run e11c env FAKE_EXIT=0 FAKE_CURL_DOWN=1 bash "$RUN" --task 1 --repo kaname --ref imgs --src "$SRC" --profile ci-local --short e11c -- true
+expect_rc E11c 69
+if [ -e "$BOX/state/job.json" ]; then bad E11c "Job создан, хотя helm образа не выведен"; else ok; fi
+if grep -q 'таблица образов actions/runner-images не получена' "$OUT"; then ok; else bad E11c "причина не названа"; fi
+fresh
+go_run e11d env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref imgs3 --src "$SRC" --profile ci-local --short e11d -- true
+expect_rc E11d 69
+if [ -e "$BOX/state/job.json" ]; then bad E11d "Job создан при пине buf вне формы"; else ok; fi
+if grep -q 'пин buf на .* вне формы' "$OUT"; then ok; else bad E11d "пин buf вне формы не назван"; fi
 # E3 два пина helm в конвейере ревизии → 69 до кластера, причина названа
 fresh
 go_run e3 env FAKE_EXIT=0 bash "$RUN" --task 1 --repo kaname --ref pins2 --src "$SRC" --profile integration --short e3 -- true
@@ -776,7 +875,7 @@ e4cmd="$(jq -r '.spec.template.spec.containers[0].command[2]' "$BOX/state/job.js
 if [ -z "$(envv "$BOX/state/job.json" HEAVY_HELM)" ] && [ -n "$e4cmd" ] && ! grep -q 'get.helm.sh' <<< "$e4cmd"; then ok
 else OUT="$BOX/state/job.json"; bad E4 "lint ставит helm"; fi
 # E5 ревизия без пинов — сверять нечего, строка это называет
-if grep -q 'helm и node: пинов в конвейере ревизии нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
+if grep -q 'helm, node и buf: пинов в конвейере ревизии и helm в образе ранера нет' "$BOX/u1.out" 2>/dev/null; then ok; else OUT="$BOX/u1.out"; bad E5 "отсутствие пинов не названо"; fi
 # E6 run отказал сверкой среды → 69 «не выполнилось — среда», а не код команды
 fresh
 go_run e6 env FAKE_EXIT=125 FAKE_MSG="remote-heavy-prep: среда: helm v4.2.4 (пин конвейера) нет в PATH" bash "$RUN" --task 1 --repo kaname --ref pins --src "$SRC" --profile integration --short e6 -- true

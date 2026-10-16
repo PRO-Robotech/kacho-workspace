@@ -14,6 +14,7 @@
 #
 # ИСПОЛЬЗОВАНИЕ
 #   landing-precheck.sh <владелец/репозиторий> <номер PR> [--reviews <файл JSON>]
+#                       [--stand-report <отчёт JSON> --stand-expect <ожидаемое JSON>]
 #
 # --reviews — массив структурных вердиктов ревью: [{"role": "...", "sha": "<40 hex>",
 # "verdict": "accept"|"return"|"void", "blocking": [...] (необязательно)}].
@@ -141,14 +142,26 @@
 #                             диапазона запроса: закрытие без доказательства —
 #                             класс «преждевременный Closes» замера 2026-10-06;
 #                             исход один — `Refs` вместо `Closes`.
+#   (з) STAND-REPORT        — отчёт прогона на внешнем кластере (`--stand-report`)
+#                             судит `scripts/stand-report.sh check <отчёт> --head
+#                             <headSha> --expect <--stand-expect>` (ожидаемое — вывод
+#                             `stand-report.sh expect --draft false`, не отчёта, от
+#                             базы запроса: `--pr-base`, репозитория запроса:
+#                             `--pr-repo`) — та же голова,
+#                             полный прогон, каждое ожидаемое задание покрыто, ни одного
+#                             красного (ws#1110, `ai-tooling.md#at-red-ci-one-round`):
+#                             его причины переносятся строкой на причину; его код 2 —
+#                             VOID. Без довода — строка CENSUS «пункт (з) НЕ СУДИЛСЯ»
+#                             (шаблон волны довод передаёт всегда);
 #   PR-NOT-OPEN             — PR не открыт.
 #
 # Перепись печатается всегда, строками CENSUS<TAB>…, отдельно от причин:
 # «причин 0» отличимо от «не прочитано ничего».
 #
 # ИСХОДЫ (код возврата — вердикт):
-#   0 — причин нет, все семь пунктов осуждены (без --reviews пункт (а) печатается
-#       строкой CENSUS «не судился» — посадка шаблоном волны --reviews передаёт);
+#   0 — причин нет, все восемь пунктов осуждены (без --reviews пункт (а), без
+#       --stand-report пункт (з) печатаются строкой CENSUS «не судился» — посадка
+#       шаблоном волны оба довода передаёт);
 #   1 — причины есть, перечислены строками REASON;
 #   2 — судить не смог: строка VOID<TAB><почему> (нет gh/jq/python3/python3-yaml, ответ
 #       площадки не разбирается, объявленный диапазон не набран ни списком запроса,
@@ -176,10 +189,12 @@ void() { printf 'VOID\t%s\n' "$1"; exit 2; }
 
 REPO="${1:-}"; PR="${2:-}"
 shift 2 2>/dev/null || true
-REVIEWS=""
+REVIEWS=""; STAND_REPORT=""; STAND_EXPECT=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --reviews) REVIEWS="${2:-}"; [ -n "$REVIEWS" ] || void "--reviews без файла"; shift 2 ;;
+        --stand-report) STAND_REPORT="${2:-}"; [ -n "$STAND_REPORT" ] || void "--stand-report без файла"; shift 2 ;;
+        --stand-expect) STAND_EXPECT="${2:-}"; [ -n "$STAND_EXPECT" ] || void "--stand-expect без файла"; shift 2 ;;
         *) void "неизвестный довод «$1»" ;;
     esac
 done
@@ -189,6 +204,17 @@ done
 for t in jq python3 git; do command -v "$t" >/dev/null 2>&1 || void "нет $t в PATH"; done
 python3 -c 'import yaml' 2>/dev/null || void "нет python3-yaml — условие if задания не разобрать"
 [ -n "${LANDING_PRECHECK_GH:-}" ] || command -v gh >/dev/null 2>&1 || void "нет gh в PATH"
+
+# Лимит площадки — до чтения гейтов (урок 2026-10-16, ws#1110): исчерпан — код 2 со временем
+# сброса. Без scripts/lib рядом (скопирован одним файлом) — VOID ниже, у предиката атрибуции.
+if [ -r "$HERE/lib/gh-rate.sh" ]; then
+    # shellcheck source=lib/gh-rate.sh
+    . "$HERE/lib/gh-rate.sh"
+    if ! RL="$(gh_rate_short "$GH" 300)"; then
+        printf 'REASON\tRATE-LIMIT\t%s\n' "$RL"
+        void "$RL — не выполнилось, не красное: посадку судить после сброса"
+    fi
+fi
 
 W="$(mktemp -d)"
 trap 'rm -rf "$W"' EXIT
@@ -317,6 +343,7 @@ rm -f "$W/required"
 MERGE_READINESS_REQUIRED_OUT="$W/required" bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
 MR_CODE=$?
 
+export STAND_REPORT STAND_EXPECT STAND_TOOL="$HERE/stand-report.sh"
 export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen" COMMITS_SRC
 python3 - <<'PY'
 import json, os, re, sys
@@ -802,6 +829,23 @@ for r, n in closes:
         reason("CLOSES-WITHOUT-PROOF", f"{r}#{n}: комментария «DoD-proof @<sha>» нет — Refs, а не Closes")
 census.append(f"закрытие: Closes {len(closes)}, с доказательством {proven}")
 
+# (з) отчёт прогона на внешнем кластере — судит stand-report.sh той же головы
+sr = os.environ.get("STAND_REPORT", "")
+if sr:
+    import subprocess
+    se = os.environ.get("STAND_EXPECT", "")
+    p = subprocess.run(["bash", os.environ["STAND_TOOL"], "check", sr, "--head", head] + (["--expect", se] if se else [])
+                       + (["--pr-base", base_ref] if base_ref else []) + ["--pr-repo", os.environ["REPO"]],
+                       capture_output=True, text=True, env={**os.environ, "STAND_REPORT_GH": os.environ.get("GH") or "gh"})
+    if p.returncode not in (0, 1):
+        void(f"отчёт стенда {sr} не осуждён (stand-report.sh код {p.returncode}): {(p.stdout + p.stderr).strip()[-200:]}")
+    for l in p.stdout.splitlines():
+        f = l.split("\t")
+        if f[0] == "REASON" and len(f) >= 3:
+            reason("STAND-REPORT", f"{f[1]}: {f[2]}")
+    census.append(f"отчёт внешнего стенда {sr}: stand-report.sh код {p.returncode}")
+else:
+    census.append("пункт (з) НЕ СУДИЛСЯ: без --stand-report отчёт прогона на внешнем кластере не судим")
 print(f"CENSUS\t{os.environ['REPO']}#{os.environ['PR']} голова {head[:12]} ({head_ref} → {base_ref})")
 for c in census:
     print(f"CENSUS\t{c}")
