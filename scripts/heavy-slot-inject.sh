@@ -390,13 +390,14 @@ rc="$(shim 8192 run --rm -dm512m img true)"
 assert "0 1 0" "$rc $(cnt '^--memory-swap=512m$') $(cnt '^--memory=')" "склейка коротких -dm512m — та же форма: swap дописан, память не продублирована"
 rc="$(shim 8192 run --rm img sh -c true -m 99g)"
 assert "0 1 1" "$rc $(cnt '^--memory=8192m$') $(cnt '^--memory-swap=8192m$')" "близнец: без предела вызова (-m после образа — аргумент контейнера) — слот ставит бюджет"
-for c in "--memory 9g" "-m 9g" "--memory=9g" "--memory-swap 9g" "--memory 0" "--memory-swap -1" "--memory 12x"; do
+for c in "--memory 9g" "-m 9g" "--memory=9g" "--memory-swap 9g" "--memory 0" "--memory-swap -1" "--memory 9999999999999999999" "--memory 99999999999999999999g" "--memory 12x"; do
     # shellcheck disable=SC2086  # флаг и значение — два слова
     rc="$(shim 8192 run --rm $c img true)"
     assert "64 0" "$rc $(wc -l < "$W/out" | tr -d ' ')" "«$c» под бюджетом 8 ГиБ — 64, настоящий docker не звался"
 done
 assert "да" "$(has "$W/err" 'не разбирается как величина памяти')" "неразобранная величина названа причиной"
 rc="$(shim 8192 run --rm --memory 9g img true)"; assert "да" "$(has "$W/err" 'больше бюджета класса 8,0 ГиБ')" "сверх бюджета — причина и бюджет названы"
+rc="$(shim 8192 run --rm --memory 9999999999999999999 img true)"; assert "64 да нет" "$rc $(has "$W/err" 'больше бюджета класса 8,0 ГиБ') $(has "$W/err" 'integer expected')" "байты сверх int64 — 64 с причиной «больше бюджета», сравнение не сломалось"
 rc="$(shim 8192 run --rm --cidfile x img true)"; assert "64 да" "$rc $(has "$W/err" 'слот ставит --cidfile сам')" "свой --cidfile — 64: по нему слот снимает контейнер"
 rc="$(shim 8192 run --rm --memory 8192m img true)"; assert 0 "$rc" "граница: предел ровно в бюджет — законен"
 
