@@ -65,6 +65,7 @@ chmod +x "$W/bin/gh"
 export PATH="$W/bin:$PATH"
 
 # Подпись песочницы — из её корневого gitconfig (scripts/lib/sandbox-git-home.sh, check-16).
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/sandbox-git-home.sh
 . "$HERE/../lib/sandbox-git-home.sh"
 sandbox_git_home "$W/ghome" || { echo "inject: корневой подписи нет — копия пробы не построена, не выполнилось" >&2; exit 2; }
