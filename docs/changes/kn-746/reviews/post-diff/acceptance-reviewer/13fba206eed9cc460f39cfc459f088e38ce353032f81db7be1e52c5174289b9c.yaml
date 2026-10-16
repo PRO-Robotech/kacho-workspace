@@ -1,0 +1,199 @@
+# Пост-дифф запись роли acceptance-reviewer пакета kn-746 — посадка эпика
+# kaname#746 (ветка `746`) в `main` службы доступа, запрос kaname#820.
+#
+# Имя файла — content_digest_sha256 манифеста (`change.yaml`), имя задано
+# заданием. Прежние записи не правятся; сдвинется голова 746 — запись судит
+# прежнюю линию, новая редакция получает соседний файл (change-graph §2).
+#
+# Предмет роли — НАБОР приёмок линии (6 документов, без *-design.md) и стык
+# «приёмка → код → проба» на голове эпика, включая места слияний полос. Дифф
+# кода, .proto, схема и прогон — предмет других ролей; здесь они читаются
+# только как производители «Тогда».
+schema_version: 1
+change_id: kn-746
+holder: human-acceptance
+owner: acceptance-reviewer
+reviewer_role: acceptance-reviewer
+kind: post_diff_acceptance_review
+
+subject:
+  repository: PRO-Robotech/kaname
+  base_sha: bbbe33524c4ae501d4ea14d2d9747f300d057a99
+  head_sha: 81fa3e1234d04beff1b546aec8056b0c9ec37efc
+  content_digest_sha256: 13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c
+  content_digest_predicate: >-
+    git -C project/kaname diff --full-index bbbe33524c4ae501d4ea14d2d9747f300d057a99...81fa3e1234d04beff1b546aec8056b0c9ec37efc | sha256sum
+  acceptance_set_sha256: 467c55b47ccce65ae977711c4d5644a6fd0981dec8a62fe4f893fd878a471f90
+  acceptance_set_predicate: change.yaml hashes.acceptance_set_predicate, дословно
+  static_status_note: >-
+    Слова в шапках приёмок (DRAFT, APPROVED) — статическая форма, их никто не правил.
+    Вердикт по каждой выводится из её записи ревью и внешнего события; вердикт набора
+    на этот дайджест — из этой записи и её события.
+
+remeasured:
+  # Все числа — команды в клоне project/kaname после `git fetch origin` 2026-10-16.
+  content_digest: 13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c   # совпал с заданием и change.yaml
+  merge_base: bbbe33524c4ae501d4ea14d2d9747f300d057a99                                # git merge-base B H == B
+  paths_in_diff: 279                                                                   # git diff --name-only B...H | wc -l
+  merges_in_line: 27                                                                   # git rev-list --merges --count B..H
+  acceptance_set: 467c55b47ccce65ae977711c4d5644a6fd0981dec8a62fe4f893fd878a471f90  # совпал с change.yaml
+  acceptance_set_count: 6                                                              # A 4, M 2
+
+set:
+  - path: docs/engineering/acceptance/anonymous-and-authenticated-are-subject-classes.md
+    status_in_line: A
+    sha256: 2b89df3e893c46598a098caa5b034264583d2fa53c3f529e0f90aad06af44b14   # редакция 7
+    record: docs/changes/kn-829/reviews/acceptance/2b89df3e893c46598a098caa5b034264583d2fa53c3f529e0f90aad06af44b14.yaml
+    record_verdict: APPROVED
+    event: not_performed        # блок event записи; тела с 2b89df3e нет ни в kaname#829, ни в #842
+    chain: >-
+      ред. 4 ae9ba373 APPROVED, событие performed; ред. 5 36066b6a APPROVED, performed;
+      ред. 6 14fba0c2 APPROVED, событие not_performed; ред. 7 2b89df3e APPROVED, not_performed.
+    judged_here: >-
+      Дельты ред. 6 (только DoD S1: сквозной эшелон SC-10/11/16/18 переезжает на стенд kacho,
+      утверждения не ослаблены) и ред. 7 (только DoD S3: исход SC-18 на крае после отзыва —
+      404 / NOT_FOUND с текстом «Network <id> not found», близнец — 200 до отзыва, отличие
+      одно: выдача) пересуждены этой ролью на 2b89df3e: обе верны, ни одна не трогает
+      сценарии S1/S2, которые исполняет код kaname этого эпика. Производитель SC-18 на крае —
+      коллекция kacho, вне дерева kaname; её правка под 404 названа в приёмке.
+    holders_at_head: >-
+      4 из 4 названных пробами имён существуют (TestSystemClass_SC10/11/16/18 —
+      internal/apps/kaname/api/access_binding/system_class_s1_integration_test.go).
+  - path: docs/engineering/acceptance/credential-issuance-and-federated-subject-described-once.md
+    status_in_line: A
+    sha256: 65c7ea3ab6e3205390232cd5939f1a786f8972b7c1df2bfe11018130800de1ba   # редакция 3
+    record: docs/specs/reviews/credential-issuance-and-federated-subject-described-once/65c7ea3ab6e3205390232cd5939f1a786f8972b7c1df2bfe11018130800de1ba.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/752#issuecomment-6185594251   # pointpu, MEMBER, не правлено
+    holders_at_head: >-
+      CIF-06 — три предиката DoD на голове: proto-блок 18 строк, regex 0, literal 1;
+      tokens.mdx «Федерация SA-ключа» 27 строк, regex 0, дословн|точн 2; служебн…освобожден —
+      по 1 в tokens.mdx и authz.mdx. Второй держатель CIF-01/02 — public_level_two_second_lock_test.go
+      (presentedCredentialCtx("user","1") → requireStepUpToTwo; service_account → проход).
+      CIF-01…05 newman: `git grep -c 'IAM-OWNREST-CIF-0' H -- tests/newman` → 0 (см. important.I1).
+  - path: docs/engineering/acceptance/model-block-prose-has-a-home.md
+    status_in_line: M
+    sha256: e1a5e12135eb8ddeae563f971c751b8995b2addf189c26f3259a27c2315100de
+    base_sha256: d63bf868a88ef16593bcab2db37af069b7a0ed0817354ba4bbac859e1a814e33   # одобрена шапкой (круг 2 проверки)
+    record: эта запись
+    judged_here: >-
+      Дельта — 2 строки, A-02 «Дано: 32 → 33 блока» и «осмотрено 32 → 33 блока»: следствие
+      нового блока `type system_class` (kaname#829). Измерено:
+      `git show <rev>:proto/kaname/cloud/iam/v1/fga_model.fga | grep -c '^type '` → база 32,
+      голова 33. Сценарии, близнецы и DoD не тронуты.
+  - path: docs/engineering/acceptance/model-composes-at-boot-from-delivered-manifests.md
+    status_in_line: M
+    sha256: 5612a1b4612a4e4502b066246a7ad30ef013e7f6aa92105bff6683ee0b0d18ed
+    base_sha256: d0e89a3b8572db7985afca7a251218eca6a12af987f079710572e62794505d64   # одобрена шапкой (круг 11)
+    record: эта запись
+    judged_here: >-
+      Дельта — 1 строка: «типов 32 → 33», «байт 111 344 → 112 598». Измерено:
+      `git show <rev>:proto/kaname/cloud/iam/v1/fga_model.fga | wc -c` → база 111344, голова
+      112598; шапка internal/modelrender/canon.go:31 на голове — «33 блока · 112 598 Б».
+      Величину держит TestAcceptanceScenarioCanonValuesAreTodays (сам документ называет).
+  - path: docs/engineering/acceptance/recovery-code-one-live-per-person.md
+    status_in_line: A
+    sha256: 02ab12cd396c0e54db673e9e9f7d9a84b11c799335259dbd6975969a40a42136   # редакция 3
+    record: docs/specs/reviews/recovery-code-one-live-per-person/02ab12cd396c0e54db673e9e9f7d9a84b11c799335259dbd6975969a40a42136.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/776#issuecomment-6185556258   # pointpu, MEMBER, не правлено
+    holders_at_head: >-
+      RCL-01…05 — 5 из 5 встречаются в *_test.go; заказ RCL-05 исполнен: RecoveryRequestNoRow на
+      полосе записи recovery_request.go:145,185 (на базе — только полоса чтения).
+  - path: docs/engineering/acceptance/step-up-with-any-enrolled-method.md
+    status_in_line: A
+    sha256: 35224856e3e2aec098ac0398deaeceb22dbb8cd4702232d921af62ea8168d683   # редакция 3 (по дельте M1)
+    record: docs/specs/reviews/step-up-with-any-enrolled-method/35224856e3e2aec098ac0398deaeceb22dbb8cd4702232d921af62ea8168d683.yaml
+    record_verdict: APPROVED
+    event: https://github.com/PRO-Robotech/kaname/issues/827#issuecomment-6177387012   # pointpu, MEMBER, не правлено
+    holders_at_head: >-
+      SUA — 36 из 36 идентификаторов встречаются в *_test.go / tests/newman; заказы §5 исполнены:
+      'step-up/access-key' база 0 → голова 16, ACCESS_KEYS_DISABLED 0 → 3,
+      ACCESS_KEY_NOT_REGISTERED 0 → 6.
+    neighbours_pinned: >-
+      Пять соседей §0.1 (Ф7 5ea26ad0, Ф11 b39219bc, Ф12 c6ea4897, Ф13 5fe6cca1, level-two 41723d6b)
+      — отпечатки на голове равны закреплённым; Ф7 и Ф13 одобрены записями с событием performed.
+
+seams:
+  # Стыки полос и места слияний.
+  conflict_resolutions: >-
+    Из 27 слияний ручное разрешение (git diff-tree --cc) — одно: dd45e2a18 (#829 merge #746),
+    файлы .github/scripts/newman-suite-debt.py и tests/newman/docs/CASES-INDEX.md, предмет —
+    счётчик кейсов (869/853 → 877). Ни одной приёмки, пробы-держателя или миграции.
+  migrations_order: >-
+    5 новых миграций (20261015100000, 100100, 110000 — полоса #827; 120000, 140000 — #829) новее
+    последней на базе 20261012120000; ветки не пересекаются версией.
+  migration_sanctions: >-
+    100000 и 100100 цитируют step-up 35224856 (= голова); 110000 — access-keys-are-ours 5ea26ad0
+    (= голова, событие performed); 120000 — anonymous ae9ba373 (ред. 4, событие performed);
+    140000 — тот же документ без отпечатка (Р4). Санкция кода S1/S2 — ред. 4/5 с событиями;
+    ред. 6–7 сценариев S1/S2 не меняли.
+  named_tests_missing_preexisting: >-
+    model-block-prose (9 имён) и model-composes (3 имени, частью — PRO-Robotech/kacho:…)
+    называют имена, которых нет в дереве на голове; на базе их тоже нет, тестовых файлов дифф
+    не удаляет (git diff --diff-filter=D -- '*_test.go' → пусто). Существовало до эпика, вне предмета.
+
+verdict: APPROVED
+blocks_landing: false
+blocking: []
+return_to: '—'
+
+sanction_condition: >-
+  Вердикт набора действует только вместе с опубликованным событием на ЭТОТ дайджест
+  (тело ниже), которое несёт и отпечатки трёх приёмок без собственного события на голове:
+  anonymous 2b89df3e, model-block-prose e1a5e121, model-composes 5612a1b4. До публикации исход
+  держателя human-acceptance — NOT_EXECUTED, а не GREEN. Цель события — kaname#746
+  (дублировать в kaname#829 не обязательно: тело называет 2b89df3e дословно).
+
+important:
+  - id: I1
+    kind: DoD
+    summary: >-
+      DoD приёмки credential-issuance (CIF-01…05 — newman-кейсы IAM-OWNREST-CIF-0x в
+      tests/newman/cases/kaname-own-rest-front.py, волна церемонии) не исполнен и не имеет
+      носителя: на голове кейсов 0; DoD-proof kaname#752 говорит «производитель проб, отдельной
+      полосой» без номера задачи; kaname#752 и #798 закрыты; поиск задачи по
+      «credential-issuance…», «CIF-01», «IAM-OWNREST-CIF» в kaname и воркспейсе — пусто.
+    why_not_blocking: >-
+      Приёмка фиксирует уже производимое поведение («Наблюдаемое поведение службы не
+      меняется»); код выдачи и порога этим диффом не менялся, второй держатель порога
+      (internal/authzguard) на голове есть. Посадка эпика регрессии не вносит; потерян держатель
+      второго эшелона, а не корректность диффа. Исход по ban11-three-outcomes — завести предмет,
+      не трогая замороженную линию.
+    predicate_of_closure: >-
+      открыта задача kaname (P1, area:iam) «CIF-01…05 — newman собственного фронта», ссылка на
+      приёмку с отпечатком 65c7ea3a; либо `git grep -c 'IAM-OWNREST-CIF-0' -- tests/newman` > 0
+      на ветке, идущей в main.
+  - id: I2
+    kind: FORMAT
+    summary: >-
+      Миграция 20261015120000 цитирует ред. 4 (ae9ba373), а документ на голове — ред. 7. Не дефект
+      санкции (ред. 4 одобрена событием; S1/S2 после неё не менялись), но цитата устарела —
+      следующей правкой рядом (применённую миграцию не править).
+
+event_body: "acceptance-reviewer · APPROVED · subject PRO-Robotech/kaname bbbe33524c4ae501d4ea14d2d9747f300d057a99...81fa3e1234d04beff1b546aec8056b0c9ec37efc · subject_sha256 13fba206eed9cc460f39cfc459f088e38ce353032f81db7be1e52c5174289b9c · acceptance_set 467c55b47ccce65ae977711c4d5644a6fd0981dec8a62fe4f893fd878a471f90 · включая anonymous-and-authenticated-are-subject-classes 2b89df3e893c46598a098caa5b034264583d2fa53c3f529e0f90aad06af44b14, model-block-prose-has-a-home e1a5e12135eb8ddeae563f971c751b8995b2addf189c26f3259a27c2315100de, model-composes-at-boot-from-delivered-manifests 5612a1b4612a4e4502b066246a7ad30ef013e7f6aa92105bff6683ee0b0d18ed"
+
+event:
+  type: issue_comment
+  target: PRO-Robotech/kaname#746
+  status: not_performed
+  published: false
+  publication_expected_from: git-operator
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+
+route_signs:
+  proto: yes        # 7 .proto, комментарий и внутренние контракты — предмет proto-api-reviewer
+  schema: yes       # 5 новых миграций
+  public_rpc: yes   # step-up ключом доступа (POST …/step-up/access-key), выдача испытания
+  ui: no            # в дереве kaname; консоль — в kacho
+  new_domain: no
+  security_surface: yes   # системный класс субъекта, второй фактор, вход без пароля
+
+reviewed_at: '2026-10-16T00:00:00+03:00'
