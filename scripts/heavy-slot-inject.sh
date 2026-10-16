@@ -74,6 +74,19 @@ assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" ci-local -- sh -c 'print
 assert "0 да" "$(slot GIT_SSH_COMMAND='ssh -o Своё=1' bash "$SLOT" ci-local -- sh -c 'printf %s "$GIT_SSH_COMMAND" > "$0"' "$W/ssh2") $([ "$(cat "$W/ssh2")" = 'ssh -o Своё=1' ] && echo да || echo нет)" "близнец: заданный вызывающим GIT_SSH_COMMAND не переписан"
 # shellcheck disable=SC2016
 assert "0 да" "$(slot -u GIT_SSH_COMMAND bash "$SLOT" docker -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$W/ssh3") $([ -s "$W/ssh3" ] && echo нет || echo да)" "близнец: класс не ci-local — GIT_SSH_COMMAND не ставится"
+# Заданное вызывающим иначе, чем GIT_SSH_COMMAND, тоже сильнее: core.sshCommand копии
+# (и из её подкаталога), глобального слоя, обёртка GIT_SSH — git предпочёл бы им
+# поставленный слотом GIT_SSH_COMMAND. Вывод ребёнка пуст — слот не перекрыл.
+git init -q "$W/gitc" && git -C "$W/gitc" config core.sshCommand 'ssh -o Своё=2' && mkdir -p "$W/gitc/sub" "$W/nogit"
+printf '[core]\n\tsshCommand = ssh -o Своё=3\n' > "$W/gitglobal"
+# kssh <файл> <каталог> [ENV=…] — ci-local из каталога, ребёнок пишет свой GIT_SSH_COMMAND.
+# shellcheck disable=SC2016
+kssh() { local f="$1" d="$2"; shift 2; (cd "$d" && slot -u GIT_SSH_COMMAND -u GIT_SSH "$@" bash "$SLOT" ci-local -- sh -c 'printf %s "${GIT_SSH_COMMAND:-}" > "$0"' "$f"); }
+assert "0 да" "$(kssh "$W/ssh4" "$W/gitc") $([ -s "$W/ssh4" ] && echo нет || echo да)" "близнец: core.sshCommand копии — GIT_SSH_COMMAND не ставится"
+assert "0 да" "$(kssh "$W/ssh5" "$W/gitc/sub") $([ -s "$W/ssh5" ] && echo нет || echo да)" "близнец: core.sshCommand копии из подкаталога — не ставится"
+assert "0 да" "$(kssh "$W/ssh6" "$W/nogit" GIT_CONFIG_GLOBAL="$W/gitglobal") $([ -s "$W/ssh6" ] && echo нет || echo да)" "близнец: глобальный core.sshCommand — не ставится"
+assert "0 да" "$(kssh "$W/ssh7" "$W/nogit" GIT_SSH=/bin/true) $([ -s "$W/ssh7" ] && echo нет || echo да)" "близнец: обёртка GIT_SSH вызывающего — GIT_SSH_COMMAND не ставится"
+assert "0 да" "$(kssh "$W/ssh8" "$W/nogit" GIT_CONFIG_GLOBAL=/dev/null) $(grep -q 'ServerAliveInterval=30' "$W/ssh8" && echo да || echo нет)" "контроль тех же вызовов: вне копии, без своих настроек — keepalive ставится"
 
 echo "── перенос в другой unit уводит из cgroup слота: systemd-run и --scope в argv — 64"
 # B2 круга 3: `heavy-slot.sh docker -- systemd-run --user --scope …` уходил из слота.
@@ -269,6 +282,32 @@ wait "$A"
 assert "0 да" "$(await_rc "$RC1") $([ -e "$W/q1" ] && echo да || echo нет)" "слот освободился — поставленное задание исполнилось тем же билетом, код 0 в .rc"
 rc="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=40 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- bash -c 'exit 7')"; RC2="$(rcof)"
 assert "0 7 да" "$rc $(await_rc "$RC2") $([ "$RC2" != "$RC1" ] && echo да || echo нет)" "близнец: код команды доходит до .rc (7), имя второго задания другое"
+# Место держится ВСЁ ожидание, а не в миг постановки: снимок сразу после постановки
+# слеп к ребёнку, который на каждом опросе перевзял бы билет и ушёл в конец (ровно урок
+# 74/75). Два поставленных и ждущий в переднем плане (--wait, билет он не перевзимает)
+# опрашивают несколько раз, пока держатель занят: ждущий на каждом опросе видит обоих
+# впереди, а входят все по билету — E1, E2, затем он.
+qlen() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/queue/*; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
+HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 10 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+# shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
+rc1="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- sh -c 'date +%s%N > "$0"; sleep 1' "$W/o1")"; RO1="$(rcof)"
+for _ in $(seq 1 20); do [ "$(qlen)" -ge 1 ] && break; sleep 0.2; done
+# shellcheck disable=SC2016
+rc2="$(slot -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S=60 HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --enqueue "$W/enq" docker -- sh -c 'date +%s%N > "$0"; sleep 1' "$W/o2")"; RO2="$(rcof)"
+for _ in $(seq 1 20); do [ "$(qlen)" -ge 2 ] && break; sleep 0.2; done
+# shellcheck disable=SC2016
+env -u HEAVY_SLOT_WAIT_S HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" --wait 30 docker -- sh -c 'date +%s%N > "$0"' "$W/o3" 2> "$W/lerr" > /dev/null & L=$!
+wait "$A"
+wait "$L"; rcl=$?
+ro1="$(await_rc "$RO1")"; ro2="$(await_rc "$RO2")"
+# Опросы ждущего, пока держатель занят: строки до первого входа поставленного.
+polls="$(grep -c 'ждёт слота' "$W/lerr")"
+early="$(grep 'ждёт слота' "$W/lerr" | head -n 3)"
+order() { [ -s "$W/o1" ] && [ -s "$W/o2" ] && [ -s "$W/o3" ] && [ "$(cat "$W/o1")" -lt "$(cat "$W/o2")" ] && [ "$(cat "$W/o2")" -lt "$(cat "$W/o3")" ] && echo да || echo "нет($(cat "$W/o1" "$W/o2" "$W/o3" 2>/dev/null | tr '\n' ' '))"; }
+assert "0 0 0 0 0" "$rc1 $rc2 $ro1 $ro2 $rcl" "два поставленных и ждущий --wait: все трое исполнились, коды 0"
+assert "да да" "$([ "$polls" -ge 3 ] && echo да || echo "нет($polls)") $([ "$(grep -c 'в очереди впереди 2' <<<"$early")" -eq 3 ] && echo да || echo "нет($(tr '\n' '|' <<<"$early"))")" "ждущий опрашивал ≥ 3 раз, и на каждом из первых трёх — «впереди 2»: поставленные билета не перевзяли"
+assert "да" "$(order)" "вход по билету: E1, затем E2, затем ждущий, поставленный последним"
 assert "64 да" "$(slot bash "$SLOT" --queued "$W/enq/x" docker -- true) $(has "$W/err" 'внутренняя форма')" "--queued в переднем плане — 64: долгое ожидание только у отсоединённого ребёнка"
 assert "64 да" "$(slot bash "$SLOT" --enqueue "$W/нет-такого" docker -- true) $(has "$W/err" 'каталог журналов')" "--enqueue в несуществующий каталог — 64"
 assert "64 да" "$(slot bash "$SLOT" --enqueue "$W/enq" --wait 5 docker -- true) $(has "$W/err" 'не ставятся')" "--enqueue вместе с --wait — 64"

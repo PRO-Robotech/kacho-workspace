@@ -554,8 +554,9 @@ shift
 # отправки, хук идёт минутами, и простаивающее соединение площадка снимает — push
 # умирал PIPE кодом 141 уже после зелёного хука (журнал слотов: 26 из 26 таких выходов
 # — после ≥ 368 с). Слот держит соединение живым, не трогая заданного вызывающим:
-# GIT_SSH_COMMAND и core.sshCommand, если есть, сильнее.
-if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
+# GIT_SSH_COMMAND, GIT_SSH и core.sshCommand (любого слоя), если есть, сильнее: git
+# предпочёл бы поставленный слотом GIT_SSH_COMMAND заданному вызывающим GIT_SSH.
+if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
     export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=40"
 fi
 
