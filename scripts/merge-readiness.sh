@@ -150,6 +150,15 @@ trap 'rm -rf "$workdir"' EXIT
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dod_lib="$here/lib"
 [ -r "$dod_lib/dod_proof.jq" ] || { echo "merge-readiness: распознавателя доказательства DoD нет ($dod_lib/dod_proof.jq) — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)" >&2; exit 2; }
+# Лимит площадки — до чтения (урок 2026-10-16, ws#1110): исчерпан — код 2 «не выполнилось»
+# со временем сброса, а не «сливать нельзя».
+# shellcheck source=lib/gh-rate.sh
+. "$here/lib/gh-rate.sh" || { echo "merge-readiness: нет $here/lib/gh-rate.sh — лимит не проверить" >&2; exit 2; }
+if ! rl="$(gh_rate_short gh 300)"; then
+  printf 'REASON\tRATE-LIMIT\t%s\n' "$rl"
+  echo "merge-readiness: НЕ ВЫПОЛНИЛОСЬ — $rl; вердикта нет (не красное), повтор после сброса" >&2
+  exit 2
+fi
 
 # ОТКАЗ РАЗБОРА — ЭТО КОД 2, А НЕ 1. Единственная точка, где скрипт объявляет,
 # что вердикта у него нет. Всё, что не сошлось при чтении ответа соседа или при

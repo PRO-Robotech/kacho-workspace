@@ -21,9 +21,16 @@
 #      исполнителя, итог несёт уроки (поведение доказывает `wave-template-inject.sh`);
 #   F. засев первой пачки держится: форма отсоединённого запуска без `setsid nohup`
 #      (протокол, шаблон, подсказка `no-wait-guard`) и тема вливания
-#      `#<N> merge #<PR>: …` у `git-operator` (ws#1029) — прежней формы нет.
+#      `#<N> merge #<PR>: …` у `git-operator` (ws#1029) — прежней формы нет;
+#   G. пачка 2026-10-16 (ws#1110) держится словами нормы там, где её читают: протокол —
+#      уникальные .rc, пауза лишь у `ci-watcher`, долгое ожидание ОДИН раз `--enqueue`,
+#      отправка в файл, 141 после хука — снятый простоем ssh (keepalive ставит слот); `ci-watcher` — `--enqueue`; база —
+#      номер задачи числом в предусловиях, форма вливания `--merge --subject … --body ""
+#      --match-head-commit`, пауза лишь у `ci-watcher`; шаблон — `--body ""`, `--enqueue`,
+#      суд RATE-LIMIT (поведение — heavy-slot-inject, ci-read-inject, landing-precheck-inject,
+#      lane-precheck-inject, wave-template-inject).
 #
-# ПРЕДПОСЫЛКА (VOID, код 2): все шесть носителей есть в дереве.
+# ПРЕДПОСЫЛКА (VOID, код 2): все девять носителей есть в дереве.
 # Коды: 0 — находок нет; 1 — находка с координатой; 2 — предмета нет.
 set -uo pipefail
 
@@ -44,6 +51,7 @@ TM = '.claude/agents/tooling-maintainer.md'
 GO = '.claude/agents/git-operator.md'
 WAVE = '.claude/workflows/wave.js'
 GUARD = '.claude/hooks/no-wait-guard/guard.py'
+CIW = '.claude/agents/ci-watcher.md'
 QUOTE = ('Запиши рул для мастер процесса что по результату каждой полосы нужно сделать работу '
          'над ошибками и обогатить рулы и скилы так что бы 1) потребление токенов было минимально '
          '2) скорость разработки максимальна 3) качество кода и тестов аналогичное или выше')
@@ -64,7 +72,7 @@ def flat(t):
 
 
 texts = {}
-for p in (RULE, ARCH, PROTO, BASE, TM, GO, WAVE, GUARD):
+for p in (RULE, ARCH, PROTO, BASE, TM, GO, WAVE, GUARD, CIW):
     try:
         texts[p] = raw(p)
     except OSError:
@@ -155,7 +163,22 @@ need(GO, ['--subject "#<N> merge #<PR>: <суть>"'], 'тема вливани�
 if '--subject "#<N> <суть>"' in texts[GO]:
     finds.append('%s: прежняя тема вливания «--subject "#<N> <суть>"» (без merge #<M>)' % GO)
 
-print('[CENSUS] %s: носителей осмотрено %d (правило, архив, протокол, база, два агента, шаблон, хук); находок %d'
+# G. пачка 2026-10-16 (ws#1110).
+need(PROTO, ['имя журнала и `.rc` уникально', '`.rc` снят до старта',
+             'ждёт и читает с паузой лишь `ci-watcher`',
+             'дольше 300 с — ОДИН раз `heavy-slot.sh --enqueue <каталог>`: перезапуск на 74/75 теряет очередь',
+             '`git push origin HEAD:refs/heads/<ветка> > <журнал> 2>&1` (141 после хука — снятый простоем ssh, слот ставит ему keepalive)'],
+     'пачка 2026-10-16')
+need(CIW, ['долгое ставится в очередь ОДИН раз (`heavy-slot.sh --enqueue <каталог>`',
+           'перезапуск на 74/75 теряет очередь'], 'пачка 2026-10-16')
+need(BASE, ['задача — `task <репо>#<N>`, N `^[0-9]+$`',
+            '`gh pr merge <PR> --merge --subject "#<N> merge #<PR>: …" --body "" --match-head-commit <sha>`',
+            'ждёт и дочитывает с паузой лишь `ci-watcher`',
+            'долгий прогон — ОДИН раз `heavy-slot.sh --enqueue`, перезапуск на 74/75 — нарушение'], 'пачка 2026-10-16')
+need(WAVE, ['+ mergeTitle + \'" --body ""`', 'heavy-slot.sh --enqueue', 'if (rateOf(ci)) return'],
+     'пачка 2026-10-16')
+
+print('[CENSUS] %s: носителей осмотрено %d (правило, архив, протокол, база, три агента, шаблон, хук); находок %d'
       % (name, len(texts), len(finds)))
 for f in finds:
     print('[FAIL] %s — %s' % (name, f), file=sys.stderr)

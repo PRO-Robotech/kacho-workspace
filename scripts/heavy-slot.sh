@@ -13,6 +13,7 @@
 #
 # ФОРМА
 #   heavy-slot.sh [--wait N] [--local "<причина>"] <класс> -- <команда> [аргументы…]   (занято — 74 сразу)
+#   heavy-slot.sh --enqueue <каталог> [--local "<причина>"] <класс> -- <команда> …   (поставить ОДИН раз, ниже)
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
 #   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
@@ -36,7 +37,12 @@
 # 2026-10-11 «максимальная оперативность и минимум простоя»: ожидание слота в переднем
 # плане — 116,4 агент-ч замера ws#1001). Билет при этом снимается: очередь держит лишь
 # тот, кто ждёт явно — `--wait N`, N ≤ 300 с, опрос раз в 30 с, по истечении код 75.
-# Ждать дольше — повтором короткого шага, а не одним вызовом. Голову очереди держит лишь
+# Ждать дольше 300 с — `--enqueue <каталог>`: слот сам уходит в отсоединённый прогон
+# (setsid, env --default-signal=PIPE) и ждёт ОДНИМ билетом до 2 ч, вызов сразу печатает
+# строку ENQUEUED с pid, журналом и .rc — имена уникальны (класс, время, pid), .rc
+# снимается до запуска; исход дочитывает короткий шаг. Перезапуск ожидания на 74/75
+# ставит в КОНЕЦ очереди: 2026-10-16 так пять попыток newman за час слота не получили
+# (урок ws#1110) — перезапускатель запрещён (CLAUDE.md «Не жди»). Голову очереди держит лишь
 # билет, который влез бы под СВОЙ потолок, будь занятые слоты пусты: (MemTotal −
 # MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
 # от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
@@ -119,7 +125,7 @@ SLOTS_SUM_MIB=30720 # Σ бюджетов занятых ≤ 3 × 10 ГиБ: go-
 FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-02)
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
-LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; GUARD_S=2; GRACE_S=10; LIMITER=auto
+LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; ENQ_MAX_S=7200; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
 
@@ -420,9 +426,20 @@ prune_tmp() {
 # --local "<причина>" — обход внешнего кластера (ws#1105): маршрут не судится, причина
 # пишется в журнал строкой bypass-local и видна в --status. Причина — не короче 12
 # символов: пустой обход был бы тем же молчаливым «локально».
-WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""
+# --enqueue <каталог> — поставить в очередь ОДИН раз отсоединённо (шапка); --queued <база> —
+# его внутренняя форма: принимается лишь у ребёнка --enqueue (stdout — <база>.log, родитель —
+# лидер своего сеанса), иначе 64.
+WAIT_ARG=""; LOCAL_WHY=""; LOCAL_SET=""; ENQ_DIR=""; QUEUED=""
 while :; do
     case "${1:-}" in
+        --enqueue)
+            ENQ_DIR="${2:-}"
+            if [ -z "$ENQ_DIR" ] || ! [ -d "$ENQ_DIR" ] || ! [ -w "$ENQ_DIR" ]; then
+                say "--enqueue «$ENQ_DIR» — каталог журналов, существующий и доступный на запись: журнал, .rc и pid задания — в нём"
+                exit 64
+            fi
+            shift 2 ;;
+        --queued) QUEUED="${2:-}"; shift 2 ;;
         --wait)
             WAIT_ARG="${2:-}"
             if ! [[ "$WAIT_ARG" =~ ^[0-9]+$ ]] || [ "$WAIT_ARG" -gt "$WAIT_MAX_S" ]; then
@@ -464,8 +481,17 @@ if [ "${1:-}" != "--" ] || [ "$#" -lt 2 ]; then
 fi
 shift
 
+# Отправка слотом ci-local (урок 2026-10-16, ws#1110): git push открывает ssh ДО хука
+# отправки, хук идёт минутами, и простаивающее соединение площадка снимает — push
+# умирал PIPE кодом 141 уже после зелёного хука (журнал слотов: 26 из 26 таких выходов
+# — после ≥ 368 с). Слот держит соединение живым, не трогая заданного вызывающим:
+# GIT_SSH_COMMAND и core.sshCommand, если есть, сильнее.
+if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "$(git -C "$PWD" config core.sshCommand 2>/dev/null)" ]; then
+    export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=40"
+fi
+
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB"
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -485,7 +511,7 @@ else
         [ "$v" = HEAVY_SLOT_LIMITER ] || [ "$v" = HEAVY_SLOT_REMOTE_RUN ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
     done
     LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-$(( CAP_MIB / 1024 ))} * 1024 ))}"
-    POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"
+    POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"; ENQ_MAX_S="${HEAVY_SLOT_ENQ_S:-$ENQ_MAX_S}"
     [ "$WAIT_S" -le "$WAIT_MAX_S" ] || { say "HEAVY_SLOT_WAIT_S=$WAIT_S — больше $WAIT_MAX_S с не ждёт и проба"; exit 64; }
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
@@ -511,6 +537,34 @@ for a in "$@"; do
         exit 64
     fi
 done
+
+# ── постановка одним билетом (урок 2026-10-16, ws#1110; шапка) ──────────────────
+if [ -n "$ENQ_DIR" ] && { [ -n "$WAIT_ARG" ] || [ -n "$QUEUED" ]; }; then
+    say "--enqueue ждёт сам до $(( ENQ_MAX_S / 60 )) мин — --wait и --queued с ним не ставятся"
+    exit 64
+fi
+if [ -n "$QUEUED" ]; then
+    if [ "$(readlink -f "/proc/$$/fd/1" 2>/dev/null)" != "$(readlink -f "$QUEUED.log" 2>/dev/null)" ] ||
+        [ "$(ps -o sid= -p "$PPID" 2>/dev/null | tr -d ' ')" != "$PPID" ]; then
+        say "--queued — внутренняя форма --enqueue (отсоединённый ребёнок, вывод в <база>.log); вызывай --enqueue <каталог>"
+        exit 64
+    fi
+    WAIT_S="$ENQ_MAX_S"
+fi
+if [ -n "$ENQ_DIR" ]; then
+    SELF="$(readlink -f -- "${BASH_SOURCE[0]}")"
+    EB="$(cd "$ENQ_DIR" && pwd -P)/hs-$CLASS-$(date +%Y%m%dT%H%M%S)-$$"
+    rm -f -- "$EB.rc" "$EB.rc.tmp" "$EB.pid"
+    fwd=(); [ -n "$LOCAL_SET" ] && fwd=(--local "$LOCAL_WHY")
+    # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
+    setsid -f env --default-signal=PIPE bash -c 'echo $$ > "$2.pid"; bash "$1" --queued "$2" "${@:3}"; rc=$?; printf "%s
+" "$rc" > "$2.rc.tmp" && mv -f "$2.rc.tmp" "$2.rc"' \
+        heavy-slot "$SELF" "$EB" "${fwd[@]+"${fwd[@]}"}" "$CLASS" -- "$@" > "$EB.log" 2>&1 < /dev/null ||
+        { say "отсоединённый прогон не запущен (setsid) — не выполнилось"; exit 69; }
+    printf 'ENQUEUED\tlog=%s\trc=%s\tpid=%s\tdeadline=%s\n' "$EB.log" "$EB.rc" "$EB.pid" "$(date -d "@$(( $(now) + ENQ_MAX_S ))" +%H:%M)"
+    say "идёт: «$CLASS» поставлен в очередь ОДНИМ билетом до $(( ENQ_MAX_S / 60 )) мин; исход — код в $EB.rc (появится по выходу), журнал $EB.log. Дочитывает короткий шаг; повторно не ставить"
+    exit 0
+fi
 
 # ── внешний кластер (решения владельца 2026-10-07, 2026-10-08, 2026-10-16; ws#984, ws#1105) ─
 # Норма — testing-verdict.md#external-cluster-first; владелец 2026-10-16 дословно:
@@ -836,13 +890,13 @@ while :; do
     if [ "$WAIT_S" -eq 0 ]; then
         journal "busy class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead who=$WHO cmd=$CMDLINE"
         say "СЛОТ ЗАНЯТ, очередь $ahead — «$CLASS» не выдан сразу: $why."
-        say "команда НЕ запускалась (не выполнилось, не красное). Повтори коротким шагом позже либо --wait N (N ≤ $WAIT_MAX_S); долгий прогон — отсоединённо, слот внутри него; кто занял — heavy-slot.sh --status"
+        say "команда НЕ запускалась (не выполнилось, не красное). Повтори коротким шагом позже либо --wait N (N ≤ $WAIT_MAX_S); дольше — ОДИН раз --enqueue <каталог> (перезапуск на 74/75 ставит в конец очереди); кто занял — heavy-slot.sh --status"
         exit 74
     fi
     if [ "$waited" -ge "$WAIT_S" ]; then
         journal "timeout class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB free=${free}MiB slots=$nocc ahead=$ahead waited=${waited}s who=$WHO cmd=$CMDLINE"
         say "НЕ ВЫПОЛНИЛОСЬ — слот «$CLASS» не выдан за ${waited} с: $why."
-        say "команда НЕ запускалась; кто занял — heavy-slot.sh --status"
+        say "команда НЕ запускалась; кто занял — heavy-slot.sh --status; дольше $WAIT_MAX_S с — ОДИН раз --enqueue <каталог>, не перезапуском"
         exit 75
     fi
     [ "$waited" -eq 0 ] && journal "wait class=$CLASS budget=${BUDGET}MiB used=${used}MiB reserved=${resv}MiB ahead=$ahead who=$WHO"
