@@ -441,6 +441,23 @@ printf '#!/usr/bin/env bash\ncase "$2" in */issues/*) echo boom >&2; exit 1 ;; e
 FAKE="$W/case" LANDING_PRECHECK_GH="$W/gh-broken" LANDING_PRECHECK_MERGE_READINESS="$W/mr0" bash "$TOOL" PRO-Robotech/kacho 3036 > "$W/out" 2>&1; echo $? > "$W/code"
 expect 2 $'VOID\tкомментарии PRO-Robotech/kacho#' "комментарии задачи не прочитаны — вердикта нет, а не «доказано»"
 
+echo "== (з) отчёт прогона на внешнем кластере (ws#1110)"
+# Отчёт той формы, что пишет шаг mech:stand шаблона; суд — настоящий stand-report.sh.
+sreport() {  # sreport <голова> <jq-правка> — отчёт случая в $W/case/stand.json
+    jq -n --arg h "$1" '{head: $h, mode: "full", context: "probe-client", ns: "t3036-w1", residue: 0, planned: 2,
+      suites: [{name: "go-race", outcome: "green", executed: 9, total: 9}, {name: "newman shard-1", outcome: "green", executed: 40, total: 40}]}' \
+        | jq "$2" > "$W/case/stand.json"
+}
+twin; sreport "$HEAD_SHA" .; run 0 --stand-report "$W/case/stand.json"; expect 0 - "близнец: полный зелёный отчёт той же головы — код 0"
+twin; sreport "$HEAD_SHA" '.suites[1] |= (.outcome = "red" | .quote = "expected 404, got 403")'; run 0 --stand-report "$W/case/stand.json"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-RED' "красный набор на стенде — посадки нет"
+twin; sreport "${HEAD_SHA%?}0" .; [ "${HEAD_SHA%?}0" != "$HEAD_SHA" ] || sreport "${HEAD_SHA%?}1" .; run 0 --stand-report "$W/case/stand.json"
+expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-STALE' "отчёт о другой голове — посадки нет"
+twin; run 0 --stand-report "$W/case/нет.json"; expect 1 $'REASON\tSTAND-REPORT\tSTAND-REPORT-MISSING' "отчёта нет — посадки нет"
+twin; run 0
+if grep -q 'пункт (з) НЕ СУДИЛСЯ' "$W/out"; then echo "  [OK]   без --stand-report пункт (з) назван несуждённым"; pass=$((pass + 1))
+else echo "  [FAIL] без --stand-report нет строки «пункт (з) НЕ СУДИЛСЯ»" >&2; fail=$((fail + 1)); fi
+
 echo "== (д) настоящий merge-readiness из origin/main — вместе с тем, что он подключает"
 # Подмены merge-readiness здесь НЕТ: предпроверка извлекает его из origin/main
 # песочницы-воркспейса (LANDING_PRECHECK_WS) так же, как из настоящего, и он судит
