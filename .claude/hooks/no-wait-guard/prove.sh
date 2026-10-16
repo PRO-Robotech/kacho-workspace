@@ -204,6 +204,7 @@ boundary "eval: строка не разбирается" 'eval "sleep 900"'
 boundary "xargs: argv из входа"       'echo 900 | xargs sleep'
 boundary "иной интерпретатор"         'python3 -c "import time; time.sleep(900)"'
 boundary "источник — дескриптор"      'exec 3< /dev/zero; read -t 9 -u 3'
+boundary "свой редирект на дескриптор"  'read -t 9 -u 3 3< /dev/zero'
 boundary "поток через фильтр"         'yes | grep y | read x'
 
 echo "== поломка стража — пропуск со словом «СЛОМАН», а не отказ"

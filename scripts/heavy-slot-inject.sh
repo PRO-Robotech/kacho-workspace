@@ -287,7 +287,8 @@ assert "0 7 да" "$rc $(await_rc "$RC2") $([ "$RC2" != "$RC1" ] && echo да ||
 # 74/75). Два поставленных и ждущий в переднем плане (--wait, билет он не перевзимает)
 # опрашивают несколько раз, пока держатель занят: ждущий на каждом опросе видит обоих
 # впереди, а входят все по билету — E1, E2, затем он.
-qlen() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/queue/*; do [ -e "$f" ] && n=$((n + 1)); done; echo "$n"; }
+# Счёт — ЖИВЫХ билетов: отложенные (resume_until=) тоже лежат в очереди — тот же признак, что у ожидания выше.
+qlen() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/queue/*; do [ -e "$f" ] && ! grep -q '^resume_until=' "$f" && n=$((n + 1)); done; echo "$n"; }
 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- sleep 10 2>/dev/null & A=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
 # shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
