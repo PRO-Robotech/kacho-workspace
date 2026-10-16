@@ -144,11 +144,31 @@ say() { printf 'heavy-slot: %s\n' "$*" >&2; }
 now() { date +%s; }
 mib() { awk -v m="$1" 'BEGIN { if (m < 1024) printf "%d МиБ", m; else printf "%.1f ГиБ", m / 1024 }'; }
 
+# docker_mem_bytes <значение> — байты величины памяти docker (форма RAMInBytes:
+# число, дробь — тоже, суффикс b k m g t p, двоичные кратные, «i» и «b» после
+# — необязательны). Не разобрано — код 1: такую величину слот не судит и не отдаёт.
+docker_mem_bytes() {
+    awk -v v="$1" 'BEGIN {
+        if (v !~ /^[0-9]+(\.[0-9]+)? ?[kKmMgGtTpP]?[iI]?[bB]?$/) exit 1
+        n = v; sub(/ ?[kKmMgGtTpP]?[iI]?[bB]?$/, "", n)
+        u = substr(v, length(n) + 1); gsub(/[ iIbB]/, "", u); u = tolower(u)
+        p = index("kmgtp", u); m = 1; if (u != "") for (q = 0; q < p; q++) m *= 1024
+        printf "%.0f\n", n * m
+    }'
+}
+
 # docker_limit <бюджет MiB> <cidfile> <аргументы docker…> — в DARGS аргументы, где
 # run/create (и container run/create) несут предел бюджета; прочее — как было.
-# Код 64 — у вызова свои флаги памяти: второе значение молча перекрыло бы бюджет.
+# Свой предел вызова (--memory, -m, --memory-swap) — законен, если он не больше
+# бюджета класса: тогда он и остаётся пределом контейнера, второго значения слот
+# не пишет (docker взял бы последнее, и одно молча перекрыло бы другое), а
+# недостающую половину дописывает — swap = память вызова (сверх неё swap нет),
+# память = swap вызова. Предел больше бюджета, 0 и -1 (без предела), неразобранная
+# величина и свой --cidfile (по нему слот снимает контейнер) — код 64 с причиной.
+# Основание — ws#1110: стенд kaname (`.github/scripts/stand-own.sh`) ставит
+# службе --memory 1280m, законный в конвейере флаг, а отказ 64 ронял подъём стенда.
 docker_limit() {
-    local budget="$1" cidf="$2" i=0 sub at j a k step
+    local budget="$1" cidf="$2" i=0 sub at j a w k step v="" mem="" swap="" b lim
     shift 2
     DARGS=("$@")
     while [ "$i" -lt "${#DARGS[@]}" ]; do
@@ -166,29 +186,55 @@ docker_limit() {
     # берут длинные флаги вне списка булевых и короткие a c e h l m p u v w.
     j="$at"
     while [ "$j" -lt "${#DARGS[@]}" ]; do
-        a="${DARGS[$j]}"
+        a="${DARGS[$j]}"; w="$a"
         case "$a" in
-            -m|-m?*|--memory|--memory=*|--memory-swap|--memory-swap=*|--cidfile|--cidfile=*)
-                say "docker $sub несёт «$a» — слот ставит --memory/--memory-swap/--cidfile сам; сними флаг (бюджет класса: $(mib "$budget"))"
+            --cidfile|--cidfile=*)
+                say "docker $sub несёт «$a» — слот ставит --cidfile сам (по нему он снимает контейнер); сними флаг"
                 return 64 ;;
+            --memory|--memory-swap) v="${DARGS[$(( j + 1 ))]:-}"; j=$(( j + 2 )) ;;
+            --memory=*|--memory-swap=*) v="${a#*=}"; a="${a%%=*}"; j=$(( j + 1 )) ;;
             --) break ;;
             --*=*) j=$(( j + 1 )) ;;
             --rm|--detach|--interactive|--tty|--init|--privileged|--read-only|--publish-all|--oom-kill-disable|--no-healthcheck|--quiet|--disable-content-trust|--use-api-socket|--help)
                 j=$(( j + 1 )) ;;
             --*) j=$(( j + 2 )) ;;
             -?*)
+                # Короткие флаги склеиваются (-dm 1g, -dm1g, -m=1g): значение берёт
+                # первая буква со значением, остаток слова либо следующее слово.
                 k=1; step=1
                 while [ "$k" -lt "${#a}" ]; do
                     case "${a:$k:1}" in
-                        [acehlmpuvw]) [ "$k" -eq $(( ${#a} - 1 )) ] && step=2; break ;;
+                        m)
+                            if [ "$k" -eq $(( ${#a} - 1 )) ]; then v="${DARGS[$(( j + 1 ))]:-}"; step=2
+                            else v="${a:$(( k + 1 ))}"; v="${v#=}"; fi
+                            a=--memory; break ;;
+                        [acehlpuvw]) [ "$k" -eq $(( ${#a} - 1 )) ] && step=2; break ;;
                     esac
                     k=$(( k + 1 ))
                 done
                 j=$(( j + step )) ;;
             *) break ;;
         esac
+        case "$a" in
+            --memory|--memory-swap)
+                lim="$(mib "$budget")"
+                if [ "$v" = -1 ]; then b=0; else b="$(docker_mem_bytes "$v")" || b=x; fi
+                case "$b" in
+                    x) say "docker $sub несёт «$w» со значением «$v», которое не разбирается как величина памяти; бюджет класса $lim"; return 64 ;;
+                    0) say "docker $sub несёт «$w» со значением «$v» — это предел «без предела»; законен предел не больше бюджета класса $lim"; return 64 ;;
+                esac
+                if [ "$b" -gt $(( budget * 1048576 )) ]; then
+                    say "docker $sub несёт «$w» со значением «$v» — больше бюджета класса $lim; законен предел не больше бюджета"
+                    return 64
+                fi
+                if [ "$a" = --memory ]; then mem="$v"; else swap="$v"; fi ;;
+        esac
     done
-    DARGS=("${DARGS[@]:0:$at}" "--memory=${budget}m" "--memory-swap=${budget}m" "--cidfile=$cidf" "${DARGS[@]:$at}")
+    local add=()
+    if [ -z "$mem" ] && [ -z "$swap" ]; then add=("--memory=${budget}m" "--memory-swap=${budget}m")
+    elif [ -z "$swap" ]; then add=("--memory-swap=$mem")
+    elif [ -z "$mem" ]; then add=("--memory=$swap"); fi
+    DARGS=("${DARGS[@]:0:$at}" "${add[@]}" "--cidfile=$cidf" "${DARGS[@]:$at}")
 }
 
 # Вызван как `docker` из PATH команды слота — подставить предел и отдать настоящему.
