@@ -55,9 +55,12 @@ export const meta = {
 //    Имени, проходящего хуки всех репозиториев, не существует: kaname требует
 //    голый номер, воркспейс и corelib — `<N>-<суть>` (ws#946).
 //  - агент не ждёт (ws#1001, CLAUDE.md «Не жди»): у каждого шага — срок по классу
-//    (STEP_MIN), долгий прогон — отсоединённо с исходом «идёт»; CI читается
-//    КОРОТКИМ шагом без ожидания, повтор и паузу делает шаблон (CI_READS чтений,
-//    между ними одна команда паузы CI_PAUSE_S ≤ 300 с), а не агент циклом.
+//    (STEP_MIN), долгий прогон — отсоединённо с исходом «идёт»; CI ждёт ОДНА команда
+//    scripts/ci-state/ci-wait.sh --max CI_WAIT_MAX_S ≤ 540 с (ws#1114): блокирующее
+//    чтение FIFO демона состояния, код 4 и любой код, кроме 3, — сразу; ожиданий на
+//    голову ≤ CI_WAITS, повтор делает шаблон, а не агент циклом. Пауза командой
+//    STAND_PAUSE_S осталась лишь у дочитывания стенда (его прогон — локальный, демон
+//    состояния PR о нём не знает).
 //  - CI читается ТОЛЬКО scripts/ci-read.sh (ws#1006; урок kacho#3142 — влит при
 //    «зелёно 30 из 30», когда проверок было 68 и 3 шли, база устарела): рецептом
 //    «ЗАПУСК» из origin/main; состояние — из КОДА (CI_STATE: 0 green · 1 red ·
@@ -73,12 +76,14 @@ export const meta = {
 //    запрещает `repos/*/merges`, `pulls/*/merge` и `--auto` и даёт чтение merge-base
 //    GET-запросом. Агенты ci-watcher звали `gh api repos/<r>/merges -X POST`, думая,
 //    что читают merge-base, и влили три PR мимо посадки; отказ держит хук gh-api-guard.
-//  - пауза между чтениями CI (ws#1010): её делает ТОТ ЖЕ агент, что читает CI, одной
-//    командой — `sleep N`, строка `SLEPT <секунды>` по часам машины, затем ci-read.sh;
-//    ответ несёт slept (реально прошедшие секунды), и чтение с паузой при slept
-//    < N−10 шаблон ОТВЕРГАЕТ: его код не судится, чтение повторяется. Урок: агенты-
-//    паузы на лёгкой модели sleep не исполняли — 12 чтений прошли за 7 мин вместо
-//    40, цикл кончился раньше CI. Первое чтение — без паузы.
+//  - пауза между чтениями СТЕНДА (ws#1010): её делает ТОТ ЖЕ агент, что читает, одной
+//    командой — пауза, строка `SLEPT <секунды>` по часам машины, затем чтение; ответ
+//    несёт slept, и чтение с паузой при slept < N−10 шаблон ОТВЕРГАЕТ. Урок: агенты-
+//    паузы на лёгкой модели паузу не исполняли — 12 чтений прошли за 7 мин вместо 40.
+//    У CI паузы агента больше нет (ws#1114): ждёт ci-wait.sh, срок — его довод.
+//  - PR полос и волны — черновиком (ws#1114): полный прогон заводит ready_for_review,
+//    его ставит git-operator перед сборкой или посадкой; на заменённой голове черновика
+//    полного прогона нет. Норму полосы держит lane-precheck.sh (PR-NOT-DRAFT).
 //  - копии полос и каталог волны — под КОРНЕМ воркспейса (ws#1010): ROOT/tmp/wave-<N>/;
 //    ROOT — args.root, иначе выводится из ws (ws — копия под <корень>/tmp/… → корень).
 //    Не <ws>/tmp, когда ws — отдельная копия: копия шаблона tmp/wave7/ws-main была
@@ -113,10 +118,16 @@ const MECH_LOW = { ...MECH, effort: 'low' }
 const UI_DEPS = /(^|\/)kacho$/.test(A.repo || '') ? ' Репозиторий kacho: ДО проверок консоли (affected.py, хук отправки) поставь её зависимости как ui.yml — в копии `(cd ui-future && npm ci && for p in $(sed -n \'s/^  STANDALONE: //p\' ../.github/workflows/ui.yml); do npm ci --prefix "$p"; done)`; код не 0 — не отправлять, вернуть failed.' : ''
 // Срок шага — минуты работы агента; по истечении — возврат с остатком, а не ожидание.
 const STEP_MIN = { preflight: 45, implement: 90, review: 30, mech: 10, ci: 2 }
-const CI_READS = 30
-const CI_PAUSE_S = 240
-// Чтение с паузой засчитывается при slept ≥ CI_PAUSE_S − CI_SLEPT_SLACK (ws#1010).
-const CI_SLEPT_SLACK = 10
+// Ожидание CI (ws#1114): ожиданий на голову ≤ CI_WAITS, срок одного — CI_WAIT_MAX_S (< 10 мин).
+const CI_WAITS = 4
+const CI_WAIT_MAX_S = 540
+// Модель шага ci — решение диспетчера (args.ciModel); не задана — наследуется, как у механики.
+const CI_MODEL = A.ciModel ? { model: String(A.ciModel) } : {}
+// Дочитывание стенда — чтения с паузой одной командой (ws#1110).
+const STAND_READS = 30
+const STAND_PAUSE_S = 240
+// Чтение с паузой засчитывается при slept ≥ STAND_PAUSE_S − STAND_SLEPT_SLACK (ws#1010).
+const STAND_SLEPT_SLACK = 10
 // Правило полосы о файлах (ws#1004): blocked на ничейном файле — пустой ход волны.
 const FILES_RULE = 'ФАЙЛЫ ПОЛОСЫ: файл вне твоего перечня, которого нет в перечне соседних полос, — бери сам и назови в отчёте; blocked — только если нужен файл соседа (назови его и полосу).'
 // Объект плана — из ПОСЛЕДНЕЙ непустой строки вывода (механик кладёт в out и строки
@@ -141,11 +152,14 @@ const C = [
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
   FILES_RULE,
   'ВЛИВАНИЕ (ws#1008): только шагом merge (git-operator) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так).',
-  'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо `setsid env --default-signal=PIPE sh -c \'<команда>; echo $? > <журнал>.rc\' > <журнал> 2>&1 &` и pid-файл (nohup НЕ ставить: глушит SIGHUP детям, пробы internal/check краснеют; исход — код из .rc, не EXIT setsid), верни «идёт: pid, журнал, ожидаемое окончание»; имя журнала и .rc — уникальное ($$ либо sha), .rc снять до запуска. Слот тяжёлого — внутри того же отсоединённого прогона. Ждёт и читает с паузой только ci-watcher. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
+  'PR ПОЛОСЫ (ws#1114): только черновиком (`gh pr create --draft`) — на черновике конвейер гонит лишь затронутое; ready ставит git-operator перед сборкой или посадкой (ready_for_review заводит полный прогон); PR полосы не черновиком — PR-NOT-DRAFT у lane-precheck.',
+  'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо `setsid env --default-signal=PIPE sh -c \'<команда>; echo $? > <журнал>.rc\' > <журнал> 2>&1 &` и pid-файл (nohup НЕ ставить: глушит SIGHUP детям, пробы internal/check краснеют; исход — код из .rc, не EXIT setsid), верни «идёт: pid, журнал, ожидаемое окончание»; имя журнала и .rc — уникальное ($$ либо sha), .rc снять до запуска. Слот тяжёлого — внутри того же отсоединённого прогона. Ждёт только ci-watcher: CI — одной командой ci-wait.sh, стенд — чтением с паузой. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
-// Чтение CI — схема механики и slept: реально прошедшие секунды паузы (строка SLEPT).
-const S_CI = { type: 'object', properties: { ...S_MECH.properties, slept: { type: 'number' } }, required: [...S_MECH.required, 'slept'] }
+// Чтение стенда — схема механики и slept: реально прошедшие секунды паузы (строка SLEPT).
+const S_STAND = { type: 'object', properties: { ...S_MECH.properties, slept: { type: 'number' } }, required: [...S_MECH.required, 'slept'] }
+// Ожидание CI — схема механики: паузы агента нет, срок держит ci-wait.sh (ws#1114).
+const S_CI = S_MECH
 const S_IMPL = { type: 'object', properties: { status: { type: 'string', enum: ['done', 'already-done', 'nothing-to-push', 'blocked', 'failed'] }, branch: { type: 'string' }, head: { type: 'string' }, copy: { type: 'string' }, hookLog: { type: 'string' }, issues: { type: 'array', items: { type: 'string' } }, impact: { type: 'array', items: { type: 'string' } }, report: { type: 'string' }, lesson: { type: 'string' } }, required: ['status', 'branch', 'head', 'copy', 'hookLog', 'issues', 'impact', 'report', 'lesson'] }
 // Предполёт: карта влияния и критерии рецензентов — по КАЖДОЙ полосе (ws#1053).
 const S_PRE = { type: 'object', properties: { lanes: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, impact: { type: 'array', items: { type: 'string' } }, criteria: { type: 'array', items: { type: 'string' } } }, required: ['key', 'impact', 'criteria'] } }, estimate: { type: 'string' }, report: { type: 'string' } }, required: ['lanes', 'estimate', 'report'] }
@@ -474,7 +488,7 @@ if (steps.has('wave-reviewer')) {
 // кодом scripts/ci-read.sh (ws#1006): полный набор, завершённые прогоны,
 // обязательные контексты базы, свежая база.
 // Пауза — в ТОЙ ЖЕ команде, что чтение: часы машины до и после sleep, строка SLEPT.
-const pauseCmd = 's0=$(date +%s); sleep ' + CI_PAUSE_S + '; echo "SLEPT $(( $(date +%s) - s0 ))"; '
+const pauseCmd = 's0=$(date +%s); sleep ' + STAND_PAUSE_S + '; echo "SLEPT $(( $(date +%s) - s0 ))"; '
 // Перепись прогоном на ВНЕШНЕМ кластере ДО CI (ws#1110, ai-tooling.md#at-red-ci-one-round,
 // владелец 2026-10-16): весь затронутый набор теми же целями, что CI, без остановки на
 // первом красном; ready и вливание — лишь при коде 0 stand-report.sh по отчёту ЭТОЙ
@@ -482,33 +496,33 @@ const pauseCmd = 's0=$(date +%s); sleep ' + CI_PAUSE_S + '; echo "SLEPT $(( $(da
 // шаг запускает либо дочитывает (код 3 — идёт), шаблон читает с паузой, как CI.
 const STAND = D + '/stand.json'
 const STAND_EXP = D + '/stand-expect.json'
-const standRead = (i, out) => agent(C + '\n\nРежим стенд (перепись прогоном, ai-tooling.md#at-red-ci-one-round), чтение ' + (i + 1) + ' из ' + CI_READS + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + asm.head + '. ' + (i > 0 ? 'Сначала пауза ОДНОЙ командой `' + pauseCmd + 'true`, затем ' : '') + 'ожидаемое выводит механизм, не отчёт: `bash ' + WS + '/scripts/stand-report.sh expect --checkout ' + D + '/assemble --head ' + asm.head + ' --base origin/' + (A.epic || A.base || '?') + ' --draft false > ' + STAND_EXP + '` (выбор ready — основание ready и вливания; не 0 — code 2); отчёт ' + STAND + ' о голове ' + asm.head + ' есть и прогон завершён — выполни `bash ' + WS + '/scripts/stand-report.sh check ' + STAND + ' --head ' + asm.head + ' --expect ' + STAND_EXP + '`; прогон этой головы идёт (pid жив, .rc нет) — code 3; прогона нет — ЗАПУСТИ ОДИН раз: на ВНЕШНЕМ кластере через `' + WS + '/scripts/heavy-slot.sh --enqueue ' + D + ' <класс> -- …` (билет держится, код — в .rc строки ENQUEUED; 74/75 повтором не лечится) (стенд — `make stand-ns-run NS=t' + N + '-w<k>` своего прогона: подъём и снятие им же на любом исходе, census после 0) КАЖДОЕ задание jobs из ' + STAND_EXP + ' теми же целями, что CI, без остановки на первом красном; набор, которому до ws#1110 п.1 нет образов ветки PR, — outcome not-run, reason NO-PR-IMAGES; отчёт — форма шапки scripts/stand-report.sh (head, mode full, context, ns, planned, suites с job задания и дословной цитатой у красного, residue) в ' + STAND + ', затем code 3. code: 0 — полный зелёный; 1 — причины stand-report.sh; 2 — не выполнилось (слот 74–77); 3 — идёт. ' + due('mech') + ' Отчёт шага — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (' + asm.head + '), slept (' + (i > 0 ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label: 'mech:stand:' + i, phase: 'Сборка', schema: S_CI })
+const standRead = (i, out) => agent(C + '\n\nРежим стенд (перепись прогоном, ai-tooling.md#at-red-ci-one-round), чтение ' + (i + 1) + ' из ' + STAND_READS + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + asm.head + '. ' + (i > 0 ? 'Сначала пауза ОДНОЙ командой `' + pauseCmd + 'true`, затем ' : '') + 'ожидаемое выводит механизм, не отчёт: `bash ' + WS + '/scripts/stand-report.sh expect --checkout ' + D + '/assemble --head ' + asm.head + ' --base origin/' + (A.epic || A.base || '?') + ' --draft false > ' + STAND_EXP + '` (выбор ready — основание ready и вливания; не 0 — code 2); отчёт ' + STAND + ' о голове ' + asm.head + ' есть и прогон завершён — выполни `bash ' + WS + '/scripts/stand-report.sh check ' + STAND + ' --head ' + asm.head + ' --expect ' + STAND_EXP + '`; прогон этой головы идёт (pid жив, .rc нет) — code 3; прогона нет — ЗАПУСТИ ОДИН раз: на ВНЕШНЕМ кластере через `' + WS + '/scripts/heavy-slot.sh --enqueue ' + D + ' <класс> -- …` (билет держится, код — в .rc строки ENQUEUED; 74/75 повтором не лечится) (стенд — `make stand-ns-run NS=t' + N + '-w<k>` своего прогона: подъём и снятие им же на любом исходе, census после 0) КАЖДОЕ задание jobs из ' + STAND_EXP + ' теми же целями, что CI, без остановки на первом красном; набор, которому до ws#1110 п.1 нет образов ветки PR, — outcome not-run, reason NO-PR-IMAGES; отчёт — форма шапки scripts/stand-report.sh (head, mode full, context, ns, planned, suites с job задания и дословной цитатой у красного, residue) в ' + STAND + ', затем code 3. code: 0 — полный зелёный; 1 — причины stand-report.sh; 2 — не выполнилось (слот 74–77); 3 — идёт. ' + due('mech') + ' Отчёт шага — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (' + asm.head + '), slept (' + (i > 0 ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label: 'mech:stand:' + i, phase: 'Сборка', schema: S_STAND })
 let stand = null
-for (let i = 0; i < CI_READS; i++) {
+for (let i = 0; i < STAND_READS; i++) {
   const got = await standRead(i, D + '/stand-' + i + '.md')
-  if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + CI_SLEPT_SLACK >= CI_PAUSE_S)) { stand = { code: 3, reasons: ['PAUSE-SKIPPED'] }; continue }
+  if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + STAND_SLEPT_SLACK >= STAND_PAUSE_S)) { stand = { code: 3, reasons: ['PAUSE-SKIPPED'] }; continue }
   stand = got
   if (!stand || stand.code !== 3) break
 }
 if (!stand || stand.code !== 0) return { ok: false, state: stand && stand.code === 3 ? 'running' : 'failed', stage: 'внешний стенд до CI: ' + (!stand ? 'нет ответа' : stand.code === 3 ? 'прогон идёт' : stand.code === 1 ? 'красное либо отчёт не полон — ' + ((stand.reasons || []).join(', ') || 'причина не названа') : 'не выполнилось (код ' + stand.code + ')') + ' — ready, CI и вливания нет (' + STAND + ')', pr: asm.pr, head: asm.head, reasons: stand ? stand.reasons || [] : [], ...(stand && stand.code === 1 ? { redRound: RED_ROUND } : {}), errors, lessons: lessonsOf() }
-const ciRead = (what, head, pause, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. ' + (pause ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: ' : 'Прочти вердикт ОДИН раз командой: ') + '`' + (pause ? pauseCmd : '') + recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out) + '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: повтор делает шаблон. ' + due('ci', pause ? Math.ceil(CI_PAUSE_S / 60) : 0) + ' Отчёт — ' + out + '. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова из строки VERDICT), slept (' + (pause ? 'число из строки SLEPT' : '0 — паузы не было') + ').', { ...MECH, agentType: 'ci-watcher', label, phase: 'Сборка', schema: S_CI })
 // Лимит GitHub (урок 2026-10-16, ws#1110): REASON RATE-LIMIT ci-read, landing-precheck и
 // merge-readiness — «не выполнилось» со временем сброса, а не красное и не тайм-аут.
 const rateOf = r => !!(r && Array.isArray(r.reasons) && r.reasons.includes('RATE-LIMIT'))
 const rateStop = (what, r, head) => ({ ok: false, state: 'not-run', stage: what + ': лимит GitHub исчерпан — не выполнилось, не красное; ' + ((String(r.out || '').match(/сброс в \d\d:\d\d/) || ['время сброса — в отчёте шага'])[0]), pr: asm.pr, head, reasons: r.reasons, errors, lessons: lessonsOf() })
+// >>> шаг ci
+// Ожидание CI (ws#1114, заказ владельца 2026-10-16: «время потрачено на проверку состояния
+// было минимально»): ОДНА команда ci-wait.sh <репо> <PR> <голова> --max CI_WAIT_MAX_S —
+// первое чтение ci-read.sh сразу (код 4 и любой, кроме 3, — выход), затем блокирующее
+// чтение FIFO демона состояния; паузы агента нет. Ожиданий на голову ≤ CI_WAITS.
+const ciRead = (what, head, label, out) => agent(C + '\n\nРежим CI, ' + what + ': ' + (A.repo || '?') + ' PR #' + asm.pr + ', голова ' + head + '. Жди вердикт ОДНОЙ командой — вызовом Bash с timeout 600000 (с умолчанием 120000 харнесс оборвёт её на второй минуте): `' + recipeRun('ci-state/ci-wait.sh', (A.repo || '?') + ' ' + asm.pr + ' ' + head + ' --max ' + CI_WAIT_MAX_S, out) + '` (scripts/ci-state/ci-wait.sh рецептом «ЗАПУСК»: первое чтение scripts/ci-read.sh сразу, затем ожидание сигнала демона состояния до ' + CI_WAIT_MAX_S + ' с; `gh pr checks`, check-runs и ci-read.sh мимо него не читай, без --watch, без цикла, без паузы); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон (по сроку — REASON WAIT-EXPIRED) · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: следующее ожидание делает шаблон. ' + due('ci', Math.ceil(CI_WAIT_MAX_S / 60)) + ' Отчёт — ' + out + '. Верни code, out (строки REASON, VERDICT и WAITED), reasons (коды из строк REASON), head (голова из строки VERDICT).', { ...MECH, agentType: 'ci-watcher', label, ...CI_MODEL, phase: 'Сборка', schema: S_CI })
 let ci = null
-let skipped = 0
 // Черновик (ws#1013): ci-read код 5 — целевой зелёный. Это не основание вливать:
 // PR переводится в ready ОДИН раз (событие ready_for_review заводит полный прогон
-// того же состава), и чтение продолжается до полного вердикта. Код 5 после перевода —
+// того же состава), и ожидание продолжается до полного вердикта. Код 5 после перевода —
 // перевод не лёг: провал, а не ожидание.
 let readied = false
-for (let i = 0; i < CI_READS; i++) {
-  const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
-  // Чтение с паузой при slept < N−10 (нет поля, не число, мало) — отвергнуто: его код
-  // не судится, состояние — «идёт», цикл продолжается (ws#1010).
-  if (i > 0 && !(got && typeof got.slept === 'number' && got.slept >= CI_PAUSE_S - CI_SLEPT_SLACK)) { skipped++; ci = { code: 3, reasons: ['PAUSE-SKIPPED'], head: asm.head, slept: got ? got.slept : null }; log('CI чтение ' + (i + 1) + ': пауза не исполнена (slept ' + JSON.stringify(got ? got.slept : null) + ' < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ') — чтение отвергнуто'); continue }
-  ci = got
+for (let i = 0; i < CI_WAITS; i++) {
+  ci = await ciRead('ожидание ' + (i + 1) + ' из ' + CI_WAITS, asm.head, 'mech:ci:' + i, D + '/ci-' + i + '.md')
   if (rateOf(ci)) return rateStop('CI', ci, asm.head)
   if (ciState(ci) === 'targeted-green' && !readied && sha40(ci.head) === asm.head) {
     readied = true
@@ -518,11 +532,11 @@ for (let i = 0; i < CI_READS; i++) {
   }
   if (ciState(ci) !== 'running') break
 }
-if (skipped) await err('executor-mechanics', 'wave', 'ci', 'пауза CI не исполнена в ' + skipped + ' чтениях из ' + CI_READS + ' (slept < ' + (CI_PAUSE_S - CI_SLEPT_SLACK) + ')')
+// <<< шаг ci
 // «Идёт» и после ожидания — СОСТОЯНИЕ, а не провал: волна не влита и не сломана,
 // повтор шаблона продолжит с той же головы (state running отличим от failed).
 const ciHead = sha40(ci && ci.head)
-if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет' + (skipped ? '; чтений с неисполненной паузой ' + skipped + ' — отвергнуты' : ''), pauseSkipped: skipped, pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
+if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ' + CI_WAITS + ' ожиданий исчерпано, провала нет', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ci) === 'stale') return { ok: false, state: 'failed', stage: 'CI: база устарела (ci-read код 4) — влить свежую ' + (A.epic || A.base) + ' в ветку волны и читать заново', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ci) === 'red') M.ciRed++
 if (ciState(ci) !== 'green' || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], ...redOf(ci), errors, lessons: lessonsOf() }
@@ -584,7 +598,7 @@ if (steps.has('landing-reviewer')) {
 }
 // Последнее чтение CI — на голове посадки, тем же скриптом: между сборкой и
 // вливанием база могла уйти вперёд, а голова — получить слияние базы.
-const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
+const ciL = await ciRead('перед вливанием', landHead, 'mech:ci-land', D + '/ci-land.md')
 if (rateOf(ciL)) return { ...rateStop('CI на голове посадки', ciL, landHead), ...gatesOf() }
 if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ciL) === 'red') M.ciRed++

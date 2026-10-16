@@ -215,7 +215,8 @@ async function run(sc) {
   const agent = async (prompt, opts = {}) => {
     const label = opts.label || ''
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, schema: opts.schema, prompt })
-    ALL.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
+    // Сценарий с явной моделью шага ci (args.ciModel, ws#1114) в объединение не идёт: его судит свой сценарий.
+    if (!sc.noAll) ALL.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt, has: { model: 'model' in opts, effort: 'effort' in opts } })
     const lane = label.split(':').pop()
     // Предполёт (ws#1053): карта по каждому ключу из задания; сценарий перекрывает (null — нет ответа).
     if (label === 'preflight') { const keys = ((prompt.match(/КЛЮЧИ ПОЛОС: ([^.\n]*)/) || [])[1] || '').split(',').filter(Boolean); const r = take('pre', () => ({ lanes: keys.map(k => ({ key: k, impact: (sc.map || {})[k] || [], criteria: ['критерий ' + k] })), estimate: '6 ч, красных 0', report: 'r' })); return r }
@@ -231,7 +232,8 @@ async function run(sc) {
     // Честный агент: slept — секунды sleep ЕГО команды (нет паузы — 0); сценарий перекрывает.
     // Стенд (ws#1110): та же честность паузы, что у CI; сценарий перекрывает код.
     if (label.startsWith('mech:stand:')) return { out: '', reasons: [], head: HW, slept: +((prompt.split('\n\n').slice(1).join(' ').match(/`[^`]*\bsleep (\d+)/) || [])[1] || 0), ...take('stand', () => ({ code: 0 })) }
-    if (label.startsWith('mech:ci:')) return { out: '', reasons: [], head: HW, slept: +((prompt.split('\n\n').slice(1).join(' ').match(/`[^`]*\bsleep (\d+)/) || [])[1] || 0), ...take('ci', () => ({ code: 0 })) }
+    // Ожидание CI (ws#1114): паузы агента нет — slept не возвращается; сценарий перекрывает код.
+    if (label.startsWith('mech:ci:')) return { out: '', reasons: [], head: HW, ...take('ci', () => ({ code: 0 })) }
     // ci-read.sh печатает голову PR, какую застал: это голова из задания (голова посадки)
     if (label.startsWith('mech:ci-land')) return { out: '', reasons: [], head: (prompt.match(/голова ([0-9a-f]{40})/) || [])[1] || HW, ...take('ciland', () => ({ code: 0 })) }
     if (label.startsWith('mech:landing:')) return { out: '', head: HW, ...take('land', () => ({ code: 0, reasons: [] })) }
@@ -437,7 +439,7 @@ ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && /gh 
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }, { code: 5 }] })
 ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:ready') === 1 && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'целевой зелёный и после перевода в ready — не вливание и не второй перевод', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')] })
-ok(/gh pr create --draft/.test(prm(r.calls, 'mech:assemble:1')) && /affected\.py --base origin\/\S+ --run/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, выбор затронутого до каждой отправки')
+ok(/gh pr create --draft/.test(prm(r.calls, 'mech:assemble:1').split('\n\n').slice(1).join(' ')) && /affected\.py --base origin\/\S+ --run/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, выбор затронутого до каждой отправки')
 ok(by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'ожидание CI ошибкой не записано')
 r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'already-done', head: H('A', 9) }] })
 ok(r.res.ok === true, '«уже сделано» исполнителя — полоса идёт дальше')
@@ -540,10 +542,10 @@ r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('accept', 'accep
 ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0 && by(r.calls, c => c.label === 'mech:assemble:2') === 0, 'CV-R2: свод return при accept у каждой полосы — противоречие, пересведения и вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== «идёт» после ожидания — состояние, а не провал')
-const CIR = +((body.match(/const CI_READS = (\d+)/) || [])[1] || 0)
-const CIP = +((body.match(/const CI_PAUSE_S = (\d+)/) || [])[1] || 0)
+const CIR = +((body.match(/const CI_WAITS = (\d+)/) || [])[1] || 0)
+const CIM = +((body.match(/const CI_WAIT_MAX_S = (\d+)/) || [])[1] || 0)
 r = await run({ args, plan: [P('r0.json')], ci: Array(CIR).fill({ code: 3 }) })
-ok(CIR >= 1 && r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:ci:')) === CIR && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все ' + CIR + ' чтений — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(CIR >= 1 && r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:ci:')) === CIR && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все ' + CIR + ' ожиданий — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== агент не ждёт (ws#1001): срок шага и CI — короткими чтениями шаблона')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 3 }, { code: 0 }] })
@@ -578,35 +580,59 @@ ok(r.calls.filter(c => c.label.startsWith('impl:')).every(c => /СРОК ШАГ�
 const cis = r.calls.filter(c => c.label.startsWith('mech:ci:'))
 // Закрытый мир, а не словарь запретных слов (опыт check-verifier по #1002: «--watch
 // до окончания» и «повторяй каждые 60 с» прошли мимо /подожди|until|while/):
-// указание CI-чтения сверяется ЦЕЛИКОМ с единственной законной редакцией —
-// любое иное слово об ожидании меняет текст и краснеет. Числа (CI_READS,
-// CI_PAUSE_S, срок шага ci) берутся из шаблона: их смена — близнец, а не мутант.
+// указание ожидания CI сверяется ЦЕЛИКОМ с единственной законной редакцией —
+// любое иное слово об ожидании меняет текст и краснеет. Числа (CI_WAITS,
+// CI_WAIT_MAX_S, срок шага ci) берутся из шаблона: их смена — близнец, а не мутант.
 const CIS = +((body.match(/const STEP_MIN = \{[^}]*\bci: (\d+)/) || [])[1] || 0)
-// Команда между обратными кавычками — рецепт «ЗАПУСК» с ci-read.sh (её свойства
+// Команда между обратными кавычками — рецепт «ЗАПУСК» с ci-wait.sh (её свойства
 // судит сценарий «CI — только кодом ci-read.sh»); указание вокруг неё — закрытый мир.
-const ciWant = i => 'Режим CI, чтение ' + (i + 1) + ' из ' + CIR + ': ' + args.repo + ' PR #7, голова ' + HW + '. ' + (i ? 'Пауза и чтение — ОДНА команда, исполни её целиком, не деля: `s0=$(date +%s); sleep ' + CIP + '; echo "SLEPT $(( $(date +%s) - s0 ))"; ' : 'Прочти вердикт ОДИН раз командой: `')
-// Срок чтения с паузой — срок CI-шага плюс длина паузы в минутах (ws#1010).
-const ciWant2 = i => '` (scripts/ci-read.sh рецептом «ЗАПУСК»; `gh pr checks` и check-runs мимо скрипта не читай, без --watch, без цикла); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: повтор делает шаблон. СРОК ШАГА: ' + (CIS + (i ? Math.ceil(CIP / 60) : 0)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди. Отчёт — '
+const ciWant = i => 'Режим CI, ожидание ' + (i + 1) + ' из ' + CIR + ': ' + args.repo + ' PR #7, голова ' + HW + '. Жди вердикт ОДНОЙ командой — вызовом Bash с timeout 600000 (с умолчанием 120000 харнесс оборвёт её на второй минуте): `'
+// Срок ожидания — срок CI-шага плюс срок ci-wait.sh в минутах (ws#1114).
+const ciWant2 = i => '` (scripts/ci-state/ci-wait.sh рецептом «ЗАПУСК»: первое чтение scripts/ci-read.sh сразу, затем ожидание сигнала демона состояния до ' + CIM + ' с; `gh pr checks`, check-runs и ci-read.sh мимо него не читай, без --watch, без цикла, без паузы); code — код этой команды: 0 green · 1 red · 2 не прочитано · 3 идёт или набор неполон (по сроку — REASON WAIT-EXPIRED) · 4 база устарела · 5 целевой зелёный черновика (не основание вливать); код не толкуй, идёт — сразу верни: следующее ожидание делает шаблон. СРОК ШАГА: ' + (CIS + Math.ceil(CIM / 60)) + ' мин; истёк — верни исход с остатком (сделано / не сделано), а не жди. Отчёт — '
 const ciGot = c => c.prompt.split('\n\n').slice(1).join(' ')
 const ciCut = (g, i) => { if (!g.startsWith(ciWant(i))) return null; const k = g.indexOf(' 2>&1` (', ciWant(i).length); return k < 0 ? null : g.slice(k + ' 2>&1'.length) }
-const ciBad = cis.map((c, i) => { const t = ciCut(ciGot(c), i); return t !== null && t.startsWith(ciWant2(i)) ? '' : 'чтение ' + (i + 1) + ': ' + ciGot(c).slice(0, 220) }).filter(Boolean)
-ok(cis.length === 3 && CIS >= 1 && CIS <= 10 && ciBad.length === 0, 'чтение CI — одно, без ожидания агентом; повтор — шаблоном (указание сверено целиком)', 'срок ci ' + CIS + '; ' + ciBad.join(' | '))
-ok(CIP > 0 && CIP <= 300 && cis.length > 0 && !/sleep/.test(cis[0].prompt.split('\n\n').slice(1).join(' ')) && cis.slice(1).every(c => c.prompt.includes('sleep ' + CIP)), 'пауза между чтениями — одна команда ≤ 300 с, у первого чтения паузы нет', 'CI_PAUSE_S=' + CIP)
-console.log('== пауза CI — тем же агентом и с фактом slept (ws#1010)')
+const ciBad = cis.map((c, i) => { const t = ciCut(ciGot(c), i); return t !== null && t.startsWith(ciWant2(i)) ? '' : 'ожидание ' + (i + 1) + ': ' + ciGot(c).slice(0, 220) }).filter(Boolean)
+ok(cis.length === 3 && CIS >= 1 && CIS <= 10 && ciBad.length === 0, 'ожидание CI — одна команда ci-wait.sh, агент не ждёт сам; повтор — шаблоном (указание сверено целиком)', 'срок ci ' + CIS + '; ' + ciBad.join(' | '))
+console.log('== пауза — лишь у дочитывания стенда (ws#1010, ws#1114)')
 const ownP = c => c.prompt.split('\n\n').slice(1).join(' ')
-ok(r.calls.filter(c => !c.label.startsWith('mech:ci:') && /`[^`]*\bsleep \d/.test(ownP(c))).length === 0, 'паузу не делает отдельный агент: sleep — только в команде чтения CI', r.calls.filter(c => !c.label.startsWith('mech:ci:') && /`[^`]*\bsleep \d/.test(ownP(c))).map(c => c.label).join(','))
-ok(cis.length === 3 && cis.slice(1).every(c => /`s0=\$\(date \+%s\); sleep \d+; echo "SLEPT [^`]*ci-read\.sh/.test(ownP(c))), 'пауза, строка SLEPT и ci-read.sh — одна команда в обратных кавычках', ownP(cis[1] || { prompt: '' }).slice(0, 300))
-ok(cis.length === 3 && cis.every(c => ((c.schema || {}).required || []).includes('slept') && (((c.schema || {}).properties || {}).slept || {}).type === 'number'), 'схема чтения CI требует slept числом', JSON.stringify((cis[0] || {}).schema || {}).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0, slept: 5 }, { code: 0 }] })
-ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 3 && r.calls.some(c => c.label === 'mech:err:wave' && /пауза CI не исполнена в 1/.test(c.prompt)), 'чтение с паузой при slept 5 — отвергнуто (даже зелёное), повтор; строка счётчика executor-mechanics', JSON.stringify(r.res).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0, slept: undefined }, { code: 0, slept: String(CIP) }, { code: 0 }] })
-ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 4, 'slept нет или не число — чтение отвергнуто', JSON.stringify(r.res).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, ...Array(CIR - 1).fill({ code: 0, slept: 0 })] })
-ok(r.res.ok === false && r.res.state === 'running' && r.res.pauseSkipped === CIR - 1 && by(r.calls, c => c.label === 'mech:merge') === 0, 'пауза не исполнена ни разу — не вливается, итог называет отвергнутые чтения', JSON.stringify(r.res).slice(0, 260))
-r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0, slept: CIP - 10 }] })
-ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 2 && !r.calls.some(c => c.label === 'mech:err:wave'), 'близнец: slept = N−10 — чтение принято, строки счётчика нет', JSON.stringify(r.res).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], ci: [{ code: 0, slept: 0 }] })
-ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1, 'близнец: первое чтение без паузы, slept 0 — принято')
+ok(r.calls.filter(c => !c.label.startsWith('mech:stand:') && /`[^`]*\bsleep \d/.test(ownP(c))).length === 0, 'паузу не делает ни один шаг, кроме дочитывания стенда: sleep в командах CI нет', r.calls.filter(c => !c.label.startsWith('mech:stand:') && /`[^`]*\bsleep \d/.test(ownP(c))).map(c => c.label).join(','))
+{
+  const SP = +((body.match(/const STAND_PAUSE_S = (\d+)/) || [])[1] || 0)
+  let q = await run({ args, plan: [P('r0.json')], stand: [{ code: 3 }, { code: 0 }] })
+  const st = q.calls.filter(c => c.label.startsWith('mech:stand:'))
+  ok(SP > 0 && SP < 300 && st.length === 2 && st.every(c => ((c.schema || {}).required || []).includes('slept') && (((c.schema || {}).properties || {}).slept || {}).type === 'number'), 'схема дочитывания стенда требует slept числом, пауза < 300 с', 'STAND_PAUSE_S=' + SP)
+  q = await run({ args, plan: [P('r0.json')], stand: [{ code: 3 }, { code: 0, slept: SP - 10 }] })
+  ok(q.res.ok === true && by(q.calls, c => c.label.startsWith('mech:stand:')) === 2, 'близнец: стенд, slept = N−10 — чтение принято', JSON.stringify(q.res).slice(0, 200))
+}
+
+console.log('== ожидание CI — одно ci-wait.sh вместо чтений с паузой (ws#1114)')
+{
+  // Шаг ci — между метками тела; sleep в нём нет ни одного (предикат снятия ws#1114).
+  const ci0 = body.indexOf('// >>> шаг ci'), ci1 = body.indexOf('// <<< шаг ci')
+  const ciStep = ci0 >= 0 && ci1 > ci0 ? body.slice(ci0, ci1) : ''
+  ok(ciStep.length > 0 && (ciStep.match(/sleep/g) || []).length === 0 && /ci-wait\.sh/.test(ciStep), 'шаг ci в теле шаблона — ci-wait.sh, слова sleep в нём 0', 'шаг ci: ' + ciStep.length + ' симв., sleep ' + (ciStep.match(/sleep/g) || []).length)
+  const CIW = +((body.match(/const CI_WAITS = (\d+)/) || [])[1] || 0)
+  const CIM = +((body.match(/const CI_WAIT_MAX_S = (\d+)/) || [])[1] || 0)
+  ok(CIW >= 1 && CIW <= 4 && CIM >= 60 && CIM <= 540, 'ожиданий на голову ≤ 4, срок одного ≤ 540 с (меньше 10 мин)', 'CI_WAITS=' + CIW + ' CI_WAIT_MAX_S=' + CIM)
+  let q = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0 }] })
+  const w = q.calls.filter(c => c.label.startsWith('mech:ci:'))
+  const own = c => c.prompt.split('\n\n').slice(1).join(' ')
+  ok(q.res.ok === true && w.length === 2 && w.every(c => c.agentType === 'ci-watcher' && own(c).includes('S=ci-state/ci-wait.sh') && own(c).includes(args.repo + ' 7 ' + HW + ' --max ' + CIM + ' )') && !/sleep|SLEPT/.test(own(c)) && /timeout 600000/.test(own(c))), 'каждое ожидание — ci-watcher, рецепт «ЗАПУСК» с ci-wait.sh <репо> <pr> <голова> --max, вызов Bash с timeout 600000, без sleep', own(w[0] || { prompt: '' }).slice(0, 400))
+  ok(w.length === 2 && w.every(c => !((c.schema || {}).required || []).includes('slept')), 'схема ожидания CI не требует slept: паузы агента нет', JSON.stringify((w[0] || {}).schema || {}).slice(0, 200))
+  q = await run({ args, plan: [P('r0.json')], ci: Array(CIW + 2).fill({ code: 3 }) })
+  ok(CIW >= 1 && q.res.ok === false && q.res.state === 'running' && by(q.calls, c => c.label.startsWith('mech:ci:')) === CIW && by(q.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все ' + CIW + ' ожиданий — state running, агентов-читателей ровно ' + CIW, JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args, plan: [P('r0.json')], ci: [{ code: 4, reasons: ['BASE-STALE'] }] })
+  ok(q.res.ok === false && /база устарела/.test(q.res.stage || '') && by(q.calls, c => c.label.startsWith('mech:ci:')) === 1, 'код 4 первого чтения ci-wait — сразу стадия «база устарела», второго ожидания нет', JSON.stringify(q.res).slice(0, 200))
+  // Модель шага ci — решение диспетчера (args.ciModel): задана — только у ожиданий CI; не задана — нигде.
+  q = await run({ args: { ...args, ciModel: 'haiku' }, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0 }], noAll: true })
+  const isCi = c => c.label.startsWith('mech:ci:') || c.label === 'mech:ci-land'
+  const wm = q.calls.filter(isCi)
+  ok(wm.length === 3 && wm.every(c => c.model === 'haiku') && q.calls.filter(c => !isCi(c)).every(c => c.model === undefined), 'args.ciModel — модель только у ожиданий CI (сборка и посадка), прочие шаги без модели', [...new Set(q.calls.map(c => c.label + ':' + c.model))].join(',').slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0 }] })
+  ok(q.calls.filter(c => c.label.startsWith('mech:ci:')).every(c => c.model === undefined), 'близнец: ciModel не задан — у шага ci модели нет')
+  // PR полос и волны — черновиком; ready — git-operator перед сборкой или посадкой.
+  ok(q.calls.length > 0 && q.calls.every(c => c.prompt.includes('PR ПОЛОСЫ (ws#1114): только черновиком (`gh pr create --draft`)') && c.prompt.includes('ready ставит git-operator перед сборкой или посадкой')), 'каждое задание: PR полосы — только черновиком, ready — git-operator', q.calls.filter(c => !c.prompt.includes('PR ПОЛОСЫ (ws#1114)')).map(c => c.label).join(','))
+}
 
 console.log('== каталог волны — под корнем воркспейса (ws#1010)')
 const wsCopy = '/ws/tmp/wave7/ws-main'
@@ -629,7 +655,7 @@ ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI крас�
 console.log('== CI — только кодом ci-read.sh (ws#1006)')
 r = await run({ args, plan: [P('r0.json')] })
 const ciCalls = r.calls.filter(c => c.label.startsWith('mech:ci'))
-ok(ciCalls.length === 2 && ciCalls.every(c => c.prompt.includes('S=ci-read.sh') && c.prompt.includes(args.repo + ' 7 )') && !/S=landing-precheck\.sh/.test(c.prompt)), 'каждое чтение CI (сборка и посадка) — рецептом «ЗАПУСК» c ci-read.sh на PR сборки', ciCalls.map(c => c.label).join(','))
+ok(ciCalls.length === 2 && ciCalls.every(c => c.prompt.includes('S=ci-state/ci-wait.sh') && /_ PRO-Robotech\/kacho-workspace 7 [0-9a-f]{40} --max \d+ \)/.test(c.prompt) && !/S=landing-precheck\.sh|S=ci-read\.sh/.test(c.prompt)), 'каждое ожидание CI (сборка и посадка) — рецептом «ЗАПУСК» c ci-wait.sh (его чтение — ci-read.sh) на PR сборки и голове', ciCalls.map(c => c.label).join(','))
 ok(idx(r.calls, 'mech:ci-land') > idx(r.calls, 'mech:landing:1') && idx(r.calls, 'mech:ci-land') < idx(r.calls, 'mech:merge'), 'чтение на голове посадки — после landing-precheck и до вливания')
 ok(/ci-read код 0/.test(prm(r.calls, 'mech:merge')) && /ci-read\.sh код 0/.test(prm(r.calls, 'mech:merge')), 'правило вливания и факт merge называют ci-read код 0')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 4, reasons: ['BASE-STALE'] }] })
@@ -1062,8 +1088,9 @@ mutant "CV-R2 свод return без возвращённой полосы — �
 mutant "landed — все полосы, а не влитые" "landed: order" "landed: Object.keys(done)"
 twin "T2 publicText === true && true" "publicText === true)" "publicText === true && true)"
 twin "T9 … ? back : back" "dropWithDeps(back, " "dropWithDeps(steps.has('landing-reviewer') ? back : back, "
-twin "T10 CI_READS 30→29" "const CI_READS = 30" "const CI_READS = 29"
-twin "T11 CI_PAUSE_S 240→180" "const CI_PAUSE_S = 240" "const CI_PAUSE_S = 180"
+twin "T10 CI_WAITS 4→3" "const CI_WAITS = 4" "const CI_WAITS = 3"
+twin "T11 CI_WAIT_MAX_S 540→480" "const CI_WAIT_MAX_S = 540" "const CI_WAIT_MAX_S = 480"
+twin "T13 STAND_PAUSE_S 240→180" "const STAND_PAUSE_S = 240" "const STAND_PAUSE_S = 180"
 twin "T12 срок CI-чтения 2→3 мин" "implement: 90, review: 30, mech: 10, ci: 2 }" "implement: 90, review: 30, mech: 10, ci: 3 }"
 # ws#1001: агент не ждёт — срок шага и CI шаблоном.
 mutant "срок снят у исполнителя" "'. ' + due('implement') + ' Верни status" "'. Верни status"
@@ -1094,30 +1121,23 @@ mutant "«—» засчитан уроком" "r.lesson.trim() && r.lesson.trim
 mutant "уроки не в один файл волны" "const LESSONS = R + '/lessons.md'" "const LESSONS = R + '/' + N + '-lessons.md'"
 mutant "итог без уроков" "const lessonsOf = () => ({ file: LESSONS, items: lessons })" "const lessonsOf = () => undefined"
 mutant "норма «не жди» снята из общего задания" "  'НЕ ЖДИ (CLAUDE.md" "  '(CLAUDE.md"
-mutant "агент ждёт CI сам" "идёт — сразу верни: повтор делает шаблон." "идёт — подожди до 10 минут и верни."
-mutant "пауза CI дольше 5 мин" "const CI_PAUSE_S = 240" "const CI_PAUSE_S = 600"
-mutant "повтор CI без паузы" "'\`' + (pause ? pauseCmd : '')" "'\`' + (false ? pauseCmd : '')"
+mutant "агент ждёт CI сам" "идёт — сразу верни: следующее ожидание делает шаблон." "идёт — подожди до 10 минут и верни."
+# ws#1114: ожидание CI — одна команда ci-wait.sh ≤ 540 с, без паузы агента; ожиданий ≤ 4.
+mutant "ожидание CI дольше 9 мин (ws#1114)" "const CI_WAIT_MAX_S = 540" "const CI_WAIT_MAX_S = 700"
+mutant "ожиданий CI на голову 30 (ws#1114)" "const CI_WAITS = 4" "const CI_WAITS = 30"
+mutant "sleep перед ci-read в шаге ci (ws#1114)" "\`' + recipeRun('ci-state/ci-wait.sh'," "\`' + pauseCmd + recipeRun('ci-read.sh',"
+mutant "шаг ci — ci-read.sh мимо ci-wait (ws#1114)" "recipeRun('ci-state/ci-wait.sh', (A.repo || '?') + ' ' + asm.pr + ' ' + head + ' --max ' + CI_WAIT_MAX_S, out)" "recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr, out)"
+mutant "ожидание без timeout вызова Bash (ws#1114)" "вызовом Bash с timeout 600000 (с умолчанием 120000 харнесс оборвёт её на второй минуте)" "вызовом Bash"
+mutant "модель шага ci не передана (ws#1114)" "label, ...CI_MODEL, phase:" "label, phase:"
+mutant "модель шага ci — у всей механики (ws#1114)" "const MECH = { agentType: 'git-operator' }" "const MECH = { ...(A.ciModel ? { model: String(A.ciModel) } : {}), agentType: 'git-operator' }"
+mutant "PR полосы не черновиком (ws#1114)" "'PR ПОЛОСЫ (ws#1114): только черновиком (\`gh pr create --draft\`)" "'PR ПОЛОСЫ (ws#1114): \`gh pr create\`"
+mutant "ready ставит полоса (ws#1114)" "ready ставит git-operator перед сборкой или посадкой (ready_for_review" "ready ставит исполнитель полосы (ready_for_review"
 # Опыт check-verifier по #1002 (D3, D4): ожидание словами, мимо словаря запретных слов.
-mutant "D3 CI ждут --watch" "мимо скрипта не читай, без --watch, без цикла)" "мимо скрипта не читай, \`gh pr checks --watch\` до окончания)"
-mutant "D4 CI опрашивают словами" "идёт — сразу верни: повтор делает шаблон." "идёт — повторяй чтение каждые 60 с до окончания, затем верни итог; повтор делает шаблон."
-# ws#1010: пауза CI — тем же агентом, в одной команде с чтением, и с фактом slept.
-# Прежний дефект: пауза отдельным агентом на лёгкой модели, slept не судится.
-SEP_OLD="$(cat <<'EOF'
-  const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
-EOF
-)"
-SEP_NEW="$(cat <<'EOF'
-  if (i > 0) await agent(C + '\n\nРежим пауза: выполни `sleep ' + CI_PAUSE_S + '`.', { ...MECH, label: 'mech:pause:' + i, phase: 'Сборка', schema: S_MECH })
-  const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, false, 'mech:ci:' + i, D + '/ci-' + i + '.md'); if (i > 0) got.slept = CI_PAUSE_S
-EOF
-)"
-mutant "пауза отдельным агентом без проверки slept" "$SEP_OLD" "$SEP_NEW"
-mutant "slept не проверяется" "  if (i > 0 && !(got && typeof got.slept === 'number'" "  if (false && !(got && typeof got.slept === 'number'"
-mutant "порог slept без пола N−10" "got.slept >= CI_PAUSE_S - CI_SLEPT_SLACK)) {" "got.slept >= 0)) {"
-mutant "slept не в схеме" "required: [...S_MECH.required, 'slept'] }" "required: S_MECH.required }"
-mutant "пауза и чтение — две команды" "'\`' + (pause ? pauseCmd : '') + recipeRun(" "(pause ? '\`' + pauseCmd + '\`, затем \`' : '\`') + recipeRun("
-mutant "отвергнутое чтение не в счётчике" "if (skipped) await err(" "if (false) await err("
-mutant "запас slept уже N−10 (порог задан задачей)" "const CI_SLEPT_SLACK = 10" "const CI_SLEPT_SLACK = 5"
+mutant "D3 CI ждут --watch" "мимо него не читай, без --watch, без цикла, без паузы)" "мимо него не читай, \`gh pr checks --watch\` до окончания)"
+mutant "D4 CI опрашивают словами" "идёт — сразу верни: следующее ожидание делает шаблон." "идёт — повторяй чтение каждые 60 с до окончания, затем верни итог; следующее ожидание делает шаблон."
+# ws#1010: пауза дочитывания стенда — тем же агентом, с фактом slept и полом N−10.
+mutant "slept стенда не в схеме" "required: [...S_MECH.required, 'slept'] }" "required: S_MECH.required }"
+mutant "запас slept стенда уже N−10 (порог задан задачей)" "const STAND_SLEPT_SLACK = 10" "const STAND_SLEPT_SLACK = 5"
 # ws#1010: каталог волны и копии полос — под корнем воркспейса, не под tmp/ копии.
 mutant "каталог волны под ws-копией" "const D = ROOT + '/tmp/wave-' + N" "const D = WS + '/tmp/wave-' + N"
 mutant "args.root не читается" "const ROOT = A.root || rootOf(WS)" "const ROOT = rootOf(WS)"
@@ -1127,7 +1147,7 @@ mutant "копия исполнителя — под ws/tmp" "', копия — 
 mutant "рабочие копии продукта — из ws-копии" "'KACHO_HOME_KACHO=' + ROOT + '/project/kacho" "'KACHO_HOME_KACHO=' + WS + '/project/kacho"
 mutant "GOMOD-ABOVE — не механика" "'MAIN-COPY', 'GOMOD-ABOVE'])" "'MAIN-COPY'])"
 # ws#1006: CI — только кодом ci-read.sh, и перед вливанием — на голове посадки.
-mutant "CI читается не ci-read.sh" "recipeRun('ci-read.sh', (A.repo || '?') + ' ' + asm.pr" "recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr"
+mutant "CI ждут не ci-wait.sh" "recipeRun('ci-state/ci-wait.sh', (A.repo || '?') + ' ' + asm.pr" "recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr"
 mutant "код 3 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'green', 4: 'stale', 5:"
 mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'stale', 5:" "3: 'running', 4: 'green', 5:"
 # ws#1013: целевой зелёный черновика — не вливание; перевод в ready ровно один раз;
@@ -1209,7 +1229,7 @@ mutant "полного прогона перед CI нет (ws#1110)" "всё з
 mutant "два красных CI — без стопа (ws#1110)" "два красных CI подряд — стоп и разбор паритета" "CI — сколько потребуется"
 mutant "стенд не судится (ws#1110)" "if (!stand || stand.code !== 0) return {" "if (false) return {"
 mutant "CI при идущем стенде (ws#1110)" "  if (!stand || stand.code !== 3) break" "  break"
-mutant "пауза стенда не проверяется (ws#1110)" "if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + CI_SLEPT_SLACK >= CI_PAUSE_S)) { stand = " "if (false) { stand = "
+mutant "пауза стенда не проверяется (ws#1110)" "if (i > 0 && !(got && Number.isFinite(got.slept) && got.slept + STAND_SLEPT_SLACK >= STAND_PAUSE_S)) { stand = " "if (false) { stand = "
 mutant "отчёт стенда не в посадке (ws#1110)" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP," "'',"
 mutant "ожидаемое стенда из отчёта (ws#1110)" " + ' --expect ' + STAND_EXP" ""
 mutant "ожидаемое не в посадке (ws#1110)" " + ' --stand-expect ' + STAND_EXP," ","

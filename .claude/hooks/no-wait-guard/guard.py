@@ -25,7 +25,9 @@
   busy-read     — `read` из бесконечного источника: `read -t N < /dev/zero` (/dev/urandom,
                   /dev/random; свой `<`, `<>` либо `done < …` охватывающего цикла) и `read`
                   после `yes |` / `cat /dev/zero |`: ожидание, держащее 100 % ядра; отказ — при
-                  любом N, в фоне и под timeout тоже (предел не снимает горящее ядро).
+                  любом N, в фоне и под timeout тоже (предел не снимает горящее ядро);
+  ci-wait       — `ci-wait.sh`: срок ожидания CI за вызов > 540 с либо запуск в цикле
+                  (ниже «ОЖИДАНИЕ CI»).
 Всё перечисленное — в ПЕРЕДНЕМ плане. Отсоединённое (`… &` без `wait` в той же
 оболочке, `setsid -f`) — законно: шаг возвращает «идёт», исход дочитывает короткий
 шаг. `nohup` сам не отсоединяет: без `&` он ждёт в переднем плане. Флаг
@@ -36,6 +38,24 @@ run_in_background отсоединением не считается: живой
 /dev/urandom`, `yes | <не read>`; `sleep` < 300 вне цикла, `timeout` < 600, `flock -n`, `flock -w` < 300,
 одно чтение CI (`gh pr checks` без --watch, `gh run view`), `heavy-slot.sh` (без
 `--wait` он не ждёт; `--wait` ≤ 300 судит сам слот).
+
+ОЖИДАНИЕ CI — отдельный разрешённый случай, а не ослабление (ws#1114): одна команда
+`scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N` — блокирующее чтение FIFO
+демона состояния без цикла sleep; срок держат сам скрипт (выше 540 — его отказ кодом 2)
+и этот страж. Отказ (класс ci-wait):
+  · срок ожидания CI за вызов > 540 с — сумма --max запусков переднего плана (последний
+    --max запуска, без --max — 540; не вычислим по тексту — без предела): цепочка `&&`/`;`,
+    подстановка; timeout над командой ограничивает срок всего, что она запускает;
+  · запуск в ЦИКЛЕ while/until/for/select — при любом сроке, под timeout и меткой: повтор
+    ожидания делает шаблон волны, а не агент (код ≠ 3 ci-wait.sh возвращает сразу — цикл
+    без паузы опрашивает GitHub подряд).
+Подстановка `$(…)`/`…` судится как простая команда там, где стоит: в теле и УСЛОВИИ цикла
+— в цикле; в ветках if — в сумме за вызов (ветки складываются: верхняя граница); заголовок
+`for v in $(…)` и хвост `done < <(…)` исполняются раз — вне цикла; у `… &` — в фоне.
+Судится УЗЕЛ запуска, а не слово: путь командой, оболочка со скриптом (кроме `-n`),
+`.`/source, рецепт «ЗАПУСК» (`S=…/ci-wait.sh … bash -c "$R" _ <доводы>`), переменная,
+которой путь присвоен в той же строке (`CW=…/ci-wait.sh; bash "$CW" …`). Путь в данных —
+довод grep/shellcheck, заголовок for, `bash -n` — не запуск.
 
 ИСКЛЮЧЕНИЕ — одно: метка `# no-wait-exempt ci-watcher <N>m` в команде, N ≤ 9, и
 каждая форма ожидания стоит под `timeout` ≤ N·60 с. Агент другого типа (поле
@@ -63,6 +83,10 @@ make (страж судит строку, а не текст файла); `wait 
 судится лишь звено прямо перед `read`), `echo 900 | xargs sleep` (argv собирает xargs из
 входа), `python3 -c "import time; time.sleep(900)"` (и любой иной интерпретатор:
 страж судит команды оболочки, а не текст программы на другом языке).
+Путь ci-wait.sh из переменной цикла for (`for f in …/ci-wait.sh; do bash "$f" …; done`) —
+раскрытие при исполнении. Цикл БЕЗ sleep вокруг иного блокирующего чтения или чтения CI
+(`while :; do timeout 500 head -n1 fifo; done`, `while :; do gh pr checks 7; done`) —
+дыра старше ws#1114 (у циклов судится лишь sleep и ci-wait.sh), своя задача ws#1124.
 """
 
 import json
@@ -79,6 +103,7 @@ SLEEP_MAX = 300      # с: sleep от этого — ожидание
 TIMEOUT_MAX = 600    # с: timeout от этого — ожидание
 FLOCK_MAX = 300      # с: flock -w от этого — ожидание
 FOR_MAX = 300        # с: итераций × sleep в цикле for от этого — ожидание
+CI_WAIT_MAX = 540    # с: предел --max ci-wait.sh (ws#1114); больше — ожидание сверх «Не жди»
 EXEMPT_MAX_MIN = 9   # мин: потолок метки ci-watcher
 EXEMPT = re.compile(r"#\s*no-wait-exempt\s+([A-Za-z0-9_-]+)\s+(\d+)m\b")
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
@@ -99,7 +124,9 @@ CLASS_TEXT = {
     "long-timeout": "timeout ≥ %d с без отсоединения" % TIMEOUT_MAX,
     "flock-wait": "flock ждёт замка ≥ %d с или без предела" % FLOCK_MAX,
     "busy-read": "read из /dev/zero, /dev/urandom или после yes | — ожидание на 100 % ядра",
+    "ci-wait": "ci-wait.sh: срок ожидания CI за вызов больше %d с либо запуск в цикле (ws#1114)" % CI_WAIT_MAX,
 }
+VAR_REF = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")  # слово — одна переменная
 CLASS_HINT = {
     "busy-read": "жди через heavy-slot --enqueue или короткий шаг: чтение бесконечного источника "
                  "не ждёт, а жжёт ядро",
@@ -141,11 +168,95 @@ def duration(s):
     return float(m.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
 
 
+def plain(w):
+    """Слово без разметки `$` лексера heavy-guard (SQ/DQ) — как его увидит оболочка."""
+    return w.replace(hg.SQ, "$").replace(hg.DQ, "$")
+
+
+def names_ci_wait(w, civars):
+    """Слово — путь к ci-wait.sh (`…/ci-wait.sh`, `"$WS"/…/ci-wait.sh`) либо ссылка на
+    переменную, которой он присвоен в той же строке (`"$CW"`, `${CW}`)."""
+    w = plain(w)
+    if os.path.basename(w) == "ci-wait.sh":
+        return True
+    m = VAR_REF.match(w)
+    return bool(m and m.group(1) in civars)
+
+
+def max_of(args):
+    """Срок по доводам ci-wait.sh, с: без --max — CI_WAIT_MAX (умолчание скрипта);
+    inf — значение не вычислимо по тексту (`--max "$M"`)."""
+    vals = []
+    for k, w in enumerate(args):
+        w = plain(w)
+        if w == "--max":
+            vals.append(plain(args[k + 1]) if k + 1 < len(args) else "")
+        elif w.startswith("--max="):
+            vals.append(w.split("=", 1)[1])
+    if not vals:
+        return float(CI_WAIT_MAX)
+    v = vals[-1]  # последний --max — так доводы разбирает ci-wait.sh
+    return float(v) if re.match(r"^\d+$", v) else float("inf")
+
+
+def noexec(args):
+    """Оболочка с `-n` (в связке `-xn`) либо `-o noexec` скрипт только разбирает — не запуск."""
+    k = 0
+    while k < len(args) and args[k] != "--" and len(args[k]) > 1 and args[k][0] in "-+":
+        a = args[k]
+        if a in ("--rcfile", "--init-file"):
+            k += 2
+            continue
+        vals = [] if a.startswith("--") else args[k + 1:k + 1 + a[1:].count("o") + a[1:].count("O")]
+        if a[0] == "-" and not a.startswith("--") and ("n" in a[1:] or "noexec" in vals):
+            return True
+        k += 1 + len(vals)
+    return False
+
+
+def ci_wait_call(argv, env, civars):
+    """Срок запуска ci-wait.sh простой командой, с (max_of), либо None — она его не
+    запускает. argv — команда после присваиваний и обёрток (head), env — её присваивания.
+    Судится УЗЕЛ, а не слово: путь командой (`…/ci-wait.sh …`, `"$CW" …`); оболочка со
+    скриптом (`bash [опции] …/ci-wait.sh …`, кроме `-n`); `. …/ci-wait.sh`, source; рецепт
+    «ЗАПУСК» — `S=…/ci-wait.sh … bash -c "$R" _ <доводы>`: строка -c — одна переменная,
+    скрипт назван присваиванием этой же команды."""
+    if not argv:
+        return None
+    if names_ci_wait(argv[0], civars):
+        return max_of(argv[1:])
+    base = os.path.basename(plain(argv[0]))
+    if base in (".", "source"):
+        return max_of(argv[2:]) if len(argv) > 1 and names_ci_wait(argv[1], civars) else None
+    if base not in SHELLS or noexec(argv[1:]):
+        return None
+    cmd, script, sargs, _ = hg.shell_args(argv[1:])
+    if script is not None:
+        return max_of(sargs) if names_ci_wait(script, civars) else None
+    if cmd is not None and VAR_REF.match(plain(cmd)) and any(
+            names_ci_wait(a.split("=", 1)[1], civars) for a in env):
+        return max_of(sargs[1:])  # sargs[0] — $0 строки -c
+    return None
+
+
 # ── лексер: простые команды и операторы ─────────────────────────────────────
 def tokens(text):
     """[(вид, значение)]: ('cmd', текст простой команды), ('op', оператор),
     ('kw', ключевое слово в позиции команды), ('subst', текст $(…)/`…`)."""
     out, cur, i, n, quote = [], [], 0, len(text), None
+
+    def lead():
+        """Ключевые слова в начале команды — лексемами ДО её подстановки: `do x=$(…)`,
+        `then …`, `while [ "$(…)" ]` — подстановка принадлежит команде после слова, а не
+        узлу перед ним (иначе она судится вне тела цикла и ветки if; ws#1114)."""
+        seg = "".join(cur)
+        while True:
+            m = re.match(r"^\s*(\S+)\s+", seg)
+            if not m or m.group(1) not in OPENERS | set(CLOSERS) | TRANSPARENT:
+                break
+            out.append(("kw", m.group(1)))
+            seg = seg[m.end():]
+        cur[:] = [seg] if seg else []
 
     def flush():
         seg = "".join(cur).strip()
@@ -179,6 +290,7 @@ def tokens(text):
             while j < n and depth:
                 depth += {"(": 1, ")": -1}.get(text[j], 0)
                 j += 1
+            lead()
             out.append(("subst", text[i + 2:j - 1]))
             cur.append("__SUBST__")
             i = j
@@ -186,6 +298,7 @@ def tokens(text):
         if c == "`":
             j = text.find("`", i + 1)
             j = n if j < 0 else j
+            lead()
             out.append(("subst", text[i + 1:j]))
             cur.append("__SUBST__")
             i = j + 1
@@ -213,6 +326,7 @@ def tokens(text):
             while j < n and depth:
                 depth += {"(": 1, ")": -1}.get(text[j], 0)
                 j += 1
+            lead()
             out.append(("subst", text[i + 2:j - 1]))
             cur.append("__SUBST__")
             i = j
@@ -255,10 +369,15 @@ class Parser:
     def peek(self):
         return self.t[self.i] if self.i < len(self.t) else (None, None)
 
-    def skip_redirs(self):
-        """`done > журнал`, `) 2>&1` — хвост перенаправлений группы, не команда."""
+    def skip_redirs(self, node):
+        """`done > журнал`, `) 2>&1`, `done < <(…)` — хвост перенаправлений группы, не
+        команда; его подстановки — группе (исполняются раз, до неё, а не в теле)."""
+        at = self.i
+        while self.peek()[0] == "subst":
+            self.i += 1
         k, v = self.peek()
         if k != "cmd":
+            self.i = at
             return None
         ws, j = v.split(), 0
         while j < len(ws):
@@ -267,7 +386,9 @@ class Parser:
             elif hg.REDIR_WORD.match(ws[j]):
                 j += 1
             else:
+                self.i = at
                 return None
+        node.substs += [t[1] for t in self.t[at:self.i]]
         self.i += 1
         return v
 
@@ -329,13 +450,11 @@ class Parser:
         if k == "op" and v == "(":
             self.i += 1
             kids = self.parse_list({")"})
-            redir = None
-            if self.peek() == ("op", ")"):
-                self.i += 1
-                redir = self.skip_redirs()
             node = Node("group", kids=kids)
             node.substs = substs
-            node.redir = redir
+            if self.peek() == ("op", ")"):
+                self.i += 1
+                node.redir = self.skip_redirs(node)
             return node
         if k == "kw" and v in OPENERS:
             self.i += 1
@@ -354,13 +473,11 @@ class Parser:
                     self.i += 1
             else:
                 kids = self.parse_list({closer})
-            redir = None
-            if self.peek() == ("kw", closer):
-                self.i += 1
-                redir = self.skip_redirs()
             node = Node("group", kids=kids, loop=v if v in ("while", "until", "for", "select") else None)
             node.substs = substs
-            node.redir = redir
+            if self.peek() == ("kw", closer):
+                self.i += 1
+                node.redir = self.skip_redirs(node)
             return node
         if k == "kw" and v in TRANSPARENT:
             self.i += 1
@@ -380,13 +497,16 @@ class Finding:
         self.bound = bound    # timeout над формой, с; None — без предела
 
 
-def head(argv):
-    """Снимает присваивания и обёртки: (argv команды, timeout над ней, отсоединена)."""
+def head(argv, env=None):
+    """Снимает присваивания и обёртки: (argv команды, timeout над ней, отсоединена);
+    присваивания команды (свои и `env X=…`) — в список env, когда он дан."""
+    env = [] if env is None else env
     tmo, detached, i = None, False, 0
     while i < len(argv):
         w = argv[i]
         base = os.path.basename(w)
         if hg.ASSIGN.match(w):
+            env.append(w)
             i += 1
             continue
         if base in ("nohup", "nice", "ionice", "stdbuf", "time", "command", "exec", "builtin", "chrt", "taskset"):
@@ -415,6 +535,8 @@ def head(argv):
         if base == "env":
             i += 1
             while i < len(argv) and (argv[i].startswith("-") or hg.ASSIGN.match(argv[i])):
+                if hg.ASSIGN.match(argv[i]):
+                    env.append(argv[i])
                 i += 2 if argv[i] in ("-u", "--unset", "-C", "--chdir") else 1
             continue
         if base == "timeout":
@@ -435,6 +557,9 @@ def head(argv):
 class Judge:
     def __init__(self):
         self.found = []
+        self.frames = [0.0]   # срок ci-wait.sh, с: вызов и команды под своим timeout
+        self.ciw = []         # запуски ci-wait.sh переднего плана, по порядку
+        self.civars = set()   # переменные, которым присвоен путь ci-wait.sh
 
     def add(self, cls, text, bound):
         self.found.append(Finding(cls, text, bound))
@@ -519,8 +644,8 @@ class Judge:
             ctx = dict(ctx, busy=True)
         elif n.feed is not None:
             ctx = dict(ctx, busy=False)
-        for s in n.substs:  # подстановку оболочка ждёт до команды
-            self.text(s, dict(ctx, bg=ctx["bg"]))
+        for s in n.substs:  # подстановку оболочка ждёт до команды; у `… &` — в фоне с ней
+            self.text(s, dict(ctx, bg=bg))
         if n.kind == "group":
             # timeout < FOR_MAX над циклом ограничивает его сам — не ожидание
             bounded = ctx["tmo"] is not None and ctx["tmo"] < FOR_MAX
@@ -531,12 +656,47 @@ class Judge:
                 if total is None or total >= FOR_MAX:
                     self.add("for-sleep", " ".join(k.text or "…" for k in n.kids[:3]), ctx["tmo"])
             c = dict(ctx, bg=bg, loop=ctx["loop"] or (n.loop in ("while", "until")))
-            for k in n.kids:
+            kids = n.kids
+            if n.loop in ("for", "select") and kids:  # заголовок `for v in $(…)` — раз, до цикла
+                self.node(kids[0], c)
+                kids = kids[1:]
+            mark = len(self.ciw)  # запуски ci-wait.sh в теле и условии цикла (ws#1114)
+            for k in kids:
                 self.node(k, c)
+            if n.loop and len(self.ciw) > mark:
+                self.add("ci-wait", "%s — в цикле %s: повтор ожидания CI делает шаблон волны, а не агент"
+                         % (self.ciw[mark], n.loop), None)
             return
         self.simple(n.text, dict(ctx, bg=bg))
 
     def simple(self, seg, ctx):
+        """Суждение простой команды (_simple) и её срок ожидания CI (ws#1114): запуск
+        ci-wait.sh ею самой и вложенными телами (`bash -c`, flock, timeout), не дольше её timeout."""
+        env = []
+        argv, tmo, det = head(hg.words(seg), env)
+        decl = argv[1:] if argv and os.path.basename(argv[0]) in hg.DECLARE else []
+        for a in env + decl:  # `CW=…/ci-wait.sh`, `export CW=…` — `bash "$CW"` тот же запуск
+            if hg.ASSIGN.match(a) and names_ci_wait(a.split("=", 1)[1], ()):
+                self.civars.add(a.split("=", 1)[0])
+        self.frames.append(0.0)
+        self._simple(seg, ctx)
+        got = self.frames.pop()
+        own = None if ctx["bg"] or det else ci_wait_call(argv, env, self.civars)
+        if own is not None:
+            self.ciw.append(seg.strip())
+            got += own
+        if tmo is not None:
+            got = min(got, tmo)
+        self.frames[-1] += got
+
+    def budget(self):
+        """Срок ожидания CI за вызов — сумма запусков ci-wait.sh — выше CI_WAIT_MAX: отказ."""
+        total = self.frames[0]
+        if total > CI_WAIT_MAX:
+            why = "не вычислим по тексту (--max)" if total == float("inf") else "%d с" % total
+            self.add("ci-wait", "%s — за вызов %s, запусков %d" % (self.ciw[0], why, len(self.ciw)), None)
+
+    def _simple(self, seg, ctx):
         argv, tmo, det = head(hg.words(seg))
         if not argv:
             return
@@ -633,6 +793,7 @@ def judge(cmd, agent_type=None):
     """(находки, ошибка метки). Пустые находки — пропуск."""
     j = Judge()
     j.text(cmd, {"bg": False, "loop": False, "tmo": None})
+    j.budget()
     if not j.found:
         return [], None
     mins, err = exemption(cmd, agent_type)
@@ -665,6 +826,7 @@ def deny(found, err, ws):
         "  верни «идёт: pid, журнал, ожидаемое окончание»; исход дочитает отдельный короткий",
         "  шаг (`kill -0 $(cat <pid-файл>)`, `tail -n 50 <журнал>`) — без цикла и без sleep.",
         "  · CI — одно чтение (`gh pr checks` без --watch); повтор делает шаблон волны или диспетчер;",
+        "    ожидание CI — одна команда `scripts/ci-state/ci-wait.sh <репо> <PR> <голова> --max N`, N ≤ %d, без цикла;" % CI_WAIT_MAX,
         "  · слот тяжёлого — %s/scripts/heavy-slot.sh <класс> -- …: занят — код 74 сразу," % ws,
         "    ожидание только явным --wait N ≤ 300; дольше — ОДИН раз --enqueue <каталог> (билет",
         "    держится до 2 ч; перезапуск на 74/75 ставит в конец очереди — запрещён);",

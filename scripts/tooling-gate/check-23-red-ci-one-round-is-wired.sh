@@ -176,7 +176,7 @@ need(WAVE, w, ["const RED_ROUND = 'перепись — потом массов�
                'пересчитай отпечатки пакета изменения и дай перечень недостающих записей ролей и событий',
                'без ожидания: код 3 (идёт) — законный исход'],
      'провязка переписи и стенда')
-iS, iC = w.find('const got = await standRead('), w.find('const got = await ciRead(')
+iS, iC = w.find('const got = await standRead('), w.find('ci = await ciRead(')
 if not (0 <= iS < iC):
     finds.append('%s: шаг стенда не стоит в теле ДО первого чтения CI' % WAVE)
 im, itc, iec = w.find("label: 'mech:merge'"), w.find("label: 'trial-convergence'"), w.find("label: 'mech:ci-epic'")

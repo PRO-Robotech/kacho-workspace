@@ -3238,7 +3238,7 @@ import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
 # Шаг стенда уехал ПОСЛЕ чтения CI: дословность та же, позиция — нет.
 i = s.index('// Перепись прогоном на ВНЕШНЕМ кластере ДО CI'); j = s.index('const ciRead = (what')
 blk = s[i:j]; s = s[:i] + s[j:]
-k = s.index('if (skipped) await err('); s = s[:k] + blk + s[k:]
+k = s.index('// <<< шаг ci'); s = s[:k] + blk + s[k:]
 open(p, 'w', encoding='utf-8').write(s)
 PY2
 run_says 1 "$b" "инъекция: стенд перенесён после чтения CI (позиция) — краснеет" "$C23" "шаг стенда не стоит в теле ДО первого чтения CI"

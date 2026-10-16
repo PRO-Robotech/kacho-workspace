@@ -69,7 +69,16 @@
 #                       `scripts/ci-local.sh` ГОЛОВЫ (`git show <голова>:…`);
 #   STATIC-REFUSAL      единиц нет — каждая строка «pre-push ОТКАЗ…» хука;
 #   STATIC-UNPARSED     нет ни того, ни другого, либо строка «красное» не режется на
-#                       K имён словаря однозначно: список не извлечён — не «отказов 0».
+#                       K имён словаря однозначно: список не извлечён — не «отказов 0»;
+#   PR-NOT-DRAFT        открытый PR с головой — веткой полосы — не черновик (ws#1114):
+#                       на черновике конвейер гонит лишь затронутое, полный прогон заводит
+#                       ready_for_review — его ставит git-operator перед сборкой или
+#                       посадкой; PR полосы не черновиком гонит полный прогон на каждой
+#                       заменённой голове (аудит 2026-10-16: kaname — целевых 0 из 190).
+#                       Запрос — GET `repos/<владелец>/<репо>/pulls?state=open&head=<владелец>:<ветка>`
+#                       по адресу origin (сырому, `remote.origin.url`); не прочитан — VOID.
+#                       ГРАНИЦА: origin не на GitHub (песочница, зеркало) — не судится, и
+#                       перепись говорит это строкой «PR полосы: не судился».
 #
 # ЖУРНАЛ ОТПРАВКИ — форма, которую пишет исполнитель (передача через файлы,
 # `<WS>/tmp/wave-<N>/reports/<полоса>/push.log`, вне дерева копии):
@@ -418,7 +427,29 @@ PY
     fi
 fi
 
-echo "lane-precheck: копия $top; предков осмотрено на go.mod $n_up; ветка $branch @${head:0:12}; origin @${remote_head:0:12}; база ${base_sha:0:12}; задач $n_issues, с доказательством $n_proven; хук $hook; причин ${#reasons[@]}, не судимо ${#voids[@]}"
+# ── PR полосы — черновиком (ws#1114) ──────────────────────────────────
+raw_url="$(git -C "$top" config --get remote.origin.url 2> /dev/null || true)"
+gh_repo="$(printf '%s' "$raw_url" | sed -nE 's#^(git@github\.com:|ssh://git@github\.com/|https://github\.com/)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$#\2#p')"
+gh_repo="${gh_repo%.git}"
+if [ -z "$gh_repo" ]; then
+    prs_census="PR полосы: не судился — origin не GitHub (${raw_url:-адреса нет})"
+elif ! prs="$($GH api "repos/$gh_repo/pulls?state=open&head=${gh_repo%%/*}:$branch" --jq '.[] | "\(.number)\t\(.draft)"' 2> /dev/null)"; then
+    void GH-UNREADABLE "PR ветки $branch в $gh_repo не прочитаны"
+    prs_census="PR полосы: не прочитаны"
+else
+    n_pr=0 n_ready=0
+    while IFS=$'\t' read -r num draft; do
+        [ -n "$num" ] || continue
+        n_pr=$((n_pr + 1))
+        if [ "$draft" != true ]; then
+            n_ready=$((n_ready + 1))
+            reason PR-NOT-DRAFT "$gh_repo#$num ветки $branch не черновик: PR полосы — только черновиком (gh pr create --draft), ready ставит git-operator перед сборкой или посадкой (ws#1114)"
+        fi
+    done <<< "$prs"
+    prs_census="PR полосы: открытых $n_pr, не черновиком $n_ready"
+fi
+
+echo "lane-precheck: копия $top; предков осмотрено на go.mod $n_up; ветка $branch @${head:0:12}; origin @${remote_head:0:12}; база ${base_sha:0:12}; задач $n_issues, с доказательством $n_proven; хук $hook; $prs_census; причин ${#reasons[@]}, не судимо ${#voids[@]}"
 for x in "${reasons[@]+"${reasons[@]}"}"; do echo "REASON $x"; done
 for x in "${voids[@]+"${voids[@]}"}"; do echo "VOID $x"; done
 [ "${#reasons[@]}" -eq 0 ] || exit 1
