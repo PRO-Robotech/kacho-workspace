@@ -23,7 +23,21 @@
 #   (4) keyring недоступен (токен из файла настроек | gh auth status не отвечает)
 #       → отказ старта, код 4, снимка нет;
 #   (5) законный близнец: свежий снимок, ключ совпал целиком → ответ из снимка,
-#       вызовов gh 0.
+#       вызовов gh 0;
+#   (6) ключ прежний, свод другой — снимок годен только при неизменном своде (ключ,
+#       голова базы, state, счёт по состояниям): близнец — свод тот же, и снимок
+#       старше 180 с подтверждён без чтения; (а) упала проверка (FAILURE) — перечитан,
+#       из снимка 1, как живое; (б) завершённых больше при прежнем state — перечитан,
+#       вывод равен живому; (в) ушла голова базы — перечитан, 4; (г) перечитывание
+#       упёрлось в лимит — не подтверждён, STATE-STALE; (д) счёт сменился через 60 с
+#       после чтения (рано перечитывать) и (е) остаток REST 999 < 1000 — не
+#       подтверждён, STATE-STALE; близнецы (д) и (е): свод тот же — подтверждён,
+#       остаток 1000 — перечитан. (д) и (е) — проходы one_pass() ОДНОГО процесса
+#       ($T/passes.py) с управляемыми часами: бюджет перечитывания живёт в памяти
+#       процесса, и --once до него не доходит; ответ об остатке REST подменяется в
+#       процессе так же, как ответ GraphQL — файлом;
+#   (7) последняя строка снимка — не VERDICT его кода (вывод пуст | «код 1» при коде
+#       0) → STATE-STALE и живое 1, а не код снимка.
 # Сверяется код И напечатанное (строка причины), а не только «покраснел».
 #
 # МУТАНТЫ — копия ci-read.sh или ci-stated.py с одним дефектом обязана уронить
@@ -31,12 +45,16 @@
 # сверяется), always-live (снимок не читается), mutation-dropped (страж пропускает
 # mutation), literal-dropped (страж пропускает не-литерал), method-dropped (страж
 # пропускает не-GET), keyring-dropped (источник токена не судится), perms-dropped
-# (права снимка не судятся). Правка, не легшая в текст, — VOID.
+# (права снимка не судятся); по своду (ws#1113, возврат check-verifier) — fp-dropped
+# (подтверждение по одному ключу), counts-dropped и base-dropped (счёт и голова базы
+# не в отпечатке), notdue-confirms, reserve-confirms, norefresh-fail-confirms
+# (подтверждает ветка «рано», «резерв», «чтение не удалось»), lastline-dropped
+# (последняя строка снимка не сверяется с кодом). Правка, не легшая в текст, — VOID.
 #
 # ИСХОДЫ: 0 — контроль зелёный по всем сценам, все мутанты убиты; 1 — сцена
 # разошлась либо мутант выжил; 2 — судить нечем (нет jq, python3, фикстуры).
-set -uo pipefail
 # shellcheck disable=SC2016,SC2034  # условие chk — текст для eval: переменные читаются в нём
+set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCR="$(dirname "$HERE")"
@@ -67,12 +85,43 @@ AG
 chmod +x "$T/authgh"
 export CI_READ_GH_CONDITIONAL=1 CI_READ_GH="$TWIN" CI_READ_EXPECTED="$T/ledger.tsv" CI_STATED_GH="$T/authgh"
 
-# ответ GraphQL демону: <голова> <черновик> <state свода>
+# Проходы демона в одном процессе (сцена 6 (д), (е)): one_pass() из проверяемого файла,
+# часы стартуют <назад> секунд в прошлом. Шаги: poll=<ответ GraphQL> — проход;
+# wait=<с> — часы вперёд; core=<остаток REST> — ответ площадки о лимите;
+# fx=<каталог> — ответы площадки для живого чтения с этого прохода.
+cat > "$T/passes.py" <<'PY'
+import importlib.util, os, sys, time
+spec = importlib.util.spec_from_file_location("ci_stated", sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+class Clock:
+    def __init__(self, t): self.t = t
+    def time(self): return self.t
+clock = Clock(time.time() - float(sys.argv[3]))
+m.time = clock
+d, last_refresh = m.state_dir(), {}
+for step in sys.argv[4:]:
+    k, _, v = step.partition("=")
+    if k == "poll": m.one_pass([sys.argv[2]], d, "", v, last_refresh)
+    elif k == "wait": clock.t += float(v)
+    elif k == "core": m.core_remaining = lambda token, poll_file, n=int(v): n
+    elif k == "fx": os.environ["CI_READ_FX"] = v
+    else: sys.exit(f"шаг «{step}»: не poll=, wait=, core=, fx=")
+if clock.t > time.time(): sys.exit("часы прохода ушли в будущее: возраст снимка не судим")
+PY
+
+# счёт проверок по состояниям в ответе GraphQL
+C_GREEN='[{"state":"SUCCESS","count":70}]'
+C_FAIL='[{"state":"SUCCESS","count":69},{"state":"FAILURE","count":1}]'
+C_RUN2='[{"state":"SUCCESS","count":68},{"state":"IN_PROGRESS","count":2}]'
+C_RUN1='[{"state":"SUCCESS","count":69},{"state":"IN_PROGRESS","count":1}]'
+NEW_BASE=3333333333333333333333333333333333333333
+# ответ GraphQL демону: <голова> <черновик> <state свода> [<счёт>] [<голова базы>]
 poll() {
-    jq -n --arg h "$1" --argjson d "$2" --arg s "$3" --arg b "$BASE_SHA" --argjson n "$PR" \
+    jq -n --arg h "$1" --argjson d "$2" --arg s "$3" --argjson c "${4:-$C_GREEN}" --arg b "${5:-$BASE_SHA}" --argjson n "$PR" \
         '{data: {repository: {pullRequests: {nodes: [{number: $n, isDraft: $d, headRefOid: $h, baseRefName: "1266",
           baseRef: {target: {oid: $b}}, commits: {nodes: [{commit: {statusCheckRollup: {state: $s,
-          contexts: {totalCount: 70, checkRunCountsByState: [{state: "SUCCESS", count: 70}], statusContextCountsByState: []}}}}]}}]}}},
+          contexts: {totalCount: 70, checkRunCountsByState: $c, statusContextCountsByState: []}}}}]}}]}}},
           rateLimit: {cost: 1, remaining: 4000, resetAt: "2026-10-16T13:00:00Z"}}'
 }
 SNAP_REL="snap/PRO-Robotech__kacho__3140.json"
@@ -92,12 +141,24 @@ rd() {
     out="$(GHLOG="$w/ghlog" CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" bash "$cr" "$REPO" "$PR" "$@" 2>"$w/rd.err")"; code=$?
     calls="$(grep -c . "$w/ghlog")"
 }
-age() {  # age <каталог> <секунд> — снимок «подтверждён» N секунд назад, права прежние
+tamper() {  # tamper <каталог> <выражение jq> — правка снимка, права прежние
     local f="$1/state/$SNAP_REL"
-    jq --argjson t "$(( $(date +%s) - $2 ))" '.checked_at = $t' "$f" > "$f.n" && chmod 600 "$f.n" && mv "$f.n" "$f"
+    jq "$2" "$f" > "$f.n" && chmod 600 "$f.n" && mv "$f.n" "$f"
 }
-running_fx() { jq '.check_runs |= (sort_by(.name) | (.[0:1] | map(.status="in_progress" | .conclusion=null | .started_at="2099-01-01T00:00:00Z")) + .[1:])' \
-    "$1/fx/check-runs.json" > "$1/fx/c.n" && mv "$1/fx/c.n" "$1/fx/check-runs.json"; }
+age() { tamper "$1" ".checked_at = $(( $(date +%s) - $2 ))"; }  # снимок «подтверждён» N с назад
+# once <ci-read> <демон> <каталог> — демон --once на ответе <каталог>/poll.json
+once() { CI_READ_FX="$3/fx" CI_STATE_DIR="$3/state" CI_STATED_CI_READ="$1" \
+    python3 "$2" --once --repos "$REPO" --poll-file "$3/poll.json" > "$3/once.out" 2>&1; }
+# passes <ci-read> <демон> <каталог> <назад, с> <шаг>… — проходы одного процесса, см. passes.py
+passes() { local cr="$1" d="$2" w="$3"; shift 3; rm -rf "$w/state"
+    CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" python3 -B "$T/passes.py" "$d" "$REPO" "$@" > "$w/passes.out" 2>&1; }
+# правка ответов площадки в каталоге фикстуры: первые N проверок по имени идут | первая упала
+running_fx() { jq --argjson n "${2:-1}" '.check_runs |= (sort_by(.name) | (.[0:$n] | map(.status="in_progress" | .conclusion=null | .started_at="2099-01-01T00:00:00Z")) + .[$n:])' \
+    "$1/check-runs.json" > "$1/c.n" && mv "$1/c.n" "$1/check-runs.json"; }
+fail_fx() { jq '.check_runs |= (sort_by(.name) | (.[0:1] | map(.status="completed" | .conclusion="failure")) + .[1:])' \
+    "$1/check-runs.json" > "$1/c.n" && mv "$1/c.n" "$1/check-runs.json"; }
+base_fx() { jq --arg b "$NEW_BASE" '.commit.sha = $b' "$1/branch.json" > "$1/b.n" && mv "$1/b.n" "$1/branch.json"; }  # голова базы ушла
+rate_fx() { printf '{"resources":{"core":{"limit":5000,"remaining":50,"reset":4102444800},"graphql":{"limit":5000,"remaining":4000,"reset":4102444800}}}\n' > "$1/rate_limit.json"; }
 
 fails=""
 chk() {  # chk <имя> <условие оболочки>
@@ -125,34 +186,85 @@ scenes() {  # scenes <ci-read> <демон> <каталог> → печать; $
 
     echo "== (1) снимок старше 180 с — живое чтение"
     # 181 с при записи — к чтению под нагрузкой бывает 182: образец — любое число > 180
-    fresh "$cr" "$d" "$w"; running_fx "$w"; age "$w" 181
+    fresh "$cr" "$d" "$w"; running_fx "$w/fx"; age "$w" 181
     rd "$cr" "$w" --from-state
     chk "STATE-STALE и код 3 из фикстуры" '[ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-STALE\t.*подтверждён (18[1-9]|19[0-9]|[2-9][0-9]{2}) с назад, годен не старше 180 с" <<<"$out" && [ "$calls" -gt 0 ]'
-    fresh "$cr" "$d" "$w"; running_fx "$w"; age "$w" 170
+    fresh "$cr" "$d" "$w"; running_fx "$w/fx"; age "$w" 170
     rd "$cr" "$w" --from-state
     chk "близнец: 170 с — из снимка, код 0, вызовов 0" '[ "$code" -eq 0 ] && [ "$calls" -eq 0 ]'
-    fresh "$cr" "$d" "$w"; running_fx "$w"; chmod 644 "$w/state/$SNAP_REL"
+    fresh "$cr" "$d" "$w"; running_fx "$w/fx"; chmod 644 "$w/state/$SNAP_REL"
     rd "$cr" "$w" --from-state
     chk "снимок 0644 — не доверяется: STATE-STALE, живое 3" '[ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-STALE\t.*права" <<<"$out"'
 
     echo "== (2) чужой ключ — живое чтение"
-    fresh "$cr" "$d" "$w"; running_fx "$w"
+    fresh "$cr" "$d" "$w"; running_fx "$w/fx"
     poll 1111111111111111111111111111111111111111 false PENDING > "$w/poll.json"
-    CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" python3 "$d" --once --repos "$REPO" --poll-file "$w/poll.json" >/dev/null 2>&1
+    once "$cr" "$d" "$w"
     rd "$cr" "$w" --from-state
     chk "(а) демон видел другую голову: STATE-KEY-MISMATCH head, живое 3" '[ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-KEY-MISMATCH\t.*head" <<<"$out"'
-    fresh "$cr" "$d" "$w"; running_fx "$w"
+    fresh "$cr" "$d" "$w"; running_fx "$w/fx"
     poll "$HEAD_SHA" true PENDING > "$w/poll.json"
-    CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" python3 "$d" --once --repos "$REPO" --poll-file "$w/poll.json" >/dev/null 2>&1
+    once "$cr" "$d" "$w"
     rd "$cr" "$w" --from-state
     chk "(б) демон видел черновик: STATE-KEY-MISMATCH draft, живое 3" '[ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-KEY-MISMATCH\t.*draft" <<<"$out"'
-    fresh "$cr" "$d" "$w"; running_fx "$w"
+    fresh "$cr" "$d" "$w"; running_fx "$w/fx"
     rd "$cr" "$w" --from-state --head 2222222222222222222222222222222222222222
     chk "(в) --head другой: STATE-KEY-MISMATCH head, живое — VOID 2 (голова запроса другая)" '[ "$code" -eq 2 ] && grep -qP "^REASON\tSTATE-KEY-MISMATCH\t.*head" <<<"$out" && grep -qP "^VOID\t--head " <<<"$out" && [ "$calls" -gt 0 ]'
     rd "$cr" "$w" --from-state --base main
     chk "(г) --base другая: STATE-KEY-MISMATCH base, живое (VOID 2: база запроса другая)" '[ "$code" -eq 2 ] && grep -qP "^REASON\tSTATE-KEY-MISMATCH\t.*base" <<<"$out" && [ "$calls" -gt 0 ]'
     rd "$cr" "$w" --from-state --draft true
     chk "(д) --draft другой: STATE-KEY-MISMATCH draft, живое — VOID 2 (черновик запроса другой)" '[ "$code" -eq 2 ] && grep -qP "^REASON\tSTATE-KEY-MISMATCH\t.*draft" <<<"$out" && grep -qP "^VOID\t--draft " <<<"$out" && [ "$calls" -gt 0 ]'
+
+    echo "== (6) ключ прежний, свод другой — снимок перечитан, а не подтверждён"
+    fresh "$cr" "$d" "$w"; age "$w" 200
+    GHLOG="$w/dlog" once "$cr" "$d" "$w"
+    rd "$cr" "$w" --from-state
+    chk "близнец: свод тот же — снимок старше 180 с подтверждён без чтения, из снимка 0" '[ ! -s "$w/dlog" ] && [ "$code" -eq 0 ] && [ "$calls" -eq 0 ]'
+    fresh "$cr" "$d" "$w"; age "$w" 200; fail_fx "$w/fx"
+    poll "$HEAD_SHA" false FAILURE "$C_FAIL" > "$w/poll.json"; once "$cr" "$d" "$w"
+    rd "$cr" "$w"; live="$out"; live_code=$code
+    rd "$cr" "$w" --from-state
+    chk "(а) упала проверка (FAILURE): перечитан — из снимка 1, вывод равен живому" '[ "$live_code" -eq 1 ] && [ "$code" -eq 1 ] && [ "$calls" -eq 0 ] && [ "$out" = "$live" ]'
+    rm -rf "$w"; mkdir -p "$w/fx"; cp "$FX"/*.json "$w/fx/"; running_fx "$w/fx" 2
+    poll "$HEAD_SHA" false PENDING "$C_RUN2" > "$w/poll.json"; once "$cr" "$d" "$w"
+    cp "$FX/check-runs.json" "$w/fx/"; running_fx "$w/fx" 1
+    poll "$HEAD_SHA" false PENDING "$C_RUN1" > "$w/poll.json"; once "$cr" "$d" "$w"
+    rd "$cr" "$w"; live="$out"; live_code=$code
+    rd "$cr" "$w" --from-state
+    chk "(б) завершённых больше, state прежний: перечитан — из снимка 3, вывод равен живому" '[ "$live_code" -eq 3 ] && [ "$code" -eq 3 ] && [ "$calls" -eq 0 ] && [ "$out" = "$live" ]'
+    fresh "$cr" "$d" "$w"; base_fx "$w/fx"
+    poll "$HEAD_SHA" false SUCCESS "$C_GREEN" "$NEW_BASE" > "$w/poll.json"; once "$cr" "$d" "$w"
+    rd "$cr" "$w" --from-state
+    chk "(в) ушла голова базы: перечитан — из снимка 4, BASE-STALE" '[ "$code" -eq 4 ] && [ "$calls" -eq 0 ] && grep -qP "^REASON\tBASE-STALE\t" <<<"$out"'
+    fresh "$cr" "$d" "$w"; age "$w" 200; fail_fx "$w/fx"; rate_fx "$w/fx"
+    poll "$HEAD_SHA" false FAILURE "$C_FAIL" > "$w/poll.json"; once "$cr" "$d" "$w"
+    rd "$cr" "$w" --from-state
+    chk "(г) упала проверка, перечитывание упёрлось в лимит: не подтверждён — STATE-STALE, живое 2" '[ "$code" -eq 2 ] && grep -qP "^REASON\tSTATE-STALE\t" <<<"$out" && grep -qP "^REASON\tRATE-LIMIT\t" <<<"$out" && [ "$calls" -gt 0 ]'
+    rm -rf "$w"; mkdir -p "$w/fx" "$w/fx0"; cp "$FX"/*.json "$w/fx/"; cp "$FX"/*.json "$w/fx0/"
+    running_fx "$w/fx0" 2; running_fx "$w/fx" 1
+    poll "$HEAD_SHA" false PENDING "$C_RUN2" > "$w/p0.json"; poll "$HEAD_SHA" false PENDING "$C_RUN1" > "$w/p1.json"
+    passes "$cr" "$d" "$w" 190 fx="$w/fx0" poll="$w/p0.json" wait=60 fx="$w/fx" poll="$w/p1.json"; local prc=$?
+    rd "$cr" "$w" --from-state
+    chk "(д) счёт сменился через 60 с после чтения: не перечитан и не подтверждён — STATE-STALE, живое 3" '[ "$prc" -eq 0 ] && [ "$code" -eq 3 ] && grep -qP "^REASON\tSTATE-STALE\t" <<<"$out" && [ "$calls" -gt 0 ]'
+    passes "$cr" "$d" "$w" 190 fx="$w/fx0" poll="$w/p0.json" wait=60 poll="$w/p0.json"; prc=$?
+    rd "$cr" "$w" --from-state
+    chk "(д) близнец: свод тот же через 60 с — подтверждён, из снимка 3, вызовов 0" '[ "$prc" -eq 0 ] && [ "$code" -eq 3 ] && [ "$calls" -eq 0 ] && ! grep -qP "^REASON\tSTATE-" <<<"$out"'
+    cp "$FX"/*.json "$w/fx/"; cp "$FX"/*.json "$w/fx0/"; fail_fx "$w/fx"
+    poll "$HEAD_SHA" false SUCCESS > "$w/p0.json"; poll "$HEAD_SHA" false FAILURE "$C_FAIL" > "$w/p1.json"
+    passes "$cr" "$d" "$w" 190 fx="$w/fx0" poll="$w/p0.json" wait=60 core=999 fx="$w/fx" poll="$w/p1.json"; prc=$?
+    rd "$cr" "$w" --from-state
+    chk "(е) упала проверка при остатке REST 999 < 1000: не перечитан и не подтверждён — STATE-STALE, живое 1" '[ "$prc" -eq 0 ] && [ "$code" -eq 1 ] && grep -qP "^REASON\tSTATE-STALE\t" <<<"$out" && [ "$calls" -gt 0 ]'
+    passes "$cr" "$d" "$w" 190 fx="$w/fx0" poll="$w/p0.json" wait=60 core=1000 fx="$w/fx" poll="$w/p1.json"; prc=$?
+    rd "$cr" "$w" --from-state
+    chk "(е) близнец: остаток 1000 — перечитан, из снимка 1, вызовов 0" '[ "$prc" -eq 0 ] && [ "$code" -eq 1 ] && [ "$calls" -eq 0 ] && ! grep -qP "^REASON\tSTATE-" <<<"$out"'
+
+    echo "== (7) последняя строка снимка — VERDICT его кода, иначе живое"
+    fresh "$cr" "$d" "$w"; fail_fx "$w/fx"; tamper "$w" '.out = ""'
+    rd "$cr" "$w" --from-state
+    chk "(а) вывод снимка пуст при коде 0: STATE-STALE, живое 1" '[ "$code" -eq 1 ] && grep -qP "^REASON\tSTATE-STALE\t.*не VERDICT" <<<"$out" && [ "$calls" -gt 0 ]'
+    fresh "$cr" "$d" "$w"; fail_fx "$w/fx"; tamper "$w" '.out |= sub("VERDICT\tgreen\tкод 0"; "VERDICT\tred\tкод 1")'
+    rd "$cr" "$w" --from-state
+    chk "(б) снимок «код 1» при коде 0: STATE-STALE, живое 1" '[ "$code" -eq 1 ] && grep -qP "^REASON\tSTATE-STALE\t.*не VERDICT" <<<"$out" && [ "$calls" -gt 0 ]'
 
     echo "== (3) страж записи демона"
     local q="$root/q"
@@ -215,6 +327,13 @@ mutation-dropped	ci-stated	s/if MUTATION_RE.search(text):/if False:/
 literal-dropped	ci-stated	s/if text not in LITERAL_TEXTS:/if False:/
 method-dropped	ci-stated	s/if method != "GET":/if False:/
 keyring-dropped	ci-stated	s/if src != "keyring":/if False:/
+fp-dropped	ci-stated	s/ and snap.get("fp") == fp:/:/
+counts-dropped	ci-stated	s/, "counts": counts}, sort_keys=True)/}, sort_keys=True)/
+base-dropped	ci-stated	s/"base_oid": base_oid, //
+notdue-confirms	ci-stated	/if not (changed_key or due):/,/continue/s/snap\["seen"\] = key$/snap["seen"] = key; snap["checked_at"] = now/
+reserve-confirms	ci-stated	/< CORE_RESERVE:$/,/continue/s/snap\["seen"\] = key$/snap["seen"] = key; snap["checked_at"] = now/
+norefresh-fail-confirms	ci-stated	/не вынесло вердикта/,/continue/s/snap\["seen"\] = key$/snap["seen"] = key; snap["checked_at"] = now/
+lastline-dropped	ci-read	s/^    \[\[ "\$last" =~ .* \]\] \\$/    true \\/
 MUT
 xargs -0 -n 3 -P "${CI_STATE_INJECT_JOBS:-$(nproc 2>/dev/null || echo 4)}" bash "$HERE/inject.sh" --scene < "$T/list"
 xs=$?

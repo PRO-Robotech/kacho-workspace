@@ -49,6 +49,8 @@ state свода или конец счёта (незавершённых 0) —
   CI_STATED_CI_READ — путь ci-read.sh;
   CI_STATED_API     — адрес площадки: https://api.github.com либо http://127.0.0.1:<порт>;
   --poll-file       — ответ GraphQL из файла вместо сети (снимок пишется тем же кодом).
+Сцены (д), (е) пробы зовут one_pass() в одном процессе, подменяя часы (имя time модуля)
+и ответ об остатке REST (core_remaining): бюджет перечитывания живёт в памяти процесса.
 """
 import argparse
 import hashlib
