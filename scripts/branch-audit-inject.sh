@@ -12,7 +12,7 @@
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
 # прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
-# EW1–EW16, OR1–OR10; что держит каждая —
+# EW1–EW16, OR1–OR10, PG1–PG10; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -45,6 +45,14 @@
 #      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
 #      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
 #      OR4, OR1, OR3, OR2;
+#   PG1–PG10. КОММИТЫ ВНЕ ORIGIN (ws#1107): ветка из «ВЛИТЫ» с коммитами только
+#      локально не снята и названа графой «коммиты вне origin: N» (PG1, PG2);
+#      влитая и отправленная — снята (PG3); коммиты на origin под другим именем —
+#      снята (PG4); origin не ответил — не снято ничего (PG5); мутант без стража
+#      красит PG1 (PG6); коммиты только на втором remote — не снята (PG7);
+#      устаревшая refs/remotes/origin/<имя> при ветке, снятой с origin, — не
+#      снята (PG8); мутанты «--not --remotes» и «--not --remotes=origin» вместо
+#      голов ls-remote красят PG7 и PG8 (PG9, PG10);
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -1687,7 +1695,8 @@ ct_build() { # $1 = каталог → эпик на origin; task и named вл�
   #          своего коммита; main догнан эпиком (голова main — второй родитель);
   #          stale-local и fresh-local — без своего коммита, только локально, на
   #          ДАВНЕМ стволовом коммите, журнал ссылки давний и свежий; leak —
-  #          исходник местного переноса: не предок, его дельту внёс transfer
+  #          исходник местного переноса: не предок, его дельту внёс transfer,
+  #          а его коммиты есть на origin под другим именем (archive/leak, ws#1107)
   local d=$1 old='2026-09-01T00:00:00Z'
   rm -rf "$d" "$d-origin.git"
   git init -q --bare "$d-origin.git"
@@ -1710,6 +1719,7 @@ ct_build() { # $1 = каталог → эпик на origin; task и named вл�
     git branch fresh-local main
     git checkout -qb leak epic && echo раскрытое > leak.txt && git add leak.txt && git commit -qm "раскрывающее"
     echo ещё >> leak.txt && git commit -qam "раскрывающее ещё"
+    git push -q origin leak:refs/heads/archive/leak
     git checkout -qb transfer epic && git diff --binary epic...leak | git apply --index
     git commit -qm "перенос одним коммитом" && git rev-parse leak > "$d.leak-sha"
     git checkout -q epic && git merge -q --no-ff -m "влить transfer" transfer && git branch -q -D transfer
@@ -1786,6 +1796,8 @@ fi
 # `gi-prune-census-predicate`): исходник местного переноса (leak) не предок
 # эпика — это предпосылка, проверенная по sha до снятия, — а его дельту внёс
 # transfer, и дельта слияния пуста. Перепись относит его к «ВЛИТЫ» и снимает.
+# Его коммиты лежат на origin под другим именем: без этого ветку держал бы страж
+# коммитов вне origin (PG1), и CM судил бы не предка, а стража (ws#1107).
 CT_LEAK=$(cat "$CT.leak-sha" 2>/dev/null || true)
 if [ -n "$CT_LEAK" ] && ! git -C "$CT" merge-base --is-ancestor "$CT_LEAK" origin/epic 2>/dev/null &&
    f_has "$CT_BASE" "ВЛИТЫ" "leak —" 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' &&
@@ -2072,6 +2084,159 @@ or_mutant OR9 OR3 '  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1
   '^   723 — ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/721, содержимое в стволе$'
 or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база открытого PR\'; return 0; fi' ':' \
   "стоп по открытому PR в ветку снят" '^   release/r2 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$'
+
+# --- PG1–PG10. КОММИТЫ ВНЕ ORIGIN НЕ СНИМАЮТСЯ (ws#1107) ------------------------
+# Наблюдение 2026-10-16: `--prune-merged` снял локальную ветку, чьё СОДЕРЖИМОЕ
+# совпадало со стволом (раздел «ВЛИТЫ»), а три её КОММИТА были только локально —
+# их восстановили из недостижимых через fsck. Совпадение содержимого не говорит,
+# что коммиты где-то сохранены, поэтому снятие судит коммиты отдельно, по
+# ответу origin. Близнецы: влитая и отправленная — снята (PG3); коммиты на origin
+# под другим именем — снята (PG4: судятся коммиты, а не имя ветки); origin не
+# ответил — не снято ничего (PG5); мутант без стража — красит PG1 (PG6).
+# Источник «что на origin» — только ответ ls-remote: коммиты лишь на втором
+# remote (fork-only, PG7) и устаревшая refs/remotes/origin/<имя> ветки, снятой с
+# origin (stale-tracking, PG8), сохранёнными не считаются; мутанты PG9 и PG10
+# подменяют головы ls-remote на `--remotes` и `--remotes=origin`.
+pg_build() { # $1 = каталог
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git" "$d-fork.git"
+  git init -q --bare "$d-origin.git"
+  git init -q --bare "$d-fork.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb offorigin-squashed main
+    for i in 1 2 3; do echo "шаг $i" >> s.txt && git add s.txt && git commit -qm "шаг $i"; done
+    git checkout -q main && git merge -q --squash offorigin-squashed && git commit -qm "схлопнуто"
+    git checkout -qb merged-pushed main && echo влито > m.txt && git add m.txt && git commit -qm "влито"
+    git checkout -q main && git merge -q --no-ff -m "влить merged-pushed" merged-pushed
+    git checkout -qb pushed-elsewhere main && echo копия > e.txt && git add e.txt && git commit -qm "копия"
+    git push -q origin pushed-elsewhere:refs/heads/keep/pushed-elsewhere
+    git checkout -q main && git merge -q --squash pushed-elsewhere && git commit -qm "схлопнуто 2"
+    git remote add fork "$d-fork.git"
+    git checkout -qb fork-only main
+    for i in 1 2; do echo "форк $i" >> f.txt && git add f.txt && git commit -qm "форк $i"; done
+    git push -q fork fork-only
+    git checkout -q main && git merge -q --squash fork-only && git commit -qm "схлопнуто 3"
+    git checkout -qb stale-tracking main && echo устарело > u.txt && git add u.txt && git commit -qm "устарело"
+    git push -q origin stale-tracking
+    git checkout -q main && git merge -q --squash stale-tracking && git commit -qm "схлопнуто 4"
+    git push -q origin main
+    git --git-dir="$d-origin.git" update-ref -d refs/heads/stale-tracking
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+  : > "$d.pr"
+  git -C "$d" rev-list --count refs/heads/offorigin-squashed --not --remotes=origin > "$d.off" 2>/dev/null || echo нет > "$d.off"
+  # предпосылки PG7/PG8: коммиты fork-only все на fork; копия origin-ссылки
+  # stale-tracking есть, а на origin ветки нет
+  git -C "$d" rev-list --count refs/heads/fork-only --not refs/remotes/fork/fork-only > "$d.fork" 2>/dev/null || echo нет > "$d.fork"
+  { git -C "$d" rev-parse --verify --quiet refs/remotes/origin/stale-tracking >/dev/null &&
+    ! git -C "$d" ls-remote --exit-code --heads origin stale-tracking >/dev/null 2>&1 && echo да || echo нет; } > "$d.stale"
+}
+pg_run() { # $1 = исполняемый, далее — окружение → PG_OUT; каталог — $PG
+  local a=$1; shift
+  pg_build "$PG"
+  set +e
+  PG_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$PG.pr" \
+    "$@" "$a" --prune-merged "$PG" 2>&1)
+  set -e
+}
+pg_ref() { git -C "$PG" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+PG="$TMP/prune-offorigin"
+pg_run "$AUDIT"; PG_BASE=$PG_OUT
+
+PG_OFF=$(cat "$PG.off")  # предпосылка: посчитана ДО прогона, по коммитам, как в наблюдении
+if [ "$PG_OFF" = 3 ] && f_has "$PG_BASE" "ВЛИТЫ" "offorigin-squashed —" 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' &&
+   pg_ref offorigin-squashed && ! grep -qF 'СНЯТА offorigin-squashed' <<<"$PG_BASE" &&
+   grep -qF 'оставлена offorigin-squashed — 3 коммит(ов) вне origin' <<<"$PG_BASE"; then
+  say "✅ PG1" "ветка из «ВЛИТЫ» с тремя коммитами вне origin не снята и названа с числом"
+else
+  say "❌ PG1" "ветка из «ВЛИТЫ» с коммитами вне origin (${PG_OFF}) снята либо не названа"; fail=1
+  grep -F 'offorigin-squashed' <<<"$PG_BASE" | head -4 || true
+fi
+if grep -qxF 'branch-audit: коммиты вне origin: 3 — fork-only (+2), offorigin-squashed (+3), stale-tracking (+1)' <<<"$PG_BASE"; then
+  say "✅ PG2" "итог снятия несёт графу «коммиты вне origin» с числом и именем"
+else
+  say "❌ PG2" "в итоге снятия нет графы «коммиты вне origin: 3 — fork-only (+2), offorigin-squashed (+3), stale-tracking (+1)»"; fail=1
+  grep -F 'вне origin' <<<"$PG_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА merged-pushed' <<<"$PG_BASE" && ! pg_ref merged-pushed; then
+  say "✅ PG3" "влитая ветка без коммитов вне origin снята — законный близнец"
+else
+  say "❌ PG3" "влитая и отправленная ветка не снята — страж накрыл законное снятие"; fail=1
+  grep -F 'merged-pushed' <<<"$PG_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА pushed-elsewhere' <<<"$PG_BASE" && ! pg_ref pushed-elsewhere; then
+  say "✅ PG4" "ветка, чьи коммиты на origin под другим именем, снята — судятся коммиты, не имя"
+else
+  say "❌ PG4" "коммиты на origin под другим именем не признаны сохранёнными"; fail=1
+  grep -F 'pushed-elsewhere' <<<"$PG_BASE" | head -3 || true
+fi
+pg_build "$PG"
+git -C "$PG" remote set-url origin "$TMP/нет-такого-origin.git"
+set +e
+PG_DOWN=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$PG.pr" \
+  "$AUDIT" --prune-merged "$PG" 2>&1)
+set -e
+if pg_ref merged-pushed && pg_ref offorigin-squashed && ! grep -qF 'СНЯТА ' <<<"$PG_DOWN" &&
+   grep -qF 'оставлена merged-pushed — origin не ответил' <<<"$PG_DOWN"; then
+  say "✅ PG5" "origin не ответил — коммиты вне origin не сочтены, не снято ничего"
+else
+  say "❌ PG5" "origin не ответил, а снятие шло"; fail=1
+  grep -F -e 'СНЯТА' -e 'оставлена' <<<"$PG_DOWN" | head -4 || true
+fi
+pg_m="$TMP/pg-mutant.sh"
+if mutate "$pg_m" '    off=$(offorigin_count "$b")' '    off=0'; then
+  pg_run "$pg_m"
+  if grep -qF 'СНЯТА offorigin-squashed' <<<"$PG_OUT"; then
+    say "✅ PG6" "мутация «страж коммитов вне origin снят» красит PG1: СНЯТА offorigin-squashed"
+  else
+    say "❌ PG6" "мутация «страж снят» не красит PG1 — утверждение слепо к стражу"; fail=1
+  fi
+else
+  say "❌ PG6" "мутация не легла — строки стража в скрипте нет"; fail=1
+fi
+# PG7/PG8 — свежий прогон на текущем коде; предпосылки сочтены pg_build до него:
+# без них утверждение беспредметно (ветка не в «ВЛИТЫ» либо ссылки, которую
+# подменяет мутант, нет).
+pg_run "$AUDIT"; PG_CTL=$PG_OUT
+PG_FORK_PRE=$(cat "$PG.fork"); PG_STALE_PRE=$(cat "$PG.stale")
+pg_kept() { # $1 = вывод, $2 = ветка, $3 = число → 0, если ветка в «ВЛИТЫ», оставлена с числом и ссылка цела
+  f_has "$1" "ВЛИТЫ" "$2 —" 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' && pg_ref "$2" && ! grep -qF "СНЯТА $2" <<<"$1" &&
+    grep -qF "оставлена $2 — $3 коммит(ов) вне origin" <<<"$1"
+}
+if [ "$PG_FORK_PRE" = 0 ] && pg_kept "$PG_CTL" fork-only 2; then
+  say "✅ PG7" "коммиты только на втором remote (fork) — ветка не снята: сохранённым считается лишь origin"
+else
+  say "❌ PG7" "ветка с коммитами только на втором remote снята либо беспредметна (fork-предпосылка: ${PG_FORK_PRE})"; fail=1
+  grep -F 'fork-only' <<<"$PG_CTL" | head -4 || true
+fi
+if [ "$PG_STALE_PRE" = да ] && pg_kept "$PG_CTL" stale-tracking 1; then
+  say "✅ PG8" "устаревшая refs/remotes/origin/stale-tracking при ветке, снятой с origin, — ветка не снята"
+else
+  say "❌ PG8" "ветка с устаревшей копией origin-ссылки снята либо беспредметна (предпосылка: ${PG_STALE_PRE})"; fail=1
+  grep -F 'stale-tracking' <<<"$PG_CTL" | head -4 || true
+fi
+pg_tips='--not ${ORIGIN_TIPS[@]+"${ORIGIN_TIPS[@]}"} --'
+pg_mutant() { # $1 = метка, $2 = красимая, $3 = подмена голов, $4 = ветка
+  if mutate "$pg_m" "$pg_tips" "$3"; then
+    pg_run "$pg_m"
+    if grep -qF "СНЯТА $4" <<<"$PG_OUT" && ! pg_ref "$4"; then
+      say "✅ $1" "мутация «$3» красит $2: СНЯТА $4"
+    else
+      say "❌ $1" "мутация «$3» не красит $2 — утверждение слепо к источнику голов"; fail=1
+    fi
+  else
+    say "❌ $1" "мутация не легла — строки «$pg_tips» в скрипте нет"; fail=1
+  fi
+}
+pg_mutant PG9 PG7 '--not --remotes --' fork-only
+pg_mutant PG10 PG8 '--not --remotes=origin --' stale-tracking
 
 # ── ПРЕДЕЛ ВРЕМЕНИ (ws#1001): исчерпан — «НЕ ДОСЧИТАНО» и код 2, а не зависание ──
 set +e
