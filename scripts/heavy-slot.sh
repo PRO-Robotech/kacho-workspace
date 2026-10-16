@@ -113,7 +113,9 @@
 # принимающем кластере идёт без слота машины: git звано с core.hooksPath на переходник,
 # чей pre-push отдаёт вход git (строки отправки) настоящему хуку клона
 # (scripts/hooks/pre-push отправляемой головы) Job-ом run.sh профиля ci-local; локально —
-# лишь сама отправка, итог хука — тот же контракт, код хука там — код отправки. Прочие
+# лишь сама отправка, итог хука — тот же контракт, код хука там — код отправки. Вход git
+# уходит и в run.sh (--push-input): по нему Job ставит зависимости консоли до хука,
+# когда правка её трогает (ws#1115, ЗАВИСИМОСТИ КОНСОЛИ в шапке run.sh). Прочие
 # хуки клона переходник берёт ссылками. Отправка не головы копии (иная вершина, их
 # несколько) переходник отклоняет кодом 78, и слот гонит ту же команду локально с
 # причиной; Job не состоялся (69, 75) — тот код, «не выполнилось».
@@ -878,7 +880,7 @@ push_remote() {
         'tips="$(printf "%s\n" "$lines" | awk '"'"'NF >= 4 && $2 !~ /^0+$/ { print $2 }'"'"' | sort -u)"' \
         'if [ -z "$tips" ]; then printf "%s\n" "$lines" | exec "$HS_ORIG" "$@"; fi' \
         'if [ "$tips" != "$HS_HEAD" ]; then echo 78 > "$HS_RC"; echo "heavy-slot: отправка несёт не голову копии ($(printf "%s" "$tips" | cut -c1-8 | tr "\n" " ")) — Job судит голову; слот повторит отправку локально" >&2; exit 1; fi' \
-        'bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile ci-local -- bash -c '"'"'printf "%s\n" "$0" | bash scripts/hooks/pre-push "$1" "$2"'"'"' "$lines" "$@"' \
+        'bash "$HS_RUN" --task "$HS_TASK" --repo "$HS_REPO" --ref "$tips" --src "$HS_TOP" --workdir . --profile ci-local --push-input "$lines" -- bash -c '"'"'printf "%s\n" "$0" | bash scripts/hooks/pre-push "$1" "$2"'"'"' "$lines" "$@"' \
         'rc=$?; echo "$rc" > "$HS_RC"; exit "$rc"' > "$sh/hooks/pre-push"
     chmod +x "$sh/hooks/pre-push"
     local cmd=("${CMD_R[@]:0:$(( GIT_IDX + 1 ))}" -c "core.hooksPath=$sh/hooks" "${CMD_R[@]:$(( GIT_IDX + 1 ))}")
