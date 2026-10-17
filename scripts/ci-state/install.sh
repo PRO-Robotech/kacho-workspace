@@ -18,12 +18,14 @@
 # --wait — сколько ждать первого прохода, 30–540 с (по умолчанию 240).
 #
 # ШАГИ УСТАНОВКИ — до первой правки на диске всё судится, отказ ничего не меняет:
-#   1. --repos в ExecStart юнита равен DEFAULT_REPOS демона дерева, иначе 2;
+#   1. --repos в ExecStart юнита равен DEFAULT_REPOS демона дерева; Restart=on-failure,
+#      RestartPreventExitStatus содержит 4 и не содержит 6 — иначе 2 (и при --check);
 #   2. токен gh — из keyring (то же правило, что у демона), иначе 4;
 #   3. остаток лимита REST и GraphQL не ниже 1500 (scripts/lib/gh-rate.sh: резерв
 #      демона 1000 плюс холодный проход), иначе 3 со временем сброса;
 #   4. systemd-analyze --user verify: код 0 И ни одной строки о нашем файле — verify
-#      отвечает 0 и на нераспознанное значение («…, ignoring», замер 2026-10-17);
+#      отвечает 0 и на нераспознанное значение («…, ignoring», замер 2026-10-17); путь в
+#      строке verify нормализован, и временный каталог нормализуется так же (realpath -ms);
 #   5. настройки 0600 (KACHO_WS), копия юнита, daemon-reload, enable, restart;
 #   6. первый проход: служба active и по каждому репозиторию есть снимок с checked_at
 #      не раньше перезапуска. Служба упала либо перезапускалась (NRestarts > 0) —
@@ -91,6 +93,16 @@ DEF="$(grep -m1 -oP '^DEFAULT_REPOS = "\K[^"]+' "$HERE/ci-stated.py")"
 [ "$REPOS" = "$DEF" ] || die 2 "перечни разошлись: --repos юнита «$REPOS», DEFAULT_REPOS демона «$DEF»"
 IFS=, read -r -a REPO_LIST <<< "$REPOS"
 
+# Политика перезапуска юнита: keyring не ответил (код 6) — повтор, токен не из keyring
+# (4) и довод (2) — без повтора. Restart — последнее присваивание; RestartPreventExitStatus
+# копится по строкам, пустое присваивание сбрасывает перечень (семантика systemd).
+RESTART="$(sed -n 's/^Restart=//p' "$SRC_UNIT" | tail -n1)"
+PREVENT=" $(awk -F= '/^RestartPreventExitStatus=/ { if ($2 == "") v = ""; else v = v " " $2 } END { print v }' "$SRC_UNIT") "
+read -r -a pv_list <<< "$PREVENT"; PV="${pv_list[*]}"   # для печати: без пробелов по краям
+[ "$RESTART" = on-failure ] || die 2 "Restart=«$RESTART» в $SRC_UNIT: нужен on-failure — keyring, не ответивший при загрузке (код 6), повторяется"
+[[ "$PREVENT" == *" 4 "* ]] || die 2 "RestartPreventExitStatus=«$PV» в $SRC_UNIT без 4: токен не из keyring повторялся бы вечно"
+[[ "$PREVENT" != *" 6 "* ]] || die 2 "RestartPreventExitStatus=«$PV» в $SRC_UNIT с 6: keyring, не ответивший при загрузке, не повторится"
+
 # fresh_count <репо> <не раньше, эпоха> — снимков репозитория с checked_at не раньше
 fresh_count() {
     local f n=0
@@ -148,17 +160,27 @@ src="$("${ghenv[@]}" "$GH" auth status --json hosts 2>/dev/null \
 [ -n "$src" ] || die 4 "keyring не ответил: gh auth status без активной учётки github.com"
 [ "$src" = keyring ] || die 4 "токен не из keyring (источник «$src»): служба его не возьмёт"
 
+# Без библиотеки лимит не проверить: это отказ инструмента (2) с причиной, а не
+# «не выполнилось» (3) с пустой — gh_rate_short без подключения не определена.
+[ -r "$HERE/../lib/gh-rate.sh" ] || die 2 "нет $HERE/../lib/gh-rate.sh — остаток лимита не проверить"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/gh-rate.sh
-. "$HERE/../lib/gh-rate.sh"
+. "$HERE/../lib/gh-rate.sh" || die 2 "$HERE/../lib/gh-rate.sh не подключилась — остаток лимита не проверить"
+declare -F gh_rate_short >/dev/null || die 2 "в $HERE/../lib/gh-rate.sh нет gh_rate_short — остаток лимита не проверить"
 if ! short="$(gh_rate_short "$GH" "$RATE_MIN")"; then die 3 "не выполнилось — $short"; fi
 say "лимит до: $(rate_line)"
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/ci-stated-install.XXXXXX")" || die 2 "mktemp"
 trap 'rm -rf "$T"' EXIT
+# Путь — в той форме, в какой verify печатает его в строке о юните: абсолютный,
+# без «./» и «//», ссылки не раскрыты (замер systemd 259: TMPDIR вида <abs>/./x,
+# <abs>//x и ./x печатался нормализованным, и буквальный поиск строку не видел).
+T="$(realpath -ms -- "$T")" || die 2 "realpath $T"
 cp "$SRC_UNIT" "$T/$UNIT"
 "$SA" --user verify "$T/$UNIT" > "$T/verify" 2>&1; vrc=$?
-if [ "$vrc" -ne 0 ] || grep -qF "$T/$UNIT" "$T/verify" || grep -q "^$UNIT:" "$T/verify"; then
+# Строка о нашем юните — та, что начинается его путём либо именем: «<путь>:<строка>: …»,
+# «ci-stated.service: …»; строки о чужих юнитах (spice-vdagent и т.п.) не судятся.
+if [ "$vrc" -ne 0 ] || grep -qF "$T/$UNIT:" "$T/verify" || grep -qE "^([^ :]*/)?${UNIT//./\\.}:" "$T/verify"; then
     sed 's/^/  /' "$T/verify" >&2
     die 2 "systemd-analyze verify отказал юниту (код $vrc либо строка о нём)"
 fi

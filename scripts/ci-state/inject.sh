@@ -41,7 +41,9 @@
 #       0) → STATE-STALE и живое 1, а не код снимка;
 #   (8) ожидающий держит FIFO запроса (ws#1151): упала проверка — строка
 #       «<репо> <PR> <голова> код 1» в FIFO и снимок с кодом 1 (из снимка, вызовов gh 0);
-#       близнец — перечитан при том же коде и ключе: строки нет.
+#       голова сменилась при том же коде 0 — строка с новой головой и снимок новой
+#       головы; близнец — перечитан при том же коде и ключе: строки нет.
+# Каждый вызов демона — под пределом CI_STATE_PY_LIMIT (60 с): зависание — отказ сцены.
 # Сверяется код И напечатанное (строка причины), а не только «покраснел».
 #
 # МУТАНТЫ — копия ci-read.sh или ci-stated.py с одним дефектом обязана уронить
@@ -55,8 +57,9 @@
 # (подтверждает ветка «рано», «резерв», «чтение не удалось»), lastline-dropped
 # (последняя строка снимка не сверяется с кодом); по службе (ws#1151) — signal-dropped
 # (строка в FIFO не пишется), signal-always (пишется без смены кода и ключа),
-# keyring-down-final (недоступный keyring — код 4, повтор запрещён). Правка, не легшая
-# в текст, — VOID.
+# key-change-unsignalled (смена ключа при том же коде не будит), nonblock-dropped
+# (FIFO открывается без O_NONBLOCK — вис без читателя), keyring-down-final (недоступный
+# keyring — код 4, повтор запрещён). Правка, не легшая в текст, — VOID.
 #
 # ИСХОДЫ: 0 — контроль зелёный по всем сценам, все мутанты убиты; 1 — сцена
 # разошлась либо мутант выжил; 2 — судить нечем (нет jq, python3, фикстуры).
@@ -123,6 +126,7 @@ C_FAIL='[{"state":"SUCCESS","count":69},{"state":"FAILURE","count":1}]'
 C_RUN2='[{"state":"SUCCESS","count":68},{"state":"IN_PROGRESS","count":2}]'
 C_RUN1='[{"state":"SUCCESS","count":69},{"state":"IN_PROGRESS","count":1}]'
 NEW_BASE=3333333333333333333333333333333333333333
+NEW_HEAD=4444444444444444444444444444444444444444
 # ответ GraphQL демону: <голова> <черновик> <state свода> [<счёт>] [<голова базы>]
 poll() {
     jq -n --arg h "$1" --argjson d "$2" --arg s "$3" --argjson c "${4:-$C_GREEN}" --arg b "${5:-$BASE_SHA}" --argjson n "$PR" \
@@ -133,13 +137,27 @@ poll() {
 }
 SNAP_REL="snap/PRO-Robotech__kacho__3140.json"
 
+# pyd <python3-доводы…> — вызов демона (или его проходов) с пределом PY_LIMIT с: зависание —
+# отказ сцены с причиной, а не вис пробы до внешнего timeout (мутант nonblock-dropped
+# висел на открытии FIFO без читателя). В прогонке мутанта (--scene) исход пишется сразу.
+PY_LIMIT="${CI_STATE_PY_LIMIT:-60}"
+pyd() {
+    # -k: демон ловит SIGTERM, а системный вызов, прерванный сигналом, Python повторяет
+    # (PEP 475) — без KILL вис на открытии FIFO переживал предел (замер: 478 с под timeout 60).
+    timeout -k 5 "$PY_LIMIT" python3 "$@"; local rc=$?
+    [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] || return "$rc"
+    fails="$fails; демон завис дольше $PY_LIMIT с (python3 $*)"
+    echo "  [FAIL] демон завис дольше $PY_LIMIT с — дальше не судится"
+    if [ -n "${SCENE_DIR:-}" ]; then printf '%s' "$fails" > "$SCENE_DIR/fails"; exit 0; fi
+    exit 1
+}
 # scene_fresh <ci-read> <демон> <каталог> — фикстура, демон --once, состояние готово
 fresh() {
     local cr="$1" d="$2" w="$3"
     rm -rf "$w"; mkdir -p "$w/fx"; cp "$FX"/*.json "$w/fx/"
     poll "$HEAD_SHA" false SUCCESS > "$w/poll.json"
     CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" \
-        python3 "$d" --once --repos "$REPO" --poll-file "$w/poll.json" > "$w/d.out" 2>&1
+        pyd "$d" --once --repos "$REPO" --poll-file "$w/poll.json" > "$w/d.out" 2>&1
 }
 # rd <ci-read> <каталог> <доводы…> — чтение со счётом вызовов gh; out, code, calls
 rd() {
@@ -155,10 +173,10 @@ tamper() {  # tamper <каталог> <выражение jq> — правка �
 age() { tamper "$1" ".checked_at = $(( $(date +%s) - $2 ))"; }  # снимок «подтверждён» N с назад
 # once <ci-read> <демон> <каталог> — демон --once на ответе <каталог>/poll.json
 once() { CI_READ_FX="$3/fx" CI_STATE_DIR="$3/state" CI_STATED_CI_READ="$1" \
-    python3 "$2" --once --repos "$REPO" --poll-file "$3/poll.json" > "$3/once.out" 2>&1; }
+    pyd "$2" --once --repos "$REPO" --poll-file "$3/poll.json" > "$3/once.out" 2>&1; }
 # passes <ci-read> <демон> <каталог> <назад, с> <шаг>… — проходы одного процесса, см. passes.py
 passes() { local cr="$1" d="$2" w="$3"; shift 3; rm -rf "$w/state"
-    CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" python3 -B "$T/passes.py" "$d" "$REPO" "$@" > "$w/passes.out" 2>&1; }
+    CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" pyd -B "$T/passes.py" "$d" "$REPO" "$@" > "$w/passes.out" 2>&1; }
 # правка ответов площадки в каталоге фикстуры: первые N проверок по имени идут | первая упала
 running_fx() { jq --argjson n "${2:-1}" '.check_runs |= (sort_by(.name) | (.[0:$n] | map(.status="in_progress" | .conclusion=null | .started_at="2099-01-01T00:00:00Z")) + .[$n:])' \
     "$1/check-runs.json" > "$1/c.n" && mv "$1/c.n" "$1/check-runs.json"; }
@@ -167,9 +185,9 @@ fail_fx() { jq '.check_runs |= (sort_by(.name) | (.[0:1] | map(.status="complete
 base_fx() { jq --arg b "$NEW_BASE" '.commit.sha = $b' "$1/branch.json" > "$1/b.n" && mv "$1/b.n" "$1/branch.json"; }  # голова базы ушла
 rate_fx() { printf '{"resources":{"core":{"limit":5000,"remaining":50,"reset":4102444800},"graphql":{"limit":5000,"remaining":4000,"reset":4102444800}}}\n' > "$1/rate_limit.json"; }
 
-fails=""
+fails=""; why=""
 chk() {  # chk <имя> <условие оболочки>
-    if eval "$2"; then echo "  [OK]   $1"; else echo "  [FAIL] $1 — код ${code:-?}, вызовов gh ${calls:-?}"; fails="$fails; $1"
+    if eval "$2"; then echo "  [OK]   $1"; else echo "  [FAIL] $1 — код ${code:-?}, вызовов gh ${calls:-?}${why:+; $why}"; fails="$fails; $1${why:+ [$why]}"
         [ -z "${out:-}" ] || tail -3 <<<"$out" | sed 's/^/         /'; fi
 }
 
@@ -280,21 +298,31 @@ scenes() {  # scenes <ci-read> <демон> <каталог> → печать; $
     poll "$HEAD_SHA" false FAILURE "$C_FAIL" > "$w/poll.json"; once "$cr" "$d" "$w"
     line="$(timeout 2 head -n1 <&"$fd")"; lrc=$?; exec {fd}>&-
     rd "$cr" "$w" --from-state
+    why="FIFO: код $lrc, строка «$line»"
     chk "упала проверка: строка «$REPO $PR <голова> код 1» в FIFO, из снимка 1, вызовов gh 0" '[ "$lrc" -eq 0 ] && [ "$line" = "$REPO $PR $HEAD_SHA код 1" ] && [ "$code" -eq 1 ] && [ "$calls" -eq 0 ]'
+    fresh "$cr" "$d" "$w"; jq --arg h "$NEW_HEAD" '.head.sha = $h' "$w/fx/pull.json" > "$w/fx/p.n" && mv "$w/fx/p.n" "$w/fx/pull.json"
+    [ -p "$fifo" ] || mkfifo -m 600 "$fifo"; exec {fd}<>"$fifo"
+    poll "$NEW_HEAD" false SUCCESS > "$w/poll.json"; once "$cr" "$d" "$w"
+    line="$(timeout 2 head -n1 <&"$fd")"; lrc=$?; exec {fd}>&-
+    rd "$cr" "$w" --from-state --head "$NEW_HEAD"
+    why="FIFO: код $lrc, строка «$line»"
+    chk "голова сменилась, код тот же 0: строка «$REPO $PR <новая голова> код 0» в FIFO, снимок новой головы, вызовов gh 0" '[ "$lrc" -eq 0 ] && [ "$line" = "$REPO $PR $NEW_HEAD код 0" ] && [ "$code" -eq 0 ] && [ "$calls" -eq 0 ]'
     rm -rf "$w"; mkdir -p "$w/fx"; cp "$FX"/*.json "$w/fx/"; running_fx "$w/fx" 2
     poll "$HEAD_SHA" false PENDING "$C_RUN2" > "$w/poll.json"; once "$cr" "$d" "$w"
     cp "$FX/check-runs.json" "$w/fx/"; running_fx "$w/fx" 1
     [ -p "$fifo" ] || mkfifo -m 600 "$fifo"; exec {fd}<>"$fifo"
     poll "$HEAD_SHA" false PENDING "$C_RUN1" > "$w/poll.json"; GHLOG="$w/dlog" once "$cr" "$d" "$w"
     line="$(timeout 1 head -n1 <&"$fd")"; lrc=$?; exec {fd}>&-
+    why="FIFO: код $lrc, строка «$line»"
     chk "близнец: перечитан при том же коде 3 и ключе — строки в FIFO нет" '[ -s "$w/dlog" ] && [ "$lrc" -eq 124 ] && [ -z "$line" ]'
+    why=""
 
     echo "== (3) страж записи демона"
     local q="$root/q"
     printf 'mutation { addComment(input: {subjectId: "x", body: "y"}) { clientMutationId } }' > "$q.mut"
     printf 'query { viewer { login } }' > "$q.foreign"
     python3 "$d" --print-query open_prs > "$q.lit" 2>/dev/null
-    probe() { CI_STATED_API=http://127.0.0.1:9 python3 "$d" --probe-request "$@" > "$root/probe.out" 2>&1; code=$?; out="$(cat "$root/probe.out")"; calls=-; }
+    probe() { CI_STATED_API=http://127.0.0.1:9 pyd "$d" --probe-request "$@" > "$root/probe.out" 2>&1; code=$?; out="$(cat "$root/probe.out")"; calls=-; }
     probe POST /graphql "$q.mut"
     chk "текст с mutation: отказ, код 3, причина mutation" '[ "$code" -eq 3 ] && grep -q "mutation" <<<"$out"'
     probe POST /graphql "$q.foreign"
@@ -315,14 +343,14 @@ scenes() {  # scenes <ci-read> <демон> <каталог> → печать; $
         want="${s#*:}"; s="${s%:*}"
         rm -rf "$w"; mkdir -p "$w/fx"; cp "$FX"/*.json "$w/fx/"; poll "$HEAD_SHA" false SUCCESS > "$w/poll.json"
         AUTH_SRC="$s" CI_READ_FX="$w/fx" CI_STATE_DIR="$w/state" CI_STATED_CI_READ="$cr" \
-            python3 "$d" --once --repos "$REPO" --poll-file "$w/poll.json" > "$w/d.out" 2>&1; code=$?; out="$(cat "$w/d.out")"; calls=-
+            pyd "$d" --once --repos "$REPO" --poll-file "$w/poll.json" > "$w/d.out" 2>&1; code=$?; out="$(cat "$w/d.out")"; calls=-
         chk "источник токена $s: отказ старта, код $want, снимка нет" '[ "$code" -eq "$want" ] && grep -q "keyring" <<<"$out" && [ ! -e "$w/state/$SNAP_REL" ]'
     done
 }
 
 # Одна прогонка сцен отдельным процессом: <ci-read> <демон> <каталог>; исход — <каталог>/fails
 if [ "${1:-}" = --scene ]; then
-    mkdir -p "$4"; scenes "$2" "$3" "$4" > "$4/out" 2>&1; printf '%s' "$fails" > "$4/fails"; exit 0
+    mkdir -p "$4"; SCENE_DIR="$4" scenes "$2" "$3" "$4" > "$4/out" 2>&1; printf '%s' "$fails" > "$4/fails"; exit 0
 fi
 
 echo "### контроль"
@@ -362,6 +390,8 @@ lastline-dropped	ci-read	s/^    \[\[ "\$last" =~ .* \]\] \\$/    true \\/
 signal-dropped	ci-stated	s/os.write(fd, (line + "\\n").encode())/pass/
 signal-always	ci-stated	s/if not snap or snap.get("code") != code or snap.get("key") != got:/if True:/
 keyring-down-final	ci-stated	/^class KeyringDown/,/code = 6/s/code = 6/code = 4/
+key-change-unsignalled	ci-stated	s/ or snap.get("key") != got:/:/
+nonblock-dropped	ci-stated	s/os.O_WRONLY | os.O_NONBLOCK/os.O_WRONLY/
 MUT
 xargs -0 -n 3 -P "${CI_STATE_INJECT_JOBS:-$(nproc 2>/dev/null || echo 4)}" bash "$HERE/inject.sh" --scene < "$T/list"
 xs=$?
