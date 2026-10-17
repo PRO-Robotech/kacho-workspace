@@ -44,7 +44,18 @@
 #   ns       — пространство имён прогона;               residue — остаток переписи после (0);
 #   planned  — число наборов отчёта (согласованность, не полнота: полноту судит --expect);
 #   suites   — [{name, job, outcome: green|red|not-run, executed, total, quote, root, reason}],
-#              job — задание CI «<файл workflow>:<ключ>», которое набор воспроизводит.
+#              job — задание CI «<файл workflow>:<ключ>», которое набор воспроизводит;
+#   images_rev — ревизия образов стенда (нет — голова);  у набора carried_from — ревизия R,
+#              с которой его зелёный ПЕРЕНЕСЁН (ws#1148);  carry_basis — {R: {changed:
+#              [пути R..head], inputs: вывод `stand-ns inputs -base R` на голове, inputs_rc,
+#              report: отчёт R}} на каждую R переноса и на images_rev ≠ head.
+# ПЕРЕНОС (ws#1148): набор переносится с R, лишь когда входы сборки R..head не менялись
+# (вывод inputs: код 0, «входов сборки 0», строка на КАЖДЫЙ путь разности ПЛОЩАДКИ —
+# `gh api …/compare/R...head`, R — предок головы) и ни один путь разности не в его
+# ОБЛАСТИ: ведомость AREA ниже, закрытая — путь вне неё закрывает перенос всем, набор
+# whole_tree не переносится никогда; источник — зелёный тот же набор отчёта R, внешний.
+# Набор, чей путь изменился, — not-run, пока не прогнан (STAND-REPORT-NOT-RUN). ГРАНИЦА:
+# разбиение путей на входы читается из вывода inputs, не пересчитывается (копии нет).
 #
 # ЧТО СУДИТСЯ — строка REASON<TAB><код><TAB><пояснение> на причину:
 #   STAND-REPORT-MISSING   — файла нет, он не JSON-объект или без полей формы;
@@ -68,7 +79,12 @@
 #   STAND-REPORT-NOTHING-RUN — наборы либо ожидаемое есть, а зелёным исполнено 0;
 #   STAND-REPORT-LOCAL     — контекст не внешний и proof не формы журнала слота;
 #   STAND-REPORT-RESIDUE   — residue ≠ 0;
-#   STAND-REPORT-RED-DROPPED — с --of: красный прежде набор в only-red отсутствует.
+#   STAND-REPORT-RED-DROPPED — с --of: красный прежде набор в only-red отсутствует;
+#   STAND-CARRY-BASIS      — обоснования R нет, R не предок головы, перечень путей или вывод
+#                            inputs не о разности площадки (обрезан на 300 — тоже);
+#   STAND-CARRY-INPUTS     — входы сборки R..head менялись (ВХОД, код inputs ≠ 0);
+#   STAND-CARRY-AREA       — набор читает изменённый путь, путь вне AREA, набор whole_tree;
+#   STAND-CARRY-SOURCE     — в отчёте R набора нет либо он не зелёный тем же числом.
 #
 # ПОСЛАБЛЕНИЯ — закрытая ведомость RELAX ниже: причина not-run → задача, пока открыта.
 # Живость спрашивается у площадки (`gh api repos/<репо>/issues/<N>` → state open);
@@ -79,6 +95,7 @@
 # python3, ожидаемого нет либо оно не разбирается, площадка не ответила о послаблении.
 # Перепись — строками CENSUS всегда.
 # ВХОД ПОДМЕНЯЕМ (scripts/stand-report-inject.sh): STAND_REPORT_GH — вместо `gh`.
+# VOID и при переносе: площадка не ответила о разности, репозиторий не установлен.
 set -uo pipefail
 
 void() { printf 'VOID\t%s\n' "$1"; printf 'VERDICT\tunread\tкод 2\n'; exit 2; }
@@ -92,6 +109,15 @@ export STAND_JSON='{
                                        "console-e2e.yml:probes", "production-posture.yml:stand"]],
   "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand"]],
   "PRO-Robotech/kacho-workspace": ["none", []]
+}'
+# Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись — [пути (** — любые каталоги, * — внутри
+# одного), наборы-читатели (образец имени), почему]. Утверждение записи: из наборов стенда
+# эти пути читают ТОЛЬКО названные. Путь вне записей закрывает перенос всем; репозиторий
+# вне ведомости переноса не имеет; whole_tree — наборы, читающие всё дерево.
+export STAND_AREA_JSON='{
+  "PRO-Robotech/kacho": {"whole_tree": ["unit:*"], "paths": [
+    [["deploy/scripts/assert-ban6-external-isolation.py"], ["newman:ban6-external-isolation", "unit:*"],
+     "проба ban6 — шаг «гейт — ban» e2e-newman.yml:shard; её --self-test гонит ci.yaml:helm, набором стенда не являющийся"]]}
 }'
 if [ "${1:-}" = expect ]; then
     shift; CO=""; HEAD=""; BASE=""; DRAFT=""
@@ -190,7 +216,7 @@ done
 [ -n "$OF" ] || [ -n "$EXP" ] || void "полный прогон судится лишь против --expect (stand-report.sh expect): отчёт свою полноту не объявляет"
 
 REP="$REP" HEAD="$HEAD" OF="$OF" EXP="$EXP" PRBASE="$PRBASE" PRREPO="$PRREPO" GH="${STAND_REPORT_GH:-gh}" python3 - <<'PY'
-import json, os, re, subprocess, sys
+import fnmatch, json, os, re, subprocess, sys
 
 # Ведомость послаблений: причина not-run → задача, которая её снимает. Закрыта — истекло.
 RELAX = {
@@ -225,7 +251,7 @@ def num(x):
     return x if isinstance(x, int) and not isinstance(x, bool) else -1
 
 
-expected = None
+expected, erepo = None, None
 if exp:
     try:
         e = json.load(open(exp, encoding='utf-8'))
@@ -262,6 +288,119 @@ if exp:
     prb = os.environ['PRBASE']
     if prb and e.get('source') == 'affected' and re.sub(r'^(?:refs/remotes/)?origin/', '', str(e.get('base') or '')) != prb:
         reason('STAND-EXPECT-BASE', 'ожидаемое выведено от базы %s, база запроса %s' % (e.get('base'), prb))
+
+SHA = re.compile(r'^[0-9a-f]{40}$')
+
+
+def glob_re(g):  # ** — любые каталоги, * и ? — внутри одного
+    return re.compile('^' + ''.join('.*' if t == '**' else '[^/]*' if t == '*' else '[^/]' if t == '?' else re.escape(t)
+                                    for t in re.findall(r'\*\*|\*|\?|[^*?]+', g)) + '$')
+
+
+def carry(d, suites):
+    carried = [s for s in suites if s.get('carried_from') is not None]
+    img = d.get('images_rev')
+    if img is not None and not (isinstance(img, str) and SHA.match(img)):
+        reason('STAND-CARRY-BASIS', 'images_rev «%s» не sha40' % img)
+        img = None
+    if not carried and img in (None, head):
+        return
+    crepo = os.environ['PRREPO'] or erepo
+    basis = d.get('carry_basis') if isinstance(d.get('carry_basis'), dict) else {}
+    done = {}
+
+    def base(r, who):  # множество изменённых путей r..head, если перенос с r обоснован; иначе None
+        if r in done:
+            return done[r]
+        done[r] = None
+        b = basis.get(r)
+        if not (isinstance(b, dict) and isinstance(b.get('changed'), list) and isinstance(b.get('inputs'), str)):
+            reason('STAND-CARRY-BASIS', '%s: обоснования carry_basis[%s] нет либо оно без changed и inputs' % (who, r[:12]))
+            return None
+        if not crepo:
+            void('перенос с %s: репозиторий не установлен (--pr-repo либо --expect) — разность у площадки не спросить' % r[:12])
+        p = subprocess.run([gh, 'api', 'repos/%s/compare/%s...%s' % (crepo, r, head)], capture_output=True, text=True)
+        if p.returncode != 0:
+            void('площадка не ответила о разности %s...%s: %s' % (r[:12], head[:12], p.stderr.strip()[:200]))
+        try:
+            c = json.loads(p.stdout)
+            st, behind, plat = c['status'], c['behind_by'], {f['filename'] for f in c['files']}
+            gone = {f['previous_filename'] for f in c['files'] if f.get('previous_filename')}
+        except (ValueError, KeyError, TypeError):
+            void('ответ площадки о разности %s...%s не разбирается' % (r[:12], head[:12]))
+        if behind != 0 or st not in ('ahead', 'identical'):
+            reason('STAND-CARRY-BASIS', '%s: %s не предок головы (status %s, behind %s) — разность не одна' % (who, r[:12], st, behind))
+            return None
+        if len(c['files']) >= 300:
+            reason('STAND-CARRY-BASIS', '%s: перечень площадки о %s...head обрезан (%d) — разность не судить' % (who, r[:12], len(c['files'])))
+            return None
+        rec = {str(x) for x in b['changed']}
+        if rec != plat:
+            reason('STAND-CARRY-BASIS', '%s: путей отчёта %d, площадки %d — лишние %s, недостающие %s'
+                   % (who, len(rec), len(plat), sorted(rec - plat)[:5], sorted(plat - rec)[:5]))
+            return None
+        rows = dict((pth, mk) for mk, pth in re.findall(r'^\s*(ВХОД|не вход)\s+(\S+) — ', b['inputs'], re.M))
+        tot = re.search(r'изменённых путей (\d+), из них входов сборки (\d+)', b['inputs'])
+        if b.get('inputs_rc') != 0 or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():
+            reason('STAND-CARRY-INPUTS', '%s: входы сборки %s..head менялись (код inputs %s, %s) — перенос запрещён'
+                   % (who, r[:12], b.get('inputs_rc'), tot.group(0) if tot else 'итога inputs нет'))
+            return None
+        if set(rows) != plat or int(tot.group(1)) != len(plat):
+            reason('STAND-CARRY-BASIS', '%s: вывод inputs не о разности площадки — строк %d, путей площадки %d, без вердикта %s'
+                   % (who, len(rows), len(plat), sorted(plat - set(rows))[:5]))
+            return None
+        done[r] = plat | gone
+        return done[r]
+
+    if img not in (None, head):
+        base(img, 'образы стенда %s' % img[:12])
+    area = json.loads(os.environ['STAND_AREA_JSON']).get(crepo)
+    moved = 0
+    for s in carried:
+        name, r = str(s.get('name') or '?'), s.get('carried_from')
+        if not (isinstance(r, str) and SHA.match(r)) or r == head:
+            reason('STAND-CARRY-BASIS', '%s: carried_from «%s» не sha40 другой ревизии' % (name, r))
+            continue
+        changed = base(r, name)
+        if changed is None:
+            continue
+        if not area:
+            reason('STAND-CARRY-AREA', '%s: у %s ведомости областей нет — по умолчанию закрыто' % (name, crepo))
+            continue
+        if any(fnmatch.fnmatchcase(name, w) for w in area['whole_tree']):
+            reason('STAND-CARRY-AREA', '%s: набор читает всё дерево — не переносится' % name)
+            continue
+        hit, unknown = [], []
+        for pth in sorted(changed):
+            ents = [en for en in area['paths'] if any(glob_re(g).match(pth) for g in en[0])]
+            if not ents:
+                unknown.append(pth)
+            elif any(fnmatch.fnmatchcase(name, w) for en in ents for w in en[1]):
+                hit.append(pth)
+        if hit:
+            reason('STAND-CARRY-AREA', '%s: набор читает изменённое (%s) — гнать заново, не переносить' % (name, ', '.join(hit[:5])))
+        if unknown:
+            reason('STAND-CARRY-AREA', '%s: пути вне ведомости областей (%s) — по умолчанию закрыто' % (name, ', '.join(unknown[:5])))
+        if hit or unknown:
+            continue
+        sp = str(basis[r].get('report') or '')
+        src = load(os.path.join(os.path.dirname(os.path.abspath(rep)), sp)) if sp else None
+        twin = [x for x in (src or {}).get('suites', []) if x.get('name') == s.get('name') and x.get('job') == s.get('job')]
+        ex = num(s.get('executed'))
+        if (src is None or src['head'] != r or len(twin) != 1 or twin[0].get('outcome') != 'green' or s.get('outcome') != 'green'
+                or ex < 1 or ex != num(s.get('total')) or ex != num(twin[0].get('executed')) or ex != num(twin[0].get('total'))
+                or num(src.get('residue')) != 0
+                or not (str(src.get('context') or '').endswith('-client') or re.match(r'local\b.*\bproof=\S', str(src.get('proof') or '')))):
+            reason('STAND-CARRY-SOURCE', '%s: в отчёте «%s» о %s нет того же набора зелёным %s из %s на внешнем стенде с остатком 0'
+                   % (name, sp, r[:12], s.get('executed'), s.get('total')))
+            continue
+        xi = src.get('images_rev') or r
+        if xi != head and base(xi, '%s: образы источника %s' % (name, str(xi)[:12])) is None:
+            continue
+        moved += 1
+    census.append('перенос: наборов %d из %d, перенесено обоснованно %d; образы стенда %s; ГРАНИЦА — разбиение путей на входы '
+                  'прочитано из вывода inputs и сверено с разностью площадки, не пересчитано' % (len(carried), len(suites), moved, (img or head)[:12]))
+
 
 d = load(rep)
 if d is None:
@@ -331,6 +470,7 @@ else:
     if (suites or expected) and green == 0:
         reason('STAND-REPORT-NOTHING-RUN', 'зелёным исполнено 0 наборов из %d' % len(suites))
     census.append('исход: зелёных %d · красных %d · не выполнилось %d' % (green, sum(1 for s in suites if s.get('outcome') == 'red'), notrun))
+    carry(d, suites)
     if of:
         prev = load(of)
         if prev is None:
