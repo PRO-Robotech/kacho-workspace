@@ -71,6 +71,11 @@ T="$(mktemp -d "${TMPDIR:-/tmp}/autoland-inject.XXXXXX")" || exit 2
 PIDS=()
 cleanup() { local p; for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done; rm -rf "$T"; }
 trap cleanup EXIT
+# Подпись песочниц git — только из своего HOME с корневой подписью вызывающего
+# (scripts/lib/sandbox-git-home.sh; tooling-gate check-16).
+# shellcheck source-path=SCRIPTDIR source=../lib/sandbox-git-home.sh
+. "$(cd "$HERE/.." && pwd)/lib/sandbox-git-home.sh"
+sandbox_git_home "$T/sghome" || { echo "VOID: подписи песочницы нет" >&2; exit 2; }
 
 REPO=PRO-Robotech/kacho-workspace; PR=4242
 SUBJ="#4000 merge #4242: проба демона"
@@ -343,7 +348,7 @@ mk_ws_sandbox() {  # <каталог> <с метками рецепта: 1|0> �
     { echo '#!/usr/bin/env bash'
       if [ "$2" = 1 ]; then sed -n '/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/p' "$LP_REAL"; fi
       sed 1d "$T/gates/gate"; } > "$d/ws/scripts/landing-precheck.sh"
-    git -C "$d/ws" add -A && git -C "$d/ws" -c user.name=p -c user.email=p@p commit -qm base && git -C "$d/ws" push -q origin main
+    git -C "$d/ws" add -A && sandbox_run git -C "$d/ws" commit -qm base && git -C "$d/ws" push -q origin main
 }
 s_recipe() {
     new_fx recipe; mk_ws_sandbox "$FX/sb" 1
@@ -359,16 +364,15 @@ mk_git() {  # песочница: origin, клон с веткой задачи,
     git init -q --bare -b main "$G/origin.git"
     git clone -q "$G/origin.git" "$G/clone" 2>/dev/null
     git -C "$G/clone" symbolic-ref HEAD refs/heads/main
-    git -C "$G/clone" config user.name p; git -C "$G/clone" config user.email p@p
-    echo base > "$G/clone/f"; git -C "$G/clone" add f; git -C "$G/clone" commit -qm base; git -C "$G/clone" push -q origin main
+    echo base > "$G/clone/f"; git -C "$G/clone" add f; sandbox_run git -C "$G/clone" commit -qm base; git -C "$G/clone" push -q origin main
     git -C "$G/clone" checkout -qb 4000-probe; echo task > "$G/clone/g"; git -C "$G/clone" add g
-    git -C "$G/clone" commit -qm '#4000 предмет'; git -C "$G/clone" push -q origin 4000-probe
+    sandbox_run git -C "$G/clone" commit -qm '#4000 предмет'; git -C "$G/clone" push -q origin 4000-probe
     HEAD_P="$(git -C "$G/clone" rev-parse HEAD)"; git -C "$G/clone" checkout -q main
     git -C "$G/clone" worktree add -q "$G/wt" 4000-probe
     git clone -q "$G/origin.git" "$G/merger" 2>/dev/null
-    { printf 'set -e; m=%q\n' "$G/merger"
+    { printf 'set -e; m=%q; export HOME=%q XDG_CONFIG_HOME=%q\n' "$G/merger" "$SANDBOX_GIT_HOME" "$SANDBOX_GIT_HOME/.config"
       echo 'git -C "$m" fetch -q origin; git -C "$m" checkout -q main; git -C "$m" reset -q --hard origin/main'
-      echo 'git -C "$m" -c user.name=p -c user.email=p@p merge -q --no-ff origin/4000-probe -m "#4000 merge #4242: проба"'
+      echo 'git -C "$m" merge -q --no-ff origin/4000-probe -m "#4000 merge #4242: проба"'
       echo 'git -C "$m" push -q origin main'
       [ "${1:-}" = keep-remote ] || echo 'git -C "$m" push -q origin --delete 4000-probe'; } > "$FX/merged.hook"
     pull "$HEAD_P" open false; RUN_HEAD="$HEAD_P"; CLONES="$G/clone"
@@ -390,7 +394,7 @@ s_prune_dirty() {
 }
 s_prune_ahead() {
     new_fx prune-ahead; mk_git
-    echo more > "$G/wt/h"; git -C "$G/wt" add h; git -C "$G/wt" -c user.name=p -c user.email=p@p commit -qm '#4000 ещё'
+    echo more > "$G/wt/h"; git -C "$G/wt" add h; sandbox_run git -C "$G/wt" commit -qm '#4000 ещё'
     run_al
     ok prune-ahead "merged, местная голова впереди — оставлено" eval 'st_is merged && st_has "не равна и не предок"'
     ok prune-ahead "ветка и копия на месте" eval 'has_branch && [ -d "$G/wt" ]'
