@@ -81,7 +81,15 @@ jobs:
     # ≤ 70 %: 477 с без шага ghjob и сам шаг с P8 и P9 — оценка 50 с (P9 локально
     # +30 с: 3,4 → 33 с, ws#1110) → 13 мин (68 %);
     # прежние 10 мин держали до 80 % (до ws#1019 задание шло 35–38 с).
-    timeout-minutes: 13
+    # Пересмотр (#1145, run 39058315176): сборка нового флоу добавила шаги
+    # `autoland/inject.sh` — 127 с и `ci-state/install-inject.sh` — 116 с на ранере;
+    # шаги 21 и 25 шли 186 и 217 с против 94 и 105 на `main`; оценка задания —
+    # около 900 с против 453–466 с на `main`, и 13 мин снимали задание по таймауту
+    # («The job has exceeded the maximum execution time of 13m0s») на трёх головах
+    # PR ws#1150 подряд. Предел — оценка ≤ 70 %: 900 / 0,7 = 1286 с → 22 мин
+    # (1320 с; оценка — 68 %). Предикат замера — тот же: started_at и completed_at
+    # шагов и задания в `gh api repos/PRO-Robotech/kacho-workspace/actions/runs/39058315176/jobs`.
+    timeout-minutes: 22
     steps:
       - uses: actions/checkout@v7
         with:
