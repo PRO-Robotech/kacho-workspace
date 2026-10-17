@@ -185,9 +185,9 @@ MUTANTS = [
      r'''git config --global user.name "$HEAVY_GIT_NAME" && git config --global user.email "$HEAVY_GIT_EMAIL"''',
      r'''true'''),
     # ws#1136: журналы красных групп ci-local — дайджест и копия потоком лога.
-    ("red-skip-is-red", "RG1", "группа с ПРОПУСК считается красной и копируется",
-     r'''"   ОТКАЗ (код "*) red=1 ;;''',
-     r'''"   ОТКАЗ (код "*|"   ПРОПУСК"*) red=1 ;;'''),
+    ("red-skip-is-red", "RG1", "копируется журнал всякой группы с «целиком:», и ПРОПУСК тоже",
+     r'''"   | целиком: "*) [ "$red" = 1 ] && reds+=''',
+     r'''"   | целиком: "*) reds+='''),
     ("red-digest-gone", "RG1", "дайджест строк отказа не печатается",
      r"""head -n "$lim" /work/heavy-red.dig | sed 's/^/   ! /'""",
      r''':'''),

@@ -141,7 +141,8 @@
 #      машине, строк потока копий там нет, итог называет каталог и файлы
 #   RG3 поток повторён (стык переподключения) → копии целы
 #   RG4 строка копии выпала → копия не сохранена, причина названа, вторая цела,
-#      дайджест на месте; RG4b строка подменена при том же числе → сумма ловит
+#      дайджест на месте; RG4b содержимое подменено при тех же числе строк и байтах
+#      → ловит сумма
 #   RG5 итога в потоке нет → разбор полного лога контейнера, вывод не повторён
 #   RG7 признак OOM шага ИСПОЛНЕНИЕМ: oom_kill вырос → «remote-heavy-oom:» в
 #      termination-log, код команды сохранён; близнец RG7b — без роста признака нет
@@ -1721,7 +1722,17 @@ expect_rc RG4 1
 if [ ! -e "$BOX/rg4.out.red-t1-heavy-rg4/log-26-go-test-short.txt" ] && [ -f "$BOX/rg4.out.red-t1-heavy-rg4/log-27-golangci-lint.txt" ] \
    && grep -q '«go test -short» — копия НЕ цела: строк копии' "$OUT" && grep -q 'скопировано 1 из 2.*не скопировано 1' "$OUT" && digest_names "$OUT"; then ok
 else bad RG4 "неполная копия сохранена либо причина не названа"; fi
-awk '/^remote-heavy-redlog: data 1 1 / { $5 = "H4sIAAAAAAAAA0tMSgYA" } { print }' "$BOX/rg1.stream.keep" > "$BOX/rg4b.stream"
+# Подмена — другое содержимое той же длины, сжатое и с верным числом строк: число
+# строк и байты сходятся, держит только сумма.
+sed '1s/TestRedProbeFails/TestRedProbeFailz/' "$BOX/rg1.gotest.keep" > "$BOX/rg4b.alt"
+if [ "$(wc -c < "$BOX/rg4b.alt")" != "$(wc -c < "$BOX/rg1.gotest.keep")" ] || cmp -s "$BOX/rg4b.alt" "$BOX/rg1.gotest.keep"; then
+    OUT=""; bad RG4b "подмена не той же длины либо не изменила содержимое — случай пуст"
+fi
+{ grep -v -e '^remote-heavy-redlog: data 1 ' -e '^remote-heavy-redlog: end 1 ' -e '^remote-heavy-redlog: total ' "$BOX/rg1.stream.keep"
+  i=0
+  while IFS= read -r c; do i=$((i + 1)); echo "remote-heavy-redlog: data 1 $i $c"; done < <(gzip -c < "$BOX/rg4b.alt" | base64 -w 76)
+  echo "remote-heavy-redlog: end 1 $i"
+  grep '^remote-heavy-redlog: total ' "$BOX/rg1.stream.keep"; } > "$BOX/rg4b.stream"
 fresh
 go_run rg4b env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg4b.stream" "${B[@]}" --short rg4b -- true
 if [ ! -e "$BOX/rg4b.out.red-t1-heavy-rg4b/log-26-go-test-short.txt" ] && grep -q '«go test -short» — копия НЕ цела: байты или сумма' "$OUT"; then ok
