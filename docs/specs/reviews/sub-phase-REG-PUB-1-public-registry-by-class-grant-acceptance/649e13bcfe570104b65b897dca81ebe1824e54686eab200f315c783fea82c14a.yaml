@@ -1,0 +1,67 @@
+schema_version: 1
+kind: acceptance_review
+review_type: execution_check
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 649e13bcfe570104b65b897dca81ebe1824e54686eab200f315c783fea82c14a
+  revision: '5 + правка строки 246'
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер.
+  base_commit: 2fa612403acc5c9f38aed1e6a509f0db338fd852
+  content_commit: none
+  worktree: kacho-workspace/tmp/3274-reg-pub-acceptance, ветка 3274-reg-pub-acceptance, правка не закоммичена
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-17T13:10:00Z'
+basis:
+  approved_record: docs/specs/reviews/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance/6c7f6f9a40faba5c9822cc94dbf861b4a34d64bae8f36909c196db5f79279f4c.yaml
+  approved_sha256: 6c7f6f9a40faba5c9822cc94dbf861b4a34d64bae8f36909c196db5f79279f4c
+  approved_content_commit: 2fa612403acc5c9f38aed1e6a509f0db338fd852
+  predicate: 'git show 2fa612403:<путь> | sha256sum → 6c7f6f9a40faba5c9822cc94dbf861b4a34d64bae8f36909c196db5f79279f4c'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: approval
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Событие одобрения публикует курьер (git-operator) после коммита. Тем же заходом он
+    приводит этот блок к факту.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записи b15e1967….yaml (круг 1) и 6c7f6f9a….yaml (круг 2) не правлены и остаются
+      вердиктами о своих отпечатках. Эта запись — соседняя.
+
+execution_check:
+  question: исполнена ли ровно заявленная правка и только она
+  delta:
+    command: 'diff <(git show 2fa612403:<путь>) <путь>'
+    hunks: 1
+    lines_changed: 1
+    location: строка 246, посев П2
+    before: 'своё пространство имён `make stand-ns-up`'
+    after: 'своё пространство имён `make -C deploy stand-ns-up`'
+  substance: >-
+    Сценарии, решения, DoD и производители не тронуты. Правка уточняет каталог вызова
+    существующей цели: цель stand-ns-up объявлена в deploy/Makefile kacho
+    (git -C project/kacho show e9ce4ffbd:deploy/Makefile, строка 1197). На предмет вердикта
+    круга 2 правка не влияет.
+  answer: ДА
