@@ -28,7 +28,9 @@ ROOT = gate_root("RITUALS_GATE_ROOT", __file__)
 RIT = os.path.join(ROOT, "scripts", "rituals")
 WS = os.environ.get("RITUALS_WS") or ROOT
 FAKE = os.path.join(HERE, "fake_gh.py")
-SUBJECT = ("rituals.py", "pr-body.sh", "close-wave.sh", "approval-event.sh", "vault-trails.sh")
+# Вход ритуала: `<ритуал>.sh` этого каталога; тело PR — `scripts/pr-body.sh` (ws#1146).
+ENTRY = {"pr-body": os.path.join(ROOT, "scripts", "pr-body.sh")}
+SUBJECT = ("rituals.py", "close-wave.sh", "approval-event.sh", "vault-trails.sh")
 SIGNATURE_VARS = ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
                   "GIT_CONFIG_GLOBAL", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
                   "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
@@ -47,6 +49,7 @@ class Probe:
 
     def _sandbox_env(self):
         missing = [f for f in SUBJECT if not os.path.isfile(os.path.join(RIT, f))]
+        missing += [f for f in ENTRY.values() if not os.path.isfile(f)]
         if missing:
             raise Void("в дереве %s нет ритуалов (%s) — судить нечего" % (ROOT, ", ".join(missing)))
         lib = os.path.join(os.path.dirname(HERE), "lib", "sandbox-git-home.sh")
@@ -113,7 +116,7 @@ class Probe:
     def run(self, ritual, args, state_path, cwd=None, extra=None):
         env = dict(self.env, RITUAL_GH=FAKE, RITUAL_FAKE_STATE=state_path)
         env.update(extra or {})
-        p = subprocess.run(["bash", os.path.join(RIT, ritual + ".sh"), *args], capture_output=True,
+        p = subprocess.run(["bash", ENTRY.get(ritual) or os.path.join(RIT, ritual + ".sh"), *args], capture_output=True,
                            text=True, env=env, cwd=cwd or self.tmp)
         st = json.load(open(state_path, encoding="utf-8"))
         return p.returncode, p.stdout, p.stderr, st
