@@ -24,8 +24,8 @@
 #
 # ЗАПУСК — КАТАЛОГ scripts/ ЦЕЛИКОМ ИЗ origin/main ВОРКСПЕЙСА, НЕ ОДИН ФАЙЛ.
 # Скрипт подключает соседей по пути от себя: `hooks/attribution-rule.sh`
-# (пункт (е)) и — через merge-readiness — `lib/dod_proof.jq`. Скопированный
-# одним файлом, он их теряет и выходит VOID («предиката атрибуции нет»);
+# (пункт (е)) и `lib/dod_proof.jq` (пункт (ж), и он же — у merge-readiness).
+# Скопированный одним файлом, он их теряет и выходит VOID («предиката атрибуции нет»);
 # запущенный из рабочей копии воркспейса — судит той редакцией, что в ней
 # выписана, а не принятой. Рецепт — между строками-метками ниже, и это ЕГО
 # ЕДИНСТВЕННЫЙ ЭКЗЕМПЛЯР: шаблон волны `.claude/workflows/wave.js` текста не
@@ -343,7 +343,7 @@ rm -f "$W/required"
 MERGE_READINESS_REQUIRED_OUT="$W/required" bash "$MR" "$REPO" "$PR" > "$W/mr.out" 2>&1
 MR_CODE=$?
 
-export STAND_REPORT STAND_EXPECT STAND_TOOL="$HERE/stand-report.sh"
+export STAND_REPORT STAND_EXPECT STAND_TOOL="$HERE/stand-report.sh" DOD_LIB="$HERE/lib"
 export W REPO PR HEAD_SHA REVIEWS MR_CODE MR_SRC TOTAL_RUNS="$total" GH N_ATTR_SEEN="$n_attr_seen" COMMITS_SRC
 python3 - <<'PY'
 import json, os, re, sys
@@ -794,7 +794,18 @@ census.append(f"атрибуция: сообщений {os.environ['N_ATTR_SEEN'
 # (ж) Closes только с доказательством DoD на коммите диапазона
 import subprocess
 CLOSE = re.compile(r"(?i)(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+((?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+)\b")
-PROOF = re.compile(r"(?:^|\n)DoD-proof @([0-9a-f]{7,40})")
+# Распознаватель доказательства — общий `lib/dod_proof.jq` рядом со скриптом (ws#1140):
+# своя копия выражения здесь отказывала `## DoD-proof @<sha>`, который судит иначе
+# merge-readiness, и Closes менялся на Refs вручную.
+DOD_LIB = os.environ["DOD_LIB"]
+def proof_revs(r, n, items):
+    if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
+        void(f"распознавателя доказательства DoD нет: {DOD_LIB}/dod_proof.jq — скрипт запущен не из каталога scripts/ целиком (рецепт — шапка, «ЗАПУСК»)")
+    q = subprocess.run(["jq", "-L", DOD_LIB, "-r", 'include "dod_proof"; .[] | (.body // "") | dod_proof_revisions[]'],
+                       input=json.dumps([it or {} for it in items]), capture_output=True, text=True)
+    if q.returncode != 0:
+        void(f"комментарии {r}#{n}: распознаватель доказательства DoD вышел кодом {q.returncode}: {q.stderr.strip()[:200]}")
+    return q.stdout.split()
 range_shas = [c.get("sha", "") for c in commits if c.get("sha")]
 closes = []
 for ref in CLOSE.findall(body):
@@ -816,8 +827,7 @@ for r, n in closes:
             void(f"комментарии {r}#{n} не разбираются")
         if not isinstance(items, list):
             void(f"комментарии {r}#{n} — не массив")
-        for it in items:
-            shas += PROOF.findall((it or {}).get("body") or "")
+        shas += proof_revs(r, n, items)
         if len(items) < 100:
             break
         page += 1

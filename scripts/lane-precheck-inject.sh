@@ -54,7 +54,7 @@ git -C "$L" push -q origin 1-lane 2> /dev/null
 
 cat > "$W/gh" <<'GH'
 #!/usr/bin/env bash
-# api --paginate repos/<o>/<r>/issues/<n>/comments --jq <выражение>
+# api [--paginate] repos/<путь> [--jq <выражение>] — без --jq отдаёт ответ как есть
 [ "$1" = api ] || exit 1
 path="" expr=""
 while [ $# -gt 0 ]; do
@@ -62,12 +62,14 @@ while [ $# -gt 0 ]; do
 done
 f="$GH_FIXTURES/$(printf '%s' "$path" | tr '/' '_').json"
 [ -f "$f" ] || { echo "HTTP 404" >&2; exit 1; }
-jq -r "$expr" "$f"
+if [ -n "$expr" ]; then jq -r "$expr" "$f"; else cat "$f"; fi
 GH
 chmod +x "$W/gh"
 export LANE_PRECHECK_GH="$W/gh" LANE_PRECHECK_WS="$W/ws" GH_FIXTURES="$W/c"
 cfile() { echo "$W/c/repos_o_r_issues_$1_comments.json"; }
 comments() { local n="$1"; shift; printf '%s\n' "$@" | jq -R . | jq -s '[.[] | {body: .}]' > "$(cfile "$n")"; }
+# comment1 <n> <тело> — ОДИН многострочный комментарий (`comments` режет вход по строкам).
+comment1() { printf '%s' "$2" | jq -Rs '[{body: .}]' > "$(cfile "$1")"; }
 comments 7 "DoD-proof @${HEAD_SHA:0:12}
 команда: bash scripts/x/run-all.sh; код 0"
 
@@ -135,7 +137,7 @@ WS2="$W/ws2"
 git init -q -b main "$WS2" && mkdir -p "$WS2/tmp"
 C="$WS2/tmp/tools-clone"
 git init -q -b main "$C" && mkdir -p "$C/scripts/lib"
-cp "$P" "$C/scripts/" && cp "$HERE/lib/ws-home.sh" "$C/scripts/lib/"
+cp "$P" "$C/scripts/" && cp "$HERE/lib/ws-home.sh" "$HERE/lib/dod_proof.jq" "$C/scripts/lib/"
 git clone -q "$W/srv/kacho-workspace.git" "$WS2/tmp/lane" 2> /dev/null && git -C "$WS2/tmp/lane" checkout -q 1-lane 2> /dev/null
 git -C "$WS2/tmp/lane" remote set-url origin "$(git -C "$L" remote get-url origin)"
 git -C "$WS2/tmp/lane" fetch -q origin 2> /dev/null; git -C "$WS2/tmp/lane" checkout -q -B 1-lane origin/1-lane
@@ -156,6 +158,18 @@ comments 10 "текст" "DoD-proof @${MID:0:9}"
 assert "0" "$(run "$L" 1-lane main --issue o/r#10 --hook-log "$W/push.log")" "близнец: доказательство на коммите из база..голова, вторым комментарием → 0"
 comments 11 "см. DoD-proof @${HEAD_SHA:0:12} в соседней задаче"
 assert "1" "$(run "$L" 1-lane main --issue o/r#11 --hook-log "$W/push.log")" "DoD-proof не в начале строки — не доказательство"
+# Распознаватель — общий `lib/dod_proof.jq` (ws#1140): заголовок markdown перед
+# маркером — начало строки; цитата и блок кода — нет.
+comment1 12 "## DoD-proof @${HEAD_SHA:0:12} — ответ на возврат
+команда: bash scripts/x/run-all.sh; код 0"
+assert "0" "$(run "$L" 1-lane main --issue o/r#12 --hook-log "$W/push.log")" "близнец: DoD-proof под заголовком markdown → 0"
+comment1 13 "> DoD-proof @${HEAD_SHA:0:12}"
+assert "1 да" "$(run "$L" 1-lane main --issue o/r#13 --hook-log "$W/push.log") $(has 'REASON DOD-PROOF-MISSING o/r#13: комментария')" "DoD-proof в цитате — не доказательство"
+comment1 14 "журнал:
+\`\`\`
+DoD-proof @${HEAD_SHA:0:12}
+\`\`\`"
+assert "1 да" "$(run "$L" 1-lane main --issue o/r#14 --hook-log "$W/push.log") $(has 'REASON DOD-PROOF-MISSING o/r#14: комментария')" "DoD-proof внутри блока кода — не доказательство"
 assert "2 да" "$(run "$L" 1-lane main --issue o/r#99 --hook-log "$W/push.log") $(has 'VOID GH-UNREADABLE')" "трекер не ответил → код 2, не зелёное и не красное"
 assert "2" "$(run "$L" 1-lane main --issue o-r-7 --hook-log "$W/push.log")" "задача не в форме владелец/репо#N → код 2"
 
@@ -286,6 +300,10 @@ assert "1 да" "$(runp) $(has 'ветки на origin нет')" "ветки н�
 prem 'proof o/r#8'
 comments 8 "без доказательства"
 assert "1 да" "$(runp) $(has 'комментария «DoD-proof @<sha>» нет')" "DoD-proof нет → PREMISE-FALSE"
+prem 'proof o/r#12'
+assert "0" "$(runp)" "близнец: DoD-proof под заголовком markdown — предусловие верно"
+prem 'proof o/r#13'
+assert "1 да" "$(runp) $(has 'PREMISE-FALSE proof o/r#13: комментария')" "DoD-proof в цитате → PREMISE-FALSE"
 prem "verdict $W/rev-ret.yaml accept"
 assert "1 да" "$(runp) $(has 'вердикт return')" "роль вернула, задание считает принятым → PREMISE-FALSE"
 prem "verdict $W/rev-ret.yaml return"

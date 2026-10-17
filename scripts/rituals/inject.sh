@@ -189,8 +189,8 @@ inject "M17 approval-event: правка не проверена до публи
     '        raise Refused("%s — событие не публикуется" % e)' \
     '        pass'
 inject "M18 dod_proof.jq: маркер посреди прозы засчитан" check-01-pr-body.py \
-    '(^|\n)DoD-proof' \
-    'DoD-proof' \
+    'capture("^(' \
+    'capture("(' \
     ../lib/dod_proof.jq
 inject "M19 approval-event: нет verdict/reviewer_role — не судится" check-03-approval-event.py \
     '    if not verdict or not role or want is None:' \
