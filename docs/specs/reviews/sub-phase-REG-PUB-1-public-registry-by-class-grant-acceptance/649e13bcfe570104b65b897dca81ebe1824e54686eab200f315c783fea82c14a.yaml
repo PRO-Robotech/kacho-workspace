@@ -31,13 +31,23 @@ authority:
   policy_document: docs/changes/policy.yaml
   policy_field: review_authority.acceptance-reviewer
 event:
-  type: approval
-  status: not_performed
-  published: false
-  publication_expected_from_orchestrator: true
-  rationale: >-
-    Событие одобрения публикует курьер (git-operator) после коммита. Тем же заходом он
-    приводит этот блок к факту.
+  type: issue_comment
+  target: PRO-Robotech/kacho#3274
+  status: performed
+  published: true
+  database_id: 6233686527
+  node_id: "IC_kwDOTZqgWM8AAAABc46B_w"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3274#issuecomment-6233686527"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6233686527"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-17T12:06:15Z"
+  body_sha256: "d4567926501979cc8be84ffb7db7b9889294e087e9e0c25fdc7abc9cf8a4029d"
+  subject_sha256: "649e13bcfe570104b65b897dca81ebe1824e54686eab200f315c783fea82c14a"
+  subject_revision_commit: "62d6ac0a2d49a6ef9db4434bcae39fb6a0710366"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
