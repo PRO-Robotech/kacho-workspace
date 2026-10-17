@@ -2257,7 +2257,7 @@ if mr_patch "$b/$BASE_REL" 's/(следи что бы волны планиро�
 fi
 
 b="$(mksandbox)"
-if mr_patch "$b/$BASE_REL" 's/^(Ширина и окно — .*?)(следи что бы волны планировались) (согласно расходу)/> $1$2\n> $3/m' \
+if mr_patch "$b/$BASE_REL" 's/^(Ширина и окно .*?)(следи что бы волны планировались) (согласно расходу)/> $1$2\n> $3/m' \
     "абзац с цитатой требования 5 стал цитатой разметки, перенос внутри неё"; then
     run 0 "$b" "близнец: цитата перенесена внутри цитаты разметки «>» — молчит" "$C11"
 fi
@@ -2972,9 +2972,11 @@ run 2 "$b" "предпосылка: settings.json не разобран — VOID
 echo "== check-21: работа над ошибками по каждой полосе провязана (ws#1036) =="
 C21=check-21-lane-retro-norm-is-wired.sh
 # c21_sub <файл песочницы> <было> <стало> — правка ровно одного вхождения; иначе проба
-# не про свой предмет (`testing.md#injection-drops-only-its-subject`).
+# не про свой предмет (`testing.md#injection-drops-only-its-subject`). Образец разошёлся —
+# предпосылка сорвана (VOID у следующей пробы), как у `mr_patch`: близнец на непроправленной
+# песочнице молчал бы пустым зелёным.
 c21_sub() {
-    python3 - "$1" "$2" "$3" <<'PY'
+    python3 - "$1" "$2" "$3" <<'PY' || premise_broken "c21_sub: образец не найден ровно один раз в ${1#"$TMP"/}: ${2:0:60}"
 import sys; p, a, b = sys.argv[1:4]; s = open(p, encoding='utf-8').read()
 assert s.count(a) == 1, 'образец пробы не найден ровно один раз: ' + a[:60]
 open(p, 'w', encoding='utf-8').write(s.replace(a, b, 1))
@@ -3130,7 +3132,7 @@ b="$(mksandbox)"
 c21_sub "$b/.claude/agents/dispatcher.md" "прошедшая полоса — сразу в пробную сборку, CI — только на сведённом" "полоса вливается в ветку эпика поштучно"
 run_says 1 "$b" "инъекция п.4: сборка вывернута в поштучное вливание — краснеет" "$C22" "§8а п.9"
 b="$(mksandbox)"
-c21_sub "$b/.claude/agents/dispatcher.md" "механика — скриптами (\`ci-read.sh\`, один перезапуск отказа среды, \`merge-readiness.sh\`)" "механика — агентом циклом опроса"
+c21_sub "$b/.claude/agents/dispatcher.md" "механика — скриптами (\`autoland.sh\`, \`pr-body.sh\`, один перезапуск отказа среды)" "механика — агентом циклом опроса"
 run_says 1 "$b" "инъекция п.6: механика циклом агента — краснеет" "$C22" "§8а п.9"
 b="$(mksandbox)"
 c21_sub "$b/.claude/agents/dispatcher.md" "каскад щадит держателя ведомости (до ws#1052 — сверка вручную)" "каскад закрывает всё"
@@ -3396,13 +3398,13 @@ run_says 1 "$b" "инъекция М1: перепись без branch-audit — 
 b="$(mksandbox)"
 python3 - "$b/.claude/workflows/wave.js" <<'PY2'
 import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
-# Перепись уехала ПОСЛЕ первого landing-precheck: дословность та же, позиция — нет.
+# Перепись уехала ПОСЛЕ старта демона вливания: дословность та же, позиция — нет.
 i = s.index('const gates = await agent('); j = s.index('\n', i) + 1
 line = s[i:j]; s = s[:i] + s[j:]
-k = s.index('let lp = await landCheck(1)\n') + len('let lp = await landCheck(1)\n'); s = s[:k] + line + s[k:]
+k = s.index('const alStart = await agent('); k = s.index('\n', k) + 1; s = s[:k] + line + s[k:]
 open(p, 'w', encoding='utf-8').write(s)
 PY2
-run_says 1 "$b" "инъекция М1: перепись после первого landing-precheck (позиция) — краснеет" "$C24" "не стоит в теле ДО первого landing-precheck"
+run_says 1 "$b" "инъекция М1: перепись после старта демона вливания (позиция) — краснеет" "$C24" "не стоит в теле ДО старта демона вливания"
 b="$(mksandbox)"
 c21_sub "$b/scripts/wave-template-inject.sh" 'mutant "ответ без ВОЗВРАТ принят (ws#1071)"' 'twin "ответ без ВОЗВРАТ принят (ws#1071)"'
 run_says 1 "$b" "инъекция: мутант снят из пробы шаблона — краснеет" "$C24" "поведение доказывается исполнением шаблона"

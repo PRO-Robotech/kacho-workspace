@@ -1,20 +1,35 @@
 # Copyright (c) PRO-Robotech
 # SPDX-License-Identifier: BUSL-1.1
 #
-# ci-stated.service — пользовательская служба демона состояния PR (ws#1113).
+# ci-stated.service — пользовательская служба демона состояния PR (ws#1113, ws#1151).
 #
-# УСТАНОВКА (один раз на машину, от своего пользователя):
-#   mkdir -p ~/.config/kacho && printf 'KACHO_WS=%s\n' "$WS" > ~/.config/kacho/ci-stated.env
-#   systemctl --user link "$WS/scripts/ci-state/ci-stated.service"
-#   systemctl --user enable --now ci-stated.service
-# Проверка: `systemctl --user status ci-stated` и `ls -l ~/.cache/kacho-ci-state/snap`;
-# чтение — `scripts/ci-read.sh <репозиторий> <PR> --from-state`.
+# УСТАНОВКА и обновление — одной командой, от своего пользователя:
+#   bash "$WS/scripts/ci-state/install.sh"            # --check — сверка без правок
+# Скрипт кладёт КОПИЮ этого файла в ~/.config/systemd/user (не ссылку: ссылка на файл
+# копии под tmp/ умирает вместе с копией), пишет ~/.config/kacho/ci-stated.env
+# (KACHO_WS — основной клон воркспейса, код демона исполняется оттуда), включает
+# службу и ждёт первого прохода: свежий снимок по каждому репозиторию из --repos.
+# Правка этого файла доходит до машины повторным install.sh; расхождение копии с
+# деревом называет install.sh --check.
 #
-# Токен — только из keyring (gh auth status → tokenSource keyring), иначе служба не
-# стартует (код 4) и перезапуском этого не обойти: RestartPreventExitStatus.
-# Демон пишет лишь в ~/.cache/kacho-ci-state; остальной дом — только чтение.
+# --repos — тот же перечень, что DEFAULT_REPOS в ci-stated.py; разошлись — install.sh
+# отказывает кодом 2.
+#
+# Токен — только из keyring. Токен не из keyring — код 4, повтор запрещён
+# (RestartPreventExitStatus). keyring не ответил — код 6, служба повторяет старт раз
+# в 30 с: при Linger=yes менеджер пользователя стартует её при загрузке раньше, чем
+# вход открывает keyring.
+#
+# Песочница ФС (PrivateTmp, ProtectSystem, ProtectHome, ReadWritePaths) действует лишь
+# там, где менеджер пользователя может завести пространство имён монтирования. При
+# kernel.apparmor_restrict_unprivileged_userns=1 он его НЕ заводит и молча пропускает
+# эти строки (замер 2026-10-17, systemd 259: mnt-пространство службы равно хостовому,
+# запись в $HOME прошла). Тогда запись демона держат только его страж сети
+# (guard(): GET и литерал /graphql) и права 0700/0600 каталога состояния; что из
+# этого действует на машине, печатает install.sh («песочница ФС: …»).
+# NoNewPrivileges, UMask и пределы cgroup (память, CPU, задачи) действуют и там.
 [Unit]
-Description=kacho ci-state: снимок состояния открытых PR kacho и kaname (ws#1113)
+Description=kacho ci-state: снимок состояния открытых PR kacho, kaname и воркспейса (ws#1113)
 
 [Service]
 Type=simple
@@ -23,7 +38,7 @@ Environment=GH_NO_UPDATE_NOTIFIER=1
 Environment=GH_PROMPT_DISABLED=1
 UnsetEnvironment=GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN
 ExecStartPre=/usr/bin/mkdir -p %h/.cache/kacho-ci-state
-ExecStart=/usr/bin/python3 ${KACHO_WS}/scripts/ci-state/ci-stated.py --interval 60
+ExecStart=/usr/bin/python3 ${KACHO_WS}/scripts/ci-state/ci-stated.py --repos PRO-Robotech/kacho,PRO-Robotech/kaname,PRO-Robotech/kacho-workspace --interval 60
 Restart=on-failure
 RestartSec=30
 RestartPreventExitStatus=2 4

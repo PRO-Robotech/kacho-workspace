@@ -52,6 +52,11 @@
 #                Ни своей сессии, ни своего claude — строка «STALL-PROC: сессия
 #                не определена»; оболочка старше порога, чью принадлежность не
 #                решить, не судится и даёт код 2 (не «чисто»), если застоя нет.
+#                Возраст, которого не может быть, не судится и не печатается —
+#                только счётом в CENSUS, поимённо при --verbose (ws#1149: ps
+#                procps-ng 4.0.4 отдаёт рождённому во время снимка etimes=
+#                4123168608): нечисловой, больше возраста родителя-claude либо
+#                больше аптайма (`<proc>/uptime`, живой снимок или STALL_PROC_ROOT).
 #   UNREACTED-WF workflow завершён дольше STALL_REACT_MIN (10) мин назад, а у
 #                главного потока после этого нет ни одной записи assistant.
 #
@@ -81,8 +86,9 @@
 #   --self <pid>          процесс, от которого ищется предок-claude в снимке;
 #                         без довода — родитель разбора (сам прибор), и только
 #                         на живом снимке: в подложенном `--ps` его pid чужой.
-#   STALL_PROC_ROOT       каталог вида /proc для окружения оболочек (инъекция);
-#                         без него — /proc лишь на живом снимке.
+#   --verbose             поимённо — оболочки с неправдоподобным возрастом.
+#   STALL_PROC_ROOT       каталог вида /proc для окружения оболочек и `uptime`
+#                         (инъекция); без него — /proc лишь на живом снимке.
 #
 # # Коды
 #
@@ -102,13 +108,14 @@
 # (664 каталога workflow, главный журнал 152 МБ) — в шапке inject-скрипта.
 set -uo pipefail
 
-session="" sessdir="" psfile="" now="" self="" live=""
+session="" sessdir="" psfile="" now="" self="" live="" verbose=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --session) session="${2:-}"; shift 2 ;;
         --session-dir) sessdir="${2:-}"; [ -n "$sessdir" ] || { echo "stall-census: VOID — --session-dir без каталога" >&2; exit 2; }; shift 2 ;;
         --ps) psfile="${2:-}"; shift 2 ;;
         --now) now="${2:-}"; shift 2 ;;
+        --verbose) verbose=1; shift ;;
         --self) self="${2:-}"; [[ "$self" =~ ^[0-9]+$ ]] || { echo "stall-census: VOID — --self без pid" >&2; exit 2; }; shift 2 ;;
         *) echo "stall-census: VOID — неизвестный довод «$1»" >&2; exit 2 ;;
     esac
@@ -140,7 +147,7 @@ fi
 cands+=("$PWD")
 projdirs="$(printf '%s\n' "${cands[@]}")"
 
-python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" "$self" "$live" <<'PY'
+python3 - "$session" "$psfile" "$now" "$stdin_json" "$projdirs" "$sessdir" "$self" "$live" "$verbose" <<'PY'
 import calendar, glob, json, os, re, sys, time
 
 
@@ -153,7 +160,7 @@ def _crash(kind, val, tb):
 
 sys.excepthook = _crash
 
-session, psfile, now_s, stdin_json, projdirs, sessdir, self_pid, live = sys.argv[1:9]
+session, psfile, now_s, stdin_json, projdirs, sessdir, self_pid, live, verbose = sys.argv[1:10]
 AGENT_MIN = int(os.environ.get('STALL_AGENT_MIN', '15'))
 PROC_MIN = int(os.environ.get('STALL_PROC_MIN', '60'))
 REACT_MIN = int(os.environ.get('STALL_REACT_MIN', '10'))
@@ -453,7 +460,7 @@ try:
         p = line.split(None, 4)
         if len(p) < 4 or not p[0].isdigit():
             continue
-        procs[p[0]] = (p[1], int(p[2]) if p[2].isdigit() else 0, p[3], p[4].strip() if len(p) > 4 else '')
+        procs[p[0]] = (p[1], int(p[2]) if p[2].isascii() and p[2].isdigit() else None, p[3], p[4].strip() if len(p) > 4 else '')
 except OSError as e:
     void('снимок процессов не читается: %s' % e)
 if not procs:
@@ -470,6 +477,12 @@ if not own_pid and self_pid:
             break
         cur, hops = procs[cur][0], hops + 1
 proc_root = os.environ.get('STALL_PROC_ROOT') or ('/proc' if live else '')
+uptime = None  # потолок возраста (ws#1149); нет файла — судит лишь потолок родителя
+if proc_root:
+    try:
+        uptime = float(open(os.path.join(proc_root, 'uptime')).read().split()[0])
+    except (OSError, ValueError, IndexError):
+        uptime = None
 SID_ARG = re.compile(r'(?:^|\s)(?:--resume|-r|--session-id)(?:=|\s+)([0-9a-fA-F-]{8,})(?=\s|$)')
 
 
@@ -501,12 +514,23 @@ def whose(pid, ppid):
 
 
 shells = mine = foreign = 0
-unjudged = []
+unjudged, implausible = [], []
 for pid, (ppid, et, comm, args) in procs.items():
     parent = procs.get(ppid)
     if not parent or parent[2] != 'claude' or 'shell-snapshots/' not in args:
         continue
     shells += 1
+    # Возраст, которого не может быть (ws#1149): ребёнок не старше родителя и машины.
+    ceil = None
+    if et is None:
+        ceil = 'не число'
+    elif parent[1] is not None and et > parent[1]:
+        ceil = 'родитель %d с' % parent[1]
+    elif uptime is not None and et > uptime:
+        ceil = 'аптайм %d с' % uptime
+    if ceil:
+        implausible.append('pid %s (claude %s): %s с > %s' % (pid, ppid, et, ceil) if et is not None else 'pid %s (claude %s): %s' % (pid, ppid, ceil))
+        continue
     who = whose(pid, ppid)
     if who == 'foreign':
         foreign += 1
@@ -524,9 +548,12 @@ if not own_sid and not own_pid:
     proc_notes.append('STALL-PROC: сессия не определена — нет session_id хука, CLAUDE_CODE_SESSION_ID, CLAUDE_PID и предка-claude; оболочек старше порога не судимо %d' % len(unjudged))
 elif unjudged:
     proc_notes.append('STALL-PROC: сессия оболочки не определена — не судится: %s' % ', '.join(unjudged[:5]))
+if verbose:
+    for x in implausible:
+        proc_notes.append('STALL-PROC: возраст неправдоподобен — не судится: %s' % x)
 
-print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d, неправдоподобного возраста %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), len(implausible), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:

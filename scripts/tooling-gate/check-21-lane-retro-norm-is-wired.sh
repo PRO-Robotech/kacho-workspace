@@ -26,8 +26,9 @@
 #      уникальные .rc, пауза лишь у `ci-watcher`, долгое ожидание ОДИН раз `--enqueue`,
 #      отправка в файл, 141 после хука — снятый простоем ssh (keepalive ставит слот); `ci-watcher` — `--enqueue`; база —
 #      номер задачи числом в предусловиях, форма вливания `--merge --subject … --body ""
-#      --match-head-commit`, пауза лишь у `ci-watcher`; шаблон — `--body ""`, `--enqueue`,
-#      суд RATE-LIMIT (поведение — heavy-slot-inject, ci-read-inject, landing-precheck-inject,
+#      --match-head-commit`, пауза лишь у `ci-watcher`; шаблон — `--subject` старта демона,
+#      `--enqueue`, суд RATE-LIMIT; `--body ""` вливания — у демона (ws#1152; поведение —
+#      autoland/inject.sh, heavy-slot-inject, ci-read-inject, landing-precheck-inject,
 #      lane-precheck-inject, wave-template-inject).
 #
 # ПРЕДПОСЫЛКА (VOID, код 2): все девять носителей есть в дереве.
@@ -175,7 +176,7 @@ need(BASE, ['задача — `task <репо>#<N>`, N `^[0-9]+$`',
             '`gh pr merge <PR> --merge --subject "#<N> merge #<PR>: …" --body "" --match-head-commit <sha>`',
             'ждёт и дочитывает с паузой лишь `ci-watcher`',
             'долгий прогон — ОДИН раз `heavy-slot.sh --enqueue`, перезапуск на 74/75 — нарушение'], 'пачка 2026-10-16')
-need(WAVE, ['+ mergeTitle + \'" --body ""`', 'heavy-slot.sh --enqueue', 'if (rateOf(ci)) return'],
+need(WAVE, ['--subject "\' + mergeTitle + \'"\'', 'heavy-slot.sh --enqueue', 'if (rateOf(ci)) return'],
      'пачка 2026-10-16')
 
 print('[CENSUS] %s: носителей осмотрено %d (правило, архив, протокол, база, три агента, шаблон, хук); находок %d'
