@@ -216,13 +216,14 @@ mk_comments() {
 PROOF_OK=$'DoD-proof @0123abcd\nкоманда: bash scripts/x/run-all.sh; echo $?\nитог: пройдено 9 из 9\nкод возврата: 0'
 
 # P — волна влита, открыты три задачи: kacho#1 доказана, у kacho#2 маркер в
-# середине строки, kaname#2 (тот же номер в другом репозитории) доказана.
+# середине строки, kaname#2 (тот же номер в другом репозитории) доказана строкой
+# под заголовком markdown — законной формой начала строки (ws#1140).
 P="$(mkcase P)"
 mk_issue "$P" "$R" 1000 open "Волна."
 mk_sub "$P" "$R" 1000 1 "$R:1:open" "$R:2:open" "PRO-Robotech/kaname:2:open"
 mk_comments "$P" "$R" 1 1 "PR: https://example.invalid/pr/1" "$PROOF_OK"
 mk_comments "$P" "$R" 2 1 "ждём DoD-proof @0123abcd от исполнителя"
-mk_comments "$P" PRO-Robotech/kaname 2 1 "$PROOF_OK"
+mk_comments "$P" PRO-Robotech/kaname 2 1 "## $PROOF_OK"
 
 # Q — близнец P: доказательство kacho#2 на второй странице, закрытый kacho#3
 # без комментариев — его закрыло не это действие, он не читается.

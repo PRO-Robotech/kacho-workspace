@@ -1529,9 +1529,28 @@ if mr_patch "$b/$MR_REL" \
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$DOD_REL" \
-    's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
+    's/capture\("\^\(/capture("(/' \
     "маркер в любом месте строки"; then
-    run_c09_red "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" PF-MIDLINE
+    run_c09_red "$b" "инъекция: маркер в середине строки и в цитате засчитан доказательством — краснеет" \
+        PF-MIDLINE PF-QUOTE
+fi
+# Законные формы начала строки и блок кода (ws#1140): каждая порча роняет одно
+# решение распознавателя и обязана покраснить держащую его пробу.
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/\(\[#\]\{1,6\} \+\)\?//' "заголовок markdown перед маркером не допущен"; then
+    run_c09_red "$b" "инъекция: маркер под заголовком markdown не засчитан — краснеет" PF-HEADING PF-AFTERFENCE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/\(\[\*\]\{2\}\)\?//' "выделение перед маркером не допущено"; then
+    run_c09_red "$b" "инъекция: маркер, выделенный **, не засчитан — краснеет" PF-BOLD
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/\{fence: \$f, out: null\}/{fence: null, out: \$line}/' "блок кода не открывается"; then
+    run_c09_red "$b" "инъекция: маркер внутри блока кода засчитан — краснеет" PF-FENCE
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$DOD_REL" 's/elif \$f != null and /elif false and /' "блок кода не закрывается"; then
+    run_c09_red "$b" "инъекция: маркер после закрытого блока кода не засчитан — краснеет" PF-AFTERFENCE
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
@@ -1592,9 +1611,9 @@ if mr_patch "$b/$MR_REL" \
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$DOD_REL" \
-    's/capture\("\(\^\|\\n\)DoD-proof @\(\?<rev>\[0-9a-f\]\{7,40\}\)"; "g"\)/split("\\n")[] | capture("^DoD-proof @(?<rev>[0-9a-f]{7,40})")/' \
-    "маркер построчным разбором"; then
-    run 0 "$b" "близнец: маркер ищется построчным разбором — молчит" "$C09"
+    's/\(\[#\]\{1,6\} \+\)\?\(\[\*\]\{2\}\)\?/(?:#{1,6} +)?(?:\\\\*\\\\*)?/' \
+    "заголовок и выделение иной записью"; then
+    run 0 "$b" "близнец: заголовок и выделение записаны группами без захвата и экранированием — молчит" "$C09"
 fi
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
@@ -2517,7 +2536,7 @@ if mr_patch "$b/$CC_REL" 's/gh api --paginate "repos\/\$r\/issues/gh api "repos\
     run 1 "$b" "инъекция: комментарии задачи читаются одной страницей — краснеет" "$C14"
 fi
 b="$(mksandbox)"
-if mr_patch "$b/$DOD_REL" 's/\(\^\|\\n\)DoD-proof/DoD-proof/' \
+if mr_patch "$b/$DOD_REL" 's/capture\("\^\(/capture("(/' \
     "маркер в любом месте строки"; then
     run 1 "$b" "инъекция: маркер в середине строки засчитан доказательством — краснеет" "$C14"
 fi

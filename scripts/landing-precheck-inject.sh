@@ -292,7 +292,7 @@ expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие п�
 twin; addskip; jq '(.workflow_runs[] | select(.event == "push") | .head_branch) |= "main"' "$W/case/runs.json" > "$W/case/runs.new" && mv "$W/case/runs.new" "$W/case/runs.json"; run 0
 expect 1 $'REASON\tCI-NOT-SUCCESS\t'"$TRUNKJOB"' — skipped (событие прогона '"'push'"' (ветка '"'main'" "push-прогон не ветки головы — не моделируется, причина"
 # Мутанты самой предпроверки: обязаны провалить пробу (2) «skipped без такого if».
-mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"
+mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"; ln -sfn "$HERE/lib" "$W/mut/lib"
 mutant() {  # mutant <имя> <строка, вставляемая первой в тело skip_lawful>
     local out="$W/mut/precheck-$1.sh"
     awk -v ins="$2" '{print} /^def skip_lawful\(r\):$/ {getline; print; print "    " ins}' "$TOOL" > "$out"
@@ -398,7 +398,7 @@ else echo "  [FAIL] перепись молчит о несуждённом вы
 # rmutant <имя> <perl-выражение> <ждём код мутанта> <настройка случая>
 rmutant() {
     local out="$W/mut/precheck-$1.sh"
-    mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"
+    mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"; ln -sfn "$HERE/lib" "$W/mut/lib"
     perl -0pe "$2" "$TOOL" > "$out"
     if cmp -s "$TOOL" "$out"; then
         echo "  [FAIL] мутант «$1»: образец не найден" >&2; fail=$((fail + 1)); return
@@ -434,6 +434,15 @@ twin; rm "$W/case/comments-2690.json"; run 0
 expect 1 $'REASON\tCLOSES-WITHOUT-PROOF\tPRO-Robotech/kacho#2690: комментария' "Closes #2690 без DoD-proof"
 twin; printf '[{"body":"DoD-proof @9b14ae7f01c"}]\n' > "$W/case/comments-2690.json"; run 0
 expect 1 $'REASON\tCLOSES-WITHOUT-PROOF\tPRO-Robotech/kacho#2690: DoD-proof есть' "DoD-proof на базе, а не на коммите запроса"
+# Распознаватель — общий `lib/dod_proof.jq` (ws#1140): заголовок markdown перед
+# маркером — начало строки; тот же маркер в блоке кода и в цитате — не доказательство.
+proof2690() { jq -r '.[0].body' "$W/case/comments-2690.json" | sed -n 's/^DoD-proof @//p'; }
+twin; s="$(proof2690)"; jq -n --arg b "## DoD-proof @$s — ответ на возврат" '[{body: $b}]' > "$W/case/comments-2690.json"; run 0
+expect 0 - "близнец: DoD-proof под заголовком markdown на коммите запроса — доказательство"
+twin; s="$(proof2690)"; jq -n --arg b $'журнал соседа:\n```\nDoD-proof @'"$s"$'\n```' '[{body: $b}]' > "$W/case/comments-2690.json"; run 0
+expect 1 $'REASON\tCLOSES-WITHOUT-PROOF\tPRO-Robotech/kacho#2690: комментария' "DoD-proof внутри блока кода — не доказательство"
+twin; s="$(proof2690)"; jq -n --arg b "> DoD-proof @$s" '[{body: $b}]' > "$W/case/comments-2690.json"; run 0
+expect 1 $'REASON\tCLOSES-WITHOUT-PROOF\tPRO-Robotech/kacho#2690: комментария' "DoD-proof в цитате — не доказательство"
 twin; edit pull.json '.body |= sub("Closes #2690"; "Refs #2690")'; rm "$W/case/comments-2690.json"; run 0
 expect 0 - "близнец: та же задача без доказательства, но Refs — не судится"
 twin; edit pull.json '.body |= sub("Closes #2707"; "fixes PRO-Robotech/kacho#2707")'; rm "$W/case/comments-2707.json"; run 0
@@ -569,9 +578,10 @@ expect 2 $'VOID\tmerge-readiness.sh и scripts/lib из origin/main' "origin/mai
 # Инъекция в САМУ предпроверку: извлечение одного файла без `lib/` (прежняя форма).
 # На том же случае с DoD-proof она обязана дать MERGE-READINESS код 2
 # «распознавателя нет» — иначе проба положительного случая выше слепа к дефекту.
-# Мутант живёт в каталоге песочницы рядом со ссылкой на `hooks/` дерева: предикат
-# атрибуции предпроверка берёт рядом с собой.
-mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"
+# Мутант живёт в каталоге песочницы рядом со ссылками на `hooks/` и `lib/` дерева:
+# предикат атрибуции и распознаватель DoD пункта (ж) предпроверка берёт рядом с
+# собой, а порча — только в извлечении для merge-readiness.
+mkdir -p "$W/mut"; ln -sfn "$HERE/hooks" "$W/mut/hooks"; ln -sfn "$HERE/lib" "$W/mut/lib"
 sed 's|origin/main scripts/merge-readiness.sh scripts/lib |origin/main scripts/merge-readiness.sh |' "$TOOL" > "$W/mut/precheck-nolib.sh"
 if cmp -s "$TOOL" "$W/mut/precheck-nolib.sh"; then
     echo "  [FAIL] инъекция «извлечение без lib/»: образец не найден в предпроверке" >&2; fail=$((fail + 1))

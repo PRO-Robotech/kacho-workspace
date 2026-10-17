@@ -778,6 +778,19 @@ mk_comments "$d" PRO-Robotech/kacho 500 "PR: https://example.invalid/pr/1" "го
 # Маркер не в начале строки — пересказ, а не доказательство.
 d="$(pf_case MIDLINE $'Closes #500')"
 mk_comments "$d" PRO-Robotech/kacho 500 "ждём DoD-proof @0123abcd от исполнителя"
+# Начало строки — с необязательным заголовком markdown либо выделением (ws#1140:
+# `## DoD-proof @<sha>` четырежды отказал Closes). Цитата и блок кода — не
+# доказательство; маркер после ЗАКРЫТОГО блока кода — доказательство.
+d="$(pf_case HEADING $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "## $PROOF_OK"
+d="$(pf_case BOLD $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "**${PROOF_OK/#DoD-proof @0123abcd/DoD-proof @0123abcd**}"
+d="$(pf_case QUOTE $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 "> $PROOF_OK"
+d="$(pf_case FENCE $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 $'журнал соседа:\n```\nDoD-proof @0123abcd\n```'
+d="$(pf_case AFTERFENCE $'Closes #500')"
+mk_comments "$d" PRO-Robotech/kacho 500 $'```\nкод 0\n```\n### DoD-proof @0123abcd'
 # Иное ключевое слово, иной регистр, чужой репозиторий — та же строка закрытия.
 d="$(pf_case FORMS $'fixes PRO-Robotech/kaname#77')"
 mk_comments "$d" PRO-Robotech/kaname 77 "готово"
@@ -1164,6 +1177,16 @@ probe "$PRODUCT_REPO" "$TMP/case-PF-MISSING" 1 "Closes без комментар
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
 probe "$PRODUCT_REPO" "$TMP/case-PF-MIDLINE" 1 "маркер не в начале строки — пересказ, не доказательство" \
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-HEADING" 0 "маркер под заголовком markdown — доказательство, «сливать можно»" \
+    "можно сливать" "с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-BOLD" 0 "маркер выделен ** — доказательство, «сливать можно»" \
+    "можно сливать" "с доказательством DoD: 1 · без: 0"
+probe "$PRODUCT_REPO" "$TMP/case-PF-QUOTE" 1 "маркер в цитате > — чужие слова, не доказательство" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-FENCE" 1 "маркер внутри блока кода — вывод, не доказательство" \
+    "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kacho#500"
+probe "$PRODUCT_REPO" "$TMP/case-PF-AFTERFENCE" 0 "маркер после закрытого блока кода — доказательство, «сливать можно»" \
+    "можно сливать" "с доказательством DoD: 1 · без: 0"
 probe "$PRODUCT_REPO" "$TMP/case-PF-FORMS" 1 "fixes строчными в чужой репозиторий — та же строка закрытия, «нельзя»" \
     "СЛИВАТЬ НЕЛЬЗЯ — Closes без доказательства DoD" "PRO-Robotech/kaname#77"
 probe "$PRODUCT_REPO" "$TMP/case-PF-MULTI" 1 "две строки закрытия, одна без доказательства — «нельзя», названа она" \

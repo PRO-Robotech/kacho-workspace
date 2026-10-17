@@ -47,7 +47,8 @@
 #                       по вине среды). Свой `go.mod` копии — не предмет;
 #   ISSUES-NONE         задач полосы ноль: доказательство судить не о чем;
 #   DOD-PROOF-MISSING   у задачи нет комментария `DoD-proof @<sha>` (форма —
-#                       `CLAUDE.md`, та же, что судит `cascade-census.sh --proof`),
+#                       `CLAUDE.md`; распознаватель — общий `lib/dod_proof.jq`, тот
+#                       же у merge-readiness и `cascade-census.sh --proof`),
 #                       чей sha — голова полосы или коммит из база..голова:
 #                       доказательство чужой или прежней ревизии — не доказательство;
 #   HOOK-LOG-MISSING    журнала отправки нет;
@@ -90,7 +91,8 @@
 #
 # Коды: 0 — причин ноль и всё судимое осуждено; 1 — хотя бы одна причина;
 # 2 — причин ноль, но часть не судима (VOID: ветка не читается, трекер не
-# ответил, хук репозитория вне словаря). Перепись печатается всегда.
+# ответил, хук репозитория вне словаря, DOD-LIB — распознавателя
+# `lib/dod_proof.jq` нет либо ответ трекера им не разобран). Перепись печатается всегда.
 # Держит `scripts/lane-precheck-inject.sh`.
 set -uo pipefail
 
@@ -110,6 +112,16 @@ while [ $# -gt 0 ]; do
     esac
 done
 GH="${LANE_PRECHECK_GH:-gh}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+# dod_revs — ревизии строк-доказательств DoD из JSON комментариев на stdin (страницы
+# подряд), по строке. Распознаватель — общий `lib/dod_proof.jq` (ws#1140): своя копия
+# выражения здесь разошлась с merge-readiness молча. Код 2 — распознавателя нет либо
+# ответ не разобран: судить нечем.
+dod_revs() {
+    [ -r "$HERE/lib/dod_proof.jq" ] || return 2
+    jq -L "$HERE/lib" -r -s 'include "dod_proof"; add // [] | .[] | (.body // "") | dod_proof_revisions[]' 2> /dev/null || return 2
+}
 
 # ── режим предусловий ───────────────────────────────────────────────────
 # ghget <путь> <jq> — GET трекера; код 0 — ответ в stdout, 3 — 404 (предмета нет), 1 — не ответил.
@@ -152,9 +164,10 @@ if [ -n "$premise" ]; then
             proof)
                 r="${a%%#*}" num="${a##*#}"
                 if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$r" = "$a" ]; then voids+=("PREMISE-FORM $line"); continue; fi
-                got="$(ghget "repos/$r/issues/$num/comments" '.[] | (.body // "") | capture("(^|\n)DoD-proof @(?<s>[0-9a-f]{7,40})"; "g") | .s')"; rc=$?
-                if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line")
-                elif [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
+                got="$(ghget "repos/$r/issues/$num/comments" '.')"; rc=$?
+                if [ "$rc" != 0 ]; then voids+=("GH-UNREADABLE $line"); continue; fi
+                if ! got="$(printf '%s' "$got" | dod_revs)"; then voids+=("DOD-LIB $line: распознаватель $HERE/lib/dod_proof.jq не судил"); continue; fi
+                if [ -z "$got" ]; then reasons+=("PREMISE-FALSE $line: комментария «DoD-proof @<sha>» нет"); fi ;;
             verdict)
                 if ! [ -r "$a" ] || ! [[ "$b" =~ ^(accept|return)$ ]]; then voids+=("PREMISE-FORM $line"); continue; fi
                 v="$(sed -n '/^verdict:/,/^[^ ]/{s/^  value: *//p}' "$a" | head -1)"
@@ -179,7 +192,6 @@ reasons=() voids=()
 reason() { reasons+=("$1 $2"); }
 void() { voids+=("$1 $2"); }
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 if [ -n "${LANE_PRECHECK_WS:-}" ]; then
     WS="$(cd "$LANE_PRECHECK_WS" 2> /dev/null && pwd -P)" || WS="$LANE_PRECHECK_WS"
 else
@@ -277,9 +289,12 @@ for it in "${issues[@]+"${issues[@]}"}"; do
         void ISSUE-FORM "задача «$it» не в форме <владелец/репо>#<N>"
         continue
     fi
-    if ! shas="$($GH api --paginate "repos/$r/issues/$n/comments" \
-            --jq '.[] | (.body // "") | capture("(^|\n)DoD-proof @(?<s>[0-9a-f]{7,40})"; "g") | .s' 2> /dev/null)"; then
+    if ! raw="$($GH api --paginate "repos/$r/issues/$n/comments" 2> /dev/null)"; then
         void GH-UNREADABLE "комментарии $r#$n не прочитаны"
+        continue
+    fi
+    if ! shas="$(printf '%s' "$raw" | dod_revs)"; then
+        void DOD-LIB "$r#$n: распознаватель $HERE/lib/dod_proof.jq не судил"
         continue
     fi
     ok=0
