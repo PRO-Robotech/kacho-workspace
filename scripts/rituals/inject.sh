@@ -73,6 +73,8 @@
 #   M46 pr-body: номера задач — из всего сообщения, а не из первой строки → check-01
 #   M47 pr-body: задача первой строки в полной форме — голым `#N`       → check-01
 #   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
+#   M49 pr-body: `otherorg/kaname#N` засчитан задачей своего репозитория (прежнее
+#       выражение `issue_refs`, `/` перед именем не отсекался)          → check-01
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -285,6 +287,9 @@ inject "M47 pr-body: полная форма — голым #N" check-01-pr-body
 inject "M48 pr-body: полная форма — не задача" check-01-pr-body.py \
     '    for n in sorted(first | qual):' \
     '    for n in sorted(first):'
+inject "M49 pr-body: чужой владелец засчитан своим" check-01-pr-body.py \
+    'r"(?<![\w./-])(?:%s/)?%s#(\d+)\b"' \
+    'r"(?<![\w.-])(?:%s/)?%s#(\d+)\b"'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

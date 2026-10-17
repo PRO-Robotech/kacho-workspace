@@ -291,13 +291,16 @@ def issue_refs(repo: str, text: str) -> set[int]:
     """Номера задач ЭТОГО репозитория, названные в тексте в любой законной форме.
 
     Формы: `#N` (не после буквы, цифры и `/`), `<владелец>/<имя>#N`, `<имя>#N` и адрес
-    `https://github.com/<владелец>/<имя>/issues/N` — три последние только своего репозитория.
+    `https://github.com/<владелец>/<имя>/issues/N` — три последние только своего репозитория:
+    владелец — ровно владелец запроса, `<имя>#N` после `/` (чужой владелец) не своё.
     """
     nums: set[int] = set()
     for m in re.finditer(r"(?<![\w/])#(\d+)\b", text):
         nums.add(int(m.group(1)))
     name = re.escape(repo.split("/", 1)[1])
-    for m in re.finditer(r"(?<![\w.-])(?:%s/)?%s#(\d+)\b" % (re.escape(repo.split("/", 1)[0]), name), text):
+    # Перед именем — ни буквы, ни `.`, `-`, ни `/`: `otherorg/kaname#77` — задача ЧУЖОГО
+    # владельца, и короткая форма `kaname#77` внутри неё своей не засчитывается.
+    for m in re.finditer(r"(?<![\w./-])(?:%s/)?%s#(\d+)\b" % (re.escape(repo.split("/", 1)[0]), name), text):
         nums.add(int(m.group(1)))
     for m in re.finditer(r"https://github\.com/%s/issues/(\d+)\b" % re.escape(repo), text):
         nums.add(int(m.group(1)))

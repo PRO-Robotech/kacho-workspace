@@ -14,6 +14,7 @@
     второй строки первого абзаца (#49, `%s` git склеил бы её с первой) идёт без `#`;
     `#99` из заголовка задачи — `№99`; задача своего репозитория, названная в первой строке
     полной формой (`kaname#52`, `PRO-Robotech/kaname#53`), — задача, и пишется полной формой;
+    `otherorg/kaname#77` — чужой владелец, не задача (ни строки, ни Closes, ни в упомянутых);
   * CLOSES — #41: доказательство DoD ревизией диапазона (близнец: та же задача упомянута
     ведомостью прозой, не формой держателя, — Closes остаётся); #42: доказательство ревизией
     БАЗЫ (предок головы, но не коммит диапазона) — Refs; #44: ревизия, которой нет, — Refs;
@@ -91,7 +92,7 @@ def seed(pr):
     pr.git(d, "checkout", "-qb", "42-b", "main")
     sha["42"] = pr.commit(d, "#42 полоса после базы (#43)", rel="b.txt")
     sha["45"] = pr.commit(d, "#45 держатель записи долга", rel="b.txt")
-    sha["46"] = pr.commit(d, "#46 кейс под объявлением", rel="b.txt")
+    sha["46"] = pr.commit(d, "#46 кейс под объявлением (otherorg/kaname#77)", rel="b.txt")
     pr.git(d, "merge", "-q", "--no-ff", "44-c", "-m", "#42 merge #44: вложенная сборка")
     sha["m44"] = pr.git(d, "rev-parse", "HEAD").strip()
     pr.git(d, "checkout", "-qb", "50", "main")
@@ -104,7 +105,7 @@ def seed(pr):
 
 
 def world(sha, c41=None, title41=None):
-    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53)}
+    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53, 77)}
     issues[43] = issue(43, "closed")
     issues[51] = issue(51, pr=True)
     issues[41]["title"] = title41 or "задача 41 (после #99)"
@@ -116,6 +117,7 @@ def world(sha, c41=None, title41=None):
             "%s#44" % R: [comment(44, 4, "DoD-proof @deadbee1\nкод 0")],
             "%s#45" % R: [comment(45, 5, "DoD-proof @%s\nкод 0" % sha["45"])],
             "%s#46" % R: [comment(46, 6, "DoD-proof @%s\nкод 0" % sha["46"][:12])],
+            "%s#77" % R: [comment(77, 8, "DoD-proof @%s\nкод 0" % sha["46"][:9])],
             "%s#52" % R: [comment(52, 7, "DoD-proof @%s\nкод 0" % sha["41b"][:9])],
             "%s#43" % R: [comment(43, 3, "DoD-proof @%s\nкод 0" % sha["42"][:9])],
         },
@@ -164,6 +166,11 @@ def body(pr):
     pr.ok("хвост: Refs, затем Closes последними, сплошь",
           tail_of(out)[-2:] == ["Closes #41", "Closes %s#52" % R] and len(tail_of(out)) == 9
           and all(x.startswith("Refs") for x in tail_of(out)[:-2]), out)
+    # Чужой владелец: `otherorg/kaname#77` — не задача диапазона (у своей #77 есть
+    # доказательство диапазона, так что засчитанная ошибочно, она дала бы Closes).
+    pr.ok("otherorg/kaname#77 — не задача: ни строки, ни Closes, ни в упомянутых",
+          "«задача 77»" not in out and not any("77" in x for x in tail_of(out))
+          and "77" not in (re.search(r"Упомянуты вне первых строк[^\n]*", out) or [""])[0], out)
     pr.ok("задача первой строки в полной форме — строкой полной формы",
           ("- %s#52 «задача 52» — доказательство DoD" % R) in out
           and ("- %s#53 «задача 53» — доказательства DoD нет" % R) in out, out)
