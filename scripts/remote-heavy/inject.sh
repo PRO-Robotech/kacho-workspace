@@ -1664,7 +1664,8 @@ fi
 # RG7 — признак OOM шага ИСПОЛНЕНИЕМ: oom_kill cgroup вырос за время команды →
 #      «remote-heavy-oom:» в termination-log, код команды сохранён; близнец RG7b —
 #      137 без роста → termination-log пуст
-if [ -s "$BOX/rg1.stream.keep" ]; then
+if ! grep -q '^# redlog-end$' "$BOX/redlog.sh"; then OUT="$BOX/rg0.cmd"; bad RG7 "шага красных групп в Job нет — признак OOM исполнять нечего"
+else
     sed "s#/dev/termination-log#$RW/tl#g" "$BOX/redlog.sh" > "$BOX/redlog-oom.sh"
     printf 'low 0\noom 0\noom_kill 0\n' > "$RW/mev"
     rm -f "$RW/tl"
