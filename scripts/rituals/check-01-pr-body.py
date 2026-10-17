@@ -175,8 +175,11 @@ def body(pr):
     for text in ("DoD-proof @main\nкод 0", "DoD-proof @abc12\nкод 0", "DoD-proof @develop\nкод 0",
                  "DoD-proof %s\nкод 0" % sha["41a"][:9], "см. DoD-proof @%s у соседа" % sha["41a"][:9]):
         rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, text)])), extra=extra)
-        pr.ok("не доказательство «%s»: Refs #41" % text.splitlines()[0][:40],
-              rc == 0 and "Refs #41" in out and not closes(out), out + err)
+        # «доказательства нет», а не «не коммит диапазона»: иначе распознаватель, засчитавший
+        # `@main` ревизией, прятался бы за сверкой с диапазоном (M21, M26 инъекции).
+        pr.ok("не доказательство «%s»: Refs #41, доказательства нет" % text.splitlines()[0][:40],
+              rc == 0 and "Refs #41" in out and not closes(out)
+              and re.search(r"- #41 «[^»]*» — доказательства DoD нет", out) is not None, out + err)
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, "DoD-proof @%s" % sha["41b"])])),
                              extra=extra)
     pr.ok("близнец: полный sha — доказательство", rc == 0 and closes(out) == ["Closes #41"]
