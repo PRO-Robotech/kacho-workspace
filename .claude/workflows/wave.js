@@ -550,7 +550,7 @@ const mergeTitle = '#' + (/^[0-9]+$/.test(String(A.epic || A.base || '')) ? Stri
 // `autoland.sh start` отсоединяет «ci-read 0 → merge-readiness 0 → landing-precheck 0 →
 // gh pr merge --merge --match-head-commit» и снятие ветки и СРАЗУ печатает pid, журнал,
 // .state; исход — ОДИН шаг `status`. Шаблон CI не ждёт и гейтов ради вливания не гонит.
-const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на голове ' + asm.head + ' вливает ТОЛЬКО демон scripts/autoland/autoland.sh (ws#1147): он ждёт CI (ci-read.sh код 0 на этой голове), гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния; ждать CI, читать ci-read и гнать три гейта ради вливания — нельзя'
+const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на голове ' + asm.head + ' вливает ТОЛЬКО демон scripts/autoland/autoland.sh (ws#1147): он ждёт CI (ci-read.sh код 0 на этой голове), гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния; ради вливания нельзя ждать CI, нельзя читать ci-read, нельзя гнать три гейта'
 const AUTOLAND = ROOT + '/scripts/autoland/autoland.sh'
 const AL_STATE = ROOT + '/tmp/autoland/' + String(A.repo || '?').replace('/', '__') + '__' + asm.pr + '__' + asm.head.slice(0, 12) + '.state'
 // Перепись гейтов посадки разом (ws#1071, ai-tooling.md#at-red-ci-one-round): ДО первой починки
