@@ -41,10 +41,23 @@ authority:
   policy_document: docs/changes/policy.yaml
   policy_field: review_authority.acceptance-reviewer
 event:
-  type: approval
-  status: not_performed
-  published: false
-  publication_expected_from_orchestrator: true
+  type: issue_comment
+  target: PRO-Robotech/kacho#3274
+  status: performed
+  published: true
+  database_id: 6241126974
+  node_id: "IC_kwDOTZqgWM8AAAABdAAKPg"
+  url: "https://github.com/PRO-Robotech/kacho/issues/3274#issuecomment-6241126974"
+  api_url: "https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/6241126974"
+  actor: "pointpu"
+  role: "acceptance-reviewer"
+  author_association: "MEMBER"
+  created_at: "2026-10-17T21:09:08Z"
+  body_sha256: "3c192aaf2289caa1bcf53d65b96717acd6023543221ee817213ca323ef977293"
+  subject_sha256: "0482a061c4f2497d00b1193769cf0671636b6124a172a3875d268a16f48dbccb"
+  subject_revision_commit: "1c24f40a027e1164f0a3cd26d04f70f0c7068a66"
+  verdict: "APPROVED"
+  publication_mode: scripts/rituals/approval-event.sh
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
