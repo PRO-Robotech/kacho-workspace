@@ -30,8 +30,9 @@
 #       служба failed → 1; KACHO_WS без демона → 1;
 #   (9) --ws без демона → 2;
 #   (10) политика перезапуска юнита: RestartPreventExitStatus с 6 | без 4 | без 4 после
-#       сброса пустым присваиванием, Restart=no → 2, правок нет; близнец — 2 и 4
-#       двумя строками (перечень копится) → установка идёт;
+#       сброса пустым присваиванием, Restart=no, и те же с отступом и пробелами вокруг
+#       «=» → 2, правок нет; близнецы — 2 и 4 двумя строками (перечень копится),
+#       «<таб>Restart = on-failure», Restart=no в [Install] → установка идёт;
 #   (11) нет scripts/lib/gh-rate.sh → 2 с причиной, правок нет.
 # Сверяется код И напечатанное, а не только «покраснел».
 #
@@ -41,7 +42,7 @@
 # verify-literal-unnormalized, failed-kept, restarts-dropped, I6c-inactive-dropped,
 # fresh-dropped, check-drift-dropped, I8b-check-active-dropped, I8c-check-ws-dropped,
 # restart-check-dropped, prevent4-check-dropped, prevent6-check-dropped; юнит:
-# U1-prevent-has-6, U2-restart-no. Правка, не легшая в текст, — VOID.
+# U1-prevent-has-6, U2-restart-no, U1sp-prevent-6-spaced, U2ind-restart-no-indented. Правка, не легшая в текст, — VOID.
 #
 # ИСХОДЫ: 0 — контроль зелёный, все мутанты убиты; 1 — сцена разошлась либо мутант
 # выжил; 2 — судить нечем (нет jq, python3, дерева).
@@ -207,7 +208,9 @@ scenes() {  # scenes <install.sh> <юнит> <корень> → печать; $f
     echo "== (10) политика перезапуска юнита"
     local pol
     for pol in 's/^RestartPreventExitStatus=.*/RestartPreventExitStatus=2 4 6/:с 6' 's/^Restart=.*/Restart=no/:Restart=«no»' \
-               's/^RestartPreventExitStatus=.*/RestartPreventExitStatus=2/:без 4' 's/^RestartPreventExitStatus=.*/&\nRestartPreventExitStatus=\nRestartPreventExitStatus=2/:без 4'; do
+               's/^RestartPreventExitStatus=.*/RestartPreventExitStatus=2/:без 4' 's/^RestartPreventExitStatus=.*/&\nRestartPreventExitStatus=\nRestartPreventExitStatus=2/:без 4' \
+               's/^RestartPreventExitStatus=.*/&\nRestartPreventExitStatus = 6/:с 6' 's/^RestartPreventExitStatus=.*/&\n  RestartPreventExitStatus=6/:с 6' \
+               's/^Restart=on-failure$/&\n\tRestart=no/:Restart=«no»' 's/^Restart=on-failure$/&\nRestart = no/:Restart=«no»'; do
         scene "$w" "$is" "$un"; sed -i -e "${pol%:*}" "$w/tree/scripts/ci-state/ci-stated.service"
         inst "$w" --ws "$w/ws" --wait 5
         chk "юнит «${pol%:*}»: код 2 («${pol##*:}»), правок нет" '[ "$code" -eq 2 ] && grep -qF "${pol##*:}" <<<"$out" && untouched "$w"'
@@ -215,6 +218,12 @@ scenes() {  # scenes <install.sh> <юнит> <корень> → печать; $f
     scene "$w" "$is" "$un"; sed -i -e 's/^RestartPreventExitStatus=.*/RestartPreventExitStatus=2\nRestartPreventExitStatus=4/' "$w/tree/scripts/ci-state/ci-stated.service"
     inst "$w" --ws "$w/ws" --wait 5
     chk "близнец: 2 и 4 двумя строками — перечень копится, установка, код 0" '[ "$code" -eq 0 ]'
+    scene "$w" "$is" "$un"; sed -i -e 's/^Restart=on-failure$/\tRestart = on-failure/' "$w/tree/scripts/ci-state/ci-stated.service"
+    inst "$w" --ws "$w/ws" --wait 5
+    chk "близнец: «<таб>Restart = on-failure» — та же политика, установка, код 0" '[ "$code" -eq 0 ]'
+    scene "$w" "$is" "$un"; printf 'Restart=no\nRestartPreventExitStatus=6\n# Restart=no\n' >> "$w/tree/scripts/ci-state/ci-stated.service"
+    inst "$w" --ws "$w/ws" --wait 5
+    chk "близнец: Restart=no и RestartPreventExitStatus=6 в [Install] — не [Service], установка, код 0" '[ "$code" -eq 0 ]'
 
     echo "== (11) нет scripts/lib/gh-rate.sh"
     scene "$w" "$is" "$un"; rm "$w/tree/scripts/lib/gh-rate.sh"; inst "$w" --ws "$w/ws" --wait 5
@@ -259,6 +268,8 @@ prevent4-check-dropped	install	s/^\[\[ "\$PREVENT" == \*" 4 "\* \]\] ||/true ||/
 prevent6-check-dropped	install	s/^\[\[ "\$PREVENT" != \*" 6 "\* \]\] ||/true ||/
 U1-prevent-has-6	unit	s/^RestartPreventExitStatus=2 4$/RestartPreventExitStatus=2 4 6/
 U2-restart-no	unit	s/^Restart=on-failure$/Restart=no/
+U1sp-prevent-6-spaced	unit	s/^RestartPreventExitStatus=2 4$/&\nRestartPreventExitStatus = 6/
+U2ind-restart-no-indented	unit	s/^Restart=on-failure$/&\n\tRestart=no/
 MUT
 
 echo

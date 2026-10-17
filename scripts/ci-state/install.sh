@@ -96,8 +96,25 @@ IFS=, read -r -a REPO_LIST <<< "$REPOS"
 # Политика перезапуска юнита: keyring не ответил (код 6) — повтор, токен не из keyring
 # (4) и довод (2) — без повтора. Restart — последнее присваивание; RestartPreventExitStatus
 # копится по строкам, пустое присваивание сбрасывает перечень (семантика systemd).
-RESTART="$(sed -n 's/^Restart=//p' "$SRC_UNIT" | tail -n1)"
-PREVENT=" $(awk -F= '/^RestartPreventExitStatus=/ { if ($2 == "") v = ""; else v = v " " $2 } END { print v }' "$SRC_UNIT") "
+# svc_values <ключ> <юнит> — значения ключа в секции [Service] по порядку, по строке на
+# присваивание, по грамматике systemd: ведущий отступ и пробелы вокруг «=» допустимы,
+# «#» и «;» в начале — комментарий, «\» в конце — продолжение строки; ключ в другой
+# секции не судится (прежний разбор «^Restart=» не видел «Restart = no» и «<таб>Restart=no»).
+svc_values() {
+    awk -v k="$1" '
+        { line = $0
+          while (line ~ /\\$/) { sub(/\\$/, " ", line); if ((getline nxt) > 0) line = line nxt; else break }
+          sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
+          if (line == "" || line ~ /^[#;]/) next
+          if (line ~ /^\[.*\]$/) { sec = line; next }
+          if (sec != "[Service]") next
+          i = index(line, "="); if (!i) next
+          key = substr(line, 1, i - 1); sub(/[ \t]+$/, "", key)
+          if (key != k) next
+          val = substr(line, i + 1); sub(/^[ \t]+/, "", val); print val }' "$2"
+}
+RESTART="$(svc_values Restart "$SRC_UNIT" | tail -n1)"
+PREVENT=" $(svc_values RestartPreventExitStatus "$SRC_UNIT" | awk '{ if ($0 == "") v = ""; else v = v " " $0 } END { print v }') "
 read -r -a pv_list <<< "$PREVENT"; PV="${pv_list[*]}"   # для печати: без пробелов по краям
 [ "$RESTART" = on-failure ] || die 2 "Restart=«$RESTART» в $SRC_UNIT: нужен on-failure — keyring, не ответивший при загрузке (код 6), повторяется"
 [[ "$PREVENT" == *" 4 "* ]] || die 2 "RestartPreventExitStatus=«$PV» в $SRC_UNIT без 4: токен не из keyring повторялся бы вечно"
