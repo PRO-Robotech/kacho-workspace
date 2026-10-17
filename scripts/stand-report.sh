@@ -110,13 +110,20 @@ export STAND_JSON='{
   "PRO-Robotech/kaname": ["full", ["ci.yml:unit", "ci.yml:integration", "e2e-newman.yml:stand"]],
   "PRO-Robotech/kacho-workspace": ["none", []]
 }'
-# Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись — [пути (** — любые каталоги, * — внутри
-# одного), наборы-читатели (образец имени), почему]. Утверждение записи: из наборов стенда
-# эти пути читают ТОЛЬКО названные. Путь вне записей закрывает перенос всем; репозиторий
-# вне ведомости переноса не имеет; whole_tree — наборы, читающие всё дерево.
+# Ведомость ОБЛАСТЕЙ переноса (ws#1148): запись paths — [пути (** — любые каталоги, * —
+# внутри одного), читатели, почему]. Утверждение записи: из наборов стенда эти пути читают
+# ТОЛЬКО названные. Читатель и whole_tree (читают всё дерево) — образец имени набора ЛИБО
+# его job. jobs — закрытый реестр: набор переносим, лишь если его job в нём и имя совпало
+# с образцом этого job (ban6 под другим именем — не переносится). Путь вне записей
+# закрывает перенос всем; репозиторий вне ведомости переноса не имеет.
 export STAND_AREA_JSON='{
-  "PRO-Robotech/kacho": {"whole_tree": ["unit:*"], "paths": [
-    [["deploy/scripts/assert-ban6-external-isolation.py"], ["newman:ban6-external-isolation", "unit:*"],
+  "PRO-Robotech/kacho": {"whole_tree": ["unit:*", "ci.yaml:unit-shard"],
+    "jobs": {"ci.yaml:integration": ["integration:*"], "console-e2e.yml:probes": ["playwright:probes"],
+             "production-posture.yml:stand": ["posture:*"],
+             "e2e-newman.yml:shard": ["newman:vpc", "newman:compute", "newman:nlb", "newman:storage", "newman:registry",
+                                      "newman:geo", "newman:api-gateway", "newman:ban6-external-isolation"]},
+    "paths": [
+    [["deploy/scripts/assert-ban6-external-isolation.py"], ["newman:ban6-external-isolation", "unit:*", "ci.yaml:unit-shard"],
      "проба ban6 — шаг «гейт — ban» e2e-newman.yml:shard; её --self-test гонит ci.yaml:helm, набором стенда не являющийся"]]}
 }'
 if [ "${1:-}" = expect ]; then
@@ -298,6 +305,10 @@ def glob_re(g):  # ** — любые каталоги, * и ? — внутри �
                                     for t in re.findall(r'\*\*|\*|\?|[^*?]+', g)) + '$')
 
 
+def known(s, pats):  # образец ведомости — имя набора либо его job
+    return any(fnmatch.fnmatchcase(str(s.get('name') or ''), w) or fnmatch.fnmatchcase(str(s.get('job') or ''), w) for w in pats)
+
+
 def carry(d, suites):
     carried = [s for s in suites if s.get('carried_from') is not None]
     img = d.get('images_rev')
@@ -342,7 +353,7 @@ def carry(d, suites):
             return None
         rows = dict((pth, mk) for mk, pth in re.findall(r'^\s*(ВХОД|не вход)\s+(\S+) — ', b['inputs'], re.M))
         tot = re.search(r'изменённых путей (\d+), из них входов сборки (\d+)', b['inputs'])
-        if b.get('inputs_rc') != 0 or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():
+        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():
             reason('STAND-CARRY-INPUTS', '%s: входы сборки %s..head менялись (код inputs %s, %s) — перенос запрещён'
                    % (who, r[:12], b.get('inputs_rc'), tot.group(0) if tot else 'итога inputs нет'))
             return None
@@ -368,15 +379,18 @@ def carry(d, suites):
         if not area:
             reason('STAND-CARRY-AREA', '%s: у %s ведомости областей нет — по умолчанию закрыто' % (name, crepo))
             continue
-        if any(fnmatch.fnmatchcase(name, w) for w in area['whole_tree']):
-            reason('STAND-CARRY-AREA', '%s: набор читает всё дерево — не переносится' % name)
+        if known(s, area['whole_tree']):
+            reason('STAND-CARRY-AREA', '%s (%s): набор читает всё дерево — не переносится' % (name, s.get('job')))
+            continue
+        if not any(fnmatch.fnmatchcase(name, w) for w in area['jobs'].get(str(s.get('job') or ''), [])):
+            reason('STAND-CARRY-AREA', '%s (%s): имени и задания нет в реестре jobs ведомости — по умолчанию закрыто' % (name, s.get('job')))
             continue
         hit, unknown = [], []
         for pth in sorted(changed):
             ents = [en for en in area['paths'] if any(glob_re(g).match(pth) for g in en[0])]
             if not ents:
                 unknown.append(pth)
-            elif any(fnmatch.fnmatchcase(name, w) for en in ents for w in en[1]):
+            elif any(known(s, en[1]) for en in ents):
                 hit.append(pth)
         if hit:
             reason('STAND-CARRY-AREA', '%s: набор читает изменённое (%s) — гнать заново, не переносить' % (name, ', '.join(hit[:5])))

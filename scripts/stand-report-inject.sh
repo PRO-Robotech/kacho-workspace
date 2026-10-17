@@ -242,7 +242,7 @@ ckase() {
     NC=$((NC + 1)); C="$W/c$NC"; mkdir -p "$C"; printf '%s' "$1" > "$C/name"
     local rb="${2:--}" ra="${3:--}"; [ "$rb" != - ] || rb=.; [ "$ra" != - ] || ra=.
     csuites "$H" | jq --arg a "$HA" --arg inp "$INP0" --arg p "$BAN6" '.images_rev = $a
-        | .suites |= map(if (.name | test("^(unit|newman:ban6)")) then . else . + {carried_from: $a} end)
+        | .suites |= map((if (.name | test("^(unit|newman:ban6)")) then {} else {carried_from: $a} end) + .)
         | .carry_basis = {($a): {changed: [$p], inputs: $inp, inputs_rc: 0, report: "src.json"}}' | jq --arg a "$HA" --arg h "$H" "$rb" > "$C/r.json"
     csuites "$HA" | jq "$ra" > "$C/src.json"
     jq -n --arg p "$BAN6" '{status: "ahead", ahead_by: 1, behind_by: 0, files: [{filename: $p}]}' > "$C/compare.json"
@@ -256,6 +256,9 @@ X=services/vpc/internal/app/x.go
 ckase "перенос: вход сборки изменён — запрещён" ".carry_basis[\$a] |= (.changed += [\"$X\"] | .inputs_rc = 1 | .inputs = \"  ВХОД    $X — образ vpc\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 1\")"
 jq --arg x "$X" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-INPUTS
 D=docs/x.md
+ckase "перенос: inputs_rc false вместо 0 — не код 0" '.carry_basis[$a].inputs_rc = false'; want 1 STAND-CARRY-INPUTS
+ckase "перенос: набор unit-shard под именем go-race — читает всё дерево" '.suites[0] |= (.name = "go-race" | .carried_from = $a)' '.suites[0].name = "go-race"'; want 1 'STAND-CARRY-AREA(?=\tgo-race \(ci\.yaml:unit-shard\): набор читает всё дерево)'
+ckase "перенос: ban6 под другим именем — имени нет в реестре jobs" '.suites[3] |= (.name = "newman:edge-isolation" | .carried_from = $a)' '.suites[3].name = "newman:edge-isolation"'; want 1 'STAND-CARRY-AREA(?=\tnewman:edge-isolation [^\t]*нет в реестре jobs)'
 ckase "перенос: путь вне ведомости областей — закрыто" ".carry_basis[\$a] |= (.changed += [\"$D\"] | .inputs = \"  не вход $D — нет\n  не вход $BAN6 — нет\nstand-ns inputs: Dockerfile 23, контекстов 9, образов go 7; изменённых путей 2, из них входов сборки 0\")"
 jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-AREA
 ckase "перенос: перечень путей отчёта короче площадки" -; jq --arg x "$D" '.files += [{filename: $x}]' "$C/compare.json" > "$C/c" && mv "$C/c" "$C/compare.json"; want 1 STAND-CARRY-BASIS
@@ -329,9 +332,12 @@ ledger-repo-ignored	s/    if erepo not in STAND:/    if erepo not in STAND and F
 expect-repo-ignored	s/    if prr and erepo != prr:/    if False:/
 carry-area-read-ok	s/        if hit:/        if False:/
 carry-unknown-path-ok	s/        if unknown:/        if False:/
-carry-whole-tree-ok	s/        if any(fnmatch.fnmatchcase(name, w) for w in area\['whole_tree'\]):/        if False:/
+carry-whole-tree-ok	s/        if known(s, area\['whole_tree'\]):/        if False:/
+carry-whole-tree-by-name-only	s/        if known(s, area\['whole_tree'\]):/        if any(fnmatch.fnmatchcase(name, w) for w in area['whole_tree']):/
+carry-jobs-registry-ignored	s/        if not any(fnmatch.fnmatchcase(name, w) for w in area\['jobs'\]/        if False and not any(fnmatch.fnmatchcase(name, w) for w in area['jobs']/
+carry-inputs-rc-falsy-ok	s/        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot/        if b.get('inputs_rc') != 0 or not tot/
 carry-no-area-ok	s/        if not area:/        if False:/
-carry-inputs-trusted	s/        if b.get('inputs_rc') != 0 or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():/        if not tot:/
+carry-inputs-trusted	s/        if not (type(b.get('inputs_rc')) is int and b.get('inputs_rc') == 0) or not tot or tot.group(2) != '0' or 'ВХОД' in rows.values():/        if not tot:/
 carry-paths-trusted	s/        if rec != plat:/        if False:/
 carry-inputs-partial-ok	s/        if set(rows) != plat or int(tot.group(1)) != len(plat):/        if False:/
 carry-ancestor-ignored	s/        if behind != 0 or st not in ('ahead', 'identical'):/        if False:/
