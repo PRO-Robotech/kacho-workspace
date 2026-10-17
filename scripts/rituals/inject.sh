@@ -283,8 +283,8 @@ inject "M45 pr-body: первое доказательство диапазон�
     '            url, rev = inside[-1]' \
     '            url, rev = inside[0]'
 inject "M46 pr-body: номера из всего сообщения" check-01-pr-body.py \
-    'NUM_RE.findall(meta[h][1])}' \
-    'NUM_RE.findall(meta[h][2])}'
+    'NUM_RE.findall(meta[h][2])}' \
+    'NUM_RE.findall(msgs[h])}'
 inject "M47 pr-body: полная форма — голым #N" check-01-pr-body.py \
     '        return "#%d" % n if n in first else "%s#%d" % (repo, n)' \
     '        return "#%d" % n'
