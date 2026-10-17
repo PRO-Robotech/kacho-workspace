@@ -148,6 +148,11 @@
 #      termination-log, код команды сохранён; близнец RG7b — без роста признака нет
 #   RG8 фоновый процесс команды держит её stdout дольше неё → шаг не ждёт его
 #      (≤ 10 с), код — код команды, вывод в копии
+#   RG9 два упавших пакета дальше 10 строк → дайджест называет оба
+#   RG10 паника в горутине без «--- FAIL», стек > 10 строк → сообщение и кадр
+#   RG11 журнал больше HEAVY_RED_BYTES → копия = последние байты, обрезка названа
+#   RG12 IPv6, IPv4 и имя сервера в журнале → в файлах копий только маска
+#   RG13 обрыв внутри копии (нет end и total) → копии из полного лога контейнера
 #   RG6 красный код, красных групп ноль → строка с числом групп, каталога нет;
 #      RG6b итога нет нигде → «НЕ получены»
 #   L0 двойник сам печатает адрес и IPv4   → да (контроль пробы утечки)
@@ -1692,6 +1697,67 @@ if grep -q '^# redlog-end$' "$BOX/redlog.sh"; then
     if [ "$dt" -le 10 ] && grep -qx 'строка до выхода' "$RW/w/heavy-cmd.out" 2>/dev/null; then ok
     else bad RG8 "шаг ждал фонового писателя $dt с либо вывода команды в копии нет"; fi
 else OUT="$BOX/rg0.cmd"; bad RG8 "шага красных групп в Job нет"; fi
+# RG9–RG13 (приёмка ws#1136, круг 2): шаг над одной красной группой с заданным
+# журналом; поток — в $BOX/<имя>.stream, код шага — в RC.
+rg_one() {
+    local name="$1" src="$2"; shift 2
+    # shellcheck disable=SC2016  # строка дочерней оболочки, $1… раскрывает она
+    ( cd "$RW" && env "$@" bash "$BOX/redlog.sh" bash -c 'mkdir -p "$1" && cp "$2" "$1/log-30-go-test-short.txt"
+echo "== go test -short"; echo "   ОТКАЗ (код 1)"; echo "   | целиком: $1/log-30-go-test-short.txt"; exit 1' rg "$RW/ci/$name" "$src" ) > "$BOX/$name.stream" 2>&1
+    RC=$?; OUT="$BOX/$name.stream"
+}
+okfill() { local i; for ((i = 1; i <= $1; i++)); do printf 'ok  \texample.com/redprobe/p%02d\t0.00%ds\n' "$i" "$((i % 10))"; done; }
+# RG9 — два упавших пакета дальше 10 строк друг от друга → дайджест называет ОБА
+{ printf -- '--- FAIL: TestAlpha (0.00s)\n    a_test.go:7: альфа сломана\nFAIL\nFAIL\texample.com/redprobe/alpha\t0.003s\n'
+  okfill 15
+  printf -- '--- FAIL: TestOmega (0.00s)\n    o_test.go:9: омега сломана\nFAIL\nFAIL\texample.com/redprobe/omega\t0.004s\nFAIL\n'; } > "$BOX/rg9.log"
+rg_one rg9 "$BOX/rg9.log"
+expect_rc RG9 1
+if grep -q '^   ! .*TestAlpha' "$OUT" && grep -q '^   ! .*альфа сломана' "$OUT" && grep -q '^   ! .*example\.com/redprobe/alpha' "$OUT" \
+   && grep -q '^   ! .*TestOmega' "$OUT" && grep -q '^   ! .*омега сломана' "$OUT" && grep -q '^   ! .*example\.com/redprobe/omega' "$OUT"; then ok
+else bad RG9 "дайджест не называет оба упавших пакета, их тесты и строки отказа"; fi
+# RG10 — паника в горутине без «--- FAIL», стек длиннее 10 строк → в дайджесте
+#      сообщение паники и первый кадр, а не только «FAIL<таб>пакет»
+{ printf 'panic: горутина упала: ждали 2, получили 3\n\ngoroutine 18 [running]:\n'
+  printf 'example.com/redprobe/gor.worker(0x3)\n\t/src/gor/gor.go:12 +0x1d\n'
+  for i in 1 2 3 4 5 6; do printf 'example.com/redprobe/gor.step%d(...)\n\t/src/gor/gor.go:%d +0x2%d\n' "$i" "$((20 + i))" "$i"; done
+  printf 'created by example.com/redprobe/gor.TestGoroutine in goroutine 17\n\t/src/gor/gor_test.go:8 +0x25\nFAIL\texample.com/redprobe/gor\t0.005s\nFAIL\n'; } > "$BOX/rg10.log"
+rg_one rg10 "$BOX/rg10.log"
+expect_rc RG10 1
+if [ "$(grep -c -- '--- FAIL' "$BOX/rg10.log")" -eq 0 ] && grep -q '^   ! .*panic: горутина упала: ждали 2, получили 3' "$OUT" \
+   && grep -q '^   ! .*gor\.go:12' "$OUT" && grep -q '^   ! .*example\.com/redprobe/gor' "$OUT"; then ok
+else bad RG10 "дайджест паники в горутине без сообщения паники, кадра или пакета"; fi
+# RG11 — журнал группы больше HEAVY_RED_BYTES → на машине ровно последние байты,
+#      обрезка названа; сумма — от отправленного хвоста, а не от файла
+for i in $(seq 1 120); do printf 'line %03d of an oversized red group log\n' "$i"; done > "$BOX/rg11.log"
+rg_one rg11 "$BOX/rg11.log" HEAVY_RED_BYTES=1000
+tail -c 1000 "$BOX/rg11.log" > "$BOX/rg11.tail"
+fresh
+go_run rg11r env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg11.stream" "${B[@]}" --short rg11r -- true
+expect_rc RG11 1
+if cmp -s "$BOX/rg11r.out.red-t1-heavy-rg11r/log-30-go-test-short.txt" "$BOX/rg11.tail" \
+   && grep -q "1000 байт, последние из $(wc -c < "$BOX/rg11.log") — журнал обрезан пределом" "$OUT"; then ok
+else bad RG11 "обрезанная копия не сохранена, не равна хвосту в 1000 байт либо обрезка не названа"; fi
+# RG12 — IPv6 pod, IPv4 pod и имя сервера в журнале группы → в ФАЙЛАХ каталога копий
+#      ни одного, на их месте маска
+printf 'dial tcp [%s]:5432: connect: refused\nGet "https://%s:6443/api": pod %s\n' "$FAKE_POD_IP6" "$SERVER_HOST" "$FAKE_POD_IP" > "$BOX/rg12.log"
+rg_one rg12 "$BOX/rg12.log"
+fresh
+go_run rg12r env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg12.stream" "${B[@]}" --short rg12r -- true
+expect_rc RG12 1
+RD12="$BOX/rg12r.out.red-t1-heavy-rg12r"
+if [ -f "$RD12/log-30-go-test-short.txt" ] && grep -q '<адрес>' "$RD12/log-30-go-test-short.txt" && grep -q '<кластер>' "$RD12/log-30-go-test-short.txt" \
+   && ! grep -rqF -e "$FAKE_POD_IP6" -e "$SERVER_HOST" -e "$FAKE_POD_IP" "$RD12"; then ok
+else bad RG12 "в файлах каталога копий адрес IPv6, IPv4 или имя сервера без маски либо копии нет"; fi
+# RG13 — поток оборван внутри копии (begin и часть data, нет end и total), полный
+#      лог есть → копии из полного лога
+awk '{ print } /^remote-heavy-redlog: data 1 1 / { exit }' "$BOX/rg1.stream.keep" > "$BOX/rg13.stream"
+fresh
+go_run rg13 env FAKE_EXIT=1 FAKE_LOG_FILE="$BOX/rg13.stream" FAKE_FULL_LOG="$BOX/rg1.stream.keep" "${B[@]}" --short rg13 -- true
+expect_rc RG13 1
+if grep -q '^remote-heavy-redlog: begin 1 ' "$BOX/rg13.stream" && ! grep -q '^remote-heavy-redlog: \(end\|total\) ' "$BOX/rg13.stream" \
+   && cmp -s "$BOX/rg13.out.red-t1-heavy-rg13/log-26-go-test-short.txt" "$BOX/rg1.gotest.keep" && grep -q 'скопировано 2 из 2' "$OUT"; then ok
+else bad RG13 "обрыв внутри копии не добран из полного лога контейнера"; fi
 # RG2 — тот поток через run.sh: на машине каталог копий рядом с журналом, копии равны
 #      журналам pod (адрес — под маской), дайджест в журнале, строк потока копий нет
 fresh
