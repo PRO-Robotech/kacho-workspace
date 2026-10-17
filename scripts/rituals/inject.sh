@@ -35,7 +35,8 @@
 #   M19 approval-event: запись без verdict/reviewer_role не судится → check-03
 #   M20 pr-body: атрибуция в собранном теле не судится (пришла из заголовка задачи) → check-01
 #   M21 dod_proof.jq: ревизия любого вида, а не 7–40 шестнадцатеричных → check-01
-#   M22 dod_proof: первое доказательство вместо последнего           → check-01
+#   M22 dod_proof: первое доказательство вместо последнего           → check-04
+#       (до ws#1146 — check-01; у pr-body с тех пор свой отбор, по диапазону: M45)
 #   M23–M25 gh_list: только первая страница списка трекера — двойник отдаёт
 #       страницы по `per_page`, и каждая самопроба, чей ритуал читает список,
 #       несёт предмет на второй странице                         → check-01, -02, -04
@@ -55,6 +56,35 @@
 #   M34 approval-event: номер — последнее число имени ветки, а не число до
 #       первого дефиса (`896-r8-526` → 526)                              → check-03
 #   M35 approval-event: ветка читается из cwd, `RITUAL_REPO_DIR` пропущен  → check-03
+#
+# ws#1146: тело PR из git — `scripts/pr-body.sh <репо> <база> <голова>` (логика здесь, в
+# rituals.py). Каждый мутант роняет одно правило, которым судят landing-precheck и
+# merge-readiness, и краснит check-01 своей пробой:
+#   M36 pr-body: доказательство вне диапазона засчитано (ревизия базы, ревизии нет) → check-01
+#   M37 pr-body: держатель записи долга не судится                    → check-01
+#   M38 pr-body: форма держателя ведомости снята — любое упоминание держит (близнец) → check-01
+#   M39 pr-body: упомянутые вне первых строк — с `#`                    → check-01
+#   M40 pr-body: заголовок задачи с `#N` — без замены                   → check-01
+#   M41 pr-body: первая строка — первый абзац (`%s` git)                → check-01
+#   M42 pr-body: Closes перед Refs (хвост не последний)                → check-01
+#   M43 pr-body: снятая ведомость своего репозитория не судится        → check-01
+#   M44 pr-body: вложенные полосы не раскрыты                         → check-01
+#   M45 pr-body: названо первое доказательство диапазона, а не последнее → check-01
+#   M46 pr-body: номера задач — из всего сообщения, а не из первой строки → check-01
+#   M47 pr-body: задача первой строки в полной форме — голым `#N`       → check-01
+#   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
+#   M49 pr-body: `otherorg/kaname#N` засчитан задачей своего репозитория (прежнее
+#       выражение `issue_refs`, `/` перед именем не отсекался)          → check-01
+#   M50 pr-body: догон базы не распознан — номера строки догона берутся задачами → check-01
+#   M51 pr-body: строка догона в составе — с `#N` базы                   → check-01
+#   M52 pr-body: доказательство засчитано лишь на голове — предок диапазона
+#       с деревом головы, который судьи засчитывают, дал бы Refs          → check-01
+# Приёмка check-verifier на 2975fdd18: догон — по СТРУКТУРЕ (сторонний родитель достижим из
+# базы), словесный перечень снят; его мутанты A1, A5–A9, C1 предмета больше не имеют.
+#   M53 pr-body: любое слияние — догон (аналог C1: любая ветка — ствол)   → check-01
+#   M54 pr-body: достижимость сторонних родителей — от головы, не от базы  → check-01
+#   M55 pr-body: префикс догона отброшен (B1: `head = ""`)                → check-01
+#   M56 pr-body: префикс догона не идёт в задачи (B2)                     → check-01
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -80,6 +110,8 @@ copy() {
     local d="$tmp/$1"
     mkdir -p "$d/scripts/hooks" "$d/scripts/lib" || return 2
     cp -r "$here" "$d/scripts/rituals" || return 2
+    cp "$ws/scripts/pr-body.sh" "$d/scripts/" || return 2
+    cp "$ws/scripts/lib/ws-home.sh" "$d/scripts/lib/" || return 2
     cp "$ws/scripts/hooks/attribution-rule.sh" "$d/scripts/hooks/" || return 2
     cp "$ws/scripts/lib/sandbox-git-home.sh" "$ws/scripts/lib/gate_root.py" "$ws/scripts/lib/dod_proof.jq" \
         "$d/scripts/lib/" || return 2
@@ -136,10 +168,8 @@ inject() {
 }
 
 inject "M1 pr-body: Closes без доказательства" check-01-pr-body.py \
-    '        proof = dod_proof(repo, n)
-        if proof:' \
-    '        proof = dod_proof(repo, n) or ("(нет)", "0000000")
-        if proof:'
+    '        inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
+    '        inside = proofs or [("(нет)", "0000000")]'
 inject "M2 pr-body: атрибуция не видна" check-01-pr-body.py \
     'return p.stdout.strip() or "(пустая строка)"' \
     'return None'
@@ -206,9 +236,9 @@ inject "M21 dod_proof.jq: ревизия любого вида" check-01-pr-body
     '[0-9a-f]{7,40}' \
     '[0-9A-Za-z]{1,40}' \
     ../lib/dod_proof.jq
-inject "M22 dod_proof: первое доказательство вместо последнего" check-01-pr-body.py \
-    'select(.revs | length > 0)] | last |' \
-    'select(.revs | length > 0)] | first |'
+inject "M22 dod_proof: первое доказательство вместо последнего" check-04-vault-trails.py \
+    "' | last | if . == null" \
+    "' | first | if . == null"
 inject "M23 gh_list: только первая страница (pr-body)" check-01-pr-body.py \
     '        if len(chunk) < 100:' '        if True:'
 inject "M24 gh_list: только первая страница (close-wave)" check-02-close-wave.py \
@@ -228,6 +258,69 @@ inject "M34 approval-event: номер — последнее число вет�
 inject "M35 approval-event: ветка из cwd, RITUAL_REPO_DIR пропущен" check-03-approval-event.py \
     '["git", "-C", os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), "symbolic-ref"' \
     '["git", "-C", os.getcwd(), "symbolic-ref"'
+inject "M36 pr-body: доказательство вне диапазона засчитано" check-01-pr-body.py \
+    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
+    ' for u, r in proofs]'
+inject "M37 pr-body: держатель записи долга не судится" check-01-pr-body.py \
+    '        holder = debt_holder(repo, n, ledgers)' \
+    '        holder = None'
+inject "M38 pr-body: форма держателя снята" check-01-pr-body.py \
+    'rx = re.compile(form.replace("{ref}", task_ref_re(trepo, n, lrepo)).replace("{n}", str(n)))' \
+    'rx = re.compile(task_ref_re(trepo, n, lrepo))'
+inject "M39 pr-body: упомянутые — с #" check-01-pr-body.py \
+    '", ".join(str(n) for n in sorted(mentioned))' \
+    '", ".join("#%d" % n for n in sorted(mentioned))'
+inject "M40 pr-body: заголовок задачи без замены #N" check-01-pr-body.py \
+    '        title = no_hash(it.get("title") or "")' \
+    '        title = it.get("title") or ""'
+inject "M41 pr-body: первая строка — первый абзац" check-01-pr-body.py \
+    '    return (msg.split("\n", 1)[0] if msg else "").rstrip("\r")' \
+    '    return " ".join(msg.split("\n\n", 1)[0].splitlines()) if msg else ""'
+inject "M42 pr-body: Closes перед Refs" check-01-pr-body.py \
+    '    tail = ["Refs %s" % label(n) for n in refs] + ["Closes %s" % label(n) for n in closes]' \
+    '    tail = ["Closes %s" % label(n) for n in closes] + ["Refs %s" % label(n) for n in refs]'
+inject "M43 pr-body: снятая ведомость не судится" check-01-pr-body.py \
+    '        if not files and lrepo == trepo:' \
+    '        if False:'
+inject "M44 pr-body: вложенные полосы не раскрыты" check-01-pr-body.py \
+    '            subs.append(lanes(p, excl + seen, meta))' \
+    '            subs.append([])'
+inject "M45 pr-body: первое доказательство диапазона" check-01-pr-body.py \
+    '            url, rev = inside[-1]' \
+    '            url, rev = inside[0]'
+inject "M46 pr-body: номера из всего сообщения" check-01-pr-body.py \
+    'NUM_RE.findall(meta[h][2])}' \
+    'NUM_RE.findall(msgs[h])}'
+inject "M47 pr-body: полная форма — голым #N" check-01-pr-body.py \
+    '        return "#%d" % n if n in first else "%s#%d" % (repo, n)' \
+    '        return "#%d" % n'
+inject "M48 pr-body: полная форма — не задача" check-01-pr-body.py \
+    '    for n in sorted(first | qual):' \
+    '    for n in sorted(first):'
+inject "M49 pr-body: чужой владелец засчитан своим" check-01-pr-body.py \
+    'r"(?<![\w./-])(?:%s/)?%s#(\d+)\b"' \
+    'r"(?<![\w.-])(?:%s/)?%s#(\d+)\b"'
+inject "M50 pr-body: догон не распознан" check-01-pr-body.py \
+    '    return bool(side) and all(is_ancestor(p, base) for p in side)' \
+    '    return False'
+inject "M53 pr-body: любое слияние — догон" check-01-pr-body.py \
+    '    return bool(side) and all(is_ancestor(p, base) for p in side)' \
+    '    return bool(side)'
+inject "M54 pr-body: достижимость от головы" check-01-pr-body.py \
+    'catch_up(parents, base_sha)' \
+    'catch_up(parents, head_sha)'
+inject "M55 pr-body: префикс догона отброшен" check-01-pr-body.py \
+    '    head = m.group(0) if m else ""' \
+    '    head = ""'
+inject "M56 pr-body: префикс догона не в задачах" check-01-pr-body.py \
+    '    return head + no_hash(line[len(head):]), head, head' \
+    '    return head + no_hash(line[len(head):]), "", head'
+inject "M51 pr-body: строка слияния ствола с #N" check-01-pr-body.py \
+    '    return head + no_hash(line[len(head):]), head, head' \
+    '    return line, head, head'
+inject "M52 pr-body: доказательство лишь на голове" check-01-pr-body.py \
+    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
+    ' for u, r in proofs if head_sha.startswith(r)]'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

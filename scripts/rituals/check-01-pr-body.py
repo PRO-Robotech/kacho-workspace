@@ -1,162 +1,313 @@
 #!/usr/bin/env python3
-"""check-01 — `pr-body.sh` собирает тело PR: `Closes` лишь задаче с доказательством DoD, атрибуции нет.
+"""check-01 — `scripts/pr-body.sh <репо> <база> <голова>` выводит тело PR из git (ws#1146, прежде ws#930).
 
-ЧТО УТВЕРЖДАЕТ (ws#930). На подставном репозитории (ветка `41-feature`, коммиты с
-ссылками на задачи в формах `#N`, `<вл>/<имя>#N`, на чужой репозиторий и на PR) и
-подставном трекере:
-  * задача с комментарием `DoD-proof @<ревизия>` в начале строки — `Closes`, и
-    закрывающие строки идут последними; без него — `Refs`; закрытая — `Refs`, и это
-    так же при доказательстве в ней (близнец: закрытой задаче `Closes` не нужен);
-    номер-PR в перечень не попадает, ссылка на чужой репозиторий не запрашивается;
-  * инъекция «Closes без доказательства»: то же дерево, комментария нет — `Refs`, ни
-    одной строки `Closes`; близнец — `DoD-proof @…` посреди прозы доказательством не
-    является;
-  * инъекция «атрибуция»: коммит с трейлером `Co-Authored-By:` — отказ кодом 1, тело не
-    выдано, sha назван; близнец — слово в середине строки прозы — тело собрано;
-  * распознаватель доказательства (общий `dod_proof.jq`): ревизия — 7–40
-    шестнадцатеричных знаков, `DoD-proof @main` и `DoD-proof @abc12` доказательством не
-    являются (отбиты длиной), `DoD-proof @develop` — тоже (длина годна, отбит
-    алфавитом), `DoD-proof abc1234` — тоже (маркер без `@`); полный sha — является;
-    из нескольких доказательств берётся ПОСЛЕДНЕЕ;
-  * доказательство на второй странице комментариев (101-й из 101) находится: список
-    трекера читается всеми страницами, а не первой;
-  * атрибуция, пришедшая в тело не из коммита, а из заголовка задачи, — отказ «атрибуция
-    в собранном теле», тело не выдано; близнец — обычный заголовок, тело собрано;
-  * тот же разбор по номеру PR (коммиты — из трекера);
-  * задача не прочитана либо коммитов ноль — код 2, а не тело.
-Каждый отказ судится по коду И по причине в выводе: красное от соседнего отказа пробу
-не проходит (возврат check-verifier к ws#930).
+ЧТО УТВЕРЖДАЕТ. На подставном репозитории `PRO-Robotech/kaname` (ведомости долга этого
+имени — из перечня `DEBT_LEDGERS`; клонов чужих ведомостей нет) и подставном трекере.
+Диапазон: база `main` (на ней — коммит #42, вне диапазона), голова — ветка волны `50`,
+куда первым родителем влиты полоса `41-a` и полоса `42-b`, а в `42-b` — вложенная `44-c`;
+плюс коммит линии головы. Утверждения:
+  * СОСТАВ — каждый коммит диапазона назван своим sha, по полосам: заголовок полосы —
+    слияние первого родителя, вложенное слияние — уровнем ниже (отступ), коммит линии
+    головы — в своём разделе;
+  * НОМЕРА — каждый `#N` тела (выражение `NUM_RE`, оно же у landing-precheck) — номер
+    первой строки коммита диапазона; номер из тела сообщения (#47), из `kaname#48` и из
+    второй строки первого абзаца (#49, `%s` git склеил бы её с первой) идёт без `#`;
+    `#99` из заголовка задачи — `№99`; задача своего репозитория, названная в первой строке
+    полной формой (`kaname#52`, `PRO-Robotech/kaname#53`), — задача, и пишется полной формой;
+    `otherorg/kaname#77` — чужой владелец, не задача (ни строки, ни Closes, ни в упомянутых);
+    ДОГОН базы — по структуре (слияние, сторонний родитель достижим из базы), не по тексту:
+    строки `DOGON` (четыре формы перечня, `#main`, «слияние», «догон», догон базы-эпика
+    `3172-epic`, своя #59 лишь в префиксе) — номер базы ни задача, ни упомянутая, в теле его
+    нет, в составе он с `№`; #59 из префикса — задача (T8); близнецы — слияние соседней полосы
+    с непустой ветвью (#57) и коммит-не-слияние «merge main» (#67, T7) — номера остаются;
+  * CLOSES — #41: доказательство DoD ревизией диапазона (близнец: та же задача упомянута
+    ведомостью прозой, не формой держателя, — Closes остаётся); #42: доказательство ревизией
+    БАЗЫ (предок головы, но не коммит диапазона) — Refs; #44: ревизия, которой нет, — Refs;
+    #45: держит запись `newman-suite-debt.py` (`PRO-Robotech/kaname#45 — …`) при годном
+    доказательстве — Refs; #46: держит объявление RESULTS.md — Refs; #43 закрыта — Refs (и при
+    доказательстве диапазона);
+    #50 без доказательства — Refs; доказательство #50 на предке головы с тем же деревом (голова —
+    слияние ствола) — Closes, как у merge-readiness и landing-precheck (замер на kaname#876); kaname#52 с доказательством диапазона — Closes полной
+    формой, kaname#53 без него — Refs полной формой; закрытой #43 доказательство диапазона Closes не даёт; #51 — запрос, в задачи не идёт;
+  * ХВОСТ — закрывающие строки последними, Refs перед ними, хвост сплошной;
+  * распознаватель доказательства общий (`dod_proof.jq`): `@main`, `@abc12`, `@develop`,
+    `abc1234` без `@` и маркер посреди прозы — не доказательства; полный sha — доказательство;
+    из нескольких доказательств диапазона названо последнее; доказательство 101-м
+    комментарием (вторая страница) находится;
+  * атрибуция в коммите — отказ (код 1), sha назван; в заголовке задачи — отказ «в собранном
+    теле»; близнец — слово в середине прозы — тело собрано;
+  * не выполнилось (код 2): задача не прочитана; диапазон пуст; ревизии нет; ведомость
+    долга своего репозитория снята с головы; форма вызова не та.
+Каждый отказ судится по коду И по причине: красное от соседнего отказа пробу не проходит.
 Коды: 0 — пробы прошли; 1 — проба провалена; 2 — предпосылки нет (git, подпись, PyYAML).
 """
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _probe as P  # noqa: E402
 
-R = "PRO-Robotech/rituals-probe"
+R = "PRO-Robotech/kaname"
+# Выражение номера — то же, что `NUM` пункта (в) landing-precheck и `NUM_RE` ритуала.
+NUM = re.compile(r"(?<![\w/#])#([0-9]+)\b")
+LEDGER = ('DEBT = {\n    "suite-a": ("B", "довод", "PRO-Robotech/kaname#45 — прогонит набор"),\n}\n'
+          "# история: kaname#41 упомянута прозой, не держит ничего\n")
+RESULTS = "# Newman results\n\n<!-- known-failing: #46 — кейс красен до починки -->\n"
 
 
-def issue(n, state="open", pr=False):
-    it = {"number": n, "id": 7000 + n, "title": "задача %d" % n, "state": state,
+def issue(n, state="open", pr=False, title=None):
+    it = {"number": n, "id": 7000 + n, "title": title or "задача %d" % n, "state": state,
           "html_url": "https://github.com/%s/issues/%d" % (R, n)}
     if pr:
         it["pull_request"] = {"url": "x"}
     return it
 
 
+def comment(n, i, text):
+    return {"id": i, "body": text, "html_url": "https://github.com/%s/issues/%d#issuecomment-%d" % (R, n, i)}
+
+
+def tail_of(out):
+    """Хвост закрывающих строк: последние подряд строки Refs/Closes."""
+    lines = out.rstrip("\n").splitlines()
+    t = []
+    for ln in reversed(lines):
+        if re.match(r"^(Refs|Closes) (PRO-Robotech/kaname)?#\d+$", ln):
+            t.append(ln)
+        else:
+            break
+    return list(reversed(t))
+
+
 def closes(out):
-    return [ln for ln in out.splitlines() if ln.startswith("Closes #")]
+    return [ln for ln in out.splitlines() if ln.startswith("Closes ")]
 
 
-def comment41(i, text):
-    return {"id": i, "body": text, "html_url": "https://github.com/%s/issues/41#issuecomment-%d" % (R, i)}
+def seed(pr):
+    """Репозиторий-диапазон; возвращает каталог и sha по ролям."""
+    d = pr.repo("repo", {"f.txt": "0\n", ".github/scripts/newman-suite-debt.py": LEDGER,
+                         "tests/newman/docs/RESULTS.md": RESULTS})
+    sha = {"base42": pr.commit(d, "#42 правка, уже влитая в базу")}
+    pr.git(d, "checkout", "-qb", "41-a", "main")
+    sha["41a"] = pr.commit(d, "#41 первая правка", rel="a.txt")
+    sha["41b"] = pr.commit(d, "#41 вторая правка (kaname#52)\nпродолжение абзаца про #49\n\nтело называет #47 и kaname#48",
+                           rel="a.txt")
+    pr.git(d, "checkout", "-qb", "44-c", "main")
+    sha["44"] = pr.commit(d, "#44 вложенная полоса (PRO-Robotech/kaname#53)", rel="c.txt")
+    pr.git(d, "checkout", "-qb", "42-b", "main")
+    sha["42"] = pr.commit(d, "#42 полоса после базы (#43)", rel="b.txt")
+    sha["45"] = pr.commit(d, "#45 держатель записи долга", rel="b.txt")
+    sha["46"] = pr.commit(d, "#46 кейс под объявлением (otherorg/kaname#77)", rel="b.txt")
+    pr.git(d, "merge", "-q", "--no-ff", "44-c", "-m", "#42 merge #44: вложенная сборка")
+    sha["m44"] = pr.git(d, "rev-parse", "HEAD").strip()
+    pr.git(d, "checkout", "-qb", "50", "main")
+    pr.git(d, "merge", "-q", "--no-ff", "41-a", "-m", "#50 merge #41: сборка")
+    sha["m41"] = pr.git(d, "rev-parse", "HEAD").strip()
+    pr.git(d, "merge", "-q", "--no-ff", "42-b", "-m", "#50 merge #42: сборка, запрос #51")
+    sha["m42"] = pr.git(d, "rev-parse", "HEAD").strip()
+    sha["50"] = pr.commit(d, "#50 правка линии головы", rel="h.txt")
+    # Догон базы, как kaname 870 @9d692d7fe: слияние, сторонний родитель которого достижим из
+    # базы, дерево не меняется. Признак — структура: формы строки ниже отличаются от
+    # `merge main` одним фактом, две последние словесные — вне всякого перечня, `3172-epic` —
+    # догон базы-эпика; #59 есть ТОЛЬКО в префиксе догона (T8).
+    pr.git(d, "branch", "3172-epic", "main")
+    pr.git(d, "checkout", "-qb", "50-dogon", "50")
+    for key, n, msg in DOGON:
+        m = pr.git(d, "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-p", "3172-epic" if n == 3259 else "main",
+                   "-m", msg).strip()
+        pr.git(d, "merge", "-q", "--ff-only", m)
+        sha[key] = m
+    # Близнецы на голове `50-twins`: слияние соседней полосы (ветвь второго родителя непуста)
+    # и коммит-не-слияние со словами «merge main» — номера #57 и #67 остаются задачами.
+    pr.git(d, "checkout", "-qb", "1147-autoland", "main")
+    sha["side"] = pr.commit(d, "правка соседней полосы", rel="s.txt")
+    pr.git(d, "checkout", "-qb", "50-twins", "50-dogon")
+    pr.git(d, "merge", "-q", "--no-ff", "1147-autoland", "-m", "#50 merge 1147-autoland (#57)")
+    sha["twin-merge"] = pr.git(d, "rev-parse", "HEAD").strip()
+    sha["twin-t7"] = pr.commit(d, "#50 fix: не делать merge main (#67)", rel="h.txt")
+    return d, sha
 
 
-def world(proof="DoD-proof @abc1234\nкоманда — код 0", proof43=None, comments41=None, title41=None):
-    w = {
-        "issues": {"%s#41" % R: issue(41), "%s#42" % R: issue(42), "%s#43" % R: issue(43, "closed"),
-                   "%s#50" % R: issue(50, pr=True)},
-        "comments": {"%s#41" % R: comments41 if comments41 is not None else [comment41(1, proof)]},
+# Догоны базы на голове `50-dogon`: (ключ, номер базы в строке, строка).
+DOGON = (
+    ("dogon", 56, "#50 merge main: догон ствола (#56) перед PR"),
+    ("dogon-origin", 60, "#50 merge origin/main: догон ствола (#60)"),
+    ("dogon-git-branch", 61, "Merge branch 'main' into 50-dogon (#61)"),
+    ("dogon-git-remote", 62, "Merge remote-tracking branch 'origin/main' into 50-dogon (#62)"),
+    ("dogon-hash-main", 63, "#50 merge #main: догон ствола (#63)"),
+    ("dogon-ru", 64, "#50 слияние origin/main (#64)"),
+    ("dogon-word", 65, "#50 догон main (#65)"),
+    ("dogon-epic", 3259, "#50 merge 3172-epic: догон базы-эпика (#3259)"),
+    ("dogon-prefix-only", 66, "#59 merge main: догон ствола (#66)"),
+)
+
+
+def world(sha, c41=None, title41=None):
+    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53, 56, 57, 59, 67, 77)}
+    issues[43] = issue(43, "closed")
+    issues[51] = issue(51, pr=True)
+    issues[41]["title"] = title41 or "задача 41 (после #99)"
+    return {
+        "issues": {"%s#%d" % (R, n): it for n, it in issues.items()},
+        "comments": {
+            "%s#41" % R: c41 if c41 is not None else [comment(41, 1, "DoD-proof @%s\nкоманда — код 0" % sha["41a"][:9])],
+            "%s#42" % R: [comment(42, 2, "DoD-proof @%s\nкод 0" % sha["base42"][:9])],
+            "%s#44" % R: [comment(44, 4, "DoD-proof @deadbee1\nкод 0")],
+            "%s#45" % R: [comment(45, 5, "DoD-proof @%s\nкод 0" % sha["45"])],
+            "%s#46" % R: [comment(46, 6, "DoD-proof @%s\nкод 0" % sha["46"][:12])],
+            "%s#77" % R: [comment(77, 8, "DoD-proof @%s\nкод 0" % sha["46"][:9])],
+            "%s#52" % R: [comment(52, 7, "DoD-proof @%s\nкод 0" % sha["41b"][:9])],
+            "%s#43" % R: [comment(43, 3, "DoD-proof @%s\nкод 0" % sha["42"][:9])],
+        },
     }
-    if title41 is not None:
-        w["issues"]["%s#41" % R]["title"] = title41
-    if proof43:
-        w["comments"]["%s#43" % R] = [{"id": 3, "body": proof43,
-                                       "html_url": "https://github.com/%s/issues/43#issuecomment-3" % R}]
-    return w
 
 
 def body(pr):
-    d = pr.repo("repo", {"f.txt": "0\n"})
-    pr.git(d, "checkout", "-qb", "41-feature")
-    pr.commit(d, "оснастка: первая правка (#41)")
-    pr.commit(d, "оснастка: вторая — %s#42 и #43, после PR #50; соседу PRO-Robotech/other#44" % R)
-    args = [R, "41-feature", "main", "41-feature"]
+    d, sha = seed(pr)
+    extra = {"RITUAL_REPO_DIR": d, "RITUAL_LEDGER_CLONES": os.path.join(pr.tmp, "no-clones")}
+    args = [R, "main", "50"]
+    in_range = [s for k, s in sha.items() if k == "50" or not (k == "base42" or k.startswith(("dogon", "twin", "side")))]
 
-    rc, out, err, st = pr.run("pr-body", args, pr.state(world()), cwd=d)
-    tail = out.rstrip("\n").splitlines()
+    rc, out, err, st = pr.run("pr-body", args, pr.state(world(sha)), extra=extra)
     pr.ok("законный вход: код 0", rc == 0, err)
-    pr.ok("Closes #41 последней строкой", tail[-1:] == ["Closes #41"], out)
-    pr.ok("Refs #42 и Refs #43", "Refs #42" in tail and "Refs #43" in tail, out)
-    pr.ok("номер-PR #50 не в перечне", "#50" not in "\n".join(tail[-4:]) and "задача 50" not in out, out)
-    pr.ok("чужой репозиторий не запрошен", not any("other" in e["path"] for e in st["log"]), str(st["log"]))
-    pr.ok("коммиты перечислены", out.count("- `") == 2, out)
-    pr.ok("перепись в stderr", "Closes 1, Refs 2" in err, err)
     pr.ok("трекер не изменён", not P.writes(st), str(P.writes(st)))
 
-    # близнец: закрытая задача С доказательством — всё равно Refs (закрывать нечего)
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof43="DoD-proof @def5678\nкод 0")), cwd=d)
-    pr.ok("закрытая с доказательством: Refs #43, Closes #43 нет",
-          rc == 0 and "Refs #43" in out and "Closes #43" not in out and "уже закрыта" in out, out + err)
+    # состав
+    pr.ok("каждый коммит диапазона назван sha (%d)" % len(in_range),
+          all(("`%s`" % s[:9]) in out for s in in_range), out)
+    pr.ok("коммит базы в составе не назван", ("`%s`" % sha["base42"][:9]) not in out, out)
+    pr.ok("перепись состава: коммитов 10, полос 2, вне полос 1",
+          "коммитов 10: полос (слияний первого родителя) 2, коммитов линии головы вне полос 1" in out, out)
+    m = re.search(r"### Полоса 1 — `%s`.*?(?=### )" % sha["m41"][:9], out, re.S)
+    pr.ok("полоса 1 — слияние #41 и оба коммита #41",
+          bool(m) and ("`%s`" % sha["41a"][:9]) in m.group(0) and ("`%s`" % sha["41b"][:9]) in m.group(0), out)
+    m = re.search(r"### Полоса 2 — `%s`.*?(?=### )" % sha["m42"][:9], out, re.S)
+    pr.ok("полоса 2 — вложенное слияние #44 и его коммит уровнем ниже",
+          bool(m) and ("- `%s`" % sha["m44"][:9]) in m.group(0) and ("\n  - `%s`" % sha["44"][:9]) in m.group(0), out)
+    pr.ok("коммит линии головы — в своём разделе",
+          re.search(r"### Линия головы вне полос\n\n- `%s`" % sha["50"][:9], out) is not None, out)
 
-    # инъекция: Closes без доказательства → Refs
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof="обсуждение без доказательства")), cwd=d)
-    pr.ok("без доказательства: код 0", rc == 0, err)
-    pr.ok("без доказательства: Refs #41, ни одного Closes", "Refs #41" in out and not closes(out), out)
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof="см. DoD-proof @abc1234 в соседней")), cwd=d)
-    pr.ok("близнец: DoD-proof посреди прозы — не доказательство", rc == 0 and not closes(out), out + err)
+    # номера
+    first = {"41", "42", "43", "44", "45", "46", "50", "51"}
+    pr.ok("каждый #N тела — номер первой строки диапазона", set(NUM.findall(out)) <= first,
+          str(sorted(set(NUM.findall(out)) - first)))
+    pr.ok("#47, #48, #49 — строкой без #", "Упомянуты вне первых строк (без закрытия): 47, 48, 49" in out, out)
+    pr.ok("заголовок задачи: #99 → №99", "№99" in out and "#99" not in out, out)
+    pr.ok("запрос #51 — не задача", "Запросы в первых строках (не задачи): #51" in out
+          and "«задача 51»" not in out, out)
 
-    # распознаватель: ревизия — только 7–40 шестнадцатеричных знаков, маркер — с `@`.
-    # `@main` и `@abc12` отбиваются длиной; `@develop` (7 знаков, не шестнадцатеричных)
-    # судит именно алфавит, `abc1234` без `@` — именно маркер (возврат check-verifier 932-r3).
-    for text in ("DoD-proof @main\nкод 0", "DoD-proof @abc12\nкод 0",
-                 "DoD-proof @develop\nкод 0", "DoD-proof abc1234\nкод 0"):
-        rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof=text)), cwd=d)
-        pr.ok("не ревизия «%s» — не доказательство: Refs #41" % text.splitlines()[0],
-              rc == 0 and "Refs #41" in out and not closes(out), out + err)
-    full = "0123456789abcdef0123456789abcdef01234567"
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(proof="DoD-proof @%s\nкод 0" % full)), cwd=d)
-    pr.ok("близнец: полный sha — доказательство, Closes #41",
-          rc == 0 and closes(out) == ["Closes #41"] and ("DoD-proof @%s" % full) in out, out + err)
+    # закрытия
+    pr.ok("закрывающие: #41 и полной формой kaname#52", closes(out) == ["Closes #41", "Closes %s#52" % R], out)
+    pr.ok("Refs: #42 #43 #44 #45 #46 #50 и полной формой kaname#53",
+          all(("Refs #%d" % n) in tail_of(out) for n in (42, 43, 44, 45, 46, 50))
+          and ("Refs %s#53" % R) in tail_of(out), out)
+    pr.ok("хвост: Refs, затем Closes последними, сплошь",
+          tail_of(out)[-2:] == ["Closes #41", "Closes %s#52" % R] and len(tail_of(out)) == 9
+          and all(x.startswith("Refs") for x in tail_of(out)[:-2]), out)
+    # Чужой владелец: `otherorg/kaname#77` — не задача диапазона (у своей #77 есть
+    # доказательство диапазона, так что засчитанная ошибочно, она дала бы Closes).
+    pr.ok("otherorg/kaname#77 — не задача: ни строки, ни Closes, ни в упомянутых",
+          "«задача 77»" not in out and not any("77" in x for x in tail_of(out))
+          and "77" not in (re.search(r"Упомянуты вне первых строк[^\n]*", out) or [""])[0], out)
+    pr.ok("задача первой строки в полной форме — строкой полной формы",
+          ("- %s#52 «задача 52» — доказательство DoD" % R) in out
+          and ("- %s#53 «задача 53» — доказательства DoD нет" % R) in out, out)
+    pr.ok("#42: доказательство ревизией базы — не коммит диапазона",
+          ("`DoD-proof @%s` не коммит диапазона" % sha["base42"][:9]) in out, out)
+    pr.ok("#44: ревизии нет — не коммит диапазона", "`DoD-proof @deadbee1` не коммит диапазона" in out, out)
+    pr.ok("#45: держатель newman-suite-debt.py, строка 2",
+          "держит запись долга `kaname:.github/scripts/newman-suite-debt.py:2`" in out, out)
+    pr.ok("#46: держатель RESULTS.md, строка 3", "держит запись долга `kaname:tests/newman/docs/RESULTS.md:3`" in out, out)
+    pr.ok("близнец: проза ведомости (kaname#41) держателем не делает", "Closes #41" in out, out)
+    pr.ok("#43 закрыта — Refs", "#43 «задача 43» — уже закрыта" in out, out)
+    pr.ok("перепись: Closes 2, Refs 7, полной формой 2; чужие ведомости — НЕ СВЕРЕНА",
+          "Closes 2, Refs 7, из них полной формой 2" in err and "НЕ СВЕРЕНА" in err, err)
 
-    # из нескольких доказательств — последнее (докстринг `dod_proof`)
-    two = [comment41(1, "DoD-proof @abc1234\nпервое"), comment41(2, "обсуждение"),
-           comment41(3, "DoD-proof @def5678\nпоследнее")]
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(comments41=two)), cwd=d)
-    pr.ok("несколько доказательств: названо последнее (@def5678, issuecomment-3)",
-          rc == 0 and "issuecomment-3 (`DoD-proof @def5678`)" in out and "@abc1234" not in out, out + err)
-
-    # доказательство на второй странице комментариев трекера
-    many = [comment41(i, "обсуждение %d" % i) for i in range(1, 101)] + [comment41(101, "DoD-proof @abc1234\nкод 0")]
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(comments41=many)), cwd=d)
+    # распознаватель (общий dod_proof.jq)
+    for text in ("DoD-proof @main\nкод 0", "DoD-proof @abc12\nкод 0", "DoD-proof @develop\nкод 0",
+                 "DoD-proof %s\nкод 0" % sha["41a"][:9], "см. DoD-proof @%s у соседа" % sha["41a"][:9]):
+        rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, text)])), extra=extra)
+        # «доказательства нет», а не «не коммит диапазона»: иначе распознаватель, засчитавший
+        # `@main` ревизией, прятался бы за сверкой с диапазоном (M21, M26 инъекции).
+        pr.ok("не доказательство «%s»: Refs #41, доказательства нет" % text.splitlines()[0][:40],
+              rc == 0 and "Refs #41" in out and "Closes #41" not in closes(out)
+              and re.search(r"- #41 «[^»]*» — доказательства DoD нет", out) is not None, out + err)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, "DoD-proof @%s" % sha["41b"])])),
+                             extra=extra)
+    pr.ok("близнец: полный sha — доказательство", rc == 0 and "Closes #41" in closes(out)
+          and ("DoD-proof @%s" % sha["41b"]) in out, out + err)
+    two = [comment(41, 1, "DoD-proof @%s\nпервое" % sha["41a"][:9]), comment(41, 2, "обсуждение"),
+           comment(41, 3, "DoD-proof @%s\nпоследнее" % sha["41b"][:9]), comment(41, 4, "DoD-proof @%s\nбаза" % sha["base42"][:9])]
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=two)), extra=extra)
+    pr.ok("несколько доказательств: названо последнее из диапазона (issuecomment-3)",
+          rc == 0 and ("issuecomment-3 (`DoD-proof @%s`" % sha["41b"][:9]) in out, out + err)
+    many = [comment(41, i, "обсуждение %d" % i) for i in range(1, 101)] + [
+        comment(41, 101, "DoD-proof @%s\nкод 0" % sha["41a"][:9])]
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=many)), extra=extra)
     pr.ok("доказательство 101-м комментарием (вторая страница): Closes #41",
-          rc == 0 and closes(out) == ["Closes #41"] and "issuecomment-101" in out, out + err)
+          rc == 0 and "Closes #41" in closes(out) and "issuecomment-101" in out, out + err)
 
-    # атрибуция в собранном теле — из заголовка задачи, а не из коммита
+    # Слияние ствола и доказательство на предке с деревом головы (ws#1146, kaname 870).
+    # Судьи засчитывают такое доказательство оба — замер 2026-10-17 на kaname#876 при одном
+    # доказательстве @717cdaaf2: merge-readiness «с доказательством DoD: 1», landing-precheck
+    # «Closes 1, с доказательством 1» (ревизия — коммит диапазона); генератор обязан так же.
+    w = world(sha)
+    w["comments"]["%s#50" % R] = [comment(50, 9, "DoD-proof @%s\nкод 0" % sha["50"][:9])]
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-dogon"], pr.state(w), extra=extra)
+    pr.ok("догон: код 0", rc == 0, out + err)
+    mentioned = (re.search(r"Упомянуты вне первых строк[^\n]*", out) or [""])[0]
+    for key, n, msg in DOGON:
+        pr.ok("догон «%s»: названо sha, #%d нет в теле, в составе — №%d" % (msg, n, n),
+              ("`%s`" % sha[key][:9]) in out and ("#%d" % n) not in out and ("(№%d)" % n) in out, out)
+        pr.ok("догон «%s»: %d — ни задача, ни Refs/Closes, ни упомянутая" % (msg, n),
+              ("«задача %d»" % n) not in out and not any(str(n) in x for x in tail_of(out))
+              and str(n) not in mentioned, out)
+    pr.ok("T8: своя #59 — только в префиксе догона — задача", "- #59 «задача 59»" in out and "Refs #59" in out, out)
+    pr.ok("доказательство на предке с деревом головы (коммит диапазона) — Closes #50, как у судей",
+          "Closes #50" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["50"][:9]) in out, out)
+
+    # Близнецы: слияние соседней полосы и коммит-не-слияние «merge main» — номера остаются.
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-twins"], pr.state(world(sha)), extra=extra)
+    pr.ok("близнец: слияние соседней полосы (ветвь непуста) — #57 задача",
+          rc == 0 and "- #57 «задача 57»" in out and "Refs #57" in out, out + err)
+    pr.ok("близнец T7: коммит-не-слияние «merge main» — #67 задача",
+          rc == 0 and "- #67 «задача 67»" in out and "Refs #67" in out, out + err)
+    pr.ok("близнецы: догоны на той же голове — по-прежнему без #56", "#56" not in out, out)
+
+    # атрибуция
     link = "claude" + ".ai/code"
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(title41="разбор %s/session" % link)), cwd=d)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, title41="разбор %s/session" % link)), extra=extra)
     pr.refused("атрибуция из заголовка задачи", rc, err, "атрибуция в собранном теле")
     pr.ok("атрибуция из заголовка задачи: тело не выдано", out == "", out)
-
-    # по номеру PR: коммиты — из трекера
-    w = world()
-    w["pulls"] = {"%s#60" % R: {"head": {"ref": "41-feature"}, "base": {"ref": "main"}}}
-    w["pull_commits"] = {"%s#60" % R: [{"sha": "a" * 40, "commit": {"message": "правка #42"}}]}
-    rc, out, err, _ = pr.run("pr-body", [R, "60"], pr.state(w))
-    pr.ok("по номеру PR: Closes #41 из имени ветки, Refs #42", rc == 0 and out.rstrip().endswith("Closes #41")
-          and "Refs #42" in out, out + err)
-
-    # инъекция: атрибуция → отказ
-    pr.git(d, "checkout", "-qb", "41-twin")
-    pr.commit(d, "оснастка: про строку co-authored-by: в середине прозы (#41)")
-    rc, out, err, _ = pr.run("pr-body", [R, "41-twin", "main", "41-twin"], pr.state(world()), cwd=d)
+    pr.git(d, "checkout", "-qb", "50-twin", "50")
+    pr.commit(d, "#50 про строку co-authored-by: в середине прозы", rel="h.txt")
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-twin"], pr.state(world(sha)), extra=extra)
     pr.ok("близнец атрибуции: ключ посреди прозы — тело собрано", rc == 0 and "Closes #41" in out, err)
-    bad = pr.commit(d, "оснастка: третья (#41)\n\nCo-Authored-By: Someone <x@example.com>")
-    rc, out, err, _ = pr.run("pr-body", [R, "41-twin", "main", "41-twin"], pr.state(world()), cwd=d)
-    pr.refused("атрибуция", rc, err, "атрибуция в сообщениях коммитов")
-    pr.ok("атрибуция: тело не выдано", out == "", out)
-    pr.ok("атрибуция: sha назван", bad[:10] in err, err)
+    bad = pr.commit(d, "#50 третья\n\nCo-Authored-By: Someone <x@example.com>", rel="h.txt")
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-twin"], pr.state(world(sha)), extra=extra)
+    pr.refused("атрибуция в коммите", rc, err, "атрибуция в сообщениях коммитов")
+    pr.ok("атрибуция в коммите: тело не выдано, sha назван", out == "" and bad[:10] in err, out + err)
 
     # не выполнилось
-    w = world()
+    w = world(sha)
     w["fail"] = ["GET repos/%s/issues/42" % R]
-    rc, out, err, _ = pr.run("pr-body", args, pr.state(w), cwd=d)
+    rc, out, err, _ = pr.run("pr-body", args, pr.state(w), extra=extra)
     pr.refused("задача не прочитана", rc, err, "GET repos/%s/issues/42 — код 1" % R, want=2)
     pr.ok("задача не прочитана: тела нет", out == "", out)
-    rc, out, err, _ = pr.run("pr-body", [R, "41-feature", "41-feature", "41-feature"], pr.state(world()), cwd=d)
-    pr.refused("коммитов ноль", rc, err, "коммитов ноль", want=2)
-    pr.ok("коммитов ноль: тела нет", out == "", out)
+    rc, out, err, _ = pr.run("pr-body", [R, "50", "50"], pr.state(world(sha)), extra=extra)
+    pr.refused("диапазон пуст", rc, err, "коммитов ноль", want=2)
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "нет-такой"], pr.state(world(sha)), extra=extra)
+    pr.refused("ревизии нет", rc, err, "не коммит", want=2)
+    rc, out, err, _ = pr.run("pr-body", [R, "41-a", "main", "50"], pr.state(world(sha)), extra=extra)
+    pr.refused("прежняя форма с веткой", rc, err, "usage: pr-body.sh <владелец/имя> <база> <голова>", want=2)
+    pr.git(d, "checkout", "-qb", "50-noledger", "50")
+    pr.git(d, "rm", "-q", ".github/scripts/newman-suite-debt.py")
+    pr.git(d, "commit", "-qm", "#50 ведомость снята")
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-noledger"], pr.state(world(sha)), extra=extra)
+    pr.refused("ведомость своего репозитория снята", rc, err, "ведомость долга .github/scripts/newman-suite-debt.py не найдена",
+               want=2)
+    pr.ok("ведомость снята: тела нет", out == "", out)
 
 
 if __name__ == "__main__":

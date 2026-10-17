@@ -13,6 +13,7 @@
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -28,7 +29,9 @@ ROOT = gate_root("RITUALS_GATE_ROOT", __file__)
 RIT = os.path.join(ROOT, "scripts", "rituals")
 WS = os.environ.get("RITUALS_WS") or ROOT
 FAKE = os.path.join(HERE, "fake_gh.py")
-SUBJECT = ("rituals.py", "pr-body.sh", "close-wave.sh", "approval-event.sh", "vault-trails.sh")
+# Вход ритуала: `<ритуал>.sh` этого каталога; тело PR — `scripts/pr-body.sh` (ws#1146).
+ENTRY = {"pr-body": os.path.join(ROOT, "scripts", "pr-body.sh")}
+SUBJECT = ("rituals.py", "close-wave.sh", "approval-event.sh", "vault-trails.sh")
 SIGNATURE_VARS = ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
                   "GIT_CONFIG_GLOBAL", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
                   "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
@@ -43,10 +46,19 @@ class Probe:
         self.name = name
         self.tmp = tempfile.mkdtemp(prefix="rituals-probe-")
         self.passed, self.failed = 0, []
-        self.env = self._sandbox_env()
+        # Каталог пробы снимается и тогда, когда песочница не завелась: `[VOID]` из
+        # конструктора — штатный исход на пустом дереве (suites-gate check-01, check-02 гонят
+        # каждую пробу так), и прежде он оставлял пустой `rituals-probe-*` в /tmp — 4522
+        # каталога к 2026-10-17 (ws#1146, `testing.md#no-residue`).
+        try:
+            self.env = self._sandbox_env()
+        except BaseException:
+            shutil.rmtree(self.tmp, ignore_errors=True)
+            raise
 
     def _sandbox_env(self):
         missing = [f for f in SUBJECT if not os.path.isfile(os.path.join(RIT, f))]
+        missing += [f for f in ENTRY.values() if not os.path.isfile(f)]
         if missing:
             raise Void("в дереве %s нет ритуалов (%s) — судить нечего" % (ROOT, ", ".join(missing)))
         lib = os.path.join(os.path.dirname(HERE), "lib", "sandbox-git-home.sh")
@@ -113,7 +125,7 @@ class Probe:
     def run(self, ritual, args, state_path, cwd=None, extra=None):
         env = dict(self.env, RITUAL_GH=FAKE, RITUAL_FAKE_STATE=state_path)
         env.update(extra or {})
-        p = subprocess.run(["bash", os.path.join(RIT, ritual + ".sh"), *args], capture_output=True,
+        p = subprocess.run(["bash", ENTRY.get(ritual) or os.path.join(RIT, ritual + ".sh"), *args], capture_output=True,
                            text=True, env=env, cwd=cwd or self.tmp)
         st = json.load(open(state_path, encoding="utf-8"))
         return p.returncode, p.stdout, p.stderr, st
@@ -146,19 +158,36 @@ class Probe:
         return 0
 
 
+def _exit_on_signal(signum, _frame):
+    # Сигнал снятия — в SystemExit: блоки `finally` ниже исполняются и при обрыве
+    # (аналог `trap … EXIT` оболочки), а не только на штатном выходе.
+    raise SystemExit(128 + signum)
+
+
 def main(name, body):
+    for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(s, _exit_on_signal)
     try:
         pr = Probe(name)
     except Void as e:
         print("[VOID] %s — %s" % (name, e), file=sys.stderr)
         return 2
+    done = False
     try:
         body(pr)
+        done = True
     except Void as e:
-        shutil.rmtree(pr.tmp, ignore_errors=True)
         print("[VOID] %s — %s" % (name, e), file=sys.stderr)
         return 2
-    return pr.finish()
+    finally:
+        # Снятие — на любом выходе, кроме штатного (его снимает finish ниже): VOID,
+        # исключение пробы, сигнал.
+        if not done:
+            shutil.rmtree(pr.tmp, ignore_errors=True)
+    try:
+        return pr.finish()
+    finally:
+        shutil.rmtree(pr.tmp, ignore_errors=True)
 
 
 def writes(st):

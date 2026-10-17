@@ -1,0 +1,479 @@
+#!/usr/bin/env bash
+# Copyright (c) PRO-Robotech
+# SPDX-License-Identifier: BUSL-1.1
+#
+# autoland.sh — отсоединённый демон вливания одного запроса (ws#1147).
+#
+# ЗАЧЕМ. Решение владельца 2026-10-17: новый флоу, часть 1 — детерминированное ядро
+# вместо агентов-ожидателей. Замер 17.10: git-operator и ci-watcher тратят десятки
+# заходов на ожидание CI (no-wait-guard запрещает паузу ≥ 300 с, метка ci-watcher —
+# 9 мин), а вливание по правилу «ci-read 0 → merge-readiness 0 → landing-precheck 0 →
+# gh pr merge --merge --match-head-commit» механическое: суждения в нём нет. Здесь
+# это правило — код, а ждёт процесс вне агента; агент читает исход одним шагом.
+#
+# ИСПОЛЬЗОВАНИЕ
+#   autoland.sh start --repo <владелец/имя> --pr <N> --head <sha40>
+#                     --subject "#<M> merge #<N>: <суть>"
+#                     [--stand-report <отчёт JSON> --stand-expect <ожидаемое JSON>]
+#                     [--reviews <вердикты JSON>] [--allow <КОД,КОД…>]
+#                     [--timeout <с | Nm | Nh>] [--poll <с>] [--void-limit <N>]
+#       — проверяет доводы, отсоединяет демон (setsid, новый сеанс) и СРАЗУ печатает
+#         строки «pid», «журнал», «state»; код 0 — демон запущен, 2 — довод не тот,
+#         3 — этот PR уже ведёт другой демон (замок).
+#   autoland.sh status <файл .state>
+#       — печатает исход; код: 0 merged · 1 red · 2 void или демон умер · 3 идёт ·
+#         4 stale-base · 5 head-moved · 6 timeout.
+#   autoland.sh run …  — тело демона (те же доводы), его зовёт start; пробы зовут его
+#         в переднем плане.
+#
+# --subject — заголовок коммита слияния формы правила ветки `#<M> merge #<N>: <суть>`
+# (N — этот PR; ws#1029: без --subject хостинг берёт заголовок PR, и правило ветки краснит).
+# --allow — коды причин landing-precheck (строки REASON<TAB><код>), которые выдал
+# диспетчер: код 1 landing-precheck, все причины которого в списке, вливанию не мешает.
+# На ci-read и merge-readiness допуск не действует. --timeout — предел ожидания,
+# по умолчанию 3 ч; --poll — пауза между чтениями CI, по умолчанию 180 с;
+# --void-limit — сколько раз подряд гейт может не вынести вердикта (код 2, кроме
+# лимита площадки), по умолчанию 3.
+#
+# ЧТО ДЕЛАЕТ — по кругу, пока не наступит исход или предел:
+#   1. запрос (`gh api repos/<репо>/pulls/<N>`, GET): закрыт без вливания — red
+#      PR-NOT-OPEN; влит этой головой — merged; голова ≠ --head — head-moved;
+#   2. CI — `ci-read.sh <репо> <N> --head <sha> --from-state`: ответ из снимка демона
+#      состояния ws#1113 (scripts/ci-state/ci-stated.py) без вызовов gh, иначе ci-read
+#      читает живьём сам. 0 — дальше; 1 — red; 4 — stale-base; 3 (идёт) и 5 (черновик,
+#      целевой зелёный) — ждать; 2 — «не выполнилось», повтор. Между чтениями демон
+#      ждёт строки демона состояния в его FIFO (wait/<владелец>__<имя>__<N>.fifo) не
+#      дольше --poll: смена кода будит сразу, без опроса;
+#   3. `merge-readiness.sh <репо> <N>`: 0 — дальше; 1 — red; 2 — повтор;
+#   4. `landing-precheck.sh <репо> <N> [--reviews] [--stand-report --stand-expect]`:
+#      судимая им голова (строка CENSUS «<репо>#<N> голова <12 hex>») ≠ --head —
+#      head-moved, строки нет — «не выполнилось»; 0 — дальше; 1 — причины вне --allow
+#      дают red, причина с пустым кодом не допускается никогда, только допущенные —
+#      дальше; 2 — повтор;
+#   ГОЛОВА. --head принимает лишь ci-read; landing-precheck сверяется по своей строке
+#      CENSUS (первые 12 знаков), merge-readiness голову на основном пути не печатает —
+#      его голова сверяется только чтением запроса до ci-read и после landing-precheck;
+#      последняя граница — --match-head-commit хостинга;
+#   5. запрос снова: голова та же — вливание ОДНОЙ командой
+#      `gh pr merge <N> -R <репо> --merge --match-head-commit <sha> --subject <…>
+#      --body "" --delete-branch` (способ — с сервера, сквош и rebase там выключены);
+#      хостинг отказал, а голова ушла — head-moved;
+#   6. снятие влитой ветки коммитным предикатом (git-operator.md §«Вливание и снятие»,
+#      `git-issues.md#gi-prune-commit-predicate`): во всех клонах репозитория запроса
+#      (воркспейс и project/*, чей origin — этот репозиторий) — fetch --prune; ветка
+#      снимается, только если её голова РАВНА влитой либо её предок, а влитая — предок
+#      origin/<база>; копия (worktree) — `git worktree remove` лишь при пустом
+#      `status --porcelain`; origin — `--delete-branch`, оставшуюся — `git push origin
+#      --delete` под замком interim; перепись `branch-audit.sh` до и после — в журнал.
+# Гейты — рецептом «ЗАПУСК» шапки landing-precheck.sh, вырезанным по меткам из
+# origin/main воркспейса (тем же способом, что у шаблона волны): каталог scripts/ —
+# целиком из origin/main, не из рабочей копии; сбой подготовки — код 2.
+#
+# ИСХОД — первая строка .state, первое слово — исход:
+#   running <фаза> — идёт;
+#   merged <sha коммита слияния> снятие: …;
+#   red <гейт> код <n>: <строки REASON дословно через « | »>;
+#   stale-base <строки REASON ci-read дословно> — базу демон НЕ догоняет;
+#   head-moved <ожидалась> <стала>;
+#   timeout <предел>; последнее: <последний вердикт>;
+#   void <гейт> код <n> <k> раз подряд: <строки VOID дословно> — «не выполнилось»
+#        (тем же счётом — запрос, который площадка не отдала --void-limit раз подряд)
+#        (testing-verdict: не зелёное и не красное), а также остановка сигналом и
+#        занятый замок.
+#
+# ЧЕГО НЕ ДЕЛАЕТ. Не чинит, не догоняет базу слиянием (stale-base — наружу), не
+# переводит черновик в готовый, не применяет форсирующих флагов ни к вливанию, ни
+# к отправке, ни к снятию копии, и не обходит хуки (держит scripts/autoland/inject.sh,
+# раздел «статика»). Ожидание живёт в отсоединённом процессе: в вызове агента цикла
+# нет, и no-wait-guard команду старта пропускает (там же, раздел «страж»).
+#
+# ВХОД ПОДМЕНЯЕМ — ради доказательства (scripts/autoland/inject.sh):
+#   AUTOLAND_GH      — вместо `gh`;
+#   AUTOLAND_GATES   — каталог с ci-read.sh, merge-readiness.sh, landing-precheck.sh,
+#                      branch-audit.sh вместо рецепта «ЗАПУСК» из origin/main;
+#   AUTOLAND_WS      — воркспейс (по умолчанию — основной клон того, где лежит скрипт);
+#   AUTOLAND_DIR     — каталог .state, журналов и замков (по умолчанию $WS/tmp/autoland);
+#   AUTOLAND_CLONES  — клоны для снятия через «:» (заданная пустой — ни одного);
+#   AUTOLAND_GATE_TIMEOUT — предел одного гейта, с (по умолчанию 900);
+#   AUTOLAND_INTERIM_LOCK — замок отправок (по умолчанию ~/.cache/heavy-slots/interim.lock);
+#   CI_STATE_DIR     — каталог демона состояния (его FIFO), как у ci-read.sh.
+set -uo pipefail
+
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+GH="${AUTOLAND_GH:-gh}"
+GATE_TIMEOUT="${AUTOLAND_GATE_TIMEOUT:-900}"
+INTERIM_LOCK="${AUTOLAND_INTERIM_LOCK:-$HOME/.cache/heavy-slots/interim.lock}"
+
+die() { printf 'autoland: ОТКАЗ — %s\n' "$1" >&2; exit "${2:-2}"; }
+
+ws_root() {
+    if [ -n "${AUTOLAND_WS:-}" ]; then (cd "$AUTOLAND_WS" && pwd); return; fi
+    local common
+    common="$(git -C "$(dirname "$SELF")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+    dirname "$common"
+}
+
+seconds() {  # <с | Nm | Nh> → секунды; иначе пусто
+    case "$1" in
+        *[!0-9hm]* | '' | h | m) return 1 ;;
+        *h) [[ "${1%h}" =~ ^[0-9]+$ ]] && echo $(( ${1%h} * 3600 )) ;;
+        *m) [[ "${1%m}" =~ ^[0-9]+$ ]] && echo $(( ${1%m} * 60 )) ;;
+        *) [[ "$1" =~ ^[0-9]+$ ]] && echo "$1" ;;
+    esac
+}
+
+REPO=""; PR=""; HEAD=""; SUBJECT=""; STAND_REPORT=""; STAND_EXPECT=""; REVIEWS=""
+ALLOW=""; TIMEOUT=10800; POLL=180; VOID_LIMIT=3
+parse_args() {
+    local v
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --repo) REPO="${2:-}"; shift 2 ;;
+            --pr) PR="${2:-}"; shift 2 ;;
+            --head) HEAD="${2:-}"; shift 2 ;;
+            --subject) SUBJECT="${2:-}"; shift 2 ;;
+            --stand-report) STAND_REPORT="${2:-}"; shift 2 ;;
+            --stand-expect) STAND_EXPECT="${2:-}"; shift 2 ;;
+            --reviews) REVIEWS="${2:-}"; shift 2 ;;
+            --allow) ALLOW="${2:-}"; shift 2 ;;
+            --timeout) v="$(seconds "${2:-}")" || die "--timeout «${2:-}» не секунды, Nm или Nh"; TIMEOUT="$v"; shift 2 ;;
+            --poll) POLL="${2:-}"; shift 2 ;;
+            --void-limit) VOID_LIMIT="${2:-}"; shift 2 ;;
+            *) die "неизвестный довод «$1»" ;;
+        esac
+    done
+    [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--repo «$REPO» не формы <владелец>/<имя>"
+    [[ "$PR" =~ ^[0-9]+$ ]] || die "--pr «$PR» не номер"
+    [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]] || die "--head «$HEAD» не sha40"
+    [[ "$SUBJECT" =~ ^#[0-9]+\ merge\ #${PR}:\ [^[:space:]] ]] \
+        || die "--subject «$SUBJECT» не формы «#<M> merge #$PR: <суть>» (правило ветки, ws#1029)"
+    if [ -n "$STAND_REPORT$STAND_EXPECT" ]; then
+        [ -n "$STAND_REPORT" ] && [ -n "$STAND_EXPECT" ] || die "--stand-report и --stand-expect — только вместе"
+        [ -r "$STAND_REPORT" ] || die "отчёт стенда «$STAND_REPORT» не читается"
+        [ -r "$STAND_EXPECT" ] || die "ожидаемое стенда «$STAND_EXPECT» не читается"
+        STAND_REPORT="$(readlink -f "$STAND_REPORT")"; STAND_EXPECT="$(readlink -f "$STAND_EXPECT")"
+    fi
+    if [ -n "$REVIEWS" ]; then
+        [ -r "$REVIEWS" ] || die "вердикты ревью «$REVIEWS» не читаются"
+        REVIEWS="$(readlink -f "$REVIEWS")"
+    fi
+    [ -z "$ALLOW" ] || [[ "$ALLOW" =~ ^[A-Z][A-Z0-9-]*(,[A-Z][A-Z0-9-]*)*$ ]] \
+        || die "--allow «$ALLOW» не перечень кодов причин через запятую"
+    [ "$TIMEOUT" -gt 0 ] 2>/dev/null || die "--timeout должен быть больше нуля"
+    [[ "$POLL" =~ ^[0-9]+$ ]] && [ "$POLL" -ge 1 ] && [ "$POLL" -le 290 ] \
+        || die "--poll «$POLL» не от 1 до 290 с"
+    [[ "$VOID_LIMIT" =~ ^[0-9]+$ ]] && [ "$VOID_LIMIT" -ge 1 ] || die "--void-limit «$VOID_LIMIT» не число ≥ 1"
+}
+
+paths() {
+    WS="$(ws_root)" || die "воркспейс не найден (AUTOLAND_WS не задан, скрипт не в клоне)"
+    RUN_DIR="${AUTOLAND_DIR:-$WS/tmp/autoland}"
+    local key="${REPO%%/*}__${REPO#*/}__${PR}"
+    NAME="${key}__${HEAD:0:12}"
+    STATE="$RUN_DIR/$NAME.state"; LOG="$RUN_DIR/$NAME.log"; PIDF="$RUN_DIR/$NAME.pid"
+    LOCK="$RUN_DIR/$key.lock"; FIFO_NAME="$key.fifo"
+}
+
+# ── status ─────────────────────────────────────────────────────────────────────
+if [ "${1:-}" = status ]; then
+    f="${2:-}"
+    [ -r "$f" ] || { echo "autoland: .state «$f» не читается — не-выполнилось"; exit 2; }
+    line="$(head -n1 "$f")"; printf '%s\n' "$line"
+    case "${line%% *}" in
+        merged) exit 0 ;; red) exit 1 ;; void) exit 2 ;; stale-base) exit 4 ;;
+        head-moved) exit 5 ;; timeout) exit 6 ;;
+        running)
+            pid="$(cat "${f%.state}.pid" 2>/dev/null)"
+            if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then exit 3; fi
+            echo "autoland: демон pid «${pid:-—}» не жив, а исход не записан — не-выполнилось; журнал ${f%.state}.log"
+            exit 2 ;;
+        *) echo "autoland: исход «${line%% *}» не из перечня — не-выполнилось"; exit 2 ;;
+    esac
+fi
+
+# ── start ──────────────────────────────────────────────────────────────────────
+if [ "${1:-}" = start ]; then
+    shift; parse_args "$@"; paths
+    command -v setsid >/dev/null 2>&1 || die "нет setsid"
+    command -v flock >/dev/null 2>&1 || die "нет flock"
+    { mkdir -p "$RUN_DIR" && chmod 700 "$RUN_DIR"; } || die "каталог «$RUN_DIR» не заводится"
+    flock -n "$LOCK" true || die "PR $REPO#$PR уже ведёт другой демон (замок $LOCK)" 3
+    rm -f "$STATE" "$PIDF"
+    # Демон исполняет СВОЮ копию: копия, откуда его запустили, может быть снята им же.
+    cp "$SELF" "$RUN_DIR/$NAME.autoland.sh" || die "копия демона не легла в «$RUN_DIR»"
+    printf 'running старт\n' > "$STATE"
+    setsid env --default-signal=PIPE AUTOLAND_WS="$WS" bash "$RUN_DIR/$NAME.autoland.sh" run "$@" \
+        >> "$LOG" 2>&1 < /dev/null &
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        [ -s "$PIDF" ] && break
+        sleep 0.25
+    done
+    printf 'autoland: идёт — %s#%s @%s\n' "$REPO" "$PR" "${HEAD:0:12}"
+    printf 'pid\t%s\n' "$(cat "$PIDF" 2>/dev/null || echo "$!")"
+    printf 'журнал\t%s\n' "$LOG"
+    printf 'state\t%s\n' "$STATE"
+    printf 'исход — одним шагом: bash %s status %s\n' "$SELF" "$STATE"
+    exit 0
+fi
+
+[ "${1:-}" = run ] || die "подкоманда — start, status или run"
+shift; parse_args "$@"; paths
+
+# ── run: тело демона ───────────────────────────────────────────────────────────
+mkdir -p "$RUN_DIR" || exit 2
+cd / || exit 2
+W="$(mktemp -d "${TMPDIR:-/tmp}/autoland.XXXXXX")" || exit 2
+DONE=0
+BG=""
+export GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1
+
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"; }
+state() {
+    local tmp="$STATE.$$.tmp"
+    printf '%s\n' "$*" > "$tmp" && mv -f "$tmp" "$STATE"
+}
+finish() {  # <исход> <подробность> — пишет .state и выходит кодом исхода
+    local outcome="$1" rc; shift
+    state "$outcome${*:+ $*}"; log "ИСХОД: $outcome${*:+ $*}"
+    case "$outcome" in merged) rc=0 ;; red) rc=1 ;; stale-base) rc=4 ;; head-moved) rc=5 ;; timeout) rc=6 ;; *) rc=2 ;; esac
+    DONE=1; exit "$rc"
+}
+cleanup() {
+    local rc=$?
+    if [ "$DONE" -eq 0 ]; then state "void демон оборвался кодом $rc до исхода; журнал $LOG"; fi
+    [ -z "$BG" ] || kill "$BG" 2>/dev/null
+    rm -rf "$W"
+    [ "$SELF" != "$RUN_DIR/$NAME.autoland.sh" ] || rm -f "$SELF"
+}
+trap cleanup EXIT
+trap 'finish void "остановлен сигналом TERM"' TERM
+trap 'finish void "остановлен сигналом INT"' INT
+
+exec 9> "$LOCK"
+flock -n 9 || { DONE=1; state "void замок $LOCK занят: PR ведёт другой демон"; exit 2; }
+echo $$ > "$PIDF"
+state "running старт"
+log "старт: $REPO#$PR голова $HEAD; предел ${TIMEOUT} с, пауза ${POLL} с, допуск «${ALLOW:-—}»; гейты: ${AUTOLAND_GATES:-рецепт «ЗАПУСК» из origin/main $WS}"
+
+join() { awk 'NR > 1 { printf " | " } { printf "%s", $0 } END { print "" }'; }
+
+GATE_RC=0
+gate() {  # <скрипт> <доводы…> → $W/<скрипт>.out, код в GATE_RC
+    local s="$1" out="$W/$1.out" recipe; shift
+    if [ -n "${AUTOLAND_GATES:-}" ]; then
+        timeout "$GATE_TIMEOUT" bash "$AUTOLAND_GATES/$s" "$@" > "$out" 2>&1; GATE_RC=$?
+    else
+        recipe="$(git -C "$WS" fetch -q origin main 2>/dev/null \
+            && git -C "$WS" show origin/main:scripts/landing-precheck.sh 2>/dev/null \
+            | sed -n '/^# >>> рецепт ЗАПУСК$/,/^# <<< рецепт ЗАПУСК$/{/рецепт ЗАПУСК$/d;s/^#//;p}')"
+        if [ -z "$recipe" ]; then
+            printf 'VOID\tЗАПУСК: рецепт не вырезан из шапки origin/main:scripts/landing-precheck.sh «%s»\n' "$WS" > "$out"
+            GATE_RC=2
+        else
+            WS="$WS" S="$s" TMPDIR="$W" timeout "$GATE_TIMEOUT" bash -c "$recipe" _ "$@" > "$out" 2>&1; GATE_RC=$?
+        fi
+    fi
+    [ "$GATE_RC" -ne 124 ] || { printf 'VOID\t%s: предел %s с исчерпан\n' "$s" "$GATE_TIMEOUT" >> "$out"; GATE_RC=2; }
+    log "гейт $s $*: код $GATE_RC; $(grep -m1 '^VERDICT' "$out" || tail -n1 "$out")"
+}
+reasons() {  # строки REASON вывода гейта дословно; строки о снимке демона — не о голове
+    grep -P '^REASON\t' "$W/$1.out" | grep -vP '^REASON\t(STATE-STALE|STATE-KEY-MISMATCH)\t' | join
+}
+quote() {  # причины, а нет их — VOID либо хвост вывода
+    local r; r="$(reasons "$1")"
+    [ -n "$r" ] || r="$(grep -P '^VOID\t' "$W/$1.out" | join)"
+    [ -n "$r" ] || r="$(grep -v '^[[:space:]]*$' "$W/$1.out" | tail -n3 | join)"
+    printf '%s' "$r"
+}
+
+declare -A VOIDS=()
+LAST="—"
+void_step() {  # <ключ> <что> <текст> — «не выполнилось»: повтор; подряд VOID_LIMIT раз — исход void
+    local k="$1" what="$2" q="$3"
+    VOIDS[$k]=$(( ${VOIDS[$k]:-0} + 1 )); LAST="$what: $q"
+    [ "${VOIDS[$k]}" -lt "$VOID_LIMIT" ] || finish void "$what ${VOIDS[$k]} раз подряд: $q"
+    state "running не выполнилось (${VOIDS[$k]} из $VOID_LIMIT) — $LAST"
+}
+on_void() {  # <скрипт> — код 2 гейта; лимит площадки — ожидание сброса, а не VOID
+    local s="$1" q; q="$(quote "$s")"
+    if grep -qP '^REASON\tRATE-LIMIT\t' "$W/$s.out"; then
+        LAST="$s код 2 (лимит площадки): $q"; state "running лимит площадки — $LAST"; return
+    fi
+    void_step "$s" "$s код $GATE_RC" "$q"
+}
+
+DEADLINE=$(( $(date +%s) + TIMEOUT ))
+CI_STATE="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"
+wait_change() {  # ждёт строки демона состояния в FIFO запроса не дольше POLL, иначе паузу
+    local left t fifo="$CI_STATE/wait/$FIFO_NAME"
+    left=$(( DEADLINE - $(date +%s) )); [ "$left" -gt 0 ] || return 0
+    t="$POLL"; [ "$t" -le "$left" ] || t="$left"
+    if [ -d "$CI_STATE/wait" ] && [ "$(stat -c '%u %a' "$CI_STATE/wait" 2>/dev/null)" = "$(id -u) 700" ]; then
+        [ -p "$fifo" ] || mkfifo -m 600 "$fifo" 2>/dev/null
+        if [ -p "$fifo" ]; then
+            timeout "$t" head -n1 "$fifo" > "$W/fifo.line" 2>/dev/null & BG=$!; wait "$BG"; BG=""
+            [ -s "$W/fifo.line" ] && log "демон состояния: $(cat "$W/fifo.line")"
+            : > "$W/fifo.line"
+            return 0
+        fi
+    fi
+    sleep "$t" & BG=$!; wait "$BG"; BG=""
+}
+
+PR_ERR=""; PR_STATE=""; PR_MERGED=""; PR_HEAD=""; PR_REF=""; PR_BASE=""; PR_MSHA=""
+read_pr() {
+    if ! { "$GH" api "repos/$REPO/pulls/$PR" > "$W/pr.json" 2> "$W/pr.err" \
+        && jq -e '(.head.sha | type == "string") and (.state | type == "string")' "$W/pr.json" > /dev/null 2>> "$W/pr.err"; }; then
+        PR_ERR="$(head -c 300 "$W/pr.err" | tr '\n' ' ')"; return 1
+    fi
+    VOIDS[запрос]=0
+    PR_STATE="$(jq -r .state "$W/pr.json")"; PR_MERGED="$(jq -r '.merged // false' "$W/pr.json")"
+    PR_HEAD="$(jq -r .head.sha "$W/pr.json")"; PR_REF="$(jq -r '.head.ref // ""' "$W/pr.json")"
+    PR_BASE="$(jq -r '.base.ref // ""' "$W/pr.json")"; PR_MSHA="$(jq -r '.merge_commit_sha // ""' "$W/pr.json")"
+}
+
+# ── снятие влитой ветки коммитным предикатом ───────────────────────────────────
+clones() {
+    if [ -n "${AUTOLAND_CLONES+x}" ]; then tr ':' '\n' <<< "$AUTOLAND_CLONES" | sed '/^$/d'; return; fi
+    local c u
+    for c in "$WS" "$WS"/project/*; do
+        [ -e "$c/.git" ] || continue
+        u="$(git -C "$c" remote get-url origin 2>/dev/null)" || continue
+        u="${u%.git}"; u="${u,,}"
+        case "$u" in */"${REPO,,}" | *:"${REPO,,}") printf '%s\n' "$c" ;; esac
+    done
+}
+PRUNE=""
+prune() {  # <ветка головы> <база>
+    local br="$1" base="$2" c rh lh wt dirty removed=() kept=()
+    if [ -z "$br" ] || [ "$br" = "$base" ] || [ "$br" = main ] || [ "$br" = master ]; then
+        PRUNE="снятие: ветка «$br» не снимается (ствол либо база)"; return
+    fi
+    while IFS= read -r c; do
+        if ! git -C "$c" fetch -q --prune origin 2> "$W/fetch.err"; then
+            kept+=("$c: fetch не прошёл — $(head -c 200 "$W/fetch.err" | tr '\n' ' ')"); continue
+        fi
+        BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_KEEP="$base" gate branch-audit.sh "$c" "$br"
+        if ! git -C "$c" merge-base --is-ancestor "$HEAD" "origin/$base" 2>/dev/null; then
+            kept+=("$c: влитая голова ${HEAD:0:12} не предок origin/$base — ничего не снимаю"); continue
+        fi
+        rh="$(git -C "$c" ls-remote --heads origin "refs/heads/$br" 2>/dev/null | cut -f1)"
+        if [ -n "$rh" ]; then
+            if [ "$rh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$rh" "$HEAD" 2>/dev/null; then
+                mkdir -p "$(dirname "$INTERIM_LOCK")"
+                flock -w 240 "$INTERIM_LOCK" git -C "$c" push -q origin --delete "$br" > "$W/push.out" 2>&1
+                if [ -z "$(git -C "$c" ls-remote --heads origin "refs/heads/$br" 2>/dev/null)" ]; then
+                    removed+=("origin/$br")
+                else kept+=("origin/$br: снятие не прошло — $(tail -n2 "$W/push.out" | tr '\n' ' ')"); fi
+            else kept+=("origin/$br сдвинулась после вливания: ${rh:0:12} не равна и не предок ${HEAD:0:12}"); fi
+        fi
+        lh="$(git -C "$c" rev-parse -q --verify "refs/heads/$br" 2>/dev/null)" || lh=""
+        [ -n "$lh" ] || continue
+        if ! { [ "$lh" = "$HEAD" ] || git -C "$c" merge-base --is-ancestor "$lh" "$HEAD" 2>/dev/null; }; then
+            kept+=("$c $br: местная голова ${lh:0:12} не равна и не предок влитой ${HEAD:0:12}"); continue
+        fi
+        dirty=0
+        while IFS= read -r wt; do
+            [ -n "$wt" ] || continue
+            if [ "$wt" = "$(git -C "$c" rev-parse --show-toplevel 2>/dev/null)" ]; then
+                kept+=("$c: ветка $br выписана в основной копии клона"); dirty=1; continue
+            fi
+            if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && git -C "$c" worktree remove "$wt" 2> "$W/wt.err"; then
+                removed+=("копия $wt")
+            else kept+=("копия $wt: не пуста либо не снята — $(head -c 200 "$W/wt.err" 2>/dev/null | tr '\n' ' ')"); dirty=1; fi
+        done < <(git -C "$c" worktree list --porcelain | awk -v b="branch refs/heads/$br" '/^worktree /{w=substr($0, 10)} $0 == b {print w}')
+        [ "$dirty" -eq 0 ] || continue
+        if git -C "$c" branch -D "$br" > /dev/null 2> "$W/br.err"; then removed+=("$c $br")
+        else kept+=("$c $br: $(head -c 200 "$W/br.err" | tr '\n' ' ')"); fi
+        BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_KEEP="$base" gate branch-audit.sh "$c" "$br"
+    done < <(clones)
+    PRUNE="снятие: снято ${#removed[@]}${removed[*]:+ (${removed[*]})}, оставлено ${#kept[@]}"
+    [ "${#kept[@]}" -eq 0 ] || PRUNE="$PRUNE: $(printf '%s\n' "${kept[@]}" | join)"
+    log "$PRUNE"
+}
+
+landed() {  # запрос влит — проверка родителя, снятие, исход
+    local note="${1:-}"
+    if "$GH" api "repos/$REPO/commits/$PR_MSHA" > "$W/mc.json" 2>/dev/null \
+        && jq -e --arg h "$HEAD" '[.parents[].sha] | index($h) != null' "$W/mc.json" > /dev/null 2>&1; then
+        log "коммит слияния $PR_MSHA — родитель $HEAD есть"
+    else
+        log "коммит слияния $PR_MSHA: родитель $HEAD не подтверждён площадкой"
+    fi
+    prune "$PR_REF" "$PR_BASE"
+    finish merged "$PR_MSHA${note:+ $note}; $PRUNE"
+}
+
+LP_ARGS=()
+[ -z "$REVIEWS" ] || LP_ARGS+=(--reviews "$REVIEWS")
+[ -z "$STAND_REPORT" ] || LP_ARGS+=(--stand-report "$STAND_REPORT" --stand-expect "$STAND_EXPECT")
+
+while :; do
+    [ "$(date +%s)" -lt "$DEADLINE" ] || finish timeout "предел $TIMEOUT с; последнее: $LAST"
+    if ! read_pr; then void_step запрос "запрос не прочитан" "$PR_ERR"; wait_change; continue; fi
+    if [ "$PR_MERGED" = true ]; then
+        [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD (влит другой головой)"
+        landed "(влит не этим демоном)"
+    fi
+    [ "$PR_STATE" = open ] || finish red "запрос: REASON"$'\t'"PR-NOT-OPEN"$'\t'"состояние $PR_STATE без вливания"
+    [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"
+
+    gate ci-read.sh "$REPO" "$PR" --head "$HEAD" --from-state
+    case "$GATE_RC" in
+        0) VOIDS[ci-read.sh]=0 ;;
+        1) finish red "ci-read код 1: $(quote ci-read.sh)" ;;
+        4) finish stale-base "$(quote ci-read.sh)" ;;
+        3 | 5) VOIDS[ci-read.sh]=0
+               LAST="ci-read код $GATE_RC: $(grep -m1 '^VERDICT' "$W/ci-read.sh.out")"
+               state "running ожидание CI — $LAST"; wait_change; continue ;;
+        *) on_void ci-read.sh; wait_change; continue ;;
+    esac
+
+    gate merge-readiness.sh "$REPO" "$PR"
+    case "$GATE_RC" in
+        0) VOIDS[merge-readiness.sh]=0 ;;
+        1) finish red "merge-readiness код 1: $(quote merge-readiness.sh)" ;;
+        *) on_void merge-readiness.sh; wait_change; continue ;;
+    esac
+
+    gate landing-precheck.sh "$REPO" "$PR" "${LP_ARGS[@]}"
+    if [ "$GATE_RC" -eq 0 ] || [ "$GATE_RC" -eq 1 ]; then
+        # Голова, которую судил landing-precheck, — из его строки CENSUS «<репо>#<N> голова <12 hex>».
+        lph="$(grep -m1 -oP "^CENSUS\t\Q$REPO#$PR\E голова \K[0-9a-f]{12}(?= )" "$W/landing-precheck.sh.out")"
+        if [ -z "$lph" ]; then
+            printf 'VOID\tlanding-precheck не напечатал судимую голову (CENSUS «%s#%s голова …»)\n' "$REPO" "$PR" >> "$W/landing-precheck.sh.out"
+            GATE_RC=2
+        elif [ "$lph" != "${HEAD:0:12}" ]; then
+            finish head-moved "$HEAD $lph (судил landing-precheck)"
+        fi
+    fi
+    case "$GATE_RC" in
+        0) VOIDS[landing-precheck.sh]=0 ;;
+        1) VOIDS[landing-precheck.sh]=0
+           bad="$(grep -P '^REASON\t' "$W/landing-precheck.sh.out" \
+               | awk -F'\t' -v allow=",$ALLOW," '$2 == "" || index(allow, "," $2 ",") == 0' | join)"
+           all="$(reasons landing-precheck.sh)"
+           [ -n "$all" ] || finish red "landing-precheck код 1 без строк REASON: $(quote landing-precheck.sh)"
+           [ -z "$bad" ] || finish red "landing-precheck код 1: $bad"
+           log "landing-precheck код 1 — все причины допущены диспетчером (--allow $ALLOW): $all" ;;
+        *) on_void landing-precheck.sh; wait_change; continue ;;
+    esac
+
+    # Три гейта судили голову HEAD: перед вливанием она обязана быть той же.
+    if ! read_pr; then void_step запрос "запрос не прочитан" "$PR_ERR"; wait_change; continue; fi
+    [ "$PR_MERGED" != true ] || landed "(влит не этим демоном)"
+    [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"  # голова перед вливанием
+
+    state "running вливание"
+    "$GH" pr merge "$PR" -R "$REPO" --merge --match-head-commit "$HEAD" \
+        --subject "$SUBJECT" --body "" --delete-branch > "$W/merge.out" 2>&1
+    mrc=$?
+    log "gh pr merge: код $mrc; $(tail -n2 "$W/merge.out" | join)"
+    read_pr || read_pr || finish void "вливание: код $mrc, состояние запроса не прочитано — $PR_ERR"
+    if [ "$PR_MERGED" = true ]; then
+        [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD (влит другой головой)"
+        landed
+    fi
+    [ "$PR_HEAD" = "$HEAD" ] || finish head-moved "$HEAD $PR_HEAD"
+    finish red "gh pr merge код $mrc: $(grep -v '^[[:space:]]*$' "$W/merge.out" | tail -n3 | join)"
+done
