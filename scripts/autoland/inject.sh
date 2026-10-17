@@ -29,6 +29,9 @@
 #   closed       — запрос закрыт без вливания → red PR-NOT-OPEN, гейтов нет;
 #   already      — запрос уже влит этой головой → merged, повторного вливания нет;
 #   fifo         — пауза 20 с, строка демона состояния в FIFO будит раньше: исход < 10 с;
+#   fifo-nowriter — демона состояния нет, FIFO без писателя: каждое ожидание кончается
+#                  паузой (timeout), исход merged с кодом 0 в пределе 20 с; мутант без
+#                  timeout виснет на открытии FIFO и ловится кодом 124 предела;
 #   args         — неформенный --subject, --head не sha40, --stand-report без
 #                  --stand-expect → код 2, .state нет;
 #   detach       — start возвращается < 6 с, печатает pid, журнал, state; демон в
@@ -59,7 +62,7 @@
 # сверки --subject, без FIFO, лимит площадки как VOID, пустой код допущен, голова
 # landing-precheck не сверяется, строка его головы не требуется, origin-ветка снимается
 # ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0,
-# кэш — настоящий (CI_STATE_DIR не читается).
+# ожидание FIFO без timeout, кэш — настоящий (CI_STATE_DIR не читается).
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
 # CI_STATE_DIR), gh, гейты, клоны, замок — экспортом до первой сцены, поэтому и демон,
@@ -191,7 +194,7 @@ RC=0; ST=""
 run_al() {  # доводы сверх обязательных
     AL_FX="$FX" AUTOLAND_GH="$T/gh" AUTOLAND_GATES="${GATES-$T/gates}" AUTOLAND_DIR="$FX/run" \
         AUTOLAND_WS="${WS0:-$T/ws0}" AUTOLAND_CLONES="$CLONES" CI_STATE_DIR="$FX/cs" AUTOLAND_INTERIM_LOCK="$T/interim.lock" \
-        timeout 120 bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
+        timeout "${RUN_LIMIT:-120}" bash "$AL" run --repo "$REPO" --pr "$PR" --head "$RUN_HEAD" --subject "$SUBJ" --poll 1 "$@" \
         > "$FX/out" 2>&1
     RC=$?
     ST="$(cat "$FX"/run/*.state 2>/dev/null | head -n1)"
@@ -332,6 +335,14 @@ s_fifo() {
     PIDS+=("$!")
     t0=$(date +%s); run_al --poll 20; dt=$(( $(date +%s) - t0 ))
     ok fifo "строка демона состояния будит раньше паузы 20 с (прошло $dt с)" eval '[ "$RC" -eq 0 ] && st_is merged && [ "$dt" -lt 10 ]'
+}
+s_fifo_nowriter() {
+    new_fx fifo-nowriter; printf '3\n3\n0\n' > "$FX/ci-read.sh.seq"
+    mkdir -p "$FX/cs/wait"; chmod 700 "$FX/cs" "$FX/cs/wait"
+    local t0 dt
+    t0=$(date +%s); RUN_LIMIT=20 run_al --poll 1; dt=$(( $(date +%s) - t0 ))
+    ok fifo-nowriter "демона состояния нет, FIFO без писателя — ожидание кончается паузой, merged, код 0 (прошло $dt с)" eval '[ "$RC" -eq 0 ] && st_is merged'
+    ok fifo-nowriter "FIFO заведён демоном вливания (форма ожидания — FIFO, не sleep)" eval '[ -p "$FX/cs/wait/PRO-Robotech__kacho-workspace__$PR.fifo" ]'
 }
 s_args() {
     local rc
@@ -516,7 +527,7 @@ s_static() {
 }
 
 ALL=(s_green s_red s_moved_start s_moved_gates s_moved_merge s_allow_ok s_allow_bad s_stale s_mr_red s_timeout
-     s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_args s_detach s_recipe
+     s_void s_void_twin s_ratelimit s_pr_unread s_draft s_closed s_already s_fifo s_fifo_nowriter s_args s_detach s_recipe
      s_prune s_prune_dirty s_prune_ahead s_prune_remote s_prune_origin_ahead s_prune_not_in_base
      s_status s_empty_code s_lp_head s_guard s_static)
 
@@ -570,6 +581,7 @@ mutant prune-base-ancestor-dropped s_prune_not_in_base 'if ! git -C "$c" merge-b
 mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit 0 ;;'
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
 mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
+mutant fifo-wait-without-timeout s_fifo_nowriter 'timeout "$t" head -n1 "$fifo"' 'head -n1 "$fifo"'
 mutant cache-is-real s_fifo 'CI_STATE="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"' 'CI_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state"'
 mutant ratelimit-as-void s_ratelimit "if grep -qP '^REASON\\tRATE-LIMIT\\t'" 'if false'
 
