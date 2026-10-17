@@ -175,7 +175,7 @@ need(BASE, ['задача — `task <репо>#<N>`, N `^[0-9]+$`',
             '`gh pr merge <PR> --merge --subject "#<N> merge #<PR>: …" --body "" --match-head-commit <sha>`',
             'ждёт и дочитывает с паузой лишь `ci-watcher`',
             'долгий прогон — ОДИН раз `heavy-slot.sh --enqueue`, перезапуск на 74/75 — нарушение'], 'пачка 2026-10-16')
-need(WAVE, ['+ mergeTitle + \'" --body ""`', 'heavy-slot.sh --enqueue', 'if (rateOf(ci)) return'],
+need(WAVE, ['--subject "\' + mergeTitle + \'"\'', 'heavy-slot.sh --enqueue', 'if (rateOf(ci)) return'],
      'пачка 2026-10-16')
 
 print('[CENSUS] %s: носителей осмотрено %d (правило, архив, протокол, база, три агента, шаблон, хук); находок %d'

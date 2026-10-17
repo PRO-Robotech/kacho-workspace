@@ -7,7 +7,7 @@ export const meta = {
     { title: 'Предполёт', detail: 'до кода: карта влияния полос, критерии рецензентов (ws#1053)' },
     { title: 'Полосы', detail: 'шаги уровня из lane-tier.sh; зависимая — от сводки голов deps; lane-precheck.sh до ревью; пункты карты закрыты; пробная сборка сразу' },
     { title: 'Сборка', detail: 'сведение, рецензент волны, CI' },
-    { title: 'Посадка', detail: 'перепись гейтов разом, landing-precheck.sh, вливание, каскад, счётчик ошибок' },
+    { title: 'Посадка', detail: 'перепись гейтов разом, демон вливания autoland.sh (start и один status), каскад, счётчик ошибок' },
   ],
 }
 // ЕДИНСТВЕННЫЙ шаблон волны (решение владельца 2026-10-06, «Да, по уровням»;
@@ -19,10 +19,10 @@ export const meta = {
 //    полосы, рецензент волны; landing-reviewer — только за НЕДОСТАЮЩИМ фактом;
 //  - вердикт и решение (база диспетчера §7 «Вердикт и решение», владелец
 //    2026-10-10): роль даёт вердикт о СВОЕЙ полосе, решение «вливать» принимает
-//    код шаблона по ПРАВИЛУ ВЛИВАНИЯ диспетчера (ниже), вливает git-operator.
+//    демон вливания по ПРАВИЛУ ВЛИВАНИЯ диспетчера (ниже), запускает его git-operator.
 //    Непрошедшая полоса и возвращённая рецензентом волны — остаток (с зависимыми
 //    от неё), соседи с полными фактами садятся;
-//  - состояние переходит только по ФАКТУ скрипта (lane-precheck, landing-precheck,
+//  - состояние переходит только по ФАКТУ скрипта (lane-precheck, autoland status,
 //    сверка головы на origin), а не по слову агента;
 //  - передача — через файлы: отчёт шага в <WS>/tmp/wave-<N>/reports/<полоса>/<шаг>.md, в
 //    задание следующего идёт путь, а не пересказ;
@@ -61,15 +61,19 @@ export const meta = {
 //  - CI читается ТОЛЬКО scripts/ci-read.sh (ws#1006; урок kacho#3142 — влит при
 //    «зелёно 30 из 30», когда проверок было 68 и 3 шли, база устарела): рецептом
 //    «ЗАПУСК» из origin/main; состояние — из КОДА (CI_STATE: 0 green · 1 red ·
-//    2 unread · 3 running · 4 stale), ответ агента не толкуется. Перед вливанием —
-//    ещё одно чтение на голове посадки: вливание только при коде 0 на ней.
+//    2 unread · 3 running · 4 stale), ответ агента не толкуется. После перевода в
+//    ready шаблон CI не ждёт: полный прогон ждёт и судит демон вливания (ws#1152).
 //  - пустые ходы (ws#1004): вывод plan-precheck разбирается parseJsonTail — объект
 //    из ПОСЛЕДНЕЙ строки, строки CENSUS перед ним не мешают; файл вне перечня полосы,
 //    которого нет и в перечнях соседей, исполнитель берёт сам и называет в отчёте —
 //    blocked только за файлом соседа (перечни соседей — в его задании из args.lanes);
 //    hookLog — путь к журналу отправки (не путь — доводка), report — содержательный итог.
-//  - вливание (ws#1008): только шагом merge — `gh pr merge <PR> --merge
-//    --match-head-commit <голова из landing-precheck>`; общее задание каждого шага
+//  - вливание (ws#1008, ws#1152): только демоном scripts/autoland/autoland.sh (ws#1147):
+//    start сразу печатает pid, журнал, .state, исход — ОДИН шаг status; ci-read,
+//    merge-readiness, landing-precheck и `gh pr merge --merge --match-head-commit`
+//    исполняет демон. status 3 — итог running с путём .state: возобновление с новым
+//    args.rerun читает status вживую, start берётся из кэша. Тело PR — вывод
+//    scripts/pr-body.sh (ws#1146), не текст агента. Общее задание каждого шага
 //    запрещает `repos/*/merges`, `pulls/*/merge` и `--auto` и даёт чтение merge-base
 //    GET-запросом. Агенты ci-watcher звали `gh api repos/<r>/merges -X POST`, думая,
 //    что читают merge-base, и влили три PR мимо посадки; отказ держит хук gh-api-guard.
@@ -105,7 +109,7 @@ const R = D + '/reports'
 const HOMES = 'KACHO_HOME_KACHO=' + ROOT + '/project/kacho KACHO_HOME_KANAME=' + ROOT + '/project/kaname KACHO_HOME_CORELIB=' + ROOT + '/project/corelib'
 // Шаг, по выводу которого шаблон ветвится (код, статус, голова, PR), — без модели и
 // без усилия: оба наследуются (ws#1016, решение диспетчера 2026-10-11, вариант «б»).
-// Усилие low — только шагам, чей ответ шаблон не читает (счётчик ошибок, правка тела PR).
+// Усилие low — только шагам, чей ответ шаблон не читает (счётчик ошибок).
 const MECH = { agentType: 'git-operator' }
 const MECH_LOW = { ...MECH, effort: 'low' }
 // Сборка kacho: зависимости консоли — как ui.yml, ДО проверок (ws#1016, волна 7:
@@ -140,7 +144,7 @@ const C = [
   'ПЕРЕДАЧА ЧЕРЕЗ ФАЙЛЫ: полный отчёт шага пиши в названный файл, первой строкой `step-start: <date -u +%FT%TZ>`; в ответ — только поля схемы. Отчёты и журналы полос — только под ' + R + '/, ВНЕ дерева копии: файл в копии — UNCOMMITTED у lane-precheck (ws#1016, урок волны 7).',
   '«Идёт», «уже сделано», «нечего отправлять» — законные исходы, не провал: верни их своим статусом.',
   FILES_RULE,
-  'ВЛИВАНИЕ (ws#1008): только шагом merge (git-operator) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так).',
+  'ВЛИВАНИЕ (ws#1008, ws#1152): только демоном `scripts/autoland/autoland.sh` (start, затем один шаг status; вливает он `gh pr merge <PR> --merge --match-head-commit <sha>`); `gh api repos/*/merges`, `gh api …/pulls/*/merge` и `gh pr merge --auto` запрещены. `gh api` — только GET: merge-base — `gh api repos/<o>/<r>/compare/<base>...<head> --jq .merge_base_commit.sha` либо `git merge-base`, а `repos/*/merges -X POST` ВЛИВАЕТ (kacho#3142, kacho#3144, kaname#703 ушли мимо посадки так).',
   'НЕ ЖДИ (CLAUDE.md «Не жди», ws#1001): ни один вызов не держит ожидание дольше 10 мин; долгий прогон — отсоединённо `setsid env --default-signal=PIPE sh -c \'<команда>; echo $? > <журнал>.rc\' > <журнал> 2>&1 &` и pid-файл (nohup НЕ ставить: глушит SIGHUP детям, пробы internal/check краснеют; исход — код из .rc, не EXIT setsid), верни «идёт: pid, журнал, ожидаемое окончание»; имя журнала и .rc — уникальное ($$ либо sha), .rc снять до запуска. Слот тяжёлого — внутри того же отсоединённого прогона. Ждёт и читает с паузой только ci-watcher. Циклы until/while со sleep, tail --pid, опрос CI — запрещены. Механика: ' + due('mech'),
 ].join('\n')
 const S_MECH = { type: 'object', properties: { code: { type: 'number' }, out: { type: 'string' }, reasons: { type: 'array', items: { type: 'string' } }, head: { type: 'string' } }, required: ['code', 'out', 'reasons', 'head'] }
@@ -193,7 +197,6 @@ const err = async (cls, lane, step, note) => {
   await agent(C + '\n\nРежим счётчик: часы = (сейчас − step-start в ' + rep(lane, step) + ') / 3600, округли до 0.01 (нет файла — 0.1). Выполни `bash ' + WS + '/scripts/wave-errors.sh add ' + N + ' ' + cls + ' <часы> ' + lane + ' ' + step + ' ' + JSON.stringify(note).slice(0, 300) + '`. Верни code, out (вывод), reasons [], head "".', { ...MECH_LOW, label: 'mech:err:' + lane, phase: 'Посадка', schema: S_MECH })
 }
 const mechanicsReasons = new Set(['UNCOMMITTED', 'HEAD-NOT-ON-ORIGIN', 'HEAD-DIVERGED', 'HOOK-LOG-MISSING', 'HOOK-HEAD-MISMATCH', 'HOOK-RC', 'HOOK-NOT-GREEN', 'DOD-PROOF-MISSING', 'ISSUES-NONE', 'MAIN-COPY', 'GOMOD-ABOVE'])
-const bodyReasons = new Set(['TITLE-FORM', 'TITLE-HEAD-NUMBER', 'BODY-MISSING-COMMIT', 'BODY-FOREIGN-TASK', 'ATTRIBUTION', 'CLOSES-WITHOUT-PROOF'])
 
 // Метрики волны (ws#1053): сверка с оценкой предполёта; цель — 0 красных на сведённом.
 const PRE = R + '/preflight.md'
@@ -442,7 +445,7 @@ const dropWithDeps = (keys, why) => {
 // ── Сборка ──────────────────────────────────────────────────────────────
 phase('Сборка')
 const steps = new Set(order.flatMap(k => tierOf[k].steps))
-const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts.' + UI_DEPS + ' Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, и до КАЖДОЙ отправки в копии — `python3 .github/scripts/affected.py --base origin/' + (A.epic || A.base) + ' --run` (код 0; 1 — красное, не отправлять; 2 — не выполнилось, не отправлять) (заголовок «#' + N + ' …», тело — ровно состав git log база..голова, Closes — только задачи с DoD-proof). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
+const assemble = async round => agent(C + '\n\nРежим сборка ' + round + ': в копии ' + D + '/assemble от свежего origin/' + (A.base || '?') + ' сведи в ветку волны ' + N + ' полосы по порядку ' + order.map(k => lanes.find(l => l.key === k).branch + '@' + done[k].head).join(', ') + ' коммитами слияния pointpu --no-ff; конфликт по существу не решай — верни conflicts.' + UI_DEPS + ' Отправь ветку волны через слот (журнал ' + D + '/assemble-' + round + '.push.log); PR ' + N + ' → ' + (A.epic || A.base) + ' открой ЧЕРНОВИКОМ (`gh pr create --draft`), если его нет: на черновике конвейер исполняет только затронутое, полный прогон — один раз перед посадкой (ws#1013); доводки идут в черновике, и до КАЖДОЙ отправки в копии — `python3 .github/scripts/affected.py --base origin/' + (A.epic || A.base) + ' --run` (код 0; 1 — красное, не отправлять; 2 — не выполнилось, не отправлять) (заголовок «#' + N + ' …»; тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: `RITUAL_REPO_DIR=' + D + '/assemble bash ' + WS + '/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' HEAD > ' + R + '/pr-body-' + round + '.md` (код не 0 — status failed, PR не трогать) в `gh pr create --draft --body-file`, PR есть — `gh pr edit --body-file`). Отчёт — ' + D + '/assemble-' + round + '.md. Верни status, head, copy, pr, conflicts, report.', { ...MECH, label: 'mech:assemble:' + round, phase: 'Сборка', schema: S_ASM })
 let asm = await assemble(1)
 if (!asm || !['done', 'already-done'].includes(asm.status) || !sha40(asm.head)) return { ok: false, state: 'failed', stage: 'сборка', conflicts: asm ? asm.conflicts : [], errors, lessons: lessonsOf() }
 // Номер PR идёт в задания рецензента, CI, предпроверки и вливания. Не целое ≥ 1
@@ -500,8 +503,8 @@ let ci = null
 let skipped = 0
 // Черновик (ws#1013): ci-read код 5 — целевой зелёный. Это не основание вливать:
 // PR переводится в ready ОДИН раз (событие ready_for_review заводит полный прогон
-// того же состава), и чтение продолжается до полного вердикта. Код 5 после перевода —
-// перевод не лёг: провал, а не ожидание.
+// того же состава). Полный прогон шаблон НЕ ждёт: его ждёт и судит демон вливания
+// (ws#1147, ws#1152), чтение CI после перевода — ожидание агентом, которое он заменил.
 let readied = false
 for (let i = 0; i < CI_READS; i++) {
   const got = await ciRead('чтение ' + (i + 1) + ' из ' + CI_READS, asm.head, i > 0, 'mech:ci:' + i, D + '/ci-' + i + '.md')
@@ -514,7 +517,7 @@ for (let i = 0; i < CI_READS; i++) {
     readied = true
     const rd = await agent(C + '\n\nРежим ready: PR #' + asm.pr + ' (' + (A.repo || '?') + ') — черновик, целевой прогон зелёный (ci-read код 5, ' + D + '/ci-' + i + '.md). Переведи запрос в готовый ОДНОЙ командой `gh pr ready ' + asm.pr + ' -R ' + (A.repo || '?') + '` — событие ready_for_review заводит полный прогон. ФАКТ: `gh pr view ' + asm.pr + ' -R ' + (A.repo || '?') + ' --json isDraft` — false. Верни code (0 — isDraft false), out, reasons [], head "".', { ...MECH, label: 'mech:ready', phase: 'Сборка', schema: S_MECH })
     if (!rd || rd.code !== 0) return { ok: false, state: 'failed', stage: 'перевод PR #' + asm.pr + ' в ready не исполнен — полного прогона нет', pr: asm.pr, head: asm.head, errors, lessons: lessonsOf() }
-    continue
+    break
   }
   if (ciState(ci) !== 'running') break
 }
@@ -525,7 +528,7 @@ const ciHead = sha40(ci && ci.head)
 if (ciState(ci) === 'running' && ciHead === asm.head) return { ok: false, state: 'running', stage: 'CI идёт на ' + asm.head.slice(0, 12) + ' (ci-read код 3) — ожидание исчерпано, провала нет' + (skipped ? '; чтений с неисполненной паузой ' + skipped + ' — отвергнуты' : ''), pauseSkipped: skipped, pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ci) === 'stale') return { ok: false, state: 'failed', stage: 'CI: база устарела (ci-read код 4) — влить свежую ' + (A.epic || A.base) + ' в ветку волны и читать заново', pr: asm.pr, head: asm.head, reasons: ci.reasons || [], errors, lessons: lessonsOf() }
 if (ciState(ci) === 'red') M.ciRed++
-if (ciState(ci) !== 'green' || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], ...redOf(ci), errors, lessons: lessonsOf() }
+if (!(ciState(ci) === 'green' || (readied && ciState(ci) === 'targeted-green')) || ciHead !== asm.head) return { ok: false, state: 'failed', stage: 'CI ' + ciState(ci) + ' (ci-read код ' + (ci ? ci.code : 'нет ответа') + ')' + (ciState(ci) === 'green' ? ' на другой голове ' + (ciHead || '?').slice(0, 12) : ''), reasons: ci ? ci.reasons || [] : [], ...redOf(ci), errors, lessons: lessonsOf() }
 
 // ── Посадка ─────────────────────────────────────────────────────────────
 // Факты собираются (CI на голове, ревью уровня на головах, коды предпроверки);
@@ -543,8 +546,13 @@ const reviews = waveReviews
 // Тема вливания (ws#1029): `#<эпик> merge #<PR>: …`; база не номер (main) — `#<волна> merge #<PR>: …`.
 // Без --subject хостинг берёт заголовок PR, и правило ветки краснит запрос эпика.
 const mergeTitle = '#' + (/^[0-9]+$/.test(String(A.epic || A.base || '')) ? String(A.epic || A.base) : N) + ' merge #' + asm.pr + ': волна ' + N
-const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на sha головы из landing-precheck; CI — только scripts/ci-read.sh код 0 на этой голове; код 0 обоих — вливать; 1 только с CI-PENDING — ждать; 1 только с причинами тела — правка тела и повтор; иначе и код 2 — не вливать, вернуть код и вывод'
-const landCheck = async round => agent(C + '\n\nРежим landing-precheck ' + round + ': запиши ' + D + '/reviews.json = ' + JSON.stringify(reviews) + '\nВыполни рецепт «ЗАПУСК» шапки landing-precheck.sh (он вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2) `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP, D + '/landing-precheck-' + round + '.md') + '`; code — код этой команды. Верни code, out (строки REASON и VERDICT), reasons (коды из строк REASON), head (голова PR из CENSUS).', { ...MECH, label: 'mech:landing:' + round, phase: 'Посадка', schema: S_MECH })
+// ПРАВИЛО ВЛИВАНИЯ — код демона (ws#1147, ws#1152; новый флоу владельца 2026-10-17, части 1–2):
+// `autoland.sh start` отсоединяет «ci-read 0 → merge-readiness 0 → landing-precheck 0 →
+// gh pr merge --merge --match-head-commit» и снятие ветки и СРАЗУ печатает pid, журнал,
+// .state; исход — ОДИН шаг `status`. Шаблон CI не ждёт и гейтов ради вливания не гонит.
+const landRule = 'ПРАВИЛО ВЛИВАНИЯ диспетчера: PR #' + asm.pr + ' на голове ' + asm.head + ' вливает ТОЛЬКО демон scripts/autoland/autoland.sh (ws#1147): он ждёт CI (ci-read.sh код 0 на этой голове), гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния; ждать CI, читать ci-read и гнать три гейта ради вливания — нельзя'
+const AUTOLAND = ROOT + '/scripts/autoland/autoland.sh'
+const AL_STATE = ROOT + '/tmp/autoland/' + String(A.repo || '?').replace('/', '__') + '__' + asm.pr + '__' + asm.head.slice(0, 12) + '.state'
 // Перепись гейтов посадки разом (ws#1071, ai-tooling.md#at-red-ci-one-round): ДО первой починки
 // и первого круга схождения все гейты — одним шагом, одной таблицей; находка по одной за круг —
 // нарушение. Шаг ничего не чинит; итог несёт таблицу на любом исходе посадки.
@@ -554,42 +562,30 @@ const GATES = ['landing-precheck.sh (рецепт «ЗАПУСК»)', 'merge-rea
 const PROD = (A.repo || '').split('/').pop()
 if (['kacho', 'kaname', 'corelib'].includes(PROD)) GATES.push('`bash ' + WS + '/scripts/trunk-future.sh ' + PROD + '=<голова PR>` (наборы по стволам продуктов на будущем состоянии)')
 const GATES_FILE = R + '/gates-census.md'
-const gates = await agent(C + '\n\nРежим «Перепись гейтов» посадки PR #' + asm.pr + ' (ai-tooling.md#at-red-ci-one-round): сперва ОДНО чтение `gh api rate_limit` — остаток core либо graphql < 300 — code 2, reasons [\'RATE-LIMIT\'], out «лимит, сброс в HH:MM» (местное время), гейты не гнать; иначе ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини: ' + GATES.join('; ') + '. Таблица — ' + GATES_FILE + ', строка на гейт «гейт · код · причина · число · корень · кто снимает». Верни code (0 — все гейты 0; 1 — есть красный; 2 — гейт не исполнился), out (таблица), reasons (коды причин ВСЕХ гейтов разом), head.', { ...MECH, label: 'mech:gates', phase: 'Посадка', schema: S_MECH })
+const gates = await agent(C + '\n\nРежим «Перепись гейтов» посадки PR #' + asm.pr + ' (ai-tooling.md#at-red-ci-one-round): сперва ОДНО чтение `gh api rate_limit` — остаток core либо graphql < 300 — code 2, reasons [\'RATE-LIMIT\'], out «лимит, сброс в HH:MM» (местное время), гейты не гнать; иначе ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини: ' + GATES.join('; ') + '. landing-precheck — Выполни рецепт «ЗАПУСК» шапки landing-precheck.sh (вырезается по меткам из origin/main; каталог scripts/ целиком из origin/main; сбой подготовки — код 2), предварительно записав ' + D + '/reviews.json = ' + JSON.stringify(reviews) + ': `' + recipeRun('landing-precheck.sh', (A.repo || '?') + ' ' + asm.pr + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP, D + '/landing-precheck-1.md') + '`. Перепись — не основание вливать: вливает только демон. Таблица — ' + GATES_FILE + ', строка на гейт «гейт · код · причина · число · корень · кто снимает». Верни code (0 — все гейты 0; 1 — есть красный; 2 — гейт не исполнился), out (таблица), reasons (коды причин ВСЕХ гейтов разом), head.', { ...MECH, label: 'mech:gates', phase: 'Посадка', schema: S_MECH })
 const gatesOf = () => ({ gates: { file: GATES_FILE, code: gates ? gates.code : null, reasons: gates ? gates.reasons || [] : [] } })
-let lp = await landCheck(1)
-if (rateOf(lp)) return { ...rateStop('landing-precheck', lp, asm.head), ...gatesOf() }
-if (lp && lp.code === 1) {
-  const rs = lp.reasons || []
-  if (rs.every(x => bodyReasons.has(x))) {
-    await err('executor-mechanics', 'wave', 'assemble-1', rs.join(','))
-    await agent(C + '\n\nРежим pr-edit: PR #' + asm.pr + ' — причины landing-precheck ' + rs.join(', ') + ' (' + D + '/landing-precheck-1.md). Исправь заголовок и тело по составу git log база..голова; Closes без DoD-proof → Refs; строк атрибуции 0. Верни code 0, out, reasons [], head.', { ...MECH_LOW, label: 'mech:pr-edit', phase: 'Посадка', schema: S_MECH })
-    lp = await landCheck(2)
-  } else if (rs.every(x => x === 'CI-PENDING')) {
-    lp = await landCheck(2)
-  }
-}
-if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return { ok: false, state: 'running', stage: 'landing-precheck: CI на голове ещё идёт — провала нет', pr: asm.pr, head: asm.head, reasons: lp.reasons, ...gatesOf(), errors, lessons: lessonsOf() }
-if (!lp || lp.code !== 0) return { ok: false, state: 'failed', stage: 'landing-precheck', code: lp ? lp.code : null, reasons: lp ? lp.reasons : [], ...gatesOf(), remainder, errors, lessons: lessonsOf() }
-const landHead = sha40(lp.head) || asm.head
 if (steps.has('landing-reviewer')) {
-  let gap = order.filter(k => (lanes.find(l => l.key === k) || {}).publicText === true).map(k => 'публичный текст полосы ' + k)
-  if (landHead !== asm.head) {
-    const dl = await agent(C + '\n\nРежим дельта головы: PR #' + asm.pr + ' ' + asm.head + '..' + landHead + '. Код 0 — в дельте только коммиты слияния свежей базы ' + (A.epic || A.base) + ' (`git rev-list --no-merges ' + asm.head + '..' + landHead + '` пуст и второй родитель каждого слияния — предок origin/' + (A.epic || A.base) + '); иначе 1. Верни code, out, reasons [], head.', { ...MECH, label: 'mech:delta', phase: 'Посадка', schema: S_MECH })
-    if (!dl || dl.code !== 0) gap.push('голова сдвинута не только вливанием базы: ' + asm.head.slice(0, 12) + '..' + landHead.slice(0, 12))
-  }
+  const gap = order.filter(k => (lanes.find(l => l.key === k) || {}).publicText === true).map(k => 'публичный текст полосы ' + k)
   if (gap.length) {
-    const lr = await agent(C + '\n\nДо посадки, за недостающим фактом (' + gap.join('; ') + '): PR #' + asm.pr + ' @' + landHead + ' → ' + (A.epic || A.base) + '. Вердикт — об этом PR. Запись — ' + D + '/landing-review.md. Верни verdict, sha, blocking, report.', { agentType: 'landing-reviewer', label: 'review-landing', phase: 'Посадка', schema: S_REV })
-    if (!lr || lr.verdict !== 'accept' || lr.sha !== landHead) return { ok: false, stage: 'landing-reviewer — ' + (lr && lr.verdict === 'accept' ? 'вердикт о другой sha' : 'возврат'), blocking: lr ? lr.blocking : [], remainder, errors, lessons: lessonsOf() }
+    const lr = await agent(C + '\n\nДо посадки, за недостающим фактом (' + gap.join('; ') + '): PR #' + asm.pr + ' @' + asm.head + ' → ' + (A.epic || A.base) + '. Вердикт — об этом PR. Запись — ' + D + '/landing-review.md. Верни verdict, sha, blocking, report.', { agentType: 'landing-reviewer', label: 'review-landing', phase: 'Посадка', schema: S_REV })
+    if (!lr || lr.verdict !== 'accept' || lr.sha !== asm.head) return { ok: false, stage: 'landing-reviewer — ' + (lr && lr.verdict === 'accept' ? 'вердикт о другой sha' : 'возврат'), blocking: lr ? lr.blocking : [], remainder, errors, lessons: lessonsOf() }
   }
 }
-// Последнее чтение CI — на голове посадки, тем же скриптом: между сборкой и
-// вливанием база могла уйти вперёд, а голова — получить слияние базы.
-const ciL = await ciRead('перед вливанием', landHead, false, 'mech:ci-land', D + '/ci-land.md')
-if (rateOf(ciL)) return { ...rateStop('CI на голове посадки', ciL, landHead), ...gatesOf() }
-if (ciState(ciL) === 'running' && sha40(ciL.head) === landHead) return { ok: false, state: 'running', stage: 'CI на голове посадки ' + landHead.slice(0, 12) + ' идёт (ci-read код 3) — провала нет', pr: asm.pr, head: landHead, reasons: ciL.reasons || [], errors, lessons: lessonsOf() }
-if (ciState(ciL) === 'red') M.ciRed++
-if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead) return { ok: false, state: 'failed', stage: 'CI на голове посадки: ' + ciState(ciL) + ' (ci-read код ' + (ciL ? ciL.code : 'нет ответа') + ')' + (ciState(ciL) === 'stale' ? ' — база устарела, влить свежую и читать заново' : ''), pr: asm.pr, head: landHead, reasons: ciL ? ciL.reasons || [] : [], ...redOf(ciL), ...gatesOf(), errors, lessons: lessonsOf() }
-const merged = await agent(C + '\n\nРежим merge: PR #' + asm.pr + ' (' + (A.repo || '?') + '), голова ' + landHead + '. ' + landRule + '; факт — landing-precheck код 0 (' + D + '/landing-precheck-*.md) и ci-read код 0 (' + D + '/ci-land.md). Влей ОДНОЙ командой `gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject "' + mergeTitle + '" --body ""` (способ — с сервера: сквош и rebase там выключены, решение владельца 2026-09-22; коммит слияния на сервере, тема — по форме правила ветки `#<N> merge #<M>: …`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1); ветку волны сними' + (stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '') + '. ФАКТ: `gh pr view ' + asm.pr + ' --json state,mergeCommit` — state MERGED. Затем каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '; КРОМЕ держателей записей ведомостей (`git grep -n \'#<N>\'` задачи по ведомостям производителя и долгов: на задаче держится запись — не закрывать, назвать в out; ws#1053). Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — влит и закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:merge', phase: 'Посадка', schema: S_MECH })
+const alStart = await agent(C + '\n\nРежим autoland start: PR #' + asm.pr + ' (' + (A.repo || '?') + ') → ' + (A.epic || A.base) + ', голова ' + asm.head + '. ' + landRule + '. 1) Тело PR — заново генератором (ws#1146), руками не пишется: `RITUAL_REPO_DIR=' + D + '/assemble bash ' + WS + '/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head + ' > ' + R + '/pr-body-land.md && gh pr edit ' + asm.pr + ' -R ' + (A.repo || '?') + ' --body-file ' + R + '/pr-body-land.md` (код не 0 — code 2, демон не запускать). 2) ОДНОЙ командой `bash ' + AUTOLAND + ' start --repo ' + (A.repo || '?') + ' --pr ' + asm.pr + ' --head ' + asm.head + ' --subject "' + mergeTitle + '"' + (reviews.length ? ' --reviews ' + D + '/reviews.json' : '') + ' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP + '` — он сразу печатает pid, журнал и state и возвращается; ждать его не нужно. code — код start: 0 демон запущен · 3 PR уже ведёт демон · 2 довод не тот. Верни code, out (строки pid, журнал, state дословно), reasons [], head (' + asm.head + ').', { ...MECH, label: 'mech:autoland', phase: 'Посадка', schema: S_MECH })
+if (!alStart || ![0, 3].includes(alStart.code)) return { ok: false, state: 'failed', stage: 'autoland start: демон не запущен (код ' + (alStart ? alStart.code : 'нет ответа') + ')' + (alStart && alStart.out ? ': ' + alStart.out : ''), pr: asm.pr, head: asm.head, ...gatesOf(), remainder, errors, lessons: lessonsOf() }
+// ОДИН шаг status; попытка (args.rerun) — в задании: возобновление читает исход вживую, а не из кэша.
+const alStatus = await agent(C + '\n\nРежим autoland status: PR #' + asm.pr + ' (' + (A.repo || '?') + '), демон вливания запущен. ОДНОЙ командой `bash ' + AUTOLAND + ' status ' + AL_STATE + '`; code — её код: 0 merged · 1 red · 2 void или демон умер · 3 идёт · 4 stale-base · 5 head-moved · 6 timeout. Исход не толкуй, не жди, демон не перезапускай. Верни code, out (первая строка .state ДОСЛОВНО), reasons (коды из строк REASON в out), head (sha коммита слияния при 0, иначе ' + asm.head + '). Попытка ' + (A.rerun || 0) + '.', { ...MECH, label: 'mech:autoland:status', phase: 'Посадка', schema: S_MECH })
+const alOut = String((alStatus && alStatus.out) || '')
+if (alStatus && alStatus.code === 3) return { ok: false, state: 'running', stage: 'вливание идёт: демон autoland ведёт PR #' + asm.pr + ' (status код 3) — провала нет; исход — возобновлением шаблона с новым args.rerun', autoland: AL_STATE, pr: asm.pr, head: asm.head, ...gatesOf(), errors, lessons: lessonsOf() }
+const alMerge = alStatus && alStatus.code === 0 ? sha40((alOut.match(/^merged ([0-9a-f]{40})/) || [])[1]) : ''
+if (!alMerge) {
+  const ciRedGate = /^red ci-read /.test(alOut)
+  if (ciRedGate) M.ciRed++
+  const AL_STAGE = { 0: 'merged без sha коммита слияния — не-выполнилось', 1: 'красное', 2: 'не выполнилось', 4: 'база устарела — влить свежую ' + (A.epic || A.base) + ' в ветку волны и запустить демон заново', 5: 'голова сдвинулась', 6: 'предел ожидания исчерпан' }
+  return { ok: false, state: alStatus && alStatus.code === 2 ? 'not-run' : 'failed', stage: 'autoland ' + (alStatus ? (AL_STAGE[alStatus.code] || 'код ' + alStatus.code) : 'нет ответа') + ': ' + alOut, autoland: AL_STATE, pr: asm.pr, head: asm.head, reasons: alStatus ? alStatus.reasons || [] : [], ...gatesOf(), remainder, ...(ciRedGate ? { redRound: RED_ROUND } : {}), errors, lessons: lessonsOf() }
+}
+// Влито демоном (ветку PR он снял): каскад — шагом git-operator.
+const merged = await agent(C + '\n\nРежим каскад: PR #' + asm.pr + ' (' + (A.repo || '?') + ') влит демоном autoland коммитом слияния ' + alMerge + ' (' + AL_STATE + '). ФАКТ: `gh pr view ' + asm.pr + ' -R ' + (A.repo || '?') + ' --json state,mergeCommit` — state MERGED, mergeCommit ' + alMerge + '. ' + (stacks.length ? 'Сними временные сводки deps ' + stacks.join(', ') + ' коммитным предикатом (git-operator.md §«Вливание и снятие»). ' : '') + 'Каскад: закрой задачи влитых полос ' + order.join(', ') + ' со ссылкой на их DoD-proof' + (remainder.length ? '; остаток ' + remainder.map(x => x.key).join(', ') + ' не закрывать — его задачи в следующую волну' : '') + '; КРОМЕ держателей записей ведомостей (`git grep -n \'#<N>\'` задачи по ведомостям производителя и долгов: на задаче держится запись — не закрывать, назвать в out; ws#1053). Затем `bash ' + WS + '/scripts/wave-errors.sh rate ' + N + ' <часы волны: (сейчас − step-start ' + D + '/plan-1.json mtime)/3600>`. Верни code (0 — закрыто), out (state, mergeCommit, вывод rate), reasons [], head (mergeCommit).', { ...MECH, label: 'mech:cascade', phase: 'Посадка', schema: S_MECH })
 // Профилактика (ws#1063): после КАЖДОЙ влитой волны в ветку эпика — пробное схождение на
 // сведённом состоянии и одно чтение полного CI MR эпика в main (без ожидания: «идёт» —
 // законный исход); красное читается в этой волне, а не впервые перед посадкой эпика.
@@ -597,7 +593,7 @@ const landedOk = !!(merged && merged.code === 0 && sha40(merged.head))
 const epicMr = landedOk && !!A.epic && A.epic !== 'main'
 const trialConv = epicMr ? await agent(C + '\n\nРежим пробное схождение после вливания волны ' + N + ' в ' + A.epic + ' @' + merged.head + ' (ai-tooling.md#at-red-ci-one-round): на сведённом состоянии ветки эпика пересчитай отпечатки пакета изменения и дай перечень недостающих записей ролей и событий (опубликованное событие без блока event записи — пункт; записи ролей снимаются по ходу, на сведённом). Ничего не правь. Запись — ' + R + '/trial-convergence.md. ' + due('review') + ' Верни verdict, sha, blocking (недостающее строками), report.', { agentType: 'convergence-reviewer', label: 'trial-convergence', phase: 'Посадка', schema: S_REV }) : null
 const epicCi = epicMr ? await agent(C + '\n\nРежим CI MR эпика после волны ' + N + ': номер — `gh pr list -R ' + (A.repo || '?') + ' --head ' + A.epic + ' --base main --json number -q \'.[0].number\'`; прочти полный прогон MR эпика ОДИН раз командой (НОМЕР — этот номер) `' + recipeRun('ci-read.sh', (A.repo || '?') + ' НОМЕР', R + '/epic-ci.md') + '` — без ожидания: код 3 (идёт) — законный исход, верни его. Красное (код 1) — перепись корней с цитатами в тот же отчёт; порядок круга: ' + RED_ROUND + '. Верни code, out, reasons, head.', { ...MECH, agentType: 'ci-watcher', label: 'mech:ci-epic', phase: 'Посадка', schema: S_MECH }) : null
-return { ok: landedOk, stacks, pr: asm.pr, head: landHead, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, trialConvergence: trialConv, epicCi: epicCi ? { ...epicCi, ...redOf(epicCi) } : null, ...gatesOf(), errors, lessons: lessonsOf() }
+return { ok: landedOk, stacks, pr: asm.pr, head: asm.head, landed: order, remainder, merge: merged ? merged.head : '', rate: merged ? merged.out : '', lanes: done, trialConvergence: trialConv, epicCi: epicCi ? { ...epicCi, ...redOf(epicCi) } : null, ...gatesOf(), errors, lessons: lessonsOf() }
 })()
 // Метрики — в reports волны на ЛЮБОМ исходе (ws#1053): время, круги переделки,
 // красные на сведённом (проба и CI), сверка с оценкой предполёта; токены — из итога Workflow.

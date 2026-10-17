@@ -17,7 +17,8 @@
 #   C. шаблон `wave.js`: порядок в итоге КАЖДОГО красного (CI и стенда); шаг mech:stand ДО
 #      первого чтения CI (позиция, а не только присутствие —
 #      `testing.md#primacy-judged-by-position-not-only-text`); ready и вливание лишь при коде 0
-#      отчёта; посадка — `--stand-report`; схождение и CI MR эпика ПОСЛЕ вливания; поведение
+#      отчёта; посадка — `--stand-report` (демон вливания и перепись); схождение и CI MR эпика
+#      ПОСЛЕ вливания (каскада, ws#1152); поведение
 #      доказывает `scripts/wave-template-inject.sh` — разделы ws#1063 и ws#1110 обязаны быть;
 #   D. `ci-watcher`: цитата до класса, среда — один перезапуск, перепись по завершении всех
 #      заданий, массово, только красное на кластере, полный, один CI;
@@ -165,7 +166,7 @@ need(WAVE, w, ["const RED_ROUND = 'перепись — потом массов�
                'проверка — только бывшее красным на внешнем кластере (stand-report.sh --of), красное — снова перепись',
                'всё зелёное — полный прогон на внешнем кластере (stand-report.sh код 0); затем ОДИН CI; два красных CI подряд — стоп и разбор паритета',
                "const redOf = r => ciState(r) === 'red' ? { redRound: RED_ROUND } : {}",
-               '...redOf(ci), errors', '...redOf(ciL), ',
+               '...redOf(ci), errors', '...(ciRedGate ? { redRound: RED_ROUND } : {})',
                "const STAND = D + '/stand.json'",
                'без остановки на первом красном',
                "if (!stand || stand.code !== 0) return {",
@@ -179,7 +180,7 @@ need(WAVE, w, ["const RED_ROUND = 'перепись — потом массов�
 iS, iC = w.find('const got = await standRead('), w.find('const got = await ciRead(')
 if not (0 <= iS < iC):
     finds.append('%s: шаг стенда не стоит в теле ДО первого чтения CI' % WAVE)
-im, itc, iec = w.find("label: 'mech:merge'"), w.find("label: 'trial-convergence'"), w.find("label: 'mech:ci-epic'")
+im, itc, iec = w.find("label: 'mech:cascade'"), w.find("label: 'trial-convergence'"), w.find("label: 'mech:ci-epic'")
 if not (0 <= im < itc and im < iec):
     finds.append("%s: пробное схождение и чтение CI MR эпика не стоят в теле ПОСЛЕ шага вливания" % WAVE)
 need(PROBE, texts[PROBE], ["console.log('== красный CI — одним кругом; после волны — пробное схождение и CI MR эпика (ws#1063)')",

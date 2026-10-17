@@ -3130,7 +3130,7 @@ b="$(mksandbox)"
 c21_sub "$b/.claude/agents/dispatcher.md" "прошедшая полоса — сразу в пробную сборку, CI — только на сведённом" "полоса вливается в ветку эпика поштучно"
 run_says 1 "$b" "инъекция п.4: сборка вывернута в поштучное вливание — краснеет" "$C22" "§8а п.9"
 b="$(mksandbox)"
-c21_sub "$b/.claude/agents/dispatcher.md" "механика — скриптами (\`ci-read.sh\`, один перезапуск отказа среды, \`merge-readiness.sh\`)" "механика — агентом циклом опроса"
+c21_sub "$b/.claude/agents/dispatcher.md" "механика — скриптами (\`autoland.sh\`, \`pr-body.sh\`, один перезапуск отказа среды)" "механика — агентом циклом опроса"
 run_says 1 "$b" "инъекция п.6: механика циклом агента — краснеет" "$C22" "§8а п.9"
 b="$(mksandbox)"
 c21_sub "$b/.claude/agents/dispatcher.md" "каскад щадит держателя ведомости (до ws#1052 — сверка вручную)" "каскад закрывает всё"
@@ -3396,13 +3396,13 @@ run_says 1 "$b" "инъекция М1: перепись без branch-audit — 
 b="$(mksandbox)"
 python3 - "$b/.claude/workflows/wave.js" <<'PY2'
 import sys; p = sys.argv[1]; s = open(p, encoding='utf-8').read()
-# Перепись уехала ПОСЛЕ первого landing-precheck: дословность та же, позиция — нет.
+# Перепись уехала ПОСЛЕ старта демона вливания: дословность та же, позиция — нет.
 i = s.index('const gates = await agent('); j = s.index('\n', i) + 1
 line = s[i:j]; s = s[:i] + s[j:]
-k = s.index('let lp = await landCheck(1)\n') + len('let lp = await landCheck(1)\n'); s = s[:k] + line + s[k:]
+k = s.index('const alStart = await agent('); k = s.index('\n', k) + 1; s = s[:k] + line + s[k:]
 open(p, 'w', encoding='utf-8').write(s)
 PY2
-run_says 1 "$b" "инъекция М1: перепись после первого landing-precheck (позиция) — краснеет" "$C24" "не стоит в теле ДО первого landing-precheck"
+run_says 1 "$b" "инъекция М1: перепись после старта демона вливания (позиция) — краснеет" "$C24" "не стоит в теле ДО старта демона вливания"
 b="$(mksandbox)"
 c21_sub "$b/scripts/wave-template-inject.sh" 'mutant "ответ без ВОЗВРАТ принят (ws#1071)"' 'twin "ответ без ВОЗВРАТ принят (ws#1071)"'
 run_says 1 "$b" "инъекция: мутант снят из пробы шаблона — краснеет" "$C24" "поведение доказывается исполнением шаблона"
