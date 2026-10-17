@@ -12,14 +12,16 @@
   * НОМЕРА — каждый `#N` тела (выражение `NUM_RE`, оно же у landing-precheck) — номер
     первой строки коммита диапазона; номер из тела сообщения (#47), из `kaname#48` и из
     второй строки первого абзаца (#49, `%s` git склеил бы её с первой) идёт без `#`;
-    `#99` из заголовка задачи — `№99`;
+    `#99` из заголовка задачи — `№99`; задача своего репозитория, названная в первой строке
+    полной формой (`kaname#52`, `PRO-Robotech/kaname#53`), — задача, и пишется полной формой;
   * CLOSES — #41: доказательство DoD ревизией диапазона (близнец: та же задача упомянута
     ведомостью прозой, не формой держателя, — Closes остаётся); #42: доказательство ревизией
     БАЗЫ (предок головы, но не коммит диапазона) — Refs; #44: ревизия, которой нет, — Refs;
     #45: держит запись `newman-suite-debt.py` (`PRO-Robotech/kaname#45 — …`) при годном
     доказательстве — Refs; #46: держит объявление RESULTS.md — Refs; #43 закрыта — Refs (и при
     доказательстве диапазона);
-    #50 без доказательства — Refs; закрытой #43 доказательство диапазона Closes не даёт; #51 — запрос, в задачи не идёт;
+    #50 без доказательства — Refs; kaname#52 с доказательством диапазона — Closes полной
+    формой, kaname#53 без него — Refs полной формой; закрытой #43 доказательство диапазона Closes не даёт; #51 — запрос, в задачи не идёт;
   * ХВОСТ — закрывающие строки последними, Refs перед ними, хвост сплошной;
   * распознаватель доказательства общий (`dod_proof.jq`): `@main`, `@abc12`, `@develop`,
     `abc1234` без `@` и маркер посреди прозы — не доказательства; полный sha — доказательство;
@@ -64,7 +66,7 @@ def tail_of(out):
     lines = out.rstrip("\n").splitlines()
     t = []
     for ln in reversed(lines):
-        if re.match(r"^(Refs|Closes) #\d+$", ln):
+        if re.match(r"^(Refs|Closes) (PRO-Robotech/kaname)?#\d+$", ln):
             t.append(ln)
         else:
             break
@@ -82,10 +84,10 @@ def seed(pr):
     sha = {"base42": pr.commit(d, "#42 правка, уже влитая в базу")}
     pr.git(d, "checkout", "-qb", "41-a", "main")
     sha["41a"] = pr.commit(d, "#41 первая правка", rel="a.txt")
-    sha["41b"] = pr.commit(d, "#41 вторая правка\nпродолжение абзаца про #49\n\nтело называет #47 и kaname#48",
+    sha["41b"] = pr.commit(d, "#41 вторая правка (kaname#52)\nпродолжение абзаца про #49\n\nтело называет #47 и kaname#48",
                            rel="a.txt")
     pr.git(d, "checkout", "-qb", "44-c", "main")
-    sha["44"] = pr.commit(d, "#44 вложенная полоса", rel="c.txt")
+    sha["44"] = pr.commit(d, "#44 вложенная полоса (PRO-Robotech/kaname#53)", rel="c.txt")
     pr.git(d, "checkout", "-qb", "42-b", "main")
     sha["42"] = pr.commit(d, "#42 полоса после базы (#43)", rel="b.txt")
     sha["45"] = pr.commit(d, "#45 держатель записи долга", rel="b.txt")
@@ -102,7 +104,7 @@ def seed(pr):
 
 
 def world(sha, c41=None, title41=None):
-    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50)}
+    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53)}
     issues[43] = issue(43, "closed")
     issues[51] = issue(51, pr=True)
     issues[41]["title"] = title41 or "задача 41 (после #99)"
@@ -114,6 +116,7 @@ def world(sha, c41=None, title41=None):
             "%s#44" % R: [comment(44, 4, "DoD-proof @deadbee1\nкод 0")],
             "%s#45" % R: [comment(45, 5, "DoD-proof @%s\nкод 0" % sha["45"])],
             "%s#46" % R: [comment(46, 6, "DoD-proof @%s\nкод 0" % sha["46"][:12])],
+            "%s#52" % R: [comment(52, 7, "DoD-proof @%s\nкод 0" % sha["41b"][:9])],
             "%s#43" % R: [comment(43, 3, "DoD-proof @%s\nкод 0" % sha["42"][:9])],
         },
     }
@@ -154,12 +157,16 @@ def body(pr):
           and "«задача 51»" not in out, out)
 
     # закрытия
-    pr.ok("Closes #41 — единственная закрывающая", closes(out) == ["Closes #41"], out)
-    pr.ok("Refs: #42 #43 #44 #45 #46 #50",
-          all(("Refs #%d" % n) in tail_of(out) for n in (42, 43, 44, 45, 46, 50)), out)
+    pr.ok("закрывающие: #41 и полной формой kaname#52", closes(out) == ["Closes #41", "Closes %s#52" % R], out)
+    pr.ok("Refs: #42 #43 #44 #45 #46 #50 и полной формой kaname#53",
+          all(("Refs #%d" % n) in tail_of(out) for n in (42, 43, 44, 45, 46, 50))
+          and ("Refs %s#53" % R) in tail_of(out), out)
     pr.ok("хвост: Refs, затем Closes последними, сплошь",
-          tail_of(out)[-1:] == ["Closes #41"] and len(tail_of(out)) == 7
-          and all(x.startswith("Refs") for x in tail_of(out)[:-1]), out)
+          tail_of(out)[-2:] == ["Closes #41", "Closes %s#52" % R] and len(tail_of(out)) == 9
+          and all(x.startswith("Refs") for x in tail_of(out)[:-2]), out)
+    pr.ok("задача первой строки в полной форме — строкой полной формы",
+          ("- %s#52 «задача 52» — доказательство DoD" % R) in out
+          and ("- %s#53 «задача 53» — доказательства DoD нет" % R) in out, out)
     pr.ok("#42: доказательство ревизией базы — не коммит диапазона",
           ("`DoD-proof @%s` не коммит диапазона" % sha["base42"][:9]) in out, out)
     pr.ok("#44: ревизии нет — не коммит диапазона", "`DoD-proof @deadbee1` не коммит диапазона" in out, out)
@@ -168,8 +175,8 @@ def body(pr):
     pr.ok("#46: держатель RESULTS.md, строка 3", "держит запись долга `kaname:tests/newman/docs/RESULTS.md:3`" in out, out)
     pr.ok("близнец: проза ведомости (kaname#41) держателем не делает", "Closes #41" in out, out)
     pr.ok("#43 закрыта — Refs", "#43 «задача 43» — уже закрыта" in out, out)
-    pr.ok("перепись: Closes 1, Refs 6; чужие ведомости — НЕ СВЕРЕНА",
-          "Closes 1, Refs 6" in err and "НЕ СВЕРЕНА" in err, err)
+    pr.ok("перепись: Closes 2, Refs 7, полной формой 2; чужие ведомости — НЕ СВЕРЕНА",
+          "Closes 2, Refs 7, из них полной формой 2" in err and "НЕ СВЕРЕНА" in err, err)
 
     # распознаватель (общий dod_proof.jq)
     for text in ("DoD-proof @main\nкод 0", "DoD-proof @abc12\nкод 0", "DoD-proof @develop\nкод 0",
@@ -178,11 +185,11 @@ def body(pr):
         # «доказательства нет», а не «не коммит диапазона»: иначе распознаватель, засчитавший
         # `@main` ревизией, прятался бы за сверкой с диапазоном (M21, M26 инъекции).
         pr.ok("не доказательство «%s»: Refs #41, доказательства нет" % text.splitlines()[0][:40],
-              rc == 0 and "Refs #41" in out and not closes(out)
+              rc == 0 and "Refs #41" in out and "Closes #41" not in closes(out)
               and re.search(r"- #41 «[^»]*» — доказательства DoD нет", out) is not None, out + err)
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=[comment(41, 1, "DoD-proof @%s" % sha["41b"])])),
                              extra=extra)
-    pr.ok("близнец: полный sha — доказательство", rc == 0 and closes(out) == ["Closes #41"]
+    pr.ok("близнец: полный sha — доказательство", rc == 0 and "Closes #41" in closes(out)
           and ("DoD-proof @%s" % sha["41b"]) in out, out + err)
     two = [comment(41, 1, "DoD-proof @%s\nпервое" % sha["41a"][:9]), comment(41, 2, "обсуждение"),
            comment(41, 3, "DoD-proof @%s\nпоследнее" % sha["41b"][:9]), comment(41, 4, "DoD-proof @%s\nбаза" % sha["base42"][:9])]
@@ -193,7 +200,7 @@ def body(pr):
         comment(41, 101, "DoD-proof @%s\nкод 0" % sha["41a"][:9])]
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=many)), extra=extra)
     pr.ok("доказательство 101-м комментарием (вторая страница): Closes #41",
-          rc == 0 and closes(out) == ["Closes #41"] and "issuecomment-101" in out, out + err)
+          rc == 0 and "Closes #41" in closes(out) and "issuecomment-101" in out, out + err)
 
     # атрибуция
     link = "claude" + ".ai/code"

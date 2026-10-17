@@ -71,6 +71,8 @@
 #   M44 pr-body: вложенные полосы не раскрыты                         → check-01
 #   M45 pr-body: названо первое доказательство диапазона, а не последнее → check-01
 #   M46 pr-body: номера задач — из всего сообщения, а не из первой строки → check-01
+#   M47 pr-body: задача первой строки в полной форме — голым `#N`       → check-01
+#   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -277,6 +279,12 @@ inject "M45 pr-body: первое доказательство диапазон�
 inject "M46 pr-body: номера из всего сообщения" check-01-pr-body.py \
     'NUM_RE.findall(meta[h][1])}' \
     'NUM_RE.findall(meta[h][2])}'
+inject "M47 pr-body: полная форма — голым #N" check-01-pr-body.py \
+    '        return "#%d" % n if n in first else "%s#%d" % (repo, n)' \
+    '        return "#%d" % n'
+inject "M48 pr-body: полная форма — не задача" check-01-pr-body.py \
+    '    for n in sorted(first | qual):' \
+    '    for n in sorted(first):'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

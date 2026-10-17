@@ -180,7 +180,10 @@ def need_repo(repo: str) -> str:
 #   * состав — каждый коммит `база..голова` назван своим sha (BODY-MISSING-COMMIT), по
 #     полосам: слияния линии первого родителя головы, вложенные — уровнем ниже;
 #   * `#N` — ТОЛЬКО номер из первой строки коммита диапазона (BODY-FOREIGN-TASK): тем же
-#     выражением `NUM`, что у landing-precheck; прочие номера — без `#`;
+#     выражением `NUM`, что у landing-precheck; задача своего репозитория, названная в первой
+#     строке полной формой (`kaname#719`), — задача тоже и пишется полной формой
+#     `<владелец>/<имя>#N` (её BODY-FOREIGN-TASK не судит, Closes судит пункт (ж)); прочие
+#     номера — без `#`;
 #   * `Closes` — задаче с доказательством DoD, чья ревизия — коммит диапазона (предок
 #     головы, не предок базы; CLOSES-WITHOUT-PROOF), и не держателю записи долга;
 #   * закрывающие строки — последними (`git-issues.md#gi-closes-last-line`).
@@ -398,17 +401,25 @@ def pr_body(argv: list[str]) -> int:
         raise Unmet("разбиение по полосам назвало коммитов %d из %d диапазона %s — состав неполон"
                     % (listed, len(meta), span))
 
-    # Номера: с `#` — только из первых строк; прочие упомянутые — без `#`.
+    # Номера: с `#` — только из первых строк; задача первой строки в полной форме — полной
+    # формой; прочие упомянутые — без `#`.
     first = {int(x) for h in order for x in NUM_RE.findall(meta[h][1])}
+    qual = set()
+    for h in order:
+        qual |= issue_refs(repo, meta[h][1])
+    qual -= first
     mentioned = set()
     for h in order:
         mentioned |= issue_refs(repo, meta[h][2])
-    mentioned -= first
+    mentioned -= first | qual
+
+    def label(n: int) -> str:
+        return "#%d" % n if n in first else "%s#%d" % (repo, n)
 
     ledgers, census = read_ledgers(repo, head_sha)
     range_shas = list(meta)
     closes, refs, pulls, rows = [], [], [], []
-    for n in sorted(first):
+    for n in sorted(first | qual):
         it = issue(repo, n)
         if it.get("pull_request"):
             pulls.append(n)
@@ -416,34 +427,34 @@ def pr_body(argv: list[str]) -> int:
         title = no_hash(it.get("title") or "")
         if it.get("state") != "open":
             refs.append(n)
-            rows.append("- #%d «%s» — уже закрыта: `Refs`" % (n, title))
+            rows.append("- %s «%s» — уже закрыта: `Refs`" % (label(n), title))
             continue
         holder = debt_holder(repo, n, ledgers)
         if holder:
             refs.append(n)
-            rows.append("- #%d «%s» — держит запись долга `%s`: `Refs`, не `Closes`" % (n, title, holder))
+            rows.append("- %s «%s» — держит запись долга `%s`: `Refs`, не `Closes`" % (label(n), title, holder))
             continue
         proofs = dod_proofs(repo, n)
         inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]
         if inside:
             url, rev = inside[-1]
             closes.append(n)
-            rows.append("- #%d «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (n, title, url, rev))
+            rows.append("- %s «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (label(n), title, url, rev))
         elif proofs:
             refs.append(n)
-            rows.append("- #%d «%s» — `DoD-proof @%s` не коммит диапазона `%s`: `Refs`, не `Closes`"
-                        % (n, title, proofs[-1][1], span))
+            rows.append("- %s «%s» — `DoD-proof @%s` не коммит диапазона `%s`: `Refs`, не `Closes`"
+                        % (label(n), title, proofs[-1][1], span))
         else:
             refs.append(n)
-            rows.append("- #%d «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (n, title))
+            rows.append("- %s «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (label(n), title))
 
     lines += ["Задачи первых строк (%d):" % len(rows), ""]
     lines += rows or ["- в первых строках коммитов номеров задач нет"]
     if pulls:
-        lines += ["", "Запросы в первых строках (не задачи): %s" % ", ".join("#%d" % n for n in pulls)]
+        lines += ["", "Запросы в первых строках (не задачи): %s" % ", ".join(label(n) for n in pulls)]
     if mentioned:
         lines += ["", "Упомянуты вне первых строк (без закрытия): %s" % ", ".join(str(n) for n in sorted(mentioned))]
-    tail = ["Refs #%d" % n for n in refs] + ["Closes #%d" % n for n in closes]
+    tail = ["Refs %s" % label(n) for n in refs] + ["Closes %s" % label(n) for n in closes]
     if tail:
         lines += [""] + tail
     body = "\n".join(lines) + "\n"
@@ -454,9 +465,10 @@ def pr_body(argv: list[str]) -> int:
     sys.stdout.write(body)
     for c in census:
         say("pr-body: " + c)
-    say("pr-body: коммитов %d (полос %d, вне полос %d), номеров первых строк %d — задач %d: Closes %d, Refs %d; "
-        "запросов %d; упомянуто без # %d" % (len(meta), len(merges), len(direct), len(first), len(rows),
-                                            len(closes), len(refs), len(pulls), len(mentioned)))
+    say("pr-body: коммитов %d (полос %d, вне полос %d), номеров первых строк %d — задач %d: Closes %d, Refs %d, "
+        "из них полной формой %d; запросов %d; упомянуто без # %d"
+        % (len(meta), len(merges), len(direct), len(first), len(rows), len(closes), len(refs),
+           len(qual), len(pulls), len(mentioned)))
     return OK
 
 
