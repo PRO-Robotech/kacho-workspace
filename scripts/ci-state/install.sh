@@ -45,7 +45,6 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCR="$(dirname "$HERE")"
 UNIT=ci-stated.service
 SRC_UNIT="$HERE/$UNIT"
 SC="${CI_STATED_SYSTEMCTL:-systemctl}"
@@ -149,8 +148,9 @@ src="$("${ghenv[@]}" "$GH" auth status --json hosts 2>/dev/null \
 [ -n "$src" ] || die 4 "keyring не ответил: gh auth status без активной учётки github.com"
 [ "$src" = keyring ] || die 4 "токен не из keyring (источник «$src»): служба его не возьмёт"
 
-# shellcheck source=scripts/lib/gh-rate.sh
-. "$SCR/lib/gh-rate.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/gh-rate.sh
+. "$HERE/../lib/gh-rate.sh"
 if ! short="$(gh_rate_short "$GH" "$RATE_MIN")"; then die 3 "не выполнилось — $short"; fi
 say "лимит до: $(rate_line)"
 
