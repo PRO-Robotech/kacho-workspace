@@ -214,6 +214,7 @@ except Exception:
 own_sid = own_sid or os.environ.get('CLAUDE_CODE_SESSION_ID', '')
 
 # ── Каталог сессии ──────────────────────────────────────────────────────
+sess_note = ''  # своя сессия названа, а журнала её нет: взята самая свежая
 if not session and stdin_json:
     try:
         tp = json.loads(stdin_json).get('transcript_path') or ''
@@ -242,7 +243,12 @@ if not session:
     if not cands:
         void('журнала сессии проекта нет; опрошено каталогов %d: %s' % (len(tried), ', '.join(tried)))
     own_j = os.path.join(d, own_sid + '.jsonl') if own_sid else ''
-    session = (own_j if own_j in cands else max(cands, key=os.path.getmtime))[:-len('.jsonl')]
+    if own_j in cands:
+        session = own_j[:-len('.jsonl')]
+    else:
+        session = max(cands, key=os.path.getmtime)[:-len('.jsonl')]
+        if own_sid:
+            sess_note = ' (журнала своей сессии %s нет — взята самая свежая)' % own_sid
 main = session + '.jsonl'
 if not os.path.isfile(main):
     void('журнал главного потока не читается: ' + main)
@@ -519,8 +525,8 @@ if not own_sid and not own_pid:
 elif unjudged:
     proc_notes.append('STALL-PROC: сессия оболочки не определена — не судится: %s' % ', '.join(unjudged[:5]))
 
-print('CENSUS stall-census: сессия %s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
-      % (os.path.basename(session), wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
+print('CENSUS stall-census: сессия %s%s; workflow живых %d, завершённых в окне %d; агентов осмотрено %d, из них без единой разобранной записи %d; завершённых (не судятся) %d; своя сессия %s (claude %s); фоновых оболочек агентов %d из процессов %d: своих %d, чужих %d, не судимо %d; пороги агент %d мин, опрос %d мин, завершённый %d мин, процесс %d мин, реакция %d мин, окно %d мин'
+      % (os.path.basename(session), sess_note, wf_live, wf_done, agents_seen, len(unread), done_seen, own_sid or 'не определена', own_pid or '?', shells, len(procs), mine, foreign, len(unjudged), AGENT_MIN, POLL_MIN, DONE_MIN, PROC_MIN, REACT_MIN, HORIZON_MIN))
 for f in findings:
     print(f)
 for n in proc_notes:

@@ -62,12 +62,13 @@ session() {
     printf '%s' "$s"
 }
 ps_ok() { printf '%s\n' "100 1 90000 claude claude --x" "200 100 600 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'go test ./...'" "300 1 99999 sshd sshd"; }
-# probe <код> <имя> <строка|-> <довод…>
+# probe <код> <имя> <строка|-> <довод…>; absent=<строка> — её в выводе быть не должно;
+# stdin=<JSON> — вход хука (иначе /dev/null).
 probe() {
     local want="$1" name="$2" needle="$3" got out
     shift 3
-    out="$(bash "$C" "$@" < /dev/null 2>&1)"; got=$?
-    if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; }; then
+    out="$(printf '%s' "${stdin:-}" | bash "$C" "$@" 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ "$needle" = - ] || grep -qF -- "$needle" <<< "$out"; } && { [ -z "${absent:-}" ] || ! grep -qF -- "$absent" <<< "$out"; }; then
         [ -n "${quiet:-}" ] || echo "  [OK]   $name (код $got)"; pass=$((pass + 1))
     else
         failed="${failed:-}; $name"
@@ -336,28 +337,33 @@ mutant "старый отбор: любая оболочка под claude — �
 mutant "неустановленная сессия при своём claude — чужая" $'    return \'\'\n\n\nshells' $'    return \'foreign\' if own_pid else \'\'\n\n\nshells' proc_cases
 
 echo "== журнал своей сессии без transcript_path (ws#1134)"
-# Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее.
-SD="$T/proj2"; mkdir -p "$SD/ses-s/subagents" "$SD/ses-n/subagents"
-rec "$SD/ses-s/subagents/agent-own.jsonl" 30 tool "make own-e2e"; rec "$SD/ses-n/subagents/agent-nb.jsonl" 30 tool "make neighbor-e2e"
-rec "$SD/ses-s.jsonl" 2 "done"; rec "$SD/ses-n.jsonl" 1 "done"
-# journal_cases <прибор> — выбор журнала своей сессии; их же гонят мутанты ниже.
+# Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее;
+# оболочка N 120 мин под claude «--resume N» (id — форма, которую узнаёт SID_ARG).
+JS=aaaaaaaa-1111-4111-8111-000000000001 JN=bbbbbbbb-2222-4222-8222-000000000002
+SD="$T/proj2"; mkdir -p "$SD/$JS/subagents" "$SD/$JN/subagents"
+rec "$SD/$JS/subagents/agent-own.jsonl" 30 tool "make own-e2e"; rec "$SD/$JN/subagents/agent-nb.jsonl" 30 tool "make neighbor-e2e"
+rec "$SD/$JS.jsonl" 2 "done"; rec "$SD/$JN.jsonl" 1 "done"
+{ echo "100 1 90000 claude claude --x"; echo "110 1 90000 claude claude --resume $JN"
+  echo "211 110 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/n.sh && eval 'newman run nb'"; } > "$T/ps-jn"
+# journal_cases <прибор> — выбор журнала своей сессии и его следствия; их же гонят мутанты ниже.
 journal_cases() {
-    local C="$1" out
-    CLAUDE_CODE_SESSION_ID=ses-s probe 1 "инъекция: CLAUDE_CODE_SESSION_ID выбирает свою S, хотя N свежее" "сессия ses-s;" --session-dir "$SD" --ps "$T/ps"
-    CLAUDE_CODE_SESSION_ID=ses-s probe 1 "  …назван свой агент" "STALL-AGENT agent-own" --session-dir "$SD" --ps "$T/ps"
-    out="$(printf '{"session_id":"ses-s"}' | CLAUDE_CODE_SESSION_ID=ses-n bash "$C" --session-dir "$SD" --ps "$T/ps" 2>&1)"
-    if grep -qF "сессия ses-s;" <<< "$out"; then
-        [ -n "${quiet:-}" ] || echo "  [OK]   инъекция: session_id хука сильнее CLAUDE_CODE_SESSION_ID — S"; pass=$((pass + 1))
-    else
-        failed="${failed:-}; session_id хука сильнее окружения"
-        [ -n "${quiet:-}" ] || echo "  [FAIL] session_id хука не выбрал S: $(head -1 <<< "$out" | cut -c1-200)" >&2; fail=$((fail + 1))
-    fi
-    probe 1 "близнец: своей сессии нет — самая свежая (N)" "сессия ses-n;" --session-dir "$SD" --ps "$T/ps"
-    CLAUDE_CODE_SESSION_ID=gone probe 1 "близнец: журнала своей сессии в каталоге нет — самая свежая, не VOID" "сессия ses-n;" --session-dir "$SD" --ps "$T/ps"
+    local C="$1"
+    CLAUDE_CODE_SESSION_ID=$JS probe 1 "инъекция: CLAUDE_CODE_SESSION_ID выбирает свою S, хотя N свежее" "сессия $JS;" --session-dir "$SD" --ps "$T/ps"
+    CLAUDE_CODE_SESSION_ID=$JS absent="agent-nb" probe 1 "  …назван свой агент, агента N нет" "STALL-AGENT agent-own" --session-dir "$SD" --ps "$T/ps"
+    stdin="{\"session_id\":\"$JS\"}" CLAUDE_CODE_SESSION_ID=$JN probe 1 "инъекция: session_id хука сильнее CLAUDE_CODE_SESSION_ID — журнал S" "сессия $JS;" --session-dir "$SD" --ps "$T/ps-jn"
+    stdin="{\"session_id\":\"$JS\"}" CLAUDE_CODE_SESSION_ID=$JN absent="STALL-PROC pid 211" probe 1 "3a: хук S, окружение N — оболочка N чужая, не STALL-PROC (одна своя сессия на журнал и процессы)" "чужих 1" --session-dir "$SD" --ps "$T/ps-jn"
+    absent="STALL-PROC pid 211" probe 1 "2b: id нет — оболочка самой свежей сессии N не судима, а не своя" "не судимо 1" --session-dir "$SD" --ps "$T/ps-jn"
+    probe 1 "2a: id нет — шапка «своя сессия не определена»" "своя сессия не определена" --session-dir "$SD" --ps "$T/ps-jn"
+    probe 1 "близнец: id нет — журнал самой свежей (N), без пометки о запасном" "сессия $JN;" --session-dir "$SD" --ps "$T/ps"
+    CLAUDE_CODE_SESSION_ID=gone probe 1 "близнец: журнала своей сессии нет — самая свежая с пометкой, не VOID" "сессия $JN (журнала своей сессии gone нет — взята самая свежая);" --session-dir "$SD" --ps "$T/ps"
 }
 journal_cases "$C"
-mutant "журнал своей сессии не выбирается" 'own_j if own_j in cands else ' '' journal_cases
+mutant "журнал своей сессии не выбирается" '    if own_j in cands:' '    if False:' journal_cases
 mutant "окружение сильнее session_id хука" "own_sid = own_sid or os.environ.get('CLAUDE_CODE_SESSION_ID', '')" "own_sid = os.environ.get('CLAUDE_CODE_SESSION_ID', '') or own_sid" journal_cases
+mutant "3a: STALL-PROC — второе вычисление своей сессии из окружения" $'# Свой claude (шапка, STALL-PROC); своя сессия own_sid — выше, у каталога сессии.\n' $'own_sid = os.environ.get(\'CLAUDE_CODE_SESSION_ID\', \'\')\n' journal_cases
+mutant "2b: id нет — своей становится самая свежая" $'\nmain = session + \'.jsonl\'\n' $'\nown_sid = own_sid or os.path.basename(session)\nmain = session + \'.jsonl\'\n' journal_cases
+mutant "2a: id нет — шапка без «не определена»" "own_sid or 'не определена'," "own_sid or os.path.basename(session)," journal_cases
+mutant "запасной журнал не помечен" $'        if own_sid:\n            sess_note' $'        if False:\n            sess_note' journal_cases
 
 echo "== разбор: не-объект, нечитаемый журнал, падение (опыт check-verifier по #1002)"
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
