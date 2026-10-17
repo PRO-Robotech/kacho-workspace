@@ -220,8 +220,9 @@ import fnmatch, json, os, re, subprocess, sys
 
 # Ведомость послаблений: причина not-run → задача, которая её снимает. Закрыта — истекло.
 RELAX = {
-    'NO-PR-IMAGES': ('PRO-Robotech/kacho-workspace', '1110',
-                     'стенд проб не принимает образы ветки PR (ws#1110 п.1) — newman и консоль ветки до CI не прогнать'),
+    # ws#1110 закрыта, предмет живёт в kacho#3260 (решение диспетчера 2026-10-17)
+    'NO-PR-IMAGES': ('PRO-Robotech/kacho', '3260',
+                     'стенд проб не принимает образы ветки PR (kacho#3260) — newman и консоль ветки до CI не прогнать'),
 }
 reasons, census = [], []
 rep, head, of, gh, exp = os.environ['REP'], os.environ['HEAD'], os.environ['OF'], os.environ['GH'], os.environ['EXP']

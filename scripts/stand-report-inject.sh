@@ -76,7 +76,9 @@ cat > "$W/gh" <<'GH'
 [ "$1" = api ] || { echo "fake gh: только api" >&2; exit 64; }
 [ ! -f "$CASE/gh-fail" ] || { echo "fake gh: площадка недоступна" >&2; exit 1; }
 case "$2" in
-    repos/PRO-Robotech/kacho-workspace/issues/1110) printf '{"number":1110,"state":"%s"}\n' "$(cat "$CASE/state" 2>/dev/null || echo open)" ;;
+    # Послабление NO-PR-IMAGES — до kacho#3260; ws#1110, прежняя его задача, закрыта — как на площадке.
+    repos/PRO-Robotech/kacho/issues/3260) printf '{"number":3260,"state":"%s"}\n' "$(cat "$CASE/state" 2>/dev/null || echo open)" ;;
+    repos/PRO-Robotech/kacho-workspace/issues/1110) printf '{"number":1110,"state":"closed"}\n' ;;
     repos/*/compare/*) [ ! -f "$CASE/cmp-fail" ] || { echo "fake gh: compare недоступен" >&2; exit 1; }; cat "$CASE/compare.json" ;;
     *) echo "fake gh: путь $2 не известен" >&2; exit 64 ;;
 esac
@@ -164,8 +166,9 @@ kase "близнец: контекст локальный при proof слот�
 kase "остаток после прогона 1" '.residue = 1'; want 1 STAND-REPORT-RESIDUE
 kase "residue не число" 'del(.residue)'; want 1 STAND-REPORT-RESIDUE
 kase "not-run без причины ведомости" '.suites[4] |= (.outcome = "not-run" | .reason = "занято")'; want 1 STAND-REPORT-NOT-RUN
-kase "близнец: not-run NO-PR-IMAGES при открытой ws#1110" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 0 -
-kase "not-run NO-PR-IMAGES при закрытой ws#1110 — истекло" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; echo closed > "$C/state"; want 1 STAND-RELAX-EXPIRED
+kase "близнец: not-run NO-PR-IMAGES при открытой kacho#3260" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 0 -
+kase "not-run NO-PR-IMAGES при закрытой kacho#3260 — истекло" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; echo closed > "$C/state"; want 1 STAND-RELAX-EXPIRED
+kase "послабление NO-PR-IMAGES спрашивает kacho#3260: закрытая ws#1110 его не гасит" '.suites[2] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 0 -
 kase "площадка о послаблении не ответила — VOID" '.suites[4] |= (.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; : > "$C/gh-fail"; want 2 -
 kase "все not-run — исполнено 0" '.suites |= map(.outcome = "not-run" | .reason = "NO-PR-IMAGES")'; want 1 STAND-REPORT-NOTHING-RUN
 kase "исход вне словаря" '.suites[1].outcome = "skipped"'; want 1 STAND-REPORT-MISSING
@@ -314,6 +317,7 @@ quote-not-required	s/if not q:/if False:/
 local-ok	s/if not ctx.endswith('-client') and not re.match/if False and not re.match/
 residue-ignored	s/if num(d.get('residue')) != 0:/if False:/
 notrun-any-reason	s/if why not in RELAX:/if False and why not in RELAX:/
+relax-bound-to-closed-1110	s/    'NO-PR-IMAGES': ('PRO-Robotech\/kacho', '3260',/    'NO-PR-IMAGES': ('PRO-Robotech\/kacho-workspace', '1110',/
 relax-never-expires	s/alive\[why\] = json.loads(p.stdout).get('state') == 'open'/alive[why] = True/
 nothing-run-ok	s/if (suites or expected) and green == 0:/if False:/
 red-dropped-ok	s/if s.get('outcome') == 'red' and str(s.get('name')) not in mine:/if False:/
