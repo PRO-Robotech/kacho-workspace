@@ -77,7 +77,9 @@
 #      и при --keep; близнец Q4b место есть → run.sh ждёт дальше
 #   KX1 команда с $$, $(ИМЯ) env контейнера, $$(…), $(…), $ в конце и незакрытым
 #      $( → раскрытием kubelet (двойник правила Kubernetes) доходит до run байт в
-#      байт (ws#1142); KX1-ctl — та же команда без экранирования искажается
+#      байт (ws#1142); KX1-ctl — та же команда без экранирования искажается;
+#      KX1-env — вход pre-push с $$ и $(HEAVY_NODE) доходит до env run байт в байт;
+#      KX1-all — во всех контейнерах Job, init тоже, $ лишь парами
 #   O1 строки run.sh после выбора ns несут его имя
 #   O2 stderr — файл, в который пишет посторонний живой процесс → предупреждение с
 #      его pid; близнец O2b файл держат только предки прогона → молчание
@@ -581,6 +583,27 @@ elif mode == "argv":
 elif mode == "env":
     if sys.argv[4] in env:
         sys.stdout.write(env[sys.argv[4]] + "\n")
+PY
+# kodd.py <job.json> — экранирование без исполнения: в command, args и value env КАЖДОГО
+# контейнера Job (init — тоже) $ стоят лишь парами. Печатает «нечётных N · строк с $ M
+# (init K)» и места нечётных серий.
+cat > "$BOX/kodd.py" <<'PY'
+import json, re, sys
+sp = json.load(open(sys.argv[1]))["spec"]["template"]["spec"]
+odd, withd, initd, where = 0, 0, 0, []
+for kind in ("initContainers", "containers"):
+    for c in sp.get(kind, []):
+        vals = [("command", a) for a in c.get("command", [])] + [("args", a) for a in c.get("args", [])]
+        vals += [("env " + e["name"], e["value"]) for e in c.get("env", []) if "value" in e]
+        for field, v in vals:
+            if "$" not in v:
+                continue
+            withd += 1
+            initd += kind == "initContainers"
+            if any(len(m) % 2 for m in re.findall(r"\$+", v)):
+                odd += 1
+                where.append(c["name"] + ": " + field)
+print("нечётных %d · строк с $ %d (init %d)%s" % (odd, withd, initd, "".join(" · " + w for w in where)))
 PY
 # kx cmd <job.json> <контейнер> <номер> | argv <job.json> <контейнер> | env <job.json> <контейнер> <имя>
 kx() { python3 "$BOX/kexpand.py" "$@" 2>/dev/null; }
@@ -1615,6 +1638,21 @@ mapfile -d '' -t KXRAW < <(kx argv "$BOX/kx-raw.json" run)
 # CMDX[4] — «$$», CMDX[5] — «$(CI)»; в команде Job они — элементы 8 и 9.
 if [ "${KXRAW[8]:-}" = '$' ] && [ "${KXRAW[9]:-}" = true ]; then ok
 else bad KX1-ctl "раскрытие kubelet пробы не искажает неэкранированную команду: «${CMDX[4]}» → «${KXRAW[8]:-}», «${CMDX[5]}» → «${KXRAW[9]:-}» — KX1 слепа"; fi
+# KX1-env — value env: вход pre-push с $$ и $(HEAVY_NODE) (env, объявленный в run РАНЬШЕ
+# HEAVY_PUSH_INPUT, — kubelet раскрыл бы его) доходит до окружения run байт в байт.
+# shellcheck disable=SC2016  # $ — буквальные байты имени ссылки
+KXREF='refs/heads/kx$$a$(HEAVY_NODE)b'
+KXPL="$KXREF $(git -C "$SRC" rev-parse HEAD) $KXREF $ZS"
+fresh
+go_run kx1e env FAKE_EXIT=0 "${B[@]}" --short kx1e --push-input "$KXPL" -- true
+expect_rc KX1-env-run 0
+if [ "$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)" = "$KXPL" ]; then ok
+else OUT="$BOX/state/job.json"; bad KX1-env "вход pre-push дошёл до env искажённым: «$(envv "$BOX/state/job.json" HEAVY_PUSH_INPUT)»"; fi
+# KX1-all — каждый контейнер Job, init тоже (fetch несёт $ подготовки): $ лишь парами;
+# строк с $ в init больше нуля — иначе init судить нечем.
+kodd="$(python3 "$BOX/kodd.py" "$BOX/state/job.json" 2>&1)"
+if [[ "$kodd" == "нечётных 0 · "* ]] && ! [[ "$kodd" == *"(init 0)"* ]]; then ok
+else OUT="$BOX/state/job.json"; bad KX1-all "экранирование не во всех контейнерах: $kodd"; fi
 
 # ── вывод прогона (ws#991) ──────────────────────────────────────────────────
 # O1 — каждая строка run.sh после выбора ns несёт его имя (K1 — тот же прогон)

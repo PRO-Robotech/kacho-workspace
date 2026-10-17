@@ -258,6 +258,13 @@ MUTANTS = [
     ("max-par-2", "M2", "страховка счётом штуками прежняя (2): лёгкие ждут при месте под них",
      r'''MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-4}"''',
      r'''MAX_PAR="${KACHO_REMOTE_HEAVY_MAX:-2}"'''),
+    # Приёмка ws#1142: экранирование value env и init-контейнеров.
+    ("k8s-env", "KX1-env", "value env контейнеров Job не экранируется",
+     r'''  | (if .env then .env |= map(if has("value") then .value |= kesc else (.) end) else (.) end);''',
+     r''';'''),
+    ("k8s-init", "KX1-all", "экранируются лишь .containers, init-контейнеры — нет",
+     r'''((.initContainers, .containers) |= map(kesc_c))''',
+     r'''(.containers |= map(kesc_c))'''),
 ]
 
 
