@@ -778,8 +778,12 @@ snx() { [ -e "$W/$1" ] && echo да || echo нет; }
 # Вход в слот классом stand: держатели идут классом docker, и их поздняя строка enter
 # (файл слота появляется раньше строки журнала) счёт не сдвигает.
 ens() { grep -cE ' enter id=[^ ]+ class=stand ' "$JL" 2>/dev/null || true; }
-# sn <каталог> <команда…> — класс stand без ожидания слота: код.
-sn() { local d="$1"; shift; RDIR="$d" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- "$@"; }
+# snclr — снять метки исполнения: каждое утверждение судит лишь свой вызов.
+snclr() { rm -f "$W/ev-ran" "$W/sn-up" "$W/sn-down" "$W/sn-census" "$W/sn-run" "$W/sn-devup" "$W/sn-forward" "$W/sn-unforward"; }
+# sn <каталог> <команда…> — класс stand без ожидания слота: код; метки сняты до вызова.
+sn() { local d="$1"; shift; snclr; RDIR="$d" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- "$@"; }
+# snenv <каталог> <ПЕРЕМЕННАЯ=…> <команда…> — то же с переменной в окружении вызова слота.
+snenv() { local d="$1" e="$2"; shift 2; snclr; RDIR="$d" rslot env HEAVY_SLOT_WAIT_S=0 "$e" bash "$SLOT" stand -- "$@"; }
 be="$(ens)"; bx="$(jn ' external-ns class=stand slot=нет busy_slots=3 waited=0s ')"
 t0="$(date +%s%N)"
 r="$(sn "$SN" make -s stand-ns-up NS=t1143-x)"
@@ -787,7 +791,6 @@ ms=$(( ($(date +%s%N) - t0) / 1000000 ))
 assert "0 да $be $((bx + 1))" "$r $(snx sn-up) $(ens) $(jn ' external-ns class=stand slot=нет busy_slots=3 waited=0s ')" "make stand-ns-up в deploy/ клона при трёх занятых слотах → исполнился сразу, слота не брал, журнал: занято 3, ожидание 0 с"
 echo "  [MEASURE] stand-ns-up при занятых слотах $(nslots) из 3: код $r; журнал — «$(grep -o 'external-ns class=stand slot=[^ ]* busy_slots=[0-9]* waited=[0-9]*s' "$JL" | tail -n 1)»; вызов целиком ${ms} мс"
 assert "да" "$(has "$W/err" 'слот машины не занимается')" "причина без слота названа в stderr"
-rm -f "$W/sn-down" "$W/sn-census"
 assert "0 да" "$(sn "$KC" make -s -C deploy --no-print-directory stand-ns-down NS=t1143-x STACK=dev-prod REF=HEAD) $(snx sn-down)" "make -C deploy stand-ns-down NS STACK REF из корня клона → без слота"
 assert "0 да" "$(sn "$KC" make --quiet -C deploy stand-ns-census EXPIRED=1) $(snx sn-census)" "make -C deploy stand-ns-census EXPIRED=1 → без слота"
 for sub in census forward unforward down up; do
@@ -799,7 +802,6 @@ assert "0 да" "$(sn "$W" "$SN/scripts/stand-ns.sh" census) $(snx sn-census)" "
 assert "$be" "$(ens)" "ни одна из форм выше слота не занимала (enter класса stand)"
 # Обход слота (приёмка ws#1143, check-verifier): каждая форма — под слотом, 74, тяжёлое
 # не исполнилось. ev-ran — метка чужого рецепта и скрипта.
-rm -f "$W/ev-ran" "$W/sn-up"
 assert "74 нет" "$(sn "$EV" make -s stand-ns-up NS=t1143-x) $(snx ev-ran)" "обход: подменённый рецепт (Makefile чужого каталога с целью stand-ns-up) → под слотом, 74"
 assert "74 нет" "$(sn "$KC" make -s -C "$EV" stand-ns-up) $(snx ev-ran)" "обход: make -C <чужой каталог> stand-ns-up → под слотом, 74"
 assert "74 нет" "$(sn "$KC" make -s -C deploy -C .. stand-ns-up) $(snx ev-ran)" "обход: -C уводит из deploy/ (deploy, затем ..) → под слотом, 74"
@@ -813,8 +815,10 @@ assert "74 нет нет" "$(sn "$SN" make -s stand-ns-up MAKEFILES="$EV/inj.mk"
 assert "74 нет" "$(sn "$SN" make -s stand-ns-up MAKEFILE="$EV/inj.mk") $(snx sn-up)" "обход: присваивание MAKEFILE=<файл> → под слотом, 74"
 assert "74 нет" "$(sn "$SN" make -s stand-ns-up FOO=1) $(snx sn-up)" "обход: присваивание вне NS, STACK, REF, EXPIRED → под слотом, 74"
 assert "74 нет нет" "$(sn "$SN" env MAKEFILES="$EV/inj.mk" make -s stand-ns-up) $(snx ev-ran) $(snx sn-up)" "обход: обёртка env с MAKEFILES → под слотом, 74"
-assert "74 нет нет" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 MAKEFILES="$EV/inj.mk" bash "$SLOT" stand -- make -s stand-ns-up) $(snx ev-ran) $(snx sn-up)" "обход: MAKEFILES в окружении вызова → под слотом, 74"
-assert "74 нет" "$(RDIR="$KC" rslot env HEAVY_SLOT_WAIT_S=0 BASH_ENV="$EV/stand-ns.sh" bash "$SLOT" stand -- bash deploy/scripts/stand-ns.sh census) $(snx ev-ran)" "обход: BASH_ENV в окружении вызова → под слотом, 74"
+assert "74 нет нет" "$(snenv "$SN" MAKEFILES="$EV/inj.mk" make -s stand-ns-up) $(snx ev-ran) $(snx sn-up)" "обход: MAKEFILES в окружении вызова → под слотом, 74"
+r="$(snenv "$KC" BASH_ENV="$EV/stand-ns.sh" bash deploy/scripts/stand-ns.sh census)"
+assert "74 нет" "$r $(snx sn-census)" "обход: BASH_ENV в окружении вызова → под слотом, 74, stand-ns.sh без слота не исполнялся"
+boundary "да" "$(snx ev-ran)" "BASH_ENV вызова исполняет сама оболочка heavy-slot.sh при старте — до суждения слота"
 assert "74 нет" "$(sn "$KC" bash -x deploy/scripts/stand-ns.sh up t1143-x) $(snx sn-up)" "обход: ключ bash перед скриптом → под слотом, 74"
 assert "74 нет" "$(sn "$SN" make -s -f Makefile stand-ns-up NS=t1143-x) $(snx sn-up)" "обход: make -f → под слотом, 74"
 printf '\n# правка\n' >> "$SN/Makefile"
@@ -828,20 +832,20 @@ assert "74 нет" "$(sn "$SN" make -s stand-ns-run NS=t1143-x) $(snx sn-run)" "
 assert "74 нет" "$(sn "$KC" bash deploy/scripts/stand-ns.sh run t1143-x -- true) $(snx sn-run)" "близнец: stand-ns.sh run → под слотом, 74"
 assert "74 нет" "$(sn "$SN" bash -c 'make -s stand-ns-up NS=t1143-x') $(snx sn-up)" "близнец: строка оболочки со stand-ns-up → под слотом, 74"
 assert "74 нет" "$(sn "$SN" make -s stand-ns-up stand-ns-run NS=t1143-x) $(snx sn-up)" "близнец: stand-ns-up вместе с иной целью → под слотом, 74"
-assert "74 нет" "$(RDIR="$SN" FAKE_AVAIL=1 rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s dev-up) $(snx sn-devup)" "близнец: локальный kind-стенд (dev-up, кластер недоступен) → под слотом, 74"
+assert "74 нет" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup)" "близнец: локальный kind-стенд (dev-up, кластер недоступен) → под слотом, 74"
 # ГРАНИЦА (шапка heavy-slot.sh): закоммиченный в клон рецепт и подмена PATH — без слота.
-rm -f "$W/ev-ran"
 printf 'stand-ns-census:\n\t@touch "%s/ev-ran"\n' "$W" > "$SN/Makefile"; sandbox_git -C "$KC" commit -q -am heavy
 boundary "0 да" "$(sn "$SN" make -s stand-ns-census) $(snx ev-ran)" "рецепт, закоммиченный в deploy/Makefile клона, исполняет тяжёлое без слота"
-sandbox_git -C "$KC" revert -q --no-edit HEAD >/dev/null
-rm -f "$W/ev-ran"; mkdir -p "$W/evbin"
+sandbox_git -C "$KC" revert --no-edit HEAD >/dev/null 2>&1
+assert "0" "$(git -C "$KC" diff --quiet HEAD~2 HEAD -- deploy; echo $?)" "контроль: откат закоммиченного рецепта вернул deploy/ клона"
+mkdir -p "$W/evbin"
 printf '#!/usr/bin/env bash\ntouch "%s/ev-ran"\n' "$W" > "$W/evbin/kubectl"; chmod +x "$W/evbin/kubectl"
-boundary "0 да" "$(RDIR="$KC" rslot env HEAVY_SLOT_WAIT_S=0 PATH="$W/evbin:$PATH" bash "$SLOT" stand -- bash deploy/scripts/stand-ns.sh census) $(snx ev-ran)" "PATH подменяет kubectl рецепта — тяжёлое без слота"
+boundary "0 да" "$(snenv "$KC" PATH="$W/evbin:$PATH" bash deploy/scripts/stand-ns.sh census) $(snx ev-ran)" "PATH подменяет kubectl рецепта — тяжёлое без слота"
 assert "3" "$(nslots)" "контроль: держатели всё ещё держат три слота — 74 выше судит слот, а не их уход"
 assert "8192" "$(env "${REAL[@]}" bash "$SLOT" --budget stand 2>/dev/null)" "бюджет локального стенда — 8192 МиБ, как был"
 touch "$W/sn-release"; wait "$SH1" "$SH2" "$SH3"
 be="$(ens)"
-assert "0 да $((be + 1))" "$(RDIR="$SN" FAKE_AVAIL=1 rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s dev-up) $(snx sn-devup) $(ens)" "близнец: слоты вышли — тот же dev-up входит в слот (enter в журнале)"
+assert "0 да $((be + 1))" "$(FAKE_AVAIL=1 sn "$SN" make -s dev-up) $(snx sn-devup) $(ens)" "близнец: слоты вышли — тот же dev-up входит в слот (enter в журнале)"
 
 git init -q -b nodigits "$W/rclone2"; git -C "$W/rclone2" remote add origin https://github.com/PRO-Robotech/kacho.git
 echo a > "$W/rclone2/f"; git -C "$W/rclone2" add f; sandbox_git -C "$W/rclone2" commit -q -m p
