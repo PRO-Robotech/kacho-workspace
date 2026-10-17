@@ -30,8 +30,10 @@
 #   already      — запрос уже влит этой головой → merged, повторного вливания нет;
 #   fifo         — пауза 20 с, строка демона состояния в FIFO будит раньше: исход < 10 с;
 #   fifo-nowriter — демона состояния нет, FIFO без писателя: каждое ожидание кончается
-#                  паузой (timeout), исход merged с кодом 0 в пределе 20 с; мутант без
-#                  timeout виснет на открытии FIFO и ловится кодом 124 предела;
+#                  паузой (timeout), исход merged с кодом 0; пауза БЫЛА — прошло не меньше
+#                  2·--poll − 1 с и меньше предела 20 с, время печатается и на зелёном;
+#                  мутант без timeout виснет на открытии FIFO и ловится кодом 124 предела,
+#                  мутант без ожидания вовсе — временем;
 #   args         — неформенный --subject, --head не sha40, --stand-report без
 #                  --stand-expect → код 2, .state нет;
 #   detach       — start возвращается < 6 с, печатает pid, журнал, state; демон в
@@ -65,7 +67,7 @@
 # сверки --subject, без FIFO, лимит площадки как VOID, пустой код допущен, голова
 # landing-precheck не сверяется, строка его головы не требуется, origin-ветка снимается
 # ушедшей вперёд, снятие без проверки «влитая — предок базы», status 4/5/6 как 0,
-# ожидание FIFO без timeout, кэш — настоящий (CI_STATE_DIR не читается).
+# ожидание FIFO без timeout, без ожидания вовсе, кэш — настоящий (CI_STATE_DIR не читается).
 #
 # СЛЕДОВ НЕТ (testing.md#no-residue). Песочница — на всю пробу: кэш (XDG_CACHE_HOME,
 # CI_STATE_DIR), gh, гейты, клоны, замок — экспортом до первой сцены, поэтому и демон,
@@ -366,9 +368,13 @@ s_fifo() {
 s_fifo_nowriter() {
     new_fx fifo-nowriter; printf '3\n3\n0\n' > "$FX/ci-read.sh.seq"
     mkdir -p "$FX/cs/wait"; chmod 700 "$FX/cs" "$FX/cs/wait"
-    local t0 dt
-    t0=$(date +%s); RUN_LIMIT=20 run_al --poll 1; dt=$(( $(date +%s) - t0 ))
-    ok fifo-nowriter "демона состояния нет, FIFO без писателя — ожидание кончается паузой, merged, код 0 (прошло $dt с)" eval '[ "$RC" -eq 0 ] && st_is merged'
+    local t0 dt poll=2 waits=2 tol=1 limit=20
+    t0=$(date +%s); RUN_LIMIT=$limit run_al --poll "$poll"; dt=$(( $(date +%s) - t0 ))
+    # Пауза была: два ожидания по --poll — не меньше waits·poll − tol, но и не до предела.
+    echo "  [время] fifo-nowriter: прошло $dt с при --poll $poll и $waits ожиданиях (норма ≥ $((waits * poll - tol)) и < $limit)"
+    ok fifo-nowriter "демона состояния нет, FIFO без писателя — исход merged, код 0" eval '[ "$RC" -eq 0 ] && st_is merged'
+    ok fifo-nowriter "демон продолжил после паузы: прошло $dt с, норма ≥ $((waits * poll - tol)) и < $limit" \
+        eval '[ "$dt" -ge $((waits * poll - tol)) ] && [ "$dt" -lt "$limit" ]'
     ok fifo-nowriter "FIFO заведён демоном вливания (форма ожидания — FIFO, не sleep)" eval '[ -p "$FX/cs/wait/PRO-Robotech__kacho-workspace__$PR.fifo" ]'
 }
 s_args() {
@@ -630,6 +636,7 @@ mutant status-stale-as-merged s_status 'stale-base) exit 4 ;;' 'stale-base) exit
 mutant status-moved-as-merged s_status 'head-moved) exit 5 ;;' 'head-moved) exit 0 ;;'
 mutant status-timeout-as-merged s_status 'timeout) exit 6 ;;' 'timeout) exit 0 ;;'
 mutant fifo-wait-without-timeout s_fifo_nowriter 'timeout "$t" head -n1 "$fifo"' 'head -n1 "$fifo"'
+mutant fifo-wait-dropped s_fifo_nowriter 'timeout "$t" head -n1 "$fifo" > "$W/fifo.line" 2>/dev/null & BG=$!; wait "$BG"; BG=""' 'true'
 mutant cache-is-real s_fifo 'CI_STATE="${CI_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state}"' 'CI_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/kacho-ci-state"'
 mutant ratelimit-as-void s_ratelimit "if grep -qP '^REASON\\tRATE-LIMIT\\t'" 'if false'
 
