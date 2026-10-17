@@ -747,6 +747,55 @@ assert "77 нет" "$(RDIR="$W/kd" rslot env G=dev-up bash "$SLOT" stand -- bash
 assert "0 да" "$(RDIR="$W/kd" FAKE_AVAIL=1 rslot env G=dev-up bash "$SLOT" stand -- bash -c 'make -s -f mk "$G"') $([ -e "$W/mv-ran" ] && echo да || echo нет)" "близнец: та же строка при недоступном кластере → локально"
 assert "0 да нет" "$(RDIR="$W/kd" rslot bash "$SLOT" stand -- make -s -f mk dev-down) $([ -e "$W/dd-ran" ] && echo да || echo нет) $(has "$W/err" 'во внешний кластер')" "близнец: снятие локального стенда (dev-down) маршрут не судит — идёт"
 
+echo "── стенд во внешнем ns — без слота машины: на машине лишь kubectl и helm (ws#1143)"
+# Журнал слотов до правки: stand-ns-up/down/census/forward — 139 запусков, пик
+# памяти ≤ 118 МиБ, ожидание слота до 1343 с (17.10 — дважды больше 10 мин).
+# Двойники целей и stand-ns.sh пишут метку; три слота заняты держателями.
+SN="$W/sn/deploy"; mkdir -p "$SN/scripts"
+printf 'stand-ns-up:\n\t@touch "%s"\nstand-ns-down:\n\t@touch "%s"\nstand-ns-census:\n\t@touch "%s"\nstand-ns-run:\n\t@touch "%s"\ndev-up:\n\t@touch "%s"\n' \
+    "$W/sn-up" "$W/sn-down" "$W/sn-census" "$W/sn-run" "$W/sn-devup" > "$SN/Makefile"
+# shellcheck disable=SC2016  # текст двойника раскрывает он сам
+printf '#!/usr/bin/env bash\ntouch "%s/sn-sh-$1"\n' "$W" > "$SN/scripts/stand-ns.sh"
+# Держатели живут до явного отпускания (файл sn-release, предел 60 с): со сном фиксированной
+# длины под нагрузкой машины они выходили раньше близнецов, и 74 близнеца не судилось.
+rm -f "$W/sn-release"
+# shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
+for i in 1 2 3; do HEAVY_SLOT_WAIT_S=10 HEAVY_SLOT_BUDGET_MIB=20 bash "$SLOT" docker -- bash -c 'for _ in $(seq 1 300); do [ -e "$0" ] && exit 0; sleep 0.2; done' "$W/sn-release" 2>/dev/null & eval "SH$i=\$!"; done
+for _ in $(seq 1 50); do [ "$(nslots)" -ge 3 ] && break; sleep 0.2; done
+assert 3 "$(nslots)" "контроль: три слота заняты разом"
+snx() { [ -e "$W/$1" ] && echo да || echo нет; }
+# Вход в слот классом stand: держатели идут классом docker, и их поздняя строка enter
+# (файл слота появляется раньше строки журнала) счёт не сдвигает.
+ens() { grep -cE ' enter id=[^ ]+ class=stand ' "$JL" 2>/dev/null || true; }
+be="$(ens)"; bx="$(jn ' external-ns class=stand slot=нет busy_slots=3 waited=0s ')"
+t0="$(date +%s%N)"
+r="$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s stand-ns-up NS=t1143-x)"
+ms=$(( ($(date +%s%N) - t0) / 1000000 ))
+assert "0 да $be $((bx + 1))" "$r $(snx sn-up) $(ens) $(jn ' external-ns class=stand slot=нет busy_slots=3 waited=0s ')" "make stand-ns-up при трёх занятых слотах → исполнился сразу, слота не брал, журнал: занято 3, ожидание 0 с"
+echo "  [MEASURE] stand-ns-up при занятых слотах $(nslots) из 3: код $r; журнал — «$(grep -o 'external-ns class=stand slot=[^ ]* busy_slots=[0-9]* waited=[0-9]*s' "$JL" | tail -n 1)»; вызов целиком ${ms} мс"
+assert "да" "$(has "$W/err" 'слот машины не занимается')" "причина без слота названа в stderr"
+for f in "stand-ns-down NS=t1143-x:sn-down" "stand-ns-census:sn-census"; do
+    # shellcheck disable=SC2086  # цель и присваивание — отдельные слова
+    assert "0 да" "$(RDIR="$W" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s -C "$SN" --no-print-directory ${f%%:*}) $(snx "${f##*:}")" "make -C <deploy> ${f%%:*} при трёх занятых → без слота"
+done
+for sub in census forward unforward down up; do
+    assert "0 да" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- bash scripts/stand-ns.sh "$sub" t1143-x) $(snx "sn-sh-$sub")" "stand-ns.sh $sub при трёх занятых → без слота"
+done
+assert "$be" "$(ens)" "ни одна из форм выше слота не занимала (enter класса stand)"
+# Близнецы: на машине исполняется не только kubectl и helm — слот как прежде (74).
+assert "74 нет" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s stand-ns-run NS=t1143-x CMD=true) $(snx sn-run)" "близнец: stand-ns-run (CMD идёт на машине) → под слотом, 74"
+assert "74 нет" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- bash scripts/stand-ns.sh run t1143-x -- true) $(snx sn-sh-run)" "близнец: stand-ns.sh run → под слотом, 74"
+rm -f "$W/sn-up"
+assert "74 нет" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- bash -c 'make -s stand-ns-up NS=t1143-x') $(snx sn-up)" "близнец: строка оболочки со stand-ns-up слот не судит словами → под слотом, 74"
+assert "74 нет" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s -f Makefile stand-ns-up NS=t1143-x) $(snx sn-up)" "близнец: make -f (свой файл правил) → под слотом, 74"
+assert "74 нет" "$(RDIR="$SN" rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s stand-ns-up stand-ns-run NS=t1143-x) $(snx sn-up)" "близнец: stand-ns-up вместе с иной целью → под слотом, 74"
+assert "74 нет" "$(RDIR="$SN" FAKE_AVAIL=1 rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s dev-up) $(snx sn-devup)" "близнец: локальный kind-стенд (dev-up, кластер недоступен) → под слотом, 74"
+assert "3" "$(nslots)" "контроль: держатели всё ещё держат три слота — 74 близнецов судит слот, а не их уход"
+assert "8192" "$(env "${REAL[@]}" bash "$SLOT" --budget stand 2>/dev/null)" "бюджет локального стенда — 8192 МиБ, как был"
+touch "$W/sn-release"; wait "$SH1" "$SH2" "$SH3"
+be="$(ens)"
+assert "0 да $((be + 1))" "$(RDIR="$SN" FAKE_AVAIL=1 rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" stand -- make -s dev-up) $(snx sn-devup) $(ens)" "близнец: слоты вышли — тот же dev-up входит в слот (enter в журнале)"
+
 git init -q -b nodigits "$W/rclone2"; git -C "$W/rclone2" remote add origin https://github.com/PRO-Robotech/kacho.git
 echo a > "$W/rclone2/f"; git -C "$W/rclone2" add f; sandbox_git -C "$W/rclone2" commit -q -m p
 assert "77 да" "$(RDIR="$W/rclone2" rslot bash "$SLOT" integration -- go version) $(has "$W/err" 'KACHO_TASK=<N>')" "номер задачи не выводится при доступном кластере → 77 с формой KACHO_TASK"
