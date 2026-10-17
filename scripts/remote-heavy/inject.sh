@@ -1647,8 +1647,8 @@ if [ "\$t" -ne 0 ]; then echo "   ОТКАЗ (код 1)"; echo "   | целик�
 echo "   ok"
 EOF
 rg_step() { ( cd "$RW" && env GOTOOLCHAIN=local GOFLAGS=-mod=mod GOWORK=off bash "$BOX/redlog.sh" bash "$RW/cmd.sh" "$@" ) > "$OUT" 2>&1; RC=$?; }
-digest_names() { grep '^   ! ' "$1" | grep -q 'example.com/redprobe/bad' && grep '^   ! ' "$1" | grep -q 'TestRedProbeFails' \
-                 && grep '^   ! ' "$1" | grep -q 'bad_test.go:6: строка отказа: ждали 2, получили 3'; }
+digest_names() { grep -q '^   ! .*example\.com/redprobe/bad' "$1" && grep -q '^   ! .*TestRedProbeFails' "$1" \
+                 && grep -q '^   ! .*bad_test\.go:6: строка отказа: ждали 2, получили 3' "$1"; }
 if ! command -v go >/dev/null 2>&1; then OUT=""; bad RG1 "go нет в PATH — синтетического прогона с упавшим тестом не построить (не выполнилось)"
 else
     OUT="$BOX/rg1.stream"; rg_step
