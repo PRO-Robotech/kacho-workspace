@@ -231,6 +231,41 @@
 # чем, и Job ответил бы тем же «не выполнилось» через минуты. Не отправке —
 # Job без учётки, строка это называет. В вывод учётка не печатается.
 #
+# КРАСНЫЕ ГРУППЫ (ws#1136). ci-local печатает о красной группе лишь хвост её
+# журнала и путь `| целиком: <путь>` — в /tmp контейнера run, который исчезает с
+# подом: упавший пакет и тест не назвать без повторного прогона (2026-10-17,
+# отправка kacho cccb190ac2: 15 строк `ok` и `FAIL`). После конца команды
+# контейнер завершён, exec и cp в него невозможны, поэтому всё идёт ПОТОКОМ лога,
+# который run.sh и так читает. Команда в pod исполняется с копией вывода; после
+# неё шаг «# redlog-begin» находит красные группы по выводу ci-local — `== <имя>`,
+# затем `   ОТКАЗ (код N)`, затем `   | целиком: <путь>` (ПРОПУСК и ok — не
+# красные) — и по каждой печатает:
+#   • дайджест — строки `--- FAIL`, `FAIL<таб><пакет>`, `panic:` журнала группы с
+#     HEAVY_RED_CTX (10) строками до и после каждой, не больше HEAVY_RED_LINES
+#     (200) строк, префикс «   ! »; в журнал на машине он попадает как любой вывод;
+#   • сам журнал — сжатым, base64, строками «remote-heavy-redlog: data <n> <i> …»
+#     с номером, байтами и суммой в «begin», числом строк в «end»; последних
+#     HEAVY_RED_BYTES (16 МиБ) байт, обрезка названа.
+# Между командой и контейнером теперь стоит bash, и убитая по памяти команда без
+# него не сделала бы контейнер OOMKilled: рост oom_kill в memory.events cgroup
+# контейнера за время команды пишется в termination-log строкой
+# «remote-heavy-oom: …», и run.sh читает её так же, как OOMKilled, — 76.
+# Последняя строка шага — «remote-heavy-redlog: total <красных> <групп>» — есть
+# всегда. На машине строки «remote-heavy-redlog:» до вывода не доходят: их
+# раскладывает red_split по номерам (повтор строк на стыке переподключения
+# снимается номером строки, пропуск ловят число строк и сумма). После команды
+# red_collect собирает каждую копию, сверяет байты и сумму, пропускает через
+# маску и кладёт в каталог «<журнал без .log>.red-<ns>» рядом с файлом вывода
+# прогона (stdout, иначе stderr; ни один не файл — $WS/tmp/remote-heavy-red/
+# <ns>-<время>); путь и файлы печатаются в итоге. Итога «total» в потоке нет
+# (поток оборвался) — тот же разбор над полным логом контейнера, без повтора
+# вывода. Зелёные группы не копируются, и каталога у прогона без красных нет;
+# красный код при нуле красных групп печатается строкой с числом прочитанных
+# групп: «ноль красных» отличим от «вывод не того вида». Не держится: копия вывода
+# /work/heavy-cmd.out предела не имеет и растёт в ephemeral-storage pod (переполнение
+# — выселение pod, «не выполнилось»); маска снимает адреса, имя сервера и контекста, но не
+# токены — в копиях журналов, как и в потоке, они остаются как есть.
+#
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен (кластер, узлы не того кластера — СТРАЖ, образ, доставка, пин, СРЕДА, МОДУЛИ, ЗАВИСИМОСТИ КОНСОЛИ, УЧЁТКА GIT, сеть
 # pod, открытого узла нет — РАЗМЕЩЕНИЕ); 75 — кластер занят (ПРЕДЕЛ либо места под профиль нет), pod не начал
@@ -376,7 +411,87 @@ kc() {
 # команды — тоже через маску (F4). exec: зовётся фоном, и $! — сам kubectl, его и
 # снимает trap.
 kc_stream() {
-    exec kubectl --kubeconfig "$KCFG" --context "$CTX" "$@" 2> >(mask >&2) > >(mask)
+    exec kubectl --kubeconfig "$KCFG" --context "$CTX" "$@" 2> >(mask >&2) > >(red_split | mask)
+}
+
+# ── красные группы (КРАСНЫЕ ГРУППЫ в шапке) ──────────────────────────────────
+# red_split — фильтр потока лога: строки «remote-heavy-redlog: …» раскладываются в
+# $RP по номеру журнала, прочие идут дальше. RED_QUIET=1 — прочие не идут (разбор
+# полного лога контейнера: его вывод уже напечатан потоком), кроме дайджеста.
+red_split() {
+    local line w
+    set -f
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            "remote-heavy-redlog: "*)
+                read -r -a w <<< "${line#remote-heavy-redlog: }"
+                case "${w[0]}" in
+                    data) [[ "${w[1]:-}" =~ ^[0-9]+$ ]] && [[ "${w[2]:-}" =~ ^[0-9]+$ ]] \
+                              && printf '%s %s\n' "${w[2]}" "${w[3]:-}" >> "$RP/${w[1]}.data" ;;
+                    begin|end) [[ "${w[1]:-}" =~ ^[0-9]+$ ]] && printf '%s\n' "${w[*]}" > "$RP/${w[1]}.${w[0]}" ;;
+                    total) printf '%s\n' "${w[*]}" > "$RP/total" ;;
+                esac ;;
+            "remote-heavy-red: "*|"   ! "*) printf '%s\n' "$line" ;;
+            *) [ "${RED_QUIET:-0}" = 1 ] || printf '%s\n' "$line" ;;
+        esac
+    done
+}
+# red_home — каталог копий: рядом с файлом вывода прогона, иначе в tmp воркспейса.
+red_home() {
+    local fd f
+    for fd in 1 2; do
+        f="$(readlink -f "/proc/$$/fd/$fd" 2>/dev/null)" || continue
+        [ -f "$f" ] || continue
+        printf '%s.red-%s\n' "${f%.log}" "$NSNAME"; return 0
+    done
+    printf '%s/tmp/remote-heavy-red/%s-%s\n' "$WS" "$NSNAME" "$(date +%Y%m%dT%H%M%S)"
+}
+# red_collect <код команды> — собрать копии красных групп из $RP, сверить, замаскировать,
+# положить в каталог и назвать его. Итога «total» нет — разбор полного лога контейнера.
+red_collect() {
+    local rc="$1" k g n dir b bytes sum cut sz name chunks got f nok=0 nbad=0
+    for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$RP/total" ] && break; sleep 0.2 & wait_bg $!; done
+    if [ ! -s "$RP/total" ] && [ -n "${POD:-}" ]; then
+        say "итога красных групп в потоке лога нет (поток оборвался) — разбираю полный лог контейнера"
+        kc -n "$NSNAME" logs "$POD" -c run 2>/dev/null | RED_QUIET=1 red_split | mask
+    fi
+    if [ ! -s "$RP/total" ]; then
+        [ "$rc" = 0 ] || say "журналы красных групп НЕ получены: итога шага красных групп нет ни в потоке, ни в полном логе контейнера — разбор лишь по выводу выше"
+        return 0
+    fi
+    read -r _ k g < "$RP/total"
+    [[ "$k" =~ ^[0-9]+$ ]] || { say "итог шага красных групп вне формы («$(cat "$RP/total")») — копий нет"; return 0; }
+    if [ "$k" -eq 0 ]; then
+        [ "$rc" = 0 ] || say "красных групп ci-local в выводе команды нет (групп «== » прочитано ${g:-0}) — копировать нечего"
+        return 0
+    fi
+    dir="$(red_home)"; [ -e "$dir" ] && dir="$dir-$$"
+    mkdir -p "$dir" || { say "каталог копий $dir не создан — журналы красных групп не сохранены, разбор лишь по дайджесту выше"; return 0; }
+    say "журналы красных групп: $k, каталог $dir"
+    for ((n = 1; n <= k; n++)); do
+        if [ ! -s "$RP/$n.begin" ]; then
+            say "  группа $n: журнала в pod не было либо начало копии не дошло — копии нет"; nbad=$((nbad + 1)); continue
+        fi
+        read -r _ _ b bytes sum cut sz name < "$RP/$n.begin"
+        name="$(printf '%s' "$name" | base64 -d 2>/dev/null)"
+        [[ "$b" =~ ^[A-Za-z0-9._-]+$ ]] || b="group-$n.txt"
+        f="$dir/$b"; [ -e "$f" ] && f="$dir/$n-$b"
+        chunks=""; [ -s "$RP/$n.end" ] && read -r _ _ chunks < "$RP/$n.end"
+        got="$(sort -n -u -k1,1 "$RP/$n.data" 2>/dev/null | awk -v c="${chunks:-x}" '$1 == NR { m = NR } END { print (m == NR && NR == c) ? "ok" : NR }')"
+        if [ "$got" != ok ]; then
+            say "  «$name» — копия НЕ цела: строк копии ${got:-0} из ${chunks:-неизвестно} (поток оборвался) — не сохранена, разбор по дайджесту выше"
+            nbad=$((nbad + 1)); continue
+        fi
+        sort -n -u -k1,1 "$RP/$n.data" | cut -d' ' -f2 | base64 -d 2>/dev/null | gzip -dc > "$RP/$n.raw" 2>/dev/null
+        if [ "$(wc -c < "$RP/$n.raw")" != "$bytes" ] || [ "$(sha256sum < "$RP/$n.raw" | cut -d' ' -f1)" != "$sum" ]; then
+            say "  «$name» — копия НЕ цела: байты или сумма не сошлись — не сохранена, разбор по дайджесту выше"
+            nbad=$((nbad + 1)); continue
+        fi
+        mask < "$RP/$n.raw" > "$f"
+        say "  «$name» → $f ($bytes байт$([ "$cut" = 1 ] && echo ", последние из $sz — журнал обрезан пределом"))"
+        nok=$((nok + 1))
+    done
+    say "журналы красных групп: скопировано $nok из $k в $dir$([ "$nbad" -eq 0 ] || echo "; не скопировано $nbad")"
 }
 
 # kcfg_fp — отпечаток файла кубконфига: сменился — узлы переписываются заново.
@@ -859,6 +974,7 @@ esac
 
 BOX="$(mktemp -d "${TMPDIR:-/tmp}/remote-heavy.XXXXXX")" || { say "рабочий каталог не создан"; exit 69; }
 CREATED=0; BG=""; DONE=0; TMPREF=""
+RP="$BOX/red"; mkdir -p "$RP" || { say "каталог разбора красных групп не создан"; exit 69; }
 record_owner() { printf '%s\n%s\n%s\n%s\n' "$OWNER" "$NSNAME" "$CREATED" "$KEEP_H" > "$BOX/owner"; }
 record_owner || { say "запись владельца не сделана"; exit 69; }
 # shellcheck disable=SC2329  # зовётся из trap
@@ -1237,11 +1353,80 @@ $INSTALL_SH
 $TOOLS_SH"
 [ "$PROFILE" = ci-local ] && [ "$REPO" = kacho ] && PREP="$PREP
 $NPMCI_SH"
-# exec — своей строкой: последняя строка сверки среды — комментарий-маркер, и
-# «; exec» после неё не исполнился бы никогда.
+# КРАСНЫЕ ГРУППЫ (шапка) — команда с копией вывода, затем дайджест и доставка
+# журналов красных групп потоком лога. Маркеры — граница, по которой inject.sh
+# исполняет шаг над синтетическим прогоном.
+# shellcheck disable=SC2016  # раскрывается в pod, не здесь
+REDLOG_SH="$(cat <<'REDLOG'
+# redlog-begin
+heavy_red() {
+  local out="$1" ctx="${HEAVY_RED_CTX:-10}" lim="${HEAVY_RED_LINES:-200}" cap="${HEAVY_RED_BYTES:-16777216}"
+  local pat=$'--- FAIL|^FAIL\t|panic:' line name="" red=0 n=0 g p b f sz cut hits dl i c
+  local -a reds=()
+  g="$(grep -c '^== ' "$out" 2>/dev/null)"
+  while IFS= read -r line; do
+    case "$line" in
+      "== "*) name="${line#== }"; red=0 ;;
+      "   ОТКАЗ (код "*) red=1 ;;
+      "   | целиком: "*) [ "$red" = 1 ] && reds+=("$name"$'\t'"${line#   | целиком: }"); red=0 ;;
+    esac
+  done < <(grep -E '^(== |   ОТКАЗ \(код [0-9]+\)|   \| целиком: )' "$out" 2>/dev/null)
+  for line in "${reds[@]}"; do
+    n=$((n + 1)); name="${line%%$'\t'*}"; p="${line#*$'\t'}"
+    if [ ! -f "$p" ]; then
+      echo "remote-heavy-red: «$name» — журнала группы ($p) в pod нет: ни дайджеста, ни копии"; continue
+    fi
+    hits="$(grep -c -E -- "$pat" "$p")"
+    if [ "$hits" -gt 0 ]; then
+      echo "remote-heavy-red: «$name» — строк отказа $hits (--- FAIL, FAIL<таб>пакет, panic:), по $ctx строк до и после; слева — строка журнала группы:"
+      grep -n -E -B "$ctx" -A "$ctx" -- "$pat" "$p" > /work/heavy-red.dig
+      dl="$(wc -l < /work/heavy-red.dig)"
+      head -n "$lim" /work/heavy-red.dig | sed 's/^/   ! /'
+      [ "$dl" -le "$lim" ] || echo "   ! … дайджест обрезан: $lim строк из $dl — журнал группы целиком в копии"
+    else
+      echo "remote-heavy-red: «$name» — строк --- FAIL, FAIL<таб>пакет, panic: нет; хвост напечатан хуком выше, журнал группы целиком — в копии"
+    fi
+    sz="$(wc -c < "$p")"; cut=0; [ "$sz" -le "$cap" ] || cut=1
+    tail -c "$cap" -- "$p" > /work/heavy-red.raw
+    b="$(basename -- "$p" | tr -c 'A-Za-z0-9._\n-' '_')"
+    f="$(sha256sum < /work/heavy-red.raw | cut -d' ' -f1)"
+    echo "remote-heavy-redlog: begin $n $b $(wc -c < /work/heavy-red.raw) $f $cut $sz $(printf '%s' "$name" | base64 -w0)"
+    i=0
+    while IFS= read -r c; do
+      i=$((i + 1)); echo "remote-heavy-redlog: data $n $i $c"
+    done < <(gzip -c < /work/heavy-red.raw | base64 -w 76)
+    echo "remote-heavy-redlog: end $n $i"
+  done
+  rm -f /work/heavy-red.raw /work/heavy-red.dig
+  echo "remote-heavy-redlog: total $n ${g:-0}"
+}
+# Копия вывода — tee за дескриптором, а не трубой: фоновый процесс команды,
+# унёсший её stdout, держал бы трубу открытой, и шаг ждал бы его до срока Job
+# (с exec этого не было — контейнер кончался с командой). tee ждётся не дольше 5 с.
+heavy_cmd() {
+  local rc ev="${HEAVY_MEM_EVENTS:-/sys/fs/cgroup/memory.events}" o0 o1 fd tp
+  o0="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
+  exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  "$@" >&"$fd" 2>&1; rc=$?
+  exec {fd}>&-
+  for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
+  o1="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
+  if [[ "$o0" =~ ^[0-9]+$ ]] && [[ "$o1" =~ ^[0-9]+$ ]] && [ "$o1" -gt "$o0" ]; then
+    echo "remote-heavy-oom: процесс команды убит пределом памяти (oom_kill $o0 → $o1, код $rc)" | tee /dev/termination-log >&2
+  fi
+  heavy_red /work/heavy-cmd.out
+  return "$rc"
+}
+# redlog-end
+REDLOG
+)"
+# Команда — своей строкой: последняя строка сверки среды — комментарий-маркер, и
+# «; команда» после неё не исполнилась бы никогда. Код контейнера — код команды
+# (heavy_cmd возвращает его, шаг красных групп кода не меняет).
 PREP="$USERNS_SH
 $PREP
-exec \"\$@\""
+$REDLOG_SH
+heavy_cmd \"\$@\""
 
 # dind без privileged (DOCKER в шапке): crun с выключенным cgroup-менеджером —
 # средой исполнения по умолчанию; отказ установки — код 1 бокового, и pod не
@@ -1433,10 +1618,11 @@ fi
 if [[ "$RUN_MSG" == remote-heavy-prep:* ]]; then
     say "подготовка pod не удалась: ${RUN_MSG#remote-heavy-prep: } — команда не запускалась (не выполнилось)"; exit 69
 fi
-if [ "$RUN_REASON" = OOMKilled ]; then
-    say "команда оборвана пределом памяти $MEM_LIM (OOMKilled) через $(( T2 - T1 )) с — не выполнилось"; exit 76
+if [ "$RUN_REASON" = OOMKilled ] || [[ "$RUN_MSG" == remote-heavy-oom:* ]]; then
+    say "команда оборвана пределом памяти $MEM_LIM (${RUN_MSG#remote-heavy-oom: }${RUN_MSG:+; }$RUN_REASON) через $(( T2 - T1 )) с — не выполнилось"; exit 76
 fi
 [[ "$RUN_RC" =~ ^[0-9]+$ ]] || { say "код команды не прочитан («$RUN_RC») — не выполнилось"; exit 69; }
+red_collect "$RUN_RC"
 say "команда завершилась кодом $RUN_RC за $(( T2 - T1 )) с (всего $(( T2 - T0 )) с от создания Job)"
 exit "$RUN_RC"
 }
