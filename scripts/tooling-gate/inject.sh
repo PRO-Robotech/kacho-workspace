@@ -2972,9 +2972,11 @@ run 2 "$b" "предпосылка: settings.json не разобран — VOID
 echo "== check-21: работа над ошибками по каждой полосе провязана (ws#1036) =="
 C21=check-21-lane-retro-norm-is-wired.sh
 # c21_sub <файл песочницы> <было> <стало> — правка ровно одного вхождения; иначе проба
-# не про свой предмет (`testing.md#injection-drops-only-its-subject`).
+# не про свой предмет (`testing.md#injection-drops-only-its-subject`). Образец разошёлся —
+# предпосылка сорвана (VOID у следующей пробы), как у `mr_patch`: близнец на непроправленной
+# песочнице молчал бы пустым зелёным.
 c21_sub() {
-    python3 - "$1" "$2" "$3" <<'PY'
+    python3 - "$1" "$2" "$3" <<'PY' || premise_broken "c21_sub: образец не найден ровно один раз в ${1#"$TMP"/}: ${2:0:60}"
 import sys; p, a, b = sys.argv[1:4]; s = open(p, encoding='utf-8').read()
 assert s.count(a) == 1, 'образец пробы не найден ровно один раз: ' + a[:60]
 open(p, 'w', encoding='utf-8').write(s.replace(a, b, 1))

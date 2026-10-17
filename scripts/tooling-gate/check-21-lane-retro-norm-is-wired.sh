@@ -26,8 +26,9 @@
 #      уникальные .rc, пауза лишь у `ci-watcher`, долгое ожидание ОДИН раз `--enqueue`,
 #      отправка в файл, 141 после хука — снятый простоем ssh (keepalive ставит слот); `ci-watcher` — `--enqueue`; база —
 #      номер задачи числом в предусловиях, форма вливания `--merge --subject … --body ""
-#      --match-head-commit`, пауза лишь у `ci-watcher`; шаблон — `--body ""`, `--enqueue`,
-#      суд RATE-LIMIT (поведение — heavy-slot-inject, ci-read-inject, landing-precheck-inject,
+#      --match-head-commit`, пауза лишь у `ci-watcher`; шаблон — `--subject` старта демона,
+#      `--enqueue`, суд RATE-LIMIT; `--body ""` вливания — у демона (ws#1152; поведение —
+#      autoland/inject.sh, heavy-slot-inject, ci-read-inject, landing-precheck-inject,
 #      lane-precheck-inject, wave-template-inject).
 #
 # ПРЕДПОСЫЛКА (VOID, код 2): все девять носителей есть в дереве.
