@@ -1,0 +1,117 @@
+schema_version: 1
+kind: acceptance_review
+review_type: execution_check
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  sha256: 4646c2364105a338773bb29e7a4a7dc9c1dddc81ae1212529cc84621d4a0d4d8
+  revision: 8
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка документа намеренно не правлена (change-graph.md §2). Действующий вердикт об этом
+    отпечатке — эта запись вместе с внешним событием, которое публикует курьер. Документ не
+    закоммичен (рабочее дерево ветки 3274-reg-pub-acceptance поверх 9a030d585).
+  base_commit: 9a030d5856f60bbf1961ffd02081328576f08670
+  content_commit: none
+  worktree: kacho-workspace/tmp/3274-reg-pub-acceptance, ветка 3274-reg-pub-acceptance
+  task: https://github.com/PRO-Robotech/kacho/issues/3274
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance.md
+  lines: 1045
+verdict: CHANGES_REQUESTED
+round: 'проверка исполнения ⛔ 37d6429a… — последний круг по дельте; дальше решает диспетчер (fa-b8)'
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-10-17T20:58:21Z'
+basis:
+  returned_record: docs/specs/reviews/sub-phase-REG-PUB-1-public-registry-by-class-grant-acceptance/37d6429abb1f1ab0273f9906e2a776c37af5b2da8d1d21de8606a3a0cc9378de.yaml
+  returned_sha256: 37d6429abb1f1ab0273f9906e2a776c37af5b2da8d1d21de8606a3a0cc9378de
+  scope_of_review: исполнение B1–B3 и важных замечаний записи 37d6429a…; новые дефекты в исправленных местах
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Событие публикует курьер (git-operator) и тем же заходом приводит этот
+    блок к факту. Отказ полномочия не выдаёт.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записи b15e1967…, 6c7f6f9a…, 649e13bc… и 37d6429a… не правлены.
+
+execution:
+  B1_CONSTRUCTIBILITY: >-
+    ЗАКРЫТ. П0 — пин не ниже R879, до вливания голова 874; «Дано» 01 — «пин не ниже ревизии
+    вливания kaname#879 (с #872 и #874)»; П2 и Р1 «Порядок выкатки» — образ kaname с #874;
+    посев перемерен на 5f6f29902. Ссылок на ревизию без #874 в предусловиях нет: оставшиеся
+    422d1bc6f/#856 — история шапки, «Механизм», замеры «прочитано @», E0–E3 с пометкой.
+    «Дано» 01 буквально исполнимо на голове 874 — посев рецензента (seeding.runs[0..2]).
+  B2_TWIN: >-
+    ЗАКРЫТ. rol-reg-get = [get, list] над registry.registries без вложенного правила (П2,
+    строка 334, с телом RoleService.Create); близнец 13 — отличие одно: вложенное правило.
+  B3_FORMAT: >-
+    ИСПОЛНЕН ЧАСТИЧНО. rules длины 1, rules[0] поштучно, близнец формы (rolRegGet → children
+    пуст) — верно. Новый дефект в том же «Тогда» — B4 ниже.
+  important:
+    - 'docker manifest inspect docker.io/prorobotech/kaname:main-<sha8> — исполнено; способен упасть: main-5f6f2990 → 1, main-422d1bc6 → 0'
+    - 'yq -o=json -I=0 → ["repositories"] — исполнено'
+    - 'строка «манифестов прочитано 5 · находок 0» — исполнено, совпала с выводом посева'
+
+seeding:
+  isolation: >-
+    git worktree --detach kacho @e9ce4ffbd в kacho-workspace/tmp/3274-rv8-seed; манифест —
+    ствол с resources и ролью registry.public.read фикстуры @origin/874; Р1 п. 4; тег
+    main-5f6f2990 в 5 профилях; снят (git worktree remove, prune).
+  runs:
+    - given: «Дано» 01 буквально — пин kaname@5f6f29902 (голова 874, П0 до вливания)
+      command: GOWORK=off go test ./internal/repohygiene/ -run '<7 тестов «Когда» и «И» 01>' -count=1 -v
+      outcome: 'rc 0; PASS 7; «блоков сверено 27 из 27»; «манифестов прочитано 5 · находок 0»'
+    - given: тот же
+      command: GOWORK=off go test ./deploy/ -run 'TestOutsourcedImagePinAgreesWithItsModulePin$' -count=1
+      outcome: ok
+    - given: тот же (П0 — судья из модуля по пину)
+      command: GOWORK=off go build github.com/PRO-Robotech/kaname/tools/modulemanifestcheck; modulemanifestcheck -root=<копия>
+      outcome: 'build rc 0; judge rc 0; «манифестов прочитано 5 · находок 0»'
+
+blocking:
+  - kind: FORMAT
+    id: B4
+    where: 'REG-PUB-1-03 «Тогда», строки 418–420'
+    claim: >-
+      «children[0] = {"resources":["repositories"],"verbs":["get","list"]}: ключей
+      resourceNames и matchLabels в нём нет либо они пусты». RoleService смонтирован на
+      publicMux края (mux.go:520–522, 802), а publicMux маршалит с EmitUnpopulated=true
+      (strict_enum.go:76; mux.go:17). Вложенное правило — тот же message Rule
+      (role.proto @origin/874: repeated Rule children = 7), поэтому верный край отдаёт в
+      children[0] ещё "module":"" и "children":[] (и пустые resourceNames, matchLabels).
+      Равенство с оговоркой только о resourceNames/matchLabels краснеет на верном продукте —
+      тот же класс, что B3, внесённый его исправлением. Исправление в одну фразу:
+      «children[0].resources = ["repositories"], children[0].verbs = ["get","list"]; прочие
+      ключи children[0] (module, children, resourceNames, matchLabels) пусты».
+    predicate: >-
+      git -C project/kacho show origin/3172-identity-own-2:gateway/internal/restmux/strict_enum.go | sed -n 70,90p;
+      git -C project/kaname show origin/874:proto/kaname/cloud/iam/v1/role.proto | awk '/^message Rule \{/,/^\}/'
+
+non_blocking:
+  - '«Дано» 01 — «не ниже ревизии вливания» до вливания буквально не выполнимо; исполнимость даёт оговорка П0 «пока не влит — голова 874». Можно повторить оговорку в самом «Дано»'
+  - 'DoD S1 — «на редакции 6 — 5f6f29902»: посев редакции 8 на той же ревизии, текст верен, но метка редакции устарела'
+
+route_signs:
+  proto: да (Registry.visibility, из ред. 5)
+  schema: нет
+  public_rpc: да
+  ui: да
+  new_domain: нет
+  security_surface: да
