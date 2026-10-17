@@ -566,6 +566,13 @@ if [ "${1:-}" = --available ]; then
     [ "${FAKE_AVAIL:-0}" = 2 ] && { echo "remote-heavy: открытого для планирования узла нет (узлов 2: закрыты для планирования 2)" >&2; exit 69; }
     [ "${FAKE_AVAIL:-0}" = 3 ] && { echo "remote-heavy: идущих тяжёлых прогонов 2 из 2" >&2; exit 75; }
     [ "${FAKE_AVAIL:-0}" = 4 ] && { sleep 30; exit 0; }
+    # 6 — медленный, но живой ответ: 12 с (замер ws#1141 — кластер отвечал за 3,3–12,6 с).
+    [ "${FAKE_AVAIL:-0}" = 6 ] && { sleep 12; exit 0; }
+    # 7 — первый опрос висит, второй отвечает сразу: повтор после 124 (ws#1141).
+    if [ "${FAKE_AVAIL:-0}" = 7 ]; then
+        [ -e "$FAKE_ARGV.slow" ] && exit 0
+        touch "$FAKE_ARGV.slow"; sleep 30; exit 0
+    fi
     if [ "${FAKE_AVAIL:-0}" = 5 ]; then
         [ -e "$FAKE_ARGV.busy" ] && exit 0
         touch "$FAKE_ARGV.busy"; echo "remote-heavy: кластер занят: идущих тяжёлых прогонов 2 при пределе 2" >&2; exit 75
@@ -631,9 +638,31 @@ assert "75 нет нет да $b $((bb + 1))" "$(FAKE_AVAIL=3 rslot bash "$SLOT"
 assert "74 нет" "$(FAKE_AVAIL=3 rslot env HEAVY_SLOT_WAIT_S=0 bash "$SLOT" lint -- make -s -f "$W/busy.mk") $([ -e "$W/busy-ran" ] && echo да || echo нет)" "занят без ожидания → 74 сразу, локально НЕ запускалось"
 rm -f "$W/argv" "$W/argv.busy"
 assert "17 да" "$(FAKE_AVAIL=5 rslot bash "$SLOT" lint -- go version) $(has "$W/argv" '--profile')" "близнец: занят на первом опросе, свободен на втором в пределах --wait → run.sh (17)"
+# Срок проверки — по замеру (ws#1141, шапка heavy-slot.sh): медленный живой ответ
+# недоступностью не считается; висящая проверка — недоступность после всех попыток.
+# Срок опроса в пробе укорочен ручкой HEAVY_SLOT_CHECK_S там, где судится висение;
+# медленный ответ судится сроком без ручки — тем, что стоит в слоте.
+b="$(jn ' local class=lint ')"; rm -f "$W/argv"
 t0="$(date +%s)"
-r="$(FAKE_AVAIL=4 rslot bash "$SLOT" lint -- go version)"
-assert "0 да да" "$r $(has "$W/err" 'не ответила за 10 с') $([ $(( $(date +%s) - t0 )) -lt 20 ] && echo да || echo нет)" "проверка кластера висит → прервана за 10 с, локально, причина названа"
+r="$(FAKE_AVAIL=6 rslot bash "$SLOT" lint -- go version)"
+assert "17 да нет $b" "$r $(has "$W/argv" '--profile') $(has "$W/err" 'не ответила') $(jn ' local class=lint ')" "медленный ответ (12 с) — не «недоступен»: срок без ручки, уход в run.sh (17), строки local нет (ws#1141)"
+assert "да" "$([ $(( $(date +%s) - t0 )) -ge 12 ] && echo да || echo нет)" "контроль: двойник действительно отвечал ≥ 12 с — случай не пуст"
+rm -f "$W/argv" "$W/argv.slow"
+r="$(FAKE_AVAIL=7 rslot env HEAVY_SLOT_CHECK_S=2 bash "$SLOT" lint -- go version)"
+assert "17 да да" "$r $(has "$W/argv" '--profile') $([ -e "$W/argv.slow" ] && echo да || echo нет)" "первый опрос висит, повтор отвечает → run.sh (17): одно висение недоступностью не считается (ws#1141)"
+b="$(jn ' local class=lint proof=rc=124 ')"
+t0="$(date +%s)"
+r="$(FAKE_AVAIL=4 rslot env HEAVY_SLOT_CHECK_S=2 bash "$SLOT" lint -- go version)"
+dt=$(( $(date +%s) - t0 ))
+assert "0 да $((b + 1)) да" "$r $(has "$W/err" 'не ответила за 2 с, попыток 2') $(jn ' local class=lint proof=rc=124 ') $([ "$dt" -lt 15 ] && echo да || echo "нет(${dt}с)")" "проверка висит на каждой попытке → недоступен: локально, proof=rc=124 в журнале, попытки названы"
+assert "64 да" "$(cd "$R" && env "${REAL[@]}" HEAVY_SLOT_CHECK_S=2 bash "$SLOT" lint -- go version 2>"$W/err" >/dev/null; echo $?) $(has "$W/err" 'HEAVY_SLOT_CHECK_S')" "над настоящей памятью срок проверки кластера ручкой — 64"
+# Мутант на месте срока: копия слота с прежним сроком 10 с на том же медленном ответе
+# обязана уйти локально — иначе проба медленного ответа слепа к сроку (ws#1141).
+n_at="$(grep -c '^CHECK_S=30 ' "$SLOT")"
+sed 's/^CHECK_S=30 /CHECK_S=10 /' "$SLOT" > "$W/slot-mut-check.sh"
+rm -f "$W/argv"
+r="$(FAKE_AVAIL=6 rslot bash "$W/slot-mut-check.sh" lint -- go version)"
+assert "1 0 да нет" "$n_at $r $(has "$W/err" 'не ответила за 10 с') $([ -e "$W/argv" ] && echo да || echo нет)" "мутант «срок 10 с»: место срока одно, тот же ответ за 12 с — «недоступен», локально (проба выше его ловит)"
 b="$(jn ' local class=ci-local proof=')"; bw="$(jn ' local class=ci-local why=команда «git» без push')"
 assert "0 $b $((bw + 1))" "$(rslot bash "$SLOT" ci-local -- git status) $(jn ' local class=ci-local proof=') $(jn ' local class=ci-local why=команда «git» без push')" "близнец: git без push (не хук отправки) внешнего пути не имеет — локально без опроса кластера, без proof, причина в журнале"
 

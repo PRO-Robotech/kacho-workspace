@@ -141,6 +141,17 @@ FREE_MIN_MIB=15360  # старт при свободных ≥ 15 ГБ (2026-10-
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
 # Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
 RESUME_TTL_S=120  # срок отложенного билета 74/75 (ws#1115)
+# Проверка внешнего кластера (ws#1141): `run.sh --available` — шесть обращений к API
+# подряд (can-i, узлы стража, ns и Job тяжёлых, узлы и pod размещения). Замер
+# 2026-10-17, 22 опроса: 3,3–5,3 с, медиана 3,5 с; диспетчер видел до 12,6 с. При
+# прежнем сроке 10 с журнал слотов за 16–17.10 — 33 отказа 124 из 224 проверок
+# (14,7 %), вперемешку с уходами в кластер в те же минуты: медленный ответ шёл за
+# недоступность. Срок — 30 с, в 2,4 раза выше худшего виденного; повтор —
+# один и только после 124: висение бывает разовым. Настоящая недоступность сетью
+# отвечает раньше срока — can-i несёт свой --request-timeout=10s и даёт 69, повтора
+# по 69 нет; до локального запуска при висении — не дольше CHECK_S × CHECK_TRIES.
+CHECK_S=30 # срок одной проверки, с
+CHECK_TRIES=2 # попыток, если проверка не ответила (124)
 LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=0; WAIT_MAX_S=300; ENQ_MAX_S=7200; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
 CGROOT=/sys/fs/cgroup
@@ -563,7 +574,7 @@ if [ "$CLASS" = ci-local ] && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-
 fi
 
 # Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB"
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_ENQ_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S HEAVY_SLOT_REMOTE_RUN HEAVY_SLOT_SLOTS_SUM_MIB HEAVY_SLOT_CHECK_S"
 if [ "$MEMINFO" = /proc/meminfo ]; then
     knob=""
     [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
@@ -588,6 +599,8 @@ else
     GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
     LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
     SLOTS_SUM_MIB="${HEAVY_SLOT_SLOTS_SUM_MIB:-$SLOTS_SUM_MIB}"
+    CHECK_S="${HEAVY_SLOT_CHECK_S:-$CHECK_S}"
+    [ "$CHECK_S" -ge 1 ] || { say "HEAVY_SLOT_CHECK_S=0 — timeout 0 срок снимает: проверка висела бы без предела"; exit 64; }
     if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
         say "синтетический HEAVY_SLOT_MEMINFO — режим проб: бюджет ≤ $(mib "$PROBE_MIB") (здесь $(mib "$BUDGET")), сторож раз в 1–2 с (здесь «$GUARD_S»). Настоящий прогон — без HEAVY_SLOT_MEMINFO и ручек"
         exit 64
@@ -660,11 +673,13 @@ fi
 # словом строки оболочки) и строка оболочки без внешней формы stand-ns-* при
 # принимающем кластере — 77 с формой своего ns; прочие команды стенда (stand-ns-*,
 # reload-svc, dev-down, helm идущего стенда) маршрут не судит.
-# Проверка кластера — `timeout 10 run.sh --available`: current-context она не читает
+# Проверка кластера — `timeout $CHECK_S run.sh --available` (срок и повтор — по замеру,
+# у CHECK_S): current-context она не читает
 # и не меняет (контекст — явный, шапка run.sh). Занят (75) — НЕ недоступен (решение
 # диспетчера 2026-10-16): место ждётся до --wait N, затем 74 либо 75, локально не
-# идёт. Не ответила (124) либо иной отказ — недоступен: локально, вывод проверки — в
-# журнал строкой «local … proof=…». Причина КАЖДОГО локального запуска — в журнале
+# идёт. Не ответила (124) на каждой из CHECK_TRIES попыток либо иной отказ —
+# недоступен: локально, вывод проверки — в журнал строкой «local … proof=…».
+# Причина КАЖДОГО локального запуска — в журнале
 # («local … why=…»). Обход — только --local с причиной перед классом (bypass-local).
 # В режиме проб маршрут судится лишь с HEAVY_SLOT_REMOTE_RUN — двойником run.sh; над
 # настоящей памятью эта ручка — 64, как прочие.
@@ -677,10 +692,15 @@ PROOF=""; CL_OUT=""
 # journal_early — запись журнала до входа в очередь (каталог может быть ещё не заведён).
 journal_early() { mkdir -p "$DIR" 2>/dev/null; journal "$@"; }
 # cluster_once [профиль] — один опрос: код run.sh --available, его вывод — в CL_OUT.
+# Не ответила за CHECK_S (124) — повтор, всего CHECK_TRIES попыток (ws#1141).
 cluster_once() {
-    local out rc
-    out="$(timeout 10 bash "$REMOTE_RUN" --available ${1:+--profile "$1"} 2>&1)"; rc=$?
-    [ "$rc" -eq 124 ] && out="проверка доступности не ответила за 10 с (сеть до кластера)${out:+; $out}"
+    local out rc try=1
+    while :; do
+        out="$(timeout "$CHECK_S" bash "$REMOTE_RUN" --available ${1:+--profile "$1"} 2>&1)"; rc=$?
+        [ "$rc" -eq 124 ] && [ "$try" -lt "$CHECK_TRIES" ] || break
+        try=$(( try + 1 ))
+    done
+    [ "$rc" -eq 124 ] && out="проверка доступности не ответила за $CHECK_S с, попыток $try (сеть до кластера)${out:+; $out}"
     CL_OUT="$(printf '%s' "$out" | tr '[:cntrl:]' ' ' | cut -c1-400)"
     return "$rc"
 }
