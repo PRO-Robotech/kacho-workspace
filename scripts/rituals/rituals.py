@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import datetime
+import fnmatch
 import hashlib
 import json
 import os
@@ -101,27 +102,39 @@ def issue(repo: str, n: int) -> dict:
     return got
 
 
+_DOD_COMMENTS = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.body // "") | dod_proof_revisions)}'
+                 ' | select(.revs | length > 0)]')
+
+
+def _dod_query(repo: str, n: int, tail: str):
+    """Комментарии задачи через общий распознаватель `scripts/lib/dod_proof.jq` и хвост `tail`."""
+    comments = gh_list("repos/%s/issues/%d/comments" % (repo, n))
+    if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
+        raise Unmet("распознавателя доказательства DoD нет (%s) — судить нечем"
+                    % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
+    try:
+        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", _DOD_COMMENTS + tail], input=json.dumps(comments),
+                           capture_output=True, text=True)
+    except OSError as e:
+        raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
+    if p.returncode != 0:
+        raise Unmet("распознаватель доказательства DoD вышел кодом %d: %s" % (p.returncode, p.stderr.strip()[:200]))
+    return json.loads(p.stdout or "null")
+
+
 def dod_proof(repo: str, n: int):
     """(адрес комментария, ревизия) последнего доказательства DoD либо None.
 
     Распознаёт общий `scripts/lib/dod_proof.jq` — тот же, что у merge-readiness и
     cascade-census; ревизия — первая строка-доказательство последнего такого комментария.
     """
-    comments = gh_list("repos/%s/issues/%d/comments" % (repo, n))
-    if not os.path.isfile(os.path.join(DOD_LIB, "dod_proof.jq")):
-        raise Unmet("распознавателя доказательства DoD нет (%s) — судить нечем"
-                    % os.path.normpath(os.path.join(DOD_LIB, "dod_proof.jq")))
-    expr = ('include "dod_proof"; [.[] | {url: (.html_url // ""), revs: ((.body // "") | dod_proof_revisions)}'
-            ' | select(.revs | length > 0)] | last | if . == null then null else [.url, .revs[0]] end')
-    try:
-        p = subprocess.run(["jq", "-L", DOD_LIB, "-c", expr], input=json.dumps(comments),
-                           capture_output=True, text=True)
-    except OSError as e:
-        raise Unmet("jq не вызывается: %s — доказательство DoD судить нечем" % e)
-    if p.returncode != 0:
-        raise Unmet("распознаватель доказательства DoD вышел кодом %d: %s" % (p.returncode, p.stderr.strip()[:200]))
-    got = json.loads(p.stdout or "null")
+    got = _dod_query(repo, n, ' | last | if . == null then null else [.url, .revs[0]] end')
     return tuple(got) if got else None
+
+
+def dod_proofs(repo: str, n: int) -> list:
+    """Все доказательства DoD задачи по порядку: [(адрес комментария, ревизия)], каждая строка-доказательство."""
+    return [tuple(x) for x in _dod_query(repo, n, ' | [.[] | .url as $u | .revs[] | [$u, .]]') or []]
 
 
 # ── атрибуция ───────────────────────────────────────────────────────────────
@@ -160,94 +173,291 @@ def need_repo(repo: str) -> str:
 
 
 # ── pr-body ─────────────────────────────────────────────────────────────────
+#
+# Тело PR выводится из git, а не пишется (ws#1146, решение владельца 2026-10-17).
+# Каждое правило ниже — то, чем судят `scripts/landing-precheck.sh` (пункты (в), (ж)) и
+# `scripts/merge-readiness.sh`, выведенное заранее:
+#   * состав — каждый коммит `база..голова` назван своим sha (BODY-MISSING-COMMIT), по
+#     полосам: слияния линии первого родителя головы, вложенные — уровнем ниже;
+#   * `#N` — ТОЛЬКО номер из первой строки коммита диапазона (BODY-FOREIGN-TASK): тем же
+#     выражением `NUM`, что у landing-precheck; задача своего репозитория, названная в первой
+#     строке полной формой (`kaname#719`), — задача тоже и пишется полной формой
+#     `<владелец>/<имя>#N` (её BODY-FOREIGN-TASK не судит, Closes судит пункт (ж)); прочие
+#     номера — без `#`;
+#   * `Closes` — задаче с доказательством DoD, чья ревизия — коммит диапазона (предок
+#     головы, не предок базы; CLOSES-WITHOUT-PROOF), и не держателю записи долга;
+#   * закрывающие строки — последними (`git-issues.md#gi-closes-last-line`).
+
+# Номер задачи так, как его судит landing-precheck (пункт (в), `NUM`): `#N` не после
+# буквы, цифры, `_`, `/` и `#`. Одно выражение на обе стороны — иначе тело, собранное
+# здесь, судилось бы иначе, чем там.
+NUM_RE = re.compile(r"(?<![\w/#])#([0-9]+)\b")
+
+# ВЕДОМОСТИ ДОЛГА — где запись держится задачей, и закрытая задача её роняет. Закрытый
+# перечень: у каждой строки — судья, для которого закрытый держатель — находка (замер
+# 2026-10-17 по origin/main kaname и kacho: `git grep` проверок состояния задачи).
+# Поля: репозиторий ведомости · пути (образцы `fnmatch` от корня, `*` идёт и через `/`) · форма держателя (`{ref}` — ссылка на
+# задачу в любой законной записи, `{n}` — голый номер, только задача того же репозитория) ·
+# судья. Строка своего репозитория, не нашедшая на голове ни одного файла, — код 2:
+# перечень разошёлся с деревом, и «держателей 0» было бы ложью.
+DEBT_LEDGERS = (
+    ("PRO-Robotech/kaname", (".github/scripts/newman-suite-debt.py",), r"{ref} — ",
+     "newman-suite-debt.py: держатель записи (`HOLDER_RE`) жив — reconcile_holder_liveness"),
+    ("PRO-Robotech/kaname", ("tests/newman/docs/RESULTS.md",), r"{ref}",
+     "tools/knownfailingexpiry: запись прощения истекает с закрытием задачи"),
+    ("PRO-Robotech/kacho", ("tests/newman/docs/RESULTS.md", "*/tests/newman/docs/RESULTS.md"), r"{ref}",
+     "tools/knownfailingsubject: закрытая задача объявления — находка"),
+    ("PRO-Robotech/kacho", ("tests/newman/cases/*.py", "*/tests/newman/cases/*.py"), r"#\s*verifies\b[^\n]*{ref}",
+     "tools/knownfailingsubject: `# verifies` красного кейса"),
+    ("PRO-Robotech/kacho", ("internal/repohygiene/foundationadoption_test.go",), r"\bIssue:\s*{n}\b",
+     "internal/repohygiene LedgerRecordsWhoseIssueIsClosed"),
+    ("PRO-Robotech/kacho", ("internal/repohygiene/subscriptionformreach.go",), r"\bSubscriptionFormTaker\s*=\s*{n}\b",
+     "internal/repohygiene SubscriptionReachFindings"),
+)
+
+
+def task_ref_re(trepo: str, n: int, lrepo: str) -> str:
+    """Ссылка на задачу `trepo#n` в тексте ведомости репозитория `lrepo` — все законные формы."""
+    name = trepo.split("/", 1)[1]
+    alts = [re.escape(trepo) + "#%d" % n, r"(?<![\w.-])" + re.escape(name) + "#%d" % n,
+            r"github\.com/" + re.escape(trepo) + "/issues/%d" % n]
+    if trepo == lrepo:
+        alts.append(r"(?<![\w/#])#%d" % n)
+    return "(?:%s)(?![0-9])" % "|".join(alts)
+
+
+def ledger_source(lrepo: str, trepo: str, head: str):
+    """(каталог git, ревизия) ведомостей репозитория `lrepo` либо None — клона нет.
+
+    Свой репозиторий — голова запроса (ведомость после вливания); чужой — `origin/main`
+    клона `RITUAL_LEDGER_CLONES/<имя>` (по умолчанию `project/` воркспейса).
+    """
+    if lrepo == trepo:
+        return os.environ.get("RITUAL_REPO_DIR") or os.getcwd(), head
+    root = os.environ.get("RITUAL_LEDGER_CLONES")
+    if not root:
+        # Корень воркспейса — единственным выводом дерева (`scripts/lib/ws-home.sh`): из копии
+        # под `tmp/` каталог над скриптом — копия, а клоны продуктов — в `project/` основной.
+        w = subprocess.run(["bash", "-c", '. "$1" && ws_home "$2"', "ws-home",
+                            os.path.join(HERE, "..", "lib", "ws-home.sh"), HERE], capture_output=True, text=True)
+        root = os.path.join(w.stdout.strip() or os.path.join(HERE, "..", ".."), "project")
+    d = os.path.join(root, lrepo.split("/", 1)[1])
+    p = subprocess.run(["git", "-C", d, "rev-parse", "--verify", "-q", "origin/main^{commit}"],
+                       capture_output=True, text=True)
+    return (d, "origin/main") if p.returncode == 0 else None
+
+
+def read_ledgers(trepo: str, head: str):
+    """Тексты ведомостей долга: [(репо, путь, текст, форма, судья)] и перепись строками."""
+    out, census, trees = [], [], {}
+    for lrepo, specs, form, judge in DEBT_LEDGERS:
+        src = ledger_source(lrepo, trepo, head)
+        if src is None:
+            census.append("ведомость %s %s — НЕ СВЕРЕНА: клона %s нет" % (lrepo, " ".join(specs), lrepo))
+            continue
+        d, rev = src
+        if (d, rev) not in trees:
+            p = subprocess.run(["git", "-C", d, "ls-tree", "-r", "--name-only", "-z", rev],
+                               capture_output=True, text=True)
+            if p.returncode != 0:
+                raise Unmet("дерево %s на %s не перечислено: %s" % (lrepo, rev, p.stderr.strip()[:200]))
+            trees[(d, rev)] = [f for f in p.stdout.split("\0") if f]
+        files = [f for f in trees[(d, rev)] if any(fnmatch.fnmatchcase(f, s) for s in specs)]
+        if not files and lrepo == trepo:
+            raise Unmet("ведомость долга %s не найдена на голове — перечень DEBT_LEDGERS разошёлся с деревом; "
+                        "«держателей 0» было бы ложью" % " ".join(specs))
+        for f in files:
+            q = subprocess.run(["git", "-C", d, "show", "%s:%s" % (rev, f)], capture_output=True)
+            if q.returncode != 0:
+                raise Unmet("ведомость %s:%s не прочитана на %s" % (lrepo, f, rev))
+            out.append((lrepo, f, q.stdout.decode("utf-8", "replace"), form, judge))
+        census.append("ведомость %s %s @%s: файлов %d" % (lrepo, " ".join(specs), rev[:12], len(files)))
+    return out, census
+
+
+def debt_holder(trepo: str, n: int, ledgers) -> str | None:
+    """Первая запись ведомости долга, которую держит задача `trepo#n`: «репо:путь:строка» либо None."""
+    for lrepo, f, text, form, _ in ledgers:
+        if "{n}" in form and trepo != lrepo:
+            continue
+        rx = re.compile(form.replace("{ref}", task_ref_re(trepo, n, lrepo)).replace("{n}", str(n)))
+        for i, line in enumerate(text.splitlines(), 1):
+            if rx.search(line):
+                return "%s:%s:%d" % (lrepo.split("/", 1)[1], f, i)
+    return None
 
 
 def issue_refs(repo: str, text: str) -> set[int]:
-    """Номера задач ЭТОГО репозитория, названные в тексте.
+    """Номера задач ЭТОГО репозитория, названные в тексте в любой законной форме.
 
-    Формы: `#N` (не после буквы, цифры и `/`), `<владелец>/<имя>#N` и адрес
-    `https://github.com/<владелец>/<имя>/issues/N` — две последние только своего
-    репозитория. Ссылка на чужой репозиторий закрывающей строкой этого PR не станет.
+    Формы: `#N` (не после буквы, цифры и `/`), `<владелец>/<имя>#N`, `<имя>#N` и адрес
+    `https://github.com/<владелец>/<имя>/issues/N` — три последние только своего репозитория:
+    владелец — ровно владелец запроса, `<имя>#N` после `/` (чужой владелец) не своё.
     """
     nums: set[int] = set()
     for m in re.finditer(r"(?<![\w/])#(\d+)\b", text):
         nums.add(int(m.group(1)))
-    own = re.escape(repo)
-    for m in re.finditer(r"(?<![\w.-])%s#(\d+)\b" % own, text):
+    name = re.escape(repo.split("/", 1)[1])
+    # Перед именем — ни буквы, ни `.`, `-`, ни `/`: `otherorg/kaname#77` — задача ЧУЖОГО
+    # владельца, и короткая форма `kaname#77` внутри неё своей не засчитывается.
+    for m in re.finditer(r"(?<![\w./-])(?:%s/)?%s#(\d+)\b" % (re.escape(repo.split("/", 1)[0]), name), text):
         nums.add(int(m.group(1)))
-    for m in re.finditer(r"https://github\.com/%s/issues/(\d+)\b" % own, text):
+    for m in re.finditer(r"https://github\.com/%s/issues/(\d+)\b" % re.escape(repo), text):
         nums.add(int(m.group(1)))
     return nums
 
 
-def pr_body(argv: list[str]) -> int:
-    if len(argv) == 2:
-        repo, pr = need_repo(argv[0]), argv[1]
-        if not pr.isdigit():
-            raise Unmet("номер PR «%s» не число" % pr)
-        meta = gh("GET", "repos/%s/pulls/%s" % (repo, pr))
-        branch = ((meta or {}).get("head") or {}).get("ref") or ""
-        base = ((meta or {}).get("base") or {}).get("ref") or ""
-        span = "%s..%s" % (base, branch)
-        commits = [(c.get("sha") or "", ((c.get("commit") or {}).get("message") or ""))
-                   for c in gh_list("repos/%s/pulls/%s/commits" % (repo, pr))]
-    elif len(argv) == 4:
-        repo, branch, base, head = need_repo(argv[0]), argv[1], argv[2], argv[3]
-        span = "%s..%s" % (base, head)
-        log = git("log", "--reverse", "--no-color", "--encoding=UTF-8", "--format=%H%x1f%B%x1e", span)
-        commits = []
-        for rec in log.split("\x1e"):
-            rec = rec.lstrip("\n")
-            if rec:
-                h, _, msg = rec.partition("\x1f")
-                commits.append((h, msg))
-    else:
-        raise Unmet("usage: pr-body.sh <владелец/имя> <PR> | <владелец/имя> <ветка> <база> <голова>")
+def first_line(msg: str) -> str:
+    """Первая СТРОКА сообщения — не `%s` git: тот склеивает первый абзац в одну строку."""
+    return (msg.split("\n", 1)[0] if msg else "").rstrip("\r")
 
-    if not commits:
+
+def no_hash(text: str) -> str:
+    """Номер, который судился бы как `#N`, — без `#` (заголовок задачи не из первых строк)."""
+    return NUM_RE.sub(lambda m: "№" + m.group(1), text)
+
+
+def rev_commit(rev: str) -> str:
+    out = git("rev-parse", "--verify", "-q", "--end-of-options", rev + "^{commit}", check=False).strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", out):
+        raise Unmet("ревизия «%s» не коммит в %s" % (rev, os.environ.get("RITUAL_REPO_DIR") or os.getcwd()))
+    return out
+
+
+def lanes(tip: str, excl: list[str], meta: dict) -> list:
+    """Линия первого родителя `tip` за вычетом `excl`, старшим вперёд: [(sha, [ветви слияния])].
+
+    Ветвь слияния — линия его стороннего родителя за вычетом первого родителя и сторонних,
+    стоящих раньше; коммит, внесённый раньше по линии, вычтен первым родителем.
+    """
+    line = git("rev-list", "--first-parent", tip, *("^" + e for e in excl)).split()
+    out = []
+    for c in reversed(line):
+        parents = meta[c][0]
+        subs, seen = [], [parents[0]] if parents else []
+        for p in parents[1:]:
+            subs.append(lanes(p, excl + seen, meta))
+            seen.append(p)
+        out.append((c, subs))
+    return out
+
+
+def lane_lines(nodes: list, meta: dict, depth: int) -> tuple[list[str], int]:
+    lines, n = [], 0
+    for c, subs in nodes:
+        mark = " (слияние)" if subs else ""
+        lines.append("%s- `%s` %s%s" % ("  " * depth, c[:9], meta[c][1], mark))
+        n += 1
+        for s in subs:
+            sl, sn = lane_lines(s, meta, depth + 1)
+            lines += sl
+            n += sn
+    return lines, n
+
+
+def pr_body(argv: list[str]) -> int:
+    if len(argv) != 3:
+        raise Unmet("usage: pr-body.sh <владелец/имя> <база> <голова>")
+    repo, base, head = need_repo(argv[0]), argv[1], argv[2]
+    base_sha, head_sha = rev_commit(base), rev_commit(head)
+    span = "%s..%s" % (base, head)
+
+    meta, order = {}, []
+    log = git("log", "--no-color", "--encoding=UTF-8", "--format=%H%x1f%P%x1f%B%x1e", "%s..%s" % (base_sha, head_sha))
+    for rec in log.split("\x1e"):
+        rec = rec.lstrip("\n")
+        if rec:
+            h, par, msg = rec.split("\x1f", 2)
+            meta[h] = (par.split(), first_line(msg), msg)
+            order.append(h)
+    if not meta:
         raise Unmet("в диапазоне %s коммитов ноль — тело собирать не из чего" % span)
 
-    bad = []
-    for h, msg in commits:
-        line = attribution(msg)
-        if line:
-            bad.append("%s «%s»" % (h[:10], line))
+    bad = ["%s «%s»" % (h[:10], line) for h in order for line in [attribution(meta[h][2])] if line]
     if bad:
         raise Refused("атрибуция в сообщениях коммитов (%d) — тело не собрано; перепишите коммиты "
                       "без неё:\n  %s" % (len(bad), "\n  ".join(bad)))
 
-    nums: set[int] = set()
-    m = re.match(r"^(\d+)-", branch)
-    if m:
-        nums.add(int(m.group(1)))
-    for _, msg in commits:
-        nums |= issue_refs(repo, msg)
+    # Состав по полосам: слияния линии первого родителя головы.
+    top = lanes(head_sha, [base_sha], meta)
+    merges = [(c, subs) for c, subs in top if subs]
+    direct = [(c, subs) for c, subs in top if not subs]
+    lines = ["Состав `%s` — коммитов %d: полос (слияний первого родителя) %d, коммитов линии головы вне полос %d."
+             % (span, len(meta), len(merges), len(direct)), ""]
+    listed = 0
+    for i, (c, subs) in enumerate(merges, 1):
+        lines.append("### Полоса %d — `%s` %s" % (i, c[:9], meta[c][1]))
+        lines.append("")
+        listed += 1
+        for s in subs:
+            sl, sn = lane_lines(s, meta, 0)
+            lines += sl
+            listed += sn
+        lines.append("")
+    if direct:
+        lines += ["### Линия головы вне полос", ""]
+        for c, _ in direct:
+            lines.append("- `%s` %s" % (c[:9], meta[c][1]))
+            listed += 1
+        lines.append("")
+    if listed != len(meta):
+        raise Unmet("разбиение по полосам назвало коммитов %d из %d диапазона %s — состав неполон"
+                    % (listed, len(meta), span))
 
+    # Номера: с `#` — только из первых строк; задача первой строки в полной форме — полной
+    # формой; прочие упомянутые — без `#`.
+    first = {int(x) for h in order for x in NUM_RE.findall(meta[h][1])}
+    qual = set()
+    for h in order:
+        qual |= issue_refs(repo, meta[h][1])
+    qual -= first
+    mentioned = set()
+    for h in order:
+        mentioned |= issue_refs(repo, meta[h][2])
+    mentioned -= first | qual
+
+    def label(n: int) -> str:
+        return "#%d" % n if n in first else "%s#%d" % (repo, n)
+
+    ledgers, census = read_ledgers(repo, head_sha)
+    range_shas = list(meta)
     closes, refs, pulls, rows = [], [], [], []
-    for n in sorted(nums):
+    for n in sorted(first | qual):
         it = issue(repo, n)
         if it.get("pull_request"):
             pulls.append(n)
             continue
-        title = it.get("title") or ""
+        title = no_hash(it.get("title") or "")
         if it.get("state") != "open":
             refs.append(n)
-            rows.append("- #%d «%s» — уже закрыта: `Refs`" % (n, title))
+            rows.append("- %s «%s» — уже закрыта: `Refs`" % (label(n), title))
             continue
-        proof = dod_proof(repo, n)
-        if proof:
+        holder = debt_holder(repo, n, ledgers)
+        if holder:
+            refs.append(n)
+            rows.append("- %s «%s» — держит запись долга `%s`: `Refs`, не `Closes`" % (label(n), title, holder))
+            continue
+        proofs = dod_proofs(repo, n)
+        inside = [(u, r) for u, r in proofs if any(s.startswith(r) for s in range_shas)]
+        if inside:
+            url, rev = inside[-1]
             closes.append(n)
-            rows.append("- #%d «%s» — доказательство DoD: %s (`DoD-proof @%s`)" % (n, title, proof[0], proof[1]))
+            rows.append("- %s «%s» — доказательство DoD: %s (`DoD-proof @%s`, коммит диапазона)" % (label(n), title, url, rev))
+        elif proofs:
+            refs.append(n)
+            rows.append("- %s «%s» — `DoD-proof @%s` не коммит диапазона `%s`: `Refs`, не `Closes`"
+                        % (label(n), title, proofs[-1][1], span))
         else:
             refs.append(n)
-            rows.append("- #%d «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (n, title))
+            rows.append("- %s «%s» — доказательства DoD нет: `Refs`, не `Closes`" % (label(n), title))
 
-    lines = ["Коммиты `%s` (%d):" % (span, len(commits)), ""]
-    for h, msg in commits:
-        lines.append("- `%s` %s" % (h[:9], (msg.strip().splitlines() or [""])[0]))
-    lines += ["", "Задачи (%d):" % len(rows), ""]
-    lines += rows or ["- задач в коммитах и имени ветки не названо"]
-    tail = ["Refs #%d" % n for n in refs] + ["Closes #%d" % n for n in closes]
+    lines += ["Задачи первых строк (%d):" % len(rows), ""]
+    lines += rows or ["- в первых строках коммитов номеров задач нет"]
+    if pulls:
+        lines += ["", "Запросы в первых строках (не задачи): %s" % ", ".join(label(n) for n in pulls)]
+    if mentioned:
+        lines += ["", "Упомянуты вне первых строк (без закрытия): %s" % ", ".join(str(n) for n in sorted(mentioned))]
+    tail = ["Refs %s" % label(n) for n in refs] + ["Closes %s" % label(n) for n in closes]
     if tail:
         lines += [""] + tail
     body = "\n".join(lines) + "\n"
@@ -256,8 +466,12 @@ def pr_body(argv: list[str]) -> int:
     if line:
         raise Refused("атрибуция в собранном теле: «%s» — тело не выдано" % line)
     sys.stdout.write(body)
-    say("pr-body: коммитов %d, задач %d — Closes %d, Refs %d; номеров-PR пропущено %d"
-        % (len(commits), len(rows), len(closes), len(refs), len(pulls)))
+    for c in census:
+        say("pr-body: " + c)
+    say("pr-body: коммитов %d (полос %d, вне полос %d), номеров первых строк %d — задач %d: Closes %d, Refs %d, "
+        "из них полной формой %d; запросов %d; упомянуто без # %d"
+        % (len(meta), len(merges), len(direct), len(first), len(rows), len(closes), len(refs),
+           len(qual), len(pulls), len(mentioned)))
     return OK
 
 

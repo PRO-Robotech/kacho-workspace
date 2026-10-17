@@ -13,6 +13,7 @@
   * задача без комментария-доказательства — строка DoD говорит «нет», а не адрес;
   * задача, закрытая как не планируемая, — `wontfix`;
   * задача открыта — отказ кодом 1, файла нет;
+  * из нескольких доказательств DoD в блоке — последнее;
   * событие закрытия — 101-е в хронологии (вторая страница трекера): sha закрытия в
     блоке его, а не ревизия доказательства — список читается всеми страницами;
   * генератор указателя хранилища вышел ненулевым кодом — отказ кодом 1, в выводе — его код и
@@ -33,7 +34,7 @@ import _probe as P  # noqa: E402
 import yaml  # noqa: E402 — наличие проверено песочницей (иначе VOID)
 
 R = "PRO-Robotech/kacho-workspace"
-N1, N2, N3, N4, N5 = 990001, 990002, 990003, 990004, 990005
+N1, N2, N3, N4, N5, N6 = 990001, 990002, 990003, 990004, 990005, 990006
 PR_URL = "https://github.com/%s/pull/990100" % R
 CLOSE_SHA = "5" * 40
 
@@ -129,6 +130,19 @@ def body(pr):
     rc, out, err, _ = pr.run("vault-trails", [R, str(N5)], pr.state(w), extra=extra)
     text = open(note(root, N5), encoding="utf-8").read() if os.path.isfile(note(root, N5)) else ""
     pr.ok("закрытие 101-м событием хронологии: sha закрытия в блоке", "- sha: `%s`" % CLOSE_SHA in text, err[-600:] + text)
+
+    # из нескольких доказательств DoD названо ПОСЛЕДНЕЕ (`dod_proof`; прежде судилось
+    # через pr-body, у которого с ws#1146 свой отбор — по диапазону)
+    w = world()
+    w["issues"]["%s#%d" % (R, N6)] = issue(N6)
+    w["comments"]["%s#%d" % (R, N6)] = [
+        {"id": 1, "body": "DoD-proof @abcdef1\nпервое", "html_url": "https://github.com/%s/issues/%d#issuecomment-1" % (R, N6)},
+        {"id": 2, "body": "DoD-proof @fedcba9\nпоследнее", "html_url": "https://github.com/%s/issues/%d#issuecomment-2" % (R, N6)}]
+    w["timeline"]["%s#%d" % (R, N6)] = w["timeline"]["%s#%d" % (R, N1)]
+    rc, out, err, _ = pr.run("vault-trails", [R, str(N6)], pr.state(w), extra=extra)
+    text = open(note(root, N6), encoding="utf-8").read() if os.path.isfile(note(root, N6)) else ""
+    pr.ok("несколько доказательств: в блоке последнее (issuecomment-2, @fedcba9)",
+          "issuecomment-2" in text and "DoD-proof @fedcba9" in text and "@abcdef1" not in text, err[-600:] + text)
 
     rc, out, err, _ = pr.run("vault-trails", [R, str(N2)], pr.state(world()), extra=extra)
     pr.refused("открытая задача", rc, err, "открыта — trail закрытия пишется закрытой задаче")
