@@ -75,6 +75,16 @@
 #   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
 #   M49 pr-body: `otherorg/kaname#N` засчитан задачей своего репозитория (прежнее
 #       выражение `issue_refs`, `/` перед именем не отсекался)          → check-01
+#   M50 pr-body: догон базы не распознан — номера строки догона берутся задачами → check-01
+#   M51 pr-body: строка догона в составе — с `#N` базы                   → check-01
+#   M52 pr-body: доказательство засчитано лишь на голове — предок диапазона
+#       с деревом головы, который судьи засчитывают, дал бы Refs          → check-01
+# Приёмка check-verifier на 2975fdd18: догон — по СТРУКТУРЕ (сторонний родитель достижим из
+# базы), словесный перечень снят; его мутанты A1, A5–A9, C1 предмета больше не имеют.
+#   M53 pr-body: любое слияние — догон (аналог C1: любая ветка — ствол)   → check-01
+#   M54 pr-body: достижимость сторонних родителей — от головы, не от базы  → check-01
+#   M55 pr-body: префикс догона отброшен (B1: `head = ""`)                → check-01
+#   M56 pr-body: префикс догона не идёт в задачи (B2)                     → check-01
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -279,8 +289,8 @@ inject "M45 pr-body: первое доказательство диапазон�
     '            url, rev = inside[-1]' \
     '            url, rev = inside[0]'
 inject "M46 pr-body: номера из всего сообщения" check-01-pr-body.py \
-    'NUM_RE.findall(meta[h][1])}' \
-    'NUM_RE.findall(meta[h][2])}'
+    'NUM_RE.findall(meta[h][2])}' \
+    'NUM_RE.findall(msgs[h])}'
 inject "M47 pr-body: полная форма — голым #N" check-01-pr-body.py \
     '        return "#%d" % n if n in first else "%s#%d" % (repo, n)' \
     '        return "#%d" % n'
@@ -290,6 +300,27 @@ inject "M48 pr-body: полная форма — не задача" check-01-pr-
 inject "M49 pr-body: чужой владелец засчитан своим" check-01-pr-body.py \
     'r"(?<![\w./-])(?:%s/)?%s#(\d+)\b"' \
     'r"(?<![\w.-])(?:%s/)?%s#(\d+)\b"'
+inject "M50 pr-body: догон не распознан" check-01-pr-body.py \
+    '    return bool(side) and all(is_ancestor(p, base) for p in side)' \
+    '    return False'
+inject "M53 pr-body: любое слияние — догон" check-01-pr-body.py \
+    '    return bool(side) and all(is_ancestor(p, base) for p in side)' \
+    '    return bool(side)'
+inject "M54 pr-body: достижимость от головы" check-01-pr-body.py \
+    'catch_up(parents, base_sha)' \
+    'catch_up(parents, head_sha)'
+inject "M55 pr-body: префикс догона отброшен" check-01-pr-body.py \
+    '    head = m.group(0) if m else ""' \
+    '    head = ""'
+inject "M56 pr-body: префикс догона не в задачах" check-01-pr-body.py \
+    '    return head + no_hash(line[len(head):]), head, head' \
+    '    return head + no_hash(line[len(head):]), "", head'
+inject "M51 pr-body: строка слияния ствола с #N" check-01-pr-body.py \
+    '    return head + no_hash(line[len(head):]), head, head' \
+    '    return line, head, head'
+inject "M52 pr-body: доказательство лишь на голове" check-01-pr-body.py \
+    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
+    ' for u, r in proofs if head_sha.startswith(r)]'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq

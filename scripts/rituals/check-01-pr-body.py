@@ -15,13 +15,19 @@
     `#99` из заголовка задачи — `№99`; задача своего репозитория, названная в первой строке
     полной формой (`kaname#52`, `PRO-Robotech/kaname#53`), — задача, и пишется полной формой;
     `otherorg/kaname#77` — чужой владелец, не задача (ни строки, ни Closes, ни в упомянутых);
+    ДОГОН базы — по структуре (слияние, сторонний родитель достижим из базы), не по тексту:
+    строки `DOGON` (четыре формы перечня, `#main`, «слияние», «догон», догон базы-эпика
+    `3172-epic`, своя #59 лишь в префиксе) — номер базы ни задача, ни упомянутая, в теле его
+    нет, в составе он с `№`; #59 из префикса — задача (T8); близнецы — слияние соседней полосы
+    с непустой ветвью (#57) и коммит-не-слияние «merge main» (#67, T7) — номера остаются;
   * CLOSES — #41: доказательство DoD ревизией диапазона (близнец: та же задача упомянута
     ведомостью прозой, не формой держателя, — Closes остаётся); #42: доказательство ревизией
     БАЗЫ (предок головы, но не коммит диапазона) — Refs; #44: ревизия, которой нет, — Refs;
     #45: держит запись `newman-suite-debt.py` (`PRO-Robotech/kaname#45 — …`) при годном
     доказательстве — Refs; #46: держит объявление RESULTS.md — Refs; #43 закрыта — Refs (и при
     доказательстве диапазона);
-    #50 без доказательства — Refs; kaname#52 с доказательством диапазона — Closes полной
+    #50 без доказательства — Refs; доказательство #50 на предке головы с тем же деревом (голова —
+    слияние ствола) — Closes, как у merge-readiness и landing-precheck (замер на kaname#876); kaname#52 с доказательством диапазона — Closes полной
     формой, kaname#53 без него — Refs полной формой; закрытой #43 доказательство диапазона Closes не даёт; #51 — запрос, в задачи не идёт;
   * ХВОСТ — закрывающие строки последними, Refs перед ними, хвост сплошной;
   * распознаватель доказательства общий (`dod_proof.jq`): `@main`, `@abc12`, `@develop`,
@@ -101,11 +107,44 @@ def seed(pr):
     pr.git(d, "merge", "-q", "--no-ff", "42-b", "-m", "#50 merge #42: сборка, запрос #51")
     sha["m42"] = pr.git(d, "rev-parse", "HEAD").strip()
     sha["50"] = pr.commit(d, "#50 правка линии головы", rel="h.txt")
+    # Догон базы, как kaname 870 @9d692d7fe: слияние, сторонний родитель которого достижим из
+    # базы, дерево не меняется. Признак — структура: формы строки ниже отличаются от
+    # `merge main` одним фактом, две последние словесные — вне всякого перечня, `3172-epic` —
+    # догон базы-эпика; #59 есть ТОЛЬКО в префиксе догона (T8).
+    pr.git(d, "branch", "3172-epic", "main")
+    pr.git(d, "checkout", "-qb", "50-dogon", "50")
+    for key, n, msg in DOGON:
+        m = pr.git(d, "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-p", "3172-epic" if n == 3259 else "main",
+                   "-m", msg).strip()
+        pr.git(d, "merge", "-q", "--ff-only", m)
+        sha[key] = m
+    # Близнецы на голове `50-twins`: слияние соседней полосы (ветвь второго родителя непуста)
+    # и коммит-не-слияние со словами «merge main» — номера #57 и #67 остаются задачами.
+    pr.git(d, "checkout", "-qb", "1147-autoland", "main")
+    sha["side"] = pr.commit(d, "правка соседней полосы", rel="s.txt")
+    pr.git(d, "checkout", "-qb", "50-twins", "50-dogon")
+    pr.git(d, "merge", "-q", "--no-ff", "1147-autoland", "-m", "#50 merge 1147-autoland (#57)")
+    sha["twin-merge"] = pr.git(d, "rev-parse", "HEAD").strip()
+    sha["twin-t7"] = pr.commit(d, "#50 fix: не делать merge main (#67)", rel="h.txt")
     return d, sha
 
 
+# Догоны базы на голове `50-dogon`: (ключ, номер базы в строке, строка).
+DOGON = (
+    ("dogon", 56, "#50 merge main: догон ствола (#56) перед PR"),
+    ("dogon-origin", 60, "#50 merge origin/main: догон ствола (#60)"),
+    ("dogon-git-branch", 61, "Merge branch 'main' into 50-dogon (#61)"),
+    ("dogon-git-remote", 62, "Merge remote-tracking branch 'origin/main' into 50-dogon (#62)"),
+    ("dogon-hash-main", 63, "#50 merge #main: догон ствола (#63)"),
+    ("dogon-ru", 64, "#50 слияние origin/main (#64)"),
+    ("dogon-word", 65, "#50 догон main (#65)"),
+    ("dogon-epic", 3259, "#50 merge 3172-epic: догон базы-эпика (#3259)"),
+    ("dogon-prefix-only", 66, "#59 merge main: догон ствола (#66)"),
+)
+
+
 def world(sha, c41=None, title41=None):
-    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53, 77)}
+    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53, 56, 57, 59, 67, 77)}
     issues[43] = issue(43, "closed")
     issues[51] = issue(51, pr=True)
     issues[41]["title"] = title41 or "задача 41 (после #99)"
@@ -128,7 +167,7 @@ def body(pr):
     d, sha = seed(pr)
     extra = {"RITUAL_REPO_DIR": d, "RITUAL_LEDGER_CLONES": os.path.join(pr.tmp, "no-clones")}
     args = [R, "main", "50"]
-    in_range = [s for k, s in sha.items() if k != "base42"]
+    in_range = [s for k, s in sha.items() if k == "50" or not (k == "base42" or k.startswith(("dogon", "twin", "side")))]
 
     rc, out, err, st = pr.run("pr-body", args, pr.state(world(sha)), extra=extra)
     pr.ok("законный вход: код 0", rc == 0, err)
@@ -208,6 +247,33 @@ def body(pr):
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=many)), extra=extra)
     pr.ok("доказательство 101-м комментарием (вторая страница): Closes #41",
           rc == 0 and "Closes #41" in closes(out) and "issuecomment-101" in out, out + err)
+
+    # Слияние ствола и доказательство на предке с деревом головы (ws#1146, kaname 870).
+    # Судьи засчитывают такое доказательство оба — замер 2026-10-17 на kaname#876 при одном
+    # доказательстве @717cdaaf2: merge-readiness «с доказательством DoD: 1», landing-precheck
+    # «Closes 1, с доказательством 1» (ревизия — коммит диапазона); генератор обязан так же.
+    w = world(sha)
+    w["comments"]["%s#50" % R] = [comment(50, 9, "DoD-proof @%s\nкод 0" % sha["50"][:9])]
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-dogon"], pr.state(w), extra=extra)
+    pr.ok("догон: код 0", rc == 0, out + err)
+    mentioned = (re.search(r"Упомянуты вне первых строк[^\n]*", out) or [""])[0]
+    for key, n, msg in DOGON:
+        pr.ok("догон «%s»: названо sha, #%d нет в теле, в составе — №%d" % (msg, n, n),
+              ("`%s`" % sha[key][:9]) in out and ("#%d" % n) not in out and ("(№%d)" % n) in out, out)
+        pr.ok("догон «%s»: %d — ни задача, ни Refs/Closes, ни упомянутая" % (msg, n),
+              ("«задача %d»" % n) not in out and not any(str(n) in x for x in tail_of(out))
+              and str(n) not in mentioned, out)
+    pr.ok("T8: своя #59 — только в префиксе догона — задача", "- #59 «задача 59»" in out and "Refs #59" in out, out)
+    pr.ok("доказательство на предке с деревом головы (коммит диапазона) — Closes #50, как у судей",
+          "Closes #50" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["50"][:9]) in out, out)
+
+    # Близнецы: слияние соседней полосы и коммит-не-слияние «merge main» — номера остаются.
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-twins"], pr.state(world(sha)), extra=extra)
+    pr.ok("близнец: слияние соседней полосы (ветвь непуста) — #57 задача",
+          rc == 0 and "- #57 «задача 57»" in out and "Refs #57" in out, out + err)
+    pr.ok("близнец T7: коммит-не-слияние «merge main» — #67 задача",
+          rc == 0 and "- #67 «задача 67»" in out and "Refs #67" in out, out + err)
+    pr.ok("близнецы: догоны на той же голове — по-прежнему без #56", "#56" not in out, out)
 
     # атрибуция
     link = "claude" + ".ai/code"

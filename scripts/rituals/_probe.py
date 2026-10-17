@@ -13,6 +13,7 @@
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -45,7 +46,15 @@ class Probe:
         self.name = name
         self.tmp = tempfile.mkdtemp(prefix="rituals-probe-")
         self.passed, self.failed = 0, []
-        self.env = self._sandbox_env()
+        # Каталог пробы снимается и тогда, когда песочница не завелась: `[VOID]` из
+        # конструктора — штатный исход на пустом дереве (suites-gate check-01, check-02 гонят
+        # каждую пробу так), и прежде он оставлял пустой `rituals-probe-*` в /tmp — 4522
+        # каталога к 2026-10-17 (ws#1146, `testing.md#no-residue`).
+        try:
+            self.env = self._sandbox_env()
+        except BaseException:
+            shutil.rmtree(self.tmp, ignore_errors=True)
+            raise
 
     def _sandbox_env(self):
         missing = [f for f in SUBJECT if not os.path.isfile(os.path.join(RIT, f))]
@@ -149,19 +158,36 @@ class Probe:
         return 0
 
 
+def _exit_on_signal(signum, _frame):
+    # Сигнал снятия — в SystemExit: блоки `finally` ниже исполняются и при обрыве
+    # (аналог `trap … EXIT` оболочки), а не только на штатном выходе.
+    raise SystemExit(128 + signum)
+
+
 def main(name, body):
+    for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(s, _exit_on_signal)
     try:
         pr = Probe(name)
     except Void as e:
         print("[VOID] %s — %s" % (name, e), file=sys.stderr)
         return 2
+    done = False
     try:
         body(pr)
+        done = True
     except Void as e:
-        shutil.rmtree(pr.tmp, ignore_errors=True)
         print("[VOID] %s — %s" % (name, e), file=sys.stderr)
         return 2
-    return pr.finish()
+    finally:
+        # Снятие — на любом выходе, кроме штатного (его снимает finish ниже): VOID,
+        # исключение пробы, сигнал.
+        if not done:
+            shutil.rmtree(pr.tmp, ignore_errors=True)
+    try:
+        return pr.finish()
+    finally:
+        shutil.rmtree(pr.tmp, ignore_errors=True)
 
 
 def writes(st):

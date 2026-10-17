@@ -312,6 +312,45 @@ def first_line(msg: str) -> str:
     return (msg.split("\n", 1)[0] if msg else "").rstrip("\r")
 
 
+# ДОГОН — слияние базы (ствола либо ветки эпика) в ветку запроса: `#870 merge main: … (#856)`,
+# `Merge branch 'main' …`, `слияние origin/main`, `#3258 merge 3172-…`. Признак — СТРУКТУРА, не
+# текст (ws#1146, приёмка check-verifier на 2975fdd18): коммит-слияние, все сторонние родители
+# которого достижимы из базы, — его ветвь в `lanes()` пуста. Перечень словесных форм не полон
+# по построению (kaname — 49 таких строк, kacho — 22, воркспейс — 7), а обычный коммит со
+# словами «merge main» слиянием не является. Номера строки догона, кроме префикса `#N` своей
+# задачи, — номера базы, а не предмета запроса (kaname 870 @9d692d7fe дал `Refs #856`): в
+# задачи и в упомянутые они не идут, в составе пишутся без `#`.
+PREFIX_RE = re.compile(r"^#[0-9]+(?=\s)")
+
+
+def is_ancestor(a: str, b: str) -> bool:
+    root = os.environ.get("RITUAL_REPO_DIR") or os.getcwd()
+    p = subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", a, b], capture_output=True, text=True)
+    if p.returncode not in (0, 1):
+        raise Unmet("git merge-base --is-ancestor %s %s: %s" % (a[:12], b[:12], p.stderr.strip()[:200]))
+    return p.returncode == 0
+
+
+def catch_up(parents: list[str], base: str) -> bool:
+    """Догон базы: слияние, все сторонние родители которого достижимы из базы."""
+    side = parents[1:]
+    return bool(side) and all(is_ancestor(p, base) for p in side)
+
+
+def judged(msg: str, catchup: bool) -> tuple[str, str, str]:
+    """(строка состава, текст номеров задач, текст упоминаний) коммита.
+
+    Обычный коммит — первая строка, первая строка, всё сообщение. Догон базы — номера
+    берутся лишь из префикса `#N` своей задачи; прочие номера строки — без `#`.
+    """
+    line = first_line(msg)
+    if not catchup:
+        return line, line, msg
+    m = PREFIX_RE.match(line)
+    head = m.group(0) if m else ""
+    return head + no_hash(line[len(head):]), head, head
+
+
 def no_hash(text: str) -> str:
     """Номер, который судился бы как `#N`, — без `#` (заголовок задачи не из первых строк)."""
     return NUM_RE.sub(lambda m: "№" + m.group(1), text)
@@ -362,18 +401,20 @@ def pr_body(argv: list[str]) -> int:
     base_sha, head_sha = rev_commit(base), rev_commit(head)
     span = "%s..%s" % (base, head)
 
-    meta, order = {}, []
+    meta, order, msgs = {}, [], {}
     log = git("log", "--no-color", "--encoding=UTF-8", "--format=%H%x1f%P%x1f%B%x1e", "%s..%s" % (base_sha, head_sha))
     for rec in log.split("\x1e"):
         rec = rec.lstrip("\n")
         if rec:
             h, par, msg = rec.split("\x1f", 2)
-            meta[h] = (par.split(), first_line(msg), msg)
+            parents = par.split()
+            meta[h] = (parents, *judged(msg, catch_up(parents, base_sha)))
             order.append(h)
+            msgs[h] = msg
     if not meta:
         raise Unmet("в диапазоне %s коммитов ноль — тело собирать не из чего" % span)
 
-    bad = ["%s «%s»" % (h[:10], line) for h in order for line in [attribution(meta[h][2])] if line]
+    bad = ["%s «%s»" % (h[:10], line) for h in order for line in [attribution(msgs[h])] if line]
     if bad:
         raise Refused("атрибуция в сообщениях коммитов (%d) — тело не собрано; перепишите коммиты "
                       "без неё:\n  %s" % (len(bad), "\n  ".join(bad)))
@@ -406,14 +447,14 @@ def pr_body(argv: list[str]) -> int:
 
     # Номера: с `#` — только из первых строк; задача первой строки в полной форме — полной
     # формой; прочие упомянутые — без `#`.
-    first = {int(x) for h in order for x in NUM_RE.findall(meta[h][1])}
+    first = {int(x) for h in order for x in NUM_RE.findall(meta[h][2])}
     qual = set()
     for h in order:
-        qual |= issue_refs(repo, meta[h][1])
+        qual |= issue_refs(repo, meta[h][2])
     qual -= first
     mentioned = set()
     for h in order:
-        mentioned |= issue_refs(repo, meta[h][2])
+        mentioned |= issue_refs(repo, meta[h][3])
     mentioned -= first | qual
 
     def label(n: int) -> str:
