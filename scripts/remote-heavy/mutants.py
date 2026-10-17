@@ -247,6 +247,10 @@ MUTANTS = [
     ("red-zero-silent", "RG6", "красный код при нуле красных групп молчит",
      r'''[ "$rc" = 0 ] || say "красных групп ci-local''',
      r'''[ "$rc" != x ] || say "красных групп ci-local'''),
+    # ws#1142: kubelet сворачивает $$ и раскрывает $(ИМЯ) в command, args и env.
+    ("k8s-dollar", "KX1", "команда уходит в Job без экранирования $ — kubelet её искажает",
+     r'''  | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))''',
+     r''''''),
 ]
 
 

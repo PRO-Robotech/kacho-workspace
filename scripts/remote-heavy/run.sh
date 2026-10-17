@@ -134,6 +134,11 @@
 # имени, и строка одного прогона легла поверх строки другого. Это предупреждение,
 # а не отказ: код прогона от него не меняется.
 #
+# КОМАНДА В JOB (ws#1142). kubelet раскрывает $(ИМЯ) в command, args и value env
+# контейнера значением его env и сворачивает $$ в $: составной Job потерял так
+# переменные и коды осей. Каждый $ этих полей в манифесте удвоен (jq, kesc) —
+# до контейнера команда доходит байт в байт; держит inject.sh, случай KX1.
+#
 # Пространство пользователей — главный барьер, и потому оно проверяется ИСПОЛНЕНИЕМ,
 # а не манифестом (ревью ws#984, N1): API-сервер без UserNamespacesSupport молча
 # снимает hostUsers, вебхук — procMount или securityContext. Две проверки:
@@ -1453,7 +1458,15 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
     --arg cr "$CPU_REQ" --arg cl "$CPU_LIM" --arg mr "$MEM_REQ" --arg ml "$MEM_LIM" --arg eph "$EPH" \
     --arg dcr "$DCR" --arg dcl "$DCL" --arg dmr "$DMR" --arg dml "$DML" \
     --arg dindsh "$DIND_SH" --arg deny "$DENY_PROBE" --arg helm "$HELM_PIN" --arg node "$NODE_PIN" --arg buf "$BUF_PIN" \
-    --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --argjson cmd "$CMD_JSON" '{
+    --arg pushin "$PUSH_INPUT" --arg gname "$GIT_NAME" --arg gemail "$GIT_EMAIL" --argjson cmd "$CMD_JSON" '
+# kubelet раскрывает в command, args и value env контейнера $(ИМЯ) значением env и
+# сворачивает $$ в $ (ws#1142: составной Job потерял переменные и коды осей). Каждый
+# $ удваивается: kubelet свернёт его обратно, и байты дойдут до контейнера как есть.
+def kesc: gsub("\\$"; "$$");
+def kesc_c: (if .command then .command |= map(kesc) else . end)
+  | (if .args then .args |= map(kesc) else . end)
+  | (if .env then .env |= map(if has("value") then .value |= kesc else . end) else . end);
+{
   apiVersion: "batch/v1", kind: "Job",
   metadata: {name: "run", namespace: $ns, labels: {"kacho.io/task": $task, "kacho.io/kind": "heavy"}},
   spec: {backoffLimit: 0, activeDeadlineSeconds: $deadline, ttlSecondsAfterFinished: 3600,
@@ -1485,7 +1498,8 @@ jq -n --arg ns "$NSNAME" --arg task "$TASK" --arg goimg "$GO_IMAGE" --arg dimg "
        volumeMounts: ([{name: "work", mountPath: "/work"}, {name: "cache", mountPath: "/cache"}]
                       + (if $dind == 1 then [{name: "dind-sock", mountPath: "/run/dind"}, {name: "tools", mountPath: "/tools"}] else [] end))}],
      volumes: ([{name: "work", emptyDir: {}}, {name: "cache", emptyDir: {}}]
-               + (if $dind == 1 then [{name: "dind-lib", emptyDir: {}}, {name: "dind-sock", emptyDir: {}}, {name: "tools", emptyDir: {}}] else [] end))})}}}' \
+               + (if $dind == 1 then [{name: "dind-lib", emptyDir: {}}, {name: "dind-sock", emptyDir: {}}, {name: "tools", emptyDir: {}}] else [] end))})}}}
+  | .spec.template.spec |= ((.initContainers, .containers) |= map(kesc_c))' \
     > "$BOX/job.json"
 guard_write "Job" || exit 69
 kc create -f "$BOX/job.json" >/dev/null || { say "Job не создан (не выполнилось)"; exit 69; }
