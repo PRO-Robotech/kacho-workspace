@@ -335,6 +335,30 @@ echo "== мутант отбора своей сессии (ws#1131) — обя�
 mutant "старый отбор: любая оболочка под claude — своя" '    who = whose(pid, ppid)' "    who = 'own'" proc_cases
 mutant "неустановленная сессия при своём claude — чужая" $'    return \'\'\n\n\nshells' $'    return \'foreign\' if own_pid else \'\'\n\n\nshells' proc_cases
 
+echo "== журнал своей сессии без transcript_path (ws#1134)"
+# Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее.
+SD="$T/proj2"; mkdir -p "$SD/ses-s/subagents" "$SD/ses-n/subagents"
+rec "$SD/ses-s/subagents/agent-own.jsonl" 30 tool "make own-e2e"; rec "$SD/ses-n/subagents/agent-nb.jsonl" 30 tool "make neighbor-e2e"
+rec "$SD/ses-s.jsonl" 2 "done"; rec "$SD/ses-n.jsonl" 1 "done"
+# journal_cases <прибор> — выбор журнала своей сессии; их же гонят мутанты ниже.
+journal_cases() {
+    local C="$1" out
+    CLAUDE_CODE_SESSION_ID=ses-s probe 1 "инъекция: CLAUDE_CODE_SESSION_ID выбирает свою S, хотя N свежее" "сессия ses-s;" --session-dir "$SD" --ps "$T/ps"
+    CLAUDE_CODE_SESSION_ID=ses-s probe 1 "  …назван свой агент" "STALL-AGENT agent-own" --session-dir "$SD" --ps "$T/ps"
+    out="$(printf '{"session_id":"ses-s"}' | CLAUDE_CODE_SESSION_ID=ses-n bash "$C" --session-dir "$SD" --ps "$T/ps" 2>&1)"
+    if grep -qF "сессия ses-s;" <<< "$out"; then
+        [ -n "${quiet:-}" ] || echo "  [OK]   инъекция: session_id хука сильнее CLAUDE_CODE_SESSION_ID — S"; pass=$((pass + 1))
+    else
+        failed="${failed:-}; session_id хука сильнее окружения"
+        [ -n "${quiet:-}" ] || echo "  [FAIL] session_id хука не выбрал S: $(head -1 <<< "$out" | cut -c1-200)" >&2; fail=$((fail + 1))
+    fi
+    probe 1 "близнец: своей сессии нет — самая свежая (N)" "сессия ses-n;" --session-dir "$SD" --ps "$T/ps"
+    CLAUDE_CODE_SESSION_ID=gone probe 1 "близнец: журнала своей сессии в каталоге нет — самая свежая, не VOID" "сессия ses-n;" --session-dir "$SD" --ps "$T/ps"
+}
+journal_cases "$C"
+mutant "журнал своей сессии не выбирается" 'own_j if own_j in cands else ' '' journal_cases
+mutant "окружение сильнее session_id хука" "own_sid = own_sid or os.environ.get('CLAUDE_CODE_SESSION_ID', '')" "own_sid = os.environ.get('CLAUDE_CODE_SESSION_ID', '') or own_sid" journal_cases
+
 echo "== разбор: не-объект, нечитаемый журнал, падение (опыт check-verifier по #1002)"
 s="$(session nonobj)"; a="$s/subagents/workflows/wf_live-1/agent-a1.jsonl"
 rec "$a" 20 tool "make e2e"; echo '[1,2]' >> "$a"; touch -d "@$((NOW - 20 * 60))" "$a"

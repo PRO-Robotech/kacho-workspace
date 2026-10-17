@@ -64,7 +64,8 @@
 #                         главного потока. Без довода — из `transcript_path` JSON
 #                         на stdin (хук), иначе — самая свежая сессия проекта.
 #   --session-dir <кат.>  каталог журналов ПРОЕКТА `~/.claude/projects/<код>/`:
-#                         берётся самая свежая сессия в нём (ws#1010).
+#                         берётся СВОЯ сессия (шапка STALL-PROC), если её
+#                         журнал в нём есть, иначе самая свежая (ws#1010, ws#1134).
 #
 # Проект без `--session`/`--session-dir` ищется по кандидатам ПО ПОРЯДКУ, первый с
 # журналом `*.jsonl` выигрывает: `CLAUDE_PROJECT_DIR`; основная копия воркспейса,
@@ -203,6 +204,15 @@ def tail_lines(path, size):
     return [l for l in lines if l.strip()]
 
 
+# Своя сессия — одна на журналы и STALL-PROC (шапка): самая свежая в каталоге
+# проекта бывает сессией соседнего окна (ws#1134).
+own_sid = ''
+try:
+    own_sid = str((json.loads(stdin_json) if stdin_json else {}).get('session_id') or '')
+except Exception:
+    own_sid = ''
+own_sid = own_sid or os.environ.get('CLAUDE_CODE_SESSION_ID', '')
+
 # ── Каталог сессии ──────────────────────────────────────────────────────
 if not session and stdin_json:
     try:
@@ -231,7 +241,8 @@ if not session:
             break
     if not cands:
         void('журнала сессии проекта нет; опрошено каталогов %d: %s' % (len(tried), ', '.join(tried)))
-    session = max(cands, key=os.path.getmtime)[:-len('.jsonl')]
+    own_j = os.path.join(d, own_sid + '.jsonl') if own_sid else ''
+    session = (own_j if own_j in cands else max(cands, key=os.path.getmtime))[:-len('.jsonl')]
 main = session + '.jsonl'
 if not os.path.isfile(main):
     void('журнал главного потока не читается: ' + main)
@@ -441,13 +452,7 @@ except OSError as e:
     void('снимок процессов не читается: %s' % e)
 if not procs:
     void('снимок процессов пуст: процессы не осмотрены')
-# Своя сессия и свой claude (шапка, STALL-PROC).
-own_sid = ''
-try:
-    own_sid = str((json.loads(stdin_json) if stdin_json else {}).get('session_id') or '')
-except Exception:
-    own_sid = ''
-own_sid = own_sid or os.environ.get('CLAUDE_CODE_SESSION_ID', '')
+# Свой claude (шапка, STALL-PROC); своя сессия own_sid — выше, у каталога сессии.
 own_pid = os.environ.get('CLAUDE_PID', '')
 if own_pid not in procs or procs[own_pid][2] != 'claude':
     own_pid = ''
