@@ -312,22 +312,39 @@ def first_line(msg: str) -> str:
     return (msg.split("\n", 1)[0] if msg else "").rstrip("\r")
 
 
-# Слияние СТВОЛА в ветку — «догон»: `#870 merge main: … (#856)`, `merge origin/main`, git-форма
-# `Merge branch 'main' …`, `Merge remote-tracking branch 'origin/main' …`. Номера такой строки,
-# кроме префикса своей задачи, — номера ствола, а не предмета запроса (ws#1146: kaname 870
-# @9d692d7fe дал `Refs #856`): в задачи и в упомянутые они не идут, в составе пишутся без `#`.
-TRUNK_MERGE_RE = re.compile(r"(?i)\bmerge\s+(?:remote-tracking\s+branch\s+|branch\s+)?['\"]?(?:origin/)?(?:main|master)['\"]?(?![\w/.-])")
+# ДОГОН — слияние базы (ствола либо ветки эпика) в ветку запроса: `#870 merge main: … (#856)`,
+# `Merge branch 'main' …`, `слияние origin/main`, `#3258 merge 3172-…`. Признак — СТРУКТУРА, не
+# текст (ws#1146, приёмка check-verifier на 2975fdd18): коммит-слияние, все сторонние родители
+# которого достижимы из базы, — его ветвь в `lanes()` пуста. Перечень словесных форм не полон
+# по построению (kaname — 49 таких строк, kacho — 22, воркспейс — 7), а обычный коммит со
+# словами «merge main» слиянием не является. Номера строки догона, кроме префикса `#N` своей
+# задачи, — номера базы, а не предмета запроса (kaname 870 @9d692d7fe дал `Refs #856`): в
+# задачи и в упомянутые они не идут, в составе пишутся без `#`.
 PREFIX_RE = re.compile(r"^#[0-9]+(?=\s)")
 
 
-def judged(msg: str) -> tuple[str, str, str]:
+def is_ancestor(a: str, b: str) -> bool:
+    root = os.environ.get("RITUAL_REPO_DIR") or os.getcwd()
+    p = subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", a, b], capture_output=True, text=True)
+    if p.returncode not in (0, 1):
+        raise Unmet("git merge-base --is-ancestor %s %s: %s" % (a[:12], b[:12], p.stderr.strip()[:200]))
+    return p.returncode == 0
+
+
+def catch_up(parents: list[str], base: str) -> bool:
+    """Догон базы: слияние, все сторонние родители которого достижимы из базы."""
+    side = parents[1:]
+    return bool(side) and all(is_ancestor(p, base) for p in side)
+
+
+def judged(msg: str, catchup: bool) -> tuple[str, str, str]:
     """(строка состава, текст номеров задач, текст упоминаний) коммита.
 
-    Обычный коммит — первая строка, первая строка, всё сообщение. Слияние ствола — номера
+    Обычный коммит — первая строка, первая строка, всё сообщение. Догон базы — номера
     берутся лишь из префикса `#N` своей задачи; прочие номера строки — без `#`.
     """
     line = first_line(msg)
-    if not TRUNK_MERGE_RE.search(line):
+    if not catchup:
         return line, line, msg
     m = PREFIX_RE.match(line)
     head = m.group(0) if m else ""
@@ -390,7 +407,8 @@ def pr_body(argv: list[str]) -> int:
         rec = rec.lstrip("\n")
         if rec:
             h, par, msg = rec.split("\x1f", 2)
-            meta[h] = (par.split(), *judged(msg))
+            parents = par.split()
+            meta[h] = (parents, *judged(msg, catch_up(parents, base_sha)))
             order.append(h)
             msgs[h] = msg
     if not meta:
