@@ -15,13 +15,16 @@
     `#99` из заголовка задачи — `№99`; задача своего репозитория, названная в первой строке
     полной формой (`kaname#52`, `PRO-Robotech/kaname#53`), — задача, и пишется полной формой;
     `otherorg/kaname#77` — чужой владелец, не задача (ни строки, ни Closes, ни в упомянутых);
+    слияние ствола (`#50 merge main: догон ствола (#56)`) — задача лишь #50 из префикса, `#56`
+    нет в теле вовсе (в составе — `№56`), 56 не задача и не упомянутая;
   * CLOSES — #41: доказательство DoD ревизией диапазона (близнец: та же задача упомянута
     ведомостью прозой, не формой держателя, — Closes остаётся); #42: доказательство ревизией
     БАЗЫ (предок головы, но не коммит диапазона) — Refs; #44: ревизия, которой нет, — Refs;
     #45: держит запись `newman-suite-debt.py` (`PRO-Robotech/kaname#45 — …`) при годном
     доказательстве — Refs; #46: держит объявление RESULTS.md — Refs; #43 закрыта — Refs (и при
     доказательстве диапазона);
-    #50 без доказательства — Refs; kaname#52 с доказательством диапазона — Closes полной
+    #50 без доказательства — Refs; доказательство #50 на предке головы с тем же деревом (голова —
+    слияние ствола) — Closes, как у merge-readiness и landing-precheck (замер на kaname#876); kaname#52 с доказательством диапазона — Closes полной
     формой, kaname#53 без него — Refs полной формой; закрытой #43 доказательство диапазона Closes не даёт; #51 — запрос, в задачи не идёт;
   * ХВОСТ — закрывающие строки последними, Refs перед ними, хвост сплошной;
   * распознаватель доказательства общий (`dod_proof.jq`): `@main`, `@abc12`, `@develop`,
@@ -101,11 +104,18 @@ def seed(pr):
     pr.git(d, "merge", "-q", "--no-ff", "42-b", "-m", "#50 merge #42: сборка, запрос #51")
     sha["m42"] = pr.git(d, "rev-parse", "HEAD").strip()
     sha["50"] = pr.commit(d, "#50 правка линии головы", rel="h.txt")
+    # Догон ствола, как kaname 870 @9d692d7fe: слияние базы с деревом головы — дерево не
+    # меняется, сторонний родитель в базе, в строке — номер ствола (#56).
+    pr.git(d, "checkout", "-qb", "50-dogon", "50")
+    m = pr.git(d, "commit-tree", "50^{tree}", "-p", "50", "-p", "main",
+               "-m", "#50 merge main: догон ствола (#56) перед PR").strip()
+    pr.git(d, "merge", "-q", "--ff-only", m)
+    sha["dogon"] = m
     return d, sha
 
 
 def world(sha, c41=None, title41=None):
-    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53, 77)}
+    issues = {n: issue(n) for n in (41, 42, 44, 45, 46, 50, 52, 53, 56, 77)}
     issues[43] = issue(43, "closed")
     issues[51] = issue(51, pr=True)
     issues[41]["title"] = title41 or "задача 41 (после #99)"
@@ -128,7 +138,7 @@ def body(pr):
     d, sha = seed(pr)
     extra = {"RITUAL_REPO_DIR": d, "RITUAL_LEDGER_CLONES": os.path.join(pr.tmp, "no-clones")}
     args = [R, "main", "50"]
-    in_range = [s for k, s in sha.items() if k != "base42"]
+    in_range = [s for k, s in sha.items() if k not in ("base42", "dogon")]
 
     rc, out, err, st = pr.run("pr-body", args, pr.state(world(sha)), extra=extra)
     pr.ok("законный вход: код 0", rc == 0, err)
@@ -208,6 +218,22 @@ def body(pr):
     rc, out, err, _ = pr.run("pr-body", args, pr.state(world(sha, c41=many)), extra=extra)
     pr.ok("доказательство 101-м комментарием (вторая страница): Closes #41",
           rc == 0 and "Closes #41" in closes(out) and "issuecomment-101" in out, out + err)
+
+    # Слияние ствола и доказательство на предке с деревом головы (ws#1146, kaname 870).
+    # Судьи засчитывают такое доказательство оба — замер 2026-10-17 на kaname#876 при одном
+    # доказательстве @717cdaaf2: merge-readiness «с доказательством DoD: 1», landing-precheck
+    # «Closes 1, с доказательством 1» (ревизия — коммит диапазона); генератор обязан так же.
+    w = world(sha)
+    w["comments"]["%s#50" % R] = [comment(50, 9, "DoD-proof @%s\nкод 0" % sha["50"][:9])]
+    rc, out, err, _ = pr.run("pr-body", [R, "main", "50-dogon"], pr.state(w), extra=extra)
+    pr.ok("догон ствола: код 0, слияние названо sha", rc == 0 and ("`%s`" % sha["dogon"][:9]) in out, out + err)
+    pr.ok("догон ствола: #56 нет в теле, в составе — №56", "#56" not in out and "(№56)" in out, out)
+    pr.ok("догон ствола: 56 — ни задача, ни упомянутая",
+          "«задача 56»" not in out and not any("56" in x for x in tail_of(out))
+          and "56" not in (re.search(r"Упомянуты вне первых строк[^\n]*", out) or [""])[0], out)
+    pr.ok("догон ствола: своя #50 из префикса — задача", "- #50 «задача 50»" in out, out)
+    pr.ok("доказательство на предке с деревом головы (коммит диапазона) — Closes #50, как у судей",
+          "Closes #50" in closes(out) and ("`DoD-proof @%s`, коммит диапазона" % sha["50"][:9]) in out, out)
 
     # атрибуция
     link = "claude" + ".ai/code"

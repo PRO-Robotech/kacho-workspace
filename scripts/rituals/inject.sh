@@ -75,6 +75,10 @@
 #   M48 pr-body: задача первой строки в полной форме — не задача       → check-01
 #   M49 pr-body: `otherorg/kaname#N` засчитан задачей своего репозитория (прежнее
 #       выражение `issue_refs`, `/` перед именем не отсекался)          → check-01
+#   M50 pr-body: номера из строки слияния ствола берутся задачами        → check-01
+#   M51 pr-body: строка слияния ствола в составе — с `#N` ствола          → check-01
+#   M52 pr-body: доказательство засчитано лишь на голове — предок диапазона
+#       с деревом головы, который судьи засчитывают, дал бы Refs          → check-01
 #
 # Хранилище для check-04 берётся из HEAD настоящего воркспейса (`RITUALS_WS`):
 # копия несёт только код ритуалов и их общие зависимости.
@@ -290,6 +294,15 @@ inject "M48 pr-body: полная форма — не задача" check-01-pr-
 inject "M49 pr-body: чужой владелец засчитан своим" check-01-pr-body.py \
     'r"(?<![\w./-])(?:%s/)?%s#(\d+)\b"' \
     'r"(?<![\w.-])(?:%s/)?%s#(\d+)\b"'
+inject "M50 pr-body: номера слияния ствола — задачи" check-01-pr-body.py \
+    '    if not TRUNK_MERGE_RE.search(line):' \
+    '    if True:'
+inject "M51 pr-body: строка слияния ствола с #N" check-01-pr-body.py \
+    '    return head + no_hash(line[len(head):]), head, head' \
+    '    return line, head, head'
+inject "M52 pr-body: доказательство лишь на голове" check-01-pr-body.py \
+    ' for u, r in proofs if any(s.startswith(r) for s in range_shas)]' \
+    ' for u, r in proofs if head_sha.startswith(r)]'
 for c in check-01-pr-body.py check-02-close-wave.py; do
     inject "M26–M27 dod_proof.jq: ревизия из [0-9a-z] ($c)" "$c" \
         '[0-9a-f]{7,40}' '[0-9a-z]{7,40}' ../lib/dod_proof.jq
