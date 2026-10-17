@@ -16,7 +16,7 @@
 # СВОЙСТВА (сценарий на каждое; близнец — соседний сценарий той же формы):
 #   meta — чистый литерал; в теле нет Date.now/Math.random/new Date();
 #   R0 — ни одного рецензента; механика — модель НЕ задана, усилие — лишь у
-#   шагов, чей ответ шаблон не читает (счётчик ошибок, правка тела PR);
+#   шагов, чей ответ шаблон не читает (счётчик ошибок);
 #   ОБЛАСТЬ (ws#1016): модель, усилие и место отчётов судятся на ОБЪЕДИНЕНИИ
 #   вызовов всех сценариев пробы, а покрытие — по классам шагов, выведенным из
 #   тела шаблона (`label: '…'`, литералы 'mech:…'): класс, не достигнутый ни
@@ -42,7 +42,11 @@
 #   «уже сделано» исполнителя — не провал;
 #   шаг уровня, шаблону неизвестный, — остановка на плане, а не пропуск;
 #   corelib разный — полоса перепина первой и повтор плана;
-#   причины тела PR — правка тела механиком и повтор landing-precheck;
+#   вливание — демоном autoland (ws#1147, ws#1152): тело PR — вывод pr-body.sh и на
+#   сборке, и перед стартом; start, затем ОДИН шаг status; 3 — state running с путём
+#   .state, попытка (args.rerun) — в задании status; красный и прочие исходы —
+#   итог с первой строкой .state дословно, каскада нет; после перевода в ready
+#   шаблон CI не читает; правки тела агентом нет;
 #   вердикт роли не на сведённой голове полосы — остановка, sha не подменяется;
 #   одна роль вернула, другая приняла прежнюю голову — повтор только
 #   вернувшей (§8а п.8), sha принявшей не переписан, полоса стоит до сборки:
@@ -60,7 +64,7 @@
 #   состояние из кода (0 green · 1 red · 2 unread · 3 running · 4 stale), иной код —
 #   unread; перед вливанием — чтение на голове посадки, вливание только при коде 0
 #   на ней; код 4 — стадия «база устарела», вливания нет;
-#   CI «идёт» и после ожидания, landing-precheck только с CI-PENDING — state
+#   CI «идёт» и после ожидания, демон вливания «идёт» (status 3) — state
 #   running, а не провал; близнецы — красный CI и CI-PENDING с другой причиной —
 #   state failed;
 #   полоса с deps (ws#938) — сводка голов deps зовётся после того, как dep
@@ -110,7 +114,7 @@
 #   нет; пробная сборка — сразу после предпроверки полосы, красная — полоса в
 #   остаток (близнец — код 2 не красное); смена контракта — имитация клиента ДО
 #   кода; метрики — последним шагом на любом исходе; каскад щадит держателя ведомости.
-#   перепись гейтов (ws#1071): один шаг до первого landing-precheck, все шесть гейтов,
+#   перепись гейтов (ws#1071): один шаг до старта демона вливания, все шесть гейтов,
 #   ничего не чинит, итог несёт таблицу; текстовый шаг без «### ВОЗВРАТ» — один повтор
 #   дочитыванием, снова без — полоса стоит, фраза ожидания в задания не уходит.
 #   уроки ws#1078: диапазон коммитов рецензента волны исполняется на настоящем репозитории
@@ -119,14 +123,21 @@
 #   Чего НЕ держит (вне ws#946): хвостовой дефис имени ветки-номера; форму
 #   слияния для веток зависимостей вида `<M>-<суть>` в репозиториях, чей хук её
 #   не принимает; не-номерные ветки kaname, уже лежащие на origin.
+#   Узнаватель указаний демона (E1–E8) НЕ ВИДИТ безличных и описательных форм — указание без
+#   глагола класса в повелительной или неопределённой форме: «Пусть ci-read.sh сперва вернёт
+#   код 0», «Перед стартом ожидается код 0 от ci-read.sh» (приёмка check-verifier ws#1152).
+#   Обратная сторона правила отрицания — ложное красное: наречие повтора при отрицаемом глаголе
+#   («повторно его не запускай») читается как указание повтора; законная форма — «не запускай
+#   второй раз»; запрет через слова («закрыть задачи до merged нельзя») — тоже указание,
+#   законная форма — вплотную («нельзя закрыть задачи до merged»).
 #
 # ИНЪЕКЦИИ — без довода проба после контроля прогоняет МУТАНТОВ шаблона (по
 # одной правке, у каждой — своё свойство) и требует, чтобы каждый покраснел.
 #
 # usage: wave-template-inject.sh [<шаблон.js>]   (с доводом — только контроль)
 #        wave-template-inject.sh --landing-command <WS> <файл> [<шаблон.js>]
-#   — исполняет шаблон сценарием R0 с ws=<WS> и пишет в <файл> команду посадки
-#   (рецепт «ЗАПУСК»), которую шаблон отдал механику, как она есть. Её исполняет
+#   — исполняет шаблон сценарием R0 с ws=<WS> и пишет в <файл> команду landing-precheck
+#   (рецепт «ЗАПУСК») из задания переписи гейтов, как она есть (вливает демон, ws#1152). Её исполняет
 #   landing-precheck-inject.sh, раздел «запуск»: свойства самой команды
 #   (вырезает рецепт из origin/main, код наружу как есть) держит он.
 # Коды: 0 — все утверждения сошлись (и все мутанты красные); 1 — нет;
@@ -232,12 +243,12 @@ async function run(sc) {
     // Стенд (ws#1110): та же честность паузы, что у CI; сценарий перекрывает код.
     if (label.startsWith('mech:stand:')) return { out: '', reasons: [], head: HW, slept: +((prompt.split('\n\n').slice(1).join(' ').match(/`[^`]*\bsleep (\d+)/) || [])[1] || 0), ...take('stand', () => ({ code: 0 })) }
     if (label.startsWith('mech:ci:')) return { out: '', reasons: [], head: HW, slept: +((prompt.split('\n\n').slice(1).join(' ').match(/`[^`]*\bsleep (\d+)/) || [])[1] || 0), ...take('ci', () => ({ code: 0 })) }
-    // ci-read.sh печатает голову PR, какую застал: это голова из задания (голова посадки)
-    if (label.startsWith('mech:ci-land')) return { out: '', reasons: [], head: (prompt.match(/голова ([0-9a-f]{40})/) || [])[1] || HW, ...take('ciland', () => ({ code: 0 })) }
-    if (label.startsWith('mech:landing:')) return { out: '', head: HW, ...take('land', () => ({ code: 0, reasons: [] })) }
-    if (label.startsWith('mech:delta')) return { out: '', reasons: [], head: '', ...take('delta', () => ({ code: 0 })) }
+    // Демон вливания (ws#1147, ws#1152): start печатает pid, журнал, state; status — первая строка
+    // .state; сценарий перекрывает исход (al) и старт (alstart).
+    if (label === 'mech:autoland:status') return { code: 0, out: 'merged ' + 'e'.repeat(40) + '; снятие: ветка снята', reasons: [], head: 'e'.repeat(40), ...take('al', () => ({})) }
+    if (label === 'mech:autoland') return { code: 0, out: 'pid\t1\nжурнал\t/ws/tmp/autoland/x.log\nstate\t/ws/tmp/autoland/x.state', reasons: [], head: HW, ...take('alstart', () => ({})) }
     if (label.startsWith('mech:trial:')) return { out: '', head: '', reasons: [], ...take('trial:' + lane, () => ({ code: 0 })) }
-    if (label.startsWith('mech:merge')) return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40), ...take('merge', () => ({})) }
+    if (label === 'mech:cascade') return { code: 0, out: 'MERGED; доля 0.0 %', reasons: [], head: 'e'.repeat(40), ...take('merge', () => ({})) }
     if (label === 'mech:ci-epic') return { out: '', reasons: [], head: '', ...take('ciepic', () => ({ code: 3 })) }
     if (label.startsWith('mech:')) return { code: 0, out: '', reasons: [], head: '' }
     // Текстовый шаг (без схемы): ответ несёт блок ВОЗВРАТ; сценарий перекрывает ответы по префиксу метки (ws#1071).
@@ -261,16 +272,16 @@ const inRest = (res, k) => (res.remainder || []).some(x => x.key === k)
 const idx = (calls, label) => calls.findIndex(c => c.label === label)
 const prm = (calls, label) => (calls.find(c => c.label === label) || {}).prompt || ''
 const by = (calls, f) => calls.filter(f).length
-// Ответ не читается шаблоном только у счётчика ошибок и правки тела PR — им усилие low;
+// Ответ не читается шаблоном только у счётчика ошибок — ему усилие low;
 // прочей механике (решение ветвится по её ответу) ни модели, ни усилия (ws#1016).
-const LOW_OK = l => l.startsWith('mech:err:') || l === 'mech:pr-edit'
+const LOW_OK = l => l.startsWith('mech:err:')
 const mechOk = calls => calls.filter(c => c.label.startsWith('mech:')).every(c => c.model === undefined && (LOW_OK(c.label) ? c.effort === 'low' : c.effort === undefined))
 
 if (landWs) {
-  // Режим --landing-command: команда посадки, отрисованная шаблоном, как есть.
+  // Режим --landing-command: команда landing-precheck переписи гейтов, отрисованная шаблоном, как есть.
   const lr = await run({ args: { ...args, ws: landWs }, plan: [P('r0.json')] })
-  const lm = prm(lr.calls, 'mech:landing:1').match(/Выполни рецепт «ЗАПУСК»[^`]*`([^`]+)`/)
-  if (!lm) { console.error('wave-template-inject: VOID — в задании mech:landing:1 нет команды рецепта «ЗАПУСК» в обратных кавычках'); process.exit(2) }
+  const lm = prm(lr.calls, 'mech:gates').match(/Выполни рецепт «ЗАПУСК»[^`]*`([^`]+)`/)
+  if (!lm) { console.error('wave-template-inject: VOID — в задании mech:gates нет команды рецепта «ЗАПУСК» в обратных кавычках'); process.exit(2) }
   fs.writeFileSync(landOut, lm[1] + '\n')
   process.exit(0)
 }
@@ -280,7 +291,7 @@ ok(r.res.ok === true, 'волна R0 влита', JSON.stringify(r.res).slice(0,
 ok(by(r.calls, c => REVIEWERS.includes(c.agentType)) === 0, 'ни одного рецензента и приёмщика')
 ok(by(r.calls, c => c.label.startsWith('mech:precheck:')) === 2, 'lane-precheck — по полосе')
 ok(mechOk(r.calls) && by(r.calls, c => c.label.startsWith('mech:')) > 0, 'механика — модель не задана; усилие не задано у шагов, чей ответ читает решение')
-ok(!/--reviews/.test((r.calls.find(c => c.label.startsWith('mech:landing:')) || {}).prompt || 'x'), 'без рецензентов landing-precheck зовётся без --reviews')
+ok(prm(r.calls, 'mech:autoland') !== '' && prm(r.calls, 'mech:gates') !== '' && !/--reviews/.test(prm(r.calls, 'mech:autoland') + prm(r.calls, 'mech:gates')), 'без рецензентов демон вливания и перепись гейтов — без --reviews')
 
 console.log('== R1: один рецензент на собранную волну')
 r = await run({ args: argsDep, plan: [P('r1.json')] })
@@ -289,7 +300,7 @@ ok(by(r.calls, c => c.agentType === 'wave-reviewer') === 1, 'wave-reviewer ро�
 ok(by(r.calls, c => REVIEWERS.includes(c.agentType) && c.agentType !== 'wave-reviewer') === 0, 'ролей полосы и landing-reviewer нет')
 const iA = r.calls.findIndex(c => c.label === 'impl:A'), iB = r.calls.findIndex(c => c.label === 'impl:B'), pA = r.calls.findIndex(c => c.label === 'mech:precheck:A')
 ok(iA >= 0 && iB > pA, 'B (зависит от A) начат после предпроверки A — слои плана')
-ok(/--reviews/.test((r.calls.find(c => c.label.startsWith('mech:landing:')) || {}).prompt || ''), 'вердикт волны передан landing-precheck')
+ok(/ start --repo \S+ --pr 7 --head [0-9a-f]{40} --subject "[^"]+" --reviews \/ws\/tmp\/wave-9\/reviews\.json /.test(prm(r.calls, 'mech:autoland')), 'вердикт волны передан демону вливания (его landing-precheck)', prm(r.calls, 'mech:autoland').slice(-500))
 
 console.log('== R2: полный набор')
 r = await run({ args: { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }, plan: [P('r2.json')] })
@@ -327,7 +338,7 @@ ok(prm(r.calls, 'mech:stack:B').includes('9-stack-b') && /--no-ff/.test(prm(r.ca
 ok(prm(r.calls, 'impl:B').includes('@' + hS) && !/ветка 9-b от main/.test(prm(r.calls, 'impl:B')), 'исполнитель B заводит ветку от головы сводки, а не от базы волны', prm(r.calls, 'impl:B').slice(-500))
 ok(prm(r.calls, 'mech:precheck:B').includes(' b-B ' + hS + ' '), 'предпроверка B судит голову сводки как базу (BASE-NOT-ANCESTOR)', prm(r.calls, 'mech:precheck:B'))
 ok(/ветка 9-a от main/.test(prm(r.calls, 'impl:A')) && prm(r.calls, 'mech:precheck:A').includes(' b-A main '), 'близнец: полоса без deps — от базы волны, сводки нет')
-ok(prm(r.calls, 'mech:merge').includes('9-stack-b'), 'временная сводка снимается шагом вливания')
+ok(prm(r.calls, 'mech:cascade').includes('9-stack-b'), 'временная сводка снимается шагом каскада после вливания')
 r = await run({ args: argsDepC, plan: [P('r1c.json')] })
 ok(r.res.ok === true && idx(r.calls, 'impl:C') >= 0 && idx(r.calls, 'impl:C') < idx(r.calls, 'mech:precheck:A'), 'независимая C стартует сразу, не дожидаясь A', JSON.stringify(r.res).slice(0, 200))
 // A дольше C (доводка предпроверки): D (от C) обязана начаться, не дожидаясь A —
@@ -406,12 +417,12 @@ ok(knStack.length === 1 && /merge-base --is-ancestor/.test(knStack[0].prompt) &&
 ok(knStack.length === 1 && knStack[0].prompt.includes('#684 merge #683: ') && knStack[0].prompt.includes('#684 merge #296: '), 'kaname: слияния в ветке полосы — по форме хука «#<N> merge #<M>: …»', knStack.length ? knStack[0].prompt.slice(0, 600) : '')
 ok(idx(r.calls, 'impl:B') > idx(r.calls, 'mech:stack:B') && prm(r.calls, 'impl:B').includes('684@' + H('SB', 0)) && prm(r.calls, 'mech:precheck:B').includes(' ' + H('SB', 0) + ' '), 'kaname: исполнитель B продолжает 684 от головы сводки, предпроверка судит её как базу')
 ok(/уже в твоей ветке на origin — продолжай её от этой головы/.test(prm(r.calls, 'impl:B')) && !/влей сводку/.test(prm(r.calls, 'impl:B')), 'kaname: исполнителю B — «продолжай свою ветку», а не «влей сводку»', prm(r.calls, 'impl:B').slice(0, 400))
-ok(!(r.res.stacks || []).length && !/временные сводки/.test(prm(r.calls, 'mech:merge')), 'kaname: ветка полосы не числится временной сводкой и вливанием не снимается', JSON.stringify(r.res.stacks))
+ok(!(r.res.stacks || []).length && !/временные сводки/.test(prm(r.calls, 'mech:cascade')), 'kaname: ветка полосы не числится временной сводкой и вливанием не снимается', JSON.stringify(r.res.stacks))
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kaname', base: '296', epic: '296', lanes: knLanes }, plan: [P('kn.json')], 'stack:B': [{ status: 'done', head: H('SB', 0), branch: '9-stack-b' }] })
 ok(r.res.ok === true && prm(r.calls, 'impl:B').includes('684@' + H('SB', 0)) && !r.calls.some(c => c.label !== 'mech:stack:B' && /9-stack-b/.test(c.prompt)), 'kaname: механик вернул чужое имя ветки — исполнитель всё равно в 684, чужое имя дальше не идёт', JSON.stringify(r.calls.filter(c => /9-stack-b/.test(c.prompt)).map(c => c.label)))
 const kcLanes = [{ key: 'A', repo: 'kacho', agent: 'go-implementer', branch: '3101-a', text: 't' }, { key: 'B', repo: 'kacho', agent: 'go-implementer', branch: '3101-b', text: 't', deps: ['A'] }]
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')] })
-ok(r.res.ok === true && branchOf(r.calls.find(c => c.label === 'mech:stack:B') || { prompt: '' }) === '9-stack-b' && (r.res.stacks || []).join() === '9-stack-b' && prm(r.calls, 'mech:merge').includes('9-stack-b'), 'близнец kacho: сводка — прежняя ветка 9-stack-b, снимается вливанием', JSON.stringify(r.res.stacks))
+ok(r.res.ok === true && branchOf(r.calls.find(c => c.label === 'mech:stack:B') || { prompt: '' }) === '9-stack-b' && (r.res.stacks || []).join() === '9-stack-b' && prm(r.calls, 'mech:cascade').includes('9-stack-b'), 'близнец kacho: сводка — прежняя ветка 9-stack-b, снимается вливанием', JSON.stringify(r.res.stacks))
 ok(/ветка уже есть на origin — влей сводку в неё коммитом слияния/.test(prm(r.calls, 'impl:B')) && !/уже в твоей ветке/.test(prm(r.calls, 'impl:B')), 'близнец kacho: исполнителю B — «влей сводку», а не «сводка уже в твоей ветке»', prm(r.calls, 'impl:B').slice(0, 400))
 ok(!/это ветка самой полосы/.test(prm(r.calls, 'mech:stack:B')) && !/#3101-b merge/.test(prm(r.calls, 'mech:stack:B')), 'близнец kacho: механику сводки нет подсказки «ветка самой полосы» и формы «#3101-b merge …»', prm(r.calls, 'mech:stack:B').slice(0, 600))
 r = await run({ args: { ...args, repo: 'PRO-Robotech/kacho', lanes: kcLanes }, plan: [P('kc.json')], 'stack:B': [{ status: 'done', head: H('SB', 0), branch: '9-stack-b-m' }] })
@@ -433,11 +444,14 @@ r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 3 }, { cod
 ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 3, 'CI идёт дважды — ждать, затем зелёное')
 // ws#1013: черновик — целевой зелёный (код 5) переводит PR в ready ОДИН раз и ждёт полного
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }, { code: 3 }, { code: 0 }] })
-ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && /gh pr ready 7/.test(prm(r.calls, 'mech:ready')), 'черновик: целевой зелёный — перевод в ready один раз, затем полный зелёный', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && /gh pr ready 7/.test(prm(r.calls, 'mech:ready')) && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1 && idx(r.calls, 'mech:autoland') > idx(r.calls, 'mech:ready'), 'черновик: целевой зелёный — перевод в ready один раз; полный прогон шаблон не читает — его ждёт демон вливания (ws#1152)', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }, { code: 5 }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:ready') === 1 && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'целевой зелёный и после перевода в ready — не вливание и не второй перевод', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:ready') === 1 && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1, 'после перевода в ready — ни второго чтения, ни второго перевода', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')] })
-ok(/gh pr create --draft/.test(prm(r.calls, 'mech:assemble:1')) && /affected\.py --base origin\/\S+ --run/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, выбор затронутого до каждой отправки')
+ok(/открой ЧЕРНОВИКОМ \(`gh pr create --draft`\)/.test(prm(r.calls, 'mech:assemble:1')) && /affected\.py --base origin\/\S+ --run/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: PR черновиком, выбор затронутого до каждой отправки')
+ok(/`RITUAL_REPO_DIR=\/ws\/tmp\/wave-9\/assemble bash \/ws\/scripts\/pr-body\.sh PRO-Robotech\/kacho-workspace origin\/main HEAD > \/ws\/tmp\/wave-9\/reports\/pr-body-1\.md`/.test(prm(r.calls, 'mech:assemble:1')) && /gh pr create --draft --body-file/.test(prm(r.calls, 'mech:assemble:1')) && /руками не пишется/.test(prm(r.calls, 'mech:assemble:1')), 'сборка: тело PR — только вывод pr-body.sh (ws#1146), руками не пишется', prm(r.calls, 'mech:assemble:1').slice(-600))
+const alS = prm(r.calls, 'mech:autoland')
+ok(/`RITUAL_REPO_DIR=\/ws\/tmp\/wave-9\/assemble bash \/ws\/scripts\/pr-body\.sh PRO-Robotech\/kacho-workspace origin\/main f{40} > \/ws\/tmp\/wave-9\/reports\/pr-body-land\.md && gh pr edit 7 -R PRO-Robotech\/kacho-workspace --body-file /.test(alS) && alS.indexOf('pr-body.sh') < alS.indexOf(' start --repo'), 'посадка: тело PR заново генератором до старта демона', alS.slice(-700))
 ok(by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'ожидание CI ошибкой не записано')
 r = await run({ args, plan: [P('r0.json')], 'impl:A': [{ status: 'already-done', head: H('A', 9) }] })
 ok(r.res.ok === true, '«уже сделано» исполнителя — полоса идёт дальше')
@@ -460,16 +474,116 @@ const p2 = (r.calls.filter(c => c.label.startsWith('mech:plan:'))[1] || {}).prom
 ok(/"key":"repin-kaname"/.test(p2) && /"deps":\["repin-kaname"\]/.test(p2), 'corelib разный — полоса перепина первой, остальные от неё, план повторён')
 ok(r.calls.findIndex(c => c.label === 'impl:repin-kaname') < r.calls.findIndex(c => c.label === 'impl:A'), 'перепин исполнен раньше полос репозитория')
 
-console.log('== посадка — по коду landing-precheck')
-r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['BODY-MISSING-COMMIT'] }, { code: 0, reasons: [] }] })
-ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:pr-edit') === 1, 'причина тела — правка механиком и повтор')
-r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['MERGE-READINESS'] }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'merge-readiness не 0 — вливания нет')
+console.log('== посадка — демоном вливания (ws#1147, ws#1152): start, один status, исход дословно')
+r = await run({ args, plan: [P('r0.json')] })
+const alSt = prm(r.calls, 'mech:autoland:status')
+ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:autoland') === 1 && by(r.calls, c => c.label === 'mech:autoland:status') === 1 && idx(r.calls, 'mech:autoland:status') > idx(r.calls, 'mech:autoland') && idx(r.calls, 'mech:cascade') > idx(r.calls, 'mech:autoland:status') && r.res.merge === 'e'.repeat(40), 'влито демоном: start, ОДИН status, затем каскад; коммит слияния — из строки merged', JSON.stringify(r.res).slice(0, 200))
+ok(/`bash \/ws\/scripts\/autoland\/autoland\.sh status \/ws\/tmp\/autoland\/PRO-Robotech__kacho-workspace__7__f{12}\.state`/.test(alSt), 'status — одной командой по .state этой головы', alSt.slice(-400))
+ok(!r.calls.some(c => /^mech:(landing|ci-land|delta|merge|pr-edit)/.test(c.label)), 'гейтов ради вливания, чтения CI на голове посадки и правки тела агентом нет')
+const BODY_RED = 'red landing-precheck код 1: REASON\tBODY-MISSING-COMMIT\tкоммит ab12 не назван в теле'
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: BODY_RED, reasons: ['BODY-MISSING-COMMIT'] }] })
+ok(r.res.ok === false && r.res.state === 'failed' && (r.res.stage || '').includes(BODY_RED) && by(r.calls, c => c.label === 'mech:cascade') === 0 && by(r.calls, c => c.label === 'mech:autoland') === 1 && r.res.redRound === undefined, 'красный исход демона — диспетчеру дословно; ни правки тела, ни повторного старта, ни каскада', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: 'red merge-readiness код 1: REASON\tMERGE-READINESS\tконтекст красный', reasons: ['MERGE-READINESS'] }] })
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland[^:]*: red merge-readiness код 1: REASON\tMERGE-READINESS/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'merge-readiness не 0 (демон: red) — вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 3, out: 'running ci-read' }] })
+ok(r.res.ok === false && r.res.state === 'running' && r.res.autoland === '/ws/tmp/autoland/PRO-Robotech__kacho-workspace__7__' + 'f'.repeat(12) + '.state' && by(r.calls, c => c.label === 'mech:cascade') === 0 && by(r.calls, c => c.label === 'mech:autoland:status') === 1, 'демон идёт (status 3) — state running с путём .state, второго status и каскада нет', JSON.stringify(r.res).slice(0, 300))
+r = await run({ args, plan: [P('r0.json')], alstart: [{ code: 2, out: 'autoland: ОТКАЗ — --head не sha40' }] })
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland start: демон не запущен \(код 2\): autoland: ОТКАЗ/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:autoland:status') === 0, 'start не 0 и не 3 — статуса и вливания нет, отказ дословно', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], alstart: [{ code: 3, out: 'autoland: ОТКАЗ — PR уже ведёт другой демон' }] })
+ok(r.res.ok === true && by(r.calls, c => c.label === 'mech:autoland:status') === 1, 'близнец: start 3 (PR уже ведёт демон) — исход читается тем же status', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 0, out: 'running ci-read' }] })
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:cascade') === 0 && /merged без sha/.test(r.res.stage || ''), 'код 0 без строки merged <sha> — не влито, каскада нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 4, out: 'stale-base REASON\tBASE-STALE\tбаза ушла', reasons: ['BASE-STALE'] }] })
+ok(r.res.ok === false && r.res.state === 'failed' && /база устарела/.test(r.res.stage || '') && r.res.redRound === undefined, 'stale-base (status 4) — база устарела, не красное', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 5, out: 'head-moved ' + 'f'.repeat(40) + ' ' + 'd'.repeat(40) }] })
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland[^:]*: head-moved f{40} d{40}$/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'head-moved (status 5) — вливания нет, обе головы дословно', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 2, out: 'void ci-read код 2 3 раз подряд: REASON\tRATE-LIMIT\tсброс в 14:05', reasons: ['RATE-LIMIT'] }] })
+ok(r.res.ok === false && r.res.state === 'not-run' && /сброс в 14:05/.test(r.res.stage || ''), 'void (status 2) — not-run, не красное; причина дословно', JSON.stringify(r.res).slice(0, 200))
+
+console.log('== демон вливания: кэш возобновления, запреты заданий (приёмка check-verifier ws#1152)')
+{
+  // Своё задание шага — текст после общей преамбулы C (её префикс один у всех шагов), в какой бы
+  // форме шаг ни был к ней приклеен.
+  const PRE = (await run({ args, plan: [P('r0.json')] })).calls[0].prompt.split('\n\n')[0]
+  const own = c => c.prompt.startsWith(PRE) ? c.prompt.slice(PRE.length) : c.prompt
+  // Узнаватель от КЛАССА, а не от перечня строк (testing.md#recognizer-built-from-class-not-form-list):
+  // указание — вхождение глагола класса в предложении задания, не снятое отрицанием. Отрицание
+  // засчитывается ровно в двух случаях: (а) частица «не»/«ни» ВПЛОТНУЮ перед глаголом, без слов
+  // между; (б) закрытый перечень «не нужно · не надо · не следует · нельзя · запрещено» ВПЛОТНУЮ
+  // к неопределённой форме — сразу перед ней («нельзя ждать») либо сразу после («ждать нельзя»):
+  // чужой запрет через слова («дождаться …, без этого нельзя») указание не гасит. Прочее —
+  // указание: «не забудь X», «не упусти X» — указание X. Предложения — по [.;!?] и «, а|но|затем».
+  const LET = '[а-яёa-z0-9_]'
+  const word = alts => new RegExp('(?<!' + LET + ')(?:' + alts + ')(?!' + LET + ')', 'gi')
+  const NEG_LIST = new RegExp('(?<!' + LET + ')(?:не нужно|не надо|не следует|нельзя|запрещено)(?!' + LET + ')', 'gi')
+  const clausesOf = t => t.split(/[.;!?](?=\s|$)|,\s+(?=(?:а|но|затем|потом)\s)/)
+  const live = (cl, re) => {
+    const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'); let m
+    while ((m = g.exec(cl))) {
+      const s0 = m.index, e0 = m.index + m[0].length
+      if (/(?:^|[^а-яёa-z0-9_])(?:не|ни)\s+[`«"(]*$/i.test(cl.slice(0, s0))) continue   // (а)
+      if (/(?:ться|тись|ть|чься|чь|сти)$/i.test(m[0])) {                              // (б)
+        const near = [...cl.matchAll(NEG_LIST)].some(n => /^\s+$/.test(cl.slice(n.index + n[0].length, s0)) || /^\s+$/.test(cl.slice(e0, n.index)))
+        if (near) continue
+      }
+      return true
+    }
+    return false
+  }
+  // directs — в тексте есть живое указание глагола класса (и, если задан, его предмета в том же предложении).
+  const directs = (t, verbs, obj) => clausesOf(t).some(cl => (!obj || obj.test(cl)) && live(cl, verbs))
+  const START_CMD = /autoland(?:\.sh)?\s+start(?![a-z])/i
+  const START_VERB = word('запусти|запустите|запустить|перезапусти|перезапустить|стартуй|подними|поднять|вызови|вызвать|выполни|выполнить|повтори|повторить')
+  const isStart = c => directs(own(c), START_CMD) || directs(own(c), START_VERB, /демон|autoland|старт|start/i)
+  const WAIT = word('жди|ждите|дождись|дождитесь|дожидайся|дожидаться|дождаться|ждать|подожди|подождать|ожидай|ожидать|выжди|выждать|sleep\\s+\\d|--watch|gh run watch|gh pr checks|пока\\s+(?:\\S+\\s+){0,4}?не|до\\s+(?:кода|исхода|завершени\\S*|зелён\\S*|конца)')
+  const READ = word('читай|прочти|прочитай|перечитай|читать|прочесть|прочитать|зови|вызови|позови|вызвать|звать|запусти|запустить|выполни|выполнить|гони|прогони|прогнать|повтори|повторить|проверь|проверить|посмотри|сверь|опроси|опрашивай')
+  const CI_OBJ = /ci-read|(?<![A-Za-z-])CI(?![A-Za-z-])|конвейер|check-runs|вердикт/
+  const CLOSE = word('закрой|закройте|закрывай|закрывайте|закрыть|закрывать|gh issue close')
+  const TASK_OBJ = /задач|issue|(?<![A-Za-z0-9])#\d|волн/i
+  const BODY = word('напиши|напишите|пиши|писать|написать|составь|составить|сочини|дополни|дополнить|допиши|дописать|поправь|поправить|исправь|исправить|отредактируй|редактируй|правь|впиши|вписать|собери|собрать|сформируй|оформи|сделай')
+  const BODY_OBJ = /(?<![а-яё])тел(о|а|у|ом|е)(?![а-яё])/i
+  const REPEAT = word('повтори|повторяй|повторить|повторять|повторно|ещё раз|еще раз|снова|опять|дважды|трижды|многократно|несколько раз|\\d+\\s*раза?|кажды[ейм]|каждую|через\\s+(?:\\d+\\s*)?(?:минут\\S*|мин|секунд\\S*|сек|с|час\\S*)')
+  // E1. Workflow отдаёт шаг из кэша по тексту задания. Start — ЛЮБОЕ задание, велящее исполнить
+  // старт демона, какая бы ни была метка: за проходы rerun 0 и 1 — ровно одно различное задание
+  // start и по одному на проход; status — новое на каждый проход.
+  // Проходы — по пути черновика (ci 5 → ready): старт обязан быть один и среди заданий ready.
+  const p0 = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }], al: [{ code: 3, out: 'running ci-read' }] })
+  const p1 = await run({ args: { ...args, rerun: 1 }, plan: [P('r0.json')], ci: [{ code: 5 }] })
+  const both = [...p0.calls, ...p1.calls]
+  const sts = both.filter(isStart), stDist = new Set(sts.map(c => c.prompt)).size
+  const stat = l => new Set(both.filter(c => c.label === l).map(c => c.prompt)).size
+  ok(stDist === 1 && p0.calls.filter(isStart).length === 1 && p1.calls.filter(isStart).length === 1 && stat('mech:autoland:status') === 2 && by(p1.calls, c => c.label === 'mech:autoland:status') === 1, 'E1 возобновление: задание старта демона (по команде, не по метке) — одно на оба прохода и одно на проход, status — новое на каждый проход', JSON.stringify({ start: stDist, labels: sts.map(c => c.label), status: stat('mech:autoland:status') }))
+  // E3. До каскада ни одно задание не велит закрыть задачи; велит лишь каскад.
+  const q = await run({ args, plan: [P('r0.json')] })
+  const iC = idx(q.calls, 'mech:cascade')
+  const early = q.calls.filter((c, i) => i < iC && directs(own(c), CLOSE, TASK_OBJ)).map(c => c.label)
+  ok(iC > 0 && early.length === 0 && directs(own(q.calls[iC]), CLOSE, TASK_OBJ), 'E3 до каскада ни одно задание не велит закрыть задачи; велит лишь каскад', early.join(','))
+  // E4. Сбой генератора тела — остановка (сборка и старт); ни одно задание не велит писать тело самому.
+  const asmO = own(q.calls.find(c => c.label === 'mech:assemble:1') || { prompt: '' }), alO = own(q.calls.find(isStart) || { prompt: '' })
+  const hand = q.calls.filter(c => directs(own(c), BODY, BODY_OBJ)).map(c => c.label)
+  ok(/\(код не 0 — (?=[^)]*status failed)(?=[^)]*PR не трогать)[^)]*\)/.test(asmO) && /\(код не 0 — (?=[^)]*code 2)(?=[^)]*демон не запускать)[^)]*\)/.test(alO) && hand.length === 0, 'E4 сбой генератора тела — остановка (сборка: status failed; старт: code 2); тело руками не велит ни одно задание', hand.join(',') || alO.slice(0, 300))
+  // E5. После ready ни одно задание не ждёт CI и не читает его повторно. Законно ровно одно —
+  // однократное чтение ci-read.sh в переписи гейтов без ожидания: изымается этот факт, а не шаг.
+  const qr = await run({ args, plan: [P('r0.json')], ci: [{ code: 5 }] })
+  const iR = idx(qr.calls, 'mech:ready'), iRC = idx(qr.calls, 'mech:cascade')
+  const ALLOWED = /ci-read\.sh \([^)]*без ожидания[^)]*\)/
+  const gt = own(qr.calls.find(c => c.label === 'mech:gates') || { prompt: '' })
+  // Во фрагменте разрешено ровно одно чтение без ожидания: ни «ждать», ни «читать» (предмет — сам
+  // фрагмент), ни повтора («перечитай», «трижды», «повторно»).
+  const frag = (gt.match(ALLOWED) || [''])[0]
+  const allowedOnce = (gt.match(/ci-read/g) || []).length === 1 && frag !== '' && !directs(frag, WAIT) && !directs(frag, READ) && !directs(frag, REPEAT)
+  const bad = qr.calls.filter((c, i) => i >= iR && i < iRC).filter(c => { const t = c.label === 'mech:gates' ? own(c).replace(ALLOWED, '') : own(c); return directs(t, WAIT) || directs(t, READ, CI_OBJ) }).map(c => c.label)
+  ok(iR > 0 && iRC > iR && allowedOnce && bad.length === 0, 'E5 после ready ни одно задание не ждёт CI и не читает его повторно; законно лишь однократное чтение ci-read.sh в переписи без ожидания', JSON.stringify({ bad, allowedOnce }))
+  // E6, E8. status — первая строка .state ДОСЛОВНО; ни повтора, ни ожидания.
+  const st = own(q.calls.find(c => c.label === 'mech:autoland:status') || { prompt: '' })
+  ok(/out \(первая строка \.state[^)]*ДОСЛОВНО/.test(st), 'E6 status требует первую строку .state ДОСЛОВНО', st.slice(0, 400))
+  ok(st !== '' && !directs(st, WAIT) && !directs(st, REPEAT), 'E8 задание status не велит ни повторять, ни ждать', st.slice(0, 400))
+}
 
 console.log('== номер PR — целое ≥ 1, иначе остановка с причиной (ws#935)')
 for (const [name, v] of [['нет поля', { pr: undefined }], ['0', { pr: 0 }], ['строка «—»', { pr: '—' }], ['адрес', { pr: 'https://github.com/o/r/pull/7' }]]) {
   r = await run({ args, plan: [P('r1.json')], asm: [v] })
-  const after = by(r.calls, c => c.agentType === 'wave-reviewer' || c.label.startsWith('mech:ci:') || c.label.startsWith('mech:landing:') || c.label.startsWith('mech:merge'))
+  const after = by(r.calls, c => c.agentType === 'wave-reviewer' || c.label.startsWith('mech:ci:') || c.label.startsWith('mech:autoland') || c.label === 'mech:cascade')
   const undef = r.calls.some(c => /PR #(undefined|0\b|—|null)/.test(c.prompt || ''))
   ok(r.res.ok === false && r.res.state === 'failed' && /номер PR не целое/.test(r.res.stage || '') && after === 0 && !undef, 'pr ' + name + ' — остановка на сборке, рецензента, CI и посадки нет, «PR #undefined» не подставлен', JSON.stringify(r.res).slice(0, 200))
 }
@@ -478,11 +592,11 @@ const prSchema = (((r.calls.find(c => c.label.startsWith('mech:assemble:')) || {
 const revSchema = (((r.calls.find(c => c.label === 'review-wave') || {}).schema || {}).properties || {}).verdict || {}
 ok(prSchema.type === 'integer' && prSchema.minimum === 1, 'схема сборки требует pr целым ≥ 1', JSON.stringify(prSchema))
 ok(JSON.stringify(revSchema.enum) === JSON.stringify(['accept', 'return', 'void']), 'словарь вердикта роли закрыт: accept | return | void', JSON.stringify(revSchema))
-ok(r.res.ok === true && r.calls.filter(c => c.label.startsWith('mech:ci:') || c.label.startsWith('mech:landing:')).every(c => /PR #7\b|\s7\s/.test(c.prompt)), 'близнец: pr 7 — номер идёт в CI и посадку')
+ok(r.res.ok === true && r.calls.filter(c => c.label.startsWith('mech:ci:') || c.label.startsWith('mech:autoland')).every(c => /PR #7\b|\s7\s/.test(c.prompt)), 'близнец: pr 7 — номер идёт в CI и посадку')
 
 console.log('== вердикт рецензента — только поле verdict')
 r = await run({ args, plan: [P('r1.json')], wave: [{ verdict: undefined, report: '✅ принято' }] })
-ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'нет поля verdict, в тексте «✅ принято» — не принят, вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:autoland')) === 0, 'нет поля verdict, в тексте «✅ принято» — не принят, вливания нет', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r1.json')], wave: [{ verdict: 'void', report: 'прогон недействителен' }] })
 ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:ci:')) === 0, 'verdict void — не принят, CI не зовётся')
 
@@ -490,40 +604,38 @@ console.log('== вердикт — о своей полосе: возврат о
 // R0, A и B независимы; B не прошла предпроверку дважды на разных головах.
 r = await run({ args, plan: [P('r0.json')], 'pre:B': [{ code: 1, reasons: ['UNCOMMITTED'] }, { code: 1, reasons: ['UNCOMMITTED'] }] })
 const asmP = n => prm(r.calls, 'mech:assemble:' + n)
-ok(r.res.ok === true && /9-a@/.test(asmP(1)) && !/9-b@/.test(asmP(1)) && by(r.calls, c => c.label === 'mech:merge') === 1, 'полоса B не прошла — A сведена и влита, B не в сборке', JSON.stringify(r.res).slice(0, 300))
-ok(((r.res.remainder || []).map(x => x.key)).join() === 'B' && /закрой задачи влитых полос A со ссылкой на их DoD-proof; остаток B не закрывать/.test(prm(r.calls, 'mech:merge')), 'B — остаток: назван в итоге и в задании вливания, её задачи не закрываются')
+ok(r.res.ok === true && /9-a@/.test(asmP(1)) && !/9-b@/.test(asmP(1)) && by(r.calls, c => c.label === 'mech:cascade') === 1, 'полоса B не прошла — A сведена и влита, B не в сборке', JSON.stringify(r.res).slice(0, 300))
+ok(((r.res.remainder || []).map(x => x.key)).join() === 'B' && /закрой задачи влитых полос A со ссылкой на их DoD-proof; остаток B не закрывать/.test(prm(r.calls, 'mech:cascade')), 'B — остаток: назван в итоге и в задании вливания, её задачи не закрываются')
 r = await run({ args, plan: [P('r0.json')], 'pre:A': [{ code: 1, reasons: ['UNCOMMITTED'] }, { code: 1, reasons: ['UNCOMMITTED'] }], 'pre:B': [{ code: 1, reasons: ['UNCOMMITTED'] }, { code: 1, reasons: ['UNCOMMITTED'] }] })
 ok(r.res.ok === false && by(r.calls, c => c.label.startsWith('mech:assemble:')) === 0, 'близнец: не прошла ни одна — сборки нет')
 // R1 A,C|B (B зависит от A): рецензент волны вернул ТОЛЬКО C — A и B садятся.
 const argsABC = { ...args, lanes: [argsDep.lanes[0], argsDep.lanes[1], { key: 'C', repo: 'kacho-workspace', agent: 'docs-writer', branch: '9-c', text: 't' }] }
 const W3 = (a, b, c) => ({ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: a, blocking: [] }, { key: 'B', verdict: b, blocking: [] }, { key: 'C', verdict: c, blocking: [] }] })
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'return')] })
-ok(r.res.ok === true && /9-a@/.test(asmP(2)) && /9-b@/.test(asmP(2)) && !/9-c@/.test(asmP(2)) && by(r.calls, c => c.label === 'mech:merge') === 1, 'рецензент волны вернул C — пересведение без C, A и B влиты', JSON.stringify(r.res).slice(0, 300))
+ok(r.res.ok === true && /9-a@/.test(asmP(2)) && /9-b@/.test(asmP(2)) && !/9-c@/.test(asmP(2)) && by(r.calls, c => c.label === 'mech:cascade') === 1, 'рецензент волны вернул C — пересведение без C, A и B влиты', JSON.stringify(r.res).slice(0, 300))
 ok(by(r.calls, c => c.agentType === 'wave-reviewer') === 2 && /git diff /.test(prm(r.calls, 'review-wave-2')), 'после снятия полосы — проверка исполнения по дельте сборок, не второй полный круг')
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('return', 'accept', 'accept')] })
 ok(r.res.ok === true && /9-c@/.test(asmP(2)) && !/9-a@/.test(asmP(2)) && !/9-b@/.test(asmP(2)), 'возврат A снимает и зависимую B, C влита', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [{ verdict: 'return', blocking: ['x'] }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'близнец: возврат без разбивки по полосам — факта нет, вливания нет')
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:autoland') === 0, 'близнец: возврат без разбивки по полосам — факта нет, вливания нет')
 
 console.log('== landing-reviewer — только за недостающим фактом (ws#999)')
 const argsM = { ...args, lanes: [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }] }
 r = await run({ args: argsM, plan: [P('r2.json')] })
-ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0 && /ПРАВИЛО ВЛИВАНИЯ/.test(prm(r.calls, 'mech:merge')), 'R2, факты полны (CI, ревью на голове, предпроверка 0) — вливает правило, landing-reviewer не зван', JSON.stringify(r.res).slice(0, 300))
+ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0 && /ПРАВИЛО ВЛИВАНИЯ/.test(prm(r.calls, 'mech:autoland')), 'R2, факты полны (CI, ревью на голове, предпроверка 0) — вливает правило, landing-reviewer не зван', JSON.stringify(r.res).slice(0, 300))
 r = await run({ args: { ...argsM, lanes: [{ ...argsM.lanes[0], publicText: true }] }, plan: [P('r2.json')] })
 ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 1, 'публичный текст полосы — факта нет, landing-reviewer зван')
-r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 1 }] })
-ok(by(r.calls, c => c.agentType === 'landing-reviewer') === 1, 'голова сдвинута не только вливанием базы — landing-reviewer зван')
-r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 0 }] })
-ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0, 'близнец: голова сдвинута только вливанием базы — решает правило')
+r = await run({ args: argsM, plan: [P('r2.json')], al: [{ code: 5, out: 'head-moved ' + 'f'.repeat(40) + ' ' + 'd'.repeat(40) }] })
+ok(r.res.ok === false && by(r.calls, c => c.agentType === 'landing-reviewer') === 0 && /: head-moved /.test(r.res.stage || ''), 'голова сдвинута после вердиктов — судит демон (head-moved), не landing-reviewer; вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== приёмка check-verifier ws#1000 r1: CV-M2…CV-M9, CV-EMPTY')
 {
 const asmQ = n => prm(r.calls, 'mech:assemble:' + n)
-const merges = () => by(r.calls, c => c.label === 'mech:merge')
+const merges = () => by(r.calls, c => c.label === 'mech:cascade')
 r = await run({ args: { ...argsM, lanes: [{ ...argsM.lanes[0], publicText: false }] }, plan: [P('r2.json')] })
 ok(r.res.ok === true && by(r.calls, c => c.agentType === 'landing-reviewer') === 0, 'CV-M2: publicText=false, факты полны — landing-reviewer не зван')
-r = await run({ args: argsM, plan: [P('r2.json')], land: [{ code: 0, reasons: [], head: 'd'.repeat(40) }], delta: [{ code: 1 }] })
-ok(r.res.ok === false && merges() === 0 && /другой sha/.test(r.res.stage || ''), 'CV-M3: landing-reviewer принял другую sha — вливания нет', JSON.stringify(r.res).slice(0, 200))
+r = await run({ args: { ...argsM, lanes: [{ ...argsM.lanes[0], publicText: true }] }, plan: [P('r2.json')], asm: [{ head: 'd'.repeat(40) }], ci: [{ code: 0, head: 'd'.repeat(40) }] })
+ok(r.res.ok === false && merges() === 0 && by(r.calls, c => c.label === 'mech:autoland') === 0 && /другой sha/.test(r.res.stage || ''), 'CV-M3: landing-reviewer принял другую sha — демон не стартует', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [{ verdict: 'accept', blocking: [], lanes: [{ key: 'A', verdict: 'accept', blocking: [] }, { key: 'B', verdict: 'accept', blocking: [] }, { key: 'C', verdict: 'return', blocking: ['x'] }] }] })
 ok(r.res.ok === false && merges() === 0, 'CV-M4: свод accept при возврате C — противоречие, вливания нет', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('return', 'return', 'return')] })
@@ -534,30 +646,30 @@ r = await run({ args: argsDepM, plan: [P('r2dep.json')], wave: [{ verdict: 'retu
 ok(r.res.ok === true && /9-a@/.test(asmQ(2)) && !/9-m@|M@/.test(asmQ(2)) && merges() === 1 && (r.res.landed || []).join() === 'A', 'CV-M9: R2, рецензент волны вернул M — A сведена и влита', JSON.stringify(r.res).slice(0, 200) + ' ASM2=' + asmQ(2).slice(0, 300))
 }
 r = await run({ args: argsDep, plan: [P('r1.json')], wave: [{ verdict: 'return', blocking: ['x'], lanes: [{ key: 'A', verdict: 'return', blocking: ['x'] }, { key: 'B', verdict: 'accept', blocking: [] }] }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0 && !(r.res.landed || []).length, 'CV-EMPTY: возврат A при B←A снимает обе — сборка пуста, вливания нет', JSON.stringify(r.res).slice(0, 260) + ' ASM2=' + prm(r.calls, 'mech:assemble:2').slice(0, 260))
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:autoland') === 0 && !(r.res.landed || []).length, 'CV-EMPTY: возврат A при B←A снимает обе — сборка пуста, вливания нет', JSON.stringify(r.res).slice(0, 260) + ' ASM2=' + prm(r.calls, 'mech:assemble:2').slice(0, 260))
 
 r = await run({ args: argsABC, plan: [P('r1c.json')], wave: [W3('accept', 'accept', 'accept')] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0 && by(r.calls, c => c.label === 'mech:assemble:2') === 0, 'CV-R2: свод return при accept у каждой полосы — противоречие, пересведения и вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:autoland') === 0 && by(r.calls, c => c.label === 'mech:assemble:2') === 0, 'CV-R2: свод return при accept у каждой полосы — противоречие, пересведения и вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== «идёт» после ожидания — состояние, а не провал')
 const CIR = +((body.match(/const CI_READS = (\d+)/) || [])[1] || 0)
 const CIP = +((body.match(/const CI_PAUSE_S = (\d+)/) || [])[1] || 0)
 r = await run({ args, plan: [P('r0.json')], ci: Array(CIR).fill({ code: 3 }) })
-ok(CIR >= 1 && r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:ci:')) === CIR && by(r.calls, c => c.label.startsWith('mech:merge')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все ' + CIR + ' чтений — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
+ok(CIR >= 1 && r.res.ok === false && r.res.state === 'running' && r.res.pr === 7 && by(r.calls, c => c.label.startsWith('mech:ci:')) === CIR && by(r.calls, c => c.label.startsWith('mech:autoland')) === 0 && by(r.calls, c => c.label.startsWith('mech:err:')) === 0, 'CI идёт все ' + CIR + ' чтений — state running, ошибки и вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== агент не ждёт (ws#1001): срок шага и CI — короткими чтениями шаблона')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 3 }, { code: 0 }] })
 ok(r.calls.length > 0 && r.calls.every(c => /НЕ ЖДИ/.test(c.prompt) && /СРОК ШАГА/.test(c.prompt)), 'каждое задание несёт норму «НЕ ЖДИ» и срок шага', r.calls.filter(c => !/НЕ ЖДИ/.test(c.prompt) || !/СРОК ШАГА/.test(c.prompt)).map(c => c.label).join(','))
-// ws#1008: вливание — только gh pr merge --match-head-commit; изменяющий gh api запрещён в общем задании.
-const MERGE_NORM = /ВЛИВАНИЕ \(ws#1008\): только шагом merge \(git-operator\) через `gh pr merge <PR> --merge --match-head-commit <sha>`; `gh api repos\/\*\/merges`, `gh api …\/pulls\/\*\/merge` и `gh pr merge --auto` запрещены\. `gh api` — только GET: merge-base — `gh api repos\/<o>\/<r>\/compare\/<base>\.\.\.<head> --jq \.merge_base_commit\.sha`/
+// ws#1008, ws#1152: вливание — только демоном (он — gh pr merge --match-head-commit); изменяющий gh api запрещён в общем задании.
+const MERGE_NORM = /ВЛИВАНИЕ \(ws#1008, ws#1152\): только демоном `scripts\/autoland\/autoland\.sh` \(start, затем один шаг status; вливает он `gh pr merge <PR> --merge --match-head-commit <sha>`\); `gh api repos\/\*\/merges`, `gh api …\/pulls\/\*\/merge` и `gh pr merge --auto` запрещены\. `gh api` — только GET: merge-base — `gh api repos\/<o>\/<r>\/compare\/<base>\.\.\.<head> --jq \.merge_base_commit\.sha`/
 ok(r.calls.length > 0 && r.calls.every(c => MERGE_NORM.test(c.prompt)), 'каждое задание несёт правило вливания и «gh api — только GET» с чтением merge-base', r.calls.filter(c => !MERGE_NORM.test(c.prompt)).map(c => c.label).join(','))
-const mp = prm(r.calls, 'mech:merge')
-ok(/`gh pr merge \d+ --merge --match-head-commit [0-9a-f]{40} --subject "[^"`]+" --body ""`/.test(mp) && !/--squash|--rebase/.test(mp) && !/--no-ff/.test(mp) && /без --auto и --admin/.test(mp), 'шаг merge вливает gh pr merge со сверкой головы, не локальным --no-ff', mp.slice(0, 300))
+const mp = prm(r.calls, 'mech:autoland')
+ok(/`bash \/ws\/scripts\/autoland\/autoland\.sh start --repo PRO-Robotech\/kacho-workspace --pr 7 --head f{40} --subject "[^"`]+" --stand-report \S+ --stand-expect \S+`/.test(mp) && !/--squash|--rebase|--no-ff|--auto|--admin/.test(mp.split('\n\n').slice(1).join(' ')), 'вливает демон: start со сверкой головы (--head), без локального --no-ff, сквоша и --auto', mp.slice(-600))
 // ws#1029: тема вливания — по форме правила ветки `#<N> merge #<M>: …`; база main — номер волны.
 ok(/--subject "#9 merge #7: волна 9"/.test(mp), 'тема вливания при базе main — «#<волна> merge #<PR>: …»', mp.slice(0, 400))
 {
   const rn = await run({ args: { ...args, epic: '296', base: '296' }, plan: [P('r0.json')] })
-  const mpn = prm(rn.calls, 'mech:merge')
+  const mpn = prm(rn.calls, 'mech:autoland')
   ok(/--subject "#296 merge #7: волна 9"/.test(mpn), 'тема вливания в эпик-номер — «#<эпик> merge #<PR>: …»', mpn.slice(0, 400))
 }
 // ws#1036: отсоединённый прогон — без nohup (глушит SIGHUP детям), код — в .rc.
@@ -602,7 +714,7 @@ ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 3 &
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0, slept: undefined }, { code: 0, slept: String(CIP) }, { code: 0 }] })
 ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 4, 'slept нет или не число — чтение отвергнуто', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, ...Array(CIR - 1).fill({ code: 0, slept: 0 })] })
-ok(r.res.ok === false && r.res.state === 'running' && r.res.pauseSkipped === CIR - 1 && by(r.calls, c => c.label === 'mech:merge') === 0, 'пауза не исполнена ни разу — не вливается, итог называет отвергнутые чтения', JSON.stringify(r.res).slice(0, 260))
+ok(r.res.ok === false && r.res.state === 'running' && r.res.pauseSkipped === CIR - 1 && by(r.calls, c => c.label === 'mech:autoland') === 0, 'пауза не исполнена ни разу — не вливается, итог называет отвергнутые чтения', JSON.stringify(r.res).slice(0, 260))
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 3 }, { code: 0, slept: CIP - 10 }] })
 ok(r.res.ok === true && by(r.calls, c => c.label.startsWith('mech:ci:')) === 2 && !r.calls.some(c => c.label === 'mech:err:wave'), 'близнец: slept = N−10 — чтение принято, строки счётчика нет', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 0, slept: 0 }] })
@@ -629,27 +741,18 @@ ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI крас�
 console.log('== CI — только кодом ci-read.sh (ws#1006)')
 r = await run({ args, plan: [P('r0.json')] })
 const ciCalls = r.calls.filter(c => c.label.startsWith('mech:ci'))
-ok(ciCalls.length === 2 && ciCalls.every(c => c.prompt.includes('S=ci-read.sh') && c.prompt.includes(args.repo + ' 7 )') && !/S=landing-precheck\.sh/.test(c.prompt)), 'каждое чтение CI (сборка и посадка) — рецептом «ЗАПУСК» c ci-read.sh на PR сборки', ciCalls.map(c => c.label).join(','))
-ok(idx(r.calls, 'mech:ci-land') > idx(r.calls, 'mech:landing:1') && idx(r.calls, 'mech:ci-land') < idx(r.calls, 'mech:merge'), 'чтение на голове посадки — после landing-precheck и до вливания')
-ok(/ci-read код 0/.test(prm(r.calls, 'mech:merge')) && /ci-read\.sh код 0/.test(prm(r.calls, 'mech:merge')), 'правило вливания и факт merge называют ci-read код 0')
+ok(ciCalls.length === 1 && ciCalls.every(c => c.prompt.includes('S=ci-read.sh') && c.prompt.includes(args.repo + ' 7 )') && !/S=landing-precheck\.sh/.test(c.prompt)), 'чтение CI сборки — рецептом «ЗАПУСК» c ci-read.sh на PR сборки; на голове посадки шаблон CI не читает (демон)', ciCalls.map(c => c.label).join(','))
+ok(/ci-read\.sh код 0 на этой голове/.test(prm(r.calls, 'mech:autoland')) && /ради вливания нельзя ждать CI, нельзя читать ci-read, нельзя гнать три гейта/.test(prm(r.calls, 'mech:autoland')), 'правило вливания: CI судит демон (ci-read код 0 на голове), вручную — нельзя')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 4, reasons: ['BASE-STALE'] }] })
-ok(r.res.ok === false && r.res.state === 'failed' && /база устарела/.test(r.res.stage || '') && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1 && by(r.calls, c => c.label.startsWith('mech:landing:') || c.label === 'mech:merge') === 0, 'код 4 — база устарела: не ждать, не вливать, стадия называет причину', JSON.stringify(r.res).slice(0, 200))
+ok(r.res.ok === false && r.res.state === 'failed' && /база устарела/.test(r.res.stage || '') && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1 && by(r.calls, c => c.label.startsWith('mech:autoland')) === 0, 'код 4 — база устарела: не ждать, не вливать, стадия называет причину', JSON.stringify(r.res).slice(0, 200))
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 2 }] })
-ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label === 'mech:merge') === 0, 'код 2 — не прочитано: не зелёное, вливания нет')
+ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label === 'mech:autoland') === 0, 'код 2 — не прочитано: не зелёное, вливания нет')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 7 }] })
 ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label.startsWith('mech:ci:')) === 1, 'неизвестный код — unread, не повтор и не зелёное')
 r = await run({ args, plan: [P('r0.json')], ci: [{ code: 0, state: 'green', head: 'a'.repeat(40) }] })
-ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label === 'mech:merge') === 0, 'код 0 на другой голове — не вердикт сборки')
-r = await run({ args, plan: [P('r0.json')], ciland: [{ code: 3 }] })
-ok(r.res.ok === false && r.res.state === 'running' && by(r.calls, c => c.label === 'mech:merge') === 0, 'на голове посадки CI идёт (код 3) — state running, вливания нет', JSON.stringify(r.res).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], ciland: [{ code: 4, reasons: ['BASE-STALE'] }] })
-ok(r.res.ok === false && r.res.state === 'failed' && /база устарела/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:merge') === 0, 'на голове посадки база устарела (код 4) — вливания нет', JSON.stringify(r.res).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], ciland: [{ code: 0, head: 'a'.repeat(40) }] })
-ok(r.res.ok === false && by(r.calls, c => c.label === 'mech:merge') === 0, 'код 0 не на голове посадки — вливания нет')
-r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['CI-PENDING'] }, { code: 1, reasons: ['CI-PENDING'] }] })
-ok(r.res.ok === false && r.res.state === 'running' && by(r.calls, c => c.label.startsWith('mech:merge')) === 0, 'landing-precheck: только CI-PENDING и после повтора — state running, не провал', JSON.stringify(r.res).slice(0, 200))
-r = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['CI-PENDING'] }, { code: 1, reasons: ['CI-PENDING', 'MERGE-READINESS'] }] })
-ok(r.res.ok === false && r.res.state === 'failed', 'близнец: CI-PENDING и MERGE-READINESS — state failed')
+ok(r.res.ok === false && r.res.state === 'failed' && by(r.calls, c => c.label === 'mech:autoland') === 0, 'код 0 на другой голове — не вердикт сборки')
+r = await run({ args, plan: [P('r0.json')], al: [{ code: 6, out: 'timeout предел 10800 с; последнее: ci-read код 3' }] })
+ok(r.res.ok === false && r.res.state === 'failed' && /^autoland[^:]*: timeout предел 10800 с; последнее: ci-read код 3$/.test(r.res.stage || '') && by(r.calls, c => c.label === 'mech:cascade') === 0, 'timeout демона (status 6) — failed с последним вердиктом, вливания нет', JSON.stringify(r.res).slice(0, 200))
 
 console.log('== пустые ходы (ws#1004): разбор плана, чужие файлы, hookLog — путь')
 const CENSUS = 'CENSUS\tплан /ws/tmp/wave-9/plan-1.json: полос 2, слоёв 1\nCENSUS\tcorelib: полос kacho и kaname нет — не судился\nVERDICT\tplan-ok\tпричин 0\n'
@@ -717,7 +820,7 @@ console.log('== волна одним проходом (ws#1053): предпол
   ok(iT > iP && iT < iAsm && idx(q.calls, 'mech:trial:B') >= 0 && /git push --dry-run origin HEAD:refs\/heads\/9-a`/.test(prm(q.calls, 'mech:trial:A')), 'пробная сборка — сразу после предпроверки полосы, до сборки; хук отправки судит сведённое (--dry-run на ветку полосы)', prm(q.calls, 'mech:trial:A').slice(-300))
   const mt = prm(q.calls, 'mech:metrics')
   ok(by(q.calls, c => c.label === 'mech:metrics') === 1 && q.calls[q.calls.length - 1].label === 'mech:metrics' && mt.includes('/ws/tmp/wave-9/reports/metrics.json') && q.res.metrics?.preflightItems === 2 && q.res.metrics?.implCalls === 2 && q.res.metrics?.rework === 0, 'метрики — последним шагом в reports/metrics.json; пунктов карты 2, вызовов исполнителя 2, переделок 0', JSON.stringify(q.res.metrics))
-  ok(prm(q.calls, 'mech:merge').includes('КРОМЕ держателей записей ведомостей'), 'каскад не закрывает держателя записи ведомости')
+  ok(prm(q.calls, 'mech:cascade').includes('КРОМЕ держателей записей ведомостей'), 'каскад не закрывает держателя записи ведомости')
   // незакрытый пункт: одна доводка, снова незакрыт — полоса стоит, сосед садится
   q = await run({ args, plan: [P('r0.json')], map: MAP, 'impl:A': [{ status: 'done', head: H('A', 1), impact: ['1 → правка tests/newman/x.json'] }, { status: 'done', head: H('A', 2), impact: ['1 → правка tests/newman/x.json', '2 → посмотрю потом'] }] })
   ok(q.res.ok === true && by(q.calls, c => c.label === 'impl:A') === 2 && prm(q.calls, 'impl:A').length > 0 && q.calls.filter(c => c.label === 'impl:A')[1].prompt.includes('КАРТА ВЛИЯНИЯ: пункты 2 не закрыты') && inRest(q.res, 'A') && /карта влияния: пункты 2 не закрыты и после доводки/.test(((q.res.remainder || []).find(x => x.key === 'A') || {}).stage || '') && by(q.calls, c => c.label === 'mech:precheck:A') === 0 && !asmHas(q.calls, '9-a') && asmHas(q.calls, '9-b') && q.res.metrics?.rework === 1, 'пункт карты не закрыт и после доводки — полоса стоит до предпроверки, сосед садится', JSON.stringify(q.res).slice(0, 300))
@@ -748,21 +851,21 @@ const RR_FRAGS = ['перепись ВСЕЙ красноты', 'CI читает
 {
   const argsE = { ...args, epic: '296', base: '296' }
   let q = await run({ args: argsE, plan: [P('r0.json')] })
-  const iM = idx(q.calls, 'mech:merge'), iTc = idx(q.calls, 'trial-convergence'), iEc = idx(q.calls, 'mech:ci-epic')
+  const iM = idx(q.calls, 'mech:cascade'), iTc = idx(q.calls, 'trial-convergence'), iEc = idx(q.calls, 'mech:ci-epic')
   const tc = prm(q.calls, 'trial-convergence'), ec = prm(q.calls, 'mech:ci-epic')
   ok(q.res.ok === true && by(q.calls, c => c.label === 'trial-convergence') === 1 && iTc > iM && (q.calls[iTc] || {}).agentType === 'convergence-reviewer' && tc.includes('пересчитай отпечатки пакета') && tc.includes('недостающих записей ролей и событий') && tc.includes('без блока event записи') && tc.includes('/ws/tmp/wave-9/reports/trial-convergence.md') && !!q.res.trialConvergence, 'влитая волна — пробное схождение convergence-reviewer после вливания: отпечатки пакета, недостающие записи ролей и событий', JSON.stringify(q.res).slice(0, 200))
   ok(by(q.calls, c => c.label === 'mech:ci-epic') === 1 && iEc > iM && (q.calls[iEc] || {}).agentType === 'ci-watcher' && ec.includes('--head 296 --base main') && ec.includes('S=ci-read.sh') && ec.includes('без ожидания: код 3 (идёт) — законный исход') && q.res.epicCi && q.res.epicCi.code === 3 && !q.res.epicCi.redRound, 'влитая волна — одно чтение полного CI MR эпика ci-read.sh без ожидания; «идёт» — не красное', ec.slice(-300))
   q = await run({ args: argsE, plan: [P('r0.json')], ciepic: [{ code: 1, reasons: ['newman'] }] })
   ok(q.res.ok === true && q.res.epicCi && /все корни — исполнителям их классов параллельно, ОДНОЙ сборкой/.test(q.res.epicCi.redRound || ''), 'красный CI MR эпика после волны — итог несёт порядок круга', JSON.stringify(q.res.epicCi))
   q = await run({ args: argsE, plan: [P('r0.json')], merge: [{ code: 1, head: '' }] })
-  ok(q.res.ok === false && by(q.calls, c => c.label === 'mech:merge') === 1 && by(q.calls, c => c.label === 'trial-convergence' || c.label === 'mech:ci-epic') === 0, 'вливание не состоялось — схождения и чтения MR эпика нет', JSON.stringify(q.res).slice(0, 200))
+  ok(q.res.ok === false && by(q.calls, c => c.label === 'mech:cascade') === 1 && by(q.calls, c => c.label === 'trial-convergence' || c.label === 'mech:ci-epic') === 0, 'вливание не состоялось — схождения и чтения MR эпика нет', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args, plan: [P('r0.json')] })
   ok(q.res.ok === true && by(q.calls, c => c.label === 'trial-convergence' || c.label === 'mech:ci-epic') === 0, 'близнец: волна прямо в main (MR эпика нет) — схождения и чтения MR эпика нет', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args: argsE, plan: [P('r0.json')], ci: [{ code: 1, reasons: ['x'] }] })
   const rr = q.res.redRound || ''
   ok(q.res.ok === false && RR_FRAGS.every(f => rr.includes(f)) && by(q.calls, c => c.label === 'trial-convergence') === 0, 'красный CI сборки — итог несёт порядок «перепись — потом массово» (все задания, цитата до класса, одна сборка, только красное на кластере, полный, один CI)', rr.slice(0, 300))
-  q = await run({ args: argsE, plan: [P('r0.json')], ciland: [{ code: 1, reasons: ['x'] }] })
-  ok(q.res.ok === false && /затем ОДИН CI; два красных CI подряд — стоп/.test(q.res.redRound || ''), 'красный CI на голове посадки — порядок круга в итоге', JSON.stringify(q.res).slice(0, 200))
+  q = await run({ args: argsE, plan: [P('r0.json')], al: [{ code: 1, out: 'red ci-read код 1: REASON\tRED\tnewman', reasons: ['RED'] }] })
+  ok(q.res.ok === false && /затем ОДИН CI; два красных CI подряд — стоп/.test(q.res.redRound || '') && q.res.metrics?.ciRed === 1, 'красный CI у демона вливания — порядок круга в итоге, ciRed 1', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args: argsE, plan: [P('r0.json')], ci: [{ code: 4, reasons: ['BASE-STALE'] }] })
   ok(q.res.ok === false && q.res.redRound === undefined, 'близнец: база устарела (код 4) — не красное, круга починки нет', JSON.stringify(q.res).slice(0, 200))
 }
@@ -772,9 +875,9 @@ console.log('== внешний стенд до CI: перепись прогон
   let q = await run({ args, plan: [P('r1.json')] })
   const iS = idx(q.calls, 'mech:stand:0'), sp = prm(q.calls, 'mech:stand:0')
   ok(q.res.ok === true && iS > idx(q.calls, 'review-wave') && iS < idx(q.calls, 'mech:ci:0') && (q.calls[iS] || {}).agentType === 'ci-watcher' && ['ВНЕШНЕМ кластере', 'теми же целями, что CI', 'без остановки на первом красном', 'stand-report.sh check /ws/tmp/wave-9/stand.json --head ' + HW + ' --expect /ws/tmp/wave-9/stand-expect.json', 'stand-report.sh expect --checkout /ws/tmp/wave-9/assemble --head ' + HW, ' --draft false > /ws/tmp/wave-9/stand-expect.json', 'NO-PR-IMAGES', 'make stand-ns-run NS=t9-w<k>', 'job задания и дословной цитатой у красного'].every(f => sp.includes(f)), 'стенд — шаг ci-watcher после рецензента волны и ДО первого чтения CI: весь набор на внешнем кластере, суд stand-report.sh этой головы', sp.slice(-400))
-  ok(prm(q.calls, 'mech:landing:1').includes('--stand-report /ws/tmp/wave-9/stand.json --stand-expect /ws/tmp/wave-9/stand-expect.json'), 'посадка судит отчёт стенда снова: landing-precheck --stand-report')
+  ok(prm(q.calls, 'mech:autoland').includes('--stand-report /ws/tmp/wave-9/stand.json --stand-expect /ws/tmp/wave-9/stand-expect.json') && prm(q.calls, 'mech:gates').includes('--stand-report /ws/tmp/wave-9/stand.json --stand-expect /ws/tmp/wave-9/stand-expect.json'), 'посадка судит отчёт стенда снова: демон (его landing-precheck) и перепись — --stand-report')
   q = await run({ args, plan: [P('r0.json')], stand: [{ code: 1, reasons: ['STAND-REPORT-RED'] }] })
-  ok(q.res.ok === false && q.res.state === 'failed' && /внешний стенд до CI: красное/.test(q.res.stage || '') && by(q.calls, c => /^mech:(ci:|ready|merge|landing)/.test(c.label)) === 0 && RR_FRAGS.every(f => (q.res.redRound || '').includes(f)), 'красный стенд — ни CI, ни ready, ни вливания; итог несёт порядок «перепись — потом массово»', JSON.stringify(q.res).slice(0, 300))
+  ok(q.res.ok === false && q.res.state === 'failed' && /внешний стенд до CI: красное/.test(q.res.stage || '') && by(q.calls, c => /^mech:(ci:|ready|autoland|cascade)/.test(c.label)) === 0 && RR_FRAGS.every(f => (q.res.redRound || '').includes(f)), 'красный стенд — ни CI, ни ready, ни вливания; итог несёт порядок «перепись — потом массово»', JSON.stringify(q.res).slice(0, 300))
   q = await run({ args, plan: [P('r0.json')], stand: [{ code: 2, reasons: [] }] })
   ok(q.res.ok === false && q.res.state === 'failed' && /не выполнилось/.test(q.res.stage || '') && q.res.redRound === undefined && by(q.calls, c => c.label.startsWith('mech:ci:')) === 0, 'стенд не выполнился — не зелёное и не красное: CI нет, круга починки нет', JSON.stringify(q.res).slice(0, 200))
   q = await run({ args, plan: [P('r0.json')], stand: [{ code: 3 }, { code: 0 }] })
@@ -789,11 +892,9 @@ console.log('== лимит GitHub — не выполнилось со врем�
 {
   const RL = { code: 2, reasons: ['RATE-LIMIT'], out: 'REASON\tRATE-LIMIT\tлимит REST: остаток 5 из 5000 < порога 100, сброс в 14:05\nVOID\t…' }
   let q = await run({ args, plan: [P('r0.json')], ci: [RL] })
-  ok(q.res.ok === false && q.res.state === 'not-run' && /лимит GitHub исчерпан — не выполнилось, не красное; сброс в 14:05/.test(q.res.stage || '') && by(q.calls, c => /^mech:(merge|landing)/.test(c.label)) === 0, 'CI: RATE-LIMIT — state not-run со временем сброса, ни посадки, ни вливания', JSON.stringify(q.res).slice(0, 300))
-  q = await run({ args, plan: [P('r0.json')], land: [{ ...RL, code: 2 }] })
-  ok(q.res.state === 'not-run' && /^landing-precheck: лимит GitHub/.test(q.res.stage || '') && by(q.calls, c => c.label === 'mech:merge') === 0, 'landing-precheck: RATE-LIMIT — not-run, не вливать', JSON.stringify(q.res).slice(0, 300))
-  q = await run({ args, plan: [P('r0.json')], ciland: [RL] })
-  ok(q.res.state === 'not-run' && /^CI на голове посадки: лимит GitHub/.test(q.res.stage || '') && by(q.calls, c => c.label === 'mech:merge') === 0, 'CI на голове посадки: RATE-LIMIT — not-run, не вливать', JSON.stringify(q.res).slice(0, 300))
+  ok(q.res.ok === false && q.res.state === 'not-run' && /лимит GitHub исчерпан — не выполнилось, не красное; сброс в 14:05/.test(q.res.stage || '') && by(q.calls, c => /^mech:(autoland|cascade)/.test(c.label)) === 0, 'CI: RATE-LIMIT — state not-run со временем сброса, ни посадки, ни вливания', JSON.stringify(q.res).slice(0, 300))
+  q = await run({ args, plan: [P('r0.json')], al: [{ code: 2, out: 'void landing-precheck код 2 3 раз подряд: REASON\tRATE-LIMIT\tсброс в 14:05', reasons: ['RATE-LIMIT'] }] })
+  ok(q.res.state === 'not-run' && /сброс в 14:05/.test(q.res.stage || '') && by(q.calls, c => c.label === 'mech:cascade') === 0, 'лимит у демона вливания — not-run, не вливать', JSON.stringify(q.res).slice(0, 300))
   q = await run({ args, plan: [P('r0.json')], ci: [{ code: 2, reasons: [] }] })
   ok(q.res.state === 'failed', 'близнец: код 2 без RATE-LIMIT — прежний failed (unread), не not-run')
   q = await run({ args, plan: [P('r0.json')] })
@@ -809,9 +910,9 @@ console.log('== перепись гейтов посадки разом; отв�
 {
   let q = await run({ args, plan: [P('r0.json')] })
   const iG = idx(q.calls, 'mech:gates'), gp = prm(q.calls, 'mech:gates')
-  ok(by(q.calls, c => c.label === 'mech:gates') === 1 && iG > idx(q.calls, 'review-wave') && iG < idx(q.calls, 'mech:landing:1') && ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'applicability.py обоих пакетов', 'cascade-census.sh --proof', 'branch-audit.sh'].every(f => gp.includes(f)) && gp.includes('ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини') && gp.includes('/ws/tmp/wave-9/reports/gates-census.md') && q.res.gates && q.res.gates.file === '/ws/tmp/wave-9/reports/gates-census.md', 'перепись гейтов — один шаг до первого landing-precheck: шесть гейтов, ничего не чинит, таблица в reports, итог несёт её', gp.slice(-400))
-  q = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: ['REVIEW-STALE'] }] })
-  ok(q.res.ok === false && q.res.stage === 'landing-precheck' && q.res.gates && Array.isArray(q.res.gates.reasons) && by(q.calls, c => c.label === 'mech:gates') === 1, 'красная посадка — итог несёт таблицу гейтов, перепись не повторяется по одному', JSON.stringify(q.res).slice(0, 300))
+  ok(by(q.calls, c => c.label === 'mech:gates') === 1 && iG > idx(q.calls, 'review-wave') && iG < idx(q.calls, 'mech:autoland') && ['landing-precheck.sh', 'merge-readiness.sh', 'ci-read.sh', 'applicability.py обоих пакетов', 'cascade-census.sh --proof', 'branch-audit.sh'].every(f => gp.includes(f)) && gp.includes('ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини') && gp.includes('/ws/tmp/wave-9/reports/gates-census.md') && q.res.gates && q.res.gates.file === '/ws/tmp/wave-9/reports/gates-census.md', 'перепись гейтов — один шаг до старта демона вливания: шесть гейтов, ничего не чинит, таблица в reports, итог несёт её', gp.slice(-400))
+  q = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: 'red landing-precheck код 1: REASON\tREVIEW-STALE\tвердикт о другой голове', reasons: ['REVIEW-STALE'] }] })
+  ok(q.res.ok === false && /^autoland[^:]*: red landing-precheck код 1: REASON\tREVIEW-STALE/.test(q.res.stage || '') && q.res.gates && Array.isArray(q.res.gates.reasons) && by(q.calls, c => c.label === 'mech:gates') === 1, 'красная посадка — итог несёт таблицу гейтов, перепись не повторяется по одному', JSON.stringify(q.res).slice(0, 300))
   const laneM = [{ key: 'M', repo: 'kacho-workspace', agent: 'migration-writer', branch: '9-m', text: 't' }]
   const WAIT = 'жду монитора, вернусь по .rc'
   q = await run({ args: { ...args, lanes: laneM }, plan: [P('r2.json')], 'text:acc': [WAIT] })
@@ -874,9 +975,9 @@ console.log('== уроки посадки 2026-10-14 (ws#1078): кэш дочи�
     ok(pp.includes('ЗАДАНИЕ — в файле /ws/tmp/1078/M.md') && !pp.includes('undefined'), 'L6: задание файлом — ' + nm + ' получает путь, а не «undefined»', pp.slice(0, 120))
   }
   // L5 внутри массивов (CV9): длинная причина посадки в reasons — тоже срезана.
-  q = await run({ args, plan: [P('r0.json')], land: [{ code: 1, reasons: [LONG] }, { code: 1, reasons: [LONG] }] })
+  q = await run({ args, plan: [P('r0.json')], al: [{ code: 1, out: 'red landing-precheck код 1: x', reasons: [LONG] }] })
   const jr = JSON.stringify(q.res.reasons || [])
-  ok(q.res.stage === 'landing-precheck' && !jr.includes(LONG.slice(0, 1000)) && jr.includes('[полностью — в'), 'L5: строка внутри массива итога — срезана с путём отчётов', jr.slice(0, 120))
+  ok(/^autoland[^:]*: red landing-precheck код 1: x$/.test(q.res.stage || '') && !jr.includes(LONG.slice(0, 1000)) && jr.includes('[полностью — в'), 'L5: строка внутри массива итога — срезана с путём отчётов', jr.slice(0, 120))
 }
 
 console.log('== объединение вызовов всех сценариев: модель, усилие, место отчётов (ws#1016)')
@@ -927,10 +1028,12 @@ open(dst, 'w', encoding='utf-8').write(s.replace(a, b, 1))
 PY
     # Красный засчитывается, только если упало утверждение пробы ([FAIL]), а не
     # разбор шаблона: мутант, сломавший синтаксис, свойства не проверяет.
-    if node "$W/probe.mjs" "$f" "$W" > "$W/mut.out" 2>&1; then
+    local rc=0
+    node "$W/probe.mjs" "$f" "$W" > "$W/mut.out" 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ]; then
         echo "  [FAIL] мутант «$1» выжил" >&2; fail=$((fail + 1))
     elif grep -q '^  \[FAIL\]' "$W/mut.out" && grep -q '^RESULT' "$W/mut.out"; then
-        echo "  [OK]   мутант «$1» красный: $(grep -m1 '^  \[FAIL\]' "$W/mut.out" | sed 's/^  \[FAIL\] //' | cut -c1-90)"; pass=$((pass + 1))
+        echo "  [OK]   мутант «$1» красный (rc $rc): $(grep -m1 '^  \[FAIL\]' "$W/mut.out" | sed 's/^  \[FAIL\] //' | cut -c1-90)"; pass=$((pass + 1))
     else
         echo "  [FAIL] мутант «$1» упал не утверждением: $(head -c 200 "$W/mut.out")" >&2; fail=$((fail + 1))
     fi
@@ -956,11 +1059,11 @@ mutant "механика на haiku" "const MECH = { agentType: 'git-operator' }
 mutant "механика с явной моделью" "const MECH = { agentType: 'git-operator' }" "const MECH = { model: 'sonnet', agentType: 'git-operator' }"
 mutant "effort low на всей механике" "const MECH = { agentType: 'git-operator' }" "const MECH = { effort: 'low', agentType: 'git-operator' }"
 mutant "effort low на ciRead" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH_LOW, agentType: 'ci-watcher', label,"
-mutant "effort low на landing-precheck" "{ ...MECH, label: 'mech:landing:' + round," "{ ...MECH_LOW, label: 'mech:landing:' + round,"
-mutant "effort low на merge" "{ ...MECH, label: 'mech:merge'," "{ ...MECH_LOW, label: 'mech:merge',"
+mutant "effort low на статусе демона" "{ ...MECH, label: 'mech:autoland:status'," "{ ...MECH_LOW, label: 'mech:autoland:status',"
+mutant "effort low на каскаде" "{ ...MECH, label: 'mech:cascade'," "{ ...MECH_LOW, label: 'mech:cascade',"
 mutant "чтение CI на haiku" "{ ...MECH, agentType: 'ci-watcher', label," "{ ...MECH, model: 'haiku', agentType: 'ci-watcher', label,"
 mutant "исполнитель на haiku" "{ agentType: l.agent, label: 'impl:' + l.key" "{ model: 'haiku', agentType: l.agent, label: 'impl:' + l.key"
-mutant "М1 haiku на mech:delta" "{ ...MECH, label: 'mech:delta'" "{ ...MECH, model: 'haiku', label: 'mech:delta'"
+mutant "М1 haiku на старте демона" "{ ...MECH, label: 'mech:autoland'," "{ ...MECH, model: 'haiku', label: 'mech:autoland',"
 mutant "М2 effort low на mech:ready" "{ ...MECH, label: 'mech:ready'" "{ ...MECH_LOW, label: 'mech:ready'"
 mutant "М3 журнал сводки внутри копии" "' + R + '/' + l.key + '/stack.push.log" "' + D + '/' + l.key + '/copy/stack.push.log"
 mutant "М4 отчёт сводки в каталоге полосы" "rep(l.key, 'stack')" "D + '/' + l.key + '/stack.md'"
@@ -991,7 +1094,7 @@ mutant "рецензент волны на каждую полосу" "if (steps
 mutant "номер PR не судится" "if (!Number.isInteger(asm.pr) || asm.pr < 1) return" "if (false) return"
 mutant "pr в схеме — любое число" "pr: { type: 'integer', minimum: 1 }" "pr: { type: 'number' }"
 mutant "CI идёт после ожидания — провал" "if (ciState(ci) === 'running' && ciHead === asm.head) return" "if (false) return"
-mutant "CI-PENDING посадки — провал" "if (lp && lp.code === 1 && (lp.reasons || []).length && lp.reasons.every(x => x === 'CI-PENDING')) return" "if (false) return"
+mutant "исход демона без пути .state" "autoland: AL_STATE, pr: asm.pr, head: asm.head, ...gatesOf(), errors" "pr: asm.pr, head: asm.head, ...gatesOf(), errors"
 mutant "вердикт волны — по значку в тексте" "if (!wr || wr.verdict !== 'accept')" "if (!wr || !(wr.verdict === 'accept' || /✅/.test(wr.report || '')))"
 mutant "зависимая — от базы волны, а не от сводки" "' от ' + (stack ? 'сводки deps '" "' от ' + (false ? 'сводки deps '"
 mutant "предпроверка зависимой — от базы волны" "(stack ? stack.head : (l.base || A.base))" "(l.base || A.base)"
@@ -1000,7 +1103,7 @@ mutant "независимая ждёт чужой слой" "await Promise.all(
 mutant "dep не прошёл — зависимая всё равно идёт" "if (notReady.length) r =" "if (false) r ="
 mutant "конфликт сводки не останавливает" "    if (!st || st.status === 'conflict' || !['done', 'already-done'].includes(st.status) || !sha40(st.head) || missing.length) {" "    if (false) {"
 mutant "голова dep вне сводки не судится" "|| !sha40(st.head) || missing.length) {" "|| !sha40(st.head)) {"
-mutant "сводка не снимается при вливании" "(stacks.length ? ' и временные сводки deps ' + stacks.join(', ') : '')" "''"
+mutant "сводка не снимается при вливании" "(stacks.length ? 'Сними временные сводки deps ' + stacks.join(', ') + ' коммитным предикатом (git-operator.md §«Вливание и снятие»). ' : '')" "''"
 # Мутанты check-verifier ws#939 (выжили на aeb93941) — те же образцы.
 mutant "сводка из всех прошедших, а не deps" "const ds = deps.map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))" "const ds = Object.values(done).filter(d => d.ok).map(d => ({ branch: lanes.find(x => x.key === d.key).branch, head: d.head }))"
 mutant "статус failed принимается" "!['done', 'already-done'].includes(st.status) ||" ""
@@ -1046,12 +1149,12 @@ mutant "возврат полосы рецензентом снимает вол
 mutant "зависимая от снятой не снимается" "for (let grew = true; grew;)" "for (let grew = false; grew;)"
 mutant "после снятия — второй полный круг без дельты" "'; только дельта \`git diff ' + prevAsm + '..' + asm.head + '\` (принятое не переоткрывается)" "'; полностью"
 mutant "landing-reviewer зовётся всегда" "  if (gap.length) {" "  if (true) {"
-mutant "сдвиг головы не судится" "if (landHead !== asm.head) {" "if (false) {"
+mutant "исход демона без цитаты" " + ': ' + alOut, autoland: AL_STATE" ", autoland: AL_STATE"
 mutant "остаток закрывается каскадом" "закрой задачи влитых полос ' + order.join(', ')" "закрой задачи волны ' + Object.keys(done).join(', ')"
-mutant "правило вливания не в задании git-operator" "'. ' + landRule + '; факт" "'. ; факт"
+mutant "правило вливания не в задании git-operator" "'. ' + landRule + '. 1) Тело" "'. 1) Тело"
 # Приёмка check-verifier ws#1000 r1: дефекты, выжившие на 31616601, и законные близнецы.
 mutant "CV-M2 publicText — любое заданное значение" "publicText === true)" "publicText !== undefined)"
-mutant "CV-M3 sha посадочного не судится" "lr.verdict !== 'accept' || lr.sha !== landHead)" "lr.verdict !== 'accept')"
+mutant "CV-M3 sha посадочного не судится" "lr.verdict !== 'accept' || lr.sha !== asm.head)" "lr.verdict !== 'accept')"
 mutant "CV-M4 свод accept при возврате полосы — принят" "  } else if (wr && wr.verdict === 'accept' && back.length) wr = { ...wr, verdict: 'void' }" "  } else if (false) wr = { ...wr, verdict: 'void' }"
 # CV-M5 («возврат всех полос — пересведение») держит защита пустой сборки: условие
 # back.length < order.length снято как избыточное, сценарий CV-M5 краснеет на мутанте CV-EMPTY.
@@ -1069,21 +1172,21 @@ twin "T12 срок CI-чтения 2→3 мин" "implement: 90, review: 30, mec
 mutant "срок снят у исполнителя" "'. ' + due('implement') + ' Верни status" "'. Верни status"
 mutant "срок снят у ревью" "'. ' + due('review') + ' Верни verdict" "'. Верни verdict"
 # ws#1008: вливание — только gh pr merge со сверкой головы.
-mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008)" "  '(ws#1008)"
-mutant "merge без сверки головы" "' --merge --match-head-commit ' + landHead + ' --subject" "' --merge --subject"
-mutant "merge локальным --no-ff" "Влей ОДНОЙ командой \`gh pr merge ' + asm.pr + ' --merge --match-head-commit ' + landHead + ' --subject \"' + mergeTitle + '\" --body \"\"\` (способ — с сервера: сквош и rebase там выключены, решение владельца 2026-09-22; коммит слияния на сервере, тема — по форме правила ветки \`#<N> merge #<M>: …\`, ws#1029; без --auto и --admin; голова сдвинулась — отказ хостинга, вернуть code 1)" "Влей коммитом слияния pointpu (--no-ff) в свежей копии, отправь через слот"
-mutant "merge с --auto" "без --auto и --admin" "с --auto"
-mutant "merge без --body (урок 2026-10-16)" "' + mergeTitle + '\" --body \"\"\`" "' + mergeTitle + '\"\`"
-mutant "merge сквошем (урок 2026-10-16)" "' --merge --match-head-commit ' + landHead + ' --subject" "' --squash --match-head-commit ' + landHead + ' --subject"
+mutant "правило вливания снято из общего задания" "  'ВЛИВАНИЕ (ws#1008, ws#1152)" "  '(ws#1008, ws#1152)"
+mutant "демон без сверки головы" "' --head ' + asm.head + ' --subject \"'" "' --subject \"'"
+mutant "вливание локальным --no-ff вместо демона" "ОДНОЙ командой \`bash ' + AUTOLAND + ' start" "ОДНОЙ командой \`git merge --no-ff ' + asm.head + ' && bash ' + AUTOLAND + ' start"
+mutant "старт демона с --auto" " --stand-expect ' + STAND_EXP + '\` — он сразу" " --stand-expect ' + STAND_EXP + ' --auto\` — он сразу"
+mutant "тело PR при посадке — не генератором (ws#1146)" "/scripts/pr-body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head" "/scripts/body.sh ' + (A.repo || '?') + ' origin/' + (A.epic || A.base || '?') + ' ' + asm.head"
+mutant "норма вливания — сквошем (урок 2026-10-16)" "вливает он \`gh pr merge <PR> --merge --match-head-commit" "вливает он \`gh pr merge <PR> --squash --match-head-commit"
 mutant "лимит CI не судится (урок 2026-10-16)" "  if (rateOf(ci)) return rateStop('CI', ci, asm.head)" ""
-mutant "лимит посадки не судится (урок 2026-10-16)" "if (rateOf(lp)) return {" "if (false) return {"
-mutant "лимит CI посадки не судится (урок 2026-10-16)" "if (rateOf(ciL)) return {" "if (false) return {"
+mutant "void демона — красное, а не not-run" "state: alStatus && alStatus.code === 2 ? 'not-run' : 'failed'" "state: 'failed'"
+mutant "демон идёт (status 3) — провал" "if (alStatus && alStatus.code === 3) return { ok: false, state: 'running'" "if (alStatus && alStatus.code === 3) return { ok: false, state: 'failed'"
 mutant "лимит — красным (урок 2026-10-16)" "state: 'not-run', stage: what" "state: 'failed', stage: what"
 mutant "перепись гейтов без чтения лимита (урок 2026-10-16)" "сперва ОДНО чтение \`gh api rate_limit\`" "сперва"
 mutant "стенд — перезапуском, не --enqueue (урок 2026-10-16)" "heavy-slot.sh --enqueue ' + D + ' <класс> -- …\`" "heavy-slot.sh <класс> -- …\`"
 mutant "пауза стенда — роли без ожидания (урок 2026-10-16)" "{ ...MECH, agentType: 'ci-watcher', label: 'mech:stand:' + i," "{ ...MECH, label: 'mech:stand:' + i,"
 # ws#1029: тема вливания по форме правила ветки.
-mutant "merge без --subject" " --subject \"' + mergeTitle + '\" --body \"\"\`" " --body \"\"\`"
+mutant "демон без --subject" "' --subject \"' + mergeTitle + '\"' + (reviews.length" "'' + (reviews.length"
 mutant "тема вливания — заголовок без merge #<M>" "' merge #' + asm.pr + ': волна ' + N" "' волна ' + N"
 mutant "тема вливания — всегда номер волны" "(/^[0-9]+\$/.test(String(A.epic || A.base || '')) ? String(A.epic || A.base) : N)" "(N)"
 # ws#1036: форма отсоединённого прогона и сбор уроков.
@@ -1134,13 +1237,70 @@ mutant "код 4 толкуется как зелёный" "3: 'running', 4: 'st
 # сборка открывает PR черновиком и гоняет выбор затронутого до отправки.
 mutant "код 5 (целевой) толкуется как зелёный" "5: 'targeted-green' }" "5: 'green' }"
 mutant "легенда CI без кода 5" " · 4 база устарела · 5 целевой зелёный черновика (не основание вливать);" " · 4 база устарела;"
-mutant "перевод в ready не однократный" "=== 'targeted-green' && !readied && " "=== 'targeted-green' && "
+mutant "после ready шаблон ждёт CI (ws#1152)" $'    break\n  }\n  if (ciState(ci) !== \'running\') break' $'    continue\n  }\n  if (ciState(ci) !== \'running\') break'
 mutant "PR волны не черновиком" "открой ЧЕРНОВИКОМ (\`gh pr create --draft\`)" "открой"
 mutant "доводки без выбора затронутого" "\`python3 .github/scripts/affected.py --base origin/" "\`true --base origin/"
 mutant "неизвестный код — зелёный" "CI_STATE[r.code]) || 'unread'" "CI_STATE[r.code]) || 'green'"
-mutant "голова CI не судится" "if (ciState(ci) !== 'green' || ciHead !== asm.head)" "if (ciState(ci) !== 'green')"
-mutant "вливание без чтения на голове посадки" "if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead)" "if (false)"
-mutant "чтение посадки — на голове сборки" "if (ciState(ciL) !== 'green' || sha40(ciL.head) !== landHead)" "if (ciState(ciL) !== 'green')"
+mutant "голова CI не судится" " || (readied && ciState(ci) === 'targeted-green')) || ciHead !== asm.head)" " || (readied && ciState(ci) === 'targeted-green')))"
+mutant "код 0 без строки merged — влито" "sha40((alOut.match(/^merged ([0-9a-f]{40})/) || [])[1])" "'e'.repeat(40)"
+mutant "status без попытки — из кэша при возобновлении" "' + asm.head + '). Попытка ' + (A.rerun || 0) + '.', { ...MECH, label: 'mech:autoland:status'" "' + asm.head + ').', { ...MECH, label: 'mech:autoland:status'"
+# Приёмка check-verifier ws#1152 r1: одно-фактные мутанты, выжившие на 7ade3f8f9, и законные близнецы.
+mutant "E1a старт с номером захода (из кэша не берётся)" "Режим autoland start: PR #'" "Режим autoland start, заход ' + (A.rerun || 0) + ': PR #'"
+mutant "E1c второй старт при возобновлении" "// ОДИН шаг status; попытка" "if (A.rerun) await agent(C + 'Режим autoland start повторно: PR #' + asm.pr, { ...MECH, label: 'mech:autoland', phase: 'Посадка', schema: S_MECH })
+// ОДИН шаг status; попытка"
+mutant "E3b старт закрывает задачи" "' + landRule + '. 1) Тело PR" "' + landRule + '. Закрой задачи полос ' + order.join(', ') + ' (\`gh issue close\`). 1) Тело PR"
+mutant "E3c перепись закрывает задачи" "Перепись — не основание вливать: вливает только демон." "Перепись — не основание вливать: вливает только демон. Затем закрой задачи полос ' + order.join(', ') + '."
+mutant "E4a сборка: сбой генератора — тело сам" "(код не 0 — status failed, PR не трогать)" "(код не 0 — напиши тело сам по git log и продолжай)"
+mutant "E4b старт: сбой генератора — тело руками" "(код не 0 — code 2, демон не запускать)" "(код не 0 — напиши тело руками и запускай демон)"
+mutant "E5c ready читает CI до кода 0" "— событие ready_for_review заводит полный прогон." "— событие ready_for_review заводит полный прогон; затем читай CI \`ci-read.sh\` до кода 0."
+mutant "E5d старт ждёт CI" "2) ОДНОЙ командой \`bash ' + AUTOLAND + ' start" "2) Дождись ci-read.sh код 0 на голове, затем ОДНОЙ командой \`bash ' + AUTOLAND + ' start"
+mutant "E6c исход своими словами" "out (первая строка .state ДОСЛОВНО)" "out (первая строка .state своими словами)"
+mutant "E8b status повторяется каждые 60 с" "Исход не толкуй, не жди, демон не перезапускай." "Код 3 — повторяй status каждые 60 с. Исход не толкуй, демон не перезапускай."
+twin "TA1 «красное» → «красный исход» в стадии" "1: 'красное', 2: 'не выполнилось'" "1: 'красный исход', 2: 'не выполнилось'"
+twin "TA2 запрет ожидания иначе сказан" "Исход не толкуй, не жди, демон не перезапускай." "Исход не толкуй и не жди; демон не перезапускай."
+twin "TA3 перепись: задачи не закрываются" "Перепись — не основание вливать: вливает только демон." "Перепись — не основание вливать: вливает только демон, задачи не закрываются."
+twin "TA4 ready: CI не читай — его ждёт демон" "— событие ready_for_review заводит полный прогон." "— событие ready_for_review заводит полный прогон; CI не читай — его ждёт демон вливания."
+twin "TA5 номер попытки иначе назван" "'). Попытка ' + (A.rerun || 0) + '.'" "'). Заход ' + (A.rerun || 0) + '.'"
+twin "TA6 остановка сборки — иной порядок слов" "(код не 0 — status failed, PR не трогать)" "(код не 0 — PR не трогать, status failed)"
+twin "TA7 остановка старта — иной порядок слов" "(код не 0 — code 2, демон не запускать)" "(код не 0 — демон не запускать, code 2)"
+twin "TA8 ДОСЛОВНО через запятую" "out (первая строка .state ДОСЛОВНО)" "out (первая строка .state, ДОСЛОВНО)"
+# Приёмка check-verifier ws#1152 r2: узнаватели от класса — мутанты N1, N2, N4, N5, N6, N8 приёмщика,
+# свои того же класса M1–M3 и законные запреты TW2–TW6 (отрицание — не указание).
+mutant 'N6 второй старт при rerun под меткой mech:autoland:restart' '// ОДИН шаг status; попытка' 'if (A.rerun) await agent(C + '"'"'\n\nРежим autoland restart: повтори старт ОДНОЙ командой `bash '"'"' + AUTOLAND + '"'"' start --repo '"'"' + (A.repo || '"'"'?'"'"') + '"'"' --pr '"'"' + asm.pr + '"'"' --head '"'"' + asm.head + '"'"'`.'"'"', { ...MECH, label: '"'"'mech:autoland:restart'"'"', phase: '"'"'Посадка'"'"', schema: S_MECH })
+// ОДИН шаг status; попытка'
+mutant 'N1 правило вливания велит дождаться ci-read.sh' 'гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния; ради вливания нельзя' 'гонит merge-readiness.sh и landing-precheck.sh и вливает коммитом слияния, а ты перед стартом сам дождись ci-read.sh код 0; ради вливания нельзя'
+mutant 'N8 перепись: ci-read.sh — жди до кода 0' ''"'"'ci-read.sh (рецепт «ЗАПУСК», без ожидания)'"'"'' ''"'"'ci-read.sh (рецепт «ЗАПУСК», жди до кода 0)'"'"''
+mutant 'N2 старт: «Закрывай задачи…»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Закрывай задачи полос '"'"' + order.join('"'"', '"'"') + '"'"' сразу. 1) Тело PR'
+mutant 'N4 старт: тело дополни вручную' '1) Тело PR — заново генератором (ws#1146), руками не пишется:' '1) Тело PR — заново генератором (ws#1146), затем тело дополни вручную:'
+mutant 'N5 status: через минуту вызови status ещё раз' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй; через минуту вызови status ещё раз.'
+mutant 'M1 E1: status при коде 2 перезапускает демон' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, не жди; при коде 2 перезапусти демон вливания той же командой.'
+mutant 'M2 E5: ready — прочти вердикт CI ещё раз' '— событие ready_for_review заводит полный прогон.' '— событие ready_for_review заводит полный прогон; после перевода прочти вердикт CI ещё раз.'
+mutant 'M3 E5: перепись — повторяй ci-read, пока не станет 0' 'Перепись — не основание вливать: вливает только демон.' 'Перепись — не основание вливать: вливает только демон. Чтение CI повторяй, пока код не станет 0.'
+twin 'TW2 «Нельзя закрыть задачи до merged»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Нельзя закрыть задачи до merged. 1) Тело PR'
+# shellcheck disable=SC2016  # обратные кавычки — текст JS-шаблона, а не подстановка
+twin 'TW3 «ci-read.sh больше не зови»' '— событие ready_for_review заводит полный прогон.' '— событие ready_for_review заводит полный прогон; `ci-read.sh` больше не зови.'
+twin 'TW4 «не повторяй status»' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, не жди, не повторяй status, демон не перезапускай.'
+twin 'TW5 «не пиши тело руками»' '1) Тело PR — заново генератором (ws#1146), руками не пишется:' '1) Тело PR — заново генератором (ws#1146), не пиши тело руками:'
+twin 'TW6 демон уже запущен — упоминание, не старт' 'Режим autoland status: PR #'"'"' + asm.pr + '"'"' ('"'"' + (A.repo || '"'"'?'"'"') + '"'"'), демон вливания запущен.' 'Режим autoland status: PR #'"'"' + asm.pr + '"'"' ('"'"' + (A.repo || '"'"'?'"'"') + '"'"'), демон вливания уже запущен шагом start, второй раз его не запускай.'
+# Приёмка check-verifier ws#1152 r3: отрицание — лишь вплотную либо из закрытого перечня при своей
+# неопределённой форме; маски F4–F8 и «не забудь <глагол>» на каждый класс — указания.
+mutant 'F4 старт: «Не забудь дождаться ci-read.sh код 0»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Не забудь дождаться ci-read.sh код 0. 1) Тело PR'
+mutant 'F5 старт: «Дождаться ci-read.sh код 0 обязательно — стартовать раньше нельзя»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Дождаться ci-read.sh код 0 обязательно — стартовать раньше нельзя. 1) Тело PR'
+mutant 'F6 status: при коде 2 не забудь перезапустить демон' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, не жди; при коде 2 не забудь перезапустить демон вливания той же командой.'
+mutant 'F7 старт: «Не забудь закрыть задачи полос»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Не забудь закрыть задачи полос '"'"' + order.join('"'"', '"'"') + '"'"'. 1) Тело PR'
+mutant 'F8 перепись: без ожидания; перечитай его трижды' ''"'"'ci-read.sh (рецепт «ЗАПУСК», без ожидания)'"'"'' ''"'"'ci-read.sh (рецепт «ЗАПУСК», без ожидания; перечитай его трижды)'"'"''
+mutant 'NZ-E1 ready: не забудь запустить демон вливания' '— событие ready_for_review заводит полный прогон.' '— событие ready_for_review заводит полный прогон; не забудь запустить демон вливания.'
+mutant 'NZ-E3 перепись: не забудь закрыть задачи' 'Перепись — не основание вливать: вливает только демон.' 'Перепись — не основание вливать: вливает только демон; не забудь закрыть задачи полос.'
+mutant 'NZ-E4 сборка: не забудь написать тело сам' '(код не 0 — status failed, PR не трогать)' '(код не 0 — status failed, PR не трогать; не забудь написать тело сам)'
+mutant 'NZ-E5 status: не забудь прочесть CI ci-read.sh' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, демон не перезапускай; не забудь прочесть CI ci-read.sh.'
+mutant 'NZ-E8 status: не забудь повторить status' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, демон не перезапускай; не забудь повторить status.'
+# r4: запрет из перечня — лишь вплотную к своей форме; «<указание>, <наречие> нельзя» — указание.
+mutant 'G1 правило вливания: дождаться ci-read.sh код 0 обязательно, без этого нельзя' 'ради вливания нельзя ждать CI, нельзя читать ci-read, нельзя гнать три гейта'"'"'' 'ради вливания нельзя ждать CI, нельзя читать ci-read, нельзя гнать три гейта; перед стартом дождаться ci-read.sh код 0 обязательно, без этого нельзя'"'"''
+mutant 'G2 старт: «Закрыть задачи полос сразу, позже нельзя»' ''"'"' + landRule + '"'"'. 1) Тело PR' ''"'"' + landRule + '"'"'. Закрыть задачи полос '"'"' + order.join('"'"', '"'"') + '"'"' сразу, позже нельзя. 1) Тело PR'
+mutant 'G3 status: повторить status обязательно, раньше нельзя' 'Исход не толкуй, не жди, демон не перезапускай.' 'Исход не толкуй, демон не перезапускай; повторить status обязательно, раньше нельзя.'
+mutant "старт демона не судится" "if (!alStart || ![0, 3].includes(alStart.code)) return" "if (false) return"
+mutant "тело сборки руками (ws#1146)" "тело — ТОЛЬКО вывод генератора (ws#1146), руками не пишется: \`RITUAL_REPO_DIR=" "тело — ровно состав git log база..голова: \`true RITUAL_REPO_DIR="
+mutant "демон без отчёта стенда" "' --stand-report ' + STAND + ' --stand-expect ' + STAND_EXP + '\` — он сразу" "'\` — он сразу"
 mutant "срок CI-чтения больше 10 мин" "implement: 90, review: 30, mech: 10, ci: 2 }" "implement: 90, review: 30, mech: 10, ci: 60 }"
 # ws#1004: пустые ходы.
 mutant "план — JSON.parse всего вывода" "  plan = r ? parseJsonTail(r.out) : null" "  try { plan = r ? JSON.parse(r.out) : null } catch (e) { plan = null }"

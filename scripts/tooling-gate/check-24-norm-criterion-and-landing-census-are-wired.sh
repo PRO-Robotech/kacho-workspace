@@ -12,7 +12,7 @@
 #       цитату; `CLAUDE.md` — строку критерия; `tooling-maintainer` — входной фильтр;
 #   М1. `at-red-ci-one-round` — все гейты посадки одним шагом, «по одной за круг —
 #       нарушение»; база §6 «Посадка изменения» — «Перепись гейтов»; `wave.js` — шаг
-#       переписи шести гейтов ДО первого landing-precheck (позиция, не только присутствие),
+#       переписи шести гейтов ДО старта демона вливания (позиция, не только присутствие; ws#1152),
 #       итог несёт таблицу;
 #   М2. `lane-precheck.sh --premise` — четыре предусловия словаря и PREMISE-FALSE; его
 #       инъекция — раздел ws#1071; база §3 — предусловия до раздачи;
@@ -142,7 +142,7 @@ need(WAVE, w, ["const GATES = ['landing-precheck.sh (рецепт «ЗАПУСК
                'ДО первой починки прогони КАЖДЫЙ гейт по разу, ничего не чини',
                "label: 'mech:gates'",
                'const gatesOf = () => ({ gates: { file: GATES_FILE,',
-               "reasons: lp ? lp.reasons : [], ...gatesOf(), remainder",
+               "reasons: alStatus ? alStatus.reasons || [] : [], ...gatesOf(), remainder",
                "const RET_MARK = '### ВОЗВРАТ'",
                'const hasRet = t => typeof t === \'string\' && t.includes(RET_MARK)',
                'дочитай .rc и журнал своего прогона и верни блок ВОЗВРАТ с фактом',
@@ -151,9 +151,9 @@ need(WAVE, w, ["const GATES = ['landing-precheck.sh (рецепт «ЗАПУСК
                "if (!s1) return noRet(out, l, 'client-sim')",
                "if (!c1) return noRet(out, l, 'surface-census')"],
      'провязка переписи гейтов и ответа без ВОЗВРАТ')
-ig, il = w.find('const gates = await agent('), w.find('let lp = await landCheck(1)')
+ig, il = w.find('const gates = await agent('), w.find('const alStart = await agent(')
 if not (0 <= ig < il):
-    finds.append('%s: перепись гейтов не стоит в теле ДО первого landing-precheck' % WAVE)
+    finds.append('%s: перепись гейтов не стоит в теле ДО старта демона вливания' % WAVE)
 for step in ('Приёмка полосы', 'Имитация клиента ДО кода', 'Перепись поверхности ДО кода'):
     if "await agent(C + '\\n\\n%s" % step in w:
         finds.append('%s: текстовый шаг «%s» зовётся agent напрямую — ответ без ВОЗВРАТ уйдёт дальше' % (WAVE, step))

@@ -205,6 +205,33 @@ probe 0 "близнец: та же оболочка 30 мин — молчит" 
 { ps_ok; echo "202 1 7200 bash /bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval 'x'"; } > "$T/ps-orphan"
 probe 0 "близнец: оболочка 120 мин, но родитель не claude — не судится" - --session "$s" --ps "$T/ps-orphan"
 
+echo "== процессы: возраст из ps, которого не может быть (ws#1149)"
+# Живая форма 2026-10-17, procps-ng 4.0.4: процесс, родившийся во время работы ps,
+# получает etimes=4123168608 (881 строка из 224871 при 4000 порождениях под
+# 150 снимками) — хук печатал «STALL-PROC … живёт 68719476 мин».
+EB="/bin/bash -c source /h/.claude/shell-snapshots/s.sh && eval"
+{ echo "100 1 90000 claude claude --x"; echo "203 100 4123168608 bash $EB 'make e2e'"; } > "$T/ps-wrap"
+{ echo "100 1 4123168608 claude claude --x"; echo "203 100 4123168608 bash $EB 'make e2e'"; } > "$T/ps-wrap2"
+{ echo "100 1 90000 claude claude --x"; echo "203 100 -5 bash $EB 'make e2e'"; echo "204 100 x bash $EB 'make e2e'"; } > "$T/ps-junk"
+{ echo "100 1 90000 claude claude --x"; echo "204 100 3601 bash $EB 'make e2e'"; } > "$T/ps-edge"
+{ echo "100 1 7200 claude claude --x"; echo "204 100 7200 bash $EB 'make e2e'"; } > "$T/ps-eqpar"
+{ echo "100 1 90000 claude claude --x"; echo "204 100 5000 bash $EB 'make e2e'"; } > "$T/ps-equp"
+mkdir -p "$T/proc-up"; echo "5000.00 1.00" > "$T/proc-up/uptime"
+ES="$s"  # сессия проб возраста: мутанты ниже гонят их, когда $s уже другая
+# etimes_cases <прибор> — пробы правдоподобия возраста; их же гонят мутанты ниже.
+etimes_cases() {
+    local C="$1"
+    CLAUDE_PID=100 absent="STALL-PROC pid 203" probe 0 "Е1 инъекция: etimes 4123168608 старше родителя-claude — не STALL-PROC" "неправдоподобного возраста 1" --session "$ES" --ps "$T/ps-wrap"
+    CLAUDE_PID=100 absent="pid 203" probe 0 "  …без --verbose pid и возраст не печатаются" - --session "$ES" --ps "$T/ps-wrap"
+    CLAUDE_PID=100 probe 0 "  …с --verbose — строка «не судится» с потолком" "возраст неправдоподобен — не судится: pid 203 (claude 100): 4123168608 с > родитель 90000 с" --session "$ES" --ps "$T/ps-wrap" --verbose
+    CLAUDE_PID=100 STALL_PROC_ROOT="$T/proc-up" absent="STALL-PROC pid 203" probe 0 "Е2 инъекция: родитель тоже 4123168608, аптайм 5000 с — не STALL-PROC" "неправдоподобного возраста 1" --session "$ES" --ps "$T/ps-wrap2"
+    CLAUDE_PID=100 absent="STALL-PROC pid 20" probe 0 "Е3 инъекция: etimes -5 и x — не судятся и сосчитаны" "неправдоподобного возраста 2" --session "$ES" --ps "$T/ps-junk"
+    CLAUDE_PID=100 STALL_PROC_ROOT="$T/proc-up" probe 1 "Е4 близнец: 3601 с (порог 3600 + 1), не старше родителя и аптайма — STALL-PROC" "STALL-PROC pid 204 (claude 100) — живёт 60 мин" --session "$ES" --ps "$T/ps-edge"
+    CLAUDE_PID=100 probe 1 "Е5 граница: возраст равен возрасту родителя — STALL-PROC" "STALL-PROC pid 204" --session "$ES" --ps "$T/ps-eqpar"
+    CLAUDE_PID=100 STALL_PROC_ROOT="$T/proc-up" probe 1 "Е6 граница: возраст равен аптайму — STALL-PROC" "STALL-PROC pid 204" --session "$ES" --ps "$T/ps-equp"
+}
+etimes_cases "$C"
+
 echo "== процессы: судится только своя сессия (ws#1131)"
 # Живая форма 2026-10-17: claude 61051 «--resume 3f44acf5-…» из другого окна с
 # сериями newman держал ход диспетчера сессии 9131a334 строкой STALL-PROC.
@@ -335,6 +362,14 @@ mutant "побеждает первый существующий каталог"
 echo "== мутант отбора своей сессии (ws#1131) — обязан покраснеть на пробах П1–П9"
 mutant "старый отбор: любая оболочка под claude — своя" '    who = whose(pid, ppid)' "    who = 'own'" proc_cases
 mutant "неустановленная сессия при своём claude — чужая" $'    return \'\'\n\n\nshells' $'    return \'foreign\' if own_pid else \'\'\n\n\nshells' proc_cases
+echo "== мутанты правдоподобия возраста (ws#1149) — обязаны покраснеть на пробах Е1–Е6"
+mutant "потолок родителя снят" '    elif parent[1] is not None and et > parent[1]:' '    elif False:' etimes_cases
+mutant "потолок аптайма снят" '    elif uptime is not None and et > uptime:' '    elif False:' etimes_cases
+mutant "равный родителю — неправдоподобен" 'and et > parent[1]:' 'and et >= parent[1]:' etimes_cases
+mutant "равный аптайму — неправдоподобен" 'and et > uptime:' 'and et >= uptime:' etimes_cases
+mutant "нечисловой возраст — ноль (до ws#1149)" 'p[2].isdigit() else None, p[3]' 'p[2].isdigit() else 0, p[3]' etimes_cases
+mutant "--verbose не печатает" $'\nif verbose:' $'\nif False:' etimes_cases
+mutant "поимённо и без --verbose" $'\nif verbose:' $'\nif True:' etimes_cases
 
 echo "== журнал своей сессии без transcript_path (ws#1134)"
 # Один каталог проекта, два окна: у каждого свой застрявший агент, сессия N свежее;
@@ -459,6 +494,8 @@ s="$(session hproc)"
   echo "211 110 7200 bash $SNAP 'newman run x'"; } > "$T/ps-hfor"
 hookp 0 "Х1 Stop: чужая сессия с оболочкой 120 мин — ход не держит" - "$T/ps-hfor"
 hookp 2 "Х2 Stop: своя (session_id хука) оболочка 120 мин — держит и называет" "STALL-PROC pid 201" "$T/ps-both"
+{ echo "100 1 90000 claude claude --resume $OWN"; echo "201 100 4123168608 bash $SNAP 'make e2e'"; } > "$T/ps-hwrap"
+hookp 0 "Х3 Stop: своя оболочка с etimes 4123168608 (ws#1149) — ход не держит, «68719476 мин» нет" - "$T/ps-hwrap"
 w="$HERE/../.claude/settings.json"
 if python3 - "$w" <<'PY'
 import json, sys
