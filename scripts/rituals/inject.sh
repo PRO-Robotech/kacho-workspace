@@ -265,8 +265,8 @@ inject "M41 pr-body: первая строка — первый абзац" chec
     '    return (msg.split("\n", 1)[0] if msg else "").rstrip("\r")' \
     '    return " ".join(msg.split("\n\n", 1)[0].splitlines()) if msg else ""'
 inject "M42 pr-body: Closes перед Refs" check-01-pr-body.py \
-    '    tail = ["Refs #%d" % n for n in refs] + ["Closes #%d" % n for n in closes]' \
-    '    tail = ["Closes #%d" % n for n in closes] + ["Refs #%d" % n for n in refs]'
+    '    tail = ["Refs %s" % label(n) for n in refs] + ["Closes %s" % label(n) for n in closes]' \
+    '    tail = ["Closes %s" % label(n) for n in closes] + ["Refs %s" % label(n) for n in refs]'
 inject "M43 pr-body: снятая ведомость не судится" check-01-pr-body.py \
     '        if not files and lrepo == trepo:' \
     '        if False:'
