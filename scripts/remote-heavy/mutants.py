@@ -191,9 +191,14 @@ MUTANTS = [
     ("red-digest-gone", "RG1", "дайджест строк отказа не печатается",
      r"""head -n "$lim" /work/heavy-red.dig | sed 's/^/   ! /'""",
      r''':'''),
-    ("red-rc-lost", "RG1", "код контейнера — код tee, а не команды",
-     r'''rc="${PIPESTATUS[0]}"''',
-     r'''rc="${PIPESTATUS[1]}"'''),
+    ("red-rc-lost", "RG1", "код контейнера — не код команды",
+     r'''"$@" >&"$fd" 2>&1; rc=$?''',
+     r'''"$@" >&"$fd" 2>&1; rc=0'''),
+    ("red-tee-pipe", "RG8", "копия вывода — трубой: фоновый писатель держит шаг до срока Job",
+     r'''  exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  "$@" >&"$fd" 2>&1; rc=$?''',
+     r'''  tp=0
+  "$@" 2>&1 | tee /work/heavy-cmd.out; rc="${PIPESTATUS[0]}"'''),
     ("red-unwired", "RG1", "команда идёт мимо шага красных групп",
      '$REDLOG_SH\nheavy_cmd \\"\\$@\\""',
      '$REDLOG_SH\nheavy_cmd() { \\"\\$@\\"; }\nheavy_cmd \\"\\$@\\""'),

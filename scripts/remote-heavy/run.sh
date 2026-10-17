@@ -1397,10 +1397,16 @@ heavy_red() {
   rm -f /work/heavy-red.raw /work/heavy-red.dig
   echo "remote-heavy-redlog: total $n ${g:-0}"
 }
+# Копия вывода — tee за дескриптором, а не трубой: фоновый процесс команды,
+# унёсший её stdout, держал бы трубу открытой, и шаг ждал бы его до срока Job
+# (с exec этого не было — контейнер кончался с командой). tee ждётся не дольше 5 с.
 heavy_cmd() {
-  local rc ev="${HEAVY_MEM_EVENTS:-/sys/fs/cgroup/memory.events}" o0 o1
+  local rc ev="${HEAVY_MEM_EVENTS:-/sys/fs/cgroup/memory.events}" o0 o1 fd tp
   o0="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
-  "$@" 2>&1 | tee /work/heavy-cmd.out; rc="${PIPESTATUS[0]}"
+  exec {fd}> >(tee /work/heavy-cmd.out); tp=$!
+  "$@" >&"$fd" 2>&1; rc=$?
+  exec {fd}>&-
+  for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$tp" 2>/dev/null || break; sleep 0.5; done
   o1="$(awk '$1 == "oom_kill" { print $2 }' "$ev" 2>/dev/null)"
   if [[ "$o0" =~ ^[0-9]+$ ]] && [[ "$o1" =~ ^[0-9]+$ ]] && [ "$o1" -gt "$o0" ]; then
     echo "remote-heavy-oom: процесс команды убит пределом памяти (oom_kill $o0 → $o1, код $rc)" | tee /dev/termination-log >&2
